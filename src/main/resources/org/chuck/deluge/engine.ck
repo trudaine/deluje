@@ -56,19 +56,25 @@ fun void kit_shred() {
 
     for (0 => int i; i < 4; i++) {
         kit[i] => master;
+        0 => kit[i].rate;
         kit[i].samples() => kit[i].pos; // silence on load
     }
 
     g_master_vol => master.gain;
 
+    int pattern[];
+    float velocity[];
+    float probability[];
+    int mute[];
+
     while (g_play != 0) {
         tick_event => now;
         if (g_play == 0) break;
 
-        Machine.getGlobalObject("g_pattern") $ int[] @=> int pattern[];
-        Machine.getGlobalObject("g_velocity") $ float[] @=> float velocity[];
-        Machine.getGlobalObject("g_probability") $ float[] @=> float probability[];
-        Machine.getGlobalObject("g_mute") $ int[] @=> int mute[];
+        Machine.getGlobalObject("g_pattern") $ int[] @=> pattern;
+        Machine.getGlobalObject("g_velocity") $ float[] @=> velocity;
+        Machine.getGlobalObject("g_probability") $ float[] @=> probability;
+        Machine.getGlobalObject("g_mute") $ int[] @=> mute;
 
         if (pattern == null || velocity == null || probability == null || mute == null) continue;
 
@@ -84,6 +90,7 @@ fun void kit_shred() {
             if (pattern[idx] == 0) continue;
 
             velocity[idx] => float vel;
+            1 => kit[r].rate;
             0 => kit[r].pos;
             vel * 0.8 => kit[r].gain;
 
@@ -115,16 +122,23 @@ fun void synth_shred() {
 
     g_master_vol => master.gain;
 
+    int pattern[];
+    float velocity[];
+    int pitch[];
+    float probability[];
+    int mute[];
+    float g_filter[];
+
     while (g_play != 0) {
         tick_event => now;
         if (g_play == 0) break;
 
-        Machine.getGlobalObject("g_pattern") $ int[] @=> int pattern[];
-        Machine.getGlobalObject("g_velocity") $ float[] @=> float velocity[];
-        Machine.getGlobalObject("g_pitch") $ int[] @=> int pitch[];
-        Machine.getGlobalObject("g_probability") $ float[] @=> float probability[];
-        Machine.getGlobalObject("g_mute") $ int[] @=> int mute[];
-        Machine.getGlobalObject("g_filter") $ float[] @=> float g_filter[];
+        Machine.getGlobalObject("g_pattern") $ int[] @=> pattern;
+        Machine.getGlobalObject("g_velocity") $ float[] @=> velocity;
+        Machine.getGlobalObject("g_pitch") $ int[] @=> pitch;
+        Machine.getGlobalObject("g_probability") $ float[] @=> probability;
+        Machine.getGlobalObject("g_mute") $ int[] @=> mute;
+        Machine.getGlobalObject("g_filter") $ float[] @=> g_filter;
 
         if (pattern == null || pitch == null || g_filter == null) continue;
 
