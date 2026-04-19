@@ -1733,8 +1733,8 @@ Before Phase 3, the following must be added to `deluge/pom.xml`:
 | 4 | Config Dialogs + SVFilter + ShelfEQ | ✅ DONE | 9 | 0 | 2/2 ✅ |
 | 5 | Sample Browser | ✅ DONE | 5 | 0 | (manual) ✅ |
 | 6 | Per-Step Editor + Chromatic Note Entry | ✅ DONE | 3 | 0 | (manual) ✅ |
-| 7 | Song Mode (Clip Launcher + Sections) | ⬜ next | 5 | 0 | ~5 |
-| 8 | Arranger Mode (Linear Timeline) | ⬜ | 5 | 0 | ~6 |
+| 7 | Song Mode (Clip Launcher + Sections) | ✅ DONE | 5 | 0 | (manual) ✅ |
+| 8 | Arranger Mode (Linear Timeline) | ⬜ next | 5 | 0 | ~6 |
 | 9 | Project Persistence + Auto-save | ⬜ | 6 | 0 | ~5 |
 | 10 | Polish — MIDI, PingPong Delay, VU, Undo | ⬜ | 4 | 1 | ~8 |
 | **—** | **Total** | — | **63** | **2** | **~93** |
