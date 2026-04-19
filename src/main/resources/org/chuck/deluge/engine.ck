@@ -45,32 +45,26 @@ fun dur stepDuration(int step) {
 // ── kit shred ─────────────────────────────────────────────────────────────
 fun void kit_shred() {
     // Drum samples (SndBuf per track)
-    SndBuf kit[8];
+    SndBuf kit[4];
     Gain   master => dac;
 
-    // Load samples
-    "examples/data/kick.wav"                              => kit[0].read;
-    "examples/data/snare.wav"                             => kit[1].read;
-    "examples/data/hihat.wav"                             => kit[2].read;
-    "examples/data/hihat-open.wav"                        => kit[3].read;
-    "examples/book/digital-artists/audio/clap_01.wav"    => kit[4].read;
-    "examples/book/digital-artists/audio/cowbell_01.wav" => kit[5].read;
-    "examples/book/digital-artists/audio/click_01.wav"   => kit[6].read;
-    "examples/data/snare-hop.wav"                         => kit[7].read;
+    // Load samples for first 4 tracks
+    "examples/data/kick.wav"       => kit[0].read;
+    "examples/data/snare.wav"      => kit[1].read;
+    "examples/data/hihat.wav"      => kit[2].read;
+    "examples/data/hihat-open.wav" => kit[3].read;
 
-    for (0 => int i; i < 8; i++) {
+    for (0 => int i; i < 4; i++) {
         kit[i] => master;
         kit[i].samples() => kit[i].pos; // silence on load
     }
 
-    // Park volume at master
     g_master_vol => master.gain;
 
     while (g_play != 0) {
         tick_event => now;
         if (g_play == 0) break;
 
-        // FETCH GLOBALS DYNAMICALLY (prevents stale refs on hot-reload)
         Machine.getGlobalObject("g_pattern") $ int[] @=> int pattern[];
         Machine.getGlobalObject("g_velocity") $ float[] @=> float velocity[];
         Machine.getGlobalObject("g_probability") $ float[] @=> float probability[];
@@ -78,32 +72,94 @@ fun void kit_shred() {
 
         if (pattern == null || velocity == null || probability == null || mute == null) continue;
 
-        // Re-read master vol each step
         g_master_vol => master.gain;
-
         int step;
         g_current_step % 16 => step;
 
-        for (0 => int r; r < 8; r++) {
-            // Skip muted tracks
+        // Tracks 0 to 3 are Kit
+        for (0 => int r; r < 4; r++) {
             if (mute[r] != 0) continue;
-
-            // Probability gate
             if (Math.random2f(0.0, 1.0) > probability[r]) continue;
 
-            // Pattern check
             r * 16 + step => int idx;
             if (pattern[idx] == 0) continue;
 
-            // Velocity
             velocity[idx] => float vel;
-
-            // Trigger sample
             0 => kit[r].pos;
             vel * 0.8 => kit[r].gain;
 
             if (Machine.loglevel() >= 2) {
                 <<< "KIT trigger track:", r, "step:", step, "vel:", vel >>>;
+            }
+        }
+    }
+}
+
+// ── synth shred ───────────────────────────────────────────────────────────
+fun void synth_shred() {
+    MorphingWavetable osc[4];
+    SVFilter filter[4];
+    ShelfEQ eq[4];
+    DelugeAdsr env[4];
+    Gain master => dac;
+
+    for (0 => int i; i < 4; i++) {
+        osc[i] => filter[i] => eq[i] => env[i] => master;
+        // set some base params
+        filter[i].morph(0.0); // LP
+        filter[i].freq(5000);
+        filter[i].Q(1.5);
+        eq[i].bassGain(0);
+        eq[i].trebleGain(0);
+        env[i].set(0.05, 0.2, 0.5, 0.3); // A D S R
+    }
+
+    g_master_vol => master.gain;
+
+    while (g_play != 0) {
+        tick_event => now;
+        if (g_play == 0) break;
+
+        Machine.getGlobalObject("g_pattern") $ int[] @=> int pattern[];
+        Machine.getGlobalObject("g_velocity") $ float[] @=> float velocity[];
+        Machine.getGlobalObject("g_pitch") $ int[] @=> int pitch[];
+        Machine.getGlobalObject("g_probability") $ float[] @=> float probability[];
+        Machine.getGlobalObject("g_mute") $ int[] @=> int mute[];
+        Machine.getGlobalObject("g_filter") $ float[] @=> float g_filter[];
+
+        if (pattern == null || pitch == null || g_filter == null) continue;
+
+        g_master_vol => master.gain;
+        int step;
+        g_current_step % 16 => step;
+
+        // Tracks 4 to 7 are Synth
+        for (4 => int r; r < 8; r++) {
+            r - 4 => int v; // Voice index 0-3
+            
+            // Map g_filter to synth
+            g_filter[r * 2] * 20000.0 => float cutoff;
+            filter[v].freq(Math.max(20.0, cutoff));
+            filter[v].Q(1.0 + g_filter[r * 2 + 1] * 4.0);
+
+            if (mute[r] != 0) continue;
+            if (Math.random2f(0.0, 1.0) > probability[r]) continue;
+
+            r * 16 + step => int idx;
+            if (pattern[idx] == 0) {
+                // simple gate off if not triggered (in reality we need step duration)
+                env[v].keyOff();
+                continue;
+            }
+
+            // Convert pitch to Hz (assuming 60 is middle C)
+            pitch[idx] => int p;
+            Std.mtof(p + 60) => osc[v].freq;
+
+            env[v].keyOn();
+
+            if (Machine.loglevel() >= 2) {
+                <<< "SYNTH trigger track:", r, "step:", step, "pitch:", p >>>;
             }
         }
     }
@@ -178,6 +234,7 @@ fun void transport_shred() {
                 if (Machine.loglevel() >= 1) <<< "ENGINE: play" >>>;
                 spork ~ clock_shred();
                 spork ~ kit_shred();
+                spork ~ synth_shred();
             } else {
                 if (Machine.loglevel() >= 1) <<< "ENGINE: stop" >>>;
                 -1 => g_current_step;
