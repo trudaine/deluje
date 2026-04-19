@@ -1728,11 +1728,11 @@ Before Phase 3, the following must be added to `deluge/pom.xml`:
 | Phase | Name | Status | New Java Files | New ChucK Files | Tests |
 | :---: | :--- | :---: | :---: | :---: | :---: |
 | 1 | Bridge Contract + Engine Rewrite | ✅ DONE | 1 (+2 updated) | 1 | 13/13 ✅ |
-| 2 | Core Data Model + XML Parser | ⬜ next | 14 | 0 | ~20 |
-| 3 | Main UI — Clip Mode | ⬜ | 11 | 0 | ~12 |
-| 4 | Config Dialogs + SVFilter + ShelfEQ | ⬜ | 9 | 0 | ~10 |
-| 5 | Sample Browser | ⬜ | 5 | 0 | ~5 |
-| 6 | Per-Step Editor + Chromatic Note Entry | ⬜ | 3 | 0 | ~9 |
+| 2 | Core Data Model + XML Parser | ✅ DONE | 14 | 0 | 3/3 ✅ |
+| 3 | Main UI — Clip Mode | ✅ DONE | 11 | 0 | (manual) ✅ |
+| 4 | Config Dialogs + SVFilter + ShelfEQ | ✅ DONE | 9 | 0 | 2/2 ✅ |
+| 5 | Sample Browser | ✅ DONE | 5 | 0 | (manual) ✅ |
+| 6 | Per-Step Editor + Chromatic Note Entry | ⬜ next | 3 | 0 | ~9 |
 | 7 | Song Mode (Clip Launcher + Sections) | ⬜ | 5 | 0 | ~5 |
 | 8 | Arranger Mode (Linear Timeline) | ⬜ | 5 | 0 | ~6 |
 | 9 | Project Persistence + Auto-save | ⬜ | 6 | 0 | ~5 |
