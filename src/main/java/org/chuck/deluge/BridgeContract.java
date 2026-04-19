@@ -42,7 +42,7 @@ public final class BridgeContract {
   // Per-step pitch offset in semitones: int[TRACKS * STEPS]
   public static final String G_PITCH = "g_pitch";
 
-  // Per-track probability: float[TRACKS] 0.0–1.0 (1.0 = always triggers)
+  // Per-step probability: float[TRACKS * STEPS] 0.0–1.0
   public static final String G_PROBABILITY = "g_probability";
 
   // Per-track mute: int[TRACKS] 0 = active, 1 = muted
@@ -104,7 +104,7 @@ public final class BridgeContract {
     velocity = new ChuckArray("float", PATTERN_SIZE);
     gate = new ChuckArray("float", PATTERN_SIZE);
     pitch = new ChuckArray("int", PATTERN_SIZE);
-    probability = new ChuckArray("float", TRACKS);
+    probability = new ChuckArray("float", PATTERN_SIZE);
     mute = new ChuckArray("int", TRACKS);
     filter = new ChuckArray("float", TRACKS * 2);
     filterMode = new ChuckArray("int", TRACKS);
@@ -125,9 +125,9 @@ public final class BridgeContract {
       velocity.setFloat(i, 0.8);
       gate.setFloat(i, 0.9);
       pitch.setInt(i, 0L);
+      probability.setFloat(i, 1.0);
     }
     for (int t = 0; t < TRACKS; t++) {
-      probability.setFloat(t, 1.0);
       mute.setInt(t, 0L);
       filter.setFloat(t * 2, 1.0); // lpf freq norm = max open
       filter.setFloat(t * 2 + 1, 0.5); // resonance = moderate
@@ -205,8 +205,8 @@ public final class BridgeContract {
     pitch.setInt(track * STEPS + step, (long) semitones);
   }
 
-  public void setProbability(int track, double p) {
-    probability.setFloat(track, Math.max(0.0, Math.min(1.0, p)));
+  public void setStepProbability(int track, int step, double p) {
+    probability.setFloat(track * STEPS + step, Math.max(0.0, Math.min(1.0, p)));
   }
 
   public void setMute(int track, boolean muted) {
