@@ -25,8 +25,10 @@ public class MatrixPanel extends VBox {
 
     rows = new TrackRowPanel[8]; // 8 tracks (Kit)
 
-    // Default labels for the 8 kit tracks
-    String[] trackNames = {"KICK", "SNARE", "HIHAT", "OPEN HAT", "CLAP", "COWBELL", "CLICK", "HOP"};
+    // Default labels for 4 Kit and 4 Synth tracks
+    String[] trackNames = {
+      "KICK", "SNARE", "HIHAT", "OPEN HAT", "SYNTH 1", "SYNTH 2", "SYNTH 3", "SYNTH 4"
+    };
 
     for (int i = 0; i < 8; i++) {
       rows[i] = new TrackRowPanel(i, trackNames[i], bridge);

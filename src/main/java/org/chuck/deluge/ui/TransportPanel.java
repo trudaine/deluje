@@ -101,6 +101,35 @@ public class TransportPanel extends HBox {
             });
     volBox.getChildren().addAll(volLabel, volSlider);
 
-    getChildren().addAll(transportButtons, tempoBox, swingBox, volBox);
+    // File Control
+    Button loadBtn = new Button("📂 LOAD XML");
+    loadBtn.setStyle("-fx-background-color: #555555; -fx-text-fill: white; -fx-font-weight: bold;");
+    loadBtn.setOnAction(
+        e -> {
+          javafx.stage.FileChooser fc = new javafx.stage.FileChooser();
+          fc.getExtensionFilters()
+              .add(new javafx.stage.FileChooser.ExtensionFilter("Deluge XML", "*.XML"));
+          java.io.File file = fc.showOpenDialog(null);
+          if (file != null) {
+            try {
+              if (file.getName().toUpperCase().contains("SYNTH")) {
+                org.chuck.deluge.model.SynthTrackModel synth =
+                    org.chuck.deluge.xml.DelugeXmlParser.parseSynth(file);
+                System.out.println(
+                    "Loaded Synth XML: " + synth.getName() + " OSC1: " + synth.getOsc1Type());
+              } else {
+                org.chuck.deluge.model.KitTrackModel kit =
+                    org.chuck.deluge.xml.DelugeXmlParser.parseKit(file);
+                System.out.println(
+                    "Loaded Kit XML: " + kit.getName() + " Sample: " + kit.getSamplePath());
+              }
+            } catch (Exception ex) {
+              System.err.println("Failed to parse XML: " + ex.getMessage());
+              ex.printStackTrace();
+            }
+          }
+        });
+
+    getChildren().addAll(transportButtons, tempoBox, swingBox, volBox, loadBtn);
   }
 }
