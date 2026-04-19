@@ -1,5 +1,5 @@
 /*
-  Deluge Emulator — Production Engine v1.0
+  Deluge Emulator — Production Engine v1.1
   Five concurrent shreds:
     1. clock      — tempo/swing master; broadcasts tick events
     2. kit        — 8-track drum kit, reads g_pattern + g_velocity + g_probability + g_mute
@@ -17,24 +17,7 @@ global int   g_play;
 global int   g_current_step;
 global float g_master_vol;
 
-global int   g_pattern[];   // int[128]  row*16+col
-global float g_velocity[];  // float[128]
-global float g_gate[];      // float[128]
-global int   g_pitch[];     // int[128]  semitone offset
-global float g_probability[]; // float[8]
-global int   g_mute[];      // int[8]
-
-global float g_filter[];    // float[16] pairs (freq_norm, res) per track
-global int   g_filter_mode[]; // int[8]
-global float g_filter_morph[]; // float[8]
-
-global float g_env[];       // float[16] 4 envelopes × 4 params
-global float g_lfo_rate[];  // float[4]
-global int   g_lfo_type[];  // int[4]
-global float g_lfo_depth[]; // float[4]
-
-global float g_delay_send[];  // float[8]
-global float g_reverb_send[]; // float[8]
+// Global FX parameters (scalars)
 global float g_delay_time;
 global float g_delay_fb;
 global float g_reverb_room;
@@ -46,13 +29,16 @@ global Event tick_event;
 // ── helper: BPM → step duration (16th note) with swing ──────────────────
 fun dur stepDuration(int step) {
     // base 16th-note duration at current BPM
+    if (g_bpm < 1.0) 120.0 => g_bpm;
+    // Clamp swing to safe range (0.0 to 1.0)
+    Math.max(0.0, Math.min(1.0, g_swing)) => float swing;
     60.0 / g_bpm / 4.0 => float base_sec;
     base_sec * second => dur base;
     // even steps (0,2,4...) get swing push; odd get pull
     if (step % 2 == 0) {
-        return base * (1.0 + (g_swing - 0.5) * 0.4);
+        return base * (1.0 + (swing - 0.5) * 0.4);
     } else {
-        return base * (1.0 - (g_swing - 0.5) * 0.4);
+        return base * (1.0 - (swing - 0.5) * 0.4);
     }
 }
 
@@ -80,8 +66,17 @@ fun void kit_shred() {
     // Park volume at master
     g_master_vol => master.gain;
 
-    while (true) {
+    while (g_play != 0) {
         tick_event => now;
+        if (g_play == 0) break;
+
+        // FETCH GLOBALS DYNAMICALLY (prevents stale refs on hot-reload)
+        Machine.getGlobalObject("g_pattern") $ int[] @=> int pattern[];
+        Machine.getGlobalObject("g_velocity") $ float[] @=> float velocity[];
+        Machine.getGlobalObject("g_probability") $ float[] @=> float probability[];
+        Machine.getGlobalObject("g_mute") $ int[] @=> int mute[];
+
+        if (pattern == null || velocity == null || probability == null || mute == null) continue;
 
         // Re-read master vol each step
         g_master_vol => master.gain;
@@ -91,17 +86,17 @@ fun void kit_shred() {
 
         for (0 => int r; r < 8; r++) {
             // Skip muted tracks
-            if (g_mute[r] != 0) continue;
+            if (mute[r] != 0) continue;
 
             // Probability gate
-            if (Math.random2f(0.0, 1.0) > g_probability[r]) continue;
+            if (Math.random2f(0.0, 1.0) > probability[r]) continue;
 
             // Pattern check
             r * 16 + step => int idx;
-            if (g_pattern[idx] == 0) continue;
+            if (pattern[idx] == 0) continue;
 
             // Velocity
-            g_velocity[idx] => float vel;
+            velocity[idx] => float vel;
 
             // Trigger sample
             0 => kit[r].pos;
@@ -121,7 +116,7 @@ fun void clock_shred() {
     // Align to grid
     stepDuration(0) - (now % stepDuration(0)) => now;
 
-    while (true) {
+    while (g_play != 0) {
         step % 16 => g_current_step;
         tick_event.broadcast();
 
@@ -187,13 +182,14 @@ fun void transport_shred() {
                 if (Machine.loglevel() >= 1) <<< "ENGINE: stop" >>>;
                 -1 => g_current_step;
                 // Clock + kit will exit on next tick_event when g_play==0
+                tick_event.broadcast(); 
             }
         }
     }
 }
 
 // ── boot ──────────────────────────────────────────────────────────────────
-if (Machine.loglevel() >= 1) <<< "ENGINE v1.0: loaded" >>>;
+if (Machine.loglevel() >= 1) <<< "ENGINE v1.1: loaded" >>>;
 
 // Safety: ensure critical globals have values if Java didn't pre-register them
 if (g_bpm < 20.0) 120.0 => g_bpm;
