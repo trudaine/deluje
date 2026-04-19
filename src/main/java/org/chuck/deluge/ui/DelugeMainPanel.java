@@ -9,11 +9,12 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
+import org.chuck.deluge.ui.arranger.ArrangerPanel;
 import org.chuck.deluge.ui.song.SongModePanel;
 
 /**
  * The root container for the Deluge UI. Composes the Parameter Ribbon, Transport, Matrix, Song
- * Mode, and OLED panels.
+ * Mode, Arranger Mode, and OLED panels.
  */
 public class DelugeMainPanel extends BorderPane {
   private final ChuckVM vm;
@@ -22,10 +23,17 @@ public class DelugeMainPanel extends BorderPane {
   private TransportPanel transportPanel;
   private MatrixPanel matrixPanel;
   private SongModePanel songPanel;
+  private ArrangerPanel arrangerPanel;
   private ParameterRibbonPanel ribbonPanel;
   private StatusRibbonPanel statusPanel;
 
-  private boolean inSongMode = false;
+  public enum ViewMode {
+    CLIP,
+    SONG,
+    ARRANGER
+  }
+
+  private ViewMode currentMode = ViewMode.CLIP;
 
   public DelugeMainPanel(ChuckVM vm, BridgeContract bridge) {
     this.vm = vm;
@@ -39,15 +47,17 @@ public class DelugeMainPanel extends BorderPane {
     transportPanel = new TransportPanel(vm, bridge);
     matrixPanel = new MatrixPanel(vm, bridge);
     songPanel = new SongModePanel(vm, bridge, 8, 8); // 8 tracks, 8 columns (A-H)
+    arrangerPanel = new ArrangerPanel(vm, bridge);
     ribbonPanel = new ParameterRibbonPanel(vm, bridge);
     statusPanel = new StatusRibbonPanel(vm, bridge);
 
-    // Mode Toggle (CLIP vs SONG)
+    // Mode Toggle (CLIP vs SONG vs ARR)
     HBox modeToggleBox = new HBox(5);
     modeToggleBox.setAlignment(Pos.CENTER_LEFT);
     modeToggleBox.setPadding(new Insets(0, 0, 0, 10));
 
     ToggleGroup modeGroup = new ToggleGroup();
+
     ToggleButton clipBtn = new ToggleButton("CLIP");
     clipBtn.setStyle("-fx-base: #444; -fx-text-fill: white; -fx-font-weight: bold;");
     clipBtn.setToggleGroup(modeGroup);
@@ -57,28 +67,37 @@ public class DelugeMainPanel extends BorderPane {
     songBtn.setStyle("-fx-base: #444; -fx-text-fill: white; -fx-font-weight: bold;");
     songBtn.setToggleGroup(modeGroup);
 
+    ToggleButton arrBtn = new ToggleButton("ARR");
+    arrBtn.setStyle("-fx-base: #444; -fx-text-fill: white; -fx-font-weight: bold;");
+    arrBtn.setToggleGroup(modeGroup);
+
     modeGroup
         .selectedToggleProperty()
         .addListener(
             (obs, oldVal, newVal) -> {
               if (newVal == null) {
-                oldVal.setSelected(true); // Prevent unselecting both
+                oldVal.setSelected(true); // Prevent unselecting all
                 return;
               }
               if (newVal == clipBtn) {
-                inSongMode = false;
+                currentMode = ViewMode.CLIP;
                 setCenter(matrixPanel);
                 ribbonPanel.setVisible(true); // Parameter ribbon is for clip editing
                 ribbonPanel.setManaged(true);
               } else if (newVal == songBtn) {
-                inSongMode = true;
+                currentMode = ViewMode.SONG;
                 setCenter(songPanel);
-                ribbonPanel.setVisible(false); // Hide ribbon in song mode to save space
+                ribbonPanel.setVisible(false); // Hide ribbon in song mode
+                ribbonPanel.setManaged(false);
+              } else if (newVal == arrBtn) {
+                currentMode = ViewMode.ARRANGER;
+                setCenter(arrangerPanel);
+                ribbonPanel.setVisible(false); // Hide ribbon in arranger mode
                 ribbonPanel.setManaged(false);
               }
             });
 
-    modeToggleBox.getChildren().addAll(clipBtn, songBtn);
+    modeToggleBox.getChildren().addAll(clipBtn, songBtn, arrBtn);
 
     // Top: Transport and Ribbon
     HBox transportWithMode = new HBox(20);
@@ -100,10 +119,16 @@ public class DelugeMainPanel extends BorderPane {
   public void updateFromVM() {
     int step = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
 
-    if (inSongMode) {
-      songPanel.update(step);
-    } else {
-      matrixPanel.updateStep(step);
+    switch (currentMode) {
+      case CLIP:
+        matrixPanel.updateStep(step);
+        break;
+      case SONG:
+        songPanel.update(step);
+        break;
+      case ARRANGER:
+        arrangerPanel.update(step);
+        break;
     }
 
     statusPanel.update(step);
