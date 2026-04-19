@@ -129,10 +129,10 @@ public final class BridgeContract {
     for (int t = 0; t < TRACKS; t++) {
       probability.setFloat(t, 1.0);
       mute.setInt(t, 0L);
-      filter.setFloat(t * 2, 1.0);     // lpf freq norm = max open
+      filter.setFloat(t * 2, 1.0); // lpf freq norm = max open
       filter.setFloat(t * 2 + 1, 0.5); // resonance = moderate
-      filterMode.setInt(t, 0L);        // LADDER_12
-      filterMorph.setFloat(t, 0.0);    // LP
+      filterMode.setInt(t, 0L); // LADDER_12
+      filterMorph.setFloat(t, 0.0); // LP
       delaySend.setFloat(t, 0.0);
       reverbSend.setFloat(t, 0.15);
     }
@@ -146,7 +146,7 @@ public final class BridgeContract {
     // LFO defaults
     for (int l = 0; l < LFO_COUNT; l++) {
       lfoRate.setFloat(l, 1.0); // 1 Hz
-      lfoType.setInt(l, 0L);    // SINE
+      lfoType.setInt(l, 0L); // SINE
       lfoDepth.setFloat(l, 0.0);
     }
   }

@@ -171,8 +171,8 @@ fun void heartbeat_shred() {
 fun void transport_shred() {
     0 => int last_play;
 
-    Machine.spork("heartbeat_shred()");
-    Machine.spork("fx_bus_shred()");
+    spork ~ heartbeat_shred();
+    spork ~ fx_bus_shred();
 
     while (true) {
         10::ms => now;  // poll every 10 ms
@@ -181,8 +181,8 @@ fun void transport_shred() {
             g_play => last_play;
             if (g_play == 1) {
                 if (Machine.loglevel() >= 1) <<< "ENGINE: play" >>>;
-                Machine.spork("clock_shred()");
-                Machine.spork("kit_shred()");
+                spork ~ clock_shred();
+                spork ~ kit_shred();
             } else {
                 if (Machine.loglevel() >= 1) <<< "ENGINE: stop" >>>;
                 -1 => g_current_step;
