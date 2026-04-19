@@ -1,7 +1,11 @@
 package org.chuck.deluge.ui;
 
 import javafx.scene.control.ToggleButton;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import org.chuck.deluge.BridgeContract;
+import org.chuck.deluge.ui.popover.NoteEntryPopover;
+import org.chuck.deluge.ui.popover.StepEditorPopover;
 
 /** Represents a single interactive cell in the 16-step sequence. */
 public class StepCellButton extends ToggleButton {
@@ -29,12 +33,30 @@ public class StepCellButton extends ToggleButton {
     setSelected(false);
     updateStyle();
 
-    // Toggle logic
+    // Toggle logic (Left Click)
     setOnAction(
         e -> {
           bridge.setStep(row, col, isSelected());
           updateStyle();
         });
+
+    // Right-Click Context Actions
+    addEventHandler(MouseEvent.MOUSE_PRESSED, this::handleMousePressed);
+  }
+
+  private void handleMousePressed(MouseEvent event) {
+    if (event.getButton() == MouseButton.SECONDARY) {
+      if (event.isShiftDown() && row >= 4) {
+        // Shift + Right Click: Note Entry (Synth only)
+        NoteEntryPopover pop = new NoteEntryPopover(bridge, row, col);
+        pop.show(this, event.getScreenX(), event.getScreenY());
+      } else {
+        // Normal Right Click: Step Editor (Velocity/Gate/Prob)
+        StepEditorPopover pop = new StepEditorPopover(bridge, row, col);
+        pop.show(this, event.getScreenX(), event.getScreenY());
+      }
+      event.consume();
+    }
   }
 
   public void setPlayheadActive(boolean active) {

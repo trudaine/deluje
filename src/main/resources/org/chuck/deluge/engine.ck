@@ -79,9 +79,8 @@ fun void kit_shred() {
         // Tracks 0 to 3 are Kit
         for (0 => int r; r < 4; r++) {
             if (mute[r] != 0) continue;
-            if (Math.random2f(0.0, 1.0) > probability[r]) continue;
-
             r * 16 + step => int idx;
+            if (Math.random2f(0.0, 1.0) > probability[idx]) continue;
             if (pattern[idx] == 0) continue;
 
             velocity[idx] => float vel;
@@ -143,9 +142,9 @@ fun void synth_shred() {
             filter[v].Q(1.0 + g_filter[r * 2 + 1] * 4.0);
 
             if (mute[r] != 0) continue;
-            if (Math.random2f(0.0, 1.0) > probability[r]) continue;
-
             r * 16 + step => int idx;
+            if (Math.random2f(0.0, 1.0) > probability[idx]) continue;
+
             if (pattern[idx] == 0) {
                 // simple gate off if not triggered (in reality we need step duration)
                 env[v].keyOff();
