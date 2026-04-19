@@ -1,6 +1,5 @@
 package org.chuck.deluge.ui.config;
 
-import java.io.File;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
@@ -10,7 +9,6 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.TitledPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
-import javafx.stage.FileChooser;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
@@ -38,17 +36,17 @@ public class KitConfigDialog extends Stage {
     pathField.setEditable(false);
     pathField.setPrefWidth(150);
 
-    Button browseBtn = new Button("...");
+    Button browseBtn = new Button("Browser...");
     browseBtn.setOnAction(
         e -> {
-          FileChooser fc = new FileChooser();
-          fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("WAV Files", "*.wav"));
-          File file = fc.showOpenDialog(this);
-          if (file != null) {
-            model.setSamplePath(file.getAbsolutePath());
-            pathField.setText(file.getAbsolutePath());
-            // TODO: Hot-swap sample in engine.ck via bridge or event
-          }
+          org.chuck.deluge.ui.browser.SampleBrowserPanel browser =
+              new org.chuck.deluge.ui.browser.SampleBrowserPanel(model);
+          browser.setOnHidden(
+              ev -> {
+                pathField.setText(model.getSamplePath());
+                // TODO: Hot-swap sample in engine.ck via bridge or event
+              });
+          browser.show();
         });
 
     sampleGrid.add(new Label("Sample:"), 0, 0);
