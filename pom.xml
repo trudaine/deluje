@@ -66,7 +66,7 @@
                 <artifactId>javafx-maven-plugin</artifactId>
                 <version>0.0.8</version>
                 <configuration>
-                    <mainClass>org.chuck.deluge.SequencerApp</mainClass>
+                    <mainClass>org.chuck.deluge.ui.DelugeApp</mainClass>
                     <options>
                         <option>--enable-preview</option>
                         <option>--add-modules</option>
