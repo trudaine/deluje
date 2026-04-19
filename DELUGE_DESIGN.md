@@ -1736,7 +1736,7 @@ Before Phase 3, the following must be added to `deluge/pom.xml`:
 | 7 | Song Mode (Clip Launcher + Sections) | ✅ DONE | 5 | 0 | (manual) ✅ |
 | 8 | Arranger Mode (Linear Timeline) | ⬜ next | 5 | 0 | ~6 |
 | 9 | Project Persistence + Auto-save | ✅ DONE | 6 | 0 | 2/2 ✅ |
-| 10 | Polish — MIDI, PingPong Delay, VU, Undo | ⬜ next | 4 | 1 | ~8 |
+| 10 | Polish — MIDI, PingPong Delay, VU, Undo | ✅ DONE | 4 | 1 | ~8 |
 | **—** | **Total** | — | **63** | **2** | **~93** |
 
 **Firmware-driven additions vs. original plan:**

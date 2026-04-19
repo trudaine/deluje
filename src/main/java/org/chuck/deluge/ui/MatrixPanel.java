@@ -31,7 +31,7 @@ public class MatrixPanel extends VBox {
     };
 
     for (int i = 0; i < 8; i++) {
-      rows[i] = new TrackRowPanel(i, trackNames[i], bridge);
+      rows[i] = new TrackRowPanel(i, trackNames[i], vm, bridge);
       getChildren().add(rows[i]);
     }
   }
