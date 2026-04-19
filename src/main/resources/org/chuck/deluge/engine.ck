@@ -47,6 +47,7 @@ fun void kit_shred() {
     // Drum samples (SndBuf per track)
     SndBuf kit[4];
     Gain   master => dac;
+    0 => master.gain; // Prevent start-up clicks
 
     // Load samples for first 4 tracks
     "examples/data/kick.wav"       => kit[0].read;
@@ -55,9 +56,9 @@ fun void kit_shred() {
     "examples/data/hihat-open.wav" => kit[3].read;
 
     for (0 => int i; i < 4; i++) {
-        kit[i] => master;
         0 => kit[i].rate;
         kit[i].samples() => kit[i].pos; // silence on load
+        kit[i] => master;
     }
 
     g_master_vol => master.gain;
@@ -108,6 +109,7 @@ fun void synth_shred() {
     ShelfEQ eq[4];
     DelugeAdsr env[4];
     Gain master => dac;
+    0 => master.gain; // Prevent start-up clicks
 
     for (0 => int i; i < 4; i++) {
         osc[i] => filter[i] => eq[i] => env[i] => master;
