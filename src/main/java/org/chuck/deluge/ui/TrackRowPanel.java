@@ -5,7 +5,12 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.HBox;
 import javafx.scene.paint.Color;
+import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
+import org.chuck.deluge.model.KitTrackModel;
+import org.chuck.deluge.model.SynthTrackModel;
+import org.chuck.deluge.ui.config.KitConfigDialog;
+import org.chuck.deluge.ui.config.SynthConfigDialog;
 
 /**
  * Represents a single horizontal row (Track) containing an audition pad, label, and 16 step cells.
@@ -16,9 +21,10 @@ public class TrackRowPanel extends HBox {
 
   private final Button auditionPad;
   private final Label trackLabel;
+  private final Button settingsBtn;
   private final StepCellButton[] cells;
 
-  public TrackRowPanel(int rowIndex, String trackName, BridgeContract bridge) {
+  public TrackRowPanel(int rowIndex, String trackName, ChuckVM vm, BridgeContract bridge) {
     this.rowIndex = rowIndex;
     this.bridge = bridge;
     this.cells = new StepCellButton[16];
@@ -45,7 +51,31 @@ public class TrackRowPanel extends HBox {
     trackLabel.setTextFill(Color.web("#cccccc"));
     trackLabel.setAlignment(Pos.CENTER_RIGHT);
 
-    getChildren().addAll(auditionPad, trackLabel);
+    settingsBtn = new Button("⚙");
+    settingsBtn.setStyle(
+        "-fx-background-color: transparent; -fx-text-fill: #888888; -fx-font-size: 14px; -fx-padding: 0 5 0 0;");
+    settingsBtn.setOnMouseEntered(
+        e ->
+            settingsBtn.setStyle(
+                "-fx-background-color: transparent; -fx-text-fill: #ffffff; -fx-font-size: 14px; -fx-padding: 0 5 0 0;"));
+    settingsBtn.setOnMouseExited(
+        e ->
+            settingsBtn.setStyle(
+                "-fx-background-color: transparent; -fx-text-fill: #888888; -fx-font-size: 14px; -fx-padding: 0 5 0 0;"));
+    settingsBtn.setOnAction(
+        e -> {
+          if (rowIndex < 4) {
+            KitConfigDialog dialog =
+                new KitConfigDialog(new KitTrackModel(trackName), vm, bridge, rowIndex);
+            dialog.show();
+          } else {
+            SynthConfigDialog dialog =
+                new SynthConfigDialog(new SynthTrackModel(trackName), vm, bridge, rowIndex);
+            dialog.show();
+          }
+        });
+
+    getChildren().addAll(auditionPad, trackLabel, settingsBtn);
 
     // 16 Step Cells
     for (int col = 0; col < 16; col++) {
