@@ -111,6 +111,8 @@ fun void synth_shred() {
     DelugeAdsr env[4];
     Gain master => HPF hpf => Dyno limiter => dac;
     "SYNTH_MASTER" => master.setName;
+    "SYNTH_HPF"    => hpf.setName;
+    "SYNTH_LIMIT"  => limiter.setName;
     0 => master.gain; // Prevent start-up clicks
     20 => hpf.freq;   // Kill DC/infra noise
     limiter.limit();  // Hard safety limit
