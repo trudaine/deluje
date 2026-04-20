@@ -9,6 +9,7 @@ import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.model.KitTrackModel;
 import org.chuck.deluge.model.SynthTrackModel;
+import org.chuck.deluge.ui.ParameterRibbonPanel.EditMode;
 import org.chuck.deluge.ui.config.KitConfigDialog;
 import org.chuck.deluge.ui.config.SynthConfigDialog;
 
@@ -88,6 +89,12 @@ public class TrackRowPanel extends HBox {
         spacer.setPrefWidth(10);
         getChildren().add(spacer);
       }
+    }
+  }
+
+  public void setEditMode(EditMode mode) {
+    for (StepCellButton cell : cells) {
+      cell.setEditMode(mode);
     }
   }
 

@@ -1,8 +1,10 @@
 package org.chuck.deluge.ui;
 
+import java.util.function.Consumer;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.ToggleButton;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.HBox;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
@@ -14,6 +16,26 @@ import org.chuck.deluge.BridgeContract;
 public class ParameterRibbonPanel extends HBox {
   private final ChuckVM vm;
   private final BridgeContract bridge;
+  private Consumer<EditMode> modeChangeListener;
+
+  public enum EditMode {
+    LEVEL,
+    PAN,
+    PITCH,
+    FILTER,
+    RESONANCE,
+    MOD_FX,
+    DELAY,
+    REVERB,
+    STUTTER,
+    PROBABILITY,
+    GATE,
+    VELOCITY,
+    START_END
+  }
+
+  private EditMode currentMode = EditMode.VELOCITY;
+  private final ToggleGroup group = new ToggleGroup();
 
   private final String[] PARAM_LABELS = {
     "LEVEL",
@@ -40,12 +62,36 @@ public class ParameterRibbonPanel extends HBox {
     setPadding(new Insets(5));
     setStyle("-fx-background-color: #222222;");
 
-    for (String label : PARAM_LABELS) {
+    for (int i = 0; i < PARAM_LABELS.length; i++) {
+      String label = PARAM_LABELS[i];
       ToggleButton btn = new ToggleButton(label);
+      btn.setToggleGroup(group);
       btn.setStyle("-fx-base: #333333; -fx-text-fill: white; -fx-font-size: 10px;");
       btn.setPrefHeight(30);
-      btn.setPrefWidth(85); // 13 buttons roughly fit in 1100px
+      btn.setPrefWidth(85);
+
+      final EditMode mode = EditMode.values()[i];
+      btn.setOnAction(
+          e -> {
+            currentMode = mode;
+            if (modeChangeListener != null) {
+              modeChangeListener.accept(mode);
+            }
+          });
+
+      if (mode == EditMode.VELOCITY) {
+        btn.setSelected(true);
+      }
+
       getChildren().add(btn);
     }
+  }
+
+  public void setOnModeChange(Consumer<EditMode> listener) {
+    this.modeChangeListener = listener;
+  }
+
+  public EditMode getCurrentMode() {
+    return currentMode;
   }
 }
