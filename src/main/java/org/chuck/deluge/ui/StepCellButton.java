@@ -3,6 +3,7 @@ package org.chuck.deluge.ui;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.paint.Color;
 import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.ui.ParameterRibbonPanel.EditMode;
 import org.chuck.deluge.ui.popover.NoteEntryPopover;
