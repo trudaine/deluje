@@ -2,7 +2,6 @@ package org.chuck.deluge;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.io.File;
 import org.chuck.audio.util.DacChannel;
 import org.chuck.core.ChuckConfig;
 import org.chuck.core.ChuckVM;
@@ -23,9 +22,13 @@ public class AudioStabilityReproductionTest {
     ChuckConfig.addSearchPath("../deluge/src/main/resources");
 
     bridge = new BridgeContract();
+    bridge.clearPattern();
+    bridge.setUseJavaEngine(true);
     bridge.register(vm);
 
-    // Activate the diagnostic system I just built
+    vm.spork((Runnable) new org.chuck.deluge.engine.DelugeEngineDSL());
+
+    // Activate the diagnostic system
     DacChannel.DEBUG_AUDIO = true;
   }
 
@@ -35,22 +38,8 @@ public class AudioStabilityReproductionTest {
     if (vm != null) vm.shutdown();
   }
 
-  private File findEngineFile() {
-    File f = new File("src/main/resources/org/chuck/deluge/engine.ck");
-    if (f.exists()) return f;
-    f = new File("../deluge/src/main/resources/org/chuck/deluge/engine.ck");
-    if (f.exists()) return f;
-    return null;
-  }
-
   @Test
   void reproduceOscillation() throws Exception {
-    File f = findEngineFile();
-    assertNotNull(f, "Engine script not found");
-
-    int id = vm.add(f.getAbsolutePath());
-    assertTrue(id >= 0);
-
     // Explicitly reset DAC channels to clear any startup noise
     for (int i = 0; i < 2; i++) {
       vm.getDacChannel(i).reset();
@@ -66,7 +55,6 @@ public class AudioStabilityReproductionTest {
     }
 
     // Advance time by 0.5 seconds.
-    // If the bug exists, DacChannel will print "Signal detected" to System.out
     vm.advanceTime(44100 / 2);
 
     float lastL = vm.getDacChannel(0).getLastOut();

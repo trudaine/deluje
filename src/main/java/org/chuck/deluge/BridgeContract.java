@@ -310,21 +310,31 @@ public final class BridgeContract {
   }
   public boolean isRecording() { return recording; }
 
-  public void triggerMidiNoteOn() { tickEvent.broadcast(vm); } // fix: trigger tick for live
-  public void triggerMidiNoteOff() { }
+  public void triggerMidiNoteOn() { midiNoteOn.broadcast(vm); }
+  public void triggerMidiNoteOff() { midiNoteOff.broadcast(vm); }
 
-  // ── Accessors ─────────────────────────────────────────────────────────────
+  // ── Accessors (Strictly Clamped) ──────────────────────────────────────────
   public void setStep(int t, int s, boolean a) { pattern.setInt(t * STEPS + s, a ? 1L : 0L); }
   public boolean getStep(int t, int s) { return pattern.getInt(t * STEPS + s) > 0; }
-  public void setVelocity(int t, int s, double v) { velocity.setFloat(t * STEPS + s, (float)v); }
+  
+  public void setVelocity(int t, int s, double v) { 
+    velocity.setFloat(t * STEPS + s, (float) Math.max(0, Math.min(1.0, v))); 
+  }
   public double getVelocity(int t, int s) { return velocity.getFloat(t * STEPS + s); }
-  public void setGate(int t, int s, double v) { gate.setFloat(t * STEPS + s, (float)v); }
+  
+  public void setGate(int t, int s, double v) { 
+    gate.setFloat(t * STEPS + s, (float) Math.max(0, Math.min(1.0, v))); 
+  }
   public double getGate(int t, int s) { return gate.getFloat(t * STEPS + s); }
+  
   public void setPitch(int t, int s, int p) { pitch.setInt(t * STEPS + s, (long)p); }
   public int getPitch(int t, int s) { return (int)pitch.getInt(t * STEPS + s); }
-  public void setStepProbability(int t, int s, double v) { probability.setFloat(t * STEPS + s, (float)v); }
+  
+  public void setStepProbability(int t, int s, double v) { 
+    probability.setFloat(t * STEPS + s, (float) Math.max(0, Math.min(1.0, v))); 
+  }
   public double getStepProbability(int t, int s) { return probability.getFloat(t * STEPS + s); }
-
+  
   public void setStepFilter(int t, int s, double v) { stepFilter.setFloat(t * STEPS + s, (float)v); }
   public double getStepFilter(int t, int s) { return stepFilter.getFloat(t * STEPS + s); }
 
@@ -349,21 +359,27 @@ public final class BridgeContract {
   public void setStepEnd(int t, int s, double v) { stepEnd.setFloat(t * STEPS + s, (float)v); }
   public double getStepEnd(int t, int s) { return stepEnd.getFloat(t * STEPS + s); }
 
-  public void setTrackLevel(int t, double v) { trackLevel.setFloat(t, (float)v); }
+  public void setTrackLevel(int t, double v) { 
+    trackLevel.setFloat(t, (float) Math.max(0, Math.min(1.0, v))); 
+  }
   public double getTrackLevel(int t) { return trackLevel.getFloat(t); }
+  
   public void setMute(int t, boolean v) { mute.setInt(t, v ? 1L : 0L); }
   public boolean getMute(int t) { return mute.getInt(t) > 0; }
+  
   public void setFilterFreq(int t, double v) { filter.setFloat(t * 2, (float)v); }
   public double getTrackFilterFreq(int t) { return filter.getFloat(t * 2); }
   public void setFilterRes(int t, double v) { filter.setFloat(t * 2 + 1, (float)v); }
   public double getTrackFilterRes(int t) { return filter.getFloat(t * 2 + 1); }
   public void setFilterMode(int t, int m) { filterMode.setInt(t, (long)m); }
+  
   public void setArpOn(int t, boolean o) { arpOn.setInt(t, o ? 1L : 0L); }
   public boolean getArpOn(int t) { return arpOn.getInt(t) > 0; }
   public void setArpRate(int t, double r) { arpRate.setFloat(t, (float)r); }
   public double getArpRate(int t) { return arpRate.getFloat(t); }
   public void setArpOctave(int t, int o) { arpOctave.setInt(t, (long)o); }
   public int getArpOctave(int t) { return (int)arpOctave.getInt(t); }
+  
   public void setFmRatio(int t, double r) { fmRatio.setFloat(t, (float)r); }
   public double getFmRatio(int t) { return fmRatio.getFloat(t); }
   public void setFmAmount(int t, double a) { fmAmount.setFloat(t, (float)a); }
