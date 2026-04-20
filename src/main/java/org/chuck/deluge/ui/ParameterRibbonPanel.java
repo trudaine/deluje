@@ -71,13 +71,26 @@ public class ParameterRibbonPanel extends HBox {
       btn.setPrefWidth(85);
 
       final EditMode mode = EditMode.values()[i];
-      btn.setOnAction(
-          e -> {
-            currentMode = mode;
-            if (modeChangeListener != null) {
-              modeChangeListener.accept(mode);
-            }
-          });
+
+      if (mode == EditMode.STUTTER) {
+        btn.setOnMousePressed(
+            e -> {
+              vm.setGlobalInt("g_stutter_on", 1L);
+              vm.setGlobalFloat("g_stutter_div", 2.0); // Default stutter rate
+            });
+        btn.setOnMouseReleased(
+            e -> {
+              vm.setGlobalInt("g_stutter_on", 0L);
+            });
+      } else {
+        btn.setOnAction(
+            e -> {
+              currentMode = mode;
+              if (modeChangeListener != null) {
+                modeChangeListener.accept(mode);
+              }
+            });
+      }
 
       if (mode == EditMode.VELOCITY) {
         btn.setSelected(true);
