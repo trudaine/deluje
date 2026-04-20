@@ -64,8 +64,8 @@ public final class BridgeContract {
   public static final String G_ROOT_KEY = "g_root_key";
 
   // Advanced DSP (v1.2+)
-  public static final String G_FM_RATIO = "g_fm_ratio"; // float (e.g. 0.5, 1.0, 2.0)
-  public static final String G_FM_AMOUNT = "g_fm_amount"; // float 0.0..1.0
+  public static final String G_FM_RATIO = "g_fm_ratio"; // float[TRACKS]
+  public static final String G_FM_AMOUNT = "g_fm_amount"; // float[TRACKS]
   public static final String G_SIDECHAIN_AMOUNT = "g_sidechain_amount"; // float 0.0..1.0
   public static final String G_MASTER_COMP = "g_master_comp";
 
@@ -105,6 +105,9 @@ public final class BridgeContract {
   private final ChuckArray lfoDepth;
   private final ChuckArray delaySend;
   private final ChuckArray reverbSend;
+
+  private final ChuckArray fmRatio;
+  private final ChuckArray fmAmount;
 
   private final ChuckArray arpOn;
   private final ChuckArray arpMode;
@@ -146,6 +149,9 @@ public final class BridgeContract {
     delaySend = new ChuckArray("float", TRACKS);
     reverbSend = new ChuckArray("float", TRACKS);
 
+    fmRatio = new ChuckArray("float", TRACKS);
+    fmAmount = new ChuckArray("float", TRACKS);
+
     arpOn = new ChuckArray("int", TRACKS);
     arpMode = new ChuckArray("int", TRACKS);
     arpRate = new ChuckArray("float", TRACKS);
@@ -180,6 +186,9 @@ public final class BridgeContract {
     for (int t = 0; t < TRACKS; t++) {
       mute.setInt(t, 0L);
       trackLevel.setFloat(t, 0.7);
+
+      fmRatio.setFloat(t, 1.0f);
+      fmAmount.setFloat(t, 0.0f);
 
       arpOn.setInt(t, 0L);
       arpMode.setInt(t, 0L); // UP
@@ -223,8 +232,8 @@ public final class BridgeContract {
     if (!vm.isGlobalInt(G_ROOT_KEY)) vm.setGlobalInt(G_ROOT_KEY, 0L);
 
     // Advanced DSP
-    if (!vm.isGlobalDouble(G_FM_RATIO)) vm.setGlobalFloat(G_FM_RATIO, 1.0);
-    if (!vm.isGlobalDouble(G_FM_AMOUNT)) vm.setGlobalFloat(G_FM_AMOUNT, 0.0);
+    vm.setGlobalObject(G_FM_RATIO, fmRatio);
+    vm.setGlobalObject(G_FM_AMOUNT, fmAmount);
     if (!vm.isGlobalDouble(G_SIDECHAIN_AMOUNT)) vm.setGlobalFloat(G_SIDECHAIN_AMOUNT, 0.5);
     if (!vm.isGlobalDouble(G_MASTER_COMP)) vm.setGlobalFloat(G_MASTER_COMP, 0.1); // subtle by default
 
@@ -504,12 +513,60 @@ public final class BridgeContract {
     return (int) arpOctave.getInt(track);
   }
 
+  public void setFmRatio(int track, double ratio) {
+    fmRatio.setFloat(track, (float) ratio);
+  }
+
+  public double getFmRatio(int track) {
+    return fmRatio.getFloat(track);
+  }
+
+  public void setFmAmount(int track, double amount) {
+    fmAmount.setFloat(track, (float) amount);
+  }
+
+  public double getFmAmount(int track) {
+    return fmAmount.getFloat(track);
+  }
+
   public void setEnv(int envIndex, double a, double d, double s, double r) {
     int b = envIndex * ENV_PARAMS;
     env.setFloat(b + 0, (float) Math.max(0.001, a));
     env.setFloat(b + 1, (float) Math.max(0.001, d));
     env.setFloat(b + 2, (float) Math.max(0, Math.min(1, s)));
     env.setFloat(b + 3, (float) Math.max(0.001, r));
+  }
+
+  /**
+   * Loads a full synth preset model into the bridge state for a specific track.
+   */
+  public void loadSynthPreset(int trackIndex, org.chuck.deluge.model.SynthTrackModel model) {
+    // Note: trackIndex 4-7 are synth tracks in our MVP
+    // We update oscillator, envelopes, filter etc.
+    
+    // For now our engine uses MorphingWavetable, so we just log the type change 
+    // or we could map it to a morph position if we had a more complex model.
+    System.out.println("Applying preset to track " + trackIndex + ": " + model.getName());
+    
+    // Filter
+    setFilterFreq(trackIndex, model.getLpfFreq() / 20000.0); // Simple normalization
+    setFilterRes(trackIndex, model.getLpfRes());
+    setFilterMode(trackIndex, model.getFilterMode().ordinal());
+
+    // Envelopes
+    for (int i = 0; i < 4; i++) {
+        org.chuck.deluge.model.EnvelopeModel e = model.getEnv(i);
+        if (e != null) {
+            setEnv(i, e.attack(), e.decay(), e.sustain(), e.release());
+        }
+    }
+    
+    // Arp
+    if (model.getArp() != null) {
+        setArpOn(trackIndex, model.getArp().active());
+        setArpRate(trackIndex, model.getArp().rate());
+        setArpOctave(trackIndex, model.getArp().octaves());
+    }
   }
 
   public void setLfo(int lfoIndex, double rateHz, int waveType, double depth) {

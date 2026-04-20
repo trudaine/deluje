@@ -16,6 +16,7 @@ import org.chuck.deluge.model.Scales;
 public class TransportPanel extends HBox {
   private final ChuckVM vm;
   private final BridgeContract bridge;
+  private final org.chuck.deluge.midi.MidiInputRouter midiRouter;
 
   private final Button playBtn;
   private final Button stopBtn;
@@ -24,9 +25,10 @@ public class TransportPanel extends HBox {
   private final Label swingLabel;
   private final Slider swingSlider;
 
-  public TransportPanel(ChuckVM vm, BridgeContract bridge) {
+  public TransportPanel(ChuckVM vm, BridgeContract bridge, org.chuck.deluge.midi.MidiInputRouter midiRouter) {
     this.vm = vm;
     this.bridge = bridge;
+    this.midiRouter = midiRouter;
 
     setAlignment(Pos.CENTER_LEFT);
     setSpacing(15);
@@ -150,7 +152,9 @@ public class TransportPanel extends HBox {
             try {
               if (file.getName().toUpperCase().contains("SYNTH")) {
                 org.chuck.deluge.model.SynthTrackModel synth = org.chuck.deluge.xml.DelugeXmlParser.parseSynth(file);
-                System.out.println("Loaded Synth XML: " + synth.getName());
+                int activeTrack = midiRouter.getActiveTrackIndex();
+                bridge.loadSynthPreset(activeTrack, synth);
+                System.out.println("Applied Synth Preset to Track " + activeTrack + ": " + synth.getName());
               } else {
                 org.chuck.deluge.model.KitTrackModel kit = org.chuck.deluge.xml.DelugeXmlParser.parseKit(file);
                 System.out.println("Loaded Kit XML: " + kit.getName());

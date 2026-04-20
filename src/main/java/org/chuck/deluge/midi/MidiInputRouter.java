@@ -34,6 +34,10 @@ public class MidiInputRouter {
     this.activeTrackIndex = trackIndex;
   }
 
+  public int getActiveTrackIndex() {
+    return activeTrackIndex;
+  }
+
   /** Enter learning mode for the next received CC. */
   public void startLearning(String globalName) {
     this.learningTarget = globalName;

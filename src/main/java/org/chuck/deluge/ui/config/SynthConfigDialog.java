@@ -3,6 +3,7 @@ package org.chuck.deluge.ui.config;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
@@ -103,11 +104,11 @@ public class SynthConfigDialog extends Stage {
     fmGrid.setVgap(10);
     fmGrid.setPadding(new Insets(10));
 
-    Slider ratio = new Slider(0.25, 4.0, vm.getGlobalFloat(BridgeContract.G_FM_RATIO));
-    ratio.valueProperty().addListener((obs, o, n) -> vm.setGlobalFloat(BridgeContract.G_FM_RATIO, n.doubleValue()));
+    Slider ratio = new Slider(0.25, 4.0, bridge.getFmRatio(trackIndex));
+    ratio.valueProperty().addListener((obs, o, n) -> bridge.setFmRatio(trackIndex, n.doubleValue()));
 
-    Slider amount = new Slider(0, 1.0, vm.getGlobalFloat(BridgeContract.G_FM_AMOUNT));
-    amount.valueProperty().addListener((obs, o, n) -> vm.setGlobalFloat(BridgeContract.G_FM_AMOUNT, n.doubleValue()));
+    Slider amount = new Slider(0, 1.0, bridge.getFmAmount(trackIndex));
+    amount.valueProperty().addListener((obs, o, n) -> bridge.setFmAmount(trackIndex, n.doubleValue()));
 
     fmGrid.add(new Label("FM RATIO"), 0, 0);
     fmGrid.add(ratio, 1, 0);
@@ -118,7 +119,31 @@ public class SynthConfigDialog extends Stage {
     fmPane.setCollapsible(false);
     fmPane.setStyle(paneStyle);
 
-    root.getChildren().addAll(arpPane, filterPane, fmPane);
+    // ── Persistence ──
+    HBox saveBox = new HBox(10);
+    saveBox.setAlignment(Pos.CENTER);
+    saveBox.setPadding(new Insets(10, 0, 0, 0));
+    
+    Button saveBtn = new Button("💾 SAVE PRESET");
+    saveBtn.setStyle("-fx-background-color: #00ff41; -fx-text-fill: black; -fx-font-family: 'Courier New'; -fx-font-weight: bold;");
+    saveBtn.setOnAction(e -> {
+        javafx.stage.FileChooser fc = new javafx.stage.FileChooser();
+        fc.setTitle("Save Synth Preset");
+        fc.setInitialFileName(model.getName() + ".XML");
+        fc.getExtensionFilters().add(new javafx.stage.FileChooser.ExtensionFilter("Deluge XML", "*.XML"));
+        java.io.File file = fc.showSaveDialog(this);
+        if (file != null) {
+            try {
+                org.chuck.deluge.xml.DelugeXmlExporter.saveSynthPreset(model, bridge, trackIndex, file);
+                System.out.println("Saved Preset: " + file.getAbsolutePath());
+            } catch (Exception ex) {
+                System.err.println("Failed to save preset: " + ex.getMessage());
+            }
+        }
+    });
+    saveBox.getChildren().add(saveBtn);
+
+    root.getChildren().addAll(arpPane, filterPane, fmPane, saveBox);
 
     // Final Style Polish
     root.lookupAll(".label").forEach(n -> n.setStyle(labelStyle));
