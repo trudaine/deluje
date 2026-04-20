@@ -36,10 +36,14 @@ public class DelugeApp extends Application {
     mainPanel = new DelugeMainPanel(vm, bridge, midiRouter);
 
     Scene scene = new Scene(mainPanel, 1200, 800);
-    // Apply a dark theme base
-    scene.setFill(Color.web("#1e1e1e"));
-    // Add external stylesheet if needed: scene.getStylesheets().add("...");
-
+    // Apply OLED-style styling
+    scene.setFill(Color.BLACK);
+    String css = 
+        ".root { -fx-base: #1a1a1a; -fx-background: #000000; }" +
+        ".label { -fx-font-family: 'Courier New'; -fx-font-weight: bold; -fx-text-fill: #00ff41; }" + // Matrix Green
+        ".button { -fx-font-family: 'Courier New'; -fx-background-radius: 3; }" +
+        ".combo-box { -fx-font-family: 'Courier New'; -fx-font-size: 10px; }";
+    mainPanel.setStyle("-fx-font-family: 'Courier New';");
     primaryStage.setScene(scene);
 
     primaryStage.setOnCloseRequest(e -> shutdown());

@@ -12,7 +12,7 @@ import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.model.Scales;
 
-/** Handles playback control and global tempo/swing parameters. */
+/** Handles playback control and global tempo/swing parameters with OLED styling. */
 public class TransportPanel extends HBox {
   private final ChuckVM vm;
   private final BridgeContract bridge;
@@ -32,35 +32,35 @@ public class TransportPanel extends HBox {
     setSpacing(15);
     setPadding(new Insets(10));
     setStyle(
-        "-fx-background-color: #2b2b2b; -fx-border-color: #3d3d3d; -fx-border-width: 1; -fx-border-radius: 5; -fx-background-radius: 5;");
+        "-fx-background-color: #1a1a1a; -fx-border-color: #3d3d3d; -fx-border-width: 1; -fx-border-radius: 5; -fx-background-radius: 5;");
 
     // Transport Controls
     HBox transportButtons = new HBox(10);
 
     playBtn = new Button("▶ PLAY");
     playBtn.setStyle(
-        "-fx-background-color: #2e7d32; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 14px; -fx-padding: 8 15;");
+        "-fx-background-color: #2e7d32; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-family: 'Courier New'; -fx-font-size: 14px; -fx-padding: 8 15;");
     playBtn.setOnAction(e -> vm.setGlobalInt(BridgeContract.G_PLAY, 1L));
 
     Button recBtn = new Button("● REC");
     recBtn.setStyle(
-        "-fx-background-color: #555555; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 14px; -fx-padding: 8 15;");
+        "-fx-background-color: #555555; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-family: 'Courier New'; -fx-font-size: 14px; -fx-padding: 8 15;");
     recBtn.setOnAction(
         e -> {
           boolean wasRec = bridge.isRecording();
           bridge.setRecording(!wasRec);
           if (bridge.isRecording()) {
             recBtn.setStyle(
-                "-fx-background-color: #c62828; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 14px; -fx-padding: 8 15; -fx-effect: dropshadow(gaussian, red, 10, 0.5, 0, 0);");
+                "-fx-background-color: #c62828; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-family: 'Courier New'; -fx-font-size: 14px; -fx-padding: 8 15; -fx-effect: dropshadow(gaussian, red, 10, 0.5, 0, 0);");
           } else {
             recBtn.setStyle(
-                "-fx-background-color: #555555; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 14px; -fx-padding: 8 15;");
+                "-fx-background-color: #555555; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-family: 'Courier New'; -fx-font-size: 14px; -fx-padding: 8 15;");
           }
         });
 
     stopBtn = new Button("■ STOP");
     stopBtn.setStyle(
-        "-fx-background-color: #c62828; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 14px; -fx-padding: 8 15;");
+        "-fx-background-color: #c62828; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-family: 'Courier New'; -fx-font-size: 14px; -fx-padding: 8 15;");
     stopBtn.setOnAction(
         e -> {
           vm.setGlobalInt(BridgeContract.G_PLAY, 0L);
@@ -73,13 +73,10 @@ public class TransportPanel extends HBox {
     VBox tempoBox = new VBox(2);
     tempoBox.setAlignment(Pos.CENTER);
     tempoLabel = new Label("TEMPO: 120.0");
-    tempoLabel.setStyle("-fx-text-fill: #aaaaaa; -fx-font-size: 9px;");
+    tempoLabel.setStyle("-fx-text-fill: #00ff41; -fx-font-family: 'Courier New'; -fx-font-size: 10px; -fx-font-weight: bold;");
     tempoSlider = new Slider(60, 200, 120);
-    tempoSlider.setPrefWidth(100);
-    tempoSlider
-        .valueProperty()
-        .addListener(
-            (obs, oldVal, newVal) -> {
+    tempoSlider.setPrefWidth(80);
+    tempoSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
               double bpm = newVal.doubleValue();
               tempoLabel.setText(String.format("TEMPO: %.1f", bpm));
               vm.setGlobalFloat(BridgeContract.G_BPM, bpm);
@@ -90,13 +87,10 @@ public class TransportPanel extends HBox {
     VBox swingBox = new VBox(2);
     swingBox.setAlignment(Pos.CENTER);
     swingLabel = new Label("SWING: 50%");
-    swingLabel.setStyle("-fx-text-fill: #aaaaaa; -fx-font-size: 9px;");
+    swingLabel.setStyle("-fx-text-fill: #00ff41; -fx-font-family: 'Courier New'; -fx-font-size: 10px; -fx-font-weight: bold;");
     swingSlider = new Slider(0, 100, 50);
-    swingSlider.setPrefWidth(100);
-    swingSlider
-        .valueProperty()
-        .addListener(
-            (obs, oldVal, newVal) -> {
+    swingSlider.setPrefWidth(80);
+    swingSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
               double swing = newVal.doubleValue() / 100.0;
               swingLabel.setText(String.format("SWING: %.0f%%", newVal.doubleValue()));
               vm.setGlobalFloat(BridgeContract.G_SWING, swing);
@@ -107,13 +101,10 @@ public class TransportPanel extends HBox {
     VBox volBox = new VBox(2);
     volBox.setAlignment(Pos.CENTER);
     Label volLabel = new Label("MASTER VOL");
-    volLabel.setStyle("-fx-text-fill: #aaaaaa; -fx-font-size: 9px;");
-    Slider volSlider = new Slider(0, 100, 70); // Default 0.7
-    volSlider.setPrefWidth(100);
-    volSlider
-        .valueProperty()
-        .addListener(
-            (obs, oldVal, newVal) -> {
+    volLabel.setStyle("-fx-text-fill: #00ff41; -fx-font-family: 'Courier New'; -fx-font-size: 10px; -fx-font-weight: bold;");
+    Slider volSlider = new Slider(0, 100, 70); 
+    volSlider.setPrefWidth(80);
+    volSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
               vm.setGlobalFloat(BridgeContract.G_MASTER_VOL, newVal.doubleValue() / 100.0);
             });
     volBox.getChildren().addAll(volLabel, volSlider);
@@ -122,16 +113,15 @@ public class TransportPanel extends HBox {
     VBox scaleBox = new VBox(2);
     scaleBox.setAlignment(Pos.CENTER);
     Label scaleLabel = new Label("SCALE/KEY");
-    scaleLabel.setStyle("-fx-text-fill: #aaaaaa; -fx-font-size: 9px;");
+    scaleLabel.setStyle("-fx-text-fill: #00ff41; -fx-font-family: 'Courier New'; -fx-font-size: 10px; -fx-font-weight: bold;");
     HBox comboRow = new HBox(5);
 
     ComboBox<String> keyCombo = new ComboBox<>();
     keyCombo.getItems().addAll(Scales.KEY_NAMES);
     int initialKey = (int) vm.getGlobalInt(BridgeContract.G_ROOT_KEY);
     keyCombo.setValue(Scales.KEY_NAMES[Math.min(initialKey, 11)]);
-    keyCombo.setStyle("-fx-font-size: 9px;");
-    keyCombo.setOnAction(
-        e -> {
+    keyCombo.setStyle("-fx-font-family: 'Courier New'; -fx-font-size: 9px; -fx-base: #333333;");
+    keyCombo.setOnAction(e -> {
           int idx = keyCombo.getSelectionModel().getSelectedIndex();
           vm.setGlobalInt(BridgeContract.G_ROOT_KEY, (long) idx);
         });
@@ -139,11 +129,9 @@ public class TransportPanel extends HBox {
     ComboBox<Scales.ScaleType> scaleCombo = new ComboBox<>();
     scaleCombo.getItems().addAll(Scales.ScaleType.values());
     int initialScale = (int) vm.getGlobalInt(BridgeContract.G_SCALE);
-    scaleCombo.setValue(
-        Scales.ScaleType.values()[Math.min(initialScale, Scales.ScaleType.values().length - 1)]);
-    scaleCombo.setStyle("-fx-font-size: 9px;");
-    scaleCombo.setOnAction(
-        e -> {
+    scaleCombo.setValue(Scales.ScaleType.values()[Math.min(initialScale, Scales.ScaleType.values().length - 1)]);
+    scaleCombo.setStyle("-fx-font-family: 'Courier New'; -fx-font-size: 9px; -fx-base: #333333;");
+    scaleCombo.setOnAction(e -> {
           int idx = scaleCombo.getSelectionModel().getSelectedIndex();
           vm.setGlobalInt(BridgeContract.G_SCALE, (long) idx);
         });
@@ -153,49 +141,35 @@ public class TransportPanel extends HBox {
 
     // File Control
     Button loadBtn = new Button("📂 LOAD XML");
-    loadBtn.setStyle("-fx-background-color: #555555; -fx-text-fill: white; -fx-font-weight: bold;");
-    loadBtn.setOnAction(
-        e -> {
+    loadBtn.setStyle("-fx-background-color: #555555; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-family: 'Courier New'; -fx-font-size: 11px;");
+    loadBtn.setOnAction(e -> {
           javafx.stage.FileChooser fc = new javafx.stage.FileChooser();
-          fc.getExtensionFilters()
-              .add(new javafx.stage.FileChooser.ExtensionFilter("Deluge XML", "*.XML"));
+          fc.getExtensionFilters().add(new javafx.stage.FileChooser.ExtensionFilter("Deluge XML", "*.XML"));
           java.io.File file = fc.showOpenDialog(null);
           if (file != null) {
             try {
               if (file.getName().toUpperCase().contains("SYNTH")) {
-                org.chuck.deluge.model.SynthTrackModel synth =
-                    org.chuck.deluge.xml.DelugeXmlParser.parseSynth(file);
-                System.out.println(
-                    "Loaded Synth XML: " + synth.getName() + " OSC1: " + synth.getOsc1Type());
+                org.chuck.deluge.model.SynthTrackModel synth = org.chuck.deluge.xml.DelugeXmlParser.parseSynth(file);
+                System.out.println("Loaded Synth XML: " + synth.getName());
               } else {
-                org.chuck.deluge.model.KitTrackModel kit =
-                    org.chuck.deluge.xml.DelugeXmlParser.parseKit(file);
-                System.out.println(
-                    "Loaded Kit XML: " + kit.getName() + " Sample: " + kit.getSamplePath());
+                org.chuck.deluge.model.KitTrackModel kit = org.chuck.deluge.xml.DelugeXmlParser.parseKit(file);
+                System.out.println("Loaded Kit XML: " + kit.getName());
               }
             } catch (Exception ex) {
               System.err.println("Failed to parse XML: " + ex.getMessage());
-              ex.printStackTrace();
             }
           }
         });
 
     Button debugBtn = new Button("🐞 DEBUG");
-    debugBtn.setStyle(
-        "-fx-background-color: #555555; -fx-text-fill: white; -fx-font-weight: bold;");
-    debugBtn.setOnAction(
-        e -> {
-          org.chuck.audio.util.DacChannel.DEBUG_AUDIO =
-              !org.chuck.audio.util.DacChannel.DEBUG_AUDIO;
-          if (org.chuck.audio.util.DacChannel.DEBUG_AUDIO) {
-            debugBtn.setStyle(
-                "-fx-background-color: #ff9800; -fx-text-fill: black; -fx-font-weight: bold;");
-          } else {
-            debugBtn.setStyle(
-                "-fx-background-color: #555555; -fx-text-fill: white; -fx-font-weight: bold;");
-          }
+    debugBtn.setStyle("-fx-background-color: #555555; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-family: 'Courier New'; -fx-font-size: 11px;");
+    debugBtn.setOnAction(e -> {
+          org.chuck.audio.util.DacChannel.DEBUG_AUDIO = !org.chuck.audio.util.DacChannel.DEBUG_AUDIO;
+          debugBtn.setStyle(org.chuck.audio.util.DacChannel.DEBUG_AUDIO ? 
+                "-fx-background-color: #ff9800; -fx-text-fill: black; -fx-font-weight: bold; -fx-font-family: 'Courier New';" : 
+                "-fx-background-color: #555555; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-family: 'Courier New';");
         });
 
-    getChildren().addAll(transportButtons, tempoBox, swingBox, volBox, loadBtn, debugBtn);
+    getChildren().addAll(transportButtons, tempoBox, swingBox, volBox, scaleBox, loadBtn, debugBtn);
   }
 }

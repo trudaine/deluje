@@ -1,5 +1,5 @@
 /*
-  Deluge Emulator — Production Engine v1.4 (Stable DSP)
+  Deluge Emulator — Production Engine v1.5 (8-Voice Polyphony)
   Concurrent shreds: clock, kit, synth, fx_bus, sidechain, master.
 */
 
@@ -7,13 +7,16 @@
 global float g_bpm, g_swing, g_master_vol, g_master_pan;
 global int   g_play, g_current_step, g_scale, g_root_key;
 global float g_delay_time, g_delay_fb, g_reverb_room, g_reverb_damp;
-global int   g_stutter_on;
+global int   g_stutter_on, g_record_on;
 global float g_stutter_div;
 
 // Advanced DSP
 global float g_fm_ratio, g_fm_amount, g_sidechain_amount, g_master_comp;
 global Gain g_delay_in, g_reverb_in, g_mod_in, g_synth_bus;
 global Event tick_event, sidechain_event;
+
+// MIDI Events
+global Event midi_note_on, midi_note_off;
 
 // ── helpers ──────────────────────────────────────────────────────────────
 fun dur stepDuration(int step) {
@@ -79,10 +82,10 @@ fun void kit_shred() {
     }
 }
 
-// ── synth shred ───────────────────────────────────────────────────────────
+// ── synth shred (8 Voice Polyphony) ──────────────────────────────────────
 fun void synth_shred() {
-    MorphingWavetable car[4], mod[4]; SVFilter fil[4]; DelugeAdsr env[4]; Pan2 pan[4]; SinOsc lfo[4];
-    for (0 => int i; i < 4; i++) {
+    MorphingWavetable car[8], mod[8]; SVFilter fil[8]; DelugeAdsr env[8]; Pan2 pan[8]; SinOsc lfo[8];
+    for (0 => int i; i < 8; i++) {
         mod[i] => car[i]; 2 => car[i].sync;
         car[i] => fil[i] => env[i] => pan[i] => g_synth_bus;
         fil[i].reset(); fil[i].freq(5000); env[i].set(0.05, 0.2, 0.5, 0.3);
@@ -107,17 +110,17 @@ fun void synth_shred() {
         if (pat == null || g_fil == null) continue;
 
         g_current_step % 16 => int step;
-        stepDuration(step) => dur d;
         
-        for (4 => int r; r < 8; r++) {
-            r - 4 => int v; r * 16 + step => int idx;
+        for (0 => int r; r < 8; r++) {
+            if (r < 4) continue; // Skip drum tracks (0-3) in this shred
+            r => int v; // Use track index as voice index
+            r * 16 + step => int idx;
+            
             l_rate[v] => lfo[v].freq;
-            (g_fil[r * 2] + s_fil[idx]) * 10000.0 + 100.0 => float tf;
-            (g_fil[r * 2 + 1] + s_res[idx]) * 4.0 + 1.0 => float tq;
+            (g_fil[v * 2] + s_fil[idx]) * 10000.0 + 100.0 => float tf;
+            (g_fil[v * 2 + 1] + s_res[idx]) * 4.0 + 1.0 => float tq;
             g_master_pan + s_pan[idx] => float tp;
 
-            // Simplified smoothing: just set directly for now to avoid NPEs
-            // We will re-add interpolation once the objects are guaranteed non-null
             fil[v].freq(tf); fil[v].Q(tq); pan[v].pan(tp);
 
             if (mute[r] != 0) continue;
