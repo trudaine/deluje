@@ -47,6 +47,7 @@ fun void kit_shred() {
     // Drum samples (SndBuf per track)
     SndBuf kit[4];
     Gain   master => dac;
+    "KIT_MASTER" => master.setName;
     0 => master.gain; // Prevent start-up clicks
 
     // Load samples for first 4 tracks
@@ -109,6 +110,7 @@ fun void synth_shred() {
     ShelfEQ eq[4];
     DelugeAdsr env[4];
     Gain master => dac;
+    "SYNTH_MASTER" => master.setName;
     0 => master.gain; // Prevent start-up clicks
 
     for (0 => int i; i < 4; i++) {
@@ -203,6 +205,7 @@ fun void clock_shred() {
 // ── fx_bus shred ─────────────────────────────────────────────────────────
 fun void fx_bus_shred() {
     Gain   fx_in => dac;
+    "FX_MASTER" => fx_in.setName;
     Echo   delay => fx_in;
     JCRev  rev   => fx_in;
 
