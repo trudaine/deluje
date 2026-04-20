@@ -97,8 +97,15 @@ public class DelugeXmlParser {
   }
 
   private static Document parseXmlStream(InputStream is) throws Exception {
+    if (is == null) throw new java.io.FileNotFoundException("XML InputStream is null");
+    
+    // Read to string to ensure we have the full content and can debug if needed
+    String content = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+    // Trim potential trailing nulls or whitespace that trip up the parser
+    content = content.trim();
+    
     DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
     DocumentBuilder builder = factory.newDocumentBuilder();
-    return builder.parse(is);
+    return builder.parse(new java.io.ByteArrayInputStream(content.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
   }
 }
