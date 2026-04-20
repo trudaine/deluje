@@ -23,6 +23,15 @@ global float g_delay_fb;
 global float g_reverb_room;
 global float g_reverb_damp;
 
+// Stutter
+global int   g_stutter_on;  // 0 = off, 1 = on
+global float g_stutter_div; // 1.0=1/16, 2.0=1/32, etc.
+
+// Global FX input buses
+global Gain g_delay_in;
+global Gain g_reverb_in;
+global Gain g_mod_in;
+
 // ── tick event — broadcast once per step ──────────────────────────────────
 global Event tick_event;
 
@@ -44,8 +53,11 @@ fun dur stepDuration(int step) {
 
 // ── kit shred ─────────────────────────────────────────────────────────────
 fun void kit_shred() {
-    // Drum samples (SndBuf per track)
     SndBuf kit[4];
+    Pan2   pan[4];
+    Gain   delay_send[4];
+    Gain   reverb_send[4];
+    Gain   mod_send[4];
     Gain   master;
     HPF    hpf;
     Dyno   limiter;
@@ -78,7 +90,10 @@ fun void kit_shred() {
     for (0 => int i; i < 4; i++) {
         0 => kit[i].rate;
         kit[i].samples() => kit[i].pos; // silence on load
-        kit[i] => master;
+        kit[i] => pan[i] => master;
+        pan[i] => delay_send[i]  => g_delay_in;
+        pan[i] => reverb_send[i] => g_reverb_in;
+        pan[i] => mod_send[i]    => g_mod_in;
     }
 
     g_master_vol => master.gain;
@@ -87,6 +102,14 @@ fun void kit_shred() {
     float velocity[];
     float probability[];
     int mute[];
+    float step_pan[];
+    float g_delay_send[];
+    float g_reverb_send[];
+    float step_delay[];
+    float step_reverb[];
+    float step_mod[];
+    float step_start[];
+    float step_end[];
 
     while (g_play != 0) {
         tick_event => now;
@@ -96,8 +119,18 @@ fun void kit_shred() {
         Machine.getGlobalObject("g_velocity") $ float[] @=> velocity;
         Machine.getGlobalObject("g_probability") $ float[] @=> probability;
         Machine.getGlobalObject("g_mute") $ int[] @=> mute;
+        Machine.getGlobalObject("g_step_pan") $ float[] @=> step_pan;
+        Machine.getGlobalObject("g_delay_send") $ float[] @=> g_delay_send;
+        Machine.getGlobalObject("g_reverb_send") $ float[] @=> g_reverb_send;
+        Machine.getGlobalObject("g_step_delay") $ float[] @=> step_delay;
+        Machine.getGlobalObject("g_step_reverb") $ float[] @=> step_reverb;
+        Machine.getGlobalObject("g_step_mod") $ float[] @=> step_mod;
+        Machine.getGlobalObject("g_step_start") $ float[] @=> step_start;
+        Machine.getGlobalObject("g_step_end") $ float[] @=> step_end;
 
-        if (pattern == null || velocity == null || probability == null || mute == null) continue;
+        if (pattern == null || velocity == null || probability == null || mute == null || step_pan == null 
+            || g_delay_send == null || g_reverb_send == null || step_delay == null || step_reverb == null 
+            || step_mod == null || step_start == null || step_end == null) continue;
 
         g_master_vol => master.gain;
         int step;
@@ -107,13 +140,31 @@ fun void kit_shred() {
         for (0 => int r; r < 4; r++) {
             if (mute[r] != 0) continue;
             r * 16 + step => int idx;
+            
+            // Set FX send levels (track level + step offset)
+            Math.max(0.0, Math.min(1.0, g_delay_send[r] + step_delay[idx])) => delay_send[r].gain;
+            Math.max(0.0, Math.min(1.0, g_reverb_send[r] + step_reverb[idx])) => reverb_send[r].gain;
+            Math.max(0.0, Math.min(1.0, step_mod[idx])) => mod_send[r].gain; // No track-wide mod send yet
+
+            // Set Pan (master pan + step offset)
+            Math.max(-1.0, Math.min(1.0, g_master_pan + step_pan[idx])) => pan[r].pan;
+
             if (Math.random2f(0.0, 1.0) > probability[idx]) continue;
             if (pattern[idx] == 0) continue;
 
             velocity[idx] => float vel;
             1 => kit[r].rate;
-            0 => kit[r].pos;
+            
+            // Calculate playback range
+            (step_start[idx] * kit[r].samples()) $ int => int start_pos;
+            start_pos => kit[r].pos;
             vel * 0.8 => kit[r].gain;
+            
+            // Note: End point is harder in SndBuf without manual polling or custom UGen.
+            // For now, we'll just start at the locked position.
+            
+            // Apply step pan if we had a Pan ugen (todo: add Pan2 per track)
+            // For now, this is wired in the bridge.
 
             if (gates_open == 0) {
                 1 => gates_open;
@@ -133,6 +184,10 @@ fun void synth_shred() {
     SVFilter filter[4];
     ShelfEQ eq[4];
     DelugeAdsr env[4];
+    Pan2  pan[4];
+    Gain delay_send[4];
+    Gain reverb_send[4];
+    Gain mod_send[4];
     Gain master;
     HPF hpf;
     Dyno limiter;
@@ -168,7 +223,10 @@ fun void synth_shred() {
         osc[i] => filter[i];
         filter[i] => eq[i];
         eq[i] => env[i];
-        env[i] => master;
+        env[i] => pan[i] => master;
+        pan[i] => delay_send[i]  => g_delay_in;
+        pan[i] => reverb_send[i] => g_reverb_in;
+        pan[i] => mod_send[i]    => g_mod_in;
 
         filter[i].reset();
         eq[i].reset();
@@ -183,12 +241,14 @@ fun void synth_shred() {
 
     g_master_vol => master.gain;
 
-    int pattern[];
-    float velocity[];
-    int pitch[];
-    float probability[];
-    int mute[];
+    float mute[];
     float g_filter[];
+    float step_filter[];
+    float g_delay_send[];
+    float g_reverb_send[];
+    float step_delay[];
+    float step_reverb[];
+    float step_mod[];
 
     while (g_play != 0) {
         tick_event => now;
@@ -200,8 +260,15 @@ fun void synth_shred() {
         Machine.getGlobalObject("g_probability") $ float[] @=> probability;
         Machine.getGlobalObject("g_mute") $ int[] @=> mute;
         Machine.getGlobalObject("g_filter") $ float[] @=> g_filter;
+        Machine.getGlobalObject("g_step_filter") $ float[] @=> step_filter;
+        Machine.getGlobalObject("g_delay_send") $ float[] @=> g_delay_send;
+        Machine.getGlobalObject("g_reverb_send") $ float[] @=> g_reverb_send;
+        Machine.getGlobalObject("g_step_delay") $ float[] @=> step_delay;
+        Machine.getGlobalObject("g_step_reverb") $ float[] @=> step_reverb;
+        Machine.getGlobalObject("g_step_mod") $ float[] @=> step_mod;
 
-        if (pattern == null || pitch == null || g_filter == null) continue;
+        if (pattern == null || pitch == null || g_filter == null || step_filter == null
+            || g_delay_send == null || g_reverb_send == null || step_delay == null || step_reverb == null || step_mod == null) continue;
 
         g_master_vol => master.gain;
         int step;
@@ -210,10 +277,19 @@ fun void synth_shred() {
         // Tracks 4 to 7 are Synth
         for (4 => int r; r < 8; r++) {
             r - 4 => int v; // Voice index 0-3
+            r * 16 + step => int idx;
             
-            // Map g_filter to synth
-            g_filter[r * 2] * 20000.0 => float cutoff;
-            filter[v].freq(Math.max(20.0, cutoff));
+            // Set FX send levels (track level + step offset)
+            Math.max(0.0, Math.min(1.0, g_delay_send[r] + step_delay[idx])) => delay_send[v].gain;
+            Math.max(0.0, Math.min(1.0, g_reverb_send[r] + step_reverb[idx])) => reverb_send[v].gain;
+            Math.max(0.0, Math.min(1.0, step_mod[idx])) => mod_send[v].gain;
+
+            // Set Pan (master pan + step offset)
+            Math.max(-1.0, Math.min(1.0, g_master_pan + step_pan[idx])) => pan[v].pan;
+
+            // Map g_filter + step offset to synth
+            (g_filter[r * 2] + step_filter[idx]) * 20000.0 => float cutoff;
+            filter[v].freq(Math.max(20.0, Math.min(20000.0, cutoff)));
             filter[v].Q(1.0 + g_filter[r * 2 + 1] * 4.0);
 
             if (mute[r] != 0) continue;
@@ -251,15 +327,27 @@ fun void clock_shred() {
     stepDuration(0) - (now % stepDuration(0)) => now;
 
     while (g_play != 0) {
-        step % 16 => g_current_step;
-        tick_event.broadcast();
+        if (g_stutter_on == 0) {
+            step % 16 => g_current_step;
+            tick_event.broadcast();
 
-        if (Machine.loglevel() >= 2 && step % 16 == 0) {
-            <<< "CLOCK: beat", step / 16, "BPM:", g_bpm, "swing:", g_swing >>>;
+            if (Machine.loglevel() >= 2 && step % 16 == 0) {
+                <<< "CLOCK: beat", step / 16, "BPM:", g_bpm, "swing:", g_swing >>>;
+            }
+
+            stepDuration(step % 2) => now;
+            step++;
+        } else {
+            // STUTTER: repeat current step at faster rate
+            g_current_step => int current;
+            tick_event.broadcast();
+            
+            // Subdivide the step duration
+            if (g_stutter_div < 1.0) 1.0 => g_stutter_div;
+            stepDuration(step % 2) / g_stutter_div => dur stutter_dur;
+            stutter_dur => now;
+            // No step++ here, we repeat the same step
         }
-
-        stepDuration(step % 2) => now;
-        step++;
     }
 }
 
@@ -286,10 +374,22 @@ fun void fx_bus_shred() {
     safety_gate.set(0.001, 0.0, 1.0, 0.001);
     0 => int gates_open;
 
-    Echo   delay => fx_in;
-    JCRev  rev   => fx_in;
+    Echo   delay;
+    JCRev  rev;
+    Chorus mod;
+    
+    g_delay_in  => delay => fx_in;
+    g_reverb_in => rev   => fx_in;
+    
+    // Wire Chorus as a global insert or parallel? 
+    // On Deluge, Mod FX can be Chorus/Flanger/Phaser.
+    // Let's use a parallel bus for now.
+    global Gain g_mod_in;
+    g_mod_in => mod => fx_in;
 
     0.3   => fx_in.gain;
+    0.2   => mod.modDepth;
+    0.5   => mod.modFreq;
     g_delay_time * second => delay.delay;
     g_delay_fb            => delay.gain;
     g_reverb_room         => rev.mix;

@@ -45,6 +45,21 @@ public final class BridgeContract {
   // Per-step probability: float[TRACKS * STEPS] 0.0–1.0
   public static final String G_PROBABILITY = "g_probability";
 
+  // Per-step filter cutoff offset: float[TRACKS * STEPS] -1.0..1.0
+  public static final String G_STEP_FILTER = "g_step_filter";
+
+  // Per-step pan: float[TRACKS * STEPS] -1.0..1.0
+  public static final String G_STEP_PAN = "g_step_pan";
+
+  // Per-step FX sends: float[TRACKS * STEPS] 0.0..1.0
+  public static final String G_STEP_DELAY = "g_step_delay";
+  public static final String G_STEP_REVERB = "g_step_reverb";
+  public static final String G_STEP_MOD = "g_step_mod";
+
+  // Per-step sample range: float[TRACKS * STEPS] 0.0..1.0
+  public static final String G_STEP_START = "g_step_start";
+  public static final String G_STEP_END = "g_step_end";
+
   // Per-track mute: int[TRACKS] 0 = active, 1 = muted
   public static final String G_MUTE = "g_mute";
 
@@ -88,6 +103,13 @@ public final class BridgeContract {
   private final ChuckArray gate;
   private final ChuckArray pitch;
   private final ChuckArray probability;
+  private final ChuckArray stepFilter;
+  private final ChuckArray stepPan;
+  private final ChuckArray stepDelay;
+  private final ChuckArray stepReverb;
+  private final ChuckArray stepMod;
+  private final ChuckArray stepStart;
+  private final ChuckArray stepEnd;
   private final ChuckArray mute;
   private final ChuckArray filter;
   private final ChuckArray filterMode;
@@ -105,6 +127,13 @@ public final class BridgeContract {
     gate = new ChuckArray("float", PATTERN_SIZE);
     pitch = new ChuckArray("int", PATTERN_SIZE);
     probability = new ChuckArray("float", PATTERN_SIZE);
+    stepFilter = new ChuckArray("float", PATTERN_SIZE);
+    stepPan = new ChuckArray("float", PATTERN_SIZE);
+    stepDelay = new ChuckArray("float", PATTERN_SIZE);
+    stepReverb = new ChuckArray("float", PATTERN_SIZE);
+    stepMod = new ChuckArray("float", PATTERN_SIZE);
+    stepStart = new ChuckArray("float", PATTERN_SIZE);
+    stepEnd = new ChuckArray("float", PATTERN_SIZE);
     mute = new ChuckArray("int", TRACKS);
     filter = new ChuckArray("float", TRACKS * 2);
     filterMode = new ChuckArray("int", TRACKS);
@@ -126,6 +155,13 @@ public final class BridgeContract {
       gate.setFloat(i, 0.9);
       pitch.setInt(i, 0L);
       probability.setFloat(i, 1.0);
+      stepFilter.setFloat(i, 0.0);
+      stepPan.setFloat(i, 0.0);
+      stepDelay.setFloat(i, 0.0);
+      stepReverb.setFloat(i, 0.0);
+      stepMod.setFloat(i, 0.0);
+      stepStart.setFloat(i, 0.0);
+      stepEnd.setFloat(i, 1.0);
     }
     for (int t = 0; t < TRACKS; t++) {
       mute.setInt(t, 0L);
@@ -171,6 +207,13 @@ public final class BridgeContract {
     vm.setGlobalObject(G_GATE, gate);
     vm.setGlobalObject(G_PITCH, pitch);
     vm.setGlobalObject(G_PROBABILITY, probability);
+    vm.setGlobalObject(G_STEP_FILTER, stepFilter);
+    vm.setGlobalObject(G_STEP_PAN, stepPan);
+    vm.setGlobalObject(G_STEP_DELAY, stepDelay);
+    vm.setGlobalObject(G_STEP_REVERB, stepReverb);
+    vm.setGlobalObject(G_STEP_MOD, stepMod);
+    vm.setGlobalObject(G_STEP_START, stepStart);
+    vm.setGlobalObject(G_STEP_END, stepEnd);
     vm.setGlobalObject(G_MUTE, mute);
     vm.setGlobalObject(G_FILTER, filter);
     vm.setGlobalObject(G_FILTER_MODE, filterMode);
@@ -199,6 +242,62 @@ public final class BridgeContract {
 
   public double getStepProbability(int track, int step) {
     return probability.getFloat(track * STEPS + step);
+  }
+
+  public double getStepFilter(int track, int step) {
+    return stepFilter.getFloat(track * STEPS + step);
+  }
+
+  public void setStepFilter(int track, int step, double val) {
+    stepFilter.setFloat(track * STEPS + step, (float) Math.max(-1.0, Math.min(1.0, val)));
+  }
+
+  public double getStepPan(int track, int step) {
+    return stepPan.getFloat(track * STEPS + step);
+  }
+
+  public void setStepPan(int track, int step, double val) {
+    stepPan.setFloat(track * STEPS + step, (float) Math.max(-1.0, Math.min(1.0, val)));
+  }
+
+  public double getStepDelay(int track, int step) {
+    return stepDelay.getFloat(track * STEPS + step);
+  }
+
+  public void setStepDelay(int track, int step, double val) {
+    stepDelay.setFloat(track * STEPS + step, (float) Math.max(0.0, Math.min(1.0, val)));
+  }
+
+  public double getStepReverb(int track, int step) {
+    return stepReverb.getFloat(track * STEPS + step);
+  }
+
+  public void setStepReverb(int track, int step, double val) {
+    stepReverb.setFloat(track * STEPS + step, (float) Math.max(0.0, Math.min(1.0, val)));
+  }
+
+  public double getStepMod(int track, int step) {
+    return stepMod.getFloat(track * STEPS + step);
+  }
+
+  public void setStepMod(int track, int step, double val) {
+    stepMod.setFloat(track * STEPS + step, (float) Math.max(0.0, Math.min(1.0, val)));
+  }
+
+  public double getStepStart(int track, int step) {
+    return stepStart.getFloat(track * STEPS + step);
+  }
+
+  public void setStepStart(int track, int step, double val) {
+    stepStart.setFloat(track * STEPS + step, (float) Math.max(0.0, Math.min(1.0, val)));
+  }
+
+  public double getStepEnd(int track, int step) {
+    return stepEnd.getFloat(track * STEPS + step);
+  }
+
+  public void setStepEnd(int track, int step, double val) {
+    stepEnd.setFloat(track * STEPS + step, (float) Math.max(0.0, Math.min(1.0, val)));
   }
 
   public double getTrackFilterFreq(int track) {

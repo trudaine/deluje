@@ -63,9 +63,34 @@ public class StepCellButton extends ToggleButton {
     double delta = -event.getY() / 100.0; // Invert and scale
 
     switch (editMode) {
+      case LEVEL:
       case VELOCITY:
         double v = bridge.getVelocity(row, col) + delta;
         bridge.setVelocity(row, col, v);
+        break;
+      case PAN:
+        double pan = bridge.getStepPan(row, col) + delta;
+        bridge.setStepPan(row, col, pan);
+        break;
+      case FILTER:
+        double f = bridge.getStepFilter(row, col) + delta;
+        bridge.setStepFilter(row, col, f);
+        break;
+      case DELAY:
+        double d = bridge.getStepDelay(row, col) + delta;
+        bridge.setStepDelay(row, col, d);
+        break;
+      case REVERB:
+        double r = bridge.getStepReverb(row, col) + delta;
+        bridge.setStepReverb(row, col, r);
+        break;
+      case MOD_FX:
+        double m = bridge.getStepMod(row, col) + delta;
+        bridge.setStepMod(row, col, m);
+        break;
+      case START_END:
+        double s = bridge.getStepStart(row, col) + delta;
+        bridge.setStepStart(row, col, s);
         break;
       case GATE:
         double g = bridge.getGate(row, col) + delta;
@@ -114,32 +139,79 @@ public class StepCellButton extends ToggleButton {
 
       // Scale brightness/opacity based on parameter
       switch (editMode) {
+        case LEVEL:
         case VELOCITY:
           opacity = 0.3 + (bridge.getVelocity(row, col) * 0.7);
           break;
+        case PAN:
+          opacity = 0.3 + (Math.abs(bridge.getStepPan(row, col)) * 0.7);
+          break;
+        case FILTER:
+          // Filter offset can be negative, so we normalize for opacity
+          opacity = 0.3 + (Math.abs(bridge.getStepFilter(row, col)) * 0.7);
+          break;
+        case DELAY:
+          opacity = 0.3 + (bridge.getStepDelay(row, col) * 0.7);
+          break;
+        case REVERB:
+          opacity = 0.3 + (bridge.getStepReverb(row, col) * 0.7);
+          break;
+        case MOD_FX:
+          opacity = 0.3 + (bridge.getStepMod(row, col) * 0.7);
+          break;
+        case START_END:
+          opacity = 0.3 + (bridge.getStepStart(row, col) * 0.7);
+          break;
         case GATE:
-          // Maybe use a border width?
+          // Gate length is visualized via border dash array (done in string below)
           break;
         case PROBABILITY:
           opacity = 0.3 + (bridge.getStepProbability(row, col) * 0.7);
           break;
+        case PITCH:
+          int p = bridge.getPitch(row, col);
+          if (p != 0) {
+            setText(p > 0 ? "+" + p : String.valueOf(p));
+            setTextFill(Color.WHITE);
+            setStyle("-fx-font-size: 9px; -fx-font-weight: bold;");
+          } else {
+            setText("");
+          }
+          break;
         default:
+          setText("");
           break;
       }
+    } else {
+      setText("");
     }
 
     String style;
+    double gateVal = bridge.getGate(row, col);
+    String borderStyle =
+        (editMode == EditMode.GATE && isSelected())
+            ? String.format(
+                "-fx-border-style: dashed; -fx-border-width: 3; -fx-border-color: white; -fx-border-dash-array: %f 5;",
+                gateVal * 20.0)
+            : "";
+
     if (hasPlayhead) {
       style =
           String.format(
-              "-fx-background-color: white; -fx-border-color: %s; -fx-border-width: 2; -fx-background-radius: 5; -fx-border-radius: 5; -fx-opacity: %f;",
-              baseColor, opacity);
+              "-fx-background-color: white; -fx-border-color: %s; -fx-border-width: 2; -fx-background-radius: 5; -fx-border-radius: 5; -fx-opacity: %f; %s",
+              baseColor, opacity, borderStyle);
     } else {
       style =
           String.format(
-              "-fx-background-color: %s; -fx-background-radius: 5; -fx-opacity: %f;",
-              baseColor, opacity);
+              "-fx-background-color: %s; -fx-background-radius: 5; -fx-opacity: %f; %s",
+              baseColor, opacity, borderStyle);
     }
+
+    // Append font styles if in PITCH mode
+    if (editMode == EditMode.PITCH && isSelected()) {
+      style += "-fx-font-size: 9px; -fx-font-weight: bold; -fx-text-fill: white;";
+    }
+
     setStyle(style);
   }
 }

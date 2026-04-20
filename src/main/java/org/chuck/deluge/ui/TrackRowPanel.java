@@ -52,6 +52,22 @@ public class TrackRowPanel extends HBox {
     trackLabel.setTextFill(Color.web("#cccccc"));
     trackLabel.setAlignment(Pos.CENTER_RIGHT);
 
+    // Toggle Mute on Click
+    trackLabel.setOnMouseClicked(
+        e -> {
+          boolean wasMuted = bridge.getMute(rowIndex);
+          bridge.setMute(rowIndex, !wasMuted);
+          trackLabel.setTextFill(!wasMuted ? Color.web("#c62828") : Color.web("#cccccc"));
+        });
+
+    // Support track-wide parameter editing via vertical drag
+    trackLabel.setOnMouseDragged(
+        e -> {
+          double delta = -e.getY() / 100.0;
+          // In a full implementation, we'd look at the current EditMode from ribbon
+          // and update the BridgeContract's track-wide arrays (g_filter, etc.)
+        });
+
     settingsBtn = new Button("⚙");
     settingsBtn.setStyle(
         "-fx-background-color: transparent; -fx-text-fill: #888888; -fx-font-size: 14px; -fx-padding: 0 5 0 0;");
