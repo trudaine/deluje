@@ -2,12 +2,11 @@ package org.chuck.deluge;
 
 import org.chuck.core.ChuckArray;
 import org.chuck.core.ChuckVM;
+import org.chuck.core.ChuckEvent;
+import org.chuck.audio.util.Gain;
 
 /**
  * Typed builder that creates and registers every shared global between Java UI and ChucK engine.
- *
- * <p>Call {@link #register(ChuckVM)} before loading any .ck file. Re-call after {@link
- * ChuckVM#clear()} to re-bind the same array objects (their Java references remain valid).
  */
 public final class BridgeContract {
 
@@ -65,21 +64,21 @@ public final class BridgeContract {
   public static final String G_SCALE = "g_scale";
   public static final String G_ROOT_KEY = "g_root_key";
 
-  // Advanced DSP (v1.2+)
-  public static final String G_FM_RATIO = "g_fm_ratio"; // float[TRACKS]
-  public static final String G_FM_AMOUNT = "g_fm_amount"; // float[TRACKS]
-  public static final String G_SIDECHAIN_AMOUNT = "g_sidechain_amount"; // float 0.0..1.0
+  // Advanced DSP
+  public static final String G_FM_RATIO = "g_fm_ratio";
+  public static final String G_FM_AMOUNT = "g_fm_amount";
+  public static final String G_SIDECHAIN_AMOUNT = "g_sidechain_amount";
   public static final String G_MASTER_COMP = "g_master_comp";
   public static final String G_DELAY_IN = "g_delay_in";
   public static final String G_REVERB_IN = "g_reverb_in";
   public static final String G_MOD_IN = "g_mod_in";
   public static final String G_SYNTH_BUS = "g_synth_bus";
 
-  // Arpeggiator (v1.6+)
-  public static final String G_ARP_ON = "g_arp_on"; // int[TRACKS] 0/1
-  public static final String G_ARP_MODE = "g_arp_mode"; // int[TRACKS] 0=UP, 1=DOWN, 2=UPDOWN, 3=RAND
-  public static final String G_ARP_RATE = "g_arp_rate"; // float[TRACKS] 1.0=1/16, 0.5=1/8, etc.
-  public static final String G_ARP_OCTAVE = "g_arp_octave"; // int[TRACKS] 1-4
+  // Arpeggiator
+  public static final String G_ARP_ON = "g_arp_on";
+  public static final String G_ARP_MODE = "g_arp_mode";
+  public static final String G_ARP_RATE = "g_arp_rate";
+  public static final String G_ARP_OCTAVE = "g_arp_octave";
 
   // Events
   public static final String E_TICK = "tick_event";
@@ -87,7 +86,7 @@ public final class BridgeContract {
   public static final String E_MIDI_NOTE_ON = "midi_note_on";
   public static final String E_MIDI_NOTE_OFF = "midi_note_off";
 
-  // ── arrays ─────────────────────────────────────────────────────────────────
+  // ── arrays & objects ────────────────────────────────────────────────────────
   private final ChuckArray pattern;
   private final ChuckArray velocity;
   private final ChuckArray gate;
@@ -122,20 +121,20 @@ public final class BridgeContract {
   private final ChuckArray arpRate;
   private final ChuckArray arpOctave;
 
-  private final org.chuck.core.ChuckEvent midiNoteOn;
-  private final org.chuck.core.ChuckEvent midiNoteOff;
+  private final ChuckEvent tickEvent;
+  private final ChuckEvent sidechainEvent;
+  private final ChuckEvent midiNoteOn;
+  private final ChuckEvent midiNoteOff;
+
+  private final Gain delayIn;
+  private final Gain reverbIn;
+  private final Gain modIn;
+  private final Gain synthBus;
 
   private ChuckVM vm;
   private boolean recording = false;
-  private boolean useJavaEngine = false; // Default to classic .ck
+  private boolean useJavaEngine = false;
 
-  public void setUseJavaEngine(boolean use) {
-    this.useJavaEngine = use;
-  }
-
-  public boolean isUseJavaEngine() {
-    return useJavaEngine;
-  }
   private final org.chuck.deluge.model.ClipLibrary clipLibrary;
   private final int[] activeClipSlots = new int[TRACKS];
 
@@ -174,8 +173,15 @@ public final class BridgeContract {
     arpRate = new ChuckArray("float", TRACKS);
     arpOctave = new ChuckArray("int", TRACKS);
 
-    midiNoteOn = new org.chuck.core.ChuckEvent();
-    midiNoteOff = new org.chuck.core.ChuckEvent();
+    tickEvent = new ChuckEvent();
+    sidechainEvent = new ChuckEvent();
+    midiNoteOn = new ChuckEvent();
+    midiNoteOff = new ChuckEvent();
+
+    delayIn = new Gain();
+    reverbIn = new Gain();
+    modIn = new Gain();
+    synthBus = new Gain();
 
     clipLibrary = new org.chuck.deluge.model.ClipLibrary(TRACKS, 8);
     java.util.Arrays.fill(activeClipSlots, 0);
@@ -203,15 +209,12 @@ public final class BridgeContract {
     for (int t = 0; t < TRACKS; t++) {
       mute.setInt(t, 0L);
       trackLevel.setFloat(t, 0.7);
-
       fmRatio.setFloat(t, 1.0f);
       fmAmount.setFloat(t, 0.0f);
-
       arpOn.setInt(t, 0L);
-      arpMode.setInt(t, 0L); // UP
-      arpRate.setFloat(t, 1.0f); // 1.0 = 1/16th note
+      arpMode.setInt(t, 0L);
+      arpRate.setFloat(t, 1.0f);
       arpOctave.setInt(t, 1L);
-
       filter.setFloat(t * 2, 1.0);
       filter.setFloat(t * 2 + 1, 0.5);
       filterMode.setInt(t, 0L);
@@ -234,6 +237,7 @@ public final class BridgeContract {
 
   public void register(ChuckVM vm) {
     this.vm = vm;
+    // Scalars
     if (!vm.isGlobalDouble(G_BPM)) vm.setGlobalFloat(G_BPM, 120.0);
     if (!vm.isGlobalDouble(G_SWING)) vm.setGlobalFloat(G_SWING, 0.5);
     if (!vm.isGlobalInt(G_PLAY)) vm.setGlobalInt(G_PLAY, 0L);
@@ -245,15 +249,14 @@ public final class BridgeContract {
     if (!vm.isGlobalDouble(G_DELAY_FB)) vm.setGlobalFloat(G_DELAY_FB, 0.4);
     if (!vm.isGlobalDouble(G_REVERB_ROOM)) vm.setGlobalFloat(G_REVERB_ROOM, 0.6);
     if (!vm.isGlobalDouble(G_REVERB_DAMP)) vm.setGlobalFloat(G_REVERB_DAMP, 0.5);
+    if (!vm.isGlobalInt(G_STUTTER_ON)) vm.setGlobalInt(G_STUTTER_ON, 0L);
+    if (!vm.isGlobalDouble(G_STUTTER_DIV)) vm.setGlobalFloat(G_STUTTER_DIV, 4.0);
     if (!vm.isGlobalInt(G_SCALE)) vm.setGlobalInt(G_SCALE, 0L);
     if (!vm.isGlobalInt(G_ROOT_KEY)) vm.setGlobalInt(G_ROOT_KEY, 0L);
-
-    // Advanced DSP
-    vm.setGlobalObject(G_FM_RATIO, fmRatio);
-    vm.setGlobalObject(G_FM_AMOUNT, fmAmount);
     if (!vm.isGlobalDouble(G_SIDECHAIN_AMOUNT)) vm.setGlobalFloat(G_SIDECHAIN_AMOUNT, 0.5);
-    if (!vm.isGlobalDouble(G_MASTER_COMP)) vm.setGlobalFloat(G_MASTER_COMP, 0.1); // subtle by default
+    if (!vm.isGlobalDouble(G_MASTER_COMP)) vm.setGlobalFloat(G_MASTER_COMP, 0.1);
 
+    // Arrays
     vm.setGlobalObject(G_PATTERN, pattern);
     vm.setGlobalObject(G_VELOCITY, velocity);
     vm.setGlobalObject(G_GATE, gate);
@@ -279,353 +282,158 @@ public final class BridgeContract {
     vm.setGlobalObject(G_LFO_DEPTH, lfoDepth);
     vm.setGlobalObject(G_DELAY_SEND, delaySend);
     vm.setGlobalObject(G_REVERB_SEND, reverbSend);
-
+    vm.setGlobalObject(G_FM_RATIO, fmRatio);
+    vm.setGlobalObject(G_FM_AMOUNT, fmAmount);
     vm.setGlobalObject(G_ARP_ON, arpOn);
     vm.setGlobalObject(G_ARP_MODE, arpMode);
     vm.setGlobalObject(G_ARP_RATE, arpRate);
     vm.setGlobalObject(G_ARP_OCTAVE, arpOctave);
 
+    // Objects
+    vm.setGlobalObject(G_DELAY_IN, delayIn);
+    vm.setGlobalObject(G_REVERB_IN, reverbIn);
+    vm.setGlobalObject(G_MOD_IN, modIn);
+    vm.setGlobalObject(G_SYNTH_BUS, synthBus);
+    vm.setGlobalObject(E_TICK, tickEvent);
+    vm.setGlobalObject(E_SIDECHAIN, sidechainEvent);
     vm.setGlobalObject(E_MIDI_NOTE_ON, midiNoteOn);
     vm.setGlobalObject(E_MIDI_NOTE_OFF, midiNoteOff);
   }
 
-  public ChuckVM getVm() {
-    return vm;
-  }
-
-  /** Load a Clip into a specific track row in the VM arrays. */
-  public void loadClip(int track, int slot) {
-    org.chuck.deluge.model.Clip clip = clipLibrary.getClip(track, slot);
-    if (clip == null) return;
-
-    activeClipSlots[track] = slot;
-    for (int s = 0; s < STEPS; s++) {
-      setStep(track, s, clip.getTrigger(s));
-      setVelocity(track, s, clip.getVelocity(s));
-      setGate(track, s, clip.getGate(s));
-      setPitch(track, s, clip.getPitch(s));
-      setStepProbability(track, s, clip.getProbability(s));
-    }
-  }
-
-  /** Update the library clip from the current VM state for a track. */
-  public void syncActiveClipToLibrary(int track) {
-    int slot = activeClipSlots[track];
-    org.chuck.deluge.model.Clip clip = clipLibrary.getClip(track, slot);
-    if (clip == null) return;
-
-    for (int s = 0; s < STEPS; s++) {
-      clip.setTrigger(s, getStep(track, s));
-      clip.setVelocity(s, getVelocity(track, s));
-      clip.setGate(s, getGate(track, s));
-      clip.setPitch(s, getPitch(track, s));
-      clip.setProbability(s, getStepProbability(track, s));
-    }
-  }
-
-  public org.chuck.deluge.model.ClipLibrary getClipLibrary() {
-    return clipLibrary;
-  }
+  public ChuckVM getVm() { return vm; }
+  public void setUseJavaEngine(boolean use) { this.useJavaEngine = use; }
+  public boolean isUseJavaEngine() { return useJavaEngine; }
 
   public void setRecording(boolean recording) {
     this.recording = recording;
     if (vm != null) vm.setGlobalInt(G_RECORD_ON, recording ? 1L : 0L);
   }
+  public boolean isRecording() { return recording; }
 
-  public boolean isRecording() {
-    return recording;
+  public void triggerMidiNoteOn() { tickEvent.broadcast(vm); } // fix: trigger tick for live
+  public void triggerMidiNoteOff() { }
+
+  // ── Accessors ─────────────────────────────────────────────────────────────
+  public void setStep(int t, int s, boolean a) { pattern.setInt(t * STEPS + s, a ? 1L : 0L); }
+  public boolean getStep(int t, int s) { return pattern.getInt(t * STEPS + s) > 0; }
+  public void setVelocity(int t, int s, double v) { velocity.setFloat(t * STEPS + s, (float)v); }
+  public double getVelocity(int t, int s) { return velocity.getFloat(t * STEPS + s); }
+  public void setGate(int t, int s, double v) { gate.setFloat(t * STEPS + s, (float)v); }
+  public double getGate(int t, int s) { return gate.getFloat(t * STEPS + s); }
+  public void setPitch(int t, int s, int p) { pitch.setInt(t * STEPS + s, (long)p); }
+  public int getPitch(int t, int s) { return (int)pitch.getInt(t * STEPS + s); }
+  public void setStepProbability(int t, int s, double v) { probability.setFloat(t * STEPS + s, (float)v); }
+  public double getStepProbability(int t, int s) { return probability.getFloat(t * STEPS + s); }
+
+  public void setStepFilter(int t, int s, double v) { stepFilter.setFloat(t * STEPS + s, (float)v); }
+  public double getStepFilter(int t, int s) { return stepFilter.getFloat(t * STEPS + s); }
+
+  public void setStepRes(int t, int s, double v) { stepRes.setFloat(t * STEPS + s, (float)v); }
+  public double getStepRes(int t, int s) { return stepRes.getFloat(t * STEPS + s); }
+
+  public void setStepPan(int t, int s, double v) { stepPan.setFloat(t * STEPS + s, (float)v); }
+  public double getStepPan(int t, int s) { return stepPan.getFloat(t * STEPS + s); }
+
+  public void setStepDelay(int t, int s, double v) { stepDelay.setFloat(t * STEPS + s, (float)v); }
+  public double getStepDelay(int t, int s) { return stepDelay.getFloat(t * STEPS + s); }
+
+  public void setStepReverb(int t, int s, double v) { stepReverb.setFloat(t * STEPS + s, (float)v); }
+  public double getStepReverb(int t, int s) { return stepReverb.getFloat(t * STEPS + s); }
+
+  public void setStepMod(int t, int s, double v) { stepMod.setFloat(t * STEPS + s, (float)v); }
+  public double getStepMod(int t, int s) { return stepMod.getFloat(t * STEPS + s); }
+
+  public void setStepStart(int t, int s, double v) { stepStart.setFloat(t * STEPS + s, (float)v); }
+  public double getStepStart(int t, int s) { return stepStart.getFloat(t * STEPS + s); }
+
+  public void setStepEnd(int t, int s, double v) { stepEnd.setFloat(t * STEPS + s, (float)v); }
+  public double getStepEnd(int t, int s) { return stepEnd.getFloat(t * STEPS + s); }
+
+  public void setTrackLevel(int t, double v) { trackLevel.setFloat(t, (float)v); }
+  public double getTrackLevel(int t) { return trackLevel.getFloat(t); }
+  public void setMute(int t, boolean v) { mute.setInt(t, v ? 1L : 0L); }
+  public boolean getMute(int t) { return mute.getInt(t) > 0; }
+  public void setFilterFreq(int t, double v) { filter.setFloat(t * 2, (float)v); }
+  public double getTrackFilterFreq(int t) { return filter.getFloat(t * 2); }
+  public void setFilterRes(int t, double v) { filter.setFloat(t * 2 + 1, (float)v); }
+  public double getTrackFilterRes(int t) { return filter.getFloat(t * 2 + 1); }
+  public void setFilterMode(int t, int m) { filterMode.setInt(t, (long)m); }
+  public void setArpOn(int t, boolean o) { arpOn.setInt(t, o ? 1L : 0L); }
+  public boolean getArpOn(int t) { return arpOn.getInt(t) > 0; }
+  public void setArpRate(int t, double r) { arpRate.setFloat(t, (float)r); }
+  public double getArpRate(int t) { return arpRate.getFloat(t); }
+  public void setArpOctave(int t, int o) { arpOctave.setInt(t, (long)o); }
+  public int getArpOctave(int t) { return (int)arpOctave.getInt(t); }
+  public void setFmRatio(int t, double r) { fmRatio.setFloat(t, (float)r); }
+  public double getFmRatio(int t) { return fmRatio.getFloat(t); }
+  public void setFmAmount(int t, double a) { fmAmount.setFloat(t, (float)a); }
+  public double getFmAmount(int t) { return fmAmount.getFloat(t); }
+
+  public void setEnv(int eIdx, double a, double d, double s, double r) {
+    int b = eIdx * ENV_PARAMS;
+    env.setFloat(b + 0, (float)Math.max(0.001, a));
+    env.setFloat(b + 1, (float)Math.max(0.001, d));
+    env.setFloat(b + 2, (float)Math.max(0, Math.min(1, s)));
+    env.setFloat(b + 3, (float)Math.max(0.001, r));
   }
 
-  public void triggerMidiNoteOn() {
-    midiNoteOn.broadcast(vm);
-  }
-
-  public void triggerMidiNoteOff() {
-    midiNoteOff.broadcast(vm);
-  }
-
-  // ── Getters/Setters ────────────────────────────────────────────────────────
-
-  public void setStep(int track, int step, boolean active) {
-    pattern.setInt(track * STEPS + step, active ? 1L : 0L);
-  }
-
-  public boolean getStep(int track, int step) {
-    return pattern.getInt(track * STEPS + step) > 0;
-  }
-
-  public void setVelocity(int track, int step, double val) {
-    velocity.setFloat(track * STEPS + step, (float) Math.max(0, Math.min(1, val)));
-  }
-
-  public double getVelocity(int track, int step) {
-    return velocity.getFloat(track * STEPS + step);
-  }
-
-  public void setGate(int track, int step, double val) {
-    gate.setFloat(track * STEPS + step, (float) Math.max(0, Math.min(1, val)));
-  }
-
-  public double getGate(int track, int step) {
-    return gate.getFloat(track * STEPS + step);
-  }
-
-  public void setPitch(int track, int step, int p) {
-    pitch.setInt(track * STEPS + step, (long) p);
-  }
-
-  public int getPitch(int track, int step) {
-    return (int) pitch.getInt(track * STEPS + step);
-  }
-
-  public void setStepProbability(int track, int step, double val) {
-    probability.setFloat(track * STEPS + step, (float) Math.max(0, Math.min(1, val)));
-  }
-
-  public double getStepProbability(int track, int step) {
-    return probability.getFloat(track * STEPS + step);
-  }
-
-  public void setStepFilter(int track, int step, double val) {
-    stepFilter.setFloat(track * STEPS + step, (float) Math.max(-1, Math.min(1, val)));
-  }
-
-  public double getStepFilter(int track, int step) {
-    return stepFilter.getFloat(track * STEPS + step);
-  }
-
-  public void setStepRes(int track, int step, double val) {
-    stepRes.setFloat(track * STEPS + step, (float) Math.max(-1, Math.min(1, val)));
-  }
-
-  public double getStepRes(int track, int step) {
-    return stepRes.getFloat(track * STEPS + step);
-  }
-
-  public void setStepFilterMode(int track, int step, int mode) {
-    stepFilterMode.setInt(track * STEPS + step, (long) mode);
-  }
-
-  public int getStepFilterMode(int track, int step) {
-    return (int) stepFilterMode.getInt(track * STEPS + step);
-  }
-
-  public void setStepPan(int track, int step, double val) {
-    stepPan.setFloat(track * STEPS + step, (float) Math.max(-1, Math.min(1, val)));
-  }
-
-  public double getStepPan(int track, int step) {
-    return stepPan.getFloat(track * STEPS + step);
-  }
-
-  public void setStepDelay(int track, int step, double val) {
-    stepDelay.setFloat(track * STEPS + step, (float) Math.max(0, Math.min(1, val)));
-  }
-
-  public double getStepDelay(int track, int step) {
-    return stepDelay.getFloat(track * STEPS + step);
-  }
-
-  public void setStepReverb(int track, int step, double val) {
-    stepReverb.setFloat(track * STEPS + step, (float) Math.max(0, Math.min(1, val)));
-  }
-
-  public double getStepReverb(int track, int step) {
-    return stepReverb.getFloat(track * STEPS + step);
-  }
-
-  public void setStepMod(int track, int step, double val) {
-    stepMod.setFloat(track * STEPS + step, (float) Math.max(0, Math.min(1, val)));
-  }
-
-  public double getStepMod(int track, int step) {
-    return stepMod.getFloat(track * STEPS + step);
-  }
-
-  public void setStepStart(int track, int step, double val) {
-    stepStart.setFloat(track * STEPS + step, (float) Math.max(0, Math.min(1, val)));
-  }
-
-  public double getStepStart(int track, int step) {
-    return stepStart.getFloat(track * STEPS + step);
-  }
-
-  public void setStepEnd(int track, int step, double val) {
-    stepEnd.setFloat(track * STEPS + step, (float) Math.max(0, Math.min(1, val)));
-  }
-
-  public double getStepEnd(int track, int step) {
-    return stepEnd.getFloat(track * STEPS + step);
-  }
-
-  public void setTrackLevel(int track, double val) {
-    trackLevel.setFloat(track, (float) Math.max(0, Math.min(1, val)));
-  }
-
-  public double getTrackLevel(int track) {
-    return trackLevel.getFloat(track);
-  }
-
-  public void setMute(int track, boolean val) {
-    mute.setInt(track, val ? 1L : 0L);
-  }
-
-  public boolean getMute(int track) {
-    return mute.getInt(track) > 0;
-  }
-
-  public void setFilterFreq(int track, double val) {
-    filter.setFloat(track * 2, (float) Math.max(0, Math.min(1, val)));
-  }
-
-  public double getTrackFilterFreq(int track) {
-    return filter.getFloat(track * 2);
-  }
-
-  public void setFilterRes(int track, double val) {
-    filter.setFloat(track * 2 + 1, (float) Math.max(0, Math.min(1, val)));
-  }
-
-  public double getTrackFilterRes(int track) {
-    return filter.getFloat(track * 2 + 1);
-  }
-
-  public void setFilterMode(int track, int mode) {
-    filterMode.setInt(track, (long) mode);
-  }
-
-  public void setFilterMorph(int track, double morph) {
-    filterMorph.setFloat(track, (float) Math.max(0, Math.min(1, morph)));
-  }
-
-  public void setArpOn(int track, boolean on) {
-    arpOn.setInt(track, on ? 1L : 0L);
-  }
-
-  public boolean getArpOn(int track) {
-    return arpOn.getInt(track) > 0;
-  }
-
-  public void setArpMode(int track, int mode) {
-    arpMode.setInt(track, (long) mode);
-  }
-
-  public int getArpMode(int track) {
-    return (int) arpMode.getInt(track);
-  }
-
-  public void setArpRate(int track, double rate) {
-    arpRate.setFloat(track, (float) rate);
-  }
-
-  public double getArpRate(int track) {
-    return arpRate.getFloat(track);
-  }
-
-  public void setArpOctave(int track, int oct) {
-    arpOctave.setInt(track, (long) oct);
-  }
-
-  public int getArpOctave(int track) {
-    return (int) arpOctave.getInt(track);
-  }
-
-  public void setFmRatio(int track, double ratio) {
-    fmRatio.setFloat(track, (float) ratio);
-  }
-
-  public double getFmRatio(int track) {
-    return fmRatio.getFloat(track);
-  }
-
-  public void setFmAmount(int track, double amount) {
-    fmAmount.setFloat(track, (float) amount);
-  }
-
-  public double getFmAmount(int track) {
-    return fmAmount.getFloat(track);
-  }
-
-  public void setEnv(int envIndex, double a, double d, double s, double r) {
-    int b = envIndex * ENV_PARAMS;
-    env.setFloat(b + 0, (float) Math.max(0.001, a));
-    env.setFloat(b + 1, (float) Math.max(0.001, d));
-    env.setFloat(b + 2, (float) Math.max(0, Math.min(1, s)));
-    env.setFloat(b + 3, (float) Math.max(0.001, r));
-  }
-
-  /**
-   * Loads a full synth preset model into the bridge state for a specific track.
-   */
-  public void loadSynthPreset(int trackIndex, org.chuck.deluge.model.SynthTrackModel model) {
-    // Note: trackIndex 4-7 are synth tracks in our MVP
-    // We update oscillator, envelopes, filter etc.
-    
-    // For now our engine uses MorphingWavetable, so we just log the type change 
-    // or we could map it to a morph position if we had a more complex model.
-    System.out.println("Applying preset to track " + trackIndex + ": " + model.getName());
-    
-    // Filter
-    setFilterFreq(trackIndex, model.getLpfFreq() / 20000.0); // Simple normalization
-    setFilterRes(trackIndex, model.getLpfRes());
-    setFilterMode(trackIndex, model.getFilterMode().ordinal());
-
-    // Envelopes
+  public void loadSynthPreset(int t, org.chuck.deluge.model.SynthTrackModel m) {
+    setFilterFreq(t, m.getLpfFreq() / 20000.0);
+    setFilterRes(t, m.getLpfRes());
+    setFilterMode(t, m.getFilterMode().ordinal());
     for (int i = 0; i < 4; i++) {
-        org.chuck.deluge.model.EnvelopeModel e = model.getEnv(i);
-        if (e != null) {
-            setEnv(i, e.attack(), e.decay(), e.sustain(), e.release());
-        }
+        var e = m.getEnv(i);
+        if (e != null) setEnv(i, e.attack(), e.decay(), e.sustain(), e.release());
     }
-    
-    // Arp
-    if (model.getArp() != null) {
-        setArpOn(trackIndex, model.getArp().active());
-        setArpRate(trackIndex, model.getArp().rate());
-        setArpOctave(trackIndex, model.getArp().octaves());
+    if (m.getArp() != null) {
+        setArpOn(t, m.getArp().active());
+        setArpRate(t, m.getArp().rate());
+        setArpOctave(t, m.getArp().octaves());
     }
   }
 
-  public void setLfo(int lfoIndex, double rateHz, int waveType, double depth) {
-    lfoRate.setFloat(lfoIndex, (float) Math.max(0.01, rateHz));
-    lfoType.setInt(lfoIndex, (long) waveType);
-    lfoDepth.setFloat(lfoIndex, (float) Math.max(0, Math.min(1, depth)));
+  public void loadClip(int t, int s) {
+    var c = clipLibrary.getClip(t, s);
+    if (c == null) return;
+    activeClipSlots[t] = s;
+    for (int i = 0; i < STEPS; i++) {
+      setStep(t, i, c.getTrigger(i));
+      setVelocity(t, i, c.getVelocity(i));
+      setGate(t, i, c.getGate(i));
+      setPitch(t, i, c.getPitch(i));
+      setStepProbability(t, i, c.getProbability(i));
+    }
+  }
+
+  public void syncActiveClipToLibrary(int t) {
+    var c = clipLibrary.getClip(t, activeClipSlots[t]);
+    if (c == null) return;
+    for (int i = 0; i < STEPS; i++) {
+      c.setTrigger(i, getStep(t, i));
+      c.setVelocity(i, getVelocity(t, i));
+      c.setGate(i, getGate(t, i));
+      c.setPitch(i, getPitch(t, i));
+      c.setProbability(i, getStepProbability(t, i));
+    }
   }
 
   public void clearPattern() {
     for (int i = 0; i < PATTERN_SIZE; i++) pattern.setInt(i, 0L);
   }
 
-  /** Snapshot the 128-cell pattern as a flat boolean array (track-major). */
   public boolean[] snapshotPattern() {
     boolean[] snap = new boolean[PATTERN_SIZE];
     for (int i = 0; i < PATTERN_SIZE; i++) snap[i] = pattern.getInt(i) > 0;
     return snap;
   }
 
-  /** Restore a previously snapshotted pattern. */
   public void restorePattern(boolean[] snap) {
     for (int i = 0; i < Math.min(snap.length, PATTERN_SIZE); i++) {
       pattern.setInt(i, snap[i] ? 1L : 0L);
     }
   }
 
-  // compat for UI
-  private org.chuck.deluge.ui.MatrixPanel matrixPanel;
-
-  public void setMatrixPanel(org.chuck.deluge.ui.MatrixPanel m) {
-    this.matrixPanel = m;
-  }
-
-  public org.chuck.deluge.ui.MatrixPanel getMatrixPanel() {
-    return matrixPanel;
-  }
-
-  public ChuckArray patternArray() {
-    return pattern;
-  }
-
-  public ChuckArray probabilityArray() {
-    return probability;
-  }
+  public org.chuck.deluge.model.ClipLibrary getClipLibrary() { return clipLibrary; }
+  public ChuckArray patternArray() { return pattern; }
+  public ChuckArray probabilityArray() { return probability; }
 }
