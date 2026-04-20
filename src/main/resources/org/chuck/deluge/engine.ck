@@ -16,6 +16,7 @@ global float g_swing;       // 0.0–1.0; 0.5 = no swing
 global int   g_play;
 global int   g_current_step;
 global float g_master_vol;
+global float g_master_pan;
 
 // Global FX parameters (scalars)
 global float g_delay_time;
@@ -26,6 +27,10 @@ global float g_reverb_damp;
 // Stutter
 global int   g_stutter_on;  // 0 = off, 1 = on
 global float g_stutter_div; // 1.0=1/16, 2.0=1/32, etc.
+
+// Scale/Key
+global int   g_scale;
+global int   g_root_key;
 
 // Global FX input buses
 global Gain g_delay_in;
@@ -49,6 +54,15 @@ fun dur stepDuration(int step) {
     } else {
         return base * (1.0 - (swing - 0.5) * 0.4);
     }
+}
+
+// ── helper: monitor sample end ───────────────────────────────────────────
+fun void monitor_sample_end(SndBuf buf, int end_pos) {
+    while (buf.pos() < end_pos && buf.rate() > 0) {
+        5::ms => now;
+    }
+    0 => buf.rate(); // Stop playback
+    buf.samples() => buf.pos(); // Move to end
 }
 
 // ── kit shred ─────────────────────────────────────────────────────────────
@@ -110,6 +124,7 @@ fun void kit_shred() {
     float step_mod[];
     float step_start[];
     float step_end[];
+    float track_level[];
 
     while (g_play != 0) {
         tick_event => now;
@@ -127,10 +142,11 @@ fun void kit_shred() {
         Machine.getGlobalObject("g_step_mod") $ float[] @=> step_mod;
         Machine.getGlobalObject("g_step_start") $ float[] @=> step_start;
         Machine.getGlobalObject("g_step_end") $ float[] @=> step_end;
+        Machine.getGlobalObject("g_track_level") $ float[] @=> track_level;
 
         if (pattern == null || velocity == null || probability == null || mute == null || step_pan == null 
             || g_delay_send == null || g_reverb_send == null || step_delay == null || step_reverb == null 
-            || step_mod == null || step_start == null || step_end == null) continue;
+            || step_mod == null || step_start == null || step_end == null || track_level == null) continue;
 
         g_master_vol => master.gain;
         int step;
@@ -144,7 +160,7 @@ fun void kit_shred() {
             // Set FX send levels (track level + step offset)
             Math.max(0.0, Math.min(1.0, g_delay_send[r] + step_delay[idx])) => delay_send[r].gain;
             Math.max(0.0, Math.min(1.0, g_reverb_send[r] + step_reverb[idx])) => reverb_send[r].gain;
-            Math.max(0.0, Math.min(1.0, step_mod[idx])) => mod_send[r].gain; // No track-wide mod send yet
+            Math.max(0.0, Math.min(1.0, step_mod[idx])) => mod_send[r].gain;
 
             // Set Pan (master pan + step offset)
             Math.max(-1.0, Math.min(1.0, g_master_pan + step_pan[idx])) => pan[r].pan;
@@ -157,14 +173,12 @@ fun void kit_shred() {
             
             // Calculate playback range
             (step_start[idx] * kit[r].samples()) $ int => int start_pos;
+            (step_end[idx] * kit[r].samples()) $ int => int end_pos;
             start_pos => kit[r].pos;
-            vel * 0.8 => kit[r].gain;
+            vel * track_level[r] * 0.8 => kit[r].gain;
             
-            // Note: End point is harder in SndBuf without manual polling or custom UGen.
-            // For now, we'll just start at the locked position.
-            
-            // Apply step pan if we had a Pan ugen (todo: add Pan2 per track)
-            // For now, this is wired in the bridge.
+            // Monitor end point in a sporked shred
+            spork ~ monitor_sample_end(kit[r], end_pos);
 
             if (gates_open == 0) {
                 1 => gates_open;
@@ -244,11 +258,13 @@ fun void synth_shred() {
     float mute[];
     float g_filter[];
     float step_filter[];
+    float step_res[];
     float g_delay_send[];
     float g_reverb_send[];
     float step_delay[];
     float step_reverb[];
     float step_mod[];
+    float track_level[];
 
     while (g_play != 0) {
         tick_event => now;
@@ -261,14 +277,16 @@ fun void synth_shred() {
         Machine.getGlobalObject("g_mute") $ int[] @=> mute;
         Machine.getGlobalObject("g_filter") $ float[] @=> g_filter;
         Machine.getGlobalObject("g_step_filter") $ float[] @=> step_filter;
+        Machine.getGlobalObject("g_step_res") $ float[] @=> step_res;
         Machine.getGlobalObject("g_delay_send") $ float[] @=> g_delay_send;
         Machine.getGlobalObject("g_reverb_send") $ float[] @=> g_reverb_send;
         Machine.getGlobalObject("g_step_delay") $ float[] @=> step_delay;
         Machine.getGlobalObject("g_step_reverb") $ float[] @=> step_reverb;
         Machine.getGlobalObject("g_step_mod") $ float[] @=> step_mod;
+        Machine.getGlobalObject("g_track_level") $ float[] @=> track_level;
 
-        if (pattern == null || pitch == null || g_filter == null || step_filter == null
-            || g_delay_send == null || g_reverb_send == null || step_delay == null || step_reverb == null || step_mod == null) continue;
+        if (pattern == null || pitch == null || g_filter == null || step_filter == null || step_res == null
+            || g_delay_send == null || g_reverb_send == null || step_delay == null || step_reverb == null || step_mod == null || track_level == null) continue;
 
         g_master_vol => master.gain;
         int step;
@@ -279,6 +297,9 @@ fun void synth_shred() {
             r - 4 => int v; // Voice index 0-3
             r * 16 + step => int idx;
             
+            velocity[idx] => float vel;
+            vel * track_level[r] * 0.8 => env[v].gain;
+
             // Set FX send levels (track level + step offset)
             Math.max(0.0, Math.min(1.0, g_delay_send[r] + step_delay[idx])) => delay_send[v].gain;
             Math.max(0.0, Math.min(1.0, g_reverb_send[r] + step_reverb[idx])) => reverb_send[v].gain;
@@ -290,7 +311,9 @@ fun void synth_shred() {
             // Map g_filter + step offset to synth
             (g_filter[r * 2] + step_filter[idx]) * 20000.0 => float cutoff;
             filter[v].freq(Math.max(20.0, Math.min(20000.0, cutoff)));
-            filter[v].Q(1.0 + g_filter[r * 2 + 1] * 4.0);
+            
+            (g_filter[r * 2 + 1] + step_res[idx]) * 4.0 + 1.0 => float Q;
+            filter[v].Q(Math.max(1.0, Math.min(10.0, Q)));
 
             if (mute[r] != 0) continue;
             r * 16 + step => int idx;

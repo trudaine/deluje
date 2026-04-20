@@ -33,7 +33,7 @@ public class MatrixPanel extends VBox {
     };
 
     for (int i = 0; i < 8; i++) {
-      rows[i] = new TrackRowPanel(i, trackNames[i], vm, bridge);
+      rows[i] = new TrackRowPanel(i, trackNames[i], vm, bridge, this::getCurrentEditMode);
       getChildren().add(rows[i]);
     }
   }
@@ -43,6 +43,10 @@ public class MatrixPanel extends VBox {
     for (TrackRowPanel row : rows) {
       row.setEditMode(mode);
     }
+  }
+
+  public EditMode getCurrentEditMode() {
+    return currentEditMode;
   }
 
   public void updateStep(int step) {
