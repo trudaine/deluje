@@ -60,55 +60,61 @@ public class StepCellButton extends ToggleButton {
     if (event.isPrimaryButtonDown() && !isSelected()) return;
     if (!event.isPrimaryButtonDown()) return;
 
-    // Calculate delta and update based on current edit mode
-    // This is a simplified drag implementation
-    double delta = -event.getY() / 100.0; // Invert and scale
+    double delta = -event.getY() / 100.0;
+    
+    // Determine target step: if recording, use playhead; else use this cell.
+    int targetStep = col;
+    boolean liveRec = bridge.isRecording() && bridge.getVm().getGlobalInt(BridgeContract.G_PLAY) == 1;
+    if (liveRec) {
+        targetStep = (int) bridge.getVm().getGlobalInt(BridgeContract.G_CURRENT_STEP);
+        if (targetStep < 0) targetStep = col;
+    }
 
     switch (editMode) {
       case LEVEL:
       case VELOCITY:
-        double v = bridge.getVelocity(row, col) + delta;
-        bridge.setVelocity(row, col, v);
+        double v = bridge.getVelocity(row, targetStep) + delta;
+        bridge.setVelocity(row, targetStep, v);
         break;
       case PAN:
-        double pan = bridge.getStepPan(row, col) + delta;
-        bridge.setStepPan(row, col, pan);
+        double pan = bridge.getStepPan(row, targetStep) + delta;
+        bridge.setStepPan(row, targetStep, pan);
         break;
       case FILTER:
-        double f = bridge.getStepFilter(row, col) + delta;
-        bridge.setStepFilter(row, col, f);
+        double f = bridge.getStepFilter(row, targetStep) + delta;
+        bridge.setStepFilter(row, targetStep, f);
         break;
       case RESONANCE:
-        double res = bridge.getStepRes(row, col) + delta;
-        bridge.setStepRes(row, col, res);
+        double res = bridge.getStepRes(row, targetStep) + delta;
+        bridge.setStepRes(row, targetStep, res);
         break;
       case DELAY:
-        double d = bridge.getStepDelay(row, col) + delta;
-        bridge.setStepDelay(row, col, d);
+        double d = bridge.getStepDelay(row, targetStep) + delta;
+        bridge.setStepDelay(row, targetStep, d);
         break;
       case REVERB:
-        double r = bridge.getStepReverb(row, col) + delta;
-        bridge.setStepReverb(row, col, r);
+        double r = bridge.getStepReverb(row, targetStep) + delta;
+        bridge.setStepReverb(row, targetStep, r);
         break;
       case MOD_FX:
-        double m = bridge.getStepMod(row, col) + delta;
-        bridge.setStepMod(row, col, m);
+        double m = bridge.getStepMod(row, targetStep) + delta;
+        bridge.setStepMod(row, targetStep, m);
         break;
       case START_END:
-        double s = bridge.getStepStart(row, col) + delta;
-        bridge.setStepStart(row, col, s);
+        double s = bridge.getStepStart(row, targetStep) + delta;
+        bridge.setStepStart(row, targetStep, s);
         break;
       case GATE:
-        double g = bridge.getGate(row, col) + delta;
-        bridge.setGate(row, col, g);
+        double g = bridge.getGate(row, targetStep) + delta;
+        bridge.setGate(row, targetStep, g);
         break;
       case PROBABILITY:
-        double p = bridge.getStepProbability(row, col) + delta;
-        bridge.setStepProbability(row, col, p);
+        double p = bridge.getStepProbability(row, targetStep) + delta;
+        bridge.setStepProbability(row, targetStep, p);
         break;
       case PITCH:
-        int pitch = bridge.getPitch(row, col) + (int) (delta * 24); // Scale to semitones
-        bridge.setPitch(row, col, pitch);
+        int pitch = bridge.getPitch(row, targetStep) + (int) (delta * 24);
+        bridge.setPitch(row, targetStep, pitch);
         break;
       default:
         break;

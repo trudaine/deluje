@@ -25,6 +25,7 @@ public final class BridgeContract {
   public static final String G_SWING = "g_swing";
   public static final String G_PLAY = "g_play";
   public static final String G_CURRENT_STEP = "g_current_step";
+  public static final String G_RECORD_ON = "g_record_on";
 
   public static final String G_PATTERN = "g_pattern";
   public static final String G_VELOCITY = "g_velocity";
@@ -103,6 +104,7 @@ public final class BridgeContract {
   private final org.chuck.core.ChuckEvent midiNoteOff;
 
   private ChuckVM vm;
+  private boolean recording = false;
   private final org.chuck.deluge.model.ClipLibrary clipLibrary;
   private final int[] activeClipSlots = new int[TRACKS];
 
@@ -187,6 +189,7 @@ public final class BridgeContract {
     if (!vm.isGlobalDouble(G_BPM)) vm.setGlobalFloat(G_BPM, 120.0);
     if (!vm.isGlobalDouble(G_SWING)) vm.setGlobalFloat(G_SWING, 0.5);
     if (!vm.isGlobalInt(G_PLAY)) vm.setGlobalInt(G_PLAY, 0L);
+    if (!vm.isGlobalInt(G_RECORD_ON)) vm.setGlobalInt(G_RECORD_ON, 0L);
     if (!vm.isGlobalInt(G_CURRENT_STEP)) vm.setGlobalInt(G_CURRENT_STEP, -1L);
     if (!vm.isGlobalDouble(G_MASTER_VOL)) vm.setGlobalFloat(G_MASTER_VOL, 0.7);
     if (!vm.isGlobalDouble(G_MASTER_PAN)) vm.setGlobalFloat(G_MASTER_PAN, 0.0);
@@ -269,6 +272,15 @@ public final class BridgeContract {
 
   public org.chuck.deluge.model.ClipLibrary getClipLibrary() {
     return clipLibrary;
+  }
+
+  public void setRecording(boolean recording) {
+    this.recording = recording;
+    if (vm != null) vm.setGlobalInt(G_RECORD_ON, recording ? 1L : 0L);
+  }
+
+  public boolean isRecording() {
+    return recording;
   }
 
   public void triggerMidiNoteOn() {

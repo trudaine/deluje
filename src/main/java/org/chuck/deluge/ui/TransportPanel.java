@@ -42,6 +42,22 @@ public class TransportPanel extends HBox {
         "-fx-background-color: #2e7d32; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 14px; -fx-padding: 8 15;");
     playBtn.setOnAction(e -> vm.setGlobalInt(BridgeContract.G_PLAY, 1L));
 
+    Button recBtn = new Button("● REC");
+    recBtn.setStyle(
+        "-fx-background-color: #555555; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 14px; -fx-padding: 8 15;");
+    recBtn.setOnAction(
+        e -> {
+          boolean wasRec = bridge.isRecording();
+          bridge.setRecording(!wasRec);
+          if (bridge.isRecording()) {
+            recBtn.setStyle(
+                "-fx-background-color: #c62828; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 14px; -fx-padding: 8 15; -fx-effect: dropshadow(gaussian, red, 10, 0.5, 0, 0);");
+          } else {
+            recBtn.setStyle(
+                "-fx-background-color: #555555; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 14px; -fx-padding: 8 15;");
+          }
+        });
+
     stopBtn = new Button("■ STOP");
     stopBtn.setStyle(
         "-fx-background-color: #c62828; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 14px; -fx-padding: 8 15;");
@@ -51,7 +67,7 @@ public class TransportPanel extends HBox {
           vm.setGlobalInt(BridgeContract.G_CURRENT_STEP, -1L);
         });
 
-    transportButtons.getChildren().addAll(playBtn, stopBtn);
+    transportButtons.getChildren().addAll(playBtn, recBtn, stopBtn);
 
     // Tempo Control
     VBox tempoBox = new VBox(2);

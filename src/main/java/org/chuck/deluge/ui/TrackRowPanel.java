@@ -72,26 +72,45 @@ public class TrackRowPanel extends HBox {
         e -> {
           double delta = -e.getY() / 100.0;
           EditMode currentMode = modeSupplier.get();
+          
+          boolean liveRec = bridge.isRecording() && bridge.getVm().getGlobalInt(BridgeContract.G_PLAY) == 1;
+          int targetStep = -1;
+          if (liveRec) {
+            targetStep = (int) bridge.getVm().getGlobalInt(BridgeContract.G_CURRENT_STEP);
+          }
 
           switch (currentMode) {
             case LEVEL:
-              double level = bridge.getTrackLevel(rowIndex) + delta;
-              bridge.setTrackLevel(rowIndex, level);
-              break;
-            case PAN:
-              // For now, no global track pan, but we can implement it here.
+              if (liveRec && targetStep >= 0) {
+                 double v = bridge.getVelocity(rowIndex, targetStep) + delta;
+                 bridge.setVelocity(rowIndex, targetStep, v);
+              } else {
+                 double level = bridge.getTrackLevel(rowIndex) + delta;
+                 bridge.setTrackLevel(rowIndex, level);
+              }
               break;
             case FILTER:
-              double freq = bridge.getTrackFilterFreq(rowIndex) + delta;
-              bridge.setFilterFreq(rowIndex, freq);
+              if (liveRec && targetStep >= 0) {
+                 double f = bridge.getStepFilter(rowIndex, targetStep) + delta;
+                 bridge.setStepFilter(rowIndex, targetStep, f);
+              } else {
+                 double freq = bridge.getTrackFilterFreq(rowIndex) + delta;
+                 bridge.setFilterFreq(rowIndex, freq);
+              }
               break;
             case RESONANCE:
-              double res = bridge.getTrackFilterRes(rowIndex) + delta;
-              bridge.setFilterRes(rowIndex, res);
+              if (liveRec && targetStep >= 0) {
+                 double r = bridge.getStepRes(rowIndex, targetStep) + delta;
+                 bridge.setStepRes(rowIndex, targetStep, r);
+              } else {
+                 double res = bridge.getTrackFilterRes(rowIndex) + delta;
+                 bridge.setFilterRes(rowIndex, res);
+              }
               break;
             default:
               break;
           }
+          if (liveRec) bridge.syncActiveClipToLibrary(rowIndex);
         });
 
     settingsBtn = new Button("⚙");
