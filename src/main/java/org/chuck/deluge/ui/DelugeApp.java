@@ -44,6 +44,17 @@ public class DelugeApp extends Application {
         ".button { -fx-font-family: 'Courier New'; -fx-background-radius: 3; }" +
         ".combo-box { -fx-font-family: 'Courier New'; -fx-font-size: 10px; }";
     mainPanel.setStyle("-fx-font-family: 'Courier New';");
+
+    scene.addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, event -> {
+        if (event.isControlDown() && event.getCode() == javafx.scene.input.KeyCode.G) {
+            boolean current = bridge.isUseJavaEngine();
+            bridge.setUseJavaEngine(!current);
+            System.out.println("🔄 Toggling Engine Mode: " + (bridge.isUseJavaEngine() ? "JAVA DSL" : "CLASSIC CHUCK"));
+            loadEngine(true);
+            event.consume();
+        }
+    });
+
     primaryStage.setScene(scene);
 
     primaryStage.setOnCloseRequest(e -> shutdown());
@@ -102,6 +113,13 @@ public class DelugeApp extends Application {
     bridge.register(vm);
     vm.setGlobalInt(BridgeContract.G_PLAY, 0L); // Start stopped
 
+    if (bridge.isUseJavaEngine()) {
+      System.out.println("🚀 Starting Native Java DSL Engine...");
+      vm.spork((Runnable) new org.chuck.deluge.engine.DelugeEngineDSL());
+      return;
+    }
+
+    System.out.println("🎸 Starting Classic ChucK Engine...");
     try (InputStream is = DelugeApp.class.getResourceAsStream(DEFAULT_ENGINE)) {
       if (is != null) {
         String code = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);

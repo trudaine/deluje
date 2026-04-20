@@ -60,6 +60,8 @@ public final class BridgeContract {
   public static final String G_DELAY_FB = "g_delay_fb";
   public static final String G_REVERB_ROOM = "g_reverb_room";
   public static final String G_REVERB_DAMP = "g_reverb_damp";
+  public static final String G_STUTTER_ON = "g_stutter_on";
+  public static final String G_STUTTER_DIV = "g_stutter_div";
   public static final String G_SCALE = "g_scale";
   public static final String G_ROOT_KEY = "g_root_key";
 
@@ -68,6 +70,10 @@ public final class BridgeContract {
   public static final String G_FM_AMOUNT = "g_fm_amount"; // float[TRACKS]
   public static final String G_SIDECHAIN_AMOUNT = "g_sidechain_amount"; // float 0.0..1.0
   public static final String G_MASTER_COMP = "g_master_comp";
+  public static final String G_DELAY_IN = "g_delay_in";
+  public static final String G_REVERB_IN = "g_reverb_in";
+  public static final String G_MOD_IN = "g_mod_in";
+  public static final String G_SYNTH_BUS = "g_synth_bus";
 
   // Arpeggiator (v1.6+)
   public static final String G_ARP_ON = "g_arp_on"; // int[TRACKS] 0/1
@@ -76,6 +82,8 @@ public final class BridgeContract {
   public static final String G_ARP_OCTAVE = "g_arp_octave"; // int[TRACKS] 1-4
 
   // Events
+  public static final String E_TICK = "tick_event";
+  public static final String E_SIDECHAIN = "sidechain_event";
   public static final String E_MIDI_NOTE_ON = "midi_note_on";
   public static final String E_MIDI_NOTE_OFF = "midi_note_off";
 
@@ -119,6 +127,15 @@ public final class BridgeContract {
 
   private ChuckVM vm;
   private boolean recording = false;
+  private boolean useJavaEngine = false; // Default to classic .ck
+
+  public void setUseJavaEngine(boolean use) {
+    this.useJavaEngine = use;
+  }
+
+  public boolean isUseJavaEngine() {
+    return useJavaEngine;
+  }
   private final org.chuck.deluge.model.ClipLibrary clipLibrary;
   private final int[] activeClipSlots = new int[TRACKS];
 
