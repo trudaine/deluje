@@ -8,8 +8,6 @@ import org.chuck.core.ChuckVM;
  *
  * <p>Call {@link #register(ChuckVM)} before loading any .ck file. Re-call after {@link
  * ChuckVM#clear()} to re-bind the same array objects (their Java references remain valid).
- *
- * <p>All array sizes and names are the single source of truth for both Java and ChucK code.
  */
 public final class BridgeContract {
 
@@ -18,96 +16,53 @@ public final class BridgeContract {
   public static final int STEPS = 16;
   public static final int PATTERN_SIZE = TRACKS * STEPS; // 128
 
-  public static final int ENV_COUNT = 4; // ENV_0..ENV_3 (matches Deluge firmware)
-  public static final int ENV_PARAMS = 4; // attack, decay, sustain, release
-  public static final int LFO_COUNT = 4; // 2 per-voice + 2 global (matches Deluge firmware)
+  public static final int ENV_COUNT = 4;
+  public static final int ENV_PARAMS = 4;
+  public static final int LFO_COUNT = 4;
 
-  // ── global variable names (shared with engine.ck via global keyword) ────────
-
-  // Transport
+  // ── global variable names ──────────────────────────────────────────────────
   public static final String G_BPM = "g_bpm";
-  public static final String G_SWING = "g_swing"; // 0.0–1.0 (0.5 = no swing)
-  public static final String G_PLAY = "g_play"; // 0 = stop, 1 = play
-  public static final String G_CURRENT_STEP = "g_current_step"; // written by engine
+  public static final String G_SWING = "g_swing";
+  public static final String G_PLAY = "g_play";
+  public static final String G_CURRENT_STEP = "g_current_step";
 
-  // Grid pattern: int[TRACKS * STEPS], row-major (row*STEPS + col)
   public static final String G_PATTERN = "g_pattern";
-
-  // Per-step velocity: float[TRACKS * STEPS] 0.0–1.0
   public static final String G_VELOCITY = "g_velocity";
-
-  // Per-step gate: float[TRACKS * STEPS] 0.0–1.0 (fraction of step duration)
   public static final String G_GATE = "g_gate";
-
-  // Per-step pitch offset in semitones: int[TRACKS * STEPS]
   public static final String G_PITCH = "g_pitch";
-
-  // Per-step probability: float[TRACKS * STEPS] 0.0–1.0
   public static final String G_PROBABILITY = "g_probability";
-
-  // Per-step filter cutoff offset: float[TRACKS * STEPS] -1.0..1.0
   public static final String G_STEP_FILTER = "g_step_filter";
   public static final String G_STEP_RES = "g_step_res";
   public static final String G_STEP_FILTER_MODE = "g_step_filter_mode";
-
-  // Per-step pan: float[TRACKS * STEPS] -1.0..1.0
   public static final String G_STEP_PAN = "g_step_pan";
-
-  // Per-step FX sends: float[TRACKS * STEPS] 0.0..1.0
   public static final String G_STEP_DELAY = "g_step_delay";
   public static final String G_STEP_REVERB = "g_step_reverb";
   public static final String G_STEP_MOD = "g_step_mod";
-
-  // Per-step sample range: float[TRACKS * STEPS] 0.0..1.0
   public static final String G_STEP_START = "g_step_start";
   public static final String G_STEP_END = "g_step_end";
-
-  // Per-track volume level: float[TRACKS] 0.0..1.0
   public static final String G_TRACK_LEVEL = "g_track_level";
-
-  // Per-track mute: int[TRACKS] 0 = active, 1 = muted
   public static final String G_MUTE = "g_mute";
 
-  // Master volume/pan
-  public static final String G_MASTER_VOL = "g_master_vol"; // float 0.0–1.0
-  public static final String G_MASTER_PAN = "g_master_pan"; // float -1.0..+1.0
+  public static final String G_MASTER_VOL = "g_master_vol";
+  public static final String G_MASTER_PAN = "g_master_pan";
 
-  // Filter per-track: float[TRACKS * 2] — pairs of (freq_norm, resonance)
   public static final String G_FILTER = "g_filter";
-  // Filter mode per-track: int[TRACKS] 0=LADDER_12 1=LADDER_24 2=SVF
   public static final String G_FILTER_MODE = "g_filter_mode";
-  // SVF morph per-track: float[TRACKS] 0=LP 0.5=BP 1=HP
   public static final String G_FILTER_MORPH = "g_filter_morph";
-
-  // Envelope parameters: float[ENV_COUNT * ENV_PARAMS] row-major (env*ENV_PARAMS + param)
-  // param order: 0=attack 1=decay 2=sustain 3=release — all in seconds (attack/decay/release)
-  // or 0.0–1.0 (sustain)
   public static final String G_ENV = "g_env";
-
-  // LFO rates: float[LFO_COUNT] in Hz; indices 0–1 = per-voice, 2–3 = global
   public static final String G_LFO_RATE = "g_lfo_rate";
-  // LFO waveform types: int[LFO_COUNT] 0=SINE 1=SAW 2=SQUARE 3=TRIANGLE 4=S&H 5=RNDWALK 6=WARBLER
   public static final String G_LFO_TYPE = "g_lfo_type";
-  // LFO depths for amplitude mod: float[LFO_COUNT] 0.0–1.0
   public static final String G_LFO_DEPTH = "g_lfo_depth";
-
-  // Delay send: float[TRACKS] per-track send amount 0.0–1.0
   public static final String G_DELAY_SEND = "g_delay_send";
-  // Reverb send: float[TRACKS] per-track send amount 0.0–1.0
   public static final String G_REVERB_SEND = "g_reverb_send";
-
-  // Global FX parameters (scalars)
-  public static final String G_DELAY_TIME = "g_delay_time"; // float seconds
-  public static final String G_DELAY_FB = "g_delay_fb"; // float 0.0–1.0
-  public static final String G_REVERB_ROOM = "g_reverb_room"; // float 0.0–1.0
+  public static final String G_DELAY_TIME = "g_delay_time";
+  public static final String G_DELAY_FB = "g_delay_fb";
+  public static final String G_REVERB_ROOM = "g_reverb_room";
   public static final String G_REVERB_DAMP = "g_reverb_damp";
+  public static final String G_SCALE = "g_scale";
+  public static final String G_ROOT_KEY = "g_root_key";
 
-  // Scale and Key
-  public static final String G_SCALE = "g_scale"; // 0=Major, 1=Minor, etc.
-  public static final String G_ROOT_KEY = "g_root_key"; // 0=C, 1=C#, etc.
-
-  // ── arrays (held in Java, shared via setGlobalObject) ──────────────────────
-
+  // ── arrays ─────────────────────────────────────────────────────────────────
   private final ChuckArray pattern;
   private final ChuckArray velocity;
   private final ChuckArray gate;
@@ -185,32 +140,28 @@ public final class BridgeContract {
     for (int t = 0; t < TRACKS; t++) {
       mute.setInt(t, 0L);
       trackLevel.setFloat(t, 0.7);
-      filter.setFloat(t * 2, 1.0); // lpf freq norm = max open
-      filter.setFloat(t * 2 + 1, 0.5); // resonance = moderate
-      filterMode.setInt(t, 0L); // LADDER_12
-      filterMorph.setFloat(t, 0.0); // LP
+      filter.setFloat(t * 2, 1.0);
+      filter.setFloat(t * 2 + 1, 0.5);
+      filterMode.setInt(t, 0L);
+      filterMorph.setFloat(t, 0.0);
       delaySend.setFloat(t, 0.0);
       reverbSend.setFloat(t, 0.15);
     }
-    // Envelope defaults: attack=10ms decay=100ms sustain=0.7 release=200ms
     for (int e = 0; e < ENV_COUNT; e++) {
       env.setFloat(e * ENV_PARAMS + 0, 0.01);
       env.setFloat(e * ENV_PARAMS + 1, 0.1);
       env.setFloat(e * ENV_PARAMS + 2, 0.7);
       env.setFloat(e * ENV_PARAMS + 3, 0.2);
     }
-    // LFO defaults
     for (int l = 0; l < LFO_COUNT; l++) {
-      lfoRate.setFloat(l, 1.0); // 1 Hz
-      lfoType.setInt(l, 0L); // SINE
+      lfoRate.setFloat(l, 1.0);
+      lfoType.setInt(l, 0L);
       lfoDepth.setFloat(l, 0.0);
     }
   }
 
-  /** Register (or re-register after vm.clear()) all globals into the VM. */
   public void register(ChuckVM vm) {
     this.vm = vm;
-    // Scalars
     if (!vm.isGlobalDouble(G_BPM)) vm.setGlobalFloat(G_BPM, 120.0);
     if (!vm.isGlobalDouble(G_SWING)) vm.setGlobalFloat(G_SWING, 0.5);
     if (!vm.isGlobalInt(G_PLAY)) vm.setGlobalInt(G_PLAY, 0L);
@@ -224,7 +175,6 @@ public final class BridgeContract {
     if (!vm.isGlobalInt(G_SCALE)) vm.setGlobalInt(G_SCALE, 0L);
     if (!vm.isGlobalInt(G_ROOT_KEY)) vm.setGlobalInt(G_ROOT_KEY, 0L);
 
-    // Arrays
     vm.setGlobalObject(G_PATTERN, pattern);
     vm.setGlobalObject(G_VELOCITY, velocity);
     vm.setGlobalObject(G_GATE, gate);
@@ -256,103 +206,7 @@ public final class BridgeContract {
     return vm;
   }
 
-  // ── accessors for direct Java mutation ─────────────────────────────────────
-
-  public double getVelocity(int track, int step) {
-    return velocity.getFloat(track * STEPS + step);
-  }
-
-  public double getGate(int track, int step) {
-    return gate.getFloat(track * STEPS + step);
-  }
-
-  public int getPitch(int track, int step) {
-    return (int) pitch.getInt(track * STEPS + step);
-  }
-
-  public double getStepProbability(int track, int step) {
-    return probability.getFloat(track * STEPS + step);
-  }
-
-  public double getStepFilter(int track, int step) {
-    return stepFilter.getFloat(track * STEPS + step);
-  }
-
-  public void setStepFilter(int track, int step, double val) {
-    stepFilter.setFloat(track * STEPS + step, (float) Math.max(-1.0, Math.min(1.0, val)));
-  }
-
-  public double getStepRes(int track, int step) {
-    return stepRes.getFloat(track * STEPS + step);
-  }
-
-  public void setStepRes(int track, int step, double val) {
-    stepRes.setFloat(track * STEPS + step, (float) Math.max(-1.0, Math.min(1.0, val)));
-  }
-
-  public int getStepFilterMode(int track, int step) {
-    return (int) stepFilterMode.getInt(track * STEPS + step);
-  }
-
-  public void setStepFilterMode(int track, int step, int mode) {
-    stepFilterMode.setInt(track * STEPS + step, (long) mode);
-  }
-
-  public double getStepPan(int track, int step) {
-    return stepPan.getFloat(track * STEPS + step);
-  }
-
-  public void setStepPan(int track, int step, double val) {
-    stepPan.setFloat(track * STEPS + step, (float) Math.max(-1.0, Math.min(1.0, val)));
-  }
-
-  public double getStepDelay(int track, int step) {
-    return stepDelay.getFloat(track * STEPS + step);
-  }
-
-  public void setStepDelay(int track, int step, double val) {
-    stepDelay.setFloat(track * STEPS + step, (float) Math.max(0.0, Math.min(1.0, val)));
-  }
-
-  public double getStepReverb(int track, int step) {
-    return stepReverb.getFloat(track * STEPS + step);
-  }
-
-  public void setStepReverb(int track, int step, double val) {
-    stepReverb.setFloat(track * STEPS + step, (float) Math.max(0.0, Math.min(1.0, val)));
-  }
-
-  public double getStepMod(int track, int step) {
-    return stepMod.getFloat(track * STEPS + step);
-  }
-
-  public void setStepMod(int track, int step, double val) {
-    stepMod.setFloat(track * STEPS + step, (float) Math.max(0.0, Math.min(1.0, val)));
-  }
-
-  public double getStepStart(int track, int step) {
-    return stepStart.getFloat(track * STEPS + step);
-  }
-
-  public void setStepStart(int track, int step, double val) {
-    stepStart.setFloat(track * STEPS + step, (float) Math.max(0.0, Math.min(1.0, val)));
-  }
-
-  public double getStepEnd(int track, int step) {
-    return stepEnd.getFloat(track * STEPS + step);
-  }
-
-  public void setStepEnd(int track, int step, double val) {
-    stepEnd.setFloat(track * STEPS + step, (float) Math.max(0.0, Math.min(1.0, val)));
-  }
-
-  public double getTrackFilterFreq(int track) {
-    return filter.getFloat(track * 2);
-  }
-
-  public double getTrackFilterRes(int track) {
-    return filter.getFloat(track * 2 + 1);
-  }
+  // ── Getters/Setters ────────────────────────────────────────────────────────
 
   public void setStep(int track, int step, boolean active) {
     pattern.setInt(track * STEPS + step, active ? 1L : 0L);
@@ -362,45 +216,140 @@ public final class BridgeContract {
     return pattern.getInt(track * STEPS + step) > 0;
   }
 
-  public void setVelocity(int track, int step, double v) {
-    velocity.setFloat(track * STEPS + step, Math.max(0.0, Math.min(1.0, v)));
+  public void setVelocity(int track, int step, double val) {
+    velocity.setFloat(track * STEPS + step, (float) Math.max(0, Math.min(1, val)));
   }
 
-  public void setGate(int track, int step, double g) {
-    gate.setFloat(track * STEPS + step, Math.max(0.0, Math.min(1.0, g)));
+  public double getVelocity(int track, int step) {
+    return velocity.getFloat(track * STEPS + step);
   }
 
-  public void setPitch(int track, int step, int semitones) {
-    pitch.setInt(track * STEPS + step, (long) semitones);
+  public void setGate(int track, int step, double val) {
+    gate.setFloat(track * STEPS + step, (float) Math.max(0, Math.min(1, val)));
   }
 
-  public void setStepProbability(int track, int step, double p) {
-    probability.setFloat(track * STEPS + step, Math.max(0.0, Math.min(1.0, p)));
+  public double getGate(int track, int step) {
+    return gate.getFloat(track * STEPS + step);
   }
 
-  public void setMute(int track, boolean muted) {
-    mute.setInt(track, muted ? 1L : 0L);
+  public void setPitch(int track, int step, int p) {
+    pitch.setInt(track * STEPS + step, (long) p);
   }
 
-  public boolean getMute(int track) {
-    return mute.getInt(track) > 0;
+  public int getPitch(int track, int step) {
+    return (int) pitch.getInt(track * STEPS + step);
+  }
+
+  public void setStepProbability(int track, int step, double val) {
+    probability.setFloat(track * STEPS + step, (float) Math.max(0, Math.min(1, val)));
+  }
+
+  public double getStepProbability(int track, int step) {
+    return probability.getFloat(track * STEPS + step);
+  }
+
+  public void setStepFilter(int track, int step, double val) {
+    stepFilter.setFloat(track * STEPS + step, (float) Math.max(-1, Math.min(1, val)));
+  }
+
+  public double getStepFilter(int track, int step) {
+    return stepFilter.getFloat(track * STEPS + step);
+  }
+
+  public void setStepRes(int track, int step, double val) {
+    stepRes.setFloat(track * STEPS + step, (float) Math.max(-1, Math.min(1, val)));
+  }
+
+  public double getStepRes(int track, int step) {
+    return stepRes.getFloat(track * STEPS + step);
+  }
+
+  public void setStepFilterMode(int track, int step, int mode) {
+    stepFilterMode.setInt(track * STEPS + step, (long) mode);
+  }
+
+  public int getStepFilterMode(int track, int step) {
+    return (int) stepFilterMode.getInt(track * STEPS + step);
+  }
+
+  public void setStepPan(int track, int step, double val) {
+    stepPan.setFloat(track * STEPS + step, (float) Math.max(-1, Math.min(1, val)));
+  }
+
+  public double getStepPan(int track, int step) {
+    return stepPan.getFloat(track * STEPS + step);
+  }
+
+  public void setStepDelay(int track, int step, double val) {
+    stepDelay.setFloat(track * STEPS + step, (float) Math.max(0, Math.min(1, val)));
+  }
+
+  public double getStepDelay(int track, int step) {
+    return stepDelay.getFloat(track * STEPS + step);
+  }
+
+  public void setStepReverb(int track, int step, double val) {
+    stepReverb.setFloat(track * STEPS + step, (float) Math.max(0, Math.min(1, val)));
+  }
+
+  public double getStepReverb(int track, int step) {
+    return stepReverb.getFloat(track * STEPS + step);
+  }
+
+  public void setStepMod(int track, int step, double val) {
+    stepMod.setFloat(track * STEPS + step, (float) Math.max(0, Math.min(1, val)));
+  }
+
+  public double getStepMod(int track, int step) {
+    return stepMod.getFloat(track * STEPS + step);
+  }
+
+  public void setStepStart(int track, int step, double val) {
+    stepStart.setFloat(track * STEPS + step, (float) Math.max(0, Math.min(1, val)));
+  }
+
+  public double getStepStart(int track, int step) {
+    return stepStart.getFloat(track * STEPS + step);
+  }
+
+  public void setStepEnd(int track, int step, double val) {
+    stepEnd.setFloat(track * STEPS + step, (float) Math.max(0, Math.min(1, val)));
+  }
+
+  public double getStepEnd(int track, int step) {
+    return stepEnd.getFloat(track * STEPS + step);
+  }
+
+  public void setTrackLevel(int track, double val) {
+    trackLevel.setFloat(track, (float) Math.max(0, Math.min(1, val)));
   }
 
   public double getTrackLevel(int track) {
     return trackLevel.getFloat(track);
   }
 
-  public void setTrackLevel(int track, double level) {
-    trackLevel.setFloat(track, (float) Math.max(0.0, Math.min(1.0, level)));
+  public void setMute(int track, boolean val) {
+    mute.setInt(track, val ? 1L : 0L);
   }
 
-  /** Set LPF frequency as normalised 0.0–1.0 (maps to 20–20000 Hz in engine). */
-  public void setFilterFreq(int track, double normFreq) {
-    filter.setFloat(track * 2, Math.max(0.0, Math.min(1.0, normFreq)));
+  public boolean getMute(int track) {
+    return mute.getInt(track) > 0;
   }
 
-  public void setFilterRes(int track, double res) {
-    filter.setFloat(track * 2 + 1, Math.max(0.0, Math.min(1.0, res)));
+  public void setFilterFreq(int track, double val) {
+    filter.setFloat(track * 2, (float) Math.max(0, Math.min(1, val)));
+  }
+
+  public double getTrackFilterFreq(int track) {
+    return filter.getFloat(track * 2);
+  }
+
+  public void setFilterRes(int track, double val) {
+    filter.setFloat(track * 2 + 1, (float) Math.max(0, Math.min(1, val)));
+  }
+
+  public double getTrackFilterRes(int track) {
+    return filter.getFloat(track * 2 + 1);
   }
 
   public void setFilterMode(int track, int mode) {
@@ -408,21 +357,21 @@ public final class BridgeContract {
   }
 
   public void setFilterMorph(int track, double morph) {
-    filterMorph.setFloat(track, Math.max(0.0, Math.min(1.0, morph)));
+    filterMorph.setFloat(track, (float) Math.max(0, Math.min(1, morph)));
   }
 
-  public void setEnv(int envIndex, double attack, double decay, double sustain, double release) {
-    int base = envIndex * ENV_PARAMS;
-    env.setFloat(base + 0, Math.max(0.001, attack));
-    env.setFloat(base + 1, Math.max(0.001, decay));
-    env.setFloat(base + 2, Math.max(0.0, Math.min(1.0, sustain)));
-    env.setFloat(base + 3, Math.max(0.001, release));
+  public void setEnv(int envIndex, double a, double d, double s, double r) {
+    int b = envIndex * ENV_PARAMS;
+    env.setFloat(b + 0, (float) Math.max(0.001, a));
+    env.setFloat(b + 1, (float) Math.max(0.001, d));
+    env.setFloat(b + 2, (float) Math.max(0, Math.min(1, s)));
+    env.setFloat(b + 3, (float) Math.max(0.001, r));
   }
 
   public void setLfo(int lfoIndex, double rateHz, int waveType, double depth) {
-    lfoRate.setFloat(lfoIndex, Math.max(0.01, rateHz));
+    lfoRate.setFloat(lfoIndex, (float) Math.max(0.01, rateHz));
     lfoType.setInt(lfoIndex, (long) waveType);
-    lfoDepth.setFloat(lfoIndex, Math.max(0.0, Math.min(1.0, depth)));
+    lfoDepth.setFloat(lfoIndex, (float) Math.max(0, Math.min(1, depth)));
   }
 
   public void clearPattern() {
@@ -443,7 +392,16 @@ public final class BridgeContract {
     }
   }
 
-  // ── raw array access for SequencerPanel compatibility ──────────────────────
+  // compat for UI
+  private org.chuck.deluge.ui.MatrixPanel matrixPanel;
+
+  public void setMatrixPanel(org.chuck.deluge.ui.MatrixPanel m) {
+    this.matrixPanel = m;
+  }
+
+  public org.chuck.deluge.ui.MatrixPanel getMatrixPanel() {
+    return matrixPanel;
+  }
 
   public ChuckArray patternArray() {
     return pattern;

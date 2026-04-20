@@ -58,9 +58,11 @@ fun dur stepDuration(int step) {
 
 // ── helper: monitor sample end ───────────────────────────────────────────
 fun void monitor_sample_end(SndBuf buf, int end_pos) {
+    if (buf == null) return;
     while (buf.pos() < end_pos && buf.rate() > 0) {
         5::ms => now;
     }
+    if (buf == null) return;
     0 => buf.rate(); // Stop playback
     buf.samples() => buf.pos(); // Move to end
 }
