@@ -32,9 +32,9 @@ class BridgeContractTest {
     assertEquals(128, BridgeContract.PATTERN_SIZE);
     assertEquals(8, BridgeContract.TRACKS);
     assertEquals(16, BridgeContract.STEPS);
-    assertEquals(4, BridgeContract.ENV_COUNT);
+    assertEquals(8, BridgeContract.ENV_COUNT);
     assertEquals(4, BridgeContract.ENV_PARAMS);
-    assertEquals(4, BridgeContract.LFO_COUNT);
+    assertEquals(8, BridgeContract.LFO_COUNT);
   }
 
   @Test
