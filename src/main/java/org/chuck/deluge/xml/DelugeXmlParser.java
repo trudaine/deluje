@@ -1,6 +1,8 @@
 package org.chuck.deluge.xml;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.chuck.deluge.model.*;
@@ -8,17 +10,20 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
-/** Parses Deluge XML files (.XML) into our Java Track/Project Models. */
+/** Parses Deluge XML files (.XML) into our Java Track/Project Models. Supports Files and Resource Streams. */
 public class DelugeXmlParser {
 
   public static KitTrackModel parseKit(File xmlFile) throws Exception {
-    Document doc = parseXmlFile(xmlFile);
+    try (FileInputStream fis = new FileInputStream(xmlFile)) {
+      return parseKit(fis, xmlFile.getName());
+    }
+  }
+
+  public static KitTrackModel parseKit(InputStream is, String name) throws Exception {
+    Document doc = parseXmlStream(is);
     Element root = doc.getDocumentElement();
+    KitTrackModel kit = new KitTrackModel(name.replace(".XML", ""));
 
-    // Kit XMLs often have <kit> or <sound> as root
-    KitTrackModel kit = new KitTrackModel(xmlFile.getName().replace(".XML", ""));
-
-    // Attempt basic parsing
     if (root.hasAttribute("name")) {
       kit.setName(root.getAttribute("name"));
     }
@@ -30,15 +35,19 @@ public class DelugeXmlParser {
         kit.setSamplePath(sampleNode.getAttribute("fileName"));
       }
     }
-
     return kit;
   }
 
   public static SynthTrackModel parseSynth(File xmlFile) throws Exception {
-    Document doc = parseXmlFile(xmlFile);
-    Element root = doc.getDocumentElement();
+    try (FileInputStream fis = new FileInputStream(xmlFile)) {
+      return parseSynth(fis, xmlFile.getName());
+    }
+  }
 
-    SynthTrackModel synth = new SynthTrackModel(xmlFile.getName().replace(".XML", ""));
+  public static SynthTrackModel parseSynth(InputStream is, String name) throws Exception {
+    Document doc = parseXmlStream(is);
+    Element root = doc.getDocumentElement();
+    SynthTrackModel synth = new SynthTrackModel(name.replace(".XML", ""));
 
     NodeList osc1Nodes = doc.getElementsByTagName("osc1");
     if (osc1Nodes.getLength() > 0) {
@@ -48,22 +57,18 @@ public class DelugeXmlParser {
       }
     }
 
-    // Map Envelope 0-3
     NodeList envNodes = doc.getElementsByTagName("envelope");
     for (int i = 0; i < Math.min(4, envNodes.getLength()); i++) {
       Element envNode = (Element) envNodes.item(i);
-      EnvelopeModel env =
-          new EnvelopeModel(
-              DelugeHexMapper.hexToFloat(envNode.getAttribute("attack")),
-              DelugeHexMapper.hexToFloat(envNode.getAttribute("decay")),
-              DelugeHexMapper.hexToFloat(envNode.getAttribute("sustain")),
-              DelugeHexMapper.hexToFloat(envNode.getAttribute("release")),
-              "NONE",
-              0.0f);
+      EnvelopeModel env = new EnvelopeModel(
+          DelugeHexMapper.hexToFloat(envNode.getAttribute("attack")),
+          DelugeHexMapper.hexToFloat(envNode.getAttribute("decay")),
+          DelugeHexMapper.hexToFloat(envNode.getAttribute("sustain")),
+          DelugeHexMapper.hexToFloat(envNode.getAttribute("release")),
+          "NONE", 0.0f);
       synth.setEnv(i, env);
     }
 
-    // Map Patch Cables
     NodeList patchNodes = doc.getElementsByTagName("patchCables");
     if (patchNodes.getLength() > 0) {
       NodeList cables = ((Element) patchNodes.item(0)).getElementsByTagName("patchCable");
@@ -75,14 +80,12 @@ public class DelugeXmlParser {
         synth.addPatchCable(new PatchCable(source, dest, amount));
       }
     }
-
     return synth;
   }
 
   public static ProjectModel parseSong(File xmlFile) throws Exception {
-    Document doc = parseXmlFile(xmlFile);
+    Document doc = parseXmlStream(new FileInputStream(xmlFile));
     Element root = doc.getDocumentElement();
-
     ProjectModel project = new ProjectModel();
     if (root.hasAttribute("tempo")) {
       project.setBpm(Float.parseFloat(root.getAttribute("tempo")));
@@ -93,9 +96,9 @@ public class DelugeXmlParser {
     return project;
   }
 
-  private static Document parseXmlFile(File xmlFile) throws Exception {
+  private static Document parseXmlStream(InputStream is) throws Exception {
     DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
     DocumentBuilder builder = factory.newDocumentBuilder();
-    return builder.parse(xmlFile);
+    return builder.parse(is);
   }
 }
