@@ -47,7 +47,7 @@ public class DelugeMainPanel extends BorderPane {
     setPadding(new Insets(10));
 
     // Initialize sub-panels
-    transportPanel = new TransportPanel(vm, bridge);
+    transportPanel = new TransportPanel(vm, bridge, midiRouter);
     matrixPanel = new MatrixPanel(vm, bridge);
     songPanel = new SongModePanel(vm, bridge, 8, 8, matrixPanel::refreshAll); 
     arrangerPanel = new ArrangerPanel(vm, bridge);
