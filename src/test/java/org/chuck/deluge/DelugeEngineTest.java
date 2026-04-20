@@ -67,7 +67,8 @@ public class DelugeEngineTest {
     // But we can check if logical time advanced and no errors occurred
     runTriggerTest();
     
-    assertEquals(1, vm.getActiveShredCount(), "Java Engine should be running");
+    // Note: Java Engine sporks internal shreds (clock, kit, synth, fx, master, sidechain)
+    assertTrue(vm.getActiveShredCount() >= 5, "Java Engine should have multiple active shreds");
   }
 
   private void runTriggerTest() {
