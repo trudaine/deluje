@@ -75,6 +75,10 @@ public class ClipCell extends Button {
     return patternId;
   }
 
+  public int getSlotIndex() {
+    return slotIndex;
+  }
+
   private void updateStyle() {
     String baseColor = "#333333";
     String textColor = "#888888";

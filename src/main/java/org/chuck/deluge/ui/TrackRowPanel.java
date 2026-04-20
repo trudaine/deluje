@@ -145,4 +145,17 @@ public class TrackRowPanel extends HBox {
       cells[col].setPlayheadActive(active);
     }
   }
+
+  public void refreshAll() {
+    for (StepCellButton cell : cells) {
+      cell.updateStyle();
+    }
+    updateLabelStyle();
+  }
+
+  private void updateLabelStyle() {
+    boolean isMuted = bridge.getMute(rowIndex);
+    trackLabel.setTextFill(
+        isMuted ? javafx.scene.paint.Color.RED : javafx.scene.paint.Color.web("#cccccc"));
+  }
 }

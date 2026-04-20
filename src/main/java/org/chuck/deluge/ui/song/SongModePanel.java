@@ -21,7 +21,7 @@ public class SongModePanel extends VBox {
   private final ClipCell[][] clipGrid; // [tracks][slots]
   private final LaunchQuantController quantController;
 
-  public SongModePanel(ChuckVM vm, BridgeContract bridge, int numTracks, int numSlots) {
+  public SongModePanel(ChuckVM vm, BridgeContract bridge, int numTracks, int numSlots, Runnable onClipLaunched) {
     this.vm = vm;
     this.bridge = bridge;
     this.clipGrid = new ClipCell[numTracks][numSlots];
@@ -58,12 +58,8 @@ public class SongModePanel extends VBox {
         ClipCell cell = new ClipCell(t, s);
 
         // Mock data: populate the first cell of the first few tracks
-        if (s == 0 && t < 4) {
+        if (s == 0) {
           cell.setFilled("PAT_A");
-        }
-        // Mock data: populate a section B
-        if (s == 1 && (t == 0 || t == 1)) {
-          cell.setFilled("PAT_B");
         }
 
         clipGrid[t][s] = cell;
@@ -74,7 +70,7 @@ public class SongModePanel extends VBox {
     getChildren().add(grid);
 
     // 3. Initialize the Quantization Controller
-    quantController = new LaunchQuantController(vm, bridge, clipGrid, numTracks, numSlots);
+    quantController = new LaunchQuantController(vm, bridge, clipGrid, numTracks, numSlots, onClipLaunched);
   }
 
   /** Arms an entire column (Section) of clips to be launched. */

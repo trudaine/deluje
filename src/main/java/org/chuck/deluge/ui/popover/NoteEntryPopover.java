@@ -116,6 +116,7 @@ public class NoteEntryPopover extends Popup {
             if (btn.isSelected()) {
               int midi = (octave + 1) * 12 + noteIdx;
               bridge.setPitch(track, step, midi - 60); // Offset from middle C
+              bridge.syncActiveClipToLibrary(track);
             }
           });
       noteButtons[i] = btn;
