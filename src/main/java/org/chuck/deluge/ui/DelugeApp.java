@@ -1,6 +1,8 @@
 package org.chuck.deluge.ui;
 
 import java.io.InputStream;
+import java.lang.foreign.MemorySegment;
+import java.lang.foreign.ValueLayout;
 import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.scene.paint.Color;
@@ -8,6 +10,10 @@ import javafx.stage.Stage;
 import org.chuck.audio.ChuckAudio;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
+import org.chuck.deluge.midi.MidiInputRouter;
+import org.chuck.midi.MidiMsg;
+import org.rtmidijava.RtMidiFactory;
+import org.rtmidijava.RtMidiIn;
 
 /** Main entry point for the Deluge Emulator Phase 3 UI. Replaces the legacy SequencerApp. */
 public class DelugeApp extends Application {
@@ -16,16 +22,18 @@ public class DelugeApp extends Application {
   private ChuckVM vm;
   private ChuckAudio audio;
   private BridgeContract bridge;
+  private MidiInputRouter midiRouter;
   private DelugeMainPanel mainPanel;
   private boolean engineLoaded = false;
 
   @Override
   public void start(Stage primaryStage) {
     initVM();
+    initMIDI();
 
     primaryStage.setTitle("ChucK-Java Deluge Emulator");
 
-    mainPanel = new DelugeMainPanel(vm, bridge);
+    mainPanel = new DelugeMainPanel(vm, bridge, midiRouter);
 
     Scene scene = new Scene(mainPanel, 1200, 800);
     // Apply a dark theme base
@@ -56,6 +64,29 @@ public class DelugeApp extends Application {
     audio = new ChuckAudio(vm, 1024, 2, 44100);
     vm.setAudio(audio);
     audio.start();
+  }
+
+  private void initMIDI() {
+    midiRouter = new MidiInputRouter(vm, bridge);
+    try {
+      RtMidiIn midiIn = RtMidiFactory.createDefaultIn();
+      int ports = midiIn.getPortCount();
+      for (int i = 0; i < ports; i++) {
+        midiIn.openPort(i, "Deluge-App-Input-" + i);
+        System.out.println("[DelugeApp] Opened MIDI port: " + midiIn.getPortName(i));
+      }
+      midiIn.setFastCallback(
+          (timestamp, message) -> {
+            byte[] raw = message.toArray(ValueLayout.JAVA_BYTE);
+            MidiMsg msg = new MidiMsg();
+            msg.when = timestamp;
+            msg.setData(raw);
+            midiRouter.handleMidiMessage(msg);
+          });
+      System.out.println("[DelugeApp] MIDI initialized with " + ports + " ports.");
+    } catch (Exception e) {
+      System.err.println("[DelugeApp] MIDI failed: " + e.getMessage());
+    }
   }
 
   private synchronized void loadEngine(boolean force) {

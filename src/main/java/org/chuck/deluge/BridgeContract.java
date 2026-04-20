@@ -62,6 +62,16 @@ public final class BridgeContract {
   public static final String G_SCALE = "g_scale";
   public static final String G_ROOT_KEY = "g_root_key";
 
+  // Advanced DSP (v1.2+)
+  public static final String G_FM_RATIO = "g_fm_ratio"; // float (e.g. 0.5, 1.0, 2.0)
+  public static final String G_FM_AMOUNT = "g_fm_amount"; // float 0.0..1.0
+  public static final String G_SIDECHAIN_AMOUNT = "g_sidechain_amount"; // float 0.0..1.0
+  public static final String G_MASTER_COMP = "g_master_comp"; // float threshold 0.0..1.0
+
+  // Events
+  public static final String E_MIDI_NOTE_ON = "midi_note_on";
+  public static final String E_MIDI_NOTE_OFF = "midi_note_off";
+
   // ── arrays ─────────────────────────────────────────────────────────────────
   private final ChuckArray pattern;
   private final ChuckArray velocity;
@@ -88,6 +98,10 @@ public final class BridgeContract {
   private final ChuckArray lfoDepth;
   private final ChuckArray delaySend;
   private final ChuckArray reverbSend;
+
+  private final org.chuck.core.ChuckEvent midiNoteOn;
+  private final org.chuck.core.ChuckEvent midiNoteOff;
+
   private ChuckVM vm;
 
   public BridgeContract() {
@@ -116,6 +130,9 @@ public final class BridgeContract {
     lfoDepth = new ChuckArray("float", LFO_COUNT);
     delaySend = new ChuckArray("float", TRACKS);
     reverbSend = new ChuckArray("float", TRACKS);
+
+    midiNoteOn = new org.chuck.core.ChuckEvent();
+    midiNoteOff = new org.chuck.core.ChuckEvent();
 
     initDefaults();
   }
@@ -175,6 +192,12 @@ public final class BridgeContract {
     if (!vm.isGlobalInt(G_SCALE)) vm.setGlobalInt(G_SCALE, 0L);
     if (!vm.isGlobalInt(G_ROOT_KEY)) vm.setGlobalInt(G_ROOT_KEY, 0L);
 
+    // Advanced DSP
+    if (!vm.isGlobalDouble(G_FM_RATIO)) vm.setGlobalFloat(G_FM_RATIO, 1.0);
+    if (!vm.isGlobalDouble(G_FM_AMOUNT)) vm.setGlobalFloat(G_FM_AMOUNT, 0.0);
+    if (!vm.isGlobalDouble(G_SIDECHAIN_AMOUNT)) vm.setGlobalFloat(G_SIDECHAIN_AMOUNT, 0.5);
+    if (!vm.isGlobalDouble(G_MASTER_COMP)) vm.setGlobalFloat(G_MASTER_COMP, 0.1); // subtle by default
+
     vm.setGlobalObject(G_PATTERN, pattern);
     vm.setGlobalObject(G_VELOCITY, velocity);
     vm.setGlobalObject(G_GATE, gate);
@@ -200,10 +223,21 @@ public final class BridgeContract {
     vm.setGlobalObject(G_LFO_DEPTH, lfoDepth);
     vm.setGlobalObject(G_DELAY_SEND, delaySend);
     vm.setGlobalObject(G_REVERB_SEND, reverbSend);
+
+    vm.setGlobalObject(E_MIDI_NOTE_ON, midiNoteOn);
+    vm.setGlobalObject(E_MIDI_NOTE_OFF, midiNoteOff);
   }
 
   public ChuckVM getVm() {
     return vm;
+  }
+
+  public void triggerMidiNoteOn() {
+    midiNoteOn.broadcast(vm);
+  }
+
+  public void triggerMidiNoteOff() {
+    midiNoteOff.broadcast(vm);
   }
 
   // ── Getters/Setters ────────────────────────────────────────────────────────

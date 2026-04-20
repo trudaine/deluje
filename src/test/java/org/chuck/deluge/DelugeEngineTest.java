@@ -5,11 +5,13 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import org.chuck.core.ChuckConfig;
 import org.chuck.core.ChuckVM;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 /** E2E Integration Test for the Deluge Engine. */
 public class DelugeEngineTest {
@@ -44,6 +46,7 @@ public class DelugeEngineTest {
   }
 
   @Test
+  @Timeout(value = 15, unit = TimeUnit.SECONDS)
   void testEngineKitTriggerOnCellSelection() throws Exception {
     File f = findEngineFile();
     assertNotNull(f, "Engine script not found");
@@ -57,9 +60,12 @@ public class DelugeEngineTest {
 
     // Select a cell on Track 0, Step 0
     bridge.setStep(0, 0, true);
+    bridge.setTrackLevel(0, 1.0);
 
-    // Advance time by 2 seconds to allow the engine to process
-    vm.advanceTime(44100 * 2);
+    // Advance time by 2 seconds in chunks
+    for (int i = 0; i < 20; i++) {
+        vm.advanceTime(4410); 
+    }
 
     // Verify trigger in logs
     boolean triggerFound = logs.stream().anyMatch(l -> l.contains("KIT trigger track: 0 step: 0"));

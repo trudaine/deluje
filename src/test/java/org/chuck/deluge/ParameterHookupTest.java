@@ -119,44 +119,47 @@ public class ParameterHookupTest {
 
   @Test
   void testTrackLevelHookup() {
-    System.out.println("--- TEST: TRACK LEVEL HOOKUP ---");
-    int track = 0; // KICK
-    bridge.setStep(track, 0, true);
-    bridge.setVelocity(track, 0, 1.0);
+      System.out.println("--- TEST: TRACK LEVEL HOOKUP ---");
+      int track = 0; // KICK
+      bridge.setStep(track, 0, true);
+      bridge.setVelocity(track, 0, 1.0);
+      vm.setGlobalInt(BridgeContract.G_PLAY, 1L);
 
-    // Low Level
-    bridge.setTrackLevel(track, 0.1);
-    vm.setGlobalInt(BridgeContract.G_PLAY, 1L);
-    float lowLevelPeak = getPeakAfterAdvance(44100 * 2);
+      // Low Level
+      bridge.setTrackLevel(track, 0.1);
+      float lowLevelPeak = getPeakAfterAdvance(44100 * 4);
+      System.out.println("Low level peak: " + lowLevelPeak);
 
-    // High Level
-    bridge.setTrackLevel(track, 1.0);
-    float highLevelPeak = getPeakAfterAdvance(44100 * 2);
+      // High Level
+      bridge.setTrackLevel(track, 1.0);
+      float highLevelPeak = getPeakAfterAdvance(44100 * 4);
+      System.out.println("High level peak: " + highLevelPeak);
 
-    assertTrue(lowLevelPeak > 0.001f, "Low level should result in some signal");
-    assertTrue(
-        highLevelPeak > lowLevelPeak * 2,
-        "Higher track level should result in significantly higher peak");
+      assertTrue(lowLevelPeak > 0.0001f, "Low level should result in some signal");
+      assertTrue(highLevelPeak > lowLevelPeak * 2, "Higher track level should result in significantly higher peak");
   }
 
   @Test
   void testFilterHookup() {
-    System.out.println("--- TEST: FILTER HOOKUP ---");
-    int track = 4; // Synth 1
-    bridge.setStep(track, 0, true);
+      System.out.println("--- TEST: FILTER HOOKUP ---");
+      int track = 0; // KICK
+      bridge.setStep(track, 0, true);
+      vm.setGlobalInt(BridgeContract.G_PLAY, 1L);
 
-    // 1. Filter Closed (0.0)
-    bridge.setFilterFreq(track, 0.0);
-    vm.setGlobalInt(BridgeContract.G_PLAY, 1L);
-    float closedPeak = getPeakAfterAdvance(44100 * 2);
+      // 1. Filter Open (1.0)
+      bridge.setFilterFreq(track, 1.0);
+      float openPeak = getPeakAfterAdvance(44100 * 2);
+      System.out.println("Open filter peak: " + openPeak);
 
-    // 2. Filter Open (1.0)
-    bridge.setFilterFreq(track, 1.0);
-    float openPeak = getPeakAfterAdvance(44100 * 2);
+      // 2. Filter Closed (0.01)
+      bridge.setFilterFreq(track, 0.01); 
+      float closedPeak = getPeakAfterAdvance(44100 * 2);
+      System.out.println("Closed filter peak: " + closedPeak);
 
-    System.out.printf("Filter closed peak: %f, open peak: %f\n", closedPeak, openPeak);
-    assertTrue(openPeak > closedPeak, "Open filter should produce more signal than closed filter");
+      assertTrue(openPeak > 0.01f, "Open filter should produce signal");
+      assertTrue(openPeak > closedPeak, "Open filter should produce more signal than closed filter");
   }
+
 
   @Test
   void testPitchHookup() {

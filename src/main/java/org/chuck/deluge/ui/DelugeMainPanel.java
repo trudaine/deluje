@@ -9,6 +9,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
+import org.chuck.deluge.midi.MidiInputRouter;
 import org.chuck.deluge.ui.arranger.ArrangerPanel;
 import org.chuck.deluge.ui.song.SongModePanel;
 
@@ -26,6 +27,7 @@ public class DelugeMainPanel extends BorderPane {
   private ArrangerPanel arrangerPanel;
   private ParameterRibbonPanel ribbonPanel;
   private StatusRibbonPanel statusPanel;
+  private final MidiInputRouter midiRouter;
 
   public enum ViewMode {
     CLIP,
@@ -35,9 +37,10 @@ public class DelugeMainPanel extends BorderPane {
 
   private ViewMode currentMode = ViewMode.CLIP;
 
-  public DelugeMainPanel(ChuckVM vm, BridgeContract bridge) {
+  public DelugeMainPanel(ChuckVM vm, BridgeContract bridge, MidiInputRouter midiRouter) {
     this.vm = vm;
     this.bridge = bridge;
+    this.midiRouter = midiRouter;
 
     // Dark grey background
     setStyle("-fx-background-color: #1a1a1a;");
@@ -48,7 +51,7 @@ public class DelugeMainPanel extends BorderPane {
     matrixPanel = new MatrixPanel(vm, bridge);
     songPanel = new SongModePanel(vm, bridge, 8, 8); // 8 tracks, 8 columns (A-H)
     arrangerPanel = new ArrangerPanel(vm, bridge);
-    ribbonPanel = new ParameterRibbonPanel(vm, bridge);
+    ribbonPanel = new ParameterRibbonPanel(vm, bridge, midiRouter);
 
     statusPanel = new StatusRibbonPanel(vm, bridge);
 

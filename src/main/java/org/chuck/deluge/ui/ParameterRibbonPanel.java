@@ -3,11 +3,14 @@ package org.chuck.deluge.ui;
 import java.util.function.Consumer;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.control.ContextMenu;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.HBox;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
+import org.chuck.deluge.midi.MidiInputRouter;
 
 /**
  * The horizontal ribbon of 13 parameter buttons above the matrix. Used for selecting which
@@ -16,6 +19,7 @@ import org.chuck.deluge.BridgeContract;
 public class ParameterRibbonPanel extends HBox {
   private final ChuckVM vm;
   private final BridgeContract bridge;
+  private final MidiInputRouter midiRouter;
   private Consumer<EditMode> modeChangeListener;
 
   public enum EditMode {
@@ -53,9 +57,10 @@ public class ParameterRibbonPanel extends HBox {
     "START/END"
   };
 
-  public ParameterRibbonPanel(ChuckVM vm, BridgeContract bridge) {
+  public ParameterRibbonPanel(ChuckVM vm, BridgeContract bridge, MidiInputRouter midiRouter) {
     this.vm = vm;
     this.bridge = bridge;
+    this.midiRouter = midiRouter;
 
     setAlignment(Pos.CENTER);
     setSpacing(5);
@@ -71,6 +76,20 @@ public class ParameterRibbonPanel extends HBox {
       btn.setPrefWidth(85);
 
       final EditMode mode = EditMode.values()[i];
+
+      // MIDI LEARN Context Menu
+      ContextMenu menu = new ContextMenu();
+      MenuItem learnItem = new MenuItem("MIDI Learn");
+      learnItem.setOnAction(
+          e -> {
+            String target = getGlobalForMode(mode);
+            if (target != null && midiRouter != null) {
+              midiRouter.startLearning(target);
+              System.out.println("MIDI LEARN: Waiting for CC for " + target);
+            }
+          });
+      menu.getItems().add(learnItem);
+      btn.setContextMenu(menu);
 
       if (mode == EditMode.STUTTER) {
         btn.setOnMousePressed(
@@ -106,5 +125,20 @@ public class ParameterRibbonPanel extends HBox {
 
   public EditMode getCurrentMode() {
     return currentMode;
+  }
+
+  private String getGlobalForMode(EditMode mode) {
+    switch (mode) {
+      case FILTER:
+        return BridgeContract.G_FILTER;
+      case DELAY:
+        return BridgeContract.G_DELAY_TIME;
+      case REVERB:
+        return BridgeContract.G_REVERB_ROOM;
+      case LEVEL:
+        return BridgeContract.G_MASTER_VOL;
+      default:
+        return null;
+    }
   }
 }

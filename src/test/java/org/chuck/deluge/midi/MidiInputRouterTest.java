@@ -62,4 +62,26 @@ public class MidiInputRouterTest {
     // Velocity should be 100/127
     assertEquals(100.0 / 127.0, velArray.getFloat(index), 0.01);
   }
+
+  @Test
+  void testMidiLearning() {
+    String target = BridgeContract.G_FILTER;
+    router.startLearning(target);
+
+    // CC 7, Value 127
+    MidiMsg learnMsg = new MidiMsg();
+    learnMsg.data1 = 0xB0;
+    learnMsg.data2 = 7;
+    learnMsg.data3 = 127;
+    router.handleMidiMessage(learnMsg);
+
+    // Now send CC 7 with value 64 (approx 0.5)
+    MidiMsg ctrlMsg = new MidiMsg();
+    ctrlMsg.data1 = 0xB0;
+    ctrlMsg.data2 = 7;
+    ctrlMsg.data3 = 64;
+    router.handleMidiMessage(ctrlMsg);
+
+    assertEquals(64.0 / 127.0, vm.getGlobalFloat(target), 0.01);
+  }
 }
