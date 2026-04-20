@@ -71,9 +71,22 @@ public class ParameterRibbonPanel extends HBox {
       String label = PARAM_LABELS[i];
       ToggleButton btn = new ToggleButton(label);
       btn.setToggleGroup(group);
-      btn.setStyle("-fx-base: #333333; -fx-text-fill: white; -fx-font-size: 10px;");
+      btn.setStyle(
+          "-fx-background-color: #2b2b2b; -fx-text-fill: #888888; -fx-font-family: 'Courier New'; -fx-font-size: 10px; -fx-font-weight: bold;");
       btn.setPrefHeight(30);
       btn.setPrefWidth(85);
+
+      btn.selectedProperty()
+          .addListener(
+              (obs, old, isNowSelected) -> {
+                if (isNowSelected) {
+                  btn.setStyle(
+                      "-fx-background-color: #00ff41; -fx-text-fill: black; -fx-font-family: 'Courier New'; -fx-font-size: 10px; -fx-font-weight: bold;");
+                } else {
+                  btn.setStyle(
+                      "-fx-background-color: #2b2b2b; -fx-text-fill: #888888; -fx-font-family: 'Courier New'; -fx-font-size: 10px; -fx-font-weight: bold;");
+                }
+              });
 
       final EditMode mode = EditMode.values()[i];
 

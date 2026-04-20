@@ -40,31 +40,43 @@ public class TrackRowPanel extends HBox {
     setAlignment(Pos.CENTER_LEFT);
     setSpacing(5);
 
+    String trackColor = (rowIndex < 4) ? "#884444" : "#444488";
+
     // Audition Pad (Play the sample/synth manually)
     auditionPad = new Button();
     auditionPad.setPrefSize(40, 40);
-    auditionPad.setStyle("-fx-background-color: #444444; -fx-background-radius: 5;");
+    auditionPad.setStyle(
+        String.format(
+            "-fx-background-color: linear-gradient(to bottom, %s 0%%, #1a1a1a 100%%); -fx-background-radius: 4; -fx-border-color: #444444; -fx-border-width: 1; -fx-border-radius: 4;",
+            trackColor));
     auditionPad.setOnMousePressed(
         e -> {
-          auditionPad.setStyle("-fx-background-color: #888888; -fx-background-radius: 5;");
-          // Trigger the sound via bridge (todo: implement manual trigger in engine.ck)
+          auditionPad.setStyle(
+              String.format(
+                  "-fx-background-color: %s; -fx-background-radius: 4; -fx-border-color: white; -fx-border-width: 1; -fx-border-radius: 4;",
+                  trackColor));
+          // Manual trigger logic would go here
         });
     auditionPad.setOnMouseReleased(
         e -> {
-          auditionPad.setStyle("-fx-background-color: #444444; -fx-background-radius: 5;");
+          auditionPad.setStyle(
+              String.format(
+                  "-fx-background-color: linear-gradient(to bottom, %s 0%%, #1a1a1a 100%%); -fx-background-radius: 4; -fx-border-color: #444444; -fx-border-width: 1; -fx-border-radius: 4;",
+                  trackColor));
         });
 
     trackLabel = new Label(trackName);
     trackLabel.setPrefWidth(80);
-    trackLabel.setTextFill(Color.web("#cccccc"));
     trackLabel.setAlignment(Pos.CENTER_RIGHT);
+    trackLabel.setStyle("-fx-font-family: 'Courier New'; -fx-font-weight: bold; -fx-font-size: 11px;");
+    updateLabelStyle();
 
     // Toggle Mute on Click
     trackLabel.setOnMouseClicked(
         e -> {
           boolean wasMuted = bridge.getMute(rowIndex);
           bridge.setMute(rowIndex, !wasMuted);
-          trackLabel.setTextFill(!wasMuted ? Color.web("#c62828") : Color.web("#cccccc"));
+          updateLabelStyle();
         });
 
     // Support track-wide parameter editing via vertical drag

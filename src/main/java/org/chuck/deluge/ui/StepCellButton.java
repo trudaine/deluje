@@ -206,28 +206,30 @@ public class StepCellButton extends ToggleButton {
     double gateVal = bridge.getGate(row, col);
     String borderStyle =
         (editMode == EditMode.GATE && isSelected())
-            ? String.format(
-                "-fx-border-style: dashed; -fx-border-width: 3; -fx-border-color: white; -fx-border-dash-array: %f 5;",
-                gateVal * 20.0)
-            : "";
+            ? String.format("-fx-border-style: dashed; -fx-border-dash-array: %f 5;", gateVal * 20.0)
+            : "-fx-border-style: solid;";
 
-    if (hasPlayhead) {
-      style =
-          String.format(
-              "-fx-background-color: white; -fx-border-color: %s; -fx-border-width: 2; -fx-background-radius: 5; -fx-border-radius: 5; -fx-opacity: %f; %s",
-              baseColor, opacity, borderStyle);
-    } else {
-      style =
-          String.format(
-              "-fx-background-color: %s; -fx-background-radius: 5; -fx-opacity: %f; %s",
-              baseColor, opacity, borderStyle);
-    }
+    String finalBg = isSelected() ? 
+        String.format("linear-gradient(to bottom, %s 0%%, #1a1a1a 100%%)", baseColor) : 
+        "#222222";
 
-    // Append font styles if in PITCH mode
-    if (editMode == EditMode.PITCH && isSelected()) {
-      style += "-fx-font-size: 9px; -fx-font-weight: bold; -fx-text-fill: white;";
-    }
+    String borderColor = hasPlayhead ? "#ffffff" : "#444444";
+    double borderWidth = hasPlayhead ? 3.0 : 1.0;
+
+    style = String.format(
+        "-fx-background-color: %s; " +
+        "-fx-border-color: %s; " +
+        "-fx-border-width: %.1f; " +
+        "-fx-background-radius: 3; " +
+        "-fx-border-radius: 3; " +
+        "-fx-opacity: %.2f; " +
+        "-fx-font-family: 'Courier New'; " +
+        "-fx-font-weight: bold; " +
+        "%s",
+        finalBg, borderColor, borderWidth, opacity, borderStyle
+    );
 
     setStyle(style);
-  }
-}
+    }
+    }
+

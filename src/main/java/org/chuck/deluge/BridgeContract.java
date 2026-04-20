@@ -16,9 +16,9 @@ public final class BridgeContract {
   public static final int STEPS = 16;
   public static final int PATTERN_SIZE = TRACKS * STEPS; // 128
 
-  public static final int ENV_COUNT = 4;
+  public static final int ENV_COUNT = 8;
   public static final int ENV_PARAMS = 4;
-  public static final int LFO_COUNT = 4;
+  public static final int LFO_COUNT = 8;
 
   // ── global variable names ──────────────────────────────────────────────────
   public static final String G_BPM = "g_bpm";
