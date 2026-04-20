@@ -47,6 +47,8 @@ public final class BridgeContract {
 
   // Per-step filter cutoff offset: float[TRACKS * STEPS] -1.0..1.0
   public static final String G_STEP_FILTER = "g_step_filter";
+  public static final String G_STEP_RES = "g_step_res";
+  public static final String G_STEP_FILTER_MODE = "g_step_filter_mode";
 
   // Per-step pan: float[TRACKS * STEPS] -1.0..1.0
   public static final String G_STEP_PAN = "g_step_pan";
@@ -59,6 +61,9 @@ public final class BridgeContract {
   // Per-step sample range: float[TRACKS * STEPS] 0.0..1.0
   public static final String G_STEP_START = "g_step_start";
   public static final String G_STEP_END = "g_step_end";
+
+  // Per-track volume level: float[TRACKS] 0.0..1.0
+  public static final String G_TRACK_LEVEL = "g_track_level";
 
   // Per-track mute: int[TRACKS] 0 = active, 1 = muted
   public static final String G_MUTE = "g_mute";
@@ -109,12 +114,15 @@ public final class BridgeContract {
   private final ChuckArray pitch;
   private final ChuckArray probability;
   private final ChuckArray stepFilter;
+  private final ChuckArray stepRes;
+  private final ChuckArray stepFilterMode;
   private final ChuckArray stepPan;
   private final ChuckArray stepDelay;
   private final ChuckArray stepReverb;
   private final ChuckArray stepMod;
   private final ChuckArray stepStart;
   private final ChuckArray stepEnd;
+  private final ChuckArray trackLevel;
   private final ChuckArray mute;
   private final ChuckArray filter;
   private final ChuckArray filterMode;
@@ -134,12 +142,15 @@ public final class BridgeContract {
     pitch = new ChuckArray("int", PATTERN_SIZE);
     probability = new ChuckArray("float", PATTERN_SIZE);
     stepFilter = new ChuckArray("float", PATTERN_SIZE);
+    stepRes = new ChuckArray("float", PATTERN_SIZE);
+    stepFilterMode = new ChuckArray("int", PATTERN_SIZE);
     stepPan = new ChuckArray("float", PATTERN_SIZE);
     stepDelay = new ChuckArray("float", PATTERN_SIZE);
     stepReverb = new ChuckArray("float", PATTERN_SIZE);
     stepMod = new ChuckArray("float", PATTERN_SIZE);
     stepStart = new ChuckArray("float", PATTERN_SIZE);
     stepEnd = new ChuckArray("float", PATTERN_SIZE);
+    trackLevel = new ChuckArray("float", TRACKS);
     mute = new ChuckArray("int", TRACKS);
     filter = new ChuckArray("float", TRACKS * 2);
     filterMode = new ChuckArray("int", TRACKS);
@@ -162,6 +173,8 @@ public final class BridgeContract {
       pitch.setInt(i, 0L);
       probability.setFloat(i, 1.0);
       stepFilter.setFloat(i, 0.0);
+      stepRes.setFloat(i, 0.0);
+      stepFilterMode.setInt(i, -1L);
       stepPan.setFloat(i, 0.0);
       stepDelay.setFloat(i, 0.0);
       stepReverb.setFloat(i, 0.0);
@@ -171,6 +184,7 @@ public final class BridgeContract {
     }
     for (int t = 0; t < TRACKS; t++) {
       mute.setInt(t, 0L);
+      trackLevel.setFloat(t, 0.7);
       filter.setFloat(t * 2, 1.0); // lpf freq norm = max open
       filter.setFloat(t * 2 + 1, 0.5); // resonance = moderate
       filterMode.setInt(t, 0L); // LADDER_12
@@ -217,12 +231,15 @@ public final class BridgeContract {
     vm.setGlobalObject(G_PITCH, pitch);
     vm.setGlobalObject(G_PROBABILITY, probability);
     vm.setGlobalObject(G_STEP_FILTER, stepFilter);
+    vm.setGlobalObject(G_STEP_RES, stepRes);
+    vm.setGlobalObject(G_STEP_FILTER_MODE, stepFilterMode);
     vm.setGlobalObject(G_STEP_PAN, stepPan);
     vm.setGlobalObject(G_STEP_DELAY, stepDelay);
     vm.setGlobalObject(G_STEP_REVERB, stepReverb);
     vm.setGlobalObject(G_STEP_MOD, stepMod);
     vm.setGlobalObject(G_STEP_START, stepStart);
     vm.setGlobalObject(G_STEP_END, stepEnd);
+    vm.setGlobalObject(G_TRACK_LEVEL, trackLevel);
     vm.setGlobalObject(G_MUTE, mute);
     vm.setGlobalObject(G_FILTER, filter);
     vm.setGlobalObject(G_FILTER_MODE, filterMode);
@@ -263,6 +280,22 @@ public final class BridgeContract {
 
   public void setStepFilter(int track, int step, double val) {
     stepFilter.setFloat(track * STEPS + step, (float) Math.max(-1.0, Math.min(1.0, val)));
+  }
+
+  public double getStepRes(int track, int step) {
+    return stepRes.getFloat(track * STEPS + step);
+  }
+
+  public void setStepRes(int track, int step, double val) {
+    stepRes.setFloat(track * STEPS + step, (float) Math.max(-1.0, Math.min(1.0, val)));
+  }
+
+  public int getStepFilterMode(int track, int step) {
+    return (int) stepFilterMode.getInt(track * STEPS + step);
+  }
+
+  public void setStepFilterMode(int track, int step, int mode) {
+    stepFilterMode.setInt(track * STEPS + step, (long) mode);
   }
 
   public double getStepPan(int track, int step) {
@@ -351,6 +384,14 @@ public final class BridgeContract {
 
   public boolean getMute(int track) {
     return mute.getInt(track) > 0;
+  }
+
+  public double getTrackLevel(int track) {
+    return trackLevel.getFloat(track);
+  }
+
+  public void setTrackLevel(int track, double level) {
+    trackLevel.setFloat(track, (float) Math.max(0.0, Math.min(1.0, level)));
   }
 
   /** Set LPF frequency as normalised 0.0–1.0 (maps to 20–20000 Hz in engine). */

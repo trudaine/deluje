@@ -77,6 +77,10 @@ public class StepCellButton extends ToggleButton {
         double f = bridge.getStepFilter(row, col) + delta;
         bridge.setStepFilter(row, col, f);
         break;
+      case RESONANCE:
+        double res = bridge.getStepRes(row, col) + delta;
+        bridge.setStepRes(row, col, res);
+        break;
       case DELAY:
         double d = bridge.getStepDelay(row, col) + delta;
         bridge.setStepDelay(row, col, d);
@@ -150,6 +154,9 @@ public class StepCellButton extends ToggleButton {
         case FILTER:
           // Filter offset can be negative, so we normalize for opacity
           opacity = 0.3 + (Math.abs(bridge.getStepFilter(row, col)) * 0.7);
+          break;
+        case RESONANCE:
+          opacity = 0.3 + (Math.abs(bridge.getStepRes(row, col)) * 0.7);
           break;
         case DELAY:
           opacity = 0.3 + (bridge.getStepDelay(row, col) * 0.7);

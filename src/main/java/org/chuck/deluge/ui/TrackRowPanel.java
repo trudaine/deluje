@@ -24,10 +24,17 @@ public class TrackRowPanel extends HBox {
   private final Label trackLabel;
   private final Button settingsBtn;
   private final StepCellButton[] cells;
+  private final java.util.function.Supplier<EditMode> modeSupplier;
 
-  public TrackRowPanel(int rowIndex, String trackName, ChuckVM vm, BridgeContract bridge) {
+  public TrackRowPanel(
+      int rowIndex,
+      String trackName,
+      ChuckVM vm,
+      BridgeContract bridge,
+      java.util.function.Supplier<EditMode> modeSupplier) {
     this.rowIndex = rowIndex;
     this.bridge = bridge;
+    this.modeSupplier = modeSupplier;
     this.cells = new StepCellButton[16];
 
     setAlignment(Pos.CENTER_LEFT);
@@ -64,9 +71,30 @@ public class TrackRowPanel extends HBox {
     trackLabel.setOnMouseDragged(
         e -> {
           double delta = -e.getY() / 100.0;
-          // In a full implementation, we'd look at the current EditMode from ribbon
-          // and update the BridgeContract's track-wide arrays (g_filter, etc.)
+          EditMode currentMode = modeSupplier.get();
+
+          switch (currentMode) {
+            case LEVEL:
+              double level = bridge.getTrackLevel(rowIndex) + delta;
+              bridge.setTrackLevel(rowIndex, level);
+              break;
+            case PAN:
+              // For now, no global track pan, but we can implement it here.
+              break;
+            case FILTER:
+              double freq = bridge.getTrackFilterFreq(rowIndex) + delta;
+              bridge.setFilterFreq(rowIndex, freq);
+              break;
+            case RESONANCE:
+              double res = bridge.getTrackFilterRes(rowIndex) + delta;
+              bridge.setFilterRes(rowIndex, res);
+              break;
+            default:
+              break;
+          }
         });
+
+
 
     settingsBtn = new Button("⚙");
     settingsBtn.setStyle(

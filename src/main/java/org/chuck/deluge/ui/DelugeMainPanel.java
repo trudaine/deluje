@@ -49,6 +49,7 @@ public class DelugeMainPanel extends BorderPane {
     songPanel = new SongModePanel(vm, bridge, 8, 8); // 8 tracks, 8 columns (A-H)
     arrangerPanel = new ArrangerPanel(vm, bridge);
     ribbonPanel = new ParameterRibbonPanel(vm, bridge);
+
     statusPanel = new StatusRibbonPanel(vm, bridge);
 
     // Link Ribbon to Matrix
