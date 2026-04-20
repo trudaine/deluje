@@ -109,12 +109,16 @@ fun void synth_shred() {
     SVFilter filter[4];
     ShelfEQ eq[4];
     DelugeAdsr env[4];
-    Gain master => dac;
+    Gain master => HPF hpf => Dyno limiter => dac;
     "SYNTH_MASTER" => master.setName;
     0 => master.gain; // Prevent start-up clicks
+    20 => hpf.freq;   // Kill DC/infra noise
+    limiter.limit();  // Hard safety limit
 
     for (0 => int i; i < 4; i++) {
         osc[i] => filter[i] => eq[i] => env[i] => master;
+        filter[i].reset();
+        eq[i].reset();
         // set some base params
         filter[i].morph(0.0); // LP
         filter[i].freq(5000);
