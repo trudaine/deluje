@@ -208,14 +208,14 @@ fun void fx_bus_shred() {
 
     0.3   => fx_in.gain;
     g_delay_time * second => delay.delay;
-    g_delay_fb            => delay.mix;
+    g_delay_fb            => delay.gain;
     g_reverb_room         => rev.mix;
 
     // Refresh every 8 steps
     while (true) {
         tick_event => now;
         g_delay_time * second => delay.delay;
-        g_delay_fb            => delay.mix;
+        g_delay_fb            => delay.gain;
         g_reverb_room         => rev.mix;
     }
 }
