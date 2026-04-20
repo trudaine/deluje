@@ -67,7 +67,13 @@ public final class BridgeContract {
   public static final String G_FM_RATIO = "g_fm_ratio"; // float (e.g. 0.5, 1.0, 2.0)
   public static final String G_FM_AMOUNT = "g_fm_amount"; // float 0.0..1.0
   public static final String G_SIDECHAIN_AMOUNT = "g_sidechain_amount"; // float 0.0..1.0
-  public static final String G_MASTER_COMP = "g_master_comp"; // float threshold 0.0..1.0
+  public static final String G_MASTER_COMP = "g_master_comp";
+
+  // Arpeggiator (v1.6+)
+  public static final String G_ARP_ON = "g_arp_on"; // int[TRACKS] 0/1
+  public static final String G_ARP_MODE = "g_arp_mode"; // int[TRACKS] 0=UP, 1=DOWN, 2=UPDOWN, 3=RAND
+  public static final String G_ARP_RATE = "g_arp_rate"; // float[TRACKS] 1.0=1/16, 0.5=1/8, etc.
+  public static final String G_ARP_OCTAVE = "g_arp_octave"; // int[TRACKS] 1-4
 
   // Events
   public static final String E_MIDI_NOTE_ON = "midi_note_on";
@@ -99,6 +105,11 @@ public final class BridgeContract {
   private final ChuckArray lfoDepth;
   private final ChuckArray delaySend;
   private final ChuckArray reverbSend;
+
+  private final ChuckArray arpOn;
+  private final ChuckArray arpMode;
+  private final ChuckArray arpRate;
+  private final ChuckArray arpOctave;
 
   private final org.chuck.core.ChuckEvent midiNoteOn;
   private final org.chuck.core.ChuckEvent midiNoteOff;
@@ -135,6 +146,11 @@ public final class BridgeContract {
     delaySend = new ChuckArray("float", TRACKS);
     reverbSend = new ChuckArray("float", TRACKS);
 
+    arpOn = new ChuckArray("int", TRACKS);
+    arpMode = new ChuckArray("int", TRACKS);
+    arpRate = new ChuckArray("float", TRACKS);
+    arpOctave = new ChuckArray("int", TRACKS);
+
     midiNoteOn = new org.chuck.core.ChuckEvent();
     midiNoteOff = new org.chuck.core.ChuckEvent();
 
@@ -164,6 +180,12 @@ public final class BridgeContract {
     for (int t = 0; t < TRACKS; t++) {
       mute.setInt(t, 0L);
       trackLevel.setFloat(t, 0.7);
+
+      arpOn.setInt(t, 0L);
+      arpMode.setInt(t, 0L); // UP
+      arpRate.setFloat(t, 1.0f); // 1.0 = 1/16th note
+      arpOctave.setInt(t, 1L);
+
       filter.setFloat(t * 2, 1.0);
       filter.setFloat(t * 2 + 1, 0.5);
       filterMode.setInt(t, 0L);
@@ -231,6 +253,11 @@ public final class BridgeContract {
     vm.setGlobalObject(G_LFO_DEPTH, lfoDepth);
     vm.setGlobalObject(G_DELAY_SEND, delaySend);
     vm.setGlobalObject(G_REVERB_SEND, reverbSend);
+
+    vm.setGlobalObject(G_ARP_ON, arpOn);
+    vm.setGlobalObject(G_ARP_MODE, arpMode);
+    vm.setGlobalObject(G_ARP_RATE, arpRate);
+    vm.setGlobalObject(G_ARP_OCTAVE, arpOctave);
 
     vm.setGlobalObject(E_MIDI_NOTE_ON, midiNoteOn);
     vm.setGlobalObject(E_MIDI_NOTE_OFF, midiNoteOff);
@@ -443,6 +470,38 @@ public final class BridgeContract {
 
   public void setFilterMorph(int track, double morph) {
     filterMorph.setFloat(track, (float) Math.max(0, Math.min(1, morph)));
+  }
+
+  public void setArpOn(int track, boolean on) {
+    arpOn.setInt(track, on ? 1L : 0L);
+  }
+
+  public boolean getArpOn(int track) {
+    return arpOn.getInt(track) > 0;
+  }
+
+  public void setArpMode(int track, int mode) {
+    arpMode.setInt(track, (long) mode);
+  }
+
+  public int getArpMode(int track) {
+    return (int) arpMode.getInt(track);
+  }
+
+  public void setArpRate(int track, double rate) {
+    arpRate.setFloat(track, (float) rate);
+  }
+
+  public double getArpRate(int track) {
+    return arpRate.getFloat(track);
+  }
+
+  public void setArpOctave(int track, int oct) {
+    arpOctave.setInt(track, (long) oct);
+  }
+
+  public int getArpOctave(int track) {
+    return (int) arpOctave.getInt(track);
   }
 
   public void setEnv(int envIndex, double a, double d, double s, double r) {

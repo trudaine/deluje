@@ -1,6 +1,6 @@
 /*
-  Deluge Emulator — Production Engine v1.5 (8-Voice Polyphony)
-  Concurrent shreds: clock, kit, synth, fx_bus, sidechain, master.
+  Deluge Emulator — Production Engine v1.6 (Arpeggiator)
+  Concurrent shreds: clock, kit, synth, fx_bus, sidechain, master, midi.
 */
 
 // ── global bridge variables ────────────────────────────────────────────────
@@ -17,6 +17,13 @@ global Event tick_event, sidechain_event;
 
 // MIDI Events
 global Event midi_note_on, midi_note_off;
+global int g_midi_note, g_midi_vel;
+
+// Arpeggiator (v1.6)
+global int   g_arp_on[];
+global int   g_arp_mode[];
+global float g_arp_rate[];
+global int   g_arp_octave[];
 
 // ── helpers ──────────────────────────────────────────────────────────────
 fun dur stepDuration(int step) {
@@ -82,7 +89,7 @@ fun void kit_shred() {
     }
 }
 
-// ── synth shred (8 Voice Polyphony) ──────────────────────────────────────
+// ── synth shred (8 Voice Polyphony + Arp) ─────────────────────────────────
 fun void synth_shred() {
     MorphingWavetable car[8], mod[8]; SVFilter fil[8]; DelugeAdsr env[8]; Pan2 pan[8]; SinOsc lfo[8];
     for (0 => int i; i < 8; i++) {
@@ -111,9 +118,8 @@ fun void synth_shred() {
 
         g_current_step % 16 => int step;
         
-        for (0 => int r; r < 8; r++) {
-            if (r < 4) continue; // Skip drum tracks (0-3) in this shred
-            r => int v; // Use track index as voice index
+        for (4 => int r; r < 8; r++) {
+            r => int v; 
             r * 16 + step => int idx;
             
             l_rate[v] => lfo[v].freq;
@@ -125,18 +131,48 @@ fun void synth_shred() {
 
             if (mute[r] != 0) continue;
             if (pat[idx] == 0) { env[v].keyOff(); continue; }
-            Std.mtof(pitch[idx] + 60) => float f;
-            f => car[v].freq; f * g_fm_ratio => mod[v].freq;
-            g_fm_amount * 1000.0 => mod[v].gain;
-            vel[idx] * trk_lvl[r] * 0.8 => env[v].gain;
-            env[v].keyOn();
+
+            // ARP Logic Integration
+            if (g_arp_on[r] == 1) {
+                spork ~ run_arp(v, pitch[idx] + 60, vel[idx] * trk_lvl[r], car[v], mod[v], env[v]);
+            } else {
+                Std.mtof(pitch[idx] + 60) => float f;
+                f => car[v].freq; f * g_fm_ratio => mod[v].freq;
+                g_fm_amount * 1000.0 => mod[v].gain;
+                vel[idx] * trk_lvl[r] * 0.8 => env[v].gain;
+                env[v].keyOn();
+            }
         }
+    }
+}
+
+// ── helper: arpeggiator runner ──────────────────────────────────────────
+fun void run_arp(int v, int base_midi, float gain, MorphingWavetable car, MorphingWavetable mod, DelugeAdsr env) {
+    g_arp_octave[v] => int octaves;
+    if (octaves < 1) 1 => octaves;
+    
+    // Up mode only for MVP
+    for (0 => int o; o < octaves; o++) {
+        base_midi + (o * 12) => int m;
+        Std.mtof(m) => float f;
+        f => car.freq; f * g_fm_ratio => mod.freq;
+        g_fm_amount * 1000.0 => mod.gain;
+        gain * 0.8 => env.gain;
+        env.keyOn();
+        
+        // Duration based on arp_rate (1.0 = 1/16th)
+        (60.0 / g_bpm / 4.0 / g_arp_rate[v]) * second => dur d;
+        d * 0.8 => now;
+        env.keyOff();
+        d * 0.2 => now;
+        
+        if (g_play == 0 || g_arp_on[v+4] == 0) break; // emergency break
     }
 }
 
 // ── sidechain & master ──────────────────────────────────────────────────
 fun void sidechain_shred() {
-    while (true) { sidechain_event => now; 100::ms => now; } // placeholder
+    while (true) { sidechain_event => now; 100::ms => now; } 
 }
 
 fun void master_shred() {
@@ -180,7 +216,6 @@ fun void midi_handler_shred() {
     fil.freq(2000); env.set(0.01, 0.1, 0.7, 0.2);
     while (true) {
         (midi_note_on, midi_note_off) => now;
-        global int g_midi_vel, g_midi_note;
         if (g_midi_vel > 0) { Std.mtof(g_midi_note) => osc.freq; g_midi_vel/127.0*0.8 => env.gain; env.keyOn(); }
         else env.keyOff();
     }
