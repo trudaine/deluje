@@ -4,6 +4,7 @@ import javafx.scene.control.ToggleButton;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import org.chuck.deluge.BridgeContract;
+import org.chuck.deluge.ui.ParameterRibbonPanel.EditMode;
 import org.chuck.deluge.ui.popover.NoteEntryPopover;
 import org.chuck.deluge.ui.popover.StepEditorPopover;
 
@@ -14,7 +15,8 @@ public class StepCellButton extends ToggleButton {
   private final BridgeContract bridge;
 
   private boolean hasPlayhead = false;
-  private final String colorHex; // Default track color
+  private final String colorHex;
+  private EditMode editMode = EditMode.VELOCITY;
 
   public StepCellButton(int row, int col, BridgeContract bridge) {
     this.row = row;
@@ -42,6 +44,45 @@ public class StepCellButton extends ToggleButton {
 
     // Right-Click Context Actions
     addEventHandler(MouseEvent.MOUSE_PRESSED, this::handleMousePressed);
+
+    // Support vertical drag to change parameter value
+    addEventHandler(MouseEvent.MOUSE_DRAGGED, this::handleMouseDragged);
+  }
+
+  public void setEditMode(EditMode mode) {
+    this.editMode = mode;
+    updateStyle();
+  }
+
+  private void handleMouseDragged(MouseEvent event) {
+    if (event.isPrimaryButtonDown() && !isSelected()) return;
+    if (!event.isPrimaryButtonDown()) return;
+
+    // Calculate delta and update based on current edit mode
+    // This is a simplified drag implementation
+    double delta = -event.getY() / 100.0; // Invert and scale
+
+    switch (editMode) {
+      case VELOCITY:
+        double v = bridge.getVelocity(row, col) + delta;
+        bridge.setVelocity(row, col, v);
+        break;
+      case GATE:
+        double g = bridge.getGate(row, col) + delta;
+        bridge.setGate(row, col, g);
+        break;
+      case PROBABILITY:
+        double p = bridge.getStepProbability(row, col) + delta;
+        bridge.setStepProbability(row, col, p);
+        break;
+      case PITCH:
+        int pitch = bridge.getPitch(row, col) + (int) (delta * 24); // Scale to semitones
+        bridge.setPitch(row, col, pitch);
+        break;
+      default:
+        break;
+    }
+    updateStyle();
   }
 
   private void handleMousePressed(MouseEvent event) {
@@ -66,19 +107,39 @@ public class StepCellButton extends ToggleButton {
 
   private void updateStyle() {
     String baseColor = "#333333"; // off
+    double opacity = 1.0;
 
     if (isSelected()) {
-      baseColor = colorHex; // on
+      baseColor = colorHex;
+
+      // Scale brightness/opacity based on parameter
+      switch (editMode) {
+        case VELOCITY:
+          opacity = 0.3 + (bridge.getVelocity(row, col) * 0.7);
+          break;
+        case GATE:
+          // Maybe use a border width?
+          break;
+        case PROBABILITY:
+          opacity = 0.3 + (bridge.getStepProbability(row, col) * 0.7);
+          break;
+        default:
+          break;
+      }
     }
 
+    String style;
     if (hasPlayhead) {
-      // White overlay for playhead
-      setStyle(
+      style =
           String.format(
-              "-fx-background-color: white; -fx-border-color: %s; -fx-border-width: 2; -fx-background-radius: 5; -fx-border-radius: 5;",
-              baseColor));
+              "-fx-background-color: white; -fx-border-color: %s; -fx-border-width: 2; -fx-background-radius: 5; -fx-border-radius: 5; -fx-opacity: %f;",
+              baseColor, opacity);
     } else {
-      setStyle(String.format("-fx-background-color: %s; -fx-background-radius: 5;", baseColor));
+      style =
+          String.format(
+              "-fx-background-color: %s; -fx-background-radius: 5; -fx-opacity: %f;",
+              baseColor, opacity);
     }
+    setStyle(style);
   }
 }

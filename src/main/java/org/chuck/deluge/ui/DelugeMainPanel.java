@@ -51,6 +51,12 @@ public class DelugeMainPanel extends BorderPane {
     ribbonPanel = new ParameterRibbonPanel(vm, bridge);
     statusPanel = new StatusRibbonPanel(vm, bridge);
 
+    // Link Ribbon to Matrix
+    ribbonPanel.setOnModeChange(
+        newMode -> {
+          matrixPanel.setEditMode(newMode);
+        });
+
     // Mode Toggle (CLIP vs SONG vs ARR)
     HBox modeToggleBox = new HBox(5);
     modeToggleBox.setAlignment(Pos.CENTER_LEFT);

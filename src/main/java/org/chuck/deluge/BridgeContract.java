@@ -185,6 +185,30 @@ public final class BridgeContract {
 
   // ── accessors for direct Java mutation ─────────────────────────────────────
 
+  public double getVelocity(int track, int step) {
+    return velocity.getFloat(track * STEPS + step);
+  }
+
+  public double getGate(int track, int step) {
+    return gate.getFloat(track * STEPS + step);
+  }
+
+  public int getPitch(int track, int step) {
+    return (int) pitch.getInt(track * STEPS + step);
+  }
+
+  public double getStepProbability(int track, int step) {
+    return probability.getFloat(track * STEPS + step);
+  }
+
+  public double getTrackFilterFreq(int track) {
+    return filter.getFloat(track * 2);
+  }
+
+  public double getTrackFilterRes(int track) {
+    return filter.getFloat(track * 2 + 1);
+  }
+
   public void setStep(int track, int step, boolean active) {
     pattern.setInt(track * STEPS + step, active ? 1L : 0L);
   }

@@ -5,6 +5,7 @@ import javafx.geometry.Pos;
 import javafx.scene.layout.VBox;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
+import org.chuck.deluge.ui.ParameterRibbonPanel.EditMode;
 
 /** The main 8x16 sequencer grid. */
 public class MatrixPanel extends VBox {
@@ -13,6 +14,7 @@ public class MatrixPanel extends VBox {
 
   private final TrackRowPanel[] rows;
   private int currentStep = -1;
+  private EditMode currentEditMode = EditMode.VELOCITY;
 
   public MatrixPanel(ChuckVM vm, BridgeContract bridge) {
     this.vm = vm;
@@ -33,6 +35,13 @@ public class MatrixPanel extends VBox {
     for (int i = 0; i < 8; i++) {
       rows[i] = new TrackRowPanel(i, trackNames[i], vm, bridge);
       getChildren().add(rows[i]);
+    }
+  }
+
+  public void setEditMode(EditMode mode) {
+    this.currentEditMode = mode;
+    for (TrackRowPanel row : rows) {
+      row.setEditMode(mode);
     }
   }
 
