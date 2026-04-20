@@ -40,6 +40,7 @@ public class StepCellButton extends ToggleButton {
     setOnAction(
         e -> {
           bridge.setStep(row, col, isSelected());
+          bridge.syncActiveClipToLibrary(row);
           updateStyle();
         });
 
@@ -112,6 +113,7 @@ public class StepCellButton extends ToggleButton {
       default:
         break;
     }
+    bridge.syncActiveClipToLibrary(row);
     updateStyle();
   }
 
@@ -135,7 +137,7 @@ public class StepCellButton extends ToggleButton {
     updateStyle();
   }
 
-  private void updateStyle() {
+  public void updateStyle() {
     String baseColor = "#333333"; // off
     double opacity = 1.0;
 

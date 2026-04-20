@@ -103,6 +103,8 @@ public final class BridgeContract {
   private final org.chuck.core.ChuckEvent midiNoteOff;
 
   private ChuckVM vm;
+  private final org.chuck.deluge.model.ClipLibrary clipLibrary;
+  private final int[] activeClipSlots = new int[TRACKS];
 
   public BridgeContract() {
     pattern = new ChuckArray("int", PATTERN_SIZE);
@@ -133,6 +135,9 @@ public final class BridgeContract {
 
     midiNoteOn = new org.chuck.core.ChuckEvent();
     midiNoteOff = new org.chuck.core.ChuckEvent();
+
+    clipLibrary = new org.chuck.deluge.model.ClipLibrary(TRACKS, 8);
+    java.util.Arrays.fill(activeClipSlots, 0);
 
     initDefaults();
   }
@@ -230,6 +235,40 @@ public final class BridgeContract {
 
   public ChuckVM getVm() {
     return vm;
+  }
+
+  /** Load a Clip into a specific track row in the VM arrays. */
+  public void loadClip(int track, int slot) {
+    org.chuck.deluge.model.Clip clip = clipLibrary.getClip(track, slot);
+    if (clip == null) return;
+
+    activeClipSlots[track] = slot;
+    for (int s = 0; s < STEPS; s++) {
+      setStep(track, s, clip.getTrigger(s));
+      setVelocity(track, s, clip.getVelocity(s));
+      setGate(track, s, clip.getGate(s));
+      setPitch(track, s, clip.getPitch(s));
+      setStepProbability(track, s, clip.getProbability(s));
+    }
+  }
+
+  /** Update the library clip from the current VM state for a track. */
+  public void syncActiveClipToLibrary(int track) {
+    int slot = activeClipSlots[track];
+    org.chuck.deluge.model.Clip clip = clipLibrary.getClip(track, slot);
+    if (clip == null) return;
+
+    for (int s = 0; s < STEPS; s++) {
+      clip.setTrigger(s, getStep(track, s));
+      clip.setVelocity(s, getVelocity(track, s));
+      clip.setGate(s, getGate(track, s));
+      clip.setPitch(s, getPitch(track, s));
+      clip.setProbability(s, getStepProbability(track, s));
+    }
+  }
+
+  public org.chuck.deluge.model.ClipLibrary getClipLibrary() {
+    return clipLibrary;
   }
 
   public void triggerMidiNoteOn() {

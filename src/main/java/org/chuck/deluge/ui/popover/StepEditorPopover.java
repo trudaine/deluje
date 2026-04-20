@@ -41,32 +41,41 @@ public class StepEditorPopover extends Popup {
     velBox.setAlignment(Pos.CENTER);
     Label velLabel = new Label("VEL");
     velLabel.setStyle("-fx-text-fill: #aaa; -fx-font-size: 9;");
-    Slider velSlider = new Slider(0, 1.0, 0.8);
+    Slider velSlider = new Slider(0, 1.0, bridge.getVelocity(track, step));
     velSlider.setOrientation(javafx.geometry.Orientation.VERTICAL);
     velSlider.setPrefHeight(100);
     velSlider
         .valueProperty()
-        .addListener((obs, o, n) -> bridge.setVelocity(track, step, n.doubleValue()));
+        .addListener((obs, o, n) -> {
+          bridge.setVelocity(track, step, n.doubleValue());
+          bridge.syncActiveClipToLibrary(track);
+        });
     velBox.getChildren().addAll(velSlider, velLabel);
 
     // Gate (Horizontal Slider)
     VBox gateBox = new VBox(5);
     Label gateLabel = new Label("GATE");
     gateLabel.setStyle("-fx-text-fill: #aaa; -fx-font-size: 9;");
-    Slider gateSlider = new Slider(0, 1.0, 0.9);
+    Slider gateSlider = new Slider(0, 1.0, bridge.getGate(track, step));
     gateSlider
         .valueProperty()
-        .addListener((obs, o, n) -> bridge.setGate(track, step, n.doubleValue()));
+        .addListener((obs, o, n) -> {
+          bridge.setGate(track, step, n.doubleValue());
+          bridge.syncActiveClipToLibrary(track);
+        });
     gateBox.getChildren().addAll(gateSlider, gateLabel);
 
     // Probability (Horizontal Slider)
     VBox probBox = new VBox(5);
     Label probLabel = new Label("PROB");
     probLabel.setStyle("-fx-text-fill: #aaa; -fx-font-size: 9;");
-    Slider probSlider = new Slider(0, 1.0, 1.0);
+    Slider probSlider = new Slider(0, 1.0, bridge.getStepProbability(track, step));
     probSlider
         .valueProperty()
-        .addListener((obs, o, n) -> bridge.setStepProbability(track, step, n.doubleValue()));
+        .addListener((obs, o, n) -> {
+          bridge.setStepProbability(track, step, n.doubleValue());
+          bridge.syncActiveClipToLibrary(track);
+        });
     probBox.getChildren().addAll(probSlider, probLabel);
 
     grid.add(velBox, 0, 0, 1, 2);

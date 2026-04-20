@@ -49,6 +49,12 @@ public class MatrixPanel extends VBox {
     return currentEditMode;
   }
 
+  public void refreshAll() {
+    for (TrackRowPanel row : rows) {
+      row.refreshAll();
+    }
+  }
+
   public void updateStep(int step) {
     if (step == currentStep) return; // Prevent redundant UI updates
 
