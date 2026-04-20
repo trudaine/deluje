@@ -36,6 +36,13 @@ public class NoteEntryPopover extends Popup {
     this.track = track;
     this.step = step;
 
+    // Sync with global VM state
+    int vmScale = (int) bridge.getVm().getGlobalInt(BridgeContract.G_SCALE);
+    int vmKey = (int) bridge.getVm().getGlobalInt(BridgeContract.G_ROOT_KEY);
+    this.currentScale =
+        ScaleFilter.Scale.values()[Math.min(vmScale, ScaleFilter.Scale.values().length - 1)];
+    this.rootNote = vmKey;
+
     setAutoHide(true);
 
     VBox root = new VBox(10);
@@ -57,6 +64,7 @@ public class NoteEntryPopover extends Popup {
     scaleCombo.setOnAction(
         e -> {
           currentScale = scaleCombo.getValue();
+          bridge.getVm().setGlobalInt(BridgeContract.G_SCALE, (long) currentScale.ordinal());
           updateNoteButtons();
         });
 
@@ -66,6 +74,7 @@ public class NoteEntryPopover extends Popup {
     rootCombo.setOnAction(
         e -> {
           rootNote = rootCombo.getSelectionModel().getSelectedIndex();
+          bridge.getVm().setGlobalInt(BridgeContract.G_ROOT_KEY, (long) rootNote);
           updateNoteButtons();
         });
 

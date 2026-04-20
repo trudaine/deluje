@@ -95,9 +95,14 @@ public final class BridgeContract {
   public static final String G_DELAY_TIME = "g_delay_time"; // float seconds
   public static final String G_DELAY_FB = "g_delay_fb"; // float 0.0–1.0
   public static final String G_REVERB_ROOM = "g_reverb_room"; // float 0.0–1.0
-  public static final String G_REVERB_DAMP = "g_reverb_damp"; // float 0.0–1.0
+  public static final String G_REVERB_DAMP = "g_reverb_damp";
+
+  // Scale and Key
+  public static final String G_SCALE = "g_scale"; // 0=Major, 1=Minor, etc.
+  public static final String G_ROOT_KEY = "g_root_key"; // 0=C, 1=C#, etc.
 
   // ── arrays (held in Java, shared via setGlobalObject) ──────────────────────
+
   private final ChuckArray pattern;
   private final ChuckArray velocity;
   private final ChuckArray gate;
@@ -120,6 +125,7 @@ public final class BridgeContract {
   private final ChuckArray lfoDepth;
   private final ChuckArray delaySend;
   private final ChuckArray reverbSend;
+  private ChuckVM vm;
 
   public BridgeContract() {
     pattern = new ChuckArray("int", PATTERN_SIZE);
@@ -189,6 +195,7 @@ public final class BridgeContract {
 
   /** Register (or re-register after vm.clear()) all globals into the VM. */
   public void register(ChuckVM vm) {
+    this.vm = vm;
     // Scalars
     if (!vm.isGlobalDouble(G_BPM)) vm.setGlobalFloat(G_BPM, 120.0);
     if (!vm.isGlobalDouble(G_SWING)) vm.setGlobalFloat(G_SWING, 0.5);
@@ -200,6 +207,8 @@ public final class BridgeContract {
     if (!vm.isGlobalDouble(G_DELAY_FB)) vm.setGlobalFloat(G_DELAY_FB, 0.4);
     if (!vm.isGlobalDouble(G_REVERB_ROOM)) vm.setGlobalFloat(G_REVERB_ROOM, 0.6);
     if (!vm.isGlobalDouble(G_REVERB_DAMP)) vm.setGlobalFloat(G_REVERB_DAMP, 0.5);
+    if (!vm.isGlobalInt(G_SCALE)) vm.setGlobalInt(G_SCALE, 0L);
+    if (!vm.isGlobalInt(G_ROOT_KEY)) vm.setGlobalInt(G_ROOT_KEY, 0L);
 
     // Arrays
     vm.setGlobalObject(G_PATTERN, pattern);
@@ -224,6 +233,10 @@ public final class BridgeContract {
     vm.setGlobalObject(G_LFO_DEPTH, lfoDepth);
     vm.setGlobalObject(G_DELAY_SEND, delaySend);
     vm.setGlobalObject(G_REVERB_SEND, reverbSend);
+  }
+
+  public ChuckVM getVm() {
+    return vm;
   }
 
   // ── accessors for direct Java mutation ─────────────────────────────────────
