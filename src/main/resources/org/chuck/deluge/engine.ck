@@ -46,9 +46,28 @@ fun dur stepDuration(int step) {
 fun void kit_shred() {
     // Drum samples (SndBuf per track)
     SndBuf kit[4];
-    Gain   master => dac;
+    Gain   master;
+    HPF    hpf;
+    Dyno   limiter;
+    DelugeAdsr safety_gate => dac;
+    
+    master => hpf => limiter => safety_gate;
+    master !=> dac;
+    hpf !=> dac;
+    limiter !=> dac;
+
     "KIT_MASTER" => master.setName;
+    "KIT_LIMIT"  => limiter.setName;
+    "KIT_GATE"   => safety_gate.setName;
+    
     0 => master.gain; // Prevent start-up clicks
+    20 => hpf.freq;
+    limiter.limit();
+
+    100::ms => now; // Settle time
+    safety_gate.forceMute();
+    safety_gate.set(0.001, 0.0, 1.0, 0.001);
+    0 => int gates_open;
 
     // Load samples for first 4 tracks
     "examples/data/kick.wav"       => kit[0].read;
@@ -96,6 +115,11 @@ fun void kit_shred() {
             0 => kit[r].pos;
             vel * 0.8 => kit[r].gain;
 
+            if (gates_open == 0) {
+                1 => gates_open;
+                safety_gate.keyOn();
+            }
+
             if (Machine.loglevel() >= 2) {
                 <<< "KIT trigger track:", r, "step:", step, "vel:", vel >>>;
             }
@@ -109,16 +133,43 @@ fun void synth_shred() {
     SVFilter filter[4];
     ShelfEQ eq[4];
     DelugeAdsr env[4];
-    Gain master => HPF hpf => Dyno limiter => dac;
-    "SYNTH_MASTER" => master.setName;
-    "SYNTH_HPF"    => hpf.setName;
-    "SYNTH_LIMIT"  => limiter.setName;
+    Gain master;
+    HPF hpf;
+    Dyno limiter;
+    DelugeAdsr safety_gate => dac;
+    
+    // Strict serial chain: master -> hpf -> limiter -> safety_gate -> dac
+    master => hpf => limiter => safety_gate;
+    
+    // DEFENSIVE: Ensure intermediate stages are NOT connected to dac
+    master !=> dac;
+    hpf !=> dac;
+    limiter !=> dac;
+
+    "SYNTH_MASTER"  => master.setName;
+    "SYNTH_HPF"     => hpf.setName;
+    "SYNTH_LIMIT"   => limiter.setName;
+    "SYNTH_GATE"    => safety_gate.setName;
+    
     0 => master.gain; // Prevent start-up clicks
     20 => hpf.freq;   // Kill DC/infra noise
     limiter.limit();  // Hard safety limit
+    
+    // Safety gate is IDLE (muted) by default
+    100::ms => now; // Settle time
+    safety_gate.forceMute();
+    // Use a very fast envelope for the master gate
+    safety_gate.set(0.001, 0.0, 1.0, 0.001);
+    
+    0 => int gates_open;
 
+    // Also defensive: Ensure voices only connect to master, not dac
     for (0 => int i; i < 4; i++) {
-        osc[i] => filter[i] => eq[i] => env[i] => master;
+        osc[i] => filter[i];
+        filter[i] => eq[i];
+        eq[i] => env[i];
+        env[i] => master;
+
         filter[i].reset();
         eq[i].reset();
         // set some base params
@@ -179,6 +230,10 @@ fun void synth_shred() {
             pitch[idx] => int p;
             Std.mtof(p + 60) => osc[v].freq;
 
+            if (gates_open == 0) {
+                1 => gates_open;
+                safety_gate.keyOn();
+            }
             env[v].keyOn();
 
             if (Machine.loglevel() >= 2) {
@@ -210,8 +265,27 @@ fun void clock_shred() {
 
 // ── fx_bus shred ─────────────────────────────────────────────────────────
 fun void fx_bus_shred() {
-    Gain   fx_in => dac;
+    Gain   fx_in;
+    HPF    hpf;
+    Dyno   limiter;
+    DelugeAdsr safety_gate => dac;
+    
+    fx_in => hpf => limiter => safety_gate;
+    fx_in !=> dac;
+    hpf   !=> dac;
+    limiter !=> dac;
+
     "FX_MASTER" => fx_in.setName;
+    "FX_LIMIT"  => limiter.setName;
+    "FX_GATE"   => safety_gate.setName;
+    20 => hpf.freq;
+    limiter.limit();
+
+    100::ms => now; // Settle time
+    safety_gate.forceMute();
+    safety_gate.set(0.001, 0.0, 1.0, 0.001);
+    0 => int gates_open;
+
     Echo   delay => fx_in;
     JCRev  rev   => fx_in;
 
@@ -223,6 +297,10 @@ fun void fx_bus_shred() {
     // Refresh every 8 steps
     while (true) {
         tick_event => now;
+        if (gates_open == 0 && g_play != 0) {
+            1 => gates_open;
+            safety_gate.keyOn();
+        }
         g_delay_time * second => delay.delay;
         g_delay_fb            => delay.gain;
         g_reverb_room         => rev.mix;
@@ -256,9 +334,16 @@ fun void transport_shred() {
             g_play => last_play;
             if (g_play == 1) {
                 if (Machine.loglevel() >= 1) <<< "ENGINE: play" >>>;
+                
                 spork ~ clock_shred();
                 spork ~ kit_shred();
                 spork ~ synth_shred();
+                
+                // Allow DSP chains to settle for 100ms before opening master gates
+                100::ms => now;
+                
+                // We'll use a broadcast event or just let shreds handle it.
+                // Re-enabling explicit keyOn in shreds but WITH a delay.
             } else {
                 if (Machine.loglevel() >= 1) <<< "ENGINE: stop" >>>;
                 -1 => g_current_step;
