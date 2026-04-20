@@ -94,8 +94,6 @@ public class TrackRowPanel extends HBox {
           }
         });
 
-
-
     settingsBtn = new Button("⚙");
     settingsBtn.setStyle(
         "-fx-background-color: transparent; -fx-text-fill: #888888; -fx-font-size: 14px; -fx-padding: 0 5 0 0;");
