@@ -145,25 +145,12 @@ public class TransportPanel extends HBox {
     Button loadBtn = new Button("📂 LOAD XML");
     loadBtn.setStyle("-fx-background-color: #555555; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-family: 'Courier New'; -fx-font-size: 11px;");
     loadBtn.setOnAction(e -> {
-          javafx.stage.FileChooser fc = new javafx.stage.FileChooser();
-          fc.getExtensionFilters().add(new javafx.stage.FileChooser.ExtensionFilter("Deluge XML", "*.XML"));
-          java.io.File file = fc.showOpenDialog(null);
-          if (file != null) {
-            try {
-              if (file.getName().toUpperCase().contains("SYNTH")) {
-                org.chuck.deluge.model.SynthTrackModel synth = org.chuck.deluge.xml.DelugeXmlParser.parseSynth(file);
-                int activeTrack = midiRouter.getActiveTrackIndex();
-                bridge.loadSynthPreset(activeTrack, synth);
-                System.out.println("Applied Synth Preset to Track " + activeTrack + ": " + synth.getName());
-              } else {
-                org.chuck.deluge.model.KitTrackModel kit = org.chuck.deluge.xml.DelugeXmlParser.parseKit(file);
-                System.out.println("Loaded Kit XML: " + kit.getName());
-              }
-            } catch (Exception ex) {
-              System.err.println("Failed to parse XML: " + ex.getMessage());
-            }
-          }
-        });
+        int activeTrack = midiRouter.getActiveTrackIndex();
+        boolean kitsMode = activeTrack < 4;
+        AssetBrowserPopover pop = new AssetBrowserPopover(bridge, activeTrack, kitsMode);
+        javafx.geometry.Bounds bounds = loadBtn.localToScreen(loadBtn.getBoundsInLocal());
+        pop.show(loadBtn, bounds.getMinX(), bounds.getMaxY() + 5);
+    });
 
     Button debugBtn = new Button("🐞 DEBUG");
     debugBtn.setStyle("-fx-background-color: #555555; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-family: 'Courier New'; -fx-font-size: 11px;");
