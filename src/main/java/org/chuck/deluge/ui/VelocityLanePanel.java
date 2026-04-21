@@ -57,10 +57,9 @@ public class VelocityLanePanel extends Pane {
     EditMode mode = (editModeSupplier != null) ? editModeSupplier.get() : EditMode.VELOCITY;
 
     // Offset to align with the grid cells (Label + Button + Spacing)
-    // Label(75) + Button(25) + 3*Spacing(5) = 115 approx.
-    double gridXOffset = 115;
-    double availableWidth = w - gridXOffset - 20;
-    double barWidth = availableWidth / 16.0;
+    // Label(75) + Button(25) + Spacing(5) = 110 approx.
+    double gridXOffset = 110;
+    double barWidth = 45; // 40 (cell width) + 5 (spacing)
 
     // Draw Mode Label
     gc.setFill(Color.web("#aaa"));
@@ -121,7 +120,7 @@ public class VelocityLanePanel extends Pane {
       double barHeight = val * (h - 30);
       double x = gridXOffset + (i * barWidth);
 
-      gc.fillRect(x + 2, h - barHeight - 5, barWidth - 4, barHeight);
+      gc.fillRect(x, h - barHeight - 5, 40, barHeight);
 
       if (val < 0.05 && bridge.getStep(selectedTrack, i)) {
         gc.setStroke(Color.web(color, 0.3));

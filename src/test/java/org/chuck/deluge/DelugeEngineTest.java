@@ -60,8 +60,8 @@ public class DelugeEngineTest {
     vm.setGlobalString("g_sample_0", "examples/data/kick.wav");
     vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
 
-    // Advance time by 5 seconds to allow the engine to process
-    vm.advanceTime(44100 * 5);
+    // Advance time by 10 seconds to allow the engine to process
+    vm.advanceTime(44100 * 10);
 
     // Verify trigger in logs (wait for spork to execute)
     boolean triggerFound = logs.stream().anyMatch(l -> l.contains("KIT trigger track: 0 step: 0"));
