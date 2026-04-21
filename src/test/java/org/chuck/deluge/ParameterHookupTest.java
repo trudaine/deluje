@@ -32,8 +32,7 @@ public class ParameterHookupTest {
     assertNotNull(f, "Engine script not found");
     vm.add(f.getAbsolutePath());
 
-    // Allow settle time (at least 150ms to clear the 100ms engine delay)
-    vm.advanceTime(44100 / 4); // 250ms
+    // We do not advance time here, so 'now' stays at 0 and tests can control exact alignment.
   }
 
   @AfterEach
@@ -145,14 +144,14 @@ public class ParameterHookupTest {
     int track = 4; // Synth 1
     bridge.setStep(track, 0, true);
 
-    // 1. Filter Closed (0.0)
-    bridge.setFilterFreq(track, 0.0);
+    // 1. Filter Open (0.5)
+    bridge.setFilterFreq(track, 0.5);
     vm.setGlobalInt(BridgeContract.G_PLAY, 1L);
-    float closedPeak = getPeakAfterAdvance(44100 * 2);
-
-    // 2. Filter Open (1.0)
-    bridge.setFilterFreq(track, 1.0);
     float openPeak = getPeakAfterAdvance(44100 * 2);
+
+    // 2. Filter Closed (0.0)
+    bridge.setFilterFreq(track, 0.0);
+    float closedPeak = getPeakAfterAdvance(44100 * 2);
 
     System.out.printf("Filter closed peak: %f, open peak: %f\n", closedPeak, openPeak);
     assertTrue(openPeak > closedPeak, "Open filter should produce more signal than closed filter");
