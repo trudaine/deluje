@@ -37,6 +37,17 @@ global Gain g_delay_in;
 global Gain g_reverb_in;
 global Gain g_mod_in;
 
+// ── global strings for samples ───────────────────────────────────────────
+global string g_sample_0;
+global string g_sample_1;
+global string g_sample_2;
+global string g_sample_3;
+global string g_sample_4;
+global string g_sample_5;
+global string g_sample_6;
+global string g_sample_7;
+global Event  g_load_trigger;
+
 // ── tick event — broadcast once per step ──────────────────────────────────
 global Event tick_event;
 
@@ -97,15 +108,34 @@ fun void kit_shred() {
     safety_gate.set(0.001, 0.0, 1.0, 0.001);
     0 => int gates_open;
 
-    // Load samples for all 8 tracks
-    "examples/data/kick.wav"       => kit[0].read;
-    "examples/data/snare.wav"      => kit[1].read;
-    "examples/data/hihat.wav"      => kit[2].read;
-    "examples/data/hihat-open.wav" => kit[3].read;
-    "examples/data/kick.wav"       => kit[4].read;
-    "examples/data/snare.wav"      => kit[5].read;
-    "examples/data/hihat.wav"      => kit[6].read;
-    "examples/data/hihat-open.wav" => kit[7].read;
+    // Helper to load all samples
+    fun void load_all_samples() {
+        if (g_sample_0 != "") g_sample_0 => kit[0].read;
+        if (g_sample_1 != "") g_sample_1 => kit[1].read;
+        if (g_sample_2 != "") g_sample_2 => kit[2].read;
+        if (g_sample_3 != "") g_sample_3 => kit[3].read;
+        if (g_sample_4 != "") g_sample_4 => kit[4].read;
+        if (g_sample_5 != "") g_sample_5 => kit[5].read;
+        if (g_sample_6 != "") g_sample_6 => kit[6].read;
+        if (g_sample_7 != "") g_sample_7 => kit[7].read;
+        for (0 => int i; i < 8; i++) {
+            0 => kit[i].rate;
+            kit[i].samples() => kit[i].pos;
+        }
+        if (Machine.loglevel() >= 1) <<< "ENGINE: Kit samples loaded" >>>;
+    }
+
+    // Initial load
+    load_all_samples();
+
+    // Background listener for new kit loads
+    fun void load_listener() {
+        while (true) {
+            g_load_trigger => now;
+            load_all_samples();
+        }
+    }
+    spork ~ load_listener();
 
     for (0 => int i; i < 8; i++) {
         0 => kit[i].rate;

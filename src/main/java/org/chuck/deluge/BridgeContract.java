@@ -62,6 +62,7 @@ public final class BridgeContract {
   public static final String G_REVERB_DAMP = "g_reverb_damp";
   public static final String G_SCALE = "g_scale";
   public static final String G_ROOT_KEY = "g_root_key";
+  public static final String G_LOAD_TRIGGER = "g_load_trigger";
 
   // ── arrays ─────────────────────────────────────────────────────────────────
   private final ChuckArray pattern;

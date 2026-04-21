@@ -28,6 +28,11 @@ public class KitTrackModel extends TrackModel {
       this.name = name;
     }
 
+    public KitSound(String name, String samplePath) {
+      this.name = name;
+      this.samplePath = samplePath;
+    }
+
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
     public String getSamplePath() { return samplePath; }
