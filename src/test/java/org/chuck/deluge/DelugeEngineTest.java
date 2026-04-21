@@ -46,9 +46,10 @@ public class DelugeEngineTest {
   @Test
   void testEngineKitTriggerOnCellSelection() throws Exception {
     vm.setLogLevel(2);
-    
+
     // Spork Java DSL Engine
-    org.chuck.deluge.engine.DelugeEngine engine = new org.chuck.deluge.engine.DelugeEngine(vm, bridge);
+    org.chuck.deluge.engine.DelugeEngine engine =
+        new org.chuck.deluge.engine.DelugeEngine(vm, bridge);
     vm.spork(engine::shred);
 
     // Set engine to play
@@ -56,9 +57,11 @@ public class DelugeEngineTest {
 
     // Select a cell on Track 0, Step 0
     bridge.setStep(0, 0, true);
+    vm.setGlobalString("g_sample_0", "examples/data/kick.wav");
+    vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
 
-    // Advance time by 2 seconds to allow the engine to process
-    vm.advanceTime(44100 * 2);
+    // Advance time by 5 seconds to allow the engine to process
+    vm.advanceTime(44100 * 5);
 
     // Verify trigger in logs (wait for spork to execute)
     boolean triggerFound = logs.stream().anyMatch(l -> l.contains("KIT trigger track: 0 step: 0"));

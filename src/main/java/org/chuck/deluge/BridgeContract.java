@@ -9,7 +9,7 @@ import org.chuck.core.ChuckVM;
 public final class BridgeContract {
 
   // dimensions
-  public static final int TRACKS = 8;
+  public static final int TRACKS = 64;
   public static final int STEPS = 16;
   public static final int PATTERN_SIZE = TRACKS * STEPS;
 
@@ -222,7 +222,7 @@ public final class BridgeContract {
 
   public void clearAllSteps() {
     for (int i = 0; i < pattern.size(); i++) {
-        pattern.setInt(i, 0L);
+      pattern.setInt(i, 0L);
     }
   }
 

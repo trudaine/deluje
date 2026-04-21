@@ -13,6 +13,7 @@ public class ClipModel {
   private int rowCount;
   private int stepCount;
   private final List<List<StepData>> grid = new ArrayList<>();
+  private String color = "#00ffcc"; // Default color
 
   public ClipModel(String name, int rowCount, int stepCount) {
     this.name = name;
@@ -38,6 +39,14 @@ public class ClipModel {
 
   public void setName(String name) {
     this.name = name;
+  }
+
+  public String getColor() {
+    return color;
+  }
+
+  public void setColor(String color) {
+    this.color = color;
   }
 
   public int getRowCount() {

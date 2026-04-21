@@ -3,13 +3,12 @@ package org.chuck.deluge.ui;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
-import javafx.scene.paint.Color;
 import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.ui.ParameterRibbonPanel.EditMode;
 
 /**
- * A specialized ToggleButton for the Deluge grid.
- * Handles left-click (toggle) and right-click (drag edit).
+ * A specialized ToggleButton for the Deluge grid. Handles left-click (toggle) and right-click (drag
+ * edit).
  */
 public class StepCellButton extends ToggleButton {
   private final int trackId;
@@ -19,7 +18,11 @@ public class StepCellButton extends ToggleButton {
 
   private boolean playheadActive = false;
 
-  public StepCellButton(int trackId, int stepId, BridgeContract bridge, java.util.function.Supplier<EditMode> editModeSupplier) {
+  public StepCellButton(
+      int trackId,
+      int stepId,
+      BridgeContract bridge,
+      java.util.function.Supplier<EditMode> editModeSupplier) {
     this.trackId = trackId;
     this.stepId = stepId;
     this.bridge = bridge;
@@ -31,10 +34,11 @@ public class StepCellButton extends ToggleButton {
     // Sync with Bridge
     setSelected(bridge.getStep(trackId, stepId));
 
-    setOnAction(e -> {
-      bridge.setStep(trackId, stepId, isSelected());
-      updateStyle();
-    });
+    setOnAction(
+        e -> {
+          bridge.setStep(trackId, stepId, isSelected());
+          updateStyle();
+        });
 
     addEventHandler(MouseEvent.MOUSE_PRESSED, this::handleMousePressed);
     addEventHandler(MouseEvent.MOUSE_DRAGGED, this::handleMouseDragged);
@@ -96,10 +100,10 @@ public class StepCellButton extends ToggleButton {
   }
 
   public void setEditMode(EditMode mode) {
-      updateStyle();
+    updateStyle();
   }
 
   public int getStepId() {
-      return stepId;
+    return stepId;
   }
 }

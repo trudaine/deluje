@@ -3,7 +3,6 @@ package org.chuck.deluge;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.File;
-import org.chuck.core.ChuckConfig;
 import org.chuck.core.ChuckVM;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,7 +26,8 @@ public class ParameterHookupTest {
     bridge.register(vm);
 
     // Spork Java DSL Engine
-    org.chuck.deluge.engine.DelugeEngine engine = new org.chuck.deluge.engine.DelugeEngine(vm, bridge);
+    org.chuck.deluge.engine.DelugeEngine engine =
+        new org.chuck.deluge.engine.DelugeEngine(vm, bridge);
     vm.spork(engine::shred);
 
     // Load test samples

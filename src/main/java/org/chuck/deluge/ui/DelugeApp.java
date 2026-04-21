@@ -1,6 +1,5 @@
 package org.chuck.deluge.ui;
 
-import java.io.InputStream;
 import java.net.URL;
 import javafx.application.Application;
 import javafx.scene.Scene;
@@ -10,9 +9,7 @@ import org.chuck.audio.ChuckAudio;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 
-/**
- * Main Entry Point for the ChucK-Java Deluge Emulator.
- */
+/** Main Entry Point for the ChucK-Java Deluge Emulator. */
 public class DelugeApp extends Application {
   private static final int SAMPLE_RATE = 44100;
 
@@ -41,36 +38,37 @@ public class DelugeApp extends Application {
     // 2. Initialize Audio Engine (CRITICAL: This drives the VM clock)
     boolean isDummy = Boolean.getBoolean("chuck.audio.dummy");
     if (!isDummy) {
-        audio = new ChuckAudio(vm, 1024, 2, SAMPLE_RATE);
-        vm.setAudio(audio);
-        audio.start();
-        System.out.println("Deluge Audio Engine started (SourceDataLine).");
+      audio = new ChuckAudio(vm, 1024, 2, SAMPLE_RATE);
+      vm.setAudio(audio);
+      audio.start();
+      System.out.println("Deluge Audio Engine started (SourceDataLine).");
     } else {
-        System.out.println("Deluge Audio Engine in DUMMY mode.");
+      System.out.println("Deluge Audio Engine in DUMMY mode.");
     }
 
     // 3. Create UI
     mainPanel = new DelugeMainPanel(vm, bridge);
 
     Scene scene = new Scene(mainPanel, 1200, 800);
-    
+
     // Robust stylesheet loading
     URL cssUrl = getClass().getResource("/org/chuck/deluge/style.css");
     if (cssUrl != null) {
-        scene.getStylesheets().add(cssUrl.toExternalForm());
+      scene.getStylesheets().add(cssUrl.toExternalForm());
     }
-    
+
     scene.setFill(Color.web("#1a1a1a"));
 
     // Global Key Handlers for Shortcuts
-    scene.setOnKeyPressed(event -> {
-        if (event.isControlDown()) {
+    scene.setOnKeyPressed(
+        event -> {
+          if (event.isControlDown()) {
             switch (event.getCode()) {
-                case S -> mainPanel.saveProject();
-                case N -> mainPanel.resetProject();
+              case S -> mainPanel.saveProject();
+              case N -> mainPanel.resetProject();
             }
-        }
-    });
+          }
+        });
 
     primaryStage.setTitle("ChucK-Java Deluge Emulator");
     primaryStage.setScene(scene);
@@ -85,7 +83,8 @@ public class DelugeApp extends Application {
 
   private synchronized void loadEngine() {
     // Spork Java DSL Engine Orchestrator
-    org.chuck.deluge.engine.DelugeEngine engine = new org.chuck.deluge.engine.DelugeEngine(vm, bridge);
+    org.chuck.deluge.engine.DelugeEngine engine =
+        new org.chuck.deluge.engine.DelugeEngine(vm, bridge);
     vm.spork(engine::shred);
     System.out.println("Deluge Distributed Shreds sporked.");
   }
@@ -104,7 +103,7 @@ public class DelugeApp extends Application {
   @Override
   public void stop() {
     if (audio != null) {
-        audio.stop();
+      audio.stop();
     }
     if (vm != null) {
       vm.shutdown();

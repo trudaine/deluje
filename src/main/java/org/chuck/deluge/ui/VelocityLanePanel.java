@@ -11,9 +11,8 @@ import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.ui.ParameterRibbonPanel.EditMode;
 
 /**
- * Multi-parameter Lane Panel. 
- * Visualizes the values (Velocity, Gate, or Pitch) for the 16 steps of the selected track.
- * Aligned with the Matrix Grid.
+ * Multi-parameter Lane Panel. Visualizes the values (Velocity, Gate, or Pitch) for the 16 steps of
+ * the selected track. Aligned with the Matrix Grid.
  */
 public class VelocityLanePanel extends Pane {
   private final ChuckVM vm;
@@ -40,7 +39,7 @@ public class VelocityLanePanel extends Pane {
   }
 
   public void setEditModeSupplier(java.util.function.Supplier<EditMode> supplier) {
-      this.editModeSupplier = supplier;
+    this.editModeSupplier = supplier;
   }
 
   public void setSelectedTrack(int trackIndex) {
@@ -56,10 +55,10 @@ public class VelocityLanePanel extends Pane {
     gc.clearRect(0, 0, w, h);
 
     EditMode mode = (editModeSupplier != null) ? editModeSupplier.get() : EditMode.VELOCITY;
-    
+
     // Offset to align with the grid cells (Label + Button + Spacing)
     // Label(75) + Button(25) + 3*Spacing(5) = 115 approx.
-    double gridXOffset = 115; 
+    double gridXOffset = 115;
     double availableWidth = w - gridXOffset - 20;
     double barWidth = availableWidth / 16.0;
 
@@ -68,60 +67,65 @@ public class VelocityLanePanel extends Pane {
     gc.setFont(Font.font("Monospaced", 10));
     gc.fillText(mode.name() + " LANE", 10, 20);
 
-    String color = switch(mode) {
-        case VELOCITY -> "#00ffcc";
-        case GATE -> "#ff9800";
-        case PITCH -> "#e91e63";
-        case PROBABILITY -> "#9c27b0";
-        case FILTER -> "#2196f3";
-        case RESONANCE -> "#3f51b5";
-        case PAN -> "#ffeb3b";
-        case DELAY -> "#4caf50";
-        case REVERB -> "#00bcd4";
-        case LEVEL -> "#f44336";
-        case START_END -> "#795548";
-        case STUTTER, MOD_FX -> "#607d8b";
-    };
+    String color =
+        switch (mode) {
+          case VELOCITY -> "#00ffcc";
+          case GATE -> "#ff9800";
+          case PITCH -> "#e91e63";
+          case PROBABILITY -> "#9c27b0";
+          case FILTER -> "#2196f3";
+          case RESONANCE -> "#3f51b5";
+          case PAN -> "#ffeb3b";
+          case DELAY -> "#4caf50";
+          case REVERB -> "#00bcd4";
+          case LEVEL -> "#f44336";
+          case START_END -> "#795548";
+          case STUTTER, MOD_FX -> "#607d8b";
+        };
 
     gc.setFill(Color.web(color, 0.6));
 
-    String globalParam = switch(mode) {
-        case VELOCITY -> BridgeContract.G_VELOCITY;
-        case GATE -> BridgeContract.G_GATE;
-        case PITCH -> BridgeContract.G_PITCH;
-        case PROBABILITY -> BridgeContract.G_PROBABILITY;
-        case FILTER -> BridgeContract.G_STEP_FILTER;
-        case RESONANCE -> BridgeContract.G_STEP_RES;
-        case PAN -> BridgeContract.G_STEP_PAN;
-        case DELAY -> BridgeContract.G_STEP_DELAY;
-        case REVERB -> BridgeContract.G_STEP_REVERB;
-        case LEVEL -> BridgeContract.G_TRACK_LEVEL;
-        case START_END -> BridgeContract.G_STEP_START;
-        case STUTTER, MOD_FX -> BridgeContract.G_VELOCITY; // Fallback
-    };
+    String globalParam =
+        switch (mode) {
+          case VELOCITY -> BridgeContract.G_VELOCITY;
+          case GATE -> BridgeContract.G_GATE;
+          case PITCH -> BridgeContract.G_PITCH;
+          case PROBABILITY -> BridgeContract.G_PROBABILITY;
+          case FILTER -> BridgeContract.G_STEP_FILTER;
+          case RESONANCE -> BridgeContract.G_STEP_RES;
+          case PAN -> BridgeContract.G_STEP_PAN;
+          case DELAY -> BridgeContract.G_STEP_DELAY;
+          case REVERB -> BridgeContract.G_STEP_REVERB;
+          case LEVEL -> BridgeContract.G_TRACK_LEVEL;
+          case START_END -> BridgeContract.G_STEP_START;
+          case STUTTER, MOD_FX -> BridgeContract.G_VELOCITY; // Fallback
+        };
 
     Object obj = vm.getGlobalObject(globalParam);
     if (!(obj instanceof ChuckArray array)) return;
 
     for (int i = 0; i < 16; i++) {
       double val;
-      int arrayIdx = (globalParam.equals(BridgeContract.G_TRACK_LEVEL)) ? selectedTrack : (selectedTrack * 16 + i);
-      
+      int arrayIdx =
+          (globalParam.equals(BridgeContract.G_TRACK_LEVEL))
+              ? selectedTrack
+              : (selectedTrack * 16 + i);
+
       if (mode == EditMode.PITCH) {
-          int p = (int) array.getInt(arrayIdx);
-          val = (p + 12) / 24.0;
+        int p = (int) array.getInt(arrayIdx);
+        val = (p + 12) / 24.0;
       } else {
-          val = array.getFloat(arrayIdx);
+        val = array.getFloat(arrayIdx);
       }
-      
+
       double barHeight = val * (h - 30);
       double x = gridXOffset + (i * barWidth);
-      
+
       gc.fillRect(x + 2, h - barHeight - 5, barWidth - 4, barHeight);
-      
+
       if (val < 0.05 && bridge.getStep(selectedTrack, i)) {
-          gc.setStroke(Color.web(color, 0.3));
-          gc.strokeLine(x + 2, h - 10, x + barWidth - 2, h - 10);
+        gc.setStroke(Color.web(color, 0.3));
+        gc.strokeLine(x + 2, h - 10, x + barWidth - 2, h - 10);
       }
     }
 

@@ -63,6 +63,36 @@ public class ProjectSerializer {
       instruments.appendChild(trackElem);
     }
 
+    // Serialize Tracks (Clips)
+    Element tracksElem = doc.createElement("tracks");
+    rootElement.appendChild(tracksElem);
+
+    for (TrackModel track : model.getTracks()) {
+      for (org.chuck.deluge.model.ClipModel clip : track.getClips()) {
+        Element clipTrackElem = doc.createElement("track");
+        tracksElem.appendChild(clipTrackElem);
+
+        Element noteRowsElem = doc.createElement("noteRows");
+        clipTrackElem.appendChild(noteRowsElem);
+
+        for (int r = 0; r < clip.getRowCount(); r++) {
+          Element noteRowElem = doc.createElement("noteRow");
+          noteRowsElem.appendChild(noteRowElem);
+
+          java.util.List<org.chuck.deluge.model.StepData> row = new java.util.ArrayList<>();
+          for (int s = 0; s < clip.getStepCount(); s++) {
+            row.add(clip.getStep(r, s));
+          }
+
+          String hexData = org.chuck.deluge.xml.DelugeNoteDataMapper.encodeRow(row);
+
+          Element noteDataElem = doc.createElement("noteData");
+          noteDataElem.setTextContent(hexData);
+          noteRowElem.appendChild(noteDataElem);
+        }
+      }
+    }
+
     // Write the content into xml file
     TransformerFactory transformerFactory = TransformerFactory.newInstance();
     Transformer transformer = transformerFactory.newTransformer();
