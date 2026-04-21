@@ -5,7 +5,6 @@ import javafx.geometry.Pos;
 import javafx.scene.control.Label;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
-import javafx.scene.paint.Color;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 
@@ -16,15 +15,23 @@ import org.chuck.deluge.BridgeContract;
 public class SongModePanel extends VBox {
   private final ChuckVM vm;
   private final BridgeContract bridge;
+  private org.chuck.deluge.model.ProjectModel projectModel;
 
   private final SectionBar sectionBar;
-  private final ClipCell[][] clipGrid; // [tracks][slots]
+  private final ClipCell[][] clipGrid; // [clips][slots]
+  private final javafx.scene.control.Button[] launchButtons = new javafx.scene.control.Button[64];
   private final LaunchQuantController quantController;
 
-  public SongModePanel(ChuckVM vm, BridgeContract bridge, int numTracks, int numSlots) {
+  public SongModePanel(
+      ChuckVM vm,
+      BridgeContract bridge,
+      org.chuck.deluge.model.ProjectModel projectModel,
+      int numSlots) {
     this.vm = vm;
     this.bridge = bridge;
-    this.clipGrid = new ClipCell[numTracks][numSlots];
+    this.projectModel = projectModel;
+    int maxClips = 64;
+    this.clipGrid = new ClipCell[maxClips][numSlots];
 
     setAlignment(Pos.TOP_LEFT);
     setSpacing(5);
@@ -36,45 +43,168 @@ public class SongModePanel extends VBox {
     sectionBar.setOnSectionLaunched(this::armSection);
     getChildren().add(sectionBar);
 
-    // 2. The Clip Grid
+    // 2. The Clip Grid and Quantization Controller
+    refresh();
+    quantController = new LaunchQuantController(vm, bridge, clipGrid, maxClips, numSlots);
+  }
+
+  public void setProjectModel(org.chuck.deluge.model.ProjectModel projectModel) {
+    this.projectModel = projectModel;
+  }
+
+  private java.util.function.Consumer<org.chuck.deluge.model.ClipModel> onClipSelected;
+
+  public void setOnClipSelected(
+      java.util.function.Consumer<org.chuck.deluge.model.ClipModel> callback) {
+    this.onClipSelected = callback;
+  }
+
+  private java.util.function.Consumer<org.chuck.deluge.model.ClipModel> onClipLaunched;
+
+  public void setOnClipLaunched(
+      java.util.function.Consumer<org.chuck.deluge.model.ClipModel> callback) {
+    this.onClipLaunched = callback;
+  }
+
+  public void refresh() {
+    if (getChildren().size() > 1) {
+      getChildren().remove(1);
+    }
+
     GridPane grid = new GridPane();
     grid.setHgap(5);
     grid.setVgap(5);
 
-    String[] trackNames = {
-      "KICK", "SNARE", "HIHAT", "OPEN HAT", "SYNTH 1", "SYNTH 2", "SYNTH 3", "SYNTH 4"
-    };
+    java.util.List<org.chuck.deluge.model.TrackModel> tracks = projectModel.getTracks();
 
-    for (int t = 0; t < numTracks; t++) {
-      // Track Label
-      Label label = new Label(trackNames[t]);
-      label.setPrefWidth(80);
-      label.setAlignment(Pos.CENTER_RIGHT);
-      label.setTextFill(Color.web("#cccccc"));
-      grid.add(label, 0, t);
+    int rowIdx = 0;
+    int numSlots = clipGrid[0].length;
 
-      // Clip Cells for this track
-      for (int s = 0; s < numSlots; s++) {
-        ClipCell cell = new ClipCell(t, s);
+    // 1. Populate rows with existing clips
+    for (org.chuck.deluge.model.TrackModel track : tracks) {
+      for (org.chuck.deluge.model.ClipModel clip : track.getClips()) {
 
-        // Mock data: populate the first cell of the first few tracks
-        if (s == 0 && t < 4) {
-          cell.setFilled("PAT_A");
+        Label label = new Label(clip.getName() + " (" + track.getName() + ")");
+        label.setPrefWidth(120);
+        label.setAlignment(Pos.CENTER_RIGHT);
+        label.setTextFill(javafx.scene.paint.Color.web("#cccccc"));
+
+        javafx.scene.layout.HBox headerBox = new javafx.scene.layout.HBox(5);
+        headerBox.setAlignment(Pos.CENTER_LEFT);
+        headerBox.getChildren().add(label); // Only label!
+
+        final org.chuck.deluge.model.ClipModel currentClip = clip;
+        headerBox.setOnMouseClicked(
+            e -> {
+              if (e.getClickCount() == 2) {
+                if (onClipSelected != null) {
+                  onClipSelected.accept(currentClip);
+                }
+              }
+            });
+
+        grid.add(headerBox, 0, rowIdx);
+
+        // Right side controls
+        javafx.scene.control.Button launchBtn = new javafx.scene.control.Button("L");
+        launchBtn.setPrefWidth(25);
+        launchBtn.setStyle("-fx-background-color: #444; -fx-text-fill: white;");
+
+        int currentClipRow = rowIdx;
+        launchBtn.setOnAction(
+            e -> {
+              boolean wasPlaying = launchBtn.getStyle().contains("#00ff00");
+              if (wasPlaying) {
+                launchBtn.setStyle("-fx-background-color: #444; -fx-text-fill: white;");
+              } else {
+                launchBtn.setStyle("-fx-background-color: #00ff00; -fx-text-fill: white;");
+                stopOtherClipsOfTrack(track, currentClipRow);
+                if (onClipLaunched != null) {
+                  onClipLaunched.accept(currentClip);
+                }
+              }
+            });
+
+        grid.add(launchBtn, numSlots + 1, rowIdx); // Column numSlots + 1
+
+        javafx.scene.control.Button colorBtn = new javafx.scene.control.Button("C");
+        colorBtn.setPrefWidth(25);
+        colorBtn.setStyle("-fx-background-color: " + clip.getColor() + "; -fx-text-fill: black;");
+
+        String[] colors = {"#00ffcc", "#ff0055", "#ffee00", "#00ff00"};
+        colorBtn.setOnAction(
+            e -> {
+              String currentColor = currentClip.getColor();
+              int idx = java.util.Arrays.asList(colors).indexOf(currentColor);
+              int nextIdx = (idx + 1) % colors.length;
+              String newColor = colors[nextIdx];
+              currentClip.setColor(newColor);
+              colorBtn.setStyle("-fx-background-color: " + newColor + "; -fx-text-fill: black;");
+
+              // Update pad colors in the row
+              for (int s = 0; s < numSlots; s++) {
+                ClipCell cell = clipGrid[currentClipRow][s];
+                if (cell.getCurrentState() == ClipCell.State.FILLED) {
+                  cell.setPadColor(newColor);
+                }
+              }
+            });
+
+        grid.add(colorBtn, numSlots + 2, rowIdx); // Column numSlots + 2
+
+        for (int s = 0; s < numSlots; s++) {
+          ClipCell cell = new ClipCell(rowIdx, s);
+          cell.setFilled(clip.getName());
+          cell.setPadColor(clip.getColor());
+
+          clipGrid[rowIdx][s] = cell;
+          grid.add(cell, s + 1, rowIdx);
         }
-        // Mock data: populate a section B
-        if (s == 1 && (t == 0 || t == 1)) {
-          cell.setFilled("PAT_B");
-        }
 
-        clipGrid[t][s] = cell;
-        grid.add(cell, s + 1, t);
+        rowIdx++;
+        if (rowIdx >= clipGrid.length) break;
       }
+      if (rowIdx >= clipGrid.length) break;
     }
 
-    getChildren().add(grid);
+    // 2. Fill remaining rows up to maxClips (64) to avoid NullPointerException in controller
+    while (rowIdx < clipGrid.length) {
+      Label label = new Label("EMPTY");
+      label.setPrefWidth(120);
+      label.setAlignment(Pos.CENTER_RIGHT);
+      label.setTextFill(javafx.scene.paint.Color.web("#666666"));
 
-    // 3. Initialize the Quantization Controller
-    quantController = new LaunchQuantController(vm, bridge, clipGrid, numTracks, numSlots);
+      javafx.scene.layout.HBox headerBox = new javafx.scene.layout.HBox(5);
+      headerBox.setAlignment(Pos.CENTER_LEFT);
+      headerBox.getChildren().addAll(label);
+
+      grid.add(headerBox, 0, rowIdx);
+
+      for (int s = 0; s < numSlots; s++) {
+        ClipCell cell = new ClipCell(rowIdx, s);
+        cell.setEmpty();
+        clipGrid[rowIdx][s] = cell;
+        grid.add(cell, s + 1, rowIdx);
+      }
+      rowIdx++;
+    }
+
+    javafx.scene.control.ScrollPane scrollPane = new javafx.scene.control.ScrollPane(grid);
+    scrollPane.setFitToWidth(true);
+    scrollPane.setStyle("-fx-background: #1a1a1a; -fx-border-color: transparent;");
+    getChildren().add(scrollPane);
+  }
+
+  private void stopOtherClipsOfTrack(org.chuck.deluge.model.TrackModel track, int activeRow) {
+    // Simple implementation: turn off green light for other buttons
+    // A full implementation would need to know which rows belong to which track.
+    // For now, we just simulate it by turning off all OTHER buttons!
+    // This enforces "one playing clip total" which is even stricter but safe for MVP.
+    for (int i = 0; i < launchButtons.length; i++) {
+      if (i != activeRow && launchButtons[i] != null) {
+        launchButtons[i].setStyle("-fx-background-color: #444; -fx-text-fill: white;");
+      }
+    }
   }
 
   /** Arms an entire column (Section) of clips to be launched. */

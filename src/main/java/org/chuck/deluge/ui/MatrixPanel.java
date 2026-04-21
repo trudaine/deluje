@@ -9,9 +9,7 @@ import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.ui.ParameterRibbonPanel.EditMode;
 
-/**
- * The central interaction zone for sequencing.
- */
+/** The central interaction zone for sequencing. */
 public class MatrixPanel extends BorderPane {
   private final ChuckVM vm;
   private final BridgeContract bridge;
@@ -46,17 +44,18 @@ public class MatrixPanel extends BorderPane {
 
     // Defensive check: Ensure bridge objects exist in VM
     Object trackTypeObj = vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
-    ChuckArray trackTypeArray = (trackTypeObj instanceof ChuckArray) ? (ChuckArray) trackTypeObj : null;
+    ChuckArray trackTypeArray =
+        (trackTypeObj instanceof ChuckArray) ? (ChuckArray) trackTypeObj : null;
 
     for (int i = 0; i < 8; i++) {
       int trackIdx = i;
       rows[i] = new TrackRowPanel(i, "EMPTY", vm, bridge, this::getCurrentEditMode);
       rows[i].setOnMouseClicked(e -> selectTrack(trackIdx));
       rowContainer.getChildren().add(rows[i]);
-      
+
       // Initialize bridge state for empty tracks
       if (trackTypeArray != null) {
-          trackTypeArray.setInt(i, 0L); // Default to Kit logic but empty
+        trackTypeArray.setInt(i, 0L); // Default to Kit logic but empty
       }
       bridge.setMute(i, true); // Mute empty slots
     }
@@ -91,13 +90,13 @@ public class MatrixPanel extends BorderPane {
       if (i < sounds.size()) {
         org.chuck.deluge.model.KitTrackModel.KitSound sound = sounds.get(i);
         rows[i].updateForKit(sound);
-        
+
         if (trackTypeArr != null) trackTypeArr.setInt(i, 0L);
-        
+
         String path = sound.getSamplePath();
         if (path != null && !path.isEmpty()) {
           vm.setGlobalString("g_sample_" + i, path);
-          bridge.setMute(i, false); 
+          bridge.setMute(i, false);
         } else {
           bridge.setMute(i, true);
         }
@@ -111,6 +110,22 @@ public class MatrixPanel extends BorderPane {
     vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
   }
 
+  public void applyClip(org.chuck.deluge.model.ClipModel clip) {
+    for (int r = 0; r < 8; r++) {
+      if (r < clip.getRowCount()) {
+        for (int s = 0; s < 16; s++) {
+          if (s < clip.getStepCount()) {
+            org.chuck.deluge.model.StepData step = clip.getStep(r, s);
+            bridge.setStep(r, s, step.active());
+          } else {
+            bridge.setStep(r, s, false);
+          }
+        }
+        rows[r].refreshCells();
+      }
+    }
+  }
+
   public void setEditMode(EditMode mode) {
     this.currentEditMode = mode;
     for (TrackRowPanel row : rows) {
@@ -119,9 +134,9 @@ public class MatrixPanel extends BorderPane {
   }
 
   public void refreshCells() {
-      for (TrackRowPanel row : rows) {
-          row.refreshCells();
-      }
+    for (TrackRowPanel row : rows) {
+      row.refreshCells();
+    }
   }
 
   public EditMode getCurrentEditMode() {

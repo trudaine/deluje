@@ -110,6 +110,147 @@ public class DelugeXmlParser {
     return synth;
   }
 
+  public static ProjectModel parseSong(java.io.File xmlFile) throws Exception {
+    return parseSong(new java.io.FileInputStream(xmlFile), xmlFile.getName().replace(".XML", ""));
+  }
+
+  public static ProjectModel parseSong(InputStream is, String name) throws Exception {
+    Document doc = parseXml(is);
+    Element root = doc.getDocumentElement();
+
+    Element songNode = root;
+    if (!root.getTagName().equals("song")) {
+      NodeList songs = root.getElementsByTagName("song");
+      if (songs.getLength() > 0) {
+        songNode = (Element) songs.item(0);
+      }
+    }
+
+    ProjectModel project = new ProjectModel();
+
+    // 1. Parse Instruments
+    NodeList instNodes = songNode.getElementsByTagName("instruments");
+    if (instNodes.getLength() > 0) {
+      Element instruments = (Element) instNodes.item(0);
+      // Parse Kits
+      NodeList kitNodes = instruments.getElementsByTagName("kit");
+      for (int i = 0; i < kitNodes.getLength(); i++) {
+        Element kitNode = (Element) kitNodes.item(i);
+        if (kitNode.getParentNode() == instruments) {
+          KitTrackModel kit = parseKitElement(kitNode);
+          project.addTrack(kit);
+          System.out.println("PARSER: Loaded kit track " + kit.getName());
+        }
+      }
+
+      NodeList soundNodes = instruments.getElementsByTagName("sound");
+      for (int i = 0; i < soundNodes.getLength(); i++) {
+        Element soundNode = (Element) soundNodes.item(i);
+        if (soundNode.getParentNode() == instruments) {
+          SynthTrackModel synth = parseSynthElement(soundNode);
+          project.addTrack(synth);
+          System.out.println("PARSER: Loaded synth track " + synth.getName());
+        }
+      }
+    }
+
+    // 2. Parse Tracks (Clips)
+    NodeList tracksNodes = songNode.getElementsByTagName("tracks");
+    if (tracksNodes.getLength() > 0) {
+      Element tracks = (Element) tracksNodes.item(0);
+      NodeList trackList = tracks.getElementsByTagName("track");
+
+      System.out.println("PARSER: Found " + trackList.getLength() + " tracks in XML");
+
+      for (int i = 0; i < trackList.getLength(); i++) {
+        Element trackElem = (Element) trackList.item(i);
+
+        java.util.List<TrackModel> projectTracks = project.getTracks();
+        if (i < projectTracks.size()) {
+          TrackModel targetTrack = projectTracks.get(i);
+
+          NodeList noteRowsList = trackElem.getElementsByTagName("noteRows");
+          if (noteRowsList.getLength() > 0) {
+            Element noteRowsElem = (Element) noteRowsList.item(0);
+            NodeList noteRowList = noteRowsElem.getElementsByTagName("noteRow");
+
+            int rowCount = noteRowList.getLength();
+            int stepCount = 16; // Default
+
+            ClipModel clip = new ClipModel("CLIP " + i, rowCount, stepCount);
+            System.out.println(
+                "PARSER: Created clip "
+                    + clip.getName()
+                    + " for track "
+                    + targetTrack.getName()
+                    + " with rows "
+                    + rowCount);
+
+            for (int r = 0; r < rowCount; r++) {
+              Element noteRowElem = (Element) noteRowList.item(r);
+              NodeList noteDataList = noteRowElem.getElementsByTagName("noteData");
+              if (noteDataList.getLength() > 0) {
+                String hexData = noteDataList.item(0).getTextContent();
+                java.util.List<StepData> row = DelugeNoteDataMapper.decodeRow(hexData, stepCount);
+
+                for (int s = 0; s < stepCount; s++) {
+                  clip.setStep(r, s, row.get(s));
+                }
+              }
+            }
+            targetTrack.addClip(clip);
+          }
+        } else {
+          System.out.println(
+              "PARSER: Track index "
+                  + i
+                  + " out of bounds for project tracks size "
+                  + projectTracks.size());
+        }
+      }
+    }
+
+    return project;
+  }
+
+  private static KitTrackModel parseKitElement(Element kitNode) throws Exception {
+    String name = "KIT";
+    KitTrackModel kit = new KitTrackModel(name);
+
+    NodeList soundNodes = kitNode.getElementsByTagName("sound");
+    for (int i = 0; i < soundNodes.getLength(); i++) {
+      Element soundNode = (Element) soundNodes.item(i);
+      String soundName = "SOUND " + i;
+      NodeList nameNodes = soundNode.getElementsByTagName("name");
+      if (nameNodes.getLength() > 0) {
+        soundName = nameNodes.item(0).getTextContent();
+      }
+      KitTrackModel.KitSound sound = new KitTrackModel.KitSound(soundName);
+      NodeList sampleNodes = soundNode.getElementsByTagName("sample");
+      if (sampleNodes.getLength() > 0) {
+        Element sampleNode = (Element) sampleNodes.item(0);
+        if (sampleNode.hasAttribute("fileName")) {
+          sound.setSamplePath(sampleNode.getAttribute("fileName"));
+        }
+      }
+      kit.addSound(sound);
+    }
+    return kit;
+  }
+
+  private static SynthTrackModel parseSynthElement(Element soundNode) throws Exception {
+    String name = "SYNTH";
+    SynthTrackModel synth = new SynthTrackModel(name);
+    NodeList osc1Nodes = soundNode.getElementsByTagName("osc1");
+    if (osc1Nodes.getLength() > 0) {
+      Element osc1 = (Element) osc1Nodes.item(0);
+      if (osc1.hasAttribute("type")) {
+        synth.setOsc1Type(osc1.getAttribute("type").toUpperCase());
+      }
+    }
+    return synth;
+  }
+
   private static Document parseXml(InputStream is) throws Exception {
     byte[] bytes = is.readAllBytes();
     String content = new String(bytes, StandardCharsets.UTF_8);

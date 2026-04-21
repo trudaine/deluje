@@ -16,6 +16,7 @@ public class ClipCell extends Button {
   private final int trackIndex;
   private final int slotIndex;
   private String patternId = null;
+  private String padColor = "#00ffcc"; // Default color
 
   public ClipCell(int trackIndex, int slotIndex) {
     this.trackIndex = trackIndex;
@@ -37,6 +38,45 @@ public class ClipCell extends Button {
             setEmpty();
           }
         });
+
+    setOnDragDetected(
+        e -> {
+          if (currentState != State.EMPTY) {
+            javafx.scene.input.Dragboard db =
+                startDragAndDrop(javafx.scene.input.TransferMode.MOVE);
+            javafx.scene.input.ClipboardContent content = new javafx.scene.input.ClipboardContent();
+            content.putString(patternId);
+            db.setContent(content);
+            e.consume();
+          }
+        });
+
+    setOnDragOver(
+        e -> {
+          if (e.getGestureSource() != this && e.getDragboard().hasString()) {
+            e.acceptTransferModes(javafx.scene.input.TransferMode.MOVE);
+          }
+          e.consume();
+        });
+
+    setOnDragDropped(
+        e -> {
+          javafx.scene.input.Dragboard db = e.getDragboard();
+          boolean success = false;
+          if (db.hasString()) {
+            String draggedPatternId = db.getString();
+
+            if (e.getGestureSource() instanceof ClipCell) {
+              ClipCell sourceCell = (ClipCell) e.getGestureSource();
+              sourceCell.setEmpty();
+            }
+
+            setFilled(draggedPatternId);
+            success = true;
+          }
+          e.setDropCompleted(success);
+          e.consume();
+        });
   }
 
   public void setEmpty() {
@@ -49,7 +89,7 @@ public class ClipCell extends Button {
   public void setFilled(String patternId) {
     currentState = State.FILLED;
     this.patternId = patternId;
-    setText(patternId);
+    setText(""); // No text in Deluge pads!
     updateStyle();
   }
 
@@ -75,6 +115,11 @@ public class ClipCell extends Button {
     return patternId;
   }
 
+  public void setPadColor(String color) {
+    this.padColor = color;
+    updateStyle();
+  }
+
   private void updateStyle() {
     String baseColor = "#333333";
     String textColor = "#888888";
@@ -85,7 +130,7 @@ public class ClipCell extends Button {
         baseColor = "#222222";
         break;
       case FILLED:
-        baseColor = "#444444";
+        baseColor = padColor;
         textColor = "#ffffff";
         break;
       case QUEUED:

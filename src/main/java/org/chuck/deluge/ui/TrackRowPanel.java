@@ -4,7 +4,6 @@ import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.HBox;
-import javafx.scene.paint.Color;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.model.KitTrackModel;
@@ -40,7 +39,8 @@ public class TrackRowPanel extends HBox {
     // Padding for names: 8 characters width, monospaced
     nameLabel = new Label(padName(name));
     nameLabel.setPrefWidth(75); // Roughly 8 chars at 12px mono
-    nameLabel.setStyle("-fx-text-fill: #00ffcc; -fx-font-family: 'Monospaced'; -fx-font-weight: bold; -fx-font-size: 12;");
+    nameLabel.setStyle(
+        "-fx-text-fill: #00ffcc; -fx-font-family: 'Monospaced'; -fx-font-weight: bold; -fx-font-size: 12;");
 
     auditionBtn = new Button(">");
     auditionBtn.setMinWidth(25);
@@ -58,9 +58,9 @@ public class TrackRowPanel extends HBox {
   }
 
   private String padName(String name) {
-      if (name == null) name = "EMPTY";
-      if (name.length() > 8) return name.substring(0, 8);
-      return String.format("%-8s", name);
+    if (name == null) name = "EMPTY";
+    if (name.length() > 8) return name.substring(0, 8);
+    return String.format("%-8s", name);
   }
 
   public void updateForKit(KitTrackModel.KitSound sound) {
@@ -74,10 +74,10 @@ public class TrackRowPanel extends HBox {
   }
 
   public void refreshCells() {
-      for (StepCellButton cell : cells) {
-          cell.setSelected(bridge.getStep(rowId, cell.getStepId()));
-          cell.updateStyle();
-      }
+    for (StepCellButton cell : cells) {
+      cell.setSelected(bridge.getStep(rowId, cell.getStepId()));
+      cell.updateStyle();
+    }
   }
 
   public void highlightStep(int col, boolean active) {
