@@ -17,6 +17,7 @@ public class TrackRowPanel extends HBox {
   private final Label nameLabel;
   private final StepCellButton[] cells;
   private final Button auditionBtn;
+  private int baseTrack = 0;
 
   private final ChuckVM vm;
   private final BridgeContract bridge;
@@ -75,8 +76,21 @@ public class TrackRowPanel extends HBox {
 
   public void refreshCells() {
     for (StepCellButton cell : cells) {
-      cell.setSelected(bridge.getStep(rowId, cell.getStepId()));
+      cell.setSelected(bridge.getStep(baseTrack + rowId, cell.getStepId()));
       cell.updateStyle();
+    }
+  }
+
+  public void setBaseTrack(int baseTrack) {
+    this.baseTrack = baseTrack;
+    for (StepCellButton cell : cells) {
+      cell.setBaseTrack(baseTrack);
+    }
+  }
+
+  public void setSynthMode(boolean isSynthMode) {
+    for (StepCellButton cell : cells) {
+      cell.setSynthMode(isSynthMode);
     }
   }
 

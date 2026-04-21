@@ -52,18 +52,39 @@ public class SongModePanel extends VBox {
     this.projectModel = projectModel;
   }
 
-  private java.util.function.Consumer<org.chuck.deluge.model.ClipModel> onClipSelected;
+  private java.util.function.BiConsumer<
+          org.chuck.deluge.model.TrackModel, org.chuck.deluge.model.ClipModel>
+      onClipSelected;
 
   public void setOnClipSelected(
-      java.util.function.Consumer<org.chuck.deluge.model.ClipModel> callback) {
+      java.util.function.BiConsumer<
+              org.chuck.deluge.model.TrackModel, org.chuck.deluge.model.ClipModel>
+          callback) {
     this.onClipSelected = callback;
   }
 
-  private java.util.function.Consumer<org.chuck.deluge.model.ClipModel> onClipLaunched;
+  private java.util.function.BiConsumer<
+          org.chuck.deluge.model.TrackModel, org.chuck.deluge.model.ClipModel>
+      onClipLaunched;
 
   public void setOnClipLaunched(
-      java.util.function.Consumer<org.chuck.deluge.model.ClipModel> callback) {
+      java.util.function.BiConsumer<
+              org.chuck.deluge.model.TrackModel, org.chuck.deluge.model.ClipModel>
+          callback) {
     this.onClipLaunched = callback;
+  }
+
+  public void setClipActive(int rowIdx, boolean active) {
+    if (rowIdx >= 0 && rowIdx < launchButtons.length) {
+      javafx.scene.control.Button btn = launchButtons[rowIdx];
+      if (btn != null) {
+        if (active) {
+          btn.setStyle("-fx-background-color: #00ff00; -fx-text-fill: white;");
+        } else {
+          btn.setStyle("-fx-background-color: #444; -fx-text-fill: white;");
+        }
+      }
+    }
   }
 
   public void refresh() {
@@ -98,7 +119,7 @@ public class SongModePanel extends VBox {
             e -> {
               if (e.getClickCount() == 2) {
                 if (onClipSelected != null) {
-                  onClipSelected.accept(currentClip);
+                  onClipSelected.accept(track, currentClip);
                 }
               }
             });
@@ -107,7 +128,7 @@ public class SongModePanel extends VBox {
 
         // Right side controls
         javafx.scene.control.Button launchBtn = new javafx.scene.control.Button("L");
-        launchBtn.setPrefWidth(25);
+        launchBtn.setPrefWidth(35);
         launchBtn.setStyle("-fx-background-color: #444; -fx-text-fill: white;");
 
         int currentClipRow = rowIdx;
@@ -120,7 +141,7 @@ public class SongModePanel extends VBox {
                 launchBtn.setStyle("-fx-background-color: #00ff00; -fx-text-fill: white;");
                 stopOtherClipsOfTrack(track, currentClipRow);
                 if (onClipLaunched != null) {
-                  onClipLaunched.accept(currentClip);
+                  onClipLaunched.accept(track, currentClip);
                 }
               }
             });
@@ -128,7 +149,7 @@ public class SongModePanel extends VBox {
         grid.add(launchBtn, numSlots + 1, rowIdx); // Column numSlots + 1
 
         javafx.scene.control.Button colorBtn = new javafx.scene.control.Button("C");
-        colorBtn.setPrefWidth(25);
+        colorBtn.setPrefWidth(35);
         colorBtn.setStyle("-fx-background-color: " + clip.getColor() + "; -fx-text-fill: black;");
 
         String[] colors = {"#00ffcc", "#ff0055", "#ffee00", "#00ff00"};
@@ -151,6 +172,31 @@ public class SongModePanel extends VBox {
             });
 
         grid.add(colorBtn, numSlots + 2, rowIdx); // Column numSlots + 2
+
+        javafx.scene.control.Button muteBtn = new javafx.scene.control.Button("M");
+        muteBtn.setPrefWidth(35);
+        muteBtn.setStyle("-fx-background-color: #444; -fx-text-fill: white;");
+
+        int trackIdx = projectModel.getTracks().indexOf(track);
+        int baseTrack = trackIdx * 8;
+
+        muteBtn.setOnAction(
+            e -> {
+              boolean wasMuted = muteBtn.getStyle().contains("#ffff00");
+              if (wasMuted) {
+                muteBtn.setStyle("-fx-background-color: #444; -fx-text-fill: white;");
+                for (int i = 0; i < 8; i++) {
+                  bridge.setMute(baseTrack + i, false);
+                }
+              } else {
+                muteBtn.setStyle("-fx-background-color: #ffff00; -fx-text-fill: black;");
+                for (int i = 0; i < 8; i++) {
+                  bridge.setMute(baseTrack + i, true);
+                }
+              }
+            });
+
+        grid.add(muteBtn, numSlots + 3, rowIdx); // Column numSlots + 3
 
         for (int s = 0; s < numSlots; s++) {
           ClipCell cell = new ClipCell(rowIdx, s);

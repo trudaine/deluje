@@ -215,9 +215,53 @@ public class DelugeXmlParser {
 
   private static KitTrackModel parseKitElement(Element kitNode) throws Exception {
     String name = "KIT";
-    KitTrackModel kit = new KitTrackModel(name);
+
+    NodeList slotNodes = kitNode.getElementsByTagName("presetSlot");
+    if (slotNodes.getLength() > 0) {
+      name = "KIT " + slotNodes.item(0).getTextContent();
+    }
 
     NodeList soundNodes = kitNode.getElementsByTagName("sound");
+    if (soundNodes.getLength() > 0) {
+      Element soundNode = (Element) soundNodes.item(0);
+      NodeList sampleNodes = soundNode.getElementsByTagName("sample");
+      if (sampleNodes.getLength() > 0) {
+        Element sampleNode = (Element) sampleNodes.item(0);
+        if (sampleNode.hasAttribute("fileName")) {
+          String fileName = sampleNode.getAttribute("fileName");
+          String baseName = new java.io.File(fileName).getName();
+          int extIdx = baseName.lastIndexOf('.');
+          if (extIdx > 0) {
+            baseName = baseName.substring(0, extIdx);
+          }
+          if (baseName.length() > 7) {
+            baseName = baseName.substring(0, 7);
+          }
+          name = baseName;
+        }
+      }
+    } else {
+      // Load from preset!
+      if (slotNodes.getLength() > 0) {
+        int slot = Integer.parseInt(slotNodes.item(0).getTextContent());
+        String fileName = null;
+        if (slot == 0) fileName = "/KITS/000 TR-808.XML";
+        else if (slot == 1) fileName = "/KITS/001 DDD-1.XML";
+        else if (slot == 2) fileName = "/KITS/002 SDS-5.XML";
+
+        if (fileName != null) {
+          try (java.io.InputStream is = DelugeXmlParser.class.getResourceAsStream(fileName)) {
+            if (is != null) {
+              System.out.println("PARSER: Loading preset kit from " + fileName);
+              return parseKit(is, "KIT " + slot);
+            }
+          }
+        }
+      }
+    }
+
+    KitTrackModel kit = new KitTrackModel(name);
+
     for (int i = 0; i < soundNodes.getLength(); i++) {
       Element soundNode = (Element) soundNodes.item(i);
       String soundName = "SOUND " + i;
@@ -240,6 +284,25 @@ public class DelugeXmlParser {
 
   private static SynthTrackModel parseSynthElement(Element soundNode) throws Exception {
     String name = "SYNTH";
+
+    NodeList slotNodes = soundNode.getElementsByTagName("presetSlot");
+    if (slotNodes.getLength() > 0) {
+      int slot = Integer.parseInt(slotNodes.item(0).getTextContent());
+      String fileName = null;
+      if (slot == 0) fileName = "/SYNTHS/000 Rich Saw Bass.XML";
+      else if (slot == 17) fileName = "/SYNTHS/017 Impact Saw Lead.XML";
+      else if (slot == 73) fileName = "/SYNTHS/073 Piano.XML";
+
+      if (fileName != null) {
+        try (java.io.InputStream is = DelugeXmlParser.class.getResourceAsStream(fileName)) {
+          if (is != null) {
+            System.out.println("PARSER: Loading preset synth from " + fileName);
+            return parseSynth(is, "SYNTH " + slot);
+          }
+        }
+      }
+    }
+
     SynthTrackModel synth = new SynthTrackModel(name);
     NodeList osc1Nodes = soundNode.getElementsByTagName("osc1");
     if (osc1Nodes.getLength() > 0) {
