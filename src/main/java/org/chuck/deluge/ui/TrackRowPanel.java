@@ -37,12 +37,14 @@ public class TrackRowPanel extends HBox {
     setAlignment(Pos.CENTER_LEFT);
     setSpacing(5);
 
-    // Padding for names: 6 characters width, monospaced
+    // Padding for names: 8 characters width, monospaced
     nameLabel = new Label(padName(name));
-    nameLabel.setPrefWidth(60); // Roughly 6 chars at 12px mono
+    nameLabel.setPrefWidth(75); // Roughly 8 chars at 12px mono
     nameLabel.setStyle("-fx-text-fill: #00ffcc; -fx-font-family: 'Monospaced'; -fx-font-weight: bold; -fx-font-size: 12;");
 
     auditionBtn = new Button(">");
+    auditionBtn.setMinWidth(25);
+    auditionBtn.setPrefWidth(25);
     auditionBtn.setStyle("-fx-base: #333; -fx-text-fill: #888; -fx-padding: 2 5 2 5;");
     auditionBtn.setOnAction(e -> triggerAudition());
 
@@ -57,8 +59,8 @@ public class TrackRowPanel extends HBox {
 
   private String padName(String name) {
       if (name == null) name = "EMPTY";
-      if (name.length() > 6) return name.substring(0, 6);
-      return String.format("%-6s", name);
+      if (name.length() > 8) return name.substring(0, 8);
+      return String.format("%-8s", name);
   }
 
   public void updateForKit(KitTrackModel.KitSound sound) {

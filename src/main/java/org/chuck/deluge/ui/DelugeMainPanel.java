@@ -109,6 +109,7 @@ public class DelugeMainPanel extends BorderPane {
     });
 
     velocityPanel = new VelocityLanePanel(vm, bridge);
+    velocityPanel.setEditModeSupplier(matrixPanel::getCurrentEditMode);
     keyboardPanel = new DelugeKeyboardPanel();
 
     transportPanel.setOnKitLoaded(matrixPanel::applyKit);
