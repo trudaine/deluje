@@ -27,6 +27,11 @@ public class DelugeMainPanel extends BorderPane {
   private ParameterRibbonPanel ribbonPanel;
   private StatusRibbonPanel statusPanel;
 
+  // New persistent panels
+  private ProjectSidebarPanel sidebarPanel;
+  private VelocityLanePanel velocityPanel;
+  private DelugeKeyboardPanel keyboardPanel;
+
   public enum ViewMode {
     CLIP,
     SONG,
@@ -46,70 +51,55 @@ public class DelugeMainPanel extends BorderPane {
     // Initialize sub-panels
     transportPanel = new TransportPanel(vm, bridge);
     matrixPanel = new MatrixPanel(vm, bridge);
-    songPanel = new SongModePanel(vm, bridge, 8, 8); // 8 tracks, 8 columns (A-H)
+    songPanel = new SongModePanel(vm, bridge, 8, 8);
     arrangerPanel = new ArrangerPanel(vm, bridge);
     ribbonPanel = new ParameterRibbonPanel(vm, bridge);
-
     statusPanel = new StatusRibbonPanel(vm, bridge);
+
+    sidebarPanel = new ProjectSidebarPanel(vm, bridge);
+    sidebarPanel.setOnKitRequest(name -> {
+        // Dummy loader for built-in kits
+        org.chuck.deluge.model.KitTrackModel kit = new org.chuck.deluge.model.KitTrackModel(name);
+        kit.addSound(new org.chuck.deluge.model.KitTrackModel.KitSound("BD 909", "examples/data/kick.wav"));
+        kit.addSound(new org.chuck.deluge.model.KitTrackModel.KitSound("SD 909", "examples/data/snare.wav"));
+        kit.addSound(new org.chuck.deluge.model.KitTrackModel.KitSound("CH 909", "examples/data/hihat.wav"));
+        kit.addSound(new org.chuck.deluge.model.KitTrackModel.KitSound("OH 909", "examples/data/hihat-open.wav"));
+        matrixPanel.applyKit(kit);
+    });
+
+    velocityPanel = new VelocityLanePanel(vm, bridge);
+    keyboardPanel = new DelugeKeyboardPanel();
 
     // Wire up events
     transportPanel.setOnKitLoaded(matrixPanel::applyKit);
+    matrixPanel.setOnTrackSelected(velocityPanel::setSelectedTrack);
 
     // Link Ribbon to Matrix
-    ribbonPanel.setOnModeChange(
-        newMode -> {
-          matrixPanel.setEditMode(newMode);
-        });
+    ribbonPanel.setOnModeChange(matrixPanel::setEditMode);
 
-    // Mode Toggle (CLIP vs SONG vs ARR)
+    // Layout
+    setLeft(sidebarPanel);
+
+    // Mode Toggle
     HBox modeToggleBox = new HBox(5);
     modeToggleBox.setAlignment(Pos.CENTER_LEFT);
     modeToggleBox.setPadding(new Insets(0, 0, 0, 10));
 
     ToggleGroup modeGroup = new ToggleGroup();
-
-    ToggleButton clipBtn = new ToggleButton("CLIP");
-    clipBtn.setStyle("-fx-base: #444; -fx-text-fill: white; -fx-font-weight: bold;");
-    clipBtn.setToggleGroup(modeGroup);
+    ToggleButton clipBtn = createModeBtn("CLIP", modeGroup);
+    ToggleButton songBtn = createModeBtn("SONG", modeGroup);
+    ToggleButton arrBtn = createModeBtn("ARR", modeGroup);
     clipBtn.setSelected(true);
 
-    ToggleButton songBtn = new ToggleButton("SONG");
-    songBtn.setStyle("-fx-base: #444; -fx-text-fill: white; -fx-font-weight: bold;");
-    songBtn.setToggleGroup(modeGroup);
-
-    ToggleButton arrBtn = new ToggleButton("ARR");
-    arrBtn.setStyle("-fx-base: #444; -fx-text-fill: white; -fx-font-weight: bold;");
-    arrBtn.setToggleGroup(modeGroup);
-
-    modeGroup
-        .selectedToggleProperty()
-        .addListener(
-            (obs, oldVal, newVal) -> {
-              if (newVal == null) {
-                oldVal.setSelected(true); // Prevent unselecting all
-                return;
-              }
-              if (newVal == clipBtn) {
-                currentMode = ViewMode.CLIP;
-                setCenter(matrixPanel);
-                ribbonPanel.setVisible(true); // Parameter ribbon is for clip editing
-                ribbonPanel.setManaged(true);
-              } else if (newVal == songBtn) {
-                currentMode = ViewMode.SONG;
-                setCenter(songPanel);
-                ribbonPanel.setVisible(false); // Hide ribbon in song mode
-                ribbonPanel.setManaged(false);
-              } else if (newVal == arrBtn) {
-                currentMode = ViewMode.ARRANGER;
-                setCenter(arrangerPanel);
-                ribbonPanel.setVisible(false); // Hide ribbon in arranger mode
-                ribbonPanel.setManaged(false);
-              }
-            });
+    modeGroup.selectedToggleProperty().addListener((obs, oldVal, newVal) -> {
+      if (newVal == null) { oldVal.setSelected(true); return; }
+      if (newVal == clipBtn) switchView(ViewMode.CLIP);
+      else if (newVal == songBtn) switchView(ViewMode.SONG);
+      else if (newVal == arrBtn) switchView(ViewMode.ARRANGER);
+    });
 
     modeToggleBox.getChildren().addAll(clipBtn, songBtn, arrBtn);
 
-    // Top: Transport and Ribbon
     HBox transportWithMode = new HBox(20);
     transportWithMode.setAlignment(Pos.CENTER_LEFT);
     transportWithMode.getChildren().addAll(modeToggleBox, transportPanel);
@@ -118,20 +108,49 @@ public class DelugeMainPanel extends BorderPane {
     topBox.getChildren().addAll(transportWithMode, ribbonPanel);
     setTop(topBox);
 
-    // Center: The Grid Matrix (Default to Clip mode)
     setCenter(matrixPanel);
 
-    // Bottom: Status Bar
-    setBottom(statusPanel);
+    // Bottom Area: Velocity + Keyboard + Status
+    VBox bottomBox = new VBox(5);
+    bottomBox.getChildren().addAll(velocityPanel, keyboardPanel, statusPanel);
+    setBottom(bottomBox);
   }
 
-  /** Called every frame by the AnimationTimer in DelugeApp. */
+  private ToggleButton createModeBtn(String text, ToggleGroup group) {
+    ToggleButton btn = new ToggleButton(text);
+    btn.setStyle("-fx-base: #444; -fx-text-fill: white; -fx-font-weight: bold;");
+    btn.setToggleGroup(group);
+    return btn;
+  }
+
+  private void switchView(ViewMode mode) {
+    currentMode = mode;
+    switch (mode) {
+      case CLIP:
+        setCenter(matrixPanel);
+        ribbonPanel.setVisible(true);
+        ribbonPanel.setManaged(true);
+        break;
+      case SONG:
+        setCenter(songPanel);
+        ribbonPanel.setVisible(false);
+        ribbonPanel.setManaged(false);
+        break;
+      case ARRANGER:
+        setCenter(arrangerPanel);
+        ribbonPanel.setVisible(false);
+        ribbonPanel.setManaged(false);
+        break;
+    }
+  }
+
   public void updateFromVM() {
     int step = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
 
     switch (currentMode) {
       case CLIP:
         matrixPanel.updateStep(step);
+        velocityPanel.draw(); // Refresh velocity lane
         break;
       case SONG:
         songPanel.update(step);

@@ -1,6 +1,8 @@
 package org.chuck.deluge.xml;
 
-import java.io.File;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.io.ByteArrayInputStream;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.chuck.deluge.model.*;
@@ -8,16 +10,27 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
-/** Parses Deluge XML files (.XML) into our Java Track/Project Models. */
 public class DelugeXmlParser {
 
-  public static KitTrackModel parseKit(File xmlFile) throws Exception {
-    Document doc = parseXmlFile(xmlFile);
+  public static KitTrackModel parseKit(java.io.File xmlFile) throws Exception {
+    return parseKit(new java.io.FileInputStream(xmlFile), xmlFile.getName().replace(".XML", ""));
+  }
+
+  public static KitTrackModel parseKit(InputStream is, String name) throws Exception {
+    Document doc = parseXml(is);
     Element root = doc.getDocumentElement();
 
-    KitTrackModel kit = new KitTrackModel(xmlFile.getName().replace(".XML", ""));
+    Element kitNode = root;
+    if (!root.getTagName().equals("kit")) {
+      NodeList kits = root.getElementsByTagName("kit");
+      if (kits.getLength() > 0) {
+        kitNode = (Element) kits.item(0);
+      }
+    }
 
-    NodeList soundNodes = doc.getElementsByTagName("sound");
+    KitTrackModel kit = new KitTrackModel(name);
+
+    NodeList soundNodes = kitNode.getElementsByTagName("sound");
     for (int i = 0; i < soundNodes.getLength(); i++) {
       Element soundNode = (Element) soundNodes.item(i);
       String soundName = "SOUND " + i;
@@ -35,6 +48,16 @@ public class DelugeXmlParser {
         if (sampleNode.hasAttribute("fileName")) {
           sound.setSamplePath(sampleNode.getAttribute("fileName"));
         }
+      } else {
+         // Some kits use osc1/fileName
+         NodeList oscNodes = soundNode.getElementsByTagName("osc1");
+         if (oscNodes.getLength() > 0) {
+            Element osc = (Element) oscNodes.item(0);
+            NodeList fnNodes = osc.getElementsByTagName("fileName");
+            if (fnNodes.getLength() > 0) {
+                sound.setSamplePath(fnNodes.item(0).getTextContent());
+            }
+         }
       }
       
       kit.addSound(sound);
@@ -43,13 +66,25 @@ public class DelugeXmlParser {
     return kit;
   }
 
-  public static SynthTrackModel parseSynth(File xmlFile) throws Exception {
-    Document doc = parseXmlFile(xmlFile);
+  public static SynthTrackModel parseSynth(java.io.File xmlFile) throws Exception {
+    return parseSynth(new java.io.FileInputStream(xmlFile), xmlFile.getName().replace(".XML", ""));
+  }
+
+  public static SynthTrackModel parseSynth(InputStream is, String name) throws Exception {
+    Document doc = parseXml(is);
     Element root = doc.getDocumentElement();
 
-    SynthTrackModel synth = new SynthTrackModel(xmlFile.getName().replace(".XML", ""));
+    Element soundNode = root;
+    if (!root.getTagName().equals("sound")) {
+      NodeList sounds = root.getElementsByTagName("sound");
+      if (sounds.getLength() > 0) {
+        soundNode = (Element) sounds.item(0);
+      }
+    }
 
-    NodeList osc1Nodes = doc.getElementsByTagName("osc1");
+    SynthTrackModel synth = new SynthTrackModel(name);
+
+    NodeList osc1Nodes = soundNode.getElementsByTagName("osc1");
     if (osc1Nodes.getLength() > 0) {
       Element osc1 = (Element) osc1Nodes.item(0);
       if (osc1.hasAttribute("type")) {
@@ -58,7 +93,7 @@ public class DelugeXmlParser {
     }
 
     // Map Envelope 0-3
-    NodeList envNodes = doc.getElementsByTagName("envelope");
+    NodeList envNodes = soundNode.getElementsByTagName("envelope");
     for (int i = 0; i < Math.min(4, envNodes.getLength()); i++) {
       Element envNode = (Element) envNodes.item(i);
       EnvelopeModel env =
@@ -72,39 +107,27 @@ public class DelugeXmlParser {
       synth.setEnv(i, env);
     }
 
-    // Map Patch Cables
-    NodeList patchNodes = doc.getElementsByTagName("patchCables");
-    if (patchNodes.getLength() > 0) {
-      NodeList cables = ((Element) patchNodes.item(0)).getElementsByTagName("patchCable");
-      for (int i = 0; i < cables.getLength(); i++) {
-        Element cable = (Element) cables.item(i);
-        String source = cable.getAttribute("source");
-        String dest = cable.getAttribute("destination");
-        float amount = DelugeHexMapper.hexToFloat(cable.getAttribute("amount"));
-        synth.addPatchCable(new PatchCable(source, dest, amount));
-      }
-    }
-
     return synth;
   }
 
-  public static ProjectModel parseSong(File xmlFile) throws Exception {
-    Document doc = parseXmlFile(xmlFile);
-    Element root = doc.getDocumentElement();
-
-    ProjectModel project = new ProjectModel();
-    if (root.hasAttribute("tempo")) {
-      project.setBpm(Float.parseFloat(root.getAttribute("tempo")));
-    }
-    if (root.hasAttribute("swing")) {
-      project.setSwing(DelugeHexMapper.hexToFloat(root.getAttribute("swing")));
-    }
-    return project;
-  }
-
-  private static Document parseXmlFile(File xmlFile) throws Exception {
+  private static Document parseXml(InputStream is) throws Exception {
+    byte[] bytes = is.readAllBytes();
+    String content = new String(bytes, StandardCharsets.UTF_8);
+    
+    // 1. Remove XML declaration
+    content = content.replaceFirst("<\\?xml.*?\\?>", "");
+    
+    // 2. Escape ALL ampersands. 
+    content = content.replace("&", "&amp;");
+    
+    // 3. Wrap in virtual root to handle multiple top-level elements
+    String wrapped = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<root>\n" + content + "\n</root>";
+    
     DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+    factory.setValidating(false);
+    factory.setNamespaceAware(true);
     DocumentBuilder builder = factory.newDocumentBuilder();
-    return builder.parse(xmlFile);
+    // Re-read from wrapped string
+    return builder.parse(new ByteArrayInputStream(wrapped.getBytes(StandardCharsets.UTF_8)));
   }
 }
