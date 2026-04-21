@@ -29,6 +29,8 @@ public class KitTrackProcessor implements Shred {
     private Gain reverbSend;
     private Gain modSend;
 
+    private String lastLoadedPath = null;
+
     public KitTrackProcessor(int trackId, ChuckVM vm, BridgeContract bridge) {
         this.trackId = trackId;
         this.vm = vm;
@@ -60,17 +62,19 @@ public class KitTrackProcessor implements Shred {
         ChuckEvent tickEvent = (ChuckEvent) vm.getGlobalObject(BridgeContract.TICK_EVENT);
         ChuckEvent loadTrigger = (ChuckEvent) vm.getGlobalObject(BridgeContract.G_LOAD_TRIGGER);
 
-        // Load listener
+        // Persistent listener for sample loading
         vm.spork(() -> {
             while (true) {
+                // Wait for explicit reload command
                 advance(loadTrigger);
                 loadSample();
             }
         });
 
+        // Initial load attempt (may be empty)
         loadSample();
 
-        // Persistent loop: wait for ticks regardless of play state
+        // Main Sequencing Loop
         while (true) {
             advance(tickEvent);
             
@@ -99,39 +103,48 @@ public class KitTrackProcessor implements Shred {
         double vel = velocity != null ? velocity.getFloat(idx) : 0.8;
         double masterVol = vm.getGlobalFloat(BridgeContract.G_MASTER_VOL);
 
-        buf.rate(1.0f);
-        buf.pos(0L); 
-        buf.gain((float) (vel * (trackLevel != null ? trackLevel.getFloat(trackId) : 0.7) * masterVol));
+        if (buf.samples() > 0) {
+            buf.rate(1.0f);
+            buf.pos(0L); 
+            buf.gain((float) (vel * (trackLevel != null ? trackLevel.getFloat(trackId) : 0.7) * masterVol));
+        }
 
         if (vm.getLogLevel() >= 2) {
             vm.print("KIT trigger track: " + trackId + " step: " + (idx % 16) + "\n");
         }
     }
 
-    private void loadSample() {
+    private synchronized void loadSample() {
         String path = (String) vm.getGlobalObject("g_sample_" + trackId);
-        if (path != null && !path.isEmpty()) {
-            buf.read(path);
-            if (buf.samples() == 0) {
-                // Try case-insensitive extension fallback
-                String altPath = path;
-                if (path.endsWith(".wav")) altPath = path.substring(0, path.length() - 4) + ".WAV";
-                else if (path.endsWith(".WAV")) altPath = path.substring(0, path.length() - 4) + ".wav";
-                else if (path.endsWith(".XML")) altPath = path.substring(0, path.length() - 4) + ".xml";
-                else if (path.endsWith(".xml")) altPath = path.substring(0, path.length() - 4) + ".XML";
-                
-                if (!altPath.equals(path)) {
-                    buf.read(altPath);
-                }
-            }
+        if (path == null || path.isEmpty()) {
+            buf.setSamples(new float[0]);
+            lastLoadedPath = null;
+            return;
+        }
+
+        // Avoid redundant expensive IO
+        if (path.equals(lastLoadedPath)) return;
+
+        buf.read(path);
+        if (buf.samples() == 0) {
+            // Try case-insensitive extension fallback
+            String altPath = path;
+            if (path.endsWith(".wav")) altPath = path.substring(0, path.length() - 4) + ".WAV";
+            else if (path.endsWith(".WAV")) altPath = path.substring(0, path.length() - 4) + ".wav";
             
-            // Post-load setup
-            if (buf.samples() > 0) {
-                buf.rate(0);
-                buf.pos(buf.samples());
-            } else {
-                logger.warning("Track " + trackId + ": Failed to load sample " + path);
+            if (!altPath.equals(path)) {
+                buf.read(altPath);
             }
+        }
+        
+        if (buf.samples() > 0) {
+            buf.rate(0);
+            buf.pos(buf.samples());
+            lastLoadedPath = path;
+            // Success log is handled by SndBuf
+        } else {
+            logger.warning("Track " + trackId + ": Failed to load sample " + path);
+            lastLoadedPath = null;
         }
     }
 }

@@ -27,6 +27,7 @@ public class DelugeEngine implements Shred {
 
         // 1. Start Global FX Bus
         vm.spork(new DelugeFxBus(vm, bridge)::shred);
+        advance(ms(10)); // Stagger initialization
 
         // 2. Start Individual Track Processors (8 Tracks)
         for (int i = 0; i < 8; i++) {
@@ -34,6 +35,7 @@ public class DelugeEngine implements Shred {
             SynthTrackProcessor synthProc = new SynthTrackProcessor(i, vm, bridge);
             vm.spork(kitProc::shred);
             vm.spork(synthProc::shred);
+            advance(ms(5)); // Stagger initialization
         }
 
         // 3. Start Master Clock (Persistent)
