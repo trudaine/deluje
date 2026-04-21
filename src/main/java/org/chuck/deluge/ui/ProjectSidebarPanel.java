@@ -67,10 +67,9 @@ public class ProjectSidebarPanel extends VBox {
     TabPane tabs = new TabPane();
     tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
 
-    Tab projectTab = new Tab("PROJECT", createProjectTree());
     Tab libraryTab = new Tab("LIBRARY", createLibraryBrowser());
 
-    tabs.getTabs().addAll(projectTab, libraryTab);
+    tabs.getTabs().addAll(libraryTab);
     getChildren().add(tabs);
     VBox.setVgrow(tabs, javafx.scene.layout.Priority.ALWAYS);
   }
@@ -271,5 +270,40 @@ public class ProjectSidebarPanel extends VBox {
           TabPane tabs = (TabPane) getChildren().get(1);
           tabs.getTabs().get(1).setContent(createLibraryBrowser());
         });
+  }
+
+  public static java.util.List<String> getPresets(String internalDir) {
+      java.util.List<String> presets = new java.util.ArrayList<>();
+      try {
+          URL url = ProjectSidebarPanel.class.getResource(internalDir);
+          if (url != null) {
+              URI uri = url.toURI();
+              Path path;
+              FileSystem fs = null;
+              if (uri.getScheme().equals("jar")) {
+                  try {
+                      fs = FileSystems.getFileSystem(uri);
+                  } catch (Exception e) {
+                      fs = FileSystems.newFileSystem(uri, java.util.Collections.emptyMap());
+                  }
+                  path = fs.getPath(internalDir);
+              } else if (uri.getScheme().equals("file")) {
+                  path = Paths.get(uri);
+              } else {
+                  return presets;
+              }
+
+              if (Files.exists(path)) {
+                  try (java.util.stream.Stream<Path> walk = Files.walk(path, 1)) {
+                      walk.filter(p -> p.getFileName().toString().toUpperCase().endsWith(".XML"))
+                          .sorted(java.util.Comparator.comparing(p -> p.getFileName().toString().toUpperCase()))
+                          .forEach(p -> presets.add(p.getFileName().toString()));
+                  }
+              }
+          }
+      } catch (Exception e) {
+          System.err.println("Failed to scan resources for " + internalDir + ": " + e.getMessage());
+      }
+      return presets;
   }
 }

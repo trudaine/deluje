@@ -14,7 +14,7 @@ public class MatrixPanel extends BorderPane {
   private final ChuckVM vm;
   private final BridgeContract bridge;
 
-  private final TrackRowPanel[] rows;
+  private TrackRowPanel[] rows;
   private final javafx.scene.control.ScrollPane scrollPane;
   private final VBox rowContainer;
 
@@ -23,6 +23,8 @@ public class MatrixPanel extends BorderPane {
   private EditMode currentEditMode = EditMode.VELOCITY;
   private int currentBaseTrack = 0;
   private boolean isSynthMode = false;
+  private DelugeKeyboardPanel keyboardPanel;
+  private int lastPlayedNote = -1;
   private java.util.function.Consumer<Integer> onTrackSelected;
 
   public MatrixPanel(ChuckVM vm, BridgeContract bridge) {
@@ -37,32 +39,85 @@ public class MatrixPanel extends BorderPane {
     scrollPane = new javafx.scene.control.ScrollPane(rowContainer);
     scrollPane.setFitToHeight(true);
     scrollPane.setHbarPolicy(javafx.scene.control.ScrollPane.ScrollBarPolicy.ALWAYS);
-    scrollPane.setVbarPolicy(javafx.scene.control.ScrollPane.ScrollBarPolicy.NEVER);
     scrollPane.setStyle("-fx-background: #1a1a1a; -fx-border-color: transparent;");
 
     setCenter(scrollPane);
+    
+    keyboardPanel = new DelugeKeyboardPanel();
+    setBottom(keyboardPanel);
 
-    rows = new TrackRowPanel[8]; // 8 tracks
+    createRows(8);
+    selectTrack(0); // Default selection
+  }
 
-    // Defensive check: Ensure bridge objects exist in VM
+  private void createRows(int count) {
+    rowContainer.getChildren().clear();
+    rows = new TrackRowPanel[count];
+
     Object trackTypeObj = vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
     ChuckArray trackTypeArray =
         (trackTypeObj instanceof ChuckArray) ? (ChuckArray) trackTypeObj : null;
 
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < count; i++) {
       int trackIdx = i;
       rows[i] = new TrackRowPanel(i, "EMPTY", vm, bridge, this::getCurrentEditMode);
       rows[i].setOnMouseClicked(e -> selectTrack(trackIdx));
       rowContainer.getChildren().add(rows[i]);
 
-      // Initialize bridge state for empty tracks
-      if (trackTypeArray != null) {
-        trackTypeArray.setInt(i, 0L); // Default to Kit logic but empty
+      if (trackTypeArray != null && i < 8) {
+        trackTypeArray.setInt(i, 0L);
       }
-      bridge.setMute(i, true); // Mute empty slots
+      if (i < 8) {
+        bridge.setMute(i, true);
+      }
     }
 
-    selectTrack(0); // Default selection
+    // Start Playhead Timer
+    javafx.animation.AnimationTimer timer = new javafx.animation.AnimationTimer() {
+        @Override
+        public void handle(long now) {
+            int step = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
+            if (step != currentStep) {
+                setCurrentStep(step);
+                updateKeyboard(step);
+            }
+        }
+    };
+    timer.start();
+  }
+  
+  private void updateKeyboard(int step) {
+    if (isSynthMode) {
+        int idx = currentBaseTrack * 16 + step;
+        ChuckArray pattern = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PATTERN);
+        ChuckArray pitchArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PITCH);
+        
+        if (lastPlayedNote != -1) {
+            keyboardPanel.noteOff(lastPlayedNote);
+            lastPlayedNote = -1;
+        }
+        
+        if (pattern != null && pattern.getInt(idx) != 0) {
+            int pitch = pitchArr != null ? (int) pitchArr.getInt(idx) : 0;
+            int note = pitch + 60; // Map relative pitch to MIDI note
+            keyboardPanel.noteOn(note, javafx.scene.paint.Color.web("#00ffcc"));
+            lastPlayedNote = note;
+        }
+    }
+  }
+  
+  private void setCurrentStep(int step) {
+    if (currentStep >= 0 && currentStep < 16) {
+        for (TrackRowPanel row : rows) {
+            row.highlightStep(currentStep, false);
+        }
+    }
+    currentStep = step;
+    if (currentStep >= 0 && currentStep < 16) {
+        for (TrackRowPanel row : rows) {
+            row.highlightStep(currentStep, true);
+        }
+    }
   }
 
   public void setOnTrackSelected(java.util.function.Consumer<Integer> callback) {
@@ -138,10 +193,24 @@ public class MatrixPanel extends BorderPane {
   }
 
   public void setSynthMode(boolean isSynthMode) {
-    this.isSynthMode = isSynthMode;
-    for (int r = 0; r < 8; r++) {
-      rows[r].setSynthMode(isSynthMode);
-    }
+      this.isSynthMode = isSynthMode;
+      if (isSynthMode) {
+          createRows(24); // Expand to 24 rows (2 octaves)
+          String[] notes = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+          int maxRows = 24;
+          for (int r = 0; r < 24; r++) {
+              int reverseR = (maxRows - 1) - r;
+              String note = notes[reverseR % 12] + (4 + reverseR / 12); // C4, C#4... C5...
+              rows[r].setNoteName(note);
+              rows[r].setSynthMode(true);
+              rows[r].setBaseTrack(currentBaseTrack);
+          }
+      } else {
+          createRows(8); // Revert to 8 rows
+          for (int r = 0; r < 8; r++) {
+              rows[r].setSynthMode(false);
+          }
+      }
   }
 
   public void setEditMode(EditMode mode) {

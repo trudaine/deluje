@@ -6,9 +6,11 @@ import org.chuck.audio.filter.HPF;
 import org.chuck.audio.fx.Chorus;
 import org.chuck.audio.fx.Dyno;
 import org.chuck.audio.fx.Echo;
+import org.chuck.audio.fx.FreeVerb;
 import org.chuck.audio.fx.JCRev;
 import org.chuck.audio.util.DelugeAdsr;
 import org.chuck.audio.util.Gain;
+import org.chuck.audio.util.StereoUGen;
 import org.chuck.core.ChuckEvent;
 import org.chuck.core.ChuckVM;
 import org.chuck.core.Shred;
@@ -52,11 +54,20 @@ public class DelugeFxBus implements Shred {
     safetyGate.keyOn();
 
     Echo delay = new Echo(sampleRate(), sampleRate());
-    JCRev rev = new JCRev(sampleRate());
     Chorus mod = new Chorus(sampleRate());
+    
+    String reverbModel = org.chuck.deluge.project.PreferencesManager.get("reverb.model", "JCRev");
+    StereoUGen rev;
+    if (reverbModel.equals("FreeVerb")) {
+        rev = new FreeVerb();
+    } else {
+        rev = new JCRev(sampleRate());
+    }
 
     delayIn.chuck(delay).chuck(fxOut);
     reverbIn.chuck(rev).chuck(fxOut);
+    
+    vm.setGlobalObject("g_reverb", rev);
     modIn.chuck(mod).chuck(fxOut);
 
     fxOut.gain(0.3f);
@@ -76,7 +87,12 @@ public class DelugeFxBus implements Shred {
 
       delay.delay(second(delayTime).samples());
       delay.gain(delayFb);
-      rev.mix(revRoom);
+      
+      if (rev instanceof FreeVerb fv) {
+          fv.roomSize(revRoom);
+      } else if (rev instanceof JCRev jcr) {
+          jcr.mix(revRoom);
+      }
     }
   }
 }

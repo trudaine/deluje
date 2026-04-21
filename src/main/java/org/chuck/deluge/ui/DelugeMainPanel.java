@@ -24,10 +24,10 @@ public class DelugeMainPanel extends BorderPane {
   private ArrangerPanel arrangerPanel;
   private ParameterRibbonPanel ribbonPanel;
   private StatusRibbonPanel statusPanel;
+  private MasterFxPanel masterFxPanel;
 
   private ProjectSidebarPanel sidebarPanel;
   private VelocityLanePanel velocityPanel;
-  private DelugeKeyboardPanel keyboardPanel;
   private ProjectSidebarPanel.LibraryItem lastLoadedLibraryItem;
   private org.chuck.deluge.model.ProjectModel projectModel;
   private javafx.scene.control.ToggleButton clipBtn;
@@ -67,7 +67,14 @@ public class DelugeMainPanel extends BorderPane {
     javafx.scene.control.MenuItem samplesItem =
         new javafx.scene.control.MenuItem("Set Samples Directory...");
     samplesItem.setOnAction(e -> setSamplesDirectory());
-    settingsMenu.getItems().add(samplesItem);
+    
+    javafx.scene.control.MenuItem mappingsItem = new javafx.scene.control.MenuItem("Mappings...");
+    mappingsItem.setOnAction(e -> {
+        org.chuck.deluge.ui.popover.MappingConfigDialog dialog = new org.chuck.deluge.ui.popover.MappingConfigDialog();
+        dialog.showAndWait();
+    });
+    
+    settingsMenu.getItems().addAll(samplesItem, mappingsItem);
 
     menuBar.getMenus().addAll(fileMenu, settingsMenu);
 
@@ -82,8 +89,8 @@ public class DelugeMainPanel extends BorderPane {
     songPanel.setOnClipSelected(
         (track, clip) -> {
           if (track instanceof org.chuck.deluge.model.KitTrackModel kit) {
-            matrixPanel.applyKit(kit);
             matrixPanel.setSynthMode(false);
+            matrixPanel.applyKit(kit);
           } else if (track instanceof org.chuck.deluge.model.SynthTrackModel) {
             matrixPanel.setSynthMode(true);
           }
@@ -98,13 +105,14 @@ public class DelugeMainPanel extends BorderPane {
           }
         });
 
-    songPanel.setOnClipLaunched(
-        (track, clip) -> {
-          int trackIdx = projectModel.getTracks().indexOf(track);
-          if (trackIdx >= 0) {
+    songPanel.setOnClipLaunched((track, clip) -> {
+        int trackIdx = projectModel.getTracks().indexOf(track);
+        if (trackIdx >= 0) {
             matrixPanel.applyClip(clip, trackIdx * 8);
-          }
-        });
+        }
+    });
+
+    songPanel.setOnCreateTrack(this::createNewTrack);
     ribbonPanel = new ParameterRibbonPanel(vm, bridge);
     statusPanel = new StatusRibbonPanel(vm, bridge);
 
@@ -234,7 +242,7 @@ public class DelugeMainPanel extends BorderPane {
 
     velocityPanel = new VelocityLanePanel(vm, bridge);
     velocityPanel.setEditModeSupplier(matrixPanel::getCurrentEditMode);
-    keyboardPanel = new DelugeKeyboardPanel();
+    masterFxPanel = new MasterFxPanel(vm);
 
     transportPanel.setOnKitLoaded(matrixPanel::applyKit);
     matrixPanel.setOnTrackSelected(velocityPanel::setSelectedTrack);
@@ -281,7 +289,7 @@ public class DelugeMainPanel extends BorderPane {
     setCenter(matrixPanel);
 
     VBox bottomBox = new VBox(5);
-    bottomBox.getChildren().addAll(velocityPanel, keyboardPanel, statusPanel);
+    bottomBox.getChildren().addAll(velocityPanel, masterFxPanel, statusPanel);
     setBottom(bottomBox);
   }
 
@@ -322,6 +330,74 @@ public class DelugeMainPanel extends BorderPane {
       statusPanel.updateStatus("SAMPLES DIR SET");
       sidebarPanel.refreshLibrary();
     }
+  }
+
+  private void createNewTrack(String type, String presetPath) {
+      try {
+          org.chuck.deluge.model.TrackModel newTrack;
+          int kitIdx = projectModel.getTracks().size();
+          int baseTrack = kitIdx * 8;
+
+          if (type.equals("KIT")) {
+              try (java.io.InputStream is = getClass().getResourceAsStream(presetPath)) {
+                  if (is == null) throw new Exception("Preset not found: " + presetPath);
+                  newTrack = org.chuck.deluge.xml.DelugeXmlParser.parseKit(is, "KIT " + kitIdx);
+              }
+              
+              org.chuck.deluge.model.KitTrackModel kit = (org.chuck.deluge.model.KitTrackModel) newTrack;
+              java.util.List<org.chuck.deluge.model.KitTrackModel.KitSound> sounds = kit.getSounds();
+              for (int i = 0; i < 8; i++) {
+                  int trackId = baseTrack + i;
+                  if (i < sounds.size()) {
+                      String path = sounds.get(i).getSamplePath();
+                      vm.setGlobalString("g_sample_" + trackId, path != null ? path : "");
+                      bridge.setMute(trackId, false);
+                      bridge.setTrackType(trackId, 0);
+                  } else {
+                      vm.setGlobalString("g_sample_" + trackId, "");
+                      bridge.setMute(trackId, true);
+                  }
+              }
+          } else {
+              try (java.io.InputStream is = getClass().getResourceAsStream(presetPath)) {
+                  if (is == null) throw new Exception("Preset not found: " + presetPath);
+                  newTrack = org.chuck.deluge.xml.DelugeXmlParser.parseSynth(is, "SYNTH " + kitIdx);
+              }
+              bridge.setTrackType(baseTrack, 1);
+          }
+
+          // Explicitly clear bridge state for the new track bank!
+          for (int r = 0; r < 8; r++) {
+              for (int s = 0; s < 16; s++) {
+                  bridge.setStep(baseTrack + r, s, false);
+                  bridge.setPitch(baseTrack + r, s, 0);
+              }
+          }
+
+          org.chuck.deluge.model.ClipModel newClip = new org.chuck.deluge.model.ClipModel("CLIP 0", 8, 16);
+          newTrack.addClip(newClip);
+          
+          projectModel.addTrack(newTrack);
+          
+          songPanel.refresh();
+          
+          matrixPanel.setBaseTrack(baseTrack);
+          matrixPanel.setSynthMode(type.equals("SYNTH"));
+          if (type.equals("KIT")) {
+              matrixPanel.applyKit((org.chuck.deluge.model.KitTrackModel) newTrack);
+          }
+          matrixPanel.applyClip(newClip, baseTrack);
+          switchView(ViewMode.CLIP);
+          if (clipBtn != null) {
+              clipBtn.setSelected(true);
+          }
+          
+          statusPanel.updateStatus("TRACK CREATED: " + newTrack.getName());
+          
+      } catch (Exception e) {
+          statusPanel.updateStatus("ERROR: " + e.getMessage());
+          e.printStackTrace();
+      }
   }
 
   public void saveProject() {
@@ -411,6 +487,7 @@ public class DelugeMainPanel extends BorderPane {
   }
 
   public void updateFromVM() {
+    masterFxPanel.updateControls();
     int step = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
 
     switch (currentMode) {

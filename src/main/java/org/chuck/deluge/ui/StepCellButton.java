@@ -39,10 +39,11 @@ public class StepCellButton extends ToggleButton {
     setOnAction(
         e -> {
           if (isSynthMode) {
-            bridge.setStep(baseTrack, stepId, isSelected());
-            if (isSelected()) {
-              bridge.setPitch(baseTrack, stepId, rowId); // Map row to pitch!
-            }
+              bridge.setStep(baseTrack, stepId, isSelected());
+              if (isSelected()) {
+                  // Invert pitch mapping: top row (0) has highest pitch (23)
+                  bridge.setPitch(baseTrack, stepId, (24 - 1) - rowId);
+              }
           } else {
             bridge.setStep(baseTrack + rowId, stepId, isSelected());
           }
@@ -88,6 +89,8 @@ public class StepCellButton extends ToggleButton {
   }
 
   public void updateStyle() {
+    setGraphic(null); // Clear previous hint
+    
     String baseColor = isSelected() ? "#00ffcc" : "#444";
     if (playheadActive) {
       baseColor = isSelected() ? "#ffffff" : "#666";
@@ -105,6 +108,20 @@ public class StepCellButton extends ToggleButton {
         case GATE -> val = bridge.getGate(currentTrackId, stepId);
       }
       style += " -fx-opacity: " + (0.4 + (val * 0.6)) + ";";
+      
+      // Add visual hint bar
+      String colorStr = switch (mode) {
+        case VELOCITY -> "#00ffcc";
+        case GATE -> "#ff9800";
+        case PITCH -> "#e91e63";
+        default -> "#00ffcc";
+      };
+      
+      javafx.scene.shape.Rectangle bar = new javafx.scene.shape.Rectangle(30 * val, 4);
+      bar.setFill(javafx.scene.paint.Color.web(colorStr));
+      javafx.scene.layout.StackPane pane = new javafx.scene.layout.StackPane(bar);
+      pane.setAlignment(javafx.geometry.Pos.BOTTOM_LEFT);
+      setGraphic(pane);
     }
 
     setStyle(style);

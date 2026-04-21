@@ -68,6 +68,10 @@ public class TrackRowPanel extends HBox {
     nameLabel.setText(padName(sound.getName()));
   }
 
+  public void setNoteName(String name) {
+    nameLabel.setText(padName(name));
+  }
+
   public void setEditMode(EditMode mode) {
     for (StepCellButton cell : cells) {
       cell.setEditMode(mode);

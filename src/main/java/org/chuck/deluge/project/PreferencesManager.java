@@ -50,4 +50,12 @@ public class PreferencesManager {
   public static void clearRecentFiles() {
     prefs.remove(KEY_RECENT_FILES);
   }
+
+  public static String get(String key, String def) {
+    return prefs.get(key, def);
+  }
+
+  public static void set(String key, String value) {
+    prefs.put(key, value);
+  }
 }
