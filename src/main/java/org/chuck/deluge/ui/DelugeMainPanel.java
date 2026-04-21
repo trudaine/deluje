@@ -52,6 +52,9 @@ public class DelugeMainPanel extends BorderPane {
 
     statusPanel = new StatusRibbonPanel(vm, bridge);
 
+    // Wire up events
+    transportPanel.setOnKitLoaded(matrixPanel::applyKit);
+
     // Link Ribbon to Matrix
     ribbonPanel.setOnModeChange(
         newMode -> {

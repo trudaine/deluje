@@ -26,9 +26,13 @@ public class TrackRowPanel extends HBox {
   private final StepCellButton[] cells;
   private final java.util.function.Supplier<EditMode> modeSupplier;
 
+  private KitTrackModel.KitSound kitSound = null;
+  private SynthTrackModel synthModel = null;
+  private boolean isKit = true;
+
   public TrackRowPanel(
       int rowIndex,
-      String trackName,
+      String initialTrackName,
       ChuckVM vm,
       BridgeContract bridge,
       java.util.function.Supplier<EditMode> modeSupplier) {
@@ -54,7 +58,7 @@ public class TrackRowPanel extends HBox {
           auditionPad.setStyle("-fx-background-color: #444444; -fx-background-radius: 5;");
         });
 
-    trackLabel = new Label(trackName);
+    trackLabel = new Label(initialTrackName);
     trackLabel.setPrefWidth(80);
     trackLabel.setTextFill(Color.web("#cccccc"));
     trackLabel.setAlignment(Pos.CENTER_RIGHT);
@@ -107,13 +111,13 @@ public class TrackRowPanel extends HBox {
                 "-fx-background-color: transparent; -fx-text-fill: #888888; -fx-font-size: 14px; -fx-padding: 0 5 0 0;"));
     settingsBtn.setOnAction(
         e -> {
-          if (rowIndex < 4) {
+          if (isKit) {
             KitConfigDialog dialog =
-                new KitConfigDialog(new KitTrackModel.KitSound(trackName), vm, bridge, rowIndex);
+                new KitConfigDialog(kitSound != null ? kitSound : new KitTrackModel.KitSound(trackLabel.getText()), vm, bridge, rowIndex);
             dialog.show();
           } else {
             SynthConfigDialog dialog =
-                new SynthConfigDialog(new SynthTrackModel(trackName), vm, bridge, rowIndex);
+                new SynthConfigDialog(synthModel != null ? synthModel : new SynthTrackModel(trackLabel.getText()), vm, bridge, rowIndex);
             dialog.show();
           }
         });
@@ -132,6 +136,18 @@ public class TrackRowPanel extends HBox {
         getChildren().add(spacer);
       }
     }
+  }
+
+  public void updateForKit(KitTrackModel.KitSound sound) {
+    this.isKit = true;
+    this.kitSound = sound;
+    this.trackLabel.setText(sound.getName());
+  }
+
+  public void updateForSynth(SynthTrackModel synth) {
+    this.isKit = false;
+    this.synthModel = synth;
+    this.trackLabel.setText(synth.getName());
   }
 
   public void setEditMode(EditMode mode) {

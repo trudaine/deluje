@@ -24,6 +24,8 @@ public class TransportPanel extends HBox {
   private final Label swingLabel;
   private final Slider swingSlider;
 
+  private java.util.function.Consumer<org.chuck.deluge.model.KitTrackModel> onKitLoaded;
+
   public TransportPanel(ChuckVM vm, BridgeContract bridge) {
     this.vm = vm;
     this.bridge = bridge;
@@ -156,6 +158,9 @@ public class TransportPanel extends HBox {
                     org.chuck.deluge.xml.DelugeXmlParser.parseKit(file);
                 System.out.println(
                     "Loaded Kit XML: " + kit.getName() + " with " + kit.getSounds().size() + " sounds.");
+                if (onKitLoaded != null) {
+                  onKitLoaded.accept(kit);
+                }
               }
             } catch (Exception ex) {
               System.err.println("Failed to parse XML: " + ex.getMessage());
@@ -181,5 +186,9 @@ public class TransportPanel extends HBox {
         });
 
     getChildren().addAll(transportButtons, tempoBox, swingBox, volBox, loadBtn, debugBtn);
+  }
+
+  public void setOnKitLoaded(java.util.function.Consumer<org.chuck.deluge.model.KitTrackModel> onKitLoaded) {
+    this.onKitLoaded = onKitLoaded;
   }
 }
