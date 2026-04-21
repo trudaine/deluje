@@ -42,9 +42,8 @@ public class SynthTrackModel extends TrackModel {
   private float reverbSend = 0.0f;
   private float eqBass = 0.0f;
   private float eqTreble = 0.0f;
-
   public SynthTrackModel(String name) {
-    super(name, TrackType.SYNTH, 128);
+    super(name, TrackType.SYNTH);
     for (int i = 0; i < 4; i++) {
       env[i] = EnvelopeModel.defaultConfig();
       // LFO 0 and 1 are local (per voice), 2 and 3 are global

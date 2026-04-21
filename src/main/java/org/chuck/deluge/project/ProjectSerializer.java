@@ -42,9 +42,14 @@ public class ProjectSerializer {
 
       if (track instanceof KitTrackModel kit) {
         trackElem.setAttribute("type", "kit");
-        Element sample = doc.createElement("sample");
-        sample.setAttribute("fileName", kit.getSamplePath());
-        trackElem.appendChild(sample);
+        for (KitTrackModel.KitSound sound : kit.getSounds()) {
+          Element soundElem = doc.createElement("sound");
+          soundElem.setAttribute("name", sound.getName());
+          Element sample = doc.createElement("sample");
+          sample.setAttribute("fileName", sound.getSamplePath());
+          soundElem.appendChild(sample);
+          trackElem.appendChild(soundElem);
+        }
       } else if (track instanceof SynthTrackModel synth) {
         trackElem.setAttribute("type", "synth");
 

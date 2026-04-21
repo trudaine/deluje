@@ -17,7 +17,9 @@ public class ProjectSerializerTest {
     model.setBpm(130.0f);
 
     KitTrackModel kit = new KitTrackModel("DRUMS");
-    kit.setSamplePath("/tmp/kick.wav");
+    KitTrackModel.KitSound sound = new KitTrackModel.KitSound("KICK");
+    sound.setSamplePath("/tmp/kick.wav");
+    kit.addSound(sound);
     model.addTrack(kit);
 
     SynthTrackModel synth = new SynthTrackModel("LEAD");

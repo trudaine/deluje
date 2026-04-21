@@ -109,7 +109,7 @@ public class TrackRowPanel extends HBox {
         e -> {
           if (rowIndex < 4) {
             KitConfigDialog dialog =
-                new KitConfigDialog(new KitTrackModel(trackName), vm, bridge, rowIndex);
+                new KitConfigDialog(new KitTrackModel.KitSound(trackName), vm, bridge, rowIndex);
             dialog.show();
           } else {
             SynthConfigDialog dialog =
