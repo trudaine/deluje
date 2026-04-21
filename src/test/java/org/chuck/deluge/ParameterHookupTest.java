@@ -23,17 +23,18 @@ public class ParameterHookupTest {
     vm = new ChuckVM(44100, 2);
     vm.setLogLevel(2);
 
-    ChuckConfig.addSearchPath("src/main/resources");
-    ChuckConfig.addSearchPath("../deluge/src/main/resources");
-
     bridge = new BridgeContract();
     bridge.register(vm);
 
-    File f = findEngineFile();
-    assertNotNull(f, "Engine script not found");
-    vm.add(f.getAbsolutePath());
+    // Spork Java DSL Engine
+    org.chuck.deluge.engine.DelugeEngine engine = new org.chuck.deluge.engine.DelugeEngine(vm, bridge);
+    vm.spork(engine::shred);
 
-    // Allow settle time (at least 150ms to clear the 100ms engine delay)
+    // Load test samples
+    vm.setGlobalString("g_sample_0", "examples/data/kick.wav");
+    vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+
+    // Allow settle time
     vm.advanceTime(44100 / 4); // 250ms
   }
 

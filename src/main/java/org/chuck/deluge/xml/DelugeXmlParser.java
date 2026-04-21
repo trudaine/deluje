@@ -1,8 +1,8 @@
 package org.chuck.deluge.xml;
 
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.io.ByteArrayInputStream;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.chuck.deluge.model.*;
@@ -49,17 +49,17 @@ public class DelugeXmlParser {
           sound.setSamplePath(sampleNode.getAttribute("fileName"));
         }
       } else {
-         // Some kits use osc1/fileName
-         NodeList oscNodes = soundNode.getElementsByTagName("osc1");
-         if (oscNodes.getLength() > 0) {
-            Element osc = (Element) oscNodes.item(0);
-            NodeList fnNodes = osc.getElementsByTagName("fileName");
-            if (fnNodes.getLength() > 0) {
-                sound.setSamplePath(fnNodes.item(0).getTextContent());
-            }
-         }
+        // Some kits use osc1/fileName
+        NodeList oscNodes = soundNode.getElementsByTagName("osc1");
+        if (oscNodes.getLength() > 0) {
+          Element osc = (Element) oscNodes.item(0);
+          NodeList fnNodes = osc.getElementsByTagName("fileName");
+          if (fnNodes.getLength() > 0) {
+            sound.setSamplePath(fnNodes.item(0).getTextContent());
+          }
+        }
       }
-      
+
       kit.addSound(sound);
     }
 
@@ -113,16 +113,16 @@ public class DelugeXmlParser {
   private static Document parseXml(InputStream is) throws Exception {
     byte[] bytes = is.readAllBytes();
     String content = new String(bytes, StandardCharsets.UTF_8);
-    
+
     // 1. Remove XML declaration
     content = content.replaceFirst("<\\?xml.*?\\?>", "");
-    
-    // 2. Escape ALL ampersands. 
+
+    // 2. Escape ALL ampersands.
     content = content.replace("&", "&amp;");
-    
+
     // 3. Wrap in virtual root to handle multiple top-level elements
     String wrapped = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<root>\n" + content + "\n</root>";
-    
+
     DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
     factory.setValidating(false);
     factory.setNamespaceAware(true);

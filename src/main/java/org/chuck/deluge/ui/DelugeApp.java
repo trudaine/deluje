@@ -67,16 +67,10 @@ public class DelugeApp extends Application {
     bridge.register(vm);
     vm.setGlobalInt(BridgeContract.G_PLAY, 0L); // Start stopped
 
-    try (InputStream is = DelugeApp.class.getResourceAsStream(DEFAULT_ENGINE)) {
-      if (is != null) {
-        String code = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-        vm.run(code, "engine.ck");
-      } else {
-        System.err.println("Could not find bundled engine resource: " + DEFAULT_ENGINE);
-      }
-    } catch (Exception ex) {
-      ex.printStackTrace();
-    }
+    // Use Java DSL Engine instead of .ck script
+    org.chuck.deluge.engine.DelugeEngine engine = new org.chuck.deluge.engine.DelugeEngine(vm, bridge);
+    vm.spork(engine::shred);
+    System.out.println("Deluge Engine (Java DSL) loaded and sporked.");
   }
 
   private void startAnimationTimer() {

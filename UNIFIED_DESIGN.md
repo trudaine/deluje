@@ -87,11 +87,21 @@ The UI is designed for high-speed desktop use, utilizing persistent panels to av
 
 ---
 
-## 5. Technical Implementation (The Bridge)
+## 5. Technical Implementation (Distributed Shred Architecture)
 
-*   **Shared Data:** `BridgeContract.java` defines the shared arrays between Java (UI) and ChucK (DSP).
-*   **Synchronization:** Writes from UI are batched in a `pendingChanges` queue and flushed once per frame to avoid VM deadlocks.
-*   **Hot-Swap:** Instrument types (Synth/Kit) are managed by independent ChucK shreds, swappable via `Machine.replace()` without stopping the clock.
+The engine is modeled as a biological system of independent, sample-accurate processes (shreds) using the **Fluent Java DSL**.
+
+### A. Engine Components
+*   **Heartbeat (Clock Shred):** A high-priority process that broadcasts a global `tick_event` at intervals defined by BPM and Swing.
+*   **Track Processors (Independent Shreds):**
+    *   **KitTrackProcessor:** One shred per drum sound. Manages its own `SndBuf`, Envelope, and Filter.
+    *   **SynthTrackProcessor:** One shred per synth instance. Manages polyphony and complex modulation.
+*   **FX Bus Shred:** Manages global Delay and Reverb sends.
+
+### B. Communication & Hot-Swapping
+*   **Surgical Updates:** Tracks only reload resources (like WAV files) when their specific parameters change, preventing engine-wide "log storms."
+*   **Hot-Swap:** Instrument types are swapped by removing a specific Track Shred and sporking a new one, without stopping the master Clock.
+*   **Synchronization:** All shreds "sleep" on the same `tick_event`, ensuring perfect sample-accurate alignment across the entire project.
 
 ---
-*Specification Version 1.0 — April 21, 2026*
+*Specification Version 1.1 — April 21, 2026*

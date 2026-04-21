@@ -80,14 +80,14 @@ public class MatrixPanel extends javafx.scene.layout.BorderPane {
       if (i < sounds.size()) {
         org.chuck.deluge.model.KitTrackModel.KitSound sound = sounds.get(i);
         rows[i].updateForKit(sound);
-        
+
         // Update bridge to indicate this is a kit track
         ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE)).setInt(i, 0L);
-        
+
         // Send sample path to ChucK
         String path = sound.getSamplePath();
         if (path != null && !path.isEmpty()) {
-            vm.setGlobalString("g_sample_" + i, path);
+          vm.setGlobalString("g_sample_" + i, path);
         }
       } else {
         // Clear/Mute unused tracks

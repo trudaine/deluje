@@ -4,10 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Represents a single sequence (clip/pattern) within a Track.
- * Holds a 2D grid of StepData.
- * For a Kit Track: rows = distinct sounds (e.g. Kick, Snare)
- * For a Synth Track: rows = pitches (piano roll)
+ * Represents a single sequence (clip/pattern) within a Track. Holds a 2D grid of StepData. For a
+ * Kit Track: rows = distinct sounds (e.g. Kick, Snare) For a Synth Track: rows = pitches (piano
+ * roll)
  */
 public class ClipModel {
   private String name;

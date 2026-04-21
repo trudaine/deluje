@@ -45,12 +45,11 @@ public class DelugeEngineTest {
 
   @Test
   void testEngineKitTriggerOnCellSelection() throws Exception {
-    File f = findEngineFile();
-    assertNotNull(f, "Engine script not found");
-
     vm.setLogLevel(2);
-    int id = vm.add(f.getAbsolutePath());
-    assertTrue(id >= 0);
+    
+    // Spork Java DSL Engine
+    org.chuck.deluge.engine.DelugeEngine engine = new org.chuck.deluge.engine.DelugeEngine(vm, bridge);
+    vm.spork(engine::shred);
 
     // Set engine to play
     vm.setGlobalInt(BridgeContract.G_PLAY, 1L);
@@ -61,7 +60,7 @@ public class DelugeEngineTest {
     // Advance time by 2 seconds to allow the engine to process
     vm.advanceTime(44100 * 2);
 
-    // Verify trigger in logs
+    // Verify trigger in logs (wait for spork to execute)
     boolean triggerFound = logs.stream().anyMatch(l -> l.contains("KIT trigger track: 0 step: 0"));
     assertTrue(triggerFound, "Engine did not emit audio trigger log for cell selection");
   }
