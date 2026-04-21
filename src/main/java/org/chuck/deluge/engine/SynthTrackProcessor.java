@@ -47,10 +47,8 @@ public class SynthTrackProcessor implements Shred {
         delaySend = new Gain();
         reverbSend = new Gain();
 
-        Gain trackMaster = new Gain();
-        trackMaster.chuck(dac());
-
-        osc.chuck(filter).chuck(env).chuck(pan).chuck(trackMaster);
+        // Direct stereo connection
+        osc.chuck(filter).chuck(env).chuck(pan).chuck(dac());
         
         env.set(0.05, 0.2, 0.5, 0.3);
 
@@ -64,9 +62,10 @@ public class SynthTrackProcessor implements Shred {
 
         while (true) {
             advance(tickEvent);
-            if (vm.getGlobalInt(BridgeContract.G_PLAY) != 1) continue;
-
+            
             int step = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
+            if (step < 0) continue;
+
             int idx = trackId * BridgeContract.STEPS + step;
 
             ChuckArray trackType = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
@@ -76,6 +75,11 @@ public class SynthTrackProcessor implements Shred {
 
             ChuckArray pattern = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PATTERN);
             if (pattern == null || pattern.getInt(idx) == 0) {
+                env.keyOff();
+                continue;
+            }
+
+            if (vm.getGlobalInt(BridgeContract.G_PLAY) != 1) {
                 env.keyOff();
                 continue;
             }
