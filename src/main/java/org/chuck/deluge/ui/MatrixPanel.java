@@ -38,6 +38,24 @@ public class MatrixPanel extends VBox {
     }
   }
 
+  public void applyKit(org.chuck.deluge.model.KitTrackModel kit) {
+    java.util.List<org.chuck.deluge.model.KitTrackModel.KitSound> sounds = kit.getSounds();
+    for (int i = 0; i < 8; i++) {
+      if (i < sounds.size()) {
+        rows[i].updateForKit(sounds.get(i));
+        // Update bridge to indicate this is a kit track
+        // Since BridgeContract doesn't expose a public setter for trackType right now,
+        // we can either add one, or use ChuckVM directly.
+        ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE)).setInt(i, 0L);
+      } else {
+        // Clear/Mute unused tracks
+        rows[i].updateForKit(new org.chuck.deluge.model.KitTrackModel.KitSound("EMPTY"));
+        bridge.setMute(i, true);
+        ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE)).setInt(i, 0L);
+      }
+    }
+  }
+
   public void setEditMode(EditMode mode) {
     this.currentEditMode = mode;
     for (TrackRowPanel row : rows) {
