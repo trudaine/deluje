@@ -155,7 +155,7 @@ public class TransportPanel extends HBox {
                 org.chuck.deluge.model.KitTrackModel kit =
                     org.chuck.deluge.xml.DelugeXmlParser.parseKit(file);
                 System.out.println(
-                    "Loaded Kit XML: " + kit.getName() + " Sample: " + kit.getSamplePath());
+                    "Loaded Kit XML: " + kit.getName() + " with " + kit.getSounds().size() + " sounds.");
               }
             } catch (Exception ex) {
               System.err.println("Failed to parse XML: " + ex.getMessage());

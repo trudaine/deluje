@@ -26,7 +26,7 @@ import org.chuck.deluge.project.PreferencesManager;
 /** A file browser for finding and previewing audio samples. */
 public class SampleBrowserPanel extends Stage {
 
-  private final KitTrackModel targetModel;
+  private final KitTrackModel.KitSound targetSound;
   private final FavoritesManager favsManager;
   private final TreeView<File> treeView;
   private final Canvas waveCanvas;
@@ -38,8 +38,8 @@ public class SampleBrowserPanel extends Stage {
   private File selectedFile = null;
   private WavPeakDecoder.WavInfo currentWavInfo = null;
 
-  public SampleBrowserPanel(KitTrackModel targetModel) {
-    this.targetModel = targetModel;
+  public SampleBrowserPanel(KitTrackModel.KitSound targetSound) {
+    this.targetSound = targetSound;
     this.favsManager = new FavoritesManager();
 
     setTitle("Sample Browser");
@@ -250,7 +250,8 @@ public class SampleBrowserPanel extends Stage {
 
   private void assignSample() {
     if (selectedFile != null) {
-      targetModel.setSamplePath(selectedFile.getAbsolutePath());
+      targetSound.setSamplePath(selectedFile.getAbsolutePath());
+      targetSound.setName(selectedFile.getName().replace(".wav", "").replace(".WAV", ""));
       close();
     }
   }

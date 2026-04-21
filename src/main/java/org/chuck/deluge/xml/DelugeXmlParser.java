@@ -15,20 +15,29 @@ public class DelugeXmlParser {
     Document doc = parseXmlFile(xmlFile);
     Element root = doc.getDocumentElement();
 
-    // Kit XMLs often have <kit> or <sound> as root
     KitTrackModel kit = new KitTrackModel(xmlFile.getName().replace(".XML", ""));
 
-    // Attempt basic parsing
-    if (root.hasAttribute("name")) {
-      kit.setName(root.getAttribute("name"));
-    }
+    NodeList soundNodes = doc.getElementsByTagName("sound");
+    for (int i = 0; i < soundNodes.getLength(); i++) {
+      Element soundNode = (Element) soundNodes.item(i);
+      String soundName = "SOUND " + i;
 
-    NodeList sampleNodes = doc.getElementsByTagName("sample");
-    if (sampleNodes.getLength() > 0) {
-      Element sampleNode = (Element) sampleNodes.item(0);
-      if (sampleNode.hasAttribute("fileName")) {
-        kit.setSamplePath(sampleNode.getAttribute("fileName"));
+      NodeList nameNodes = soundNode.getElementsByTagName("name");
+      if (nameNodes.getLength() > 0) {
+        soundName = nameNodes.item(0).getTextContent();
       }
+
+      KitTrackModel.KitSound sound = new KitTrackModel.KitSound(soundName);
+
+      NodeList sampleNodes = soundNode.getElementsByTagName("sample");
+      if (sampleNodes.getLength() > 0) {
+        Element sampleNode = (Element) sampleNodes.item(0);
+        if (sampleNode.hasAttribute("fileName")) {
+          sound.setSamplePath(sampleNode.getAttribute("fileName"));
+        }
+      }
+      
+      kit.addSound(sound);
     }
 
     return kit;
