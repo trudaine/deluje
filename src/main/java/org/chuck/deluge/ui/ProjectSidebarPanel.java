@@ -1,5 +1,16 @@
 package org.chuck.deluge.ui;
 
+import java.io.File;
+import java.net.URI;
+import java.net.URL;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.stream.Stream;
 import javafx.geometry.Insets;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
@@ -9,14 +20,39 @@ import javafx.scene.control.TreeView;
 import javafx.scene.layout.VBox;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
+import org.chuck.deluge.project.PreferencesManager;
 
 /**
- * Sidebar Project Manager. Contains the Project Tree (Tracks/Clips) and the Library (SD Card
- * Emulator).
+ * Sidebar Project Manager.
+ * Handles unified browsing of JAR resources and external sample paths.
  */
 public class ProjectSidebarPanel extends VBox {
   private final ChuckVM vm;
   private final BridgeContract bridge;
+
+  private TreeView<String> projectTree;
+  private java.util.function.Consumer<Integer> onClipSelected;
+
+  public static class LibraryItem {
+      public final String name;
+      public final String resourcePath; 
+      public final File file;           
+      public final boolean isDirectory;
+
+      public LibraryItem(String name, String resourcePath, File file, boolean isDirectory) {
+          this.name = name;
+          this.resourcePath = resourcePath;
+          this.file = file;
+          this.isDirectory = isDirectory;
+      }
+
+      @Override
+      public String toString() {
+          return name;
+      }
+  }
+
+  private java.util.function.Consumer<LibraryItem> onPresetRequest;
 
   public ProjectSidebarPanel(ChuckVM vm, BridgeContract bridge) {
     this.vm = vm;
@@ -45,71 +81,182 @@ public class ProjectSidebarPanel extends VBox {
 
   private VBox createProjectTree() {
     VBox box = new VBox(5);
-    TreeItem<String> root = new TreeItem<>("My Song");
+    TreeItem<String> root = new TreeItem<>("Project: New Song");
     root.setExpanded(true);
 
-    for (int i = 1; i <= 8; i++) {
-      TreeItem<String> track = new TreeItem<>("Track " + i);
-      track.getChildren().add(new TreeItem<>("Clip 1"));
+    for (int i = 0; i < 8; i++) {
+      TreeItem<String> track = new TreeItem<>("Track " + (i + 1));
+      track.getChildren().add(new TreeItem<>("Clip 1 (Active)"));
+      track.getChildren().add(new TreeItem<>("[+] Add Clip"));
       root.getChildren().add(track);
     }
 
-    TreeView<String> tree = new TreeView<>(root);
-    tree.setStyle(
-        "-fx-background-color: #252525; -fx-control-inner-background: #252525; -fx-text-fill: white;");
-    box.getChildren().add(tree);
-    VBox.setVgrow(tree, javafx.scene.layout.Priority.ALWAYS);
+    projectTree = new TreeView<>(root);
+    projectTree.setStyle("-fx-background-color: #252525; -fx-control-inner-background: #252525; -fx-text-fill: white;");
+    
+    projectTree.setOnMouseClicked(e -> {
+        if (e.getClickCount() == 2) {
+            TreeItem<String> selected = projectTree.getSelectionModel().getSelectedItem();
+            if (selected != null && selected.getValue().contains("Clip")) {
+                handleClipSelection(selected);
+            }
+        }
+    });
+
+    box.getChildren().add(projectTree);
+    VBox.setVgrow(projectTree, javafx.scene.layout.Priority.ALWAYS);
     return box;
+  }
+
+  private void handleClipSelection(TreeItem<String> item) {
+      if (item.getValue().equals("[+] Add Clip")) {
+          int trackIdx = projectTree.getRoot().getChildren().indexOf(item.getParent());
+          int newClipId = item.getParent().getChildren().size();
+          item.getParent().getChildren().add(item.getParent().getChildren().size() - 1, new TreeItem<>("Clip " + newClipId));
+      } else {
+          if (onClipSelected != null) {
+              int trackIdx = projectTree.getRoot().getChildren().indexOf(item.getParent());
+              onClipSelected.accept(trackIdx);
+          }
+      }
   }
 
   private VBox createLibraryBrowser() {
     VBox box = new VBox(5);
-    TreeItem<String> root = new TreeItem<>("SD CARD");
+    TreeItem<LibraryItem> root = new TreeItem<>(new LibraryItem("SD CARD", null, null, true));
     root.setExpanded(true);
 
-    TreeItem<String> kitsItem = new TreeItem<>("KITS");
-    kitsItem.getChildren().add(new TreeItem<>("TR-909"));
-    kitsItem.getChildren().add(new TreeItem<>("TR-808"));
+    // 1. Internal Resources from Fat Jar
+    addResourcesToTree(root, "KITS", "/KITS");
+    addResourcesToTree(root, "SYNTHS", "/SYNTHS");
 
-    root.getChildren().add(kitsItem);
-    root.getChildren().add(new TreeItem<>("SYNTHS"));
-    root.getChildren().add(new TreeItem<>("SAMPLES"));
-    root.getChildren().add(new TreeItem<>("SONGS"));
+    // 2. External Samples from User Preference
+    String externalPath = PreferencesManager.getSamplesDir();
+    if (externalPath != null && !externalPath.isEmpty()) {
+        File extDir = new File(externalPath);
+        if (extDir.exists()) {
+            addFilesToTree(root, extDir, "EXTERNAL SAMPLES");
+        }
+    }
 
-    TreeView<String> tree = new TreeView<>(root);
-    tree.setStyle(
-        "-fx-background-color: #252525; -fx-control-inner-background: #252525; -fx-text-fill: white;");
-
-    tree.setOnMouseClicked(
-        event -> {
-          if (event.getClickCount() == 2) {
-            TreeItem<String> item = tree.getSelectionModel().getSelectedItem();
-            if (item != null
-                && item.getParent() != null
-                && item.getParent().getValue().equals("KITS")) {
-              loadKitFromResources(item.getValue());
+    TreeView<LibraryItem> tree = new TreeView<>(root);
+    tree.setStyle("-fx-background-color: #252525; -fx-control-inner-background: #252525;");
+    
+    tree.setCellFactory(tv -> new javafx.scene.control.TreeCell<LibraryItem>() {
+        @Override
+        protected void updateItem(LibraryItem item, boolean empty) {
+            super.updateItem(item, empty);
+            if (empty || item == null) {
+                setText(null);
+                setStyle("-fx-text-fill: white;");
+            } else {
+                setText(item.name);
+                setStyle("-fx-text-fill: " + (item.isDirectory ? "#aaa;" : "white;"));
             }
-          }
-        });
+        }
+    });
+
+    tree.setOnMouseClicked(event -> {
+        if (event.getClickCount() == 2) {
+            TreeItem<LibraryItem> item = tree.getSelectionModel().getSelectedItem();
+            if (item != null && !item.getValue().isDirectory) {
+                if (onPresetRequest != null) {
+                    onPresetRequest.accept(item.getValue());
+                }
+            }
+        }
+    });
 
     box.getChildren().add(tree);
     VBox.setVgrow(tree, javafx.scene.layout.Priority.ALWAYS);
     return box;
   }
 
-  private void loadKitFromResources(String kitName) {
-    System.out.println("Loading kit from resources: " + kitName);
-    // In a real app, we'd have these XMLs in src/main/resources/kits/
-    // For this demo, let's assume we have a way to get the MatrixPanel from MainPanel
-    // and call applyKit. I'll add a callback for this.
-    if (onKitRequest != null) {
-      onKitRequest.accept(kitName);
-    }
+  private void addResourcesToTree(TreeItem<LibraryItem> root, String label, String internalDir) {
+      TreeItem<LibraryItem> folder = new TreeItem<>(new LibraryItem(label, null, null, true));
+      root.getChildren().add(folder);
+      
+      try {
+          URL url = getClass().getResource(internalDir);
+          // Special handling for Fat Jar resources
+          if (url == null) {
+              // Try finding the jar file itself if the folder entry is missing
+              String classPath = getClass().getName().replace(".", "/") + ".class";
+              url = getClass().getClassLoader().getResource(classPath);
+          }
+
+          if (url != null) {
+              URI uri = url.toURI();
+              Path path;
+              FileSystem fs = null;
+
+              if (uri.getScheme().equals("jar")) {
+                  try {
+                      fs = FileSystems.getFileSystem(uri);
+                  } catch (Exception e) {
+                      fs = FileSystems.newFileSystem(uri, Collections.emptyMap());
+                  }
+                  path = fs.getPath(internalDir);
+              } else if (uri.getScheme().equals("file")) {
+                  path = Paths.get(uri);
+                  if (!uri.toString().endsWith(internalDir)) {
+                      path = path.getParent().resolve(internalDir.startsWith("/") ? internalDir.substring(1) : internalDir);
+                  }
+              } else {
+                  return;
+              }
+
+              if (Files.exists(path)) {
+                  try (Stream<Path> walk = Files.walk(path, 1)) {
+                      walk.filter(p -> p.getFileName().toString().toUpperCase().endsWith(".XML"))
+                          .sorted(java.util.Comparator.comparing(p -> p.getFileName().toString().toUpperCase()))
+                          .forEach(p -> {
+                              String name = p.getFileName().toString();
+                              String displayName = name.substring(0, name.length() - 4);
+                              folder.getChildren().add(new TreeItem<>(new LibraryItem(displayName, internalDir + "/" + name, null, false)));
+                          });
+                  }
+              }
+
+          }
+      } catch (Exception e) {
+          // No hardcoded fallback as requested
+          System.err.println("Failed to scan resources for " + label + ": " + e.getMessage());
+      }
   }
 
-  private java.util.function.Consumer<String> onKitRequest;
+  private void addFilesToTree(TreeItem<LibraryItem> root, File dir, String label) {
+      if (!dir.exists()) return;
+      TreeItem<LibraryItem> folder = new TreeItem<>(new LibraryItem(label, null, dir, true));
+      root.getChildren().add(folder);
+      
+      File[] files = dir.listFiles();
+      if (files != null) {
+          java.util.Arrays.sort(files, (a, b) -> a.getName().compareToIgnoreCase(b.getName()));
+          for (File f : files) {
+              if (f.getName().startsWith(".")) continue;
+              if (f.isDirectory()) {
+                  addFilesToTree(folder, f, f.getName());
+              } else if (f.getName().toUpperCase().endsWith(".XML")) {
+                  String displayName = f.getName().substring(0, f.getName().length() - 4);
+                  folder.getChildren().add(new TreeItem<>(new LibraryItem(displayName, null, f, false)));
+              }
+          }
+      }
+  }
 
-  public void setOnKitRequest(java.util.function.Consumer<String> callback) {
-    this.onKitRequest = callback;
+  public void setOnPresetRequest(java.util.function.Consumer<LibraryItem> callback) {
+    this.onPresetRequest = callback;
+  }
+
+  public void setOnClipSelected(java.util.function.Consumer<Integer> callback) {
+      this.onClipSelected = callback;
+  }
+
+  public void refreshLibrary() {
+      javafx.application.Platform.runLater(() -> {
+          TabPane tabs = (TabPane) getChildren().get(1);
+          tabs.getTabs().get(1).setContent(createLibraryBrowser());
+      });
   }
 }

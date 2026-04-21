@@ -5,22 +5,19 @@ import org.chuck.core.ChuckVM;
 
 /**
  * Typed builder that creates and registers every shared global between Java UI and ChucK engine.
- *
- * <p>Call {@link #register(ChuckVM)} before loading any .ck file. Re-call after {@link
- * ChuckVM#clear()} to re-bind the same array objects (their Java references remain valid).
  */
 public final class BridgeContract {
 
-  // ── dimensions ──────────────────────────────────────────────────────────────
+  // dimensions
   public static final int TRACKS = 8;
   public static final int STEPS = 16;
-  public static final int PATTERN_SIZE = TRACKS * STEPS; // 128
+  public static final int PATTERN_SIZE = TRACKS * STEPS;
 
   public static final int ENV_COUNT = 4;
   public static final int ENV_PARAMS = 4;
   public static final int LFO_COUNT = 4;
 
-  // ── global variable names ──────────────────────────────────────────────────
+  // global names
   public static final String G_BPM = "g_bpm";
   public static final String G_SWING = "g_swing";
   public static final String G_PLAY = "g_play";
@@ -67,7 +64,6 @@ public final class BridgeContract {
   public static final String G_LOAD_TRIGGER = "g_load_trigger";
   public static final String TICK_EVENT = "tick_event";
 
-  // ── arrays ─────────────────────────────────────────────────────────────────
   private final ChuckArray pattern;
   private final ChuckArray velocity;
   private final ChuckArray gate;
@@ -130,65 +126,63 @@ public final class BridgeContract {
   private void initDefaults() {
     for (int i = 0; i < PATTERN_SIZE; i++) {
       pattern.setInt(i, 0L);
-      velocity.setFloat(i, 0.8);
-      gate.setFloat(i, 0.9);
+      velocity.setFloat(i, 0.8f);
+      gate.setFloat(i, 0.9f);
       pitch.setInt(i, 0L);
-      probability.setFloat(i, 1.0);
-      stepFilter.setFloat(i, 0.0);
-      stepRes.setFloat(i, 0.0);
+      probability.setFloat(i, 1.0f);
+      stepFilter.setFloat(i, 0.0f);
+      stepRes.setFloat(i, 0.0f);
       stepFilterMode.setInt(i, -1L);
-      stepPan.setFloat(i, 0.0);
-      stepDelay.setFloat(i, 0.0);
-      stepReverb.setFloat(i, 0.0);
-      stepMod.setFloat(i, 0.0);
-      stepStart.setFloat(i, 0.0);
-      stepEnd.setFloat(i, 1.0);
+      stepPan.setFloat(i, 0.0f);
+      stepDelay.setFloat(i, 0.0f);
+      stepReverb.setFloat(i, 0.0f);
+      stepMod.setFloat(i, 0.0f);
+      stepStart.setFloat(i, 0.0f);
+      stepEnd.setFloat(i, 1.0f);
     }
     for (int t = 0; t < TRACKS; t++) {
-      trackType.setInt(t, t < 4 ? 0L : 1L); // 0 = Kit, 1 = Synth
+      trackType.setInt(t, t < 4 ? 0L : 1L);
       mute.setInt(t, 0L);
-      trackLevel.setFloat(t, 0.7);
-      filter.setFloat(t * 2, 1.0);
-      filter.setFloat(t * 2 + 1, 0.5);
+      trackLevel.setFloat(t, 0.7f);
+      filter.setFloat(t * 2, 1.0f);
+      filter.setFloat(t * 2 + 1, 0.5f);
       filterMode.setInt(t, 0L);
-      filterMorph.setFloat(t, 0.0);
-      delaySend.setFloat(t, 0.0);
-      reverbSend.setFloat(t, 0.15);
+      filterMorph.setFloat(t, 0.0f);
+      delaySend.setFloat(t, 0.0f);
+      reverbSend.setFloat(t, 0.15f);
     }
     for (int e = 0; e < ENV_COUNT; e++) {
-      env.setFloat(e * ENV_PARAMS + 0, 0.01);
-      env.setFloat(e * ENV_PARAMS + 1, 0.1);
-      env.setFloat(e * ENV_PARAMS + 2, 0.7);
-      env.setFloat(e * ENV_PARAMS + 3, 0.2);
+      env.setFloat(e * ENV_PARAMS + 0, 0.01f);
+      env.setFloat(e * ENV_PARAMS + 1, 0.1f);
+      env.setFloat(e * ENV_PARAMS + 2, 0.7f);
+      env.setFloat(e * ENV_PARAMS + 3, 0.2f);
     }
     for (int l = 0; l < LFO_COUNT; l++) {
-      lfoRate.setFloat(l, 1.0);
+      lfoRate.setFloat(l, 1.0f);
       lfoType.setInt(l, 0L);
-      lfoDepth.setFloat(l, 0.0);
+      lfoDepth.setFloat(l, 0.0f);
     }
   }
 
   public void register(ChuckVM vm) {
     this.vm = vm;
-    if (!vm.isGlobalDouble(G_BPM)) vm.setGlobalFloat(G_BPM, 120.0);
-    if (!vm.isGlobalDouble(G_SWING)) vm.setGlobalFloat(G_SWING, 0.5);
-    if (!vm.isGlobalInt(G_PLAY)) vm.setGlobalInt(G_PLAY, 0L);
-    if (!vm.isGlobalInt(G_CURRENT_STEP)) vm.setGlobalInt(G_CURRENT_STEP, -1L);
-    if (!vm.isGlobalDouble(G_MASTER_VOL)) vm.setGlobalFloat(G_MASTER_VOL, 0.7);
-    if (!vm.isGlobalDouble(G_MASTER_PAN)) vm.setGlobalFloat(G_MASTER_PAN, 0.0);
-    if (!vm.isGlobalDouble(G_DELAY_TIME)) vm.setGlobalFloat(G_DELAY_TIME, 0.375);
-    if (!vm.isGlobalDouble(G_DELAY_FB)) vm.setGlobalFloat(G_DELAY_FB, 0.4);
-    if (!vm.isGlobalDouble(G_REVERB_ROOM)) vm.setGlobalFloat(G_REVERB_ROOM, 0.6);
-    if (!vm.isGlobalDouble(G_REVERB_DAMP)) vm.setGlobalFloat(G_REVERB_DAMP, 0.5);
-    if (!vm.isGlobalInt(G_SCALE)) vm.setGlobalInt(G_SCALE, 0L);
-    if (!vm.isGlobalInt(G_ROOT_KEY)) vm.setGlobalInt(G_ROOT_KEY, 0L);
+    vm.setGlobalFloat(G_BPM, 120.0);
+    vm.setGlobalFloat(G_SWING, 0.5);
+    vm.setGlobalInt(G_PLAY, 0L);
+    vm.setGlobalInt(G_CURRENT_STEP, -1L);
+    vm.setGlobalFloat(G_MASTER_VOL, 0.7);
+    vm.setGlobalFloat(G_MASTER_PAN, 0.0);
+    vm.setGlobalFloat(G_DELAY_TIME, 0.375);
+    vm.setGlobalFloat(G_DELAY_FB, 0.4);
+    vm.setGlobalFloat(G_REVERB_ROOM, 0.6);
+    vm.setGlobalFloat(G_REVERB_DAMP, 0.5);
+    vm.setGlobalInt(G_SCALE, 0L);
+    vm.setGlobalInt(G_ROOT_KEY, 0L);
+    vm.setGlobalInt(G_STUTTER_ON, 0L);
+    vm.setGlobalFloat(G_STUTTER_DIV, 1.0);
 
-    if (vm.getGlobalObject(G_LOAD_TRIGGER) == null) {
-      vm.setGlobalObject(G_LOAD_TRIGGER, new org.chuck.core.ChuckEvent());
-    }
-    if (vm.getGlobalObject(TICK_EVENT) == null) {
-      vm.setGlobalObject(TICK_EVENT, new org.chuck.core.ChuckEvent());
-    }
+    vm.setGlobalObject(G_LOAD_TRIGGER, new org.chuck.core.ChuckEvent());
+    vm.setGlobalObject(TICK_EVENT, new org.chuck.core.ChuckEvent());
 
     vm.setGlobalObject(G_PATTERN, pattern);
     vm.setGlobalObject(G_VELOCITY, velocity);
@@ -222,10 +216,14 @@ public final class BridgeContract {
     return vm;
   }
 
-  // ── Getters/Setters ────────────────────────────────────────────────────────
-
   public void setStep(int track, int step, boolean active) {
     pattern.setInt(track * STEPS + step, active ? 1L : 0L);
+  }
+
+  public void clearAllSteps() {
+    for (int i = 0; i < pattern.size(); i++) {
+        pattern.setInt(i, 0L);
+    }
   }
 
   public boolean getStep(int track, int step) {
@@ -394,21 +392,18 @@ public final class BridgeContract {
     for (int i = 0; i < PATTERN_SIZE; i++) pattern.setInt(i, 0L);
   }
 
-  /** Snapshot the 128-cell pattern as a flat boolean array (track-major). */
   public boolean[] snapshotPattern() {
     boolean[] snap = new boolean[PATTERN_SIZE];
     for (int i = 0; i < PATTERN_SIZE; i++) snap[i] = pattern.getInt(i) > 0;
     return snap;
   }
 
-  /** Restore a previously snapshotted pattern. */
   public void restorePattern(boolean[] snap) {
     for (int i = 0; i < Math.min(snap.length, PATTERN_SIZE); i++) {
       pattern.setInt(i, snap[i] ? 1L : 0L);
     }
   }
 
-  // compat for UI
   private org.chuck.deluge.ui.MatrixPanel matrixPanel;
 
   public void setMatrixPanel(org.chuck.deluge.ui.MatrixPanel m) {
