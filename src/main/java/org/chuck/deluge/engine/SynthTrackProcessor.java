@@ -40,6 +40,17 @@ public class SynthTrackProcessor implements Shred {
   @Override
   public void shred() {
     osc = new MorphingWavetable(sampleRate());
+    
+    // Populate with 4 tables: Sine, Saw, Square, Triangle
+    float[][] tables = new float[4][256];
+    for (int i = 0; i < 256; i++) {
+        tables[0][i] = (float) Math.sin(2.0 * Math.PI * i / 256.0); // Sine
+        tables[1][i] = (float) (2.0 * (i / 256.0) - 1.0); // Saw
+        tables[2][i] = (i < 128) ? 1.0f : -1.0f; // Square
+        tables[3][i] = (i < 128) ? (i / 64.0f - 1.0f) : (3.0f - i / 64.0f); // Triangle
+    }
+    osc.setTables(tables);
+    
     filter = new SVFilter(sampleRate());
     env = new DelugeAdsr(sampleRate());
     pan = new Pan2();
@@ -74,6 +85,12 @@ public class SynthTrackProcessor implements Shred {
       if (mute == null || mute.getInt(trackId) != 0) {
         env.keyOff();
         continue;
+      }
+
+      ChuckArray oscTypeArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_OSC_TYPE);
+      if (oscTypeArr != null) {
+          int typeIdx = (int) oscTypeArr.getInt(trackId);
+          osc.index(typeIdx);
       }
 
       updateParams(idx);

@@ -107,6 +107,22 @@ public class DelugeXmlParser {
       synth.setEnv(i, env);
     }
 
+    // Parse Filter defaults from defaultParams
+    NodeList defParams = soundNode.getElementsByTagName("defaultParams");
+    if (defParams.getLength() > 0) {
+      Element def = (Element) defParams.item(0);
+      NodeList lpfFreq = def.getElementsByTagName("lpfFrequency");
+      if (lpfFreq.getLength() > 0) {
+          float val = DelugeHexMapper.hexToFloat(lpfFreq.item(0).getTextContent());
+          synth.setLpfFreq(val * 20000.0f); // Map normalized to freq
+      }
+      NodeList lpfRes = def.getElementsByTagName("lpfResonance");
+      if (lpfRes.getLength() > 0) {
+          float val = DelugeHexMapper.hexToFloat(lpfRes.item(0).getTextContent());
+          synth.setLpfRes(val);
+      }
+    }
+
     return synth;
   }
 

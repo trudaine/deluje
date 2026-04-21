@@ -33,7 +33,10 @@ public class MasterFxPanel extends HBox {
     public void updateControls() {
         if (controlsInitialized) return;
         Object revObj = vm.getGlobalObject("g_reverb");
-        if (revObj == null) return;
+        if (revObj == null) {
+            System.out.println("DEBUG: g_reverb is NULL!");
+            return;
+        }
 
         javafx.application.Platform.runLater(() -> {
             getChildren().clear();
@@ -44,10 +47,12 @@ public class MasterFxPanel extends HBox {
 
             // Introspect Reverb!
             java.lang.reflect.Method[] methods = revObj.getClass().getMethods();
+            System.out.println("DEBUG: Introspecting " + revObj.getClass().getName() + ", found " + methods.length + " methods.");
             for (java.lang.reflect.Method m : methods) {
                 // Look for methods taking a single float!
                 if (m.getParameterCount() == 1 && m.getParameterTypes()[0] == float.class) {
                     String name = m.getName();
+                    System.out.println("DEBUG: Found candidate method: " + name);
                     if (!name.equals("wait") && !name.equals("equals")) {
                          getChildren().add(createDynamicSlider(revObj, m));
                     }
