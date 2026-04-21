@@ -157,7 +157,11 @@ public class TransportPanel extends HBox {
                 org.chuck.deluge.model.KitTrackModel kit =
                     org.chuck.deluge.xml.DelugeXmlParser.parseKit(file);
                 System.out.println(
-                    "Loaded Kit XML: " + kit.getName() + " with " + kit.getSounds().size() + " sounds.");
+                    "Loaded Kit XML: "
+                        + kit.getName()
+                        + " with "
+                        + kit.getSounds().size()
+                        + " sounds.");
                 if (onKitLoaded != null) {
                   onKitLoaded.accept(kit);
                 }
@@ -188,7 +192,8 @@ public class TransportPanel extends HBox {
     getChildren().addAll(transportButtons, tempoBox, swingBox, volBox, loadBtn, debugBtn);
   }
 
-  public void setOnKitLoaded(java.util.function.Consumer<org.chuck.deluge.model.KitTrackModel> onKitLoaded) {
+  public void setOnKitLoaded(
+      java.util.function.Consumer<org.chuck.deluge.model.KitTrackModel> onKitLoaded) {
     this.onKitLoaded = onKitLoaded;
   }
 }

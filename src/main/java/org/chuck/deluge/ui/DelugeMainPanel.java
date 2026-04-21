@@ -57,15 +57,24 @@ public class DelugeMainPanel extends BorderPane {
     statusPanel = new StatusRibbonPanel(vm, bridge);
 
     sidebarPanel = new ProjectSidebarPanel(vm, bridge);
-    sidebarPanel.setOnKitRequest(name -> {
-        // Dummy loader for built-in kits
-        org.chuck.deluge.model.KitTrackModel kit = new org.chuck.deluge.model.KitTrackModel(name);
-        kit.addSound(new org.chuck.deluge.model.KitTrackModel.KitSound("BD 909", "examples/data/kick.wav"));
-        kit.addSound(new org.chuck.deluge.model.KitTrackModel.KitSound("SD 909", "examples/data/snare.wav"));
-        kit.addSound(new org.chuck.deluge.model.KitTrackModel.KitSound("CH 909", "examples/data/hihat.wav"));
-        kit.addSound(new org.chuck.deluge.model.KitTrackModel.KitSound("OH 909", "examples/data/hihat-open.wav"));
-        matrixPanel.applyKit(kit);
-    });
+    sidebarPanel.setOnKitRequest(
+        name -> {
+          // Dummy loader for built-in kits
+          org.chuck.deluge.model.KitTrackModel kit = new org.chuck.deluge.model.KitTrackModel(name);
+          kit.addSound(
+              new org.chuck.deluge.model.KitTrackModel.KitSound(
+                  "BD 909", "examples/data/kick.wav"));
+          kit.addSound(
+              new org.chuck.deluge.model.KitTrackModel.KitSound(
+                  "SD 909", "examples/data/snare.wav"));
+          kit.addSound(
+              new org.chuck.deluge.model.KitTrackModel.KitSound(
+                  "CH 909", "examples/data/hihat.wav"));
+          kit.addSound(
+              new org.chuck.deluge.model.KitTrackModel.KitSound(
+                  "OH 909", "examples/data/hihat-open.wav"));
+          matrixPanel.applyKit(kit);
+        });
 
     velocityPanel = new VelocityLanePanel(vm, bridge);
     keyboardPanel = new DelugeKeyboardPanel();
@@ -91,12 +100,18 @@ public class DelugeMainPanel extends BorderPane {
     ToggleButton arrBtn = createModeBtn("ARR", modeGroup);
     clipBtn.setSelected(true);
 
-    modeGroup.selectedToggleProperty().addListener((obs, oldVal, newVal) -> {
-      if (newVal == null) { oldVal.setSelected(true); return; }
-      if (newVal == clipBtn) switchView(ViewMode.CLIP);
-      else if (newVal == songBtn) switchView(ViewMode.SONG);
-      else if (newVal == arrBtn) switchView(ViewMode.ARRANGER);
-    });
+    modeGroup
+        .selectedToggleProperty()
+        .addListener(
+            (obs, oldVal, newVal) -> {
+              if (newVal == null) {
+                oldVal.setSelected(true);
+                return;
+              }
+              if (newVal == clipBtn) switchView(ViewMode.CLIP);
+              else if (newVal == songBtn) switchView(ViewMode.SONG);
+              else if (newVal == arrBtn) switchView(ViewMode.ARRANGER);
+            });
 
     modeToggleBox.getChildren().addAll(clipBtn, songBtn, arrBtn);
 

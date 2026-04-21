@@ -6,12 +6,8 @@ import javafx.scene.control.Label;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
-import org.chuck.midi.MidiMsg;
 
-/**
- * A JavaFX component that visualizes a piano keyboard.
- * Optimized for the Deluge Emulator UI.
- */
+/** A JavaFX component that visualizes a piano keyboard. Optimized for the Deluge Emulator UI. */
 public class DelugeKeyboardPanel extends Pane {
   private static final int NUM_KEYS = 88;
   private static final int START_NOTE = 21; // A0

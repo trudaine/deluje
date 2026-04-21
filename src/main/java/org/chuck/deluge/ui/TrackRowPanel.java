@@ -113,11 +113,19 @@ public class TrackRowPanel extends HBox {
         e -> {
           if (isKit) {
             KitConfigDialog dialog =
-                new KitConfigDialog(kitSound != null ? kitSound : new KitTrackModel.KitSound(trackLabel.getText()), vm, bridge, rowIndex);
+                new KitConfigDialog(
+                    kitSound != null ? kitSound : new KitTrackModel.KitSound(trackLabel.getText()),
+                    vm,
+                    bridge,
+                    rowIndex);
             dialog.show();
           } else {
             SynthConfigDialog dialog =
-                new SynthConfigDialog(synthModel != null ? synthModel : new SynthTrackModel(trackLabel.getText()), vm, bridge, rowIndex);
+                new SynthConfigDialog(
+                    synthModel != null ? synthModel : new SynthTrackModel(trackLabel.getText()),
+                    vm,
+                    bridge,
+                    rowIndex);
             dialog.show();
           }
         });

@@ -5,7 +5,7 @@ import java.util.List;
 
 /** Represents a Kit track containing multiple distinct drum sounds (samples). */
 public class KitTrackModel extends TrackModel {
-  
+
   public static class KitSound {
     private String name = "";
     private String samplePath = "";
@@ -33,32 +33,109 @@ public class KitTrackModel extends TrackModel {
       this.samplePath = samplePath;
     }
 
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
-    public String getSamplePath() { return samplePath; }
-    public void setSamplePath(String samplePath) { this.samplePath = samplePath; }
-    public boolean isReverse() { return reverse; }
-    public void setReverse(boolean reverse) { this.reverse = reverse; }
-    public float getStartMs() { return startMs; }
-    public void setStartMs(float startMs) { this.startMs = startMs; }
-    public float getEndMs() { return endMs; }
-    public void setEndMs(float endMs) { this.endMs = endMs; }
-    public float getPitchSemitones() { return pitchSemitones; }
-    public void setPitchSemitones(float pitchSemitones) { this.pitchSemitones = pitchSemitones; }
-    public int getMuteGroup() { return muteGroup; }
-    public void setMuteGroup(int muteGroup) { this.muteGroup = muteGroup; }
-    public EnvelopeModel getAdsr() { return adsr; }
-    public void setAdsr(EnvelopeModel adsr) { this.adsr = adsr; }
-    public float getLpfFreq() { return lpfFreq; }
-    public void setLpfFreq(float lpfFreq) { this.lpfFreq = lpfFreq; }
-    public float getLpfRes() { return lpfRes; }
-    public void setLpfRes(float lpfRes) { this.lpfRes = lpfRes; }
-    public float getEqBass() { return eqBass; }
-    public void setEqBass(float eqBass) { this.eqBass = eqBass; }
-    public float getEqTreble() { return eqTreble; }
-    public void setEqTreble(float eqTreble) { this.eqTreble = eqTreble; }
-    public float getSidechainSend() { return sidechainSend; }
-    public void setSidechainSend(float sidechainSend) { this.sidechainSend = sidechainSend; }
+    public String getName() {
+      return name;
+    }
+
+    public void setName(String name) {
+      this.name = name;
+    }
+
+    public String getSamplePath() {
+      return samplePath;
+    }
+
+    public void setSamplePath(String samplePath) {
+      this.samplePath = samplePath;
+    }
+
+    public boolean isReverse() {
+      return reverse;
+    }
+
+    public void setReverse(boolean reverse) {
+      this.reverse = reverse;
+    }
+
+    public float getStartMs() {
+      return startMs;
+    }
+
+    public void setStartMs(float startMs) {
+      this.startMs = startMs;
+    }
+
+    public float getEndMs() {
+      return endMs;
+    }
+
+    public void setEndMs(float endMs) {
+      this.endMs = endMs;
+    }
+
+    public float getPitchSemitones() {
+      return pitchSemitones;
+    }
+
+    public void setPitchSemitones(float pitchSemitones) {
+      this.pitchSemitones = pitchSemitones;
+    }
+
+    public int getMuteGroup() {
+      return muteGroup;
+    }
+
+    public void setMuteGroup(int muteGroup) {
+      this.muteGroup = muteGroup;
+    }
+
+    public EnvelopeModel getAdsr() {
+      return adsr;
+    }
+
+    public void setAdsr(EnvelopeModel adsr) {
+      this.adsr = adsr;
+    }
+
+    public float getLpfFreq() {
+      return lpfFreq;
+    }
+
+    public void setLpfFreq(float lpfFreq) {
+      this.lpfFreq = lpfFreq;
+    }
+
+    public float getLpfRes() {
+      return lpfRes;
+    }
+
+    public void setLpfRes(float lpfRes) {
+      this.lpfRes = lpfRes;
+    }
+
+    public float getEqBass() {
+      return eqBass;
+    }
+
+    public void setEqBass(float eqBass) {
+      this.eqBass = eqBass;
+    }
+
+    public float getEqTreble() {
+      return eqTreble;
+    }
+
+    public void setEqTreble(float eqTreble) {
+      this.eqTreble = eqTreble;
+    }
+
+    public float getSidechainSend() {
+      return sidechainSend;
+    }
+
+    public void setSidechainSend(float sidechainSend) {
+      this.sidechainSend = sidechainSend;
+    }
   }
 
   private final List<KitSound> sounds = new ArrayList<>();

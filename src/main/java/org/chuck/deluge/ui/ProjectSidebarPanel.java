@@ -4,15 +4,15 @@ import javafx.geometry.Insets;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
-import javafx.scene.control.TreeView;
 import javafx.scene.control.TreeItem;
+import javafx.scene.control.TreeView;
 import javafx.scene.layout.VBox;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 
 /**
- * Sidebar Project Manager.
- * Contains the Project Tree (Tracks/Clips) and the Library (SD Card Emulator).
+ * Sidebar Project Manager. Contains the Project Tree (Tracks/Clips) and the Library (SD Card
+ * Emulator).
  */
 public class ProjectSidebarPanel extends VBox {
   private final ChuckVM vm;
@@ -49,13 +49,14 @@ public class ProjectSidebarPanel extends VBox {
     root.setExpanded(true);
 
     for (int i = 1; i <= 8; i++) {
-        TreeItem<String> track = new TreeItem<>("Track " + i);
-        track.getChildren().add(new TreeItem<>("Clip 1"));
-        root.getChildren().add(track);
+      TreeItem<String> track = new TreeItem<>("Track " + i);
+      track.getChildren().add(new TreeItem<>("Clip 1"));
+      root.getChildren().add(track);
     }
 
     TreeView<String> tree = new TreeView<>(root);
-    tree.setStyle("-fx-background-color: #252525; -fx-control-inner-background: #252525; -fx-text-fill: white;");
+    tree.setStyle(
+        "-fx-background-color: #252525; -fx-control-inner-background: #252525; -fx-text-fill: white;");
     box.getChildren().add(tree);
     VBox.setVgrow(tree, javafx.scene.layout.Priority.ALWAYS);
     return box;
@@ -69,23 +70,27 @@ public class ProjectSidebarPanel extends VBox {
     TreeItem<String> kitsItem = new TreeItem<>("KITS");
     kitsItem.getChildren().add(new TreeItem<>("TR-909"));
     kitsItem.getChildren().add(new TreeItem<>("TR-808"));
-    
+
     root.getChildren().add(kitsItem);
     root.getChildren().add(new TreeItem<>("SYNTHS"));
     root.getChildren().add(new TreeItem<>("SAMPLES"));
     root.getChildren().add(new TreeItem<>("SONGS"));
 
     TreeView<String> tree = new TreeView<>(root);
-    tree.setStyle("-fx-background-color: #252525; -fx-control-inner-background: #252525; -fx-text-fill: white;");
-    
-    tree.setOnMouseClicked(event -> {
-        if (event.getClickCount() == 2) {
+    tree.setStyle(
+        "-fx-background-color: #252525; -fx-control-inner-background: #252525; -fx-text-fill: white;");
+
+    tree.setOnMouseClicked(
+        event -> {
+          if (event.getClickCount() == 2) {
             TreeItem<String> item = tree.getSelectionModel().getSelectedItem();
-            if (item != null && item.getParent() != null && item.getParent().getValue().equals("KITS")) {
-                loadKitFromResources(item.getValue());
+            if (item != null
+                && item.getParent() != null
+                && item.getParent().getValue().equals("KITS")) {
+              loadKitFromResources(item.getValue());
             }
-        }
-    });
+          }
+        });
 
     box.getChildren().add(tree);
     VBox.setVgrow(tree, javafx.scene.layout.Priority.ALWAYS);
@@ -93,17 +98,18 @@ public class ProjectSidebarPanel extends VBox {
   }
 
   private void loadKitFromResources(String kitName) {
-      System.out.println("Loading kit from resources: " + kitName);
-      // In a real app, we'd have these XMLs in src/main/resources/kits/
-      // For this demo, let's assume we have a way to get the MatrixPanel from MainPanel
-      // and call applyKit. I'll add a callback for this.
-      if (onKitRequest != null) {
-          onKitRequest.accept(kitName);
-      }
+    System.out.println("Loading kit from resources: " + kitName);
+    // In a real app, we'd have these XMLs in src/main/resources/kits/
+    // For this demo, let's assume we have a way to get the MatrixPanel from MainPanel
+    // and call applyKit. I'll add a callback for this.
+    if (onKitRequest != null) {
+      onKitRequest.accept(kitName);
+    }
   }
 
   private java.util.function.Consumer<String> onKitRequest;
+
   public void setOnKitRequest(java.util.function.Consumer<String> callback) {
-      this.onKitRequest = callback;
+    this.onKitRequest = callback;
   }
 }

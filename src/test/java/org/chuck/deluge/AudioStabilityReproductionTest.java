@@ -45,11 +45,9 @@ public class AudioStabilityReproductionTest {
 
   @Test
   void reproduceOscillation() throws Exception {
-    File f = findEngineFile();
-    assertNotNull(f, "Engine script not found");
-
-    int id = vm.add(f.getAbsolutePath());
-    assertTrue(id >= 0);
+    // Spork Java DSL Engine
+    org.chuck.deluge.engine.DelugeEngine engine = new org.chuck.deluge.engine.DelugeEngine(vm, bridge);
+    vm.spork(engine::shred);
 
     // Explicitly reset DAC channels to clear any startup noise
     for (int i = 0; i < 2; i++) {

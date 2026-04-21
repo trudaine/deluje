@@ -25,6 +25,8 @@ public final class BridgeContract {
   public static final String G_SWING = "g_swing";
   public static final String G_PLAY = "g_play";
   public static final String G_CURRENT_STEP = "g_current_step";
+  public static final String G_STUTTER_ON = "g_stutter_on";
+  public static final String G_STUTTER_DIV = "g_stutter_div";
 
   public static final String G_PATTERN = "g_pattern";
   public static final String G_VELOCITY = "g_velocity";
@@ -63,6 +65,7 @@ public final class BridgeContract {
   public static final String G_SCALE = "g_scale";
   public static final String G_ROOT_KEY = "g_root_key";
   public static final String G_LOAD_TRIGGER = "g_load_trigger";
+  public static final String TICK_EVENT = "tick_event";
 
   // ── arrays ─────────────────────────────────────────────────────────────────
   private final ChuckArray pattern;
@@ -179,6 +182,13 @@ public final class BridgeContract {
     if (!vm.isGlobalDouble(G_REVERB_DAMP)) vm.setGlobalFloat(G_REVERB_DAMP, 0.5);
     if (!vm.isGlobalInt(G_SCALE)) vm.setGlobalInt(G_SCALE, 0L);
     if (!vm.isGlobalInt(G_ROOT_KEY)) vm.setGlobalInt(G_ROOT_KEY, 0L);
+
+    if (vm.getGlobalObject(G_LOAD_TRIGGER) == null) {
+      vm.setGlobalObject(G_LOAD_TRIGGER, new org.chuck.core.ChuckEvent());
+    }
+    if (vm.getGlobalObject(TICK_EVENT) == null) {
+      vm.setGlobalObject(TICK_EVENT, new org.chuck.core.ChuckEvent());
+    }
 
     vm.setGlobalObject(G_PATTERN, pattern);
     vm.setGlobalObject(G_VELOCITY, velocity);

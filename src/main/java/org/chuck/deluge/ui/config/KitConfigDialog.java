@@ -18,7 +18,8 @@ import org.chuck.deluge.model.KitTrackModel;
 
 public class KitConfigDialog extends Stage {
 
-  public KitConfigDialog(KitTrackModel.KitSound sound, ChuckVM vm, BridgeContract bridge, int trackIndex) {
+  public KitConfigDialog(
+      KitTrackModel.KitSound sound, ChuckVM vm, BridgeContract bridge, int trackIndex) {
     setTitle("Kit Sound Config: " + sound.getName());
     initStyle(StageStyle.UTILITY);
     initModality(Modality.NONE);
