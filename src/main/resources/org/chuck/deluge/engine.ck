@@ -69,11 +69,11 @@ fun void monitor_sample_end(SndBuf buf, int end_pos) {
 
 // ── kit shred ─────────────────────────────────────────────────────────────
 fun void kit_shred() {
-    SndBuf kit[4];
-    Pan2   pan[4];
-    Gain   delay_send[4];
-    Gain   reverb_send[4];
-    Gain   mod_send[4];
+    SndBuf kit[8];
+    Pan2   pan[8];
+    Gain   delay_send[8];
+    Gain   reverb_send[8];
+    Gain   mod_send[8];
     Gain   master;
     HPF    hpf;
     Dyno   limiter;
@@ -97,13 +97,17 @@ fun void kit_shred() {
     safety_gate.set(0.001, 0.0, 1.0, 0.001);
     0 => int gates_open;
 
-    // Load samples for first 4 tracks
+    // Load samples for all 8 tracks
     "examples/data/kick.wav"       => kit[0].read;
     "examples/data/snare.wav"      => kit[1].read;
     "examples/data/hihat.wav"      => kit[2].read;
     "examples/data/hihat-open.wav" => kit[3].read;
+    "examples/data/kick.wav"       => kit[4].read;
+    "examples/data/snare.wav"      => kit[5].read;
+    "examples/data/hihat.wav"      => kit[6].read;
+    "examples/data/hihat-open.wav" => kit[7].read;
 
-    for (0 => int i; i < 4; i++) {
+    for (0 => int i; i < 8; i++) {
         0 => kit[i].rate;
         kit[i].samples() => kit[i].pos; // silence on load
         kit[i] => pan[i] => master;
@@ -127,6 +131,7 @@ fun void kit_shred() {
     float step_start[];
     float step_end[];
     float track_level[];
+    int track_type[];
 
     while (g_play != 0) {
         tick_event => now;
@@ -145,18 +150,21 @@ fun void kit_shred() {
         Machine.getGlobalObject("g_step_start") $ float[] @=> step_start;
         Machine.getGlobalObject("g_step_end") $ float[] @=> step_end;
         Machine.getGlobalObject("g_track_level") $ float[] @=> track_level;
+        Machine.getGlobalObject("g_track_type") $ int[] @=> track_type;
 
         if (pattern == null || velocity == null || probability == null || mute == null || step_pan == null 
             || g_delay_send == null || g_reverb_send == null || step_delay == null || step_reverb == null 
-            || step_mod == null || step_start == null || step_end == null || track_level == null) continue;
+            || step_mod == null || step_start == null || step_end == null || track_level == null || track_type == null) continue;
 
         g_master_vol => master.gain;
         int step;
         g_current_step % 16 => step;
 
-        // Tracks 0 to 3 are Kit
-        for (0 => int r; r < 4; r++) {
+        for (0 => int r; r < 8; r++) {
+            if (track_type[r] != 0) continue; // Skip non-kit tracks
             if (mute[r] != 0) continue;
+
+            r => int v;
             r * 16 + step => int idx;
             
             // Set FX send levels (track level + step offset)
@@ -196,14 +204,14 @@ fun void kit_shred() {
 
 // ── synth shred ───────────────────────────────────────────────────────────
 fun void synth_shred() {
-    MorphingWavetable osc[4];
-    SVFilter filter[4];
-    ShelfEQ eq[4];
-    DelugeAdsr env[4];
-    Pan2  pan[4];
-    Gain delay_send[4];
-    Gain reverb_send[4];
-    Gain mod_send[4];
+    MorphingWavetable osc[8];
+    SVFilter filter[8];
+    ShelfEQ eq[8];
+    DelugeAdsr env[8];
+    Pan2  pan[8];
+    Gain delay_send[8];
+    Gain reverb_send[8];
+    Gain mod_send[8];
     Gain master;
     HPF hpf;
     Dyno limiter;
@@ -235,7 +243,7 @@ fun void synth_shred() {
     0 => int gates_open;
 
     // Also defensive: Ensure voices only connect to master, not dac
-    for (0 => int i; i < 4; i++) {
+    for (0 => int i; i < 8; i++) {
         osc[i] => filter[i];
         filter[i] => eq[i];
         eq[i] => env[i];
@@ -267,6 +275,7 @@ fun void synth_shred() {
     float step_reverb[];
     float step_mod[];
     float track_level[];
+    int track_type[];
 
     while (g_play != 0) {
         tick_event => now;
@@ -286,17 +295,19 @@ fun void synth_shred() {
         Machine.getGlobalObject("g_step_reverb") $ float[] @=> step_reverb;
         Machine.getGlobalObject("g_step_mod") $ float[] @=> step_mod;
         Machine.getGlobalObject("g_track_level") $ float[] @=> track_level;
+        Machine.getGlobalObject("g_track_type") $ int[] @=> track_type;
 
         if (pattern == null || pitch == null || g_filter == null || step_filter == null || step_res == null
-            || g_delay_send == null || g_reverb_send == null || step_delay == null || step_reverb == null || step_mod == null || track_level == null) continue;
+            || g_delay_send == null || g_reverb_send == null || step_delay == null || step_reverb == null || step_mod == null || track_level == null || track_type == null) continue;
 
         g_master_vol => master.gain;
         int step;
         g_current_step % 16 => step;
 
-        // Tracks 4 to 7 are Synth
-        for (4 => int r; r < 8; r++) {
-            r - 4 => int v; // Voice index 0-3
+        for (0 => int r; r < 8; r++) {
+            if (track_type[r] != 1) continue; // Skip non-synth tracks
+
+            r => int v; // Voice index is now 0-7, mapping directly to track
             r * 16 + step => int idx;
             
             velocity[idx] => float vel;
