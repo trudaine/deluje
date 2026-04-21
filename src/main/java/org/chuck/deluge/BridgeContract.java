@@ -40,6 +40,7 @@ public final class BridgeContract {
   public static final String G_STEP_MOD = "g_step_mod";
   public static final String G_STEP_START = "g_step_start";
   public static final String G_STEP_END = "g_step_end";
+  public static final String G_TRACK_TYPE = "g_track_type";
   public static final String G_TRACK_LEVEL = "g_track_level";
   public static final String G_MUTE = "g_mute";
 
@@ -77,6 +78,7 @@ public final class BridgeContract {
   private final ChuckArray stepMod;
   private final ChuckArray stepStart;
   private final ChuckArray stepEnd;
+  private final ChuckArray trackType;
   private final ChuckArray trackLevel;
   private final ChuckArray mute;
   private final ChuckArray filter;
@@ -105,6 +107,7 @@ public final class BridgeContract {
     stepMod = new ChuckArray("float", PATTERN_SIZE);
     stepStart = new ChuckArray("float", PATTERN_SIZE);
     stepEnd = new ChuckArray("float", PATTERN_SIZE);
+    trackType = new ChuckArray("int", TRACKS);
     trackLevel = new ChuckArray("float", TRACKS);
     mute = new ChuckArray("int", TRACKS);
     filter = new ChuckArray("float", TRACKS * 2);
@@ -138,6 +141,7 @@ public final class BridgeContract {
       stepEnd.setFloat(i, 1.0);
     }
     for (int t = 0; t < TRACKS; t++) {
+      trackType.setInt(t, t < 4 ? 0L : 1L); // 0 = Kit, 1 = Synth
       mute.setInt(t, 0L);
       trackLevel.setFloat(t, 0.7);
       filter.setFloat(t * 2, 1.0);
@@ -189,6 +193,7 @@ public final class BridgeContract {
     vm.setGlobalObject(G_STEP_MOD, stepMod);
     vm.setGlobalObject(G_STEP_START, stepStart);
     vm.setGlobalObject(G_STEP_END, stepEnd);
+    vm.setGlobalObject(G_TRACK_TYPE, trackType);
     vm.setGlobalObject(G_TRACK_LEVEL, trackLevel);
     vm.setGlobalObject(G_MUTE, mute);
     vm.setGlobalObject(G_FILTER, filter);
