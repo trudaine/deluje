@@ -3,51 +3,28 @@
 <earliestCompatibleFirmware>2.0.0</earliestCompatibleFirmware>
 <song>
     <previewNumPads>144</previewNumPads>
-    <songParams>
-        <volume>0x3504F334</volume>
-    </songParams>
     <instruments>
         <kit>
             <presetSlot>0</presetSlot>
-            <presetSubSlot>0</presetSubSlot>
-            <soundSources>
-                <sound>
-                    <name>KICK</name>
-                    <osc1>
-                        <type>sample</type>
-                        <fileName>examples/data/kick.wav</fileName>
-                    </osc1>
-                </sound>
-            </soundSources>
         </kit>
         <kit>
             <presetSlot>1</presetSlot>
-            <presetSubSlot>0</presetSubSlot>
-            <soundSources>
-                <sound>
-                    <name>SNARE</name>
-                    <osc1>
-                        <type>sample</type>
-                        <fileName>examples/data/kick.wav</fileName>
-                    </osc1>
-                </sound>
-            </soundSources>
         </kit>
         <kit>
             <presetSlot>2</presetSlot>
-            <presetSubSlot>0</presetSubSlot>
-            <soundSources>
-                <sound>
-                    <name>HH</name>
-                    <osc1>
-                        <type>sample</type>
-                        <fileName>examples/data/kick.wav</fileName>
-                    </osc1>
-                </sound>
-            </soundSources>
         </kit>
+        <sound>
+            <presetSlot>0</presetSlot>
+        </sound>
+        <sound>
+            <presetSlot>17</presetSlot>
+        </sound>
+        <sound>
+            <presetSlot>73</presetSlot>
+        </sound>
     </instruments>
     <tracks>
+        <!-- Kit 0 -->
         <track>
             <noteRows>
                 <noteRow>
@@ -55,6 +32,7 @@
                 </noteRow>
             </noteRows>
         </track>
+        <!-- Kit 1 -->
         <track>
             <noteRows>
                 <noteRow>
@@ -62,6 +40,31 @@
                 </noteRow>
             </noteRows>
         </track>
+        <!-- Kit 2 -->
+        <track>
+            <noteRows>
+                <noteRow>
+                    <noteData>0x000000000000000C40140000000C0000000C4014000000180000000C4014000000240000000C4014</noteData>
+                </noteRow>
+            </noteRows>
+        </track>
+        <!-- Synth 0 -->
+        <track>
+            <noteRows>
+                <noteRow>
+                    <noteData>0x000000000000000C4014000000300000000C4014000000600000000C4014000000900000000C4014</noteData>
+                </noteRow>
+            </noteRows>
+        </track>
+        <!-- Synth 17 -->
+        <track>
+            <noteRows>
+                <noteRow>
+                    <noteData>0x000000180000000C4014000000480000000C4014000000780000000C4014000000A80000000C4014</noteData>
+                </noteRow>
+            </noteRows>
+        </track>
+        <!-- Synth 73 -->
         <track>
             <noteRows>
                 <noteRow>

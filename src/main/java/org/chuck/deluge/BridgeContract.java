@@ -141,7 +141,7 @@ public final class BridgeContract {
       stepEnd.setFloat(i, 1.0f);
     }
     for (int t = 0; t < TRACKS; t++) {
-      trackType.setInt(t, t < 4 ? 0L : 1L);
+      trackType.setInt(t, 0L); // Default to KIT for all tracks
       mute.setInt(t, 0L);
       trackLevel.setFloat(t, 0.7f);
       filter.setFloat(t * 2, 1.0f);
@@ -348,6 +348,10 @@ public final class BridgeContract {
 
   public boolean getMute(int track) {
     return mute.getInt(track) > 0;
+  }
+
+  public void setTrackType(int track, int type) {
+    trackType.setInt(track, (long) type);
   }
 
   public void setFilterFreq(int track, double val) {

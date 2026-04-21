@@ -21,6 +21,8 @@ public class MatrixPanel extends BorderPane {
   private int currentStep = -1;
   private int selectedTrack = 0;
   private EditMode currentEditMode = EditMode.VELOCITY;
+  private int currentBaseTrack = 0;
+  private boolean isSynthMode = false;
   private java.util.function.Consumer<Integer> onTrackSelected;
 
   public MatrixPanel(ChuckVM vm, BridgeContract bridge) {
@@ -110,19 +112,35 @@ public class MatrixPanel extends BorderPane {
     vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
   }
 
-  public void applyClip(org.chuck.deluge.model.ClipModel clip) {
+  public void applyClip(org.chuck.deluge.model.ClipModel clip, int baseTrack) {
     for (int r = 0; r < 8; r++) {
       if (r < clip.getRowCount()) {
         for (int s = 0; s < 16; s++) {
           if (s < clip.getStepCount()) {
             org.chuck.deluge.model.StepData step = clip.getStep(r, s);
-            bridge.setStep(r, s, step.active());
+            bridge.setStep(baseTrack + r, s, step.active());
           } else {
-            bridge.setStep(r, s, false);
+            bridge.setStep(baseTrack + r, s, false);
           }
         }
-        rows[r].refreshCells();
+        if (baseTrack == currentBaseTrack) {
+          rows[r].refreshCells();
+        }
       }
+    }
+  }
+
+  public void setBaseTrack(int baseTrack) {
+    this.currentBaseTrack = baseTrack;
+    for (int r = 0; r < 8; r++) {
+      rows[r].setBaseTrack(baseTrack);
+    }
+  }
+
+  public void setSynthMode(boolean isSynthMode) {
+    this.isSynthMode = isSynthMode;
+    for (int r = 0; r < 8; r++) {
+      rows[r].setSynthMode(isSynthMode);
     }
   }
 

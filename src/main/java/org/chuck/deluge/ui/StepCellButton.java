@@ -11,19 +11,21 @@ import org.chuck.deluge.ui.ParameterRibbonPanel.EditMode;
  * edit).
  */
 public class StepCellButton extends ToggleButton {
-  private final int trackId;
+  private int baseTrack = 0;
+  private final int rowId;
   private final int stepId;
   private final BridgeContract bridge;
   private final java.util.function.Supplier<EditMode> editModeSupplier;
 
   private boolean playheadActive = false;
+  private boolean isSynthMode = false;
 
   public StepCellButton(
-      int trackId,
+      int rowId,
       int stepId,
       BridgeContract bridge,
       java.util.function.Supplier<EditMode> editModeSupplier) {
-    this.trackId = trackId;
+    this.rowId = rowId;
     this.stepId = stepId;
     this.bridge = bridge;
     this.editModeSupplier = editModeSupplier;
@@ -32,11 +34,18 @@ public class StepCellButton extends ToggleButton {
     updateStyle();
 
     // Sync with Bridge
-    setSelected(bridge.getStep(trackId, stepId));
+    setSelected(bridge.getStep(baseTrack + rowId, stepId));
 
     setOnAction(
         e -> {
-          bridge.setStep(trackId, stepId, isSelected());
+          if (isSynthMode) {
+            bridge.setStep(baseTrack, stepId, isSelected());
+            if (isSelected()) {
+              bridge.setPitch(baseTrack, stepId, rowId); // Map row to pitch!
+            }
+          } else {
+            bridge.setStep(baseTrack + rowId, stepId, isSelected());
+          }
           updateStyle();
         });
 
@@ -66,12 +75,13 @@ public class StepCellButton extends ToggleButton {
     val = Math.max(0, Math.min(1, val));
 
     EditMode mode = editModeSupplier.get();
+    int currentTrackId = isSynthMode ? baseTrack : baseTrack + rowId;
     switch (mode) {
-      case VELOCITY -> bridge.setVelocity(trackId, stepId, val);
-      case GATE -> bridge.setGate(trackId, stepId, val);
+      case VELOCITY -> bridge.setVelocity(currentTrackId, stepId, val);
+      case GATE -> bridge.setGate(currentTrackId, stepId, val);
       case PITCH -> {
         int pitch = (int) (val * 24) - 12; // +/- 1 octave
-        bridge.setPitch(trackId, stepId, pitch);
+        bridge.setPitch(currentTrackId, stepId, pitch);
       }
     }
     updateStyle();
@@ -89,9 +99,10 @@ public class StepCellButton extends ToggleButton {
     if (isSelected()) {
       EditMode mode = editModeSupplier.get();
       double val = 0.8;
+      int currentTrackId = isSynthMode ? baseTrack : baseTrack + rowId;
       switch (mode) {
-        case VELOCITY -> val = bridge.getVelocity(trackId, stepId);
-        case GATE -> val = bridge.getGate(trackId, stepId);
+        case VELOCITY -> val = bridge.getVelocity(currentTrackId, stepId);
+        case GATE -> val = bridge.getGate(currentTrackId, stepId);
       }
       style += " -fx-opacity: " + (0.4 + (val * 0.6)) + ";";
     }
@@ -105,5 +116,17 @@ public class StepCellButton extends ToggleButton {
 
   public int getStepId() {
     return stepId;
+  }
+
+  public void setBaseTrack(int baseTrack) {
+    this.baseTrack = baseTrack;
+    setSelected(bridge.getStep(isSynthMode ? baseTrack : baseTrack + rowId, stepId));
+    updateStyle();
+  }
+
+  public void setSynthMode(boolean isSynthMode) {
+    this.isSynthMode = isSynthMode;
+    setSelected(bridge.getStep(isSynthMode ? baseTrack : baseTrack + rowId, stepId));
+    updateStyle();
   }
 }

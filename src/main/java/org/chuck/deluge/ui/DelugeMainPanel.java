@@ -31,6 +31,7 @@ public class DelugeMainPanel extends BorderPane {
   private ProjectSidebarPanel.LibraryItem lastLoadedLibraryItem;
   private org.chuck.deluge.model.ProjectModel projectModel;
   private javafx.scene.control.ToggleButton clipBtn;
+  private javafx.scene.control.ToggleButton songBtn;
 
   public enum ViewMode {
     CLIP,
@@ -79,8 +80,18 @@ public class DelugeMainPanel extends BorderPane {
     arrangerPanel = new ArrangerPanel(vm, bridge);
 
     songPanel.setOnClipSelected(
-        clip -> {
-          matrixPanel.applyClip(clip);
+        (track, clip) -> {
+          if (track instanceof org.chuck.deluge.model.KitTrackModel kit) {
+            matrixPanel.applyKit(kit);
+            matrixPanel.setSynthMode(false);
+          } else if (track instanceof org.chuck.deluge.model.SynthTrackModel) {
+            matrixPanel.setSynthMode(true);
+          }
+          int trackIdx = projectModel.getTracks().indexOf(track);
+          if (trackIdx >= 0) {
+            matrixPanel.setBaseTrack(trackIdx * 8);
+            matrixPanel.applyClip(clip, trackIdx * 8);
+          }
           switchView(ViewMode.CLIP);
           if (clipBtn != null) {
             clipBtn.setSelected(true);
@@ -88,8 +99,11 @@ public class DelugeMainPanel extends BorderPane {
         });
 
     songPanel.setOnClipLaunched(
-        clip -> {
-          matrixPanel.applyClip(clip);
+        (track, clip) -> {
+          int trackIdx = projectModel.getTracks().indexOf(track);
+          if (trackIdx >= 0) {
+            matrixPanel.applyClip(clip, trackIdx * 8);
+          }
         });
     ribbonPanel = new ParameterRibbonPanel(vm, bridge);
     statusPanel = new StatusRibbonPanel(vm, bridge);
@@ -124,9 +138,25 @@ public class DelugeMainPanel extends BorderPane {
                       if (i < sounds.size()) {
                         String path = sounds.get(i).getSamplePath();
                         vm.setGlobalString("g_sample_" + trackId, path != null ? path : "");
+                        bridge.setMute(trackId, false); // Un-mute active tracks!
+                        bridge.setTrackType(trackId, 0); // Set to KIT!
                       } else {
                         vm.setGlobalString("g_sample_" + trackId, "");
+                        bridge.setMute(trackId, true); // Mute unused slots
                       }
+                    }
+                    // Load sequence data for all clips of this kit!
+                    for (org.chuck.deluge.model.ClipModel clip : kit.getClips()) {
+                      matrixPanel.applyClip(clip, baseTrack);
+                    }
+                    kitIdx++;
+                  } else if (track instanceof org.chuck.deluge.model.SynthTrackModel synth) {
+                    int baseTrack = kitIdx * 8;
+                    bridge.setTrackType(baseTrack, 1); // Set to SYNTH!
+
+                    // Load sequence data for all clips of this synth!
+                    for (org.chuck.deluge.model.ClipModel clip : synth.getClips()) {
+                      matrixPanel.applyClip(clip, baseTrack);
                     }
                     kitIdx++;
                   }
@@ -135,6 +165,20 @@ public class DelugeMainPanel extends BorderPane {
 
                 // Refresh Song Mode UI
                 songPanel.refresh();
+
+                // Auto-activate clips in Song View
+                int cIdx = 0;
+                for (org.chuck.deluge.model.TrackModel track : loadedProject.getTracks()) {
+                  for (org.chuck.deluge.model.ClipModel clip : track.getClips()) {
+                    songPanel.setClipActive(cIdx, true);
+                    cIdx++;
+                  }
+                }
+
+                switchView(ViewMode.SONG);
+                if (songBtn != null) {
+                  songBtn.setSelected(true);
+                }
                 statusPanel.updateStatus("SONG LOADED: " + item.name);
               }
               return; // Stop here
@@ -204,7 +248,7 @@ public class DelugeMainPanel extends BorderPane {
 
     ToggleGroup modeGroup = new ToggleGroup();
     this.clipBtn = createModeBtn("CLIP", modeGroup);
-    ToggleButton songBtn = createModeBtn("SONG", modeGroup);
+    this.songBtn = createModeBtn("SONG", modeGroup);
     ToggleButton arrBtn = createModeBtn("ARR", modeGroup);
     this.clipBtn.setSelected(true);
 

@@ -70,6 +70,12 @@ public class SynthTrackProcessor implements Shred {
       ChuckArray trackType = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
       if (trackType == null || trackType.getInt(trackId) != 1) continue;
 
+      ChuckArray mute = (ChuckArray) vm.getGlobalObject(BridgeContract.G_MUTE);
+      if (mute == null || mute.getInt(trackId) != 0) {
+        env.keyOff();
+        continue;
+      }
+
       updateParams(idx);
 
       ChuckArray pattern = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PATTERN);
