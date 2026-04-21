@@ -7,6 +7,7 @@ import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import org.chuck.core.ChuckArray;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.project.PreferencesManager;
@@ -159,14 +160,31 @@ public class DelugeMainPanel extends BorderPane {
                     }
                     kitIdx++;
                   } else if (track instanceof org.chuck.deluge.model.SynthTrackModel synth) {
-                    int baseTrack = kitIdx * 8;
-                    bridge.setTrackType(baseTrack, 1); // Set to SYNTH!
+                    int trackIdx = loadedProject.getTracks().indexOf(track);
+                    
+                    String oscType = synth.getOsc1Type();
+                    int typeIdx = 1; // Default to Saw
+                    if ("SINE".equals(oscType)) typeIdx = 0;
+                    else if ("SQUARE".equals(oscType)) typeIdx = 2;
+                    else if ("TRIANGLE".equals(oscType)) typeIdx = 3;
+                    
+                    ChuckArray oscTypeArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_OSC_TYPE);
+                    if (oscTypeArr != null) oscTypeArr.setInt(trackIdx, typeIdx);
+                    
+                    bridge.setTrackType(trackIdx, 1); // Set to SYNTH
+                    
+                    // Set global filter parameters
+                    ChuckArray gFilterArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_FILTER);
+                    if (gFilterArr != null) {
+                        gFilterArr.setFloat(trackIdx * 2, synth.getLpfFreq() / 20000.0f);
+                        gFilterArr.setFloat(trackIdx * 2 + 1, synth.getLpfRes());
+                    }
+
 
                     // Load sequence data for all clips of this synth!
                     for (org.chuck.deluge.model.ClipModel clip : synth.getClips()) {
-                      matrixPanel.applyClip(clip, baseTrack);
+                      matrixPanel.applyClip(clip, trackIdx * 8);
                     }
-                    kitIdx++;
                   }
                 }
                 vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);

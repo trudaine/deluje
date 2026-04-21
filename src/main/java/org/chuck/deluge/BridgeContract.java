@@ -40,6 +40,7 @@ public final class BridgeContract {
   public static final String G_STEP_START = "g_step_start";
   public static final String G_STEP_END = "g_step_end";
   public static final String G_TRACK_TYPE = "g_track_type";
+  public static final String G_OSC_TYPE = "g_osc_type";
   public static final String G_TRACK_LEVEL = "g_track_level";
   public static final String G_MUTE = "g_mute";
 
@@ -79,6 +80,7 @@ public final class BridgeContract {
   private final ChuckArray stepStart;
   private final ChuckArray stepEnd;
   private final ChuckArray trackType;
+  private final ChuckArray oscType;
   private final ChuckArray trackLevel;
   private final ChuckArray mute;
   private final ChuckArray filter;
@@ -108,6 +110,7 @@ public final class BridgeContract {
     stepStart = new ChuckArray("float", PATTERN_SIZE);
     stepEnd = new ChuckArray("float", PATTERN_SIZE);
     trackType = new ChuckArray("int", TRACKS);
+    oscType = new ChuckArray("int", TRACKS);
     trackLevel = new ChuckArray("float", TRACKS);
     mute = new ChuckArray("int", TRACKS);
     filter = new ChuckArray("float", TRACKS * 2);
