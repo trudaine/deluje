@@ -2,13 +2,17 @@ package org.chuck.deluge.ui;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.VBox;
+import org.chuck.core.ChuckArray;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.ui.ParameterRibbonPanel.EditMode;
 
-/** The main 8x16 sequencer grid. */
-public class MatrixPanel extends javafx.scene.layout.BorderPane {
+/**
+ * The central interaction zone for sequencing.
+ */
+public class MatrixPanel extends BorderPane {
   private final ChuckVM vm;
   private final BridgeContract bridge;
 
@@ -38,18 +42,23 @@ public class MatrixPanel extends javafx.scene.layout.BorderPane {
 
     setCenter(scrollPane);
 
-    rows = new TrackRowPanel[8]; // 8 tracks (Kit)
+    rows = new TrackRowPanel[8]; // 8 tracks
 
-    // Default labels for 4 Kit and 4 Synth tracks
-    String[] trackNames = {
-      "KICK", "SNARE", "HIHAT", "OPEN HAT", "SYNTH 1", "SYNTH 2", "SYNTH 3", "SYNTH 4"
-    };
+    // Defensive check: Ensure bridge objects exist in VM
+    Object trackTypeObj = vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
+    ChuckArray trackTypeArray = (trackTypeObj instanceof ChuckArray) ? (ChuckArray) trackTypeObj : null;
 
     for (int i = 0; i < 8; i++) {
       int trackIdx = i;
-      rows[i] = new TrackRowPanel(i, trackNames[i], vm, bridge, this::getCurrentEditMode);
+      rows[i] = new TrackRowPanel(i, "EMPTY", vm, bridge, this::getCurrentEditMode);
       rows[i].setOnMouseClicked(e -> selectTrack(trackIdx));
       rowContainer.getChildren().add(rows[i]);
+      
+      // Initialize bridge state for empty tracks
+      if (trackTypeArray != null) {
+          trackTypeArray.setInt(i, 0L); // Default to Kit logic but empty
+      }
+      bridge.setMute(i, true); // Mute empty slots
     }
 
     selectTrack(0); // Default selection
@@ -76,28 +85,29 @@ public class MatrixPanel extends javafx.scene.layout.BorderPane {
 
   public void applyKit(org.chuck.deluge.model.KitTrackModel kit) {
     java.util.List<org.chuck.deluge.model.KitTrackModel.KitSound> sounds = kit.getSounds();
+    ChuckArray trackTypeArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
+
     for (int i = 0; i < 8; i++) {
       if (i < sounds.size()) {
         org.chuck.deluge.model.KitTrackModel.KitSound sound = sounds.get(i);
         rows[i].updateForKit(sound);
-
-        // Update bridge to indicate this is a kit track
-        ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE)).setInt(i, 0L);
-
-        // Send sample path to ChucK
+        
+        if (trackTypeArr != null) trackTypeArr.setInt(i, 0L);
+        
         String path = sound.getSamplePath();
         if (path != null && !path.isEmpty()) {
           vm.setGlobalString("g_sample_" + i, path);
+          bridge.setMute(i, false); 
+        } else {
+          bridge.setMute(i, true);
         }
       } else {
-        // Clear/Mute unused tracks
         rows[i].updateForKit(new org.chuck.deluge.model.KitTrackModel.KitSound("EMPTY"));
         bridge.setMute(i, true);
-        ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE)).setInt(i, 0L);
+        if (trackTypeArr != null) trackTypeArr.setInt(i, 0L);
         vm.setGlobalString("g_sample_" + i, "");
       }
     }
-    // Trigger engine load
     vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
   }
 
@@ -108,14 +118,18 @@ public class MatrixPanel extends javafx.scene.layout.BorderPane {
     }
   }
 
+  public void refreshCells() {
+      for (TrackRowPanel row : rows) {
+          row.refreshCells();
+      }
+  }
+
   public EditMode getCurrentEditMode() {
     return currentEditMode;
   }
 
   public void updateStep(int step) {
-    if (step == currentStep) return; // Prevent redundant UI updates
-
-    // De-highlight old step
+    // Clear old highlight
     if (currentStep >= 0 && currentStep < 16) {
       for (TrackRowPanel row : rows) {
         row.highlightStep(currentStep, false);

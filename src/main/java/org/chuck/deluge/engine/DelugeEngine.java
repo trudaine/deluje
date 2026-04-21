@@ -36,34 +36,12 @@ public class DelugeEngine implements Shred {
             vm.spork(synthProc::shred);
         }
 
-        // 3. Start Transport Monitor (Handles Play/Stop and Clock lifecycle)
-        vm.spork(this::transportMonitor);
+        // 3. Start Master Clock (Persistent)
+        vm.spork(new DelugeClock(vm, bridge)::shred);
 
         logger.info("Deluge Engine (Distributed) initialized.");
-    }
-
-    private void transportMonitor() {
-        boolean lastPlay = false;
-        int clockShredId = -1;
-
-        while (true) {
-            boolean play = vm.getGlobalInt(BridgeContract.G_PLAY) == 1;
-            if (play != lastPlay) {
-                lastPlay = play;
-                if (play) {
-                    logger.info("TRANSPORT: Play");
-                    DelugeClock clock = new DelugeClock(vm, bridge);
-                    clockShredId = vm.spork(clock::shred);
-                } else {
-                    logger.info("TRANSPORT: Stop");
-                    if (clockShredId != -1) {
-                        vm.removeShred(clockShredId);
-                        clockShredId = -1;
-                    }
-                    vm.setGlobalInt(BridgeContract.G_CURRENT_STEP, -1);
-                }
-            }
-            advance(ms(10));
-        }
+        
+        // Keep orchestrator alive
+        while(true) advance(ms(100));
     }
 }

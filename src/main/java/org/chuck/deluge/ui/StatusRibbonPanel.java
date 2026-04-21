@@ -54,4 +54,8 @@ public class StatusRibbonPanel extends HBox {
       oledLabel.setText("STOP");
     }
   }
+
+  public void updateStatus(String msg) {
+    oledLabel.setText(msg.toUpperCase());
+  }
 }

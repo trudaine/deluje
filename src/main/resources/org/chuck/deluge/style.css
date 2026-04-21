@@ -1,0 +1,41 @@
+.root {
+    -fx-base: #1a1a1a;
+    -fx-background: #1a1a1a;
+    -fx-control-inner-background: #252525;
+}
+
+.label {
+    -fx-text-fill: #aaa;
+}
+
+.button {
+    -fx-base: #333;
+    -fx-text-fill: white;
+}
+
+.toggle-button {
+    -fx-base: #444;
+    -fx-text-fill: white;
+}
+
+.toggle-button:selected {
+    -fx-base: #00ffcc;
+    -fx-text-fill: black;
+}
+
+.tab-pane .tab-header-area .tab-header-background {
+    -fx-background-color: #252525;
+}
+
+.tree-view, .tree-cell {
+    -fx-background-color: #252525;
+    -fx-text-fill: white;
+}
+
+.menu-bar {
+    -fx-background-color: #333;
+}
+
+.menu-bar .label {
+    -fx-text-fill: white;
+}

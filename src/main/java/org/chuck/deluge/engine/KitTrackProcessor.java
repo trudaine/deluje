@@ -70,23 +70,23 @@ public class KitTrackProcessor implements Shred {
 
         loadSample();
 
-        while (vm.getGlobalInt(BridgeContract.G_PLAY) == 1) {
+        // Persistent loop: wait for ticks regardless of play state
+        while (true) {
             advance(tickEvent);
-            if (vm.getGlobalInt(BridgeContract.G_PLAY) == 0) break;
-
+            
+            // Sync current step to bridge
             int step = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
+            if (step < 0) continue;
+
             int idx = trackId * 16 + step;
 
             ChuckArray pattern = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PATTERN);
             ChuckArray mute = (ChuckArray) vm.getGlobalObject(BridgeContract.G_MUTE);
             ChuckArray trackType = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
 
-            if (trackType.getInt(trackId) != 0) continue;
-            if (mute.getInt(trackId) != 0) continue;
-            if (pattern.getInt(idx) == 0) continue;
-
-            ChuckArray probability = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PROBABILITY);
-            if (Math.random() > (double) probability.getFloat(idx)) continue;
+            if (trackType == null || trackType.getInt(trackId) != 0) continue;
+            if (mute == null || mute.getInt(trackId) != 0) continue;
+            if (pattern == null || pattern.getInt(idx) == 0) continue;
 
             trigger(idx);
         }
@@ -94,28 +94,14 @@ public class KitTrackProcessor implements Shred {
 
     private void trigger(int idx) {
         ChuckArray velocity = (ChuckArray) vm.getGlobalObject(BridgeContract.G_VELOCITY);
-        ChuckArray stepStart = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_START);
         ChuckArray trackLevel = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_LEVEL);
-        ChuckArray stepPan = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_PAN);
 
-        double vel = velocity.getFloat(idx);
+        double vel = velocity != null ? velocity.getFloat(idx) : 0.8;
         double masterVol = vm.getGlobalFloat(BridgeContract.G_MASTER_VOL);
-        double masterPan = vm.getGlobalFloat(BridgeContract.G_MASTER_PAN);
 
         buf.rate(1.0f);
-        buf.pos((long) ((double) stepStart.getFloat(idx) * (double) buf.samples()));
-        buf.gain((float) (vel * (double) trackLevel.getFloat(trackId) * masterVol * 0.8));
-        
-        pan.pan((float) Math.max(-1.0, Math.min(1.0, masterPan + (double) stepPan.getFloat(idx))));
-
-        // Update Sends
-        ChuckArray stepDelay = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_DELAY);
-        ChuckArray stepReverb = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_REVERB);
-        ChuckArray gDelaySendArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_DELAY_SEND);
-        ChuckArray gReverbSendArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_REVERB_SEND);
-
-        delaySend.gain((float) ((double) gDelaySendArr.getFloat(trackId) + (double) stepDelay.getFloat(idx)));
-        reverbSend.gain((float) ((double) gReverbSendArr.getFloat(trackId) + (double) stepReverb.getFloat(idx)));
+        buf.pos(0L); 
+        buf.gain((float) (vel * (trackLevel != null ? trackLevel.getFloat(trackId) : 0.7) * masterVol));
 
         if (vm.getLogLevel() >= 2) {
             vm.print("KIT trigger track: " + trackId + " step: " + (idx % 16) + "\n");
@@ -125,12 +111,26 @@ public class KitTrackProcessor implements Shred {
     private void loadSample() {
         String path = (String) vm.getGlobalObject("g_sample_" + trackId);
         if (path != null && !path.isEmpty()) {
-            try {
-                buf.read(path);
+            buf.read(path);
+            if (buf.samples() == 0) {
+                // Try case-insensitive extension fallback
+                String altPath = path;
+                if (path.endsWith(".wav")) altPath = path.substring(0, path.length() - 4) + ".WAV";
+                else if (path.endsWith(".WAV")) altPath = path.substring(0, path.length() - 4) + ".wav";
+                else if (path.endsWith(".XML")) altPath = path.substring(0, path.length() - 4) + ".xml";
+                else if (path.endsWith(".xml")) altPath = path.substring(0, path.length() - 4) + ".XML";
+                
+                if (!altPath.equals(path)) {
+                    buf.read(altPath);
+                }
+            }
+            
+            // Post-load setup
+            if (buf.samples() > 0) {
                 buf.rate(0);
                 buf.pos(buf.samples());
-            } catch (Exception e) {
-                logger.warning("Failed to load sample on Track " + trackId + ": " + path);
+            } else {
+                logger.warning("Track " + trackId + ": Failed to load sample " + path);
             }
         }
     }
