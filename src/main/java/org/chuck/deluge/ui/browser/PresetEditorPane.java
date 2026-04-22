@@ -64,6 +64,7 @@ public class PresetEditorPane extends VBox {
 
     oscGrid.add(new Label("Volume:"), 0, 1);
     volSlider = new Slider(0, 127, 64);
+    volSlider.setPrefWidth(100);
     volSlider.setShowTickLabels(true);
     oscGrid.add(volSlider, 1, 1);
 
@@ -79,6 +80,7 @@ public class PresetEditorPane extends VBox {
 
     oscGrid.add(new Label("Transpose:"), 0, 2);
     transSlider = new Slider(-24, 24, 0);
+    transSlider.setPrefWidth(100);
     transSlider.setShowTickLabels(true);
     oscGrid.add(transSlider, 1, 2);
 
@@ -99,6 +101,7 @@ public class PresetEditorPane extends VBox {
 
     filterGrid.add(new Label("LPF Frequency:"), 0, 0);
     lpfCutoffSlider = new Slider(0, 127, 64);
+    lpfCutoffSlider.setPrefWidth(100);
     filterGrid.add(lpfCutoffSlider, 1, 0);
 
     Button filterModBtn = new Button("M");
@@ -113,6 +116,7 @@ public class PresetEditorPane extends VBox {
 
     filterGrid.add(new Label("LPF Resonance:"), 0, 1);
     lpfResSlider = new Slider(0, 127, 64);
+    lpfResSlider.setPrefWidth(100);
     filterGrid.add(lpfResSlider, 1, 1);
 
     filterBox.getChildren().addAll(filterTitle, filterGrid);
@@ -128,10 +132,12 @@ public class PresetEditorPane extends VBox {
 
     fxGrid.add(new Label("Delay Amount:"), 0, 0);
     delaySlider = new Slider(0, 127, 32);
+    delaySlider.setPrefWidth(100);
     fxGrid.add(delaySlider, 1, 0);
 
     fxGrid.add(new Label("Reverb Amount:"), 0, 1);
     reverbSlider = new Slider(0, 127, 32);
+    reverbSlider.setPrefWidth(100);
     fxGrid.add(reverbSlider, 1, 1);
 
     fxBox.getChildren().addAll(fxTitle, fxGrid);
