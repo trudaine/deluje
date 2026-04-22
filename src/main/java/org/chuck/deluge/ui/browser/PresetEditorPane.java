@@ -67,6 +67,15 @@ public class PresetEditorPane extends VBox {
     volSlider.setShowTickLabels(true);
     oscGrid.add(volSlider, 1, 1);
 
+    Button volModBtn = new Button("M");
+    volModBtn.setStyle("-fx-base: #444; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 10px;");
+    volModBtn.setOnAction(e -> {
+        org.chuck.deluge.ui.popover.ModulationPatchingDialog dialog = 
+            new org.chuck.deluge.ui.popover.ModulationPatchingDialog("Oscillator 1 Volume");
+        dialog.showAndWait();
+    });
+    oscGrid.add(volModBtn, 2, 1);
+
     oscGrid.add(new Label("Transpose:"), 0, 2);
     transSlider = new Slider(-24, 24, 0);
     transSlider.setShowTickLabels(true);
@@ -90,6 +99,15 @@ public class PresetEditorPane extends VBox {
     filterGrid.add(new Label("LPF Frequency:"), 0, 0);
     lpfCutoffSlider = new Slider(0, 127, 64);
     filterGrid.add(lpfCutoffSlider, 1, 0);
+
+    Button filterModBtn = new Button("M");
+    filterModBtn.setStyle("-fx-base: #444; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 10px;");
+    filterModBtn.setOnAction(e -> {
+        org.chuck.deluge.ui.popover.ModulationPatchingDialog dialog = 
+            new org.chuck.deluge.ui.popover.ModulationPatchingDialog("Filter Cutoff frequency");
+        dialog.showAndWait();
+    });
+    filterGrid.add(filterModBtn, 2, 0);
 
     filterGrid.add(new Label("LPF Resonance:"), 0, 1);
     lpfResSlider = new Slider(0, 127, 64);
