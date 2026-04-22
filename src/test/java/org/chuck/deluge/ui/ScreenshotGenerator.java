@@ -87,6 +87,12 @@ public class ScreenshotGenerator {
       org.chuck.deluge.model.TrackModel track1 = new org.chuck.deluge.model.KitTrackModel("KIT 0");
       org.chuck.deluge.model.ClipModel clip1 = new org.chuck.deluge.model.ClipModel("CLIP 0", 1, 16);
       clip1.setColor("#00ffcc");
+      
+      clip1.setStep(0, 2, new org.chuck.deluge.model.StepData(true, 1.0f, 1.0f, 1.0f, 0));
+      clip1.setStep(0, 5, new org.chuck.deluge.model.StepData(true, 1.0f, 1.0f, 1.0f, 0));
+      clip1.setStep(0, 8, new org.chuck.deluge.model.StepData(true, 1.0f, 1.0f, 1.0f, 0));
+      clip1.setStep(0, 10, new org.chuck.deluge.model.StepData(true, 1.0f, 1.0f, 1.0f, 0));
+      
       track1.addClip(clip1);
       
       org.chuck.deluge.model.TrackModel track2 = new org.chuck.deluge.model.SynthTrackModel("SYNTH 0");
