@@ -552,4 +552,8 @@ public class DelugeMainPanel extends BorderPane {
   public SongModePanel getSongPanel() {
     return songPanel;
   }
+
+  public ProjectSidebarPanel getSidebarPanel() {
+    return sidebarPanel;
+  }
 }
