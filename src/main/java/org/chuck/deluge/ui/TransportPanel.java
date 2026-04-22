@@ -203,8 +203,10 @@ public class TransportPanel extends HBox {
   }
   public void setTempo(double bpm) {
     javafx.application.Platform.runLater(() -> {
-      tempoSlider.setValue(bpm);
-      tempoLabel.setText(String.format("TEMPO: %.1f", bpm));
+      if (Math.abs(tempoSlider.getValue() - bpm) > 0.1) {
+        tempoSlider.setValue(bpm);
+        tempoLabel.setText(String.format("TEMPO: %.1f", bpm));
+      }
     });
   }
 }

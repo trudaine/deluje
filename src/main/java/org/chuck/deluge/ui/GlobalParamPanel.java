@@ -119,7 +119,7 @@ public class GlobalParamPanel extends HBox {
 
   public void setGlobalTempo(float bpm) {
     javafx.application.Platform.runLater(() -> {
-      if (tempoSlider != null) {
+      if (tempoSlider != null && Math.abs(tempoSlider.getValue() - bpm) > 0.1) {
         tempoSlider.setValue(bpm);
       }
     });
