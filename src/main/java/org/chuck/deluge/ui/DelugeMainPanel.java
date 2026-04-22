@@ -42,7 +42,7 @@ public class DelugeMainPanel extends BorderPane {
 
   private ViewMode currentMode = ViewMode.CLIP;
 
-  public DelugeMainPanel(ChuckVM vm, BridgeContract bridge, org.chuck.audio.ChuckAudio audio) {
+  public DelugeMainPanel(ChuckVM vm, BridgeContract bridge, org.chuck.audio.ChuckAudio audio, org.chuck.deluge.midi.MidiService midiService) {
     this.vm = vm;
     this.bridge = bridge;
     this.projectModel = new org.chuck.deluge.model.ProjectModel();
@@ -266,7 +266,7 @@ public class DelugeMainPanel extends BorderPane {
 
     velocityPanel = new VelocityLanePanel(vm, bridge);
     velocityPanel.setEditModeSupplier(matrixPanel::getCurrentEditMode);
-    masterFxPanel = new MasterFxPanel(vm);
+    masterFxPanel = new MasterFxPanel(vm, midiService);
 
     transportPanel.setOnKitLoaded(matrixPanel::applyKit);
     matrixPanel.setOnTrackSelected(velocityPanel::setSelectedTrack);

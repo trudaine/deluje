@@ -58,4 +58,12 @@ public class PreferencesManager {
   public static void set(String key, String value) {
     prefs.put(key, value);
   }
+
+  public static String[] getKeys() {
+    try {
+      return prefs.keys();
+    } catch (Exception e) {
+      return new String[0];
+    }
+  }
 }

@@ -33,9 +33,6 @@ public class MidiInputRouter {
   public void handleMidiMessage(MidiMsg msg) {
     if (!followModeEnabled) return;
 
-    // Only Synth tracks (4-7) respond to pitched MIDI
-    if (activeTrackIndex < 4) return;
-
     // Get the current playback step from the VM
     int currentStep = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
     if (currentStep < 0 || currentStep >= 16) {
@@ -47,8 +44,21 @@ public class MidiInputRouter {
       int midiNote = msg.data2;
       int velocity = msg.data3;
 
-      // Update pitch offset from middle C (60)
-      bridge.setPitch(activeTrackIndex, currentStep, midiNote - 60);
+      if (activeTrackIndex < 4) {
+        // Kit track: map note to row (e.g., 36 -> row 0, 38 -> row 1, etc.)
+        int row = midiNote - 36;
+        if (row >= 0 && row < 8) {
+          bridge.setStep(activeTrackIndex, currentStep, true);
+          bridge.setVelocity(activeTrackIndex, currentStep, velocity / 127.0);
+          bridge.setGate(activeTrackIndex, currentStep, 1.0);
+        }
+      } else {
+        // Synth track: map note to pitch offset from middle C (60)
+        bridge.setPitch(activeTrackIndex, currentStep, midiNote - 60);
+        bridge.setStep(activeTrackIndex, currentStep, true);
+        bridge.setVelocity(activeTrackIndex, currentStep, velocity / 127.0);
+        bridge.setGate(activeTrackIndex, currentStep, 1.0);
+      }
 
       // Set step as active (pattern = 1)
       bridge.setStep(activeTrackIndex, currentStep, true);

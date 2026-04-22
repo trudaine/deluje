@@ -99,9 +99,17 @@ public class DelugeFxBus implements Shred {
       } else if (rev instanceof JCRev jcr) {
         jcr.mix(revRoom);
       } else if (rev instanceof MVerb mv) {
-        mv.size(revRoom);
+        mv.size((float) vm.getGlobalFloat("reverb.size"));
+        mv.decay((float) vm.getGlobalFloat("reverb.decay"));
+        mv.mix((float) vm.getGlobalFloat("reverb.mix"));
+        mv.earlyMix((float) vm.getGlobalFloat("reverb.earlyMix"));
+        mv.dampingFreq((float) vm.getGlobalFloat("reverb.dampingFreq"));
+        mv.density((float) vm.getGlobalFloat("reverb.density"));
+        mv.bandwidthFreq((float) vm.getGlobalFloat("reverb.bandwidthFreq"));
+        mv.predelay((float) vm.getGlobalFloat("reverb.predelay"));
       } else if (rev instanceof ProceduralReverb prv) {
-        prv.decayFactor(revRoom);
+        prv.decayFactor((float) vm.getGlobalFloat("reverb.decayFactor"));
+        prv.delayLength((int) vm.getGlobalFloat("reverb.delayLength"));
       }
     }
   }
