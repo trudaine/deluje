@@ -76,7 +76,7 @@ public class ParameterRibbonPanel extends HBox {
         javafx.scene.control.Tooltip.install(btn, tooltip);
       }
       btn.setPrefHeight(30);
-      btn.setPrefWidth(85);
+      btn.setPrefWidth(100);
 
       final EditMode mode = EditMode.values()[i];
 

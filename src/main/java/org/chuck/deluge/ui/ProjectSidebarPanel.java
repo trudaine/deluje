@@ -63,9 +63,7 @@ public class ProjectSidebarPanel extends VBox {
     setSpacing(10);
     setStyle("-fx-background-color: #252525; -fx-border-color: #333; -fx-border-width: 0 1 0 0;");
 
-    Label title = new Label("PROJECT MANAGER");
-    title.setStyle("-fx-text-fill: #aaa; -fx-font-weight: bold; -fx-font-size: 14;");
-    getChildren().add(title);
+
 
     TabPane tabs = new TabPane();
     tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
