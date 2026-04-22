@@ -48,6 +48,18 @@ public class MatrixPanel extends BorderPane {
 
     createRows(8);
     selectTrack(0); // Default selection
+
+    setFocusTraversable(true);
+    setOnMouseClicked(e -> requestFocus());
+
+    setOnKeyPressed(e -> {
+      if (e.getCode() == javafx.scene.input.KeyCode.P) {
+        org.chuck.deluge.ui.popover.ArpeggiatorDialog dialog = 
+            new org.chuck.deluge.ui.popover.ArpeggiatorDialog(bridge, selectedTrack);
+        dialog.showAndWait();
+        refreshCells();
+      }
+    });
   }
 
   private void createRows(int count) {
