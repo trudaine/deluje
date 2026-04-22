@@ -350,11 +350,11 @@ public class DelugeMainPanel extends BorderPane {
     transportWithMode.getChildren().addAll(modeToggleBox, transportPanel);
 
     VBox topBox = new VBox(0);
-    topBox.getChildren().addAll(menuBar, transportWithMode, ribbonPanel);
+    topBox.getChildren().addAll(menuBar, transportWithMode);
     setTop(topBox);
 
     transportWithMode.setPadding(new Insets(10, 10, 5, 10));
-    ribbonPanel.setPadding(new Insets(5, 10, 10, 10));
+    ribbonPanel.setPadding(new Insets(5, 10, 5, 119));
 
     setCenter(matrixPanel);
 
@@ -372,7 +372,7 @@ public class DelugeMainPanel extends BorderPane {
     }
 
     VBox bottomBox = new VBox(5);
-    bottomBox.getChildren().addAll(velocityPanel, masterFxPanel, statusPanel);
+    bottomBox.getChildren().addAll(ribbonPanel, velocityPanel, masterFxPanel, statusPanel);
     setBottom(bottomBox);
   }
 

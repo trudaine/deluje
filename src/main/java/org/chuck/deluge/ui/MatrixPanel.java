@@ -88,6 +88,7 @@ public class MatrixPanel extends BorderPane {
       int trackIdx = i;
       rows[i] = new TrackRowPanel(i, "EMPTY", vm, bridge, this::getCurrentEditMode);
       rows[i].setOnMouseClicked(e -> selectTrack(trackIdx));
+      rows[i].setStyle("-fx-border-color: transparent; -fx-border-width: 0 0 0 4;");
       rowContainer.getChildren().add(rows[i]);
 
       if (trackTypeArray != null && i < 8) {
@@ -166,7 +167,7 @@ public class MatrixPanel extends BorderPane {
     if (index < 0 || index >= rows.length) return;
 
     // Clear old selection style
-    rows[selectedTrack].setStyle("");
+    rows[selectedTrack].setStyle("-fx-border-color: transparent; -fx-border-width: 0 0 0 4;");
 
     selectedTrack = index;
     // Highlight selected row

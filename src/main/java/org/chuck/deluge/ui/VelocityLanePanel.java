@@ -58,7 +58,7 @@ public class VelocityLanePanel extends Pane {
 
     // Offset to align with the grid cells (Label + Button + Spacing)
     // Label(75) + Button(25) + Spacing(5) = 110 approx.
-    double gridXOffset = 110;
+    double gridXOffset = 119;
     double barWidth = 45; // 40 (cell width) + 5 (spacing)
 
     // Draw Mode Label
