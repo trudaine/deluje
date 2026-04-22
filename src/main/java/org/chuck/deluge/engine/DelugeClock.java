@@ -26,7 +26,8 @@ public class DelugeClock implements Shred {
       return;
     }
 
-    while (true) {
+    org.chuck.core.ChuckShred current = org.chuck.core.ChuckShred.CURRENT_SHRED.get();
+    while (current != null && !current.isDone()) {
       // Read from VM every sample or nearly so? No, but let's use advance(samp) for better
       // resolution in virtual time
       long playState = vm.getGlobalInt(BridgeContract.G_PLAY);
