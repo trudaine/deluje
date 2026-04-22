@@ -26,6 +26,11 @@ public class MatrixPanel extends BorderPane {
   private DelugeKeyboardPanel keyboardPanel;
   private int lastPlayedNote = -1;
   private java.util.function.Consumer<Integer> onTrackSelected;
+  private Runnable onEditPresetRequest;
+
+  public void setOnEditPresetRequest(Runnable callback) {
+    this.onEditPresetRequest = callback;
+  }
 
   public MatrixPanel(ChuckVM vm, BridgeContract bridge) {
     this.vm = vm;
@@ -44,7 +49,18 @@ public class MatrixPanel extends BorderPane {
     setCenter(scrollPane);
 
     keyboardPanel = new DelugeKeyboardPanel();
-    setBottom(keyboardPanel);
+    
+    javafx.scene.control.Button editPresetBtn = new javafx.scene.control.Button("🎹 EDIT PRESET");
+    editPresetBtn.setStyle("-fx-background-color: #444; -fx-text-fill: white; -fx-font-weight: bold;");
+    editPresetBtn.setOnAction(e -> {
+        if (onEditPresetRequest != null) {
+            onEditPresetRequest.run();
+        }
+    });
+    
+    javafx.scene.layout.HBox bottomBox = new javafx.scene.layout.HBox(10);
+    bottomBox.getChildren().addAll(keyboardPanel, editPresetBtn);
+    setBottom(bottomBox);
 
     createRows(8);
     selectTrack(0); // Default selection

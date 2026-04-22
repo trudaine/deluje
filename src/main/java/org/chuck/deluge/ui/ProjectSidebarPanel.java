@@ -318,4 +318,15 @@ public class ProjectSidebarPanel extends VBox {
     }
     return presets;
   }
+
+  public PresetEditorPane getEditorPane() {
+    return editorPane;
+  }
+
+  public void focusEditorTab() {
+    javafx.application.Platform.runLater(() -> {
+      javafx.scene.control.TabPane tabs = (javafx.scene.control.TabPane) getChildren().get(1);
+      tabs.getSelectionModel().select(1);
+    });
+  }
 }
