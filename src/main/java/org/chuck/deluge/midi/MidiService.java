@@ -73,28 +73,33 @@ public class MidiService {
 
   private void handleMessage(MidiMsg msg) {
     boolean isCc = (msg.data1 & 0xF0) == 0xB0;
+    String portName = PreferencesManager.get("midi.input", "None");
+
     if (learning && isCc) {
       int cc = msg.data2;
-      System.out.println("MIDI LEARN: Bound CC " + cc + " to " + learnTargetParam);
-      PreferencesManager.set("midi.learn." + learnTargetParam, String.valueOf(cc));
+      System.out.println(
+          "MIDI LEARN: Bound CC " + cc + " to " + learnTargetParam + " on device " + portName);
+      PreferencesManager.set("midi.learn." + portName + "." + learnTargetParam, String.valueOf(cc));
       learning = false;
       learnTargetParam = null;
     } else if (!learning && isCc) {
       int cc = msg.data2;
       int val = msg.data3;
 
-      // Look up mapped parameters
+      // Look up mapped parameters specifically for this port
       String[] keys = PreferencesManager.getKeys();
+      String prefix = "midi.learn." + portName + ".";
       for (String key : keys) {
-        if (key.startsWith("midi.learn.")) {
+        if (key.startsWith(prefix)) {
           String mappedCc = PreferencesManager.get(key, "None");
           if (mappedCc.equals(String.valueOf(cc))) {
-            String paramName = key.substring("midi.learn.".length());
+            String paramName = key.substring(prefix.length());
             // Map 0-127 to 0.0-1.0 (or appropriate range)
             float normalizedVal = val / 127.0f;
             vm.setGlobalFloat(paramName, normalizedVal);
             if (vm.getLogLevel() >= 2) {
-              System.out.println("MIDI: Updated " + paramName + " to " + normalizedVal);
+              System.out.println(
+                  "MIDI: Updated " + paramName + " to " + normalizedVal + " via " + portName);
             }
           }
         }
@@ -114,7 +119,8 @@ public class MidiService {
   public void startLearn(String param) {
     this.learning = true;
     this.learnTargetParam = param;
-    System.out.println("MIDI LEARN: Listening for CC for " + param);
+    String portName = PreferencesManager.get("midi.input", "None");
+    System.out.println("MIDI LEARN: Listening for CC for " + param + " on device " + portName);
   }
 
   public boolean isLearning() {
@@ -126,18 +132,22 @@ public class MidiService {
   }
 
   public void unlearn(String paramName) {
-    PreferencesManager.set("midi.learn." + paramName, "None");
+    String portName = PreferencesManager.get("midi.input", "None");
+    PreferencesManager.set("midi.learn." + portName + "." + paramName, "None");
   }
 
   public java.util.Map<String, Integer> getMappings() {
     java.util.Map<String, Integer> mappings = new java.util.HashMap<>();
+    String portName = PreferencesManager.get("midi.input", "None");
+    String prefix = "midi.learn." + portName + ".";
+
     String[] keys = PreferencesManager.getKeys();
     for (String key : keys) {
-      if (key.startsWith("midi.learn.")) {
+      if (key.startsWith(prefix)) {
         String val = PreferencesManager.get(key, "None");
         if (!val.equals("None")) {
           try {
-            mappings.put(key.substring("midi.learn.".length()), Integer.parseInt(val));
+            mappings.put(key.substring(prefix.length()), Integer.parseInt(val));
           } catch (NumberFormatException e) {
             // Ignore invalid values
           }
