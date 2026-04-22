@@ -11,7 +11,6 @@ import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.stream.Stream;
 import javafx.geometry.Insets;
-import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TreeItem;
@@ -63,12 +62,10 @@ public class ProjectSidebarPanel extends VBox {
     setSpacing(10);
     setStyle("-fx-background-color: #252525; -fx-border-color: #333; -fx-border-width: 0 1 0 0;");
 
-
-
     TabPane tabs = new TabPane();
     tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
 
-    editorPane = new PresetEditorPane();
+    editorPane = new PresetEditorPane(vm, bridge);
     Tab libraryTab = new Tab("LIBRARY", createLibraryBrowser(tabs, editorPane));
     Tab editorTab = new Tab("EDITOR", editorPane);
 
@@ -123,7 +120,8 @@ public class ProjectSidebarPanel extends VBox {
     }
   }
 
-  private VBox createLibraryBrowser(javafx.scene.control.TabPane tabs, PresetEditorPane editorPane) {
+  private VBox createLibraryBrowser(
+      javafx.scene.control.TabPane tabs, PresetEditorPane editorPane) {
     VBox box = new VBox(5);
     TreeItem<LibraryItem> root = new TreeItem<>(new LibraryItem("SD CARD", null, null, true));
     root.setExpanded(true);
@@ -170,11 +168,11 @@ public class ProjectSidebarPanel extends VBox {
                 onPresetRequest.accept(item.getValue());
               }
 
-              if (item.getValue().resourcePath != null && 
-                  (item.getValue().resourcePath.contains("/KITS/") || 
-                   item.getValue().resourcePath.contains("/SYNTHS/"))) {
-                 editorPane.loadPreset(item.getValue().file, item.getValue().name);
-                 tabs.getSelectionModel().select(1); // Select Editor Tab
+              if (item.getValue().resourcePath != null
+                  && (item.getValue().resourcePath.contains("/KITS/")
+                      || item.getValue().resourcePath.contains("/SYNTHS/"))) {
+                editorPane.loadPreset(item.getValue().file, item.getValue().name);
+                tabs.getSelectionModel().select(1); // Select Editor Tab
               }
             }
           }
@@ -323,9 +321,10 @@ public class ProjectSidebarPanel extends VBox {
   }
 
   public void focusEditorTab() {
-    javafx.application.Platform.runLater(() -> {
-      javafx.scene.control.TabPane tabs = (javafx.scene.control.TabPane) getChildren().get(1);
-      tabs.getSelectionModel().select(1);
-    });
+    javafx.application.Platform.runLater(
+        () -> {
+          javafx.scene.control.TabPane tabs = (javafx.scene.control.TabPane) getChildren().get(1);
+          tabs.getSelectionModel().select(1);
+        });
   }
 }

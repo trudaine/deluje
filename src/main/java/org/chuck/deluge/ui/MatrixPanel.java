@@ -50,14 +50,16 @@ public class MatrixPanel extends BorderPane {
 
     keyboardPanel = new DelugeKeyboardPanel();
     setBottom(keyboardPanel);
-    
+
     javafx.scene.control.Button editPresetBtn = new javafx.scene.control.Button("🎹 EDIT PRESET");
-    editPresetBtn.setStyle("-fx-background-color: #444; -fx-text-fill: white; -fx-font-weight: bold;");
-    editPresetBtn.setOnAction(e -> {
-        if (onEditPresetRequest != null) {
+    editPresetBtn.setStyle(
+        "-fx-background-color: #444; -fx-text-fill: white; -fx-font-weight: bold;");
+    editPresetBtn.setOnAction(
+        e -> {
+          if (onEditPresetRequest != null) {
             onEditPresetRequest.run();
-        }
-    });
+          }
+        });
     setTop(editPresetBtn);
 
     createRows(8);
@@ -66,14 +68,15 @@ public class MatrixPanel extends BorderPane {
     setFocusTraversable(true);
     setOnMouseClicked(e -> requestFocus());
 
-    setOnKeyPressed(e -> {
-      if (e.getCode() == javafx.scene.input.KeyCode.P) {
-        org.chuck.deluge.ui.popover.ArpeggiatorDialog dialog = 
-            new org.chuck.deluge.ui.popover.ArpeggiatorDialog(bridge, selectedTrack);
-        dialog.showAndWait();
-        refreshCells();
-      }
-    });
+    setOnKeyPressed(
+        e -> {
+          if (e.getCode() == javafx.scene.input.KeyCode.P) {
+            org.chuck.deluge.ui.popover.ArpeggiatorDialog dialog =
+                new org.chuck.deluge.ui.popover.ArpeggiatorDialog(bridge, selectedTrack);
+            dialog.showAndWait();
+            refreshCells();
+          }
+        });
   }
 
   private void createRows(int count) {

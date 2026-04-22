@@ -1,6 +1,5 @@
 package org.chuck.deluge.midi;
 
-import java.util.Arrays;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.project.PreferencesManager;
@@ -83,7 +82,7 @@ public class MidiService {
     } else if (!learning && isCc) {
       int cc = msg.data2;
       int val = msg.data3;
-      
+
       // Look up mapped parameters
       String[] keys = PreferencesManager.getKeys();
       for (String key : keys) {

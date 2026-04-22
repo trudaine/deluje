@@ -74,6 +74,7 @@ public class DelugeEngineTest {
     boolean triggerFound = logs.stream().anyMatch(l -> l.contains("KIT trigger track: 0 step: 0"));
     assertTrue(triggerFound, "Engine did not emit audio trigger log for cell selection");
   }
+
   @Test
   void testTiedNotes() throws Exception {
     vm.setLogLevel(2);
@@ -95,12 +96,14 @@ public class DelugeEngineTest {
     Thread.sleep(100);
 
     // Verify logs
-    boolean startFound = logs.stream().anyMatch(l -> l.contains("SYNTH trigger track: 4 step: 0 gate: 2.5"));
+    boolean startFound =
+        logs.stream().anyMatch(l -> l.contains("SYNTH trigger track: 4 step: 0 gate: 2.5"));
     boolean endFound = logs.stream().anyMatch(l -> l.contains("SYNTH note end track: 4"));
-    
+
     assertTrue(startFound, "Engine did not start tied note");
     assertTrue(endFound, "Engine did not end tied note");
   }
+
   @Test
   void testHidInput() throws Exception {
     vm.setLogLevel(2);
@@ -113,13 +116,13 @@ public class DelugeEngineTest {
     msg.deviceType = "keyboard";
     msg.type = org.chuck.hid.HidMsg.BUTTON_DOWN;
     msg.which = 65; // 'A'
-    
+
     vm.dispatchHidMsg(msg);
 
     // Verify that the Hid object received it
     org.chuck.hid.HidMsg out = new org.chuck.hid.HidMsg();
     boolean received = hid.recv(out);
-    
+
     assertTrue(received, "Hid did not receive dispatched message");
     assertEquals(65, out.which);
   }

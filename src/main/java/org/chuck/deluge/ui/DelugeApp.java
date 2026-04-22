@@ -38,7 +38,9 @@ public class DelugeApp extends Application {
 
     // 2. Initialize Audio Engine (CRITICAL: This drives the VM clock)
     boolean isDummy = Boolean.getBoolean("chuck.audio.dummy");
-    boolean debugAudio = Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("debug.audio", "false"));
+    boolean debugAudio =
+        Boolean.parseBoolean(
+            org.chuck.deluge.project.PreferencesManager.get("debug.audio", "false"));
     org.chuck.audio.util.DacChannel.DEBUG_AUDIO = debugAudio;
     if (!isDummy) {
       audio = new ChuckAudio(vm, 1024, 2, SAMPLE_RATE);
@@ -50,7 +52,8 @@ public class DelugeApp extends Application {
     }
 
     // 2.5 Initialize MIDI Service
-    org.chuck.deluge.midi.MidiInputRouter router = new org.chuck.deluge.midi.MidiInputRouter(vm, bridge);
+    org.chuck.deluge.midi.MidiInputRouter router =
+        new org.chuck.deluge.midi.MidiInputRouter(vm, bridge);
     midiService = new org.chuck.deluge.midi.MidiService(vm, bridge, router);
     midiService.start();
 
