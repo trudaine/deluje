@@ -61,6 +61,29 @@ public class ScreenshotGenerator {
           org.chuck.deluge.model.ProjectModel loadedProject =
               org.chuck.deluge.xml.DelugeXmlParser.parseSong(is, "song1");
           mainPanel.getSongPanel().setProjectModel(loadedProject);
+          
+          // Load samples for all tracks in the loaded project
+          int kitIdx = 0;
+          for (org.chuck.deluge.model.TrackModel track : loadedProject.getTracks()) {
+            if (track instanceof org.chuck.deluge.model.KitTrackModel kit) {
+              int baseTrack = kitIdx * 8;
+              java.util.List<org.chuck.deluge.model.KitTrackModel.KitSound> sounds = kit.getSounds();
+              for (int i = 0; i < 8; i++) {
+                int trackId = baseTrack + i;
+                if (i < sounds.size()) {
+                  String path = sounds.get(i).getSamplePath();
+                  vm.setGlobalString("g_sample_" + trackId, path != null ? path : "");
+                  bridge.setMute(trackId, false);
+                  bridge.setTrackType(trackId, 0);
+                } else {
+                  vm.setGlobalString("g_sample_" + trackId, "");
+                  bridge.setMute(trackId, true);
+                }
+              }
+              kitIdx++;
+            }
+          }
+          
           mainPanel.getSongPanel().refresh();
         }
         
