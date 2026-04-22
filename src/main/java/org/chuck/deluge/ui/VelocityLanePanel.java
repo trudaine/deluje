@@ -63,7 +63,7 @@ public class VelocityLanePanel extends Pane {
             case PAN -> BridgeContract.G_STEP_PAN;
             case DELAY -> BridgeContract.G_STEP_DELAY;
             case REVERB -> BridgeContract.G_STEP_REVERB;
-            case LEVEL -> BridgeContract.G_TRACK_LEVEL;
+            case LEVEL -> BridgeContract.G_VELOCITY;
             case START_END -> BridgeContract.G_STEP_START;
             case STUTTER, MOD_FX -> BridgeContract.G_VELOCITY;
           };
@@ -142,7 +142,7 @@ public class VelocityLanePanel extends Pane {
           case PAN -> BridgeContract.G_STEP_PAN;
           case DELAY -> BridgeContract.G_STEP_DELAY;
           case REVERB -> BridgeContract.G_STEP_REVERB;
-          case LEVEL -> BridgeContract.G_TRACK_LEVEL;
+          case LEVEL -> BridgeContract.G_VELOCITY;
           case START_END -> BridgeContract.G_STEP_START;
           case STUTTER, MOD_FX -> BridgeContract.G_VELOCITY; // Fallback
         };
@@ -153,9 +153,7 @@ public class VelocityLanePanel extends Pane {
     for (int i = 0; i < 16; i++) {
       double val;
       int arrayIdx =
-          (globalParam.equals(BridgeContract.G_TRACK_LEVEL))
-              ? selectedTrack
-              : (selectedTrack * 16 + i);
+          selectedTrack * 16 + i;
 
       if (mode == EditMode.PITCH) {
         int p = (int) array.getInt(arrayIdx);
