@@ -42,7 +42,7 @@ public class MatrixPanel extends BorderPane {
     scrollPane.setStyle("-fx-background: #1a1a1a; -fx-border-color: transparent;");
 
     setCenter(scrollPane);
-    
+
     keyboardPanel = new DelugeKeyboardPanel();
     setBottom(keyboardPanel);
 
@@ -73,50 +73,51 @@ public class MatrixPanel extends BorderPane {
     }
 
     // Start Playhead Timer
-    javafx.animation.AnimationTimer timer = new javafx.animation.AnimationTimer() {
-        @Override
-        public void handle(long now) {
+    javafx.animation.AnimationTimer timer =
+        new javafx.animation.AnimationTimer() {
+          @Override
+          public void handle(long now) {
             int step = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
             if (step != currentStep) {
-                setCurrentStep(step);
-                updateKeyboard(step);
+              setCurrentStep(step);
+              updateKeyboard(step);
             }
-        }
-    };
+          }
+        };
     timer.start();
   }
-  
+
   private void updateKeyboard(int step) {
     if (isSynthMode) {
-        int idx = currentBaseTrack * 16 + step;
-        ChuckArray pattern = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PATTERN);
-        ChuckArray pitchArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PITCH);
-        
-        if (lastPlayedNote != -1) {
-            keyboardPanel.noteOff(lastPlayedNote);
-            lastPlayedNote = -1;
-        }
-        
-        if (pattern != null && pattern.getInt(idx) != 0) {
-            int pitch = pitchArr != null ? (int) pitchArr.getInt(idx) : 0;
-            int note = pitch + 60; // Map relative pitch to MIDI note
-            keyboardPanel.noteOn(note, javafx.scene.paint.Color.web("#00ffcc"));
-            lastPlayedNote = note;
-        }
+      int idx = currentBaseTrack * 16 + step;
+      ChuckArray pattern = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PATTERN);
+      ChuckArray pitchArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PITCH);
+
+      if (lastPlayedNote != -1) {
+        keyboardPanel.noteOff(lastPlayedNote);
+        lastPlayedNote = -1;
+      }
+
+      if (pattern != null && pattern.getInt(idx) != 0) {
+        int pitch = pitchArr != null ? (int) pitchArr.getInt(idx) : 0;
+        int note = pitch + 60; // Map relative pitch to MIDI note
+        keyboardPanel.noteOn(note, javafx.scene.paint.Color.web("#00ffcc"));
+        lastPlayedNote = note;
+      }
     }
   }
-  
+
   private void setCurrentStep(int step) {
     if (currentStep >= 0 && currentStep < 16) {
-        for (TrackRowPanel row : rows) {
-            row.highlightStep(currentStep, false);
-        }
+      for (TrackRowPanel row : rows) {
+        row.highlightStep(currentStep, false);
+      }
     }
     currentStep = step;
     if (currentStep >= 0 && currentStep < 16) {
-        for (TrackRowPanel row : rows) {
-            row.highlightStep(currentStep, true);
-        }
+      for (TrackRowPanel row : rows) {
+        row.highlightStep(currentStep, true);
+      }
     }
   }
 
@@ -193,24 +194,24 @@ public class MatrixPanel extends BorderPane {
   }
 
   public void setSynthMode(boolean isSynthMode) {
-      this.isSynthMode = isSynthMode;
-      if (isSynthMode) {
-          createRows(24); // Expand to 24 rows (2 octaves)
-          String[] notes = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
-          int maxRows = 24;
-          for (int r = 0; r < 24; r++) {
-              int reverseR = (maxRows - 1) - r;
-              String note = notes[reverseR % 12] + (4 + reverseR / 12); // C4, C#4... C5...
-              rows[r].setNoteName(note);
-              rows[r].setSynthMode(true);
-              rows[r].setBaseTrack(currentBaseTrack);
-          }
-      } else {
-          createRows(8); // Revert to 8 rows
-          for (int r = 0; r < 8; r++) {
-              rows[r].setSynthMode(false);
-          }
+    this.isSynthMode = isSynthMode;
+    if (isSynthMode) {
+      createRows(24); // Expand to 24 rows (2 octaves)
+      String[] notes = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+      int maxRows = 24;
+      for (int r = 0; r < 24; r++) {
+        int reverseR = (maxRows - 1) - r;
+        String note = notes[reverseR % 12] + (4 + reverseR / 12); // C4, C#4... C5...
+        rows[r].setNoteName(note);
+        rows[r].setSynthMode(true);
+        rows[r].setBaseTrack(currentBaseTrack);
       }
+    } else {
+      createRows(8); // Revert to 8 rows
+      for (int r = 0; r < 8; r++) {
+        rows[r].setSynthMode(false);
+      }
+    }
   }
 
   public void setEditMode(EditMode mode) {

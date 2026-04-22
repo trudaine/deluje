@@ -52,16 +52,21 @@ public class SongModePanel extends VBox {
     this.projectModel = projectModel;
   }
 
-  private java.util.function.BiConsumer<org.chuck.deluge.model.TrackModel, org.chuck.deluge.model.ClipModel> onClipSelected;
+  private java.util.function.BiConsumer<
+          org.chuck.deluge.model.TrackModel, org.chuck.deluge.model.ClipModel>
+      onClipSelected;
 
-  public void setOnClipSelected(java.util.function.BiConsumer<org.chuck.deluge.model.TrackModel, org.chuck.deluge.model.ClipModel> callback) {
-      this.onClipSelected = callback;
+  public void setOnClipSelected(
+      java.util.function.BiConsumer<
+              org.chuck.deluge.model.TrackModel, org.chuck.deluge.model.ClipModel>
+          callback) {
+    this.onClipSelected = callback;
   }
 
   private java.util.function.BiConsumer<String, String> onCreateTrack;
 
   public void setOnCreateTrack(java.util.function.BiConsumer<String, String> callback) {
-      this.onCreateTrack = callback;
+    this.onCreateTrack = callback;
   }
 
   private java.util.function.BiConsumer<
@@ -230,13 +235,14 @@ public class SongModePanel extends VBox {
       for (int s = 0; s < numSlots; s++) {
         ClipCell cell = new ClipCell(rowIdx, s);
         cell.setEmpty();
-        
+
         int currentEmptyRow = rowIdx;
         int currentSlot = s;
-        cell.setOnAction(e -> {
-            handleEmptyCellClick(currentEmptyRow, currentSlot);
-        });
-        
+        cell.setOnAction(
+            e -> {
+              handleEmptyCellClick(currentEmptyRow, currentSlot);
+            });
+
         clipGrid[rowIdx][s] = cell;
         grid.add(cell, s + 1, rowIdx);
       }
@@ -283,45 +289,50 @@ public class SongModePanel extends VBox {
   }
 
   private void handleEmptyCellClick(int rowIdx, int slotIdx) {
-      java.util.List<String> choices = java.util.Arrays.asList("Kit", "Synth");
-      javafx.scene.control.ChoiceDialog<String> dialog = new javafx.scene.control.ChoiceDialog<>("Kit", choices);
-      dialog.setTitle("Create Track");
-      dialog.setHeaderText("Choose track type:");
-      dialog.setContentText("Type:");
+    java.util.List<String> choices = java.util.Arrays.asList("Kit", "Synth");
+    javafx.scene.control.ChoiceDialog<String> dialog =
+        new javafx.scene.control.ChoiceDialog<>("Kit", choices);
+    dialog.setTitle("Create Track");
+    dialog.setHeaderText("Choose track type:");
+    dialog.setContentText("Type:");
 
-      java.util.Optional<String> result = dialog.showAndWait();
-      if (result.isPresent()) {
-          String type = result.get();
-          if (type.equals("Kit")) {
-              String preset = promptForPreset("KITS");
-              if (preset != null && onCreateTrack != null) {
-                  onCreateTrack.accept("KIT", "/KITS/" + preset);
-              }
-          } else if (type.equals("Synth")) {
-              String preset = promptForPreset("SYNTHS");
-              if (preset != null && onCreateTrack != null) {
-                  onCreateTrack.accept("SYNTH", "/SYNTHS/" + preset);
-              }
-          }
+    java.util.Optional<String> result = dialog.showAndWait();
+    if (result.isPresent()) {
+      String type = result.get();
+      if (type.equals("Kit")) {
+        String preset = promptForPreset("KITS");
+        if (preset != null && onCreateTrack != null) {
+          onCreateTrack.accept("KIT", "/KITS/" + preset);
+        }
+      } else if (type.equals("Synth")) {
+        String preset = promptForPreset("SYNTHS");
+        if (preset != null && onCreateTrack != null) {
+          onCreateTrack.accept("SYNTH", "/SYNTHS/" + preset);
+        }
       }
+    }
   }
 
   private String promptForPreset(String folder) {
-      java.util.List<String> choices = org.chuck.deluge.ui.ProjectSidebarPanel.getPresets("/" + folder);
-      if (choices.isEmpty()) {
-          if (folder.equals("KITS")) {
-              choices = java.util.Arrays.asList("000 TR-808.XML", "001 DDD-1.XML", "002 SDS-5.XML");
-          } else {
-              choices = java.util.Arrays.asList("000 Rich Saw Bass.XML", "017 Impact Saw Lead.XML", "073 Piano.XML");
-          }
+    java.util.List<String> choices =
+        org.chuck.deluge.ui.ProjectSidebarPanel.getPresets("/" + folder);
+    if (choices.isEmpty()) {
+      if (folder.equals("KITS")) {
+        choices = java.util.Arrays.asList("000 TR-808.XML", "001 DDD-1.XML", "002 SDS-5.XML");
+      } else {
+        choices =
+            java.util.Arrays.asList(
+                "000 Rich Saw Bass.XML", "017 Impact Saw Lead.XML", "073 Piano.XML");
       }
-      
-      javafx.scene.control.ChoiceDialog<String> dialog = new javafx.scene.control.ChoiceDialog<>(choices.get(0), choices);
-      dialog.setTitle("Pick Preset");
-      dialog.setHeaderText("Choose a preset to load:");
-      dialog.setContentText("Preset:");
+    }
 
-      java.util.Optional<String> result = dialog.showAndWait();
-      return result.orElse(null);
+    javafx.scene.control.ChoiceDialog<String> dialog =
+        new javafx.scene.control.ChoiceDialog<>(choices.get(0), choices);
+    dialog.setTitle("Pick Preset");
+    dialog.setHeaderText("Choose a preset to load:");
+    dialog.setContentText("Preset:");
+
+    java.util.Optional<String> result = dialog.showAndWait();
+    return result.orElse(null);
   }
 }

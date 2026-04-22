@@ -273,37 +273,38 @@ public class ProjectSidebarPanel extends VBox {
   }
 
   public static java.util.List<String> getPresets(String internalDir) {
-      java.util.List<String> presets = new java.util.ArrayList<>();
-      try {
-          URL url = ProjectSidebarPanel.class.getResource(internalDir);
-          if (url != null) {
-              URI uri = url.toURI();
-              Path path;
-              FileSystem fs = null;
-              if (uri.getScheme().equals("jar")) {
-                  try {
-                      fs = FileSystems.getFileSystem(uri);
-                  } catch (Exception e) {
-                      fs = FileSystems.newFileSystem(uri, java.util.Collections.emptyMap());
-                  }
-                  path = fs.getPath(internalDir);
-              } else if (uri.getScheme().equals("file")) {
-                  path = Paths.get(uri);
-              } else {
-                  return presets;
-              }
-
-              if (Files.exists(path)) {
-                  try (java.util.stream.Stream<Path> walk = Files.walk(path, 1)) {
-                      walk.filter(p -> p.getFileName().toString().toUpperCase().endsWith(".XML"))
-                          .sorted(java.util.Comparator.comparing(p -> p.getFileName().toString().toUpperCase()))
-                          .forEach(p -> presets.add(p.getFileName().toString()));
-                  }
-              }
+    java.util.List<String> presets = new java.util.ArrayList<>();
+    try {
+      URL url = ProjectSidebarPanel.class.getResource(internalDir);
+      if (url != null) {
+        URI uri = url.toURI();
+        Path path;
+        FileSystem fs = null;
+        if (uri.getScheme().equals("jar")) {
+          try {
+            fs = FileSystems.getFileSystem(uri);
+          } catch (Exception e) {
+            fs = FileSystems.newFileSystem(uri, java.util.Collections.emptyMap());
           }
-      } catch (Exception e) {
-          System.err.println("Failed to scan resources for " + internalDir + ": " + e.getMessage());
+          path = fs.getPath(internalDir);
+        } else if (uri.getScheme().equals("file")) {
+          path = Paths.get(uri);
+        } else {
+          return presets;
+        }
+
+        if (Files.exists(path)) {
+          try (java.util.stream.Stream<Path> walk = Files.walk(path, 1)) {
+            walk.filter(p -> p.getFileName().toString().toUpperCase().endsWith(".XML"))
+                .sorted(
+                    java.util.Comparator.comparing(p -> p.getFileName().toString().toUpperCase()))
+                .forEach(p -> presets.add(p.getFileName().toString()));
+          }
+        }
       }
-      return presets;
+    } catch (Exception e) {
+      System.err.println("Failed to scan resources for " + internalDir + ": " + e.getMessage());
+    }
+    return presets;
   }
 }

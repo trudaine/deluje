@@ -55,18 +55,18 @@ public class DelugeFxBus implements Shred {
 
     Echo delay = new Echo(sampleRate(), sampleRate());
     Chorus mod = new Chorus(sampleRate());
-    
+
     String reverbModel = org.chuck.deluge.project.PreferencesManager.get("reverb.model", "JCRev");
     StereoUGen rev;
     if (reverbModel.equals("FreeVerb")) {
-        rev = new FreeVerb();
+      rev = new FreeVerb();
     } else {
-        rev = new JCRev(sampleRate());
+      rev = new JCRev(sampleRate());
     }
 
     delayIn.chuck(delay).chuck(fxOut);
     reverbIn.chuck(rev).chuck(fxOut);
-    
+
     vm.setGlobalObject("g_reverb", rev);
     modIn.chuck(mod).chuck(fxOut);
 
@@ -87,11 +87,11 @@ public class DelugeFxBus implements Shred {
 
       delay.delay(second(delayTime).samples());
       delay.gain(delayFb);
-      
+
       if (rev instanceof FreeVerb fv) {
-          fv.roomSize(revRoom);
+        fv.roomSize(revRoom);
       } else if (rev instanceof JCRev jcr) {
-          jcr.mix(revRoom);
+        jcr.mix(revRoom);
       }
     }
   }

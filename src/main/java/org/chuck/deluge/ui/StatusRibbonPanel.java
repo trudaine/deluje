@@ -59,7 +59,7 @@ public class StatusRibbonPanel extends HBox {
     } else {
       oledLabel.setText("STOP");
     }
-    
+
     shredLabel.setText("SHREDS: " + vm.getActiveShredCount());
   }
 
