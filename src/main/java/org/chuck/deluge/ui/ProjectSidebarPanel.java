@@ -20,6 +20,7 @@ import javafx.scene.layout.VBox;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.project.PreferencesManager;
+import org.chuck.deluge.ui.browser.PresetEditorPane;
 
 /** Sidebar Project Manager. Handles unified browsing of JAR resources and external sample paths. */
 public class ProjectSidebarPanel extends VBox {
@@ -28,6 +29,7 @@ public class ProjectSidebarPanel extends VBox {
 
   private TreeView<String> projectTree;
   private java.util.function.Consumer<Integer> onClipSelected;
+  private PresetEditorPane editorPane;
 
   public static class LibraryItem {
     public final String name;
@@ -67,9 +69,11 @@ public class ProjectSidebarPanel extends VBox {
     TabPane tabs = new TabPane();
     tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
 
-    Tab libraryTab = new Tab("LIBRARY", createLibraryBrowser());
+    editorPane = new PresetEditorPane();
+    Tab libraryTab = new Tab("LIBRARY", createLibraryBrowser(tabs, editorPane));
+    Tab editorTab = new Tab("EDITOR", editorPane);
 
-    tabs.getTabs().addAll(libraryTab);
+    tabs.getTabs().addAll(libraryTab, editorTab);
     getChildren().add(tabs);
     VBox.setVgrow(tabs, javafx.scene.layout.Priority.ALWAYS);
   }
@@ -120,7 +124,7 @@ public class ProjectSidebarPanel extends VBox {
     }
   }
 
-  private VBox createLibraryBrowser() {
+  private VBox createLibraryBrowser(javafx.scene.control.TabPane tabs, PresetEditorPane editorPane) {
     VBox box = new VBox(5);
     TreeItem<LibraryItem> root = new TreeItem<>(new LibraryItem("SD CARD", null, null, true));
     root.setExpanded(true);
@@ -165,6 +169,13 @@ public class ProjectSidebarPanel extends VBox {
             if (item != null && !item.getValue().isDirectory) {
               if (onPresetRequest != null) {
                 onPresetRequest.accept(item.getValue());
+              }
+
+              if (item.getValue().resourcePath != null && 
+                  (item.getValue().resourcePath.contains("/KITS/") || 
+                   item.getValue().resourcePath.contains("/SYNTHS/"))) {
+                 editorPane.loadPreset(item.getValue().file, item.getValue().name);
+                 tabs.getSelectionModel().select(1); // Select Editor Tab
               }
             }
           }
@@ -268,7 +279,7 @@ public class ProjectSidebarPanel extends VBox {
     javafx.application.Platform.runLater(
         () -> {
           TabPane tabs = (TabPane) getChildren().get(1);
-          tabs.getTabs().get(1).setContent(createLibraryBrowser());
+          tabs.getTabs().get(0).setContent(createLibraryBrowser(tabs, editorPane));
         });
   }
 
