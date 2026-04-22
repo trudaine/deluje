@@ -21,7 +21,7 @@ public class MasterFxPanel extends HBox {
 
     setAlignment(Pos.CENTER_LEFT);
     setSpacing(20);
-    setPadding(new Insets(10, 10, 10, 119));
+    setPadding(new Insets(10, 10, 10, 369));
     setStyle("-fx-background-color: #222; -fx-border-color: #333; -fx-border-width: 1 0 0 0;");
 
     Label title = new Label("MASTER FX (Waiting for Engine...)");
