@@ -49,6 +49,7 @@ public class MatrixPanel extends BorderPane {
     setCenter(scrollPane);
 
     keyboardPanel = new DelugeKeyboardPanel();
+    setBottom(keyboardPanel);
     
     javafx.scene.control.Button editPresetBtn = new javafx.scene.control.Button("🎹 EDIT PRESET");
     editPresetBtn.setStyle("-fx-background-color: #444; -fx-text-fill: white; -fx-font-weight: bold;");
@@ -57,10 +58,7 @@ public class MatrixPanel extends BorderPane {
             onEditPresetRequest.run();
         }
     });
-    
-    javafx.scene.layout.HBox bottomBox = new javafx.scene.layout.HBox(10);
-    bottomBox.getChildren().addAll(keyboardPanel, editPresetBtn);
-    setBottom(bottomBox);
+    setTop(editPresetBtn);
 
     createRows(8);
     selectTrack(0); // Default selection
