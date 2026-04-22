@@ -70,7 +70,8 @@ public class SynthTrackProcessor implements Shred {
 
     ChuckEvent tickEvent = (ChuckEvent) vm.getGlobalObject(BridgeContract.TICK_EVENT);
 
-    while (true) {
+    org.chuck.core.ChuckShred current = org.chuck.core.ChuckShred.CURRENT_SHRED.get();
+    while (current != null && !current.isDone()) {
       advance(tickEvent);
 
       int step = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
