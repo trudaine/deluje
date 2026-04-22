@@ -13,10 +13,7 @@ public class PresetEditorPane extends VBox {
 
   private final Label titleLabel;
 
-  private final ComboBox<String> typeCombo;
-  private final Slider volSlider;
-  private final Slider transSlider;
-  private final CheckBox syncCheck;
+
 
   private final Slider lpfCutoffSlider;
   private final Slider lpfResSlider;
@@ -25,6 +22,9 @@ public class PresetEditorPane extends VBox {
   private final Slider reverbSlider;
 
   private File currentFile = null;
+
+  private Slider osc1Vol, osc2Vol, mod1Amount, mod2Amount;
+  private Slider lpfCutoff, lpfRes;
 
   public interface ParameterChangeCallback {
     void onParameterChange(String param, float value);
@@ -57,53 +57,16 @@ public class PresetEditorPane extends VBox {
     VBox content = new VBox(15);
     content.setPadding(new Insets(5));
 
-    // 1. Oscillators
-    VBox oscBox = new VBox(5);
-    Label oscTitle = new Label("OSCILLATOR 1");
-    oscTitle.setStyle("-fx-text-fill: #00ffcc; -fx-font-weight: bold; -fx-font-size: 12px;");
-    
-    GridPane oscGrid = new GridPane();
-    oscGrid.setHgap(10);
-    oscGrid.setVgap(5);
+    // 1. Oscillators inner sub-accordion
+    javafx.scene.control.Accordion innerOscAccordion = new javafx.scene.control.Accordion();
 
-    oscGrid.add(new Label("Type:"), 0, 0);
-    typeCombo = new ComboBox<>();
-    typeCombo.getItems().addAll("SINE", "SAW", "SQUARE", "TRIANGLE", "SAMPLE");
-    typeCombo.setValue("SINE");
-    oscGrid.add(typeCombo, 1, 0);
+    javafx.scene.control.TitledPane osc1Pane = new javafx.scene.control.TitledPane("OSCILLATOR 1", createOscGrid("OSCILLATOR 1", true));
+    javafx.scene.control.TitledPane osc2Pane = new javafx.scene.control.TitledPane("OSCILLATOR 2", createOscGrid("OSCILLATOR 2", false));
+    javafx.scene.control.TitledPane mod1Pane = new javafx.scene.control.TitledPane("MODULATOR 1", createModulatorGrid("MODULATOR 1", false));
+    javafx.scene.control.TitledPane mod2Pane = new javafx.scene.control.TitledPane("MODULATOR 2", createModulatorGrid("MODULATOR 2", true));
 
-    oscGrid.add(new Label("Volume:"), 0, 1);
-    volSlider = new Slider(0, 127, 64);
-    volSlider.setPrefWidth(100);
-    volSlider.setShowTickLabels(true);
-    volSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
-      if (onParameterChange != null) {
-        onParameterChange.onParameterChange("VOLUME", newVal.floatValue() / 127.0f);
-      }
-    });
-    oscGrid.add(volSlider, 1, 1);
-
-    Button volModBtn = new Button("M");
-    volModBtn.setPrefWidth(25);
-    volModBtn.setStyle("-fx-base: #444; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 10px;");
-    volModBtn.setOnAction(e -> {
-        org.chuck.deluge.ui.popover.ModulationPatchingDialog dialog = 
-            new org.chuck.deluge.ui.popover.ModulationPatchingDialog("Oscillator 1 Volume");
-        dialog.showAndWait();
-    });
-    oscGrid.add(volModBtn, 2, 1);
-
-    oscGrid.add(new Label("Transpose:"), 0, 2);
-    transSlider = new Slider(-24, 24, 0);
-    transSlider.setPrefWidth(100);
-    transSlider.setShowTickLabels(true);
-    oscGrid.add(transSlider, 1, 2);
-
-    oscGrid.add(new Label("Sync:"), 0, 3);
-    syncCheck = new CheckBox();
-    oscGrid.add(syncCheck, 1, 3);
-
-    oscBox.getChildren().addAll(oscTitle, oscGrid);
+    innerOscAccordion.getPanes().addAll(osc1Pane, osc2Pane, mod1Pane, mod2Pane);
+    innerOscAccordion.setExpandedPane(osc1Pane);
 
     // 2. Filters
     VBox filterBox = new VBox(5);
@@ -163,7 +126,7 @@ public class PresetEditorPane extends VBox {
     fxBox.getChildren().addAll(fxTitle, fxGrid);
 
     javafx.scene.control.Accordion accordion = new javafx.scene.control.Accordion();
-    javafx.scene.control.TitledPane oscPane = new javafx.scene.control.TitledPane("OSCILLATORS", oscBox);
+    javafx.scene.control.TitledPane oscPane = new javafx.scene.control.TitledPane("OSCILLATORS", innerOscAccordion);
     javafx.scene.control.TitledPane filterPane = new javafx.scene.control.TitledPane("FILTERS", filterBox);
     javafx.scene.control.TitledPane fxPane = new javafx.scene.control.TitledPane("MASTER FX", fxBox);
 
@@ -171,6 +134,80 @@ public class PresetEditorPane extends VBox {
     content.getChildren().add(accordion);
     scroll.setContent(content);
     getChildren().add(scroll);
+  }
+
+  private javafx.scene.layout.GridPane createOscGrid(String title, boolean isOsc1) {
+    javafx.scene.layout.GridPane grid = new javafx.scene.layout.GridPane();
+    grid.setHgap(10);
+    grid.setVgap(5);
+
+    grid.add(new Label("Type:"), 0, 0);
+    ComboBox<String> typeCombo = new ComboBox<>();
+    typeCombo.getItems().addAll("SINE", "SAW", "SQUARE", "TRIANGLE", "SAMPLE");
+    typeCombo.setValue("SINE");
+    grid.add(typeCombo, 1, 0);
+
+    grid.add(new Label("Volume:"), 0, 1);
+    Slider volSlider = new Slider(0, 127, 64);
+    volSlider.setPrefWidth(100);
+    if (isOsc1) osc1Vol = volSlider;
+    else osc2Vol = volSlider;
+    grid.add(volSlider, 1, 1);
+
+    grid.add(new Label("Transpose:"), 0, 2);
+    Slider transSlider = new Slider(-24, 24, 0);
+    transSlider.setPrefWidth(100);
+    grid.add(transSlider, 1, 2);
+
+    grid.add(new Label("Pulse Width:"), 0, 3);
+    Slider pulseSlider = new Slider(0, 100, 50);
+    pulseSlider.setPrefWidth(100);
+    grid.add(pulseSlider, 1, 3);
+
+    grid.add(new Label("Retrig Phase:"), 0, 4);
+    Slider retrigSlider = new Slider(0, 360, 0);
+    retrigSlider.setPrefWidth(100);
+    grid.add(retrigSlider, 1, 4);
+
+    return grid;
+  }
+
+  private javafx.scene.layout.GridPane createModulatorGrid(String title, boolean hasDest) {
+    javafx.scene.layout.GridPane grid = new javafx.scene.layout.GridPane();
+    grid.setHgap(10);
+    grid.setVgap(5);
+
+    grid.add(new Label("Transpose:"), 0, 0);
+    Slider transSlider = new Slider(-24, 24, 0);
+    transSlider.setPrefWidth(100);
+    grid.add(transSlider, 1, 0);
+
+    grid.add(new Label("Amount:"), 0, 1);
+    Slider amountSlider = new Slider(0, 127, 0);
+    amountSlider.setPrefWidth(100);
+    if (hasDest) mod2Amount = amountSlider;
+    else mod1Amount = amountSlider;
+    grid.add(amountSlider, 1, 1);
+
+    grid.add(new Label("Feedback:"), 0, 2);
+    Slider feedSlider = new Slider(0, 127, 0);
+    feedSlider.setPrefWidth(100);
+    grid.add(feedSlider, 1, 2);
+
+    grid.add(new Label("Retrig Phase:"), 0, 3);
+    Slider retrigSlider = new Slider(0, 360, 0);
+    retrigSlider.setPrefWidth(100);
+    grid.add(retrigSlider, 1, 3);
+
+    if (hasDest) {
+      grid.add(new Label("Destination:"), 0, 4);
+      ComboBox<String> destCombo = new ComboBox<>();
+      destCombo.getItems().addAll("CARS", "MOD1");
+      destCombo.setValue("CARS");
+      grid.add(destCombo, 1, 4);
+    }
+
+    return grid;
   }
 
   public void loadPreset(File file, String name) {
@@ -190,10 +227,10 @@ public class PresetEditorPane extends VBox {
       sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
       sb.append("<preset>\n");
       sb.append("  <osc1>\n");
-      sb.append("    <type>").append(typeCombo.getValue()).append("</type>\n");
-      sb.append("    <volume>").append((int) volSlider.getValue()).append("</volume>\n");
-      sb.append("    <transpose>").append((int) transSlider.getValue()).append("</transpose>\n");
-      sb.append("    <sync>").append(syncCheck.isSelected() ? 1 : 0).append("</sync>\n");
+      sb.append("    <type>").append("SINE").append("</type>\n");
+      sb.append("    <volume>").append(64).append("</volume>\n");
+      sb.append("    <transpose>").append(0).append("</transpose>\n");
+      sb.append("    <sync>").append(0).append("</sync>\n");
       sb.append("  </osc1>\n");
       sb.append("  <lpf>\n");
       sb.append("    <frequency>").append((int) lpfCutoffSlider.getValue()).append("</frequency>\n");
