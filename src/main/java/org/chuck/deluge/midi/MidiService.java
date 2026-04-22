@@ -94,7 +94,9 @@ public class MidiService {
             // Map 0-127 to 0.0-1.0 (or appropriate range)
             float normalizedVal = val / 127.0f;
             vm.setGlobalFloat(paramName, normalizedVal);
-            System.out.println("MIDI: Updated " + paramName + " to " + normalizedVal);
+            if (vm.getLogLevel() >= 2) {
+              System.out.println("MIDI: Updated " + paramName + " to " + normalizedVal);
+            }
           }
         }
       }
