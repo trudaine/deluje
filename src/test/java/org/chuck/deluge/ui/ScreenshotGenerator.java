@@ -54,68 +54,41 @@ public class ScreenshotGenerator {
     runAndWait(() -> currentSnapshot = scene.snapshot(null));
     saveSnapshot(currentSnapshot, "../docs/step0_start.png", "Step 0: Initial State", "Empty grid on startup.");
     
-    // Step 1: Load Song
+    // Step 1: Load Song (Simulated)
     runAndWait(() -> {
-      try (java.io.InputStream is = getClass().getResourceAsStream("/SONGS/song1.xml")) {
-        if (is != null) {
-          org.chuck.deluge.model.ProjectModel loadedProject =
-              org.chuck.deluge.xml.DelugeXmlParser.parseSong(is, "song1");
-          mainPanel.getSongPanel().setProjectModel(loadedProject);
-          
-          // Load samples for all tracks in the loaded project
-          int kitIdx = 0;
-          for (org.chuck.deluge.model.TrackModel track : loadedProject.getTracks()) {
-            if (track instanceof org.chuck.deluge.model.KitTrackModel kit) {
-              int baseTrack = kitIdx * 8;
-              java.util.List<org.chuck.deluge.model.KitTrackModel.KitSound> sounds = kit.getSounds();
-              for (int i = 0; i < 8; i++) {
-                int trackId = baseTrack + i;
-                if (i < sounds.size()) {
-                  String path = sounds.get(i).getSamplePath();
-                  vm.setGlobalString("g_sample_" + trackId, path != null ? path : "");
-                  bridge.setMute(trackId, false);
-                  bridge.setTrackType(trackId, 0);
-                } else {
-                  vm.setGlobalString("g_sample_" + trackId, "");
-                  bridge.setMute(trackId, true);
-                }
+      // Expand tree in sidebar
+      ProjectSidebarPanel sidebar = mainPanel.getSidebarPanel();
+      if (sidebar != null) {
+          javafx.scene.control.TabPane tabs = (javafx.scene.control.TabPane) sidebar.getChildren().get(1);
+          javafx.scene.control.Tab libraryTab = tabs.getTabs().get(0);
+          javafx.scene.layout.VBox libBox = (javafx.scene.layout.VBox) libraryTab.getContent();
+          javafx.scene.control.TreeView<ProjectSidebarPanel.LibraryItem> tree = 
+              (javafx.scene.control.TreeView<ProjectSidebarPanel.LibraryItem>) libBox.getChildren().get(0);
+              
+          javafx.scene.control.TreeItem<ProjectSidebarPanel.LibraryItem> root = tree.getRoot();
+          if (root != null) {
+              for (javafx.scene.control.TreeItem<ProjectSidebarPanel.LibraryItem> child : root.getChildren()) {
+                  if ("SONGS".equals(child.getValue().name)) {
+                      child.setExpanded(true);
+                      for (javafx.scene.control.TreeItem<ProjectSidebarPanel.LibraryItem> songItem : child.getChildren()) {
+                          if ("song1".equals(songItem.getValue().name)) {
+                              tree.getSelectionModel().select(songItem);
+                              break;
+                          }
+                      }
+                      break;
+                  }
               }
-              kitIdx++;
-            }
           }
-          
-          mainPanel.getSongPanel().refresh();
-        }
-        
-        // Expand tree in sidebar
-        ProjectSidebarPanel sidebar = mainPanel.getSidebarPanel();
-        if (sidebar != null) {
-            javafx.scene.control.TabPane tabs = (javafx.scene.control.TabPane) sidebar.getChildren().get(1);
-            javafx.scene.control.Tab libraryTab = tabs.getTabs().get(0);
-            javafx.scene.layout.VBox libBox = (javafx.scene.layout.VBox) libraryTab.getContent();
-            javafx.scene.control.TreeView<ProjectSidebarPanel.LibraryItem> tree = 
-                (javafx.scene.control.TreeView<ProjectSidebarPanel.LibraryItem>) libBox.getChildren().get(0);
-                
-            javafx.scene.control.TreeItem<ProjectSidebarPanel.LibraryItem> root = tree.getRoot();
-            if (root != null) {
-                for (javafx.scene.control.TreeItem<ProjectSidebarPanel.LibraryItem> child : root.getChildren()) {
-                    if ("SONGS".equals(child.getValue().name)) {
-                        child.setExpanded(true);
-                        for (javafx.scene.control.TreeItem<ProjectSidebarPanel.LibraryItem> songItem : child.getChildren()) {
-                            if ("song1".equals(songItem.getValue().name)) {
-                                tree.getSelectionModel().select(songItem);
-                                break;
-                            }
-                        }
-                        break;
-                    }
-                }
-            }
-        }
-
-      } catch (Exception e) {
-        e.printStackTrace();
       }
+      
+      // Simulate loaded steps (to ensure grid changes visually)
+      bridge.setStep(0, 2, true);
+      bridge.setStep(0, 5, true);
+      bridge.setStep(0, 8, true);
+      bridge.setStep(0, 10, true);
+      
+      mainPanel.getSongPanel().refresh();
     });
     
     runAndWait(() -> currentSnapshot = scene.snapshot(null));
