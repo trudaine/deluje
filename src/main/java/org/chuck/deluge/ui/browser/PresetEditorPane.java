@@ -120,11 +120,9 @@ public class PresetEditorPane extends VBox {
 
     filterBox.getChildren().addAll(filterTitle, filterGrid);
 
-    // 3. FX
-    VBox fxBox = new VBox(5);
-    Label fxTitle = new Label("MASTER FX");
-    fxTitle.setStyle("-fx-text-fill: #00ffcc; -fx-font-weight: bold; -fx-font-size: 12px;");
-    
+    // 3. Master FX inner accordion
+    javafx.scene.control.Accordion innerFxAccordion = new javafx.scene.control.Accordion();
+
     GridPane fxGrid = new GridPane();
     fxGrid.setHgap(10);
     fxGrid.setVgap(5);
@@ -139,7 +137,13 @@ public class PresetEditorPane extends VBox {
     reverbSlider.setPrefWidth(100);
     fxGrid.add(reverbSlider, 1, 1);
 
-    fxBox.getChildren().addAll(fxTitle, fxGrid);
+    javafx.scene.control.TitledPane masterDelayPane = new javafx.scene.control.TitledPane("DELAYS & REVERB", fxGrid);
+    javafx.scene.control.TitledPane distortPane = new javafx.scene.control.TitledPane("DISTORTIONS & DECIMATIONS", createDistortionsGrid());
+    javafx.scene.control.TitledPane delayPatchPane = new javafx.scene.control.TitledPane("DELAY ROUTING", createDelayPatchGrid());
+    javafx.scene.control.TitledPane sidechainPane = new javafx.scene.control.TitledPane("SIDECHAIN COMPRESSOR", createSidechainCompressorGrid());
+
+    innerFxAccordion.getPanes().addAll(masterDelayPane, distortPane, delayPatchPane, sidechainPane);
+    innerFxAccordion.setExpandedPane(masterDelayPane);
 
     // Envelopes Inner Accordion
     javafx.scene.control.Accordion innerEnvAccordion = new javafx.scene.control.Accordion();
@@ -160,7 +164,7 @@ public class PresetEditorPane extends VBox {
     javafx.scene.control.TitledPane filterPane = new javafx.scene.control.TitledPane("FILTERS", filterBox);
     javafx.scene.control.TitledPane envPane = new javafx.scene.control.TitledPane("ENVELOPES", innerEnvAccordion);
     javafx.scene.control.TitledPane lfoPane = new javafx.scene.control.TitledPane("LFOs", innerLfoAccordion);
-    javafx.scene.control.TitledPane fxPane = new javafx.scene.control.TitledPane("MASTER FX", fxBox);
+    javafx.scene.control.TitledPane fxPane = new javafx.scene.control.TitledPane("MASTER FX", innerFxAccordion);
 
     accordion.getPanes().addAll(oscPane, filterPane, envPane, lfoPane, fxPane);
     content.getChildren().add(accordion);
@@ -238,6 +242,76 @@ public class PresetEditorPane extends VBox {
       destCombo.setValue("CARS");
       grid.add(destCombo, 1, 4);
     }
+
+    return grid;
+  }
+
+  private javafx.scene.layout.GridPane createDistortionsGrid() {
+    javafx.scene.layout.GridPane grid = new javafx.scene.layout.GridPane();
+    grid.setHgap(10);
+    grid.setVgap(5);
+
+    grid.add(new Label("Bitcrush Bits:"), 0, 0);
+    Slider bitSlider = new Slider(1, 16, 16);
+    bitSlider.setPrefWidth(100);
+    grid.add(bitSlider, 1, 0);
+
+    grid.add(new Label("Decimations:"), 0, 1);
+    Slider decimSlider = new Slider(0, 100, 0);
+    decimSlider.setPrefWidth(100);
+    grid.add(decimSlider, 1, 1);
+
+    grid.add(new Label("Drive Saturation:"), 0, 2);
+    Slider driveSlider = new Slider(0, 127, 0);
+    driveSlider.setPrefWidth(100);
+    grid.add(driveSlider, 1, 2);
+
+    return grid;
+  }
+
+  private javafx.scene.layout.GridPane createDelayPatchGrid() {
+    javafx.scene.layout.GridPane grid = new javafx.scene.layout.GridPane();
+    grid.setHgap(10);
+    grid.setVgap(5);
+
+    grid.add(new Label("Delay Type:"), 0, 0);
+    ComboBox<String> typeCombo = new ComboBox<>();
+    typeCombo.getItems().addAll("ANALOG", "DIGITAL");
+    typeCombo.setValue("ANALOG");
+    grid.add(typeCombo, 1, 0);
+
+    grid.add(new Label("Pingpong:"), 0, 1);
+    CheckBox pingpongCheck = new CheckBox();
+    grid.add(pingpongCheck, 1, 1);
+
+    grid.add(new Label("Delay Sync Rate:"), 0, 2);
+    ComboBox<String> syncCombo = new ComboBox<>();
+    syncCombo.getItems().addAll("Off", "1/4", "1/8", "1/16");
+    syncCombo.setValue("Off");
+    grid.add(syncCombo, 1, 2);
+
+    return grid;
+  }
+
+  private javafx.scene.layout.GridPane createSidechainCompressorGrid() {
+    javafx.scene.layout.GridPane grid = new javafx.scene.layout.GridPane();
+    grid.setHgap(10);
+    grid.setVgap(5);
+
+    grid.add(new Label("Threshold ducking:"), 0, 0);
+    Slider thresSlider = new Slider(-60, 0, -12);
+    thresSlider.setPrefWidth(100);
+    grid.add(thresSlider, 1, 0);
+
+    grid.add(new Label("Ducking Attack:"), 0, 1);
+    Slider attackSlider = new Slider(0, 100, 10);
+    attackSlider.setPrefWidth(100);
+    grid.add(attackSlider, 1, 1);
+
+    grid.add(new Label("Ducking Release:"), 0, 2);
+    Slider releaseSlider = new Slider(0, 100, 40);
+    releaseSlider.setPrefWidth(100);
+    grid.add(releaseSlider, 1, 2);
 
     return grid;
   }
