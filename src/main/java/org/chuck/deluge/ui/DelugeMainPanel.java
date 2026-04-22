@@ -73,7 +73,7 @@ public class DelugeMainPanel extends BorderPane {
     mappingsItem.setOnAction(
         e -> {
           org.chuck.deluge.ui.popover.MappingConfigDialog dialog =
-              new org.chuck.deluge.ui.popover.MappingConfigDialog();
+              new org.chuck.deluge.ui.popover.MappingConfigDialog(midiService);
           dialog.showAndWait();
           masterFxPanel.updateControls(true); // Force update of UI controls
           statusPanel.updateStatus("RESTART REQUIRED FOR SOUND CHANGES");

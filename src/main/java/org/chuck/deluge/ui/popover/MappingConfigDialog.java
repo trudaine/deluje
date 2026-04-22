@@ -10,8 +10,10 @@ import org.chuck.deluge.project.PreferencesManager;
 
 /** Dialog to configure mappings between UI controls and ChucK engine elements. */
 public class MappingConfigDialog extends Dialog<Void> {
+  private final org.chuck.deluge.midi.MidiService midiService;
 
-  public MappingConfigDialog() {
+  public MappingConfigDialog(org.chuck.deluge.midi.MidiService midiService) {
+    this.midiService = midiService;
     setTitle("Mapping Configuration");
     setHeaderText("Configure UI to Engine Mappings");
 
@@ -49,6 +51,18 @@ public class MappingConfigDialog extends Dialog<Void> {
     boolean currentVis = Boolean.parseBoolean(PreferencesManager.get("show.visualizers", "true"));
     visCheck.setSelected(currentVis);
     grid.add(visCheck, 1, 2);
+    
+    // Display Mappings
+    grid.add(new Label("Active Mappings:"), 0, 3);
+    javafx.scene.control.ListView<String> mappingList = new javafx.scene.control.ListView<>();
+    mappingList.setPrefHeight(100);
+    
+    java.util.Map<String, Integer> mappings = midiService.getMappings();
+    for (java.util.Map.Entry<String, Integer> entry : mappings.entrySet()) {
+        mappingList.getItems().add(entry.getKey() + " -> CC " + entry.getValue());
+    }
+    
+    grid.add(mappingList, 1, 3);
 
     getDialogPane().setContent(grid);
 

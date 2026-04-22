@@ -123,4 +123,26 @@ public class MidiService {
   public void setRecording(boolean active) {
     router.setFollowModeEnabled(active);
   }
+
+  public void unlearn(String paramName) {
+    PreferencesManager.set("midi.learn." + paramName, "None");
+  }
+
+  public java.util.Map<String, Integer> getMappings() {
+    java.util.Map<String, Integer> mappings = new java.util.HashMap<>();
+    String[] keys = PreferencesManager.getKeys();
+    for (String key : keys) {
+      if (key.startsWith("midi.learn.")) {
+        String val = PreferencesManager.get(key, "None");
+        if (!val.equals("None")) {
+          try {
+            mappings.put(key.substring("midi.learn.".length()), Integer.parseInt(val));
+          } catch (NumberFormatException e) {
+            // Ignore invalid values
+          }
+        }
+      }
+    }
+    return mappings;
+  }
 }
