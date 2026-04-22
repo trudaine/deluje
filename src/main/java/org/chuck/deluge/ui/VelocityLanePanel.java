@@ -37,51 +37,97 @@ public class VelocityLanePanel extends Pane {
               draw();
             });
 
-    canvas.setOnMousePressed(this::handleMouseDraw);
-    canvas.setOnMouseDragged(this::handleMouseDraw);
+    canvas.setOnMousePressed(this::handleMousePressed);
+    canvas.setOnMouseDragged(this::handleMouseDragged);
   }
 
-  private void handleMouseDraw(javafx.scene.input.MouseEvent e) {
+  private int startStep = -1;
+  private double startVal = 0;
+
+  private void handleMousePressed(javafx.scene.input.MouseEvent e) {
     double gridXOffset = 519;
     double barWidth = 45;
     double h = canvas.getHeight();
 
-    int stepIdx = (int) ((e.getX() - gridXOffset) / barWidth);
-    if (stepIdx >= 0 && stepIdx < 16) {
-      double val = 1.0 - (e.getY() - 5) / (h - 30);
-      val = Math.max(0.0, Math.min(1.0, val));
+    startStep = (int) ((e.getX() - gridXOffset) / barWidth);
+    if (startStep >= 0 && startStep < 16) {
+      startVal = 1.0 - (e.getY() - 5) / (h - 30);
+      startVal = Math.max(0.0, Math.min(1.0, startVal));
+      applyStepVal(startStep, startVal);
+    }
+  }
 
-      EditMode mode = (editModeSupplier != null) ? editModeSupplier.get() : EditMode.VELOCITY;
-      String globalParam =
-          switch (mode) {
-            case VELOCITY -> BridgeContract.G_VELOCITY;
-            case GATE -> BridgeContract.G_GATE;
-            case PITCH -> BridgeContract.G_PITCH;
-            case PROBABILITY -> BridgeContract.G_PROBABILITY;
-            case FILTER -> BridgeContract.G_STEP_FILTER;
-            case RESONANCE -> BridgeContract.G_STEP_RES;
-            case PAN -> BridgeContract.G_STEP_PAN;
-            case DELAY -> BridgeContract.G_STEP_DELAY;
-            case REVERB -> BridgeContract.G_STEP_REVERB;
-            case LEVEL -> BridgeContract.G_VELOCITY;
-            case START_END -> BridgeContract.G_STEP_START;
-            case STUTTER, MOD_FX -> BridgeContract.G_VELOCITY;
-          };
+  private void handleMouseDragged(javafx.scene.input.MouseEvent e) {
+    double gridXOffset = 519;
+    double barWidth = 45;
+    double h = canvas.getHeight();
 
-      Object obj = vm.getGlobalObject(globalParam);
-      if (obj instanceof org.chuck.core.ChuckArray array) {
-        int arrayIdx =
-            (globalParam.equals(BridgeContract.G_TRACK_LEVEL))
-                ? selectedTrack
-                : (selectedTrack * 16 + stepIdx);
+    int endStep = (int) ((e.getX() - gridXOffset) / barWidth);
+    if (endStep >= 0 && endStep < 16 && startStep >= 0) {
+      double endVal = 1.0 - (e.getY() - 5) / (h - 30);
+      endVal = Math.max(0.0, Math.min(1.0, endVal));
 
-        if (mode == EditMode.PITCH) {
-          array.setInt(arrayIdx, (long) (val * 24.0 - 12));
-        } else {
-          array.setFloat(arrayIdx, (float) val);
+      if (e.isShiftDown()) {
+        // Linear straight interpolation
+        int min = Math.min(startStep, endStep);
+        int max = Math.max(startStep, endStep);
+        double v1 = (min == startStep) ? startVal : endVal;
+        double v2 = (min == startStep) ? endVal : startVal;
+        for (int s = min; s <= max; s++) {
+          double t = (max == min) ? 0.0 : (double) (s - min) / (max - min);
+          applyStepVal(s, v1 + t * (v2 - v1));
         }
-        draw();
+      } else if (e.isControlDown()) {
+        // Quadratic Bezier Curve
+        int min = Math.min(startStep, endStep);
+        int max = Math.max(startStep, endStep);
+        double v1 = (min == startStep) ? startVal : endVal;
+        double v2 = (min == startStep) ? endVal : startVal;
+
+        double ctrlVal = Math.max(v1, v2) + 0.2; // Curve control height peak
+        ctrlVal = Math.max(0.0, Math.min(1.0, ctrlVal));
+
+        for (int s = min; s <= max; s++) {
+          double t = (max == min) ? 0.0 : (double) (s - min) / (max - min);
+          double val = (1 - t) * (1 - t) * v1 + 2 * (1 - t) * t * ctrlVal + t * t * v2;
+          applyStepVal(s, val);
+        }
+      } else {
+        applyStepVal(endStep, endVal);
       }
+    }
+  }
+
+  private void applyStepVal(int stepIdx, double val) {
+    EditMode mode = (editModeSupplier != null) ? editModeSupplier.get() : EditMode.VELOCITY;
+    String globalParam =
+        switch (mode) {
+          case VELOCITY -> BridgeContract.G_VELOCITY;
+          case GATE -> BridgeContract.G_GATE;
+          case PITCH -> BridgeContract.G_PITCH;
+          case PROBABILITY -> BridgeContract.G_PROBABILITY;
+          case FILTER -> BridgeContract.G_STEP_FILTER;
+          case RESONANCE -> BridgeContract.G_STEP_RES;
+          case PAN -> BridgeContract.G_STEP_PAN;
+          case DELAY -> BridgeContract.G_STEP_DELAY;
+          case REVERB -> BridgeContract.G_STEP_REVERB;
+          case LEVEL -> BridgeContract.G_VELOCITY;
+          case START_END -> BridgeContract.G_STEP_START;
+          case STUTTER, MOD_FX -> BridgeContract.G_VELOCITY;
+        };
+
+    Object obj = vm.getGlobalObject(globalParam);
+    if (obj instanceof org.chuck.core.ChuckArray array) {
+      int arrayIdx =
+          (globalParam.equals(BridgeContract.G_TRACK_LEVEL))
+              ? selectedTrack
+              : (selectedTrack * 16 + stepIdx);
+      if (mode == EditMode.PITCH) {
+        array.setInt(arrayIdx, (long) (val * 24.0 - 12));
+      } else {
+        array.setFloat(arrayIdx, (float) val);
+      }
+      draw();
     }
   }
 
@@ -152,8 +198,7 @@ public class VelocityLanePanel extends Pane {
 
     for (int i = 0; i < 16; i++) {
       double val;
-      int arrayIdx =
-          selectedTrack * 16 + i;
+      int arrayIdx = selectedTrack * 16 + i;
 
       if (mode == EditMode.PITCH) {
         int p = (int) array.getInt(arrayIdx);

@@ -218,11 +218,12 @@ public class SongModePanel extends VBox {
         javafx.scene.control.Button editBtn = new javafx.scene.control.Button("E");
         editBtn.setPrefWidth(35);
         editBtn.setStyle("-fx-background-color: #444; -fx-text-fill: white;");
-        editBtn.setOnAction(ev -> {
-            if (onEditPresetRequest != null) {
+        editBtn.setOnAction(
+            ev -> {
+              if (onEditPresetRequest != null) {
                 onEditPresetRequest.accept(track, currentClip);
-            }
-        });
+              }
+            });
         grid.add(editBtn, numSlots + 4, rowIdx); // Column numSlots + 4
 
         for (int s = 0; s < numSlots; s++) {

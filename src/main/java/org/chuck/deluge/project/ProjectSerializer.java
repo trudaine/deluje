@@ -48,11 +48,11 @@ public class ProjectSerializer {
           Element nameElem = doc.createElement("name");
           nameElem.setTextContent(sound.getName());
           soundElem.appendChild(nameElem);
-          
+
           Element sample = doc.createElement("sample");
           sample.setAttribute("fileName", sound.getSamplePath());
           soundElem.appendChild(sample);
-          
+
           trackElem.appendChild(soundElem);
         }
         instruments.appendChild(trackElem);

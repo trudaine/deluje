@@ -1,19 +1,20 @@
 package org.chuck.deluge.ui.browser;
 
+import java.io.File;
+import java.io.FileWriter;
 import javafx.geometry.Insets;
-import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
-import java.io.File;
-import java.io.FileWriter;
+import org.chuck.core.ChuckVM;
+import org.chuck.deluge.BridgeContract;
 
 /** Graphical sound preset editor. */
 public class PresetEditorPane extends VBox {
 
+  private final ChuckVM vm;
+  private final BridgeContract bridge;
   private final Label titleLabel;
-
-
 
   private final Slider lpfCutoffSlider;
   private final Slider lpfResSlider;
@@ -24,7 +25,13 @@ public class PresetEditorPane extends VBox {
   private File currentFile = null;
 
   private Slider osc1Vol, osc2Vol, mod1Amount, mod2Amount;
-  private Slider lpfCutoff, lpfRes;
+  private Slider hpfCutoffSlider, hpfResSlider;
+  private ComboBox<String> filterModeCombo;
+
+  private Slider env1Attack, env1Decay, env1Sustain, env1Release;
+  private Slider env2Attack, env2Decay, env2Sustain, env2Release;
+  private ComboBox<String> lfo1Shape, lfo2Shape;
+  private Slider lfo1Rate, lfo2Rate;
 
   public interface ParameterChangeCallback {
     void onParameterChange(String param, float value);
@@ -36,7 +43,10 @@ public class PresetEditorPane extends VBox {
     this.onParameterChange = callback;
   }
 
-  public PresetEditorPane() {
+  public PresetEditorPane(ChuckVM vm, BridgeContract bridge) {
+    this.vm = vm;
+    this.bridge = bridge;
+
     setSpacing(10);
     setPadding(new Insets(10));
     setStyle("-fx-background-color: #252525; -fx-border-color: #333;");
@@ -60,10 +70,16 @@ public class PresetEditorPane extends VBox {
     // 1. Oscillators inner sub-accordion
     javafx.scene.control.Accordion innerOscAccordion = new javafx.scene.control.Accordion();
 
-    javafx.scene.control.TitledPane osc1Pane = new javafx.scene.control.TitledPane("OSCILLATOR 1", createOscGrid("OSCILLATOR 1", true));
-    javafx.scene.control.TitledPane osc2Pane = new javafx.scene.control.TitledPane("OSCILLATOR 2", createOscGrid("OSCILLATOR 2", false));
-    javafx.scene.control.TitledPane mod1Pane = new javafx.scene.control.TitledPane("MODULATOR 1", createModulatorGrid("MODULATOR 1", false));
-    javafx.scene.control.TitledPane mod2Pane = new javafx.scene.control.TitledPane("MODULATOR 2", createModulatorGrid("MODULATOR 2", true));
+    javafx.scene.control.TitledPane osc1Pane =
+        new javafx.scene.control.TitledPane("OSCILLATOR 1", createOscGrid("OSCILLATOR 1", true));
+    javafx.scene.control.TitledPane osc2Pane =
+        new javafx.scene.control.TitledPane("OSCILLATOR 2", createOscGrid("OSCILLATOR 2", false));
+    javafx.scene.control.TitledPane mod1Pane =
+        new javafx.scene.control.TitledPane(
+            "MODULATOR 1", createModulatorGrid("MODULATOR 1", false));
+    javafx.scene.control.TitledPane mod2Pane =
+        new javafx.scene.control.TitledPane(
+            "MODULATOR 2", createModulatorGrid("MODULATOR 2", true));
 
     innerOscAccordion.getPanes().addAll(osc1Pane, osc2Pane, mod1Pane, mod2Pane);
     innerOscAccordion.setExpandedPane(osc1Pane);
@@ -72,7 +88,7 @@ public class PresetEditorPane extends VBox {
     VBox filterBox = new VBox(5);
     Label filterTitle = new Label("FILTERS");
     filterTitle.setStyle("-fx-text-fill: #00ffcc; -fx-font-weight: bold; -fx-font-size: 12px;");
-    
+
     GridPane filterGrid = new GridPane();
     filterGrid.setHgap(10);
     filterGrid.setVgap(5);
@@ -80,43 +96,76 @@ public class PresetEditorPane extends VBox {
     filterGrid.add(new Label("LPF Frequency:"), 0, 0);
     lpfCutoffSlider = new Slider(0, 127, 64);
     lpfCutoffSlider.setPrefWidth(100);
-    lpfCutoffSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
-      if (onParameterChange != null) {
-        onParameterChange.onParameterChange("FILTER", newVal.floatValue() / 127.0f);
-      }
-    });
+    lpfCutoffSlider
+        .valueProperty()
+        .addListener(
+            (obs, oldVal, newVal) -> {
+              if (onParameterChange != null) {
+                onParameterChange.onParameterChange("FILTER", newVal.floatValue() / 127.0f);
+              }
+              if (bridge != null) {
+                bridge.setFilterFreq(0, newVal.floatValue() / 127.0f);
+              }
+            });
     filterGrid.add(lpfCutoffSlider, 1, 0);
 
     Button filterModBtn = new Button("M");
     filterModBtn.setPrefWidth(25);
-    filterModBtn.setStyle("-fx-base: #444; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 10px;");
-    filterModBtn.setOnAction(e -> {
-        org.chuck.deluge.ui.popover.ModulationPatchingDialog dialog = 
-            new org.chuck.deluge.ui.popover.ModulationPatchingDialog("Filter Cutoff frequency");
-        dialog.showAndWait();
-    });
+    filterModBtn.setStyle(
+        "-fx-base: #444; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 10px;");
+    filterModBtn.setOnAction(
+        e -> {
+          org.chuck.deluge.ui.popover.ModulationPatchingDialog dialog =
+              new org.chuck.deluge.ui.popover.ModulationPatchingDialog("Filter Cutoff frequency");
+          dialog.showAndWait();
+        });
     filterGrid.add(filterModBtn, 2, 0);
 
     filterGrid.add(new Label("LPF Resonance:"), 0, 1);
     lpfResSlider = new Slider(0, 127, 64);
     lpfResSlider.setPrefWidth(100);
+    lpfResSlider
+        .valueProperty()
+        .addListener(
+            (obs, oldVal, newVal) -> {
+              if (bridge != null) {
+                bridge.setFilterRes(0, newVal.floatValue() / 127.0f);
+              }
+            });
     filterGrid.add(lpfResSlider, 1, 1);
 
     filterGrid.add(new Label("LPF Mode:"), 0, 2);
-    ComboBox<String> filterModeCombo = new ComboBox<>();
+    filterModeCombo = new ComboBox<>();
     filterModeCombo.getItems().addAll("12dB", "24dB", "ANALOG DRIVE");
     filterModeCombo.setValue("12dB");
+    filterModeCombo
+        .valueProperty()
+        .addListener(
+            (obs, oldVal, newVal) -> {
+              if (bridge != null) {
+                int mode = newVal.equals("ANALOG DRIVE") ? 2 : (newVal.equals("24dB") ? 1 : 0);
+                bridge.setFilterMode(0, mode);
+              }
+            });
     filterGrid.add(filterModeCombo, 1, 2);
 
     filterGrid.add(new Label("HPF Frequency:"), 0, 3);
-    Slider hpfCutoff = new Slider(0, 127, 0);
-    hpfCutoff.setPrefWidth(100);
-    filterGrid.add(hpfCutoff, 1, 3);
+    hpfCutoffSlider = new Slider(0, 127, 0);
+    hpfCutoffSlider.setPrefWidth(100);
+    hpfCutoffSlider
+        .valueProperty()
+        .addListener(
+            (obs, oldVal, newVal) -> {
+              if (bridge != null) {
+                bridge.setFilterMorph(0, newVal.floatValue() / 127.0f);
+              }
+            });
+    filterGrid.add(hpfCutoffSlider, 1, 3);
 
     filterGrid.add(new Label("HPF Resonance:"), 0, 4);
-    Slider hpfRes = new Slider(0, 127, 0);
-    hpfRes.setPrefWidth(100);
-    filterGrid.add(hpfRes, 1, 4);
+    hpfResSlider = new Slider(0, 127, 0);
+    hpfResSlider.setPrefWidth(100);
+    filterGrid.add(hpfResSlider, 1, 4);
 
     filterBox.getChildren().addAll(filterTitle, filterGrid);
 
@@ -137,34 +186,48 @@ public class PresetEditorPane extends VBox {
     reverbSlider.setPrefWidth(100);
     fxGrid.add(reverbSlider, 1, 1);
 
-    javafx.scene.control.TitledPane masterDelayPane = new javafx.scene.control.TitledPane("DELAYS & REVERB", fxGrid);
-    javafx.scene.control.TitledPane distortPane = new javafx.scene.control.TitledPane("DISTORTIONS & DECIMATIONS", createDistortionsGrid());
-    javafx.scene.control.TitledPane delayPatchPane = new javafx.scene.control.TitledPane("DELAY ROUTING", createDelayPatchGrid());
-    javafx.scene.control.TitledPane sidechainPane = new javafx.scene.control.TitledPane("SIDECHAIN COMPRESSOR", createSidechainCompressorGrid());
+    javafx.scene.control.TitledPane masterDelayPane =
+        new javafx.scene.control.TitledPane("DELAYS & REVERB", fxGrid);
+    javafx.scene.control.TitledPane distortPane =
+        new javafx.scene.control.TitledPane("DISTORTIONS & DECIMATIONS", createDistortionsGrid());
+    javafx.scene.control.TitledPane delayPatchPane =
+        new javafx.scene.control.TitledPane("DELAY ROUTING", createDelayPatchGrid());
+    javafx.scene.control.TitledPane sidechainPane =
+        new javafx.scene.control.TitledPane(
+            "SIDECHAIN COMPRESSOR", createSidechainCompressorGrid());
 
     innerFxAccordion.getPanes().addAll(masterDelayPane, distortPane, delayPatchPane, sidechainPane);
     innerFxAccordion.setExpandedPane(masterDelayPane);
 
     // Envelopes Inner Accordion
     javafx.scene.control.Accordion innerEnvAccordion = new javafx.scene.control.Accordion();
-    javafx.scene.control.TitledPane env1Pane = new javafx.scene.control.TitledPane("ENVELOPE 1", createEnvGrid("ENVELOPE 1"));
-    javafx.scene.control.TitledPane env2Pane = new javafx.scene.control.TitledPane("ENVELOPE 2", createEnvGrid("ENVELOPE 2"));
+    javafx.scene.control.TitledPane env1Pane =
+        new javafx.scene.control.TitledPane("ENVELOPE 1", createEnvGrid("ENVELOPE 1", 0));
+    javafx.scene.control.TitledPane env2Pane =
+        new javafx.scene.control.TitledPane("ENVELOPE 2", createEnvGrid("ENVELOPE 2", 1));
     innerEnvAccordion.getPanes().addAll(env1Pane, env2Pane);
     innerEnvAccordion.setExpandedPane(env1Pane);
 
     // LFOs Inner Accordion
     javafx.scene.control.Accordion innerLfoAccordion = new javafx.scene.control.Accordion();
-    javafx.scene.control.TitledPane lfo1Pane = new javafx.scene.control.TitledPane("LFO 1", createLfoGrid("LFO 1"));
-    javafx.scene.control.TitledPane lfo2Pane = new javafx.scene.control.TitledPane("LFO 2", createLfoGrid("LFO 2"));
+    javafx.scene.control.TitledPane lfo1Pane =
+        new javafx.scene.control.TitledPane("LFO 1", createLfoGrid("LFO 1", 0));
+    javafx.scene.control.TitledPane lfo2Pane =
+        new javafx.scene.control.TitledPane("LFO 2", createLfoGrid("LFO 2", 1));
     innerLfoAccordion.getPanes().addAll(lfo1Pane, lfo2Pane);
     innerLfoAccordion.setExpandedPane(lfo1Pane);
 
     javafx.scene.control.Accordion accordion = new javafx.scene.control.Accordion();
-    javafx.scene.control.TitledPane oscPane = new javafx.scene.control.TitledPane("OSCILLATORS", innerOscAccordion);
-    javafx.scene.control.TitledPane filterPane = new javafx.scene.control.TitledPane("FILTERS", filterBox);
-    javafx.scene.control.TitledPane envPane = new javafx.scene.control.TitledPane("ENVELOPES", innerEnvAccordion);
-    javafx.scene.control.TitledPane lfoPane = new javafx.scene.control.TitledPane("LFOs", innerLfoAccordion);
-    javafx.scene.control.TitledPane fxPane = new javafx.scene.control.TitledPane("MASTER FX", innerFxAccordion);
+    javafx.scene.control.TitledPane oscPane =
+        new javafx.scene.control.TitledPane("OSCILLATORS", innerOscAccordion);
+    javafx.scene.control.TitledPane filterPane =
+        new javafx.scene.control.TitledPane("FILTERS", filterBox);
+    javafx.scene.control.TitledPane envPane =
+        new javafx.scene.control.TitledPane("ENVELOPES", innerEnvAccordion);
+    javafx.scene.control.TitledPane lfoPane =
+        new javafx.scene.control.TitledPane("LFOs", innerLfoAccordion);
+    javafx.scene.control.TitledPane fxPane =
+        new javafx.scene.control.TitledPane("MASTER FX", innerFxAccordion);
 
     accordion.getPanes().addAll(oscPane, filterPane, envPane, lfoPane, fxPane);
     content.getChildren().add(accordion);
@@ -316,54 +379,112 @@ public class PresetEditorPane extends VBox {
     return grid;
   }
 
-  private javafx.scene.layout.GridPane createEnvGrid(String title) {
+  private javafx.scene.layout.GridPane createEnvGrid(String title, int envIndex) {
     javafx.scene.layout.GridPane grid = new javafx.scene.layout.GridPane();
     grid.setHgap(10);
     grid.setVgap(5);
 
-    grid.add(new Label("Attack:"), 0, 0);
     Slider attackSlider = new Slider(0, 100, 10);
+    Slider decaySlider = new Slider(0, 100, 20);
+    Slider sustainSlider = new Slider(0, 100, 80);
+    Slider releaseSlider = new Slider(0, 100, 30);
+
+    if (envIndex == 0) {
+      env1Attack = attackSlider;
+      env1Decay = decaySlider;
+      env1Sustain = sustainSlider;
+      env1Release = releaseSlider;
+    } else {
+      env2Attack = attackSlider;
+      env2Decay = decaySlider;
+      env2Sustain = sustainSlider;
+      env2Release = releaseSlider;
+    }
+
+    Runnable updateEnv =
+        () -> {
+          if (bridge != null) {
+            bridge.setEnv(
+                envIndex,
+                attackSlider.getValue() / 100.0,
+                decaySlider.getValue() / 100.0,
+                sustainSlider.getValue() / 100.0,
+                releaseSlider.getValue() / 100.0);
+          }
+        };
+
+    grid.add(new Label("Attack:"), 0, 0);
     attackSlider.setPrefWidth(100);
+    attackSlider.valueProperty().addListener((o, old, val) -> updateEnv.run());
     grid.add(attackSlider, 1, 0);
 
     grid.add(new Label("Decay:"), 0, 1);
-    Slider decaySlider = new Slider(0, 100, 20);
     decaySlider.setPrefWidth(100);
+    decaySlider.valueProperty().addListener((o, old, val) -> updateEnv.run());
     grid.add(decaySlider, 1, 1);
 
     grid.add(new Label("Sustain:"), 0, 2);
-    Slider sustainSlider = new Slider(0, 100, 80);
     sustainSlider.setPrefWidth(100);
+    sustainSlider.valueProperty().addListener((o, old, val) -> updateEnv.run());
     grid.add(sustainSlider, 1, 2);
 
     grid.add(new Label("Release:"), 0, 3);
-    Slider releaseSlider = new Slider(0, 100, 30);
     releaseSlider.setPrefWidth(100);
+    releaseSlider.valueProperty().addListener((o, old, val) -> updateEnv.run());
     grid.add(releaseSlider, 1, 3);
 
     return grid;
   }
 
-  private javafx.scene.layout.GridPane createLfoGrid(String title) {
+  private javafx.scene.layout.GridPane createLfoGrid(String title, int lfoIndex) {
     javafx.scene.layout.GridPane grid = new javafx.scene.layout.GridPane();
     grid.setHgap(10);
     grid.setVgap(5);
 
-    grid.add(new Label("Shape:"), 0, 0);
     ComboBox<String> shapeCombo = new ComboBox<>();
     shapeCombo.getItems().addAll("SINE", "SAW", "SQUARE", "TRIANGLE");
     shapeCombo.setValue("SINE");
-    grid.add(shapeCombo, 1, 0);
 
-    grid.add(new Label("Rate:"), 0, 1);
     Slider rateSlider = new Slider(0, 100, 50);
-    rateSlider.setPrefWidth(100);
-    grid.add(rateSlider, 1, 1);
 
-    grid.add(new Label("Sync:"), 0, 2);
     ComboBox<String> syncCombo = new ComboBox<>();
     syncCombo.getItems().addAll("Off", "1/4", "1/8", "1/16", "1/32");
     syncCombo.setValue("Off");
+
+    if (lfoIndex == 0) {
+      lfo1Shape = shapeCombo;
+      lfo1Rate = rateSlider;
+    } else {
+      lfo2Shape = shapeCombo;
+      lfo2Rate = rateSlider;
+    }
+
+    Runnable updateLfo =
+        () -> {
+          if (bridge != null) {
+            int shapeIdx =
+                switch (shapeCombo.getValue()) {
+                  case "SAW" -> 1;
+                  case "SQUARE" -> 2;
+                  case "TRIANGLE" -> 3;
+                  default -> 0;
+                };
+            double rate = rateSlider.getValue() / 10.0;
+            bridge.setLfo(lfoIndex, rate, shapeIdx, 0.5);
+          }
+        };
+
+    grid.add(new Label("Shape:"), 0, 0);
+    shapeCombo.valueProperty().addListener((o, old, val) -> updateLfo.run());
+    grid.add(shapeCombo, 1, 0);
+
+    grid.add(new Label("Rate:"), 0, 1);
+    rateSlider.setPrefWidth(100);
+    rateSlider.valueProperty().addListener((o, old, val) -> updateLfo.run());
+    grid.add(rateSlider, 1, 1);
+
+    grid.add(new Label("Sync:"), 0, 2);
+    syncCombo.valueProperty().addListener((o, old, val) -> updateLfo.run());
     grid.add(syncCombo, 1, 2);
 
     return grid;
@@ -376,7 +497,7 @@ public class PresetEditorPane extends VBox {
 
   private void savePreset() {
     if (currentFile == null) return;
-    
+
     File outputDir = new File(currentFile.getParent(), "EDITS");
     outputDir.mkdirs();
     File outFile = new File(outputDir, "EDIT_" + currentFile.getName());
@@ -392,9 +513,58 @@ public class PresetEditorPane extends VBox {
       sb.append("    <sync>").append(0).append("</sync>\n");
       sb.append("  </osc1>\n");
       sb.append("  <lpf>\n");
-      sb.append("    <frequency>").append((int) lpfCutoffSlider.getValue()).append("</frequency>\n");
+      sb.append("    <frequency>")
+          .append((int) lpfCutoffSlider.getValue())
+          .append("</frequency>\n");
       sb.append("    <resonance>").append((int) lpfResSlider.getValue()).append("</resonance>\n");
+      if (filterModeCombo != null) {
+        sb.append("    <mode>").append(filterModeCombo.getValue()).append("</mode>\n");
+      }
       sb.append("  </lpf>\n");
+
+      sb.append("  <hpf>\n");
+      if (hpfCutoffSlider != null) {
+        sb.append("    <frequency>")
+            .append((int) hpfCutoffSlider.getValue())
+            .append("</frequency>\n");
+      }
+      if (hpfResSlider != null) {
+        sb.append("    <resonance>").append((int) hpfResSlider.getValue()).append("</resonance>\n");
+      }
+      sb.append("  </hpf>\n");
+
+      sb.append("  <envelope1>\n");
+      if (env1Attack != null) {
+        sb.append("    <attack>").append((int) env1Attack.getValue()).append("</attack>\n");
+        sb.append("    <decay>").append((int) env1Decay.getValue()).append("</decay>\n");
+        sb.append("    <sustain>").append((int) env1Sustain.getValue()).append("</sustain>\n");
+        sb.append("    <release>").append((int) env1Release.getValue()).append("</release>\n");
+      }
+      sb.append("  </envelope1>\n");
+
+      sb.append("  <envelope2>\n");
+      if (env2Attack != null) {
+        sb.append("    <attack>").append((int) env2Attack.getValue()).append("</attack>\n");
+        sb.append("    <decay>").append((int) env2Decay.getValue()).append("</decay>\n");
+        sb.append("    <sustain>").append((int) env2Sustain.getValue()).append("</sustain>\n");
+        sb.append("    <release>").append((int) env2Release.getValue()).append("</release>\n");
+      }
+      sb.append("  </envelope2>\n");
+
+      sb.append("  <lfo1>\n");
+      if (lfo1Shape != null) {
+        sb.append("    <shape>").append(lfo1Shape.getValue()).append("</shape>\n");
+        sb.append("    <rate>").append((int) lfo1Rate.getValue()).append("</rate>\n");
+      }
+      sb.append("  </lfo1>\n");
+
+      sb.append("  <lfo2>\n");
+      if (lfo2Shape != null) {
+        sb.append("    <shape>").append(lfo2Shape.getValue()).append("</shape>\n");
+        sb.append("    <rate>").append((int) lfo2Rate.getValue()).append("</rate>\n");
+      }
+      sb.append("  </lfo2>\n");
+
       sb.append("  <fx>\n");
       sb.append("    <delay>").append((int) delaySlider.getValue()).append("</delay>\n");
       sb.append("    <reverb>").append((int) reverbSlider.getValue()).append("</reverb>\n");

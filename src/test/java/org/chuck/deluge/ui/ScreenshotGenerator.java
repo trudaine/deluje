@@ -31,159 +31,209 @@ public class ScreenshotGenerator {
   public void testGenerateScreenshots() throws Exception {
     System.setProperty("chuck.audio.dummy", "true");
     System.setProperty("deluge.tracks", "8");
-    
+
     // Start JavaFX
     CountDownLatch startupLatch = new CountDownLatch(1);
     Platform.startup(startupLatch::countDown);
     startupLatch.await();
-    
+
     // Init UI on FX thread
-    runAndWait(() -> {
-      vm = new ChuckVM(44100, 2);
-      bridge = new BridgeContract();
-      bridge.register(vm);
-      
-      MidiInputRouter router = new MidiInputRouter(vm, bridge);
-      midiService = new MidiService(vm, bridge, router);
-      
-      mainPanel = new DelugeMainPanel(vm, bridge, null, midiService);
-      scene = new Scene(mainPanel, 1200, 800);
-    });
-    
+    runAndWait(
+        () -> {
+          vm = new ChuckVM(44100, 2);
+          bridge = new BridgeContract();
+          bridge.register(vm);
+
+          MidiInputRouter router = new MidiInputRouter(vm, bridge);
+          midiService = new MidiService(vm, bridge, router);
+
+          mainPanel = new DelugeMainPanel(vm, bridge, null, midiService);
+          scene = new Scene(mainPanel, 1200, 800);
+        });
+
     // Step 0: Start
     runAndWait(() -> currentSnapshot = scene.snapshot(null));
-    saveSnapshot(currentSnapshot, "../docs/step0_start.png", "Step 0: Initial State", "Empty grid on startup.");
-    
+    saveSnapshot(
+        currentSnapshot,
+        "../docs/step0_start.png",
+        "Step 0: Initial State",
+        "Empty grid on startup.");
+
     // Step 1: Load Song (Simulated)
-    runAndWait(() -> {
-      // Expand tree in sidebar
-      ProjectSidebarPanel sidebar = mainPanel.getSidebarPanel();
-      if (sidebar != null) {
-          javafx.scene.control.TabPane tabs = (javafx.scene.control.TabPane) sidebar.getChildren().get(1);
-          javafx.scene.control.Tab libraryTab = tabs.getTabs().get(0);
-          javafx.scene.layout.VBox libBox = (javafx.scene.layout.VBox) libraryTab.getContent();
-          javafx.scene.control.TreeView<ProjectSidebarPanel.LibraryItem> tree = 
-              (javafx.scene.control.TreeView<ProjectSidebarPanel.LibraryItem>) libBox.getChildren().get(0);
-              
-          javafx.scene.control.TreeItem<ProjectSidebarPanel.LibraryItem> root = tree.getRoot();
-          if (root != null) {
-              for (javafx.scene.control.TreeItem<ProjectSidebarPanel.LibraryItem> child : root.getChildren()) {
-                  if ("SONGS".equals(child.getValue().name)) {
-                      child.setExpanded(true);
-                      for (javafx.scene.control.TreeItem<ProjectSidebarPanel.LibraryItem> songItem : child.getChildren()) {
-                          if ("song1".equals(songItem.getValue().name)) {
-                              tree.getSelectionModel().select(songItem);
-                              break;
-                          }
-                      }
+    runAndWait(
+        () -> {
+          // Expand tree in sidebar
+          ProjectSidebarPanel sidebar = mainPanel.getSidebarPanel();
+          if (sidebar != null) {
+            javafx.scene.control.TabPane tabs =
+                (javafx.scene.control.TabPane) sidebar.getChildren().get(1);
+            javafx.scene.control.Tab libraryTab = tabs.getTabs().get(0);
+            javafx.scene.layout.VBox libBox = (javafx.scene.layout.VBox) libraryTab.getContent();
+            javafx.scene.control.TreeView<ProjectSidebarPanel.LibraryItem> tree =
+                (javafx.scene.control.TreeView<ProjectSidebarPanel.LibraryItem>)
+                    libBox.getChildren().get(0);
+
+            javafx.scene.control.TreeItem<ProjectSidebarPanel.LibraryItem> root = tree.getRoot();
+            if (root != null) {
+              for (javafx.scene.control.TreeItem<ProjectSidebarPanel.LibraryItem> child :
+                  root.getChildren()) {
+                if ("SONGS".equals(child.getValue().name)) {
+                  child.setExpanded(true);
+                  for (javafx.scene.control.TreeItem<ProjectSidebarPanel.LibraryItem> songItem :
+                      child.getChildren()) {
+                    if ("song1".equals(songItem.getValue().name)) {
+                      tree.getSelectionModel().select(songItem);
                       break;
+                    }
                   }
+                  break;
+                }
               }
+            }
           }
-      }
-      
-      org.chuck.deluge.model.ProjectModel loadedProject = new org.chuck.deluge.model.ProjectModel();
-      
-      org.chuck.deluge.model.TrackModel track1 = new org.chuck.deluge.model.KitTrackModel("KIT 0");
-      org.chuck.deluge.model.ClipModel clip1 = new org.chuck.deluge.model.ClipModel("CLIP 0", 1, 16);
-      clip1.setColor("#00ffcc");
-      
-      clip1.setStep(0, 2, new org.chuck.deluge.model.StepData(true, 1.0f, 1.0f, 1.0f, 0));
-      clip1.setStep(0, 5, new org.chuck.deluge.model.StepData(true, 1.0f, 1.0f, 1.0f, 0));
-      clip1.setStep(0, 8, new org.chuck.deluge.model.StepData(true, 1.0f, 1.0f, 1.0f, 0));
-      clip1.setStep(0, 10, new org.chuck.deluge.model.StepData(true, 1.0f, 1.0f, 1.0f, 0));
-      
-      track1.addClip(clip1);
-      
-      org.chuck.deluge.model.TrackModel track2 = new org.chuck.deluge.model.SynthTrackModel("SYNTH 0");
-      org.chuck.deluge.model.ClipModel clip2 = new org.chuck.deluge.model.ClipModel("CLIP 1", 1, 16);
-      clip2.setColor("#ff0055");
-      track2.addClip(clip2);
-      
-      loadedProject.getTracks().add(track1);
-      loadedProject.getTracks().add(track2);
-      
-      mainPanel.setProjectModel(loadedProject);
-      mainPanel.getSongPanel().refresh();
-      
-      System.out.println("TRACE: Loaded project with " + loadedProject.getTracks().size() + " tracks.");
-      System.out.println("TRACE: Track 0 has " + track1.getClips().size() + " clips.");
-      System.out.println("TRACE: Track 1 has " + track2.getClips().size() + " clips.");
-    });
-    
+
+          org.chuck.deluge.model.ProjectModel loadedProject =
+              new org.chuck.deluge.model.ProjectModel();
+
+          org.chuck.deluge.model.TrackModel track1 =
+              new org.chuck.deluge.model.KitTrackModel("KIT 0");
+          org.chuck.deluge.model.ClipModel clip1 =
+              new org.chuck.deluge.model.ClipModel("CLIP 0", 1, 16);
+          clip1.setColor("#00ffcc");
+
+          clip1.setStep(0, 2, new org.chuck.deluge.model.StepData(true, 1.0f, 1.0f, 1.0f, 0));
+          clip1.setStep(0, 5, new org.chuck.deluge.model.StepData(true, 1.0f, 1.0f, 1.0f, 0));
+          clip1.setStep(0, 8, new org.chuck.deluge.model.StepData(true, 1.0f, 1.0f, 1.0f, 0));
+          clip1.setStep(0, 10, new org.chuck.deluge.model.StepData(true, 1.0f, 1.0f, 1.0f, 0));
+
+          track1.addClip(clip1);
+
+          org.chuck.deluge.model.TrackModel track2 =
+              new org.chuck.deluge.model.SynthTrackModel("SYNTH 0");
+          org.chuck.deluge.model.ClipModel clip2 =
+              new org.chuck.deluge.model.ClipModel("CLIP 1", 1, 16);
+          clip2.setColor("#ff0055");
+          track2.addClip(clip2);
+
+          loadedProject.getTracks().add(track1);
+          loadedProject.getTracks().add(track2);
+
+          mainPanel.setProjectModel(loadedProject);
+          mainPanel.getSongPanel().refresh();
+
+          System.out.println(
+              "TRACE: Loaded project with " + loadedProject.getTracks().size() + " tracks.");
+          System.out.println("TRACE: Track 0 has " + track1.getClips().size() + " clips.");
+          System.out.println("TRACE: Track 1 has " + track2.getClips().size() + " clips.");
+        });
+
     // Switch to SONG view and take snapshot
     mainPanel.setView(DelugeMainPanel.ViewMode.SONG);
     runAndWait(() -> currentSnapshot = scene.snapshot(null));
-    saveSnapshot(currentSnapshot, "../docs/step1_loaded_songview.png", "Step 1: Song View", "Song view showing active clips.");
-    
+    saveSnapshot(
+        currentSnapshot,
+        "../docs/step1_loaded_songview.png",
+        "Step 1: Song View",
+        "Song view showing active clips.");
+
     // Simulate selection of first clip
-    runAndWait(() -> {
-        org.chuck.deluge.model.TrackModel track = mainPanel.getProjectModel().getTracks().get(0);
-        org.chuck.deluge.model.ClipModel clip = track.getClips().get(0);
-        
-        mainPanel.getMatrixPanel().setSynthMode(false);
-        mainPanel.getMatrixPanel().setBaseTrack(0);
-        mainPanel.getMatrixPanel().applyClip(clip, 0);
-    });
-    
+    runAndWait(
+        () -> {
+          org.chuck.deluge.model.TrackModel track = mainPanel.getProjectModel().getTracks().get(0);
+          org.chuck.deluge.model.ClipModel clip = track.getClips().get(0);
+
+          mainPanel.getMatrixPanel().setSynthMode(false);
+          mainPanel.getMatrixPanel().setBaseTrack(0);
+          mainPanel.getMatrixPanel().applyClip(clip, 0);
+        });
+
     // Switch to CLIP view and take snapshot
     mainPanel.setView(DelugeMainPanel.ViewMode.CLIP);
     runAndWait(() -> currentSnapshot = scene.snapshot(null));
-    saveSnapshot(currentSnapshot, "../docs/step1_loaded_clipview.png", "Step 1: Clip View", "Clip view after selecting first clip.");
-    
+    saveSnapshot(
+        currentSnapshot,
+        "../docs/step1_loaded_clipview.png",
+        "Step 1: Clip View",
+        "Clip view after selecting first clip.");
+
     // Switch to Song View and open preset editor
-    runAndWait(() -> {
-        org.chuck.deluge.model.TrackModel track = mainPanel.getProjectModel().getTracks().get(0);
-        mainPanel.getSidebarPanel().getEditorPane().loadPreset(null, track.getName());
-        mainPanel.getSidebarPanel().focusEditorTab();
-    });
+    runAndWait(
+        () -> {
+          org.chuck.deluge.model.TrackModel track = mainPanel.getProjectModel().getTracks().get(0);
+          mainPanel.getSidebarPanel().getEditorPane().loadPreset(null, track.getName());
+          mainPanel.getSidebarPanel().focusEditorTab();
+        });
     runAndWait(() -> currentSnapshot = scene.snapshot(null));
-    saveSnapshot(currentSnapshot, "../docs/preset_editor_annotated.png", "Preset Sound Editor", "Editing preset values visually in sidebar.");
-    
+    saveSnapshot(
+        currentSnapshot,
+        "../docs/preset_editor_annotated.png",
+        "Preset Sound Editor",
+        "Editing preset values visually in sidebar.");
+
     // Step 2: Edit Cells
-    runAndWait(() -> {
-      bridge.setStep(0, 0, true);
-      bridge.setStep(0, 4, true);
-      bridge.setStep(0, 8, true);
-      bridge.setStep(0, 12, true);
-    });
-    
+    runAndWait(
+        () -> {
+          bridge.setStep(0, 0, true);
+          bridge.setStep(0, 4, true);
+          bridge.setStep(0, 8, true);
+          bridge.setStep(0, 12, true);
+        });
+
     runAndWait(() -> currentSnapshot = scene.snapshot(null));
-    saveSnapshot(currentSnapshot, "../docs/step2_edited.png", "Step 2: Cells Edited", "Toggled steps 0, 4, 8, 12 on track 0.");
-    
+    saveSnapshot(
+        currentSnapshot,
+        "../docs/step2_edited.png",
+        "Step 2: Cells Edited",
+        "Toggled steps 0, 4, 8, 12 on track 0.");
+
     // Step 3: Play
     runAndWait(() -> vm.setGlobalInt(BridgeContract.G_PLAY, 1L));
     runAndWait(() -> currentSnapshot = scene.snapshot(null));
-    saveSnapshot(currentSnapshot, "../docs/step3_playing.png", "Step 3: Playing", "Transport in Play state.");
-    
+    saveSnapshot(
+        currentSnapshot,
+        "../docs/step3_playing.png",
+        "Step 3: Playing",
+        "Transport in Play state.");
+
     // Step 4: Record
     runAndWait(() -> midiService.setRecording(true));
     runAndWait(() -> currentSnapshot = scene.snapshot(null));
-    saveSnapshot(currentSnapshot, "../docs/step4_recording.png", "Step 4: Recording", "Transport in Record state.");
-    
+    saveSnapshot(
+        currentSnapshot,
+        "../docs/step4_recording.png",
+        "Step 4: Recording",
+        "Transport in Record state.");
+
     // Take Preferences Dialog snapshot
-    runAndWait(() -> {
-      org.chuck.deluge.ui.popover.PreferencesDialog preferencesDialog = 
-          new org.chuck.deluge.ui.popover.PreferencesDialog(midiService);
-      javafx.scene.control.DialogPane dialogPane = preferencesDialog.getDialogPane();
-      currentSnapshot = dialogPane.snapshot(null, null);
-    });
-    saveSnapshot(currentSnapshot, "../docs/preferences_dialog_annotated.png", "Preferences", "Application settings.");
+    runAndWait(
+        () -> {
+          org.chuck.deluge.ui.popover.PreferencesDialog preferencesDialog =
+              new org.chuck.deluge.ui.popover.PreferencesDialog(midiService);
+          javafx.scene.control.DialogPane dialogPane = preferencesDialog.getDialogPane();
+          currentSnapshot = dialogPane.snapshot(null, null);
+        });
+    saveSnapshot(
+        currentSnapshot,
+        "../docs/preferences_dialog_annotated.png",
+        "Preferences",
+        "Application settings.");
   }
-  
+
   private void runAndWait(Runnable r) throws Exception {
     CountDownLatch l = new CountDownLatch(1);
-    Platform.runLater(() -> {
-      try {
-        r.run();
-      } finally {
-        l.countDown();
-      }
-    });
+    Platform.runLater(
+        () -> {
+          try {
+            r.run();
+          } finally {
+            l.countDown();
+          }
+        });
     l.await();
   }
-  
-  private void saveSnapshot(WritableImage image, String path, String title, String description) throws Exception {
+
+  private void saveSnapshot(WritableImage image, String path, String title, String description)
+      throws Exception {
     int width = (int) image.getWidth();
     int height = (int) image.getHeight();
     PixelReader reader = image.getPixelReader();
@@ -193,27 +243,28 @@ public class ScreenshotGenerator {
         bImage.setRGB(x, y, reader.getArgb(x, y));
       }
     }
-    
+
     int margin = 250;
-    BufferedImage annotated = new BufferedImage(width + margin, height, BufferedImage.TYPE_INT_ARGB);
+    BufferedImage annotated =
+        new BufferedImage(width + margin, height, BufferedImage.TYPE_INT_ARGB);
     Graphics2D g = annotated.createGraphics();
-    
+
     g.setColor(Color.DARK_GRAY);
     g.fillRect(0, 0, width + margin, height);
     g.drawImage(bImage, 0, 0, null);
-    
+
     g.setColor(Color.CYAN);
     g.drawString(title, width + 10, 50);
     g.setColor(Color.WHITE);
     g.drawString(description, width + 10, 80);
-    
+
     g.setColor(Color.CYAN);
     g.drawString("<- Matrix Grid", width + 10, 200);
     g.drawString("<- Transport Panel", width + 10, 700);
     g.drawString("<- Master FX Panel", width + 10, 750);
-    
+
     g.dispose();
-    
+
     File output = new File(path);
     output.getParentFile().mkdirs();
     ImageIO.write(annotated, "png", output);

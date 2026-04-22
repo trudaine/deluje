@@ -65,7 +65,8 @@ public class ArpeggiatorDialog extends Dialog<Void> {
     previewBox = new HBox(5);
     previewBox.setAlignment(Pos.CENTER);
     previewBox.setPrefHeight(40);
-    previewBox.setStyle("-fx-background-color: #252525; -fx-border-color: #333; -fx-border-radius: 5; -fx-background-radius: 5;");
+    previewBox.setStyle(
+        "-fx-background-color: #252525; -fx-border-color: #333; -fx-border-radius: 5; -fx-background-radius: 5;");
 
     content.getChildren().addAll(grid, new Label("Preview:"), previewBox);
     pane.setContent(content);
@@ -77,12 +78,13 @@ public class ArpeggiatorDialog extends Dialog<Void> {
 
     updatePreview();
 
-    setResultConverter(buttonType -> {
-      if (buttonType == ButtonType.APPLY) {
-        applyPattern();
-      }
-      return null;
-    });
+    setResultConverter(
+        buttonType -> {
+          if (buttonType == ButtonType.APPLY) {
+            applyPattern();
+          }
+          return null;
+        });
   }
 
   private void updatePreview() {

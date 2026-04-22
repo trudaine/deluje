@@ -61,12 +61,14 @@ public class TransportPanel extends HBox {
         });
 
     javafx.scene.control.ToggleButton recordBtn = new javafx.scene.control.ToggleButton("● REC");
-    recordBtn.setStyle("-fx-base: #444; -fx-text-fill: #ff1744; -fx-font-weight: bold; -fx-font-size: 14px; -fx-padding: 8 15;");
-    recordBtn.setOnAction(e -> {
-        if (onRecordToggled != null) {
+    recordBtn.setStyle(
+        "-fx-base: #444; -fx-text-fill: #ff1744; -fx-font-weight: bold; -fx-font-size: 14px; -fx-padding: 8 15;");
+    recordBtn.setOnAction(
+        e -> {
+          if (onRecordToggled != null) {
             onRecordToggled.accept(recordBtn.isSelected());
-        }
-    });
+          }
+        });
 
     transportButtons.getChildren().addAll(playBtn, stopBtn, recordBtn);
 
@@ -204,12 +206,14 @@ public class TransportPanel extends HBox {
   public void setOnRecordToggled(java.util.function.Consumer<Boolean> onRecordToggled) {
     this.onRecordToggled = onRecordToggled;
   }
+
   public void setTempo(double bpm) {
-    javafx.application.Platform.runLater(() -> {
-      isProgrammaticUpdate = true;
-      tempoSlider.setValue(bpm);
-      tempoLabel.setText(String.format("TEMPO: %.1f", bpm));
-      isProgrammaticUpdate = false;
-    });
+    javafx.application.Platform.runLater(
+        () -> {
+          isProgrammaticUpdate = true;
+          tempoSlider.setValue(bpm);
+          tempoLabel.setText(String.format("TEMPO: %.1f", bpm));
+          isProgrammaticUpdate = false;
+        });
   }
 }

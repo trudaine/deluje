@@ -51,17 +51,17 @@ public class PreferencesDialog extends Dialog<Void> {
     boolean currentVis = Boolean.parseBoolean(PreferencesManager.get("show.visualizers", "true"));
     visCheck.setSelected(currentVis);
     grid.add(visCheck, 1, 2);
-    
+
     // Display Mappings
     grid.add(new Label("Active Mappings:"), 0, 3);
     javafx.scene.control.ListView<String> mappingList = new javafx.scene.control.ListView<>();
     mappingList.setPrefHeight(100);
-    
+
     java.util.Map<String, Integer> mappings = midiService.getMappings();
     for (java.util.Map.Entry<String, Integer> entry : mappings.entrySet()) {
-        mappingList.getItems().add(entry.getKey() + " -> CC " + entry.getValue());
+      mappingList.getItems().add(entry.getKey() + " -> CC " + entry.getValue());
     }
-    
+
     grid.add(mappingList, 1, 3);
 
     // Debug Audio Toggle
@@ -74,7 +74,8 @@ public class PreferencesDialog extends Dialog<Void> {
     // MIDI Grid Mode Toggle
     grid.add(new Label("MIDI Grid Mode:"), 0, 5);
     javafx.scene.control.CheckBox gridModeCheck = new javafx.scene.control.CheckBox();
-    boolean currentGridMode = Boolean.parseBoolean(PreferencesManager.get("midi.grid.mode", "false"));
+    boolean currentGridMode =
+        Boolean.parseBoolean(PreferencesManager.get("midi.grid.mode", "false"));
     gridModeCheck.setSelected(currentGridMode);
     grid.add(gridModeCheck, 1, 5);
 

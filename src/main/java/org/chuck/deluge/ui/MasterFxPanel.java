@@ -13,7 +13,8 @@ import org.chuck.deluge.BridgeContract;
 public class MasterFxPanel extends HBox {
   private final ChuckVM vm;
   private final org.chuck.deluge.midi.MidiService midiService;
-  private final java.util.Map<String, javafx.scene.control.Slider> paramSliders = new java.util.HashMap<>();
+  private final java.util.Map<String, javafx.scene.control.Slider> paramSliders =
+      new java.util.HashMap<>();
 
   public MasterFxPanel(ChuckVM vm, org.chuck.deluge.midi.MidiService midiService) {
     this.vm = vm;
@@ -27,24 +28,26 @@ public class MasterFxPanel extends HBox {
     Label title = new Label("MASTER FX (Waiting for Engine...)");
     title.setStyle("-fx-text-fill: #aaa; -fx-font-weight: bold;");
     getChildren().add(title);
-    
+
     startTimer();
   }
 
   private void startTimer() {
-    javafx.animation.AnimationTimer timer = new javafx.animation.AnimationTimer() {
-      @Override
-      public void handle(long now) {
-        for (java.util.Map.Entry<String, javafx.scene.control.Slider> entry : paramSliders.entrySet()) {
-          String param = entry.getKey();
-          javafx.scene.control.Slider slider = entry.getValue();
-          double currentVal = vm.getGlobalFloat(param);
-          if (Math.abs(slider.getValue() - currentVal) > 0.01) {
-            slider.setValue(currentVal);
+    javafx.animation.AnimationTimer timer =
+        new javafx.animation.AnimationTimer() {
+          @Override
+          public void handle(long now) {
+            for (java.util.Map.Entry<String, javafx.scene.control.Slider> entry :
+                paramSliders.entrySet()) {
+              String param = entry.getKey();
+              javafx.scene.control.Slider slider = entry.getValue();
+              double currentVal = vm.getGlobalFloat(param);
+              if (Math.abs(slider.getValue() - currentVal) > 0.01) {
+                slider.setValue(currentVal);
+              }
+            }
           }
-        }
-      }
-    };
+        };
     timer.start();
   }
 
@@ -134,26 +137,29 @@ public class MasterFxPanel extends HBox {
     lbl.getStyleClass().add("master-fx-label");
 
     String paramName = "reverb." + m.getName();
-    
+
     Slider slider = new Slider(0.0, 1.0, 0.5); // Default 0-1 range
     slider.setPrefWidth(100);
     slider.setShowTickMarks(true);
-    
+
     paramSliders.put(paramName, slider);
 
     javafx.scene.control.ContextMenu contextMenu = new javafx.scene.control.ContextMenu();
     javafx.scene.control.MenuItem learnItem = new javafx.scene.control.MenuItem("MIDI Learn");
-    javafx.scene.control.MenuItem clearItem = new javafx.scene.control.MenuItem("Clear MIDI Mapping");
+    javafx.scene.control.MenuItem clearItem =
+        new javafx.scene.control.MenuItem("Clear MIDI Mapping");
     contextMenu.getItems().addAll(learnItem, clearItem);
     slider.setContextMenu(contextMenu);
 
-    learnItem.setOnAction(e -> {
-        midiService.startLearn(paramName);
-    });
+    learnItem.setOnAction(
+        e -> {
+          midiService.startLearn(paramName);
+        });
 
-    clearItem.setOnAction(e -> {
-        midiService.unlearn(paramName);
-    });
+    clearItem.setOnAction(
+        e -> {
+          midiService.unlearn(paramName);
+        });
     vm.setGlobalFloat(paramName, 0.5f);
 
     slider
@@ -182,17 +188,20 @@ public class MasterFxPanel extends HBox {
 
     javafx.scene.control.ContextMenu contextMenu = new javafx.scene.control.ContextMenu();
     javafx.scene.control.MenuItem learnItem = new javafx.scene.control.MenuItem("MIDI Learn");
-    javafx.scene.control.MenuItem clearItem = new javafx.scene.control.MenuItem("Clear MIDI Mapping");
+    javafx.scene.control.MenuItem clearItem =
+        new javafx.scene.control.MenuItem("Clear MIDI Mapping");
     contextMenu.getItems().addAll(learnItem, clearItem);
     slider.setContextMenu(contextMenu);
 
-    learnItem.setOnAction(e -> {
-        midiService.startLearn(paramName);
-    });
+    learnItem.setOnAction(
+        e -> {
+          midiService.startLearn(paramName);
+        });
 
-    clearItem.setOnAction(e -> {
-        midiService.unlearn(paramName);
-    });
+    clearItem.setOnAction(
+        e -> {
+          midiService.unlearn(paramName);
+        });
 
     // Initialize VM value
     vm.setGlobalFloat(paramName, def);

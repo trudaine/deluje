@@ -100,6 +100,22 @@ public class ArrangerPanel extends VBox {
           }
         });
 
+    trackCanvas.setOnMouseClicked(
+        event -> {
+          double x = event.getX();
+          double y = event.getY();
+
+          int trackIdx = (int) (y / trackHeight);
+          int barIdx = (int) viewModel.pixelToBar(x);
+
+          if (trackIdx >= 0 && trackIdx < numTracks && barIdx >= 1) {
+            String clipName = "CLIP_" + (trackIdx + 1);
+            viewModel.addClip(
+                new org.chuck.deluge.model.ArrangerClip(trackIdx, clipName, barIdx, 2));
+            redraw();
+          }
+        });
+
     ScrollPane scrollPane = new ScrollPane(timelineBox);
     scrollPane.setStyle("-fx-background: #222222; -fx-border-color: #444;");
     scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.ALWAYS);

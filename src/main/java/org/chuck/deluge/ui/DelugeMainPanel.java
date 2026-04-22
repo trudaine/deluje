@@ -43,7 +43,11 @@ public class DelugeMainPanel extends BorderPane {
 
   private ViewMode currentMode = ViewMode.CLIP;
 
-  public DelugeMainPanel(ChuckVM vm, BridgeContract bridge, org.chuck.audio.ChuckAudio audio, org.chuck.deluge.midi.MidiService midiService) {
+  public DelugeMainPanel(
+      ChuckVM vm,
+      BridgeContract bridge,
+      org.chuck.audio.ChuckAudio audio,
+      org.chuck.deluge.midi.MidiService midiService) {
     this.vm = vm;
     this.bridge = bridge;
     this.projectModel = new org.chuck.deluge.model.ProjectModel();
@@ -70,7 +74,8 @@ public class DelugeMainPanel extends BorderPane {
         new javafx.scene.control.MenuItem("Set Samples Directory...");
     samplesItem.setOnAction(e -> setSamplesDirectory());
 
-    javafx.scene.control.MenuItem preferencesItem = new javafx.scene.control.MenuItem("Preferences...");
+    javafx.scene.control.MenuItem preferencesItem =
+        new javafx.scene.control.MenuItem("Preferences...");
     preferencesItem.setOnAction(
         e -> {
           org.chuck.deluge.ui.popover.PreferencesDialog dialog =
@@ -123,57 +128,70 @@ public class DelugeMainPanel extends BorderPane {
     ribbonPanel = new ParameterRibbonPanel(vm, bridge);
     statusPanel = new StatusRibbonPanel(vm, bridge);
 
-    songPanel.setOnEditPresetRequest((track, clip) -> {
-        String trackName = track.getName();
-        String realName = trackName;
-        try {
+    songPanel.setOnEditPresetRequest(
+        (track, clip) -> {
+          String trackName = track.getName();
+          String realName = trackName;
+          try {
             int slot = Integer.parseInt(trackName.substring(trackName.indexOf(" ") + 1));
             String prefix = String.format("%03d", slot);
-            String folder = track.getType() == org.chuck.deluge.model.TrackType.KIT ? "/KITS" : "/SYNTHS";
-            java.util.List<String> presets = org.chuck.deluge.ui.ProjectSidebarPanel.getPresets(folder);
+            String folder =
+                track.getType() == org.chuck.deluge.model.TrackType.KIT ? "/KITS" : "/SYNTHS";
+            java.util.List<String> presets =
+                org.chuck.deluge.ui.ProjectSidebarPanel.getPresets(folder);
             for (String p : presets) {
-                if (p.startsWith(prefix)) {
-                    realName = p.substring(0, p.length() - 4); // Strip .XML
-                    break;
-                }
+              if (p.startsWith(prefix)) {
+                realName = p.substring(0, p.length() - 4); // Strip .XML
+                break;
+              }
             }
-        } catch (Exception e) {}
-        
-        sidebarPanel.getEditorPane().loadPreset(null, realName);
-        sidebarPanel.focusEditorTab();
-    });
+          } catch (Exception e) {
+          }
 
-    matrixPanel.setOnEditPresetRequest(() -> {
-        if (projectModel.getTracks().isEmpty()) return;
-        org.chuck.deluge.model.TrackModel track = projectModel.getTracks().get(0);
-        String trackName = track.getName();
-        String realName = trackName;
-        try {
+          sidebarPanel.getEditorPane().loadPreset(null, realName);
+          sidebarPanel.focusEditorTab();
+        });
+
+    matrixPanel.setOnEditPresetRequest(
+        () -> {
+          if (projectModel.getTracks().isEmpty()) return;
+          org.chuck.deluge.model.TrackModel track = projectModel.getTracks().get(0);
+          String trackName = track.getName();
+          String realName = trackName;
+          try {
             int slot = Integer.parseInt(trackName.substring(trackName.indexOf(" ") + 1));
             String prefix = String.format("%03d", slot);
-            String folder = track.getType() == org.chuck.deluge.model.TrackType.KIT ? "/KITS" : "/SYNTHS";
-            java.util.List<String> presets = org.chuck.deluge.ui.ProjectSidebarPanel.getPresets(folder);
+            String folder =
+                track.getType() == org.chuck.deluge.model.TrackType.KIT ? "/KITS" : "/SYNTHS";
+            java.util.List<String> presets =
+                org.chuck.deluge.ui.ProjectSidebarPanel.getPresets(folder);
             for (String p : presets) {
-                if (p.startsWith(prefix)) {
-                    realName = p.substring(0, p.length() - 4); // Strip .XML
-                    break;
-                }
+              if (p.startsWith(prefix)) {
+                realName = p.substring(0, p.length() - 4); // Strip .XML
+                break;
+              }
             }
-        } catch (Exception e) {}
-        
-        sidebarPanel.getEditorPane().loadPreset(null, realName);
-        sidebarPanel.focusEditorTab();
-    });
+          } catch (Exception e) {
+          }
+
+          sidebarPanel.getEditorPane().loadPreset(null, realName);
+          sidebarPanel.focusEditorTab();
+        });
 
     sidebarPanel = new ProjectSidebarPanel(vm, bridge);
 
-    sidebarPanel.getEditorPane().setOnParameterChange((param, value) -> {
-        String globalParam = "VOLUME".equals(param) ? BridgeContract.G_TRACK_LEVEL : BridgeContract.G_FILTER;
-        Object obj = vm.getGlobalObject(globalParam);
-        if (obj instanceof org.chuck.core.ChuckArray array) {
-            array.setFloat(0, value); // Live assign values into active track 0 for runtime live updates! 
-        }
-    });
+    sidebarPanel
+        .getEditorPane()
+        .setOnParameterChange(
+            (param, value) -> {
+              String globalParam =
+                  "VOLUME".equals(param) ? BridgeContract.G_TRACK_LEVEL : BridgeContract.G_FILTER;
+              Object obj = vm.getGlobalObject(globalParam);
+              if (obj instanceof org.chuck.core.ChuckArray array) {
+                array.setFloat(
+                    0, value); // Live assign values into active track 0 for runtime live updates!
+              }
+            });
 
     sidebarPanel.setOnPresetRequest(
         item -> {
@@ -319,27 +337,32 @@ public class DelugeMainPanel extends BorderPane {
     velocityPanel = new VelocityLanePanel(vm, bridge);
     velocityPanel.setEditModeSupplier(matrixPanel::getCurrentEditMode);
     globalParamPanel = new GlobalParamPanel(vm, bridge);
-    globalParamPanel.setOnGlobalTempoChange(bpm -> {
-        projectModel.setBpm(bpm);
-    });
+    globalParamPanel.setOnGlobalTempoChange(
+        bpm -> {
+          projectModel.setBpm(bpm);
+        });
     masterFxPanel = new MasterFxPanel(vm, midiService);
 
     transportPanel.setOnKitLoaded(matrixPanel::applyKit);
-    projectModel.setOnBpmChanged(bpm -> {
-        transportPanel.setTempo(bpm);
-        globalParamPanel.setGlobalTempo(bpm);
-    });
-    transportPanel.setOnTempoChange(bpm -> {
-        projectModel.setBpm(bpm.floatValue());
-    });
-    transportPanel.setOnRecordToggled(recording -> {
-      midiService.setRecording(recording);
-      bridge.setRecording(recording);
-    });
-    matrixPanel.setOnTrackSelected(track -> {
-      velocityPanel.setSelectedTrack(track);
-      globalParamPanel.setSelectedTrack(track);
-    });
+    projectModel.setOnBpmChanged(
+        bpm -> {
+          transportPanel.setTempo(bpm);
+          globalParamPanel.setGlobalTempo(bpm);
+        });
+    transportPanel.setOnTempoChange(
+        bpm -> {
+          projectModel.setBpm(bpm.floatValue());
+        });
+    transportPanel.setOnRecordToggled(
+        recording -> {
+          midiService.setRecording(recording);
+          bridge.setRecording(recording);
+        });
+    matrixPanel.setOnTrackSelected(
+        track -> {
+          velocityPanel.setSelectedTrack(track);
+          globalParamPanel.setSelectedTrack(track);
+        });
     ribbonPanel.setOnModeChange(matrixPanel::setEditMode);
 
     setLeft(sidebarPanel);
@@ -396,7 +419,9 @@ public class DelugeMainPanel extends BorderPane {
     }
 
     VBox bottomBox = new VBox(5);
-    bottomBox.getChildren().addAll(ribbonPanel, velocityPanel, globalParamPanel, masterFxPanel, statusPanel);
+    bottomBox
+        .getChildren()
+        .addAll(ribbonPanel, velocityPanel, globalParamPanel, masterFxPanel, statusPanel);
     setBottom(bottomBox);
   }
 

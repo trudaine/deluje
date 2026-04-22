@@ -42,7 +42,10 @@ public class ClipCell extends Button {
     setOnDragDetected(
         e -> {
           if (currentState != State.EMPTY) {
-            javafx.scene.input.TransferMode mode = e.isAltDown() ? javafx.scene.input.TransferMode.COPY : javafx.scene.input.TransferMode.MOVE;
+            javafx.scene.input.TransferMode mode =
+                e.isAltDown()
+                    ? javafx.scene.input.TransferMode.COPY
+                    : javafx.scene.input.TransferMode.MOVE;
             javafx.scene.input.Dragboard db = startDragAndDrop(mode);
             javafx.scene.input.ClipboardContent content = new javafx.scene.input.ClipboardContent();
             content.putString(patternId);

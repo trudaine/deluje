@@ -158,23 +158,25 @@ public class SynthTrackProcessor implements Shred {
     double trackLevel = trackLevelArr != null ? trackLevelArr.getFloat(trackId) : 0.7;
 
     env.gain((float) ((double) vel * (double) trackLevel * masterVol * 0.8));
-    
+
     double bpm = vm.getGlobalFloat(BridgeContract.G_BPM);
     double stepDurMs = 60000.0 / (bpm * 4.0);
 
     env.forceMute(); // Cut off previous note
-    
-    vm.spork(() -> {
-      env.keyOn();
-      advance(ms(gate_len * stepDurMs));
-      env.keyOff();
-      if (vm.getLogLevel() >= 2) {
-        vm.print("SYNTH note end track: " + trackId + "\n");
-      }
-    });
+
+    vm.spork(
+        () -> {
+          env.keyOn();
+          advance(ms(gate_len * stepDurMs));
+          env.keyOff();
+          if (vm.getLogLevel() >= 2) {
+            vm.print("SYNTH note end track: " + trackId + "\n");
+          }
+        });
 
     if (vm.getLogLevel() >= 2) {
-      vm.print("SYNTH trigger track: " + trackId + " step: " + (idx % 16) + " gate: " + gate_len + "\n");
+      vm.print(
+          "SYNTH trigger track: " + trackId + " step: " + (idx % 16) + " gate: " + gate_len + "\n");
     }
   }
 
