@@ -63,12 +63,38 @@ public class ScreenshotGenerator {
           mainPanel.getSongPanel().setProjectModel(loadedProject);
           mainPanel.getSongPanel().refresh();
         }
+        
+        // Expand tree in sidebar
+        ProjectSidebarPanel sidebar = mainPanel.getSidebarPanel();
+        if (sidebar != null) {
+            javafx.scene.control.TabPane tabs = (javafx.scene.control.TabPane) sidebar.getChildren().get(1);
+            javafx.scene.control.Tab libraryTab = tabs.getTabs().get(0);
+            javafx.scene.layout.VBox libBox = (javafx.scene.layout.VBox) libraryTab.getContent();
+            javafx.scene.control.TreeView<ProjectSidebarPanel.LibraryItem> tree = 
+                (javafx.scene.control.TreeView<ProjectSidebarPanel.LibraryItem>) libBox.getChildren().get(0);
+                
+            javafx.scene.control.TreeItem<ProjectSidebarPanel.LibraryItem> root = tree.getRoot();
+            if (root != null) {
+                for (javafx.scene.control.TreeItem<ProjectSidebarPanel.LibraryItem> child : root.getChildren()) {
+                    if ("SONGS".equals(child.getValue().name)) {
+                        child.setExpanded(true);
+                        for (javafx.scene.control.TreeItem<ProjectSidebarPanel.LibraryItem> songItem : child.getChildren()) {
+                            if ("song1".equals(songItem.getValue().name)) {
+                                tree.getSelectionModel().select(songItem);
+                                break;
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
       } catch (Exception e) {
         e.printStackTrace();
       }
     });
     
-    // Wait for refresh to complete in next pulse!
     runAndWait(() -> currentSnapshot = scene.snapshot(null));
     saveSnapshot(currentSnapshot, "../docs/step1_loaded.png", "Step 1: Song Loaded", "Grid populated from song1.xml.");
     
