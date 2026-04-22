@@ -568,4 +568,9 @@ public class DelugeMainPanel extends BorderPane {
   public void setView(ViewMode mode) {
     javafx.application.Platform.runLater(() -> switchView(mode));
   }
+
+  public void setProjectModel(org.chuck.deluge.model.ProjectModel projectModel) {
+    this.projectModel = projectModel;
+    songPanel.setProjectModel(projectModel);
+  }
 }

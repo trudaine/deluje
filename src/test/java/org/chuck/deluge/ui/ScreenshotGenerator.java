@@ -82,13 +82,27 @@ public class ScreenshotGenerator {
           }
       }
       
-      // Simulate loaded steps (to ensure grid changes visually)
-      bridge.setStep(0, 2, true);
-      bridge.setStep(0, 5, true);
-      bridge.setStep(0, 8, true);
-      bridge.setStep(0, 10, true);
+      org.chuck.deluge.model.ProjectModel loadedProject = new org.chuck.deluge.model.ProjectModel();
       
+      org.chuck.deluge.model.TrackModel track1 = new org.chuck.deluge.model.KitTrackModel("KIT 0");
+      org.chuck.deluge.model.ClipModel clip1 = new org.chuck.deluge.model.ClipModel("CLIP 0", 1, 16);
+      clip1.setColor("#00ffcc");
+      track1.addClip(clip1);
+      
+      org.chuck.deluge.model.TrackModel track2 = new org.chuck.deluge.model.SynthTrackModel("SYNTH 0");
+      org.chuck.deluge.model.ClipModel clip2 = new org.chuck.deluge.model.ClipModel("CLIP 1", 1, 16);
+      clip2.setColor("#ff0055");
+      track2.addClip(clip2);
+      
+      loadedProject.getTracks().add(track1);
+      loadedProject.getTracks().add(track2);
+      
+      mainPanel.setProjectModel(loadedProject);
       mainPanel.getSongPanel().refresh();
+      
+      System.out.println("TRACE: Loaded project with " + loadedProject.getTracks().size() + " tracks.");
+      System.out.println("TRACE: Track 0 has " + track1.getClips().size() + " clips.");
+      System.out.println("TRACE: Track 1 has " + track2.getClips().size() + " clips.");
     });
     
     // Switch to SONG view and take snapshot
@@ -98,10 +112,8 @@ public class ScreenshotGenerator {
     
     // Simulate selection of first clip
     runAndWait(() -> {
-        org.chuck.deluge.model.TrackModel track = new org.chuck.deluge.model.KitTrackModel("KIT 0");
-        org.chuck.deluge.model.ClipModel clip = new org.chuck.deluge.model.ClipModel("CLIP 0", 1, 16);
-        track.addClip(clip);
-        mainPanel.getProjectModel().getTracks().add(track);
+        org.chuck.deluge.model.TrackModel track = mainPanel.getProjectModel().getTracks().get(0);
+        org.chuck.deluge.model.ClipModel clip = track.getClips().get(0);
         
         mainPanel.getMatrixPanel().setSynthMode(false);
         mainPanel.getMatrixPanel().setBaseTrack(0);
