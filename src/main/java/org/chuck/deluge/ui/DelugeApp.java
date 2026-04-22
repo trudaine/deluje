@@ -38,6 +38,8 @@ public class DelugeApp extends Application {
 
     // 2. Initialize Audio Engine (CRITICAL: This drives the VM clock)
     boolean isDummy = Boolean.getBoolean("chuck.audio.dummy");
+    boolean debugAudio = Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("debug.audio", "false"));
+    org.chuck.audio.util.DacChannel.DEBUG_AUDIO = debugAudio;
     if (!isDummy) {
       audio = new ChuckAudio(vm, 1024, 2, SAMPLE_RATE);
       vm.setAudio(audio);

@@ -64,6 +64,13 @@ public class MappingConfigDialog extends Dialog<Void> {
     
     grid.add(mappingList, 1, 3);
 
+    // Debug Audio Toggle
+    grid.add(new Label("Debug Audio:"), 0, 4);
+    javafx.scene.control.CheckBox debugCheck = new javafx.scene.control.CheckBox();
+    boolean currentDebug = Boolean.parseBoolean(PreferencesManager.get("debug.audio", "false"));
+    debugCheck.setSelected(currentDebug);
+    grid.add(debugCheck, 1, 4);
+
     getDialogPane().setContent(grid);
 
     setResultConverter(
@@ -72,6 +79,8 @@ public class MappingConfigDialog extends Dialog<Void> {
             PreferencesManager.set("reverb.model", reverbCombo.getValue());
             PreferencesManager.set("midi.input", midiCombo.getValue());
             PreferencesManager.set("show.visualizers", String.valueOf(visCheck.isSelected()));
+            PreferencesManager.set("debug.audio", String.valueOf(debugCheck.isSelected()));
+            org.chuck.audio.util.DacChannel.DEBUG_AUDIO = debugCheck.isSelected();
           }
           return null;
         });

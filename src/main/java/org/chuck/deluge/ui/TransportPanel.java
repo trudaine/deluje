@@ -182,23 +182,7 @@ public class TransportPanel extends HBox {
           }
         });
 
-    Button debugBtn = new Button("🐞 DEBUG");
-    debugBtn.setStyle(
-        "-fx-background-color: #555555; -fx-text-fill: white; -fx-font-weight: bold;");
-    debugBtn.setOnAction(
-        e -> {
-          org.chuck.audio.util.DacChannel.DEBUG_AUDIO =
-              !org.chuck.audio.util.DacChannel.DEBUG_AUDIO;
-          if (org.chuck.audio.util.DacChannel.DEBUG_AUDIO) {
-            debugBtn.setStyle(
-                "-fx-background-color: #ff9800; -fx-text-fill: black; -fx-font-weight: bold;");
-          } else {
-            debugBtn.setStyle(
-                "-fx-background-color: #555555; -fx-text-fill: white; -fx-font-weight: bold;");
-          }
-        });
-
-    getChildren().addAll(transportButtons, tempoBox, swingBox, volBox, loadBtn, debugBtn);
+    getChildren().addAll(transportButtons, tempoBox, swingBox, volBox, loadBtn);
   }
 
   public void setOnKitLoaded(
