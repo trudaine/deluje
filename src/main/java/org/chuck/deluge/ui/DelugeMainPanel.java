@@ -319,9 +319,15 @@ public class DelugeMainPanel extends BorderPane {
     velocityPanel = new VelocityLanePanel(vm, bridge);
     velocityPanel.setEditModeSupplier(matrixPanel::getCurrentEditMode);
     globalParamPanel = new GlobalParamPanel(vm, bridge);
+    globalParamPanel.setOnGlobalTempoChange(bpm -> {
+        projectModel.setBpm(bpm);
+    });
     masterFxPanel = new MasterFxPanel(vm, midiService);
 
     transportPanel.setOnKitLoaded(matrixPanel::applyKit);
+    projectModel.setOnBpmChanged(bpm -> {
+        transportPanel.setTempo(bpm);
+    });
     transportPanel.setOnRecordToggled(recording -> {
       midiService.setRecording(recording);
       bridge.setRecording(recording);

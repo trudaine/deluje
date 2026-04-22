@@ -144,6 +144,19 @@ public class DelugeXmlParser {
 
     ProjectModel project = new ProjectModel();
 
+    if (songNode.hasAttribute("tempo")) {
+      project.setBpm(Float.parseFloat(songNode.getAttribute("tempo")));
+    }
+    if (songNode.hasAttribute("swing")) {
+      project.setSwing(Float.parseFloat(songNode.getAttribute("swing")));
+    }
+    if (songNode.hasAttribute("key")) {
+      project.setKey(songNode.getAttribute("key"));
+    }
+    if (songNode.hasAttribute("scale")) {
+      project.setScale(songNode.getAttribute("scale"));
+    }
+
     // 1. Parse Instruments
     NodeList instNodes = songNode.getElementsByTagName("instruments");
     if (instNodes.getLength() > 0) {

@@ -193,4 +193,10 @@ public class TransportPanel extends HBox {
   public void setOnRecordToggled(java.util.function.Consumer<Boolean> onRecordToggled) {
     this.onRecordToggled = onRecordToggled;
   }
+  public void setTempo(double bpm) {
+    javafx.application.Platform.runLater(() -> {
+      tempoSlider.setValue(bpm);
+      tempoLabel.setText(String.format("TEMPO: %.1f", bpm));
+    });
+  }
 }

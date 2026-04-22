@@ -16,6 +16,15 @@ public class ProjectModel {
   private int transpose = 0;
   private float humanize = 0.0f;
 
+  private String key = "0";
+  private String scale = "Major";
+
+  private java.util.function.Consumer<Float> onBpmChanged;
+
+  public void setOnBpmChanged(java.util.function.Consumer<Float> callback) {
+    this.onBpmChanged = callback;
+  }
+
   // Track Models (Active in Clip mode)
   private final List<TrackModel> tracks = new ArrayList<>();
 
@@ -32,6 +41,9 @@ public class ProjectModel {
 
   public void setBpm(float bpm) {
     this.bpm = Math.max(1.0f, Math.min(300.0f, bpm));
+    if (onBpmChanged != null) {
+      onBpmChanged.accept(this.bpm);
+    }
   }
 
   public float getSwing() {
@@ -108,5 +120,21 @@ public class ProjectModel {
 
   public void addArrangerClip(ArrangerClip clip) {
     this.arrangerTimeline.add(clip);
+  }
+
+  public String getKey() {
+    return key;
+  }
+
+  public void setKey(String key) {
+    this.key = key;
+  }
+
+  public String getScale() {
+    return scale;
+  }
+
+  public void setScale(String scale) {
+    this.scale = scale;
   }
 }
