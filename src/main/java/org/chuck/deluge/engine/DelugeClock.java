@@ -52,7 +52,7 @@ public class DelugeClock implements Shred {
         vm.setGlobalInt(BridgeContract.G_CURRENT_STEP, -1L);
         // In headless/test mode, advance(ms(1)) might be too slow if the test finishes too fast
         // or if virtual time isn't advancing as expected.
-        advance(samp(100));
+        advance(ms(10));
       }
     }
   }
