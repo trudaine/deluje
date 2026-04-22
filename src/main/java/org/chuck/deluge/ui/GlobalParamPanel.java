@@ -32,6 +32,9 @@ public class GlobalParamPanel extends HBox {
     levelBox.setAlignment(Pos.CENTER_LEFT);
     Label levelLabel = new Label("TRACK LEVEL:");
     levelLabel.setStyle("-fx-text-fill: #aaa; -fx-font-family: 'Monospaced'; -fx-font-size: 10px; -fx-font-weight: bold;");
+    javafx.scene.control.Tooltip tooltip = new javafx.scene.control.Tooltip(org.chuck.deluge.ui.util.HelpTextManager.getHelp("LEVEL"));
+    tooltip.setStyle("-fx-font-family: 'Monospaced'; -fx-font-size: 11px;");
+    javafx.scene.control.Tooltip.install(levelLabel, tooltip);
     levelSlider = new Slider(0.0, 1.0, 1.0);
     levelSlider.setPrefWidth(150);
     levelSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
@@ -47,6 +50,9 @@ public class GlobalParamPanel extends HBox {
     transBox.setAlignment(Pos.CENTER_LEFT);
     Label transLabel = new Label("TRANSPOSE:");
     transLabel.setStyle("-fx-text-fill: #aaa; -fx-font-family: 'Monospaced'; -fx-font-size: 10px; -fx-font-weight: bold;");
+    javafx.scene.control.Tooltip transTooltip = new javafx.scene.control.Tooltip(org.chuck.deluge.ui.util.HelpTextManager.getHelp("TRANSPOSE"));
+    transTooltip.setStyle("-fx-font-family: 'Monospaced'; -fx-font-size: 11px;");
+    javafx.scene.control.Tooltip.install(transLabel, transTooltip);
     transSlider = new Slider(-24, 24, 0);
     transSlider.setPrefWidth(150);
     transSlider.setShowTickMarks(true);
