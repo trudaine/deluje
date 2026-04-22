@@ -23,6 +23,11 @@ public class TransportPanel extends HBox {
   private final Slider tempoSlider;
   private final Label swingLabel;
   private final Slider swingSlider;
+  private java.util.function.Consumer<Double> onTempoChange;
+
+  public void setOnTempoChange(java.util.function.Consumer<Double> callback) {
+    this.onTempoChange = callback;
+  }
 
   private java.util.function.Consumer<org.chuck.deluge.model.KitTrackModel> onKitLoaded;
   private java.util.function.Consumer<Boolean> onRecordToggled;
@@ -78,6 +83,9 @@ public class TransportPanel extends HBox {
               double bpm = newVal.doubleValue();
               tempoLabel.setText(String.format("TEMPO: %.1f", bpm));
               vm.setGlobalFloat(BridgeContract.G_BPM, bpm);
+              if (onTempoChange != null) {
+                onTempoChange.accept(bpm);
+              }
             });
     tempoBox.getChildren().addAll(tempoLabel, tempoSlider);
 
