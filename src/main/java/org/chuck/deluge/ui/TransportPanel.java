@@ -25,6 +25,7 @@ public class TransportPanel extends HBox {
   private final Slider swingSlider;
 
   private java.util.function.Consumer<org.chuck.deluge.model.KitTrackModel> onKitLoaded;
+  private java.util.function.Consumer<Boolean> onRecordToggled;
 
   public TransportPanel(ChuckVM vm, BridgeContract bridge) {
     this.vm = vm;
@@ -53,7 +54,15 @@ public class TransportPanel extends HBox {
           vm.setGlobalInt(BridgeContract.G_CURRENT_STEP, -1L);
         });
 
-    transportButtons.getChildren().addAll(playBtn, stopBtn);
+    javafx.scene.control.ToggleButton recordBtn = new javafx.scene.control.ToggleButton("● REC");
+    recordBtn.setStyle("-fx-base: #444; -fx-text-fill: #ff1744; -fx-font-weight: bold; -fx-font-size: 14px; -fx-padding: 8 15;");
+    recordBtn.setOnAction(e -> {
+        if (onRecordToggled != null) {
+            onRecordToggled.accept(recordBtn.isSelected());
+        }
+    });
+
+    transportButtons.getChildren().addAll(playBtn, stopBtn, recordBtn);
 
     // Tempo Control
     VBox tempoBox = new VBox(2);
@@ -195,5 +204,9 @@ public class TransportPanel extends HBox {
   public void setOnKitLoaded(
       java.util.function.Consumer<org.chuck.deluge.model.KitTrackModel> onKitLoaded) {
     this.onKitLoaded = onKitLoaded;
+  }
+
+  public void setOnRecordToggled(java.util.function.Consumer<Boolean> onRecordToggled) {
+    this.onRecordToggled = onRecordToggled;
   }
 }

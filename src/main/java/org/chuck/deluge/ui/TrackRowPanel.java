@@ -18,6 +18,7 @@ public class TrackRowPanel extends HBox {
   private final StepCellButton[] cells;
   private final Button auditionBtn;
   private int baseTrack = 0;
+  private int stepOffset = 0;
 
   private final ChuckVM vm;
   private final BridgeContract bridge;
@@ -78,9 +79,14 @@ public class TrackRowPanel extends HBox {
     }
   }
 
+  public void setStepOffset(int offset) {
+    this.stepOffset = offset;
+    refreshCells();
+  }
+
   public void refreshCells() {
     for (StepCellButton cell : cells) {
-      cell.setSelected(bridge.getStep(baseTrack + rowId, cell.getStepId()));
+      cell.setSelected(bridge.getStep(baseTrack + rowId, stepOffset + cell.getStepId()));
       cell.updateStyle();
     }
   }
@@ -99,8 +105,9 @@ public class TrackRowPanel extends HBox {
   }
 
   public void highlightStep(int col, boolean active) {
-    if (col >= 0 && col < 16) {
-      cells[col].setPlayheadActive(active);
+    int visibleCol = col - stepOffset;
+    if (visibleCol >= 0 && visibleCol < 16) {
+      cells[visibleCol].setPlayheadActive(active);
     }
   }
 

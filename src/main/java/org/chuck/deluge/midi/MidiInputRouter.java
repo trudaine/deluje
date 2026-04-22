@@ -15,6 +15,13 @@ public class MidiInputRouter {
 
   private boolean followModeEnabled = true;
   private int activeTrackIndex = 4; // Default to first synth track
+  
+  private static class NoteStartInfo {
+    long time;
+    int step;
+    NoteStartInfo(long t, int s) { this.time = t; this.step = s; }
+  }
+  private final java.util.Map<Integer, NoteStartInfo> activeNoteStarts = new java.util.HashMap<>();
 
   public MidiInputRouter(ChuckVM vm, BridgeContract bridge) {
     this.vm = vm;
@@ -44,6 +51,9 @@ public class MidiInputRouter {
       int midiNote = msg.data2;
       int velocity = msg.data3;
 
+      // Store start time and step
+      activeNoteStarts.put(midiNote, new NoteStartInfo(vm.getCurrentTime(), currentStep));
+
       if (activeTrackIndex < 4) {
         // Kit track: map note to row (e.g., 36 -> row 0, 38 -> row 1, etc.)
         int row = midiNote - 36;
@@ -60,20 +70,16 @@ public class MidiInputRouter {
         bridge.setGate(activeTrackIndex, currentStep, 1.0);
       }
 
-      // Set step as active (pattern = 1)
-      bridge.setStep(activeTrackIndex, currentStep, true);
-
-      // Set velocity (0.0 - 1.0)
-      bridge.setVelocity(activeTrackIndex, currentStep, velocity / 127.0);
-
-      // Keep gate open
-      bridge.setGate(activeTrackIndex, currentStep, 1.0);
-
     } else if (msg.isNoteOff()) {
-      // In a full implementation we'd calculate the duration since NoteOn to set the precise Gate
-      // length.
-      // For MVP, we just decrement the gate slightly to simulate a release.
-      bridge.setGate(activeTrackIndex, currentStep, 0.5);
+      int midiNote = msg.data2;
+      NoteStartInfo start = activeNoteStarts.remove(midiNote);
+      if (start != null) {
+        long duration = vm.getCurrentTime() - start.time;
+        // Convert duration to gate length
+        // Assuming 120 BPM, 1 step = 125ms = 5512.5 samples at 44100Hz
+        double gate = (double) duration / (vm.getSampleRate() * 0.125);
+        bridge.setGate(activeTrackIndex, start.step, Math.min(1.0, gate));
+      }
     }
   }
 }
