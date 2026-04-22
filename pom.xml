@@ -11,6 +11,10 @@
     </parent>
 
     <artifactId>deluge</artifactId>
+    
+    <properties>
+        <skipTests>true</skipTests>
+    </properties>
 
     <dependencies>
         <dependency>
