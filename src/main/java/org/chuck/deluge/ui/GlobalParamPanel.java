@@ -2,6 +2,7 @@ package org.chuck.deluge.ui;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
 import javafx.scene.layout.HBox;
@@ -14,6 +15,12 @@ public class GlobalParamPanel extends HBox {
   private final ChuckVM vm;
   private final BridgeContract bridge;
   private int selectedTrack = 0;
+
+  private java.util.function.Consumer<Float> onGlobalTempoChange;
+
+  public void setOnGlobalTempoChange(java.util.function.Consumer<Float> callback) {
+    this.onGlobalTempoChange = callback;
+  }
 
   private final Slider levelSlider;
   private final Slider transSlider;
@@ -32,6 +39,7 @@ public class GlobalParamPanel extends HBox {
     levelBox.setAlignment(Pos.CENTER_LEFT);
     Label levelLabel = new Label("TRACK LEVEL:");
     levelLabel.setStyle("-fx-text-fill: #aaa; -fx-font-family: 'Monospaced'; -fx-font-size: 10px; -fx-font-weight: bold;");
+    levelLabel.setPrefWidth(120);
     if (Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("show.tooltips", "true"))) {
       javafx.scene.control.Tooltip tooltip = new javafx.scene.control.Tooltip(org.chuck.deluge.ui.util.HelpTextManager.getHelp("LEVEL"));
       tooltip.setStyle("-fx-font-family: 'Monospaced'; -fx-font-size: 11px;");
@@ -53,6 +61,7 @@ public class GlobalParamPanel extends HBox {
     transBox.setAlignment(Pos.CENTER_LEFT);
     Label transLabel = new Label("TRANSPOSE:");
     transLabel.setStyle("-fx-text-fill: #aaa; -fx-font-family: 'Monospaced'; -fx-font-size: 10px; -fx-font-weight: bold;");
+    transLabel.setPrefWidth(120);
     if (Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("show.tooltips", "true"))) {
       javafx.scene.control.Tooltip transTooltip = new javafx.scene.control.Tooltip(org.chuck.deluge.ui.util.HelpTextManager.getHelp("TRANSPOSE"));
       transTooltip.setStyle("-fx-font-family: 'Monospaced'; -fx-font-size: 11px;");
@@ -68,7 +77,42 @@ public class GlobalParamPanel extends HBox {
     transSlider.setMinorTickCount(12);
     transBox.getChildren().addAll(transLabel, transSlider);
 
-    getChildren().addAll(levelBox, transBox);
+    // 3. Global Tempo
+    HBox tempoBox = new HBox(10);
+    tempoBox.setAlignment(Pos.CENTER_LEFT);
+    Label tempoLabel = new Label("GLOBAL TEMPO:");
+    tempoLabel.setStyle("-fx-text-fill: #aaa; -fx-font-family: 'Monospaced'; -fx-font-size: 10px; -fx-font-weight: bold;");
+    tempoLabel.setPrefWidth(120);
+    Slider tempoSlider = new Slider(60, 200, 120);
+    tempoSlider.setPrefWidth(100);
+    tempoSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
+        if (onGlobalTempoChange != null) {
+            onGlobalTempoChange.accept(newVal.floatValue());
+        }
+    });
+    tempoBox.getChildren().addAll(tempoLabel, tempoSlider);
+
+    // 4. Global Scale combo
+    HBox scaleBox = new HBox(10);
+    scaleBox.setAlignment(Pos.CENTER_LEFT);
+    Label scaleLabel = new Label("SCALE:");
+    scaleLabel.setStyle("-fx-text-fill: #aaa; -fx-font-family: 'Monospaced'; -fx-font-size: 10px; -fx-font-weight: bold;");
+    scaleLabel.setPrefWidth(120);
+    
+    ComboBox<String> scaleCombo = new ComboBox<>();
+    scaleCombo.getItems().addAll("Major", "Minor", "Pentatonic", "Chromatic");
+    scaleCombo.setValue("Major");
+    scaleBox.getChildren().addAll(scaleLabel, scaleCombo);
+
+    javafx.scene.layout.VBox rows = new javafx.scene.layout.VBox(5);
+    javafx.scene.layout.HBox row1 = new javafx.scene.layout.HBox(25);
+    javafx.scene.layout.HBox row2 = new javafx.scene.layout.HBox(25);
+
+    row1.getChildren().addAll(levelBox, transBox);
+    row2.getChildren().addAll(tempoBox, scaleBox);
+    rows.getChildren().addAll(row1, row2);
+
+    getChildren().add(rows);
     startTimer();
   }
 
