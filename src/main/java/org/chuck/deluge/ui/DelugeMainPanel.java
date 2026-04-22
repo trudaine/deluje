@@ -354,7 +354,7 @@ public class DelugeMainPanel extends BorderPane {
     setTop(topBox);
 
     transportWithMode.setPadding(new Insets(10, 10, 5, 10));
-    ribbonPanel.setPadding(new Insets(5, 10, 5, 119));
+    ribbonPanel.setPadding(new Insets(5, 10, 5, 369));
 
     setCenter(matrixPanel);
 
