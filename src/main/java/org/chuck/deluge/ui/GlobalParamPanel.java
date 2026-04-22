@@ -71,7 +71,7 @@ public class GlobalParamPanel extends HBox {
           public void handle(long now) {
             Object obj = vm.getGlobalObject(BridgeContract.G_TRACK_LEVEL);
             if (obj instanceof ChuckArray array) {
-              float current = array.getFloat(selectedTrack);
+              double current = array.getFloat(selectedTrack);
               if (Math.abs(levelSlider.getValue() - current) > 0.01) {
                 levelSlider.setValue(current);
               }
