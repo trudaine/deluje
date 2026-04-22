@@ -24,6 +24,7 @@ public class TransportPanel extends HBox {
   private final Label swingLabel;
   private final Slider swingSlider;
   private java.util.function.Consumer<Double> onTempoChange;
+  private boolean isProgrammaticUpdate = false;
 
   public void setOnTempoChange(java.util.function.Consumer<Double> callback) {
     this.onTempoChange = callback;
@@ -83,8 +84,10 @@ public class TransportPanel extends HBox {
               double bpm = newVal.doubleValue();
               tempoLabel.setText(String.format("TEMPO: %.1f", bpm));
               vm.setGlobalFloat(BridgeContract.G_BPM, bpm);
-              if (onTempoChange != null) {
-                onTempoChange.accept(bpm);
+              if (!isProgrammaticUpdate) {
+                if (onTempoChange != null) {
+                  onTempoChange.accept(bpm);
+                }
               }
             });
     tempoBox.getChildren().addAll(tempoLabel, tempoSlider);
@@ -203,10 +206,10 @@ public class TransportPanel extends HBox {
   }
   public void setTempo(double bpm) {
     javafx.application.Platform.runLater(() -> {
-      if (Math.abs(tempoSlider.getValue() - bpm) > 0.1) {
-        tempoSlider.setValue(bpm);
-        tempoLabel.setText(String.format("TEMPO: %.1f", bpm));
-      }
+      isProgrammaticUpdate = true;
+      tempoSlider.setValue(bpm);
+      tempoLabel.setText(String.format("TEMPO: %.1f", bpm));
+      isProgrammaticUpdate = false;
     });
   }
 }

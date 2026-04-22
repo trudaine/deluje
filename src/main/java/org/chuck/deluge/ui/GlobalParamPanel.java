@@ -14,6 +14,7 @@ import org.chuck.deluge.BridgeContract;
 public class GlobalParamPanel extends HBox {
   private final ChuckVM vm;
   private final BridgeContract bridge;
+  private boolean isProgrammaticUpdate = false;
   private Slider tempoSlider;
   private int selectedTrack = 0;
 
@@ -87,9 +88,11 @@ public class GlobalParamPanel extends HBox {
     tempoSlider = new Slider(60, 200, 120);
     tempoSlider.setPrefWidth(100);
     tempoSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
+      if (!isProgrammaticUpdate) {
         if (onGlobalTempoChange != null) {
-            onGlobalTempoChange.accept(newVal.floatValue());
+          onGlobalTempoChange.accept(newVal.floatValue());
         }
+      }
     });
     tempoBox.getChildren().addAll(tempoLabel, tempoSlider);
 
@@ -119,8 +122,10 @@ public class GlobalParamPanel extends HBox {
 
   public void setGlobalTempo(float bpm) {
     javafx.application.Platform.runLater(() -> {
-      if (tempoSlider != null && Math.abs(tempoSlider.getValue() - bpm) > 0.1) {
+      if (tempoSlider != null) {
+        isProgrammaticUpdate = true;
         tempoSlider.setValue(bpm);
+        isProgrammaticUpdate = false;
       }
     });
   }
