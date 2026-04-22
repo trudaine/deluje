@@ -178,7 +178,7 @@ public class DelugeMainPanel extends BorderPane {
           sidebarPanel.focusEditorTab();
         });
 
-    sidebarPanel = new ProjectSidebarPanel(vm, bridge);
+    sidebarPanel = new ProjectSidebarPanel(vm, bridge, midiService);
 
     sidebarPanel
         .getEditorPane()

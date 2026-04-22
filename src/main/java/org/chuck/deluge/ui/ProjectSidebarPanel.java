@@ -11,10 +11,13 @@ import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.stream.Stream;
 import javafx.geometry.Insets;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeView;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
@@ -26,6 +29,7 @@ public class ProjectSidebarPanel extends VBox {
   private final ChuckVM vm;
   private final BridgeContract bridge;
 
+  private final org.chuck.deluge.midi.MidiService midiService;
   private TreeView<String> projectTree;
   private java.util.function.Consumer<Integer> onClipSelected;
   private PresetEditorPane editorPane;
@@ -51,9 +55,11 @@ public class ProjectSidebarPanel extends VBox {
 
   private java.util.function.Consumer<LibraryItem> onPresetRequest;
 
-  public ProjectSidebarPanel(ChuckVM vm, BridgeContract bridge) {
+  public ProjectSidebarPanel(
+      ChuckVM vm, BridgeContract bridge, org.chuck.deluge.midi.MidiService midiService) {
     this.vm = vm;
     this.bridge = bridge;
+    this.midiService = midiService;
 
     setPrefWidth(400);
     setMinWidth(400);
@@ -68,8 +74,9 @@ public class ProjectSidebarPanel extends VBox {
     editorPane = new PresetEditorPane(vm, bridge);
     Tab libraryTab = new Tab("LIBRARY", createLibraryBrowser(tabs, editorPane));
     Tab editorTab = new Tab("EDITOR", editorPane);
+    Tab midiTab = new Tab("MIDI", createMidiPage());
 
-    tabs.getTabs().addAll(libraryTab, editorTab);
+    tabs.getTabs().addAll(libraryTab, editorTab, midiTab);
     getChildren().add(tabs);
     VBox.setVgrow(tabs, javafx.scene.layout.Priority.ALWAYS);
   }
@@ -326,5 +333,109 @@ public class ProjectSidebarPanel extends VBox {
           javafx.scene.control.TabPane tabs = (javafx.scene.control.TabPane) getChildren().get(1);
           tabs.getSelectionModel().select(1);
         });
+  }
+
+  private VBox createMidiPage() {
+    VBox box = new VBox(10);
+    box.setPadding(new Insets(15));
+    box.setStyle("-fx-background-color: #252525;");
+
+    Label title = new Label("MIDI MAPPING PAGE");
+    title.setStyle("-fx-text-fill: #00ffcc; -fx-font-weight: bold; -fx-font-size: 14px;");
+    box.getChildren().add(title);
+
+    Label info = new Label("Click 'LEARN', then turn a physical knob on your MIDI controller.");
+    info.setWrapText(true);
+    info.setStyle("-fx-text-fill: #aaaaaa; -fx-font-size: 11px;");
+    box.getChildren().add(info);
+
+    GridPane grid = new GridPane();
+    grid.setHgap(10);
+    grid.setVgap(10);
+
+    String[] params = {
+      BridgeContract.G_MASTER_VOL,
+      BridgeContract.G_MASTER_PAN,
+      BridgeContract.G_DELAY_TIME,
+      BridgeContract.G_DELAY_FB,
+      BridgeContract.G_REVERB_ROOM,
+      BridgeContract.G_REVERB_DAMP
+    };
+
+    String[] displayNames = {
+      "Master Volume",
+      "Master Pan",
+      "Delay Time",
+      "Delay Feedback",
+      "Reverb Room Size",
+      "Reverb Damping"
+    };
+
+    for (int i = 0; i < params.length; i++) {
+      final String param = params[i];
+      Label nameLabel = new Label(displayNames[i] + ":");
+      nameLabel.setStyle("-fx-text-fill: white;");
+      grid.add(nameLabel, 0, i);
+
+      Label mappingLabel = new Label("CC: None");
+      mappingLabel.setStyle("-fx-text-fill: #ff9800;");
+
+      // Look up initial mapping
+      if (midiService != null) {
+        java.util.Map<String, Integer> currentMappings = midiService.getMappings();
+        if (currentMappings.containsKey(param)) {
+          mappingLabel.setText("CC: " + currentMappings.get(param));
+        }
+      }
+
+      grid.add(mappingLabel, 1, i);
+
+      Button learnBtn = new Button("LEARN");
+      learnBtn.setStyle("-fx-base: #444; -fx-text-fill: white; -fx-font-weight: bold;");
+      learnBtn.setOnAction(
+          e -> {
+            if (midiService != null) {
+              midiService.startLearn(param);
+              learnBtn.setText("LISTENING...");
+              learnBtn.setStyle("-fx-base: #ff5555; -fx-text-fill: white;");
+
+              // Poll to check when learned
+              javafx.animation.Timeline timeline =
+                  new javafx.animation.Timeline(
+                      new javafx.animation.KeyFrame(
+                          javafx.util.Duration.seconds(1),
+                          ev -> {
+                            if (!midiService.isLearning()) {
+                              learnBtn.setText("LEARN");
+                              learnBtn.setStyle("-fx-base: #444; -fx-text-fill: white;");
+                              java.util.Map<String, Integer> newMaps = midiService.getMappings();
+                              if (newMaps.containsKey(param)) {
+                                mappingLabel.setText("CC: " + newMaps.get(param));
+                              }
+                            }
+                          }));
+              timeline.setCycleCount(15); // Wait up to 15 seconds
+              timeline.play();
+            }
+          });
+      grid.add(learnBtn, 2, i);
+    }
+
+    box.getChildren().add(grid);
+
+    Button clearBtn = new Button("CLEAR ALL MAPPINGS");
+    clearBtn.setStyle("-fx-base: #663333; -fx-text-fill: white;");
+    clearBtn.setOnAction(
+        e -> {
+          if (midiService != null) {
+            for (String p : params) {
+              midiService.unlearn(p);
+            }
+            createMidiPage(); // Simple refresh trigger or just re-poll
+          }
+        });
+    box.getChildren().add(clearBtn);
+
+    return box;
   }
 }
