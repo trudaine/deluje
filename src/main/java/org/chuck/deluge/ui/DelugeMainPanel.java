@@ -68,15 +68,17 @@ public class DelugeMainPanel extends BorderPane {
     javafx.scene.control.MenuItem samplesItem =
         new javafx.scene.control.MenuItem("Set Samples Directory...");
     samplesItem.setOnAction(e -> setSamplesDirectory());
-    
+
     javafx.scene.control.MenuItem mappingsItem = new javafx.scene.control.MenuItem("Mappings...");
-    mappingsItem.setOnAction(e -> {
-        org.chuck.deluge.ui.popover.MappingConfigDialog dialog = new org.chuck.deluge.ui.popover.MappingConfigDialog();
-        dialog.showAndWait();
-        masterFxPanel.updateControls(true); // Force update of UI controls
-        statusPanel.updateStatus("RESTART REQUIRED FOR SOUND CHANGES");
-    });
-    
+    mappingsItem.setOnAction(
+        e -> {
+          org.chuck.deluge.ui.popover.MappingConfigDialog dialog =
+              new org.chuck.deluge.ui.popover.MappingConfigDialog();
+          dialog.showAndWait();
+          masterFxPanel.updateControls(true); // Force update of UI controls
+          statusPanel.updateStatus("RESTART REQUIRED FOR SOUND CHANGES");
+        });
+
     settingsMenu.getItems().addAll(samplesItem, mappingsItem);
 
     menuBar.getMenus().addAll(fileMenu, settingsMenu);
@@ -108,12 +110,13 @@ public class DelugeMainPanel extends BorderPane {
           }
         });
 
-    songPanel.setOnClipLaunched((track, clip) -> {
-        int trackIdx = projectModel.getTracks().indexOf(track);
-        if (trackIdx >= 0) {
+    songPanel.setOnClipLaunched(
+        (track, clip) -> {
+          int trackIdx = projectModel.getTracks().indexOf(track);
+          if (trackIdx >= 0) {
             matrixPanel.applyClip(clip, trackIdx * 8);
-        }
-    });
+          }
+        });
 
     songPanel.setOnCreateTrack(this::createNewTrack);
     ribbonPanel = new ParameterRibbonPanel(vm, bridge);
@@ -163,25 +166,26 @@ public class DelugeMainPanel extends BorderPane {
                     kitIdx++;
                   } else if (track instanceof org.chuck.deluge.model.SynthTrackModel synth) {
                     int trackIdx = loadedProject.getTracks().indexOf(track);
-                    
+
                     String oscType = synth.getOsc1Type();
                     int typeIdx = 1; // Default to Saw
                     if ("SINE".equals(oscType)) typeIdx = 0;
                     else if ("SQUARE".equals(oscType)) typeIdx = 2;
                     else if ("TRIANGLE".equals(oscType)) typeIdx = 3;
-                    
-                    ChuckArray oscTypeArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_OSC_TYPE);
-                    if (oscTypeArr != null) oscTypeArr.setInt(trackIdx, typeIdx);
-                    
-                    bridge.setTrackType(trackIdx, 1); // Set to SYNTH
-                    
-                    // Set global filter parameters
-                    ChuckArray gFilterArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_FILTER);
-                    if (gFilterArr != null) {
-                        gFilterArr.setFloat(trackIdx * 2, synth.getLpfFreq() / 20000.0f);
-                        gFilterArr.setFloat(trackIdx * 2 + 1, synth.getLpfRes());
-                    }
 
+                    ChuckArray oscTypeArr =
+                        (ChuckArray) vm.getGlobalObject(BridgeContract.G_OSC_TYPE);
+                    if (oscTypeArr != null) oscTypeArr.setInt(trackIdx, typeIdx);
+
+                    bridge.setTrackType(trackIdx, 1); // Set to SYNTH
+
+                    // Set global filter parameters
+                    ChuckArray gFilterArr =
+                        (ChuckArray) vm.getGlobalObject(BridgeContract.G_FILTER);
+                    if (gFilterArr != null) {
+                      gFilterArr.setFloat(trackIdx * 2, synth.getLpfFreq() / 20000.0f);
+                      gFilterArr.setFloat(trackIdx * 2 + 1, synth.getLpfRes());
+                    }
 
                     // Load sequence data for all clips of this synth!
                     for (org.chuck.deluge.model.ClipModel clip : synth.getClips()) {
@@ -309,14 +313,16 @@ public class DelugeMainPanel extends BorderPane {
     setCenter(matrixPanel);
 
     // Add Visualizers on the right if enabled
-    boolean showVis = Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("show.visualizers", "true"));
+    boolean showVis =
+        Boolean.parseBoolean(
+            org.chuck.deluge.project.PreferencesManager.get("show.visualizers", "true"));
     if (showVis) {
-        org.chuck.audio.analysis.FFT analyzer = new org.chuck.audio.analysis.FFT(1024);
-        org.chuck.audio.util.Scope scope = new org.chuck.audio.util.Scope(1024);
-        VisualizerPanel visualizerPanel = new VisualizerPanel(vm, audio, analyzer, scope);
-        visualizerPanel.setPrefWidth(200);
-        setRight(visualizerPanel);
-        visualizerPanel.start();
+      org.chuck.audio.analysis.FFT analyzer = new org.chuck.audio.analysis.FFT(1024);
+      org.chuck.audio.util.Scope scope = new org.chuck.audio.util.Scope(1024);
+      VisualizerPanel visualizerPanel = new VisualizerPanel(vm, audio, analyzer, scope);
+      visualizerPanel.setPrefWidth(200);
+      setRight(visualizerPanel);
+      visualizerPanel.start();
     }
 
     VBox bottomBox = new VBox(5);
@@ -364,71 +370,72 @@ public class DelugeMainPanel extends BorderPane {
   }
 
   private void createNewTrack(String type, String presetPath) {
-      try {
-          org.chuck.deluge.model.TrackModel newTrack;
-          int kitIdx = projectModel.getTracks().size();
-          int baseTrack = kitIdx * 8;
+    try {
+      org.chuck.deluge.model.TrackModel newTrack;
+      int kitIdx = projectModel.getTracks().size();
+      int baseTrack = kitIdx * 8;
 
-          if (type.equals("KIT")) {
-              try (java.io.InputStream is = getClass().getResourceAsStream(presetPath)) {
-                  if (is == null) throw new Exception("Preset not found: " + presetPath);
-                  newTrack = org.chuck.deluge.xml.DelugeXmlParser.parseKit(is, "KIT " + kitIdx);
-              }
-              
-              org.chuck.deluge.model.KitTrackModel kit = (org.chuck.deluge.model.KitTrackModel) newTrack;
-              java.util.List<org.chuck.deluge.model.KitTrackModel.KitSound> sounds = kit.getSounds();
-              for (int i = 0; i < 8; i++) {
-                  int trackId = baseTrack + i;
-                  if (i < sounds.size()) {
-                      String path = sounds.get(i).getSamplePath();
-                      vm.setGlobalString("g_sample_" + trackId, path != null ? path : "");
-                      bridge.setMute(trackId, false);
-                      bridge.setTrackType(trackId, 0);
-                  } else {
-                      vm.setGlobalString("g_sample_" + trackId, "");
-                      bridge.setMute(trackId, true);
-                  }
-              }
+      if (type.equals("KIT")) {
+        try (java.io.InputStream is = getClass().getResourceAsStream(presetPath)) {
+          if (is == null) throw new Exception("Preset not found: " + presetPath);
+          newTrack = org.chuck.deluge.xml.DelugeXmlParser.parseKit(is, "KIT " + kitIdx);
+        }
+
+        org.chuck.deluge.model.KitTrackModel kit = (org.chuck.deluge.model.KitTrackModel) newTrack;
+        java.util.List<org.chuck.deluge.model.KitTrackModel.KitSound> sounds = kit.getSounds();
+        for (int i = 0; i < 8; i++) {
+          int trackId = baseTrack + i;
+          if (i < sounds.size()) {
+            String path = sounds.get(i).getSamplePath();
+            vm.setGlobalString("g_sample_" + trackId, path != null ? path : "");
+            bridge.setMute(trackId, false);
+            bridge.setTrackType(trackId, 0);
           } else {
-              try (java.io.InputStream is = getClass().getResourceAsStream(presetPath)) {
-                  if (is == null) throw new Exception("Preset not found: " + presetPath);
-                  newTrack = org.chuck.deluge.xml.DelugeXmlParser.parseSynth(is, "SYNTH " + kitIdx);
-              }
-              bridge.setTrackType(baseTrack, 1);
+            vm.setGlobalString("g_sample_" + trackId, "");
+            bridge.setMute(trackId, true);
           }
-
-          // Explicitly clear bridge state for the new track bank!
-          for (int r = 0; r < 8; r++) {
-              for (int s = 0; s < 16; s++) {
-                  bridge.setStep(baseTrack + r, s, false);
-                  bridge.setPitch(baseTrack + r, s, 0);
-              }
-          }
-
-          org.chuck.deluge.model.ClipModel newClip = new org.chuck.deluge.model.ClipModel("CLIP 0", 8, 16);
-          newTrack.addClip(newClip);
-          
-          projectModel.addTrack(newTrack);
-          
-          songPanel.refresh();
-          
-          matrixPanel.setBaseTrack(baseTrack);
-          matrixPanel.setSynthMode(type.equals("SYNTH"));
-          if (type.equals("KIT")) {
-              matrixPanel.applyKit((org.chuck.deluge.model.KitTrackModel) newTrack);
-          }
-          matrixPanel.applyClip(newClip, baseTrack);
-          switchView(ViewMode.CLIP);
-          if (clipBtn != null) {
-              clipBtn.setSelected(true);
-          }
-          
-          statusPanel.updateStatus("TRACK CREATED: " + newTrack.getName());
-          
-      } catch (Exception e) {
-          statusPanel.updateStatus("ERROR: " + e.getMessage());
-          e.printStackTrace();
+        }
+      } else {
+        try (java.io.InputStream is = getClass().getResourceAsStream(presetPath)) {
+          if (is == null) throw new Exception("Preset not found: " + presetPath);
+          newTrack = org.chuck.deluge.xml.DelugeXmlParser.parseSynth(is, "SYNTH " + kitIdx);
+        }
+        bridge.setTrackType(baseTrack, 1);
       }
+
+      // Explicitly clear bridge state for the new track bank!
+      for (int r = 0; r < 8; r++) {
+        for (int s = 0; s < 16; s++) {
+          bridge.setStep(baseTrack + r, s, false);
+          bridge.setPitch(baseTrack + r, s, 0);
+        }
+      }
+
+      org.chuck.deluge.model.ClipModel newClip =
+          new org.chuck.deluge.model.ClipModel("CLIP 0", 8, 16);
+      newTrack.addClip(newClip);
+
+      projectModel.addTrack(newTrack);
+
+      songPanel.refresh();
+
+      matrixPanel.setBaseTrack(baseTrack);
+      matrixPanel.setSynthMode(type.equals("SYNTH"));
+      if (type.equals("KIT")) {
+        matrixPanel.applyKit((org.chuck.deluge.model.KitTrackModel) newTrack);
+      }
+      matrixPanel.applyClip(newClip, baseTrack);
+      switchView(ViewMode.CLIP);
+      if (clipBtn != null) {
+        clipBtn.setSelected(true);
+      }
+
+      statusPanel.updateStatus("TRACK CREATED: " + newTrack.getName());
+
+    } catch (Exception e) {
+      statusPanel.updateStatus("ERROR: " + e.getMessage());
+      e.printStackTrace();
+    }
   }
 
   public void saveProject() {
