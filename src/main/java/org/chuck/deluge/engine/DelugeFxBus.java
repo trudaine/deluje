@@ -82,8 +82,8 @@ public class DelugeFxBus implements Shred {
 
     ChuckEvent tickEvent = (ChuckEvent) vm.getGlobalObject(BridgeContract.TICK_EVENT);
 
-    while (true) {
-      // Wait for next step to update params (avoids zipper noise)
+    org.chuck.core.ChuckShred current = org.chuck.core.ChuckShred.CURRENT_SHRED.get();
+    while (current != null && !current.isDone()) {
       if (tickEvent != null) advance(tickEvent);
       else advance(ms(100));
 
