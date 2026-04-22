@@ -42,7 +42,7 @@ public class DelugeMainPanel extends BorderPane {
 
   private ViewMode currentMode = ViewMode.CLIP;
 
-  public DelugeMainPanel(ChuckVM vm, BridgeContract bridge) {
+  public DelugeMainPanel(ChuckVM vm, BridgeContract bridge, org.chuck.audio.ChuckAudio audio) {
     this.vm = vm;
     this.bridge = bridge;
     this.projectModel = new org.chuck.deluge.model.ProjectModel();
@@ -73,6 +73,8 @@ public class DelugeMainPanel extends BorderPane {
     mappingsItem.setOnAction(e -> {
         org.chuck.deluge.ui.popover.MappingConfigDialog dialog = new org.chuck.deluge.ui.popover.MappingConfigDialog();
         dialog.showAndWait();
+        masterFxPanel.updateControls(true); // Force update of UI controls
+        statusPanel.updateStatus("RESTART REQUIRED FOR SOUND CHANGES");
     });
     
     settingsMenu.getItems().addAll(samplesItem, mappingsItem);
@@ -306,6 +308,17 @@ public class DelugeMainPanel extends BorderPane {
 
     setCenter(matrixPanel);
 
+    // Add Visualizers on the right if enabled
+    boolean showVis = Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("show.visualizers", "true"));
+    if (showVis) {
+        org.chuck.audio.analysis.FFT analyzer = new org.chuck.audio.analysis.FFT(1024);
+        org.chuck.audio.util.Scope scope = new org.chuck.audio.util.Scope(1024);
+        VisualizerPanel visualizerPanel = new VisualizerPanel(vm, audio, analyzer, scope);
+        visualizerPanel.setPrefWidth(200);
+        setRight(visualizerPanel);
+        visualizerPanel.start();
+    }
+
     VBox bottomBox = new VBox(5);
     bottomBox.getChildren().addAll(velocityPanel, masterFxPanel, statusPanel);
     setBottom(bottomBox);
@@ -507,6 +520,7 @@ public class DelugeMainPanel extends BorderPane {
   public void updateFromVM() {
     masterFxPanel.updateControls();
     int step = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
+    statusPanel.update(step);
 
     switch (currentMode) {
       case CLIP:
