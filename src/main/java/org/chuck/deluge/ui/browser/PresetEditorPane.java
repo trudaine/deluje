@@ -102,6 +102,22 @@ public class PresetEditorPane extends VBox {
     lpfResSlider.setPrefWidth(100);
     filterGrid.add(lpfResSlider, 1, 1);
 
+    filterGrid.add(new Label("LPF Mode:"), 0, 2);
+    ComboBox<String> filterModeCombo = new ComboBox<>();
+    filterModeCombo.getItems().addAll("12dB", "24dB", "ANALOG DRIVE");
+    filterModeCombo.setValue("12dB");
+    filterGrid.add(filterModeCombo, 1, 2);
+
+    filterGrid.add(new Label("HPF Frequency:"), 0, 3);
+    Slider hpfCutoff = new Slider(0, 127, 0);
+    hpfCutoff.setPrefWidth(100);
+    filterGrid.add(hpfCutoff, 1, 3);
+
+    filterGrid.add(new Label("HPF Resonance:"), 0, 4);
+    Slider hpfRes = new Slider(0, 127, 0);
+    hpfRes.setPrefWidth(100);
+    filterGrid.add(hpfRes, 1, 4);
+
     filterBox.getChildren().addAll(filterTitle, filterGrid);
 
     // 3. FX
@@ -125,12 +141,28 @@ public class PresetEditorPane extends VBox {
 
     fxBox.getChildren().addAll(fxTitle, fxGrid);
 
+    // Envelopes Inner Accordion
+    javafx.scene.control.Accordion innerEnvAccordion = new javafx.scene.control.Accordion();
+    javafx.scene.control.TitledPane env1Pane = new javafx.scene.control.TitledPane("ENVELOPE 1", createEnvGrid("ENVELOPE 1"));
+    javafx.scene.control.TitledPane env2Pane = new javafx.scene.control.TitledPane("ENVELOPE 2", createEnvGrid("ENVELOPE 2"));
+    innerEnvAccordion.getPanes().addAll(env1Pane, env2Pane);
+    innerEnvAccordion.setExpandedPane(env1Pane);
+
+    // LFOs Inner Accordion
+    javafx.scene.control.Accordion innerLfoAccordion = new javafx.scene.control.Accordion();
+    javafx.scene.control.TitledPane lfo1Pane = new javafx.scene.control.TitledPane("LFO 1", createLfoGrid("LFO 1"));
+    javafx.scene.control.TitledPane lfo2Pane = new javafx.scene.control.TitledPane("LFO 2", createLfoGrid("LFO 2"));
+    innerLfoAccordion.getPanes().addAll(lfo1Pane, lfo2Pane);
+    innerLfoAccordion.setExpandedPane(lfo1Pane);
+
     javafx.scene.control.Accordion accordion = new javafx.scene.control.Accordion();
     javafx.scene.control.TitledPane oscPane = new javafx.scene.control.TitledPane("OSCILLATORS", innerOscAccordion);
     javafx.scene.control.TitledPane filterPane = new javafx.scene.control.TitledPane("FILTERS", filterBox);
+    javafx.scene.control.TitledPane envPane = new javafx.scene.control.TitledPane("ENVELOPES", innerEnvAccordion);
+    javafx.scene.control.TitledPane lfoPane = new javafx.scene.control.TitledPane("LFOs", innerLfoAccordion);
     javafx.scene.control.TitledPane fxPane = new javafx.scene.control.TitledPane("MASTER FX", fxBox);
 
-    accordion.getPanes().addAll(oscPane, filterPane, fxPane);
+    accordion.getPanes().addAll(oscPane, filterPane, envPane, lfoPane, fxPane);
     content.getChildren().add(accordion);
     scroll.setContent(content);
     getChildren().add(scroll);
@@ -206,6 +238,59 @@ public class PresetEditorPane extends VBox {
       destCombo.setValue("CARS");
       grid.add(destCombo, 1, 4);
     }
+
+    return grid;
+  }
+
+  private javafx.scene.layout.GridPane createEnvGrid(String title) {
+    javafx.scene.layout.GridPane grid = new javafx.scene.layout.GridPane();
+    grid.setHgap(10);
+    grid.setVgap(5);
+
+    grid.add(new Label("Attack:"), 0, 0);
+    Slider attackSlider = new Slider(0, 100, 10);
+    attackSlider.setPrefWidth(100);
+    grid.add(attackSlider, 1, 0);
+
+    grid.add(new Label("Decay:"), 0, 1);
+    Slider decaySlider = new Slider(0, 100, 20);
+    decaySlider.setPrefWidth(100);
+    grid.add(decaySlider, 1, 1);
+
+    grid.add(new Label("Sustain:"), 0, 2);
+    Slider sustainSlider = new Slider(0, 100, 80);
+    sustainSlider.setPrefWidth(100);
+    grid.add(sustainSlider, 1, 2);
+
+    grid.add(new Label("Release:"), 0, 3);
+    Slider releaseSlider = new Slider(0, 100, 30);
+    releaseSlider.setPrefWidth(100);
+    grid.add(releaseSlider, 1, 3);
+
+    return grid;
+  }
+
+  private javafx.scene.layout.GridPane createLfoGrid(String title) {
+    javafx.scene.layout.GridPane grid = new javafx.scene.layout.GridPane();
+    grid.setHgap(10);
+    grid.setVgap(5);
+
+    grid.add(new Label("Shape:"), 0, 0);
+    ComboBox<String> shapeCombo = new ComboBox<>();
+    shapeCombo.getItems().addAll("SINE", "SAW", "SQUARE", "TRIANGLE");
+    shapeCombo.setValue("SINE");
+    grid.add(shapeCombo, 1, 0);
+
+    grid.add(new Label("Rate:"), 0, 1);
+    Slider rateSlider = new Slider(0, 100, 50);
+    rateSlider.setPrefWidth(100);
+    grid.add(rateSlider, 1, 1);
+
+    grid.add(new Label("Sync:"), 0, 2);
+    ComboBox<String> syncCombo = new ComboBox<>();
+    syncCombo.getItems().addAll("Off", "1/4", "1/8", "1/16", "1/32");
+    syncCombo.setValue("Off");
+    grid.add(syncCombo, 1, 2);
 
     return grid;
   }
