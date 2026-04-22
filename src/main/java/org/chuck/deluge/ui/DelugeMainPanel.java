@@ -29,6 +29,7 @@ public class DelugeMainPanel extends BorderPane {
 
   private ProjectSidebarPanel sidebarPanel;
   private VelocityLanePanel velocityPanel;
+  private GlobalParamPanel globalParamPanel;
   private ProjectSidebarPanel.LibraryItem lastLoadedLibraryItem;
   private org.chuck.deluge.model.ProjectModel projectModel;
   private javafx.scene.control.ToggleButton clipBtn;
@@ -308,6 +309,7 @@ public class DelugeMainPanel extends BorderPane {
 
     velocityPanel = new VelocityLanePanel(vm, bridge);
     velocityPanel.setEditModeSupplier(matrixPanel::getCurrentEditMode);
+    globalParamPanel = new GlobalParamPanel(vm, bridge);
     masterFxPanel = new MasterFxPanel(vm, midiService);
 
     transportPanel.setOnKitLoaded(matrixPanel::applyKit);
@@ -315,7 +317,10 @@ public class DelugeMainPanel extends BorderPane {
       midiService.setRecording(recording);
       bridge.setRecording(recording);
     });
-    matrixPanel.setOnTrackSelected(velocityPanel::setSelectedTrack);
+    matrixPanel.setOnTrackSelected(track -> {
+      velocityPanel.setSelectedTrack(track);
+      globalParamPanel.setSelectedTrack(track);
+    });
     ribbonPanel.setOnModeChange(matrixPanel::setEditMode);
 
     setLeft(sidebarPanel);
@@ -372,7 +377,7 @@ public class DelugeMainPanel extends BorderPane {
     }
 
     VBox bottomBox = new VBox(5);
-    bottomBox.getChildren().addAll(ribbonPanel, velocityPanel, masterFxPanel, statusPanel);
+    bottomBox.getChildren().addAll(ribbonPanel, velocityPanel, globalParamPanel, masterFxPanel, statusPanel);
     setBottom(bottomBox);
   }
 
