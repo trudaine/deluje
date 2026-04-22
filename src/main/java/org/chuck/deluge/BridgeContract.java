@@ -9,7 +9,7 @@ import org.chuck.core.ChuckVM;
 public final class BridgeContract {
 
   // dimensions
-  public static final int TRACKS = 64;
+  public static final int TRACKS = Integer.getInteger("deluge.tracks", 64);
   public static final int STEPS = 16;
   public static final int PATTERN_SIZE = TRACKS * STEPS;
 

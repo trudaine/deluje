@@ -20,6 +20,7 @@ public class DelugeEngineTest {
   @BeforeEach
   void setUp() {
     System.setProperty("chuck.audio.dummy", "true");
+    System.setProperty("deluge.tracks", "8");
     vm = new ChuckVM(44100, 2);
     vm.addPrintListener(logs::add);
 
