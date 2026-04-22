@@ -166,6 +166,15 @@ public class DelugeMainPanel extends BorderPane {
     });
 
     sidebarPanel = new ProjectSidebarPanel(vm, bridge);
+
+    sidebarPanel.getEditorPane().setOnParameterChange((param, value) -> {
+        String globalParam = "VOLUME".equals(param) ? BridgeContract.G_TRACK_LEVEL : BridgeContract.G_FILTER;
+        Object obj = vm.getGlobalObject(globalParam);
+        if (obj instanceof org.chuck.core.ChuckArray array) {
+            array.setFloat(0, value); // Live assign values into active track 0 for runtime live updates! 
+        }
+    });
+
     sidebarPanel.setOnPresetRequest(
         item -> {
           System.out.println(
