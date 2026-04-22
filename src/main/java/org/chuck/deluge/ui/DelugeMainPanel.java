@@ -123,14 +123,44 @@ public class DelugeMainPanel extends BorderPane {
     statusPanel = new StatusRibbonPanel(vm, bridge);
 
     songPanel.setOnEditPresetRequest((track, clip) -> {
-        sidebarPanel.getEditorPane().loadPreset(null, track.getName());
+        String trackName = track.getName();
+        String realName = trackName;
+        try {
+            int slot = Integer.parseInt(trackName.substring(trackName.indexOf(" ") + 1));
+            String prefix = String.format("%03d", slot);
+            String folder = track.getType() == org.chuck.deluge.model.TrackType.KIT ? "/KITS" : "/SYNTHS";
+            java.util.List<String> presets = org.chuck.deluge.ui.ProjectSidebarPanel.getPresets(folder);
+            for (String p : presets) {
+                if (p.startsWith(prefix)) {
+                    realName = p.substring(0, p.length() - 4); // Strip .XML
+                    break;
+                }
+            }
+        } catch (Exception e) {}
+        
+        sidebarPanel.getEditorPane().loadPreset(null, realName);
         sidebarPanel.focusEditorTab();
     });
 
     matrixPanel.setOnEditPresetRequest(() -> {
         if (projectModel.getTracks().isEmpty()) return;
         org.chuck.deluge.model.TrackModel track = projectModel.getTracks().get(0);
-        sidebarPanel.getEditorPane().loadPreset(null, track.getName());
+        String trackName = track.getName();
+        String realName = trackName;
+        try {
+            int slot = Integer.parseInt(trackName.substring(trackName.indexOf(" ") + 1));
+            String prefix = String.format("%03d", slot);
+            String folder = track.getType() == org.chuck.deluge.model.TrackType.KIT ? "/KITS" : "/SYNTHS";
+            java.util.List<String> presets = org.chuck.deluge.ui.ProjectSidebarPanel.getPresets(folder);
+            for (String p : presets) {
+                if (p.startsWith(prefix)) {
+                    realName = p.substring(0, p.length() - 4); // Strip .XML
+                    break;
+                }
+            }
+        } catch (Exception e) {}
+        
+        sidebarPanel.getEditorPane().loadPreset(null, realName);
         sidebarPanel.focusEditorTab();
     });
 
