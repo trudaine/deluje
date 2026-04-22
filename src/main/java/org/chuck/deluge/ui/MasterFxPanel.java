@@ -71,7 +71,8 @@ public class MasterFxPanel extends HBox {
           paramSliders.clear();
 
           Label title = new Label("MASTER FX");
-          title.setStyle("-fx-text-fill: #aaa; -fx-font-weight: bold;");
+          title.getStyleClass().add("master-fx-label");
+          title.setStyle("-fx-font-size: 12px;");
           getChildren().add(title);
 
           // Reverb Group
@@ -130,7 +131,7 @@ public class MasterFxPanel extends HBox {
     box.setAlignment(Pos.CENTER);
 
     Label lbl = new Label(m.getName().toUpperCase());
-    lbl.setStyle("-fx-text-fill: #ccc; -fx-font-size: 10px;");
+    lbl.getStyleClass().add("master-fx-label");
 
     String paramName = "reverb." + m.getName();
     
@@ -171,7 +172,7 @@ public class MasterFxPanel extends HBox {
     box.setAlignment(Pos.CENTER);
 
     Label lbl = new Label(label);
-    lbl.setStyle("-fx-text-fill: #ccc; -fx-font-size: 10px;");
+    lbl.getStyleClass().add("master-fx-label");
 
     Slider slider = new Slider(min, max, def);
     slider.setPrefWidth(100);
