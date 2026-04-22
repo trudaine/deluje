@@ -272,6 +272,18 @@ fun void synth_shred() {
     float step_mod[];
     float track_level[];
     int   track_type[];
+    float gate[];
+
+    // Helper to play a note with variable duration
+    fun void play_note(DelugeAdsr e, MorphingWavetable o, int p, float vel, float gate_len, dur T) {
+        if (Machine.loglevel() >= 2) <<< "!!! NOTE START !!! Pitch:", p, "Gate:", gate_len >>>;
+        Std.mtof(p + 60) => o.freq;
+        vel => e.gain;
+        e.keyOn();
+        (gate_len * T) => now;
+        e.keyOff();
+        if (Machine.loglevel() >= 2) <<< "!!! NOTE END !!!" >>>;
+    }
 
     while (g_play != 0) {
         tick_event => now;
@@ -293,10 +305,11 @@ fun void synth_shred() {
         Machine.getGlobalObject("g_step_mod") $ float[] @=> step_mod;
         Machine.getGlobalObject("g_track_level") $ float[] @=> track_level;
         Machine.getGlobalObject("g_track_type") $ int[] @=> track_type;
+        Machine.getGlobalObject("g_gate") $ float[] @=> gate;
 
         if (pattern == null || velocity == null || pitch == null || g_filter == null || step_filter == null || step_res == null
             || step_pan == null || g_delay_send == null || g_reverb_send == null || step_delay == null 
-            || step_reverb == null || step_mod == null || track_level == null || track_type == null) continue;
+            || step_reverb == null || step_mod == null || track_level == null || track_type == null || gate == null) continue;
 
         g_master_vol => master.gain;
         int step;
@@ -327,18 +340,19 @@ fun void synth_shred() {
             if (Math.random2f(0.0, 1.0) > probability[idx]) continue;
 
             if (pattern[idx] == 0) {
-                env[v].keyOff();
                 continue;
             }
 
             pitch[idx] => int p;
-            Std.mtof(p + 60) => osc[v].freq;
+            gate[idx] => float gate_len;
 
             if (gates_open == 0) {
                 1 => gates_open;
                 safety_gate.keyOn();
             }
-            env[v].keyOn();
+            
+            env[v].forceMute(); // Cut off previous note on this voice
+            spork ~ play_note(env[v], osc[v], p, vel, gate_len, stepDuration(0));
         }
     }
 }

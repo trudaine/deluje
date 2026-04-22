@@ -73,6 +73,29 @@ public class DelugeApp extends Application {
               case S -> mainPanel.saveProject();
               case N -> mainPanel.resetProject();
             }
+          } else {
+            org.chuck.hid.HidMsg msg = new org.chuck.hid.HidMsg();
+            msg.deviceType = "keyboard";
+            msg.type = org.chuck.hid.HidMsg.BUTTON_DOWN;
+            msg.which = event.getCode().getCode();
+            msg.key = event.getCode().getCode();
+            String text = event.getText();
+            if (!text.isEmpty()) {
+              msg.ascii = text.charAt(0);
+            }
+            vm.dispatchHidMsg(msg);
+          }
+        });
+
+    scene.setOnKeyReleased(
+        event -> {
+          if (!event.isControlDown()) {
+            org.chuck.hid.HidMsg msg = new org.chuck.hid.HidMsg();
+            msg.deviceType = "keyboard";
+            msg.type = org.chuck.hid.HidMsg.BUTTON_UP;
+            msg.which = event.getCode().getCode();
+            msg.key = event.getCode().getCode();
+            vm.dispatchHidMsg(msg);
           }
         });
 

@@ -97,7 +97,6 @@ public class SynthTrackProcessor implements Shred {
 
       ChuckArray pattern = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PATTERN);
       if (pattern == null || pattern.getInt(idx) == 0) {
-        env.keyOff();
         continue;
       }
 
@@ -110,7 +109,9 @@ public class SynthTrackProcessor implements Shred {
       ChuckArray probability = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PROBABILITY);
       if (probability != null && Math.random() > (double) probability.getFloat(idx)) continue;
 
-      trigger(idx);
+      ChuckArray gateArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_GATE);
+      double gate_len = gateArr != null ? gateArr.getFloat(idx) : 0.9;
+      trigger(idx, gate_len);
     }
   }
 
@@ -142,7 +143,7 @@ public class SynthTrackProcessor implements Shred {
                 -1.0, Math.min(1.0, masterPan + (stepPan != null ? stepPan.getFloat(idx) : 0.0))));
   }
 
-  private void trigger(int idx) {
+  private void trigger(int idx, double gate_len) {
     ChuckArray pitchArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PITCH);
     ChuckArray velocityArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_VELOCITY);
     ChuckArray trackLevelArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_LEVEL);
@@ -156,10 +157,23 @@ public class SynthTrackProcessor implements Shred {
     double trackLevel = trackLevelArr != null ? trackLevelArr.getFloat(trackId) : 0.7;
 
     env.gain((float) ((double) vel * (double) trackLevel * masterVol * 0.8));
-    env.keyOn();
+    
+    double bpm = vm.getGlobalFloat(BridgeContract.G_BPM);
+    double stepDurMs = 60000.0 / (bpm * 4.0);
+
+    env.forceMute(); // Cut off previous note
+    
+    vm.spork(() -> {
+      env.keyOn();
+      advance(ms(gate_len * stepDurMs));
+      env.keyOff();
+      if (vm.getLogLevel() >= 2) {
+        vm.print("SYNTH note end track: " + trackId + "\n");
+      }
+    });
 
     if (vm.getLogLevel() >= 2) {
-      vm.print("SYNTH trigger track: " + trackId + " step: " + (idx % 16) + "\n");
+      vm.print("SYNTH trigger track: " + trackId + " step: " + (idx % 16) + " gate: " + gate_len + "\n");
     }
   }
 

@@ -76,9 +76,8 @@ public class MidiInputRouter {
       if (start != null) {
         long duration = vm.getCurrentTime() - start.time;
         // Convert duration to gate length
-        // Assuming 120 BPM, 1 step = 125ms = 5512.5 samples at 44100Hz
         double gate = (double) duration / (vm.getSampleRate() * 0.125);
-        bridge.setGate(activeTrackIndex, start.step, Math.min(1.0, gate));
+        bridge.setGate(activeTrackIndex, start.step, gate);
       }
     }
   }
