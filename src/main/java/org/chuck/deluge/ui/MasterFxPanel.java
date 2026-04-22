@@ -96,7 +96,7 @@ public class MasterFxPanel extends HBox {
             // Look for methods taking a single float!
             if (m.getParameterCount() == 1 && m.getParameterTypes()[0] == float.class) {
               String name = m.getName();
-              System.out.println("DEBUG: Found candidate method: " + name);
+
               if (!name.equals("wait") && !name.equals("equals") && !name.equals("tick")) {
                 revSliders.getChildren().add(createDynamicSlider(revClass, m));
               }
