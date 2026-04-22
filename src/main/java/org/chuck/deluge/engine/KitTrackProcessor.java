@@ -69,7 +69,8 @@ public class KitTrackProcessor implements Shred {
     loadSample();
 
     // Main Sequencing Loop
-    while (true) {
+    org.chuck.core.ChuckShred currentShred = org.chuck.core.ChuckShred.CURRENT_SHRED.get();
+    while (currentShred != null && !currentShred.isDone()) {
       advance(tickEvent);
 
       int step = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);

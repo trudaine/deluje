@@ -45,6 +45,9 @@ public class DelugeEngine implements Shred {
     logger.info("Deluge Engine (Distributed) initialized.");
 
     // Keep orchestrator alive
-    while (true) advance(ms(100));
+    org.chuck.core.ChuckShred current = org.chuck.core.ChuckShred.CURRENT_SHRED.get();
+    while (current != null && !current.isDone()) {
+      advance(ms(100));
+    }
   }
 }
