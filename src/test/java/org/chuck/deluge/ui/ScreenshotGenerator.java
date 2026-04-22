@@ -91,8 +91,15 @@ public class ScreenshotGenerator {
       mainPanel.getSongPanel().refresh();
     });
     
+    // Switch to SONG view and take snapshot
+    mainPanel.setView(DelugeMainPanel.ViewMode.SONG);
     runAndWait(() -> currentSnapshot = scene.snapshot(null));
-    saveSnapshot(currentSnapshot, "../docs/step1_loaded.png", "Step 1: Song Loaded", "Grid populated from song1.xml.");
+    saveSnapshot(currentSnapshot, "../docs/step1_loaded_songview.png", "Step 1: Song View", "Song view showing active clips.");
+    
+    // Switch to CLIP view and take snapshot
+    mainPanel.setView(DelugeMainPanel.ViewMode.CLIP);
+    runAndWait(() -> currentSnapshot = scene.snapshot(null));
+    saveSnapshot(currentSnapshot, "../docs/step1_loaded_clipview.png", "Step 1: Clip View", "Clip view showing sequence.");
     
     // Step 2: Edit Cells
     runAndWait(() -> {

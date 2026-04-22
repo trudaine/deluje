@@ -556,4 +556,8 @@ public class DelugeMainPanel extends BorderPane {
   public ProjectSidebarPanel getSidebarPanel() {
     return sidebarPanel;
   }
+
+  public void setView(ViewMode mode) {
+    javafx.application.Platform.runLater(() -> switchView(mode));
+  }
 }
