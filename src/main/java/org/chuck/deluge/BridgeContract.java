@@ -243,7 +243,7 @@ public final class BridgeContract {
   }
 
   public void setGate(int track, int step, double val) {
-    gate.setFloat(track * STEPS + step, (float) Math.max(0, Math.min(1, val)));
+    gate.setFloat(track * STEPS + step, (float) Math.max(0, val));
   }
 
   public double getGate(int track, int step) {
