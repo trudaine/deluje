@@ -25,7 +25,7 @@ public class MappingConfigDialog extends Dialog<Void> {
     // Reverb Mapping
     grid.add(new Label("Reverb Model:"), 0, 0);
     ComboBox<String> reverbCombo = new ComboBox<>();
-    reverbCombo.getItems().addAll("JCRev", "FreeVerb");
+    reverbCombo.getItems().addAll("JCRev", "FreeVerb", "MVerb", "ProceduralReverb");
 
     String currentReverb = PreferencesManager.get("reverb.model", "JCRev");
     reverbCombo.setValue(currentReverb);
