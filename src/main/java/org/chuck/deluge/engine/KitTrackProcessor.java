@@ -59,7 +59,8 @@ public class KitTrackProcessor implements Shred {
     // Persistent listener for sample loading
     vm.spork(
         () -> {
-          while (true) {
+          org.chuck.core.ChuckShred current = org.chuck.core.ChuckShred.CURRENT_SHRED.get();
+          while (current != null && !current.isDone()) {
             advance(loadTrigger);
             loadSample();
           }
