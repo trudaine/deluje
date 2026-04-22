@@ -9,13 +9,13 @@ import javafx.scene.layout.GridPane;
 import org.chuck.deluge.project.PreferencesManager;
 
 /** Dialog to configure mappings between UI controls and ChucK engine elements. */
-public class MappingConfigDialog extends Dialog<Void> {
+public class PreferencesDialog extends Dialog<Void> {
   private final org.chuck.deluge.midi.MidiService midiService;
 
-  public MappingConfigDialog(org.chuck.deluge.midi.MidiService midiService) {
+  public PreferencesDialog(org.chuck.deluge.midi.MidiService midiService) {
     this.midiService = midiService;
-    setTitle("Mapping Configuration");
-    setHeaderText("Configure UI to Engine Mappings");
+    setTitle("Preferences");
+    setHeaderText("Application Preferences");
 
     getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
 

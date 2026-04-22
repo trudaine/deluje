@@ -69,17 +69,17 @@ public class DelugeMainPanel extends BorderPane {
         new javafx.scene.control.MenuItem("Set Samples Directory...");
     samplesItem.setOnAction(e -> setSamplesDirectory());
 
-    javafx.scene.control.MenuItem mappingsItem = new javafx.scene.control.MenuItem("Mappings...");
-    mappingsItem.setOnAction(
+    javafx.scene.control.MenuItem preferencesItem = new javafx.scene.control.MenuItem("Preferences...");
+    preferencesItem.setOnAction(
         e -> {
-          org.chuck.deluge.ui.popover.MappingConfigDialog dialog =
-              new org.chuck.deluge.ui.popover.MappingConfigDialog(midiService);
+          org.chuck.deluge.ui.popover.PreferencesDialog dialog =
+              new org.chuck.deluge.ui.popover.PreferencesDialog(midiService);
           dialog.showAndWait();
           masterFxPanel.updateControls(true); // Force update of UI controls
           statusPanel.updateStatus("RESTART REQUIRED FOR SOUND CHANGES");
         });
 
-    settingsMenu.getItems().addAll(samplesItem, mappingsItem);
+    settingsMenu.getItems().addAll(samplesItem, preferencesItem);
 
     menuBar.getMenus().addAll(fileMenu, settingsMenu);
 
