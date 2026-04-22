@@ -68,6 +68,7 @@ public class PresetEditorPane extends VBox {
     oscGrid.add(volSlider, 1, 1);
 
     Button volModBtn = new Button("M");
+    volModBtn.setPrefWidth(25);
     volModBtn.setStyle("-fx-base: #444; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 10px;");
     volModBtn.setOnAction(e -> {
         org.chuck.deluge.ui.popover.ModulationPatchingDialog dialog = 
@@ -101,6 +102,7 @@ public class PresetEditorPane extends VBox {
     filterGrid.add(lpfCutoffSlider, 1, 0);
 
     Button filterModBtn = new Button("M");
+    filterModBtn.setPrefWidth(25);
     filterModBtn.setStyle("-fx-base: #444; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 10px;");
     filterModBtn.setOnAction(e -> {
         org.chuck.deluge.ui.popover.ModulationPatchingDialog dialog = 
