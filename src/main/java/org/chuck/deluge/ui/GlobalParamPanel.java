@@ -31,7 +31,7 @@ public class GlobalParamPanel extends HBox {
 
     setAlignment(Pos.CENTER_LEFT);
     setSpacing(25);
-    setPadding(new Insets(5, 10, 5, 519));
+    setPadding(new Insets(5, 10, 5, 20));
     setStyle("-fx-background-color: #1a1a1a; -fx-border-color: #333; -fx-border-width: 1 0 0 0;");
 
     // 1. Track Level
