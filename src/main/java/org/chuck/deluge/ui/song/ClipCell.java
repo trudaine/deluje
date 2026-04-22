@@ -42,8 +42,8 @@ public class ClipCell extends Button {
     setOnDragDetected(
         e -> {
           if (currentState != State.EMPTY) {
-            javafx.scene.input.Dragboard db =
-                startDragAndDrop(javafx.scene.input.TransferMode.MOVE);
+            javafx.scene.input.TransferMode mode = e.isAltDown() ? javafx.scene.input.TransferMode.COPY : javafx.scene.input.TransferMode.MOVE;
+            javafx.scene.input.Dragboard db = startDragAndDrop(mode);
             javafx.scene.input.ClipboardContent content = new javafx.scene.input.ClipboardContent();
             content.putString(patternId);
             db.setContent(content);
@@ -54,7 +54,7 @@ public class ClipCell extends Button {
     setOnDragOver(
         e -> {
           if (e.getGestureSource() != this && e.getDragboard().hasString()) {
-            e.acceptTransferModes(javafx.scene.input.TransferMode.MOVE);
+            e.acceptTransferModes(javafx.scene.input.TransferMode.COPY_OR_MOVE);
           }
           e.consume();
         });
@@ -66,9 +66,11 @@ public class ClipCell extends Button {
           if (db.hasString()) {
             String draggedPatternId = db.getString();
 
-            if (e.getGestureSource() instanceof ClipCell) {
-              ClipCell sourceCell = (ClipCell) e.getGestureSource();
-              sourceCell.setEmpty();
+            if (e.getTransferMode() == javafx.scene.input.TransferMode.MOVE) {
+              if (e.getGestureSource() instanceof ClipCell) {
+                ClipCell sourceCell = (ClipCell) e.getGestureSource();
+                sourceCell.setEmpty();
+              }
             }
 
             setFilled(draggedPatternId);
