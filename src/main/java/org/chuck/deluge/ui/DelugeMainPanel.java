@@ -122,6 +122,18 @@ public class DelugeMainPanel extends BorderPane {
     ribbonPanel = new ParameterRibbonPanel(vm, bridge);
     statusPanel = new StatusRibbonPanel(vm, bridge);
 
+    songPanel.setOnEditPresetRequest((track, clip) -> {
+        sidebarPanel.getEditorPane().loadPreset(null, track.getName());
+        sidebarPanel.focusEditorTab();
+    });
+
+    matrixPanel.setOnEditPresetRequest(() -> {
+        if (projectModel.getTracks().isEmpty()) return;
+        org.chuck.deluge.model.TrackModel track = projectModel.getTracks().get(0);
+        sidebarPanel.getEditorPane().loadPreset(null, track.getName());
+        sidebarPanel.focusEditorTab();
+    });
+
     sidebarPanel = new ProjectSidebarPanel(vm, bridge);
     sidebarPanel.setOnPresetRequest(
         item -> {

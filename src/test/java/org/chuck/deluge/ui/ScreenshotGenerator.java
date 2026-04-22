@@ -131,6 +131,15 @@ public class ScreenshotGenerator {
     runAndWait(() -> currentSnapshot = scene.snapshot(null));
     saveSnapshot(currentSnapshot, "../docs/step1_loaded_clipview.png", "Step 1: Clip View", "Clip view after selecting first clip.");
     
+    // Switch to Song View and open preset editor
+    runAndWait(() -> {
+        org.chuck.deluge.model.TrackModel track = mainPanel.getProjectModel().getTracks().get(0);
+        mainPanel.getSidebarPanel().getEditorPane().loadPreset(null, track.getName());
+        mainPanel.getSidebarPanel().focusEditorTab();
+    });
+    runAndWait(() -> currentSnapshot = scene.snapshot(null));
+    saveSnapshot(currentSnapshot, "../docs/preset_editor_annotated.png", "Preset Sound Editor", "Editing preset values visually in sidebar.");
+    
     // Step 2: Edit Cells
     runAndWait(() -> {
       bridge.setStep(0, 0, true);

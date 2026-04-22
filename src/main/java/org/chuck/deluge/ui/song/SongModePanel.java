@@ -73,6 +73,17 @@ public class SongModePanel extends VBox {
           org.chuck.deluge.model.TrackModel, org.chuck.deluge.model.ClipModel>
       onClipLaunched;
 
+  private java.util.function.BiConsumer<
+          org.chuck.deluge.model.TrackModel, org.chuck.deluge.model.ClipModel>
+      onEditPresetRequest;
+
+  public void setOnEditPresetRequest(
+      java.util.function.BiConsumer<
+              org.chuck.deluge.model.TrackModel, org.chuck.deluge.model.ClipModel>
+          callback) {
+    this.onEditPresetRequest = callback;
+  }
+
   public void setOnClipLaunched(
       java.util.function.BiConsumer<
               org.chuck.deluge.model.TrackModel, org.chuck.deluge.model.ClipModel>
@@ -203,6 +214,16 @@ public class SongModePanel extends VBox {
             });
 
         grid.add(muteBtn, numSlots + 3, rowIdx); // Column numSlots + 3
+
+        javafx.scene.control.Button editBtn = new javafx.scene.control.Button("E");
+        editBtn.setPrefWidth(35);
+        editBtn.setStyle("-fx-background-color: #444; -fx-text-fill: white;");
+        editBtn.setOnAction(ev -> {
+            if (onEditPresetRequest != null) {
+                onEditPresetRequest.accept(track, currentClip);
+            }
+        });
+        grid.add(editBtn, numSlots + 4, rowIdx); // Column numSlots + 4
 
         for (int s = 0; s < numSlots; s++) {
           ClipCell cell = new ClipCell(rowIdx, s);
