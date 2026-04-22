@@ -32,12 +32,23 @@ public class MappingConfigDialog extends Dialog<Void> {
 
     grid.add(reverbCombo, 1, 0);
 
+    // MIDI Input Mapping
+    grid.add(new Label("MIDI Input:"), 0, 1);
+    ComboBox<String> midiCombo = new ComboBox<>();
+    midiCombo.getItems().add("None");
+    midiCombo.getItems().addAll(org.chuck.midi.MidiIn.list());
+
+    String currentMidi = PreferencesManager.get("midi.input", "None");
+    midiCombo.setValue(currentMidi);
+
+    grid.add(midiCombo, 1, 1);
+
     // Visualizer Toggle
-    grid.add(new Label("Show Visualizers:"), 0, 1);
+    grid.add(new Label("Show Visualizers:"), 0, 2);
     javafx.scene.control.CheckBox visCheck = new javafx.scene.control.CheckBox();
     boolean currentVis = Boolean.parseBoolean(PreferencesManager.get("show.visualizers", "true"));
     visCheck.setSelected(currentVis);
-    grid.add(visCheck, 1, 1);
+    grid.add(visCheck, 1, 2);
 
     getDialogPane().setContent(grid);
 
@@ -45,6 +56,7 @@ public class MappingConfigDialog extends Dialog<Void> {
         dialogButton -> {
           if (dialogButton == ButtonType.OK) {
             PreferencesManager.set("reverb.model", reverbCombo.getValue());
+            PreferencesManager.set("midi.input", midiCombo.getValue());
             PreferencesManager.set("show.visualizers", String.valueOf(visCheck.isSelected()));
           }
           return null;

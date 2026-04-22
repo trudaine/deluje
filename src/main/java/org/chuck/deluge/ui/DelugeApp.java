@@ -17,6 +17,7 @@ public class DelugeApp extends Application {
   private ChuckAudio audio;
   private BridgeContract bridge;
   private DelugeMainPanel mainPanel;
+  private org.chuck.deluge.midi.MidiService midiService;
   private boolean engineLoaded = false;
 
   @Override
@@ -46,8 +47,13 @@ public class DelugeApp extends Application {
       System.out.println("Deluge Audio Engine in DUMMY mode.");
     }
 
+    // 2.5 Initialize MIDI Service
+    org.chuck.deluge.midi.MidiInputRouter router = new org.chuck.deluge.midi.MidiInputRouter(vm, bridge);
+    midiService = new org.chuck.deluge.midi.MidiService(vm, bridge, router);
+    midiService.start();
+
     // 3. Create UI
-    mainPanel = new DelugeMainPanel(vm, bridge, audio);
+    mainPanel = new DelugeMainPanel(vm, bridge, audio, midiService);
 
     Scene scene = new Scene(mainPanel, 1400, 800);
 
@@ -102,6 +108,9 @@ public class DelugeApp extends Application {
 
   @Override
   public void stop() {
+    if (midiService != null) {
+      midiService.stop();
+    }
     if (audio != null) {
       audio.stop();
     }

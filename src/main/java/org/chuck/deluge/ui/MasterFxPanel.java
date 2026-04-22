@@ -12,9 +12,11 @@ import org.chuck.deluge.BridgeContract;
 /** UI Panel for controlling global effects (Reverb, Delay). */
 public class MasterFxPanel extends HBox {
   private final ChuckVM vm;
+  private final org.chuck.deluge.midi.MidiService midiService;
 
-  public MasterFxPanel(ChuckVM vm) {
+  public MasterFxPanel(ChuckVM vm, org.chuck.deluge.midi.MidiService midiService) {
     this.vm = vm;
+    this.midiService = midiService;
 
     setAlignment(Pos.CENTER_LEFT);
     setSpacing(20);
@@ -113,20 +115,23 @@ public class MasterFxPanel extends HBox {
     slider.setPrefWidth(100);
     slider.setShowTickMarks(true);
 
+    javafx.scene.control.ContextMenu contextMenu = new javafx.scene.control.ContextMenu();
+    javafx.scene.control.MenuItem learnItem = new javafx.scene.control.MenuItem("MIDI Learn");
+    contextMenu.getItems().add(learnItem);
+    slider.setContextMenu(contextMenu);
+
+    learnItem.setOnAction(e -> {
+        midiService.startLearn("reverb." + m.getName());
+    });
+
+    String paramName = "reverb." + m.getName();
+    vm.setGlobalFloat(paramName, 0.5f);
+
     slider
         .valueProperty()
         .addListener(
             (obs, oldVal, newVal) -> {
-              Object currentRev = vm.getGlobalObject("g_reverb");
-              if (currentRev != null && revClass.isInstance(currentRev)) {
-                try {
-                  m.invoke(currentRev, newVal.floatValue());
-                } catch (Exception e) {
-                  e.printStackTrace();
-                }
-              } else {
-                System.out.println("DEBUG: Cannot control active effect (needs restart!)");
-              }
+              vm.setGlobalFloat(paramName, newVal.floatValue());
             });
 
     box.getChildren().addAll(lbl, slider);
@@ -144,6 +149,15 @@ public class MasterFxPanel extends HBox {
     slider.setPrefWidth(100);
     slider.setShowTickMarks(true);
     slider.setShowTickLabels(false);
+
+    javafx.scene.control.ContextMenu contextMenu = new javafx.scene.control.ContextMenu();
+    javafx.scene.control.MenuItem learnItem = new javafx.scene.control.MenuItem("MIDI Learn");
+    contextMenu.getItems().add(learnItem);
+    slider.setContextMenu(contextMenu);
+
+    learnItem.setOnAction(e -> {
+        midiService.startLearn(paramName);
+    });
 
     // Initialize VM value
     vm.setGlobalFloat(paramName, def);
