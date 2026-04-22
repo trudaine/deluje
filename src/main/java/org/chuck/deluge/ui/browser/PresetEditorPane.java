@@ -26,6 +26,16 @@ public class PresetEditorPane extends VBox {
 
   private File currentFile = null;
 
+  public interface ParameterChangeCallback {
+    void onParameterChange(String param, float value);
+  }
+
+  private ParameterChangeCallback onParameterChange;
+
+  public void setOnParameterChange(ParameterChangeCallback callback) {
+    this.onParameterChange = callback;
+  }
+
   public PresetEditorPane() {
     setSpacing(10);
     setPadding(new Insets(10));
@@ -66,6 +76,11 @@ public class PresetEditorPane extends VBox {
     volSlider = new Slider(0, 127, 64);
     volSlider.setPrefWidth(100);
     volSlider.setShowTickLabels(true);
+    volSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
+      if (onParameterChange != null) {
+        onParameterChange.onParameterChange("VOLUME", newVal.floatValue() / 127.0f);
+      }
+    });
     oscGrid.add(volSlider, 1, 1);
 
     Button volModBtn = new Button("M");
@@ -102,6 +117,11 @@ public class PresetEditorPane extends VBox {
     filterGrid.add(new Label("LPF Frequency:"), 0, 0);
     lpfCutoffSlider = new Slider(0, 127, 64);
     lpfCutoffSlider.setPrefWidth(100);
+    lpfCutoffSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
+      if (onParameterChange != null) {
+        onParameterChange.onParameterChange("FILTER", newVal.floatValue() / 127.0f);
+      }
+    });
     filterGrid.add(lpfCutoffSlider, 1, 0);
 
     Button filterModBtn = new Button("M");
