@@ -8,6 +8,8 @@ import org.chuck.audio.fx.Dyno;
 import org.chuck.audio.fx.Echo;
 import org.chuck.audio.fx.FreeVerb;
 import org.chuck.audio.fx.JCRev;
+import org.chuck.audio.fx.MVerb;
+import org.chuck.audio.fx.ProceduralReverb;
 import org.chuck.audio.util.DelugeAdsr;
 import org.chuck.audio.util.Gain;
 import org.chuck.audio.util.StereoUGen;
@@ -60,6 +62,10 @@ public class DelugeFxBus implements Shred {
     StereoUGen rev;
     if (reverbModel.equals("FreeVerb")) {
       rev = new FreeVerb();
+    } else if (reverbModel.equals("MVerb")) {
+      rev = new MVerb();
+    } else if (reverbModel.equals("ProceduralReverb")) {
+      rev = new ProceduralReverb();
     } else {
       rev = new JCRev(sampleRate());
     }
@@ -92,6 +98,10 @@ public class DelugeFxBus implements Shred {
         fv.roomSize(revRoom);
       } else if (rev instanceof JCRev jcr) {
         jcr.mix(revRoom);
+      } else if (rev instanceof MVerb mv) {
+        mv.size(revRoom);
+      } else if (rev instanceof ProceduralReverb prv) {
+        prv.decayFactor(revRoom);
       }
     }
   }
