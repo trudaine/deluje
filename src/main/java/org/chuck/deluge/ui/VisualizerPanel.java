@@ -166,13 +166,23 @@ public class VisualizerPanel extends VBox {
     gc.stroke();
   }
 
+  private javafx.scene.image.WritableImage waterfallSnapshotBuffer;
+
   private void renderWaterfall() {
     GraphicsContext gc = waterfallCanvas.getGraphicsContext2D();
     double w = waterfallCanvas.getWidth(), h = waterfallCanvas.getHeight();
     if (w <= 0 || h <= 0 || analyzer == null) return;
     float[] mags = analyzer.getLatestMags();
     if (mags == null || mags.length == 0) return;
-    gc.drawImage(waterfallCanvas.snapshot(null, null), 0, 1);
+
+    if (waterfallSnapshotBuffer == null
+        || waterfallSnapshotBuffer.getWidth() != (int) w
+        || waterfallSnapshotBuffer.getHeight() != (int) h) {
+      waterfallSnapshotBuffer = new javafx.scene.image.WritableImage((int) w, (int) h);
+    }
+    waterfallCanvas.snapshot(null, waterfallSnapshotBuffer);
+    gc.drawImage(waterfallSnapshotBuffer, 0, 1);
+
     double binW = w / mags.length, norm = 2.0 / mags.length;
     for (int i = 0; i < mags.length; i++) {
       double linear = mags[i] * norm;
