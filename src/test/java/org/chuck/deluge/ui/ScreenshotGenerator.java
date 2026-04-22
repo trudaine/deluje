@@ -49,6 +49,7 @@ public class ScreenshotGenerator {
                 org.chuck.deluge.model.ProjectModel loadedProject =
                     org.chuck.deluge.xml.DelugeXmlParser.parseSong(is, "song1");
                 mainPanel.getSongPanel().setProjectModel(loadedProject);
+                mainPanel.getSongPanel().refresh();
             }
         }
         WritableImage img1 = scene.snapshot(null);
