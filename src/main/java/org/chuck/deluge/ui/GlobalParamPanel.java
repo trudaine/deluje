@@ -14,6 +14,7 @@ import org.chuck.deluge.BridgeContract;
 public class GlobalParamPanel extends HBox {
   private final ChuckVM vm;
   private final BridgeContract bridge;
+  private Slider tempoSlider;
   private int selectedTrack = 0;
 
   private java.util.function.Consumer<Float> onGlobalTempoChange;
@@ -83,7 +84,7 @@ public class GlobalParamPanel extends HBox {
     Label tempoLabel = new Label("GLOBAL TEMPO:");
     tempoLabel.setStyle("-fx-text-fill: #aaa; -fx-font-family: 'Monospaced'; -fx-font-size: 10px; -fx-font-weight: bold;");
     tempoLabel.setPrefWidth(120);
-    Slider tempoSlider = new Slider(60, 200, 120);
+    tempoSlider = new Slider(60, 200, 120);
     tempoSlider.setPrefWidth(100);
     tempoSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
         if (onGlobalTempoChange != null) {
@@ -114,6 +115,14 @@ public class GlobalParamPanel extends HBox {
 
     getChildren().add(rows);
     startTimer();
+  }
+
+  public void setGlobalTempo(float bpm) {
+    javafx.application.Platform.runLater(() -> {
+      if (tempoSlider != null) {
+        tempoSlider.setValue(bpm);
+      }
+    });
   }
 
   public void setSelectedTrack(int trackIndex) {

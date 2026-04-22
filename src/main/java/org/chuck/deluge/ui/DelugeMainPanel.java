@@ -327,6 +327,10 @@ public class DelugeMainPanel extends BorderPane {
     transportPanel.setOnKitLoaded(matrixPanel::applyKit);
     projectModel.setOnBpmChanged(bpm -> {
         transportPanel.setTempo(bpm);
+        globalParamPanel.setGlobalTempo(bpm);
+    });
+    transportPanel.setOnTempoChange(bpm -> {
+        projectModel.setBpm(bpm.floatValue());
     });
     transportPanel.setOnRecordToggled(recording -> {
       midiService.setRecording(recording);
