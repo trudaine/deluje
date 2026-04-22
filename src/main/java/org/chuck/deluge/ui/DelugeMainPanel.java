@@ -548,4 +548,8 @@ public class DelugeMainPanel extends BorderPane {
 
     statusPanel.update(step);
   }
+
+  public SongModePanel getSongPanel() {
+    return songPanel;
+  }
 }
