@@ -51,6 +51,17 @@ public class MidiInputRouter {
       int midiNote = msg.data2;
       int velocity = msg.data3;
 
+      boolean gridMode = Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("midi.grid.mode", "false"));
+      if (gridMode) {
+          int row = midiNote / 16;
+          int col = midiNote % 16;
+          if (row < 8) {
+              boolean current = bridge.getStep(row, col);
+              bridge.setStep(row, col, !current);
+              return; // Do not play the note
+          }
+      }
+
       // Store start time and step
       activeNoteStarts.put(midiNote, new NoteStartInfo(vm.getCurrentTime(), currentStep));
 

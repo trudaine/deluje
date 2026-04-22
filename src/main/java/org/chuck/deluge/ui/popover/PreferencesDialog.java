@@ -71,6 +71,13 @@ public class PreferencesDialog extends Dialog<Void> {
     debugCheck.setSelected(currentDebug);
     grid.add(debugCheck, 1, 4);
 
+    // MIDI Grid Mode Toggle
+    grid.add(new Label("MIDI Grid Mode:"), 0, 5);
+    javafx.scene.control.CheckBox gridModeCheck = new javafx.scene.control.CheckBox();
+    boolean currentGridMode = Boolean.parseBoolean(PreferencesManager.get("midi.grid.mode", "false"));
+    gridModeCheck.setSelected(currentGridMode);
+    grid.add(gridModeCheck, 1, 5);
+
     getDialogPane().setContent(grid);
 
     setResultConverter(
@@ -81,6 +88,7 @@ public class PreferencesDialog extends Dialog<Void> {
             PreferencesManager.set("show.visualizers", String.valueOf(visCheck.isSelected()));
             PreferencesManager.set("debug.audio", String.valueOf(debugCheck.isSelected()));
             org.chuck.audio.util.DacChannel.DEBUG_AUDIO = debugCheck.isSelected();
+            PreferencesManager.set("midi.grid.mode", String.valueOf(gridModeCheck.isSelected()));
           }
           return null;
         });
