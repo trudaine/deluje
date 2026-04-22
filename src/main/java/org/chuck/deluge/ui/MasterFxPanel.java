@@ -31,11 +31,18 @@ public class MasterFxPanel extends HBox {
     private boolean controlsInitialized = false;
 
     public void updateControls() {
-        if (controlsInitialized) return;
-        Object revObj = vm.getGlobalObject("g_reverb");
-        if (revObj == null) {
-            System.out.println("DEBUG: g_reverb is NULL!");
-            return;
+        updateControls(false);
+    }
+
+    public void updateControls(boolean force) {
+        if (!force && controlsInitialized) return;
+
+        String reverbModel = org.chuck.deluge.project.PreferencesManager.get("reverb.model", "JCRev");
+        Class<?> revClass;
+        if ("FreeVerb".equals(reverbModel)) {
+            revClass = org.chuck.audio.fx.FreeVerb.class;
+        } else {
+            revClass = org.chuck.audio.fx.JCRev.class;
         }
 
         javafx.application.Platform.runLater(() -> {
@@ -45,29 +52,47 @@ public class MasterFxPanel extends HBox {
             title.setStyle("-fx-text-fill: #aaa; -fx-font-weight: bold;");
             getChildren().add(title);
 
+            // Reverb Group
+            VBox revGroup = new VBox(5);
+            revGroup.setStyle("-fx-border-color: #444; -fx-border-width: 1; -fx-border-radius: 5; -fx-padding: 5;");
+            Label revTitle = new Label(revClass.getSimpleName().toUpperCase());
+            revTitle.setStyle("-fx-text-fill: #888; -fx-font-size: 10px; -fx-font-weight: bold;");
+            HBox revSliders = new HBox(10);
+            revGroup.getChildren().addAll(revTitle, revSliders);
+
             // Introspect Reverb!
-            java.lang.reflect.Method[] methods = revObj.getClass().getMethods();
-            System.out.println("DEBUG: Introspecting " + revObj.getClass().getName() + ", found " + methods.length + " methods.");
+            java.lang.reflect.Method[] methods = revClass.getMethods();
+            System.out.println("DEBUG: Introspecting " + revClass.getName() + ", found " + methods.length + " methods.");
             for (java.lang.reflect.Method m : methods) {
                 // Look for methods taking a single float!
                 if (m.getParameterCount() == 1 && m.getParameterTypes()[0] == float.class) {
                     String name = m.getName();
                     System.out.println("DEBUG: Found candidate method: " + name);
-                    if (!name.equals("wait") && !name.equals("equals")) {
-                         getChildren().add(createDynamicSlider(revObj, m));
+                    if (!name.equals("wait") && !name.equals("equals") && !name.equals("tick")) {
+                         revSliders.getChildren().add(createDynamicSlider(revClass, m));
                     }
                 }
             }
+            getChildren().add(revGroup);
 
-            // Keep hardcoded sliders for Delay for now!
-            getChildren().add(createSlider("Delay Time", BridgeContract.G_DELAY_TIME, 0.1, 2.0, 0.5));
-            getChildren().add(createSlider("Delay FB", BridgeContract.G_DELAY_FB, 0.0, 0.9, 0.3));
+            // Delay Group
+            VBox delayGroup = new VBox(5);
+            delayGroup.setStyle("-fx-border-color: #444; -fx-border-width: 1; -fx-border-radius: 5; -fx-padding: 5;");
+            Label delayTitle = new Label("DELAY");
+            delayTitle.setStyle("-fx-text-fill: #888; -fx-font-size: 10px; -fx-font-weight: bold;");
+            HBox delaySliders = new HBox(10);
+            delayGroup.getChildren().addAll(delayTitle, delaySliders);
+
+            delaySliders.getChildren().add(createSlider("Delay Time", BridgeContract.G_DELAY_TIME, 0.1, 2.0, 0.5));
+            delaySliders.getChildren().add(createSlider("Delay FB", BridgeContract.G_DELAY_FB, 0.0, 0.9, 0.3));
+            
+            getChildren().add(delayGroup);
             
             controlsInitialized = true;
         });
     }
 
-    private VBox createDynamicSlider(Object target, java.lang.reflect.Method m) {
+    private VBox createDynamicSlider(Class<?> revClass, java.lang.reflect.Method m) {
         VBox box = new VBox(5);
         box.setAlignment(Pos.CENTER);
 
@@ -79,10 +104,15 @@ public class MasterFxPanel extends HBox {
         slider.setShowTickMarks(true);
 
         slider.valueProperty().addListener((obs, oldVal, newVal) -> {
-            try {
-                m.invoke(target, newVal.floatValue());
-            } catch (Exception e) {
-                e.printStackTrace();
+            Object currentRev = vm.getGlobalObject("g_reverb");
+            if (currentRev != null && revClass.isInstance(currentRev)) {
+                try {
+                    m.invoke(currentRev, newVal.floatValue());
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            } else {
+                System.out.println("DEBUG: Cannot control active effect (needs restart!)");
             }
         });
 

@@ -35,11 +35,19 @@ public class MappingConfigDialog extends Dialog<Void> {
         
         grid.add(reverbCombo, 1, 0);
 
+        // Visualizer Toggle
+        grid.add(new Label("Show Visualizers:"), 0, 1);
+        javafx.scene.control.CheckBox visCheck = new javafx.scene.control.CheckBox();
+        boolean currentVis = Boolean.parseBoolean(PreferencesManager.get("show.visualizers", "true"));
+        visCheck.setSelected(currentVis);
+        grid.add(visCheck, 1, 1);
+
         getDialogPane().setContent(grid);
 
         setResultConverter(dialogButton -> {
             if (dialogButton == ButtonType.OK) {
                 PreferencesManager.set("reverb.model", reverbCombo.getValue());
+                PreferencesManager.set("show.visualizers", String.valueOf(visCheck.isSelected()));
             }
             return null;
         });

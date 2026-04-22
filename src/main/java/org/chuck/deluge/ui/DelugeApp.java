@@ -47,9 +47,9 @@ public class DelugeApp extends Application {
     }
 
     // 3. Create UI
-    mainPanel = new DelugeMainPanel(vm, bridge);
+    mainPanel = new DelugeMainPanel(vm, bridge, audio);
 
-    Scene scene = new Scene(mainPanel, 1200, 800);
+    Scene scene = new Scene(mainPanel, 1400, 800);
 
     // Robust stylesheet loading
     URL cssUrl = getClass().getResource("/org/chuck/deluge/style.css");
