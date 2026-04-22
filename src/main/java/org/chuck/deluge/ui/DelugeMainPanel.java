@@ -557,6 +557,14 @@ public class DelugeMainPanel extends BorderPane {
     return sidebarPanel;
   }
 
+  public MatrixPanel getMatrixPanel() {
+    return matrixPanel;
+  }
+
+  public org.chuck.deluge.model.ProjectModel getProjectModel() {
+    return projectModel;
+  }
+
   public void setView(ViewMode mode) {
     javafx.application.Platform.runLater(() -> switchView(mode));
   }

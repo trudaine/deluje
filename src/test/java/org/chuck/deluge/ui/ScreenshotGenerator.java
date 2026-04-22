@@ -96,10 +96,22 @@ public class ScreenshotGenerator {
     runAndWait(() -> currentSnapshot = scene.snapshot(null));
     saveSnapshot(currentSnapshot, "../docs/step1_loaded_songview.png", "Step 1: Song View", "Song view showing active clips.");
     
+    // Simulate selection of first clip
+    runAndWait(() -> {
+        org.chuck.deluge.model.TrackModel track = new org.chuck.deluge.model.KitTrackModel("KIT 0");
+        org.chuck.deluge.model.ClipModel clip = new org.chuck.deluge.model.ClipModel("CLIP 0", 1, 16);
+        track.addClip(clip);
+        mainPanel.getProjectModel().getTracks().add(track);
+        
+        mainPanel.getMatrixPanel().setSynthMode(false);
+        mainPanel.getMatrixPanel().setBaseTrack(0);
+        mainPanel.getMatrixPanel().applyClip(clip, 0);
+    });
+    
     // Switch to CLIP view and take snapshot
     mainPanel.setView(DelugeMainPanel.ViewMode.CLIP);
     runAndWait(() -> currentSnapshot = scene.snapshot(null));
-    saveSnapshot(currentSnapshot, "../docs/step1_loaded_clipview.png", "Step 1: Clip View", "Clip view showing sequence.");
+    saveSnapshot(currentSnapshot, "../docs/step1_loaded_clipview.png", "Step 1: Clip View", "Clip view after selecting first clip.");
     
     // Step 2: Edit Cells
     runAndWait(() -> {
