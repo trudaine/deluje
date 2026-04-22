@@ -42,7 +42,7 @@ public class VelocityLanePanel extends Pane {
   }
 
   private void handleMouseDraw(javafx.scene.input.MouseEvent e) {
-    double gridXOffset = 369;
+    double gridXOffset = 519;
     double barWidth = 45;
     double h = canvas.getHeight();
 
@@ -105,7 +105,7 @@ public class VelocityLanePanel extends Pane {
 
     // Offset to align with the grid cells (Label + Button + Spacing)
     // Label(75) + Button(25) + Spacing(5) = 110 approx.
-    double gridXOffset = 369;
+    double gridXOffset = 519;
     double barWidth = 45; // 40 (cell width) + 5 (spacing)
 
     // Draw Mode Label

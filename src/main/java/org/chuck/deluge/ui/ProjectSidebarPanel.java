@@ -56,8 +56,9 @@ public class ProjectSidebarPanel extends VBox {
     this.vm = vm;
     this.bridge = bridge;
 
-    setMinWidth(250);
-    setMaxWidth(300);
+    setPrefWidth(400);
+    setMinWidth(400);
+    setMaxWidth(500);
     setPadding(new Insets(10));
     setSpacing(10);
     setStyle("-fx-background-color: #252525; -fx-border-color: #333; -fx-border-width: 0 1 0 0;");

@@ -142,7 +142,13 @@ public class PresetEditorPane extends VBox {
 
     fxBox.getChildren().addAll(fxTitle, fxGrid);
 
-    content.getChildren().addAll(oscBox, filterBox, fxBox);
+    javafx.scene.control.Accordion accordion = new javafx.scene.control.Accordion();
+    javafx.scene.control.TitledPane oscPane = new javafx.scene.control.TitledPane("OSCILLATORS", oscBox);
+    javafx.scene.control.TitledPane filterPane = new javafx.scene.control.TitledPane("FILTERS", filterBox);
+    javafx.scene.control.TitledPane fxPane = new javafx.scene.control.TitledPane("MASTER FX", fxBox);
+
+    accordion.getPanes().addAll(oscPane, filterPane, fxPane);
+    content.getChildren().add(accordion);
     scroll.setContent(content);
     getChildren().add(scroll);
   }
