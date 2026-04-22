@@ -119,4 +119,8 @@ public class MidiService {
   public boolean isLearning() {
     return learning;
   }
+
+  public void setRecording(boolean active) {
+    router.setFollowModeEnabled(active);
+  }
 }

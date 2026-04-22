@@ -269,6 +269,9 @@ public class DelugeMainPanel extends BorderPane {
     masterFxPanel = new MasterFxPanel(vm, midiService);
 
     transportPanel.setOnKitLoaded(matrixPanel::applyKit);
+    transportPanel.setOnRecordToggled(recording -> {
+      midiService.setRecording(recording);
+    });
     matrixPanel.setOnTrackSelected(velocityPanel::setSelectedTrack);
     ribbonPanel.setOnModeChange(matrixPanel::setEditMode);
 

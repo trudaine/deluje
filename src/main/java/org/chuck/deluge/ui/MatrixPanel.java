@@ -79,6 +79,11 @@ public class MatrixPanel extends BorderPane {
           public void handle(long now) {
             int step = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
             if (step != currentStep) {
+              int oldPage = currentStep / 16;
+              int newPage = step / 16;
+              if (newPage != oldPage) {
+                setStepOffset(newPage * 16);
+              }
               setCurrentStep(step);
               updateKeyboard(step);
             }
@@ -108,16 +113,22 @@ public class MatrixPanel extends BorderPane {
   }
 
   private void setCurrentStep(int step) {
-    if (currentStep >= 0 && currentStep < 16) {
+    if (currentStep >= 0) {
       for (TrackRowPanel row : rows) {
         row.highlightStep(currentStep, false);
       }
     }
     currentStep = step;
-    if (currentStep >= 0 && currentStep < 16) {
+    if (currentStep >= 0) {
       for (TrackRowPanel row : rows) {
         row.highlightStep(currentStep, true);
       }
+    }
+  }
+
+  private void setStepOffset(int offset) {
+    for (TrackRowPanel row : rows) {
+      row.setStepOffset(offset);
     }
   }
 
