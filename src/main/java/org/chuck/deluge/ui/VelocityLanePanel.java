@@ -111,7 +111,7 @@ public class VelocityLanePanel extends Pane {
     // Draw Mode Label
     gc.setFill(Color.web("#aaa"));
     gc.setFont(Font.font("Monospaced", 10));
-    gc.fillText(mode.name() + " LANE", 20, 40);
+    gc.fillText(mode.name() + " LANE", 20, 55);
 
     String color =
         switch (mode) {
