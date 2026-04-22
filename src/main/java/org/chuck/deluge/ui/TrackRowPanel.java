@@ -54,7 +54,7 @@ public class TrackRowPanel extends HBox {
 
     cells = new StepCellButton[16];
     for (int i = 0; i < 16; i++) {
-      cells[i] = new StepCellButton(rowId, i, bridge, editModeSupplier);
+      cells[i] = new StepCellButton(rowId, i, vm, bridge, editModeSupplier);
       getChildren().add(cells[i]);
     }
   }

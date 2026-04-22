@@ -14,6 +14,7 @@ public class StepCellButton extends ToggleButton {
   private int baseTrack = 0;
   private final int rowId;
   private final int stepId;
+  private final org.chuck.core.ChuckVM vm;
   private final BridgeContract bridge;
   private final java.util.function.Supplier<EditMode> editModeSupplier;
 
@@ -23,10 +24,12 @@ public class StepCellButton extends ToggleButton {
   public StepCellButton(
       int rowId,
       int stepId,
+      org.chuck.core.ChuckVM vm,
       BridgeContract bridge,
       java.util.function.Supplier<EditMode> editModeSupplier) {
     this.rowId = rowId;
     this.stepId = stepId;
+    this.vm = vm;
     this.bridge = bridge;
     this.editModeSupplier = editModeSupplier;
 
@@ -38,14 +41,28 @@ public class StepCellButton extends ToggleButton {
 
     setOnAction(
         e -> {
-          if (isSynthMode) {
-            bridge.setStep(baseTrack, stepId, isSelected());
-            if (isSelected()) {
-              // Invert pitch mapping: top row (0) has highest pitch (23)
-              bridge.setPitch(baseTrack, stepId, (24 - 1) - rowId);
+          if (bridge.isRecording()) {
+            int currentStep = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
+            if (currentStep >= 0 && currentStep < 16) {
+              if (isSynthMode) {
+                bridge.setStep(baseTrack, currentStep, true);
+                bridge.setPitch(baseTrack, currentStep, (24 - 1) - rowId);
+              } else {
+                bridge.setStep(baseTrack + rowId, currentStep, true);
+              }
+              bridge.setVelocity(isSynthMode ? baseTrack : baseTrack + rowId, currentStep, 0.8);
+              bridge.setGate(isSynthMode ? baseTrack : baseTrack + rowId, currentStep, 1.0);
             }
+            setSelected(false); // Act as trigger
           } else {
-            bridge.setStep(baseTrack + rowId, stepId, isSelected());
+            if (isSynthMode) {
+              bridge.setStep(baseTrack, stepId, isSelected());
+              if (isSelected()) {
+                bridge.setPitch(baseTrack, stepId, (24 - 1) - rowId);
+              }
+            } else {
+              bridge.setStep(baseTrack + rowId, stepId, isSelected());
+            }
           }
           updateStyle();
         });
