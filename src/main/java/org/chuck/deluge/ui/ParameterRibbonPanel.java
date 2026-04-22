@@ -68,10 +68,13 @@ public class ParameterRibbonPanel extends HBox {
       btn.setToggleGroup(group);
       btn.setStyle("-fx-base: #333333; -fx-text-fill: white; -fx-font-size: 10px;");
 
-      String help = org.chuck.deluge.ui.util.HelpTextManager.getHelp(label);
-      javafx.scene.control.Tooltip tooltip = new javafx.scene.control.Tooltip(help);
-      tooltip.setStyle("-fx-font-family: 'Monospaced'; -fx-font-size: 11px;");
-      javafx.scene.control.Tooltip.install(btn, tooltip);
+      if (Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("show.tooltips", "true"))) {
+        String help = org.chuck.deluge.ui.util.HelpTextManager.getHelp(label);
+        javafx.scene.control.Tooltip tooltip = new javafx.scene.control.Tooltip(help);
+        tooltip.setStyle("-fx-font-family: 'Monospaced'; -fx-font-size: 11px;");
+        tooltip.setShowDelay(javafx.util.Duration.millis(100));
+        javafx.scene.control.Tooltip.install(btn, tooltip);
+      }
       btn.setPrefHeight(30);
       btn.setPrefWidth(85);
 
