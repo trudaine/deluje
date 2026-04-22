@@ -37,30 +37,38 @@ public class ProjectSerializer {
     rootElement.appendChild(instruments);
 
     for (TrackModel track : model.getTracks()) {
-      Element trackElem = doc.createElement("instrument");
-      trackElem.setAttribute("name", track.getName());
-
       if (track instanceof KitTrackModel kit) {
-        trackElem.setAttribute("type", "kit");
+        Element trackElem = doc.createElement("kit");
+        Element presetSlot = doc.createElement("presetSlot");
+        presetSlot.setTextContent(kit.getName());
+        trackElem.appendChild(presetSlot);
+
         for (KitTrackModel.KitSound sound : kit.getSounds()) {
           Element soundElem = doc.createElement("sound");
-          soundElem.setAttribute("name", sound.getName());
+          Element nameElem = doc.createElement("name");
+          nameElem.setTextContent(sound.getName());
+          soundElem.appendChild(nameElem);
+          
           Element sample = doc.createElement("sample");
           sample.setAttribute("fileName", sound.getSamplePath());
           soundElem.appendChild(sample);
+          
           trackElem.appendChild(soundElem);
         }
+        instruments.appendChild(trackElem);
       } else if (track instanceof SynthTrackModel synth) {
-        trackElem.setAttribute("type", "synth");
+        Element trackElem = doc.createElement("sound");
+        Element presetSlot = doc.createElement("presetSlot");
+        presetSlot.setTextContent(synth.getName());
+        trackElem.appendChild(presetSlot);
 
         Element osc1 = doc.createElement("osc1");
         osc1.setAttribute("type", synth.getOsc1Type().toLowerCase());
         trackElem.appendChild(osc1);
 
         // (Full serialization of all ADSR, LFO, and Patch cables would go here)
+        instruments.appendChild(trackElem);
       }
-
-      instruments.appendChild(trackElem);
     }
 
     // Serialize Tracks (Clips)
