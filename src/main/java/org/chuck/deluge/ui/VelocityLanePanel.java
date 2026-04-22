@@ -36,6 +36,53 @@ public class VelocityLanePanel extends Pane {
               canvas.setWidth(newVal.doubleValue());
               draw();
             });
+
+    canvas.setOnMousePressed(this::handleMouseDraw);
+    canvas.setOnMouseDragged(this::handleMouseDraw);
+  }
+
+  private void handleMouseDraw(javafx.scene.input.MouseEvent e) {
+    double gridXOffset = 369;
+    double barWidth = 45;
+    double h = canvas.getHeight();
+
+    int stepIdx = (int) ((e.getX() - gridXOffset) / barWidth);
+    if (stepIdx >= 0 && stepIdx < 16) {
+      double val = 1.0 - (e.getY() - 5) / (h - 30);
+      val = Math.max(0.0, Math.min(1.0, val));
+
+      EditMode mode = (editModeSupplier != null) ? editModeSupplier.get() : EditMode.VELOCITY;
+      String globalParam =
+          switch (mode) {
+            case VELOCITY -> BridgeContract.G_VELOCITY;
+            case GATE -> BridgeContract.G_GATE;
+            case PITCH -> BridgeContract.G_PITCH;
+            case PROBABILITY -> BridgeContract.G_PROBABILITY;
+            case FILTER -> BridgeContract.G_STEP_FILTER;
+            case RESONANCE -> BridgeContract.G_STEP_RES;
+            case PAN -> BridgeContract.G_STEP_PAN;
+            case DELAY -> BridgeContract.G_STEP_DELAY;
+            case REVERB -> BridgeContract.G_STEP_REVERB;
+            case LEVEL -> BridgeContract.G_TRACK_LEVEL;
+            case START_END -> BridgeContract.G_STEP_START;
+            case STUTTER, MOD_FX -> BridgeContract.G_VELOCITY;
+          };
+
+      Object obj = vm.getGlobalObject(globalParam);
+      if (obj instanceof org.chuck.core.ChuckArray array) {
+        int arrayIdx =
+            (globalParam.equals(BridgeContract.G_TRACK_LEVEL))
+                ? selectedTrack
+                : (selectedTrack * 16 + stepIdx);
+
+        if (mode == EditMode.PITCH) {
+          array.setInt(arrayIdx, (long) (val * 24.0 - 12));
+        } else {
+          array.setFloat(arrayIdx, (float) val);
+        }
+        draw();
+      }
+    }
   }
 
   public void setEditModeSupplier(java.util.function.Supplier<EditMode> supplier) {
