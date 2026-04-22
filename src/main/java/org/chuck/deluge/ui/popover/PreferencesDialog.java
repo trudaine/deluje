@@ -78,6 +78,12 @@ public class PreferencesDialog extends Dialog<Void> {
     gridModeCheck.setSelected(currentGridMode);
     grid.add(gridModeCheck, 1, 5);
 
+    grid.add(new Label("Show Tooltips:"), 0, 6);
+    javafx.scene.control.CheckBox tooltipCheck = new javafx.scene.control.CheckBox();
+    boolean currentTooltip = Boolean.parseBoolean(PreferencesManager.get("show.tooltips", "true"));
+    tooltipCheck.setSelected(currentTooltip);
+    grid.add(tooltipCheck, 1, 6);
+
     getDialogPane().setContent(grid);
 
     setResultConverter(
@@ -89,6 +95,7 @@ public class PreferencesDialog extends Dialog<Void> {
             PreferencesManager.set("debug.audio", String.valueOf(debugCheck.isSelected()));
             org.chuck.audio.util.DacChannel.DEBUG_AUDIO = debugCheck.isSelected();
             PreferencesManager.set("midi.grid.mode", String.valueOf(gridModeCheck.isSelected()));
+            PreferencesManager.set("show.tooltips", String.valueOf(tooltipCheck.isSelected()));
           }
           return null;
         });
