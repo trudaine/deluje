@@ -93,6 +93,7 @@ public final class BridgeContract {
   private final ChuckArray delaySend;
   private final ChuckArray reverbSend;
   private ChuckVM vm;
+  private boolean recording = false;
 
   public BridgeContract() {
     pattern = new ChuckArray("int", PATTERN_SIZE);
@@ -423,6 +424,14 @@ public final class BridgeContract {
 
   public ChuckArray patternArray() {
     return pattern;
+  }
+
+  public void setRecording(boolean r) {
+    this.recording = r;
+  }
+
+  public boolean isRecording() {
+    return recording;
   }
 
   public ChuckArray probabilityArray() {
