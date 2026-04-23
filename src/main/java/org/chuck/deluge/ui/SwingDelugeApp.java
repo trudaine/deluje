@@ -12,6 +12,8 @@ public class SwingDelugeApp extends JFrame {
 
   private SwingMatrixPanel matrixPanel;
   private SwingVisualizerPanel visualizerPanel;
+  private SwingSongModePanel songPanel;
+
 
   private JPanel centerCardPanel;
   private CardLayout cardLayout;
@@ -212,8 +214,9 @@ public class SwingDelugeApp extends JFrame {
     matrixPanel = new SwingMatrixPanel(vm, bridge);
     centerCardPanel.add(matrixPanel, "CLIP");
     
-    SwingSongModePanel songPanel = new SwingSongModePanel(vm, bridge);
+    songPanel = new SwingSongModePanel(vm, bridge);
     centerCardPanel.add(songPanel, "SONG");
+
 
     SwingArrangerPanel arrPanel = new SwingArrangerPanel(vm, bridge);
     centerCardPanel.add(arrPanel, "ARR");
@@ -315,6 +318,14 @@ public class SwingDelugeApp extends JFrame {
       matrixPanel.repaint();
     });
 
+    songPanel.setOnEditRequest((trackId, clipId) -> {
+      System.out.println("Swing Callback: Edit track " + trackId);
+      matrixPanel.setBaseTrack(trackId * 8);
+      cardLayout.show(centerCardPanel, "CLIP");
+      clipBtn.setSelected(true);
+    });
+
+
     gbc.gridx = 0; gbc.gridy = 1; gbc.gridwidth = 1; gbc.weightx = 0.0; gbc.weighty = 1.0;
     add(sidebarPanel, gbc);
 
@@ -388,6 +399,10 @@ public class SwingDelugeApp extends JFrame {
               if (matrixPanel != null) {
                 matrixPanel.setCurrentStep(step);
               }
+              if (songPanel != null) {
+                songPanel.updatePlayhead(step);
+              }
+
               if (visualizerPanel != null) {
                 visualizerPanel.repaint();
               }
