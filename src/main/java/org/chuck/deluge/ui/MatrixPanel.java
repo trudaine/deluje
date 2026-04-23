@@ -117,6 +117,17 @@ public class MatrixPanel extends BorderPane {
               setCurrentStep(step);
               updateKeyboard(step);
             }
+          
+            if (bridge.getStep(0, step)) {
+              for (int t = 1; t < rows.length; t++) {
+                final int trackIdx = t;
+                bridge.setTrackLevel(trackIdx, 0.15);
+                
+                javafx.animation.PauseTransition release = new javafx.animation.PauseTransition(javafx.util.Duration.millis(120));
+                release.setOnFinished(ev -> bridge.setTrackLevel(trackIdx, 0.70));
+                release.play();
+              }
+            }
           }
         };
     timer.start();
