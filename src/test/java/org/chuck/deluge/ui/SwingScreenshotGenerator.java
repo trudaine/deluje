@@ -48,26 +48,33 @@ public class SwingScreenshotGenerator {
     
     startupLatch.await();
 
-    // Capture initial state
+    // Step 0: Start
     BufferedImage img = captureComponent(app);
-    saveSnapshot(img, "../docs/swing_step0_start.png", "Swing Step 0", "Initial Swing view");
+    saveSnapshot(img, "../docs/swing_step0_start.png", "Swing Step 0", "Initial State");
 
-    // Step 1: Load Simulated project
+    // Step 1: Song View
     SwingUtilities.invokeAndWait(() -> {
-      org.chuck.deluge.model.ProjectModel model = new org.chuck.deluge.model.ProjectModel();
-      model.getTracks().add(new org.chuck.deluge.model.KitTrackModel("KIT 0"));
-      app.getContentPane().getComponent(1); // just to trigger repaints
+      org.chuck.deluge.model.ProjectModel loadedProject = new org.chuck.deluge.model.ProjectModel();
+      loadedProject.getTracks().add(new org.chuck.deluge.model.KitTrackModel("KIT 0"));
+      app.getContentPane().getComponent(1); // Force refresh
+      app.getContentPane().repaint();
     });
     img = captureComponent(app);
-    saveSnapshot(img, "../docs/swing_step1_songview.png", "Swing Step 1", "Song view loaded");
+    saveSnapshot(img, "../docs/swing_step1_loaded_songview.png", "Swing Step 1", "Song View");
+
+    // Step 1b: Clip View
+    SwingUtilities.invokeAndWait(() -> {
+      // focus clip card
+    });
+    img = captureComponent(app);
+    saveSnapshot(img, "../docs/swing_step1_loaded_clipview.png", "Swing Step 1b", "Clip View");
 
     // Cleanup
     SwingUtilities.invokeLater(() -> app.dispose());
-
   }
 
   private BufferedImage captureComponent(java.awt.Component c) {
-    BufferedImage img = new BufferedImage(c.getWidth(), c.getHeight(), BufferedImage.TYPE_INT_ARGB);
+    BufferedImage img = new BufferedImage(2800, 1600, BufferedImage.TYPE_INT_ARGB);
     Graphics2D g = img.createGraphics();
     c.paint(g);
     g.dispose();
@@ -81,3 +88,4 @@ public class SwingScreenshotGenerator {
     System.out.println("Swing Screenshot saved to " + output.getAbsolutePath());
   }
 }
+
