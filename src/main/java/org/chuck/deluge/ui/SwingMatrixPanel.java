@@ -45,10 +45,18 @@ public class SwingMatrixPanel extends JPanel {
   }
 
 
+  private int baseTrack = 0;
+
+  public void setBaseTrack(int baseTrack) {
+    this.baseTrack = baseTrack;
+    repaint();
+  }
+
   public void setCurrentStep(int step) {
     this.currentStep = step;
     repaint();
   }
+
 
   private void handleMousePress(MouseEvent e) {
     int cellW = 120;
@@ -62,8 +70,9 @@ public class SwingMatrixPanel extends JPanel {
 
     if (c >= 0 && c < cols && r >= 0 && r < rows) {
       if (bridge != null) {
-        boolean active = bridge.getStep(r, offset + c);
-        bridge.setStep(r, offset + c, !active);
+        boolean active = bridge.getStep(baseTrack + r, offset + c);
+        bridge.setStep(baseTrack + r, offset + c, !active);
+
         repaint();
       }
     }
@@ -101,7 +110,7 @@ public class SwingMatrixPanel extends JPanel {
       g2.drawString(labelStr, 20, gridY + r * cellH + cellH / 2);
 
       for (int c = 0; c < cols; c++) {
-        boolean active = bridge != null && bridge.getStep(r, offset + c);
+        boolean active = bridge != null && bridge.getStep(baseTrack + r, offset + c);
 
         int padX = gridX + c * cellW + 4;
         int padY = gridY + r * cellH + 4;

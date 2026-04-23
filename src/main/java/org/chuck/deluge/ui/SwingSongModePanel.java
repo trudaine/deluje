@@ -34,6 +34,26 @@ public class SwingSongModePanel extends JPanel {
     this.onEditRequest = callback;
   }
 
+  public void updatePlayhead(int step) {
+    Component[] rows = getComponents();
+    for (int t = 0; t < Math.min(rows.length, 8); t++) {
+      if (rows[t] instanceof JPanel rowPanel) {
+        Component[] comps = rowPanel.getComponents();
+        for (int c = 0; c < 8; c++) {
+          if (c + 1 < comps.length && comps[c + 1] instanceof JButton pad) {
+            boolean isTriggered = (bridge != null) && bridge.getStep(t * 8 + c, step % 16);
+            if (isTriggered) {
+              pad.setBackground(Color.WHITE);
+            } else if (pad.getBackground().equals(Color.WHITE)) {
+              pad.setBackground(new Color(0x00, 0xff, 0xcc)); // back to active green
+            }
+          }
+        }
+      }
+    }
+  }
+
+
   public void refresh() {
     removeAll();
     java.util.List<org.chuck.deluge.model.TrackModel> tracks = projectModel.getTracks();

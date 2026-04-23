@@ -39,11 +39,15 @@ public class SwingScreenshotGenerator {
         midiService = new MidiService(vm, bridge, router);
 
         app = new SwingDelugeApp(vm, bridge, midiService);
+        app.addNotify();
+        app.validate();
+        app.doLayout();
         app.setVisible(false); // Run headless for test
         startupLatch.countDown();
       } catch (Exception e) {
         e.printStackTrace();
       }
+
     });
     
     startupLatch.await();
@@ -91,7 +95,7 @@ public class SwingScreenshotGenerator {
   private BufferedImage captureComponent(java.awt.Component c) {
     BufferedImage img = new BufferedImage(2800, 1600, BufferedImage.TYPE_INT_ARGB);
     Graphics2D g = img.createGraphics();
-    c.paint(g);
+    c.printAll(g);
     g.dispose();
     return img;
   }
