@@ -275,14 +275,49 @@ public class SwingGridPanel extends JPanel {
                     tabs.addTab("CLIPBOARD", p2);
                     
                     // Tab 3: Mixer
-                    JPanel p3 = new JPanel(new GridLayout(2, 2, 30, 30));
+                    JPanel p3 = new JPanel(new GridBagLayout());
                     p3.setBackground(new Color(0x2b, 0x2b, 0x2b));
-                    p3.setBorder(BorderFactory.createEmptyBorder(40, 40, 40, 40));
-                    JLabel vL = new JLabel("Channel Volume:"); vL.setFont(new Font("SansSerif", Font.BOLD, 18)); vL.setForeground(Color.WHITE);
-                    JSlider vS = new JSlider(0, 100, 80);
-                    vS.addChangeListener(ev -> System.out.println("Mixer: Track " + currentTrack + " Vol -> " + vS.getValue() + "%"));
-                    p3.add(vL); p3.add(vS);
+                    GridBagConstraints gcm = new GridBagConstraints();
+                    gcm.fill = GridBagConstraints.HORIZONTAL;
+                    gcm.insets = new Insets(25, 25, 25, 25);
+                    
+                    gcm.gridx = 0; gcm.gridy = 0;
+                    JLabel vL = new JLabel("Channel Volume:"); vL.setFont(new Font("SansSerif", Font.BOLD, 20)); vL.setForeground(Color.WHITE);
+                    p3.add(vL, gcm);
+                    gcm.gridx = 1;
+                    JSlider vS = new JSlider(0, 100, 80); vS.setPreferredSize(new Dimension(400, 50));
+                    vS.addChangeListener(ev -> System.out.println("Track " + currentTrack + " Vol: " + vS.getValue()));
+
+                    p3.add(vS, gcm);
+                    
+                    gcm.gridx = 0; gcm.gridy = 1;
+                    JLabel pL = new JLabel("Channel Panning:"); pL.setFont(new Font("SansSerif", Font.BOLD, 20)); pL.setForeground(Color.WHITE);
+                    p3.add(pL, gcm);
+                    gcm.gridx = 1;
+                    JSlider pS = new JSlider(0, 100, 50); pS.setPreferredSize(new Dimension(400, 50));
+                    p3.add(pS, gcm);
                     tabs.addTab("MIXER", p3);
+
+                    // Actions hooks
+                    cloneBtn.addActionListener(ev -> {
+                       if (currentTrack < tracks.size()) {
+                          org.chuck.deluge.model.TrackModel tModel = tracks.get(currentTrack);
+                          if (!tModel.getClips().isEmpty()) {
+                             tModel.addClip(tModel.getClips().get(0)); // Mock clone
+                          }
+                       }
+                       dialog.dispose();
+                       refresh();
+                    });
+                    
+                    cb.addActionListener(ev -> {
+                       if (currentTrack < tracks.size()) {
+                          tracks.get(currentTrack).setName((String)cb.getSelectedItem());
+                       }
+                       dialog.dispose();
+                       refresh();
+                    });
+
 
                     
                     dialog.add(tabs);

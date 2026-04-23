@@ -107,10 +107,21 @@ public class ClipCell extends Button {
            p2.setPadding(new Insets(20));
            javafx.scene.control.Label lM = new javafx.scene.control.Label("Volume slider:");
            javafx.scene.control.Slider slider = new javafx.scene.control.Slider(0, 100, 80);
-           p2.getChildren().addAll(lM, slider);
+           javafx.scene.control.Label lPan = new javafx.scene.control.Label("Panning slider:");
+           javafx.scene.control.Slider panSlider = new javafx.scene.control.Slider(0, 100, 50);
+           p2.getChildren().addAll(lM, slider, lPan, panSlider);
            t2.setContent(p2);
+
+           javafx.scene.control.Tab t3 = new javafx.scene.control.Tab("CLIPBOARD");
+           javafx.scene.layout.HBox p3 = new javafx.scene.layout.HBox(20);
+           p3.setPadding(new Insets(20));
+           javafx.scene.control.Button cloneBtn = new javafx.scene.control.Button("Clone Clip Variant");
+           cloneBtn.setStyle("-fx-font-size: 20px; -fx-font-weight: bold; -fx-padding: 10 20 10 20;");
+           p3.getChildren().add(cloneBtn);
+           t3.setContent(p3);
            
-           tabPane.getTabs().addAll(t1, t2);
+           tabPane.getTabs().addAll(t1, t2, t3);
+
            dialog.getDialogPane().setContent(tabPane);
            dialog.getDialogPane().getButtonTypes().add(javafx.scene.control.ButtonType.CLOSE);
            dialog.showAndWait();
