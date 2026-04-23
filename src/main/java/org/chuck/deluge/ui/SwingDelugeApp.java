@@ -335,21 +335,32 @@ public class SwingDelugeApp extends JFrame {
     gbc.gridx = 2; gbc.gridy = 1; gbc.gridwidth = 1; gbc.weightx = 0.0; gbc.weighty = 1.0;
     add(visualizerPanel, gbc);
 
+    // 6. Bottom Area - Row 2 (Velocity lane plot)
+    SwingVelocityLanePanel bottomLane = new SwingVelocityLanePanel(vm, bridge);
+    
     // 5. Bottom Area - Row 1 (Ribbons)
-    JPanel ribbonStrip = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 2));
+    JPanel ribbonStrip = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 2));
     ribbonStrip.setBackground(new Color(0x1f, 0x1f, 0x1f));
-    JButton velBtn = new JButton("VELOCITY");
-    JButton gateBtn = new JButton("GATE");
-    JButton pitchBtn = new JButton("PITCH");
-    ribbonStrip.add(velBtn); ribbonStrip.add(gateBtn); ribbonStrip.add(pitchBtn);
+
+    String[] paramLabels = {
+      "LEVEL", "PAN", "PITCH", "FILTER", "RESONANCE", 
+      "MOD FX", "DELAY", "REVERB", "STUTTER", "PROBABILITY", 
+      "GATE", "VELOCITY", "START/END"
+    };
+
+    for (String label : paramLabels) {
+      JButton btn = new JButton(label);
+      btn.addActionListener(e -> bottomLane.setMode(label));
+      ribbonStrip.add(btn);
+    }
+
 
     gbc.gridx = 0; gbc.gridy = 2; gbc.gridwidth = 3; gbc.weightx = 1.0; gbc.weighty = 0.0;
     add(ribbonStrip, gbc);
 
-    // 6. Bottom Area - Row 2 (Velocity lane plot)
-    SwingVelocityLanePanel bottomLane = new SwingVelocityLanePanel(vm, bridge);
     gbc.gridx = 0; gbc.gridy = 3; gbc.gridwidth = 3; gbc.weightx = 1.0; gbc.weighty = 0.0;
     add(bottomLane, gbc);
+
 
     // 7. Bottom Area - Row 3 (Master FX dials bounding boxes)
     JPanel masterFxPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 5));
@@ -380,21 +391,27 @@ public class SwingDelugeApp extends JFrame {
             e -> {
               int step = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
               
-              // Calculate Bar:Beat:Step
               int bar = step / 16 + 1;
               int beat = (step % 16) / 4 + 1;
               int subStep = (step % 4) + 1;
               
+              String statusStr = "STOP";
+              if (vm.getGlobalInt(BridgeContract.G_PLAY) == 1L) {
+                statusStr = String.format("%d.%d.%d", bar, beat, subStep);
+              }
+              statusStr += " | SHREDS: " + vm.getActiveShredCount();
+
               Component[] comps = getContentPane().getComponents();
               for (Component c : comps) {
                 if (c instanceof JPanel p) {
                   for (Component child : p.getComponents()) {
                     if (child instanceof JLabel l && l.getForeground().equals(Color.GREEN)) {
-                      l.setText(bar + ":" + beat + ":" + subStep);
+                      l.setText(statusStr);
                     }
                   }
                 }
               }
+
 
               if (matrixPanel != null) {
                 matrixPanel.setCurrentStep(step);
