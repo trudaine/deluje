@@ -77,6 +77,7 @@
     </dependency>
   </dependencies>
   <properties>
+    <javafx.platform>linux</javafx.platform>
     <skipTests>true</skipTests>
   </properties>
 </project>
