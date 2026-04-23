@@ -83,7 +83,11 @@ public class PreferencesDialog extends Dialog<Void> {
     javafx.scene.control.CheckBox tooltipCheck = new javafx.scene.control.CheckBox();
     boolean currentTooltip = Boolean.parseBoolean(PreferencesManager.get("show.tooltips", "true"));
     tooltipCheck.setSelected(currentTooltip);
-    grid.add(tooltipCheck, 1, 6);
+    grid.add(new Label("Preset Linking:"), 0, 7);
+    ComboBox<String> linkingCombo = new ComboBox<>();
+    linkingCombo.getItems().addAll("EMBED", "LINK_LIVE");
+    linkingCombo.setValue(PreferencesManager.get("preset.linking.policy", "EMBED"));
+    grid.add(linkingCombo, 1, 7);
 
     getDialogPane().setContent(grid);
 
@@ -97,8 +101,10 @@ public class PreferencesDialog extends Dialog<Void> {
             org.chuck.audio.util.DacChannel.DEBUG_AUDIO = debugCheck.isSelected();
             PreferencesManager.set("midi.grid.mode", String.valueOf(gridModeCheck.isSelected()));
             PreferencesManager.set("show.tooltips", String.valueOf(tooltipCheck.isSelected()));
+            PreferencesManager.set("preset.linking.policy", linkingCombo.getValue());
           }
           return null;
         });
+
   }
 }
