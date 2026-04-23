@@ -197,8 +197,12 @@ public class DelugeXmlParser {
         java.util.List<TrackModel> projectTracks = project.getTracks();
         if (i < projectTracks.size()) {
           TrackModel targetTrack = projectTracks.get(i);
+          if (trackElem.hasAttribute("colour")) {
+             targetTrack.setColourHex(trackElem.getAttribute("colour"));
+          }
 
           NodeList noteRowsList = trackElem.getElementsByTagName("noteRows");
+
           if (noteRowsList.getLength() > 0) {
             Element noteRowsElem = (Element) noteRowsList.item(0);
             NodeList noteRowList = noteRowsElem.getElementsByTagName("noteRow");

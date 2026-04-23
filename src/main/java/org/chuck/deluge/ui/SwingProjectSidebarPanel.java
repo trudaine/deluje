@@ -18,27 +18,37 @@ public class SwingProjectSidebarPanel extends JPanel {
 
   private final org.chuck.deluge.midi.MidiService midiService;
 
+  private JTextArea scriptArea;
+  private String activeScriptPath;
+  private JTabbedPane tabs;
+  private JPanel ckParamsBox;
+
+
   public SwingProjectSidebarPanel(ChuckVM vm, BridgeContract bridge, org.chuck.deluge.midi.MidiService midiService) {
     this.vm = vm;
     this.bridge = bridge;
     this.midiService = midiService;
 
-
-
     setPreferredSize(new Dimension(400, 0));
     setBackground(new Color(0x25, 0x25, 0x25));
     setLayout(new BorderLayout());
 
-    JTabbedPane tabs = new JTabbedPane();
+    tabs = new JTabbedPane();
+
     tabs.setBackground(new Color(0x33, 0x33, 0x33));
     tabs.setForeground(Color.WHITE);
 
     tabs.addTab("LIBRARY", createLibraryTab());
     tabs.addTab("EDITOR", createEditorTab());
     tabs.addTab("MIDI", createMidiTab());
+    tabs.addTab("SCRIPT", createScriptTab());
+    tabs.addTab("PROFILER", createProfilerTab());
+    tabs.addTab("SNIPPETS", createSnippetsTab());
+
 
     add(tabs, BorderLayout.CENTER);
   }
+
 
   private JComponent createLibraryTab() {
     javax.swing.tree.DefaultMutableTreeNode root =
@@ -47,6 +57,8 @@ public class SwingProjectSidebarPanel extends JPanel {
     addResourcesToTree(root, "KITS", "/KITS");
     addResourcesToTree(root, "SYNTHS", "/SYNTHS");
     addResourcesToTree(root, "SONGS", "/SONGS");
+    addResourcesToTree(root, "EXAMPLES", "/examples");
+
 
     JTree tree = new JTree(root);
     tree.setBackground(new Color(0x1f, 0x1f, 0x1f));
@@ -72,10 +84,67 @@ public class SwingProjectSidebarPanel extends JPanel {
                 if (node.isLeaf()) {
                   String name = node.getUserObject().toString();
                   String internalDir = path.getParentPath().getLastPathComponent().toString();
-                  String resourcePath = "/" + internalDir + "/" + name + ".xml";
+                  StringBuilder pathBuilder = new StringBuilder();
+                  for (int i = 1; i < path.getPathCount(); i++) {
+
+                     pathBuilder.append("/").append(path.getPathComponent(i).toString());
+                  }
+                  String resourcePath = pathBuilder.toString();
+                  if (resourcePath.startsWith("/EXAMPLES/")) {
+                     resourcePath = "/examples" + resourcePath.substring(9);
+                  }
+                  if (!resourcePath.toLowerCase().endsWith(".xml") && !resourcePath.toLowerCase().endsWith(".ck")) {
+                     resourcePath += ".xml"; 
+                  }
+                  
+                  if (resourcePath.toLowerCase().endsWith(".ck")) {
+
+                    System.out.println("Swing: Loading ChucK script text: " + resourcePath);
+                    activeScriptPath = resourcePath;
+                    try (java.io.InputStream is = getClass().getResourceAsStream(resourcePath)) {
+                      if (is != null) {
+                        String content = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                        if (scriptArea != null) {
+                          scriptArea.setText(content);
+                          tabs.setSelectedIndex(1); // Focus EDITOR tab to see sliders!
+                          
+                          if (ckParamsBox != null) {
+                            ckParamsBox.removeAll();
+                            java.util.regex.Pattern p = java.util.regex.Pattern.compile("global\\s+float\\s+([a-zA-Z0-9_]+)");
+                            java.util.regex.Matcher m = p.matcher(content);
+                            while (m.find()) {
+                              String varName = m.group(1);
+                              JLabel varLabel = new JLabel(varName + ": 50");
+                              varLabel.setForeground(Color.WHITE);
+                              JSlider slider = new JSlider(0, 100, 50);
+                              slider.setBackground(new Color(0x1f, 0x1f, 0x1f));
+                              slider.addChangeListener(ev -> {
+                                varLabel.setText(varName + ": " + slider.getValue());
+                                if (vm != null) {
+                                  vm.setGlobalFloat(varName, slider.getValue() / 100.0);
+                                }
+                              });
+                              ckParamsBox.add(varLabel);
+                              ckParamsBox.add(slider);
+                              ckParamsBox.add(Box.createVerticalStrut(5));
+                            }
+                            ckParamsBox.revalidate();
+                            ckParamsBox.repaint();
+                          }
+                        }
+
+                      }
+                    } catch (Exception ex) {
+                      ex.printStackTrace();
+                    }
+                    return;
+                  }
+
 
                   System.out.println("Swing: Loading Preset: " + resourcePath);
                   try (java.io.InputStream is = getClass().getResourceAsStream(resourcePath)) {
+
+
                     if (is != null) {
                       if ("KITS".equals(internalDir)) {
                         org.chuck.deluge.model.KitTrackModel kit =
@@ -175,18 +244,7 @@ public class SwingProjectSidebarPanel extends JPanel {
         }
 
         if (java.nio.file.Files.exists(path)) {
-          try (java.util.stream.Stream<java.nio.file.Path> walk =
-              java.nio.file.Files.walk(path, 1)) {
-            walk.filter(p -> p.getFileName().toString().toUpperCase().endsWith(".XML"))
-                .sorted(
-                    java.util.Comparator.comparing(p -> p.getFileName().toString().toUpperCase()))
-                .forEach(
-                    p -> {
-                      String name = p.getFileName().toString();
-                      String displayName = name.substring(0, name.length() - 4);
-                      folder.add(new javax.swing.tree.DefaultMutableTreeNode(displayName));
-                    });
-          }
+           buildDirectoryTree(folder, path, path);
         }
       }
     } catch (Exception e) {
@@ -194,7 +252,31 @@ public class SwingProjectSidebarPanel extends JPanel {
     }
   }
 
+  private void buildDirectoryTree(javax.swing.tree.DefaultMutableTreeNode node, java.nio.file.Path rootPath, java.nio.file.Path currentPath) {
+    try (java.util.stream.Stream<java.nio.file.Path> stream = java.nio.file.Files.list(currentPath)) {
+      stream.sorted(java.util.Comparator.comparing(p -> p.getFileName().toString().toUpperCase()))
+            .forEach(p -> {
+              if (java.nio.file.Files.isDirectory(p)) {
+                javax.swing.tree.DefaultMutableTreeNode dirNode = new javax.swing.tree.DefaultMutableTreeNode(p.getFileName().toString());
+                node.add(dirNode);
+                buildDirectoryTree(dirNode, rootPath, p);
+              } else {
+                String fn = p.getFileName().toString();
+                String fnUpper = fn.toUpperCase();
+                if (fnUpper.endsWith(".XML") || fnUpper.endsWith(".CK")) {
+                  int dotIdx = fn.lastIndexOf('.');
+                  String displayName = dotIdx != -1 ? fn.substring(0, dotIdx) : fn;
+                  node.add(new javax.swing.tree.DefaultMutableTreeNode(displayName));
+                }
+              }
+            });
+    } catch (Exception ex) {
+       // ignore
+    }
+  }
+
   private JComponent createEditorTab() {
+
     JPanel panel = new JPanel();
     panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
     panel.setBackground(new Color(0x25, 0x25, 0x25));
@@ -212,16 +294,22 @@ public class SwingProjectSidebarPanel extends JPanel {
     panel.add(saveBtn);
     panel.add(Box.createVerticalStrut(10));
 
-    // Oscillators Section
+    ckParamsBox = createSection("CHUCK PARAMS");
+    panel.add(ckParamsBox);
+    panel.add(Box.createVerticalStrut(15));
 
+    // Oscillators Section
     JPanel oscBox = createSection("OSCILLATORS");
+
     
     JLabel osc1TypeLabel = new JLabel("Osc 1 Type:");
     osc1TypeLabel.setForeground(Color.WHITE);
     JComboBox<String> osc1TypeCombo = new JComboBox<>(new String[]{"Sine", "Saw", "Square", "Triangle", "Noise"});
     osc1TypeCombo.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    osc1TypeCombo.setMaximumSize(new Dimension(180, 28));
     oscBox.add(osc1TypeLabel);
     oscBox.add(osc1TypeCombo);
+
     oscBox.add(Box.createVerticalStrut(5));
 
     JLabel osc1Label = new JLabel("Osc 1 Vol: 64");
@@ -238,8 +326,10 @@ public class SwingProjectSidebarPanel extends JPanel {
     osc2TypeLabel.setForeground(Color.WHITE);
     JComboBox<String> osc2TypeCombo = new JComboBox<>(new String[]{"Sine", "Saw", "Square", "Triangle", "Noise"});
     osc2TypeCombo.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    osc2TypeCombo.setMaximumSize(new Dimension(180, 28));
     oscBox.add(osc2TypeLabel);
     oscBox.add(osc2TypeCombo);
+
     oscBox.add(Box.createVerticalStrut(5));
 
     JLabel osc2Label = new JLabel("Osc 2 Vol: 0");
@@ -415,8 +505,104 @@ public class SwingProjectSidebarPanel extends JPanel {
     } catch (Exception ex) { }
   }
 
-  private JPanel createSection(String title) {
+  private JComponent createScriptTab() {
+    JPanel panel = new JPanel(new BorderLayout());
+    panel.setBackground(new Color(0x25, 0x25, 0x25));
 
+    scriptArea = new JTextArea();
+    scriptArea.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    scriptArea.setForeground(Color.GREEN);
+    scriptArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+    scriptArea.setCaretColor(Color.WHITE);
+
+    JTextArea logArea = new JTextArea("Console logs: Ready");
+    logArea.setBackground(Color.BLACK);
+    logArea.setForeground(Color.CYAN);
+    logArea.setEditable(false);
+
+    JButton reloadBtn = new JButton("💾 SAVE & RELOAD");
+    reloadBtn.setBackground(new Color(0x33, 0x66, 0x33));
+    reloadBtn.setForeground(Color.WHITE);
+
+    reloadBtn.addActionListener(e -> {
+      if (scriptArea == null) return;
+      JFileChooser chooser = new JFileChooser();
+      chooser.setDialogTitle("Save ChucK Script Externally");
+      if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+        java.io.File outFile = chooser.getSelectedFile();
+        try (java.io.FileWriter writer = new java.io.FileWriter(outFile)) {
+          writer.write(scriptArea.getText());
+          logArea.setText("[Compiler]: Script saved externally to:\n" + outFile.getAbsolutePath());
+        } catch (Exception ex) {
+          logArea.setText("[Error]: Failed to write script:\n" + ex.getMessage());
+        }
+      }
+    });
+
+
+    panel.add(reloadBtn, BorderLayout.NORTH);
+    
+    JPanel centerSplit = new JPanel(new GridLayout(2, 1, 5, 5));
+    centerSplit.add(new JScrollPane(scriptArea));
+    centerSplit.add(new JScrollPane(logArea));
+    panel.add(centerSplit, BorderLayout.CENTER);
+
+
+    return panel;
+  }
+
+  private JComponent createProfilerTab() {
+    JPanel panel = new JPanel(new BorderLayout());
+    panel.setBackground(new Color(0x25, 0x25, 0x25));
+    
+    DefaultListModel<String> model = new DefaultListModel<>();
+    model.addElement("Shred 1: engine.ck (Master Clock)");
+    model.addElement("Shred 2: custom_fm.ck (Active)");
+    JList<String> list = new JList<>(model);
+    list.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    list.setForeground(Color.CYAN);
+    
+    JButton killBtn = new JButton("KILL SELECTED SHRED");
+    killBtn.setBackground(new Color(0xaa, 0x33, 0x33));
+    killBtn.setForeground(Color.WHITE);
+    killBtn.addActionListener(e -> {
+      int idx = list.getSelectedIndex();
+      if (idx != -1) {
+        model.remove(idx);
+      }
+    });
+    
+    panel.add(killBtn, BorderLayout.SOUTH);
+    panel.add(new JScrollPane(list), BorderLayout.CENTER);
+    return panel;
+  }
+
+  private JComponent createSnippetsTab() {
+    JPanel panel = new JPanel(new BorderLayout());
+    panel.setBackground(new Color(0x25, 0x25, 0x25));
+    
+    String[] snippets = {"SawOsc Synth", "Pulse Lead", "Noise Percussion"};
+    JList<String> list = new JList<>(snippets);
+    list.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    list.setForeground(Color.WHITE);
+    
+    list.addMouseListener(new java.awt.event.MouseAdapter() {
+      public void mouseClicked(java.awt.event.MouseEvent e) {
+        if (e.getClickCount() == 2) {
+          String val = list.getSelectedValue();
+          if ("SawOsc Synth".equals(val) && scriptArea != null) {
+            scriptArea.append("\nSawOsc osc => ADSR env => dac;\n");
+          }
+        }
+      }
+    });
+    
+    panel.add(new JLabel("Double-click snippet to insert:"), BorderLayout.NORTH);
+    panel.add(new JScrollPane(list), BorderLayout.CENTER);
+    return panel;
+  }
+
+  private JPanel createSection(String title) {
     JPanel panel = new JPanel();
     panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
     panel.setBackground(new Color(0x33, 0x33, 0x33));
@@ -425,4 +611,6 @@ public class SwingProjectSidebarPanel extends JPanel {
             BorderFactory.createLineBorder(Color.GRAY), title, 0, 0, null, Color.WHITE));
     return panel;
   }
+
 }
+

@@ -13,10 +13,11 @@ import org.chuck.deluge.BridgeContract;
  * The horizontal ribbon of 13 parameter buttons above the matrix. Used for selecting which
  * parameter (Velocity, Gate, Probability, etc.) is currently being edited.
  */
-public class ParameterRibbonPanel extends HBox {
+public class ParameterRibbonPanel extends javafx.scene.layout.GridPane {
   private final ChuckVM vm;
   private final BridgeContract bridge;
   private Consumer<EditMode> modeChangeListener;
+
 
   public enum EditMode {
     LEVEL,
@@ -57,8 +58,8 @@ public class ParameterRibbonPanel extends HBox {
     this.vm = vm;
     this.bridge = bridge;
 
-    setAlignment(Pos.CENTER);
-    setSpacing(5);
+    setHgap(5);
+    setVgap(5);
     setPadding(new Insets(5));
     setStyle("-fx-background-color: #222222;");
 
@@ -66,7 +67,7 @@ public class ParameterRibbonPanel extends HBox {
       String label = PARAM_LABELS[i];
       ToggleButton btn = new ToggleButton(label);
       btn.setToggleGroup(group);
-      btn.setStyle("-fx-base: #333333; -fx-text-fill: white; -fx-font-size: 10px;");
+      btn.setStyle("-fx-base: #333333; -fx-text-fill: white; -fx-font-size: 11px; -fx-font-weight: bold;");
 
       if (Boolean.parseBoolean(
           org.chuck.deluge.project.PreferencesManager.get("show.tooltips", "true"))) {
@@ -76,8 +77,8 @@ public class ParameterRibbonPanel extends HBox {
         tooltip.setShowDelay(javafx.util.Duration.millis(100));
         javafx.scene.control.Tooltip.install(btn, tooltip);
       }
-      btn.setPrefHeight(30);
-      btn.setPrefWidth(100);
+      btn.setPrefHeight(50);
+      btn.setPrefWidth(120);
 
       final EditMode mode = EditMode.values()[i];
 
@@ -85,7 +86,7 @@ public class ParameterRibbonPanel extends HBox {
         btn.setOnMousePressed(
             e -> {
               vm.setGlobalInt("g_stutter_on", 1L);
-              vm.setGlobalFloat("g_stutter_div", 2.0); // Default stutter rate
+              vm.setGlobalFloat("g_stutter_div", 2.0); 
             });
         btn.setOnMouseReleased(
             e -> {
@@ -105,8 +106,11 @@ public class ParameterRibbonPanel extends HBox {
         btn.setSelected(true);
       }
 
-      getChildren().add(btn);
+      int col = i % 8;
+      int row = i / 8;
+      add(btn, col, row);
     }
+
   }
 
   public void setOnModeChange(Consumer<EditMode> listener) {

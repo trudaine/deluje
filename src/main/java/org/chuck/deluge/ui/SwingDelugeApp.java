@@ -10,9 +10,11 @@ public class SwingDelugeApp extends JFrame {
   private final ChuckVM vm;
   private final BridgeContract bridge;
 
-  private SwingMatrixPanel matrixPanel;
+  private SwingGridPanel clipPanel;
   private SwingVisualizerPanel visualizerPanel;
-  private SwingSongModePanel songPanel;
+  private SwingGridPanel songPanel;
+
+
 
 
   private JSlider topMasterVolSlider;
@@ -45,10 +47,53 @@ public class SwingDelugeApp extends JFrame {
 
     setTitle("DELUGE WORKSTATION [SWING EDITION]");
     setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-    setSize(2800, 1600);
+
+    setFocusable(true);
+    addKeyListener(new java.awt.event.KeyAdapter() {
+       @Override
+       public void keyPressed(java.awt.event.KeyEvent e) {
+          int note = -1;
+          switch (e.getKeyCode()) {
+             case java.awt.event.KeyEvent.VK_Z -> note = 60; // C4
+             case java.awt.event.KeyEvent.VK_S -> note = 61; // C#4
+             case java.awt.event.KeyEvent.VK_X -> note = 62; // D4
+             case java.awt.event.KeyEvent.VK_D -> note = 63; // D#4
+             case java.awt.event.KeyEvent.VK_C -> note = 64; // E4
+             case java.awt.event.KeyEvent.VK_V -> note = 65; // F4
+             case java.awt.event.KeyEvent.VK_G -> note = 66; // F#4
+             case java.awt.event.KeyEvent.VK_B -> note = 67; // G4
+             case java.awt.event.KeyEvent.VK_H -> note = 68; // G#4
+             case java.awt.event.KeyEvent.VK_N -> note = 69; // A4
+             case java.awt.event.KeyEvent.VK_J -> note = 70; // A#4
+             case java.awt.event.KeyEvent.VK_M -> note = 71; // B4
+          }
+          if (note != -1) {
+             System.out.println("QWERTY Piano Trigger: Note " + note);
+             if (clipPanel != null) {
+                clipPanel.flashIsomorphicNote(note);
+             }
+          }
+
+       }
+    });
+
+    
+    int w = Integer.parseInt(org.chuck.deluge.project.PreferencesManager.get("window.width", "2800"));
+    int h = Integer.parseInt(org.chuck.deluge.project.PreferencesManager.get("window.height", "1600"));
+    setSize(w, h);
+    
+    addWindowListener(new java.awt.event.WindowAdapter() {
+      @Override
+      public void windowClosing(java.awt.event.WindowEvent e) {
+        org.chuck.deluge.project.PreferencesManager.set("window.width", String.valueOf(getWidth()));
+        org.chuck.deluge.project.PreferencesManager.set("window.height", String.valueOf(getHeight()));
+      }
+    });
+
     setLocationRelativeTo(null);
     getContentPane().setBackground(new Color(0x1a, 0x1a, 0x1a));
     setLayout(new BorderLayout(10, 10));
+
 
     setupUI();
     startPlaybackTimer();
@@ -114,24 +159,40 @@ public class SwingDelugeApp extends JFrame {
     JMenuItem prefItem = new JMenuItem("Preferences...");
     prefItem.addActionListener(e -> {
       JDialog dialog = new JDialog(this, "Preferences", true);
-      dialog.setSize(450, 450);
+      dialog.setSize(750, 950);
+
       dialog.setLocationRelativeTo(this);
-      dialog.setLayout(new GridBagLayout());
+      dialog.setLayout(new BorderLayout());
+      
+      JPanel mainGrid = new JPanel(new GridBagLayout());
       GridBagConstraints c = new GridBagConstraints();
       c.fill = GridBagConstraints.HORIZONTAL;
-      c.insets = new Insets(5, 5, 5, 5);
+      c.insets = new Insets(15, 20, 15, 20);
+      c.anchor = GridBagConstraints.WEST;
+
+
+      // Top Spacing
+      c.gridx = 0; c.gridy = 0; c.gridwidth = 2;
+      mainGrid.add(Box.createVerticalStrut(30), c);
 
       // 1. Reverb Model
-      c.gridx = 0; c.gridy = 0;
-      dialog.add(new JLabel("Reverb Model:"), c);
+      c.gridwidth = 1;
+      c.gridx = 0; c.gridy = 1;
+      mainGrid.add(new JLabel("Reverb Model:"), c);
+
       c.gridx = 1;
       JComboBox<String> reverbCombo = new JComboBox<>(new String[]{"JCRev", "FreeVerb", "MVerb", "ProceduralReverb"});
       reverbCombo.setSelectedItem(org.chuck.deluge.project.PreferencesManager.get("reverb.model", "JCRev"));
-      dialog.add(reverbCombo, c);
+      mainGrid.add(reverbCombo, c);
+
+      c.gridx = 1; c.gridy = 2;
+      JLabel revHelp = new JLabel("<html><i>Select acoustic model structure</i></html>");
+      revHelp.setForeground(Color.GRAY);
+      mainGrid.add(revHelp, c);
 
       // 2. MIDI Input
-      c.gridx = 0; c.gridy = 1;
-      dialog.add(new JLabel("MIDI Input:"), c);
+      c.gridx = 0; c.gridy = 3;
+      mainGrid.add(new JLabel("MIDI Input:"), c);
       c.gridx = 1;
       String[] ports = org.chuck.midi.MidiIn.list();
       String[] comboPorts = new String[ports.length + 1];
@@ -139,36 +200,41 @@ public class SwingDelugeApp extends JFrame {
       System.arraycopy(ports, 0, comboPorts, 1, ports.length);
       JComboBox<String> midiCombo = new JComboBox<>(comboPorts);
       midiCombo.setSelectedItem(org.chuck.deluge.project.PreferencesManager.get("midi.input", "None"));
-      dialog.add(midiCombo, c);
+      mainGrid.add(midiCombo, c);
+      
+      c.gridx = 1; c.gridy = 4;
+      JLabel midiHelp = new JLabel("<html><i>Requires application reboot to re-route</i></html>");
+      midiHelp.setForeground(Color.GRAY);
+      mainGrid.add(midiHelp, c);
 
       // 3. Checkboxes
-      c.gridx = 0; c.gridy = 2;
-      dialog.add(new JLabel("Show Visualizers:"), c);
+      c.gridx = 0; c.gridy = 5;
+      mainGrid.add(new JLabel("Show Visualizers:"), c);
       c.gridx = 1;
       JCheckBox visCheck = new JCheckBox("", Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("show.visualizers", "true")));
-      dialog.add(visCheck, c);
+      mainGrid.add(visCheck, c);
 
-      c.gridx = 0; c.gridy = 3;
-      dialog.add(new JLabel("Debug Audio:"), c);
+      c.gridx = 0; c.gridy = 6;
+      mainGrid.add(new JLabel("Debug Audio:"), c);
       c.gridx = 1;
       JCheckBox debugCheck = new JCheckBox("", Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("debug.audio", "false")));
-      dialog.add(debugCheck, c);
+      mainGrid.add(debugCheck, c);
 
-      c.gridx = 0; c.gridy = 4;
-      dialog.add(new JLabel("MIDI Grid Mode:"), c);
+      c.gridx = 0; c.gridy = 7;
+      mainGrid.add(new JLabel("MIDI Grid Mode:"), c);
       c.gridx = 1;
       JCheckBox gridModeCheck = new JCheckBox("", Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("midi.grid.mode", "false")));
-      dialog.add(gridModeCheck, c);
+      mainGrid.add(gridModeCheck, c);
 
-      c.gridx = 0; c.gridy = 5;
-      dialog.add(new JLabel("Show Tooltips:"), c);
+      c.gridx = 0; c.gridy = 8;
+      mainGrid.add(new JLabel("Show Tooltips:"), c);
       c.gridx = 1;
       JCheckBox tooltipCheck = new JCheckBox("", Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("show.tooltips", "true")));
-      dialog.add(tooltipCheck, c);
+      mainGrid.add(tooltipCheck, c);
 
       // 4. Active Mappings
-      c.gridx = 0; c.gridy = 6;
-      dialog.add(new JLabel("Active Mappings:"), c);
+      c.gridx = 0; c.gridy = 9;
+      mainGrid.add(new JLabel("Active Mappings:"), c);
       c.gridx = 1;
       DefaultListModel<String> listModel = new DefaultListModel<>();
       if (midiService != null) {
@@ -177,11 +243,34 @@ public class SwingDelugeApp extends JFrame {
         }
       }
       JList<String> mappingList = new JList<>(listModel);
-      dialog.add(new JScrollPane(mappingList), c);
+      mainGrid.add(new JScrollPane(mappingList), c);
 
-      // 5. Save Button
-      c.gridx = 0; c.gridy = 7; c.gridwidth = 2;
+      // 5. Samples Directory
+      c.gridx = 0; c.gridy = 10;
+      mainGrid.add(new JLabel("Samples Directory:"), c);
+
+      
+      c.gridx = 1;
+      String currentDir = org.chuck.deluge.project.PreferencesManager.getSamplesDir();
+      JLabel dirLabel = new JLabel(currentDir != null ? currentDir : "Not Set");
+      dirLabel.setForeground(Color.CYAN);
+      mainGrid.add(dirLabel, c);
+      
+      c.gridy = 11;
+      JButton browseBtn = new JButton("Browse...");
+      browseBtn.addActionListener(ev -> {
+        JFileChooser chooser = new JFileChooser();
+        chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        if (chooser.showOpenDialog(dialog) == JFileChooser.APPROVE_OPTION) {
+          org.chuck.deluge.project.PreferencesManager.setSamplesDir(chooser.getSelectedFile().getAbsolutePath());
+          dirLabel.setText(chooser.getSelectedFile().getAbsolutePath());
+        }
+      });
+      mainGrid.add(browseBtn, c);
+
+      // 6. Save Button
       JButton saveBtn = new JButton("Save");
+      saveBtn.setFont(new Font("SansSerif", Font.BOLD, 28));
       saveBtn.addActionListener(ev -> {
         org.chuck.deluge.project.PreferencesManager.set("reverb.model", (String) reverbCombo.getSelectedItem());
         org.chuck.deluge.project.PreferencesManager.set("midi.input", (String) midiCombo.getSelectedItem());
@@ -191,14 +280,31 @@ public class SwingDelugeApp extends JFrame {
         org.chuck.deluge.project.PreferencesManager.set("show.tooltips", String.valueOf(tooltipCheck.isSelected()));
         dialog.dispose();
       });
-      dialog.add(saveBtn, c);
+
+      // Apply large font to all elements
+      Font bigFont = new Font("SansSerif", Font.PLAIN, 24);
+      for (Component comp : mainGrid.getComponents()) {
+         if (comp instanceof JLabel || comp instanceof JComboBox || comp instanceof JCheckBox || comp instanceof JButton) {
+            comp.setFont(bigFont);
+         }
+      }
+      saveBtn.setFont(new Font("SansSerif", Font.BOLD, 28));
+
+      dialog.add(mainGrid, BorderLayout.CENTER);
+
+      
+      JPanel southPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 15));
+      southPanel.setBackground(new Color(0x25, 0x25, 0x25));
+      southPanel.add(saveBtn);
+      dialog.add(southPanel, BorderLayout.SOUTH);
 
       dialog.setVisible(true);
+
     });
 
 
-    settingsMenu.add(sampleItem);
     settingsMenu.add(prefItem);
+
     menuBar.add(fileMenu);
     menuBar.add(settingsMenu);
     setJMenuBar(menuBar);
@@ -216,19 +322,30 @@ public class SwingDelugeApp extends JFrame {
 
     cardLayout = new CardLayout();
     centerCardPanel = new JPanel(cardLayout);
-    matrixPanel = new SwingMatrixPanel(vm, bridge);
-    centerCardPanel.add(matrixPanel, "CLIP");
     
-    songPanel = new SwingSongModePanel(vm, bridge);
+    clipPanel = new SwingGridPanel(vm, bridge);
+    clipPanel.setViewMode(SwingGridPanel.GridViewMode.CLIP);
+    centerCardPanel.add(clipPanel, "CLIP");
+    
+    songPanel = new SwingGridPanel(vm, bridge);
+    songPanel.setViewMode(SwingGridPanel.GridViewMode.SONG);
     centerCardPanel.add(songPanel, "SONG");
 
 
-    SwingArrangerPanel arrPanel = new SwingArrangerPanel(vm, bridge);
-    centerCardPanel.add(arrPanel, "ARR");
+    SwingGridPanel arrGridPanel = new SwingGridPanel(vm, bridge);
+    arrGridPanel.setViewMode(SwingGridPanel.GridViewMode.ARRANGEMENT);
+    centerCardPanel.add(arrGridPanel, "ARR");
 
-    clipBtn.addActionListener(e -> cardLayout.show(centerCardPanel, "CLIP"));
-    songBtn.addActionListener(e -> cardLayout.show(centerCardPanel, "SONG"));
-    arrBtn.addActionListener(e -> cardLayout.show(centerCardPanel, "ARR"));
+    clipBtn.addActionListener(e -> {
+        cardLayout.show(centerCardPanel, "CLIP");
+    });
+    songBtn.addActionListener(e -> {
+        cardLayout.show(centerCardPanel, "SONG");
+    });
+    arrBtn.addActionListener(e -> {
+        cardLayout.show(centerCardPanel, "ARR");
+    });
+
 
     topBar.add(clipBtn);
     topBar.add(songBtn);
@@ -302,19 +419,25 @@ public class SwingDelugeApp extends JFrame {
     topBar.add(swingLabel); topBar.add(swingSlider);
     topBar.add(volLabel); topBar.add(topMasterVolSlider);
 
-
     gbc.gridx = 0; gbc.gridy = 0; gbc.gridwidth = 3; gbc.weightx = 1.0; gbc.weighty = 0.0;
     add(topBar, gbc);
+
 
     JPanel centeredWrapper = new JPanel(new GridBagLayout());
     centeredWrapper.setBackground(new Color(0x1a, 0x1a, 0x1a));
     centeredWrapper.add(centerCardPanel);
+    centeredWrapper.setPreferredSize(new Dimension(2600, 1300));
+
+
 
     JScrollPane centerScroll = new JScrollPane(centeredWrapper);
     centerScroll.setBorder(BorderFactory.createEmptyBorder());
 
-    gbc.gridx = 1; gbc.gridy = 1; gbc.gridwidth = 1; gbc.weightx = 1.0; gbc.weighty = 1.0;
+    gbc.fill = GridBagConstraints.BOTH;
+    gbc.gridx = 1; gbc.gridy = 1; gbc.gridwidth = 1; gbc.weightx = 0.0; gbc.weighty = 1.0;
     add(centerScroll, gbc);
+
+
 
     // 2. Left Area (SD Card / Editors)
     SwingProjectSidebarPanel sidebarPanel = new SwingProjectSidebarPanel(vm, bridge, midiService);
@@ -337,46 +460,59 @@ public class SwingDelugeApp extends JFrame {
         }
         trackIdx++;
       }
-      matrixPanel.repaint();
+      clipPanel.repaint();
     });
 
     songPanel.setOnEditRequest((trackId, clipId) -> {
       System.out.println("Swing Callback: Edit track " + trackId);
-      matrixPanel.setBaseTrack(trackId * 8);
       sidebarPanel.updateFocusTrack(trackId);
       cardLayout.show(centerCardPanel, "CLIP");
       clipBtn.setSelected(true);
     });
 
 
-
-    gbc.gridx = 0; gbc.gridy = 1; gbc.gridwidth = 1; gbc.weightx = 0.0; gbc.weighty = 1.0;
+    gbc.gridx = 0; gbc.gridy = 1; gbc.gridwidth = 1; gbc.weightx = 0.5; gbc.weighty = 1.0;
     add(sidebarPanel, gbc);
+
 
     // 4. Right Side Viewport (Curves/Graphs/Visualizers)
     visualizerPanel = new SwingVisualizerPanel(vm);
-    visualizerPanel.setPreferredSize(new Dimension(200, 0));
-    gbc.gridx = 2; gbc.gridy = 1; gbc.gridwidth = 1; gbc.weightx = 0.0; gbc.weighty = 1.0;
+    visualizerPanel.setPreferredSize(new Dimension(300, 0));
+    gbc.gridx = 2; gbc.gridy = 1; gbc.gridwidth = 1; gbc.weightx = 0.5; gbc.weighty = 1.0;
     add(visualizerPanel, gbc);
+
+
+
+
 
     // 6. Bottom Area - Row 2 (Velocity lane plot)
     SwingVelocityLanePanel bottomLane = new SwingVelocityLanePanel(vm, bridge);
     
-    // 5. Bottom Area - Row 1 (Ribbons)
-    JPanel ribbonStrip = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 2));
+    // 5. Bottom Area - Rows 9 and 10 (Param Deck)
+    JPanel ribbonStrip = new JPanel(new GridLayout(2, 8, 4, 4));
     ribbonStrip.setBackground(new Color(0x1f, 0x1f, 0x1f));
 
-    String[] paramLabels = {
-      "LEVEL", "PAN", "PITCH", "FILTER", "RESONANCE", 
-      "MOD FX", "DELAY", "REVERB", "STUTTER", "PROBABILITY", 
-      "GATE", "VELOCITY", "START/END"
-    };
+    String[] row1 = {"LEVEL", "PAN", "PITCH", "FILTER", "RESONANCE", "OSC1", "OSC2", "LFO"};
+    String[] row2 = {"MOD FX", "DELAY", "REVERB", "STUTTER", "PROBABILITY", "GATE", "VELOCITY", "SAMPLE"};
 
-    for (String label : paramLabels) {
+    for (String label : row1) {
       JButton btn = new JButton(label);
+      btn.setPreferredSize(new Dimension(120, 50));
+      btn.setBackground(new Color(0x33, 0x33, 0x33));
+      btn.setForeground(Color.LIGHT_GRAY);
       btn.addActionListener(e -> bottomLane.setMode(label));
       ribbonStrip.add(btn);
     }
+
+    for (String label : row2) {
+      JButton btn = new JButton(label);
+      btn.setPreferredSize(new Dimension(120, 50));
+      btn.setBackground(new Color(0x33, 0x33, 0x33));
+      btn.setForeground(Color.LIGHT_GRAY);
+      btn.addActionListener(e -> bottomLane.setMode(label));
+      ribbonStrip.add(btn);
+    }
+
 
 
     gbc.gridx = 0; gbc.gridy = 2; gbc.gridwidth = 3; gbc.weightx = 1.0; gbc.weighty = 0.0;
@@ -444,12 +580,13 @@ public class SwingDelugeApp extends JFrame {
               }
 
 
-              if (matrixPanel != null) {
-                matrixPanel.setCurrentStep(step);
+              if (clipPanel != null) {
+                clipPanel.updatePlayhead(step);
               }
               if (songPanel != null) {
                 songPanel.updatePlayhead(step);
               }
+
 
               if (visualizerPanel != null) {
                 visualizerPanel.repaint();
