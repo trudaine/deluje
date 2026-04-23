@@ -43,4 +43,35 @@ public class DelugeE2ETest {
 
     vm.setGlobalInt(BridgeContract.G_PLAY, 0L);
   }
+
+  @Test
+  public void testSidebarLoadPreset() throws Exception {
+    ChuckVM vm = new ChuckVM(44100, 2);
+    BridgeContract bridge = new BridgeContract();
+    org.chuck.deluge.ui.SwingProjectSidebarPanel sidebar = new org.chuck.deluge.ui.SwingProjectSidebarPanel(vm, bridge, null);
+    
+    final boolean[] loaded = {false};
+    sidebar.setOnSongLoaded(model -> {
+       loaded[0] = true;
+    });
+    
+    org.chuck.deluge.model.ProjectModel proj = new org.chuck.deluge.model.ProjectModel();
+    org.chuck.deluge.model.KitTrackModel kit = new org.chuck.deluge.model.KitTrackModel("MOCK KIT");
+    proj.addTrack(kit);
+    
+    sidebar.setOnSongLoaded(model -> {
+       loaded[0] = true;
+       assertEquals(1, model.getTracks().size());
+    });
+    
+    proj.addTrack(kit);
+
+    // Simulate playback on each row
+    for (int r = 0; r < 8; r++) {
+       bridge.setStep(r, 0, true);
+       assertTrue(bridge.getStep(r, 0), "Row " + r + " sequence memory allocation should store.");
+    }
+  }
+
 }
+

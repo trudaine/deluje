@@ -301,6 +301,12 @@ public class DelugeMainPanel extends BorderPane {
 
             // Add track to project model
             projectModel.addTrack(kit);
+            switchView(ViewMode.CLIP);
+            if (clipBtn != null) {
+              clipBtn.setSelected(true);
+            }
+            statusPanel.updateStatus("KIT LOADED: " + item.name);
+
             int kitIdx = projectModel.getTracks().size() - 1;
             int baseTrack = kitIdx * 8;
 
