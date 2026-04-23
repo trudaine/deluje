@@ -21,20 +21,28 @@ public class SwingMatrixPanel extends JPanel {
     this.bridge = bridge;
 
     setBackground(new Color(0x20, 0x20, 0x20));
-    setPreferredSize(new Dimension(2000, 1000));
+    setPreferredSize(new Dimension(2000, 1200));
 
     setFocusable(true);
     addKeyListener(new java.awt.event.KeyAdapter() {
       @Override
       public void keyPressed(java.awt.event.KeyEvent e) {
         if (e.getKeyCode() == java.awt.event.KeyEvent.VK_P) {
-          JOptionPane.showMessageDialog(SwingMatrixPanel.this, 
-              "Arpeggiator Settings: Euclidean Rhythm Generator active.", 
-              "Interactive Arpeggiator", 
-              JOptionPane.INFORMATION_MESSAGE);
+          String hitsStr = JOptionPane.showInputDialog(SwingMatrixPanel.this, "Euclidean Hits (K):", "4");
+          String stepsStr = JOptionPane.showInputDialog(SwingMatrixPanel.this, "Sequence Steps (N):", "16");
+          if (hitsStr != null && stepsStr != null) {
+            int K = Integer.parseInt(hitsStr);
+            int N = Integer.parseInt(stepsStr);
+            for (int i = 0; i < 16; i++) {
+              boolean active = ((i * K) % N) < K;
+              bridge.setStep(baseTrack, i, active);
+            }
+            repaint();
+          }
         }
       }
     });
+
 
     addMouseListener(new java.awt.event.MouseAdapter() {
       @Override
@@ -72,12 +80,20 @@ public class SwingMatrixPanel extends JPanel {
       if (bridge != null) {
         boolean active = bridge.getStep(baseTrack + r, offset + c);
         bridge.setStep(baseTrack + r, offset + c, !active);
-
         repaint();
       }
-    }
+    } else if (e.getY() >= (gridY + rows * cellH + 10) && e.getY() <= (gridY + rows * cellH + 130)) {
+      // Piano key click
+      int keyX = e.getX() - gridX;
+      int whiteKeyIndex = keyX / 68;
+      if (whiteKeyIndex >= 0 && whiteKeyIndex < 28) {
 
+         System.out.println("Piano note clicked: " + whiteKeyIndex);
+         // Trigger note through bridge or vm
+      }
+    }
   }
+
 
 
   @Override
@@ -135,7 +151,38 @@ public class SwingMatrixPanel extends JPanel {
 
           g2.drawRoundRect(padX - 1, padY - 1, padW + 2, padH + 2, 12, 12);
         }
-      }
+    }
+    }
+
+    // Draw Piano Roll at the bottom
+
+    int keyboardY = gridY + rows * cellH + 10;
+    int keyH = 120;
+
+    // 28 White keys (4 octaves) aligned with grid columns
+    int keyW = 68; 
+    for (int i = 0; i < 28; i++) {
+      boolean activeKey = (bridge != null) && (currentStep >= 0) && bridge.getStep(baseTrack + (i % 8), currentStep % 16);
+      
+      g2.setColor(activeKey ? new Color(0x00, 0xff, 0xcc) : Color.WHITE);
+      g2.fillRect(gridX + i * keyW, keyboardY, keyW - 2, keyH);
+      g2.setColor(Color.BLACK);
+      g2.drawRect(gridX + i * keyW, keyboardY, keyW - 2, keyH);
+    }
+
+    // Black keys
+    int[] blackKeyOffsets = {
+      0, 1, 3, 4, 5, 
+      7, 8, 10, 11, 12, 
+      14, 15, 17, 18, 19, 
+      21, 22, 24, 25, 26
+    };
+    for (int offsetKey : blackKeyOffsets) {
+      int bx = gridX + offsetKey * keyW + keyW - keyW / 3;
+      g2.setColor(new Color(0x1a, 0x1a, 0x1a));
+      g2.fillRect(bx, keyboardY, keyW / 2, keyH / 2);
     }
   }
 }
+
+

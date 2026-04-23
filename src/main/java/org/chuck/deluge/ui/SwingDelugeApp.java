@@ -15,8 +15,13 @@ public class SwingDelugeApp extends JFrame {
   private SwingSongModePanel songPanel;
 
 
+  private JSlider topMasterVolSlider;
+  private JSlider bottomMasterVolSlider;
+
   private JPanel centerCardPanel;
   private CardLayout cardLayout;
+
+
 
   private final org.chuck.deluge.midi.MidiService midiService;
 
@@ -274,12 +279,19 @@ public class SwingDelugeApp extends JFrame {
 
     JLabel volLabel = new JLabel("MASTER:");
     volLabel.setForeground(Color.WHITE);
-    JSlider volSlider = new JSlider(0, 100, 70);
-    volSlider.addChangeListener(e -> vm.setGlobalFloat(BridgeContract.G_MASTER_VOL, volSlider.getValue() / 100.0));
+    topMasterVolSlider = new JSlider(0, 100, 70);
+    topMasterVolSlider.addChangeListener(e -> {
+      double v = topMasterVolSlider.getValue() / 100.0;
+      vm.setGlobalFloat(BridgeContract.G_MASTER_VOL, v);
+      if (bottomMasterVolSlider != null && bottomMasterVolSlider.getValue() != topMasterVolSlider.getValue()) {
+        bottomMasterVolSlider.setValue(topMasterVolSlider.getValue());
+      }
+    });
 
     topBar.add(tempoLabel); topBar.add(bpmSlider);
     topBar.add(swingLabel); topBar.add(swingSlider);
-    topBar.add(volLabel); topBar.add(volSlider);
+    topBar.add(volLabel); topBar.add(topMasterVolSlider);
+
 
     gbc.gridx = 0; gbc.gridy = 0; gbc.gridwidth = 3; gbc.weightx = 1.0; gbc.weighty = 0.0;
     add(topBar, gbc);
@@ -369,9 +381,16 @@ public class SwingDelugeApp extends JFrame {
     
     JLabel bVolLabel = new JLabel("Master Vol:");
     bVolLabel.setForeground(Color.WHITE);
-    JSlider bVolSlider = new JSlider(0, 100, 70);
-    bVolSlider.addChangeListener(e -> vm.setGlobalFloat(BridgeContract.G_MASTER_VOL, bVolSlider.getValue() / 100.0));
-    masterFxPanel.add(bVolLabel); masterFxPanel.add(bVolSlider);
+    bottomMasterVolSlider = new JSlider(0, 100, 70);
+    bottomMasterVolSlider.addChangeListener(e -> {
+      double v = bottomMasterVolSlider.getValue() / 100.0;
+      vm.setGlobalFloat(BridgeContract.G_MASTER_VOL, v);
+      if (topMasterVolSlider != null && topMasterVolSlider.getValue() != bottomMasterVolSlider.getValue()) {
+        topMasterVolSlider.setValue(bottomMasterVolSlider.getValue());
+      }
+    });
+    masterFxPanel.add(bVolLabel); masterFxPanel.add(bottomMasterVolSlider);
+
 
     JLabel statusCounter = new JLabel("1:1:1");
     statusCounter.setForeground(Color.GREEN);

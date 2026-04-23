@@ -44,8 +44,16 @@ public class SwingProjectSidebarPanel extends JPanel {
     addResourcesToTree(root, "SONGS", "/SONGS");
 
     JTree tree = new JTree(root);
-    tree.setBackground(new Color(0x25, 0x25, 0x25));
-    tree.setForeground(Color.WHITE);
+    tree.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    tree.setRowHeight(30); // More vertical spacing
+    
+    javax.swing.tree.DefaultTreeCellRenderer renderer = new javax.swing.tree.DefaultTreeCellRenderer();
+    renderer.setBackgroundNonSelectionColor(new Color(0x1f, 0x1f, 0x1f));
+    renderer.setTextNonSelectionColor(Color.LIGHT_GRAY);
+    renderer.setTextSelectionColor(Color.WHITE);
+    renderer.setBackgroundSelectionColor(new Color(0x00, 0xff, 0xcc, 0x55));
+    tree.setCellRenderer(renderer);
+
 
     tree.addMouseListener(
         new java.awt.event.MouseAdapter() {
@@ -189,49 +197,142 @@ public class SwingProjectSidebarPanel extends JPanel {
 
     // Oscillators Section
     JPanel oscBox = createSection("OSCILLATORS");
-    oscBox.add(new JLabel("Osc 1 Vol:"));
+    
+    JLabel osc1TypeLabel = new JLabel("Osc 1 Type:");
+    osc1TypeLabel.setForeground(Color.WHITE);
+    JComboBox<String> osc1TypeCombo = new JComboBox<>(new String[]{"Sine", "Saw", "Square", "Triangle", "Noise"});
+    osc1TypeCombo.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    oscBox.add(osc1TypeLabel);
+    oscBox.add(osc1TypeCombo);
+    oscBox.add(Box.createVerticalStrut(5));
+
+    JLabel osc1Label = new JLabel("Osc 1 Vol: 64");
+    osc1Label.setForeground(Color.WHITE);
     JSlider volSlider = new JSlider(0, 127, 64);
+    volSlider.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    volSlider.addChangeListener(e -> osc1Label.setText("Osc 1 Vol: " + volSlider.getValue()));
+    oscBox.add(osc1Label);
     oscBox.add(volSlider);
-    oscBox.add(new JLabel("Osc 2 Vol:"));
-    oscBox.add(new JSlider(0, 127, 0));
-    oscBox.add(new JLabel("Transpose:"));
-    oscBox.add(new JSlider(-24, 24, 0));
+    oscBox.add(Box.createVerticalStrut(10));
+    
+    JLabel osc2TypeLabel = new JLabel("Osc 2 Type:");
+    osc2TypeLabel.setForeground(Color.WHITE);
+    JComboBox<String> osc2TypeCombo = new JComboBox<>(new String[]{"Sine", "Saw", "Square", "Triangle", "Noise"});
+    osc2TypeCombo.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    oscBox.add(osc2TypeLabel);
+    oscBox.add(osc2TypeCombo);
+    oscBox.add(Box.createVerticalStrut(5));
+
+    JLabel osc2Label = new JLabel("Osc 2 Vol: 0");
+    osc2Label.setForeground(Color.WHITE);
+    JSlider vol2Slider = new JSlider(0, 127, 0);
+    vol2Slider.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    vol2Slider.addChangeListener(e -> osc2Label.setText("Osc 2 Vol: " + vol2Slider.getValue()));
+    oscBox.add(osc2Label);
+    oscBox.add(vol2Slider);
+    
+    JLabel pwLabel = new JLabel("Pulse Width: 50");
+    pwLabel.setForeground(Color.WHITE);
+    JSlider pwSlider = new JSlider(0, 100, 50);
+    pwSlider.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    pwSlider.addChangeListener(e -> pwLabel.setText("Pulse Width: " + pwSlider.getValue()));
+    oscBox.add(pwLabel);
+    oscBox.add(pwSlider);
+    oscBox.add(Box.createVerticalStrut(10));
+
     panel.add(oscBox);
+    panel.add(Box.createVerticalStrut(15));
+
+    // Modulators
+    JPanel modBox = createSection("MODULATORS");
+    JLabel mod1Label = new JLabel("Mod 1 Amount: 0");
+    mod1Label.setForeground(Color.WHITE);
+    JSlider mod1Slider = new JSlider(0, 127, 0);
+    mod1Slider.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    mod1Slider.addChangeListener(e -> mod1Label.setText("Mod 1 Amount: " + mod1Slider.getValue()));
+    modBox.add(mod1Label);
+    modBox.add(mod1Slider);
+    panel.add(modBox);
+    panel.add(Box.createVerticalStrut(15));
+
+
 
     // Filters Section
     JPanel filterBox = createSection("FILTERS");
-    filterBox.add(new JLabel("LPF Cutoff:"));
+    JLabel lpfLabel = new JLabel("LPF Cutoff: 64");
+    lpfLabel.setForeground(Color.WHITE);
     JSlider lpfSlider = new JSlider(0, 127, 64);
+    lpfSlider.setBackground(new Color(0x1f, 0x1f, 0x1f));
     lpfSlider.addChangeListener(e -> {
+      lpfLabel.setText("LPF Cutoff: " + lpfSlider.getValue());
       if (bridge != null) {
         bridge.setFilterFreq(0, lpfSlider.getValue() / 127.0);
       }
     });
+    filterBox.add(lpfLabel);
     filterBox.add(lpfSlider);
-    filterBox.add(new JLabel("LPF Resonance:"));
-    filterBox.add(new JSlider(0, 127, 64));
-    filterBox.add(new JLabel("HPF Cutoff:"));
-    filterBox.add(new JSlider(0, 127, 0));
     panel.add(filterBox);
+    panel.add(Box.createVerticalStrut(15));
+
 
     // Envelopes
     JPanel envBox = createSection("ENVELOPES");
-    envBox.add(new JLabel("Attack:"));
+    
+    JLabel attLabel = new JLabel("Attack: 10");
+    attLabel.setForeground(Color.WHITE);
     JSlider attSlider = new JSlider(0, 100, 10);
+    attSlider.setBackground(new Color(0x1f, 0x1f, 0x1f));
     attSlider.addChangeListener(e -> {
+      attLabel.setText("Attack: " + attSlider.getValue());
       if (bridge != null) {
         bridge.setEnv(0, attSlider.getValue() / 100.0, 0.2, 0.8, 0.3);
       }
     });
+    envBox.add(attLabel);
     envBox.add(attSlider);
-    envBox.add(new JLabel("Decay:"));
-    envBox.add(new JSlider(0, 100, 20));
-    envBox.add(new JLabel("Sustain:"));
-    envBox.add(new JSlider(0, 100, 80));
-    envBox.add(new JLabel("Release:"));
-    envBox.add(new JSlider(0, 100, 30));
+    envBox.add(Box.createVerticalStrut(5));
+
+    JLabel decLabel = new JLabel("Decay: 20");
+    decLabel.setForeground(Color.WHITE);
+    JSlider decSlider = new JSlider(0, 100, 20);
+    decSlider.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    decSlider.addChangeListener(e -> decLabel.setText("Decay: " + decSlider.getValue()));
+    envBox.add(decLabel);
+    envBox.add(decSlider);
+    envBox.add(Box.createVerticalStrut(5));
+
+    JLabel susLabel = new JLabel("Sustain: 80");
+    susLabel.setForeground(Color.WHITE);
+    JSlider susSlider = new JSlider(0, 100, 80);
+    susSlider.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    susSlider.addChangeListener(e -> susLabel.setText("Sustain: " + susSlider.getValue()));
+    envBox.add(susLabel);
+    envBox.add(susSlider);
+    envBox.add(Box.createVerticalStrut(5));
+
+    JLabel relLabel = new JLabel("Release: 30");
+    relLabel.setForeground(Color.WHITE);
+    JSlider relSlider = new JSlider(0, 100, 30);
+    relSlider.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    relSlider.addChangeListener(e -> relLabel.setText("Release: " + relSlider.getValue()));
+    envBox.add(relLabel);
+    envBox.add(relSlider);
+    
     panel.add(envBox);
 
+
+
+    // Distortions
+    JPanel distBox = createSection("DISTORTIONS");
+    JLabel bitLabel = new JLabel("Bitcrush Bits: 16");
+    bitLabel.setForeground(Color.WHITE);
+    JSlider bitSlider = new JSlider(1, 16, 16);
+    bitSlider.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    bitSlider.addChangeListener(e -> bitLabel.setText("Bitcrush Bits: " + bitSlider.getValue()));
+    distBox.add(bitLabel);
+    distBox.add(bitSlider);
+    panel.add(distBox);
+    panel.add(Box.createVerticalStrut(15));
 
     // Master FX section
     JPanel fxBox = createSection("MASTER FX");
@@ -239,13 +340,18 @@ public class SwingProjectSidebarPanel extends JPanel {
     fxBox.add(new JSlider(0, 100, 0));
     panel.add(fxBox);
 
+
     return new JScrollPane(panel);
   }
 
   private JComponent createMidiTab() {
-    JPanel panel = new JPanel(new GridLayout(0, 2, 10, 10));
+    JPanel panel = new JPanel(new GridBagLayout());
     panel.setBackground(new Color(0x25, 0x25, 0x25));
     panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+
+    GridBagConstraints c = new GridBagConstraints();
+    c.anchor = GridBagConstraints.WEST;
+    c.insets = new Insets(8, 5, 8, 5);
 
     String[] displayNames = {
       "Master Volume",
@@ -256,21 +362,20 @@ public class SwingProjectSidebarPanel extends JPanel {
       "Reverb Damping"
     };
 
-    for (String name : displayNames) {
-      JLabel label = new JLabel(name + ":");
+    for (int i = 0; i < displayNames.length; i++) {
+      c.gridx = 0; c.gridy = i;
+      JLabel label = new JLabel(displayNames[i] + ":");
       label.setForeground(Color.WHITE);
-      panel.add(label);
+      panel.add(label, c);
 
+      c.gridx = 1;
       JButton learnBtn = new JButton("LEARN");
       learnBtn.addActionListener(e -> {
         learnBtn.setText("WAITING...");
-        // Activate midi learn state in backend
-        if (midiService != null) {
-          System.out.println("Swing MIDI: Waiting for CC bind on " + name);
-        }
       });
-      panel.add(learnBtn);
+      panel.add(learnBtn, c);
     }
+
 
     return new JScrollPane(panel);
   }

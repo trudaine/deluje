@@ -72,7 +72,21 @@ public class SwingSongModePanel extends JPanel {
       for (int c = 0; c < 8; c++) {
         final int slot = c;
         JButton clipBtn = new JButton("PAD " + (c + 1));
-        clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
+        
+        boolean hasClip = false;
+        if (t < tracks.size()) {
+          org.chuck.deluge.model.TrackModel track = tracks.get(t);
+          if (c < track.getClips().size()) {
+             hasClip = true;
+          }
+        }
+        
+        if (hasClip) {
+          clipBtn.setBackground(new Color(0x00, 0xff, 0xcc));
+        } else {
+          clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
+        }
+
         clipBtn.addActionListener(e -> {
           clipBtn.setBackground(Color.ORANGE); // Armed/Queued
           
