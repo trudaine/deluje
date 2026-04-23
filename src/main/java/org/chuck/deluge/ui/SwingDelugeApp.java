@@ -16,9 +16,13 @@ public class SwingDelugeApp extends JFrame {
   private JPanel centerCardPanel;
   private CardLayout cardLayout;
 
-  public SwingDelugeApp(ChuckVM vm, BridgeContract bridge) {
+  private final org.chuck.deluge.midi.MidiService midiService;
+
+  public SwingDelugeApp(ChuckVM vm, BridgeContract bridge, org.chuck.deluge.midi.MidiService midiService) {
     this.vm = vm;
     this.bridge = bridge;
+    this.midiService = midiService;
+
 
     // Inflate Font Sizes globally (2x bigger)
     java.util.Enumeration<Object> keys = UIManager.getDefaults().keys();
@@ -34,7 +38,7 @@ public class SwingDelugeApp extends JFrame {
 
     setTitle("DELUGE WORKSTATION [SWING EDITION]");
     setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-    setSize(1400, 800);
+    setSize(2800, 1600);
     setLocationRelativeTo(null);
     getContentPane().setBackground(new Color(0x1a, 0x1a, 0x1a));
     setLayout(new BorderLayout(10, 10));
@@ -186,8 +190,20 @@ public class SwingDelugeApp extends JFrame {
     add(centerCardPanel, BorderLayout.CENTER);
 
     // 3. Left Sidebar
-    SwingProjectSidebarPanel sidebarPanel = new SwingProjectSidebarPanel(vm, bridge);
+    SwingProjectSidebarPanel sidebarPanel = new SwingProjectSidebarPanel(vm, bridge, midiService);
+    sidebarPanel.setOnSongLoaded(model -> {
+      songPanel.setProjectModel(model);
+      cardLayout.show(centerCardPanel, "SONG");
+      songBtn.setSelected(true);
+    });
+    
+    songPanel.setOnEditRequest((trackId, clipId) -> {
+      cardLayout.show(centerCardPanel, "CLIP");
+      clipBtn.setSelected(true);
+    });
+
     add(sidebarPanel, BorderLayout.WEST);
+
 
     // 4. Right Visualizer
     visualizerPanel = new SwingVisualizerPanel(vm);
