@@ -16,6 +16,34 @@ public class SwingVelocityLanePanel extends JPanel {
 
     setPreferredSize(new Dimension(0, 120));
     setBackground(new Color(0x1a, 0x1a, 0x1a));
+
+    java.awt.event.MouseAdapter mouseAdapter = new java.awt.event.MouseAdapter() {
+      @Override
+      public void mousePressed(java.awt.event.MouseEvent e) {
+        handlePaint(e);
+      }
+      @Override
+      public void mouseDragged(java.awt.event.MouseEvent e) {
+        handlePaint(e);
+      }
+    };
+    addMouseListener(mouseAdapter);
+    addMouseMotionListener(mouseAdapter);
+  }
+
+  private void handlePaint(java.awt.event.MouseEvent e) {
+    int w = getWidth();
+    int h = getHeight();
+    int colW = w / 16;
+    int step = e.getX() / colW;
+    if (step >= 0 && step < 16) {
+      double val = 1.0 - (double)e.getY() / h;
+      val = Math.max(0.0, Math.min(1.0, val));
+      if (bridge != null) {
+        bridge.setVelocity(0, step, val);
+        repaint();
+      }
+    }
   }
 
   private String currentMode = "VELOCITY";
@@ -24,6 +52,7 @@ public class SwingVelocityLanePanel extends JPanel {
     this.currentMode = mode;
     repaint();
   }
+
 
   @Override
   protected void paintComponent(Graphics g) {
@@ -44,8 +73,9 @@ public class SwingVelocityLanePanel extends JPanel {
 
     int colW = w / 16;
     for (int i = 0; i < 16; i++) {
-      double val = 0.75; // Simulated velocity value
+      double val = (bridge != null) ? bridge.getVelocity(0, i) : 0.5;
       int barH = (int) (val * (h - 20));
+
       g2.fillRect(i * colW + 10, h - barH - 10, colW - 20, barH);
     }
 

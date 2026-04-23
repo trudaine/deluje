@@ -9,9 +9,16 @@ public class SwingProjectSidebarPanel extends JPanel {
   private final ChuckVM vm;
   private final BridgeContract bridge;
 
-  public SwingProjectSidebarPanel(ChuckVM vm, BridgeContract bridge) {
+  private java.util.function.Consumer<org.chuck.deluge.model.ProjectModel> onSongLoaded;
+
+  private final org.chuck.deluge.midi.MidiService midiService;
+
+  public SwingProjectSidebarPanel(ChuckVM vm, BridgeContract bridge, org.chuck.deluge.midi.MidiService midiService) {
     this.vm = vm;
     this.bridge = bridge;
+    this.midiService = midiService;
+
+
 
     setPreferredSize(new Dimension(400, 0));
     setBackground(new Color(0x25, 0x25, 0x25));
@@ -91,6 +98,14 @@ public class SwingProjectSidebarPanel extends JPanel {
                             kitIdx++;
                           }
                         }
+                        if (onSongLoaded != null) {
+                          onSongLoaded.accept(loadedProject);
+                        }
+                        vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+                      } else if ("SYNTHS".equals(internalDir)) {
+                        org.chuck.deluge.model.SynthTrackModel synth =
+                            org.chuck.deluge.xml.DelugeXmlParser.parseSynth(is, name);
+                        bridge.setTrackType(0, 1); // Set track 0 to Synth
                         vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
                       }
                     }
@@ -104,6 +119,10 @@ public class SwingProjectSidebarPanel extends JPanel {
         });
 
     return new JScrollPane(tree);
+  }
+
+  public void setOnSongLoaded(java.util.function.Consumer<org.chuck.deluge.model.ProjectModel> callback) {
+    this.onSongLoaded = callback;
   }
 
   private void addResourcesToTree(

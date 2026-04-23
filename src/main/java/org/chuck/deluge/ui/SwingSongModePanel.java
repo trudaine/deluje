@@ -10,37 +10,77 @@ public class SwingSongModePanel extends JPanel {
   private final ChuckVM vm;
   private final BridgeContract bridge;
 
+  private org.chuck.deluge.model.ProjectModel projectModel;
+  private java.util.function.BiConsumer<Integer, Integer> onEditRequest;
+
   public SwingSongModePanel(ChuckVM vm, BridgeContract bridge) {
     this.vm = vm;
     this.bridge = bridge;
+    this.projectModel = new org.chuck.deluge.model.ProjectModel();
 
     setBackground(new Color(0x1a, 0x1a, 0x1a));
-    setLayout(new GridLayout(8, 8, 5, 5));
-    setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-
-    for (int row = 0; row < 8; row++) {
-      for (int col = 0; col < 8; col++) {
-        JButton pad = new JButton("CLIP " + (row * 8 + col + 1));
-        pad.setBackground(new Color(0x33, 0x33, 0x33));
-        pad.setForeground(Color.DARK_GRAY);
-        pad.setFocusPainted(false);
-
-        final int trackIdx = row;
-        final int clipIdx = col;
-
-        pad.addActionListener(
-            e -> {
-              boolean wasPlaying = pad.getBackground().equals(new Color(0x00, 0xff, 0x00));
-              if (wasPlaying) {
-                pad.setBackground(new Color(0x33, 0x33, 0x33));
-                pad.setForeground(Color.DARK_GRAY);
-              } else {
-                pad.setBackground(new Color(0x00, 0xff, 0x00));
-                pad.setForeground(Color.BLACK);
-              }
-            });
-        add(pad);
-      }
-    }
+    setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+    refresh();
   }
+
+  public void setProjectModel(org.chuck.deluge.model.ProjectModel model) {
+    this.projectModel = model;
+    refresh();
+  }
+
+  public void setOnEditRequest(java.util.function.BiConsumer<Integer, Integer> callback) {
+    this.onEditRequest = callback;
+  }
+
+  public void refresh() {
+    removeAll();
+    java.util.List<org.chuck.deluge.model.TrackModel> tracks = projectModel.getTracks();
+
+    for (int t = 0; t < 8; t++) {
+      JPanel rowPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
+      rowPanel.setBackground(new Color(0x22, 0x22, 0x22));
+
+      String trackName = (t < tracks.size()) ? tracks.get(t).getName() : "EMPTY " + (t + 1);
+      JLabel label = new JLabel(trackName);
+      label.setPreferredSize(new Dimension(150, 30));
+      label.setForeground(Color.LIGHT_GRAY);
+      rowPanel.add(label);
+
+      final int currentTrack = t;
+      for (int c = 0; c < 8; c++) {
+        JButton clipBtn = new JButton("PAD " + (c + 1));
+        clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
+        clipBtn.addActionListener(e -> {
+          clipBtn.setBackground(new Color(0x00, 0xff, 0xcc));
+        });
+        rowPanel.add(clipBtn);
+      }
+
+      JButton editBtn = new JButton("E");
+      editBtn.setToolTipText("Open Clip Editor view for this track");
+      editBtn.addActionListener(e -> {
+        if (onEditRequest != null) {
+          onEditRequest.accept(currentTrack, 0);
+        }
+      });
+      rowPanel.add(editBtn);
+
+      JButton muteBtn = new JButton("M");
+      muteBtn.addActionListener(e -> {
+        if (muteBtn.getBackground().equals(Color.YELLOW)) {
+          muteBtn.setBackground(UIManager.getColor("Button.background"));
+          bridge.setMute(currentTrack * 8, false);
+        } else {
+          muteBtn.setBackground(Color.YELLOW);
+          bridge.setMute(currentTrack * 8, true);
+        }
+      });
+      rowPanel.add(muteBtn);
+
+      add(rowPanel);
+    }
+    revalidate();
+    repaint();
+  }
+
 }

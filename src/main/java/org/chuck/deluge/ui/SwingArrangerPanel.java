@@ -14,6 +14,8 @@ public class SwingArrangerPanel extends JPanel {
   private final int trackHeight = 45;
   private final int numTracks = 8;
 
+  private java.util.List<org.chuck.deluge.model.ArrangerClip> clips = new java.util.ArrayList<>();
+
   public SwingArrangerPanel(ChuckVM vm, BridgeContract bridge) {
     this.vm = vm;
     this.bridge = bridge;
@@ -24,10 +26,16 @@ public class SwingArrangerPanel extends JPanel {
         new MouseAdapter() {
           @Override
           public void mousePressed(MouseEvent e) {
-            repaint();
+            int t = e.getY() / trackHeight;
+            int bar = (e.getX() - 100) / 80 + 1;
+            if (t >= 0 && t < numTracks && bar >= 1) {
+              clips.add(new org.chuck.deluge.model.ArrangerClip(t, "CLIP_" + (t+1), bar, 2));
+              repaint();
+            }
           }
         });
   }
+
 
   @Override
   protected void paintComponent(Graphics g) {
@@ -47,11 +55,18 @@ public class SwingArrangerPanel extends JPanel {
 
       g2.setColor(new Color(0x33, 0x33, 0x33));
       g2.drawLine(100, t * trackHeight, w, t * trackHeight);
-
-      // Draw example clip arrangement
-      g2.setColor(new Color(0xff, 0xaa, 0x00, 0xaa));
-      g2.fillRoundRect(150 + t * 40, t * trackHeight + 4, 120, trackHeight - 10, 8, 8);
     }
+
+    // Draw clips
+    for (org.chuck.deluge.model.ArrangerClip clip : clips) {
+      int t = clip.trackIndex();
+      g2.setColor(new Color(0xff, 0xaa, 0x00, 0xaa));
+      int x = 100 + (clip.startBar() - 1) * 80;
+      g2.fillRoundRect(x, t * trackHeight + 4, clip.durationBars() * 80 - 4, trackHeight - 10, 8, 8);
+      g2.setColor(Color.BLACK);
+      g2.drawString(clip.patternId(), x + 10, t * trackHeight + 25);
+    }
+
 
     // Playhead
     int playStep = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);

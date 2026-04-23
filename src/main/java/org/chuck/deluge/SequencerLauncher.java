@@ -26,10 +26,14 @@ public class SequencerLauncher {
           new org.chuck.deluge.engine.DelugeEngine(vm, bridge);
       vm.spork(engine::shred);
 
+      org.chuck.deluge.midi.MidiInputRouter router = new org.chuck.deluge.midi.MidiInputRouter(vm, bridge);
+      org.chuck.deluge.midi.MidiService midiService = new org.chuck.deluge.midi.MidiService(vm, bridge, router);
+      midiService.start();
+
       java.awt.EventQueue.invokeLater(
           () -> {
             org.chuck.deluge.ui.SwingDelugeApp app =
-                new org.chuck.deluge.ui.SwingDelugeApp(vm, bridge);
+                new org.chuck.deluge.ui.SwingDelugeApp(vm, bridge, midiService);
             app.setVisible(true);
           });
     } else {
