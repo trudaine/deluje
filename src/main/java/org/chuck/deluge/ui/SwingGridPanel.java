@@ -483,16 +483,30 @@ public class SwingGridPanel extends JPanel {
            
            if (activeCol != lastCol[0]) {
               lastCol[0] = activeCol;
-              for (int t = 0; t < 8; t++) {
-                 if (bridge.getStep(t, activeCol)) {
-                    if (finalMidiOut != null) {
-                       try {
-                          finalMidiOut.sendMessage(new byte[]{(byte)0x90, (byte)(36 + t * 2), (byte)100});
-                       } catch (Exception ex) {}
-                    }
-                 }
-              }
-           }
+               for (int t = 0; t < 8; t++) {
+                  if (bridge.getStep(t, activeCol)) {
+                     if (finalMidiOut != null) {
+                        try {
+                           finalMidiOut.sendMessage(new byte[]{(byte)0x90, (byte)(36 + t * 2), (byte)100});
+                        } catch (Exception ex) {}
+                     }
+                  }
+               }
+
+               // Sidechain Compressor Ducking tied to Track 0 (Kick)
+               if (bridge.getStep(0, activeCol)) {
+                  for (int t = 1; t < 8; t++) {
+                     final int trackIdx = t;
+                     bridge.setTrackLevel(trackIdx, 0.15); // Duck
+                     
+                     Timer duckRelease = new Timer(120, ev -> {
+                        bridge.setTrackLevel(trackIdx, 0.70); // Release / Restore
+                     });
+                     duckRelease.setRepeats(false);
+                     duckRelease.start();
+                  }
+               }
+            }
 
            for (int t = 0; t < 8; t++) {
               for (int c = 0; c < 16; c++) {
