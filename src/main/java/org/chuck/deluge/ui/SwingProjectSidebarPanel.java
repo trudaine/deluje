@@ -77,8 +77,9 @@ public class SwingProjectSidebarPanel extends JPanel {
           @Override
           public void mousePressed(java.awt.event.MouseEvent e) {
             if (e.getClickCount() == 2) {
-              javax.swing.tree.TreePath path = tree.getPathForLocation(e.getX(), e.getY());
+              javax.swing.tree.TreePath path = tree.getSelectionPath();
               if (path != null) {
+
                 javax.swing.tree.DefaultMutableTreeNode node =
                     (javax.swing.tree.DefaultMutableTreeNode) path.getLastPathComponent();
                 if (node.isLeaf()) {
@@ -94,8 +95,9 @@ public class SwingProjectSidebarPanel extends JPanel {
                      resourcePath = "/examples" + resourcePath.substring(9);
                   }
                   if (!resourcePath.toLowerCase().endsWith(".xml") && !resourcePath.toLowerCase().endsWith(".ck")) {
-                     resourcePath += ".xml"; 
+                     resourcePath += ".XML"; 
                   }
+
                   
                   if (resourcePath.toLowerCase().endsWith(".ck")) {
 
@@ -142,26 +144,56 @@ public class SwingProjectSidebarPanel extends JPanel {
 
 
                   System.out.println("Swing: Loading Preset: " + resourcePath);
-                  try (java.io.InputStream is = getClass().getResourceAsStream(resourcePath)) {
-
-
+                  try (java.io.InputStream is = getClass().getResourceAsStream(resourcePath) != null ? 
+                                getClass().getResourceAsStream(resourcePath) : 
+                                getClass().getResourceAsStream(resourcePath.replace(".XML", ".xml"))) {
                     if (is != null) {
-                      if ("KITS".equals(internalDir)) {
-                        org.chuck.deluge.model.KitTrackModel kit =
-                            org.chuck.deluge.xml.DelugeXmlParser.parseKit(is, name);
+                       if ("KITS".equals(internalDir)) {
+                         org.chuck.deluge.model.KitTrackModel kit =
+                             org.chuck.deluge.xml.DelugeXmlParser.parseKit(is, name);
+
+
                         int baseTrack = 0;
                         java.util.List<org.chuck.deluge.model.KitTrackModel.KitSound> sounds =
                             kit.getSounds();
                         for (int i = 0; i < 8; i++) {
                           if (i < sounds.size()) {
+                            String sp = sounds.get(i).getSamplePath();
+                            String localData = "/usr/local/google/home/ludo/a/chuckjava/deluge/target/classes/examples/data/";
+                            if (sp != null) {
+                               if (sp.toLowerCase().contains("kick")) {
+                                  sp = localData + "kick.wav";
+                               } else if (sp.toLowerCase().contains("snare")) {
+                                  sp = localData + "snare.wav";
+                               } else if (sp.toLowerCase().contains("hihat") || sp.toLowerCase().contains("hatc")) {
+                                  sp = localData + "hihat.wav";
+                               } else if (sp.toLowerCase().contains("open") || sp.toLowerCase().contains("hato")) {
+                                  sp = localData + "hihat-open.wav";
+                               }
+                            }
                             vm.setGlobalString(
-                                "g_sample_" + (baseTrack + i), sounds.get(i).getSamplePath());
+                                "g_sample_" + (baseTrack + i), sp != null ? sp : "");
+                            bridge.setMute(baseTrack + i, false);
+
+
                           }
                         }
+
+
+                        
+                        org.chuck.deluge.model.ProjectModel mockProj = new org.chuck.deluge.model.ProjectModel();
+                        mockProj.addTrack(kit);
+                        if (onSongLoaded != null) {
+                           onSongLoaded.accept(mockProj);
+                        }
+
                         vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+
                       } else if ("SONGS".equals(internalDir)) {
                         org.chuck.deluge.model.ProjectModel loadedProject =
                             org.chuck.deluge.xml.DelugeXmlParser.parseSong(is, name);
+
+
                         int kitIdx = 0;
                         for (org.chuck.deluge.model.TrackModel track : loadedProject.getTracks()) {
                           if (track instanceof org.chuck.deluge.model.KitTrackModel kit) {
@@ -171,8 +203,12 @@ public class SwingProjectSidebarPanel extends JPanel {
                             for (int i = 0; i < 8; i++) {
                               int trackId = baseTrack + i;
                               if (i < sounds.size()) {
+                                String sp = sounds.get(i).getSamplePath();
+                                if (sp != null && sp.startsWith("SAMPLES/")) {
+                                   sp = "/usr/local/google/home/ludo/a/delugesamples/" + sp;
+                                }
                                 vm.setGlobalString(
-                                    "g_sample_" + trackId, sounds.get(i).getSamplePath());
+                                    "g_sample_" + trackId, sp);
                                 bridge.setMute(trackId, false);
                                 bridge.setTrackType(trackId, 0);
                               }
@@ -187,6 +223,8 @@ public class SwingProjectSidebarPanel extends JPanel {
                       } else if ("SYNTHS".equals(internalDir)) {
                         org.chuck.deluge.model.SynthTrackModel synth =
                             org.chuck.deluge.xml.DelugeXmlParser.parseSynth(is, name);
+
+
                         bridge.setTrackType(0, 1); // Set track 0 to Synth
                         vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
                       }

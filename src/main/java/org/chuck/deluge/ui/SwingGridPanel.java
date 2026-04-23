@@ -153,7 +153,7 @@ public class SwingGridPanel extends JPanel {
         pads[t][c] = clipBtn;
 
         if (viewMode == GridViewMode.CLIP) {
-           clipBtn.setText("<html><font size='3'>Pi:" + (currentTrack * 8) + "<br>Ve:0.8<br>Pr:1.0<br>Ga:1</font></html>");
+           clipBtn.setText("<html><font size='3'>Pi:" + (currentTrack) + "<br>Ve:0.8<br>Pr:1.0<br>Ga:1</font></html>");
         } else if (viewMode == GridViewMode.ARRANGEMENT) {
            String tn = (currentTrack < tracks.size()) ? tracks.get(currentTrack).getName() : "EMPTY";
            clipBtn.setText("<html><center><font size='3'>" + tn + "<br><b>Bar " + (c + 1) + "</b></font></center></html>");
@@ -178,18 +178,19 @@ public class SwingGridPanel extends JPanel {
         
         if (c == 16) {
            clipBtn.setText("MUTE");
-           clipBtn.setBackground(bridge.getMute(currentTrack * 8) ? Color.RED : new Color(0x33, 0x33, 0x33));
+           clipBtn.setBackground(bridge.getMute(currentTrack) ? Color.RED : new Color(0x33, 0x33, 0x33));
            clipBtn.addActionListener(e -> {
              if ((e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0) {
                 // Clear Sequence row
-                for (int s = 0; s < 16; s++) {
-                   bridge.setStep(currentTrack * 8, s, false);
-                }
-                refresh();
-                return;
-             }
-             boolean isMuted = bridge.getMute(currentTrack * 8);
-             bridge.setMute(currentTrack * 8, !isMuted);
+                 for (int s = 0; s < 16; s++) {
+                    bridge.setStep(currentTrack, s, false);
+                 }
+                 refresh();
+                 return;
+              }
+              boolean isMuted = bridge.getMute(currentTrack);
+              bridge.setMute(currentTrack, !isMuted);
+
              clipBtn.setBackground(!isMuted ? Color.RED : new Color(0x33, 0x33, 0x33));
            });
         } else if (c == 17) {
@@ -206,11 +207,19 @@ public class SwingGridPanel extends JPanel {
            });
         }
  else {
-          if (hasClip) {
-            clipBtn.setBackground(trackColors[currentTrack]);
+          if (viewMode == GridViewMode.CLIP) {
+             int currentStep = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
+             int offset = (currentStep >= 0) ? (currentStep / 16) * 16 : 0;
+             boolean stepState = bridge.getStep(currentTrack, offset + c);
+             clipBtn.setBackground(stepState ? trackColors[currentTrack] : new Color(0x33, 0x33, 0x33));
           } else {
-            clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
+             if (hasClip) {
+               clipBtn.setBackground(trackColors[currentTrack]);
+             } else {
+               clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
+             }
           }
+
 
           if (viewMode == GridViewMode.CLIP) {
              clipBtn.addMouseListener(new java.awt.event.MouseAdapter() {
@@ -373,21 +382,29 @@ public class SwingGridPanel extends JPanel {
               } else {
                  clipBtn.setBackground(trackColors[currentTrack]);
               }
-            } else {
-              boolean stepState = bridge.getStep(currentTrack * 8, slot);
+              int currentStep = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
+              int offset = (currentStep >= 0) ? (currentStep / 16) * 16 : 0;
+              boolean stepState = bridge.getStep(currentTrack, offset + slot);
               
               if ((e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0) {
                  // Chord generation!
-                 bridge.setStep(currentTrack * 8, slot, !stepState);
-                 if (currentTrack * 8 + 4 < 64) bridge.setStep(currentTrack * 8 + 4, slot, !stepState);
-                 if (currentTrack * 8 + 7 < 64) bridge.setStep(currentTrack * 8 + 7, slot, !stepState);
+                 bridge.setStep(currentTrack, offset + slot, !stepState);
+                 if (currentTrack + 4 < 64) bridge.setStep(currentTrack + 4, offset + slot, !stepState);
+                 if (currentTrack + 7 < 64) bridge.setStep(currentTrack + 7, offset + slot, !stepState);
                  clipBtn.setBackground(!stepState ? trackColors[currentTrack] : new Color(0x33, 0x33, 0x33));
               } else {
                  // Single note step
-                 bridge.setStep(currentTrack * 8, slot, !stepState);
+                 bridge.setStep(currentTrack, offset + slot, !stepState);
                  clipBtn.setBackground(!stepState ? trackColors[currentTrack] : new Color(0x33, 0x33, 0x33));
+                 if (!stepState) {
+                    String sp = (String) vm.getGlobalObject("g_sample_" + currentTrack);
+                    playWaveFile(sp);
+                 }
               }
             }
+
+
+
 
 
           });
@@ -456,9 +473,9 @@ public class SwingGridPanel extends JPanel {
     Timer playheadTimer = new Timer(100, e -> {
        int currentStep = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
        if (currentStep >= 0) {
-          int activeCol = (currentStep % 16) / 2; 
+          int activeCol = (currentStep % 16); 
           for (int t = 0; t < 8; t++) {
-             for (int c = 0; c < 8; c++) {
+             for (int c = 0; c < 16; c++) {
                 if (pads[t][c] != null) {
                    if (c == activeCol) {
                       pads[t][c].setBorder(BorderFactory.createLineBorder(Color.YELLOW, 4));
@@ -472,4 +489,20 @@ public class SwingGridPanel extends JPanel {
     });
     playheadTimer.start();
   }
+
+  private void playWaveFile(String path) {
+     if (path == null || path.isEmpty()) return;
+     new Thread(() -> {
+        try {
+           java.io.File file = new java.io.File(path);
+           if (file.exists()) {
+              javax.sound.sampled.AudioInputStream stream = javax.sound.sampled.AudioSystem.getAudioInputStream(file);
+              javax.sound.sampled.Clip clip = javax.sound.sampled.AudioSystem.getClip();
+              clip.open(stream);
+              clip.start();
+           }
+        } catch (Exception e) {}
+     }).start();
+  }
 }
+
