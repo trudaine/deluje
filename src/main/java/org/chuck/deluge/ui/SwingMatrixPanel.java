@@ -1,9 +1,9 @@
 package org.chuck.deluge.ui;
 
-import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import javax.swing.*;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 
@@ -22,12 +22,13 @@ public class SwingMatrixPanel extends JPanel {
 
     setBackground(new Color(0x20, 0x20, 0x20));
 
-    addMouseListener(new MouseAdapter() {
-      @Override
-      public void mousePressed(MouseEvent e) {
-        handleMousePress(e);
-      }
-    });
+    addMouseListener(
+        new MouseAdapter() {
+          @Override
+          public void mousePressed(MouseEvent e) {
+            handleMousePress(e);
+          }
+        });
   }
 
   public void setCurrentStep(int step) {
@@ -67,7 +68,7 @@ public class SwingMatrixPanel extends JPanel {
     for (int r = 0; r < rows; r++) {
       for (int c = 0; c < cols; c++) {
         boolean active = bridge != null && bridge.getStep(r, c);
-        
+
         int padX = c * cellW + 4;
         int padY = r * cellH + 4;
         int padW = cellW - 8;
@@ -76,7 +77,7 @@ public class SwingMatrixPanel extends JPanel {
         if (active) {
           g2.setColor(new Color(0x00, 0xff, 0xcc, 0xee));
           g2.fillRoundRect(padX, padY, padW, padH, 10, 10);
-          
+
           // Inner glow
           g2.setColor(Color.WHITE);
           g2.setStroke(new BasicStroke(2));

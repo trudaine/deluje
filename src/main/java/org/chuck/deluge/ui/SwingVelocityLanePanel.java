@@ -1,7 +1,7 @@
 package org.chuck.deluge.ui;
 
-import javax.swing.*;
 import java.awt.*;
+import javax.swing.*;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 
@@ -18,6 +18,13 @@ public class SwingVelocityLanePanel extends JPanel {
     setBackground(new Color(0x1a, 0x1a, 0x1a));
   }
 
+  private String currentMode = "VELOCITY";
+
+  public void setMode(String mode) {
+    this.currentMode = mode;
+    repaint();
+  }
+
   @Override
   protected void paintComponent(Graphics g) {
     super.paintComponent(g);
@@ -27,18 +34,22 @@ public class SwingVelocityLanePanel extends JPanel {
     int w = getWidth();
     int h = getHeight();
 
-    g2.setColor(new Color(0x00, 0xff, 0xcc, 0xaa));
-    
-    // Draw 16 columns mapping step array velocity
+    if ("VELOCITY".equals(currentMode)) {
+      g2.setColor(new Color(0x00, 0xff, 0xcc, 0xaa));
+    } else if ("GATE".equals(currentMode)) {
+      g2.setColor(new Color(0xff, 0x98, 0x00, 0xaa));
+    } else {
+      g2.setColor(new Color(0xe9, 0x1e, 0x63, 0xaa));
+    }
+
     int colW = w / 16;
     for (int i = 0; i < 16; i++) {
       double val = 0.75; // Simulated velocity value
       int barH = (int) (val * (h - 20));
-      
       g2.fillRect(i * colW + 10, h - barH - 10, colW - 20, barH);
     }
 
     g2.setColor(Color.DARK_GRAY);
-    g2.drawLine(0, 0, w, 0); // Top border
+    g2.drawLine(0, 0, w, 0);
   }
 }

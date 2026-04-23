@@ -1,7 +1,7 @@
 package org.chuck.deluge.ui;
 
-import javax.swing.*;
 import java.awt.*;
+import javax.swing.*;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 
@@ -23,13 +23,13 @@ public class SwingDelugeApp extends JFrame {
     // Inflate Font Sizes globally (2x bigger)
     java.util.Enumeration<Object> keys = UIManager.getDefaults().keys();
     while (keys.hasMoreElements()) {
-        Object key = keys.nextElement();
-        Object value = UIManager.get(key);
-        if (value instanceof javax.swing.plaf.FontUIResource) {
-            javax.swing.plaf.FontUIResource orig = (javax.swing.plaf.FontUIResource) value;
-            Font font = new Font(orig.getFontName(), orig.getStyle(), 20); // Increased size
-            UIManager.put(key, new javax.swing.plaf.FontUIResource(font));
-        }
+      Object key = keys.nextElement();
+      Object value = UIManager.get(key);
+      if (value instanceof javax.swing.plaf.FontUIResource) {
+        javax.swing.plaf.FontUIResource orig = (javax.swing.plaf.FontUIResource) value;
+        Font font = new Font(orig.getFontName(), orig.getStyle(), 20); // Increased size
+        UIManager.put(key, new javax.swing.plaf.FontUIResource(font));
+      }
     }
 
     setTitle("DELUGE WORKSTATION [SWING EDITION]");
@@ -46,7 +46,7 @@ public class SwingDelugeApp extends JFrame {
   private void setupUI() {
     // 0. Menu Bar
     JMenuBar menuBar = new JMenuBar();
-    
+
     JMenu fileMenu = new JMenu("File");
     JMenuItem newItem = new JMenuItem("New Project (Ctrl+N)");
     JMenuItem saveItem = new JMenuItem("Save Project (Ctrl+S)");
@@ -59,31 +59,45 @@ public class SwingDelugeApp extends JFrame {
 
     JMenu settingsMenu = new JMenu("Settings");
     JMenuItem sampleItem = new JMenuItem("Set Samples Directory...");
-    sampleItem.addActionListener(e -> {
-      JFileChooser chooser = new JFileChooser();
-      chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-      int result = chooser.showOpenDialog(this);
-      if (result == JFileChooser.APPROVE_OPTION) {
-        java.io.File dir = chooser.getSelectedFile();
-        org.chuck.deluge.project.PreferencesManager.setSamplesDir(dir.getAbsolutePath());
-        System.out.println("Swing: Set samples directory to " + dir.getAbsolutePath());
-      }
-    });
+    sampleItem.addActionListener(
+        e -> {
+          JFileChooser chooser = new JFileChooser();
+          chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+          int result = chooser.showOpenDialog(this);
+          if (result == JFileChooser.APPROVE_OPTION) {
+            java.io.File dir = chooser.getSelectedFile();
+            org.chuck.deluge.project.PreferencesManager.setSamplesDir(dir.getAbsolutePath());
+            System.out.println("Swing: Set samples directory to " + dir.getAbsolutePath());
+          }
+        });
 
     JMenuItem prefItem = new JMenuItem("Preferences...");
-    prefItem.addActionListener(e -> {
-      String[] midiPorts = org.chuck.midi.MidiIn.list();
-      if (midiPorts.length == 0) {
-        JOptionPane.showMessageDialog(this, "No MIDI Input ports available.", "Preferences", JOptionPane.INFORMATION_MESSAGE);
-      } else {
-        String input = (String) JOptionPane.showInputDialog(this, "Select MIDI Input Port:",
-            "Preferences", JOptionPane.QUESTION_MESSAGE, null, midiPorts, midiPorts[0]);
-        if (input != null) {
-          org.chuck.deluge.project.PreferencesManager.set("midi.input", input);
-          System.out.println("Swing: Set MIDI Input port to " + input);
-        }
-      }
-    });
+    prefItem.addActionListener(
+        e -> {
+          String[] midiPorts = org.chuck.midi.MidiIn.list();
+          if (midiPorts.length == 0) {
+            JOptionPane.showMessageDialog(
+                this,
+                "No MIDI Input ports available.",
+                "Preferences",
+                JOptionPane.INFORMATION_MESSAGE);
+          } else {
+            String input =
+                (String)
+                    JOptionPane.showInputDialog(
+                        this,
+                        "Select MIDI Input Port:",
+                        "Preferences",
+                        JOptionPane.QUESTION_MESSAGE,
+                        null,
+                        midiPorts,
+                        midiPorts[0]);
+            if (input != null) {
+              org.chuck.deluge.project.PreferencesManager.set("midi.input", input);
+              System.out.println("Swing: Set MIDI Input port to " + input);
+            }
+          }
+        });
 
     settingsMenu.add(sampleItem);
     settingsMenu.add(prefItem);
@@ -95,38 +109,42 @@ public class SwingDelugeApp extends JFrame {
     // 1. Top Transport Bar
     JPanel topBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 10));
     topBar.setBackground(new Color(0x25, 0x25, 0x25));
-    
+
     JButton playBtn = new JButton("▶ PLAY");
+    playBtn.setToolTipText("Toggles VM sound playback on and off.");
     playBtn.setBackground(new Color(0x33, 0x66, 0x33));
     playBtn.setForeground(Color.WHITE);
     playBtn.setFocusPainted(false);
-    playBtn.addActionListener(e -> {
-      if (bridge != null) {
-        long currentPlay = vm.getGlobalInt(BridgeContract.G_PLAY);
-        vm.setGlobalInt(BridgeContract.G_PLAY, currentPlay == 1L ? 0L : 1L);
-        playBtn.setText(currentPlay == 1L ? "▶ PLAY" : "⏸ PAUSE");
-      }
-    });
+    playBtn.addActionListener(
+        e -> {
+          if (bridge != null) {
+            long currentPlay = vm.getGlobalInt(BridgeContract.G_PLAY);
+            vm.setGlobalInt(BridgeContract.G_PLAY, currentPlay == 1L ? 0L : 1L);
+            playBtn.setText(currentPlay == 1L ? "▶ PLAY" : "⏸ PAUSE");
+          }
+        });
 
     JButton stopBtn = new JButton("■ STOP");
     stopBtn.setBackground(new Color(0x66, 0x33, 0x33));
     stopBtn.setForeground(Color.WHITE);
     stopBtn.setFocusPainted(false);
-    stopBtn.addActionListener(e -> {
-      if (bridge != null) {
-        vm.setGlobalInt(BridgeContract.G_PLAY, 0L);
-        playBtn.setText("▶ PLAY");
-      }
-    });
+    stopBtn.addActionListener(
+        e -> {
+          if (bridge != null) {
+            vm.setGlobalInt(BridgeContract.G_PLAY, 0L);
+            playBtn.setText("▶ PLAY");
+          }
+        });
 
     JLabel tempoLabel = new JLabel("BPM:");
     tempoLabel.setForeground(Color.LIGHT_GRAY);
     JSlider bpmSlider = new JSlider(60, 200, 120);
-    bpmSlider.addChangeListener(e -> {
-      if (bridge != null) {
-        vm.setGlobalFloat(BridgeContract.G_BPM, bpmSlider.getValue());
-      }
-    });
+    bpmSlider.addChangeListener(
+        e -> {
+          if (bridge != null) {
+            vm.setGlobalFloat(BridgeContract.G_BPM, bpmSlider.getValue());
+          }
+        });
 
     // Mode Toggle buttons
     JToggleButton clipBtn = new JToggleButton("CLIP", true);
@@ -158,13 +176,12 @@ public class SwingDelugeApp extends JFrame {
     // 2. Center Matrix Layout Views
     matrixPanel = new SwingMatrixPanel(vm, bridge);
     centerCardPanel.add(matrixPanel, "CLIP");
-    
+
     SwingSongModePanel songPanel = new SwingSongModePanel(vm, bridge);
     centerCardPanel.add(songPanel, "SONG");
 
     SwingArrangerPanel arrPanel = new SwingArrangerPanel(vm, bridge);
     centerCardPanel.add(arrPanel, "ARR");
-
 
     add(centerCardPanel, BorderLayout.CENTER);
 
@@ -180,20 +197,38 @@ public class SwingDelugeApp extends JFrame {
     // 5. Bottom Master FX strip and Velocity Lane
     JPanel bottomContainer = new JPanel(new BorderLayout());
     SwingVelocityLanePanel bottomLane = new SwingVelocityLanePanel(vm, bridge);
+
+    JPanel ribbonStrip = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 2));
+    ribbonStrip.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    JButton velBtn = new JButton("VELOCITY");
+    JButton gateBtn = new JButton("GATE");
+    JButton pitchBtn = new JButton("PITCH");
+
+    velBtn.addActionListener(e -> bottomLane.setMode("VELOCITY"));
+    gateBtn.addActionListener(e -> bottomLane.setMode("GATE"));
+    pitchBtn.addActionListener(e -> bottomLane.setMode("PITCH"));
+
+    ribbonStrip.add(velBtn);
+    ribbonStrip.add(gateBtn);
+    ribbonStrip.add(pitchBtn);
+
+    bottomContainer.add(ribbonStrip, BorderLayout.NORTH);
     bottomContainer.add(bottomLane, BorderLayout.CENTER);
 
     JPanel masterFxPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 5));
     masterFxPanel.setBackground(new Color(0x25, 0x25, 0x25));
-    
+
     JLabel volLabel = new JLabel("Master Vol:");
     volLabel.setForeground(Color.WHITE);
     JSlider volSlider = new JSlider(0, 100, 70);
-    volSlider.addChangeListener(e -> vm.setGlobalFloat(BridgeContract.G_MASTER_VOL, volSlider.getValue() / 100.0));
-    
+    volSlider.addChangeListener(
+        e -> vm.setGlobalFloat(BridgeContract.G_MASTER_VOL, volSlider.getValue() / 100.0));
+
     JLabel delLabel = new JLabel("Delay Send:");
     delLabel.setForeground(Color.WHITE);
     JSlider delSlider = new JSlider(0, 100, 30);
-    delSlider.addChangeListener(e -> vm.setGlobalFloat(BridgeContract.G_DELAY_TIME, delSlider.getValue() / 100.0));
+    delSlider.addChangeListener(
+        e -> vm.setGlobalFloat(BridgeContract.G_DELAY_TIME, delSlider.getValue() / 100.0));
 
     masterFxPanel.add(volLabel);
     masterFxPanel.add(volSlider);
@@ -204,18 +239,19 @@ public class SwingDelugeApp extends JFrame {
     add(bottomContainer, BorderLayout.SOUTH);
   }
 
-
-
   private void startPlaybackTimer() {
-    Timer timer = new Timer(30, e -> {
-      int step = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
-      if (matrixPanel != null) {
-        matrixPanel.setCurrentStep(step);
-      }
-      if (visualizerPanel != null) {
-        visualizerPanel.repaint();
-      }
-    });
+    Timer timer =
+        new Timer(
+            30,
+            e -> {
+              int step = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
+              if (matrixPanel != null) {
+                matrixPanel.setCurrentStep(step);
+              }
+              if (visualizerPanel != null) {
+                visualizerPanel.repaint();
+              }
+            });
     timer.start();
   }
 }

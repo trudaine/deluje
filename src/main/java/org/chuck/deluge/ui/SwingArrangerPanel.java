@@ -1,9 +1,9 @@
 package org.chuck.deluge.ui;
 
-import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import javax.swing.*;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 
@@ -20,12 +20,13 @@ public class SwingArrangerPanel extends JPanel {
 
     setBackground(new Color(0x20, 0x20, 0x20));
 
-    addMouseListener(new MouseAdapter() {
-      @Override
-      public void mousePressed(MouseEvent e) {
-        repaint();
-      }
-    });
+    addMouseListener(
+        new MouseAdapter() {
+          @Override
+          public void mousePressed(MouseEvent e) {
+            repaint();
+          }
+        });
   }
 
   @Override

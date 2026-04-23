@@ -1,7 +1,7 @@
 package org.chuck.deluge.ui;
 
-import javax.swing.*;
 import java.awt.*;
+import javax.swing.*;
 import org.chuck.core.ChuckVM;
 
 /** Pure Swing oscilloscope and spectrum visualizer. */
@@ -24,25 +24,26 @@ public class SwingVisualizerPanel extends JPanel {
     int quarterH = h / 4;
 
     // Draw Oscilloscope (Row 1)
-    float[] data = vm != null && vm.getDacChannel(0) != null ? vm.getDacChannel(0).getVisBuffer() : null;
+    float[] data =
+        vm != null && vm.getDacChannel(0) != null ? vm.getDacChannel(0).getVisBuffer() : null;
     g2.setColor(new Color(0x00, 0xff, 0xcc));
     g2.setStroke(new BasicStroke(1.5f));
-    
+
     if (data != null && data.length > 0) {
       int halfH = quarterH / 2;
       double xStep = (double) w / data.length;
       int lastX = 0;
-      int lastY = halfH - (int)(data[0] * halfH * 0.9);
+      int lastY = halfH - (int) (data[0] * halfH * 0.9);
 
       for (int i = 1; i < data.length; i++) {
-        int x = (int)(i * xStep);
-        int y = halfH - (int)(data[i] * halfH * 0.9);
+        int x = (int) (i * xStep);
+        int y = halfH - (int) (data[i] * halfH * 0.9);
         g2.drawLine(lastX, lastY, x, y);
         lastX = x;
         lastY = y;
       }
     }
-    
+
     // Draw Spectrum (Row 2)
     g2.setColor(new Color(0x00, 0xaa, 0xff));
     int specY = quarterH + 10;
@@ -51,7 +52,6 @@ public class SwingVisualizerPanel extends JPanel {
       int barH = (int) ((Math.sin(i * 0.4) + 1.0) * (specH / 2.5));
       g2.fillRect(15 + i * (w - 30) / 20, specY + specH - barH, (w - 30) / 25, barH);
     }
-
 
     // Draw Waterfall placeholder (Row 3)
     g2.setColor(new Color(0xff, 0x00, 0x55));
@@ -63,5 +63,4 @@ public class SwingVisualizerPanel extends JPanel {
     g2.drawRect(10, quarterH * 3 + 10, w - 20, quarterH - 20);
     g2.drawString("STEREO PHASE", 20, quarterH * 3 + 30);
   }
-
 }

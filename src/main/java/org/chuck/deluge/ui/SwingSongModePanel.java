@@ -1,7 +1,7 @@
 package org.chuck.deluge.ui;
 
-import javax.swing.*;
 import java.awt.*;
+import javax.swing.*;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 
@@ -28,16 +28,17 @@ public class SwingSongModePanel extends JPanel {
         final int trackIdx = row;
         final int clipIdx = col;
 
-        pad.addActionListener(e -> {
-          boolean wasPlaying = pad.getBackground().equals(new Color(0x00, 0xff, 0x00));
-          if (wasPlaying) {
-            pad.setBackground(new Color(0x33, 0x33, 0x33));
-            pad.setForeground(Color.DARK_GRAY);
-          } else {
-            pad.setBackground(new Color(0x00, 0xff, 0x00));
-            pad.setForeground(Color.BLACK);
-          }
-        });
+        pad.addActionListener(
+            e -> {
+              boolean wasPlaying = pad.getBackground().equals(new Color(0x00, 0xff, 0x00));
+              if (wasPlaying) {
+                pad.setBackground(new Color(0x33, 0x33, 0x33));
+                pad.setForeground(Color.DARK_GRAY);
+              } else {
+                pad.setBackground(new Color(0x00, 0xff, 0x00));
+                pad.setForeground(Color.BLACK);
+              }
+            });
         add(pad);
       }
     }
