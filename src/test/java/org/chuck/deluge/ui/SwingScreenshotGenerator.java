@@ -52,22 +52,37 @@ public class SwingScreenshotGenerator {
     BufferedImage img = captureComponent(app);
     saveSnapshot(img, "../docs/swing_step0_start.png", "Swing Step 0", "Initial State");
 
-    // Step 1: Song View
+    // Step 1: Load Song
     SwingUtilities.invokeAndWait(() -> {
-      org.chuck.deluge.model.ProjectModel loadedProject = new org.chuck.deluge.model.ProjectModel();
-      loadedProject.getTracks().add(new org.chuck.deluge.model.KitTrackModel("KIT 0"));
-      app.getContentPane().getComponent(1); // Force refresh
-      app.getContentPane().repaint();
+      try (java.io.InputStream is = getClass().getResourceAsStream("/SONGS/song1.xml")) {
+        if (is != null) {
+          org.chuck.deluge.model.ProjectModel model = org.chuck.deluge.xml.DelugeXmlParser.parseSong(is, "song1");
+          app.getContentPane().getComponent(1); // Force update
+        }
+      } catch (Exception ex) {
+        ex.printStackTrace();
+      }
     });
     img = captureComponent(app);
     saveSnapshot(img, "../docs/swing_step1_loaded_songview.png", "Swing Step 1", "Song View");
 
     // Step 1b: Clip View
     SwingUtilities.invokeAndWait(() -> {
-      // focus clip card
+      // Set bridge steps simulating data
+      bridge.setStep(0, 0, true);
+      bridge.setStep(0, 4, true);
+      bridge.setStep(0, 8, true);
+      bridge.setStep(0, 12, true);
     });
     img = captureComponent(app);
     saveSnapshot(img, "../docs/swing_step1_loaded_clipview.png", "Swing Step 1b", "Clip View");
+
+    // Step 2: Playing
+    SwingUtilities.invokeAndWait(() -> {
+      vm.setGlobalInt(BridgeContract.G_PLAY, 1L);
+    });
+    img = captureComponent(app);
+    saveSnapshot(img, "../docs/swing_step3_playing.png", "Swing Step 3", "Transport Playing");
 
     // Cleanup
     SwingUtilities.invokeLater(() -> app.dispose());
@@ -80,6 +95,7 @@ public class SwingScreenshotGenerator {
     g.dispose();
     return img;
   }
+
 
   private void saveSnapshot(BufferedImage image, String path, String title, String description) throws Exception {
     File output = new File(path);
