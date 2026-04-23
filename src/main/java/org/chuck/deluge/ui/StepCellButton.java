@@ -39,6 +39,35 @@ public class StepCellButton extends ToggleButton {
     // Sync with Bridge
     setSelected(bridge.getStep(baseTrack + rowId, stepId));
 
+    addEventHandler(MouseEvent.MOUSE_CLICKED, e -> {
+        if (e.getButton() == MouseButton.PRIMARY) {
+            boolean state = isSelected();
+            if (e.isShiftDown() && !isSynthMode) {
+                if (baseTrack + rowId + 4 < 64) bridge.setStep(baseTrack + rowId + 4, stepId, state);
+                if (baseTrack + rowId + 7 < 64) bridge.setStep(baseTrack + rowId + 7, stepId, state);
+            }
+            
+            // Audition sound
+            if (state) {
+                String sp = (String) vm.getGlobalObject("g_sample_" + (baseTrack + rowId));
+
+                if (sp != null && !sp.isEmpty()) {
+                    new Thread(() -> {
+                        try {
+                            java.io.File file = new java.io.File(sp);
+                            if (file.exists()) {
+                                javax.sound.sampled.AudioInputStream stream = javax.sound.sampled.AudioSystem.getAudioInputStream(file);
+                                javax.sound.sampled.Clip clip = javax.sound.sampled.AudioSystem.getClip();
+                                clip.open(stream);
+                                clip.start();
+                            }
+                        } catch (Exception ex) {}
+                    }).start();
+                }
+            }
+        }
+    });
+
     setOnAction(
         e -> {
           if (bridge.isRecording()) {
@@ -66,6 +95,7 @@ public class StepCellButton extends ToggleButton {
           }
           updateStyle();
         });
+
 
     addEventHandler(MouseEvent.MOUSE_PRESSED, this::handleMousePressed);
     addEventHandler(MouseEvent.MOUSE_DRAGGED, this::handleMouseDragged);
