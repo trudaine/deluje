@@ -22,16 +22,18 @@ public class SequencerLauncher {
       audio.start();
 
       // Spork Java DSL Engine Orchestrator
-      org.chuck.deluge.engine.DelugeEngine engine = new org.chuck.deluge.engine.DelugeEngine(vm, bridge);
+      org.chuck.deluge.engine.DelugeEngine engine =
+          new org.chuck.deluge.engine.DelugeEngine(vm, bridge);
       vm.spork(engine::shred);
 
-      java.awt.EventQueue.invokeLater(() -> {
-        org.chuck.deluge.ui.SwingDelugeApp app = new org.chuck.deluge.ui.SwingDelugeApp(vm, bridge);
-        app.setVisible(true);
-      });
+      java.awt.EventQueue.invokeLater(
+          () -> {
+            org.chuck.deluge.ui.SwingDelugeApp app =
+                new org.chuck.deluge.ui.SwingDelugeApp(vm, bridge);
+            app.setVisible(true);
+          });
     } else {
       org.chuck.deluge.ui.DelugeApp.main(args);
     }
   }
 }
-
