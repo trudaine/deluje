@@ -450,7 +450,13 @@ public class SwingDelugeApp extends JFrame {
       if (clipPanel != null) clipPanel.setProjectModel(model);
       if (arrGridPanel != null) arrGridPanel.setProjectModel(model);
 
-      cardLayout.show(centerCardPanel, "SONG");
+      if (model.getTracks().size() == 1) {
+         cardLayout.show(centerCardPanel, "CLIP");
+         if (clipBtn != null) clipBtn.setSelected(true);
+      } else {
+         cardLayout.show(centerCardPanel, "SONG");
+      }
+
 
       int trackIdx = 0;
       for (org.chuck.deluge.model.TrackModel track : model.getTracks()) {

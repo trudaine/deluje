@@ -159,21 +159,39 @@ public class SwingProjectSidebarPanel extends JPanel {
                         for (int i = 0; i < 8; i++) {
                           if (i < sounds.size()) {
                             String sp = sounds.get(i).getSamplePath();
-                            String localData = "/usr/local/google/home/ludo/a/chuckjava/deluge/target/classes/examples/data/";
                             if (sp != null) {
-                               if (sp.toLowerCase().contains("kick")) {
-                                  sp = localData + "kick.wav";
-                               } else if (sp.toLowerCase().contains("snare")) {
-                                  sp = localData + "snare.wav";
-                               } else if (sp.toLowerCase().contains("hihat") || sp.toLowerCase().contains("hatc")) {
-                                  sp = localData + "hihat.wav";
-                               } else if (sp.toLowerCase().contains("open") || sp.toLowerCase().contains("hato")) {
-                                  sp = localData + "hihat-open.wav";
-                               }
+                               String resPath = sp;
+                               if (!resPath.startsWith("/")) resPath = "/" + resPath;
+                               try (java.io.InputStream resIs = getClass().getResourceAsStream(resPath) != null ? 
+                                      getClass().getResourceAsStream(resPath) : 
+                                      null) {
+                                  if (resIs != null) {
+                                     java.io.File tempFile = new java.io.File(System.getProperty("user.home") + "/.gemini/jetski/scratch/" + new java.io.File(resPath).getName());
+                                     java.nio.file.Files.copy(resIs, tempFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                                     sp = tempFile.getAbsolutePath();
+                                  } else {
+                                     // Try uppercase fallback
+                                     try (java.io.InputStream upperIs = getClass().getResourceAsStream(resPath.replace(".wav", ".WAV"))) {
+                                        if (upperIs != null) {
+                                           System.out.println("WARNING: Resource casing discrepancy. Loaded as .WAV fallback: " + resPath);
+                                           java.io.File tempFile = new java.io.File(System.getProperty("user.home") + "/.gemini/jetski/scratch/" + new java.io.File(resPath).getName());
+                                           java.nio.file.Files.copy(upperIs, tempFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                                           sp = tempFile.getAbsolutePath();
+                                        }
+                                     }
+                                  }
+                               } catch (Exception ex) {}
+
+
+
                             }
+
+
+
                             vm.setGlobalString(
                                 "g_sample_" + (baseTrack + i), sp != null ? sp : "");
                             bridge.setMute(baseTrack + i, false);
+
 
 
                           }
@@ -204,9 +222,32 @@ public class SwingProjectSidebarPanel extends JPanel {
                               int trackId = baseTrack + i;
                               if (i < sounds.size()) {
                                 String sp = sounds.get(i).getSamplePath();
-                                if (sp != null && sp.startsWith("SAMPLES/")) {
-                                   sp = "/usr/local/google/home/ludo/a/delugesamples/" + sp;
-                                }
+                                 if (sp != null) {
+                                    String resPath = sp;
+                                    if (!resPath.startsWith("/")) resPath = "/" + resPath;
+                                    try (java.io.InputStream resIs = getClass().getResourceAsStream(resPath) != null ? 
+                                           getClass().getResourceAsStream(resPath) : 
+                                           null) {
+                                       if (resIs != null) {
+                                          java.io.File tempFile = new java.io.File(System.getProperty("user.home") + "/.gemini/jetski/scratch/" + new java.io.File(resPath).getName());
+                                          java.nio.file.Files.copy(resIs, tempFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                                          sp = tempFile.getAbsolutePath();
+                                       } else {
+                                          try (java.io.InputStream upperIs = getClass().getResourceAsStream(resPath.replace(".wav", ".WAV"))) {
+                                             if (upperIs != null) {
+                                                System.out.println("WARNING: Resource casing discrepancy. Loaded as .WAV fallback: " + resPath);
+                                                java.io.File tempFile = new java.io.File(System.getProperty("user.home") + "/.gemini/jetski/scratch/" + new java.io.File(resPath).getName());
+                                                java.nio.file.Files.copy(upperIs, tempFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                                                sp = tempFile.getAbsolutePath();
+                                             }
+                                          }
+                                       }
+                                    } catch (Exception ex) {}
+
+
+
+                                 }
+
                                 vm.setGlobalString(
                                     "g_sample_" + trackId, sp);
                                 bridge.setMute(trackId, false);
