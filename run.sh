@@ -41,5 +41,23 @@ else
   JAVA_EXEC="java"
 fi
 
-echo "Launching Deluge..."
+OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+ARCH=$(uname -m)
+if [ "$ARCH" = "x86_64" ]; then
+  ARCH="x64"
+elif [ "$ARCH" = "arm64" ] || [ "$ARCH" = "aarch64" ]; then
+  ARCH="aarch64"
+fi
+
+if [ "$OS" = "darwin" ]; then
+  if [ "$ARCH" = "aarch64" ]; then
+    JAR_NAME="deluge-mac-aarch64.jar"
+  else
+    JAR_NAME="deluge-mac-x64.jar"
+  fi
+else
+  JAR_NAME="deluge-linux.jar"
+fi
+
+echo "Launching Deluge ($JAR_NAME)..."
 "$JAVA_EXEC" --enable-preview --add-modules jdk.incubator.vector -jar "$JAR_NAME"
