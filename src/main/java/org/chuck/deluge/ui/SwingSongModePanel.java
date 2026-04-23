@@ -88,7 +88,12 @@ public class SwingSongModePanel extends JPanel {
         }
 
         clipBtn.addActionListener(e -> {
+          if ((e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0) {
+            System.out.println("Swing: Shifting pad " + slot + " up.");
+            return;
+          }
           clipBtn.setBackground(Color.ORANGE); // Armed/Queued
+
           
           Timer timer = new Timer(100, null);
           final boolean[] flashState = {false};
