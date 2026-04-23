@@ -53,14 +53,33 @@ public class SwingVisualizerPanel extends JPanel {
       g2.fillRect(15 + i * (w - 30) / 20, specY + specH - barH, (w - 30) / 25, barH);
     }
 
-    // Draw Waterfall placeholder (Row 3)
+    // Draw Waterfall (Row 3)
     g2.setColor(new Color(0xff, 0x00, 0x55));
-    g2.drawRect(10, quarterH * 2 + 10, w - 20, quarterH - 20);
-    g2.drawString("WATERFALL", 20, quarterH * 2 + 30);
+    int waterY = quarterH * 2 + 10;
+    int waterH = quarterH - 20;
+    
+    // Roll simulated waterfall
+    for (int yOffset = 0; yOffset < waterH; yOffset += 2) {
+      int intensity = (int) (Math.random() * 100 + 50);
+      g2.setColor(new Color(intensity, 0, 255 - intensity, 100));
+      g2.fillRect(15, waterY + yOffset, w - 30, 2);
+    }
+
 
     // Draw Stereo Phase (Row 4)
     g2.setColor(new Color(0xaa, 0xff, 0x00));
-    g2.drawRect(10, quarterH * 3 + 10, w - 20, quarterH - 20);
-    g2.drawString("STEREO PHASE", 20, quarterH * 3 + 30);
+    int phaseY = quarterH * 3 + 10;
+    int phaseH = quarterH - 20;
+    int centerPX = w / 2;
+    int centerPY = phaseY + phaseH / 2;
+
+    g2.setStroke(new BasicStroke(1.0f));
+    for (int i = 0; i < 15; i++) {
+      double angle = System.currentTimeMillis() * 0.005 + i * 0.4;
+      int px = centerPX + (int) (Math.cos(angle) * (w / 4.0));
+      int py = centerPY + (int) (Math.sin(angle * 1.5) * (phaseH / 2.5));
+      g2.drawOval(px - 4, py - 4, 8, 8);
+    }
+
   }
 }

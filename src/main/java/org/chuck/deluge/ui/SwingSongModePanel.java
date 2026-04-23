@@ -19,7 +19,9 @@ public class SwingSongModePanel extends JPanel {
     this.projectModel = new org.chuck.deluge.model.ProjectModel();
 
     setBackground(new Color(0x1a, 0x1a, 0x1a));
+    setPreferredSize(new Dimension(760, 400));
     setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+
     refresh();
   }
 
@@ -48,13 +50,30 @@ public class SwingSongModePanel extends JPanel {
 
       final int currentTrack = t;
       for (int c = 0; c < 8; c++) {
+        final int slot = c;
         JButton clipBtn = new JButton("PAD " + (c + 1));
         clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
         clipBtn.addActionListener(e -> {
-          clipBtn.setBackground(new Color(0x00, 0xff, 0xcc));
+          clipBtn.setBackground(Color.ORANGE); // Armed/Queued
+          
+          Timer timer = new Timer(100, null);
+          final boolean[] flashState = {false};
+          timer.addActionListener(ev -> {
+            int step = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
+            if (step == 0) {
+              clipBtn.setBackground(new Color(0x00, 0xff, 0xcc)); // Playing
+              timer.stop();
+            } else {
+              flashState[0] = !flashState[0];
+              clipBtn.setBackground(flashState[0] ? Color.ORANGE : Color.LIGHT_GRAY);
+            }
+          });
+          timer.start();
+
         });
         rowPanel.add(clipBtn);
       }
+
 
       JButton editBtn = new JButton("E");
       editBtn.setToolTipText("Open Clip Editor view for this track");
@@ -64,6 +83,17 @@ public class SwingSongModePanel extends JPanel {
         }
       });
       rowPanel.add(editBtn);
+
+      JButton colorBtn = new JButton("C");
+      colorBtn.setToolTipText("Change clip pad color");
+      colorBtn.addActionListener(e -> {
+        Color chosen = JColorChooser.showDialog(this, "Select Pad Color", new Color(0x00, 0xff, 0xcc));
+        if (chosen != null) {
+          colorBtn.setBackground(chosen);
+        }
+      });
+      rowPanel.add(colorBtn);
+
 
       JButton muteBtn = new JButton("M");
       muteBtn.addActionListener(e -> {

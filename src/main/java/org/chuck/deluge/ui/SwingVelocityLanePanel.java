@@ -31,20 +31,54 @@ public class SwingVelocityLanePanel extends JPanel {
     addMouseMotionListener(mouseAdapter);
   }
 
+  private int startStep = -1;
+  private double startVal = 0.0;
+
   private void handlePaint(java.awt.event.MouseEvent e) {
     int w = getWidth();
     int h = getHeight();
     int colW = w / 16;
     int step = e.getX() / colW;
+    
     if (step >= 0 && step < 16) {
       double val = 1.0 - (double)e.getY() / h;
       val = Math.max(0.0, Math.min(1.0, val));
-      if (bridge != null) {
+      
+      if (e.getID() == java.awt.event.MouseEvent.MOUSE_PRESSED) {
+        startStep = step;
+        startVal = val;
         bridge.setVelocity(0, step, val);
-        repaint();
+      } else if (e.getID() == java.awt.event.MouseEvent.MOUSE_DRAGGED && startStep >= 0) {
+        if (e.isShiftDown()) {
+          // Linear straight interpolation
+          int min = Math.min(startStep, step);
+          int max = Math.max(startStep, step);
+          double v1 = (min == startStep) ? startVal : val;
+          double v2 = (min == startStep) ? val : startVal;
+          for (int s = min; s <= max; s++) {
+            double t = (max == min) ? 0.0 : (double)(s - min) / (max - min);
+            bridge.setVelocity(0, s, v1 + t * (v2 - v1));
+          }
+        } else if (e.isControlDown()) {
+          // Quadratic Bezier curve
+          int min = Math.min(startStep, step);
+          int max = Math.max(startStep, step);
+          double v1 = (min == startStep) ? startVal : val;
+          double v2 = (min == startStep) ? val : startVal;
+          double ctrl = Math.max(v1, v2) + 0.2;
+          for (int s = min; s <= max; s++) {
+            double t = (max == min) ? 0.0 : (double)(s - min) / (max - min);
+            double bVal = (1 - t) * (1 - t) * v1 + 2 * (1 - t) * t * ctrl + t * t * v2;
+            bridge.setVelocity(0, s, Math.max(0.0, Math.min(1.0, bVal)));
+          }
+        } else {
+          bridge.setVelocity(0, step, val);
+        }
       }
+      repaint();
     }
   }
+
 
   private String currentMode = "VELOCITY";
 

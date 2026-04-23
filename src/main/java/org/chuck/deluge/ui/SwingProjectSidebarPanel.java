@@ -192,33 +192,52 @@ public class SwingProjectSidebarPanel extends JPanel {
     oscBox.add(new JLabel("Osc 1 Vol:"));
     JSlider volSlider = new JSlider(0, 127, 64);
     oscBox.add(volSlider);
+    oscBox.add(new JLabel("Osc 2 Vol:"));
+    oscBox.add(new JSlider(0, 127, 0));
+    oscBox.add(new JLabel("Transpose:"));
+    oscBox.add(new JSlider(-24, 24, 0));
     panel.add(oscBox);
 
     // Filters Section
     JPanel filterBox = createSection("FILTERS");
     filterBox.add(new JLabel("LPF Cutoff:"));
     JSlider lpfSlider = new JSlider(0, 127, 64);
-    lpfSlider.addChangeListener(
-        e -> {
-          if (bridge != null) {
-            bridge.setFilterFreq(0, lpfSlider.getValue() / 127.0);
-          }
-        });
+    lpfSlider.addChangeListener(e -> {
+      if (bridge != null) {
+        bridge.setFilterFreq(0, lpfSlider.getValue() / 127.0);
+      }
+    });
     filterBox.add(lpfSlider);
+    filterBox.add(new JLabel("LPF Resonance:"));
+    filterBox.add(new JSlider(0, 127, 64));
+    filterBox.add(new JLabel("HPF Cutoff:"));
+    filterBox.add(new JSlider(0, 127, 0));
     panel.add(filterBox);
 
     // Envelopes
     JPanel envBox = createSection("ENVELOPES");
     envBox.add(new JLabel("Attack:"));
     JSlider attSlider = new JSlider(0, 100, 10);
-    attSlider.addChangeListener(
-        e -> {
-          if (bridge != null) {
-            bridge.setEnv(0, attSlider.getValue() / 100.0, 0.2, 0.8, 0.3);
-          }
-        });
+    attSlider.addChangeListener(e -> {
+      if (bridge != null) {
+        bridge.setEnv(0, attSlider.getValue() / 100.0, 0.2, 0.8, 0.3);
+      }
+    });
     envBox.add(attSlider);
+    envBox.add(new JLabel("Decay:"));
+    envBox.add(new JSlider(0, 100, 20));
+    envBox.add(new JLabel("Sustain:"));
+    envBox.add(new JSlider(0, 100, 80));
+    envBox.add(new JLabel("Release:"));
+    envBox.add(new JSlider(0, 100, 30));
     panel.add(envBox);
+
+
+    // Master FX section
+    JPanel fxBox = createSection("MASTER FX");
+    fxBox.add(new JLabel("Decimations:"));
+    fxBox.add(new JSlider(0, 100, 0));
+    panel.add(fxBox);
 
     return new JScrollPane(panel);
   }
