@@ -260,10 +260,20 @@ public class SwingDelugeApp extends JFrame {
       }
     });
 
+    JButton saveSongBtn = new JButton("💾 SAVE XML");
+    saveSongBtn.addActionListener(e -> {
+      JFileChooser chooser = new JFileChooser();
+      if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+        System.out.println("Swing: Saving song project XML to " + chooser.getSelectedFile().getAbsolutePath());
+      }
+    });
+
     topBar.add(playBtn);
     topBar.add(stopBtn);
     topBar.add(recBtn);
     topBar.add(loadBtn);
+    topBar.add(saveSongBtn);
+
     topBar.add(new JSeparator(JSeparator.VERTICAL));
 
     // Sliders
