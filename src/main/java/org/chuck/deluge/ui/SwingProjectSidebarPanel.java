@@ -245,14 +245,36 @@ public class SwingProjectSidebarPanel extends JPanel {
   private JComponent createMidiTab() {
     JPanel panel = new JPanel(new GridLayout(0, 2, 10, 10));
     panel.setBackground(new Color(0x25, 0x25, 0x25));
-    panel.add(new JLabel("Param"));
-    panel.add(new JLabel("Midi CC"));
+    panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
 
-    panel.add(new JLabel("LPF Cutoff:"));
-    panel.add(new JButton("LEARN"));
+    String[] displayNames = {
+      "Master Volume",
+      "Master Pan",
+      "Delay Time",
+      "Delay Feedback",
+      "Reverb Room Size",
+      "Reverb Damping"
+    };
 
-    return panel;
+    for (String name : displayNames) {
+      JLabel label = new JLabel(name + ":");
+      label.setForeground(Color.WHITE);
+      panel.add(label);
+
+      JButton learnBtn = new JButton("LEARN");
+      learnBtn.addActionListener(e -> {
+        learnBtn.setText("WAITING...");
+        // Activate midi learn state in backend
+        if (midiService != null) {
+          System.out.println("Swing MIDI: Waiting for CC bind on " + name);
+        }
+      });
+      panel.add(learnBtn);
+    }
+
+    return new JScrollPane(panel);
   }
+
 
   private JPanel createSection(String title) {
     JPanel panel = new JPanel();

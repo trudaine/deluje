@@ -47,37 +47,41 @@ public class SwingVelocityLanePanel extends JPanel {
       if (e.getID() == java.awt.event.MouseEvent.MOUSE_PRESSED) {
         startStep = step;
         startVal = val;
-        bridge.setVelocity(0, step, val);
+        updateValue(step, val);
       } else if (e.getID() == java.awt.event.MouseEvent.MOUSE_DRAGGED && startStep >= 0) {
         if (e.isShiftDown()) {
-          // Linear straight interpolation
           int min = Math.min(startStep, step);
           int max = Math.max(startStep, step);
           double v1 = (min == startStep) ? startVal : val;
           double v2 = (min == startStep) ? val : startVal;
           for (int s = min; s <= max; s++) {
             double t = (max == min) ? 0.0 : (double)(s - min) / (max - min);
-            bridge.setVelocity(0, s, v1 + t * (v2 - v1));
-          }
-        } else if (e.isControlDown()) {
-          // Quadratic Bezier curve
-          int min = Math.min(startStep, step);
-          int max = Math.max(startStep, step);
-          double v1 = (min == startStep) ? startVal : val;
-          double v2 = (min == startStep) ? val : startVal;
-          double ctrl = Math.max(v1, v2) + 0.2;
-          for (int s = min; s <= max; s++) {
-            double t = (max == min) ? 0.0 : (double)(s - min) / (max - min);
-            double bVal = (1 - t) * (1 - t) * v1 + 2 * (1 - t) * t * ctrl + t * t * v2;
-            bridge.setVelocity(0, s, Math.max(0.0, Math.min(1.0, bVal)));
+            updateValue(s, v1 + t * (v2 - v1));
           }
         } else {
-          bridge.setVelocity(0, step, val);
+          updateValue(step, val);
         }
       }
       repaint();
     }
   }
+
+  private void updateValue(int step, double val) {
+    if (bridge == null || vm == null) return;
+    if ("VELOCITY".equals(currentMode)) {
+      bridge.setVelocity(0, step, val);
+    } else if ("PAN".equals(currentMode)) {
+      Object obj = vm.getGlobalObject(BridgeContract.G_STEP_PAN);
+      if (obj instanceof org.chuck.core.ChuckArray arr) arr.setFloat(step, (float)(val * 2.0 - 1.0));
+    } else if ("FILTER".equals(currentMode)) {
+      Object obj = vm.getGlobalObject(BridgeContract.G_STEP_FILTER);
+      if (obj instanceof org.chuck.core.ChuckArray arr) arr.setFloat(step, (float)val);
+    } else if ("RESONANCE".equals(currentMode)) {
+      Object obj = vm.getGlobalObject(BridgeContract.G_STEP_RES);
+      if (obj instanceof org.chuck.core.ChuckArray arr) arr.setFloat(step, (float)val);
+    }
+  }
+
 
 
   private String currentMode = "VELOCITY";
