@@ -11,6 +11,11 @@ public class SwingProjectSidebarPanel extends JPanel {
 
   private java.util.function.Consumer<org.chuck.deluge.model.ProjectModel> onSongLoaded;
 
+  private JSlider volSlider;
+  private JSlider lpfSlider;
+  private JSlider attSlider;
+
+
   private final org.chuck.deluge.midi.MidiService midiService;
 
   public SwingProjectSidebarPanel(ChuckVM vm, BridgeContract bridge, org.chuck.deluge.midi.MidiService midiService) {
@@ -208,7 +213,8 @@ public class SwingProjectSidebarPanel extends JPanel {
 
     JLabel osc1Label = new JLabel("Osc 1 Vol: 64");
     osc1Label.setForeground(Color.WHITE);
-    JSlider volSlider = new JSlider(0, 127, 64);
+    volSlider = new JSlider(0, 127, 64);
+
     volSlider.setBackground(new Color(0x1f, 0x1f, 0x1f));
     volSlider.addChangeListener(e -> osc1Label.setText("Osc 1 Vol: " + volSlider.getValue()));
     oscBox.add(osc1Label);
@@ -261,7 +267,8 @@ public class SwingProjectSidebarPanel extends JPanel {
     JPanel filterBox = createSection("FILTERS");
     JLabel lpfLabel = new JLabel("LPF Cutoff: 64");
     lpfLabel.setForeground(Color.WHITE);
-    JSlider lpfSlider = new JSlider(0, 127, 64);
+    lpfSlider = new JSlider(0, 127, 64);
+
     lpfSlider.setBackground(new Color(0x1f, 0x1f, 0x1f));
     lpfSlider.addChangeListener(e -> {
       lpfLabel.setText("LPF Cutoff: " + lpfSlider.getValue());
@@ -280,7 +287,8 @@ public class SwingProjectSidebarPanel extends JPanel {
     
     JLabel attLabel = new JLabel("Attack: 10");
     attLabel.setForeground(Color.WHITE);
-    JSlider attSlider = new JSlider(0, 100, 10);
+    attSlider = new JSlider(0, 100, 10);
+
     attSlider.setBackground(new Color(0x1f, 0x1f, 0x1f));
     attSlider.addChangeListener(e -> {
       attLabel.setText("Attack: " + attSlider.getValue());
@@ -380,8 +388,22 @@ public class SwingProjectSidebarPanel extends JPanel {
     return new JScrollPane(panel);
   }
 
+  public void updateFocusTrack(int trackId) {
+    if (vm == null) return;
+    try {
+      Object filterObj = vm.getGlobalObject(BridgeContract.G_FILTER);
+      if (filterObj instanceof org.chuck.core.ChuckArray arr) {
+        double freq = arr.getFloat(trackId * 2);
+        if (lpfSlider != null) {
+          lpfSlider.setValue((int) (freq * 127));
+        }
+
+      }
+    } catch (Exception ex) { }
+  }
 
   private JPanel createSection(String title) {
+
     JPanel panel = new JPanel();
     panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
     panel.setBackground(new Color(0x33, 0x33, 0x33));
