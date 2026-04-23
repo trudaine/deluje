@@ -13,6 +13,8 @@ public class SwingDelugeApp extends JFrame {
   private SwingGridPanel clipPanel;
   private SwingVisualizerPanel visualizerPanel;
   private SwingGridPanel songPanel;
+  private SwingGridPanel arrGridPanel;
+
 
 
 
@@ -332,7 +334,8 @@ public class SwingDelugeApp extends JFrame {
     centerCardPanel.add(songPanel, "SONG");
 
 
-    SwingGridPanel arrGridPanel = new SwingGridPanel(vm, bridge);
+    arrGridPanel = new SwingGridPanel(vm, bridge);
+
     arrGridPanel.setViewMode(SwingGridPanel.GridViewMode.ARRANGEMENT);
     centerCardPanel.add(arrGridPanel, "ARR");
 
@@ -444,6 +447,9 @@ public class SwingDelugeApp extends JFrame {
     sidebarPanel.setOnSongLoaded(model -> {
       System.out.println("Swing Callback: Song model loaded! Tracks: " + model.getTracks().size());
       songPanel.setProjectModel(model);
+      if (clipPanel != null) clipPanel.setProjectModel(model);
+      if (arrGridPanel != null) arrGridPanel.setProjectModel(model);
+
       cardLayout.show(centerCardPanel, "SONG");
 
       int trackIdx = 0;
