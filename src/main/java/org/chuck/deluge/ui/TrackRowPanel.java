@@ -52,12 +52,43 @@ public class TrackRowPanel extends HBox {
 
     getChildren().addAll(nameLabel, auditionBtn);
 
-    cells = new StepCellButton[16];
+    cells = new StepCellButton[18];
     for (int i = 0; i < 16; i++) {
       cells[i] = new StepCellButton(rowId, i, vm, bridge, editModeSupplier);
       getChildren().add(cells[i]);
     }
+
+    javafx.scene.layout.Region spacer = new javafx.scene.layout.Region();
+    spacer.setPrefWidth(20);
+    getChildren().add(spacer);
+
+    cells[16] = new StepCellButton(rowId, 16, vm, bridge, editModeSupplier);
+    cells[16].setText("MUTE");
+    cells[16].setStyle("-fx-base: #333; -fx-text-fill: #888; -fx-font-size: 10px;");
+    cells[16].addEventFilter(javafx.scene.input.MouseEvent.MOUSE_PRESSED, ev -> {
+        if (ev.isShiftDown()) {
+           for (int s = 0; s < 16; s++) {
+              bridge.setStep(baseTrack + rowId, s, false);
+           }
+           refreshCells();
+           ev.consume(); // prevent fire
+        }
+    });
+    cells[16].setOnAction(e -> {
+        boolean isMuted = bridge.getMute(baseTrack + rowId);
+        bridge.setMute(baseTrack + rowId, !isMuted);
+        cells[16].setStyle("-fx-base: " + (!isMuted ? "#ff3333" : "#333") + "; -fx-text-fill: white; -fx-font-size: 10px;");
+    });
+    getChildren().add(cells[16]);
+
+
+    cells[17] = new StepCellButton(rowId, 17, vm, bridge, editModeSupplier);
+    cells[17].setText("SOLO");
+    cells[17].setStyle("-fx-base: #333; -fx-text-fill: #888; -fx-font-size: 10px;");
+    getChildren().add(cells[17]);
   }
+
+
 
   private String padName(String name) {
     if (name == null) name = "EMPTY";
@@ -75,8 +106,11 @@ public class TrackRowPanel extends HBox {
 
   public void setEditMode(EditMode mode) {
     for (StepCellButton cell : cells) {
-      cell.setEditMode(mode);
+      if (cell != null) {
+         cell.setEditMode(mode);
+      }
     }
+
   }
 
   public void setStepOffset(int offset) {
@@ -86,23 +120,30 @@ public class TrackRowPanel extends HBox {
 
   public void refreshCells() {
     for (StepCellButton cell : cells) {
-      cell.setSelected(bridge.getStep(baseTrack + rowId, stepOffset + cell.getStepId()));
-      cell.updateStyle();
+      if (cell != null) {
+        cell.setSelected(bridge.getStep(baseTrack + rowId, stepOffset + cell.getStepId()));
+        cell.updateStyle();
+      }
     }
   }
 
   public void setBaseTrack(int baseTrack) {
     this.baseTrack = baseTrack;
     for (StepCellButton cell : cells) {
-      cell.setBaseTrack(baseTrack);
+      if (cell != null) {
+        cell.setBaseTrack(baseTrack);
+      }
     }
   }
 
   public void setSynthMode(boolean isSynthMode) {
     for (StepCellButton cell : cells) {
-      cell.setSynthMode(isSynthMode);
+      if (cell != null) {
+        cell.setSynthMode(isSynthMode);
+      }
     }
   }
+
 
   public void highlightStep(int col, boolean active) {
     int visibleCol = col - stepOffset;

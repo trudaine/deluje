@@ -39,7 +39,22 @@ public class DelugeClock implements Shred {
           vm.setGlobalInt(BridgeContract.G_CURRENT_STEP, step % 16);
           tickEvent.broadcast(vm);
 
+          ChuckEvent ckNoteEvent = (ChuckEvent) vm.getGlobalObject("g_ck_noteOn");
+          if (ckNoteEvent != null) {
+            // Extract pitch and velocity for track 0 step sequence
+            Object pitchObj = vm.getGlobalObject(BridgeContract.G_PITCH);
+            Object velObj = vm.getGlobalObject(BridgeContract.G_VELOCITY);
+            if (pitchObj instanceof org.chuck.core.ChuckArray pitchArr && velObj instanceof org.chuck.core.ChuckArray velArr) {
+              int idx = (step % 16);
+              vm.setGlobalFloat("g_ck_pitch", pitchArr.getFloat(idx));
+              vm.setGlobalFloat("g_ck_velocity", velArr.getFloat(idx));
+            }
+            ckNoteEvent.broadcast(vm);
+          }
+
+
           advance(samp(getStepDurationSamples(step)));
+
           step++;
         } else {
           float stutterDiv = (float) vm.getGlobalFloat(BridgeContract.G_STUTTER_DIV);

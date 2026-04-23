@@ -75,9 +75,11 @@ public class ProjectSidebarPanel extends VBox {
     Tab libraryTab = new Tab("LIBRARY", createLibraryBrowser(tabs, editorPane));
     Tab editorTab = new Tab("EDITOR", editorPane);
     Tab midiTab = new Tab("MIDI", createMidiPage());
+    Tab scriptTab = new Tab("SCRIPT", createScriptPage());
 
-    tabs.getTabs().addAll(libraryTab, editorTab, midiTab);
+    tabs.getTabs().addAll(libraryTab, editorTab, midiTab, scriptTab);
     getChildren().add(tabs);
+
     VBox.setVgrow(tabs, javafx.scene.layout.Priority.ALWAYS);
   }
 
@@ -263,10 +265,12 @@ public class ProjectSidebarPanel extends VBox {
         if (f.getName().startsWith(".")) continue;
         if (f.isDirectory()) {
           addFilesToTree(folder, f, f.getName());
-        } else if (f.getName().toUpperCase().endsWith(".XML")) {
-          String displayName = f.getName().substring(0, f.getName().length() - 4);
+        } else if (f.getName().toUpperCase().endsWith(".XML") || f.getName().toUpperCase().endsWith(".CK")) {
+          int dotIdx = f.getName().lastIndexOf('.');
+          String displayName = dotIdx != -1 ? f.getName().substring(0, dotIdx) : f.getName();
           folder.getChildren().add(new TreeItem<>(new LibraryItem(displayName, null, f, false)));
         }
+
       }
     }
   }
@@ -310,10 +314,14 @@ public class ProjectSidebarPanel extends VBox {
 
         if (Files.exists(path)) {
           try (java.util.stream.Stream<Path> walk = Files.walk(path, 1)) {
-            walk.filter(p -> p.getFileName().toString().toUpperCase().endsWith(".XML"))
+            walk.filter(p -> {
+                  String fn = p.getFileName().toString().toUpperCase();
+                  return fn.endsWith(".XML") || fn.endsWith(".CK");
+                })
                 .sorted(
                     java.util.Comparator.comparing(p -> p.getFileName().toString().toUpperCase()))
                 .forEach(p -> presets.add(p.getFileName().toString()));
+
           }
         }
       }
@@ -438,4 +446,35 @@ public class ProjectSidebarPanel extends VBox {
 
     return box;
   }
+
+  private javafx.scene.layout.VBox createScriptPage() {
+
+    javafx.scene.layout.VBox box = new javafx.scene.layout.VBox(10);
+    box.setPadding(new Insets(10));
+    box.setStyle("-fx-background-color: #252525;");
+
+    javafx.scene.control.TextArea scriptArea = new javafx.scene.control.TextArea();
+    scriptArea.setStyle("-fx-font-family: 'monospace'; -fx-text-fill: #00ff00; -fx-control-inner-background: #1f1f1f;");
+    
+    javafx.scene.control.Button saveBtn = new javafx.scene.control.Button("💾 SAVE & RELOAD");
+    saveBtn.setStyle("-fx-background-color: #336633; -fx-text-fill: white; -fx-font-weight: bold;");
+    saveBtn.setOnAction(e -> {
+      javafx.stage.FileChooser chooser = new javafx.stage.FileChooser();
+      chooser.setTitle("Save ChucK Script Externally");
+      java.io.File outFile = chooser.showSaveDialog(getScene().getWindow());
+      if (outFile != null) {
+        try (java.io.FileWriter writer = new java.io.FileWriter(outFile)) {
+           writer.write(scriptArea.getText());
+        } catch (Exception ex) {
+           ex.printStackTrace();
+        }
+      }
+    });
+
+    box.getChildren().addAll(saveBtn, scriptArea);
+    javafx.scene.layout.VBox.setVgrow(scriptArea, javafx.scene.layout.Priority.ALWAYS);
+    
+    return box;
+  }
 }
+

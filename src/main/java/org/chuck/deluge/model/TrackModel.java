@@ -13,6 +13,16 @@ public abstract class TrackModel {
 
   private final List<ClipModel> clips = new ArrayList<>();
   private int activeClipIndex = 0;
+  private String colourHex = "0x00FFCC00"; // Default Cyan
+
+  public String getColourHex() {
+    return colourHex;
+  }
+
+  public void setColourHex(String colourHex) {
+    this.colourHex = colourHex;
+  }
+
 
   public TrackModel(String name, TrackType type) {
     this.name = name;

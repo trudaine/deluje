@@ -79,10 +79,27 @@ public class DelugeApp extends Application {
               case N -> mainPanel.resetProject();
             }
           } else {
-            org.chuck.hid.HidMsg msg = new org.chuck.hid.HidMsg();
-            msg.deviceType = "keyboard";
-            msg.type = org.chuck.hid.HidMsg.BUTTON_DOWN;
-            msg.which = event.getCode().getCode();
+             int note = -1;
+             switch (event.getCode()) {
+                case Z -> note = 60; // C4
+                case S -> note = 61; // C#4
+                case X -> note = 62; // D4
+                case D -> note = 63; // D#4
+                case C -> note = 64; // E4
+                case V -> note = 65; // F4
+                case G -> note = 66; // F#4
+                case B -> note = 77; // G4
+                case H -> note = 68; // G#4
+                case N -> note = 69; // A4
+                case J -> note = 70; // A#4
+                case M -> note = 71; // B4
+             }
+             if (note != -1) {
+                System.out.println("JavaFX QWERTY Audition Note: " + note);
+             }
+             
+             org.chuck.hid.HidMsg msg = new org.chuck.hid.HidMsg();
+
             msg.key = event.getCode().getCode();
             String text = event.getText();
             if (!text.isEmpty()) {

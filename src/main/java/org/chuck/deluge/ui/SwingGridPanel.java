@@ -5,8 +5,8 @@ import javax.swing.*;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 
-/** Simulates the 64x8 Song launch pad dashboard. */
-public class SwingSongModePanel extends JPanel {
+/** Unified 18x8 Grid Panel handling both sequence matrix and clip launch arrangements. */
+public class SwingGridPanel extends JPanel {
   private final ChuckVM vm;
   private final BridgeContract bridge;
 
@@ -14,13 +14,22 @@ public class SwingSongModePanel extends JPanel {
   private java.util.function.BiConsumer<Integer, Integer> onEditRequest;
   private JButton[][] pads = new JButton[8][18];
 
+  public enum GridViewMode { CLIP, SONG, ARRANGEMENT }
+  private GridViewMode viewMode = GridViewMode.SONG; 
+
+  private Color[] trackColors = {
+    new Color(0x00, 0xff, 0xcc), // Cyan
+    new Color(0xff, 0x33, 0xcc), // Magenta
+    new Color(0x33, 0xff, 0x33), // Lime Green
+    new Color(0xff, 0x99, 0x33), // Orange
+    new Color(0xcc, 0x33, 0xff), // Purple
+    new Color(0xff, 0xff, 0x33), // Yellow
+    new Color(0x33, 0x99, 0xff), // Blue
+    new Color(0xff, 0x33, 0x33)  // Red
+  };
 
 
-
-  public enum GridViewMode { CLIP, SONG }
-  private GridViewMode viewMode = GridViewMode.SONG; // Default to SONG, can set to CLIP
-
-  public SwingSongModePanel(ChuckVM vm, BridgeContract bridge) {
+  public SwingGridPanel(ChuckVM vm, BridgeContract bridge) {
     this.vm = vm;
     this.bridge = bridge;
     this.projectModel = new org.chuck.deluge.model.ProjectModel();
@@ -34,7 +43,6 @@ public class SwingSongModePanel extends JPanel {
     refresh();
   }
 
-
   public void setProjectModel(org.chuck.deluge.model.ProjectModel model) {
     this.projectModel = model;
     refresh();
@@ -42,6 +50,19 @@ public class SwingSongModePanel extends JPanel {
 
   public void setOnEditRequest(java.util.function.BiConsumer<Integer, Integer> callback) {
     this.onEditRequest = callback;
+  }
+  public void flashIsomorphicNote(int note) {
+    int r = (note - 60) / 5;
+    int c = (note - 60) % 5;
+    if (r >= 0 && r < 8 && c >= 0 && c < 16) {
+      if (pads[r][c] != null) {
+         Color orig = pads[r][c].getBackground();
+         pads[r][c].setBackground(Color.WHITE);
+         Timer t = new Timer(200, ev -> pads[r][c].setBackground(orig));
+         t.setRepeats(false);
+         t.start();
+      }
+    }
   }
 
   public void updatePlayhead(int step) {
@@ -55,14 +76,13 @@ public class SwingSongModePanel extends JPanel {
             if (isTriggered) {
               pad.setBackground(Color.WHITE);
             } else if (pad.getBackground().equals(Color.WHITE)) {
-              pad.setBackground(new Color(0x00, 0xff, 0xcc)); // back to active green
+              pad.setBackground(new Color(0x00, 0xff, 0xcc)); 
             }
           }
         }
       }
     }
   }
-
 
   public void refresh() {
     removeAll();
@@ -74,7 +94,17 @@ public class SwingSongModePanel extends JPanel {
       rowPanel.setBackground(new Color(0x22, 0x22, 0x22));
 
       final int currentTrack = t;
+      if (t < tracks.size()) {
+         String hex = tracks.get(t).getColourHex();
+         if (hex != null && hex.startsWith("0x")) {
+            try {
+               int rgb = Integer.decode(hex.substring(0, 8)); // strip alpha if 8 chars
+               trackColors[t] = new Color(rgb);
+            } catch (Exception e) {}
+         }
+      }
       String trackName = (t < tracks.size()) ? tracks.get(t).getName() : "EMPTY " + (t + 1);
+
       JLabel label = new JLabel(trackName);
       label.setPreferredSize(new Dimension(150, 30));
       label.setMinimumSize(new Dimension(150, 30));
@@ -84,16 +114,24 @@ public class SwingSongModePanel extends JPanel {
       label.addMouseListener(new java.awt.event.MouseAdapter() {
         @Override
         public void mouseClicked(java.awt.event.MouseEvent e) {
+          if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
+             Color chosen = JColorChooser.showDialog(SwingGridPanel.this, "Select Track Color", trackColors[currentTrack]);
+             if (chosen != null) {
+                trackColors[currentTrack] = chosen;
+                refresh();
+             }
+             return;
+          }
           if (onEditRequest != null) {
              onEditRequest.accept(currentTrack, 0);
           }
         }
       });
+
       rowPanel.add(label);
       rowPanel.add(Box.createHorizontalStrut(10));
 
       for (int c = 0; c < 18; c++) {
-
         final int slot = c;
         JButton clipBtn = new JButton();
         clipBtn.setPreferredSize(new Dimension(120, 120));
@@ -104,9 +142,14 @@ public class SwingSongModePanel extends JPanel {
 
         if (viewMode == GridViewMode.CLIP) {
            clipBtn.setText("<html><font size='3'>Pi:" + (currentTrack * 8) + "<br>Ve:0.8<br>Pr:1.0<br>Ga:1</font></html>");
+        } else if (viewMode == GridViewMode.ARRANGEMENT) {
+           String tn = (currentTrack < tracks.size()) ? tracks.get(currentTrack).getName() : "EMPTY";
+           clipBtn.setText("<html><center><font size='3'>" + tn + "<br><b>Bar " + (c + 1) + "</b></font></center></html>");
         } else {
            clipBtn.setText("PAD " + (c + 1));
         }
+
+
 
         boolean hasClip = false;
         if (t < tracks.size()) {
@@ -115,13 +158,19 @@ public class SwingSongModePanel extends JPanel {
              hasClip = true;
           }
         }
-
-
         
         if (c == 16) {
            clipBtn.setText("MUTE");
            clipBtn.setBackground(bridge.getMute(currentTrack * 8) ? Color.RED : new Color(0x33, 0x33, 0x33));
            clipBtn.addActionListener(e -> {
+             if ((e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0) {
+                // Clear Sequence row
+                for (int s = 0; s < 16; s++) {
+                   bridge.setStep(currentTrack * 8, s, false);
+                }
+                refresh();
+                return;
+             }
              boolean isMuted = bridge.getMute(currentTrack * 8);
              bridge.setMute(currentTrack * 8, !isMuted);
              clipBtn.setBackground(!isMuted ? Color.RED : new Color(0x33, 0x33, 0x33));
@@ -130,13 +179,18 @@ public class SwingSongModePanel extends JPanel {
            clipBtn.setText("EDIT");
            clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
            clipBtn.addActionListener(e -> {
+             if ((e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0) {
+                // Delete track clips (or reset mock)
+                return;
+             }
              if (onEditRequest != null) {
                onEditRequest.accept(currentTrack, 0);
              }
            });
-        } else {
+        }
+ else {
           if (hasClip) {
-            clipBtn.setBackground(new Color(0x00, 0xff, 0xcc));
+            clipBtn.setBackground(trackColors[currentTrack]);
           } else {
             clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
           }
@@ -146,9 +200,9 @@ public class SwingSongModePanel extends JPanel {
                @Override
                public void mousePressed(java.awt.event.MouseEvent e) {
                  if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
-                   JDialog dialog = new JDialog((Frame)javax.swing.SwingUtilities.getWindowAncestor(SwingSongModePanel.this), "Step Properties", true);
+                   JDialog dialog = new JDialog((Frame)javax.swing.SwingUtilities.getWindowAncestor(SwingGridPanel.this), "Step Properties", true);
                    dialog.setSize(1600, 450);
-                   dialog.setLocationRelativeTo(SwingSongModePanel.this);
+                   dialog.setLocationRelativeTo(SwingGridPanel.this);
                    dialog.setLayout(new GridBagLayout());
                    
                    GridBagConstraints gc = new GridBagConstraints();
@@ -173,22 +227,38 @@ public class SwingSongModePanel extends JPanel {
                  }
                }
              });
+          } else if (viewMode == GridViewMode.ARRANGEMENT) {
+             clipBtn.addMouseListener(new java.awt.event.MouseAdapter() {
+               @Override
+               public void mousePressed(java.awt.event.MouseEvent e) {
+                 if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
+                    JDialog dialog = new JDialog((Frame)javax.swing.SwingUtilities.getWindowAncestor(SwingGridPanel.this), "Bar Automation", true);
+                    dialog.setSize(400, 250);
+                    dialog.setLocationRelativeTo(SwingGridPanel.this);
+                    dialog.setLayout(new GridLayout(3, 1, 10, 10));
+                    dialog.add(new JLabel("  Timeline Bar " + (slot + 1) + " Automation:"));
+                    dialog.add(new JCheckBox("Enable Low-Pass Filter Sweep"));
+                    dialog.add(new JCheckBox("Trigger Volume Fade-In"));
+                    dialog.setVisible(true);
+                 }
+               }
+             });
           }
+
 
           clipBtn.addActionListener(e -> {
             if (viewMode == GridViewMode.SONG) {
               if ((e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0) {
-                System.out.println("Swing: Shifting pad " + slot + " up.");
                 return;
               }
-              clipBtn.setBackground(Color.ORANGE); // Armed/Queued
+              clipBtn.setBackground(Color.ORANGE); 
               
               Timer timer = new Timer(100, null);
               final boolean[] flashState = {false};
               timer.addActionListener(ev -> {
                 int step = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
                 if (step == 0) {
-                  clipBtn.setBackground(new Color(0x00, 0xff, 0xcc)); // Playing
+                  clipBtn.setBackground(trackColors[currentTrack]); 
                   timer.stop();
                 } else {
                   flashState[0] = !flashState[0];
@@ -196,47 +266,81 @@ public class SwingSongModePanel extends JPanel {
                 }
               });
               timer.start();
+            } else if (viewMode == GridViewMode.ARRANGEMENT) {
+              // Toggle Linear arrangement playback bar state
+              if (clipBtn.getBackground().equals(trackColors[currentTrack])) {
+                 clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
+              } else {
+                 clipBtn.setBackground(trackColors[currentTrack]);
+              }
             } else {
-              // Toggle Step sequence on/off
               boolean stepState = bridge.getStep(currentTrack * 8, slot);
               bridge.setStep(currentTrack * 8, slot, !stepState);
-              clipBtn.setBackground(!stepState ? new Color(0x00, 0xff, 0xcc) : new Color(0x33, 0x33, 0x33));
+              clipBtn.setBackground(!stepState ? trackColors[currentTrack] : new Color(0x33, 0x33, 0x33));
             }
+
           });
         }
 
 
         if (c == 16) {
-           rowPanel.add(Box.createHorizontalStrut(20)); // Separator
+           rowPanel.add(Box.createHorizontalStrut(20)); 
         }
         rowPanel.add(clipBtn);
         rowPanel.add(Box.createHorizontalStrut(5));
-
       }
-
-
-
-
       add(rowPanel);
     }
     
     if (viewMode == GridViewMode.CLIP) {
-       JPanel pianoRoll = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 2));
-       pianoRoll.setBackground(new Color(0x1a, 0x1a, 0x1a));
-       pianoRoll.add(Box.createHorizontalStrut(160)); // Align with label offset
-       for (int k = 0; k < 28; k++) {
-          JButton key = new JButton();
-          key.setPreferredSize(new Dimension(60, 100));
-          key.setBackground(Color.WHITE);
-          pianoRoll.add(key);
+       class PianoRollComponent extends JComponent {
+          public PianoRollComponent() {
+             setPreferredSize(new Dimension(2600, 120));
+             setMaximumSize(new Dimension(2600, 120));
+          }
+          @Override
+          protected void paintComponent(Graphics g) {
+             Graphics2D g2 = (Graphics2D) g;
+             int gridX = 160; // Pad 1 starts here
+             
+             // 18 pads = 16 * 125 + 20(spacer) + 2 * 125 = 2270 pixels total
+             double totalWidth = 18 * 125.0 + 20.0;
+             double keyW = totalWidth / 28.0;
+             int keyH = 110;
+             
+             // 28 White keys
+             for (int i = 0; i < 28; i++) {
+                int x = (int) (gridX + i * keyW);
+                int nextX = (int) (gridX + (i + 1) * keyW);
+                int kw = (nextX - x) - 2;
+                
+                g2.setColor(Color.WHITE);
+                g2.fillRect(x, 0, kw, keyH);
+                g2.setColor(Color.BLACK);
+                g2.drawRect(x, 0, kw, keyH);
+             }
+             
+             // Black keys
+             int[] blackKeyOffsets = {0, 1, 3, 4, 5, 7, 8, 10, 11, 12, 14, 15, 17, 18, 19, 21, 22, 24, 25, 26};
+             for (int offsetKey : blackKeyOffsets) {
+                int x = (int) (gridX + offsetKey * keyW);
+                int nextX = (int) (gridX + (offsetKey + 1) * keyW);
+                int kw = nextX - x;
+                int bx = x + kw - (int)(keyW / 3.0);
+                
+                g2.setColor(new Color(0x1a, 0x1a, 0x1a));
+                g2.fillRect(bx, 0, (int)(keyW / 2.0), keyH / 2);
+             }
+
+          }
        }
        add(Box.createVerticalStrut(10));
-       add(pianoRoll);
+       add(new PianoRollComponent());
     }
+
     
     revalidate();
     repaint();
-
 
     Timer playheadTimer = new Timer(100, e -> {
        int currentStep = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
@@ -257,6 +361,4 @@ public class SwingSongModePanel extends JPanel {
     });
     playheadTimer.start();
   }
-
-
 }
