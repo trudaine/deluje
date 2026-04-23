@@ -12,6 +12,8 @@ import org.chuck.audio.ChuckAudio;
 import org.chuck.audio.analysis.FFT;
 import org.chuck.audio.util.Scope;
 import org.chuck.core.ChuckVM;
+import org.chuck.deluge.BridgeContract;
+
 
 /** Encapsulates the visualizers (Spectrum, Oscilloscope, Waterfall, Phase). */
 public class VisualizerPanel extends VBox {
@@ -24,18 +26,21 @@ public class VisualizerPanel extends VBox {
   private final Scope scope;
   private final ChuckVM vm;
   private final ChuckAudio audio;
+  private final BridgeContract bridge;
 
   private AnimationTimer visTimer;
 
-  public VisualizerPanel(ChuckVM vm, ChuckAudio audio, FFT analyzer, Scope scope) {
+  public VisualizerPanel(ChuckVM vm, ChuckAudio audio, FFT analyzer, Scope scope, BridgeContract bridge) {
     super(2);
     this.vm = vm;
     this.audio = audio;
     this.analyzer = analyzer;
     this.scope = scope;
+    this.bridge = bridge;
 
     setupUI();
   }
+
 
   private void setupUI() {
     setStyle("-fx-background-color: #222; -fx-padding: 5;");
@@ -109,8 +114,10 @@ public class VisualizerPanel extends VBox {
               renderScope();
               renderWaterfall();
               renderPhaseScope();
+              renderGRMeter();
               wasIdle = false;
             } else if (!wasIdle) {
+
               clearVisualizers();
               wasIdle = true;
             }
@@ -232,4 +239,17 @@ public class VisualizerPanel extends VBox {
       gc.fillRect(0, 0, c.getWidth(), c.getHeight());
     }
   }
+
+  private void renderGRMeter() {
+    GraphicsContext gc = scopeCanvas.getGraphicsContext2D();
+    double w = scopeCanvas.getWidth(), h = scopeCanvas.getHeight();
+    if (w <= 0 || h <= 0 || bridge == null) return;
+
+    double trackVol = bridge.getTrackLevel(1); 
+    gc.setStroke(Color.ORANGE);
+    gc.setLineWidth(8.0);
+    double barH = trackVol * h;
+    gc.strokeLine(w - 4, h, w - 4, h - barH);
+  }
 }
+

@@ -488,10 +488,14 @@ public class SwingDelugeApp extends JFrame {
 
 
     // 4. Right Side Viewport (Curves/Graphs/Visualizers)
-    visualizerPanel = new SwingVisualizerPanel(vm);
+    visualizerPanel = new SwingVisualizerPanel(vm, bridge);
+
     visualizerPanel.setPreferredSize(new Dimension(300, 0));
     gbc.gridx = 2; gbc.gridy = 1; gbc.gridwidth = 1; gbc.weightx = 0.5; gbc.weighty = 1.0;
     add(visualizerPanel, gbc);
+
+    new Timer(33, e -> visualizerPanel.repaint()).start();
+
 
 
 
