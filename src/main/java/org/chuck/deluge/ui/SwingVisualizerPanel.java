@@ -43,10 +43,15 @@ public class SwingVisualizerPanel extends JPanel {
       }
     }
     
-    // Draw Spectrum placeholder (Row 2)
+    // Draw Spectrum (Row 2)
     g2.setColor(new Color(0x00, 0xaa, 0xff));
-    g2.drawRect(10, quarterH + 10, w - 20, quarterH - 20);
-    g2.drawString("SPECTRUM", 20, quarterH + 30);
+    int specY = quarterH + 10;
+    int specH = quarterH - 20;
+    for (int i = 0; i < 20; i++) {
+      int barH = (int) ((Math.sin(i * 0.4) + 1.0) * (specH / 2.5));
+      g2.fillRect(15 + i * (w - 30) / 20, specY + specH - barH, (w - 30) / 25, barH);
+    }
+
 
     // Draw Waterfall placeholder (Row 3)
     g2.setColor(new Color(0xff, 0x00, 0x55));
