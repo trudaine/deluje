@@ -333,9 +333,11 @@ public class SwingDelugeApp extends JFrame {
     songPanel.setOnEditRequest((trackId, clipId) -> {
       System.out.println("Swing Callback: Edit track " + trackId);
       matrixPanel.setBaseTrack(trackId * 8);
+      sidebarPanel.updateFocusTrack(trackId);
       cardLayout.show(centerCardPanel, "CLIP");
       clipBtn.setSelected(true);
     });
+
 
 
     gbc.gridx = 0; gbc.gridy = 1; gbc.gridwidth = 1; gbc.weightx = 0.0; gbc.weighty = 1.0;
