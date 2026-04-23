@@ -200,7 +200,20 @@ public class SwingProjectSidebarPanel extends JPanel {
     panel.setBackground(new Color(0x25, 0x25, 0x25));
     panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
+    JButton saveBtn = new JButton("💾 SAVE XML");
+    saveBtn.setBackground(new Color(0x33, 0x66, 0x33));
+    saveBtn.setForeground(Color.WHITE);
+    saveBtn.addActionListener(e -> {
+      JFileChooser chooser = new JFileChooser();
+      if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+         System.out.println("Swing: Saving preset XML to " + chooser.getSelectedFile().getAbsolutePath());
+      }
+    });
+    panel.add(saveBtn);
+    panel.add(Box.createVerticalStrut(10));
+
     // Oscillators Section
+
     JPanel oscBox = createSection("OSCILLATORS");
     
     JLabel osc1TypeLabel = new JLabel("Osc 1 Type:");
