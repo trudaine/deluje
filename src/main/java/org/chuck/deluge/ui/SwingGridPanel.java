@@ -226,33 +226,45 @@ public class SwingGridPanel extends JPanel {
                @Override
                public void mousePressed(java.awt.event.MouseEvent e) {
                  if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
-                   JDialog dialog = new JDialog((Frame)javax.swing.SwingUtilities.getWindowAncestor(SwingGridPanel.this), "Step Properties", true);
-                   dialog.setSize(1600, 450);
-                   dialog.setLocationRelativeTo(SwingGridPanel.this);
-                   dialog.setLayout(new GridBagLayout());
-                   
-                   GridBagConstraints gc = new GridBagConstraints();
-                   gc.fill = GridBagConstraints.HORIZONTAL;
-                   gc.insets = new Insets(10, 15, 10, 15);
-                   
-                   Font labelFont = new Font("SansSerif", Font.BOLD, 18);
-                   Dimension sliderDim = new Dimension(1200, 50);
-                   Dimension spinDim = new Dimension(80, 40);
-                   
-                   gc.gridx = 0; gc.gridy = 0;
-                   JLabel l1 = new JLabel("Velocity:"); l1.setFont(labelFont);
-                   dialog.add(l1, gc);
-                   gc.gridx = 1;
-                   JSlider velSlider = new JSlider(0, 100, 80); velSlider.setPreferredSize(sliderDim);
-                   dialog.add(velSlider, gc);
-                   gc.gridx = 2;
-                   JSpinner velSpin = new JSpinner(new SpinnerNumberModel(80, 0, 100, 1)); velSpin.setPreferredSize(spinDim);
-                   dialog.add(velSpin, gc);
+                    JDialog dialog = new JDialog((Frame)javax.swing.SwingUtilities.getWindowAncestor(SwingGridPanel.this), "Step Properties", true);
+                    dialog.setSize(1600, 450);
+                    dialog.setLocationRelativeTo(SwingGridPanel.this);
+                    dialog.setLayout(new GridBagLayout());
+                    
+                    GridBagConstraints gc = new GridBagConstraints();
+                    gc.fill = GridBagConstraints.HORIZONTAL;
+                    gc.insets = new Insets(10, 15, 10, 15);
+                    
+                    Font labelFont = new Font("SansSerif", Font.BOLD, 18);
+                    Dimension sliderDim = new Dimension(1200, 50);
+                    Dimension spinDim = new Dimension(80, 40);
+                    
+                    gc.gridx = 0; gc.gridy = 0;
+                    JLabel l1 = new JLabel("Velocity:"); l1.setFont(labelFont);
+                    dialog.add(l1, gc);
+                    gc.gridx = 1;
+                    JSlider velSlider = new JSlider(0, 100, 80); velSlider.setPreferredSize(sliderDim);
+                    dialog.add(velSlider, gc);
+                    gc.gridx = 2;
+                    JSpinner velSpin = new JSpinner(new SpinnerNumberModel(80, 0, 100, 1)); velSpin.setPreferredSize(spinDim);
+                    dialog.add(velSpin, gc);
 
-                   dialog.setVisible(true);
+                    dialog.setVisible(true);
+                 } else if (javax.swing.SwingUtilities.isLeftMouseButton(e)) {
+                    int currentStep = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
+                    int offset = (currentStep >= 0) ? (currentStep / 16) * 16 : 0;
+                    boolean stepState = bridge.getStep(currentTrack, offset + slot);
+                    
+                    bridge.setStep(currentTrack, offset + slot, !stepState);
+                    clipBtn.setBackground(!stepState ? trackColors[currentTrack] : new Color(0x33, 0x33, 0x33));
+                    if (!stepState) {
+                       String sp = (String) vm.getGlobalObject("g_sample_" + currentTrack);
+                       playWaveFile(sp);
+                    }
                  }
                }
              });
+
           } else if (viewMode == GridViewMode.SONG) {
              clipBtn.addMouseListener(new java.awt.event.MouseAdapter() {
                @Override
@@ -382,26 +394,8 @@ public class SwingGridPanel extends JPanel {
               } else {
                  clipBtn.setBackground(trackColors[currentTrack]);
               }
-              int currentStep = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
-              int offset = (currentStep >= 0) ? (currentStep / 16) * 16 : 0;
-              boolean stepState = bridge.getStep(currentTrack, offset + slot);
-              
-              if ((e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0) {
-                 // Chord generation!
-                 bridge.setStep(currentTrack, offset + slot, !stepState);
-                 if (currentTrack + 4 < 64) bridge.setStep(currentTrack + 4, offset + slot, !stepState);
-                 if (currentTrack + 7 < 64) bridge.setStep(currentTrack + 7, offset + slot, !stepState);
-                 clipBtn.setBackground(!stepState ? trackColors[currentTrack] : new Color(0x33, 0x33, 0x33));
-              } else {
-                 // Single note step
-                 bridge.setStep(currentTrack, offset + slot, !stepState);
-                 clipBtn.setBackground(!stepState ? trackColors[currentTrack] : new Color(0x33, 0x33, 0x33));
-                 if (!stepState) {
-                    String sp = (String) vm.getGlobalObject("g_sample_" + currentTrack);
-                    playWaveFile(sp);
-                 }
-              }
             }
+
 
 
 
