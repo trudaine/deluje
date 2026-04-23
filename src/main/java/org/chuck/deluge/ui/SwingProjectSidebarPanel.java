@@ -567,7 +567,28 @@ public class SwingProjectSidebarPanel extends JPanel {
     }
 
 
-    return new JScrollPane(panel);
+    String[][] data = {
+      {"Master Volume", "CC #7", "ACTIVE"},
+      {"Master Pan", "None", "LEARN"},
+      {"Delay Time", "CC #14", "ACTIVE"},
+      {"Delay Feedback", "None", "LEARN"},
+      {"Reverb Room", "CC #21", "ACTIVE"},
+      {"Reverb Damp", "None", "LEARN"}
+    };
+    String[] cols = {"Parameter", "Routing", "State"};
+    JTable table = new JTable(data, cols);
+    table.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    table.setForeground(Color.WHITE);
+    table.setFont(new Font("SansSerif", Font.PLAIN, 16));
+    table.setRowHeight(30);
+    
+    JPanel wrapper = new JPanel(new BorderLayout(0, 20));
+    wrapper.setBackground(new Color(0x25, 0x25, 0x25));
+    wrapper.add(new JScrollPane(panel), BorderLayout.NORTH);
+    wrapper.add(new JScrollPane(table), BorderLayout.CENTER);
+
+    return wrapper;
+
   }
 
   public void updateFocusTrack(int trackId) {

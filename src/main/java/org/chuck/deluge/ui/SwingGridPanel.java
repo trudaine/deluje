@@ -464,24 +464,51 @@ public class SwingGridPanel extends JPanel {
     revalidate();
     repaint();
 
-    Timer playheadTimer = new Timer(100, e -> {
-       int currentStep = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
-       if (currentStep >= 0) {
-          int activeCol = (currentStep % 16); 
-          for (int t = 0; t < 8; t++) {
-             for (int c = 0; c < 16; c++) {
-                if (pads[t][c] != null) {
-                   if (c == activeCol) {
-                      pads[t][c].setBorder(BorderFactory.createLineBorder(Color.YELLOW, 4));
-                   } else {
-                      pads[t][c].setBorder(UIManager.getBorder("Button.border"));
-                   }
-                }
-             }
-          }
-       }
-    });
-    playheadTimer.start();
+     org.rtmidijava.RtMidiOut midiOut = null;
+     try {
+        midiOut = org.rtmidijava.RtMidiFactory.createDefaultOut();
+        if (midiOut.getPortCount() > 0) {
+           midiOut.openPort(0, "DelugeOut");
+        }
+
+     } catch (Exception ex) {}
+
+     final int[] lastCol = {-1};
+     org.rtmidijava.RtMidiOut finalMidiOut = midiOut;
+
+     Timer playheadTimer = new Timer(100, e -> {
+        int currentStep = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
+        if (currentStep >= 0) {
+           int activeCol = (currentStep % 16); 
+           
+           if (activeCol != lastCol[0]) {
+              lastCol[0] = activeCol;
+              for (int t = 0; t < 8; t++) {
+                 if (bridge.getStep(t, activeCol)) {
+                    if (finalMidiOut != null) {
+                       try {
+                          finalMidiOut.sendMessage(new byte[]{(byte)0x90, (byte)(36 + t * 2), (byte)100});
+                       } catch (Exception ex) {}
+                    }
+                 }
+              }
+           }
+
+           for (int t = 0; t < 8; t++) {
+              for (int c = 0; c < 16; c++) {
+                 if (pads[t][c] != null) {
+                    if (c == activeCol) {
+                       pads[t][c].setBorder(BorderFactory.createLineBorder(Color.YELLOW, 4));
+                    } else {
+                       pads[t][c].setBorder(UIManager.getBorder("Button.border"));
+                    }
+                 }
+              }
+           }
+        }
+     });
+     playheadTimer.start();
+
   }
 
   private void playWaveFile(String path) {

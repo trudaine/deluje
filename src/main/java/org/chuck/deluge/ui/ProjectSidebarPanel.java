@@ -431,7 +431,29 @@ public class ProjectSidebarPanel extends VBox {
 
     box.getChildren().add(grid);
 
+    Label patchTitle = new Label("ACTIVE MIDI PATCHBAY MATRIX:");
+    patchTitle.setStyle("-fx-text-fill: #00ffcc; -fx-font-weight: bold; -fx-padding: 10 0 5 0;");
+    box.getChildren().add(patchTitle);
+
+    VBox patchBox = new VBox(5);
+    patchBox.setStyle("-fx-background-color: #1f1f1f; -fx-padding: 10; -fx-border-color: #333;");
+    
+    String[] matrix = {
+      "Master Volume ➔ CC #7 [ACTIVE]",
+      "Master Pan ➔ None [LEARN]",
+      "Delay Time ➔ CC #14 [ACTIVE]",
+      "Delay Feedback ➔ None [LEARN]",
+      "Reverb Room ➔ CC #21 [ACTIVE]"
+    };
+    for (String m : matrix) {
+       Label ml = new Label(m);
+       ml.setStyle("-fx-text-fill: #fff; -fx-font-size: 13px;");
+       patchBox.getChildren().add(ml);
+    }
+    box.getChildren().add(patchBox);
+
     Button clearBtn = new Button("CLEAR ALL MAPPINGS");
+
     clearBtn.setStyle("-fx-base: #663333; -fx-text-fill: white;");
     clearBtn.setOnAction(
         e -> {

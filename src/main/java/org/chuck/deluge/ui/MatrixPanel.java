@@ -272,7 +272,18 @@ public class MatrixPanel extends BorderPane {
     return currentEditMode;
   }
 
+  private org.rtmidijava.RtMidiOut midiOut;
+
   public void updateStep(int step) {
+    if (midiOut == null) {
+       try {
+          midiOut = org.rtmidijava.RtMidiFactory.createDefaultOut();
+          if (midiOut.getPortCount() > 0) {
+             midiOut.openPort(0, "DelugeFxOut");
+          }
+       } catch (Exception ex) {}
+    }
+
     // Clear old highlight
     if (currentStep >= 0 && currentStep < 16) {
       for (TrackRowPanel row : rows) {
@@ -280,8 +291,21 @@ public class MatrixPanel extends BorderPane {
       }
     }
 
-    // Highlight new step
+    // Highlight new step and send MIDI out
     if (step >= 0 && step < 16) {
+      if (step != currentStep) {
+         for (int t = 0; t < rows.length; t++) {
+            if (bridge.getStep(t, step)) {
+
+               if (midiOut != null) {
+                  try {
+                     midiOut.sendMessage(new byte[]{(byte)0x90, (byte)(36 + t * 2), (byte)100});
+                  } catch (Exception ex) {}
+               }
+            }
+         }
+      }
+
       for (TrackRowPanel row : rows) {
         row.highlightStep(step, true);
       }
@@ -289,4 +313,5 @@ public class MatrixPanel extends BorderPane {
 
     currentStep = step;
   }
+
 }
