@@ -42,11 +42,12 @@ public class SwingScreenshotGenerator {
         app.addNotify();
         app.validate();
         app.doLayout();
-        app.setVisible(false); // Run headless for test
+        app.setVisible(true); // Must be true to realize peers on desktop
         startupLatch.countDown();
       } catch (Exception e) {
         e.printStackTrace();
       }
+
 
     });
     
@@ -93,12 +94,21 @@ public class SwingScreenshotGenerator {
   }
 
   private BufferedImage captureComponent(java.awt.Component c) {
-    BufferedImage img = new BufferedImage(2800, 1600, BufferedImage.TYPE_INT_ARGB);
+    int w = c.getWidth();
+    int h = c.getHeight();
+    if (w <= 0 || h <= 0) {
+      Dimension pref = c.getPreferredSize();
+      w = pref.width > 0 ? pref.width : 2800;
+      h = pref.height > 0 ? pref.height : 1600;
+    }
+    System.out.println("captureComponent: Drawing component size " + w + "x" + h);
+    BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
     Graphics2D g = img.createGraphics();
     c.printAll(g);
     g.dispose();
     return img;
   }
+
 
 
   private void saveSnapshot(BufferedImage image, String path, String title, String description) throws Exception {
