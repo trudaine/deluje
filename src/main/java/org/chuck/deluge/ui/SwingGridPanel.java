@@ -104,11 +104,23 @@ public class SwingGridPanel extends JPanel {
          }
       }
       String trackName = (t < tracks.size()) ? tracks.get(t).getName() : "EMPTY " + (t + 1);
+      if (viewMode == GridViewMode.CLIP && vm != null) {
+         String samplePath = (String) vm.getGlobalObject("g_sample_" + (t));
+         if (samplePath != null && !samplePath.isEmpty()) {
+            int slash = samplePath.lastIndexOf('/');
+            if (slash != -1) {
+               trackName = samplePath.substring(slash + 1);
+            } else {
+               trackName = samplePath;
+            }
+         }
+      }
 
       JLabel label = new JLabel(trackName);
       label.setPreferredSize(new Dimension(150, 30));
       label.setMinimumSize(new Dimension(150, 30));
       label.setMaximumSize(new Dimension(150, 30));
+
       label.setForeground(Color.LIGHT_GRAY);
       label.setCursor(new Cursor(Cursor.HAND_CURSOR));
       label.addMouseListener(new java.awt.event.MouseAdapter() {
@@ -146,8 +158,13 @@ public class SwingGridPanel extends JPanel {
            String tn = (currentTrack < tracks.size()) ? tracks.get(currentTrack).getName() : "EMPTY";
            clipBtn.setText("<html><center><font size='3'>" + tn + "<br><b>Bar " + (c + 1) + "</b></font></center></html>");
         } else {
-           clipBtn.setText("PAD " + (c + 1));
+           if (t < tracks.size() && c < tracks.get(t).getClips().size()) {
+              clipBtn.setText("<html><center><font size='3'>" + tracks.get(t).getClips().get(c).getName() + "</font></center></html>");
+           } else {
+              clipBtn.setText("PAD " + (c + 1));
+           }
         }
+
 
 
 
@@ -227,15 +244,61 @@ public class SwingGridPanel extends JPanel {
                  }
                }
              });
+          } else if (viewMode == GridViewMode.SONG) {
+             clipBtn.addMouseListener(new java.awt.event.MouseAdapter() {
+               @Override
+               public void mousePressed(java.awt.event.MouseEvent e) {
+                 if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
+                    JDialog dialog = new JDialog((Frame)javax.swing.SwingUtilities.getWindowAncestor(SwingGridPanel.this), "Track Inspector", true);
+                    dialog.setSize(900, 550);
+                    dialog.setLocationRelativeTo(SwingGridPanel.this);
+                    
+                    JTabbedPane tabs = new JTabbedPane();
+                    tabs.setFont(new Font("SansSerif", Font.BOLD, 22));
+                    
+                    // Tab 1: Presets
+                    JPanel p1 = new JPanel(new FlowLayout(FlowLayout.LEFT, 30, 30));
+                    p1.setBackground(new Color(0x2b, 0x2b, 0x2b));
+                    JLabel lP = new JLabel("Hot-Swap Patch Preset:"); lP.setFont(new Font("SansSerif", Font.BOLD, 18)); lP.setForeground(Color.WHITE);
+                    JComboBox<String> cb = new JComboBox<>(new String[]{"000 Rich Saw Bass", "017 Impact Saw Lead", "073 Piano", "Default Sine"});
+                    cb.setFont(new Font("SansSerif", Font.PLAIN, 18));
+                    cb.setPreferredSize(new Dimension(400, 45));
+                    p1.add(lP); p1.add(cb);
+                    tabs.addTab("PRESETS", p1);
+                    
+                    // Tab 2: Clipboard
+                    JPanel p2 = new JPanel(new FlowLayout(FlowLayout.CENTER, 40, 50));
+                    p2.setBackground(new Color(0x2b, 0x2b, 0x2b));
+                    JButton cloneBtn = new JButton("Clone Clip Variant"); cloneBtn.setFont(new Font("SansSerif", Font.BOLD, 24)); cloneBtn.setPreferredSize(new Dimension(300, 80));
+                    JButton clearBtn = new JButton("Export MIDI Sequence"); clearBtn.setFont(new Font("SansSerif", Font.BOLD, 24)); clearBtn.setPreferredSize(new Dimension(300, 80));
+                    p2.add(cloneBtn); p2.add(clearBtn);
+                    tabs.addTab("CLIPBOARD", p2);
+                    
+                    // Tab 3: Mixer
+                    JPanel p3 = new JPanel(new GridLayout(2, 2, 30, 30));
+                    p3.setBackground(new Color(0x2b, 0x2b, 0x2b));
+                    p3.setBorder(BorderFactory.createEmptyBorder(40, 40, 40, 40));
+                    JLabel vL = new JLabel("Channel Volume:"); vL.setFont(new Font("SansSerif", Font.BOLD, 18)); vL.setForeground(Color.WHITE);
+                    JSlider vS = new JSlider(0, 100, 80);
+                    vS.addChangeListener(ev -> System.out.println("Mixer: Track " + currentTrack + " Vol -> " + vS.getValue() + "%"));
+                    p3.add(vL); p3.add(vS);
+                    tabs.addTab("MIXER", p3);
+
+                    
+                    dialog.add(tabs);
+                    dialog.setVisible(true);
+                 }
+               }
+             });
           } else if (viewMode == GridViewMode.ARRANGEMENT) {
              clipBtn.addMouseListener(new java.awt.event.MouseAdapter() {
                @Override
                public void mousePressed(java.awt.event.MouseEvent e) {
                  if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
                     JDialog dialog = new JDialog((Frame)javax.swing.SwingUtilities.getWindowAncestor(SwingGridPanel.this), "Bar Automation", true);
-                    dialog.setSize(400, 250);
+                    dialog.setSize(600, 350);
                     dialog.setLocationRelativeTo(SwingGridPanel.this);
-                    dialog.setLayout(new GridLayout(3, 1, 10, 10));
+                    dialog.setLayout(new GridLayout(3, 1, 20, 20));
                     dialog.add(new JLabel("  Timeline Bar " + (slot + 1) + " Automation:"));
                     dialog.add(new JCheckBox("Enable Low-Pass Filter Sweep"));
                     dialog.add(new JCheckBox("Trigger Volume Fade-In"));
@@ -244,6 +307,8 @@ public class SwingGridPanel extends JPanel {
                }
              });
           }
+
+
 
 
           clipBtn.addActionListener(e -> {

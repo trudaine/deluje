@@ -206,9 +206,10 @@ public class DelugeMainPanel extends BorderPane {
                 org.chuck.deluge.model.ProjectModel loadedProject =
                     org.chuck.deluge.xml.DelugeXmlParser.parseSong(is, item.name);
 
-                // Replace current project model
                 this.projectModel = loadedProject;
                 songPanel.setProjectModel(loadedProject);
+
+
 
                 // Load samples for all tracks in the loaded project
                 int kitIdx = 0;
