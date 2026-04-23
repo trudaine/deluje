@@ -375,9 +375,20 @@ public class SwingGridPanel extends JPanel {
               }
             } else {
               boolean stepState = bridge.getStep(currentTrack * 8, slot);
-              bridge.setStep(currentTrack * 8, slot, !stepState);
-              clipBtn.setBackground(!stepState ? trackColors[currentTrack] : new Color(0x33, 0x33, 0x33));
+              
+              if ((e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0) {
+                 // Chord generation!
+                 bridge.setStep(currentTrack * 8, slot, !stepState);
+                 if (currentTrack * 8 + 4 < 64) bridge.setStep(currentTrack * 8 + 4, slot, !stepState);
+                 if (currentTrack * 8 + 7 < 64) bridge.setStep(currentTrack * 8 + 7, slot, !stepState);
+                 clipBtn.setBackground(!stepState ? trackColors[currentTrack] : new Color(0x33, 0x33, 0x33));
+              } else {
+                 // Single note step
+                 bridge.setStep(currentTrack * 8, slot, !stepState);
+                 clipBtn.setBackground(!stepState ? trackColors[currentTrack] : new Color(0x33, 0x33, 0x33));
+              }
             }
+
 
           });
         }
