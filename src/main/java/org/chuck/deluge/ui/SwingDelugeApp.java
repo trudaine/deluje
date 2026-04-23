@@ -20,9 +20,21 @@ public class SwingDelugeApp extends JFrame {
     this.vm = vm;
     this.bridge = bridge;
 
+    // Inflate Font Sizes globally (2x bigger)
+    java.util.Enumeration<Object> keys = UIManager.getDefaults().keys();
+    while (keys.hasMoreElements()) {
+        Object key = keys.nextElement();
+        Object value = UIManager.get(key);
+        if (value instanceof javax.swing.plaf.FontUIResource) {
+            javax.swing.plaf.FontUIResource orig = (javax.swing.plaf.FontUIResource) value;
+            Font font = new Font(orig.getFontName(), orig.getStyle(), 20); // Increased size
+            UIManager.put(key, new javax.swing.plaf.FontUIResource(font));
+        }
+    }
+
     setTitle("DELUGE WORKSTATION [SWING EDITION]");
     setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-    setSize(1400, 850);
+    setSize(1400, 800);
     setLocationRelativeTo(null);
     getContentPane().setBackground(new Color(0x1a, 0x1a, 0x1a));
     setLayout(new BorderLayout(10, 10));
@@ -47,7 +59,32 @@ public class SwingDelugeApp extends JFrame {
 
     JMenu settingsMenu = new JMenu("Settings");
     JMenuItem sampleItem = new JMenuItem("Set Samples Directory...");
+    sampleItem.addActionListener(e -> {
+      JFileChooser chooser = new JFileChooser();
+      chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+      int result = chooser.showOpenDialog(this);
+      if (result == JFileChooser.APPROVE_OPTION) {
+        java.io.File dir = chooser.getSelectedFile();
+        org.chuck.deluge.project.PreferencesManager.setSamplesDir(dir.getAbsolutePath());
+        System.out.println("Swing: Set samples directory to " + dir.getAbsolutePath());
+      }
+    });
+
     JMenuItem prefItem = new JMenuItem("Preferences...");
+    prefItem.addActionListener(e -> {
+      String[] midiPorts = org.chuck.midi.MidiIn.list();
+      if (midiPorts.length == 0) {
+        JOptionPane.showMessageDialog(this, "No MIDI Input ports available.", "Preferences", JOptionPane.INFORMATION_MESSAGE);
+      } else {
+        String input = (String) JOptionPane.showInputDialog(this, "Select MIDI Input Port:",
+            "Preferences", JOptionPane.QUESTION_MESSAGE, null, midiPorts, midiPorts[0]);
+        if (input != null) {
+          org.chuck.deluge.project.PreferencesManager.set("midi.input", input);
+          System.out.println("Swing: Set MIDI Input port to " + input);
+        }
+      }
+    });
+
     settingsMenu.add(sampleItem);
     settingsMenu.add(prefItem);
 
@@ -82,8 +119,14 @@ public class SwingDelugeApp extends JFrame {
       }
     });
 
-    JLabel tempoLabel = new JLabel("TEMPO: 120 BPM");
+    JLabel tempoLabel = new JLabel("BPM:");
     tempoLabel.setForeground(Color.LIGHT_GRAY);
+    JSlider bpmSlider = new JSlider(60, 200, 120);
+    bpmSlider.addChangeListener(e -> {
+      if (bridge != null) {
+        vm.setGlobalFloat(BridgeContract.G_BPM, bpmSlider.getValue());
+      }
+    });
 
     // Mode Toggle buttons
     JToggleButton clipBtn = new JToggleButton("CLIP", true);
@@ -108,6 +151,7 @@ public class SwingDelugeApp extends JFrame {
     topBar.add(playBtn);
     topBar.add(stopBtn);
     topBar.add(tempoLabel);
+    topBar.add(bpmSlider);
 
     add(topBar, BorderLayout.NORTH);
 
@@ -133,9 +177,31 @@ public class SwingDelugeApp extends JFrame {
     visualizerPanel.setPreferredSize(new Dimension(200, 0));
     add(visualizerPanel, BorderLayout.EAST);
 
-    // 5. Bottom Velocity lane
+    // 5. Bottom Master FX strip and Velocity Lane
+    JPanel bottomContainer = new JPanel(new BorderLayout());
     SwingVelocityLanePanel bottomLane = new SwingVelocityLanePanel(vm, bridge);
-    add(bottomLane, BorderLayout.SOUTH);
+    bottomContainer.add(bottomLane, BorderLayout.CENTER);
+
+    JPanel masterFxPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 5));
+    masterFxPanel.setBackground(new Color(0x25, 0x25, 0x25));
+    
+    JLabel volLabel = new JLabel("Master Vol:");
+    volLabel.setForeground(Color.WHITE);
+    JSlider volSlider = new JSlider(0, 100, 70);
+    volSlider.addChangeListener(e -> vm.setGlobalFloat(BridgeContract.G_MASTER_VOL, volSlider.getValue() / 100.0));
+    
+    JLabel delLabel = new JLabel("Delay Send:");
+    delLabel.setForeground(Color.WHITE);
+    JSlider delSlider = new JSlider(0, 100, 30);
+    delSlider.addChangeListener(e -> vm.setGlobalFloat(BridgeContract.G_DELAY_TIME, delSlider.getValue() / 100.0));
+
+    masterFxPanel.add(volLabel);
+    masterFxPanel.add(volSlider);
+    masterFxPanel.add(delLabel);
+    masterFxPanel.add(delSlider);
+
+    bottomContainer.add(masterFxPanel, BorderLayout.SOUTH);
+    add(bottomContainer, BorderLayout.SOUTH);
   }
 
 

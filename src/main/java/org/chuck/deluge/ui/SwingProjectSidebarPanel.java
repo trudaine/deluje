@@ -66,7 +66,28 @@ public class SwingProjectSidebarPanel extends JPanel {
                       }
                     }
                     vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+                  } else if ("SONGS".equals(internalDir)) {
+                    org.chuck.deluge.model.ProjectModel loadedProject =
+                        org.chuck.deluge.xml.DelugeXmlParser.parseSong(is, name);
+                    int kitIdx = 0;
+                    for (org.chuck.deluge.model.TrackModel track : loadedProject.getTracks()) {
+                      if (track instanceof org.chuck.deluge.model.KitTrackModel kit) {
+                        int baseTrack = kitIdx * 8;
+                        java.util.List<org.chuck.deluge.model.KitTrackModel.KitSound> sounds = kit.getSounds();
+                        for (int i = 0; i < 8; i++) {
+                          int trackId = baseTrack + i;
+                          if (i < sounds.size()) {
+                            vm.setGlobalString("g_sample_" + trackId, sounds.get(i).getSamplePath());
+                            bridge.setMute(trackId, false);
+                            bridge.setTrackType(trackId, 0);
+                          }
+                        }
+                        kitIdx++;
+                      }
+                    }
+                    vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
                   }
+
                 }
               } catch (Exception ex) {
                 ex.printStackTrace();
