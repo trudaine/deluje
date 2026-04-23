@@ -7,11 +7,14 @@ import org.chuck.core.ChuckVM;
 /** Pure Swing oscilloscope and spectrum visualizer. */
 public class SwingVisualizerPanel extends JPanel {
   private final ChuckVM vm;
+  private final org.chuck.deluge.BridgeContract bridge;
 
-  public SwingVisualizerPanel(ChuckVM vm) {
+  public SwingVisualizerPanel(ChuckVM vm, org.chuck.deluge.BridgeContract bridge) {
     this.vm = vm;
+    this.bridge = bridge;
     setBackground(Color.BLACK);
   }
+
 
   @Override
   protected void paintComponent(Graphics g) {
@@ -80,6 +83,17 @@ public class SwingVisualizerPanel extends JPanel {
       int py = centerPY + (int) (Math.sin(angle * 1.5) * (phaseH / 2.5));
       g2.drawOval(px - 4, py - 4, 8, 8);
     }
+
+    // Draw Compressor Gain Reduction (GR) Meter
+    if (bridge != null) {
+       double trackVol = bridge.getTrackLevel(1); // read Track 1 volume
+       g2.setColor(Color.ORANGE);
+       int barH = (int) (trackVol * (h - 40));
+       g2.fillRect(w - 12, h - 20 - barH, 8, barH);
+       g2.setColor(Color.DARK_GRAY);
+       g2.drawRect(w - 12, 20, 8, h - 40);
+    }
+
 
   }
 }

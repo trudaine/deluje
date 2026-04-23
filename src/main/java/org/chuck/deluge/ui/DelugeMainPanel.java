@@ -419,7 +419,8 @@ public class DelugeMainPanel extends BorderPane {
     if (showVis) {
       org.chuck.audio.analysis.FFT analyzer = new org.chuck.audio.analysis.FFT(1024);
       org.chuck.audio.util.Scope scope = new org.chuck.audio.util.Scope(1024);
-      VisualizerPanel visualizerPanel = new VisualizerPanel(vm, audio, analyzer, scope);
+      VisualizerPanel visualizerPanel = new VisualizerPanel(vm, audio, analyzer, scope, bridge);
+
       visualizerPanel.setPrefWidth(200);
       setRight(visualizerPanel);
       visualizerPanel.start();
