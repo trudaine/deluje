@@ -354,9 +354,15 @@ public final class BridgeContract {
     return mute.getInt(track) > 0;
   }
 
+  public int getTrackType(int track) {
+    return (int) trackType.getInt(track);
+  }
+
   public void setTrackType(int track, int type) {
     trackType.setInt(track, (long) type);
   }
+
+
 
   public void setFilterFreq(int track, double val) {
     filter.setFloat(track * 2, (float) Math.max(0, Math.min(1, val)));

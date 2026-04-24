@@ -13,6 +13,8 @@ public class SwingGridPanel extends JPanel {
   private org.chuck.deluge.model.ProjectModel projectModel;
   private java.util.function.BiConsumer<Integer, Integer> onEditRequest;
   private JButton[][] pads = new JButton[8][18];
+  private org.rtmidijava.RtMidiOut finalMidiOut;
+
 
   public enum GridViewMode { CLIP, SONG, ARRANGEMENT }
   private GridViewMode viewMode = GridViewMode.SONG; 
@@ -275,7 +277,19 @@ public class SwingGridPanel extends JPanel {
                                            !projectModel.getTracks().isEmpty() && 
                                            projectModel.getTracks().get(0) instanceof org.chuck.deluge.model.SynthTrackModel;
                      
-                     if (isSynthMode) {
+                      int trackType = bridge.getTrackType(currentTrack);
+                      if (trackType == 2) {
+                         boolean st = bridge.getStep(currentTrack, offset + slot);
+                         bridge.setStep(currentTrack, offset + slot, !st);
+                         if (!st) {
+                            if (finalMidiOut != null) {
+                               try {
+                                  finalMidiOut.sendMessage(new byte[]{(byte)0x90, (byte)(60 + currentTrack), (byte)100});
+                               } catch (Exception ex) {}
+                            }
+                         }
+                         clipBtn.setBackground(!st ? trackColors[6] : new Color(0x33, 0x33, 0x33)); // Blue for MIDI Track
+                      } else if (isSynthMode) {
                         boolean st = bridge.getStep(0, offset + slot);
                         bridge.setStep(0, offset + slot, !st);
                         if (!st) {
@@ -538,7 +552,8 @@ public class SwingGridPanel extends JPanel {
      } catch (Exception ex) {}
 
      final int[] lastCol = {-1};
-     org.rtmidijava.RtMidiOut finalMidiOut = midiOut;
+     this.finalMidiOut = midiOut;
+
 
      Timer playheadTimer = new Timer(100, e -> {
         int currentStep = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
@@ -547,15 +562,20 @@ public class SwingGridPanel extends JPanel {
            
            if (activeCol != lastCol[0]) {
               lastCol[0] = activeCol;
-               for (int t = 0; t < 8; t++) {
-                  if (bridge.getStep(t, activeCol)) {
-                     if (finalMidiOut != null) {
-                        try {
-                           finalMidiOut.sendMessage(new byte[]{(byte)0x90, (byte)(36 + t * 2), (byte)100});
-                        } catch (Exception ex) {}
-                     }
-                  }
-               }
+                for (int t = 0; t < 8; t++) {
+                   if (bridge.getStep(t, activeCol)) {
+                      if (finalMidiOut != null) {
+                         try {
+                            int trackType = bridge.getTrackType(t);
+                            if (trackType == 2) {
+                               finalMidiOut.sendMessage(new byte[]{(byte)0x90, (byte)(60 + t), (byte)100});
+                            } else {
+                               finalMidiOut.sendMessage(new byte[]{(byte)0x90, (byte)(36 + t * 2), (byte)100});
+                            }
+                         } catch (Exception ex) {}
+                      }
+                   }
+                }
 
                // Sidechain Compressor Ducking tied to Track 0 (Kick)
                if (bridge.getStep(0, activeCol)) {

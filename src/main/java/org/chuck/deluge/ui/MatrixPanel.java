@@ -313,11 +313,17 @@ public class MatrixPanel extends BorderPane {
          for (int t = 0; t < rows.length; t++) {
             if (bridge.getStep(t, step)) {
 
-               if (midiOut != null) {
-                  try {
-                     midiOut.sendMessage(new byte[]{(byte)0x90, (byte)(36 + t * 2), (byte)100});
-                  } catch (Exception ex) {}
-               }
+                if (midiOut != null) {
+                   try {
+                      int trackType = bridge.getTrackType(t);
+                      if (trackType == 2) {
+                         midiOut.sendMessage(new byte[]{(byte)0x90, (byte)(60 + t), (byte)100});
+                      } else {
+                         midiOut.sendMessage(new byte[]{(byte)0x90, (byte)(36 + t * 2), (byte)100});
+                      }
+                   } catch (Exception ex) {}
+                }
+
             }
          }
       }
