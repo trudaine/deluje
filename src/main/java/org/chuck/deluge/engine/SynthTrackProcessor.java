@@ -37,9 +37,13 @@ public class SynthTrackProcessor implements Shred {
     this.bridge = bridge;
   }
 
+  private org.chuck.audio.stk.Rhodey fmSynth;
+
   @Override
   public void shred() {
     osc = new MorphingWavetable(sampleRate());
+    fmSynth = new org.chuck.audio.stk.Rhodey(sampleRate());
+
 
     // Populate with 4 tables: Sine, Saw, Square, Triangle
     float[][] tables = new float[4][256];
@@ -59,6 +63,8 @@ public class SynthTrackProcessor implements Shred {
 
     // Direct stereo connection
     osc.chuck(filter).chuck(env).chuck(pan).chuck(dac());
+    fmSynth.chuck(filter);
+
 
     env.set(0.05, 0.2, 0.5, 0.3);
 
@@ -151,8 +157,15 @@ public class SynthTrackProcessor implements Shred {
 
     double masterVol = vm.getGlobalFloat(BridgeContract.G_MASTER_VOL);
 
+    org.chuck.core.ChuckArray oscTypeArr = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_OSC_TYPE);
+    int typeIdx = (oscTypeArr != null) ? (int) oscTypeArr.getInt(trackId) : 0;
+
     int pitch = pitchArr != null ? (int) pitchArr.getInt(idx) : 0;
-    osc.freq((float) mtof(pitch + 60));
+    if (typeIdx == 4) {
+       fmSynth.freq((float) mtof(pitch + 60));
+    } else {
+       osc.freq((float) mtof(pitch + 60));
+    }
 
     double vel = velocityArr != null ? velocityArr.getFloat(idx) : 0.7;
     double trackLevel = trackLevelArr != null ? trackLevelArr.getFloat(trackId) : 0.7;
@@ -162,14 +175,19 @@ public class SynthTrackProcessor implements Shred {
     double bpm = vm.getGlobalFloat(BridgeContract.G_BPM);
     double stepDurMs = 60000.0 / (bpm * 4.0);
 
-    env.forceMute(); // Cut off previous note
+    if (typeIdx == 4) {
+       fmSynth.noteOn((float) vel);
+    } else {
+       env.forceMute(); // Cut off previous note
+    }
 
     vm.spork(
         () -> {
-          env.keyOn();
+          if (typeIdx != 4) env.keyOn();
           advance(ms(gate_len * stepDurMs));
-          env.keyOff();
+          if (typeIdx != 4) env.keyOff();
           if (vm.getLogLevel() >= 2) {
+
             vm.print("SYNTH note end track: " + trackId + "\n");
           }
         });
