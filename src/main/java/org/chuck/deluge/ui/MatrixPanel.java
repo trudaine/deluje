@@ -19,6 +19,8 @@ public class MatrixPanel extends BorderPane {
   private final VBox rowContainer;
 
   private int currentStep = -1;
+  private boolean[] isOneShotTrack = new boolean[8];
+
   private int selectedTrack = 0;
   private EditMode currentEditMode = EditMode.VELOCITY;
   private int currentBaseTrack = 0;
@@ -109,6 +111,12 @@ public class MatrixPanel extends BorderPane {
           public void handle(long now) {
             int step = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
             if (step != currentStep) {
+              if (step == 0 && currentStep >= 15) {
+                  for (int t = 0; t < 8; t++) {
+                      if (isOneShotTrack[t]) bridge.setMute(t, true);
+                  }
+              }
+
               int oldPage = currentStep / 16;
               int newPage = step / 16;
               if (newPage != oldPage) {

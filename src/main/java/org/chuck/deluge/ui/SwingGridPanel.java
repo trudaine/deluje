@@ -14,6 +14,12 @@ public class SwingGridPanel extends JPanel {
   private java.util.function.BiConsumer<Integer, Integer> onEditRequest;
   private JButton[][] pads = new JButton[8][18];
   private org.rtmidijava.RtMidiOut finalMidiOut;
+  private double[] vuLevels = new double[8];
+  private Timer activeStutterTimer;
+  private boolean[] isOneShotTrack = new boolean[8];
+
+
+
 
 
   public enum GridViewMode { CLIP, SONG, ARRANGEMENT }
@@ -101,6 +107,19 @@ public class SwingGridPanel extends JPanel {
     removeAll();
     java.util.List<org.chuck.deluge.model.TrackModel> tracks = projectModel.getTracks();
 
+    class VUMeterPanel extends JPanel {
+       private double lvl = 0.0;
+       public void setLvl(double l) { this.lvl = l; repaint(); }
+       @Override protected void paintComponent(Graphics g) {
+          super.paintComponent(g);
+          g.setColor(Color.DARK_GRAY); g.fillRect(0, 0, getWidth(), getHeight());
+          g.setColor(Color.GREEN);
+          int h = (int)(lvl * getHeight());
+          g.fillRect(0, getHeight() - h, getWidth(), h);
+       }
+    }
+
+
     for (int t = 0; t < 8; t++) {
       JPanel rowPanel = new JPanel();
       rowPanel.setLayout(new BoxLayout(rowPanel, BoxLayout.X_AXIS));
@@ -137,16 +156,22 @@ public class SwingGridPanel extends JPanel {
       label.setForeground(Color.LIGHT_GRAY);
       label.setCursor(new Cursor(Cursor.HAND_CURSOR));
       label.addMouseListener(new java.awt.event.MouseAdapter() {
-        @Override
-        public void mouseClicked(java.awt.event.MouseEvent e) {
-          if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
-             Color chosen = JColorChooser.showDialog(SwingGridPanel.this, "Select Track Color", trackColors[currentTrack]);
-             if (chosen != null) {
-                trackColors[currentTrack] = chosen;
-                refresh();
-             }
-             return;
-          }
+         @Override
+         public void mouseClicked(java.awt.event.MouseEvent e) {
+           if (e.isShiftDown()) {
+              isOneShotTrack[currentTrack] = !isOneShotTrack[currentTrack];
+              label.setText(isOneShotTrack[currentTrack] ? trackName + " (1SH)" : trackName);
+              return;
+           }
+           if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
+              Color chosen = JColorChooser.showDialog(SwingGridPanel.this, "Select Track Color", trackColors[currentTrack]);
+              if (chosen != null) {
+                 trackColors[currentTrack] = chosen;
+                 refresh();
+              }
+              return;
+           }
+
           if (onEditRequest != null) {
              onEditRequest.accept(currentTrack, 0);
           }
@@ -154,7 +179,20 @@ public class SwingGridPanel extends JPanel {
       });
 
       rowPanel.add(label);
-      rowPanel.add(Box.createHorizontalStrut(10));
+      rowPanel.add(Box.createHorizontalStrut(5));
+
+      VUMeterPanel vu = new VUMeterPanel();
+      vu.setPreferredSize(new Dimension(12, 120));
+      vu.setMaximumSize(new Dimension(12, 120));
+      rowPanel.add(vu);
+      rowPanel.add(Box.createHorizontalStrut(5));
+
+      Timer vuTimer = new Timer(33, ev -> {
+         vuLevels[currentTrack] *= 0.80; // decay
+         vu.setLvl(vuLevels[currentTrack]);
+      });
+      vuTimer.start();
+
 
       for (int c = 0; c < 18; c++) {
         final int slot = c;
@@ -314,10 +352,22 @@ public class SwingGridPanel extends JPanel {
                         if (!stepState) {
                            String sp = (String) vm.getGlobalObject("g_sample_" + currentTrack);
                            playWaveFile(sp);
+
+                           if (activeStutterTimer != null) activeStutterTimer.stop();
+                           activeStutterTimer = new Timer(150, ev -> playWaveFile(sp));
+                           activeStutterTimer.start();
                         }
                      }
                   }
 
+               }
+
+               @Override
+               public void mouseReleased(java.awt.event.MouseEvent e) {
+                  if (activeStutterTimer != null) {
+                     activeStutterTimer.stop();
+                     activeStutterTimer = null;
+                  }
                }
              });
 
@@ -562,9 +612,18 @@ public class SwingGridPanel extends JPanel {
            
            if (activeCol != lastCol[0]) {
               lastCol[0] = activeCol;
-                for (int t = 0; t < 8; t++) {
-                   if (bridge.getStep(t, activeCol)) {
-                      if (finalMidiOut != null) {
+               if (activeCol == 0) {
+                  for (int t = 0; t < 8; t++) {
+                     if (isOneShotTrack[t] && currentStep >= 16) {
+                        bridge.setMute(t, true);
+                     }
+                  }
+               }
+
+                 for (int t = 0; t < 8; t++) {
+                    if (bridge.getStep(t, activeCol)) {
+                       vuLevels[t] = 1.0; // Spike VU Meter!
+                       if (finalMidiOut != null) {
                          try {
                             int trackType = bridge.getTrackType(t);
                              if (trackType == 2) {
