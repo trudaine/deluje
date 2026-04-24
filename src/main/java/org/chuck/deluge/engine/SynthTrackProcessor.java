@@ -186,6 +186,8 @@ public class SynthTrackProcessor implements Shred {
           if (typeIdx != 4) env.keyOn();
           advance(ms(gate_len * stepDurMs));
           if (typeIdx != 4) env.keyOff();
+          else fmSynth.noteOff(0.0f);
+
           if (vm.getLogLevel() >= 2) {
 
             vm.print("SYNTH note end track: " + trackId + "\n");

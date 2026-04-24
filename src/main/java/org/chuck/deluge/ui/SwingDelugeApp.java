@@ -536,24 +536,26 @@ public class SwingDelugeApp extends JFrame {
     wrapperGbc.fill = GridBagConstraints.BOTH;
     wrapperGbc.anchor = GridBagConstraints.NORTHWEST;
     wrapperGbc.gridx = 0; wrapperGbc.gridy = 0;
+
+
     centeredWrapper.add(centerCardPanel, wrapperGbc);
 
     
-    boolean isHd = Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("hd.optimization", "false"));
-    centeredWrapper.setPreferredSize(isHd ? new Dimension(1650, 1000) : new Dimension(2600, 1700));
+    String res = org.chuck.deluge.project.PreferencesManager.get("screen.resolution", "QHD");
+    int reqW = "FHD".equals(res) ? 1800 : ("4K".equals(res) ? 3600 : 2600);
+    int reqH = "FHD".equals(res) ? 1000 : ("4K".equals(res) ? 2200 : 1600);
+    centeredWrapper.setPreferredSize(new Dimension(reqW, reqH));
 
+    JScrollPane centerScroll = new JScrollPane(centeredWrapper, 
+        ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS, 
+        ScrollPaneConstants.HORIZONTAL_SCROLLBAR_ALWAYS);
 
-
-
-
-
-
-    JScrollPane centerScroll = new JScrollPane(centeredWrapper);
     centerScroll.setBorder(BorderFactory.createEmptyBorder());
 
     gbc.fill = GridBagConstraints.BOTH;
-    gbc.gridx = 1; gbc.gridy = 1; gbc.gridwidth = 1; gbc.weightx = 0.0; gbc.weighty = 1.0;
+    gbc.gridx = 0; gbc.gridy = 1; gbc.gridwidth = 3; gbc.weightx = 1.0; gbc.weighty = 1.0;
     add(centerScroll, gbc);
+
     javax.swing.SwingUtilities.invokeLater(() -> centerScroll.getVerticalScrollBar().setValue(0));
 
 
@@ -592,11 +594,33 @@ public class SwingDelugeApp extends JFrame {
     });
 
     songPanel.setOnEditRequest((trackId, clipId) -> {
-      System.out.println("Swing Callback: Edit track " + trackId);
+      System.out.println("Swing Callback: Edit track " + trackId + " Clip: " + clipId);
       sidebarPanel.updateFocusTrack(trackId);
+
+      if (clipPanel != null) {
+         clipPanel.setActiveClipId(clipId);
+         bridge.clearAllSteps();
+         if (clipPanel.getProjectModel() != null && trackId < clipPanel.getProjectModel().getTracks().size()) {
+            org.chuck.deluge.model.TrackModel tModel = clipPanel.getProjectModel().getTracks().get(trackId);
+            if (clipId < tModel.getClips().size()) {
+               org.chuck.deluge.model.ClipModel cModel = tModel.getClips().get(clipId);
+               for (int r = 0; r < 8; r++) {
+                  for (int s = 0; s < 16; s++) {
+                     org.chuck.deluge.model.StepData sd = cModel.getStep(r, s);
+                     if (sd != null) {
+                        bridge.setStep(trackId * 8 + r, s, sd.active());
+                     }
+                  }
+               }
+            }
+         }
+         clipPanel.refresh();
+      }
+
       cardLayout.show(centerCardPanel, "CLIP");
       clipBtn.setSelected(true);
     });
+
 
 
     visualizerPanel = new SwingVisualizerPanel(vm, bridge);
