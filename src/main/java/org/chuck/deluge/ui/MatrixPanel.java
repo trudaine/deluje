@@ -91,11 +91,80 @@ public class MatrixPanel extends BorderPane {
 
     for (int i = 0; i < count; i++) {
       int trackIdx = i;
+      if (i == 8 || i == 9) {
+          javafx.scene.layout.HBox ctrlRow = new javafx.scene.layout.HBox(5);
+          ctrlRow.setAlignment(Pos.CENTER_LEFT);
+          
+          javafx.scene.control.Label label = new javafx.scene.control.Label(i == 8 ? "MACROS" : "SLIDERS");
+          label.setPrefWidth(75);
+          label.setStyle("-fx-text-fill: orange; -fx-font-weight: bold;");
+          
+          javafx.scene.control.Button emptyAudition = new javafx.scene.control.Button(">");
+          emptyAudition.setPrefWidth(25);
+          emptyAudition.setDisable(true);
+          
+          ctrlRow.getChildren().addAll(label, emptyAudition);
+          
+          String[] allParams = {
+             "LEVEL", "PAN", "PITCH", "FILTER", "RESONANCE", "OSC1", "OSC2", "LFO",
+             "MOD FX", "DELAY", "REVERB", "STUTTER", "PROBABILITY", "GATE", "VELOCITY", "SAMPLE"
+          };
+          
+          for (int c = 0; c < 18; c++) {
+             final int slot = c;
+             if (c >= 16) {
+                javafx.scene.control.Button emptyBtn = new javafx.scene.control.Button();
+                emptyBtn.setPrefSize(40, 40);
+                emptyBtn.setDisable(true);
+                ctrlRow.getChildren().add(emptyBtn);
+                continue;
+             }
+             
+             if (i == 8) {
+                javafx.scene.control.Button btn = new javafx.scene.control.Button(allParams[c]);
+                btn.setPrefSize(40, 40);
+                btn.setStyle("-fx-base: #333; -fx-text-fill: #ccc; -fx-font-size: 8px; -fx-font-weight: bold;");
+                ctrlRow.getChildren().add(btn);
+             } else {
+                javafx.scene.canvas.Canvas slider = new javafx.scene.canvas.Canvas(40, 40);
+                javafx.scene.canvas.GraphicsContext gc = slider.getGraphicsContext2D();
+                
+                Runnable redraw = () -> {
+                   gc.clearRect(0, 0, 40, 40);
+                   gc.setFill(javafx.scene.paint.Color.rgb(0x00, 0xff, 0xcc, 0.7));
+                   double val = (bridge != null) ? bridge.getVelocity(0, slot) : 0.5;
+                   double barH = val * 40;
+                   gc.fillRect(0, 40 - barH, 40, barH);
+                };
+                redraw.run();
+                
+                slider.setOnMouseDragged(e -> {
+                   double v = 1.0 - e.getY() / 40.0;
+                   v = Math.max(0.0, Math.min(1.0, v));
+                   bridge.setVelocity(0, slot, v);
+                   redraw.run();
+                });
+                slider.setOnMousePressed(e -> {
+                   double v = 1.0 - e.getY() / 40.0;
+                   v = Math.max(0.0, Math.min(1.0, v));
+                   bridge.setVelocity(0, slot, v);
+                   redraw.run();
+                });
+                
+                javafx.scene.layout.StackPane wrap = new javafx.scene.layout.StackPane(slider);
+                wrap.setStyle("-fx-border-color: #444; -fx-border-width: 1; -fx-background-color: #111;");
+                wrap.setPrefSize(40, 40);
+                ctrlRow.getChildren().add(wrap);
+             }
+          }
+          rowContainer.getChildren().add(ctrlRow);
+          continue;
+      }
+
       rows[i] = new TrackRowPanel(i, "EMPTY", vm, bridge, this::getCurrentEditMode);
       rows[i].setOnMouseClicked(e -> selectTrack(trackIdx));
       rows[i].setStyle("-fx-border-color: transparent; -fx-border-width: 0 0 0 4;");
       rowContainer.getChildren().add(rows[i]);
-
       if (trackTypeArray != null && i < 8) {
         trackTypeArray.setInt(i, 0L);
       }
@@ -103,6 +172,7 @@ public class MatrixPanel extends BorderPane {
         bridge.setMute(i, true);
       }
     }
+
 
     // Start Playhead Timer
     javafx.animation.AnimationTimer timer =

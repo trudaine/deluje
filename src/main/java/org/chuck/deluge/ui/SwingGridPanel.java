@@ -12,11 +12,12 @@ public class SwingGridPanel extends JPanel {
 
   private org.chuck.deluge.model.ProjectModel projectModel;
   private java.util.function.BiConsumer<Integer, Integer> onEditRequest;
-  private JButton[][] pads = new JButton[8][18];
+  private JButton[][] pads = new JButton[10][18];
   private org.rtmidijava.RtMidiOut finalMidiOut;
-  private double[] vuLevels = new double[8];
+  private double[] vuLevels = new double[10];
   private Timer activeStutterTimer;
-  private boolean[] isOneShotTrack = new boolean[8];
+  private boolean[] isOneShotTrack = new boolean[10];
+
 
 
 
@@ -33,8 +34,11 @@ public class SwingGridPanel extends JPanel {
     new Color(0xcc, 0x33, 0xff), // Purple
     new Color(0xff, 0xff, 0x33), // Yellow
     new Color(0x33, 0x99, 0xff), // Blue
-    new Color(0xff, 0x33, 0x33)  // Red
+    new Color(0xff, 0x33, 0x33), // Red
+    new Color(0x33, 0x33, 0x33), // Dark Gray
+    new Color(0x22, 0x22, 0x22)  // Very Dark Gray
   };
+
 
 
   public SwingGridPanel(ChuckVM vm, BridgeContract bridge) {
@@ -123,7 +127,8 @@ public class SwingGridPanel extends JPanel {
     boolean isHd = Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("hd.optimization", "false"));
     final int padSz = isHd ? 70 : 120;
 
-    for (int t = 0; t < 8; t++) {
+    for (int t = 0; t < 10; t++) {
+
 
       JPanel rowPanel = new JPanel();
       rowPanel.setLayout(new BoxLayout(rowPanel, BoxLayout.X_AXIS));
@@ -140,6 +145,9 @@ public class SwingGridPanel extends JPanel {
          }
       }
       String trackName = (t < tracks.size()) ? tracks.get(t).getName() : "EMPTY " + (t + 1);
+      if (t == 8) trackName = "MACROS";
+      if (t == 9) trackName = "SLIDERS";
+
       if (viewMode == GridViewMode.CLIP && vm != null) {
          String samplePath = (String) vm.getGlobalObject("g_sample_" + (t));
          if (samplePath != null && !samplePath.isEmpty()) {
@@ -202,30 +210,87 @@ public class SwingGridPanel extends JPanel {
 
       for (int c = 0; c < 18; c++) {
         final int slot = c;
+        final int trkId = t;
+        final int colId = c;
+
         
-        JButton clipBtn = new JButton();
+        JButton clipBtn;
+        if (trkId == 9 && colId < 16) {
+           clipBtn = new JButton() {
+              @Override protected void paintComponent(Graphics g) {
+                 super.paintComponent(g);
+                 int h = getHeight(); int w = getWidth();
+                 g.setColor(new Color(0x00, 0xff, 0xcc, 0xaa));
+                 double val = (bridge != null) ? bridge.getVelocity(0, colId) : 0.5;
+                 int barH = (int)(val * h);
+                 g.fillRect(0, h - barH, w, barH);
+              }
+           };
+        } else {
+           clipBtn = new JButton();
+        }
+
         clipBtn.setPreferredSize(new Dimension(padSz, padSz));
         clipBtn.setMinimumSize(new Dimension(padSz, padSz));
         clipBtn.setMaximumSize(new Dimension(padSz, padSz));
-
         
         pads[t][c] = clipBtn;
 
-        if (viewMode == GridViewMode.CLIP) {
-           clipBtn.setText("<html><font size='3'>Pi:" + (currentTrack) + "<br>Ve:0.8<br>Pr:1.0<br>Ga:1</font></html>");
-        } else if (viewMode == GridViewMode.ARRANGEMENT) {
-           String tn = (currentTrack < tracks.size()) ? tracks.get(currentTrack).getName() : "EMPTY";
-           clipBtn.setText("<html><center><font size='3'>" + tn + "<br><b>Bar " + (c + 1) + "</b></font></center></html>");
-        } else {
-           if (t < tracks.size() && c < tracks.get(t).getClips().size()) {
-              clipBtn.setText("<html><center><font size='3'>" + tracks.get(t).getClips().get(c).getName() + "</font></center></html>");
+        if (t == 8) {
+           if (c < 16) {
+              String[] allParams = {
+                 "LEVEL", "PAN", "PITCH", "FILTER", "RESONANCE", "OSC1", "OSC2", "LFO",
+                 "MOD FX", "DELAY", "REVERB", "STUTTER", "PROBABILITY", "GATE", "VELOCITY", "SAMPLE"
+              };
+              clipBtn.setText("<html><center><b>" + allParams[c] + "</b></center></html>");
+              clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
+              clipBtn.setForeground(Color.LIGHT_GRAY);
+              clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 14 : 10));
            } else {
-              clipBtn.setText("PAD " + (c + 1));
+              clipBtn.setBackground(new Color(0x1a, 0x1a, 0x1a));
+              clipBtn.setEnabled(false);
+           }
+        } else if (trkId == 9) {
+           if (colId < 16) {
+              final int colSlot = colId;
+
+              clipBtn.setPreferredSize(new Dimension(padSz, padSz));
+              clipBtn.setMinimumSize(new Dimension(padSz, padSz));
+              clipBtn.setMaximumSize(new Dimension(padSz, padSz));
+              
+              clipBtn.addMouseMotionListener(new java.awt.event.MouseAdapter() {
+                 @Override public void mouseDragged(java.awt.event.MouseEvent e) {
+                    double v = 1.0 - (double)e.getY() / pads[9][colId].getHeight();
+                    v = Math.max(0.0, Math.min(1.0, v));
+                    bridge.setVelocity(0, colId, v);
+                    pads[9][colId].repaint();
+                 }
+                 @Override public void mousePressed(java.awt.event.MouseEvent e) {
+                    double v = 1.0 - (double)e.getY() / pads[9][colId].getHeight();
+                    v = Math.max(0.0, Math.min(1.0, v));
+                    bridge.setVelocity(0, colId, v);
+                    pads[9][colId].repaint();
+                 }
+              });
+
+           } else {
+              clipBtn.setBackground(new Color(0x1a, 0x1a, 0x1a));
+              clipBtn.setEnabled(false);
+           }
+        } else {
+           if (viewMode == GridViewMode.CLIP) {
+              clipBtn.setText("<html><font size='3'>Pi:" + (currentTrack) + "<br>Ve:0.8<br>Pr:1.0<br>Ga:1</font></html>");
+           } else if (viewMode == GridViewMode.ARRANGEMENT) {
+              String tn = (currentTrack < tracks.size()) ? tracks.get(currentTrack).getName() : "EMPTY";
+              clipBtn.setText("<html><center><font size='3'>" + tn + "<br><b>Bar " + (c + 1) + "</b></font></center></html>");
+           } else {
+              if (t < tracks.size() && c < tracks.get(t).getClips().size()) {
+                 clipBtn.setText("<html><center><font size='3'>" + tracks.get(t).getClips().get(c).getName() + "</font></center></html>");
+              } else {
+                 clipBtn.setText("PAD " + (c + 1));
+              }
            }
         }
-
-
-
 
         boolean hasClip = false;
         if (t < tracks.size()) {
@@ -235,26 +300,27 @@ public class SwingGridPanel extends JPanel {
           }
         }
         
-        if (c == 16) {
-           clipBtn.setText("MUTE");
-           clipBtn.setBackground(bridge.getMute(currentTrack) ? Color.RED : new Color(0x33, 0x33, 0x33));
-           clipBtn.addActionListener(e -> {
-             if ((e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0) {
-                // Clear Sequence row
-                 for (int s = 0; s < 16; s++) {
-                    bridge.setStep(currentTrack, s, false);
-                 }
-                 refresh();
-                 return;
-              }
-              boolean isMuted = bridge.getMute(currentTrack);
-              bridge.setMute(currentTrack, !isMuted);
+         if (colId == 16) {
+            clipBtn.setText("MUTE");
+            clipBtn.setBackground(bridge.getMute(trk) ? Color.RED : new Color(0x33, 0x33, 0x33));
+            clipBtn.addActionListener(e -> {
+              if ((e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0) {
+                 // Clear Sequence row
+                  for (int s = 0; s < 16; s++) {
+                     bridge.setStep(trk, s, false);
+                  }
+                  refresh();
+                  return;
+               }
+               boolean isMuted = bridge.getMute(trk);
+               bridge.setMute(trk, !isMuted);
 
-             clipBtn.setBackground(!isMuted ? Color.RED : new Color(0x33, 0x33, 0x33));
-           });
-        } else if (c == 17) {
-            clipBtn.setText("EDIT");
-            clipBtn.setBackground(focusTrack == currentTrack ? Color.GREEN : new Color(0x33, 0x33, 0x33));
+              clipBtn.setBackground(!isMuted ? Color.RED : new Color(0x33, 0x33, 0x33));
+            });
+         } else if (colId == 17) {
+             clipBtn.setText("EDIT");
+             clipBtn.setBackground(focusTrack == trk ? Color.GREEN : new Color(0x33, 0x33, 0x33));
+
 
            clipBtn.addActionListener(e -> {
              if ((e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0) {
@@ -262,12 +328,12 @@ public class SwingGridPanel extends JPanel {
                 return;
              }
               if (viewMode == GridViewMode.CLIP) {
-                 focusTrack = currentTrack;
+                 focusTrack = trk;
                  refresh(); // redraws backgrounds
                  return;
               }
               if (onEditRequest != null) {
-                onEditRequest.accept(currentTrack, 0);
+                onEditRequest.accept(trk, 0);
               }
 
            });
@@ -323,30 +389,32 @@ public class SwingGridPanel extends JPanel {
                                            !projectModel.getTracks().isEmpty() && 
                                            projectModel.getTracks().get(0) instanceof org.chuck.deluge.model.SynthTrackModel;
                      
-                      int trackType = bridge.getTrackType(currentTrack);
+                      int trackType = bridge.getTrackType(trk);
                       if (trackType == 2) {
-                         boolean st = bridge.getStep(currentTrack, offset + slot);
-                         bridge.setStep(currentTrack, offset + slot, !st);
+                         boolean st = bridge.getStep(trk, offset + colId);
+                         bridge.setStep(trk, offset + colId, !st);
                          if (!st) {
                             if (finalMidiOut != null) {
                                try {
-                                  finalMidiOut.sendMessage(new byte[]{(byte)0x90, (byte)(60 + currentTrack), (byte)100});
+                                  finalMidiOut.sendMessage(new byte[]{(byte)0x90, (byte)(60 + trk), (byte)100});
                                } catch (Exception ex) {}
                             }
                          }
                          clipBtn.setBackground(!st ? trackColors[6] : new Color(0x33, 0x33, 0x33)); // Blue for MIDI Track
                       } else if (isSynthMode) {
-                        boolean st = bridge.getStep(0, offset + slot);
-                        bridge.setStep(0, offset + slot, !st);
+                        boolean st = bridge.getStep(0, offset + colId);
+                        bridge.setStep(0, offset + colId, !st);
                         if (!st) {
-                           bridge.setPitch(0, offset + slot, (24 - 1) - currentTrack);
+                           bridge.setPitch(0, offset + colId, (24 - 1) - trk);
+
                            
                            // Audition Synth
                            try {
                               org.chuck.core.ChuckEvent noteEv = (org.chuck.core.ChuckEvent) vm.getGlobalObject("g_ck_noteOn");
                               if (noteEv != null) {
                                  org.chuck.core.ChuckArray pitchArr = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_PITCH);
-                                 pitchArr.setInt(0, (long)((24 - 1) - currentTrack));
+                                 pitchArr.setInt(0, (long)((24 - 1) - trk));
+
 
                                  noteEv.broadcast();
                               }
@@ -354,12 +422,13 @@ public class SwingGridPanel extends JPanel {
                         }
                         clipBtn.setBackground(!st ? trackColors[0] : new Color(0x33, 0x33, 0x33));
                      } else {
-                        boolean stepState = bridge.getStep(currentTrack, offset + slot);
-                        bridge.setStep(currentTrack, offset + slot, !stepState);
-                        clipBtn.setBackground(!stepState ? trackColors[currentTrack] : new Color(0x33, 0x33, 0x33));
+                        boolean stepState = bridge.getStep(trk, offset + colId);
+                        bridge.setStep(trk, offset + colId, !stepState);
+                        clipBtn.setBackground(!stepState ? trackColors[trk] : new Color(0x33, 0x33, 0x33));
                         if (!stepState) {
-                           String sp = (String) vm.getGlobalObject("g_sample_" + currentTrack);
+                           String sp = (String) vm.getGlobalObject("g_sample_" + trk);
                            playWaveFile(sp);
+
 
                            if (activeStutterTimer != null) activeStutterTimer.stop();
                            activeStutterTimer = new Timer(150, ev -> playWaveFile(sp));

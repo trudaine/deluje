@@ -35,10 +35,13 @@ public class SwingVelocityLanePanel extends JPanel {
   private double startVal = 0.0;
 
   private void handlePaint(java.awt.event.MouseEvent e) {
-    int w = getWidth();
+    boolean isHd = Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("hd.optimization", "false"));
+    int padSz = isHd ? 70 : 120;
+
     int h = getHeight();
-    int colW = w / 16;
-    int step = e.getX() / colW;
+    int step = (e.getX() - 172) / padSz;
+
+
     
     if (step >= 0 && step < 16) {
       double val = 1.0 - (double)e.getY() / h;
@@ -109,13 +112,17 @@ public class SwingVelocityLanePanel extends JPanel {
       g2.setColor(new Color(0xe9, 0x1e, 0x63, 0xaa));
     }
 
-    int colW = w / 16;
+    boolean isHd = Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("hd.optimization", "false"));
+    int padSz = isHd ? 70 : 120;
+
     for (int i = 0; i < 16; i++) {
       double val = (bridge != null) ? bridge.getVelocity(0, i) : 0.5;
       int barH = (int) (val * (h - 20));
 
-      g2.fillRect(i * colW + 10, h - barH - 10, colW - 20, barH);
+      int barX = 172 + i * padSz;
+      g2.fillRect(barX + (padSz - padSz / 2) / 2, h - barH - 10, padSz / 2, barH);
     }
+
 
     g2.setColor(Color.DARK_GRAY);
     g2.drawLine(0, 0, w, 0);

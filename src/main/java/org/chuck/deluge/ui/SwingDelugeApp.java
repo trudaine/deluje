@@ -353,7 +353,16 @@ public class SwingDelugeApp extends JFrame {
     menuBar.add(settingsMenu);
     setJMenuBar(menuBar);
 
+    final JDialog leftFloat = new JDialog(this, "SD Explorer", false);
+    leftFloat.setSize(300, 700);
+    leftFloat.setLocation(50, 150);
+
+    final JDialog rightFloat = new JDialog(this, "Acoustics Monitor", false);
+    rightFloat.setSize(280, 700);
+    rightFloat.setLocation(1600, 150);
+
     // 1. Top Area (Buttons, Modes, Transport, Sliders)
+
     boolean isHdOpt = Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("hd.optimization", "false"));
     JPanel topBar = new JPanel();
     if (isHdOpt) {
@@ -404,16 +413,27 @@ public class SwingDelugeApp extends JFrame {
     });
 
 
+    JButton btnExplorer = new JButton("📂 EXPLORER");
+    btnExplorer.addActionListener(e -> leftFloat.setVisible(!leftFloat.isVisible()));
+    
+    JButton btnMonitor = new JButton("📊 MONITOR");
+    btnMonitor.addActionListener(e -> rightFloat.setVisible(!rightFloat.isVisible()));
+
     if (isHdOpt) {
        topRow1.add(clipBtn);
        topRow1.add(songBtn);
        topRow1.add(arrBtn);
+       topRow1.add(btnExplorer);
+       topRow1.add(btnMonitor);
     } else {
        topBar.add(clipBtn);
        topBar.add(songBtn);
        topBar.add(arrBtn);
+       topBar.add(btnExplorer);
+       topBar.add(btnMonitor);
        topBar.add(new JSeparator(JSeparator.VERTICAL));
     }
+
 
 
     // Transport
@@ -507,10 +527,19 @@ public class SwingDelugeApp extends JFrame {
 
     JPanel centeredWrapper = new JPanel(new GridBagLayout());
     centeredWrapper.setBackground(new Color(0x1a, 0x1a, 0x1a));
-    centeredWrapper.add(centerCardPanel);
+    
+    GridBagConstraints wrapperGbc = new GridBagConstraints();
+    wrapperGbc.fill = GridBagConstraints.BOTH;
+    wrapperGbc.anchor = GridBagConstraints.NORTHWEST;
+    wrapperGbc.gridx = 0; wrapperGbc.gridy = 0;
+    centeredWrapper.add(centerCardPanel, wrapperGbc);
+
     
     boolean isHd = Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("hd.optimization", "false"));
-    centeredWrapper.setPreferredSize(isHd ? new Dimension(1500, 700) : new Dimension(2600, 1300));
+    centeredWrapper.setPreferredSize(isHd ? new Dimension(1650, 1000) : new Dimension(2600, 1700));
+
+
+
 
 
 
@@ -521,6 +550,7 @@ public class SwingDelugeApp extends JFrame {
     gbc.fill = GridBagConstraints.BOTH;
     gbc.gridx = 1; gbc.gridy = 1; gbc.gridwidth = 1; gbc.weightx = 0.0; gbc.weighty = 1.0;
     add(centerScroll, gbc);
+    javax.swing.SwingUtilities.invokeLater(() -> centerScroll.getVerticalScrollBar().setValue(0));
 
 
 
@@ -569,19 +599,14 @@ public class SwingDelugeApp extends JFrame {
 
 
 
-    if (isHdOpt) {
-       JDialog leftFloat = new JDialog(this, "SD Explorer", false);
-       leftFloat.setSize(300, 700);
-       leftFloat.setLocation(50, 150);
-       leftFloat.add(sidebarPanel);
-       leftFloat.setVisible(true);
+    leftFloat.add(sidebarPanel);
+    rightFloat.add(visualizerPanel);
 
-       JDialog rightFloat = new JDialog(this, "Acoustics Monitor", false);
-       rightFloat.setSize(280, 700);
-       rightFloat.setLocation(1600, 150);
-       rightFloat.add(visualizerPanel);
+    if (isHdOpt) {
+       leftFloat.setVisible(true);
        rightFloat.setVisible(true);
     } else {
+
        gbc.gridx = 0; gbc.gridy = 1; gbc.gridwidth = 1; gbc.weightx = 0.5; gbc.weighty = 1.0;
        add(sidebarPanel, gbc);
 
@@ -598,43 +623,13 @@ public class SwingDelugeApp extends JFrame {
 
 
 
-    // 6. Bottom Area - Row 2 (Velocity lane plot)
-    SwingVelocityLanePanel bottomLane = new SwingVelocityLanePanel(vm, bridge);
+    // bottom lane purged
+
     
     // 5. Bottom Area - Rows 9 and 10 (Param Deck)
-    int padSz = isHd ? 70 : 120;
+    // Obsolete bottom parameter deck removed. Integrated in 10x18 pads matrix.
 
 
-
-    JPanel ribbonStrip = new JPanel();
-    ribbonStrip.setLayout(new BoxLayout(ribbonStrip, BoxLayout.X_AXIS));
-    ribbonStrip.setBackground(new Color(0x1f, 0x1f, 0x1f));
-    ribbonStrip.add(Box.createHorizontalStrut(172)); // Aligns left margin with pads columns
-
-    String[] allParams = {
-       "LEVEL", "PAN", "PITCH", "FILTER", "RESONANCE", "OSC1", "OSC2", "LFO",
-       "MOD FX", "DELAY", "REVERB", "STUTTER", "PROBABILITY", "GATE", "VELOCITY", "SAMPLE"
-    };
-
-    for (String label : allParams) {
-       JButton btn = new JButton(label);
-       btn.setPreferredSize(new Dimension(padSz, 50));
-       btn.setMaximumSize(new Dimension(padSz, 50));
-       btn.setBackground(new Color(0x33, 0x33, 0x33));
-       btn.setForeground(Color.LIGHT_GRAY);
-       btn.addActionListener(e -> bottomLane.setMode(label));
-       ribbonStrip.add(btn);
-       ribbonStrip.add(Box.createHorizontalStrut(5));
-    }
-
-
-
-
-    gbc.gridx = 0; gbc.gridy = 2; gbc.gridwidth = 3; gbc.weightx = 1.0; gbc.weighty = 0.0;
-    add(ribbonStrip, gbc);
-
-    gbc.gridx = 0; gbc.gridy = 3; gbc.gridwidth = 3; gbc.weightx = 1.0; gbc.weighty = 0.0;
-    add(bottomLane, gbc);
 
 
 
