@@ -286,8 +286,53 @@ public class SwingProjectSidebarPanel extends JPanel {
           }
         });
 
-    return new JScrollPane(tree);
+    JButton shuffleBtn = new JButton("🎲 SHUFFLE DRUM KIT");
+    shuffleBtn.setBackground(new Color(0x33, 0x33, 0x33));
+    shuffleBtn.setForeground(Color.WHITE);
+    shuffleBtn.setFont(new Font("SansSerif", Font.BOLD, 14));
+    
+    shuffleBtn.addActionListener(e -> {
+        String[] pool = {
+           "SAMPLES/DRUMS/Kick/808 Kick.wav",
+           "SAMPLES/DRUMS/Snare/808 Snare.wav",
+           "SAMPLES/DRUMS/HatC/808 Closed hihat.wav",
+           "SAMPLES/DRUMS/HatO/808 Open hihat.wav",
+           "SAMPLES/DRUMS/Shaker/808 Maraca.wav",
+           "SAMPLES/DRUMS/Rim/808 Rim.wav",
+           "SAMPLES/DRUMS/Claves/808 Claves.WAV",
+           "SAMPLES/DRUMS/Clap/808 Clap.WAV"
+        };
+        java.util.List<String> list = java.util.Arrays.asList(pool);
+        java.util.Collections.shuffle(list);
+        
+        for (int i = 0; i < 8; i++) {
+            String resPath = list.get(i);
+            if (!resPath.startsWith("/")) resPath = "/" + resPath;
+            String sp = resPath;
+            try (java.io.InputStream resIs = getClass().getResourceAsStream(resPath) != null ? 
+                   getClass().getResourceAsStream(resPath) : 
+                   getClass().getResourceAsStream(resPath.replace(".wav", ".WAV"))) {
+               if (resIs != null) {
+                  java.io.File tempFile = new java.io.File(System.getProperty("user.home") + "/.gemini/jetski/scratch/" + new java.io.File(resPath).getName());
+                  java.nio.file.Files.copy(resIs, tempFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                  sp = tempFile.getAbsolutePath();
+               }
+            } catch (Exception ex) {}
+            
+            vm.setGlobalString("g_sample_" + i, sp);
+            bridge.setMute(i, false);
+            bridge.setTrackType(i, 0);
+        }
+        vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+    });
+
+    JPanel wrapper = new JPanel(new BorderLayout());
+    wrapper.add(shuffleBtn, BorderLayout.NORTH);
+    wrapper.add(new JScrollPane(tree), BorderLayout.CENTER);
+
+    return wrapper;
   }
+
 
   public void setOnSongLoaded(java.util.function.Consumer<org.chuck.deluge.model.ProjectModel> callback) {
     this.onSongLoaded = callback;
