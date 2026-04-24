@@ -133,6 +133,9 @@ public class SwingGridPanel extends JPanel {
       JPanel rowPanel = new JPanel();
       rowPanel.setLayout(new BoxLayout(rowPanel, BoxLayout.X_AXIS));
       rowPanel.setBackground(new Color(0x22, 0x22, 0x22));
+      rowPanel.setPreferredSize(new Dimension(3000, padSz));
+      rowPanel.setMinimumSize(new Dimension(3000, padSz));
+      rowPanel.setMaximumSize(new Dimension(3000, padSz));
 
       final int currentTrack = t;
       if (t < tracks.size()) {
@@ -233,6 +236,8 @@ public class SwingGridPanel extends JPanel {
         clipBtn.setPreferredSize(new Dimension(padSz, padSz));
         clipBtn.setMinimumSize(new Dimension(padSz, padSz));
         clipBtn.setMaximumSize(new Dimension(padSz, padSz));
+        clipBtn.setMargin(new Insets(0, 0, 0, 0));
+
         
         pads[t][c] = clipBtn;
 
