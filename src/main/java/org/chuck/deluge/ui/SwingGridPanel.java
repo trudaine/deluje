@@ -127,8 +127,9 @@ public class SwingGridPanel extends JPanel {
     }
 
 
-    boolean isHd = Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("hd.optimization", "false"));
-    final int padSz = isHd ? 90 : 120;
+    String res = org.chuck.deluge.project.PreferencesManager.get("screen.resolution", "QHD");
+    final int padSz = "FHD".equals(res) ? 90 : ("4K".equals(res) ? 180 : 120);
+
 
 
     for (int t = 0; t < 11; t++) {

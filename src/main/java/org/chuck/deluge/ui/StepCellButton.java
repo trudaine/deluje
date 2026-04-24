@@ -35,7 +35,10 @@ public class StepCellButton extends ToggleButton {
     this.bridge = bridge;
     this.editModeSupplier = editModeSupplier;
 
-    setPrefSize(52, 52);
+    String res = org.chuck.deluge.project.PreferencesManager.get("screen.resolution", "QHD");
+    int padSz = "FHD".equals(res) ? 52 : ("4K".equals(res) ? 104 : 70);
+    setPrefSize(padSz, padSz);
+
 
     updateStyle();
 

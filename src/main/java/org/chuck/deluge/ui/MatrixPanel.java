@@ -66,19 +66,9 @@ public class MatrixPanel extends BorderPane {
           }
         });
 
-    javafx.scene.control.CheckBox hdOptCheck = new javafx.scene.control.CheckBox("HD Optimization (Grid Pad Rescale)");
-    hdOptCheck.setSelected(Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("hd.optimization", "false")));
-    hdOptCheck.setStyle("-fx-text-fill: orange; -fx-font-weight: bold;");
-    hdOptCheck.setOnAction(e -> {
-       org.chuck.deluge.project.PreferencesManager.set("hd.optimization", String.valueOf(hdOptCheck.isSelected()));
-    });
-
-    javafx.scene.control.CheckBox floatPanelsCheck = new javafx.scene.control.CheckBox("Separate Floating Panels");
-    floatPanelsCheck.setSelected(Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("hd.optimization", "false"))); // aligned to same setup
-    floatPanelsCheck.setStyle("-fx-text-fill: lightblue; -fx-font-weight: bold;");
-
-    topControls.getChildren().addAll(editPresetBtn, hdOptCheck, floatPanelsCheck);
+    topControls.getChildren().addAll(editPresetBtn);
     setTop(topControls);
+
 
 
     createRows(11);
@@ -102,7 +92,11 @@ public class MatrixPanel extends BorderPane {
 
   private void createRows(int count) {
     rowContainer.getChildren().clear();
+    String res = org.chuck.deluge.project.PreferencesManager.get("screen.resolution", "QHD");
+    final int padSz = "FHD".equals(res) ? 52 : ("4K".equals(res) ? 104 : 70);
+    
     rows = new TrackRowPanel[count];
+
 
     Object trackTypeObj = vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
     ChuckArray trackTypeArray =
@@ -133,7 +127,7 @@ public class MatrixPanel extends BorderPane {
              final int slot = c;
              if (c >= 16) {
                 javafx.scene.control.Button emptyBtn = new javafx.scene.control.Button();
-                emptyBtn.setPrefSize(52, 52);
+                emptyBtn.setPrefSize(padSz, padSz);
                 emptyBtn.setDisable(true);
                 ctrlRow.getChildren().add(emptyBtn);
                 continue;
@@ -141,30 +135,30 @@ public class MatrixPanel extends BorderPane {
              
              if (i == 8) {
                 javafx.scene.control.Button btn = new javafx.scene.control.Button(allParams[c]);
-                btn.setPrefSize(52, 52);
+                btn.setPrefSize(padSz, padSz);
                 btn.setStyle("-fx-base: #333; -fx-text-fill: #ccc; -fx-font-size: 8px; -fx-font-weight: bold;");
                 ctrlRow.getChildren().add(btn);
              } else {
-                javafx.scene.canvas.Canvas slider = new javafx.scene.canvas.Canvas(52, 52);
+                javafx.scene.canvas.Canvas slider = new javafx.scene.canvas.Canvas(padSz, padSz);
                 javafx.scene.canvas.GraphicsContext gc = slider.getGraphicsContext2D();
                 
                 Runnable redraw = () -> {
-                   gc.clearRect(0, 0, 52, 52);
+                   gc.clearRect(0, 0, padSz, padSz);
                    gc.setFill(javafx.scene.paint.Color.rgb(0x00, 0xff, 0xcc, 0.7));
                    double val = (bridge != null) ? bridge.getVelocity(0, slot) : 0.5;
-                   double barH = val * 52;
-                   gc.fillRect(0, 52 - barH, 52, barH);
+                   double barH = val * padSz;
+                   gc.fillRect(0, padSz - barH, padSz, barH);
                 };
                 redraw.run();
                 
                 slider.setOnMouseDragged(e -> {
-                   double v = 1.0 - e.getY() / 52.0;
+                   double v = 1.0 - e.getY() / (double)padSz;
                    v = Math.max(0.0, Math.min(1.0, v));
                    bridge.setVelocity(0, slot, v);
                    redraw.run();
                 });
                 slider.setOnMousePressed(e -> {
-                   double v = 1.0 - e.getY() / 52.0;
+                   double v = 1.0 - e.getY() / (double)padSz;
                    v = Math.max(0.0, Math.min(1.0, v));
                    bridge.setVelocity(0, slot, v);
                    redraw.run();
@@ -172,7 +166,7 @@ public class MatrixPanel extends BorderPane {
                 
                 javafx.scene.layout.StackPane wrap = new javafx.scene.layout.StackPane(slider);
                 wrap.setStyle("-fx-border-color: #444; -fx-border-width: 1; -fx-background-color: #111;");
-                wrap.setPrefSize(52, 52);
+                wrap.setPrefSize(padSz, padSz);
                 ctrlRow.getChildren().add(wrap);
 
              }
@@ -200,7 +194,8 @@ public class MatrixPanel extends BorderPane {
              boolean isBlack = (c % 12 == 1 || c % 12 == 3 || c % 12 == 6 || c % 12 == 8 || c % 12 == 10);
              
              javafx.scene.control.Button btn = new javafx.scene.control.Button(String.valueOf(note));
-             btn.setPrefSize(40, 40);
+             btn.setPrefSize(padSz, padSz);
+
              btn.setStyle("-fx-base: " + (isBlack ? "#333" : "#fff") + "; -fx-text-fill: " + (isBlack ? "#fff" : "#000") + "; -fx-font-size: 9px; -fx-font-weight: bold;");
              
              btn.setOnAction(e -> {

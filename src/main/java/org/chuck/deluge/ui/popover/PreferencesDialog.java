@@ -91,11 +91,12 @@ public class PreferencesDialog extends Dialog<Void> {
     linkingCombo.setValue(PreferencesManager.get("preset.linking.policy", "EMBED"));
     grid.add(linkingCombo, 1, 7);
 
-    grid.add(new Label("HD Screen Optimization:"), 0, 8);
-    javafx.scene.control.CheckBox hdModeCheck = new javafx.scene.control.CheckBox();
-    boolean currentHd = Boolean.parseBoolean(PreferencesManager.get("hd.optimization", "false"));
-    hdModeCheck.setSelected(currentHd);
-    grid.add(hdModeCheck, 1, 8);
+    grid.add(new Label("Screen Resolution:"), 0, 8);
+    ComboBox<String> resCombo = new ComboBox<>();
+    resCombo.getItems().addAll("FHD", "QHD", "4K");
+    resCombo.setValue(PreferencesManager.get("screen.resolution", "QHD"));
+    grid.add(resCombo, 1, 8);
+
 
 
     getDialogPane().setContent(grid);
@@ -111,7 +112,8 @@ public class PreferencesDialog extends Dialog<Void> {
             PreferencesManager.set("midi.grid.mode", String.valueOf(gridModeCheck.isSelected()));
             PreferencesManager.set("show.tooltips", String.valueOf(tooltipCheck.isSelected()));
             PreferencesManager.set("preset.linking.policy", linkingCombo.getValue());
-            PreferencesManager.set("hd.optimization", String.valueOf(hdModeCheck.isSelected()));
+            PreferencesManager.set("screen.resolution", resCombo.getValue());
+
 
           }
           return null;

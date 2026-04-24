@@ -266,11 +266,12 @@ public class SwingDelugeApp extends JFrame {
       JCheckBox tooltipCheck = new JCheckBox("", Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("show.tooltips", "true")));
       mainGrid.add(tooltipCheck, c);
 
-       c.gridx = 0; c.gridy = 9;
-       mainGrid.add(new JLabel("HD Screen Optimization (Floating Panels):"), c);
-       c.gridx = 1;
-       JCheckBox hdModeCheck = new JCheckBox("", Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("hd.optimization", "false")));
-       mainGrid.add(hdModeCheck, c);
+      c.gridx = 0; c.gridy = 9;
+      mainGrid.add(new JLabel("Screen Resolution:"), c);
+      c.gridx = 1;
+      JComboBox<String> screenResCombo = new JComboBox<>(new String[]{"FHD", "QHD", "4K"});
+      screenResCombo.setSelectedItem(org.chuck.deluge.project.PreferencesManager.get("screen.resolution", "QHD"));
+      mainGrid.add(screenResCombo, c);
 
       // 4. Active Mappings
       c.gridx = 0; c.gridy = 10;
@@ -318,7 +319,8 @@ public class SwingDelugeApp extends JFrame {
         org.chuck.deluge.project.PreferencesManager.set("debug.audio", String.valueOf(debugCheck.isSelected()));
         org.chuck.deluge.project.PreferencesManager.set("midi.grid.mode", String.valueOf(gridModeCheck.isSelected()));
         org.chuck.deluge.project.PreferencesManager.set("show.tooltips", String.valueOf(tooltipCheck.isSelected()));
-        org.chuck.deluge.project.PreferencesManager.set("hd.optimization", String.valueOf(hdModeCheck.isSelected()));
+        org.chuck.deluge.project.PreferencesManager.set("screen.resolution", (String) screenResCombo.getSelectedItem());
+
         dialog.dispose();
         JOptionPane.showMessageDialog(SwingDelugeApp.this, "Screen proportions applied! Please restart application to fully engage desktop scaling docks.");
 
@@ -347,13 +349,8 @@ public class SwingDelugeApp extends JFrame {
     });
 
 
-    JCheckBoxMenuItem hdOptMenu = new JCheckBoxMenuItem("Use HD Screen (Compact Grid)", Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("hd.optimization", "false")));
-    hdOptMenu.addActionListener(e -> {
-       org.chuck.deluge.project.PreferencesManager.set("hd.optimization", String.valueOf(hdOptMenu.isSelected()));
-       JOptionPane.showMessageDialog(SwingDelugeApp.this, "Settings updated! Please restart the application to apply the grid layout changes.");
-    });
-    settingsMenu.add(hdOptMenu);
     settingsMenu.add(prefItem);
+
 
 
     menuBar.add(fileMenu);
