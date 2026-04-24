@@ -347,7 +347,14 @@ public class SwingDelugeApp extends JFrame {
     });
 
 
+    JCheckBoxMenuItem hdOptMenu = new JCheckBoxMenuItem("Use HD Screen (Compact Grid)", Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("hd.optimization", "false")));
+    hdOptMenu.addActionListener(e -> {
+       org.chuck.deluge.project.PreferencesManager.set("hd.optimization", String.valueOf(hdOptMenu.isSelected()));
+       JOptionPane.showMessageDialog(SwingDelugeApp.this, "Settings updated! Please restart the application to apply the grid layout changes.");
+    });
+    settingsMenu.add(hdOptMenu);
     settingsMenu.add(prefItem);
+
 
     menuBar.add(fileMenu);
     menuBar.add(settingsMenu);
@@ -652,8 +659,22 @@ public class SwingDelugeApp extends JFrame {
     });
     masterFxPanel.add(bVolLabel); masterFxPanel.add(bottomMasterVolSlider);
 
+    JLabel transLabel = new JLabel("Transpose:");
+    transLabel.setForeground(Color.WHITE);
+    JSlider transSlider = new JSlider(-24, 24, 0);
+    transSlider.setSnapToTicks(true);
+    transSlider.setMajorTickSpacing(12);
+
+    transSlider.setPaintTicks(true);
+    masterFxPanel.add(transLabel); masterFxPanel.add(transSlider);
+
+    JLabel scaleLabel = new JLabel("Scale:");
+    scaleLabel.setForeground(Color.WHITE);
+    JComboBox<String> scaleCombo = new JComboBox<>(new String[]{"Major", "Minor", "Pentatonic", "Chromatic"});
+    masterFxPanel.add(scaleLabel); masterFxPanel.add(scaleCombo);
 
     JLabel statusCounter = new JLabel("1:1:1");
+
     statusCounter.setForeground(Color.GREEN);
     statusCounter.setFont(new Font("Monospaced", Font.BOLD, 24));
     masterFxPanel.add(statusCounter);

@@ -35,7 +35,8 @@ public class StepCellButton extends ToggleButton {
     this.bridge = bridge;
     this.editModeSupplier = editModeSupplier;
 
-    setPrefSize(40, 40);
+    setPrefSize(52, 52);
+
     updateStyle();
 
     // Sync with Bridge
