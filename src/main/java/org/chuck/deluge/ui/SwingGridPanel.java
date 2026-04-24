@@ -148,7 +148,9 @@ public class SwingGridPanel extends JPanel {
          }
       }
 
-      JLabel label = new JLabel(trackName);
+      final int trk = currentTrack;
+      final String tName = trackName;
+      JLabel label = new JLabel(tName);
       label.setPreferredSize(new Dimension(150, 30));
       label.setMinimumSize(new Dimension(150, 30));
       label.setMaximumSize(new Dimension(150, 30));
@@ -159,21 +161,21 @@ public class SwingGridPanel extends JPanel {
          @Override
          public void mouseClicked(java.awt.event.MouseEvent e) {
            if (e.isShiftDown()) {
-              isOneShotTrack[currentTrack] = !isOneShotTrack[currentTrack];
-              label.setText(isOneShotTrack[currentTrack] ? trackName + " (1SH)" : trackName);
+              isOneShotTrack[trk] = !isOneShotTrack[trk];
+              label.setText(isOneShotTrack[trk] ? tName + " (1SH)" : tName);
               return;
            }
            if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
-              Color chosen = JColorChooser.showDialog(SwingGridPanel.this, "Select Track Color", trackColors[currentTrack]);
+              Color chosen = JColorChooser.showDialog(SwingGridPanel.this, "Select Track Color", trackColors[trk]);
               if (chosen != null) {
-                 trackColors[currentTrack] = chosen;
+                 trackColors[trk] = chosen;
                  refresh();
               }
               return;
            }
 
           if (onEditRequest != null) {
-             onEditRequest.accept(currentTrack, 0);
+             onEditRequest.accept(trk, 0);
           }
         }
       });
@@ -188,8 +190,8 @@ public class SwingGridPanel extends JPanel {
       rowPanel.add(Box.createHorizontalStrut(5));
 
       Timer vuTimer = new Timer(33, ev -> {
-         vuLevels[currentTrack] *= 0.80; // decay
-         vu.setLvl(vuLevels[currentTrack]);
+         vuLevels[trk] *= 0.80; // decay
+         vu.setLvl(vuLevels[trk]);
       });
       vuTimer.start();
 
