@@ -279,9 +279,14 @@ public class MatrixPanel extends BorderPane {
     }
   }
 
+  public int getSelectedTrack() {
+    return selectedTrack;
+  }
+
   public EditMode getCurrentEditMode() {
     return currentEditMode;
   }
+
 
   private org.rtmidijava.RtMidiOut midiOut;
 

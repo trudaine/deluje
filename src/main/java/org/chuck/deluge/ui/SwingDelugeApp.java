@@ -71,9 +71,41 @@ public class SwingDelugeApp extends JFrame {
           }
           if (note != -1) {
              System.out.println("QWERTY Piano Trigger: Note " + note);
-             if (clipPanel != null) {
-                clipPanel.flashIsomorphicNote(note);
-             }
+              if (clipPanel != null) {
+                 clipPanel.flashIsomorphicNote(note);
+                 int trackId = clipPanel.getFocusTrack();
+                 
+                 boolean isSynth = clipPanel.getProjectModel() != null && 
+                                   !clipPanel.getProjectModel().getTracks().isEmpty() && 
+                                   clipPanel.getProjectModel().getTracks().get(0) instanceof org.chuck.deluge.model.SynthTrackModel;
+                 
+                 if (isSynth) {
+                     try {
+                         org.chuck.core.ChuckEvent noteEv = (org.chuck.core.ChuckEvent) vm.getGlobalObject("g_ck_noteOn");
+                         if (noteEv != null) {
+                             org.chuck.core.ChuckArray pitchArr = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_PITCH);
+                             pitchArr.setInt(0, (long)(note - 60)); 
+                             noteEv.broadcast();
+                         }
+                     } catch (Exception ex) {}
+                 } else {
+                     String sp = (String) vm.getGlobalObject("g_sample_" + trackId);
+                     if (sp != null && !sp.isEmpty()) {
+                        new Thread(() -> {
+                           try {
+                              java.io.File file = new java.io.File(sp);
+                              if (file.exists()) {
+                                 javax.sound.sampled.AudioInputStream stream = javax.sound.sampled.AudioSystem.getAudioInputStream(file);
+                                 javax.sound.sampled.Clip c = javax.sound.sampled.AudioSystem.getClip();
+                                 c.open(stream);
+                                 c.start();
+                              }
+                           } catch (Exception ex) {}
+                        }).start();
+                     }
+                 }
+              }
+
           }
 
        }
@@ -536,6 +568,9 @@ public class SwingDelugeApp extends JFrame {
 
     gbc.gridx = 0; gbc.gridy = 3; gbc.gridwidth = 3; gbc.weightx = 1.0; gbc.weighty = 0.0;
     add(bottomLane, gbc);
+
+
+
 
 
     // 7. Bottom Area - Row 3 (Master FX dials bounding boxes)

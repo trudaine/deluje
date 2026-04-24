@@ -38,12 +38,23 @@ public class SwingGridPanel extends JPanel {
     setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
   }
 
+  private int focusTrack = 0;
+  public int getFocusTrack() {
+     return focusTrack;
+  }
+
   public void setViewMode(GridViewMode mode) {
+
     this.viewMode = mode;
     refresh();
   }
 
+  public org.chuck.deluge.model.ProjectModel getProjectModel() {
+     return projectModel;
+  }
+
   public void setProjectModel(org.chuck.deluge.model.ProjectModel model) {
+
     this.projectModel = model;
     refresh();
   }
@@ -194,16 +205,23 @@ public class SwingGridPanel extends JPanel {
              clipBtn.setBackground(!isMuted ? Color.RED : new Color(0x33, 0x33, 0x33));
            });
         } else if (c == 17) {
-           clipBtn.setText("EDIT");
-           clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
+            clipBtn.setText("EDIT");
+            clipBtn.setBackground(focusTrack == currentTrack ? Color.GREEN : new Color(0x33, 0x33, 0x33));
+
            clipBtn.addActionListener(e -> {
              if ((e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0) {
                 // Delete track clips (or reset mock)
                 return;
              }
-             if (onEditRequest != null) {
-               onEditRequest.accept(currentTrack, 0);
-             }
+              if (viewMode == GridViewMode.CLIP) {
+                 focusTrack = currentTrack;
+                 refresh(); // redraws backgrounds
+                 return;
+              }
+              if (onEditRequest != null) {
+                onEditRequest.accept(currentTrack, 0);
+              }
+
            });
         }
  else {
@@ -251,17 +269,41 @@ public class SwingGridPanel extends JPanel {
 
                     dialog.setVisible(true);
                  } else if (javax.swing.SwingUtilities.isLeftMouseButton(e)) {
-                    int currentStep = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
-                    int offset = (currentStep >= 0) ? (currentStep / 16) * 16 : 0;
-                    boolean stepState = bridge.getStep(currentTrack, offset + slot);
-                    
-                    bridge.setStep(currentTrack, offset + slot, !stepState);
-                    clipBtn.setBackground(!stepState ? trackColors[currentTrack] : new Color(0x33, 0x33, 0x33));
-                    if (!stepState) {
-                       String sp = (String) vm.getGlobalObject("g_sample_" + currentTrack);
-                       playWaveFile(sp);
-                    }
-                 }
+                     int currentStep = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
+                     int offset = (currentStep >= 0) ? (currentStep / 16) * 16 : 0;
+                     boolean isSynthMode = projectModel != null && 
+                                           !projectModel.getTracks().isEmpty() && 
+                                           projectModel.getTracks().get(0) instanceof org.chuck.deluge.model.SynthTrackModel;
+                     
+                     if (isSynthMode) {
+                        boolean st = bridge.getStep(0, offset + slot);
+                        bridge.setStep(0, offset + slot, !st);
+                        if (!st) {
+                           bridge.setPitch(0, offset + slot, (24 - 1) - currentTrack);
+                           
+                           // Audition Synth
+                           try {
+                              org.chuck.core.ChuckEvent noteEv = (org.chuck.core.ChuckEvent) vm.getGlobalObject("g_ck_noteOn");
+                              if (noteEv != null) {
+                                 org.chuck.core.ChuckArray pitchArr = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_PITCH);
+                                 pitchArr.setInt(0, (long)((24 - 1) - currentTrack));
+
+                                 noteEv.broadcast();
+                              }
+                           } catch (Exception ex) {}
+                        }
+                        clipBtn.setBackground(!st ? trackColors[0] : new Color(0x33, 0x33, 0x33));
+                     } else {
+                        boolean stepState = bridge.getStep(currentTrack, offset + slot);
+                        bridge.setStep(currentTrack, offset + slot, !stepState);
+                        clipBtn.setBackground(!stepState ? trackColors[currentTrack] : new Color(0x33, 0x33, 0x33));
+                        if (!stepState) {
+                           String sp = (String) vm.getGlobalObject("g_sample_" + currentTrack);
+                           playWaveFile(sp);
+                        }
+                     }
+                  }
+
                }
              });
 
@@ -452,6 +494,28 @@ public class SwingGridPanel extends JPanel {
                 
                 g2.setColor(new Color(0x1a, 0x1a, 0x1a));
                 g2.fillRect(bx, 0, (int)(keyW / 2.0), keyH / 2);
+             }
+             
+             // Draw QWERTY assistants
+             g2.setFont(new Font("SansSerif", Font.BOLD, 14));
+             String[] whiteQwerty = {"Z", "X", "C", "V", "B", "N", "M"};
+             for (int i = 0; i < 7; i++) {
+                int x = (int) (gridX + i * keyW);
+                g2.setColor(Color.GRAY);
+                g2.drawString(whiteQwerty[i], x + 10, keyH - 15);
+             }
+             
+             String[] blackQwerty = {"S", "D", "", "G", "H", "J"};
+             for (int i = 0; i < blackKeyOffsets.length; i++) {
+                if (i < 6 && !blackQwerty[i].isEmpty()) {
+                   int offsetKey = blackKeyOffsets[i];
+                   int x = (int) (gridX + offsetKey * keyW);
+                   int nextX = (int) (gridX + (offsetKey + 1) * keyW);
+                   int kw = nextX - x;
+                   int bx = x + kw - (int)(keyW / 3.0);
+                   g2.setColor(Color.WHITE);
+                   g2.drawString(blackQwerty[i], bx + 2, (keyH / 2) - 5);
+                }
              }
 
           }
