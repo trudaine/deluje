@@ -266,8 +266,14 @@ public class SwingDelugeApp extends JFrame {
       JCheckBox tooltipCheck = new JCheckBox("", Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("show.tooltips", "true")));
       mainGrid.add(tooltipCheck, c);
 
+       c.gridx = 0; c.gridy = 9;
+       mainGrid.add(new JLabel("HD Screen Optimization (Floating Panels):"), c);
+       c.gridx = 1;
+       JCheckBox hdModeCheck = new JCheckBox("", Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("hd.optimization", "false")));
+       mainGrid.add(hdModeCheck, c);
+
       // 4. Active Mappings
-      c.gridx = 0; c.gridy = 9;
+      c.gridx = 0; c.gridy = 10;
       mainGrid.add(new JLabel("Active Mappings:"), c);
       c.gridx = 1;
       DefaultListModel<String> listModel = new DefaultListModel<>();
@@ -312,7 +318,11 @@ public class SwingDelugeApp extends JFrame {
         org.chuck.deluge.project.PreferencesManager.set("debug.audio", String.valueOf(debugCheck.isSelected()));
         org.chuck.deluge.project.PreferencesManager.set("midi.grid.mode", String.valueOf(gridModeCheck.isSelected()));
         org.chuck.deluge.project.PreferencesManager.set("show.tooltips", String.valueOf(tooltipCheck.isSelected()));
+        org.chuck.deluge.project.PreferencesManager.set("hd.optimization", String.valueOf(hdModeCheck.isSelected()));
         dialog.dispose();
+        JOptionPane.showMessageDialog(SwingDelugeApp.this, "Screen proportions applied! Please restart application to fully engage desktop scaling docks.");
+
+
       });
 
       // Apply large font to all elements
@@ -515,18 +525,31 @@ public class SwingDelugeApp extends JFrame {
     });
 
 
-    gbc.gridx = 0; gbc.gridy = 1; gbc.gridwidth = 1; gbc.weightx = 0.5; gbc.weighty = 1.0;
-    add(sidebarPanel, gbc);
+    boolean isHdOpt = Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("hd.optimization", "false"));
 
+    if (isHdOpt) {
+       JDialog leftFloat = new JDialog(this, "SD Explorer", false);
+       leftFloat.setSize(300, 700);
+       leftFloat.setLocation(50, 150);
+       leftFloat.add(sidebarPanel);
+       leftFloat.setVisible(true);
 
-    // 4. Right Side Viewport (Curves/Graphs/Visualizers)
-    visualizerPanel = new SwingVisualizerPanel(vm, bridge);
+       JDialog rightFloat = new JDialog(this, "Acoustics Monitor", false);
+       rightFloat.setSize(280, 700);
+       rightFloat.setLocation(1600, 150);
+       rightFloat.add(visualizerPanel);
+       rightFloat.setVisible(true);
+    } else {
+       gbc.gridx = 0; gbc.gridy = 1; gbc.gridwidth = 1; gbc.weightx = 0.5; gbc.weighty = 1.0;
+       add(sidebarPanel, gbc);
 
-    visualizerPanel.setPreferredSize(new Dimension(300, 0));
-    gbc.gridx = 2; gbc.gridy = 1; gbc.gridwidth = 1; gbc.weightx = 0.5; gbc.weighty = 1.0;
-    add(visualizerPanel, gbc);
+       visualizerPanel.setPreferredSize(new Dimension(300, 0));
+       gbc.gridx = 2; gbc.gridy = 1; gbc.gridwidth = 1; gbc.weightx = 0.5; gbc.weighty = 1.0;
+       add(visualizerPanel, gbc);
+    }
 
     new Timer(33, e -> visualizerPanel.repaint()).start();
+
 
 
 
