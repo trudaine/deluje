@@ -60,4 +60,5 @@ else
 fi
 
 echo "Launching Deluge ($JAR_NAME)..."
-"$JAVA_EXEC" --enable-preview --add-modules jdk.incubator.vector -jar "$JAR_NAME"
+"$JAVA_EXEC" --enable-preview --add-modules jdk.incubator.vector -jar "$JAR_NAME" --swing
+
