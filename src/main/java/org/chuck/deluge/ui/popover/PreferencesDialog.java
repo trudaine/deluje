@@ -83,11 +83,20 @@ public class PreferencesDialog extends Dialog<Void> {
     javafx.scene.control.CheckBox tooltipCheck = new javafx.scene.control.CheckBox();
     boolean currentTooltip = Boolean.parseBoolean(PreferencesManager.get("show.tooltips", "true"));
     tooltipCheck.setSelected(currentTooltip);
+    grid.add(tooltipCheck, 1, 6);
+
     grid.add(new Label("Preset Linking:"), 0, 7);
     ComboBox<String> linkingCombo = new ComboBox<>();
     linkingCombo.getItems().addAll("EMBED", "LINK_LIVE");
     linkingCombo.setValue(PreferencesManager.get("preset.linking.policy", "EMBED"));
     grid.add(linkingCombo, 1, 7);
+
+    grid.add(new Label("HD Screen Optimization:"), 0, 8);
+    javafx.scene.control.CheckBox hdModeCheck = new javafx.scene.control.CheckBox();
+    boolean currentHd = Boolean.parseBoolean(PreferencesManager.get("hd.optimization", "false"));
+    hdModeCheck.setSelected(currentHd);
+    grid.add(hdModeCheck, 1, 8);
+
 
     getDialogPane().setContent(grid);
 
@@ -102,6 +111,8 @@ public class PreferencesDialog extends Dialog<Void> {
             PreferencesManager.set("midi.grid.mode", String.valueOf(gridModeCheck.isSelected()));
             PreferencesManager.set("show.tooltips", String.valueOf(tooltipCheck.isSelected()));
             PreferencesManager.set("preset.linking.policy", linkingCombo.getValue());
+            PreferencesManager.set("hd.optimization", String.valueOf(hdModeCheck.isSelected()));
+
           }
           return null;
         });

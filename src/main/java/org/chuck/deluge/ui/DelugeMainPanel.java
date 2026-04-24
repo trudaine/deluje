@@ -372,7 +372,21 @@ public class DelugeMainPanel extends BorderPane {
         });
     ribbonPanel.setOnModeChange(matrixPanel::setEditMode);
 
-    setLeft(sidebarPanel);
+    boolean isHdOpt = Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("hd.optimization", "false"));
+
+    javafx.stage.Stage explorerStage = new javafx.stage.Stage();
+    explorerStage.setTitle("SD Explorer");
+    javafx.stage.Stage monitorStage = new javafx.stage.Stage();
+    monitorStage.setTitle("Acoustics Monitor");
+
+    if (isHdOpt) {
+       javafx.scene.Scene s = new javafx.scene.Scene(sidebarPanel, 300, 700);
+       explorerStage.setScene(s);
+       explorerStage.show();
+    } else {
+       setLeft(sidebarPanel);
+    }
+
 
     HBox modeToggleBox = new HBox(5);
     modeToggleBox.setAlignment(Pos.CENTER_LEFT);
@@ -399,15 +413,49 @@ public class DelugeMainPanel extends BorderPane {
 
     modeToggleBox.getChildren().addAll(clipBtn, songBtn, arrBtn);
 
-    HBox transportWithMode = new HBox(20);
+    javafx.scene.layout.HBox transportWithMode = new javafx.scene.layout.HBox(20);
     transportWithMode.setAlignment(Pos.CENTER_LEFT);
     transportWithMode.getChildren().addAll(modeToggleBox, transportPanel);
 
-    VBox topBox = new VBox(0);
+    javafx.scene.layout.VBox topBox = new javafx.scene.layout.VBox(0);
     topBox.getChildren().addAll(menuBar, transportWithMode);
     setTop(topBox);
 
+
+
+    javafx.scene.control.Button btnExplorer = new javafx.scene.control.Button("📂 EXPLORER");
+    btnExplorer.setOnAction(e -> {
+       if (explorerStage.isShowing()) {
+          explorerStage.hide();
+          setLeft(sidebarPanel);
+       } else {
+          setLeft(null);
+          javafx.scene.Scene s = new javafx.scene.Scene(sidebarPanel, 300, 700);
+          explorerStage.setScene(s);
+          explorerStage.show();
+       }
+    });
+
+    javafx.scene.control.Button btnMonitor = new javafx.scene.control.Button("📊 MONITOR");
+    btnMonitor.setOnAction(e -> {
+       javafx.scene.Node rightNode = getRight();
+       if (monitorStage.isShowing()) {
+          monitorStage.hide();
+          if (rightNode == null) setRight(new javafx.scene.layout.StackPane()); // placeholder or restore!
+       } else {
+          setRight(null);
+          if (rightNode != null) {
+             javafx.scene.Scene s = new javafx.scene.Scene((javafx.scene.Parent)rightNode, 280, 700);
+             monitorStage.setScene(s);
+             monitorStage.show();
+          }
+
+       }
+    });
+
+    transportWithMode.getChildren().addAll(btnExplorer, btnMonitor);
     transportWithMode.setPadding(new Insets(10, 10, 5, 10));
+
     ribbonPanel.setPadding(new Insets(5, 10, 5, 20));
 
     setCenter(matrixPanel);
@@ -422,14 +470,24 @@ public class DelugeMainPanel extends BorderPane {
       VisualizerPanel visualizerPanel = new VisualizerPanel(vm, audio, analyzer, scope, bridge);
 
       visualizerPanel.setPrefWidth(200);
-      setRight(visualizerPanel);
+       if (isHdOpt) {
+          javafx.scene.Scene s = new javafx.scene.Scene(visualizerPanel, 280, 700);
+          monitorStage.setScene(s);
+          monitorStage.show();
+       } else {
+          setRight(visualizerPanel);
+       }
+
       visualizerPanel.start();
     }
 
     VBox bottomBox = new VBox(5);
     bottomBox
         .getChildren()
-        .addAll(ribbonPanel, velocityPanel, globalParamPanel, masterFxPanel, statusPanel);
+        .addAll(globalParamPanel, masterFxPanel, statusPanel);
+
+
+
     setBottom(bottomBox);
   }
 

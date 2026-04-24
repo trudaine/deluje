@@ -12,11 +12,12 @@ public class SwingGridPanel extends JPanel {
 
   private org.chuck.deluge.model.ProjectModel projectModel;
   private java.util.function.BiConsumer<Integer, Integer> onEditRequest;
-  private JButton[][] pads = new JButton[10][18];
+  private JButton[][] pads = new JButton[11][18];
   private org.rtmidijava.RtMidiOut finalMidiOut;
-  private double[] vuLevels = new double[10];
+  private double[] vuLevels = new double[11];
   private Timer activeStutterTimer;
-  private boolean[] isOneShotTrack = new boolean[10];
+  private boolean[] isOneShotTrack = new boolean[11];
+
 
 
 
@@ -36,8 +37,10 @@ public class SwingGridPanel extends JPanel {
     new Color(0x33, 0x99, 0xff), // Blue
     new Color(0xff, 0x33, 0x33), // Red
     new Color(0x33, 0x33, 0x33), // Dark Gray
-    new Color(0x22, 0x22, 0x22)  // Very Dark Gray
+    new Color(0x22, 0x22, 0x22), // Very Dark Gray
+    new Color(0x15, 0x15, 0x15)  // Almost Black
   };
+
 
 
 
@@ -125,9 +128,11 @@ public class SwingGridPanel extends JPanel {
 
 
     boolean isHd = Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("hd.optimization", "false"));
-    final int padSz = isHd ? 70 : 120;
+    final int padSz = isHd ? 90 : 120;
 
-    for (int t = 0; t < 10; t++) {
+
+    for (int t = 0; t < 11; t++) {
+
 
 
       JPanel rowPanel = new JPanel();
@@ -150,6 +155,8 @@ public class SwingGridPanel extends JPanel {
       String trackName = (t < tracks.size()) ? tracks.get(t).getName() : "EMPTY " + (t + 1);
       if (t == 8) trackName = "MACROS";
       if (t == 9) trackName = "SLIDERS";
+      if (t == 10) trackName = "KEYBOARD";
+
 
       if (viewMode == GridViewMode.CLIP && vm != null) {
          String samplePath = (String) vm.getGlobalObject("g_sample_" + (t));
@@ -229,9 +236,12 @@ public class SwingGridPanel extends JPanel {
                  g.fillRect(0, h - barH, w, barH);
               }
            };
+        } else if (trkId == 10 && colId < 18) {
+           clipBtn = new JButton();
         } else {
            clipBtn = new JButton();
         }
+
 
         clipBtn.setPreferredSize(new Dimension(padSz, padSz));
         clipBtn.setMinimumSize(new Dimension(padSz, padSz));
@@ -282,7 +292,29 @@ public class SwingGridPanel extends JPanel {
               clipBtn.setBackground(new Color(0x1a, 0x1a, 0x1a));
               clipBtn.setEnabled(false);
            }
+        } else if (trkId == 10) {
+           if (colId < 18) {
+              int note = 48 + colId; // starting at C3
+              boolean isBlack = (colId % 12 == 1 || colId % 12 == 3 || colId % 12 == 6 || colId % 12 == 8 || colId % 12 == 10);
+              
+              clipBtn.setBackground(isBlack ? new Color(0x33, 0x33, 0x33) : Color.WHITE);
+              clipBtn.setForeground(isBlack ? Color.WHITE : Color.BLACK);
+              clipBtn.setText(String.valueOf(note));
+              clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 14 : 10));
+              
+              clipBtn.addActionListener(e -> {
+                 try {
+                    org.chuck.core.ChuckEvent noteEv = (org.chuck.core.ChuckEvent) vm.getGlobalObject("g_ck_noteOn");
+                    if (noteEv != null) {
+                       org.chuck.core.ChuckArray pitchArr = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_PITCH);
+                       pitchArr.setInt(0, (long)(note - 60));
+                       noteEv.broadcast();
+                    }
+                 } catch (Exception ex) {}
+              });
+           }
         } else {
+
            if (viewMode == GridViewMode.CLIP) {
               clipBtn.setText("<html><font size='3'>Pi:" + (currentTrack) + "<br>Ve:0.8<br>Pr:1.0<br>Ga:1</font></html>");
            } else if (viewMode == GridViewMode.ARRANGEMENT) {

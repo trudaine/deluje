@@ -50,8 +50,11 @@ public class MatrixPanel extends BorderPane {
 
     setCenter(scrollPane);
 
-    keyboardPanel = new DelugeKeyboardPanel();
-    setBottom(keyboardPanel);
+
+
+    javafx.scene.layout.HBox topControls = new javafx.scene.layout.HBox(10);
+    topControls.setPadding(new Insets(5));
+    topControls.setAlignment(Pos.CENTER_LEFT);
 
     javafx.scene.control.Button editPresetBtn = new javafx.scene.control.Button("🎹 EDIT PRESET");
     editPresetBtn.setStyle(
@@ -62,9 +65,25 @@ public class MatrixPanel extends BorderPane {
             onEditPresetRequest.run();
           }
         });
-    setTop(editPresetBtn);
 
-    createRows(8);
+    javafx.scene.control.CheckBox hdOptCheck = new javafx.scene.control.CheckBox("HD Optimization (Grid Pad Rescale)");
+    hdOptCheck.setSelected(Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("hd.optimization", "false")));
+    hdOptCheck.setStyle("-fx-text-fill: orange; -fx-font-weight: bold;");
+    hdOptCheck.setOnAction(e -> {
+       org.chuck.deluge.project.PreferencesManager.set("hd.optimization", String.valueOf(hdOptCheck.isSelected()));
+    });
+
+    javafx.scene.control.CheckBox floatPanelsCheck = new javafx.scene.control.CheckBox("Separate Floating Panels");
+    floatPanelsCheck.setSelected(Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("hd.optimization", "false"))); // aligned to same setup
+    floatPanelsCheck.setStyle("-fx-text-fill: lightblue; -fx-font-weight: bold;");
+
+    topControls.getChildren().addAll(editPresetBtn, hdOptCheck, floatPanelsCheck);
+    setTop(topControls);
+
+
+    createRows(11);
+
+
     selectTrack(0); // Default selection
 
     setFocusTraversable(true);
@@ -114,7 +133,7 @@ public class MatrixPanel extends BorderPane {
              final int slot = c;
              if (c >= 16) {
                 javafx.scene.control.Button emptyBtn = new javafx.scene.control.Button();
-                emptyBtn.setPrefSize(40, 40);
+                emptyBtn.setPrefSize(52, 52);
                 emptyBtn.setDisable(true);
                 ctrlRow.getChildren().add(emptyBtn);
                 continue;
@@ -122,30 +141,30 @@ public class MatrixPanel extends BorderPane {
              
              if (i == 8) {
                 javafx.scene.control.Button btn = new javafx.scene.control.Button(allParams[c]);
-                btn.setPrefSize(40, 40);
+                btn.setPrefSize(52, 52);
                 btn.setStyle("-fx-base: #333; -fx-text-fill: #ccc; -fx-font-size: 8px; -fx-font-weight: bold;");
                 ctrlRow.getChildren().add(btn);
              } else {
-                javafx.scene.canvas.Canvas slider = new javafx.scene.canvas.Canvas(40, 40);
+                javafx.scene.canvas.Canvas slider = new javafx.scene.canvas.Canvas(52, 52);
                 javafx.scene.canvas.GraphicsContext gc = slider.getGraphicsContext2D();
                 
                 Runnable redraw = () -> {
-                   gc.clearRect(0, 0, 40, 40);
+                   gc.clearRect(0, 0, 52, 52);
                    gc.setFill(javafx.scene.paint.Color.rgb(0x00, 0xff, 0xcc, 0.7));
                    double val = (bridge != null) ? bridge.getVelocity(0, slot) : 0.5;
-                   double barH = val * 40;
-                   gc.fillRect(0, 40 - barH, 40, barH);
+                   double barH = val * 52;
+                   gc.fillRect(0, 52 - barH, 52, barH);
                 };
                 redraw.run();
                 
                 slider.setOnMouseDragged(e -> {
-                   double v = 1.0 - e.getY() / 40.0;
+                   double v = 1.0 - e.getY() / 52.0;
                    v = Math.max(0.0, Math.min(1.0, v));
                    bridge.setVelocity(0, slot, v);
                    redraw.run();
                 });
                 slider.setOnMousePressed(e -> {
-                   double v = 1.0 - e.getY() / 40.0;
+                   double v = 1.0 - e.getY() / 52.0;
                    v = Math.max(0.0, Math.min(1.0, v));
                    bridge.setVelocity(0, slot, v);
                    redraw.run();
@@ -153,15 +172,56 @@ public class MatrixPanel extends BorderPane {
                 
                 javafx.scene.layout.StackPane wrap = new javafx.scene.layout.StackPane(slider);
                 wrap.setStyle("-fx-border-color: #444; -fx-border-width: 1; -fx-background-color: #111;");
-                wrap.setPrefSize(40, 40);
+                wrap.setPrefSize(52, 52);
                 ctrlRow.getChildren().add(wrap);
+
              }
           }
           rowContainer.getChildren().add(ctrlRow);
           continue;
       }
 
+      if (i == 10) {
+          javafx.scene.layout.HBox ctrlRow = new javafx.scene.layout.HBox(5);
+          ctrlRow.setAlignment(Pos.CENTER_LEFT);
+          
+          javafx.scene.control.Label label = new javafx.scene.control.Label("KEYBOARD");
+          label.setPrefWidth(75);
+          label.setStyle("-fx-text-fill: lightgreen; -fx-font-weight: bold;");
+          
+          javafx.scene.control.Button emptyAudition = new javafx.scene.control.Button(">");
+          emptyAudition.setPrefWidth(25);
+          emptyAudition.setDisable(true);
+          
+          ctrlRow.getChildren().addAll(label, emptyAudition);
+          
+          for (int c = 0; c < 18; c++) {
+             final int note = 48 + c;
+             boolean isBlack = (c % 12 == 1 || c % 12 == 3 || c % 12 == 6 || c % 12 == 8 || c % 12 == 10);
+             
+             javafx.scene.control.Button btn = new javafx.scene.control.Button(String.valueOf(note));
+             btn.setPrefSize(40, 40);
+             btn.setStyle("-fx-base: " + (isBlack ? "#333" : "#fff") + "; -fx-text-fill: " + (isBlack ? "#fff" : "#000") + "; -fx-font-size: 9px; -fx-font-weight: bold;");
+             
+             btn.setOnAction(e -> {
+                 try {
+                    org.chuck.core.ChuckEvent noteEv = (org.chuck.core.ChuckEvent) vm.getGlobalObject("g_ck_noteOn");
+                    if (noteEv != null) {
+                       org.chuck.core.ChuckArray pitchArr = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_PITCH);
+                       pitchArr.setInt(0, (long)(note - 60));
+                       noteEv.broadcast();
+                    }
+                 } catch (Exception ex) {}
+             });
+             
+             ctrlRow.getChildren().add(btn);
+          }
+          rowContainer.getChildren().add(ctrlRow);
+          continue;
+      }
+
       rows[i] = new TrackRowPanel(i, "EMPTY", vm, bridge, this::getCurrentEditMode);
+
       rows[i].setOnMouseClicked(e -> selectTrack(trackIdx));
       rows[i].setStyle("-fx-border-color: transparent; -fx-border-width: 0 0 0 4;");
       rowContainer.getChildren().add(rows[i]);
