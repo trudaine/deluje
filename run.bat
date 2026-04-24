@@ -31,6 +31,7 @@ if %errorlevel% equ 0 (
 )
 
 echo Launching Deluge...
-"!JAVA_EXEC!" --enable-preview --add-modules jdk.incubator.vector -jar "!JAR_NAME!"
+"!JAVA_EXEC!" --enable-preview --add-modules jdk.incubator.vector -jar "!JAR_NAME!" --swing
+
 
 pause
