@@ -17,6 +17,8 @@ public class SwingGridPanel extends JPanel {
   private double[] vuLevels = new double[11];
   private Timer activeStutterTimer;
   private boolean[] isOneShotTrack = new boolean[11];
+  private int activeClipId = 0;
+
 
 
 
@@ -72,6 +74,10 @@ public class SwingGridPanel extends JPanel {
 
     this.projectModel = model;
     refresh();
+  }
+
+  public void setActiveClipId(int id) {
+     this.activeClipId = id;
   }
 
   public void setOnEditRequest(java.util.function.BiConsumer<Integer, Integer> callback) {
@@ -463,6 +469,14 @@ public class SwingGridPanel extends JPanel {
                         boolean stepState = bridge.getStep(trk, offset + colId);
                         bridge.setStep(trk, offset + colId, !stepState);
                         clipBtn.setBackground(!stepState ? trackColors[trk] : new Color(0x33, 0x33, 0x33));
+                         if (projectModel != null && trk < projectModel.getTracks().size()) {
+                            org.chuck.deluge.model.TrackModel tModel = projectModel.getTracks().get(trk);
+                            if (activeClipId < tModel.getClips().size()) {
+                               org.chuck.deluge.model.ClipModel cModel = tModel.getClips().get(activeClipId);
+                               cModel.setStep(trk, colId, new org.chuck.deluge.model.StepData(!stepState, 0.8f, 0.5f, 1.0f, 0));
+                            }
+                         }
+
                         if (!stepState) {
                            String sp = (String) vm.getGlobalObject("g_sample_" + trk);
                            playWaveFile(sp);

@@ -69,14 +69,14 @@ fun void monitor_sample_end(SndBuf buf, int end_pos) {
 
 // ── Kit Class for Dynamic Loading ────────────────────────────────────────
 class DelugeKit {
-    SndBuf kit[8];
-    Pan2   pan[8];
-    Gain   delay_send[8];
-    Gain   reverb_send[8];
-    Gain   mod_send[8];
+    SndBuf kit[64];
+    Pan2   pan[64];
+    Gain   delay_send[64];
+    Gain   reverb_send[64];
+    Gain   mod_send[64];
 
     fun void init(Gain master) {
-        for (0 => int i; i < 8; i++) {
+        for (0 => int i; i < 64; i++) {
             0 => kit[i].rate;
             kit[i].samples() => kit[i].pos;
             kit[i] => pan[i] => master;
@@ -95,10 +95,11 @@ class DelugeKit {
         if (g_sample_5 != "") g_sample_5 => kit[5].read;
         if (g_sample_6 != "") g_sample_6 => kit[6].read;
         if (g_sample_7 != "") g_sample_7 => kit[7].read;
-        for (0 => int i; i < 8; i++) {
+        for (0 => int i; i < 64; i++) {
             0 => kit[i].rate;
             kit[i].samples() => kit[i].pos;
         }
+
         if (Machine.loglevel() >= 1) <<< "ENGINE: Kit samples loaded" >>>;
     }
 

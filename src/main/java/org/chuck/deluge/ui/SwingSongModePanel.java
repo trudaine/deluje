@@ -121,11 +121,13 @@ public class SwingSongModePanel extends JPanel {
         if (c == 16) {
            clipBtn.setText("MUTE");
            clipBtn.setBackground(bridge.getMute(currentTrack * 8) ? Color.RED : new Color(0x33, 0x33, 0x33));
-           clipBtn.addActionListener(e -> {
-             boolean isMuted = bridge.getMute(currentTrack * 8);
-             bridge.setMute(currentTrack * 8, !isMuted);
-             clipBtn.setBackground(!isMuted ? Color.RED : new Color(0x33, 0x33, 0x33));
-           });
+            clipBtn.addActionListener(e -> {
+              boolean isMuted = bridge.getMute(currentTrack * 8);
+              for (int i = 0; i < 8; i++) {
+                 bridge.setMute(currentTrack * 8 + i, !isMuted);
+              }
+              clipBtn.setBackground(!isMuted ? Color.RED : new Color(0x33, 0x33, 0x33));
+            });
         } else if (c == 17) {
            clipBtn.setText("EDIT");
            clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
@@ -176,26 +178,34 @@ public class SwingSongModePanel extends JPanel {
           }
 
           clipBtn.addActionListener(e -> {
-            if (viewMode == GridViewMode.SONG) {
-              if ((e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0) {
-                System.out.println("Swing: Shifting pad " + slot + " up.");
-                return;
-              }
-              clipBtn.setBackground(Color.ORANGE); // Armed/Queued
-              
-              Timer timer = new Timer(100, null);
-              final boolean[] flashState = {false};
-              timer.addActionListener(ev -> {
-                int step = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
-                if (step == 0) {
-                  clipBtn.setBackground(new Color(0x00, 0xff, 0xcc)); // Playing
-                  timer.stop();
-                } else {
-                  flashState[0] = !flashState[0];
-                  clipBtn.setBackground(flashState[0] ? Color.ORANGE : Color.LIGHT_GRAY);
-                }
-              });
-              timer.start();
+             if (viewMode == GridViewMode.SONG) {
+               boolean isActive = clipBtn.getBackground().equals(new Color(0x00, 0xff, 0xcc));
+               if (isActive) {
+                  clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
+                  for (int i = 0; i < 8; i++) {
+                     bridge.setMute(currentTrack * 8 + i, true);
+                  }
+               } else {
+                  clipBtn.setBackground(Color.ORANGE); 
+                  
+                  Timer timer = new Timer(100, null);
+                  final boolean[] flashState = {false};
+                  timer.addActionListener(ev -> {
+                    int step = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
+                    if (step == 0) {
+                      clipBtn.setBackground(new Color(0x00, 0xff, 0xcc)); // Playing
+                      for (int i = 0; i < 8; i++) {
+                         bridge.setMute(currentTrack * 8 + i, false);
+                      }
+                      timer.stop();
+                    } else {
+                      flashState[0] = !flashState[0];
+                      clipBtn.setBackground(flashState[0] ? Color.ORANGE : Color.LIGHT_GRAY);
+                    }
+                  });
+                  timer.start();
+               }
+
             } else {
               // Toggle Step sequence on/off
               boolean stepState = bridge.getStep(currentTrack * 8, slot);
