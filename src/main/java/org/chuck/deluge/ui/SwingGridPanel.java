@@ -418,6 +418,25 @@ public class SwingGridPanel extends JPanel {
                     vS.addChangeListener(ev -> System.out.println("Track " + currentTrack + " Vol: " + vS.getValue()));
 
                     p3.add(vS, gcm);
+                    tabs.addTab("MIXER", p3);
+
+                    // Tab 4: FM Operators
+                    JPanel p4 = new JPanel(new FlowLayout(FlowLayout.LEFT, 30, 30));
+                    p4.setBackground(new Color(0x2b, 0x2b, 0x2b));
+                    
+                    JLabel lAlgo = new JLabel("Algorithm Map: [Op 4] ➔ [Op 3] ➔ [Op 2] ➔ Output"); 
+                    lAlgo.setFont(new Font("SansSerif", Font.BOLD, 20)); 
+                    lAlgo.setForeground(Color.ORANGE);
+                    
+                    JLabel lRatio = new JLabel("Modulator Ratio (Harmonics):"); 
+                    lRatio.setFont(new Font("SansSerif", Font.BOLD, 18)); 
+                    lRatio.setForeground(Color.WHITE);
+                    
+                    JSlider ratioSlider = new JSlider(1, 10, 1);
+                    ratioSlider.setPreferredSize(new Dimension(300, 50));
+                    
+                    p4.add(lAlgo); p4.add(lRatio); p4.add(ratioSlider);
+                    tabs.addTab("FM OPERATORS", p4);
                     
                     gcm.gridx = 0; gcm.gridy = 1;
                     JLabel pL = new JLabel("Channel Panning:"); pL.setFont(new Font("SansSerif", Font.BOLD, 20)); pL.setForeground(Color.WHITE);
