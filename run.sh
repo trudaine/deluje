@@ -14,7 +14,11 @@ check_java() {
   return 1
 }
 
-if ! check_java; then
+if [ -f "./jdk25/bin/java" ]; then
+  JAVA_EXEC="./jdk25/bin/java"
+elif check_java; then
+  JAVA_EXEC="java"
+else
   echo "Java 25 is required but was not found."
   echo "Attempting to download OpenJDK 25 from Eclipse Adoptium..."
   
@@ -37,27 +41,10 @@ if ! check_java; then
   
   JAVA_EXEC="./jdk25/bin/java"
   rm openjdk25.tar.gz
-else
-  JAVA_EXEC="java"
 fi
 
-OS=$(uname -s | tr '[:upper:]' '[:lower:]')
-ARCH=$(uname -m)
-if [ "$ARCH" = "x86_64" ]; then
-  ARCH="x64"
-elif [ "$ARCH" = "arm64" ] || [ "$ARCH" = "aarch64" ]; then
-  ARCH="aarch64"
-fi
+JAR_NAME="deluge-swing.jar"
 
-if [ "$OS" = "darwin" ]; then
-  if [ "$ARCH" = "aarch64" ]; then
-    JAR_NAME="deluge-mac-aarch64.jar"
-  else
-    JAR_NAME="deluge-mac-x64.jar"
-  fi
-else
-  JAR_NAME="deluge-linux.jar"
-fi
 
 echo "Launching Deluge ($JAR_NAME)..."
 "$JAVA_EXEC" --enable-preview --add-modules jdk.incubator.vector -jar "$JAR_NAME" --swing
