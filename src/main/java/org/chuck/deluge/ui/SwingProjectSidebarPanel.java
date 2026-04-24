@@ -266,8 +266,15 @@ public class SwingProjectSidebarPanel extends JPanel {
                             org.chuck.deluge.xml.DelugeXmlParser.parseSynth(is, name);
 
 
+                        org.chuck.deluge.model.ProjectModel mockProj = new org.chuck.deluge.model.ProjectModel();
+                        mockProj.addTrack(synth);
+                        if (onSongLoaded != null) {
+                           onSongLoaded.accept(mockProj);
+                        }
+
                         bridge.setTrackType(0, 1); // Set track 0 to Synth
                         vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+
                       }
                     }
                   } catch (Exception ex) {

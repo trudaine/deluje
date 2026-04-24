@@ -96,7 +96,41 @@ public class DelugeApp extends Application {
              }
              if (note != -1) {
                 System.out.println("JavaFX QWERTY Audition Note: " + note);
+                if (mainPanel != null) {
+                    int trackId = mainPanel.getMatrixPanel().getSelectedTrack();
+                    
+                    boolean isSynth = mainPanel.getProjectModel() != null && 
+                                      !mainPanel.getProjectModel().getTracks().isEmpty() && 
+                                      mainPanel.getProjectModel().getTracks().get(0) instanceof org.chuck.deluge.model.SynthTrackModel;
+                    
+                    if (isSynth) {
+                        try {
+                            org.chuck.core.ChuckEvent noteEv = (org.chuck.core.ChuckEvent) vm.getGlobalObject("g_ck_noteOn");
+                            if (noteEv != null) {
+                                org.chuck.core.ChuckArray pitchArr = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_PITCH);
+                                pitchArr.setInt(0, (long)(note - 60)); 
+                                noteEv.broadcast();
+                            }
+                        } catch (Exception ex) {}
+                    } else {
+                        String sp = (String) vm.getGlobalObject("g_sample_" + trackId);
+                        if (sp != null && !sp.isEmpty()) {
+                           new Thread(() -> {
+                              try {
+                                 java.io.File file = new java.io.File(sp);
+                                 if (file.exists()) {
+                                    javax.sound.sampled.AudioInputStream stream = javax.sound.sampled.AudioSystem.getAudioInputStream(file);
+                                    javax.sound.sampled.Clip c = javax.sound.sampled.AudioSystem.getClip();
+                                    c.open(stream);
+                                    c.start();
+                                 }
+                              } catch (Exception ex) {}
+                           }).start();
+                        }
+                    }
+                }
              }
+
              
              org.chuck.hid.HidMsg msg = new org.chuck.hid.HidMsg();
 
