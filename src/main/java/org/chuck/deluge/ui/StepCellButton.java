@@ -49,7 +49,11 @@ public class StepCellButton extends ToggleButton {
             
             // Audition sound
             if (state) {
+                int trackType = bridge.getTrackType(baseTrack + rowId);
+                if (trackType == 2) return; // Silent for MIDI tracks
+
                 String sp = (String) vm.getGlobalObject("g_sample_" + (baseTrack + rowId));
+
 
                 if (sp != null && !sp.isEmpty()) {
                     new Thread(() -> {
