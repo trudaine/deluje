@@ -599,7 +599,9 @@ public class SwingDelugeApp extends JFrame {
 
       if (clipPanel != null) {
          clipPanel.setActiveClipId(clipId);
+         clipPanel.setBaseTrackId(trackId * 8);
          bridge.clearAllSteps();
+
          if (clipPanel.getProjectModel() != null && trackId < clipPanel.getProjectModel().getTracks().size()) {
             org.chuck.deluge.model.TrackModel tModel = clipPanel.getProjectModel().getTracks().get(trackId);
             if (clipId < tModel.getClips().size()) {

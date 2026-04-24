@@ -18,6 +18,8 @@ public class SwingGridPanel extends JPanel {
   private Timer activeStutterTimer;
   private boolean[] isOneShotTrack = new boolean[11];
   private int activeClipId = 0;
+  private int baseTrackId = 0;
+
 
 
 
@@ -79,6 +81,12 @@ public class SwingGridPanel extends JPanel {
   public void setActiveClipId(int id) {
      this.activeClipId = id;
   }
+
+  public void setBaseTrackId(int id) {
+     this.baseTrackId = id;
+     refresh();
+  }
+
 
   public void setOnEditRequest(java.util.function.BiConsumer<Integer, Integer> callback) {
     this.onEditRequest = callback;
@@ -386,7 +394,8 @@ public class SwingGridPanel extends JPanel {
           if (viewMode == GridViewMode.CLIP) {
              int currentStep = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
              int offset = (currentStep >= 0) ? (currentStep / 16) * 16 : 0;
-             boolean stepState = bridge.getStep(currentTrack, offset + c);
+             boolean stepState = bridge.getStep(baseTrackId + currentTrack, offset + c);
+
              clipBtn.setBackground(stepState ? trackColors[currentTrack] : new Color(0x33, 0x33, 0x33));
           } else {
              if (hasClip) {
@@ -435,8 +444,8 @@ public class SwingGridPanel extends JPanel {
                      
                       int trackType = bridge.getTrackType(trk);
                       if (trackType == 2) {
-                         boolean st = bridge.getStep(trk, offset + colId);
-                         bridge.setStep(trk, offset + colId, !st);
+                          boolean st = bridge.getStep(baseTrackId + trk, offset + colId);
+                          bridge.setStep(baseTrackId + trk, offset + colId, !st);
                          if (!st) {
                             if (finalMidiOut != null) {
                                try {
@@ -466,8 +475,9 @@ public class SwingGridPanel extends JPanel {
                         }
                         clipBtn.setBackground(!st ? trackColors[0] : new Color(0x33, 0x33, 0x33));
                      } else {
-                        boolean stepState = bridge.getStep(trk, offset + colId);
-                        bridge.setStep(trk, offset + colId, !stepState);
+                         boolean stepState = bridge.getStep(baseTrackId + trk, offset + colId);
+                         bridge.setStep(baseTrackId + trk, offset + colId, !stepState);
+
                         clipBtn.setBackground(!stepState ? trackColors[trk] : new Color(0x33, 0x33, 0x33));
                          if (projectModel != null && trk < projectModel.getTracks().size()) {
                             org.chuck.deluge.model.TrackModel tModel = projectModel.getTracks().get(trk);
