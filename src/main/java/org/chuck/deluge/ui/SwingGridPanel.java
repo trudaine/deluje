@@ -394,9 +394,22 @@ public class SwingGridPanel extends JPanel {
           if (viewMode == GridViewMode.CLIP) {
              int currentStep = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
              int offset = (currentStep >= 0) ? (currentStep / 16) * 16 : 0;
-             boolean stepState = bridge.getStep(baseTrackId + currentTrack, offset + c);
+              int modelTrackIdx = baseTrackId / 8;
+              boolean isSynthMode = projectModel != null && 
+                                    modelTrackIdx < projectModel.getTracks().size() && 
+                                    projectModel.getTracks().get(modelTrackIdx) instanceof org.chuck.deluge.model.SynthTrackModel;
 
-             clipBtn.setBackground(stepState ? trackColors[currentTrack] : new Color(0x33, 0x33, 0x33));
+              boolean stepState;
+              if (isSynthMode) {
+                 stepState = bridge.getStep(baseTrackId, offset + c);
+                 if (stepState && bridge.getPitch(baseTrackId, offset + c) != (24 - 1 - trk)) {
+                    stepState = false;
+                 }
+              } else {
+                 stepState = bridge.getStep(baseTrackId + trk, offset + c);
+              }
+
+              clipBtn.setBackground(stepState ? trackColors[currentTrack] : new Color(0x33, 0x33, 0x33));
           } else {
              if (hasClip) {
                clipBtn.setBackground(trackColors[currentTrack]);
@@ -438,9 +451,11 @@ public class SwingGridPanel extends JPanel {
                  } else if (javax.swing.SwingUtilities.isLeftMouseButton(e)) {
                      int currentStep = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
                      int offset = (currentStep >= 0) ? (currentStep / 16) * 16 : 0;
-                     boolean isSynthMode = projectModel != null && 
-                                           !projectModel.getTracks().isEmpty() && 
-                                           projectModel.getTracks().get(0) instanceof org.chuck.deluge.model.SynthTrackModel;
+                      int modelTrackIdx = baseTrackId / 8;
+                      boolean isSynthMode = projectModel != null && 
+                                            modelTrackIdx < projectModel.getTracks().size() && 
+                                            projectModel.getTracks().get(modelTrackIdx) instanceof org.chuck.deluge.model.SynthTrackModel;
+
                      
                       int trackType = bridge.getTrackType(trk);
                       if (trackType == 2) {
@@ -455,10 +470,10 @@ public class SwingGridPanel extends JPanel {
                          }
                          clipBtn.setBackground(!st ? trackColors[6] : new Color(0x33, 0x33, 0x33)); // Blue for MIDI Track
                       } else if (isSynthMode) {
-                        boolean st = bridge.getStep(0, offset + colId);
-                        bridge.setStep(0, offset + colId, !st);
-                        if (!st) {
-                           bridge.setPitch(0, offset + colId, (24 - 1) - trk);
+                         boolean st = bridge.getStep(baseTrackId, offset + colId);
+                         bridge.setStep(baseTrackId, offset + colId, !st);
+                         if (!st) {
+                            bridge.setPitch(baseTrackId, offset + colId, (24 - 1) - trk);
 
                            
                            // Audition Synth
