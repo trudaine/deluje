@@ -148,8 +148,14 @@ public class DelugeXmlParser {
       project.setBpm(Float.parseFloat(songNode.getAttribute("tempo")));
     }
     if (songNode.hasAttribute("swing")) {
-      project.setSwing(Float.parseFloat(songNode.getAttribute("swing")));
+       String sw = songNode.getAttribute("swing");
+       if (sw.startsWith("0x")) {
+          project.setSwing(DelugeHexMapper.hexToFloat(sw));
+       } else {
+          project.setSwing(Float.parseFloat(sw));
+       }
     }
+
     if (songNode.hasAttribute("key")) {
       project.setKey(songNode.getAttribute("key"));
     }
@@ -276,7 +282,19 @@ public class DelugeXmlParser {
     } else {
       // Load from preset!
       if (slotNodes.getLength() > 0) {
-        int slot = Integer.parseInt(slotNodes.item(0).getTextContent());
+        String text = slotNodes.item(0).getTextContent();
+        int slot = 0;
+        try {
+           slot = Integer.parseInt(text);
+        } catch (NumberFormatException nfe) {
+           try {
+              String numPart = text.replaceAll("[^0-9]", "");
+              if (!numPart.isEmpty()) {
+                 slot = Integer.parseInt(numPart);
+              }
+           } catch (Exception e) {}
+        }
+
         String fileName = null;
         if (slot == 0) fileName = "/KITS/000 TR-808.XML";
         else if (slot == 1) fileName = "/KITS/001 DDD-1.XML";
@@ -320,7 +338,19 @@ public class DelugeXmlParser {
 
     NodeList slotNodes = soundNode.getElementsByTagName("presetSlot");
     if (slotNodes.getLength() > 0) {
-      int slot = Integer.parseInt(slotNodes.item(0).getTextContent());
+      String text = slotNodes.item(0).getTextContent();
+      int slot = 0;
+      try {
+         slot = Integer.parseInt(text);
+      } catch (NumberFormatException nfe) {
+         try {
+            String numPart = text.replaceAll("[^0-9]", "");
+            if (!numPart.isEmpty()) {
+               slot = Integer.parseInt(numPart);
+            }
+         } catch (Exception e) {}
+      }
+
       String fileName = null;
       if (slot == 0) fileName = "/SYNTHS/000 Rich Saw Bass.XML";
       else if (slot == 17) fileName = "/SYNTHS/017 Impact Saw Lead.XML";

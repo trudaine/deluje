@@ -89,10 +89,24 @@ public class SynthTrackProcessor implements Shred {
       if (trackType == null || trackType.getInt(trackId) != 1) continue;
 
       ChuckArray mute = (ChuckArray) vm.getGlobalObject(BridgeContract.G_MUTE);
-      if (mute == null || mute.getInt(trackId) != 0) {
-        env.keyOff();
+      long trackMuted = vm.getGlobalInt("g_mute_" + trackId);
+      if (trackMuted != 0) {
+        env.forceMute();
+        osc.gain(0.0f);
+        delaySend.gain(0.0f);
+        reverbSend.gain(0.0f);
+        fmSynth.noteOff(0.0f);
         continue;
+      } else {
+        osc.gain(1.0f);
+        delaySend.gain(1.0f);
+        reverbSend.gain(1.0f);
       }
+
+
+
+
+
 
       ChuckArray oscTypeArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_OSC_TYPE);
       if (oscTypeArr != null) {

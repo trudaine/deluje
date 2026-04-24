@@ -83,7 +83,18 @@ public class KitTrackProcessor implements Shred {
       ChuckArray mute = (ChuckArray) vm.getGlobalObject(BridgeContract.G_MUTE);
 
       if (trackType == null || trackType.getInt(trackId) != 0) continue;
-      if (mute == null || mute.getInt(trackId) != 0) continue;
+      long trackMuted = vm.getGlobalInt("g_mute_" + trackId);
+      if (trackMuted != 0) {
+         buf.rate(0);
+         buf.gain(0);
+         continue;
+      } else {
+         buf.gain(1.0f);
+      }
+
+
+
+
       if (pattern == null || pattern.getInt(idx) == 0) continue;
 
       trigger(idx);

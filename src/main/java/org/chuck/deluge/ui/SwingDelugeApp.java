@@ -461,7 +461,18 @@ public class SwingDelugeApp extends JFrame {
     loadBtn.addActionListener(e -> {
       JFileChooser chooser = new JFileChooser();
       if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-        System.out.println("Loading " + chooser.getSelectedFile().getAbsolutePath());
+         try {
+            java.io.File file = chooser.getSelectedFile();
+            org.chuck.deluge.model.ProjectModel model = org.chuck.deluge.xml.DelugeXmlParser.parseSong(new java.io.FileInputStream(file), file.getName());
+            
+            songPanel.setProjectModel(model);
+            if (clipPanel != null) clipPanel.setProjectModel(model);
+            if (arrGridPanel != null) arrGridPanel.setProjectModel(model);
+            
+            cardLayout.show(centerCardPanel, "SONG");
+         } catch (Exception ex) {
+            ex.printStackTrace();
+         }
       }
     });
 
@@ -469,9 +480,17 @@ public class SwingDelugeApp extends JFrame {
     saveSongBtn.addActionListener(e -> {
       JFileChooser chooser = new JFileChooser();
       if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-        System.out.println("Swing: Saving song project XML to " + chooser.getSelectedFile().getAbsolutePath());
+         try {
+            if (clipPanel != null && clipPanel.getProjectModel() != null) {
+               org.chuck.deluge.project.ProjectSerializer.save(clipPanel.getProjectModel(), chooser.getSelectedFile());
+               System.out.println("Swing: Saved project successfully to " + chooser.getSelectedFile().getName());
+            }
+         } catch (Exception ex) {
+            ex.printStackTrace();
+         }
       }
     });
+
 
     if (isHdOpt) {
        topRow1.add(playBtn);
@@ -568,7 +587,15 @@ public class SwingDelugeApp extends JFrame {
       if (clipPanel != null) clipPanel.setProjectModel(model);
       if (arrGridPanel != null) arrGridPanel.setProjectModel(model);
 
+
+
+
+      for (int i = 0; i < 64; i++) {
+         bridge.setMute(i, false);
+      }
+
       if (model.getTracks().size() == 1) {
+
          cardLayout.show(centerCardPanel, "CLIP");
          if (clipBtn != null) clipBtn.setSelected(true);
       } else {
@@ -576,17 +603,28 @@ public class SwingDelugeApp extends JFrame {
       }
 
 
-      int trackIdx = 0;
-      for (org.chuck.deluge.model.TrackModel track : model.getTracks()) {
-        for (org.chuck.deluge.model.ClipModel clip : track.getClips()) {
+       int trackIdx = 0;
+       for (org.chuck.deluge.model.TrackModel track : model.getTracks()) {
+         boolean isSynth = track instanceof org.chuck.deluge.model.SynthTrackModel;
+         for (int i = 0; i < 8; i++) {
+            bridge.setTrackType(trackIdx * 8 + i, isSynth ? 1 : 0);
+         }
+         for (org.chuck.deluge.model.ClipModel clip : track.getClips()) {
+
           for (int r = 0; r < 8; r++) {
             for (int s = 0; s < 16; s++) {
               org.chuck.deluge.model.StepData step = clip.getStep(r, s);
-              if (step != null) {
-                bridge.setStep(trackIdx * 8 + r, s, step.active());
+              if (step != null && step.active()) {
+                if (isSynth) {
+                  bridge.setStep(trackIdx * 8, s, true);
+                  bridge.setPitch(trackIdx * 8, s, (24 - 1) - r);
+                } else {
+                  bridge.setStep(trackIdx * 8 + r, s, true);
+                }
               }
             }
           }
+
         }
         trackIdx++;
       }
@@ -600,20 +638,32 @@ public class SwingDelugeApp extends JFrame {
       if (clipPanel != null) {
          clipPanel.setActiveClipId(clipId);
          clipPanel.setBaseTrackId(trackId * 8);
-         bridge.clearAllSteps();
+         for (int r = 0; r < 8; r++) {
+            for (int s = 0; s < 16; s++) {
+               bridge.setStep(trackId * 8 + r, s, false);
+            }
+         }
+
 
          if (clipPanel.getProjectModel() != null && trackId < clipPanel.getProjectModel().getTracks().size()) {
             org.chuck.deluge.model.TrackModel tModel = clipPanel.getProjectModel().getTracks().get(trackId);
             if (clipId < tModel.getClips().size()) {
                org.chuck.deluge.model.ClipModel cModel = tModel.getClips().get(clipId);
+               boolean isSynth = tModel instanceof org.chuck.deluge.model.SynthTrackModel;
                for (int r = 0; r < 8; r++) {
                   for (int s = 0; s < 16; s++) {
                      org.chuck.deluge.model.StepData sd = cModel.getStep(r, s);
-                     if (sd != null) {
-                        bridge.setStep(trackId * 8 + r, s, sd.active());
+                     if (sd != null && sd.active()) {
+                        if (isSynth) {
+                           bridge.setStep(trackId * 8, s, true);
+                           bridge.setPitch(trackId * 8, s, (24 - 1) - r);
+                        } else {
+                           bridge.setStep(trackId * 8 + r, s, true);
+                        }
                      }
                   }
                }
+
             }
          }
          clipPanel.refresh();
