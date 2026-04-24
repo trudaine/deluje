@@ -120,7 +120,11 @@ public class SwingGridPanel extends JPanel {
     }
 
 
+    boolean isHd = Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("hd.optimization", "false"));
+    final int padSz = isHd ? 70 : 120;
+
     for (int t = 0; t < 8; t++) {
+
       JPanel rowPanel = new JPanel();
       rowPanel.setLayout(new BoxLayout(rowPanel, BoxLayout.X_AXIS));
       rowPanel.setBackground(new Color(0x22, 0x22, 0x22));
@@ -184,8 +188,8 @@ public class SwingGridPanel extends JPanel {
       rowPanel.add(Box.createHorizontalStrut(5));
 
       VUMeterPanel vu = new VUMeterPanel();
-      vu.setPreferredSize(new Dimension(12, 120));
-      vu.setMaximumSize(new Dimension(12, 120));
+      vu.setPreferredSize(new Dimension(12, padSz));
+      vu.setMaximumSize(new Dimension(12, padSz));
       rowPanel.add(vu);
       rowPanel.add(Box.createHorizontalStrut(5));
 
@@ -198,10 +202,12 @@ public class SwingGridPanel extends JPanel {
 
       for (int c = 0; c < 18; c++) {
         final int slot = c;
+        
         JButton clipBtn = new JButton();
-        clipBtn.setPreferredSize(new Dimension(120, 120));
-        clipBtn.setMinimumSize(new Dimension(120, 120));
-        clipBtn.setMaximumSize(new Dimension(120, 120));
+        clipBtn.setPreferredSize(new Dimension(padSz, padSz));
+        clipBtn.setMinimumSize(new Dimension(padSz, padSz));
+        clipBtn.setMaximumSize(new Dimension(padSz, padSz));
+
         
         pads[t][c] = clipBtn;
 

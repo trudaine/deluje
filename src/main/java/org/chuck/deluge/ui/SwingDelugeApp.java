@@ -354,8 +354,20 @@ public class SwingDelugeApp extends JFrame {
     setJMenuBar(menuBar);
 
     // 1. Top Area (Buttons, Modes, Transport, Sliders)
-    JPanel topBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 8));
+    boolean isHdOpt = Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("hd.optimization", "false"));
+    JPanel topBar = new JPanel();
+    if (isHdOpt) {
+       topBar.setLayout(new BoxLayout(topBar, BoxLayout.Y_AXIS));
+    } else {
+       topBar.setLayout(new FlowLayout(FlowLayout.LEFT, 12, 8));
+    }
     topBar.setBackground(new Color(0x25, 0x25, 0x25));
+
+    JPanel topRow1 = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 4));
+    topRow1.setBackground(new Color(0x25, 0x25, 0x25));
+    JPanel topRow2 = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 4));
+    topRow2.setBackground(new Color(0x25, 0x25, 0x25));
+
 
     // View Toggle Buttons
     JToggleButton clipBtn = new JToggleButton("CLIP", true);
@@ -392,10 +404,17 @@ public class SwingDelugeApp extends JFrame {
     });
 
 
-    topBar.add(clipBtn);
-    topBar.add(songBtn);
-    topBar.add(arrBtn);
-    topBar.add(new JSeparator(JSeparator.VERTICAL));
+    if (isHdOpt) {
+       topRow1.add(clipBtn);
+       topRow1.add(songBtn);
+       topRow1.add(arrBtn);
+    } else {
+       topBar.add(clipBtn);
+       topBar.add(songBtn);
+       topBar.add(arrBtn);
+       topBar.add(new JSeparator(JSeparator.VERTICAL));
+    }
+
 
     // Transport
     JButton playBtn = new JButton("▶ PLAY");
@@ -430,13 +449,21 @@ public class SwingDelugeApp extends JFrame {
       }
     });
 
-    topBar.add(playBtn);
-    topBar.add(stopBtn);
-    topBar.add(recBtn);
-    topBar.add(loadBtn);
-    topBar.add(saveSongBtn);
+    if (isHdOpt) {
+       topRow1.add(playBtn);
+       topRow1.add(stopBtn);
+       topRow1.add(recBtn);
+       topRow1.add(loadBtn);
+       topRow1.add(saveSongBtn);
+    } else {
+       topBar.add(playBtn);
+       topBar.add(stopBtn);
+       topBar.add(recBtn);
+       topBar.add(loadBtn);
+       topBar.add(saveSongBtn);
+       topBar.add(new JSeparator(JSeparator.VERTICAL));
+    }
 
-    topBar.add(new JSeparator(JSeparator.VERTICAL));
 
     // Sliders
     JLabel tempoLabel = new JLabel("BPM:");
@@ -460,9 +487,19 @@ public class SwingDelugeApp extends JFrame {
       }
     });
 
-    topBar.add(tempoLabel); topBar.add(bpmSlider);
-    topBar.add(swingLabel); topBar.add(swingSlider);
-    topBar.add(volLabel); topBar.add(topMasterVolSlider);
+    if (isHdOpt) {
+       topRow2.add(tempoLabel); topRow2.add(bpmSlider);
+       topRow2.add(swingLabel); topRow2.add(swingSlider);
+       topRow2.add(volLabel); topRow2.add(topMasterVolSlider);
+       
+       topBar.add(topRow1);
+       topBar.add(topRow2);
+    } else {
+       topBar.add(tempoLabel); topBar.add(bpmSlider);
+       topBar.add(swingLabel); topBar.add(swingSlider);
+       topBar.add(volLabel); topBar.add(topMasterVolSlider);
+    }
+
 
     gbc.gridx = 0; gbc.gridy = 0; gbc.gridwidth = 3; gbc.weightx = 1.0; gbc.weighty = 0.0;
     add(topBar, gbc);
@@ -471,7 +508,10 @@ public class SwingDelugeApp extends JFrame {
     JPanel centeredWrapper = new JPanel(new GridBagLayout());
     centeredWrapper.setBackground(new Color(0x1a, 0x1a, 0x1a));
     centeredWrapper.add(centerCardPanel);
-    centeredWrapper.setPreferredSize(new Dimension(2600, 1300));
+    
+    boolean isHd = Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("hd.optimization", "false"));
+    centeredWrapper.setPreferredSize(isHd ? new Dimension(1500, 700) : new Dimension(2600, 1300));
+
 
 
 
@@ -525,7 +565,9 @@ public class SwingDelugeApp extends JFrame {
     });
 
 
-    boolean isHdOpt = Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("hd.optimization", "false"));
+    visualizerPanel = new SwingVisualizerPanel(vm, bridge);
+
+
 
     if (isHdOpt) {
        JDialog leftFloat = new JDialog(this, "SD Explorer", false);
@@ -560,29 +602,31 @@ public class SwingDelugeApp extends JFrame {
     SwingVelocityLanePanel bottomLane = new SwingVelocityLanePanel(vm, bridge);
     
     // 5. Bottom Area - Rows 9 and 10 (Param Deck)
-    JPanel ribbonStrip = new JPanel(new GridLayout(2, 8, 4, 4));
+    int padSz = isHd ? 70 : 120;
+
+
+
+    JPanel ribbonStrip = new JPanel();
+    ribbonStrip.setLayout(new BoxLayout(ribbonStrip, BoxLayout.X_AXIS));
     ribbonStrip.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    ribbonStrip.add(Box.createHorizontalStrut(172)); // Aligns left margin with pads columns
 
-    String[] row1 = {"LEVEL", "PAN", "PITCH", "FILTER", "RESONANCE", "OSC1", "OSC2", "LFO"};
-    String[] row2 = {"MOD FX", "DELAY", "REVERB", "STUTTER", "PROBABILITY", "GATE", "VELOCITY", "SAMPLE"};
+    String[] allParams = {
+       "LEVEL", "PAN", "PITCH", "FILTER", "RESONANCE", "OSC1", "OSC2", "LFO",
+       "MOD FX", "DELAY", "REVERB", "STUTTER", "PROBABILITY", "GATE", "VELOCITY", "SAMPLE"
+    };
 
-    for (String label : row1) {
-      JButton btn = new JButton(label);
-      btn.setPreferredSize(new Dimension(120, 50));
-      btn.setBackground(new Color(0x33, 0x33, 0x33));
-      btn.setForeground(Color.LIGHT_GRAY);
-      btn.addActionListener(e -> bottomLane.setMode(label));
-      ribbonStrip.add(btn);
+    for (String label : allParams) {
+       JButton btn = new JButton(label);
+       btn.setPreferredSize(new Dimension(padSz, 50));
+       btn.setMaximumSize(new Dimension(padSz, 50));
+       btn.setBackground(new Color(0x33, 0x33, 0x33));
+       btn.setForeground(Color.LIGHT_GRAY);
+       btn.addActionListener(e -> bottomLane.setMode(label));
+       ribbonStrip.add(btn);
+       ribbonStrip.add(Box.createHorizontalStrut(5));
     }
 
-    for (String label : row2) {
-      JButton btn = new JButton(label);
-      btn.setPreferredSize(new Dimension(120, 50));
-      btn.setBackground(new Color(0x33, 0x33, 0x33));
-      btn.setForeground(Color.LIGHT_GRAY);
-      btn.addActionListener(e -> bottomLane.setMode(label));
-      ribbonStrip.add(btn);
-    }
 
 
 
