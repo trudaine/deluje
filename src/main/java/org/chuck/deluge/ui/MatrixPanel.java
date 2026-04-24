@@ -318,9 +318,15 @@ public class MatrixPanel extends BorderPane {
                       int trackType = bridge.getTrackType(t);
                       if (trackType == 2) {
                          midiOut.sendMessage(new byte[]{(byte)0x90, (byte)(60 + t), (byte)100});
+                         final int trk = t;
+                         rows[trk].highlightStep(0, true);
+                         javafx.animation.PauseTransition flashOff = new javafx.animation.PauseTransition(javafx.util.Duration.millis(60));
+                         flashOff.setOnFinished(ev -> rows[trk].highlightStep(0, false));
+                         flashOff.play();
                       } else {
                          midiOut.sendMessage(new byte[]{(byte)0x90, (byte)(36 + t * 2), (byte)100});
                       }
+
                    } catch (Exception ex) {}
                 }
 

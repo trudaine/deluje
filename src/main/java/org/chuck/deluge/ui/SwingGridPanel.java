@@ -567,8 +567,16 @@ public class SwingGridPanel extends JPanel {
                       if (finalMidiOut != null) {
                          try {
                             int trackType = bridge.getTrackType(t);
-                            if (trackType == 2) {
-                               finalMidiOut.sendMessage(new byte[]{(byte)0x90, (byte)(60 + t), (byte)100});
+                             if (trackType == 2) {
+                                finalMidiOut.sendMessage(new byte[]{(byte)0x90, (byte)(60 + t), (byte)100});
+                                final int trk = t;
+                                if (pads[trk][16] != null) {
+                                   pads[trk][16].setBackground(Color.YELLOW);
+                                   Timer flashOff = new Timer(60, ev -> pads[trk][16].setBackground(new Color(0x33, 0x99, 0xff)));
+                                   flashOff.setRepeats(false);
+                                   flashOff.start();
+                                }
+
                             } else {
                                finalMidiOut.sendMessage(new byte[]{(byte)0x90, (byte)(36 + t * 2), (byte)100});
                             }
