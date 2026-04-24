@@ -17,8 +17,29 @@ public class VerifySync {
         // 1. Load Model
         java.io.InputStream is = VerifySync.class.getResourceAsStream("/SONGS/song3.xml");
         org.chuck.deluge.model.ProjectModel model = org.chuck.deluge.xml.DelugeXmlParser.parseSong(is, "song3");
+
+        for (org.chuck.deluge.model.TrackModel track : model.getTracks()) {
+           for (org.chuck.deluge.model.ClipModel clip : track.getClips()) {
+              clip.setRowCount(8);
+              for (int r = 0; r < 8; r++) {
+                 for (int s = 0; s < 16; s++) {
+                    clip.setStep(r, s, new org.chuck.deluge.model.StepData(false, 0.8f, 0.5f, 1.0f, 0));
+                 }
+              }
+
+              for (int s = 0; s < 16; s++) {
+                 int r = (s < 8) ? s : (15 - s);
+                 clip.setStep(r, s, new org.chuck.deluge.model.StepData(true, 0.8f, 0.5f, 1.0f, 0));
+              }
+           }
+        }
+
         
+        org.chuck.deluge.project.ProjectSerializer.save(model, new java.io.File("/usr/local/google/home/ludo/a/chuckjava/deluge/src/main/resources/SONGS/song3.xml"));
+        System.out.println("VerifySync: song3.xml written on disk!");
+
         System.out.println("=== MODEL STATE ===");
+
         int tIdx = 0;
         for (org.chuck.deluge.model.TrackModel track : model.getTracks()) {
            int cIdx = 0;
@@ -50,26 +71,41 @@ public class VerifySync {
            bridge.clearAllSteps();
            org.chuck.deluge.model.TrackModel tModel = model.getTracks().get(t);
            org.chuck.deluge.model.ClipModel cModel = tModel.getClips().get(0);
+           boolean isSynth = tModel instanceof org.chuck.deluge.model.SynthTrackModel;
            for (int r = 0; r < 8; r++) {
               for (int s = 0; s < 16; s++) {
                  org.chuck.deluge.model.StepData sd = cModel.getStep(r, s);
-                 if (sd != null) {
-                    bridge.setStep(t * 8 + r, s, sd.active());
+                 if (sd != null && sd.active()) {
+                    if (isSynth) {
+                       bridge.setStep(t * 8, s, true);
+                       bridge.setPitch(t * 8, s, (24 - 1) - r);
+                    } else {
+                       bridge.setStep(t * 8 + r, s, true);
+                    }
                  }
               }
            }
 
+
            System.out.println("UI view for Track " + t + " Clip 0:");
+
            for (int r = 0; r < 8; r++) {
               for (int s = 0; s < 16; s++) {
-                 if (bridge.getStep(t * 8 + r, s)) {
-                    System.out.println("  UI Active Pad -> Row: " + r + " Col: " + s);
+                 if (isSynth) {
+                    if (bridge.getStep(t * 8, s) && bridge.getPitch(t * 8, s) == (24 - 1 - r)) {
+                       System.out.println("  UI Active Pad -> Row: " + r + " Col: " + s);
+                    }
+                 } else {
+                    if (bridge.getStep(t * 8 + r, s)) {
+                       System.out.println("  UI Active Pad -> Row: " + r + " Col: " + s);
+                    }
                  }
               }
            }
+
         }
         
         vm.shutdown();
-        System.exit(0);
+
     }
 }

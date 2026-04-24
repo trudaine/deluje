@@ -13,6 +13,9 @@ public class SwingSongModePanel extends JPanel {
   private org.chuck.deluge.model.ProjectModel projectModel;
   private java.util.function.BiConsumer<Integer, Integer> onEditRequest;
   private JButton[][] pads = new JButton[8][18];
+  private boolean[] queuedMuteArmed = new boolean[8];
+  private boolean[] queuedMuteTargetState = new boolean[8];
+
 
 
 
@@ -45,7 +48,23 @@ public class SwingSongModePanel extends JPanel {
   }
 
   public void updatePlayhead(int step) {
+    if (step % 16 == 0) {
+       for (int t = 0; t < 8; t++) {
+          if (queuedMuteArmed[t]) {
+             boolean targetState = queuedMuteTargetState[t];
+             for (int i = 0; i < 8; i++) {
+                bridge.setMute(t * 8 + i, targetState);
+             }
+             queuedMuteArmed[t] = false;
+             if (pads[t][16] != null) {
+                pads[t][16].setBackground(targetState ? Color.RED : new Color(0x33, 0x33, 0x33));
+             }
+          }
+       }
+    }
+
     Component[] rows = getComponents();
+
     for (int t = 0; t < Math.min(rows.length, 8); t++) {
       if (rows[t] instanceof JPanel rowPanel) {
         Component[] comps = rowPanel.getComponents();
