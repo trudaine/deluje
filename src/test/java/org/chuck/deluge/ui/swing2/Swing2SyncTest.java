@@ -36,7 +36,9 @@ public class Swing2SyncTest {
 
   @Test
   public void testSoundTriggered() throws Exception {
+    System.setProperty("chuck.audio.dummy", "false");
     org.chuck.core.ChuckVM vm = new org.chuck.core.ChuckVM(44100, 2);
+
     org.chuck.deluge.BridgeContract bridge = new org.chuck.deluge.BridgeContract();
     bridge.register(vm);
 
