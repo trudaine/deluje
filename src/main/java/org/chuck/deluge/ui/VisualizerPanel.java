@@ -14,7 +14,6 @@ import org.chuck.audio.util.Scope;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 
-
 /** Encapsulates the visualizers (Spectrum, Oscilloscope, Waterfall, Phase). */
 public class VisualizerPanel extends VBox {
   private final Canvas visualizerCanvas = new Canvas();
@@ -30,7 +29,8 @@ public class VisualizerPanel extends VBox {
 
   private AnimationTimer visTimer;
 
-  public VisualizerPanel(ChuckVM vm, ChuckAudio audio, FFT analyzer, Scope scope, BridgeContract bridge) {
+  public VisualizerPanel(
+      ChuckVM vm, ChuckAudio audio, FFT analyzer, Scope scope, BridgeContract bridge) {
     super(2);
     this.vm = vm;
     this.audio = audio;
@@ -40,7 +40,6 @@ public class VisualizerPanel extends VBox {
 
     setupUI();
   }
-
 
   private void setupUI() {
     setStyle("-fx-background-color: #222; -fx-padding: 5;");
@@ -245,11 +244,10 @@ public class VisualizerPanel extends VBox {
     double w = scopeCanvas.getWidth(), h = scopeCanvas.getHeight();
     if (w <= 0 || h <= 0 || bridge == null) return;
 
-    double trackVol = bridge.getTrackLevel(1); 
+    double trackVol = bridge.getTrackLevel(1);
     gc.setStroke(Color.ORANGE);
     gc.setLineWidth(8.0);
     double barH = trackVol * h;
     gc.strokeLine(w - 4, h, w - 4, h - barH);
   }
 }
-

@@ -26,8 +26,10 @@ public class SequencerLauncher {
           new org.chuck.deluge.engine.DelugeEngine(vm, bridge);
       vm.spork(engine::shred);
 
-      org.chuck.deluge.midi.MidiInputRouter router = new org.chuck.deluge.midi.MidiInputRouter(vm, bridge);
-      org.chuck.deluge.midi.MidiService midiService = new org.chuck.deluge.midi.MidiService(vm, bridge, router);
+      org.chuck.deluge.midi.MidiInputRouter router =
+          new org.chuck.deluge.midi.MidiInputRouter(vm, bridge);
+      org.chuck.deluge.midi.MidiService midiService =
+          new org.chuck.deluge.midi.MidiService(vm, bridge, router);
       midiService.start();
 
       java.awt.EventQueue.invokeLater(

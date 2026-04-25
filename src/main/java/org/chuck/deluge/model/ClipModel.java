@@ -103,22 +103,21 @@ public class ClipModel {
   }
 
   public interface ClipListener {
-     void onStepChanged(int row, int step, StepData data);
+    void onStepChanged(int row, int step, StepData data);
   }
 
   private final java.util.List<ClipListener> listeners = new java.util.ArrayList<>();
 
   public void addClipListener(ClipListener l) {
-     listeners.add(l);
+    listeners.add(l);
   }
 
   public void setStep(int row, int step, StepData data) {
     if (row >= 0 && row < rowCount && step >= 0 && step < stepCount) {
       grid.get(row).set(step, data);
       for (ClipListener l : listeners) {
-         l.onStepChanged(row, step, data);
+        l.onStepChanged(row, step, data);
       }
     }
   }
-
 }

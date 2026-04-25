@@ -50,8 +50,6 @@ public class MatrixPanel extends BorderPane {
 
     setCenter(scrollPane);
 
-
-
     javafx.scene.layout.HBox topControls = new javafx.scene.layout.HBox(10);
     topControls.setPadding(new Insets(5));
     topControls.setAlignment(Pos.CENTER_LEFT);
@@ -69,10 +67,7 @@ public class MatrixPanel extends BorderPane {
     topControls.getChildren().addAll(editPresetBtn);
     setTop(topControls);
 
-
-
     createRows(11);
-
 
     selectTrack(0); // Default selection
 
@@ -94,9 +89,8 @@ public class MatrixPanel extends BorderPane {
     rowContainer.getChildren().clear();
     String res = org.chuck.deluge.project.PreferencesManager.get("screen.resolution", "QHD");
     final int padSz = "FHD".equals(res) ? 52 : ("4K".equals(res) ? 104 : 70);
-    
-    rows = new TrackRowPanel[count];
 
+    rows = new TrackRowPanel[count];
 
     Object trackTypeObj = vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
     ChuckArray trackTypeArray =
@@ -105,114 +99,129 @@ public class MatrixPanel extends BorderPane {
     for (int i = 0; i < count; i++) {
       int trackIdx = i;
       if (i == 8 || i == 9) {
-          javafx.scene.layout.HBox ctrlRow = new javafx.scene.layout.HBox(5);
-          ctrlRow.setAlignment(Pos.CENTER_LEFT);
-          
-          javafx.scene.control.Label label = new javafx.scene.control.Label(i == 8 ? "MACROS" : "SLIDERS");
-          label.setPrefWidth(75);
-          label.setStyle("-fx-text-fill: orange; -fx-font-weight: bold;");
-          
-          javafx.scene.control.Button emptyAudition = new javafx.scene.control.Button(">");
-          emptyAudition.setPrefWidth(25);
-          emptyAudition.setDisable(true);
-          
-          ctrlRow.getChildren().addAll(label, emptyAudition);
-          
-          String[] allParams = {
-             "LEVEL", "PAN", "PITCH", "FILTER", "RESONANCE", "OSC1", "OSC2", "LFO",
-             "MOD FX", "DELAY", "REVERB", "STUTTER", "PROBABILITY", "GATE", "VELOCITY", "SAMPLE"
-          };
-          
-          for (int c = 0; c < 18; c++) {
-             final int slot = c;
-             if (c >= 16) {
-                javafx.scene.control.Button emptyBtn = new javafx.scene.control.Button();
-                emptyBtn.setPrefSize(padSz, padSz);
-                emptyBtn.setDisable(true);
-                ctrlRow.getChildren().add(emptyBtn);
-                continue;
-             }
-             
-             if (i == 8) {
-                javafx.scene.control.Button btn = new javafx.scene.control.Button(allParams[c]);
-                btn.setPrefSize(padSz, padSz);
-                btn.setStyle("-fx-base: #333; -fx-text-fill: #ccc; -fx-font-size: 8px; -fx-font-weight: bold;");
-                ctrlRow.getChildren().add(btn);
-             } else {
-                javafx.scene.canvas.Canvas slider = new javafx.scene.canvas.Canvas(padSz, padSz);
-                javafx.scene.canvas.GraphicsContext gc = slider.getGraphicsContext2D();
-                
-                Runnable redraw = () -> {
-                   gc.clearRect(0, 0, padSz, padSz);
-                   gc.setFill(javafx.scene.paint.Color.rgb(0x00, 0xff, 0xcc, 0.7));
-                   double val = (bridge != null) ? bridge.getVelocity(0, slot) : 0.5;
-                   double barH = val * padSz;
-                   gc.fillRect(0, padSz - barH, padSz, barH);
-                };
-                redraw.run();
-                
-                slider.setOnMouseDragged(e -> {
-                   double v = 1.0 - e.getY() / (double)padSz;
-                   v = Math.max(0.0, Math.min(1.0, v));
-                   bridge.setVelocity(0, slot, v);
-                   redraw.run();
-                });
-                slider.setOnMousePressed(e -> {
-                   double v = 1.0 - e.getY() / (double)padSz;
-                   v = Math.max(0.0, Math.min(1.0, v));
-                   bridge.setVelocity(0, slot, v);
-                   redraw.run();
-                });
-                
-                javafx.scene.layout.StackPane wrap = new javafx.scene.layout.StackPane(slider);
-                wrap.setStyle("-fx-border-color: #444; -fx-border-width: 1; -fx-background-color: #111;");
-                wrap.setPrefSize(padSz, padSz);
-                ctrlRow.getChildren().add(wrap);
+        javafx.scene.layout.HBox ctrlRow = new javafx.scene.layout.HBox(5);
+        ctrlRow.setAlignment(Pos.CENTER_LEFT);
 
-             }
+        javafx.scene.control.Label label =
+            new javafx.scene.control.Label(i == 8 ? "MACROS" : "SLIDERS");
+        label.setPrefWidth(75);
+        label.setStyle("-fx-text-fill: orange; -fx-font-weight: bold;");
+
+        javafx.scene.control.Button emptyAudition = new javafx.scene.control.Button(">");
+        emptyAudition.setPrefWidth(25);
+        emptyAudition.setDisable(true);
+
+        ctrlRow.getChildren().addAll(label, emptyAudition);
+
+        String[] allParams = {
+          "LEVEL", "PAN", "PITCH", "FILTER", "RESONANCE", "OSC1", "OSC2", "LFO",
+          "MOD FX", "DELAY", "REVERB", "STUTTER", "PROBABILITY", "GATE", "VELOCITY", "SAMPLE"
+        };
+
+        for (int c = 0; c < 18; c++) {
+          final int slot = c;
+          if (c >= 16) {
+            javafx.scene.control.Button emptyBtn = new javafx.scene.control.Button();
+            emptyBtn.setPrefSize(padSz, padSz);
+            emptyBtn.setDisable(true);
+            ctrlRow.getChildren().add(emptyBtn);
+            continue;
           }
-          rowContainer.getChildren().add(ctrlRow);
-          continue;
+
+          if (i == 8) {
+            javafx.scene.control.Button btn = new javafx.scene.control.Button(allParams[c]);
+            btn.setPrefSize(padSz, padSz);
+            btn.setStyle(
+                "-fx-base: #333; -fx-text-fill: #ccc; -fx-font-size: 8px; -fx-font-weight: bold;");
+            ctrlRow.getChildren().add(btn);
+          } else {
+            javafx.scene.canvas.Canvas slider = new javafx.scene.canvas.Canvas(padSz, padSz);
+            javafx.scene.canvas.GraphicsContext gc = slider.getGraphicsContext2D();
+
+            Runnable redraw =
+                () -> {
+                  gc.clearRect(0, 0, padSz, padSz);
+                  gc.setFill(javafx.scene.paint.Color.rgb(0x00, 0xff, 0xcc, 0.7));
+                  double val = (bridge != null) ? bridge.getVelocity(0, slot) : 0.5;
+                  double barH = val * padSz;
+                  gc.fillRect(0, padSz - barH, padSz, barH);
+                };
+            redraw.run();
+
+            slider.setOnMouseDragged(
+                e -> {
+                  double v = 1.0 - e.getY() / (double) padSz;
+                  v = Math.max(0.0, Math.min(1.0, v));
+                  bridge.setVelocity(0, slot, v);
+                  redraw.run();
+                });
+            slider.setOnMousePressed(
+                e -> {
+                  double v = 1.0 - e.getY() / (double) padSz;
+                  v = Math.max(0.0, Math.min(1.0, v));
+                  bridge.setVelocity(0, slot, v);
+                  redraw.run();
+                });
+
+            javafx.scene.layout.StackPane wrap = new javafx.scene.layout.StackPane(slider);
+            wrap.setStyle(
+                "-fx-border-color: #444; -fx-border-width: 1; -fx-background-color: #111;");
+            wrap.setPrefSize(padSz, padSz);
+            ctrlRow.getChildren().add(wrap);
+          }
+        }
+        rowContainer.getChildren().add(ctrlRow);
+        continue;
       }
 
       if (i == 10) {
-          javafx.scene.layout.HBox ctrlRow = new javafx.scene.layout.HBox(5);
-          ctrlRow.setAlignment(Pos.CENTER_LEFT);
-          
-          javafx.scene.control.Label label = new javafx.scene.control.Label("KEYBOARD");
-          label.setPrefWidth(75);
-          label.setStyle("-fx-text-fill: lightgreen; -fx-font-weight: bold;");
-          
-          javafx.scene.control.Button emptyAudition = new javafx.scene.control.Button(">");
-          emptyAudition.setPrefWidth(25);
-          emptyAudition.setDisable(true);
-          
-          ctrlRow.getChildren().addAll(label, emptyAudition);
-          
-          for (int c = 0; c < 18; c++) {
-             final int note = 48 + c;
-             boolean isBlack = (c % 12 == 1 || c % 12 == 3 || c % 12 == 6 || c % 12 == 8 || c % 12 == 10);
-             
-             javafx.scene.control.Button btn = new javafx.scene.control.Button(String.valueOf(note));
-             btn.setPrefSize(padSz, padSz);
+        javafx.scene.layout.HBox ctrlRow = new javafx.scene.layout.HBox(5);
+        ctrlRow.setAlignment(Pos.CENTER_LEFT);
 
-             btn.setStyle("-fx-base: " + (isBlack ? "#333" : "#fff") + "; -fx-text-fill: " + (isBlack ? "#fff" : "#000") + "; -fx-font-size: 9px; -fx-font-weight: bold;");
-             
-             btn.setOnAction(e -> {
-                 try {
-                    org.chuck.core.ChuckEvent noteEv = (org.chuck.core.ChuckEvent) vm.getGlobalObject("g_ck_noteOn");
-                    if (noteEv != null) {
-                       org.chuck.core.ChuckArray pitchArr = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_PITCH);
-                       pitchArr.setInt(0, (long)(note - 60));
-                       noteEv.broadcast();
-                    }
-                 } catch (Exception ex) {}
-             });
-             
-             ctrlRow.getChildren().add(btn);
-          }
-          rowContainer.getChildren().add(ctrlRow);
-          continue;
+        javafx.scene.control.Label label = new javafx.scene.control.Label("KEYBOARD");
+        label.setPrefWidth(75);
+        label.setStyle("-fx-text-fill: lightgreen; -fx-font-weight: bold;");
+
+        javafx.scene.control.Button emptyAudition = new javafx.scene.control.Button(">");
+        emptyAudition.setPrefWidth(25);
+        emptyAudition.setDisable(true);
+
+        ctrlRow.getChildren().addAll(label, emptyAudition);
+
+        for (int c = 0; c < 18; c++) {
+          final int note = 48 + c;
+          boolean isBlack =
+              (c % 12 == 1 || c % 12 == 3 || c % 12 == 6 || c % 12 == 8 || c % 12 == 10);
+
+          javafx.scene.control.Button btn = new javafx.scene.control.Button(String.valueOf(note));
+          btn.setPrefSize(padSz, padSz);
+
+          btn.setStyle(
+              "-fx-base: "
+                  + (isBlack ? "#333" : "#fff")
+                  + "; -fx-text-fill: "
+                  + (isBlack ? "#fff" : "#000")
+                  + "; -fx-font-size: 9px; -fx-font-weight: bold;");
+
+          btn.setOnAction(
+              e -> {
+                try {
+                  org.chuck.core.ChuckEvent noteEv =
+                      (org.chuck.core.ChuckEvent) vm.getGlobalObject("g_ck_noteOn");
+                  if (noteEv != null) {
+                    org.chuck.core.ChuckArray pitchArr =
+                        (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_PITCH);
+                    pitchArr.setInt(0, (long) (note - 60));
+                    noteEv.broadcast();
+                  }
+                } catch (Exception ex) {
+                }
+              });
+
+          ctrlRow.getChildren().add(btn);
+        }
+        rowContainer.getChildren().add(ctrlRow);
+        continue;
       }
 
       rows[i] = new TrackRowPanel(i, "EMPTY", vm, bridge, this::getCurrentEditMode);
@@ -228,7 +237,6 @@ public class MatrixPanel extends BorderPane {
       }
     }
 
-
     // Start Playhead Timer
     javafx.animation.AnimationTimer timer =
         new javafx.animation.AnimationTimer() {
@@ -237,9 +245,9 @@ public class MatrixPanel extends BorderPane {
             int step = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
             if (step != currentStep) {
               if (step == 0 && currentStep >= 15) {
-                  for (int t = 0; t < 8; t++) {
-                      if (isOneShotTrack[t]) bridge.setMute(t, true);
-                  }
+                for (int t = 0; t < 8; t++) {
+                  if (isOneShotTrack[t]) bridge.setMute(t, true);
+                }
               }
 
               int oldPage = currentStep / 16;
@@ -250,13 +258,14 @@ public class MatrixPanel extends BorderPane {
               setCurrentStep(step);
               updateKeyboard(step);
             }
-          
+
             if (bridge.getStep(0, step)) {
               for (int t = 1; t < rows.length; t++) {
                 final int trackIdx = t;
                 bridge.setTrackLevel(trackIdx, 0.15);
-                
-                javafx.animation.PauseTransition release = new javafx.animation.PauseTransition(javafx.util.Duration.millis(120));
+
+                javafx.animation.PauseTransition release =
+                    new javafx.animation.PauseTransition(javafx.util.Duration.millis(120));
                 release.setOnFinished(ev -> bridge.setTrackLevel(trackIdx, 0.70));
                 release.play();
               }
@@ -420,17 +429,17 @@ public class MatrixPanel extends BorderPane {
     return currentEditMode;
   }
 
-
   private org.rtmidijava.RtMidiOut midiOut;
 
   public void updateStep(int step) {
     if (midiOut == null) {
-       try {
-          midiOut = org.rtmidijava.RtMidiFactory.createDefaultOut();
-          if (midiOut.getPortCount() > 0) {
-             midiOut.openPort(0, "DelugeFxOut");
-          }
-       } catch (Exception ex) {}
+      try {
+        midiOut = org.rtmidijava.RtMidiFactory.createDefaultOut();
+        if (midiOut.getPortCount() > 0) {
+          midiOut.openPort(0, "DelugeFxOut");
+        }
+      } catch (Exception ex) {
+      }
     }
 
     // Clear old highlight
@@ -443,28 +452,29 @@ public class MatrixPanel extends BorderPane {
     // Highlight new step and send MIDI out
     if (step >= 0 && step < 16) {
       if (step != currentStep) {
-         for (int t = 0; t < rows.length; t++) {
-            if (bridge.getStep(t, step)) {
+        for (int t = 0; t < rows.length; t++) {
+          if (bridge.getStep(t, step)) {
 
-                if (midiOut != null) {
-                   try {
-                      int trackType = bridge.getTrackType(t);
-                      if (trackType == 2) {
-                         midiOut.sendMessage(new byte[]{(byte)0x90, (byte)(60 + t), (byte)100});
-                         final int trk = t;
-                         rows[trk].highlightStep(0, true);
-                         javafx.animation.PauseTransition flashOff = new javafx.animation.PauseTransition(javafx.util.Duration.millis(60));
-                         flashOff.setOnFinished(ev -> rows[trk].highlightStep(0, false));
-                         flashOff.play();
-                      } else {
-                         midiOut.sendMessage(new byte[]{(byte)0x90, (byte)(36 + t * 2), (byte)100});
-                      }
-
-                   } catch (Exception ex) {}
+            if (midiOut != null) {
+              try {
+                int trackType = bridge.getTrackType(t);
+                if (trackType == 2) {
+                  midiOut.sendMessage(new byte[] {(byte) 0x90, (byte) (60 + t), (byte) 100});
+                  final int trk = t;
+                  rows[trk].highlightStep(0, true);
+                  javafx.animation.PauseTransition flashOff =
+                      new javafx.animation.PauseTransition(javafx.util.Duration.millis(60));
+                  flashOff.setOnFinished(ev -> rows[trk].highlightStep(0, false));
+                  flashOff.play();
+                } else {
+                  midiOut.sendMessage(new byte[] {(byte) 0x90, (byte) (36 + t * 2), (byte) 100});
                 }
 
+              } catch (Exception ex) {
+              }
             }
-         }
+          }
+        }
       }
 
       for (TrackRowPanel row : rows) {
@@ -474,5 +484,4 @@ public class MatrixPanel extends BorderPane {
 
     currentStep = step;
   }
-
 }

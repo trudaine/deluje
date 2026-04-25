@@ -24,7 +24,6 @@ public class MidiInputRouterTest {
     bridge.register(vm);
     org.chuck.deluge.project.PreferencesManager.set("midi.grid.mode", "false");
     router = new MidiInputRouter(vm, bridge);
-
   }
 
   @AfterEach

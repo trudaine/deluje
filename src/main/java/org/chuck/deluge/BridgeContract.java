@@ -349,17 +349,16 @@ public final class BridgeContract {
   public void setMute(int track, boolean val) {
     mute.setInt(track, val ? 1L : 0L);
     if (vm != null) {
-       vm.setGlobalInt("g_mute_" + track, val ? 1L : 0L);
+      vm.setGlobalInt("g_mute_" + track, val ? 1L : 0L);
     }
   }
 
   public boolean getMute(int track) {
     if (vm != null) {
-       return vm.getGlobalInt("g_mute_" + track) > 0;
+      return vm.getGlobalInt("g_mute_" + track) > 0;
     }
     return mute.getInt(track) > 0;
   }
-
 
   public int getTrackType(int track) {
     return (int) trackType.getInt(track);
@@ -368,8 +367,6 @@ public final class BridgeContract {
   public void setTrackType(int track, int type) {
     trackType.setInt(track, (long) type);
   }
-
-
 
   public void setFilterFreq(int track, double val) {
     filter.setFloat(track * 2, (float) Math.max(0, Math.min(1, val)));
