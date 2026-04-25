@@ -1,8 +1,7 @@
 package org.chuck.deluge.ui.song;
 
-import javafx.scene.control.Button;
 import javafx.geometry.Insets;
-
+import javafx.scene.control.Button;
 
 /** A cell in the Song Mode clip launcher grid. Represents a pattern that can be launched. */
 public class ClipCell extends Button {
@@ -86,48 +85,49 @@ public class ClipCell extends Button {
         });
     setOnContextMenuRequested(
         e -> {
-           javafx.scene.control.Dialog<Void> dialog = new javafx.scene.control.Dialog<>();
-           dialog.setTitle("Track Inspector");
-           dialog.getDialogPane().setPrefSize(800, 500);
-           
-           javafx.scene.control.TabPane tabPane = new javafx.scene.control.TabPane();
-           tabPane.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
-           
-           javafx.scene.control.Tab t1 = new javafx.scene.control.Tab("PRESETS");
-           javafx.scene.layout.VBox p1 = new javafx.scene.layout.VBox(20);
-           p1.setPadding(new Insets(20));
-           javafx.scene.control.Label lP = new javafx.scene.control.Label("Patch Selection:");
-           javafx.scene.control.ComboBox<String> cb = new javafx.scene.control.ComboBox<>();
-           cb.getItems().addAll("000 Rich Saw Bass", "017 Impact Saw Lead", "073 Piano");
-           p1.getChildren().addAll(lP, cb);
-           t1.setContent(p1);
-           
-           javafx.scene.control.Tab t2 = new javafx.scene.control.Tab("MIXER");
-           javafx.scene.layout.VBox p2 = new javafx.scene.layout.VBox(20);
-           p2.setPadding(new Insets(20));
-           javafx.scene.control.Label lM = new javafx.scene.control.Label("Volume slider:");
-           javafx.scene.control.Slider slider = new javafx.scene.control.Slider(0, 100, 80);
-           javafx.scene.control.Label lPan = new javafx.scene.control.Label("Panning slider:");
-           javafx.scene.control.Slider panSlider = new javafx.scene.control.Slider(0, 100, 50);
-           p2.getChildren().addAll(lM, slider, lPan, panSlider);
-           t2.setContent(p2);
+          javafx.scene.control.Dialog<Void> dialog = new javafx.scene.control.Dialog<>();
+          dialog.setTitle("Track Inspector");
+          dialog.getDialogPane().setPrefSize(800, 500);
 
-           javafx.scene.control.Tab t3 = new javafx.scene.control.Tab("CLIPBOARD");
-           javafx.scene.layout.HBox p3 = new javafx.scene.layout.HBox(20);
-           p3.setPadding(new Insets(20));
-           javafx.scene.control.Button cloneBtn = new javafx.scene.control.Button("Clone Clip Variant");
-           cloneBtn.setStyle("-fx-font-size: 20px; -fx-font-weight: bold; -fx-padding: 10 20 10 20;");
-           p3.getChildren().add(cloneBtn);
-           t3.setContent(p3);
-           
-           tabPane.getTabs().addAll(t1, t2, t3);
+          javafx.scene.control.TabPane tabPane = new javafx.scene.control.TabPane();
+          tabPane.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
 
-           dialog.getDialogPane().setContent(tabPane);
-           dialog.getDialogPane().getButtonTypes().add(javafx.scene.control.ButtonType.CLOSE);
-           dialog.showAndWait();
+          javafx.scene.control.Tab t1 = new javafx.scene.control.Tab("PRESETS");
+          javafx.scene.layout.VBox p1 = new javafx.scene.layout.VBox(20);
+          p1.setPadding(new Insets(20));
+          javafx.scene.control.Label lP = new javafx.scene.control.Label("Patch Selection:");
+          javafx.scene.control.ComboBox<String> cb = new javafx.scene.control.ComboBox<>();
+          cb.getItems().addAll("000 Rich Saw Bass", "017 Impact Saw Lead", "073 Piano");
+          p1.getChildren().addAll(lP, cb);
+          t1.setContent(p1);
+
+          javafx.scene.control.Tab t2 = new javafx.scene.control.Tab("MIXER");
+          javafx.scene.layout.VBox p2 = new javafx.scene.layout.VBox(20);
+          p2.setPadding(new Insets(20));
+          javafx.scene.control.Label lM = new javafx.scene.control.Label("Volume slider:");
+          javafx.scene.control.Slider slider = new javafx.scene.control.Slider(0, 100, 80);
+          javafx.scene.control.Label lPan = new javafx.scene.control.Label("Panning slider:");
+          javafx.scene.control.Slider panSlider = new javafx.scene.control.Slider(0, 100, 50);
+          p2.getChildren().addAll(lM, slider, lPan, panSlider);
+          t2.setContent(p2);
+
+          javafx.scene.control.Tab t3 = new javafx.scene.control.Tab("CLIPBOARD");
+          javafx.scene.layout.HBox p3 = new javafx.scene.layout.HBox(20);
+          p3.setPadding(new Insets(20));
+          javafx.scene.control.Button cloneBtn =
+              new javafx.scene.control.Button("Clone Clip Variant");
+          cloneBtn.setStyle(
+              "-fx-font-size: 20px; -fx-font-weight: bold; -fx-padding: 10 20 10 20;");
+          p3.getChildren().add(cloneBtn);
+          t3.setContent(p3);
+
+          tabPane.getTabs().addAll(t1, t2, t3);
+
+          dialog.getDialogPane().setContent(tabPane);
+          dialog.getDialogPane().getButtonTypes().add(javafx.scene.control.ButtonType.CLOSE);
+          dialog.showAndWait();
         });
   }
-
 
   public void setEmpty() {
     currentState = State.EMPTY;

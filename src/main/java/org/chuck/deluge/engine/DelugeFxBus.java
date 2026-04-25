@@ -93,17 +93,16 @@ public class DelugeFxBus implements Shred {
 
       long allMuted = 1L;
       for (int i = 0; i < 64; i++) {
-          if (vm.getGlobalInt("g_mute_" + i) == 0) {
-              allMuted = 0L;
-              break;
-          }
+        if (vm.getGlobalInt("g_mute_" + i) == 0) {
+          allMuted = 0L;
+          break;
+        }
       }
       if (allMuted == 1L) {
-          fxOut.gain(0.0f);
+        fxOut.gain(0.0f);
       } else {
-          fxOut.gain(0.3f);
+        fxOut.gain(0.3f);
       }
-
 
       delay.delay(second(delayTime).samples());
       delay.gain(delayFb);

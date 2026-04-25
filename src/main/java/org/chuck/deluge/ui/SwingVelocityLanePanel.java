@@ -17,16 +17,18 @@ public class SwingVelocityLanePanel extends JPanel {
     setPreferredSize(new Dimension(0, 120));
     setBackground(new Color(0x1a, 0x1a, 0x1a));
 
-    java.awt.event.MouseAdapter mouseAdapter = new java.awt.event.MouseAdapter() {
-      @Override
-      public void mousePressed(java.awt.event.MouseEvent e) {
-        handlePaint(e);
-      }
-      @Override
-      public void mouseDragged(java.awt.event.MouseEvent e) {
-        handlePaint(e);
-      }
-    };
+    java.awt.event.MouseAdapter mouseAdapter =
+        new java.awt.event.MouseAdapter() {
+          @Override
+          public void mousePressed(java.awt.event.MouseEvent e) {
+            handlePaint(e);
+          }
+
+          @Override
+          public void mouseDragged(java.awt.event.MouseEvent e) {
+            handlePaint(e);
+          }
+        };
     addMouseListener(mouseAdapter);
     addMouseMotionListener(mouseAdapter);
   }
@@ -35,18 +37,18 @@ public class SwingVelocityLanePanel extends JPanel {
   private double startVal = 0.0;
 
   private void handlePaint(java.awt.event.MouseEvent e) {
-    boolean isHd = Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("hd.optimization", "false"));
+    boolean isHd =
+        Boolean.parseBoolean(
+            org.chuck.deluge.project.PreferencesManager.get("hd.optimization", "false"));
     int padSz = isHd ? 70 : 120;
 
     int h = getHeight();
     int step = (e.getX() - 172) / padSz;
 
-
-    
     if (step >= 0 && step < 16) {
-      double val = 1.0 - (double)e.getY() / h;
+      double val = 1.0 - (double) e.getY() / h;
       val = Math.max(0.0, Math.min(1.0, val));
-      
+
       if (e.getID() == java.awt.event.MouseEvent.MOUSE_PRESSED) {
         startStep = step;
         startVal = val;
@@ -58,7 +60,7 @@ public class SwingVelocityLanePanel extends JPanel {
           double v1 = (min == startStep) ? startVal : val;
           double v2 = (min == startStep) ? val : startVal;
           for (int s = min; s <= max; s++) {
-            double t = (max == min) ? 0.0 : (double)(s - min) / (max - min);
+            double t = (max == min) ? 0.0 : (double) (s - min) / (max - min);
             updateValue(s, v1 + t * (v2 - v1));
           }
         } else {
@@ -75,17 +77,16 @@ public class SwingVelocityLanePanel extends JPanel {
       bridge.setVelocity(0, step, val);
     } else if ("PAN".equals(currentMode)) {
       Object obj = vm.getGlobalObject(BridgeContract.G_STEP_PAN);
-      if (obj instanceof org.chuck.core.ChuckArray arr) arr.setFloat(step, (float)(val * 2.0 - 1.0));
+      if (obj instanceof org.chuck.core.ChuckArray arr)
+        arr.setFloat(step, (float) (val * 2.0 - 1.0));
     } else if ("FILTER".equals(currentMode)) {
       Object obj = vm.getGlobalObject(BridgeContract.G_STEP_FILTER);
-      if (obj instanceof org.chuck.core.ChuckArray arr) arr.setFloat(step, (float)val);
+      if (obj instanceof org.chuck.core.ChuckArray arr) arr.setFloat(step, (float) val);
     } else if ("RESONANCE".equals(currentMode)) {
       Object obj = vm.getGlobalObject(BridgeContract.G_STEP_RES);
-      if (obj instanceof org.chuck.core.ChuckArray arr) arr.setFloat(step, (float)val);
+      if (obj instanceof org.chuck.core.ChuckArray arr) arr.setFloat(step, (float) val);
     }
   }
-
-
 
   private String currentMode = "VELOCITY";
 
@@ -93,7 +94,6 @@ public class SwingVelocityLanePanel extends JPanel {
     this.currentMode = mode;
     repaint();
   }
-
 
   @Override
   protected void paintComponent(Graphics g) {
@@ -112,7 +112,9 @@ public class SwingVelocityLanePanel extends JPanel {
       g2.setColor(new Color(0xe9, 0x1e, 0x63, 0xaa));
     }
 
-    boolean isHd = Boolean.parseBoolean(org.chuck.deluge.project.PreferencesManager.get("hd.optimization", "false"));
+    boolean isHd =
+        Boolean.parseBoolean(
+            org.chuck.deluge.project.PreferencesManager.get("hd.optimization", "false"));
     int padSz = isHd ? 70 : 120;
 
     for (int i = 0; i < 16; i++) {
@@ -122,7 +124,6 @@ public class SwingVelocityLanePanel extends JPanel {
       int barX = 172 + i * padSz;
       g2.fillRect(barX + (padSz - padSz / 2) / 2, h - barH - 10, padSz / 2, barH);
     }
-
 
     g2.setColor(Color.DARK_GRAY);
     g2.drawLine(0, 0, w, 0);

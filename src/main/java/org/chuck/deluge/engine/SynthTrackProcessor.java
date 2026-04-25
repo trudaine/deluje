@@ -44,7 +44,6 @@ public class SynthTrackProcessor implements Shred {
     osc = new MorphingWavetable(sampleRate());
     fmSynth = new org.chuck.audio.stk.Rhodey(sampleRate());
 
-
     // Populate with 4 tables: Sine, Saw, Square, Triangle
     float[][] tables = new float[4][256];
     for (int i = 0; i < 256; i++) {
@@ -64,7 +63,6 @@ public class SynthTrackProcessor implements Shred {
     // Direct stereo connection
     osc.chuck(filter).chuck(env).chuck(pan).chuck(dac());
     fmSynth.chuck(filter);
-
 
     env.set(0.05, 0.2, 0.5, 0.3);
 
@@ -102,11 +100,6 @@ public class SynthTrackProcessor implements Shred {
         delaySend.gain(1.0f);
         reverbSend.gain(1.0f);
       }
-
-
-
-
-
 
       ChuckArray oscTypeArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_OSC_TYPE);
       if (oscTypeArr != null) {
@@ -171,14 +164,15 @@ public class SynthTrackProcessor implements Shred {
 
     double masterVol = vm.getGlobalFloat(BridgeContract.G_MASTER_VOL);
 
-    org.chuck.core.ChuckArray oscTypeArr = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_OSC_TYPE);
+    org.chuck.core.ChuckArray oscTypeArr =
+        (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_OSC_TYPE);
     int typeIdx = (oscTypeArr != null) ? (int) oscTypeArr.getInt(trackId) : 0;
 
     int pitch = pitchArr != null ? (int) pitchArr.getInt(idx) : 0;
     if (typeIdx == 4) {
-       fmSynth.freq((float) mtof(pitch + 60));
+      fmSynth.freq((float) mtof(pitch + 60));
     } else {
-       osc.freq((float) mtof(pitch + 60));
+      osc.freq((float) mtof(pitch + 60));
     }
 
     double vel = velocityArr != null ? velocityArr.getFloat(idx) : 0.7;
@@ -190,9 +184,9 @@ public class SynthTrackProcessor implements Shred {
     double stepDurMs = 60000.0 / (bpm * 4.0);
 
     if (typeIdx == 4) {
-       fmSynth.noteOn((float) vel);
+      fmSynth.noteOn((float) vel);
     } else {
-       env.forceMute(); // Cut off previous note
+      env.forceMute(); // Cut off previous note
     }
 
     vm.spork(

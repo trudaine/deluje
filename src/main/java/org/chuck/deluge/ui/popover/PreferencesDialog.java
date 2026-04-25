@@ -97,8 +97,6 @@ public class PreferencesDialog extends Dialog<Void> {
     resCombo.setValue(PreferencesManager.get("screen.resolution", "QHD"));
     grid.add(resCombo, 1, 8);
 
-
-
     getDialogPane().setContent(grid);
 
     setResultConverter(
@@ -113,11 +111,8 @@ public class PreferencesDialog extends Dialog<Void> {
             PreferencesManager.set("show.tooltips", String.valueOf(tooltipCheck.isSelected()));
             PreferencesManager.set("preset.linking.policy", linkingCombo.getValue());
             PreferencesManager.set("screen.resolution", resCombo.getValue());
-
-
           }
           return null;
         });
-
   }
 }

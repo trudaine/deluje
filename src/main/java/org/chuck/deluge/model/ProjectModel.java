@@ -24,38 +24,56 @@ public class ProjectModel {
   private float masterDelay = 0.3f;
 
   public static ProjectModel createDefaultProject() {
-      ProjectModel project = new ProjectModel();
-      project.setBpm(120.0f);
-      
-      KitTrackModel defaultKit = new KitTrackModel("KIT 1");
-      ClipModel clip1 = new ClipModel("CLIP 1", 8, 16);
-      defaultKit.addClip(clip1);
-      project.addTrack(defaultKit);
+    ProjectModel project = new ProjectModel();
+    project.setBpm(120.0f);
 
-      SynthTrackModel defaultSynth = new SynthTrackModel("SYNTH 1");
-      ClipModel clip2 = new ClipModel("CLIP 1", 8, 16);
-      defaultSynth.addClip(clip2);
-      project.addTrack(defaultSynth);
+    KitTrackModel defaultKit = new KitTrackModel("KIT 1");
+    ClipModel clip1 = new ClipModel("CLIP 1", 8, 16);
+    clip1.setStep(0, 0, new StepData(true, 0.8f, 0.5f, 1.0f, 60));
+    clip1.setStep(0, 4, new StepData(true, 0.8f, 0.5f, 1.0f, 60));
+    clip1.setStep(0, 8, new StepData(true, 0.8f, 0.5f, 1.0f, 60));
+    clip1.setStep(0, 12, new StepData(true, 0.8f, 0.5f, 1.0f, 60));
+    defaultKit.addClip(clip1);
 
-      return project;
+    project.addTrack(defaultKit);
+
+    SynthTrackModel defaultSynth = new SynthTrackModel("SYNTH 1");
+    ClipModel clip2 = new ClipModel("CLIP 1", 8, 16);
+    defaultSynth.addClip(clip2);
+    project.addTrack(defaultSynth);
+
+    return project;
   }
 
-  public float getMasterVolume() { return masterVolume; }
-  public void setMasterVolume(float vol) { this.masterVolume = vol; }
+  public float getMasterVolume() {
+    return masterVolume;
+  }
 
-  public float getMasterReverb() { return masterReverb; }
-  public void setMasterReverb(float rev) { this.masterReverb = rev; }
+  public void setMasterVolume(float vol) {
+    this.masterVolume = vol;
+  }
 
-  public float getMasterDelay() { return masterDelay; }
-  public void setMasterDelay(float del) { this.masterDelay = del; }
+  public float getMasterReverb() {
+    return masterReverb;
+  }
+
+  public void setMasterReverb(float rev) {
+    this.masterReverb = rev;
+  }
+
+  public float getMasterDelay() {
+    return masterDelay;
+  }
+
+  public void setMasterDelay(float del) {
+    this.masterDelay = del;
+  }
 
   private java.util.function.Consumer<Float> onBpmChanged;
 
   public void setOnBpmChanged(java.util.function.Consumer<Float> callback) {
-     this.onBpmChanged = callback;
+    this.onBpmChanged = callback;
   }
-
-
 
   // Track Models (Active in Clip mode)
   private final List<TrackModel> tracks = new ArrayList<>();
@@ -119,20 +137,21 @@ public class ProjectModel {
   }
 
   public interface ProjectListener {
-     void onTrackListChanged();
-     void onBpmChanged(float bpm);
+    void onTrackListChanged();
+
+    void onBpmChanged(float bpm);
   }
-  
+
   private final List<ProjectListener> listeners = new ArrayList<>();
-  
+
   public void addProjectListener(ProjectListener l) {
-     listeners.add(l);
+    listeners.add(l);
   }
-  
+
   private void notifyTrackListChanged() {
-     for (ProjectListener l : listeners) {
-        l.onTrackListChanged();
-     }
+    for (ProjectListener l : listeners) {
+      l.onTrackListChanged();
+    }
   }
 
   public List<TrackModel> getTracks() {
@@ -148,7 +167,6 @@ public class ProjectModel {
     this.tracks.remove(track);
     notifyTrackListChanged();
   }
-
 
   public Map<String, PatternModel> getPatterns() {
     return patterns;

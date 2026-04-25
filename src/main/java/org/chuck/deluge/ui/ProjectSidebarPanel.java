@@ -152,38 +152,46 @@ public class ProjectSidebarPanel extends VBox {
     javafx.scene.control.Button shuffleBtn = new javafx.scene.control.Button("🎲 SHUFFLE DRUM KIT");
     shuffleBtn.setStyle("-fx-base: #333; -fx-text-fill: white; -fx-font-weight: bold;");
     shuffleBtn.setMaxWidth(Double.MAX_VALUE);
-    shuffleBtn.setOnAction(e -> {
-        String[] pool = {
-           "SAMPLES/DRUMS/Kick/808 Kick.wav",
-           "SAMPLES/DRUMS/Snare/808 Snare.wav",
-           "SAMPLES/DRUMS/HatC/808 Closed hihat.wav",
-           "SAMPLES/DRUMS/HatO/808 Open hihat.wav",
-           "SAMPLES/DRUMS/Shaker/808 Maraca.wav",
-           "SAMPLES/DRUMS/Rim/808 Rim.wav",
-           "SAMPLES/DRUMS/Claves/808 Claves.WAV",
-           "SAMPLES/DRUMS/Clap/808 Clap.WAV"
-        };
-        java.util.List<String> list = java.util.Arrays.asList(pool);
-        java.util.Collections.shuffle(list);
-        for (int i = 0; i < 8; i++) {
+    shuffleBtn.setOnAction(
+        e -> {
+          String[] pool = {
+            "SAMPLES/DRUMS/Kick/808 Kick.wav",
+            "SAMPLES/DRUMS/Snare/808 Snare.wav",
+            "SAMPLES/DRUMS/HatC/808 Closed hihat.wav",
+            "SAMPLES/DRUMS/HatO/808 Open hihat.wav",
+            "SAMPLES/DRUMS/Shaker/808 Maraca.wav",
+            "SAMPLES/DRUMS/Rim/808 Rim.wav",
+            "SAMPLES/DRUMS/Claves/808 Claves.WAV",
+            "SAMPLES/DRUMS/Clap/808 Clap.WAV"
+          };
+          java.util.List<String> list = java.util.Arrays.asList(pool);
+          java.util.Collections.shuffle(list);
+          for (int i = 0; i < 8; i++) {
             String resPath = list.get(i);
             if (!resPath.startsWith("/")) resPath = "/" + resPath;
             String sp = resPath;
-            try (java.io.InputStream resIs = getClass().getResourceAsStream(resPath) != null ? 
-                   getClass().getResourceAsStream(resPath) : 
-                   getClass().getResourceAsStream(resPath.replace(".wav", ".WAV"))) {
-               if (resIs != null) {
-                  java.io.File tempFile = new java.io.File(System.getProperty("user.home") + "/.gemini/jetski/scratch/" + new java.io.File(resPath).getName());
-                  java.nio.file.Files.copy(resIs, tempFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                  sp = tempFile.getAbsolutePath();
-               }
-            } catch (Exception ex) {}
+            try (java.io.InputStream resIs =
+                getClass().getResourceAsStream(resPath) != null
+                    ? getClass().getResourceAsStream(resPath)
+                    : getClass().getResourceAsStream(resPath.replace(".wav", ".WAV"))) {
+              if (resIs != null) {
+                java.io.File tempFile =
+                    new java.io.File(
+                        System.getProperty("user.home")
+                            + "/.gemini/jetski/scratch/"
+                            + new java.io.File(resPath).getName());
+                java.nio.file.Files.copy(
+                    resIs, tempFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                sp = tempFile.getAbsolutePath();
+              }
+            } catch (Exception ex) {
+            }
             vm.setGlobalString("g_sample_" + i, sp);
             bridge.setMute(i, false);
             bridge.setTrackType(i, 0);
-        }
-        vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
-    });
+          }
+          vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+        });
     box.getChildren().add(shuffleBtn);
 
     TreeView<LibraryItem> tree = new TreeView<>(root);
@@ -303,12 +311,12 @@ public class ProjectSidebarPanel extends VBox {
         if (f.getName().startsWith(".")) continue;
         if (f.isDirectory()) {
           addFilesToTree(folder, f, f.getName());
-        } else if (f.getName().toUpperCase().endsWith(".XML") || f.getName().toUpperCase().endsWith(".CK")) {
+        } else if (f.getName().toUpperCase().endsWith(".XML")
+            || f.getName().toUpperCase().endsWith(".CK")) {
           int dotIdx = f.getName().lastIndexOf('.');
           String displayName = dotIdx != -1 ? f.getName().substring(0, dotIdx) : f.getName();
           folder.getChildren().add(new TreeItem<>(new LibraryItem(displayName, null, f, false)));
         }
-
       }
     }
   }
@@ -352,14 +360,14 @@ public class ProjectSidebarPanel extends VBox {
 
         if (Files.exists(path)) {
           try (java.util.stream.Stream<Path> walk = Files.walk(path, 1)) {
-            walk.filter(p -> {
-                  String fn = p.getFileName().toString().toUpperCase();
-                  return fn.endsWith(".XML") || fn.endsWith(".CK");
-                })
+            walk.filter(
+                    p -> {
+                      String fn = p.getFileName().toString().toUpperCase();
+                      return fn.endsWith(".XML") || fn.endsWith(".CK");
+                    })
                 .sorted(
                     java.util.Comparator.comparing(p -> p.getFileName().toString().toUpperCase()))
                 .forEach(p -> presets.add(p.getFileName().toString()));
-
           }
         }
       }
@@ -475,7 +483,7 @@ public class ProjectSidebarPanel extends VBox {
 
     VBox patchBox = new VBox(5);
     patchBox.setStyle("-fx-background-color: #1f1f1f; -fx-padding: 10; -fx-border-color: #333;");
-    
+
     String[] matrix = {
       "Master Volume ➔ CC #7 [ACTIVE]",
       "Master Pan ➔ None [LEARN]",
@@ -484,9 +492,9 @@ public class ProjectSidebarPanel extends VBox {
       "Reverb Room ➔ CC #21 [ACTIVE]"
     };
     for (String m : matrix) {
-       Label ml = new Label(m);
-       ml.setStyle("-fx-text-fill: #fff; -fx-font-size: 13px;");
-       patchBox.getChildren().add(ml);
+      Label ml = new Label(m);
+      ml.setStyle("-fx-text-fill: #fff; -fx-font-size: 13px;");
+      patchBox.getChildren().add(ml);
     }
     box.getChildren().add(patchBox);
 
@@ -514,27 +522,28 @@ public class ProjectSidebarPanel extends VBox {
     box.setStyle("-fx-background-color: #252525;");
 
     javafx.scene.control.TextArea scriptArea = new javafx.scene.control.TextArea();
-    scriptArea.setStyle("-fx-font-family: 'monospace'; -fx-text-fill: #00ff00; -fx-control-inner-background: #1f1f1f;");
-    
+    scriptArea.setStyle(
+        "-fx-font-family: 'monospace'; -fx-text-fill: #00ff00; -fx-control-inner-background: #1f1f1f;");
+
     javafx.scene.control.Button saveBtn = new javafx.scene.control.Button("💾 SAVE & RELOAD");
     saveBtn.setStyle("-fx-background-color: #336633; -fx-text-fill: white; -fx-font-weight: bold;");
-    saveBtn.setOnAction(e -> {
-      javafx.stage.FileChooser chooser = new javafx.stage.FileChooser();
-      chooser.setTitle("Save ChucK Script Externally");
-      java.io.File outFile = chooser.showSaveDialog(getScene().getWindow());
-      if (outFile != null) {
-        try (java.io.FileWriter writer = new java.io.FileWriter(outFile)) {
-           writer.write(scriptArea.getText());
-        } catch (Exception ex) {
-           ex.printStackTrace();
-        }
-      }
-    });
+    saveBtn.setOnAction(
+        e -> {
+          javafx.stage.FileChooser chooser = new javafx.stage.FileChooser();
+          chooser.setTitle("Save ChucK Script Externally");
+          java.io.File outFile = chooser.showSaveDialog(getScene().getWindow());
+          if (outFile != null) {
+            try (java.io.FileWriter writer = new java.io.FileWriter(outFile)) {
+              writer.write(scriptArea.getText());
+            } catch (Exception ex) {
+              ex.printStackTrace();
+            }
+          }
+        });
 
     box.getChildren().addAll(saveBtn, scriptArea);
     javafx.scene.layout.VBox.setVgrow(scriptArea, javafx.scene.layout.Priority.ALWAYS);
-    
+
     return box;
   }
 }
-

@@ -2,10 +2,8 @@ package org.chuck.deluge.ui;
 
 import java.util.function.Consumer;
 import javafx.geometry.Insets;
-import javafx.geometry.Pos;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
-import javafx.scene.layout.HBox;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 
@@ -17,7 +15,6 @@ public class ParameterRibbonPanel extends javafx.scene.layout.GridPane {
   private final ChuckVM vm;
   private final BridgeContract bridge;
   private Consumer<EditMode> modeChangeListener;
-
 
   public enum EditMode {
     LEVEL,
@@ -67,7 +64,8 @@ public class ParameterRibbonPanel extends javafx.scene.layout.GridPane {
       String label = PARAM_LABELS[i];
       ToggleButton btn = new ToggleButton(label);
       btn.setToggleGroup(group);
-      btn.setStyle("-fx-base: #333333; -fx-text-fill: white; -fx-font-size: 11px; -fx-font-weight: bold;");
+      btn.setStyle(
+          "-fx-base: #333333; -fx-text-fill: white; -fx-font-size: 11px; -fx-font-weight: bold;");
 
       if (Boolean.parseBoolean(
           org.chuck.deluge.project.PreferencesManager.get("show.tooltips", "true"))) {
@@ -86,7 +84,7 @@ public class ParameterRibbonPanel extends javafx.scene.layout.GridPane {
         btn.setOnMousePressed(
             e -> {
               vm.setGlobalInt("g_stutter_on", 1L);
-              vm.setGlobalFloat("g_stutter_div", 2.0); 
+              vm.setGlobalFloat("g_stutter_div", 2.0);
             });
         btn.setOnMouseReleased(
             e -> {
@@ -110,7 +108,6 @@ public class ParameterRibbonPanel extends javafx.scene.layout.GridPane {
       int row = i / 8;
       add(btn, col, row);
     }
-
   }
 
   public void setOnModeChange(Consumer<EditMode> listener) {

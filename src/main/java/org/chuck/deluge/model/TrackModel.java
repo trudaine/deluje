@@ -23,7 +23,6 @@ public abstract class TrackModel {
     this.colourHex = colourHex;
   }
 
-
   public TrackModel(String name, TrackType type) {
     this.name = name;
     this.type = type;

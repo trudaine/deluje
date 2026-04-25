@@ -15,7 +15,6 @@ public class SwingProjectSidebarPanel extends JPanel {
   private JSlider lpfSlider;
   private JSlider attSlider;
 
-
   private final org.chuck.deluge.midi.MidiService midiService;
 
   private JTextArea scriptArea;
@@ -23,8 +22,8 @@ public class SwingProjectSidebarPanel extends JPanel {
   private JTabbedPane tabs;
   private JPanel ckParamsBox;
 
-
-  public SwingProjectSidebarPanel(ChuckVM vm, BridgeContract bridge, org.chuck.deluge.midi.MidiService midiService) {
+  public SwingProjectSidebarPanel(
+      ChuckVM vm, BridgeContract bridge, org.chuck.deluge.midi.MidiService midiService) {
     this.vm = vm;
     this.bridge = bridge;
     this.midiService = midiService;
@@ -45,10 +44,8 @@ public class SwingProjectSidebarPanel extends JPanel {
     tabs.addTab("PROFILER", createProfilerTab());
     tabs.addTab("SNIPPETS", createSnippetsTab());
 
-
     add(tabs, BorderLayout.CENTER);
   }
-
 
   private JComponent createLibraryTab() {
     javax.swing.tree.DefaultMutableTreeNode root =
@@ -59,18 +56,17 @@ public class SwingProjectSidebarPanel extends JPanel {
     addResourcesToTree(root, "SONGS", "/SONGS");
     addResourcesToTree(root, "EXAMPLES", "/examples");
 
-
     JTree tree = new JTree(root);
     tree.setBackground(new Color(0x1f, 0x1f, 0x1f));
     tree.setRowHeight(30); // More vertical spacing
-    
-    javax.swing.tree.DefaultTreeCellRenderer renderer = new javax.swing.tree.DefaultTreeCellRenderer();
+
+    javax.swing.tree.DefaultTreeCellRenderer renderer =
+        new javax.swing.tree.DefaultTreeCellRenderer();
     renderer.setBackgroundNonSelectionColor(new Color(0x1f, 0x1f, 0x1f));
     renderer.setTextNonSelectionColor(Color.LIGHT_GRAY);
     renderer.setTextSelectionColor(Color.WHITE);
     renderer.setBackgroundSelectionColor(new Color(0x00, 0xff, 0xcc, 0x55));
     tree.setCellRenderer(renderer);
-
 
     tree.addMouseListener(
         new java.awt.event.MouseAdapter() {
@@ -88,31 +84,34 @@ public class SwingProjectSidebarPanel extends JPanel {
                   StringBuilder pathBuilder = new StringBuilder();
                   for (int i = 1; i < path.getPathCount(); i++) {
 
-                     pathBuilder.append("/").append(path.getPathComponent(i).toString());
+                    pathBuilder.append("/").append(path.getPathComponent(i).toString());
                   }
                   String resourcePath = pathBuilder.toString();
                   if (resourcePath.startsWith("/EXAMPLES/")) {
-                     resourcePath = "/examples" + resourcePath.substring(9);
+                    resourcePath = "/examples" + resourcePath.substring(9);
                   }
-                  if (!resourcePath.toLowerCase().endsWith(".xml") && !resourcePath.toLowerCase().endsWith(".ck")) {
-                     resourcePath += ".XML"; 
+                  if (!resourcePath.toLowerCase().endsWith(".xml")
+                      && !resourcePath.toLowerCase().endsWith(".ck")) {
+                    resourcePath += ".XML";
                   }
 
-                  
                   if (resourcePath.toLowerCase().endsWith(".ck")) {
 
                     System.out.println("Swing: Loading ChucK script text: " + resourcePath);
                     activeScriptPath = resourcePath;
                     try (java.io.InputStream is = getClass().getResourceAsStream(resourcePath)) {
                       if (is != null) {
-                        String content = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                        String content =
+                            new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
                         if (scriptArea != null) {
                           scriptArea.setText(content);
                           tabs.setSelectedIndex(1); // Focus EDITOR tab to see sliders!
-                          
+
                           if (ckParamsBox != null) {
                             ckParamsBox.removeAll();
-                            java.util.regex.Pattern p = java.util.regex.Pattern.compile("global\\s+float\\s+([a-zA-Z0-9_]+)");
+                            java.util.regex.Pattern p =
+                                java.util.regex.Pattern.compile(
+                                    "global\\s+float\\s+([a-zA-Z0-9_]+)");
                             java.util.regex.Matcher m = p.matcher(content);
                             while (m.find()) {
                               String varName = m.group(1);
@@ -120,12 +119,13 @@ public class SwingProjectSidebarPanel extends JPanel {
                               varLabel.setForeground(Color.WHITE);
                               JSlider slider = new JSlider(0, 100, 50);
                               slider.setBackground(new Color(0x1f, 0x1f, 0x1f));
-                              slider.addChangeListener(ev -> {
-                                varLabel.setText(varName + ": " + slider.getValue());
-                                if (vm != null) {
-                                  vm.setGlobalFloat(varName, slider.getValue() / 100.0);
-                                }
-                              });
+                              slider.addChangeListener(
+                                  ev -> {
+                                    varLabel.setText(varName + ": " + slider.getValue());
+                                    if (vm != null) {
+                                      vm.setGlobalFloat(varName, slider.getValue() / 100.0);
+                                    }
+                                  });
                               ckParamsBox.add(varLabel);
                               ckParamsBox.add(slider);
                               ckParamsBox.add(Box.createVerticalStrut(5));
@@ -134,7 +134,6 @@ public class SwingProjectSidebarPanel extends JPanel {
                             ckParamsBox.repaint();
                           }
                         }
-
                       }
                     } catch (Exception ex) {
                       ex.printStackTrace();
@@ -142,16 +141,15 @@ public class SwingProjectSidebarPanel extends JPanel {
                     return;
                   }
 
-
                   System.out.println("Swing: Loading Preset: " + resourcePath);
-                  try (java.io.InputStream is = getClass().getResourceAsStream(resourcePath) != null ? 
-                                getClass().getResourceAsStream(resourcePath) : 
-                                getClass().getResourceAsStream(resourcePath.replace(".XML", ".xml"))) {
+                  try (java.io.InputStream is =
+                      getClass().getResourceAsStream(resourcePath) != null
+                          ? getClass().getResourceAsStream(resourcePath)
+                          : getClass().getResourceAsStream(resourcePath.replace(".XML", ".xml"))) {
                     if (is != null) {
-                       if ("KITS".equals(internalDir)) {
-                         org.chuck.deluge.model.KitTrackModel kit =
-                             org.chuck.deluge.xml.DelugeXmlParser.parseKit(is, name);
-
+                      if ("KITS".equals(internalDir)) {
+                        org.chuck.deluge.model.KitTrackModel kit =
+                            org.chuck.deluge.xml.DelugeXmlParser.parseKit(is, name);
 
                         int baseTrack = 0;
                         java.util.List<org.chuck.deluge.model.KitTrackModel.KitSound> sounds =
@@ -160,49 +158,59 @@ public class SwingProjectSidebarPanel extends JPanel {
                           if (i < sounds.size()) {
                             String sp = sounds.get(i).getSamplePath();
                             if (sp != null) {
-                               String resPath = sp;
-                               if (!resPath.startsWith("/")) resPath = "/" + resPath;
-                               try (java.io.InputStream resIs = getClass().getResourceAsStream(resPath) != null ? 
-                                      getClass().getResourceAsStream(resPath) : 
-                                      null) {
-                                  if (resIs != null) {
-                                     java.io.File tempFile = new java.io.File(System.getProperty("user.home") + "/.gemini/jetski/scratch/" + new java.io.File(resPath).getName());
-                                     java.nio.file.Files.copy(resIs, tempFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                                     sp = tempFile.getAbsolutePath();
-                                  } else {
-                                     // Try uppercase fallback
-                                     try (java.io.InputStream upperIs = getClass().getResourceAsStream(resPath.replace(".wav", ".WAV"))) {
-                                        if (upperIs != null) {
-                                           System.out.println("WARNING: Resource casing discrepancy. Loaded as .WAV fallback: " + resPath);
-                                           java.io.File tempFile = new java.io.File(System.getProperty("user.home") + "/.gemini/jetski/scratch/" + new java.io.File(resPath).getName());
-                                           java.nio.file.Files.copy(upperIs, tempFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                                           sp = tempFile.getAbsolutePath();
-                                        }
-                                     }
+                              String resPath = sp;
+                              if (!resPath.startsWith("/")) resPath = "/" + resPath;
+                              try (java.io.InputStream resIs =
+                                  getClass().getResourceAsStream(resPath) != null
+                                      ? getClass().getResourceAsStream(resPath)
+                                      : null) {
+                                if (resIs != null) {
+                                  java.io.File tempFile =
+                                      new java.io.File(
+                                          System.getProperty("user.home")
+                                              + "/.gemini/jetski/scratch/"
+                                              + new java.io.File(resPath).getName());
+                                  java.nio.file.Files.copy(
+                                      resIs,
+                                      tempFile.toPath(),
+                                      java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                                  sp = tempFile.getAbsolutePath();
+                                } else {
+                                  // Try uppercase fallback
+                                  try (java.io.InputStream upperIs =
+                                      getClass()
+                                          .getResourceAsStream(resPath.replace(".wav", ".WAV"))) {
+                                    if (upperIs != null) {
+                                      System.out.println(
+                                          "WARNING: Resource casing discrepancy. Loaded as .WAV fallback: "
+                                              + resPath);
+                                      java.io.File tempFile =
+                                          new java.io.File(
+                                              System.getProperty("user.home")
+                                                  + "/.gemini/jetski/scratch/"
+                                                  + new java.io.File(resPath).getName());
+                                      java.nio.file.Files.copy(
+                                          upperIs,
+                                          tempFile.toPath(),
+                                          java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                                      sp = tempFile.getAbsolutePath();
+                                    }
                                   }
-                               } catch (Exception ex) {}
-
-
-
+                                }
+                              } catch (Exception ex) {
+                              }
                             }
 
-
-
-                            vm.setGlobalString(
-                                "g_sample_" + (baseTrack + i), sp != null ? sp : "");
+                            vm.setGlobalString("g_sample_" + (baseTrack + i), sp != null ? sp : "");
                             bridge.setMute(baseTrack + i, false);
-
-
-
                           }
                         }
 
-
-                        
-                        org.chuck.deluge.model.ProjectModel mockProj = new org.chuck.deluge.model.ProjectModel();
+                        org.chuck.deluge.model.ProjectModel mockProj =
+                            new org.chuck.deluge.model.ProjectModel();
                         mockProj.addTrack(kit);
                         if (onSongLoaded != null) {
-                           onSongLoaded.accept(mockProj);
+                          onSongLoaded.accept(mockProj);
                         }
 
                         vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
@@ -210,7 +218,6 @@ public class SwingProjectSidebarPanel extends JPanel {
                       } else if ("SONGS".equals(internalDir)) {
                         org.chuck.deluge.model.ProjectModel loadedProject =
                             org.chuck.deluge.xml.DelugeXmlParser.parseSong(is, name);
-
 
                         int kitIdx = 0;
                         for (org.chuck.deluge.model.TrackModel track : loadedProject.getTracks()) {
@@ -222,34 +229,51 @@ public class SwingProjectSidebarPanel extends JPanel {
                               int trackId = baseTrack + i;
                               if (i < sounds.size()) {
                                 String sp = sounds.get(i).getSamplePath();
-                                 if (sp != null) {
-                                    String resPath = sp;
-                                    if (!resPath.startsWith("/")) resPath = "/" + resPath;
-                                    try (java.io.InputStream resIs = getClass().getResourceAsStream(resPath) != null ? 
-                                           getClass().getResourceAsStream(resPath) : 
-                                           null) {
-                                       if (resIs != null) {
-                                          java.io.File tempFile = new java.io.File(System.getProperty("user.home") + "/.gemini/jetski/scratch/" + new java.io.File(resPath).getName());
-                                          java.nio.file.Files.copy(resIs, tempFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                                if (sp != null) {
+                                  String resPath = sp;
+                                  if (!resPath.startsWith("/")) resPath = "/" + resPath;
+                                  try (java.io.InputStream resIs =
+                                      getClass().getResourceAsStream(resPath) != null
+                                          ? getClass().getResourceAsStream(resPath)
+                                          : null) {
+                                    if (resIs != null) {
+                                      java.io.File tempFile =
+                                          new java.io.File(
+                                              System.getProperty("user.home")
+                                                  + "/.gemini/jetski/scratch/"
+                                                  + new java.io.File(resPath).getName());
+                                      java.nio.file.Files.copy(
+                                          resIs,
+                                          tempFile.toPath(),
+                                          java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                                      sp = tempFile.getAbsolutePath();
+                                    } else {
+                                      try (java.io.InputStream upperIs =
+                                          getClass()
+                                              .getResourceAsStream(
+                                                  resPath.replace(".wav", ".WAV"))) {
+                                        if (upperIs != null) {
+                                          System.out.println(
+                                              "WARNING: Resource casing discrepancy. Loaded as .WAV fallback: "
+                                                  + resPath);
+                                          java.io.File tempFile =
+                                              new java.io.File(
+                                                  System.getProperty("user.home")
+                                                      + "/.gemini/jetski/scratch/"
+                                                      + new java.io.File(resPath).getName());
+                                          java.nio.file.Files.copy(
+                                              upperIs,
+                                              tempFile.toPath(),
+                                              java.nio.file.StandardCopyOption.REPLACE_EXISTING);
                                           sp = tempFile.getAbsolutePath();
-                                       } else {
-                                          try (java.io.InputStream upperIs = getClass().getResourceAsStream(resPath.replace(".wav", ".WAV"))) {
-                                             if (upperIs != null) {
-                                                System.out.println("WARNING: Resource casing discrepancy. Loaded as .WAV fallback: " + resPath);
-                                                java.io.File tempFile = new java.io.File(System.getProperty("user.home") + "/.gemini/jetski/scratch/" + new java.io.File(resPath).getName());
-                                                java.nio.file.Files.copy(upperIs, tempFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                                                sp = tempFile.getAbsolutePath();
-                                             }
-                                          }
-                                       }
-                                    } catch (Exception ex) {}
+                                        }
+                                      }
+                                    }
+                                  } catch (Exception ex) {
+                                  }
+                                }
 
-
-
-                                 }
-
-                                vm.setGlobalString(
-                                    "g_sample_" + trackId, sp);
+                                vm.setGlobalString("g_sample_" + trackId, sp);
                                 bridge.setMute(trackId, false);
                                 bridge.setTrackType(trackId, 0);
                               }
@@ -265,16 +289,15 @@ public class SwingProjectSidebarPanel extends JPanel {
                         org.chuck.deluge.model.SynthTrackModel synth =
                             org.chuck.deluge.xml.DelugeXmlParser.parseSynth(is, name);
 
-
-                        org.chuck.deluge.model.ProjectModel mockProj = new org.chuck.deluge.model.ProjectModel();
+                        org.chuck.deluge.model.ProjectModel mockProj =
+                            new org.chuck.deluge.model.ProjectModel();
                         mockProj.addTrack(synth);
                         if (onSongLoaded != null) {
-                           onSongLoaded.accept(mockProj);
+                          onSongLoaded.accept(mockProj);
                         }
 
                         bridge.setTrackType(0, 1); // Set track 0 to Synth
                         vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
-
                       }
                     }
                   } catch (Exception ex) {
@@ -290,41 +313,49 @@ public class SwingProjectSidebarPanel extends JPanel {
     shuffleBtn.setBackground(new Color(0x33, 0x33, 0x33));
     shuffleBtn.setForeground(Color.WHITE);
     shuffleBtn.setFont(new Font("SansSerif", Font.BOLD, 14));
-    
-    shuffleBtn.addActionListener(e -> {
-        String[] pool = {
-           "SAMPLES/DRUMS/Kick/808 Kick.wav",
-           "SAMPLES/DRUMS/Snare/808 Snare.wav",
-           "SAMPLES/DRUMS/HatC/808 Closed hihat.wav",
-           "SAMPLES/DRUMS/HatO/808 Open hihat.wav",
-           "SAMPLES/DRUMS/Shaker/808 Maraca.wav",
-           "SAMPLES/DRUMS/Rim/808 Rim.wav",
-           "SAMPLES/DRUMS/Claves/808 Claves.WAV",
-           "SAMPLES/DRUMS/Clap/808 Clap.WAV"
-        };
-        java.util.List<String> list = java.util.Arrays.asList(pool);
-        java.util.Collections.shuffle(list);
-        
-        for (int i = 0; i < 8; i++) {
+
+    shuffleBtn.addActionListener(
+        e -> {
+          String[] pool = {
+            "SAMPLES/DRUMS/Kick/808 Kick.wav",
+            "SAMPLES/DRUMS/Snare/808 Snare.wav",
+            "SAMPLES/DRUMS/HatC/808 Closed hihat.wav",
+            "SAMPLES/DRUMS/HatO/808 Open hihat.wav",
+            "SAMPLES/DRUMS/Shaker/808 Maraca.wav",
+            "SAMPLES/DRUMS/Rim/808 Rim.wav",
+            "SAMPLES/DRUMS/Claves/808 Claves.WAV",
+            "SAMPLES/DRUMS/Clap/808 Clap.WAV"
+          };
+          java.util.List<String> list = java.util.Arrays.asList(pool);
+          java.util.Collections.shuffle(list);
+
+          for (int i = 0; i < 8; i++) {
             String resPath = list.get(i);
             if (!resPath.startsWith("/")) resPath = "/" + resPath;
             String sp = resPath;
-            try (java.io.InputStream resIs = getClass().getResourceAsStream(resPath) != null ? 
-                   getClass().getResourceAsStream(resPath) : 
-                   getClass().getResourceAsStream(resPath.replace(".wav", ".WAV"))) {
-               if (resIs != null) {
-                  java.io.File tempFile = new java.io.File(System.getProperty("user.home") + "/.gemini/jetski/scratch/" + new java.io.File(resPath).getName());
-                  java.nio.file.Files.copy(resIs, tempFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                  sp = tempFile.getAbsolutePath();
-               }
-            } catch (Exception ex) {}
-            
+            try (java.io.InputStream resIs =
+                getClass().getResourceAsStream(resPath) != null
+                    ? getClass().getResourceAsStream(resPath)
+                    : getClass().getResourceAsStream(resPath.replace(".wav", ".WAV"))) {
+              if (resIs != null) {
+                java.io.File tempFile =
+                    new java.io.File(
+                        System.getProperty("user.home")
+                            + "/.gemini/jetski/scratch/"
+                            + new java.io.File(resPath).getName());
+                java.nio.file.Files.copy(
+                    resIs, tempFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                sp = tempFile.getAbsolutePath();
+              }
+            } catch (Exception ex) {
+            }
+
             vm.setGlobalString("g_sample_" + i, sp);
             bridge.setMute(i, false);
             bridge.setTrackType(i, 0);
-        }
-        vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
-    });
+          }
+          vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+        });
 
     JPanel wrapper = new JPanel(new BorderLayout());
     wrapper.add(shuffleBtn, BorderLayout.NORTH);
@@ -333,8 +364,8 @@ public class SwingProjectSidebarPanel extends JPanel {
     return wrapper;
   }
 
-
-  public void setOnSongLoaded(java.util.function.Consumer<org.chuck.deluge.model.ProjectModel> callback) {
+  public void setOnSongLoaded(
+      java.util.function.Consumer<org.chuck.deluge.model.ProjectModel> callback) {
     this.onSongLoaded = callback;
   }
 
@@ -375,7 +406,7 @@ public class SwingProjectSidebarPanel extends JPanel {
         }
 
         if (java.nio.file.Files.exists(path)) {
-           buildDirectoryTree(folder, path, path);
+          buildDirectoryTree(folder, path, path);
         }
       }
     } catch (Exception e) {
@@ -383,26 +414,33 @@ public class SwingProjectSidebarPanel extends JPanel {
     }
   }
 
-  private void buildDirectoryTree(javax.swing.tree.DefaultMutableTreeNode node, java.nio.file.Path rootPath, java.nio.file.Path currentPath) {
-    try (java.util.stream.Stream<java.nio.file.Path> stream = java.nio.file.Files.list(currentPath)) {
-      stream.sorted(java.util.Comparator.comparing(p -> p.getFileName().toString().toUpperCase()))
-            .forEach(p -> {
-              if (java.nio.file.Files.isDirectory(p)) {
-                javax.swing.tree.DefaultMutableTreeNode dirNode = new javax.swing.tree.DefaultMutableTreeNode(p.getFileName().toString());
-                node.add(dirNode);
-                buildDirectoryTree(dirNode, rootPath, p);
-              } else {
-                String fn = p.getFileName().toString();
-                String fnUpper = fn.toUpperCase();
-                if (fnUpper.endsWith(".XML") || fnUpper.endsWith(".CK")) {
-                  int dotIdx = fn.lastIndexOf('.');
-                  String displayName = dotIdx != -1 ? fn.substring(0, dotIdx) : fn;
-                  node.add(new javax.swing.tree.DefaultMutableTreeNode(displayName));
+  private void buildDirectoryTree(
+      javax.swing.tree.DefaultMutableTreeNode node,
+      java.nio.file.Path rootPath,
+      java.nio.file.Path currentPath) {
+    try (java.util.stream.Stream<java.nio.file.Path> stream =
+        java.nio.file.Files.list(currentPath)) {
+      stream
+          .sorted(java.util.Comparator.comparing(p -> p.getFileName().toString().toUpperCase()))
+          .forEach(
+              p -> {
+                if (java.nio.file.Files.isDirectory(p)) {
+                  javax.swing.tree.DefaultMutableTreeNode dirNode =
+                      new javax.swing.tree.DefaultMutableTreeNode(p.getFileName().toString());
+                  node.add(dirNode);
+                  buildDirectoryTree(dirNode, rootPath, p);
+                } else {
+                  String fn = p.getFileName().toString();
+                  String fnUpper = fn.toUpperCase();
+                  if (fnUpper.endsWith(".XML") || fnUpper.endsWith(".CK")) {
+                    int dotIdx = fn.lastIndexOf('.');
+                    String displayName = dotIdx != -1 ? fn.substring(0, dotIdx) : fn;
+                    node.add(new javax.swing.tree.DefaultMutableTreeNode(displayName));
+                  }
                 }
-              }
-            });
+              });
     } catch (Exception ex) {
-       // ignore
+      // ignore
     }
   }
 
@@ -416,12 +454,14 @@ public class SwingProjectSidebarPanel extends JPanel {
     JButton saveBtn = new JButton("💾 SAVE XML");
     saveBtn.setBackground(new Color(0x33, 0x66, 0x33));
     saveBtn.setForeground(Color.WHITE);
-    saveBtn.addActionListener(e -> {
-      JFileChooser chooser = new JFileChooser();
-      if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-         System.out.println("Swing: Saving preset XML to " + chooser.getSelectedFile().getAbsolutePath());
-      }
-    });
+    saveBtn.addActionListener(
+        e -> {
+          JFileChooser chooser = new JFileChooser();
+          if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            System.out.println(
+                "Swing: Saving preset XML to " + chooser.getSelectedFile().getAbsolutePath());
+          }
+        });
     panel.add(saveBtn);
     panel.add(Box.createVerticalStrut(10));
 
@@ -432,10 +472,10 @@ public class SwingProjectSidebarPanel extends JPanel {
     // Oscillators Section
     JPanel oscBox = createSection("OSCILLATORS");
 
-    
     JLabel osc1TypeLabel = new JLabel("Osc 1 Type:");
     osc1TypeLabel.setForeground(Color.WHITE);
-    JComboBox<String> osc1TypeCombo = new JComboBox<>(new String[]{"Sine", "Saw", "Square", "Triangle", "Noise"});
+    JComboBox<String> osc1TypeCombo =
+        new JComboBox<>(new String[] {"Sine", "Saw", "Square", "Triangle", "Noise"});
     osc1TypeCombo.setBackground(new Color(0x1f, 0x1f, 0x1f));
     osc1TypeCombo.setMaximumSize(new Dimension(180, 28));
     oscBox.add(osc1TypeLabel);
@@ -452,10 +492,11 @@ public class SwingProjectSidebarPanel extends JPanel {
     oscBox.add(osc1Label);
     oscBox.add(volSlider);
     oscBox.add(Box.createVerticalStrut(10));
-    
+
     JLabel osc2TypeLabel = new JLabel("Osc 2 Type:");
     osc2TypeLabel.setForeground(Color.WHITE);
-    JComboBox<String> osc2TypeCombo = new JComboBox<>(new String[]{"Sine", "Saw", "Square", "Triangle", "Noise"});
+    JComboBox<String> osc2TypeCombo =
+        new JComboBox<>(new String[] {"Sine", "Saw", "Square", "Triangle", "Noise"});
     osc2TypeCombo.setBackground(new Color(0x1f, 0x1f, 0x1f));
     osc2TypeCombo.setMaximumSize(new Dimension(180, 28));
     oscBox.add(osc2TypeLabel);
@@ -470,7 +511,7 @@ public class SwingProjectSidebarPanel extends JPanel {
     vol2Slider.addChangeListener(e -> osc2Label.setText("Osc 2 Vol: " + vol2Slider.getValue()));
     oscBox.add(osc2Label);
     oscBox.add(vol2Slider);
-    
+
     JLabel pwLabel = new JLabel("Pulse Width: 50");
     pwLabel.setForeground(Color.WHITE);
     JSlider pwSlider = new JSlider(0, 100, 50);
@@ -495,8 +536,6 @@ public class SwingProjectSidebarPanel extends JPanel {
     panel.add(modBox);
     panel.add(Box.createVerticalStrut(15));
 
-
-
     // Filters Section
     JPanel filterBox = createSection("FILTERS");
     JLabel lpfLabel = new JLabel("LPF Cutoff: 64");
@@ -504,32 +543,33 @@ public class SwingProjectSidebarPanel extends JPanel {
     lpfSlider = new JSlider(0, 127, 64);
 
     lpfSlider.setBackground(new Color(0x1f, 0x1f, 0x1f));
-    lpfSlider.addChangeListener(e -> {
-      lpfLabel.setText("LPF Cutoff: " + lpfSlider.getValue());
-      if (bridge != null) {
-        bridge.setFilterFreq(0, lpfSlider.getValue() / 127.0);
-      }
-    });
+    lpfSlider.addChangeListener(
+        e -> {
+          lpfLabel.setText("LPF Cutoff: " + lpfSlider.getValue());
+          if (bridge != null) {
+            bridge.setFilterFreq(0, lpfSlider.getValue() / 127.0);
+          }
+        });
     filterBox.add(lpfLabel);
     filterBox.add(lpfSlider);
     panel.add(filterBox);
     panel.add(Box.createVerticalStrut(15));
 
-
     // Envelopes
     JPanel envBox = createSection("ENVELOPES");
-    
+
     JLabel attLabel = new JLabel("Attack: 10");
     attLabel.setForeground(Color.WHITE);
     attSlider = new JSlider(0, 100, 10);
 
     attSlider.setBackground(new Color(0x1f, 0x1f, 0x1f));
-    attSlider.addChangeListener(e -> {
-      attLabel.setText("Attack: " + attSlider.getValue());
-      if (bridge != null) {
-        bridge.setEnv(0, attSlider.getValue() / 100.0, 0.2, 0.8, 0.3);
-      }
-    });
+    attSlider.addChangeListener(
+        e -> {
+          attLabel.setText("Attack: " + attSlider.getValue());
+          if (bridge != null) {
+            bridge.setEnv(0, attSlider.getValue() / 100.0, 0.2, 0.8, 0.3);
+          }
+        });
     envBox.add(attLabel);
     envBox.add(attSlider);
     envBox.add(Box.createVerticalStrut(5));
@@ -559,10 +599,8 @@ public class SwingProjectSidebarPanel extends JPanel {
     relSlider.addChangeListener(e -> relLabel.setText("Release: " + relSlider.getValue()));
     envBox.add(relLabel);
     envBox.add(relSlider);
-    
+
     panel.add(envBox);
-
-
 
     // Distortions
     JPanel distBox = createSection("DISTORTIONS");
@@ -581,7 +619,6 @@ public class SwingProjectSidebarPanel extends JPanel {
     fxBox.add(new JLabel("Decimations:"));
     fxBox.add(new JSlider(0, 100, 0));
     panel.add(fxBox);
-
 
     return new JScrollPane(panel);
   }
@@ -605,19 +642,20 @@ public class SwingProjectSidebarPanel extends JPanel {
     };
 
     for (int i = 0; i < displayNames.length; i++) {
-      c.gridx = 0; c.gridy = i;
+      c.gridx = 0;
+      c.gridy = i;
       JLabel label = new JLabel(displayNames[i] + ":");
       label.setForeground(Color.WHITE);
       panel.add(label, c);
 
       c.gridx = 1;
       JButton learnBtn = new JButton("LEARN");
-      learnBtn.addActionListener(e -> {
-        learnBtn.setText("WAITING...");
-      });
+      learnBtn.addActionListener(
+          e -> {
+            learnBtn.setText("WAITING...");
+          });
       panel.add(learnBtn, c);
     }
-
 
     String[][] data = {
       {"Master Volume", "CC #7", "ACTIVE"},
@@ -633,14 +671,13 @@ public class SwingProjectSidebarPanel extends JPanel {
     table.setForeground(Color.WHITE);
     table.setFont(new Font("SansSerif", Font.PLAIN, 16));
     table.setRowHeight(30);
-    
+
     JPanel wrapper = new JPanel(new BorderLayout(0, 20));
     wrapper.setBackground(new Color(0x25, 0x25, 0x25));
     wrapper.add(new JScrollPane(panel), BorderLayout.NORTH);
     wrapper.add(new JScrollPane(table), BorderLayout.CENTER);
 
     return wrapper;
-
   }
 
   public void updateFocusTrack(int trackId) {
@@ -652,9 +689,9 @@ public class SwingProjectSidebarPanel extends JPanel {
         if (lpfSlider != null) {
           lpfSlider.setValue((int) (freq * 127));
         }
-
       }
-    } catch (Exception ex) { }
+    } catch (Exception ex) {
+    }
   }
 
   private JComponent createScriptTab() {
@@ -676,29 +713,29 @@ public class SwingProjectSidebarPanel extends JPanel {
     reloadBtn.setBackground(new Color(0x33, 0x66, 0x33));
     reloadBtn.setForeground(Color.WHITE);
 
-    reloadBtn.addActionListener(e -> {
-      if (scriptArea == null) return;
-      JFileChooser chooser = new JFileChooser();
-      chooser.setDialogTitle("Save ChucK Script Externally");
-      if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-        java.io.File outFile = chooser.getSelectedFile();
-        try (java.io.FileWriter writer = new java.io.FileWriter(outFile)) {
-          writer.write(scriptArea.getText());
-          logArea.setText("[Compiler]: Script saved externally to:\n" + outFile.getAbsolutePath());
-        } catch (Exception ex) {
-          logArea.setText("[Error]: Failed to write script:\n" + ex.getMessage());
-        }
-      }
-    });
-
+    reloadBtn.addActionListener(
+        e -> {
+          if (scriptArea == null) return;
+          JFileChooser chooser = new JFileChooser();
+          chooser.setDialogTitle("Save ChucK Script Externally");
+          if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            java.io.File outFile = chooser.getSelectedFile();
+            try (java.io.FileWriter writer = new java.io.FileWriter(outFile)) {
+              writer.write(scriptArea.getText());
+              logArea.setText(
+                  "[Compiler]: Script saved externally to:\n" + outFile.getAbsolutePath());
+            } catch (Exception ex) {
+              logArea.setText("[Error]: Failed to write script:\n" + ex.getMessage());
+            }
+          }
+        });
 
     panel.add(reloadBtn, BorderLayout.NORTH);
-    
+
     JPanel centerSplit = new JPanel(new GridLayout(2, 1, 5, 5));
     centerSplit.add(new JScrollPane(scriptArea));
     centerSplit.add(new JScrollPane(logArea));
     panel.add(centerSplit, BorderLayout.CENTER);
-
 
     return panel;
   }
@@ -706,24 +743,25 @@ public class SwingProjectSidebarPanel extends JPanel {
   private JComponent createProfilerTab() {
     JPanel panel = new JPanel(new BorderLayout());
     panel.setBackground(new Color(0x25, 0x25, 0x25));
-    
+
     DefaultListModel<String> model = new DefaultListModel<>();
     model.addElement("Shred 1: engine.ck (Master Clock)");
     model.addElement("Shred 2: custom_fm.ck (Active)");
     JList<String> list = new JList<>(model);
     list.setBackground(new Color(0x1f, 0x1f, 0x1f));
     list.setForeground(Color.CYAN);
-    
+
     JButton killBtn = new JButton("KILL SELECTED SHRED");
     killBtn.setBackground(new Color(0xaa, 0x33, 0x33));
     killBtn.setForeground(Color.WHITE);
-    killBtn.addActionListener(e -> {
-      int idx = list.getSelectedIndex();
-      if (idx != -1) {
-        model.remove(idx);
-      }
-    });
-    
+    killBtn.addActionListener(
+        e -> {
+          int idx = list.getSelectedIndex();
+          if (idx != -1) {
+            model.remove(idx);
+          }
+        });
+
     panel.add(killBtn, BorderLayout.SOUTH);
     panel.add(new JScrollPane(list), BorderLayout.CENTER);
     return panel;
@@ -732,23 +770,24 @@ public class SwingProjectSidebarPanel extends JPanel {
   private JComponent createSnippetsTab() {
     JPanel panel = new JPanel(new BorderLayout());
     panel.setBackground(new Color(0x25, 0x25, 0x25));
-    
+
     String[] snippets = {"SawOsc Synth", "Pulse Lead", "Noise Percussion"};
     JList<String> list = new JList<>(snippets);
     list.setBackground(new Color(0x1f, 0x1f, 0x1f));
     list.setForeground(Color.WHITE);
-    
-    list.addMouseListener(new java.awt.event.MouseAdapter() {
-      public void mouseClicked(java.awt.event.MouseEvent e) {
-        if (e.getClickCount() == 2) {
-          String val = list.getSelectedValue();
-          if ("SawOsc Synth".equals(val) && scriptArea != null) {
-            scriptArea.append("\nSawOsc osc => ADSR env => dac;\n");
+
+    list.addMouseListener(
+        new java.awt.event.MouseAdapter() {
+          public void mouseClicked(java.awt.event.MouseEvent e) {
+            if (e.getClickCount() == 2) {
+              String val = list.getSelectedValue();
+              if ("SawOsc Synth".equals(val) && scriptArea != null) {
+                scriptArea.append("\nSawOsc osc => ADSR env => dac;\n");
+              }
+            }
           }
-        }
-      }
-    });
-    
+        });
+
     panel.add(new JLabel("Double-click snippet to insert:"), BorderLayout.NORTH);
     panel.add(new JScrollPane(list), BorderLayout.CENTER);
     return panel;
@@ -763,6 +802,4 @@ public class SwingProjectSidebarPanel extends JPanel {
             BorderFactory.createLineBorder(Color.GRAY), title, 0, 0, null, Color.WHITE));
     return panel;
   }
-
 }
-

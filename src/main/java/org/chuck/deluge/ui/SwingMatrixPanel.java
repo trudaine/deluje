@@ -1,7 +1,6 @@
 package org.chuck.deluge.ui;
 
 import java.awt.*;
-import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import javax.swing.*;
 import org.chuck.core.ChuckVM;
@@ -12,20 +11,21 @@ public class SwingMatrixPanel extends JPanel {
   private final ChuckVM vm;
   private final BridgeContract bridge;
 
-  public enum GridViewMode { CLIP, SONG }
+  public enum GridViewMode {
+    CLIP,
+    SONG
+  }
+
   private GridViewMode viewMode = GridViewMode.CLIP;
   private int currentStep = -1;
   private final int rows = 8;
   private final int cols = 18;
   private int baseTrack = 0;
-  
+
   public void setViewMode(GridViewMode mode) {
     this.viewMode = mode;
     repaint();
   }
-
-
-
 
   public SwingMatrixPanel(ChuckVM vm, BridgeContract bridge) {
     this.vm = vm;
@@ -35,37 +35,36 @@ public class SwingMatrixPanel extends JPanel {
     setPreferredSize(new Dimension(2000, 1200));
 
     setFocusable(true);
-    addKeyListener(new java.awt.event.KeyAdapter() {
-      @Override
-      public void keyPressed(java.awt.event.KeyEvent e) {
-        if (e.getKeyCode() == java.awt.event.KeyEvent.VK_P) {
-          String hitsStr = JOptionPane.showInputDialog(SwingMatrixPanel.this, "Euclidean Hits (K):", "4");
-          String stepsStr = JOptionPane.showInputDialog(SwingMatrixPanel.this, "Sequence Steps (N):", "16");
-          if (hitsStr != null && stepsStr != null) {
-            int K = Integer.parseInt(hitsStr);
-            int N = Integer.parseInt(stepsStr);
-            for (int i = 0; i < 16; i++) {
-              boolean active = ((i * K) % N) < K;
-              bridge.setStep(baseTrack, i, active);
+    addKeyListener(
+        new java.awt.event.KeyAdapter() {
+          @Override
+          public void keyPressed(java.awt.event.KeyEvent e) {
+            if (e.getKeyCode() == java.awt.event.KeyEvent.VK_P) {
+              String hitsStr =
+                  JOptionPane.showInputDialog(SwingMatrixPanel.this, "Euclidean Hits (K):", "4");
+              String stepsStr =
+                  JOptionPane.showInputDialog(SwingMatrixPanel.this, "Sequence Steps (N):", "16");
+              if (hitsStr != null && stepsStr != null) {
+                int K = Integer.parseInt(hitsStr);
+                int N = Integer.parseInt(stepsStr);
+                for (int i = 0; i < 16; i++) {
+                  boolean active = ((i * K) % N) < K;
+                  bridge.setStep(baseTrack, i, active);
+                }
+                repaint();
+              }
             }
-            repaint();
           }
-        }
-      }
-    });
+        });
 
-
-    addMouseListener(new java.awt.event.MouseAdapter() {
-      @Override
-      public void mousePressed(java.awt.event.MouseEvent e) {
-        handleMousePress(e);
-      }
-    });
+    addMouseListener(
+        new java.awt.event.MouseAdapter() {
+          @Override
+          public void mousePressed(java.awt.event.MouseEvent e) {
+            handleMousePress(e);
+          }
+        });
   }
-
-
-
-
 
   public void setBaseTrack(int baseTrack) {
     this.baseTrack = baseTrack;
@@ -77,144 +76,147 @@ public class SwingMatrixPanel extends JPanel {
     repaint();
   }
 
-
   private void handleMousePress(MouseEvent e) {
     int cellW = 120;
     int cellH = 120;
     int gridX = 200; // Offset to the right for labels
-    int gridY = 20; 
+    int gridY = 20;
 
     int offset = (currentStep >= 0) ? (currentStep / 16) * 16 : 0;
     int c = (e.getX() - gridX) / cellW;
     if (e.getX() - gridX >= 16 * cellW + 20) {
-       c = (e.getX() - gridX - 20) / cellW;
+      c = (e.getX() - gridX - 20) / cellW;
     }
     int r = (e.getY() - gridY) / cellH;
-
 
     if (c >= 0 && c < cols && r >= 0 && r < rows) {
       if (bridge != null) {
         boolean active = bridge.getStep(baseTrack + r, offset + c);
         if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
-           if (active) {
-              JDialog dialog = new JDialog((Frame)javax.swing.SwingUtilities.getWindowAncestor(this), "Step Properties", true);
-              dialog.setSize(1600, 450);
-              dialog.setLocationRelativeTo(this);
-              dialog.setLayout(new GridBagLayout());
-              
-              GridBagConstraints gc = new GridBagConstraints();
-              gc.fill = GridBagConstraints.HORIZONTAL;
-              gc.insets = new Insets(10, 15, 10, 15);
-              gc.anchor = GridBagConstraints.WEST;
-              
-              Font labelFont = new Font("SansSerif", Font.BOLD, 18);
-              Dimension sliderDim = new Dimension(1200, 50);
-              Dimension spinDim = new Dimension(80, 40);
+          if (active) {
+            JDialog dialog =
+                new JDialog(
+                    (Frame) javax.swing.SwingUtilities.getWindowAncestor(this),
+                    "Step Properties",
+                    true);
+            dialog.setSize(1600, 450);
+            dialog.setLocationRelativeTo(this);
+            dialog.setLayout(new GridBagLayout());
 
-              
-              // 1. Velocity
-              gc.gridx = 0; gc.gridy = 0;
-              JLabel l1 = new JLabel("Velocity:"); l1.setFont(labelFont);
-              dialog.add(l1, gc);
-              
-              gc.gridx = 1;
-              JSlider velSlider = new JSlider(0, 100, 80);
-              velSlider.setPreferredSize(sliderDim);
-              dialog.add(velSlider, gc);
-              
-              gc.gridx = 2;
-              JSpinner velSpin = new JSpinner(new SpinnerNumberModel(80, 0, 100, 1));
-              velSpin.setPreferredSize(spinDim);
-              velSpin.addChangeListener(ev -> velSlider.setValue((int)velSpin.getValue()));
-              velSlider.addChangeListener(ev -> velSpin.setValue(velSlider.getValue()));
-              dialog.add(velSpin, gc);
-              
-              // 2. Probability
-              gc.gridx = 0; gc.gridy = 1;
-              JLabel l2 = new JLabel("Probability:"); l2.setFont(labelFont);
-              dialog.add(l2, gc);
-              
-              gc.gridx = 1;
-              JSlider probSlider = new JSlider(0, 100, 100);
-              probSlider.setPreferredSize(sliderDim);
-              dialog.add(probSlider, gc);
-              
-              gc.gridx = 2;
-              JSpinner probSpin = new JSpinner(new SpinnerNumberModel(100, 0, 100, 1));
-              probSpin.setPreferredSize(spinDim);
-              probSpin.addChangeListener(ev -> probSlider.setValue((int)probSpin.getValue()));
-              probSlider.addChangeListener(ev -> probSpin.setValue(probSlider.getValue()));
-              dialog.add(probSpin, gc);
-              
-              // 3. Gate Length
-              gc.gridx = 0; gc.gridy = 2;
-              JLabel l3 = new JLabel("Gate Length:"); l3.setFont(labelFont);
-              dialog.add(l3, gc);
-              
-              gc.gridx = 1;
-              JSlider gateSlider = new JSlider(1, 16, 1);
-              gateSlider.setPreferredSize(sliderDim);
-              dialog.add(gateSlider, gc);
-              
-              gc.gridx = 2;
-              JSpinner gateSpin = new JSpinner(new SpinnerNumberModel(1, 1, 16, 1));
-              gateSpin.setPreferredSize(spinDim);
-              gateSpin.addChangeListener(ev -> gateSlider.setValue((int)gateSpin.getValue()));
-              gateSlider.addChangeListener(ev -> gateSpin.setValue(gateSlider.getValue()));
-              dialog.add(gateSpin, gc);
+            GridBagConstraints gc = new GridBagConstraints();
+            gc.fill = GridBagConstraints.HORIZONTAL;
+            gc.insets = new Insets(10, 15, 10, 15);
+            gc.anchor = GridBagConstraints.WEST;
 
-              
-              // 4. Pitch Offset
-              gc.gridx = 0; gc.gridy = 3;
-              JLabel l4 = new JLabel("Pitch Offset:"); l4.setFont(labelFont);
-              dialog.add(l4, gc);
-              
-              gc.gridx = 1;
-              JSlider pitchSlider = new JSlider(-24, 24, 0);
-              pitchSlider.setPreferredSize(sliderDim);
-              dialog.add(pitchSlider, gc);
-              
-              gc.gridx = 2;
-              JSpinner pitchSpin = new JSpinner(new SpinnerNumberModel(0, -24, 24, 1));
-              pitchSpin.setPreferredSize(spinDim);
-              pitchSpin.addChangeListener(ev -> pitchSlider.setValue((int)pitchSpin.getValue()));
-              pitchSlider.addChangeListener(ev -> pitchSpin.setValue(pitchSlider.getValue()));
-              dialog.add(pitchSpin, gc);
+            Font labelFont = new Font("SansSerif", Font.BOLD, 18);
+            Dimension sliderDim = new Dimension(1200, 50);
+            Dimension spinDim = new Dimension(80, 40);
 
+            // 1. Velocity
+            gc.gridx = 0;
+            gc.gridy = 0;
+            JLabel l1 = new JLabel("Velocity:");
+            l1.setFont(labelFont);
+            dialog.add(l1, gc);
 
-              
-              dialog.setVisible(true);
+            gc.gridx = 1;
+            JSlider velSlider = new JSlider(0, 100, 80);
+            velSlider.setPreferredSize(sliderDim);
+            dialog.add(velSlider, gc);
 
-           }
-           return;
+            gc.gridx = 2;
+            JSpinner velSpin = new JSpinner(new SpinnerNumberModel(80, 0, 100, 1));
+            velSpin.setPreferredSize(spinDim);
+            velSpin.addChangeListener(ev -> velSlider.setValue((int) velSpin.getValue()));
+            velSlider.addChangeListener(ev -> velSpin.setValue(velSlider.getValue()));
+            dialog.add(velSpin, gc);
+
+            // 2. Probability
+            gc.gridx = 0;
+            gc.gridy = 1;
+            JLabel l2 = new JLabel("Probability:");
+            l2.setFont(labelFont);
+            dialog.add(l2, gc);
+
+            gc.gridx = 1;
+            JSlider probSlider = new JSlider(0, 100, 100);
+            probSlider.setPreferredSize(sliderDim);
+            dialog.add(probSlider, gc);
+
+            gc.gridx = 2;
+            JSpinner probSpin = new JSpinner(new SpinnerNumberModel(100, 0, 100, 1));
+            probSpin.setPreferredSize(spinDim);
+            probSpin.addChangeListener(ev -> probSlider.setValue((int) probSpin.getValue()));
+            probSlider.addChangeListener(ev -> probSpin.setValue(probSlider.getValue()));
+            dialog.add(probSpin, gc);
+
+            // 3. Gate Length
+            gc.gridx = 0;
+            gc.gridy = 2;
+            JLabel l3 = new JLabel("Gate Length:");
+            l3.setFont(labelFont);
+            dialog.add(l3, gc);
+
+            gc.gridx = 1;
+            JSlider gateSlider = new JSlider(1, 16, 1);
+            gateSlider.setPreferredSize(sliderDim);
+            dialog.add(gateSlider, gc);
+
+            gc.gridx = 2;
+            JSpinner gateSpin = new JSpinner(new SpinnerNumberModel(1, 1, 16, 1));
+            gateSpin.setPreferredSize(spinDim);
+            gateSpin.addChangeListener(ev -> gateSlider.setValue((int) gateSpin.getValue()));
+            gateSlider.addChangeListener(ev -> gateSpin.setValue(gateSlider.getValue()));
+            dialog.add(gateSpin, gc);
+
+            // 4. Pitch Offset
+            gc.gridx = 0;
+            gc.gridy = 3;
+            JLabel l4 = new JLabel("Pitch Offset:");
+            l4.setFont(labelFont);
+            dialog.add(l4, gc);
+
+            gc.gridx = 1;
+            JSlider pitchSlider = new JSlider(-24, 24, 0);
+            pitchSlider.setPreferredSize(sliderDim);
+            dialog.add(pitchSlider, gc);
+
+            gc.gridx = 2;
+            JSpinner pitchSpin = new JSpinner(new SpinnerNumberModel(0, -24, 24, 1));
+            pitchSpin.setPreferredSize(spinDim);
+            pitchSpin.addChangeListener(ev -> pitchSlider.setValue((int) pitchSpin.getValue()));
+            pitchSlider.addChangeListener(ev -> pitchSpin.setValue(pitchSlider.getValue()));
+            dialog.add(pitchSpin, gc);
+
+            dialog.setVisible(true);
+          }
+          return;
         }
         if (c == 16) {
-           bridge.setMute(baseTrack + r, !bridge.getMute(baseTrack + r));
-           repaint();
-           return;
+          bridge.setMute(baseTrack + r, !bridge.getMute(baseTrack + r));
+          repaint();
+          return;
         } else if (c == 17) {
-           // Mock Solo action
-           repaint();
-           return;
+          // Mock Solo action
+          repaint();
+          return;
         }
         bridge.setStep(baseTrack + r, offset + c, !active);
         repaint();
       }
 
-
-    } else if (e.getY() >= (gridY + rows * cellH + 10) && e.getY() <= (gridY + rows * cellH + 130)) {
+    } else if (e.getY() >= (gridY + rows * cellH + 10)
+        && e.getY() <= (gridY + rows * cellH + 130)) {
       // Piano key click
       int keyX = e.getX() - gridX;
       int whiteKeyIndex = keyX / 68;
       if (whiteKeyIndex >= 0 && whiteKeyIndex < 28) {
 
-         System.out.println("Piano note clicked: " + whiteKeyIndex);
-         // Trigger note through bridge or vm
+        System.out.println("Piano note clicked: " + whiteKeyIndex);
+        // Trigger note through bridge or vm
       }
     }
   }
-
-
 
   @Override
   protected void paintComponent(Graphics g) {
@@ -240,7 +242,7 @@ public class SwingMatrixPanel extends JPanel {
           labelStr = labelStr.substring(lastSlash + 1);
         }
       }
-    int offset = (currentStep >= 0) ? (currentStep / 16) * 16 : 0;
+      int offset = (currentStep >= 0) ? (currentStep / 16) * 16 : 0;
 
       // ...
       g2.drawString(labelStr, 20, gridY + r * cellH + cellH / 2);
@@ -248,16 +250,16 @@ public class SwingMatrixPanel extends JPanel {
       for (int c = 0; c < cols; c++) {
         boolean active = false;
         if (c < 16) {
-           active = bridge != null && bridge.getStep(baseTrack + r, offset + c);
+          active = bridge != null && bridge.getStep(baseTrack + r, offset + c);
         } else if (c == 16) {
-           active = bridge != null && bridge.getMute(baseTrack + r);
+          active = bridge != null && bridge.getMute(baseTrack + r);
         } else if (c == 17) {
-           active = false; // Mocking Solo state
+          active = false; // Mocking Solo state
         }
 
         int padX = gridX + c * cellW + 4;
         if (c >= 16) {
-           padX += 20; // Visual space margin separator
+          padX += 20; // Visual space margin separator
         }
         int padY = gridY + r * cellH + 4;
         int padW = cellW - 8;
@@ -265,59 +267,58 @@ public class SwingMatrixPanel extends JPanel {
 
         // Draw separator line before column 16
         if (c == 16 && r == 0) {
-           g2.setColor(Color.DARK_GRAY);
-           g2.setStroke(new BasicStroke(2));
-           g2.drawLine(padX - 10, gridY, padX - 10, gridY + rows * cellH);
+          g2.setColor(Color.DARK_GRAY);
+          g2.setStroke(new BasicStroke(2));
+          g2.drawLine(padX - 10, gridY, padX - 10, gridY + rows * cellH);
         }
-
 
         if (active) {
           if (c == 16) {
-             g2.setColor(new Color(0xff, 0x33, 0x33, 0xee)); // Mute red
+            g2.setColor(new Color(0xff, 0x33, 0x33, 0xee)); // Mute red
           } else if (c == 17) {
-             g2.setColor(new Color(0x33, 0xaa, 0x33, 0xee)); // Solo green
+            g2.setColor(new Color(0x33, 0xaa, 0x33, 0xee)); // Solo green
           } else {
-             g2.setColor(new Color(0x00, 0xff, 0xcc, 0xee));
+            g2.setColor(new Color(0x00, 0xff, 0xcc, 0xee));
           }
           g2.fillRoundRect(padX, padY, padW, padH, 10, 10);
           g2.setColor(Color.WHITE);
           g2.setStroke(new BasicStroke(2));
           g2.drawRoundRect(padX + 2, padY + 2, padW - 4, padH - 4, 8, 8);
-          
+
           if (c < 16) {
-             if (viewMode == GridViewMode.CLIP) {
-               g2.setColor(Color.BLACK);
-               g2.setFont(new Font("Monospaced", Font.BOLD, 16));
-               g2.drawString("Pi: " + (baseTrack + r), padX + 10, padY + 30);
-               g2.drawString("Ve: 0.8", padX + 10, padY + 52);
-               g2.drawString("Pr: 1.0", padX + 10, padY + 74);
-               g2.drawString("Ga: 1", padX + 10, padY + 96);
-             } else {
-               g2.setColor(Color.BLACK);
-               g2.setFont(new Font("SansSerif", Font.BOLD, 18));
-               g2.drawString("PAD " + (c + 1), padX + 25, padY + 60);
-             }
+            if (viewMode == GridViewMode.CLIP) {
+              g2.setColor(Color.BLACK);
+              g2.setFont(new Font("Monospaced", Font.BOLD, 16));
+              g2.drawString("Pi: " + (baseTrack + r), padX + 10, padY + 30);
+              g2.drawString("Ve: 0.8", padX + 10, padY + 52);
+              g2.drawString("Pr: 1.0", padX + 10, padY + 74);
+              g2.drawString("Ga: 1", padX + 10, padY + 96);
+            } else {
+              g2.setColor(Color.BLACK);
+              g2.setFont(new Font("SansSerif", Font.BOLD, 18));
+              g2.drawString("PAD " + (c + 1), padX + 25, padY + 60);
+            }
           } else if (c == 16) {
 
-             g2.setColor(Color.WHITE);
-             g2.setFont(new Font("SansSerif", Font.BOLD, 24));
-             g2.drawString("MUTE", padX + 20, padY + cellH/2 + 8);
+            g2.setColor(Color.WHITE);
+            g2.setFont(new Font("SansSerif", Font.BOLD, 24));
+            g2.drawString("MUTE", padX + 20, padY + cellH / 2 + 8);
           } else if (c == 17) {
-             g2.setColor(Color.WHITE);
-             g2.setFont(new Font("SansSerif", Font.BOLD, 24));
-             g2.drawString("SOLO", padX + 20, padY + cellH/2 + 8);
+            g2.setColor(Color.WHITE);
+            g2.setFont(new Font("SansSerif", Font.BOLD, 24));
+            g2.drawString("SOLO", padX + 20, padY + cellH / 2 + 8);
           }
         } else {
           g2.setColor(new Color(0x33, 0x33, 0x33));
           g2.fillRoundRect(padX, padY, padW, padH, 10, 10);
           if (c == 16) {
-             g2.setColor(Color.GRAY);
-             g2.setFont(new Font("SansSerif", Font.BOLD, 20));
-             g2.drawString("Mute", padX + 25, padY + cellH/2 + 8);
+            g2.setColor(Color.GRAY);
+            g2.setFont(new Font("SansSerif", Font.BOLD, 20));
+            g2.drawString("Mute", padX + 25, padY + cellH / 2 + 8);
           } else if (c == 17) {
-             g2.setColor(Color.GRAY);
-             g2.setFont(new Font("SansSerif", Font.BOLD, 20));
-             g2.drawString("Solo", padX + 25, padY + cellH/2 + 8);
+            g2.setColor(Color.GRAY);
+            g2.setFont(new Font("SansSerif", Font.BOLD, 20));
+            g2.drawString("Solo", padX + 25, padY + cellH / 2 + 8);
           }
         }
 
@@ -328,7 +329,7 @@ public class SwingMatrixPanel extends JPanel {
 
           g2.drawRoundRect(padX - 1, padY - 1, padW + 2, padH + 2, 12, 12);
         }
-    }
+      }
     }
 
     // Draw Piano Roll at the bottom
@@ -337,10 +338,13 @@ public class SwingMatrixPanel extends JPanel {
       int keyH = 120;
 
       // 28 White keys (4 octaves) aligned with grid columns
-      int keyW = 68; 
+      int keyW = 68;
       for (int i = 0; i < 28; i++) {
-        boolean activeKey = (bridge != null) && (currentStep >= 0) && bridge.getStep(baseTrack + (i % 8), currentStep % 16);
-        
+        boolean activeKey =
+            (bridge != null)
+                && (currentStep >= 0)
+                && bridge.getStep(baseTrack + (i % 8), currentStep % 16);
+
         g2.setColor(activeKey ? new Color(0x00, 0xff, 0xcc) : Color.WHITE);
         g2.fillRect(gridX + i * keyW, keyboardY, keyW - 2, keyH);
         g2.setColor(Color.BLACK);
@@ -349,20 +353,15 @@ public class SwingMatrixPanel extends JPanel {
 
       // Black keys
       int[] blackKeyOffsets = {
-        0, 1, 3, 4, 5, 
-        7, 8, 10, 11, 12, 
-        14, 15, 17, 18, 19, 
+        0, 1, 3, 4, 5,
+        7, 8, 10, 11, 12,
+        14, 15, 17, 18, 19,
         21, 22, 24, 25, 26
       };
       for (int offsetKey : blackKeyOffsets) {
         int bx = gridX + offsetKey * keyW + keyW - keyW / 3;
         g2.setColor(new Color(0x1a, 0x1a, 0x1a));
-
       }
     }
   }
 }
-
-
-
-

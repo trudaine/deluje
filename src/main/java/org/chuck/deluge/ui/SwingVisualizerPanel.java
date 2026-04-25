@@ -15,7 +15,6 @@ public class SwingVisualizerPanel extends JPanel {
     setBackground(Color.BLACK);
   }
 
-
   @Override
   protected void paintComponent(Graphics g) {
     super.paintComponent(g);
@@ -60,14 +59,13 @@ public class SwingVisualizerPanel extends JPanel {
     g2.setColor(new Color(0xff, 0x00, 0x55));
     int waterY = quarterH * 2 + 10;
     int waterH = quarterH - 20;
-    
+
     // Roll simulated waterfall
     for (int yOffset = 0; yOffset < waterH; yOffset += 2) {
       int intensity = (int) (Math.random() * 100 + 50);
       g2.setColor(new Color(intensity, 0, 255 - intensity, 100));
       g2.fillRect(15, waterY + yOffset, w - 30, 2);
     }
-
 
     // Draw Stereo Phase (Row 4)
     g2.setColor(new Color(0xaa, 0xff, 0x00));
@@ -86,14 +84,12 @@ public class SwingVisualizerPanel extends JPanel {
 
     // Draw Compressor Gain Reduction (GR) Meter
     if (bridge != null) {
-       double trackVol = bridge.getTrackLevel(1); // read Track 1 volume
-       g2.setColor(Color.ORANGE);
-       int barH = (int) (trackVol * (h - 40));
-       g2.fillRect(w - 12, h - 20 - barH, 8, barH);
-       g2.setColor(Color.DARK_GRAY);
-       g2.drawRect(w - 12, 20, 8, h - 40);
+      double trackVol = bridge.getTrackLevel(1); // read Track 1 volume
+      g2.setColor(Color.ORANGE);
+      int barH = (int) (trackVol * (h - 40));
+      g2.fillRect(w - 12, h - 20 - barH, 8, barH);
+      g2.setColor(Color.DARK_GRAY);
+      g2.drawRect(w - 12, 20, 8, h - 40);
     }
-
-
   }
 }
