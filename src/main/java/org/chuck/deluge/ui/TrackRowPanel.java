@@ -4,189 +4,157 @@ import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.HBox;
-import javafx.scene.paint.Color;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.model.KitTrackModel;
-import org.chuck.deluge.model.SynthTrackModel;
 import org.chuck.deluge.ui.ParameterRibbonPanel.EditMode;
-import org.chuck.deluge.ui.config.KitConfigDialog;
-import org.chuck.deluge.ui.config.SynthConfigDialog;
 
 /**
- * Represents a single horizontal row (Track) containing an audition pad, label, and 16 step cells.
+ * A single row in the Matrix sequencer grid. Represents one track (Synth) or one drum sound (Kit).
  */
 public class TrackRowPanel extends HBox {
-  private final int rowIndex;
-  private final BridgeContract bridge;
-
-  private final Button auditionPad;
-  private final Label trackLabel;
-  private final Button settingsBtn;
+  private final int rowId;
+  private final Label nameLabel;
   private final StepCellButton[] cells;
-  private final java.util.function.Supplier<EditMode> modeSupplier;
+  private final Button auditionBtn;
+  private int baseTrack = 0;
+  private int stepOffset = 0;
+
+  private final ChuckVM vm;
+  private final BridgeContract bridge;
+  private final java.util.function.Supplier<EditMode> editModeSupplier;
 
   public TrackRowPanel(
-      int rowIndex,
-      String trackName,
+      int rowId,
+      String name,
       ChuckVM vm,
       BridgeContract bridge,
-      java.util.function.Supplier<EditMode> modeSupplier) {
-    this.rowIndex = rowIndex;
+      java.util.function.Supplier<EditMode> editModeSupplier) {
+    this.rowId = rowId;
+    this.vm = vm;
     this.bridge = bridge;
-    this.modeSupplier = modeSupplier;
-    this.cells = new StepCellButton[16];
+    this.editModeSupplier = editModeSupplier;
 
     setAlignment(Pos.CENTER_LEFT);
     setSpacing(5);
 
-    String trackColor = (rowIndex < 4) ? "#884444" : "#444488";
+    // Padding for names: 8 characters width, monospaced
+    nameLabel = new Label(padName(name));
+    nameLabel.setPrefWidth(75); // Roughly 8 chars at 12px mono
+    nameLabel.setStyle(
+        "-fx-text-fill: #00ffcc; -fx-font-family: 'Monospaced'; -fx-font-weight: bold; -fx-font-size: 12;");
 
-    // Audition Pad (Play the sample/synth manually)
-    auditionPad = new Button();
-    auditionPad.setPrefSize(40, 40);
-    auditionPad.setStyle(
-        String.format(
-            "-fx-background-color: linear-gradient(to bottom, %s 0%%, #1a1a1a 100%%); -fx-background-radius: 4; -fx-border-color: #444444; -fx-border-width: 1; -fx-border-radius: 4;",
-            trackColor));
-    auditionPad.setOnMousePressed(
-        e -> {
-          auditionPad.setStyle(
-              String.format(
-                  "-fx-background-color: %s; -fx-background-radius: 4; -fx-border-color: white; -fx-border-width: 1; -fx-border-radius: 4;",
-                  trackColor));
-          // Manual trigger logic would go here
-        });
-    auditionPad.setOnMouseReleased(
-        e -> {
-          auditionPad.setStyle(
-              String.format(
-                  "-fx-background-color: linear-gradient(to bottom, %s 0%%, #1a1a1a 100%%); -fx-background-radius: 4; -fx-border-color: #444444; -fx-border-width: 1; -fx-border-radius: 4;",
-                  trackColor));
-        });
+    auditionBtn = new Button(">");
+    auditionBtn.setMinWidth(25);
+    auditionBtn.setPrefWidth(25);
+    auditionBtn.setStyle("-fx-base: #333; -fx-text-fill: #888; -fx-padding: 2 5 2 5;");
+    auditionBtn.setOnAction(e -> triggerAudition());
 
-    trackLabel = new Label(trackName);
-    trackLabel.setPrefWidth(80);
-    trackLabel.setAlignment(Pos.CENTER_RIGHT);
-    trackLabel.setStyle("-fx-font-family: 'Courier New'; -fx-font-weight: bold; -fx-font-size: 11px;");
-    updateLabelStyle();
+    getChildren().addAll(nameLabel, auditionBtn);
 
-    // Toggle Mute on Click
-    trackLabel.setOnMouseClicked(
-        e -> {
-          boolean wasMuted = bridge.getMute(rowIndex);
-          bridge.setMute(rowIndex, !wasMuted);
-          updateLabelStyle();
-        });
-
-    // Support track-wide parameter editing via vertical drag
-    trackLabel.setOnMouseDragged(
-        e -> {
-          double delta = -e.getY() / 100.0;
-          EditMode currentMode = modeSupplier.get();
-          
-          boolean liveRec = bridge.isRecording() && bridge.getVm().getGlobalInt(BridgeContract.G_PLAY) == 1;
-          int targetStep = -1;
-          if (liveRec) {
-            targetStep = (int) bridge.getVm().getGlobalInt(BridgeContract.G_CURRENT_STEP);
-          }
-
-          switch (currentMode) {
-            case LEVEL:
-              if (liveRec && targetStep >= 0) {
-                 double v = bridge.getVelocity(rowIndex, targetStep) + delta;
-                 bridge.setVelocity(rowIndex, targetStep, v);
-              } else {
-                 double level = bridge.getTrackLevel(rowIndex) + delta;
-                 bridge.setTrackLevel(rowIndex, level);
-              }
-              break;
-            case FILTER:
-              if (liveRec && targetStep >= 0) {
-                 double f = bridge.getStepFilter(rowIndex, targetStep) + delta;
-                 bridge.setStepFilter(rowIndex, targetStep, f);
-              } else {
-                 double freq = bridge.getTrackFilterFreq(rowIndex) + delta;
-                 bridge.setFilterFreq(rowIndex, freq);
-              }
-              break;
-            case RESONANCE:
-              if (liveRec && targetStep >= 0) {
-                 double r = bridge.getStepRes(rowIndex, targetStep) + delta;
-                 bridge.setStepRes(rowIndex, targetStep, r);
-              } else {
-                 double res = bridge.getTrackFilterRes(rowIndex) + delta;
-                 bridge.setFilterRes(rowIndex, res);
-              }
-              break;
-            default:
-              break;
-          }
-          if (liveRec) bridge.syncActiveClipToLibrary(rowIndex);
-        });
-
-    settingsBtn = new Button("⚙");
-    settingsBtn.setStyle(
-        "-fx-background-color: transparent; -fx-text-fill: #888888; -fx-font-size: 14px; -fx-padding: 0 5 0 0;");
-    settingsBtn.setOnMouseEntered(
-        e ->
-            settingsBtn.setStyle(
-                "-fx-background-color: transparent; -fx-text-fill: #ffffff; -fx-font-size: 14px; -fx-padding: 0 5 0 0;"));
-    settingsBtn.setOnMouseExited(
-        e ->
-            settingsBtn.setStyle(
-                "-fx-background-color: transparent; -fx-text-fill: #888888; -fx-font-size: 14px; -fx-padding: 0 5 0 0;"));
-    settingsBtn.setOnAction(
-        e -> {
-          if (rowIndex < 4) {
-            KitConfigDialog dialog =
-                new KitConfigDialog(new KitTrackModel(trackName), vm, bridge, rowIndex);
-            dialog.show();
-          } else {
-            SynthConfigDialog dialog =
-                new SynthConfigDialog(new SynthTrackModel(trackName), vm, bridge, rowIndex);
-            dialog.show();
-          }
-        });
-
-    getChildren().addAll(auditionPad, trackLabel, settingsBtn);
-
-    // 16 Step Cells
-    for (int col = 0; col < 16; col++) {
-      cells[col] = new StepCellButton(rowIndex, col, bridge);
-      getChildren().add(cells[col]);
-
-      // Visual spacing every 4 steps (1 beat)
-      if ((col + 1) % 4 == 0 && col < 15) {
-        javafx.scene.layout.Region spacer = new javafx.scene.layout.Region();
-        spacer.setPrefWidth(10);
-        getChildren().add(spacer);
-      }
+    cells = new StepCellButton[18];
+    for (int i = 0; i < 16; i++) {
+      cells[i] = new StepCellButton(rowId, i, vm, bridge, editModeSupplier);
+      getChildren().add(cells[i]);
     }
+
+    javafx.scene.layout.Region spacer = new javafx.scene.layout.Region();
+    spacer.setPrefWidth(20);
+    getChildren().add(spacer);
+
+    cells[16] = new StepCellButton(rowId, 16, vm, bridge, editModeSupplier);
+    cells[16].setText("MUTE");
+    cells[16].setStyle("-fx-base: #333; -fx-text-fill: #888; -fx-font-size: 10px;");
+    cells[16].addEventFilter(
+        javafx.scene.input.MouseEvent.MOUSE_PRESSED,
+        ev -> {
+          if (ev.isShiftDown()) {
+            for (int s = 0; s < 16; s++) {
+              bridge.setStep(baseTrack + rowId, s, false);
+            }
+            refreshCells();
+            ev.consume(); // prevent fire
+          }
+        });
+    cells[16].setOnAction(
+        e -> {
+          boolean isMuted = bridge.getMute(baseTrack + rowId);
+          bridge.setMute(baseTrack + rowId, !isMuted);
+          cells[16].setStyle(
+              "-fx-base: "
+                  + (!isMuted ? "#ff3333" : "#333")
+                  + "; -fx-text-fill: white; -fx-font-size: 10px;");
+        });
+    getChildren().add(cells[16]);
+
+    cells[17] = new StepCellButton(rowId, 17, vm, bridge, editModeSupplier);
+    cells[17].setText("SOLO");
+    cells[17].setStyle("-fx-base: #333; -fx-text-fill: #888; -fx-font-size: 10px;");
+    getChildren().add(cells[17]);
+  }
+
+  private String padName(String name) {
+    if (name == null) name = "EMPTY";
+    if (name.length() > 8) return name.substring(0, 8);
+    return String.format("%-8s", name);
+  }
+
+  public void updateForKit(KitTrackModel.KitSound sound) {
+    nameLabel.setText(padName(sound.getName()));
+  }
+
+  public void setNoteName(String name) {
+    nameLabel.setText(padName(name));
   }
 
   public void setEditMode(EditMode mode) {
     for (StepCellButton cell : cells) {
-      cell.setEditMode(mode);
+      if (cell != null) {
+        cell.setEditMode(mode);
+      }
+    }
+  }
+
+  public void setStepOffset(int offset) {
+    this.stepOffset = offset;
+    refreshCells();
+  }
+
+  public void refreshCells() {
+    for (StepCellButton cell : cells) {
+      if (cell != null) {
+        cell.setSelected(bridge.getStep(baseTrack + rowId, stepOffset + cell.getStepId()));
+        cell.updateStyle();
+      }
+    }
+  }
+
+  public void setBaseTrack(int baseTrack) {
+    this.baseTrack = baseTrack;
+    for (StepCellButton cell : cells) {
+      if (cell != null) {
+        cell.setBaseTrack(baseTrack);
+      }
+    }
+  }
+
+  public void setSynthMode(boolean isSynthMode) {
+    for (StepCellButton cell : cells) {
+      if (cell != null) {
+        cell.setSynthMode(isSynthMode);
+      }
     }
   }
 
   public void highlightStep(int col, boolean active) {
-    if (col >= 0 && col < 16) {
-      cells[col].setPlayheadActive(active);
+    int visibleCol = col - stepOffset;
+    if (visibleCol >= 0 && visibleCol < 16) {
+      cells[visibleCol].setPlayheadActive(active);
     }
   }
 
-  public void refreshAll() {
-    for (StepCellButton cell : cells) {
-      cell.updateStyle();
-    }
-    updateLabelStyle();
-  }
-
-  private void updateLabelStyle() {
-    boolean isMuted = bridge.getMute(rowIndex);
-    trackLabel.setTextFill(
-        isMuted ? javafx.scene.paint.Color.RED : javafx.scene.paint.Color.web("#cccccc"));
+  private void triggerAudition() {
+    // Manual trigger logic via Bridge
+    // For now, we'll implement this by toggling a hidden bridge state or sending a MIDI message
   }
 }

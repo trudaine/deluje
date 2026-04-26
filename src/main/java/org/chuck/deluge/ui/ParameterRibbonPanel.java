@@ -2,24 +2,18 @@ package org.chuck.deluge.ui;
 
 import java.util.function.Consumer;
 import javafx.geometry.Insets;
-import javafx.geometry.Pos;
-import javafx.scene.control.ContextMenu;
-import javafx.scene.control.MenuItem;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
-import javafx.scene.layout.HBox;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
-import org.chuck.deluge.midi.MidiInputRouter;
 
 /**
  * The horizontal ribbon of 13 parameter buttons above the matrix. Used for selecting which
  * parameter (Velocity, Gate, Probability, etc.) is currently being edited.
  */
-public class ParameterRibbonPanel extends HBox {
+public class ParameterRibbonPanel extends javafx.scene.layout.GridPane {
   private final ChuckVM vm;
   private final BridgeContract bridge;
-  private final MidiInputRouter midiRouter;
   private Consumer<EditMode> modeChangeListener;
 
   public enum EditMode {
@@ -57,13 +51,12 @@ public class ParameterRibbonPanel extends HBox {
     "START/END"
   };
 
-  public ParameterRibbonPanel(ChuckVM vm, BridgeContract bridge, MidiInputRouter midiRouter) {
+  public ParameterRibbonPanel(ChuckVM vm, BridgeContract bridge) {
     this.vm = vm;
     this.bridge = bridge;
-    this.midiRouter = midiRouter;
 
-    setAlignment(Pos.CENTER);
-    setSpacing(5);
+    setHgap(5);
+    setVgap(5);
     setPadding(new Insets(5));
     setStyle("-fx-background-color: #222222;");
 
@@ -72,43 +65,26 @@ public class ParameterRibbonPanel extends HBox {
       ToggleButton btn = new ToggleButton(label);
       btn.setToggleGroup(group);
       btn.setStyle(
-          "-fx-background-color: #2b2b2b; -fx-text-fill: #888888; -fx-font-family: 'Courier New'; -fx-font-size: 10px; -fx-font-weight: bold;");
-      btn.setPrefHeight(30);
-      btn.setPrefWidth(85);
+          "-fx-base: #333333; -fx-text-fill: white; -fx-font-size: 11px; -fx-font-weight: bold;");
 
-      btn.selectedProperty()
-          .addListener(
-              (obs, old, isNowSelected) -> {
-                if (isNowSelected) {
-                  btn.setStyle(
-                      "-fx-background-color: #00ff41; -fx-text-fill: black; -fx-font-family: 'Courier New'; -fx-font-size: 10px; -fx-font-weight: bold;");
-                } else {
-                  btn.setStyle(
-                      "-fx-background-color: #2b2b2b; -fx-text-fill: #888888; -fx-font-family: 'Courier New'; -fx-font-size: 10px; -fx-font-weight: bold;");
-                }
-              });
+      if (Boolean.parseBoolean(
+          org.chuck.deluge.project.PreferencesManager.get("show.tooltips", "true"))) {
+        String help = org.chuck.deluge.ui.util.HelpTextManager.getHelp(label);
+        javafx.scene.control.Tooltip tooltip = new javafx.scene.control.Tooltip(help);
+        tooltip.setStyle("-fx-font-family: 'Monospaced'; -fx-font-size: 11px;");
+        tooltip.setShowDelay(javafx.util.Duration.millis(100));
+        javafx.scene.control.Tooltip.install(btn, tooltip);
+      }
+      btn.setPrefHeight(50);
+      btn.setPrefWidth(120);
 
       final EditMode mode = EditMode.values()[i];
-
-      // MIDI LEARN Context Menu
-      ContextMenu menu = new ContextMenu();
-      MenuItem learnItem = new MenuItem("MIDI Learn");
-      learnItem.setOnAction(
-          e -> {
-            String target = getGlobalForMode(mode);
-            if (target != null && midiRouter != null) {
-              midiRouter.startLearning(target);
-              System.out.println("MIDI LEARN: Waiting for CC for " + target);
-            }
-          });
-      menu.getItems().add(learnItem);
-      btn.setContextMenu(menu);
 
       if (mode == EditMode.STUTTER) {
         btn.setOnMousePressed(
             e -> {
               vm.setGlobalInt("g_stutter_on", 1L);
-              vm.setGlobalFloat("g_stutter_div", 2.0); // Default stutter rate
+              vm.setGlobalFloat("g_stutter_div", 2.0);
             });
         btn.setOnMouseReleased(
             e -> {
@@ -128,7 +104,9 @@ public class ParameterRibbonPanel extends HBox {
         btn.setSelected(true);
       }
 
-      getChildren().add(btn);
+      int col = i % 8;
+      int row = i / 8;
+      add(btn, col, row);
     }
   }
 
@@ -138,20 +116,5 @@ public class ParameterRibbonPanel extends HBox {
 
   public EditMode getCurrentMode() {
     return currentMode;
-  }
-
-  private String getGlobalForMode(EditMode mode) {
-    switch (mode) {
-      case FILTER:
-        return BridgeContract.G_FILTER;
-      case DELAY:
-        return BridgeContract.G_DELAY_TIME;
-      case REVERB:
-        return BridgeContract.G_REVERB_ROOM;
-      case LEVEL:
-        return BridgeContract.G_MASTER_VOL;
-      default:
-        return null;
-    }
   }
 }

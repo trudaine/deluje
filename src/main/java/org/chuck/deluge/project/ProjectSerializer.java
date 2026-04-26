@@ -37,25 +37,68 @@ public class ProjectSerializer {
     rootElement.appendChild(instruments);
 
     for (TrackModel track : model.getTracks()) {
-      Element trackElem = doc.createElement("instrument");
-      trackElem.setAttribute("name", track.getName());
-
       if (track instanceof KitTrackModel kit) {
-        trackElem.setAttribute("type", "kit");
-        Element sample = doc.createElement("sample");
-        sample.setAttribute("fileName", kit.getSamplePath());
-        trackElem.appendChild(sample);
+        Element trackElem = doc.createElement("kit");
+        Element presetSlot = doc.createElement("presetSlot");
+        presetSlot.setTextContent(kit.getName());
+        trackElem.appendChild(presetSlot);
+
+        for (KitTrackModel.KitSound sound : kit.getSounds()) {
+          Element soundElem = doc.createElement("sound");
+          Element nameElem = doc.createElement("name");
+          nameElem.setTextContent(sound.getName());
+          soundElem.appendChild(nameElem);
+
+          Element sample = doc.createElement("sample");
+          sample.setAttribute("fileName", sound.getSamplePath());
+          soundElem.appendChild(sample);
+
+          trackElem.appendChild(soundElem);
+        }
+        instruments.appendChild(trackElem);
       } else if (track instanceof SynthTrackModel synth) {
-        trackElem.setAttribute("type", "synth");
+        Element trackElem = doc.createElement("sound");
+        Element presetSlot = doc.createElement("presetSlot");
+        presetSlot.setTextContent(synth.getName());
+        trackElem.appendChild(presetSlot);
 
         Element osc1 = doc.createElement("osc1");
         osc1.setAttribute("type", synth.getOsc1Type().toLowerCase());
         trackElem.appendChild(osc1);
 
         // (Full serialization of all ADSR, LFO, and Patch cables would go here)
+        instruments.appendChild(trackElem);
       }
+    }
 
-      instruments.appendChild(trackElem);
+    // Serialize Tracks (Clips)
+    Element tracksElem = doc.createElement("tracks");
+    rootElement.appendChild(tracksElem);
+
+    for (TrackModel track : model.getTracks()) {
+      for (org.chuck.deluge.model.ClipModel clip : track.getClips()) {
+        Element clipTrackElem = doc.createElement("track");
+        tracksElem.appendChild(clipTrackElem);
+
+        Element noteRowsElem = doc.createElement("noteRows");
+        clipTrackElem.appendChild(noteRowsElem);
+
+        for (int r = 0; r < clip.getRowCount(); r++) {
+          Element noteRowElem = doc.createElement("noteRow");
+          noteRowsElem.appendChild(noteRowElem);
+
+          java.util.List<org.chuck.deluge.model.StepData> row = new java.util.ArrayList<>();
+          for (int s = 0; s < clip.getStepCount(); s++) {
+            row.add(clip.getStep(r, s));
+          }
+
+          String hexData = org.chuck.deluge.xml.DelugeNoteDataMapper.encodeRow(row);
+
+          Element noteDataElem = doc.createElement("noteData");
+          noteDataElem.setTextContent(hexData);
+          noteRowElem.appendChild(noteDataElem);
+        }
+      }
     }
 
     // Write the content into xml file

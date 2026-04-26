@@ -1,13 +1,12 @@
 package org.chuck.deluge.midi;
 
-import java.util.HashMap;
-import java.util.Map;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 import org.chuck.midi.MidiMsg;
 
 /**
- * Routes incoming MIDI messages (Note On/Off, CC) to the active Track/Step or learned global parameters.
+ * Routes incoming MIDI messages (Note On/Off, CC) to the active Track/Step in the Deluge UI.
+ * Simulates the "MIDI Follow Mode" where external controllers target the selected track.
  */
 public class MidiInputRouter {
 
@@ -17,9 +16,17 @@ public class MidiInputRouter {
   private boolean followModeEnabled = true;
   private int activeTrackIndex = 4; // Default to first synth track
 
-  // MIDI Learning
-  private String learningTarget = null;
-  private final Map<Integer, String> ccMappings = new HashMap<>();
+  private static class NoteStartInfo {
+    long time;
+    int step;
+
+    NoteStartInfo(long t, int s) {
+      this.time = t;
+      this.step = s;
+    }
+  }
+
+  private final java.util.Map<Integer, NoteStartInfo> activeNoteStarts = new java.util.HashMap<>();
 
   public MidiInputRouter(ChuckVM vm, BridgeContract bridge) {
     this.vm = vm;
@@ -34,81 +41,62 @@ public class MidiInputRouter {
     this.activeTrackIndex = trackIndex;
   }
 
-  public int getActiveTrackIndex() {
-    return activeTrackIndex;
-  }
-
-  /** Enter learning mode for the next received CC. */
-  public void startLearning(String globalName) {
-    this.learningTarget = globalName;
-  }
-
   /** Called when a MIDI message is received from a hardware controller. */
   public void handleMidiMessage(MidiMsg msg) {
-    int status = msg.data1 & 0xF0;
-
-    if (status == 0xB0) { // Control Change
-      handleCC(msg.data2, msg.data3);
-      return;
-    }
-
     if (!followModeEnabled) return;
 
+    // Get the current playback step from the VM
+    int currentStep = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
+    if (currentStep < 0 || currentStep >= 16) {
+      // Not playing, or invalid step; default to step 0 for previewing
+      currentStep = 0;
+    }
+
     if (msg.isNoteOn()) {
-      handleNoteOn(msg.data2, msg.data3);
-    } else if (msg.isNoteOff()) {
-      handleNoteOff(msg.data2);
-    }
-  }
+      int midiNote = msg.data2;
+      int velocity = msg.data3;
 
-  private void handleCC(int ccNum, int value) {
-    // 1. Learning Mode
-    if (learningTarget != null) {
-      ccMappings.put(ccNum, learningTarget);
-      System.out.println("MIDI LEARN: CC " + ccNum + " -> " + learningTarget);
-      learningTarget = null;
-      return;
-    }
+      boolean gridMode =
+          Boolean.parseBoolean(
+              org.chuck.deluge.project.PreferencesManager.get("midi.grid.mode", "false"));
+      if (gridMode) {
+        int row = midiNote / 16;
+        int col = midiNote % 16;
+        if (row < 8) {
+          boolean current = bridge.getStep(row, col);
+          bridge.setStep(row, col, !current);
+          return; // Do not play the note
+        }
+      }
 
-    // 2. Applied Mappings
-    String target = ccMappings.get(ccNum);
-    if (target != null) {
-      double normalized = value / 127.0;
-      // Update global in VM
-      if (target.startsWith("g_step_") || target.startsWith("g_track_")) {
-          // Todo: handle array updates via bridge if needed
-          // For now, assume it's a global scalar like master vol or filter
+      // Store start time and step
+      activeNoteStarts.put(midiNote, new NoteStartInfo(vm.getCurrentTime(), currentStep));
+
+      if (activeTrackIndex < 4) {
+        // Kit track: map note to row (e.g., 36 -> row 0, 38 -> row 1, etc.)
+        int row = midiNote - 36;
+        if (row >= 0 && row < 8) {
+          bridge.setStep(activeTrackIndex, currentStep, true);
+          bridge.setVelocity(activeTrackIndex, currentStep, velocity / 127.0);
+          bridge.setGate(activeTrackIndex, currentStep, 1.0);
+        }
       } else {
-          vm.setGlobalFloat(target, normalized);
+        // Synth track: map note to pitch offset from middle C (60)
+        bridge.setPitch(activeTrackIndex, currentStep, midiNote - 60);
+        bridge.setStep(activeTrackIndex, currentStep, true);
+        bridge.setVelocity(activeTrackIndex, currentStep, velocity / 127.0);
+        bridge.setGate(activeTrackIndex, currentStep, 1.0);
+      }
+
+    } else if (msg.isNoteOff()) {
+      int midiNote = msg.data2;
+      NoteStartInfo start = activeNoteStarts.remove(midiNote);
+      if (start != null) {
+        long duration = vm.getCurrentTime() - start.time;
+        // Convert duration to gate length
+        double gate = (double) duration / (vm.getSampleRate() * 0.125);
+        bridge.setGate(activeTrackIndex, start.step, gate);
       }
     }
-  }
-
-  private void handleNoteOn(int midiNote, int velocity) {
-    // 1. Update Sequencer
-    int currentStep = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
-    if (currentStep < 0) currentStep = 0;
-
-    bridge.setPitch(activeTrackIndex, currentStep, midiNote - 60);
-    bridge.setStep(activeTrackIndex, currentStep, true);
-    bridge.setVelocity(activeTrackIndex, currentStep, velocity / 127.0);
-    bridge.setGate(activeTrackIndex, currentStep, 1.0);
-
-    // 2. Trigger direct "live" note in engine.ck
-    vm.setGlobalInt("g_midi_note", (long) midiNote);
-    vm.setGlobalInt("g_midi_vel", (long) velocity);
-    bridge.triggerMidiNoteOn();
-  }
-
-  private void handleNoteOff(int midiNote) {
-    // 1. Update Sequencer
-    int currentStep = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
-    if (currentStep < 0) currentStep = 0;
-    bridge.setGate(activeTrackIndex, currentStep, 0.5);
-
-    // 2. Trigger live release
-    vm.setGlobalInt("g_midi_note", (long) midiNote);
-    vm.setGlobalInt("g_midi_vel", 0L);
-    bridge.triggerMidiNoteOff();
   }
 }

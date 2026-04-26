@@ -3,233 +3,339 @@ package org.chuck.deluge.ui;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
-import javafx.scene.paint.Color;
 import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.ui.ParameterRibbonPanel.EditMode;
-import org.chuck.deluge.ui.popover.NoteEntryPopover;
-import org.chuck.deluge.ui.popover.StepEditorPopover;
 
-/** Represents a single interactive cell in the 16-step sequence. */
+/**
+ * A specialized ToggleButton for the Deluge grid. Handles left-click (toggle) and right-click (drag
+ * edit).
+ */
 public class StepCellButton extends ToggleButton {
-  private final int row;
-  private final int col;
+  private int baseTrack = 0;
+  private final int rowId;
+  private final int stepId;
+  private final org.chuck.core.ChuckVM vm;
   private final BridgeContract bridge;
+  private final java.util.function.Supplier<EditMode> editModeSupplier;
 
-  private boolean hasPlayhead = false;
-  private final String colorHex;
-  private EditMode editMode = EditMode.VELOCITY;
+  private boolean playheadActive = false;
+  private boolean isSynthMode = false;
+  private javafx.animation.Timeline activeStutter;
 
-  public StepCellButton(int row, int col, BridgeContract bridge) {
-    this.row = row;
-    this.col = col;
+  public StepCellButton(
+      int rowId,
+      int stepId,
+      org.chuck.core.ChuckVM vm,
+      BridgeContract bridge,
+      java.util.function.Supplier<EditMode> editModeSupplier) {
+    this.rowId = rowId;
+    this.stepId = stepId;
+    this.vm = vm;
     this.bridge = bridge;
+    this.editModeSupplier = editModeSupplier;
 
-    setPrefSize(40, 40);
+    String res = org.chuck.deluge.project.PreferencesManager.get("screen.resolution", "QHD");
+    int padSz = "FHD".equals(res) ? 52 : ("4K".equals(res) ? 104 : 70);
+    setPrefSize(padSz, padSz);
 
-    // Give different tracks different RGB colors to mimic Deluge
-    String[] colors = {
-      "#FF5555", "#FFaa55", "#FFFF55", "#aaFF55", "#55FF55", "#55FFaa", "#55FFFF", "#55aaFF"
-    };
-    this.colorHex = colors[row % colors.length];
-
-    // Initial state
-    setSelected(false);
     updateStyle();
 
-    // Toggle logic (Left Click)
+    // Sync with Bridge
+    setSelected(bridge.getStep(baseTrack + rowId, stepId));
+
+    addEventHandler(
+        MouseEvent.MOUSE_PRESSED,
+        e -> {
+          if (e.getButton() == MouseButton.PRIMARY) {
+            String sp = (String) vm.getGlobalObject("g_sample_" + (baseTrack + rowId));
+            if (sp != null && !sp.isEmpty()) {
+              if (activeStutter != null) activeStutter.stop();
+              activeStutter =
+                  new javafx.animation.Timeline(
+                      new javafx.animation.KeyFrame(
+                          javafx.util.Duration.millis(150),
+                          ev -> {
+                            new Thread(
+                                    () -> {
+                                      try {
+                                        java.io.File file = new java.io.File(sp);
+                                        if (file.exists()) {
+                                          javax.sound.sampled.AudioInputStream stream =
+                                              javax.sound.sampled.AudioSystem.getAudioInputStream(
+                                                  file);
+                                          javax.sound.sampled.Clip clip =
+                                              javax.sound.sampled.AudioSystem.getClip();
+                                          clip.open(stream);
+                                          clip.start();
+                                        }
+                                      } catch (Exception ex) {
+                                      }
+                                    })
+                                .start();
+                          }));
+              activeStutter.setCycleCount(javafx.animation.Animation.INDEFINITE);
+              activeStutter.play();
+            }
+          }
+        });
+
+    addEventHandler(
+        MouseEvent.MOUSE_RELEASED,
+        e -> {
+          if (activeStutter != null) {
+            activeStutter.stop();
+            activeStutter = null;
+          }
+        });
+
+    addEventHandler(
+        MouseEvent.MOUSE_CLICKED,
+        e -> {
+          if (e.getButton() == MouseButton.PRIMARY) {
+            boolean state = isSelected();
+            if (e.isShiftDown() && !isSynthMode) {
+              if (baseTrack + rowId + 4 < 64) bridge.setStep(baseTrack + rowId + 4, stepId, state);
+              if (baseTrack + rowId + 7 < 64) bridge.setStep(baseTrack + rowId + 7, stepId, state);
+            }
+
+            // Audition sound
+            if (state) {
+              int trackType = bridge.getTrackType(baseTrack + rowId);
+              if (trackType == 2) return; // Silent for MIDI tracks
+
+              String sp = (String) vm.getGlobalObject("g_sample_" + (baseTrack + rowId));
+
+              if (sp != null && !sp.isEmpty()) {
+                new Thread(
+                        () -> {
+                          try {
+                            java.io.File file = new java.io.File(sp);
+                            if (file.exists()) {
+                              javax.sound.sampled.AudioInputStream stream =
+                                  javax.sound.sampled.AudioSystem.getAudioInputStream(file);
+                              javax.sound.sampled.Clip clip =
+                                  javax.sound.sampled.AudioSystem.getClip();
+                              clip.open(stream);
+                              clip.start();
+                            }
+                          } catch (Exception ex) {
+                          }
+                        })
+                    .start();
+              }
+            }
+          }
+        });
+
     setOnAction(
         e -> {
-          bridge.setStep(row, col, isSelected());
-          bridge.syncActiveClipToLibrary(row);
+          if (bridge.isRecording()) {
+            int currentStep = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
+            if (currentStep >= 0 && currentStep < 16) {
+              if (isSynthMode) {
+                bridge.setStep(baseTrack, currentStep, true);
+                bridge.setPitch(baseTrack, currentStep, (24 - 1) - rowId);
+              } else {
+                bridge.setStep(baseTrack + rowId, currentStep, true);
+              }
+              bridge.setVelocity(isSynthMode ? baseTrack : baseTrack + rowId, currentStep, 0.8);
+              bridge.setGate(isSynthMode ? baseTrack : baseTrack + rowId, currentStep, 1.0);
+            }
+            setSelected(false); // Act as trigger
+          } else {
+            if (isSynthMode) {
+              bridge.setStep(baseTrack, stepId, isSelected());
+              if (isSelected()) {
+                bridge.setPitch(baseTrack, stepId, (24 - 1) - rowId);
+              }
+            } else {
+              bridge.setStep(baseTrack + rowId, stepId, isSelected());
+            }
+          }
           updateStyle();
         });
 
-    // Right-Click Context Actions
     addEventHandler(MouseEvent.MOUSE_PRESSED, this::handleMousePressed);
-
-    // Support vertical drag to change parameter value
     addEventHandler(MouseEvent.MOUSE_DRAGGED, this::handleMouseDragged);
   }
 
-  public void setEditMode(EditMode mode) {
-    this.editMode = mode;
-    updateStyle();
-  }
-
-  private void handleMouseDragged(MouseEvent event) {
-    if (event.isPrimaryButtonDown() && !isSelected()) return;
-    if (!event.isPrimaryButtonDown()) return;
-
-    double delta = -event.getY() / 100.0;
-    
-    // Determine target step: if recording, use playhead; else use this cell.
-    int targetStep = col;
-    boolean liveRec = bridge.isRecording() && bridge.getVm().getGlobalInt(BridgeContract.G_PLAY) == 1;
-    if (liveRec) {
-        targetStep = (int) bridge.getVm().getGlobalInt(BridgeContract.G_CURRENT_STEP);
-        if (targetStep < 0) targetStep = col;
-    }
-
-    switch (editMode) {
-      case LEVEL:
-      case VELOCITY:
-        double v = bridge.getVelocity(row, targetStep) + delta;
-        bridge.setVelocity(row, targetStep, v);
-        break;
-      case PAN:
-        double pan = bridge.getStepPan(row, targetStep) + delta;
-        bridge.setStepPan(row, targetStep, pan);
-        break;
-      case FILTER:
-        double f = bridge.getStepFilter(row, targetStep) + delta;
-        bridge.setStepFilter(row, targetStep, f);
-        break;
-      case RESONANCE:
-        double res = bridge.getStepRes(row, targetStep) + delta;
-        bridge.setStepRes(row, targetStep, res);
-        break;
-      case DELAY:
-        double d = bridge.getStepDelay(row, targetStep) + delta;
-        bridge.setStepDelay(row, targetStep, d);
-        break;
-      case REVERB:
-        double r = bridge.getStepReverb(row, targetStep) + delta;
-        bridge.setStepReverb(row, targetStep, r);
-        break;
-      case MOD_FX:
-        double m = bridge.getStepMod(row, targetStep) + delta;
-        bridge.setStepMod(row, targetStep, m);
-        break;
-      case START_END:
-        double s = bridge.getStepStart(row, targetStep) + delta;
-        bridge.setStepStart(row, targetStep, s);
-        break;
-      case GATE:
-        double g = bridge.getGate(row, targetStep) + delta;
-        bridge.setGate(row, targetStep, g);
-        break;
-      case PROBABILITY:
-        double p = bridge.getStepProbability(row, targetStep) + delta;
-        bridge.setStepProbability(row, targetStep, p);
-        break;
-      case PITCH:
-        int pitch = bridge.getPitch(row, targetStep) + (int) (delta * 24);
-        bridge.setPitch(row, targetStep, pitch);
-        break;
-      default:
-        break;
-    }
-    bridge.syncActiveClipToLibrary(row);
-    updateStyle();
-  }
-
-  private void handleMousePressed(MouseEvent event) {
-    if (event.getButton() == MouseButton.SECONDARY) {
-      if (event.isShiftDown() && row >= 4) {
-        // Shift + Right Click: Note Entry (Synth only)
-        NoteEntryPopover pop = new NoteEntryPopover(bridge, row, col);
-        pop.show(this, event.getScreenX(), event.getScreenY());
-      } else {
-        // Normal Right Click: Step Editor (Velocity/Gate/Prob)
-        StepEditorPopover pop = new StepEditorPopover(bridge, row, col);
-        pop.show(this, event.getScreenX(), event.getScreenY());
-      }
-      event.consume();
-    }
-  }
-
   public void setPlayheadActive(boolean active) {
-    this.hasPlayhead = active;
+    this.playheadActive = active;
+    updateStyle();
+  }
+
+  private void handleMousePressed(MouseEvent e) {
+    if (e.getButton() == MouseButton.SECONDARY) {
+      if (isSelected()) {
+        javafx.stage.Stage stage = new javafx.stage.Stage();
+        stage.initModality(javafx.stage.Modality.APPLICATION_MODAL);
+        stage.setTitle("Step Properties");
+
+        javafx.scene.layout.GridPane grid = new javafx.scene.layout.GridPane();
+        grid.setPadding(new javafx.geometry.Insets(20));
+        grid.setHgap(15);
+        grid.setVgap(15);
+        grid.setStyle("-fx-background-color: #252525;");
+
+        javafx.scene.text.Font labelFont =
+            javafx.scene.text.Font.font("System", javafx.scene.text.FontWeight.BOLD, 18);
+
+        // 1. Velocity
+        javafx.scene.control.Label l1 = new javafx.scene.control.Label("Velocity:");
+        l1.setFont(labelFont);
+        l1.setTextFill(javafx.scene.paint.Color.WHITE);
+        grid.add(l1, 0, 0);
+        javafx.scene.control.Slider velSlider = new javafx.scene.control.Slider(0, 100, 80);
+        velSlider.setPrefSize(1200, 50);
+        grid.add(velSlider, 1, 0);
+        javafx.scene.control.Spinner<Integer> velSpin =
+            new javafx.scene.control.Spinner<>(0, 100, 80);
+        velSpin.setPrefWidth(80);
+        velSpin.valueProperty().addListener((obs, o, n) -> velSlider.setValue(n));
+        velSlider
+            .valueProperty()
+            .addListener((obs, o, n) -> velSpin.getValueFactory().setValue(n.intValue()));
+        grid.add(velSpin, 2, 0);
+
+        // 2. Probability
+        javafx.scene.control.Label l2 = new javafx.scene.control.Label("Probability:");
+        l2.setFont(labelFont);
+        l2.setTextFill(javafx.scene.paint.Color.WHITE);
+        grid.add(l2, 0, 1);
+        javafx.scene.control.Slider probSlider = new javafx.scene.control.Slider(0, 100, 100);
+        probSlider.setPrefSize(1200, 50);
+        grid.add(probSlider, 1, 1);
+        javafx.scene.control.Spinner<Integer> probSpin =
+            new javafx.scene.control.Spinner<>(0, 100, 100);
+        probSpin.setPrefWidth(80);
+        probSpin.valueProperty().addListener((obs, o, n) -> probSlider.setValue(n));
+        probSlider
+            .valueProperty()
+            .addListener((obs, o, n) -> probSpin.getValueFactory().setValue(n.intValue()));
+        grid.add(probSpin, 2, 1);
+
+        // 3. Gate Length
+        javafx.scene.control.Label l3 = new javafx.scene.control.Label("Gate Length:");
+        l3.setFont(labelFont);
+        l3.setTextFill(javafx.scene.paint.Color.WHITE);
+        grid.add(l3, 0, 2);
+        javafx.scene.control.Slider gateSlider = new javafx.scene.control.Slider(1, 16, 1);
+        gateSlider.setPrefSize(1200, 50);
+        grid.add(gateSlider, 1, 2);
+        javafx.scene.control.Spinner<Integer> gateSpin =
+            new javafx.scene.control.Spinner<>(1, 16, 1);
+        gateSpin.setPrefWidth(80);
+        gateSpin.valueProperty().addListener((obs, o, n) -> gateSlider.setValue(n));
+        gateSlider
+            .valueProperty()
+            .addListener((obs, o, n) -> gateSpin.getValueFactory().setValue(n.intValue()));
+        grid.add(gateSpin, 2, 2);
+
+        // 4. Pitch Offset
+        javafx.scene.control.Label l4 = new javafx.scene.control.Label("Pitch Offset:");
+        l4.setFont(labelFont);
+        l4.setTextFill(javafx.scene.paint.Color.WHITE);
+        grid.add(l4, 0, 3);
+        javafx.scene.control.Slider pitchSlider = new javafx.scene.control.Slider(-24, 24, 0);
+        pitchSlider.setPrefSize(1200, 50);
+        grid.add(pitchSlider, 1, 3);
+        javafx.scene.control.Spinner<Integer> pitchSpin =
+            new javafx.scene.control.Spinner<>(-24, 24, 0);
+        pitchSpin.setPrefWidth(80);
+        pitchSpin.valueProperty().addListener((obs, o, n) -> pitchSlider.setValue(n));
+        pitchSlider
+            .valueProperty()
+            .addListener((obs, o, n) -> pitchSpin.getValueFactory().setValue(n.intValue()));
+        grid.add(pitchSpin, 2, 3);
+
+        javafx.scene.Scene scene = new javafx.scene.Scene(grid, 1600, 350);
+        stage.setScene(scene);
+        stage.showAndWait();
+      }
+    }
+  }
+
+  private void handleMouseDragged(MouseEvent e) {
+    if (e.getButton() == MouseButton.SECONDARY) {
+      updateValueFromMouse(e.getY());
+    }
+  }
+
+  private void updateValueFromMouse(double mouseY) {
+    double val = 1.0 - (mouseY / getHeight());
+    val = Math.max(0, Math.min(1, val));
+
+    EditMode mode = editModeSupplier.get();
+    int currentTrackId = isSynthMode ? baseTrack : baseTrack + rowId;
+    switch (mode) {
+      case VELOCITY -> bridge.setVelocity(currentTrackId, stepId, val);
+      case GATE -> bridge.setGate(currentTrackId, stepId, val);
+      case PITCH -> {
+        int pitch = (int) (val * 24) - 12; // +/- 1 octave
+        bridge.setPitch(currentTrackId, stepId, pitch);
+      }
+    }
     updateStyle();
   }
 
   public void updateStyle() {
-    String baseColor = "#333333"; // off
-    double opacity = 1.0;
+    if (stepId >= 16) return;
+    setGraphic(null); // Clear previous hint
+
+    String baseColor = isSelected() ? "#00ffcc" : "#444";
+    if (playheadActive) {
+      baseColor = isSelected() ? "#ffffff" : "#666";
+    }
+
+    String borderStyle = "-fx-border-color: #222; -fx-border-width: 1;";
+    String style = "-fx-base: " + baseColor + "; " + borderStyle;
 
     if (isSelected()) {
-      baseColor = colorHex;
-
-      // Scale brightness/opacity based on parameter
-      switch (editMode) {
-        case LEVEL:
-        case VELOCITY:
-          opacity = 0.3 + (bridge.getVelocity(row, col) * 0.7);
-          break;
-        case PAN:
-          opacity = 0.3 + (Math.abs(bridge.getStepPan(row, col)) * 0.7);
-          break;
-        case FILTER:
-          // Filter offset can be negative, so we normalize for opacity
-          opacity = 0.3 + (Math.abs(bridge.getStepFilter(row, col)) * 0.7);
-          break;
-        case RESONANCE:
-          opacity = 0.3 + (Math.abs(bridge.getStepRes(row, col)) * 0.7);
-          break;
-        case DELAY:
-          opacity = 0.3 + (bridge.getStepDelay(row, col) * 0.7);
-          break;
-        case REVERB:
-          opacity = 0.3 + (bridge.getStepReverb(row, col) * 0.7);
-          break;
-        case MOD_FX:
-          opacity = 0.3 + (bridge.getStepMod(row, col) * 0.7);
-          break;
-        case START_END:
-          opacity = 0.3 + (bridge.getStepStart(row, col) * 0.7);
-          break;
-        case GATE:
-          // Gate length is visualized via border dash array (done in string below)
-          break;
-        case PROBABILITY:
-          opacity = 0.3 + (bridge.getStepProbability(row, col) * 0.7);
-          break;
-        case PITCH:
-          int p = bridge.getPitch(row, col);
-          if (p != 0) {
-            setText(p > 0 ? "+" + p : String.valueOf(p));
-            setTextFill(Color.WHITE);
-            setStyle("-fx-font-size: 9px; -fx-font-weight: bold;");
-          } else {
-            setText("");
-          }
-          break;
-        default:
-          setText("");
-          break;
+      EditMode mode = editModeSupplier.get();
+      double val = 0.8;
+      int currentTrackId = isSynthMode ? baseTrack : baseTrack + rowId;
+      switch (mode) {
+        case VELOCITY -> val = bridge.getVelocity(currentTrackId, stepId);
+        case GATE -> val = bridge.getGate(currentTrackId, stepId);
       }
-    } else {
-      setText("");
+      style += " -fx-opacity: " + (0.4 + (val * 0.6)) + ";";
+
+      // Add visual hint bar
+      String colorStr =
+          switch (mode) {
+            case VELOCITY -> "#00ffcc";
+            case GATE -> "#ff9800";
+            case PITCH -> "#e91e63";
+            default -> "#00ffcc";
+          };
+
+      javafx.scene.shape.Rectangle bar = new javafx.scene.shape.Rectangle(30 * val, 4);
+      bar.setFill(javafx.scene.paint.Color.web(colorStr));
+      javafx.scene.layout.StackPane pane = new javafx.scene.layout.StackPane(bar);
+      pane.setAlignment(javafx.geometry.Pos.BOTTOM_LEFT);
+      setGraphic(pane);
     }
-
-    String style;
-    double gateVal = bridge.getGate(row, col);
-    String borderStyle =
-        (editMode == EditMode.GATE && isSelected())
-            ? String.format("-fx-border-style: dashed; -fx-border-dash-array: %f 5;", gateVal * 20.0)
-            : "-fx-border-style: solid;";
-
-    String finalBg = isSelected() ? 
-        String.format("linear-gradient(to bottom, %s 0%%, #1a1a1a 100%%)", baseColor) : 
-        "#222222";
-
-    String borderColor = hasPlayhead ? "#ffffff" : "#444444";
-    double borderWidth = hasPlayhead ? 3.0 : 1.0;
-
-    style = String.format(
-        "-fx-background-color: %s; " +
-        "-fx-border-color: %s; " +
-        "-fx-border-width: %.1f; " +
-        "-fx-background-radius: 3; " +
-        "-fx-border-radius: 3; " +
-        "-fx-opacity: %.2f; " +
-        "-fx-font-family: 'Courier New'; " +
-        "-fx-font-weight: bold; " +
-        "%s",
-        finalBg, borderColor, borderWidth, opacity, borderStyle
-    );
 
     setStyle(style);
-    }
-    }
+  }
 
+  public void setEditMode(EditMode mode) {
+    updateStyle();
+  }
+
+  public int getStepId() {
+    return stepId;
+  }
+
+  public void setBaseTrack(int baseTrack) {
+    this.baseTrack = baseTrack;
+    setSelected(bridge.getStep(isSynthMode ? baseTrack : baseTrack + rowId, stepId));
+    updateStyle();
+  }
+
+  public void setSynthMode(boolean isSynthMode) {
+    this.isSynthMode = isSynthMode;
+    setSelected(bridge.getStep(isSynthMode ? baseTrack : baseTrack + rowId, stepId));
+    updateStyle();
+  }
+}
