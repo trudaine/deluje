@@ -1,8 +1,6 @@
 package org.chuck.deluge.ui;
 
-import java.io.InputStream;
-import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
+import java.net.URL;
 import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.scene.paint.Color;
@@ -10,150 +8,211 @@ import javafx.stage.Stage;
 import org.chuck.audio.ChuckAudio;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
-import org.chuck.deluge.midi.MidiInputRouter;
-import org.chuck.midi.MidiMsg;
-import org.rtmidijava.RtMidiFactory;
-import org.rtmidijava.RtMidiIn;
 
-/** Main entry point for the Deluge Emulator Phase 3 UI. Replaces the legacy SequencerApp. */
+/** Main Entry Point for the ChucK-Java Deluge Emulator. */
 public class DelugeApp extends Application {
-  private static final String DEFAULT_ENGINE = "/org/chuck/deluge/engine.ck";
+  private static final int SAMPLE_RATE = 44100;
 
   private ChuckVM vm;
   private ChuckAudio audio;
   private BridgeContract bridge;
-  private MidiInputRouter midiRouter;
   private DelugeMainPanel mainPanel;
+  private org.chuck.deluge.midi.MidiService midiService;
   private boolean engineLoaded = false;
 
   @Override
   public void start(Stage primaryStage) {
-    initVM();
-    initMIDI();
-
-    primaryStage.setTitle("ChucK-Java Deluge Emulator");
-
-    mainPanel = new DelugeMainPanel(vm, bridge, midiRouter);
-
-    Scene scene = new Scene(mainPanel, 1200, 800);
-    // Apply OLED-style styling
-    scene.setFill(Color.BLACK);
-    String css = 
-        ".root { -fx-base: #1a1a1a; -fx-background: #000000; }" +
-        ".label { -fx-font-family: 'Courier New'; -fx-font-weight: bold; -fx-text-fill: #00ff41; }" + // Matrix Green
-        ".button { -fx-font-family: 'Courier New'; -fx-background-radius: 3; }" +
-        ".combo-box { -fx-font-family: 'Courier New'; -fx-font-size: 10px; }";
-    mainPanel.setStyle("-fx-font-family: 'Courier New';");
-
-    scene.addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, event -> {
-        if (event.isControlDown() && event.getCode() == javafx.scene.input.KeyCode.G) {
-            boolean current = bridge.isUseJavaEngine();
-            bridge.setUseJavaEngine(!current);
-            System.out.println("🔄 Toggling Engine Mode: " + (bridge.isUseJavaEngine() ? "JAVA DSL" : "CLASSIC CHUCK"));
-            loadEngine(true);
-            event.consume();
-        }
-    });
-
-    primaryStage.setScene(scene);
-
-    primaryStage.setOnCloseRequest(e -> shutdown());
-    primaryStage.show();
-
-    // Start engine in background
-    new Thread(() -> loadEngine(false)).start();
-
-    startAnimationTimer();
-  }
-
-  private void initVM() {
-    vm = new ChuckVM(44100, 2);
-    bridge = new BridgeContract();
-    bridge.register(vm);
-
+    // 1. Configure VM and Bridge
+    vm = new ChuckVM(SAMPLE_RATE, 2);
     int lv = Integer.getInteger("chuck.loglevel", 1);
     vm.setLogLevel(lv);
 
-    org.chuck.core.ChuckConfig.addSearchPath("/examples");
+    // Configure Search Paths for SndBuf
+    org.chuck.core.ChuckConfig.addSearchPath("SAMPLES");
+    org.chuck.core.ChuckConfig.addSearchPath("src/main/resources");
+    org.chuck.core.ChuckConfig.addSearchPath("deluge/src/main/resources");
 
-    audio = new ChuckAudio(vm, 1024, 2, 44100);
-    vm.setAudio(audio);
-    audio.start();
-  }
-
-  private void initMIDI() {
-    midiRouter = new MidiInputRouter(vm, bridge);
-    try {
-      RtMidiIn midiIn = RtMidiFactory.createDefaultIn();
-      int ports = midiIn.getPortCount();
-      for (int i = 0; i < ports; i++) {
-        midiIn.openPort(i, "Deluge-App-Input-" + i);
-        System.out.println("[DelugeApp] Opened MIDI port: " + midiIn.getPortName(i));
-      }
-      midiIn.setFastCallback(
-          (timestamp, message) -> {
-            byte[] raw = message.toArray(ValueLayout.JAVA_BYTE);
-            MidiMsg msg = new MidiMsg();
-            msg.when = timestamp;
-            msg.setData(raw);
-            midiRouter.handleMidiMessage(msg);
-          });
-      System.out.println("[DelugeApp] MIDI initialized with " + ports + " ports.");
-    } catch (Exception e) {
-      System.err.println("[DelugeApp] MIDI failed: " + e.getMessage());
-    }
-  }
-
-  private synchronized void loadEngine(boolean force) {
-    if (!force && engineLoaded) return;
-
-    vm.clear();
-    engineLoaded = true;
-
+    bridge = new BridgeContract();
     bridge.register(vm);
-    vm.setGlobalInt(BridgeContract.G_PLAY, 0L); // Start stopped
+    vm.setGlobalInt(BridgeContract.G_PLAY, 0L);
 
-    if (bridge.isUseJavaEngine()) {
-      System.out.println("🚀 Starting Native Java DSL Engine...");
-      vm.spork((Runnable) new org.chuck.deluge.engine.DelugeEngineDSL());
-      return;
+    // 2. Initialize Audio Engine (CRITICAL: This drives the VM clock)
+    boolean isDummy = Boolean.getBoolean("chuck.audio.dummy");
+    boolean debugAudio =
+        Boolean.parseBoolean(
+            org.chuck.deluge.project.PreferencesManager.get("debug.audio", "false"));
+    org.chuck.audio.util.DacChannel.DEBUG_AUDIO = debugAudio;
+    if (!isDummy) {
+      audio = new ChuckAudio(vm, 1024, 2, SAMPLE_RATE);
+      vm.setAudio(audio);
+      audio.start();
+      System.out.println("Deluge Audio Engine started (SourceDataLine).");
+    } else {
+      System.out.println("Deluge Audio Engine in DUMMY mode.");
     }
 
-    System.out.println("🎸 Starting Classic ChucK Engine...");
-    try (InputStream is = DelugeApp.class.getResourceAsStream(DEFAULT_ENGINE)) {
-      if (is != null) {
-        String code = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-        vm.run(code, "engine.ck");
-      } else {
-        System.err.println("Could not find bundled engine resource: " + DEFAULT_ENGINE);
-      }
-    } catch (Exception ex) {
-      ex.printStackTrace();
+    // 2.5 Initialize MIDI Service
+    org.chuck.deluge.midi.MidiInputRouter router =
+        new org.chuck.deluge.midi.MidiInputRouter(vm, bridge);
+    midiService = new org.chuck.deluge.midi.MidiService(vm, bridge, router);
+    midiService.start();
+
+    // 3. Create UI
+    mainPanel = new DelugeMainPanel(vm, bridge, audio, midiService);
+
+    Scene scene = new Scene(mainPanel, 1400, 800);
+
+    // Robust stylesheet loading
+    URL cssUrl = getClass().getResource("/org/chuck/deluge/style.css");
+    if (cssUrl != null) {
+      scene.getStylesheets().add(cssUrl.toExternalForm());
     }
+
+    scene.setFill(Color.web("#1a1a1a"));
+
+    // Global Key Handlers for Shortcuts
+    scene.setOnKeyPressed(
+        event -> {
+          if (event.isControlDown()) {
+            switch (event.getCode()) {
+              case S -> mainPanel.saveProject();
+              case N -> mainPanel.resetProject();
+            }
+          } else {
+            int note = -1;
+            switch (event.getCode()) {
+              case Z -> note = 60; // C4
+              case S -> note = 61; // C#4
+              case X -> note = 62; // D4
+              case D -> note = 63; // D#4
+              case C -> note = 64; // E4
+              case V -> note = 65; // F4
+              case G -> note = 66; // F#4
+              case B -> note = 77; // G4
+              case H -> note = 68; // G#4
+              case N -> note = 69; // A4
+              case J -> note = 70; // A#4
+              case M -> note = 71; // B4
+            }
+            if (note != -1) {
+              System.out.println("JavaFX QWERTY Audition Note: " + note);
+              if (mainPanel != null) {
+                int trackId = mainPanel.getMatrixPanel().getSelectedTrack();
+
+                boolean isSynth =
+                    mainPanel.getProjectModel() != null
+                        && !mainPanel.getProjectModel().getTracks().isEmpty()
+                        && mainPanel.getProjectModel().getTracks().get(0)
+                            instanceof org.chuck.deluge.model.SynthTrackModel;
+
+                if (isSynth) {
+                  try {
+                    org.chuck.core.ChuckEvent noteEv =
+                        (org.chuck.core.ChuckEvent) vm.getGlobalObject("g_ck_noteOn");
+                    if (noteEv != null) {
+                      org.chuck.core.ChuckArray pitchArr =
+                          (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_PITCH);
+                      pitchArr.setInt(0, (long) (note - 60));
+                      noteEv.broadcast();
+                    }
+                  } catch (Exception ex) {
+                  }
+                } else {
+                  String sp = (String) vm.getGlobalObject("g_sample_" + trackId);
+                  if (sp != null && !sp.isEmpty()) {
+                    new Thread(
+                            () -> {
+                              try {
+                                java.io.File file = new java.io.File(sp);
+                                if (file.exists()) {
+                                  javax.sound.sampled.AudioInputStream stream =
+                                      javax.sound.sampled.AudioSystem.getAudioInputStream(file);
+                                  javax.sound.sampled.Clip c =
+                                      javax.sound.sampled.AudioSystem.getClip();
+                                  c.open(stream);
+                                  c.start();
+                                }
+                              } catch (Exception ex) {
+                              }
+                            })
+                        .start();
+                  }
+                }
+              }
+            }
+
+            org.chuck.hid.HidMsg msg = new org.chuck.hid.HidMsg();
+
+            msg.key = event.getCode().getCode();
+            String text = event.getText();
+            if (!text.isEmpty()) {
+              msg.ascii = text.charAt(0);
+            }
+            vm.dispatchHidMsg(msg);
+          }
+        });
+
+    scene.setOnKeyReleased(
+        event -> {
+          if (!event.isControlDown()) {
+            org.chuck.hid.HidMsg msg = new org.chuck.hid.HidMsg();
+            msg.deviceType = "keyboard";
+            msg.type = org.chuck.hid.HidMsg.BUTTON_UP;
+            msg.which = event.getCode().getCode();
+            msg.key = event.getCode().getCode();
+            vm.dispatchHidMsg(msg);
+          }
+        });
+
+    primaryStage.setTitle("ChucK-Java Deluge Emulator");
+    primaryStage.setScene(scene);
+    primaryStage.show();
+
+    // 4. Start Engine Shreds
+    loadEngine();
+
+    // Frame update loop
+    startAnimationTimer();
+  }
+
+  private synchronized void loadEngine() {
+    // Spork Java DSL Engine Orchestrator
+    org.chuck.deluge.engine.DelugeEngine engine =
+        new org.chuck.deluge.engine.DelugeEngine(vm, bridge);
+    vm.spork(engine::shred);
+    System.out.println("Deluge Distributed Shreds sporked.");
   }
 
   private void startAnimationTimer() {
     new javafx.animation.AnimationTimer() {
       @Override
       public void handle(long now) {
-        if (mainPanel != null) {
+        if (vm != null) {
           mainPanel.updateFromVM();
         }
       }
     }.start();
   }
 
-  private void shutdown() {
-    System.out.println("[DelugeApp] Shutdown initiated...");
+  @Override
+  public void stop() {
+    if (midiService != null) {
+      midiService.stop();
+    }
+    if (audio != null) {
+      audio.stop();
+    }
+    if (vm != null) {
+      vm.shutdown();
+    }
+    // Force exit to kill any background threads immediately
     Thread shutdownThread =
         new Thread(
             () -> {
               try {
-                if (audio != null) audio.stop();
-                if (vm != null) vm.shutdown();
-              } catch (Exception e) {
-                e.printStackTrace();
-              } finally {
+                Thread.sleep(500);
+                Runtime.getRuntime().halt(0);
+              } catch (Exception ignored) {
                 Runtime.getRuntime().halt(0);
               }
             },

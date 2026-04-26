@@ -1,0 +1,356 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<song swing="0x40000000" tempo="120.0">
+  <instruments>
+    <kit>
+      <presetSlot>KIT 0</presetSlot>
+      <sound>
+        <name>KICK</name>
+        <sample fileName="SAMPLES/DRUMS/Kick/808 Kick.wav"/>
+      </sound>
+      <sound>
+        <name>SNARE</name>
+        <sample fileName="SAMPLES/DRUMS/Snare/808 Snare.wav"/>
+      </sound>
+      <sound>
+        <name>HATC</name>
+        <sample fileName="SAMPLES/DRUMS/HatC/808 Closed hihat.wav"/>
+      </sound>
+      <sound>
+        <name>HATO</name>
+        <sample fileName="SAMPLES/DRUMS/HatO/808 Open hihat.wav"/>
+      </sound>
+      <sound>
+        <name>MARACA</name>
+        <sample fileName="SAMPLES/DRUMS/Shaker/808 Maraca.wav"/>
+      </sound>
+      <sound>
+        <name>RIM</name>
+        <sample fileName="SAMPLES/DRUMS/Rim/808 Rim.wav"/>
+      </sound>
+      <sound>
+        <name>CLAV</name>
+        <sample fileName="SAMPLES/DRUMS/Claves/808 Claves.wav"/>
+      </sound>
+      <sound>
+        <name>CLAP</name>
+        <sample fileName="SAMPLES/DRUMS/Clap/808 Clap.wav"/>
+      </sound>
+      <sound>
+        <name>CRAS</name>
+        <sample fileName="SAMPLES/DRUMS/Crash/808 Cymbal.wav"/>
+      </sound>
+      <sound>
+        <name>COWB</name>
+        <sample fileName="SAMPLES/DRUMS/Cowbell/808 Cowbell.wav"/>
+      </sound>
+      <sound>
+        <name>TOML</name>
+        <sample fileName="SAMPLES/DRUMS/TomL/808 Tom low.wav"/>
+      </sound>
+      <sound>
+        <name>TOMM</name>
+        <sample fileName="SAMPLES/DRUMS/TomM/808 Tom medium.wav"/>
+      </sound>
+      <sound>
+        <name>TOMH</name>
+        <sample fileName="SAMPLES/DRUMS/TomH/808 Tom high.wav"/>
+      </sound>
+      <sound>
+        <name>CONL</name>
+        <sample fileName="SAMPLES/DRUMS/ConL/808 Conga low.wav"/>
+      </sound>
+      <sound>
+        <name>CONM</name>
+        <sample fileName="SAMPLES/DRUMS/ConM/808 Conga medium.wav"/>
+      </sound>
+      <sound>
+        <name>CONH</name>
+        <sample fileName="SAMPLES/DRUMS/ConH/808 Conga high.wav"/>
+      </sound>
+    </kit>
+    <kit>
+      <presetSlot>KIT 1</presetSlot>
+      <sound>
+        <name>KICK</name>
+        <sample fileName="SAMPLES/DRUMS/Kick/DDD1 Kick.wav"/>
+      </sound>
+      <sound>
+        <name>SNARE</name>
+        <sample fileName="SAMPLES/DRUMS/Snare/DDD1 Snare dry.wav"/>
+      </sound>
+      <sound>
+        <name>HATC</name>
+        <sample fileName="SAMPLES/DRUMS/HatC/DDD1 Closed hihat.wav"/>
+      </sound>
+      <sound>
+        <name>HATO</name>
+        <sample fileName="SAMPLES/DRUMS/HatO/DDD1 Open hihat.wav"/>
+      </sound>
+      <sound>
+        <name>CABA</name>
+        <sample fileName="SAMPLES/DRUMS/Shaker/DDD1 Cabasa.wav"/>
+      </sound>
+      <sound>
+        <name>TAMB</name>
+        <sample fileName="SAMPLES/DRUMS/Tambourine/DDD1 Tambourine.wav"/>
+      </sound>
+      <sound>
+        <name>RIDE</name>
+        <sample fileName="SAMPLES/DRUMS/Ride/DDD1 Ride.wav"/>
+      </sound>
+      <sound>
+        <name>CRAS</name>
+        <sample fileName="SAMPLES/DRUMS/Crash/DDD1 Crash.wav"/>
+      </sound>
+      <sound>
+        <name>CLAP</name>
+        <sample fileName="SAMPLES/DRUMS/Clap/DDD1 Clap.wav"/>
+      </sound>
+      <sound>
+        <name>RIM</name>
+        <sample fileName="SAMPLES/DRUMS/Rim/DDD1 Rim.wav"/>
+      </sound>
+      <sound>
+        <name>COWB</name>
+        <sample fileName="SAMPLES/DRUMS/Cowbell/DDD1 Cowbell.wav"/>
+      </sound>
+      <sound>
+        <name>TOML</name>
+        <sample fileName="SAMPLES/DRUMS/TomL/DDD1 Tom low.wav"/>
+      </sound>
+      <sound>
+        <name>TOMM</name>
+        <sample fileName="SAMPLES/DRUMS/TomM/DDD1 Tom medium.wav"/>
+      </sound>
+      <sound>
+        <name>TOMH</name>
+        <sample fileName="SAMPLES/DRUMS/TomH/DDD1 Tom high.wav"/>
+      </sound>
+    </kit>
+    <kit>
+      <presetSlot>KIT 2</presetSlot>
+      <sound>
+        <name>KICK</name>
+        <sample fileName="SAMPLES/DRUMS/Kick/SDS5 Kick.wav"/>
+      </sound>
+      <sound>
+        <name>SNARE</name>
+        <sample fileName="SAMPLES/DRUMS/Snare/SDS5 Snare.wav"/>
+      </sound>
+      <sound>
+        <name>HATC</name>
+        <sample fileName="SAMPLES/DRUMS/HatC/SDS5 Closed hihat.wav"/>
+      </sound>
+      <sound>
+        <name>HATO</name>
+        <sample fileName="SAMPLES/DRUMS/HatO/SDS5 Open hihat.wav"/>
+      </sound>
+      <sound>
+        <name>RIM</name>
+        <sample fileName="SAMPLES/DRUMS/Rim/SDS5 Rim.wav"/>
+      </sound>
+      <sound>
+        <name>TOMB</name>
+        <sample fileName="SAMPLES/DRUMS/TomL/SDS5 Tom extra low.wav"/>
+      </sound>
+      <sound>
+        <name>TOML</name>
+        <sample fileName="SAMPLES/DRUMS/TomL/SDS5 Tom low.wav"/>
+      </sound>
+      <sound>
+        <name>TOMM</name>
+        <sample fileName="SAMPLES/DRUMS/TomM/SDS5 Tom medium.wav"/>
+      </sound>
+      <sound>
+        <name>TOMH</name>
+        <sample fileName="SAMPLES/DRUMS/TomH/SDS5 Tom high.wav"/>
+      </sound>
+      <sound>
+        <name>TOMT</name>
+        <sample fileName="SAMPLES/DRUMS/TomH/SDS5 Tom extra high.wav"/>
+      </sound>
+    </kit>
+    <sound>
+      <presetSlot>SYNTH 0</presetSlot>
+      <osc1 type="sine"/>
+    </sound>
+    <sound>
+      <presetSlot>SYNTH 17</presetSlot>
+      <osc1 type="sine"/>
+    </sound>
+    <sound>
+      <presetSlot>SYNTH 73</presetSlot>
+      <osc1 type="sine"/>
+    </sound>
+  </instruments>
+  <tracks>
+    <track>
+      <noteRows>
+        <noteRow>
+          <noteData>0x00000000000000064014000000B4000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x0000000C000000064014000000A8000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x000000180000000640140000009C000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x0000002400000006401400000090000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x0000003000000006401400000084000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x0000003C00000006401400000078000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x000000480000000640140000006C000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x0000005400000006401400000060000000064014</noteData>
+        </noteRow>
+      </noteRows>
+    </track>
+    <track>
+      <noteRows>
+        <noteRow>
+          <noteData>0x00000000000000064014000000B4000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x0000000C000000064014000000A8000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x000000180000000640140000009C000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x0000002400000006401400000090000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x0000003000000006401400000084000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x0000003C00000006401400000078000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x000000480000000640140000006C000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x0000005400000006401400000060000000064014</noteData>
+        </noteRow>
+      </noteRows>
+    </track>
+    <track>
+      <noteRows>
+        <noteRow>
+          <noteData>0x00000000000000064014000000B4000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x0000000C000000064014000000A8000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x000000180000000640140000009C000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x0000002400000006401400000090000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x0000003000000006401400000084000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x0000003C00000006401400000078000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x000000480000000640140000006C000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x0000005400000006401400000060000000064014</noteData>
+        </noteRow>
+      </noteRows>
+    </track>
+    <track>
+      <noteRows>
+        <noteRow>
+          <noteData>0x00000000000000064014000000B4000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x0000000C000000064014000000A8000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x000000180000000640140000009C000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x0000002400000006401400000090000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x0000003000000006401400000084000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x0000003C00000006401400000078000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x000000480000000640140000006C000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x0000005400000006401400000060000000064014</noteData>
+        </noteRow>
+      </noteRows>
+    </track>
+    <track>
+      <noteRows>
+        <noteRow>
+          <noteData>0x00000000000000064014000000B4000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x0000000C000000064014000000A8000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x000000180000000640140000009C000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x0000002400000006401400000090000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x0000003000000006401400000084000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x0000003C00000006401400000078000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x000000480000000640140000006C000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x0000005400000006401400000060000000064014</noteData>
+        </noteRow>
+      </noteRows>
+    </track>
+    <track>
+      <noteRows>
+        <noteRow>
+          <noteData>0x00000000000000064014000000B4000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x0000000C000000064014000000A8000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x000000180000000640140000009C000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x0000002400000006401400000090000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x0000003000000006401400000084000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x0000003C00000006401400000078000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x000000480000000640140000006C000000064014</noteData>
+        </noteRow>
+        <noteRow>
+          <noteData>0x0000005400000006401400000060000000064014</noteData>
+        </noteRow>
+      </noteRows>
+    </track>
+  </tracks>
+</song>

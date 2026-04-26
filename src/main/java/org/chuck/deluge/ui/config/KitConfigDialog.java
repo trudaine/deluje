@@ -18,8 +18,9 @@ import org.chuck.deluge.model.KitTrackModel;
 
 public class KitConfigDialog extends Stage {
 
-  public KitConfigDialog(KitTrackModel model, ChuckVM vm, BridgeContract bridge, int trackIndex) {
-    setTitle("Kit Config: " + model.getName());
+  public KitConfigDialog(
+      KitTrackModel.KitSound sound, ChuckVM vm, BridgeContract bridge, int trackIndex) {
+    setTitle("Kit Sound Config: " + sound.getName());
     initStyle(StageStyle.UTILITY);
     initModality(Modality.NONE);
 
@@ -32,7 +33,7 @@ public class KitConfigDialog extends Stage {
     sampleGrid.setHgap(10);
     sampleGrid.setVgap(5);
 
-    TextField pathField = new TextField(model.getSamplePath());
+    TextField pathField = new TextField(sound.getSamplePath());
     pathField.setEditable(false);
     pathField.setPrefWidth(150);
 
@@ -40,10 +41,10 @@ public class KitConfigDialog extends Stage {
     browseBtn.setOnAction(
         e -> {
           org.chuck.deluge.ui.browser.SampleBrowserPanel browser =
-              new org.chuck.deluge.ui.browser.SampleBrowserPanel(model);
+              new org.chuck.deluge.ui.browser.SampleBrowserPanel(sound);
           browser.setOnHidden(
               ev -> {
-                pathField.setText(model.getSamplePath());
+                pathField.setText(sound.getSamplePath());
                 // TODO: Hot-swap sample in engine.ck via bridge or event
               });
           browser.show();
@@ -61,12 +62,12 @@ public class KitConfigDialog extends Stage {
     pitchGrid.setHgap(10);
     pitchGrid.setVgap(5);
 
-    Slider pitch = new Slider(-24, 24, model.getPitchSemitones());
+    Slider pitch = new Slider(-24, 24, sound.getPitchSemitones());
     pitch
         .valueProperty()
         .addListener(
             (obs, o, n) -> {
-              model.setPitchSemitones(n.floatValue());
+              sound.setPitchSemitones(n.floatValue());
             });
 
     pitchGrid.add(new Label("Pitch (ST):"), 0, 0);

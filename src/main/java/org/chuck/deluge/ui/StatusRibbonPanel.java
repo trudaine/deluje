@@ -16,12 +16,14 @@ public class StatusRibbonPanel extends HBox {
   private final BridgeContract bridge;
 
   private final Label oledLabel;
+  private final Label shredLabel;
 
   public StatusRibbonPanel(ChuckVM vm, BridgeContract bridge) {
     this.vm = vm;
     this.bridge = bridge;
 
     setAlignment(Pos.CENTER);
+    setSpacing(20);
     setPadding(new Insets(10));
     setStyle("-fx-background-color: #1a1a1a;");
 
@@ -39,7 +41,11 @@ public class StatusRibbonPanel extends HBox {
 
     oledBox.getChildren().add(oledLabel);
 
-    getChildren().add(oledBox);
+    shredLabel = new Label("SHREDS: 0");
+    shredLabel.setTextFill(Color.web("#00ffcc"));
+    shredLabel.setFont(Font.font("Monospaced", FontWeight.BOLD, 12));
+
+    getChildren().addAll(oledBox, shredLabel);
   }
 
   public void update(int currentStep) {
@@ -53,5 +59,11 @@ public class StatusRibbonPanel extends HBox {
     } else {
       oledLabel.setText("STOP");
     }
+
+    shredLabel.setText("SHREDS: " + vm.getActiveShredCount());
+  }
+
+  public void updateStatus(String msg) {
+    oledLabel.setText(msg.toUpperCase());
   }
 }
