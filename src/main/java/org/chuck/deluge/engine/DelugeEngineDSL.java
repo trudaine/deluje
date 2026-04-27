@@ -226,8 +226,9 @@ public class DelugeEngineDSL implements Shred, Runnable {
           kit[r].pos(startPos);
         }
 
-        float gain = (float) (vel.getFloat(idx) * trkLvl.getFloat(r) * 0.8
-            * Math.max(0.0, 1.0 + lfoV * 0.5));
+        float gain =
+            (float)
+                (vel.getFloat(idx) * trkLvl.getFloat(r) * 0.8 * Math.max(0.0, 1.0 + lfoV * 0.5));
         kit[r].gain(gain);
         kitEnv[r].keyOn();
 
@@ -447,8 +448,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
 
         if (oscType != null) car[r].index((int) oscType.getInt(r));
 
-        double tf = (gFil.getFloat(r * 2) + sFil.getFloat(idx)) * 10000.0 + 100.0
-            + lfoF * 5000.0;
+        double tf = (gFil.getFloat(r * 2) + sFil.getFloat(idx)) * 10000.0 + 100.0 + lfoF * 5000.0;
         double tq = (gFil.getFloat(r * 2 + 1) + sRes.getFloat(idx)) * 4.0 + 1.0 + lfoQ * 3.0;
         double tp = masterPan + (sPan != null ? sPan.getFloat(idx) : 0.0) + lfoP;
         fil[r].freq((float) Math.max(20.0, Math.min(20000.0, tf)));
@@ -467,8 +467,8 @@ public class DelugeEngineDSL implements Shred, Runnable {
         if (isNewStep) {
           if (prob != null && Math.random() > prob.getFloat(idx)) continue;
 
-          double gainVal = vel.getFloat(idx) * trkLvl.getFloat(r) * 0.8
-              * Math.max(0.0, 1.0 + lfoV * 0.5);
+          double gainVal =
+              vel.getFloat(idx) * trkLvl.getFloat(r) * 0.8 * Math.max(0.0, 1.0 + lfoV * 0.5);
           double gateSec =
               (gateArr != null ? gateArr.getFloat(idx) : 0.9)
                   * stepDuration(step % 2).samples()
@@ -482,8 +482,8 @@ public class DelugeEngineDSL implements Shred, Runnable {
             double f = mtof(pitch.getInt(idx) + 60) * Math.pow(2.0, lfoPit);
             car[r].freq((float) f);
             double fmR = fmRatio != null ? fmRatio.getFloat(r) : 1.0;
-            double fmA = (fmAmt != null ? fmAmt.getFloat(r) : 0.0)
-                * Math.max(0.0, 1.0 + lfoFm * 0.5);
+            double fmA =
+                (fmAmt != null ? fmAmt.getFloat(r) : 0.0) * Math.max(0.0, 1.0 + lfoFm * 0.5);
             mod[r].freq((float) (f * fmR));
             mod[r].gain((float) (fmA * 1000.0));
             env[r].gain((float) gainVal);
