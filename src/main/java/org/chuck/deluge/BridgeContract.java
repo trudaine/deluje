@@ -54,6 +54,11 @@ public final class BridgeContract {
   public static final String G_LFO_RATE = "g_lfo_rate";
   public static final String G_LFO_TYPE = "g_lfo_type";
   public static final String G_LFO_DEPTH = "g_lfo_depth";
+  // LFO target constants: 0=filter, 1=res, 2=pan, 3=pitch, 4=vol, 5=fm
+  public static final String G_LFO_TARGET = "g_lfo_target";
+  public static final String G_LFO_TRACK = "g_lfo_track";
+  public static final String G_LFO_VALUE = "g_lfo_value";
+  public static final String G_TRACK_LENGTH = "g_track_length";
   public static final String G_DELAY_SEND = "g_delay_send";
   public static final String G_REVERB_SEND = "g_reverb_send";
   public static final String G_DELAY_TIME = "g_delay_time";
@@ -118,6 +123,10 @@ public final class BridgeContract {
   private final ChuckArray lfoRate;
   private final ChuckArray lfoType;
   private final ChuckArray lfoDepth;
+  private final ChuckArray lfoTarget;
+  private final ChuckArray lfoTrack;
+  private final ChuckArray lfoValue;
+  private final ChuckArray trackLength;
   private final ChuckArray delaySend;
   private final ChuckArray reverbSend;
 
@@ -164,6 +173,10 @@ public final class BridgeContract {
     lfoRate = new ChuckArray("float", LFO_COUNT);
     lfoType = new ChuckArray("int", LFO_COUNT);
     lfoDepth = new ChuckArray("float", LFO_COUNT);
+    lfoTarget = new ChuckArray("int", LFO_COUNT);
+    lfoTrack = new ChuckArray("int", LFO_COUNT);
+    lfoValue = new ChuckArray("float", LFO_COUNT);
+    trackLength = new ChuckArray("int", TRACKS);
     delaySend = new ChuckArray("float", TRACKS);
     reverbSend = new ChuckArray("float", TRACKS);
 
@@ -236,6 +249,12 @@ public final class BridgeContract {
       lfoRate.setFloat(l, 1.0f);
       lfoType.setInt(l, 0L);
       lfoDepth.setFloat(l, 0.0f);
+      lfoTarget.setInt(l, 0L);
+      lfoTrack.setInt(l, -1L);
+      lfoValue.setFloat(l, 0.0f);
+    }
+    for (int t = 0; t < TRACKS; t++) {
+      trackLength.setInt(t, 16L);
     }
   }
 
@@ -286,6 +305,10 @@ public final class BridgeContract {
     vm.setGlobalObject(G_LFO_RATE, lfoRate);
     vm.setGlobalObject(G_LFO_TYPE, lfoType);
     vm.setGlobalObject(G_LFO_DEPTH, lfoDepth);
+    vm.setGlobalObject(G_LFO_TARGET, lfoTarget);
+    vm.setGlobalObject(G_LFO_TRACK, lfoTrack);
+    vm.setGlobalObject(G_LFO_VALUE, lfoValue);
+    vm.setGlobalObject(G_TRACK_LENGTH, trackLength);
     vm.setGlobalObject(G_DELAY_SEND, delaySend);
     vm.setGlobalObject(G_REVERB_SEND, reverbSend);
 
@@ -426,6 +449,30 @@ public final class BridgeContract {
     lfoRate.setFloat(lfoIndex, (float) Math.max(0.01, rateHz));
     lfoType.setInt(lfoIndex, (long) waveType);
     lfoDepth.setFloat(lfoIndex, (float) Math.max(0, Math.min(1, depth)));
+  }
+
+  public void setLfoTarget(int lfoIndex, int target) {
+    lfoTarget.setInt(lfoIndex, (long) target);
+  }
+
+  public int getLfoTarget(int lfoIndex) {
+    return (int) lfoTarget.getInt(lfoIndex);
+  }
+
+  public void setLfoTrack(int lfoIndex, int track) {
+    lfoTrack.setInt(lfoIndex, (long) track);
+  }
+
+  public int getLfoTrack(int lfoIndex) {
+    return (int) lfoTrack.getInt(lfoIndex);
+  }
+
+  public void setTrackLength(int track, int steps) {
+    trackLength.setInt(track, (long) Math.max(1, Math.min(16, steps)));
+  }
+
+  public int getTrackLength(int track) {
+    return (int) trackLength.getInt(track);
   }
 
   public void setBpm(double bpm) {
