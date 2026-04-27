@@ -64,6 +64,10 @@
 | PL05 | **Duplicate Song** | File > Save Project As, then `Ctrl+N` to start fresh | Saves current state as a new file; original is unaffected |
 | PL06 | **Open Synth editor standalone** | Sidebar → double-click a file in SYNTHS/ | Loads as a single-track CLIP-mode view |
 | PL07 | **Open Kit editor standalone** | Sidebar → double-click a file in KITS/ | Loads as a single-track CLIP-mode view |
+| PL08 | **Save Kit as preset** | Right-click Kit row header → Save as Kit preset… | File chooser opens in KITS/ with track name pre-filled |
+| PL09 | **Save Synth as preset** | Right-click Synth row header → Save as Synth preset… | File chooser opens in SYNTHS/ with track name pre-filled |
+
+> **Library directory:** Set once via Settings > Set Samples Directory… pointing to the SAMPLES folder. The app derives `SONGS/`, `KITS/`, `SYNTHS/` as siblings. Default: `~/Deluge/`.
 
 ### PL-B: Track management
 

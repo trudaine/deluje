@@ -216,7 +216,8 @@ public class SwingDelugeApp extends JFrame {
   private void saveProject(boolean forceChooser) {
     java.io.File target = currentProjectFile;
     if (target == null || forceChooser) {
-      JFileChooser chooser = new JFileChooser();
+      JFileChooser chooser =
+          new JFileChooser(org.chuck.deluge.project.PreferencesManager.getSongsDir());
       chooser.setFileFilter(
           new javax.swing.filechooser.FileNameExtensionFilter("Song XML", "xml", "XML"));
       if (currentProjectFile != null) chooser.setSelectedFile(currentProjectFile);
@@ -276,7 +277,8 @@ public class SwingDelugeApp extends JFrame {
             java.awt.event.KeyEvent.VK_O, java.awt.event.InputEvent.CTRL_DOWN_MASK));
     openItem.addActionListener(
         e -> {
-          JFileChooser chooser = new JFileChooser();
+          JFileChooser chooser =
+              new JFileChooser(org.chuck.deluge.project.PreferencesManager.getSongsDir());
           chooser.setFileFilter(
               new javax.swing.filechooser.FileNameExtensionFilter("Song XML", "xml", "XML"));
           if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
@@ -696,58 +698,14 @@ public class SwingDelugeApp extends JFrame {
           if (midiService != null) midiService.setRecording(recBtn.isSelected());
         });
 
-    JButton loadBtn = new JButton("📂 LOAD XML");
-    loadBtn.addActionListener(
-        e -> {
-          JFileChooser chooser = new JFileChooser();
-          if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-            try {
-              java.io.File file = chooser.getSelectedFile();
-              org.chuck.deluge.model.ProjectModel model =
-                  org.chuck.deluge.xml.DelugeXmlParser.parseSong(
-                      new java.io.FileInputStream(file), file.getName());
-
-              songPanel.setProjectModel(model);
-              if (clipPanel != null) clipPanel.setProjectModel(model);
-              if (arrGridPanel != null) arrGridPanel.setProjectModel(model);
-
-              cardLayout.show(centerCardPanel, "SONG");
-            } catch (Exception ex) {
-              ex.printStackTrace();
-            }
-          }
-        });
-
-    JButton saveSongBtn = new JButton("💾 SAVE XML");
-    saveSongBtn.addActionListener(
-        e -> {
-          JFileChooser chooser = new JFileChooser();
-          if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-            try {
-              if (clipPanel != null && clipPanel.getProjectModel() != null) {
-                org.chuck.deluge.project.ProjectSerializer.save(
-                    clipPanel.getProjectModel(), chooser.getSelectedFile());
-                System.out.println(
-                    "Swing: Saved project successfully to " + chooser.getSelectedFile().getName());
-              }
-            } catch (Exception ex) {
-              ex.printStackTrace();
-            }
-          }
-        });
-
     if (isHdOpt) {
       topRow1.add(playBtn);
       topRow1.add(stopBtn);
       topRow1.add(recBtn);
-      topRow1.add(loadBtn);
-      topRow1.add(saveSongBtn);
     } else {
       topBar.add(playBtn);
       topBar.add(stopBtn);
       topBar.add(recBtn);
-      topBar.add(loadBtn);
-      topBar.add(saveSongBtn);
       topBar.add(new JSeparator(JSeparator.VERTICAL));
     }
 

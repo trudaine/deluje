@@ -54,7 +54,34 @@ A **Clip** is a pattern (sequence of steps) within a Track. One track can hold m
 | **Duplicate Clip** | In Song View, right-click a clip pad → Duplicate Clip | Deep copy — all step data preserved; appended to end of track |
 | **Delete Clip** | In Song View, right-click a clip pad → Delete Clip | Confirmation dialog; a track must always retain at least one clip |
 
-### D. Copy / Duplicate a Song
+### D. Library Directory
+
+All file choosers (Open Song, Save Song, Save Kit, Save Synth) default to subdirectories of the **Library Root**, which is derived from the **Samples Directory** preference (Settings > Set Samples Directory…). The library root is the parent folder of SAMPLES, so the expected on-disk layout is:
+
+```
+<Library Root>/
+  SONGS/    ← song XML files (.xml)
+  KITS/     ← standalone kit preset XML files (.xml)
+  SYNTHS/   ← standalone synth preset XML files (.xml)
+  SAMPLES/  ← audio samples (WAV, AIFF, etc.)
+```
+
+On first run the default root is `~/Deluge/`. Set a different root via **Settings > Set Samples Directory…** pointing to the SAMPLES subfolder; the app derives the root from its parent.
+
+### E. Save Kit / Save Synth as independent presets
+
+To save just one track's instrument definition (no clip data) as a reusable preset:
+
+1. Right-click the row header of a Kit or Synth track.
+2. Choose **Save as Kit preset…** or **Save as Synth preset…**.
+3. File chooser opens directly in `KITS/` or `SYNTHS/`. The track name is pre-filled as the filename.
+4. The saved `.xml` file can be loaded back via the sidebar Library tree (double-click) or drag-and-dropped onto a track.
+
+Kit XML format: root element `<kit>`, children `<sound>` with `<name>`, `<sample fileName="…"/>`, optional `<pitch>`, `<muteGroup>`, `<reverse>`.
+
+Synth XML format: root element `<sound>` with `<osc1 type="…"/>`, `<osc2 type="…"/>`, `<lpf freq="…" res="…"/>`.
+
+### F. Copy / Duplicate a Song
 
 To copy an entire song: **File > Save Project As** — saves the current in-memory state under a new filename. The current session continues editing the original file; the new file is a snapshot.
 

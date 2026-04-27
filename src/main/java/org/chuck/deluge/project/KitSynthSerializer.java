@@ -1,0 +1,95 @@
+package org.chuck.deluge.project;
+
+import java.io.File;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+import org.chuck.deluge.model.KitTrackModel;
+import org.chuck.deluge.model.SynthTrackModel;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+
+/** Serializes a single Kit or Synth track to a standalone preset XML file. */
+public class KitSynthSerializer {
+
+  public static void saveKit(KitTrackModel kit, File file) throws Exception {
+    Document doc = newDoc();
+    Element root = doc.createElement("kit");
+    doc.appendChild(root);
+
+    root.setAttribute("name", kit.getName());
+
+    for (KitTrackModel.KitSound sound : kit.getSounds()) {
+      Element soundElem = doc.createElement("sound");
+
+      Element nameElem = doc.createElement("name");
+      nameElem.setTextContent(sound.getName());
+      soundElem.appendChild(nameElem);
+
+      Element sampleElem = doc.createElement("sample");
+      sampleElem.setAttribute(
+          "fileName", sound.getSamplePath() != null ? sound.getSamplePath() : "");
+      soundElem.appendChild(sampleElem);
+
+      if (sound.getPitchSemitones() != 0) {
+        Element pitchElem = doc.createElement("pitch");
+        pitchElem.setTextContent(String.valueOf(sound.getPitchSemitones()));
+        soundElem.appendChild(pitchElem);
+      }
+      if (sound.getMuteGroup() > 0) {
+        Element mgElem = doc.createElement("muteGroup");
+        mgElem.setTextContent(String.valueOf(sound.getMuteGroup()));
+        soundElem.appendChild(mgElem);
+      }
+      if (sound.isReverse()) {
+        Element revElem = doc.createElement("reverse");
+        revElem.setTextContent("1");
+        soundElem.appendChild(revElem);
+      }
+
+      root.appendChild(soundElem);
+    }
+
+    write(doc, file);
+  }
+
+  public static void saveSynth(SynthTrackModel synth, File file) throws Exception {
+    Document doc = newDoc();
+    Element root = doc.createElement("sound");
+    doc.appendChild(root);
+
+    root.setAttribute("name", synth.getName());
+
+    Element osc1 = doc.createElement("osc1");
+    osc1.setAttribute("type", synth.getOsc1Type().toLowerCase());
+    root.appendChild(osc1);
+
+    Element osc2 = doc.createElement("osc2");
+    osc2.setAttribute("type", synth.getOsc2Type().toLowerCase());
+    root.appendChild(osc2);
+
+    Element filter = doc.createElement("lpf");
+    filter.setAttribute("freq", String.valueOf(synth.getLpfFreq()));
+    filter.setAttribute("res", String.valueOf(synth.getLpfRes()));
+    root.appendChild(filter);
+
+    write(doc, file);
+  }
+
+  private static Document newDoc() throws Exception {
+    DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
+    DocumentBuilder b = f.newDocumentBuilder();
+    return b.newDocument();
+  }
+
+  private static void write(Document doc, File file) throws Exception {
+    Transformer t = TransformerFactory.newInstance().newTransformer();
+    t.setOutputProperty(OutputKeys.INDENT, "yes");
+    t.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
+    t.transform(new DOMSource(doc), new StreamResult(file));
+  }
+}
