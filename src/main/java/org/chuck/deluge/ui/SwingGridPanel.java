@@ -121,6 +121,18 @@ public class SwingGridPanel extends JPanel {
 
     menu.addSeparator();
 
+    if (track instanceof org.chuck.deluge.model.KitTrackModel kitTrack) {
+      JMenuItem saveKitItem = new JMenuItem("Save as Kit preset...");
+      saveKitItem.addActionListener(e -> saveTrackPreset(kitTrack, false));
+      menu.add(saveKitItem);
+    } else if (track instanceof org.chuck.deluge.model.SynthTrackModel synthTrack) {
+      JMenuItem saveSynthItem = new JMenuItem("Save as Synth preset...");
+      saveSynthItem.addActionListener(e -> saveTrackPreset(synthTrack, true));
+      menu.add(saveSynthItem);
+    }
+
+    menu.addSeparator();
+
     JMenuItem deleteItem = new JMenuItem("Delete Track");
     deleteItem.setForeground(Color.RED);
     deleteItem.addActionListener(
@@ -140,6 +152,39 @@ public class SwingGridPanel extends JPanel {
     menu.add(deleteItem);
 
     menu.show(src, x, y);
+  }
+
+  private void saveTrackPreset(org.chuck.deluge.model.TrackModel track, boolean isSynth) {
+    java.io.File dir =
+        isSynth
+            ? org.chuck.deluge.project.PreferencesManager.getSynthsDir()
+            : org.chuck.deluge.project.PreferencesManager.getKitsDir();
+    JFileChooser chooser = new JFileChooser(dir);
+    chooser.setFileFilter(
+        new javax.swing.filechooser.FileNameExtensionFilter("XML preset", "xml", "XML"));
+    chooser.setSelectedFile(new java.io.File(dir, track.getName() + ".xml"));
+    if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
+    java.io.File file = chooser.getSelectedFile();
+    if (!file.getName().toLowerCase().endsWith(".xml")) {
+      file = new java.io.File(file.getAbsolutePath() + ".xml");
+    }
+    try {
+      if (isSynth) {
+        org.chuck.deluge.project.KitSynthSerializer.saveSynth(
+            (org.chuck.deluge.model.SynthTrackModel) track, file);
+      } else {
+        org.chuck.deluge.project.KitSynthSerializer.saveKit(
+            (org.chuck.deluge.model.KitTrackModel) track, file);
+      }
+      JOptionPane.showMessageDialog(
+          this,
+          "Saved to " + file.getAbsolutePath(),
+          "Preset Saved",
+          JOptionPane.INFORMATION_MESSAGE);
+    } catch (Exception ex) {
+      JOptionPane.showMessageDialog(
+          this, "Save failed:\n" + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+    }
   }
 
   private void showClipContextMenu(

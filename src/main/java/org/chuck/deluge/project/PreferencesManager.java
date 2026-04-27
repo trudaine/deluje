@@ -21,6 +21,31 @@ public class PreferencesManager {
     prefs.put(KEY_SAMPLES_DIR, path);
   }
 
+  /** Root of the Deluge library (parent of SONGS, KITS, SYNTHS, SAMPLES). */
+  public static java.io.File getLibraryDir() {
+    String samplesDir = getSamplesDir();
+    java.io.File samples = new java.io.File(samplesDir);
+    java.io.File parent = samples.getParentFile();
+    return parent != null ? parent : new java.io.File(System.getProperty("user.home"), "Deluge");
+  }
+
+  public static java.io.File getSongsDir() {
+    return ensureDir(new java.io.File(getLibraryDir(), "SONGS"));
+  }
+
+  public static java.io.File getKitsDir() {
+    return ensureDir(new java.io.File(getLibraryDir(), "KITS"));
+  }
+
+  public static java.io.File getSynthsDir() {
+    return ensureDir(new java.io.File(getLibraryDir(), "SYNTHS"));
+  }
+
+  private static java.io.File ensureDir(java.io.File dir) {
+    dir.mkdirs();
+    return dir;
+  }
+
   public static List<String> getRecentFiles() {
     String raw = prefs.get(KEY_RECENT_FILES, "");
     List<String> list = new ArrayList<>();
