@@ -26,6 +26,7 @@ public class SwingDelugeApp extends JFrame {
   private java.io.File currentProjectFile = null;
 
   private final org.chuck.deluge.midi.MidiService midiService;
+  private final java.util.ArrayDeque<Long> tapTimes = new java.util.ArrayDeque<>();
 
   public SwingDelugeApp(
       ChuckVM vm, BridgeContract bridge, org.chuck.deluge.midi.MidiService midiService) {
@@ -147,11 +148,52 @@ public class SwingDelugeApp extends JFrame {
         new java.awt.event.KeyAdapter() {
           @Override
           public void keyPressed(java.awt.event.KeyEvent e) {
+            int kc = e.getKeyCode();
+            boolean ctrl = (e.getModifiersEx() & java.awt.event.InputEvent.CTRL_DOWN_MASK) != 0;
+
+            // Ctrl+[ / Ctrl+] — adjust focused track length
+            if (ctrl && kc == java.awt.event.KeyEvent.VK_OPEN_BRACKET) {
+              SwingGridPanel active = activeGridPanel();
+              if (active != null) {
+                int trk = active.getFocusTrack();
+                int len = bridge.getTrackLength(trk);
+                bridge.setTrackLength(trk, Math.max(1, len - 1));
+                active.refresh();
+              }
+              return;
+            }
+            if (ctrl && kc == java.awt.event.KeyEvent.VK_CLOSE_BRACKET) {
+              SwingGridPanel active = activeGridPanel();
+              if (active != null) {
+                int trk = active.getFocusTrack();
+                int len = bridge.getTrackLength(trk);
+                bridge.setTrackLength(trk, Math.min(64, len + 1));
+                active.refresh();
+              }
+              return;
+            }
+
+            // T — tap tempo
+            if (!ctrl && kc == java.awt.event.KeyEvent.VK_T) {
+              long now = System.currentTimeMillis();
+              tapTimes.addLast(now);
+              while (tapTimes.size() > 8) tapTimes.removeFirst();
+              if (tapTimes.size() >= 2) {
+                long[] arr = tapTimes.stream().mapToLong(Long::longValue).toArray();
+                long totalGap = arr[arr.length - 1] - arr[0];
+                double avgGap = totalGap / (double)(arr.length - 1);
+                double bpm = 60000.0 / avgGap;
+                bpm = Math.max(20, Math.min(300, bpm));
+                bridge.setBpm(bpm);
+              }
+              return;
+            }
+
             org.chuck.hid.HidMsg msg = new org.chuck.hid.HidMsg();
             msg.deviceType = "keyboard";
             msg.type = org.chuck.hid.HidMsg.BUTTON_DOWN;
-            msg.which = e.getKeyCode();
-            msg.key = e.getKeyCode();
+            msg.which = kc;
+            msg.key = kc;
             char c = e.getKeyChar();
             if (c != java.awt.event.KeyEvent.CHAR_UNDEFINED) {
               msg.ascii = c;
@@ -235,6 +277,17 @@ public class SwingDelugeApp extends JFrame {
       JOptionPane.showMessageDialog(
           this, "Save failed:\n" + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
     }
+  }
+
+  private SwingGridPanel activeGridPanel() {
+    if (cardLayout == null || centerCardPanel == null) return clipPanel;
+    // Return whichever panel is currently visible
+    for (java.awt.Component comp : centerCardPanel.getComponents()) {
+      if (comp.isVisible() && comp instanceof SwingGridPanel sgp) return sgp;
+      if (comp.isVisible() && comp instanceof JScrollPane sp
+          && sp.getViewport().getView() instanceof SwingGridPanel sgp) return sgp;
+    }
+    return clipPanel;
   }
 
   private void propagateCurrentModel() {
@@ -624,6 +677,10 @@ public class SwingDelugeApp extends JFrame {
           if (name != null && !name.isBlank()) {
             org.chuck.deluge.model.KitTrackModel kit =
                 new org.chuck.deluge.model.KitTrackModel(name);
+            kit.addSound(new org.chuck.deluge.model.KitTrackModel.KitSound("KICK", ""));
+            kit.addSound(new org.chuck.deluge.model.KitTrackModel.KitSound("SNARE", ""));
+            kit.addSound(new org.chuck.deluge.model.KitTrackModel.KitSound("HI-HAT", ""));
+            kit.addSound(new org.chuck.deluge.model.KitTrackModel.KitSound("CLAP", ""));
             kit.addClip(new org.chuck.deluge.model.ClipModel("CLIP 1", 8, 16));
             currentProject.addTrack(kit);
             propagateCurrentModel();

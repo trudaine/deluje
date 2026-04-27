@@ -28,6 +28,10 @@ public class ProjectModel {
     project.setBpm(120.0f);
 
     KitTrackModel defaultKit = new KitTrackModel("KIT 1");
+    defaultKit.addSound(new KitTrackModel.KitSound("KICK", ""));
+    defaultKit.addSound(new KitTrackModel.KitSound("SNARE", ""));
+    defaultKit.addSound(new KitTrackModel.KitSound("HI-HAT", ""));
+    defaultKit.addSound(new KitTrackModel.KitSound("CLAP", ""));
     ClipModel clip1 = new ClipModel("CLIP 1", 8, 16);
     clip1.setStep(0, 0, new StepData(true, 0.8f, 0.5f, 1.0f, 60));
     clip1.setStep(0, 4, new StepData(true, 0.8f, 0.5f, 1.0f, 60));

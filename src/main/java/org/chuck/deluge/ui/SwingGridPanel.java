@@ -106,7 +106,11 @@ public class SwingGridPanel extends JPanel {
     upItem.addActionListener(
         e -> {
           projectModel.moveTrackUp(trackIdx);
-          fireProjectChanged();
+          // swap colors so they follow the track
+          Color tmp = trackColors[trackIdx];
+          trackColors[trackIdx] = trackColors[trackIdx - 1];
+          trackColors[trackIdx - 1] = tmp;
+          javax.swing.SwingUtilities.invokeLater(this::fireProjectChanged);
         });
     menu.add(upItem);
 
@@ -115,7 +119,11 @@ public class SwingGridPanel extends JPanel {
     downItem.addActionListener(
         e -> {
           projectModel.moveTrackDown(trackIdx);
-          fireProjectChanged();
+          // swap colors so they follow the track
+          Color tmp = trackColors[trackIdx];
+          trackColors[trackIdx] = trackColors[trackIdx + 1];
+          trackColors[trackIdx + 1] = tmp;
+          javax.swing.SwingUtilities.invokeLater(this::fireProjectChanged);
         });
     menu.add(downItem);
 
@@ -351,24 +359,13 @@ public class SwingGridPanel extends JPanel {
       if (t == 9) trackName = "SLIDERS";
       if (t == 10) trackName = "KEYBOARD";
 
-      if (viewMode == GridViewMode.CLIP && vm != null) {
-        String samplePath = (String) vm.getGlobalObject("g_sample_" + (t));
-        if (samplePath != null && !samplePath.isEmpty()) {
-          int slash = samplePath.lastIndexOf('/');
-          if (slash != -1) {
-            trackName = samplePath.substring(slash + 1);
-          } else {
-            trackName = samplePath;
-          }
-        }
-      }
 
       final int trk = currentTrack;
       final String tName = trackName;
       JLabel label = new JLabel(tName);
-      label.setPreferredSize(new Dimension(150, 30));
-      label.setMinimumSize(new Dimension(150, 30));
-      label.setMaximumSize(new Dimension(150, 30));
+      label.setPreferredSize(new Dimension(90, 30));
+      label.setMinimumSize(new Dimension(90, 30));
+      label.setMaximumSize(new Dimension(90, 30));
 
       label.setForeground(Color.LIGHT_GRAY);
       label.setCursor(new Cursor(Cursor.HAND_CURSOR));
@@ -392,6 +389,65 @@ public class SwingGridPanel extends JPanel {
           });
 
       rowPanel.add(label);
+
+      // ⚙ config button and length badge for real tracks; blank spacer for all others
+      if (t < tracks.size() && t < 8) {
+        org.chuck.deluge.model.TrackModel track = tracks.get(t);
+
+        JButton cfgBtn = new JButton("⚙");
+        cfgBtn.setPreferredSize(new Dimension(28, 26));
+        cfgBtn.setMinimumSize(new Dimension(28, 26));
+        cfgBtn.setMaximumSize(new Dimension(28, 26));
+        cfgBtn.setMargin(new Insets(0, 0, 0, 0));
+        cfgBtn.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        cfgBtn.setBackground(new Color(0x33, 0x33, 0x33));
+        cfgBtn.setForeground(new Color(0x00, 0xff, 0xcc));
+        cfgBtn.setToolTipText("Configure track");
+        cfgBtn.addActionListener(e -> {
+          Frame owner = (Frame) javax.swing.SwingUtilities.getWindowAncestor(SwingGridPanel.this);
+          if (track instanceof org.chuck.deluge.model.KitTrackModel kitTrack) {
+            new SwingKitConfigDialog(owner, kitTrack, vm, bridge).setVisible(true);
+          } else if (track instanceof org.chuck.deluge.model.SynthTrackModel synthTrack) {
+            new SwingSynthConfigDialog(owner, synthTrack, vm, bridge, trk).setVisible(true);
+          }
+        });
+        rowPanel.add(Box.createHorizontalStrut(3));
+        rowPanel.add(cfgBtn);
+
+        int stepLen = (bridge != null) ? bridge.getTrackLength(trk) : 16;
+        JLabel lenBadge = new JLabel("[" + stepLen + "]");
+        lenBadge.setPreferredSize(new Dimension(36, 26));
+        lenBadge.setMinimumSize(new Dimension(36, 26));
+        lenBadge.setMaximumSize(new Dimension(36, 26));
+        lenBadge.setFont(new Font("Monospaced", Font.BOLD, 11));
+        lenBadge.setForeground(stepLen == 16 ? Color.GRAY : new Color(0xff, 0xcc, 0x00));
+        lenBadge.setToolTipText("Track length (right-click to change)");
+        lenBadge.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        lenBadge.addMouseListener(new java.awt.event.MouseAdapter() {
+          @Override
+          public void mouseClicked(java.awt.event.MouseEvent e) {
+            if (javax.swing.SwingUtilities.isRightMouseButton(e) || e.getClickCount() == 2) {
+              String input = JOptionPane.showInputDialog(
+                  SwingGridPanel.this, "Track length (1-64):", stepLen);
+              if (input != null) {
+                try {
+                  int newLen = Integer.parseInt(input.trim());
+                  if (newLen >= 1 && newLen <= 64) {
+                    bridge.setTrackLength(trk, newLen);
+                    refresh();
+                  }
+                } catch (NumberFormatException ignored) {}
+              }
+            }
+          }
+        });
+        rowPanel.add(Box.createHorizontalStrut(2));
+        rowPanel.add(lenBadge);
+      } else {
+        // 3 + 28 + 2 + 36 = 69px spacer to keep columns aligned
+        rowPanel.add(Box.createRigidArea(new Dimension(69, 1)));
+      }
+
       rowPanel.add(Box.createHorizontalStrut(5));
 
       VUMeterPanel vu = new VUMeterPanel();
