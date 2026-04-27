@@ -27,6 +27,8 @@ public class MidiInputRouter {
   }
 
   private final java.util.Map<Integer, NoteStartInfo> activeNoteStarts = new java.util.HashMap<>();
+  private final java.util.Map<Integer, String> ccMappings = new java.util.HashMap<>();
+  private String learningTarget = null;
 
   public MidiInputRouter(ChuckVM vm, BridgeContract bridge) {
     this.vm = vm;
@@ -41,8 +43,26 @@ public class MidiInputRouter {
     this.activeTrackIndex = trackIndex;
   }
 
+  public void startLearning(String target) {
+    this.learningTarget = target;
+  }
+
   /** Called when a MIDI message is received from a hardware controller. */
   public void handleMidiMessage(MidiMsg msg) {
+    // Handle CC messages for MIDI learn and mapped parameters
+    if ((msg.data1 & 0xF0) == 0xB0) {
+      int cc = msg.data2;
+      double normalized = msg.data3 / 127.0;
+      if (learningTarget != null) {
+        ccMappings.put(cc, learningTarget);
+        learningTarget = null;
+      }
+      String mapped = ccMappings.get(cc);
+      if (mapped != null) {
+        vm.setGlobalFloat(mapped, normalized);
+        return;
+      }
+    }
     if (!followModeEnabled) return;
 
     // Get the current playback step from the VM

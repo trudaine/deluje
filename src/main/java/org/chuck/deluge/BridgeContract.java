@@ -64,6 +64,34 @@ public final class BridgeContract {
   public static final String G_ROOT_KEY = "g_root_key";
   public static final String G_LOAD_TRIGGER = "g_load_trigger";
   public static final String TICK_EVENT = "tick_event";
+  public static final String E_TICK = "tick_event";
+
+  // Engine Internals
+  public static final String G_DELAY_IN = "g_delay_in";
+  public static final String G_REVERB_IN = "g_reverb_in";
+  public static final String G_SYNTH_BUS = "g_synth_bus";
+  public static final String G_MASTER_COMP = "g_master_comp";
+
+  // Arp & FM
+  public static final String G_ARP_ON = "g_arp_on";
+  public static final String G_ARP_RATE = "g_arp_rate";
+  public static final String G_ARP_OCTAVE = "g_arp_octave";
+  public static final String G_FM_RATIO = "g_fm_ratio";
+  public static final String G_FM_AMOUNT = "g_fm_amount";
+
+  // Audition
+  public static final String G_PREVIEW_TRACK = "g_preview_track";
+  public static final String E_PREVIEW = "e_preview";
+  public static final String E_SIDECHAIN = "e_sidechain";
+
+  // Kit logic
+  public static final String G_KIT_ATTACK = "g_kit_attack";
+  public static final String G_KIT_DECAY = "g_kit_decay";
+  public static final String G_KIT_SUSTAIN = "g_kit_sustain";
+  public static final String G_KIT_RELEASE = "g_kit_release";
+  public static final String G_KIT_PITCH = "g_kit_pitch";
+  public static final String G_KIT_REVERSE = "g_kit_reverse";
+  public static final String G_KIT_MUTE_GROUP = "g_kit_mute_group";
 
   private final ChuckArray pattern;
   private final ChuckArray velocity;
@@ -92,6 +120,21 @@ public final class BridgeContract {
   private final ChuckArray lfoDepth;
   private final ChuckArray delaySend;
   private final ChuckArray reverbSend;
+
+  private final ChuckArray kitAttack;
+  private final ChuckArray kitDecay;
+  private final ChuckArray kitSustain;
+  private final ChuckArray kitRelease;
+  private final ChuckArray kitPitch;
+  private final ChuckArray kitReverse;
+  private final ChuckArray kitMuteGroup;
+
+  private final ChuckArray arpOn;
+  private final ChuckArray arpRate;
+  private final ChuckArray arpOctave;
+  private final ChuckArray fmRatio;
+  private final ChuckArray fmAmount;
+
   private ChuckVM vm;
   private boolean recording = false;
 
@@ -124,6 +167,20 @@ public final class BridgeContract {
     delaySend = new ChuckArray("float", TRACKS);
     reverbSend = new ChuckArray("float", TRACKS);
 
+    kitAttack = new ChuckArray("float", TRACKS);
+    kitDecay = new ChuckArray("float", TRACKS);
+    kitSustain = new ChuckArray("float", TRACKS);
+    kitRelease = new ChuckArray("float", TRACKS);
+    kitPitch = new ChuckArray("float", TRACKS);
+    kitReverse = new ChuckArray("int", TRACKS);
+    kitMuteGroup = new ChuckArray("int", TRACKS);
+
+    arpOn = new ChuckArray("int", TRACKS);
+    arpRate = new ChuckArray("float", TRACKS);
+    arpOctave = new ChuckArray("int", TRACKS);
+    fmRatio = new ChuckArray("float", TRACKS);
+    fmAmount = new ChuckArray("float", TRACKS);
+
     initDefaults();
   }
 
@@ -145,7 +202,7 @@ public final class BridgeContract {
       stepEnd.setFloat(i, 1.0f);
     }
     for (int t = 0; t < TRACKS; t++) {
-      trackType.setInt(t, 0L); // Default to KIT for all tracks
+      trackType.setInt(t, 0L);
       mute.setInt(t, 0L);
       trackLevel.setFloat(t, 0.7f);
       filter.setFloat(t * 2, 1.0f);
@@ -154,6 +211,20 @@ public final class BridgeContract {
       filterMorph.setFloat(t, 0.0f);
       delaySend.setFloat(t, 0.0f);
       reverbSend.setFloat(t, 0.15f);
+
+      kitAttack.setFloat(t, 0.001f);
+      kitDecay.setFloat(t, 0.1f);
+      kitSustain.setFloat(t, 0.8f);
+      kitRelease.setFloat(t, 0.2f);
+      kitPitch.setFloat(t, 0.0f);
+      kitReverse.setInt(t, 0L);
+      kitMuteGroup.setInt(t, 0L);
+
+      arpOn.setInt(t, 0L);
+      arpRate.setFloat(t, 1.0f);
+      arpOctave.setInt(t, 0L);
+      fmRatio.setFloat(t, 1.0f);
+      fmAmount.setFloat(t, 0.0f);
     }
     for (int e = 0; e < ENV_COUNT; e++) {
       env.setFloat(e * ENV_PARAMS + 0, 0.01f);
@@ -185,6 +256,9 @@ public final class BridgeContract {
     vm.setGlobalInt(G_STUTTER_ON, 0L);
     vm.setGlobalFloat(G_STUTTER_DIV, 1.0);
 
+    vm.setGlobalInt(G_PREVIEW_TRACK, 0L);
+    vm.setGlobalObject(E_PREVIEW, new org.chuck.core.ChuckEvent());
+    vm.setGlobalObject(E_SIDECHAIN, new org.chuck.core.ChuckEvent());
     vm.setGlobalObject(G_LOAD_TRIGGER, new org.chuck.core.ChuckEvent());
     vm.setGlobalObject(TICK_EVENT, new org.chuck.core.ChuckEvent());
 
@@ -214,6 +288,26 @@ public final class BridgeContract {
     vm.setGlobalObject(G_LFO_DEPTH, lfoDepth);
     vm.setGlobalObject(G_DELAY_SEND, delaySend);
     vm.setGlobalObject(G_REVERB_SEND, reverbSend);
+
+    vm.setGlobalObject(G_KIT_ATTACK, kitAttack);
+    vm.setGlobalObject(G_KIT_DECAY, kitDecay);
+    vm.setGlobalObject(G_KIT_SUSTAIN, kitSustain);
+    vm.setGlobalObject(G_KIT_RELEASE, kitRelease);
+    vm.setGlobalObject(G_KIT_PITCH, kitPitch);
+    vm.setGlobalObject(G_KIT_REVERSE, kitReverse);
+    vm.setGlobalObject(G_KIT_MUTE_GROUP, kitMuteGroup);
+
+    vm.setGlobalObject(G_ARP_ON, arpOn);
+    vm.setGlobalObject(G_ARP_RATE, arpRate);
+    vm.setGlobalObject(G_ARP_OCTAVE, arpOctave);
+    vm.setGlobalObject(G_FM_RATIO, fmRatio);
+    vm.setGlobalObject(G_FM_AMOUNT, fmAmount);
+
+    // Monolithic engine buses
+    vm.setGlobalObject(G_DELAY_IN, new org.chuck.audio.util.Gain());
+    vm.setGlobalObject(G_REVERB_IN, new org.chuck.audio.util.Gain());
+    vm.setGlobalObject(G_SYNTH_BUS, new org.chuck.audio.util.Gain());
+    vm.setGlobalObject(G_MASTER_COMP, 0.0);
   }
 
   public ChuckVM getVm() {
@@ -264,78 +358,6 @@ public final class BridgeContract {
 
   public double getStepProbability(int track, int step) {
     return probability.getFloat(track * STEPS + step);
-  }
-
-  public void setStepFilter(int track, int step, double val) {
-    stepFilter.setFloat(track * STEPS + step, (float) Math.max(-1, Math.min(1, val)));
-  }
-
-  public double getStepFilter(int track, int step) {
-    return stepFilter.getFloat(track * STEPS + step);
-  }
-
-  public void setStepRes(int track, int step, double val) {
-    stepRes.setFloat(track * STEPS + step, (float) Math.max(-1, Math.min(1, val)));
-  }
-
-  public double getStepRes(int track, int step) {
-    return stepRes.getFloat(track * STEPS + step);
-  }
-
-  public void setStepFilterMode(int track, int step, int mode) {
-    stepFilterMode.setInt(track * STEPS + step, (long) mode);
-  }
-
-  public int getStepFilterMode(int track, int step) {
-    return (int) stepFilterMode.getInt(track * STEPS + step);
-  }
-
-  public void setStepPan(int track, int step, double val) {
-    stepPan.setFloat(track * STEPS + step, (float) Math.max(-1, Math.min(1, val)));
-  }
-
-  public double getStepPan(int track, int step) {
-    return stepPan.getFloat(track * STEPS + step);
-  }
-
-  public void setStepDelay(int track, int step, double val) {
-    stepDelay.setFloat(track * STEPS + step, (float) Math.max(0, Math.min(1, val)));
-  }
-
-  public double getStepDelay(int track, int step) {
-    return stepDelay.getFloat(track * STEPS + step);
-  }
-
-  public void setStepReverb(int track, int step, double val) {
-    stepReverb.setFloat(track * STEPS + step, (float) Math.max(0, Math.min(1, val)));
-  }
-
-  public double getStepReverb(int track, int step) {
-    return stepReverb.getFloat(track * STEPS + step);
-  }
-
-  public void setStepMod(int track, int step, double val) {
-    stepMod.setFloat(track * STEPS + step, (float) Math.max(0, Math.min(1, val)));
-  }
-
-  public double getStepMod(int track, int step) {
-    return stepMod.getFloat(track * STEPS + step);
-  }
-
-  public void setStepStart(int track, int step, double val) {
-    stepStart.setFloat(track * STEPS + step, (float) Math.max(0, Math.min(1, val)));
-  }
-
-  public double getStepStart(int track, int step) {
-    return stepStart.getFloat(track * STEPS + step);
-  }
-
-  public void setStepEnd(int track, int step, double val) {
-    stepEnd.setFloat(track * STEPS + step, (float) Math.max(0, Math.min(1, val)));
-  }
-
-  public double getStepEnd(int track, int step) {
-    return stepEnd.getFloat(track * STEPS + step);
   }
 
   public void setTrackLevel(int track, double val) {
@@ -406,30 +428,62 @@ public final class BridgeContract {
     lfoDepth.setFloat(lfoIndex, (float) Math.max(0, Math.min(1, depth)));
   }
 
+  public void setBpm(double bpm) {
+    if (vm != null) vm.setGlobalFloat(G_BPM, bpm);
+  }
+
+  public double getBpm() {
+    return vm != null ? vm.getGlobalFloat(G_BPM) : 120.0;
+  }
+
+  public boolean getArpOn(int track) {
+    return arpOn.getInt(track) > 0;
+  }
+
+  public void setArpOn(int track, boolean on) {
+    arpOn.setInt(track, on ? 1L : 0L);
+  }
+
+  public double getArpRate(int track) {
+    return arpRate.getFloat(track);
+  }
+
+  public void setArpRate(int track, double rate) {
+    arpRate.setFloat(track, (float) rate);
+  }
+
+  public int getArpOctave(int track) {
+    return (int) arpOctave.getInt(track);
+  }
+
+  public void setArpOctave(int track, int oct) {
+    arpOctave.setInt(track, (long) oct);
+  }
+
+  public double getFmRatio(int track) {
+    return fmRatio.getFloat(track);
+  }
+
+  public void setFmRatio(int track, double r) {
+    fmRatio.setFloat(track, (float) r);
+  }
+
+  public double getFmAmount(int track) {
+    return fmAmount.getFloat(track);
+  }
+
+  public void setFmAmount(int track, double a) {
+    fmAmount.setFloat(track, (float) a);
+  }
+
+  public void syncActiveClipToLibrary(int track) {}
+
+  public void loadSynthPreset(int track, org.chuck.deluge.model.SynthTrackModel model) {}
+
+  public void loadClip(int track, int clipIdx) {}
+
   public void clearPattern() {
     for (int i = 0; i < PATTERN_SIZE; i++) pattern.setInt(i, 0L);
-  }
-
-  public boolean[] snapshotPattern() {
-    boolean[] snap = new boolean[PATTERN_SIZE];
-    for (int i = 0; i < PATTERN_SIZE; i++) snap[i] = pattern.getInt(i) > 0;
-    return snap;
-  }
-
-  public void restorePattern(boolean[] snap) {
-    for (int i = 0; i < Math.min(snap.length, PATTERN_SIZE); i++) {
-      pattern.setInt(i, snap[i] ? 1L : 0L);
-    }
-  }
-
-  private org.chuck.deluge.ui.MatrixPanel matrixPanel;
-
-  public void setMatrixPanel(org.chuck.deluge.ui.MatrixPanel m) {
-    this.matrixPanel = m;
-  }
-
-  public org.chuck.deluge.ui.MatrixPanel getMatrixPanel() {
-    return matrixPanel;
   }
 
   public ChuckArray patternArray() {
@@ -444,7 +498,7 @@ public final class BridgeContract {
     return recording;
   }
 
-  public ChuckArray probabilityArray() {
-    return probability;
+  public boolean isUseJavaEngine() {
+    return true;
   }
 }

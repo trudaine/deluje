@@ -154,53 +154,11 @@ public class SwingProjectSidebarPanel extends JPanel {
                         int baseTrack = 0;
                         java.util.List<org.chuck.deluge.model.KitTrackModel.KitSound> sounds =
                             kit.getSounds();
-                        for (int i = 0; i < 8; i++) {
-                          if (i < sounds.size()) {
+                        for (int i = 0; i < sounds.size(); i++) {
+                          {
                             String sp = sounds.get(i).getSamplePath();
-                            if (sp != null) {
-                              String resPath = sp;
-                              if (!resPath.startsWith("/")) resPath = "/" + resPath;
-                              try (java.io.InputStream resIs =
-                                  getClass().getResourceAsStream(resPath) != null
-                                      ? getClass().getResourceAsStream(resPath)
-                                      : null) {
-                                if (resIs != null) {
-                                  java.io.File tempFile =
-                                      new java.io.File(
-                                          System.getProperty("user.home")
-                                              + "/.gemini/jetski/scratch/"
-                                              + new java.io.File(resPath).getName());
-                                  java.nio.file.Files.copy(
-                                      resIs,
-                                      tempFile.toPath(),
-                                      java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                                  sp = tempFile.getAbsolutePath();
-                                } else {
-                                  // Try uppercase fallback
-                                  try (java.io.InputStream upperIs =
-                                      getClass()
-                                          .getResourceAsStream(resPath.replace(".wav", ".WAV"))) {
-                                    if (upperIs != null) {
-                                      System.out.println(
-                                          "WARNING: Resource casing discrepancy. Loaded as .WAV fallback: "
-                                              + resPath);
-                                      java.io.File tempFile =
-                                          new java.io.File(
-                                              System.getProperty("user.home")
-                                                  + "/.gemini/jetski/scratch/"
-                                                  + new java.io.File(resPath).getName());
-                                      java.nio.file.Files.copy(
-                                          upperIs,
-                                          tempFile.toPath(),
-                                          java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                                      sp = tempFile.getAbsolutePath();
-                                    }
-                                  }
-                                }
-                              } catch (Exception ex) {
-                              }
-                            }
-
+                            // Set raw resource path — engine resolves casing and loads to temp
+                            if (sp != null && !sp.startsWith("/")) sp = "/" + sp;
                             vm.setGlobalString("g_sample_" + (baseTrack + i), sp != null ? sp : "");
                             bridge.setMute(baseTrack + i, false);
                           }
@@ -219,67 +177,23 @@ public class SwingProjectSidebarPanel extends JPanel {
                         org.chuck.deluge.model.ProjectModel loadedProject =
                             org.chuck.deluge.xml.DelugeXmlParser.parseSong(is, name);
 
-                        int kitIdx = 0;
+                        // Each track gets a sequential engine row; set raw resource paths
+                        int engineRow = 0;
                         for (org.chuck.deluge.model.TrackModel track : loadedProject.getTracks()) {
+                          if (engineRow >= org.chuck.deluge.BridgeContract.TRACKS) break;
                           if (track instanceof org.chuck.deluge.model.KitTrackModel kit) {
-                            int baseTrack = kitIdx * 8;
                             java.util.List<org.chuck.deluge.model.KitTrackModel.KitSound> sounds =
                                 kit.getSounds();
-                            for (int i = 0; i < 8; i++) {
-                              int trackId = baseTrack + i;
-                              if (i < sounds.size()) {
-                                String sp = sounds.get(i).getSamplePath();
-                                if (sp != null) {
-                                  String resPath = sp;
-                                  if (!resPath.startsWith("/")) resPath = "/" + resPath;
-                                  try (java.io.InputStream resIs =
-                                      getClass().getResourceAsStream(resPath) != null
-                                          ? getClass().getResourceAsStream(resPath)
-                                          : null) {
-                                    if (resIs != null) {
-                                      java.io.File tempFile =
-                                          new java.io.File(
-                                              System.getProperty("user.home")
-                                                  + "/.gemini/jetski/scratch/"
-                                                  + new java.io.File(resPath).getName());
-                                      java.nio.file.Files.copy(
-                                          resIs,
-                                          tempFile.toPath(),
-                                          java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                                      sp = tempFile.getAbsolutePath();
-                                    } else {
-                                      try (java.io.InputStream upperIs =
-                                          getClass()
-                                              .getResourceAsStream(
-                                                  resPath.replace(".wav", ".WAV"))) {
-                                        if (upperIs != null) {
-                                          System.out.println(
-                                              "WARNING: Resource casing discrepancy. Loaded as .WAV fallback: "
-                                                  + resPath);
-                                          java.io.File tempFile =
-                                              new java.io.File(
-                                                  System.getProperty("user.home")
-                                                      + "/.gemini/jetski/scratch/"
-                                                      + new java.io.File(resPath).getName());
-                                          java.nio.file.Files.copy(
-                                              upperIs,
-                                              tempFile.toPath(),
-                                              java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                                          sp = tempFile.getAbsolutePath();
-                                        }
-                                      }
-                                    }
-                                  } catch (Exception ex) {
-                                  }
-                                }
-
-                                vm.setGlobalString("g_sample_" + trackId, sp);
-                                bridge.setMute(trackId, false);
-                                bridge.setTrackType(trackId, 0);
-                              }
+                            for (int i = 0; i < sounds.size(); i++) {
+                              String sp = sounds.get(i).getSamplePath();
+                              if (sp != null && !sp.startsWith("/")) sp = "/" + sp;
+                              vm.setGlobalString(
+                                  "g_sample_" + (engineRow + i), sp != null ? sp : "");
+                              bridge.setMute(engineRow + i, false);
+                              bridge.setTrackType(engineRow + i, 0);
                             }
-                            kitIdx++;
                           }
+                          engineRow++;
                         }
                         if (onSongLoaded != null) {
                           onSongLoaded.accept(loadedProject);
@@ -316,45 +230,8 @@ public class SwingProjectSidebarPanel extends JPanel {
 
     shuffleBtn.addActionListener(
         e -> {
-          String[] pool = {
-            "SAMPLES/DRUMS/Kick/808 Kick.wav",
-            "SAMPLES/DRUMS/Snare/808 Snare.wav",
-            "SAMPLES/DRUMS/HatC/808 Closed hihat.wav",
-            "SAMPLES/DRUMS/HatO/808 Open hihat.wav",
-            "SAMPLES/DRUMS/Shaker/808 Maraca.wav",
-            "SAMPLES/DRUMS/Rim/808 Rim.wav",
-            "SAMPLES/DRUMS/Claves/808 Claves.WAV",
-            "SAMPLES/DRUMS/Clap/808 Clap.WAV"
-          };
-          java.util.List<String> list = java.util.Arrays.asList(pool);
-          java.util.Collections.shuffle(list);
-
-          for (int i = 0; i < 8; i++) {
-            String resPath = list.get(i);
-            if (!resPath.startsWith("/")) resPath = "/" + resPath;
-            String sp = resPath;
-            try (java.io.InputStream resIs =
-                getClass().getResourceAsStream(resPath) != null
-                    ? getClass().getResourceAsStream(resPath)
-                    : getClass().getResourceAsStream(resPath.replace(".wav", ".WAV"))) {
-              if (resIs != null) {
-                java.io.File tempFile =
-                    new java.io.File(
-                        System.getProperty("user.home")
-                            + "/.gemini/jetski/scratch/"
-                            + new java.io.File(resPath).getName());
-                java.nio.file.Files.copy(
-                    resIs, tempFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                sp = tempFile.getAbsolutePath();
-              }
-            } catch (Exception ex) {
-            }
-
-            vm.setGlobalString("g_sample_" + i, sp);
-            bridge.setMute(i, false);
-            bridge.setTrackType(i, 0);
-          }
-          vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+          // Dynamic sample discovery from the object model should be implemented here.
+          System.out.println("Shuffle requested. Implement dynamic discovery of samples.");
         });
 
     JPanel wrapper = new JPanel(new BorderLayout());
@@ -362,6 +239,10 @@ public class SwingProjectSidebarPanel extends JPanel {
     wrapper.add(new JScrollPane(tree), BorderLayout.CENTER);
 
     return wrapper;
+  }
+
+  public java.util.function.Consumer<org.chuck.deluge.model.ProjectModel> getOnSongLoaded() {
+    return onSongLoaded;
   }
 
   public void setOnSongLoaded(

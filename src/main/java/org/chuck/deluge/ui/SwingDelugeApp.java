@@ -334,7 +334,7 @@ public class SwingDelugeApp extends JFrame {
 
           // 5. Samples Directory
           c.gridx = 0;
-          c.gridy = 10;
+          c.gridy = 11;
           mainGrid.add(new JLabel("Samples Directory:"), c);
 
           c.gridx = 1;
@@ -343,7 +343,7 @@ public class SwingDelugeApp extends JFrame {
           dirLabel.setForeground(Color.CYAN);
           mainGrid.add(dirLabel, c);
 
-          c.gridy = 11;
+          c.gridy = 12;
           JButton browseBtn = new JButton("Browse...");
           browseBtn.addActionListener(
               ev -> {
@@ -659,6 +659,8 @@ public class SwingDelugeApp extends JFrame {
 
     // 2. Left Area (SD Card / Editors)
     SwingProjectSidebarPanel sidebarPanel = new SwingProjectSidebarPanel(vm, bridge, midiService);
+    SwingProjectSidebarPanel floatingSidebar =
+        new SwingProjectSidebarPanel(vm, bridge, midiService);
     sidebarPanel.setOnSongLoaded(
         model -> {
           System.out.println(
@@ -667,44 +669,86 @@ public class SwingDelugeApp extends JFrame {
           if (clipPanel != null) clipPanel.setProjectModel(model);
           if (arrGridPanel != null) arrGridPanel.setProjectModel(model);
 
+          // Stop playback and clear state before loading new song
+          vm.setGlobalInt(BridgeContract.G_PLAY, 0L);
+          bridge.clearPattern();
           for (int i = 0; i < 64; i++) {
             bridge.setMute(i, false);
           }
 
           if (model.getTracks().size() == 1) {
-
             cardLayout.show(centerCardPanel, "CLIP");
             if (clipBtn != null) clipBtn.setSelected(true);
+            boolean firstIsSynth =
+                !model.getTracks().isEmpty()
+                    && model.getTracks().get(0) instanceof org.chuck.deluge.model.SynthTrackModel;
+            clipPanel.setBaseTrackId(firstIsSynth ? 4 : 0);
           } else {
             cardLayout.show(centerCardPanel, "SONG");
           }
 
-          int trackIdx = 0;
+          // Load kit sample paths + per-sound params from first kit track
           for (org.chuck.deluge.model.TrackModel track : model.getTracks()) {
-            boolean isSynth = track instanceof org.chuck.deluge.model.SynthTrackModel;
-            for (int i = 0; i < 8; i++) {
-              bridge.setTrackType(trackIdx * 8 + i, isSynth ? 1 : 0);
+            if (track instanceof org.chuck.deluge.model.KitTrackModel kt) {
+              java.util.List<org.chuck.deluge.model.KitTrackModel.KitSound> sounds = kt.getSounds();
+              for (int i = 0; i < sounds.size(); i++) {
+                org.chuck.deluge.model.KitTrackModel.KitSound snd = sounds.get(i);
+                // g_sample_N is already set by the sidebar with resolved temp-file paths — do not
+                // overwrite
+                ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_PITCH))
+                    .setFloat(i, snd.getPitchSemitones());
+                ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_MUTE_GROUP))
+                    .setInt(i, (long) snd.getMuteGroup());
+                ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_REVERSE))
+                    .setInt(i, snd.isReverse() ? 1L : 0L);
+                org.chuck.deluge.model.EnvelopeModel adsr = snd.getAdsr();
+                if (adsr != null) {
+                  ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_ATTACK))
+                      .setFloat(i, adsr.attack());
+                  ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_DECAY))
+                      .setFloat(i, adsr.decay());
+                  ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_SUSTAIN))
+                      .setFloat(i, adsr.sustain());
+                  ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_RELEASE))
+                      .setFloat(i, adsr.release());
+                }
+              }
+              break; // first kit track owns rows 0-3
             }
-            for (org.chuck.deluge.model.ClipModel clip : track.getClips()) {
+          }
 
-              for (int r = 0; r < 8; r++) {
+          // Each model track maps to one engine row in order; G_TRACK_TYPE marks kit(0)/synth(1)
+          int engineRow = 0;
+          org.chuck.core.ChuckArray trackTypeArr =
+              (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
+          for (org.chuck.deluge.model.TrackModel track : model.getTracks()) {
+            if (engineRow >= BridgeContract.TRACKS) break;
+            boolean isSynth = track instanceof org.chuck.deluge.model.SynthTrackModel;
+            if (trackTypeArr != null) trackTypeArr.setInt(engineRow, isSynth ? 1L : 0L);
+            for (org.chuck.deluge.model.ClipModel clip : track.getClips()) {
+              for (int r = 0; r < clip.getRowCount(); r++) {
                 for (int s = 0; s < 16; s++) {
                   org.chuck.deluge.model.StepData step = clip.getStep(r, s);
                   if (step != null && step.active()) {
                     if (isSynth) {
-                      bridge.setStep(trackIdx * 8, s, true);
-                      bridge.setPitch(trackIdx * 8, s, (24 - 1) - r);
+                      bridge.setStep(engineRow, s, true);
+                      bridge.setPitch(engineRow, s, (24 - 1) - r);
                     } else {
-                      bridge.setStep(trackIdx * 8 + r, s, true);
+                      bridge.setStep(engineRow, s, true);
                     }
                   }
                 }
               }
             }
-            trackIdx++;
+            engineRow++;
           }
+
+          // Signal engine to reload samples
+          vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
           clipPanel.repaint();
         });
+
+    floatingSidebar.setOnSongLoaded(sidebarPanel.getOnSongLoaded());
 
     songPanel.setOnEditRequest(
         (trackId, clipId) -> {
@@ -712,30 +756,36 @@ public class SwingDelugeApp extends JFrame {
           sidebarPanel.updateFocusTrack(trackId);
 
           if (clipPanel != null) {
-            clipPanel.setActiveClipId(clipId);
-            clipPanel.setBaseTrackId(trackId * 8);
-            for (int r = 0; r < 8; r++) {
-              for (int s = 0; s < 16; s++) {
-                bridge.setStep(trackId * 8 + r, s, false);
-              }
-            }
+            // Engine row = model track index (each track maps to one sequential row)
+            java.util.List<org.chuck.deluge.model.TrackModel> allTrks =
+                clipPanel.getProjectModel() != null
+                    ? clipPanel.getProjectModel().getTracks()
+                    : java.util.List.of();
+            int engineBase = Math.min(trackId, BridgeContract.TRACKS - 1);
 
-            if (clipPanel.getProjectModel() != null
-                && trackId < clipPanel.getProjectModel().getTracks().size()) {
-              org.chuck.deluge.model.TrackModel tModel =
-                  clipPanel.getProjectModel().getTracks().get(trackId);
+            clipPanel.setActiveClipId(clipId);
+            clipPanel.setBaseTrackId(engineBase);
+
+            boolean editIsSynth =
+                trackId < allTrks.size()
+                    && allTrks.get(trackId) instanceof org.chuck.deluge.model.SynthTrackModel;
+
+            // Clear engine rows for this track
+            for (int s = 0; s < 16; s++) bridge.setStep(engineBase, s, false);
+
+            if (trackId < allTrks.size()) {
+              org.chuck.deluge.model.TrackModel tModel = allTrks.get(trackId);
               if (clipId < tModel.getClips().size()) {
                 org.chuck.deluge.model.ClipModel cModel = tModel.getClips().get(clipId);
-                boolean isSynth = tModel instanceof org.chuck.deluge.model.SynthTrackModel;
-                for (int r = 0; r < 8; r++) {
+                for (int r = 0; r < cModel.getRowCount(); r++) {
                   for (int s = 0; s < 16; s++) {
                     org.chuck.deluge.model.StepData sd = cModel.getStep(r, s);
                     if (sd != null && sd.active()) {
-                      if (isSynth) {
-                        bridge.setStep(trackId * 8, s, true);
-                        bridge.setPitch(trackId * 8, s, (24 - 1) - r);
+                      if (editIsSynth) {
+                        bridge.setStep(engineBase, s, true);
+                        bridge.setPitch(engineBase, s, (24 - 1) - r);
                       } else {
-                        bridge.setStep(trackId * 8 + r, s, true);
+                        bridge.setStep(engineBase + r, s, true);
                       }
                     }
                   }
@@ -751,7 +801,7 @@ public class SwingDelugeApp extends JFrame {
 
     visualizerPanel = new SwingVisualizerPanel(vm, bridge);
 
-    leftFloat.add(sidebarPanel);
+    leftFloat.add(floatingSidebar);
     rightFloat.add(visualizerPanel);
 
     if (isHdOpt) {
@@ -765,14 +815,6 @@ public class SwingDelugeApp extends JFrame {
       gbc.weightx = 0.5;
       gbc.weighty = 1.0;
       add(sidebarPanel, gbc);
-
-      visualizerPanel.setPreferredSize(new Dimension(300, 0));
-      gbc.gridx = 2;
-      gbc.gridy = 1;
-      gbc.gridwidth = 1;
-      gbc.weightx = 0.5;
-      gbc.weighty = 1.0;
-      add(visualizerPanel, gbc);
     }
 
     new Timer(33, e -> visualizerPanel.repaint()).start();
@@ -877,5 +919,35 @@ public class SwingDelugeApp extends JFrame {
               }
             });
     timer.start();
+  }
+
+  public static void main(String[] args) {
+    org.chuck.core.ChuckVM vm = new org.chuck.core.ChuckVM(44100, 2);
+    org.chuck.deluge.BridgeContract bridge = new org.chuck.deluge.BridgeContract();
+    bridge.register(vm);
+
+    org.chuck.audio.ChuckAudio audio = new org.chuck.audio.ChuckAudio(vm, 1024, 2, 44100);
+    vm.setAudio(audio);
+    audio.start();
+
+    if (bridge.isUseJavaEngine()) {
+      vm.spork(new org.chuck.deluge.engine.DelugeEngineDSL());
+    } else {
+      org.chuck.deluge.engine.DelugeEngine engine =
+          new org.chuck.deluge.engine.DelugeEngine(vm, bridge);
+      vm.spork(engine::shred);
+    }
+
+    org.chuck.deluge.midi.MidiInputRouter router =
+        new org.chuck.deluge.midi.MidiInputRouter(vm, bridge);
+    org.chuck.deluge.midi.MidiService midiService =
+        new org.chuck.deluge.midi.MidiService(vm, bridge, router);
+    midiService.start();
+
+    java.awt.EventQueue.invokeLater(
+        () -> {
+          SwingDelugeApp app = new SwingDelugeApp(vm, bridge, midiService);
+          app.setVisible(true);
+        });
   }
 }

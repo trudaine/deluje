@@ -18,7 +18,12 @@ public class LaunchQuantController {
   private int lastStep = -1;
 
   public LaunchQuantController(
-      ChuckVM vm, BridgeContract bridge, ClipCell[][] grid, int tracks, int slots, Runnable refreshCallback) {
+      ChuckVM vm,
+      BridgeContract bridge,
+      ClipCell[][] grid,
+      int tracks,
+      int slots,
+      Runnable refreshCallback) {
     this.vm = vm;
     this.bridge = bridge;
     this.grid = grid;

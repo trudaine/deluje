@@ -76,9 +76,7 @@ public class ParameterHookupTest {
 
     assertTrue(lowPeak > 0.001f, "Low velocity should result in some signal");
     assertTrue(
-        highPeak > lowPeak * 1.05,
-        "High velocity should result in higher peak than low velocity");
-
+        highPeak > lowPeak * 1.05, "High velocity should result in higher peak than low velocity");
   }
 
   // @Test
@@ -140,12 +138,9 @@ public class ParameterHookupTest {
     bridge.setTrackLevel(track, 1.0);
     float highLevelPeak = getPeakAfterAdvance(44100 * 2);
 
-
     assertTrue(lowLevelPeak > 0.001f, "Low level should result in some signal");
     assertTrue(
-        highLevelPeak > lowLevelPeak * 1.05,
-        "Higher track level should result in higher peak");
-
+        highLevelPeak > lowLevelPeak * 1.05, "Higher track level should result in higher peak");
   }
 
   // @Test

@@ -36,7 +36,8 @@ public class VerifySync {
     org.chuck.deluge.project.ProjectSerializer.save(
         model,
         new java.io.File(
-            "/usr/local/google/home/ludo/a/chuckjava/deluge/src/main/resources/SONGS/song3.xml"));
+            System.getProperty("project.basedir", System.getProperty("user.dir"))
+                + "/src/main/resources/SONGS/song3.xml"));
     System.out.println("VerifySync: song3.xml written on disk!");
 
     System.out.println("=== MODEL STATE ===");

@@ -101,7 +101,7 @@
                   </artifactSet>
                   <transformers>
                     <transformer>
-                      <mainClass>org.chuck.deluge.SequencerLauncher</mainClass>
+                      <mainClass>org.chuck.deluge.ui.SwingDelugeApp</mainClass>
                     </transformer>
                   </transformers>
                   <filters>
@@ -123,6 +123,20 @@
     </profile>
   </profiles>
   <dependencies>
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-controls</artifactId>
+      <version>25.0.2</version>
+      <classifier>linux</classifier>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-graphics</artifactId>
+      <version>25.0.2</version>
+      <classifier>linux</classifier>
+      <scope>compile</scope>
+    </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-api</artifactId>

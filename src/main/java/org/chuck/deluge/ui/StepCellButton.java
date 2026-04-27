@@ -47,35 +47,16 @@ public class StepCellButton extends ToggleButton {
         MouseEvent.MOUSE_PRESSED,
         e -> {
           if (e.getButton() == MouseButton.PRIMARY) {
-            String sp = (String) vm.getGlobalObject("g_sample_" + (baseTrack + rowId));
-            if (sp != null && !sp.isEmpty()) {
-              if (activeStutter != null) activeStutter.stop();
-              activeStutter =
-                  new javafx.animation.Timeline(
-                      new javafx.animation.KeyFrame(
-                          javafx.util.Duration.millis(150),
-                          ev -> {
-                            new Thread(
-                                    () -> {
-                                      try {
-                                        java.io.File file = new java.io.File(sp);
-                                        if (file.exists()) {
-                                          javax.sound.sampled.AudioInputStream stream =
-                                              javax.sound.sampled.AudioSystem.getAudioInputStream(
-                                                  file);
-                                          javax.sound.sampled.Clip clip =
-                                              javax.sound.sampled.AudioSystem.getClip();
-                                          clip.open(stream);
-                                          clip.start();
-                                        }
-                                      } catch (Exception ex) {
-                                      }
-                                    })
-                                .start();
-                          }));
-              activeStutter.setCycleCount(javafx.animation.Animation.INDEFINITE);
-              activeStutter.play();
-            }
+            if (activeStutter != null) activeStutter.stop();
+            activeStutter =
+                new javafx.animation.Timeline(
+                    new javafx.animation.KeyFrame(
+                        javafx.util.Duration.millis(150),
+                        ev -> {
+                          auditionRow();
+                        }));
+            activeStutter.setCycleCount(javafx.animation.Animation.INDEFINITE);
+            activeStutter.play();
           }
         });
 
@@ -98,31 +79,9 @@ public class StepCellButton extends ToggleButton {
               if (baseTrack + rowId + 7 < 64) bridge.setStep(baseTrack + rowId + 7, stepId, state);
             }
 
-            // Audition sound
+            // Audition sound via ChucK Core
             if (state) {
-              int trackType = bridge.getTrackType(baseTrack + rowId);
-              if (trackType == 2) return; // Silent for MIDI tracks
-
-              String sp = (String) vm.getGlobalObject("g_sample_" + (baseTrack + rowId));
-
-              if (sp != null && !sp.isEmpty()) {
-                new Thread(
-                        () -> {
-                          try {
-                            java.io.File file = new java.io.File(sp);
-                            if (file.exists()) {
-                              javax.sound.sampled.AudioInputStream stream =
-                                  javax.sound.sampled.AudioSystem.getAudioInputStream(file);
-                              javax.sound.sampled.Clip clip =
-                                  javax.sound.sampled.AudioSystem.getClip();
-                              clip.open(stream);
-                              clip.start();
-                            }
-                          } catch (Exception ex) {
-                          }
-                        })
-                    .start();
-              }
+              auditionRow();
             }
           }
         });
@@ -157,6 +116,12 @@ public class StepCellButton extends ToggleButton {
 
     addEventHandler(MouseEvent.MOUSE_PRESSED, this::handleMousePressed);
     addEventHandler(MouseEvent.MOUSE_DRAGGED, this::handleMouseDragged);
+  }
+
+  private void auditionRow() {
+    int targetSlot = isSynthMode ? baseTrack : baseTrack + rowId;
+    vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) targetSlot);
+    vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
   }
 
   public void setPlayheadActive(boolean active) {
