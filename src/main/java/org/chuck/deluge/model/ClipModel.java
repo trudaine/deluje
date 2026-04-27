@@ -22,6 +22,16 @@ public class ClipModel {
     initGrid();
   }
 
+  public ClipModel deepCopy(String newName) {
+    ClipModel copy = new ClipModel(newName, this.rowCount, this.stepCount);
+    for (int r = 0; r < rowCount; r++) {
+      for (int s = 0; s < stepCount; s++) {
+        copy.setStep(r, s, this.getStep(r, s));
+      }
+    }
+    return copy;
+  }
+
   private void initGrid() {
     grid.clear();
     for (int r = 0; r < rowCount; r++) {

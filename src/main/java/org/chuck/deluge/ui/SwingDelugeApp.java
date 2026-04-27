@@ -21,6 +21,10 @@ public class SwingDelugeApp extends JFrame {
   private JPanel centerCardPanel;
   private CardLayout cardLayout;
 
+  private org.chuck.deluge.model.ProjectModel currentProject =
+      org.chuck.deluge.model.ProjectModel.createDefaultProject();
+  private java.io.File currentProjectFile = null;
+
   private final org.chuck.deluge.midi.MidiService midiService;
 
   public SwingDelugeApp(
@@ -167,6 +171,77 @@ public class SwingDelugeApp extends JFrame {
         });
   }
 
+  private void loadProject(org.chuck.deluge.model.ProjectModel model) {
+    currentProject = model;
+    vm.setGlobalInt(BridgeContract.G_PLAY, 0L);
+    bridge.clearPattern();
+    for (int i = 0; i < 64; i++) bridge.setMute(i, false);
+
+    if (clipPanel != null) clipPanel.setProjectModel(model);
+    if (songPanel != null) songPanel.setProjectModel(model);
+    if (arrGridPanel != null) arrGridPanel.setProjectModel(model);
+
+    // Load kit sounds into engine globals
+    int engineRow = 0;
+    org.chuck.core.ChuckArray trackTypeArr =
+        (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
+    for (org.chuck.deluge.model.TrackModel track : model.getTracks()) {
+      if (engineRow >= BridgeContract.TRACKS) break;
+      boolean isSynth = track instanceof org.chuck.deluge.model.SynthTrackModel;
+      if (trackTypeArr != null) trackTypeArr.setInt(engineRow, isSynth ? 1L : 0L);
+      for (org.chuck.deluge.model.ClipModel clip : track.getClips()) {
+        for (int r = 0; r < clip.getRowCount(); r++) {
+          for (int s = 0; s < 16; s++) {
+            org.chuck.deluge.model.StepData step = clip.getStep(r, s);
+            if (step != null && step.active()) {
+              if (isSynth) {
+                bridge.setStep(engineRow, s, true);
+                bridge.setPitch(engineRow, s, (24 - 1) - r);
+              } else {
+                bridge.setStep(engineRow, s, true);
+              }
+            }
+          }
+        }
+      }
+      engineRow++;
+    }
+    vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+
+    setTitle(
+        "DELUGE WORKSTATION — "
+            + (currentProjectFile != null ? currentProjectFile.getName() : "Untitled"));
+  }
+
+  private void saveProject(boolean forceChooser) {
+    java.io.File target = currentProjectFile;
+    if (target == null || forceChooser) {
+      JFileChooser chooser = new JFileChooser();
+      chooser.setFileFilter(
+          new javax.swing.filechooser.FileNameExtensionFilter("Song XML", "xml", "XML"));
+      if (currentProjectFile != null) chooser.setSelectedFile(currentProjectFile);
+      if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
+      target = chooser.getSelectedFile();
+      if (!target.getName().toLowerCase().endsWith(".xml")) {
+        target = new java.io.File(target.getAbsolutePath() + ".xml");
+      }
+    }
+    try {
+      org.chuck.deluge.project.ProjectSerializer.save(currentProject, target);
+      currentProjectFile = target;
+      setTitle("DELUGE WORKSTATION — " + target.getName());
+    } catch (Exception ex) {
+      JOptionPane.showMessageDialog(
+          this, "Save failed:\n" + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+    }
+  }
+
+  private void propagateCurrentModel() {
+    if (clipPanel != null) clipPanel.setProjectModel(currentProject);
+    if (songPanel != null) songPanel.setProjectModel(currentProject);
+    if (arrGridPanel != null) arrGridPanel.setProjectModel(currentProject);
+  }
+
   private void setupUI() {
     getContentPane().removeAll();
     setLayout(new GridBagLayout());
@@ -176,18 +251,73 @@ public class SwingDelugeApp extends JFrame {
     // 0. Menu Bar
     JMenuBar menuBar = new JMenuBar();
     JMenu fileMenu = new JMenu("File");
+
     JMenuItem newItem = new JMenuItem("New Project");
     newItem.setAccelerator(
         KeyStroke.getKeyStroke(
             java.awt.event.KeyEvent.VK_N, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+    newItem.addActionListener(
+        e -> {
+          int ok =
+              JOptionPane.showConfirmDialog(
+                  this,
+                  "Create a new empty project? Unsaved changes will be lost.",
+                  "New Project",
+                  JOptionPane.OK_CANCEL_OPTION);
+          if (ok == JOptionPane.OK_OPTION) {
+            currentProjectFile = null;
+            loadProject(org.chuck.deluge.model.ProjectModel.createDefaultProject());
+          }
+        });
+
+    JMenuItem openItem = new JMenuItem("Open Project...");
+    openItem.setAccelerator(
+        KeyStroke.getKeyStroke(
+            java.awt.event.KeyEvent.VK_O, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+    openItem.addActionListener(
+        e -> {
+          JFileChooser chooser = new JFileChooser();
+          chooser.setFileFilter(
+              new javax.swing.filechooser.FileNameExtensionFilter("Song XML", "xml", "XML"));
+          if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+            try {
+              java.io.File file = chooser.getSelectedFile();
+              org.chuck.deluge.model.ProjectModel model =
+                  org.chuck.deluge.xml.DelugeXmlParser.parseSong(
+                      new java.io.FileInputStream(file), file.getName());
+              currentProjectFile = file;
+              loadProject(model);
+            } catch (Exception ex) {
+              JOptionPane.showMessageDialog(
+                  this,
+                  "Failed to open project:\n" + ex.getMessage(),
+                  "Error",
+                  JOptionPane.ERROR_MESSAGE);
+            }
+          }
+        });
+
     JMenuItem saveItem = new JMenuItem("Save Project");
     saveItem.setAccelerator(
         KeyStroke.getKeyStroke(
             java.awt.event.KeyEvent.VK_S, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+    saveItem.addActionListener(e -> saveProject(false));
+
+    JMenuItem saveAsItem = new JMenuItem("Save Project As...");
+    saveAsItem.setAccelerator(
+        KeyStroke.getKeyStroke(
+            java.awt.event.KeyEvent.VK_S,
+            java.awt.event.InputEvent.CTRL_DOWN_MASK | java.awt.event.InputEvent.SHIFT_DOWN_MASK));
+    saveAsItem.addActionListener(e -> saveProject(true));
+
     JMenuItem exitItem = new JMenuItem("Exit");
     exitItem.addActionListener(e -> System.exit(0));
+
     fileMenu.add(newItem);
+    fileMenu.add(openItem);
+    fileMenu.addSeparator();
     fileMenu.add(saveItem);
+    fileMenu.add(saveAsItem);
     fileMenu.addSeparator();
     fileMenu.add(exitItem);
 
@@ -451,15 +581,20 @@ public class SwingDelugeApp extends JFrame {
 
     clipPanel = new SwingGridPanel(vm, bridge);
     clipPanel.setViewMode(SwingGridPanel.GridViewMode.CLIP);
+    clipPanel.setProjectModel(currentProject);
+    clipPanel.setOnProjectChanged(this::propagateCurrentModel);
     centerCardPanel.add(clipPanel, "CLIP");
 
     songPanel = new SwingGridPanel(vm, bridge);
     songPanel.setViewMode(SwingGridPanel.GridViewMode.SONG);
+    songPanel.setProjectModel(currentProject);
+    songPanel.setOnProjectChanged(this::propagateCurrentModel);
     centerCardPanel.add(songPanel, "SONG");
 
     arrGridPanel = new SwingGridPanel(vm, bridge);
-
     arrGridPanel.setViewMode(SwingGridPanel.GridViewMode.ARRANGEMENT);
+    arrGridPanel.setProjectModel(currentProject);
+    arrGridPanel.setOnProjectChanged(this::propagateCurrentModel);
     centerCardPanel.add(arrGridPanel, "ARR");
 
     clipBtn.addActionListener(
@@ -475,22 +610,66 @@ public class SwingDelugeApp extends JFrame {
           cardLayout.show(centerCardPanel, "ARR");
         });
 
-    JButton btnExplorer = new JButton("📂 EXPLORER");
+    JButton addKitBtn = new JButton("+ KIT");
+    addKitBtn.setBackground(new Color(0x33, 0x44, 0x55));
+    addKitBtn.setForeground(Color.WHITE);
+    addKitBtn.setToolTipText("Add a new Kit (drum) track to the song");
+    addKitBtn.addActionListener(
+        e -> {
+          String name =
+              JOptionPane.showInputDialog(
+                  this, "Kit track name:", "KIT " + (currentProject.getTracks().size() + 1));
+          if (name != null && !name.isBlank()) {
+            org.chuck.deluge.model.KitTrackModel kit =
+                new org.chuck.deluge.model.KitTrackModel(name);
+            kit.addClip(new org.chuck.deluge.model.ClipModel("CLIP 1", 8, 16));
+            currentProject.addTrack(kit);
+            propagateCurrentModel();
+          }
+        });
+
+    JButton addSynthBtn = new JButton("+ SYNTH");
+    addSynthBtn.setBackground(new Color(0x44, 0x33, 0x55));
+    addSynthBtn.setForeground(Color.WHITE);
+    addSynthBtn.setToolTipText("Add a new Synth track to the song");
+    addSynthBtn.addActionListener(
+        e -> {
+          String name =
+              JOptionPane.showInputDialog(
+                  this, "Synth track name:", "SYNTH " + (currentProject.getTracks().size() + 1));
+          if (name != null && !name.isBlank()) {
+            org.chuck.deluge.model.SynthTrackModel synth =
+                new org.chuck.deluge.model.SynthTrackModel(name);
+            synth.addClip(new org.chuck.deluge.model.ClipModel("CLIP 1", 8, 16));
+            currentProject.addTrack(synth);
+            propagateCurrentModel();
+          }
+        });
+
+    JButton btnExplorer = new JButton("EXPLORER");
     btnExplorer.addActionListener(e -> leftFloat.setVisible(!leftFloat.isVisible()));
 
-    JButton btnMonitor = new JButton("📊 MONITOR");
+    JButton btnMonitor = new JButton("MONITOR");
     btnMonitor.addActionListener(e -> rightFloat.setVisible(!rightFloat.isVisible()));
 
     if (isHdOpt) {
       topRow1.add(clipBtn);
       topRow1.add(songBtn);
       topRow1.add(arrBtn);
+      topRow1.add(new JSeparator(JSeparator.VERTICAL));
+      topRow1.add(addKitBtn);
+      topRow1.add(addSynthBtn);
+      topRow1.add(new JSeparator(JSeparator.VERTICAL));
       topRow1.add(btnExplorer);
       topRow1.add(btnMonitor);
     } else {
       topBar.add(clipBtn);
       topBar.add(songBtn);
       topBar.add(arrBtn);
+      topBar.add(new JSeparator(JSeparator.VERTICAL));
+      topBar.add(addKitBtn);
+      topBar.add(addSynthBtn);
+      topBar.add(new JSeparator(JSeparator.VERTICAL));
       topBar.add(btnExplorer);
       topBar.add(btnMonitor);
       topBar.add(new JSeparator(JSeparator.VERTICAL));
@@ -663,19 +842,10 @@ public class SwingDelugeApp extends JFrame {
         new SwingProjectSidebarPanel(vm, bridge, midiService);
     sidebarPanel.setOnSongLoaded(
         model -> {
-          System.out.println(
-              "Swing Callback: Song model loaded! Tracks: " + model.getTracks().size());
-          songPanel.setProjectModel(model);
-          if (clipPanel != null) clipPanel.setProjectModel(model);
-          if (arrGridPanel != null) arrGridPanel.setProjectModel(model);
+          // Load shared project state (clears pattern, updates all panels, fires engine reload)
+          loadProject(model);
 
-          // Stop playback and clear state before loading new song
-          vm.setGlobalInt(BridgeContract.G_PLAY, 0L);
-          bridge.clearPattern();
-          for (int i = 0; i < 64; i++) {
-            bridge.setMute(i, false);
-          }
-
+          // Switch view depending on track count
           if (model.getTracks().size() == 1) {
             cardLayout.show(centerCardPanel, "CLIP");
             if (clipBtn != null) clipBtn.setSelected(true);
@@ -687,14 +857,13 @@ public class SwingDelugeApp extends JFrame {
             cardLayout.show(centerCardPanel, "SONG");
           }
 
-          // Load kit sample paths + per-sound params from first kit track
+          // Push kit-sound params from model into engine globals
+          // (g_sample_N is already set by the sidebar with resolved temp-file paths)
           for (org.chuck.deluge.model.TrackModel track : model.getTracks()) {
             if (track instanceof org.chuck.deluge.model.KitTrackModel kt) {
               java.util.List<org.chuck.deluge.model.KitTrackModel.KitSound> sounds = kt.getSounds();
               for (int i = 0; i < sounds.size(); i++) {
                 org.chuck.deluge.model.KitTrackModel.KitSound snd = sounds.get(i);
-                // g_sample_N is already set by the sidebar with resolved temp-file paths — do not
-                // overwrite
                 ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_PITCH))
                     .setFloat(i, snd.getPitchSemitones());
                 ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_MUTE_GROUP))
@@ -713,39 +882,9 @@ public class SwingDelugeApp extends JFrame {
                       .setFloat(i, adsr.release());
                 }
               }
-              break; // first kit track owns rows 0-3
+              break;
             }
           }
-
-          // Each model track maps to one engine row in order; G_TRACK_TYPE marks kit(0)/synth(1)
-          int engineRow = 0;
-          org.chuck.core.ChuckArray trackTypeArr =
-              (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
-          for (org.chuck.deluge.model.TrackModel track : model.getTracks()) {
-            if (engineRow >= BridgeContract.TRACKS) break;
-            boolean isSynth = track instanceof org.chuck.deluge.model.SynthTrackModel;
-            if (trackTypeArr != null) trackTypeArr.setInt(engineRow, isSynth ? 1L : 0L);
-            for (org.chuck.deluge.model.ClipModel clip : track.getClips()) {
-              for (int r = 0; r < clip.getRowCount(); r++) {
-                for (int s = 0; s < 16; s++) {
-                  org.chuck.deluge.model.StepData step = clip.getStep(r, s);
-                  if (step != null && step.active()) {
-                    if (isSynth) {
-                      bridge.setStep(engineRow, s, true);
-                      bridge.setPitch(engineRow, s, (24 - 1) - r);
-                    } else {
-                      bridge.setStep(engineRow, s, true);
-                    }
-                  }
-                }
-              }
-            }
-            engineRow++;
-          }
-
-          // Signal engine to reload samples
-          vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
-          clipPanel.repaint();
         });
 
     floatingSidebar.setOnSongLoaded(sidebarPanel.getOnSongLoaded());

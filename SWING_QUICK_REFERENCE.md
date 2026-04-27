@@ -51,6 +51,44 @@
 
 ---
 
+## Song / Project Lifecycle `PL`
+
+### PL-A: Song operations
+
+| # | Action | How | Notes |
+| :--- | :--- | :--- | :--- |
+| PL01 | **New Song** | `Ctrl+N` or File > New Project | Confirms before discarding unsaved changes; creates 1 Kit + 1 Synth track |
+| PL02 | **Open Song** | `Ctrl+O` or File > Open Project | File chooser → parses Song XML; engine reloads samples |
+| PL03 | **Save Song** | `Ctrl+S` or File > Save Project | Saves to current file; shows Save As dialog if not yet saved |
+| PL04 | **Save Song As** | `Ctrl+Shift+S` or File > Save Project As | New filename; window title updates |
+| PL05 | **Duplicate Song** | File > Save Project As, then `Ctrl+N` to start fresh | Saves current state as a new file; original is unaffected |
+| PL06 | **Open Synth editor standalone** | Sidebar → double-click a file in SYNTHS/ | Loads as a single-track CLIP-mode view |
+| PL07 | **Open Kit editor standalone** | Sidebar → double-click a file in KITS/ | Loads as a single-track CLIP-mode view |
+
+### PL-B: Track management
+
+| # | Action | How | Notes |
+| :--- | :--- | :--- | :--- |
+| PL10 | **Add Kit track** | Toolbar "+ KIT" button | Prompts for name; adds a Kit row with one empty clip |
+| PL11 | **Add Synth track** | Toolbar "+ SYNTH" button | Prompts for name; adds a Synth row with one empty clip |
+| PL12 | **Rename track** | Right-click row header → Rename | In-place prompt |
+| PL13 | **Set track color** | Right-click row header → Set Color | Color chooser; saved to XML |
+| PL14 | **Move track up** | Right-click row header → Move Up | Disabled when track is already first |
+| PL15 | **Move track down** | Right-click row header → Move Down | Disabled when track is already last |
+| PL16 | **Delete track** | Right-click row header → Delete Track | Confirmation dialog; removes all clips |
+
+### PL-C: Clip management (in Song View)
+
+| # | Action | How | Notes |
+| :--- | :--- | :--- | :--- |
+| PL20 | **Add clip to track** | In SONG view, left-click an empty pad slot in the track's row | Creates a new empty clip at that position |
+| PL21 | **Rename clip** | In SONG view, right-click a clip pad → Rename Clip | In-place prompt |
+| PL22 | **Duplicate clip** | In SONG view, right-click a clip pad → Duplicate Clip | Deep copy; appended after existing clips |
+| PL23 | **Delete clip** | In SONG view, right-click a clip pad → Delete Clip | Confirmation; a track must retain at least one clip |
+| PL24 | **Copy clip between songs** | Duplicate source song (PL05), then open target song and use LOAD XML to import | Full inter-song clipboard ⚠ not yet implemented |
+
+---
+
 ## GLOBAL `GL`
 
 | # | Action | How |
@@ -60,9 +98,10 @@
 | GL03 | Scroll grid up/down | `Wheel` on grid |
 | GL04 | Undo | `Ctrl+Z` |
 | GL05 | Redo | `Ctrl+Shift+Z` or `Ctrl+Y` |
-| GL06 | Load Song (XML) | Sidebar → double-click SONGS file, or **File > Open** |
-| GL07 | Save Song | `Ctrl+S` |
-| GL08 | New Song | `Ctrl+N` |
+| GL06 | Load Song (XML) | `Ctrl+O` or File > Open Project, or Sidebar double-click |
+| GL07 | Save Song | `Ctrl+S` or File > Save Project |
+| GL07b | Save Song As | `Ctrl+Shift+S` or File > Save Project As |
+| GL08 | New Song | `Ctrl+N` or File > New Project |
 | GL09 | Save + Collect All Samples | ⚠ not yet implemented |
 | GL10 | Change Tempo | BPM slider (toolbar), or `Ctrl+Up/Down` |
 | GL11 | Tap Tempo | `T` (focus on main window) |

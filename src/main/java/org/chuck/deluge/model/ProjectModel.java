@@ -168,6 +168,22 @@ public class ProjectModel {
     notifyTrackListChanged();
   }
 
+  public void moveTrackUp(int index) {
+    if (index > 0 && index < tracks.size()) {
+      TrackModel t = tracks.remove(index);
+      tracks.add(index - 1, t);
+      notifyTrackListChanged();
+    }
+  }
+
+  public void moveTrackDown(int index) {
+    if (index >= 0 && index < tracks.size() - 1) {
+      TrackModel t = tracks.remove(index);
+      tracks.add(index + 1, t);
+      notifyTrackListChanged();
+    }
+  }
+
   public Map<String, PatternModel> getPatterns() {
     return patterns;
   }
