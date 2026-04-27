@@ -148,9 +148,12 @@ public class DelugeEngineDSL implements Shred, Runnable {
       ChuckArray kitSus = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_SUSTAIN);
       ChuckArray kitRel = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_RELEASE);
       ChuckArray kitMuteGrp = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_MUTE_GROUP);
+      ChuckArray trkLen = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_LENGTH);
+      ChuckArray lfoVal = (ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_VALUE);
+      ChuckArray lfoTgt = (ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_TARGET);
+      ChuckArray lfoTrk = (ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_TRACK);
 
       master.gain((float) vm.getGlobalFloat(BridgeContract.G_MASTER_VOL));
-      int step = (int) (currentStep % 16);
 
       // Update per-track sends and ADSR for all tracks each tick
       for (int r = 0; r < kit.length; r++) {
@@ -170,7 +173,22 @@ public class DelugeEngineDSL implements Shred, Runnable {
         if (trackType != null && trackType.getInt(r) != 0) continue;
         if (mute != null && mute.getInt(r) != 0) continue;
 
+        // Per-track LFO contributions (pitch=3, vol=4)
+        double lfoPit = 0, lfoV = 0;
+        for (int l = 0; l < BridgeContract.LFO_COUNT; l++) {
+          long lfoTrackTarget = lfoTrk != null ? lfoTrk.getInt(l) : -1L;
+          if (lfoTrackTarget != -1L && lfoTrackTarget != r) continue;
+          double lv = lfoVal != null ? lfoVal.getFloat(l) : 0.0;
+          int tgt = lfoTgt != null ? (int) lfoTgt.getInt(l) : -1;
+          if (tgt == 3) lfoPit += lv;
+          else if (tgt == 4) lfoV += lv;
+        }
+
+        // Per-track polyrhythm step
+        int len = trkLen != null ? (int) Math.max(1, Math.min(16, trkLen.getInt(r))) : 16;
+        int step = (int) (currentStep % len);
         int idx = r * 16 + step;
+
         if (pat == null || pat.getInt(idx) == 0) continue;
         if (prob != null && Math.random() > prob.getFloat(idx)) continue;
 
@@ -190,7 +208,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
         if (r == 0) sidechainEvent.broadcast();
 
         double pitchSemi = (kitPitch != null) ? kitPitch.getFloat(r) : 0.0;
-        double rate = Math.pow(2.0, pitchSemi / 12.0);
+        double rate = Math.pow(2.0, (pitchSemi + lfoPit * 12.0) / 12.0);
         boolean reverse = (kitRev != null) && kitRev.getInt(r) != 0;
         long samples = Math.max(1, kit[r].samples());
 
@@ -208,7 +226,8 @@ public class DelugeEngineDSL implements Shred, Runnable {
           kit[r].pos(startPos);
         }
 
-        float gain = (float) (vel.getFloat(idx) * trkLvl.getFloat(r) * 0.8);
+        float gain = (float) (vel.getFloat(idx) * trkLvl.getFloat(r) * 0.8
+            * Math.max(0.0, 1.0 + lfoV * 0.5));
         kit[r].gain(gain);
         kitEnv[r].keyOn();
 
@@ -391,22 +410,47 @@ public class DelugeEngineDSL implements Shred, Runnable {
       ChuckArray revSnd = (ChuckArray) vm.getGlobalObject(BridgeContract.G_REVERB_SEND);
       ChuckArray trackType = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
 
-      int step = (int) (currentStep % 16);
       double masterPan = vm.getGlobalFloat(BridgeContract.G_MASTER_PAN);
+      ChuckArray trkLen = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_LENGTH);
+      ChuckArray lfoVal = (ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_VALUE);
+      ChuckArray lfoTgt = (ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_TARGET);
+      ChuckArray lfoTrk = (ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_TRACK);
 
       for (int r = 0; r < car.length; r++) {
         // Only process Synth tracks (Type 1)
         if (trackType != null && trackType.getInt(r) != 1) continue;
 
+        // Per-track LFO contributions
+        double lfoF = 0, lfoQ = 0, lfoP = 0, lfoPit = 0, lfoV = 0, lfoFm = 0;
+        for (int l = 0; l < BridgeContract.LFO_COUNT; l++) {
+          long lfoTrackTarget = lfoTrk != null ? lfoTrk.getInt(l) : -1L;
+          if (lfoTrackTarget != -1L && lfoTrackTarget != r) continue;
+          double lv = lfoVal != null ? lfoVal.getFloat(l) : 0.0;
+          int tgt = lfoTgt != null ? (int) lfoTgt.getInt(l) : -1;
+          switch (tgt) {
+            case 0 -> lfoF += lv;
+            case 1 -> lfoQ += lv;
+            case 2 -> lfoP += lv;
+            case 3 -> lfoPit += lv;
+            case 4 -> lfoV += lv;
+            case 5 -> lfoFm += lv;
+          }
+        }
+
+        // Per-track polyrhythm step
+        int len = trkLen != null ? (int) Math.max(1, Math.min(16, trkLen.getInt(r))) : 16;
+        int step = (int) (currentStep % len);
+        int idx = r * 16 + step;
+
         sDsend[r].gain(dlySnd != null ? (float) dlySnd.getFloat(r) : 0.0f);
         sRsend[r].gain(revSnd != null ? (float) revSnd.getFloat(r) : 0.15f);
 
-        int idx = r * 16 + step;
         if (oscType != null) car[r].index((int) oscType.getInt(r));
 
-        double tf = (gFil.getFloat(r * 2) + sFil.getFloat(idx)) * 10000.0 + 100.0;
-        double tq = (gFil.getFloat(r * 2 + 1) + sRes.getFloat(idx)) * 4.0 + 1.0;
-        double tp = masterPan + (sPan != null ? sPan.getFloat(idx) : 0.0);
+        double tf = (gFil.getFloat(r * 2) + sFil.getFloat(idx)) * 10000.0 + 100.0
+            + lfoF * 5000.0;
+        double tq = (gFil.getFloat(r * 2 + 1) + sRes.getFloat(idx)) * 4.0 + 1.0 + lfoQ * 3.0;
+        double tp = masterPan + (sPan != null ? sPan.getFloat(idx) : 0.0) + lfoP;
         fil[r].freq((float) Math.max(20.0, Math.min(20000.0, tf)));
         fil[r].Q((float) Math.max(1.0, Math.min(10.0, tq)));
         pan[r].pan((float) Math.max(-1.0, Math.min(1.0, tp)));
@@ -423,7 +467,8 @@ public class DelugeEngineDSL implements Shred, Runnable {
         if (isNewStep) {
           if (prob != null && Math.random() > prob.getFloat(idx)) continue;
 
-          double gainVal = vel.getFloat(idx) * trkLvl.getFloat(r) * 0.8;
+          double gainVal = vel.getFloat(idx) * trkLvl.getFloat(r) * 0.8
+              * Math.max(0.0, 1.0 + lfoV * 0.5);
           double gateSec =
               (gateArr != null ? gateArr.getFloat(idx) : 0.9)
                   * stepDuration(step % 2).samples()
@@ -434,10 +479,13 @@ public class DelugeEngineDSL implements Shred, Runnable {
             int v = r;
             vm.spork(() -> run_arp(v, baseMidi, (float) gainVal, car[v], mod[v], env[v]));
           } else {
-            double f = mtof(pitch.getInt(idx) + 60);
+            double f = mtof(pitch.getInt(idx) + 60) * Math.pow(2.0, lfoPit);
             car[r].freq((float) f);
-            mod[r].freq((float) (f * (fmRatio != null ? fmRatio.getFloat(r) : 1.0)));
-            mod[r].gain((float) ((fmAmt != null ? fmAmt.getFloat(r) : 0.0) * 1000.0));
+            double fmR = fmRatio != null ? fmRatio.getFloat(r) : 1.0;
+            double fmA = (fmAmt != null ? fmAmt.getFloat(r) : 0.0)
+                * Math.max(0.0, 1.0 + lfoFm * 0.5);
+            mod[r].freq((float) (f * fmR));
+            mod[r].gain((float) (fmA * 1000.0));
             env[r].gain((float) gainVal);
             env[r].keyOn();
             double noteSec = gateSec;
@@ -483,6 +531,40 @@ public class DelugeEngineDSL implements Shred, Runnable {
     }
   }
 
+  // ── LFO SHRED ────────────────────────────────────────────────────────────
+
+  private void lfo_shred() {
+    double[] phase = new double[BridgeContract.LFO_COUNT];
+    double dt = 0.005; // 5ms update interval → 200Hz, smooth up to ~50Hz LFO
+    while (true) {
+      advance(ms(5));
+      ChuckArray lfoRate = (ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_RATE);
+      ChuckArray lfoType = (ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_TYPE);
+      ChuckArray lfoDepth = (ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_DEPTH);
+      ChuckArray lfoValue = (ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_VALUE);
+      if (lfoValue == null) continue;
+      for (int l = 0; l < BridgeContract.LFO_COUNT; l++) {
+        double rate = lfoRate != null ? lfoRate.getFloat(l) : 1.0;
+        double depth = lfoDepth != null ? lfoDepth.getFloat(l) : 0.0;
+        if (depth == 0.0) {
+          lfoValue.setFloat(l, 0.0f);
+          continue;
+        }
+        phase[l] = (phase[l] + rate * dt) % 1.0;
+        int type = lfoType != null ? (int) lfoType.getInt(l) : 0;
+        double raw =
+            switch (type) {
+              case 1 -> 2.0 * phase[l] - 1.0; // saw
+              case 2 -> phase[l] < 0.5 ? 1.0 : -1.0; // square
+              case 3 -> // triangle
+                  phase[l] < 0.5 ? (4.0 * phase[l] - 1.0) : (3.0 - 4.0 * phase[l]);
+              default -> Math.sin(2.0 * Math.PI * phase[l]); // sine
+            };
+        lfoValue.setFloat(l, (float) (raw * depth));
+      }
+    }
+  }
+
   // ── CLOCK SHRED ──────────────────────────────────────────────────────────
 
   private void clock_shred() {
@@ -501,7 +583,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
       }
       prevPlay = play;
       if (vm.getGlobalInt(BridgeContract.G_STUTTER_ON) == 0) {
-        vm.setGlobalInt(BridgeContract.G_CURRENT_STEP, (long) (step % 16));
+        vm.setGlobalInt(BridgeContract.G_CURRENT_STEP, (long) step);
         ((ChuckEvent) vm.getGlobalObject(BridgeContract.E_TICK)).broadcast();
         advance(stepDuration(step % 2));
         step++;
@@ -631,6 +713,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
     vm.spork(this::kit_shred);
     vm.spork(this::synth_shred);
     vm.spork(this::sidechain_shred);
+    vm.spork(this::lfo_shred);
     while (true) {
       advance(ms(100));
     }
