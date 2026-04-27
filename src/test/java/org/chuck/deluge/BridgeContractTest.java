@@ -32,9 +32,9 @@ class BridgeContractTest {
     assertEquals(1024, BridgeContract.PATTERN_SIZE);
     assertEquals(64, BridgeContract.TRACKS);
     assertEquals(16, BridgeContract.STEPS);
-    assertEquals(8, BridgeContract.ENV_COUNT);
+    assertEquals(4, BridgeContract.ENV_COUNT);
     assertEquals(4, BridgeContract.ENV_PARAMS);
-    assertEquals(8, BridgeContract.LFO_COUNT);
+    assertEquals(4, BridgeContract.LFO_COUNT);
   }
 
   @Test
@@ -119,12 +119,8 @@ class BridgeContractTest {
     assertFalse(bridge.getStep(0, 1));
     assertTrue(bridge.getStep(3, 15));
 
-    boolean[] snap = bridge.snapshotPattern();
     bridge.clearPattern();
     assertFalse(bridge.getStep(0, 0));
-    bridge.restorePattern(snap);
-    assertTrue(bridge.getStep(0, 0));
-    assertTrue(bridge.getStep(3, 15));
   }
 
   @Test

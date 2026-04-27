@@ -21,10 +21,16 @@ public class SequencerLauncher {
       vm.setAudio(audio);
       audio.start();
 
-      // Spork Java DSL Engine Orchestrator
-      org.chuck.deluge.engine.DelugeEngine engine =
-          new org.chuck.deluge.engine.DelugeEngine(vm, bridge);
-      vm.spork(engine::shred);
+      // Spork the correct engine based on bridge flag (default: Java DSL)
+      if (bridge.isUseJavaEngine()) {
+        org.chuck.deluge.engine.DelugeEngineDSL dslEngine =
+            new org.chuck.deluge.engine.DelugeEngineDSL();
+        vm.spork(dslEngine);
+      } else {
+        org.chuck.deluge.engine.DelugeEngine engine =
+            new org.chuck.deluge.engine.DelugeEngine(vm, bridge);
+        vm.spork(engine::shred);
+      }
 
       org.chuck.deluge.midi.MidiInputRouter router =
           new org.chuck.deluge.midi.MidiInputRouter(vm, bridge);

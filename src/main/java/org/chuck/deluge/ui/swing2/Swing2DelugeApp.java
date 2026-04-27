@@ -158,11 +158,12 @@ public class Swing2DelugeApp extends JFrame {
                       }
                       try {
                         if (resIs != null) {
-                          java.io.File tempFile =
+                          java.io.File scratchDir =
                               new java.io.File(
-                                  System.getProperty("user.home")
-                                      + "/.gemini/jetski/scratch/"
-                                      + new java.io.File(sp).getName());
+                                  System.getProperty("java.io.tmpdir"), "deluge-scratch");
+                          scratchDir.mkdirs();
+                          java.io.File tempFile =
+                              new java.io.File(scratchDir, new java.io.File(sp).getName());
                           java.nio.file.Files.copy(
                               resIs,
                               tempFile.toPath(),

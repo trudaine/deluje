@@ -1,6 +1,7 @@
 package org.chuck.deluge.engine;
 
 import static org.chuck.core.ChuckDSL.*;
+
 import org.chuck.audio.*;
 import org.chuck.audio.filter.*;
 import org.chuck.audio.fx.*;
@@ -10,250 +11,628 @@ import org.chuck.core.*;
 import org.chuck.deluge.BridgeContract;
 
 /**
- * Native Java implementation of the Deluge Engine using the ChucK-Java DSL.
- * Version 1.9.3: Persistent shreds to avoid resource leakage and thread explosion.
+ * Native Java implementation of the Deluge Engine using the ChucK-Java DSL. Scaled to support up to
+ * 64 tracks as defined in the Object Model.
  */
 public class DelugeEngineDSL implements Shred, Runnable {
 
-    private ChuckVM vm;
+  private ChuckVM vm;
 
-    @Override
-    public void run() {
-        shred();
+  private static final float[][] WAVE_TABLES = buildWaveTables();
+
+  private static float[][] buildWaveTables() {
+    float[][] t = new float[4][256];
+    for (int i = 0; i < 256; i++) {
+      t[0][i] = (float) Math.sin(2.0 * Math.PI * i / 256.0);
+      t[1][i] = (float) (2.0 * (i / 256.0) - 1.0);
+      t[2][i] = (i < 128) ? 1.0f : -1.0f;
+      t[3][i] = (i < 128) ? (i / 64.0f - 1.0f) : (3.0f - i / 64.0f);
+    }
+    return t;
+  }
+
+  @Override
+  public void run() {
+    shred();
+  }
+
+  @Override
+  public void shred() {
+    this.vm = ChuckVM.CURRENT_VM.get();
+    transport_shred();
+  }
+
+  private ChuckDuration stepDuration(int step) {
+    double bpm = vm.getGlobalFloat(BridgeContract.G_BPM);
+    if (bpm < 1.0) bpm = 120.0;
+    double swing = Math.max(0.0, Math.min(1.0, vm.getGlobalFloat(BridgeContract.G_SWING)));
+    double baseSec = 60.0 / bpm / 4.0;
+    if (step % 2 == 0) return second(baseSec * (1.0 + (swing - 0.5) * 0.4));
+    return second(baseSec * (1.0 - (swing - 0.5) * 0.4));
+  }
+
+  private double mtof(double m) {
+    return 440.0 * Math.pow(2.0, (m - 69.0) / 12.0);
+  }
+
+  // ── KIT SHRED ────────────────────────────────────────────────────────────
+
+  private void kit_shred() {
+    float sr = (float) sampleRate();
+    Gain master = new Gain();
+    HPF hpf = new HPF(sr);
+    Dyno limit = new Dyno(sr);
+    master.chuck(hpf).chuck(limit).chuck(dac());
+    hpf.freq(20);
+    limit.limiter();
+
+    // Wait for the first song load before building voice graph
+    ChuckEvent loadEvent = (ChuckEvent) vm.getGlobalObject(BridgeContract.G_LOAD_TRIGGER);
+    advance(loadEvent);
+
+    // Count actual kit voices from G_TRACK_TYPE (type 0 = kit)
+    ChuckArray trackTypeInit = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
+    int voiceCount = 0;
+    for (int i = 0; i < BridgeContract.TRACKS; i++) {
+      if (trackTypeInit == null || trackTypeInit.getInt(i) == 0) {
+        // Count only rows that have a sample path set
+        Object p = vm.getGlobalObject("g_sample_" + i);
+        if (p instanceof String s && !s.isEmpty()) voiceCount = i + 1;
+      }
+    }
+    if (voiceCount < 1) voiceCount = 1;
+
+    SndBuf[] kit = new SndBuf[voiceCount];
+    Pan2[] pan = new Pan2[voiceCount];
+    Gain[] dSend = new Gain[voiceCount];
+    Gain[] rSend = new Gain[voiceCount];
+    DelugeAdsr[] kitEnv = new DelugeAdsr[voiceCount];
+
+    for (int i = 0; i < voiceCount; i++) {
+      kit[i] = new SndBuf();
+      kit[i].rate(0);
+      pan[i] = new Pan2();
+      dSend[i] = new Gain();
+      rSend[i] = new Gain();
+      kitEnv[i] = new DelugeAdsr();
+      kit[i].chuck(kitEnv[i]).chuck(pan[i]).chuck(master);
+      pan[i].chuck(dSend[i]).chuck((ChuckUGen) vm.getGlobalObject(BridgeContract.G_DELAY_IN));
+      pan[i].chuck(rSend[i]).chuck((ChuckUGen) vm.getGlobalObject(BridgeContract.G_REVERB_IN));
+      kitEnv[i].forceMute();
+      kitEnv[i].set(0.001, 0, 1, 0.05);
+      dSend[i].gain(0.0f);
+      rSend[i].gain(0.15f);
     }
 
-    @Override
-    public void shred() {
-        this.vm = ChuckVM.CURRENT_VM.get();
-        transport_shred();
-    }
+    loadKitSamples(kit);
 
-    private ChuckDuration stepDuration(int step) {
-        double bpm = vm.getGlobalFloat(BridgeContract.G_BPM);
-        if (bpm < 1.0) bpm = 120.0;
-        double swing = Math.max(0.0, Math.min(1.0, vm.getGlobalFloat(BridgeContract.G_SWING)));
-        double baseSec = 60.0 / bpm / 4.0;
-        if (step % 2 == 0) return second(baseSec * (1.0 + (swing - 0.5) * 0.4));
-        return second(baseSec * (1.0 - (swing - 0.5) * 0.4));
-    }
+    SndBuf[] kitRef = kit;
+    DelugeAdsr[] kitEnvRef = kitEnv;
+    vm.spork(() -> kit_preview_shred(kitRef, kitEnvRef));
+    vm.spork(() -> kit_reload_shred(kitRef));
 
-    private void monitor_sample_end(SndBuf buf, long endPos) {
-        if (buf == null) return;
-        while (buf.pos() < endPos && buf.rate() > 0) {
-            advance(ms(5));
+    ChuckEvent tickEvent = (ChuckEvent) vm.getGlobalObject(BridgeContract.E_TICK);
+    ChuckEvent sidechainEvent = (ChuckEvent) vm.getGlobalObject(BridgeContract.E_SIDECHAIN);
+    long lastStep = -1;
+
+    while (true) {
+      advance(tickEvent);
+      if (vm.getGlobalInt(BridgeContract.G_PLAY) == 0) {
+        lastStep = -1;
+        for (int r = 0; r < kit.length; r++) {
+          kitEnv[r].keyOff();
+          kit[r].rate(0);
         }
-        if (buf != null) { buf.rate(0); buf.pos(buf.samples()); }
-    }
+        continue;
+      }
 
-    private void kit_shred() {
-        float sr = (float)sampleRate();
-        SndBuf[] kit = new SndBuf[4];
-        Pan2[] pan = new Pan2[4];
-        Gain[] dSend = new Gain[4];
-        Gain[] rSend = new Gain[4];
-        Gain master = new Gain();
-        HPF hpf = new HPF(sr);
-        Dyno limit = new Dyno(sr);
-        DelugeAdsr gate = new DelugeAdsr();
+      long currentStep = vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
+      if (currentStep == lastStep) continue;
+      lastStep = currentStep;
 
-        master.chuck(hpf).chuck(limit).chuck(gate).chuck(dac());
-        hpf.freq(20); limit.limiter();
-        advance(ms(100)); gate.forceMute(); gate.set(0.001, 0, 1, 0.001);
+      ChuckArray pat = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PATTERN);
+      ChuckArray vel = (ChuckArray) vm.getGlobalObject(BridgeContract.G_VELOCITY);
+      ChuckArray mute = (ChuckArray) vm.getGlobalObject(BridgeContract.G_MUTE);
+      ChuckArray trkLvl = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_LEVEL);
+      ChuckArray sStart = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_START);
+      ChuckArray sEnd = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_END);
+      ChuckArray prob = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PROBABILITY);
+      ChuckArray dlySnd = (ChuckArray) vm.getGlobalObject(BridgeContract.G_DELAY_SEND);
+      ChuckArray revSnd = (ChuckArray) vm.getGlobalObject(BridgeContract.G_REVERB_SEND);
+      ChuckArray kitPitch = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_PITCH);
+      ChuckArray kitRev = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_REVERSE);
+      ChuckArray trackType = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
 
-        String[] samples = {"examples/data/kick.wav", "examples/data/snare.wav", "examples/data/hihat.wav", "examples/data/hihat-open.wav"};
-        for (int i = 0; i < 4; i++) {
-            kit[i] = new SndBuf(); kit[i].read(samples[i]); kit[i].rate(0); kit[i].pos(kit[i].samples());
-            pan[i] = new Pan2(); dSend[i] = new Gain(); rSend[i] = new Gain();
-            kit[i].chuck(pan[i]).chuck(master);
-            pan[i].chuck(dSend[i]).chuck((ChuckUGen)vm.getGlobalObject(BridgeContract.G_DELAY_IN));
-            pan[i].chuck(rSend[i]).chuck((ChuckUGen)vm.getGlobalObject(BridgeContract.G_REVERB_IN));
+      ChuckArray kitAtk = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_ATTACK);
+      ChuckArray kitDec = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_DECAY);
+      ChuckArray kitSus = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_SUSTAIN);
+      ChuckArray kitRel = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_RELEASE);
+      ChuckArray kitMuteGrp = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_MUTE_GROUP);
+
+      master.gain((float) vm.getGlobalFloat(BridgeContract.G_MASTER_VOL));
+      int step = (int) (currentStep % 16);
+
+      // Update per-track sends and ADSR for all tracks each tick
+      for (int r = 0; r < kit.length; r++) {
+        dSend[r].gain(dlySnd != null ? (float) dlySnd.getFloat(r) : 0.0f);
+        rSend[r].gain(revSnd != null ? (float) revSnd.getFloat(r) : 0.15f);
+        if (kitAtk != null) {
+          double a = kitAtk.getFloat(r);
+          double d = kitDec != null ? kitDec.getFloat(r) : 0;
+          double s = kitSus != null ? kitSus.getFloat(r) : 1;
+          double rl = kitRel != null ? kitRel.getFloat(r) : 0.05;
+          kitEnv[r].set(Math.max(0.0001, a), d, s, Math.max(0.001, rl));
         }
+      }
 
-        ChuckEvent tickEvent = (ChuckEvent) vm.getGlobalObject(BridgeContract.E_TICK);
-        ChuckEvent sidechainEvent = (ChuckEvent) vm.getGlobalObject(BridgeContract.E_SIDECHAIN);
-        long lastStep = -1;
+      for (int r = 0; r < kit.length; r++) {
+        // Only process Kit tracks (Type 0)
+        if (trackType != null && trackType.getInt(r) != 0) continue;
+        if (mute != null && mute.getInt(r) != 0) continue;
 
-        while (true) {
-            advance(tickEvent);
-            if (vm.getGlobalInt(BridgeContract.G_PLAY) == 0) { lastStep = -1; continue; }
+        int idx = r * 16 + step;
+        if (pat == null || pat.getInt(idx) == 0) continue;
+        if (prob != null && Math.random() > prob.getFloat(idx)) continue;
 
-            long currentStep = vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
-            if (currentStep == lastStep) continue;
-            lastStep = currentStep;
-
-            ChuckArray pat = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PATTERN);
-            ChuckArray vel = (ChuckArray) vm.getGlobalObject(BridgeContract.G_VELOCITY);
-            ChuckArray mute = (ChuckArray) vm.getGlobalObject(BridgeContract.G_MUTE);
-            ChuckArray trkLvl = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_LEVEL);
-            ChuckArray sStart = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_START);
-            ChuckArray sEnd = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_END);
-
-            master.gain((float)vm.getGlobalFloat(BridgeContract.G_MASTER_VOL));
-            int step = (int) (currentStep % 16);
-
-            for (int r = 0; r < 4; r++) {
-                if (mute.getInt(r) != 0) continue;
-                int idx = r * 16 + step;
-                if (pat.getInt(idx) == 0) continue;
-                if (r == 0) sidechainEvent.broadcast();
-                kit[r].rate(1);
-                kit[r].pos((long)(sStart.getFloat(idx) * kit[r].samples()));
-                kit[r].gain((float)(vel.getFloat(idx) * trkLvl.getFloat(r) * 0.8));
-                long endSample = (long)(sEnd.getFloat(idx) * kit[r].samples());
-                int trackIdx = r;
-                vm.spork(() -> monitor_sample_end(kit[trackIdx], endSample));
-                gate.keyOn();
+        // Mute group choke
+        if (kitMuteGrp != null) {
+          long grp = kitMuteGrp.getInt(r);
+          if (grp > 0) {
+            for (int o = 0; o < kit.length; o++) {
+              if (o != r && kitMuteGrp.getInt(o) == grp) {
+                kit[o].rate(0);
+                kitEnv[o].keyOff();
+              }
             }
-        }
-    }
-
-    private void synth_shred() {
-        float sr = (float)sampleRate();
-        MorphingWavetable[] car = new MorphingWavetable[8];
-        MorphingWavetable[] mod = new MorphingWavetable[8];
-        SVFilter[] fil = new SVFilter[8];
-        DelugeAdsr[] env = new DelugeAdsr[8];
-        Pan2[] pan = new Pan2[8];
-        Gain synthBus = (Gain) vm.getGlobalObject(BridgeContract.G_SYNTH_BUS);
-
-        for (int i = 0; i < 8; i++) {
-            car[i] = new MorphingWavetable(sr); mod[i] = new MorphingWavetable(sr);
-            fil[i] = new SVFilter(); env[i] = new DelugeAdsr(); pan[i] = new Pan2();
-            mod[i].chuck(car[i]); car[i].chuck(fil[i]).chuck(env[i]).chuck(pan[i]).chuck(synthBus);
-            fil[i].reset(); fil[i].freq(5000); env[i].set(0.05, 0.2, 0.5, 0.3); env[i].forceMute();
+          }
         }
 
-        ChuckEvent tickEvent = (ChuckEvent) vm.getGlobalObject(BridgeContract.E_TICK);
-        long lastStep = -1;
+        if (r == 0) sidechainEvent.broadcast();
 
-        while (true) {
-            advance(tickEvent);
-            if (vm.getGlobalInt(BridgeContract.G_PLAY) == 0) {
-                lastStep = -1;
-                for(int i=4; i<8; i++) env[i].keyOff();
-                continue;
-            }
+        double pitchSemi = (kitPitch != null) ? kitPitch.getFloat(r) : 0.0;
+        double rate = Math.pow(2.0, pitchSemi / 12.0);
+        boolean reverse = (kitRev != null) && kitRev.getInt(r) != 0;
+        long samples = Math.max(1, kit[r].samples());
 
-            long currentStep = vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
-            boolean isNewStep = (currentStep != lastStep);
-            lastStep = currentStep;
+        float startAt = sStart != null ? (float) sStart.getFloat(idx) : 0.0f;
+        float endAt = sEnd != null ? (float) sEnd.getFloat(idx) : 1.0f;
 
-            ChuckArray pat = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PATTERN);
-            ChuckArray vel = (ChuckArray) vm.getGlobalObject(BridgeContract.G_VELOCITY);
-            ChuckArray pitch = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PITCH);
-            ChuckArray mute = (ChuckArray) vm.getGlobalObject(BridgeContract.G_MUTE);
-            ChuckArray trkLvl = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_LEVEL);
-            ChuckArray gFil = (ChuckArray) vm.getGlobalObject(BridgeContract.G_FILTER);
-            ChuckArray sFil = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_FILTER);
-            ChuckArray sRes = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_RES);
-            ChuckArray sPan = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_PAN);
-            ChuckArray arpOn = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ARP_ON);
-            ChuckArray fmRatio = (ChuckArray) vm.getGlobalObject(BridgeContract.G_FM_RATIO);
-            ChuckArray fmAmount = (ChuckArray) vm.getGlobalObject(BridgeContract.G_FM_AMOUNT);
+        long startPos = (long) (startAt * samples);
+        long endPos = (long) (endAt * samples);
 
-            int step = (int) (currentStep % 16);
-            for (int r = 4; r < 8; r++) {
-                int idx = r * 16 + step;
-                double tf = (gFil.getFloat(r * 2) + sFil.getFloat(idx)) * 10000.0 + 100.0;
-                double tq = (gFil.getFloat(r * 2 + 1) + sRes.getFloat(idx)) * 4.0 + 1.0;
-                double tp = vm.getGlobalFloat(BridgeContract.G_MASTER_PAN) + sPan.getFloat(idx);
-                fil[r].freq((float)tf); fil[r].Q((float)tq); pan[r].pan((float)tp);
-
-                if (mute.getInt(r) != 0) { env[r].keyOff(); continue; }
-                if (pat.getInt(idx) == 0) { env[r].keyOff(); continue; }
-
-                if (isNewStep) {
-                    if (arpOn.getInt(r) == 1) {
-                        int baseMidi = (int) (pitch.getInt(idx) + 60);
-                        float gainVal = (float) (vel.getFloat(idx) * trkLvl.getFloat(r));
-                        int v = r;
-                        vm.spork(() -> run_arp(v, baseMidi, gainVal, car[v], mod[v], env[v]));
-                    } else {
-                        double f = mtof(pitch.getInt(idx) + 60);
-                        car[r].freq((float)f); mod[r].freq((float)(f * fmRatio.getFloat(r)));
-                        mod[r].gain((float)(fmAmount.getFloat(r) * 1000.0));
-                        env[r].gain((float)(vel.getFloat(idx) * trkLvl.getFloat(r) * 0.8));
-                        env[r].keyOn();
-                    }
-                }
-            }
+        if (reverse) {
+          kit[r].rate((float) -rate);
+          kit[r].pos(endPos);
+        } else {
+          kit[r].rate((float) rate);
+          kit[r].pos(startPos);
         }
-    }
 
-    private void run_arp(int v, int baseMidi, float gain, MorphingWavetable car, MorphingWavetable mod, DelugeAdsr env) {
-        ChuckArray octArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ARP_OCTAVE);
-        ChuckArray rateArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ARP_RATE);
-        ChuckArray arpOn = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ARP_ON);
-        ChuckArray fmRatio = (ChuckArray) vm.getGlobalObject(BridgeContract.G_FM_RATIO);
-        int octaves = (int) octArr.getInt(v); if (octaves < 1) octaves = 1;
-        for (int o = 0; o < octaves; o++) {
-            int m = baseMidi + (o * 12); double f = mtof(m);
-            car.freq((float)f); mod.freq((float)(f * fmRatio.getFloat(v)));
-            env.gain((float)(gain * 0.8)); env.keyOn();
-            double rate = rateArr.getFloat(v); double bpm = vm.getGlobalFloat(BridgeContract.G_BPM);
-            ChuckDuration d = second(60.0 / bpm / 4.0 / rate);
-            advance(samp(d.samples() * 0.8)); env.keyOff(); advance(samp(d.samples() * 0.2));
-            if (vm.getGlobalInt(BridgeContract.G_PLAY) == 0 || arpOn.getInt(v) == 0) break;
+        float gain = (float) (vel.getFloat(idx) * trkLvl.getFloat(r) * 0.8);
+        kit[r].gain(gain);
+        kitEnv[r].keyOn();
+
+        // Schedule keyOff based on playback duration — no polling thread needed
+        long playLen = Math.abs(endPos - startPos);
+        double durSec = playLen / (sampleRate() * Math.abs(rate));
+        int trackIdx = r;
+        vm.spork(
+            () -> {
+              advance(second(durSec));
+              kitEnv[trackIdx].keyOff();
+              kit[trackIdx].rate(0);
+            });
+      }
+    }
+  }
+
+  private void loadKitSamples(SndBuf[] kit) {
+    java.io.File scratchDir =
+        new java.io.File(System.getProperty("java.io.tmpdir"), "deluge-scratch");
+    scratchDir.mkdirs();
+
+    for (int i = 0; i < kit.length; i++) {
+      Object pathObj = vm.getGlobalObject("g_sample_" + i);
+      if (!(pathObj instanceof String path) || path.isEmpty()) continue;
+
+      // If it's already an absolute filesystem path that exists, use it directly
+      java.io.File f = new java.io.File(path);
+      if (f.isAbsolute() && f.exists()) {
+        loadSndBuf(kit[i], path);
+        continue;
+      }
+
+      // Treat as classpath resource — ensure leading slash
+      String resPath = path.startsWith("/") ? path : "/" + path;
+      String resolved = resolveResource(resPath, scratchDir);
+      if (resolved != null) {
+        loadSndBuf(kit[i], resolved);
+      }
+    }
+  }
+
+  private String resolveResource(String resPath, java.io.File scratchDir) {
+    // Try exact path, then .WAV / .wav case variants
+    String[] candidates = {
+      resPath, resPath.replace(".wav", ".WAV"), resPath.replace(".WAV", ".wav"),
+    };
+    for (String candidate : candidates) {
+      try (java.io.InputStream is = getClass().getResourceAsStream(candidate)) {
+        if (is != null) {
+          java.io.File tmp = new java.io.File(scratchDir, new java.io.File(candidate).getName());
+          java.nio.file.Files.copy(
+              is, tmp.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+          return tmp.getAbsolutePath();
         }
+      } catch (Exception ignored) {
+      }
+    }
+    return null;
+  }
+
+  private void loadSndBuf(SndBuf buf, String path) {
+    try {
+      buf.rate(0);
+      buf.read(path);
+      buf.rate(0);
+      if (buf.samples() > 0) buf.pos(buf.samples());
+    } catch (Exception ignored) {
+    }
+  }
+
+  private void kit_reload_shred(SndBuf[] kit) {
+    ChuckEvent loadEvent = (ChuckEvent) vm.getGlobalObject(BridgeContract.G_LOAD_TRIGGER);
+    while (true) {
+      advance(loadEvent);
+      loadKitSamples(kit);
+    }
+  }
+
+  private void kit_preview_shred(SndBuf[] kit, DelugeAdsr[] kitEnv) {
+    ChuckEvent previewEvent = (ChuckEvent) vm.getGlobalObject(BridgeContract.E_PREVIEW);
+    while (true) {
+      advance(previewEvent);
+      int r = (int) vm.getGlobalInt(BridgeContract.G_PREVIEW_TRACK);
+      if (r >= 0 && r < kit.length && kit[r].samples() > 0) {
+        kit[r].rate(1);
+        kit[r].pos(0);
+        kit[r].gain(0.8f);
+        kitEnv[r].keyOn();
+        // Brief spork to keyOff after the audition
+        int trackIdx = r;
+        vm.spork(
+            () -> {
+              advance(ms(200));
+              kitEnv[trackIdx].keyOff();
+            });
+      }
+    }
+  }
+
+  // ── SYNTH SHRED ──────────────────────────────────────────────────────────
+
+  private void synth_shred() {
+    float sr = (float) sampleRate();
+    Gain synthBus = (Gain) vm.getGlobalObject(BridgeContract.G_SYNTH_BUS);
+
+    // Wait for the first song load before building voice graph
+    ChuckEvent loadEvent = (ChuckEvent) vm.getGlobalObject(BridgeContract.G_LOAD_TRIGGER);
+    advance(loadEvent);
+
+    // Count actual synth voices from G_TRACK_TYPE (type 1 = synth)
+    ChuckArray trackTypeInit = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
+    int voiceCount = 0;
+    for (int i = 0; i < BridgeContract.TRACKS; i++) {
+      if (trackTypeInit != null && trackTypeInit.getInt(i) == 1) voiceCount = i + 1;
+    }
+    if (voiceCount < 1) voiceCount = 1;
+
+    MorphingWavetable[] car = new MorphingWavetable[voiceCount];
+    MorphingWavetable[] mod = new MorphingWavetable[voiceCount];
+    SVFilter[] fil = new SVFilter[voiceCount];
+    DelugeAdsr[] env = new DelugeAdsr[voiceCount];
+    Pan2[] pan = new Pan2[voiceCount];
+    Gain[] sDsend = new Gain[voiceCount];
+    Gain[] sRsend = new Gain[voiceCount];
+
+    for (int i = 0; i < voiceCount; i++) {
+      car[i] = new MorphingWavetable(sr);
+      car[i].setTables(WAVE_TABLES);
+      mod[i] = new MorphingWavetable(sr);
+      mod[i].setTables(WAVE_TABLES);
+      fil[i] = new SVFilter();
+      env[i] = new DelugeAdsr();
+      pan[i] = new Pan2();
+      sDsend[i] = new Gain();
+      sRsend[i] = new Gain();
+      mod[i].chuck(car[i]);
+      car[i].chuck(fil[i]).chuck(env[i]).chuck(pan[i]).chuck(synthBus);
+      pan[i].chuck(sDsend[i]).chuck((ChuckUGen) vm.getGlobalObject(BridgeContract.G_DELAY_IN));
+      pan[i].chuck(sRsend[i]).chuck((ChuckUGen) vm.getGlobalObject(BridgeContract.G_REVERB_IN));
+      fil[i].reset();
+      fil[i].freq(5000);
+      env[i].set(0.05, 0.2, 0.5, 0.3);
+      env[i].forceMute();
+      sDsend[i].gain(0.0f);
+      sRsend[i].gain(0.15f);
     }
 
-    private void clock_shred() {
-        int step = 0;
-        while (true) {
-            if (vm.getGlobalInt(BridgeContract.G_PLAY) == 0) {
-                step = 0; advance(ms(10)); continue;
-            }
-            if (vm.getGlobalInt(BridgeContract.G_STUTTER_ON) == 0) {
-                vm.setGlobalInt(BridgeContract.G_CURRENT_STEP, (long)(step % 16));
-                ((ChuckEvent)vm.getGlobalObject(BridgeContract.E_TICK)).broadcast();
-                advance(stepDuration(step % 2));
-                step++;
-            } else {
-                ((ChuckEvent)vm.getGlobalObject(BridgeContract.E_TICK)).broadcast();
-                double div = Math.max(1.0, vm.getGlobalFloat(BridgeContract.G_STUTTER_DIV));
-                advance(samp(stepDuration(step % 2).samples() / div));
-            }
+    ChuckEvent tickEvent = (ChuckEvent) vm.getGlobalObject(BridgeContract.E_TICK);
+    long lastStep = -1;
+
+    while (true) {
+      advance(tickEvent);
+      if (vm.getGlobalInt(BridgeContract.G_PLAY) == 0) {
+        lastStep = -1;
+        for (int i = 0; i < env.length; i++) env[i].keyOff();
+        continue;
+      }
+
+      long currentStep = vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
+      boolean isNewStep = (currentStep != lastStep);
+      lastStep = currentStep;
+
+      ChuckArray pat = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PATTERN);
+      ChuckArray vel = (ChuckArray) vm.getGlobalObject(BridgeContract.G_VELOCITY);
+      ChuckArray pitch = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PITCH);
+      ChuckArray mute = (ChuckArray) vm.getGlobalObject(BridgeContract.G_MUTE);
+      ChuckArray trkLvl = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_LEVEL);
+      ChuckArray gFil = (ChuckArray) vm.getGlobalObject(BridgeContract.G_FILTER);
+      ChuckArray sFil = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_FILTER);
+      ChuckArray sRes = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_RES);
+      ChuckArray arpOn = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ARP_ON);
+      ChuckArray fmRatio = (ChuckArray) vm.getGlobalObject(BridgeContract.G_FM_RATIO);
+      ChuckArray fmAmt = (ChuckArray) vm.getGlobalObject(BridgeContract.G_FM_AMOUNT);
+      ChuckArray prob = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PROBABILITY);
+      ChuckArray oscType = (ChuckArray) vm.getGlobalObject(BridgeContract.G_OSC_TYPE);
+      ChuckArray gateArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_GATE);
+      ChuckArray sPan = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_PAN);
+      ChuckArray dlySnd = (ChuckArray) vm.getGlobalObject(BridgeContract.G_DELAY_SEND);
+      ChuckArray revSnd = (ChuckArray) vm.getGlobalObject(BridgeContract.G_REVERB_SEND);
+      ChuckArray trackType = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
+
+      int step = (int) (currentStep % 16);
+      double masterPan = vm.getGlobalFloat(BridgeContract.G_MASTER_PAN);
+
+      for (int r = 0; r < car.length; r++) {
+        // Only process Synth tracks (Type 1)
+        if (trackType != null && trackType.getInt(r) != 1) continue;
+
+        sDsend[r].gain(dlySnd != null ? (float) dlySnd.getFloat(r) : 0.0f);
+        sRsend[r].gain(revSnd != null ? (float) revSnd.getFloat(r) : 0.15f);
+
+        int idx = r * 16 + step;
+        if (oscType != null) car[r].index((int) oscType.getInt(r));
+
+        double tf = (gFil.getFloat(r * 2) + sFil.getFloat(idx)) * 10000.0 + 100.0;
+        double tq = (gFil.getFloat(r * 2 + 1) + sRes.getFloat(idx)) * 4.0 + 1.0;
+        double tp = masterPan + (sPan != null ? sPan.getFloat(idx) : 0.0);
+        fil[r].freq((float) Math.max(20.0, Math.min(20000.0, tf)));
+        fil[r].Q((float) Math.max(1.0, Math.min(10.0, tq)));
+        pan[r].pan((float) Math.max(-1.0, Math.min(1.0, tp)));
+
+        if (mute.getInt(r) != 0) {
+          env[r].keyOff();
+          continue;
         }
-    }
-
-    private void fx_bus_shred() {
-        float sr = (float)sampleRate();
-        Gain fxIn = new Gain(); DelugeAdsr gate = new DelugeAdsr(); fxIn.chuck(gate).chuck(dac());
-        Echo delay = new Echo(); JCRev reverb = new JCRev();
-        ((Gain)vm.getGlobalObject(BridgeContract.G_DELAY_IN)).chuck(delay).chuck(fxIn);
-        ((Gain)vm.getGlobalObject(BridgeContract.G_REVERB_IN)).chuck(reverb).chuck(fxIn);
-        advance(ms(100)); gate.forceMute(); gate.set(0.01, 0, 1, 0.01);
-        ChuckEvent tickEvent = (ChuckEvent) vm.getGlobalObject(BridgeContract.E_TICK);
-        while (true) {
-            advance(tickEvent);
-            if (vm.getGlobalInt(BridgeContract.G_PLAY) != 0) gate.keyOn();
-            delay.delay((float)vm.getGlobalFloat(BridgeContract.G_DELAY_TIME));
-            delay.gain((float)vm.getGlobalFloat(BridgeContract.G_DELAY_FB));
-            reverb.mix((float)vm.getGlobalFloat(BridgeContract.G_REVERB_ROOM));
+        if (pat.getInt(idx) == 0) {
+          env[r].keyOff();
+          continue;
         }
-    }
 
-    private void master_shred() {
-        float sr = (float)sampleRate();
-        HPF hpf = new HPF(sr); Dyno limit = new Dyno(sr); Dyno comp = new Dyno(sr); DelugeAdsr gate = new DelugeAdsr();
-        ((Gain)vm.getGlobalObject(BridgeContract.G_SYNTH_BUS)).chuck(hpf).chuck(comp).chuck(limit).chuck(gate).chuck(dac());
-        hpf.freq(20); limit.limiter(); comp.compressor();
-        advance(ms(100)); gate.forceMute(); gate.set(0.005, 0, 1, 0.005);
-        ChuckEvent tickEvent = (ChuckEvent) vm.getGlobalObject(BridgeContract.E_TICK);
-        while (true) {
-            advance(tickEvent);
-            if (vm.getGlobalInt(BridgeContract.G_PLAY) != 0) gate.keyOn(); else gate.keyOff();
-            double th = 1.0 - vm.getGlobalFloat(BridgeContract.G_MASTER_COMP);
-            comp.thresh((float)Math.max(0.01, Math.min(0.9, th)));
+        if (isNewStep) {
+          if (prob != null && Math.random() > prob.getFloat(idx)) continue;
+
+          double gainVal = vel.getFloat(idx) * trkLvl.getFloat(r) * 0.8;
+          double gateSec =
+              (gateArr != null ? gateArr.getFloat(idx) : 0.9)
+                  * stepDuration(step % 2).samples()
+                  / sampleRate();
+
+          if (arpOn != null && arpOn.getInt(r) == 1) {
+            int baseMidi = (int) (pitch.getInt(idx) + 60);
+            int v = r;
+            vm.spork(() -> run_arp(v, baseMidi, (float) gainVal, car[v], mod[v], env[v]));
+          } else {
+            double f = mtof(pitch.getInt(idx) + 60);
+            car[r].freq((float) f);
+            mod[r].freq((float) (f * (fmRatio != null ? fmRatio.getFloat(r) : 1.0)));
+            mod[r].gain((float) ((fmAmt != null ? fmAmt.getFloat(r) : 0.0) * 1000.0));
+            env[r].gain((float) gainVal);
+            env[r].keyOn();
+            double noteSec = gateSec;
+            int rv = r;
+            vm.spork(
+                () -> {
+                  advance(second(noteSec));
+                  env[rv].keyOff();
+                });
+          }
         }
+      }
+    }
+  }
+
+  private void run_arp(
+      int v,
+      int baseMidi,
+      float gain,
+      MorphingWavetable car,
+      MorphingWavetable mod,
+      DelugeAdsr env) {
+    ChuckArray octArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ARP_OCTAVE);
+    ChuckArray rateArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ARP_RATE);
+    ChuckArray arpOn = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ARP_ON);
+    ChuckArray fmRatio = (ChuckArray) vm.getGlobalObject(BridgeContract.G_FM_RATIO);
+    int octaves = (octArr != null) ? (int) octArr.getInt(v) : 1;
+    if (octaves < 1) octaves = 1;
+    for (int o = 0; o < octaves; o++) {
+      double f = mtof(baseMidi + o * 12);
+      car.freq((float) f);
+      mod.freq((float) (f * (fmRatio != null ? fmRatio.getFloat(v) : 1.0)));
+      env.gain((float) (gain * 0.8));
+      env.keyOn();
+      double rate = (rateArr != null) ? rateArr.getFloat(v) : 1.0;
+      double bpm = vm.getGlobalFloat(BridgeContract.G_BPM);
+      ChuckDuration d = second(60.0 / bpm / 4.0 / rate);
+      advance(samp(d.samples() * 0.8));
+      env.keyOff();
+      advance(samp(d.samples() * 0.2));
+      if (vm.getGlobalInt(BridgeContract.G_PLAY) == 0 || (arpOn != null && arpOn.getInt(v) == 0))
+        break;
+    }
+  }
+
+  // ── CLOCK SHRED ──────────────────────────────────────────────────────────
+
+  private void clock_shred() {
+    int step = 0;
+    long prevPlay = -1;
+    while (true) {
+      long play = vm.getGlobalInt(BridgeContract.G_PLAY);
+      if (play == 0) {
+        step = 0;
+        if (prevPlay != 0) {
+          ((ChuckEvent) vm.getGlobalObject(BridgeContract.E_TICK)).broadcast();
+        }
+        prevPlay = 0;
+        advance(ms(10));
+        continue;
+      }
+      prevPlay = play;
+      if (vm.getGlobalInt(BridgeContract.G_STUTTER_ON) == 0) {
+        vm.setGlobalInt(BridgeContract.G_CURRENT_STEP, (long) (step % 16));
+        ((ChuckEvent) vm.getGlobalObject(BridgeContract.E_TICK)).broadcast();
+        advance(stepDuration(step % 2));
+        step++;
+      } else {
+        ((ChuckEvent) vm.getGlobalObject(BridgeContract.E_TICK)).broadcast();
+        double div = Math.max(1.0, vm.getGlobalFloat(BridgeContract.G_STUTTER_DIV));
+        advance(samp(stepDuration(step % 2).samples() / div));
+      }
+    }
+  }
+
+  // ── FX BUS SHRED ─────────────────────────────────────────────────────────
+
+  private void fx_bus_shred() {
+    float sr = (float) sampleRate();
+    Gain fxIn = new Gain();
+    DelugeAdsr gate = new DelugeAdsr();
+    fxIn.chuck(gate).chuck(dac());
+
+    Echo delay = new Echo();
+
+    String reverbModel = org.chuck.deluge.project.PreferencesManager.get("reverb.model", "JCRev");
+    org.chuck.audio.util.StereoUGen rev;
+    if ("FreeVerb".equals(reverbModel)) {
+      rev = new FreeVerb();
+    } else if ("MVerb".equals(reverbModel)) {
+      rev = new MVerb();
+    } else if ("ProceduralReverb".equals(reverbModel)) {
+      rev = new ProceduralReverb();
+    } else {
+      rev = new JCRev();
     }
 
-    private void transport_shred() {
-        vm.spork(this::fx_bus_shred);
-        vm.spork(this::master_shred);
-        vm.spork(this::clock_shred);
-        vm.spork(this::kit_shred);
-        vm.spork(this::synth_shred);
-        while (true) { advance(ms(100)); }
+    Chorus chorus = new Chorus(sr);
+    chorus.setModDepth(0.2f);
+    chorus.setModFreq(0.5f);
+    Gain modIn = new Gain();
+    vm.setGlobalObject("g_mod_in", modIn);
+    modIn.chuck(chorus).chuck(fxIn);
+
+    ((Gain) vm.getGlobalObject(BridgeContract.G_DELAY_IN)).chuck(delay).chuck(fxIn);
+    ((Gain) vm.getGlobalObject(BridgeContract.G_REVERB_IN)).chuck(rev).chuck(fxIn);
+
+    fxIn.gain(0.3f);
+    advance(ms(100));
+    gate.forceMute();
+    gate.set(0.01, 0, 1, 0.01);
+
+    ChuckEvent tickEvent = (ChuckEvent) vm.getGlobalObject(BridgeContract.E_TICK);
+    while (true) {
+      advance(tickEvent);
+      if (vm.getGlobalInt(BridgeContract.G_PLAY) != 0) gate.keyOn();
+      else gate.keyOff();
+      delay.delay((float) vm.getGlobalFloat(BridgeContract.G_DELAY_TIME));
+      delay.gain((float) vm.getGlobalFloat(BridgeContract.G_DELAY_FB));
+      if (rev instanceof JCRev jcr)
+        jcr.mix((float) vm.getGlobalFloat(BridgeContract.G_REVERB_ROOM));
+      else if (rev instanceof FreeVerb fv)
+        fv.roomSize((float) vm.getGlobalFloat(BridgeContract.G_REVERB_ROOM));
     }
+  }
+
+  // ── MASTER SHRED ─────────────────────────────────────────────────────────
+
+  private void master_shred() {
+    float sr = (float) sampleRate();
+    HPF hpf = new HPF(sr);
+    Dyno limit = new Dyno(sr);
+    Dyno comp = new Dyno(sr);
+    DelugeAdsr gate = new DelugeAdsr();
+    ((Gain) vm.getGlobalObject(BridgeContract.G_SYNTH_BUS))
+        .chuck(hpf)
+        .chuck(comp)
+        .chuck(limit)
+        .chuck(gate)
+        .chuck(dac());
+    hpf.freq(20);
+    limit.limiter();
+    comp.compressor();
+    advance(ms(100));
+    gate.forceMute();
+    gate.set(0.005, 0, 1, 0.005);
+    ChuckEvent tickEvent = (ChuckEvent) vm.getGlobalObject(BridgeContract.E_TICK);
+    while (true) {
+      advance(tickEvent);
+      if (vm.getGlobalInt(BridgeContract.G_PLAY) != 0) gate.keyOn();
+      else gate.keyOff();
+      double th = 1.0 - vm.getGlobalFloat(BridgeContract.G_MASTER_COMP);
+      comp.thresh((float) Math.max(0.01, Math.min(0.9, th)));
+    }
+  }
+
+  // ── SIDECHAIN SHRED ──────────────────────────────────────────────────────
+
+  private void sidechain_shred() {
+    ChuckEvent sc = (ChuckEvent) vm.getGlobalObject(BridgeContract.E_SIDECHAIN);
+    Gain synthBus = (Gain) vm.getGlobalObject(BridgeContract.G_SYNTH_BUS);
+    float normalGain = 1.0f;
+    float duckedGain = 0.15f;
+    float duckMs = 60.0f;
+    float releaseMs = 120.0f;
+    while (true) {
+      advance(sc);
+      synthBus.gain(duckedGain);
+      advance(ms(duckMs));
+      int steps = 8;
+      float stepGain = (normalGain - duckedGain) / steps;
+      for (int i = 0; i < steps; i++) {
+        synthBus.gain(duckedGain + stepGain * (i + 1));
+        advance(ms(releaseMs / steps));
+      }
+      synthBus.gain(normalGain);
+    }
+  }
+
+  // ── TRANSPORT ────────────────────────────────────────────────────────────
+
+  private void transport_shred() {
+    vm.setGlobalObject(BridgeContract.G_DELAY_IN, new Gain());
+    vm.setGlobalObject(BridgeContract.G_REVERB_IN, new Gain());
+    vm.setGlobalObject(BridgeContract.G_SYNTH_BUS, new Gain());
+    vm.setGlobalObject(BridgeContract.E_SIDECHAIN, new ChuckEvent());
+
+    vm.spork(this::fx_bus_shred);
+    vm.spork(this::master_shred);
+    vm.spork(this::clock_shred);
+    vm.spork(this::kit_shred);
+    vm.spork(this::synth_shred);
+    vm.spork(this::sidechain_shred);
+    while (true) {
+      advance(ms(100));
+    }
+  }
 }

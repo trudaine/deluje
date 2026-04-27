@@ -3,8 +3,8 @@ package org.chuck.deluge.model;
 import java.util.Arrays;
 
 /**
- * Represents a single 16-step sequence for one track.
- * Stores triggers, velocity, gate, pitch, and probability.
+ * Represents a single 16-step sequence for one track. Stores triggers, velocity, gate, pitch, and
+ * probability.
  */
 public class Clip {
   private final boolean[] triggers = new boolean[16];
@@ -22,18 +22,46 @@ public class Clip {
   }
 
   // Getters
-  public boolean getTrigger(int step) { return triggers[step]; }
-  public double getVelocity(int step) { return velocity[step]; }
-  public double getGate(int step) { return gate[step]; }
-  public int getPitch(int step) { return pitch[step]; }
-  public double getProbability(int step) { return probability[step]; }
+  public boolean getTrigger(int step) {
+    return triggers[step];
+  }
+
+  public double getVelocity(int step) {
+    return velocity[step];
+  }
+
+  public double getGate(int step) {
+    return gate[step];
+  }
+
+  public int getPitch(int step) {
+    return pitch[step];
+  }
+
+  public double getProbability(int step) {
+    return probability[step];
+  }
 
   // Setters
-  public void setTrigger(int step, boolean active) { triggers[step] = active; }
-  public void setVelocity(int step, double v) { velocity[step] = v; }
-  public void setGate(int step, double g) { gate[step] = g; }
-  public void setPitch(int step, int p) { pitch[step] = p; }
-  public void setProbability(int step, double pr) { probability[step] = pr; }
+  public void setTrigger(int step, boolean active) {
+    triggers[step] = active;
+  }
+
+  public void setVelocity(int step, double v) {
+    velocity[step] = v;
+  }
+
+  public void setGate(int step, double g) {
+    gate[step] = g;
+  }
+
+  public void setPitch(int step, int p) {
+    pitch[step] = p;
+  }
+
+  public void setProbability(int step, double pr) {
+    probability[step] = pr;
+  }
 
   /** Deep copy another clip into this one. */
   public void copyFrom(Clip other) {

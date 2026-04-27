@@ -38,40 +38,61 @@ public class KitTrackProcessor implements Shred {
 
   @Override
   public void shred() {
-    buf = new SndBuf(sampleRate());
+    buf = new SndBuf();
+    buf.setLoop(false); // Ensure one-shot playback
+
     pan = new Pan2();
     delaySend = new Gain();
-    reverbSend = new Gain();
+    delaySend.gain(0.0f); // Initialize sends to SILENT
 
-    // Connect directly to stereo DAC to avoid mono downmix issues
+    reverbSend = new Gain();
+    reverbSend.gain(0.0f);
+
+    // Main output path
     buf.chuck(pan).chuck(dac());
 
-    // Send-based routing
+    // FX send routing
     Gain gDelayIn = (Gain) vm.getGlobalObject("g_delay_in");
-    Gain gReverbIn = (Gain) vm.getGlobalObject("g_reverb_in");
+    if (gDelayIn != null) {
+      pan.chuck(delaySend).chuck(gDelayIn);
+    }
 
-    if (gDelayIn != null) pan.chuck(delaySend).chuck(gDelayIn);
-    if (gReverbIn != null) pan.chuck(reverbSend).chuck(gReverbIn);
+    Gain gReverbIn = (Gain) vm.getGlobalObject("g_reverb_in");
+    if (gReverbIn != null) {
+      pan.chuck(reverbSend).chuck(gReverbIn);
+    }
 
     ChuckEvent tickEvent = (ChuckEvent) vm.getGlobalObject(BridgeContract.TICK_EVENT);
     ChuckEvent loadTrigger = (ChuckEvent) vm.getGlobalObject(BridgeContract.G_LOAD_TRIGGER);
+    ChuckEvent previewEvent = (ChuckEvent) vm.getGlobalObject(BridgeContract.E_PREVIEW);
 
-    // Persistent listener for sample loading
+    org.chuck.core.ChuckShred current = org.chuck.core.ChuckShred.CURRENT_SHRED.get();
+
+    // Sample loading listener
     vm.spork(
         () -> {
-          org.chuck.core.ChuckShred current = org.chuck.core.ChuckShred.CURRENT_SHRED.get();
           while (current != null && !current.isDone()) {
             advance(loadTrigger);
             loadSample();
           }
         });
 
+    // Audition listener
+    vm.spork(
+        () -> {
+          while (current != null && !current.isDone()) {
+            advance(previewEvent);
+            if (vm.getGlobalInt(BridgeContract.G_PREVIEW_TRACK) == trackId) {
+              trigger(trackId * 16);
+            }
+          }
+        });
+
     loadSample();
 
     // Main Sequencing Loop
-    org.chuck.core.ChuckShred currentShred = org.chuck.core.ChuckShred.CURRENT_SHRED.get();
-    while (currentShred != null && !currentShred.isDone()) {
-      advance(tickEvent);
+    while (current != null && !current.isDone()) {
+      advance(tickEvent); // THIS MUST ALWAYS HAPPEN FIRST
 
       int step = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
       if (step < 0) continue;
@@ -83,18 +104,16 @@ public class KitTrackProcessor implements Shred {
       ChuckArray mute = (ChuckArray) vm.getGlobalObject(BridgeContract.G_MUTE);
 
       if (trackType == null || trackType.getInt(trackId) != 0) continue;
+
+      // Check mute state
       long trackMuted = vm.getGlobalInt("g_mute_" + trackId);
-      if (trackMuted != 0) {
-        buf.rate(0);
-        buf.gain(0);
+      if (trackMuted != 0 || (mute != null && mute.getInt(trackId) != 0)) {
         continue;
-      } else {
-        buf.gain(1.0f);
       }
 
-      if (pattern == null || pattern.getInt(idx) == 0) continue;
-
-      trigger(idx);
+      if (pattern != null && pattern.getInt(idx) != 0) {
+        trigger(idx);
+      }
     }
   }
 
@@ -105,46 +124,28 @@ public class KitTrackProcessor implements Shred {
     double vel = velocity != null ? velocity.getFloat(idx) : 0.8;
     double masterVol = vm.getGlobalFloat(BridgeContract.G_MASTER_VOL);
 
-    if (buf.samples() > 0) {
-      buf.rate(1.0f);
-      buf.pos(0L);
-      buf.gain(
+    if (buf.ready() > 0) {
+      buf.setRate(1.0);
+      buf.setPos(0L);
+      buf.setGain(
           (float) (vel * (trackLevel != null ? trackLevel.getFloat(trackId) : 0.7) * masterVol));
     }
 
     if (vm.getLogLevel() >= 2) {
-      vm.print("KIT trigger track: " + trackId + " step: " + (idx % 16) + "\n");
+      System.out.println("ENGINE: Triggered Track " + trackId + " Step " + (idx % 16));
     }
   }
 
   private synchronized void loadSample() {
     String path = (String) vm.getGlobalObject("g_sample_" + trackId);
-    if (path == null || path.isEmpty()) {
-      buf.setSamples(new float[0]);
-      lastLoadedPath = null;
-      return;
-    }
-
+    if (path == null || path.isEmpty()) return;
     if (path.equals(lastLoadedPath)) return;
 
-    buf.read(path);
-    if (buf.samples() == 0) {
-      String altPath = path;
-      if (path.endsWith(".wav")) altPath = path.substring(0, path.length() - 4) + ".WAV";
-      else if (path.endsWith(".WAV")) altPath = path.substring(0, path.length() - 4) + ".wav";
-
-      if (!altPath.equals(path)) {
-        buf.read(altPath);
-      }
-    }
-
-    if (buf.samples() > 0) {
-      buf.rate(0);
-      buf.pos(buf.samples());
+    buf.setRead(path);
+    if (buf.ready() > 0) {
+      buf.setRate(0);
+      buf.setPos(buf.samples());
       lastLoadedPath = path;
-    } else {
-      logger.warning("Track " + trackId + ": Failed to load sample " + path);
-      lastLoadedPath = null;
     }
   }
 }

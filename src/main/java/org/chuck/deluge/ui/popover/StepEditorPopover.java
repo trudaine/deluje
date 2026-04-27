@@ -46,10 +46,11 @@ public class StepEditorPopover extends Popup {
     velSlider.setPrefHeight(100);
     velSlider
         .valueProperty()
-        .addListener((obs, o, n) -> {
-          bridge.setVelocity(track, step, n.doubleValue());
-          bridge.syncActiveClipToLibrary(track);
-        });
+        .addListener(
+            (obs, o, n) -> {
+              bridge.setVelocity(track, step, n.doubleValue());
+              bridge.syncActiveClipToLibrary(track);
+            });
     velBox.getChildren().addAll(velSlider, velLabel);
 
     // Gate (Horizontal Slider)
@@ -59,10 +60,11 @@ public class StepEditorPopover extends Popup {
     Slider gateSlider = new Slider(0, 1.0, bridge.getGate(track, step));
     gateSlider
         .valueProperty()
-        .addListener((obs, o, n) -> {
-          bridge.setGate(track, step, n.doubleValue());
-          bridge.syncActiveClipToLibrary(track);
-        });
+        .addListener(
+            (obs, o, n) -> {
+              bridge.setGate(track, step, n.doubleValue());
+              bridge.syncActiveClipToLibrary(track);
+            });
     gateBox.getChildren().addAll(gateSlider, gateLabel);
 
     // Probability (Horizontal Slider)
@@ -72,10 +74,11 @@ public class StepEditorPopover extends Popup {
     Slider probSlider = new Slider(0, 1.0, bridge.getStepProbability(track, step));
     probSlider
         .valueProperty()
-        .addListener((obs, o, n) -> {
-          bridge.setStepProbability(track, step, n.doubleValue());
-          bridge.syncActiveClipToLibrary(track);
-        });
+        .addListener(
+            (obs, o, n) -> {
+              bridge.setStepProbability(track, step, n.doubleValue());
+              bridge.syncActiveClipToLibrary(track);
+            });
     probBox.getChildren().addAll(probSlider, probLabel);
 
     grid.add(velBox, 0, 0, 1, 2);

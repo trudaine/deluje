@@ -157,6 +157,10 @@ public class ClipCell extends Button {
     }
   }
 
+  public int getSlotIndex() {
+    return slotIndex;
+  }
+
   public State getCurrentState() {
     return currentState;
   }

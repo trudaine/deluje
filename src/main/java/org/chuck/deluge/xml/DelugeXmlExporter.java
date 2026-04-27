@@ -1,7 +1,6 @@
 package org.chuck.deluge.xml;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.transform.OutputKeys;
@@ -14,12 +13,11 @@ import org.chuck.deluge.model.SynthTrackModel;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
-/**
- * Exports SynthTrackModel or Bridge state to Deluge-compatible XML files.
- */
+/** Exports SynthTrackModel or Bridge state to Deluge-compatible XML files. */
 public class DelugeXmlExporter {
 
-  public static void saveSynthPreset(SynthTrackModel model, BridgeContract bridge, int trackIndex, File file) throws Exception {
+  public static void saveSynthPreset(
+      SynthTrackModel model, BridgeContract bridge, int trackIndex, File file) throws Exception {
     DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
     DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
 
@@ -27,7 +25,7 @@ public class DelugeXmlExporter {
     Document doc = docBuilder.newDocument();
     Element rootElement = doc.createElement("sound");
     doc.appendChild(rootElement);
-    
+
     rootElement.setAttribute("name", model.getName());
     rootElement.setAttribute("polyphonic", "auto");
 
@@ -42,21 +40,23 @@ public class DelugeXmlExporter {
     // Note: BridgeContract might need getEnv methods for individual parameters
     // For now we use the values stored in the model, or add getters to bridge
     for (int i = 0; i < 2; i++) {
-        Element env = doc.createElement("envelope");
-        // Simplified: using model values for now
-        env.setAttribute("attack", DelugeHexMapper.floatToHex(model.getEnv(i).attack()));
-        env.setAttribute("decay", DelugeHexMapper.floatToHex(model.getEnv(i).decay()));
-        env.setAttribute("sustain", DelugeHexMapper.floatToHex(model.getEnv(i).sustain()));
-        env.setAttribute("release", DelugeHexMapper.floatToHex(model.getEnv(i).release()));
-        rootElement.appendChild(env);
+      Element env = doc.createElement("envelope");
+      // Simplified: using model values for now
+      env.setAttribute("attack", DelugeHexMapper.floatToHex(model.getEnv(i).attack()));
+      env.setAttribute("decay", DelugeHexMapper.floatToHex(model.getEnv(i).decay()));
+      env.setAttribute("sustain", DelugeHexMapper.floatToHex(model.getEnv(i).sustain()));
+      env.setAttribute("release", DelugeHexMapper.floatToHex(model.getEnv(i).release()));
+      rootElement.appendChild(env);
     }
-    
+
     // Filter
     Element lpf = doc.createElement("lpf");
-    lpf.setAttribute("frequency", DelugeHexMapper.floatToHex((float) bridge.getTrackFilterFreq(trackIndex)));
-    lpf.setAttribute("resonance", DelugeHexMapper.floatToHex((float) bridge.getTrackFilterRes(trackIndex)));
+    lpf.setAttribute(
+        "frequency", DelugeHexMapper.floatToHex((float) bridge.getTrackFilterFreq(trackIndex)));
+    lpf.setAttribute(
+        "resonance", DelugeHexMapper.floatToHex((float) bridge.getTrackFilterRes(trackIndex)));
     rootElement.appendChild(lpf);
-    
+
     // Arp (Custom attributes for our emulator, or mapping to official ones)
     Element arp = doc.createElement("arpeggiator");
     arp.setAttribute("active", bridge.getArpOn(trackIndex) ? "1" : "0");

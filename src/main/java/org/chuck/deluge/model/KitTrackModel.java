@@ -151,4 +151,8 @@ public class KitTrackModel extends TrackModel {
   public void addSound(KitSound sound) {
     sounds.add(sound);
   }
+
+  public String getSamplePath() {
+    return sounds.isEmpty() ? "" : sounds.get(0).getSamplePath();
+  }
 }

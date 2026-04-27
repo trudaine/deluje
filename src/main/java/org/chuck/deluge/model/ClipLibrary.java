@@ -1,8 +1,7 @@
 package org.chuck.deluge.model;
 
 /**
- * Manages the collection of all clips in Song Mode.
- * Holds 8 tracks, each with 8 clip slots (A-H).
+ * Manages the collection of all clips in Song Mode. Holds 8 tracks, each with 8 clip slots (A-H).
  */
 public class ClipLibrary {
   private final Clip[][] clips; // [tracks][slots]

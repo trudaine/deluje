@@ -45,7 +45,7 @@ public class SongModePanel extends VBox {
 
     // 2. The Clip Grid and Quantization Controller
     refresh();
-    quantController = new LaunchQuantController(vm, bridge, clipGrid, maxClips, numSlots);
+    quantController = new LaunchQuantController(vm, bridge, clipGrid, maxClips, numSlots, null);
   }
 
   public void setProjectModel(org.chuck.deluge.model.ProjectModel projectModel) {

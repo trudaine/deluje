@@ -19,6 +19,7 @@ public class SwingGridPanel extends JPanel {
   private boolean[] isOneShotTrack = new boolean[11];
   private int activeClipId = 0;
   private int baseTrackId = 0;
+  private int soloRow = -1; // -1 = no solo
 
   public enum GridViewMode {
     CLIP,
@@ -380,36 +381,48 @@ public class SwingGridPanel extends JPanel {
         }
 
         if (colId == 16) {
+          final int engineRow = baseTrackId + trk;
           clipBtn.setText("MUTE");
-          clipBtn.setBackground(bridge.getMute(trk) ? Color.RED : new Color(0x33, 0x33, 0x33));
+          clipBtn.setBackground(
+              bridge.getMute(engineRow) ? Color.RED : new Color(0x33, 0x33, 0x33));
           clipBtn.addActionListener(
               e -> {
                 if ((e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0) {
                   // Clear Sequence row
                   for (int s = 0; s < 16; s++) {
-                    bridge.setStep(trk, s, false);
+                    bridge.setStep(engineRow, s, false);
                   }
                   refresh();
                   return;
                 }
-                boolean isMuted = bridge.getMute(trk);
-                bridge.setMute(trk, !isMuted);
-
+                boolean isMuted = bridge.getMute(engineRow);
+                bridge.setMute(engineRow, !isMuted);
                 clipBtn.setBackground(!isMuted ? Color.RED : new Color(0x33, 0x33, 0x33));
               });
         } else if (colId == 17) {
-          clipBtn.setText("EDIT");
-          clipBtn.setBackground(focusTrack == trk ? Color.GREEN : new Color(0x33, 0x33, 0x33));
+          clipBtn.setText("SOLO");
+          clipBtn.setBackground(soloRow == trk ? Color.GREEN : new Color(0x33, 0x33, 0x33));
 
           clipBtn.addActionListener(
               e -> {
-                if ((e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0) {
-                  // Delete track clips (or reset mock)
-                  return;
-                }
                 if (viewMode == GridViewMode.CLIP) {
-                  focusTrack = trk;
-                  refresh(); // redraws backgrounds
+                  // Audition the row sound immediately
+                  vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) trk);
+                  vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
+
+                  // Toggle solo: solo this row or clear solo
+                  if (soloRow == trk) {
+                    soloRow = -1;
+                    // Unmute all rows
+                    for (int i = 0; i < 11; i++) bridge.setMute(baseTrackId + i, false);
+                  } else {
+                    soloRow = trk;
+                    // Mute all other rows, unmute this one
+                    for (int i = 0; i < 11; i++) {
+                      bridge.setMute(baseTrackId + i, i != trk);
+                    }
+                  }
+                  refresh();
                   return;
                 }
                 if (onEditRequest != null) {
@@ -556,11 +569,17 @@ public class SwingGridPanel extends JPanel {
                         }
 
                         if (!stepState) {
-                          String sp = (String) vm.getGlobalObject("g_sample_" + trk);
-                          playWaveFile(sp);
-
+                          // Audition the kit sample via engine preview event
+                          vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) trk);
+                          vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
                           if (activeStutterTimer != null) activeStutterTimer.stop();
-                          activeStutterTimer = new Timer(150, ev -> playWaveFile(sp));
+                          activeStutterTimer =
+                              new Timer(
+                                  150,
+                                  ev -> {
+                                    vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) trk);
+                                    vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
+                                  });
                           activeStutterTimer.start();
                         }
                       }
@@ -943,24 +962,5 @@ public class SwingGridPanel extends JPanel {
               }
             });
     playheadTimer.start();
-  }
-
-  private void playWaveFile(String path) {
-    if (path == null || path.isEmpty()) return;
-    new Thread(
-            () -> {
-              try {
-                java.io.File file = new java.io.File(path);
-                if (file.exists()) {
-                  javax.sound.sampled.AudioInputStream stream =
-                      javax.sound.sampled.AudioSystem.getAudioInputStream(file);
-                  javax.sound.sampled.Clip clip = javax.sound.sampled.AudioSystem.getClip();
-                  clip.open(stream);
-                  clip.start();
-                }
-              } catch (Exception e) {
-              }
-            })
-        .start();
   }
 }

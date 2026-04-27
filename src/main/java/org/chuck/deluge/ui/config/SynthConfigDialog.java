@@ -20,9 +20,7 @@ import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.model.FilterMode;
 import org.chuck.deluge.model.SynthTrackModel;
 
-/**
- * Advanced Sound Editor dialog with OLED styling and Arpeggiator controls.
- */
+/** Advanced Sound Editor dialog with OLED styling and Arpeggiator controls. */
 public class SynthConfigDialog extends Stage {
 
   public SynthConfigDialog(
@@ -36,7 +34,8 @@ public class SynthConfigDialog extends Stage {
     root.setStyle("-fx-background-color: #1a1a1a; -fx-border-color: #3d3d3d; -fx-border-width: 2;");
 
     // ── Global OLED Style ──
-    String labelStyle = "-fx-font-family: 'Courier New'; -fx-font-weight: bold; -fx-text-fill: #00ff41;";
+    String labelStyle =
+        "-fx-font-family: 'Courier New'; -fx-font-weight: bold; -fx-text-fill: #00ff41;";
     String paneStyle = "-fx-font-family: 'Courier New'; -fx-font-weight: bold;";
 
     // ── Arpeggiator ──
@@ -51,8 +50,10 @@ public class SynthConfigDialog extends Stage {
     arpOn.setOnAction(e -> bridge.setArpOn(trackIndex, arpOn.isSelected()));
 
     Slider rateSlider = new Slider(0.25, 4.0, bridge.getArpRate(trackIndex));
-    rateSlider.valueProperty().addListener((obs, o, n) -> bridge.setArpRate(trackIndex, n.doubleValue()));
-    
+    rateSlider
+        .valueProperty()
+        .addListener((obs, o, n) -> bridge.setArpRate(trackIndex, n.doubleValue()));
+
     ComboBox<Integer> octCombo = new ComboBox<>();
     octCombo.getItems().addAll(1, 2, 3, 4);
     octCombo.setValue(bridge.getArpOctave(trackIndex));
@@ -82,10 +83,13 @@ public class SynthConfigDialog extends Stage {
     fMode.setOnAction(e -> bridge.setFilterMode(trackIndex, fMode.getValue().ordinal()));
 
     Slider cutoff = new Slider(0, 1.0, bridge.getTrackFilterFreq(trackIndex));
-    cutoff.valueProperty().addListener((obs, o, n) -> bridge.setFilterFreq(trackIndex, n.doubleValue()));
+    cutoff
+        .valueProperty()
+        .addListener((obs, o, n) -> bridge.setFilterFreq(trackIndex, n.doubleValue()));
 
     Slider res = new Slider(0, 1.0, bridge.getTrackFilterRes(trackIndex));
-    res.valueProperty().addListener((obs, o, n) -> bridge.setFilterRes(trackIndex, n.doubleValue()));
+    res.valueProperty()
+        .addListener((obs, o, n) -> bridge.setFilterRes(trackIndex, n.doubleValue()));
 
     filterGrid.add(new Label("MODE"), 0, 0);
     filterGrid.add(fMode, 1, 0);
@@ -105,10 +109,14 @@ public class SynthConfigDialog extends Stage {
     fmGrid.setPadding(new Insets(10));
 
     Slider ratio = new Slider(0.25, 4.0, bridge.getFmRatio(trackIndex));
-    ratio.valueProperty().addListener((obs, o, n) -> bridge.setFmRatio(trackIndex, n.doubleValue()));
+    ratio
+        .valueProperty()
+        .addListener((obs, o, n) -> bridge.setFmRatio(trackIndex, n.doubleValue()));
 
     Slider amount = new Slider(0, 1.0, bridge.getFmAmount(trackIndex));
-    amount.valueProperty().addListener((obs, o, n) -> bridge.setFmAmount(trackIndex, n.doubleValue()));
+    amount
+        .valueProperty()
+        .addListener((obs, o, n) -> bridge.setFmAmount(trackIndex, n.doubleValue()));
 
     fmGrid.add(new Label("FM RATIO"), 0, 0);
     fmGrid.add(ratio, 1, 0);
@@ -123,24 +131,28 @@ public class SynthConfigDialog extends Stage {
     HBox saveBox = new HBox(10);
     saveBox.setAlignment(Pos.CENTER);
     saveBox.setPadding(new Insets(10, 0, 0, 0));
-    
+
     Button saveBtn = new Button("💾 SAVE PRESET");
-    saveBtn.setStyle("-fx-background-color: #00ff41; -fx-text-fill: black; -fx-font-family: 'Courier New'; -fx-font-weight: bold;");
-    saveBtn.setOnAction(e -> {
-        javafx.stage.FileChooser fc = new javafx.stage.FileChooser();
-        fc.setTitle("Save Synth Preset");
-        fc.setInitialFileName(model.getName() + ".XML");
-        fc.getExtensionFilters().add(new javafx.stage.FileChooser.ExtensionFilter("Deluge XML", "*.XML"));
-        java.io.File file = fc.showSaveDialog(this);
-        if (file != null) {
+    saveBtn.setStyle(
+        "-fx-background-color: #00ff41; -fx-text-fill: black; -fx-font-family: 'Courier New'; -fx-font-weight: bold;");
+    saveBtn.setOnAction(
+        e -> {
+          javafx.stage.FileChooser fc = new javafx.stage.FileChooser();
+          fc.setTitle("Save Synth Preset");
+          fc.setInitialFileName(model.getName() + ".XML");
+          fc.getExtensionFilters()
+              .add(new javafx.stage.FileChooser.ExtensionFilter("Deluge XML", "*.XML"));
+          java.io.File file = fc.showSaveDialog(this);
+          if (file != null) {
             try {
-                org.chuck.deluge.xml.DelugeXmlExporter.saveSynthPreset(model, bridge, trackIndex, file);
-                System.out.println("Saved Preset: " + file.getAbsolutePath());
+              org.chuck.deluge.xml.DelugeXmlExporter.saveSynthPreset(
+                  model, bridge, trackIndex, file);
+              System.out.println("Saved Preset: " + file.getAbsolutePath());
             } catch (Exception ex) {
-                System.err.println("Failed to save preset: " + ex.getMessage());
+              System.err.println("Failed to save preset: " + ex.getMessage());
             }
-        }
-    });
+          }
+        });
     saveBox.getChildren().add(saveBtn);
 
     root.getChildren().addAll(arpPane, filterPane, fmPane, saveBox);
