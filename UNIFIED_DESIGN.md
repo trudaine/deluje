@@ -170,102 +170,102 @@ The **Pattern Length badge** shows the current step count (e.g., `[12]`). When a
 
 ### A. Synth Track Config (`[⚙]` on a Synth row)
 
-Opened via `[⚙]` or keyboard shortcut `E` when a Synth row is focused.
+Opened via `[⚙]` button in the row header, or keyboard shortcut `E` when a Synth row is focused. Non-modal; changes apply in real time.
 
-#### Arpeggiator section
-| Control | Range | Shortcut |
-| :--- | :--- | :--- |
-| ARP ON toggle | on / off | — |
-| Rate | 0.25× – 4× | — |
-| Octaves | 1 – 4 | — |
+#### Tab 1 — ARP / FILTER / FM
 
-#### Filter section
-| Control | Range |
+##### Arpeggiator section
+| Control | Type | Range | Tooltip / Description |
+| :--- | :--- | :--- | :--- |
+| ARP ON | Checkbox | on / off | Enable the arpeggiator — plays notes in sequence automatically |
+| Rate | Slider | 0.25× – 4.00× | Arpeggiator speed multiplier relative to the song tempo |
+| Octaves | Combo | 1 – 4 | Number of octaves the arpeggiator spans before repeating |
+
+##### Filter section
+| Control | Type | Range | Tooltip / Description |
+| :--- | :--- | :--- | :--- |
+| Cutoff | Slider | 0 – 100% | Low-pass filter cutoff frequency (0% = fully closed, 100% = fully open) |
+| Resonance | Slider | 0 – 100% | Filter resonance / Q — emphasises frequencies around the cutoff point |
+
+##### FM Synthesis section
+| Control | Type | Range | Tooltip / Description |
+| :--- | :--- | :--- | :--- |
+| FM Ratio | Slider | 0.25 – 4.00 | Frequency ratio of the modulator oscillator relative to the carrier |
+| FM Amount | Slider | 0 – 100% | Depth of FM modulation — how strongly the modulator affects the carrier |
+
+#### Tab 2 — LFO (4 slots: LFO 0–3)
+
+Each row controls one LFO slot independently.
+
+| Control | Type | Values | Tooltip / Description |
+| :--- | :--- | :--- | :--- |
+| Shape | Combo | Sine / Saw / Square / Triangle | Waveform shape of the LFO oscillator |
+| Rate | Slider | 0.01 – 20.00 Hz | LFO oscillation speed in cycles per second |
+| Depth | Slider | 0 – 100% | Modulation intensity — 0% = off, 100% = maximum swing (see range table below) |
+| Target | Combo | Filter / Res / Pan / Pitch / Vol / FM | Which parameter this LFO modulates |
+| Scope | Combo | All tracks / This track | Whether this LFO affects all tracks or only the current Synth track |
+
+**Depth = 100% modulation ranges:**
+
+| Target | Effect at full depth |
 | :--- | :--- |
-| Mode | LP / BP / HP |
-| Cutoff | 0 – 1 (normalized → 100 Hz – 20 kHz) |
-| Resonance (Q) | 0 – 1 (→ 1 – 10) |
-
-#### FM Synthesis section
-| Control | Range |
-| :--- | :--- |
-| FM Ratio | 0.25 – 4.0 |
-| FM Amount | 0 – 1 |
-
-#### LFO section (4 slots: LFO 0–3)
-
-Each LFO row contains:
-
-| Control | Values | Notes |
-| :--- | :--- | :--- |
-| **Shape** | Sine / Saw / Square / Triangle | Combo box |
-| **Rate** | 0.01 – 20 Hz | Slider |
-| **Depth** | 0 – 1 | Slider; 0 = LFO off (no CPU cost) |
-| **Target** | Filter / Res / Pan / Pitch / Vol / FM | Combo box |
-| **Scope** | All tracks / This track | Toggle |
-
-**User flow:**
-1. Open Synth Config (`[⚙]`).
-2. In the LFO section, pick a slot (LFO 0).
-3. Set **Shape** = Sine, **Rate** = 0.5 Hz, **Depth** = 0.3, **Target** = Filter.
-4. Leave **Scope** = All tracks (or restrict to this row).
-5. Press Play — filter cutoff undulates at 0.5 Hz with ±1500 Hz sweep.
-
-**Depth → modulation range mapping:**
-
-| Target | Depth = 1.0 means |
-| :--- | :--- |
-| Filter cutoff | ±5000 Hz around base value |
-| Filter resonance | ±3 Q units around base |
-| Pan | ±1.0 (full L↔R) |
+| Filter cutoff | ±5000 Hz around the base cutoff |
+| Filter resonance | ±3 Q units around the base resonance |
+| Pan | ±1.0 (full left ↔ right sweep) |
 | Pitch | ±1 octave |
 | Volume | ±50% of current gain |
 | FM Amount | ±50% of current FM depth |
+
+**User flow — add vibrato:**
+1. Open Synth Config (`[⚙]`) → LFO tab.
+2. LFO 0: Shape = Sine, Rate = 5.0 Hz, Depth = 20%, Target = Pitch, Scope = This track.
+3. Press Play — the synth pitch warbles at 5 Hz.
 
 #### Keyboard shortcuts inside the Config dialog
 | Action | Key |
 | :--- | :--- |
 | Close dialog | `Esc` |
-| Cycle LFO target | `Tab` inside LFO Target combo |
 | Reset slider to default | `Double-click` on any slider |
 
 ---
 
 ### B. Kit Track Config (`[⚙]` on a Kit row)
 
-Opened via `[⚙]` or `E` when a Kit row is focused.
+Opened via `[⚙]` button in the row header, or `E` when a Kit row is focused. Non-modal. Each drum sound has its own tab (KICK, SNARE, etc.).
 
-#### Sample section
-| Control | Action |
-| :--- | :--- |
-| Path field | Read-only; shows current sample path |
-| Browse button | Opens Sample Browser panel |
+#### Sample section (per sound tab)
+| Control | Type | Tooltip / Description |
+| :--- | :--- | :--- |
+| Sample path | Text (read-only) | Full path to the audio file currently assigned to this sound |
+| Browse... | Button | Open file chooser rooted at the library Samples directory; supports WAV, AIFF, FLAC |
 
-#### Pitch & Modulation section
-| Control | Range |
-| :--- | :--- |
-| Pitch (semitones) | −24 to +24 |
+Selecting a file updates the model and the engine immediately — the sound plays with the new sample on the next trigger.
 
-#### ADSR section
-| Control | Range |
-| :--- | :--- |
-| Attack | 0.1 ms – 2 s |
-| Decay | 1 ms – 5 s |
-| Sustain | 0 – 1 |
-| Release | 1 ms – 5 s |
+#### Pitch section
+| Control | Type | Range | Tooltip / Description |
+| :--- | :--- | :--- | :--- |
+| Pitch (ST) | Slider | −24 to +24 semitones | Transpose this sound up or down without resampling |
 
-#### Mute Group
-| Control | Values |
-| :--- | :--- |
-| Group | None / 1 / 2 / 3 / 4 |
+#### ADSR Envelope section
+| Control | Type | Range | Tooltip / Description |
+| :--- | :--- | :--- | :--- |
+| Attack | Slider | 0 – 2000 ms | Time to ramp from silence to full volume after the note triggers |
+| Decay | Slider | 0 – 5000 ms | Time to fall from peak level down to the sustain level |
+| Sustain | Slider | 0 – 100% | Volume level held while the note is held, after the decay phase |
+| Release | Slider | 0 – 5000 ms | Time to fade to silence after the note is released |
 
-Sounds in the same mute group choke each other (e.g., open and closed hi-hats in Group 1).
+#### Mute Group section
+| Control | Type | Values | Tooltip / Description |
+| :--- | :--- | :--- | :--- |
+| Mute Group | Combo | None / 1 / 2 / 3 / 4 | Sounds in the same group choke each other — e.g. open/closed hi-hat in Group 1 |
 
-#### Reverse toggle
-Plays the sample backwards when enabled.
+#### Reverse
+| Control | Type | Tooltip / Description |
+| :--- | :--- | :--- |
+| Reverse | Checkbox | Play the sample backwards — useful for reverse cymbal or snare effects |
 
 #### LFO modulation (kit rows respond to global LFOs)
-Kit rows do **not** have their own LFO editor — they respond to any global LFO whose **Scope** is set to "All tracks" or explicitly to this row's index. Supported targets for kit: **Pitch** and **Vol**.
+Kit rows do **not** have their own LFO editor — they respond to any global LFO (configured in any Synth Config → LFO tab) whose **Scope** is set to "All tracks". Supported targets for kit sounds: **Pitch** and **Vol**.
 
 ---
 
