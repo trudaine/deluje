@@ -53,9 +53,144 @@ public class SwingGridPanel extends JPanel {
   }
 
   private int focusTrack = 0;
+  private Runnable onProjectChanged;
+
+  public void setOnProjectChanged(Runnable r) {
+    this.onProjectChanged = r;
+  }
+
+  private void fireProjectChanged() {
+    if (onProjectChanged != null) onProjectChanged.run();
+    refresh();
+  }
 
   public int getFocusTrack() {
     return focusTrack;
+  }
+
+  private void showTrackContextMenu(java.awt.Component src, int x, int y, int trackIdx) {
+    java.util.List<org.chuck.deluge.model.TrackModel> tracks = projectModel.getTracks();
+    if (trackIdx >= tracks.size()) return;
+    org.chuck.deluge.model.TrackModel track = tracks.get(trackIdx);
+
+    JPopupMenu menu = new JPopupMenu();
+
+    JMenuItem renameItem = new JMenuItem("Rename...");
+    renameItem.addActionListener(
+        e -> {
+          String newName = JOptionPane.showInputDialog(this, "Track name:", track.getName());
+          if (newName != null && !newName.isBlank()) {
+            track.setName(newName);
+            fireProjectChanged();
+          }
+        });
+    menu.add(renameItem);
+
+    JMenuItem colorItem = new JMenuItem("Set Color...");
+    colorItem.addActionListener(
+        e -> {
+          Color chosen = JColorChooser.showDialog(this, "Track Color", trackColors[trackIdx]);
+          if (chosen != null) {
+            trackColors[trackIdx] = chosen;
+            track.setColourHex(
+                "0x" + Integer.toHexString(chosen.getRGB() & 0xFFFFFF).toUpperCase());
+            fireProjectChanged();
+          }
+        });
+    menu.add(colorItem);
+
+    menu.addSeparator();
+
+    JMenuItem upItem = new JMenuItem("Move Up");
+    upItem.setEnabled(trackIdx > 0);
+    upItem.addActionListener(
+        e -> {
+          projectModel.moveTrackUp(trackIdx);
+          fireProjectChanged();
+        });
+    menu.add(upItem);
+
+    JMenuItem downItem = new JMenuItem("Move Down");
+    downItem.setEnabled(trackIdx < tracks.size() - 1);
+    downItem.addActionListener(
+        e -> {
+          projectModel.moveTrackDown(trackIdx);
+          fireProjectChanged();
+        });
+    menu.add(downItem);
+
+    menu.addSeparator();
+
+    JMenuItem deleteItem = new JMenuItem("Delete Track");
+    deleteItem.setForeground(Color.RED);
+    deleteItem.addActionListener(
+        e -> {
+          int confirm =
+              JOptionPane.showConfirmDialog(
+                  this,
+                  "Delete track \"" + track.getName() + "\" and all its clips?",
+                  "Delete Track",
+                  JOptionPane.YES_NO_OPTION,
+                  JOptionPane.WARNING_MESSAGE);
+          if (confirm == JOptionPane.YES_OPTION) {
+            projectModel.removeTrack(track);
+            fireProjectChanged();
+          }
+        });
+    menu.add(deleteItem);
+
+    menu.show(src, x, y);
+  }
+
+  private void showClipContextMenu(
+      java.awt.Component src, int x, int y, org.chuck.deluge.model.TrackModel track, int clipIdx) {
+    JPopupMenu menu = new JPopupMenu();
+    org.chuck.deluge.model.ClipModel clip = track.getClips().get(clipIdx);
+
+    JMenuItem renameItem = new JMenuItem("Rename Clip...");
+    renameItem.addActionListener(
+        e -> {
+          String newName = JOptionPane.showInputDialog(this, "Clip name:", clip.getName());
+          if (newName != null && !newName.isBlank()) {
+            clip.setName(newName);
+            fireProjectChanged();
+          }
+        });
+    menu.add(renameItem);
+
+    JMenuItem dupeItem = new JMenuItem("Duplicate Clip");
+    dupeItem.addActionListener(
+        e -> {
+          org.chuck.deluge.model.ClipModel copy = clip.deepCopy(clip.getName() + " copy");
+          track.addClip(copy);
+          fireProjectChanged();
+        });
+    menu.add(dupeItem);
+
+    menu.addSeparator();
+
+    JMenuItem deleteItem = new JMenuItem("Delete Clip");
+    deleteItem.setForeground(Color.RED);
+    deleteItem.addActionListener(
+        e -> {
+          if (track.getClips().size() <= 1) {
+            JOptionPane.showMessageDialog(this, "A track must have at least one clip.");
+            return;
+          }
+          int confirm =
+              JOptionPane.showConfirmDialog(
+                  this,
+                  "Delete clip \"" + clip.getName() + "\"?",
+                  "Delete Clip",
+                  JOptionPane.YES_NO_OPTION);
+          if (confirm == JOptionPane.YES_OPTION) {
+            track.removeClip(clip);
+            fireProjectChanged();
+          }
+        });
+    menu.add(deleteItem);
+
+    menu.show(src, x, y);
   }
 
   public void setViewMode(GridViewMode mode) {
@@ -202,16 +337,9 @@ public class SwingGridPanel extends JPanel {
                 return;
               }
               if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
-                Color chosen =
-                    JColorChooser.showDialog(
-                        SwingGridPanel.this, "Select Track Color", trackColors[trk]);
-                if (chosen != null) {
-                  trackColors[trk] = chosen;
-                  refresh();
-                }
+                showTrackContextMenu(label, e.getX(), e.getY(), trk);
                 return;
               }
-
               if (onEditRequest != null) {
                 onEditRequest.accept(trk, 0);
               }
@@ -748,6 +876,34 @@ public class SwingGridPanel extends JPanel {
                       dialog.add(new JCheckBox("Enable Low-Pass Filter Sweep"));
                       dialog.add(new JCheckBox("Trigger Volume Fade-In"));
                       dialog.setVisible(true);
+                    }
+                  }
+                });
+          }
+
+          if (viewMode == GridViewMode.SONG && t < tracks.size() && colId < 16) {
+            final int clipCol = colId;
+            final org.chuck.deluge.model.TrackModel songTrack = tracks.get(t);
+            clipBtn.addMouseListener(
+                new java.awt.event.MouseAdapter() {
+                  @Override
+                  public void mousePressed(java.awt.event.MouseEvent e) {
+                    if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
+                      if (clipCol < songTrack.getClips().size()) {
+                        showClipContextMenu(clipBtn, e.getX(), e.getY(), songTrack, clipCol);
+                      }
+                    } else {
+                      if (clipCol >= songTrack.getClips().size()) {
+                        String name = "CLIP " + (clipCol + 1);
+                        songTrack.addClip(
+                            new org.chuck.deluge.model.ClipModel(
+                                name,
+                                songTrack.getClips().isEmpty()
+                                    ? 8
+                                    : songTrack.getClips().get(0).getRowCount(),
+                                16));
+                        fireProjectChanged();
+                      }
                     }
                   }
                 });

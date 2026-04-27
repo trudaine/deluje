@@ -18,7 +18,49 @@ The software adheres to a nested hierarchy mirroring the Deluge Guidebook 4.0, m
 
 ---
 
-## 2. Interface Layout & Workspace
+## 2. Song Lifecycle — Create, Edit, Save, Manage
+
+### A. Song Lifecycle Operations
+
+| Action | Description | Trigger |
+| :--- | :--- | :--- |
+| **New Song** | Creates a blank project (1 default Kit + 1 Synth track). Prompts to confirm if unsaved changes exist. Clears the audio engine pattern and mutes. | `Ctrl+N` / File > New Project |
+| **Open Song** | File chooser → parses Song XML → replaces current project in memory. Engine reloads samples. | `Ctrl+O` / File > Open Project |
+| **Save Song** | Saves to the current file path. If not yet saved, delegates to Save As. Window title shows the filename. | `Ctrl+S` / File > Save Project |
+| **Save As** | File chooser → saves to a new path → updates current file reference. | `Ctrl+Shift+S` / File > Save Project As |
+
+### B. Track Management
+
+A **Track** is a single instrument row. A song may have any number of tracks (Kit or Synth). All track operations notify the audio engine so playback reflects the new structure immediately.
+
+| Action | How to invoke | Details |
+| :--- | :--- | :--- |
+| **Add Kit Track** | "+ KIT" toolbar button | Prompts for a name → creates a Kit track with one empty 8×16 clip |
+| **Add Synth Track** | "+ SYNTH" toolbar button | Prompts for a name → creates a Synth track with one empty 8×16 clip |
+| **Rename Track** | Right-click row header → Rename | In-place text prompt |
+| **Set Track Color** | Right-click row header → Set Color | Color chooser; persists to XML as `colourHex` |
+| **Move Track Up** | Right-click row header → Move Up | Swaps position with the track above; disabled on first row |
+| **Move Track Down** | Right-click row header → Move Down | Swaps position with the track below; disabled on last row |
+| **Delete Track** | Right-click row header → Delete Track | Confirmation dialog; removes track and all its clips |
+
+### C. Clip Management
+
+A **Clip** is a pattern (sequence of steps) within a Track. One track can hold multiple clips (like the hardware Deluge's clip launcher). The first clip is the default active clip for playback.
+
+| Action | How to invoke | Details |
+| :--- | :--- | :--- |
+| **Add Clip** | In Song View, left-click an empty pad slot in a track's row | Creates a new empty clip at that position |
+| **Rename Clip** | In Song View, right-click a clip pad → Rename Clip | In-place text prompt |
+| **Duplicate Clip** | In Song View, right-click a clip pad → Duplicate Clip | Deep copy — all step data preserved; appended to end of track |
+| **Delete Clip** | In Song View, right-click a clip pad → Delete Clip | Confirmation dialog; a track must always retain at least one clip |
+
+### D. Copy / Duplicate a Song
+
+To copy an entire song: **File > Save Project As** — saves the current in-memory state under a new filename. The current session continues editing the original file; the new file is a snapshot.
+
+---
+
+## 3. Interface Layout & Workspace
 
 The UI is designed for high-speed desktop use, utilizing persistent panels to avoid the hardware's "context-switching" limitations.
 
@@ -42,7 +84,7 @@ The UI is designed for high-speed desktop use, utilizing persistent panels to av
 
 ---
 
-## 3. Interaction Design & User Actions
+## 4. Interaction Design & User Actions
 
 ### A. Global Transport & Controls
 
@@ -97,7 +139,7 @@ The **Pattern Length badge** shows the current step count (e.g., `[12]`). When a
 
 ---
 
-## 4. Track Sound Editor Dialogs
+## 5. Track Sound Editor Dialogs
 
 ### A. Synth Track Config (`[⚙]` on a Synth row)
 
@@ -200,7 +242,7 @@ Kit rows do **not** have their own LFO editor — they respond to any global LFO
 
 ---
 
-## 5. Polyrhythm — Independent Track Lengths
+## 6. Polyrhythm — Independent Track Lengths
 
 Each track has a **Pattern Length** (1–16 steps, default 16). The master clock emits a monotonic tick counter; each track independently computes its position as `tick % trackLength`.
 
@@ -220,7 +262,7 @@ Each track has a **Pattern Length** (1–16 steps, default 16). The master clock
 
 ---
 
-## 6. Sidechain Ducking
+## 7. Sidechain Ducking
 
 Track row 0 (first Kit row, conventionally the kick) automatically broadcasts `E_SIDECHAIN` on every hit. The synth bus ducks to 15% gain instantly and recovers over 120 ms in 8 linear steps.
 
@@ -228,7 +270,7 @@ Track row 0 (first Kit row, conventionally the kick) automatically broadcasts `E
 
 ---
 
-## 7. Synthesis & Audio Engine
+## 8. Synthesis & Audio Engine
 
 ### Signal Chain
 `Source (Osc/Sample) → ADSR → Pan → Mute Group → FX Send (Delay/Reverb) → Master Bus`
@@ -259,7 +301,7 @@ For Synth tracks: `MorphingWavetable (FM mod) → SVFilter → ADSR → Pan → 
 
 ---
 
-## 8. Technical Implementation (Distributed Shred Architecture)
+## 9. Technical Implementation (Distributed Shred Architecture)
 
 The engine is modeled as independent, sample-accurate processes (shreds) using the **Fluent Java DSL**.
 
