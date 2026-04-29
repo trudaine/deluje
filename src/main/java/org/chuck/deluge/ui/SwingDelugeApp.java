@@ -205,6 +205,9 @@ public class SwingDelugeApp extends JFrame {
           bridge.setArpRate(startRow, arp.rate());
           bridge.setArpOctave(startRow, arp.octaves());
         }
+
+        // Push synth algorithm
+        bridge.setSynthAlgo(startRow, synth.getSynthAlgorithm());
       }
 
       // Track length

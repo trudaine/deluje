@@ -89,6 +89,9 @@ public final class BridgeContract {
   public static final String E_PREVIEW = "e_preview";
   public static final String E_SIDECHAIN = "e_sidechain";
 
+  // Synth algorithm: 0=FM (current), 10=Mandolin, 11=Rhodey, 12=ModalBar, 13=Moog
+  public static final String G_SYNTH_ALGO = "g_synth_algo";
+
   // Kit logic
   public static final String G_KIT_ATTACK = "g_kit_attack";
   public static final String G_KIT_DECAY = "g_kit_decay";
@@ -144,6 +147,8 @@ public final class BridgeContract {
   private final ChuckArray fmRatio;
   private final ChuckArray fmAmount;
 
+  private final ChuckArray synthAlgo;
+
   private ChuckVM vm;
   private boolean recording = false;
 
@@ -193,6 +198,7 @@ public final class BridgeContract {
     arpOctave = new ChuckArray("int", TRACKS);
     fmRatio = new ChuckArray("float", TRACKS);
     fmAmount = new ChuckArray("float", TRACKS);
+    synthAlgo = new ChuckArray("int", TRACKS);
 
     initDefaults();
   }
@@ -238,6 +244,7 @@ public final class BridgeContract {
       arpOctave.setInt(t, 0L);
       fmRatio.setFloat(t, 1.0f);
       fmAmount.setFloat(t, 0.0f);
+      synthAlgo.setInt(t, 0L);
     }
     for (int e = 0; e < ENV_COUNT; e++) {
       env.setFloat(e * ENV_PARAMS + 0, 0.01f);
@@ -326,6 +333,7 @@ public final class BridgeContract {
     vm.setGlobalObject(G_ARP_OCTAVE, arpOctave);
     vm.setGlobalObject(G_FM_RATIO, fmRatio);
     vm.setGlobalObject(G_FM_AMOUNT, fmAmount);
+    vm.setGlobalObject(G_SYNTH_ALGO, synthAlgo);
 
     // Monolithic engine buses
     vm.setGlobalObject(G_DELAY_IN, new org.chuck.audio.util.Gain());
@@ -522,6 +530,14 @@ public final class BridgeContract {
 
   public void setFmAmount(int track, double a) {
     fmAmount.setFloat(track, (float) a);
+  }
+
+  public int getSynthAlgo(int track) {
+    return (int) synthAlgo.getInt(track);
+  }
+
+  public void setSynthAlgo(int track, int algo) {
+    synthAlgo.setInt(track, (long) algo);
   }
 
   public void syncActiveClipToLibrary(int track) {}
