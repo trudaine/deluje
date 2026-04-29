@@ -15,7 +15,8 @@ public class SwingGridPanel extends JPanel {
   private org.chuck.deluge.model.ProjectModel projectModel;
   private java.util.function.BiConsumer<Integer, Integer> onEditRequest;
   private static final int MAX_GRID_ROWS = 64;
-  private JButton[][] pads = new JButton[MAX_GRID_ROWS][18];
+  private static final int MAX_GRID_COLS = 26; // max columns: 24 steps + MUTE + SOLO
+  private JButton[][] pads = new JButton[MAX_GRID_ROWS][MAX_GRID_COLS];
   private org.rtmidijava.RtMidiOut finalMidiOut;
   private double[] vuLevels = new double[MAX_GRID_ROWS];
   private Timer activeStutterTimer;
@@ -27,6 +28,10 @@ public class SwingGridPanel extends JPanel {
   private Timer playheadTimer; // single timer for playhead updates, avoids leaks
   private int scrollOffset = 0; // vertical scroll offset for voice rows in CLIP mode
   private int voiceRowCount = 8; // total number of voice rows for current track
+  private org.chuck.deluge.project.PreferencesManager.GridMode gridMode =
+      org.chuck.deluge.project.PreferencesManager.getGridMode();
+  private int stepCount = 16; // steps per row, derived from gridMode
+  private int columnCount = 18; // stepCount + 2 (MUTE + SOLO), derived from gridMode
 
   public enum GridViewMode {
     CLIP,
@@ -57,6 +62,10 @@ public class SwingGridPanel extends JPanel {
 
     setBackground(new Color(0x1a, 0x1a, 0x1a));
     setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+
+    // Apply saved grid mode to step/column counts
+    this.stepCount = gridMode.columns;
+    this.columnCount = gridMode.columns + 2;
 
     // Keyboard navigation for scrollable CLIP mode
     InputMap im = getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
@@ -100,6 +109,16 @@ public class SwingGridPanel extends JPanel {
   private void fireProjectChanged() {
     if (onProjectChanged != null) onProjectChanged.run();
     refresh();
+  }
+
+  /** Blend a base color with black proportionally to velocity (0.0 = black, 1.0 = full color). */
+  private static Color velocityBlend(Color base, double velocity) {
+    if (velocity >= 1.0) return base;
+    if (velocity <= 0.0) return new Color(0x33, 0x33, 0x33);
+    int r = (int) (base.getRed() * velocity + 0x33 * (1 - velocity));
+    int g = (int) (base.getGreen() * velocity + 0x33 * (1 - velocity));
+    int b = (int) (base.getBlue() * velocity + 0x33 * (1 - velocity));
+    return new Color(Math.min(255, r), Math.min(255, g), Math.min(255, b));
   }
 
   public int getFocusTrack() {
@@ -313,6 +332,24 @@ public class SwingGridPanel extends JPanel {
     this.editedModelTrack = modelTrack;
   }
 
+  /** Returns the total number of voice rows for the currently edited track. */
+  public int getVoiceRowCount() { return voiceRowCount; }
+
+  /** Set the grid size mode and recompute step/column counts. */
+  public void setGridMode(org.chuck.deluge.project.PreferencesManager.GridMode mode) {
+    if (this.gridMode != mode) {
+      this.gridMode = mode;
+      this.stepCount = mode.columns;
+      this.columnCount = mode.columns + 2; // +2 for MUTE and SOLO columns
+      scrollOffset = 0;
+      refresh();
+    }
+  }
+
+  public org.chuck.deluge.project.PreferencesManager.GridMode getGridMode() {
+    return gridMode;
+  }
+
   public void setOnEditRequest(java.util.function.BiConsumer<Integer, Integer> callback) {
     this.onEditRequest = callback;
   }
@@ -330,22 +367,28 @@ public class SwingGridPanel extends JPanel {
       if (t instanceof org.chuck.deluge.model.KitTrackModel kit) {
         return kit.getSounds().size();
       }
-      // Synth always has 8 voice rows
-      return 8;
+      // Synth always uses gridMode.rows as voice count
+      return gridMode.rows;
     }
-    return 8;
+    // SONG / ARRANGEMENT — use gridMode.rows as the total number of voice slots
+    return gridMode.rows;
+  }
+
+  /** Number of visible voice rows in the viewport (up to gridMode.rows). */
+  public int getVisibleRowCount() {
+    return Math.min(gridMode.rows, voiceRowCount - scrollOffset);
   }
 
   /** Scroll the voice row viewport by delta rows. Positive = down, negative = up. */
   public void scrollBy(int delta) {
-    int maxOffset = Math.max(0, voiceRowCount - 8);
+    int maxOffset = Math.max(0, voiceRowCount - gridMode.rows);
     scrollOffset = Math.max(0, Math.min(maxOffset, scrollOffset + delta));
     refresh();
   }
 
-  /** Scroll by one full page (8 rows). */
+  /** Scroll by one full page (gridMode.rows rows). */
   public void scrollPage(int direction) {
-    scrollBy(direction * 8);
+    scrollBy(direction * gridMode.rows);
   }
 
   /** VU meter panel used inside voice rows. */
@@ -407,9 +450,10 @@ public class SwingGridPanel extends JPanel {
     final int trk = visibleRow;
     final String tName = trackName;
     JLabel label = new JLabel(tName);
-    label.setPreferredSize(new Dimension(90, 30));
-    label.setMinimumSize(new Dimension(90, 30));
-    label.setMaximumSize(new Dimension(90, 30));
+    int lw = Math.max(60, Math.min(140, getWidth() / 12));
+    label.setPreferredSize(new Dimension(lw, 30));
+    label.setMinimumSize(new Dimension(lw, 30));
+    label.setMaximumSize(new Dimension(lw, 30));
 
     label.setForeground(Color.LIGHT_GRAY);
     label.setCursor(new Cursor(Cursor.HAND_CURSOR));
@@ -508,7 +552,7 @@ public class SwingGridPanel extends JPanel {
             });
     vuTimer.start();
 
-    for (int c = 0; c < 18; c++) {
+    for (int c = 0; c < columnCount; c++) {
       final int colId = c;
 
       JButton clipBtn;
@@ -522,10 +566,15 @@ public class SwingGridPanel extends JPanel {
       pads[visibleRow][c] = clipBtn;
 
       if (viewMode == GridViewMode.CLIP) {
+        int engineR = baseTrackId + modelRow;
+        double vel = bridge != null ? bridge.getVelocity(engineR, colId) : 0.8;
+        double prob = bridge != null ? bridge.getStepProbability(engineR, colId) : 1.0;
         clipBtn.setText(
             "<html><font size='3'>Pi:"
                 + (modelRow)
-                + "<br>Ve:0.8<br>Pr:1.0<br>Ga:1</font></html>");
+                + "<br>Ve:" + String.format("%.1f", vel)
+                + "<br>Pr:" + String.format("%.1f", prob)
+                + "<br>Ga:1</font></html>");
       } else if (viewMode == GridViewMode.ARRANGEMENT) {
         String tn =
             (modelRow < tracks.size()) ? tracks.get(modelRow).getName() : "EMPTY";
@@ -554,7 +603,24 @@ public class SwingGridPanel extends JPanel {
         }
       }
 
-      if (colId == 16) {
+      // In CLIP mode, wrap extra columns beyond clip length back to beginning
+      final int activeCol;
+      if (viewMode == GridViewMode.CLIP) {
+        int trackLen = 0;
+        if (modelRow < tracks.size()) {
+          org.chuck.deluge.model.TrackModel track = tracks.get(modelRow);
+          if (activeClipId < track.getClips().size()) {
+            trackLen = track.getClips().get(activeClipId).getStepCount();
+          }
+        }
+        if (trackLen <= 0) trackLen = bridge != null ? bridge.getTrackLength(baseTrackId + modelRow) : stepCount;
+        if (trackLen > 0 && trackLen < stepCount) activeCol = colId % trackLen;
+        else activeCol = colId;
+      } else {
+        activeCol = colId;
+      }
+
+      if (colId == columnCount - 2) {
         final int engineRow = baseTrackId + modelRow;
         clipBtn.setText("MUTE");
         clipBtn.setBackground(
@@ -562,7 +628,7 @@ public class SwingGridPanel extends JPanel {
         clipBtn.addActionListener(
             e -> {
               if ((e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0) {
-                for (int s = 0; s < 16; s++) {
+                for (int s = 0; s < stepCount; s++) {
                   bridge.setStep(engineRow, s, false);
                 }
                 refresh();
@@ -572,7 +638,7 @@ public class SwingGridPanel extends JPanel {
               bridge.setMute(engineRow, !isMuted);
               clipBtn.setBackground(!isMuted ? Color.RED : new Color(0x33, 0x33, 0x33));
             });
-      } else if (colId == 17) {
+      } else if (colId == columnCount - 1) {
         clipBtn.setText("SOLO");
         clipBtn.setBackground(soloRow == modelRow ? Color.GREEN : new Color(0x33, 0x33, 0x33));
 
@@ -601,9 +667,10 @@ public class SwingGridPanel extends JPanel {
       } else {
         // Rendering
         if (viewMode == GridViewMode.CLIP) {
-          boolean stepState = bridge.getStep(baseTrackId + modelRow, c);
+          boolean stepState = bridge.getStep(baseTrackId + modelRow, activeCol);
+          double vel = bridge.getVelocity(baseTrackId + modelRow, activeCol);
           clipBtn.setBackground(
-              stepState ? trackColors[visibleRow % trackColors.length] : new Color(0x33, 0x33, 0x33));
+              stepState ? velocityBlend(trackColors[visibleRow % trackColors.length], vel) : new Color(0x33, 0x33, 0x33));
         } else {
           if (hasClip) {
             clipBtn.setBackground(trackColors[visibleRow % trackColors.length]);
@@ -663,8 +730,8 @@ public class SwingGridPanel extends JPanel {
 
                     if (trackType == 2) {
                       // MIDI track
-                      boolean st = bridge.getStep(baseTrackId + modelRow, colId);
-                      bridge.setStep(baseTrackId + modelRow, colId, !st);
+                      boolean st = bridge.getStep(baseTrackId + modelRow, activeCol);
+                      bridge.setStep(baseTrackId + modelRow, activeCol, !st);
                       if (!st) {
                         if (finalMidiOut != null) {
                           try {
@@ -680,16 +747,19 @@ public class SwingGridPanel extends JPanel {
                             projectModel.getTracks().get(editedModelTrack);
                         if (activeClipId < tModel.getClips().size()) {
                           org.chuck.deluge.model.ClipModel cModel = tModel.getClips().get(activeClipId);
-                          cModel.setStep(modelRow, colId,
-                              new org.chuck.deluge.model.StepData(!st, 0.8f, 0.5f, 1.0f, 0));
+                          double curVel = bridge.getVelocity(baseTrackId + modelRow, activeCol);
+                          double curProb = bridge.getStepProbability(baseTrackId + modelRow, activeCol);
+                          cModel.setStep(modelRow, activeCol,
+                              new org.chuck.deluge.model.StepData(!st, (float)curVel, 0.5f, (float)curProb, 0));
                         }
                       }
                     } else if (isSynthMode) {
                       int engineRow = baseTrackId + modelRow;
-                      boolean stepState = bridge.getStep(engineRow, colId);
-                      bridge.setStep(engineRow, colId, !stepState);
+                      boolean stepState = bridge.getStep(engineRow, activeCol);
+                      bridge.setStep(engineRow, activeCol, !stepState);
+                      double velS = bridge.getVelocity(engineRow, activeCol);
                       clipBtn.setBackground(
-                          !stepState ? trackColors[visibleRow % trackColors.length] : new Color(0x33, 0x33, 0x33));
+                          !stepState ? velocityBlend(trackColors[visibleRow % trackColors.length], velS) : new Color(0x33, 0x33, 0x33));
                       vm.setGlobalFloat("g_preview_pitch", (float) ((24 - 1) - modelRow));
                       vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) engineRow);
                       vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
@@ -698,24 +768,28 @@ public class SwingGridPanel extends JPanel {
                             projectModel.getTracks().get(editedModelTrack);
                         if (activeClipId < tModel.getClips().size()) {
                           org.chuck.deluge.model.ClipModel cModel = tModel.getClips().get(activeClipId);
-                          cModel.setStep(modelRow, colId,
-                              new org.chuck.deluge.model.StepData(!stepState, 0.8f, 0.5f, 1.0f, 0));
+                          double curVel = bridge.getVelocity(baseTrackId + modelRow, activeCol);
+                          double curProb = bridge.getStepProbability(baseTrackId + modelRow, activeCol);
+                          cModel.setStep(modelRow, activeCol,
+                              new org.chuck.deluge.model.StepData(!stepState, (float)curVel, 0.5f, (float)curProb, 0));
                         }
                       }
                     } else {
                       // Kit track
-                      boolean stepState = bridge.getStep(baseTrackId + modelRow, colId);
-                      bridge.setStep(baseTrackId + modelRow, colId, !stepState);
-                      System.out.println("[grid] kit click: modelRow=" + modelRow + " visibleRow=" + visibleRow + " engineRow=" + (baseTrackId + modelRow) + " col=" + colId + " stepState=" + stepState);
+                      boolean stepState = bridge.getStep(baseTrackId + modelRow, activeCol);
+                      bridge.setStep(baseTrackId + modelRow, activeCol, !stepState);
+                      double velK = bridge.getVelocity(baseTrackId + modelRow, activeCol);
                       clipBtn.setBackground(
-                          !stepState ? trackColors[visibleRow % trackColors.length] : new Color(0x33, 0x33, 0x33));
+                          !stepState ? velocityBlend(trackColors[visibleRow % trackColors.length], velK) : new Color(0x33, 0x33, 0x33));
                       if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
                         org.chuck.deluge.model.TrackModel tModel =
                             projectModel.getTracks().get(editedModelTrack);
                         if (activeClipId < tModel.getClips().size()) {
                           org.chuck.deluge.model.ClipModel cModel = tModel.getClips().get(activeClipId);
-                          cModel.setStep(modelRow, colId,
-                              new org.chuck.deluge.model.StepData(!stepState, 0.8f, 0.5f, 1.0f, 0));
+                          double curVel = bridge.getVelocity(baseTrackId + modelRow, activeCol);
+                          double curProb = bridge.getStepProbability(baseTrackId + modelRow, activeCol);
+                          cModel.setStep(modelRow, activeCol,
+                              new org.chuck.deluge.model.StepData(!stepState, (float)curVel, 0.5f, (float)curProb, 0));
                         }
                       }
                       if (!stepState) {
@@ -921,7 +995,7 @@ public class SwingGridPanel extends JPanel {
             });
       }
 
-      if (c == 16) {
+      if (c == columnCount - 2) {
         rowPanel.add(Box.createHorizontalStrut(20));
       }
       rowPanel.add(clipBtn);
@@ -947,9 +1021,10 @@ public class SwingGridPanel extends JPanel {
     else trackName = "KEYBOARD";
 
     JLabel label = new JLabel(trackName);
-    label.setPreferredSize(new Dimension(90, 30));
-    label.setMinimumSize(new Dimension(90, 30));
-    label.setMaximumSize(new Dimension(90, 30));
+    int lw = Math.max(60, Math.min(140, getWidth() / 12));
+    label.setPreferredSize(new Dimension(lw, 30));
+    label.setMinimumSize(new Dimension(lw, 30));
+    label.setMaximumSize(new Dimension(lw, 30));
     label.setForeground(Color.LIGHT_GRAY);
     rowPanel.add(label);
     rowPanel.add(Box.createRigidArea(new Dimension(69, 1)));
@@ -961,7 +1036,7 @@ public class SwingGridPanel extends JPanel {
     rowPanel.add(vu);
     rowPanel.add(Box.createHorizontalStrut(5));
 
-    for (int c = 0; c < 18; c++) {
+    for (int c = 0; c < columnCount; c++) {
       final int colId = c;
       JButton clipBtn;
       if (rowIdx == 8) {
@@ -1018,7 +1093,7 @@ public class SwingGridPanel extends JPanel {
         }
       } else {
         // KEYBOARD row
-        if (c < 18) {
+        if (c < columnCount) {
           int note = 48 + colId;
           boolean isBlack = (colId % 12 == 1 || colId % 12 == 3
               || colId % 12 == 6 || colId % 12 == 8 || colId % 12 == 10);
@@ -1052,7 +1127,7 @@ public class SwingGridPanel extends JPanel {
 
       pads[rowIdx][c] = clipBtn;
 
-      if (c == 16) {
+      if (c == columnCount - 2) {
         rowPanel.add(Box.createHorizontalStrut(20));
       }
       rowPanel.add(clipBtn);
@@ -1065,7 +1140,7 @@ public class SwingGridPanel extends JPanel {
   public void flashIsomorphicNote(int note) {
     int r = (note - 60) / 5;
     int c = (note - 60) % 5;
-    if (r >= 0 && r < 8 && c >= 0 && c < 5 && pads[r][c] != null) {
+    if (r >= 0 && r < gridMode.rows && c >= 0 && c < 5 && pads[r][c] != null) {
       Color orig = pads[r][c].getBackground();
       pads[r][c].setBackground(Color.WHITE);
       Timer restore = new Timer(150, ev -> pads[r][c].setBackground(orig));
@@ -1076,8 +1151,8 @@ public class SwingGridPanel extends JPanel {
 
   public void updatePlayhead(int step) {
     if (step < 0) return;
-    int stepMod = step % 16;
-    int rowsToScan = (viewMode == GridViewMode.CLIP) ? voiceRowCount : Math.min(pads.length, 8);
+    int stepMod = step % stepCount;
+    int rowsToScan = (viewMode == GridViewMode.CLIP) ? voiceRowCount : gridMode.rows;
     for (int t = 0; t < rowsToScan; t++) {
       if (pads[t][stepMod] == null) continue;
       int engineRow = baseTrackId + (viewMode == GridViewMode.CLIP ? scrollOffset + t : t);
@@ -1085,7 +1160,11 @@ public class SwingGridPanel extends JPanel {
       if (isTriggered) {
         pads[t][stepMod].setBackground(Color.WHITE);
       } else if (pads[t][stepMod].getBackground().equals(Color.WHITE)) {
-        pads[t][stepMod].setBackground(new Color(0x00, 0xff, 0xcc));
+        // Restore to velocity-blended color
+        double vel = bridge.getVelocity(engineRow, stepMod);
+        boolean stepActive = bridge.getStep(engineRow, stepMod);
+        pads[t][stepMod].setBackground(
+            stepActive ? velocityBlend(trackColors[t % trackColors.length], vel) : new Color(0x33, 0x33, 0x33));
       }
     }
   }
@@ -1095,12 +1174,27 @@ public class SwingGridPanel extends JPanel {
     java.util.List<org.chuck.deluge.model.TrackModel> tracks = projectModel.getTracks();
 
     voiceRowCount = computeVoiceRowCount();
+    LOG.info("REFRESH gridMode=" + gridMode + " voiceRowCount=" + voiceRowCount
+        + " gridMode.rows=" + gridMode.rows + " gridMode.columns=" + gridMode.columns
+        + " columnCount=" + columnCount + " scrollOffset=" + scrollOffset
+        + " viewMode=" + viewMode);
     // Reset scroll if needed
-    int maxOffset = Math.max(0, voiceRowCount - 8);
+    int maxOffset = Math.max(0, voiceRowCount - gridMode.rows);
     if (scrollOffset > maxOffset) scrollOffset = maxOffset;
 
-    String res = org.chuck.deluge.project.PreferencesManager.get("screen.resolution", "QHD");
-    final int padSz = "FHD".equals(res) ? 90 : ("4K".equals(res) ? 180 : 120);
+    // Compute dynamic pad size: always fit gridMode.rows × gridMode.columns cells in the viewport
+    int availWidth = getWidth() > 0 ? getWidth() : 1200;
+    int availHeight = getHeight() > 0 ? getHeight() : 600;
+    int labelWidth = Math.max(60, Math.min(140, availWidth / 12));
+    int cellsWidth = availWidth - labelWidth - 69 - 5 - 12 - 5 - 20;
+    int rowsInView = gridMode.rows + 3; // voice rows + MACROS/SLIDERS/KEYBOARD = 3 fixed rows
+    int padSz = Math.min(
+      cellsWidth / columnCount,
+      (availHeight - 30) / rowsInView
+    );
+    padSz = Math.max(16, Math.min(200, padSz));
+
+    int savedColCount = columnCount; // saved for SONG/ARRANGEMENT section below
 
     if (viewMode == GridViewMode.CLIP) {
       // ===== CLIP MODE: scrollable voice rows + fixed MACROS/SLIDERS/KEYBOARD =====
@@ -1110,58 +1204,74 @@ public class SwingGridPanel extends JPanel {
         org.chuck.deluge.model.TrackModel curTrack = projectModel.getTracks().get(editedModelTrack);
         JPanel headerRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 2));
         headerRow.setBackground(new Color(0x15, 0x15, 0x15));
-        JLabel headerLabel = new JLabel("Editing: " + curTrack.getName() + " (" + voiceRowCount + " voices)");
+        JLabel headerLabel = new JLabel("Editing: " + curTrack.getName() + " (" + voiceRowCount + " voices)  [" + gridMode.name().replace('_', ' ') + "]");
         headerLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
         headerLabel.setForeground(new Color(0x00, 0xff, 0xcc));
         headerRow.add(headerLabel);
 
-        // Scroll buttons
-        if (voiceRowCount > 8) {
+        // Scroll up/down buttons
+        if (voiceRowCount > gridMode.rows) {
           JButton upBtn = new JButton("\u25B2");
+          upBtn.setFont(new Font("SansSerif", Font.BOLD, 12));
+          upBtn.setMargin(new Insets(0, 4, 0, 4));
           upBtn.setToolTipText("Scroll up");
-          upBtn.addActionListener(e -> scrollBy(-1));
+          upBtn.setEnabled(scrollOffset > 0);
+          upBtn.addActionListener(e -> { scrollOffset = Math.max(0, scrollOffset - 1); refresh(); });
           headerRow.add(upBtn);
+
+          JLabel rowCountLabel = new JLabel((scrollOffset + 1) + "-" + Math.min(scrollOffset + gridMode.rows, voiceRowCount) + " / " + voiceRowCount);
+          rowCountLabel.setForeground(Color.LIGHT_GRAY);
+          rowCountLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
+          headerRow.add(rowCountLabel);
+
           JButton downBtn = new JButton("\u25BC");
+          downBtn.setFont(new Font("SansSerif", Font.BOLD, 12));
+          downBtn.setMargin(new Insets(0, 4, 0, 4));
           downBtn.setToolTipText("Scroll down");
-          downBtn.addActionListener(e -> scrollBy(1));
+          int maxOff = voiceRowCount - gridMode.rows;
+          downBtn.setEnabled(scrollOffset < maxOff);
+          downBtn.addActionListener(e -> { scrollOffset = Math.min(maxOff, scrollOffset + 1); refresh(); });
           headerRow.add(downBtn);
-          JLabel scrollLabel = new JLabel("Row " + (scrollOffset + 1) + "-" + Math.min(scrollOffset + 8, voiceRowCount) + "/" + voiceRowCount);
-          scrollLabel.setForeground(Color.LIGHT_GRAY);
-          headerRow.add(scrollLabel);
+        } else {
+          JLabel rowCountLabel = new JLabel("" + voiceRowCount + " voices");
+          rowCountLabel.setForeground(Color.LIGHT_GRAY);
+          rowCountLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
+          headerRow.add(rowCountLabel);
         }
         add(headerRow);
       }
 
-      // Section 2: Scrollable voice rows (visible rows from scrollOffset to scrollOffset+7)
+      // Section 2: Scrollable voice rows — always show gridMode.rows slots in the viewport
       JPanel voicePanel = new JPanel();
       voicePanel.setLayout(new BoxLayout(voicePanel, BoxLayout.Y_AXIS));
-      int visibleRows = Math.min(8, voiceRowCount - scrollOffset);
-      for (int v = 0; v < visibleRows; v++) {
+      for (int v = 0; v < gridMode.rows; v++) {
         int modelRow = scrollOffset + v;
-        JPanel row = buildVoiceRow(modelRow, v, padSz, tracks);
-        voicePanel.add(row);
-      }
-      // Fill remaining visible slots with blank rows if voiceRowCount < 8
-      for (int v = visibleRows; v < 8; v++) {
-        JPanel blankRow = new JPanel();
-        blankRow.setPreferredSize(new Dimension(3000, padSz));
-        blankRow.setMaximumSize(new Dimension(3000, padSz));
-        blankRow.setBackground(new Color(0x22, 0x22, 0x22));
-        voicePanel.add(blankRow);
-      }
-
-      JScrollPane scrollPane = new JScrollPane(voicePanel);
-      scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
-      scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-      scrollPane.setBorder(null);
-      // Attach mouse wheel listener to the viewport so it scrolls by rows, not pixels
-      scrollPane.getViewport().addMouseWheelListener(e -> {
-        if (viewMode == GridViewMode.CLIP) {
-          scrollBy(e.getWheelRotation());
-          e.consume();
+        if (modelRow < voiceRowCount) {
+          JPanel row = buildVoiceRow(modelRow, v, padSz, tracks);
+          voicePanel.add(row);
+        } else {
+          // Blank filler rows for viewport slots beyond actual voice count
+          JPanel blankRow = new JPanel();
+          blankRow.setPreferredSize(new Dimension(3000, padSz));
+          blankRow.setMaximumSize(new Dimension(3000, padSz));
+          blankRow.setBackground(new Color(0x22, 0x22, 0x22));
+          voicePanel.add(blankRow);
         }
-      });
-      add(scrollPane);
+      }
+      // Wrap voice rows in a JScrollPane when content exceeds viewport
+      if (voiceRowCount > gridMode.rows) {
+        JScrollPane voiceScroll = new JScrollPane(voicePanel);
+        voiceScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+        voiceScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        voiceScroll.setBorder(BorderFactory.createEmptyBorder());
+        // Fix viewport height to show exactly gridMode.rows
+        int viewH = gridMode.rows * (padSz + 2);
+        voiceScroll.setPreferredSize(new Dimension(3000, viewH));
+        voiceScroll.setMaximumSize(new Dimension(3000, viewH));
+        add(voiceScroll);
+      } else {
+        add(voicePanel);
+      }
 
       // Section 3: Fixed rows — MACROS, SLIDERS, KEYBOARD
       for (int fixedRow = 8; fixedRow <= 10; fixedRow++) {
@@ -1169,8 +1279,10 @@ public class SwingGridPanel extends JPanel {
       }
 
     } else {
-      // ===== SONG / ARRANGEMENT: 11-row fixed layout (unchanged) =====
-      for (int t = 0; t < 11; t++) {
+      // ===== SONG / ARRANGEMENT: gridMode.rows + 3 fixed rows (MACROS/SLIDERS/KEYBOARD) =====
+      columnCount = gridMode.columns + 2; // Use grid mode column count + MUTE/SOLO
+      int songVoiceRows = gridMode.rows; // always draw full viewport slots
+      for (int t = 0; t < songVoiceRows + 3; t++) {
 
       JPanel rowPanel = new JPanel();
       rowPanel.setLayout(new BoxLayout(rowPanel, BoxLayout.X_AXIS));
@@ -1185,13 +1297,13 @@ public class SwingGridPanel extends JPanel {
         if (hex != null && hex.startsWith("0x")) {
           try {
             int rgb = Integer.decode(hex.substring(0, 8)); // strip alpha if 8 chars
-            trackColors[t] = new Color(rgb);
+            trackColors[t % trackColors.length] = new Color(rgb);
           } catch (Exception e) {
           }
         }
       }
       String trackName;
-      if (t < 8 && viewMode == GridViewMode.CLIP && projectModel != null
+      if (t < songVoiceRows && viewMode == GridViewMode.CLIP && projectModel != null
           && editedModelTrack < projectModel.getTracks().size()) {
         org.chuck.deluge.model.TrackModel rowTrack = projectModel.getTracks().get(editedModelTrack);
         if (rowTrack instanceof org.chuck.deluge.model.KitTrackModel kit) {
@@ -1205,17 +1317,18 @@ public class SwingGridPanel extends JPanel {
       } else {
         trackName = (t < tracks.size()) ? tracks.get(t).getName() : "EMPTY " + (t + 1);
       }
-      if (t == 8) trackName = "MACROS";
-      if (t == 9) trackName = "SLIDERS";
-      if (t == 10) trackName = "KEYBOARD";
+      if (t == songVoiceRows) trackName = "MACROS";
+      if (t == songVoiceRows + 1) trackName = "SLIDERS";
+      if (t == songVoiceRows + 2) trackName = "KEYBOARD";
 
 
       final int trk = currentTrack;
       final String tName = trackName;
       JLabel label = new JLabel(tName);
-      label.setPreferredSize(new Dimension(90, 30));
-      label.setMinimumSize(new Dimension(90, 30));
-      label.setMaximumSize(new Dimension(90, 30));
+      int lw = Math.max(60, Math.min(140, getWidth() / 12));
+      label.setPreferredSize(new Dimension(lw, 30));
+      label.setMinimumSize(new Dimension(lw, 30));
+      label.setMaximumSize(new Dimension(lw, 30));
 
       label.setForeground(Color.LIGHT_GRAY);
       label.setCursor(new Cursor(Cursor.HAND_CURSOR));
@@ -1241,7 +1354,7 @@ public class SwingGridPanel extends JPanel {
       rowPanel.add(label);
 
       // ⚙ config button and length badge for real tracks; blank spacer for all others
-      if (t < tracks.size() && t < 8) {
+      if (t < tracks.size() && t < songVoiceRows) {
         org.chuck.deluge.model.TrackModel track = tracks.get(t);
 
         JButton cfgBtn = new JButton("⚙");
@@ -1315,13 +1428,14 @@ public class SwingGridPanel extends JPanel {
               });
       vuTimer.start();
 
-      for (int c = 0; c < 18; c++) {
+      for (int c = 0; c < columnCount; c++) {
         final int slot = c;
         final int trkId = t;
         final int colId = c;
 
         JButton clipBtn;
-        if (trkId == 9 && colId < 16) {
+        int macR = songVoiceRows, sliR = songVoiceRows + 1, keyR = songVoiceRows + 2;
+        if (trkId == sliR && colId < 16) {
           clipBtn =
               new JButton() {
                 @Override
@@ -1335,7 +1449,7 @@ public class SwingGridPanel extends JPanel {
                   g.fillRect(0, h - barH, w, barH);
                 }
               };
-        } else if (trkId == 10 && colId < 18) {
+        } else if (trkId == keyR && colId < 18) {
           clipBtn = new JButton();
         } else {
           clipBtn = new JButton();
@@ -1348,7 +1462,7 @@ public class SwingGridPanel extends JPanel {
 
         pads[t][c] = clipBtn;
 
-        if (t == 8) {
+        if (t == macR) {
           if (c < 16) {
             String[] allParams = {
               "LEVEL", "PAN", "PITCH", "FILTER", "RESONANCE", "OSC1", "OSC2", "LFO",
@@ -1362,7 +1476,7 @@ public class SwingGridPanel extends JPanel {
             clipBtn.setBackground(new Color(0x1a, 0x1a, 0x1a));
             clipBtn.setEnabled(false);
           }
-        } else if (trkId == 9) {
+        } else if (trkId == sliR) {
           if (colId < 16) {
             final int colSlot = colId;
 
@@ -1374,18 +1488,18 @@ public class SwingGridPanel extends JPanel {
                 new java.awt.event.MouseAdapter() {
                   @Override
                   public void mouseDragged(java.awt.event.MouseEvent e) {
-                    double v = 1.0 - (double) e.getY() / pads[9][colId].getHeight();
+                    double v = 1.0 - (double) e.getY() / pads[sliR][colId].getHeight();
                     v = Math.max(0.0, Math.min(1.0, v));
                     bridge.setVelocity(0, colId, v);
-                    pads[9][colId].repaint();
+                    pads[sliR][colId].repaint();
                   }
 
                   @Override
                   public void mousePressed(java.awt.event.MouseEvent e) {
-                    double v = 1.0 - (double) e.getY() / pads[9][colId].getHeight();
+                    double v = 1.0 - (double) e.getY() / pads[sliR][colId].getHeight();
                     v = Math.max(0.0, Math.min(1.0, v));
                     bridge.setVelocity(0, colId, v);
-                    pads[9][colId].repaint();
+                    pads[sliR][colId].repaint();
                   }
                 });
 
@@ -1393,7 +1507,7 @@ public class SwingGridPanel extends JPanel {
             clipBtn.setBackground(new Color(0x1a, 0x1a, 0x1a));
             clipBtn.setEnabled(false);
           }
-        } else if (trkId == 10) {
+        } else if (trkId == keyR) {
           if (colId < 18) {
             int note = 48 + colId; // starting at C3
             boolean isBlack =
@@ -1426,10 +1540,14 @@ public class SwingGridPanel extends JPanel {
         } else {
 
           if (viewMode == GridViewMode.CLIP) {
+            double vel = bridge != null ? bridge.getVelocity(baseTrackId + trk, colId) : 0.8;
+            double prob = bridge != null ? bridge.getStepProbability(baseTrackId + trk, colId) : 1.0;
             clipBtn.setText(
                 "<html><font size='3'>Pi:"
                     + (currentTrack)
-                    + "<br>Ve:0.8<br>Pr:1.0<br>Ga:1</font></html>");
+                    + "<br>Ve:" + String.format("%.1f", vel)
+                    + "<br>Pr:" + String.format("%.1f", prob)
+                    + "<br>Ga:1</font></html>");
           } else if (viewMode == GridViewMode.ARRANGEMENT) {
             String tn =
                 (currentTrack < tracks.size()) ? tracks.get(currentTrack).getName() : "EMPTY";
@@ -1468,7 +1586,7 @@ public class SwingGridPanel extends JPanel {
               e -> {
                 if ((e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0) {
                   // Clear Sequence row
-                  for (int s = 0; s < 16; s++) {
+                  for (int s = 0; s < stepCount; s++) {
                     bridge.setStep(engineRow, s, false);
                   }
                   refresh();
@@ -1478,7 +1596,7 @@ public class SwingGridPanel extends JPanel {
                 bridge.setMute(engineRow, !isMuted);
                 clipBtn.setBackground(!isMuted ? Color.RED : new Color(0x33, 0x33, 0x33));
               });
-        } else if (colId == 17) {
+        } else if (colId == columnCount - 1) {
           clipBtn.setText("SOLO");
           clipBtn.setBackground(soloRow == trk ? Color.GREEN : new Color(0x33, 0x33, 0x33));
 
@@ -1511,9 +1629,9 @@ public class SwingGridPanel extends JPanel {
         } else {
           if (viewMode == GridViewMode.CLIP) {
             boolean stepState = bridge.getStep(baseTrackId + trk, c);
-
+            double vel = bridge.getVelocity(baseTrackId + trk, c);
             clipBtn.setBackground(
-                stepState ? trackColors[currentTrack] : new Color(0x33, 0x33, 0x33));
+                stepState ? velocityBlend(trackColors[currentTrack], vel) : new Color(0x33, 0x33, 0x33));
           } else {
             if (hasClip) {
               clipBtn.setBackground(trackColors[currentTrack]);
@@ -1598,11 +1716,11 @@ public class SwingGridPanel extends JPanel {
                       } else if (isSynthMode) {
                         // Each visual row toggles its own engine row independently (chords)
                         int engineRow = baseTrackId + trk;
-                        System.out.println("[grid] synth click: trk=" + trk + " baseTrackId=" + baseTrackId + " engineRow=" + engineRow + " col=" + colId + " trackType(engineRow)=" + bridge.getTrackType(engineRow));
                         boolean stepState = bridge.getStep(engineRow, colId);
                         bridge.setStep(engineRow, colId, !stepState);
+                        double velS = bridge.getVelocity(engineRow, colId);
                         clipBtn.setBackground(
-                            !stepState ? trackColors[trk] : new Color(0x33, 0x33, 0x33));
+                            !stepState ? velocityBlend(trackColors[trk], velS) : new Color(0x33, 0x33, 0x33));
 
                         // Audition via engine preview
                         vm.setGlobalFloat("g_preview_pitch", (float) ((24 - 1) - trk));
@@ -1616,30 +1734,34 @@ public class SwingGridPanel extends JPanel {
                           if (activeClipId < tModel.getClips().size()) {
                             org.chuck.deluge.model.ClipModel cModel =
                                 tModel.getClips().get(activeClipId);
+                            double curVel = bridge.getVelocity(engineRow, colId);
+                            double curProb = bridge.getStepProbability(engineRow, colId);
                             cModel.setStep(
                                 trk,
                                 colId,
                                 new org.chuck.deluge.model.StepData(
-                                    !stepState, 0.8f, 0.5f, 1.0f, 0));
+                                    !stepState, (float)curVel, 0.5f, (float)curProb, 0));
                           }
                         }
                       } else {
                         boolean stepState = bridge.getStep(baseTrackId + trk, colId);
                         bridge.setStep(baseTrackId + trk, colId, !stepState);
-
+                        double velK = bridge.getVelocity(baseTrackId + trk, colId);
                         clipBtn.setBackground(
-                            !stepState ? trackColors[trk] : new Color(0x33, 0x33, 0x33));
+                            !stepState ? velocityBlend(trackColors[trk], velK) : new Color(0x33, 0x33, 0x33));
                         if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
                           org.chuck.deluge.model.TrackModel tModel =
                               projectModel.getTracks().get(editedModelTrack);
                           if (activeClipId < tModel.getClips().size()) {
                             org.chuck.deluge.model.ClipModel cModel =
                                 tModel.getClips().get(activeClipId);
+                            double curVel = bridge.getVelocity(baseTrackId + trk, colId);
+                            double curProb = bridge.getStepProbability(baseTrackId + trk, colId);
                             cModel.setStep(
                                 trk,
                                 colId,
                                 new org.chuck.deluge.model.StepData(
-                                    !stepState, 0.8f, 0.5f, 1.0f, 0));
+                                    !stepState, (float)curVel, 0.5f, (float)curProb, 0));
                           }
                         }
 
@@ -1882,7 +2004,7 @@ public class SwingGridPanel extends JPanel {
               });
         }
 
-        if (c == 16) {
+        if (c == columnCount - 2) {
           rowPanel.add(Box.createHorizontalStrut(20));
         }
         rowPanel.add(clipBtn);
@@ -1891,6 +2013,7 @@ public class SwingGridPanel extends JPanel {
       add(rowPanel);
     }
     } // end else (SONG/ARRANGEMENT)
+    columnCount = savedColCount; // restore CLIP-mode columnCount
 
     if (viewMode == GridViewMode.CLIP) {
       class PianoRollComponent extends JComponent {
@@ -1987,9 +2110,9 @@ public class SwingGridPanel extends JPanel {
             e -> {
               int currentStep = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
               if (currentStep >= 0) {
-                int activeCol = (currentStep % 16);
+                int activeCol = (currentStep % stepCount);
 
-                int rows = (viewMode == GridViewMode.CLIP) ? voiceRowCount : 8;
+                int rows = (viewMode == GridViewMode.CLIP) ? voiceRowCount : gridMode.rows;
                 if (activeCol != lastCol[0]) {
                   lastCol[0] = activeCol;
                   if (activeCol == 0) {
@@ -2034,7 +2157,7 @@ public class SwingGridPanel extends JPanel {
 
                 for (int t = 0; t < rows; t++) {
                   int engineRow = baseTrackId + (viewMode == GridViewMode.CLIP ? scrollOffset + t : t);
-                  for (int c = 0; c < 16; c++) {
+                  for (int c = 0; c < stepCount; c++) {
                     if (pads[t][c] != null) {
                       if (c == activeCol) {
                         pads[t][c].setBorder(BorderFactory.createLineBorder(Color.YELLOW, 4));
@@ -2043,8 +2166,9 @@ public class SwingGridPanel extends JPanel {
                       }
                       // Re-sync background from bridge so cell selection stays correct during playback
                       boolean stepActive = bridge.getStep(engineRow, c);
+                      double velPb = bridge.getVelocity(engineRow, c);
                       pads[t][c].setBackground(
-                          stepActive ? trackColors[t % trackColors.length] : new Color(0x33, 0x33, 0x33));
+                          stepActive ? velocityBlend(trackColors[t % trackColors.length], velPb) : new Color(0x33, 0x33, 0x33));
                     }
                   }
                 }
