@@ -47,6 +47,15 @@ public class DelugeXmlParser {
         Element sampleNode = (Element) sampleNodes.item(0);
         if (sampleNode.hasAttribute("fileName")) {
           sound.setSamplePath(sampleNode.getAttribute("fileName"));
+        } else {
+          // Some XML stores fileName as child element rather than attribute
+          NodeList fnNodes = sampleNode.getElementsByTagName("fileName");
+          if (fnNodes.getLength() > 0) {
+            String fn = fnNodes.item(0).getTextContent();
+            if (fn != null && !fn.isBlank()) {
+              sound.setSamplePath(fn);
+            }
+          }
         }
       } else {
         // Some kits use osc1/fileName
@@ -261,56 +270,6 @@ public class DelugeXmlParser {
     }
 
     NodeList soundNodes = kitNode.getElementsByTagName("sound");
-    if (soundNodes.getLength() > 0) {
-      Element soundNode = (Element) soundNodes.item(0);
-      NodeList sampleNodes = soundNode.getElementsByTagName("sample");
-      if (sampleNodes.getLength() > 0) {
-        Element sampleNode = (Element) sampleNodes.item(0);
-        if (sampleNode.hasAttribute("fileName")) {
-          String fileName = sampleNode.getAttribute("fileName");
-          String baseName = new java.io.File(fileName).getName();
-          int extIdx = baseName.lastIndexOf('.');
-          if (extIdx > 0) {
-            baseName = baseName.substring(0, extIdx);
-          }
-          if (baseName.length() > 7) {
-            baseName = baseName.substring(0, 7);
-          }
-          name = baseName;
-        }
-      }
-    } else {
-      // Load from preset!
-      if (slotNodes.getLength() > 0) {
-        String text = slotNodes.item(0).getTextContent();
-        int slot = 0;
-        try {
-          slot = Integer.parseInt(text);
-        } catch (NumberFormatException nfe) {
-          try {
-            String numPart = text.replaceAll("[^0-9]", "");
-            if (!numPart.isEmpty()) {
-              slot = Integer.parseInt(numPart);
-            }
-          } catch (Exception e) {
-          }
-        }
-
-        String fileName = null;
-        if (slot == 0) fileName = "/KITS/000 TR-808.XML";
-        else if (slot == 1) fileName = "/KITS/001 DDD-1.XML";
-        else if (slot == 2) fileName = "/KITS/002 SDS-5.XML";
-
-        if (fileName != null) {
-          try (java.io.InputStream is = DelugeXmlParser.class.getResourceAsStream(fileName)) {
-            if (is != null) {
-              System.out.println("PARSER: Loading preset kit from " + fileName);
-              return parseKit(is, "KIT " + slot);
-            }
-          }
-        }
-      }
-    }
 
     KitTrackModel kit = new KitTrackModel(name);
 
@@ -327,6 +286,14 @@ public class DelugeXmlParser {
         Element sampleNode = (Element) sampleNodes.item(0);
         if (sampleNode.hasAttribute("fileName")) {
           sound.setSamplePath(sampleNode.getAttribute("fileName"));
+        } else {
+          NodeList fnNodes = sampleNode.getElementsByTagName("fileName");
+          if (fnNodes.getLength() > 0) {
+            String fn = fnNodes.item(0).getTextContent();
+            if (fn != null && !fn.isBlank()) {
+              sound.setSamplePath(fn);
+            }
+          }
         }
       }
       kit.addSound(sound);
@@ -339,33 +306,7 @@ public class DelugeXmlParser {
 
     NodeList slotNodes = soundNode.getElementsByTagName("presetSlot");
     if (slotNodes.getLength() > 0) {
-      String text = slotNodes.item(0).getTextContent();
-      int slot = 0;
-      try {
-        slot = Integer.parseInt(text);
-      } catch (NumberFormatException nfe) {
-        try {
-          String numPart = text.replaceAll("[^0-9]", "");
-          if (!numPart.isEmpty()) {
-            slot = Integer.parseInt(numPart);
-          }
-        } catch (Exception e) {
-        }
-      }
-
-      String fileName = null;
-      if (slot == 0) fileName = "/SYNTHS/000 Rich Saw Bass.XML";
-      else if (slot == 17) fileName = "/SYNTHS/017 Impact Saw Lead.XML";
-      else if (slot == 73) fileName = "/SYNTHS/073 Piano.XML";
-
-      if (fileName != null) {
-        try (java.io.InputStream is = DelugeXmlParser.class.getResourceAsStream(fileName)) {
-          if (is != null) {
-            System.out.println("PARSER: Loading preset synth from " + fileName);
-            return parseSynth(is, "SYNTH " + slot);
-          }
-        }
-      }
+      name = "SYNTH " + slotNodes.item(0).getTextContent();
     }
 
     SynthTrackModel synth = new SynthTrackModel(name);

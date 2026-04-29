@@ -25,8 +25,198 @@ public class SwingDelugeApp extends JFrame {
       org.chuck.deluge.model.ProjectModel.createDefaultProject();
   private java.io.File currentProjectFile = null;
 
+  // Engine voice mapping: for each model track, the start engine row and voice count.
+  // Kit tracks occupy getSounds().size() rows; Synth tracks occupy 1 row.
+  private int[] trackEngineStart;
+  private int[] trackVoiceCount;
+
   private final org.chuck.deluge.midi.MidiService midiService;
   private final java.util.ArrayDeque<Long> tapTimes = new java.util.ArrayDeque<>();
+
+  /** Recompute trackEngineStart and trackVoiceCount from the current project model. */
+  private void computeEngineMapping() {
+    java.util.List<org.chuck.deluge.model.TrackModel> tracks = currentProject.getTracks();
+    int n = tracks.size();
+    trackEngineStart = new int[n];
+    trackVoiceCount = new int[n];
+    int nextRow = 0;
+    for (int t = 0; t < n && nextRow < BridgeContract.TRACKS; t++) {
+      trackEngineStart[t] = nextRow;
+      boolean isKit = tracks.get(t) instanceof org.chuck.deluge.model.KitTrackModel;
+      int voices = isKit
+        ? ((org.chuck.deluge.model.KitTrackModel) tracks.get(t)).getSounds().size()
+        : 8;
+      int capped = Math.min(voices, BridgeContract.TRACKS - nextRow);
+      trackVoiceCount[t] = capped;
+      nextRow += capped;
+    }
+  }
+
+  /** Push the current project model into engine globals (G_TRACK_TYPE, samples, kit params, patterns). */
+  private void pushModelToBridge() {
+    computeEngineMapping();
+    java.util.List<org.chuck.deluge.model.TrackModel> tracks = currentProject.getTracks();
+
+    // Clear all engine rows first
+    bridge.clearPattern();
+    for (int i = 0; i < BridgeContract.TRACKS; i++) {
+      bridge.setMute(i, false);
+      bridge.setTrackLength(i, 16);
+    }
+
+    // Initialize both local bridge and VM global track types to -1 (unused)
+    for (int i = 0; i < BridgeContract.TRACKS; i++) bridge.setTrackType(i, -1);
+
+    org.chuck.core.ChuckArray trackTypeArr =
+        (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
+    if (trackTypeArr != null) {
+      // Initialize all to -1 (unused)
+      for (int i = 0; i < BridgeContract.TRACKS; i++) trackTypeArr.setInt(i, -1L);
+    }
+
+    for (int t = 0; t < tracks.size(); t++) {
+      org.chuck.deluge.model.TrackModel track = tracks.get(t);
+      int startRow = trackEngineStart[t];
+      int voiceCount = trackVoiceCount[t];
+
+      if (track instanceof org.chuck.deluge.model.KitTrackModel kit) {
+        // Mark engine rows as type-0 (kit)
+        for (int v = 0; v < voiceCount; v++) {
+          bridge.setTrackType(startRow + v, 0);
+          if (trackTypeArr != null) trackTypeArr.setInt(startRow + v, 0L);
+        }
+
+        // Push each kit sound: sample path, pitch, mute group, reverse, ADSR
+        java.util.List<org.chuck.deluge.model.KitTrackModel.KitSound> sounds = kit.getSounds();
+        for (int v = 0; v < voiceCount; v++) {
+          int engineRow = startRow + v;
+          String path = v < sounds.size() ? sounds.get(v).getSamplePath() : "";
+          vm.setGlobalString("g_sample_" + engineRow, path);
+
+          if (v < sounds.size()) {
+            org.chuck.deluge.model.KitTrackModel.KitSound snd = sounds.get(v);
+            try {
+              ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_PITCH))
+                  .setFloat(engineRow, snd.getPitchSemitones());
+              ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_MUTE_GROUP))
+                  .setInt(engineRow, (long) snd.getMuteGroup());
+              ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_REVERSE))
+                  .setInt(engineRow, snd.isReverse() ? 1L : 0L);
+              org.chuck.deluge.model.EnvelopeModel adsr = snd.getAdsr();
+              if (adsr != null) {
+                ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_ATTACK))
+                    .setFloat(engineRow, adsr.attack());
+                ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_DECAY))
+                    .setFloat(engineRow, adsr.decay());
+                ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_SUSTAIN))
+                    .setFloat(engineRow, adsr.sustain());
+                ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_RELEASE))
+                    .setFloat(engineRow, adsr.release());
+              }
+            } catch (Exception ex) {
+              System.err.println("[pushModel] kit param error at row " + engineRow + ": " + ex.getMessage());
+            }
+          }
+        }
+
+        // Push clip pattern data for the active clip
+        int activeClipIdx = kit.getActiveClipIndex();
+        if (activeClipIdx >= 0 && activeClipIdx < kit.getClips().size()) {
+          org.chuck.deluge.model.ClipModel clip = kit.getClips().get(activeClipIdx);
+          for (int r = 0; r < clip.getRowCount(); r++) {
+            for (int s = 0; s < 16; s++) {
+              org.chuck.deluge.model.StepData step = clip.getStep(r, s);
+              if (step != null && step.active() && r < voiceCount) {
+                bridge.setStep(startRow + r, s, true);
+                bridge.setVelocity(startRow + r, s, step.velocity());
+              }
+            }
+          }
+        }
+      } else if (track instanceof org.chuck.deluge.model.SynthTrackModel synth) {
+        // Mark all 8 voice rows as type-1 (synth)
+        for (int v = 0; v < voiceCount; v++) {
+          bridge.setTrackType(startRow + v, 1);
+          if (trackTypeArr != null) trackTypeArr.setInt(startRow + v, 1L);
+        }
+
+        // Push clip data — each visual row writes to its own engine row
+        int activeClipIdx = synth.getActiveClipIndex();
+        if (activeClipIdx >= 0 && activeClipIdx < synth.getClips().size()) {
+          org.chuck.deluge.model.ClipModel clip = synth.getClips().get(activeClipIdx);
+          for (int r = 0; r < clip.getRowCount() && r < voiceCount; r++) {
+            for (int s = 0; s < 16; s++) {
+              org.chuck.deluge.model.StepData step = clip.getStep(r, s);
+              if (step != null && step.active()) {
+                bridge.setStep(startRow + r, s, true);
+                bridge.setVelocity(startRow + r, s, step.velocity());
+              }
+            }
+          }
+        }
+
+        // Push oscType (0=SINE, 1=SAW, 2=SQUARE, 3=TRIANGLE, 4=NOISE)
+        org.chuck.core.ChuckArray oscTypeArr =
+            (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_OSC_TYPE);
+        if (oscTypeArr != null) {
+          int typeIdx = 1; // default Saw
+          String ot = synth.getOsc1Type();
+          if ("SINE".equals(ot)) typeIdx = 0;
+          else if ("SQUARE".equals(ot)) typeIdx = 2;
+          else if ("TRIANGLE".equals(ot)) typeIdx = 3;
+          oscTypeArr.setInt(startRow, typeIdx);
+        }
+
+        // Push filter params
+        bridge.setFilterFreq(startRow, synth.getLpfFreq() / 20000.0f);
+        bridge.setFilterRes(startRow, synth.getLpfRes() / 100.0f);
+        bridge.setFilterMode(startRow, synth.getFilterMode().ordinal());
+        bridge.setFilterMorph(startRow, synth.getLpfMorph());
+
+        // Push ADSR envelopes (4 envs)
+        for (int e = 0; e < 4; e++) {
+          org.chuck.deluge.model.EnvelopeModel adsr = synth.getEnv(e);
+          if (adsr != null) {
+            bridge.setEnv(e, adsr.attack(), adsr.decay(), adsr.sustain(), adsr.release());
+          }
+        }
+
+        // Push LFO params (4 LFOs)
+        org.chuck.core.ChuckArray lfoRateArr =
+            (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_RATE);
+        org.chuck.core.ChuckArray lfoTypeArr =
+            (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_TYPE);
+        org.chuck.core.ChuckArray lfoDepthArr =
+            (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_DEPTH);
+        for (int l = 0; l < 4; l++) {
+          org.chuck.deluge.model.LfoModel lfo = synth.getLfo(l);
+          if (lfo != null) {
+            if (lfoRateArr != null) lfoRateArr.setFloat(l, lfo.rateHz());
+            if (lfoTypeArr != null) lfoTypeArr.setInt(l, (long) lfo.waveform().ordinal());
+            if (lfoDepthArr != null) lfoDepthArr.setFloat(l, lfo.depth());
+          }
+        }
+
+        // Push arp params
+        org.chuck.deluge.model.ArpModel arp = synth.getArp();
+        if (arp != null) {
+          bridge.setArpOn(startRow, arp.active());
+          bridge.setArpRate(startRow, arp.rate());
+          bridge.setArpOctave(startRow, arp.octaves());
+        }
+      }
+
+      // Track length
+      bridge.setTrackLength(startRow, track.getClips().isEmpty() ? 16 : track.getClips().get(0).getStepCount());
+    }
+
+    // Only unblock the engine when there are actual tracks to process.
+    // An empty-project broadcast leaves all track types = -1, causing kit_shred to
+    // compute voiceCount = 1 and build undersized arrays that can't be resized later.
+    if (!tracks.isEmpty()) {
+      vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+    }
+  }
 
   public SwingDelugeApp(
       ChuckVM vm, BridgeContract bridge, org.chuck.deluge.midi.MidiService midiService) {
@@ -216,43 +406,35 @@ public class SwingDelugeApp extends JFrame {
   private void loadProject(org.chuck.deluge.model.ProjectModel model) {
     currentProject = model;
     vm.setGlobalInt(BridgeContract.G_PLAY, 0L);
-    bridge.clearPattern();
-    for (int i = 0; i < 64; i++) bridge.setMute(i, false);
+
+    // Register listener so structural changes auto-sync
+    model.addProjectListener(new org.chuck.deluge.model.ProjectModel.ProjectListener() {
+      @Override public void onTrackListChanged() {
+        pushModelToBridge();
+        propagateCurrentModel();
+        refreshGrids();
+      }
+      @Override public void onBpmChanged(float bpm) {
+        vm.setGlobalFloat(BridgeContract.G_BPM, bpm);
+      }
+    });
+
+    pushModelToBridge();
+    propagateCurrentModel();
 
     if (clipPanel != null) clipPanel.setProjectModel(model);
     if (songPanel != null) songPanel.setProjectModel(model);
     if (arrGridPanel != null) arrGridPanel.setProjectModel(model);
 
-    // Load kit sounds into engine globals
-    int engineRow = 0;
-    org.chuck.core.ChuckArray trackTypeArr =
-        (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
-    for (org.chuck.deluge.model.TrackModel track : model.getTracks()) {
-      if (engineRow >= BridgeContract.TRACKS) break;
-      boolean isSynth = track instanceof org.chuck.deluge.model.SynthTrackModel;
-      if (trackTypeArr != null) trackTypeArr.setInt(engineRow, isSynth ? 1L : 0L);
-      for (org.chuck.deluge.model.ClipModel clip : track.getClips()) {
-        for (int r = 0; r < clip.getRowCount(); r++) {
-          for (int s = 0; s < 16; s++) {
-            org.chuck.deluge.model.StepData step = clip.getStep(r, s);
-            if (step != null && step.active()) {
-              if (isSynth) {
-                bridge.setStep(engineRow, s, true);
-                bridge.setPitch(engineRow, s, (24 - 1) - r);
-              } else {
-                bridge.setStep(engineRow, s, true);
-              }
-            }
-          }
-        }
-      }
-      engineRow++;
-    }
-    vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
-
     setTitle(
         "DELUGE WORKSTATION — "
             + (currentProjectFile != null ? currentProjectFile.getName() : "Untitled"));
+  }
+
+  private void refreshGrids() {
+    if (clipPanel != null) clipPanel.refresh();
+    if (songPanel != null) songPanel.refresh();
+    if (arrGridPanel != null) arrGridPanel.refresh();
   }
 
   private void saveProject(boolean forceChooser) {
@@ -677,12 +859,8 @@ public class SwingDelugeApp extends JFrame {
           if (name != null && !name.isBlank()) {
             org.chuck.deluge.model.KitTrackModel kit =
                 new org.chuck.deluge.model.KitTrackModel(name);
-            kit.addSound(new org.chuck.deluge.model.KitTrackModel.KitSound("KICK", ""));
-            kit.addSound(new org.chuck.deluge.model.KitTrackModel.KitSound("SNARE", ""));
-            kit.addSound(new org.chuck.deluge.model.KitTrackModel.KitSound("HI-HAT", ""));
-            kit.addSound(new org.chuck.deluge.model.KitTrackModel.KitSound("CLAP", ""));
             kit.addClip(new org.chuck.deluge.model.ClipModel("CLIP 1", 8, 16));
-            currentProject.addTrack(kit);
+            currentProject.addTrack(kit); // triggers ProjectListener → pushModelToBridge() via listener
             propagateCurrentModel();
           }
         });
@@ -700,7 +878,7 @@ public class SwingDelugeApp extends JFrame {
             org.chuck.deluge.model.SynthTrackModel synth =
                 new org.chuck.deluge.model.SynthTrackModel(name);
             synth.addClip(new org.chuck.deluge.model.ClipModel("CLIP 1", 8, 16));
-            currentProject.addTrack(synth);
+            currentProject.addTrack(synth); // triggers ProjectListener → pushModelToBridge()
             propagateCurrentModel();
           }
         });
@@ -867,38 +1045,18 @@ public class SwingDelugeApp extends JFrame {
             boolean firstIsSynth =
                 !model.getTracks().isEmpty()
                     && model.getTracks().get(0) instanceof org.chuck.deluge.model.SynthTrackModel;
-            clipPanel.setBaseTrackId(firstIsSynth ? 4 : 0);
+            clipPanel.setBaseTrackId(
+                trackEngineStart != null && trackEngineStart.length > 0
+                    ? trackEngineStart[0]
+                    : (firstIsSynth ? 4 : 0));
           } else {
             cardLayout.show(centerCardPanel, "SONG");
           }
 
-          // Push kit-sound params from model into engine globals
-          // (g_sample_N is already set by the sidebar with resolved temp-file paths)
-          for (org.chuck.deluge.model.TrackModel track : model.getTracks()) {
-            if (track instanceof org.chuck.deluge.model.KitTrackModel kt) {
-              java.util.List<org.chuck.deluge.model.KitTrackModel.KitSound> sounds = kt.getSounds();
-              for (int i = 0; i < sounds.size(); i++) {
-                org.chuck.deluge.model.KitTrackModel.KitSound snd = sounds.get(i);
-                ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_PITCH))
-                    .setFloat(i, snd.getPitchSemitones());
-                ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_MUTE_GROUP))
-                    .setInt(i, (long) snd.getMuteGroup());
-                ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_REVERSE))
-                    .setInt(i, snd.isReverse() ? 1L : 0L);
-                org.chuck.deluge.model.EnvelopeModel adsr = snd.getAdsr();
-                if (adsr != null) {
-                  ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_ATTACK))
-                      .setFloat(i, adsr.attack());
-                  ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_DECAY))
-                      .setFloat(i, adsr.decay());
-                  ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_SUSTAIN))
-                      .setFloat(i, adsr.sustain());
-                  ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_RELEASE))
-                      .setFloat(i, adsr.release());
-                }
-              }
-              break;
-            }
+          // Push model data to engine — use the centralized mapping
+          // so Kit sounds get written to the correct engine rows
+          if (trackEngineStart != null) {
+            pushModelToBridge();
           }
         });
 
@@ -906,26 +1064,29 @@ public class SwingDelugeApp extends JFrame {
 
     songPanel.setOnEditRequest(
         (trackId, clipId) -> {
-          System.out.println("Swing Callback: Edit track " + trackId + " Clip: " + clipId);
           sidebarPanel.updateFocusTrack(trackId);
 
-          if (clipPanel != null) {
-            // Engine row = model track index (each track maps to one sequential row)
+          if (clipPanel != null && trackId < trackEngineStart.length) {
+            int engineBase = trackEngineStart[trackId];
+            int voiceCount = trackVoiceCount[trackId];
+
+            clipPanel.setActiveClipId(clipId);
+            clipPanel.setBaseTrackId(engineBase);
+            clipPanel.setEditedModelTrack(trackId);
+
             java.util.List<org.chuck.deluge.model.TrackModel> allTrks =
                 clipPanel.getProjectModel() != null
                     ? clipPanel.getProjectModel().getTracks()
                     : java.util.List.of();
-            int engineBase = Math.min(trackId, BridgeContract.TRACKS - 1);
-
-            clipPanel.setActiveClipId(clipId);
-            clipPanel.setBaseTrackId(engineBase);
 
             boolean editIsSynth =
                 trackId < allTrks.size()
                     && allTrks.get(trackId) instanceof org.chuck.deluge.model.SynthTrackModel;
 
             // Clear engine rows for this track
-            for (int s = 0; s < 16; s++) bridge.setStep(engineBase, s, false);
+            for (int v = 0; v < voiceCount; v++) {
+              for (int s = 0; s < 16; s++) bridge.setStep(engineBase + v, s, false);
+            }
 
             if (trackId < allTrks.size()) {
               org.chuck.deluge.model.TrackModel tModel = allTrks.get(trackId);
@@ -935,10 +1096,7 @@ public class SwingDelugeApp extends JFrame {
                   for (int s = 0; s < 16; s++) {
                     org.chuck.deluge.model.StepData sd = cModel.getStep(r, s);
                     if (sd != null && sd.active()) {
-                      if (editIsSynth) {
-                        bridge.setStep(engineBase, s, true);
-                        bridge.setPitch(engineBase, s, (24 - 1) - r);
-                      } else {
+                      if (r < voiceCount) {
                         bridge.setStep(engineBase + r, s, true);
                       }
                     }
@@ -946,6 +1104,7 @@ public class SwingDelugeApp extends JFrame {
                 }
               }
             }
+
             clipPanel.refresh();
           }
 
@@ -1031,6 +1190,9 @@ public class SwingDelugeApp extends JFrame {
     add(masterFxPanel, gbc);
 
     revalidate();
+
+    // Push default project to engine and broadcast load trigger to unblock shreds
+    pushModelToBridge();
   }
 
   private void startPlaybackTimer() {

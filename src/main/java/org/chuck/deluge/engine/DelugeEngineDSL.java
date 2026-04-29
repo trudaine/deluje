@@ -70,6 +70,18 @@ public class DelugeEngineDSL implements Shred, Runnable {
     ChuckEvent loadEvent = (ChuckEvent) vm.getGlobalObject(BridgeContract.G_LOAD_TRIGGER);
     advance(loadEvent);
 
+    // Block until the first load has at least one kit track.
+    // If all track types are -1 (uninitialized empty project), wait for a real song load.
+    while (true) {
+      ChuckArray trackTypeInit = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
+      boolean hasKit = false;
+      for (int i = 0; i < BridgeContract.TRACKS && !hasKit; i++) {
+        if (trackTypeInit != null && trackTypeInit.getInt(i) == 0) hasKit = true;
+      }
+      if (hasKit) break;
+      advance(loadEvent);
+    }
+
     // Count actual kit voices from G_TRACK_TYPE (type 0 = kit)
     ChuckArray trackTypeInit = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
     int voiceCount = 0;
@@ -337,7 +349,16 @@ public class DelugeEngineDSL implements Shred, Runnable {
 
     // Wait for the first song load before building voice graph
     ChuckEvent loadEvent = (ChuckEvent) vm.getGlobalObject(BridgeContract.G_LOAD_TRIGGER);
-    advance(loadEvent);
+    // Block until at least one synth track (type 1) is present, so arrays aren't sized 1
+    while (true) {
+      advance(loadEvent);
+      ChuckArray trackTypeInit = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
+      boolean hasSynth = false;
+      for (int i = 0; i < BridgeContract.TRACKS && !hasSynth; i++) {
+        if (trackTypeInit != null && trackTypeInit.getInt(i) == 1) hasSynth = true;
+      }
+      if (hasSynth) break;
+    }
 
     // Count actual synth voices from G_TRACK_TYPE (type 1 = synth)
     ChuckArray trackTypeInit = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
@@ -376,6 +397,12 @@ public class DelugeEngineDSL implements Shred, Runnable {
       sDsend[i].gain(0.0f);
       sRsend[i].gain(0.15f);
     }
+
+    // Spork preview shred for synth audition
+    MorphingWavetable[] carRef = car;
+    MorphingWavetable[] modRef = mod;
+    DelugeAdsr[] envRef = env;
+    vm.spork(() -> synth_preview_shred(carRef, modRef, envRef));
 
     ChuckEvent tickEvent = (ChuckEvent) vm.getGlobalObject(BridgeContract.E_TICK);
     long lastStep = -1;
@@ -416,6 +443,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
       ChuckArray lfoVal = (ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_VALUE);
       ChuckArray lfoTgt = (ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_TARGET);
       ChuckArray lfoTrk = (ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_TRACK);
+      ChuckArray envArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ENV);
 
       for (int r = 0; r < car.length; r++) {
         // Only process Synth tracks (Type 1)
@@ -467,6 +495,16 @@ public class DelugeEngineDSL implements Shred, Runnable {
         if (isNewStep) {
           if (prob != null && Math.random() > prob.getFloat(idx)) continue;
 
+          // Apply envelope shape from bridge (if available)
+          if (envArr != null) {
+            int eb = r * BridgeContract.ENV_PARAMS;
+            double a = envArr.getFloat(eb + 0);
+            double d = envArr.getFloat(eb + 1);
+            double s = envArr.getFloat(eb + 2);
+            double rel = envArr.getFloat(eb + 3);
+            env[r].set(a, d, s, rel);
+          }
+
           double gainVal =
               vel.getFloat(idx) * trkLvl.getFloat(r) * 0.8 * Math.max(0.0, 1.0 + lfoV * 0.5);
           double gateSec =
@@ -475,11 +513,11 @@ public class DelugeEngineDSL implements Shred, Runnable {
                   / sampleRate();
 
           if (arpOn != null && arpOn.getInt(r) == 1) {
-            int baseMidi = (int) (pitch.getInt(idx) + 60);
+            int baseMidi = (int) ((24 - 1) - (r % 8)) + 60;
             int v = r;
             vm.spork(() -> run_arp(v, baseMidi, (float) gainVal, car[v], mod[v], env[v]));
           } else {
-            double f = mtof(pitch.getInt(idx) + 60) * Math.pow(2.0, lfoPit);
+            double f = mtof(((24 - 1) - (r % 8)) + 60) * Math.pow(2.0, lfoPit);
             car[r].freq((float) f);
             double fmR = fmRatio != null ? fmRatio.getFloat(r) : 1.0;
             double fmA =
@@ -497,6 +535,34 @@ public class DelugeEngineDSL implements Shred, Runnable {
                 });
           }
         }
+      }
+    }
+  }
+
+  /** Preview/audition a synth track on E_PREVIEW. Fires a brief gate on the specified track. */
+  private void synth_preview_shred(
+      MorphingWavetable[] car, MorphingWavetable[] mod, DelugeAdsr[] env) {
+    ChuckEvent previewEvent = (ChuckEvent) vm.getGlobalObject(BridgeContract.E_PREVIEW);
+    while (true) {
+      advance(previewEvent);
+      int r = (int) vm.getGlobalInt(BridgeContract.G_PREVIEW_TRACK);
+      if (r >= 0 && r < car.length) {
+        // Verify this is a synth track by checking G_TRACK_TYPE array
+        ChuckArray trackTypeArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
+        if (trackTypeArr == null || trackTypeArr.getInt(r) != 1) continue;
+        // Read the preview pitch set by the UI on click
+        double previewPitch = vm.getGlobalFloat("g_preview_pitch");
+        double f = mtof(previewPitch + 60);
+        car[r].freq((float) f);
+        mod[r].freq((float) f);
+        env[r].gain(0.8f);
+        env[r].keyOn();
+        int trackIdx = r;
+        vm.spork(
+            () -> {
+              advance(ms(200));
+              env[trackIdx].keyOff();
+            });
       }
     }
   }
@@ -653,24 +719,17 @@ public class DelugeEngineDSL implements Shred, Runnable {
     HPF hpf = new HPF(sr);
     Dyno limit = new Dyno(sr);
     Dyno comp = new Dyno(sr);
-    DelugeAdsr gate = new DelugeAdsr();
     ((Gain) vm.getGlobalObject(BridgeContract.G_SYNTH_BUS))
         .chuck(hpf)
         .chuck(comp)
         .chuck(limit)
-        .chuck(gate)
         .chuck(dac());
     hpf.freq(20);
     limit.limiter();
     comp.compressor();
-    advance(ms(100));
-    gate.forceMute();
-    gate.set(0.005, 0, 1, 0.005);
     ChuckEvent tickEvent = (ChuckEvent) vm.getGlobalObject(BridgeContract.E_TICK);
     while (true) {
       advance(tickEvent);
-      if (vm.getGlobalInt(BridgeContract.G_PLAY) != 0) gate.keyOn();
-      else gate.keyOff();
       double th = 1.0 - vm.getGlobalFloat(BridgeContract.G_MASTER_COMP);
       comp.thresh((float) Math.max(0.01, Math.min(0.9, th)));
     }
@@ -714,6 +773,13 @@ public class DelugeEngineDSL implements Shred, Runnable {
     vm.spork(this::synth_shred);
     vm.spork(this::sidechain_shred);
     vm.spork(this::lfo_shred);
+
+    // Advance 1 sample so sporked sub-shreds can start and reach advance(loadEvent).
+    // DO NOT broadcast loadEvent here — it fires before any track types are set,
+    // causing synth_shred's voice count to be 1 when G_TRACK_TYPE is all zeros.
+    // The UI's pushModelToBridge() broadcasts it after setting proper track types.
+    advance(samp(1));
+
     while (true) {
       advance(ms(100));
     }

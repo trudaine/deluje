@@ -97,7 +97,7 @@ public class ClipCell extends Button {
           p1.setPadding(new Insets(20));
           javafx.scene.control.Label lP = new javafx.scene.control.Label("Patch Selection:");
           javafx.scene.control.ComboBox<String> cb = new javafx.scene.control.ComboBox<>();
-          cb.getItems().addAll("000 Rich Saw Bass", "017 Impact Saw Lead", "073 Piano");
+          cb.getItems().addAll();
           p1.getChildren().addAll(lP, cb);
           t1.setContent(p1);
 
