@@ -43,10 +43,12 @@ public class DelugeE2ETest {
     assertTrue(active, "Sequencer step memory allocation should hold");
 
     vm.setGlobalInt(BridgeContract.G_PLAY, 0L);
+    vm.shutdown();
   }
 
   @Test
   public void testSidebarLoadPreset() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
     ChuckVM vm = new ChuckVM(44100, 2);
     BridgeContract bridge = new BridgeContract();
     org.chuck.deluge.ui.SwingProjectSidebarPanel sidebar =
@@ -75,5 +77,6 @@ public class DelugeE2ETest {
       bridge.setStep(r, 0, true);
       assertTrue(bridge.getStep(r, 0), "Row " + r + " sequence memory allocation should store.");
     }
+    vm.shutdown();
   }
 }

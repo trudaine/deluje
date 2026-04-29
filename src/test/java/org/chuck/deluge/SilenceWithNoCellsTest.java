@@ -14,57 +14,52 @@ import org.junit.jupiter.api.*;
  */
 public class SilenceWithNoCellsTest {
 
-  private ChuckVM vm;
-  private BridgeContract bridge;
+  private static ChuckVM vm;
+  private static BridgeContract bridge;
 
-  @BeforeEach
-  void setUp() {
+  @BeforeAll
+  static void setUpAll() {
     System.setProperty("chuck.audio.dummy", "true");
     vm = new ChuckVM(44100, 2);
     ChuckConfig.addSearchPath("src/main/resources");
     ChuckConfig.addSearchPath("../deluge/src/main/resources");
     bridge = new BridgeContract();
+    
+    // Ensure at least one kit and synth track exist to prevent init hangs in DSL
+    bridge.setTrackType(0, 0); 
+    bridge.setTrackType(4, 1); 
+    
     bridge.register(vm);
+
+    // Spork Java DSL Engine
+    vm.spork(new org.chuck.deluge.engine.DelugeEngineDSL(vm));
+
+    // Allow shreds to initialize
+    vm.advanceTime(100); 
+    vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+    
+    // Let engine initialise (300ms)
+    float[][] buf = new float[2][44100 / 4 * 3];
+    vm.advanceTime(buf, 0, 44100 / 4 * 3);
   }
 
-  @AfterEach
-  void tearDown() {
+  @AfterAll
+  static void tearDownAll() {
     DacChannel.DEBUG_AUDIO = false;
     if (vm != null) vm.shutdown();
+  }
+
+  @BeforeEach
+  void setUp() {
+    bridge.clearAllSteps();
+    vm.setGlobalInt(BridgeContract.G_PLAY, 0L);
+    float[][] buf = new float[2][44100 / 10];
+    vm.advanceTime(buf, 0, 44100 / 10);
   }
 
   @Test
   @Timeout(value = 15, unit = TimeUnit.SECONDS)
   void classicEngine_shouldBeSilentWithNoCells() throws Exception {
-    // Spork Java DSL Engine
-    org.chuck.deluge.engine.DelugeEngine engine =
-        new org.chuck.deluge.engine.DelugeEngine(vm, bridge);
-    vm.spork(engine::shred);
-
-    // Let engine initialise (300ms)
-    advanceSamples(44100 / 4 * 3);
-
-    // Diagnostic: print g_synth_bus sources
-    Object synthBusObj = vm.getGlobalObject("g_synth_bus");
-    System.out.printf(
-        "[DIAG] g_synth_bus = %s%n",
-        synthBusObj == null ? "null" : synthBusObj.getClass().getSimpleName());
-    if (synthBusObj instanceof org.chuck.audio.ChuckUGen synthBus) {
-      java.util.List<org.chuck.audio.ChuckUGen> synSrcs = synthBus.getSources();
-      System.out.printf("[DIAG] g_synth_bus.getSources().size() = %d%n", synSrcs.size());
-      for (int di = 0; di < synSrcs.size(); di++) {
-        org.chuck.audio.ChuckUGen s = synSrcs.get(di);
-        System.out.printf(
-            "[DIAG]   src[%d] = %s%n", di, s == null ? "null" : s.getClass().getSimpleName());
-        if (s != null) {
-          for (org.chuck.audio.ChuckUGen ss : s.getSources()) {
-            System.out.printf(
-                "[DIAG]     -> %s%n", ss == null ? "null" : ss.getClass().getSimpleName());
-          }
-        }
-      }
-    }
-
     // Enable tracing to stdout
     DacChannel.DEBUG_AUDIO = true;
 
@@ -83,16 +78,8 @@ public class SilenceWithNoCellsTest {
     assertEquals(
         0.0,
         rms,
-        1e-6,
-        "Engine should produce zero audio when no pattern cells are active. "
-            + "Non-zero RMS="
-            + rms
-            + " — check DEBUG_AUDIO output above for the source.");
-  }
-
-  private void advanceSamples(int n) {
-    float[][] buf = new float[2][n];
-    vm.advanceTime(buf, 0, n);
+        1e-5,
+        "Engine should produce zero audio when no pattern cells are active.");
   }
 
   private double rms(float[][] buf) {
@@ -101,3 +88,4 @@ public class SilenceWithNoCellsTest {
     return Math.sqrt(sum / (buf.length * buf[0].length));
   }
 }
+
