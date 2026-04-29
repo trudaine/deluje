@@ -210,8 +210,6 @@ public class SwingProjectSidebarPanel extends JPanel {
                           onSongLoaded.accept(mockProj);
                         }
 
-                        bridge.setTrackType(0, 1); // Set track 0 to Synth
-                        vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
                       }
                     }
                   } catch (Exception ex) {

@@ -189,6 +189,19 @@ Switch to Song view: `F2` or click **[SONG]** tab.
 > **Song vs. Clip view**: Song view shows all clips as coloured blocks per track.
 > Clip view shows the step grid for one clip. `F1` / `F2` toggle between them.
 
+### Row Label Display Rules (CLIP View)
+
+| Track Type | Row Label Behavior |
+| :--- | :--- |
+| **Kit** | Each grid row shows the individual `KitSound` name (KICK, SNARE, HI-HAT, CLAP, etc.) as defined in the track model. Falls back to the track name if the sound list is exhausted. |
+| **Synth** | Row 0 shows the track name (e.g., "SYNTH 17"). Rows 1–7 show a semitone-offset label (`-1st`, `-2st`, … `-7st`) to indicate the pitch lane. |
+
+In SONG and ARRANGER views all rows display the project track name (`tracks.get(t).getName()`).
+
+### Track Type Bridge Sync
+
+The Swing UI reads track types from `BridgeContract.trackType` (local Java array) while the ChucK engine reads from `g_track_type` (VM global). Both arrays are synchronised by `pushModelToBridge()` to ensure correct row-label display and grid interaction dispatch. See UNIFIED_DESIGN.md §10 for details.
+
 ---
 
 ## RECORDING & SAMPLES `RS`

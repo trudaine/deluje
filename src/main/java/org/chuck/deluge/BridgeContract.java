@@ -276,6 +276,7 @@ public final class BridgeContract {
     vm.setGlobalFloat(G_STUTTER_DIV, 1.0);
 
     vm.setGlobalInt(G_PREVIEW_TRACK, 0L);
+    vm.setGlobalFloat("g_preview_pitch", 60.0f);
     vm.setGlobalObject(E_PREVIEW, new org.chuck.core.ChuckEvent());
     vm.setGlobalObject(E_SIDECHAIN, new org.chuck.core.ChuckEvent());
     vm.setGlobalObject(G_LOAD_TRIGGER, new org.chuck.core.ChuckEvent());

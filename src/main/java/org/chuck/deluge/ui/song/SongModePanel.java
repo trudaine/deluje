@@ -339,13 +339,7 @@ public class SongModePanel extends VBox {
     java.util.List<String> choices =
         org.chuck.deluge.ui.ProjectSidebarPanel.getPresets("/" + folder);
     if (choices.isEmpty()) {
-      if (folder.equals("KITS")) {
-        choices = java.util.Arrays.asList("000 TR-808.XML", "001 DDD-1.XML", "002 SDS-5.XML");
-      } else {
-        choices =
-            java.util.Arrays.asList(
-                "000 Rich Saw Bass.XML", "017 Impact Saw Lead.XML", "073 Piano.XML");
-      }
+      choices = java.util.Collections.emptyList();
     }
 
     javafx.scene.control.ChoiceDialog<String> dialog =

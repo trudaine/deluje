@@ -151,12 +151,24 @@ Each row in the grid has a compact header strip:
 | Control | How to access | What it does |
 | :--- | :--- | :--- |
 | `[○]` Audition pad | Click | Preview sample / play root note |
-| `[M]` Mute | Click | Silence track without deleting pattern |
+| `[M]` Mute | Click | Silence track without destroying pattern |
 | `[⚙]` Config | Click | Open track's sound editor dialog |
 | Pattern Length badge | Right-click row header → **Set Length** | Set 1–16 steps (polyrhythm) |
 | Pattern Length badge | `Ctrl+[` / `Ctrl+]` (track focused) | Decrease / increase length by 1 step |
 
 The **Pattern Length badge** shows the current step count (e.g., `[12]`). When a track's length differs from 16 it is highlighted in amber.
+
+### E. Row Label Display Rules
+
+Row labels in the grid header depend on the view mode and track type:
+
+| View Mode | Track Type | Row Label Behavior |
+| :--- | :--- | :--- |
+| SONG / ARRANGER | Any | Each grid row shows the project track name (`tracks.get(t).getName()`) |
+| CLIP | Kit | Each row shows the individual `KitSound` name (e.g., KICK, SNARE, HI-HAT, CLAP). Falls back to the track name if the sound index exceeds the number of configured sounds. |
+| CLIP | Synth | Row 0 shows the track name. Rows 1–7 show semitone offset labels (`-1st`, `-2st`, etc.) to indicate pitch rows. |
+
+The track type is determined via `bridge.getTrackType(engineRow)`, which reads the local `BridgeContract.trackType` array. This array is kept in sync with the ChucK VM global `g_track_type` during every call to `pushModelToBridge()` (see §10).
 
 ### E. Advanced Editing (Pop-ups)
 
@@ -352,6 +364,7 @@ The engine is modeled as independent, sample-accurate processes (shreds) using t
 | Global | Type | Description |
 | :--- | :--- | :--- |
 | `G_TRACK_LENGTH` | `int[TRACKS]` | Steps per track (1–16) |
+| `G_TRACK_TYPE` | `int[TRACKS]` | −1=unused, 0=kit, 1=synth |
 | `G_LFO_RATE` | `float[4]` | Hz per LFO |
 | `G_LFO_TYPE` | `int[4]` | 0=sine 1=saw 2=square 3=tri |
 | `G_LFO_DEPTH` | `float[4]` | 0–1 modulation depth |
@@ -359,10 +372,38 @@ The engine is modeled as independent, sample-accurate processes (shreds) using t
 | `G_LFO_TRACK` | `int[4]` | −1=all tracks, N=specific row |
 | `G_LFO_VALUE` | `float[4]` | Current output (written by engine) |
 
+## 10. Java↔ChucK Bridge Dual-Array Pattern
+
+The `BridgeContract` maintains two parallel arrays for shared state:
+
+- **Local Java array** (`BridgeContract.trackType[]`) — read by the Swing UI via `bridge.getTrackType()`.
+- **VM global array** (`g_track_type` on the ChucK side) — read by ChucK engine shreds.
+
+**Critical invariant:** both arrays must hold identical values. The Swing UI reads only the local array; the engine reads only the VM global.
+
+### Sync enforcement
+
+Every call to `pushModelToBridge()` in `SwingDelugeApp.java` synchronizes both arrays:
+
+1. Initialises all 64 entries to `-1` (unused) on both sides.
+2. For each Kit track: sets `bridge.setTrackType(startRow+v, 0)` locally and `trackTypeArr.setInt(startRow+v, 0L)` on the VM.
+3. For each Synth track: sets `bridge.setTrackType(startRow, 1)` locally and `trackTypeArr.setInt(startRow, 1L)` on the VM.
+
+The local array was originally only initialised to 0 in the `BridgeContract` constructor but never updated by `pushModelToBridge()`. This caused `bridge.getTrackType()` to always return 0, which made the grid row-label logic and kit/synth code-path dispatch in `SwingGridPanel` fail for synth tracks. The fix adds explicit `bridge.setTrackType()` calls at every point where the VM global is written.
+
+### When sync is triggered
+
+`pushModelToBridge()` is called on:
+- Song load (`Ctrl+O` / File → Open Project)
+- New project (`Ctrl+N`)
+- Track add / remove / reorder
+- Clip view entry (SONG → CLIP switch via `onEditRequest`)
+- Any `loadTrigger` broadcast
+
 ### Communication & Hot-Swapping
 *   **Deferred init:** Kit and Synth shreds block on `G_LOAD_TRIGGER` before allocating UGens, preventing audio underruns at startup.
 *   **Hot-Swap:** Reload triggered by broadcasting `G_LOAD_TRIGGER` after changing `g_sample_N`.
 *   **Synchronization:** All tick-driven shreds block on the same `tick_event`; LFO shred runs on its own 5 ms timer.
 
 ---
-*Specification Version 1.2 — April 26, 2026*
+*Specification Version 1.3 — April 28, 2026*
