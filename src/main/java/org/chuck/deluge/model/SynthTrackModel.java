@@ -43,6 +43,9 @@ public class SynthTrackModel extends TrackModel {
   private float eqBass = 0.0f;
   private float eqTreble = 0.0f;
 
+  // Synthesis algorithm: 0=FM, 10=Mandolin, 11=Rhodey, 12=ModalBar, 13=Moog
+  private int synthAlgorithm = 0;
+
   public SynthTrackModel(String name) {
     super(name, TrackType.SYNTH);
     for (int i = 0; i < 4; i++) {
@@ -270,5 +273,13 @@ public class SynthTrackModel extends TrackModel {
 
   public void setEqTreble(float eqTreble) {
     this.eqTreble = eqTreble;
+  }
+
+  public int getSynthAlgorithm() {
+    return synthAlgorithm;
+  }
+
+  public void setSynthAlgorithm(int synthAlgorithm) {
+    this.synthAlgorithm = synthAlgorithm;
   }
 }

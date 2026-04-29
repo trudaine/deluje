@@ -393,6 +393,11 @@ public class DelugeEngineDSL implements Shred, Runnable {
     }
     if (voiceCount < 1) voiceCount = 1;
 
+    // Read synth algorithm array to know which voices are FM vs STK
+    ChuckArray algoArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_SYNTH_ALGO);
+
+    // Source UGen: either MorphingWavetable (FM) or STK instrument
+    ChuckUGen[] src = new ChuckUGen[voiceCount];
     MorphingWavetable[] car = new MorphingWavetable[voiceCount];
     MorphingWavetable[] mod = new MorphingWavetable[voiceCount];
     SVFilter[] fil = new SVFilter[voiceCount];
@@ -402,17 +407,28 @@ public class DelugeEngineDSL implements Shred, Runnable {
     Gain[] sRsend = new Gain[voiceCount];
 
     for (int i = 0; i < voiceCount; i++) {
-      car[i] = new MorphingWavetable(sr);
-      car[i].setTables(WAVE_TABLES);
-      mod[i] = new MorphingWavetable(sr);
-      mod[i].setTables(WAVE_TABLES);
+      int algo = algoArr != null ? (int) algoArr.getInt(i) : 0;
       fil[i] = new SVFilter();
       env[i] = new DelugeAdsr();
       pan[i] = new Pan2();
       sDsend[i] = new Gain();
       sRsend[i] = new Gain();
-      mod[i].chuck(car[i]);
-      car[i].chuck(fil[i]).chuck(env[i]).chuck(pan[i]).chuck(synthBus);
+
+      if (algo >= 10) {
+        // STK physical model
+        src[i] = createStkUGen(algo, sr);
+        src[i].chuck(fil[i]).chuck(env[i]).chuck(pan[i]).chuck(synthBus);
+      } else {
+        // FM synthesis (original behavior)
+        car[i] = new MorphingWavetable(sr);
+        car[i].setTables(WAVE_TABLES);
+        mod[i] = new MorphingWavetable(sr);
+        mod[i].setTables(WAVE_TABLES);
+        mod[i].chuck(car[i]);
+        car[i].chuck(fil[i]).chuck(env[i]).chuck(pan[i]).chuck(synthBus);
+        src[i] = car[i];
+      }
+
       pan[i].chuck(sDsend[i]).chuck((ChuckUGen) vm.getGlobalObject(BridgeContract.G_DELAY_IN));
       pan[i].chuck(sRsend[i]).chuck((ChuckUGen) vm.getGlobalObject(BridgeContract.G_REVERB_IN));
       fil[i].reset();
@@ -470,9 +486,14 @@ public class DelugeEngineDSL implements Shred, Runnable {
       ChuckArray lfoTrk = (ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_TRACK);
       ChuckArray envArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ENV);
 
-      for (int r = 0; r < car.length; r++) {
+      // Re-read algo array each tick (user may change algorithm)
+      ChuckArray algoArrLive = (ChuckArray) vm.getGlobalObject(BridgeContract.G_SYNTH_ALGO);
+
+      for (int r = 0; r < src.length; r++) {
         // Only process Synth tracks (Type 1)
         if (trackType != null && trackType.getInt(r) != 1) continue;
+
+        int algo = algoArrLive != null ? (int) algoArrLive.getInt(r) : 0;
 
         // Per-track LFO contributions
         double lfoF = 0, lfoQ = 0, lfoP = 0, lfoPit = 0, lfoV = 0, lfoFm = 0;
@@ -499,7 +520,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
         sDsend[r].gain(dlySnd != null ? (float) dlySnd.getFloat(r) : 0.0f);
         sRsend[r].gain(revSnd != null ? (float) revSnd.getFloat(r) : 0.15f);
 
-        if (oscType != null) car[r].index((int) oscType.getInt(r));
+        if (algo < 10 && oscType != null && car[r] != null) car[r].index((int) oscType.getInt(r));
 
         double tf = (gFil.getFloat(r * 2) + sFil.getFloat(idx)) * 10000.0 + 100.0 + lfoF * 5000.0;
         double tq = (gFil.getFloat(r * 2 + 1) + sRes.getFloat(idx)) * 4.0 + 1.0 + lfoQ * 3.0;
@@ -537,18 +558,35 @@ public class DelugeEngineDSL implements Shred, Runnable {
                   * stepDuration(step % 2).samples()
                   / sampleRate();
 
-          if (arpOn != null && arpOn.getInt(r) == 1) {
+          if (algo >= 10) {
+            // STK physical model trigger
+            double f = mtof(((24 - 1) - (r % 8)) + 60) * Math.pow(2.0, lfoPit);
+            triggerStkNote(src[r], (float) f, (float) gainVal);
+            env[r].gain(0.0f); // STK has its own internal envelope; pass level via gain
+            env[r].keyOn();    // Keep the gate UGen open
+            double noteSec = gateSec;
+            int rv = r;
+            ChuckUGen srcRef = src[r];
+            vm.spork(
+                () -> {
+                  advance(second(noteSec));
+                  releaseStkNote(srcRef);
+                  env[rv].keyOff();
+                });
+          } else if (arpOn != null && arpOn.getInt(r) == 1) {
             int baseMidi = (int) ((24 - 1) - (r % 8)) + 60;
             int v = r;
             vm.spork(() -> run_arp(v, baseMidi, (float) gainVal, car[v], mod[v], env[v]));
           } else {
             double f = mtof(((24 - 1) - (r % 8)) + 60) * Math.pow(2.0, lfoPit);
-            car[r].freq((float) f);
-            double fmR = fmRatio != null ? fmRatio.getFloat(r) : 1.0;
-            double fmA =
-                (fmAmt != null ? fmAmt.getFloat(r) : 0.0) * Math.max(0.0, 1.0 + lfoFm * 0.5);
-            mod[r].freq((float) (f * fmR));
-            mod[r].gain((float) (fmA * 1000.0));
+            if (car[r] != null) car[r].freq((float) f);
+            if (mod[r] != null) {
+              double fmR = fmRatio != null ? fmRatio.getFloat(r) : 1.0;
+              double fmA =
+                  (fmAmt != null ? fmAmt.getFloat(r) : 0.0) * Math.max(0.0, 1.0 + lfoFm * 0.5);
+              mod[r].freq((float) (f * fmR));
+              mod[r].gain((float) (fmA * 1000.0));
+            }
             env[r].gain((float) gainVal);
             env[r].keyOn();
             double noteSec = gateSec;
@@ -563,6 +601,36 @@ public class DelugeEngineDSL implements Shred, Runnable {
           }
         }
       }
+    }
+  }
+
+  /** Create an STK physical model UGen based on algorithm code. */
+  private ChuckUGen createStkUGen(int algo, float sr) {
+    return switch (algo) {
+      case 10 -> new org.chuck.audio.stk.Mandolin(20.0f, sr);
+      case 11 -> new org.chuck.audio.stk.Rhodey(sr);
+      case 12 -> new org.chuck.audio.stk.ModalBar(sr);
+      case 13 -> new org.chuck.audio.stk.Moog(sr);
+      default -> new org.chuck.audio.stk.Mandolin(20.0f, sr);
+    };
+  }
+
+  /** Trigger a note on an STK physical model UGen via reflection. */
+  private void triggerStkNote(ChuckUGen ugen, float freq, float velocity) {
+    try {
+      ugen.getClass().getMethod("setFreq", double.class).invoke(ugen, (double) freq);
+      ugen.getClass().getMethod("noteOn", float.class).invoke(ugen, velocity);
+    } catch (Exception e) {
+      if (vm.getLogLevel() >= 1) vm.print("STK noteOn failed: " + e.getMessage() + "\n");
+    }
+  }
+
+  /** Release a note on an STK physical model via reflection. */
+  private void releaseStkNote(ChuckUGen ugen) {
+    try {
+      ugen.getClass().getMethod("noteOff", float.class).invoke(ugen, 0.0f);
+    } catch (Exception e) {
+      if (vm.getLogLevel() >= 1) vm.print("STK noteOff failed: " + e.getMessage() + "\n");
     }
   }
 
