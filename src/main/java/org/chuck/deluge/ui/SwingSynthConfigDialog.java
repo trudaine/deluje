@@ -26,6 +26,7 @@ public class SwingSynthConfigDialog extends JDialog {
     tabs.setForeground(Color.WHITE);
 
     tabs.addTab("ARP / FILTER / FM", buildMainPanel(model, vm, bridge, trackIndex));
+    tabs.addTab("ALGORITHM", buildAlgorithmPanel(model, bridge, trackIndex));
     tabs.addTab("LFO", buildLfoPanel(vm, bridge, trackIndex));
 
     add(tabs, BorderLayout.CENTER);
@@ -215,6 +216,63 @@ public class SwingSynthConfigDialog extends JDialog {
     JLabel note = new JLabel("<html><i>Depth 100% = Filter ±5kHz, Res ±3Q, Pan ±1.0, Pitch ±1 oct, Vol ±50%, FM ±50%</i></html>");
     note.setForeground(Color.GRAY);
     panel.add(note, c);
+
+    return panel;
+  }
+
+  /** Build the synth algorithm selector tab. */
+  private JPanel buildAlgorithmPanel(SynthTrackModel model, BridgeContract bridge, int trackIndex) {
+    JPanel panel = new JPanel(new GridBagLayout());
+    panel.setBackground(new Color(0x22, 0x22, 0x22));
+    GridBagConstraints c = new GridBagConstraints();
+    c.fill = GridBagConstraints.HORIZONTAL;
+    c.insets = new Insets(6, 10, 6, 10);
+    c.anchor = GridBagConstraints.WEST;
+
+    String[] algos = {"FM Synthesis", "Mandolin", "Rhodey EP", "ModalBar", "Moog Bass"};
+    int[] algoValues = {0, 10, 11, 12, 13};
+
+    c.gridx = 0; c.gridy = 0; c.gridwidth = 3;
+    panel.add(sectionLabel("SYNTHESIS ALGORITHM"), c); c.gridy++;
+
+    c.gridx = 0; c.gridwidth = 1;
+    JLabel algoLbl = label("Engine:");
+    algoLbl.setToolTipText("Select the sound engine for this track — FM or STK physical model");
+    panel.add(algoLbl, c); c.gridx = 1; c.gridwidth = 2;
+
+    JComboBox<String> algoCombo = new JComboBox<>(algos);
+    algoCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    algoCombo.setForeground(Color.WHITE);
+    // Select current algorithm
+    int current = model.getSynthAlgorithm();
+    for (int i = 0; i < algoValues.length; i++) {
+      if (algoValues[i] == current) { algoCombo.setSelectedIndex(i); break; }
+    }
+    algoCombo.addActionListener(e -> {
+      int idx = algoCombo.getSelectedIndex();
+      int algo = algoValues[idx];
+      model.setSynthAlgorithm(algo);
+      bridge.setSynthAlgo(trackIndex, algo);
+    });
+    panel.add(algoCombo, c); c.gridy++;
+
+    // Description panel
+    c.gridx = 0; c.gridy++; c.gridwidth = 3;
+    JTextArea desc = new JTextArea(
+        "FM Synthesis — Classic 2-operator FM via MorphingWavetable. Use Ratio & Amount controls.\n" +
+        "Mandolin — Plucked string physical model with body resonance.\n" +
+        "Rhodey EP — FM electric piano based on the Rhodes sound.\n" +
+        "ModalBar — Mallet percussion with adjustable bar material.\n" +
+        "Moog Bass — Monophonic bass synthesizer with ladder filter."
+    );
+    desc.setEditable(false);
+    desc.setBackground(new Color(0x2a, 0x2a, 0x2a));
+    desc.setForeground(Color.LIGHT_GRAY);
+    desc.setFont(desc.getFont().deriveFont(11f));
+    desc.setBorder(BorderFactory.createEmptyBorder(10, 5, 10, 5));
+    desc.setLineWrap(true);
+    desc.setWrapStyleWord(true);
+    panel.add(desc, c);
 
     return panel;
   }
