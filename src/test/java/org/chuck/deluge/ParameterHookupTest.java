@@ -2,7 +2,6 @@ package org.chuck.deluge;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.io.File;
 import org.chuck.core.ChuckVM;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,14 +41,6 @@ public class ParameterHookupTest {
   @AfterEach
   void tearDown() {
     if (vm != null) vm.shutdown();
-  }
-
-  private File findEngineFile() {
-    File f = new File("src/main/resources/org/chuck/deluge/engine.ck");
-    if (f.exists()) return f;
-    f = new File("../deluge/src/main/resources/org/chuck/deluge/engine.ck");
-    if (f.exists()) return f;
-    return null;
   }
 
   @Test

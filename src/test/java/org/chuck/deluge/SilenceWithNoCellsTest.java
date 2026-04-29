@@ -2,7 +2,6 @@ package org.chuck.deluge;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.io.File;
 import java.util.concurrent.TimeUnit;
 import org.chuck.audio.util.DacChannel;
 import org.chuck.core.ChuckConfig;
@@ -37,9 +36,10 @@ public class SilenceWithNoCellsTest {
   @Test
   @Timeout(value = 15, unit = TimeUnit.SECONDS)
   void classicEngine_shouldBeSilentWithNoCells() throws Exception {
-    File f = new File("src/main/resources/org/chuck/deluge/engine.ck");
-    if (!f.exists()) f = new File("../deluge/src/main/resources/org/chuck/deluge/engine.ck");
-    vm.run(java.nio.file.Files.readString(f.toPath()), "engine.ck");
+    // Spork Java DSL Engine
+    org.chuck.deluge.engine.DelugeEngine engine =
+        new org.chuck.deluge.engine.DelugeEngine(vm, bridge);
+    vm.spork(engine::shred);
 
     // Let engine initialise (300ms)
     advanceSamples(44100 / 4 * 3);

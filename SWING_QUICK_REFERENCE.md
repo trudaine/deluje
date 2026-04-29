@@ -265,7 +265,7 @@ The Swing UI reads track types from `BridgeContract.trackType` (local Java array
 | MS18 | Transpose clip up/down octave | ⚠ not yet implemented |
 | MS19 | Transpose clip by semitone | ⚠ not yet implemented |
 | MS20 | Clone synth preset | ⚠ not yet implemented |
-| MS21 | Save preset | **[⚙]** → **💾 SAVE PRESET** (JavaFX SynthConfigDialog only) |
+| MS21 | Save preset | **[⚙]** → **💾 SAVE PRESET** |
 
 ---
 

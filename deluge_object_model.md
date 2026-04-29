@@ -76,7 +76,7 @@ To satisfy deployment of blank arrangement states, the model utilizes factory in
 
 ## 6. Model-View Synchronization (Observer Pattern)
 
-To ensure decoupled user interfaces (Swing or JavaFX) stay in sync with state changes (regardless of whether triggered via hardware, file updates, or secondary controllers), the Object Model employs event notification interfaces:
+To ensure decoupled user interfaces stay in sync with state changes (regardless of whether triggered via hardware, file updates, or secondary controllers), the Object Model employs event notification interfaces:
 
 ```mermaid
 sequenceDiagram
@@ -109,17 +109,7 @@ sequenceDiagram
 | **Arrangement Dashboard** | Consolidated composition tracks clip grid | **[SwingSongModePanel](file:///usr/local/google/home/ludo/a/chuckjava/deluge/src/main/java/org/chuck/deluge/ui/SwingSongModePanel.java)** |
 | **Files Explorer Drawer** | Navigates resources loading presets schemas | **[SwingProjectSidebarPanel](file:///usr/local/google/home/ludo/a/chuckjava/deluge/src/main/java/org/chuck/deluge/ui/SwingProjectSidebarPanel.java)** |
 
-### Functional Allocations (The `swing2` specification)
-
-- **`Swing2DelugeApp`**: Top-Level Window. 
-  - *State*: `private ProjectModel model`, `private CardLayout cardLayout`, `private Swing2GridPanel clipPanel`.
-  - *Setup*: `setLayout(new BorderLayout())`, docks `Swing2ProjectSidebarPanel` (WEST), `Swing2SongModePanel` (CENTER).
-- **`Swing2GridPanel`**: 11-Row by 18-Column Matrix sequencer.
-  - *State*: `private JButton[][] pads`, `private ClipModel activeClip`.
-  - *Setup*: Observes `ClipModel.ClipListener`. Redraws backgrounds cyan when active.
-- **`Swing2SongModePanel`**: Clip Arrangement deck.
-  - *State*: Listens to `ProjectModel.ProjectListener`.
-  - *Setup*: Renders dynamic instrument panels, binds MUTE pads triggers.
+### Functional Allocations
 
 
 ### 7.1 UI Action to Model Event Mapping
