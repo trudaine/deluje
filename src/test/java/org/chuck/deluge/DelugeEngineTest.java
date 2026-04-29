@@ -2,7 +2,6 @@ package org.chuck.deluge;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import org.chuck.core.ChuckConfig;
@@ -34,14 +33,6 @@ public class DelugeEngineTest {
   @AfterEach
   void tearDown() {
     if (vm != null) vm.shutdown();
-  }
-
-  private File findEngineFile() {
-    File f = new File("src/main/resources/org/chuck/deluge/engine.ck");
-    if (f.exists()) return f;
-    f = new File("../deluge/src/main/resources/org/chuck/deluge/engine.ck");
-    if (f.exists()) return f;
-    return null;
   }
 
   @Test

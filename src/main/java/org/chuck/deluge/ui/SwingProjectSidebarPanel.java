@@ -610,7 +610,7 @@ public class SwingProjectSidebarPanel extends JPanel {
     panel.setBackground(new Color(0x25, 0x25, 0x25));
 
     DefaultListModel<String> model = new DefaultListModel<>();
-    model.addElement("Shred 1: engine.ck (Master Clock)");
+    model.addElement("Shred 1: DelugeEngineDSL (Master Clock)");
     model.addElement("Shred 2: custom_fm.ck (Active)");
     JList<String> list = new JList<>(model);
     list.setBackground(new Color(0x1f, 0x1f, 0x1f));

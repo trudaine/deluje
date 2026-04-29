@@ -7,7 +7,7 @@ This document outlines the architecture for a software-only emulation of the **S
 ## 1. Core Architectural Pillars
 
 ### 1.1 The Virtual Matrix
-- **Grid**: 16x8 interactive JavaFX Canvas. High-performance rendering for sample-accurate playhead feedback.
+- **Grid**: 16x8 interactive Swing GridPanel. High-performance rendering for sample-accurate playhead feedback.
 - **View Modes**: should be a combox box choice above the grid.
     - **Clip (F1)**: Note sequencing for a single track.
     - **Song (F2)**: "Session View" for launching multiple clips simultaneously.
@@ -452,7 +452,7 @@ The bridge is the single source of truth for all global variable names, array si
 1. Once after `new ChuckVM()` — before any `.ck` file loads.
 2. Again after every `vm.clear()` — to re-bind the same Java array objects into the new VM scope.
 
-The ChucK engine declares all globals with `global` keyword at the top of `engine.ck`. Java values pre-loaded via `BridgeContract.register()` take precedence — the `if (g_bpm < 20.0)` safety guard in engine.ck catches the case where Java forgot to register.
+The Java DSL engine (DelugeEngineDSL) declares all globals. Java values pre-loaded via `BridgeContract.register()` take precedence — the `if (g_bpm < 20.0)` safety guard in DelugeEngineDSL catches the case where Java forgot to register.
 
 ### 18.3 Transport Control
 
@@ -479,7 +479,7 @@ The design mentions a `TEMPO (TAP)` button but provides no specification.
 - **BPM range**: 1 – 300 BPM, displayed to one decimal place.
 - **TAP Tempo**: Three consecutive taps within 3 seconds average the inter-tap interval.
 - **Time Signature**: `n/4` where n ∈ {1, 2, 3, 4, 5, 6, 7, 8}. Controls how many steps per "bar" are highlighted in the grid.
-- **ChucK clock unit**: 1 step = `(60.0 / bpm / stepsPerBeat) * second`. This expression lives in `engine.ck` and is rewritten whenever BPM changes via `g_cmd_event`.
+- **ChucK clock unit**: 1 step = `(60.0 / bpm / stepsPerBeat) * second`. This expression is computed by the Java DSL engine clock shred.
 - **Swing/Shuffle**: Every odd step is delayed by `swing%` of the step duration. Range 50 % (straight) – 75 % (heavy shuffle). Stored in `g_swing` (float, 0.0–0.5 representing the delay fraction). Not in current design at all.
 
 ---
@@ -617,8 +617,8 @@ The current code (`SequencerApp.java`) uses an `AnimationTimer` polling `vm.getG
 
 ```
 ┌─────────────────────┐   g_cmd_event.broadcast()   ┌──────────────────────┐
-│   JavaFX UI Thread  │ ─────────────────────────►  │  ChucK Audio Thread  │
-│  (AnimationTimer)   │ ◄─────────────────────────  │   (engine.ck shreds) │
+│   Swing UI Thread   │ ─────────────────────────►  │  ChucK Audio Thread  │
+│  (Swing Timer)      │ ◄─────────────────────────  │   (DSL Engine shreds) │
 │                     │   g_playhead (volatile int)  │                      │
 └─────────────────────┘                              └──────────────────────┘
 ```
@@ -867,12 +867,12 @@ These mockups add new visual concepts on top of Section 7 without modifying it. 
 ```
 
 **UX Notes — Kit Config Dialog:**
-- **Waveform preview**: Rendered on a JavaFX Canvas at 300 × 40 px. The start and end point handles are draggable; dragging updates `SndBuf.pos` in real time so you hear the truncation while the sequencer plays.
+- **Waveform preview**: Rendered waveform preview at 300 × 40 px. The start and end point handles are draggable; dragging updates `SndBuf.pos` in real time so you hear the truncation while the sequencer plays.
 - **Drag-to-assign**: A dashed-border drop zone sits below the file path. Dragging a `.wav` from the OS file explorer onto it is equivalent to selecting via Browse, but skips the dialog entirely.
 - **Mute Group**: Assigning multiple tracks to the same group (e.g., all hi-hats to "Group 1") stops any playing member of the group when a new member triggers — replicating the Deluge's hi-hat choke behavior.
 - **Sidechain Send**: Sets how much of this track feeds the global compressor's sidechain input. 0 % = no sidechain contribution. Kick is typically set to 100 % so it ducks the bass.
 - **ADSR curve preview**: A small live canvas shows the classic ADSR shape as sliders are moved. The time axis auto-scales to fit the longest stage.
-- **EQ**: Uses JavaFX shelving sliders. Bass/Treble gains are ±18 dB; frequency controls set the shelf corner frequency. All four values map to the XML `<equalizer>` block.
+- **EQ**: Uses shelving sliders. Bass/Treble gains are ±18 dB; frequency controls set the shelf corner frequency. All four values map to the XML `<equalizer>` block.
 - **MOD KNOBS remapping**: Each dropdown lists all 30+ Deluge params by name. Changing it updates the in-memory `modKnobs` list that gets serialized to XML on save.
 - **Save as Kit XML**: Writes a Deluge-compatible `<kit>` XML to `KITS/`. If a file with the same name exists, a conflict dialog offers Overwrite / Rename / Cancel.
 
@@ -1010,7 +1010,7 @@ These mockups add new visual concepts on top of Section 7 without modifying it. 
 **UX Notes — Sample Browser:**
 - **Tree view** (`TreeView<File>`): Lazily loads directory contents. Directories show a disclosure triangle; audio files show a waveform icon. Expanding a folder reads the filesystem; no pre-indexing needed.
 - **Search box**: Live-filters the visible tree to filenames containing the typed string. Results are shown flat (path as label). Clearing the box restores the tree.
-- **Waveform preview**: When a file is single-clicked, a background thread decodes the first 2 seconds with JavaFX's `AudioClip` loader and renders the peak envelope into the 200 × 50 px `Canvas`. Rendering takes < 100 ms for typical drum samples.
+- **Waveform preview**: When a file is single-clicked, a background thread decodes the first 2 seconds with the audio loader and renders the peak envelope into the 200 × 50 px `Canvas`. Rendering takes < 100 ms for typical drum samples.
 - **[▶ Audition]**: Triggers a one-shot ChucK shred on a separate `SndBuf` connected to the master bus at low gain. Plays while the main sequencer continues. Pressing again stops the preview.
 - **[⭐ Favorite]**: Adds the path to `~/.chuck-deluge/favorites.json`. The ⭐ Favs toggle at top switches the tree to show only favorited files.
 - **[✓ Assign]** / **double-click**: Sets the selected file as the track's sample, updates the waveform preview inside the Kit config popup, and reloads the ChucK `SndBuf` shred in real time (no engine restart required).
@@ -1210,8 +1210,6 @@ Before committing to phases, every required building block was verified against 
 | Dummy audio (test mode) | `-Dchuck.audio.dummy=true` | Used in `SequencerEngineTest` |
 | Print listener | `ChuckVM.addPrintListener` | Used in tests |
 | Virtual threads | JDK 25 `Thread.ofVirtual()` | Used throughout ChuckVM |
-| JavaFX `TreeView` | `javafx-controls` | In deluge `pom.xml` |
-| JavaFX `Canvas` | `javafx-controls` | For waveform + ADSR previews |
 | JAXP XML parser | `javax.xml.parsers` | Standard JDK — no extra dep needed |
 | `java.util.prefs.Preferences` | Standard JDK | Used in `ChuckVM` already |
 
@@ -1225,7 +1223,6 @@ Before committing to phases, every required building block was verified against 
 | `TrackModel` hierarchy (KitTrackModel, SynthTrackModel) | M (2 days) | `deluge/src/main/java/…/model/` |
 | `ProjectModel.java` — top-level state | S (< 1 day) | `deluge/src/main/java/…/model/` |
 | `BridgeContract.java` — typed shared-array builder | S (< 1 day) | `deluge/src/main/java/…/engine/` |
-| Full rewrite of `engine.ck` | L (3 days) | `deluge/src/main/resources/…/` |
 | `DelugeMainPanel.java` (replaces `SequencerPanel`) | L (4 days) | `deluge/src/main/java/…/ui/` |
 | `KitConfigDialog.java` | M (2 days) | `deluge/src/main/java/…/ui/` |
 | `SynthConfigDialog.java` | L (3 days) | `deluge/src/main/java/…/ui/` |
@@ -1244,7 +1241,7 @@ Before committing to phases, every required building block was verified against 
 
 ### 21.1 Phase 1 — Bridge Contract & Engine Rewrite ✅ COMPLETE
 
-**Goal:** Replace the demo `engine.ck` with a production engine that speaks the full data contract. No UI work in this phase.
+**Goal:** Bridge Contract & Java DSL Engine. Define and implement the full shared-memory contract and wire it into the Java DSL engine. No UI work in this phase.
 
 **Status: DONE.** All deliverables shipped and tested.
 
@@ -1255,14 +1252,6 @@ Before committing to phases, every required building block was verified against 
    - Incorporates §23 firmware corrections: `g_env[16]` (4 env × 4 params), `g_lfo_rate/type/depth[4]` (per-voice + global LFOs), `g_filter_mode/morph[8]` (LADDER_12/24/SVF modes).
    - `register(vm)` is idempotent — safe to call after every `vm.clear()`.
    - Rich Java API: `setStep`, `setVelocity`, `setGate`, `setPitch`, `setMute`, `setEnv`, `setLfo`, `setFilterMode`, `setFilterMorph`, `clearPattern`, `snapshotPattern`, `restorePattern`.
-
-2. **`engine.ck` rewrite** (`deluge/src/main/resources/org/chuck/deluge/engine.ck`)
-   - 5 concurrent shreds launched by `transport_shred()`:
-     - `clock_shred` — tempo master with swing (even/odd step duration from `g_bpm`+`g_swing`); broadcasts `tick_event` each step; writes `g_current_step`.
-     - `kit_shred` — 8 `SndBuf` tracks; waits on `tick_event`; checks `g_mute`, `g_probability`, `g_pattern`, `g_velocity`; triggers sample.
-     - `fx_bus_shred` — global `Echo + JCRev` bus; refreshes delay time + reverb mix from globals on each tick.
-     - `heartbeat_shred` — diagnostic logging at `Machine.loglevel() >= 2`.
-     - `transport_shred` — polls `g_play`; sporks/kills clock+kit shreds on state change.
 
 3. **`SequencerPanel.java` updated** — constructor now takes `BridgeContract`; uses `bridge.setStep()` / `bridge.patternArray()` instead of raw `ChuckArray` fields.
 
@@ -1390,7 +1379,7 @@ deluge/src/main/java/org/chuck/deluge/ui/
   ParameterRibbonPanel.java — 13 toggle buttons; selected one maps Knob1/2 via g_param_values
   TransportPanel.java       — BPM spinner+TAP, SIG combo, SWING slider, PLAY/STOP/REC/RST
   UtilityPanel.java         — SHIFT, LEARN, UNDO:N, REDO, COPY, PASTE, TRANSPOSE, HUMANIZE
-  OledPanel.java            — JavaFX Canvas 320×64; 3 modes (Value, Context, System)
+  OledPanel.java            — virtual OLED display; 3 modes (Value, Context, System)
   KnobControl.java          — custom control: mouse-wheel + click-drag → fires change event
   TrackRowPanel.java        — [K/S] badge + [⚙] + [○] + [M] + 16 step cells + LEN+VOL+PAN
   StepCellButton.java       — Canvas-based cell; renders █/▓/░/C4 based on StepData
@@ -1693,32 +1682,6 @@ deluge/src/test/java/org/chuck/deluge/
 
 Before Phase 3, the following must be added to `deluge/pom.xml`:
 
-```xml
-<!-- TestFX for JavaFX UI testing -->
-<dependency>
-  <groupId>org.testfx</groupId>
-  <artifactId>testfx-core</artifactId>
-  <version>4.0.18</version>
-  <scope>test</scope>
-</dependency>
-<dependency>
-  <groupId>org.testfx</groupId>
-  <artifactId>testfx-junit5</artifactId>
-  <version>4.0.18</version>
-  <scope>test</scope>
-</dependency>
-
-<!-- Headless JavaFX rendering (CI-safe) -->
-<dependency>
-  <groupId>org.testfx</groupId>
-  <artifactId>openjfx-monocle</artifactId>
-  <version>jdk-12.0.1+2</version>
-  <scope>test</scope>
-</dependency>
-```
-
-**CI / headless**: Add `-Djava.awt.headless=true -Dglass.platform=Monocle -Dmonocle.platform=Headless -Dprism.order=sw` to Surefire JVM args so all JavaFX tests run on headless CI without a display server.
-
 **Dummy audio**: All engine tests must pass `-Dchuck.audio.dummy=true` (already supported in `ChuckAudio`). No sound card or ASIO driver needed in CI.
 
 ---
@@ -1991,7 +1954,7 @@ The firmware is fully open-source at `github.com/SynthstromAudible/DelugeFirmwar
 | Area | Why Not Needed |
 | :--- | :--- |
 | **XML data format** | Already fully described by the factory XML files we have. The C XML parser is secondary. |
-| **UI rendering** | We use JavaFX; the hardware LED/OLED rendering code is irrelevant. |
+| **UI rendering** | We use Swing; the hardware LED/OLED rendering code is irrelevant. |
 | **Audio codec + hardware drivers** | ARM Cortex-M7 specific, not portable. |
 | **Button/encoder scanning** | Hardware peripheral code, irrelevant to our software emulator. |
 | **File system** | FAT SD card code, irrelevant — we use `java.nio.file`. |
@@ -2252,41 +2215,7 @@ HYBRID:
 
 ---
 
-## 24. JavaFX UX Advantages Over Hardware Pad-Reuse
 
-The Synthstrom Deluge hardware has exactly one interactive surface: **128 rubber pads in an 8×16 grid**. Every feature — step sequencing, keyboard playing, wavetable editing, chord entry, automation, velocity editing, clip launching, macro performance — must be crammed into that single grid by switching between mutually exclusive view modes. Switching mode means **losing your current view context entirely**.
-
-Our JavaFX emulator is not constrained by this. We can show dedicated, purpose-built controls **simultaneously and permanently**. This section catalogs every hardware pad-reuse mode, what it sacrifices, and what our emulator provides instead.
-
----
-
-### 24.1 The Hardware's Fundamental Constraint
-
-On the Deluge hardware, the workflow for common tasks is:
-
-- **To play a note while editing a sequence**: switch to Keyboard Mode → the 128 pads rearrange as a chromatic layout → your sequence grid disappears.
-- **To edit velocity**: hold an active step pad + turn the Gold Knob → you can only edit one step's velocity at a time, with no visual overview.
-- **To edit a wavetable**: enter Wavetable Mode → the pads become 16 sample-amplitude cells → very low resolution; you cannot zoom or scroll.
-- **To set a chord voicing**: hold a pad in Scale Mode → a transient overlay on the pads → gone as soon as you release.
-
-Every one of these is a UX compromise necessitated by hardware. None of them apply to software.
-
-**Design principle for this emulator**: *Never repurpose the step grid.* The 8×16 step matrix stays a step matrix at all times. Every other function the hardware achieves through pad-reuse gets its own persistent, dedicated, purpose-designed control.
-
----
-
-### 24.2 Hardware Pad-Reuse Modes → JavaFX Replacements
-
-| # | Hardware Mode | Pads Do | Limitation | JavaFX Replacement |
-| :---: | :--- | :--- | :--- | :--- |
-| 1 | **Keyboard Mode** | Chromatic layout (2 rows = white/black keys per octave, 5 octaves) | Loses sequence view; only 5 octaves; no sustain; no velocity nuance | `DelugeKeyboardPanel` — full 88-key piano (port of existing `PianoKeyboard.java`), docked below step grid, always visible |
-| 2 | **Scale Mode** | Highlights scale-degree pads; root = first pad | Can't see sequence + scale simultaneously; fixed octave | Scale dropdown + root picker in Transport row; piano keys highlight scale tones in real time |
-| 3 | **Chord Mode** | Hold a scale-degree pad to hear full chord voicing | One chord at a time; no visual of voicing intervals | `ChordPalettePanel` — rows of named chord buttons (Maj/Min/7th/Sus/Dim/Aug) per root; click plays + enters tied notes into sequence |
-| 4 | **Wavetable Editing** | Each pad = one of 16 amplitude sample-points | Only 16-point resolution; brightness = amplitude; no undo per point | `WavetableEditorCanvas` — drag-editable 256-point Canvas, zoom in/out, undo stack, import from .wav file |
-| 5 | **Automation Lane** | Pad brightness = parameter value at that step | No labels, no numeric values, all parameters share same grid brightness encoding | Per-parameter `AutomationLaneCanvas` bar-graph rows; tooltip shows exact value; editable by drag |
-| 6 | **Velocity Editing** | Hold step + turn Gold Knob (one step at a time) | Tedious per-step; no overview of all velocities simultaneously | `VelocityLanePanel` — bar chart below step grid showing all 16 steps; drag any bar to set; color-coded per track |
-| 7 | **Euclidean Rhythm** | Menu-driven; no live visual preview | You can't see the pattern while setting beats/steps | `EuclideanRhythmControl` — two spinners (pulses N, steps K) + circular wheel Canvas preview; fills the step row on Apply |
-| 8 | **Song Clip Launcher** | Pads = clip slots; color = state only | No text labels; no follow-action visible; no queued-vs-playing distinction | `ClipCell` with text label, status icon, follow-action badge; queued clips show countdown |
 | 9 | **Performance Mode** | Pads = macro triggers in locked grid | No parameter names on pads; hold-time ambiguity; can't see values | Named `KnobControl` dials + current value display; MIDI-learnable; saved with project |
 | 10 | **Gold Knob Assignment** | Hold param button + move knob; assignment saved in modKnobs XML | One knob mapped at a time; 16 assignments not visible simultaneously | `ModKnobTable` — 16-row table, all assignments visible; drag-and-drop reordering |
 | 11 | **Note Probability + Gate** | Hold step + shift + Gold Knob | Awkward 3-way gesture; tiny OLED feedback | `StepEditorPopover` with labeled sliders (velocity, gate, probability, pitch offset) |
@@ -2547,7 +2476,7 @@ public static final String G_PREVIEW_VEL  = "g_preview_vel";  // float — piano
 
 ### 24.7 UX Design Principles Summary
 
-These six principles govern every UI decision in this emulator — they are what separates a *JavaFX workstation* from a *software skin of a hardware sequencer*:
+These six principles govern every UI decision in this emulator — they are what separates a *workstation* from a *software skin of a hardware sequencer*:
 
 1. **Simultaneous visibility**: Step grid + keyboard + velocity lane visible at all times. No mode switches that destroy context.
 2. **Direct manipulation**: Every editable value is a drag target — no "hold X + turn knob" gymnastics.
@@ -2557,4 +2486,4 @@ These six principles govern every UI decision in this emulator — they are what
 6. **Discoverable power**: Advanced features (Euclidean rhythm, wavetable import, automation copy-from-knob) are one click away in a dedicated control — no manual page needed.
 
 ---
-*JavaFX UX Advantages section added: April 19, 2026*
+*Swing UX Advantages section added: April 19, 2026*
