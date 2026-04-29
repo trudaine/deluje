@@ -27,6 +27,7 @@ public class SwingGridPanel extends JPanel {
   private int soloRow = -1; // -1 = no solo
   private Timer playheadTimer; // single timer for playhead updates, avoids leaks
   private int scrollOffset = 0; // vertical scroll offset for voice rows in CLIP mode
+  private int scrollOffsetX = 0; // horizontal scroll offset for step columns in CLIP mode
   private int voiceRowCount = 8; // total number of voice rows for current track
   private org.chuck.deluge.project.PreferencesManager.GridMode gridMode =
       org.chuck.deluge.project.PreferencesManager.getGridMode();
@@ -369,6 +370,7 @@ public class SwingGridPanel extends JPanel {
 
   public void setEditedModelTrack(int modelTrack) {
     this.editedModelTrack = modelTrack;
+    scrollOffsetX = 0; // reset horizontal scroll when editing different track
   }
 
   /** Returns the total number of voice rows for the currently edited track. */
@@ -381,6 +383,7 @@ public class SwingGridPanel extends JPanel {
       this.stepCount = mode.columns;
       this.columnCount = mode.columns + 2; // +2 for MUTE and SOLO columns
       scrollOffset = 0;
+      scrollOffsetX = 0;
       refresh();
     }
   }
@@ -393,9 +396,10 @@ public class SwingGridPanel extends JPanel {
     this.onEditRequest = callback;
   }
 
-  /** Reset scroll offset when edited track changes. */
+  /** Reset scroll offsets when edited track changes. */
   public void resetScrollOffset() {
     scrollOffset = 0;
+    scrollOffsetX = 0;
   }
 
   /** Compute total voice rows for the currently edited track in CLIP mode. */
@@ -653,8 +657,13 @@ public class SwingGridPanel extends JPanel {
           }
         }
         if (trackLen <= 0) trackLen = bridge != null ? bridge.getTrackLength(baseTrackId + modelRow) : stepCount;
-        if (trackLen > 0 && trackLen < stepCount) activeCol = colId % trackLen;
-        else activeCol = colId;
+        if (trackLen > 0 && trackLen < stepCount) {
+          activeCol = colId % trackLen; // wrap when clip is shorter than viewport
+        } else if (trackLen > stepCount) {
+          activeCol = Math.min(colId + scrollOffsetX, trackLen - 1); // scroll when clip is wider than viewport
+        } else {
+          activeCol = colId;
+        }
       } else {
         activeCol = colId;
       }
@@ -1190,7 +1199,17 @@ public class SwingGridPanel extends JPanel {
 
   public void updatePlayhead(int step) {
     if (step < 0) return;
-    int stepMod = step % stepCount;
+    int trackLen = bridge != null ? bridge.getTrackLength(baseTrackId) : stepCount;
+    // Map the engine step to a visual column — for clips wider than viewport, offset by scrollOffsetX
+    int stepMod;
+    if (trackLen > stepCount) {
+      // The engine's current step is in [0, trackLen). Map to visual column by subtracting scrollOffsetX.
+      stepMod = step % trackLen - scrollOffsetX;
+      if (stepMod < 0) stepMod = 0;
+      if (stepMod >= stepCount) stepMod = stepCount - 1;
+    } else {
+      stepMod = step % stepCount;
+    }
     int rowsToScan = (viewMode == GridViewMode.CLIP) ? voiceRowCount : gridMode.rows;
     for (int t = 0; t < rowsToScan; t++) {
       if (pads[t][stepMod] == null) continue;
@@ -1276,6 +1295,40 @@ public class SwingGridPanel extends JPanel {
           rowCountLabel.setForeground(Color.LIGHT_GRAY);
           rowCountLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
           headerRow.add(rowCountLabel);
+        }
+        // Horizontal scroll buttons for CLIP mode
+        int trackLenH = bridge != null ? bridge.getTrackLength(baseTrackId) : stepCount;
+        if (trackLenH > stepCount) {
+          headerRow.add(Box.createHorizontalStrut(20));
+          JButton leftBtn = new JButton("\u25C0");
+          leftBtn.setFont(new Font("SansSerif", Font.BOLD, 12));
+          leftBtn.setMargin(new Insets(0, 4, 0, 4));
+          leftBtn.setToolTipText("Scroll steps left");
+          leftBtn.setEnabled(scrollOffsetX > 0);
+          int maxOffX = trackLenH - stepCount;
+          leftBtn.addActionListener(e -> {
+            scrollOffsetX = Math.max(0, scrollOffsetX - 1);
+            int maxX = (bridge != null ? bridge.getTrackLength(baseTrackId) : stepCount) - stepCount;
+            if (scrollOffsetX > maxX) scrollOffsetX = maxX;
+            if (scrollOffsetX < 0) scrollOffsetX = 0;
+            refresh();
+          });
+          headerRow.add(leftBtn);
+          JLabel stepLabel = new JLabel(
+              (scrollOffsetX + 1) + "-" + Math.min(scrollOffsetX + stepCount, trackLenH) + " / " + trackLenH);
+          stepLabel.setForeground(Color.LIGHT_GRAY);
+          stepLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
+          headerRow.add(stepLabel);
+          JButton rightBtn = new JButton("\u25B6");
+          rightBtn.setFont(new Font("SansSerif", Font.BOLD, 12));
+          rightBtn.setMargin(new Insets(0, 4, 0, 4));
+          rightBtn.setToolTipText("Scroll steps right");
+          rightBtn.setEnabled(scrollOffsetX < maxOffX);
+          rightBtn.addActionListener(e -> {
+            scrollOffsetX = Math.min(maxOffX, scrollOffsetX + 1);
+            refresh();
+          });
+          headerRow.add(rightBtn);
         }
         add(headerRow);
       }
@@ -2150,6 +2203,27 @@ public class SwingGridPanel extends JPanel {
               int currentStep = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
               if (currentStep >= 0) {
                 int activeCol = (currentStep % stepCount);
+                // When horizontally scrolled, the timer maps engine columns to visible columns.
+                // The background-sync loop below uses visual column indexing (pads[t][c]).
+                // We need to drive bridge lookups with engine-step columns, not visual columns.
+                // activeCol as computed above is fine for border highlighting — it maps the
+                // engine step to the visible column where the playhead border should appear.
+                int engineActiveCol;
+                // For scrollOffsetX > 0: clip is wider than viewport; the engine active col
+                // may fall outside the visible window. Map it:
+                int trackLenTimer = bridge != null ? bridge.getTrackLength(baseTrackId) : stepCount;
+                if (trackLenTimer > stepCount) {
+                  int rawCol = currentStep % trackLenTimer;
+                  engineActiveCol = rawCol;
+                  int visualCol = rawCol - scrollOffsetX;
+                  if (visualCol >= 0 && visualCol < stepCount) {
+                    activeCol = visualCol;
+                  } else {
+                    activeCol = -1; // step is outside the visible window — hide border
+                  }
+                } else {
+                  engineActiveCol = currentStep % stepCount;
+                }
 
                 int rows = (viewMode == GridViewMode.CLIP) ? voiceRowCount : gridMode.rows;
                 if (activeCol != lastCol[0]) {
@@ -2164,7 +2238,7 @@ public class SwingGridPanel extends JPanel {
 
                   for (int t = 0; t < rows; t++) {
                     int engineRow = baseTrackId + (viewMode == GridViewMode.CLIP ? scrollOffset + t : t);
-                    if (bridge.getStep(engineRow, activeCol)) {
+                    if (bridge.getStep(engineRow, engineActiveCol)) {
                       vuLevels[t] = 1.0; // Spike VU Meter!
                       if (finalMidiOut != null) {
                         try {
@@ -2177,7 +2251,7 @@ public class SwingGridPanel extends JPanel {
                   }
 
                   // Sidechain Compressor Ducking tied to first engine row
-                  if (bridge.getStep(baseTrackId, activeCol)) {
+                  if (bridge.getStep(baseTrackId, engineActiveCol)) {
                     for (int t = 1; t < rows; t++) {
                       final int trackIdx = t;
                       bridge.setTrackLevel(trackIdx, 0.15); // Duck
@@ -2196,16 +2270,26 @@ public class SwingGridPanel extends JPanel {
 
                 for (int t = 0; t < rows; t++) {
                   int engineRow = baseTrackId + (viewMode == GridViewMode.CLIP ? scrollOffset + t : t);
+                  int trackLenT = bridge != null ? bridge.getTrackLength(engineRow) : stepCount;
                   for (int c = 0; c < stepCount; c++) {
                     if (pads[t][c] != null) {
+                      // Map visual column to engine column when scrolled horizontally
+                      int engineCol;
+                      if (trackLenT > stepCount) {
+                        engineCol = Math.min(c + scrollOffsetX, trackLenT - 1);
+                      } else if (trackLenT > 0 && trackLenT < stepCount) {
+                        engineCol = c % trackLenT;
+                      } else {
+                        engineCol = c;
+                      }
                       if (c == activeCol) {
                         pads[t][c].setBorder(BorderFactory.createLineBorder(Color.YELLOW, 4));
                       } else {
                         pads[t][c].setBorder(UIManager.getBorder("Button.border"));
                       }
                       // Re-sync background from bridge so cell selection stays correct during playback
-                      boolean stepActive = bridge.getStep(engineRow, c);
-                      double velPb = bridge.getVelocity(engineRow, c);
+                      boolean stepActive = bridge.getStep(engineRow, engineCol);
+                      double velPb = bridge.getVelocity(engineRow, engineCol);
                       pads[t][c].setBackground(
                           stepActive ? velocityBlend(trackColors[t % trackColors.length], velPb) : new Color(0x33, 0x33, 0x33));
                     }
