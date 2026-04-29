@@ -19,6 +19,7 @@ public class SwingDelugeApp extends JFrame {
   private JSlider bottomMasterVolSlider;
 
   private JPanel centerCardPanel;
+  private JPanel centeredWrapper;
   private CardLayout cardLayout;
 
   private org.chuck.deluge.model.ProjectModel currentProject =
@@ -572,203 +573,16 @@ public class SwingDelugeApp extends JFrame {
     JMenuItem prefItem = new JMenuItem("Preferences...");
     prefItem.addActionListener(
         e -> {
-          JDialog dialog = new JDialog(this, "Preferences", true);
-          dialog.setSize(750, 950);
-
-          dialog.setLocationRelativeTo(this);
-          dialog.setLayout(new BorderLayout());
-
-          JPanel mainGrid = new JPanel(new GridBagLayout());
-          GridBagConstraints c = new GridBagConstraints();
-          c.fill = GridBagConstraints.HORIZONTAL;
-          c.insets = new Insets(15, 20, 15, 20);
-          c.anchor = GridBagConstraints.WEST;
-
-          // Top Spacing
-          c.gridx = 0;
-          c.gridy = 0;
-          c.gridwidth = 2;
-          mainGrid.add(Box.createVerticalStrut(30), c);
-
-          // 1. Reverb Model
-          c.gridwidth = 1;
-          c.gridx = 0;
-          c.gridy = 1;
-          mainGrid.add(new JLabel("Reverb Model:"), c);
-
-          c.gridx = 1;
-          JComboBox<String> reverbCombo =
-              new JComboBox<>(new String[] {"JCRev", "FreeVerb", "MVerb", "ProceduralReverb"});
-          reverbCombo.setSelectedItem(
-              org.chuck.deluge.project.PreferencesManager.get("reverb.model", "JCRev"));
-          mainGrid.add(reverbCombo, c);
-
-          c.gridx = 1;
-          c.gridy = 2;
-          JLabel revHelp = new JLabel("<html><i>Select acoustic model structure</i></html>");
-          revHelp.setForeground(Color.GRAY);
-          mainGrid.add(revHelp, c);
-
-          // 2. MIDI Input
-          c.gridx = 0;
-          c.gridy = 3;
-          mainGrid.add(new JLabel("MIDI Input:"), c);
-          c.gridx = 1;
-          String[] ports = org.chuck.midi.MidiIn.list();
-          String[] comboPorts = new String[ports.length + 1];
-          comboPorts[0] = "None";
-          System.arraycopy(ports, 0, comboPorts, 1, ports.length);
-          JComboBox<String> midiCombo = new JComboBox<>(comboPorts);
-          midiCombo.setSelectedItem(
-              org.chuck.deluge.project.PreferencesManager.get("midi.input", "None"));
-          mainGrid.add(midiCombo, c);
-
-          c.gridx = 1;
-          c.gridy = 4;
-          JLabel midiHelp =
-              new JLabel("<html><i>Requires application reboot to re-route</i></html>");
-          midiHelp.setForeground(Color.GRAY);
-          mainGrid.add(midiHelp, c);
-
-          // 3. Checkboxes
-          c.gridx = 0;
-          c.gridy = 5;
-          mainGrid.add(new JLabel("Show Visualizers:"), c);
-          c.gridx = 1;
-          JCheckBox visCheck =
-              new JCheckBox(
-                  "",
-                  Boolean.parseBoolean(
-                      org.chuck.deluge.project.PreferencesManager.get("show.visualizers", "true")));
-          mainGrid.add(visCheck, c);
-
-          c.gridx = 0;
-          c.gridy = 6;
-          mainGrid.add(new JLabel("Debug Audio:"), c);
-          c.gridx = 1;
-          JCheckBox debugCheck =
-              new JCheckBox(
-                  "",
-                  Boolean.parseBoolean(
-                      org.chuck.deluge.project.PreferencesManager.get("debug.audio", "false")));
-          mainGrid.add(debugCheck, c);
-
-          c.gridx = 0;
-          c.gridy = 7;
-          mainGrid.add(new JLabel("MIDI Grid Mode:"), c);
-          c.gridx = 1;
-          JCheckBox gridModeCheck =
-              new JCheckBox(
-                  "",
-                  Boolean.parseBoolean(
-                      org.chuck.deluge.project.PreferencesManager.get("midi.grid.mode", "false")));
-          mainGrid.add(gridModeCheck, c);
-
-          c.gridx = 0;
-          c.gridy = 8;
-          mainGrid.add(new JLabel("Show Tooltips:"), c);
-          c.gridx = 1;
-          JCheckBox tooltipCheck =
-              new JCheckBox(
-                  "",
-                  Boolean.parseBoolean(
-                      org.chuck.deluge.project.PreferencesManager.get("show.tooltips", "true")));
-          mainGrid.add(tooltipCheck, c);
-
-          c.gridx = 0;
-          c.gridy = 9;
-          mainGrid.add(new JLabel("Screen Resolution:"), c);
-          c.gridx = 1;
-          JComboBox<String> screenResCombo = new JComboBox<>(new String[] {"FHD", "QHD", "4K"});
-          screenResCombo.setSelectedItem(
-              org.chuck.deluge.project.PreferencesManager.get("screen.resolution", "QHD"));
-          mainGrid.add(screenResCombo, c);
-
-          // 4. Active Mappings
-          c.gridx = 0;
-          c.gridy = 10;
-          mainGrid.add(new JLabel("Active Mappings:"), c);
-          c.gridx = 1;
-          DefaultListModel<String> listModel = new DefaultListModel<>();
-          if (midiService != null) {
-            for (java.util.Map.Entry<String, Integer> entry :
-                midiService.getMappings().entrySet()) {
-              listModel.addElement(entry.getKey() + " -> CC " + entry.getValue());
-            }
-          }
-          JList<String> mappingList = new JList<>(listModel);
-          mainGrid.add(new JScrollPane(mappingList), c);
-
-          // 5. Samples Directory
-          c.gridx = 0;
-          c.gridy = 11;
-          mainGrid.add(new JLabel("Samples Directory:"), c);
-
-          c.gridx = 1;
-          String currentDir = org.chuck.deluge.project.PreferencesManager.getSamplesDir();
-          JLabel dirLabel = new JLabel(currentDir != null ? currentDir : "Not Set");
-          dirLabel.setForeground(Color.CYAN);
-          mainGrid.add(dirLabel, c);
-
-          c.gridy = 12;
-          JButton browseBtn = new JButton("Browse...");
-          browseBtn.addActionListener(
-              ev -> {
-                JFileChooser chooser = new JFileChooser();
-                chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-                if (chooser.showOpenDialog(dialog) == JFileChooser.APPROVE_OPTION) {
-                  org.chuck.deluge.project.PreferencesManager.setSamplesDir(
-                      chooser.getSelectedFile().getAbsolutePath());
-                  dirLabel.setText(chooser.getSelectedFile().getAbsolutePath());
-                }
+          PreferencesDialog dialog = new PreferencesDialog(
+              SwingDelugeApp.this, () -> {
+                org.chuck.deluge.project.PreferencesManager.GridMode mode =
+                    org.chuck.deluge.project.PreferencesManager.getGridMode();
+                if (clipPanel != null) clipPanel.setGridMode(mode);
+                if (songPanel != null) songPanel.setGridMode(mode);
+                if (arrGridPanel != null) arrGridPanel.setGridMode(mode);
+                recalcWrapperSize();
               });
-          mainGrid.add(browseBtn, c);
-
-          // 6. Save Button
-          JButton saveBtn = new JButton("Save");
-          saveBtn.setFont(new Font("SansSerif", Font.BOLD, 28));
-          saveBtn.addActionListener(
-              ev -> {
-                org.chuck.deluge.project.PreferencesManager.set(
-                    "reverb.model", (String) reverbCombo.getSelectedItem());
-                org.chuck.deluge.project.PreferencesManager.set(
-                    "midi.input", (String) midiCombo.getSelectedItem());
-                org.chuck.deluge.project.PreferencesManager.set(
-                    "show.visualizers", String.valueOf(visCheck.isSelected()));
-                org.chuck.deluge.project.PreferencesManager.set(
-                    "debug.audio", String.valueOf(debugCheck.isSelected()));
-                org.chuck.deluge.project.PreferencesManager.set(
-                    "midi.grid.mode", String.valueOf(gridModeCheck.isSelected()));
-                org.chuck.deluge.project.PreferencesManager.set(
-                    "show.tooltips", String.valueOf(tooltipCheck.isSelected()));
-                org.chuck.deluge.project.PreferencesManager.set(
-                    "screen.resolution", (String) screenResCombo.getSelectedItem());
-
-                dialog.dispose();
-                JOptionPane.showMessageDialog(
-                    SwingDelugeApp.this,
-                    "Screen proportions applied! Please restart application to fully engage desktop scaling docks.");
-              });
-
-          // Apply large font to all elements
-          Font bigFont = new Font("SansSerif", Font.PLAIN, 24);
-          for (Component comp : mainGrid.getComponents()) {
-            if (comp instanceof JLabel
-                || comp instanceof JComboBox
-                || comp instanceof JCheckBox
-                || comp instanceof JButton) {
-              comp.setFont(bigFont);
-            }
-          }
-          saveBtn.setFont(new Font("SansSerif", Font.BOLD, 28));
-
-          dialog.add(mainGrid, BorderLayout.CENTER);
-
-          JPanel southPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 15));
-          southPanel.setBackground(new Color(0x25, 0x25, 0x25));
-          southPanel.add(saveBtn);
-          dialog.add(southPanel, BorderLayout.SOUTH);
-
+          if (midiService != null) dialog.setMappings(midiService.getMappings());
           dialog.setVisible(true);
         });
 
@@ -995,7 +809,7 @@ public class SwingDelugeApp extends JFrame {
     gbc.weighty = 0.0;
     add(topBar, gbc);
 
-    JPanel centeredWrapper = new JPanel(new GridBagLayout());
+    centeredWrapper = new JPanel(new GridBagLayout());
     centeredWrapper.setBackground(new Color(0x1a, 0x1a, 0x1a));
 
     GridBagConstraints wrapperGbc = new GridBagConstraints();
@@ -1193,6 +1007,22 @@ public class SwingDelugeApp extends JFrame {
 
     // Push default project to engine and broadcast load trigger to unblock shreds
     pushModelToBridge();
+  }
+
+  /** Recompute centeredWrapper preferred height to fit grid content. */
+  private void recalcWrapperSize() {
+    String res = org.chuck.deluge.project.PreferencesManager.get("screen.resolution", "QHD");
+    int reqW = "FHD".equals(res) ? 1800 : ("4K".equals(res) ? 3600 : 2600);
+    int reqH = "FHD".equals(res) ? 1000 : ("4K".equals(res) ? 2200 : 1600);
+    // Measure actual content from the grid panel after refresh
+    if (clipPanel != null) {
+      int contentH = clipPanel.getPreferredSize().height;
+      if (contentH > 0) {
+        reqH = Math.max(reqH, contentH + 40);
+      }
+    }
+    centeredWrapper.setPreferredSize(new Dimension(reqW, reqH));
+    centeredWrapper.revalidate();
   }
 
   private void startPlaybackTimer() {
