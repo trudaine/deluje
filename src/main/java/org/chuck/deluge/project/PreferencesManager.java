@@ -8,6 +8,44 @@ import java.util.prefs.Preferences;
 public class PreferencesManager {
   private static final Preferences prefs = Preferences.userNodeForPackage(PreferencesManager.class);
 
+  /** Configurable grid size modes for the sequencer grid. */
+  public enum GridMode {
+    /** 8 voice rows × 16 step columns */
+    GRID_8x16(8, 16),
+    /** 16 voice rows × 16 step columns */
+    GRID_16x16(16, 16),
+    /** 24 voice rows × 16 step columns */
+    GRID_24x16(24, 16),
+    /** 16 voice rows × 24 step columns */
+    GRID_16x24(16, 24);
+
+    public final int rows;
+    public final int columns;
+
+    GridMode(int rows, int columns) {
+      this.rows = rows;
+      this.columns = columns;
+    }
+
+    public static GridMode fromString(String s) {
+      if (s == null) return GRID_8x16;
+      for (GridMode m : values()) {
+        if (m.name().equals(s)) return m;
+      }
+      return GRID_8x16;
+    }
+  }
+
+  private static final String KEY_GRID_MODE = "grid.mode";
+
+  public static GridMode getGridMode() {
+    return GridMode.fromString(prefs.get(KEY_GRID_MODE, "GRID_8x16"));
+  }
+
+  public static void setGridMode(GridMode mode) {
+    prefs.put(KEY_GRID_MODE, mode.name());
+  }
+
   private static final String KEY_SAMPLES_DIR = "samples_dir";
   private static final String KEY_RECENT_FILES =
       "recent_files"; // Comma-separated for simplicity MVP
