@@ -198,6 +198,45 @@ public class SwingGridPanel extends JPanel {
 
     menu.addSeparator();
 
+    // Per-row probability and velocity — operates on all steps of this row in the active clip
+    JMenuItem rowProbItem = new JMenuItem("Set Row Probability...");
+    rowProbItem.addActionListener(e -> {
+      String input = JOptionPane.showInputDialog(this, "Row probability (0-100%):", 100);
+      if (input != null) {
+        try {
+          double val = Double.parseDouble(input.trim()) / 100.0;
+          val = Math.max(0, Math.min(1, val));
+          int engineRow = baseTrackId + trackIdx;
+          int len = bridge != null ? bridge.getTrackLength(engineRow) : stepCount;
+          for (int s = 0; s < len && s < stepCount; s++) {
+            bridge.setStepProbability(engineRow, s, val);
+          }
+          refresh();
+        } catch (NumberFormatException ignored) {}
+      }
+    });
+    menu.add(rowProbItem);
+
+    JMenuItem rowVelItem = new JMenuItem("Set Row Velocity...");
+    rowVelItem.addActionListener(e -> {
+      String input = JOptionPane.showInputDialog(this, "Row velocity (0-100%):", 80);
+      if (input != null) {
+        try {
+          double val = Double.parseDouble(input.trim()) / 100.0;
+          val = Math.max(0, Math.min(1, val));
+          int engineRow = baseTrackId + trackIdx;
+          int len = bridge != null ? bridge.getTrackLength(engineRow) : stepCount;
+          for (int s = 0; s < len && s < stepCount; s++) {
+            bridge.setVelocity(engineRow, s, val);
+          }
+          refresh();
+        } catch (NumberFormatException ignored) {}
+      }
+    });
+    menu.add(rowVelItem);
+
+    menu.addSeparator();
+
     JMenuItem deleteItem = new JMenuItem("Delete Track");
     deleteItem.setForeground(Color.RED);
     deleteItem.addActionListener(
