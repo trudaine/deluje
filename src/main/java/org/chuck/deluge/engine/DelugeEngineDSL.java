@@ -113,8 +113,19 @@ public class DelugeEngineDSL implements Shred, Runnable {
     return true;
   }
 
+  /**
+   * No-arg constructor for frameworks that instantiate via reflection. The VM must be set
+   * externally (via the single-arg constructor or direct field access) before
+   * {@link #shred()} is called.
+   */
   public DelugeEngineDSL() {}
 
+  /**
+   * Creates a Deluge engine instance bound to the given ChucK VM.
+   *
+   * @param vm the ChucK VM instance (must have a BridgeContract registered via
+   *           {@link BridgeContract#register(ChuckVM)} before {@link #shred()} is called).
+   */
   public DelugeEngineDSL(ChuckVM vm) {
     this.vm = vm;
   }
@@ -132,11 +143,32 @@ public class DelugeEngineDSL implements Shred, Runnable {
     return t;
   }
 
+  /**
+   * Runnable entry point, delegates to {@link #shred()}. Used when the engine is submitted to
+   * a thread pool or started via {@code new Thread(engine)}.
+   */
   @Override
   public void run() {
     shred();
   }
 
+  /**
+   * Shred entry point called by the ChucK VM when sporked. Sets {@code this.vm} from
+   * the current thread's VM context ({@link ChuckVM#CURRENT_VM}), then calls
+   * {@link #transport_shred()} which sporks the 8 sub-shreds and blocks until stopped.
+   *
+   * <p>Sub-shreds forked from transport_shred:
+   * <ol>
+   *   <li>{@link #fx_bus_shred()} — delay, reverb, chorus
+   *   <li>{@link #master_shred()} — synth/audio bus processing
+   *   <li>{@link #clock_shred()} — swing-aware step clock
+   *   <li>{@link #kit_shred()} — sample playback engine
+   *   <li>{@link #synth_shred()} — FM/STK synthesis engine
+   *   <li>{@link #sidechain_shred()} — kick-triggered ducking
+   *   <li>{@link #audio_shred()} — LiSa recording/playback
+   *   <li>{@link #export_shred()} — WvOut2 offline export
+   * </ol>
+   */
   @Override
   public void shred() {
     this.vm = ChuckVM.CURRENT_VM.get();
@@ -477,7 +509,6 @@ public class DelugeEngineDSL implements Shred, Runnable {
     Gain synthBus = (Gain) vm.getGlobalObject(BridgeContract.G_SYNTH_BUS);
 
     // Wait for the first song load before building voice graph
-    ChuckEvent loadEvent = (ChuckEvent) vm.getGlobalObject(BridgeContract.G_LOAD_TRIGGER);
     // Block until at least one synth track (type 1) is present, so arrays aren't sized 1
     while (isRunning()) {
       ChuckArray trackTypeInit = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
@@ -556,7 +587,9 @@ public class DelugeEngineDSL implements Shred, Runnable {
       advance(tickEvent);
       if (vm.getGlobalInt(BridgeContract.G_PLAY) == 0) {
         lastStep = -1;
-        for (int i = 0; i < env.length; i++) env[i].keyOff();
+          for (DelugeAdsr env1 : env) {
+              env1.keyOff();
+          }
         continue;
       }
 
@@ -566,7 +599,6 @@ public class DelugeEngineDSL implements Shred, Runnable {
 
       ChuckArray pat = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PATTERN);
       ChuckArray vel = (ChuckArray) vm.getGlobalObject(BridgeContract.G_VELOCITY);
-      ChuckArray pitch = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PITCH);
       ChuckArray mute = (ChuckArray) vm.getGlobalObject(BridgeContract.G_MUTE);
       ChuckArray trkLvl = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_LEVEL);
       ChuckArray gFil = (ChuckArray) vm.getGlobalObject(BridgeContract.G_FILTER);
@@ -857,15 +889,22 @@ public class DelugeEngineDSL implements Shred, Runnable {
 
     String reverbModel = org.chuck.deluge.project.PreferencesManager.get("reverb.model", "JCRev");
     org.chuck.audio.util.StereoUGen rev;
-    if ("FreeVerb".equals(reverbModel)) {
-      rev = new FreeVerb();
-    } else if ("MVerb".equals(reverbModel)) {
-      rev = new MVerb();
-    } else if ("ProceduralReverb".equals(reverbModel)) {
-      rev = new ProceduralReverb();
-    } else {
-      rev = new JCRev();
-    }
+    if (null == reverbModel) {
+        rev = new JCRev();
+    } else switch (reverbModel) {
+          case "FreeVerb":
+              rev = new FreeVerb();
+              break;
+          case "MVerb":
+              rev = new MVerb();
+              break;
+          case "ProceduralReverb":
+              rev = new ProceduralReverb();
+              break;
+          default:
+              rev = new JCRev();
+              break;
+      }
 
     Chorus chorus = new Chorus(sr);
     chorus.setModDepth(0.2f);
