@@ -780,13 +780,14 @@ public class DelugeEngineDSL implements Shred, Runnable {
             env[u].gain((float) gainVal);
             env[u].keyOn();
             double noteSec = gateSec;
+            if (vm.getLogLevel() >= 2) vm.print("SYNTH trigger track: " + r + " step: " + (idx % BridgeContract.STEPS) + "\n");
+            int[] capturedR = new int[]{r};
             int rv = u;
-            if (vm.getLogLevel() >= 2) vm.print("SYNTH trigger track: " + rv + " step: " + (idx % BridgeContract.STEPS) + "\n");
             vm.spork(
                 () -> {
                   advance(second(noteSec));
                   env[rv].keyOff();
-                  if (vm.getLogLevel() >= 2) vm.print("SYNTH note end track: " + rv + "\n");
+                  if (vm.getLogLevel() >= 2) vm.print("SYNTH note end track: " + capturedR[0] + "\n");
                 });
           }
         }
