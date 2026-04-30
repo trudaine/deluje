@@ -1,11 +1,11 @@
 package org.chuck.deluge.engine;
 
+import java.lang.reflect.InvocationTargetException;
 import static org.chuck.core.ChuckDSL.*;
 
 import org.chuck.audio.*;
 import org.chuck.audio.filter.*;
 import org.chuck.audio.fx.*;
-import org.chuck.audio.osc.*;
 import org.chuck.audio.util.*;
 import org.chuck.core.*;
 import org.chuck.deluge.BridgeContract;
@@ -520,28 +520,35 @@ public class DelugeEngineDSL implements Shred, Runnable {
       advance(ms(100)); // Prevent hang if loadEvent was already broadcast
     }
 
-    // Count actual synth voices from G_TRACK_TYPE (type 1 = synth)
+    // Find synth track range in bridge: first and last contiguous type-1 index
     ChuckArray trackTypeInit = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
-    int voiceCount = 0;
+    int synthBase = -1;
+    int maxSynthBridgeRow = -1;
     for (int i = 0; i < BridgeContract.TRACKS; i++) {
-      if (trackTypeInit != null && trackTypeInit.getInt(i) == 1) voiceCount = i + 1;
+      if (trackTypeInit != null && trackTypeInit.getInt(i) == 1) {
+        if (synthBase < 0) synthBase = i;
+        maxSynthBridgeRow = i;
+      }
     }
-    if (voiceCount < 1) voiceCount = 1;
+    if (synthBase < 0) synthBase = 0;
+    if (maxSynthBridgeRow < synthBase) maxSynthBridgeRow = synthBase;
+    int totalSynthSlots = maxSynthBridgeRow - synthBase + 1;
 
     // Read synth algorithm array to know which voices are FM vs STK
     ChuckArray algoArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_SYNTH_ALGO);
 
-    // Source UGen: either MorphingWavetable (FM) or STK instrument
-    ChuckUGen[] src = new ChuckUGen[voiceCount];
-    MorphingWavetable[] car = new MorphingWavetable[voiceCount];
-    MorphingWavetable[] mod = new MorphingWavetable[voiceCount];
-    SVFilter[] fil = new SVFilter[voiceCount];
-    DelugeAdsr[] env = new DelugeAdsr[voiceCount];
-    Pan2[] pan = new Pan2[voiceCount];
-    Gain[] sDsend = new Gain[voiceCount];
-    Gain[] sRsend = new Gain[voiceCount];
+    // Allocate one UGen per synth bridge row (each row owns its own voice).
+    // This matches real Deluge behavior: each note voice gets dedicated UGens.
+    ChuckUGen[] src = new ChuckUGen[totalSynthSlots];
+    MorphingWavetable[] car = new MorphingWavetable[totalSynthSlots];
+    MorphingWavetable[] mod = new MorphingWavetable[totalSynthSlots];
+    SVFilter[] fil = new SVFilter[totalSynthSlots];
+    DelugeAdsr[] env = new DelugeAdsr[totalSynthSlots];
+    Pan2[] pan = new Pan2[totalSynthSlots];
+    Gain[] sDsend = new Gain[totalSynthSlots];
+    Gain[] sRsend = new Gain[totalSynthSlots];
 
-    for (int i = 0; i < voiceCount; i++) {
+    for (int i = 0; i < totalSynthSlots; i++) {
       int algo = algoArr != null ? (int) algoArr.getInt(i) : 0;
       fil[i] = new SVFilter();
       env[i] = new DelugeAdsr();
@@ -614,6 +621,8 @@ public class DelugeEngineDSL implements Shred, Runnable {
       ChuckArray dlySnd = (ChuckArray) vm.getGlobalObject(BridgeContract.G_DELAY_SEND);
       ChuckArray revSnd = (ChuckArray) vm.getGlobalObject(BridgeContract.G_REVERB_SEND);
       ChuckArray trackType = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
+      ChuckArray filterModeArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_FILTER_MODE);
+      ChuckArray filterMorphArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_FILTER_MORPH);
 
       double masterPan = vm.getGlobalFloat(BridgeContract.G_MASTER_PAN);
       ChuckArray trkLen = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_LENGTH);
@@ -626,8 +635,11 @@ public class DelugeEngineDSL implements Shred, Runnable {
 
       // Re-read algo array each tick (user may change algorithm)
       ChuckArray algoArrLive = (ChuckArray) vm.getGlobalObject(BridgeContract.G_SYNTH_ALGO);
+      ChuckArray synthModeArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_SYNTH_MODE);
 
-      for (int r = 0; r < src.length; r++) {
+      // Iterate all bridge rows for this synth track; each row has its own dedicated UGen
+      for (int r = synthBase; r <= maxSynthBridgeRow; r++) {
+        int u = r - synthBase;
         // Only process Synth tracks (Type 1)
         if (trackType != null && trackType.getInt(r) != 1) continue;
 
@@ -672,38 +684,49 @@ public class DelugeEngineDSL implements Shred, Runnable {
         int step = (int) (currentStep % len);
         int idx = r * BridgeContract.STEPS + step;
 
-        sDsend[r].gain(dlySnd != null ? (float) dlySnd.getFloat(r) : 0.0f);
-        sRsend[r].gain(revSnd != null ? (float) revSnd.getFloat(r) : 0.15f);
+        if (algo < 10 && oscType != null && car[u] != null) car[u].index((int) oscType.getInt(r));
 
-        if (algo < 10 && oscType != null && car[r] != null) car[r].index((int) oscType.getInt(r));
+        // Check step data
+        if (pat.getInt(idx) == 0) {
+          // Each row has its own UGen; keyOff is always safe
+          env[u].keyOff();
+          continue;
+        }
+        // Mute check
+        if (mute.getInt(r) != 0) {
+          env[u].keyOff();
+          continue;
+        }
+
+        // Update filter, pan, sends for this row (each row has its own dedicated UGen).
+        sDsend[u].gain(dlySnd != null ? (float) dlySnd.getFloat(r) : 0.0f);
+        sRsend[u].gain(revSnd != null ? (float) revSnd.getFloat(r) : 0.15f);
 
         double tf = (gFil.getFloat(r * 2) + sFil.getFloat(idx)) * 10000.0 + 100.0 + lfoF * 5000.0;
         double tq = (gFil.getFloat(r * 2 + 1) + sRes.getFloat(idx)) * 4.0 + 1.0 + lfoQ * 3.0;
         double tp = masterPan + (sPan != null ? sPan.getFloat(idx) : 0.0) + lfoP;
-        fil[r].freq((float) Math.max(20.0, Math.min(20000.0, tf)));
-        fil[r].Q((float) Math.max(1.0, Math.min(10.0, tq)));
-        pan[r].pan((float) Math.max(-1.0, Math.min(1.0, tp)));
-
-        if (mute.getInt(r) != 0) {
-          env[r].keyOff();
-          continue;
-        }
-        if (pat.getInt(idx) == 0) {
-          env[r].keyOff();
-          continue;
-        }
+        fil[u].freq((float) Math.max(20.0, Math.min(20000.0, tf)));
+        fil[u].Q((float) Math.max(1.0, Math.min(10.0, tq)));
+        // Apply filter mode + morph to SVFilter morph parameter.
+        // LADDER_12 (0) and LADDER_24 (1) default to LP (morph=0).
+        // SVF (2) maps morph to SVFilter's LP→BP→HP continuum.
+        int fm = filterModeArr != null ? (int) filterModeArr.getInt(r) : 2;
+        double fmorph = filterMorphArr != null ? filterMorphArr.getFloat(r) : 0.0;
+        double svfMorph = (fm == 2) ? fmorph : 0.0;
+        fil[u].morph(svfMorph);
+        pan[u].pan((float) Math.max(-1.0, Math.min(1.0, tp)));
 
         if (isNewStep) {
           if (prob != null && Math.random() > prob.getFloat(idx)) continue;
 
           // Apply envelope shape from bridge (if available)
           if (envArr != null) {
-            int eb = r * BridgeContract.ENV_PARAMS;
+            int eb = (r * BridgeContract.ENV_COUNT + 0) * BridgeContract.ENV_PARAMS;
             double a = envArr.getFloat(eb + 0);
             double d = envArr.getFloat(eb + 1);
             double s = envArr.getFloat(eb + 2);
             double rel = envArr.getFloat(eb + 3);
-            env[r].set(a, d, s, rel);
+            env[u].set(a, d, s, rel);
           }
 
           double gainVal =
@@ -715,13 +738,13 @@ public class DelugeEngineDSL implements Shred, Runnable {
 
           if (algo >= 10) {
             // STK physical model trigger
-            double f = mtof(((24 - 1) - (r % 8)) + 60) * Math.pow(2.0, lfoPit);
-            triggerStkNote(src[r], (float) f, (float) gainVal);
-            env[r].gain(0.0f); // STK has its own internal envelope; pass level via gain
-            env[r].keyOn();    // Keep the gate UGen open
+            double f = mtof(((24 - 1) - (r - synthBase)) + 60) * Math.pow(2.0, lfoPit);
+            triggerStkNote(src[u], (float) f, (float) gainVal);
+            env[u].gain(0.0f); // STK has its own internal envelope; pass level via gain
+            env[u].keyOn();    // Keep the gate UGen open
             double noteSec = gateSec;
-            int rv = r;
-            ChuckUGen srcRef = src[r];
+            int rv = u;
+            ChuckUGen srcRef = src[u];
             vm.spork(
                 () -> {
                   advance(second(noteSec));
@@ -729,23 +752,35 @@ public class DelugeEngineDSL implements Shred, Runnable {
                   env[rv].keyOff();
                 });
           } else if (arpOn != null && arpOn.getInt(r) == 1) {
-            int baseMidi = (int) ((24 - 1) - (r % 8)) + 60;
-            int v = r;
+            int baseMidi = (int) ((24 - 1) - (r - synthBase)) + 60;
+            int v = u;
             vm.spork(() -> run_arp(v, baseMidi, (float) gainVal, car[v], mod[v], env[v]));
           } else {
-            double f = mtof(((24 - 1) - (r % 8)) + 60) * Math.pow(2.0, lfoPit);
-            if (car[r] != null) car[r].freq((float) f);
-            if (mod[r] != null) {
-              double fmR = fmRatio != null ? fmRatio.getFloat(r) : 1.0;
-              double fmA =
-                  (fmAmt != null ? fmAmt.getFloat(r) : 0.0) * Math.max(0.0, 1.0 + lfoFm * 0.5);
-              mod[r].freq((float) (f * fmR));
-              mod[r].gain((float) (fmA * 1000.0));
+            double f = mtof(((24 - 1) - (r - synthBase)) + 60) * Math.pow(2.0, lfoPit);
+            int synthMode = synthModeArr != null ? (int) synthModeArr.getInt(r) : 0;
+            if (synthMode == 1) {
+              // FM: mod→car with FM ratio + amount
+              if (car[u] != null) car[u].freq((float) f);
+              if (mod[u] != null) {
+                double fmR = fmRatio != null ? fmRatio.getFloat(r) : 1.0;
+                double fmA =
+                    (fmAmt != null ? fmAmt.getFloat(r) : 0.0) * Math.max(0.0, 1.0 + lfoFm * 0.5);
+                mod[u].freq((float) (f * fmR));
+                mod[u].gain((float) (fmA * 1000.0));
+              }
+            } else {
+              // SUBTRACTIVE (0) or RINGMOD (2): single oscillator + filter
+              if (car[u] != null) {
+                car[u].freq((float) f);
+                car[u].gain(1.0f);
+              }
+              // Mute the modulator to prevent FM
+              if (mod[u] != null) mod[u].gain(0.0f);
             }
-            env[r].gain((float) gainVal);
-            env[r].keyOn();
+            env[u].gain((float) gainVal);
+            env[u].keyOn();
             double noteSec = gateSec;
-            int rv = r;
+            int rv = u;
             if (vm.getLogLevel() >= 2) vm.print("SYNTH trigger track: " + rv + " step: " + (idx % BridgeContract.STEPS) + "\n");
             vm.spork(
                 () -> {
@@ -775,7 +810,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
     try {
       ugen.getClass().getMethod("setFreq", double.class).invoke(ugen, (double) freq);
       ugen.getClass().getMethod("noteOn", float.class).invoke(ugen, velocity);
-    } catch (Exception e) {
+    } catch (IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
       if (vm.getLogLevel() >= 1) vm.print("STK noteOn failed: " + e.getMessage() + "\n");
     }
   }
@@ -784,7 +819,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
   private void releaseStkNote(ChuckUGen ugen) {
     try {
       ugen.getClass().getMethod("noteOff", float.class).invoke(ugen, 0.0f);
-    } catch (Exception e) {
+    } catch (IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
       if (vm.getLogLevel() >= 1) vm.print("STK noteOff failed: " + e.getMessage() + "\n");
     }
   }
@@ -828,12 +863,40 @@ public class DelugeEngineDSL implements Shred, Runnable {
     ChuckArray rateArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ARP_RATE);
     ChuckArray arpOn = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ARP_ON);
     ChuckArray fmRatio = (ChuckArray) vm.getGlobalObject(BridgeContract.G_FM_RATIO);
+    ChuckArray synthModeArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_SYNTH_MODE);
+    ChuckArray arpModeArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ARP_MODE);
     int octaves = (octArr != null) ? (int) octArr.getInt(v) : 1;
     if (octaves < 1) octaves = 1;
-    for (int o = 0; o < octaves; o++) {
-      double f = mtof(baseMidi + o * 12);
+    int mode = (arpModeArr != null) ? (int) arpModeArr.getInt(v) : 0;
+    int synthMode = (synthModeArr != null) ? (int) synthModeArr.getInt(v) : 0;
+    int totalNotes = octaves;
+    // UP_DOWN mode: first go up, then back down (excluding repeated top/bottom root)
+    if (mode == 2) totalNotes = octaves * 2 - 1;
+    for (int n = 0; n < totalNotes; n++) {
+      int midiNote;
+      switch (mode) {
+        case 1 -> // DOWN
+          midiNote = baseMidi + (octaves - 1 - n) * 12;
+        case 2 -> {
+            // UP_DOWN
+            if (n < octaves) {
+                midiNote = baseMidi + n * 12;
+            } else {
+                midiNote = baseMidi + (octaves * 2 - 2 - n) * 12;
+            } }
+        case 3 -> // RANDOM
+          // Only re-roll on first iteration; subsequent random picks are per-loop
+          midiNote = baseMidi + (int) (Math.random() * octaves) * 12;
+        default -> // UP
+          midiNote = baseMidi + n * 12;
+      }
+      double f = mtof(midiNote);
       car.freq((float) f);
-      mod.freq((float) (f * (fmRatio != null ? fmRatio.getFloat(v) : 1.0)));
+      if (synthMode == 1) {
+        mod.freq((float) (f * (fmRatio != null ? fmRatio.getFloat(v) : 1.0)));
+      } else {
+        mod.gain(0.0f);
+      }
       env.gain((float) (gain * 0.8));
       env.keyOn();
       double rate = (rateArr != null) ? rateArr.getFloat(v) : 1.0;
@@ -891,20 +954,12 @@ public class DelugeEngineDSL implements Shred, Runnable {
     org.chuck.audio.util.StereoUGen rev;
     if (null == reverbModel) {
         rev = new JCRev();
-    } else switch (reverbModel) {
-          case "FreeVerb":
-              rev = new FreeVerb();
-              break;
-          case "MVerb":
-              rev = new MVerb();
-              break;
-          case "ProceduralReverb":
-              rev = new ProceduralReverb();
-              break;
-          default:
-              rev = new JCRev();
-              break;
-      }
+    } else rev = switch (reverbModel) {
+        case "FreeVerb" -> new FreeVerb();
+        case "MVerb" -> new MVerb();
+        case "ProceduralReverb" -> new ProceduralReverb();
+        default -> new JCRev();
+    };
 
     Chorus chorus = new Chorus(sr);
     chorus.setModDepth(0.2f);

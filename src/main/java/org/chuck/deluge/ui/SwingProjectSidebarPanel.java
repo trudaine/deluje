@@ -432,7 +432,7 @@ public class SwingProjectSidebarPanel extends JPanel {
         e -> {
           attLabel.setText("Attack: " + attSlider.getValue());
           if (bridge != null) {
-            bridge.setEnv(0, attSlider.getValue() / 100.0, 0.2, 0.8, 0.3);
+            bridge.setEnv(0, 0, attSlider.getValue() / 100.0, 0.2, 0.8, 0.3);
           }
         });
     envBox.add(attLabel);

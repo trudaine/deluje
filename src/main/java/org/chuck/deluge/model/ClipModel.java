@@ -123,7 +123,19 @@ public class ClipModel {
   }
 
   public void setStep(int row, int step, StepData data) {
-    if (row >= 0 && row < rowCount && step >= 0 && step < stepCount) {
+    if (step < 0 || step >= stepCount) return;
+    if (row >= rowCount) {
+      // Grow the grid to accommodate this row (synth piano roll)
+      for (int r = rowCount; r <= row; r++) {
+        List<StepData> newRow = new ArrayList<>();
+        for (int s = 0; s < stepCount; s++) {
+          newRow.add(StepData.empty());
+        }
+        grid.add(newRow);
+      }
+      rowCount = row + 1;
+    }
+    if (row >= 0 && step >= 0) {
       grid.get(row).set(step, data);
       for (ClipListener l : listeners) {
         l.onStepChanged(row, step, data);

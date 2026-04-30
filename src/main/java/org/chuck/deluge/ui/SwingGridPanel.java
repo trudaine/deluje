@@ -51,9 +51,14 @@ public class SwingGridPanel extends JPanel {
     new Color(0xff, 0xff, 0x33), // Yellow
     new Color(0x33, 0x99, 0xff), // Blue
     new Color(0xff, 0x33, 0x33), // Red
-    new Color(0x33, 0x33, 0x33), // Dark Gray
-    new Color(0x22, 0x22, 0x22), // Very Dark Gray
-    new Color(0x15, 0x15, 0x15) // Almost Black
+    new Color(0xff, 0x66, 0x99), // Pink
+    new Color(0x99, 0xff, 0x99), // Mint
+    new Color(0xff, 0xcc, 0x66), // Peach
+    new Color(0x66, 0xcc, 0xff), // Sky Blue
+    new Color(0xcc, 0x99, 0xff), // Lavender
+    new Color(0x66, 0xff, 0x66), // Bright Green
+    new Color(0xff, 0x99, 0x66), // Coral
+    new Color(0x99, 0xcc, 0xff), // Baby Blue
   };
 
   public SwingGridPanel(ChuckVM vm, BridgeContract bridge) {
@@ -464,7 +469,6 @@ public class SwingGridPanel extends JPanel {
     rowPanel.setMinimumSize(new Dimension(3000, padSz));
     rowPanel.setMaximumSize(new Dimension(3000, padSz));
 
-    final int currentTrack = modelRow;
     if (modelRow < tracks.size()) {
       String hex = tracks.get(modelRow).getColourHex();
       if (hex != null && hex.startsWith("0x")) {
@@ -472,6 +476,7 @@ public class SwingGridPanel extends JPanel {
           int rgb = Integer.decode(hex.substring(0, 8));
           trackColors[modelRow % trackColors.length] = new Color(rgb);
         } catch (Exception e) {
+          LOG.warning("Bad color hex for track " + modelRow + ": " + e.getMessage());
         }
       }
     }
@@ -734,44 +739,43 @@ public class SwingGridPanel extends JPanel {
                 @Override
                 public void mousePressed(java.awt.event.MouseEvent e) {
                   LOG.info("[grid] mPressed bVR: modelRow=" + modelRow + " visRow=" + visibleRow + " colId=" + colId + " t=" + e.getClickCount());
+                  // Stop any preview timer from a previous press (button may have been replaced by refresh)
+                  if (activeStutterTimer != null) {
+                    activeStutterTimer.stop();
+                    activeStutterTimer = null;
+                  }
                   // Also write to debug file for offline inspection
                   try {
                     java.nio.file.Files.write(
                       java.nio.file.Paths.get("grid_debug.log"),
                       ("[grid] mPressed bVR: modelRow=" + modelRow + " visRow=" + visibleRow + " colId=" + colId + " t=" + e.getClickCount() + "\n").getBytes(),
                       java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
-                  } catch (Exception ignored) {}
+                  } catch (Exception ignored) {
+                    LOG.fine("grid_debug.log write failed: " + ignored.getMessage());
+                  }
                   if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
-                    // Step Properties dialog (unchanged)
-                    JDialog dialog =
-                        new JDialog(
-                            (Frame)
-                                javax.swing.SwingUtilities.getWindowAncestor(SwingGridPanel.this),
-                            "Step Properties",
-                            true);
-                    dialog.setSize(1600, 450);
-                    dialog.setLocationRelativeTo(SwingGridPanel.this);
-                    dialog.setLayout(new GridBagLayout());
-                    GridBagConstraints gc = new GridBagConstraints();
-                    gc.fill = GridBagConstraints.HORIZONTAL;
-                    gc.insets = new Insets(10, 15, 10, 15);
-                    Font labelFont = new Font("SansSerif", Font.BOLD, 18);
-                    Dimension sliderDim = new Dimension(1200, 50);
-                    Dimension spinDim = new Dimension(80, 40);
-                    gc.gridx = 0;
-                    gc.gridy = 0;
-                    JLabel l1 = new JLabel("Velocity:");
-                    l1.setFont(labelFont);
-                    dialog.add(l1, gc);
-                    gc.gridx = 1;
-                    JSlider velSlider = new JSlider(0, 100, 80);
-                    velSlider.setPreferredSize(sliderDim);
-                    dialog.add(velSlider, gc);
-                    gc.gridx = 2;
-                    JSpinner velSpin = new JSpinner(new SpinnerNumberModel(80, 0, 100, 1));
-                    velSpin.setPreferredSize(spinDim);
-                    dialog.add(velSpin, gc);
-                    dialog.setVisible(true);
+                    int engineRow = baseTrackId + modelRow;
+                    double curVel = bridge.getVelocity(engineRow, activeCol);
+                    StepPropertiesDialog dlg = new StepPropertiesDialog(
+                        (Frame) javax.swing.SwingUtilities.getWindowAncestor(SwingGridPanel.this),
+                        (int)(curVel * 100));
+                    dlg.setVisible(true);
+                    int newVel = dlg.getVelocity();
+                    if (newVel != (int)(curVel * 100)) {
+                      bridge.setVelocity(engineRow, activeCol, newVel / 100.0);
+                      if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+                        org.chuck.deluge.model.TrackModel tModel =
+                            projectModel.getTracks().get(editedModelTrack);
+                        if (activeClipId < tModel.getClips().size()) {
+                          org.chuck.deluge.model.ClipModel cModel = tModel.getClips().get(activeClipId);
+                          boolean st = bridge.getStep(engineRow, activeCol);
+                          double prob = bridge.getStepProbability(engineRow, activeCol);
+                          cModel.setStep(modelRow, activeCol,
+                              new org.chuck.deluge.model.StepData(st, newVel / 100.0f, 0.5f, (float)prob, 0));
+                        }
+                      }
+                      refresh();
+                    }
                   } else if (javax.swing.SwingUtilities.isLeftMouseButton(e)) {
                     boolean isSynthMode = bridge.getTrackType(baseTrackId) == 1;
                     int trackType = bridge.getTrackType(modelRow);
@@ -785,11 +789,12 @@ public class SwingGridPanel extends JPanel {
                           try {
                             finalMidiOut.sendMessage(
                                 new byte[] {(byte) 0x90, (byte) (60 + modelRow), (byte) 100});
-                          } catch (Exception ex) {}
+                          } catch (Exception ex) {
+                            LOG.warning("MIDI send failed (synth grid): " + ex.getMessage());
+                          }
                         }
                       }
-                      clipBtn.setBackground(
-                          !st ? trackColors[6] : new Color(0x33, 0x33, 0x33));
+                      refresh();
                       if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
                         org.chuck.deluge.model.TrackModel tModel =
                             projectModel.getTracks().get(editedModelTrack);
@@ -802,22 +807,31 @@ public class SwingGridPanel extends JPanel {
                         }
                       }
                     } else if (isSynthMode) {
+                      // Synth piano roll: each row = MIDI note, higher row = lower pitch.
+                      // Use unique engine row per visual row for independent bridge state.
                       int engineRow = baseTrackId + modelRow;
+                      // Base pitch: row 0 = highest (MIDI 83), each step down = 1 semitone
+                      // Continues descending: modelRow=8 -> MIDI 75, modelRow=15 -> MIDI 68
+                      int pitchMidi = ((24 - 1) - modelRow) + 60;
                       boolean stepState = bridge.getStep(engineRow, activeCol);
                       bridge.setStep(engineRow, activeCol, !stepState);
                       double velS = bridge.getVelocity(engineRow, activeCol);
                       clipBtn.setBackground(
                           !stepState ? velocityBlend(trackColors[visibleRow % trackColors.length], velS) : new Color(0x33, 0x33, 0x33));
-                      vm.setGlobalFloat("g_preview_pitch", (float) ((24 - 1) - modelRow));
-                      vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) engineRow);
+                      refresh();
+                      // Preview voice: wrap to first POW (8) engine rows since
+                      // synth_preview_shred checks r < car.length (8 UGen voices)
+                      int voiceSlot = baseTrackId + (modelRow % 8);
+                      vm.setGlobalFloat("g_preview_pitch", (float) (pitchMidi - 60));
+                      vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) voiceSlot);
                       vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
                       if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
                         org.chuck.deluge.model.TrackModel tModel =
                             projectModel.getTracks().get(editedModelTrack);
                         if (activeClipId < tModel.getClips().size()) {
                           org.chuck.deluge.model.ClipModel cModel = tModel.getClips().get(activeClipId);
-                          double curVel = bridge.getVelocity(baseTrackId + modelRow, activeCol);
-                          double curProb = bridge.getStepProbability(baseTrackId + modelRow, activeCol);
+                          double curVel = bridge.getVelocity(engineRow, activeCol);
+                          double curProb = bridge.getStepProbability(engineRow, activeCol);
                           cModel.setStep(modelRow, activeCol,
                               new org.chuck.deluge.model.StepData(!stepState, (float)curVel, 0.5f, (float)curProb, 0));
                         }
@@ -840,10 +854,15 @@ public class SwingGridPanel extends JPanel {
                               new org.chuck.deluge.model.StepData(!stepState, (float)curVel, 0.5f, (float)curProb, 0));
                         }
                       }
+                      // Stop any previous preview timer before refresh (refresh replaces buttons)
+                      if (activeStutterTimer != null) {
+                        activeStutterTimer.stop();
+                        activeStutterTimer = null;
+                      }
+                      refresh();
                       if (!stepState) {
                         vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) (baseTrackId + modelRow));
                         vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
-                        if (activeStutterTimer != null) activeStutterTimer.stop();
                         activeStutterTimer =
                             new Timer(150, ev -> {
                               vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) (baseTrackId + modelRow));
@@ -862,6 +881,14 @@ public class SwingGridPanel extends JPanel {
                     activeStutterTimer = null;
                   }
                 }
+
+                @Override
+                public void mouseExited(java.awt.event.MouseEvent e) {
+                  if (activeStutterTimer != null) {
+                    activeStutterTimer.stop();
+                    activeStutterTimer = null;
+                  }
+                }
               });
         } else if (viewMode == GridViewMode.SONG) {
           clipBtn.addMouseListener(
@@ -869,99 +896,12 @@ public class SwingGridPanel extends JPanel {
                 @Override
                 public void mousePressed(java.awt.event.MouseEvent e) {
                   if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
-                    JDialog dialog =
-                        new JDialog(
-                            (Frame)
-                                javax.swing.SwingUtilities.getWindowAncestor(SwingGridPanel.this),
-                            "Track Inspector",
-                            true);
-                    dialog.setSize(900, 550);
-                    dialog.setLocationRelativeTo(SwingGridPanel.this);
-                    JTabbedPane tabs = new JTabbedPane();
-                    tabs.setFont(new Font("SansSerif", Font.BOLD, 22));
-                    JPanel p1 = new JPanel(new FlowLayout(FlowLayout.LEFT, 30, 30));
-                    p1.setBackground(new Color(0x2b, 0x2b, 0x2b));
-                    JLabel lP = new JLabel("Hot-Swap Patch Preset:");
-                    lP.setFont(new Font("SansSerif", Font.BOLD, 18));
-                    lP.setForeground(Color.WHITE);
-                    JComboBox<String> cb = new JComboBox<>();
-                    cb.setFont(new Font("SansSerif", Font.PLAIN, 18));
-                    cb.setPreferredSize(new Dimension(400, 45));
-                    p1.add(lP);
-                    p1.add(cb);
-                    tabs.addTab("PRESETS", p1);
-                    JPanel p2 = new JPanel(new FlowLayout(FlowLayout.CENTER, 40, 50));
-                    p2.setBackground(new Color(0x2b, 0x2b, 0x2b));
-                    JButton cloneBtn = new JButton("Clone Clip Variant");
-                    cloneBtn.setFont(new Font("SansSerif", Font.BOLD, 24));
-                    cloneBtn.setPreferredSize(new Dimension(300, 80));
-                    JButton clearBtn = new JButton("Export MIDI Sequence");
-                    clearBtn.setFont(new Font("SansSerif", Font.BOLD, 24));
-                    clearBtn.setPreferredSize(new Dimension(300, 80));
-                    p2.add(cloneBtn);
-                    p2.add(clearBtn);
-                    tabs.addTab("CLIPBOARD", p2);
-                    JPanel p3 = new JPanel(new GridBagLayout());
-                    p3.setBackground(new Color(0x2b, 0x2b, 0x2b));
-                    GridBagConstraints gcm = new GridBagConstraints();
-                    gcm.fill = GridBagConstraints.HORIZONTAL;
-                    gcm.insets = new Insets(25, 25, 25, 25);
-                    gcm.gridx = 0;
-                    gcm.gridy = 0;
-                    JLabel vL = new JLabel("Channel Volume:");
-                    vL.setFont(new Font("SansSerif", Font.BOLD, 20));
-                    vL.setForeground(Color.WHITE);
-                    p3.add(vL, gcm);
-                    gcm.gridx = 1;
-                    JSlider vS = new JSlider(0, 100, 80);
-                    vS.setPreferredSize(new Dimension(400, 50));
-                    vS.addChangeListener(ev -> System.out.println("Track " + modelRow + " Vol: " + vS.getValue()));
-                    p3.add(vS, gcm);
-                    tabs.addTab("MIXER", p3);
-                    JPanel p4 = new JPanel(new FlowLayout(FlowLayout.LEFT, 30, 30));
-                    p4.setBackground(new Color(0x2b, 0x2b, 0x2b));
-                    JLabel lAlgo = new JLabel("Algorithm Map: [Op 4] \u279e [Op 3] \u279e [Op 2] \u279e Output");
-                    lAlgo.setFont(new Font("SansSerif", Font.BOLD, 20));
-                    lAlgo.setForeground(Color.ORANGE);
-                    JLabel lRatio = new JLabel("Modulator Ratio (Harmonics):");
-                    lRatio.setFont(new Font("SansSerif", Font.BOLD, 18));
-                    lRatio.setForeground(Color.WHITE);
-                    JSlider ratioSlider = new JSlider(1, 10, 1);
-                    ratioSlider.setPreferredSize(new Dimension(300, 50));
-                    p4.add(lAlgo);
-                    p4.add(lRatio);
-                    p4.add(ratioSlider);
-                    tabs.addTab("FM OPERATORS", p4);
-                    gcm.gridx = 0;
-                    gcm.gridy = 1;
-                    JLabel pL = new JLabel("Channel Panning:");
-                    pL.setFont(new Font("SansSerif", Font.BOLD, 20));
-                    pL.setForeground(Color.WHITE);
-                    p3.add(pL, gcm);
-                    gcm.gridx = 1;
-                    JSlider pS = new JSlider(0, 100, 50);
-                    pS.setPreferredSize(new Dimension(400, 50));
-                    p3.add(pS, gcm);
-                    tabs.addTab("MIXER", p3);
-                    cloneBtn.addActionListener(ev -> {
-                      if (modelRow < tracks.size()) {
-                        org.chuck.deluge.model.TrackModel tModel = tracks.get(modelRow);
-                        if (!tModel.getClips().isEmpty()) {
-                          tModel.addClip(tModel.getClips().get(0));
-                        }
-                      }
-                      dialog.dispose();
-                      refresh();
-                    });
-                    cb.addActionListener(ev -> {
-                      if (modelRow < tracks.size()) {
-                        tracks.get(modelRow).setName((String) cb.getSelectedItem());
-                      }
-                      dialog.dispose();
-                      refresh();
-                    });
-                    dialog.add(tabs);
-                    dialog.setVisible(true);
+                    new TrackInspectorDialog(
+                        (Frame) javax.swing.SwingUtilities.getWindowAncestor(SwingGridPanel.this),
+                        modelRow,
+                        tracks,
+                        SwingGridPanel.this::refresh)
+                        .setVisible(true);
                   }
                 }
               });
@@ -971,19 +911,10 @@ public class SwingGridPanel extends JPanel {
                 @Override
                 public void mousePressed(java.awt.event.MouseEvent e) {
                   if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
-                    JDialog dialog =
-                        new JDialog(
-                            (Frame)
-                                javax.swing.SwingUtilities.getWindowAncestor(SwingGridPanel.this),
-                            "Bar Automation",
-                            true);
-                    dialog.setSize(600, 350);
-                    dialog.setLocationRelativeTo(SwingGridPanel.this);
-                    dialog.setLayout(new GridLayout(3, 1, 20, 20));
-                    dialog.add(new JLabel("  Timeline Bar " + (colId + 1) + " Automation:"));
-                    dialog.add(new JCheckBox("Enable Low-Pass Filter Sweep"));
-                    dialog.add(new JCheckBox("Trigger Volume Fade-In"));
-                    dialog.setVisible(true);
+                    new BarAutomationDialog(
+                        (Frame) javax.swing.SwingUtilities.getWindowAncestor(SwingGridPanel.this),
+                        colId)
+                        .setVisible(true);
                   }
                 }
               });
@@ -1054,8 +985,7 @@ public class SwingGridPanel extends JPanel {
   }
 
   /** Build a fixed row (MACROS, SLIDERS, KEYBOARD) for the CLIP grid. */
-  private JPanel buildFixedRow(int rowIdx, int padSz,
-      java.util.List<org.chuck.deluge.model.TrackModel> tracks) {
+  private JPanel buildFixedRow(int rowIdx, int padSz) {
     JPanel rowPanel = new JPanel();
     rowPanel.setLayout(new BoxLayout(rowPanel, BoxLayout.X_AXIS));
     rowPanel.setBackground(new Color(0x22, 0x22, 0x22));
@@ -1159,10 +1089,12 @@ public class SwingGridPanel extends JPanel {
                 pitchArr.setInt(0, (long) (note - 60));
                 noteEv.broadcast();
               }
-            } catch (Exception ex) {}
+            } catch (Exception ex) {
+              LOG.warning("Keyboard note broadcast failed: " + ex.getMessage());
+            }
           });
-        } else {
-          clipBtn = new JButton();
+          } else {
+            clipBtn = new JButton();
           clipBtn.setBackground(new Color(0x1a, 0x1a, 0x1a));
           clipBtn.setEnabled(false);
         }
@@ -1214,13 +1146,15 @@ public class SwingGridPanel extends JPanel {
     for (int t = 0; t < rowsToScan; t++) {
       if (pads[t][stepMod] == null) continue;
       int engineRow = baseTrackId + (viewMode == GridViewMode.CLIP ? scrollOffset + t : t);
-      boolean isTriggered = (bridge != null) && bridge.getStep(engineRow, stepMod);
+      // When clip is shorter than viewport, wrap to get the real engine step index
+      int engineStep = (trackLen < stepCount) ? (stepMod % trackLen) : stepMod;
+      boolean isTriggered = (bridge != null) && bridge.getStep(engineRow, engineStep);
       if (isTriggered) {
         pads[t][stepMod].setBackground(Color.WHITE);
       } else if (pads[t][stepMod].getBackground().equals(Color.WHITE)) {
-        // Restore to velocity-blended color
-        double vel = bridge.getVelocity(engineRow, stepMod);
-        boolean stepActive = bridge.getStep(engineRow, stepMod);
+        // Restore to velocity-blended color using the wrapped engine step
+        double vel = bridge.getVelocity(engineRow, engineStep);
+        boolean stepActive = bridge.getStep(engineRow, engineStep);
         pads[t][stepMod].setBackground(
             stepActive ? velocityBlend(trackColors[t % trackColors.length], vel) : new Color(0x33, 0x33, 0x33));
       }
@@ -1367,7 +1301,7 @@ public class SwingGridPanel extends JPanel {
 
       // Section 3: Fixed rows — MACROS, SLIDERS, KEYBOARD
       for (int fixedRow = 8; fixedRow <= 10; fixedRow++) {
-        add(buildFixedRow(fixedRow, padSz, tracks));
+        add(buildFixedRow(fixedRow, padSz));
       }
 
     } else {
@@ -1391,6 +1325,7 @@ public class SwingGridPanel extends JPanel {
             int rgb = Integer.decode(hex.substring(0, 8)); // strip alpha if 8 chars
             trackColors[t % trackColors.length] = new Color(rgb);
           } catch (Exception e) {
+            LOG.warning("Bad color hex for track " + t + ": " + e.getMessage());
           }
         }
       }
@@ -1570,7 +1505,6 @@ public class SwingGridPanel extends JPanel {
           }
         } else if (trkId == sliR) {
           if (colId < 16) {
-            final int colSlot = colId;
 
             clipBtn.setPreferredSize(new Dimension(padSz, padSz));
             clipBtn.setMinimumSize(new Dimension(padSz, padSz));
@@ -1626,6 +1560,7 @@ public class SwingGridPanel extends JPanel {
                       noteEv.broadcast();
                     }
                   } catch (Exception ex) {
+                    LOG.warning("Keyboard note broadcast failed (keyboard row): " + ex.getMessage());
                   }
                 });
           }
@@ -1738,39 +1673,29 @@ public class SwingGridPanel extends JPanel {
                   @Override
                   public void mousePressed(java.awt.event.MouseEvent e) {
                     if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
-                      JDialog dialog =
-                          new JDialog(
-                              (Frame)
-                                  javax.swing.SwingUtilities.getWindowAncestor(SwingGridPanel.this),
-                              "Step Properties",
-                              true);
-                      dialog.setSize(1600, 450);
-                      dialog.setLocationRelativeTo(SwingGridPanel.this);
-                      dialog.setLayout(new GridBagLayout());
-
-                      GridBagConstraints gc = new GridBagConstraints();
-                      gc.fill = GridBagConstraints.HORIZONTAL;
-                      gc.insets = new Insets(10, 15, 10, 15);
-
-                      Font labelFont = new Font("SansSerif", Font.BOLD, 18);
-                      Dimension sliderDim = new Dimension(1200, 50);
-                      Dimension spinDim = new Dimension(80, 40);
-
-                      gc.gridx = 0;
-                      gc.gridy = 0;
-                      JLabel l1 = new JLabel("Velocity:");
-                      l1.setFont(labelFont);
-                      dialog.add(l1, gc);
-                      gc.gridx = 1;
-                      JSlider velSlider = new JSlider(0, 100, 80);
-                      velSlider.setPreferredSize(sliderDim);
-                      dialog.add(velSlider, gc);
-                      gc.gridx = 2;
-                      JSpinner velSpin = new JSpinner(new SpinnerNumberModel(80, 0, 100, 1));
-                      velSpin.setPreferredSize(spinDim);
-                      dialog.add(velSpin, gc);
-
-                      dialog.setVisible(true);
+                      int engineRow = baseTrackId + trk;
+                      double curVel = bridge.getVelocity(engineRow, colId);
+                      StepPropertiesDialog dlg = new StepPropertiesDialog(
+                          (Frame) javax.swing.SwingUtilities.getWindowAncestor(SwingGridPanel.this),
+                          (int)(curVel * 100));
+                      dlg.setVisible(true);
+                      int newVel = dlg.getVelocity();
+                      if (newVel != (int)(curVel * 100)) {
+                        bridge.setVelocity(engineRow, colId, newVel / 100.0);
+                        if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+                          org.chuck.deluge.model.TrackModel tModel =
+                              projectModel.getTracks().get(editedModelTrack);
+                          if (activeClipId < tModel.getClips().size()) {
+                            org.chuck.deluge.model.ClipModel cModel =
+                                tModel.getClips().get(activeClipId);
+                            boolean st = bridge.getStep(engineRow, colId);
+                            double prob = bridge.getStepProbability(engineRow, colId);
+                            cModel.setStep(trk, colId,
+                                new org.chuck.deluge.model.StepData(st, newVel / 100.0f, 0.5f, (float)prob, 0));
+                          }
+                        }
+                        refresh();
+                      }
                     } else if (javax.swing.SwingUtilities.isLeftMouseButton(e)) {
                       boolean isSynthMode = bridge.getTrackType(baseTrackId) == 1;
 
@@ -1784,6 +1709,7 @@ public class SwingGridPanel extends JPanel {
                               finalMidiOut.sendMessage(
                                   new byte[] {(byte) 0x90, (byte) (60 + trk), (byte) 100});
                             } catch (Exception ex) {
+                              LOG.warning("MIDI send failed (kit grid): " + ex.getMessage());
                             }
                           }
                         }
@@ -1814,9 +1740,10 @@ public class SwingGridPanel extends JPanel {
                         clipBtn.setBackground(
                             !stepState ? velocityBlend(trackColors[trk], velS) : new Color(0x33, 0x33, 0x33));
 
-                        // Audition via engine preview
+                        // Audition via engine preview (wrap to voice slot)
+                        int slot = baseTrackId + (trk % 8);
                         vm.setGlobalFloat("g_preview_pitch", (float) ((24 - 1) - trk));
-                        vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) engineRow);
+                        vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) slot);
                         vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
 
                         // Write to model so changes survive view switches
@@ -1890,124 +1817,12 @@ public class SwingGridPanel extends JPanel {
                   @Override
                   public void mousePressed(java.awt.event.MouseEvent e) {
                     if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
-                      JDialog dialog =
-                          new JDialog(
-                              (Frame)
-                                  javax.swing.SwingUtilities.getWindowAncestor(SwingGridPanel.this),
-                              "Track Inspector",
-                              true);
-                      dialog.setSize(900, 550);
-                      dialog.setLocationRelativeTo(SwingGridPanel.this);
-
-                      JTabbedPane tabs = new JTabbedPane();
-                      tabs.setFont(new Font("SansSerif", Font.BOLD, 22));
-
-                      // Tab 1: Presets
-                      JPanel p1 = new JPanel(new FlowLayout(FlowLayout.LEFT, 30, 30));
-                      p1.setBackground(new Color(0x2b, 0x2b, 0x2b));
-                      JLabel lP = new JLabel("Hot-Swap Patch Preset:");
-                      lP.setFont(new Font("SansSerif", Font.BOLD, 18));
-                      lP.setForeground(Color.WHITE);
-                      JComboBox<String> cb = new JComboBox<>();
-                      cb.setFont(new Font("SansSerif", Font.PLAIN, 18));
-                      cb.setPreferredSize(new Dimension(400, 45));
-                      p1.add(lP);
-                      p1.add(cb);
-                      tabs.addTab("PRESETS", p1);
-
-                      // Tab 2: Clipboard
-                      JPanel p2 = new JPanel(new FlowLayout(FlowLayout.CENTER, 40, 50));
-                      p2.setBackground(new Color(0x2b, 0x2b, 0x2b));
-                      JButton cloneBtn = new JButton("Clone Clip Variant");
-                      cloneBtn.setFont(new Font("SansSerif", Font.BOLD, 24));
-                      cloneBtn.setPreferredSize(new Dimension(300, 80));
-                      JButton clearBtn = new JButton("Export MIDI Sequence");
-                      clearBtn.setFont(new Font("SansSerif", Font.BOLD, 24));
-                      clearBtn.setPreferredSize(new Dimension(300, 80));
-                      p2.add(cloneBtn);
-                      p2.add(clearBtn);
-                      tabs.addTab("CLIPBOARD", p2);
-
-                      // Tab 3: Mixer
-                      JPanel p3 = new JPanel(new GridBagLayout());
-                      p3.setBackground(new Color(0x2b, 0x2b, 0x2b));
-                      GridBagConstraints gcm = new GridBagConstraints();
-                      gcm.fill = GridBagConstraints.HORIZONTAL;
-                      gcm.insets = new Insets(25, 25, 25, 25);
-
-                      gcm.gridx = 0;
-                      gcm.gridy = 0;
-                      JLabel vL = new JLabel("Channel Volume:");
-                      vL.setFont(new Font("SansSerif", Font.BOLD, 20));
-                      vL.setForeground(Color.WHITE);
-                      p3.add(vL, gcm);
-                      gcm.gridx = 1;
-                      JSlider vS = new JSlider(0, 100, 80);
-                      vS.setPreferredSize(new Dimension(400, 50));
-                      vS.addChangeListener(
-                          ev ->
-                              System.out.println(
-                                  "Track " + currentTrack + " Vol: " + vS.getValue()));
-
-                      p3.add(vS, gcm);
-                      tabs.addTab("MIXER", p3);
-
-                      // Tab 4: FM Operators
-                      JPanel p4 = new JPanel(new FlowLayout(FlowLayout.LEFT, 30, 30));
-                      p4.setBackground(new Color(0x2b, 0x2b, 0x2b));
-
-                      JLabel lAlgo = new JLabel("Algorithm Map: [Op 4] ➔ [Op 3] ➔ [Op 2] ➔ Output");
-                      lAlgo.setFont(new Font("SansSerif", Font.BOLD, 20));
-                      lAlgo.setForeground(Color.ORANGE);
-
-                      JLabel lRatio = new JLabel("Modulator Ratio (Harmonics):");
-                      lRatio.setFont(new Font("SansSerif", Font.BOLD, 18));
-                      lRatio.setForeground(Color.WHITE);
-
-                      JSlider ratioSlider = new JSlider(1, 10, 1);
-                      ratioSlider.setPreferredSize(new Dimension(300, 50));
-
-                      p4.add(lAlgo);
-                      p4.add(lRatio);
-                      p4.add(ratioSlider);
-                      tabs.addTab("FM OPERATORS", p4);
-
-                      gcm.gridx = 0;
-                      gcm.gridy = 1;
-                      JLabel pL = new JLabel("Channel Panning:");
-                      pL.setFont(new Font("SansSerif", Font.BOLD, 20));
-                      pL.setForeground(Color.WHITE);
-                      p3.add(pL, gcm);
-                      gcm.gridx = 1;
-                      JSlider pS = new JSlider(0, 100, 50);
-                      pS.setPreferredSize(new Dimension(400, 50));
-                      p3.add(pS, gcm);
-                      tabs.addTab("MIXER", p3);
-
-                      // Actions hooks
-                      cloneBtn.addActionListener(
-                          ev -> {
-                            if (currentTrack < tracks.size()) {
-                              org.chuck.deluge.model.TrackModel tModel = tracks.get(currentTrack);
-                              if (!tModel.getClips().isEmpty()) {
-                                tModel.addClip(tModel.getClips().get(0)); // Mock clone
-                              }
-                            }
-                            dialog.dispose();
-                            refresh();
-                          });
-
-                      cb.addActionListener(
-                          ev -> {
-                            if (currentTrack < tracks.size()) {
-                              tracks.get(currentTrack).setName((String) cb.getSelectedItem());
-                            }
-                            dialog.dispose();
-                            refresh();
-                          });
-
-                      dialog.add(tabs);
-                      dialog.setVisible(true);
+                      new TrackInspectorDialog(
+                          (Frame) javax.swing.SwingUtilities.getWindowAncestor(SwingGridPanel.this),
+                          currentTrack,
+                          tracks,
+                          SwingGridPanel.this::refresh)
+                          .setVisible(true);
                     }
                   }
                 });
@@ -2017,19 +1832,11 @@ public class SwingGridPanel extends JPanel {
                   @Override
                   public void mousePressed(java.awt.event.MouseEvent e) {
                     if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
-                      JDialog dialog =
-                          new JDialog(
-                              (Frame)
-                                  javax.swing.SwingUtilities.getWindowAncestor(SwingGridPanel.this),
-                              "Bar Automation",
-                              true);
-                      dialog.setSize(600, 350);
-                      dialog.setLocationRelativeTo(SwingGridPanel.this);
-                      dialog.setLayout(new GridLayout(3, 1, 20, 20));
-                      dialog.add(new JLabel("  Timeline Bar " + (slot + 1) + " Automation:"));
-                      dialog.add(new JCheckBox("Enable Low-Pass Filter Sweep"));
-                      dialog.add(new JCheckBox("Trigger Volume Fade-In"));
-                      dialog.setVisible(true);
+                      new BarAutomationDialog(
+                          (Frame)
+                              javax.swing.SwingUtilities.getWindowAncestor(SwingGridPanel.this),
+                          slot)
+                          .setVisible(true);
                     }
                   }
                 });
@@ -2188,6 +1995,7 @@ public class SwingGridPanel extends JPanel {
       }
 
     } catch (Exception ex) {
+      LOG.warning("MIDI out init failed: " + ex.getMessage());
     }
 
     final int[] lastCol = {-1};
@@ -2245,6 +2053,7 @@ public class SwingGridPanel extends JPanel {
                           finalMidiOut.sendMessage(
                               new byte[] {(byte) 0x90, (byte) (36 + t * 2), (byte) 100});
                         } catch (Exception ex) {
+                          LOG.warning("MIDI send failed (playhead): " + ex.getMessage());
                         }
                       }
                     }
