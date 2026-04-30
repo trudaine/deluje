@@ -101,6 +101,20 @@ public final class BridgeContract {
   public static final String G_KIT_REVERSE = "g_kit_reverse";
   public static final String G_KIT_MUTE_GROUP = "g_kit_mute_group";
 
+  // Audio track (LiSa) globals
+  public static final String G_AUDIO_REC = "g_audio_rec";
+  public static final String G_AUDIO_PLAY = "g_audio_play";
+  public static final String G_AUDIO_LOOP = "g_audio_loop";
+  public static final String G_AUDIO_RATE = "g_audio_rate";
+  public static final String G_AUDIO_BUS = "g_audio_bus";
+
+  // WvOut export globals
+  public static final String G_WVOUT_ACTIVE = "g_wvout_active";
+  public static final String G_WVOUT_FILE = "g_wvout_file";
+
+  // Master output tap (for export/WvOut)
+  public static final String G_MASTER_TAP = "g_master_tap";
+
   private final ChuckArray pattern;
   private final ChuckArray velocity;
   private final ChuckArray gate;
@@ -148,6 +162,11 @@ public final class BridgeContract {
   private final ChuckArray fmAmount;
 
   private final ChuckArray synthAlgo;
+
+  private final ChuckArray audioRec;
+  private final ChuckArray audioPlay;
+  private final ChuckArray audioLoop;
+  private final ChuckArray audioRate;
 
   private ChuckVM vm;
   private boolean recording = false;
@@ -200,6 +219,11 @@ public final class BridgeContract {
     fmAmount = new ChuckArray("float", TRACKS);
     synthAlgo = new ChuckArray("int", TRACKS);
 
+    audioRec = new ChuckArray("int", TRACKS);
+    audioPlay = new ChuckArray("int", TRACKS);
+    audioLoop = new ChuckArray("int", TRACKS);
+    audioRate = new ChuckArray("float", TRACKS);
+
     initDefaults();
   }
 
@@ -245,6 +269,11 @@ public final class BridgeContract {
       fmRatio.setFloat(t, 1.0f);
       fmAmount.setFloat(t, 0.0f);
       synthAlgo.setInt(t, 0L);
+
+      audioRec.setInt(t, 0L);
+      audioPlay.setInt(t, 0L);
+      audioLoop.setInt(t, 1L);
+      audioRate.setFloat(t, 1.0f);
     }
     for (int e = 0; e < ENV_COUNT; e++) {
       env.setFloat(e * ENV_PARAMS + 0, 0.01f);
@@ -335,11 +364,18 @@ public final class BridgeContract {
     vm.setGlobalObject(G_FM_AMOUNT, fmAmount);
     vm.setGlobalObject(G_SYNTH_ALGO, synthAlgo);
 
+    vm.setGlobalObject(G_AUDIO_REC, audioRec);
+    vm.setGlobalObject(G_AUDIO_PLAY, audioPlay);
+    vm.setGlobalObject(G_AUDIO_LOOP, audioLoop);
+    vm.setGlobalObject(G_AUDIO_RATE, audioRate);
+
     // Monolithic engine buses
     vm.setGlobalObject(G_DELAY_IN, new org.chuck.audio.util.Gain());
     vm.setGlobalObject(G_REVERB_IN, new org.chuck.audio.util.Gain());
     vm.setGlobalObject(G_SYNTH_BUS, new org.chuck.audio.util.Gain());
-    vm.setGlobalObject(G_MASTER_COMP, 0.0);
+    vm.setGlobalObject(G_AUDIO_BUS, new org.chuck.audio.util.Gain());
+    vm.setGlobalFloat(G_WVOUT_ACTIVE, 0.0);
+    vm.setGlobalString(G_WVOUT_FILE, "");
   }
 
   public ChuckVM getVm() {
@@ -538,6 +574,57 @@ public final class BridgeContract {
 
   public void setSynthAlgo(int track, int algo) {
     synthAlgo.setInt(track, (long) algo);
+  }
+
+  // === Audio Track Helpers ===
+
+  public int getAudioRec(int track) {
+    return (int) audioRec.getInt(track);
+  }
+
+  public void setAudioRec(int track, int state) {
+    audioRec.setInt(track, (long) state);
+  }
+
+  public int getAudioPlay(int track) {
+    return (int) audioPlay.getInt(track);
+  }
+
+  public void setAudioPlay(int track, int state) {
+    audioPlay.setInt(track, (long) state);
+  }
+
+  public int getAudioLoop(int track) {
+    return (int) audioLoop.getInt(track);
+  }
+
+  public void setAudioLoop(int track, int looping) {
+    audioLoop.setInt(track, (long) looping);
+  }
+
+  public float getAudioRate(int track) {
+    return (float) audioRate.getFloat(track);
+  }
+
+  public void setAudioRate(int track, float rate) {
+    audioRate.setFloat(track, rate);
+  }
+
+  // === WvOut Export Helpers ===
+
+  public boolean isExporting() {
+    return vm != null && vm.getGlobalFloat(G_WVOUT_ACTIVE) > 0.5;
+  }
+
+  public void startExport(String filePath) {
+    if (vm == null) return;
+    vm.setGlobalString(G_WVOUT_FILE, filePath);
+    vm.setGlobalFloat(G_WVOUT_ACTIVE, 1.0);
+  }
+
+  public void stopExport() {
+    if (vm == null) return;
+    vm.setGlobalFloat(G_WVOUT_ACTIVE, 0.0);
   }
 
   public void syncActiveClipToLibrary(int track) {}
