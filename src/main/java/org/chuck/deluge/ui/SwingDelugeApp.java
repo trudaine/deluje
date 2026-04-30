@@ -136,29 +136,37 @@ public class SwingDelugeApp extends JFrame {
           }
         }
       } else if (track instanceof org.chuck.deluge.model.SynthTrackModel synth) {
-        // Mark all 8 voice rows as type-1 (synth)
-        for (int v = 0; v < voiceCount; v++) {
+        // Mark all voice rows as type-1 (synth) — includes extended clip rows
+        int activeClipIdx = synth.getActiveClipIndex();
+        int totalSynthRows = voiceCount;
+        if (activeClipIdx >= 0 && activeClipIdx < synth.getClips().size()) {
+          totalSynthRows = Math.max(totalSynthRows, synth.getClips().get(activeClipIdx).getRowCount());
+        }
+        for (int v = 0; v < totalSynthRows; v++) {
           bridge.setTrackType(startRow + v, 1);
           if (trackTypeArr != null) trackTypeArr.setInt(startRow + v, 1L);
         }
 
-        // Push clip data — each visual row writes to its own engine row
-        int activeClipIdx = synth.getActiveClipIndex();
+        // Push clip data — each visual row writes to its own engine row.
+        // Extended rows (>8) get unique bridge indices; engine maps them back via
+        // synthBase + (r - synthBase) % VOICES_PER_SYNTH for UGen access.
+        activeClipIdx = synth.getActiveClipIndex();
         if (activeClipIdx >= 0 && activeClipIdx < synth.getClips().size()) {
           org.chuck.deluge.model.ClipModel clip = synth.getClips().get(activeClipIdx);
           int stepCount = clip.getStepCount();
-          for (int r = 0; r < clip.getRowCount() && r < voiceCount; r++) {
+          for (int r = 0; r < clip.getRowCount(); r++) {
+            int engineRow = startRow + r;
             for (int s = 0; s < stepCount; s++) {
               org.chuck.deluge.model.StepData step = clip.getStep(r, s);
               if (step != null && step.active()) {
-                bridge.setStep(startRow + r, s, true);
-                bridge.setVelocity(startRow + r, s, step.velocity());
+                bridge.setStep(engineRow, s, true);
+                bridge.setVelocity(engineRow, s, step.velocity());
               }
             }
           }
         }
 
-        // Push oscType (0=SINE, 1=SAW, 2=SQUARE, 3=TRIANGLE, 4=NOISE)
+        // Push oscType (0=SINE, 1=SAW, 2=SQUARE, 3=TRIANGLE, 4=NOISE) to ALL rows
         org.chuck.core.ChuckArray oscTypeArr =
             (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_OSC_TYPE);
         if (oscTypeArr != null) {
@@ -167,24 +175,30 @@ public class SwingDelugeApp extends JFrame {
           if ("SINE".equals(ot)) typeIdx = 0;
           else if ("SQUARE".equals(ot)) typeIdx = 2;
           else if ("TRIANGLE".equals(ot)) typeIdx = 3;
-          oscTypeArr.setInt(startRow, typeIdx);
-        }
-
-        // Push filter params
-        bridge.setFilterFreq(startRow, synth.getLpfFreq() / 20000.0f);
-        bridge.setFilterRes(startRow, synth.getLpfRes() / 100.0f);
-        bridge.setFilterMode(startRow, synth.getFilterMode().ordinal());
-        bridge.setFilterMorph(startRow, synth.getLpfMorph());
-
-        // Push ADSR envelopes (4 envs)
-        for (int e = 0; e < 4; e++) {
-          org.chuck.deluge.model.EnvelopeModel adsr = synth.getEnv(e);
-          if (adsr != null) {
-            bridge.setEnv(e, adsr.attack(), adsr.decay(), adsr.sustain(), adsr.release());
+          for (int v = 0; v < totalSynthRows; v++) {
+            oscTypeArr.setInt(startRow + v, typeIdx);
           }
         }
 
-        // Push LFO params (4 LFOs)
+        // Push filter params to ALL rows
+        for (int v = 0; v < totalSynthRows; v++) {
+          bridge.setFilterFreq(startRow + v, synth.getLpfFreq() / 20000.0f);
+          bridge.setFilterRes(startRow + v, synth.getLpfRes() / 100.0f);
+          bridge.setFilterMode(startRow + v, synth.getFilterMode().ordinal());
+          bridge.setFilterMorph(startRow + v, synth.getLpfMorph());
+        }
+
+        // Push ADSR envelopes (4 envs) to ALL rows of this track
+        for (int e = 0; e < 4; e++) {
+          org.chuck.deluge.model.EnvelopeModel adsr = synth.getEnv(e);
+          if (adsr != null) {
+            for (int v = 0; v < totalSynthRows; v++) {
+              bridge.setEnv(startRow + v, e, adsr.attack(), adsr.decay(), adsr.sustain(), adsr.release());
+            }
+          }
+        }
+
+        // Push LFO params (4 LFOs) — global per track, shared by all rows
         org.chuck.core.ChuckArray lfoRateArr =
             (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_RATE);
         org.chuck.core.ChuckArray lfoTypeArr =
@@ -200,16 +214,27 @@ public class SwingDelugeApp extends JFrame {
           }
         }
 
-        // Push arp params
+        // Push arp params to ALL rows
         org.chuck.deluge.model.ArpModel arp = synth.getArp();
         if (arp != null) {
-          bridge.setArpOn(startRow, arp.active());
-          bridge.setArpRate(startRow, arp.rate());
-          bridge.setArpOctave(startRow, arp.octaves());
+          int arpMode = switch (arp.mode()) {
+            case "DOWN" -> 1;
+            case "UP_DOWN" -> 2;
+            case "RANDOM" -> 3;
+            default -> 0; // UP
+          };
+          for (int v = 0; v < totalSynthRows; v++) {
+            bridge.setArpOn(startRow + v, arp.active());
+            bridge.setArpRate(startRow + v, arp.rate());
+            bridge.setArpOctave(startRow + v, arp.octaves());
+            bridge.setArpMode(startRow + v, arpMode);
+          }
         }
 
-        // Push synth algorithm
-        bridge.setSynthAlgo(startRow, synth.getSynthAlgorithm());
+        // Push synth algorithm to ALL rows
+        for (int v = 0; v < totalSynthRows; v++) {
+          bridge.setSynthAlgo(startRow + v, synth.getSynthAlgorithm());
+        }
       } else if (track instanceof org.chuck.deluge.model.AudioTrackModel audio) {
         // Mark engine row as type-2 (audio)
         bridge.setTrackType(startRow, 2);
@@ -231,8 +256,19 @@ public class SwingDelugeApp extends JFrame {
         }
       }
 
-      // Track length
-      bridge.setTrackLength(startRow, track.getClips().isEmpty() ? 16 : track.getClips().get(0).getStepCount());
+      // Track length and stepCount for all rows of this track
+      int rowLen = track.getClips().isEmpty() ? 16 : track.getClips().get(0).getStepCount();
+      int totalRows = voiceCount;
+      if (track instanceof org.chuck.deluge.model.SynthTrackModel) {
+        int acIdx = ((org.chuck.deluge.model.SynthTrackModel) track).getActiveClipIndex();
+        var clips = ((org.chuck.deluge.model.SynthTrackModel) track).getClips();
+        if (acIdx >= 0 && acIdx < clips.size()) {
+          totalRows = Math.max(voiceCount, clips.get(acIdx).getRowCount());
+        }
+      }
+      for (int v = 0; v < totalRows; v++) {
+        bridge.setTrackLength(startRow + v, rowLen);
+      }
     }
 
     // Only unblock the engine when there are actual tracks to process.

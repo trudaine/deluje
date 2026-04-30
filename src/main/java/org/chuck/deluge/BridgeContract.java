@@ -76,6 +76,8 @@ public final class BridgeContract {
   public static final int ENV_COUNT = 4;
   /** Number of ADSR parameters per envelope (attack, decay, sustain, release). */
   public static final int ENV_PARAMS = 4;
+  /** Envelope array stride: TRACKS × ENV_COUNT × ENV_PARAMS. Four 4-element blocks per track row (one per envelope generator). */
+  public static final int ENV_STRIDE = TRACKS * ENV_COUNT * ENV_PARAMS;
   /** Number of LFO generators available globally. Each has rate, type, depth, target, track. */
   public static final int LFO_COUNT = 4;
 
@@ -233,6 +235,8 @@ public final class BridgeContract {
   public static final String G_ARP_RATE = "g_arp_rate";
   /** Per-track arpeggiator octave range (int array). Number of octaves to arpeggiate over. */
   public static final String G_ARP_OCTAVE = "g_arp_octave";
+  /** Per-track arpeggiator mode (int array). 0=UP, 1=DOWN, 2=UP_DOWN, 3=RANDOM. */
+  public static final String G_ARP_MODE = "g_arp_mode";
   /** Per-track FM modulator/carrier frequency ratio (float array). */
   public static final String G_FM_RATIO = "g_fm_ratio";
   /** Per-track FM modulation amount (float array). Output gain of the modulator UGen. */
@@ -255,6 +259,8 @@ public final class BridgeContract {
    * Codes 10+ select STK physical models.
    */
   public static final String G_SYNTH_ALGO = "g_synth_algo";
+  /** Per-track synth mode (int array). 0 = SUBTRACTIVE (single osc+filter), 1 = FM (mod→car), 2 = RINGMOD (car×mod). */
+  public static final String G_SYNTH_MODE = "g_synth_mode";
 
   // ── Kit per-drum ADSR + Pitch ─────────────────────────────────────────
 
@@ -341,10 +347,12 @@ public final class BridgeContract {
   private final ChuckArray arpOn;
   private final ChuckArray arpRate;
   private final ChuckArray arpOctave;
+  private final ChuckArray arpMode;
   private final ChuckArray fmRatio;
   private final ChuckArray fmAmount;
 
   private final ChuckArray synthAlgo;
+  private final ChuckArray synthMode;
 
   private final ChuckArray audioRec;
   private final ChuckArray audioPlay;
@@ -380,7 +388,7 @@ public final class BridgeContract {
     filter = new ChuckArray("float", TRACKS * 2);
     filterMode = new ChuckArray("int", TRACKS);
     filterMorph = new ChuckArray("float", TRACKS);
-    env = new ChuckArray("float", ENV_COUNT * ENV_PARAMS);
+    env = new ChuckArray("float", ENV_STRIDE);
     lfoRate = new ChuckArray("float", LFO_COUNT);
     lfoType = new ChuckArray("int", LFO_COUNT);
     lfoDepth = new ChuckArray("float", LFO_COUNT);
@@ -402,9 +410,11 @@ public final class BridgeContract {
     arpOn = new ChuckArray("int", TRACKS);
     arpRate = new ChuckArray("float", TRACKS);
     arpOctave = new ChuckArray("int", TRACKS);
+    arpMode = new ChuckArray("int", TRACKS);
     fmRatio = new ChuckArray("float", TRACKS);
     fmAmount = new ChuckArray("float", TRACKS);
     synthAlgo = new ChuckArray("int", TRACKS);
+    synthMode = new ChuckArray("int", TRACKS);
 
     audioRec = new ChuckArray("int", TRACKS);
     audioPlay = new ChuckArray("int", TRACKS);
@@ -453,16 +463,18 @@ public final class BridgeContract {
       arpOn.setInt(t, 0L);
       arpRate.setFloat(t, 1.0f);
       arpOctave.setInt(t, 0L);
+      arpMode.setInt(t, 0L);
       fmRatio.setFloat(t, 1.0f);
       fmAmount.setFloat(t, 0.0f);
       synthAlgo.setInt(t, 0L);
+      synthMode.setInt(t, 0L);
 
       audioRec.setInt(t, 0L);
       audioPlay.setInt(t, 0L);
       audioLoop.setInt(t, 1L);
       audioRate.setFloat(t, 1.0f);
     }
-    for (int e = 0; e < ENV_COUNT; e++) {
+    for (int e = 0; e < TRACKS * ENV_COUNT; e++) {
       env.setFloat(e * ENV_PARAMS + 0, 0.01f);
       env.setFloat(e * ENV_PARAMS + 1, 0.1f);
       env.setFloat(e * ENV_PARAMS + 2, 0.7f);
@@ -560,9 +572,11 @@ public final class BridgeContract {
     vm.setGlobalObject(G_ARP_ON, arpOn);
     vm.setGlobalObject(G_ARP_RATE, arpRate);
     vm.setGlobalObject(G_ARP_OCTAVE, arpOctave);
+    vm.setGlobalObject(G_ARP_MODE, arpMode);
     vm.setGlobalObject(G_FM_RATIO, fmRatio);
     vm.setGlobalObject(G_FM_AMOUNT, fmAmount);
     vm.setGlobalObject(G_SYNTH_ALGO, synthAlgo);
+    vm.setGlobalObject(G_SYNTH_MODE, synthMode);
 
     vm.setGlobalObject(G_AUDIO_REC, audioRec);
     vm.setGlobalObject(G_AUDIO_PLAY, audioPlay);
@@ -688,17 +702,18 @@ public final class BridgeContract {
   }
 
   /**
-   * Sets the four ADSR parameters for one envelope generator. Values are clamped:
+   * Sets the four ADSR parameters for one envelope generator on one track row. Values are clamped:
    * attack/decay/release each minimum 0.001 seconds, sustain clamped 0-1.
    *
-   * @param envIndex envelope index (0 to {@code ENV_COUNT-1}).
+   * @param row track row index (0 to {@code TRACKS-1}).
+   * @param envIndex envelope generator index (0 to {@code ENV_COUNT-1}).
    * @param a attack time in seconds.
    * @param d decay time in seconds.
    * @param s sustain level (0-1).
    * @param r release time in seconds.
    */
-  public void setEnv(int envIndex, double a, double d, double s, double r) {
-    int b = envIndex * ENV_PARAMS;
+  public void setEnv(int row, int envIndex, double a, double d, double s, double r) {
+    int b = (row * ENV_COUNT + envIndex) * ENV_PARAMS;
     env.setFloat(b + 0, (float) Math.max(0.001, a));
     env.setFloat(b + 1, (float) Math.max(0.001, d));
     env.setFloat(b + 2, (float) Math.max(0, Math.min(1, s)));
@@ -800,6 +815,14 @@ public final class BridgeContract {
 
   public void setArpOctave(int track, int oct) {
     arpOctave.setInt(track, (long) oct);
+  }
+
+  public int getArpMode(int track) {
+    return (int) arpMode.getInt(track);
+  }
+
+  public void setArpMode(int track, int mode) {
+    arpMode.setInt(track, (long) mode);
   }
 
   public double getFmRatio(int track) {
