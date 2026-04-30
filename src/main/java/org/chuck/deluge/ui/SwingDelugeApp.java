@@ -208,6 +208,24 @@ public class SwingDelugeApp extends JFrame {
 
         // Push synth algorithm
         bridge.setSynthAlgo(startRow, synth.getSynthAlgorithm());
+      } else if (track instanceof org.chuck.deluge.model.AudioTrackModel audio) {
+        // Mark engine row as type-2 (audio)
+        bridge.setTrackType(startRow, 2);
+        if (trackTypeArr != null) trackTypeArr.setInt(startRow, 2L);
+        // Push clip pattern data
+        int activeClipIdx = audio.getActiveClipIndex();
+        if (activeClipIdx >= 0 && activeClipIdx < audio.getClips().size()) {
+          org.chuck.deluge.model.ClipModel clip = audio.getClips().get(activeClipIdx);
+          for (int r = 0; r < clip.getRowCount() && r < voiceCount; r++) {
+            for (int s = 0; s < 16; s++) {
+              org.chuck.deluge.model.StepData step = clip.getStep(r, s);
+              if (step != null && step.active()) {
+                bridge.setStep(startRow + r, s, true);
+                bridge.setVelocity(startRow + r, s, step.velocity());
+              }
+            }
+          }
+        }
       }
 
       // Track length
@@ -482,6 +500,49 @@ public class SwingDelugeApp extends JFrame {
     if (arrGridPanel != null) arrGridPanel.setProjectModel(currentProject);
   }
 
+  private void exportAudio() {
+    JFileChooser chooser = new JFileChooser();
+    chooser.setDialogTitle("Export Audio");
+    chooser.setSelectedFile(new java.io.File("deluge_export.wav"));
+    if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
+
+    String filePath = chooser.getSelectedFile().getAbsolutePath();
+    if (!filePath.toLowerCase().endsWith(".wav")) filePath += ".wav";
+
+    vm.setGlobalString(org.chuck.deluge.BridgeContract.G_WVOUT_FILE, filePath);
+    vm.setGlobalFloat(org.chuck.deluge.BridgeContract.G_WVOUT_ACTIVE, 1.0f);
+
+    JOptionPane.showMessageDialog(
+        this,
+        "Export started to:\n" + filePath + "\n\nClick OK to stop export.",
+        "Exporting Audio...",
+        JOptionPane.INFORMATION_MESSAGE);
+
+    vm.setGlobalFloat(org.chuck.deluge.BridgeContract.G_WVOUT_ACTIVE, 0.0f);
+  }
+
+  private void loadChuckScript() {
+    JFileChooser chooser = new JFileChooser();
+    chooser.setDialogTitle("Load ChucK Script");
+    javax.swing.filechooser.FileNameExtensionFilter filter =
+        new javax.swing.filechooser.FileNameExtensionFilter("ChucK Scripts (*.ck)", "ck");
+    chooser.setFileFilter(filter);
+    if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) return;
+
+    java.io.File file = chooser.getSelectedFile();
+    try {
+      String content = new String(java.nio.file.Files.readAllBytes(file.toPath()));
+      vm.eval(content);
+      JOptionPane.showMessageDialog(
+          this, "Script loaded successfully:\n" + file.getName(),
+          "Script Loaded", JOptionPane.INFORMATION_MESSAGE);
+    } catch (Exception ex) {
+      JOptionPane.showMessageDialog(
+          this, "Failed to load script:\n" + ex.getMessage(),
+          "Error", JOptionPane.ERROR_MESSAGE);
+    }
+  }
+
   private void setupUI() {
     getContentPane().removeAll();
     setLayout(new GridBagLayout());
@@ -551,6 +612,12 @@ public class SwingDelugeApp extends JFrame {
             java.awt.event.InputEvent.CTRL_DOWN_MASK | java.awt.event.InputEvent.SHIFT_DOWN_MASK));
     saveAsItem.addActionListener(e -> saveProject(true));
 
+    JMenuItem exportItem = new JMenuItem("Export Audio...");
+    exportItem.addActionListener(e -> exportAudio());
+
+    JMenuItem loadScriptItem = new JMenuItem("Load Script...");
+    loadScriptItem.addActionListener(e -> loadChuckScript());
+
     JMenuItem exitItem = new JMenuItem("Exit");
     exitItem.addActionListener(e -> System.exit(0));
 
@@ -559,6 +626,10 @@ public class SwingDelugeApp extends JFrame {
     fileMenu.addSeparator();
     fileMenu.add(saveItem);
     fileMenu.add(saveAsItem);
+    fileMenu.addSeparator();
+    fileMenu.add(exportItem);
+    fileMenu.addSeparator();
+    fileMenu.add(loadScriptItem);
     fileMenu.addSeparator();
     fileMenu.add(exitItem);
 
@@ -700,6 +771,24 @@ public class SwingDelugeApp extends JFrame {
           }
         });
 
+    JButton addAudioBtn = new JButton("+ AUDIO");
+    addAudioBtn.setBackground(new Color(0x33, 0x55, 0x44));
+    addAudioBtn.setForeground(Color.WHITE);
+    addAudioBtn.setToolTipText("Add a new Audio (recording) track to the song");
+    addAudioBtn.addActionListener(
+        e -> {
+          String name =
+              JOptionPane.showInputDialog(
+                  this, "Audio track name:", "AUDIO " + (currentProject.getTracks().size() + 1));
+          if (name != null && !name.isBlank()) {
+            org.chuck.deluge.model.AudioTrackModel audio =
+                new org.chuck.deluge.model.AudioTrackModel(name);
+            audio.addClip(new org.chuck.deluge.model.ClipModel("CLIP 1", 1, 16));
+            currentProject.addTrack(audio);
+            propagateCurrentModel();
+          }
+        });
+
     JButton btnExplorer = new JButton("EXPLORER");
     btnExplorer.addActionListener(e -> leftFloat.setVisible(!leftFloat.isVisible()));
 
@@ -713,6 +802,7 @@ public class SwingDelugeApp extends JFrame {
       topRow1.add(new JSeparator(JSeparator.VERTICAL));
       topRow1.add(addKitBtn);
       topRow1.add(addSynthBtn);
+      topRow1.add(addAudioBtn);
       topRow1.add(new JSeparator(JSeparator.VERTICAL));
       topRow1.add(btnExplorer);
       topRow1.add(btnMonitor);
@@ -723,6 +813,7 @@ public class SwingDelugeApp extends JFrame {
       topBar.add(new JSeparator(JSeparator.VERTICAL));
       topBar.add(addKitBtn);
       topBar.add(addSynthBtn);
+      topBar.add(addAudioBtn);
       topBar.add(new JSeparator(JSeparator.VERTICAL));
       topBar.add(btnExplorer);
       topBar.add(btnMonitor);

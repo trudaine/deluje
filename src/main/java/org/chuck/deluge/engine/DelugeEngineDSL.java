@@ -83,7 +83,8 @@ public class DelugeEngineDSL implements Shred, Runnable {
     Gain master = new Gain();
     HPF hpf = new HPF(sr);
     Dyno limit = new Dyno(sr);
-    master.chuck(hpf).chuck(limit).chuck(dac());
+    Gain masterTap = (Gain) vm.getGlobalObject(BridgeContract.G_MASTER_TAP);
+    master.chuck(hpf).chuck(limit).chuck(masterTap).chuck(dac());
     hpf.freq(20);
     limit.limiter();
 
@@ -822,10 +823,19 @@ public class DelugeEngineDSL implements Shred, Runnable {
     HPF hpf = new HPF(sr);
     Dyno limit = new Dyno(sr);
     Dyno comp = new Dyno(sr);
+    Gain masterTap = (Gain) vm.getGlobalObject(BridgeContract.G_MASTER_TAP);
     ((Gain) vm.getGlobalObject(BridgeContract.G_SYNTH_BUS))
         .chuck(hpf)
         .chuck(comp)
         .chuck(limit)
+        .chuck(masterTap)
+        .chuck(dac());
+    // Audio bus routes through same master processing
+    ((Gain) vm.getGlobalObject(BridgeContract.G_AUDIO_BUS))
+        .chuck(hpf)
+        .chuck(comp)
+        .chuck(limit)
+        .chuck(masterTap)
         .chuck(dac());
     hpf.freq(20);
     limit.limiter();
@@ -861,12 +871,161 @@ public class DelugeEngineDSL implements Shred, Runnable {
     }
   }
 
+  // ── AUDIO SHRED (LiSa) ────────────────────────────────────────────────────
+
+  private void audio_shred() {
+    float sr = (float) sampleRate();
+    Gain audioBus = (Gain) vm.getGlobalObject(BridgeContract.G_AUDIO_BUS);
+    ChuckUGen adc = org.chuck.core.ChuckDSL.adc();
+
+    // Max record duration: 60 seconds
+    int maxRecordSamples = (int) (sr * 60.0f);
+
+    // LiSa per audio track (indexed by engine row)
+    LiSa[] lisa = new LiSa[BridgeContract.TRACKS];
+    Pan2[] lisaPan = new Pan2[BridgeContract.TRACKS];
+    Gain[] lisaDsend = new Gain[BridgeContract.TRACKS];
+    Gain[] lisaRsend = new Gain[BridgeContract.TRACKS];
+
+    // Wait for at least one audio track before building graph
+    while (isRunning()) {
+      ChuckArray trackTypeInit = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
+      boolean hasAudio = false;
+      for (int i = 0; i < BridgeContract.TRACKS && !hasAudio; i++) {
+        if (trackTypeInit != null && trackTypeInit.getInt(i) == 2) hasAudio = true;
+      }
+      if (hasAudio) break;
+      advance(ms(100));
+    }
+
+    ChuckEvent tickEvent = (ChuckEvent) vm.getGlobalObject(BridgeContract.E_TICK);
+
+    while (isRunning()) {
+      advance(tickEvent);
+
+      ChuckArray trackType = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
+      ChuckArray audioRec = (ChuckArray) vm.getGlobalObject(BridgeContract.G_AUDIO_REC);
+      ChuckArray audioPlay = (ChuckArray) vm.getGlobalObject(BridgeContract.G_AUDIO_PLAY);
+      ChuckArray audioLoop = (ChuckArray) vm.getGlobalObject(BridgeContract.G_AUDIO_LOOP);
+      ChuckArray audioRate = (ChuckArray) vm.getGlobalObject(BridgeContract.G_AUDIO_RATE);
+
+      for (int r = 0; r < BridgeContract.TRACKS; r++) {
+        if (trackType == null || trackType.getInt(r) != 2) continue;
+
+        // Lazily create LiSa + routing for each audio track
+        if (lisa[r] == null) {
+          lisa[r] = new LiSa(sr);
+          lisa[r].duration(maxRecordSamples);
+          lisaPan[r] = new Pan2();
+          lisaDsend[r] = new Gain();
+          lisaRsend[r] = new Gain();
+
+          // Adc => LiSa for recording input
+          adc.chuck(lisa[r]);
+
+          // LiSa => Pan2 => audioBus for playback, plus FX sends
+          lisa[r].chuck(lisaPan[r]).chuck(audioBus);
+          lisaPan[r].chuck(lisaDsend[r]).chuck((ChuckUGen) vm.getGlobalObject(BridgeContract.G_DELAY_IN));
+          lisaPan[r].chuck(lisaRsend[r]).chuck((ChuckUGen) vm.getGlobalObject(BridgeContract.G_REVERB_IN));
+
+          lisa[r].voiceGain(0, 1.0f);
+          lisa[r].voicePan(0, 0.0f);
+          lisa[r].rate(0, 1.0f);
+          lisa[r].loop(0, 1);
+          lisaDsend[r].gain(0.0f);
+          lisaRsend[r].gain(0.15f);
+        }
+
+        // Update sends
+        ChuckArray dlySnd = (ChuckArray) vm.getGlobalObject(BridgeContract.G_DELAY_SEND);
+        ChuckArray revSnd = (ChuckArray) vm.getGlobalObject(BridgeContract.G_REVERB_SEND);
+        lisaDsend[r].gain(dlySnd != null ? (float) dlySnd.getFloat(r) : 0.0f);
+        lisaRsend[r].gain(revSnd != null ? (float) revSnd.getFloat(r) : 0.15f);
+
+        // Recording
+        int rec = audioRec != null ? (int) audioRec.getInt(r) : 0;
+        lisa[r].record(rec);
+
+        // Playback
+        int play = audioPlay != null ? (int) audioPlay.getInt(r) : 0;
+        lisa[r].play(0, play);
+
+        // Loop mode
+        int loop = audioLoop != null ? (int) audioLoop.getInt(r) : 1;
+        lisa[r].loop(0, loop);
+
+        // Play rate
+        float rate = audioRate != null ? (float) audioRate.getFloat(r) : 1.0f;
+        lisa[r].rate(0, rate);
+      }
+    }
+  }
+
+  // ── EXPORT SHRED (WvOut2) ────────────────────────────────────────────────
+
+  private void export_shred() {
+    WvOut2 wvOut = null;
+    boolean wasRecording = false;
+
+    while (isRunning()) {
+      float active = (float) vm.getGlobalFloat(BridgeContract.G_WVOUT_ACTIVE);
+      if (active > 0.5f) {
+        if (!wasRecording) {
+          // Start new export — create WvOut2 and tap into master output
+          if (wvOut != null) wvOut.closeFile();
+          wvOut = new WvOut2((float) sampleRate());
+          wvOut.fileGain(1.0f);
+          wvOut.record(1);
+
+          // Splice WvOut2 between masterTap and dac:
+          //   Before: masterTap → dac
+          //   After:  masterTap → wvOut → dac
+          // This ensures WvOut2.computeStereo() receives the mixed stereo signal
+          // from masterTap's last output, then passes audio through to dac.
+          Gain masterTap = (Gain) vm.getGlobalObject(BridgeContract.G_MASTER_TAP);
+          ChuckUGen dac = dac();
+          masterTap.unchuck(dac);
+          masterTap.chuck(wvOut);
+          wvOut.chuck(dac);
+
+          Object filePathObj = vm.getGlobalObject(BridgeContract.G_WVOUT_FILE);
+          String filePath = filePathObj instanceof String ? (String) filePathObj : null;
+          if (filePath != null && !filePath.isEmpty()) {
+            wvOut.wavWrite(filePath);
+            if (vm.getLogLevel() >= 1) {
+              vm.print("[export] Starting export to: " + filePath + "\n");
+            }
+          }
+          wasRecording = true;
+        }
+        advance(ms(100));
+      } else {
+        if (wasRecording && wvOut != null) {
+          // Restore original chain: masterTap → dac
+          Gain masterTap = (Gain) vm.getGlobalObject(BridgeContract.G_MASTER_TAP);
+          ChuckUGen dac = dac();
+          wvOut.unchuck(dac);
+          masterTap.unchuck(wvOut);
+          masterTap.chuck(dac);
+
+          wvOut.closeFile();
+          if (vm.getLogLevel() >= 1) vm.print("[export] Export complete.\n");
+        }
+        wvOut = null;
+        wasRecording = false;
+        advance(ms(100));
+      }
+    }
+  }
+
   // ── TRANSPORT ────────────────────────────────────────────────────────────
 
   private void transport_shred() {
     vm.setGlobalObject(BridgeContract.G_DELAY_IN, new Gain());
     vm.setGlobalObject(BridgeContract.G_REVERB_IN, new Gain());
     vm.setGlobalObject(BridgeContract.G_SYNTH_BUS, new Gain());
+    vm.setGlobalObject(BridgeContract.G_AUDIO_BUS, new Gain());
+    vm.setGlobalObject(BridgeContract.G_MASTER_TAP, new Gain());
     vm.setGlobalObject(BridgeContract.E_SIDECHAIN, new ChuckEvent());
 
     // Sync point: ensure buses are registered before any sub-shreds try to fetch them
@@ -878,6 +1037,8 @@ public class DelugeEngineDSL implements Shred, Runnable {
     vm.spork(this::kit_shred);
     vm.spork(this::synth_shred);
     vm.spork(this::sidechain_shred);
+    vm.spork(this::audio_shred);
+    vm.spork(this::export_shred);
 
     while (isRunning()) {
       advance(ms(100));
