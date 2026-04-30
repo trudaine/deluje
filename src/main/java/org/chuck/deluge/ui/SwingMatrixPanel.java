@@ -21,6 +21,7 @@ public class SwingMatrixPanel extends JPanel {
   private final int rows = 8;
   private final int cols = 18;
   private int baseTrack = 0;
+  private int stepCount = 16; // steps per page / column count for step area
 
   public void setViewMode(GridViewMode mode) {
     this.viewMode = mode;
@@ -47,7 +48,7 @@ public class SwingMatrixPanel extends JPanel {
               if (hitsStr != null && stepsStr != null) {
                 int K = Integer.parseInt(hitsStr);
                 int N = Integer.parseInt(stepsStr);
-                for (int i = 0; i < 16; i++) {
+                for (int i = 0; i < stepCount; i++) {
                   boolean active = ((i * K) % N) < K;
                   bridge.setStep(baseTrack, i, active);
                 }
@@ -82,9 +83,9 @@ public class SwingMatrixPanel extends JPanel {
     int gridX = 200; // Offset to the right for labels
     int gridY = 20;
 
-    int offset = (currentStep >= 0) ? (currentStep / 16) * 16 : 0;
+    int offset = (currentStep >= 0) ? (currentStep / stepCount) * stepCount : 0;
     int c = (e.getX() - gridX) / cellW;
-    if (e.getX() - gridX >= 16 * cellW + 20) {
+    if (e.getX() - gridX >= stepCount * cellW + 20) {
       c = (e.getX() - gridX - 20) / cellW;
     }
     int r = (e.getY() - gridY) / cellH;
@@ -242,14 +243,14 @@ public class SwingMatrixPanel extends JPanel {
           labelStr = labelStr.substring(lastSlash + 1);
         }
       }
-      int offset = (currentStep >= 0) ? (currentStep / 16) * 16 : 0;
+      int offset = (currentStep >= 0) ? (currentStep / stepCount) * stepCount : 0;
 
       // ...
       g2.drawString(labelStr, 20, gridY + r * cellH + cellH / 2);
 
       for (int c = 0; c < cols; c++) {
         boolean active = false;
-        if (c < 16) {
+        if (c < stepCount) {
           active = bridge != null && bridge.getStep(baseTrack + r, offset + c);
         } else if (c == 16) {
           active = bridge != null && bridge.getMute(baseTrack + r);
@@ -285,7 +286,7 @@ public class SwingMatrixPanel extends JPanel {
           g2.setStroke(new BasicStroke(2));
           g2.drawRoundRect(padX + 2, padY + 2, padW - 4, padH - 4, 8, 8);
 
-          if (c < 16) {
+          if (c < stepCount) {
             if (viewMode == GridViewMode.CLIP) {
               g2.setColor(Color.BLACK);
               g2.setFont(new Font("Monospaced", Font.BOLD, 16));
@@ -323,7 +324,7 @@ public class SwingMatrixPanel extends JPanel {
         }
 
         // Playhead highlight
-        if (c == (currentStep % 16)) {
+        if (c == (currentStep % stepCount)) {
           g2.setColor(Color.YELLOW);
           g2.setStroke(new BasicStroke(3));
 
@@ -343,7 +344,7 @@ public class SwingMatrixPanel extends JPanel {
         boolean activeKey =
             (bridge != null)
                 && (currentStep >= 0)
-                && bridge.getStep(baseTrack + (i % 8), currentStep % 16);
+                && bridge.getStep(baseTrack + (i % 8), currentStep % stepCount);
 
         g2.setColor(activeKey ? new Color(0x00, 0xff, 0xcc) : Color.WHITE);
         g2.fillRect(gridX + i * keyW, keyboardY, keyW - 2, keyH);

@@ -43,7 +43,7 @@ public class SoundTest {
         boolean isSynth = track instanceof org.chuck.deluge.model.SynthTrackModel;
         bridge.setTrackType(trackIdx, isSynth ? 1 : 0);
         for (int r = 0; r < 8; r++) {
-          for (int s = 0; s < 16; s++) {
+          for (int s = 0; s < clip.getStepCount(); s++) {
             org.chuck.deluge.model.StepData sd = clip.getStep(r, s);
             if (sd != null && sd.active()) {
               if (isSynth) {

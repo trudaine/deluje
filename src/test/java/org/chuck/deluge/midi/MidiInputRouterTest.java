@@ -52,7 +52,7 @@ public class MidiInputRouterTest {
     ChuckArray velArray = (ChuckArray) vm.getGlobalObject(BridgeContract.G_VELOCITY);
 
     // Track 4, Step 0
-    int index = 4 * 16 + 0;
+    int index = 4 * BridgeContract.STEPS + 0;
 
     // Pitch should be offset from C3 (60): 72 - 60 = 12 (1 octave up)
     assertEquals(12L, pitchArray.getInt(index));

@@ -4,13 +4,68 @@ import org.chuck.core.ChuckArray;
 import org.chuck.core.ChuckVM;
 
 /**
- * Typed builder that creates and registers every shared global between Java UI and ChucK engine.
+ * Typed contract between the Java Swing UI and the ChucK audio engine — every global that
+ * either side reads or writes is declared, created, and registered here.
+ *
+ * <h2>Architecture</h2>
+ * This class serves as the single source of truth for all shared state. The UI writes
+ * step data, track parameters, and transport controls into typed {@link ChuckArray}s and
+ * scalar globals; the engine's shreds (sporked by {@code DelugeEngineDSL}) read them every
+ * tick. No locks are needed because the UI writes between ticks and the engine reads at
+ * tick boundaries.
+ *
+ * <h2>Dimensions</h2>
+ * <ul>
+ *   <li>{@link #TRACKS} — 64 (configurable via {@code deluge.tracks} system property)</li>
+ *   <li>{@link #STEPS} — 192 (max step capacity per clip, matching real Deluge hardware)</li>
+ *   <li>{@link #PATTERN_SIZE} = {@code TRACKS × STEPS} = 12 288 — sizes all 14 step-data arrays</li>
+ * </ul>
+ *
+ * <h2>Array Layout</h2>
+ * Step-data arrays use a flat stride layout: {@code index = track * STEPS + step}.
+ * All accessor methods ({@link #getStep}, {@link #setPitch}, etc.) follow this convention.
+ * Track-level arrays (level, mute, filter, etc.) are indexed directly by {@code track}.
+ *
+ * <h2>Global Name Conventions (used in the ChucK VM)</h2>
+ * <table>
+ *   <caption>Global naming groups</caption>
+ *   <tr><td>{@code g_*}</td><td>Scalar globals (BPM, play state, master volume)</td></tr>
+ *   <tr><td>{@code g_track_*}</td><td>Per-track integer/float arrays</td></tr>
+ *   <tr><td>{@code g_kit_*}</td><td>Per-track kit-specific params (ADSR, pitch, mute group)</td></tr>
+ *   <tr><td>{@code g_step_*}</td><td>Per-step modulation arrays (filter, res, pan, delay, reverb)</td></tr>
+ *   <tr><td>{@code g_lfo_*}</td><td>Global LFO configuration (rate, type, depth, target, track)</td></tr>
+ *   <tr><td>{@code g_audio_*}</td><td>Audio clip recording/playback state (LiSa)</td></tr>
+ *   <tr><td>{@code g_delay_in / g_reverb_in}</td><td>{@code Gain} UGens for FX send buses</td></tr>
+ *   <tr><td>{@code g_synth_bus / g_audio_bus}</td><td>{@code Gain} UGens for submix buses</td></tr>
+ *   <tr><td>{@code g_master_tap}</td><td>{@code Gain} UGen tapped before dac for WvOut export</td></tr>
+ * </table>
+ *
+ * <h2>Engine Internals (UGen buses)</h2>
+ * The {@link #register} method also creates four {@code Gain} UGens that structure the
+ * engine's audio graph:
+ * <ol>
+ *   <li>{@code g_delay_in} — kit/synth Pan2 sends → Echo → fxIn → dac</li>
+ *   <li>{@code g_reverb_in} — kit/synth Pan2 sends → JCRev/FreeVerb/MVerb → fxIn → dac</li>
+ *   <li>{@code g_synth_bus} — all synth voices → HPF → compressor → limiter → masterTap → dac</li>
+ *   <li>{@code g_audio_bus} — all LiSa outputs → HPF → compressor → limiter → masterTap → dac</li>
+ *   <li>{@code g_master_tap} — WvOut2 spliced in during export; direct pass-through otherwise</li>
+ * </ol>
+ *
+ * <h2>Lifecycle</h2>
+ * 1. Constructed in the UI thread with all default values.
+ * 2. {@link #register(ChuckVM)} called after the VM is created — registers all globals and UGens.
+ * 3. On song load, the UI calls setter methods to copy model data into the arrays.
+ * 4. {@code pushModelToBridge()} in {@code SwingDelugeApp} synchronises the full ProjectModel.
+ * 5. The engine's shreds read these arrays on every tick event.
+ *
+ * @see org.chuck.deluge.engine.DelugeEngineDSL
+ * @see org.chuck.deluge.ui.SwingDelugeApp
  */
 public final class BridgeContract {
 
   // dimensions
   public static final int TRACKS = Integer.getInteger("deluge.tracks", 64);
-  public static final int STEPS = 16;
+  public static final int STEPS = 192;
   public static final int PATTERN_SIZE = TRACKS * STEPS;
 
   public static final int ENV_COUNT = 4;
@@ -513,7 +568,7 @@ public final class BridgeContract {
   }
 
   public void setTrackLength(int track, int steps) {
-    trackLength.setInt(track, (long) Math.max(1, Math.min(16, steps)));
+    trackLength.setInt(track, (long) Math.max(1, steps));
   }
 
   public int getTrackLength(int track) {

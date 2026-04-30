@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.model.StepData;
 import org.junit.jupiter.api.Test;
 
@@ -12,7 +13,7 @@ class DelugeNoteDataMapperTest {
   @Test
   void testEncodeRow() {
     List<StepData> row = new ArrayList<>();
-    for (int i = 0; i < 16; i++) {
+    for (int i = 0; i < BridgeContract.STEPS; i++) {
       row.add(StepData.empty());
     }
     // Set step 2 active (24 ticks)
@@ -28,7 +29,7 @@ class DelugeNoteDataMapperTest {
   @Test
   void testDecodeRow() {
     String hex = "0x000000180000000C4014";
-    List<StepData> row = DelugeNoteDataMapper.decodeRow(hex, 16);
+    List<StepData> row = DelugeNoteDataMapper.decodeRow(hex, BridgeContract.STEPS);
 
     assertTrue(row.get(2).active());
     assertEquals(1.0f, row.get(2).gate(), 0.001);

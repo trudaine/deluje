@@ -11,8 +11,88 @@ import org.chuck.core.*;
 import org.chuck.deluge.BridgeContract;
 
 /**
- * Native Java implementation of the Deluge Engine using the ChucK-Java DSL. Scaled to support up to
- * 64 tracks as defined in the Object Model.
+ * Native Java implementation of the Deluge audio engine, written in the ChucK-Java DSL.
+ *
+ * <p>This class is sporked as a single shred by {@code SequencerLauncher} and internally
+ * forks 8 sub-shreds that collectively implement the full Deluge audio pipeline: kit
+ * sample playback, FM/STK synthesis, audio clip recording/playback (LiSa), master export
+ * (WvOut2), clock generation, FX buses, and sidechain ducking.
+ *
+ * <h2>Architecture</h2>
+ * All state is read from shared {@link ChuckArray}s registered by {@link BridgeContract}.
+ * The main transport loop is event-driven: {@link #clock_shred()} broadcasts
+ * {@code tick_event} at each step boundary (swing-aware), and all other shreds {@code
+ * advance()} on that event. No polling or shared locks are needed — the UI writes data
+ * between ticks and the engine reads it at tick boundaries.
+ *
+ * <h2>Sub-shreds (sporked from {@link #transport_shred()})</h2>
+ * <ol>
+ *   <li><b>fx_bus_shred</b> — Creates the delay (Echo), reverb (JCRev/FreeVerb/MVerb),
+ *       and chorus UGens. Reads from {@code g_delay_in} and {@code g_reverb_in} Gain
+ *       buses that kit/synth voices send to. Gates the FX bus on/off with transport.</li>
+ *   <li><b>master_shred</b> — Routes the synth bus and audio bus through HPF → compressor
+ *       (Dyno) → limiter (Dyno) → masterTap → dac. Reads {@code G_MASTER_COMP} threshold.</li>
+ *   <li><b>clock_shred</b> — Step sequencer clock. Reads {@code G_BPM} and {@code G_SWING}
+ *       to compute tick duration with swing per even/odd step. Broadcasts {@code E_TICK}
+ *       on every step. Supports stutter via {@code G_STUTTER_ON/DIV}.</li>
+ *   <li><b>kit_shred</b> — Multi-voice sample playback. Each kit voice is
+ *       SndBuf → DelugeAdsr → Pan2 → master, with delay/reverb sends. Reads per-step
+ *       patterns, velocity, probability, sample start/end, pitch offset, reverse, mute
+ *       groups. LFO modulation computed inline at audio rate (no poll thread).</li>
+ *   <li><b>synth_shred</b> — Per-voice synthesis supporting two algorithm families:
+ *       <ul>
+ *         <li><b>FM</b> — Two MorphingWavetable UGens (modulator → carrier) with
+ *             configurable ratio, amount, and wave index.</li>
+ *         <li><b>STK</b> — Physical models (Mandolin, Rhodey, ModalBar, Moog) triggered
+ *             via reflection. Algorithm codes: 0=FM, 10=Mandolin, 11=Rhodey, 12=ModalBar, 13=Moog.</li>
+ *       </ul>
+ *       Voices route through SVFilter → DelugeAdsr → Pan2 → synthBus. Supports
+ *       arpeggiator, per-step LFO at 6 targets (filter, res, pan, pitch, vol, FM).</li>
+ *   <li><b>sidechain_shred</b> — On {@code E_SIDECHAIN} (broadcast when kit row 0 fires),
+ *       ducks synth bus gain to 15% for 60ms then ramps back over 120ms.</li>
+ *   <li><b>audio_shred</b> — Per-track LiSa-based audio clip recording and playback.
+ *       Creates LiSa UGens lazily when audio tracks appear. Adc → LiSa for recording;
+ *       LiSa → Pan2 → audioBus for playback. Reads {@code G_AUDIO_REC/PLAY/LOOP/RATE}.</li>
+ *   <li><b>export_shred</b> — Offline WAV export via WvOut2. Listens on
+ *       {@code G_WVOUT_ACTIVE}. When triggered, splices WvOut2 between masterTap and dac,
+ *       records to the path in {@code G_WVOUT_FILE}, then restores the original chain.</li>
+ * </ol>
+ *
+ * <h2>Audio Graph</h2>
+ * <pre>
+ *   ┌─ KIT ───────────────────────┐
+ *   │ SndBuf→Adsr→Pan2→master     │
+ *   │            ├→delay_in→Echo   │  ┌─ FX ──────┐
+ *   │            └→reverb_in→JCRev │  │ fxIn→gate→dac│
+ *   └──────────────────────────────┘  └────────────┘
+ *   ┌─ SYNTH ──────────────────────┐
+ *   │ FM|STK→SVF→Adsr→Pan2→synthBus│
+ *   │            ├→delay_in        │
+ *   │            └→reverb_in       │
+ *   └──────────────────────────────┘
+ *            synthBus→HPF→comp→limit→masterTap→dac
+ *   ┌─ AUDIO ──────────────────────┐  ↑ WvOut2 (export only)
+ *   │ LiSa→Pan2→audioBus→──────────┘
+ *   └──────────────────────────────┘
+ * </pre>
+ *
+ * <h2>LFO Implementation</h2>
+ * Replaced the original polling thread (which slept 5ms and wrote to shared arrays) with
+ * a per-sample phase accumulator computed inline in the kit and synth shreds. Each LFO
+ * tracks its phase in {@code lfoPhase[]} / {@code lfoPhaseKit[]}, advancing by
+ * {@code rate / sampleRate} per computation. This eliminates timing jitter and the
+ * dedicated LFO poll thread entirely.
+ *
+ * <h2>Wave Tables</h2>
+ * Built once in {@link #buildWaveTables()} — 4 tables of 256 samples each:
+ * Sine, Saw, Square, Triangle. Used by MorphingWavetable in FM synthesis.
+ *
+ * <h2>Configuration</h2>
+ * Reverb type is read from {@code PreferencesManager.get("reverb.model", "JCRev")}
+ * at startup. Engine dimensions (TRACKS, STEPS) come from {@link BridgeContract}.
+ *
+ * @see BridgeContract
+ * @see org.chuck.deluge.ui.SwingDelugeApp
  */
 public class DelugeEngineDSL implements Shred, Runnable {
 
@@ -239,9 +319,9 @@ public class DelugeEngineDSL implements Shred, Runnable {
         }
 
         // Per-track polyrhythm step
-        int len = trkLen != null ? (int) Math.max(1, Math.min(16, trkLen.getInt(r))) : 16;
+        int len = trkLen != null ? (int) Math.max(1, trkLen.getInt(r)) : BridgeContract.STEPS;
         int step = (int) (currentStep % len);
-        int idx = r * 16 + step;
+        int idx = r * BridgeContract.STEPS + step;
 
         if (pat == null || pat.getInt(idx) == 0) continue;
         if (prob != null && Math.random() > prob.getFloat(idx)) continue;
@@ -556,9 +636,9 @@ public class DelugeEngineDSL implements Shred, Runnable {
         }
 
         // Per-track polyrhythm step
-        int len = trkLen != null ? (int) Math.max(1, Math.min(16, trkLen.getInt(r))) : 16;
+        int len = trkLen != null ? (int) Math.max(1, trkLen.getInt(r)) : BridgeContract.STEPS;
         int step = (int) (currentStep % len);
-        int idx = r * 16 + step;
+        int idx = r * BridgeContract.STEPS + step;
 
         sDsend[r].gain(dlySnd != null ? (float) dlySnd.getFloat(r) : 0.0f);
         sRsend[r].gain(revSnd != null ? (float) revSnd.getFloat(r) : 0.15f);
@@ -634,7 +714,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
             env[r].keyOn();
             double noteSec = gateSec;
             int rv = r;
-            if (vm.getLogLevel() >= 2) vm.print("SYNTH trigger track: " + rv + " step: " + (idx % 16) + "\n");
+            if (vm.getLogLevel() >= 2) vm.print("SYNTH trigger track: " + rv + " step: " + (idx % BridgeContract.STEPS) + "\n");
             vm.spork(
                 () -> {
                   advance(second(noteSec));
