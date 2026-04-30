@@ -21,12 +21,12 @@ public class VerifySync {
       for (org.chuck.deluge.model.ClipModel clip : track.getClips()) {
         clip.setRowCount(8);
         for (int r = 0; r < 8; r++) {
-          for (int s = 0; s < 16; s++) {
+          for (int s = 0; s < clip.getStepCount(); s++) {
             clip.setStep(r, s, new org.chuck.deluge.model.StepData(false, 0.8f, 0.5f, 1.0f, 0));
           }
         }
 
-        for (int s = 0; s < 16; s++) {
+        for (int s = 0; s < clip.getStepCount(); s++) {
           int r = (s < 8) ? s : (15 - s);
           clip.setStep(r, s, new org.chuck.deluge.model.StepData(true, 0.8f, 0.5f, 1.0f, 0));
         }
@@ -48,7 +48,7 @@ public class VerifySync {
       for (org.chuck.deluge.model.ClipModel clip : track.getClips()) {
         System.out.println("Track " + tIdx + " (" + track.getName() + ") Clip " + cIdx + ":");
         for (int r = 0; r < 8; r++) {
-          for (int s = 0; s < 16; s++) {
+          for (int s = 0; s < clip.getStepCount(); s++) {
             org.chuck.deluge.model.StepData sd = clip.getStep(r, s);
             if (sd != null && sd.active()) {
               System.out.println("  Selected Step -> Row: " + r + " Col: " + s);
@@ -75,7 +75,7 @@ public class VerifySync {
       org.chuck.deluge.model.ClipModel cModel = tModel.getClips().get(0);
       boolean isSynth = tModel instanceof org.chuck.deluge.model.SynthTrackModel;
       for (int r = 0; r < 8; r++) {
-        for (int s = 0; s < 16; s++) {
+        for (int s = 0; s < cModel.getStepCount(); s++) {
           org.chuck.deluge.model.StepData sd = cModel.getStep(r, s);
           if (sd != null && sd.active()) {
             if (isSynth) {
@@ -91,7 +91,7 @@ public class VerifySync {
       System.out.println("UI view for Track " + t + " Clip 0:");
 
       for (int r = 0; r < 8; r++) {
-        for (int s = 0; s < 16; s++) {
+        for (int s = 0; s < BridgeContract.STEPS; s++) {
           if (isSynth) {
             if (bridge.getStep(t * 8, s) && bridge.getPitch(t * 8, s) == (24 - 1 - r)) {
               System.out.println("  UI Active Pad -> Row: " + r + " Col: " + s);

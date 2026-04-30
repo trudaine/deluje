@@ -9,6 +9,7 @@ import org.chuck.deluge.BridgeContract;
 public class SwingVelocityLanePanel extends JPanel {
   private final ChuckVM vm;
   private final BridgeContract bridge;
+  private int stepCount = 16;
 
   public SwingVelocityLanePanel(ChuckVM vm, BridgeContract bridge) {
     this.vm = vm;
@@ -45,7 +46,7 @@ public class SwingVelocityLanePanel extends JPanel {
     int h = getHeight();
     int step = (e.getX() - 172) / padSz;
 
-    if (step >= 0 && step < 16) {
+    if (step >= 0 && step < stepCount) {
       double val = 1.0 - (double) e.getY() / h;
       val = Math.max(0.0, Math.min(1.0, val));
 
@@ -117,7 +118,7 @@ public class SwingVelocityLanePanel extends JPanel {
             org.chuck.deluge.project.PreferencesManager.get("hd.optimization", "false"));
     int padSz = isHd ? 70 : 120;
 
-    for (int i = 0; i < 16; i++) {
+    for (int i = 0; i < stepCount; i++) {
       double val = (bridge != null) ? bridge.getVelocity(0, i) : 0.5;
       int barH = (int) (val * (h - 20));
 

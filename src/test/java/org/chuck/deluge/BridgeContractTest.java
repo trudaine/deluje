@@ -29,9 +29,9 @@ class BridgeContractTest {
 
   @Test
   void testDimensions() {
-    assertEquals(1024, BridgeContract.PATTERN_SIZE);
+    assertEquals(12288, BridgeContract.PATTERN_SIZE);
     assertEquals(64, BridgeContract.TRACKS);
-    assertEquals(16, BridgeContract.STEPS);
+    assertEquals(192, BridgeContract.STEPS);
     assertEquals(4, BridgeContract.ENV_COUNT);
     assertEquals(4, BridgeContract.ENV_PARAMS);
     assertEquals(4, BridgeContract.LFO_COUNT);
@@ -176,6 +176,6 @@ class BridgeContractTest {
     // Java writes; verify via ChuckArray API (engine reads same object)
     bridge.setStep(1, 8, true);
     ChuckArray arr = bridge.patternArray();
-    assertEquals(1L, arr.getInt(1 * 16 + 8));
+    assertEquals(1L, arr.getInt(1 * BridgeContract.STEPS + 8));
   }
 }

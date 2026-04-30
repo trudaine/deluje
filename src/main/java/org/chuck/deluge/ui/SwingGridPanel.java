@@ -559,11 +559,11 @@ public class SwingGridPanel extends JPanel {
         public void mouseClicked(java.awt.event.MouseEvent e) {
           if (javax.swing.SwingUtilities.isRightMouseButton(e) || e.getClickCount() == 2) {
             String input = JOptionPane.showInputDialog(
-                SwingGridPanel.this, "Track length (1-64):", stepLen);
+                SwingGridPanel.this, "Track length (1-192):", stepLen);
             if (input != null) {
               try {
                 int newLen = Integer.parseInt(input.trim());
-                if (newLen >= 1 && newLen <= 64) {
+                if (newLen >= 1 && newLen <= BridgeContract.STEPS) {
                   bridge.setTrackLength(modelRow, newLen);
                   refresh();
                 }
@@ -1487,7 +1487,7 @@ public class SwingGridPanel extends JPanel {
               if (input != null) {
                 try {
                   int newLen = Integer.parseInt(input.trim());
-                  if (newLen >= 1 && newLen <= 64) {
+                  if (newLen >= 1 && newLen <= BridgeContract.STEPS) {
                     bridge.setTrackLength(trk, newLen);
                     refresh();
                   }
@@ -2230,7 +2230,7 @@ public class SwingGridPanel extends JPanel {
                   lastCol[0] = activeCol;
                   if (activeCol == 0) {
                     for (int t = 0; t < rows; t++) {
-                      if (isOneShotTrack[t] && currentStep >= 16) {
+                      if (isOneShotTrack[t] && currentStep >= stepCount) {
                         bridge.setMute(baseTrackId + t, true);
                       }
                     }

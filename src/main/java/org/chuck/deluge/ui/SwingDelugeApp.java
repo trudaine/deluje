@@ -124,8 +124,9 @@ public class SwingDelugeApp extends JFrame {
         int activeClipIdx = kit.getActiveClipIndex();
         if (activeClipIdx >= 0 && activeClipIdx < kit.getClips().size()) {
           org.chuck.deluge.model.ClipModel clip = kit.getClips().get(activeClipIdx);
+          int stepCount = clip.getStepCount();
           for (int r = 0; r < clip.getRowCount(); r++) {
-            for (int s = 0; s < 16; s++) {
+            for (int s = 0; s < stepCount; s++) {
               org.chuck.deluge.model.StepData step = clip.getStep(r, s);
               if (step != null && step.active() && r < voiceCount) {
                 bridge.setStep(startRow + r, s, true);
@@ -145,8 +146,9 @@ public class SwingDelugeApp extends JFrame {
         int activeClipIdx = synth.getActiveClipIndex();
         if (activeClipIdx >= 0 && activeClipIdx < synth.getClips().size()) {
           org.chuck.deluge.model.ClipModel clip = synth.getClips().get(activeClipIdx);
+          int stepCount = clip.getStepCount();
           for (int r = 0; r < clip.getRowCount() && r < voiceCount; r++) {
-            for (int s = 0; s < 16; s++) {
+            for (int s = 0; s < stepCount; s++) {
               org.chuck.deluge.model.StepData step = clip.getStep(r, s);
               if (step != null && step.active()) {
                 bridge.setStep(startRow + r, s, true);
@@ -216,8 +218,9 @@ public class SwingDelugeApp extends JFrame {
         int activeClipIdx = audio.getActiveClipIndex();
         if (activeClipIdx >= 0 && activeClipIdx < audio.getClips().size()) {
           org.chuck.deluge.model.ClipModel clip = audio.getClips().get(activeClipIdx);
+          int stepCount = clip.getStepCount();
           for (int r = 0; r < clip.getRowCount() && r < voiceCount; r++) {
-            for (int s = 0; s < 16; s++) {
+            for (int s = 0; s < stepCount; s++) {
               org.chuck.deluge.model.StepData step = clip.getStep(r, s);
               if (step != null && step.active()) {
                 bridge.setStep(startRow + r, s, true);
@@ -991,17 +994,27 @@ public class SwingDelugeApp extends JFrame {
                 trackId < allTrks.size()
                     && allTrks.get(trackId) instanceof org.chuck.deluge.model.SynthTrackModel;
 
+            // Determine step count for clearing and re-pushing
+            int clearSteps = 16;
+            if (trackId < allTrks.size()) {
+              org.chuck.deluge.model.TrackModel tModel = allTrks.get(trackId);
+              if (clipId < tModel.getClips().size()) {
+                clearSteps = tModel.getClips().get(clipId).getStepCount();
+              }
+            }
+
             // Clear engine rows for this track
             for (int v = 0; v < voiceCount; v++) {
-              for (int s = 0; s < 16; s++) bridge.setStep(engineBase + v, s, false);
+              for (int s = 0; s < clearSteps; s++) bridge.setStep(engineBase + v, s, false);
             }
 
             if (trackId < allTrks.size()) {
               org.chuck.deluge.model.TrackModel tModel = allTrks.get(trackId);
               if (clipId < tModel.getClips().size()) {
                 org.chuck.deluge.model.ClipModel cModel = tModel.getClips().get(clipId);
+                int clipSteps = cModel.getStepCount();
                 for (int r = 0; r < cModel.getRowCount(); r++) {
-                  for (int s = 0; s < 16; s++) {
+                  for (int s = 0; s < clipSteps; s++) {
                     org.chuck.deluge.model.StepData sd = cModel.getStep(r, s);
                     if (sd != null && sd.active()) {
                       if (r < voiceCount) {

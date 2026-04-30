@@ -24,7 +24,7 @@ public class MuteTest {
     for (org.chuck.deluge.model.TrackModel track : model.getTracks()) {
       for (org.chuck.deluge.model.ClipModel clip : track.getClips()) {
         for (int r = 0; r < 8; r++) {
-          for (int s = 0; s < 16; s++) {
+          for (int s = 0; s < clip.getStepCount(); s++) {
             org.chuck.deluge.model.StepData sd = clip.getStep(r, s);
             if (sd != null && sd.active()) {
               bridge.setStep(trackIdx * 8 + r, s, true);
@@ -40,7 +40,7 @@ public class MuteTest {
     int activeTracksFound = 0;
     for (int i = 0; i < 64; i++) {
       boolean trackHasSteps = false;
-      for (int s = 0; s < 16; s++) {
+      for (int s = 0; s < BridgeContract.STEPS; s++) {
         if (bridge.getStep(i, s)) {
           trackHasSteps = true;
           break;
