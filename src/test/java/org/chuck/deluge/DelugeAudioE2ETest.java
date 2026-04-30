@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.InputStream;
 import org.chuck.core.ChuckVM;
-import org.chuck.deluge.engine.DelugeEngine;
+import org.chuck.deluge.engine.DelugeEngineDSL;
 import org.chuck.deluge.model.KitTrackModel;
 import org.chuck.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
@@ -25,8 +25,7 @@ public class DelugeAudioE2ETest {
     bridge.register(vm);
 
     // 1. Start Engine
-    DelugeEngine engine = new DelugeEngine(vm, bridge);
-    vm.spork(engine::shred);
+    vm.spork(new DelugeEngineDSL());
 
     vm.advanceTime(44100);
 

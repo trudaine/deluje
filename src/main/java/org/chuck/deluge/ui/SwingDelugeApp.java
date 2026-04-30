@@ -1079,13 +1079,7 @@ public class SwingDelugeApp extends JFrame {
     vm.setAudio(audio);
     audio.start();
 
-    if (bridge.isUseJavaEngine()) {
-      vm.spork(new org.chuck.deluge.engine.DelugeEngineDSL());
-    } else {
-      org.chuck.deluge.engine.DelugeEngine engine =
-          new org.chuck.deluge.engine.DelugeEngine(vm, bridge);
-      vm.spork(engine::shred);
-    }
+    vm.spork(new org.chuck.deluge.engine.DelugeEngineDSL());
 
     org.chuck.deluge.midi.MidiInputRouter router =
         new org.chuck.deluge.midi.MidiInputRouter(vm, bridge);
