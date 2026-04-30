@@ -282,17 +282,31 @@ public class DelugeXmlParser {
       }
       KitTrackModel.KitSound sound = new KitTrackModel.KitSound(soundName);
       NodeList sampleNodes = soundNode.getElementsByTagName("sample");
+      boolean found = false;
       if (sampleNodes.getLength() > 0) {
         Element sampleNode = (Element) sampleNodes.item(0);
         if (sampleNode.hasAttribute("fileName")) {
           sound.setSamplePath(sampleNode.getAttribute("fileName"));
+          found = true;
         } else {
           NodeList fnNodes = sampleNode.getElementsByTagName("fileName");
           if (fnNodes.getLength() > 0) {
             String fn = fnNodes.item(0).getTextContent();
             if (fn != null && !fn.isBlank()) {
               sound.setSamplePath(fn);
+              found = true;
             }
+          }
+        }
+      }
+      // Fallback: try osc1/fileName (song instrument nodes use this structure)
+      if (!found) {
+        NodeList oscNodes = soundNode.getElementsByTagName("osc1");
+        if (oscNodes.getLength() > 0) {
+          Element osc = (Element) oscNodes.item(0);
+          NodeList fnNodes = osc.getElementsByTagName("fileName");
+          if (fnNodes.getLength() > 0) {
+            sound.setSamplePath(fnNodes.item(0).getTextContent());
           }
         }
       }
