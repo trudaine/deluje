@@ -43,6 +43,19 @@ public class SynthTrackModel extends TrackModel {
   private float eqBass = 0.0f;
   private float eqTreble = 0.0f;
 
+  /** Synth mode: 0=SUBTRACTIVE, 1=FM, 2=RINGMOD. Maps to XML `<mode>` tag content. */
+  /** Synth mode: 0=SUBTRACTIVE, 1=FM, 2=RINGMOD. Maps to XML `<mode>` tag content. */
+  private int synthMode = 0;
+
+  /** FM modulator ratio derived from <modulator1><transpose> — 2^(transpose/12). 1.0 = no transposition. */
+  private float fmRatio = 1.0f;
+  /** FM modulator amount (0-1) derived from <modulator1Amount> hex knob value. */
+  private float fmAmount = 0.0f;
+
+  public enum PolyphonyMode { POLY, MONO, LEGATO }
+
+  private PolyphonyMode polyphony = PolyphonyMode.POLY;
+
   // Synthesis algorithm: 0=FM, 10=Mandolin, 11=Rhodey, 12=ModalBar, 13=Moog
   private int synthAlgorithm = 0;
 
@@ -275,11 +288,43 @@ public class SynthTrackModel extends TrackModel {
     this.eqTreble = eqTreble;
   }
 
+  public int getSynthMode() {
+    return synthMode;
+  }
+
+  public void setSynthMode(int synthMode) {
+    this.synthMode = synthMode;
+  }
+
   public int getSynthAlgorithm() {
     return synthAlgorithm;
   }
 
   public void setSynthAlgorithm(int synthAlgorithm) {
     this.synthAlgorithm = synthAlgorithm;
+  }
+
+  public float getFmRatio() {
+    return fmRatio;
+  }
+
+  public void setFmRatio(float fmRatio) {
+    this.fmRatio = fmRatio;
+  }
+
+  public float getFmAmount() {
+    return fmAmount;
+  }
+
+  public void setFmAmount(float fmAmount) {
+    this.fmAmount = fmAmount;
+  }
+
+  public PolyphonyMode getPolyphony() {
+    return polyphony;
+  }
+
+  public void setPolyphony(PolyphonyMode polyphony) {
+    this.polyphony = polyphony;
   }
 }
