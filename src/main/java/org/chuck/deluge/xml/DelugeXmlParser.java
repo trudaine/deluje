@@ -158,6 +158,9 @@ public class DelugeXmlParser {
     }
 
     // 1. Parse Instruments
+    // Collect direct-child <sound> elements for later automation parsing
+    java.util.ArrayList<Element> instrumentSoundNodes = new java.util.ArrayList<>();
+
     NodeList instNodes = songNode.getElementsByTagName("instruments");
     if (instNodes.getLength() > 0) {
       Element instruments = (Element) instNodes.item(0);
@@ -176,6 +179,7 @@ public class DelugeXmlParser {
       for (int i = 0; i < soundNodes.getLength(); i++) {
         Element soundNode = (Element) soundNodes.item(i);
         if (soundNode.getParentNode() == instruments) {
+          instrumentSoundNodes.add(soundNode);
           SynthTrackModel synth = parseSynthElement(soundNode);
           project.addTrack(synth);
           System.out.println("PARSER: Loaded synth track " + synth.getName());
@@ -232,6 +236,23 @@ public class DelugeXmlParser {
               }
             }
             targetTrack.addClip(clip);
+
+            // ── Parse automation data for synth tracks ──
+            if (targetTrack instanceof SynthTrackModel && !instrumentSoundNodes.isEmpty()) {
+              // Count how many kit tracks came before this synth track to compute the
+              // correct index into instrumentSoundNodes (which only contains <sound> elements).
+              int kitCount = 0;
+              for (int k = 0; k < i; k++) {
+                if (k < projectTracks.size() && projectTracks.get(k) instanceof KitTrackModel) {
+                  kitCount++;
+                }
+              }
+              int soundIdx = i - kitCount;
+              if (soundIdx >= 0 && soundIdx < instrumentSoundNodes.size()) {
+                Element soundNode = instrumentSoundNodes.get(soundIdx);
+                parseAutomation(soundNode, clip);
+              }
+            }
           }
         } else {
           System.out.println(
@@ -470,6 +491,43 @@ public class DelugeXmlParser {
       return (text == null || text.isBlank()) ? null : text.trim();
     }
     return null;
+  }
+
+  /**
+   * Parses automation data from a {@code <sound>} element and stores it into the given ClipModel.
+   * Expected XML structure:
+   * <pre>{@code
+   * <automation>
+   *   <param name="lpfFrequency">
+   *     <step index="0">0.5</step>
+   *     <step index="4">0.8</step>
+   *   </param>
+   * </automation>
+   * }</pre>
+   */
+  static void parseAutomation(Element soundNode, ClipModel clip) {
+    NodeList autoNodes = soundNode.getElementsByTagName("automation");
+    if (autoNodes.getLength() == 0) return;
+    Element autoElem = (Element) autoNodes.item(0);
+    NodeList paramNodes = autoElem.getElementsByTagName("param");
+    for (int p = 0; p < paramNodes.getLength(); p++) {
+      Element paramElem = (Element) paramNodes.item(p);
+      String paramName = paramElem.getAttribute("name");
+      if (paramName == null || paramName.isBlank()) continue;
+      NodeList stepNodes = paramElem.getElementsByTagName("step");
+      for (int s = 0; s < stepNodes.getLength(); s++) {
+        Element stepElem = (Element) stepNodes.item(s);
+        try {
+          int idx = Integer.parseInt(stepElem.getAttribute("index"));
+          float val = Float.parseFloat(stepElem.getTextContent().trim());
+          if (idx >= 0 && idx < clip.getStepCount()) {
+            clip.setAutomation(paramName, idx, Math.max(0.0f, Math.min(1.0f, val)));
+          }
+        } catch (NumberFormatException ignored) {
+          // skip malformed step entries
+        }
+      }
+    }
   }
 
   private static Document parseXml(InputStream is) throws Exception {

@@ -37,10 +37,15 @@ public class SwingGridPanel extends JPanel {
   public enum GridViewMode {
     CLIP,
     SONG,
-    ARRANGEMENT
+    ARRANGEMENT,
+    AUTOMATION
   }
 
   private GridViewMode viewMode = GridViewMode.SONG;
+
+  private String selectedAutomationParam = org.chuck.deluge.model.AutomationParam.ALL[0];
+  private javax.swing.JComboBox<String> automationParamCombo;
+  private boolean automationDragging = false;
 
   private Color[] trackColors = {
     new Color(0x00, 0xff, 0xcc), // Cyan
@@ -349,8 +354,12 @@ public class SwingGridPanel extends JPanel {
   }
 
   public void setViewMode(GridViewMode mode) {
-
     this.viewMode = mode;
+    if (mode == GridViewMode.AUTOMATION) {
+      this.columnCount = stepCount; // no MUTE/SOLO columns
+    } else {
+      this.columnCount = stepCount + 2;
+    }
     refresh();
   }
 
@@ -387,6 +396,9 @@ public class SwingGridPanel extends JPanel {
       this.gridMode = mode;
       this.stepCount = mode.columns;
       this.columnCount = mode.columns + 2; // +2 for MUTE and SOLO columns
+      if (viewMode == GridViewMode.AUTOMATION) {
+        this.columnCount = mode.columns;
+      }
       scrollOffset = 0;
       scrollOffsetX = 0;
       refresh();
@@ -409,6 +421,9 @@ public class SwingGridPanel extends JPanel {
 
   /** Compute total voice rows for the currently edited track in CLIP mode. */
   private int computeVoiceRowCount() {
+    if (viewMode == GridViewMode.AUTOMATION) {
+      return 8; // fixed 8 value bands (0-127 mapped to 8 rows)
+    }
     if (viewMode == GridViewMode.CLIP && projectModel != null
         && editedModelTrack < projectModel.getTracks().size()) {
       org.chuck.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
@@ -1188,7 +1203,208 @@ public class SwingGridPanel extends JPanel {
 
     int savedColCount = columnCount; // saved for SONG/ARRANGEMENT section below
 
-    if (viewMode == GridViewMode.CLIP) {
+    if (viewMode == GridViewMode.AUTOMATION) {
+      // ===== AUTOMATION MODE: 8 value-band rows × stepCount columns =====
+      voiceRowCount = 8;
+      columnCount = stepCount; // no MUTE/SOLO
+
+      // Build the parameter selector combo and header
+      JPanel autoHeader = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 2));
+      autoHeader.setBackground(new Color(0x15, 0x15, 0x15));
+
+      JLabel autoLabel = new JLabel("AUTOMATION");
+      autoLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
+      autoLabel.setForeground(new Color(0x00, 0xff, 0xcc));
+      autoHeader.add(autoLabel);
+
+      automationParamCombo = new javax.swing.JComboBox<>(org.chuck.deluge.model.AutomationParam.ALL);
+      automationParamCombo.setSelectedItem(selectedAutomationParam);
+      automationParamCombo.addActionListener(e -> {
+        String selected = (String) automationParamCombo.getSelectedItem();
+        if (selected != null) {
+          selectedAutomationParam = selected;
+          refresh();
+        }
+      });
+      automationParamCombo.setToolTipText("Select automation parameter");
+      autoHeader.add(automationParamCombo);
+
+      JButton clearAutoBtn = new JButton("Clear All");
+      clearAutoBtn.setFont(new Font("SansSerif", Font.PLAIN, 11));
+      clearAutoBtn.setMargin(new Insets(0, 4, 0, 4));
+      clearAutoBtn.addActionListener(e -> {
+        if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+          org.chuck.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
+          int acIdx = t.getActiveClipIndex();
+          java.util.List<org.chuck.deluge.model.ClipModel> clips = t.getClips();
+          if (acIdx >= 0 && acIdx < clips.size()) {
+            clips.get(acIdx).clearAutomation(selectedAutomationParam);
+            refresh();
+          }
+        }
+      });
+      autoHeader.add(clearAutoBtn);
+
+      // Show track context if editing
+      if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+        JLabel trackLabel = new JLabel("Track: " + projectModel.getTracks().get(editedModelTrack).getName());
+        trackLabel.setForeground(Color.LIGHT_GRAY);
+        trackLabel.setFont(new Font("SansSerif", Font.ITALIC, 12));
+        autoHeader.add(Box.createHorizontalStrut(20));
+        autoHeader.add(trackLabel);
+      }
+
+      add(autoHeader);
+
+      // Step number header row
+      JPanel stepHeader = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+      stepHeader.setBackground(new Color(0x15, 0x15, 0x15));
+      // spacing to align with grid cells (label area + spacer width)
+      int labelOffset = Math.max(60, Math.min(140, getWidth() / 12)) + 69 + 5 + 12 + 5;
+      stepHeader.add(Box.createRigidArea(new Dimension(labelOffset, 20)));
+      for (int c = 0; c < stepCount; c++) {
+        JLabel stepNum = new JLabel(String.valueOf(c + 1), javax.swing.SwingConstants.CENTER);
+        stepNum.setPreferredSize(new Dimension(padSz, 18));
+        stepNum.setForeground(Color.GRAY);
+        stepNum.setFont(new Font("Monospaced", Font.PLAIN, 10));
+        stepHeader.add(stepNum);
+      }
+      add(stepHeader);
+
+      // Get the active clip's automation data for the selected param
+      org.chuck.deluge.model.ClipModel autoClip = null;
+      String autoParam = selectedAutomationParam;
+      if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+        org.chuck.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
+        int acIdx = t.getActiveClipIndex();
+        if (acIdx >= 0 && acIdx < t.getClips().size()) {
+          autoClip = t.getClips().get(acIdx);
+        }
+      }
+
+      // Label for each value band row
+      String[] bandLabels = {"0-15", "16-31", "32-47", "48-63", "64-79", "80-95", "96-111", "112-127"};
+
+      for (int r = 0; r < 8; r++) {
+        final int rowIdx = r;
+        JPanel rowPanel = new JPanel();
+        rowPanel.setLayout(new BoxLayout(rowPanel, BoxLayout.X_AXIS));
+        rowPanel.setBackground(new Color(0x22, 0x22, 0x22));
+        rowPanel.setPreferredSize(new Dimension(3000, padSz));
+        rowPanel.setMinimumSize(new Dimension(3000, padSz));
+        rowPanel.setMaximumSize(new Dimension(3000, padSz));
+
+        JLabel valLabel = new JLabel(bandLabels[r]);
+        int lw = Math.max(60, Math.min(140, getWidth() / 12));
+        valLabel.setPreferredSize(new Dimension(lw, 30));
+        valLabel.setMinimumSize(new Dimension(lw, 30));
+        valLabel.setMaximumSize(new Dimension(lw, 30));
+        valLabel.setForeground(new Color(0x88, 0x88, 0x88));
+        valLabel.setFont(new Font("Monospaced", Font.PLAIN, 11));
+        rowPanel.add(valLabel);
+
+        // Spacer to match config-button + len-badge area (69px)
+        rowPanel.add(Box.createRigidArea(new Dimension(69, 1)));
+        rowPanel.add(Box.createHorizontalStrut(5));
+
+        VUMeterPanel vu = new VUMeterPanel();
+        vu.setPreferredSize(new Dimension(12, padSz));
+        vu.setMaximumSize(new Dimension(12, padSz));
+        rowPanel.add(vu);
+        rowPanel.add(Box.createHorizontalStrut(5));
+
+        for (int c = 0; c < stepCount; c++) {
+          final int colIdx = c;
+          JButton cell = new JButton();
+          cell.setPreferredSize(new Dimension(padSz, padSz));
+          cell.setMinimumSize(new Dimension(padSz, padSz));
+          cell.setMaximumSize(new Dimension(padSz, padSz));
+          cell.setMargin(new Insets(0, 0, 0, 0));
+
+          pads[r][c] = cell;
+
+          // Determine if this cell is "lit" (value band matches row)
+          boolean lit = false;
+          float autoVal = -1f;
+          if (autoClip != null) {
+            autoVal = autoClip.getAutomation(autoParam, colIdx);
+            if (autoVal >= 0f) {
+              int band = (int)(autoVal * 127f) / 16;
+              lit = (band == rowIdx);
+            }
+          }
+
+          if (lit) {
+            // Calculate intensity within band (0-15) for brightness
+            int precise = (int)(autoVal * 127f) % 16;
+            int bright = 0x44 + precise * 8; // range 0x44 to 0xcc
+            cell.setBackground(new Color(0x00, bright, Math.min(0xcc, bright / 2 + 0x44)));
+            cell.setForeground(Color.WHITE);
+            cell.setText("\u25CF");
+          } else {
+            cell.setBackground(new Color(0x33, 0x33, 0x33));
+            cell.setForeground(new Color(0x55, 0x55, 0x55));
+            if (autoVal >= 0f && (int)(autoVal * 127f) / 16 >= 0) {
+              // This param has automation but value band doesn't match this row
+              cell.setText(".");
+            } else {
+              cell.setText("");
+            }
+          }
+
+          cell.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mousePressed(java.awt.event.MouseEvent e) {
+              if (projectModel == null) return;
+              org.chuck.deluge.model.TrackModel tM = projectModel.getTracks().get(editedModelTrack);
+              int acIdx2 = tM.getActiveClipIndex();
+              if (acIdx2 < 0 || acIdx2 >= tM.getClips().size()) return;
+              org.chuck.deluge.model.ClipModel cM = tM.getClips().get(acIdx2);
+
+              if (javax.swing.SwingUtilities.isLeftMouseButton(e)) {
+                if (e.isShiftDown()) {
+                  // Clear automation at this step
+                  float[] arr = cM.getAutomationArray(autoParam);
+                  if (arr != null && colIdx < arr.length) {
+                    arr[colIdx] = -1f;
+                    refresh();
+                  }
+                } else {
+                  // Set automation value = center of band
+                  float val = (rowIdx * 16 + 8) / 127.0f;
+                  cM.setAutomation(autoParam, colIdx, val);
+                  automationDragging = true;
+                  refresh();
+                }
+              }
+            }
+
+            @Override
+            public void mouseReleased(java.awt.event.MouseEvent e) {
+              automationDragging = false;
+            }
+          });
+
+          cell.addMouseMotionListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseDragged(java.awt.event.MouseEvent e) {
+              if (!automationDragging || projectModel == null) return;
+              org.chuck.deluge.model.TrackModel tM = projectModel.getTracks().get(editedModelTrack);
+              int acIdx2 = tM.getActiveClipIndex();
+              if (acIdx2 < 0 || acIdx2 >= tM.getClips().size()) return;
+              org.chuck.deluge.model.ClipModel cM = tM.getClips().get(acIdx2);
+              float val = (rowIdx * 16 + 8) / 127.0f;
+              cM.setAutomation(autoParam, colIdx, val);
+              refresh();
+            }
+          });
+
+          rowPanel.add(cell);
+          rowPanel.add(Box.createHorizontalStrut(5));
+        }
+        add(rowPanel);
+      }
+    } else if (viewMode == GridViewMode.CLIP) {
       // ===== CLIP MODE: scrollable voice rows + fixed MACROS/SLIDERS/KEYBOARD =====
 
       // Section 1: Track info header
@@ -2033,7 +2249,8 @@ public class SwingGridPanel extends JPanel {
                   engineActiveCol = currentStep % stepCount;
                 }
 
-                int rows = (viewMode == GridViewMode.CLIP) ? voiceRowCount : gridMode.rows;
+                int rows = (viewMode == GridViewMode.AUTOMATION) ? 8
+                    : (viewMode == GridViewMode.CLIP) ? voiceRowCount : gridMode.rows;
                 if (activeCol != lastCol[0]) {
                   lastCol[0] = activeCol;
                   if (activeCol == 0) {
@@ -2077,9 +2294,10 @@ public class SwingGridPanel extends JPanel {
                   }
                 }
 
+                if (viewMode != GridViewMode.AUTOMATION) {
                 for (int t = 0; t < rows; t++) {
-                  int engineRow = baseTrackId + (viewMode == GridViewMode.CLIP ? scrollOffset + t : t);
-                  int trackLenT = bridge != null ? bridge.getTrackLength(engineRow) : stepCount;
+                  int engineRow2 = baseTrackId + (viewMode == GridViewMode.CLIP ? scrollOffset + t : t);
+                  int trackLenT = bridge != null ? bridge.getTrackLength(engineRow2) : stepCount;
                   for (int c = 0; c < stepCount; c++) {
                     if (pads[t][c] != null) {
                       // Map visual column to engine column when scrolled horizontally
@@ -2097,13 +2315,14 @@ public class SwingGridPanel extends JPanel {
                         pads[t][c].setBorder(UIManager.getBorder("Button.border"));
                       }
                       // Re-sync background from bridge so cell selection stays correct during playback
-                      boolean stepActive = bridge.getStep(engineRow, engineCol);
-                      double velPb = bridge.getVelocity(engineRow, engineCol);
+                      boolean stepActive = bridge.getStep(engineRow2, engineCol);
+                      double velPb = bridge.getVelocity(engineRow2, engineCol);
                       pads[t][c].setBackground(
                           stepActive ? velocityBlend(trackColors[t % trackColors.length], velPb) : new Color(0x33, 0x33, 0x33));
                     }
                   }
                 }
+                } // end if (viewMode != AUTOMATION)
               }
             });
     playheadTimer.start();
