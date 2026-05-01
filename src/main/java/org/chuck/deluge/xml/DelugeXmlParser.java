@@ -3,6 +3,7 @@ package org.chuck.deluge.xml;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.chuck.deluge.model.*;
@@ -11,6 +12,29 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
 public class DelugeXmlParser {
+
+  // ── Declarative bindings for simple synth fields ──
+
+  private static final List<FieldBinding<?>> DIRECT_BINDINGS = List.of(
+    // osc1 type: attribute or child element
+    FieldBinding.attrOrChild("osc1", "type", SynthTrackModel::setOsc1Type, String::toUpperCase),
+    // osc2 type: child element only
+    FieldBinding.childText("osc2", "type", SynthTrackModel::setOsc2Type, String::toUpperCase)
+  );
+
+  private static final List<FieldBinding<?>> DEFAULT_PARAMS_BINDINGS = List.of(
+    FieldBinding.hexHz("defaultParams", "lpfFrequency",    SynthTrackModel::setLpfFreq),
+    FieldBinding.hexFloat("defaultParams", "lpfResonance",    SynthTrackModel::setLpfRes),
+    FieldBinding.hexHz("defaultParams", "hpfFrequency",    SynthTrackModel::setHpfFreq),
+    FieldBinding.hexFloat("defaultParams", "hpfResonance",    SynthTrackModel::setHpfRes),
+    FieldBinding.hexFloat("defaultParams", "modulator1Feedback", SynthTrackModel::setModulator1Feedback),
+    FieldBinding.hexFloat("defaultParams", "modulator2Amount",   SynthTrackModel::setModulator2Amount),
+    FieldBinding.hexFloat("defaultParams", "modulator2Feedback", SynthTrackModel::setModulator2Feedback),
+    FieldBinding.hexFloat("defaultParams", "carrier1Feedback",   SynthTrackModel::setCarrier1Feedback),
+    FieldBinding.hexFloat("defaultParams", "carrier2Feedback",   SynthTrackModel::setCarrier2Feedback)
+  );
+
+  // ── Public entry points ──
 
   public static KitTrackModel parseKit(java.io.File xmlFile) throws Exception {
     return parseKit(new java.io.FileInputStream(xmlFile), xmlFile.getName().replace(".XML", ""));
@@ -92,168 +116,7 @@ public class DelugeXmlParser {
     }
 
     SynthTrackModel synth = new SynthTrackModel(name);
-
-    // ── Osc 1 ──
-    NodeList osc1Nodes = soundNode.getElementsByTagName("osc1");
-    if (osc1Nodes.getLength() > 0) {
-      Element osc1 = (Element) osc1Nodes.item(0);
-      if (osc1.hasAttribute("type")) {
-        synth.setOsc1Type(osc1.getAttribute("type").toUpperCase());
-      } else {
-        // Some XMLs use <type> child element
-        NodeList typeNodes = osc1.getElementsByTagName("type");
-        if (typeNodes.getLength() > 0) {
-          synth.setOsc1Type(typeNodes.item(0).getTextContent().toUpperCase());
-        }
-      }
-    }
-
-    // ── Osc 2 ──
-    NodeList osc2Nodes = soundNode.getElementsByTagName("osc2");
-    if (osc2Nodes.getLength() > 0) {
-      Element osc2 = (Element) osc2Nodes.item(0);
-      NodeList typeNodes = osc2.getElementsByTagName("type");
-      if (typeNodes.getLength() > 0) {
-        synth.setOsc2Type(typeNodes.item(0).getTextContent().toUpperCase());
-      }
-    }
-
-    // ── Synth Mode ──
-    // Reads <mode>fm</mode>, <mode>subtractive</mode>, <mode>ringmod</mode>
-    NodeList modeNodes = soundNode.getElementsByTagName("mode");
-    if (modeNodes.getLength() > 0) {
-      String mode = modeNodes.item(0).getTextContent().trim().toLowerCase();
-      switch (mode) {
-        case "fm" -> synth.setSynthMode(1);
-        case "ringmod" -> synth.setSynthMode(2);
-        default -> synth.setSynthMode(0); // subtractive or absent
-      }
-    }
-
-    // ── Polyphonic mode ──
-    NodeList polyNodes = soundNode.getElementsByTagName("polyphonic");
-    if (polyNodes.getLength() > 0) {
-      String val = polyNodes.item(0).getTextContent().trim().toLowerCase();
-      switch (val) {
-        case "mono":
-        case "0":
-          synth.setPolyphony(SynthTrackModel.PolyphonyMode.MONO);
-          break;
-        case "legato":
-          synth.setPolyphony(SynthTrackModel.PolyphonyMode.LEGATO);
-          break;
-        default:
-          synth.setPolyphony(SynthTrackModel.PolyphonyMode.POLY);
-          break;
-      }
-    }
-
-    // ── LPF Mode ──
-    NodeList lpfModeNodes = soundNode.getElementsByTagName("lpfMode");
-    if (lpfModeNodes.getLength() > 0) {
-      String lpfMode = lpfModeNodes.item(0).getTextContent().trim();
-      // Map to FilterMode enum
-      if ("12dB".equals(lpfMode)) {
-        synth.setFilterMode(FilterMode.LADDER_12);
-      } else if ("24dB".equals(lpfMode)) {
-        synth.setFilterMode(FilterMode.LADDER_24);
-      } else {
-        synth.setFilterMode(FilterMode.LADDER_12);
-      }
-    }
-
-    // ── FM Modulator 1 (from <modulator1><transpose> + <modulator1Amount>) ──
-    NodeList mod1Nodes = soundNode.getElementsByTagName("modulator1");
-    if (mod1Nodes.getLength() > 0) {
-      Element mod1 = (Element) mod1Nodes.item(0);
-      NodeList transpNodes = mod1.getElementsByTagName("transpose");
-      if (transpNodes.getLength() > 0) {
-        try {
-          int transpose = Integer.parseInt(transpNodes.item(0).getTextContent().trim());
-          // FM ratio = 2^(transpose/12) — semitones to frequency multiplier
-          synth.setFmRatio((float) Math.pow(2.0, transpose / 12.0));
-        } catch (NumberFormatException ignored) {}
-      }
-    }
-    NodeList mod1AmtNodes = soundNode.getElementsByTagName("modulator1Amount");
-    if (mod1AmtNodes.getLength() > 0) {
-      float hexVal = DelugeHexMapper.hexToFloat(mod1AmtNodes.item(0).getTextContent());
-      // Signed hex knob position → 0-1 magnitude. Use abs so full-left (-1.0) = 0, center (0.0) = 0.5, full-right = 1.0
-      synth.setFmAmount(Math.abs(hexVal));
-    }
-
-    // ── Envelopes 0-3 ──
-    NodeList envNodes = soundNode.getElementsByTagName("envelope");
-    for (int i = 0; i < Math.min(4, envNodes.getLength()); i++) {
-      Element envNode = (Element) envNodes.item(i);
-      EnvelopeModel env =
-          new EnvelopeModel(
-              DelugeHexMapper.hexToFloat(envNode.getAttribute("attack")),
-              DelugeHexMapper.hexToFloat(envNode.getAttribute("decay")),
-              DelugeHexMapper.hexToFloat(envNode.getAttribute("sustain")),
-              DelugeHexMapper.hexToFloat(envNode.getAttribute("release")),
-              "NONE",
-              0.0f);
-      synth.setEnv(i, env);
-    }
-
-    // ── Filter defaults from defaultParams ──
-    NodeList defParams = soundNode.getElementsByTagName("defaultParams");
-    if (defParams.getLength() > 0) {
-      Element def = (Element) defParams.item(0);
-
-      NodeList lpfFreq = def.getElementsByTagName("lpfFrequency");
-      if (lpfFreq.getLength() > 0) {
-        synth.setLpfFreq(DelugeHexMapper.hexToHz(lpfFreq.item(0).getTextContent()));
-      }
-      NodeList lpfRes = def.getElementsByTagName("lpfResonance");
-      if (lpfRes.getLength() > 0) {
-        float val = DelugeHexMapper.hexToFloat(lpfRes.item(0).getTextContent());
-        synth.setLpfRes(val);
-      }
-
-      // HPF frequency + resonance
-      NodeList hpfFreq = def.getElementsByTagName("hpfFrequency");
-      if (hpfFreq.getLength() > 0) {
-        synth.setHpfFreq(DelugeHexMapper.hexToHz(hpfFreq.item(0).getTextContent()));
-      }
-      NodeList hpfRes = def.getElementsByTagName("hpfResonance");
-      if (hpfRes.getLength() > 0) {
-        float val = DelugeHexMapper.hexToFloat(hpfRes.item(0).getTextContent());
-        synth.setHpfRes(val);
-      }
-
-      // ── FM feedback params from defaultParams ──
-      parseHexFloatParam(def, "modulator1Feedback", synth::setModulator1Feedback);
-      parseHexFloatParam(def, "modulator2Amount", synth::setModulator2Amount);
-      parseHexFloatParam(def, "modulator2Feedback", synth::setModulator2Feedback);
-      parseHexFloatParam(def, "carrier1Feedback", synth::setCarrier1Feedback);
-      parseHexFloatParam(def, "carrier2Feedback", synth::setCarrier2Feedback);
-    }
-
-    // ── Patch Cables ──
-    NodeList cableList = soundNode.getElementsByTagName("patchCable");
-    for (int i = 0; i < cableList.getLength(); i++) {
-      Element cableElem = (Element) cableList.item(i);
-      String src = getChildText(cableElem, "source");
-      String dst = getChildText(cableElem, "destination");
-      String amtStr = getChildText(cableElem, "amount");
-      if (src != null && dst != null && amtStr != null) {
-        float amt = PatchCable.applyScaling(dst, DelugeHexMapper.hexToFloat(amtStr));
-        synth.addPatchCable(new PatchCable(src, dst, amt));
-      }
-    }
-
-    // ── Mod Knobs ──
-    NodeList knobList = soundNode.getElementsByTagName("modKnob");
-    for (int i = 0; i < knobList.getLength(); i++) {
-      Element knobElem = (Element) knobList.item(i);
-      String param = getChildText(knobElem, "controlsParam");
-      if (param != null && i < synth.getModKnobs().size()) {
-        synth.setModKnob(i, new ModKnob(param, "NONE"));
-      }
-    }
-
+    populateSynth(soundNode, synth);
     return synth;
   }
 
@@ -383,6 +246,39 @@ public class DelugeXmlParser {
     return project;
   }
 
+  // ── Package-private helper: used by both parseSynth and parseSynthElement ──
+
+  static void populateSynth(Element soundNode, SynthTrackModel synth) {
+    // Direct child bindings (osc1 attr/or child type, osc2 child type)
+    applyDirectBindings(soundNode, synth);
+
+    // ── Synth Mode ──
+    parseSynthMode(soundNode, synth);
+
+    // ── Polyphonic mode ──
+    parsePolyphony(soundNode, synth);
+
+    // ── LPF Mode ──
+    parseFilterMode(soundNode, synth);
+
+    // ── FM Modulator 1 ──
+    parseModulator1(soundNode, synth);
+
+    // ── Envelopes 0-3 ──
+    parseEnvelopes(soundNode, synth);
+
+    // ── defaultParams bindings (LPF/HPF freq+res, FM feedback params) ──
+    applyDefaultParamsBindings(soundNode, synth);
+
+    // ── Patch Cables ──
+    parsePatchCables(soundNode, synth);
+
+    // ── Mod Knobs ──
+    parseModKnobs(soundNode, synth);
+  }
+
+  // ── Kit/song element parsers ──
+
   private static KitTrackModel parseKitElement(Element kitNode) throws Exception {
     String name = "KIT";
 
@@ -445,66 +341,66 @@ public class DelugeXmlParser {
       name = "SYNTH " + slotNodes.item(0).getTextContent();
     }
 
-    // Reuse the full parse logic by wrapping the element back into a Document
-    // or by duplicating the fragment. Simplest: call parseSynth with the element's
-    // XML representation. But that requires serialization. Instead, inline the same
-    // field extraction that parseSynth does.
     SynthTrackModel synth = new SynthTrackModel(name);
+    populateSynth(soundNode, synth);
+    return synth;
+  }
 
-    // ── Osc 1 ──
-    NodeList osc1Nodes = soundNode.getElementsByTagName("osc1");
-    if (osc1Nodes.getLength() > 0) {
-      Element osc1 = (Element) osc1Nodes.item(0);
-      if (osc1.hasAttribute("type")) {
-        synth.setOsc1Type(osc1.getAttribute("type").toUpperCase());
-      } else {
-        NodeList typeNodes = osc1.getElementsByTagName("type");
-        if (typeNodes.getLength() > 0) {
-          synth.setOsc1Type(typeNodes.item(0).getTextContent().toUpperCase());
-        }
-      }
+  // ── Complex sub-parsers (don't fit simple tag→value bindings) ──
+
+  private static void applyDirectBindings(Element soundNode, SynthTrackModel synth) {
+    for (FieldBinding<?> b : DIRECT_BINDINGS) {
+      b.apply(soundNode, synth);
     }
+  }
 
-    // ── Osc 2 ──
-    NodeList osc2Nodes = soundNode.getElementsByTagName("osc2");
-    if (osc2Nodes.getLength() > 0) {
-      Element osc2 = (Element) osc2Nodes.item(0);
-      NodeList typeNodes = osc2.getElementsByTagName("type");
-      if (typeNodes.getLength() > 0) {
-        synth.setOsc2Type(typeNodes.item(0).getTextContent().toUpperCase());
-      }
+  private static void applyDefaultParamsBindings(Element soundNode, SynthTrackModel synth) {
+    for (FieldBinding<?> b : DEFAULT_PARAMS_BINDINGS) {
+      b.apply(soundNode, synth);
     }
+  }
 
-    // ── Synth Mode ──
+  private static void parseSynthMode(Element soundNode, SynthTrackModel synth) {
     NodeList modeNodes = soundNode.getElementsByTagName("mode");
-    if (modeNodes.getLength() > 0) {
-      String mode = modeNodes.item(0).getTextContent().trim().toLowerCase();
-      switch (mode) {
-        case "fm" -> synth.setSynthMode(1);
-        case "ringmod" -> synth.setSynthMode(2);
-        default -> synth.setSynthMode(0);
-      }
+    if (modeNodes.getLength() == 0) return;
+    String mode = modeNodes.item(0).getTextContent().trim().toLowerCase();
+    switch (mode) {
+      case "fm" -> synth.setSynthMode(1);
+      case "ringmod" -> synth.setSynthMode(2);
+      default -> synth.setSynthMode(0);
     }
+  }
 
-    // ── Polyphonic mode ──
+  private static void parsePolyphony(Element soundNode, SynthTrackModel synth) {
     NodeList polyNodes = soundNode.getElementsByTagName("polyphonic");
-    if (polyNodes.getLength() > 0) {
-      String val = polyNodes.item(0).getTextContent().trim().toLowerCase();
-      switch (val) {
-        case "mono":
-        case "0":
-          synth.setPolyphony(SynthTrackModel.PolyphonyMode.MONO);
-          break;
-        case "legato":
-          synth.setPolyphony(SynthTrackModel.PolyphonyMode.LEGATO);
-          break;
-        default:
-          synth.setPolyphony(SynthTrackModel.PolyphonyMode.POLY);
-          break;
-      }
+    if (polyNodes.getLength() == 0) return;
+    String val = polyNodes.item(0).getTextContent().trim().toLowerCase();
+    switch (val) {
+      case "mono":
+      case "0":
+        synth.setPolyphony(SynthTrackModel.PolyphonyMode.MONO);
+        break;
+      case "legato":
+        synth.setPolyphony(SynthTrackModel.PolyphonyMode.LEGATO);
+        break;
+      default:
+        synth.setPolyphony(SynthTrackModel.PolyphonyMode.POLY);
+        break;
     }
+  }
 
-    // ── FM Modulator 1 (from <modulator1><transpose> + <modulator1Amount>) ──
+  private static void parseFilterMode(Element soundNode, SynthTrackModel synth) {
+    NodeList modeNodes = soundNode.getElementsByTagName("lpfMode");
+    if (modeNodes.getLength() == 0) return;
+    String lpfMode = modeNodes.item(0).getTextContent().trim();
+    if ("24dB".equals(lpfMode)) {
+      synth.setFilterMode(FilterMode.LADDER_24);
+    } else {
+      synth.setFilterMode(FilterMode.LADDER_12);
+    }
+  }
+
+  private static void parseModulator1(Element soundNode, SynthTrackModel synth) {
     NodeList mod1Nodes = soundNode.getElementsByTagName("modulator1");
     if (mod1Nodes.getLength() > 0) {
       Element mod1 = (Element) mod1Nodes.item(0);
@@ -521,19 +417,9 @@ public class DelugeXmlParser {
       float hexVal = DelugeHexMapper.hexToFloat(mod1AmtNodes.item(0).getTextContent());
       synth.setFmAmount(Math.abs(hexVal));
     }
+  }
 
-    // ── LPF Mode ──
-    NodeList lpfModeNodes = soundNode.getElementsByTagName("lpfMode");
-    if (lpfModeNodes.getLength() > 0) {
-      String lpfMode = lpfModeNodes.item(0).getTextContent().trim();
-      if ("24dB".equals(lpfMode)) {
-        synth.setFilterMode(FilterMode.LADDER_24);
-      } else {
-        synth.setFilterMode(FilterMode.LADDER_12);
-      }
-    }
-
-    // ── Envelopes 0-3 ──
+  private static void parseEnvelopes(Element soundNode, SynthTrackModel synth) {
     NodeList envNodes = soundNode.getElementsByTagName("envelope");
     for (int i = 0; i < Math.min(4, envNodes.getLength()); i++) {
       Element envNode = (Element) envNodes.item(i);
@@ -547,39 +433,9 @@ public class DelugeXmlParser {
               0.0f);
       synth.setEnv(i, env);
     }
+  }
 
-    // ── Filter defaults from defaultParams ──
-    NodeList defParams = soundNode.getElementsByTagName("defaultParams");
-    if (defParams.getLength() > 0) {
-      Element def = (Element) defParams.item(0);
-      NodeList lpfFreq = def.getElementsByTagName("lpfFrequency");
-      if (lpfFreq.getLength() > 0) {
-        synth.setLpfFreq(DelugeHexMapper.hexToHz(lpfFreq.item(0).getTextContent()));
-      }
-      NodeList lpfRes = def.getElementsByTagName("lpfResonance");
-      if (lpfRes.getLength() > 0) {
-        float val = DelugeHexMapper.hexToFloat(lpfRes.item(0).getTextContent());
-        synth.setLpfRes(val);
-      }
-      NodeList hpfFreq = def.getElementsByTagName("hpfFrequency");
-      if (hpfFreq.getLength() > 0) {
-        synth.setHpfFreq(DelugeHexMapper.hexToHz(hpfFreq.item(0).getTextContent()));
-      }
-      NodeList hpfRes = def.getElementsByTagName("hpfResonance");
-      if (hpfRes.getLength() > 0) {
-        float val = DelugeHexMapper.hexToFloat(hpfRes.item(0).getTextContent());
-        synth.setHpfRes(val);
-      }
-
-      // ── FM feedback params from defaultParams ──
-      parseHexFloatParam(def, "modulator1Feedback", synth::setModulator1Feedback);
-      parseHexFloatParam(def, "modulator2Amount", synth::setModulator2Amount);
-      parseHexFloatParam(def, "modulator2Feedback", synth::setModulator2Feedback);
-      parseHexFloatParam(def, "carrier1Feedback", synth::setCarrier1Feedback);
-      parseHexFloatParam(def, "carrier2Feedback", synth::setCarrier2Feedback);
-    }
-
-    // ── Patch Cables ──
+  private static void parsePatchCables(Element soundNode, SynthTrackModel synth) {
     NodeList cableList = soundNode.getElementsByTagName("patchCable");
     for (int i = 0; i < cableList.getLength(); i++) {
       Element cableElem = (Element) cableList.item(i);
@@ -591,8 +447,9 @@ public class DelugeXmlParser {
         synth.addPatchCable(new PatchCable(src, dst, amt));
       }
     }
+  }
 
-    // ── Mod Knobs ──
+  private static void parseModKnobs(Element soundNode, SynthTrackModel synth) {
     NodeList knobList = soundNode.getElementsByTagName("modKnob");
     for (int i = 0; i < knobList.getLength(); i++) {
       Element knobElem = (Element) knobList.item(i);
@@ -601,17 +458,9 @@ public class DelugeXmlParser {
         synth.setModKnob(i, new ModKnob(param, "NONE"));
       }
     }
-
-    return synth;
   }
 
-  /** Parses a hex-encoded float parameter from a child element of {@code parent}. Sets value via {@code setter}. */
-  private static void parseHexFloatParam(Element parent, String tag, java.util.function.Consumer<Float> setter) {
-    NodeList nodes = parent.getElementsByTagName(tag);
-    if (nodes.getLength() > 0) {
-      setter.accept(Math.abs(DelugeHexMapper.hexToFloat(nodes.item(0).getTextContent())));
-    }
-  }
+  // ── Helpers ──
 
   /** Gets the text content of the first child element with {@code tag} under {@code parent}, or null if absent/blank. */
   private static String getChildText(Element parent, String tag) {
