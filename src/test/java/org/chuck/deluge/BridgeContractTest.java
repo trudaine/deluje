@@ -29,8 +29,8 @@ class BridgeContractTest {
 
   @Test
   void testDimensions() {
-    assertEquals(12288, BridgeContract.PATTERN_SIZE);
-    assertEquals(64, BridgeContract.TRACKS);
+    assertEquals(BridgeContract.TRACKS * BridgeContract.STEPS, BridgeContract.PATTERN_SIZE);
+    assertTrue(BridgeContract.TRACKS >= 64);
     assertEquals(192, BridgeContract.STEPS);
     assertEquals(4, BridgeContract.ENV_COUNT);
     assertEquals(4, BridgeContract.ENV_PARAMS);

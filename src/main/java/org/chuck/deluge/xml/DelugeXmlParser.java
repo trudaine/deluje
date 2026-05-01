@@ -93,15 +93,96 @@ public class DelugeXmlParser {
 
     SynthTrackModel synth = new SynthTrackModel(name);
 
+    // ── Osc 1 ──
     NodeList osc1Nodes = soundNode.getElementsByTagName("osc1");
     if (osc1Nodes.getLength() > 0) {
       Element osc1 = (Element) osc1Nodes.item(0);
       if (osc1.hasAttribute("type")) {
         synth.setOsc1Type(osc1.getAttribute("type").toUpperCase());
+      } else {
+        // Some XMLs use <type> child element
+        NodeList typeNodes = osc1.getElementsByTagName("type");
+        if (typeNodes.getLength() > 0) {
+          synth.setOsc1Type(typeNodes.item(0).getTextContent().toUpperCase());
+        }
       }
     }
 
-    // Map Envelope 0-3
+    // ── Osc 2 ──
+    NodeList osc2Nodes = soundNode.getElementsByTagName("osc2");
+    if (osc2Nodes.getLength() > 0) {
+      Element osc2 = (Element) osc2Nodes.item(0);
+      NodeList typeNodes = osc2.getElementsByTagName("type");
+      if (typeNodes.getLength() > 0) {
+        synth.setOsc2Type(typeNodes.item(0).getTextContent().toUpperCase());
+      }
+    }
+
+    // ── Synth Mode ──
+    // Reads <mode>fm</mode>, <mode>subtractive</mode>, <mode>ringmod</mode>
+    NodeList modeNodes = soundNode.getElementsByTagName("mode");
+    if (modeNodes.getLength() > 0) {
+      String mode = modeNodes.item(0).getTextContent().trim().toLowerCase();
+      switch (mode) {
+        case "fm" -> synth.setSynthMode(1);
+        case "ringmod" -> synth.setSynthMode(2);
+        default -> synth.setSynthMode(0); // subtractive or absent
+      }
+    }
+
+    // ── Polyphonic mode ──
+    NodeList polyNodes = soundNode.getElementsByTagName("polyphonic");
+    if (polyNodes.getLength() > 0) {
+      String val = polyNodes.item(0).getTextContent().trim().toLowerCase();
+      switch (val) {
+        case "mono":
+        case "0":
+          synth.setPolyphony(SynthTrackModel.PolyphonyMode.MONO);
+          break;
+        case "legato":
+          synth.setPolyphony(SynthTrackModel.PolyphonyMode.LEGATO);
+          break;
+        default:
+          synth.setPolyphony(SynthTrackModel.PolyphonyMode.POLY);
+          break;
+      }
+    }
+
+    // ── LPF Mode ──
+    NodeList lpfModeNodes = soundNode.getElementsByTagName("lpfMode");
+    if (lpfModeNodes.getLength() > 0) {
+      String lpfMode = lpfModeNodes.item(0).getTextContent().trim();
+      // Map to FilterMode enum
+      if ("12dB".equals(lpfMode)) {
+        synth.setFilterMode(FilterMode.LADDER_12);
+      } else if ("24dB".equals(lpfMode)) {
+        synth.setFilterMode(FilterMode.LADDER_24);
+      } else {
+        synth.setFilterMode(FilterMode.LADDER_12);
+      }
+    }
+
+    // ── FM Modulator 1 (from <modulator1><transpose> + <modulator1Amount>) ──
+    NodeList mod1Nodes = soundNode.getElementsByTagName("modulator1");
+    if (mod1Nodes.getLength() > 0) {
+      Element mod1 = (Element) mod1Nodes.item(0);
+      NodeList transpNodes = mod1.getElementsByTagName("transpose");
+      if (transpNodes.getLength() > 0) {
+        try {
+          int transpose = Integer.parseInt(transpNodes.item(0).getTextContent().trim());
+          // FM ratio = 2^(transpose/12) — semitones to frequency multiplier
+          synth.setFmRatio((float) Math.pow(2.0, transpose / 12.0));
+        } catch (NumberFormatException ignored) {}
+      }
+    }
+    NodeList mod1AmtNodes = soundNode.getElementsByTagName("modulator1Amount");
+    if (mod1AmtNodes.getLength() > 0) {
+      float hexVal = DelugeHexMapper.hexToFloat(mod1AmtNodes.item(0).getTextContent());
+      // Signed hex knob position → 0-1 magnitude. Use abs so full-left (-1.0) = 0, center (0.0) = 0.5, full-right = 1.0
+      synth.setFmAmount(Math.abs(hexVal));
+    }
+
+    // ── Envelopes 0-3 ──
     NodeList envNodes = soundNode.getElementsByTagName("envelope");
     for (int i = 0; i < Math.min(4, envNodes.getLength()); i++) {
       Element envNode = (Element) envNodes.item(i);
@@ -116,19 +197,30 @@ public class DelugeXmlParser {
       synth.setEnv(i, env);
     }
 
-    // Parse Filter defaults from defaultParams
+    // ── Filter defaults from defaultParams ──
     NodeList defParams = soundNode.getElementsByTagName("defaultParams");
     if (defParams.getLength() > 0) {
       Element def = (Element) defParams.item(0);
+
       NodeList lpfFreq = def.getElementsByTagName("lpfFrequency");
       if (lpfFreq.getLength() > 0) {
-        float val = DelugeHexMapper.hexToFloat(lpfFreq.item(0).getTextContent());
-        synth.setLpfFreq(val * 20000.0f); // Map normalized to freq
+        synth.setLpfFreq(DelugeHexMapper.hexToHz(lpfFreq.item(0).getTextContent()));
       }
       NodeList lpfRes = def.getElementsByTagName("lpfResonance");
       if (lpfRes.getLength() > 0) {
         float val = DelugeHexMapper.hexToFloat(lpfRes.item(0).getTextContent());
         synth.setLpfRes(val);
+      }
+
+      // HPF frequency + resonance
+      NodeList hpfFreq = def.getElementsByTagName("hpfFrequency");
+      if (hpfFreq.getLength() > 0) {
+        synth.setHpfFreq(DelugeHexMapper.hexToHz(hpfFreq.item(0).getTextContent()));
+      }
+      NodeList hpfRes = def.getElementsByTagName("hpfResonance");
+      if (hpfRes.getLength() > 0) {
+        float val = DelugeHexMapper.hexToFloat(hpfRes.item(0).getTextContent());
+        synth.setHpfRes(val);
       }
     }
 
@@ -323,14 +415,133 @@ public class DelugeXmlParser {
       name = "SYNTH " + slotNodes.item(0).getTextContent();
     }
 
+    // Reuse the full parse logic by wrapping the element back into a Document
+    // or by duplicating the fragment. Simplest: call parseSynth with the element's
+    // XML representation. But that requires serialization. Instead, inline the same
+    // field extraction that parseSynth does.
     SynthTrackModel synth = new SynthTrackModel(name);
+
+    // ── Osc 1 ──
     NodeList osc1Nodes = soundNode.getElementsByTagName("osc1");
     if (osc1Nodes.getLength() > 0) {
       Element osc1 = (Element) osc1Nodes.item(0);
       if (osc1.hasAttribute("type")) {
         synth.setOsc1Type(osc1.getAttribute("type").toUpperCase());
+      } else {
+        NodeList typeNodes = osc1.getElementsByTagName("type");
+        if (typeNodes.getLength() > 0) {
+          synth.setOsc1Type(typeNodes.item(0).getTextContent().toUpperCase());
+        }
       }
     }
+
+    // ── Osc 2 ──
+    NodeList osc2Nodes = soundNode.getElementsByTagName("osc2");
+    if (osc2Nodes.getLength() > 0) {
+      Element osc2 = (Element) osc2Nodes.item(0);
+      NodeList typeNodes = osc2.getElementsByTagName("type");
+      if (typeNodes.getLength() > 0) {
+        synth.setOsc2Type(typeNodes.item(0).getTextContent().toUpperCase());
+      }
+    }
+
+    // ── Synth Mode ──
+    NodeList modeNodes = soundNode.getElementsByTagName("mode");
+    if (modeNodes.getLength() > 0) {
+      String mode = modeNodes.item(0).getTextContent().trim().toLowerCase();
+      switch (mode) {
+        case "fm" -> synth.setSynthMode(1);
+        case "ringmod" -> synth.setSynthMode(2);
+        default -> synth.setSynthMode(0);
+      }
+    }
+
+    // ── Polyphonic mode ──
+    NodeList polyNodes = soundNode.getElementsByTagName("polyphonic");
+    if (polyNodes.getLength() > 0) {
+      String val = polyNodes.item(0).getTextContent().trim().toLowerCase();
+      switch (val) {
+        case "mono":
+        case "0":
+          synth.setPolyphony(SynthTrackModel.PolyphonyMode.MONO);
+          break;
+        case "legato":
+          synth.setPolyphony(SynthTrackModel.PolyphonyMode.LEGATO);
+          break;
+        default:
+          synth.setPolyphony(SynthTrackModel.PolyphonyMode.POLY);
+          break;
+      }
+    }
+
+    // ── FM Modulator 1 (from <modulator1><transpose> + <modulator1Amount>) ──
+    NodeList mod1Nodes = soundNode.getElementsByTagName("modulator1");
+    if (mod1Nodes.getLength() > 0) {
+      Element mod1 = (Element) mod1Nodes.item(0);
+      NodeList transpNodes = mod1.getElementsByTagName("transpose");
+      if (transpNodes.getLength() > 0) {
+        try {
+          int transpose = Integer.parseInt(transpNodes.item(0).getTextContent().trim());
+          synth.setFmRatio((float) Math.pow(2.0, transpose / 12.0));
+        } catch (NumberFormatException ignored) {}
+      }
+    }
+    NodeList mod1AmtNodes = soundNode.getElementsByTagName("modulator1Amount");
+    if (mod1AmtNodes.getLength() > 0) {
+      float hexVal = DelugeHexMapper.hexToFloat(mod1AmtNodes.item(0).getTextContent());
+      synth.setFmAmount(Math.abs(hexVal));
+    }
+
+    // ── LPF Mode ──
+    NodeList lpfModeNodes = soundNode.getElementsByTagName("lpfMode");
+    if (lpfModeNodes.getLength() > 0) {
+      String lpfMode = lpfModeNodes.item(0).getTextContent().trim();
+      if ("24dB".equals(lpfMode)) {
+        synth.setFilterMode(FilterMode.LADDER_24);
+      } else {
+        synth.setFilterMode(FilterMode.LADDER_12);
+      }
+    }
+
+    // ── Envelopes 0-3 ──
+    NodeList envNodes = soundNode.getElementsByTagName("envelope");
+    for (int i = 0; i < Math.min(4, envNodes.getLength()); i++) {
+      Element envNode = (Element) envNodes.item(i);
+      EnvelopeModel env =
+          new EnvelopeModel(
+              DelugeHexMapper.hexToFloat(envNode.getAttribute("attack")),
+              DelugeHexMapper.hexToFloat(envNode.getAttribute("decay")),
+              DelugeHexMapper.hexToFloat(envNode.getAttribute("sustain")),
+              DelugeHexMapper.hexToFloat(envNode.getAttribute("release")),
+              "NONE",
+              0.0f);
+      synth.setEnv(i, env);
+    }
+
+    // ── Filter defaults from defaultParams ──
+    NodeList defParams = soundNode.getElementsByTagName("defaultParams");
+    if (defParams.getLength() > 0) {
+      Element def = (Element) defParams.item(0);
+      NodeList lpfFreq = def.getElementsByTagName("lpfFrequency");
+      if (lpfFreq.getLength() > 0) {
+        synth.setLpfFreq(DelugeHexMapper.hexToHz(lpfFreq.item(0).getTextContent()));
+      }
+      NodeList lpfRes = def.getElementsByTagName("lpfResonance");
+      if (lpfRes.getLength() > 0) {
+        float val = DelugeHexMapper.hexToFloat(lpfRes.item(0).getTextContent());
+        synth.setLpfRes(val);
+      }
+      NodeList hpfFreq = def.getElementsByTagName("hpfFrequency");
+      if (hpfFreq.getLength() > 0) {
+        synth.setHpfFreq(DelugeHexMapper.hexToHz(hpfFreq.item(0).getTextContent()));
+      }
+      NodeList hpfRes = def.getElementsByTagName("hpfResonance");
+      if (hpfRes.getLength() > 0) {
+        float val = DelugeHexMapper.hexToFloat(hpfRes.item(0).getTextContent());
+        synth.setHpfRes(val);
+      }
+    }
+
     return synth;
   }
 

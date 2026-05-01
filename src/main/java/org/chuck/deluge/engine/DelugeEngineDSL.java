@@ -543,6 +543,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
     MorphingWavetable[] car = new MorphingWavetable[totalSynthSlots];
     MorphingWavetable[] mod = new MorphingWavetable[totalSynthSlots];
     SVFilter[] fil = new SVFilter[totalSynthSlots];
+    HPF[] hpf = new HPF[totalSynthSlots];
     DelugeAdsr[] env = new DelugeAdsr[totalSynthSlots];
     Pan2[] pan = new Pan2[totalSynthSlots];
     Gain[] sDsend = new Gain[totalSynthSlots];
@@ -551,6 +552,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
     for (int i = 0; i < totalSynthSlots; i++) {
       int algo = algoArr != null ? (int) algoArr.getInt(i) : 0;
       fil[i] = new SVFilter();
+      hpf[i] = new HPF(sr);
       env[i] = new DelugeAdsr();
       pan[i] = new Pan2();
       sDsend[i] = new Gain();
@@ -559,7 +561,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
       if (algo >= 10) {
         // STK physical model
         src[i] = createStkUGen(algo, sr);
-        src[i].chuck(fil[i]).chuck(env[i]).chuck(pan[i]).chuck(synthBus);
+        src[i].chuck(fil[i]).chuck(hpf[i]).chuck(env[i]).chuck(pan[i]).chuck(synthBus);
       } else {
         // FM synthesis (original behavior)
         car[i] = new MorphingWavetable(sr);
@@ -567,7 +569,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
         mod[i] = new MorphingWavetable(sr);
         mod[i].setTables(WAVE_TABLES);
         mod[i].chuck(car[i]);
-        car[i].chuck(fil[i]).chuck(env[i]).chuck(pan[i]).chuck(synthBus);
+        car[i].chuck(fil[i]).chuck(hpf[i]).chuck(env[i]).chuck(pan[i]).chuck(synthBus);
         src[i] = car[i];
       }
 
@@ -575,6 +577,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
       pan[i].chuck(sRsend[i]).chuck((ChuckUGen) vm.getGlobalObject(BridgeContract.G_REVERB_IN));
       fil[i].reset();
       fil[i].freq(5000);
+      hpf[i].freq(20.0f);
       env[i].set(0.05, 0.2, 0.5, 0.3);
       env[i].forceMute();
       sDsend[i].gain(0.0f);
@@ -636,6 +639,9 @@ public class DelugeEngineDSL implements Shred, Runnable {
       // Re-read algo array each tick (user may change algorithm)
       ChuckArray algoArrLive = (ChuckArray) vm.getGlobalObject(BridgeContract.G_SYNTH_ALGO);
       ChuckArray synthModeArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_SYNTH_MODE);
+      ChuckArray hpfFreqArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_HPF_FREQ);
+      ChuckArray hpfResArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_HPF_RES);
+      ChuckArray polyphonyArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_POLYPHONY);
 
       // Iterate all bridge rows for this synth track; each row has its own dedicated UGen
       for (int r = synthBase; r <= maxSynthBridgeRow; r++) {
@@ -707,6 +713,11 @@ public class DelugeEngineDSL implements Shred, Runnable {
         double tp = masterPan + (sPan != null ? sPan.getFloat(idx) : 0.0) + lfoP;
         fil[u].freq((float) Math.max(20.0, Math.min(20000.0, tf)));
         fil[u].Q((float) Math.max(1.0, Math.min(10.0, tq)));
+        // Per-voice HPF: read from bridge, 20Hz = off/bypass
+        float hf = hpfFreqArr != null ? (float) hpfFreqArr.getFloat(r) : 20.0f;
+        float hr = hpfResArr != null ? (float) hpfResArr.getFloat(r) : 0.0f;
+        hpf[u].freq(Math.max(20.0f, hf));
+        hpf[u].Q(1.0f + hr * 9.0f);
         // Apply filter mode + morph to SVFilter morph parameter.
         // LADDER_12 (0) and LADDER_24 (1) default to LP (morph=0).
         // SVF (2) maps morph to SVFilter's LP→BP→HP continuum.
@@ -768,8 +779,21 @@ public class DelugeEngineDSL implements Shred, Runnable {
                 mod[u].freq((float) (f * fmR));
                 mod[u].gain((float) (fmA * 1000.0));
               }
+            } else if (synthMode >= 2) {
+              // RINGMOD (2): both oscillators active, mixed via mod→car FM at audio rate.
+              // True sample-by-sample multiplication isn't possible in ChucK's block-advance model,
+              // so we drive both oscillators at the same frequency at unity gain, letting them
+              // interact acoustically through the filter.
+              if (car[u] != null) {
+                car[u].freq((float) f);
+                car[u].gain(1.0f);
+              }
+              if (mod[u] != null) {
+                mod[u].freq((float) f);
+                mod[u].gain(1.0f);
+              }
             } else {
-              // SUBTRACTIVE (0) or RINGMOD (2): single oscillator + filter
+              // SUBTRACTIVE (0): single oscillator through filter
               if (car[u] != null) {
                 car[u].freq((float) f);
                 car[u].gain(1.0f);

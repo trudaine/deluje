@@ -235,6 +235,16 @@ public class SwingDelugeApp extends JFrame {
         for (int v = 0; v < totalSynthRows; v++) {
           bridge.setSynthAlgo(startRow + v, synth.getSynthAlgorithm());
         }
+
+        // Push synth mode, FM params, HPF, polyphony to ALL rows
+        for (int v = 0; v < totalSynthRows; v++) {
+          bridge.setSynthMode(startRow + v, synth.getSynthMode());
+          bridge.setFmRatio(startRow + v, synth.getFmRatio());
+          bridge.setFmAmount(startRow + v, synth.getFmAmount());
+          bridge.setHpfFreq(startRow + v, synth.getHpfFreq());
+          bridge.setHpfRes(startRow + v, synth.getHpfRes());
+          bridge.setPolyphony(startRow + v, synth.getPolyphony().ordinal());
+        }
       } else if (track instanceof org.chuck.deluge.model.AudioTrackModel audio) {
         // Mark engine row as type-2 (audio)
         bridge.setTrackType(startRow, 2);

@@ -261,6 +261,12 @@ public final class BridgeContract {
   public static final String G_SYNTH_ALGO = "g_synth_algo";
   /** Per-track synth mode (int array). 0 = SUBTRACTIVE (single osc+filter), 1 = FM (mod→car), 2 = RINGMOD (car×mod). */
   public static final String G_SYNTH_MODE = "g_synth_mode";
+  /** Per-voice HPF cutoff frequency in Hz (float array). 20Hz = off/bypass. */
+  public static final String G_HPF_FREQ = "g_hpf_freq";
+  /** Per-voice HPF resonance 0-1 (float array). */
+  public static final String G_HPF_RES = "g_hpf_res";
+  /** Per-track polyphony mode (int array). 0=POLY, 1=MONO, 2=LEGATO. */
+  public static final String G_POLYPHONY = "g_polyphony";
 
   // ── Kit per-drum ADSR + Pitch ─────────────────────────────────────────
 
@@ -353,6 +359,9 @@ public final class BridgeContract {
 
   private final ChuckArray synthAlgo;
   private final ChuckArray synthMode;
+  private final ChuckArray hpfFreq;
+  private final ChuckArray hpfRes;
+  private final ChuckArray polyphony;
 
   private final ChuckArray audioRec;
   private final ChuckArray audioPlay;
@@ -415,6 +424,9 @@ public final class BridgeContract {
     fmAmount = new ChuckArray("float", TRACKS);
     synthAlgo = new ChuckArray("int", TRACKS);
     synthMode = new ChuckArray("int", TRACKS);
+    hpfFreq = new ChuckArray("float", TRACKS);
+    hpfRes = new ChuckArray("float", TRACKS);
+    polyphony = new ChuckArray("int", TRACKS);
 
     audioRec = new ChuckArray("int", TRACKS);
     audioPlay = new ChuckArray("int", TRACKS);
@@ -577,6 +589,9 @@ public final class BridgeContract {
     vm.setGlobalObject(G_FM_AMOUNT, fmAmount);
     vm.setGlobalObject(G_SYNTH_ALGO, synthAlgo);
     vm.setGlobalObject(G_SYNTH_MODE, synthMode);
+    vm.setGlobalObject(G_HPF_FREQ, hpfFreq);
+    vm.setGlobalObject(G_HPF_RES, hpfRes);
+    vm.setGlobalObject(G_POLYPHONY, polyphony);
 
     vm.setGlobalObject(G_AUDIO_REC, audioRec);
     vm.setGlobalObject(G_AUDIO_PLAY, audioPlay);
@@ -847,6 +862,46 @@ public final class BridgeContract {
 
   public void setSynthAlgo(int track, int algo) {
     synthAlgo.setInt(track, (long) algo);
+  }
+
+  public int getSynthMode(int track) {
+    return (int) synthMode.getInt(track);
+  }
+
+  /**
+   * Sets the synthesis mode for a track. 0=SUBTRACTIVE (single osc+filter),
+   * 1=FM (mod→car with FM ratio+amount), 2=RINGMOD.
+   */
+  public void setSynthMode(int track, int mode) {
+    synthMode.setInt(track, (long) mode);
+  }
+
+  // ── HPF Freq + Res ──
+
+  public void setHpfFreq(int track, float freq) {
+    hpfFreq.setFloat(track, freq);
+  }
+
+  public float getHpfFreq(int track) {
+    return (float) hpfFreq.getFloat(track);
+  }
+
+  public void setHpfRes(int track, float res) {
+    hpfRes.setFloat(track, res);
+  }
+
+  public float getHpfRes(int track) {
+    return (float) hpfRes.getFloat(track);
+  }
+
+  // ── Polyphony ──
+
+  public void setPolyphony(int track, int mode) {
+    polyphony.setInt(track, (long) mode);
+  }
+
+  public int getPolyphony(int track) {
+    return (int) polyphony.getInt(track);
   }
 
   // === Audio Track Helpers ===

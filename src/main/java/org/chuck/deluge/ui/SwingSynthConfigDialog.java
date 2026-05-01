@@ -12,6 +12,9 @@ public class SwingSynthConfigDialog extends JDialog {
 
   private static final String[] LFO_SHAPES = {"SINE", "SAW", "SQUARE", "TRI"};
   private static final String[] LFO_TARGETS = {"Filter", "Res", "Pan", "Pitch", "Vol", "FM"};
+  private static final String[] OSC_TYPES = {"SINE", "SAW", "SQUARE", "TRIANGLE", "NOISE"};
+  private static final String[] SYNTH_MODES = {"SUBTRACTIVE", "FM", "RINGMOD"};
+  private static final String[] POLY_MODES = {"POLY", "MONO", "LEGATO"};
 
   public SwingSynthConfigDialog(
       Frame owner, SynthTrackModel model, ChuckVM vm, BridgeContract bridge, int trackIndex) {
@@ -49,6 +52,83 @@ public class SwingSynthConfigDialog extends JDialog {
     c.anchor = GridBagConstraints.WEST;
     int row = 0;
 
+    // ── Oscillator section ──
+    c.gridx = 0; c.gridy = row; c.gridwidth = 3;
+    panel.add(sectionLabel("OSCILLATORS"), c); row++;
+
+    // Osc1 type
+    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
+    JLabel osc1Lbl = label("Osc 1:");
+    osc1Lbl.setToolTipText("Carrier oscillator waveform type");
+    panel.add(osc1Lbl, c);
+    c.gridx = 1; c.gridwidth = 2;
+    JComboBox<String> osc1Combo = new JComboBox<>(OSC_TYPES);
+    osc1Combo.setSelectedItem(model.getOsc1Type());
+    osc1Combo.setBackground(new Color(0x33, 0x33, 0x33));
+    osc1Combo.setForeground(Color.WHITE);
+    osc1Combo.addActionListener(e -> {
+      String sel = (String) osc1Combo.getSelectedItem();
+      model.setOsc1Type(sel);
+      int typeIdx = switch (sel) { case "SAW" -> 1; case "SQUARE" -> 2; case "TRIANGLE" -> 3; case "NOISE" -> 4; default -> 0; };
+      bridge.setVelocity(trackIndex, 0, typeIdx); // temp push — real push via pushModelToBridge
+    });
+    panel.add(osc1Combo, c); row++;
+
+    // Osc2 type
+    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
+    JLabel osc2Lbl = label("Osc 2:");
+    osc2Lbl.setToolTipText("Second oscillator type (modulator in FM mode)");
+    panel.add(osc2Lbl, c);
+    c.gridx = 1; c.gridwidth = 2;
+    String osc2Current = model.getOsc2Type();
+    JComboBox<String> osc2Combo = new JComboBox<>(OSC_TYPES);
+    if ("NONE".equals(osc2Current) || osc2Current == null) osc2Combo.setSelectedIndex(0);
+    else osc2Combo.setSelectedItem(osc2Current);
+    osc2Combo.setBackground(new Color(0x33, 0x33, 0x33));
+    osc2Combo.setForeground(Color.WHITE);
+    osc2Combo.addActionListener(e -> model.setOsc2Type((String) osc2Combo.getSelectedItem()));
+    panel.add(osc2Combo, c); row++;
+
+    // ── Synth Mode ──
+    c.gridx = 0; c.gridy = row; c.gridwidth = 3;
+    panel.add(sectionLabel("SYNTH MODE"), c); row++;
+
+    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
+    JLabel modeLbl = label("Mode:");
+    modeLbl.setToolTipText("SUBTRACTIVE = single osc through filter; FM = mod→car FM; RINGMOD = carrier×mod");
+    panel.add(modeLbl, c);
+    c.gridx = 1; c.gridwidth = 2;
+    JComboBox<String> modeCombo = new JComboBox<>(SYNTH_MODES);
+    modeCombo.setSelectedIndex(Math.max(0, Math.min(2, model.getSynthMode())));
+    modeCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    modeCombo.setForeground(Color.WHITE);
+    modeCombo.addActionListener(e -> {
+      int mode = modeCombo.getSelectedIndex();
+      model.setSynthMode(mode);
+      bridge.setSynthMode(trackIndex, mode);
+    });
+    panel.add(modeCombo, c); row++;
+
+    // ── Polyphony ──
+    c.gridx = 0; c.gridy = row; c.gridwidth = 3;
+    panel.add(sectionLabel("POLYPHONY"), c); row++;
+
+    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
+    JLabel polyLbl = label("Mode:");
+    polyLbl.setToolTipText("POLY = multiple simultaneous notes; MONO = one note at a time; LEGATO = mono with legato sliding");
+    panel.add(polyLbl, c);
+    c.gridx = 1; c.gridwidth = 2;
+    JComboBox<String> polyCombo = new JComboBox<>(POLY_MODES);
+    polyCombo.setSelectedItem(model.getPolyphony().name());
+    polyCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    polyCombo.setForeground(Color.WHITE);
+    polyCombo.addActionListener(e -> {
+      SynthTrackModel.PolyphonyMode pm = SynthTrackModel.PolyphonyMode.valueOf((String) polyCombo.getSelectedItem());
+      model.setPolyphony(pm);
+      bridge.setPolyphony(trackIndex, pm.ordinal());
+    });
+    panel.add(polyCombo, c); row++;
+
     // ── Arpeggiator ──
     c.gridx = 0; c.gridy = row; c.gridwidth = 3;
     panel.add(sectionLabel("ARPEGGIATOR"), c); row++;
@@ -82,9 +162,9 @@ public class SwingSynthConfigDialog extends JDialog {
     octCombo.addActionListener(e -> bridge.setArpOctave(trackIndex, (Integer) octCombo.getSelectedItem()));
     panel.add(octCombo, c); row++;
 
-    // ── Filter ──
+    // ── Filter (LPF) ──
     c.gridx = 0; c.gridy = row; c.gridwidth = 3;
-    panel.add(sectionLabel("FILTER"), c); row++;
+    panel.add(sectionLabel("FILTER (LPF)"), c); row++;
 
     row = addSlider(panel, c, row, "Cutoff:",
         "Low-pass filter cutoff frequency (0% = fully closed, 100% = fully open)",
@@ -94,6 +174,19 @@ public class SwingSynthConfigDialog extends JDialog {
         "Filter resonance / Q — emphasises frequencies around the cutoff",
         0, 100, (int)(bridge.getTrackFilterRes(trackIndex) * 100),
         val -> bridge.setFilterRes(trackIndex, val / 100.0), "%");
+
+    // ── Filter (HPF) ──
+    c.gridx = 0; c.gridy = row; c.gridwidth = 3;
+    panel.add(sectionLabel("FILTER (HPF)"), c); row++;
+
+    row = addSlider(panel, c, row, "Cutoff:",
+        "High-pass filter cutoff (0% = 20Hz/off, 100% = ~20kHz)",
+        0, 100, (int)(bridge.getHpfFreq(trackIndex) / 200.0f * 100),
+        val -> bridge.setHpfFreq(trackIndex, val / 100.0f * 200.0f), "Hz");
+    row = addSlider(panel, c, row, "Resonance:",
+        "HPF resonance / Q",
+        0, 100, (int)(bridge.getHpfRes(trackIndex) * 100),
+        val -> bridge.setHpfRes(trackIndex, val / 100.0f), "%");
 
     // ── FM ──
     c.gridx = 0; c.gridy = row; c.gridwidth = 3;
