@@ -548,6 +548,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
     Pan2[] pan = new Pan2[totalSynthSlots];
     Gain[] sDsend = new Gain[totalSynthSlots];
     Gain[] sRsend = new Gain[totalSynthSlots];
+    // (Carrier feedback disabled in graph — see block-rate modulation below)
 
     for (int i = 0; i < totalSynthSlots; i++) {
       int algo = algoArr != null ? (int) algoArr.getInt(i) : 0;
@@ -642,6 +643,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
       ChuckArray hpfFreqArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_HPF_FREQ);
       ChuckArray hpfResArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_HPF_RES);
       ChuckArray polyphonyArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_POLYPHONY);
+      ChuckArray car1FbArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_CARRIER1_FB);
 
       // Iterate all bridge rows for this synth track; each row has its own dedicated UGen
       for (int r = synthBase; r <= maxSynthBridgeRow; r++) {
@@ -726,6 +728,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
         double svfMorph = (fm == 2) ? fmorph : 0.0;
         fil[u].morph(svfMorph);
         pan[u].pan((float) Math.max(-1.0, Math.min(1.0, tp)));
+
 
         if (isNewStep) {
           if (prob != null && Math.random() > prob.getFloat(idx)) continue;

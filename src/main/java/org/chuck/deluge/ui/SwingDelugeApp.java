@@ -241,6 +241,11 @@ public class SwingDelugeApp extends JFrame {
           bridge.setSynthMode(startRow + v, synth.getSynthMode());
           bridge.setFmRatio(startRow + v, synth.getFmRatio());
           bridge.setFmAmount(startRow + v, synth.getFmAmount());
+          bridge.setMod1Fb(startRow + v, synth.getModulator1Feedback());
+          bridge.setMod2Amt(startRow + v, synth.getModulator2Amount());
+          bridge.setMod2Fb(startRow + v, synth.getModulator2Feedback());
+          bridge.setCarrier1Fb(startRow + v, synth.getCarrier1Feedback());
+          bridge.setCarrier2Fb(startRow + v, synth.getCarrier2Feedback());
           bridge.setHpfFreq(startRow + v, synth.getHpfFreq());
           bridge.setHpfRes(startRow + v, synth.getHpfRes());
           bridge.setPolyphony(startRow + v, synth.getPolyphony().ordinal());
@@ -592,6 +597,98 @@ public class SwingDelugeApp extends JFrame {
     }
   }
 
+  private void assembleKitFromSynths() {
+    JFileChooser chooser = new JFileChooser(
+        org.chuck.deluge.project.PreferencesManager.getSongsDir());
+    chooser.setDialogTitle("Select Synth Preset XML Files");
+    chooser.setMultiSelectionEnabled(true);
+    chooser.setFileFilter(
+        new javax.swing.filechooser.FileNameExtensionFilter("Synth XML", "xml", "XML"));
+    if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) return;
+
+    java.io.File[] selected = chooser.getSelectedFiles();
+    if (selected.length == 0) return;
+
+    // Dialog for configuring each lane
+    JPanel configPanel = new JPanel(new GridBagLayout());
+    GridBagConstraints c = new GridBagConstraints();
+    c.fill = GridBagConstraints.HORIZONTAL;
+    c.insets = new Insets(3, 5, 3, 5);
+    c.gridx = 0;
+
+    java.util.List<JTextField> nameFields = new java.util.ArrayList<>();
+    java.util.List<JSpinner> muteFields = new java.util.ArrayList<>();
+    java.util.List<JSpinner> pitchFields = new java.util.ArrayList<>();
+
+    for (int i = 0; i < selected.length; i++) {
+      JTextField nameFld = new JTextField(selected[i].getName().replaceAll("(?i)\\.xml$", ""), 20);
+      SpinnerNumberModel muteModel = new SpinnerNumberModel(0, 0, 16, 1);
+      JSpinner muteSpinner = new JSpinner(muteModel);
+      SpinnerNumberModel pitchModel = new SpinnerNumberModel(0, -24, 24, 1);
+      JSpinner pitchSpinner = new JSpinner(pitchModel);
+
+      c.gridy = i;
+      c.gridwidth = 1;
+      configPanel.add(new JLabel((i + 1) + ":"), c); c.gridx = 1;
+      configPanel.add(nameFld, c); c.gridx = 2;
+      configPanel.add(new JLabel("MG:"), c); c.gridx = 3;
+      configPanel.add(muteSpinner, c); c.gridx = 4;
+      configPanel.add(new JLabel("Pitch:"), c); c.gridx = 5;
+      configPanel.add(pitchSpinner, c); c.gridx = 0;
+
+      nameFields.add(nameFld);
+      muteFields.add(muteSpinner);
+      pitchFields.add(pitchSpinner);
+    }
+
+    int result = JOptionPane.showConfirmDialog(
+        this, configPanel, "Configure Kit Lanes",
+        JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+    if (result != JOptionPane.OK_OPTION) return;
+
+    try {
+      java.util.List<Integer> muteGroups = new java.util.ArrayList<>();
+      java.util.List<Integer> pitchOffsets = new java.util.ArrayList<>();
+      for (int i = 0; i < selected.length; i++) {
+        muteGroups.add((Integer) muteFields.get(i).getValue());
+        pitchOffsets.add((Integer) pitchFields.get(i).getValue());
+      }
+
+      String kitName = JOptionPane.showInputDialog(this, "Kit name:", "Kit from Synths");
+      if (kitName == null || kitName.isBlank()) kitName = "Kit from Synths";
+
+      org.chuck.deluge.model.KitTrackModel kit =
+          org.chuck.deluge.kit.KitAssembler.assembleFromSynths(
+              kitName,
+              java.util.Arrays.asList(selected),
+              muteGroups,
+              pitchOffsets);
+
+      JFileChooser saveChooser = new JFileChooser(
+          org.chuck.deluge.project.PreferencesManager.getSongsDir());
+      saveChooser.setDialogTitle("Save Kit As");
+      saveChooser.setFileFilter(
+          new javax.swing.filechooser.FileNameExtensionFilter("Kit XML", "xml", "XML"));
+      saveChooser.setSelectedFile(new java.io.File(kitName + ".xml"));
+      if (saveChooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
+
+      java.io.File saveFile = saveChooser.getSelectedFile();
+      if (!saveFile.getName().toLowerCase().endsWith(".xml")) {
+        saveFile = new java.io.File(saveFile.getAbsolutePath() + ".xml");
+      }
+      org.chuck.deluge.project.KitSynthSerializer.saveKit(kit, saveFile);
+
+      JOptionPane.showMessageDialog(
+          this, "Kit saved to:\n" + saveFile.getAbsolutePath(),
+          "Kit Assembly Complete", JOptionPane.INFORMATION_MESSAGE);
+    } catch (Exception ex) {
+      JOptionPane.showMessageDialog(
+          this, "Failed to assemble kit:\n" + ex.getMessage(),
+          "Error", JOptionPane.ERROR_MESSAGE);
+      ex.printStackTrace();
+    }
+  }
+
   private void setupUI() {
     getContentPane().removeAll();
     setLayout(new GridBagLayout());
@@ -664,6 +761,9 @@ public class SwingDelugeApp extends JFrame {
     JMenuItem exportItem = new JMenuItem("Export Audio...");
     exportItem.addActionListener(e -> exportAudio());
 
+    JMenuItem assembleKitItem = new JMenuItem("Assemble Kit From Synths...");
+    assembleKitItem.addActionListener(e -> assembleKitFromSynths());
+
     JMenuItem loadScriptItem = new JMenuItem("Load Script...");
     loadScriptItem.addActionListener(e -> loadChuckScript());
 
@@ -677,6 +777,8 @@ public class SwingDelugeApp extends JFrame {
     fileMenu.add(saveAsItem);
     fileMenu.addSeparator();
     fileMenu.add(exportItem);
+    fileMenu.addSeparator();
+    fileMenu.add(assembleKitItem);
     fileMenu.addSeparator();
     fileMenu.add(loadScriptItem);
     fileMenu.addSeparator();

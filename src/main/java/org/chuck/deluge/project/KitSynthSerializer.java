@@ -9,6 +9,8 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import org.chuck.deluge.model.KitTrackModel;
+import org.chuck.deluge.model.ModKnob;
+import org.chuck.deluge.model.PatchCable;
 import org.chuck.deluge.model.SynthTrackModel;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -77,7 +79,40 @@ public class KitSynthSerializer {
     filter.setAttribute("res", String.valueOf(synth.getLpfRes()));
     root.appendChild(filter);
 
+    // ── Patch Cables ──
+    if (!synth.getPatchCables().isEmpty()) {
+      Element cablesElem = doc.createElement("patchCables");
+      for (PatchCable pc : synth.getPatchCables()) {
+        Element cable = doc.createElement("patchCable");
+        appendTextChild(doc, cable, "source", pc.source());
+        appendTextChild(doc, cable, "destination", pc.destination());
+        appendTextChild(doc, cable, "amount", String.valueOf(pc.amount()));
+        cablesElem.appendChild(cable);
+      }
+      root.appendChild(cablesElem);
+    }
+
+    // ── Mod Knobs ──
+    boolean hasKnobs = synth.getModKnobs().stream().anyMatch(k -> !"NONE".equals(k.param()));
+    if (hasKnobs) {
+      Element knobsElem = doc.createElement("modKnobs");
+      for (ModKnob mk : synth.getModKnobs()) {
+        if (!"NONE".equals(mk.param())) {
+          Element knob = doc.createElement("modKnob");
+          appendTextChild(doc, knob, "controlsParam", mk.param());
+          knobsElem.appendChild(knob);
+        }
+      }
+      root.appendChild(knobsElem);
+    }
+
     write(doc, file);
+  }
+
+  private static void appendTextChild(Document doc, Element parent, String tag, String value) {
+    Element child = doc.createElement(tag);
+    child.setTextContent(value);
+    parent.appendChild(child);
   }
 
   private static Document newDoc() throws Exception {
