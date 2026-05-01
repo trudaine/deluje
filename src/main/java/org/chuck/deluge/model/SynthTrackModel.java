@@ -52,6 +52,17 @@ public class SynthTrackModel extends TrackModel {
   /** FM modulator amount (0-1) derived from <modulator1Amount> hex knob value. */
   private float fmAmount = 0.0f;
 
+  /** Modulator 1 feedback amount (0-1) — self-modulation of the FM modulator. */
+  private float modulator1Feedback = 0.0f;
+  /** Modulator 2 FM amount (0-1). */
+  private float modulator2Amount = 0.0f;
+  /** Modulator 2 feedback amount (0-1). */
+  private float modulator2Feedback = 0.0f;
+  /** Carrier 1 feedback amount (0-1) — self-modulation of the FM carrier. */
+  private float carrier1Feedback = 0.0f;
+  /** Carrier 2 feedback amount (0-1). */
+  private float carrier2Feedback = 0.0f;
+
   public enum PolyphonyMode { POLY, MONO, LEGATO }
 
   private PolyphonyMode polyphony = PolyphonyMode.POLY;
@@ -319,6 +330,21 @@ public class SynthTrackModel extends TrackModel {
   public void setFmAmount(float fmAmount) {
     this.fmAmount = fmAmount;
   }
+
+  public float getModulator1Feedback() { return modulator1Feedback; }
+  public void setModulator1Feedback(float v) { this.modulator1Feedback = v; }
+
+  public float getModulator2Amount() { return modulator2Amount; }
+  public void setModulator2Amount(float v) { this.modulator2Amount = v; }
+
+  public float getModulator2Feedback() { return modulator2Feedback; }
+  public void setModulator2Feedback(float v) { this.modulator2Feedback = v; }
+
+  public float getCarrier1Feedback() { return carrier1Feedback; }
+  public void setCarrier1Feedback(float v) { this.carrier1Feedback = v; }
+
+  public float getCarrier2Feedback() { return carrier2Feedback; }
+  public void setCarrier2Feedback(float v) { this.carrier2Feedback = v; }
 
   public PolyphonyMode getPolyphony() {
     return polyphony;

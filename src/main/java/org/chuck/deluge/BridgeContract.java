@@ -268,6 +268,19 @@ public final class BridgeContract {
   /** Per-track polyphony mode (int array). 0=POLY, 1=MONO, 2=LEGATO. */
   public static final String G_POLYPHONY = "g_polyphony";
 
+  // ── FM feedback params (modulator/carrier feedback) ────────────────────
+
+  /** Per-track modulator 1 feedback amount 0-1 (float array). Self-modulation of the FM modulator. */
+  public static final String G_MOD1_FB = "g_mod1_fb";
+  /** Per-track modulator 2 FM amount 0-1 (float array). */
+  public static final String G_MOD2_AMT = "g_mod2_amt";
+  /** Per-track modulator 2 feedback amount 0-1 (float array). */
+  public static final String G_MOD2_FB = "g_mod2_fb";
+  /** Per-track carrier 1 feedback amount 0-1 (float array). Self-modulation of the FM carrier. */
+  public static final String G_CARRIER1_FB = "g_carrier1_fb";
+  /** Per-track carrier 2 feedback amount 0-1 (float array). */
+  public static final String G_CARRIER2_FB = "g_carrier2_fb";
+
   // ── Kit per-drum ADSR + Pitch ─────────────────────────────────────────
 
   /** Per-voice kit envelope attack time in seconds (float array). */
@@ -363,6 +376,12 @@ public final class BridgeContract {
   private final ChuckArray hpfRes;
   private final ChuckArray polyphony;
 
+  private final ChuckArray mod1Fb;
+  private final ChuckArray mod2Amt;
+  private final ChuckArray mod2Fb;
+  private final ChuckArray carrier1Fb;
+  private final ChuckArray carrier2Fb;
+
   private final ChuckArray audioRec;
   private final ChuckArray audioPlay;
   private final ChuckArray audioLoop;
@@ -428,6 +447,12 @@ public final class BridgeContract {
     hpfRes = new ChuckArray("float", TRACKS);
     polyphony = new ChuckArray("int", TRACKS);
 
+    mod1Fb = new ChuckArray("float", TRACKS);
+    mod2Amt = new ChuckArray("float", TRACKS);
+    mod2Fb = new ChuckArray("float", TRACKS);
+    carrier1Fb = new ChuckArray("float", TRACKS);
+    carrier2Fb = new ChuckArray("float", TRACKS);
+
     audioRec = new ChuckArray("int", TRACKS);
     audioPlay = new ChuckArray("int", TRACKS);
     audioLoop = new ChuckArray("int", TRACKS);
@@ -480,6 +505,12 @@ public final class BridgeContract {
       fmAmount.setFloat(t, 0.0f);
       synthAlgo.setInt(t, 0L);
       synthMode.setInt(t, 0L);
+
+      mod1Fb.setFloat(t, 0.0f);
+      mod2Amt.setFloat(t, 0.0f);
+      mod2Fb.setFloat(t, 0.0f);
+      carrier1Fb.setFloat(t, 0.0f);
+      carrier2Fb.setFloat(t, 0.0f);
 
       audioRec.setInt(t, 0L);
       audioPlay.setInt(t, 0L);
@@ -592,6 +623,12 @@ public final class BridgeContract {
     vm.setGlobalObject(G_HPF_FREQ, hpfFreq);
     vm.setGlobalObject(G_HPF_RES, hpfRes);
     vm.setGlobalObject(G_POLYPHONY, polyphony);
+
+    vm.setGlobalObject(G_MOD1_FB, mod1Fb);
+    vm.setGlobalObject(G_MOD2_AMT, mod2Amt);
+    vm.setGlobalObject(G_MOD2_FB, mod2Fb);
+    vm.setGlobalObject(G_CARRIER1_FB, carrier1Fb);
+    vm.setGlobalObject(G_CARRIER2_FB, carrier2Fb);
 
     vm.setGlobalObject(G_AUDIO_REC, audioRec);
     vm.setGlobalObject(G_AUDIO_PLAY, audioPlay);
@@ -903,6 +940,23 @@ public final class BridgeContract {
   public int getPolyphony(int track) {
     return (int) polyphony.getInt(track);
   }
+
+  // ── FM Feedback ──
+
+  public float getMod1Fb(int track) { return (float) mod1Fb.getFloat(track); }
+  public void setMod1Fb(int track, float v) { mod1Fb.setFloat(track, v); }
+
+  public float getMod2Amt(int track) { return (float) mod2Amt.getFloat(track); }
+  public void setMod2Amt(int track, float v) { mod2Amt.setFloat(track, v); }
+
+  public float getMod2Fb(int track) { return (float) mod2Fb.getFloat(track); }
+  public void setMod2Fb(int track, float v) { mod2Fb.setFloat(track, v); }
+
+  public float getCarrier1Fb(int track) { return (float) carrier1Fb.getFloat(track); }
+  public void setCarrier1Fb(int track, float v) { carrier1Fb.setFloat(track, v); }
+
+  public float getCarrier2Fb(int track) { return (float) carrier2Fb.getFloat(track); }
+  public void setCarrier2Fb(int track, float v) { carrier2Fb.setFloat(track, v); }
 
   // === Audio Track Helpers ===
 

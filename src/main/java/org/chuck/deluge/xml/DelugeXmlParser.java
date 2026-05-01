@@ -222,6 +222,36 @@ public class DelugeXmlParser {
         float val = DelugeHexMapper.hexToFloat(hpfRes.item(0).getTextContent());
         synth.setHpfRes(val);
       }
+
+      // ── FM feedback params from defaultParams ──
+      parseHexFloatParam(def, "modulator1Feedback", synth::setModulator1Feedback);
+      parseHexFloatParam(def, "modulator2Amount", synth::setModulator2Amount);
+      parseHexFloatParam(def, "modulator2Feedback", synth::setModulator2Feedback);
+      parseHexFloatParam(def, "carrier1Feedback", synth::setCarrier1Feedback);
+      parseHexFloatParam(def, "carrier2Feedback", synth::setCarrier2Feedback);
+    }
+
+    // ── Patch Cables ──
+    NodeList cableList = soundNode.getElementsByTagName("patchCable");
+    for (int i = 0; i < cableList.getLength(); i++) {
+      Element cableElem = (Element) cableList.item(i);
+      String src = getChildText(cableElem, "source");
+      String dst = getChildText(cableElem, "destination");
+      String amtStr = getChildText(cableElem, "amount");
+      if (src != null && dst != null && amtStr != null) {
+        float amt = PatchCable.applyScaling(dst, DelugeHexMapper.hexToFloat(amtStr));
+        synth.addPatchCable(new PatchCable(src, dst, amt));
+      }
+    }
+
+    // ── Mod Knobs ──
+    NodeList knobList = soundNode.getElementsByTagName("modKnob");
+    for (int i = 0; i < knobList.getLength(); i++) {
+      Element knobElem = (Element) knobList.item(i);
+      String param = getChildText(knobElem, "controlsParam");
+      if (param != null && i < synth.getModKnobs().size()) {
+        synth.setModKnob(i, new ModKnob(param, "NONE"));
+      }
     }
 
     return synth;
@@ -540,9 +570,57 @@ public class DelugeXmlParser {
         float val = DelugeHexMapper.hexToFloat(hpfRes.item(0).getTextContent());
         synth.setHpfRes(val);
       }
+
+      // ── FM feedback params from defaultParams ──
+      parseHexFloatParam(def, "modulator1Feedback", synth::setModulator1Feedback);
+      parseHexFloatParam(def, "modulator2Amount", synth::setModulator2Amount);
+      parseHexFloatParam(def, "modulator2Feedback", synth::setModulator2Feedback);
+      parseHexFloatParam(def, "carrier1Feedback", synth::setCarrier1Feedback);
+      parseHexFloatParam(def, "carrier2Feedback", synth::setCarrier2Feedback);
+    }
+
+    // ── Patch Cables ──
+    NodeList cableList = soundNode.getElementsByTagName("patchCable");
+    for (int i = 0; i < cableList.getLength(); i++) {
+      Element cableElem = (Element) cableList.item(i);
+      String src = getChildText(cableElem, "source");
+      String dst = getChildText(cableElem, "destination");
+      String amtStr = getChildText(cableElem, "amount");
+      if (src != null && dst != null && amtStr != null) {
+        float amt = PatchCable.applyScaling(dst, DelugeHexMapper.hexToFloat(amtStr));
+        synth.addPatchCable(new PatchCable(src, dst, amt));
+      }
+    }
+
+    // ── Mod Knobs ──
+    NodeList knobList = soundNode.getElementsByTagName("modKnob");
+    for (int i = 0; i < knobList.getLength(); i++) {
+      Element knobElem = (Element) knobList.item(i);
+      String param = getChildText(knobElem, "controlsParam");
+      if (param != null && i < synth.getModKnobs().size()) {
+        synth.setModKnob(i, new ModKnob(param, "NONE"));
+      }
     }
 
     return synth;
+  }
+
+  /** Parses a hex-encoded float parameter from a child element of {@code parent}. Sets value via {@code setter}. */
+  private static void parseHexFloatParam(Element parent, String tag, java.util.function.Consumer<Float> setter) {
+    NodeList nodes = parent.getElementsByTagName(tag);
+    if (nodes.getLength() > 0) {
+      setter.accept(Math.abs(DelugeHexMapper.hexToFloat(nodes.item(0).getTextContent())));
+    }
+  }
+
+  /** Gets the text content of the first child element with {@code tag} under {@code parent}, or null if absent/blank. */
+  private static String getChildText(Element parent, String tag) {
+    NodeList nodes = parent.getElementsByTagName(tag);
+    if (nodes.getLength() > 0) {
+      String text = nodes.item(0).getTextContent();
+      return (text == null || text.isBlank()) ? null : text.trim();
+    }
+    return null;
   }
 
   private static Document parseXml(InputStream is) throws Exception {
