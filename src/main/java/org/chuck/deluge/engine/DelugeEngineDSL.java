@@ -645,6 +645,16 @@ public class DelugeEngineDSL implements Shred, Runnable {
       ChuckArray polyphonyArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_POLYPHONY);
       ChuckArray car1FbArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_CARRIER1_FB);
 
+      // ── Per-step automation arrays (8 new) ──
+      ChuckArray sHpfFreq = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_HPF_FREQ);
+      ChuckArray sHpfRes  = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_HPF_RES);
+      ChuckArray sModRate = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_MOD_RATE);
+      ChuckArray sModDepth = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_MOD_DEPTH);
+      ChuckArray sOscAVol = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_OSC_A_VOL);
+      ChuckArray sOscBVol = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_OSC_B_VOL);
+      ChuckArray sNoiseVol = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_NOISE_VOL);
+      ChuckArray sPitchArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_PITCH);
+
       // Iterate all bridge rows for this synth track; each row has its own dedicated UGen
       for (int r = synthBase; r <= maxSynthBridgeRow; r++) {
         int u = r - synthBase;
@@ -715,11 +725,13 @@ public class DelugeEngineDSL implements Shred, Runnable {
         double tp = masterPan + (sPan != null ? sPan.getFloat(idx) : 0.0) + lfoP;
         fil[u].freq((float) Math.max(20.0, Math.min(20000.0, tf)));
         fil[u].Q((float) Math.max(1.0, Math.min(10.0, tq)));
-        // Per-voice HPF: read from bridge, 20Hz = off/bypass
+        // Per-voice HPF: track-level base + per-step automation offset
         float hf = hpfFreqArr != null ? (float) hpfFreqArr.getFloat(r) : 20.0f;
         float hr = hpfResArr != null ? (float) hpfResArr.getFloat(r) : 0.0f;
+        if (sHpfFreq != null) hf += sHpfFreq.getFloat(idx) * 1000.0f;   // 0-1 → 0-1000 Hz
+        if (sHpfRes != null) hr += sHpfRes.getFloat(idx) * 9.0f;         // 0-1 → 0-9 Q offset
         hpf[u].freq(Math.max(20.0f, hf));
-        hpf[u].Q(1.0f + hr * 9.0f);
+        hpf[u].Q(1.0f + Math.max(0.0f, hr) * 9.0f);
         // Apply filter mode + morph to SVFilter morph parameter.
         // LADDER_12 (0) and LADDER_24 (1) default to LP (morph=0).
         // SVF (2) maps morph to SVFilter's LP→BP→HP continuum.
@@ -750,9 +762,12 @@ public class DelugeEngineDSL implements Shred, Runnable {
                   * stepDuration(step % 2).samples()
                   / sampleRate();
 
+          // Per-step pitch offset from automation (±24 semitones)
+          double stepPitchOffset = sPitchArr != null ? sPitchArr.getFloat(idx) * 24.0 : 0.0;
+
           if (algo >= 10) {
             // STK physical model trigger
-            double f = mtof(((24 - 1) - (r - synthBase)) + 60) * Math.pow(2.0, lfoPit);
+            double f = mtof(((24 - 1) - (r - synthBase)) + 60 + stepPitchOffset) * Math.pow(2.0, lfoPit);
             triggerStkNote(src[u], (float) f, (float) gainVal);
             env[u].gain(0.0f); // STK has its own internal envelope; pass level via gain
             env[u].keyOn();    // Keep the gate UGen open
@@ -770,7 +785,10 @@ public class DelugeEngineDSL implements Shred, Runnable {
             int v = u;
             vm.spork(() -> run_arp(v, baseMidi, (float) gainVal, car[v], mod[v], env[v]));
           } else {
-            double f = mtof(((24 - 1) - (r - synthBase)) + 60) * Math.pow(2.0, lfoPit);
+            double f = mtof(((24 - 1) - (r - synthBase)) + 60 + stepPitchOffset) * Math.pow(2.0, lfoPit);
+            // Per-step osc volume automation (default 1.0 = full gain)
+            float oscAGain = sOscAVol != null ? (float) sOscAVol.getFloat(idx) : 1.0f;
+            float oscBGain = sOscBVol != null ? (float) sOscBVol.getFloat(idx) : 1.0f;
             int synthMode = synthModeArr != null ? (int) synthModeArr.getInt(r) : 0;
             if (synthMode == 1) {
               // FM: mod→car with FM ratio + amount
@@ -784,22 +802,20 @@ public class DelugeEngineDSL implements Shred, Runnable {
               }
             } else if (synthMode >= 2) {
               // RINGMOD (2): both oscillators active, mixed via mod→car FM at audio rate.
-              // True sample-by-sample multiplication isn't possible in ChucK's block-advance model,
-              // so we drive both oscillators at the same frequency at unity gain, letting them
-              // interact acoustically through the filter.
+              // Per-step automation shapes oscillator levels.
               if (car[u] != null) {
                 car[u].freq((float) f);
-                car[u].gain(1.0f);
+                car[u].gain(oscAGain);
               }
               if (mod[u] != null) {
                 mod[u].freq((float) f);
-                mod[u].gain(1.0f);
+                mod[u].gain(oscBGain);
               }
             } else {
               // SUBTRACTIVE (0): single oscillator through filter
               if (car[u] != null) {
                 car[u].freq((float) f);
-                car[u].gain(1.0f);
+                car[u].gain(oscAGain);
               }
               // Mute the modulator to prevent FM
               if (mod[u] != null) mod[u].gain(0.0f);

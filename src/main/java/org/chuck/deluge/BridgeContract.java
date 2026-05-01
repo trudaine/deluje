@@ -18,7 +18,7 @@ import org.chuck.core.ChuckVM;
  * <ul>
  *   <li>{@link #TRACKS} — 64 (configurable via {@code deluge.tracks} system property)</li>
  *   <li>{@link #STEPS} — 192 (max step capacity per clip, matching real Deluge hardware)</li>
- *   <li>{@link #PATTERN_SIZE} = {@code TRACKS × STEPS} = 12 288 — sizes all 14 step-data arrays</li>
+ *   <li>{@link #PATTERN_SIZE} = {@code TRACKS × STEPS} = 12 288 — sizes all 22 step-data arrays</li>
  * </ul>
  *
  * <h2>Array Layout</h2>
@@ -126,6 +126,25 @@ public final class BridgeContract {
   public static final String G_STEP_START = "g_step_start";
   /** Per-step sample end position 0-1 (float array). 1 = end of sample. */
   public static final String G_STEP_END = "g_step_end";
+
+  // ── Automation per-step arrays (size PATTERN_SIZE each) ────────────────
+
+  /** Per-step HPF cutoff offset (float array). Added to track HPF freq. */
+  public static final String G_STEP_HPF_FREQ = "g_step_hpf_freq";
+  /** Per-step HPF resonance offset (float array). */
+  public static final String G_STEP_HPF_RES = "g_step_hpf_res";
+  /** Per-step mod FX rate offset (float array). */
+  public static final String G_STEP_MOD_RATE = "g_step_mod_rate";
+  /** Per-step mod FX depth offset (float array). */
+  public static final String G_STEP_MOD_DEPTH = "g_step_mod_depth";
+  /** Per-step oscillator A volume offset 0-1 (float array). */
+  public static final String G_STEP_OSC_A_VOL = "g_step_osc_a_vol";
+  /** Per-step oscillator B volume offset 0-1 (float array). */
+  public static final String G_STEP_OSC_B_VOL = "g_step_osc_b_vol";
+  /** Per-step noise volume offset 0-1 (float array). */
+  public static final String G_STEP_NOISE_VOL = "g_step_noise_vol";
+  /** Per-step pitch offset (float array). Added to note pitch in semitones. */
+  public static final String G_STEP_PITCH = "g_step_pitch";
 
   // ── Track-level arrays (size TRACKS each) ─────────────────────────────
 
@@ -338,6 +357,14 @@ public final class BridgeContract {
   private final ChuckArray stepMod;
   private final ChuckArray stepStart;
   private final ChuckArray stepEnd;
+  private final ChuckArray stepHpfFreq;
+  private final ChuckArray stepHpfRes;
+  private final ChuckArray stepModRate;
+  private final ChuckArray stepModDepth;
+  private final ChuckArray stepOscAVol;
+  private final ChuckArray stepOscBVol;
+  private final ChuckArray stepNoiseVol;
+  private final ChuckArray stepPitch;
   private final ChuckArray trackType;
   private final ChuckArray trackLevel;
   private final ChuckArray mute;
@@ -391,7 +418,7 @@ public final class BridgeContract {
   private boolean recording = false;
 
   /**
-   * Creates all 31 typed ChuckArrays with default dimensions and initialises every slot to its
+   * Creates all 39 typed ChuckArrays with default dimensions and initialises every slot to its
    * default value ({@link #initDefaults()}). Called once from the UI thread at application start.
    * Step-data arrays are sized to {@link #PATTERN_SIZE}; track-level arrays to {@link #TRACKS}.
    */
@@ -410,6 +437,14 @@ public final class BridgeContract {
     stepMod = new ChuckArray("float", PATTERN_SIZE);
     stepStart = new ChuckArray("float", PATTERN_SIZE);
     stepEnd = new ChuckArray("float", PATTERN_SIZE);
+    stepHpfFreq = new ChuckArray("float", PATTERN_SIZE);
+    stepHpfRes = new ChuckArray("float", PATTERN_SIZE);
+    stepModRate = new ChuckArray("float", PATTERN_SIZE);
+    stepModDepth = new ChuckArray("float", PATTERN_SIZE);
+    stepOscAVol = new ChuckArray("float", PATTERN_SIZE);
+    stepOscBVol = new ChuckArray("float", PATTERN_SIZE);
+    stepNoiseVol = new ChuckArray("float", PATTERN_SIZE);
+    stepPitch = new ChuckArray("float", PATTERN_SIZE);
     trackType = new ChuckArray("int", TRACKS);
     trackLevel = new ChuckArray("float", TRACKS);
     mute = new ChuckArray("int", TRACKS);
@@ -477,6 +512,14 @@ public final class BridgeContract {
       stepMod.setFloat(i, 0.0f);
       stepStart.setFloat(i, 0.0f);
       stepEnd.setFloat(i, 1.0f);
+      stepHpfFreq.setFloat(i, 0.0f);
+      stepHpfRes.setFloat(i, 0.0f);
+      stepModRate.setFloat(i, 0.0f);
+      stepModDepth.setFloat(i, 0.0f);
+      stepOscAVol.setFloat(i, 1.0f);   // 1.0 = full volume (no automation)
+      stepOscBVol.setFloat(i, 1.0f);   // 1.0 = full volume (no automation)
+      stepNoiseVol.setFloat(i, 1.0f);  // 1.0 = full volume (no automation)
+      stepPitch.setFloat(i, 0.0f);
     }
     for (int t = 0; t < TRACKS; t++) {
       trackType.setInt(t, 0L);
@@ -541,7 +584,7 @@ public final class BridgeContract {
    * Registers:
    * <ul>
    *   <li>Scalar globals: BPM, swing, play state, step counter, master vol/pan, FX params, scale</li>
-   *   <li>All 31 typed ChuckArrays as global objects (step data + track params)</li>
+   *   <li>All 39 typed ChuckArrays as global objects (step data + track params)</li>
    *   <li>Engine bus UGens: g_delay_in, g_reverb_in, g_synth_bus, g_audio_bus (Gain)</li>
    *   <li>Events: tick_event, e_preview, e_sidechain, g_load_trigger</li>
    *   <li>Export state: g_wvout_active (0.0), g_wvout_file ("")</li>
@@ -587,6 +630,14 @@ public final class BridgeContract {
     vm.setGlobalObject(G_STEP_MOD, stepMod);
     vm.setGlobalObject(G_STEP_START, stepStart);
     vm.setGlobalObject(G_STEP_END, stepEnd);
+    vm.setGlobalObject(G_STEP_HPF_FREQ, stepHpfFreq);
+    vm.setGlobalObject(G_STEP_HPF_RES, stepHpfRes);
+    vm.setGlobalObject(G_STEP_MOD_RATE, stepModRate);
+    vm.setGlobalObject(G_STEP_MOD_DEPTH, stepModDepth);
+    vm.setGlobalObject(G_STEP_OSC_A_VOL, stepOscAVol);
+    vm.setGlobalObject(G_STEP_OSC_B_VOL, stepOscBVol);
+    vm.setGlobalObject(G_STEP_NOISE_VOL, stepNoiseVol);
+    vm.setGlobalObject(G_STEP_PITCH, stepPitch);
     vm.setGlobalObject(G_TRACK_TYPE, trackType);
     vm.setGlobalObject(G_TRACK_LEVEL, trackLevel);
     vm.setGlobalObject(G_MUTE, mute);
@@ -697,6 +748,114 @@ public final class BridgeContract {
 
   public double getStepProbability(int track, int step) {
     return probability.getFloat(track * STEPS + step);
+  }
+
+  // ── Per-step modulation accessors (existing G_STEP_* arrays) ──
+
+  public void setStepFilter(int track, int step, double val) {
+    stepFilter.setFloat(track * STEPS + step, val);
+  }
+
+  public double getStepFilter(int track, int step) {
+    return stepFilter.getFloat(track * STEPS + step);
+  }
+
+  public void setStepRes(int track, int step, double val) {
+    stepRes.setFloat(track * STEPS + step, val);
+  }
+
+  public double getStepRes(int track, int step) {
+    return stepRes.getFloat(track * STEPS + step);
+  }
+
+  public void setStepPan(int track, int step, double val) {
+    stepPan.setFloat(track * STEPS + step, val);
+  }
+
+  public double getStepPan(int track, int step) {
+    return stepPan.getFloat(track * STEPS + step);
+  }
+
+  public void setStepDelay(int track, int step, double val) {
+    stepDelay.setFloat(track * STEPS + step, val);
+  }
+
+  public double getStepDelay(int track, int step) {
+    return stepDelay.getFloat(track * STEPS + step);
+  }
+
+  public void setStepReverb(int track, int step, double val) {
+    stepReverb.setFloat(track * STEPS + step, val);
+  }
+
+  public double getStepReverb(int track, int step) {
+    return stepReverb.getFloat(track * STEPS + step);
+  }
+
+  // ── Automation step array accessors (new G_STEP_* arrays) ──
+
+  public void setStepHpfFreq(int track, int step, double val) {
+    stepHpfFreq.setFloat(track * STEPS + step, val);
+  }
+
+  public double getStepHpfFreq(int track, int step) {
+    return stepHpfFreq.getFloat(track * STEPS + step);
+  }
+
+  public void setStepHpfRes(int track, int step, double val) {
+    stepHpfRes.setFloat(track * STEPS + step, val);
+  }
+
+  public double getStepHpfRes(int track, int step) {
+    return stepHpfRes.getFloat(track * STEPS + step);
+  }
+
+  public void setStepModRate(int track, int step, double val) {
+    stepModRate.setFloat(track * STEPS + step, val);
+  }
+
+  public double getStepModRate(int track, int step) {
+    return stepModRate.getFloat(track * STEPS + step);
+  }
+
+  public void setStepModDepth(int track, int step, double val) {
+    stepModDepth.setFloat(track * STEPS + step, val);
+  }
+
+  public double getStepModDepth(int track, int step) {
+    return stepModDepth.getFloat(track * STEPS + step);
+  }
+
+  public void setStepOscAVol(int track, int step, double val) {
+    stepOscAVol.setFloat(track * STEPS + step, val);
+  }
+
+  public double getStepOscAVol(int track, int step) {
+    return stepOscAVol.getFloat(track * STEPS + step);
+  }
+
+  public void setStepOscBVol(int track, int step, double val) {
+    stepOscBVol.setFloat(track * STEPS + step, val);
+  }
+
+  public double getStepOscBVol(int track, int step) {
+    return stepOscBVol.getFloat(track * STEPS + step);
+  }
+
+  public void setStepNoiseVol(int track, int step, double val) {
+    stepNoiseVol.setFloat(track * STEPS + step, val);
+  }
+
+  public double getStepNoiseVol(int track, int step) {
+    return stepNoiseVol.getFloat(track * STEPS + step);
+  }
+
+  public void setStepPitch(int track, int step, double val) {
+    stepPitch.setFloat(track * STEPS + step, val);
+  }
+
+  public double getStepPitch(int track, int step) {
+    return stepPitch.getFloat(track * STEPS + step);
   }
 
   public void setTrackLevel(int track, double val) {

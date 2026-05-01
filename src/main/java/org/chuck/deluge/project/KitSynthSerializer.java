@@ -106,6 +106,36 @@ public class KitSynthSerializer {
       root.appendChild(knobsElem);
     }
 
+    // ── Automation Data (from the first clip) ──
+    java.util.List<org.chuck.deluge.model.ClipModel> clips = synth.getClips();
+    if (!clips.isEmpty()) {
+      org.chuck.deluge.model.ClipModel clip = clips.get(0);
+      String[] autoParams = org.chuck.deluge.model.AutomationParam.ALL;
+      boolean hasAuto = false;
+      for (String ap : autoParams) {
+        if (clip.hasAutomation(ap)) { hasAuto = true; break; }
+      }
+      if (hasAuto) {
+        Element autoElem = doc.createElement("automation");
+        for (String ap : autoParams) {
+          if (!clip.hasAutomation(ap)) continue;
+          float[] arr = clip.getAutomationArray(ap);
+          Element paramElem = doc.createElement("param");
+          paramElem.setAttribute("name", ap);
+          for (int s = 0; s < arr.length; s++) {
+            if (arr[s] >= 0f) {
+              Element stepElem = doc.createElement("step");
+              stepElem.setAttribute("index", String.valueOf(s));
+              stepElem.setTextContent(String.valueOf(arr[s]));
+              paramElem.appendChild(stepElem);
+            }
+          }
+          autoElem.appendChild(paramElem);
+        }
+        root.appendChild(autoElem);
+      }
+    }
+
     write(doc, file);
   }
 

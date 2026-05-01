@@ -4,6 +4,10 @@ import java.awt.*;
 import javax.swing.*;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
+import org.chuck.deluge.model.AudioTrackModel;
+import org.chuck.deluge.model.ClipModel;
+import org.chuck.deluge.model.KitTrackModel;
+import org.chuck.deluge.model.SynthTrackModel;
 
 /** Alternative lightweight UI running purely on Java Swing (no native libs). */
 public class SwingDelugeApp extends JFrame {
@@ -14,12 +18,18 @@ public class SwingDelugeApp extends JFrame {
   private SwingVisualizerPanel visualizerPanel;
   private SwingGridPanel songPanel;
   private SwingGridPanel arrGridPanel;
+  private SwingGridPanel autoPanel;
 
-  private JSlider topMasterVolSlider;
-  private JSlider bottomMasterVolSlider;
+  private SwingTopBarPanel topBar;
+  private SwingMasterFxPanel masterFxPanel;
 
   private JPanel centerCardPanel;
-  private JPanel centeredWrapper;
+
+  /** Wrap a SwingGridPanel with a small top indent so cells aren't flush with the top border. */
+  private static JPanel wrapGridPanel(SwingGridPanel grid) {
+    grid.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
+    return grid;
+  }
   private CardLayout cardLayout;
 
   private org.chuck.deluge.model.ProjectModel currentProject =
@@ -267,6 +277,50 @@ public class SwingDelugeApp extends JFrame {
                 bridge.setVelocity(startRow + r, s, step.velocity());
               }
             }
+          }
+        }
+      }
+
+      // ── Per-step automation merge ──
+      {
+        int acIdx = track.getActiveClipIndex();
+        java.util.List<org.chuck.deluge.model.ClipModel> clips = track.getClips();
+        if (acIdx >= 0 && acIdx < clips.size()) {
+          org.chuck.deluge.model.ClipModel clip = clips.get(acIdx);
+          int stepCount = clip.getStepCount();
+          int totalEngineRows = voiceCount;
+          if (track instanceof org.chuck.deluge.model.SynthTrackModel) {
+            totalEngineRows = Math.max(voiceCount, clip.getRowCount());
+          }
+          // Write automation to the first row of the track (engine shares per-track modulation)
+          int engRow = startRow;
+          for (int s = 0; s < stepCount; s++) {
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_LPF_FREQ, s))
+              bridge.setStepFilter(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_LPF_FREQ, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_LPF_RES, s))
+              bridge.setStepRes(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_LPF_RES, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_PAN, s))
+              bridge.setStepPan(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_PAN, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_DELAY, s))
+              bridge.setStepDelay(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_DELAY, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_REVERB, s))
+              bridge.setStepReverb(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_REVERB, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_HPF_FREQ, s))
+              bridge.setStepHpfFreq(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_HPF_FREQ, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_HPF_RES, s))
+              bridge.setStepHpfRes(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_HPF_RES, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_MOD_FX_RATE, s))
+              bridge.setStepModRate(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_MOD_FX_RATE, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_MOD_FX_DEPTH, s))
+              bridge.setStepModDepth(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_MOD_FX_DEPTH, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_OSC_A_VOL, s))
+              bridge.setStepOscAVol(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_OSC_A_VOL, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_OSC_B_VOL, s))
+              bridge.setStepOscBVol(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_OSC_B_VOL, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_NOISE_VOL, s))
+              bridge.setStepNoiseVol(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_NOISE_VOL, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_PITCH, s))
+              bridge.setStepPitch(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_PITCH, s));
           }
         }
       }
@@ -552,6 +606,7 @@ public class SwingDelugeApp extends JFrame {
     if (clipPanel != null) clipPanel.setProjectModel(currentProject);
     if (songPanel != null) songPanel.setProjectModel(currentProject);
     if (arrGridPanel != null) arrGridPanel.setProjectModel(currentProject);
+    if (autoPanel != null) autoPanel.setProjectModel(currentProject);
   }
 
   private void exportAudio() {
@@ -691,9 +746,7 @@ public class SwingDelugeApp extends JFrame {
 
   private void setupUI() {
     getContentPane().removeAll();
-    setLayout(new GridBagLayout());
-    GridBagConstraints gbc = new GridBagConstraints();
-    gbc.fill = GridBagConstraints.BOTH;
+    setLayout(new BorderLayout());
 
     // 0. Menu Bar
     JMenuBar menuBar = new JMenuBar();
@@ -827,31 +880,6 @@ public class SwingDelugeApp extends JFrame {
 
     // 1. Top Area (Buttons, Modes, Transport, Sliders)
 
-    boolean isHdOpt =
-        Boolean.parseBoolean(
-            org.chuck.deluge.project.PreferencesManager.get("hd.optimization", "false"));
-    JPanel topBar = new JPanel();
-    if (isHdOpt) {
-      topBar.setLayout(new BoxLayout(topBar, BoxLayout.Y_AXIS));
-    } else {
-      topBar.setLayout(new FlowLayout(FlowLayout.LEFT, 12, 8));
-    }
-    topBar.setBackground(new Color(0x25, 0x25, 0x25));
-
-    JPanel topRow1 = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 4));
-    topRow1.setBackground(new Color(0x25, 0x25, 0x25));
-    JPanel topRow2 = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 4));
-    topRow2.setBackground(new Color(0x25, 0x25, 0x25));
-
-    // View Toggle Buttons
-    JToggleButton clipBtn = new JToggleButton("CLIP", true);
-    JToggleButton songBtn = new JToggleButton("SONG");
-    JToggleButton arrBtn = new JToggleButton("ARR");
-    ButtonGroup modeGroup = new ButtonGroup();
-    modeGroup.add(clipBtn);
-    modeGroup.add(songBtn);
-    modeGroup.add(arrBtn);
-
     cardLayout = new CardLayout();
     centerCardPanel = new JPanel(cardLayout);
 
@@ -859,232 +887,88 @@ public class SwingDelugeApp extends JFrame {
     clipPanel.setViewMode(SwingGridPanel.GridViewMode.CLIP);
     clipPanel.setProjectModel(currentProject);
     clipPanel.setOnProjectChanged(this::propagateCurrentModel);
-    centerCardPanel.add(clipPanel, "CLIP");
+    centerCardPanel.add(wrapGridPanel(clipPanel), "CLIP");
 
     songPanel = new SwingGridPanel(vm, bridge);
     songPanel.setViewMode(SwingGridPanel.GridViewMode.SONG);
     songPanel.setProjectModel(currentProject);
     songPanel.setOnProjectChanged(this::propagateCurrentModel);
-    centerCardPanel.add(songPanel, "SONG");
+    centerCardPanel.add(wrapGridPanel(songPanel), "SONG");
 
     arrGridPanel = new SwingGridPanel(vm, bridge);
     arrGridPanel.setViewMode(SwingGridPanel.GridViewMode.ARRANGEMENT);
     arrGridPanel.setProjectModel(currentProject);
     arrGridPanel.setOnProjectChanged(this::propagateCurrentModel);
-    centerCardPanel.add(arrGridPanel, "ARR");
+    centerCardPanel.add(wrapGridPanel(arrGridPanel), "ARR");
 
-    clipBtn.addActionListener(
-        e -> {
-          cardLayout.show(centerCardPanel, "CLIP");
-        });
-    songBtn.addActionListener(
-        e -> {
-          cardLayout.show(centerCardPanel, "SONG");
-        });
-    arrBtn.addActionListener(
-        e -> {
-          cardLayout.show(centerCardPanel, "ARR");
-        });
+    autoPanel = new SwingGridPanel(vm, bridge);
+    autoPanel.setViewMode(SwingGridPanel.GridViewMode.AUTOMATION);
+    autoPanel.setProjectModel(currentProject);
+    autoPanel.setOnProjectChanged(this::propagateCurrentModel);
+    centerCardPanel.add(wrapGridPanel(autoPanel), "AUTO");
 
-    JButton addKitBtn = new JButton("+ KIT");
-    addKitBtn.setBackground(new Color(0x33, 0x44, 0x55));
-    addKitBtn.setForeground(Color.WHITE);
-    addKitBtn.setToolTipText("Add a new Kit (drum) track to the song");
-    addKitBtn.addActionListener(
-        e -> {
-          String name =
-              JOptionPane.showInputDialog(
-                  this, "Kit track name:", "KIT " + (currentProject.getTracks().size() + 1));
-          if (name != null && !name.isBlank()) {
-            org.chuck.deluge.model.KitTrackModel kit =
-                new org.chuck.deluge.model.KitTrackModel(name);
-            kit.addClip(new org.chuck.deluge.model.ClipModel("CLIP 1", 8, 16));
-            currentProject.addTrack(kit); // triggers ProjectListener → pushModelToBridge() via listener
-            propagateCurrentModel();
-          }
-        });
+    topBar =
+        new SwingTopBarPanel(
+            vm,
+            bridge,
+            currentProject,
+            leftFloat,
+            rightFloat,
+            new SwingTopBarPanel.TopBarListener() {
+              @Override
+              public void onViewModeChanged(String viewMode) {
+                cardLayout.show(centerCardPanel, viewMode);
+              }
 
-    JButton addSynthBtn = new JButton("+ SYNTH");
-    addSynthBtn.setBackground(new Color(0x44, 0x33, 0x55));
-    addSynthBtn.setForeground(Color.WHITE);
-    addSynthBtn.setToolTipText("Add a new Synth track to the song");
-    addSynthBtn.addActionListener(
-        e -> {
-          String name =
-              JOptionPane.showInputDialog(
-                  this, "Synth track name:", "SYNTH " + (currentProject.getTracks().size() + 1));
-          if (name != null && !name.isBlank()) {
-            org.chuck.deluge.model.SynthTrackModel synth =
-                new org.chuck.deluge.model.SynthTrackModel(name);
-            synth.addClip(new org.chuck.deluge.model.ClipModel("CLIP 1", 8, 16));
-            currentProject.addTrack(synth); // triggers ProjectListener → pushModelToBridge()
-            propagateCurrentModel();
-          }
-        });
+              @Override
+              public void onAddTrack(String type) {
+                String name =
+                    JOptionPane.showInputDialog(
+                        SwingDelugeApp.this,
+                        type + " track name:",
+                        type + " " + (currentProject.getTracks().size() + 1));
+                if (name == null || name.isBlank()) return;
+                switch (type) {
+                  case "KIT":
+                    KitTrackModel kit = new KitTrackModel(name);
+                    kit.addClip(new ClipModel("CLIP 1", 8, 16));
+                    currentProject.addTrack(kit);
+                    break;
+                  case "SYNTH":
+                    SynthTrackModel synth = new SynthTrackModel(name);
+                    synth.addClip(new ClipModel("CLIP 1", 8, 16));
+                    currentProject.addTrack(synth);
+                    break;
+                  case "AUDIO":
+                    AudioTrackModel audio = new AudioTrackModel(name);
+                    audio.addClip(new ClipModel("CLIP 1", 1, 16));
+                    currentProject.addTrack(audio);
+                    break;
+                }
+                propagateCurrentModel();
+              }
+            });
 
-    JButton addAudioBtn = new JButton("+ AUDIO");
-    addAudioBtn.setBackground(new Color(0x33, 0x55, 0x44));
-    addAudioBtn.setForeground(Color.WHITE);
-    addAudioBtn.setToolTipText("Add a new Audio (recording) track to the song");
-    addAudioBtn.addActionListener(
-        e -> {
-          String name =
-              JOptionPane.showInputDialog(
-                  this, "Audio track name:", "AUDIO " + (currentProject.getTracks().size() + 1));
-          if (name != null && !name.isBlank()) {
-            org.chuck.deluge.model.AudioTrackModel audio =
-                new org.chuck.deluge.model.AudioTrackModel(name);
-            audio.addClip(new org.chuck.deluge.model.ClipModel("CLIP 1", 1, 16));
-            currentProject.addTrack(audio);
-            propagateCurrentModel();
-          }
-        });
+    // DEBUG: solid background colors to visualize panel sizes
+    System.out.println("DEBUG setupUI: topBar bg=" + topBar.getBackground() + " contentPane bg=" + getContentPane().getBackground());
 
-    JButton btnExplorer = new JButton("EXPLORER");
-    btnExplorer.addActionListener(e -> leftFloat.setVisible(!leftFloat.isVisible()));
-
-    JButton btnMonitor = new JButton("MONITOR");
-    btnMonitor.addActionListener(e -> rightFloat.setVisible(!rightFloat.isVisible()));
-
-    if (isHdOpt) {
-      topRow1.add(clipBtn);
-      topRow1.add(songBtn);
-      topRow1.add(arrBtn);
-      topRow1.add(new JSeparator(JSeparator.VERTICAL));
-      topRow1.add(addKitBtn);
-      topRow1.add(addSynthBtn);
-      topRow1.add(addAudioBtn);
-      topRow1.add(new JSeparator(JSeparator.VERTICAL));
-      topRow1.add(btnExplorer);
-      topRow1.add(btnMonitor);
-    } else {
-      topBar.add(clipBtn);
-      topBar.add(songBtn);
-      topBar.add(arrBtn);
-      topBar.add(new JSeparator(JSeparator.VERTICAL));
-      topBar.add(addKitBtn);
-      topBar.add(addSynthBtn);
-      topBar.add(addAudioBtn);
-      topBar.add(new JSeparator(JSeparator.VERTICAL));
-      topBar.add(btnExplorer);
-      topBar.add(btnMonitor);
-      topBar.add(new JSeparator(JSeparator.VERTICAL));
-    }
-
-    // Transport
-    JButton playBtn = new JButton("▶ PLAY");
-    playBtn.setBackground(new Color(0x33, 0x66, 0x33));
-    playBtn.setForeground(Color.WHITE);
-    playBtn.addActionListener(
-        e ->
-            vm.setGlobalInt(
-                BridgeContract.G_PLAY, vm.getGlobalInt(BridgeContract.G_PLAY) == 1L ? 0L : 1L));
-
-    JButton stopBtn = new JButton("■ STOP");
-    stopBtn.setBackground(new Color(0x66, 0x33, 0x33));
-    stopBtn.setForeground(Color.WHITE);
-    stopBtn.addActionListener(e -> vm.setGlobalInt(BridgeContract.G_PLAY, 0L));
-
-    JToggleButton recBtn = new JToggleButton("● REC");
-    recBtn.setForeground(Color.RED);
-    recBtn.addActionListener(
-        e -> {
-          if (midiService != null) midiService.setRecording(recBtn.isSelected());
-        });
-
-    if (isHdOpt) {
-      topRow1.add(playBtn);
-      topRow1.add(stopBtn);
-      topRow1.add(recBtn);
-    } else {
-      topBar.add(playBtn);
-      topBar.add(stopBtn);
-      topBar.add(recBtn);
-      topBar.add(new JSeparator(JSeparator.VERTICAL));
-    }
-
-    // Sliders
-    JLabel tempoLabel = new JLabel("BPM:");
-    tempoLabel.setForeground(Color.WHITE);
-    JSlider bpmSlider = new JSlider(60, 200, 120);
-    bpmSlider.addChangeListener(e -> vm.setGlobalFloat(BridgeContract.G_BPM, bpmSlider.getValue()));
-
-    JLabel swingLabel = new JLabel("SWING:");
-    swingLabel.setForeground(Color.WHITE);
-    JSlider swingSlider = new JSlider(0, 100, 50);
-    swingSlider.addChangeListener(
-        e -> vm.setGlobalFloat(BridgeContract.G_SWING, swingSlider.getValue() / 100.0));
-
-    JLabel volLabel = new JLabel("MASTER:");
-    volLabel.setForeground(Color.WHITE);
-    topMasterVolSlider = new JSlider(0, 100, 70);
-    topMasterVolSlider.addChangeListener(
-        e -> {
-          double v = topMasterVolSlider.getValue() / 100.0;
-          vm.setGlobalFloat(BridgeContract.G_MASTER_VOL, v);
-          if (bottomMasterVolSlider != null
-              && bottomMasterVolSlider.getValue() != topMasterVolSlider.getValue()) {
-            bottomMasterVolSlider.setValue(topMasterVolSlider.getValue());
-          }
-        });
-
-    if (isHdOpt) {
-      topRow2.add(tempoLabel);
-      topRow2.add(bpmSlider);
-      topRow2.add(swingLabel);
-      topRow2.add(swingSlider);
-      topRow2.add(volLabel);
-      topRow2.add(topMasterVolSlider);
-
-      topBar.add(topRow1);
-      topBar.add(topRow2);
-    } else {
-      topBar.add(tempoLabel);
-      topBar.add(bpmSlider);
-      topBar.add(swingLabel);
-      topBar.add(swingSlider);
-      topBar.add(volLabel);
-      topBar.add(topMasterVolSlider);
-    }
-
-    gbc.gridx = 0;
-    gbc.gridy = 0;
-    gbc.gridwidth = 3;
-    gbc.weightx = 1.0;
-    gbc.weighty = 0.0;
-    add(topBar, gbc);
-
-    centeredWrapper = new JPanel(new GridBagLayout());
-    centeredWrapper.setBackground(new Color(0x1a, 0x1a, 0x1a));
-
-    GridBagConstraints wrapperGbc = new GridBagConstraints();
-    wrapperGbc.fill = GridBagConstraints.BOTH;
-    wrapperGbc.anchor = GridBagConstraints.NORTHWEST;
-    wrapperGbc.gridx = 0;
-    wrapperGbc.gridy = 0;
-
-    centeredWrapper.add(centerCardPanel, wrapperGbc);
-
-    String res = org.chuck.deluge.project.PreferencesManager.get("screen.resolution", "QHD");
-    int reqW = "FHD".equals(res) ? 1800 : ("4K".equals(res) ? 3600 : 2600);
-    int reqH = "FHD".equals(res) ? 1000 : ("4K".equals(res) ? 2200 : 1600);
-    centeredWrapper.setPreferredSize(new Dimension(reqW, reqH));
+    JPanel topBarWrapper = new JPanel();
+    topBarWrapper.setLayout(new BoxLayout(topBarWrapper, BoxLayout.Y_AXIS));
+    topBarWrapper.add(topBar);
+    topBarWrapper.setPreferredSize(new Dimension(1, 132));
+    add(topBarWrapper, BorderLayout.NORTH);
 
     JScrollPane centerScroll =
         new JScrollPane(
-            centeredWrapper,
-            ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS,
-            ScrollPaneConstants.HORIZONTAL_SCROLLBAR_ALWAYS);
+            centerCardPanel,
+            ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
+            ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 
-    centerScroll.setBorder(BorderFactory.createEmptyBorder());
+    // DEBUG: centerScroll.setBorder(BorderFactory.createLineBorder(Color.YELLOW, 3));
+    /*centerScroll.getViewport().setOpaque(true);
+    centerScroll.getViewport().setBackground(Color.BLUE);*/
 
-    gbc.fill = GridBagConstraints.BOTH;
-    gbc.gridx = 0;
-    gbc.gridy = 1;
-    gbc.gridwidth = 3;
-    gbc.weightx = 1.0;
-    gbc.weighty = 1.0;
-    add(centerScroll, gbc);
+    add(centerScroll, BorderLayout.CENTER);
 
     javax.swing.SwingUtilities.invokeLater(() -> centerScroll.getVerticalScrollBar().setValue(0));
 
@@ -1100,7 +984,7 @@ public class SwingDelugeApp extends JFrame {
           // Switch view depending on track count
           if (model.getTracks().size() == 1) {
             cardLayout.show(centerCardPanel, "CLIP");
-            if (clipBtn != null) clipBtn.setSelected(true);
+            if (topBar != null) topBar.selectClipView();
             boolean firstIsSynth =
                 !model.getTracks().isEmpty()
                     && model.getTracks().get(0) instanceof org.chuck.deluge.model.SynthTrackModel;
@@ -1178,26 +1062,13 @@ public class SwingDelugeApp extends JFrame {
           }
 
           cardLayout.show(centerCardPanel, "CLIP");
-          clipBtn.setSelected(true);
+          if (topBar != null) topBar.selectClipView();
         });
 
     visualizerPanel = new SwingVisualizerPanel(vm, bridge);
 
     leftFloat.add(floatingSidebar);
     rightFloat.add(visualizerPanel);
-
-    if (isHdOpt) {
-      leftFloat.setVisible(true);
-      rightFloat.setVisible(true);
-    } else {
-
-      gbc.gridx = 0;
-      gbc.gridy = 1;
-      gbc.gridwidth = 1;
-      gbc.weightx = 0.5;
-      gbc.weighty = 1.0;
-      add(sidebarPanel, gbc);
-    }
 
     new Timer(33, e -> visualizerPanel.repaint()).start();
 
@@ -1207,56 +1078,12 @@ public class SwingDelugeApp extends JFrame {
     // Obsolete bottom parameter deck removed. Integrated in 10x18 pads matrix.
 
     // 7. Bottom Area - Row 3 (Master FX dials bounding boxes)
-    JPanel masterFxPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 5));
-    masterFxPanel.setBackground(new Color(0x25, 0x25, 0x25));
-    masterFxPanel.setBorder(
-        BorderFactory.createTitledBorder(
-            BorderFactory.createLineBorder(Color.GRAY), "MASTER FX", 0, 0, null, Color.WHITE));
+    SwingMasterFxPanel masterFxPanel = new SwingMasterFxPanel(vm, topBar);
+    this.masterFxPanel = masterFxPanel;
+    // DEBUG: masterFxPanel.setBorder(BorderFactory.createLineBorder(Color.YELLOW, 3));
 
-    JLabel bVolLabel = new JLabel("Master Vol:");
-    bVolLabel.setForeground(Color.WHITE);
-    bottomMasterVolSlider = new JSlider(0, 100, 70);
-    bottomMasterVolSlider.addChangeListener(
-        e -> {
-          double v = bottomMasterVolSlider.getValue() / 100.0;
-          vm.setGlobalFloat(BridgeContract.G_MASTER_VOL, v);
-          if (topMasterVolSlider != null
-              && topMasterVolSlider.getValue() != bottomMasterVolSlider.getValue()) {
-            topMasterVolSlider.setValue(bottomMasterVolSlider.getValue());
-          }
-        });
-    masterFxPanel.add(bVolLabel);
-    masterFxPanel.add(bottomMasterVolSlider);
-
-    JLabel transLabel = new JLabel("Transpose:");
-    transLabel.setForeground(Color.WHITE);
-    JSlider transSlider = new JSlider(-24, 24, 0);
-    transSlider.setSnapToTicks(true);
-    transSlider.setMajorTickSpacing(12);
-
-    transSlider.setPaintTicks(true);
-    masterFxPanel.add(transLabel);
-    masterFxPanel.add(transSlider);
-
-    JLabel scaleLabel = new JLabel("Scale:");
-    scaleLabel.setForeground(Color.WHITE);
-    JComboBox<String> scaleCombo =
-        new JComboBox<>(new String[] {"Major", "Minor", "Pentatonic", "Chromatic"});
-    masterFxPanel.add(scaleLabel);
-    masterFxPanel.add(scaleCombo);
-
-    JLabel statusCounter = new JLabel("1:1:1");
-
-    statusCounter.setForeground(Color.GREEN);
-    statusCounter.setFont(new Font("Monospaced", Font.BOLD, 24));
-    masterFxPanel.add(statusCounter);
-
-    gbc.gridx = 0;
-    gbc.gridy = 4;
-    gbc.gridwidth = 3;
-    gbc.weightx = 1.0;
-    gbc.weighty = 0.0;
-    add(masterFxPanel, gbc);
+    masterFxPanel.setPreferredSize(new Dimension(1, 132));
+    add(masterFxPanel, BorderLayout.SOUTH);
 
     revalidate();
 
@@ -1264,20 +1091,9 @@ public class SwingDelugeApp extends JFrame {
     pushModelToBridge();
   }
 
-  /** Recompute centeredWrapper preferred height to fit grid content. */
+  /** No-op: centeredWrapper removed, scroll pane sizes to content naturally. */
   private void recalcWrapperSize() {
-    String res = org.chuck.deluge.project.PreferencesManager.get("screen.resolution", "QHD");
-    int reqW = "FHD".equals(res) ? 1800 : ("4K".equals(res) ? 3600 : 2600);
-    int reqH = "FHD".equals(res) ? 1000 : ("4K".equals(res) ? 2200 : 1600);
-    // Measure actual content from the grid panel after refresh
-    if (clipPanel != null) {
-      int contentH = clipPanel.getPreferredSize().height;
-      if (contentH > 0) {
-        reqH = Math.max(reqH, contentH + 40);
-      }
-    }
-    centeredWrapper.setPreferredSize(new Dimension(reqW, reqH));
-    centeredWrapper.revalidate();
+    // content naturally sizes the scroll viewport
   }
 
   private void startPlaybackTimer() {

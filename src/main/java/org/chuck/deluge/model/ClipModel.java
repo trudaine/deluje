@@ -1,7 +1,10 @@
 package org.chuck.deluge.model;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Represents a single sequence (clip/pattern) within a Track. Holds a 2D grid of StepData. For a
@@ -14,6 +17,13 @@ public class ClipModel {
   private int stepCount;
   private final List<List<StepData>> grid = new ArrayList<>();
   private String color = "#00ffcc"; // Default color
+
+  /**
+   * Per-parameter per-step automation data. Maps param name (see {@link AutomationParam}) to a
+   * float array of length {@code stepCount}. Values are normalized 0.0–1.0. Absent entry means "no
+   * automation" — the engine uses the track-level static value for that param.
+   */
+  private final Map<String, float[]> automationData = new HashMap<>();
 
   public ClipModel(String name, int rowCount, int stepCount) {
     this.name = name;
@@ -28,6 +38,10 @@ public class ClipModel {
       for (int s = 0; s < stepCount; s++) {
         copy.setStep(r, s, this.getStep(r, s));
       }
+    }
+    // Deep-copy automation data
+    for (Map.Entry<String, float[]> e : automationData.entrySet()) {
+      copy.automationData.put(e.getKey(), e.getValue().clone());
     }
     return copy;
   }
@@ -103,6 +117,9 @@ public class ClipModel {
         }
       }
     }
+
+    // Resize automation arrays to match new step count
+    resizeAutomationArrays(oldStepCount, this.stepCount);
   }
 
   public StepData getStep(int row, int step) {
@@ -140,6 +157,73 @@ public class ClipModel {
       for (ClipListener l : listeners) {
         l.onStepChanged(row, step, data);
       }
+    }
+  }
+
+  // ── Per-parameter automation data ──
+
+  /**
+   * Set an automation value for a parameter at a specific step. Range 0.0–1.0.
+   * Calling with 0.0 or any valid value creates or updates the automation entry.
+   */
+  public void setAutomation(String paramName, int step, float value) {
+    float[] arr = automationData.get(paramName);
+    if (arr == null) {
+      arr = new float[stepCount];
+      // Initialise to -1 (no automation) for all steps
+      java.util.Arrays.fill(arr, -1f);
+      automationData.put(paramName, arr);
+    }
+    if (step >= 0 && step < arr.length) {
+      arr[step] = Math.max(0.0f, Math.min(1.0f, value));
+    }
+  }
+
+  /**
+   * Get an automation value for a parameter at a specific step.
+   * @return 0.0–1.0 if automation data exists, or -1 if no automation is set for this param
+   */
+  public float getAutomation(String paramName, int step) {
+    float[] arr = automationData.get(paramName);
+    if (arr == null || step < 0 || step >= arr.length) return -1f;
+    return arr[step];
+  }
+
+  /** Returns true if automation data exists for the given parameter at any step. */
+  public boolean hasAutomation(String paramName) {
+    return automationData.containsKey(paramName);
+  }
+
+  /** Returns true if automation data exists for the given parameter at the specific step. */
+  public boolean hasAutomation(String paramName, int step) {
+    float[] arr = automationData.get(paramName);
+    return arr != null && step >= 0 && step < arr.length && arr[step] >= 0f;
+  }
+
+  /** Remove all automation data for the given parameter. */
+  public void clearAutomation(String paramName) {
+    automationData.remove(paramName);
+  }
+
+  /** Returns the set of all parameter names that have automation data. */
+  public Set<String> getAutomatedParams() {
+    return automationData.keySet();
+  }
+
+  /** Returns all automation data for a parameter (length = stepCount), or null if none. */
+  public float[] getAutomationArray(String paramName) {
+    return automationData.get(paramName);
+  }
+
+  // ── Internal helpers called by stepCount setter ──
+
+  void resizeAutomationArrays(int oldStepCount, int newStepCount) {
+    for (Map.Entry<String, float[]> entry : automationData.entrySet()) {
+      float[] old = entry.getValue();
+      float[] updated = new float[newStepCount];
+      java.util.Arrays.fill(updated, -1f);
+      System.arraycopy(old, 0, updated, 0, Math.min(oldStepCount, newStepCount));
+      entry.setValue(updated);
     }
   }
 }
