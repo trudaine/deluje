@@ -67,6 +67,9 @@ public class SynthTrackModel extends TrackModel {
 
   private PolyphonyMode polyphony = PolyphonyMode.POLY;
 
+  /** DX7 patch hex string (312 hex chars = 156 bytes), null if not a DX7 track. */
+  private String dx7patch = null;
+
   // Synthesis algorithm: 0=FM, 10=Mandolin, 11=Rhodey, 12=ModalBar, 13=Moog
   private int synthAlgorithm = 0;
 
@@ -306,6 +309,9 @@ public class SynthTrackModel extends TrackModel {
   public void setSynthMode(int synthMode) {
     this.synthMode = synthMode;
   }
+
+  public String getDx7Patch() { return dx7patch; }
+  public void setDx7Patch(String dx7patch) { this.dx7patch = dx7patch; }
 
   public int getSynthAlgorithm() {
     return synthAlgorithm;

@@ -102,10 +102,9 @@ public class DelugeE2ETest {
    * starts playback, and verifies that (a) the step playhead advances and
    * (b) audible signal (>0.001 peak) is produced.
    */
-  @Tag("slow")
   @ParameterizedTest(name = "[{index}] {0}")
-  @ValueSource(strings = {"song1.xml", "song2.xml", "song3.xml"})
-  void testSongPlayback(String songFile) throws Exception {
+  @ValueSource(strings = {"song1.xml", "song2.xml", "song3.xml", "Dx7A.xml"})
+  public void testSongPlayback(String songFile) throws Exception {
     System.setProperty("chuck.audio.dummy", "true");
     System.setProperty("chuck.loglevel", "1");
     System.setProperty("deluge.tracks", "256");
@@ -124,11 +123,8 @@ public class DelugeE2ETest {
       List<TrackModel> tracks = project.getTracks();
       assertTrue(tracks.size() > 0, "Song " + songName + " should have at least 1 track");
 
-      // 2. Start engine
-      vm.spork(new DelugeEngineDSL(vm));
-      vm.advanceTime(44100);
-
-      // 3. Push tracks to bridge (replicating pushModelToBridge logic)
+      // 2. Push tracks to bridge (replicating pushModelToBridge logic)
+      //    Must happen BEFORE engine start so init_synth() sees DX7 patch strings.
       int engineRow = 0;
       for (int t = 0; t < tracks.size(); t++) {
         TrackModel track = tracks.get(t);
@@ -162,6 +158,8 @@ public class DelugeE2ETest {
           int clipRows = (clip != null) ? clip.getRowCount() : voiceCount;
           int totalRows = Math.max(voiceCount, clipRows);
 
+          String dx7PatchStr = synth.getDx7Patch();
+
           for (int v = 0; v < totalRows; v++) {
             int r = engineRow + v;
             bridge.setTrackType(r, 1);
@@ -172,6 +170,9 @@ public class DelugeE2ETest {
             bridge.setFilterRes(r, synth.getLpfRes() / 100.0f);
             bridge.setFilterMode(r, synth.getFilterMode().ordinal());
             bridge.setSynthAlgo(r, Math.max(0, synth.getSynthAlgorithm()));
+            if (dx7PatchStr != null && !dx7PatchStr.isEmpty()) {
+              vm.setGlobalString("g_dx7_patch_" + r, dx7PatchStr);
+            }
 
             for (int e = 0; e < 4; e++) {
               EnvelopeModel adsr = synth.getEnv(e);
@@ -211,16 +212,20 @@ public class DelugeE2ETest {
             : voiceCount;
       }
 
-      // 5. Broadcast load trigger and advance
+      // 5. Start engine (after all bridge data — including DX7 patches — is pushed)
+      vm.spork(new DelugeEngineDSL(vm));
+      vm.advanceTime(44100);
+
+      // 6. Broadcast load trigger and advance
       vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
       vm.advanceTime(44100);
 
-      // 6. Start playback
+      // 7. Start playback
       vm.setGlobalFloat(BridgeContract.G_MASTER_VOL, 1.0);
       vm.setGlobalInt(BridgeContract.G_PLAY, 1L);
       vm.setGlobalFloat(BridgeContract.G_BPM, project.getBpm() > 0 ? project.getBpm() : 120.0f);
 
-      // 7. Capture audio and check step advancement
+      // 8. Capture audio and check step advancement
       float peakL = 0, peakR = 0;
       boolean stepAdvanced = false;
 

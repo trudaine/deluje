@@ -607,6 +607,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
     ChuckUGen[] src = new ChuckUGen[totalSynthSlots];
     MorphingWavetable[] car = new MorphingWavetable[totalSynthSlots];
     MorphingWavetable[] mod = new MorphingWavetable[totalSynthSlots];
+    Dx7Engine[] dx7 = new Dx7Engine[totalSynthSlots];
     SVFilter[] fil = new SVFilter[totalSynthSlots];
     HPF[] hpf = new HPF[totalSynthSlots];
     DelugeAdsr[] env = new DelugeAdsr[totalSynthSlots];
@@ -629,14 +630,23 @@ public class DelugeEngineDSL implements Shred, Runnable {
         src[i] = createStkUGen(algo, sr);
         src[i].chuck(fil[i]).chuck(hpf[i]).chuck(env[i]).chuck(pan[i]).chuck(synthBus);
       } else {
-        // FM synthesis (original behavior)
-        car[i] = new MorphingWavetable(sr);
-        car[i].setTables(WAVE_TABLES);
-        mod[i] = new MorphingWavetable(sr);
-        mod[i].setTables(WAVE_TABLES);
-        mod[i].chuck(car[i]);
-        car[i].chuck(fil[i]).chuck(hpf[i]).chuck(env[i]).chuck(pan[i]).chuck(synthBus);
-        src[i] = car[i];
+        // DX7 or FM synthesis
+        String dx7PatchStr = (String) vm.getGlobalObject("g_dx7_patch_" + i);
+        if (dx7PatchStr != null && !dx7PatchStr.isEmpty()) {
+          dx7[i] = new Dx7Engine(sr);
+          dx7[i].loadPatch(org.chuck.audio.util.Dx7Patch.fromHex(dx7PatchStr));
+          dx7[i].chuck(fil[i]).chuck(hpf[i]).chuck(env[i]).chuck(pan[i]).chuck(synthBus);
+          src[i] = dx7[i];
+        } else {
+          // FM synthesis (original behavior)
+          car[i] = new MorphingWavetable(sr);
+          car[i].setTables(WAVE_TABLES);
+          mod[i] = new MorphingWavetable(sr);
+          mod[i].setTables(WAVE_TABLES);
+          mod[i].chuck(car[i]);
+          car[i].chuck(fil[i]).chuck(hpf[i]).chuck(env[i]).chuck(pan[i]).chuck(synthBus);
+          src[i] = car[i];
+        }
       }
 
       pan[i].chuck(sDsend[i]).chuck((ChuckUGen) vm.getGlobalObject(BridgeContract.G_DELAY_IN));
@@ -653,8 +663,9 @@ public class DelugeEngineDSL implements Shred, Runnable {
     // Spork preview shred for synth audition
     MorphingWavetable[] carRef = car;
     MorphingWavetable[] modRef = mod;
+    Dx7Engine[] dx7Ref = dx7;
     DelugeAdsr[] envRef = env;
-    vm.spork(() -> synth_preview_shred(carRef, modRef, envRef));
+    vm.spork(() -> synth_preview_shred(carRef, modRef, dx7Ref, envRef));
 
     ChuckEvent tickEvent = (ChuckEvent) vm.getGlobalObject(BridgeContract.E_TICK);
     long lastStep = -1;
@@ -851,6 +862,21 @@ public class DelugeEngineDSL implements Shred, Runnable {
                   releaseStkNote(srcRef);
                   env[rv].keyOff();
                 });
+          } else if (dx7[u] != null) {
+            // DX7 6-operator FM voice
+            double f = mtof(((24 - 1) - (r - synthBase)) + 60 + stepPitchOffset) * Math.pow(2.0, lfoPit);
+            dx7[u].setFreq((float) f);
+            dx7[u].noteOn();
+            env[u].gain((float) gainVal);
+            env[u].keyOn();
+            double noteSec = gateSec;
+            int rv = u;
+            vm.spork(
+                () -> {
+                  advance(second(noteSec));
+                  dx7[rv].noteOff();
+                  env[rv].keyOff();
+                });
           } else if (arpOn != null && arpOn.getInt(r) == 1) {
             int baseMidi = (int) ((24 - 1) - (r - synthBase)) + 60;
             int v = u;
@@ -869,7 +895,13 @@ public class DelugeEngineDSL implements Shred, Runnable {
                 double fmA =
                     (fmAmt != null ? fmAmt.getFloat(r) : 0.0) * Math.max(0.0, 1.0 + lfoFm * 0.5);
                 mod[u].freq((float) (f * fmR));
-                mod[u].gain((float) (fmA * 1000.0));
+                // FM mod gain: set on the CARRIER, because carrier.compute(input)
+                // reads its own modGain field to scale input (modulator output).
+                // fmA ranges 0-1 (Deluge XML), scaled to produce audible phase deviation.
+                // With tableLen=256, a scale of ~50 gives measurable sidebands at fmA=0.5.
+                car[u].modGain((float) (fmA * 50.0));
+                // Modulator audio gain set to 1.0 so full signal reaches carrier via mod.chuck(car).
+                mod[u].gain(1.0f);
               }
             } else if (synthMode >= 2) {
               // RINGMOD (2): both oscillators active, mixed via mod→car FM at audio rate.
@@ -941,7 +973,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
 
   /** Preview/audition a synth track on E_PREVIEW. Fires a brief gate on the specified track. */
   private void synth_preview_shred(
-      MorphingWavetable[] car, MorphingWavetable[] mod, DelugeAdsr[] env) {
+      MorphingWavetable[] car, MorphingWavetable[] mod, Dx7Engine[] dx7, DelugeAdsr[] env) {
     ChuckEvent previewEvent = (ChuckEvent) vm.getGlobalObject(BridgeContract.E_PREVIEW);
     while (isRunning()) {
       advance(previewEvent);
@@ -953,16 +985,27 @@ public class DelugeEngineDSL implements Shred, Runnable {
         // Read the preview pitch set by the UI on click
         double previewPitch = vm.getGlobalFloat("g_preview_pitch");
         double f = mtof(previewPitch + 60);
-        car[r].freq((float) f);
-        mod[r].freq((float) f);
-        env[r].gain(0.8f);
-        env[r].keyOn();
-        int trackIdx = r;
-        vm.spork(
-            () -> {
-              advance(ms(200));
-              env[trackIdx].keyOff();
-            });
+        if (dx7 != null && r < dx7.length && dx7[r] != null) {
+          dx7[r].setFreq((float) f);
+          dx7[r].noteOn();
+          int rv = r;
+          vm.spork(
+              () -> {
+                advance(ms(200));
+                dx7[rv].noteOff();
+              });
+        } else {
+          car[r].freq((float) f);
+          mod[r].freq((float) f);
+          env[r].gain(0.8f);
+          env[r].keyOn();
+          int trackIdx = r;
+          vm.spork(
+              () -> {
+                advance(ms(200));
+                env[trackIdx].keyOff();
+              });
+        }
       }
     }
   }

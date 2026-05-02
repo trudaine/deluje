@@ -289,6 +289,15 @@ public final class BridgeContract {
    * Codes 10+ select STK physical models.
    */
   public static final String G_SYNTH_ALGO = "g_synth_algo";
+
+  // ── DX7 Patch ────────────────────────────────────────────────────────
+
+  /**
+   * Prefix for per-row DX7 patch string globals. Each is set as {@code "g_dx7_patch_" + row}
+   * holding the raw 312-character hex patch string, or null/empty for non-DX7 rows.
+   * Pattern follows the established {@code g_sample_N} convention.
+   */
+  public static final String G_DX7_PATCH_PREFIX = "g_dx7_patch_";
   /** Per-track synth mode (int array). 0 = SUBTRACTIVE (single osc+filter), 1 = FM (mod→car), 2 = RINGMOD (car×mod). */
   public static final String G_SYNTH_MODE = "g_synth_mode";
   /** Per-voice HPF cutoff frequency in Hz (float array). 20Hz = off/bypass. */
