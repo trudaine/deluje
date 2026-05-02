@@ -188,6 +188,38 @@ public class DelugeEngineDSL implements Shred, Runnable {
     return 440.0 * Math.pow(2.0, (m - 69.0) / 12.0);
   }
 
+  // ── Clip-indexed array helper ──────────────────────────────────────────
+
+  /**
+   * Returns the correct step-data array for a given clip index. For clip index 0 this returns
+   * the base array (e.g. G_PATTERN). For clip indices 1-15 it returns the C{n} variant
+   * (e.g. G_PATTERN_C1). Falls back to the base array if the C{n} variant doesn't exist.
+   */
+  private ChuckArray getClipArray(String baseName, int clipIdx) {
+    if (clipIdx <= 0) return (ChuckArray) vm.getGlobalObject(baseName);
+    String name = baseName + "_C" + clipIdx;
+    Object arr = vm.getGlobalObject(name);
+    if (arr instanceof ChuckArray ca) return ca;
+    return (ChuckArray) vm.getGlobalObject(baseName); // fallback to base
+  }
+
+  /**
+   * Reads G_LAUNCH_QUEUE and applies pending clip switches at bar boundaries.
+   * Called from clock_shred when step % 16 == 0.
+   */
+  private void applyClipQueues() {
+    ChuckArray queue = (ChuckArray) vm.getGlobalObject(BridgeContract.G_LAUNCH_QUEUE);
+    ChuckArray currentClip = (ChuckArray) vm.getGlobalObject(BridgeContract.G_CURRENT_CLIP);
+    if (queue == null || currentClip == null) return;
+    for (int t = 0; t < BridgeContract.TRACKS; t++) {
+      long q = queue.getInt(t);
+      if (q >= 0) {
+        currentClip.setInt(t, q);
+        queue.setInt(t, -1L); // clear queue
+      }
+    }
+  }
+
   // ── KIT SHRED ────────────────────────────────────────────────────────────
 
   private void kit_shred() {
@@ -252,6 +284,13 @@ public class DelugeEngineDSL implements Shred, Runnable {
 
     loadKitSamples(kit);
 
+    // DIAGNOSTIC: verify loaded samples
+    if (vm.getLogLevel() >= 1) {
+      for (int i = 0; i < kit.length; i++) {
+        vm.print("[kit] LOADED kit[" + i + "]: samples=" + kit[i].samples() + " rate=" + kit[i].rate() + " pos=" + kit[i].pos() + "\n");
+      }
+    }
+
     SndBuf[] kitRef = kit;
     DelugeAdsr[] kitEnvRef = kitEnv;
     vm.spork(() -> kit_preview_shred(kitRef, kitEnvRef));
@@ -277,6 +316,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
       if (currentStep == lastStep) continue;
       lastStep = currentStep;
 
+      ChuckArray curClipArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_CURRENT_CLIP);
       ChuckArray pat = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PATTERN);
       ChuckArray vel = (ChuckArray) vm.getGlobalObject(BridgeContract.G_VELOCITY);
       ChuckArray mute = (ChuckArray) vm.getGlobalObject(BridgeContract.G_MUTE);
@@ -350,13 +390,35 @@ public class DelugeEngineDSL implements Shred, Runnable {
           else if (tgt == 4) lfoV += lv;
         }
 
+        int clipIdx = curClipArr != null ? (int) curClipArr.getInt(r) : 0;
+        ChuckArray clipPat = getClipArray(BridgeContract.G_PATTERN, clipIdx);
+        ChuckArray clipVel = getClipArray(BridgeContract.G_VELOCITY, clipIdx);
+        ChuckArray clipSStart = getClipArray(BridgeContract.G_STEP_START, clipIdx);
+        ChuckArray clipSEnd = getClipArray(BridgeContract.G_STEP_END, clipIdx);
+        ChuckArray clipProb = getClipArray(BridgeContract.G_PROBABILITY, clipIdx);
+
         // Per-track polyrhythm step
         int len = trkLen != null ? (int) Math.max(1, trkLen.getInt(r)) : BridgeContract.STEPS;
         int step = (int) (currentStep % len);
         int idx = r * BridgeContract.STEPS + step;
 
-        if (pat == null || pat.getInt(idx) == 0) continue;
-        if (prob != null && Math.random() > prob.getFloat(idx)) continue;
+        if (clipPat == null || clipPat.getInt(idx) == 0) {
+          if (r == 0 && currentStep < 4 && vm.getLogLevel() >= 1) {
+            vm.print("[kit] SKIP r=" + r + " step=" + step + " currentStep=" + currentStep + " idx=" + idx + " patVal=" + (clipPat != null ? clipPat.getInt(idx) : -1) + "\n");
+          }
+          continue;
+        }
+        if (r == 0 && currentStep < 4 && vm.getLogLevel() >= 1) {
+          vm.print("[kit] TRIGGER r=" + r + " step=" + step + " currentStep=" + currentStep + " idx=" + idx + " vel=" + clipVel.getFloat(idx) + " trkLvl=" + trkLvl.getFloat(r) + " samples=" + kit[r].samples() + " rate=" + kit[r].rate() + " pos=" + kit[r].pos() + " gain=" + kit[r].gain() + " envState=" + kitEnv[r].state() + "\n");
+        }
+        if (r == 0 && step == 0 && vm.getLogLevel() >= 1) {
+          // Read a few samples from the SndBuf to verify it has audio content
+          float v0 = kit[r].valueAt(0);
+          float v100 = kit[r].valueAt(100);
+          float v1000 = kit[r].valueAt(1000);
+          vm.print("[kit] SndBuf[0] peek: [0]=" + v0 + " [100]=" + v100 + " [1000]=" + v1000 + "\n");
+        }
+        if (clipProb != null && Math.random() > clipProb.getFloat(idx)) continue;
 
         // Mute group choke
         if (kitMuteGrp != null) {
@@ -378,8 +440,8 @@ public class DelugeEngineDSL implements Shred, Runnable {
         boolean reverse = (kitRev != null) && kitRev.getInt(r) != 0;
         long samples = Math.max(1, kit[r].samples());
 
-        float startAt = sStart != null ? (float) sStart.getFloat(idx) : 0.0f;
-        float endAt = sEnd != null ? (float) sEnd.getFloat(idx) : 1.0f;
+        float startAt = clipSStart != null ? (float) clipSStart.getFloat(idx) : 0.0f;
+        float endAt = clipSEnd != null ? (float) clipSEnd.getFloat(idx) : 1.0f;
 
         long startPos = (long) (startAt * samples);
         long endPos = (long) (endAt * samples);
@@ -391,10 +453,13 @@ public class DelugeEngineDSL implements Shred, Runnable {
           kit[r].rate((float) rate);
           kit[r].pos(startPos);
         }
+        if (r == 0 && step == 0 && vm.getLogLevel() >= 1) {
+          vm.print("[kit] AFTER set: rate=" + kit[r].rate() + " pos=" + kit[r].pos() + "\n");
+        }
 
         float gain =
             (float)
-                (vel.getFloat(idx) * trkLvl.getFloat(r) * 0.8 * Math.max(0.0, 1.0 + lfoV * 0.5));
+                (clipVel.getFloat(idx) * trkLvl.getFloat(r) * 0.8 * Math.max(0.0, 1.0 + lfoV * 0.5));
         kit[r].gain(gain);
         kitEnv[r].keyOn();
 
@@ -608,6 +673,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
       boolean isNewStep = (currentStep != lastStep);
       lastStep = currentStep;
 
+      ChuckArray curClipArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_CURRENT_CLIP);
       ChuckArray pat = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PATTERN);
       ChuckArray vel = (ChuckArray) vm.getGlobalObject(BridgeContract.G_VELOCITY);
       ChuckArray mute = (ChuckArray) vm.getGlobalObject(BridgeContract.G_MUTE);
@@ -697,6 +763,11 @@ public class DelugeEngineDSL implements Shred, Runnable {
           }
         }
 
+        int clipIdx = curClipArr != null ? (int) curClipArr.getInt(r) : 0;
+        ChuckArray clipPat = getClipArray(BridgeContract.G_PATTERN, clipIdx);
+        ChuckArray clipVel = getClipArray(BridgeContract.G_VELOCITY, clipIdx);
+        ChuckArray clipProb = getClipArray(BridgeContract.G_PROBABILITY, clipIdx);
+
         // Per-track polyrhythm step
         int len = trkLen != null ? (int) Math.max(1, trkLen.getInt(r)) : BridgeContract.STEPS;
         int step = (int) (currentStep % len);
@@ -705,7 +776,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
         if (algo < 10 && oscType != null && car[u] != null) car[u].index((int) oscType.getInt(r));
 
         // Check step data
-        if (pat.getInt(idx) == 0) {
+        if (clipPat.getInt(idx) == 0) {
           // Each row has its own UGen; keyOff is always safe
           env[u].keyOff();
           continue;
@@ -743,7 +814,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
 
 
         if (isNewStep) {
-          if (prob != null && Math.random() > prob.getFloat(idx)) continue;
+          if (clipProb != null && Math.random() > clipProb.getFloat(idx)) continue;
 
           // Apply envelope shape from bridge (if available)
           if (envArr != null) {
@@ -756,7 +827,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
           }
 
           double gainVal =
-              vel.getFloat(idx) * trkLvl.getFloat(r) * 0.8 * Math.max(0.0, 1.0 + lfoV * 0.5);
+              clipVel.getFloat(idx) * trkLvl.getFloat(r) * 0.8 * Math.max(0.0, 1.0 + lfoV * 0.5);
           double gateSec =
               (gateArr != null ? gateArr.getFloat(idx) : 0.9)
                   * stepDuration(step % 2).samples()
@@ -973,6 +1044,10 @@ public class DelugeEngineDSL implements Shred, Runnable {
       prevPlay = play;
       if (vm.getGlobalInt(BridgeContract.G_STUTTER_ON) == 0) {
         vm.setGlobalInt(BridgeContract.G_CURRENT_STEP, (long) step);
+        // Check for pending clip launches at bar boundary
+        if (step % 16 == 0) {
+          applyClipQueues();
+        }
         ((ChuckEvent) vm.getGlobalObject(BridgeContract.E_TICK)).broadcast();
         advance(stepDuration(step % 2));
         step++;
