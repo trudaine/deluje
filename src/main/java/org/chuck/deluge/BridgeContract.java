@@ -81,6 +81,17 @@ public final class BridgeContract {
   /** Number of LFO generators available globally. Each has rate, type, depth, target, track. */
   public static final int LFO_COUNT = 4;
 
+  // ── Clip launch globals ────────────────────────────────────────────────
+
+  /** Per-track clip count (int array, size TRACKS). */
+  public static final String G_CLIP_COUNT = "g_clip_count";
+  /** Per-track currently active clip index (int array, size TRACKS), default 0. */
+  public static final String G_CURRENT_CLIP = "g_current_clip";
+  /** Per-track queued clip index (int array, size TRACKS), -1 = no queue. */
+  public static final String G_LAUNCH_QUEUE = "g_launch_queue";
+  /** Scalar: the step at which queued launches should be applied (bar boundary). */
+  public static final String G_QUEUE_STEP = "g_queue_step";
+
   // ── Transport & Master ─────────────────────────────────────────────────
 
   /** Scalar: current BPM (float). */
@@ -414,6 +425,15 @@ public final class BridgeContract {
   private final ChuckArray audioLoop;
   private final ChuckArray audioRate;
 
+  // ── Clip launch arrays ─────────────────────────────────────────────────
+  private final ChuckArray clipCount;
+  private final ChuckArray currentClip;
+  private final ChuckArray launchQueue;
+  // queueStep is a scalar int, no ChuckArray needed — stored in VM directly
+
+  /** Maximum number of clips per track stored as C{n} arrays. Exposed for UI use. */
+  public static final int MAX_CLIPS_PER_TRACK = 16;
+
   private ChuckVM vm;
   private boolean recording = false;
 
@@ -492,6 +512,10 @@ public final class BridgeContract {
     audioPlay = new ChuckArray("int", TRACKS);
     audioLoop = new ChuckArray("int", TRACKS);
     audioRate = new ChuckArray("float", TRACKS);
+
+    clipCount = new ChuckArray("int", TRACKS);
+    currentClip = new ChuckArray("int", TRACKS);
+    launchQueue = new ChuckArray("int", TRACKS);
 
     initDefaults();
   }
@@ -576,6 +600,9 @@ public final class BridgeContract {
     }
     for (int t = 0; t < TRACKS; t++) {
       trackLength.setInt(t, 16L);
+      clipCount.setInt(t, 0L);
+      currentClip.setInt(t, 0L);
+      launchQueue.setInt(t, -1L);
     }
   }
 
@@ -686,6 +713,11 @@ public final class BridgeContract {
     vm.setGlobalObject(G_AUDIO_LOOP, audioLoop);
     vm.setGlobalObject(G_AUDIO_RATE, audioRate);
 
+    vm.setGlobalObject(G_CLIP_COUNT, clipCount);
+    vm.setGlobalObject(G_CURRENT_CLIP, currentClip);
+    vm.setGlobalObject(G_LAUNCH_QUEUE, launchQueue);
+    vm.setGlobalInt(G_QUEUE_STEP, 0L);
+
     // Monolithic engine buses
     vm.setGlobalObject(G_DELAY_IN, new org.chuck.audio.util.Gain());
     vm.setGlobalObject(G_REVERB_IN, new org.chuck.audio.util.Gain());
@@ -701,6 +733,24 @@ public final class BridgeContract {
 
   public void setStep(int track, int step, boolean active) {
     pattern.setInt(track * STEPS + step, active ? 1L : 0L);
+  }
+
+  /**
+   * Sets the step on/off for a specific clip index. Writes to the C{n} clip-indexed array.
+   * Clip index 0 writes to the base G_PATTERN array.
+   *
+   * @param track  engine track index.
+   * @param step   step index within the clip.
+   * @param active true = note on, false = note off.
+   * @param clipIdx clip index (0 = base array, 1-15 = G_PATTERN_C{n}).
+   */
+  public void setStep(int track, int step, boolean active, int clipIdx) {
+    if (clipIdx == 0) {
+      pattern.setInt(track * STEPS + step, active ? 1L : 0L);
+    } else {
+      ensureClipArray(G_PATTERN, clipIdx);
+      getClipArray(G_PATTERN, clipIdx).setInt(track * STEPS + step, active ? 1L : 0L);
+    }
   }
 
   /**
@@ -720,6 +770,24 @@ public final class BridgeContract {
 
   public void setVelocity(int track, int step, double val) {
     velocity.setFloat(track * STEPS + step, (float) Math.max(0, Math.min(1, val)));
+  }
+
+  /**
+   * Sets the velocity for a specific clip index. Clip index 0 writes to base G_VELOCITY.
+   *
+   * @param track   engine track index.
+   * @param step    step index within the clip.
+   * @param val     velocity 0-1.
+   * @param clipIdx clip index (0 = base array, 1-15 = G_VELOCITY_C{n}).
+   */
+  public void setVelocity(int track, int step, double val, int clipIdx) {
+    float clamped = (float) Math.max(0, Math.min(1, val));
+    if (clipIdx == 0) {
+      velocity.setFloat(track * STEPS + step, clamped);
+    } else {
+      ensureClipArray(G_VELOCITY, clipIdx);
+      getClipArray(G_VELOCITY, clipIdx).setFloat(track * STEPS + step, clamped);
+    }
   }
 
   public double getVelocity(int track, int step) {
@@ -748,6 +816,93 @@ public final class BridgeContract {
 
   public double getStepProbability(int track, int step) {
     return probability.getFloat(track * STEPS + step);
+  }
+
+  // ── Clip-indexed array helpers ───────────────────────────────────────
+
+  /**
+   * Returns the correct step-data array for a given clip index. For clip index 0 this returns
+   * the base array (e.g. G_PATTERN). For clip indices 1-15 it returns the C{n} variant
+   * (e.g. G_PATTERN_C1). The array must already exist — call {@link #ensureClipArray} first.
+   *
+   * @param baseName the base global name (e.g. "g_pattern", "g_velocity").
+   * @param clipIdx  clip index (0-15).
+   * @return the ChuckArray for that clip index, or the base array if clipIdx == 0.
+   */
+  public ChuckArray getClipArray(String baseName, int clipIdx) {
+    if (clipIdx <= 0) return (ChuckArray) vm.getGlobalObject(baseName);
+    return (ChuckArray) vm.getGlobalObject(baseName + "_C" + clipIdx);
+  }
+
+  /**
+   * Ensures a C{n} clip-indexed array exists in the VM. If it doesn't exist yet, creates a
+   * new int/float array (matching the base array's type) of size PATTERN_SIZE, initialises
+   * it with defaults, and registers it. Idempotent after the first call per (baseName, clipIdx).
+   *
+   * @param baseName the base global name (e.g. "g_pattern", "g_velocity").
+   * @param clipIdx  clip index (1-15).
+   */
+  private void ensureClipArray(String baseName, int clipIdx) {
+    if (clipIdx <= 0) return;
+    String name = baseName + "_C" + clipIdx;
+    if (vm.getGlobalObject(name) != null) return;
+
+    ChuckArray base = (ChuckArray) vm.getGlobalObject(baseName);
+    String type = "int".equals(base.elementTypeName) ? "int" : "float";
+    ChuckArray arr = new ChuckArray(type, PATTERN_SIZE);
+
+    if ("int".equals(type)) {
+      for (int i = 0; i < PATTERN_SIZE; i++) {
+        arr.setInt(i, 0L);
+      }
+    } else {
+      float defaultVal = 0.0f;
+      if (baseName.equals(G_VELOCITY)) defaultVal = 0.8f;
+      else if (baseName.equals(G_GATE)) defaultVal = 0.9f;
+      else if (baseName.equals(G_PROBABILITY)) defaultVal = 1.0f;
+      else if (baseName.equals(G_STEP_END)) defaultVal = 1.0f;
+      else if (baseName.equals(G_STEP_OSC_A_VOL)) defaultVal = 1.0f;
+      else if (baseName.equals(G_STEP_OSC_B_VOL)) defaultVal = 1.0f;
+      else if (baseName.equals(G_STEP_NOISE_VOL)) defaultVal = 1.0f;
+      for (int i = 0; i < PATTERN_SIZE; i++) {
+        arr.setFloat(i, defaultVal);
+      }
+    }
+    vm.setGlobalObject(name, arr);
+  }
+
+  // ── Clip launch accessors ─────────────────────────────────────────────
+
+  public int getClipCount(int track) {
+    return (int) clipCount.getInt(track);
+  }
+
+  public void setClipCount(int track, int count) {
+    clipCount.setInt(track, (long) count);
+  }
+
+  public int getCurrentClip(int track) {
+    return (int) currentClip.getInt(track);
+  }
+
+  public void setCurrentClip(int track, int idx) {
+    currentClip.setInt(track, (long) idx);
+  }
+
+  public int getLaunchQueue(int track) {
+    return (int) launchQueue.getInt(track);
+  }
+
+  public void setLaunchQueue(int track, int clipIdx) {
+    launchQueue.setInt(track, (long) clipIdx);
+  }
+
+  public int getQueueStep() {
+    return vm != null ? (int) vm.getGlobalInt(G_QUEUE_STEP) : 0;
+  }
+
+  public void setQueueStep(int step) {
+    if (vm != null) vm.setGlobalInt(G_QUEUE_STEP, (long) step);
   }
 
   // ── Per-step modulation accessors (existing G_STEP_* arrays) ──
@@ -1203,13 +1358,15 @@ public final class BridgeContract {
   public void loadSynthPreset(int track, org.chuck.deluge.model.SynthTrackModel model) {}
 
   /**
-   * Stub: intended to swap the active clip for a track at runtime. In Session mode this would
-   * trigger the engine to read clipIdx's step data instead of the current clip.
+   * Swaps the active clip for a track by setting {@code G_CURRENT_CLIP[track]} and recording
+   * the queue step. The engine reads this at the next bar boundary to switch clip data.
    *
-   * @param track engine track index.
+   * @param track  engine track index.
    * @param clipIdx clip index within the track.
    */
-  public void loadClip(int track, int clipIdx) {}
+  public void loadClip(int track, int clipIdx) {
+    setCurrentClip(track, clipIdx);
+  }
 
   /**
    * Clears all step-on bits in the pattern array. Identical to {@link #clearAllSteps()} but

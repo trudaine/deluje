@@ -5,6 +5,7 @@ import java.util.logging.Logger;
 import javax.swing.*;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
+import org.chuck.deluge.model.SongSection;
 
 /** Unified 18x8 Grid Panel handling both sequence matrix and clip launch arrangements. */
 public class SwingGridPanel extends JPanel {
@@ -965,20 +966,11 @@ public class SwingGridPanel extends JPanel {
             e -> {
               if (viewMode == GridViewMode.SONG) {
                 if ((e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0) return;
-                clipBtn.setBackground(Color.ORANGE);
-                Timer timer = new Timer(100, null);
-                final boolean[] flashState = {false};
-                timer.addActionListener(ev -> {
-                  int step = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
-                  if (step == 0) {
-                    clipBtn.setBackground(trackColors[visibleRow % trackColors.length]);
-                    timer.stop();
-                  } else {
-                    flashState[0] = !flashState[0];
-                    clipBtn.setBackground(flashState[0] ? Color.ORANGE : Color.LIGHT_GRAY);
-                  }
-                });
-                timer.start();
+                if (colId < 16 && modelRow < tracks.size()) {
+                  bridge.setLaunchQueue(modelRow, colId);
+                }
+                clipBtn.setBackground(new Color(0xff, 0xaa, 0x00)); // amber = queued
+                refresh();
               } else if (viewMode == GridViewMode.ARRANGEMENT) {
                 if (clipBtn.getBackground().equals(trackColors[visibleRow % trackColors.length])) {
                   clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
@@ -1524,6 +1516,28 @@ public class SwingGridPanel extends JPanel {
       // ===== SONG / ARRANGEMENT: gridMode.rows + 3 fixed rows (MACROS/SLIDERS/KEYBOARD) =====
       columnCount = gridMode.columns + 2; // Use grid mode column count + MUTE/SOLO
       int songVoiceRows = gridMode.rows; // always draw full viewport slots
+
+      // ── Section bar (A-Z) for SONG mode ──
+      if (viewMode == GridViewMode.SONG) {
+        JPanel sectionBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 2));
+        sectionBar.setBackground(new Color(0x15, 0x15, 0x15));
+        JLabel secLabel = new JLabel("SECTION:");
+        secLabel.setForeground(Color.LIGHT_GRAY);
+        secLabel.setFont(new Font("SansSerif", Font.BOLD, 11));
+        sectionBar.add(secLabel);
+        java.util.List<SongSection> sections = getProjectModel().getSongSections();
+        for (int i = 0; i < 26; i++) {
+          String letter = String.valueOf((char) ('A' + i));
+          JButton btn = new JButton(letter);
+          btn.setFont(new Font("Monospaced", Font.PLAIN, 10));
+          btn.setMargin(new Insets(0, 4, 0, 4));
+          int sectionIdx = i;
+          btn.addActionListener(e -> activateSection(sectionIdx));
+          sectionBar.add(btn);
+        }
+        add(sectionBar);
+      }
+
       for (int t = 0; t < songVoiceRows + 3; t++) {
 
       JPanel rowPanel = new JPanel();
@@ -1875,6 +1889,19 @@ public class SwingGridPanel extends JPanel {
             double vel = bridge.getVelocity(baseTrackId + trk, c);
             clipBtn.setBackground(
                 stepState ? velocityBlend(trackColors[currentTrack], vel) : new Color(0x33, 0x33, 0x33));
+          } else if (viewMode == GridViewMode.SONG && t < tracks.size() && colId < 16) {
+            // SONG visual states: playing (track color), queued (amber), stopped (dark), empty (very dark)
+            long launchQ = bridge != null ? bridge.getLaunchQueue(t) : -1L;
+            long currentClip = bridge != null ? bridge.getCurrentClip(t) : 0L;
+            if (launchQ == colId) {
+              clipBtn.setBackground(new Color(0xff, 0xaa, 0x00)); // amber = queued
+            } else if (currentClip == colId) {
+              clipBtn.setBackground(trackColors[t % trackColors.length]); // playing
+            } else if (hasClip) {
+              clipBtn.setBackground(new Color(0x33, 0x44, 0x55)); // stopped
+            } else {
+              clipBtn.setBackground(new Color(0x1a, 0x1a, 0x1a)); // empty
+            }
           } else {
             if (hasClip) {
               clipBtn.setBackground(trackColors[currentTrack]);
@@ -2092,22 +2119,11 @@ public class SwingGridPanel extends JPanel {
                   if ((e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0) {
                     return;
                   }
-                  clipBtn.setBackground(Color.ORANGE);
-
-                  Timer timer = new Timer(100, null);
-                  final boolean[] flashState = {false};
-                  timer.addActionListener(
-                      ev -> {
-                        int step = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
-                        if (step == 0) {
-                          clipBtn.setBackground(trackColors[currentTrack]);
-                          timer.stop();
-                        } else {
-                          flashState[0] = !flashState[0];
-                          clipBtn.setBackground(flashState[0] ? Color.ORANGE : Color.LIGHT_GRAY);
-                        }
-                      });
-                  timer.start();
+                  if (colId < 16 && trkId < tracks.size()) {
+                    bridge.setLaunchQueue(trkId, colId);
+                  }
+                  clipBtn.setBackground(new Color(0xff, 0xaa, 0x00)); // amber = queued
+                  refresh();
                 } else if (viewMode == GridViewMode.ARRANGEMENT) {
                   // Toggle Linear arrangement playback bar state
                   if (clipBtn.getBackground().equals(trackColors[currentTrack])) {
@@ -2326,5 +2342,22 @@ public class SwingGridPanel extends JPanel {
               }
             });
     playheadTimer.start();
+  }
+
+  /** Activate a song section by its index, queueing clips on each track. */
+  private void activateSection(int idx) {
+    java.util.List<SongSection> sections = projectModel.getSongSections();
+    if (idx >= sections.size()) return;
+    SongSection section = sections.get(idx);
+    for (int t = 0; t < projectModel.getTracks().size() && t < BridgeContract.TRACKS; t++) {
+      org.chuck.deluge.model.TrackModel track = projectModel.getTracks().get(t);
+      for (int c = 0; c < track.getClips().size(); c++) {
+        if (section.getPatternIds().contains(track.getClips().get(c).getName())) {
+          bridge.setLaunchQueue(t, c);
+          break;
+        }
+      }
+    }
+    refresh();
   }
 }

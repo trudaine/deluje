@@ -340,6 +340,32 @@ public class SwingDelugeApp extends JFrame {
       }
     }
 
+    // ── Push ALL clips per track to clip-indexed C{n} bridge arrays ──
+    for (int t = 0; t < tracks.size(); t++) {
+      org.chuck.deluge.model.TrackModel track = tracks.get(t);
+      int startRow = trackEngineStart[t];
+      int voiceCount = trackVoiceCount[t];
+      java.util.List<ClipModel> clips = track.getClips();
+
+      bridge.setClipCount(t, clips.size());
+      bridge.setCurrentClip(t, track.getActiveClipIndex());
+
+      for (int c = 0; c < clips.size() && c < BridgeContract.MAX_CLIPS_PER_TRACK; c++) {
+        ClipModel clip = clips.get(c);
+        int stepCount = clip.getStepCount();
+        for (int r = 0; r < clip.getRowCount(); r++) {
+          int engineRow = startRow + r;
+          for (int s = 0; s < stepCount; s++) {
+            org.chuck.deluge.model.StepData step = clip.getStep(r, s);
+            if (step != null && step.active() && r < voiceCount) {
+              bridge.setStep(engineRow, s, true, c);
+              bridge.setVelocity(engineRow, s, step.velocity(), c);
+            }
+          }
+        }
+      }
+    }
+
     // Only unblock the engine when there are actual tracks to process.
     // An empty-project broadcast leaves all track types = -1, causing kit_shred to
     // compute voiceCount = 1 and build undersized arrays that can't be resized later.
