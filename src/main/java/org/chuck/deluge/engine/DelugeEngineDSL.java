@@ -573,15 +573,24 @@ public class DelugeEngineDSL implements Shred, Runnable {
     float sr = (float) sampleRate();
     Gain synthBus = (Gain) vm.getGlobalObject(BridgeContract.G_SYNTH_BUS);
 
+    System.out.println("[synth_shred] entered");
+
     // Wait for the first song load before building voice graph
     // Block until at least one synth track (type 1) is present, so arrays aren't sized 1
+    int waitCount = 0;
     while (isRunning()) {
       ChuckArray trackTypeInit = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
       boolean hasSynth = false;
+      int synthCount = 0;
       for (int i = 0; i < BridgeContract.TRACKS && !hasSynth; i++) {
-        if (trackTypeInit != null && trackTypeInit.getInt(i) == 1) hasSynth = true;
+        if (trackTypeInit != null) {
+          long val = trackTypeInit.getInt(i);
+          if (val == 1) { hasSynth = true; synthCount++; }
+        }
       }
-      if (hasSynth) break;
+      if (trackTypeInit == null) System.out.println("[synth_shred] wait#" + waitCount + ": trackTypeInit is NULL");
+      if (hasSynth) { System.out.println("[synth_shred] wait: found " + synthCount + " synth track entries, breaking"); break; }
+      if (waitCount++ % 50 == 0) System.out.println("[synth_shred] wait#" + waitCount + ": looping, no synth tracks found, trackTypeInit=" + trackTypeInit);
       advance(ms(100)); // Prevent hang if loadEvent was already broadcast
     }
 
@@ -632,6 +641,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
       } else {
         // DX7 or FM synthesis
         String dx7PatchStr = (String) vm.getGlobalObject("g_dx7_patch_" + i);
+        System.out.println("[synth_shred] i=" + i + " dx7PatchStr=" + (dx7PatchStr != null ? "'" + dx7PatchStr.substring(0, Math.min(20, dx7PatchStr.length())) + "...'" : "null") + " algo=" + algo);
         if (dx7PatchStr != null && !dx7PatchStr.isEmpty()) {
           dx7[i] = new Dx7Engine(sr);
           dx7[i].loadPatch(org.chuck.audio.util.Dx7Patch.fromHex(dx7PatchStr));
@@ -1357,6 +1367,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
   // ── TRANSPORT ────────────────────────────────────────────────────────────
 
   private void transport_shred() {
+    System.out.println("[transport] entered");
     vm.setGlobalObject(BridgeContract.G_DELAY_IN, new Gain());
     vm.setGlobalObject(BridgeContract.G_REVERB_IN, new Gain());
     vm.setGlobalObject(BridgeContract.G_SYNTH_BUS, new Gain());
@@ -1371,7 +1382,9 @@ public class DelugeEngineDSL implements Shred, Runnable {
     vm.spork(this::master_shred);
     vm.spork(this::clock_shred);
     vm.spork(this::kit_shred);
+    System.out.println("[transport] sporking synth_shred");
     vm.spork(this::synth_shred);
+    System.out.println("[transport] sporked synth_shred, now sporking sidechain");
     vm.spork(this::sidechain_shred);
     vm.spork(this::audio_shred);
     vm.spork(this::export_shred);
