@@ -260,6 +260,14 @@ public class SwingDelugeApp extends JFrame {
           bridge.setHpfRes(startRow + v, synth.getHpfRes());
           bridge.setPolyphony(startRow + v, synth.getPolyphony().ordinal());
         }
+
+        // ── DX7 patch (per-row string global, read by engine) ──
+        String dx7patch = synth.getDx7Patch();
+        if (dx7patch != null && !dx7patch.isEmpty()) {
+          for (int v = 0; v < totalSynthRows; v++) {
+            vm.setGlobalString("g_dx7_patch_" + (startRow + v), dx7patch);
+          }
+        }
       } else if (track instanceof org.chuck.deluge.model.AudioTrackModel audio) {
         // Mark engine row as type-2 (audio)
         bridge.setTrackType(startRow, 2);

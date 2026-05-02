@@ -225,9 +225,23 @@ public class DelugeXmlParser {
 
             for (int r = 0; r < rowCount; r++) {
               Element noteRowElem = (Element) noteRowList.item(r);
-              NodeList noteDataList = noteRowElem.getElementsByTagName("noteData");
-              if (noteDataList.getLength() > 0) {
-                String hexData = noteDataList.item(0).getTextContent();
+              String hexData = null;
+
+              // Check for noteDataWithLift attribute (c1.2.0+ firmware format)
+              String liftAttr = noteRowElem.getAttribute("noteDataWithLift");
+              if (liftAttr != null && !liftAttr.isEmpty()) {
+                hexData = liftAttr;
+              }
+
+              // Fall back to <noteData> child element (older format)
+              if (hexData == null) {
+                NodeList noteDataList = noteRowElem.getElementsByTagName("noteData");
+                if (noteDataList.getLength() > 0) {
+                  hexData = noteDataList.item(0).getTextContent();
+                }
+              }
+
+              if (hexData != null && !hexData.isEmpty()) {
                 java.util.List<StepData> row = DelugeNoteDataMapper.decodeRow(hexData, stepCount);
 
                 for (int s = 0; s < stepCount; s++) {
@@ -264,6 +278,77 @@ public class DelugeXmlParser {
       }
     }
 
+    // 2b. Parse Session Clips (c1.2.0+ format — <sessionClips>/<instrumentClip> instead of <tracks>/<track>)
+    NodeList sessionClipsNodes = songNode.getElementsByTagName("sessionClips");
+    if (sessionClipsNodes.getLength() > 0) {
+      Element sessionClips = (Element) sessionClipsNodes.item(0);
+      NodeList clipNodeList = sessionClips.getElementsByTagName("instrumentClip");
+
+      System.out.println("PARSER: Found " + clipNodeList.getLength() + " instrumentClips in XML");
+
+      for (int i = 0; i < clipNodeList.getLength(); i++) {
+        Element clipElem = (Element) clipNodeList.item(i);
+        java.util.List<TrackModel> projectTracks = project.getTracks();
+        if (i < projectTracks.size()) {
+          TrackModel targetTrack = projectTracks.get(i);
+
+          NodeList noteRowsList = clipElem.getElementsByTagName("noteRows");
+          if (noteRowsList.getLength() > 0) {
+            Element noteRowsElem = (Element) noteRowsList.item(0);
+            NodeList noteRowList = noteRowsElem.getElementsByTagName("noteRow");
+            int rowCount = noteRowList.getLength();
+
+            // Determine stepCount from length attribute on instrumentClip
+            int stepCount = 16;
+            if (clipElem.hasAttribute("length")) {
+              int lengthTicks = Integer.parseInt(clipElem.getAttribute("length"));
+              stepCount = lengthTicks / 24; // 1 step = 24 ticks
+              if (stepCount < 1) stepCount = 16;
+            }
+
+            ClipModel clip = new ClipModel("SESSION_CLIP " + i, rowCount, stepCount);
+            System.out.println("PARSER: Created clip " + clip.getName()
+                + " for track " + targetTrack.getName() + " rows=" + rowCount + " steps=" + stepCount);
+
+            for (int r = 0; r < rowCount; r++) {
+              Element noteRowElem = (Element) noteRowList.item(r);
+              String hexData = null;
+
+              String liftAttr = noteRowElem.getAttribute("noteDataWithLift");
+              if (liftAttr != null && !liftAttr.isEmpty()) {
+                hexData = liftAttr;
+              }
+
+              if (hexData == null) {
+                NodeList noteDataList = noteRowElem.getElementsByTagName("noteData");
+                if (noteDataList.getLength() > 0) {
+                  hexData = noteDataList.item(0).getTextContent();
+                }
+              }
+
+              if (hexData != null && !hexData.isEmpty()) {
+                java.util.List<StepData> row = DelugeNoteDataMapper.decodeRow(hexData, stepCount);
+                for (int s = 0; s < stepCount; s++) {
+                  clip.setStep(r, s, row.get(s));
+                }
+              }
+            }
+            targetTrack.addClip(clip);
+
+            // Parse automation from instrumentClip's <soundParams> child
+            if (targetTrack instanceof SynthTrackModel) {
+              NodeList soundParamsList = clipElem.getElementsByTagName("soundParams");
+              if (soundParamsList.getLength() > 0) {
+                parseAutomation((Element) soundParamsList.item(0), clip);
+              }
+            }
+          }
+        } else {
+          System.out.println("PARSER: Clip index " + i + " out of bounds for " + projectTracks.size() + " tracks");
+        }
+      }
+    }
+
     return project;
   }
 
@@ -272,6 +357,15 @@ public class DelugeXmlParser {
   static void populateSynth(Element soundNode, SynthTrackModel synth) {
     // Direct child bindings (osc1 attr/or child type, osc2 child type)
     applyDirectBindings(soundNode, synth);
+
+    // ── DX7 patch (hex string from <osc1 dx7patch="...">) ──
+    NodeList osc1List = soundNode.getElementsByTagName("osc1");
+    if (osc1List.getLength() > 0) {
+      Element osc1 = (Element) osc1List.item(0);
+      if (osc1.hasAttribute("dx7patch")) {
+        synth.setDx7Patch(osc1.getAttribute("dx7patch"));
+      }
+    }
 
     // ── Synth Mode ──
     parseSynthMode(soundNode, synth);

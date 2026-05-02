@@ -68,6 +68,9 @@ public class KitSynthSerializer {
 
     Element osc1 = doc.createElement("osc1");
     osc1.setAttribute("type", synth.getOsc1Type().toLowerCase());
+    if (synth.getDx7Patch() != null && !synth.getDx7Patch().isEmpty()) {
+      osc1.setAttribute("dx7patch", synth.getDx7Patch());
+    }
     root.appendChild(osc1);
 
     Element osc2 = doc.createElement("osc2");

@@ -48,8 +48,8 @@ public class DelugeNoteDataMapper {
       String hexLen = data.substring(idx + 8, idx + 16);
       // ignore flags for now
 
-      int pos = Integer.parseInt(hexPos, 16);
-      int len = Integer.parseInt(hexLen, 16);
+      int pos = (int) Long.parseLong(hexPos, 16);
+      int len = (int) Long.parseLong(hexLen, 16);
 
       int step = pos / TICKS_PER_STEP;
       float gate = (float) len / TICKS_PER_STEP;

@@ -245,6 +245,261 @@ public class KitAccuracyTest {
   }
 
   @Test
+  void test909KitAccuracy() throws Exception {
+    String xmlPath = "/KITS/003 TR-909.XML";
+    InputStream is909 = KitAccuracyTest.class.getResourceAsStream(xmlPath);
+    assertTrue(is909 != null, "909 Kit XML not found: " + xmlPath);
+    KitTrackModel kit909 = DelugeXmlParser.parseKit(is909, "003 TR-909");
+
+    List<KitTrackModel.KitSound> sounds = kit909.getSounds();
+    assertTrue(sounds.size() > 0, "909 kit must have sounds");
+
+    int count = sounds.size();
+    String[] names = new String[count];
+    float[] originalRms = new float[count];
+    float[] engineRms = new float[count];
+    double[] correlations = new double[count];
+    double[] bestErrors = new double[count];
+    int[] sampleCounts = new int[count];
+    boolean[] passed = new boolean[count];
+
+    // Resolve sample paths
+    String[] resolvedPaths = new String[count];
+    for (int i = 0; i < count; i++) {
+      String path = sounds.get(i).getSamplePath();
+      if (path == null || path.isEmpty()) {
+        names[i] = sounds.get(i).getName() + " (NO SAMPLE)";
+        continue;
+      }
+      names[i] = sounds.get(i).getName();
+
+      File f = new File(path);
+      if (f.isAbsolute() && f.exists()) {
+        resolvedPaths[i] = f.getAbsolutePath();
+      } else {
+        String resPath = path.startsWith("/") ? path : "/" + path;
+        File localTarget = new File("target/classes" + resPath);
+        if (localTarget.exists()) {
+          resolvedPaths[i] = localTarget.getAbsolutePath();
+        } else {
+          String rp = path.replace("\\", "/");
+          if (!rp.startsWith("/")) rp = "/" + rp;
+          try (InputStream ris = getClass().getResourceAsStream(rp)) {
+            if (ris != null) {
+              String uniqueName = "ref909_" + i + "_" + new File(rp).getName();
+              File tmp = new File(tempDir, uniqueName);
+              java.nio.file.Files.copy(ris, tmp.toPath(),
+                  java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+              resolvedPaths[i] = tmp.getAbsolutePath();
+            }
+          }
+        }
+      }
+    }
+
+    // Pre-populate all sample paths
+    for (int i = 0; i < count; i++) {
+      if (resolvedPaths[i] != null) {
+        vm.setGlobalString("g_sample_" + i, resolvedPaths[i]);
+        bridge.setTrackType(i, 0);
+      }
+    }
+
+    // Start engine
+    vm.spork(new DelugeEngineDSL(vm));
+    vm.advanceTime(100);
+    vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+    vm.advanceTime(SAMPLE_RATE / 2);
+
+    System.out.println("\n=== 909 Kit Accuracy Test ===");
+    System.out.printf("%-20s %-8s %-8s %-10s %-10s %-8s %s%n",
+        "Sound", "OrigRMS", "EngRMS", "Correlation", "RMSErr", "Samples", "Result");
+
+    for (int i = 0; i < count; i++) {
+      if (resolvedPaths[i] == null) {
+        System.out.printf("%-20s %-8s %-8s %-10s %-10s %-8s SKIP%n",
+            names[i], "-", "-", "-", "-", "-");
+        continue;
+      }
+
+      // Load original source WAV
+      float[] original;
+      try {
+        original = loadWavAsFloat(resolvedPaths[i]);
+      } catch (Exception e) {
+        System.out.printf("%-20s %-8s %-8s %-10s %-10s %-8s ERR: %s%n",
+            names[i], "-", "-", "-", "-", "-", e.getMessage());
+        errors.add(names[i] + ": load failed - " + e.getMessage());
+        continue;
+      }
+      originalRms[i] = (float) rms(original);
+
+      // Clear all steps
+      for (int t = 0; t < BridgeContract.TRACKS; t++) {
+        for (int s = 0; s < BridgeContract.STEPS; s++) {
+          bridge.setStep(t, s, false);
+          bridge.setVelocity(t, s, 0.0);
+        }
+      }
+      vm.advanceTime(4410);
+
+      // Configure this voice
+      vm.setGlobalString("g_sample_" + i, resolvedPaths[i]);
+      bridge.setTrackType(i, 0);
+      bridge.setMute(i, false);
+      bridge.setTrackLevel(i, 1.0);
+      { org.chuck.core.ChuckArray _a_ = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_PITCH); if (_a_ != null) _a_.setInt(i, 0L); }
+      { org.chuck.core.ChuckArray _a_ = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_ATTACK); if (_a_ != null) _a_.setFloat(i, 0.001f); }
+      { org.chuck.core.ChuckArray _a_ = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_DECAY); if (_a_ != null) _a_.setFloat(i, 0.0f); }
+      { org.chuck.core.ChuckArray _a_ = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_SUSTAIN); if (_a_ != null) _a_.setFloat(i, 1.0f); }
+      { org.chuck.core.ChuckArray _a_ = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_RELEASE); if (_a_ != null) _a_.setFloat(i, 0.001f); }
+      { org.chuck.core.ChuckArray _a_ = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_DELAY_SEND); if (_a_ != null) _a_.setFloat(i, 0.0f); }
+      { org.chuck.core.ChuckArray _a_ = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_REVERB_SEND); if (_a_ != null) _a_.setFloat(i, 0.0f); }
+
+      // Mute all other tracks
+      for (int t = 0; t < BridgeContract.TRACKS; t++) {
+        if (t != i) bridge.setMute(t, true);
+      }
+
+      // Trigger the sample
+      bridge.setStep(i, 0, true);
+      bridge.setVelocity(i, 0, 1.0);
+      bridge.setGate(i, 0, 0.9);
+
+      vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+      vm.advanceTime(SAMPLE_RATE / 4);
+
+      // Start WvOut2 export
+      String wavPath = new File(tempDir, "engine909_" + i + ".wav").getAbsolutePath();
+      bridge.startExport(wavPath);
+      vm.advanceTime(SAMPLE_RATE * 250 / 1000);
+
+      vm.setGlobalInt(BridgeContract.G_PLAY, 1L);
+      vm.setGlobalFloat(BridgeContract.G_BPM, 120.0);
+
+      int captureMs = 5000;
+      int totalSamples = SAMPLE_RATE * captureMs / 1000;
+      int blocks = totalSamples / BLOCK_SIZE;
+      for (int b = 0; b < blocks; b++) {
+        vm.advanceTime(BLOCK_SIZE);
+      }
+
+      vm.setGlobalInt(BridgeContract.G_PLAY, 0L);
+      bridge.stopExport();
+      vm.advanceTime(8820);
+
+      // Load engine output
+      File engineWav = new File(wavPath);
+      float[] engineOut;
+      if (engineWav.exists() && engineWav.length() > 44) {
+        engineOut = loadWavAsFloat(engineWav.getAbsolutePath());
+        System.out.printf("  Original: RMS=%.6f peak=%.6f len=%d%n", originalRms[i], peak(original), original.length);
+        System.out.printf("  Engine:   RMS=%.6f peak=%.6f len=%d%n", rms(engineOut), peak(engineOut), engineOut.length);
+      } else {
+        System.out.printf("%-20s %-8s %-8s %-10s %-10s %-8s NO OUTPUT%n",
+            names[i], "-", "-", "-", "-", "-");
+        errors.add(names[i] + ": engine produced no output WAV");
+        continue;
+      }
+      engineRms[i] = (float) rms(engineOut);
+      sampleCounts[i] = engineOut.length;
+
+      // Align and compare
+      int engOnset = -1;
+      double engNoiseFloor = rms(engineOut) * 0.1;
+      if (engNoiseFloor < 0.0001) engNoiseFloor = 0.0001;
+      for (int di = 0; di < engineOut.length; di++) {
+        if (Math.abs(engineOut[di]) > engNoiseFloor) {
+          engOnset = di;
+          break;
+        }
+      }
+      if (engOnset < 0) engOnset = 0;
+
+      int origLen = original.length;
+      int engLen = engineOut.length - engOnset;
+      if (engLen < origLen / 2) {
+        bestErrors[i] = 999;
+        correlations[i] = 0;
+      } else {
+        int compLen = Math.min(origLen, engLen);
+        float[] engSlice = new float[compLen];
+        float[] origSlice = new float[compLen];
+        System.arraycopy(original, 0, origSlice, 0, compLen);
+        System.arraycopy(engineOut, engOnset, engSlice, 0, compLen);
+
+        int fineLag;
+        if (engOnset > 10000 && origLen < 30000) {
+          fineLag = findBestLag(origSlice, engSlice, 2000);
+        } else {
+          fineLag = findBestLag(origSlice, engSlice, 500);
+        }
+        if (fineLag > 0) {
+          int alen = Math.min(compLen, origLen - fineLag);
+          origSlice = new float[alen];
+          engSlice = new float[alen];
+          System.arraycopy(original, fineLag, origSlice, 0, alen);
+          System.arraycopy(engineOut, engOnset, engSlice, 0, alen);
+        } else if (fineLag < 0) {
+          int shift = -fineLag;
+          int alen = Math.min(compLen - shift, origLen);
+          origSlice = new float[alen];
+          engSlice = new float[alen];
+          System.arraycopy(original, 0, origSlice, 0, alen);
+          System.arraycopy(engineOut, engOnset + shift, engSlice, 0, alen);
+        }
+
+        bestErrors[i] = rmsError(origSlice, engSlice);
+        correlations[i] = correlation(origSlice, engSlice);
+        System.out.printf("  DIAG: aligned compLen=%d fineLag=%d correlation=%.4f rmsError=%.6f%n",
+            origSlice.length, fineLag, correlations[i], bestErrors[i]);
+      }
+
+      boolean isSilence = originalRms[i] < 0.001 && engineRms[i] < 0.001;
+      passed[i] = isSilence || (correlations[i] > 0.9 && bestErrors[i] < 0.15);
+
+      String result;
+      if (isSilence) result = "SILENT";
+      else if (passed[i]) result = "PASS";
+      else result = "FAIL";
+
+      assertTrue(isSilence || correlations[i] > 0.8,
+          names[i] + ": correlation=" + String.format("%.4f", correlations[i])
+              + " too low (expected >0.8)");
+
+      System.out.printf("%-20s %-8.4f %-8.4f %-10.4f %-10.6f %-8d %s%n",
+          names[i], originalRms[i], engineRms[i],
+          correlations[i], bestErrors[i], sampleCounts[i], result);
+    }
+
+    // Summary
+    int passCount = 0, failCount = 0, skipCount = 0;
+    for (int i = 0; i < count; i++) {
+      if (resolvedPaths[i] == null) skipCount++;
+      else if (passed[i]) passCount++;
+      else failCount++;
+    }
+    System.out.println();
+    System.out.println("=== 909 Summary ===");
+    System.out.println("Total sounds: " + count);
+    System.out.println("Passed:      " + passCount);
+    System.out.println("Failed:      " + failCount);
+    System.out.println("Skipped:     " + skipCount);
+
+    if (!errors.isEmpty()) {
+      System.out.println("\nErrors:");
+      for (String e : errors) System.out.println("  - " + e);
+    }
+
+    int tested = count - skipCount;
+    if (tested > 0) {
+      assertTrue(failCount <= tested * 0.3,
+          failCount + "/" + tested + " 909 sounds failed correlation check (threshold: 30%)");
+    }
+    System.out.println("\n909 Accuracy test: " + passCount + "/" + tested + " passed.");
+  }
+
+  @Test
   void test808KitAccuracy() throws Exception {
     List<KitTrackModel.KitSound> sounds = kit.getSounds();
     assertTrue(sounds.size() > 0, "808 kit must have sounds");
