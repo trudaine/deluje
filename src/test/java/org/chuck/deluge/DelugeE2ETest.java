@@ -103,8 +103,9 @@ public class DelugeE2ETest {
    * (b) audible signal (>0.001 peak) is produced.
    */
   @ParameterizedTest(name = "[{index}] {0}")
-  @ValueSource(strings = {"song1.xml", "song2.xml", "song3.xml", "Dx7A.xml"})
+  @ValueSource(strings = {"song1.xml", "song2.xml", "song3.xml", "Dx7A.xml", "Dx7B.xml", "Dx7C.xml"})
   public void testSongPlayback(String songFile) throws Exception {
+    System.out.println("\n=== testSongPlayback: " + songFile + " ===");
     System.setProperty("chuck.audio.dummy", "true");
     System.setProperty("chuck.loglevel", "1");
     System.setProperty("deluge.tracks", "256");
