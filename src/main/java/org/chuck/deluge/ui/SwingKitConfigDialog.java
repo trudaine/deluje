@@ -81,6 +81,7 @@ public class SwingKitConfigDialog extends JDialog {
         String path = chooser.getSelectedFile().getAbsolutePath().replace('\\', '/');
         sound.setSamplePath(path);
         pathField.setText(path);
+        bridge.setSamplePath(idx, path);
         if (vm != null) {
           try {
             vm.setGlobalString("g_sample_" + idx, path);

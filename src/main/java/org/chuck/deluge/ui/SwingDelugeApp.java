@@ -103,6 +103,7 @@ public class SwingDelugeApp extends JFrame {
           int engineRow = startRow + v;
           String path = v < sounds.size() ? sounds.get(v).getSamplePath() : "";
           vm.setGlobalString("g_sample_" + engineRow, path);
+          bridge.setSamplePath(engineRow, path);
 
           if (v < sounds.size()) {
             org.chuck.deluge.model.KitTrackModel.KitSound snd = sounds.get(v);

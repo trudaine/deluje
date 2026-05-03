@@ -607,6 +607,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
     if (synthBase < 0) synthBase = 0;
     if (maxSynthBridgeRow < synthBase) maxSynthBridgeRow = synthBase;
     int totalSynthSlots = maxSynthBridgeRow - synthBase + 1;
+    System.out.println("[synth_shred] synthBase=" + synthBase + " maxSynthBridgeRow=" + maxSynthBridgeRow + " totalSynthSlots=" + totalSynthSlots);
 
     // Read synth algorithm array to know which voices are FM vs STK
     ChuckArray algoArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_SYNTH_ALGO);
@@ -626,7 +627,8 @@ public class DelugeEngineDSL implements Shred, Runnable {
     // (Carrier feedback disabled in graph — see block-rate modulation below)
 
     for (int i = 0; i < totalSynthSlots; i++) {
-      int algo = algoArr != null ? (int) algoArr.getInt(i) : 0;
+      int bridgeRow = synthBase + i;
+      int algo = algoArr != null ? (int) algoArr.getInt(bridgeRow) : 0;
       fil[i] = new SVFilter();
       hpf[i] = new HPF(sr);
       env[i] = new DelugeAdsr();
@@ -640,8 +642,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
         src[i].chuck(fil[i]).chuck(hpf[i]).chuck(env[i]).chuck(pan[i]).chuck(synthBus);
       } else {
         // DX7 or FM synthesis
-        String dx7PatchStr = (String) vm.getGlobalObject("g_dx7_patch_" + i);
-        System.out.println("[synth_shred] i=" + i + " dx7PatchStr=" + (dx7PatchStr != null ? "'" + dx7PatchStr.substring(0, Math.min(20, dx7PatchStr.length())) + "...'" : "null") + " algo=" + algo);
+        String dx7PatchStr = (String) vm.getGlobalObject("g_dx7_patch_" + bridgeRow);
         if (dx7PatchStr != null && !dx7PatchStr.isEmpty()) {
           dx7[i] = new Dx7Engine(sr);
           dx7[i].loadPatch(org.chuck.audio.util.Dx7Patch.fromHex(dx7PatchStr));
