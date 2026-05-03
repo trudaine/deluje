@@ -27,7 +27,7 @@ import jdk.incubator.vector.VectorSpecies;
  *   <li>{@link SequencerClock} — dedicated clock thread with swing/stutter/transport</li>
  *   <li>{@link TickEventQueue} — sample-accurate event dispatch from clock to audio thread</li>
  *   <li>Song mode — bar-boundary clip switching via {@link BridgeContract#processLaunchQueue()}</li>
- *   <li>{@link NativeMidiInputRouter} — real-time MIDI input via javax.sound.midi</li>
+ *   <li>{@link RtMidiInputRouter} — real-time MIDI input via rtmidijava</li>
  * </ul>
  */
 public class NativeJavaSequencer {
@@ -44,8 +44,8 @@ public class NativeJavaSequencer {
     // ── New component: Sequencer Clock ──
     private SequencerClock clock;
 
-    // ── New component: MIDI Input Router ──
-    private NativeMidiInputRouter midiInput;
+    // ── New component: MIDI Input Router (rtmidijava) ──
+    private RtMidiInputRouter midiInput;
 
     // ── Audio pipeline (unchanged) ──
     private static final int SAMPLE_RATE = 44100;
@@ -98,8 +98,8 @@ public class NativeJavaSequencer {
             // 1. Initialize audio output
             initAudio();
 
-            // 2. Start MIDI input router
-            midiInput = new NativeMidiInputRouter(bridge, eventQueue, voiceAllocator);
+            // 2. Start MIDI input router (rtmidijava)
+            midiInput = new RtMidiInputRouter(bridge, eventQueue, voiceAllocator);
             if (midiInput.openFirstDevice()) {
                 midiInput.start();
             }
