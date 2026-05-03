@@ -182,6 +182,10 @@ public final class BridgeContract {
   public static final String G_WVOUT_FILE = "g_wvout_file";
   public static final String G_MASTER_TAP = "g_master_tap";
 
+  // ── Java-engine-only transport state (not in VM) ──
+  private volatile int javaPlayState = 0;
+  private volatile int javaCurrentStep = -1;
+
   // ── Primitive Data Arrays ──
   private final int[] pattern = new int[PATTERN_SIZE];
   private final float[] velocity = new float[PATTERN_SIZE];
@@ -688,6 +692,71 @@ public final class BridgeContract {
   public float[] getLfoDepthRaw() { return lfoDepth; }
   public int[] getLfoTargetRaw() { return lfoTarget; }
   public int[] getLfoTrackRaw() { return lfoTrack; }
+
+  // ── Java engine transport accessors ──
+  public int getPlayState() { return javaPlayState; }
+  public void setPlayState(int state) {
+    this.javaPlayState = state;
+    if (vm != null) vm.setGlobalInt(G_PLAY, (long) state);
+  }
+  public int getCurrentStep() { return javaCurrentStep; }
+  public void setCurrentStep(int step) {
+    this.javaCurrentStep = step;
+    if (vm != null) vm.setGlobalInt(G_CURRENT_STEP, (long) step);
+  }
+  public long getStutterOn() { return vm != null ? vm.getGlobalInt(G_STUTTER_ON) : 0L; }
+  public double getStutterDiv() { return vm != null ? vm.getGlobalFloat(G_STUTTER_DIV) : 1.0; }
+
+  /**
+   * Process pending clip launches at bar boundary.
+   * Reads G_LAUNCH_QUEUE and applies switches to G_CURRENT_CLIP.
+   */
+  public void processLaunchQueue() {
+    for (int t = 0; t < TRACKS; t++) {
+      int q = launchQueue[t];
+      if (q >= 0) {
+        currentClip[t] = q;
+        launchQueue[t] = -1;
+      }
+    }
+  }
+
+  /**
+   * Get the step data pattern value for a track, step, and clip index.
+   * Clip 0 reads from the primary pattern array; clip > 0 reads from clip arrays
+   * (created lazily via getClipArray).
+   */
+  public int getPatternAtClip(int track, int step, int clipIdx) {
+    if (clipIdx <= 0) return pattern[track * STEPS + step];
+    if (vm == null) return pattern[track * STEPS + step]; // fallback
+    var arr = (org.chuck.core.ChuckArray) vm.getGlobalObject(G_PATTERN + "_C" + clipIdx);
+    if (arr != null) return (int) arr.getInt(track * STEPS + step);
+    return pattern[track * STEPS + step];
+  }
+
+  public int getPitchAtClip(int track, int step, int clipIdx) {
+    if (clipIdx <= 0) return pitch[track * STEPS + step];
+    if (vm == null) return pitch[track * STEPS + step];
+    var arr = (org.chuck.core.ChuckArray) vm.getGlobalObject(G_PITCH + "_C" + clipIdx);
+    if (arr != null) return (int) arr.getInt(track * STEPS + step);
+    return pitch[track * STEPS + step];
+  }
+
+  public float getVelocityAtClip(int track, int step, int clipIdx) {
+    if (clipIdx <= 0) return velocity[track * STEPS + step];
+    if (vm == null) return velocity[track * STEPS + step];
+    var arr = (org.chuck.core.ChuckArray) vm.getGlobalObject(G_VELOCITY + "_C" + clipIdx);
+    if (arr != null) return (float) arr.getFloat(track * STEPS + step);
+    return velocity[track * STEPS + step];
+  }
+
+  public float getProbabilityAtClip(int track, int step, int clipIdx) {
+    if (clipIdx <= 0) return probability[track * STEPS + step];
+    if (vm == null) return probability[track * STEPS + step];
+    var arr = (org.chuck.core.ChuckArray) vm.getGlobalObject(G_PROBABILITY + "_C" + clipIdx);
+    if (arr != null) return (float) arr.getFloat(track * STEPS + step);
+    return probability[track * STEPS + step];
+  }
 
   public void setRecording(boolean r) { this.recording = r; }
   public boolean isRecording() { return recording; }
