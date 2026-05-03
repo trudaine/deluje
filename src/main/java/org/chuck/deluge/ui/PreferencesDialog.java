@@ -41,6 +41,7 @@ public class PreferencesDialog extends JDialog {
     tooltipCheck.setSelected(Boolean.parseBoolean(PreferencesManager.get("show.tooltips", "true")));
     screenResCombo.setSelectedItem(PreferencesManager.get("screen.resolution", "QHD"));
     gridModeCombo.setSelectedItem(PreferencesManager.getGridMode().name());
+    engineCombo.setSelectedItem(PreferencesManager.getSequencerEngine().name());
 
     // MIDI input ports
     String[] ports = org.chuck.midi.MidiIn.list();
@@ -94,6 +95,9 @@ public class PreferencesDialog extends JDialog {
     gridModeLabel = new javax.swing.JLabel();
     gridModeCombo = new javax.swing.JComboBox<>();
     gridHelp = new javax.swing.JLabel();
+    engineLabel = new javax.swing.JLabel();
+    engineCombo = new javax.swing.JComboBox<>();
+    engineHelp = new javax.swing.JLabel();
     mappingsLabel = new javax.swing.JLabel();
     mappingsScroll = new javax.swing.JScrollPane();
     mappingList = new javax.swing.JList<>();
@@ -174,6 +178,17 @@ public class PreferencesDialog extends JDialog {
     gridHelp.setForeground(new java.awt.Color(128, 128, 128));
     gridHelp.setText("Rows x Steps. Requires app restart for engine sync.");
 
+    engineLabel.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 24));
+    engineLabel.setForeground(new java.awt.Color(224, 224, 224));
+    engineLabel.setText("Sequencer Engine:");
+
+    engineCombo.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 24));
+    engineCombo.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "CHUCK", "PURE_JAVA" }));
+
+    engineHelp.setFont(new java.awt.Font("SansSerif", java.awt.Font.ITALIC, 18));
+    engineHelp.setForeground(new java.awt.Color(128, 128, 128));
+    engineHelp.setText("CHUCK (stable) vs PURE_JAVA (experimental). Requires restart.");
+
     mappingsLabel.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 24));
     mappingsLabel.setForeground(new java.awt.Color(224, 224, 224));
     mappingsLabel.setText("Active Mappings:");
@@ -217,6 +232,7 @@ public class PreferencesDialog extends JDialog {
           .addComponent(midiGridLabel)
           .addComponent(showTooltipsLabel)
           .addComponent(screenResLabel)
+          .addComponent(engineLabel)
           .addComponent(mappingsLabel)
           .addComponent(samplesLabel))
         .addGap(20, 20, 20)
@@ -253,6 +269,12 @@ public class PreferencesDialog extends JDialog {
             .addGap(0, 0, Short.MAX_VALUE))
           .addGroup(mainPanelLayout.createSequentialGroup()
             .addComponent(gridHelp)
+            .addGap(0, 0, Short.MAX_VALUE))
+          .addGroup(mainPanelLayout.createSequentialGroup()
+            .addComponent(engineCombo, javax.swing.GroupLayout.PREFERRED_SIZE, 280, javax.swing.GroupLayout.PREFERRED_SIZE)
+            .addGap(0, 0, Short.MAX_VALUE))
+          .addGroup(mainPanelLayout.createSequentialGroup()
+            .addComponent(engineHelp)
             .addGap(0, 0, Short.MAX_VALUE))
           .addGroup(mainPanelLayout.createSequentialGroup()
             .addComponent(mappingsScroll, javax.swing.GroupLayout.PREFERRED_SIZE, 280, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -306,6 +328,12 @@ public class PreferencesDialog extends JDialog {
           .addComponent(gridModeCombo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
         .addComponent(gridHelp)
+        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+        .addGroup(mainPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+          .addComponent(engineLabel)
+          .addComponent(engineCombo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+        .addComponent(engineHelp)
         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
         .addGroup(mainPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
           .addComponent(mappingsLabel)
@@ -372,6 +400,10 @@ public class PreferencesDialog extends JDialog {
     PreferencesManager.GridMode selectedMode =
         PreferencesManager.GridMode.fromString((String) gridModeCombo.getSelectedItem());
     PreferencesManager.setGridMode(selectedMode);
+    
+    PreferencesManager.SequencerEngine selectedEngine = 
+        PreferencesManager.SequencerEngine.fromString((String) engineCombo.getSelectedItem());
+    PreferencesManager.setSequencerEngine(selectedEngine);
 
     if (onGridModeChanged != null) onGridModeChanged.run();
 
@@ -392,6 +424,9 @@ public class PreferencesDialog extends JDialog {
   private javax.swing.JCheckBox gridModeCheck;
   private javax.swing.JComboBox<String> gridModeCombo;
   private javax.swing.JLabel gridModeLabel;
+  private javax.swing.JLabel engineLabel;
+  private javax.swing.JComboBox<String> engineCombo;
+  private javax.swing.JLabel engineHelp;
   private javax.swing.JScrollPane jScrollPane1;
   private javax.swing.JPanel mainPanel;
   private javax.swing.JLabel mappingsLabel;

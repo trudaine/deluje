@@ -36,7 +36,24 @@ public class PreferencesManager {
     }
   }
 
+  /** Available sequencer engine implementations. */
+  public enum SequencerEngine {
+    /** The original ChucK-based sequencer DSL. */
+    CHUCK,
+    /** Experimental pure Java sequencer implementation. */
+    PURE_JAVA;
+
+    public static SequencerEngine fromString(String s) {
+      try {
+        return valueOf(s);
+      } catch (Exception e) {
+        return CHUCK;
+      }
+    }
+  }
+
   private static final String KEY_GRID_MODE = "grid.mode";
+  private static final String KEY_SEQUENCER_ENGINE = "sequencer.engine";
 
   public static GridMode getGridMode() {
     return GridMode.fromString(prefs.get(KEY_GRID_MODE, "GRID_8x16"));
@@ -44,6 +61,14 @@ public class PreferencesManager {
 
   public static void setGridMode(GridMode mode) {
     prefs.put(KEY_GRID_MODE, mode.name());
+  }
+
+  public static SequencerEngine getSequencerEngine() {
+    return SequencerEngine.fromString(prefs.get(KEY_SEQUENCER_ENGINE, "CHUCK"));
+  }
+
+  public static void setSequencerEngine(SequencerEngine engine) {
+    prefs.put(KEY_SEQUENCER_ENGINE, engine.name());
   }
 
   private static final String KEY_SAMPLES_DIR = "samples_dir";
