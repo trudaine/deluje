@@ -348,7 +348,7 @@ public class KitAccuracyTest {
       bridge.setTrackType(i, 0);
       bridge.setMute(i, false);
       bridge.setTrackLevel(i, 1.0);
-      { org.chuck.core.ChuckArray _a_ = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_PITCH); if (_a_ != null) _a_.setInt(i, 0L); }
+      { org.chuck.core.ChuckArray _a_ = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_PITCH); if (_a_ != null) _a_.setFloat(i, 0.0); }
       { org.chuck.core.ChuckArray _a_ = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_ATTACK); if (_a_ != null) _a_.setFloat(i, 0.001f); }
       { org.chuck.core.ChuckArray _a_ = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_DECAY); if (_a_ != null) _a_.setFloat(i, 0.0f); }
       { org.chuck.core.ChuckArray _a_ = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_SUSTAIN); if (_a_ != null) _a_.setFloat(i, 1.0f); }
@@ -605,7 +605,7 @@ public class KitAccuracyTest {
       bridge.setMute(i, false);
       bridge.setTrackLevel(i, 1.0);
       // Kit ADSR/pitch/delay/reverb via direct ChuckArray access (no bridge setters)
-      { org.chuck.core.ChuckArray _a_ = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_PITCH); if (_a_ != null) _a_.setInt(i, 0L); }
+      { org.chuck.core.ChuckArray _a_ = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_PITCH); if (_a_ != null) _a_.setFloat(i, 0.0); }
       { org.chuck.core.ChuckArray _a_ = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_ATTACK); if (_a_ != null) _a_.setFloat(i, 0.001f); }
       { org.chuck.core.ChuckArray _a_ = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_DECAY); if (_a_ != null) _a_.setFloat(i, 0.0f); }
       { org.chuck.core.ChuckArray _a_ = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_SUSTAIN); if (_a_ != null) _a_.setFloat(i, 1.0f); }

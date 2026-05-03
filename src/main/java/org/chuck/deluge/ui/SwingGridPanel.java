@@ -67,6 +67,29 @@ public class SwingGridPanel extends JPanel {
     new Color(0x99, 0xcc, 0xff), // Baby Blue
   };
 
+  /** Cached pad size, computed once per resize so refresh() is idempotent. */
+  private int cachedPadSz = 48;
+
+  /** Constrain max size to preferred so BoxLayout can't grow this panel unbounded. */
+  @Override
+  public Dimension getMaximumSize() {
+    return getPreferredSize();
+  }
+
+  /** Recompute cachedPadSz from current width/height. Called on resize, not on every refresh(). */
+  private void recomputePadSize() {
+    int availWidth = getWidth() > 0 ? getWidth() : 1200;
+    int availHeight = getHeight() > 0 ? getHeight() : 600;
+    int labelWidth = Math.max(60, Math.min(140, availWidth / 12));
+    int cellsWidth = availWidth - labelWidth - 69 - 5 - 12 - 5 - 20;
+    int rowsInView = gridMode.rows + 3;
+    int padSz = Math.min(
+      cellsWidth / columnCount,
+      (availHeight - 30) / rowsInView
+    );
+    cachedPadSz = Math.max(16, Math.min(200, padSz));
+  }
+
   public SwingGridPanel(ChuckVM vm, BridgeContract bridge) {
     this.vm = vm;
     this.bridge = bridge;
@@ -74,6 +97,14 @@ public class SwingGridPanel extends JPanel {
 
     setBackground(new Color(0x1a, 0x1a, 0x1a));
     setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+
+    // Recompute padSz on resize so refresh() uses stable cached value
+    addComponentListener(new java.awt.event.ComponentAdapter() {
+      @Override
+      public void componentResized(java.awt.event.ComponentEvent e) {
+        recomputePadSize();
+      }
+    });
 
     // Apply saved grid mode to step/column counts
     this.stepCount = gridMode.columns;
@@ -361,6 +392,7 @@ public class SwingGridPanel extends JPanel {
     } else {
       this.columnCount = stepCount + 2;
     }
+    recomputePadSize();
     refresh();
   }
 
@@ -402,6 +434,7 @@ public class SwingGridPanel extends JPanel {
       }
       scrollOffset = 0;
       scrollOffsetX = 0;
+      recomputePadSize();
       refresh();
     }
   }
@@ -1182,16 +1215,7 @@ public class SwingGridPanel extends JPanel {
     if (scrollOffset > maxOffset) scrollOffset = maxOffset;
 
     // Compute dynamic pad size: always fit gridMode.rows × gridMode.columns cells in the viewport
-    int availWidth = getWidth() > 0 ? getWidth() : 1200;
-    int availHeight = getHeight() > 0 ? getHeight() : 600;
-    int labelWidth = Math.max(60, Math.min(140, availWidth / 12));
-    int cellsWidth = availWidth - labelWidth - 69 - 5 - 12 - 5 - 20;
-    int rowsInView = gridMode.rows + 3; // voice rows + MACROS/SLIDERS/KEYBOARD = 3 fixed rows
-    int padSz = Math.min(
-      cellsWidth / columnCount,
-      (availHeight - 30) / rowsInView
-    );
-    padSz = Math.max(16, Math.min(200, padSz));
+    int padSz = cachedPadSz;
 
     int savedColCount = columnCount; // saved for SONG/ARRANGEMENT section below
 

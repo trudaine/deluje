@@ -160,6 +160,7 @@ public class SwingProjectSidebarPanel extends JPanel {
                             // Set raw resource path — engine resolves casing and loads to temp
                             if (sp != null && !sp.startsWith("/")) sp = "/" + sp;
                             vm.setGlobalString("g_sample_" + (baseTrack + i), sp != null ? sp : "");
+                            bridge.setSamplePath(baseTrack + i, sp != null ? sp : "");
                             bridge.setMute(baseTrack + i, false);
                           }
                         }

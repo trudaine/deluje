@@ -1,5 +1,9 @@
 package org.chuck.deluge;
 
+import org.chuck.deluge.engine.DelugeEngineDSL;
+import org.chuck.deluge.engine.NativeJavaSequencer;
+import org.chuck.deluge.project.PreferencesManager;
+
 public class SequencerLauncher {
   public static void main(String[] args) {
     System.out.println("Launching Deluge Workstation...");
@@ -12,10 +16,18 @@ public class SequencerLauncher {
     vm.setAudio(audio);
     audio.start();
 
-    // Spork the Java DSL engine
-    org.chuck.deluge.engine.DelugeEngineDSL dslEngine =
-        new org.chuck.deluge.engine.DelugeEngineDSL();
-    vm.spork(dslEngine);
+    // Select and start the engine based on preferences
+    PreferencesManager.SequencerEngine engineType = PreferencesManager.getSequencerEngine();
+    System.out.println("Selected Engine: " + engineType);
+
+    if (engineType == PreferencesManager.SequencerEngine.CHUCK) {
+        // Spork the original ChucK DSL engine
+        DelugeEngineDSL dslEngine = new DelugeEngineDSL();
+        vm.spork(dslEngine);
+    } else {
+        // Start the experimental Pure Java engine
+        NativeJavaSequencer.launch(bridge);
+    }
 
     org.chuck.deluge.midi.MidiInputRouter router =
         new org.chuck.deluge.midi.MidiInputRouter(vm, bridge);
