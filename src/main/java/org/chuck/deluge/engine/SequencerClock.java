@@ -169,7 +169,7 @@ public class SequencerClock implements Runnable {
                 long subDurNs = (long) (durNs / Math.max(1.0, stutterDiv));
 
                 bridge.setCurrentStep(step);
-                listener.onTick(step, step == 0);
+                listener.onTick(step, false);
 
                 long elapsed = System.nanoTime() - lastStepStart;
                 long remaining = subDurNs - elapsed;
