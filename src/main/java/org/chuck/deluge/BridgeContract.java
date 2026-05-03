@@ -12,6 +12,55 @@ import org.chuck.core.ChuckVM;
  * step data, track parameters, and transport controls into primitive Java arrays
  * and scalar globals; the engine's shreds (sporked by {@code DelugeEngineDSL}) read them every
  * tick via {@link ChuckArray} wrappers that point to these same primitive arrays.
+ * No locks are needed because the UI writes between ticks and the engine reads at
+ * tick boundaries.
+ *
+ * <h2>Dimensions</h2>
+ * <ul>
+ *   <li>{@link #TRACKS} — 64 (configurable via {@code deluge.tracks} system property)</li>
+ *   <li>{@link #STEPS} — 192 (max step capacity per clip, matching real Deluge hardware)</li>
+ *   <li>{@link #PATTERN_SIZE} = {@code TRACKS × STEPS} = 12 288 — sizes all 22 step-data arrays</li>
+ * </ul>
+ *
+ * <h2>Array Layout</h2>
+ * Step-data arrays use a flat stride layout: {@code index = track * STEPS + step}.
+ * All accessor methods ({@link #getStep}, {@link #setPitch}, etc.) follow this convention.
+ * Track-level arrays (level, mute, filter, etc.) are indexed directly by {@code track}.
+ *
+ * <h2>Global Name Conventions (used in the ChucK VM)</h2>
+ * <table>
+ *   <caption>Global naming groups</caption>
+ *   <tr><td>{@code g_*}</td><td>Scalar globals (BPM, play state, master volume)</td></tr>
+ *   <tr><td>{@code g_track_*}</td><td>Per-track integer/float arrays</td></tr>
+ *   <tr><td>{@code g_kit_*}</td><td>Per-track kit-specific params (ADSR, pitch, mute group)</td></tr>
+ *   <tr><td>{@code g_step_*}</td><td>Per-step modulation arrays (filter, res, pan, delay, reverb)</td></tr>
+ *   <tr><td>{@code g_lfo_*}</td><td>Global LFO configuration (rate, type, depth, target, track)</td></tr>
+ *   <tr><td>{@code g_audio_*}</td><td>Audio clip recording/playback state (LiSa)</td></tr>
+ *   <tr><td>{@code g_delay_in / g_reverb_in}</td><td>{@code Gain} UGens for FX send buses</td></tr>
+ *   <tr><td>{@code g_synth_bus / g_audio_bus}</td><td>{@code Gain} UGens for submix buses</td></tr>
+ *   <tr><td>{@code g_master_tap}</td><td>{@code Gain} UGen tapped before dac for WvOut export</td></tr>
+ * </table>
+ *
+ * <h2>Engine Internals (UGen buses)</h2>
+ * The {@link #register} method also creates four {@code Gain} UGens that structure the
+ * engine's audio graph:
+ * <ol>
+ *   <li>{@code g_delay_in} — kit/synth Pan2 sends → Echo → fxIn → dac</li>
+ *   <li>{@code g_reverb_in} — kit/synth Pan2 sends → JCRev/FreeVerb/MVerb → fxIn → dac</li>
+ *   <li>{@code g_synth_bus} — all synth voices → HPF → compressor → limiter → masterTap → dac</li>
+ *   <li>{@code g_audio_bus} — all LiSa outputs → HPF → compressor → limiter → masterTap → dac</li>
+ *   <li>{@code g_master_tap} — WvOut2 spliced in during export; direct pass-through otherwise</li>
+ * </ol>
+ *
+ * <h2>Lifecycle</h2>
+ * 1. Constructed in the UI thread with all default values.
+ * 2. {@link #register(ChuckVM)} called after the VM is created — registers all globals and UGens.
+ * 3. On song load, the UI calls setter methods to copy model data into the arrays.
+ * 4. {@code pushModelToBridge()} in {@code SwingDelugeApp} synchronises the full ProjectModel.
+ * 5. The engine's shreds read these arrays on every tick event.
+ *
+ * @see org.chuck.deluge.engine.DelugeEngineDSL
+ * @see org.chuck.deluge.ui.SwingDelugeApp
  */
 public final class BridgeContract {
 
@@ -27,17 +76,20 @@ public final class BridgeContract {
   public static final int LFO_COUNT = 4;
   public static final int MAX_CLIPS_PER_TRACK = 16;
 
-  // ── Global Names ──
+  // ── Clip launch globals ────────────────────────────────────────────────
   public static final String G_CLIP_COUNT = "g_clip_count";
   public static final String G_CURRENT_CLIP = "g_current_clip";
   public static final String G_LAUNCH_QUEUE = "g_launch_queue";
   public static final String G_QUEUE_STEP = "g_queue_step";
+  // ── Transport & Master ─────────────────────────────────────────────────
   public static final String G_BPM = "g_bpm";
   public static final String G_SWING = "g_swing";
   public static final String G_PLAY = "g_play";
   public static final String G_CURRENT_STEP = "g_current_step";
   public static final String G_STUTTER_ON = "g_stutter_on";
   public static final String G_STUTTER_DIV = "g_stutter_div";
+
+  // ── Step-data arrays (size PATTERN_SIZE each) ─────────────────────────
   public static final String G_PATTERN = "g_pattern";
   public static final String G_VELOCITY = "g_velocity";
   public static final String G_GATE = "g_gate";
@@ -60,12 +112,14 @@ public final class BridgeContract {
   public static final String G_STEP_OSC_B_VOL = "g_step_osc_b_vol";
   public static final String G_STEP_NOISE_VOL = "g_step_noise_vol";
   public static final String G_STEP_PITCH = "g_step_pitch";
+  // ── Track-level arrays (size TRACKS each) ─────────────────────────────
   public static final String G_TRACK_TYPE = "g_track_type";
   public static final String G_OSC_TYPE = "g_osc_type";
   public static final String G_TRACK_LEVEL = "g_track_level";
   public static final String G_MUTE = "g_mute";
   public static final String G_MASTER_VOL = "g_master_vol";
   public static final String G_MASTER_PAN = "g_master_pan";
+  // ── Per-track synth/filter arrays ──────────────────────────────────────
   public static final String G_FILTER = "g_filter";
   public static final String G_FILTER_MODE = "g_filter_mode";
   public static final String G_FILTER_MORPH = "g_filter_morph";
