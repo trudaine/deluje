@@ -44,7 +44,7 @@ class BridgeContractTest {
     assertEquals(0.5, vm.getGlobalFloat(BridgeContract.G_SWING), 0.001);
     assertEquals(0L, vm.getGlobalInt(BridgeContract.G_PLAY));
     assertEquals(-1L, vm.getGlobalInt(BridgeContract.G_CURRENT_STEP));
-    assertEquals(0.7, vm.getGlobalFloat(BridgeContract.G_MASTER_VOL), 0.001);
+    assertEquals(1.0, vm.getGlobalFloat(BridgeContract.G_MASTER_VOL), 0.001);
 
     // FX defaults
     assertEquals(0.375, vm.getGlobalFloat(BridgeContract.G_DELAY_TIME), 0.001);

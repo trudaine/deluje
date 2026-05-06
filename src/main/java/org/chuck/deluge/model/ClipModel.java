@@ -25,6 +25,20 @@ public class ClipModel {
    */
   private final Map<String, float[]> automationData = new HashMap<>();
 
+  /**
+   * Per-noteRow sound parameter overrides. Maps row index → parameter name → normalized float value.
+   * These are parsed from &lt;soundParams&gt; children of &lt;noteRow&gt; elements, containing 35+ hex
+   * attributes that override the per-sound default parameters for that specific pattern row.
+   */
+  private final Map<Integer, Map<String, Float>> rowSoundParams = new HashMap<>();
+
+  /**
+   * Per-clip kit parameter overrides. Maps parameter name → normalized float value.
+   * Parsed from &lt;kitParams&gt; child of &lt;instrumentClip isKitClip="true"&gt;.
+   * Mirrors the same attributes as &lt;songParams&gt; but for kit tracks.
+   */
+  private final Map<String, Float> kitParams = new HashMap<>();
+
   public ClipModel(String name, int rowCount, int stepCount) {
     this.name = name;
     this.rowCount = Math.max(1, rowCount);
@@ -43,6 +57,12 @@ public class ClipModel {
     for (Map.Entry<String, float[]> e : automationData.entrySet()) {
       copy.automationData.put(e.getKey(), e.getValue().clone());
     }
+    // Deep-copy row sound params
+    for (Map.Entry<Integer, Map<String, Float>> e : rowSoundParams.entrySet()) {
+      copy.rowSoundParams.put(e.getKey(), new HashMap<>(e.getValue()));
+    }
+    // Deep-copy kit params
+    copy.kitParams.putAll(this.kitParams);
     return copy;
   }
 
@@ -214,6 +234,45 @@ public class ClipModel {
   public float[] getAutomationArray(String paramName) {
     return automationData.get(paramName);
   }
+
+  // ── Per-noteRow sound parameter overrides ──
+
+  /**
+   * Set a sound parameter override for a specific row. The value is a normalized float (0.0-1.0)
+   * derived from the XML hex attribute.
+   */
+  public void setRowSoundParam(int row, String paramName, float value) {
+    rowSoundParams.computeIfAbsent(row, k -> new HashMap<>()).put(paramName, value);
+  }
+
+  /**
+   * Get a sound parameter override for a specific row.
+   * @return the value, or -1 if no override exists for this row+param combination.
+   */
+  public float getRowSoundParam(int row, String paramName) {
+    Map<String, Float> rowParams = rowSoundParams.get(row);
+    if (rowParams == null) return -1f;
+    Float val = rowParams.get(paramName);
+    return val != null ? val : -1f;
+  }
+
+  /** Returns true if the given row has any sound parameter overrides. */
+  public boolean hasRowSoundParams(int row) {
+    return rowSoundParams.containsKey(row) && !rowSoundParams.get(row).isEmpty();
+  }
+
+  /** Returns all parameter names that have overrides for a given row, or empty set. */
+  public Set<String> getRowSoundParamNames(int row) {
+    Map<String, Float> rowParams = rowSoundParams.get(row);
+    return rowParams != null ? rowParams.keySet() : Set.of();
+  }
+
+  // ── Per-clip kit parameter overrides ──
+
+  public Map<String, Float> getKitParams() { return kitParams; }
+  public void setKitParam(String param, float value) { kitParams.put(param, value); }
+  public void setKitParams(Map<String, Float> params) { kitParams.clear(); kitParams.putAll(params); }
+  public float getKitParam(String param) { return kitParams.getOrDefault(param, -1f); }
 
   // ── Internal helpers called by stepCount setter ──
 

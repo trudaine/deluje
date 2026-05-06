@@ -40,6 +40,8 @@ public class TickEventQueue {
         public double sustain;
         public double release;
         public String samplePath;
+        public double hpfFreq;
+        public double hpfRes;
 
         public void set(Command cmd, int track, int midiNote, int velocity, int slotHint) {
             this.command = cmd;
@@ -55,6 +57,8 @@ public class TickEventQueue {
             this.sustain = 0.7;
             this.release = 0.2;
             this.samplePath = null;
+            this.hpfFreq = 20.0;
+            this.hpfRes = 0.707;
         }
 
         public void setSample(String path) {
@@ -71,6 +75,11 @@ public class TickEventQueue {
         public void setFilter(double c, double r) {
             this.cutoff = c;
             this.resonance = r;
+        }
+
+        public void setHpf(double freq, double res) {
+            this.hpfFreq = freq;
+            this.hpfRes = res;
         }
 
         public void clear() {
@@ -118,6 +127,8 @@ public class TickEventQueue {
         e.sustain = template.sustain;
         e.release = template.release;
         e.samplePath = template.samplePath;
+        e.hpfFreq = template.hpfFreq;
+        e.hpfRes = template.hpfRes;
 
         writeHead = next;
         return true;

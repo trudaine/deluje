@@ -34,6 +34,20 @@ public class SynthTrackModel extends TrackModel {
   private final List<ModKnob> modKnobs = new ArrayList<>(16);
 
   // FX and EQ
+  // Master volume, pan
+  private float volume = 0.5f;
+  private float pan = 0.0f;
+
+  // Stutter, bitcrush, sample rate reduction
+  private float stutterRate = 0.0f;
+  private float sampleRateReduction = 0.0f;
+  private float bitCrush = 0.0f;
+
+  // Compressor per-track
+  private float compressorAttack = 0.0f;
+  private float compressorRelease = 0.0f;
+  private int compressorSyncLevel = 0;
+
   private String modFxType = "NONE";
   private float modFxRate = 0.0f;
   private float modFxDepth = 0.0f;
@@ -301,6 +315,24 @@ public class SynthTrackModel extends TrackModel {
   public void setEqTreble(float eqTreble) {
     this.eqTreble = eqTreble;
   }
+
+  public float getVolume() { return volume; }
+  public void setVolume(float v) { this.volume = v; }
+  public float getPan() { return pan; }
+  public void setPan(float v) { this.pan = v; }
+  public float getStutterRate() { return stutterRate; }
+  public void setStutterRate(float v) { this.stutterRate = v; }
+  public float getSampleRateReduction() { return sampleRateReduction; }
+  public void setSampleRateReduction(float v) { this.sampleRateReduction = v; }
+  public float getBitCrush() { return bitCrush; }
+  public void setBitCrush(float v) { this.bitCrush = v; }
+
+  public float getCompressorAttack() { return compressorAttack; }
+  public void setCompressorAttack(float v) { this.compressorAttack = v; }
+  public float getCompressorRelease() { return compressorRelease; }
+  public void setCompressorRelease(float v) { this.compressorRelease = v; }
+  public int getCompressorSyncLevel() { return compressorSyncLevel; }
+  public void setCompressorSyncLevel(int v) { this.compressorSyncLevel = v; }
 
   public int getSynthMode() {
     return synthMode;

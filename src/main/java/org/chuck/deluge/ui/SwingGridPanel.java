@@ -69,6 +69,7 @@ public class SwingGridPanel extends JPanel {
 
   /** Cached pad size, computed once per resize so refresh() is idempotent. */
   private int cachedPadSz = 48;
+  private boolean refreshInProgress = false;
 
   /** Constrain max size to preferred so BoxLayout can't grow this panel unbounded. */
   @Override
@@ -78,8 +79,11 @@ public class SwingGridPanel extends JPanel {
 
   /** Recompute cachedPadSz from current width/height. Called on resize, not on every refresh(). */
   private void recomputePadSize() {
-    int availWidth = getWidth() > 0 ? getWidth() : 1200;
-    int availHeight = getHeight() > 0 ? getHeight() : 600;
+    // Block recursive recompute triggered by revalidate() during refresh() — the inflated
+    // 3000-wide preferred sizes cause getWidth() to balloon and padSz to grow on each cycle.
+    if (refreshInProgress) return;
+    int availWidth = Math.min(getWidth() > 0 ? getWidth() : 1200, 1600);
+    int availHeight = Math.min(getHeight() > 0 ? getHeight() : 600, 700);
     int labelWidth = Math.max(60, Math.min(140, availWidth / 12));
     int cellsWidth = availWidth - labelWidth - 69 - 5 - 12 - 5 - 20;
     int rowsInView = gridMode.rows + 3;
@@ -87,7 +91,11 @@ public class SwingGridPanel extends JPanel {
       cellsWidth / columnCount,
       (availHeight - 30) / rowsInView
     );
-    cachedPadSz = Math.max(16, Math.min(200, padSz));
+    int newSz = Math.max(16, Math.min(200, padSz));
+    if (newSz != cachedPadSz) {
+      System.out.println("DEBUG recomputePadSize: " + cachedPadSz + " -> " + newSz + " (avail=" + availWidth + "x" + availHeight + " rowsInView=" + rowsInView + " colCount=" + columnCount + ")");
+      cachedPadSz = newSz;
+    }
   }
 
   public SwingGridPanel(ChuckVM vm, BridgeContract bridge) {
@@ -98,11 +106,17 @@ public class SwingGridPanel extends JPanel {
     setBackground(new Color(0x1a, 0x1a, 0x1a));
     setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
 
-    // Recompute padSz on resize so refresh() uses stable cached value
+    // Recompute padSz on user window resize (not on internal revalidate from refresh)
     addComponentListener(new java.awt.event.ComponentAdapter() {
+      private int lastW = -1, lastH = -1;
       @Override
       public void componentResized(java.awt.event.ComponentEvent e) {
-        recomputePadSize();
+        int w = getWidth(), h = getHeight();
+        if (w != lastW || h != lastH) {
+          lastW = w; lastH = h;
+          System.out.println("DEBUG resize: " + lastW + "x" + lastH + " -> recomputePadSize");
+          recomputePadSize();
+        }
       }
     });
 
@@ -536,7 +550,7 @@ public class SwingGridPanel extends JPanel {
       org.chuck.deluge.model.TrackModel rowTrack = projectModel.getTracks().get(editedModelTrack);
       if (rowTrack instanceof org.chuck.deluge.model.KitTrackModel kit) {
         java.util.List<org.chuck.deluge.model.KitTrackModel.KitSound> sounds = kit.getSounds();
-        trackName = (modelRow < sounds.size()) ? sounds.get(modelRow).getName() : rowTrack.getName();
+        trackName = (modelRow < sounds.size()) ? sounds.get(sounds.size() - 1 - modelRow).getName() : rowTrack.getName();
       } else {
         trackName = (modelRow == 0) ? rowTrack.getName() : "-" + modelRow + "st";
       }
@@ -910,14 +924,10 @@ public class SwingGridPanel extends JPanel {
                       }
                       refresh();
                       if (!stepState) {
+                        // Single preview trigger — click a cell, play the sound once.
+                        // The engine reads G_PREVIEW_TRACK on wake and re-triggers.
                         vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) (baseTrackId + modelRow));
                         vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
-                        activeStutterTimer =
-                            new Timer(150, ev -> {
-                              vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) (baseTrackId + modelRow));
-                              vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
-                            });
-                        activeStutterTimer.start();
                       }
                     }
                   }
@@ -1202,6 +1212,7 @@ public class SwingGridPanel extends JPanel {
   }
 
   public void refresh() {
+    refreshInProgress = true;
     removeAll();
     java.util.List<org.chuck.deluge.model.TrackModel> tracks = projectModel.getTracks();
 
@@ -1443,7 +1454,9 @@ public class SwingGridPanel extends JPanel {
           upBtn.addActionListener(e -> { scrollOffset = Math.max(0, scrollOffset - 1); refresh(); });
           headerRow.add(upBtn);
 
-          JLabel rowCountLabel = new JLabel((scrollOffset + 1) + "-" + Math.min(scrollOffset + gridMode.rows, voiceRowCount) + " / " + voiceRowCount);
+          int labelLo = scrollOffset + 1;
+          int labelHi = Math.min(scrollOffset + gridMode.rows, voiceRowCount);
+          JLabel rowCountLabel = new JLabel(labelLo + "-" + labelHi + " / " + voiceRowCount);
           rowCountLabel.setForeground(Color.LIGHT_GRAY);
           rowCountLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
           headerRow.add(rowCountLabel);
@@ -1504,7 +1517,7 @@ public class SwingGridPanel extends JPanel {
       voicePanel.setLayout(new BoxLayout(voicePanel, BoxLayout.Y_AXIS));
       for (int v = 0; v < gridMode.rows; v++) {
         int modelRow = scrollOffset + v;
-        if (modelRow < voiceRowCount) {
+        if (modelRow >= 0 && modelRow < voiceRowCount) {
           JPanel row = buildVoiceRow(modelRow, v, padSz, tracks);
           voicePanel.add(row);
         } else {
@@ -1590,7 +1603,7 @@ public class SwingGridPanel extends JPanel {
         if (rowTrack instanceof org.chuck.deluge.model.KitTrackModel kit) {
           // Kit CLIP rows show the individual sound name
           java.util.List<org.chuck.deluge.model.KitTrackModel.KitSound> sounds = kit.getSounds();
-          trackName = (t < sounds.size()) ? sounds.get(t).getName() : rowTrack.getName();
+          trackName = (t < sounds.size()) ? sounds.get(sounds.size() - 1 - t).getName() : rowTrack.getName();
         } else {
           // Synth CLIP: row 0 shows track name, rows 1-7 show pitch
           trackName = (t == 0) ? rowTrack.getName() : "-" + t + "st";
@@ -2030,51 +2043,18 @@ public class SwingGridPanel extends JPanel {
                           }
                         }
                       } else {
-                        boolean stepState = bridge.getStep(baseTrackId + trk, colId);
-                        bridge.setStep(baseTrackId + trk, colId, !stepState);
-                        double velK = bridge.getVelocity(baseTrackId + trk, colId);
-                        clipBtn.setBackground(
-                            !stepState ? velocityBlend(trackColors[trk], velK) : new Color(0x33, 0x33, 0x33));
-                        if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
-                          org.chuck.deluge.model.TrackModel tModel =
-                              projectModel.getTracks().get(editedModelTrack);
-                          if (activeClipId < tModel.getClips().size()) {
-                            org.chuck.deluge.model.ClipModel cModel =
-                                tModel.getClips().get(activeClipId);
-                            double curVel = bridge.getVelocity(baseTrackId + trk, colId);
-                            double curProb = bridge.getStepProbability(baseTrackId + trk, colId);
-                            cModel.setStep(
-                                trk,
-                                colId,
-                                new org.chuck.deluge.model.StepData(
-                                    !stepState, (float)curVel, 0.5f, (float)curProb, 0));
-                          }
-                        }
-
-                        if (!stepState) {
-                          // Audition the kit sample via engine preview event
-                          vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) (baseTrackId + trk));
-                          vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
-                          if (activeStutterTimer != null) activeStutterTimer.stop();
-                          activeStutterTimer =
-                              new Timer(
-                                  150,
-                                  ev -> {
-                                    vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) (baseTrackId + trk));
-                                    vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
-                                  });
-                          activeStutterTimer.start();
-                        }
+                        // Audition on press — no step toggle (use double-click or Edit button to toggle steps)
+                        vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) (baseTrackId + trk));
+                        vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
                       }
                     }
                   }
 
                   @Override
                   public void mouseReleased(java.awt.event.MouseEvent e) {
-                    if (activeStutterTimer != null) {
-                      activeStutterTimer.stop();
-                      activeStutterTimer = null;
-                    }
+                    // Stop kit preview on release
+                    vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, -1L);
+                    vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
                   }
                 });
 
@@ -2240,6 +2220,7 @@ public class SwingGridPanel extends JPanel {
       add(new PianoRollComponent());
     }
 
+    refreshInProgress = false;
     revalidate();
     repaint();
 

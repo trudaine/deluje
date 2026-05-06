@@ -71,25 +71,33 @@ public class PreferencesManager {
     prefs.put(KEY_SEQUENCER_ENGINE, engine.name());
   }
 
-  private static final String KEY_SAMPLES_DIR = "samples_dir";
+  private static final String KEY_LIBRARY_DIR = "library_dir";
   private static final String KEY_RECENT_FILES =
       "recent_files"; // Comma-separated for simplicity MVP
   private static final int MAX_RECENT = 10;
 
-  public static String getSamplesDir() {
-    return prefs.get(KEY_SAMPLES_DIR, System.getProperty("user.home") + "/Deluge/SAMPLES");
-  }
-
-  public static void setSamplesDir(String path) {
-    prefs.put(KEY_SAMPLES_DIR, path);
-  }
-
-  /** Root of the Deluge library (parent of SONGS, KITS, SYNTHS, SAMPLES). */
+  /** Root of the Deluge library (contains SONGS, KITS, SYNTHS, SAMPLES subdirectories). */
   public static java.io.File getLibraryDir() {
-    String samplesDir = getSamplesDir();
-    java.io.File samples = new java.io.File(samplesDir);
-    java.io.File parent = samples.getParentFile();
-    return parent != null ? parent : new java.io.File(System.getProperty("user.home"), "Deluge");
+    String path = prefs.get(KEY_LIBRARY_DIR, "");
+    if (!path.isEmpty()) {
+      return new java.io.File(path);
+    }
+    // Legacy fallback: derive from samples_dir preference
+    String legacy = prefs.get("samples_dir", "");
+    if (!legacy.isEmpty()) {
+      java.io.File parent = new java.io.File(legacy).getParentFile();
+      return parent != null ? parent : new java.io.File(System.getProperty("user.home"), "Deluge");
+    }
+    return new java.io.File(System.getProperty("user.home"), "Deluge");
+  }
+
+  public static void setLibraryDir(String path) {
+    prefs.put(KEY_LIBRARY_DIR, path);
+  }
+
+  /** The SAMPLES subdirectory of the library root. */
+  public static String getSamplesDir() {
+    return new java.io.File(getLibraryDir(), "SAMPLES").getAbsolutePath();
   }
 
   public static java.io.File getSongsDir() {
