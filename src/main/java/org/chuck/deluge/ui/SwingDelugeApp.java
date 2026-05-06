@@ -6,7 +6,9 @@ import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.model.AudioTrackModel;
 import org.chuck.deluge.model.ClipModel;
+import org.chuck.deluge.model.EnvelopeModel;
 import org.chuck.deluge.model.KitTrackModel;
+import org.chuck.deluge.model.LfoModel;
 import org.chuck.deluge.model.SynthTrackModel;
 
 /** Alternative lightweight UI running purely on Java Swing (no native libs). */
@@ -42,6 +44,8 @@ public class SwingDelugeApp extends JFrame {
   private int[] trackVoiceCount;
 
   private final org.chuck.deluge.midi.MidiService midiService;
+  private SwingProjectSidebarPanel sidebarPanel;
+  private SwingProjectSidebarPanel floatingSidebar;
   private final java.util.ArrayDeque<Long> tapTimes = new java.util.ArrayDeque<>();
 
   /** Recompute trackEngineStart and trackVoiceCount from the current project model. */
@@ -64,7 +68,7 @@ public class SwingDelugeApp extends JFrame {
   }
 
   /** Push the current project model into engine globals (G_TRACK_TYPE, samples, kit params, patterns). */
-  private void pushModelToBridge() {
+  public void pushModelToBridge() {
     computeEngineMapping();
     java.util.List<org.chuck.deluge.model.TrackModel> tracks = currentProject.getTracks();
 
@@ -101,12 +105,21 @@ public class SwingDelugeApp extends JFrame {
         java.util.List<org.chuck.deluge.model.KitTrackModel.KitSound> sounds = kit.getSounds();
         for (int v = 0; v < voiceCount; v++) {
           int engineRow = startRow + v;
-          String path = v < sounds.size() ? sounds.get(v).getSamplePath() : "";
+          String path = v < sounds.size() ? sounds.get(sounds.size() - 1 - v).getSamplePath() : "";
           vm.setGlobalString("g_sample_" + engineRow, path);
           bridge.setSamplePath(engineRow, path);
 
+          // ── Zone (sample truncation) ──
           if (v < sounds.size()) {
-            org.chuck.deluge.model.KitTrackModel.KitSound snd = sounds.get(v);
+            org.chuck.deluge.model.KitTrackModel.KitSound snd = sounds.get(sounds.size() - 1 - v);
+            float[] range = org.chuck.deluge.BridgeContract.computeNormalizedRange(snd, path);
+            if (range[0] > 0.0f || range[1] < 1.0f) {
+              bridge.setSampleRange(engineRow, range[0], range[1]);
+            }
+          }
+
+          if (v < sounds.size()) {
+            org.chuck.deluge.model.KitTrackModel.KitSound snd = sounds.get(sounds.size() - 1 - v);
             try {
               ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_PITCH))
                   .setFloat(engineRow, snd.getPitchSemitones());
@@ -124,6 +137,43 @@ public class SwingDelugeApp extends JFrame {
                     .setFloat(engineRow, adsr.sustain());
                 ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_RELEASE))
                     .setFloat(engineRow, adsr.release());
+              }
+
+              // ── New kit sound fields ──
+              bridge.setKitVolume(engineRow, snd.getVolume());
+              bridge.setKitPan(engineRow, snd.getPan());
+              bridge.setKitEqBass(engineRow, snd.getEqBass());
+              bridge.setKitEqTreble(engineRow, snd.getEqTreble());
+              bridge.setKitSidechain(engineRow, snd.getSidechainSend());
+              bridge.setKitNoiseVol(engineRow, snd.getNoiseVolume());
+              bridge.setKitStutterRate(engineRow, snd.getStutterRate());
+              bridge.setKitSampleRateRed(engineRow, snd.getSampleRateReduction());
+              bridge.setKitBitCrush(engineRow, snd.getBitCrush());
+              bridge.setKitHpfFreq(engineRow, snd.getHpfFreq());
+              bridge.setKitHpfRes(engineRow, snd.getHpfRes());
+              bridge.setKitLpfMode(engineRow, lpfModeOrdinal(snd.getLpfMode()));
+              bridge.setKitModFxType(engineRow, modFxTypeOrdinal(snd.getModFxType()));
+              bridge.setKitOsc2Type(engineRow, oscTypeOrdinal(snd.getOsc2Type()));
+              bridge.setKitUnisonNum(engineRow, snd.getUnisonNum());
+              bridge.setKitUnisonDetune(engineRow, snd.getUnisonDetune());
+              bridge.setKitCompAttack(engineRow, snd.getCompressorAttack());
+              bridge.setKitCompRelease(engineRow, snd.getCompressorRelease());
+              bridge.setKitDelayRate(engineRow, snd.getDelayRate());
+
+              // ── Kit envelopes 2-4 via shared env array ──
+              pushKitEnv(engineRow, 1, snd.getEnv2());
+              pushKitEnv(engineRow, 2, snd.getEnv3());
+              pushKitEnv(engineRow, 3, snd.getEnv4());
+
+              // ── Kit LFOs: distribute per-sound LFO1/2 across global LFO slots ──
+              int lfoBase = Math.min(v * 2, BridgeContract.LFO_COUNT - 2);
+              LfoModel lfo1 = snd.getLfo1();
+              if (lfo1 != null && lfoBase < BridgeContract.LFO_COUNT) {
+                  bridge.setLfo(lfoBase, lfo1.rateHz(), lfo1.waveform().ordinal(), lfo1.depth());
+              }
+              LfoModel lfo2 = snd.getLfo2();
+              if (lfo2 != null && lfoBase + 1 < BridgeContract.LFO_COUNT) {
+                  bridge.setLfo(lfoBase + 1, lfo2.rateHz(), lfo2.waveform().ordinal(), lfo2.depth());
               }
             } catch (Exception ex) {
               System.err.println("[pushModel] kit param error at row " + engineRow + ": " + ex.getMessage());
@@ -172,6 +222,8 @@ public class SwingDelugeApp extends JFrame {
               if (step != null && step.active()) {
                 bridge.setStep(engineRow, s, true);
                 bridge.setVelocity(engineRow, s, step.velocity());
+                bridge.setGate(engineRow, s, step.gate());
+                bridge.setPitch(engineRow, s, step.pitch());
               }
             }
           }
@@ -260,6 +312,53 @@ public class SwingDelugeApp extends JFrame {
           bridge.setHpfFreq(startRow + v, synth.getHpfFreq());
           bridge.setHpfRes(startRow + v, synth.getHpfRes());
           bridge.setPolyphony(startRow + v, synth.getPolyphony().ordinal());
+        }
+
+        // ── Push new synth fields (volume, pan, oscMix, noise, unison, modFX, etc.) ──
+        for (int v = 0; v < totalSynthRows; v++) {
+          bridge.setTrackLevel(startRow + v, synth.getVolume());
+        }
+        for (int v = 0; v < totalSynthRows; v++) {
+          bridge.setTrackPan(startRow + v, synth.getPan());
+        }
+        for (int v = 0; v < totalSynthRows; v++) {
+          bridge.setOscMix(startRow + v, synth.getOscMix());
+        }
+        for (int v = 0; v < totalSynthRows; v++) {
+          bridge.setNoiseVol(startRow + v, synth.getNoiseVol());
+        }
+        for (int v = 0; v < totalSynthRows; v++) {
+          bridge.setUnisonNum(startRow + v, synth.getUnisonNum());
+          bridge.setUnisonDetune(startRow + v, synth.getUnisonDetune());
+        }
+        for (int v = 0; v < totalSynthRows; v++) {
+          bridge.setModFxType(startRow + v, modFxTypeOrdinal(synth.getModFxType()));
+          bridge.setModFxRate(startRow + v, synth.getModFxRate());
+          bridge.setModFxDepth(startRow + v, synth.getModFxDepth());
+          bridge.setModFxFeedback(startRow + v, synth.getModFxFeedback());
+        }
+        for (int v = 0; v < totalSynthRows; v++) {
+          bridge.setPortamento(startRow + v, synth.getPortamento());
+        }
+        for (int v = 0; v < totalSynthRows; v++) {
+          bridge.setEqBass(startRow + v, synth.getEqBass());
+          bridge.setEqTreble(startRow + v, synth.getEqTreble());
+        }
+        for (int v = 0; v < totalSynthRows; v++) {
+          bridge.setStutterRate(startRow + v, synth.getStutterRate());
+          bridge.setSampleRateReduction(startRow + v, synth.getSampleRateReduction());
+          bridge.setBitCrush(startRow + v, synth.getBitCrush());
+        }
+        for (int v = 0; v < totalSynthRows; v++) {
+          bridge.setCompAttack(startRow + v, synth.getCompressorAttack());
+          bridge.setCompRelease(startRow + v, synth.getCompressorRelease());
+        }
+        for (int v = 0; v < totalSynthRows; v++) {
+          bridge.setOsc2Type(startRow + v, oscTypeOrdinal(synth.getOsc2Type()));
+        }
+        for (int v = 0; v < totalSynthRows; v++) {
+          bridge.setDelaySend(startRow + v, synth.getDelaySend());
+          bridge.setReverbSend(startRow + v, synth.getReverbSend());
         }
 
         // ── DX7 patch (per-row string global, read by engine) ──
@@ -369,6 +468,7 @@ public class SwingDelugeApp extends JFrame {
             if (step != null && step.active() && r < voiceCount) {
               bridge.setStep(engineRow, s, true, c);
               bridge.setVelocity(engineRow, s, step.velocity(), c);
+              bridge.setPitch(engineRow, s, step.pitch());
             }
           }
         }
@@ -568,7 +668,7 @@ public class SwingDelugeApp extends JFrame {
         });
   }
 
-  private void loadProject(org.chuck.deluge.model.ProjectModel model) {
+  public void loadProject(org.chuck.deluge.model.ProjectModel model) {
     currentProject = model;
     vm.setGlobalInt(BridgeContract.G_PLAY, 0L);
 
@@ -879,7 +979,7 @@ public class SwingDelugeApp extends JFrame {
           JFileChooser chooser = new JFileChooser();
           chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
           if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-            org.chuck.deluge.project.PreferencesManager.setSamplesDir(
+            org.chuck.deluge.project.PreferencesManager.setLibraryDir(
                 chooser.getSelectedFile().getAbsolutePath());
           }
         });
@@ -894,6 +994,9 @@ public class SwingDelugeApp extends JFrame {
                 if (songPanel != null) songPanel.setGridMode(mode);
                 if (arrGridPanel != null) arrGridPanel.setGridMode(mode);
                 recalcWrapperSize();
+              }, () -> {
+                sidebarPanel.reloadLibrary();
+                floatingSidebar.reloadLibrary();
               });
           if (midiService != null) dialog.setMappings(midiService.getMappings());
           dialog.setVisible(true);
@@ -1008,8 +1111,8 @@ public class SwingDelugeApp extends JFrame {
     javax.swing.SwingUtilities.invokeLater(() -> centerScroll.getVerticalScrollBar().setValue(0));
 
     // 2. Left Area (SD Card / Editors)
-    SwingProjectSidebarPanel sidebarPanel = new SwingProjectSidebarPanel(vm, bridge, midiService);
-    SwingProjectSidebarPanel floatingSidebar =
+    sidebarPanel = new SwingProjectSidebarPanel(vm, bridge, midiService);
+    floatingSidebar =
         new SwingProjectSidebarPanel(vm, bridge, midiService);
     sidebarPanel.setOnSongLoaded(
         model -> {
@@ -1039,6 +1142,27 @@ public class SwingDelugeApp extends JFrame {
         });
 
     floatingSidebar.setOnSongLoaded(sidebarPanel.getOnSongLoaded());
+
+    // Wire sidebar "add track" callback — KITS/SYNTHS double-click adds to current project
+    java.util.function.Consumer<org.chuck.deluge.model.TrackModel> addTrack =
+        track -> {
+          // Add a default clip so notes entered on grid are stored in the model
+          if (track instanceof org.chuck.deluge.model.KitTrackModel kit) {
+            int rowCount = kit.getSounds().size();
+            if (rowCount < 1) rowCount = 1;
+            kit.addClip(new org.chuck.deluge.model.ClipModel("CLIP 1", rowCount, 16));
+          } else if (track instanceof org.chuck.deluge.model.SynthTrackModel synth) {
+            synth.addClip(new org.chuck.deluge.model.ClipModel("CLIP 1", 8, 16));
+          }
+          currentProject.addTrack(track);
+          pushModelToBridge();
+          propagateCurrentModel();
+          refreshGrids();
+          cardLayout.show(centerCardPanel, "CLIP");
+          if (topBar != null) topBar.selectClipView();
+        };
+    sidebarPanel.setOnTrackAdded(addTrack);
+    floatingSidebar.setOnTrackAdded(addTrack);
 
     songPanel.setOnEditRequest(
         (trackId, clipId) -> {
@@ -1180,9 +1304,16 @@ public class SwingDelugeApp extends JFrame {
 
     org.chuck.audio.ChuckAudio audio = new org.chuck.audio.ChuckAudio(vm, 1024, 2, 44100);
     vm.setAudio(audio);
+    System.out.println("[main] audio.outputLine=" + (audio.isOutputLineReady() ? "OK" : "NULL"));
     audio.start();
+    System.out.println("[main] audio started, activeShreds=" + vm.getActiveShredCount());
 
     vm.spork(new org.chuck.deluge.engine.DelugeEngineDSL());
+    System.out.println("[main] engine sporked, activeShreds=" + vm.getActiveShredCount());
+
+    // Give engine time to initialize before UI loads
+    try { Thread.sleep(200); } catch (InterruptedException ie) {}
+    System.out.println("[main] after 200ms sleep, activeShreds=" + vm.getActiveShredCount());
 
     org.chuck.deluge.midi.MidiInputRouter router =
         new org.chuck.deluge.midi.MidiInputRouter(vm, bridge);
@@ -1194,6 +1325,57 @@ public class SwingDelugeApp extends JFrame {
         () -> {
           SwingDelugeApp app = new SwingDelugeApp(vm, bridge, midiService);
           app.setVisible(true);
+          // Auto-load if a file path is provided as argument
+          if (args.length > 0 && args[0] != null && !args[0].isEmpty()) {
+            try {
+              java.io.File f = new java.io.File(args[0]);
+              if (f.exists()) {
+                System.out.println("[main] Auto-loading: " + f.getAbsolutePath());
+                org.chuck.deluge.model.ProjectModel model =
+                    org.chuck.deluge.xml.DelugeXmlParser.parseSong(
+                        new java.io.FileInputStream(f), f.getName());
+                app.currentProjectFile = f;
+                app.loadProject(model);
+              }
+            } catch (Exception ex) {
+              System.err.println("[main] Auto-load failed: " + ex.getMessage());
+            }
+          }
         });
+  }
+
+  // ── Helper methods ──
+
+  private void pushKitEnv(int engineRow, int envIndex, EnvelopeModel env) {
+    if (env == null) return;
+    bridge.setEnv(engineRow, envIndex, env.attack(), env.decay(), env.sustain(), env.release());
+  }
+
+  private static int lpfModeOrdinal(org.chuck.deluge.model.FilterMode mode) {
+    if (mode == null) return 0;
+    return mode.ordinal();
+  }
+
+  private static int oscTypeOrdinal(String type) {
+    if (type == null) return 0;
+    return switch (type) {
+      case "SINE" -> 0;
+      case "SAW" -> 1;
+      case "SQUARE" -> 2;
+      case "TRIANGLE" -> 3;
+      case "NOISE" -> 4;
+      default -> 0;
+    };
+  }
+
+  private static int modFxTypeOrdinal(String type) {
+    if (type == null) return 0;
+    return switch (type) {
+      case "NONE" -> 0;
+      case "CHORUS" -> 1;
+      case "FLANGER" -> 2;
+      case "PHASER" -> 3;
+      default -> 0;
+    };
   }
 }

@@ -2,6 +2,8 @@ package org.chuck.deluge;
 
 import org.chuck.core.ChuckArray;
 import org.chuck.core.ChuckVM;
+import org.chuck.deluge.model.AudioTrackModel;
+import org.chuck.deluge.model.KitTrackModel;
 
 /**
  * Typed contract between the Java Swing UI and the ChucK audio engine — every global that
@@ -173,6 +175,46 @@ public final class BridgeContract {
   public static final String G_KIT_PITCH = "g_kit_pitch";
   public static final String G_KIT_REVERSE = "g_kit_reverse";
   public static final String G_KIT_MUTE_GROUP = "g_kit_mute_group";
+  // ── Extended per-track synth arrays ──
+  public static final String G_OSC_MIX = "g_osc_mix";
+  public static final String G_NOISE_VOL = "g_noise_vol";
+  public static final String G_UNISON_NUM = "g_unison_num";
+  public static final String G_UNISON_DETUNE = "g_unison_detune";
+  public static final String G_MOD_FX_TYPE = "g_mod_fx_type";
+  public static final String G_MOD_FX_RATE = "g_mod_fx_rate";
+  public static final String G_MOD_FX_DEPTH = "g_mod_fx_depth";
+  public static final String G_MOD_FX_FEEDBACK = "g_mod_fx_feedback";
+  public static final String G_PORTAMENTO = "g_portamento";
+  public static final String G_EQ_BASS = "g_eq_bass";
+  public static final String G_EQ_TREBLE = "g_eq_treble";
+  public static final String G_PAN = "g_pan";
+  public static final String G_STUTTER_RATE = "g_stutter_rate";
+  public static final String G_SAMPLE_RATE_RED = "g_sample_rate_red";
+  public static final String G_BITCRUSH = "g_bitcrush";
+  public static final String G_COMP_ATTACK = "g_comp_attack";
+  public static final String G_COMP_RELEASE = "g_comp_release";
+  public static final String G_OSC2_TYPE = "g_osc2_type";
+  // ── Extended per-track kit-specific arrays ──
+  public static final String G_KIT_LPF_MODE = "g_kit_lpf_mode";
+  public static final String G_KIT_EQ_BASS = "g_kit_eq_bass";
+  public static final String G_KIT_EQ_TREBLE = "g_kit_eq_treble";
+  public static final String G_KIT_SIDECHAIN = "g_kit_sidechain";
+  public static final String G_KIT_MOD_FX_TYPE = "g_kit_mod_fx_type";
+  public static final String G_KIT_HPF_FREQ = "g_kit_hpf_freq";
+  public static final String G_KIT_HPF_RES = "g_kit_hpf_res";
+  public static final String G_KIT_OSC2_TYPE = "g_kit_osc2_type";
+  public static final String G_KIT_UNISON_NUM = "g_kit_unison_num";
+  public static final String G_KIT_UNISON_DETUNE = "g_kit_unison_detune";
+  public static final String G_KIT_COMP_ATTACK = "g_kit_comp_attack";
+  public static final String G_KIT_COMP_RELEASE = "g_kit_comp_release";
+  public static final String G_KIT_DELAY_RATE = "g_kit_delay_rate";
+  public static final String G_KIT_DELAY_FB = "g_kit_delay_fb";
+  public static final String G_KIT_VOLUME = "g_kit_volume";
+  public static final String G_KIT_PAN = "g_kit_pan";
+  public static final String G_KIT_NOISE_VOL = "g_kit_noise_vol";
+  public static final String G_KIT_STUTTER_RATE = "g_kit_stutter_rate";
+  public static final String G_KIT_SAMPLE_RATE_RED = "g_kit_sample_rate_red";
+  public static final String G_KIT_BITCRUSH = "g_kit_bitcrush";
   public static final String G_AUDIO_REC = "g_audio_rec";
   public static final String G_AUDIO_PLAY = "g_audio_play";
   public static final String G_AUDIO_LOOP = "g_audio_loop";
@@ -232,6 +274,44 @@ public final class BridgeContract {
   private final float[] kitPitch = new float[TRACKS];
   private final int[] kitReverse = new int[TRACKS];
   private final int[] kitMuteGroup = new int[TRACKS];
+  private final float[] oscMix = new float[TRACKS];
+  private final float[] noiseVol = new float[TRACKS];
+  private final int[] unisonNum = new int[TRACKS];
+  private final float[] unisonDetune = new float[TRACKS];
+  private final int[] modFxType = new int[TRACKS];
+  private final float[] modFxRate = new float[TRACKS];
+  private final float[] modFxDepth = new float[TRACKS];
+  private final float[] modFxFeedback = new float[TRACKS];
+  private final float[] portamento = new float[TRACKS];
+  private final float[] eqBass = new float[TRACKS];
+  private final float[] eqTreble = new float[TRACKS];
+  private final float[] panArr = new float[TRACKS];
+  private final float[] stutterRateArr = new float[TRACKS];
+  private final float[] sampleRateReductionArr = new float[TRACKS];
+  private final float[] bitCrushArr = new float[TRACKS];
+  private final float[] compressorAttackArr = new float[TRACKS];
+  private final float[] compressorReleaseArr = new float[TRACKS];
+  private final int[] osc2Type = new int[TRACKS];
+  private final int[] kitLpfMode = new int[TRACKS];
+  private final float[] kitEqBass = new float[TRACKS];
+  private final float[] kitEqTreble = new float[TRACKS];
+  private final float[] kitSidechain = new float[TRACKS];
+  private final int[] kitModFxType = new int[TRACKS];
+  private final float[] kitHpfFreq = new float[TRACKS];
+  private final float[] kitHpfRes = new float[TRACKS];
+  private final int[] kitOsc2Type = new int[TRACKS];
+  private final int[] kitUnisonNum = new int[TRACKS];
+  private final float[] kitUnisonDetune = new float[TRACKS];
+  private final float[] kitCompressorAttackArr = new float[TRACKS];
+  private final float[] kitCompressorReleaseArr = new float[TRACKS];
+  private final float[] kitDelayRate = new float[TRACKS];
+  private final float[] kitDelayFb = new float[TRACKS];
+  private final float[] kitVolume = new float[TRACKS];
+  private final float[] kitPan = new float[TRACKS];
+  private final float[] kitNoiseVol = new float[TRACKS];
+  private final float[] kitStutterRate = new float[TRACKS];
+  private final float[] kitSampleRateRed = new float[TRACKS];
+  private final float[] kitBitCrush = new float[TRACKS];
   private final int[] arpOn = new int[TRACKS];
   private final float[] arpRate = new float[TRACKS];
   private final int[] arpOctave = new int[TRACKS];
@@ -259,7 +339,7 @@ public final class BridgeContract {
   private ChuckVM vm;
   private boolean recording = false;
 
-  private float masterVol = 0.7f;
+  private float masterVol = 1.0f;
   private float masterPan = 0.0f;
   private float delayTime = 0.375f;
   private float delayFb = 0.4f;
@@ -335,6 +415,44 @@ public final class BridgeContract {
       clipCount[t] = 0;
       currentClip[t] = 0;
       launchQueue[t] = -1;
+      oscMix[t] = 0.5f;
+      noiseVol[t] = 0.0f;
+      unisonNum[t] = 1;
+      unisonDetune[t] = 0.0f;
+      modFxType[t] = 0;
+      modFxRate[t] = 0.0f;
+      modFxDepth[t] = 0.0f;
+      modFxFeedback[t] = 0.0f;
+      portamento[t] = 0.0f;
+      eqBass[t] = 0.0f;
+      eqTreble[t] = 0.0f;
+      panArr[t] = 0.0f;
+      stutterRateArr[t] = 0.0f;
+      sampleRateReductionArr[t] = 0.0f;
+      bitCrushArr[t] = 0.0f;
+      compressorAttackArr[t] = 0.0f;
+      compressorReleaseArr[t] = 0.0f;
+      osc2Type[t] = 0;
+      kitLpfMode[t] = 0;
+      kitEqBass[t] = 0.0f;
+      kitEqTreble[t] = 0.0f;
+      kitSidechain[t] = 0.0f;
+      kitModFxType[t] = 0;
+      kitHpfFreq[t] = 20.0f;
+      kitHpfRes[t] = 0.0f;
+      kitOsc2Type[t] = 0;
+      kitUnisonNum[t] = 1;
+      kitUnisonDetune[t] = 0.0f;
+      kitCompressorAttackArr[t] = 0.0f;
+      kitCompressorReleaseArr[t] = 0.0f;
+      kitDelayRate[t] = 0.0f;
+      kitDelayFb[t] = 0.0f;
+      kitVolume[t] = 0.5f;
+      kitPan[t] = 0.0f;
+      kitNoiseVol[t] = 0.0f;
+      kitStutterRate[t] = 0.0f;
+      kitSampleRateRed[t] = 0.0f;
+      kitBitCrush[t] = 0.0f;
     }
     for (int e = 0; e < TRACKS * ENV_COUNT; e++) {
       env[e * ENV_PARAMS + 0] = 0.01f;
@@ -422,6 +540,44 @@ public final class BridgeContract {
     vm.setGlobalObject(G_KIT_PITCH, new ChuckArray(kitPitch));
     vm.setGlobalObject(G_KIT_REVERSE, new ChuckArray(kitReverse));
     vm.setGlobalObject(G_KIT_MUTE_GROUP, new ChuckArray(kitMuteGroup));
+    vm.setGlobalObject(G_OSC_MIX, new ChuckArray(oscMix));
+    vm.setGlobalObject(G_NOISE_VOL, new ChuckArray(noiseVol));
+    vm.setGlobalObject(G_UNISON_NUM, new ChuckArray(unisonNum));
+    vm.setGlobalObject(G_UNISON_DETUNE, new ChuckArray(unisonDetune));
+    vm.setGlobalObject(G_MOD_FX_TYPE, new ChuckArray(modFxType));
+    vm.setGlobalObject(G_MOD_FX_RATE, new ChuckArray(modFxRate));
+    vm.setGlobalObject(G_MOD_FX_DEPTH, new ChuckArray(modFxDepth));
+    vm.setGlobalObject(G_MOD_FX_FEEDBACK, new ChuckArray(modFxFeedback));
+    vm.setGlobalObject(G_PORTAMENTO, new ChuckArray(portamento));
+    vm.setGlobalObject(G_EQ_BASS, new ChuckArray(eqBass));
+    vm.setGlobalObject(G_EQ_TREBLE, new ChuckArray(eqTreble));
+    vm.setGlobalObject(G_PAN, new ChuckArray(panArr));
+    vm.setGlobalObject(G_STUTTER_RATE, new ChuckArray(stutterRateArr));
+    vm.setGlobalObject(G_SAMPLE_RATE_RED, new ChuckArray(sampleRateReductionArr));
+    vm.setGlobalObject(G_BITCRUSH, new ChuckArray(bitCrushArr));
+    vm.setGlobalObject(G_COMP_ATTACK, new ChuckArray(compressorAttackArr));
+    vm.setGlobalObject(G_COMP_RELEASE, new ChuckArray(compressorReleaseArr));
+    vm.setGlobalObject(G_OSC2_TYPE, new ChuckArray(osc2Type));
+    vm.setGlobalObject(G_KIT_LPF_MODE, new ChuckArray(kitLpfMode));
+    vm.setGlobalObject(G_KIT_EQ_BASS, new ChuckArray(kitEqBass));
+    vm.setGlobalObject(G_KIT_EQ_TREBLE, new ChuckArray(kitEqTreble));
+    vm.setGlobalObject(G_KIT_SIDECHAIN, new ChuckArray(kitSidechain));
+    vm.setGlobalObject(G_KIT_MOD_FX_TYPE, new ChuckArray(kitModFxType));
+    vm.setGlobalObject(G_KIT_HPF_FREQ, new ChuckArray(kitHpfFreq));
+    vm.setGlobalObject(G_KIT_HPF_RES, new ChuckArray(kitHpfRes));
+    vm.setGlobalObject(G_KIT_OSC2_TYPE, new ChuckArray(kitOsc2Type));
+    vm.setGlobalObject(G_KIT_UNISON_NUM, new ChuckArray(kitUnisonNum));
+    vm.setGlobalObject(G_KIT_UNISON_DETUNE, new ChuckArray(kitUnisonDetune));
+    vm.setGlobalObject(G_KIT_COMP_ATTACK, new ChuckArray(kitCompressorAttackArr));
+    vm.setGlobalObject(G_KIT_COMP_RELEASE, new ChuckArray(kitCompressorReleaseArr));
+    vm.setGlobalObject(G_KIT_DELAY_RATE, new ChuckArray(kitDelayRate));
+    vm.setGlobalObject(G_KIT_DELAY_FB, new ChuckArray(kitDelayFb));
+    vm.setGlobalObject(G_KIT_VOLUME, new ChuckArray(kitVolume));
+    vm.setGlobalObject(G_KIT_PAN, new ChuckArray(kitPan));
+    vm.setGlobalObject(G_KIT_NOISE_VOL, new ChuckArray(kitNoiseVol));
+    vm.setGlobalObject(G_KIT_STUTTER_RATE, new ChuckArray(kitStutterRate));
+    vm.setGlobalObject(G_KIT_SAMPLE_RATE_RED, new ChuckArray(kitSampleRateRed));
+    vm.setGlobalObject(G_KIT_BITCRUSH, new ChuckArray(kitBitCrush));
     vm.setGlobalObject(G_ARP_ON, new ChuckArray(arpOn));
     vm.setGlobalObject(G_ARP_RATE, new ChuckArray(arpRate));
     vm.setGlobalObject(G_ARP_OCTAVE, new ChuckArray(arpOctave));
@@ -614,6 +770,86 @@ public final class BridgeContract {
   public double getReverbRoom() { return reverbRoom; }
   public double getReverbDamp() { return reverbDamp; }
 
+  // ── Extended per-track synth accessors ──
+  public void setOscMix(int track, float v) { oscMix[track] = v; }
+  public float getOscMix(int track) { return oscMix[track]; }
+  public void setNoiseVol(int track, float v) { noiseVol[track] = v; }
+  public float getNoiseVol(int track) { return noiseVol[track]; }
+  public void setUnisonNum(int track, int v) { unisonNum[track] = v; }
+  public int getUnisonNum(int track) { return unisonNum[track]; }
+  public void setUnisonDetune(int track, float v) { unisonDetune[track] = v; }
+  public float getUnisonDetune(int track) { return unisonDetune[track]; }
+  public void setModFxType(int track, int v) { modFxType[track] = v; }
+  public int getModFxType(int track) { return modFxType[track]; }
+  public void setModFxRate(int track, float v) { modFxRate[track] = v; }
+  public float getModFxRate(int track) { return modFxRate[track]; }
+  public void setModFxDepth(int track, float v) { modFxDepth[track] = v; }
+  public float getModFxDepth(int track) { return modFxDepth[track]; }
+  public void setModFxFeedback(int track, float v) { modFxFeedback[track] = v; }
+  public float getModFxFeedback(int track) { return modFxFeedback[track]; }
+  public void setPortamento(int track, float v) { portamento[track] = v; }
+  public float getPortamento(int track) { return portamento[track]; }
+  public void setEqBass(int track, float v) { eqBass[track] = v; }
+  public float getEqBass(int track) { return eqBass[track]; }
+  public void setEqTreble(int track, float v) { eqTreble[track] = v; }
+  public float getEqTreble(int track) { return eqTreble[track]; }
+  public void setTrackPan(int track, float v) { panArr[track] = v; }
+  public float getTrackPan(int track) { return panArr[track]; }
+  public void setStutterRate(int track, float v) { stutterRateArr[track] = v; }
+  public float getStutterRate(int track) { return stutterRateArr[track]; }
+  public void setSampleRateReduction(int track, float v) { sampleRateReductionArr[track] = v; }
+  public float getSampleRateReduction(int track) { return sampleRateReductionArr[track]; }
+  public void setBitCrush(int track, float v) { bitCrushArr[track] = v; }
+  public float getBitCrush(int track) { return bitCrushArr[track]; }
+  public void setCompAttack(int track, float v) { compressorAttackArr[track] = v; }
+  public float getCompAttack(int track) { return compressorAttackArr[track]; }
+  public void setCompRelease(int track, float v) { compressorReleaseArr[track] = v; }
+  public float getCompRelease(int track) { return compressorReleaseArr[track]; }
+  public void setOsc2Type(int track, int v) { osc2Type[track] = v; }
+  public int getOsc2Type(int track) { return osc2Type[track]; }
+
+  // ── Extended per-track kit accessors ──
+  public void setKitLpfMode(int track, int v) { kitLpfMode[track] = v; }
+  public int getKitLpfMode(int track) { return kitLpfMode[track]; }
+  public void setKitEqBass(int track, float v) { kitEqBass[track] = v; }
+  public float getKitEqBass(int track) { return kitEqBass[track]; }
+  public void setKitEqTreble(int track, float v) { kitEqTreble[track] = v; }
+  public float getKitEqTreble(int track) { return kitEqTreble[track]; }
+  public void setKitSidechain(int track, float v) { kitSidechain[track] = v; }
+  public float getKitSidechain(int track) { return kitSidechain[track]; }
+  public void setKitModFxType(int track, int v) { kitModFxType[track] = v; }
+  public int getKitModFxType(int track) { return kitModFxType[track]; }
+  public void setKitHpfFreq(int track, float v) { kitHpfFreq[track] = v; }
+  public float getKitHpfFreq(int track) { return kitHpfFreq[track]; }
+  public void setKitHpfRes(int track, float v) { kitHpfRes[track] = v; }
+  public float getKitHpfRes(int track) { return kitHpfRes[track]; }
+  public void setKitOsc2Type(int track, int v) { kitOsc2Type[track] = v; }
+  public int getKitOsc2Type(int track) { return kitOsc2Type[track]; }
+  public void setKitUnisonNum(int track, int v) { kitUnisonNum[track] = v; }
+  public int getKitUnisonNum(int track) { return kitUnisonNum[track]; }
+  public void setKitUnisonDetune(int track, float v) { kitUnisonDetune[track] = v; }
+  public float getKitUnisonDetune(int track) { return kitUnisonDetune[track]; }
+  public void setKitCompAttack(int track, float v) { kitCompressorAttackArr[track] = v; }
+  public float getKitCompAttack(int track) { return kitCompressorAttackArr[track]; }
+  public void setKitCompRelease(int track, float v) { kitCompressorReleaseArr[track] = v; }
+  public float getKitCompRelease(int track) { return kitCompressorReleaseArr[track]; }
+  public void setKitDelayRate(int track, float v) { kitDelayRate[track] = v; }
+  public float getKitDelayRate(int track) { return kitDelayRate[track]; }
+  public void setKitDelayFb(int track, float v) { kitDelayFb[track] = v; }
+  public float getKitDelayFb(int track) { return kitDelayFb[track]; }
+  public void setKitVolume(int track, float v) { kitVolume[track] = v; }
+  public float getKitVolume(int track) { return kitVolume[track]; }
+  public void setKitPan(int track, float v) { kitPan[track] = v; }
+  public float getKitPan(int track) { return kitPan[track]; }
+  public void setKitNoiseVol(int track, float v) { kitNoiseVol[track] = v; }
+  public float getKitNoiseVol(int track) { return kitNoiseVol[track]; }
+  public void setKitStutterRate(int track, float v) { kitStutterRate[track] = v; }
+  public float getKitStutterRate(int track) { return kitStutterRate[track]; }
+  public void setKitSampleRateRed(int track, float v) { kitSampleRateRed[track] = v; }
+  public float getKitSampleRateRed(int track) { return kitSampleRateRed[track]; }
+  public void setKitBitCrush(int track, float v) { kitBitCrush[track] = v; }
+  public float getKitBitCrush(int track) { return kitBitCrush[track]; }
+
   public boolean getArpOn(int track) { return arpOn[track] > 0; }
   public void setArpOn(int track, boolean on) { arpOn[track] = on ? 1 : 0; }
   public double getArpRate(int track) { return arpRate[track]; }
@@ -666,6 +902,7 @@ public final class BridgeContract {
   public void clearPattern() { for (int i = 0; i < PATTERN_SIZE; i++) pattern[i] = 0; }
   
   private final String[] samplePaths = new String[TRACKS];
+  private final String[] dx7Patch = new String[TRACKS];
 
   public void setSamplePath(int track, String path) {
     samplePaths[track] = path;
@@ -675,6 +912,122 @@ public final class BridgeContract {
   public String getSamplePath(int track) {
     return samplePaths[track];
   }
+
+  /**
+   * Set the play range for a sample within a voice/track.
+   * The stepStart/stepEnd arrays are used by DelugeEngineDSL.kit_shred() as normalized
+   * 0..1 positions to compute the actual sample start and end positions.
+   * Fills all steps for this track (zone is per-voice, not per-step).
+   *
+   * @param track  the voice index (0..TRACKS-1)
+   * @param start  normalized start position (0.0 = beginning)
+   * @param end    normalized end position (1.0 = full length)
+   */
+  public void setSampleRange(int track, float start, float end) {
+    if (track < 0 || track >= TRACKS) return;
+    float s = Math.max(0.0f, Math.min(1.0f, start));
+    float e = Math.max(0.0f, Math.min(1.0f, end));
+    int base = track * STEPS;
+    for (int step = 0; step < STEPS; step++) {
+      stepStart[base + step] = s;
+      stepEnd[base + step] = e;
+    }
+  }
+
+  /**
+   * Compute normalized sample range from KitSound zone data and the resolved WAV file path.
+   * Returns a float[2] = {startNorm, endNorm}, both in [0,1].
+   * Returns {0.0, 1.0} if no zone data is set or the file can't be read.
+   */
+  public static float[] computeNormalizedRange(
+      KitTrackModel.KitSound snd, String resolvedPath) {
+    float startNorm = 0.0f;
+    float endNorm = 1.0f;
+    boolean hasZone = false;
+
+    // Determine the end position
+    if (snd.getEndSamplePos() > 0) {
+      hasZone = true;
+      java.io.File wavFile = new java.io.File(resolvedPath);
+      if (wavFile.exists()) {
+        long dataSize = wavFile.length() - 44; // skip WAV header
+        if (dataSize > 0) {
+          float totalSamples = dataSize / 2.0f; // 16-bit mono
+          endNorm = Math.min(1.0f, snd.getEndSamplePos() / totalSamples);
+        }
+      }
+    } else if (snd.getEndMs() > 0.0f) {
+      hasZone = true;
+      java.io.File wavFile = new java.io.File(resolvedPath);
+      if (wavFile.exists()) {
+        long dataSize = wavFile.length() - 44;
+        if (dataSize > 0) {
+          float totalSamples = dataSize / 2.0f;
+          float endSamplePos = (snd.getEndMs() / 1000.0f) * 44100.0f;
+          endNorm = Math.min(1.0f, endSamplePos / totalSamples);
+        }
+      }
+    }
+
+    // Determine the start position
+    if (snd.getStartSamplePos() > 0) {
+      hasZone = true;
+      java.io.File wavFile = new java.io.File(resolvedPath);
+      if (wavFile.exists()) {
+        long dataSize = wavFile.length() - 44;
+        if (dataSize > 0) {
+          float totalSamples = dataSize / 2.0f;
+          startNorm = snd.getStartSamplePos() / totalSamples;
+        }
+      }
+    } else if (snd.getStartMs() > 0.0f) {
+      hasZone = true;
+      java.io.File wavFile = new java.io.File(resolvedPath);
+      if (wavFile.exists()) {
+        long dataSize = wavFile.length() - 44;
+        if (dataSize > 0) {
+          float totalSamples = dataSize / 2.0f;
+          float startSamplePos = (snd.getStartMs() / 1000.0f) * 44100.0f;
+          startNorm = startSamplePos / totalSamples;
+        }
+      }
+    }
+
+    return hasZone ? new float[]{startNorm, endNorm} : new float[]{0.0f, 1.0f};
+  }
+
+  /**
+   * Compute normalized sample range from AudioClip startSamplePos/endSamplePos (absolute sample positions)
+   * and the resolved WAV file path.
+   * Returns a float[2] = {startNorm, endNorm}, both in [0,1].
+   * Returns {0.0, 1.0} if no zone data is set or the file can't be read.
+   */
+  public static float[] computeAudioClipRange(
+      AudioTrackModel.AudioClip clip, String resolvedPath) {
+    float startNorm = 0.0f;
+    float endNorm = 1.0f;
+    boolean hasZone = false;
+
+    java.io.File wavFile = new java.io.File(resolvedPath);
+    if (!wavFile.exists()) return new float[]{0.0f, 1.0f};
+    long dataSize = wavFile.length() - 44;
+    if (dataSize <= 0) return new float[]{0.0f, 1.0f};
+    float totalSamples = dataSize / 2.0f;
+
+    if (clip.getEndSamplePos() > 0) {
+      hasZone = true;
+      endNorm = Math.min(1.0f, clip.getEndSamplePos() / totalSamples);
+    }
+    if (clip.getStartSamplePos() > 0) {
+      hasZone = true;
+      startNorm = clip.getStartSamplePos() / totalSamples;
+    }
+
+    return hasZone ? new float[]{startNorm, endNorm} : new float[]{0.0f, 1.0f};
+  }
+
+  public String getDx7Patch(int track) { return dx7Patch[track]; }
+  public void setDx7Patch(int track, String hex) { dx7Patch[track] = hex; }
 
   // Accessors for Pure Java Engine
   public int[] getPatternRaw() { return pattern; }
@@ -761,4 +1114,9 @@ public final class BridgeContract {
   public void setRecording(boolean r) { this.recording = r; }
   public boolean isRecording() { return recording; }
   public boolean isUseJavaEngine() { return true; }
+
+  public void setDelaySend(int track, float v) { delaySend[track] = v; }
+  public float getDelaySend(int track) { return delaySend[track]; }
+  public void setReverbSend(int track, float v) { reverbSend[track] = v; }
+  public float getReverbSend(int track) { return reverbSend[track]; }
 }

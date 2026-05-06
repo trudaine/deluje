@@ -17,16 +17,19 @@ public class PreferencesDialog extends JDialog {
       java.util.logging.Logger.getLogger(PreferencesDialog.class.getName());
 
   private final Runnable onGridModeChanged;
+  private final Runnable onLibraryChanged;
   private final DefaultListModel<String> listModel = new DefaultListModel<>();
 
   /**
    * Creates new form PreferencesDialog
    * @param owner parent frame
    * @param onGridModeChanged callback invoked when grid mode is saved
+   * @param onLibraryChanged callback invoked when samples/library directory changes
    */
-  public PreferencesDialog(java.awt.Frame owner, Runnable onGridModeChanged) {
+  public PreferencesDialog(java.awt.Frame owner, Runnable onGridModeChanged, Runnable onLibraryChanged) {
     super(owner, true);
     this.onGridModeChanged = onGridModeChanged;
+    this.onLibraryChanged = onLibraryChanged;
     initComponents();
     setLocationRelativeTo(owner);
     loadCurrentPreferences();
@@ -50,9 +53,9 @@ public class PreferencesDialog extends JDialog {
     for (String p : ports) midiCombo.addItem(p);
     midiCombo.setSelectedItem(PreferencesManager.get("midi.input", "None"));
 
-    // Samples directory
-    String dir = PreferencesManager.getSamplesDir();
-    dirLabel.setText(dir != null ? dir : "(not set)");
+    // SD Card root directory
+    String libDir = PreferencesManager.getLibraryDir().getAbsolutePath();
+    dirLabel.setText(libDir != null ? libDir : "(not set)");
   }
 
   /** Set the MIDI active mappings list. Call before setVisible(true). */
@@ -203,7 +206,7 @@ public class PreferencesDialog extends JDialog {
 
     samplesLabel.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 24));
     samplesLabel.setForeground(new java.awt.Color(224, 224, 224));
-    samplesLabel.setText("Samples Directory:");
+    samplesLabel.setText("SD Card Root:");
 
     dirLabel.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 20));
     dirLabel.setForeground(new java.awt.Color(0, 255, 255));
@@ -380,8 +383,9 @@ public class PreferencesDialog extends JDialog {
     JFileChooser chooser = new JFileChooser();
     chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
     if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-      PreferencesManager.setSamplesDir(chooser.getSelectedFile().getAbsolutePath());
+      PreferencesManager.setLibraryDir(chooser.getSelectedFile().getAbsolutePath());
       dirLabel.setText(chooser.getSelectedFile().getAbsolutePath());
+      if (onLibraryChanged != null) onLibraryChanged.run();
     }
   }
 
@@ -406,6 +410,7 @@ public class PreferencesDialog extends JDialog {
     PreferencesManager.setSequencerEngine(selectedEngine);
 
     if (onGridModeChanged != null) onGridModeChanged.run();
+    if (onLibraryChanged != null) onLibraryChanged.run();
 
     dispose();
     if (!newRes.equals(oldRes)) {

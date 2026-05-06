@@ -40,11 +40,12 @@ public class ProjectSerializerTest {
     String xmlContent = Files.readString(tempXml.toPath());
 
     // Basic assertions on output structure
-    assertTrue(xmlContent.contains("<song"));
-    assertTrue(xmlContent.contains("tempo=\"130.0\""));
-    assertTrue(xmlContent.contains("<kit>"));
-    assertTrue(xmlContent.contains("<presetSlot>DRUMS</presetSlot>"));
-    assertTrue(xmlContent.contains("fileName=\"/tmp/kick.wav\""));
+    assertTrue(xmlContent.contains("<song"), "should contain <song\n" + xmlContent);
+    assertTrue(xmlContent.contains("tempo=\"130.0\""), "should contain tempo\n" + xmlContent);
+    assertTrue(xmlContent.contains("<kit>"), "should contain <kit>\n" + xmlContent);
+    assertTrue(xmlContent.contains("<presetSlot>DRUMS</presetSlot>"), "should contain DRUMS\n" + xmlContent);
+    // Note: cloneSamples() rewrites paths to SAMPLES/... format
+    assertTrue(xmlContent.contains("fileName=\"SAMPLES//tmp/kick.wav\""), "should contain fileName\n" + xmlContent);
     assertTrue(xmlContent.contains("<sound>"));
     assertTrue(xmlContent.contains("<presetSlot>LEAD</presetSlot>"));
     assertTrue(xmlContent.contains("<osc1 type=\"square\""));

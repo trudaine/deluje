@@ -12,6 +12,8 @@ public class KitTrackModel extends TrackModel {
     private boolean reverse = false;
     private float startMs = 0.0f;
     private float endMs = 0.0f;
+    private int startSamplePos = -1;  // <startSamplePos> from XML zone, -1 = use startMs
+    private int endSamplePos = -1;    // <endSamplePos> from XML zone, -1 = use endMs
     private float pitchSemitones = 0.0f;
     private int muteGroup = 0;
 
@@ -24,13 +26,82 @@ public class KitTrackModel extends TrackModel {
     private float eqTreble = 0.0f;
     private float sidechainSend = 0.0f;
 
+    // ── New synth-parity fields ──
+
+    // Oscillator
+    private String osc2Type = "NONE";
+    private String osc2SamplePath = "";
+    private int osc2StartSamplePos = -1;
+    private int osc2EndSamplePos = -1;
+
+    // Envelopes 2-4
+    private EnvelopeModel env2 = EnvelopeModel.defaultConfig();
+    private EnvelopeModel env3 = EnvelopeModel.defaultConfig();
+    private EnvelopeModel env4 = EnvelopeModel.defaultConfig();
+
+    // LFOs (per-sound)
+    private LfoModel lfo1 = LfoModel.defaultConfig(true);
+    private LfoModel lfo2 = LfoModel.defaultConfig(false);
+
+    // Delay per-sound
+    private float delayRate = 0.0f;
+    private float delayFeedback = 0.0f;
+
+    // Mod knobs & patch cables
+    private final List<ModKnob> modKnobs = new ArrayList<>(16);
+    private final List<PatchCable> patchCables = new ArrayList<>();
+
+    // Polyphonic, voice priority, clipping
+    private boolean polyphonic = true;
+    private int voicePriority = 1;
+    private float clippingAmount = 0.0f;
+
+    // Unison
+    private int unisonNum = 1;
+    private float unisonDetune = 0.0f;
+
+    // Compressor per-sound
+    private float compressorAttack = 0.0f;
+    private float compressorRelease = 0.0f;
+    private int compressorSyncLevel = 0;
+
+    // LPF Mode
+    private FilterMode lpfMode = FilterMode.LADDER_12;
+
+    // Mod FX
+    private String modFxType = "NONE";
+
+    // HPF
+    private float hpfFreq = 20.0f;
+    private float hpfRes = 0.0f;
+
+    // Default params values
+    private float volume = 0.5f;
+    private float pan = 0.0f;
+    private float oscAVolume = 1.0f;
+    private float oscBVolume = 0.0f;
+    private float noiseVolume = 0.0f;
+    private float arpeggiatorGate = 0.0f;
+    private float portamento = 0.0f;
+    private float stutterRate = 0.0f;
+    private float sampleRateReduction = 0.0f;
+    private float bitCrush = 0.0f;
+    private float fmAmount = 0.0f;
+    private float reverbAmount = 0.0f;
+
     public KitSound(String name) {
       this.name = name;
+      for (int i = 0; i < 16; i++) {
+        modKnobs.add(ModKnob.empty());
+      }
     }
 
     public KitSound(String name, String samplePath) {
       this.name = name;
       this.samplePath = samplePath;
+      for (int i = 0; i < 16; i++) {
+        modKnobs.add(ModKnob.empty());
+      }
     }
 
     public String getName() {
@@ -71,6 +142,22 @@ public class KitTrackModel extends TrackModel {
 
     public void setEndMs(float endMs) {
       this.endMs = endMs;
+    }
+
+    public int getStartSamplePos() {
+      return startSamplePos;
+    }
+
+    public void setStartSamplePos(int pos) {
+      this.startSamplePos = pos;
+    }
+
+    public int getEndSamplePos() {
+      return endSamplePos;
+    }
+
+    public void setEndSamplePos(int pos) {
+      this.endSamplePos = pos;
     }
 
     public float getPitchSemitones() {
@@ -136,6 +223,94 @@ public class KitTrackModel extends TrackModel {
     public void setSidechainSend(float sidechainSend) {
       this.sidechainSend = sidechainSend;
     }
+
+    // ── New field getters/setters ──
+
+    public String getOsc2Type() { return osc2Type; }
+    public void setOsc2Type(String osc2Type) { this.osc2Type = osc2Type; }
+    public String getOsc2SamplePath() { return osc2SamplePath; }
+    public void setOsc2SamplePath(String v) { this.osc2SamplePath = v; }
+    public int getOsc2StartSamplePos() { return osc2StartSamplePos; }
+    public void setOsc2StartSamplePos(int v) { this.osc2StartSamplePos = v; }
+    public int getOsc2EndSamplePos() { return osc2EndSamplePos; }
+    public void setOsc2EndSamplePos(int v) { this.osc2EndSamplePos = v; }
+
+    public EnvelopeModel getEnv2() { return env2; }
+    public void setEnv2(EnvelopeModel env2) { this.env2 = env2; }
+    public EnvelopeModel getEnv3() { return env3; }
+    public void setEnv3(EnvelopeModel env3) { this.env3 = env3; }
+    public EnvelopeModel getEnv4() { return env4; }
+    public void setEnv4(EnvelopeModel env4) { this.env4 = env4; }
+
+    public LfoModel getLfo1() { return lfo1; }
+    public void setLfo1(LfoModel lfo1) { this.lfo1 = lfo1; }
+    public LfoModel getLfo2() { return lfo2; }
+    public void setLfo2(LfoModel lfo2) { this.lfo2 = lfo2; }
+
+    public float getDelayRate() { return delayRate; }
+    public void setDelayRate(float v) { this.delayRate = v; }
+    public float getDelayFeedback() { return delayFeedback; }
+    public void setDelayFeedback(float v) { this.delayFeedback = v; }
+
+    public List<ModKnob> getModKnobs() { return modKnobs; }
+    public void setModKnob(int index, ModKnob knob) { this.modKnobs.set(index, knob); }
+    public List<PatchCable> getPatchCables() { return patchCables; }
+    public void addPatchCable(PatchCable cable) { this.patchCables.add(cable); }
+
+    public boolean isPolyphonic() { return polyphonic; }
+    public void setPolyphonic(boolean v) { this.polyphonic = v; }
+    public int getVoicePriority() { return voicePriority; }
+    public void setVoicePriority(int v) { this.voicePriority = v; }
+    public float getClippingAmount() { return clippingAmount; }
+    public void setClippingAmount(float v) { this.clippingAmount = v; }
+
+    public int getUnisonNum() { return unisonNum; }
+    public void setUnisonNum(int v) { this.unisonNum = v; }
+    public float getUnisonDetune() { return unisonDetune; }
+    public void setUnisonDetune(float v) { this.unisonDetune = v; }
+
+    public float getCompressorAttack() { return compressorAttack; }
+    public void setCompressorAttack(float v) { this.compressorAttack = v; }
+    public float getCompressorRelease() { return compressorRelease; }
+    public void setCompressorRelease(float v) { this.compressorRelease = v; }
+    public int getCompressorSyncLevel() { return compressorSyncLevel; }
+    public void setCompressorSyncLevel(int v) { this.compressorSyncLevel = v; }
+
+    public FilterMode getLpfMode() { return lpfMode; }
+    public void setLpfMode(FilterMode v) { this.lpfMode = v; }
+
+    public String getModFxType() { return modFxType; }
+    public void setModFxType(String v) { this.modFxType = v; }
+
+    public float getHpfFreq() { return hpfFreq; }
+    public void setHpfFreq(float v) { this.hpfFreq = v; }
+    public float getHpfRes() { return hpfRes; }
+    public void setHpfRes(float v) { this.hpfRes = v; }
+
+    public float getVolume() { return volume; }
+    public void setVolume(float v) { this.volume = v; }
+    public float getPan() { return pan; }
+    public void setPan(float v) { this.pan = v; }
+    public float getOscAVolume() { return oscAVolume; }
+    public void setOscAVolume(float v) { this.oscAVolume = v; }
+    public float getOscBVolume() { return oscBVolume; }
+    public void setOscBVolume(float v) { this.oscBVolume = v; }
+    public float getNoiseVolume() { return noiseVolume; }
+    public void setNoiseVolume(float v) { this.noiseVolume = v; }
+    public float getArpeggiatorGate() { return arpeggiatorGate; }
+    public void setArpeggiatorGate(float v) { this.arpeggiatorGate = v; }
+    public float getPortamento() { return portamento; }
+    public void setPortamento(float v) { this.portamento = v; }
+    public float getStutterRate() { return stutterRate; }
+    public void setStutterRate(float v) { this.stutterRate = v; }
+    public float getSampleRateReduction() { return sampleRateReduction; }
+    public void setSampleRateReduction(float v) { this.sampleRateReduction = v; }
+    public float getBitCrush() { return bitCrush; }
+    public void setBitCrush(float v) { this.bitCrush = v; }
+    public float getFmAmount() { return fmAmount; }
+    public void setFmAmount(float v) { this.fmAmount = v; }
+    public float getReverbAmount() { return reverbAmount; }
+    public void setReverbAmount(float v) { this.reverbAmount = v; }
   }
 
   private final List<KitSound> sounds = new ArrayList<>();

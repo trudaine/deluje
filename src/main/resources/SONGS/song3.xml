@@ -2,7 +2,7 @@
 <song swing="0x40000000" tempo="120.0">
   <instruments>
     <kit>
-      <presetSlot>KIT 0</presetSlot>
+      <presetSlot>KIT KIT 0</presetSlot>
       <sound>
         <name>KICK</name>
         <sample fileName="SAMPLES/DRUMS/Kick/808 Kick.wav"/>
@@ -69,7 +69,7 @@
       </sound>
     </kit>
     <kit>
-      <presetSlot>KIT 1</presetSlot>
+      <presetSlot>KIT KIT 1</presetSlot>
       <sound>
         <name>KICK</name>
         <sample fileName="SAMPLES/DRUMS/Kick/DDD1 Kick.wav"/>
@@ -128,7 +128,7 @@
       </sound>
     </kit>
     <kit>
-      <presetSlot>KIT 2</presetSlot>
+      <presetSlot>KIT KIT 2</presetSlot>
       <sound>
         <name>KICK</name>
         <sample fileName="SAMPLES/DRUMS/Kick/SDS5 Kick.wav"/>
@@ -171,15 +171,15 @@
       </sound>
     </kit>
     <sound>
-      <presetSlot>SYNTH 0</presetSlot>
+      <presetSlot>SYNTH SYNTH 0</presetSlot>
       <osc1 type="sine"/>
     </sound>
     <sound>
-      <presetSlot>SYNTH 17</presetSlot>
+      <presetSlot>SYNTH SYNTH 17</presetSlot>
       <osc1 type="sine"/>
     </sound>
     <sound>
-      <presetSlot>SYNTH 73</presetSlot>
+      <presetSlot>SYNTH SYNTH 73</presetSlot>
       <osc1 type="sine"/>
     </sound>
   </instruments>

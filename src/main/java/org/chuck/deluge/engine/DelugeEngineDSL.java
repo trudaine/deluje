@@ -285,6 +285,12 @@ public class DelugeEngineDSL implements Shred, Runnable {
     loadKitSamples(kit);
 
     // DIAGNOSTIC: verify loaded samples
+    for (int i = 0; i < kit.length && i < 4; i++) {
+      System.out.println("[kit_shred] INIT kit[" + i + "]: samples=" + kit[i].samples() + " rate=" + kit[i].rate() + " pos=" + kit[i].pos());
+    }
+    System.out.println("[kit_shred] INIT voiceCount=" + voiceCount + " loadEvent=" + (loadEvent != null));
+
+    // DIAGNOSTIC: verify loaded samples
     if (vm.getLogLevel() >= 1) {
       for (int i = 0; i < kit.length; i++) {
         vm.print("[kit] LOADED kit[" + i + "]: samples=" + kit[i].samples() + " rate=" + kit[i].rate() + " pos=" + kit[i].pos() + "\n");
@@ -293,6 +299,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
 
     SndBuf[] kitRef = kit;
     DelugeAdsr[] kitEnvRef = kitEnv;
+    vm.print("[kit] sporking preview shred, kit.length=" + kit.length + "\n");
     vm.spork(() -> kit_preview_shred(kitRef, kitEnvRef));
     vm.spork(() -> kit_reload_shred(kitRef));
 
@@ -314,6 +321,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
 
       long currentStep = vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
       if (currentStep == lastStep) continue;
+      if (currentStep < 8) System.out.println("[kit_shred] TICK step=" + currentStep);
       lastStep = currentStep;
 
       ChuckArray curClipArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_CURRENT_CLIP);
@@ -459,7 +467,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
 
         float gain =
             (float)
-                (clipVel.getFloat(idx) * trkLvl.getFloat(r) * 0.8 * Math.max(0.0, 1.0 + lfoV * 0.5));
+                (clipVel.getFloat(idx) * trkLvl.getFloat(r) * Math.max(0.0, 1.0 + lfoV * 0.5));
         kit[r].gain(gain);
         kitEnv[r].keyOn();
 
@@ -478,63 +486,54 @@ public class DelugeEngineDSL implements Shred, Runnable {
   }
 
   private void loadKitSamples(SndBuf[] kit) {
-    java.io.File scratchDir =
-        new java.io.File(System.getProperty("java.io.tmpdir"), "deluge-scratch");
-    scratchDir.mkdirs();
-
+    java.io.File libraryDir = org.chuck.deluge.project.PreferencesManager.getLibraryDir();
     for (int i = 0; i < kit.length; i++) {
       Object pathObj = vm.getGlobalObject("g_sample_" + i);
-      if (!(pathObj instanceof String path) || path.isEmpty()) continue;
-
-      // If it's already an absolute filesystem path that exists, use it directly
-      java.io.File f = new java.io.File(path);
-      if (f.isAbsolute() && f.exists()) {
-        loadSndBuf(kit[i], path);
+      if (!(pathObj instanceof String path) || path.isEmpty()) {
         continue;
       }
 
-      // Treat as classpath resource — ensure leading slash
-      String resPath = path.startsWith("/") ? path : "/" + path;
-      String resolved = resolveResource(resPath, scratchDir);
-      if (resolved != null) {
-        loadSndBuf(kit[i], resolved);
+      // Try direct filesystem path first
+      java.io.File f = new java.io.File(path);
+      if (f.exists()) {
+        loadSndBuf(kit[i], f.getAbsolutePath());
+        continue;
       }
-    }
-  }
 
-  private String resolveResource(String resPath, java.io.File scratchDir) {
-    // Check local Maven target directory first to avoid scratch file locking issues
-    java.io.File localTarget = new java.io.File("target/classes" + (resPath.startsWith("/") ? resPath : "/" + resPath));
-    if (localTarget.exists()) {
-      return localTarget.getAbsolutePath();
-    }
-    
-    // Try exact path, then .WAV / .wav case variants
-    String[] candidates = {
-      resPath, resPath.replace(".wav", ".WAV"), resPath.replace(".WAV", ".wav"),
-    };
-    for (String candidate : candidates) {
-      try (java.io.InputStream is = getClass().getResourceAsStream(candidate)) {
-        if (is != null) {
-          String uniqueName = java.util.UUID.randomUUID().toString() + "_" + new java.io.File(candidate).getName();
-          java.io.File tmp = new java.io.File(scratchDir, uniqueName);
-          java.nio.file.Files.copy(
-              is, tmp.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-          return tmp.getAbsolutePath();
-        }
-      } catch (Exception ignored) {
+      // Resolve relative path against the SD card root (XML paths like SAMPLES/DRUMS/...)
+      java.io.File rel = new java.io.File(libraryDir, path);
+      if (rel.exists()) {
+        loadSndBuf(kit[i], rel.getAbsolutePath());
+        continue;
       }
+
+      // Fallback: try classpath resource (for tests/resources that haven't been migrated yet)
+      java.net.URL resourceUrl = getClass().getClassLoader().getResource(path);
+      if (resourceUrl != null) {
+        java.io.File classpathFile = new java.io.File(resourceUrl.getPath());
+        if (classpathFile.exists()) {
+          loadSndBuf(kit[i], classpathFile.getAbsolutePath());
+          continue;
+        }
+      }
+
+      vm.print("[kit] WARN: sample not found: " + path + " (tried " + rel.getAbsolutePath() + ")\n");
     }
-    return null;
   }
 
   private void loadSndBuf(SndBuf buf, String path) {
     try {
       buf.rate(0);
+      java.io.File wavFile = new java.io.File(path);
+      vm.print("[kit] loadSndBuf: exists=" + wavFile.exists() + " len=" + wavFile.length() + " path=" + path + "\n");
       buf.read(path);
       buf.rate(0);
-      if (buf.samples() > 0) buf.pos(buf.samples());
-    } catch (Exception ignored) {
+      long samples = buf.samples();
+      vm.print("[kit] loadSndBuf: after read samples=" + samples + "\n");
+      if (samples > 0) buf.pos(samples);
+      else vm.print("[kit] loadSndBuf: loaded 0 samples from " + path + "\n");
+    } catch (Exception e) {
+      vm.print("[kit] loadSndBuf ERROR: " + path + " — " + e.getMessage() + "\n");
     }
   }
 
@@ -547,22 +546,58 @@ public class DelugeEngineDSL implements Shred, Runnable {
   }
 
   private void kit_preview_shred(SndBuf[] kit, DelugeAdsr[] kitEnv) {
+    vm.print("[kit_preview] shred started, kit.length=" + kit.length + "\n");
+    // Preview uses its own SndBuf and DelugeAdsr, independent from the sequencer,
+    // so the sequencer's stop-on-G_PLAY=0 doesn't affect preview audio.
+    SndBuf previewBuf = new SndBuf();
+    DelugeAdsr previewEnv = new DelugeAdsr();
+    previewBuf.rate(0);
+    previewEnv.forceMute();
+    previewEnv.set(0.001, 0.0, 1.0, 0.05);
+    previewBuf.chuck(previewEnv).chuck((ChuckUGen) vm.getGlobalObject(BridgeContract.G_MASTER_TAP)).chuck(dac());
+
     ChuckEvent previewEvent = (ChuckEvent) vm.getGlobalObject(BridgeContract.E_PREVIEW);
+    int currentPreviewTrack = -1;
+    boolean stopped = true;
+    java.io.File libraryDir = org.chuck.deluge.project.PreferencesManager.getLibraryDir();
     while (isRunning()) {
       advance(previewEvent);
       int r = (int) vm.getGlobalInt(BridgeContract.G_PREVIEW_TRACK);
-      if (r >= 0 && r < kit.length && kit[r].samples() > 0) {
-        kit[r].rate(1);
-        kit[r].pos(0);
-        kit[r].gain(0.8f);
-        kitEnv[r].keyOn();
-        // Brief spork to keyOff after the audition
-        int trackIdx = r;
-        vm.spork(
-            () -> {
-              advance(ms(200));
-              kitEnv[trackIdx].keyOff();
-            });
+      if (r < 0) {
+        // Stop preview
+        stopped = true;
+        previewEnv.forceMute();
+        previewBuf.rate(0);
+        previewBuf.gain(0);
+      } else if (r < kit.length) {
+        stopped = false;
+        // Always re-trigger, even if same track — clicking different cells in same row
+        // must produce sound each time. The timer-based stutter is harmless since
+        // pos(0)+keyOn restarts from the beginning.
+        currentPreviewTrack = r;
+
+        // Load the sample from its file path into our independent buffer
+        Object pathObj = vm.getGlobalObject("g_sample_" + r);
+        if (pathObj instanceof String path && !path.isEmpty()) {
+          java.io.File f = new java.io.File(path);
+          if (f.exists()) {
+            previewBuf.setRead(f.getAbsolutePath());
+          } else {
+            java.io.File rel = new java.io.File(libraryDir, path);
+            if (rel.exists()) {
+              previewBuf.setRead(rel.getAbsolutePath());
+            }
+          }
+        }
+
+        if (previewBuf.samples() > 0) {
+          previewBuf.rate(1);
+          previewBuf.gain(0.8f);
+          previewBuf.pos(0);
+          previewEnv.keyOn();
+          vm.print("[kit_preview] START r=" + r + " samples=" + previewBuf.samples() + "\n");
+          currentPreviewTrack = r;
+        }
       }
     }
   }
@@ -742,6 +777,8 @@ public class DelugeEngineDSL implements Shred, Runnable {
       ChuckArray sOscBVol = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_OSC_B_VOL);
       ChuckArray sNoiseVol = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_NOISE_VOL);
       ChuckArray sPitchArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_PITCH);
+      // Per-note pitch array (absolute MIDI note number per step)
+      ChuckArray notePitchArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PITCH);
 
       // Iterate all bridge rows for this synth track; each row has its own dedicated UGen
       for (int r = synthBase; r <= maxSynthBridgeRow; r++) {
@@ -875,9 +912,17 @@ public class DelugeEngineDSL implements Shred, Runnable {
                 });
           } else if (dx7[u] != null) {
             // DX7 6-operator FM voice
-            double f = mtof(((24 - 1) - (r - synthBase)) + 60 + stepPitchOffset) * Math.pow(2.0, lfoPit);
+            // Use per-step note pitch from bridge (y-value from XML) if available,
+            // otherwise fall back to synthetic voice-row pitch.
+            int midiNote = notePitchArr != null ? (int) notePitchArr.getInt(idx) : 0;
+            if (midiNote <= 0) {
+              midiNote = ((24 - 1) - (r - synthBase)) + 60;
+            }
+            double f = mtof(midiNote + stepPitchOffset) * Math.pow(2.0, lfoPit);
             dx7[u].setFreq((float) f);
-            dx7[u].noteOn();
+            int dx7Vel = clipVel != null ? (int) (clipVel.getFloat(idx) * 127) : 100;
+            if (dx7Vel <= 0) dx7Vel = 100;
+            dx7[u].noteOn(dx7Vel);
             env[u].gain((float) gainVal);
             env[u].keyOn();
             double noteSec = gateSec;
@@ -1119,7 +1164,9 @@ public class DelugeEngineDSL implements Shred, Runnable {
     float sr = (float) sampleRate();
     Gain fxIn = new Gain();
     DelugeAdsr gate = new DelugeAdsr();
-    fxIn.chuck(gate).chuck(dac());
+    HPF fxHpf = new HPF(sr); // DC blocker / low-cut for fx bus
+    fxHpf.freq(80);
+    fxIn.chuck(gate).chuck(fxHpf).chuck(dac());
 
     Echo delay = new Echo();
 
@@ -1144,7 +1191,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
     ((Gain) vm.getGlobalObject(BridgeContract.G_DELAY_IN)).chuck(delay).chuck(fxIn);
     ((Gain) vm.getGlobalObject(BridgeContract.G_REVERB_IN)).chuck(rev).chuck(fxIn);
 
-    fxIn.gain(0.3f);
+    fxIn.gain(0.15f);
     advance(ms(100));
     gate.forceMute();
     gate.set(0.01, 0, 1, 0.01);

@@ -17,10 +17,11 @@ public class AutoSaveService {
     this.projectModel = model;
 
     // Ensure the songs directory exists
-    File songsDir = new File(PreferencesManager.getSamplesDir()).getParentFile();
-    if (songsDir != null) {
-      songsDir = new File(songsDir, "SONGS");
-      if (!songsDir.exists()) songsDir.mkdirs();
+    File songsDir = PreferencesManager.getSongsDir();
+    if (songsDir != null && songsDir.exists()) {
+      this.autoSaveFile = new File(songsDir, "_autosave.xml");
+    } else if (songsDir != null) {
+      songsDir.mkdirs();
       this.autoSaveFile = new File(songsDir, "_autosave.xml");
     } else {
       this.autoSaveFile = new File("_autosave.xml");

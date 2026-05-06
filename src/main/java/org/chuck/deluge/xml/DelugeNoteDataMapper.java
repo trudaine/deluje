@@ -10,15 +10,29 @@ import org.chuck.deluge.model.StepData;
  * 12 ticks) - 4 bytes: Length in ticks - 2 bytes: Flags/Velocity (default 4014)
  */
 public class DelugeNoteDataMapper {
-  private static final int TICKS_PER_STEP = 12;
+  /** Old noteData format: 10 bytes per note (20 hex chars). */
+  public static final int HEX_CHARS_PER_NOTE_OLD = 20;
+
+  /** noteDataWithLift format (c1.2.0): 11 bytes per note (22 hex chars). */
+  public static final int HEX_CHARS_PER_NOTE_LIFT = 22;
+
+  /** noteDataWithSplitProb format (1.3+): 14 bytes per note (28 hex chars). */
+  public static final int HEX_CHARS_PER_NOTE_SPLIT = 28;
+
+  /** Ticks per step for our internal format (matches serialization roundtrip). */
+  public static final int TICKS_PER_STEP = 12;
 
   public static String encodeRow(List<StepData> row) {
+    return encodeRow(row, TICKS_PER_STEP);
+  }
+
+  public static String encodeRow(List<StepData> row, int ticksPerStep) {
     StringBuilder sb = new StringBuilder("0x");
     for (int s = 0; s < row.size(); s++) {
       StepData step = row.get(s);
       if (step.active()) {
-        int pos = s * TICKS_PER_STEP;
-        int len = (int) (step.gate() * TICKS_PER_STEP);
+        int pos = s * ticksPerStep;
+        int len = (int) (step.gate() * ticksPerStep);
         if (len == 0) len = 1;
 
         String hexPos = String.format("%08X", pos);
@@ -31,36 +45,60 @@ public class DelugeNoteDataMapper {
     return sb.toString();
   }
 
-  public static List<StepData> decodeRow(String hex, int stepCount) {
+  /**
+   * Decode firmware XML noteData into step data.
+   * @param hex the hex-encoded noteData string
+   * @param stepCount total steps in the clip (determines output list size)
+   * @param ticksPerStep tick-per-step ratio of the source data (24 for firmware, 12 for our format)
+   * @param hexCharsPerNote number of hex chars per note (20 for old, 22 for noteDataWithLift, 28 for noteDataWithSplitProb)
+   */
+  public static List<StepData> decodeRow(String hex, int stepCount, int ticksPerStep, int hexCharsPerNote) {
     List<StepData> row = new ArrayList<>();
     for (int s = 0; s < stepCount; s++) {
       row.add(StepData.empty());
     }
 
-    if (hex == null || !hex.startsWith("0x") || hex.length() < 22) {
+    if (hex == null || !hex.startsWith("0x") || hex.length() < 2 + hexCharsPerNote) {
       return row;
     }
 
     String data = hex.substring(2);
     int idx = 0;
-    while (idx + 20 <= data.length()) {
+    while (idx + hexCharsPerNote <= data.length()) {
       String hexPos = data.substring(idx, idx + 8);
       String hexLen = data.substring(idx + 8, idx + 16);
-      // ignore flags for now
 
       int pos = (int) Long.parseLong(hexPos, 16);
       int len = (int) Long.parseLong(hexLen, 16);
 
-      int step = pos / TICKS_PER_STEP;
-      float gate = (float) len / TICKS_PER_STEP;
+      int step = pos / ticksPerStep;
+      float gate = (float) len / ticksPerStep;
 
-      if (step >= 0 && step < stepCount) {
-        row.set(step, new StepData(true, 0.8f, gate, 1.0f, 0));
+      // Parse velocity if available (byte at offset 16-17 in hex, i.e. hex chars 16-18)
+      float velocity = 0.8f;
+      if (hexCharsPerNote >= 22) {
+        String hexVel = data.substring(idx + 16, idx + 18);
+        int velInt = Integer.parseInt(hexVel, 16);
+        velocity = velInt / 127.0f;
       }
 
-      idx += 20;
+      if (step >= 0 && step < stepCount) {
+        row.set(step, new StepData(true, velocity, gate, 1.0f, 0));
+      }
+
+      idx += hexCharsPerNote;
     }
 
     return row;
+  }
+
+  /** Backward-compatible decode using 20-char notes and internal ticks-per-step. */
+  public static List<StepData> decodeRow(String hex, int stepCount) {
+    return decodeRow(hex, stepCount, TICKS_PER_STEP, HEX_CHARS_PER_NOTE_OLD);
+  }
+
+  /** Backward-compatible decode with ticksPerStep and default 20-char notes. */
+  public static List<StepData> decodeRow(String hex, int stepCount, int ticksPerStep) {
+    return decodeRow(hex, stepCount, ticksPerStep, HEX_CHARS_PER_NOTE_OLD);
   }
 }
