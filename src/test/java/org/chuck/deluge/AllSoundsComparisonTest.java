@@ -14,6 +14,7 @@ import org.chuck.deluge.model.ClipModel;
 import org.chuck.deluge.model.StepData;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -28,6 +29,7 @@ import org.junit.jupiter.api.Test;
  * allowing 10 synths × 8 rows + 10 kit tracks + margin. The engine handles mixed
  * track types (type 0 = kit, type 1 = synth) within the same project.
  */
+@Tag("slow")
 public class AllSoundsComparisonTest {
 
   private static final int SAMPLE_RATE = 44100;
