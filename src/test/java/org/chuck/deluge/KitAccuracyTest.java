@@ -14,6 +14,7 @@ import org.chuck.deluge.model.KitTrackModel;
 import org.chuck.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -25,6 +26,7 @@ import org.junit.jupiter.api.Test;
  * transforms the original signal by computing RMS error, peak error, and cross-correlation
  * after accounting for known gain/offset differences.
  */
+@Tag("slow")
 public class KitAccuracyTest {
 
   private static final int SAMPLE_RATE = 44100;
