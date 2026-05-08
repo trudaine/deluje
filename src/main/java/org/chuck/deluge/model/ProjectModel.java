@@ -20,6 +20,7 @@ public class ProjectModel {
   private String scale = "Major";
 
   private float masterVolume = 1.0f;
+  private float masterPan = 0.0f;
   private float masterReverb = 0.3f;
   private float masterDelay = 0.3f;
 
@@ -99,6 +100,16 @@ public class ProjectModel {
 
   public void setMasterVolume(float vol) {
     this.masterVolume = vol;
+    notifyMasterVolumeChanged(vol);
+  }
+
+  public float getMasterPan() {
+    return masterPan;
+  }
+
+  public void setMasterPan(float pan) {
+    this.masterPan = pan;
+    notifyMasterPanChanged(pan);
   }
 
   public float getMasterReverb() {
@@ -107,6 +118,7 @@ public class ProjectModel {
 
   public void setMasterReverb(float rev) {
     this.masterReverb = rev;
+    notifyReverbChanged();
   }
 
   public float getMasterDelay() {
@@ -115,12 +127,7 @@ public class ProjectModel {
 
   public void setMasterDelay(float del) {
     this.masterDelay = del;
-  }
-
-  private java.util.function.Consumer<Float> onBpmChanged;
-
-  public void setOnBpmChanged(java.util.function.Consumer<Float> callback) {
-    this.onBpmChanged = callback;
+    notifyDelayChanged();
   }
 
   // Track Models (Active in Clip mode)
@@ -139,9 +146,7 @@ public class ProjectModel {
 
   public void setBpm(float bpm) {
     this.bpm = Math.max(1.0f, Math.min(300.0f, bpm));
-    if (onBpmChanged != null) {
-      onBpmChanged.accept(this.bpm);
-    }
+    notifyBpmChanged(this.bpm);
   }
 
   public float getSwing() {
@@ -150,6 +155,7 @@ public class ProjectModel {
 
   public void setSwing(float swing) {
     this.swing = Math.max(0.0f, Math.min(1.0f, swing));
+    notifySwingChanged(this.swing);
   }
 
   public int getTimeSigNum() {
@@ -174,6 +180,7 @@ public class ProjectModel {
 
   public void setTranspose(int transpose) {
     this.transpose = transpose;
+    notifyTransposeChanged(transpose);
   }
 
   public float getHumanize() {
@@ -182,12 +189,25 @@ public class ProjectModel {
 
   public void setHumanize(float humanize) {
     this.humanize = Math.max(0.0f, Math.min(1.0f, humanize));
+    notifyHumanizeChanged(this.humanize);
   }
 
   public interface ProjectListener {
     void onTrackListChanged();
-
     void onBpmChanged(float bpm);
+    void onSwingChanged(float swing);
+    void onMasterVolumeChanged(float vol);
+    void onMasterPanChanged(float pan);
+    void onKeyChanged(String key);
+    void onScaleChanged(String scale);
+    void onTransposeChanged(int transpose);
+    void onHumanizeChanged(float humanize);
+    void onReverbChanged();
+    void onDelayChanged();
+    void onSidechainChanged();
+    void onCompressorChanged();
+    void onSongParamsChanged();
+    void onScalesChanged();
   }
 
   private final List<ProjectListener> listeners = new ArrayList<>();
@@ -199,6 +219,90 @@ public class ProjectModel {
   private void notifyTrackListChanged() {
     for (ProjectListener l : listeners) {
       l.onTrackListChanged();
+    }
+  }
+
+  private void notifyBpmChanged(float bpm) {
+    for (ProjectListener l : listeners) {
+      l.onBpmChanged(bpm);
+    }
+  }
+
+  private void notifySwingChanged(float swing) {
+    for (ProjectListener l : listeners) {
+      l.onSwingChanged(swing);
+    }
+  }
+
+  private void notifyMasterVolumeChanged(float vol) {
+    for (ProjectListener l : listeners) {
+      l.onMasterVolumeChanged(vol);
+    }
+  }
+
+  private void notifyMasterPanChanged(float pan) {
+    for (ProjectListener l : listeners) {
+      l.onMasterPanChanged(pan);
+    }
+  }
+
+  private void notifyKeyChanged(String key) {
+    for (ProjectListener l : listeners) {
+      l.onKeyChanged(key);
+    }
+  }
+
+  private void notifyScaleChanged(String scale) {
+    for (ProjectListener l : listeners) {
+      l.onScaleChanged(scale);
+    }
+  }
+
+  private void notifyTransposeChanged(int transpose) {
+    for (ProjectListener l : listeners) {
+      l.onTransposeChanged(transpose);
+    }
+  }
+
+  private void notifyHumanizeChanged(float humanize) {
+    for (ProjectListener l : listeners) {
+      l.onHumanizeChanged(humanize);
+    }
+  }
+
+  private void notifyReverbChanged() {
+    for (ProjectListener l : listeners) {
+      l.onReverbChanged();
+    }
+  }
+
+  private void notifyDelayChanged() {
+    for (ProjectListener l : listeners) {
+      l.onDelayChanged();
+    }
+  }
+
+  private void notifySidechainChanged() {
+    for (ProjectListener l : listeners) {
+      l.onSidechainChanged();
+    }
+  }
+
+  private void notifyCompressorChanged() {
+    for (ProjectListener l : listeners) {
+      l.onCompressorChanged();
+    }
+  }
+
+  private void notifySongParamsChanged() {
+    for (ProjectListener l : listeners) {
+      l.onSongParamsChanged();
+    }
+  }
+
+  private void notifyScalesChanged() {
+    for (ProjectListener l : listeners) {
+      l.onScalesChanged();
     }
   }
 
@@ -259,118 +363,118 @@ public class ProjectModel {
   // ── Reverb getters/setters ──
 
   public float getReverbRoomSize() { return reverbRoomSize; }
-  public void setReverbRoomSize(float v) { this.reverbRoomSize = v; }
+  public void setReverbRoomSize(float v) { this.reverbRoomSize = v; notifyReverbChanged(); }
   public float getReverbDampening() { return reverbDampening; }
-  public void setReverbDampening(float v) { this.reverbDampening = v; }
+  public void setReverbDampening(float v) { this.reverbDampening = v; notifyReverbChanged(); }
   public float getReverbWidth() { return reverbWidth; }
-  public void setReverbWidth(float v) { this.reverbWidth = v; }
+  public void setReverbWidth(float v) { this.reverbWidth = v; notifyReverbChanged(); }
   public float getReverbHpf() { return reverbHpf; }
-  public void setReverbHpf(float v) { this.reverbHpf = v; }
+  public void setReverbHpf(float v) { this.reverbHpf = v; notifyReverbChanged(); }
   public float getReverbPan() { return reverbPan; }
-  public void setReverbPan(float v) { this.reverbPan = v; }
+  public void setReverbPan(float v) { this.reverbPan = v; notifyReverbChanged(); }
   public int getReverbModel() { return reverbModel; }
-  public void setReverbModel(int v) { this.reverbModel = v; }
+  public void setReverbModel(int v) { this.reverbModel = v; notifyReverbChanged(); }
   public float getReverbCompressorAttack() { return reverbCompressorAttack; }
-  public void setReverbCompressorAttack(float v) { this.reverbCompressorAttack = v; }
+  public void setReverbCompressorAttack(float v) { this.reverbCompressorAttack = v; notifyReverbChanged(); }
   public float getReverbCompressorRelease() { return reverbCompressorRelease; }
-  public void setReverbCompressorRelease(float v) { this.reverbCompressorRelease = v; }
+  public void setReverbCompressorRelease(float v) { this.reverbCompressorRelease = v; notifyReverbChanged(); }
   public int getReverbCompressorSyncLevel() { return reverbCompressorSyncLevel; }
-  public void setReverbCompressorSyncLevel(int v) { this.reverbCompressorSyncLevel = v; }
+  public void setReverbCompressorSyncLevel(int v) { this.reverbCompressorSyncLevel = v; notifyReverbChanged(); }
   public float getReverbCompHpf() { return reverbCompHpf; }
-  public void setReverbCompHpf(float v) { this.reverbCompHpf = v; }
+  public void setReverbCompHpf(float v) { this.reverbCompHpf = v; notifyReverbChanged(); }
   public float getReverbCompBlend() { return reverbCompBlend; }
-  public void setReverbCompBlend(float v) { this.reverbCompBlend = v; }
+  public void setReverbCompBlend(float v) { this.reverbCompBlend = v; notifyReverbChanged(); }
 
   // ── Delay getters/setters ──
 
   public int getDelayPingPong() { return delayPingPong; }
-  public void setDelayPingPong(int v) { this.delayPingPong = v; }
+  public void setDelayPingPong(int v) { this.delayPingPong = v; notifyDelayChanged(); }
   public int getDelayAnalog() { return delayAnalog; }
-  public void setDelayAnalog(int v) { this.delayAnalog = v; }
+  public void setDelayAnalog(int v) { this.delayAnalog = v; notifyDelayChanged(); }
   public int getDelaySyncLevel() { return delaySyncLevel; }
-  public void setDelaySyncLevel(int v) { this.delaySyncLevel = v; }
+  public void setDelaySyncLevel(int v) { this.delaySyncLevel = v; notifyDelayChanged(); }
   public int getDelaySyncType() { return delaySyncType; }
-  public void setDelaySyncType(int v) { this.delaySyncType = v; }
+  public void setDelaySyncType(int v) { this.delaySyncType = v; notifyDelayChanged(); }
 
   // ── Sidechain getters/setters ──
 
   public float getSidechainAttack() { return sidechainAttack; }
-  public void setSidechainAttack(float v) { this.sidechainAttack = v; }
+  public void setSidechainAttack(float v) { this.sidechainAttack = v; notifySidechainChanged(); }
   public float getSidechainRelease() { return sidechainRelease; }
-  public void setSidechainRelease(float v) { this.sidechainRelease = v; }
+  public void setSidechainRelease(float v) { this.sidechainRelease = v; notifySidechainChanged(); }
   public int getSidechainSyncLevel() { return sidechainSyncLevel; }
-  public void setSidechainSyncLevel(int v) { this.sidechainSyncLevel = v; }
+  public void setSidechainSyncLevel(int v) { this.sidechainSyncLevel = v; notifySidechainChanged(); }
   public int getSidechainSyncType() { return sidechainSyncType; }
-  public void setSidechainSyncType(int v) { this.sidechainSyncType = v; }
+  public void setSidechainSyncType(int v) { this.sidechainSyncType = v; notifySidechainChanged(); }
 
   // ── Compressor getters/setters ──
 
   public float getCompressorAttack() { return compressorAttack; }
-  public void setCompressorAttack(float v) { this.compressorAttack = v; }
+  public void setCompressorAttack(float v) { this.compressorAttack = v; notifyCompressorChanged(); }
   public float getCompressorRelease() { return compressorRelease; }
-  public void setCompressorRelease(float v) { this.compressorRelease = v; }
+  public void setCompressorRelease(float v) { this.compressorRelease = v; notifyCompressorChanged(); }
   public float getCompressorThreshold() { return compressorThreshold; }
-  public void setCompressorThreshold(float v) { this.compressorThreshold = v; }
+  public void setCompressorThreshold(float v) { this.compressorThreshold = v; notifyCompressorChanged(); }
   public float getCompressorRatio() { return compressorRatio; }
-  public void setCompressorRatio(float v) { this.compressorRatio = v; }
+  public void setCompressorRatio(float v) { this.compressorRatio = v; notifyCompressorChanged(); }
 
   // ── SongParams getters/setters ──
 
   public float getSongParamVolume() { return songParamVolume; }
-  public void setSongParamVolume(float v) { this.songParamVolume = v; }
+  public void setSongParamVolume(float v) { this.songParamVolume = v; notifySongParamsChanged(); }
   public float getSongParamPan() { return songParamPan; }
-  public void setSongParamPan(float v) { this.songParamPan = v; }
+  public void setSongParamPan(float v) { this.songParamPan = v; notifySongParamsChanged(); }
   public float getSongParamReverbAmount() { return songParamReverbAmount; }
-  public void setSongParamReverbAmount(float v) { this.songParamReverbAmount = v; }
+  public void setSongParamReverbAmount(float v) { this.songParamReverbAmount = v; notifySongParamsChanged(); }
   public float getSongParamDelayRate() { return songParamDelayRate; }
-  public void setSongParamDelayRate(float v) { this.songParamDelayRate = v; }
+  public void setSongParamDelayRate(float v) { this.songParamDelayRate = v; notifySongParamsChanged(); }
   public float getSongParamDelayFeedback() { return songParamDelayFeedback; }
-  public void setSongParamDelayFeedback(float v) { this.songParamDelayFeedback = v; }
+  public void setSongParamDelayFeedback(float v) { this.songParamDelayFeedback = v; notifySongParamsChanged(); }
   public float getSongParamSidechainShape() { return songParamSidechainShape; }
-  public void setSongParamSidechainShape(float v) { this.songParamSidechainShape = v; }
+  public void setSongParamSidechainShape(float v) { this.songParamSidechainShape = v; notifySongParamsChanged(); }
   public float getSongParamStutterRate() { return songParamStutterRate; }
-  public void setSongParamStutterRate(float v) { this.songParamStutterRate = v; }
+  public void setSongParamStutterRate(float v) { this.songParamStutterRate = v; notifySongParamsChanged(); }
   public float getSongParamSampleRateReduction() { return songParamSampleRateReduction; }
-  public void setSongParamSampleRateReduction(float v) { this.songParamSampleRateReduction = v; }
+  public void setSongParamSampleRateReduction(float v) { this.songParamSampleRateReduction = v; notifySongParamsChanged(); }
   public float getSongParamBitCrush() { return songParamBitCrush; }
-  public void setSongParamBitCrush(float v) { this.songParamBitCrush = v; }
+  public void setSongParamBitCrush(float v) { this.songParamBitCrush = v; notifySongParamsChanged(); }
   public float getSongParamModFXRate() { return songParamModFXRate; }
-  public void setSongParamModFXRate(float v) { this.songParamModFXRate = v; }
+  public void setSongParamModFXRate(float v) { this.songParamModFXRate = v; notifySongParamsChanged(); }
   public float getSongParamModFXDepth() { return songParamModFXDepth; }
-  public void setSongParamModFXDepth(float v) { this.songParamModFXDepth = v; }
+  public void setSongParamModFXDepth(float v) { this.songParamModFXDepth = v; notifySongParamsChanged(); }
   public float getSongParamModFXOffset() { return songParamModFXOffset; }
-  public void setSongParamModFXOffset(float v) { this.songParamModFXOffset = v; }
+  public void setSongParamModFXOffset(float v) { this.songParamModFXOffset = v; notifySongParamsChanged(); }
   public float getSongParamModFXFeedback() { return songParamModFXFeedback; }
-  public void setSongParamModFXFeedback(float v) { this.songParamModFXFeedback = v; }
+  public void setSongParamModFXFeedback(float v) { this.songParamModFXFeedback = v; notifySongParamsChanged(); }
   public float getSongParamCompressorThreshold() { return songParamCompressorThreshold; }
-  public void setSongParamCompressorThreshold(float v) { this.songParamCompressorThreshold = v; }
+  public void setSongParamCompressorThreshold(float v) { this.songParamCompressorThreshold = v; notifySongParamsChanged(); }
   public float getSongParamLpfMorph() { return songParamLpfMorph; }
-  public void setSongParamLpfMorph(float v) { this.songParamLpfMorph = v; }
+  public void setSongParamLpfMorph(float v) { this.songParamLpfMorph = v; notifySongParamsChanged(); }
   public float getSongParamHpfMorph() { return songParamHpfMorph; }
-  public void setSongParamHpfMorph(float v) { this.songParamHpfMorph = v; }
+  public void setSongParamHpfMorph(float v) { this.songParamHpfMorph = v; notifySongParamsChanged(); }
   public float getSongParamLpfFrequency() { return songParamLpfFrequency; }
-  public void setSongParamLpfFrequency(float v) { this.songParamLpfFrequency = v; }
+  public void setSongParamLpfFrequency(float v) { this.songParamLpfFrequency = v; notifySongParamsChanged(); }
   public float getSongParamLpfResonance() { return songParamLpfResonance; }
-  public void setSongParamLpfResonance(float v) { this.songParamLpfResonance = v; }
+  public void setSongParamLpfResonance(float v) { this.songParamLpfResonance = v; notifySongParamsChanged(); }
   public float getSongParamHpfFrequency() { return songParamHpfFrequency; }
-  public void setSongParamHpfFrequency(float v) { this.songParamHpfFrequency = v; }
+  public void setSongParamHpfFrequency(float v) { this.songParamHpfFrequency = v; notifySongParamsChanged(); }
   public float getSongParamHpfResonance() { return songParamHpfResonance; }
-  public void setSongParamHpfResonance(float v) { this.songParamHpfResonance = v; }
+  public void setSongParamHpfResonance(float v) { this.songParamHpfResonance = v; notifySongParamsChanged(); }
   public float getSongParamEqBass() { return songParamEqBass; }
-  public void setSongParamEqBass(float v) { this.songParamEqBass = v; }
+  public void setSongParamEqBass(float v) { this.songParamEqBass = v; notifySongParamsChanged(); }
   public float getSongParamEqTreble() { return songParamEqTreble; }
-  public void setSongParamEqTreble(float v) { this.songParamEqTreble = v; }
+  public void setSongParamEqTreble(float v) { this.songParamEqTreble = v; notifySongParamsChanged(); }
   public float getSongParamEqBassFrequency() { return songParamEqBassFrequency; }
-  public void setSongParamEqBassFrequency(float v) { this.songParamEqBassFrequency = v; }
+  public void setSongParamEqBassFrequency(float v) { this.songParamEqBassFrequency = v; notifySongParamsChanged(); }
   public float getSongParamEqTrebleFrequency() { return songParamEqTrebleFrequency; }
-  public void setSongParamEqTrebleFrequency(float v) { this.songParamEqTrebleFrequency = v; }
+  public void setSongParamEqTrebleFrequency(float v) { this.songParamEqTrebleFrequency = v; notifySongParamsChanged(); }
 
   // ── Scales getters/setters ──
 
   public int getUserScale() { return userScale; }
-  public void setUserScale(int v) { this.userScale = v; }
+  public void setUserScale(int v) { this.userScale = v; notifyScalesChanged(); }
   public int getDisabledPresetScales() { return disabledPresetScales; }
-  public void setDisabledPresetScales(int v) { this.disabledPresetScales = v; }
+  public void setDisabledPresetScales(int v) { this.disabledPresetScales = v; notifyScalesChanged(); }
 
   // ── Mode notes getters/setters ──
 
@@ -383,6 +487,7 @@ public class ProjectModel {
 
   public void setKey(String key) {
     this.key = key;
+    notifyKeyChanged(key);
   }
 
   public String getScale() {
@@ -391,5 +496,6 @@ public class ProjectModel {
 
   public void setScale(String scale) {
     this.scale = scale;
+    notifyScaleChanged(scale);
   }
 }
