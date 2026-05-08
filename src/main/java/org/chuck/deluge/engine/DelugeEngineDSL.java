@@ -589,6 +589,13 @@ public class DelugeEngineDSL implements Shred, Runnable {
             java.io.File rel = new java.io.File(libraryDir, path);
             if (rel.exists()) {
               previewBuf.setRead(rel.getAbsolutePath());
+            } else {
+              // Fallback: classpath resource (tests). Decode percent-encoding for macOS.
+              java.net.URL url = getClass().getClassLoader().getResource(path);
+              if (url != null) {
+                String decoded = java.net.URLDecoder.decode(url.getPath(), java.nio.charset.StandardCharsets.UTF_8);
+                previewBuf.setRead(decoded);
+              }
             }
           }
         }
