@@ -510,7 +510,10 @@ public class DelugeEngineDSL implements Shred, Runnable {
       // Fallback: try classpath resource (for tests/resources that haven't been migrated yet)
       java.net.URL resourceUrl = getClass().getClassLoader().getResource(path);
       if (resourceUrl != null) {
-        java.io.File classpathFile = new java.io.File(resourceUrl.getPath());
+        // URL.getPath() retains percent-encoding (e.g. %20 for spaces),
+        // which breaks new File() on macOS. Use URLDecoder to get real path.
+        String decodedPath = java.net.URLDecoder.decode(resourceUrl.getPath(), java.nio.charset.StandardCharsets.UTF_8);
+        java.io.File classpathFile = new java.io.File(decodedPath);
         if (classpathFile.exists()) {
           loadSndBuf(kit[i], classpathFile.getAbsolutePath());
           continue;
