@@ -28,6 +28,8 @@ public class SwingTopBarPanel extends JPanel {
     void onAddTrack(String type);
   }
 
+  private final ProjectModel projectModel;
+  private final ChuckVM vm;
   private final JToggleButton clipBtn;
   private final JSlider masterVolSlider;
   private final TopBarListener listener;
@@ -42,11 +44,12 @@ public class SwingTopBarPanel extends JPanel {
    */
   public SwingTopBarPanel(
       ChuckVM vm,
-      BridgeContract bridge,
       ProjectModel projectModel,
       JDialog leftFloat,
       JDialog rightFloat,
       TopBarListener listener) {
+    this.projectModel = projectModel;
+    this.vm = vm;
     this.listener = listener;
 
     setLayout(new FlowLayout(FlowLayout.LEFT, 10, 4));
@@ -143,29 +146,26 @@ public class SwingTopBarPanel extends JPanel {
     tempoLabel.setForeground(Color.WHITE);
     add(tempoLabel);
 
-    JSlider bpmSlider = new JSlider(60, 200, 120);
-    bpmSlider.addChangeListener(e -> vm.setGlobalFloat(BridgeContract.G_BPM, bpmSlider.getValue()));
+    JSlider bpmSlider = new JSlider(60, 200, (int) projectModel.getBpm());
+    bpmSlider.addChangeListener(e -> projectModel.setBpm(bpmSlider.getValue()));
     add(bpmSlider);
 
     JLabel swingLabel = new JLabel("SWING:");
     swingLabel.setForeground(Color.WHITE);
     add(swingLabel);
 
-    JSlider swingSlider = new JSlider(0, 100, 50);
+    JSlider swingSlider = new JSlider(0, 100, (int) (projectModel.getSwing() * 100));
     swingSlider.addChangeListener(
-        e -> vm.setGlobalFloat(BridgeContract.G_SWING, swingSlider.getValue() / 100.0));
+        e -> projectModel.setSwing(swingSlider.getValue() / 100.0f));
     add(swingSlider);
 
     JLabel volLabel = new JLabel("MASTER:");
     volLabel.setForeground(Color.WHITE);
     add(volLabel);
 
-    masterVolSlider = new JSlider(0, 100, 70);
+    masterVolSlider = new JSlider(0, 100, (int) (projectModel.getMasterVolume() * 100));
     masterVolSlider.addChangeListener(
-        e -> {
-          double v = masterVolSlider.getValue() / 100.0;
-          vm.setGlobalFloat(BridgeContract.G_MASTER_VOL, v);
-        });
+        e -> projectModel.setMasterVolume(masterVolSlider.getValue() / 100.0f));
     add(masterVolSlider);
   }
 

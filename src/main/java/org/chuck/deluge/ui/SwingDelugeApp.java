@@ -475,7 +475,30 @@ public class SwingDelugeApp extends JFrame {
       }
     }
 
+    // ── Push master-level globals (BPM, swing, volume, pan, reverb, delay, scale, key, comp) ──
+    // These are normally propagated by ProjectListener callbacks, but during project load the
+    // XML parser populates model fields directly without firing setters, so we sync here too.
+    vm.setGlobalFloat(BridgeContract.G_BPM, currentProject.getBpm());
+    vm.setGlobalFloat(BridgeContract.G_SWING, currentProject.getSwing());
+    vm.setGlobalFloat(BridgeContract.G_MASTER_VOL, currentProject.getMasterVolume());
+    vm.setGlobalFloat(BridgeContract.G_MASTER_PAN, currentProject.getMasterPan());
+    vm.setGlobalFloat(BridgeContract.G_DELAY_TIME, currentProject.getMasterDelay());
+    vm.setGlobalFloat(BridgeContract.G_DELAY_FB, currentProject.getMasterDelay());
+    vm.setGlobalFloat(BridgeContract.G_REVERB_ROOM, currentProject.getReverbRoomSize());
+    vm.setGlobalFloat(BridgeContract.G_REVERB_DAMP, currentProject.getReverbDampening());
+    vm.setGlobalFloat(BridgeContract.G_MASTER_COMP, currentProject.getCompressorThreshold());
+    vm.setGlobalInt(BridgeContract.G_ROOT_KEY, parseRootKey(currentProject.getKey()));
+    vm.setGlobalInt(BridgeContract.G_SCALE, parseScaleIndex(currentProject.getScale()));
+    vm.setGlobalFloat(BridgeContract.G_PREVIEW_PITCH, 60.0f);
+
+    // Sync the master FX panel slider with the model's volume
+    if (masterFxPanel != null) {
+      masterFxPanel.setMasterVol(Math.round(currentProject.getMasterVolume() * 100));
+    }
+
     // Only unblock the engine when there are actual tracks to process.
+    // Signal engine shreds to re-allocate their UGen arrays (track add/remove)
+    vm.setGlobalInt(BridgeContract.G_RELOAD, 1L);
     // An empty-project broadcast leaves all track types = -1, causing kit_shred to
     // compute voiceCount = 1 and build undersized arrays that can't be resized later.
     if (!tracks.isEmpty()) {
@@ -672,17 +695,8 @@ public class SwingDelugeApp extends JFrame {
     currentProject = model;
     vm.setGlobalInt(BridgeContract.G_PLAY, 0L);
 
-    // Register listener so structural changes auto-sync
-    model.addProjectListener(new org.chuck.deluge.model.ProjectModel.ProjectListener() {
-      @Override public void onTrackListChanged() {
-        pushModelToBridge();
-        propagateCurrentModel();
-        refreshGrids();
-      }
-      @Override public void onBpmChanged(float bpm) {
-        vm.setGlobalFloat(BridgeContract.G_BPM, bpm);
-      }
-    });
+    // Register listener so structural and param changes auto-sync to bridge
+    model.addProjectListener(new BridgeProjectListener(model));
 
     pushModelToBridge();
     propagateCurrentModel();
@@ -1048,44 +1062,10 @@ public class SwingDelugeApp extends JFrame {
     topBar =
         new SwingTopBarPanel(
             vm,
-            bridge,
             currentProject,
             leftFloat,
             rightFloat,
-            new SwingTopBarPanel.TopBarListener() {
-              @Override
-              public void onViewModeChanged(String viewMode) {
-                cardLayout.show(centerCardPanel, viewMode);
-              }
-
-              @Override
-              public void onAddTrack(String type) {
-                String name =
-                    JOptionPane.showInputDialog(
-                        SwingDelugeApp.this,
-                        type + " track name:",
-                        type + " " + (currentProject.getTracks().size() + 1));
-                if (name == null || name.isBlank()) return;
-                switch (type) {
-                  case "KIT":
-                    KitTrackModel kit = new KitTrackModel(name);
-                    kit.addClip(new ClipModel("CLIP 1", 8, 16));
-                    currentProject.addTrack(kit);
-                    break;
-                  case "SYNTH":
-                    SynthTrackModel synth = new SynthTrackModel(name);
-                    synth.addClip(new ClipModel("CLIP 1", 8, 16));
-                    currentProject.addTrack(synth);
-                    break;
-                  case "AUDIO":
-                    AudioTrackModel audio = new AudioTrackModel(name);
-                    audio.addClip(new ClipModel("CLIP 1", 1, 16));
-                    currentProject.addTrack(audio);
-                    break;
-                }
-                propagateCurrentModel();
-              }
-            });
+            new AppTopBarListener());
 
     // DEBUG: solid background colors to visualize panel sizes
     System.out.println("DEBUG setupUI: topBar bg=" + topBar.getBackground() + " contentPane bg=" + getContentPane().getBackground());
@@ -1237,7 +1217,7 @@ public class SwingDelugeApp extends JFrame {
     // Obsolete bottom parameter deck removed. Integrated in 10x18 pads matrix.
 
     // 7. Bottom Area - Row 3 (Master FX dials bounding boxes)
-    SwingMasterFxPanel masterFxPanel = new SwingMasterFxPanel(vm, topBar);
+    SwingMasterFxPanel masterFxPanel = new SwingMasterFxPanel(vm, currentProject, topBar);
     this.masterFxPanel = masterFxPanel;
     // DEBUG: masterFxPanel.setBorder(BorderFactory.createLineBorder(Color.YELLOW, 3));
 
@@ -1344,6 +1324,97 @@ public class SwingDelugeApp extends JFrame {
         });
   }
 
+  // ── Inner classes ──
+
+  /** Handles top-bar view-mode and add-track actions. */
+  private class AppTopBarListener implements SwingTopBarPanel.TopBarListener {
+    @Override
+    public void onViewModeChanged(String viewMode) {
+      cardLayout.show(centerCardPanel, viewMode);
+    }
+
+    @Override
+    public void onAddTrack(String type) {
+      String name =
+          JOptionPane.showInputDialog(
+              SwingDelugeApp.this,
+              type + " track name:",
+              type + " " + (currentProject.getTracks().size() + 1));
+      if (name == null || name.isBlank()) return;
+      switch (type) {
+        case "KIT": {
+          KitTrackModel kit = new KitTrackModel(name);
+          kit.addClip(new ClipModel("CLIP 1", 8, 16));
+          currentProject.addTrack(kit);
+          break;
+        }
+        case "SYNTH": {
+          SynthTrackModel synth = new SynthTrackModel(name);
+          synth.addClip(new ClipModel("CLIP 1", 8, 16));
+          currentProject.addTrack(synth);
+          break;
+        }
+        case "AUDIO": {
+          AudioTrackModel audio = new AudioTrackModel(name);
+          audio.addClip(new ClipModel("CLIP 1", 1, 16));
+          currentProject.addTrack(audio);
+          break;
+        }
+      }
+      propagateCurrentModel();
+    }
+  }
+
+  /** Propagates ProjectModel changes to bridge globals via MVC listener pattern. */
+  private class BridgeProjectListener
+      implements org.chuck.deluge.model.ProjectModel.ProjectListener {
+    private final org.chuck.deluge.model.ProjectModel model;
+
+    BridgeProjectListener(org.chuck.deluge.model.ProjectModel model) {
+      this.model = model;
+    }
+
+    @Override public void onTrackListChanged() {
+      pushModelToBridge();
+      propagateCurrentModel();
+      refreshGrids();
+    }
+    @Override public void onBpmChanged(float bpm) {
+      vm.setGlobalFloat(BridgeContract.G_BPM, bpm);
+    }
+    @Override public void onSwingChanged(float swing) {
+      vm.setGlobalFloat(BridgeContract.G_SWING, swing);
+    }
+    @Override public void onMasterVolumeChanged(float vol) {
+      vm.setGlobalFloat(BridgeContract.G_MASTER_VOL, vol);
+    }
+    @Override public void onMasterPanChanged(float pan) {
+      vm.setGlobalFloat(BridgeContract.G_MASTER_PAN, pan);
+    }
+    @Override public void onKeyChanged(String key) {
+      vm.setGlobalInt(BridgeContract.G_ROOT_KEY, parseRootKey(key));
+    }
+    @Override public void onScaleChanged(String scale) {
+      vm.setGlobalInt(BridgeContract.G_SCALE, parseScaleIndex(scale));
+    }
+    @Override public void onTransposeChanged(int transpose) {}
+    @Override public void onHumanizeChanged(float humanize) {}
+    @Override public void onReverbChanged() {
+      vm.setGlobalFloat(BridgeContract.G_REVERB_ROOM, model.getReverbRoomSize());
+      vm.setGlobalFloat(BridgeContract.G_REVERB_DAMP, model.getReverbDampening());
+    }
+    @Override public void onDelayChanged() {
+      vm.setGlobalFloat(BridgeContract.G_DELAY_TIME, model.getMasterDelay());
+      vm.setGlobalFloat(BridgeContract.G_DELAY_FB, model.getMasterDelay());
+    }
+    @Override public void onSidechainChanged() {}
+    @Override public void onCompressorChanged() {
+      vm.setGlobalFloat(BridgeContract.G_MASTER_COMP, model.getCompressorThreshold());
+    }
+    @Override public void onSongParamsChanged() {}
+    @Override public void onScalesChanged() {}
+  }
+
   // ── Helper methods ──
 
   private void pushKitEnv(int engineRow, int envIndex, EnvelopeModel env) {
@@ -1375,6 +1446,49 @@ public class SwingDelugeApp extends JFrame {
       case "CHORUS" -> 1;
       case "FLANGER" -> 2;
       case "PHASER" -> 3;
+      default -> 0;
+    };
+  }
+
+  /** Convert a root-key string ("C", "C#", "D", etc.) to a 0–11 MIDI note number. */
+  static int parseRootKey(String key) {
+    if (key == null) return 0;
+    return switch (key) {
+      case "C" -> 0;
+      case "C#", "Db" -> 1;
+      case "D" -> 2;
+      case "D#", "Eb" -> 3;
+      case "E" -> 4;
+      case "F" -> 5;
+      case "F#", "Gb" -> 6;
+      case "G" -> 7;
+      case "G#", "Ab" -> 8;
+      case "A" -> 9;
+      case "A#", "Bb" -> 10;
+      case "B" -> 11;
+      default -> 0;
+    };
+  }
+
+  /** Convert a scale name to an integer index for the bridge G_SCALE global. */
+  static int parseScaleIndex(String scale) {
+    if (scale == null) return 0;
+    return switch (scale) {
+      case "Major" -> 0;
+      case "Minor" -> 1;
+      case "Harmonic Minor" -> 2;
+      case "Melodic Minor" -> 3;
+      case "Dorian" -> 4;
+      case "Phrygian" -> 5;
+      case "Lydian" -> 6;
+      case "Mixolydian" -> 7;
+      case "Locrian" -> 8;
+      case "Whole Tone" -> 9;
+      case "Whole Half Dim" -> 10;
+      case "Half Whole Dim" -> 11;
+      case "Pentatonic Major" -> 12;
+      case "Pentatonic Minor" -> 13;
+      case "Chromatic" -> 14;
       default -> 0;
     };
   }

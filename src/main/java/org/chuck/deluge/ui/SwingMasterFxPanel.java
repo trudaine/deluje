@@ -10,9 +10,11 @@ import javax.swing.JPanel;
 import javax.swing.JSlider;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
+import org.chuck.deluge.model.ProjectModel;
 
 /**
  * Bottom MASTER FX panel containing master volume, transpose, scale selector, and playback status.
+ * Uses ProjectModel for master volume so changes flow through MVC (model → listener → bridge).
  * Used in the main layout's bottom row. The status counter label is exposed so the playback timer
  * can update it.
  */
@@ -20,12 +22,15 @@ public class SwingMasterFxPanel extends JPanel {
 
   private final JSlider masterVolSlider;
   private final JLabel statusCounter;
+  private final ProjectModel projectModel;
 
   /**
-   * @param vm     ChucK VM for bridge writes
-   * @param topBar top bar panel for two-way master vol sync
+   * @param vm          ChucK VM for bridge writes
+   * @param projectModel project model for MVC-bound controls
+   * @param topBar      top bar panel for two-way master vol sync
    */
-  public SwingMasterFxPanel(ChuckVM vm, SwingTopBarPanel topBar) {
+  public SwingMasterFxPanel(ChuckVM vm, ProjectModel projectModel, SwingTopBarPanel topBar) {
+    this.projectModel = projectModel;
     setLayout(new FlowLayout(FlowLayout.LEFT, 15, 5));
     setBackground(new Color(0x25, 0x25, 0x25));
     setBorder(
@@ -35,11 +40,11 @@ public class SwingMasterFxPanel extends JPanel {
     // ── Master Volume ──
     JLabel bVolLabel = new JLabel("Master Vol:");
     bVolLabel.setForeground(Color.WHITE);
-    masterVolSlider = new JSlider(0, 100, 70);
+    masterVolSlider = new JSlider(0, 100, (int) (projectModel.getMasterVolume() * 100));
     masterVolSlider.addChangeListener(
         e -> {
           double v = masterVolSlider.getValue() / 100.0;
-          vm.setGlobalFloat(BridgeContract.G_MASTER_VOL, v);
+          projectModel.setMasterVolume((float) v);
           if (topBar != null && topBar.getMasterVol() != masterVolSlider.getValue()) {
             topBar.setMasterVol(masterVolSlider.getValue());
           }
