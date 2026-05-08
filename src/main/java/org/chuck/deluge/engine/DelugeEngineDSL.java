@@ -620,24 +620,11 @@ public class DelugeEngineDSL implements Shred, Runnable {
 
     System.out.println("[synth_shred] entered");
 
-    // Wait for the first song load before building voice graph
-    // Block until at least one synth track (type 1) is present, so arrays aren't sized 1
-    int waitCount = 0;
-    while (isRunning()) {
-      ChuckArray trackTypeInit = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
-      boolean hasSynth = false;
-      int synthCount = 0;
-      for (int i = 0; i < BridgeContract.TRACKS && !hasSynth; i++) {
-        if (trackTypeInit != null) {
-          long val = trackTypeInit.getInt(i);
-          if (val == 1) { hasSynth = true; synthCount++; }
-        }
-      }
-      if (trackTypeInit == null) System.out.println("[synth_shred] wait#" + waitCount + ": trackTypeInit is NULL");
-      if (hasSynth) { System.out.println("[synth_shred] wait: found " + synthCount + " synth track entries, breaking"); break; }
-      if (waitCount++ % 50 == 0) System.out.println("[synth_shred] wait#" + waitCount + ": looping, no synth tracks found, trackTypeInit=" + trackTypeInit);
-      advance(ms(100)); // Prevent hang if loadEvent was already broadcast
-    }
+    // Wait for G_LOAD_TRIGGER (same pattern as kit_shred). This blocks until
+    // pushModelToBridge() broadcasts, instead of burning CPU in a poll loop.
+    ChuckEvent loadEvent = (ChuckEvent) vm.getGlobalObject(BridgeContract.G_LOAD_TRIGGER);
+    advance(loadEvent);
+    System.out.println("[synth_shred] past load trigger");
 
     // Find synth track range in bridge: first and last contiguous type-1 index
     ChuckArray trackTypeInit = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
