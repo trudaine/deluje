@@ -18,7 +18,8 @@ public class ProjectSerializerTest {
 
     KitTrackModel kit = new KitTrackModel("DRUMS");
     KitTrackModel.KitSound sound = new KitTrackModel.KitSound("KICK");
-    sound.setSamplePath("/tmp/kick.wav");
+    // Use a SAMPLES-relative path so the serializer preserves it on all platforms
+    sound.setSamplePath("SAMPLES/DRUMS/Kick/kick.wav");
     kit.addSound(sound);
 
     // Add a clip with a note
@@ -45,7 +46,7 @@ public class ProjectSerializerTest {
     assertTrue(xmlContent.contains("<kit>"), "should contain <kit>\n" + xmlContent);
     assertTrue(xmlContent.contains("<presetSlot>DRUMS</presetSlot>"), "should contain DRUMS\n" + xmlContent);
     // Note: cloneSamples() rewrites paths to SAMPLES/... format
-    assertTrue(xmlContent.contains("fileName=\"SAMPLES//tmp/kick.wav\""), "should contain fileName\n" + xmlContent);
+    assertTrue(xmlContent.contains("fileName=\"SAMPLES/DRUMS/Kick/kick.wav\""), "should contain fileName\n" + xmlContent);
     assertTrue(xmlContent.contains("<sound>"));
     assertTrue(xmlContent.contains("<presetSlot>LEAD</presetSlot>"));
     assertTrue(xmlContent.contains("<osc1 type=\"square\""));
