@@ -6,17 +6,28 @@ import java.util.List;
 /** Utility for musical scale calculations and note folding. */
 public class Scales {
 
+  /**
+   * ScaleType ordinals must match {@code parseScaleIndex} in SwingDelugeApp:
+   * 0=Major, 1=Minor, 2=Harmonic Minor, 3=Melodic Minor, 4=Dorian, 5=Phrygian,
+   * 6=Lydian, 7=Mixolydian, 8=Locrian, 9=Whole Tone, 10=Whole Half Dim,
+   * 11=Half Whole Dim, 12=Maj Pent, 13=Min Pent, 14=Chromatic.
+   */
   public enum ScaleType {
-    CHROMATIC("Chromatic", new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}),
     MAJOR("Major", new int[] {0, 2, 4, 5, 7, 9, 11}),
     MINOR("Minor", new int[] {0, 2, 3, 5, 7, 8, 10}),
+    HARMONIC_MINOR("Harmonic Minor", new int[] {0, 2, 3, 5, 7, 8, 11}),
+    MELODIC_MINOR("Melodic Minor", new int[] {0, 2, 3, 5, 7, 9, 11}),
     DORIAN("Dorian", new int[] {0, 2, 3, 5, 7, 9, 10}),
     PHRYGIAN("Phrygian", new int[] {0, 1, 3, 5, 7, 8, 10}),
     LYDIAN("Lydian", new int[] {0, 2, 4, 6, 7, 9, 11}),
     MIXOLYDIAN("Mixolydian", new int[] {0, 2, 4, 5, 7, 9, 10}),
     LOCRIAN("Locrian", new int[] {0, 1, 3, 5, 6, 8, 10}),
+    WHOLE_TONE("Whole Tone", new int[] {0, 2, 4, 6, 8, 10}),
+    WHOLE_HALF_DIM("Whole Half Dim", new int[] {0, 2, 3, 5, 6, 8, 9, 11}),
+    HALF_WHOLE_DIM("Half Whole Dim", new int[] {0, 1, 3, 4, 6, 7, 9, 10}),
     MAJOR_PENTATONIC("Maj Pent", new int[] {0, 2, 4, 7, 9}),
-    MINOR_PENTATONIC("Min Pent", new int[] {0, 3, 5, 7, 10});
+    MINOR_PENTATONIC("Min Pent", new int[] {0, 3, 5, 7, 10}),
+    CHROMATIC("Chromatic", new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11});
 
     private final String name;
     private final int[] intervals;

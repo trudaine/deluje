@@ -483,7 +483,7 @@ public class SwingDelugeApp extends JFrame {
     vm.setGlobalFloat(BridgeContract.G_MASTER_VOL, currentProject.getMasterVolume());
     vm.setGlobalFloat(BridgeContract.G_MASTER_PAN, currentProject.getMasterPan());
     vm.setGlobalFloat(BridgeContract.G_DELAY_TIME, currentProject.getMasterDelay());
-    vm.setGlobalFloat(BridgeContract.G_DELAY_FB, currentProject.getMasterDelay());
+    vm.setGlobalFloat(BridgeContract.G_DELAY_FB, currentProject.getSongParamDelayFeedback());
     vm.setGlobalFloat(BridgeContract.G_REVERB_ROOM, currentProject.getReverbRoomSize());
     vm.setGlobalFloat(BridgeContract.G_REVERB_DAMP, currentProject.getReverbDampening());
     vm.setGlobalFloat(BridgeContract.G_MASTER_COMP, currentProject.getCompressorThreshold());
@@ -491,16 +491,82 @@ public class SwingDelugeApp extends JFrame {
     vm.setGlobalInt(BridgeContract.G_SCALE, parseScaleIndex(currentProject.getScale()));
     vm.setGlobalFloat(BridgeContract.G_PREVIEW_PITCH, 60.0f);
 
+    // ── Extended reverb globals ──
+    vm.setGlobalFloat(BridgeContract.G_REVERB_WIDTH, currentProject.getReverbWidth());
+    vm.setGlobalFloat(BridgeContract.G_REVERB_HPF, currentProject.getReverbHpf());
+    vm.setGlobalFloat(BridgeContract.G_REVERB_PAN, currentProject.getReverbPan());
+    vm.setGlobalInt(BridgeContract.G_REVERB_MODEL, currentProject.getReverbModel());
+    vm.setGlobalFloat(BridgeContract.G_REVERB_COMP_ATTACK, currentProject.getReverbCompressorAttack());
+    vm.setGlobalFloat(BridgeContract.G_REVERB_COMP_RELEASE, currentProject.getReverbCompressorRelease());
+    vm.setGlobalInt(BridgeContract.G_REVERB_COMP_SYNC_LEVEL, currentProject.getReverbCompressorSyncLevel());
+    vm.setGlobalFloat(BridgeContract.G_REVERB_COMP_HPF, currentProject.getReverbCompHpf());
+    vm.setGlobalFloat(BridgeContract.G_REVERB_COMP_BLEND, currentProject.getReverbCompBlend());
+
+    // ── Extended delay globals ──
+    vm.setGlobalInt(BridgeContract.G_DELAY_PINGPONG, currentProject.getDelayPingPong());
+    vm.setGlobalInt(BridgeContract.G_DELAY_ANALOG, currentProject.getDelayAnalog());
+    vm.setGlobalInt(BridgeContract.G_DELAY_SYNC_LEVEL, currentProject.getDelaySyncLevel());
+    vm.setGlobalInt(BridgeContract.G_DELAY_SYNC_TYPE, currentProject.getDelaySyncType());
+
+    // ── Sidechain globals ──
+    vm.setGlobalFloat(BridgeContract.G_SIDECHAIN_ATTACK, currentProject.getSidechainAttack());
+    vm.setGlobalFloat(BridgeContract.G_SIDECHAIN_RELEASE, currentProject.getSidechainRelease());
+    vm.setGlobalInt(BridgeContract.G_SIDECHAIN_SYNC_LEVEL, currentProject.getSidechainSyncLevel());
+    vm.setGlobalInt(BridgeContract.G_SIDECHAIN_SYNC_TYPE, currentProject.getSidechainSyncType());
+
+    // ── Master compressor (extended) globals ──
+    vm.setGlobalFloat(BridgeContract.G_MASTER_COMP_ATTACK, currentProject.getCompressorAttack());
+    vm.setGlobalFloat(BridgeContract.G_MASTER_COMP_RELEASE, currentProject.getCompressorRelease());
+    vm.setGlobalFloat(BridgeContract.G_MASTER_COMP_RATIO, currentProject.getCompressorRatio());
+
+    // ── Transpose / humanize globals ──
+    vm.setGlobalInt(BridgeContract.G_TRANSPOSE, currentProject.getTranspose());
+    vm.setGlobalFloat(BridgeContract.G_HUMANIZE, currentProject.getHumanize());
+
+    // ── SongParams globals ──
+    vm.setGlobalFloat(BridgeContract.G_SP_VOLUME, currentProject.getSongParamVolume());
+    vm.setGlobalFloat(BridgeContract.G_SP_PAN, currentProject.getSongParamPan());
+    vm.setGlobalFloat(BridgeContract.G_SP_REVERB_AMOUNT, currentProject.getSongParamReverbAmount());
+    vm.setGlobalFloat(BridgeContract.G_SP_DELAY_RATE, currentProject.getSongParamDelayRate());
+    vm.setGlobalFloat(BridgeContract.G_SP_DELAY_FEEDBACK, currentProject.getSongParamDelayFeedback());
+    vm.setGlobalFloat(BridgeContract.G_SP_SIDECHAIN_SHAPE, currentProject.getSongParamSidechainShape());
+    vm.setGlobalFloat(BridgeContract.G_SP_STUTTER_RATE, currentProject.getSongParamStutterRate());
+    vm.setGlobalFloat(BridgeContract.G_SP_SAMPLE_RATE_REDUCTION, currentProject.getSongParamSampleRateReduction());
+    vm.setGlobalFloat(BridgeContract.G_SP_BITCRUSH, currentProject.getSongParamBitCrush());
+    vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_RATE, currentProject.getSongParamModFXRate());
+    vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_DEPTH, currentProject.getSongParamModFXDepth());
+    vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_OFFSET, currentProject.getSongParamModFXOffset());
+    vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_FEEDBACK, currentProject.getSongParamModFXFeedback());
+    vm.setGlobalFloat(BridgeContract.G_SP_COMPRESSOR_THRESHOLD, currentProject.getSongParamCompressorThreshold());
+    vm.setGlobalFloat(BridgeContract.G_SP_LPF_MORPH, currentProject.getSongParamLpfMorph());
+    vm.setGlobalFloat(BridgeContract.G_SP_HPF_MORPH, currentProject.getSongParamHpfMorph());
+    vm.setGlobalFloat(BridgeContract.G_SP_LPF_FREQ, currentProject.getSongParamLpfFrequency());
+    vm.setGlobalFloat(BridgeContract.G_SP_LPF_RES, currentProject.getSongParamLpfResonance());
+    vm.setGlobalFloat(BridgeContract.G_SP_HPF_FREQ, currentProject.getSongParamHpfFrequency());
+    vm.setGlobalFloat(BridgeContract.G_SP_HPF_RES, currentProject.getSongParamHpfResonance());
+    vm.setGlobalFloat(BridgeContract.G_SP_EQ_BASS, currentProject.getSongParamEqBass());
+    vm.setGlobalFloat(BridgeContract.G_SP_EQ_TREBLE, currentProject.getSongParamEqTreble());
+    vm.setGlobalFloat(BridgeContract.G_SP_EQ_BASS_FREQ, currentProject.getSongParamEqBassFrequency());
+    vm.setGlobalFloat(BridgeContract.G_SP_EQ_TREBLE_FREQ, currentProject.getSongParamEqTrebleFrequency());
+
+    // ── Scales globals ──
+    vm.setGlobalInt(BridgeContract.G_USER_SCALE, currentProject.getUserScale());
+    vm.setGlobalInt(BridgeContract.G_DISABLED_PRESET_SCALES, currentProject.getDisabledPresetScales());
+    boolean[] modeNotes = currentProject.getModeNotes();
+    if (modeNotes != null) {
+      for (int i = 0; i < 12 && i < modeNotes.length; i++) {
+        vm.setGlobalInt(BridgeContract.G_MODE_NOTES + "_" + i, modeNotes[i] ? 1L : 0L);
+      }
+    }
+
     // Sync the master FX panel slider with the model's volume
     if (masterFxPanel != null) {
       masterFxPanel.setMasterVol(Math.round(currentProject.getMasterVolume() * 100));
     }
 
-    // Only unblock the engine when there are actual tracks to process.
     // Signal engine shreds to re-allocate their UGen arrays (track add/remove)
-    vm.setGlobalInt(BridgeContract.G_RELOAD, 1L);
-    // An empty-project broadcast leaves all track types = -1, causing kit_shred to
-    // compute voiceCount = 1 and build undersized arrays that can't be resized later.
+    // NOTE: do NOT set G_RELOAD here — the initial advance(loadEvent) in engine sub-shreds
+    // already triggers one doInit(). Setting G_RELOAD would cause a second, wasteful re-init.
     if (!tracks.isEmpty()) {
       vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
     }
@@ -619,6 +685,9 @@ public class SwingDelugeApp extends JFrame {
     setLayout(new BorderLayout(10, 10));
 
     setupUI();
+    // Register ProjectListener on the default project so slider changes (BPM, volume, swing, etc.)
+    // propagate to the bridge/engine in real time (also registered in loadProject()).
+    currentProject.addProjectListener(new BridgeProjectListener(currentProject));
     startPlaybackTimer();
 
     setFocusable(true);
@@ -1397,22 +1466,81 @@ public class SwingDelugeApp extends JFrame {
     @Override public void onScaleChanged(String scale) {
       vm.setGlobalInt(BridgeContract.G_SCALE, parseScaleIndex(scale));
     }
-    @Override public void onTransposeChanged(int transpose) {}
-    @Override public void onHumanizeChanged(float humanize) {}
+    @Override public void onTransposeChanged(int transpose) {
+      vm.setGlobalInt(BridgeContract.G_TRANSPOSE, transpose);
+    }
+    @Override public void onHumanizeChanged(float humanize) {
+      vm.setGlobalFloat(BridgeContract.G_HUMANIZE, humanize);
+    }
     @Override public void onReverbChanged() {
       vm.setGlobalFloat(BridgeContract.G_REVERB_ROOM, model.getReverbRoomSize());
       vm.setGlobalFloat(BridgeContract.G_REVERB_DAMP, model.getReverbDampening());
+      vm.setGlobalFloat(BridgeContract.G_REVERB_WIDTH, model.getReverbWidth());
+      vm.setGlobalFloat(BridgeContract.G_REVERB_HPF, model.getReverbHpf());
+      vm.setGlobalFloat(BridgeContract.G_REVERB_PAN, model.getReverbPan());
+      vm.setGlobalInt(BridgeContract.G_REVERB_MODEL, model.getReverbModel());
+      vm.setGlobalFloat(BridgeContract.G_REVERB_COMP_ATTACK, model.getReverbCompressorAttack());
+      vm.setGlobalFloat(BridgeContract.G_REVERB_COMP_RELEASE, model.getReverbCompressorRelease());
+      vm.setGlobalInt(BridgeContract.G_REVERB_COMP_SYNC_LEVEL, model.getReverbCompressorSyncLevel());
+      vm.setGlobalFloat(BridgeContract.G_REVERB_COMP_HPF, model.getReverbCompHpf());
+      vm.setGlobalFloat(BridgeContract.G_REVERB_COMP_BLEND, model.getReverbCompBlend());
     }
     @Override public void onDelayChanged() {
       vm.setGlobalFloat(BridgeContract.G_DELAY_TIME, model.getMasterDelay());
-      vm.setGlobalFloat(BridgeContract.G_DELAY_FB, model.getMasterDelay());
+      vm.setGlobalFloat(BridgeContract.G_DELAY_FB, model.getSongParamDelayFeedback());
+      vm.setGlobalInt(BridgeContract.G_DELAY_PINGPONG, model.getDelayPingPong());
+      vm.setGlobalInt(BridgeContract.G_DELAY_ANALOG, model.getDelayAnalog());
+      vm.setGlobalInt(BridgeContract.G_DELAY_SYNC_LEVEL, model.getDelaySyncLevel());
+      vm.setGlobalInt(BridgeContract.G_DELAY_SYNC_TYPE, model.getDelaySyncType());
     }
-    @Override public void onSidechainChanged() {}
+    @Override public void onSidechainChanged() {
+      vm.setGlobalFloat(BridgeContract.G_SIDECHAIN_ATTACK, model.getSidechainAttack());
+      vm.setGlobalFloat(BridgeContract.G_SIDECHAIN_RELEASE, model.getSidechainRelease());
+      vm.setGlobalInt(BridgeContract.G_SIDECHAIN_SYNC_LEVEL, model.getSidechainSyncLevel());
+      vm.setGlobalInt(BridgeContract.G_SIDECHAIN_SYNC_TYPE, model.getSidechainSyncType());
+    }
     @Override public void onCompressorChanged() {
       vm.setGlobalFloat(BridgeContract.G_MASTER_COMP, model.getCompressorThreshold());
+      vm.setGlobalFloat(BridgeContract.G_MASTER_COMP_ATTACK, model.getCompressorAttack());
+      vm.setGlobalFloat(BridgeContract.G_MASTER_COMP_RELEASE, model.getCompressorRelease());
+      vm.setGlobalFloat(BridgeContract.G_MASTER_COMP_RATIO, model.getCompressorRatio());
     }
-    @Override public void onSongParamsChanged() {}
-    @Override public void onScalesChanged() {}
+    @Override public void onSongParamsChanged() {
+      vm.setGlobalFloat(BridgeContract.G_SP_VOLUME, model.getSongParamVolume());
+      vm.setGlobalFloat(BridgeContract.G_SP_PAN, model.getSongParamPan());
+      vm.setGlobalFloat(BridgeContract.G_SP_REVERB_AMOUNT, model.getSongParamReverbAmount());
+      vm.setGlobalFloat(BridgeContract.G_SP_DELAY_RATE, model.getSongParamDelayRate());
+      vm.setGlobalFloat(BridgeContract.G_SP_DELAY_FEEDBACK, model.getSongParamDelayFeedback());
+      vm.setGlobalFloat(BridgeContract.G_SP_SIDECHAIN_SHAPE, model.getSongParamSidechainShape());
+      vm.setGlobalFloat(BridgeContract.G_SP_STUTTER_RATE, model.getSongParamStutterRate());
+      vm.setGlobalFloat(BridgeContract.G_SP_SAMPLE_RATE_REDUCTION, model.getSongParamSampleRateReduction());
+      vm.setGlobalFloat(BridgeContract.G_SP_BITCRUSH, model.getSongParamBitCrush());
+      vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_RATE, model.getSongParamModFXRate());
+      vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_DEPTH, model.getSongParamModFXDepth());
+      vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_OFFSET, model.getSongParamModFXOffset());
+      vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_FEEDBACK, model.getSongParamModFXFeedback());
+      vm.setGlobalFloat(BridgeContract.G_SP_COMPRESSOR_THRESHOLD, model.getSongParamCompressorThreshold());
+      vm.setGlobalFloat(BridgeContract.G_SP_LPF_MORPH, model.getSongParamLpfMorph());
+      vm.setGlobalFloat(BridgeContract.G_SP_HPF_MORPH, model.getSongParamHpfMorph());
+      vm.setGlobalFloat(BridgeContract.G_SP_LPF_FREQ, model.getSongParamLpfFrequency());
+      vm.setGlobalFloat(BridgeContract.G_SP_LPF_RES, model.getSongParamLpfResonance());
+      vm.setGlobalFloat(BridgeContract.G_SP_HPF_FREQ, model.getSongParamHpfFrequency());
+      vm.setGlobalFloat(BridgeContract.G_SP_HPF_RES, model.getSongParamHpfResonance());
+      vm.setGlobalFloat(BridgeContract.G_SP_EQ_BASS, model.getSongParamEqBass());
+      vm.setGlobalFloat(BridgeContract.G_SP_EQ_TREBLE, model.getSongParamEqTreble());
+      vm.setGlobalFloat(BridgeContract.G_SP_EQ_BASS_FREQ, model.getSongParamEqBassFrequency());
+      vm.setGlobalFloat(BridgeContract.G_SP_EQ_TREBLE_FREQ, model.getSongParamEqTrebleFrequency());
+    }
+    @Override public void onScalesChanged() {
+      vm.setGlobalInt(BridgeContract.G_USER_SCALE, model.getUserScale());
+      vm.setGlobalInt(BridgeContract.G_DISABLED_PRESET_SCALES, model.getDisabledPresetScales());
+      boolean[] modeNotes = model.getModeNotes();
+      if (modeNotes != null) {
+        for (int i = 0; i < 12 && i < modeNotes.length; i++) {
+          vm.setGlobalInt(BridgeContract.G_MODE_NOTES + "_" + i, modeNotes[i] ? 1L : 0L);
+        }
+      }
+    }
   }
 
   // ── Helper methods ──

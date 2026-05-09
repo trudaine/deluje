@@ -131,7 +131,8 @@ public final class BridgeContract {
   public static final String G_STEP_OSC_B_VOL = "g_step_osc_b_vol";
   public static final String G_STEP_NOISE_VOL = "g_step_noise_vol";
   public static final String G_STEP_PITCH = "g_step_pitch";
-  // ── Track-level arrays (size TRACKS each) ─────────────────────────────
+  // ── Voice/engine mapping ──────────────────────────────────────────────
+  public static final String G_SYNTH_BASE = "g_synth_base";
   public static final String G_TRACK_TYPE = "g_track_type";
   public static final String G_OSC_TYPE = "g_osc_type";
   public static final String G_TRACK_LEVEL = "g_track_level";
@@ -162,10 +163,67 @@ public final class BridgeContract {
   public static final String G_LOAD_TRIGGER = "g_load_trigger";
   public static final String TICK_EVENT = "tick_event";
   public static final String E_TICK = "tick_event";
+  // ── Extended reverb globals ─────────────────────────────────────────────
+  public static final String G_REVERB_WIDTH = "g_reverb_width";
+  public static final String G_REVERB_HPF = "g_reverb_hpf";
+  public static final String G_REVERB_PAN = "g_reverb_pan";
+  public static final String G_REVERB_MODEL = "g_reverb_model";
+  public static final String G_REVERB_COMP_ATTACK = "g_reverb_comp_attack";
+  public static final String G_REVERB_COMP_RELEASE = "g_reverb_comp_release";
+  public static final String G_REVERB_COMP_SYNC_LEVEL = "g_reverb_comp_sync_level";
+  public static final String G_REVERB_COMP_HPF = "g_reverb_comp_hpf";
+  public static final String G_REVERB_COMP_BLEND = "g_reverb_comp_blend";
+  // ── Extended delay globals ──────────────────────────────────────────────
+  public static final String G_DELAY_PINGPONG = "g_delay_pingpong";
+  public static final String G_DELAY_ANALOG = "g_delay_analog";
+  public static final String G_DELAY_SYNC_LEVEL = "g_delay_sync_level";
+  public static final String G_DELAY_SYNC_TYPE = "g_delay_sync_type";
+  // ── Sidechain globals ───────────────────────────────────────────────────
+  public static final String G_SIDECHAIN_ATTACK = "g_sidechain_attack";
+  public static final String G_SIDECHAIN_RELEASE = "g_sidechain_release";
+  public static final String G_SIDECHAIN_SYNC_LEVEL = "g_sidechain_sync_level";
+  public static final String G_SIDECHAIN_SYNC_TYPE = "g_sidechain_sync_type";
+  // ── Master compressor globals (extended) ─────────────────────────────────
+  public static final String G_MASTER_COMP_ATTACK = "g_master_comp_attack";
+  public static final String G_MASTER_COMP_RELEASE = "g_master_comp_release";
+  public static final String G_MASTER_COMP_RATIO = "g_master_comp_ratio";
+  public static final String G_MASTER_COMP = "g_master_comp"; // threshold (existing)
+  // ── Transpose / humanize ─────────────────────────────────────────────────
+  public static final String G_TRANSPOSE = "g_transpose";
+  public static final String G_HUMANIZE = "g_humanize";
+  // ── SongParams ──────────────────────────────────────────────────────────
+  public static final String G_SP_VOLUME = "g_sp_volume";
+  public static final String G_SP_PAN = "g_sp_pan";
+  public static final String G_SP_REVERB_AMOUNT = "g_sp_reverb_amount";
+  public static final String G_SP_DELAY_RATE = "g_sp_delay_rate";
+  public static final String G_SP_DELAY_FEEDBACK = "g_sp_delay_feedback";
+  public static final String G_SP_SIDECHAIN_SHAPE = "g_sp_sidechain_shape";
+  public static final String G_SP_STUTTER_RATE = "g_sp_stutter_rate";
+  public static final String G_SP_SAMPLE_RATE_REDUCTION = "g_sp_srr";
+  public static final String G_SP_BITCRUSH = "g_sp_bitcrush";
+  public static final String G_SP_MOD_FX_RATE = "g_sp_mod_fx_rate";
+  public static final String G_SP_MOD_FX_DEPTH = "g_sp_mod_fx_depth";
+  public static final String G_SP_MOD_FX_OFFSET = "g_sp_mod_fx_offset";
+  public static final String G_SP_MOD_FX_FEEDBACK = "g_sp_mod_fx_feedback";
+  public static final String G_SP_COMPRESSOR_THRESHOLD = "g_sp_comp_threshold";
+  public static final String G_SP_LPF_MORPH = "g_sp_lpf_morph";
+  public static final String G_SP_HPF_MORPH = "g_sp_hpf_morph";
+  public static final String G_SP_LPF_FREQ = "g_sp_lpf_freq";
+  public static final String G_SP_LPF_RES = "g_sp_lpf_res";
+  public static final String G_SP_HPF_FREQ = "g_sp_hpf_freq";
+  public static final String G_SP_HPF_RES = "g_sp_hpf_res";
+  public static final String G_SP_EQ_BASS = "g_sp_eq_bass";
+  public static final String G_SP_EQ_TREBLE = "g_sp_eq_treble";
+  public static final String G_SP_EQ_BASS_FREQ = "g_sp_eq_bass_freq";
+  public static final String G_SP_EQ_TREBLE_FREQ = "g_sp_eq_treble_freq";
+  // ── Scales / mode notes ─────────────────────────────────────────────────
+  public static final String G_USER_SCALE = "g_user_scale";
+  public static final String G_DISABLED_PRESET_SCALES = "g_disabled_preset_scales";
+  public static final String G_MODE_NOTES = "g_mode_notes";
+
   public static final String G_DELAY_IN = "g_delay_in";
   public static final String G_REVERB_IN = "g_reverb_in";
   public static final String G_SYNTH_BUS = "g_synth_bus";
-  public static final String G_MASTER_COMP = "g_master_comp";
   public static final String G_ARP_ON = "g_arp_on";
   public static final String G_ARP_RATE = "g_arp_rate";
   public static final String G_ARP_OCTAVE = "g_arp_octave";
@@ -672,6 +730,63 @@ public final class BridgeContract {
   private float delayFb = 0.4f;
   private float reverbRoom = 0.6f;
   private float reverbDamp = 0.5f;
+  // ── Extended reverb scalars ──
+  private float reverbWidth = 0.5f;
+  private float reverbHpf = 0.0f;
+  private float reverbPan = 0.0f;
+  private int reverbModel = 0; // 0=FREEVERB, 1=MUTABLE, 2=DIGITAL
+  private float reverbCompAttack = 0.0f;
+  private float reverbCompRelease = 0.0f;
+  private int reverbCompSyncLevel = 0;
+  private float reverbCompHpf = 0.0f;
+  private float reverbCompBlend = 0.5f;
+  // ── Extended delay scalars ──
+  private int delayPingPong = 0;
+  private int delayAnalog = 0;
+  private int delaySyncLevel = 0;
+  private int delaySyncType = 0;
+  // ── Sidechain scalars ──
+  private float sidechainAttack = 0.0f;
+  private float sidechainRelease = 0.0f;
+  private int sidechainSyncLevel = 0;
+  private int sidechainSyncType = 0;
+  // ── Master compressor scalars ──
+  private float masterCompAttack = 0.0f;
+  private float masterCompRelease = 0.0f;
+  private float masterCompRatio = 0.0f;
+  // ── Transpose / humanize ──
+  private int transpose = 0;
+  private float humanize = 0.0f;
+  // ── SongParams scalars ──
+  private float spVolume = 1.0f;
+  private float spPan = 0.0f;
+  private float spReverbAmount = 0.5f;
+  private float spDelayRate = 0.0f;
+  private float spDelayFeedback = 0.0f;
+  private float spSidechainShape = 0.5f;
+  private float spStutterRate = 0.0f;
+  private float spSampleRateReduction = 0.0f;
+  private float spBitCrush = 0.0f;
+  private float spModFxRate = 0.0f;
+  private float spModFxDepth = 0.0f;
+  private float spModFxOffset = 0.0f;
+  private float spModFxFeedback = 0.0f;
+  private float spCompressorThreshold = 0.0f;
+  private float spLpfMorph = 0.0f;
+  private float spHpfMorph = 0.0f;
+  private float spLpfFrequency = 20000.0f;
+  private float spLpfResonance = 0.0f;
+  private float spHpfFrequency = 20.0f;
+  private float spHpfResonance = 0.0f;
+  private float spEqBass = 0.0f;
+  private float spEqTreble = 0.0f;
+  private float spEqBassFrequency = 0.0f;
+  private float spEqTrebleFrequency = 0.0f;
+  // ── Scales scalars ──
+  private int userScale = 0;
+  private int disabledPresetScales = 0;
+  private final int[] modeNotes = new int[12]; // boolean array packed as int[12] (0 or 1)
+
   private double bpm = 120.0;
   private double swing = 0.5;
 
@@ -727,6 +842,71 @@ public final class BridgeContract {
     vm.setGlobalObject(G_AUDIO_BUS, new org.chuck.audio.util.Gain());
     vm.setGlobalFloat(G_WVOUT_ACTIVE, 0.0);
     vm.setGlobalString(G_WVOUT_FILE, "");
+
+    // ── Extended reverb scalars ──
+    vm.setGlobalFloat(G_REVERB_WIDTH, (double) reverbWidth);
+    vm.setGlobalFloat(G_REVERB_HPF, (double) reverbHpf);
+    vm.setGlobalFloat(G_REVERB_PAN, (double) reverbPan);
+    vm.setGlobalInt(G_REVERB_MODEL, (long) reverbModel);
+    vm.setGlobalFloat(G_REVERB_COMP_ATTACK, (double) reverbCompAttack);
+    vm.setGlobalFloat(G_REVERB_COMP_RELEASE, (double) reverbCompRelease);
+    vm.setGlobalInt(G_REVERB_COMP_SYNC_LEVEL, (long) reverbCompSyncLevel);
+    vm.setGlobalFloat(G_REVERB_COMP_HPF, (double) reverbCompHpf);
+    vm.setGlobalFloat(G_REVERB_COMP_BLEND, (double) reverbCompBlend);
+
+    // ── Extended delay scalars ──
+    vm.setGlobalInt(G_DELAY_PINGPONG, (long) delayPingPong);
+    vm.setGlobalInt(G_DELAY_ANALOG, (long) delayAnalog);
+    vm.setGlobalInt(G_DELAY_SYNC_LEVEL, (long) delaySyncLevel);
+    vm.setGlobalInt(G_DELAY_SYNC_TYPE, (long) delaySyncType);
+
+    // ── Sidechain scalars ──
+    vm.setGlobalFloat(G_SIDECHAIN_ATTACK, (double) sidechainAttack);
+    vm.setGlobalFloat(G_SIDECHAIN_RELEASE, (double) sidechainRelease);
+    vm.setGlobalInt(G_SIDECHAIN_SYNC_LEVEL, (long) sidechainSyncLevel);
+    vm.setGlobalInt(G_SIDECHAIN_SYNC_TYPE, (long) sidechainSyncType);
+
+    // ── Master compressor scalars ──
+    vm.setGlobalFloat(G_MASTER_COMP_ATTACK, (double) masterCompAttack);
+    vm.setGlobalFloat(G_MASTER_COMP_RELEASE, (double) masterCompRelease);
+    vm.setGlobalFloat(G_MASTER_COMP_RATIO, (double) masterCompRatio);
+
+    // ── Transpose / humanize ──
+    vm.setGlobalInt(G_TRANSPOSE, (long) transpose);
+    vm.setGlobalFloat(G_HUMANIZE, (double) humanize);
+
+    // ── SongParams scalars ──
+    vm.setGlobalFloat(G_SP_VOLUME, (double) spVolume);
+    vm.setGlobalFloat(G_SP_PAN, (double) spPan);
+    vm.setGlobalFloat(G_SP_REVERB_AMOUNT, (double) spReverbAmount);
+    vm.setGlobalFloat(G_SP_DELAY_RATE, (double) spDelayRate);
+    vm.setGlobalFloat(G_SP_DELAY_FEEDBACK, (double) spDelayFeedback);
+    vm.setGlobalFloat(G_SP_SIDECHAIN_SHAPE, (double) spSidechainShape);
+    vm.setGlobalFloat(G_SP_STUTTER_RATE, (double) spStutterRate);
+    vm.setGlobalFloat(G_SP_SAMPLE_RATE_REDUCTION, (double) spSampleRateReduction);
+    vm.setGlobalFloat(G_SP_BITCRUSH, (double) spBitCrush);
+    vm.setGlobalFloat(G_SP_MOD_FX_RATE, (double) spModFxRate);
+    vm.setGlobalFloat(G_SP_MOD_FX_DEPTH, (double) spModFxDepth);
+    vm.setGlobalFloat(G_SP_MOD_FX_OFFSET, (double) spModFxOffset);
+    vm.setGlobalFloat(G_SP_MOD_FX_FEEDBACK, (double) spModFxFeedback);
+    vm.setGlobalFloat(G_SP_COMPRESSOR_THRESHOLD, (double) spCompressorThreshold);
+    vm.setGlobalFloat(G_SP_LPF_MORPH, (double) spLpfMorph);
+    vm.setGlobalFloat(G_SP_HPF_MORPH, (double) spHpfMorph);
+    vm.setGlobalFloat(G_SP_LPF_FREQ, (double) spLpfFrequency);
+    vm.setGlobalFloat(G_SP_LPF_RES, (double) spLpfResonance);
+    vm.setGlobalFloat(G_SP_HPF_FREQ, (double) spHpfFrequency);
+    vm.setGlobalFloat(G_SP_HPF_RES, (double) spHpfResonance);
+    vm.setGlobalFloat(G_SP_EQ_BASS, (double) spEqBass);
+    vm.setGlobalFloat(G_SP_EQ_TREBLE, (double) spEqTreble);
+    vm.setGlobalFloat(G_SP_EQ_BASS_FREQ, (double) spEqBassFrequency);
+    vm.setGlobalFloat(G_SP_EQ_TREBLE_FREQ, (double) spEqTrebleFrequency);
+
+    // ── Scales / mode notes ──
+    vm.setGlobalInt(G_USER_SCALE, (long) userScale);
+    vm.setGlobalInt(G_DISABLED_PRESET_SCALES, (long) disabledPresetScales);
+    for (int i = 0; i < 12; i++) {
+      vm.setGlobalInt(G_MODE_NOTES + "_" + i, (long) modeNotes[i]);
+    }
   }
 
   public ChuckVM getVm() { return vm; }
@@ -861,6 +1041,11 @@ public final class BridgeContract {
     if (vm != null) vm.setGlobalFloat(G_MASTER_VOL, val);
   }
   public double getMasterVol() { return masterVol; }
+  public void setMasterPan(double val) {
+    this.masterPan = (float) val;
+    if (vm != null) vm.setGlobalFloat(G_MASTER_PAN, val);
+  }
+  public double getMasterPan() { return masterPan; }
   public void setDelayParams(double time, double fb) {
     this.delayTime = (float) time;
     this.delayFb = (float) fb;
@@ -881,6 +1066,213 @@ public final class BridgeContract {
   }
   public double getReverbRoom() { return reverbRoom; }
   public double getReverbDamp() { return reverbDamp; }
+
+  // ── Extended reverb setters ───────────────────────────────
+  public void setReverbWidth(double v) {
+    this.reverbWidth = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_REVERB_WIDTH, v);
+  }
+  public double getReverbWidth() { return reverbWidth; }
+  public void setReverbHpf(double v) {
+    this.reverbHpf = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_REVERB_HPF, v);
+  }
+  public double getReverbHpf() { return reverbHpf; }
+  public void setReverbPan2(double v) {
+    this.reverbPan = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_REVERB_PAN, v);
+  }
+  public double getReverbPan2() { return reverbPan; }
+  public void setReverbModel(int v) {
+    this.reverbModel = v;
+    if (vm != null) vm.setGlobalInt(G_REVERB_MODEL, (long) v);
+  }
+  public int getReverbModel() { return reverbModel; }
+  public void setReverbCompAttack(double v) {
+    this.reverbCompAttack = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_REVERB_COMP_ATTACK, v);
+  }
+  public double getReverbCompAttack() { return reverbCompAttack; }
+  public void setReverbCompRelease(double v) {
+    this.reverbCompRelease = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_REVERB_COMP_RELEASE, v);
+  }
+  public double getReverbCompRelease() { return reverbCompRelease; }
+  public void setReverbCompSyncLevel(int v) {
+    this.reverbCompSyncLevel = v;
+    if (vm != null) vm.setGlobalInt(G_REVERB_COMP_SYNC_LEVEL, (long) v);
+  }
+  public int getReverbCompSyncLevel() { return reverbCompSyncLevel; }
+  public void setReverbCompHpf(double v) {
+    this.reverbCompHpf = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_REVERB_COMP_HPF, v);
+  }
+  public double getReverbCompHpf() { return reverbCompHpf; }
+  public void setReverbCompBlend(double v) {
+    this.reverbCompBlend = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_REVERB_COMP_BLEND, v);
+  }
+  public double getReverbCompBlend() { return reverbCompBlend; }
+
+  // ── Extended delay setters ────────────────────────────────
+  public void setDelayPingPong(int v) {
+    this.delayPingPong = v;
+    if (vm != null) vm.setGlobalInt(G_DELAY_PINGPONG, (long) v);
+  }
+  public int getDelayPingPong() { return delayPingPong; }
+  public void setDelayAnalog(int v) {
+    this.delayAnalog = v;
+    if (vm != null) vm.setGlobalInt(G_DELAY_ANALOG, (long) v);
+  }
+  public int getDelayAnalog() { return delayAnalog; }
+  public void setDelaySyncLevel(int v) {
+    this.delaySyncLevel = v;
+    if (vm != null) vm.setGlobalInt(G_DELAY_SYNC_LEVEL, (long) v);
+  }
+  public int getDelaySyncLevel() { return delaySyncLevel; }
+  public void setDelaySyncType(int v) {
+    this.delaySyncType = v;
+    if (vm != null) vm.setGlobalInt(G_DELAY_SYNC_TYPE, (long) v);
+  }
+  public int getDelaySyncType() { return delaySyncType; }
+
+  // ── Sidechain setters ──────────────────────────────────────
+  public void setSidechainAttack(double v) {
+    this.sidechainAttack = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_SIDECHAIN_ATTACK, v);
+  }
+  public double getSidechainAttack() { return sidechainAttack; }
+  public void setSidechainRelease(double v) {
+    this.sidechainRelease = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_SIDECHAIN_RELEASE, v);
+  }
+  public double getSidechainRelease() { return sidechainRelease; }
+  public void setSidechainSyncLevel(int v) {
+    this.sidechainSyncLevel = v;
+    if (vm != null) vm.setGlobalInt(G_SIDECHAIN_SYNC_LEVEL, (long) v);
+  }
+  public int getSidechainSyncLevel() { return sidechainSyncLevel; }
+  public void setSidechainSyncType(int v) {
+    this.sidechainSyncType = v;
+    if (vm != null) vm.setGlobalInt(G_SIDECHAIN_SYNC_TYPE, (long) v);
+  }
+  public int getSidechainSyncType() { return sidechainSyncType; }
+
+  // ── Master compressor setters ──────────────────────────────
+  public void setMasterCompAttack(double v) {
+    this.masterCompAttack = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_MASTER_COMP_ATTACK, v);
+  }
+  public double getMasterCompAttack() { return masterCompAttack; }
+  public void setMasterCompRelease(double v) {
+    this.masterCompRelease = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_MASTER_COMP_RELEASE, v);
+  }
+  public double getMasterCompRelease() { return masterCompRelease; }
+  public void setMasterCompRatio(double v) {
+    this.masterCompRatio = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_MASTER_COMP_RATIO, v);
+  }
+  public double getMasterCompRatio() { return masterCompRatio; }
+
+  // ── Transpose / humanize ───────────────────────────────────
+  public void setTranspose(int v) {
+    this.transpose = v;
+    if (vm != null) vm.setGlobalInt(G_TRANSPOSE, (long) v);
+  }
+  public int getTranspose() { return transpose; }
+  public void setHumanize(double v) {
+    this.humanize = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_HUMANIZE, v);
+  }
+  public double getHumanize() { return humanize; }
+
+  // ── SongParams setters ─────────────────────────────────────
+  public void setSpVolume(double v) { this.spVolume = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_VOLUME, v); }
+  public double getSpVolume() { return spVolume; }
+  public void setSpPan(double v) { this.spPan = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_PAN, v); }
+  public double getSpPan() { return spPan; }
+  public void setSpReverbAmount(double v) { this.spReverbAmount = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_REVERB_AMOUNT, v); }
+  public double getSpReverbAmount() { return spReverbAmount; }
+  public void setSpDelayRate(double v) { this.spDelayRate = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_DELAY_RATE, v); }
+  public double getSpDelayRate() { return spDelayRate; }
+  public void setSpDelayFeedback(double v) { this.spDelayFeedback = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_DELAY_FEEDBACK, v); }
+  public double getSpDelayFeedback() { return spDelayFeedback; }
+  public void setSpSidechainShape(double v) { this.spSidechainShape = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_SIDECHAIN_SHAPE, v); }
+  public double getSpSidechainShape() { return spSidechainShape; }
+  public void setSpStutterRate(double v) { this.spStutterRate = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_STUTTER_RATE, v); }
+  public double getSpStutterRate() { return spStutterRate; }
+  public void setSpSampleRateReduction(double v) { this.spSampleRateReduction = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_SAMPLE_RATE_REDUCTION, v); }
+  public double getSpSampleRateReduction() { return spSampleRateReduction; }
+  public void setSpBitCrush(double v) { this.spBitCrush = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_BITCRUSH, v); }
+  public double getSpBitCrush() { return spBitCrush; }
+  public void setSpModFxRate(double v) { this.spModFxRate = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_MOD_FX_RATE, v); }
+  public double getSpModFxRate() { return spModFxRate; }
+  public void setSpModFxDepth(double v) { this.spModFxDepth = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_MOD_FX_DEPTH, v); }
+  public double getSpModFxDepth() { return spModFxDepth; }
+  public void setSpModFxOffset(double v) { this.spModFxOffset = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_MOD_FX_OFFSET, v); }
+  public double getSpModFxOffset() { return spModFxOffset; }
+  public void setSpModFxFeedback(double v) { this.spModFxFeedback = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_MOD_FX_FEEDBACK, v); }
+  public double getSpModFxFeedback() { return spModFxFeedback; }
+  public void setSpCompressorThreshold(double v) { this.spCompressorThreshold = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_COMPRESSOR_THRESHOLD, v); }
+  public double getSpCompressorThreshold() { return spCompressorThreshold; }
+  public void setSpLpfMorph(double v) { this.spLpfMorph = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_LPF_MORPH, v); }
+  public double getSpLpfMorph() { return spLpfMorph; }
+  public void setSpHpfMorph(double v) { this.spHpfMorph = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_HPF_MORPH, v); }
+  public double getSpHpfMorph() { return spHpfMorph; }
+  public void setSpLpfFrequency(double v) { this.spLpfFrequency = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_LPF_FREQ, v); }
+  public double getSpLpfFrequency() { return spLpfFrequency; }
+  public void setSpLpfResonance(double v) { this.spLpfResonance = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_LPF_RES, v); }
+  public double getSpLpfResonance() { return spLpfResonance; }
+  public void setSpHpfFrequency(double v) { this.spHpfFrequency = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_HPF_FREQ, v); }
+  public double getSpHpfFrequency() { return spHpfFrequency; }
+  public void setSpHpfResonance(double v) { this.spHpfResonance = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_HPF_RES, v); }
+  public double getSpHpfResonance() { return spHpfResonance; }
+  public void setSpEqBass(double v) { this.spEqBass = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_EQ_BASS, v); }
+  public double getSpEqBass() { return spEqBass; }
+  public void setSpEqTreble(double v) { this.spEqTreble = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_EQ_TREBLE, v); }
+  public double getSpEqTreble() { return spEqTreble; }
+  public void setSpEqBassFrequency(double v) { this.spEqBassFrequency = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_EQ_BASS_FREQ, v); }
+  public double getSpEqBassFrequency() { return spEqBassFrequency; }
+  public void setSpEqTrebleFrequency(double v) { this.spEqTrebleFrequency = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_EQ_TREBLE_FREQ, v); }
+  public double getSpEqTrebleFrequency() { return spEqTrebleFrequency; }
+
+  // ── Scales setters ──────────────────────────────────────────
+  public void setUserScale(int v) {
+    this.userScale = v;
+    if (vm != null) vm.setGlobalInt(G_USER_SCALE, (long) v);
+  }
+  public int getUserScale() { return userScale; }
+  public void setDisabledPresetScales(int v) {
+    this.disabledPresetScales = v;
+    if (vm != null) vm.setGlobalInt(G_DISABLED_PRESET_SCALES, (long) v);
+  }
+  public int getDisabledPresetScales() { return disabledPresetScales; }
+  public void setModeNote(int semitone, boolean enabled) {
+    if (semitone >= 0 && semitone < 12) {
+      this.modeNotes[semitone] = enabled ? 1 : 0;
+      if (vm != null) vm.setGlobalInt(G_MODE_NOTES + "_" + semitone, enabled ? 1L : 0L);
+    }
+  }
+  public int getModeNote(int semitone) {
+    if (semitone >= 0 && semitone < 12) return modeNotes[semitone];
+    return 0;
+  }
+  public void setAllModeNotes(boolean[] notes) {
+    if (notes == null || notes.length < 12) return;
+    for (int i = 0; i < 12; i++) {
+      this.modeNotes[i] = notes[i] ? 1 : 0;
+      if (vm != null) vm.setGlobalInt(G_MODE_NOTES + "_" + i, notes[i] ? 1L : 0L);
+    }
+  }
+  public int[] getModeNotesRaw() { return modeNotes; }
+  public void setModeNotesRaw(int[] notes) {
+    if (notes == null || notes.length < 12) return;
+    for (int i = 0; i < 12; i++) {
+      this.modeNotes[i] = notes[i];
+      if (vm != null) vm.setGlobalInt(G_MODE_NOTES + "_" + i, (long) notes[i]);
+    }
+  }
   // ── Extended per-track synth accessors ───────────────────
 
   public void setOscMix(int track, float v) { synth.oscMix[track] = v; }
@@ -1173,4 +1565,46 @@ public final class BridgeContract {
   public float getDelaySend(int t) { return track.delaySend[t]; }
   public void setReverbSend(int t, float v) { track.reverbSend[t] = v; }
   public float getReverbSend(int t) { return track.reverbSend[t]; }
+
+  // ── Raw array accessors for tests ────────────────────────────────────
+
+  // SynthData
+  public float[] getPanRaw() { return synth.panArr; }
+  public int[] getOsc2TypeRaw() { return synth.osc2Type; }
+  public float[] getMod1FbRaw() { return synth.mod1Fb; }
+  public float[] getMod2AmtRaw() { return synth.mod2Amt; }
+  public float[] getMod2FbRaw() { return synth.mod2Fb; }
+  public float[] getCarrier2FbRaw() { return synth.carrier2Fb; }
+  public float[] getOscMixRaw() { return synth.oscMix; }
+  public float[] getNoiseVolRaw() { return synth.noiseVol; }
+  public int[] getUnisonNumRaw() { return synth.unisonNum; }
+  public float[] getUnisonDetuneRaw() { return synth.unisonDetune; }
+  public int[] getModFxTypeRaw() { return synth.modFxType; }
+  public float[] getModFxRateRaw() { return synth.modFxRate; }
+  public float[] getModFxDepthRaw() { return synth.modFxDepth; }
+  public float[] getModFxFeedbackRaw() { return synth.modFxFeedback; }
+  public float[] getPortamentoRaw() { return synth.portamento; }
+  public float[] getEqBassRaw() { return synth.eqBass; }
+  public float[] getEqTrebleRaw() { return synth.eqTreble; }
+  public float[] getStutterRateRaw() { return synth.stutterRateArr; }
+  public float[] getSampleRateRedRaw() { return synth.sampleRateReductionArr; }
+  public float[] getBitCrushRaw() { return synth.bitCrushArr; }
+  public float[] getCompAttackRaw() { return synth.compressorAttackArr; }
+  public float[] getCompReleaseRaw() { return synth.compressorReleaseArr; }
+
+  // KitData
+  public float[] getKitVolumeRaw() { return kit.kitVolume; }
+  public float[] getKitPanRaw() { return kit.kitPan; }
+  public float[] getKitHpfFreqRaw() { return kit.kitHpfFreq; }
+  public float[] getKitHpfResRaw() { return kit.kitHpfRes; }
+  public float[] getKitNoiseVolRaw() { return kit.kitNoiseVol; }
+  public float[] getKitEqBassRaw() { return kit.kitEqBass; }
+  public float[] getKitEqTrebleRaw() { return kit.kitEqTreble; }
+  public float[] getKitSidechainRaw() { return kit.kitSidechain; }
+  public int[] getKitModFxTypeRaw() { return kit.kitModFxType; }
+  public float[] getKitStutterRateRaw() { return kit.kitStutterRate; }
+  public float[] getKitSampleRateRedRaw() { return kit.kitSampleRateRed; }
+  public float[] getKitBitCrushRaw() { return kit.kitBitCrush; }
+  public float[] getKitCompAttackRaw() { return kit.kitCompressorAttackArr; }
+  public float[] getKitCompReleaseRaw() { return kit.kitCompressorReleaseArr; }
 }
