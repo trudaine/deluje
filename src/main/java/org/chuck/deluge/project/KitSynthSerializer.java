@@ -56,6 +56,7 @@ public class KitSynthSerializer {
       appendTextChild(doc, zone, "startMilliseconds", String.valueOf((int) sound.getStartMs()));
       appendTextChild(doc, zone, "endMilliseconds", String.valueOf((int) Math.max(sound.getEndMs(), 1)));
       osc1.appendChild(zone);
+      appendTextChild(doc, osc1, "retrigPhase", String.valueOf(sound.getRetrigPhase()));
       soundElem.appendChild(osc1);
 
       // ── osc2 (always present, often empty) ──
@@ -68,6 +69,7 @@ public class KitSynthSerializer {
       appendTextChild(doc, osc2, "timeStretchEnable", "0");
       appendTextChild(doc, osc2, "timeStretchAmount", "0");
       appendTextChild(doc, osc2, "fileName", "");
+      appendTextChild(doc, osc2, "retrigPhase", String.valueOf(sound.getRetrigPhase()));
       Element zone2 = doc.createElement("zone");
       appendTextChild(doc, zone2, "startMilliseconds", "0");
       appendTextChild(doc, zone2, "endMilliseconds", "9999999");
@@ -128,6 +130,17 @@ public class KitSynthSerializer {
       };
       appendTextChild(doc, soundElem, "lpfMode", lpfModeStr);
 
+      // ── hpfMode ──
+      String hpfModeStr = switch (sound.getHpfMode()) {
+        case LADDER_24 -> "24dB";
+        case SVF -> "SVF";
+        case DRIVE -> "DRIVE";
+        case SVF_BAND -> "SVF Band";
+        case SVF_NOTCH -> "SVF Notch";
+        default -> "12dB";
+      };
+      appendTextChild(doc, soundElem, "hpfMode", hpfModeStr);
+
       // ── modFXType ──
       String mfx = sound.getModFxType() != null ? sound.getModFxType().toLowerCase() : "none";
       appendTextChild(doc, soundElem, "modFXType", mfx);
@@ -148,6 +161,7 @@ public class KitSynthSerializer {
       appendHexChild(doc, dp, "lpfResonance", sound.getLpfRes());
       appendHexFreq(doc, dp, "hpfFrequency", sound.getHpfFreq());
       appendHexChild(doc, dp, "hpfResonance", sound.getHpfRes());
+      appendHexChild(doc, dp, "hpfMorph", sound.getHpfMorph());
       appendHexChild(doc, dp, "modFXRate", 0f);
       appendHexChild(doc, dp, "modFXDepth", 0f);
       appendHexChild(doc, dp, "modFXOffset", 0f);
@@ -239,7 +253,7 @@ public class KitSynthSerializer {
     appendTextChild(doc, osc1, "type", synth.getOsc1Type().toLowerCase());
     appendTextChild(doc, osc1, "transpose", "0");
     appendTextChild(doc, osc1, "cents", "0");
-    appendTextChild(doc, osc1, "retrigPhase", "-1");
+    appendTextChild(doc, osc1, "retrigPhase", String.valueOf(synth.getRetrigPhase()));
     if (synth.getDx7Patch() != null && !synth.getDx7Patch().isEmpty()) {
       osc1.setAttribute("dx7patch", synth.getDx7Patch());
     }
@@ -250,7 +264,7 @@ public class KitSynthSerializer {
     appendTextChild(doc, osc2, "type", synth.getOsc2Type().toLowerCase());
     appendTextChild(doc, osc2, "transpose", "0");
     appendTextChild(doc, osc2, "cents", "0");
-    appendTextChild(doc, osc2, "retrigPhase", "-1");
+    appendTextChild(doc, osc2, "retrigPhase", String.valueOf(synth.getRetrigPhase()));
     root.appendChild(osc2);
 
     // ── polyphonic ──
@@ -314,6 +328,17 @@ public class KitSynthSerializer {
     };
     appendTextChild(doc, root, "lpfMode", lpfModeStr);
 
+    // ── hpfMode ──
+    String hpfModeSynthStr = switch (synth.getHpfMode()) {
+      case LADDER_24 -> "24dB";
+      case SVF -> "SVF";
+      case DRIVE -> "DRIVE";
+      case SVF_BAND -> "SVF Band";
+      case SVF_NOTCH -> "SVF Notch";
+      default -> "12dB";
+    };
+    appendTextChild(doc, root, "hpfMode", hpfModeSynthStr);
+
     // ── modFXType ──
     String mfx = synth.getModFxType() != null ? synth.getModFxType().toLowerCase() : "none";
     appendTextChild(doc, root, "modFXType", mfx);
@@ -346,6 +371,7 @@ public class KitSynthSerializer {
     appendHexChild(doc, dp, "lpfResonance", synth.getLpfRes());
     appendHexFreq(doc, dp, "hpfFrequency", synth.getHpfFreq());
     appendHexChild(doc, dp, "hpfResonance", synth.getHpfRes());
+    appendHexChild(doc, dp, "hpfMorph", synth.getHpfMorph());
 
     // FM params
     appendHexChild(doc, dp, "modulator1Amount", synth.getFmAmount());

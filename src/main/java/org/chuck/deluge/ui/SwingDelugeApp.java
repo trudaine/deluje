@@ -156,8 +156,11 @@ public class SwingDelugeApp extends JFrame {
               bridge.setKitOsc2Type(engineRow, oscTypeOrdinal(snd.getOsc2Type()));
               bridge.setKitUnisonNum(engineRow, snd.getUnisonNum());
               bridge.setKitUnisonDetune(engineRow, snd.getUnisonDetune());
+              bridge.setKitUnisonSpread(engineRow, snd.getUnisonStereoSpread());
               bridge.setKitCompAttack(engineRow, snd.getCompressorAttack());
               bridge.setKitCompRelease(engineRow, snd.getCompressorRelease());
+              bridge.setKitCompBlend(engineRow, snd.getCompressorBlend());
+              bridge.setKitCompSidechainHpf(engineRow, snd.getCompressorSidechainHpf());
               bridge.setKitDelayRate(engineRow, snd.getDelayRate());
               bridge.setKitLpfDrive(engineRow, snd.getLpfDrive());
               bridge.setKitLpfNotch(engineRow, snd.isLpfNotch() ? 1 : 0);
@@ -176,11 +179,11 @@ public class SwingDelugeApp extends JFrame {
               int lfoBase = Math.min(v * 2, BridgeContract.LFO_COUNT - 2);
               LfoModel lfo1 = snd.getLfo1();
               if (lfo1 != null && lfoBase < BridgeContract.LFO_COUNT) {
-                  bridge.setLfo(lfoBase, lfo1.rateHz(), lfo1.waveform().ordinal(), lfo1.depth());
+                  bridge.setLfo(lfoBase, lfo1.rateHz(), lfo1.waveform().ordinal(), lfo1.depth(), lfo1.syncLevel());
               }
               LfoModel lfo2 = snd.getLfo2();
               if (lfo2 != null && lfoBase + 1 < BridgeContract.LFO_COUNT) {
-                  bridge.setLfo(lfoBase + 1, lfo2.rateHz(), lfo2.waveform().ordinal(), lfo2.depth());
+                  bridge.setLfo(lfoBase + 1, lfo2.rateHz(), lfo2.waveform().ordinal(), lfo2.depth(), lfo2.syncLevel());
               }
             } catch (Exception ex) {
               System.err.println("[pushModel] kit param error at row " + engineRow + ": " + ex.getMessage());
@@ -279,12 +282,15 @@ public class SwingDelugeApp extends JFrame {
             (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_TYPE);
         org.chuck.core.ChuckArray lfoDepthArr =
             (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_DEPTH);
+        org.chuck.core.ChuckArray lfoSyncArr =
+            (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_SYNC_LEVEL);
         for (int l = 0; l < 4; l++) {
           org.chuck.deluge.model.LfoModel lfo = synth.getLfo(l);
           if (lfo != null) {
             if (lfoRateArr != null) lfoRateArr.setFloat(l, lfo.rateHz());
             if (lfoTypeArr != null) lfoTypeArr.setInt(l, (long) lfo.waveform().ordinal());
             if (lfoDepthArr != null) lfoDepthArr.setFloat(l, lfo.depth());
+            if (lfoSyncArr != null) lfoSyncArr.setInt(l, (long) lfo.syncLevel());
           }
         }
 
@@ -295,6 +301,25 @@ public class SwingDelugeApp extends JFrame {
             case "DOWN" -> 1;
             case "UP_DOWN" -> 2;
             case "RANDOM" -> 3;
+            case "WALK" -> 4;
+            default -> 0; // UP
+          };
+          int arpNoteMode = switch (arp.noteMode()) {
+            case "DOWN" -> 1;
+            case "UPDN" -> 2;
+            case "RAND" -> 3;
+            case "WLK1" -> 4;
+            case "WLK2" -> 5;
+            case "WLK3" -> 6;
+            case "PLAY" -> 7;
+            case "PATT" -> 8;
+            default -> 0; // UP
+          };
+          int arpOctaveMode = switch (arp.octaveMode()) {
+            case "DOWN" -> 1;
+            case "UPDN" -> 2;
+            case "ALT" -> 3;
+            case "RAND" -> 4;
             default -> 0; // UP
           };
           for (int v = 0; v < totalSynthRows; v++) {
@@ -302,6 +327,13 @@ public class SwingDelugeApp extends JFrame {
             bridge.setArpRate(startRow + v, arp.rate());
             bridge.setArpOctave(startRow + v, arp.octaves());
             bridge.setArpMode(startRow + v, arpMode);
+            bridge.setArpGate(startRow + v, arp.gate());
+            bridge.setArpSyncLevel(startRow + v, arp.syncLevel());
+            bridge.setArpNoteMode(startRow + v, arpNoteMode);
+            bridge.setArpOctaveMode(startRow + v, arpOctaveMode);
+            bridge.setArpStepRepeat(startRow + v, arp.stepRepeat());
+            bridge.setArpRhythm(startRow + v, arp.rhythmIndex());
+            bridge.setArpSeqLength(startRow + v, arp.seqLength());
           }
         }
 
@@ -322,6 +354,9 @@ public class SwingDelugeApp extends JFrame {
           bridge.setCarrier2Fb(startRow + v, synth.getCarrier2Feedback());
           bridge.setHpfFreq(startRow + v, synth.getHpfFreq());
           bridge.setHpfRes(startRow + v, synth.getHpfRes());
+          bridge.setHpfMorph(startRow + v, synth.getHpfMorph());
+          bridge.setHpfMode(startRow + v, synth.getHpfMode().ordinal());
+          bridge.setHpfFm(startRow + v, synth.getHpfFm());
           bridge.setPolyphony(startRow + v, synth.getPolyphony().ordinal());
         }
 
@@ -341,6 +376,7 @@ public class SwingDelugeApp extends JFrame {
         for (int v = 0; v < totalSynthRows; v++) {
           bridge.setUnisonNum(startRow + v, synth.getUnisonNum());
           bridge.setUnisonDetune(startRow + v, synth.getUnisonDetune());
+          bridge.setUnisonSpread(startRow + v, synth.getUnisonStereoSpread());
         }
         for (int v = 0; v < totalSynthRows; v++) {
           bridge.setModFxType(startRow + v, modFxTypeOrdinal(synth.getModFxType()));
@@ -363,9 +399,14 @@ public class SwingDelugeApp extends JFrame {
         for (int v = 0; v < totalSynthRows; v++) {
           bridge.setCompAttack(startRow + v, synth.getCompressorAttack());
           bridge.setCompRelease(startRow + v, synth.getCompressorRelease());
+          bridge.setCompBlend(startRow + v, synth.getCompressorBlend());
+          bridge.setCompSidechainHpf(startRow + v, synth.getCompressorSidechainHpf());
         }
         for (int v = 0; v < totalSynthRows; v++) {
           bridge.setOsc2Type(startRow + v, oscTypeOrdinal(synth.getOsc2Type()));
+        }
+        for (int v = 0; v < totalSynthRows; v++) {
+          bridge.setRetrigPhase(startRow + v, synth.getRetrigPhase());
         }
         for (int v = 0; v < totalSynthRows; v++) {
           bridge.setDelaySend(startRow + v, synth.getDelaySend());

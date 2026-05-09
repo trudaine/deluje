@@ -59,11 +59,14 @@ public class KitTrackModel extends TrackModel {
     // Unison
     private int unisonNum = 1;
     private float unisonDetune = 0.0f;
+    private float unisonStereoSpread = 0.0f;
 
     // Compressor per-sound
     private float compressorAttack = 0.0f;
     private float compressorRelease = 0.0f;
     private int compressorSyncLevel = 0;
+    private float compressorBlend = 0.0f;
+    private float compressorSidechainHpf = 0.0f;
 
     // LPF Mode
     private FilterMode lpfMode = FilterMode.LADDER_12;
@@ -77,6 +80,11 @@ public class KitTrackModel extends TrackModel {
     // HPF
     private float hpfFreq = 20.0f;
     private float hpfRes = 0.0f;
+    private float hpfMorph = 0.0f;
+    private FilterMode hpfMode = FilterMode.LADDER_12;
+
+    /** Oscillator retrigger phase. -1=FREE, 0=RESET, positive=phase offset in degrees. */
+    private int retrigPhase = 0;
 
     // Default params values
     private float volume = 0.5f;
@@ -273,6 +281,8 @@ public class KitTrackModel extends TrackModel {
     public void setUnisonNum(int v) { this.unisonNum = v; }
     public float getUnisonDetune() { return unisonDetune; }
     public void setUnisonDetune(float v) { this.unisonDetune = v; }
+    public float getUnisonStereoSpread() { return unisonStereoSpread; }
+    public void setUnisonStereoSpread(float v) { this.unisonStereoSpread = v; }
 
     public float getCompressorAttack() { return compressorAttack; }
     public void setCompressorAttack(float v) { this.compressorAttack = v; }
@@ -280,6 +290,10 @@ public class KitTrackModel extends TrackModel {
     public void setCompressorRelease(float v) { this.compressorRelease = v; }
     public int getCompressorSyncLevel() { return compressorSyncLevel; }
     public void setCompressorSyncLevel(int v) { this.compressorSyncLevel = v; }
+    public float getCompressorBlend() { return compressorBlend; }
+    public void setCompressorBlend(float v) { this.compressorBlend = Math.max(0.0f, Math.min(1.0f, v)); }
+    public float getCompressorSidechainHpf() { return compressorSidechainHpf; }
+    public void setCompressorSidechainHpf(float v) { this.compressorSidechainHpf = Math.max(0.0f, Math.min(1.0f, v)); }
 
     public FilterMode getLpfMode() { return lpfMode; }
     public void setLpfMode(FilterMode v) { this.lpfMode = v; }
@@ -297,6 +311,13 @@ public class KitTrackModel extends TrackModel {
     public void setHpfFreq(float v) { this.hpfFreq = v; }
     public float getHpfRes() { return hpfRes; }
     public void setHpfRes(float v) { this.hpfRes = v; }
+    public float getHpfMorph() { return hpfMorph; }
+    public void setHpfMorph(float v) { this.hpfMorph = v; }
+    public FilterMode getHpfMode() { return hpfMode; }
+    public void setHpfMode(FilterMode v) { this.hpfMode = v; }
+
+    public int getRetrigPhase() { return retrigPhase; }
+    public void setRetrigPhase(int v) { this.retrigPhase = v; }
 
     public float getVolume() { return volume; }
     public void setVolume(float v) { this.volume = v; }
