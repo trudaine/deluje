@@ -22,6 +22,9 @@ public class SynthTrackModel extends TrackModel {
   private float hpfFreq = 20.0f;
   private float hpfRes = 0.0f;
   private float hpfMorph = 0.0f;
+  private float filterDrive = 1.0f;
+  private boolean filterNotch = false;
+  private int filterRoute = 0; // 0=SERIES_LPF_HPF, 1=SERIES_HPF_LPF, 2=PARALLEL
 
   // Modulation arrays (per firmware correction §23)
   private final EnvelopeModel[] env = new EnvelopeModel[4];
@@ -77,9 +80,10 @@ public class SynthTrackModel extends TrackModel {
   /** Carrier 2 feedback amount (0-1). */
   private float carrier2Feedback = 0.0f;
 
-  public enum PolyphonyMode { POLY, MONO, LEGATO }
+  public enum PolyphonyMode { POLY, MONO, LEGATO, AUTO, CHOKE }
 
   private PolyphonyMode polyphony = PolyphonyMode.POLY;
+  private int maxVoiceCount = 8;
 
   /** DX7 patch hex string (312 hex chars = 156 bytes), null if not a DX7 track. */
   private String dx7patch = null;
@@ -203,6 +207,15 @@ public class SynthTrackModel extends TrackModel {
   public void setHpfMorph(float hpfMorph) {
     this.hpfMorph = hpfMorph;
   }
+
+  public float getFilterDrive() { return filterDrive; }
+  public void setFilterDrive(float filterDrive) { this.filterDrive = Math.max(0.0f, Math.min(2.0f, filterDrive)); }
+  public boolean isFilterNotch() { return filterNotch; }
+  public void setFilterNotch(boolean filterNotch) { this.filterNotch = filterNotch; }
+  public int getFilterRoute() { return filterRoute; }
+  public void setFilterRoute(int filterRoute) { this.filterRoute = filterRoute; }
+  public int getMaxVoiceCount() { return maxVoiceCount; }
+  public void setMaxVoiceCount(int maxVoiceCount) { this.maxVoiceCount = Math.max(1, Math.min(16, maxVoiceCount)); }
 
   public EnvelopeModel getEnv(int index) {
     return env[index];

@@ -136,6 +136,10 @@ public class AudioTrackModel extends TrackModel {
   private boolean recording = false;
   private boolean playing = false;
 
+  // Threshold-gated recording (0=OFF, 1=LOW, 2=MEDIUM, 3=HIGH)
+  private int thresholdMode = 0;
+  private float thresholdLevel = 0.0f;
+
   public AudioTrackModel(String name) {
     super(name, TrackType.AUDIO);
   }
@@ -151,4 +155,9 @@ public class AudioTrackModel extends TrackModel {
   public void setRecording(boolean v) { this.recording = v; }
   public boolean isPlaying() { return playing; }
   public void setPlaying(boolean v) { this.playing = v; }
+
+  public int getThresholdMode() { return thresholdMode; }
+  public void setThresholdMode(int v) { this.thresholdMode = Math.max(0, Math.min(3, v)); }
+  public float getThresholdLevel() { return thresholdLevel; }
+  public void setThresholdLevel(float v) { this.thresholdLevel = Math.max(0.0f, Math.min(1.0f, v)); }
 }
