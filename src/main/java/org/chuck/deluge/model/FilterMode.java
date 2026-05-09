@@ -1,8 +1,11 @@
 package org.chuck.deluge.model;
 
-/** The filter models available in the Deluge. */
+/** The filter models available in the Deluge (LPF and HPF). */
 public enum FilterMode {
   LADDER_12,
   LADDER_24,
-  SVF
+  SVF,
+  DRIVE,
+  SVF_BAND,
+  SVF_NOTCH
 }

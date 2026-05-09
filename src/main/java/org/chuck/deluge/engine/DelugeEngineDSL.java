@@ -97,6 +97,28 @@ public class DelugeEngineDSL implements Shred, Runnable {
     return 440.0 * Math.pow(2.0, (m - 69.0) / 12.0);
   }
 
+  /** Convert LFO sync level to rate in Hz. syncLevel 0 = free (use raw Hz), values 1+ = note divisions. */
+  private static double lfoSyncRate(int syncLevel, double bpm) {
+    if (syncLevel <= 0) return -1.0; // caller falls back to raw rate
+    // Levels 1-7: 1/1 down to 1/64. Level 3 = quarter note = BPM/60 Hz.
+    if (syncLevel <= 7) {
+      return bpm / 60.0 * Math.pow(2.0, syncLevel - 3);
+    }
+    // Levels 8-13: triplet variants (1/2T, 1/4T, 1/8T, 1/16T, 1/32T, 1/64T)
+    // Triplet notes have 1.5× the rate of the equivalent sync level (shorter period)
+    if (syncLevel <= 13) {
+      int tripBase = syncLevel - 7; // 1=1/2T, 2=1/4T, ...
+      return bpm / 60.0 * Math.pow(2.0, tripBase - 2) * 1.5;
+    }
+    // Levels 14-19: dotted variants (1/2D, 1/4D, 1/8D, 1/16D, 1/32D, 1/64D)
+    // Dotted notes have 2/3 the rate (longer period by 1.5×)
+    if (syncLevel <= 19) {
+      int dotBase = syncLevel - 13; // 1=1/2D, 2=1/4D, ...
+      return bpm / 60.0 * Math.pow(2.0, dotBase - 2) * (2.0 / 3.0);
+    }
+    return -1.0;
+  }
+
   private ChuckArray getClipArray(String baseName, int clipIdx) {
     if (clipIdx <= 0) return (ChuckArray) vm.getGlobalObject(baseName);
     String name = baseName + "_C" + clipIdx;
@@ -883,6 +905,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
       final DelugeAdsr[][][] kitEnvHolder = new DelugeAdsr[1][][];
       final SVFilter[][] kitFilHolder = new SVFilter[1][];
       final HPF[][] kitHpfHolder = new HPF[1][];
+      final Dyno[][] kitCompHolder = new Dyno[1][];
       java.util.function.Consumer<Gain> doInit = (bus) -> {
         ChuckArray tt = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
         int vc = 0;
@@ -900,11 +923,12 @@ public class DelugeEngineDSL implements Shred, Runnable {
         DelugeAdsr[][] ke = new DelugeAdsr[vc][4];
         SVFilter[] kitFil = new SVFilter[vc];
         HPF[] kitHpf = new HPF[vc];
+        Dyno[] compArr = new Dyno[vc];
         for (int i = 0; i < vc; i++) {
           k[i] = new SndBuf(); k[i].rate(0); pn[i] = new Pan2(); ds[i] = new Gain(); rs[i] = new Gain();
           ke[i][0] = new DelugeAdsr(); ke[i][1] = new DelugeAdsr(); ke[i][2] = new DelugeAdsr(); ke[i][3] = new DelugeAdsr();
-          kitFil[i] = new SVFilter(sr); kitHpf[i] = new HPF(sr);
-          k[i].chuck(kitFil[i]).chuck(kitHpf[i]).chuck(ke[i][0]).chuck(pn[i]).chuck(bus);
+          kitFil[i] = new SVFilter(sr); kitHpf[i] = new HPF(sr); compArr[i] = new Dyno(sr);
+          k[i].chuck(kitFil[i]).chuck(kitHpf[i]).chuck(ke[i][0]).chuck(pn[i]).chuck(compArr[i]).chuck(bus);
           pn[i].chuck(ds[i]).chuck((ChuckUGen) vm.getGlobalObject(BridgeContract.G_DELAY_IN));
           pn[i].chuck(rs[i]).chuck((ChuckUGen) vm.getGlobalObject(BridgeContract.G_REVERB_IN));
           ke[i][0].forceMute(); ke[i][0].set(0.001, 0, 1, 0.05);
@@ -919,7 +943,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
           System.out.println("[kit_shred] INIT kit[" + i + "]: samples=" + k[i].samples() + " rate=" + k[i].rate() + " pos=" + k[i].pos());
         }
         System.out.println("[kit_shred] INIT voiceCount=" + vc);
-        kitHolder[0] = k; panHolder[0] = pn; dSendHolder[0] = ds; rSendHolder[0] = rs; kitEnvHolder[0] = ke; kitFilHolder[0] = kitFil; kitHpfHolder[0] = kitHpf;
+        kitHolder[0] = k; panHolder[0] = pn; dSendHolder[0] = ds; rSendHolder[0] = rs; kitEnvHolder[0] = ke; kitFilHolder[0] = kitFil; kitHpfHolder[0] = kitHpf; kitCompHolder[0] = compArr;
       };
       doInit.accept(master);
       vm.print("[kit] sporking preview shred, kit.length=" + kitHolder[0].length + "\n");
@@ -944,6 +968,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
         DelugeAdsr[][] kitEnv = kitEnvHolder[0];
         SVFilter[] kitFil = kitFilHolder[0];
         HPF[] kitHpfArr = kitHpfHolder[0];
+        Dyno[] kitComp = kitCompHolder[0];
         if (vm.getGlobalInt(BridgeContract.G_PLAY) == 0) {
           lastStep = -1;
           for (int r = 0; r < kit.length; r++) { kitEnv[r][0].keyOff(); kitEnv[r][1].keyOff(); kitEnv[r][2].keyOff(); kitEnv[r][3].keyOff(); kit[r].rate(0); }
@@ -976,6 +1001,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
         ChuckArray lfoDepth = (ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_DEPTH);
         ChuckArray lfoTgt = (ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_TARGET);
         ChuckArray lfoTrk = (ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_TRACK);
+        ChuckArray lfoSync = (ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_SYNC_LEVEL);
         // Kit sound-level extended params
         ChuckArray kitVol = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_VOLUME);
         ChuckArray kitPan = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_PAN);
@@ -987,6 +1013,8 @@ public class DelugeEngineDSL implements Shred, Runnable {
         ChuckArray kitSidechain = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_SIDECHAIN);
         ChuckArray kitCompA = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_COMP_ATTACK);
         ChuckArray kitCompR = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_COMP_RELEASE);
+        ChuckArray kitCompBlend = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_COMP_BLEND);
+        ChuckArray kitCompHpf = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_COMP_SIDECHAIN_HPF);
         ChuckArray kitModFxType = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_MOD_FX_TYPE);
         ChuckArray kitStutter = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_STUTTER_RATE);
         ChuckArray kitSrr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_SAMPLE_RATE_RED);
@@ -1010,6 +1038,10 @@ public class DelugeEngineDSL implements Shred, Runnable {
           if (kitStutter != null && r < kitStutter.size()) vm.setGlobalFloat(BridgeContract.G_KIT_STUTTER_RATE + "_" + r, kitStutter.getFloat(r));
           if (kitSrr != null && r < kitSrr.size()) vm.setGlobalFloat(BridgeContract.G_KIT_SAMPLE_RATE_RED + "_" + r, kitSrr.getFloat(r));
           if (kitBc != null && r < kitBc.size()) vm.setGlobalFloat(BridgeContract.G_KIT_BITCRUSH + "_" + r, kitBc.getFloat(r));
+          if (kitCompA != null && r < kitCompA.size()) vm.setGlobalFloat(BridgeContract.G_KIT_COMP_ATTACK + "_" + r, kitCompA.getFloat(r));
+          if (kitCompR != null && r < kitCompR.size()) vm.setGlobalFloat(BridgeContract.G_KIT_COMP_RELEASE + "_" + r, kitCompR.getFloat(r));
+          if (kitCompBlend != null && r < kitCompBlend.size()) vm.setGlobalFloat(BridgeContract.G_KIT_COMP_BLEND + "_" + r, kitCompBlend.getFloat(r));
+          if (kitCompHpf != null && r < kitCompHpf.size()) vm.setGlobalFloat(BridgeContract.G_KIT_COMP_SIDECHAIN_HPF + "_" + r, kitCompHpf.getFloat(r));
           if (kitAtk != null && r < kit.length) {
             double a = kitAtk.getFloat(r);
             double d = kitDec != null ? kitDec.getFloat(r) : 0;
@@ -1034,8 +1066,12 @@ public class DelugeEngineDSL implements Shred, Runnable {
           if (trackType != null && trackType.getInt(r) != 0) continue;
           if (mute != null && mute.getInt(r) != 0) continue;
           double[] lfoVals = new double[BridgeContract.LFO_COUNT];
+          double kitBpm = vm.getGlobalFloat(BridgeContract.G_BPM);
+          if (kitBpm < 1.0) kitBpm = 120.0;
           for (int l = 0; l < BridgeContract.LFO_COUNT; l++) {
-            double rate = lfoRate != null ? lfoRate.getFloat(l) : 1.0;
+            int syncLvl = lfoSync != null ? (int) lfoSync.getInt(l) : 0;
+            double rawRate = lfoRate != null ? lfoRate.getFloat(l) : 1.0;
+            double rate = syncLvl > 0 ? lfoSyncRate(syncLvl, kitBpm) : rawRate;
             double depth = lfoDepth != null ? lfoDepth.getFloat(l) : 0.0;
             int type = lfoType != null ? (int) lfoType.getInt(l) : 0;
             if (depth == 0.0) { lfoVals[l] = 0.0; continue; }
@@ -1174,6 +1210,23 @@ public class DelugeEngineDSL implements Shred, Runnable {
             if (kitHpfF != null && r < kitHpfF.size()) kitHpfArr[r].freq(Math.max(20.0f, (float) kitHpfF.getFloat(r)));
             if (kitHpfR != null && r < kitHpfR.size()) kitHpfArr[r].Q(1.0f + Math.max(0.0f, (float) kitHpfR.getFloat(r)) * 9.0f);
           }
+          // Per-voice compressor Dyno param update (RMSFeedbackCompressor-correct formulas)
+          if (kitComp != null && r < kitComp.length && kitComp[r] != null) {
+            kitComp[r].compressor();
+            float trackVol = trkLvl != null && r < trkLvl.size() ? (float) trkLvl.getFloat(r) : 0.5f;
+            double th2 = 1.0 - 0.8 * trackVol;
+            kitComp[r].thresh((float) Math.max(0.01, Math.min(0.99, th2)));
+            float ka = kitCompA != null && r < kitCompA.size() ? (float) kitCompA.getFloat(r) : 0.0f;
+            double attackMS2 = 0.5 + (Math.exp(2.0 * ka) - 1.0) * 10.0;
+            kitComp[r].attackTime(attackMS2 * sr / 1000.0);
+            float kr = kitCompR != null && r < kitCompR.size() ? (float) kitCompR.getFloat(r) : 0.0f;
+            double releaseMS2 = 50.0 + (Math.exp(2.0 * kr) - 1.0) * 50.0;
+            kitComp[r].releaseTime(releaseMS2 * sr / 1000.0);
+            float kRatio = 0.33f;
+            double kfraction = 0.5 + kRatio / 2.0;
+            double kratio = 1.0 / Math.max(0.0039, 1.0 - kfraction);
+            kitComp[r].ratio((float) Math.max(2.0, Math.min(256.0, kratio)));
+          }
           kitEnv[r][0].keyOn(); kitEnv[r][1].keyOn(); kitEnv[r][2].keyOn(); kitEnv[r][3].keyOn();
           long playLen = Math.abs(endPos - startPos);
           double durSec = playLen / (sampleRate() * Math.abs(rate));
@@ -1247,34 +1300,187 @@ public class DelugeEngineDSL implements Shred, Runnable {
       ChuckArray fmRatio = (ChuckArray) vm.getGlobalObject(BridgeContract.G_FM_RATIO);
       ChuckArray synthModeArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_SYNTH_MODE);
       ChuckArray arpModeArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ARP_MODE);
+      ChuckArray arpGateArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ARP_GATE);
+      ChuckArray arpSyncArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ARP_SYNC_LEVEL);
+      ChuckArray arpNoteModeArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ARP_NOTE_MODE);
+      ChuckArray arpOctModeArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ARP_OCTAVE_MODE);
+      ChuckArray arpRepeatArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ARP_STEP_REPEAT);
+      ChuckArray arpRhythmArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ARP_RHYTHM);
+      ChuckArray arpSeqLenArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ARP_SEQ_LENGTH);
       int octaves = (octArr != null) ? (int) octArr.getInt(v) : 1;
       if (octaves < 1) octaves = 1;
       int mode = (arpModeArr != null) ? (int) arpModeArr.getInt(v) : 0;
       int synthMode = (synthModeArr != null) ? (int) synthModeArr.getInt(v) : 0;
-      int totalNotes = octaves;
-      if (mode == 2) totalNotes = octaves * 2 - 1;
-      for (int n = 0; n < totalNotes; n++) {
-        int midiNote;
-        switch (mode) {
-          case 1 -> midiNote = baseMidi + (octaves - 1 - n) * 12;
-          case 2 -> { if (n < octaves) midiNote = baseMidi + n * 12; else midiNote = baseMidi + (octaves * 2 - 2 - n) * 12; }
-          case 3 -> midiNote = baseMidi + (int) (Math.random() * octaves) * 12;
-          default -> midiNote = baseMidi + n * 12;
-        }
-        double f = outer.mtof(midiNote);
-        car.freq((float) f);
-        if (synthMode == 1) { mod.freq((float) (f * (fmRatio != null ? fmRatio.getFloat(v) : 1.0))); }
-        else { mod.gain(0.0f); }
-        env[0].gain((float) (gain * 0.8));
-        env[0].keyOn(); env[1].keyOn(); env[2].keyOn(); env[3].keyOn();
-        double rate = (rateArr != null) ? rateArr.getFloat(v) : 1.0;
-        double bpm = vm.getGlobalFloat(BridgeContract.G_BPM);
-        ChuckDuration d = second(60.0 / bpm / 4.0 / rate);
-        advance(samp(d.samples() * 0.8));
-        env[0].keyOff(); env[1].keyOff(); env[2].keyOff(); env[3].keyOff();
-        advance(samp(d.samples() * 0.2));
-        if (vm.getGlobalInt(BridgeContract.G_PLAY) == 0 || (arpOn != null && arpOn.getInt(v) == 0)) break;
+      int noteMode = (arpNoteModeArr != null) ? (int) arpNoteModeArr.getInt(v) : 0;
+      int octMode = (arpOctModeArr != null) ? (int) arpOctModeArr.getInt(v) : 0;
+      int stepRepeat = (arpRepeatArr != null) ? (int) arpRepeatArr.getInt(v) : 1;
+      int rhythmIdx = (arpRhythmArr != null) ? (int) arpRhythmArr.getInt(v) : 0;
+      int seqLen = (arpSeqLenArr != null) ? (int) arpSeqLenArr.getInt(v) : 8;
+      if (stepRepeat < 1) stepRepeat = 1;
+      if (seqLen < 1) seqLen = 1;
+
+      double bpm = vm.getGlobalFloat(BridgeContract.G_BPM);
+
+      // Determine step duration: syncLevel overrides rate
+      double rate = (rateArr != null) ? rateArr.getFloat(v) : 1.0;
+      int syncLevel = (arpSyncArr != null) ? (int) arpSyncArr.getInt(v) : 0;
+      double stepDurSec;
+      if (syncLevel > 0) {
+        // syncLevel: 1=1/1, 2=1/2, 3=1/2T, 4=1/4, 5=1/4T, 6=1/8, 7=1/8T, 8=1/16, ...
+        double baseDiv = Math.pow(2, ((syncLevel - 1) / 2));
+        boolean triplet = (syncLevel % 2 == 0); // even syncLevels are triplet
+        stepDurSec = 60.0 / bpm / 4.0 / baseDiv;
+        if (triplet) stepDurSec *= 2.0 / 3.0;
+      } else {
+        stepDurSec = 60.0 / bpm / 4.0 / rate;
       }
+
+      // Gate fraction from bridge (10%-100%)
+      double gateFrac = (arpGateArr != null) ? arpGateArr.getFloat(v) : 0.5;
+      if (gateFrac < 0.1) gateFrac = 0.1;
+      if (gateFrac > 1.0) gateFrac = 1.0;
+
+      // Pre-compute note order for the chord (always based on chord notes 0..octaves-1 per octave)
+      int chordNotes = octaves; // notes in the chord
+      int[] noteOrder;
+      switch (noteMode) {
+        case 1 -> { // DOWN
+          noteOrder = new int[chordNotes];
+          for (int i = 0; i < chordNotes; i++) noteOrder[i] = chordNotes - 1 - i;
+        }
+        case 2 -> { // UPDN
+          noteOrder = new int[Math.max(1, chordNotes * 2 - 1)];
+          for (int i = 0; i < chordNotes; i++) noteOrder[i] = i;
+          for (int i = 1; i < chordNotes; i++) noteOrder[chordNotes - 1 + i] = chordNotes - 1 - i;
+        }
+        case 3 -> { // RAND
+          noteOrder = new int[chordNotes];
+          for (int i = 0; i < chordNotes; i++) noteOrder[i] = i;
+        }
+        case 4 -> { // WLK1 — biased random walk towards one end
+          noteOrder = new int[seqLen];
+          int cur = 0;
+          for (int i = 0; i < seqLen; i++) {
+            noteOrder[i] = cur;
+            cur = Math.max(0, Math.min(chordNotes - 1, cur + (Math.random() < 0.5 ? -1 : 1)));
+          }
+        }
+        case 5 -> { // WLK2 — random walk with larger leaps
+          noteOrder = new int[seqLen];
+          int cur = 0;
+          for (int i = 0; i < seqLen; i++) {
+            noteOrder[i] = cur;
+            cur = Math.max(0, Math.min(chordNotes - 1, cur + (int)(Math.random() * 3 - 1)));
+          }
+        }
+        case 6 -> { // WLK3 — pure random within chord
+          noteOrder = new int[seqLen];
+          for (int i = 0; i < seqLen; i++) noteOrder[i] = (int)(Math.random() * chordNotes);
+        }
+        case 7 -> { // PLAY — always note 0 (no octave cycling)
+          noteOrder = new int[]{0};
+        }
+        case 8 -> { // PATT — use seqLen for pattern length, note 0 only
+          noteOrder = new int[seqLen];
+          for (int i = 0; i < seqLen; i++) noteOrder[i] = 0;
+        }
+        default -> { // UP
+          noteOrder = new int[chordNotes];
+          for (int i = 0; i < chordNotes; i++) noteOrder[i] = i;
+        }
+      }
+
+      // Octave mode — determines octave offset per step
+      int totalSteps = seqLen * stepRepeat;
+      int[] octOffsets = new int[totalSteps];
+      for (int s = 0; s < totalSteps; s++) {
+        int step = s / stepRepeat;
+        switch (octMode) {
+          case 1 -> octOffsets[s] = octaves - 1 - (step % octaves); // DOWN
+          case 2 -> { // UPDN
+            int cycle = step % (octaves * 2 - 1);
+            octOffsets[s] = (cycle < octaves) ? cycle : octaves * 2 - 2 - cycle;
+          }
+          case 3 -> octOffsets[s] = (step % 2 == 0) ? 0 : octaves - 1; // ALT — bounce extremes
+          case 4 -> octOffsets[s] = (int)(Math.random() * octaves); // RAND
+          default -> octOffsets[s] = step % octaves; // UP
+        }
+      }
+
+      // Rhythm patterns — timing offsets as fraction of step
+      float[] rhythmOffsets = getArpRhythmPattern(rhythmIdx, seqLen);
+
+      // Build sequence: each entry = (noteIndex, octaveOffset, repeatCount)
+      // noteIndex selects from noteOrder; actual midi = baseMidi + octaveOffset * 12 + chordNote * 0 + noteIndexOffset
+      int seqPos = 0;
+      for (int s = 0; s < totalSteps; s++) {
+        int noteIdx = noteOrder[s % noteOrder.length];
+        int octOffset = octOffsets[s];
+        int repeats = stepRepeat;
+
+        for (int r = 0; r < repeats; r++) {
+          int midiNote = baseMidi + octOffset * 12 + noteIdx * 12;
+          if (mode == 1) midiNote = baseMidi + octOffset * 12 + (chordNotes - 1 - noteIdx) * 12;
+          else if (mode == 4) {
+            // WALK mode — random-ish within range
+            midiNote = baseMidi + (int)(Math.random() * octaves) * 12;
+          }
+          // mode 2 (UP_DOWN) and 3 (RANDOM) handled by the existing switch above, but noteMode takes precedence
+          // Actually mode field is the old direction mode — now noteMode handles it primarily.
+          // For legacy compatibility if noteMode is UP (default) and octMode is UP (default):
+          if (noteMode == 0 && octMode == 0) {
+            switch (mode) {
+              case 1 -> midiNote = baseMidi + (octaves - 1 - noteIdx) * 12;
+              case 2 -> midiNote = baseMidi + noteIdx * 12;
+              case 3 -> midiNote = baseMidi + (int)(Math.random() * octaves) * 12;
+              default -> {}
+            }
+          }
+
+          double f = outer.mtof(midiNote);
+          car.freq((float) f);
+          if (synthMode == 1) { mod.freq((float) (f * (fmRatio != null ? fmRatio.getFloat(v) : 1.0))); }
+          else { mod.gain(0.0f); }
+
+          // Apply rhythm timing offset
+          float rhyOff = (rhythmOffsets != null && seqPos < rhythmOffsets.length) ? rhythmOffsets[seqPos % rhythmOffsets.length] : 0f;
+          if (rhyOff > 0f) {
+            advance(samp(stepDurSec * sampleRate() * rhyOff));
+          }
+
+          env[0].gain((float) (gain * 0.8));
+          env[0].keyOn(); env[1].keyOn(); env[2].keyOn(); env[3].keyOn();
+
+          ChuckDuration onDur = samp(stepDurSec * sampleRate() * gateFrac);
+          advance(onDur);
+          env[0].keyOff(); env[1].keyOff(); env[2].keyOff(); env[3].keyOff();
+
+          double restDur = stepDurSec * (1.0 - gateFrac) - stepDurSec * rhyOff;
+          if (restDur > 0) advance(samp(restDur * sampleRate()));
+
+          seqPos++;
+          if (vm.getGlobalInt(BridgeContract.G_PLAY) == 0 || (arpOn != null && arpOn.getInt(v) == 0)) return;
+        }
+      }
+    }
+
+    private float[] getArpRhythmPattern(int idx, int seqLen) {
+      // Generate rhythm pattern timing offsets (0.0-0.5 fraction of step delay before the note)
+      // 50 patterns: idx 0 = straight (all zeros), idx 1-49 = varied offsets
+      float[] p = new float[seqLen];
+      if (idx == 0) return p; // straight
+
+      // Simple deterministic patterns based on idx and step position
+      long seed = idx * 31L + 17L;
+      for (int i = 0; i < seqLen; i++) {
+        seed = seed * 1103515245L + 12345L;
+        float v = ((seed >> 16) & 0x7FFF) / (float) 0x7FFF;
+        p[i] = v * 0.5f * (idx / 50.0f);
+      }
+      if (idx == 1) { // swing-ish: offset every other
+        for (int i = 1; i < seqLen; i += 2) p[i] = 0.15f;
+      }
+      return p;
     }
 
     @Override
@@ -1296,6 +1502,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
       final Gain[][] sDsendRefHolder = new Gain[1][];
       final Gain[][] sRsendRefHolder = new Gain[1][];
       final ModFxUnit[][] modFxRefHolder = new ModFxUnit[1][];
+      final Dyno[][] compRefHolder = new Dyno[1][];
       final ChuckUGen[][] srcRefHolder = new ChuckUGen[1][];
       final Gain[][] routingMixRefHolder = new Gain[1][];
       final int[] synthBaseHolder = new int[]{0};
@@ -1327,22 +1534,23 @@ public class DelugeEngineDSL implements Shred, Runnable {
         Gain[] sDsend = new Gain[total];
         Gain[] sRsend = new Gain[total];
         ModFxUnit[] modFx = new ModFxUnit[total];
+        Dyno[] compArr = new Dyno[total];
         for (int i = 0; i < total; i++) {
           int bridgeRow = sb + i;
           int algo = algoArr != null ? (int) algoArr.getInt(bridgeRow) : 0;
           fil[i] = new SVFilter(); hpf[i] = new HPF(sr);
           env[i][0] = new DelugeAdsr(); env[i][1] = new DelugeAdsr(); env[i][2] = new DelugeAdsr(); env[i][3] = new DelugeAdsr();
-          pan[i] = new Pan2(); sDsend[i] = new Gain(); sRsend[i] = new Gain(); modFx[i] = new ModFxUnit(sr);
+          pan[i] = new Pan2(); sDsend[i] = new Gain(); sRsend[i] = new Gain(); modFx[i] = new ModFxUnit(sr); compArr[i] = new Dyno(sr);
           Gain rm = new Gain(); routingMix[i] = rm; rm.gain(1.0f);
           if (algo >= 10) {
           src[i] = outer.createStkUGen(algo, sr);
-            src[i].chuck(fil[i]).chuck(hpf[i]).chuck(rm).chuck(env[i][0]).chuck(pan[i]).chuck(modFx[i]).chuck(bus);
+            src[i].chuck(fil[i]).chuck(hpf[i]).chuck(rm).chuck(env[i][0]).chuck(pan[i]).chuck(modFx[i]).chuck(compArr[i]).chuck(bus);
           } else {
             String dx7PatchStr = (String) vm.getGlobalObject("g_dx7_patch_" + bridgeRow);
             if (dx7PatchStr != null && !dx7PatchStr.isEmpty()) {
               dx7[i] = new Dx7Engine(sr);
               dx7[i].loadPatch(org.chuck.audio.util.Dx7Patch.fromHex(dx7PatchStr));
-              dx7[i].chuck(fil[i]).chuck(hpf[i]).chuck(rm).chuck(env[i][0]).chuck(pan[i]).chuck(modFx[i]).chuck(bus);
+              dx7[i].chuck(fil[i]).chuck(hpf[i]).chuck(rm).chuck(env[i][0]).chuck(pan[i]).chuck(modFx[i]).chuck(compArr[i]).chuck(bus);
               src[i] = dx7[i];
             } else {
               car[i] = new MorphingWavetable(sr);
@@ -1350,7 +1558,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
               mod[i] = new MorphingWavetable(sr);
               mod[i].setTables(DelugeEngineDSL.WAVE_TABLES);
               mod[i].chuck(car[i]);
-              car[i].chuck(fil[i]).chuck(hpf[i]).chuck(rm).chuck(env[i][0]).chuck(pan[i]).chuck(modFx[i]).chuck(bus);
+              car[i].chuck(fil[i]).chuck(hpf[i]).chuck(rm).chuck(env[i][0]).chuck(pan[i]).chuck(modFx[i]).chuck(compArr[i]).chuck(bus);
               src[i] = car[i];
             }
           }
@@ -1366,7 +1574,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
         carRefHolder[0] = car; modRefHolder[0] = mod; dx7RefHolder[0] = dx7;
         filRefHolder[0] = fil; hpfRefHolder[0] = hpf; envRefHolder[0] = env;
         panRefHolder[0] = pan; sDsendRefHolder[0] = sDsend; sRsendRefHolder[0] = sRsend;
-        modFxRefHolder[0] = modFx; srcRefHolder[0] = src; routingMixRefHolder[0] = routingMix;
+        modFxRefHolder[0] = modFx; srcRefHolder[0] = src; routingMixRefHolder[0] = routingMix; compRefHolder[0] = compArr;
         lastFilterRoute = new int[total]; // initialize routing tracking array
       };
 
@@ -1444,6 +1652,9 @@ public class DelugeEngineDSL implements Shred, Runnable {
         ChuckArray synthModeArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_SYNTH_MODE);
         ChuckArray hpfFreqArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_HPF_FREQ);
         ChuckArray hpfResArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_HPF_RES);
+        ChuckArray hpfMorphArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_HPF_MORPH);
+        ChuckArray hpfModeArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_HPF_MODE);
+        ChuckArray hpfFmArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_HPF_FM);
         ChuckArray polyphonyArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_POLYPHONY);
         ChuckArray car1FbArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_CARRIER1_FB);
         ChuckArray sHpfFreq = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_HPF_FREQ);
@@ -1467,12 +1678,14 @@ public class DelugeEngineDSL implements Shred, Runnable {
         ChuckArray sNoiseVolDef = (ChuckArray) vm.getGlobalObject(BridgeContract.G_NOISE_VOL);
         ChuckArray sUnisonNum = (ChuckArray) vm.getGlobalObject(BridgeContract.G_UNISON_NUM);
         ChuckArray sUnisonDetune = (ChuckArray) vm.getGlobalObject(BridgeContract.G_UNISON_DETUNE);
+        ChuckArray sUnisonSpread = (ChuckArray) vm.getGlobalObject(BridgeContract.G_UNISON_SPREAD);
         ChuckArray sModFxType = (ChuckArray) vm.getGlobalObject(BridgeContract.G_MOD_FX_TYPE);
         ChuckArray sModFxRate = (ChuckArray) vm.getGlobalObject(BridgeContract.G_MOD_FX_RATE);
         ChuckArray sModFxDepth = (ChuckArray) vm.getGlobalObject(BridgeContract.G_MOD_FX_DEPTH);
         ChuckArray sModFxFeedback = (ChuckArray) vm.getGlobalObject(BridgeContract.G_MOD_FX_FEEDBACK);
         ChuckArray sModFxOffset = (ChuckArray) vm.getGlobalObject(BridgeContract.G_MOD_FX_OFFSET);
         ModFxUnit[] modFx = modFxRefHolder[0];
+        Dyno[] compArr = compRefHolder[0];
         ChuckArray sPortamento = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PORTAMENTO);
         ChuckArray sEqBass = (ChuckArray) vm.getGlobalObject(BridgeContract.G_EQ_BASS);
         ChuckArray sEqTreble = (ChuckArray) vm.getGlobalObject(BridgeContract.G_EQ_TREBLE);
@@ -1481,15 +1694,22 @@ public class DelugeEngineDSL implements Shred, Runnable {
         ChuckArray sBitCrush = (ChuckArray) vm.getGlobalObject(BridgeContract.G_BITCRUSH);
         ChuckArray sCompAttack = (ChuckArray) vm.getGlobalObject(BridgeContract.G_COMP_ATTACK);
         ChuckArray sCompRelease = (ChuckArray) vm.getGlobalObject(BridgeContract.G_COMP_RELEASE);
+        ChuckArray sCompBlend = (ChuckArray) vm.getGlobalObject(BridgeContract.G_COMP_BLEND);
+        ChuckArray sCompHpf = (ChuckArray) vm.getGlobalObject(BridgeContract.G_COMP_SIDECHAIN_HPF);
         ChuckArray maxVoicesArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_MAX_VOICES);
+        ChuckArray sLfoSync = (ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_SYNC_LEVEL);
 
+        double synthBpm = vm.getGlobalFloat(BridgeContract.G_BPM);
+        if (synthBpm < 1.0) synthBpm = 120.0;
         for (int r = synthBase; r <= maxSynthBridgeRow; r++) {
           int u = r - synthBase;
           if (trackType != null && trackType.getInt(r) != 1) continue;
           int algo = algoArrLive != null ? (int) algoArrLive.getInt(r) : 0;
           double[] lfoVals = new double[BridgeContract.LFO_COUNT];
           for (int l = 0; l < BridgeContract.LFO_COUNT; l++) {
-            double rate = lfoRate != null ? lfoRate.getFloat(l) : 1.0;
+            int syncLvl = sLfoSync != null ? (int) sLfoSync.getInt(l) : 0;
+            double rawRate = lfoRate != null ? lfoRate.getFloat(l) : 1.0;
+            double rate = syncLvl > 0 ? lfoSyncRate(syncLvl, synthBpm) : rawRate;
             double depth = lfoDepth != null ? lfoDepth.getFloat(l) : 0.0;
             int type = lfoType != null ? (int) lfoType.getInt(l) : 0;
             if (depth == 0.0) { lfoVals[l] = 0.0; continue; }
@@ -1617,11 +1837,14 @@ public class DelugeEngineDSL implements Shred, Runnable {
           float hr = hpfResArr != null ? (float) hpfResArr.getFloat(r) : 0.0f;
           if (sHpfFreq != null) hf += sHpfFreq.getFloat(idx) * 1000.0f;
           if (sHpfRes != null) hr += sHpfRes.getFloat(idx) * 9.0f;
+          // HPF FM modulation: FM param modulates cutoff via total modulation
+          float hpfFmMod = hpfFmArr != null ? (float) hpfFmArr.getFloat(r) : 0f;
+          hf += totalModF * hpfFmMod * 5000.0f;
           hpfArr[u].freq(Math.max(20.0f, hf));
           hpfArr[u].Q(1.0f + Math.max(0.0f, hr) * 9.0f);
           int fm = filterModeArr != null ? (int) filterModeArr.getInt(r) : 2;
           double fmorph = filterMorphArr != null ? filterMorphArr.getFloat(r) : 0.0;
-          fil[u].morph((fm == 2) ? fmorph : 0.0);
+          fil[u].morph(fmorph);
           float fd = filterDriveArr != null ? (float) filterDriveArr.getFloat(r) : 1.0f;
           int fn = filterNotchArr != null ? (int) filterNotchArr.getInt(r) : 0;
           fil[u].drive(fd);
@@ -1669,6 +1892,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
           if (sOscMix != null && r < sOscMix.size()) vm.setGlobalFloat(BridgeContract.G_OSC_MIX + "_" + r, sOscMix.getFloat(r));
           if (sUnisonNum != null && r < sUnisonNum.size()) vm.setGlobalFloat(BridgeContract.G_UNISON_NUM + "_" + r, sUnisonNum.getFloat(r));
           if (sUnisonDetune != null && r < sUnisonDetune.size()) vm.setGlobalFloat(BridgeContract.G_UNISON_DETUNE + "_" + r, sUnisonDetune.getFloat(r));
+          if (sUnisonSpread != null && r < sUnisonSpread.size()) vm.setGlobalFloat(BridgeContract.G_UNISON_SPREAD + "_" + r, sUnisonSpread.getFloat(r));
           if (sModFxType != null && r < sModFxType.size()) vm.setGlobalFloat(BridgeContract.G_MOD_FX_TYPE + "_" + r, sModFxType.getFloat(r));
           if (sModFxRate != null && r < sModFxRate.size()) vm.setGlobalFloat(BridgeContract.G_MOD_FX_RATE + "_" + r, sModFxRate.getFloat(r));
           if (sModFxDepth != null && r < sModFxDepth.size()) vm.setGlobalFloat(BridgeContract.G_MOD_FX_DEPTH + "_" + r, sModFxDepth.getFloat(r));
@@ -1692,6 +1916,32 @@ public class DelugeEngineDSL implements Shred, Runnable {
           }
           if (sCompAttack != null && r < sCompAttack.size()) vm.setGlobalFloat(BridgeContract.G_COMP_ATTACK + "_" + r, sCompAttack.getFloat(r));
           if (sCompRelease != null && r < sCompRelease.size()) vm.setGlobalFloat(BridgeContract.G_COMP_RELEASE + "_" + r, sCompRelease.getFloat(r));
+          if (sCompBlend != null && r < sCompBlend.size()) vm.setGlobalFloat(BridgeContract.G_COMP_BLEND + "_" + r, sCompBlend.getFloat(r));
+          if (sCompHpf != null && r < sCompHpf.size()) vm.setGlobalFloat(BridgeContract.G_COMP_SIDECHAIN_HPF + "_" + r, sCompHpf.getFloat(r));
+
+          // Per-track compressor Dyno param update (RMSFeedbackCompressor-correct formulas)
+          if (compArr != null && compArr[u] != null) {
+            compArr[u].compressor();
+            // Threshold derived from track volume: thresh = 1 - 0.8 * trackLevel
+            float trackVol = trkLvl != null && r < trkLvl.size() ? (float) trkLvl.getFloat(r) : 0.5f;
+            double th = 1.0 - 0.8 * trackVol;
+            compArr[u].thresh((float) Math.max(0.01, Math.min(0.99, th)));
+            // Attack: attackMS = 0.5 + (exp(2*knob) - 1) * 10
+            float compAttack = sCompAttack != null && r < sCompAttack.size() ? (float) sCompAttack.getFloat(r) : 0.0f;
+            double attackMS = 0.5 + (Math.exp(2.0 * compAttack) - 1.0) * 10.0;
+            compArr[u].attackTime(attackMS * sr / 1000.0);
+            // Release: releaseMS = 50 + (exp(2*knob) - 1) * 50
+            float compRelease = sCompRelease != null && r < sCompRelease.size() ? (float) sCompRelease.getFloat(r) : 0.0f;
+            double releaseMS = 50.0 + (Math.exp(2.0 * compRelease) - 1.0) * 50.0;
+            compArr[u].releaseTime(releaseMS * sr / 1000.0);
+            // Ratio: fraction = 0.5 + knob/2, ratio = 1/(1-fraction) → range 2..256
+            // Default 4:1 → fraction=0.5/0.75 = 0.666, knob=0 → fraction=0.5, ratio=2
+            // Without per-track ratio array, use fixed knob=0.33 → fraction=0.665 → ratio≈3:1
+            float compRatio = 0.33f; // default ~3:1
+            double fraction = 0.5 + compRatio / 2.0;
+            double ratio = 1.0 / Math.max(0.0039, 1.0 - fraction);
+            compArr[u].ratio((float) Math.max(2.0, Math.min(256.0, ratio)));
+          }
 
           // Per-track ModFxUnit param update (every step for live modulation)
           if (modFx != null && modFx[u] != null) {
@@ -1817,6 +2067,17 @@ public class DelugeEngineDSL implements Shred, Runnable {
               if (car[u] != null) { car[u].freq((float) f); car[u].gain(oscAGain); }
               if (mod[u] != null) mod[u].gain(0.0f);
             }
+            // ── Oscillator retrigger phase reset ──
+            Object retrigObj = vm.getGlobalObject(BridgeContract.G_RETRIG_PHASE);
+            if (retrigObj instanceof ChuckArray retrigArr && r < retrigArr.size()) {
+              int rp = (int) retrigArr.getInt(r);
+              if (rp != -1) {
+                double phaseVal = rp == 0 ? 0.0 : rp / 360.0; // 0→reset to 0, 90→0.25, 180→0.5, 270→0.75
+                if (car[u] != null) car[u].phase(phaseVal);
+                if (mod[u] != null && synthMode == 1) mod[u].phase(phaseVal); // FM mode: reset modulator too
+              }
+            }
+
             env[u][0].gain((float) gainVal); env[u][0].keyOn(); env[u][1].keyOn(); env[u][2].keyOn(); env[u][3].keyOn();
             double noteSec = gateSec;
             if (vm.getLogLevel() >= 2) vm.print("SYNTH trigger track: " + r + " step: " + (idx % BridgeContract.STEPS) + "\n");

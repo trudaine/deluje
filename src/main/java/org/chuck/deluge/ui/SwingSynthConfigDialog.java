@@ -104,6 +104,38 @@ public class SwingSynthConfigDialog extends JDialog {
     osc2Combo.addActionListener(e -> model.setOsc2Type((String) osc2Combo.getSelectedItem()));
     panel.add(osc2Combo, c); row++;
 
+    // Retrigger Phase
+    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
+    JLabel retrigLbl = label("Retrig:");
+    retrigLbl.setToolTipText("Oscillator retrigger phase on note-on: FREE (no reset), RESET (phase=0), PHASE 90-270°");
+    panel.add(retrigLbl, c);
+    c.gridx = 1; c.gridwidth = 2;
+    String[] RETRIG_OPTIONS = {"FREE", "RESET", "90°", "180°", "270°"};
+    JComboBox<String> retrigCombo = new JComboBox<>(RETRIG_OPTIONS);
+    int retrigIdx = switch (model.getRetrigPhase()) {
+      case -1 -> 0;
+      case 0  -> 1;
+      case 90 -> 2;
+      case 180 -> 3;
+      case 270 -> 4;
+      default -> 1;
+    };
+    retrigCombo.setSelectedIndex(retrigIdx);
+    retrigCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    retrigCombo.setForeground(Color.WHITE);
+    retrigCombo.addActionListener(e -> {
+      int val = switch (retrigCombo.getSelectedIndex()) {
+        case 0 -> -1;
+        case 1 -> 0;
+        case 2 -> 90;
+        case 3 -> 180;
+        case 4 -> 270;
+        default -> 0;
+      };
+      model.setRetrigPhase(val);
+    });
+    panel.add(retrigCombo, c); row++;
+
     // ── Synth Mode ──
     c.gridx = 0; c.gridy = row; c.gridwidth = 3;
     panel.add(sectionLabel("SYNTH MODE"), c); row++;
@@ -163,6 +195,36 @@ public class SwingSynthConfigDialog extends JDialog {
     });
     panel.add(vcntSpinner, c); row++;
 
+    // ── Unison ──
+    c.gridx = 0; c.gridy = row; c.gridwidth = 3;
+    panel.add(sectionLabel("UNISON"), c); row++;
+
+    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
+    JLabel unisonNumLbl = label("Voices:");
+    unisonNumLbl.setToolTipText("Number of unison voices (1-8)");
+    panel.add(unisonNumLbl, c);
+    c.gridx = 1; c.gridwidth = 2;
+    JComboBox<Integer> unisonNumCombo = new JComboBox<>(new Integer[]{1, 2, 3, 4, 5, 6, 7, 8});
+    unisonNumCombo.setSelectedItem(model.getUnisonNum());
+    unisonNumCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    unisonNumCombo.setForeground(Color.WHITE);
+    unisonNumCombo.addActionListener(e -> {
+      int v = (Integer) unisonNumCombo.getSelectedItem();
+      model.setUnisonNum(v);
+      bridge.setUnisonNum(trackIndex, v);
+    });
+    panel.add(unisonNumCombo, c); row++;
+
+    row = addSlider(panel, c, row, "Detune:",
+        "Unison detune in cents (0-50). Higher values = wider, chorus-ier sound.",
+        0, 500, (int)(model.getUnisonDetune() * 100),
+        val -> { model.setUnisonDetune(val / 100.0f); bridge.setUnisonDetune(trackIndex, val / 100.0f); }, "cts");
+
+    row = addSlider(panel, c, row, "Spread:",
+        "Unison stereo spread (0-50). Distributes voices across stereo field.",
+        0, 500, (int)(model.getUnisonStereoSpread() * 100),
+        val -> { model.setUnisonStereoSpread(val / 100.0f); bridge.setUnisonSpread(trackIndex, val / 100.0f); }, "");
+
     // ── Arpeggiator ──
     c.gridx = 0; c.gridy = row; c.gridwidth = 3;
     panel.add(sectionLabel("ARPEGGIATOR"), c); row++;
@@ -179,22 +241,88 @@ public class SwingSynthConfigDialog extends JDialog {
     arpBox.addActionListener(e -> bridge.setArpOn(trackIndex, arpBox.isSelected()));
     panel.add(arpBox, c); row++;
 
+    // Arp Mode
+    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
+    panel.add(label("Mode:"), c);
+    c.gridx = 1; c.gridwidth = 2;
+    String[] arpModes = {"UP", "DOWN", "UP_DOWN", "RANDOM", "WALK"};
+    JComboBox<String> arpModeBox = new JComboBox<>(arpModes);
+    arpModeBox.setSelectedIndex(bridge.getArpMode(trackIndex));
+    arpModeBox.setBackground(new Color(0x33, 0x33, 0x33));
+    arpModeBox.setToolTipText("Arpeggiator note sequence direction");
+    int idx = trackIndex;
+    arpModeBox.addActionListener(e -> bridge.setArpMode(idx, arpModeBox.getSelectedIndex()));
+    panel.add(arpModeBox, c); row++;
+
     row = addSlider(panel, c, row, "Rate (×):",
         "Arpeggiator speed multiplier (0.25× to 4.00×)",
         25, 400, (int)(bridge.getArpRate(trackIndex) * 100),
-        val -> bridge.setArpRate(trackIndex, val / 100.0), "×0.01");
+        val -> bridge.setArpRate(idx, val / 100.0), "×0.01");
+
+    row = addSlider(panel, c, row, "Gate:",
+        "Note-on duration as percentage of step (10%-100%)",
+        10, 100, (int)(bridge.getArpGate(trackIndex) * 100),
+        val -> bridge.setArpGate(idx, val / 100.0), "%");
 
     c.gridx = 0; c.gridy = row; c.gridwidth = 1;
-    JLabel octLbl = label("Octaves:");
-    octLbl.setToolTipText("Number of octaves the arpeggiator spans (1–4)");
-    panel.add(octLbl, c);
+    panel.add(label("Sync:"), c);
+    c.gridx = 1; c.gridwidth = 2;
+    String[] syncRates = {"OFF", "1/1", "1/2", "1/2T", "1/4", "1/4T", "1/8", "1/8T", "1/16", "1/16T", "1/32", "1/32T", "1/64"};
+    JComboBox<String> syncCombo = new JComboBox<>(syncRates);
+    syncCombo.setSelectedIndex(bridge.getArpSyncLevel(trackIndex));
+    syncCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    syncCombo.setToolTipText("Sync arpeggiator rate to note division (overrides Rate slider)");
+    syncCombo.addActionListener(e -> bridge.setArpSyncLevel(idx, syncCombo.getSelectedIndex()));
+    panel.add(syncCombo, c); row++;
+
+    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
+    panel.add(label("Octaves:"), c);
     c.gridx = 1; c.gridwidth = 2;
     JComboBox<Integer> octCombo = new JComboBox<>(new Integer[]{1, 2, 3, 4});
     octCombo.setSelectedItem(bridge.getArpOctave(trackIndex));
     octCombo.setBackground(new Color(0x33, 0x33, 0x33));
     octCombo.setToolTipText("Number of octaves the arpeggiator spans");
-    octCombo.addActionListener(e -> bridge.setArpOctave(trackIndex, (Integer) octCombo.getSelectedItem()));
+    octCombo.addActionListener(e -> bridge.setArpOctave(idx, (Integer) octCombo.getSelectedItem()));
     panel.add(octCombo, c); row++;
+
+    // Note Mode
+    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
+    panel.add(label("Note Mode:"), c);
+    c.gridx = 1; c.gridwidth = 2;
+    String[] noteModes = {"UP", "DOWN", "UPDN", "RAND", "WLK1", "WLK2", "WLK3", "PLAY", "PATT"};
+    JComboBox<String> noteModeCombo = new JComboBox<>(noteModes);
+    noteModeCombo.setSelectedIndex(bridge.getArpNoteMode(trackIndex));
+    noteModeCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    noteModeCombo.setToolTipText("Note selection pattern within the arpeggiated chord");
+    noteModeCombo.addActionListener(e -> bridge.setArpNoteMode(idx, noteModeCombo.getSelectedIndex()));
+    panel.add(noteModeCombo, c); row++;
+
+    // Octave Mode
+    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
+    panel.add(label("Oct Mode:"), c);
+    c.gridx = 1; c.gridwidth = 2;
+    String[] octModes = {"UP", "DOWN", "UPDN", "ALT", "RAND"};
+    JComboBox<String> octModeCombo = new JComboBox<>(octModes);
+    octModeCombo.setSelectedIndex(bridge.getArpOctaveMode(trackIndex));
+    octModeCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    octModeCombo.setToolTipText("Octave progression pattern");
+    octModeCombo.addActionListener(e -> bridge.setArpOctaveMode(idx, octModeCombo.getSelectedIndex()));
+    panel.add(octModeCombo, c); row++;
+
+    row = addSlider(panel, c, row, "Repeat:",
+        "Repeat each step N times (1-8)",
+        1, 8, bridge.getArpStepRepeat(trackIndex),
+        val -> bridge.setArpStepRepeat(idx, val), "×");
+
+    row = addSlider(panel, c, row, "Rhythm:",
+        "Rhythm pattern index (0-49). Controls step timing offsets.",
+        0, 49, bridge.getArpRhythm(trackIndex),
+        val -> bridge.setArpRhythm(idx, val), "");
+
+    row = addSlider(panel, c, row, "Seq Len:",
+        "Number of active steps in the arpeggiator sequence (1-16)",
+        1, 16, bridge.getArpSeqLength(trackIndex),
+        val -> bridge.setArpSeqLength(idx, val), "");
 
     // ── Filter (LPF) ──
     c.gridx = 0; c.gridy = row; c.gridwidth = 3;
@@ -271,6 +399,27 @@ public class SwingSynthConfigDialog extends JDialog {
         "HPF resonance / Q",
         0, 100, (int)(bridge.getHpfRes(trackIndex) * 100),
         val -> bridge.setHpfRes(trackIndex, val / 100.0f), "%");
+    row = addSlider(panel, c, row, "Morph:",
+        "HPF morph: 0=fully HP, 50=fully LP (inverted vs LPF morph). Only for SVF-based modes.",
+        0, 50, (int)(bridge.getHpfMorph(trackIndex) * 50),
+        val -> bridge.setHpfMorph(trackIndex, val / 50.0f), "");
+    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
+    JLabel hpfModeLbl = label("HPF Mode:");
+    hpfModeLbl.setToolTipText("0=LADDER_12, 1=LADDER_24, 2=SVF, 3=DRIVE, 4=SVF_BAND, 5=SVF_NOTCH");
+    panel.add(hpfModeLbl, c);
+    c.gridx = 1; c.gridwidth = 2;
+    JComboBox<String> hpfModeCombo = new JComboBox<>(
+        new String[]{"12dB", "24dB", "SVF", "DRIVE", "SVF BAND", "SVF NOTCH"});
+    hpfModeCombo.setSelectedIndex(bridge.getHpfMode(trackIndex));
+    hpfModeCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    hpfModeCombo.setForeground(Color.WHITE);
+    hpfModeCombo.addActionListener(e ->
+        bridge.setHpfMode(trackIndex, hpfModeCombo.getSelectedIndex()));
+    panel.add(hpfModeCombo, c); row++;
+    row = addSlider(panel, c, row, "FM:",
+        "HPF FM amount — modulates HPF cutoff with audio-rate signal",
+        0, 100, (int)(bridge.getHpfFm(trackIndex) * 100),
+        val -> bridge.setHpfFm(trackIndex, val / 100.0f), "%");
 
     // ── FM ──
     c.gridx = 0; c.gridy = row; c.gridwidth = 3;
@@ -300,18 +449,25 @@ public class SwingSynthConfigDialog extends JDialog {
     c.insets = new Insets(4, 8, 4, 8);
     c.anchor = GridBagConstraints.WEST;
 
+    // ── Sync note divisions matching firmware ──
+    String[] SYNC_VALS = {"OFF", "1/1", "1/2", "1/4", "1/8", "1/16", "1/32", "1/64",
+                          "1/2T", "1/4T", "1/8T", "1/16T", "1/32T", "1/64T",
+                          "1/2D", "1/4D", "1/8D", "1/16D", "1/32D", "1/64D"};
+
     // Header row
     int col = 0;
     c.gridx = col++; c.gridy = 0; panel.add(label(""), c);
     c.gridx = col++; panel.add(headerLabel("SHAPE"), c);
-    c.gridx = col++; panel.add(headerLabel("RATE (Hz)"), c);
+    c.gridx = col++; panel.add(headerLabel("RATE"), c);
     c.gridx = col++; panel.add(headerLabel("DEPTH"), c);
     c.gridx = col++; panel.add(headerLabel("TARGET"), c);
+    c.gridx = col++; panel.add(headerLabel("SYNC"), c);
     c.gridx = col;   panel.add(headerLabel("SCOPE"), c);
 
     ChuckArray lfoRateArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_RATE);
     ChuckArray lfoTypeArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_TYPE);
     ChuckArray lfoDepthArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_DEPTH);
+    ChuckArray lfoSyncArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_SYNC_LEVEL);
 
     for (int l = 0; l < BridgeContract.LFO_COUNT; l++) {
       final int lfoIdx = l;
@@ -330,8 +486,9 @@ public class SwingSynthConfigDialog extends JDialog {
       shapeCombo.addActionListener(e -> {
         int type = shapeCombo.getSelectedIndex();
         lfoTypeArr.setInt(lfoIdx, (long) type);
+        int sync = lfoSyncArr != null ? (int) lfoSyncArr.getInt(lfoIdx) : 0;
         bridge.setLfo(lfoIdx, lfoRateArr.getFloat(lfoIdx),
-            type, lfoDepthArr.getFloat(lfoIdx));
+            type, lfoDepthArr.getFloat(lfoIdx), sync);
       });
       c.gridx = col++; panel.add(shapeCombo, c);
 
@@ -345,7 +502,8 @@ public class SwingSynthConfigDialog extends JDialog {
       rateSlider.addChangeListener(e -> {
         double hz = rateSlider.getValue() / 100.0;
         lfoRateArr.setFloat(lfoIdx, (float) hz);
-        bridge.setLfo(lfoIdx, hz, (int) lfoTypeArr.getInt(lfoIdx), lfoDepthArr.getFloat(lfoIdx));
+        int sync = lfoSyncArr != null ? (int) lfoSyncArr.getInt(lfoIdx) : 0;
+        bridge.setLfo(lfoIdx, hz, (int) lfoTypeArr.getInt(lfoIdx), lfoDepthArr.getFloat(lfoIdx), sync);
         rateValLabel.setText(String.format("%.2f", hz));
       });
       JPanel ratePanel = new JPanel(new BorderLayout(3, 0));
@@ -364,8 +522,9 @@ public class SwingSynthConfigDialog extends JDialog {
       depthSlider.addChangeListener(e -> {
         float depth = depthSlider.getValue() / 100f;
         lfoDepthArr.setFloat(lfoIdx, depth);
+        int sync = lfoSyncArr != null ? (int) lfoSyncArr.getInt(lfoIdx) : 0;
         bridge.setLfo(lfoIdx, lfoRateArr.getFloat(lfoIdx),
-            (int) lfoTypeArr.getInt(lfoIdx), depth);
+            (int) lfoTypeArr.getInt(lfoIdx), depth, sync);
         depthValLabel.setText(depthSlider.getValue() + "%");
       });
       JPanel depthPanel = new JPanel(new BorderLayout(3, 0));
@@ -382,6 +541,20 @@ public class SwingSynthConfigDialog extends JDialog {
       targetCombo.addActionListener(e -> bridge.setLfoTarget(lfoIdx, targetCombo.getSelectedIndex()));
       c.gridx = col++; panel.add(targetCombo, c);
 
+      // Sync
+      JComboBox<String> syncCombo = new JComboBox<>(SYNC_VALS);
+      int curSync = lfoSyncArr != null ? Math.max(0, Math.min(SYNC_VALS.length - 1, (int) lfoSyncArr.getInt(l))) : 0;
+      syncCombo.setSelectedIndex(curSync);
+      syncCombo.setBackground(new Color(0x33, 0x33, 0x33));
+      syncCombo.setForeground(Color.WHITE);
+      syncCombo.addActionListener(e -> {
+        int syncIdx = syncCombo.getSelectedIndex();
+        if (lfoSyncArr != null) lfoSyncArr.setInt(lfoIdx, (long) syncIdx);
+        bridge.setLfo(lfoIdx, lfoRateArr.getFloat(lfoIdx),
+            (int) lfoTypeArr.getInt(lfoIdx), lfoDepthArr.getFloat(lfoIdx), syncIdx);
+      });
+      c.gridx = col++; panel.add(syncCombo, c);
+
       // Scope
       int currentTrack = bridge.getLfoTrack(l);
       JComboBox<String> scopeCombo = new JComboBox<>(new String[]{"All tracks", "This track"});
@@ -394,7 +567,7 @@ public class SwingSynthConfigDialog extends JDialog {
     }
 
     // Depth note
-    c.gridx = 0; c.gridy = BridgeContract.LFO_COUNT + 1; c.gridwidth = 6;
+    c.gridx = 0; c.gridy = BridgeContract.LFO_COUNT + 1; c.gridwidth = 7;
     JLabel note = new JLabel("<html><i>Depth 100% = Filter ±5kHz, Res ±3Q, Pan ±1.0, Pitch ±1 oct, Vol ±50%, FM ±50%</i></html>");
     note.setForeground(Color.GRAY);
     panel.add(note, c);

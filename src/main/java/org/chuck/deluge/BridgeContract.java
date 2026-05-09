@@ -155,6 +155,7 @@ public final class BridgeContract {
   public static final String G_LFO_TARGET = "g_lfo_target";
   public static final String G_LFO_TRACK = "g_lfo_track";
   public static final String G_LFO_VALUE = "g_lfo_value";
+  public static final String G_LFO_SYNC_LEVEL = "g_lfo_sync_level";
   public static final String G_TRACK_LENGTH = "g_track_length";
   public static final String G_DELAY_SEND = "g_delay_send";
   public static final String G_REVERB_SEND = "g_reverb_send";
@@ -233,6 +234,13 @@ public final class BridgeContract {
   public static final String G_ARP_RATE = "g_arp_rate";
   public static final String G_ARP_OCTAVE = "g_arp_octave";
   public static final String G_ARP_MODE = "g_arp_mode";
+  public static final String G_ARP_GATE = "g_arp_gate";
+  public static final String G_ARP_SYNC_LEVEL = "g_arp_sync_level";
+  public static final String G_ARP_NOTE_MODE = "g_arp_note_mode";
+  public static final String G_ARP_OCTAVE_MODE = "g_arp_octave_mode";
+  public static final String G_ARP_STEP_REPEAT = "g_arp_step_repeat";
+  public static final String G_ARP_RHYTHM = "g_arp_rhythm";
+  public static final String G_ARP_SEQ_LENGTH = "g_arp_seq_length";
   public static final String G_FM_RATIO = "g_fm_ratio";
   public static final String G_FM_AMOUNT = "g_fm_amount";
   public static final String G_PREVIEW_TRACK = "g_preview_track";
@@ -244,6 +252,9 @@ public final class BridgeContract {
   public static final String G_SYNTH_MODE = "g_synth_mode";
   public static final String G_HPF_FREQ = "g_hpf_freq";
   public static final String G_HPF_RES = "g_hpf_res";
+  public static final String G_HPF_MORPH = "g_hpf_morph";
+  public static final String G_HPF_MODE = "g_hpf_mode";
+  public static final String G_HPF_FM = "g_hpf_fm";
   public static final String G_POLYPHONY = "g_polyphony";
   public static final String G_MOD1_FB = "g_mod1_fb";
   public static final String G_MOD2_AMT = "g_mod2_amt";
@@ -262,6 +273,7 @@ public final class BridgeContract {
   public static final String G_NOISE_VOL = "g_noise_vol";
   public static final String G_UNISON_NUM = "g_unison_num";
   public static final String G_UNISON_DETUNE = "g_unison_detune";
+  public static final String G_UNISON_SPREAD = "g_unison_spread";
   public static final String G_MOD_FX_TYPE = "g_mod_fx_type";
   public static final String G_MOD_FX_RATE = "g_mod_fx_rate";
   public static final String G_MOD_FX_DEPTH = "g_mod_fx_depth";
@@ -276,7 +288,10 @@ public final class BridgeContract {
   public static final String G_BITCRUSH = "g_bitcrush";
   public static final String G_COMP_ATTACK = "g_comp_attack";
   public static final String G_COMP_RELEASE = "g_comp_release";
+  public static final String G_COMP_BLEND = "g_comp_blend";
+  public static final String G_COMP_SIDECHAIN_HPF = "g_comp_sidechain_hpf";
   public static final String G_OSC2_TYPE = "g_osc2_type";
+  public static final String G_RETRIG_PHASE = "g_retrig_phase";
   // ── Patch cable arrays (shared between SynthData and KitData) ──
   public static final String G_PC_COUNT = "g_pc_count";
   public static final String G_PC_SOURCE = "g_pc_source";
@@ -293,11 +308,16 @@ public final class BridgeContract {
   public static final String G_KIT_MOD_FX_TYPE = "g_kit_mod_fx_type";
   public static final String G_KIT_HPF_FREQ = "g_kit_hpf_freq";
   public static final String G_KIT_HPF_RES = "g_kit_hpf_res";
+  public static final String G_KIT_HPF_MORPH = "g_kit_hpf_morph";
+  public static final String G_KIT_HPF_MODE = "g_kit_hpf_mode";
   public static final String G_KIT_OSC2_TYPE = "g_kit_osc2_type";
   public static final String G_KIT_UNISON_NUM = "g_kit_unison_num";
   public static final String G_KIT_UNISON_DETUNE = "g_kit_unison_detune";
+  public static final String G_KIT_UNISON_SPREAD = "g_kit_unison_spread";
   public static final String G_KIT_COMP_ATTACK = "g_kit_comp_attack";
   public static final String G_KIT_COMP_RELEASE = "g_kit_comp_release";
+  public static final String G_KIT_COMP_BLEND = "g_kit_comp_blend";
+  public static final String G_KIT_COMP_SIDECHAIN_HPF = "g_kit_comp_sidechain_hpf";
   public static final String G_KIT_DELAY_RATE = "g_kit_delay_rate";
   public static final String G_KIT_DELAY_FB = "g_kit_delay_fb";
   public static final String G_KIT_VOLUME = "g_kit_volume";
@@ -485,16 +505,27 @@ public final class BridgeContract {
     final int[] lfoTarget = new int[LFO_COUNT];
     final int[] lfoTrack = new int[LFO_COUNT];
     final float[] lfoValue = new float[LFO_COUNT];
+    final int[] lfoSyncLevel = new int[LFO_COUNT];
     final int[] arpOn = new int[TRACKS];
     final float[] arpRate = new float[TRACKS];
     final int[] arpOctave = new int[TRACKS];
     final int[] arpMode = new int[TRACKS];
+    final float[] arpGate = new float[TRACKS];
+    final int[] arpSyncLevel = new int[TRACKS];
+    final int[] arpNoteMode = new int[TRACKS];
+    final int[] arpOctaveMode = new int[TRACKS];
+    final int[] arpStepRepeat = new int[TRACKS];
+    final int[] arpRhythm = new int[TRACKS];
+    final int[] arpSeqLength = new int[TRACKS];
     final float[] fmRatio = new float[TRACKS];
     final float[] fmAmount = new float[TRACKS];
     final int[] synthAlgo = new int[TRACKS];
     final int[] synthMode = new int[TRACKS];
     final float[] hpfFreq = new float[TRACKS];
     final float[] hpfRes = new float[TRACKS];
+    final float[] hpfMorph = new float[TRACKS];
+    final int[] hpfMode = new int[TRACKS];
+    final float[] hpfFm = new float[TRACKS];
     final int[] polyphony = new int[TRACKS];
     final float[] mod1Fb = new float[TRACKS];
     final float[] mod2Amt = new float[TRACKS];
@@ -505,6 +536,7 @@ public final class BridgeContract {
     final float[] noiseVol = new float[TRACKS];
     final int[] unisonNum = new int[TRACKS];
     final float[] unisonDetune = new float[TRACKS];
+    final float[] unisonSpread = new float[TRACKS];
     final int[] modFxType = new int[TRACKS];
     final float[] modFxRate = new float[TRACKS];
     final float[] modFxDepth = new float[TRACKS];
@@ -519,7 +551,10 @@ public final class BridgeContract {
     final float[] bitCrushArr = new float[TRACKS];
     final float[] compressorAttackArr = new float[TRACKS];
     final float[] compressorReleaseArr = new float[TRACKS];
+    final float[] compressorBlendArr = new float[TRACKS];
+    final float[] compressorSidechainHpfArr = new float[TRACKS];
     final int[] osc2Type = new int[TRACKS];
+    final int[] retrigPhase = new int[TRACKS];
     // Patch cable arrays: each track has up to MAX_CABLES_PER_TRACK cables, indexed by
     // pcCount[t], pcSource[t * MAX_CABLES_PER_TRACK + c], etc.
     final int[] pcCount = new int[TRACKS];
@@ -534,12 +569,22 @@ public final class BridgeContract {
         arpRate[t] = 1f;
         arpOctave[t] = 0;
         arpMode[t] = 0;
+        arpGate[t] = 0.5f;
+        arpSyncLevel[t] = 0;
+        arpNoteMode[t] = 0;
+        arpOctaveMode[t] = 0;
+        arpStepRepeat[t] = 1;
+        arpRhythm[t] = 0;
+        arpSeqLength[t] = 8;
         fmRatio[t] = 1f;
         fmAmount[t] = 0f;
         synthAlgo[t] = 0;
         synthMode[t] = 0;
         hpfFreq[t] = 20f;
         hpfRes[t] = 0f;
+        hpfMorph[t] = 0f;
+        hpfMode[t] = 0;
+        hpfFm[t] = 0f;
         polyphony[t] = 0;
         mod1Fb[t] = 0f;
         mod2Amt[t] = 0f;
@@ -550,6 +595,7 @@ public final class BridgeContract {
         noiseVol[t] = 0f;
         unisonNum[t] = 1;
         unisonDetune[t] = 0f;
+        unisonSpread[t] = 0f;
         modFxType[t] = 0;
         modFxRate[t] = 0f;
         modFxDepth[t] = 0f;
@@ -564,7 +610,10 @@ public final class BridgeContract {
         bitCrushArr[t] = 0f;
         compressorAttackArr[t] = 0f;
         compressorReleaseArr[t] = 0f;
+        compressorBlendArr[t] = 0f;
+        compressorSidechainHpfArr[t] = 0f;
         osc2Type[t] = 0;
+        retrigPhase[t] = 0;
         pcCount[t] = 0;
       }
       for (int c = 0; c < TRACKS * MAX_CABLES_PER_TRACK; c++) {
@@ -586,6 +635,7 @@ public final class BridgeContract {
         lfoTarget[l] = 0;
         lfoTrack[l] = -1;
         lfoValue[l] = 0f;
+        lfoSyncLevel[l] = 0;
       }
     }
 
@@ -597,16 +647,27 @@ public final class BridgeContract {
       vm.setGlobalObject(G_LFO_TARGET, new ChuckArray(lfoTarget));
       vm.setGlobalObject(G_LFO_TRACK, new ChuckArray(lfoTrack));
       vm.setGlobalObject(G_LFO_VALUE, new ChuckArray(lfoValue));
+      vm.setGlobalObject(G_LFO_SYNC_LEVEL, new ChuckArray(lfoSyncLevel));
       vm.setGlobalObject(G_ARP_ON, new ChuckArray(arpOn));
       vm.setGlobalObject(G_ARP_RATE, new ChuckArray(arpRate));
       vm.setGlobalObject(G_ARP_OCTAVE, new ChuckArray(arpOctave));
       vm.setGlobalObject(G_ARP_MODE, new ChuckArray(arpMode));
+      vm.setGlobalObject(G_ARP_GATE, new ChuckArray(arpGate));
+      vm.setGlobalObject(G_ARP_SYNC_LEVEL, new ChuckArray(arpSyncLevel));
+      vm.setGlobalObject(G_ARP_NOTE_MODE, new ChuckArray(arpNoteMode));
+      vm.setGlobalObject(G_ARP_OCTAVE_MODE, new ChuckArray(arpOctaveMode));
+      vm.setGlobalObject(G_ARP_STEP_REPEAT, new ChuckArray(arpStepRepeat));
+      vm.setGlobalObject(G_ARP_RHYTHM, new ChuckArray(arpRhythm));
+      vm.setGlobalObject(G_ARP_SEQ_LENGTH, new ChuckArray(arpSeqLength));
       vm.setGlobalObject(G_FM_RATIO, new ChuckArray(fmRatio));
       vm.setGlobalObject(G_FM_AMOUNT, new ChuckArray(fmAmount));
       vm.setGlobalObject(G_SYNTH_ALGO, new ChuckArray(synthAlgo));
       vm.setGlobalObject(G_SYNTH_MODE, new ChuckArray(synthMode));
       vm.setGlobalObject(G_HPF_FREQ, new ChuckArray(hpfFreq));
       vm.setGlobalObject(G_HPF_RES, new ChuckArray(hpfRes));
+      vm.setGlobalObject(G_HPF_MORPH, new ChuckArray(hpfMorph));
+      vm.setGlobalObject(G_HPF_MODE, new ChuckArray(hpfMode));
+      vm.setGlobalObject(G_HPF_FM, new ChuckArray(hpfFm));
       vm.setGlobalObject(G_POLYPHONY, new ChuckArray(polyphony));
       vm.setGlobalObject(G_MOD1_FB, new ChuckArray(mod1Fb));
       vm.setGlobalObject(G_MOD2_AMT, new ChuckArray(mod2Amt));
@@ -617,6 +678,7 @@ public final class BridgeContract {
       vm.setGlobalObject(G_NOISE_VOL, new ChuckArray(noiseVol));
       vm.setGlobalObject(G_UNISON_NUM, new ChuckArray(unisonNum));
       vm.setGlobalObject(G_UNISON_DETUNE, new ChuckArray(unisonDetune));
+      vm.setGlobalObject(G_UNISON_SPREAD, new ChuckArray(unisonSpread));
       vm.setGlobalObject(G_MOD_FX_TYPE, new ChuckArray(modFxType));
       vm.setGlobalObject(G_MOD_FX_RATE, new ChuckArray(modFxRate));
       vm.setGlobalObject(G_MOD_FX_DEPTH, new ChuckArray(modFxDepth));
@@ -631,7 +693,10 @@ public final class BridgeContract {
       vm.setGlobalObject(G_BITCRUSH, new ChuckArray(bitCrushArr));
       vm.setGlobalObject(G_COMP_ATTACK, new ChuckArray(compressorAttackArr));
       vm.setGlobalObject(G_COMP_RELEASE, new ChuckArray(compressorReleaseArr));
+      vm.setGlobalObject(G_COMP_BLEND, new ChuckArray(compressorBlendArr));
+      vm.setGlobalObject(G_COMP_SIDECHAIN_HPF, new ChuckArray(compressorSidechainHpfArr));
       vm.setGlobalObject(G_OSC2_TYPE, new ChuckArray(osc2Type));
+      vm.setGlobalObject(G_RETRIG_PHASE, new ChuckArray(retrigPhase));
       vm.setGlobalObject(G_PC_COUNT, new ChuckArray(pcCount));
       vm.setGlobalObject(G_PC_SOURCE, new ChuckArray(pcSource));
       vm.setGlobalObject(G_PC_DEST, new ChuckArray(pcDest));
@@ -663,11 +728,16 @@ public final class BridgeContract {
     final int[] kitModFxType = new int[TRACKS];
     final float[] kitHpfFreq = new float[TRACKS];
     final float[] kitHpfRes = new float[TRACKS];
+    final float[] kitHpfMorph = new float[TRACKS];
+    final int[] kitHpfMode = new int[TRACKS];
     final int[] kitOsc2Type = new int[TRACKS];
     final int[] kitUnisonNum = new int[TRACKS];
     final float[] kitUnisonDetune = new float[TRACKS];
+    final float[] kitUnisonSpread = new float[TRACKS];
     final float[] kitCompressorAttackArr = new float[TRACKS];
     final float[] kitCompressorReleaseArr = new float[TRACKS];
+    final float[] kitCompressorBlendArr = new float[TRACKS];
+    final float[] kitCompressorSidechainHpfArr = new float[TRACKS];
     final float[] kitDelayRate = new float[TRACKS];
     final float[] kitDelayFb = new float[TRACKS];
     final float[] kitVolume = new float[TRACKS];
@@ -702,11 +772,16 @@ public final class BridgeContract {
         kitModFxType[t] = 0;
         kitHpfFreq[t] = 20f;
         kitHpfRes[t] = 0f;
+        kitHpfMorph[t] = 0f;
+        kitHpfMode[t] = 0;
         kitOsc2Type[t] = 0;
         kitUnisonNum[t] = 1;
         kitUnisonDetune[t] = 0f;
+        kitUnisonSpread[t] = 0f;
         kitCompressorAttackArr[t] = 0f;
         kitCompressorReleaseArr[t] = 0f;
+        kitCompressorBlendArr[t] = 0f;
+        kitCompressorSidechainHpfArr[t] = 0f;
         kitDelayRate[t] = 0f;
         kitDelayFb[t] = 0f;
         kitVolume[t] = 0.5f;
@@ -744,11 +819,16 @@ public final class BridgeContract {
       vm.setGlobalObject(G_KIT_MOD_FX_TYPE, new ChuckArray(kitModFxType));
       vm.setGlobalObject(G_KIT_HPF_FREQ, new ChuckArray(kitHpfFreq));
       vm.setGlobalObject(G_KIT_HPF_RES, new ChuckArray(kitHpfRes));
+      vm.setGlobalObject(G_KIT_HPF_MORPH, new ChuckArray(kitHpfMorph));
+      vm.setGlobalObject(G_KIT_HPF_MODE, new ChuckArray(kitHpfMode));
       vm.setGlobalObject(G_KIT_OSC2_TYPE, new ChuckArray(kitOsc2Type));
       vm.setGlobalObject(G_KIT_UNISON_NUM, new ChuckArray(kitUnisonNum));
       vm.setGlobalObject(G_KIT_UNISON_DETUNE, new ChuckArray(kitUnisonDetune));
+      vm.setGlobalObject(G_KIT_UNISON_SPREAD, new ChuckArray(kitUnisonSpread));
       vm.setGlobalObject(G_KIT_COMP_ATTACK, new ChuckArray(kitCompressorAttackArr));
       vm.setGlobalObject(G_KIT_COMP_RELEASE, new ChuckArray(kitCompressorReleaseArr));
+      vm.setGlobalObject(G_KIT_COMP_BLEND, new ChuckArray(kitCompressorBlendArr));
+      vm.setGlobalObject(G_KIT_COMP_SIDECHAIN_HPF, new ChuckArray(kitCompressorSidechainHpfArr));
       vm.setGlobalObject(G_KIT_DELAY_RATE, new ChuckArray(kitDelayRate));
       vm.setGlobalObject(G_KIT_DELAY_FB, new ChuckArray(kitDelayFb));
       vm.setGlobalObject(G_KIT_VOLUME, new ChuckArray(kitVolume));
@@ -1136,8 +1216,8 @@ public final class BridgeContract {
     int b = (row * ENV_COUNT + envIndex) * ENV_PARAMS;
     synth.env[b + 0] = (float) a; synth.env[b + 1] = (float) d; synth.env[b + 2] = (float) s; synth.env[b + 3] = (float) r;
   }
-  public void setLfo(int lfoIndex, double rateHz, int waveType, double depth) {
-    synth.lfoRate[lfoIndex] = (float) rateHz; synth.lfoType[lfoIndex] = waveType; synth.lfoDepth[lfoIndex] = (float) depth;
+  public void setLfo(int lfoIndex, double rateHz, int waveType, double depth, int syncLevel) {
+    synth.lfoRate[lfoIndex] = (float) rateHz; synth.lfoType[lfoIndex] = waveType; synth.lfoDepth[lfoIndex] = (float) depth; synth.lfoSyncLevel[lfoIndex] = syncLevel;
   }
   public void setLfoTarget(int lfoIndex, int target) { synth.lfoTarget[lfoIndex] = target; }
   public int getLfoTarget(int lfoIndex) { return synth.lfoTarget[lfoIndex]; }
@@ -1404,6 +1484,8 @@ public final class BridgeContract {
   public int getUnisonNum(int track) { return synth.unisonNum[track]; }
   public void setUnisonDetune(int track, float v) { synth.unisonDetune[track] = v; }
   public float getUnisonDetune(int track) { return synth.unisonDetune[track]; }
+  public void setUnisonSpread(int track, float v) { synth.unisonSpread[track] = v; }
+  public float getUnisonSpread(int track) { return synth.unisonSpread[track]; }
   public void setModFxType(int track, int v) { synth.modFxType[track] = v; }
   public int getModFxType(int track) { return synth.modFxType[track]; }
   public void setModFxRate(int track, float v) { synth.modFxRate[track] = v; }
@@ -1432,8 +1514,14 @@ public final class BridgeContract {
   public float getCompAttack(int track) { return synth.compressorAttackArr[track]; }
   public void setCompRelease(int track, float v) { synth.compressorReleaseArr[track] = v; }
   public float getCompRelease(int track) { return synth.compressorReleaseArr[track]; }
+  public void setCompBlend(int track, float v) { synth.compressorBlendArr[track] = v; }
+  public float getCompBlend(int track) { return synth.compressorBlendArr[track]; }
+  public void setCompSidechainHpf(int track, float v) { synth.compressorSidechainHpfArr[track] = v; }
+  public float getCompSidechainHpf(int track) { return synth.compressorSidechainHpfArr[track]; }
   public void setOsc2Type(int track, int v) { synth.osc2Type[track] = v; }
   public int getOsc2Type(int track) { return synth.osc2Type[track]; }
+  public void setRetrigPhase(int track, int v) { synth.retrigPhase[track] = v; }
+  public int getRetrigPhase(int track) { return synth.retrigPhase[track]; }
   // ── Patch cable accessors (synth) ──
 
   /** Write all patch cables for a given synth track into the bridge arrays. */
@@ -1526,16 +1614,26 @@ public final class BridgeContract {
   public float getKitHpfFreq(int track) { return kit.kitHpfFreq[track]; }
   public void setKitHpfRes(int track, float v) { kit.kitHpfRes[track] = v; }
   public float getKitHpfRes(int track) { return kit.kitHpfRes[track]; }
+  public void setKitHpfMorph(int track, float v) { kit.kitHpfMorph[track] = v; }
+  public float getKitHpfMorph(int track) { return kit.kitHpfMorph[track]; }
+  public void setKitHpfMode(int track, int v) { kit.kitHpfMode[track] = v; }
+  public int getKitHpfMode(int track) { return kit.kitHpfMode[track]; }
   public void setKitOsc2Type(int track, int v) { kit.kitOsc2Type[track] = v; }
   public int getKitOsc2Type(int track) { return kit.kitOsc2Type[track]; }
   public void setKitUnisonNum(int track, int v) { kit.kitUnisonNum[track] = v; }
   public int getKitUnisonNum(int track) { return kit.kitUnisonNum[track]; }
   public void setKitUnisonDetune(int track, float v) { kit.kitUnisonDetune[track] = v; }
   public float getKitUnisonDetune(int track) { return kit.kitUnisonDetune[track]; }
+  public void setKitUnisonSpread(int track, float v) { kit.kitUnisonSpread[track] = v; }
+  public float getKitUnisonSpread(int track) { return kit.kitUnisonSpread[track]; }
   public void setKitCompAttack(int track, float v) { kit.kitCompressorAttackArr[track] = v; }
   public float getKitCompAttack(int track) { return kit.kitCompressorAttackArr[track]; }
   public void setKitCompRelease(int track, float v) { kit.kitCompressorReleaseArr[track] = v; }
   public float getKitCompRelease(int track) { return kit.kitCompressorReleaseArr[track]; }
+  public void setKitCompBlend(int track, float v) { kit.kitCompressorBlendArr[track] = v; }
+  public float getKitCompBlend(int track) { return kit.kitCompressorBlendArr[track]; }
+  public void setKitCompSidechainHpf(int track, float v) { kit.kitCompressorSidechainHpfArr[track] = v; }
+  public float getKitCompSidechainHpf(int track) { return kit.kitCompressorSidechainHpfArr[track]; }
   public void setKitDelayRate(int track, float v) { kit.kitDelayRate[track] = v; }
   public float getKitDelayRate(int track) { return kit.kitDelayRate[track]; }
   public void setKitDelayFb(int track, float v) { kit.kitDelayFb[track] = v; }
@@ -1604,6 +1702,20 @@ public final class BridgeContract {
   public void setArpOctave(int track, int oct) { synth.arpOctave[track] = oct; }
   public int getArpMode(int track) { return synth.arpMode[track]; }
   public void setArpMode(int track, int mode) { synth.arpMode[track] = mode; }
+  public double getArpGate(int track) { return synth.arpGate[track]; }
+  public void setArpGate(int track, double v) { synth.arpGate[track] = (float) v; }
+  public int getArpSyncLevel(int track) { return synth.arpSyncLevel[track]; }
+  public void setArpSyncLevel(int track, int v) { synth.arpSyncLevel[track] = v; }
+  public int getArpNoteMode(int track) { return synth.arpNoteMode[track]; }
+  public void setArpNoteMode(int track, int v) { synth.arpNoteMode[track] = v; }
+  public int getArpOctaveMode(int track) { return synth.arpOctaveMode[track]; }
+  public void setArpOctaveMode(int track, int v) { synth.arpOctaveMode[track] = v; }
+  public int getArpStepRepeat(int track) { return synth.arpStepRepeat[track]; }
+  public void setArpStepRepeat(int track, int v) { synth.arpStepRepeat[track] = v; }
+  public int getArpRhythm(int track) { return synth.arpRhythm[track]; }
+  public void setArpRhythm(int track, int v) { synth.arpRhythm[track] = v; }
+  public int getArpSeqLength(int track) { return synth.arpSeqLength[track]; }
+  public void setArpSeqLength(int track, int v) { synth.arpSeqLength[track] = v; }
   public double getFmRatio(int track) { return synth.fmRatio[track]; }
   public void setFmRatio(int track, double r) { synth.fmRatio[track] = (float) r; }
   public double getFmAmount(int track) { return synth.fmAmount[track]; }
@@ -1616,6 +1728,12 @@ public final class BridgeContract {
   public float getHpfFreq(int track) { return synth.hpfFreq[track]; }
   public void setHpfRes(int track, float res) { synth.hpfRes[track] = res; }
   public float getHpfRes(int track) { return synth.hpfRes[track]; }
+  public void setHpfMorph(int track, float v) { synth.hpfMorph[track] = v; }
+  public float getHpfMorph(int track) { return synth.hpfMorph[track]; }
+  public void setHpfMode(int track, int v) { synth.hpfMode[track] = v; }
+  public int getHpfMode(int track) { return synth.hpfMode[track]; }
+  public void setHpfFm(int track, float v) { synth.hpfFm[track] = v; }
+  public float getHpfFm(int track) { return synth.hpfFm[track]; }
   public void setPolyphony(int track, int mode) { synth.polyphony[track] = mode; }
   public int getPolyphony(int track) { return synth.polyphony[track]; }
   public float getMod1Fb(int track) { return synth.mod1Fb[track]; }
@@ -1812,6 +1930,7 @@ public final class BridgeContract {
   // SynthData
   public float[] getPanRaw() { return synth.panArr; }
   public int[] getOsc2TypeRaw() { return synth.osc2Type; }
+  public int[] getRetrigPhaseRaw() { return synth.retrigPhase; }
   public float[] getMod1FbRaw() { return synth.mod1Fb; }
   public float[] getMod2AmtRaw() { return synth.mod2Amt; }
   public float[] getMod2FbRaw() { return synth.mod2Fb; }
@@ -1833,6 +1952,8 @@ public final class BridgeContract {
   public float[] getBitCrushRaw() { return synth.bitCrushArr; }
   public float[] getCompAttackRaw() { return synth.compressorAttackArr; }
   public float[] getCompReleaseRaw() { return synth.compressorReleaseArr; }
+  public float[] getCompBlendRaw() { return synth.compressorBlendArr; }
+  public float[] getCompSidechainHpfRaw() { return synth.compressorSidechainHpfArr; }
 
   // KitData
   public float[] getKitVolumeRaw() { return kit.kitVolume; }
@@ -1849,4 +1970,6 @@ public final class BridgeContract {
   public float[] getKitBitCrushRaw() { return kit.kitBitCrush; }
   public float[] getKitCompAttackRaw() { return kit.kitCompressorAttackArr; }
   public float[] getKitCompReleaseRaw() { return kit.kitCompressorReleaseArr; }
+  public float[] getKitCompBlendRaw() { return kit.kitCompressorBlendArr; }
+  public float[] getKitCompSidechainHpfRaw() { return kit.kitCompressorSidechainHpfArr; }
 }

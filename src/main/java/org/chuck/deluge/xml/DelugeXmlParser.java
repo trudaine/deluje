@@ -723,11 +723,29 @@ public class DelugeXmlParser {
     applyDirectBindings(soundNode, synth);
 
     // ── DX7 patch (hex string from <osc1 dx7patch="...">) ──
+    // ── Oscillator retrigger phase (from <osc1 retrigPhase="...">) ──
     NodeList osc1List = soundNode.getElementsByTagName("osc1");
     if (osc1List.getLength() > 0) {
       Element osc1 = (Element) osc1List.item(0);
       if (osc1.hasAttribute("dx7patch")) {
         synth.setDx7Patch(osc1.getAttribute("dx7patch"));
+      }
+      // retrigPhase as child element (firmware XML format)
+      NodeList rpNodes = osc1.getElementsByTagName("retrigPhase");
+      if (rpNodes.getLength() > 0) {
+        try { synth.setRetrigPhase(Integer.parseInt(rpNodes.item(0).getTextContent().trim())); }
+        catch (NumberFormatException ignored) {}
+      }
+    }
+
+    // ── Oscillator retrigger phase for osc2 ──
+    NodeList osc2List = soundNode.getElementsByTagName("osc2");
+    if (osc2List.getLength() > 0) {
+      Element osc2 = (Element) osc2List.item(0);
+      NodeList rpNodes2 = osc2.getElementsByTagName("retrigPhase");
+      if (rpNodes2.getLength() > 0) {
+        try { synth.setRetrigPhase(Integer.parseInt(rpNodes2.item(0).getTextContent().trim())); }
+        catch (NumberFormatException ignored) {}
       }
     }
 
@@ -1179,7 +1197,29 @@ public class DelugeXmlParser {
       active = "true".equalsIgnoreCase(activeStr) || "1".equals(activeStr);
     }
 
-    synth.setArp(new ArpModel(active, mode, rate, octaves, Math.abs(gate)));
+    // Parse new arp fields
+    int syncLevel = 0;
+    String noteMode = "UP";
+    String octaveMode = "UP";
+    int stepRepeat = 1;
+    int rhythmIndex = 0;
+    int seqLength = 8;
+    String syncStr = getChildText(arpEl, "sync");
+    if (syncStr != null) { try { syncLevel = Integer.parseInt(syncStr); } catch (NumberFormatException ignored) {} }
+    String noteModeStr = arpEl.getAttribute("noteMode");
+    if (noteModeStr != null && !noteModeStr.isBlank()) noteMode = noteModeStr.toUpperCase();
+    String octModeStr = arpEl.getAttribute("octaveMode");
+    if (octModeStr != null && !octModeStr.isBlank()) octaveMode = octModeStr.toUpperCase();
+    String repeatStr = getChildText(arpEl, "stepRepeat");
+    if (repeatStr != null) { try { stepRepeat = Integer.parseInt(repeatStr); } catch (NumberFormatException ignored) {} }
+    String rhythmStr = getChildText(arpEl, "rhythm");
+    if (rhythmStr != null) { try { rhythmIndex = Integer.parseInt(rhythmStr); } catch (NumberFormatException ignored) {} }
+    String seqLenStr = getChildText(arpEl, "seqLength");
+    if (seqLenStr != null) { try { seqLength = Integer.parseInt(seqLenStr); } catch (NumberFormatException ignored) {} }
+
+    synth.setArp(new ArpModel(active, mode, rate, octaves, Math.abs(gate),
+        syncLevel, noteMode, octaveMode, stepRepeat, rhythmIndex, seqLength,
+        0f, 0f, 0f, 0));
   }
 
   /** Parse compressor element for synth tracks. */
@@ -1220,7 +1260,12 @@ public class DelugeXmlParser {
       else sound.setLpfMode(FilterMode.LADDER_12);
     });
     readAttrString(soundNode, "hpfMode", v -> {
-      // hpfMode is similar to lpfMode
+      if ("24dB".equals(v)) sound.setHpfMode(FilterMode.LADDER_24);
+      else if ("SVF".equals(v)) sound.setHpfMode(FilterMode.SVF);
+      else if ("DRIVE".equals(v)) sound.setHpfMode(FilterMode.DRIVE);
+      else if ("SVF_BAND".equals(v) || "SVF Band".equalsIgnoreCase(v)) sound.setHpfMode(FilterMode.SVF_BAND);
+      else if ("SVF_NOTCH".equals(v) || "SVF Notch".equalsIgnoreCase(v)) sound.setHpfMode(FilterMode.SVF_NOTCH);
+      else sound.setHpfMode(FilterMode.LADDER_12);
     });
     readAttrString(soundNode, "mode", v -> {
       // mode for kit sounds maps to synth mode concept; not directly stored
@@ -1231,6 +1276,16 @@ public class DelugeXmlParser {
     readAttrFloatHex(soundNode, "clippingAmount", sound::setClippingAmount, true);
 
     // ── Child elements ──
+    // osc1 retrigPhase
+    Element osc1El = getFirstChild(soundNode, "osc1");
+    if (osc1El != null) {
+      NodeList rpNodes = osc1El.getElementsByTagName("retrigPhase");
+      if (rpNodes.getLength() > 0) {
+        try { sound.setRetrigPhase(Integer.parseInt(rpNodes.item(0).getTextContent().trim())); }
+        catch (NumberFormatException ignored) {}
+      }
+    }
+
     // osc2
     Element osc2 = getFirstChild(soundNode, "osc2");
     if (osc2 != null) {
@@ -1254,6 +1309,12 @@ public class DelugeXmlParser {
       if (osc2Zone != null) {
         sound.setOsc2StartSamplePos(readIntAttr(osc2Zone, "startSamplePos", -1));
         sound.setOsc2EndSamplePos(readIntAttr(osc2Zone, "endSamplePos", -1));
+      }
+      // osc2 retrigPhase
+      NodeList rpNodes2 = osc2.getElementsByTagName("retrigPhase");
+      if (rpNodes2.getLength() > 0) {
+        try { sound.setRetrigPhase(Integer.parseInt(rpNodes2.item(0).getTextContent().trim())); }
+        catch (NumberFormatException ignored) {}
       }
     }
 

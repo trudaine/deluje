@@ -13,6 +13,7 @@ public class SynthTrackModel extends TrackModel {
   private float noiseVol = 0.0f;
   private int unisonNum = 1;
   private float unisonDetune = 0.0f;
+  private float unisonStereoSpread = 0.0f;
 
   // Filter
   private FilterMode filterMode = FilterMode.LADDER_12;
@@ -22,6 +23,8 @@ public class SynthTrackModel extends TrackModel {
   private float hpfFreq = 20.0f;
   private float hpfRes = 0.0f;
   private float hpfMorph = 0.0f;
+  private FilterMode hpfMode = FilterMode.LADDER_12;
+  private float hpfFm = 0.0f;
   private float filterDrive = 1.0f;
   private boolean filterNotch = false;
   private int filterRoute = 0; // 0=SERIES_LPF_HPF, 1=SERIES_HPF_LPF, 2=PARALLEL
@@ -50,6 +53,8 @@ public class SynthTrackModel extends TrackModel {
   private float compressorAttack = 0.0f;
   private float compressorRelease = 0.0f;
   private int compressorSyncLevel = 0;
+  private float compressorBlend = 0.0f;
+  private float compressorSidechainHpf = 0.0f;
 
   private String modFxType = "NONE";
   private float modFxRate = 0.0f;
@@ -152,6 +157,14 @@ public class SynthTrackModel extends TrackModel {
     this.unisonDetune = unisonDetune;
   }
 
+  public float getUnisonStereoSpread() {
+    return unisonStereoSpread;
+  }
+
+  public void setUnisonStereoSpread(float unisonStereoSpread) {
+    this.unisonStereoSpread = unisonStereoSpread;
+  }
+
   public FilterMode getFilterMode() {
     return filterMode;
   }
@@ -207,6 +220,11 @@ public class SynthTrackModel extends TrackModel {
   public void setHpfMorph(float hpfMorph) {
     this.hpfMorph = hpfMorph;
   }
+
+  public FilterMode getHpfMode() { return hpfMode; }
+  public void setHpfMode(FilterMode hpfMode) { this.hpfMode = hpfMode; }
+  public float getHpfFm() { return hpfFm; }
+  public void setHpfFm(float hpfFm) { this.hpfFm = hpfFm; }
 
   public float getFilterDrive() { return filterDrive; }
   public void setFilterDrive(float filterDrive) { this.filterDrive = Math.max(0.0f, Math.min(2.0f, filterDrive)); }
@@ -329,9 +347,13 @@ public class SynthTrackModel extends TrackModel {
     this.eqTreble = eqTreble;
   }
 
+  @Override
   public float getVolume() { return volume; }
+  @Override
   public void setVolume(float v) { this.volume = v; }
+  @Override
   public float getPan() { return pan; }
+  @Override
   public void setPan(float v) { this.pan = v; }
   public float getStutterRate() { return stutterRate; }
   public void setStutterRate(float v) { this.stutterRate = v; }
@@ -346,6 +368,10 @@ public class SynthTrackModel extends TrackModel {
   public void setCompressorRelease(float v) { this.compressorRelease = v; }
   public int getCompressorSyncLevel() { return compressorSyncLevel; }
   public void setCompressorSyncLevel(int v) { this.compressorSyncLevel = v; }
+  public float getCompressorBlend() { return compressorBlend; }
+  public void setCompressorBlend(float v) { this.compressorBlend = Math.max(0.0f, Math.min(1.0f, v)); }
+  public float getCompressorSidechainHpf() { return compressorSidechainHpf; }
+  public void setCompressorSidechainHpf(float v) { this.compressorSidechainHpf = Math.max(0.0f, Math.min(1.0f, v)); }
 
   public int getSynthMode() {
     return synthMode;
@@ -396,6 +422,12 @@ public class SynthTrackModel extends TrackModel {
 
   public float getCarrier2Feedback() { return carrier2Feedback; }
   public void setCarrier2Feedback(float v) { this.carrier2Feedback = v; }
+
+  /** Oscillator retrigger phase. -1=FREE (free running), 0=RESET, positive=phase offset in degrees. */
+  private int retrigPhase = 0;
+
+  public int getRetrigPhase() { return retrigPhase; }
+  public void setRetrigPhase(int v) { this.retrigPhase = v; }
 
   public PolyphonyMode getPolyphony() {
     return polyphony;
