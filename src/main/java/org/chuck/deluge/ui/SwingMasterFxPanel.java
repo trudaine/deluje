@@ -55,10 +55,15 @@ public class SwingMasterFxPanel extends JPanel {
     // ── Transpose ──
     JLabel transLabel = new JLabel("Transpose:");
     transLabel.setForeground(Color.WHITE);
-    JSlider transSlider = new JSlider(-24, 24, 0);
+    JSlider transSlider = new JSlider(-24, 24, projectModel.getTranspose());
     transSlider.setSnapToTicks(true);
     transSlider.setMajorTickSpacing(12);
     transSlider.setPaintTicks(true);
+    transSlider.addChangeListener(e -> {
+      if (!transSlider.getValueIsAdjusting()) {
+        projectModel.setTranspose(transSlider.getValue());
+      }
+    });
     add(transLabel);
     add(transSlider);
 
