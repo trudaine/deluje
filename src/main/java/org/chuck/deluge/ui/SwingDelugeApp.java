@@ -159,6 +159,13 @@ public class SwingDelugeApp extends JFrame {
               bridge.setKitCompAttack(engineRow, snd.getCompressorAttack());
               bridge.setKitCompRelease(engineRow, snd.getCompressorRelease());
               bridge.setKitDelayRate(engineRow, snd.getDelayRate());
+              bridge.setKitLpfDrive(engineRow, snd.getLpfDrive());
+              bridge.setKitLpfNotch(engineRow, snd.isLpfNotch() ? 1 : 0);
+              bridge.setKitMaxVoices(engineRow, snd.getMaxVoiceCount());
+              bridge.setKitPolyphony(engineRow, snd.getPolyphony().ordinal());
+
+              // ── Push kit patch cables ──
+              bridge.setKitPatchCables(engineRow, snd.getPatchCables());
 
               // ── Kit envelopes 2-4 via shared env array ──
               pushKitEnv(engineRow, 1, snd.getEnv2());
@@ -249,6 +256,10 @@ public class SwingDelugeApp extends JFrame {
           bridge.setFilterRes(startRow + v, synth.getLpfRes() / 100.0f);
           bridge.setFilterMode(startRow + v, synth.getFilterMode().ordinal());
           bridge.setFilterMorph(startRow + v, synth.getLpfMorph());
+          bridge.setFilterDrive(startRow + v, synth.getFilterDrive());
+          bridge.setFilterNotch(startRow + v, synth.isFilterNotch() ? 1 : 0);
+          bridge.setFilterRoute(startRow + v, synth.getFilterRoute());
+          bridge.setMaxVoices(startRow + v, synth.getMaxVoiceCount());
         }
 
         // Push ADSR envelopes (4 envs) to ALL rows of this track
@@ -361,6 +372,9 @@ public class SwingDelugeApp extends JFrame {
           bridge.setReverbSend(startRow + v, synth.getReverbSend());
         }
 
+        // ── Push patch cables ──
+        bridge.setSynthPatchCables(startRow, synth.getPatchCables());
+
         // ── DX7 patch (per-row string global, read by engine) ──
         String dx7patch = synth.getDx7Patch();
         if (dx7patch != null && !dx7patch.isEmpty()) {
@@ -372,6 +386,9 @@ public class SwingDelugeApp extends JFrame {
         // Mark engine row as type-2 (audio)
         bridge.setTrackType(startRow, 2);
         if (trackTypeArr != null) trackTypeArr.setInt(startRow, 2L);
+        // Push audio threshold params
+        bridge.setAudioThreshold(startRow, audio.getThresholdMode());
+        bridge.setAudioThresholdLevel(startRow, audio.getThresholdLevel());
         // Push clip pattern data
         int activeClipIdx = audio.getActiveClipIndex();
         if (activeClipIdx >= 0 && activeClipIdx < audio.getClips().size()) {

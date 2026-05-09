@@ -9,6 +9,7 @@ import java.util.List;
 import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.model.AutomationParam;
 import org.chuck.deluge.model.ClipModel;
+import org.chuck.deluge.model.EnvelopeModel;
 import org.chuck.deluge.model.ModKnob;
 import org.chuck.deluge.model.PatchCable;
 import org.chuck.deluge.model.SynthTrackModel;
@@ -16,11 +17,16 @@ import org.chuck.deluge.model.SynthTrackModel;
 /** Swing dialog for editing a Synth track: Arp, Filter, FM, and 4-slot LFO. */
 public class SwingSynthConfigDialog extends JDialog {
 
-  private static final String[] LFO_SHAPES = {"SINE", "SAW", "SQUARE", "TRI"};
+  private static final String[] LFO_SHAPES = {"SINE", "SAW", "SQUARE", "TRI", "S&H", "RANDOM WALK", "WARBLER"};
   private static final String[] LFO_TARGETS = {"Filter", "Res", "Pan", "Pitch", "Vol", "FM"};
   private static final String[] OSC_TYPES = {"SINE", "SAW", "SQUARE", "TRIANGLE", "NOISE"};
   private static final String[] SYNTH_MODES = {"SUBTRACTIVE", "FM", "RINGMOD"};
-  private static final String[] POLY_MODES = {"POLY", "MONO", "LEGATO"};
+  private static final String[] POLY_MODES = {"POLY", "MONO", "LEGATO", "AUTO", "CHOKE"};
+  private static final String[] ENV_TARGETS = {"NONE", "VOLUME", "FILTER", "PITCH", "PAN"};
+  private static final String[] MOD_SRC_OPTIONS = {"velocity", "envelope1", "envelope2", "envelope3", "envelope4",
+      "lfo1", "lfo2", "lfo3", "lfo4", "aftertouch", "note", "random", "sidechain"};
+  private static final String[] MOD_DST_OPTIONS = {"volume", "pan", "lpfFrequency", "lpfResonance",
+      "oscAVolume", "oscBVolume", "pitch", "noiseVolume", "modFxRate", "modFxDepth"};
 
   public SwingSynthConfigDialog(
       Frame owner, SynthTrackModel model, ChuckVM vm, BridgeContract bridge, int trackIndex) {
@@ -37,6 +43,7 @@ public class SwingSynthConfigDialog extends JDialog {
     tabs.addTab("ARP / FILTER / FM", buildMainPanel(model, vm, bridge, trackIndex));
     tabs.addTab("ALGORITHM", buildAlgorithmPanel(model, bridge, trackIndex));
     tabs.addTab("LFO", buildLfoPanel(vm, bridge, trackIndex));
+    tabs.addTab("ENVELOPE", buildEnvelopePanel(model, bridge, trackIndex));
     tabs.addTab("MODULATION", buildModulationPanel(model, bridge, trackIndex));
     tabs.addTab("AUTOMATION", buildAutomationPanel(model, bridge, trackIndex));
 
@@ -123,7 +130,7 @@ public class SwingSynthConfigDialog extends JDialog {
 
     c.gridx = 0; c.gridy = row; c.gridwidth = 1;
     JLabel polyLbl = label("Mode:");
-    polyLbl.setToolTipText("POLY = multiple simultaneous notes; MONO = one note at a time; LEGATO = mono with legato sliding");
+    polyLbl.setToolTipText("POLY = multiple simultaneous notes; MONO = one note at a time; LEGATO = mono with legato sliding; AUTO = auto-select POLY or MONO; CHOKE = cut previous note");
     panel.add(polyLbl, c);
     c.gridx = 1; c.gridwidth = 2;
     JComboBox<String> polyCombo = new JComboBox<>(POLY_MODES);
@@ -136,6 +143,25 @@ public class SwingSynthConfigDialog extends JDialog {
       bridge.setPolyphony(trackIndex, pm.ordinal());
     });
     panel.add(polyCombo, c); row++;
+
+    // VCNT (voice count)
+    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
+    JLabel vcntLbl = label("VCNT:");
+    vcntLbl.setToolTipText("Maximum voices (1-16). Useless beyond track rows, but sets voice stealing limit.");
+    panel.add(vcntLbl, c);
+    c.gridx = 1; c.gridwidth = 2;
+    JSpinner vcntSpinner = new JSpinner(new SpinnerNumberModel(model.getMaxVoiceCount(), 1, 16, 1));
+    vcntSpinner.setBackground(new Color(0x33, 0x33, 0x33));
+    vcntSpinner.setForeground(Color.WHITE);
+    JSpinner.NumberEditor vcntEditor = (JSpinner.NumberEditor) vcntSpinner.getEditor();
+    vcntEditor.getTextField().setBackground(new Color(0x33, 0x33, 0x33));
+    vcntEditor.getTextField().setForeground(Color.WHITE);
+    vcntSpinner.addChangeListener(e -> {
+      int vc = (int) vcntSpinner.getValue();
+      model.setMaxVoiceCount(vc);
+      bridge.setMaxVoices(trackIndex, vc);
+    });
+    panel.add(vcntSpinner, c); row++;
 
     // ── Arpeggiator ──
     c.gridx = 0; c.gridy = row; c.gridwidth = 3;
@@ -182,6 +208,56 @@ public class SwingSynthConfigDialog extends JDialog {
         "Filter resonance / Q — emphasises frequencies around the cutoff",
         0, 100, (int)(bridge.getTrackFilterRes(trackIndex) * 100),
         val -> bridge.setFilterRes(trackIndex, val / 100.0), "%");
+
+    row = addSlider(panel, c, row, "Drive:",
+        "Filter drive / saturation (0–200%). >100% adds soft-clip saturation.",
+        0, 200, (int)(model.getFilterDrive() * 100),
+        val -> { model.setFilterDrive(val / 100.0f); bridge.setFilterDrive(trackIndex, val / 100.0f); }, "%");
+
+    // Filter mode selector (used for notch enable logic below)
+    JComboBox<String> filterModeCombo = new JComboBox<>(new String[]{"LADDER_12", "LADDER_24", "SVF"});
+    filterModeCombo.setSelectedItem(model.getFilterMode().name());
+    filterModeCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    filterModeCombo.setForeground(Color.WHITE);
+
+    // SVF NOTCH checkbox (only enabled when filter mode == SVF)
+    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
+    panel.add(label("SVF NOTCH:"), c);
+    c.gridx = 1; c.gridwidth = 2;
+    JCheckBox notchBox = new JCheckBox("Enable NOTCH mode (SVF only)");
+    notchBox.setSelected(model.isFilterNotch());
+    notchBox.setEnabled(model.getFilterMode() == org.chuck.deluge.model.FilterMode.SVF);
+    notchBox.setBackground(new Color(0x22, 0x22, 0x22));
+    notchBox.setForeground(Color.WHITE);
+    notchBox.addActionListener(e -> {
+      model.setFilterNotch(notchBox.isSelected());
+      bridge.setFilterNotch(trackIndex, notchBox.isSelected() ? 1 : 0);
+    });
+    // Update notch checkbox enable when filter mode changes
+    filterModeCombo.addActionListener(e -> {
+      String sel = (String) filterModeCombo.getSelectedItem();
+      boolean isSvf = "SVF".equals(sel);
+      notchBox.setEnabled(isSvf);
+      if (!isSvf) notchBox.setSelected(false);
+    });
+    panel.add(notchBox, c); row++;
+
+    // Filter route
+    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
+    JLabel routeLbl = label("Route:");
+    routeLbl.setToolTipText("0=SERIES LPF→HPF, 1=SERIES HPF→LPF, 2=PARALLEL");
+    panel.add(routeLbl, c);
+    c.gridx = 1; c.gridwidth = 2;
+    JComboBox<String> routeCombo = new JComboBox<>(new String[]{"SERIES LPF→HPF", "SERIES HPF→LPF", "PARALLEL"});
+    routeCombo.setSelectedIndex(model.getFilterRoute());
+    routeCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    routeCombo.setForeground(Color.WHITE);
+    routeCombo.addActionListener(e -> {
+      int route = routeCombo.getSelectedIndex();
+      model.setFilterRoute(route);
+      bridge.setFilterRoute(trackIndex, route);
+    });
+    panel.add(routeCombo, c); row++;
 
     // ── Filter (HPF) ──
     c.gridx = 0; c.gridy = row; c.gridwidth = 3;
@@ -245,9 +321,10 @@ public class SwingSynthConfigDialog extends JDialog {
       c.gridx = col++; c.gridy = row;
       panel.add(label("LFO " + l + ":"), c);
 
-      // Shape
+      // Shape — use LFO_SHAPES which now has all 7 types: SINE, SAW, SQUARE, TRI, S&H, RANDOM WALK, WARBLER
       JComboBox<String> shapeCombo = new JComboBox<>(LFO_SHAPES);
-      shapeCombo.setSelectedIndex((int) Math.max(0, Math.min(3, lfoTypeArr.getInt(l))));
+      int lfoType = (int) lfoTypeArr.getInt(l);
+      shapeCombo.setSelectedIndex(Math.max(0, Math.min(LFO_SHAPES.length - 1, lfoType)));
       shapeCombo.setBackground(new Color(0x33, 0x33, 0x33));
       shapeCombo.setForeground(Color.WHITE);
       shapeCombo.addActionListener(e -> {
@@ -383,6 +460,90 @@ public class SwingSynthConfigDialog extends JDialog {
   }
 
   /**
+   * Build the ENVELOPE tab: 4 sub-panels (ENV 0-3) with ADSR sliders + Target combo + Amount.
+   */
+  private JPanel buildEnvelopePanel(SynthTrackModel model, BridgeContract bridge, int trackIndex) {
+    JPanel outer = new JPanel(new BorderLayout(4, 4));
+    outer.setBackground(new Color(0x22, 0x22, 0x22));
+
+    JTabbedPane envTabs = new JTabbedPane();
+    envTabs.setBackground(new Color(0x25, 0x25, 0x25));
+    envTabs.setForeground(Color.WHITE);
+
+    for (int e = 0; e < 4; e++) {
+      final int envIdx = e;
+      EnvelopeModel env = model.getEnv(e);
+      JPanel panel = new JPanel(new GridBagLayout());
+      panel.setBackground(new Color(0x22, 0x22, 0x22));
+      GridBagConstraints c = new GridBagConstraints();
+      c.fill = GridBagConstraints.HORIZONTAL;
+      c.insets = new Insets(6, 10, 6, 10);
+      c.anchor = GridBagConstraints.WEST;
+      int row = 0;
+
+      // ADSR sliders
+      row = addSlider(panel, c, row, "Attack:",
+          "Time to reach peak level after note-on (" + envIdx + ")",
+          1, 2000, (int)(env.attack() * 1000),
+          val -> { model.setEnv(envIdx, new EnvelopeModel(val / 1000f, env.decay(), env.sustain(), env.release(), env.target(), env.amount())); },
+          "ms");
+      row = addSlider(panel, c, row, "Decay:",
+          "Time to fall from peak to sustain level (" + envIdx + ")",
+          0, 5000, (int)(env.decay() * 1000),
+          val -> { model.setEnv(envIdx, new EnvelopeModel(env.attack(), val / 1000f, env.sustain(), env.release(), env.target(), env.amount())); },
+          "ms");
+      row = addSlider(panel, c, row, "Sustain:",
+          "Level held while note is held (" + envIdx + ")",
+          0, 100, (int)(env.sustain() * 100),
+          val -> { model.setEnv(envIdx, new EnvelopeModel(env.attack(), env.decay(), val / 100f, env.release(), env.target(), env.amount())); },
+          "%");
+      row = addSlider(panel, c, row, "Release:",
+          "Time to fade to silence after note-off (" + envIdx + ")",
+          0, 5000, (int)(env.release() * 1000),
+          val -> { model.setEnv(envIdx, new EnvelopeModel(env.attack(), env.decay(), env.sustain(), val / 1000f, env.target(), env.amount())); },
+          "ms");
+
+      // Target
+      c.gridx = 0; c.gridy = row; c.gridwidth = 1;
+      panel.add(label("Target:"), c);
+      c.gridx = 1; c.gridwidth = 2;
+      JComboBox<String> targetCombo = new JComboBox<>(ENV_TARGETS);
+      targetCombo.setSelectedItem(env.target());
+      targetCombo.setBackground(new Color(0x33, 0x33, 0x33));
+      targetCombo.setForeground(Color.WHITE);
+      targetCombo.addActionListener(ev -> {
+        String sel = (String) targetCombo.getSelectedItem();
+        model.setEnv(envIdx, new EnvelopeModel(env.attack(), env.decay(), env.sustain(), env.release(), sel, env.amount()));
+      });
+      panel.add(targetCombo, c);
+      row++;
+
+      // Amount
+      row = addSlider(panel, c, row, "Amount:",
+          "Depth of envelope modulation (0–100%)",
+          0, 100, (int)(env.amount() * 100),
+          val -> {
+            float amt = val / 100f;
+            model.setEnv(envIdx, new EnvelopeModel(env.attack(), env.decay(), env.sustain(), env.release(), env.target(), amt));
+          },
+          "%");
+
+      envTabs.addTab("ENV " + e, panel);
+    }
+
+    outer.add(envTabs, BorderLayout.CENTER);
+
+    JLabel note = new JLabel(
+        "<html><i>Default: ENV0→Volume, ENV1→Filter, ENV2→Pitch, ENV3→Pan. " +
+        "Set Target & Amount to override per envelope via patch cable.</i></html>");
+    note.setForeground(Color.GRAY);
+    note.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
+    outer.add(note, BorderLayout.SOUTH);
+
+    return outer;
+  }
+
+  /**
    * Build the MODULATION tab: patch cable table (top) and mod knob grid (bottom).
    */
   private JPanel buildModulationPanel(SynthTrackModel model, BridgeContract bridge, int trackIndex) {
@@ -394,10 +555,8 @@ public class SwingSynthConfigDialog extends JDialog {
     cablePanel.setBackground(new Color(0x22, 0x22, 0x22));
     cablePanel.add(sectionLabel("PATCH CABLES"), BorderLayout.NORTH);
 
-    String[] srcOptions = {"velocity", "envelope1", "envelope2", "lfo1", "lfo2",
-        "aftertouch", "note", "random", "sidechain"};
-    String[] dstOptions = {"volume", "pan", "lpfFrequency", "lpfResonance",
-        "oscAVolume", "oscBVolume", "pitch", "noiseVolume", "modFxRate", "modFxDepth"};
+    String[] srcOptions = MOD_SRC_OPTIONS;
+    String[] dstOptions = MOD_DST_OPTIONS;
 
     java.util.List<PatchCable> cables = model.getPatchCables();
     JPanel cableRows = new JPanel();
@@ -616,14 +775,38 @@ public class SwingSynthConfigDialog extends JDialog {
       });
       row.add(new JLabel("Dst:"));
 
-      JSlider amtSlider = new JSlider(0, 100, (int)(pc.amount() * 100));
+      boolean isBipolar = pc.polarity() == PatchCable.Polarity.BIPOLAR;
+      int sliderMin = isBipolar ? -100 : 0;
+      JSlider amtSlider = new JSlider(sliderMin, 100, (int)(pc.amount() * 100));
       amtSlider.setBackground(new Color(0x22, 0x22, 0x22));
       JLabel amtVal = new JLabel(String.format("%.0f%%", pc.amount() * 100));
       amtVal.setForeground(Color.CYAN);
+
+      JToggleButton polBtn = new JToggleButton("Bi", isBipolar);
+      polBtn.setToolTipText("Toggle bipolar (Bi) / unipolar (Uni) mode");
+      polBtn.setFont(polBtn.getFont().deriveFont(java.awt.Font.PLAIN, 10f));
+      polBtn.setBackground(isBipolar ? new Color(0x66, 0x44, 0x00) : new Color(0x33, 0x33, 0x33));
+      polBtn.setForeground(Color.WHITE);
+      polBtn.setPreferredSize(new Dimension(40, 22));
+      polBtn.addActionListener(ev -> {
+        PatchCable old = model.getPatchCables().get(idx);
+        PatchCable.Polarity newPol = polBtn.isSelected() ? PatchCable.Polarity.BIPOLAR : PatchCable.Polarity.UNIPOLAR;
+        model.getPatchCables().set(idx, new PatchCable(old.source(), old.destination(), old.amount(), newPol));
+        polBtn.setBackground(polBtn.isSelected() ? new Color(0x66, 0x44, 0x00) : new Color(0x33, 0x33, 0x33));
+        // Adjust slider range: bipolar goes -100..+100, unipolar goes 0..+100
+        if (polBtn.isSelected()) {
+          amtSlider.setMinimum(-100);
+        } else {
+          amtSlider.setMinimum(0);
+          if (amtSlider.getValue() < 0) amtSlider.setValue(0);
+        }
+      });
+      row.add(polBtn);
+
       amtSlider.addChangeListener(ev -> {
         float v = amtSlider.getValue() / 100f;
         PatchCable old = model.getPatchCables().get(idx);
-        model.getPatchCables().set(idx, new PatchCable(old.source(), old.destination(), v));
+        model.getPatchCables().set(idx, new PatchCable(old.source(), old.destination(), v, old.polarity()));
         amtVal.setText(String.format("%.0f%%", v * 100));
       });
       row.add(amtSlider);

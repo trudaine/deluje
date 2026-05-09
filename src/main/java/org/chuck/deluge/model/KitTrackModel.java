@@ -52,7 +52,7 @@ public class KitTrackModel extends TrackModel {
     private final List<PatchCable> patchCables = new ArrayList<>();
 
     // Polyphonic, voice priority, clipping
-    private boolean polyphonic = true;
+    private SynthTrackModel.PolyphonyMode polyphony = SynthTrackModel.PolyphonyMode.POLY;
     private int voicePriority = 1;
     private float clippingAmount = 0.0f;
 
@@ -67,6 +67,9 @@ public class KitTrackModel extends TrackModel {
 
     // LPF Mode
     private FilterMode lpfMode = FilterMode.LADDER_12;
+    private float lpfDrive = 1.0f;
+    private boolean lpfNotch = false;
+    private int maxVoiceCount = 8;
 
     // Mod FX
     private String modFxType = "NONE";
@@ -257,8 +260,10 @@ public class KitTrackModel extends TrackModel {
     public List<PatchCable> getPatchCables() { return patchCables; }
     public void addPatchCable(PatchCable cable) { this.patchCables.add(cable); }
 
-    public boolean isPolyphonic() { return polyphonic; }
-    public void setPolyphonic(boolean v) { this.polyphonic = v; }
+    public SynthTrackModel.PolyphonyMode getPolyphony() { return polyphony; }
+    public void setPolyphony(SynthTrackModel.PolyphonyMode v) { this.polyphony = v; }
+    public boolean isPolyphonic() { return polyphony != SynthTrackModel.PolyphonyMode.MONO; }
+    public void setPolyphonic(boolean v) { this.polyphony = v ? SynthTrackModel.PolyphonyMode.POLY : SynthTrackModel.PolyphonyMode.MONO; }
     public int getVoicePriority() { return voicePriority; }
     public void setVoicePriority(int v) { this.voicePriority = v; }
     public float getClippingAmount() { return clippingAmount; }
@@ -278,6 +283,12 @@ public class KitTrackModel extends TrackModel {
 
     public FilterMode getLpfMode() { return lpfMode; }
     public void setLpfMode(FilterMode v) { this.lpfMode = v; }
+    public float getLpfDrive() { return lpfDrive; }
+    public void setLpfDrive(float v) { this.lpfDrive = Math.max(0.0f, Math.min(2.0f, v)); }
+    public boolean isLpfNotch() { return lpfNotch; }
+    public void setLpfNotch(boolean v) { this.lpfNotch = v; }
+    public int getMaxVoiceCount() { return maxVoiceCount; }
+    public void setMaxVoiceCount(int v) { this.maxVoiceCount = Math.max(1, Math.min(16, v)); }
 
     public String getModFxType() { return modFxType; }
     public void setModFxType(String v) { this.modFxType = v; }

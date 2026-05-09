@@ -88,6 +88,7 @@ public final class BridgeContract {
   public static final int ENV_STRIDE = TRACKS * ENV_COUNT * ENV_PARAMS;
   public static final int LFO_COUNT = 4;
   public static final int MAX_CLIPS_PER_TRACK = 16;
+  public static final int MAX_CABLES_PER_TRACK = 16;
 
   // ═══════════════════════════════════════════════════════════════════════
   //  Global Name Constants
@@ -143,6 +144,10 @@ public final class BridgeContract {
   public static final String G_FILTER = "g_filter";
   public static final String G_FILTER_MODE = "g_filter_mode";
   public static final String G_FILTER_MORPH = "g_filter_morph";
+  public static final String G_FILTER_DRIVE = "g_filter_drive";
+  public static final String G_FILTER_NOTCH = "g_filter_notch";
+  public static final String G_FILTER_ROUTE = "g_filter_route";
+  public static final String G_MAX_VOICES = "g_max_voices";
   public static final String G_ENV = "g_env";
   public static final String G_LFO_RATE = "g_lfo_rate";
   public static final String G_LFO_TYPE = "g_lfo_type";
@@ -261,6 +266,7 @@ public final class BridgeContract {
   public static final String G_MOD_FX_RATE = "g_mod_fx_rate";
   public static final String G_MOD_FX_DEPTH = "g_mod_fx_depth";
   public static final String G_MOD_FX_FEEDBACK = "g_mod_fx_feedback";
+  public static final String G_MOD_FX_OFFSET = "g_mod_fx_offset";
   public static final String G_PORTAMENTO = "g_portamento";
   public static final String G_EQ_BASS = "g_eq_bass";
   public static final String G_EQ_TREBLE = "g_eq_treble";
@@ -271,8 +277,16 @@ public final class BridgeContract {
   public static final String G_COMP_ATTACK = "g_comp_attack";
   public static final String G_COMP_RELEASE = "g_comp_release";
   public static final String G_OSC2_TYPE = "g_osc2_type";
+  // ── Patch cable arrays (shared between SynthData and KitData) ──
+  public static final String G_PC_COUNT = "g_pc_count";
+  public static final String G_PC_SOURCE = "g_pc_source";
+  public static final String G_PC_DEST = "g_pc_dest";
+  public static final String G_PC_AMOUNT = "g_pc_amount";
+  public static final String G_PC_POLARITY = "g_pc_polarity";
   // ── Extended per-track kit-specific arrays ──
   public static final String G_KIT_LPF_MODE = "g_kit_lpf_mode";
+  public static final String G_KIT_LPF_DRIVE = "g_kit_lpf_drive";
+  public static final String G_KIT_LPF_NOTCH = "g_kit_lpf_notch";
   public static final String G_KIT_EQ_BASS = "g_kit_eq_bass";
   public static final String G_KIT_EQ_TREBLE = "g_kit_eq_treble";
   public static final String G_KIT_SIDECHAIN = "g_kit_sidechain";
@@ -292,10 +306,20 @@ public final class BridgeContract {
   public static final String G_KIT_STUTTER_RATE = "g_kit_stutter_rate";
   public static final String G_KIT_SAMPLE_RATE_RED = "g_kit_sample_rate_red";
   public static final String G_KIT_BITCRUSH = "g_kit_bitcrush";
+  public static final String G_KIT_MAX_VOICES = "g_kit_max_voices";
+  public static final String G_KIT_POLYPHONY = "g_kit_polyphony";
+  // ── Kit patch cable arrays ──
+  public static final String G_KIT_PC_COUNT = "g_kit_pc_count";
+  public static final String G_KIT_PC_SOURCE = "g_kit_pc_source";
+  public static final String G_KIT_PC_DEST = "g_kit_pc_dest";
+  public static final String G_KIT_PC_AMOUNT = "g_kit_pc_amount";
+  public static final String G_KIT_PC_POLARITY = "g_kit_pc_polarity";
   public static final String G_AUDIO_REC = "g_audio_rec";
   public static final String G_AUDIO_PLAY = "g_audio_play";
   public static final String G_AUDIO_LOOP = "g_audio_loop";
   public static final String G_AUDIO_RATE = "g_audio_rate";
+  public static final String G_AUDIO_THRESHOLD = "g_audio_threshold";
+  public static final String G_AUDIO_THRESHOLD_LEVEL = "g_audio_threshold_level";
   public static final String G_AUDIO_BUS = "g_audio_bus";
   public static final String G_WVOUT_ACTIVE = "g_wvout_active";
   public static final String G_WVOUT_FILE = "g_wvout_file";
@@ -394,6 +418,10 @@ public final class BridgeContract {
     final float[] filter = new float[TRACKS * 2];
     final int[] filterMode = new int[TRACKS];
     final float[] filterMorph = new float[TRACKS];
+    final float[] filterDrive = new float[TRACKS];
+    final int[] filterNotch = new int[TRACKS];
+    final int[] filterRoute = new int[TRACKS];
+    final int[] maxVoices = new int[TRACKS];
     final float[] delaySend = new float[TRACKS];
     final float[] reverbSend = new float[TRACKS];
     final int[] trackLength = new int[TRACKS];
@@ -411,6 +439,10 @@ public final class BridgeContract {
         filter[t * 2 + 1] = 0.5f;
         filterMode[t] = 0;
         filterMorph[t] = 0f;
+        filterDrive[t] = 1.0f;
+        filterNotch[t] = 0;
+        filterRoute[t] = 0;
+        maxVoices[t] = 8;
         delaySend[t] = 0f;
         reverbSend[t] = 0.15f;
         trackLength[t] = 16;
@@ -428,6 +460,10 @@ public final class BridgeContract {
       vm.setGlobalObject(G_FILTER, new ChuckArray(filter));
       vm.setGlobalObject(G_FILTER_MODE, new ChuckArray(filterMode));
       vm.setGlobalObject(G_FILTER_MORPH, new ChuckArray(filterMorph));
+      vm.setGlobalObject(G_FILTER_DRIVE, new ChuckArray(filterDrive));
+      vm.setGlobalObject(G_FILTER_NOTCH, new ChuckArray(filterNotch));
+      vm.setGlobalObject(G_FILTER_ROUTE, new ChuckArray(filterRoute));
+      vm.setGlobalObject(G_MAX_VOICES, new ChuckArray(maxVoices));
       vm.setGlobalObject(G_DELAY_SEND, new ChuckArray(delaySend));
       vm.setGlobalObject(G_REVERB_SEND, new ChuckArray(reverbSend));
       vm.setGlobalObject(G_TRACK_LENGTH, new ChuckArray(trackLength));
@@ -473,6 +509,7 @@ public final class BridgeContract {
     final float[] modFxRate = new float[TRACKS];
     final float[] modFxDepth = new float[TRACKS];
     final float[] modFxFeedback = new float[TRACKS];
+    final float[] modFxOffset = new float[TRACKS];
     final float[] portamento = new float[TRACKS];
     final float[] eqBass = new float[TRACKS];
     final float[] eqTreble = new float[TRACKS];
@@ -483,6 +520,13 @@ public final class BridgeContract {
     final float[] compressorAttackArr = new float[TRACKS];
     final float[] compressorReleaseArr = new float[TRACKS];
     final int[] osc2Type = new int[TRACKS];
+    // Patch cable arrays: each track has up to MAX_CABLES_PER_TRACK cables, indexed by
+    // pcCount[t], pcSource[t * MAX_CABLES_PER_TRACK + c], etc.
+    final int[] pcCount = new int[TRACKS];
+    final int[] pcSource = new int[TRACKS * MAX_CABLES_PER_TRACK];
+    final int[] pcDest = new int[TRACKS * MAX_CABLES_PER_TRACK];
+    final float[] pcAmount = new float[TRACKS * MAX_CABLES_PER_TRACK];
+    final int[] pcPolarity = new int[TRACKS * MAX_CABLES_PER_TRACK];
 
     void initDefaults() {
       for (int t = 0; t < TRACKS; t++) {
@@ -510,6 +554,7 @@ public final class BridgeContract {
         modFxRate[t] = 0f;
         modFxDepth[t] = 0f;
         modFxFeedback[t] = 0f;
+        modFxOffset[t] = 0f;
         portamento[t] = 0f;
         eqBass[t] = 0f;
         eqTreble[t] = 0f;
@@ -520,6 +565,13 @@ public final class BridgeContract {
         compressorAttackArr[t] = 0f;
         compressorReleaseArr[t] = 0f;
         osc2Type[t] = 0;
+        pcCount[t] = 0;
+      }
+      for (int c = 0; c < TRACKS * MAX_CABLES_PER_TRACK; c++) {
+        pcSource[c] = -1;
+        pcDest[c] = -1;
+        pcAmount[c] = 0f;
+        pcPolarity[c] = 0; // 0 = UNIPOLAR
       }
       for (int e = 0; e < TRACKS * ENV_COUNT; e++) {
         env[e * ENV_PARAMS + 0] = 0.01f;
@@ -569,6 +621,7 @@ public final class BridgeContract {
       vm.setGlobalObject(G_MOD_FX_RATE, new ChuckArray(modFxRate));
       vm.setGlobalObject(G_MOD_FX_DEPTH, new ChuckArray(modFxDepth));
       vm.setGlobalObject(G_MOD_FX_FEEDBACK, new ChuckArray(modFxFeedback));
+      vm.setGlobalObject(G_MOD_FX_OFFSET, new ChuckArray(modFxOffset));
       vm.setGlobalObject(G_PORTAMENTO, new ChuckArray(portamento));
       vm.setGlobalObject(G_EQ_BASS, new ChuckArray(eqBass));
       vm.setGlobalObject(G_EQ_TREBLE, new ChuckArray(eqTreble));
@@ -579,6 +632,11 @@ public final class BridgeContract {
       vm.setGlobalObject(G_COMP_ATTACK, new ChuckArray(compressorAttackArr));
       vm.setGlobalObject(G_COMP_RELEASE, new ChuckArray(compressorReleaseArr));
       vm.setGlobalObject(G_OSC2_TYPE, new ChuckArray(osc2Type));
+      vm.setGlobalObject(G_PC_COUNT, new ChuckArray(pcCount));
+      vm.setGlobalObject(G_PC_SOURCE, new ChuckArray(pcSource));
+      vm.setGlobalObject(G_PC_DEST, new ChuckArray(pcDest));
+      vm.setGlobalObject(G_PC_AMOUNT, new ChuckArray(pcAmount));
+      vm.setGlobalObject(G_PC_POLARITY, new ChuckArray(pcPolarity));
     }
   }
 
@@ -595,6 +653,10 @@ public final class BridgeContract {
     final int[] kitReverse = new int[TRACKS];
     final int[] kitMuteGroup = new int[TRACKS];
     final int[] kitLpfMode = new int[TRACKS];
+    final float[] kitLpfDrive = new float[TRACKS];
+    final int[] kitLpfNotch = new int[TRACKS];
+    final int[] kitMaxVoices = new int[TRACKS];
+    final int[] kitPolyphony = new int[TRACKS];
     final float[] kitEqBass = new float[TRACKS];
     final float[] kitEqTreble = new float[TRACKS];
     final float[] kitSidechain = new float[TRACKS];
@@ -614,6 +676,11 @@ public final class BridgeContract {
     final float[] kitStutterRate = new float[TRACKS];
     final float[] kitSampleRateRed = new float[TRACKS];
     final float[] kitBitCrush = new float[TRACKS];
+    final int[] kitPcCount = new int[TRACKS];
+    final int[] kitPcSource = new int[TRACKS * MAX_CABLES_PER_TRACK];
+    final int[] kitPcDest = new int[TRACKS * MAX_CABLES_PER_TRACK];
+    final float[] kitPcAmount = new float[TRACKS * MAX_CABLES_PER_TRACK];
+    final int[] kitPcPolarity = new int[TRACKS * MAX_CABLES_PER_TRACK];
 
     void initDefaults() {
       for (int t = 0; t < TRACKS; t++) {
@@ -625,6 +692,10 @@ public final class BridgeContract {
         kitReverse[t] = 0;
         kitMuteGroup[t] = 0;
         kitLpfMode[t] = 0;
+        kitLpfDrive[t] = 1.0f;
+        kitLpfNotch[t] = 0;
+        kitMaxVoices[t] = 8;
+        kitPolyphony[t] = 0;
         kitEqBass[t] = 0f;
         kitEqTreble[t] = 0f;
         kitSidechain[t] = 0f;
@@ -644,6 +715,13 @@ public final class BridgeContract {
         kitStutterRate[t] = 0f;
         kitSampleRateRed[t] = 0f;
         kitBitCrush[t] = 0f;
+        kitPcCount[t] = 0;
+      }
+      for (int c = 0; c < TRACKS * MAX_CABLES_PER_TRACK; c++) {
+        kitPcSource[c] = -1;
+        kitPcDest[c] = -1;
+        kitPcAmount[c] = 0f;
+        kitPcPolarity[c] = 0;
       }
     }
 
@@ -656,6 +734,10 @@ public final class BridgeContract {
       vm.setGlobalObject(G_KIT_REVERSE, new ChuckArray(kitReverse));
       vm.setGlobalObject(G_KIT_MUTE_GROUP, new ChuckArray(kitMuteGroup));
       vm.setGlobalObject(G_KIT_LPF_MODE, new ChuckArray(kitLpfMode));
+      vm.setGlobalObject(G_KIT_LPF_DRIVE, new ChuckArray(kitLpfDrive));
+      vm.setGlobalObject(G_KIT_LPF_NOTCH, new ChuckArray(kitLpfNotch));
+      vm.setGlobalObject(G_KIT_MAX_VOICES, new ChuckArray(kitMaxVoices));
+      vm.setGlobalObject(G_KIT_POLYPHONY, new ChuckArray(kitPolyphony));
       vm.setGlobalObject(G_KIT_EQ_BASS, new ChuckArray(kitEqBass));
       vm.setGlobalObject(G_KIT_EQ_TREBLE, new ChuckArray(kitEqTreble));
       vm.setGlobalObject(G_KIT_SIDECHAIN, new ChuckArray(kitSidechain));
@@ -675,11 +757,16 @@ public final class BridgeContract {
       vm.setGlobalObject(G_KIT_STUTTER_RATE, new ChuckArray(kitStutterRate));
       vm.setGlobalObject(G_KIT_SAMPLE_RATE_RED, new ChuckArray(kitSampleRateRed));
       vm.setGlobalObject(G_KIT_BITCRUSH, new ChuckArray(kitBitCrush));
+      vm.setGlobalObject(G_KIT_PC_COUNT, new ChuckArray(kitPcCount));
+      vm.setGlobalObject(G_KIT_PC_SOURCE, new ChuckArray(kitPcSource));
+      vm.setGlobalObject(G_KIT_PC_DEST, new ChuckArray(kitPcDest));
+      vm.setGlobalObject(G_KIT_PC_AMOUNT, new ChuckArray(kitPcAmount));
+      vm.setGlobalObject(G_KIT_PC_POLARITY, new ChuckArray(kitPcPolarity));
     }
   }
 
   // ───────────────────────────────────────────────────────────────────────
-  //  AudioData — 4 arrays
+  //  AudioData — 6 arrays
   // ───────────────────────────────────────────────────────────────────────
 
   static final class AudioData {
@@ -687,6 +774,8 @@ public final class BridgeContract {
     final int[] audioPlay = new int[TRACKS];
     final int[] audioLoop = new int[TRACKS];
     final float[] audioRate = new float[TRACKS];
+    final int[] audioThreshold = new int[TRACKS];
+    final float[] audioThresholdLevel = new float[TRACKS];
 
     void initDefaults() {
       for (int t = 0; t < TRACKS; t++) {
@@ -694,6 +783,8 @@ public final class BridgeContract {
         audioPlay[t] = 0;
         audioLoop[t] = 1;
         audioRate[t] = 1f;
+        audioThreshold[t] = 0;
+        audioThresholdLevel[t] = 0f;
       }
     }
 
@@ -702,6 +793,8 @@ public final class BridgeContract {
       vm.setGlobalObject(G_AUDIO_PLAY, new ChuckArray(audioPlay));
       vm.setGlobalObject(G_AUDIO_LOOP, new ChuckArray(audioLoop));
       vm.setGlobalObject(G_AUDIO_RATE, new ChuckArray(audioRate));
+      vm.setGlobalObject(G_AUDIO_THRESHOLD, new ChuckArray(audioThreshold));
+      vm.setGlobalObject(G_AUDIO_THRESHOLD_LEVEL, new ChuckArray(audioThresholdLevel));
     }
   }
 
@@ -1011,6 +1104,34 @@ public final class BridgeContract {
   public double getTrackFilterRes(int t) { return track.filter[t * 2 + 1]; }
   public void setFilterMode(int t, int mode) { track.filterMode[t] = mode; }
   public void setFilterMorph(int t, double morph) { track.filterMorph[t] = (float) morph; }
+  public void setFilterDrive(int t, double drive) {
+    track.filterDrive[t] = (float) Math.max(0.0, Math.min(2.0, drive));
+    if (vm != null) {
+      org.chuck.core.ChuckArray arr = (org.chuck.core.ChuckArray) vm.getGlobalObject(G_FILTER_DRIVE);
+      if (arr != null) arr.setFloat(t, track.filterDrive[t]);
+    }
+  }
+  public void setFilterNotch(int t, int notch) {
+    track.filterNotch[t] = notch;
+    if (vm != null) {
+      org.chuck.core.ChuckArray arr = (org.chuck.core.ChuckArray) vm.getGlobalObject(G_FILTER_NOTCH);
+      if (arr != null) arr.setInt(t, (long) notch);
+    }
+  }
+  public void setFilterRoute(int t, int route) {
+    track.filterRoute[t] = Math.max(0, Math.min(2, route));
+    if (vm != null) {
+      org.chuck.core.ChuckArray arr = (org.chuck.core.ChuckArray) vm.getGlobalObject(G_FILTER_ROUTE);
+      if (arr != null) arr.setInt(t, (long) track.filterRoute[t]);
+    }
+  }
+  public void setMaxVoices(int t, int count) {
+    track.maxVoices[t] = Math.max(1, Math.min(16, count));
+    if (vm != null) {
+      org.chuck.core.ChuckArray arr = (org.chuck.core.ChuckArray) vm.getGlobalObject(G_MAX_VOICES);
+      if (arr != null) arr.setInt(t, (long) track.maxVoices[t]);
+    }
+  }
   public void setEnv(int row, int envIndex, double a, double d, double s, double r) {
     int b = (row * ENV_COUNT + envIndex) * ENV_PARAMS;
     synth.env[b + 0] = (float) a; synth.env[b + 1] = (float) d; synth.env[b + 2] = (float) s; synth.env[b + 3] = (float) r;
@@ -1291,6 +1412,8 @@ public final class BridgeContract {
   public float getModFxDepth(int track) { return synth.modFxDepth[track]; }
   public void setModFxFeedback(int track, float v) { synth.modFxFeedback[track] = v; }
   public float getModFxFeedback(int track) { return synth.modFxFeedback[track]; }
+  public void setModFxOffset(int track, float v) { synth.modFxOffset[track] = v; }
+  public float getModFxOffset(int track) { return synth.modFxOffset[track]; }
   public void setPortamento(int track, float v) { synth.portamento[track] = v; }
   public float getPortamento(int track) { return synth.portamento[track]; }
   public void setEqBass(int track, float v) { synth.eqBass[track] = v; }
@@ -1311,6 +1434,82 @@ public final class BridgeContract {
   public float getCompRelease(int track) { return synth.compressorReleaseArr[track]; }
   public void setOsc2Type(int track, int v) { synth.osc2Type[track] = v; }
   public int getOsc2Type(int track) { return synth.osc2Type[track]; }
+  // ── Patch cable accessors (synth) ──
+
+  /** Write all patch cables for a given synth track into the bridge arrays. */
+  public void setSynthPatchCables(int track, java.util.List<org.chuck.deluge.model.PatchCable> cables) {
+    if (track < 0 || track >= TRACKS) return;
+    int count = Math.min(cables.size(), MAX_CABLES_PER_TRACK);
+    synth.pcCount[track] = count;
+    int base = track * MAX_CABLES_PER_TRACK;
+    for (int c = 0; c < count; c++) {
+      org.chuck.deluge.model.PatchCable pc = cables.get(c);
+      synth.pcSource[base + c] = srcStringToOrdinal(pc.source());
+      synth.pcDest[base + c] = dstStringToOrdinal(pc.destination());
+      synth.pcAmount[base + c] = pc.amount();
+      synth.pcPolarity[base + c] = pc.polarity() == org.chuck.deluge.model.PatchCable.Polarity.BIPOLAR ? 1 : 0;
+    }
+    // Zero out remaining slots
+    for (int c = count; c < MAX_CABLES_PER_TRACK; c++) {
+      synth.pcSource[base + c] = -1;
+      synth.pcDest[base + c] = -1;
+      synth.pcAmount[base + c] = 0f;
+      synth.pcPolarity[base + c] = 0;
+    }
+  }
+
+  // ── Patch cable accessors (kit) ──
+
+  /** Write all patch cables for a given kit sound into the bridge arrays. */
+  public void setKitPatchCables(int track, java.util.List<org.chuck.deluge.model.PatchCable> cables) {
+    if (track < 0 || track >= TRACKS) return;
+    int count = Math.min(cables.size(), MAX_CABLES_PER_TRACK);
+    kit.kitPcCount[track] = count;
+    int base = track * MAX_CABLES_PER_TRACK;
+    for (int c = 0; c < count; c++) {
+      org.chuck.deluge.model.PatchCable pc = cables.get(c);
+      kit.kitPcSource[base + c] = srcStringToOrdinal(pc.source());
+      kit.kitPcDest[base + c] = dstStringToOrdinal(pc.destination());
+      kit.kitPcAmount[base + c] = pc.amount();
+      kit.kitPcPolarity[base + c] = pc.polarity() == org.chuck.deluge.model.PatchCable.Polarity.BIPOLAR ? 1 : 0;
+    }
+    for (int c = count; c < MAX_CABLES_PER_TRACK; c++) {
+      kit.kitPcSource[base + c] = -1;
+      kit.kitPcDest[base + c] = -1;
+      kit.kitPcAmount[base + c] = 0f;
+      kit.kitPcPolarity[base + c] = 0;
+    }
+  }
+
+  /**
+   * Maps a modulation source string to its ordinal for bridge transport.
+   * Must match MOD_SRC_OPTIONS in SwingSynthConfigDialog.
+   */
+  private static int srcStringToOrdinal(String src) {
+    if (src == null) return -1;
+    return switch (src) {
+      case "velocity" -> 0;
+      case "envelope1" -> 1; case "envelope2" -> 2; case "envelope3" -> 3; case "envelope4" -> 4;
+      case "lfo1" -> 5; case "lfo2" -> 6; case "lfo3" -> 7; case "lfo4" -> 8;
+      case "aftertouch" -> 9; case "note" -> 10; case "random" -> 11; case "sidechain" -> 12;
+      default -> -1;
+    };
+  }
+
+  /**
+   * Maps a modulation destination string to its ordinal for bridge transport.
+   * Must match MOD_DST_OPTIONS in SwingSynthConfigDialog.
+   */
+  private static int dstStringToOrdinal(String dst) {
+    if (dst == null) return -1;
+    return switch (dst) {
+      case "volume" -> 0; case "pan" -> 1; case "lpfFrequency" -> 2; case "lpfResonance" -> 3;
+      case "oscAVolume" -> 4; case "oscBVolume" -> 5; case "pitch" -> 6;
+      case "noiseVolume" -> 7; case "modFxRate" -> 8; case "modFxDepth" -> 9;
+      default -> -1;
+    };
+  }
+
   // ── Extended per-track kit accessors ─────────────────────
 
   public void setKitLpfMode(int track, int v) { kit.kitLpfMode[track] = v; }
@@ -1353,6 +1552,48 @@ public final class BridgeContract {
   public float getKitSampleRateRed(int track) { return kit.kitSampleRateRed[track]; }
   public void setKitBitCrush(int track, float v) { kit.kitBitCrush[track] = v; }
   public float getKitBitCrush(int track) { return kit.kitBitCrush[track]; }
+  public void setKitLpfDrive(int track, float v) {
+    kit.kitLpfDrive[track] = Math.max(0.0f, Math.min(2.0f, v));
+    if (vm != null) {
+      org.chuck.core.ChuckArray arr = (org.chuck.core.ChuckArray) vm.getGlobalObject(G_KIT_LPF_DRIVE);
+      if (arr != null) arr.setFloat(track, kit.kitLpfDrive[track]);
+    }
+  }
+  public void setKitLpfNotch(int track, int v) {
+    kit.kitLpfNotch[track] = v;
+    if (vm != null) {
+      org.chuck.core.ChuckArray arr = (org.chuck.core.ChuckArray) vm.getGlobalObject(G_KIT_LPF_NOTCH);
+      if (arr != null) arr.setInt(track, (long) v);
+    }
+  }
+  public void setKitMaxVoices(int track, int v) {
+    kit.kitMaxVoices[track] = Math.max(1, Math.min(16, v));
+    if (vm != null) {
+      org.chuck.core.ChuckArray arr = (org.chuck.core.ChuckArray) vm.getGlobalObject(G_KIT_MAX_VOICES);
+      if (arr != null) arr.setInt(track, (long) kit.kitMaxVoices[track]);
+    }
+  }
+  public void setKitPolyphony(int track, int v) {
+    kit.kitPolyphony[track] = v;
+    if (vm != null) {
+      org.chuck.core.ChuckArray arr = (org.chuck.core.ChuckArray) vm.getGlobalObject(G_KIT_POLYPHONY);
+      if (arr != null) arr.setInt(track, (long) v);
+    }
+  }
+  public void setAudioThreshold(int trackIdx, int v) {
+    audio.audioThreshold[trackIdx] = Math.max(0, Math.min(3, v));
+    if (vm != null) {
+      org.chuck.core.ChuckArray arr = (org.chuck.core.ChuckArray) vm.getGlobalObject(G_AUDIO_THRESHOLD);
+      if (arr != null) arr.setInt(trackIdx, (long) audio.audioThreshold[trackIdx]);
+    }
+  }
+  public void setAudioThresholdLevel(int trackIdx, float v) {
+    audio.audioThresholdLevel[trackIdx] = v;
+    if (vm != null) {
+      org.chuck.core.ChuckArray arr = (org.chuck.core.ChuckArray) vm.getGlobalObject(G_AUDIO_THRESHOLD_LEVEL);
+      if (arr != null) arr.setFloat(trackIdx, v);
+    }
+  }
   // ── Arp / FM / synth mode accessors ──────────────────────
 
   public boolean getArpOn(int track) { return synth.arpOn[track] > 0; }
@@ -1583,6 +1824,7 @@ public final class BridgeContract {
   public float[] getModFxRateRaw() { return synth.modFxRate; }
   public float[] getModFxDepthRaw() { return synth.modFxDepth; }
   public float[] getModFxFeedbackRaw() { return synth.modFxFeedback; }
+  public float[] getModFxOffsetRaw() { return synth.modFxOffset; }
   public float[] getPortamentoRaw() { return synth.portamento; }
   public float[] getEqBassRaw() { return synth.eqBass; }
   public float[] getEqTrebleRaw() { return synth.eqTreble; }
