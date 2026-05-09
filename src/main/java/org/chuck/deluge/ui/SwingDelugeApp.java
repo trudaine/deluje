@@ -21,6 +21,7 @@ public class SwingDelugeApp extends JFrame {
   private SwingGridPanel songPanel;
   private SwingGridPanel arrGridPanel;
   private SwingGridPanel autoPanel;
+  private SwingPerformanceViewPanel performancePanel;
 
   private SwingTopBarPanel topBar;
   private SwingMasterFxPanel masterFxPanel;
@@ -1185,6 +1186,10 @@ public class SwingDelugeApp extends JFrame {
     autoPanel.setProjectModel(currentProject);
     autoPanel.setOnProjectChanged(this::propagateCurrentModel);
     centerCardPanel.add(wrapGridPanel(autoPanel), "AUTO");
+
+    performancePanel = new SwingPerformanceViewPanel(vm, bridge, currentProject);
+    performancePanel.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
+    centerCardPanel.add(performancePanel, "PERF");
 
     topBar =
         new SwingTopBarPanel(
