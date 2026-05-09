@@ -61,21 +61,25 @@ public class SwingTopBarPanel extends JPanel {
     JToggleButton songBtn = new JToggleButton("SONG");
     JToggleButton arrBtn = new JToggleButton("ARR");
     JToggleButton autoBtn = new JToggleButton("AUTO");
+    JToggleButton perfBtn = new JToggleButton("PERF");
     ButtonGroup modeGroup = new ButtonGroup();
     modeGroup.add(clipBtn);
     modeGroup.add(songBtn);
     modeGroup.add(arrBtn);
     modeGroup.add(autoBtn);
+    modeGroup.add(perfBtn);
 
     clipBtn.addActionListener(e -> listener.onViewModeChanged("CLIP"));
     songBtn.addActionListener(e -> listener.onViewModeChanged("SONG"));
     arrBtn.addActionListener(e -> listener.onViewModeChanged("ARR"));
     autoBtn.addActionListener(e -> listener.onViewModeChanged("AUTO"));
+    perfBtn.addActionListener(e -> listener.onViewModeChanged("PERF"));
 
     add(clipBtn);
     add(songBtn);
     add(arrBtn);
     add(autoBtn);
+    add(perfBtn);
     add(new JSeparator(JSeparator.VERTICAL));
 
     // ── Track add buttons ──
