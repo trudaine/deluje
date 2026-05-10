@@ -261,6 +261,7 @@ public final class BridgeContract {
   public static final String E_SIDECHAIN = "e_sidechain";
   public static final String G_SYNTH_ALGO = "g_synth_algo";
   public static final String G_DX7_PATCH_PREFIX = "g_dx7_patch_";
+  public static final String G_DX7_ENGINE_TYPE = "g_dx7_engine_type";
   public static final String G_SYNTH_MODE = "g_synth_mode";
   public static final String G_HPF_FREQ = "g_hpf_freq";
   public static final String G_HPF_RES = "g_hpf_res";
@@ -535,6 +536,7 @@ public final class BridgeContract {
     final float[] fmAmount = new float[TRACKS];
     final int[] synthAlgo = new int[TRACKS];
     final int[] synthMode = new int[TRACKS];
+    final int[] dx7EngineType = new int[TRACKS];
     final float[] hpfFreq = new float[TRACKS];
     final float[] hpfRes = new float[TRACKS];
     final float[] hpfMorph = new float[TRACKS];
@@ -595,6 +597,7 @@ public final class BridgeContract {
         fmAmount[t] = 0f;
         synthAlgo[t] = 0;
         synthMode[t] = 0;
+        dx7EngineType[t] = -1;
         hpfFreq[t] = 20f;
         hpfRes[t] = 0f;
         hpfMorph[t] = 0f;
@@ -679,6 +682,7 @@ public final class BridgeContract {
       vm.setGlobalObject(G_FM_AMOUNT, new ChuckArray(fmAmount));
       vm.setGlobalObject(G_SYNTH_ALGO, new ChuckArray(synthAlgo));
       vm.setGlobalObject(G_SYNTH_MODE, new ChuckArray(synthMode));
+      vm.setGlobalObject(G_DX7_ENGINE_TYPE, new ChuckArray(dx7EngineType));
       vm.setGlobalObject(G_HPF_FREQ, new ChuckArray(hpfFreq));
       vm.setGlobalObject(G_HPF_RES, new ChuckArray(hpfRes));
       vm.setGlobalObject(G_HPF_MORPH, new ChuckArray(hpfMorph));
@@ -1811,6 +1815,8 @@ public final class BridgeContract {
   public void setSynthAlgo(int track, int algo) { synth.synthAlgo[track] = algo; }
   public int getSynthMode(int track) { return synth.synthMode[track]; }
   public void setSynthMode(int track, int mode) { synth.synthMode[track] = mode; }
+  public int getEngineType(int track) { return synth.dx7EngineType[track]; }
+  public void setEngineType(int track, int type) { synth.dx7EngineType[track] = type; }
   public void setHpfFreq(int track, float freq) { synth.hpfFreq[track] = freq; }
   public float getHpfFreq(int track) { return synth.hpfFreq[track]; }
   public void setHpfRes(int track, float res) { synth.hpfRes[track] = res; }

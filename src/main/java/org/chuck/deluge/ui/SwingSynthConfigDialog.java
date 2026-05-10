@@ -2,6 +2,7 @@ package org.chuck.deluge.ui;
 
 import java.awt.*;
 import javax.swing.*;
+import javax.swing.SwingUtilities;
 import org.chuck.core.ChuckArray;
 import org.chuck.core.ChuckVM;
 import java.util.ArrayList;
@@ -14,6 +15,8 @@ import org.chuck.deluge.model.ModKnob;
 import org.chuck.deluge.model.PatchCable;
 import org.chuck.deluge.model.SynthTrackModel;
 import org.chuck.audio.util.Dx7Patch;
+import java.awt.KeyboardFocusManager;
+import java.awt.event.KeyEvent;
 
 /** Swing dialog for editing a Synth track: Arp, Filter, FM, and 4-slot LFO. */
 public class SwingSynthConfigDialog extends JDialog {
@@ -620,6 +623,24 @@ public class SwingSynthConfigDialog extends JDialog {
       bridge.setSynthAlgo(trackIndex, algoVal);
     });
     topPanel.add(engineCombo);
+
+    // -- DX7 Engine Type (-1=AUTO, 0=MODERN, 1=VINTAGE) --
+    topPanel.add(Box.createHorizontalStrut(16));
+    topPanel.add(sectionLabel("ENGINE TYPE:"));
+    String[] engineTypeNames = {"Auto (firmware default)", "Modern (32-bit float)", "Vintage (14-bit ENV)"};
+    JComboBox<String> engineTypeCombo = new JComboBox<>(engineTypeNames);
+    engineTypeCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    engineTypeCombo.setForeground(Color.WHITE);
+    int curEngineType = model.getEngineType();
+    // -1->0, 0->1, 1->2
+    engineTypeCombo.setSelectedIndex(curEngineType + 1);
+    engineTypeCombo.addActionListener(ev -> {
+      int idx = engineTypeCombo.getSelectedIndex(); // 0, 1, or 2
+      int typeVal = idx - 1; // -1, 0, or 1
+      model.setEngineType(typeVal);
+      bridge.setEngineType(trackIndex, typeVal);
+    });
+    topPanel.add(engineTypeCombo);
     outer.add(topPanel, BorderLayout.NORTH);
 
     // ── Center: 32-algorithm grid ──
@@ -885,21 +906,27 @@ public class SwingSynthConfigDialog extends JDialog {
     }
     row++;
 
+    java.util.List<JPanel> opPanels = new java.util.ArrayList<>();
     for (int opIdx = 0; opIdx < 6; opIdx++) {
       final int op = opIdx;
       final int opOff = op * 21;
+      JPanel opRow = new JPanel(new GridBagLayout());
+      opRow.setBackground(new Color(0x22, 0x22, 0x22));
+      opRow.setFocusCycleRoot(true);
+      opRow.setFocusTraversalPolicyProvider(true);
 
       // OP label
-      c.gridx = 0; c.gridy = row;
-      content.add(label("OP" + (op + 1)), c);
+      c.gridx = 0; c.gridy = 0;
+      opRow.add(label("OP" + (op + 1)), c);
 
       // ON/OFF toggle (opSwitch bit)
       c.gridx = 1;
-      boolean opOn = curPatch != null && ((getPatchByte(curPatch, Dx7Patch.OFF_OP_SWITCH) >> op) & 1) != 0;
+      String curPatchInner = model.getDx7Patch();
+      boolean opOn = curPatchInner != null && ((getPatchByte(curPatchInner, Dx7Patch.OFF_OP_SWITCH) >> op) & 1) != 0;
       JCheckBox opOnBox = new JCheckBox("", opOn);
       opOnBox.setBackground(new Color(0x22, 0x22, 0x22));
       opOnBox.addActionListener(ev -> {
-        byte[] raw = getCurrentRaw(model, curPatch);
+        byte[] raw = getCurrentRaw(model, model.getDx7Patch());
         if (raw == null) return;
         if (opOnBox.isSelected()) {
           raw[Dx7Patch.OFF_OP_SWITCH] |= (byte) (1 << op);
@@ -908,34 +935,107 @@ public class SwingSynthConfigDialog extends JDialog {
         }
         model.setDx7Patch(Dx7Patch.bytesToHex(raw));
       });
-      content.add(opOnBox, c);
+      opRow.add(opOnBox, c);
 
       // Output level (0-99)
-      addDx7OpSlider(content, c, 2, op, 16, 0, 99, model);
+      addDx7OpSliderTo(opRow, c, 2, op, 16, 0, 99, model);
       // Mode (0=ratio, 1=fixed)
-      addDx7OpSlider(content, c, 3, op, 17, 0, 1, model);
+      addDx7OpSliderTo(opRow, c, 3, op, 17, 0, 1, model);
       // Coarse (0-31)
-      addDx7OpSlider(content, c, 4, op, 18, 0, 31, model);
+      addDx7OpSliderTo(opRow, c, 4, op, 18, 0, 31, model);
       // Fine (0-99)
-      addDx7OpSlider(content, c, 5, op, 19, 0, 99, model);
+      addDx7OpSliderTo(opRow, c, 5, op, 19, 0, 99, model);
       // Detune (0-14)
-      addDx7OpSlider(content, c, 6, op, 20, 0, 14, model);
+      addDx7OpSliderTo(opRow, c, 6, op, 20, 0, 14, model);
       // EG R1-R4 (0-99)
       for (int eg = 0; eg < 4; eg++) {
-        addDx7OpSlider(content, c, 7 + eg, op, eg, 0, 99, model);
+        addDx7OpSliderTo(opRow, c, 7 + eg, op, eg, 0, 99, model);
       }
       // EG L1-L4 (0-99)
       for (int eg = 0; eg < 4; eg++) {
-        addDx7OpSlider(content, c, 11 + eg, op, 4 + eg, 0, 99, model);
+        addDx7OpSliderTo(opRow, c, 11 + eg, op, 4 + eg, 0, 99, model);
       }
       // Velocity sensitivity (0-7)
-      addDx7OpSlider(content, c, 15, op, 15, 0, 7, model);
+      addDx7OpSliderTo(opRow, c, 15, op, 15, 0, 7, model);
       // Amp mod sensitivity (0-3)
-      addDx7OpSlider(content, c, 16, op, 14, 0, 3, model);
+      addDx7OpSliderTo(opRow, c, 16, op, 14, 0, 3, model);
 
+      opRow.setFocusTraversalPolicy(new java.awt.FocusTraversalPolicy() {
+        @Override
+        public Component getComponentAfter(Container focusCycleRoot, Component aComponent) {
+          java.util.List<Component> order = getAllOrder();
+          int idx = order.indexOf(aComponent);
+          return order.get((idx + 1) % order.size());
+        }
+        @Override
+        public Component getComponentBefore(Container focusCycleRoot, Component aComponent) {
+          java.util.List<Component> order = getAllOrder();
+          int idx = order.indexOf(aComponent);
+          return order.get((idx - 1 + order.size()) % order.size());
+        }
+        @Override
+        public Component getFirstComponent(Container focusCycleRoot) {
+          java.util.List<Component> order = getAllOrder();
+          return order.isEmpty() ? null : order.get(0);
+        }
+        @Override
+        public Component getLastComponent(Container focusCycleRoot) {
+          java.util.List<Component> order = getAllOrder();
+          return order.isEmpty() ? null : order.get(order.size() - 1);
+        }
+        @Override
+        public Component getDefaultComponent(Container focusCycleRoot) {
+          return getFirstComponent(focusCycleRoot);
+        }
+        private java.util.List<Component> getAllOrder() {
+          java.util.List<Component> all = new java.util.ArrayList<>();
+          for (Component child : opRow.getComponents()) {
+            if (child instanceof JCheckBox) all.add(child);
+            else if (child instanceof JPanel) {
+              for (Component sub : ((JPanel) child).getComponents()) {
+                if (sub instanceof JSlider || sub instanceof JLabel) all.add(sub);
+              }
+            }
+          }
+          return all;
+        }
+      });
+
+      c.gridx = 0; c.gridy = row;
+      c.gridwidth = opCols.length;
+      content.add(opRow, c);
+      opPanels.add(opRow);
       row++;
     }
 
+    // ── Keyboard focus cycling across operators (Tab/Shift+Tab) ──
+    KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventPostProcessor(e -> {
+      if (e.getID() != KeyEvent.KEY_PRESSED) return false;
+      if (e.getKeyCode() != KeyEvent.VK_TAB) return false;
+      Component focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager().getFocusOwner();
+      if (focusOwner == null) return false;
+      // Find which opPanel contains the focus
+      int curOp = -1;
+      for (int i = 0; i < opPanels.size(); i++) {
+        if (SwingUtilities.isDescendingFrom(focusOwner, opPanels.get(i))) {
+          curOp = i;
+          break;
+        }
+      }
+      if (curOp < 0) return false;
+      int nextOp;
+      if (e.isShiftDown()) {
+        nextOp = (curOp - 1 + opPanels.size()) % opPanels.size();
+      } else {
+        nextOp = (curOp + 1) % opPanels.size();
+      }
+      e.consume();
+      JPanel nextPanel = opPanels.get(nextOp);
+      // Focus the first focusable component in the next panel
+      Component first = nextPanel.getFocusTraversalPolicy().getDefaultComponent(nextPanel);
+      if (first != null) first.requestFocus();
+      return true;
+    });
     JScrollPane scroll = new JScrollPane(content);
     scroll.setPreferredSize(new Dimension(900, 600));
     scroll.getViewport().setBackground(new Color(0x22, 0x22, 0x22));
@@ -980,6 +1080,45 @@ public class SwingSynthConfigDialog extends JDialog {
     cell.add(slider, BorderLayout.CENTER);
     cell.add(valLabel, BorderLayout.EAST);
     panel.add(cell, c);
+  }
+
+  /** Helper: add a slider row for a DX7 global byte (patch offset). */
+
+  private void addDx7OpSliderTo(JPanel target, GridBagConstraints c, int col, int opOff, int fieldOff,
+      int min, int max, SynthTrackModel model) {
+    c.gridx = col;
+    String curPatch = model.getDx7Patch();
+    int val = min;
+    if (curPatch != null && !curPatch.isEmpty()) {
+      byte[] raw = Dx7Patch.hexToBytes(curPatch);
+      int idx = opOff * 21 + fieldOff;
+      if (idx >= 0 && idx < raw.length) {
+        val = raw[idx] & 0xFF;
+      }
+    }
+    JSlider slider = new JSlider(min, max, Math.max(min, Math.min(max, val)));
+    slider.setBackground(new Color(0x22, 0x22, 0x22));
+    slider.setPreferredSize(new Dimension(50, 22));
+    slider.setPaintTicks(false);
+    JLabel valLabel = new JLabel(String.valueOf(val));
+    valLabel.setForeground(Color.CYAN);
+    valLabel.setPreferredSize(new Dimension(28, 20));
+    valLabel.setFont(valLabel.getFont().deriveFont(9f));
+    slider.addChangeListener(ev -> {
+      byte[] raw = getCurrentRaw(model, model.getDx7Patch());
+      if (raw == null) return;
+      int idx = opOff * 21 + fieldOff;
+      if (idx >= 0 && idx < raw.length) {
+        raw[idx] = (byte) slider.getValue();
+        model.setDx7Patch(Dx7Patch.bytesToHex(raw));
+      }
+      valLabel.setText(String.valueOf(slider.getValue()));
+    });
+    JPanel cell = new JPanel(new BorderLayout(0, 0));
+    cell.setBackground(new Color(0x22, 0x22, 0x22));
+    cell.add(slider, BorderLayout.CENTER);
+    cell.add(valLabel, BorderLayout.EAST);
+    target.add(cell, c);
   }
 
   /** Helper: add a slider row for a DX7 global byte (patch offset). */

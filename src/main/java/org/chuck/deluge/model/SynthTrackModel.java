@@ -94,6 +94,12 @@ public class SynthTrackModel extends TrackModel {
   /** DX7 patch hex string (312 hex chars = 156 bytes), null if not a DX7 track. */
   private String dx7patch = null;
 
+  /**
+   * DX7 engine type: -1=AUTO (firmware default, MkI for algo 3/5 with feedback),
+   * 0=MODERN (sinLookup/exp2Lookup, 32-bit float path), 1=VINTAGE (mkiSin, 14-bit envelopes).
+   */
+  private int engineType = -1;
+
   // Synthesis algorithm: 0=FM, 10=Mandolin, 11=Rhodey, 12=ModalBar, 13=Moog
   private int synthAlgorithm = 0;
 
@@ -387,6 +393,9 @@ public class SynthTrackModel extends TrackModel {
 
   public String getDx7Patch() { return dx7patch; }
   public void setDx7Patch(String dx7patch) { this.dx7patch = dx7patch; }
+
+  public int getEngineType() { return engineType; }
+  public void setEngineType(int engineType) { this.engineType = engineType; }
 
   public int getSynthAlgorithm() {
     return synthAlgorithm;
