@@ -45,7 +45,8 @@ public class DelugeXmlParser {
     FieldBinding.hexFloat("defaultParams", "stutterRate",         SynthTrackModel::setStutterRate),
     FieldBinding.hexFloat("defaultParams", "sampleRateReduction", SynthTrackModel::setSampleRateReduction),
     FieldBinding.hexFloat("defaultParams", "bitCrush",            SynthTrackModel::setBitCrush),
-    FieldBinding.hexFloat("defaultParams", "delayRate",           SynthTrackModel::setDelaySend)
+    FieldBinding.hexFloat("defaultParams", "delayRate",           SynthTrackModel::setDelaySend),
+    FieldBinding.hexFloat("defaultParams", "waveIndex",           SynthTrackModel::setWaveIndex)
   );
 
   // ── Public entry points ──
@@ -1440,6 +1441,7 @@ public class DelugeXmlParser {
     readHexFloat(dp, "stutterRate", sound::setStutterRate);
     readHexFloat(dp, "sampleRateReduction", sound::setSampleRateReduction);
     readHexFloat(dp, "bitCrush", sound::setBitCrush);
+    readHexFloat(dp, "waveIndex", sound::setWaveIndex);
 
     // Envelopes 1-4 as child elements of defaultParams (child-element format)
     for (int i = 1; i <= 4; i++) {

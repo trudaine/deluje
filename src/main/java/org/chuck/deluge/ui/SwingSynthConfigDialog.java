@@ -136,6 +136,12 @@ public class SwingSynthConfigDialog extends JDialog {
     });
     panel.add(retrigCombo, c); row++;
 
+    // Wave Index (wavetable position for oscillator)
+    row = addSlider(panel, c, row, "Wave Idx:",
+        "Wavetable position (0.0-1.0). Controls inter-table interpolation for wavetable-type oscillators.",
+        0, 1000, (int)(model.getWaveIndex() * 1000),
+        val -> { model.setWaveIndex(val / 1000.0f); bridge.setWaveIndex(trackIndex, val / 1000.0f); }, "");
+
     // ── Synth Mode ──
     c.gridx = 0; c.gridy = row; c.gridwidth = 3;
     panel.add(sectionLabel("SYNTH MODE"), c); row++;

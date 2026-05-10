@@ -86,6 +86,9 @@ public class KitTrackModel extends TrackModel {
     /** Oscillator retrigger phase. -1=FREE, 0=RESET, positive=phase offset in degrees. */
     private int retrigPhase = 0;
 
+    /** Wavetable position index (0.0–1.0), applies only to wavetable-type oscillator. */
+    private float waveIndex = 0.0f;
+
     // Default params values
     private float volume = 0.5f;
     private float pan = 0.0f;
@@ -318,6 +321,9 @@ public class KitTrackModel extends TrackModel {
 
     public int getRetrigPhase() { return retrigPhase; }
     public void setRetrigPhase(int v) { this.retrigPhase = v; }
+
+    public float getWaveIndex() { return waveIndex; }
+    public void setWaveIndex(float v) { this.waveIndex = v; }
 
     public float getVolume() { return volume; }
     public void setVolume(float v) { this.volume = v; }

@@ -158,6 +158,7 @@ public class SwingDelugeApp extends JFrame {
               bridge.setKitUnisonNum(engineRow, snd.getUnisonNum());
               bridge.setKitUnisonDetune(engineRow, snd.getUnisonDetune());
               bridge.setKitUnisonSpread(engineRow, snd.getUnisonStereoSpread());
+              bridge.setKitWaveIndex(engineRow, snd.getWaveIndex());
               bridge.setKitCompAttack(engineRow, snd.getCompressorAttack());
               bridge.setKitCompRelease(engineRow, snd.getCompressorRelease());
               bridge.setKitCompBlend(engineRow, snd.getCompressorBlend());
@@ -408,6 +409,9 @@ public class SwingDelugeApp extends JFrame {
         }
         for (int v = 0; v < totalSynthRows; v++) {
           bridge.setRetrigPhase(startRow + v, synth.getRetrigPhase());
+        }
+        for (int v = 0; v < totalSynthRows; v++) {
+          bridge.setWaveIndex(startRow + v, synth.getWaveIndex());
         }
         for (int v = 0; v < totalSynthRows; v++) {
           bridge.setDelaySend(startRow + v, synth.getDelaySend());

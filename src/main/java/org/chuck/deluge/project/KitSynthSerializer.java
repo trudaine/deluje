@@ -173,6 +173,7 @@ public class KitSynthSerializer {
       appendHexChild(doc, dp, "stutterRate", sound.getStutterRate());
       appendHexChild(doc, dp, "sampleRateReduction", sound.getSampleRateReduction());
       appendHexChild(doc, dp, "bitCrush", sound.getBitCrush());
+      appendHexChild(doc, dp, "waveIndex", sound.getWaveIndex());
 
       // Envelopes 1-4 inside defaultParams
       appendEnvelope(doc, dp, "envelope1", sound.getAdsr());
@@ -392,6 +393,7 @@ public class KitSynthSerializer {
     appendHexChild(doc, dp, "stutterRate", synth.getStutterRate());
     appendHexChild(doc, dp, "sampleRateReduction", synth.getSampleRateReduction());
     appendHexChild(doc, dp, "bitCrush", synth.getBitCrush());
+    appendHexChild(doc, dp, "waveIndex", synth.getWaveIndex());
 
     // Envelopes 0-3 inside defaultParams
     for (int i = 0; i < 4; i++) {

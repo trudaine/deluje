@@ -1698,6 +1698,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
         ChuckArray sCompHpf = (ChuckArray) vm.getGlobalObject(BridgeContract.G_COMP_SIDECHAIN_HPF);
         ChuckArray maxVoicesArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_MAX_VOICES);
         ChuckArray sLfoSync = (ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_SYNC_LEVEL);
+        ChuckArray sWaveIndex = (ChuckArray) vm.getGlobalObject(BridgeContract.G_WAVE_INDEX);
 
         double synthBpm = vm.getGlobalFloat(BridgeContract.G_BPM);
         if (synthBpm < 1.0) synthBpm = 120.0;
@@ -1760,7 +1761,11 @@ public class DelugeEngineDSL implements Shred, Runnable {
           int len = trkLen != null ? (int) Math.max(1, trkLen.getInt(r)) : BridgeContract.STEPS;
           int step = (int) (currentStep % len);
           int idx = r * BridgeContract.STEPS + step;
-          if (algo < 10 && oscType != null && car[u] != null) car[u].index((int) oscType.getInt(r));
+          if (algo < 10 && oscType != null && car[u] != null) {
+            double baseIdx = oscType.getInt(r);
+            double wi = (sWaveIndex != null && r < sWaveIndex.size()) ? sWaveIndex.getFloat(r) : 0.0;
+            car[u].index(baseIdx + wi);
+          }
           if (clipPat.getInt(idx) == 0) { env[u][0].keyOff(); env[u][1].keyOff(); env[u][2].keyOff(); env[u][3].keyOff(); continue; }
           if (mute.getInt(r) != 0) { env[u][0].keyOff(); env[u][1].keyOff(); env[u][2].keyOff(); env[u][3].keyOff(); continue; }
 
@@ -1883,7 +1888,11 @@ public class DelugeEngineDSL implements Shred, Runnable {
           tp = masterPan + sPanVal + stepPanVal + totalModP;
           pan[u].pan((float) Math.max(-1.0, Math.min(1.0, tp)));
           // Per-track default arrays applied each step (size-guarded for test contexts)
-          if (sOsc2Type != null && r < sOsc2Type.size() && mod[u] != null) mod[u].index((int) sOsc2Type.getInt(r));
+          if (sOsc2Type != null && r < sOsc2Type.size() && mod[u] != null) {
+            double baseIdx = sOsc2Type.getInt(r);
+            double wi = (sWaveIndex != null && r < sWaveIndex.size()) ? sWaveIndex.getFloat(r) : 0.0;
+            mod[u].index(baseIdx + wi);
+          }
           if (sMod1Fb != null && r < sMod1Fb.size()) vm.setGlobalFloat(BridgeContract.G_MOD1_FB + "_" + r, sMod1Fb.getFloat(r));
           // Apply modulated noise volume: step value + totalModNoise
           double modulatedNoise = (sNoiseVolDef != null && r < sNoiseVolDef.size()) ? sNoiseVolDef.getFloat(r) : 0.0;

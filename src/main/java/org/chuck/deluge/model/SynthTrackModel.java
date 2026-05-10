@@ -14,6 +14,7 @@ public class SynthTrackModel extends TrackModel {
   private int unisonNum = 1;
   private float unisonDetune = 0.0f;
   private float unisonStereoSpread = 0.0f;
+  private float waveIndex = 0.0f;
 
   // Filter
   private FilterMode filterMode = FilterMode.LADDER_12;
@@ -164,6 +165,9 @@ public class SynthTrackModel extends TrackModel {
   public void setUnisonStereoSpread(float unisonStereoSpread) {
     this.unisonStereoSpread = unisonStereoSpread;
   }
+
+  public float getWaveIndex() { return waveIndex; }
+  public void setWaveIndex(float v) { this.waveIndex = v; }
 
   public FilterMode getFilterMode() {
     return filterMode;
