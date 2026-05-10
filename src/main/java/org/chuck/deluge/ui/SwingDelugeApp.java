@@ -512,6 +512,78 @@ public class SwingDelugeApp extends JFrame {
               bridge.setStepNoiseVol(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_NOISE_VOL, s));
             if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_PITCH, s))
               bridge.setStepPitch(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_PITCH, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_VOLUME, s))
+              bridge.setStepVolume(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_VOLUME, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_0_ATTACK, s))
+              bridge.setStepEnv0Attack(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_0_ATTACK, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_0_DECAY, s))
+              bridge.setStepEnv0Decay(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_0_DECAY, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_0_SUSTAIN, s))
+              bridge.setStepEnv0Sustain(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_0_SUSTAIN, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_0_RELEASE, s))
+              bridge.setStepEnv0Release(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_0_RELEASE, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_1_ATTACK, s))
+              bridge.setStepEnv1Attack(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_1_ATTACK, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_1_DECAY, s))
+              bridge.setStepEnv1Decay(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_1_DECAY, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_1_SUSTAIN, s))
+              bridge.setStepEnv1Sustain(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_1_SUSTAIN, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_1_RELEASE, s))
+              bridge.setStepEnv1Release(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_1_RELEASE, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_2_ATTACK, s))
+              bridge.setStepEnv2Attack(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_2_ATTACK, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_2_DECAY, s))
+              bridge.setStepEnv2Decay(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_2_DECAY, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_2_SUSTAIN, s))
+              bridge.setStepEnv2Sustain(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_2_SUSTAIN, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_2_RELEASE, s))
+              bridge.setStepEnv2Release(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_2_RELEASE, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_3_ATTACK, s))
+              bridge.setStepEnv3Attack(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_3_ATTACK, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_3_DECAY, s))
+              bridge.setStepEnv3Decay(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_3_DECAY, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_3_SUSTAIN, s))
+              bridge.setStepEnv3Sustain(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_3_SUSTAIN, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_3_RELEASE, s))
+              bridge.setStepEnv3Release(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_3_RELEASE, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_0_RATE, s))
+              bridge.setStepLfo0Rate(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_0_RATE, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_0_DEPTH, s))
+              bridge.setStepLfo0Depth(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_0_DEPTH, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_1_RATE, s))
+              bridge.setStepLfo1Rate(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_1_RATE, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_1_DEPTH, s))
+              bridge.setStepLfo1Depth(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_1_DEPTH, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_2_RATE, s))
+              bridge.setStepLfo2Rate(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_2_RATE, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_2_DEPTH, s))
+              bridge.setStepLfo2Depth(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_2_DEPTH, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_3_RATE, s))
+              bridge.setStepLfo3Rate(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_3_RATE, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_3_DEPTH, s))
+              bridge.setStepLfo3Depth(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_3_DEPTH, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ARP_RATE, s))
+              bridge.setStepArpRate(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ARP_RATE, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ARP_GATE, s))
+              bridge.setStepArpGate(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ARP_GATE, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_FM_AMOUNT, s))
+              bridge.setStepFmAmount(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_FM_AMOUNT, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_FM_RATIO, s))
+              bridge.setStepFmRatio(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_FM_RATIO, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_MOD_FX_FEEDBACK, s))
+              bridge.setStepModFxFeedback(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_MOD_FX_FEEDBACK, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_COMP_ATTACK, s))
+              bridge.setStepCompAttack(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_COMP_ATTACK, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_COMP_RELEASE, s))
+              bridge.setStepCompRelease(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_COMP_RELEASE, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_PORTAMENTO, s))
+              bridge.setStepPortamento(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_PORTAMENTO, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_STUTTER_RATE, s))
+              bridge.setStepStutter(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_STUTTER_RATE, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_BITCRUSH, s))
+              bridge.setStepBitcrush(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_BITCRUSH, s));
+            if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_SAMPLE_RATE_RED, s))
+              bridge.setStepSrr(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_SAMPLE_RATE_RED, s));
           }
         }
       }
