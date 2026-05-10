@@ -162,10 +162,10 @@ public class KitSynthSerializer {
       appendHexFreq(doc, dp, "hpfFrequency", sound.getHpfFreq());
       appendHexChild(doc, dp, "hpfResonance", sound.getHpfRes());
       appendHexChild(doc, dp, "hpfMorph", sound.getHpfMorph());
-      appendHexChild(doc, dp, "modFXRate", 0f);
-      appendHexChild(doc, dp, "modFXDepth", 0f);
-      appendHexChild(doc, dp, "modFXOffset", 0f);
-      appendHexChild(doc, dp, "modFXFeedback", 0f);
+      appendHexChild(doc, dp, "modFXRate", sound.getModFxRate());
+      appendHexChild(doc, dp, "modFXDepth", sound.getModFxDepth());
+      appendHexChild(doc, dp, "modFXOffset", sound.getModFxOffset());
+      appendHexChild(doc, dp, "modFXFeedback", sound.getModFxFeedback());
       appendHexChild(doc, dp, "delayRate", sound.getDelayRate());
       appendHexChild(doc, dp, "delayFeedback", sound.getDelayFeedback());
       appendHexChild(doc, dp, "reverbAmount", sound.getReverbAmount());

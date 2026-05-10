@@ -906,6 +906,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
       final SVFilter[][] kitFilHolder = new SVFilter[1][];
       final HPF[][] kitHpfHolder = new HPF[1][];
       final Dyno[][] kitCompHolder = new Dyno[1][];
+      final ModFxUnit[][] kitModFxHolder = new ModFxUnit[1][];
       java.util.function.Consumer<Gain> doInit = (bus) -> {
         ChuckArray tt = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
         int vc = 0;
@@ -924,11 +925,12 @@ public class DelugeEngineDSL implements Shred, Runnable {
         SVFilter[] kitFil = new SVFilter[vc];
         HPF[] kitHpf = new HPF[vc];
         Dyno[] compArr = new Dyno[vc];
+        ModFxUnit[] kitModFx = new ModFxUnit[vc];
         for (int i = 0; i < vc; i++) {
           k[i] = new SndBuf(); k[i].rate(0); pn[i] = new Pan2(); ds[i] = new Gain(); rs[i] = new Gain();
           ke[i][0] = new DelugeAdsr(); ke[i][1] = new DelugeAdsr(); ke[i][2] = new DelugeAdsr(); ke[i][3] = new DelugeAdsr();
-          kitFil[i] = new SVFilter(sr); kitHpf[i] = new HPF(sr); compArr[i] = new Dyno(sr);
-          k[i].chuck(kitFil[i]).chuck(kitHpf[i]).chuck(ke[i][0]).chuck(pn[i]).chuck(compArr[i]).chuck(bus);
+          kitFil[i] = new SVFilter(sr); kitHpf[i] = new HPF(sr); kitModFx[i] = new ModFxUnit(sr); compArr[i] = new Dyno(sr);
+          k[i].chuck(kitFil[i]).chuck(kitHpf[i]).chuck(ke[i][0]).chuck(pn[i]).chuck(kitModFx[i]).chuck(compArr[i]).chuck(bus);
           pn[i].chuck(ds[i]).chuck((ChuckUGen) vm.getGlobalObject(BridgeContract.G_DELAY_IN));
           pn[i].chuck(rs[i]).chuck((ChuckUGen) vm.getGlobalObject(BridgeContract.G_REVERB_IN));
           ke[i][0].forceMute(); ke[i][0].set(0.001, 0, 1, 0.05);
@@ -943,7 +945,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
           System.out.println("[kit_shred] INIT kit[" + i + "]: samples=" + k[i].samples() + " rate=" + k[i].rate() + " pos=" + k[i].pos());
         }
         System.out.println("[kit_shred] INIT voiceCount=" + vc);
-        kitHolder[0] = k; panHolder[0] = pn; dSendHolder[0] = ds; rSendHolder[0] = rs; kitEnvHolder[0] = ke; kitFilHolder[0] = kitFil; kitHpfHolder[0] = kitHpf; kitCompHolder[0] = compArr;
+        kitHolder[0] = k; panHolder[0] = pn; dSendHolder[0] = ds; rSendHolder[0] = rs; kitEnvHolder[0] = ke; kitFilHolder[0] = kitFil; kitHpfHolder[0] = kitHpf; kitModFxHolder[0] = kitModFx; kitCompHolder[0] = compArr;
       };
       doInit.accept(master);
       vm.print("[kit] sporking preview shred, kit.length=" + kitHolder[0].length + "\n");
@@ -969,6 +971,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
         SVFilter[] kitFil = kitFilHolder[0];
         HPF[] kitHpfArr = kitHpfHolder[0];
         Dyno[] kitComp = kitCompHolder[0];
+        ModFxUnit[] kitModFx = kitModFxHolder[0];
         if (vm.getGlobalInt(BridgeContract.G_PLAY) == 0) {
           lastStep = -1;
           for (int r = 0; r < kit.length; r++) { kitEnv[r][0].keyOff(); kitEnv[r][1].keyOff(); kitEnv[r][2].keyOff(); kitEnv[r][3].keyOff(); kit[r].rate(0); }
@@ -1016,6 +1019,10 @@ public class DelugeEngineDSL implements Shred, Runnable {
         ChuckArray kitCompBlend = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_COMP_BLEND);
         ChuckArray kitCompHpf = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_COMP_SIDECHAIN_HPF);
         ChuckArray kitModFxType = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_MOD_FX_TYPE);
+        ChuckArray kitModFxRate = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_MOD_FX_RATE);
+        ChuckArray kitModFxDepth = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_MOD_FX_DEPTH);
+        ChuckArray kitModFxOffset = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_MOD_FX_OFFSET);
+        ChuckArray kitModFxFeedback = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_MOD_FX_FEEDBACK);
         ChuckArray kitStutter = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_STUTTER_RATE);
         ChuckArray kitSrr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_SAMPLE_RATE_RED);
         ChuckArray kitBc = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_BITCRUSH);
@@ -1035,6 +1042,10 @@ public class DelugeEngineDSL implements Shred, Runnable {
           if (kitEqTreble != null && r < kitEqTreble.size()) vm.setGlobalFloat(BridgeContract.G_KIT_EQ_TREBLE + "_" + r, kitEqTreble.getFloat(r));
           if (kitSidechain != null && r < kitSidechain.size()) vm.setGlobalFloat(BridgeContract.G_KIT_SIDECHAIN + "_" + r, kitSidechain.getFloat(r));
           if (kitModFxType != null && r < kitModFxType.size()) vm.setGlobalFloat(BridgeContract.G_KIT_MOD_FX_TYPE + "_" + r, kitModFxType.getFloat(r));
+          if (kitModFxRate != null && r < kitModFxRate.size()) vm.setGlobalFloat(BridgeContract.G_KIT_MOD_FX_RATE + "_" + r, kitModFxRate.getFloat(r));
+          if (kitModFxDepth != null && r < kitModFxDepth.size()) vm.setGlobalFloat(BridgeContract.G_KIT_MOD_FX_DEPTH + "_" + r, kitModFxDepth.getFloat(r));
+          if (kitModFxOffset != null && r < kitModFxOffset.size()) vm.setGlobalFloat(BridgeContract.G_KIT_MOD_FX_OFFSET + "_" + r, kitModFxOffset.getFloat(r));
+          if (kitModFxFeedback != null && r < kitModFxFeedback.size()) vm.setGlobalFloat(BridgeContract.G_KIT_MOD_FX_FEEDBACK + "_" + r, kitModFxFeedback.getFloat(r));
           if (kitStutter != null && r < kitStutter.size()) vm.setGlobalFloat(BridgeContract.G_KIT_STUTTER_RATE + "_" + r, kitStutter.getFloat(r));
           if (kitSrr != null && r < kitSrr.size()) vm.setGlobalFloat(BridgeContract.G_KIT_SAMPLE_RATE_RED + "_" + r, kitSrr.getFloat(r));
           if (kitBc != null && r < kitBc.size()) vm.setGlobalFloat(BridgeContract.G_KIT_BITCRUSH + "_" + r, kitBc.getFloat(r));
@@ -1226,6 +1237,19 @@ public class DelugeEngineDSL implements Shred, Runnable {
             double kfraction = 0.5 + kRatio / 2.0;
             double kratio = 1.0 / Math.max(0.0039, 1.0 - kfraction);
             kitComp[r].ratio((float) Math.max(2.0, Math.min(256.0, kratio)));
+          }
+          // Per-voice ModFxUnit param update (every step for live modulation)
+          if (kitModFx != null && r < kitModFx.length && kitModFx[r] != null) {
+            int mfxType = kitModFxType != null && r < kitModFxType.size() ? (int) kitModFxType.getInt(r) : 0;
+            double mfxRate = kitModFxRate != null && r < kitModFxRate.size() ? kitModFxRate.getFloat(r) : 0.3f;
+            double mfxDepth = kitModFxDepth != null && r < kitModFxDepth.size() ? kitModFxDepth.getFloat(r) : 0.3f;
+            double mfxFb = kitModFxFeedback != null && r < kitModFxFeedback.size() ? kitModFxFeedback.getFloat(r) : 0.0f;
+            double mfxOffset = kitModFxOffset != null && r < kitModFxOffset.size() ? kitModFxOffset.getFloat(r) : 0.0f;
+            kitModFx[r].setType(mfxType);
+            kitModFx[r].setModFreq(mfxRate * Math.max(0.01, 1.0 + totalModV * 0.5));
+            kitModFx[r].setModDepth(mfxDepth * Math.max(0.0, 1.0 + totalModV * 0.5));
+            kitModFx[r].setFeedback(mfxFb);
+            kitModFx[r].setOffset(mfxOffset);
           }
           kitEnv[r][0].keyOn(); kitEnv[r][1].keyOn(); kitEnv[r][2].keyOn(); kitEnv[r][3].keyOn();
           long playLen = Math.abs(endPos - startPos);
