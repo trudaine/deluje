@@ -1027,6 +1027,15 @@ public class DelugeEngineDSL implements Shred, Runnable {
         ChuckArray kitSrr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_SAMPLE_RATE_RED);
         ChuckArray kitBc = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_BITCRUSH);
         ChuckArray envArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ENV);
+        // ── Extended per-step automation arrays (shared with SynthShred) ──
+        ChuckArray sStepVolume = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_VOLUME);
+        ChuckArray sStepCompAttack = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_COMP_ATTACK);
+        ChuckArray sStepCompRelease = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_COMP_RELEASE);
+        ChuckArray sStepModFxFeedback = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_MOD_FX_FEEDBACK);
+        ChuckArray sStepStutter = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_STUTTER);
+        ChuckArray sStepSrr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_SRR);
+        ChuckArray sStepBitcrush = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_BITCRUSH);
+        ChuckArray sStepPortamento = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_PORTAMENTO);
         for (int r = 0; r < BridgeContract.TRACKS; r++) {
           if (r < kit.length) {
             dSend[r].gain(dlySnd != null ? (float) dlySnd.getFloat(r) : 0.0f);
@@ -1073,6 +1082,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
             }
           }
         }
+        // ── Step blending happens per-note in the per-step loop below ──
         for (int r = 0; r < kit.length; r++) {
           if (trackType != null && trackType.getInt(r) != 0) continue;
           if (mute != null && mute.getInt(r) != 0) continue;
@@ -1144,6 +1154,43 @@ public class DelugeEngineDSL implements Shred, Runnable {
           if (r == 0) {
             ChuckEvent sidechainEvent = (ChuckEvent) vm.getGlobalObject(BridgeContract.E_SIDECHAIN);
             if (sidechainEvent != null) sidechainEvent.broadcast();
+          }
+
+          // ── Kit step automation blending (extended g_step_* arrays) ──
+          double kStepVol = sStepVolume != null ? sStepVolume.getFloat(idx) : 0.0;
+          if (kStepVol != 0.0 && r < kit.length) {
+            kit[r].gain((float) Math.max(0.0, (kitVol != null && r < kitVol.size() ? kitVol.getFloat(r) : 1.0) + kStepVol));
+          }
+          // Kit compressor attack/release: blend step automation onto per-track globals
+          if (sStepCompAttack != null) {
+            double perTrack = kitCompA != null && r < kitCompA.size() ? kitCompA.getFloat(r) : 0.0;
+            vm.setGlobalFloat(BridgeContract.G_KIT_COMP_ATTACK + "_" + r, (float) Math.max(0.0, Math.min(1.0, perTrack + sStepCompAttack.getFloat(idx))));
+          }
+          if (sStepCompRelease != null) {
+            double perTrack = kitCompR != null && r < kitCompR.size() ? kitCompR.getFloat(r) : 0.0;
+            vm.setGlobalFloat(BridgeContract.G_KIT_COMP_RELEASE + "_" + r, (float) Math.max(0.0, Math.min(1.0, perTrack + sStepCompRelease.getFloat(idx))));
+          }
+          // Kit ModFx feedback: blend step automation
+          if (sStepModFxFeedback != null) {
+            double perTrack = kitModFxFeedback != null && r < kitModFxFeedback.size() ? kitModFxFeedback.getFloat(r) : 0.0;
+            vm.setGlobalFloat(BridgeContract.G_KIT_MOD_FX_FEEDBACK + "_" + r, (float) Math.max(0.0, Math.min(1.0, perTrack + sStepModFxFeedback.getFloat(idx))));
+          }
+          // Kit stutter/bitcrush/SRR: blend step automation
+          if (sStepStutter != null) {
+            double perTrack = kitStutter != null && r < kitStutter.size() ? kitStutter.getFloat(r) : 0.0;
+            vm.setGlobalFloat(BridgeContract.G_KIT_STUTTER_RATE + "_" + r, (float) Math.max(0.0, perTrack + sStepStutter.getFloat(idx)));
+          }
+          if (sStepSrr != null) {
+            double perTrack = kitSrr != null && r < kitSrr.size() ? kitSrr.getFloat(r) : 0.0;
+            vm.setGlobalFloat(BridgeContract.G_KIT_SAMPLE_RATE_RED + "_" + r, (float) Math.max(0.0, perTrack + sStepSrr.getFloat(idx)));
+          }
+          if (sStepBitcrush != null) {
+            double perTrack = kitBc != null && r < kitBc.size() ? kitBc.getFloat(r) : 0.0;
+            vm.setGlobalFloat(BridgeContract.G_KIT_BITCRUSH + "_" + r, (float) Math.max(0.0, perTrack + sStepBitcrush.getFloat(idx)));
+          }
+          // Kit portamento (shared G_PORTAMENTO with synth)
+          if (sStepPortamento != null) {
+            vm.setGlobalFloat(BridgeContract.G_PORTAMENTO + "_" + r, sStepPortamento.getFloat(idx));
           }
 
           // ── Kit patch cable modulation evaluation ──
@@ -1746,6 +1793,43 @@ public class DelugeEngineDSL implements Shred, Runnable {
         ChuckArray sOscBVol = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_OSC_B_VOL);
         ChuckArray sNoiseVol = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_NOISE_VOL);
         ChuckArray sPitchArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_PITCH);
+        // ── Extended per-step automation arrays (36 new) ──
+        ChuckArray sStepVolume = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_VOLUME);
+        ChuckArray sStepEnv0A = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_ENV_0_ATTACK);
+        ChuckArray sStepEnv0D = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_ENV_0_DECAY);
+        ChuckArray sStepEnv0S = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_ENV_0_SUSTAIN);
+        ChuckArray sStepEnv0R = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_ENV_0_RELEASE);
+        ChuckArray sStepEnv1A = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_ENV_1_ATTACK);
+        ChuckArray sStepEnv1D = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_ENV_1_DECAY);
+        ChuckArray sStepEnv1S = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_ENV_1_SUSTAIN);
+        ChuckArray sStepEnv1R = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_ENV_1_RELEASE);
+        ChuckArray sStepEnv2A = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_ENV_2_ATTACK);
+        ChuckArray sStepEnv2D = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_ENV_2_DECAY);
+        ChuckArray sStepEnv2S = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_ENV_2_SUSTAIN);
+        ChuckArray sStepEnv2R = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_ENV_2_RELEASE);
+        ChuckArray sStepEnv3A = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_ENV_3_ATTACK);
+        ChuckArray sStepEnv3D = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_ENV_3_DECAY);
+        ChuckArray sStepEnv3S = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_ENV_3_SUSTAIN);
+        ChuckArray sStepEnv3R = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_ENV_3_RELEASE);
+        ChuckArray sStepLfo0Rate = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_LFO_0_RATE);
+        ChuckArray sStepLfo0Depth = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_LFO_0_DEPTH);
+        ChuckArray sStepLfo1Rate = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_LFO_1_RATE);
+        ChuckArray sStepLfo1Depth = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_LFO_1_DEPTH);
+        ChuckArray sStepLfo2Rate = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_LFO_2_RATE);
+        ChuckArray sStepLfo2Depth = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_LFO_2_DEPTH);
+        ChuckArray sStepLfo3Rate = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_LFO_3_RATE);
+        ChuckArray sStepLfo3Depth = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_LFO_3_DEPTH);
+        ChuckArray sStepArpRate = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_ARP_RATE);
+        ChuckArray sStepArpGate = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_ARP_GATE);
+        ChuckArray sStepFmAmt = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_FM_AMOUNT);
+        ChuckArray sStepFmRatio = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_FM_RATIO);
+        ChuckArray sStepModFxFeedback = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_MOD_FX_FEEDBACK);
+        ChuckArray sStepCompAttack = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_COMP_ATTACK);
+        ChuckArray sStepCompRelease = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_COMP_RELEASE);
+        ChuckArray sStepPortamento = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_PORTAMENTO);
+        ChuckArray sStepStutter = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_STUTTER);
+        ChuckArray sStepBitcrush = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_BITCRUSH);
+        ChuckArray sStepSrr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_SRR);
         ChuckArray notePitchArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PITCH);
 
         // Per-track default arrays (used as baseline when step automation is absent)
@@ -1900,17 +1984,22 @@ public class DelugeEngineDSL implements Shred, Runnable {
               }
             }
           }
-          double totalModF = lfoF + pcModF;
-          double totalModQ = lfoQ + pcModQ;
-          double totalModP = lfoP + pcModP;
-          double totalModPit = lfoPit + pcModPit * 12.0;
-          double totalModV = lfoV + pcModV;
-          double totalModOscA = lfoOscA + pcModOscA;
-          double totalModOscB = lfoOscB + pcModOscB;
-          double totalModNoise = lfoNoise + pcModNoise;
-          double totalModMfxR = lfoMfxR + pcModMfxR;
-          double totalModMfxD = lfoMfxD + pcModMfxD;
-          double totalModFm = lfoFm;
+          // Declare stepLfoMod here so it's in scope for totalMod below;
+          // the actual LFO iteration computation happens after per-track defaults.
+          double stepLfoMod = 1.0;
+          // Apply step LFO modulation as a global scalar to all LFO-derived modulation values
+          double slm = stepLfoMod;
+          double totalModF = (lfoF + pcModF) * slm;
+          double totalModQ = (lfoQ + pcModQ) * slm;
+          double totalModP = (lfoP + pcModP) * slm;
+          double totalModPit = (lfoPit + pcModPit * 12.0) * slm;
+          double totalModV = (lfoV + pcModV) * slm;
+          double totalModOscA = (lfoOscA + pcModOscA) * slm;
+          double totalModOscB = (lfoOscB + pcModOscB) * slm;
+          double totalModNoise = (lfoNoise + pcModNoise) * slm;
+          double totalModMfxR = (lfoMfxR + pcModMfxR) * slm;
+          double totalModMfxD = (lfoMfxD + pcModMfxD) * slm;
+          double totalModFm = lfoFm * slm;
 
           sDsend[u].gain(dlySnd != null ? (float) dlySnd.getFloat(r) : 0.0f);
           sRsend[u].gain(revSnd != null ? (float) revSnd.getFloat(r) : 0.15f);
@@ -2009,6 +2098,82 @@ public class DelugeEngineDSL implements Shred, Runnable {
           if (sCompBlend != null && r < sCompBlend.size()) vm.setGlobalFloat(BridgeContract.G_COMP_BLEND + "_" + r, sCompBlend.getFloat(r));
           if (sCompHpf != null && r < sCompHpf.size()) vm.setGlobalFloat(BridgeContract.G_COMP_SIDECHAIN_HPF + "_" + r, sCompHpf.getFloat(r));
 
+          // ── Step automation blend: modify per-track globals in place ──
+          // Volume: step automation adds on top of track volume
+          double stepVol = sStepVolume != null ? sStepVolume.getFloat(idx) : 0.0;
+          // Portamento, stutter, bitcrush, SRR: blend step automation into existing globals
+          if (sStepPortamento != null && r < sStepPortamento.size())
+            vm.setGlobalFloat(BridgeContract.G_PORTAMENTO + "_" + r, (float) Math.max(0.0, (sPortamento != null && r < sPortamento.size() ? sPortamento.getFloat(r) : 0.0) + sStepPortamento.getFloat(idx)));
+          if (sStepStutter != null) {
+            double spStutter = vm.getGlobalFloat(BridgeContract.G_SP_STUTTER_RATE);
+            double perTrack = sStutterRate != null && r < sStutterRate.size() ? sStutterRate.getFloat(r) : 0.0;
+            double stepAdd = sStepStutter.getFloat(idx);
+            vm.setGlobalFloat(BridgeContract.G_STUTTER_RATE + "_" + r, (float) ((perTrack + stepAdd) * Math.max(0.001, spStutter > 0.001 ? spStutter : 1.0)));
+          }
+          if (sStepSrr != null) {
+            double spSrr = vm.getGlobalFloat(BridgeContract.G_SP_SAMPLE_RATE_REDUCTION);
+            double perTrack = sSampleRateRed != null && r < sSampleRateRed.size() ? sSampleRateRed.getFloat(r) : 0.0;
+            double stepAdd = sStepSrr.getFloat(idx);
+            vm.setGlobalFloat(BridgeContract.G_SAMPLE_RATE_RED + "_" + r, (float) ((perTrack + stepAdd) * Math.max(0.001, spSrr > 0.001 ? spSrr : 1.0)));
+          }
+          if (sStepBitcrush != null) {
+            double spBitCrush = vm.getGlobalFloat(BridgeContract.G_SP_BITCRUSH);
+            double perTrack = sBitCrush != null && r < sBitCrush.size() ? sBitCrush.getFloat(r) : 0.0;
+            double stepAdd = sStepBitcrush.getFloat(idx);
+            vm.setGlobalFloat(BridgeContract.G_BITCRUSH + "_" + r, (float) ((perTrack + stepAdd) * Math.max(0.001, spBitCrush > 0.001 ? spBitCrush : 1.0)));
+          }
+          // Compressor attack/release: blend step automation
+          if (sStepCompAttack != null) {
+            double perTrack = sCompAttack != null && r < sCompAttack.size() ? sCompAttack.getFloat(r) : 0.0;
+            vm.setGlobalFloat(BridgeContract.G_COMP_ATTACK + "_" + r, (float) Math.max(0.0, Math.min(1.0, perTrack + sStepCompAttack.getFloat(idx))));
+          }
+          if (sStepCompRelease != null) {
+            double perTrack = sCompRelease != null && r < sCompRelease.size() ? sCompRelease.getFloat(r) : 0.0;
+            vm.setGlobalFloat(BridgeContract.G_COMP_RELEASE + "_" + r, (float) Math.max(0.0, Math.min(1.0, perTrack + sStepCompRelease.getFloat(idx))));
+          }
+          // Mod FX feedback: blend step automation
+          if (sStepModFxFeedback != null) {
+            double perTrack = sModFxFeedback != null && r < sModFxFeedback.size() ? sModFxFeedback.getFloat(r) : 0.0;
+            vm.setGlobalFloat(BridgeContract.G_MOD_FX_FEEDBACK + "_" + r, (float) Math.max(0.0, Math.min(1.0, perTrack + sStepModFxFeedback.getFloat(idx))));
+          }
+          // FM ratio/amount: blend step automation (used directly in FM section below via local vars)
+          double stepFmRatio = sStepFmRatio != null ? sStepFmRatio.getFloat(idx) : 0.0;
+          double stepFmAmt = sStepFmAmt != null ? sStepFmAmt.getFloat(idx) : 0.0;
+          // LFO step modulation: scale per-track LFO output by step automation
+          // (stepLfoMod is declared before totalMod section above, this reassigns it)
+          if (sStepLfo0Rate != null || sStepLfo1Rate != null || sStepLfo2Rate != null || sStepLfo3Rate != null) {
+            // Step LFO modulation applies as an additive offset to the per-track LFO value
+            double lfoStepMod = 0;
+            for (int l = 0; l < BridgeContract.LFO_COUNT; l++) {
+              double stepRateAdd = switch (l) {
+                case 0 -> sStepLfo0Rate != null ? sStepLfo0Rate.getFloat(idx) : 0.0;
+                case 1 -> sStepLfo1Rate != null ? sStepLfo1Rate.getFloat(idx) : 0.0;
+                case 2 -> sStepLfo2Rate != null ? sStepLfo2Rate.getFloat(idx) : 0.0;
+                case 3 -> sStepLfo3Rate != null ? sStepLfo3Rate.getFloat(idx) : 0.0;
+                default -> 0.0;
+              };
+              double stepDepthAdd = switch (l) {
+                case 0 -> sStepLfo0Depth != null ? sStepLfo0Depth.getFloat(idx) : 0.0;
+                case 1 -> sStepLfo1Depth != null ? sStepLfo1Depth.getFloat(idx) : 0.0;
+                case 2 -> sStepLfo2Depth != null ? sStepLfo2Depth.getFloat(idx) : 0.0;
+                case 3 -> sStepLfo3Depth != null ? sStepLfo3Depth.getFloat(idx) : 0.0;
+                default -> 0.0;
+              };
+              // Apply step LFO modulation to the accumulated lfoVals
+              lfoStepMod += stepDepthAdd;
+            }
+            // Scale total LFO output by step modulation (normalized to LFO_COUNT)
+            stepLfoMod = 1.0 + lfoStepMod / BridgeContract.LFO_COUNT;
+          }
+          // Arp rate/gate: blend step automation
+          if (sStepArpRate != null) {
+            double perTrack = arpOn != null && r < arpOn.size() ? (int) arpOn.getInt(r) == 1 ? 0.5 : 0.0 : 0.0;
+            vm.setGlobalFloat(BridgeContract.G_ARP_RATE + "_" + r, perTrack + sStepArpRate.getFloat(idx));
+          }
+          if (sStepArpGate != null) {
+            vm.setGlobalFloat(BridgeContract.G_ARP_GATE + "_" + r, sStepArpGate.getFloat(idx));
+          }
+
           // Per-track compressor Dyno param update (RMSFeedbackCompressor-correct formulas)
           if (compArr != null && compArr[u] != null) {
             compArr[u].compressor();
@@ -2051,10 +2216,46 @@ public class DelugeEngineDSL implements Shred, Runnable {
           if (envArr != null) {
             for (int ei = 0; ei < BridgeContract.ENV_COUNT; ei++) {
               int eb = (r * BridgeContract.ENV_COUNT + ei) * BridgeContract.ENV_PARAMS;
-              env[u][ei].set(envArr.getFloat(eb + 0), envArr.getFloat(eb + 1), envArr.getFloat(eb + 2), envArr.getFloat(eb + 3));
+              double a = envArr.getFloat(eb + 0), d = envArr.getFloat(eb + 1);
+              double s = envArr.getFloat(eb + 2), rls = envArr.getFloat(eb + 3);
+              // Step automation blending per envelope parameter
+              double stepA = switch (ei) {
+                case 0 -> sStepEnv0A != null ? sStepEnv0A.getFloat(idx) : 0.0;
+                case 1 -> sStepEnv1A != null ? sStepEnv1A.getFloat(idx) : 0.0;
+                case 2 -> sStepEnv2A != null ? sStepEnv2A.getFloat(idx) : 0.0;
+                case 3 -> sStepEnv3A != null ? sStepEnv3A.getFloat(idx) : 0.0;
+                default -> 0.0;
+              };
+              double stepD = switch (ei) {
+                case 0 -> sStepEnv0D != null ? sStepEnv0D.getFloat(idx) : 0.0;
+                case 1 -> sStepEnv1D != null ? sStepEnv1D.getFloat(idx) : 0.0;
+                case 2 -> sStepEnv2D != null ? sStepEnv2D.getFloat(idx) : 0.0;
+                case 3 -> sStepEnv3D != null ? sStepEnv3D.getFloat(idx) : 0.0;
+                default -> 0.0;
+              };
+              double stepS = switch (ei) {
+                case 0 -> sStepEnv0S != null ? sStepEnv0S.getFloat(idx) : 0.0;
+                case 1 -> sStepEnv1S != null ? sStepEnv1S.getFloat(idx) : 0.0;
+                case 2 -> sStepEnv2S != null ? sStepEnv2S.getFloat(idx) : 0.0;
+                case 3 -> sStepEnv3S != null ? sStepEnv3S.getFloat(idx) : 0.0;
+                default -> 0.0;
+              };
+              double stepR = switch (ei) {
+                case 0 -> sStepEnv0R != null ? sStepEnv0R.getFloat(idx) : 0.0;
+                case 1 -> sStepEnv1R != null ? sStepEnv1R.getFloat(idx) : 0.0;
+                case 2 -> sStepEnv2R != null ? sStepEnv2R.getFloat(idx) : 0.0;
+                case 3 -> sStepEnv3R != null ? sStepEnv3R.getFloat(idx) : 0.0;
+                default -> 0.0;
+              };
+              env[u][ei].set(
+                (float) Math.max(0.0, Math.min(1.0, a + stepA)),
+                (float) Math.max(0.0, Math.min(1.0, d + stepD)),
+                (float) Math.max(0.0, Math.min(1.0, s + stepS)),
+                (float) Math.max(0.0, Math.min(1.0, rls + stepR))
+              );
             }
           }
-          double gainVal = clipVel.getFloat(idx) * trkLvl.getFloat(r) * 0.8 * Math.max(0.0, 1.0 + totalModV * 0.5);
+          double gainVal = (clipVel.getFloat(idx) + stepVol * 0.5) * trkLvl.getFloat(r) * 0.8 * Math.max(0.0, 1.0 + totalModV * 0.5);
           if (vm.getLogLevel() >= 1) vm.print("[synth] TRIGGER r=" + r + " vel=" + clipVel.getFloat(idx) + " trkLvl=" + trkLvl.getFloat(r) + " gainVal=" + gainVal + "\n");
           double gateSec = (gateArr != null ? gateArr.getFloat(idx) : 0.9) * outer.stepDuration(step % 2).samples() / sampleRate();
           double stepPitchOffset = sPitchArr != null ? sPitchArr.getFloat(idx) * 24.0 : 0.0;
@@ -2142,8 +2343,8 @@ public class DelugeEngineDSL implements Shred, Runnable {
             if (synthMode == 1) {
               if (car[u] != null) car[u].freq((float) f);
               if (mod[u] != null) {
-                double fmR = fmRatio != null ? fmRatio.getFloat(r) : 1.0;
-                double fmA = (fmAmt != null ? fmAmt.getFloat(r) : 0.0) * Math.max(0.0, 1.0 + totalModFm * 0.5);
+                double fmR = (fmRatio != null ? fmRatio.getFloat(r) : 1.0) + stepFmRatio * 2.0;
+                double fmA = ((fmAmt != null ? fmAmt.getFloat(r) : 0.0) + stepFmAmt) * Math.max(0.0, 1.0 + totalModFm * 0.5);
                 mod[u].freq((float) (f * fmR));
                 car[u].modGain((float) (fmA * 50.0));
                 mod[u].gain(1.0f);
