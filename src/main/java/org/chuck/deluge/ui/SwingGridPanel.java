@@ -47,6 +47,8 @@ public class SwingGridPanel extends JPanel {
   private String selectedAutomationParam = org.chuck.deluge.model.AutomationParam.ALL[0];
   private javax.swing.JComboBox<String> automationParamCombo;
   private boolean automationDragging = false;
+  private boolean autoOverviewMode = true; // true=overview grid, false=detail editor
+  private int autoColScroll = 0; // horizontal scroll for overview param cols
 
   private Color[] trackColors = {
     new Color(0x00, 0xff, 0xcc), // Cyan
@@ -1234,76 +1236,13 @@ public class SwingGridPanel extends JPanel {
     int savedColCount = columnCount; // saved for SONG/ARRANGEMENT section below
 
     if (viewMode == GridViewMode.AUTOMATION) {
-      // ===== AUTOMATION MODE: 8 value-band rows × stepCount columns =====
+      // ===== AUTOMATION MODE =====
+      // Two sub-modes: OVERVIEW (param status grid) and EDITOR (per-step value band editing)
       voiceRowCount = 8;
-      columnCount = stepCount; // no MUTE/SOLO
+      columnCount = stepCount;
 
-      // Build the parameter selector combo and header
-      JPanel autoHeader = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 2));
-      autoHeader.setBackground(new Color(0x15, 0x15, 0x15));
-
-      JLabel autoLabel = new JLabel("AUTOMATION");
-      autoLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
-      autoLabel.setForeground(new Color(0x00, 0xff, 0xcc));
-      autoHeader.add(autoLabel);
-
-      automationParamCombo = new javax.swing.JComboBox<>(org.chuck.deluge.model.AutomationParam.ALL);
-      automationParamCombo.setSelectedItem(selectedAutomationParam);
-      automationParamCombo.addActionListener(e -> {
-        String selected = (String) automationParamCombo.getSelectedItem();
-        if (selected != null) {
-          selectedAutomationParam = selected;
-          refresh();
-        }
-      });
-      automationParamCombo.setToolTipText("Select automation parameter");
-      autoHeader.add(automationParamCombo);
-
-      JButton clearAutoBtn = new JButton("Clear All");
-      clearAutoBtn.setFont(new Font("SansSerif", Font.PLAIN, 11));
-      clearAutoBtn.setMargin(new Insets(0, 4, 0, 4));
-      clearAutoBtn.addActionListener(e -> {
-        if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
-          org.chuck.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
-          int acIdx = t.getActiveClipIndex();
-          java.util.List<org.chuck.deluge.model.ClipModel> clips = t.getClips();
-          if (acIdx >= 0 && acIdx < clips.size()) {
-            clips.get(acIdx).clearAutomation(selectedAutomationParam);
-            refresh();
-          }
-        }
-      });
-      autoHeader.add(clearAutoBtn);
-
-      // Show track context if editing
-      if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
-        JLabel trackLabel = new JLabel("Track: " + projectModel.getTracks().get(editedModelTrack).getName());
-        trackLabel.setForeground(Color.LIGHT_GRAY);
-        trackLabel.setFont(new Font("SansSerif", Font.ITALIC, 12));
-        autoHeader.add(Box.createHorizontalStrut(20));
-        autoHeader.add(trackLabel);
-      }
-
-      add(autoHeader);
-
-      // Step number header row
-      JPanel stepHeader = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-      stepHeader.setBackground(new Color(0x15, 0x15, 0x15));
-      // spacing to align with grid cells (label area + spacer width)
-      int labelOffset = Math.max(60, Math.min(140, getWidth() / 12)) + 69 + 5 + 12 + 5;
-      stepHeader.add(Box.createRigidArea(new Dimension(labelOffset, 20)));
-      for (int c = 0; c < stepCount; c++) {
-        JLabel stepNum = new JLabel(String.valueOf(c + 1), javax.swing.SwingConstants.CENTER);
-        stepNum.setPreferredSize(new Dimension(padSz, 18));
-        stepNum.setForeground(Color.GRAY);
-        stepNum.setFont(new Font("Monospaced", Font.PLAIN, 10));
-        stepHeader.add(stepNum);
-      }
-      add(stepHeader);
-
-      // Get the active clip's automation data for the selected param
+      // ── Get active clip (final copy for lambdas) ──
       org.chuck.deluge.model.ClipModel autoClip = null;
-      String autoParam = selectedAutomationParam;
       if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
         org.chuck.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
         int acIdx = t.getActiveClipIndex();
@@ -1311,128 +1250,116 @@ public class SwingGridPanel extends JPanel {
           autoClip = t.getClips().get(acIdx);
         }
       }
+      final org.chuck.deluge.model.ClipModel fAutoClip = autoClip;
 
-      // Label for each value band row
-      String[] bandLabels = {"0-15", "16-31", "32-47", "48-63", "64-79", "80-95", "96-111", "112-127"};
+      // ── Header bar ──
+      JPanel autoHeader = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 2));
+      autoHeader.setBackground(new Color(0x15, 0x15, 0x15));
 
-      for (int r = 0; r < 8; r++) {
-        final int rowIdx = r;
-        JPanel rowPanel = new JPanel();
-        rowPanel.setLayout(new BoxLayout(rowPanel, BoxLayout.X_AXIS));
-        rowPanel.setBackground(new Color(0x22, 0x22, 0x22));
-        rowPanel.setPreferredSize(new Dimension(3000, padSz));
-        rowPanel.setMinimumSize(new Dimension(3000, padSz));
-        rowPanel.setMaximumSize(new Dimension(3000, padSz));
+      JLabel autoLabel = new JLabel("AUTO");
+      autoLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
+      autoLabel.setForeground(new Color(0x00, 0xff, 0xcc));
+      autoHeader.add(autoLabel);
 
-        JLabel valLabel = new JLabel(bandLabels[r]);
-        int lw = Math.max(60, Math.min(140, getWidth() / 12));
-        valLabel.setPreferredSize(new Dimension(lw, 30));
-        valLabel.setMinimumSize(new Dimension(lw, 30));
-        valLabel.setMaximumSize(new Dimension(lw, 30));
-        valLabel.setForeground(new Color(0x88, 0x88, 0x88));
-        valLabel.setFont(new Font("Monospaced", Font.PLAIN, 11));
-        rowPanel.add(valLabel);
+      // Overview/Editor toggle
+      JToggleButton overviewToggle = new JToggleButton("OVERVIEW", autoOverviewMode);
+      overviewToggle.setFont(new Font("SansSerif", Font.PLAIN, 11));
+      overviewToggle.setMargin(new Insets(0, 4, 0, 4));
+      overviewToggle.addActionListener(e -> {
+        autoOverviewMode = overviewToggle.isSelected();
+        overviewToggle.setText(autoOverviewMode ? "OVERVIEW" : "EDITOR");
+        refresh();
+      });
+      autoHeader.add(overviewToggle);
 
-        // Spacer to match config-button + len-badge area (69px)
-        rowPanel.add(Box.createRigidArea(new Dimension(69, 1)));
-        rowPanel.add(Box.createHorizontalStrut(5));
-
-        VUMeterPanel vu = new VUMeterPanel();
-        vu.setPreferredSize(new Dimension(12, padSz));
-        vu.setMaximumSize(new Dimension(12, padSz));
-        rowPanel.add(vu);
-        rowPanel.add(Box.createHorizontalStrut(5));
-
-        for (int c = 0; c < stepCount; c++) {
-          final int colIdx = c;
-          JButton cell = new JButton();
-          cell.setPreferredSize(new Dimension(padSz, padSz));
-          cell.setMinimumSize(new Dimension(padSz, padSz));
-          cell.setMaximumSize(new Dimension(padSz, padSz));
-          cell.setMargin(new Insets(0, 0, 0, 0));
-
-          pads[r][c] = cell;
-
-          // Determine if this cell is "lit" (value band matches row)
-          boolean lit = false;
-          float autoVal = -1f;
-          if (autoClip != null) {
-            autoVal = autoClip.getAutomation(autoParam, colIdx);
-            if (autoVal >= 0f) {
-              int band = (int)(autoVal * 127f) / 16;
-              lit = (band == rowIdx);
-            }
+      if (!autoOverviewMode) {
+        // Editor mode: param combo
+        automationParamCombo = new javax.swing.JComboBox<>(org.chuck.deluge.model.AutomationParam.SYTH_PARAMS);
+        automationParamCombo.setSelectedItem(selectedAutomationParam);
+        automationParamCombo.addActionListener(e -> {
+          String selected = (String) automationParamCombo.getSelectedItem();
+          if (selected != null) {
+            selectedAutomationParam = selected;
+            refresh();
           }
+        });
+        automationParamCombo.setToolTipText("Select automation parameter");
+        autoHeader.add(automationParamCombo);
 
-          if (lit) {
-            // Calculate intensity within band (0-15) for brightness
-            int precise = (int)(autoVal * 127f) % 16;
-            int bright = 0x44 + precise * 8; // range 0x44 to 0xcc
-            cell.setBackground(new Color(0x00, bright, Math.min(0xcc, bright / 2 + 0x44)));
-            cell.setForeground(Color.WHITE);
-            cell.setText("\u25CF");
-          } else {
-            cell.setBackground(new Color(0x33, 0x33, 0x33));
-            cell.setForeground(new Color(0x55, 0x55, 0x55));
-            if (autoVal >= 0f && (int)(autoVal * 127f) / 16 >= 0) {
-              // This param has automation but value band doesn't match this row
-              cell.setText(".");
-            } else {
-              cell.setText("");
-            }
+        JButton interpBtn = new JButton("Interp");
+        interpBtn.setFont(new Font("SansSerif", Font.PLAIN, 11));
+        interpBtn.setMargin(new Insets(0, 4, 0, 4));
+        interpBtn.setToolTipText("Linear interpolate between automated steps");
+        interpBtn.addActionListener(e -> interpolateAutomation(fAutoClip, selectedAutomationParam));
+        autoHeader.add(interpBtn);
+
+        JButton clearAutoBtn = new JButton("Clear");
+        clearAutoBtn.setFont(new Font("SansSerif", Font.PLAIN, 11));
+        clearAutoBtn.setMargin(new Insets(0, 4, 0, 4));
+        clearAutoBtn.addActionListener(e -> {
+          if (fAutoClip != null) {
+            fAutoClip.clearAutomation(selectedAutomationParam);
+            refresh();
           }
-
-          cell.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mousePressed(java.awt.event.MouseEvent e) {
-              if (projectModel == null) return;
-              org.chuck.deluge.model.TrackModel tM = projectModel.getTracks().get(editedModelTrack);
-              int acIdx2 = tM.getActiveClipIndex();
-              if (acIdx2 < 0 || acIdx2 >= tM.getClips().size()) return;
-              org.chuck.deluge.model.ClipModel cM = tM.getClips().get(acIdx2);
-
-              if (javax.swing.SwingUtilities.isLeftMouseButton(e)) {
-                if (e.isShiftDown()) {
-                  // Clear automation at this step
-                  float[] arr = cM.getAutomationArray(autoParam);
-                  if (arr != null && colIdx < arr.length) {
-                    arr[colIdx] = -1f;
-                    refresh();
-                  }
-                } else {
-                  // Set automation value = center of band
-                  float val = (rowIdx * 16 + 8) / 127.0f;
-                  cM.setAutomation(autoParam, colIdx, val);
-                  automationDragging = true;
-                  refresh();
-                }
-              }
+        });
+        autoHeader.add(clearAutoBtn);
+      } else {
+        // Overview mode: just show track context
+        JButton interpAllBtn = new JButton("Interp All");
+        interpAllBtn.setFont(new Font("SansSerif", Font.PLAIN, 11));
+        interpAllBtn.setMargin(new Insets(0, 4, 0, 4));
+        interpAllBtn.setToolTipText("Interpolate all automated params");
+        interpAllBtn.addActionListener(e -> {
+          if (fAutoClip != null) {
+            for (String param : fAutoClip.getAutomatedParams()) {
+              interpolateAutomation(fAutoClip, param);
             }
+            refresh();
+          }
+        });
+        autoHeader.add(interpAllBtn);
 
-            @Override
-            public void mouseReleased(java.awt.event.MouseEvent e) {
-              automationDragging = false;
+        JButton clearAllBtn = new JButton("Clear All");
+        clearAllBtn.setFont(new Font("SansSerif", Font.PLAIN, 11));
+        clearAllBtn.setMargin(new Insets(0, 4, 0, 4));
+        clearAllBtn.addActionListener(e -> {
+          if (fAutoClip != null) {
+            for (String param : fAutoClip.getAutomatedParams()) {
+              fAutoClip.clearAutomation(param);
             }
-          });
+            refresh();
+          }
+        });
+        autoHeader.add(clearAllBtn);
+      }
 
-          cell.addMouseMotionListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseDragged(java.awt.event.MouseEvent e) {
-              if (!automationDragging || projectModel == null) return;
-              org.chuck.deluge.model.TrackModel tM = projectModel.getTracks().get(editedModelTrack);
-              int acIdx2 = tM.getActiveClipIndex();
-              if (acIdx2 < 0 || acIdx2 >= tM.getClips().size()) return;
-              org.chuck.deluge.model.ClipModel cM = tM.getClips().get(acIdx2);
-              float val = (rowIdx * 16 + 8) / 127.0f;
-              cM.setAutomation(autoParam, colIdx, val);
-              refresh();
-            }
-          });
+      // Track context
+      if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+        JLabel trackLabel = new JLabel("" + projectModel.getTracks().get(editedModelTrack).getName());
+        trackLabel.setForeground(Color.LIGHT_GRAY);
+        trackLabel.setFont(new Font("SansSerif", Font.ITALIC, 12));
+        autoHeader.add(Box.createHorizontalStrut(10));
+        autoHeader.add(trackLabel);
+      }
 
-          rowPanel.add(cell);
-          rowPanel.add(Box.createHorizontalStrut(5));
-        }
-        add(rowPanel);
+      // Automated param count
+      if (autoClip != null) {
+        int autoCount = autoClip.getAutomatedParams().size();
+        JLabel countLabel = new JLabel(" [" + autoCount + " auto'd]");
+        countLabel.setForeground(new Color(0x88, 0xcc, 0x88));
+        countLabel.setFont(new Font("Monospaced", Font.PLAIN, 11));
+        autoHeader.add(countLabel);
+      }
+
+      add(autoHeader);
+
+      if (autoOverviewMode) {
+        // ════════ OVERVIEW GRID ════════
+        // Show all params grouped by category with lit/unlit indicator for "has automation"
+        buildAutomationOverview(autoClip, padSz);
+      } else {
+        // ════════ DETAIL EDITOR ════════
+        buildAutomationEditor(autoClip, selectedAutomationParam, padSz);
       }
     } else if (viewMode == GridViewMode.CLIP) {
       // ===== CLIP MODE: scrollable voice rows + fixed MACROS/SLIDERS/KEYBOARD =====
@@ -2297,6 +2224,398 @@ public class SwingGridPanel extends JPanel {
               }
             });
     playheadTimer.start();
+  }
+
+  // ── Automation Editor (8-value-band per-step editor) ──
+
+  /**
+   * Build the per-step value band editor for a single automation parameter.
+   * 8 rows × stepCount grid, where each cell in a row represents whether the
+   * step's automation value falls within that row's value band (0-15, 16-31, etc.).
+   * Click to set, shift-click to clear, drag to paint.
+   */
+  private void buildAutomationEditor(org.chuck.deluge.model.ClipModel autoClip, String param, int padSz) {
+    if (param == null) param = org.chuck.deluge.model.AutomationParam.ALL[0];
+
+    // Step number header row
+    JPanel stepHeader = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+    stepHeader.setBackground(new Color(0x15, 0x15, 0x15));
+    int labelOffset = Math.max(60, Math.min(140, getWidth() / 12)) + 69 + 5 + 12 + 5;
+    stepHeader.add(Box.createRigidArea(new Dimension(labelOffset, 20)));
+    for (int c = 0; c < stepCount; c++) {
+      JLabel stepNum = new JLabel(String.valueOf(c + 1), javax.swing.SwingConstants.CENTER);
+      stepNum.setPreferredSize(new Dimension(padSz, 18));
+      stepNum.setForeground(Color.GRAY);
+      stepNum.setFont(new Font("Monospaced", Font.PLAIN, 10));
+      stepHeader.add(stepNum);
+    }
+    add(stepHeader);
+
+    // Label for each value band row
+    String[] bandLabels = {"0-15", "16-31", "32-47", "48-63", "64-79", "80-95", "96-111", "112-127"};
+
+    for (int r = 0; r < 8; r++) {
+      final int rowIdx = r;
+      JPanel rowPanel = new JPanel();
+      rowPanel.setLayout(new BoxLayout(rowPanel, BoxLayout.X_AXIS));
+      rowPanel.setBackground(new Color(0x22, 0x22, 0x22));
+      rowPanel.setPreferredSize(new Dimension(3000, padSz));
+      rowPanel.setMinimumSize(new Dimension(3000, padSz));
+      rowPanel.setMaximumSize(new Dimension(3000, padSz));
+
+      String finalParam = param;
+      JLabel valLabel = new JLabel(bandLabels[r]);
+      int lw = Math.max(60, Math.min(140, getWidth() / 12));
+      valLabel.setPreferredSize(new Dimension(lw, 30));
+      valLabel.setMinimumSize(new Dimension(lw, 30));
+      valLabel.setMaximumSize(new Dimension(lw, 30));
+      valLabel.setForeground(new Color(0x88, 0x88, 0x88));
+      valLabel.setFont(new Font("Monospaced", Font.PLAIN, 11));
+      rowPanel.add(valLabel);
+
+      // Spacer to match config-button + len-badge area
+      rowPanel.add(Box.createRigidArea(new Dimension(69, 1)));
+      rowPanel.add(Box.createHorizontalStrut(5));
+
+      VUMeterPanel vu = new VUMeterPanel();
+      vu.setPreferredSize(new Dimension(12, padSz));
+      vu.setMaximumSize(new Dimension(12, padSz));
+      rowPanel.add(vu);
+      rowPanel.add(Box.createHorizontalStrut(5));
+
+      for (int c = 0; c < stepCount; c++) {
+        final int colIdx = c;
+        JButton cell = new JButton();
+        cell.setPreferredSize(new Dimension(padSz, padSz));
+        cell.setMinimumSize(new Dimension(padSz, padSz));
+        cell.setMaximumSize(new Dimension(padSz, padSz));
+        cell.setMargin(new Insets(0, 0, 0, 0));
+
+        pads[r][c] = cell;
+
+        // Determine if this cell is "lit" (value band matches row)
+        boolean lit = false;
+        float autoVal = -1f;
+        if (autoClip != null) {
+          autoVal = autoClip.getAutomation(finalParam, colIdx);
+          if (autoVal >= 0f) {
+            int band = (int) (autoVal * 127f) / 16;
+            lit = (band == rowIdx);
+          }
+        }
+
+        if (lit) {
+          int precise = (int) (autoVal * 127f) % 16;
+          int bright = 0x44 + precise * 8;
+          cell.setBackground(new Color(0x00, bright, Math.min(0xcc, bright / 2 + 0x44)));
+          cell.setForeground(Color.WHITE);
+          cell.setText("\u25CF");
+        } else {
+          cell.setBackground(new Color(0x33, 0x33, 0x33));
+          cell.setForeground(new Color(0x55, 0x55, 0x55));
+          if (autoVal >= 0f) {
+            // This param has automation but value band doesn't match this row
+            cell.setText(".");
+          } else {
+            cell.setText("");
+          }
+        }
+
+        cell.addMouseListener(new java.awt.event.MouseAdapter() {
+          @Override
+          public void mousePressed(java.awt.event.MouseEvent e) {
+            if (projectModel == null) return;
+            int tIdx = editedModelTrack;
+            if (tIdx >= projectModel.getTracks().size()) return;
+            org.chuck.deluge.model.TrackModel tM = projectModel.getTracks().get(tIdx);
+            int acIdx2 = tM.getActiveClipIndex();
+            if (acIdx2 < 0 || acIdx2 >= tM.getClips().size()) return;
+            org.chuck.deluge.model.ClipModel cM = tM.getClips().get(acIdx2);
+
+            if (javax.swing.SwingUtilities.isLeftMouseButton(e)) {
+              if (e.isShiftDown()) {
+                // Clear automation at this step
+                float[] arr = cM.getAutomationArray(finalParam);
+                if (arr != null && colIdx < arr.length) {
+                  arr[colIdx] = -1f;
+                  refresh();
+                }
+              } else {
+                float val = (rowIdx * 16 + 8) / 127.0f;
+                cM.setAutomation(finalParam, colIdx, val);
+                automationDragging = true;
+                refresh();
+              }
+            }
+          }
+
+          @Override
+          public void mouseReleased(java.awt.event.MouseEvent e) {
+            automationDragging = false;
+          }
+        });
+
+        cell.addMouseMotionListener(new java.awt.event.MouseAdapter() {
+          @Override
+          public void mouseDragged(java.awt.event.MouseEvent e) {
+            if (!automationDragging || projectModel == null) return;
+            int tIdx = editedModelTrack;
+            if (tIdx >= projectModel.getTracks().size()) return;
+            org.chuck.deluge.model.TrackModel tM = projectModel.getTracks().get(tIdx);
+            int acIdx2 = tM.getActiveClipIndex();
+            if (acIdx2 < 0 || acIdx2 >= tM.getClips().size()) return;
+            org.chuck.deluge.model.ClipModel cM = tM.getClips().get(acIdx2);
+            float val = (rowIdx * 16 + 8) / 127.0f;
+            cM.setAutomation(finalParam, colIdx, val);
+            refresh();
+          }
+        });
+
+        rowPanel.add(cell);
+        rowPanel.add(Box.createHorizontalStrut(5));
+      }
+      add(rowPanel);
+    }
+  }
+
+  // ── Automation Overview Grid ──
+
+  /**
+   * Build an overview grid showing all params and their automation status across steps.
+   * Each cell = (step, param). Lit = has automation data, dim = no automation.
+   * Row headers show compact param labels. Click to open editor for that param.
+   * Shift+click = clear automation for that param.
+   */
+  private void buildAutomationOverview(org.chuck.deluge.model.ClipModel autoClip, int padSz) {
+    String[] allParams = org.chuck.deluge.model.AutomationParam.SYTH_PARAMS;
+    int totalParams = allParams.length;
+
+    // Visible params (with vertical scroll)
+    int maxVisible = 8;
+    int paramOffset = autoColScroll;
+    int visibleParams = Math.min(maxVisible, totalParams - paramOffset);
+    if (visibleParams <= 0) return;
+
+    // Step header
+    JPanel stepHeader = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+    stepHeader.setBackground(new Color(0x15, 0x15, 0x15));
+    int labelOffset = Math.max(60, Math.min(140, getWidth() / 12));
+    stepHeader.add(Box.createRigidArea(new Dimension(labelOffset + 5, 20)));
+    for (int c = 0; c < stepCount; c++) {
+      JLabel stepNum = new JLabel(String.valueOf(c + 1), javax.swing.SwingConstants.CENTER);
+      stepNum.setPreferredSize(new Dimension(padSz, 18));
+      stepNum.setForeground(Color.GRAY);
+      stepNum.setFont(new Font("Monospaced", Font.PLAIN, 10));
+      stepHeader.add(stepNum);
+    }
+    add(stepHeader);
+
+    for (int r = 0; r < visibleParams; r++) {
+      int paramIdx = paramOffset + r;
+      String paramName = allParams[paramIdx];
+      String label = org.chuck.deluge.model.AutomationParam.labelFor(paramName);
+
+      JPanel rowPanel = new JPanel();
+      rowPanel.setLayout(new BoxLayout(rowPanel, BoxLayout.X_AXIS));
+      rowPanel.setBackground(new Color(0x22, 0x22, 0x22));
+      rowPanel.setPreferredSize(new Dimension(3000, padSz));
+      rowPanel.setMinimumSize(new Dimension(3000, padSz));
+      rowPanel.setMaximumSize(new Dimension(3000, padSz));
+
+      // Param label (clickable to open editor)
+      JButton paramBtn = new JButton(label);
+      int pw = Math.max(60, Math.min(140, getWidth() / 12));
+      paramBtn.setPreferredSize(new Dimension(pw, 30));
+      paramBtn.setMinimumSize(new Dimension(pw, 30));
+      paramBtn.setMaximumSize(new Dimension(pw, 30));
+      paramBtn.setFont(new Font("Monospaced", Font.BOLD, 11));
+      paramBtn.setFocusPainted(false);
+      paramBtn.setMargin(new Insets(0, 2, 0, 2));
+
+      boolean hasAnyAuto = autoClip != null && autoClip.hasAutomation(paramName);
+      paramBtn.setBackground(hasAnyAuto ? new Color(0x33, 0x66, 0x33) : new Color(0x44, 0x44, 0x44));
+      paramBtn.setForeground(hasAnyAuto ? new Color(0x88, 0xff, 0x88) : Color.LIGHT_GRAY);
+
+      final String fParam = paramName;
+      paramBtn.addActionListener(e -> {
+        autoOverviewMode = false;
+        selectedAutomationParam = fParam;
+        refresh();
+      });
+      rowPanel.add(paramBtn);
+
+      // Up/down scroll buttons
+      JPanel scrollCol = new JPanel();
+      scrollCol.setLayout(new BoxLayout(scrollCol, BoxLayout.Y_AXIS));
+      scrollCol.setBackground(new Color(0x22, 0x22, 0x22));
+      JButton upBtn = new JButton("\u25B2");
+      upBtn.setFont(new Font("SansSerif", Font.PLAIN, 8));
+      upBtn.setMargin(new Insets(0, 0, 0, 0));
+      upBtn.setPreferredSize(new Dimension(14, padSz / 2));
+      upBtn.setEnabled(paramOffset > 0);
+      upBtn.addActionListener(e -> {
+        autoColScroll = Math.max(0, autoColScroll - 1);
+        refresh();
+      });
+      scrollCol.add(upBtn);
+
+      JButton downBtn = new JButton("\u25BC");
+      downBtn.setFont(new Font("SansSerif", Font.PLAIN, 8));
+      downBtn.setMargin(new Insets(0, 0, 0, 0));
+      downBtn.setPreferredSize(new Dimension(14, padSz / 2));
+      downBtn.setEnabled(paramOffset + maxVisible < totalParams);
+      downBtn.addActionListener(e -> {
+        autoColScroll = Math.min(totalParams - maxVisible, autoColScroll + 1);
+        refresh();
+      });
+      scrollCol.add(downBtn);
+      rowPanel.add(scrollCol);
+
+      rowPanel.add(Box.createHorizontalStrut(3));
+
+      for (int c = 0; c < stepCount; c++) {
+        final int colIdx = c;
+        JButton cell = new JButton();
+        cell.setPreferredSize(new Dimension(padSz, padSz));
+        cell.setMinimumSize(new Dimension(padSz, padSz));
+        cell.setMaximumSize(new Dimension(padSz, padSz));
+        cell.setMargin(new Insets(0, 0, 0, 0));
+
+        pads[r][c] = cell;
+
+        boolean hasAuto = autoClip != null && autoClip.hasAutomation(paramName, c);
+
+        if (hasAuto) {
+          float val = autoClip.getAutomation(paramName, c);
+          int bright = 0x44 + (int) (val * 0x88);
+          cell.setBackground(new Color(0x00, bright, 0x33));
+          cell.setForeground(Color.WHITE);
+          cell.setText("\u25CF");
+        } else {
+          cell.setBackground(new Color(0x33, 0x33, 0x33));
+          cell.setForeground(new Color(0x55, 0x55, 0x55));
+          cell.setText("");
+        }
+
+        cell.addMouseListener(new java.awt.event.MouseAdapter() {
+          @Override
+          public void mousePressed(java.awt.event.MouseEvent e) {
+            if (projectModel == null) return;
+            int tIdx = editedModelTrack;
+            if (tIdx >= projectModel.getTracks().size()) return;
+            org.chuck.deluge.model.TrackModel tM = projectModel.getTracks().get(tIdx);
+            int acIdx2 = tM.getActiveClipIndex();
+            if (acIdx2 < 0 || acIdx2 >= tM.getClips().size()) return;
+            org.chuck.deluge.model.ClipModel cM = tM.getClips().get(acIdx2);
+
+            if (javax.swing.SwingUtilities.isLeftMouseButton(e)) {
+              if (e.isShiftDown()) {
+                // Clear cell
+                float[] arr = cM.getAutomationArray(fParam);
+                if (arr != null && colIdx < arr.length) {
+                  arr[colIdx] = -1f;
+                  refresh();
+                }
+              } else {
+                // Toggle: set to 0.5 if no automation, clear if already set
+                if (cM.hasAutomation(fParam)) {
+                  float[] arr = cM.getAutomationArray(fParam);
+                  if (arr != null && colIdx < arr.length && arr[colIdx] >= 0f) {
+                    arr[colIdx] = -1f;
+                  } else if (arr != null && colIdx < arr.length) {
+                    arr[colIdx] = 0.5f;
+                  }
+                } else {
+                  cM.setAutomation(fParam, colIdx, 0.5f);
+                }
+                refresh();
+              }
+            }
+          }
+        });
+
+        cell.addMouseMotionListener(new java.awt.event.MouseAdapter() {
+          @Override
+          public void mouseDragged(java.awt.event.MouseEvent e) {
+            if (!automationDragging || projectModel == null) return;
+            int tIdx = editedModelTrack;
+            if (tIdx >= projectModel.getTracks().size()) return;
+            org.chuck.deluge.model.TrackModel tM = projectModel.getTracks().get(tIdx);
+            int acIdx2 = tM.getActiveClipIndex();
+            if (acIdx2 < 0 || acIdx2 >= tM.getClips().size()) return;
+            org.chuck.deluge.model.ClipModel cM = tM.getClips().get(acIdx2);
+            cM.setAutomation(fParam, colIdx, 0.5f);
+            automationDragging = true;
+            refresh();
+          }
+        });
+
+        rowPanel.add(cell);
+        rowPanel.add(Box.createHorizontalStrut(3));
+      }
+      add(rowPanel);
+    }
+
+    // Scroll indicator
+    if (totalParams > maxVisible) {
+      JPanel scrollBar = new JPanel(new FlowLayout(FlowLayout.CENTER, 4, 2));
+      scrollBar.setBackground(new Color(0x1a, 0x1a, 0x1a));
+      for (int i = 0; i < totalParams; i += maxVisible) {
+        int pageStart = i;
+        JButton dot = new JButton(
+            (i <= paramOffset && paramOffset < i + maxVisible) ? "\u25C9" : "\u25CB");
+        dot.setFont(new Font("SansSerif", Font.PLAIN, 9));
+        dot.setMargin(new Insets(0, 2, 0, 2));
+        dot.setBackground(new Color(0x33, 0x33, 0x33));
+        dot.setForeground(Color.LIGHT_GRAY);
+        int fPage = pageStart;
+        dot.addActionListener(e -> {
+          autoColScroll = fPage;
+          refresh();
+        });
+        scrollBar.add(dot);
+      }
+      add(scrollBar);
+    }
+  }
+
+  // ── Automation interpolation ──
+
+  /**
+   * Linear interpolation between automated steps in a clip. Fills gaps (steps with -1) between
+   * two known values. If fewer than 2 automated values exist, does nothing.
+   */
+  private void interpolateAutomation(org.chuck.deluge.model.ClipModel clip, String param) {
+    if (clip == null || param == null) return;
+    float[] arr = clip.getAutomationArray(param);
+    if (arr == null) return;
+
+    // Find first and last automated step indices
+    int first = -1, last = -1;
+    for (int i = 0; i < arr.length; i++) {
+      if (arr[i] >= 0f) {
+        if (first < 0) first = i;
+        last = i;
+      }
+    }
+    if (first < 0 || first == last) return; // 0 or 1 automated steps — nothing to interpolate
+
+    // Walk through and interpolate between known-value pairs
+    int prevIdx = first;
+    for (int i = first + 1; i <= last; i++) {
+      if (arr[i] >= 0f) {
+        int gapLen = i - prevIdx;
+        if (gapLen > 1) {
+          float startVal = arr[prevIdx];
+          float endVal = arr[i];
+          for (int g = 1; g < gapLen; g++) {
+            float t = g / (float) gapLen;
+            arr[prevIdx + g] = startVal + (endVal - startVal) * t;
+          }
+        }
+        prevIdx = i;
+      }
+    }
   }
 
   /** Activate a song section by its index, queueing clips on each track. */
