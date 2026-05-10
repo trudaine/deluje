@@ -100,6 +100,7 @@ public final class BridgeContract {
   public static final String G_CLIP_COUNT = "g_clip_count";
   public static final String G_CURRENT_CLIP = "g_current_clip";
   public static final String G_LAUNCH_QUEUE = "g_launch_queue";
+  public static final String G_CLIP_PLAY_MODE = "g_clip_play_mode";
   public static final String G_QUEUE_STEP = "g_queue_step";
   // ── Transport & Master ─────────────────────────────────────────────────
   public static final String G_BPM = "g_bpm";
@@ -623,6 +624,7 @@ public final class BridgeContract {
     final int[] currentClip = new int[TRACKS];
     final int[] clipCount = new int[TRACKS];
     final int[] launchQueue = new int[TRACKS];
+    final int[] clipPlayMode = new int[TRACKS * MAX_CLIPS_PER_TRACK]; // flat: [t*MAX + ci]
 
     void initDefaults() {
       for (int t = 0; t < TRACKS; t++) {
@@ -644,6 +646,9 @@ public final class BridgeContract {
         currentClip[t] = 0;
         clipCount[t] = 0;
         launchQueue[t] = -1;
+        for (int ci = 0; ci < MAX_CLIPS_PER_TRACK; ci++) {
+          clipPlayMode[t * MAX_CLIPS_PER_TRACK + ci] = 0; // NORMAL
+        }
       }
     }
 
@@ -665,6 +670,7 @@ public final class BridgeContract {
       vm.setGlobalObject(G_CURRENT_CLIP, new ChuckArray(currentClip));
       vm.setGlobalObject(G_CLIP_COUNT, new ChuckArray(clipCount));
       vm.setGlobalObject(G_LAUNCH_QUEUE, new ChuckArray(launchQueue));
+      vm.setGlobalObject(G_CLIP_PLAY_MODE, new ChuckArray(clipPlayMode));
     }
   }
 
@@ -1364,6 +1370,22 @@ public final class BridgeContract {
   public void setCurrentClip(int t, int idx) { track.currentClip[t] = idx; }
   public int getLaunchQueue(int t) { return track.launchQueue[t]; }
   public void setLaunchQueue(int t, int clipIdx) { track.launchQueue[t] = clipIdx; }
+  public int getClipPlayMode(int t, int clipIdx) {
+    if (clipIdx < 0 || clipIdx >= MAX_CLIPS_PER_TRACK) return 0;
+    return track.clipPlayMode[t * MAX_CLIPS_PER_TRACK + clipIdx];
+  }
+  public void setClipPlayMode(int t, int clipIdx, int mode) {
+    if (clipIdx >= 0 && clipIdx < MAX_CLIPS_PER_TRACK) {
+      track.clipPlayMode[t * MAX_CLIPS_PER_TRACK + clipIdx] = mode;
+    }
+  }
+  public void setClipPlayModeArray(int t, int[] modes) {
+    if (modes == null) return;
+    int max = Math.min(modes.length, MAX_CLIPS_PER_TRACK);
+    for (int ci = 0; ci < max; ci++) {
+      track.clipPlayMode[t * MAX_CLIPS_PER_TRACK + ci] = modes[ci];
+    }
+  }
   public int getQueueStep() { return vm != null ? (int) vm.getGlobalInt(G_QUEUE_STEP) : 0; }
   public void setQueueStep(int sidx) { if (vm != null) vm.setGlobalInt(G_QUEUE_STEP, (long) sidx); }
 
