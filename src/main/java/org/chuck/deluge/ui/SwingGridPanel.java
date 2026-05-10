@@ -156,13 +156,32 @@ public class SwingGridPanel extends JPanel {
       }
     });
 
+    // Clip cycling: [ = prev clip, ] = next clip
+    im.put(KeyStroke.getKeyStroke("OPEN_BRACKET"), "prevClip");
+    im.put(KeyStroke.getKeyStroke("CLOSE_BRACKET"), "nextClip");
+    am.put("prevClip", new AbstractAction() {
+      public void actionPerformed(java.awt.event.ActionEvent e) {
+        cycleClip(-1);
+      }
+    });
+    am.put("nextClip", new AbstractAction() {
+      public void actionPerformed(java.awt.event.ActionEvent e) {
+        cycleClip(1);
+      }
+    });
+
   }
 
   private int focusTrack = 0;
   private Runnable onProjectChanged;
+  private Runnable onClipChanged;
 
   public void setOnProjectChanged(Runnable r) {
     this.onProjectChanged = r;
+  }
+
+  public void setOnClipChanged(Runnable r) {
+    this.onClipChanged = r;
   }
 
   private void fireProjectChanged() {
@@ -502,6 +521,21 @@ public class SwingGridPanel extends JPanel {
   /** Scroll by one full page (gridMode.rows rows). */
   public void scrollPage(int direction) {
     scrollBy(direction * gridMode.rows);
+  }
+
+  /** Cycle to prev (dir=-1) or next (dir=1) clip on the edited track in CLIP mode. */
+  public void cycleClip(int dir) {
+    if (viewMode != GridViewMode.CLIP) return;
+    if (projectModel == null || editedModelTrack >= projectModel.getTracks().size()) return;
+    org.chuck.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
+    int n = t.getClips().size();
+    if (n <= 1) return;
+    int next = (activeClipId + dir) % n;
+    if (next < 0) next = n - 1;
+    activeClipId = next;
+    t.setActiveClipIndex(next);
+    if (onClipChanged != null) onClipChanged.run();
+    refresh();
   }
 
   /** VU meter panel used inside voice rows. */
@@ -1363,6 +1397,47 @@ public class SwingGridPanel extends JPanel {
       }
     } else if (viewMode == GridViewMode.CLIP) {
       // ===== CLIP MODE: scrollable voice rows + fixed MACROS/SLIDERS/KEYBOARD =====
+
+      // Section 0: Clip tab bar (shown when track has >1 clip)
+      if (editedModelTrack < projectModel.getTracks().size()) {
+        org.chuck.deluge.model.TrackModel curTrack = projectModel.getTracks().get(editedModelTrack);
+        int clipCount = curTrack.getClips().size();
+        if (clipCount > 1) {
+          JPanel clipBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 2));
+          clipBar.setBackground(new Color(0x10, 0x10, 0x10));
+          JLabel clipLabel = new JLabel("Clips:");
+          clipLabel.setForeground(Color.LIGHT_GRAY);
+          clipLabel.setFont(new Font("SansSerif", Font.PLAIN, 11));
+          clipBar.add(clipLabel);
+          Color trackColor = trackColors[editedModelTrack % trackColors.length];
+          for (int ci = 0; ci < clipCount; ci++) {
+            org.chuck.deluge.model.ClipModel cm = curTrack.getClips().get(ci);
+            String clipName = cm.getName() != null && !cm.getName().isBlank() ? cm.getName() : "Clip " + (ci + 1);
+            JButton tab = new JButton(clipName);
+            tab.setFont(new Font("Monospaced", Font.BOLD, 11));
+            tab.setMargin(new Insets(1, 8, 1, 8));
+            tab.setFocusPainted(false);
+            if (ci == activeClipId) {
+              tab.setBackground(trackColor);
+              tab.setForeground(Color.BLACK);
+              tab.setBorder(BorderFactory.createLineBorder(trackColor.brighter(), 2));
+            } else {
+              tab.setBackground(new Color(0x33, 0x33, 0x33));
+              tab.setForeground(Color.LIGHT_GRAY);
+              tab.setBorder(BorderFactory.createLineBorder(new Color(0x55, 0x55, 0x55), 1));
+            }
+            int clipIdx = ci;
+            tab.addActionListener(e -> {
+              activeClipId = clipIdx;
+              curTrack.setActiveClipIndex(clipIdx);
+              if (onClipChanged != null) onClipChanged.run();
+              refresh();
+            });
+            clipBar.add(tab);
+          }
+          add(clipBar);
+        }
+      }
 
       // Section 1: Track info header
       if (editedModelTrack < projectModel.getTracks().size()) {
