@@ -292,6 +292,7 @@ public final class BridgeContract {
   public static final String G_COMP_SIDECHAIN_HPF = "g_comp_sidechain_hpf";
   public static final String G_OSC2_TYPE = "g_osc2_type";
   public static final String G_RETRIG_PHASE = "g_retrig_phase";
+  public static final String G_WAVE_INDEX = "g_wave_index";
   // ── Patch cable arrays (shared between SynthData and KitData) ──
   public static final String G_PC_COUNT = "g_pc_count";
   public static final String G_PC_SOURCE = "g_pc_source";
@@ -318,6 +319,7 @@ public final class BridgeContract {
   public static final String G_KIT_COMP_RELEASE = "g_kit_comp_release";
   public static final String G_KIT_COMP_BLEND = "g_kit_comp_blend";
   public static final String G_KIT_COMP_SIDECHAIN_HPF = "g_kit_comp_sidechain_hpf";
+  public static final String G_KIT_WAVE_INDEX = "g_kit_wave_index";
   public static final String G_KIT_DELAY_RATE = "g_kit_delay_rate";
   public static final String G_KIT_DELAY_FB = "g_kit_delay_fb";
   public static final String G_KIT_VOLUME = "g_kit_volume";
@@ -555,6 +557,7 @@ public final class BridgeContract {
     final float[] compressorSidechainHpfArr = new float[TRACKS];
     final int[] osc2Type = new int[TRACKS];
     final int[] retrigPhase = new int[TRACKS];
+    final float[] waveIndex = new float[TRACKS];
     // Patch cable arrays: each track has up to MAX_CABLES_PER_TRACK cables, indexed by
     // pcCount[t], pcSource[t * MAX_CABLES_PER_TRACK + c], etc.
     final int[] pcCount = new int[TRACKS];
@@ -614,6 +617,7 @@ public final class BridgeContract {
         compressorSidechainHpfArr[t] = 0f;
         osc2Type[t] = 0;
         retrigPhase[t] = 0;
+        waveIndex[t] = 0f;
         pcCount[t] = 0;
       }
       for (int c = 0; c < TRACKS * MAX_CABLES_PER_TRACK; c++) {
@@ -697,6 +701,7 @@ public final class BridgeContract {
       vm.setGlobalObject(G_COMP_SIDECHAIN_HPF, new ChuckArray(compressorSidechainHpfArr));
       vm.setGlobalObject(G_OSC2_TYPE, new ChuckArray(osc2Type));
       vm.setGlobalObject(G_RETRIG_PHASE, new ChuckArray(retrigPhase));
+      vm.setGlobalObject(G_WAVE_INDEX, new ChuckArray(waveIndex));
       vm.setGlobalObject(G_PC_COUNT, new ChuckArray(pcCount));
       vm.setGlobalObject(G_PC_SOURCE, new ChuckArray(pcSource));
       vm.setGlobalObject(G_PC_DEST, new ChuckArray(pcDest));
@@ -734,6 +739,7 @@ public final class BridgeContract {
     final int[] kitUnisonNum = new int[TRACKS];
     final float[] kitUnisonDetune = new float[TRACKS];
     final float[] kitUnisonSpread = new float[TRACKS];
+    final float[] kitWaveIndex = new float[TRACKS];
     final float[] kitCompressorAttackArr = new float[TRACKS];
     final float[] kitCompressorReleaseArr = new float[TRACKS];
     final float[] kitCompressorBlendArr = new float[TRACKS];
@@ -778,6 +784,7 @@ public final class BridgeContract {
         kitUnisonNum[t] = 1;
         kitUnisonDetune[t] = 0f;
         kitUnisonSpread[t] = 0f;
+        kitWaveIndex[t] = 0f;
         kitCompressorAttackArr[t] = 0f;
         kitCompressorReleaseArr[t] = 0f;
         kitCompressorBlendArr[t] = 0f;
@@ -825,6 +832,7 @@ public final class BridgeContract {
       vm.setGlobalObject(G_KIT_UNISON_NUM, new ChuckArray(kitUnisonNum));
       vm.setGlobalObject(G_KIT_UNISON_DETUNE, new ChuckArray(kitUnisonDetune));
       vm.setGlobalObject(G_KIT_UNISON_SPREAD, new ChuckArray(kitUnisonSpread));
+      vm.setGlobalObject(G_KIT_WAVE_INDEX, new ChuckArray(kitWaveIndex));
       vm.setGlobalObject(G_KIT_COMP_ATTACK, new ChuckArray(kitCompressorAttackArr));
       vm.setGlobalObject(G_KIT_COMP_RELEASE, new ChuckArray(kitCompressorReleaseArr));
       vm.setGlobalObject(G_KIT_COMP_BLEND, new ChuckArray(kitCompressorBlendArr));
@@ -1522,6 +1530,8 @@ public final class BridgeContract {
   public int getOsc2Type(int track) { return synth.osc2Type[track]; }
   public void setRetrigPhase(int track, int v) { synth.retrigPhase[track] = v; }
   public int getRetrigPhase(int track) { return synth.retrigPhase[track]; }
+  public void setWaveIndex(int track, float v) { synth.waveIndex[track] = v; }
+  public float getWaveIndex(int track) { return synth.waveIndex[track]; }
   // ── Patch cable accessors (synth) ──
 
   /** Write all patch cables for a given synth track into the bridge arrays. */
@@ -1626,6 +1636,8 @@ public final class BridgeContract {
   public float getKitUnisonDetune(int track) { return kit.kitUnisonDetune[track]; }
   public void setKitUnisonSpread(int track, float v) { kit.kitUnisonSpread[track] = v; }
   public float getKitUnisonSpread(int track) { return kit.kitUnisonSpread[track]; }
+  public void setKitWaveIndex(int track, float v) { kit.kitWaveIndex[track] = v; }
+  public float getKitWaveIndex(int track) { return kit.kitWaveIndex[track]; }
   public void setKitCompAttack(int track, float v) { kit.kitCompressorAttackArr[track] = v; }
   public float getKitCompAttack(int track) { return kit.kitCompressorAttackArr[track]; }
   public void setKitCompRelease(int track, float v) { kit.kitCompressorReleaseArr[track] = v; }
@@ -1931,6 +1943,7 @@ public final class BridgeContract {
   public float[] getPanRaw() { return synth.panArr; }
   public int[] getOsc2TypeRaw() { return synth.osc2Type; }
   public int[] getRetrigPhaseRaw() { return synth.retrigPhase; }
+  public float[] getWaveIndexRaw() { return synth.waveIndex; }
   public float[] getMod1FbRaw() { return synth.mod1Fb; }
   public float[] getMod2AmtRaw() { return synth.mod2Amt; }
   public float[] getMod2FbRaw() { return synth.mod2Fb; }
@@ -1964,6 +1977,7 @@ public final class BridgeContract {
   public float[] getKitEqBassRaw() { return kit.kitEqBass; }
   public float[] getKitEqTrebleRaw() { return kit.kitEqTreble; }
   public float[] getKitSidechainRaw() { return kit.kitSidechain; }
+  public float[] getKitWaveIndexRaw() { return kit.kitWaveIndex; }
   public int[] getKitModFxTypeRaw() { return kit.kitModFxType; }
   public float[] getKitStutterRateRaw() { return kit.kitStutterRate; }
   public float[] getKitSampleRateRedRaw() { return kit.kitSampleRateRed; }
