@@ -4,6 +4,7 @@ import java.awt.*;
 import java.io.*;
 import java.nio.file.*;
 import javax.swing.*;
+import javax.swing.border.TitledBorder;
 import javax.swing.tree.*;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
@@ -14,6 +15,8 @@ public class SwingProjectSidebarPanel extends JPanel {
 
   private java.util.function.Consumer<org.chuck.deluge.model.ProjectModel> onSongLoaded;
   private java.util.function.Consumer<org.chuck.deluge.model.TrackModel> onTrackAdded;
+  private java.util.function.Consumer<java.io.File> onPatternLoad;
+  private Runnable onPatternSave;
 
   private JSlider volSlider;
   private JSlider lpfSlider;
@@ -58,6 +61,8 @@ public class SwingProjectSidebarPanel extends JPanel {
     File kitsDir = org.chuck.deluge.project.PreferencesManager.getKitsDir();
     File synthsDir = org.chuck.deluge.project.PreferencesManager.getSynthsDir();
     File songsDir = org.chuck.deluge.project.PreferencesManager.getSongsDir();
+    File midiDevicesDir = org.chuck.deluge.project.PreferencesManager.getMidiDevicesDir();
+    File patternsDir = org.chuck.deluge.project.PreferencesManager.getPatternsDir();
     System.out.println("reloadLibrary: kitsDir=" + kitsDir + " exists=" + (kitsDir != null && kitsDir.isDirectory()));
     System.out.println("reloadLibrary: synthsDir=" + synthsDir + " exists=" + (synthsDir != null && synthsDir.isDirectory()));
     System.out.println("reloadLibrary: songsDir=" + songsDir + " exists=" + (songsDir != null && songsDir.isDirectory()));
@@ -65,6 +70,8 @@ public class SwingProjectSidebarPanel extends JPanel {
     addDirsToTree(libraryRoot, "KITS", kitsDir);
     addDirsToTree(libraryRoot, "SYNTHS", synthsDir);
     addDirsToTree(libraryRoot, "SONGS", songsDir);
+    addDirsToTree(libraryRoot, "MIDI_DEVICES", midiDevicesDir);
+    addDirsToTree(libraryRoot, "PATTERNS", patternsDir);
     File examplesDir = new File(org.chuck.deluge.project.PreferencesManager.getLibraryDir(), "EXAMPLES");
     if (examplesDir.isDirectory()) {
       addDirsToTree(libraryRoot, "EXAMPLES", examplesDir);
@@ -83,6 +90,8 @@ public class SwingProjectSidebarPanel extends JPanel {
     addDirsToTree(libraryRoot, "KITS", org.chuck.deluge.project.PreferencesManager.getKitsDir());
     addDirsToTree(libraryRoot, "SYNTHS", org.chuck.deluge.project.PreferencesManager.getSynthsDir());
     addDirsToTree(libraryRoot, "SONGS", org.chuck.deluge.project.PreferencesManager.getSongsDir());
+    addDirsToTree(libraryRoot, "MIDI_DEVICES", org.chuck.deluge.project.PreferencesManager.getMidiDevicesDir());
+    addDirsToTree(libraryRoot, "PATTERNS", org.chuck.deluge.project.PreferencesManager.getPatternsDir());
     File examplesDir = new File(org.chuck.deluge.project.PreferencesManager.getLibraryDir(), "EXAMPLES");
     if (examplesDir.isDirectory()) {
       addDirsToTree(libraryRoot, "EXAMPLES", examplesDir);
@@ -119,6 +128,8 @@ public class SwingProjectSidebarPanel extends JPanel {
                     case "KITS": baseDir = org.chuck.deluge.project.PreferencesManager.getKitsDir(); break;
                     case "SYNTHS": baseDir = org.chuck.deluge.project.PreferencesManager.getSynthsDir(); break;
                     case "SONGS": baseDir = org.chuck.deluge.project.PreferencesManager.getSongsDir(); break;
+                    case "MIDI_DEVICES": baseDir = org.chuck.deluge.project.PreferencesManager.getMidiDevicesDir(); break;
+                    case "PATTERNS": baseDir = org.chuck.deluge.project.PreferencesManager.getPatternsDir(); break;
                     case "EXAMPLES": baseDir = new File(org.chuck.deluge.project.PreferencesManager.getLibraryDir(), "EXAMPLES"); break;
                     default: baseDir = null;
                   }
@@ -270,6 +281,10 @@ public class SwingProjectSidebarPanel extends JPanel {
                             onSongLoaded.accept(mockProj);
                           }
                         }
+                      } else if ("PATTERNS".equals(category)) {
+                        if (onPatternLoad != null) {
+                          onPatternLoad.accept(leafFile);
+                        }
                       }
                     } catch (Exception ex) {
                       ex.printStackTrace();
@@ -280,6 +295,9 @@ public class SwingProjectSidebarPanel extends JPanel {
           }
         });
 
+    JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 2));
+    buttonPanel.setBackground(new Color(0x25, 0x25, 0x25));
+
     JButton shuffleBtn = new JButton("🎲 SHUFFLE DRUM KIT");
     shuffleBtn.setBackground(new Color(0x33, 0x33, 0x33));
     shuffleBtn.setForeground(Color.WHITE);
@@ -287,12 +305,21 @@ public class SwingProjectSidebarPanel extends JPanel {
 
     shuffleBtn.addActionListener(
         e -> {
-          // Dynamic sample discovery from the object model should be implemented here.
           System.out.println("Shuffle requested. Implement dynamic discovery of samples.");
         });
+    buttonPanel.add(shuffleBtn);
+
+    JButton savePatternBtn = new JButton("💾 SAVE PATTERN");
+    savePatternBtn.setBackground(new Color(0x33, 0x66, 0x33));
+    savePatternBtn.setForeground(Color.WHITE);
+    savePatternBtn.setFont(new Font("SansSerif", Font.BOLD, 14));
+    savePatternBtn.addActionListener(e -> {
+      if (onPatternSave != null) onPatternSave.run();
+    });
+    buttonPanel.add(savePatternBtn);
 
     JPanel wrapper = new JPanel(new BorderLayout());
-    wrapper.add(shuffleBtn, BorderLayout.NORTH);
+    wrapper.add(buttonPanel, BorderLayout.NORTH);
     wrapper.add(new JScrollPane(libraryTree), BorderLayout.CENTER);
 
     return wrapper;
@@ -307,10 +334,19 @@ public class SwingProjectSidebarPanel extends JPanel {
     this.onSongLoaded = callback;
   }
 
-  /** Callback invoked when user double-clicks a KIT or SYNTH to add it to the current project. */
   public void setOnTrackAdded(
       java.util.function.Consumer<org.chuck.deluge.model.TrackModel> callback) {
     this.onTrackAdded = callback;
+  }
+
+  /** Callback invoked when user double-clicks a PATTERN file to load it into the active clip. */
+  public void setOnPatternLoad(java.util.function.Consumer<java.io.File> callback) {
+    this.onPatternLoad = callback;
+  }
+
+  /** Callback invoked when user clicks "Save Pattern" button. */
+  public void setOnPatternSave(Runnable callback) {
+    this.onPatternSave = callback;
   }
 
   /** Recursively add directories and XML/CK files from a filesystem directory to the tree. */
@@ -511,60 +547,262 @@ public class SwingProjectSidebarPanel extends JPanel {
   }
 
   private JComponent createMidiTab() {
-    JPanel panel = new JPanel(new GridBagLayout());
-    panel.setBackground(new Color(0x25, 0x25, 0x25));
-    panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
-
-    GridBagConstraints c = new GridBagConstraints();
-    c.anchor = GridBagConstraints.WEST;
-    c.insets = new Insets(8, 5, 8, 5);
-
-    String[] displayNames = {
-      "Master Volume",
-      "Master Pan",
-      "Delay Time",
-      "Delay Feedback",
-      "Reverb Room Size",
-      "Reverb Damping"
-    };
-
-    for (int i = 0; i < displayNames.length; i++) {
-      c.gridx = 0;
-      c.gridy = i;
-      JLabel label = new JLabel(displayNames[i] + ":");
-      label.setForeground(Color.WHITE);
-      panel.add(label, c);
-
-      c.gridx = 1;
-      JButton learnBtn = new JButton("LEARN");
-      learnBtn.addActionListener(
-          e -> {
-            learnBtn.setText("WAITING...");
-          });
-      panel.add(learnBtn, c);
+    if (midiService == null) {
+      JLabel noService = new JLabel("MIDI service not available (testing mode)");
+      noService.setForeground(new Color(0x88, 0x88, 0x88));
+      noService.setHorizontalAlignment(SwingConstants.CENTER);
+      JPanel p = new JPanel(new BorderLayout());
+      p.setBackground(new Color(0x25, 0x25, 0x25));
+      p.add(noService, BorderLayout.CENTER);
+      return p;
     }
 
-    String[][] data = {
-      {"Master Volume", "CC #7", "ACTIVE"},
-      {"Master Pan", "None", "LEARN"},
-      {"Delay Time", "CC #14", "ACTIVE"},
-      {"Delay Feedback", "None", "LEARN"},
-      {"Reverb Room", "CC #21", "ACTIVE"},
-      {"Reverb Damp", "None", "LEARN"}
-    };
-    String[] cols = {"Parameter", "Routing", "State"};
-    JTable table = new JTable(data, cols);
-    table.setBackground(new Color(0x1f, 0x1f, 0x1f));
-    table.setForeground(Color.WHITE);
-    table.setFont(new Font("SansSerif", Font.PLAIN, 16));
-    table.setRowHeight(30);
+    JPanel outer = new JPanel(new BorderLayout(0, 10));
+    outer.setBackground(new Color(0x25, 0x25, 0x25));
+    outer.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
 
-    JPanel wrapper = new JPanel(new BorderLayout(0, 20));
-    wrapper.setBackground(new Color(0x25, 0x25, 0x25));
-    wrapper.add(new JScrollPane(panel), BorderLayout.NORTH);
-    wrapper.add(new JScrollPane(table), BorderLayout.CENTER);
+    // ── Device Selection ──
+    java.util.List<org.chuck.deluge.midi.MidiDeviceDefinition> devices =
+        org.chuck.deluge.midi.MidiDeviceDefinitionLoader.loadAll();
+    JComboBox<org.chuck.deluge.midi.MidiDeviceDefinition> deviceCombo =
+        new JComboBox<>();
+    deviceCombo.addItem(null); // "None"
+    for (var d : devices) {
+      deviceCombo.addItem(d);
+    }
+    // Select current device if set
+    org.chuck.deluge.midi.MidiDeviceDefinition currentDef =
+        midiService != null ? midiService.getDeviceDefinition() : null;
+    if (currentDef != null) {
+      for (int i = 0; i < deviceCombo.getItemCount(); i++) {
+        var item = deviceCombo.getItemAt(i);
+        if (item != null && item.getId().equals(currentDef.getId())) {
+          deviceCombo.setSelectedIndex(i);
+          break;
+        }
+      }
+    }
+    deviceCombo.addActionListener(
+        e -> {
+          org.chuck.deluge.midi.MidiDeviceDefinition selected =
+              (org.chuck.deluge.midi.MidiDeviceDefinition) deviceCombo.getSelectedItem();
+          midiService.setDeviceDefinition(selected);
+          rebuildMidiTable(outer);
+        });
+    deviceCombo.setRenderer(
+        new DefaultListCellRenderer() {
+          @Override
+          public Component getListCellRendererComponent(
+              JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+            super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+            if (value == null) {
+              setText("— None —");
+            } else if (value instanceof org.chuck.deluge.midi.MidiDeviceDefinition d) {
+              setText(d.getName() != null ? d.getName() : d.getId());
+            }
+            return this;
+          }
+        });
 
-    return wrapper;
+    JPanel devicePanel = new JPanel(new BorderLayout(5, 0));
+    devicePanel.setBackground(new Color(0x25, 0x25, 0x25));
+    JLabel deviceLabel = new JLabel("Device:");
+    deviceLabel.setForeground(Color.WHITE);
+    devicePanel.add(deviceLabel, BorderLayout.WEST);
+    devicePanel.add(deviceCombo, BorderLayout.CENTER);
+
+    // ── CC Mapping Table ──
+    java.util.Map<String, Integer> mappings = midiService.getMappings();
+    String[][] tableData = new String[mappings.size()][3];
+    int rowIdx = 0;
+    for (var entry : mappings.entrySet()) {
+      tableData[rowIdx][0] = entry.getKey();
+      tableData[rowIdx][1] = "CC #" + entry.getValue();
+      tableData[rowIdx][2] = "ACTIVE";
+      rowIdx++;
+    }
+    if (tableData.length == 0) {
+      tableData = new String[][] {{"— No mappings —", "", ""}};
+    }
+    String[] cols = {"Parameter", "CC", "State"};
+    JTable mappingTable = new JTable(tableData, cols);
+    mappingTable.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    mappingTable.setForeground(Color.WHITE);
+    mappingTable.setFont(new Font("SansSerif", Font.PLAIN, 14));
+    mappingTable.setRowHeight(26);
+    mappingTable.setGridColor(new Color(0x40, 0x40, 0x40));
+
+    JPanel learnSection = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 5));
+    learnSection.setBackground(new Color(0x25, 0x25, 0x25));
+    JTextField learnParamField = new JTextField(15);
+    learnParamField.setToolTipText("Parameter name to learn (e.g. g_master_vol)");
+    JButton learnBtn = new JButton("LEARN");
+    JLabel learnStatus = new JLabel("");
+    learnStatus.setForeground(new Color(0xff, 0xcc, 0x00));
+    learnBtn.addActionListener(
+        e -> {
+          String param = learnParamField.getText().trim();
+          if (param.isEmpty()) {
+            learnStatus.setText("Enter a param name");
+            return;
+          }
+          midiService.startLearn(param);
+          learnStatus.setText("Waiting for CC on " + param + "...");
+          learnBtn.setEnabled(false);
+          // Re-enable after timeout
+          Timer timer =
+              new Timer(10000, ev -> {
+                learnBtn.setEnabled(true);
+                if (midiService.isLearning()) {
+                  learnStatus.setText("Learn timed out");
+                } else {
+                  learnStatus.setText("Learned!");
+                  rebuildMidiTable(outer);
+                }
+              });
+          timer.setRepeats(false);
+          timer.start();
+        });
+    learnSection.add(new JLabel("Learn:"));
+    learnSection.add(learnParamField);
+    learnSection.add(learnBtn);
+    learnSection.add(learnStatus);
+
+    JPanel tableSection = new JPanel(new BorderLayout(0, 5));
+    tableSection.setBackground(new Color(0x25, 0x25, 0x25));
+    tableSection.add(new JScrollPane(mappingTable), BorderLayout.CENTER);
+    tableSection.add(learnSection, BorderLayout.SOUTH);
+
+    // ── Follow Mode Controls ──
+    JPanel followPanel = new JPanel();
+    followPanel.setLayout(new BoxLayout(followPanel, BoxLayout.Y_AXIS));
+    followPanel.setBackground(new Color(0x25, 0x25, 0x25));
+    followPanel.setBorder(BorderFactory.createTitledBorder(
+        BorderFactory.createLineBorder(new Color(0x60, 0x60, 0x60)),
+        "MIDI Follow Mode",
+        TitledBorder.LEFT,
+        TitledBorder.TOP,
+        new Font("SansSerif", Font.BOLD, 13),
+        new Color(0xcc, 0xcc, 0xcc)));
+
+    JCheckBox followEnable = new JCheckBox("Enabled");
+    followEnable.setForeground(Color.WHITE);
+    followEnable.setBackground(new Color(0x25, 0x25, 0x25));
+    followEnable.setSelected(
+        org.chuck.deluge.project.PreferencesManager.get("midi.follow.enabled", "true").equals("true"));
+    followEnable.addActionListener(
+        e -> {
+          org.chuck.deluge.project.PreferencesManager.set(
+              "midi.follow.enabled", String.valueOf(followEnable.isSelected()));
+        });
+    followPanel.add(followEnable);
+
+    String[] midiChannels = {"1", "2", "3", "4", "5", "6", "7", "8",
+                             "9", "10", "11", "12", "13", "14", "15", "16"};
+    String[] trackLabels = {"Track 1", "Track 2", "Track 3", "Track 4", "Track 5",
+                            "Track 6", "Track 7", "Track 8", "Track 9", "Track 10",
+                            "Track 11", "Track 12", "Track 13", "Track 14", "Track 15", "Track 16"};
+    char[] followLabels = {'A', 'B', 'C'};
+    for (int i = 0; i < 3; i++) {
+      final char fLabel = followLabels[i];
+      JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 2));
+      row.setBackground(new Color(0x25, 0x25, 0x25));
+      JLabel fl = new JLabel("Channel " + fLabel + ":");
+      fl.setForeground(Color.WHITE);
+      JComboBox<String> chCombo = new JComboBox<>(midiChannels);
+      int savedCh = Integer.parseInt(
+          org.chuck.deluge.project.PreferencesManager.get("midi.follow.ch" + fLabel, "1"));
+      chCombo.setSelectedIndex(savedCh - 1);
+      chCombo.addActionListener(
+          e -> {
+            org.chuck.deluge.project.PreferencesManager.set(
+                "midi.follow.ch" + fLabel,
+                String.valueOf(chCombo.getSelectedIndex() + 1));
+          });
+      JComboBox<String> trCombo = new JComboBox<>(trackLabels);
+      int savedTr = Integer.parseInt(
+          org.chuck.deluge.project.PreferencesManager.get(
+              "midi.follow.track" + fLabel, String.valueOf(i)));
+      trCombo.setSelectedIndex(Math.min(savedTr, 15));
+      trCombo.addActionListener(
+          e -> {
+            org.chuck.deluge.project.PreferencesManager.set(
+                "midi.follow.track" + fLabel,
+                String.valueOf(trCombo.getSelectedIndex()));
+          });
+      row.add(fl);
+      row.add(new JLabel("MIDI Ch:"));
+      row.add(chCombo);
+      row.add(new JLabel("→ Track:"));
+      row.add(trCombo);
+      followPanel.add(row);
+    }
+
+    // ── Assemble ──
+    JPanel north = new JPanel(new BorderLayout(0, 10));
+    north.setBackground(new Color(0x25, 0x25, 0x25));
+    north.add(devicePanel, BorderLayout.NORTH);
+    north.add(tableSection, BorderLayout.CENTER);
+
+    outer.add(north, BorderLayout.NORTH);
+    outer.add(followPanel, BorderLayout.SOUTH);
+
+    return new JScrollPane(outer);
+  }
+
+  /** Rebuilds the MIDI tab table section after device/learn changes. */
+  private void rebuildMidiTable(JPanel outer) {
+    Component[] kids = outer.getComponents();
+    for (int i = 0; i < kids.length; i++) {
+      if (kids[i] instanceof JScrollPane) {
+        JScrollPane sp = (JScrollPane) kids[i];
+        JViewport vp = sp.getViewport();
+        if (vp.getView() instanceof JPanel inner) {
+          Component[] innerKids = inner.getComponents();
+          for (int j = 0; j < innerKids.length; j++) {
+            if (innerKids[j] instanceof JPanel
+                && ((JPanel) innerKids[j]).getComponentCount() > 0
+                && ((JPanel) innerKids[j]).getComponent(0) instanceof JScrollPane) {
+              // This is the table section — rebuild it
+              rebuildTableContent((JPanel) innerKids[j]);
+              break;
+            }
+          }
+        }
+        break;
+      }
+    }
+  }
+
+  private void rebuildTableContent(JPanel tableSection) {
+    java.util.Map<String, Integer> mappings = midiService.getMappings();
+    String[][] tableData = new String[mappings.size()][3];
+    int rowIdx = 0;
+    for (var entry : mappings.entrySet()) {
+      tableData[rowIdx][0] = entry.getKey();
+      tableData[rowIdx][1] = "CC #" + entry.getValue();
+      tableData[rowIdx][2] = "ACTIVE";
+      rowIdx++;
+    }
+    if (tableData.length == 0) {
+      tableData = new String[][] {{"— No mappings —", "", ""}};
+    }
+    String[] cols = {"Parameter", "CC", "State"};
+    JTable freshTable = new JTable(tableData, cols);
+    freshTable.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    freshTable.setForeground(Color.WHITE);
+    freshTable.setFont(new Font("SansSerif", Font.PLAIN, 14));
+    freshTable.setRowHeight(26);
+    freshTable.setGridColor(new Color(0x40, 0x40, 0x40));
+
+    // Replace scrollpane view
+    Component[] kids = tableSection.getComponents();
+    for (Component k : kids) {
+      if (k instanceof JScrollPane) {
+        ((JScrollPane) k).setViewportView(freshTable);
+        break;
+      }
+    }
   }
 
   public void updateFocusTrack(int trackId) {

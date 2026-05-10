@@ -762,6 +762,45 @@ public class DelugeXmlParser {
     // ── FM Modulator 1 ──
     parseModulator1(soundNode, synth);
 
+    // ── Synth algorithm (from ProjectSerializer track attribute) ──
+    if (soundNode.hasAttribute("synthAlgorithm")) {
+      try {
+        synth.setSynthAlgorithm(Integer.parseInt(soundNode.getAttribute("synthAlgorithm")));
+      } catch (NumberFormatException ignored) {}
+    }
+
+    // ── FM ratio/amount (from ProjectSerializer track attributes) ──
+    if (soundNode.hasAttribute("fmRatio")) {
+      try { synth.setFmRatio(Float.parseFloat(soundNode.getAttribute("fmRatio"))); }
+      catch (NumberFormatException ignored) {}
+    }
+    if (soundNode.hasAttribute("fmAmount")) {
+      try { synth.setFmAmount(Float.parseFloat(soundNode.getAttribute("fmAmount"))); }
+      catch (NumberFormatException ignored) {}
+    }
+
+    // ── FM feedback params (from ProjectSerializer track attributes, hex-encoded) ──
+    String attrM1f = soundNode.getAttribute("modulator1Feedback");
+    if (attrM1f != null && !attrM1f.isEmpty()) {
+      try { synth.setModulator1Feedback(DelugeHexMapper.hexToFloat(attrM1f)); } catch (Exception ignored) {}
+    }
+    String attrM2a = soundNode.getAttribute("modulator2Amount");
+    if (attrM2a != null && !attrM2a.isEmpty()) {
+      try { synth.setModulator2Amount(DelugeHexMapper.hexToFloat(attrM2a)); } catch (Exception ignored) {}
+    }
+    String attrM2f = soundNode.getAttribute("modulator2Feedback");
+    if (attrM2f != null && !attrM2f.isEmpty()) {
+      try { synth.setModulator2Feedback(DelugeHexMapper.hexToFloat(attrM2f)); } catch (Exception ignored) {}
+    }
+    String attrC1f = soundNode.getAttribute("carrier1Feedback");
+    if (attrC1f != null && !attrC1f.isEmpty()) {
+      try { synth.setCarrier1Feedback(DelugeHexMapper.hexToFloat(attrC1f)); } catch (Exception ignored) {}
+    }
+    String attrC2f = soundNode.getAttribute("carrier2Feedback");
+    if (attrC2f != null && !attrC2f.isEmpty()) {
+      try { synth.setCarrier2Feedback(DelugeHexMapper.hexToFloat(attrC2f)); } catch (Exception ignored) {}
+    }
+
     // ── Envelopes 0-3 ──
     parseEnvelopes(soundNode, synth);
 

@@ -33,6 +33,8 @@ public class MidiInputRouterTest {
 
   @Test
   void testNoteOnRouting() {
+    // Map MIDI channel 0 → Track 4 (follow channel A)
+    router.setFollowChannel(0, 0, 4);
     // Synth Track 1 (Index 4)
     router.setActiveTrack(4);
 

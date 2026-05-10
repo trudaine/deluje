@@ -112,6 +112,18 @@ public class PreferencesManager {
     return ensureDir(new java.io.File(getLibraryDir(), "SYNTHS"));
   }
 
+  public static java.io.File getMidiDevicesDir() {
+    return ensureDir(new java.io.File(getLibraryDir(), "MIDI_DEVICES"));
+  }
+
+  public static java.io.File getMidiDeviceDefinitionsDir() {
+    return ensureDir(new java.io.File(getMidiDevicesDir(), "DEFINITION"));
+  }
+
+  public static java.io.File getPatternsDir() {
+    return ensureDir(new java.io.File(getLibraryDir(), "PATTERNS"));
+  }
+
   private static java.io.File ensureDir(java.io.File dir) {
     dir.mkdirs();
     return dir;
