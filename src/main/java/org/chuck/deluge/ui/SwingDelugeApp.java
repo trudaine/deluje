@@ -9,6 +9,7 @@ import org.chuck.deluge.model.ClipModel;
 import org.chuck.deluge.model.EnvelopeModel;
 import org.chuck.deluge.model.KitTrackModel;
 import org.chuck.deluge.model.LfoModel;
+import org.chuck.deluge.model.PatternModel;
 import org.chuck.deluge.model.SynthTrackModel;
 
 /** Alternative lightweight UI running purely on Java Swing (no native libs). */
@@ -427,6 +428,14 @@ public class SwingDelugeApp extends JFrame {
           for (int v = 0; v < totalSynthRows; v++) {
             vm.setGlobalString("g_dx7_patch_" + (startRow + v), dx7patch);
           }
+          // Push opSwitch mask (byte 155) so UI edits to operator on/off are reflected
+          try {
+            byte[] raw = org.chuck.audio.util.Dx7Patch.hexToBytes(dx7patch);
+            int opSwitch = raw[org.chuck.audio.util.Dx7Patch.OFF_OP_SWITCH] & 0xFF;
+            for (int v = 0; v < totalSynthRows; v++) {
+              vm.setGlobalInt("g_dx7_opSwitch_" + (startRow + v), opSwitch);
+            }
+          } catch (Exception ignored) {}
         }
       } else if (track instanceof org.chuck.deluge.model.AudioTrackModel audio) {
         // Mark engine row as type-2 (audio)
@@ -621,6 +630,15 @@ public class SwingDelugeApp extends JFrame {
         vm.setGlobalInt(BridgeContract.G_MODE_NOTES + "_" + i, modeNotes[i] ? 1L : 0L);
       }
     }
+
+    // ── MIDI Follow Mode globals ──
+    bridge.setFollowEnabled(midiService != null && midiService.isRecording());
+    vm.setGlobalInt(BridgeContract.G_FOLLOW_CH_A, bridge.getFollowMidChannel('A'));
+    vm.setGlobalInt(BridgeContract.G_FOLLOW_CH_B, bridge.getFollowMidChannel('B'));
+    vm.setGlobalInt(BridgeContract.G_FOLLOW_CH_C, bridge.getFollowMidChannel('C'));
+    vm.setGlobalInt(BridgeContract.G_FOLLOW_TRACK_A, bridge.getFollowTrack('A'));
+    vm.setGlobalInt(BridgeContract.G_FOLLOW_TRACK_B, bridge.getFollowTrack('B'));
+    vm.setGlobalInt(BridgeContract.G_FOLLOW_TRACK_C, bridge.getFollowTrack('C'));
 
     // Sync the master FX panel slider with the model's volume
     if (masterFxPanel != null) {
@@ -909,6 +927,102 @@ public class SwingDelugeApp extends JFrame {
         JOptionPane.INFORMATION_MESSAGE);
 
     vm.setGlobalFloat(org.chuck.deluge.BridgeContract.G_WVOUT_ACTIVE, 0.0f);
+  }
+
+  /**
+   * Save the active clip of the currently focused track as a pattern XML file.
+   * Prompts the user for a file location under the PATTERNS directory.
+   */
+  private void saveCurrentClipAsPattern() {
+    SwingGridPanel active = activeGridPanel();
+    if (active == null) return;
+    int focusTrack = active.getFocusTrack();
+    if (focusTrack < 0 || focusTrack >= currentProject.getTracks().size()) {
+      JOptionPane.showMessageDialog(this, "No track selected.", "Save Pattern", JOptionPane.WARNING_MESSAGE);
+      return;
+    }
+    var track = currentProject.getTracks().get(focusTrack);
+    int clipIdx = track.getActiveClipIndex();
+    if (clipIdx < 0 || clipIdx >= track.getClips().size()) {
+      JOptionPane.showMessageDialog(this, "Active clip not found.", "Save Pattern", JOptionPane.WARNING_MESSAGE);
+      return;
+    }
+    ClipModel clip = track.getClips().get(clipIdx);
+
+    JFileChooser chooser = new JFileChooser(
+        org.chuck.deluge.project.PreferencesManager.getPatternsDir());
+    chooser.setDialogTitle("Save Pattern");
+    chooser.setFileFilter(
+        new javax.swing.filechooser.FileNameExtensionFilter("Pattern XML", "xml", "XML"));
+    String suggestedName = track.getName() + "_" + clip.getName() + ".xml";
+    chooser.setSelectedFile(new java.io.File(suggestedName));
+    if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
+
+    java.io.File target = chooser.getSelectedFile();
+    if (!target.getName().toLowerCase().endsWith(".xml")) {
+      target = new java.io.File(target.getAbsolutePath() + ".xml");
+    }
+
+    try {
+      PatternModel pattern = new PatternModel(java.util.UUID.randomUUID().toString(), clip.getName());
+      pattern.setCategory("MELODIC");
+
+      PatternModel.ClipSnapshot snap = PatternModel.ClipSnapshot.fromClipModel(
+          clip, focusTrack, track.getName());
+      snap.setInstrumentSlot(track.getName());
+      snap.setColourHex(track.getColourHex());
+      pattern.addClipSnapshot(snap);
+
+      org.chuck.deluge.project.PatternSerializer.save(pattern, target);
+      JOptionPane.showMessageDialog(this, "Pattern saved:\n" + target.getName(),
+          "Save Pattern", JOptionPane.INFORMATION_MESSAGE);
+    } catch (Exception ex) {
+      JOptionPane.showMessageDialog(this, "Failed to save pattern:\n" + ex.getMessage(),
+          "Error", JOptionPane.ERROR_MESSAGE);
+    }
+  }
+
+  /**
+   * Load a pattern from an XML file and apply it to the active clip of the focused track.
+   * Prompts the user to select a target track if the focused track doesn't have a compatible clip.
+   */
+  private void loadPatternIntoActiveTrack(java.io.File patternFile) {
+    try {
+      PatternModel pattern = org.chuck.deluge.project.PatternSerializer.load(patternFile);
+      if (pattern.getClipSnapshots().isEmpty()) {
+        JOptionPane.showMessageDialog(this, "Pattern file contains no clips.",
+            "Load Pattern", JOptionPane.WARNING_MESSAGE);
+        return;
+      }
+
+      SwingGridPanel active = activeGridPanel();
+      int focusTrack = (active != null) ? active.getFocusTrack() : 0;
+      if (focusTrack < 0 || focusTrack >= currentProject.getTracks().size()) {
+        focusTrack = 0;
+      }
+      var track = currentProject.getTracks().get(focusTrack);
+      int clipIdx = track.getActiveClipIndex();
+      if (clipIdx < 0 || clipIdx >= track.getClips().size()) {
+        JOptionPane.showMessageDialog(this, "Active clip not found on target track.",
+            "Load Pattern", JOptionPane.WARNING_MESSAGE);
+        return;
+      }
+      ClipModel clip = track.getClips().get(clipIdx);
+
+      // Apply the first clip snapshot to the active clip
+      pattern.getClipSnapshots().get(0).applyTo(clip);
+
+      pushModelToBridge();
+      propagateCurrentModel();
+      refreshGrids();
+
+      JOptionPane.showMessageDialog(this,
+          "Pattern loaded into: " + track.getName(),
+          "Load Pattern", JOptionPane.INFORMATION_MESSAGE);
+    } catch (Exception ex) {
+      JOptionPane.showMessageDialog(this, "Failed to load pattern:\n" + ex.getMessage(),
+          "Error", JOptionPane.ERROR_MESSAGE);
+    }
   }
 
   private void loadChuckScript() {
@@ -1279,6 +1393,10 @@ public class SwingDelugeApp extends JFrame {
         };
     sidebarPanel.setOnTrackAdded(addTrack);
     floatingSidebar.setOnTrackAdded(addTrack);
+    sidebarPanel.setOnPatternSave(this::saveCurrentClipAsPattern);
+    sidebarPanel.setOnPatternLoad(this::loadPatternIntoActiveTrack);
+    floatingSidebar.setOnPatternSave(this::saveCurrentClipAsPattern);
+    floatingSidebar.setOnPatternLoad(this::loadPatternIntoActiveTrack);
 
     songPanel.setOnEditRequest(
         (trackId, clipId) -> {

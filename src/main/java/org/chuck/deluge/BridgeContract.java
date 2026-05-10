@@ -222,6 +222,18 @@ public final class BridgeContract {
   public static final String G_SP_EQ_TREBLE = "g_sp_eq_treble";
   public static final String G_SP_EQ_BASS_FREQ = "g_sp_eq_bass_freq";
   public static final String G_SP_EQ_TREBLE_FREQ = "g_sp_eq_treble_freq";
+  // ── MIDI Follow Mode ─────────────────────────────────────────────────────
+  public static final String G_FOLLOW_ENABLED = "g_follow_enabled";
+  public static final String G_FOLLOW_CH_A = "g_follow_ch_a";
+  public static final String G_FOLLOW_CH_B = "g_follow_ch_b";
+  public static final String G_FOLLOW_CH_C = "g_follow_ch_c";
+  public static final String G_FOLLOW_TRACK_A = "g_follow_track_a";
+  public static final String G_FOLLOW_TRACK_B = "g_follow_track_b";
+  public static final String G_FOLLOW_TRACK_C = "g_follow_track_c";
+  public static final String G_FOLLOW_TRACK_CHANGED = "g_follow_track_changed";
+  public static final String G_FOLLOW_CC_SOURCE = "g_follow_cc_source";
+  public static final String G_FOLLOW_CC_NUM = "g_follow_cc_num";
+  public static final String G_FOLLOW_CC_VAL = "g_follow_cc_val";
   // ── Scales / mode notes ─────────────────────────────────────────────────
   public static final String G_USER_SCALE = "g_user_scale";
   public static final String G_DISABLED_PRESET_SCALES = "g_disabled_preset_scales";
@@ -970,6 +982,14 @@ public final class BridgeContract {
 
   private double bpm = 120.0;
   private double swing = 0.5;
+  // ── MIDI Follow Mode scalars ──
+  private int followEnabled = 0;
+  private int followChA = 0, followChB = 1, followChC = 2;
+  private int followTrackA = 0, followTrackB = 1, followTrackC = 2;
+  private int followTrackChanged = 0;
+  private int followCcSource = 0;
+  private int followCcNum = 0;
+  private int followCcVal = 0;
 
   private ChuckVM vm;
   private boolean recording = false;
@@ -1081,6 +1101,19 @@ public final class BridgeContract {
     vm.setGlobalFloat(G_SP_EQ_TREBLE, (double) spEqTreble);
     vm.setGlobalFloat(G_SP_EQ_BASS_FREQ, (double) spEqBassFrequency);
     vm.setGlobalFloat(G_SP_EQ_TREBLE_FREQ, (double) spEqTrebleFrequency);
+
+    // ── MIDI Follow Mode ──
+    vm.setGlobalInt(G_FOLLOW_ENABLED, (long) followEnabled);
+    vm.setGlobalInt(G_FOLLOW_CH_A, (long) followChA);
+    vm.setGlobalInt(G_FOLLOW_CH_B, (long) followChB);
+    vm.setGlobalInt(G_FOLLOW_CH_C, (long) followChC);
+    vm.setGlobalInt(G_FOLLOW_TRACK_A, (long) followTrackA);
+    vm.setGlobalInt(G_FOLLOW_TRACK_B, (long) followTrackB);
+    vm.setGlobalInt(G_FOLLOW_TRACK_C, (long) followTrackC);
+    vm.setGlobalInt(G_FOLLOW_TRACK_CHANGED, (long) followTrackChanged);
+    vm.setGlobalInt(G_FOLLOW_CC_SOURCE, (long) followCcSource);
+    vm.setGlobalInt(G_FOLLOW_CC_NUM, (long) followCcNum);
+    vm.setGlobalInt(G_FOLLOW_CC_VAL, (long) followCcVal);
 
     // ── Scales / mode notes ──
     vm.setGlobalInt(G_USER_SCALE, (long) userScale);
@@ -1245,6 +1278,48 @@ public final class BridgeContract {
     if (vm != null) vm.setGlobalFloat(G_SWING, swing);
   }
   public double getSwing() { return swing; }
+  // ── MIDI Follow Mode accessors ──
+  public void setFollowEnabled(boolean enabled) {
+    this.followEnabled = enabled ? 1 : 0;
+    if (vm != null) vm.setGlobalInt(G_FOLLOW_ENABLED, this.followEnabled);
+  }
+  public boolean getFollowEnabled() { return followEnabled != 0; }
+  public void setFollowChannel(char label, int midiChannel) {
+    if (midiChannel < 0 || midiChannel > 15) return;
+    String channelKey = label == 'A' ? G_FOLLOW_CH_A : label == 'B' ? G_FOLLOW_CH_B : G_FOLLOW_CH_C;
+    if (label == 'A') followChA = midiChannel;
+    else if (label == 'B') followChB = midiChannel;
+    else followChC = midiChannel;
+    if (vm != null) vm.setGlobalInt(channelKey, midiChannel);
+  }
+  public void setFollowTrack(char label, int track) {
+    String trackKey = label == 'A' ? G_FOLLOW_TRACK_A : label == 'B' ? G_FOLLOW_TRACK_B : G_FOLLOW_TRACK_C;
+    if (label == 'A') followTrackA = track;
+    else if (label == 'B') followTrackB = track;
+    else followTrackC = track;
+    if (vm != null) vm.setGlobalInt(trackKey, track);
+  }
+  public int getFollowMidChannel(char label) {
+    return label == 'A' ? followChA : label == 'B' ? followChB : followChC;
+  }
+  public int getFollowTrack(char label) {
+    return label == 'A' ? followTrackA : label == 'B' ? followTrackB : followTrackC;
+  }
+  public void setFollowTrackChanged(int val) {
+    this.followTrackChanged = val;
+    if (vm != null) vm.setGlobalInt(G_FOLLOW_TRACK_CHANGED, val);
+  }
+  public int getFollowTrackChanged() { return followTrackChanged; }
+  public void setFollowCc(int source, int num, int val) {
+    this.followCcSource = source;
+    this.followCcNum = num;
+    this.followCcVal = val;
+    if (vm != null) {
+      vm.setGlobalInt(G_FOLLOW_CC_SOURCE, source);
+      vm.setGlobalInt(G_FOLLOW_CC_NUM, num);
+      vm.setGlobalInt(G_FOLLOW_CC_VAL, val);
+    }
+  }
   public void setMasterVol(double val) {
     this.masterVol = (float) val;
     if (vm != null) vm.setGlobalFloat(G_MASTER_VOL, val);

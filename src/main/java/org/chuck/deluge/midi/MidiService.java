@@ -1,5 +1,7 @@
 package org.chuck.deluge.midi;
 
+import java.util.ArrayList;
+import java.util.List;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.project.PreferencesManager;
@@ -14,6 +16,7 @@ public class MidiService {
   private MidiIn midiIn;
   private boolean learning = false;
   private String learnTargetParam;
+  private MidiDeviceDefinition currentDevice;
 
   public MidiService(ChuckVM vm, BridgeContract bridge, MidiInputRouter router) {
     this.vm = vm;
@@ -26,6 +29,15 @@ public class MidiService {
     if (portName.equals("None")) {
       System.out.println("MIDI: No input port selected.");
       return;
+    }
+
+    // Load device definition for this port
+    String deviceId = PreferencesManager.get("midi.device." + portName, "");
+    if (!deviceId.isEmpty()) {
+      currentDevice = MidiDeviceDefinitionLoader.findById(deviceId);
+      if (currentDevice != null) {
+        System.out.println("MIDI: Loaded device definition: " + currentDevice.getName());
+      }
     }
 
     try {
@@ -86,7 +98,21 @@ public class MidiService {
       int cc = msg.data2;
       int val = msg.data3;
 
-      // Look up mapped parameters specifically for this port
+      // First check device definition for this CC
+      if (currentDevice != null) {
+        MidiDeviceDefinition.CcMapping mapping = currentDevice.findMapping(cc);
+        if (mapping != null) {
+          float normalizedVal = val / 127.0f;
+          vm.setGlobalFloat(mapping.paramName(), normalizedVal);
+          if (vm.getLogLevel() >= 2) {
+            System.out.println(
+                "MIDI: Updated " + mapping.paramName() + " to " + normalizedVal + " via device " + currentDevice.getName());
+          }
+          return;
+        }
+      }
+
+      // Fall back to preferences-based mappings
       String[] keys = PreferencesManager.getKeys();
       String prefix = "midi.learn." + portName + ".";
       for (String key : keys) {
@@ -94,7 +120,7 @@ public class MidiService {
           String mappedCc = PreferencesManager.get(key, "None");
           if (mappedCc.equals(String.valueOf(cc))) {
             String paramName = key.substring(prefix.length());
-            // Map 0-127 to 0.0-1.0 (or appropriate range)
+            // Map 0-127 to 0.0-1.0
             float normalizedVal = val / 127.0f;
             vm.setGlobalFloat(paramName, normalizedVal);
             if (vm.getLogLevel() >= 2) {
@@ -131,16 +157,40 @@ public class MidiService {
     router.setFollowModeEnabled(active);
   }
 
+  public boolean isRecording() {
+    return router.isFollowModeEnabled();
+  }
+
   public void unlearn(String paramName) {
     String portName = PreferencesManager.get("midi.input", "None");
     PreferencesManager.set("midi.learn." + portName + "." + paramName, "None");
   }
 
+  public void setDeviceDefinition(MidiDeviceDefinition def) {
+    this.currentDevice = def;
+    router.setDeviceDefinition(def);
+    String portName = PreferencesManager.get("midi.input", "None");
+    PreferencesManager.set("midi.device." + portName, def != null ? def.getId() : "");
+  }
+
+  public MidiDeviceDefinition getDeviceDefinition() {
+    return currentDevice;
+  }
+
+  /** Returns merged mappings: device definition CCs (keyed by param name) overlaid with learn-based CCs. */
   public java.util.Map<String, Integer> getMappings() {
     java.util.Map<String, Integer> mappings = new java.util.HashMap<>();
+
+    // Include device definition mappings
+    if (currentDevice != null) {
+      for (MidiDeviceDefinition.CcMapping m : currentDevice.getCcMappings()) {
+        mappings.put(m.paramName(), m.cc());
+      }
+    }
+
+    // Overlay with learn-based mappings (preferences take priority)
     String portName = PreferencesManager.get("midi.input", "None");
     String prefix = "midi.learn." + portName + ".";
-
     String[] keys = PreferencesManager.getKeys();
     for (String key : keys) {
       if (key.startsWith(prefix)) {

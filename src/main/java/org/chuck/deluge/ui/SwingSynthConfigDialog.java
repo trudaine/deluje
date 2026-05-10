@@ -13,6 +13,7 @@ import org.chuck.deluge.model.EnvelopeModel;
 import org.chuck.deluge.model.ModKnob;
 import org.chuck.deluge.model.PatchCable;
 import org.chuck.deluge.model.SynthTrackModel;
+import org.chuck.audio.util.Dx7Patch;
 
 /** Swing dialog for editing a Synth track: Arp, Filter, FM, and 4-slot LFO. */
 public class SwingSynthConfigDialog extends JDialog {
@@ -28,25 +29,31 @@ public class SwingSynthConfigDialog extends JDialog {
   private static final String[] MOD_DST_OPTIONS = {"volume", "pan", "lpfFrequency", "lpfResonance",
       "oscAVolume", "oscBVolume", "pitch", "noiseVolume", "modFxRate", "modFxDepth"};
 
+  private final JTabbedPane tabs = new JTabbedPane();
+
   public SwingSynthConfigDialog(
       Frame owner, SynthTrackModel model, ChuckVM vm, BridgeContract bridge, int trackIndex) {
     super(owner, "Synth Config: " + model.getName(), false);
-    setSize(1300, 700);
+    setSize(1300, 750);
     setLocationRelativeTo(owner);
     setLayout(new BorderLayout());
     getContentPane().setBackground(new Color(0x1a, 0x1a, 0x1a));
 
-    JTabbedPane tabs = new JTabbedPane();
     tabs.setBackground(new Color(0x25, 0x25, 0x25));
     tabs.setForeground(Color.WHITE);
 
     tabs.addTab("ARP / FILTER / FM", buildMainPanel(model, vm, bridge, trackIndex));
+    // DX7 tab inserted at index 1 — visible only when synthMode==1 or dx7patch loaded
+    JPanel dx7Panel = buildDx7Panel(model, vm, bridge, trackIndex);
+    tabs.insertTab("DX7", null, dx7Panel, "DX7 6-operator FM editing", 1);
+    tabs.setEnabledAt(1, model.getSynthMode() == 1);
     tabs.addTab("ALGORITHM", buildAlgorithmPanel(model, bridge, trackIndex));
     tabs.addTab("LFO", buildLfoPanel(vm, bridge, trackIndex));
     tabs.addTab("ENVELOPE", buildEnvelopePanel(model, bridge, trackIndex));
     tabs.addTab("MODULATION", buildModulationPanel(model, bridge, trackIndex));
     tabs.addTab("AUTOMATION", buildAutomationPanel(model, bridge, trackIndex));
 
+    // Enable/disable DX7 tab when synth mode changes (the mode combo is in the main panel)
     add(tabs, BorderLayout.CENTER);
 
     JButton closeBtn = new JButton("Close");
@@ -159,6 +166,7 @@ public class SwingSynthConfigDialog extends JDialog {
       int mode = modeCombo.getSelectedIndex();
       model.setSynthMode(mode);
       bridge.setSynthMode(trackIndex, mode);
+      tabs.setEnabledAt(1, mode == 1);
     });
     panel.add(modeCombo, c); row++;
 
@@ -581,61 +589,492 @@ public class SwingSynthConfigDialog extends JDialog {
     return panel;
   }
 
-  /** Build the synth algorithm selector tab. */
+  /** Build the synth algorithm selector tab with 32 DX7 algorithms + STK options. */
   private JPanel buildAlgorithmPanel(SynthTrackModel model, BridgeContract bridge, int trackIndex) {
-    JPanel panel = new JPanel(new GridBagLayout());
-    panel.setBackground(new Color(0x22, 0x22, 0x22));
-    GridBagConstraints c = new GridBagConstraints();
-    c.fill = GridBagConstraints.HORIZONTAL;
-    c.insets = new Insets(6, 10, 6, 10);
-    c.anchor = GridBagConstraints.WEST;
+    JPanel outer = new JPanel(new BorderLayout(8, 8));
+    outer.setBackground(new Color(0x22, 0x22, 0x22));
+    outer.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-    String[] algos = {"FM Synthesis", "Mandolin", "Rhodey EP", "ModalBar", "Moog Bass"};
-    int[] algoValues = {0, 10, 11, 12, 13};
+    // ── Top: STK engine selector (for algo >= 10) ──
+    JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
+    topPanel.setBackground(new Color(0x22, 0x22, 0x22));
+    topPanel.add(sectionLabel("ENGINE:"));
 
-    c.gridx = 0; c.gridy = 0; c.gridwidth = 3;
-    panel.add(sectionLabel("SYNTHESIS ALGORITHM"), c); c.gridy++;
-
-    c.gridx = 0; c.gridwidth = 1;
-    JLabel algoLbl = label("Engine:");
-    algoLbl.setToolTipText("Select the sound engine for this track — FM or STK physical model");
-    panel.add(algoLbl, c); c.gridx = 1; c.gridwidth = 2;
-
-    JComboBox<String> algoCombo = new JComboBox<>(algos);
-    algoCombo.setBackground(new Color(0x33, 0x33, 0x33));
-    algoCombo.setForeground(Color.WHITE);
-    // Select current algorithm
-    int current = model.getSynthAlgorithm();
-    for (int i = 0; i < algoValues.length; i++) {
-      if (algoValues[i] == current) { algoCombo.setSelectedIndex(i); break; }
+    String[] stkNames = {"DX7 FM (6-op)", "Mandolin", "Rhodey EP", "ModalBar", "Moog Bass"};
+    int[] stkValues = {0, 10, 11, 12, 13};
+    JComboBox<String> engineCombo = new JComboBox<>(stkNames);
+    engineCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    engineCombo.setForeground(Color.WHITE);
+    int curAlgo = model.getSynthAlgorithm();
+    int curEngineIdx = 0;
+    for (int i = 0; i < stkValues.length; i++) {
+      if (stkValues[i] == curAlgo || (i == 0 && curAlgo < 10)) {
+        curEngineIdx = i; break;
+      }
     }
-    algoCombo.addActionListener(e -> {
-      int idx = algoCombo.getSelectedIndex();
-      int algo = algoValues[idx];
-      model.setSynthAlgorithm(algo);
-      bridge.setSynthAlgo(trackIndex, algo);
+    engineCombo.setSelectedIndex(curEngineIdx);
+    engineCombo.addActionListener(e -> {
+      int ei = engineCombo.getSelectedIndex();
+      int algoVal = stkValues[ei];
+      model.setSynthAlgorithm(algoVal);
+      bridge.setSynthAlgo(trackIndex, algoVal);
     });
-    panel.add(algoCombo, c); c.gridy++;
+    topPanel.add(engineCombo);
+    outer.add(topPanel, BorderLayout.NORTH);
 
-    // Description panel
-    c.gridx = 0; c.gridy++; c.gridwidth = 3;
+    // ── Center: 32-algorithm grid ──
+    JPanel gridPanel = new JPanel(new GridLayout(16, 2, 6, 6));
+    gridPanel.setBackground(new Color(0x22, 0x22, 0x22));
+    JScrollPane scroll = new JScrollPane(gridPanel);
+    scroll.setPreferredSize(new Dimension(700, 400));
+    scroll.setBorder(BorderFactory.createTitledBorder(
+        BorderFactory.createLineBorder(new Color(0x44, 0x44, 0x44)),
+        "DX7 ALGORITHMS (0–31)"));
+    scroll.getViewport().setBackground(new Color(0x22, 0x22, 0x22));
+
+    for (int algo = 0; algo < 32; algo++) {
+      final int a = algo;
+      JPanel algoCard = new JPanel(new BorderLayout(4, 2));
+      algoCard.setBackground(curAlgo == a ? new Color(0x3a, 0x5a, 0x3a) : new Color(0x2a, 0x2a, 0x2a));
+      algoCard.setBorder(BorderFactory.createLineBorder(
+          curAlgo == a ? Color.CYAN : new Color(0x44, 0x44, 0x44), 1));
+
+      // Mini algorithm preview — show operator routing as ASCII
+      JTextArea algoPreview = new JTextArea(formatAlgorithmMini(a));
+      algoPreview.setEditable(false);
+      algoPreview.setBackground(new Color(0x22, 0x22, 0x22));
+      algoPreview.setForeground(Color.LIGHT_GRAY);
+      algoPreview.setFont(algoPreview.getFont().deriveFont(10f));
+      algoPreview.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
+      algoCard.add(algoPreview, BorderLayout.CENTER);
+
+      // Label + select button
+      JPanel labelRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+      labelRow.setBackground(algoCard.getBackground());
+      JLabel algoLabel = new JLabel("Algo " + a);
+      algoLabel.setForeground(Color.CYAN);
+      algoLabel.setFont(algoLabel.getFont().deriveFont(Font.BOLD, 11f));
+      labelRow.add(algoLabel);
+      JButton selectBtn = new JButton("Select");
+      selectBtn.setFont(selectBtn.getFont().deriveFont(10f));
+      selectBtn.addActionListener(ev -> {
+        model.setSynthAlgorithm(a);
+        bridge.setSynthAlgo(trackIndex, a);
+        // Refresh highlights
+        for (java.awt.Component comp : gridPanel.getComponents()) {
+          if (comp instanceof JPanel card) {
+            boolean isSelected = card.getBackground() == new Color(0x3a, 0x5a, 0x3a);
+            // Simple: just close and reopen would be better, but this works
+            card.setBackground(a == getAlgoForCard(card, gridPanel) ? new Color(0x3a, 0x5a, 0x3a) : new Color(0x2a, 0x2a, 0x2a));
+          }
+        }
+      });
+      labelRow.add(selectBtn);
+      algoCard.add(labelRow, BorderLayout.SOUTH);
+
+      gridPanel.add(algoCard);
+    }
+    outer.add(scroll, BorderLayout.CENTER);
+
+    // ── Bottom: STK description ──
     JTextArea desc = new JTextArea(
-        "FM Synthesis — Classic 2-operator FM via MorphingWavetable. Use Ratio & Amount controls.\n" +
-        "Mandolin — Plucked string physical model with body resonance.\n" +
-        "Rhodey EP — FM electric piano based on the Rhodes sound.\n" +
-        "ModalBar — Mallet percussion with adjustable bar material.\n" +
-        "Moog Bass — Monophonic bass synthesizer with ladder filter."
+        "Algo 0-9: Standard DX7 FM algorithms (6-op, algorithm routing determined by firmware tables).\n" +
+        "Algo 10: Mandolin — Plucked string physical model with body resonance.\n" +
+        "Algo 11: Rhodey EP — FM electric piano based on the Rhodes sound.\n" +
+        "Algo 12: ModalBar — Mallet percussion with adjustable bar material.\n" +
+        "Algo 13: Moog Bass — Monophonic bass synthesizer with ladder filter."
     );
     desc.setEditable(false);
     desc.setBackground(new Color(0x2a, 0x2a, 0x2a));
     desc.setForeground(Color.LIGHT_GRAY);
     desc.setFont(desc.getFont().deriveFont(11f));
-    desc.setBorder(BorderFactory.createEmptyBorder(10, 5, 10, 5));
+    desc.setBorder(BorderFactory.createEmptyBorder(8, 5, 8, 5));
     desc.setLineWrap(true);
     desc.setWrapStyleWord(true);
-    panel.add(desc, c);
+    outer.add(desc, BorderLayout.SOUTH);
 
-    return panel;
+    return outer;
+  }
+
+  /** Produce a 3-line ASCII mini-representation of a DX7 algorithm (0-31). */
+  private static String formatAlgorithmMini(int algo) {
+    // Simplified visual: show 6 operators in 2 rows of 3, with routing indicators
+    // Using Dx7EngineLookupTables.ALGORITHMS flags to show routing
+    int[] algos = org.chuck.audio.util.Dx7EngineLookupTables.ALGORITHMS;
+    int base = algo * 6;
+    StringBuilder sb = new StringBuilder();
+    // Row 1: ops 0,1,2 with their bus flags
+    for (int i = 0; i < 3; i++) {
+      int flags = algos[base + i];
+      String opLabel = "OP" + (i + 1);
+      char out = (flags & 0x01) != 0 ? '1' : (flags & 0x02) != 0 ? '2' : (flags & 0x04) != 0 ? 'A' : '?';
+      char fb = (flags & 0x80) != 0 ? 'F' : ' ';
+      sb.append(String.format("%s%c%c ", opLabel, fb, out));
+    }
+    sb.append('\n');
+    // Row 2: ops 3,4,5
+    for (int i = 3; i < 6; i++) {
+      int flags = algos[base + i];
+      String opLabel = "OP" + (i + 1);
+      char out = (flags & 0x01) != 0 ? '1' : (flags & 0x02) != 0 ? '2' : (flags & 0x04) != 0 ? 'A' : '?';
+      char fb = (flags & 0x80) != 0 ? 'F' : ' ';
+      sb.append(String.format("%s%c%c ", opLabel, fb, out));
+    }
+    sb.append('\n');
+    // Row 3: algorithm number + feedback
+    sb.append(String.format("FB=%d/7", algo < 10 ? 7 - algo : 0));
+    return sb.toString();
+  }
+
+  /** Get the algorithm index from a card component in the grid. */
+  private static int getAlgoForCard(JPanel card, JPanel grid) {
+    int idx = 0;
+    for (java.awt.Component comp : grid.getComponents()) {
+      if (comp == card) return idx;
+      if (comp instanceof JPanel) idx++;
+    }
+    return -1;
+  }
+
+  /**
+   * Build the DX7 tab: patch info, LFO, 6-operator table, .syx loader.
+   * Only functional when synthMode==1.
+   */
+  private JPanel buildDx7Panel(
+      SynthTrackModel model, ChuckVM vm, BridgeContract bridge, int trackIndex) {
+    JPanel outer = new JPanel(new BorderLayout(4, 4));
+    outer.setBackground(new Color(0x22, 0x22, 0x22));
+
+    JPanel content = new JPanel(new GridBagLayout());
+    content.setBackground(new Color(0x22, 0x22, 0x22));
+    GridBagConstraints c = new GridBagConstraints();
+    c.fill = GridBagConstraints.HORIZONTAL;
+    c.insets = new Insets(4, 8, 4, 8);
+    c.anchor = GridBagConstraints.WEST;
+    int row = 0;
+
+    // ── Load .syx button ──
+    c.gridx = 0; c.gridy = row; c.gridwidth = 4;
+    JButton loadSyxBtn = new JButton("Load .syx (DX7 Patch File)");
+    loadSyxBtn.setToolTipText("Open a Roland SysEx bulk dump (.syx) containing DX7 voice patches");
+    loadSyxBtn.addActionListener(e -> {
+      JFileChooser fc = new JFileChooser();
+      fc.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("DX7 SysEx (*.syx)", "syx"));
+      if (fc.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+        try {
+          java.util.List<org.chuck.audio.util.Dx7Patch> patches =
+              org.chuck.deluge.xml.Dx7SyxParser.parseSyx(fc.getSelectedFile());
+          if (!patches.isEmpty()) {
+            applyDx7Patch(model, vm, bridge, trackIndex, patches.get(0));
+            // Refresh dialog by disposing and recreating
+            dispose();
+            new SwingSynthConfigDialog(
+                (Frame) getOwner(), model, vm, bridge, trackIndex).setVisible(true);
+          }
+        } catch (Exception ex) {
+          JOptionPane.showMessageDialog(this,
+              "Failed to load .syx: " + ex.getMessage(),
+              "Parse Error", JOptionPane.ERROR_MESSAGE);
+        }
+      }
+    });
+    content.add(loadSyxBtn, c); row++;
+    c.gridwidth = 1;
+
+    // ── Patch Name ──
+    c.gridx = 0; c.gridy = row;
+    content.add(label("Patch Name:"), c);
+    c.gridx = 1; c.gridwidth = 3;
+    JTextField patchNameField = new JTextField(16);
+    patchNameField.setBackground(new Color(0x33, 0x33, 0x33));
+    patchNameField.setForeground(Color.WHITE);
+    String curPatch = model.getDx7Patch();
+    if (curPatch != null && !curPatch.isEmpty()) {
+      try {
+        patchNameField.setText(org.chuck.audio.util.Dx7Patch.fromHex(curPatch).name());
+      } catch (Exception ignored) {}
+    }
+    patchNameField.setEditable(false);
+    patchNameField.setToolTipText("Patch name from the loaded DX7 SysEx data (read-only)");
+    content.add(patchNameField, c); row++;
+    c.gridwidth = 1;
+
+    // ── Patch global info: algorithm, feedback, transpose ──
+    c.gridx = 0; c.gridy = row; c.gridwidth = 4;
+    content.add(sectionLabel("PATCH GLOBALS"), c); row++;
+    c.gridwidth = 1;
+
+    // Algorithm (read-only, reflects what's in the patch)
+    c.gridx = 0; c.gridy = row;
+    content.add(label("Algorithm:"), c);
+    c.gridx = 1;
+    JLabel algoVal = new JLabel(curPatch != null ? String.valueOf(model.getSynthAlgorithm()) : "-");
+    algoVal.setForeground(Color.CYAN);
+    content.add(algoVal, c);
+
+    // Feedback (0-7)
+    c.gridx = 2;
+    content.add(label("Feedback:"), c);
+    c.gridx = 3;
+    int fbInit = curPatch != null ? getPatchByte(curPatch, org.chuck.audio.util.Dx7Patch.OFF_FEEDBACK) & 0x07 : 0;
+    JSlider fbSlider = new JSlider(0, 7, fbInit);
+    fbSlider.setBackground(new Color(0x22, 0x22, 0x22));
+    JLabel fbVal = new JLabel(String.valueOf(fbInit));
+    fbVal.setForeground(Color.CYAN);
+    fbSlider.addChangeListener(ev -> {
+      setPatchByte(model, curPatch, org.chuck.audio.util.Dx7Patch.OFF_FEEDBACK, fbSlider.getValue());
+      fbVal.setText(String.valueOf(fbSlider.getValue()));
+    });
+    JPanel fbPanel = new JPanel(new BorderLayout(4, 0));
+    fbPanel.setBackground(new Color(0x22, 0x22, 0x22));
+    fbPanel.add(fbSlider, BorderLayout.CENTER);
+    fbPanel.add(fbVal, BorderLayout.EAST);
+    content.add(fbPanel, c); row++;
+
+    // Transpose
+    c.gridx = 0; c.gridy = row;
+    content.add(label("Transpose:"), c);
+    c.gridx = 1; c.gridwidth = 3;
+    int transpInit = curPatch != null ? getPatchByte(curPatch, org.chuck.audio.util.Dx7Patch.OFF_TRANSPOSE) : 64;
+    JSlider transpSlider = new JSlider(0, 127, transpInit);
+    transpSlider.setBackground(new Color(0x22, 0x22, 0x22));
+    JLabel transpVal = new JLabel(String.valueOf(transpInit));
+    transpVal.setForeground(Color.CYAN);
+    transpSlider.addChangeListener(ev -> {
+      setPatchByte(model, curPatch, org.chuck.audio.util.Dx7Patch.OFF_TRANSPOSE, transpSlider.getValue());
+      transpVal.setText(String.valueOf(transpSlider.getValue()));
+    });
+    JPanel transpPanel = new JPanel(new BorderLayout(4, 0));
+    transpPanel.setBackground(new Color(0x22, 0x22, 0x22));
+    transpPanel.add(transpSlider, BorderLayout.CENTER);
+    transpPanel.add(transpVal, BorderLayout.EAST);
+    content.add(transpPanel, c); row++;
+
+    // ── LFO section ──
+    c.gridx = 0; c.gridy = row; c.gridwidth = 4;
+    content.add(sectionLabel("DX7 LFO"), c); row++;
+    c.gridwidth = 1;
+
+    // LFO speed (0-99)
+    addDx7SliderRow(content, c, "Speed:", 0, 99, curPatch, Dx7Patch.OFF_LFO_SPEED, model);
+    // LFO delay (0-99)
+    addDx7SliderRow(content, c, "Delay:", 0, 99, curPatch, Dx7Patch.OFF_LFO_DELAY, model);
+    // Pitch mod depth (0-99)
+    addDx7SliderRow(content, c, "PMod Depth:", 0, 99, curPatch, Dx7Patch.OFF_PMOD_DEPTH, model);
+    // Amp mod depth (0-99)
+    addDx7SliderRow(content, c, "AMod Depth:", 0, 99, curPatch, Dx7Patch.OFF_AMOD_DEPTH, model);
+
+    // LFO waveform
+    String[] lfoWaves = {"TRIANGLE", "SAW DOWN", "SAW UP", "SQUARE", "SINE", "S&H"};
+    addDx7ComboRow(content, c, "Waveform:", lfoWaves, curPatch, Dx7Patch.OFF_LFO_WAVEFORM, model);
+
+    // LFO sync (0/1)
+    addDx7SliderRow(content, c, "Sync:", 0, 1, curPatch, Dx7Patch.OFF_LFO_SYNC, model);
+
+    // ── Operator table ──
+    c.gridx = 0; c.gridy = row; c.gridwidth = 4;
+    content.add(sectionLabel("OPERATORS (OP1-OP6)"), c); row++;
+    c.gridwidth = 1;
+
+    // Column headers
+    String[] opCols = {"OP", "ON", "Lv", "Md", "Crse", "Fine", "Det", "R1", "R2", "R3", "R4", "L1", "L2", "L3", "L4", "VS", "AM"};
+    c.gridx = 0; c.gridy = row;
+    for (int ci = 0; ci < opCols.length; ci++) {
+      c.gridx = ci;
+      content.add(headerLabel(opCols[ci]), c);
+    }
+    row++;
+
+    for (int opIdx = 0; opIdx < 6; opIdx++) {
+      final int op = opIdx;
+      final int opOff = op * 21;
+
+      // OP label
+      c.gridx = 0; c.gridy = row;
+      content.add(label("OP" + (op + 1)), c);
+
+      // ON/OFF toggle (opSwitch bit)
+      c.gridx = 1;
+      boolean opOn = curPatch != null && ((getPatchByte(curPatch, Dx7Patch.OFF_OP_SWITCH) >> op) & 1) != 0;
+      JCheckBox opOnBox = new JCheckBox("", opOn);
+      opOnBox.setBackground(new Color(0x22, 0x22, 0x22));
+      opOnBox.addActionListener(ev -> {
+        byte[] raw = getCurrentRaw(model, curPatch);
+        if (raw == null) return;
+        if (opOnBox.isSelected()) {
+          raw[Dx7Patch.OFF_OP_SWITCH] |= (byte) (1 << op);
+        } else {
+          raw[Dx7Patch.OFF_OP_SWITCH] &= (byte) ~(1 << op);
+        }
+        model.setDx7Patch(Dx7Patch.bytesToHex(raw));
+      });
+      content.add(opOnBox, c);
+
+      // Output level (0-99)
+      addDx7OpSlider(content, c, 2, op, 16, 0, 99, model);
+      // Mode (0=ratio, 1=fixed)
+      addDx7OpSlider(content, c, 3, op, 17, 0, 1, model);
+      // Coarse (0-31)
+      addDx7OpSlider(content, c, 4, op, 18, 0, 31, model);
+      // Fine (0-99)
+      addDx7OpSlider(content, c, 5, op, 19, 0, 99, model);
+      // Detune (0-14)
+      addDx7OpSlider(content, c, 6, op, 20, 0, 14, model);
+      // EG R1-R4 (0-99)
+      for (int eg = 0; eg < 4; eg++) {
+        addDx7OpSlider(content, c, 7 + eg, op, eg, 0, 99, model);
+      }
+      // EG L1-L4 (0-99)
+      for (int eg = 0; eg < 4; eg++) {
+        addDx7OpSlider(content, c, 11 + eg, op, 4 + eg, 0, 99, model);
+      }
+      // Velocity sensitivity (0-7)
+      addDx7OpSlider(content, c, 15, op, 15, 0, 7, model);
+      // Amp mod sensitivity (0-3)
+      addDx7OpSlider(content, c, 16, op, 14, 0, 3, model);
+
+      row++;
+    }
+
+    JScrollPane scroll = new JScrollPane(content);
+    scroll.setPreferredSize(new Dimension(900, 600));
+    scroll.getViewport().setBackground(new Color(0x22, 0x22, 0x22));
+    outer.add(scroll, BorderLayout.CENTER);
+
+    return outer;
+  }
+
+  /** Helper: add a compact slider cell for a DX7 operator byte field. */
+  private void addDx7OpSlider(JPanel panel, GridBagConstraints c, int col, int opOff, int fieldOff,
+      int min, int max, SynthTrackModel model) {
+    c.gridx = col;
+    String curPatch = model.getDx7Patch();
+    int val = min;
+    if (curPatch != null && !curPatch.isEmpty()) {
+      byte[] raw = Dx7Patch.hexToBytes(curPatch);
+      int idx = opOff * 21 + fieldOff;
+      if (idx >= 0 && idx < raw.length) {
+        val = raw[idx] & 0xFF;
+      }
+    }
+    JSlider slider = new JSlider(min, max, Math.max(min, Math.min(max, val)));
+    slider.setBackground(new Color(0x22, 0x22, 0x22));
+    slider.setPreferredSize(new Dimension(50, 22));
+    slider.setPaintTicks(false);
+    JLabel valLabel = new JLabel(String.valueOf(val));
+    valLabel.setForeground(Color.CYAN);
+    valLabel.setPreferredSize(new Dimension(28, 20));
+    valLabel.setFont(valLabel.getFont().deriveFont(9f));
+    slider.addChangeListener(ev -> {
+      byte[] raw = getCurrentRaw(model, model.getDx7Patch());
+      if (raw == null) return;
+      int idx = opOff * 21 + fieldOff;
+      if (idx >= 0 && idx < raw.length) {
+        raw[idx] = (byte) slider.getValue();
+        model.setDx7Patch(Dx7Patch.bytesToHex(raw));
+      }
+      valLabel.setText(String.valueOf(slider.getValue()));
+    });
+    JPanel cell = new JPanel(new BorderLayout(0, 0));
+    cell.setBackground(new Color(0x22, 0x22, 0x22));
+    cell.add(slider, BorderLayout.CENTER);
+    cell.add(valLabel, BorderLayout.EAST);
+    panel.add(cell, c);
+  }
+
+  /** Helper: add a slider row for a DX7 global byte (patch offset). */
+  private void addDx7SliderRow(JPanel panel, GridBagConstraints c,
+      String labelText, int min, int max, String curPatch, int offset, SynthTrackModel model) {
+    int val = min;
+    if (curPatch != null && !curPatch.isEmpty()) {
+      byte[] raw = Dx7Patch.hexToBytes(curPatch);
+      if (offset >= 0 && offset < raw.length) {
+        val = raw[offset] & 0xFF;
+      }
+    }
+    int clamped = Math.max(min, Math.min(max, val));
+    c.gridx = 0; c.gridy++; c.gridwidth = 1;
+    panel.add(label(labelText), c);
+    c.gridx = 1; c.gridwidth = 3;
+    JSlider slider = new JSlider(min, max, clamped);
+    slider.setBackground(new Color(0x22, 0x22, 0x22));
+    JLabel valLabel = new JLabel(String.valueOf(clamped));
+    valLabel.setForeground(Color.CYAN);
+    slider.addChangeListener(ev -> {
+      setPatchByte(model, curPatch, offset, slider.getValue());
+      valLabel.setText(String.valueOf(slider.getValue()));
+    });
+    JPanel rowPanel = new JPanel(new BorderLayout(4, 0));
+    rowPanel.setBackground(new Color(0x22, 0x22, 0x22));
+    rowPanel.add(slider, BorderLayout.CENTER);
+    rowPanel.add(valLabel, BorderLayout.EAST);
+    panel.add(rowPanel, c);
+  }
+
+  /** Helper: add a combo box row for a DX7 global byte (patch offset). */
+  private void addDx7ComboRow(JPanel panel, GridBagConstraints c,
+      String labelText, String[] options, String curPatch, int offset, SynthTrackModel model) {
+    int val = 0;
+    if (curPatch != null && !curPatch.isEmpty()) {
+      byte[] raw = Dx7Patch.hexToBytes(curPatch);
+      if (offset >= 0 && offset < raw.length) {
+        val = raw[offset] & 0xFF;
+      }
+    }
+    int idx = Math.max(0, Math.min(options.length - 1, val));
+    c.gridx = 0; c.gridy++; c.gridwidth = 1;
+    panel.add(label(labelText), c);
+    c.gridx = 1; c.gridwidth = 3;
+    JComboBox<String> combo = new JComboBox<>(options);
+    combo.setSelectedIndex(idx);
+    combo.setBackground(new Color(0x33, 0x33, 0x33));
+    combo.setForeground(Color.WHITE);
+    combo.addActionListener(ev -> {
+      setPatchByte(model, curPatch, offset, combo.getSelectedIndex());
+    });
+    panel.add(combo, c);
+  }
+
+  /** Get a byte from the DX7 patch hex string. */
+  private static int getPatchByte(String hex, int offset) {
+    if (hex == null || hex.length() < (offset + 1) * 2) return 0;
+    byte[] raw = Dx7Patch.hexToBytes(hex);
+    return raw[offset] & 0xFF;
+  }
+
+  /** Set a byte in the DX7 patch hex string and update the model. */
+  private static void setPatchByte(SynthTrackModel model, String curHex, int offset, int value) {
+    byte[] raw = getCurrentRaw(model, curHex);
+    if (raw == null) return;
+    if (offset >= 0 && offset < raw.length) {
+      raw[offset] = (byte) (value & 0xFF);
+      model.setDx7Patch(Dx7Patch.bytesToHex(raw));
+    }
+  }
+
+  /** Get mutable raw bytes from the current DX7 patch (or from model). */
+  private static byte[] getCurrentRaw(SynthTrackModel model, String fallbackHex) {
+    String hex = model.getDx7Patch();
+    if (hex == null || hex.isEmpty()) hex = fallbackHex;
+    if (hex == null || hex.isEmpty()) return null;
+    return Dx7Patch.hexToBytes(hex);
+  }
+
+  /** Apply a Dx7Patch to the model and push to the bridge. */
+  private static void applyDx7Patch(SynthTrackModel model, ChuckVM vm,
+      BridgeContract bridge, int trackIndex, org.chuck.audio.util.Dx7Patch patch) {
+    String hex = org.chuck.deluge.xml.Dx7SyxParser.patchToHex(patch);
+    model.setDx7Patch(hex);
+    model.setSynthMode(1);
+    model.setSynthAlgorithm(patch.algorithm());
+    bridge.setSynthMode(trackIndex, 1);
+    bridge.setSynthAlgo(trackIndex, patch.algorithm());
+    // Push patch string to engine
+    String globalName = "g_dx7_patch_" + trackIndex;
+    vm.setGlobalString(globalName, hex);
+
+    // Push opSwitch
+    vm.setGlobalInt("g_dx7_opSwitch_" + trackIndex, patch.opSwitch());
   }
 
   /**

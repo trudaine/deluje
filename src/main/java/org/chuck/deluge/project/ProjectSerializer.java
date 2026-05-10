@@ -128,9 +128,30 @@ public class ProjectSerializer {
 
         Element osc1 = doc.createElement("osc1");
         osc1.setAttribute("type", synth.getOsc1Type().toLowerCase());
+
+        // DX7 patch hex (312 chars, 156 bytes) stored on osc1
+        String dx7patch = synth.getDx7Patch();
+        if (dx7patch != null && !dx7patch.isEmpty()) {
+          osc1.setAttribute("dx7patch", dx7patch);
+        }
         trackElem.appendChild(osc1);
 
-        // (Full serialization of all ADSR, LFO, and Patch cables would go here)
+        // Synth mode, algorithm, and FM params
+        trackElem.setAttribute("synthMode", String.valueOf(synth.getSynthMode()));
+        trackElem.setAttribute("synthAlgorithm", String.valueOf(synth.getSynthAlgorithm()));
+        trackElem.setAttribute("fmRatio", String.valueOf(synth.getFmRatio()));
+        trackElem.setAttribute("fmAmount", String.valueOf(synth.getFmAmount()));
+        trackElem.setAttribute("modulator1Feedback",
+            org.chuck.deluge.xml.DelugeHexMapper.floatToHex(synth.getModulator1Feedback()));
+        trackElem.setAttribute("modulator2Amount",
+            org.chuck.deluge.xml.DelugeHexMapper.floatToHex(synth.getModulator2Amount()));
+        trackElem.setAttribute("modulator2Feedback",
+            org.chuck.deluge.xml.DelugeHexMapper.floatToHex(synth.getModulator2Feedback()));
+        trackElem.setAttribute("carrier1Feedback",
+            org.chuck.deluge.xml.DelugeHexMapper.floatToHex(synth.getCarrier1Feedback()));
+        trackElem.setAttribute("carrier2Feedback",
+            org.chuck.deluge.xml.DelugeHexMapper.floatToHex(synth.getCarrier2Feedback()));
+
         instruments.appendChild(trackElem);
       }
     }
