@@ -769,6 +769,13 @@ public class DelugeXmlParser {
       } catch (NumberFormatException ignored) {}
     }
 
+    // -- Engine type (-1=AUTO, 0=MODERN, 1=VINTAGE) --
+    if (soundNode.hasAttribute("engineType")) {
+      try {
+        synth.setEngineType(Integer.parseInt(soundNode.getAttribute("engineType")));
+      } catch (NumberFormatException ignored) {}
+    }
+
     // ── FM ratio/amount (from ProjectSerializer track attributes) ──
     if (soundNode.hasAttribute("fmRatio")) {
       try { synth.setFmRatio(Float.parseFloat(soundNode.getAttribute("fmRatio"))); }

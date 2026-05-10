@@ -139,6 +139,7 @@ public class ProjectSerializer {
         // Synth mode, algorithm, and FM params
         trackElem.setAttribute("synthMode", String.valueOf(synth.getSynthMode()));
         trackElem.setAttribute("synthAlgorithm", String.valueOf(synth.getSynthAlgorithm()));
+        trackElem.setAttribute("engineType", String.valueOf(synth.getEngineType()));
         trackElem.setAttribute("fmRatio", String.valueOf(synth.getFmRatio()));
         trackElem.setAttribute("fmAmount", String.valueOf(synth.getFmAmount()));
         trackElem.setAttribute("modulator1Feedback",

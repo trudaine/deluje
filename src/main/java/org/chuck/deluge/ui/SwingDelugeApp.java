@@ -422,6 +422,9 @@ public class SwingDelugeApp extends JFrame {
         // ── Push patch cables ──
         bridge.setSynthPatchCables(startRow, synth.getPatchCables());
 
+        // ── DX7 engine type (−1=AUTO, 0=MODERN, 1=VINTAGE) ──
+        bridge.setEngineType(startRow, synth.getEngineType());
+
         // ── DX7 patch (per-row string global, read by engine) ──
         String dx7patch = synth.getDx7Patch();
         if (dx7patch != null && !dx7patch.isEmpty()) {

@@ -1550,6 +1550,12 @@ public class DelugeEngineDSL implements Shred, Runnable {
             if (dx7PatchStr != null && !dx7PatchStr.isEmpty()) {
               dx7[i] = new Dx7Engine(sr);
               dx7[i].loadPatch(org.chuck.audio.util.Dx7Patch.fromHex(dx7PatchStr));
+              // Read engine type (−1=AUTO, 0=MODERN, 1=VINTAGE) from bridge
+              ChuckArray dx7EngineArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_DX7_ENGINE_TYPE);
+              if (dx7EngineArr != null) {
+                int engineTypeVal = (int) dx7EngineArr.getInt(i);
+                dx7[i].setForceVintage(engineTypeVal);
+              }
               // DX7 bypasses env[i][0] (DelugeAdsr) — per-operator DX7 envelopes handle all amplitude.
               // The routingMix Gain (rm) applies track-level volume without ADSR shaping.
               dx7[i].chuck(fil[i]).chuck(hpf[i]).chuck(rm).chuck(pan[i]).chuck(modFx[i]).chuck(compArr[i]).chuck(bus);
