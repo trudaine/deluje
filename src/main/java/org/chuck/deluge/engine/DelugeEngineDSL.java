@@ -130,12 +130,21 @@ public class DelugeEngineDSL implements Shred, Runnable {
   private void applyClipQueues() {
     ChuckArray queue = (ChuckArray) vm.getGlobalObject(BridgeContract.G_LAUNCH_QUEUE);
     ChuckArray currentClip = (ChuckArray) vm.getGlobalObject(BridgeContract.G_CURRENT_CLIP);
+    ChuckArray playMode = (ChuckArray) vm.getGlobalObject(BridgeContract.G_CLIP_PLAY_MODE);
     if (queue == null || currentClip == null) return;
     for (int t = 0; t < BridgeContract.TRACKS; t++) {
       long q = queue.getInt(t);
       if (q >= 0) {
         currentClip.setInt(t, q);
         queue.setInt(t, -1L);
+      }
+      // Auto-requeue LOOP clips (clipPlayMode == 1) so they continue playing
+      long clip = currentClip.getInt(t);
+      if (clip >= 0 && playMode != null) {
+        long mode = playMode.getInt(t * BridgeContract.MAX_CLIPS_PER_TRACK + (int) clip);
+        if (mode == 1) { // LOOP
+          queue.setInt(t, clip);
+        }
       }
     }
   }

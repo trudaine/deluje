@@ -370,7 +370,8 @@ public class SwingGridPanel extends JPanel {
   }
 
   private void showClipContextMenu(
-      java.awt.Component src, int x, int y, org.chuck.deluge.model.TrackModel track, int clipIdx) {
+      java.awt.Component src, int x, int y, org.chuck.deluge.model.TrackModel track, int clipIdx,
+      int trackIndex) {
     JPopupMenu menu = new JPopupMenu();
     org.chuck.deluge.model.ClipModel clip = track.getClips().get(clipIdx);
 
@@ -416,6 +417,37 @@ public class SwingGridPanel extends JPanel {
           }
         });
     menu.add(deleteItem);
+
+    menu.addSeparator();
+
+    // ── Play Mode submenu ──
+    JMenu playModeMenu = new JMenu("Play Mode");
+    org.chuck.deluge.model.ClipModel.PlayMode currentMode = clip.getPlayMode();
+
+    JRadioButtonMenuItem normalItem = new JRadioButtonMenuItem(
+        "Normal", currentMode == org.chuck.deluge.model.ClipModel.PlayMode.NORMAL);
+    normalItem.addActionListener(e -> {
+      clip.setPlayMode(org.chuck.deluge.model.ClipModel.PlayMode.NORMAL);
+      if (bridge != null) bridge.setClipPlayMode(trackIndex, clipIdx, 0);
+      fireProjectChanged();
+    });
+    playModeMenu.add(normalItem);
+
+    JRadioButtonMenuItem loopItem = new JRadioButtonMenuItem(
+        "Loop (green)", currentMode == org.chuck.deluge.model.ClipModel.PlayMode.LOOP);
+    loopItem.addActionListener(e -> {
+      clip.setPlayMode(org.chuck.deluge.model.ClipModel.PlayMode.LOOP);
+      if (bridge != null) bridge.setClipPlayMode(trackIndex, clipIdx, 1);
+      fireProjectChanged();
+    });
+    playModeMenu.add(loopItem);
+
+    // Group the radio buttons so only one can be selected
+    ButtonGroup playModeGroup = new ButtonGroup();
+    playModeGroup.add(normalItem);
+    playModeGroup.add(loopItem);
+
+    menu.add(playModeMenu);
 
     menu.show(src, x, y);
   }
@@ -1020,6 +1052,7 @@ public class SwingGridPanel extends JPanel {
 
         if (viewMode == GridViewMode.SONG && modelRow < tracks.size() && colId < 16) {
           final int clipCol = colId;
+          final int trkIdx = modelRow;
           final org.chuck.deluge.model.TrackModel songTrack = tracks.get(modelRow);
           clipBtn.addMouseListener(
               new java.awt.event.MouseAdapter() {
@@ -1027,7 +1060,7 @@ public class SwingGridPanel extends JPanel {
                 public void mousePressed(java.awt.event.MouseEvent e) {
                   if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
                     if (clipCol < songTrack.getClips().size()) {
-                      showClipContextMenu(clipBtn, e.getX(), e.getY(), songTrack, clipCol);
+                      showClipContextMenu(clipBtn, e.getX(), e.getY(), songTrack, clipCol, trkIdx);
                     }
                   } else {
                     if (clipCol >= songTrack.getClips().size()) {
@@ -1944,11 +1977,14 @@ public class SwingGridPanel extends JPanel {
             clipBtn.setBackground(
                 stepState ? velocityBlend(trackColors[currentTrack], vel) : new Color(0x33, 0x33, 0x33));
           } else if (viewMode == GridViewMode.SONG && t < tracks.size() && colId < 16) {
-            // SONG visual states: playing (track color), queued (amber), stopped (dark), empty (very dark)
+            // SONG visual states: loop-green, playing (track color), queued (amber), stopped (dark), empty (very dark)
             long launchQ = bridge != null ? bridge.getLaunchQueue(t) : -1L;
             long currentClip = bridge != null ? bridge.getCurrentClip(t) : 0L;
             if (launchQ == colId) {
               clipBtn.setBackground(new Color(0xff, 0xaa, 0x00)); // amber = queued
+            } else if (currentClip == colId && bridge != null
+                && bridge.getClipPlayMode(t, colId) == 1) {
+              clipBtn.setBackground(new Color(0x00, 0xcc, 0x00)); // green = LOOP mode
             } else if (currentClip == colId) {
               clipBtn.setBackground(trackColors[t % trackColors.length]); // playing
             } else if (hasClip) {
@@ -2108,6 +2144,7 @@ public class SwingGridPanel extends JPanel {
 
           if (viewMode == GridViewMode.SONG && t < tracks.size() && colId < 16) {
             final int clipCol = colId;
+            final int trkIdx = currentTrack;
             final org.chuck.deluge.model.TrackModel songTrack = tracks.get(t);
             clipBtn.addMouseListener(
                 new java.awt.event.MouseAdapter() {
@@ -2115,7 +2152,7 @@ public class SwingGridPanel extends JPanel {
                   public void mousePressed(java.awt.event.MouseEvent e) {
                     if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
                       if (clipCol < songTrack.getClips().size()) {
-                        showClipContextMenu(clipBtn, e.getX(), e.getY(), songTrack, clipCol);
+                        showClipContextMenu(clipBtn, e.getX(), e.getY(), songTrack, clipCol, trkIdx);
                       }
                     } else {
                       if (clipCol >= songTrack.getClips().size()) {

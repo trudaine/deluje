@@ -622,6 +622,9 @@ public class SwingDelugeApp extends JFrame {
         }
         // Push per-step automation for this clip to clip-indexed _C{n} arrays
         pushClipAutomation(t, bridge, clip, c, startRow);
+
+        // Push per-clip play mode (0=NORMAL, 1=LOOP)
+        bridge.setClipPlayMode(t, c, clip.getPlayMode().ordinal());
       }
     }
 

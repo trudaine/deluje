@@ -12,11 +12,21 @@ import java.util.Set;
  * roll)
  */
 public class ClipModel {
+
+  /** Play mode determines how the clip behaves after being launched. */
+  public enum PlayMode {
+    /** Clip plays once then stops (default). */
+    NORMAL,
+    /** Clip auto-restarts at bar boundaries (green mode). */
+    LOOP
+  }
+
   private String name;
   private int rowCount;
   private int stepCount;
   private final List<List<StepData>> grid = new ArrayList<>();
   private String color = "#00ffcc"; // Default color
+  private PlayMode playMode = PlayMode.NORMAL;
 
   /**
    * Per-parameter per-step automation data. Maps param name (see {@link AutomationParam}) to a
@@ -63,6 +73,8 @@ public class ClipModel {
     }
     // Deep-copy kit params
     copy.kitParams.putAll(this.kitParams);
+    // Copy play mode
+    copy.playMode = this.playMode;
     return copy;
   }
 
@@ -92,6 +104,9 @@ public class ClipModel {
   public void setColor(String color) {
     this.color = color;
   }
+
+  public PlayMode getPlayMode() { return playMode; }
+  public void setPlayMode(PlayMode playMode) { this.playMode = playMode; }
 
   public int getRowCount() {
     return rowCount;
