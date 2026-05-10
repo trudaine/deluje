@@ -1363,6 +1363,11 @@ public class SwingDelugeApp extends JFrame {
     clipPanel.setViewMode(SwingGridPanel.GridViewMode.CLIP);
     clipPanel.setProjectModel(currentProject);
     clipPanel.setOnProjectChanged(this::propagateCurrentModel);
+    clipPanel.setOnClipChanged(() -> {
+      propagateCurrentModel();
+      pushModelToBridge();
+      clipPanel.refresh();
+    });
     centerCardPanel.add(wrapGridPanel(clipPanel), "CLIP");
 
     songPanel = new SwingGridPanel(vm, bridge);
