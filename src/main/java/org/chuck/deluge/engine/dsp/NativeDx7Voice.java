@@ -23,7 +23,6 @@ import org.chuck.audio.util.Dx7Engine;
 public class NativeDx7Voice {
     private final Dx7Engine engine;
     private final float sampleRate;
-    private final NativeAdsr adsr;
     private final NativeSVFilter svf;
     private final NativeHPF hpf;
     private int trackIdx = -1;
@@ -32,7 +31,6 @@ public class NativeDx7Voice {
     public NativeDx7Voice(float sampleRate) {
         this.sampleRate = sampleRate;
         this.engine = new Dx7Engine(sampleRate);
-        this.adsr = new NativeAdsr(sampleRate);
         this.svf = new NativeSVFilter(sampleRate);
         this.hpf = new NativeHPF(sampleRate);
         // Default filter settings matching DSL initialization
@@ -79,77 +77,66 @@ public class NativeDx7Voice {
     /**
      * Trigger the voice with note-on, gain, and DSP chain params.
      *
-     * <p>Note: filter params (cutoff, resonance) are passed for compatibility
-     * but the caller should call setFilterParams() before trigger() to configure
-     * the SVFilter. The HPF is preset to 20 Hz.
+     * <p>Note: ADSR params (attack/decay/sustain/release) are accepted for API
+     * compatibility but ignored — the Dx7Engine's per-operator envelopes handle
+     * all amplitude shaping. Only filter params and gain are applied.
      *
      * @param trackIdx  logical track index
      * @param midiNote  MIDI note number
      * @param velocity  MIDI velocity (0-127)
-     * @param gain      overall gain factor (matching DSL's gainVal: clipVel * trkLvl * 0.8)
+     * @param gain      overall gain factor (applied directly as outputGain)
      * @param cutoff    filter cutoff frequency in Hz (applied to SVFilter)
      * @param resonance filter resonance (applied to SVFilter)
-     * @param attack    envelope attack time in seconds
-     * @param decay     envelope decay time in seconds
-     * @param sustain   envelope sustain level (0-1)
-     * @param release   envelope release time in seconds
+     * @param attack    ignored (DX7 internal envelopes)
+     * @param decay     ignored
+     * @param sustain   ignored
+     * @param release   ignored
      */
     public void trigger(int trackIdx, int midiNote, int velocity,
                         float gain, double cutoff, double resonance,
                         double attack, double decay, double sustain, double release) {
         this.trackIdx = trackIdx;
-        adsr.setParams(attack, decay, sustain, release);
         this.outputGain = gain;
         // Apply filter params on trigger to match DSL per-step filter updates.
-        // DSL formula: fil[u].freq(clamp(20..20000)) and fil[u].Q(clamp(1..10)).
-        // svf.morph=0 => LPF, matching DSL's default for LADDER_12/LADDER_24 filter modes.
         svf.freq(Math.max(20.0, Math.min(20000.0, cutoff)));
         svf.Q(Math.max(1.0, Math.min(10.0, resonance)));
         svf.morph(0.0);
         engine.noteOn(midiNote, velocity);
-        adsr.keyOn();
     }
 
     public void release() {
-        adsr.keyOff();
         engine.noteOff();
     }
 
     public void fastRelease() {
-        adsr.fastRelease();
         engine.noteOff();
     }
 
     /**
      * Compute one sample of output.
      *
-     * Signal chain: Dx7Engine.tick() -> SVFilter.compute() -> HPF.compute() -> ADSR * outputGain
+     * Signal chain: Dx7Engine.tick() -> SVFilter.compute() -> HPF.compute() * outputGain
      *
-     * This exactly matches the DSL chain's gain structure:
-     * dx7_out -> fil.compute() -> hpf.compute() -> env.compute() * env.gain
-     * where env.compute = input * env_value and env.tick multiplies by gain.
-     * So: dx7_out * SVF(raw) * HPF(SVF_out) * env_value * gainVal
-     *
-     * The native equivalent:
-     * engine.tick() -> svf.compute() -> hpf.compute() * adsr.tick() * outputGain
+     * NOTE: No ADSR in this chain. The Dx7Engine's per-operator logarithmic envelopes
+     * (dexed/msfa) handle all amplitude shaping for attack, decay, sustain, and release.
+     * The ADSR multiply in the DSL chain (env[i][0] DelugeAdsr) is also bypassed for DX7 tracks.
+     * outputGain applies track-level volume without envelope shaping.
      */
     public float tick() {
         float raw = engine.tick();
         float filtered = svf.tick(raw);
         float highpassed = hpf.tick(filtered);
-        float env = adsr.tick();
-        return highpassed * outputGain * env;
+        return highpassed * outputGain;
     }
 
     public int getTrackIdx() { return trackIdx; }
 
     /**
      * Returns true while this voice is producing sound.
-     * The voice is active while the Dx7Engine has operator activity OR the
-     * ADSR envelope has not fully completed its release phase.
+     * The voice is active only while the Dx7Engine has operator activity.
      */
     public boolean isActive() {
-        return engine.isActive() || adsr.isActive();
+        return engine.isActive();
     }
 
     /**
@@ -166,6 +153,6 @@ public class NativeDx7Voice {
      * via isActive()) from contributing to the mix.
      */
     public boolean isRendering() {
-        return trackIdx >= 0 && (engine.isActive() || adsr.isActive());
+        return trackIdx >= 0 && engine.isActive();
     }
 }
