@@ -1429,6 +1429,214 @@ public final class BridgeContract {
   public void setStepBitcrush(int track, int sidx, double val) { step.stepBitcrush[track * STEPS + sidx] = (float) val; }
   public void setStepSrr(int track, int sidx, double val) { step.stepSrr[track * STEPS + sidx] = (float) val; }
   public double getStepPitch(int track, int sidx) { return step.stepPitch[track * STEPS + sidx]; }
+
+  // ── Step automation accessors with clip index ──
+  // clipIdx == 0 writes to primary arrays; clipIdx > 0 writes to _C{n} globals
+  private void setStepArray(String baseName, int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) {
+      // clip 0 writes to primary arrays — handled by the base setStep* methods called from SwingDelugeApp
+    } else {
+      ChuckArray ca = getClipArray(baseName, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
+  }
+  public void setStepFilter(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepFilter[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_FILTER, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepRes(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepRes[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_RES, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepPan(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepPan[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_PAN, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepDelay(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepDelay[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_DELAY, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepReverb(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepReverb[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_REVERB, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepHpfFreq(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepHpfFreq[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_HPF_FREQ, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepHpfRes(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepHpfRes[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_HPF_RES, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepModRate(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepModRate[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_MOD_RATE, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepModDepth(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepModDepth[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_MOD_DEPTH, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepOscAVol(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepOscAVol[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_OSC_A_VOL, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepOscBVol(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepOscBVol[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_OSC_B_VOL, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepNoiseVol(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepNoiseVol[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_NOISE_VOL, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepPitch(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepPitch[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_PITCH, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepVolume(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepVolume[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_VOLUME, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepEnv0Attack(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepEnv0Attack[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_ENV_0_ATTACK, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepEnv0Decay(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepEnv0Decay[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_ENV_0_DECAY, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepEnv0Sustain(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepEnv0Sustain[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_ENV_0_SUSTAIN, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepEnv0Release(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepEnv0Release[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_ENV_0_RELEASE, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepEnv1Attack(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepEnv1Attack[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_ENV_1_ATTACK, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepEnv1Decay(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepEnv1Decay[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_ENV_1_DECAY, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepEnv1Sustain(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepEnv1Sustain[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_ENV_1_SUSTAIN, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepEnv1Release(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepEnv1Release[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_ENV_1_RELEASE, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepEnv2Attack(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepEnv2Attack[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_ENV_2_ATTACK, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepEnv2Decay(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepEnv2Decay[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_ENV_2_DECAY, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepEnv2Sustain(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepEnv2Sustain[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_ENV_2_SUSTAIN, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepEnv2Release(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepEnv2Release[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_ENV_2_RELEASE, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepEnv3Attack(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepEnv3Attack[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_ENV_3_ATTACK, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepEnv3Decay(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepEnv3Decay[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_ENV_3_DECAY, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepEnv3Sustain(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepEnv3Sustain[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_ENV_3_SUSTAIN, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepEnv3Release(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepEnv3Release[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_ENV_3_RELEASE, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepLfo0Rate(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepLfo0Rate[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_LFO_0_RATE, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepLfo0Depth(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepLfo0Depth[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_LFO_0_DEPTH, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepLfo1Rate(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepLfo1Rate[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_LFO_1_RATE, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepLfo1Depth(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepLfo1Depth[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_LFO_1_DEPTH, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepLfo2Rate(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepLfo2Rate[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_LFO_2_RATE, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepLfo2Depth(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepLfo2Depth[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_LFO_2_DEPTH, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepLfo3Rate(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepLfo3Rate[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_LFO_3_RATE, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepLfo3Depth(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepLfo3Depth[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_LFO_3_DEPTH, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepArpRate(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepArpRate[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_ARP_RATE, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepArpGate(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepArpGate[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_ARP_GATE, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepFmAmount(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepFmAmount[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_FM_AMOUNT, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepFmRatio(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepFmRatio[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_FM_RATIO, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepModFxFeedback(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepModFxFeedback[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_MOD_FX_FEEDBACK, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepCompAttack(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepCompAttack[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_COMP_ATTACK, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepCompRelease(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepCompRelease[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_COMP_RELEASE, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepPortamento(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepPortamento[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_PORTAMENTO, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepStutter(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepStutter[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_STUTTER, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepBitcrush(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepBitcrush[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_BITCRUSH, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+  public void setStepSrr(int track, int sidx, double val, int clipIdx) {
+    if (clipIdx <= 0) { step.stepSrr[track * STEPS + sidx] = (float) val; }
+    else { ChuckArray ca = getClipArray(G_STEP_SRR, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+  }
+
   // ── Track accessors ──────────────────────────────────────
 
   public void setTrackLevel(int t, double val) { track.trackLevel[t] = (float) val; }
