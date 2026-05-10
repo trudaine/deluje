@@ -310,6 +310,16 @@ public class KitSynthSerializer {
     appendHexChild(doc, arp, "rate", synth.getArp().rate());
     appendTextChild(doc, arp, "octaves", String.valueOf(synth.getArp().octaves()));
     appendHexChild(doc, arp, "gate", synth.getArp().gate());
+    appendTextChild(doc, arp, "syncLevel", String.valueOf(synth.getArp().syncLevel()));
+    appendTextChild(doc, arp, "noteMode", synth.getArp().noteMode().toLowerCase());
+    appendTextChild(doc, arp, "octaveMode", synth.getArp().octaveMode().toLowerCase());
+    appendTextChild(doc, arp, "stepRepeat", String.valueOf(synth.getArp().stepRepeat()));
+    appendTextChild(doc, arp, "rhythmIndex", String.valueOf(synth.getArp().rhythmIndex()));
+    appendTextChild(doc, arp, "seqLength", String.valueOf(synth.getArp().seqLength()));
+    appendHexChild(doc, arp, "octaveSpread", synth.getArp().octaveSpread());
+    appendHexChild(doc, arp, "gateSpread", synth.getArp().gateSpread());
+    appendHexChild(doc, arp, "velSpread", synth.getArp().velSpread());
+    appendTextChild(doc, arp, "ratchetAmount", String.valueOf(synth.getArp().ratchetAmount()));
     root.appendChild(arp);
 
     // ── delay ──
