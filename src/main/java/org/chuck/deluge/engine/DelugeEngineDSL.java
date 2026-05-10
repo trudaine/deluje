@@ -1550,7 +1550,9 @@ public class DelugeEngineDSL implements Shred, Runnable {
             if (dx7PatchStr != null && !dx7PatchStr.isEmpty()) {
               dx7[i] = new Dx7Engine(sr);
               dx7[i].loadPatch(org.chuck.audio.util.Dx7Patch.fromHex(dx7PatchStr));
-              dx7[i].chuck(fil[i]).chuck(hpf[i]).chuck(rm).chuck(env[i][0]).chuck(pan[i]).chuck(modFx[i]).chuck(compArr[i]).chuck(bus);
+              // DX7 bypasses env[i][0] (DelugeAdsr) — per-operator DX7 envelopes handle all amplitude.
+              // The routingMix Gain (rm) applies track-level volume without ADSR shaping.
+              dx7[i].chuck(fil[i]).chuck(hpf[i]).chuck(rm).chuck(pan[i]).chuck(modFx[i]).chuck(compArr[i]).chuck(bus);
               src[i] = dx7[i];
             } else {
               car[i] = new MorphingWavetable(sr);
@@ -2041,11 +2043,13 @@ public class DelugeEngineDSL implements Shred, Runnable {
             int dx7Vel = clipVel != null ? (int) (clipVel.getFloat(idx) * 127) : 100;
             if (dx7Vel <= 0) dx7Vel = 100;
             dx7[u].noteOn(dx7Vel);
-            env[u][0].gain((float) gainVal); env[u][0].keyOn(); env[u][1].keyOn(); env[u][2].keyOn(); env[u][3].keyOn();
+            // DX7: no env[u][*] calls — per-operator envelopes handle all amplitude shaping.
+            // Track volume is applied via routingMix[u] which is set during load.
+            routingMix[u].gain((float) gainVal);
             double noteSec = gateSec;
             int capturedRv = u;
             int capturedR2 = r;
-            vm.spork(() -> { advance(second(noteSec)); dx7[capturedRv].noteOff(); env[capturedRv][0].keyOff(); env[capturedRv][1].keyOff(); env[capturedRv][2].keyOff(); env[capturedRv][3].keyOff(); voiceActive[capturedR2] = false; });
+            vm.spork(() -> { advance(second(noteSec)); dx7[capturedRv].noteOff(); voiceActive[capturedR2] = false; });
           } else if (arpOn != null && arpOn.getInt(r) == 1) {
             int baseMidi = (int) ((24 - 1) - (r - synthBase)) + 60;
             int capturedR3 = r;

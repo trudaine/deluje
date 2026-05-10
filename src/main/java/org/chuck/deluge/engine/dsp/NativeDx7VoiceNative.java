@@ -7,8 +7,8 @@ import org.chuck.audio.util.FfmDx7Engine;
  * {@code NativeJavaSequencer} — drop-in replacement for {@link NativeDx7Voice}
  * that uses native C++ code instead of the Java Dx7Engine.
  *
- * <p>Includes the same DSP chain as the DSL engine:
- * FfmDx7Engine (C++ DX7 engine) -> SVFilter -> HPF -> ADSR(gain).
+ * <p>Includes the DSP chain matching the DSL engine exactly:
+ * FfmDx7Engine (C++ DX7 engine) -> SVFilter -> HPF -> outputGain.
  *
  * <p>The native engine processes 132-sample blocks internally and serves
  * per-sample output via buffering, making it far more efficient than the
@@ -20,7 +20,6 @@ public class NativeDx7VoiceNative {
     private long nativeHandle = 0;
 
     private final float sampleRate;
-    private final NativeAdsr adsr;
     private final NativeSVFilter svf;
     private final NativeHPF hpf;
     private int trackIdx = -1;
@@ -50,7 +49,6 @@ public class NativeDx7VoiceNative {
 
     public NativeDx7VoiceNative(float sampleRate) {
         this.sampleRate = sampleRate;
-        this.adsr = new NativeAdsr(sampleRate);
         this.svf = new NativeSVFilter(sampleRate);
         this.hpf = new NativeHPF(sampleRate);
 
@@ -134,7 +132,6 @@ public class NativeDx7VoiceNative {
 
         ensureVoice();
 
-        adsr.setParams(attack, decay, sustain, release);
         this.outputGain = gain;
 
         svf.freq(Math.max(20.0, Math.min(20000.0, cutoff)));
@@ -144,7 +141,6 @@ public class NativeDx7VoiceNative {
         // Note-on with velocity
         FfmDx7Engine.noteOn(nativeHandle, midiNote, velocity);
         nativeActive = true;
-        adsr.keyOn();
     }
 
     public void release() {
@@ -152,7 +148,6 @@ public class NativeDx7VoiceNative {
             FfmDx7Engine.noteOff(nativeHandle);
             released = true;
         }
-        adsr.keyOff();
     }
 
     public void fastRelease() {
@@ -160,13 +155,15 @@ public class NativeDx7VoiceNative {
             FfmDx7Engine.noteOff(nativeHandle);
             released = true;
         }
-        adsr.fastRelease();
     }
 
     /**
      * Compute one sample of output.
      *
-     * Signal chain: FfmDx7Engine.tick() -> SVFilter -> HPF -> ADSR * outputGain
+     * Signal chain: FfmDx7Engine.tick() -> SVFilter -> HPF * outputGain
+     *
+     * NOTE: No ADSR in this chain. The Dx7Engine's per-operator logarithmic envelopes
+     * (dexed/msfa) handle all amplitude shaping. outputGain applies track-level volume.
      */
     public float tick() {
         if (nativeHandle == 0) return 0f;
@@ -174,8 +171,7 @@ public class NativeDx7VoiceNative {
         float raw = FfmDx7Engine.tick(nativeHandle);
         float filtered = svf.tick(raw);
         float highpassed = hpf.tick(filtered);
-        float env = adsr.tick();
-        return highpassed * outputGain * env;
+        return highpassed * outputGain;
     }
 
     public int getTrackIdx() { return trackIdx; }
@@ -183,13 +179,13 @@ public class NativeDx7VoiceNative {
     /**
      * Returns true while this voice is producing sound.
      * The native voice may still be active (envelope releasing) even after
-     * note-off. We combine native isActive with ADSR state.
+     * note-off.
      */
     public boolean isActive() {
         if (nativeHandle != 0) {
             nativeActive = FfmDx7Engine.isActive(nativeHandle);
         }
-        return nativeActive || adsr.isActive();
+        return nativeActive;
     }
 
     /**
