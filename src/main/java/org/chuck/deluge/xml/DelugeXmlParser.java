@@ -1475,10 +1475,10 @@ public class DelugeXmlParser {
     readHexFloat(dp, "modulator2Feedback", v -> {});
     readHexFloat(dp, "carrier1Feedback", v -> {});
     readHexFloat(dp, "carrier2Feedback", v -> {});
-    readHexFloat(dp, "modFXRate", v -> {});
-    readHexFloat(dp, "modFXDepth", v -> {});
-    readHexFloat(dp, "modFXOffset", v -> {});
-    readHexFloat(dp, "modFXFeedback", v -> {});
+    readHexFloat(dp, "modFXRate", sound::setModFxRate);
+    readHexFloat(dp, "modFXDepth", sound::setModFxDepth);
+    readHexFloat(dp, "modFXOffset", sound::setModFxOffset);
+    readHexFloat(dp, "modFXFeedback", sound::setModFxFeedback);
     readHexFloat(dp, "delayRate", sound::setDelayRate);
     readHexFloat(dp, "delayFeedback", sound::setDelayFeedback);
     readHexFloat(dp, "reverbAmount", sound::setReverbAmount);

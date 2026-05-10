@@ -324,6 +324,10 @@ public final class BridgeContract {
   public static final String G_KIT_EQ_TREBLE = "g_kit_eq_treble";
   public static final String G_KIT_SIDECHAIN = "g_kit_sidechain";
   public static final String G_KIT_MOD_FX_TYPE = "g_kit_mod_fx_type";
+  public static final String G_KIT_MOD_FX_RATE = "g_kit_mod_fx_rate";
+  public static final String G_KIT_MOD_FX_DEPTH = "g_kit_mod_fx_depth";
+  public static final String G_KIT_MOD_FX_OFFSET = "g_kit_mod_fx_offset";
+  public static final String G_KIT_MOD_FX_FEEDBACK = "g_kit_mod_fx_feedback";
   public static final String G_KIT_HPF_FREQ = "g_kit_hpf_freq";
   public static final String G_KIT_HPF_RES = "g_kit_hpf_res";
   public static final String G_KIT_HPF_MORPH = "g_kit_hpf_morph";
@@ -763,6 +767,10 @@ public final class BridgeContract {
     final float[] kitEqTreble = new float[TRACKS];
     final float[] kitSidechain = new float[TRACKS];
     final int[] kitModFxType = new int[TRACKS];
+    final float[] kitModFxRate = new float[TRACKS];
+    final float[] kitModFxDepth = new float[TRACKS];
+    final float[] kitModFxOffset = new float[TRACKS];
+    final float[] kitModFxFeedback = new float[TRACKS];
     final float[] kitHpfFreq = new float[TRACKS];
     final float[] kitHpfRes = new float[TRACKS];
     final float[] kitHpfMorph = new float[TRACKS];
@@ -808,6 +816,10 @@ public final class BridgeContract {
         kitEqTreble[t] = 0f;
         kitSidechain[t] = 0f;
         kitModFxType[t] = 0;
+        kitModFxRate[t] = 0.3f;
+        kitModFxDepth[t] = 0.3f;
+        kitModFxOffset[t] = 0f;
+        kitModFxFeedback[t] = 0f;
         kitHpfFreq[t] = 20f;
         kitHpfRes[t] = 0f;
         kitHpfMorph[t] = 0f;
@@ -856,6 +868,10 @@ public final class BridgeContract {
       vm.setGlobalObject(G_KIT_EQ_TREBLE, new ChuckArray(kitEqTreble));
       vm.setGlobalObject(G_KIT_SIDECHAIN, new ChuckArray(kitSidechain));
       vm.setGlobalObject(G_KIT_MOD_FX_TYPE, new ChuckArray(kitModFxType));
+      vm.setGlobalObject(G_KIT_MOD_FX_RATE, new ChuckArray(kitModFxRate));
+      vm.setGlobalObject(G_KIT_MOD_FX_DEPTH, new ChuckArray(kitModFxDepth));
+      vm.setGlobalObject(G_KIT_MOD_FX_OFFSET, new ChuckArray(kitModFxOffset));
+      vm.setGlobalObject(G_KIT_MOD_FX_FEEDBACK, new ChuckArray(kitModFxFeedback));
       vm.setGlobalObject(G_KIT_HPF_FREQ, new ChuckArray(kitHpfFreq));
       vm.setGlobalObject(G_KIT_HPF_RES, new ChuckArray(kitHpfRes));
       vm.setGlobalObject(G_KIT_HPF_MORPH, new ChuckArray(kitHpfMorph));
@@ -1715,6 +1731,14 @@ public final class BridgeContract {
   public float getKitSidechain(int track) { return kit.kitSidechain[track]; }
   public void setKitModFxType(int track, int v) { kit.kitModFxType[track] = v; }
   public int getKitModFxType(int track) { return kit.kitModFxType[track]; }
+  public void setKitModFxRate(int track, float v) { kit.kitModFxRate[track] = v; }
+  public float getKitModFxRate(int track) { return kit.kitModFxRate[track]; }
+  public void setKitModFxDepth(int track, float v) { kit.kitModFxDepth[track] = v; }
+  public float getKitModFxDepth(int track) { return kit.kitModFxDepth[track]; }
+  public void setKitModFxOffset(int track, float v) { kit.kitModFxOffset[track] = v; }
+  public float getKitModFxOffset(int track) { return kit.kitModFxOffset[track]; }
+  public void setKitModFxFeedback(int track, float v) { kit.kitModFxFeedback[track] = v; }
+  public float getKitModFxFeedback(int track) { return kit.kitModFxFeedback[track]; }
   public void setKitHpfFreq(int track, float v) { kit.kitHpfFreq[track] = v; }
   public float getKitHpfFreq(int track) { return kit.kitHpfFreq[track]; }
   public void setKitHpfRes(int track, float v) { kit.kitHpfRes[track] = v; }

@@ -76,6 +76,10 @@ public class KitTrackModel extends TrackModel {
 
     // Mod FX
     private String modFxType = "NONE";
+    private float modFxRate = 0.3f;
+    private float modFxDepth = 0.3f;
+    private float modFxOffset = 0.0f;
+    private float modFxFeedback = 0.0f;
 
     // HPF
     private float hpfFreq = 20.0f;
@@ -309,6 +313,14 @@ public class KitTrackModel extends TrackModel {
 
     public String getModFxType() { return modFxType; }
     public void setModFxType(String v) { this.modFxType = v; }
+    public float getModFxRate() { return modFxRate; }
+    public void setModFxRate(float v) { this.modFxRate = v; }
+    public float getModFxDepth() { return modFxDepth; }
+    public void setModFxDepth(float v) { this.modFxDepth = v; }
+    public float getModFxOffset() { return modFxOffset; }
+    public void setModFxOffset(float v) { this.modFxOffset = v; }
+    public float getModFxFeedback() { return modFxFeedback; }
+    public void setModFxFeedback(float v) { this.modFxFeedback = v; }
 
     public float getHpfFreq() { return hpfFreq; }
     public void setHpfFreq(float v) { this.hpfFreq = v; }
