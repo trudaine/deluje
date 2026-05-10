@@ -253,6 +253,10 @@ public final class BridgeContract {
   public static final String G_ARP_STEP_REPEAT = "g_arp_step_repeat";
   public static final String G_ARP_RHYTHM = "g_arp_rhythm";
   public static final String G_ARP_SEQ_LENGTH = "g_arp_seq_length";
+  public static final String G_ARP_OCTAVE_SPREAD = "g_arp_octave_spread";
+  public static final String G_ARP_GATE_SPREAD = "g_arp_gate_spread";
+  public static final String G_ARP_VEL_SPREAD = "g_arp_vel_spread";
+  public static final String G_ARP_RATCHET = "g_arp_ratchet";
   public static final String G_FM_RATIO = "g_fm_ratio";
   public static final String G_FM_AMOUNT = "g_fm_amount";
   public static final String G_PREVIEW_TRACK = "g_preview_track";
@@ -532,6 +536,10 @@ public final class BridgeContract {
     final int[] arpStepRepeat = new int[TRACKS];
     final int[] arpRhythm = new int[TRACKS];
     final int[] arpSeqLength = new int[TRACKS];
+    final float[] arpOctaveSpread = new float[TRACKS];
+    final float[] arpGateSpread = new float[TRACKS];
+    final float[] arpVelSpread = new float[TRACKS];
+    final int[] arpRatchet = new int[TRACKS];
     final float[] fmRatio = new float[TRACKS];
     final float[] fmAmount = new float[TRACKS];
     final int[] synthAlgo = new int[TRACKS];
@@ -593,6 +601,10 @@ public final class BridgeContract {
         arpStepRepeat[t] = 1;
         arpRhythm[t] = 0;
         arpSeqLength[t] = 8;
+        arpOctaveSpread[t] = 0f;
+        arpGateSpread[t] = 0f;
+        arpVelSpread[t] = 0f;
+        arpRatchet[t] = 0;
         fmRatio[t] = 1f;
         fmAmount[t] = 0f;
         synthAlgo[t] = 0;
@@ -678,6 +690,10 @@ public final class BridgeContract {
       vm.setGlobalObject(G_ARP_STEP_REPEAT, new ChuckArray(arpStepRepeat));
       vm.setGlobalObject(G_ARP_RHYTHM, new ChuckArray(arpRhythm));
       vm.setGlobalObject(G_ARP_SEQ_LENGTH, new ChuckArray(arpSeqLength));
+      vm.setGlobalObject(G_ARP_OCTAVE_SPREAD, new ChuckArray(arpOctaveSpread));
+      vm.setGlobalObject(G_ARP_GATE_SPREAD, new ChuckArray(arpGateSpread));
+      vm.setGlobalObject(G_ARP_VEL_SPREAD, new ChuckArray(arpVelSpread));
+      vm.setGlobalObject(G_ARP_RATCHET, new ChuckArray(arpRatchet));
       vm.setGlobalObject(G_FM_RATIO, new ChuckArray(fmRatio));
       vm.setGlobalObject(G_FM_AMOUNT, new ChuckArray(fmAmount));
       vm.setGlobalObject(G_SYNTH_ALGO, new ChuckArray(synthAlgo));
@@ -1807,6 +1823,14 @@ public final class BridgeContract {
   public void setArpRhythm(int track, int v) { synth.arpRhythm[track] = v; }
   public int getArpSeqLength(int track) { return synth.arpSeqLength[track]; }
   public void setArpSeqLength(int track, int v) { synth.arpSeqLength[track] = v; }
+  public double getArpOctaveSpread(int track) { return synth.arpOctaveSpread[track]; }
+  public void setArpOctaveSpread(int track, double v) { synth.arpOctaveSpread[track] = (float) v; }
+  public double getArpGateSpread(int track) { return synth.arpGateSpread[track]; }
+  public void setArpGateSpread(int track, double v) { synth.arpGateSpread[track] = (float) v; }
+  public double getArpVelSpread(int track) { return synth.arpVelSpread[track]; }
+  public void setArpVelSpread(int track, double v) { synth.arpVelSpread[track] = (float) v; }
+  public int getArpRatchet(int track) { return synth.arpRatchet[track]; }
+  public void setArpRatchet(int track, int v) { synth.arpRatchet[track] = v; }
   public double getFmRatio(int track) { return synth.fmRatio[track]; }
   public void setFmRatio(int track, double r) { synth.fmRatio[track] = (float) r; }
   public double getFmAmount(int track) { return synth.fmAmount[track]; }

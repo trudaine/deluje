@@ -341,6 +341,26 @@ public class SwingSynthConfigDialog extends JDialog {
         1, 16, bridge.getArpSeqLength(trackIndex),
         val -> bridge.setArpSeqLength(idx, val), "");
 
+    row = addSlider(panel, c, row, "Oct Spread:",
+        "Randomize octave offset per note (0-100%). Higher = wilder octave jumps.",
+        0, 100, (int)(bridge.getArpOctaveSpread(trackIndex) * 100),
+        val -> bridge.setArpOctaveSpread(idx, val / 100.0), "%");
+
+    row = addSlider(panel, c, row, "Gate Spread:",
+        "Randomize note gate duration per step (0-100%). Higher = more timing variation.",
+        0, 100, (int)(bridge.getArpGateSpread(trackIndex) * 100),
+        val -> bridge.setArpGateSpread(idx, val / 100.0), "%");
+
+    row = addSlider(panel, c, row, "Vel Spread:",
+        "Randomize note velocity per step (0-100%). Higher = more dynamic contrast.",
+        0, 100, (int)(bridge.getArpVelSpread(trackIndex) * 100),
+        val -> bridge.setArpVelSpread(idx, val / 100.0), "%");
+
+    row = addSlider(panel, c, row, "Ratchet:",
+        "Sub-divide each step into N+1 mini-notes (0-4). 1 = double-trigger, 4 = machine-gun.",
+        0, 4, bridge.getArpRatchet(trackIndex),
+        val -> bridge.setArpRatchet(idx, val), "x");
+
     // ── Filter (LPF) ──
     c.gridx = 0; c.gridy = row; c.gridwidth = 3;
     panel.add(sectionLabel("FILTER (LPF)"), c); row++;

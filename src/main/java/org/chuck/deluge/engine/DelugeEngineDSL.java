@@ -1316,8 +1316,18 @@ public class DelugeEngineDSL implements Shred, Runnable {
       int stepRepeat = (arpRepeatArr != null) ? (int) arpRepeatArr.getInt(v) : 1;
       int rhythmIdx = (arpRhythmArr != null) ? (int) arpRhythmArr.getInt(v) : 0;
       int seqLen = (arpSeqLenArr != null) ? (int) arpSeqLenArr.getInt(v) : 8;
+      ChuckArray octaveSpreadArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ARP_OCTAVE_SPREAD);
+      ChuckArray gateSpreadArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ARP_GATE_SPREAD);
+      ChuckArray velSpreadArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ARP_VEL_SPREAD);
+      ChuckArray ratchetArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ARP_RATCHET);
+      float octaveSpread = octaveSpreadArr != null ? (float) octaveSpreadArr.getFloat(v) : 0f;
+      float gateSpread = gateSpreadArr != null ? (float) gateSpreadArr.getFloat(v) : 0f;
+      float velSpread = velSpreadArr != null ? (float) velSpreadArr.getFloat(v) : 0f;
+      int ratchet = ratchetArr != null ? (int) ratchetArr.getInt(v) : 0;
       if (stepRepeat < 1) stepRepeat = 1;
       if (seqLen < 1) seqLen = 1;
+      if (ratchet < 0) ratchet = 0;
+      if (ratchet > 4) ratchet = 4;
 
       double bpm = vm.getGlobalFloat(BridgeContract.G_BPM);
 
@@ -1419,47 +1429,86 @@ public class DelugeEngineDSL implements Shred, Runnable {
         int repeats = stepRepeat;
 
         for (int r = 0; r < repeats; r++) {
-          int midiNote = baseMidi + octOffset * 12 + noteIdx * 12;
-          if (mode == 1) midiNote = baseMidi + octOffset * 12 + (chordNotes - 1 - noteIdx) * 12;
-          else if (mode == 4) {
-            // WALK mode — random-ish within range
-            midiNote = baseMidi + (int)(Math.random() * octaves) * 12;
-          }
-          // mode 2 (UP_DOWN) and 3 (RANDOM) handled by the existing switch above, but noteMode takes precedence
-          // Actually mode field is the old direction mode — now noteMode handles it primarily.
-          // For legacy compatibility if noteMode is UP (default) and octMode is UP (default):
-          if (noteMode == 0 && octMode == 0) {
-            switch (mode) {
-              case 1 -> midiNote = baseMidi + (octaves - 1 - noteIdx) * 12;
-              case 2 -> midiNote = baseMidi + noteIdx * 12;
-              case 3 -> midiNote = baseMidi + (int)(Math.random() * octaves) * 12;
-              default -> {}
+          // Ratchet sub-division: when ratchet > 0, sub-divide this repeat
+          // into ratchet+1 mini-notes with tighter gate
+          int ratchetCount = ratchet + 1;
+
+          for (int rr = 0; rr < ratchetCount; rr++) {
+            int midiNote = baseMidi + octOffset * 12 + noteIdx * 12;
+            if (mode == 1) midiNote = baseMidi + octOffset * 12 + (chordNotes - 1 - noteIdx) * 12;
+            else if (mode == 4) {
+              // WALK mode — random-ish within range
+              midiNote = baseMidi + (int)(Math.random() * octaves) * 12;
             }
+            // mode 2 (UP_DOWN) and 3 (RANDOM) handled by the existing switch above, but noteMode takes precedence
+            // Actually mode field is the old direction mode — now noteMode handles it primarily.
+            // For legacy compatibility if noteMode is UP (default) and octMode is UP (default):
+            if (noteMode == 0 && octMode == 0) {
+              switch (mode) {
+                case 1 -> midiNote = baseMidi + (octaves - 1 - noteIdx) * 12;
+                case 2 -> midiNote = baseMidi + noteIdx * 12;
+                case 3 -> midiNote = baseMidi + (int)(Math.random() * octaves) * 12;
+                default -> {}
+              }
+            }
+
+            // Apply octaveSpread: randomize octave offset per note
+            if (octaveSpread > 0f) {
+              int spreadSemitones = (int)((Math.random() * 2f - 1f) * octaveSpread * 12f);
+              midiNote += spreadSemitones;
+            }
+
+            double f = outer.mtof(midiNote);
+            car.freq((float) f);
+            if (synthMode == 1) { mod.freq((float) (f * (fmRatio != null ? fmRatio.getFloat(v) : 1.0))); }
+            else { mod.gain(0.0f); }
+
+            // Apply rhythm timing offset (only before first ratchet sub-note)
+            float rhyOff = 0f;
+            if (rr == 0) {
+              rhyOff = (rhythmOffsets != null && seqPos < rhythmOffsets.length) ? rhythmOffsets[seqPos % rhythmOffsets.length] : 0f;
+              if (rhyOff > 0f) {
+                advance(samp(stepDurSec * sampleRate() * rhyOff));
+              }
+            }
+
+            // Apply velSpread: randomize gain per note
+            float velGain = (float) (gain * 0.8);
+            if (velSpread > 0f) {
+              velGain *= (1f + (float)(Math.random() * 2f - 1f) * velSpread);
+              if (velGain < 0f) velGain = 0f;
+            }
+            env[0].gain(velGain);
+            env[0].keyOn(); env[1].keyOn(); env[2].keyOn(); env[3].keyOn();
+
+            // Apply gateSpread: randomize gate fraction per note
+            float effectiveGate = (float) gateFrac;
+            if (gateSpread > 0f) {
+              effectiveGate *= (1f + (float)(Math.random() * 2f - 1f) * gateSpread);
+              if (effectiveGate < 0.05f) effectiveGate = 0.05f;
+              if (effectiveGate > 1.0f) effectiveGate = 1.0f;
+            }
+            // Ratchet mini-notes use tighter gate
+            if (ratchetCount > 1) effectiveGate *= (0.5f / ratchetCount);
+
+            ChuckDuration onDur = samp(stepDurSec * sampleRate() * effectiveGate);
+            advance(onDur);
+            env[0].keyOff(); env[1].keyOff(); env[2].keyOff(); env[3].keyOff();
+
+            // Rest duration — ratchet notes squeeze into the same step slot
+            double restFrac = 1.0 / ratchetCount;
+            if (rr == ratchetCount - 1) {
+              // Last mini-note: rest until end of step
+              restFrac = 1.0 - effectiveGate * ratchetCount;
+              if (restFrac < 0) restFrac = 0;
+            }
+            double effectiveRestDur = stepDurSec * restFrac - stepDurSec * rhyOff;
+            if (effectiveRestDur < 0) effectiveRestDur = 0;
+            if (effectiveRestDur > 0) advance(samp(effectiveRestDur * sampleRate()));
+
+            seqPos++;
+            if (vm.getGlobalInt(BridgeContract.G_PLAY) == 0 || (arpOn != null && arpOn.getInt(v) == 0)) return;
           }
-
-          double f = outer.mtof(midiNote);
-          car.freq((float) f);
-          if (synthMode == 1) { mod.freq((float) (f * (fmRatio != null ? fmRatio.getFloat(v) : 1.0))); }
-          else { mod.gain(0.0f); }
-
-          // Apply rhythm timing offset
-          float rhyOff = (rhythmOffsets != null && seqPos < rhythmOffsets.length) ? rhythmOffsets[seqPos % rhythmOffsets.length] : 0f;
-          if (rhyOff > 0f) {
-            advance(samp(stepDurSec * sampleRate() * rhyOff));
-          }
-
-          env[0].gain((float) (gain * 0.8));
-          env[0].keyOn(); env[1].keyOn(); env[2].keyOn(); env[3].keyOn();
-
-          ChuckDuration onDur = samp(stepDurSec * sampleRate() * gateFrac);
-          advance(onDur);
-          env[0].keyOff(); env[1].keyOff(); env[2].keyOff(); env[3].keyOff();
-
-          double restDur = stepDurSec * (1.0 - gateFrac) - stepDurSec * rhyOff;
-          if (restDur > 0) advance(samp(restDur * sampleRate()));
-
-          seqPos++;
-          if (vm.getGlobalInt(BridgeContract.G_PLAY) == 0 || (arpOn != null && arpOn.getInt(v) == 0)) return;
         }
       }
     }

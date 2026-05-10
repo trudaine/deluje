@@ -62,6 +62,17 @@ public class DelugeXmlExporter {
     arp.setAttribute("active", bridge.getArpOn(trackIndex) ? "1" : "0");
     arp.setAttribute("rate", String.valueOf(bridge.getArpRate(trackIndex)));
     arp.setAttribute("octaves", String.valueOf(bridge.getArpOctave(trackIndex)));
+    arp.setAttribute("gate", String.valueOf(bridge.getArpGate(trackIndex)));
+    arp.setAttribute("syncLevel", String.valueOf(bridge.getArpSyncLevel(trackIndex)));
+    arp.setAttribute("noteMode", String.valueOf(bridge.getArpNoteMode(trackIndex)));
+    arp.setAttribute("octaveMode", String.valueOf(bridge.getArpOctaveMode(trackIndex)));
+    arp.setAttribute("stepRepeat", String.valueOf(bridge.getArpStepRepeat(trackIndex)));
+    arp.setAttribute("rhythmIndex", String.valueOf(bridge.getArpRhythm(trackIndex)));
+    arp.setAttribute("seqLength", String.valueOf(bridge.getArpSeqLength(trackIndex)));
+    arp.setAttribute("octaveSpread", String.valueOf(bridge.getArpOctaveSpread(trackIndex)));
+    arp.setAttribute("gateSpread", String.valueOf(bridge.getArpGateSpread(trackIndex)));
+    arp.setAttribute("velSpread", String.valueOf(bridge.getArpVelSpread(trackIndex)));
+    arp.setAttribute("ratchetAmount", String.valueOf(bridge.getArpRatchet(trackIndex)));
     rootElement.appendChild(arp);
 
     // Write the content into xml file
