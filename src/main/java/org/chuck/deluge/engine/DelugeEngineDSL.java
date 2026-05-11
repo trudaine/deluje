@@ -1002,6 +1002,9 @@ public class DelugeEngineDSL implements Shred, Runnable {
       final HPF[][] kitHpfHolder = new HPF[1][];
       final Dyno[][] kitCompHolder = new Dyno[1][];
       final ModFxUnit[][] kitModFxHolder = new ModFxUnit[1][];
+      final Gain[][] kitUnisonSummerHolder = new Gain[1][];
+      final SndBuf[][][] kitUnisonSubHolder = new SndBuf[1][][];
+      final Pan2[][][] kitUnisonPanHolder = new Pan2[1][][];
       java.util.function.Consumer<Gain> doInit = (bus) -> {
         ChuckArray tt = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
         int vc = 0;
@@ -1021,11 +1024,25 @@ public class DelugeEngineDSL implements Shred, Runnable {
         HPF[] kitHpf = new HPF[vc];
         Dyno[] compArr = new Dyno[vc];
         ModFxUnit[] kitModFx = new ModFxUnit[vc];
+        SndBuf[][] kitUnisonSub = new SndBuf[vc][];
+        Gain[] kitUnisonSummer = new Gain[vc];
+        Pan2[][] kitSubPan = new Pan2[vc][];
+        int maxKitUnison = 8;
         for (int i = 0; i < vc; i++) {
           k[i] = new SndBuf(); k[i].rate(0); pn[i] = new Pan2(); ds[i] = new Gain(); rs[i] = new Gain();
           ke[i][0] = new DelugeAdsr(); ke[i][1] = new DelugeAdsr(); ke[i][2] = new DelugeAdsr(); ke[i][3] = new DelugeAdsr();
           kitFil[i] = new SVFilter(sr); kitHpf[i] = new HPF(sr); kitModFx[i] = new ModFxUnit(sr); compArr[i] = new Dyno(sr);
-          k[i].chuck(kitFil[i]).chuck(kitHpf[i]).chuck(ke[i][0]).chuck(pn[i]).chuck(kitModFx[i]).chuck(compArr[i]).chuck(bus);
+          kitUnisonSummer[i] = new Gain();
+          k[i].chuck(kitUnisonSummer[i]).chuck(kitFil[i]).chuck(kitHpf[i]).chuck(ke[i][0]).chuck(pn[i]).chuck(kitModFx[i]).chuck(compArr[i]).chuck(bus);
+          SndBuf[] uSub = new SndBuf[maxKitUnison - 1];
+          Pan2[] uPan = new Pan2[maxKitUnison - 1];
+          for (int us = 0; us < uSub.length; us++) {
+            uSub[us] = new SndBuf(); uSub[us].gain(0.0f); uSub[us].rate(0);
+            uPan[us] = new Pan2();
+            uSub[us].chuck(uPan[us]).chuck(kitUnisonSummer[i]);
+          }
+          kitUnisonSub[i] = uSub;
+          kitSubPan[i] = uPan;
           pn[i].chuck(ds[i]).chuck((ChuckUGen) vm.getGlobalObject(BridgeContract.G_DELAY_IN));
           pn[i].chuck(rs[i]).chuck((ChuckUGen) vm.getGlobalObject(BridgeContract.G_REVERB_IN));
           ke[i][0].forceMute(); ke[i][0].set(0.001, 0, 1, 0.05);
@@ -1036,11 +1053,25 @@ public class DelugeEngineDSL implements Shred, Runnable {
           kitFil[i].reset(); kitFil[i].freq(20000);
         }
         loadKitSamples(k);
+        // Load same samples into sub-voices for unison
+        for (int i = 0; i < k.length; i++) {
+          Object pathObj = vm.getGlobalObject("g_sample_" + i);
+          if (!(pathObj instanceof String path) || path.isEmpty()) continue;
+          SndBuf[] subs = kitUnisonSub[i];
+          if (subs == null) continue;
+          for (int us = 0; us < subs.length; us++) {
+            java.io.File f = new java.io.File(path);
+            if (f.exists()) { loadSndBuf(subs[us], f.getAbsolutePath()); continue; }
+            java.io.File libraryDir2 = org.chuck.deluge.project.PreferencesManager.getLibraryDir();
+            java.io.File rel = new java.io.File(libraryDir2, path);
+            if (rel.exists()) { loadSndBuf(subs[us], rel.getAbsolutePath()); continue; }
+          }
+        }
         for (int i = 0; i < k.length && i < 4; i++) {
           System.out.println("[kit_shred] INIT kit[" + i + "]: samples=" + k[i].samples() + " rate=" + k[i].rate() + " pos=" + k[i].pos());
         }
         System.out.println("[kit_shred] INIT voiceCount=" + vc);
-        kitHolder[0] = k; panHolder[0] = pn; dSendHolder[0] = ds; rSendHolder[0] = rs; kitEnvHolder[0] = ke; kitFilHolder[0] = kitFil; kitHpfHolder[0] = kitHpf; kitModFxHolder[0] = kitModFx; kitCompHolder[0] = compArr;
+        kitHolder[0] = k; panHolder[0] = pn; dSendHolder[0] = ds; rSendHolder[0] = rs; kitEnvHolder[0] = ke; kitFilHolder[0] = kitFil; kitHpfHolder[0] = kitHpf; kitModFxHolder[0] = kitModFx; kitCompHolder[0] = compArr; kitUnisonSummerHolder[0] = kitUnisonSummer; kitUnisonSubHolder[0] = kitUnisonSub; kitUnisonPanHolder[0] = kitSubPan;
       };
       doInit.accept(master);
       vm.print("[kit] sporking preview shred, kit.length=" + kitHolder[0].length + "\n");
@@ -1067,9 +1098,14 @@ public class DelugeEngineDSL implements Shred, Runnable {
         HPF[] kitHpfArr = kitHpfHolder[0];
         Dyno[] kitComp = kitCompHolder[0];
         ModFxUnit[] kitModFx = kitModFxHolder[0];
+        SndBuf[][] kitSub = kitUnisonSubHolder[0];
+        Pan2[][] kitSubPan = kitUnisonPanHolder[0];
+        Gain[] kitUSummer = kitUnisonSummerHolder[0];
         if (vm.getGlobalInt(BridgeContract.G_PLAY) == 0) {
           lastStep = -1;
-          for (int r = 0; r < kit.length; r++) { kitEnv[r][0].keyOff(); kitEnv[r][1].keyOff(); kitEnv[r][2].keyOff(); kitEnv[r][3].keyOff(); kit[r].rate(0); }
+          for (int r = 0; r < kit.length; r++) { kitEnv[r][0].keyOff(); kitEnv[r][1].keyOff(); kitEnv[r][2].keyOff(); kitEnv[r][3].keyOff(); kit[r].rate(0);
+            if (kitSub != null && r < kitSub.length && kitSub[r] != null) { for (SndBuf sb : kitSub[r]) { if (sb != null) sb.rate(0); } }
+          }
           continue;
         }
         long currentStep = vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
@@ -1270,7 +1306,9 @@ public class DelugeEngineDSL implements Shred, Runnable {
             long grp = kitMuteGrp.getInt(r);
             if (grp > 0) {
               for (int o = 0; o < kit.length; o++) {
-                if (o != r && kitMuteGrp.getInt(o) == grp) { kit[o].rate(0); kitEnv[o][0].keyOff(); kitEnv[o][1].keyOff(); kitEnv[o][2].keyOff(); kitEnv[o][3].keyOff(); }
+                if (o != r && kitMuteGrp.getInt(o) == grp) { kit[o].rate(0); kitEnv[o][0].keyOff(); kitEnv[o][1].keyOff(); kitEnv[o][2].keyOff(); kitEnv[o][3].keyOff();
+                  if (kitSub != null && o < kitSub.length && kitSub[o] != null) { for (SndBuf sb : kitSub[o]) { if (sb != null) sb.rate(0); } }
+                }
               }
             }
           }
@@ -1374,6 +1412,34 @@ public class DelugeEngineDSL implements Shred, Runnable {
           float gain = (float) (clipVel.getFloat(idx) * trkLvl.getFloat(r) * Math.max(0.0, 1.0 + totalModV * 0.5));
           if (vm.getLogLevel() >= 1) vm.print("[kit] TRIGGER r=" + r + " vel=" + clipVel.getFloat(idx) + " trkLvl=" + trkLvl.getFloat(r) + " gain=" + gain + "\n");
           kit[r].gain(gain);
+          // ── Kit unison sub-voices (detuned rate + stereo spread) ──
+          if (kitSub != null && r < kitSub.length && kitSub[r] != null && kitUSummer != null && r < kitUSummer.length) {
+            float kitNumVal = kitUnisonNum != null && r < kitUnisonNum.size() ? (float) kitUnisonNum.getFloat(r) : 0.0f;
+            float kitDetuneVal = kitUnisonDetune != null && r < kitUnisonDetune.size() ? (float) kitUnisonDetune.getFloat(r) : 0.0f;
+            float kitSpreadVal = kitUnisonSpread != null && r < kitUnisonSpread.size() ? (float) kitUnisonSpread.getFloat(r) : 0.0f;
+            int totalKitUnison = Math.max(1, Math.min(8, Math.round(kitNumVal)));
+            if (totalKitUnison > 1) {
+              SndBuf[] subs = kitSub[r];
+              Pan2[] subPans = kitSubPan != null && r < kitSubPan.length ? kitSubPan[r] : null;
+              int halfCount = totalKitUnison - 1;
+              // Adjust main voice gain for power normalization
+              double mainBoost = 1.0 / Math.sqrt(totalKitUnison);
+              kit[r].gain(gain * (float) mainBoost);
+              for (int us = 0; us < subs.length; us++) {
+                if (us >= halfCount) { subs[us].gain(0.0f); subs[us].rate(0); continue; }
+                float offset = (us + 1.0f) - (halfCount + 1.0f) / 2.0f;
+                double subRate = (reverse ? -1.0 : 1.0) * Math.abs(rate) * Math.pow(2.0, kitDetuneVal * offset / 1200.0);
+                subs[us].rate((float) subRate);
+                subs[us].pos(reverse ? endPos : startPos);
+                subs[us].gain((float) (gain * mainBoost));
+                // Stereo spread via per-sub Pan2
+                if (subPans != null && us < subPans.length && subPans[us] != null) {
+                  float panPos = halfCount > 1 ? offset / ((halfCount - 1.0f) / 2.0f) * kitSpreadVal : 0.0f;
+                  subPans[us].pan(Math.max(-1.0f, Math.min(1.0f, panPos)));
+                }
+              }
+            }
+          }
           // Apply kit sound LPF (SVFilter cutoff/res from per-track g_filter) and HPF
           {
             Object gFilObj = vm.getGlobalObject(BridgeContract.G_FILTER);
@@ -1446,11 +1512,14 @@ public class DelugeEngineDSL implements Shred, Runnable {
           int trackIdx = r;
           int triggerGen = ++triggerGeneration[trackIdx];
           int genCapture = triggerGen;
+          int stopR = r;
+          SndBuf[] stopSubs = kitSub != null && r < kitSub.length ? kitSub[r] : null;
           vm.spork(() -> {
             advance(second(durSec));
             if (triggerGeneration[trackIdx] != genCapture) return;
             kitEnv[trackIdx][0].keyOff(); kitEnv[trackIdx][1].keyOff(); kitEnv[trackIdx][2].keyOff(); kitEnv[trackIdx][3].keyOff();
             kit[trackIdx].rate(0);
+            if (stopSubs != null) { for (int us = 0; us < stopSubs.length; us++) { if (stopSubs[us] != null) stopSubs[us].rate(0); } }
           });
         }
       }
