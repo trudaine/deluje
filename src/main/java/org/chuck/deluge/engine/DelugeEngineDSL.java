@@ -1849,6 +1849,11 @@ public class DelugeEngineDSL implements Shred, Runnable {
       final int[] synthBaseHolder = new int[]{0};
       final int[] maxSynthBridgeRowHolder = new int[]{0};
 
+      // Unison: per-slot sub-voice MorphingWavetable arrays + summing Gain
+      final int MAX_UNISON = 8;
+      final MorphingWavetable[][][] unisonSubRefHolder = new MorphingWavetable[1][][];
+      final Gain[][] unisonSummerRefHolder = new Gain[1][];
+
       java.util.function.Consumer<Gain> doInit = (bus) -> {
         ChuckArray trackTypeInit = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
         int sb = -1, mx = -1;
@@ -1876,6 +1881,8 @@ public class DelugeEngineDSL implements Shred, Runnable {
         Gain[] sRsend = new Gain[total];
         ModFxUnit[] modFx = new ModFxUnit[total];
         Dyno[] compArr = new Dyno[total];
+        MorphingWavetable[][] unisonSub = new MorphingWavetable[total][];
+        Gain[] unisonSummer = new Gain[total];
         for (int i = 0; i < total; i++) {
           int bridgeRow = sb + i;
           int algo = algoArr != null ? (int) algoArr.getInt(bridgeRow) : 0;
@@ -1906,8 +1913,22 @@ public class DelugeEngineDSL implements Shred, Runnable {
               car[i].setTables(DelugeEngineDSL.WAVE_TABLES);
               mod[i] = new MorphingWavetable(sr);
               mod[i].setTables(DelugeEngineDSL.WAVE_TABLES);
+              // Unison: create summing Gain that sits between car[i] and fil[i]
+              unisonSummer[i] = new Gain();
+              car[i].chuck(unisonSummer[i]);
+              // Create up to MAX_UNISON-1 sub-voice oscillators chucked into the summing gain
+              // (voice 0 = car[i] itself, voices 1..MAX_UNISON-1 = sub-voices)
+              MorphingWavetable[] subs = new MorphingWavetable[MAX_UNISON - 1];
+              for (int us = 0; us < subs.length; us++) {
+                subs[us] = new MorphingWavetable(sr);
+                subs[us].setTables(DelugeEngineDSL.WAVE_TABLES);
+                subs[us].gain(1.0f);
+                subs[us].chuck(unisonSummer[i]);
+              }
+              unisonSub[i] = subs;
+              // Normal chain: car -> unisonSummer -> fil -> hpf -> rm -> env -> pan -> ...
               mod[i].chuck(car[i]);
-              car[i].chuck(fil[i]).chuck(hpf[i]).chuck(rm).chuck(env[i][0]).chuck(pan[i]).chuck(modFx[i]).chuck(compArr[i]).chuck(bus);
+              unisonSummer[i].chuck(fil[i]).chuck(hpf[i]).chuck(rm).chuck(env[i][0]).chuck(pan[i]).chuck(modFx[i]).chuck(compArr[i]).chuck(bus);
               src[i] = car[i];
             }
           }
@@ -1924,6 +1945,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
         filRefHolder[0] = fil; hpfRefHolder[0] = hpf; envRefHolder[0] = env;
         panRefHolder[0] = pan; sDsendRefHolder[0] = sDsend; sRsendRefHolder[0] = sRsend;
         modFxRefHolder[0] = modFx; srcRefHolder[0] = src; routingMixRefHolder[0] = routingMix; compRefHolder[0] = compArr;
+        unisonSubRefHolder[0] = unisonSub; unisonSummerRefHolder[0] = unisonSummer;
         lastFilterRoute = new int[total]; // initialize routing tracking array
       };
 
@@ -1965,6 +1987,8 @@ public class DelugeEngineDSL implements Shred, Runnable {
         Gain[] sRsend = sRsendRefHolder[0];
         ChuckUGen[] src = srcRefHolder[0];
         Gain[] routingMix = routingMixRefHolder[0];
+        MorphingWavetable[][] unisonSub = unisonSubRefHolder[0];
+        Gain[] unisonSummer = unisonSummerRefHolder[0];
 
         ChuckArray curClipArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_CURRENT_CLIP);
         ChuckArray pat = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PATTERN);
@@ -2607,6 +2631,27 @@ public class DelugeEngineDSL implements Shred, Runnable {
                 double phaseVal = rp == 0 ? 0.0 : rp / 360.0; // 0→reset to 0, 90→0.25, 180→0.5, 270→0.75
                 if (car[u] != null) car[u].phase(phaseVal);
                 if (mod[u] != null && synthMode == 1) mod[u].phase(phaseVal); // FM mode: reset modulator too
+              }
+            }
+
+            // ── Unison sub-voice frequency detune + gain ──
+            float numVoices = sUnisonNum != null && r < sUnisonNum.size() ? (float) sUnisonNum.getFloat(r) : 1.0f;
+            float detuneCents = sUnisonDetune != null && r < sUnisonDetune.size() ? (float) sUnisonDetune.getFloat(r) : 0.0f;
+            float spread = sUnisonSpread != null && r < sUnisonSpread.size() ? (float) sUnisonSpread.getFloat(r) : 0.0f;
+            int totalUnison = Math.max(1, Math.min(MAX_UNISON, Math.round(numVoices)));
+            float totalBoost = 1.0f / (float) Math.sqrt(totalUnison);
+            if (totalUnison > 1 && unisonSub != null && u < unisonSub.length && unisonSub[u] != null) {
+              int halfCount = totalUnison - 1;
+              for (int us = 0; us < unisonSub[u].length; us++) {
+                if (us >= halfCount) { unisonSub[u][us].gain(0.0f); continue; }
+                // Symmetric detune distribution around center
+                float offset = (us + 1.0f) - (halfCount + 1.0f) / 2.0f;
+                double subFreq = f * Math.pow(2.0, detuneCents * offset / 1200.0);
+                unisonSub[u][us].freq((float) subFreq);
+                unisonSub[u][us].gain(totalBoost);
+                // Phase offset for stereo width based on spread
+                float panPos = halfCount > 1 ? offset / ((halfCount - 1.0f) / 2.0f) * spread : 0.0f;
+                unisonSub[u][us].phase(Math.max(0.0, Math.min(1.0, (panPos + 1.0f) * 0.25f)));
               }
             }
 
