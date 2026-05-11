@@ -10,6 +10,7 @@ import org.chuck.deluge.model.EnvelopeModel;
 import org.chuck.deluge.model.KitTrackModel;
 import org.chuck.deluge.model.LfoModel;
 import org.chuck.deluge.model.PatternModel;
+import org.chuck.deluge.model.Consequence;
 import org.chuck.deluge.model.SynthTrackModel;
 
 /** Alternative lightweight UI running purely on Java Swing (no native libs). */
@@ -1080,18 +1081,123 @@ public class SwingDelugeApp extends JFrame {
 
   private void doUndo() {
     if (currentProject == null) return;
-    if (!currentProject.getUndoRedoStack().canUndo()) return;
-    currentProject.getUndoRedoStack().undo();
+    var stack = currentProject.getUndoRedoStack();
+    if (!stack.canUndo()) return;
+    var action = stack.peekUndo();
+    if (action instanceof Consequence.TrackStructureConsequence tsc) {
+      handleTrackStructUndoRedo(tsc, true);
+      stack.undo();
+    } else if (action instanceof Consequence.ClipStructureConsequence csc) {
+      handleClipStructUndoRedo(csc, true);
+      stack.undo();
+    } else if (action instanceof Consequence.PatternLoadConsequence plc) {
+      handlePatternLoadUndoRedo(plc, true);
+      stack.undo();
+    } else {
+      stack.undo();
+    }
     pushModelToBridge();
     refreshGrids();
   }
 
   private void doRedo() {
     if (currentProject == null) return;
-    if (!currentProject.getUndoRedoStack().canRedo()) return;
-    currentProject.getUndoRedoStack().redo();
+    var stack = currentProject.getUndoRedoStack();
+    if (!stack.canRedo()) return;
+    var action = stack.peekRedo();
+    if (action instanceof Consequence.TrackStructureConsequence tsc) {
+      handleTrackStructUndoRedo(tsc, false);
+      stack.redo();
+    } else if (action instanceof Consequence.ClipStructureConsequence csc) {
+      handleClipStructUndoRedo(csc, false);
+      stack.redo();
+    } else if (action instanceof Consequence.PatternLoadConsequence plc) {
+      handlePatternLoadUndoRedo(plc, false);
+      stack.redo();
+    } else {
+      stack.redo();
+    }
     pushModelToBridge();
     refreshGrids();
+  }
+
+  private void handleTrackStructUndoRedo(Consequence.TrackStructureConsequence tsc, boolean isUndo) {
+    var tracks = currentProject.getTracks();
+    int idx = tsc.index();
+    switch (tsc.operation()) {
+      case Consequence.TrackStructureConsequence.ADD -> {
+        if (isUndo) {
+          if (idx < tracks.size()) currentProject.removeTrack(tracks.get(idx));
+        } else {
+          currentProject.addTrack(idx, tsc.trackSnapshot());
+        }
+      }
+      case Consequence.TrackStructureConsequence.REMOVE -> {
+        if (isUndo) {
+          currentProject.addTrack(idx, tsc.trackSnapshot());
+        } else {
+          if (idx < tracks.size()) currentProject.removeTrack(tracks.get(idx));
+        }
+      }
+      case Consequence.TrackStructureConsequence.MOVE_UP -> {
+        int swapIdx = isUndo ? idx + 1 : idx - 1;
+        if (swapIdx >= 0 && swapIdx < tracks.size() && idx >= 0 && idx < tracks.size()) {
+          currentProject.moveTrackUp(Math.max(idx, swapIdx));
+        }
+      }
+      case Consequence.TrackStructureConsequence.MOVE_DOWN -> {
+        int swapIdx = isUndo ? idx - 1 : idx + 1;
+        if (swapIdx >= 0 && swapIdx < tracks.size() && idx >= 0 && idx < tracks.size()) {
+          currentProject.moveTrackDown(Math.min(idx, swapIdx));
+        }
+      }
+    }
+  }
+
+  private void handleClipStructUndoRedo(Consequence.ClipStructureConsequence csc, boolean isUndo) {
+    var tracks = currentProject.getTracks();
+    if (csc.trackIndex() < 0 || csc.trackIndex() >= tracks.size()) return;
+    var track = tracks.get(csc.trackIndex());
+    var clips = track.getClips();
+    int ci = csc.clipIndex();
+    switch (csc.operation()) {
+      case Consequence.ClipStructureConsequence.ADD -> {
+        if (isUndo) {
+          if (ci >= 0 && ci < clips.size()) clips.remove(ci);
+        } else {
+          clips.add(ci, csc.clipSnapshot());
+        }
+      }
+      case Consequence.ClipStructureConsequence.REMOVE -> {
+        if (isUndo) {
+          clips.add(ci, csc.clipSnapshot());
+        } else {
+          if (ci >= 0 && ci < clips.size()) clips.remove(ci);
+        }
+      }
+      case Consequence.ClipStructureConsequence.DUPLICATE -> {
+        if (isUndo) {
+          if (ci + 1 >= 0 && ci + 1 < clips.size()) clips.remove(ci + 1);
+        } else {
+          clips.add(ci + 1, csc.clipSnapshot());
+        }
+      }
+      case Consequence.ClipStructureConsequence.RENAME -> {
+        String name = isUndo ? csc.previousName() : csc.newName();
+        if (ci >= 0 && ci < clips.size()) clips.get(ci).setName(name);
+      }
+    }
+  }
+
+  private void handlePatternLoadUndoRedo(Consequence.PatternLoadConsequence plc, boolean isUndo) {
+    var tracks = currentProject.getTracks();
+    if (plc.trackIndex() < 0 || plc.trackIndex() >= tracks.size()) return;
+    var track = tracks.get(plc.trackIndex());
+    int ci = plc.clipIndex();
+    if (ci < 0 || ci >= track.getClips().size()) return;
+    var clip = track.getClips().get(ci);
+    var snap = isUndo ? plc.beforeSnapshot() : plc.afterSnapshot();
+    snap.applyTo(clip);
   }
 
   private void saveProject(boolean forceChooser) {
@@ -1237,8 +1343,19 @@ public class SwingDelugeApp extends JFrame {
       }
       ClipModel clip = track.getClips().get(clipIdx);
 
+      // Capture before-snapshot for undo
+      var beforeSnapshot = PatternModel.ClipSnapshot.fromClipModel(clip, focusTrack, track.getName());
+
       // Apply the first clip snapshot to the active clip
       pattern.getClipSnapshots().get(0).applyTo(clip);
+
+      // Push undo: re-apply the old snapshot
+      var afterSnapshot = PatternModel.ClipSnapshot.fromClipModel(clip, focusTrack, track.getName());
+      currentProject.getUndoRedoStack().push(
+          new Consequence.CompoundConsequence("Load pattern",
+              java.util.List.of(
+                  new Consequence.PatternLoadConsequence(
+                      focusTrack, clipIdx, beforeSnapshot, afterSnapshot))));
 
       pushModelToBridge();
       propagateCurrentModel();
@@ -1670,7 +1787,11 @@ public class SwingDelugeApp extends JFrame {
           } else if (track instanceof org.chuck.deluge.model.SynthTrackModel synth) {
             synth.addClip(new org.chuck.deluge.model.ClipModel("CLIP 1", 8, 16));
           }
+          int idx = currentProject.getTracks().size();
           currentProject.addTrack(track);
+          currentProject.getUndoRedoStack().push(
+              new Consequence.TrackStructureConsequence(
+                  Consequence.TrackStructureConsequence.ADD, idx, track, "Add track"));
           pushModelToBridge();
           propagateCurrentModel();
           refreshGrids();
@@ -1881,23 +2002,34 @@ public class SwingDelugeApp extends JFrame {
               type + " track name:",
               type + " " + (currentProject.getTracks().size() + 1));
       if (name == null || name.isBlank()) return;
+      var stack = currentProject.getUndoRedoStack();
+      int idx;
       switch (type) {
         case "KIT": {
           KitTrackModel kit = new KitTrackModel(name);
           kit.addClip(new ClipModel("CLIP 1", 8, 16));
+          idx = currentProject.getTracks().size();
           currentProject.addTrack(kit);
+          stack.push(new Consequence.TrackStructureConsequence(
+              Consequence.TrackStructureConsequence.ADD, idx, kit, "Add kit track"));
           break;
         }
         case "SYNTH": {
           SynthTrackModel synth = new SynthTrackModel(name);
           synth.addClip(new ClipModel("CLIP 1", 8, 16));
+          idx = currentProject.getTracks().size();
           currentProject.addTrack(synth);
+          stack.push(new Consequence.TrackStructureConsequence(
+              Consequence.TrackStructureConsequence.ADD, idx, synth, "Add synth track"));
           break;
         }
         case "AUDIO": {
           AudioTrackModel audio = new AudioTrackModel(name);
           audio.addClip(new ClipModel("CLIP 1", 1, 16));
+          idx = currentProject.getTracks().size();
           currentProject.addTrack(audio);
+          stack.push(new Consequence.TrackStructureConsequence(
+              Consequence.TrackStructureConsequence.ADD, idx, audio, "Add audio track"));
           break;
         }
       }

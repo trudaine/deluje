@@ -10,9 +10,11 @@ import java.util.List;
 import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.model.AutomationParam;
 import org.chuck.deluge.model.ClipModel;
+import org.chuck.deluge.model.Consequence;
 import org.chuck.deluge.model.EnvelopeModel;
 import org.chuck.deluge.model.ModKnob;
 import org.chuck.deluge.model.PatchCable;
+import org.chuck.deluge.model.ProjectModel;
 import org.chuck.deluge.model.SynthTrackModel;
 import org.chuck.audio.util.Dx7Patch;
 import java.awt.KeyboardFocusManager;
@@ -33,10 +35,15 @@ public class SwingSynthConfigDialog extends JDialog {
       "oscAVolume", "oscBVolume", "pitch", "noiseVolume", "modFxRate", "modFxDepth"};
 
   private final JTabbedPane tabs = new JTabbedPane();
+  private final ProjectModel projectModel;
+  private final int trackIndex;
 
   public SwingSynthConfigDialog(
-      Frame owner, SynthTrackModel model, ChuckVM vm, BridgeContract bridge, int trackIndex) {
+      Frame owner, SynthTrackModel model, ChuckVM vm, BridgeContract bridge, int trackIndex,
+      ProjectModel projectModel) {
     super(owner, "Synth Config: " + model.getName(), false);
+    this.projectModel = projectModel;
+    this.trackIndex = trackIndex;
     setSize(1300, 750);
     setLocationRelativeTo(owner);
     setLayout(new BorderLayout());
@@ -150,7 +157,7 @@ public class SwingSynthConfigDialog extends JDialog {
     row = addSlider(panel, c, row, "Wave Idx:",
         "Wavetable position (0.0-1.0). Controls inter-table interpolation for wavetable-type oscillators.",
         0, 1000, (int)(model.getWaveIndex() * 1000),
-        val -> { model.setWaveIndex(val / 1000.0f); bridge.setWaveIndex(trackIndex, val / 1000.0f); }, "");
+        val -> { model.setWaveIndex(val / 1000.0f); bridge.setWaveIndex(trackIndex, val / 1000.0f); }, "", "waveIndex");
 
     // ── Synth Mode ──
     c.gridx = 0; c.gridy = row; c.gridwidth = 3;
@@ -235,12 +242,12 @@ public class SwingSynthConfigDialog extends JDialog {
     row = addSlider(panel, c, row, "Detune:",
         "Unison detune in cents (0-50). Higher values = wider, chorus-ier sound.",
         0, 500, (int)(model.getUnisonDetune() * 100),
-        val -> { model.setUnisonDetune(val / 100.0f); bridge.setUnisonDetune(trackIndex, val / 100.0f); }, "cts");
+        val -> { model.setUnisonDetune(val / 100.0f); bridge.setUnisonDetune(trackIndex, val / 100.0f); }, "cts", "unisonDetune");
 
     row = addSlider(panel, c, row, "Spread:",
         "Unison stereo spread (0-50). Distributes voices across stereo field.",
         0, 500, (int)(model.getUnisonStereoSpread() * 100),
-        val -> { model.setUnisonStereoSpread(val / 100.0f); bridge.setUnisonSpread(trackIndex, val / 100.0f); }, "");
+        val -> { model.setUnisonStereoSpread(val / 100.0f); bridge.setUnisonSpread(trackIndex, val / 100.0f); }, "", "unisonSpread");
 
     // ── Arpeggiator ──
     c.gridx = 0; c.gridy = row; c.gridwidth = 3;
@@ -274,12 +281,12 @@ public class SwingSynthConfigDialog extends JDialog {
     row = addSlider(panel, c, row, "Rate (×):",
         "Arpeggiator speed multiplier (0.25× to 4.00×)",
         25, 400, (int)(bridge.getArpRate(trackIndex) * 100),
-        val -> bridge.setArpRate(idx, val / 100.0), "×0.01");
+        val -> bridge.setArpRate(idx, val / 100.0), "×0.01", "arpRate");
 
     row = addSlider(panel, c, row, "Gate:",
         "Note-on duration as percentage of step (10%-100%)",
         10, 100, (int)(bridge.getArpGate(trackIndex) * 100),
-        val -> bridge.setArpGate(idx, val / 100.0), "%");
+        val -> bridge.setArpGate(idx, val / 100.0), "%", "arpGate");
 
     c.gridx = 0; c.gridy = row; c.gridwidth = 1;
     panel.add(label("Sync:"), c);
@@ -329,37 +336,37 @@ public class SwingSynthConfigDialog extends JDialog {
     row = addSlider(panel, c, row, "Repeat:",
         "Repeat each step N times (1-8)",
         1, 8, bridge.getArpStepRepeat(trackIndex),
-        val -> bridge.setArpStepRepeat(idx, val), "×");
+        val -> bridge.setArpStepRepeat(idx, val), "×", "arpStepRepeat");
 
     row = addSlider(panel, c, row, "Rhythm:",
         "Rhythm pattern index (0-49). Controls step timing offsets.",
         0, 49, bridge.getArpRhythm(trackIndex),
-        val -> bridge.setArpRhythm(idx, val), "");
+        val -> bridge.setArpRhythm(idx, val), "", "arpRhythm");
 
     row = addSlider(panel, c, row, "Seq Len:",
         "Number of active steps in the arpeggiator sequence (1-16)",
         1, 16, bridge.getArpSeqLength(trackIndex),
-        val -> bridge.setArpSeqLength(idx, val), "");
+        val -> bridge.setArpSeqLength(idx, val), "", "arpSeqLength");
 
     row = addSlider(panel, c, row, "Oct Spread:",
         "Randomize octave offset per note (0-100%). Higher = wilder octave jumps.",
         0, 100, (int)(bridge.getArpOctaveSpread(trackIndex) * 100),
-        val -> bridge.setArpOctaveSpread(idx, val / 100.0), "%");
+        val -> bridge.setArpOctaveSpread(idx, val / 100.0), "%", "arpOctaveSpread");
 
     row = addSlider(panel, c, row, "Gate Spread:",
         "Randomize note gate duration per step (0-100%). Higher = more timing variation.",
         0, 100, (int)(bridge.getArpGateSpread(trackIndex) * 100),
-        val -> bridge.setArpGateSpread(idx, val / 100.0), "%");
+        val -> bridge.setArpGateSpread(idx, val / 100.0), "%", "arpGateSpread");
 
     row = addSlider(panel, c, row, "Vel Spread:",
         "Randomize note velocity per step (0-100%). Higher = more dynamic contrast.",
         0, 100, (int)(bridge.getArpVelSpread(trackIndex) * 100),
-        val -> bridge.setArpVelSpread(idx, val / 100.0), "%");
+        val -> bridge.setArpVelSpread(idx, val / 100.0), "%", "arpVelSpread");
 
     row = addSlider(panel, c, row, "Ratchet:",
         "Sub-divide each step into N+1 mini-notes (0-4). 1 = double-trigger, 4 = machine-gun.",
         0, 4, bridge.getArpRatchet(trackIndex),
-        val -> bridge.setArpRatchet(idx, val), "x");
+        val -> bridge.setArpRatchet(idx, val), "x", "arpRatchet");
 
     // ── Filter (LPF) ──
     c.gridx = 0; c.gridy = row; c.gridwidth = 3;
@@ -368,16 +375,16 @@ public class SwingSynthConfigDialog extends JDialog {
     row = addSlider(panel, c, row, "Cutoff:",
         "Low-pass filter cutoff frequency (0% = fully closed, 100% = fully open)",
         0, 100, (int)(bridge.getTrackFilterFreq(trackIndex) * 100),
-        val -> bridge.setFilterFreq(trackIndex, val / 100.0), "%");
+        val -> bridge.setFilterFreq(trackIndex, val / 100.0), "%", "lpfCutoff");
     row = addSlider(panel, c, row, "Resonance:",
         "Filter resonance / Q — emphasises frequencies around the cutoff",
         0, 100, (int)(bridge.getTrackFilterRes(trackIndex) * 100),
-        val -> bridge.setFilterRes(trackIndex, val / 100.0), "%");
+        val -> bridge.setFilterRes(trackIndex, val / 100.0), "%", "lpfResonance");
 
     row = addSlider(panel, c, row, "Drive:",
         "Filter drive / saturation (0–200%). >100% adds soft-clip saturation.",
         0, 200, (int)(model.getFilterDrive() * 100),
-        val -> { model.setFilterDrive(val / 100.0f); bridge.setFilterDrive(trackIndex, val / 100.0f); }, "%");
+        val -> { model.setFilterDrive(val / 100.0f); bridge.setFilterDrive(trackIndex, val / 100.0f); }, "%", "filterDrive");
 
     // Filter mode selector (used for notch enable logic below)
     JComboBox<String> filterModeCombo = new JComboBox<>(new String[]{"LADDER_12", "LADDER_24", "SVF"});
@@ -431,15 +438,15 @@ public class SwingSynthConfigDialog extends JDialog {
     row = addSlider(panel, c, row, "Cutoff:",
         "High-pass filter cutoff (0% = 20Hz/off, 100% = ~20kHz)",
         0, 100, (int)(bridge.getHpfFreq(trackIndex) / 200.0f * 100),
-        val -> bridge.setHpfFreq(trackIndex, val / 100.0f * 200.0f), "Hz");
+        val -> bridge.setHpfFreq(trackIndex, val / 100.0f * 200.0f), "Hz", "hpfCutoff");
     row = addSlider(panel, c, row, "Resonance:",
         "HPF resonance / Q",
         0, 100, (int)(bridge.getHpfRes(trackIndex) * 100),
-        val -> bridge.setHpfRes(trackIndex, val / 100.0f), "%");
+        val -> bridge.setHpfRes(trackIndex, val / 100.0f), "%", "hpfResonance");
     row = addSlider(panel, c, row, "Morph:",
         "HPF morph: 0=fully HP, 50=fully LP (inverted vs LPF morph). Only for SVF-based modes.",
         0, 50, (int)(bridge.getHpfMorph(trackIndex) * 50),
-        val -> bridge.setHpfMorph(trackIndex, val / 50.0f), "");
+        val -> bridge.setHpfMorph(trackIndex, val / 50.0f), "", "hpfMorph");
     c.gridx = 0; c.gridy = row; c.gridwidth = 1;
     JLabel hpfModeLbl = label("HPF Mode:");
     hpfModeLbl.setToolTipText("0=LADDER_12, 1=LADDER_24, 2=SVF, 3=DRIVE, 4=SVF_BAND, 5=SVF_NOTCH");
@@ -456,7 +463,7 @@ public class SwingSynthConfigDialog extends JDialog {
     row = addSlider(panel, c, row, "FM:",
         "HPF FM amount — modulates HPF cutoff with audio-rate signal",
         0, 100, (int)(bridge.getHpfFm(trackIndex) * 100),
-        val -> bridge.setHpfFm(trackIndex, val / 100.0f), "%");
+        val -> bridge.setHpfFm(trackIndex, val / 100.0f), "%", "hpfFm");
 
     // ── FM ──
     c.gridx = 0; c.gridy = row; c.gridwidth = 3;
@@ -465,15 +472,15 @@ public class SwingSynthConfigDialog extends JDialog {
     row = addSlider(panel, c, row, "FM Ratio:",
         "Frequency ratio of the modulator oscillator relative to the carrier (0.25–4.00)",
         25, 400, (int)(bridge.getFmRatio(trackIndex) * 100),
-        val -> bridge.setFmRatio(trackIndex, val / 100.0), "×0.01");
+        val -> bridge.setFmRatio(trackIndex, val / 100.0), "×0.01", "fmRatio");
     row = addSlider(panel, c, row, "FM Amount:",
         "Depth of FM modulation — how strongly the modulator affects the carrier (0–100%)",
         0, 100, (int)(bridge.getFmAmount(trackIndex) * 100),
-        val -> bridge.setFmAmount(trackIndex, val / 100.0), "%");
+        val -> bridge.setFmAmount(trackIndex, val / 100.0), "%", "fmAmount");
     row = addSlider(panel, c, row, "Carrier FB:",
         "Carrier 1 self-feedback amount (0–100%). Creates characteristic FM feedback timbre.",
         0, 100, (int)(bridge.getCarrier1Fb(trackIndex) * 100),
-        val -> bridge.setCarrier1Fb(trackIndex, val / 100.0f), "%");
+        val -> bridge.setCarrier1Fb(trackIndex, val / 100.0f), "%", "carrier1Fb");
 
     return panel;
   }
@@ -810,7 +817,7 @@ public class SwingSynthConfigDialog extends JDialog {
             // Refresh dialog by disposing and recreating
             dispose();
             new SwingSynthConfigDialog(
-                (Frame) getOwner(), model, vm, bridge, trackIndex).setVisible(true);
+                (Frame) getOwner(), model, vm, bridge, trackIndex, projectModel).setVisible(true);
           }
         } catch (Exception ex) {
           JOptionPane.showMessageDialog(this,
@@ -1263,22 +1270,22 @@ public class SwingSynthConfigDialog extends JDialog {
           "Time to reach peak level after note-on (" + envIdx + ")",
           1, 2000, (int)(env.attack() * 1000),
           val -> { model.setEnv(envIdx, new EnvelopeModel(val / 1000f, env.decay(), env.sustain(), env.release(), env.target(), env.amount())); },
-          "ms");
+          "ms", "env" + envIdx + "Attack");
       row = addSlider(panel, c, row, "Decay:",
           "Time to fall from peak to sustain level (" + envIdx + ")",
           0, 5000, (int)(env.decay() * 1000),
           val -> { model.setEnv(envIdx, new EnvelopeModel(env.attack(), val / 1000f, env.sustain(), env.release(), env.target(), env.amount())); },
-          "ms");
+          "ms", "env" + envIdx + "Decay");
       row = addSlider(panel, c, row, "Sustain:",
           "Level held while note is held (" + envIdx + ")",
           0, 100, (int)(env.sustain() * 100),
           val -> { model.setEnv(envIdx, new EnvelopeModel(env.attack(), env.decay(), val / 100f, env.release(), env.target(), env.amount())); },
-          "%");
+          "%", "env" + envIdx + "Sustain");
       row = addSlider(panel, c, row, "Release:",
           "Time to fade to silence after note-off (" + envIdx + ")",
           0, 5000, (int)(env.release() * 1000),
           val -> { model.setEnv(envIdx, new EnvelopeModel(env.attack(), env.decay(), env.sustain(), val / 1000f, env.target(), env.amount())); },
-          "ms");
+          "ms", "env" + envIdx + "Release");
 
       // Target
       c.gridx = 0; c.gridy = row; c.gridwidth = 1;
@@ -1303,7 +1310,7 @@ public class SwingSynthConfigDialog extends JDialog {
             float amt = val / 100f;
             model.setEnv(envIdx, new EnvelopeModel(env.attack(), env.decay(), env.sustain(), env.release(), env.target(), amt));
           },
-          "%");
+          "%", "env" + envIdx + "Amount");
 
       envTabs.addTab("ENV " + e, panel);
     }
@@ -1604,7 +1611,7 @@ public class SwingSynthConfigDialog extends JDialog {
 
   private int addSlider(JPanel panel, GridBagConstraints c, int row,
       String labelText, String tooltip, int min, int max, int initial,
-      java.util.function.IntConsumer onChange, String unit) {
+      java.util.function.IntConsumer onChange, String unit, String paramName) {
     c.gridx = 0; c.gridy = row; c.gridwidth = 1;
     JLabel lbl = label(labelText);
     lbl.setToolTipText(tooltip);
@@ -1617,9 +1624,39 @@ public class SwingSynthConfigDialog extends JDialog {
     JLabel valLabel = new JLabel(initial + unit);
     valLabel.setForeground(Color.CYAN);
     valLabel.setPreferredSize(new Dimension(60, 20));
+    // Undo coalescing: capture old value on first change after a pause, replace on rapid changes
+    final long[] lastChangeTime = {0L};
+    final boolean[] hasCapturedOld = {false};
     slider.addChangeListener(e -> {
-      onChange.accept(slider.getValue());
-      valLabel.setText(slider.getValue() + unit);
+      long now = System.currentTimeMillis();
+      int newVal = slider.getValue();
+      if (!hasCapturedOld[0] || (now - lastChangeTime[0]) > 300) {
+        // First time or timeout elapsed — this starts a new undoable drag
+        hasCapturedOld[0] = false;
+        lastChangeTime[0] = now;
+      }
+      onChange.accept(newVal);
+      valLabel.setText(newVal + unit);
+    });
+    // On press: capture old value; on release: push coalesced consequence
+    slider.addMouseListener(new java.awt.event.MouseAdapter() {
+      private float oldValue;
+      @Override
+      public void mousePressed(java.awt.event.MouseEvent e) {
+        oldValue = slider.getValue();
+        hasCapturedOld[0] = true;
+        lastChangeTime[0] = System.currentTimeMillis();
+      }
+      @Override
+      public void mouseReleased(java.awt.event.MouseEvent e) {
+        if (!hasCapturedOld[0]) return;
+        int newVal = slider.getValue();
+        if (Math.abs(newVal - oldValue) < 0.001f) return; // no change
+        var stack = projectModel.getUndoRedoStack();
+        stack.push(new Consequence.SynthParamConsequence(
+            trackIndex, paramName, oldValue, newVal, System.currentTimeMillis()));
+        hasCapturedOld[0] = false;
+      }
     });
     c.gridx = 1; panel.add(slider, c);
     c.gridx = 2; panel.add(valLabel, c);

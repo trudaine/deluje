@@ -348,6 +348,11 @@ public class ProjectModel {
     notifyTrackListChanged();
   }
 
+  public void addTrack(int index, TrackModel track) {
+    this.tracks.add(index, track);
+    notifyTrackListChanged();
+  }
+
   public void removeTrack(TrackModel track) {
     this.tracks.remove(track);
     notifyTrackListChanged();
