@@ -396,6 +396,20 @@ public class DelugeEngineDSL implements Shred, Runnable {
       }
     }
 
+    /**
+     * Always-on tanh soft-clip emulating the hardware's analog summing bus.
+     * Uses a gentle pre-gain (1.2×) so only peaks above ~0.83 get rounded by 1-3 dB.
+     * Compensates output gain to prevent overall level drop: output = tanh(input * pre) / pre.
+     * No configuration — always active as hardware character.
+     */
+    static final class SummingTanhUGen extends org.chuck.audio.ChuckUGen {
+      private static final float PRE_GAIN = 1.2f;
+      @Override
+      protected float compute(float input, long systemTime) {
+        return (float) Math.tanh(input * PRE_GAIN) / PRE_GAIN;
+      }
+    }
+
     @Override
     public void run() {
       float sr = (float) sampleRate();
@@ -405,22 +419,25 @@ public class DelugeEngineDSL implements Shred, Runnable {
       EQShelving trebleEq = new EQShelving(sr);
       Distortion masterSat = new Distortion();
       BitCrunchUGen bitCrunch = new BitCrunchUGen();
+      SummingTanhUGen summingTanh = new SummingTanhUGen();
       Gain masterVol = new Gain();
       Gain masterTap = (Gain) vm.getGlobalObject(BridgeContract.G_MASTER_TAP);
 
-      // ── Master compressor internal tanh ──────────────────────────────────────
-      // Firmware's RMSFeedbackCompressor always applies getTanHAntialiased to its output.
-      // There is no separate always-on summing tanh — only this compressor-internal stage
-      // plus the user-toggleable per-clip saturation controlled by clippingAmount.
-      // Our chain: HPF → comp → masterSat → EQ → masterVol → bitCrunch → masterTap → dac()
+      // ── Always-on summing tanh + compressor-internal tanh ─────────────────────
+      // 1) Always-on SummingTanhUGen: lightweight tanh soft-clip with 1.2× pre-gain
+      //    emulating the hardware's analog summing bus. Rounds peaks by 1-3 dB.
+      // 2) Compressor's internal tanh: firmare's RMSFeedbackCompressor always applies
+      //    getTanHAntialiased to its output.
+      // 3) User-toggleable masterSat: per-clip saturation controlled by clippingAmount.
+      // Our chain: HPF → comp → summingTanh → masterSat → EQ → masterVol → bitCrunch → masterTap → dac()
       // NOTE: EQ is per-track in firmware (ModControllableAudio::doEQ), not song-level.
       // We keep it here as a convenience — the firmware's equivalent per-track EQ runs for each sound.
       masterSat.drive(2.5f); // moderate tanh-like overdrive when enabled
       masterSat.gain(1.0f);
       ((Gain) vm.getGlobalObject(BridgeContract.G_SYNTH_BUS))
-          .chuck(hpf).chuck(comp).chuck(masterSat).chuck(trebleEq).chuck(bassEq).chuck(masterVol).chuck(bitCrunch).chuck(masterTap).chuck(dac());
+          .chuck(hpf).chuck(comp).chuck(summingTanh).chuck(masterSat).chuck(trebleEq).chuck(bassEq).chuck(masterVol).chuck(bitCrunch).chuck(masterTap).chuck(dac());
       ((Gain) vm.getGlobalObject(BridgeContract.G_AUDIO_BUS))
-          .chuck(hpf).chuck(comp).chuck(masterSat).chuck(trebleEq).chuck(bassEq).chuck(masterVol).chuck(bitCrunch).chuck(masterTap).chuck(dac());
+          .chuck(hpf).chuck(comp).chuck(summingTanh).chuck(masterSat).chuck(trebleEq).chuck(bassEq).chuck(masterVol).chuck(bitCrunch).chuck(masterTap).chuck(dac());
       hpf.freq(20);
       bassEq.type(EQShelving.LOW_SHELF);
       bassEq.freq(200);
@@ -434,10 +451,16 @@ public class DelugeEngineDSL implements Shred, Runnable {
         advance(tickEvent);
 
         // ── Compressor (RMSFeedbackCompressor-correct formulas) ──
+        // G_SP_COMPRESSOR_THRESHOLD overrides the knob-derived formula when non-zero.
+        // The firmware maps 0x00000000 to "no explicit threshold" (use the master comp knob).
+        // Our hex mapping gives 0.0 for that case, and (0, 1.0] for actual values.
+        double songThreshold = vm.getGlobalFloat(BridgeContract.G_SP_COMPRESSOR_THRESHOLD);
         double compKnob = vm.getGlobalFloat(BridgeContract.G_MASTER_COMP);
         // RMSFeedbackCompressor::setThreshold: threshold = 1 - 0.8 * (knob / ONE_Q31)
-        double th = 1.0 - 0.8 * compKnob;
-        comp.thresh((float) Math.max(0.01, Math.min(0.99, th)));
+        double th = (songThreshold > 0.001)
+            ? Math.min(0.99, songThreshold)
+            : 1.0 - 0.8 * compKnob;
+        comp.thresh((float) Math.max(0.01, th));
 
         float compAttack = (float) vm.getGlobalFloat(BridgeContract.G_MASTER_COMP_ATTACK);
         float compRelease = (float) vm.getGlobalFloat(BridgeContract.G_MASTER_COMP_RELEASE);
@@ -1096,6 +1119,8 @@ public class DelugeEngineDSL implements Shred, Runnable {
         ChuckArray sStepSrr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_SRR);
         ChuckArray sStepBitcrush = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_BITCRUSH);
         ChuckArray sStepPortamento = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_PORTAMENTO);
+        ChuckArray sStepDelay = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_DELAY);
+        ChuckArray sStepReverb = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_REVERB);
         for (int r = 0; r < BridgeContract.TRACKS; r++) {
           if (r < kit.length) {
             dSend[r].gain(dlySnd != null ? (float) dlySnd.getFloat(r) : 0.0f);
@@ -1265,6 +1290,9 @@ public class DelugeEngineDSL implements Shred, Runnable {
           if (sStepPortamento != null) {
             vm.setGlobalFloat(BridgeContract.G_PORTAMENTO + "_" + r, sStepPortamento.getFloat(idx));
           }
+          // Per-step delay/reverb send overrides (0 = no override, use per-track send)
+          if (sStepDelay != null) { float sd = (float) sStepDelay.getFloat(idx); if (sd > 0f) dSend[r].gain(sd); }
+          if (sStepReverb != null) { float srV = (float) sStepReverb.getFloat(idx); if (srV > 0f) rSend[r].gain(srV); }
           // ── Kit patch cable modulation evaluation ──
           double pcModPit = 0, pcModV = 0;
           ChuckArray pcCountArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_PC_COUNT);
@@ -1919,6 +1947,9 @@ public class DelugeEngineDSL implements Shred, Runnable {
         ChuckArray sStepStutter = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_STUTTER);
         ChuckArray sStepBitcrush = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_BITCRUSH);
         ChuckArray sStepSrr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_SRR);
+        ChuckArray sStepFilterMode = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_FILTER_MODE);
+        ChuckArray sStepDelay = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_DELAY);
+        ChuckArray sStepReverb = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_REVERB);
         ChuckArray notePitchArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PITCH);
 
         // Per-track default arrays (used as baseline when step automation is absent)
@@ -2124,6 +2155,18 @@ public class DelugeEngineDSL implements Shred, Runnable {
           hf += totalModF * hpfFmMod * 5000.0f;
           hpfArr[u].freq(Math.max(20.0f, hf));
           hpfArr[u].Q(1.0f + Math.max(0.0f, hr) * 9.0f);
+          // Per-step delay/reverb/filter-mode overrides (-1 = no override for filter mode; 0=no override for delay/reverb)
+          if (sStepDelay != null) { float sd = (float) sStepDelay.getFloat(idx); if (sd > 0f) sDsend[u].gain(sd); }
+          if (sStepReverb != null) { float srV = (float) sStepReverb.getFloat(idx); if (srV > 0f) sRsend[u].gain(srV); }
+          if (sStepFilterMode != null) {
+            int sfm = (int) sStepFilterMode.getInt(idx);
+            if (sfm >= 0 && sfm <= 3) {
+              // Map discrete filter mode to SVFilter morph + notchMode:
+              // 0=LP (morph=0), 1=BP (morph=0.5), 2=HP (morph=1.0), 3=NOTCH (notchMode=true)
+              fil[u].notchMode(sfm == 3);
+              if (sfm < 3) fil[u].morph(sfm * 0.5);
+            }
+          }
           int fm = filterModeArr != null ? (int) filterModeArr.getInt(r) : 2;
           double fmorph = filterMorphArr != null ? filterMorphArr.getFloat(r) : 0.0;
           fil[u].morph(fmorph);
@@ -2282,12 +2325,11 @@ public class DelugeEngineDSL implements Shred, Runnable {
             // Parallel compression blend (dry/wet on Dyno)
             float cb = sCompBlend != null && r < sCompBlend.size() ? (float) sCompBlend.getFloat(r) : 0.0f;
             compArr[u].dryWet(cb);
-            // Sidechain HPF approximation: raise effective threshold for low frequencies
+            // Sidechain HPF via Dyno.sidechainHpf() — filters the sidechain signal before
+            // the envelope follower. Replaces the old threshold-boost approximation.
             float hpfFreq = sCompHpf != null && r < sCompHpf.size() ? (float) sCompHpf.getFloat(r) : 0.0f;
             if (hpfFreq > 0.01f) {
-              float hpfAmount = hpfFreq * 0.5f; // max 6dB reduction in sensitivity
-              float effectiveThresh = (float) Math.max(0.01, Math.min(0.99, th * (1.0 + hpfAmount)));
-              compArr[u].thresh(effectiveThresh);
+              compArr[u].sidechainHpf(hpfFreq);
             }
           }
 
