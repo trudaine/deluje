@@ -48,6 +48,9 @@ public class SwingGridPanel extends JPanel {
   private String selectedAutomationParam = org.chuck.deluge.model.AutomationParam.ALL[0];
   private javax.swing.JComboBox<String> automationParamCombo;
   private boolean automationDragging = false;
+  private String autoDragParam;          // param name being dragged (for undo capture)
+  private int autoDragStep = -1;         // step index being dragged
+  private float autoDragOldValue = -1f;  // value before drag started
   private boolean autoOverviewMode = true; // true=overview grid, false=detail editor
   private int autoColScroll = 0; // horizontal scroll for overview param cols
 
@@ -2565,14 +2568,21 @@ public class SwingGridPanel extends JPanel {
             if (javax.swing.SwingUtilities.isLeftMouseButton(e)) {
               if (e.isShiftDown()) {
                 // Clear automation at this step
+                float oldVal = cM.getAutomation(finalParam, colIdx);
                 float[] arr = cM.getAutomationArray(finalParam);
                 if (arr != null && colIdx < arr.length) {
                   arr[colIdx] = -1f;
+                  projectModel.getUndoRedoStack().push(
+                      new Consequence.AutomationConsequence(tIdx, acIdx2, finalParam, colIdx, oldVal, -1f));
                   refresh();
                 }
               } else {
+                float oldVal = cM.getAutomation(finalParam, colIdx);
                 float val = (rowIdx * 16 + 8) / 127.0f;
                 cM.setAutomation(finalParam, colIdx, val);
+                autoDragParam = finalParam;
+                autoDragStep = colIdx;
+                autoDragOldValue = oldVal;
                 automationDragging = true;
                 refresh();
               }
@@ -2581,6 +2591,24 @@ public class SwingGridPanel extends JPanel {
 
           @Override
           public void mouseReleased(java.awt.event.MouseEvent e) {
+            if (automationDragging && projectModel != null && autoDragParam != null && autoDragStep >= 0) {
+              int tIdx = editedModelTrack;
+              if (tIdx < projectModel.getTracks().size()) {
+                org.chuck.deluge.model.TrackModel tM = projectModel.getTracks().get(tIdx);
+                int acIdx2 = tM.getActiveClipIndex();
+                if (acIdx2 >= 0 && acIdx2 < tM.getClips().size()) {
+                  org.chuck.deluge.model.ClipModel cM = tM.getClips().get(acIdx2);
+                  float newVal = cM.getAutomation(autoDragParam, autoDragStep);
+                  if (newVal != autoDragOldValue) {
+                    projectModel.getUndoRedoStack().push(
+                        new Consequence.AutomationConsequence(tIdx, acIdx2, autoDragParam, autoDragStep, autoDragOldValue, newVal));
+                  }
+                }
+              }
+              autoDragParam = null;
+              autoDragStep = -1;
+              autoDragOldValue = -1f;
+            }
             automationDragging = false;
           }
         });
@@ -2741,12 +2769,16 @@ public class SwingGridPanel extends JPanel {
             if (javax.swing.SwingUtilities.isLeftMouseButton(e)) {
               if (e.isShiftDown()) {
                 // Clear cell
+                float oldVal = cM.getAutomation(fParam, colIdx);
                 float[] arr = cM.getAutomationArray(fParam);
                 if (arr != null && colIdx < arr.length) {
                   arr[colIdx] = -1f;
+                  projectModel.getUndoRedoStack().push(
+                      new Consequence.AutomationConsequence(tIdx, acIdx2, fParam, colIdx, oldVal, -1f));
                   refresh();
                 }
               } else {
+                float oldVal = cM.getAutomation(fParam, colIdx);
                 // Toggle: set to 0.5 if no automation, clear if already set
                 if (cM.hasAutomation(fParam)) {
                   float[] arr = cM.getAutomationArray(fParam);
@@ -2758,9 +2790,43 @@ public class SwingGridPanel extends JPanel {
                 } else {
                   cM.setAutomation(fParam, colIdx, 0.5f);
                 }
+                float newVal = cM.getAutomation(fParam, colIdx);
+                if (newVal != oldVal && !e.isShiftDown()) {
+                  // Single click — push now
+                  projectModel.getUndoRedoStack().push(
+                      new Consequence.AutomationConsequence(tIdx, acIdx2, fParam, colIdx, oldVal, newVal));
+                }
+                // Track for drag coalescing
+                autoDragParam = fParam;
+                autoDragStep = colIdx;
+                autoDragOldValue = oldVal;
+                automationDragging = true;
                 refresh();
               }
             }
+          }
+
+          @Override
+          public void mouseReleased(java.awt.event.MouseEvent e) {
+            if (automationDragging && projectModel != null && autoDragParam != null && autoDragStep >= 0) {
+              int tIdx = editedModelTrack;
+              if (tIdx < projectModel.getTracks().size()) {
+                org.chuck.deluge.model.TrackModel tM = projectModel.getTracks().get(tIdx);
+                int acIdx2 = tM.getActiveClipIndex();
+                if (acIdx2 >= 0 && acIdx2 < tM.getClips().size()) {
+                  org.chuck.deluge.model.ClipModel cM = tM.getClips().get(acIdx2);
+                  float newVal = cM.getAutomation(autoDragParam, autoDragStep);
+                  if (newVal != autoDragOldValue) {
+                    projectModel.getUndoRedoStack().push(
+                        new Consequence.AutomationConsequence(tIdx, acIdx2, autoDragParam, autoDragStep, autoDragOldValue, newVal));
+                  }
+                }
+              }
+              autoDragParam = null;
+              autoDragStep = -1;
+              autoDragOldValue = -1f;
+            }
+            automationDragging = false;
           }
         });
 
@@ -2775,7 +2841,6 @@ public class SwingGridPanel extends JPanel {
             if (acIdx2 < 0 || acIdx2 >= tM.getClips().size()) return;
             org.chuck.deluge.model.ClipModel cM = tM.getClips().get(acIdx2);
             cM.setAutomation(fParam, colIdx, 0.5f);
-            automationDragging = true;
             refresh();
           }
         });
