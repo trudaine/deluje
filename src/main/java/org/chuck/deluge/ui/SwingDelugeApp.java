@@ -579,6 +579,18 @@ public class SwingDelugeApp extends JFrame {
             }
           }
         }
+        // ── Push active AudioClip state to engine ──
+        int aClipIdx = audio.getActiveClipIndex();
+        if (aClipIdx >= 0 && aClipIdx < audio.getAudioClips().size()) {
+          org.chuck.deluge.model.AudioTrackModel.AudioClip aClip =
+              audio.getAudioClips().get(aClipIdx);
+          bridge.setAudioPlay(startRow, aClip.isPlaying() ? 1 : 0);
+          bridge.setAudioLoop(startRow, aClip.isPlaying() || audio.isLooping() ? 1 : 0);
+          bridge.setAudioRate(startRow, audio.getPlayRate());
+          // Push sample position globals for LiSa playback region
+          vm.setGlobalFloat("g_audio_clip_start_" + startRow, (float) aClip.getStartSamplePos());
+          vm.setGlobalFloat("g_audio_clip_end_" + startRow, (float) aClip.getEndSamplePos());
+        }
       }
 
       // Track length and stepCount for all rows of this track
@@ -731,7 +743,12 @@ public class SwingDelugeApp extends JFrame {
     for (int t = 0; t < tracks.size(); t++) {
       org.chuck.deluge.model.TrackModel track = tracks.get(t);
       int clipIdx = track.getActiveClipIndex();
-      if (clipIdx >= 0 && clipIdx < track.getClips().size()) {
+      // Audio tracks use AudioClips (not ClipModel), so check audioClips instead
+      if (track instanceof org.chuck.deluge.model.AudioTrackModel audioTrk) {
+        if (clipIdx >= 0 && clipIdx < audioTrk.getAudioClips().size()) {
+          applyClipFxOverrides(t, clipIdx);
+        }
+      } else if (clipIdx >= 0 && clipIdx < track.getClips().size()) {
         applyClipFxOverrides(t, clipIdx);
       }
     }
@@ -745,16 +762,54 @@ public class SwingDelugeApp extends JFrame {
   }
 
   /**
-   * Override song-level FX parameters (G_SP_* globals) with the active clip's kitParams.
+   * Override song-level FX parameters (G_SP_* globals) with the active clip's per-clip FX params.
+   *
+   * <p>For synth/kit tracks, reads {@link ClipModel#getKitParams()} (a {@code Map<String, Float>}).
+   * For audio tracks, reads typed fields from {@link org.chuck.deluge.model.AudioTrackModel.AudioClip} getters.
    * If the clip has no override for a given parameter, the song-level default is preserved.
-   * This implements the real Deluge firmware's GlobalEffectable pattern where InstrumentClip
+   *
+   * <p>This implements the real Deluge firmware's GlobalEffectable pattern where InstrumentClip
    * can override Song-level FX parameters.
    */
   private void applyClipFxOverrides(int track, int clipIdx) {
     java.util.List<org.chuck.deluge.model.TrackModel> tracks = currentProject.getTracks();
     if (track < 0 || track >= tracks.size()) return;
     org.chuck.deluge.model.TrackModel trk = tracks.get(track);
-    if (clipIdx < 0 || clipIdx >= trk.getClips().size()) return;
+    if (clipIdx < 0) return;
+
+    // ── Audio tracks: read typed fields from AudioClip ──
+    if (trk instanceof org.chuck.deluge.model.AudioTrackModel audioTrk) {
+      if (clipIdx >= audioTrk.getAudioClips().size()) return;
+      org.chuck.deluge.model.AudioTrackModel.AudioClip aClip =
+          audioTrk.getAudioClips().get(clipIdx);
+      vm.setGlobalFloat(BridgeContract.G_SP_VOLUME, aClip.getVolume());
+      vm.setGlobalFloat(BridgeContract.G_SP_PAN, aClip.getPan());
+      vm.setGlobalFloat(BridgeContract.G_SP_REVERB_AMOUNT, aClip.getReverbAmount());
+      vm.setGlobalFloat(BridgeContract.G_SP_DELAY_RATE, aClip.getDelayRate());
+      vm.setGlobalFloat(BridgeContract.G_SP_DELAY_FEEDBACK, aClip.getDelayFeedback());
+      vm.setGlobalFloat(BridgeContract.G_SP_SIDECHAIN_SHAPE, aClip.getSidechainShape());
+      vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_RATE, aClip.getModFXRate());
+      vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_DEPTH, aClip.getModFXDepth());
+      vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_OFFSET, aClip.getModFXOffset());
+      vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_FEEDBACK, aClip.getModFXFeedback());
+      vm.setGlobalFloat(BridgeContract.G_SP_STUTTER_RATE, aClip.getStutterRate());
+      vm.setGlobalFloat(BridgeContract.G_SP_SAMPLE_RATE_REDUCTION, aClip.getSampleRateReduction());
+      vm.setGlobalFloat(BridgeContract.G_SP_BITCRUSH, aClip.getBitCrush());
+      vm.setGlobalFloat(BridgeContract.G_SP_LPF_FREQ, aClip.getLpfFrequency());
+      vm.setGlobalFloat(BridgeContract.G_SP_LPF_RES, aClip.getLpfResonance());
+      vm.setGlobalFloat(BridgeContract.G_SP_HPF_FREQ, aClip.getHpfFrequency());
+      vm.setGlobalFloat(BridgeContract.G_SP_HPF_RES, aClip.getHpfResonance());
+      vm.setGlobalFloat(BridgeContract.G_SP_EQ_BASS, aClip.getEqBass());
+      vm.setGlobalFloat(BridgeContract.G_SP_EQ_TREBLE, aClip.getEqTreble());
+      vm.setGlobalFloat(BridgeContract.G_SP_EQ_BASS_FREQ, aClip.getEqBassFrequency());
+      vm.setGlobalFloat(BridgeContract.G_SP_EQ_TREBLE_FREQ, aClip.getEqTrebleFrequency());
+      // AudioClip doesn't have its own compressorThreshold, lpfMorph, hpfMorph;
+      // keep song defaults for those (already set above in pushModelToBridge)
+      return;
+    }
+
+    // ── Synth/kit tracks: read kitParams map ──
+    if (clipIdx >= trk.getClips().size()) return;
     ClipModel clip = trk.getClips().get(clipIdx);
     java.util.Map<String, Float> kp = clip.getKitParams();
     if (kp == null || kp.isEmpty()) return;
