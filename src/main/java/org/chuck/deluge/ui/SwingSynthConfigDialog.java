@@ -32,7 +32,8 @@ public class SwingSynthConfigDialog extends JDialog {
   private static final String[] MOD_SRC_OPTIONS = {"velocity", "envelope1", "envelope2", "envelope3", "envelope4",
       "lfo1", "lfo2", "lfo3", "lfo4", "aftertouch", "note", "random", "sidechain"};
   private static final String[] MOD_DST_OPTIONS = {"volume", "pan", "lpfFrequency", "lpfResonance",
-      "oscAVolume", "oscBVolume", "pitch", "noiseVolume", "modFxRate", "modFxDepth"};
+      "oscAVolume", "oscBVolume", "pitch", "noiseVolume", "modFxRate", "modFxDepth",
+      "modFxFeedback", "modFxOffset"};
 
   private final JTabbedPane tabs = new JTabbedPane();
   private final ProjectModel projectModel;
@@ -1403,7 +1404,8 @@ public class SwingSynthConfigDialog extends JDialog {
 
     String[] knobParams = {"NONE", "volume", "pan", "reverb", "delay",
         "lpfFrequency", "lpfResonance", "hpfFrequency", "pitch", "oscAVolume",
-        "oscBVolume", "noiseVolume", "modFxRate", "modFxDepth", "modFxFeedback"};
+        "oscBVolume", "noiseVolume", "modFxRate", "modFxDepth", "modFxFeedback",
+        "modFxOffset"};
 
     JPanel knobGrid = new JPanel(new GridLayout(4, 4, 6, 6));
     knobGrid.setBackground(new Color(0x22, 0x22, 0x22));
