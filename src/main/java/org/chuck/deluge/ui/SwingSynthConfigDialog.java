@@ -62,6 +62,7 @@ public class SwingSynthConfigDialog extends JDialog {
     tabs.addTab("ENVELOPE", buildEnvelopePanel(model, bridge, trackIndex));
     tabs.addTab("MODULATION", buildModulationPanel(model, bridge, trackIndex));
     tabs.addTab("COMPRESSOR", buildCompressorPanel(model, bridge, trackIndex));
+    tabs.addTab("EQ", buildEqPanel(model, bridge, trackIndex));
     tabs.addTab("AUTOMATION", buildAutomationPanel(model, bridge, trackIndex));
 
     // Enable/disable DX7 tab when synth mode changes (the mode combo is in the main panel)
@@ -1467,6 +1468,30 @@ public class SwingSynthConfigDialog extends JDialog {
     return panel;
   }
 
+  private JPanel buildEqPanel(SynthTrackModel model, BridgeContract bridge, int trackIndex) {
+    JPanel panel = new JPanel(new GridBagLayout());
+    panel.setBackground(new Color(0x22, 0x22, 0x22));
+    GridBagConstraints c = new GridBagConstraints();
+    c.fill = GridBagConstraints.HORIZONTAL;
+    c.insets = new Insets(6, 10, 6, 10);
+    c.anchor = GridBagConstraints.WEST;
+    int row = 0;
+
+    c.gridx = 0; c.gridy = row; c.gridwidth = 3;
+    panel.add(sectionLabel("SHELVING EQ"), c); row++;
+
+    row = addSlider(panel, c, row, "Bass:",
+        "Bass shelving EQ cut/boost (-100% = -12dB cut, 0% = flat, +100% = +12dB boost)",
+        -100, 100, (int)(bridge.getEqBass(trackIndex) * 100),
+        val -> bridge.setEqBass(trackIndex, val / 100f), "%", "eqBass");
+    row = addSlider(panel, c, row, "Treble:",
+        "Treble shelving EQ cut/boost (-100% = -12dB cut, 0% = flat, +100% = +12dB boost)",
+        -100, 100, (int)(bridge.getEqTreble(trackIndex) * 100),
+        val -> bridge.setEqTreble(trackIndex, val / 100f), "%", "eqTreble");
+
+    return panel;
+  }
+
   /**
    * Build the AUTOMATION tab: per-parameter × per-step slider table.
    * Operates on the active clip's automation data.
@@ -1487,7 +1512,7 @@ public class SwingSynthConfigDialog extends JDialog {
     clearAllBtn.setToolTipText("Remove all automation data for the active clip");
     clearAllBtn.addActionListener(e -> {
       if (clip != null) {
-        for (String param : AutomationParam.ALL) {
+        for (String param : AutomationParam.SYTH_PARAMS) {
           clip.clearAutomation(param);
         }
       }
@@ -1513,7 +1538,7 @@ public class SwingSynthConfigDialog extends JDialog {
     }
 
     // Param rows
-    String[] paramNames = AutomationParam.ALL;
+    String[] paramNames = AutomationParam.SYTH_PARAMS;
     for (int p = 0; p < paramNames.length; p++) {
       final int paramIdx = p;
       String paramName = paramNames[p];

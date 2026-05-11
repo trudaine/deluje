@@ -45,7 +45,7 @@ public class SwingGridPanel extends JPanel {
 
   private GridViewMode viewMode = GridViewMode.SONG;
 
-  private String selectedAutomationParam = org.chuck.deluge.model.AutomationParam.ALL[0];
+  private String selectedAutomationParam = org.chuck.deluge.model.AutomationParam.SYTH_PARAMS[0];
   private javax.swing.JComboBox<String> automationParamCombo;
   private boolean automationDragging = false;
   private String autoDragParam;          // param name being dragged (for undo capture)
@@ -2468,7 +2468,7 @@ public class SwingGridPanel extends JPanel {
    * Click to set, shift-click to clear, drag to paint.
    */
   private void buildAutomationEditor(org.chuck.deluge.model.ClipModel autoClip, String param, int padSz) {
-    if (param == null) param = org.chuck.deluge.model.AutomationParam.ALL[0];
+    if (param == null) param = org.chuck.deluge.model.AutomationParam.SYTH_PARAMS[0];
 
     // Step number header row
     JPanel stepHeader = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
