@@ -10,7 +10,9 @@ import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.AudioFormat;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.engine.DelugeEngineDSL;
+import org.chuck.deluge.model.Drum;
 import org.chuck.deluge.model.KitTrackModel;
+import org.chuck.deluge.model.SoundDrum;
 import org.chuck.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -253,7 +255,7 @@ public class KitAccuracyTest {
     assertTrue(is909 != null, "909 Kit XML not found: " + xmlPath);
     KitTrackModel kit909 = DelugeXmlParser.parseKit(is909, "003 TR-909");
 
-    List<KitTrackModel.KitSound> sounds = kit909.getSounds();
+    List<Drum> sounds = kit909.getDrums();
     assertTrue(sounds.size() > 0, "909 kit must have sounds");
 
     int count = sounds.size();
@@ -268,7 +270,7 @@ public class KitAccuracyTest {
     // Resolve sample paths
     String[] resolvedPaths = new String[count];
     for (int i = 0; i < count; i++) {
-      String path = sounds.get(i).getSamplePath();
+      String path = ((SoundDrum) sounds.get(i)).getSamplePath();
       if (path == null || path.isEmpty()) {
         names[i] = sounds.get(i).getName() + " (NO SAMPLE)";
         continue;
@@ -503,7 +505,7 @@ public class KitAccuracyTest {
 
   @Test
   void test808KitAccuracy() throws Exception {
-    List<KitTrackModel.KitSound> sounds = kit.getSounds();
+    List<Drum> sounds = kit.getDrums();
     assertTrue(sounds.size() > 0, "808 kit must have sounds");
 
     int count = sounds.size();
@@ -518,7 +520,7 @@ public class KitAccuracyTest {
     // Cache the kit's sample paths resolved to absolute filesystem paths
     String[] resolvedPaths = new String[count];
     for (int i = 0; i < count; i++) {
-      String path = sounds.get(i).getSamplePath();
+      String path = ((SoundDrum) sounds.get(i)).getSamplePath();
       if (path == null || path.isEmpty()) {
         names[i] = sounds.get(i).getName() + " (NO SAMPLE)";
         continue;

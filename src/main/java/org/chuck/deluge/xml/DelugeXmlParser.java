@@ -79,53 +79,15 @@ public class DelugeXmlParser {
         soundName = nameNodes.item(0).getTextContent();
       }
 
-      KitTrackModel.KitSound sound = new KitTrackModel.KitSound(soundName);
-
-      NodeList sampleNodes = soundNode.getElementsByTagName("sample");
-      if (sampleNodes.getLength() > 0) {
-        Element sampleNode = (Element) sampleNodes.item(0);
-        if (sampleNode.hasAttribute("fileName")) {
-          sound.setSamplePath(sampleNode.getAttribute("fileName"));
-        } else {
-          // Some XML stores fileName as child element rather than attribute
-          NodeList fnNodes = sampleNode.getElementsByTagName("fileName");
-          if (fnNodes.getLength() > 0) {
-            String fn = fnNodes.item(0).getTextContent();
-            if (fn != null && !fn.isBlank()) {
-              sound.setSamplePath(fn);
-            }
-          }
-        }
-      } else {
-        // Some kits use osc1/fileName (attribute or child element)
-        NodeList oscNodes = soundNode.getElementsByTagName("osc1");
-        if (oscNodes.getLength() > 0) {
-          Element osc = (Element) oscNodes.item(0);
-          if (osc.hasAttribute("fileName")) {
-            sound.setSamplePath(osc.getAttribute("fileName"));
-          } else {
-            NodeList fnNodes = osc.getElementsByTagName("fileName");
-            if (fnNodes.getLength() > 0) {
-              sound.setSamplePath(fnNodes.item(0).getTextContent());
-            }
-          }
-        }
-      }
-
-      // ── Zone (sample truncation) ──
-      parseZoneFromOsc(sound, soundNode);
-
-      // ── Kit sound full synth-parity fields ──
-      parseKitSound(soundNode, sound);
-
-      kit.addSound(sound);
+      SoundDrum sound = parseSoundDrum(soundNode, soundName);
+      kit.addDrum(sound);
     }
 
     return kit;
   }
 
   /** Shared zone parser: reads zone data from an osc1 child element (both attribute and child-element formats). */
-  private static void parseZoneFromOsc(KitTrackModel.KitSound sound, Element soundNode) {
+  private static void parseZoneFromOsc(SoundDrum sound, Element soundNode) {
     NodeList oscNodes = soundNode.getElementsByTagName("osc1");
     if (oscNodes.getLength() == 0) return;
     Element osc = (Element) oscNodes.item(0);
@@ -858,52 +820,8 @@ public class DelugeXmlParser {
       if (nameNodes.getLength() > 0) {
         soundName = nameNodes.item(0).getTextContent();
       }
-      KitTrackModel.KitSound sound = new KitTrackModel.KitSound(soundName);
-      NodeList sampleNodes = soundNode.getElementsByTagName("sample");
-      boolean found = false;
-      if (sampleNodes.getLength() > 0) {
-        Element sampleNode = (Element) sampleNodes.item(0);
-        if (sampleNode.hasAttribute("fileName")) {
-          sound.setSamplePath(sampleNode.getAttribute("fileName"));
-          found = true;
-        } else {
-          NodeList fnNodes = sampleNode.getElementsByTagName("fileName");
-          if (fnNodes.getLength() > 0) {
-            String fn = fnNodes.item(0).getTextContent();
-            if (fn != null && !fn.isBlank()) {
-              sound.setSamplePath(fn);
-              found = true;
-            }
-          }
-        }
-      }
-      // Fallback: try osc1/fileName (song instrument nodes use this structure)
-      // fileName can be an attribute of osc1 or a child element
-      if (!found) {
-        NodeList oscNodes = soundNode.getElementsByTagName("osc1");
-        if (oscNodes.getLength() > 0) {
-          Element osc = (Element) oscNodes.item(0);
-          if (osc.hasAttribute("fileName")) {
-            sound.setSamplePath(osc.getAttribute("fileName"));
-            found = true;
-          } else {
-            NodeList fnNodes = osc.getElementsByTagName("fileName");
-            if (fnNodes.getLength() > 0) {
-              String fn = fnNodes.item(0).getTextContent();
-              if (fn != null && !fn.isBlank()) {
-                sound.setSamplePath(fn);
-                found = true;
-              }
-            }
-          }
-        }
-      }
-
-      // ── Zone (sample truncation) ── parses startSamplePos/endSamplePos
-      // from <zone> inside <osc1> as attributes or child elements.
-      if (found) parseZoneFromOsc(sound, soundNode);
-      parseKitSound(soundNode, sound);
-      kit.addSound(sound);
+      SoundDrum sound = parseSoundDrum(soundNode, soundName);
+      kit.addDrum(sound);
     }
     return kit;
   }
@@ -1297,10 +1215,45 @@ public class DelugeXmlParser {
   // ── Kit Sound Full Synth Parity Parsers ──
 
   /**
-   * Parse all synth-parity fields from a kit sound element.
+   * Parse all synth-parity fields from a kit sound element and return a SoundDrum.
    * Handles SONG006668.XML attribute-style format and falls back to child-element format.
    */
-  private static void parseKitSound(Element soundNode, KitTrackModel.KitSound sound) {
+  private static SoundDrum parseSoundDrum(Element soundNode, String soundName) {
+    SoundDrum sound = new SoundDrum(soundName);
+
+    // ── Sample path ──
+    NodeList sampleNodes = soundNode.getElementsByTagName("sample");
+    if (sampleNodes.getLength() > 0) {
+      Element sampleNode = (Element) sampleNodes.item(0);
+      if (sampleNode.hasAttribute("fileName")) {
+        sound.setSamplePath(sampleNode.getAttribute("fileName"));
+      } else {
+        NodeList fnNodes = sampleNode.getElementsByTagName("fileName");
+        if (fnNodes.getLength() > 0) {
+          String fn = fnNodes.item(0).getTextContent();
+          if (fn != null && !fn.isBlank()) {
+            sound.setSamplePath(fn);
+          }
+        }
+      }
+    } else {
+      NodeList oscNodes = soundNode.getElementsByTagName("osc1");
+      if (oscNodes.getLength() > 0) {
+        Element osc = (Element) oscNodes.item(0);
+        if (osc.hasAttribute("fileName")) {
+          sound.setSamplePath(osc.getAttribute("fileName"));
+        } else {
+          NodeList fnNodes = osc.getElementsByTagName("fileName");
+          if (fnNodes.getLength() > 0) {
+            sound.setSamplePath(fnNodes.item(0).getTextContent());
+          }
+        }
+      }
+    }
+
+    // ── Zone (sample truncation) ──
+    parseZoneFromOsc(sound, soundNode);
+
     // ── Root attributes ──
     readAttrBool(soundNode, "polyphonic", sound::setPolyphonic);
     int vp = readIntAttr(soundNode, "voicePriority", 1);
@@ -1372,8 +1325,8 @@ public class DelugeXmlParser {
     }
 
     // lfo1, lfo2
-    parseKitLfo(soundNode, "lfo1", sound, true);
-    parseKitLfo(soundNode, "lfo2", sound, false);
+    parseDrumLfo(soundNode, "lfo1", sound, true);
+    parseDrumLfo(soundNode, "lfo2", sound, false);
 
     // unison
     Element unisonEl = getFirstChild(soundNode, "unison");
@@ -1404,20 +1357,22 @@ public class DelugeXmlParser {
     }
 
     // modKnobs
-    parseKitModKnobs(soundNode, sound);
+    parseDrumModKnobs(soundNode, sound);
 
     // patchCables (direct child)
-    parseKitPatchCables(soundNode, sound);
+    parseDrumPatchCables(soundNode, sound);
 
     // defaultParams
     Element dp = getFirstChild(soundNode, "defaultParams");
     if (dp != null) {
-      parseKitDefaultParams(dp, sound);
+      parseDrumDefaultParams(dp, sound);
     }
+
+    return sound;
   }
 
   /** Parse kit sound LFO element. Uses attribute-style with child-element fallback. */
-  private static void parseKitLfo(Element soundNode, String lfoTag, KitTrackModel.KitSound sound, boolean isLocal) {
+  private static void parseDrumLfo(Element soundNode, String lfoTag, Drum sound, boolean isLocal) {
     Element lfoEl = getFirstChild(soundNode, lfoTag);
     if (lfoEl == null) return;
 
@@ -1465,7 +1420,7 @@ public class DelugeXmlParser {
   }
 
   /** Parse defaultParams child element for kit sounds — ~25 hex attributes. */
-  private static void parseKitDefaultParams(Element dp, KitTrackModel.KitSound sound) {
+  private static void parseDrumDefaultParams(Element dp, Drum sound) {
     readHexFloat(dp, "oscAVolume", sound::setOscAVolume);
     readHexFloat(dp, "oscBVolume", sound::setOscBVolume);
     readHexFloat(dp, "noiseVolume", sound::setNoiseVolume);
@@ -1516,11 +1471,11 @@ public class DelugeXmlParser {
     }
 
     // Patch cables inside defaultParams
-    parseKitCablesFromContainer(dp, sound);
+    parseDrumCablesFromContainer(dp, sound);
   }
 
   /** Parse modKnobs from sound element. Format: attribute-style on &lt;modKnobs&gt; children or direct &lt;modKnob&gt; elements. */
-  private static void parseKitModKnobs(Element soundNode, KitTrackModel.KitSound sound) {
+  private static void parseDrumModKnobs(Element soundNode, Drum sound) {
     // Try direct &lt;modKnobs&gt; container
     Element mkContainer = getFirstChild(soundNode, "modKnobs");
     if (mkContainer != null) {
@@ -1556,7 +1511,7 @@ public class DelugeXmlParser {
   }
 
   /** Parse patch cables from a container element (direct child of sound or inside defaultParams). */
-  private static void parseKitCablesFromContainer(Element container, KitTrackModel.KitSound sound) {
+  private static void parseDrumCablesFromContainer(Element container, Drum sound) {
     // Try &lt;patchCables&gt; container
     Element pcContainer = getFirstChild(container, "patchCables");
     if (pcContainer != null) {
@@ -1579,7 +1534,7 @@ public class DelugeXmlParser {
   }
 
   /** Parse only direct-child &lt;patchCables&gt; container (not nested inside defaultParams). */
-  private static void parseKitPatchCables(Element soundNode, KitTrackModel.KitSound sound) {
+  private static void parseDrumPatchCables(Element soundNode, Drum sound) {
     // Only match direct children to avoid double-parsing (patchCables is also inside defaultParams)
     Element pcContainer = null;
     NodeList children = soundNode.getChildNodes();
@@ -1590,7 +1545,7 @@ public class DelugeXmlParser {
       }
     }
     if (pcContainer != null) {
-      parseKitCablesFromContainer(soundNode, sound);
+      parseDrumCablesFromContainer(soundNode, sound);
       return;
     }
     // Fallback: direct &lt;patchCable&gt; children
@@ -1663,7 +1618,7 @@ public class DelugeXmlParser {
     };
   }
 
-  // ── KitSound helper methods ──
+  // ── Drum helper methods ──
 
   /** Safely get the first child element with the given tag name. */
   private static Element getFirstChild(Element parent, String tag) {

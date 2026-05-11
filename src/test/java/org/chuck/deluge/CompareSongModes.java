@@ -68,7 +68,7 @@ public class CompareSongModes {
     int engineRow = 0;
     for (TrackModel track : project.getTracks()) {
       if (track instanceof KitTrackModel kit) {
-        List<KitTrackModel.KitSound> sounds = kit.getSounds();
+        List<Drum> sounds = kit.getDrums();
         int kitVoiceCount = Math.min(8, sounds.size());
         for (int v = 0; v < kitVoiceCount; v++) {
           int r = engineRow + v;
@@ -76,7 +76,7 @@ public class CompareSongModes {
           bridge.setMute(r, false);
           bridge.setTrackLevel(r, trackLevel);
           bridge.setTrackLength(r, 16);
-          String path = sounds.get(v).getSamplePath();
+          String path = ((SoundDrum) sounds.get(v)).getSamplePath();
           if (path != null && !path.isEmpty()) {
             vm.setGlobalString("g_sample_" + r, path);
           }
@@ -103,7 +103,7 @@ public class CompareSongModes {
     for (TrackModel track : project.getTracks()) {
       int voiceCount = 8;
       int trackRows = (track instanceof KitTrackModel)
-          ? Math.min(voiceCount, ((KitTrackModel) track).getSounds().size())
+          ? Math.min(voiceCount, ((KitTrackModel) track).getDrums().size())
           : voiceCount;
       if (!track.getClips().isEmpty()) {
         ClipModel clip = track.getClips().get(0);

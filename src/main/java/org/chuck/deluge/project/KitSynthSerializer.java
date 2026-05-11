@@ -8,13 +8,14 @@ import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
+import org.chuck.deluge.model.Drum;
 import org.chuck.deluge.model.EnvelopeModel;
 import org.chuck.deluge.model.KitTrackModel;
-import org.chuck.deluge.xml.DelugeHexMapper;
 import org.chuck.deluge.model.LfoModel;
 import org.chuck.deluge.model.LfoType;
 import org.chuck.deluge.model.ModKnob;
 import org.chuck.deluge.model.PatchCable;
+import org.chuck.deluge.model.SoundDrum;
 import org.chuck.deluge.model.SynthTrackModel;
 import org.chuck.deluge.xml.DelugeHexMapper;
 import org.w3c.dom.Document;
@@ -33,7 +34,8 @@ public class KitSynthSerializer {
 
     root.setAttribute("name", kit.getName());
 
-    for (KitTrackModel.KitSound sound : kit.getSounds()) {
+    for (Drum drum : kit.getDrums()) {
+      SoundDrum sound = (SoundDrum) drum;
       Element soundElem = doc.createElement("sound");
 
       // ── name ──

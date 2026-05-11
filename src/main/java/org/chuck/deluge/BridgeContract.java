@@ -4,6 +4,7 @@ import org.chuck.core.ChuckArray;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.model.AudioTrackModel;
 import org.chuck.deluge.model.KitTrackModel;
+import org.chuck.deluge.model.SoundDrum;
 
 /**
  * Typed contract between the Java Swing UI and the ChucK audio engine — every global that
@@ -2350,7 +2351,7 @@ public final class BridgeContract {
   }
 
   public static float[] computeNormalizedRange(
-      KitTrackModel.KitSound snd, String resolvedPath) {
+      SoundDrum snd, String resolvedPath) {
     float startNorm = 0.0f;
     float endNorm = 1.0f;
     boolean hasZone = false;

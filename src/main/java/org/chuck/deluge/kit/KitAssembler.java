@@ -3,6 +3,7 @@ package org.chuck.deluge.kit;
 import java.io.File;
 import java.util.List;
 import org.chuck.deluge.model.KitTrackModel;
+import org.chuck.deluge.model.SoundDrum;
 import org.chuck.deluge.model.SynthTrackModel;
 import org.chuck.deluge.xml.DelugeXmlParser;
 
@@ -29,7 +30,7 @@ public class KitAssembler {
         laneName = "Lane " + (i + 1);
       }
 
-      KitTrackModel.KitSound sound = new KitTrackModel.KitSound(laneName);
+      SoundDrum sound = new SoundDrum(laneName);
       // Store the synth preset path as the sample reference.
       // The Deluge firmware renders this as a synth voice on the kit lane.
       sound.setSamplePath(synthFiles.get(i).getAbsolutePath());
@@ -41,7 +42,7 @@ public class KitAssembler {
         sound.setPitchSemitones(pitchOffsets.get(i));
       }
 
-      kit.addSound(sound);
+      kit.addDrum(sound);
     }
 
     return kit;

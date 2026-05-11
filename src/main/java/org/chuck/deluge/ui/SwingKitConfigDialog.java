@@ -6,8 +6,9 @@ import javax.swing.*;
 import org.chuck.core.ChuckArray;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
+import org.chuck.deluge.model.Drum;
 import org.chuck.deluge.model.KitTrackModel;
-import org.chuck.deluge.model.KitTrackModel.KitSound;
+import org.chuck.deluge.model.SoundDrum;
 
 /** Swing dialog for editing all sounds in a Kit track (ADSR, Mute Group, Reverse, Pitch). */
 public class SwingKitConfigDialog extends JDialog {
@@ -20,13 +21,13 @@ public class SwingKitConfigDialog extends JDialog {
     setLayout(new BorderLayout());
     getContentPane().setBackground(new Color(0x1a, 0x1a, 0x1a));
 
-    List<KitSound> sounds = kit.getSounds();
+    List<Drum> sounds = kit.getDrums();
     JTabbedPane tabs = new JTabbedPane();
     tabs.setBackground(new Color(0x25, 0x25, 0x25));
     tabs.setForeground(Color.WHITE);
 
     for (int i = 0; i < sounds.size(); i++) {
-      tabs.addTab(sounds.get(i).getName(), buildSoundPanel(sounds.get(i), i, vm, bridge));
+      tabs.addTab(sounds.get(i).getName(), buildSoundPanel((SoundDrum) sounds.get(i), i, vm, bridge));
     }
 
     add(tabs, BorderLayout.CENTER);
@@ -39,7 +40,7 @@ public class SwingKitConfigDialog extends JDialog {
     add(south, BorderLayout.SOUTH);
   }
 
-  private JPanel buildSoundPanel(KitSound sound, int idx, ChuckVM vm, BridgeContract bridge) {
+  private JPanel buildSoundPanel(SoundDrum sound, int idx, ChuckVM vm, BridgeContract bridge) {
     JPanel panel = new JPanel(new GridBagLayout());
     panel.setBackground(new Color(0x22, 0x22, 0x22));
     GridBagConstraints c = new GridBagConstraints();

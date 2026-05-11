@@ -56,7 +56,7 @@ public class PlaySavedSong {
       int voiceCount = 8;
 
       if (track instanceof KitTrackModel kit) {
-        List<KitTrackModel.KitSound> sounds = kit.getSounds();
+        List<Drum> sounds = kit.getDrums();
         int kitVoiceCount = Math.min(voiceCount, sounds.size());
         for (int v = 0; v < kitVoiceCount; v++) {
           int r = engineRow + v;
@@ -64,7 +64,7 @@ public class PlaySavedSong {
           bridge.setMute(r, false);
           bridge.setTrackLevel(r, 0.8);
           bridge.setTrackLength(r, 16);
-          String path = sounds.get(v).getSamplePath();
+          String path = ((SoundDrum) sounds.get(v)).getSamplePath();
           if (path != null && !path.isEmpty()) {
             // Resolve: if starts with "SAMPLES/" try classpath resource
             vm.setGlobalString("g_sample_" + r, path);
@@ -94,7 +94,7 @@ public class PlaySavedSong {
       TrackModel track = project.getTracks().get(t);
       int voiceCount = 8;
       int trackRows = (track instanceof KitTrackModel)
-          ? Math.min(voiceCount, ((KitTrackModel) track).getSounds().size())
+          ? Math.min(voiceCount, ((KitTrackModel) track).getDrums().size())
           : voiceCount;
       if (!track.getClips().isEmpty()) {
         ClipModel clip = track.getClips().get(0);

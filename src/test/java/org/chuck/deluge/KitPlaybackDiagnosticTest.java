@@ -35,12 +35,12 @@ public class KitPlaybackDiagnosticTest {
     }
     assertTrue(is != null, "808 Kit resource not found");
     KitTrackModel kit = DelugeXmlParser.parseKit(is, "808");
-    int voiceCount = Math.min(16, kit.getSounds().size());
+    int voiceCount = Math.min(16, kit.getDrums().size());
 
     // 3. Mimic sidebar KIT loading path:
     //    sidebar sets g_sample_0..N, setSamplePath, setMute
     for (int i = 0; i < voiceCount; i++) {
-      String path = kit.getSounds().get(i).getSamplePath();
+      String path = ((SoundDrum) kit.getDrums().get(i)).getSamplePath();
       vm.setGlobalString("g_sample_" + i, path != null ? path : "");
       bridge.setSamplePath(i, path != null ? path : "");
       bridge.setMute(i, false);
@@ -67,8 +67,8 @@ public class KitPlaybackDiagnosticTest {
     // Set sample paths (reversed like pushModelToBridge does)
     for (int v = 0; v < voiceCount; v++) {
       int engineRow = v;
-      String path = v < kit.getSounds().size()
-        ? kit.getSounds().get(kit.getSounds().size() - 1 - v).getSamplePath() : "";
+      String path = v < kit.getDrums().size()
+        ? ((SoundDrum) kit.getDrums().get(kit.getDrums().size() - 1 - v)).getSamplePath() : "";
       vm.setGlobalString("g_sample_" + engineRow, path);
       bridge.setSamplePath(engineRow, path);
     }
@@ -154,11 +154,11 @@ public class KitPlaybackDiagnosticTest {
     InputStream is = getClass().getResourceAsStream("/KITS/000 TR-808.XML");
     assertTrue(is != null, "808 Kit resource not found");
     KitTrackModel kit = DelugeXmlParser.parseKit(is, "808");
-    int voiceCount = Math.min(16, kit.getSounds().size());
+    int voiceCount = Math.min(16, kit.getDrums().size());
 
     for (int i = 0; i < voiceCount; i++) {
-      String path = kit.getSounds().get(i).getSamplePath() != null
-        ? kit.getSounds().get(i).getSamplePath() : "";
+      String path = ((SoundDrum) kit.getDrums().get(i)).getSamplePath() != null
+        ? ((SoundDrum) kit.getDrums().get(i)).getSamplePath() : "";
       vm.setGlobalString("g_sample_" + i, path);
       bridge.setSamplePath(i, path);
       bridge.setMute(i, false);
@@ -177,8 +177,8 @@ public class KitPlaybackDiagnosticTest {
     for (int v = 0; v < voiceCount; v++) bridge.setTrackType(v, 0);
     for (int v = 0; v < voiceCount; v++) {
       int engineRow = v;
-      String path = v < kit.getSounds().size()
-        ? kit.getSounds().get(kit.getSounds().size() - 1 - v).getSamplePath() : "";
+      String path = v < kit.getDrums().size()
+        ? ((SoundDrum) kit.getDrums().get(kit.getDrums().size() - 1 - v)).getSamplePath() : "";
       vm.setGlobalString("g_sample_" + engineRow, path);
       bridge.setSamplePath(engineRow, path);
     }
@@ -245,10 +245,10 @@ public class KitPlaybackDiagnosticTest {
     }
     assertTrue(is != null, "808 Kit resource not found");
     KitTrackModel kit = DelugeXmlParser.parseKit(is, "808");
-    int voiceCount = Math.min(16, kit.getSounds().size());
+    int voiceCount = Math.min(16, kit.getDrums().size());
 
     for (int i = 0; i < voiceCount; i++) {
-      String path = kit.getSounds().get(i).getSamplePath();
+      String path = ((SoundDrum) kit.getDrums().get(i)).getSamplePath();
       vm.setGlobalString("g_sample_" + i, path != null ? path : "");
       bridge.setSamplePath(i, path != null ? path : "");
       bridge.setMute(i, false);
@@ -269,8 +269,8 @@ public class KitPlaybackDiagnosticTest {
     }
     for (int v = 0; v < voiceCount; v++) {
       int engineRow = v;
-      String path = v < kit.getSounds().size()
-        ? kit.getSounds().get(kit.getSounds().size() - 1 - v).getSamplePath() : "";
+      String path = v < kit.getDrums().size()
+        ? ((SoundDrum) kit.getDrums().get(kit.getDrums().size() - 1 - v)).getSamplePath() : "";
       vm.setGlobalString("g_sample_" + engineRow, path);
       bridge.setSamplePath(engineRow, path);
     }

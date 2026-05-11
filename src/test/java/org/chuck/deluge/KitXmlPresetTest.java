@@ -9,6 +9,7 @@ import java.util.stream.Stream;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.engine.DelugeEngineDSL;
 import org.chuck.deluge.model.KitTrackModel;
+import org.chuck.deluge.model.SoundDrum;
 import org.chuck.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Tag;
@@ -113,7 +114,7 @@ public class KitXmlPresetTest {
       return; // skip malformed XML presets (e.g., unclosed tags in community samples)
     }
 
-    int soundCount = kit.getSounds().size();
+    int soundCount = kit.getDrums().size();
     assertTrue(soundCount > 0, "Kit " + kitName + " should have at least 1 sound");
 
     // 2. Start engine
@@ -122,7 +123,7 @@ public class KitXmlPresetTest {
 
     // 3. Push sample paths to engine rows
     for (int i = 0; i < soundCount; i++) {
-      String path = kit.getSounds().get(i).getSamplePath();
+      String path = ((SoundDrum) kit.getDrums().get(i)).getSamplePath();
       if (path != null && !path.isEmpty()) {
         vm.setGlobalString("g_sample_" + i, path);
         bridge.setTrackType(i, 0);

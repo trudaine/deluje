@@ -11,8 +11,10 @@ import org.chuck.deluge.midi.MidiInputRouter;
 import org.chuck.deluge.midi.MidiService;
 import org.chuck.deluge.model.ClipModel;
 import org.chuck.deluge.model.EnvelopeModel;
+import org.chuck.deluge.model.Drum;
 import org.chuck.deluge.model.KitTrackModel;
 import org.chuck.deluge.model.ProjectModel;
+import org.chuck.deluge.model.SoundDrum;
 import org.chuck.deluge.model.StepData;
 import org.chuck.deluge.model.SynthTrackModel;
 import org.chuck.deluge.model.TrackModel;
@@ -132,14 +134,14 @@ public class DelugeE2ETest {
         int voiceCount = 8; // default rows per track
 
         if (track instanceof KitTrackModel kit) {
-          List<KitTrackModel.KitSound> sounds = kit.getSounds();
+          List<Drum> sounds = kit.getDrums();
           for (int v = 0; v < Math.min(voiceCount, sounds.size()); v++) {
             int r = engineRow + v;
             bridge.setTrackType(r, 0);
             bridge.setMute(r, false);
             bridge.setTrackLevel(r, 0.8);
 
-            String path = sounds.get(v).getSamplePath();
+            String path = ((SoundDrum) sounds.get(v)).getSamplePath();
             if (path != null && !path.isEmpty()) {
               vm.setGlobalString("g_sample_" + r, path);
             }

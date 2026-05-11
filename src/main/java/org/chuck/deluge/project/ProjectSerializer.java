@@ -13,8 +13,10 @@ import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
+import org.chuck.deluge.model.Drum;
 import org.chuck.deluge.model.KitTrackModel;
 import org.chuck.deluge.model.ProjectModel;
+import org.chuck.deluge.model.SoundDrum;
 import org.chuck.deluge.model.SynthTrackModel;
 import org.chuck.deluge.model.TrackModel;
 import org.w3c.dom.Document;
@@ -46,7 +48,8 @@ public class ProjectSerializer {
 
     for (TrackModel track : model.getTracks()) {
       if (track instanceof KitTrackModel kit) {
-        for (KitTrackModel.KitSound sound : kit.getSounds()) {
+        for (Drum drum : kit.getDrums()) {
+          if (!(drum instanceof SoundDrum sound)) continue;
           String sp = sound.getSamplePath();
           if (sp == null || sp.isBlank() || seenPaths.contains(sp)) continue;
           seenPaths.add(sp);
@@ -107,7 +110,8 @@ public class ProjectSerializer {
         presetSlot.setTextContent(kit.getName());
         trackElem.appendChild(presetSlot);
 
-        for (KitTrackModel.KitSound sound : kit.getSounds()) {
+        for (Drum drum : kit.getDrums()) {
+          SoundDrum sound = (SoundDrum) drum;
           Element soundElem = doc.createElement("sound");
           Element nameElem = doc.createElement("name");
           nameElem.setTextContent(sound.getName());

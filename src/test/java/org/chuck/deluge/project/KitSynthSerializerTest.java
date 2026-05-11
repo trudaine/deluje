@@ -12,6 +12,7 @@ import org.chuck.deluge.model.EnvelopeModel;
 import org.chuck.deluge.model.FilterMode;
 import org.chuck.deluge.model.KitTrackModel;
 import org.chuck.deluge.model.LfoModel;
+import org.chuck.deluge.model.SoundDrum;
 import org.chuck.deluge.model.LfoType;
 import org.chuck.deluge.model.ModKnob;
 import org.chuck.deluge.model.PatchCable;
@@ -42,9 +43,9 @@ public class KitSynthSerializerTest {
     KitTrackModel parsed =
         DelugeXmlParser.parseKit(new FileInputStream(temp), "TEST_KIT");
 
-    assertEquals(original.getSounds().size(), parsed.getSounds().size());
-    KitTrackModel.KitSound orig = original.getSounds().get(0);
-    KitTrackModel.KitSound parsedSound = parsed.getSounds().get(0);
+    assertEquals(original.getDrums().size(), parsed.getDrums().size());
+    SoundDrum orig = (SoundDrum) original.getDrums().get(0);
+    SoundDrum parsedSound = (SoundDrum) parsed.getDrums().get(0);
 
     // ── Basic fields ──
     assertEquals(orig.getName(), parsedSound.getName());
@@ -261,11 +262,11 @@ public class KitSynthSerializerTest {
   @Test
   void testKitSerializerOutputStructure() throws Exception {
     KitTrackModel kit = new KitTrackModel("STRUCT_TEST");
-    KitTrackModel.KitSound s = new KitTrackModel.KitSound("SNARE", "/samples/snare.wav");
+    SoundDrum s = new SoundDrum("SNARE", "/samples/snare.wav");
     s.setOsc2Type("TRIANGLE");
     s.setUnisonNum(2);
     s.setUnisonDetune(0.1f);
-    kit.addSound(s);
+    kit.addDrum(s);
 
     File temp = File.createTempFile("deluge_kit_struct", ".xml");
     temp.deleteOnExit();
@@ -372,12 +373,12 @@ public class KitSynthSerializerTest {
   @Test
   void testKitHexDefaultParamValues() throws Exception {
     KitTrackModel kit = new KitTrackModel("HEX_TEST");
-    KitTrackModel.KitSound s = new KitTrackModel.KitSound("TICK");
+    SoundDrum s = new SoundDrum("TICK");
     s.setVolume(0.5f);
     s.setPan(0.0f);
     s.setLpfFreq(20000.0f);
     s.setHpfFreq(20.0f);
-    kit.addSound(s);
+    kit.addDrum(s);
 
     File temp = File.createTempFile("deluge_kit_hex", ".xml");
     temp.deleteOnExit();
@@ -391,16 +392,16 @@ public class KitSynthSerializerTest {
     // Re-parse and check volume survives
     KitTrackModel parsed =
         DelugeXmlParser.parseKit(new FileInputStream(temp), "HEX_TEST");
-    assertEquals(0.5f, parsed.getSounds().get(0).getVolume(), 0.01f);
-    assertEquals(0.0f, parsed.getSounds().get(0).getPan(), 0.01f);
-    assertEquals(20000.0f, parsed.getSounds().get(0).getLpfFreq(), 1.0f);
-    assertEquals(20.0f, parsed.getSounds().get(0).getHpfFreq(), 1.0f);
+    assertEquals(0.5f, parsed.getDrums().get(0).getVolume(), 0.01f);
+    assertEquals(0.0f, parsed.getDrums().get(0).getPan(), 0.01f);
+    assertEquals(20000.0f, parsed.getDrums().get(0).getLpfFreq(), 1.0f);
+    assertEquals(20.0f, parsed.getDrums().get(0).getHpfFreq(), 1.0f);
   }
 
   @Test
   void testKitEmptyModKnobs() throws Exception {
     KitTrackModel kit = new KitTrackModel("EMPTY_KNOBS");
-    kit.addSound(new KitTrackModel.KitSound("NOISE"));
+    kit.addDrum(new SoundDrum("NOISE"));
 
     File temp = File.createTempFile("deluge_empty_knobs", ".xml");
     temp.deleteOnExit();
@@ -415,7 +416,7 @@ public class KitSynthSerializerTest {
 
   private static KitTrackModel buildFullKit() {
     KitTrackModel kit = new KitTrackModel("TEST_KIT");
-    KitTrackModel.KitSound s = new KitTrackModel.KitSound("KICK", "/samples/kick.wav");
+    SoundDrum s = new SoundDrum("KICK", "/samples/kick.wav");
     s.setReverse(false);
     s.setStartMs(50.0f);
     s.setEndMs(5000.0f);
@@ -455,7 +456,7 @@ public class KitSynthSerializerTest {
     s.addPatchCable(new PatchCable("ENV3", "LPF", 0.8f));
     s.setModKnob(0, new ModKnob("volume", "NONE"));
     s.setModKnob(1, new ModKnob("lpfFrequency", "LFO1"));
-    kit.addSound(s);
+    kit.addDrum(s);
     return kit;
   }
 
