@@ -344,6 +344,7 @@ public final class BridgeContract {
   public static final String G_COMP_ATTACK = "g_comp_attack";
   public static final String G_COMP_RELEASE = "g_comp_release";
   public static final String G_COMP_BLEND = "g_comp_blend";
+  public static final String G_COMP_RATIO = "g_comp_ratio";
   public static final String G_COMP_SIDECHAIN_HPF = "g_comp_sidechain_hpf";
   public static final String G_OSC2_TYPE = "g_osc2_type";
   public static final String G_RETRIG_PHASE = "g_retrig_phase";
@@ -377,6 +378,7 @@ public final class BridgeContract {
   public static final String G_KIT_COMP_ATTACK = "g_kit_comp_attack";
   public static final String G_KIT_COMP_RELEASE = "g_kit_comp_release";
   public static final String G_KIT_COMP_BLEND = "g_kit_comp_blend";
+  public static final String G_KIT_COMP_RATIO = "g_kit_comp_ratio";
   public static final String G_KIT_COMP_SIDECHAIN_HPF = "g_kit_comp_sidechain_hpf";
   public static final String G_KIT_WAVE_INDEX = "g_kit_wave_index";
   public static final String G_KIT_DELAY_RATE = "g_kit_delay_rate";
@@ -738,6 +740,7 @@ public final class BridgeContract {
     final float[] compressorAttackArr = new float[TRACKS];
     final float[] compressorReleaseArr = new float[TRACKS];
     final float[] compressorBlendArr = new float[TRACKS];
+    final float[] compressorRatioArr = new float[TRACKS];
     final float[] compressorSidechainHpfArr = new float[TRACKS];
     final int[] osc2Type = new int[TRACKS];
     final int[] retrigPhase = new int[TRACKS];
@@ -803,6 +806,7 @@ public final class BridgeContract {
         compressorAttackArr[t] = 0f;
         compressorReleaseArr[t] = 0f;
         compressorBlendArr[t] = 0f;
+        compressorRatioArr[t] = 0.5f;
         compressorSidechainHpfArr[t] = 0f;
         osc2Type[t] = 0;
         retrigPhase[t] = 0;
@@ -892,6 +896,7 @@ public final class BridgeContract {
       vm.setGlobalObject(G_COMP_ATTACK, new ChuckArray(compressorAttackArr));
       vm.setGlobalObject(G_COMP_RELEASE, new ChuckArray(compressorReleaseArr));
       vm.setGlobalObject(G_COMP_BLEND, new ChuckArray(compressorBlendArr));
+      vm.setGlobalObject(G_COMP_RATIO, new ChuckArray(compressorRatioArr));
       vm.setGlobalObject(G_COMP_SIDECHAIN_HPF, new ChuckArray(compressorSidechainHpfArr));
       vm.setGlobalObject(G_OSC2_TYPE, new ChuckArray(osc2Type));
       vm.setGlobalObject(G_RETRIG_PHASE, new ChuckArray(retrigPhase));
@@ -941,6 +946,7 @@ public final class BridgeContract {
     final float[] kitCompressorAttackArr = new float[TRACKS];
     final float[] kitCompressorReleaseArr = new float[TRACKS];
     final float[] kitCompressorBlendArr = new float[TRACKS];
+    final float[] kitCompressorRatioArr = new float[TRACKS];
     final float[] kitCompressorSidechainHpfArr = new float[TRACKS];
     final float[] kitDelayRate = new float[TRACKS];
     final float[] kitDelayFb = new float[TRACKS];
@@ -990,6 +996,7 @@ public final class BridgeContract {
         kitCompressorAttackArr[t] = 0f;
         kitCompressorReleaseArr[t] = 0f;
         kitCompressorBlendArr[t] = 0f;
+        kitCompressorRatioArr[t] = 0.5f;
         kitCompressorSidechainHpfArr[t] = 0f;
         kitDelayRate[t] = 0f;
         kitDelayFb[t] = 0f;
@@ -1042,6 +1049,7 @@ public final class BridgeContract {
       vm.setGlobalObject(G_KIT_COMP_ATTACK, new ChuckArray(kitCompressorAttackArr));
       vm.setGlobalObject(G_KIT_COMP_RELEASE, new ChuckArray(kitCompressorReleaseArr));
       vm.setGlobalObject(G_KIT_COMP_BLEND, new ChuckArray(kitCompressorBlendArr));
+      vm.setGlobalObject(G_KIT_COMP_RATIO, new ChuckArray(kitCompressorRatioArr));
       vm.setGlobalObject(G_KIT_COMP_SIDECHAIN_HPF, new ChuckArray(kitCompressorSidechainHpfArr));
       vm.setGlobalObject(G_KIT_DELAY_RATE, new ChuckArray(kitDelayRate));
       vm.setGlobalObject(G_KIT_DELAY_FB, new ChuckArray(kitDelayFb));
@@ -2053,6 +2061,8 @@ public final class BridgeContract {
   public float getCompRelease(int track) { return synth.compressorReleaseArr[track]; }
   public void setCompBlend(int track, float v) { synth.compressorBlendArr[track] = v; }
   public float getCompBlend(int track) { return synth.compressorBlendArr[track]; }
+  public void setCompRatio(int track, float v) { synth.compressorRatioArr[track] = v; }
+  public float getCompRatio(int track) { return synth.compressorRatioArr[track]; }
   public void setCompSidechainHpf(int track, float v) { synth.compressorSidechainHpfArr[track] = v; }
   public float getCompSidechainHpf(int track) { return synth.compressorSidechainHpfArr[track]; }
   public void setOsc2Type(int track, int v) { synth.osc2Type[track] = v; }
@@ -2183,6 +2193,8 @@ public final class BridgeContract {
   public float getKitCompBlend(int track) { return kit.kitCompressorBlendArr[track]; }
   public void setKitCompSidechainHpf(int track, float v) { kit.kitCompressorSidechainHpfArr[track] = v; }
   public float getKitCompSidechainHpf(int track) { return kit.kitCompressorSidechainHpfArr[track]; }
+  public void setKitCompRatio(int track, float v) { kit.kitCompressorRatioArr[track] = v; }
+  public float getKitCompRatio(int track) { return kit.kitCompressorRatioArr[track]; }
   public void setKitDelayRate(int track, float v) { kit.kitDelayRate[track] = v; }
   public float getKitDelayRate(int track) { return kit.kitDelayRate[track]; }
   public void setKitDelayFb(int track, float v) { kit.kitDelayFb[track] = v; }

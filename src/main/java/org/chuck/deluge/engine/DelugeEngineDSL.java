@@ -236,16 +236,8 @@ public class DelugeEngineDSL implements Shred, Runnable {
 
       Echo delay = new Echo();
 
-      String reverbModel = org.chuck.deluge.project.PreferencesManager.get("reverb.model", "JCRev");
-      org.chuck.audio.util.StereoUGen rev;
-      if (null == reverbModel) {
-          rev = new JCRev();
-      } else rev = switch (reverbModel) {
-          case "FreeVerb" -> new FreeVerb();
-          case "MVerb" -> new MVerb();
-          case "ProceduralReverb" -> new ProceduralReverb();
-          default -> new JCRev();
-      };
+      long currentReverbModel = vm.getGlobalInt(BridgeContract.G_REVERB_MODEL);
+      org.chuck.audio.util.StereoUGen rev = createReverbByIndex((int) currentReverbModel);
 
       Chorus chorus = new Chorus(sr);
       chorus.setModDepth(0.2f);
@@ -354,8 +346,35 @@ public class DelugeEngineDSL implements Shred, Runnable {
           mvb.setParameter(org.chuck.audio.fx.MVerb.DECAY, revRoom);
           mvb.setParameter(org.chuck.audio.fx.MVerb.DAMPINGFREQ, 1.0 - revDamp);
           mvb.setParameter(org.chuck.audio.fx.MVerb.SIZE, Math.min(1.0, revWidth + 0.5));
+        } else if (rev instanceof org.chuck.audio.fx.RingsReverb rings) {
+          rings.setBrightness(1.0f - revDamp);
+          rings.setStructure(revRoom);
+          rings.setPosition(revWidth);
+          rings.setDamping(revDamp * 0.3f);
+        }
+
+        // Runtime reverb model hot-swap
+        long newModel = vm.getGlobalInt(BridgeContract.G_REVERB_MODEL);
+        if (newModel != currentReverbModel) {
+          currentReverbModel = newModel;
+          Gain revIn = (Gain) vm.getGlobalObject(BridgeContract.G_REVERB_IN);
+          revIn.unchuck(rev);
+          rev.unchuck(revComp);
+          rev = createReverbByIndex((int) newModel);
+          revIn.chuck(rev).chuck(revComp).chuck(fxIn);
         }
       }
+    }
+
+    private org.chuck.audio.util.StereoUGen createReverbByIndex(int idx) {
+      return switch (idx) {
+        case 0 -> new FreeVerb();
+        case 1 -> new JCRev();
+        case 2 -> new MVerb();
+        case 3 -> new org.chuck.audio.fx.ProceduralReverb();
+        case 4 -> new org.chuck.audio.fx.RingsReverb();
+        default -> new JCRev();
+      };
     }
   }
 
@@ -1027,6 +1046,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
         ChuckArray kitCompR = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_COMP_RELEASE);
         ChuckArray kitCompBlend = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_COMP_BLEND);
         ChuckArray kitCompHpf = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_COMP_SIDECHAIN_HPF);
+        ChuckArray kitCompRatio = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_COMP_RATIO);
         ChuckArray kitModFxType = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_MOD_FX_TYPE);
         ChuckArray kitModFxRate = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_MOD_FX_RATE);
         ChuckArray kitModFxDepth = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_MOD_FX_DEPTH);
@@ -1071,6 +1091,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
           if (kitCompR != null && r < kitCompR.size()) vm.setGlobalFloat(BridgeContract.G_KIT_COMP_RELEASE + "_" + r, kitCompR.getFloat(r));
           if (kitCompBlend != null && r < kitCompBlend.size()) vm.setGlobalFloat(BridgeContract.G_KIT_COMP_BLEND + "_" + r, kitCompBlend.getFloat(r));
           if (kitCompHpf != null && r < kitCompHpf.size()) vm.setGlobalFloat(BridgeContract.G_KIT_COMP_SIDECHAIN_HPF + "_" + r, kitCompHpf.getFloat(r));
+          if (kitCompRatio != null && r < kitCompRatio.size()) vm.setGlobalFloat(BridgeContract.G_KIT_COMP_RATIO + "_" + r, kitCompRatio.getFloat(r));
           if (kitAtk != null && r < kit.length) {
             double a = kitAtk.getFloat(r);
             double d = kitDec != null ? kitDec.getFloat(r) : 0;
@@ -1289,10 +1310,21 @@ public class DelugeEngineDSL implements Shred, Runnable {
             float kr = kitCompR != null && r < kitCompR.size() ? (float) kitCompR.getFloat(r) : 0.0f;
             double releaseMS2 = 50.0 + (Math.exp(2.0 * kr) - 1.0) * 50.0;
             kitComp[r].releaseTime(releaseMS2 * sr / 1000.0);
-            float kRatio = 0.33f;
+            // Ratio from bridge array (default 0.5 → ~3:1)
+            float kRatio = kitCompRatio != null && r < kitCompRatio.size() ? (float) kitCompRatio.getFloat(r) : 0.5f;
             double kfraction = 0.5 + kRatio / 2.0;
             double kratio = 1.0 / Math.max(0.0039, 1.0 - kfraction);
             kitComp[r].ratio((float) Math.max(2.0, Math.min(256.0, kratio)));
+            // Parallel compression blend (dry/wet on Dyno)
+            float kb = kitCompBlend != null && r < kitCompBlend.size() ? (float) kitCompBlend.getFloat(r) : 0.0f;
+            kitComp[r].dryWet(kb);
+            // Sidechain HPF approximation: raise effective threshold for low frequencies
+            float hpfFreq = kitCompHpf != null && r < kitCompHpf.size() ? (float) kitCompHpf.getFloat(r) : 0.0f;
+            if (hpfFreq > 0.01f) {
+              float hpfAmount = hpfFreq * 0.5f; // max 6dB reduction in sensitivity
+              float effectiveThresh = (float) Math.max(0.01, Math.min(0.99, th2 * (1.0 + hpfAmount)));
+              kitComp[r].thresh(effectiveThresh);
+            }
           }
           // Per-voice ModFxUnit param update (every step for live modulation)
           if (kitModFx != null && r < kitModFx.length && kitModFx[r] != null) {
@@ -1870,6 +1902,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
         ChuckArray sCompRelease = (ChuckArray) vm.getGlobalObject(BridgeContract.G_COMP_RELEASE);
         ChuckArray sCompBlend = (ChuckArray) vm.getGlobalObject(BridgeContract.G_COMP_BLEND);
         ChuckArray sCompHpf = (ChuckArray) vm.getGlobalObject(BridgeContract.G_COMP_SIDECHAIN_HPF);
+        ChuckArray sCompRatio = (ChuckArray) vm.getGlobalObject(BridgeContract.G_COMP_RATIO);
         ChuckArray maxVoicesArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_MAX_VOICES);
         ChuckArray sLfoSync = (ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_SYNC_LEVEL);
         ChuckArray sWaveIndex = (ChuckArray) vm.getGlobalObject(BridgeContract.G_WAVE_INDEX);
@@ -2106,6 +2139,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
           if (sCompRelease != null && r < sCompRelease.size()) vm.setGlobalFloat(BridgeContract.G_COMP_RELEASE + "_" + r, sCompRelease.getFloat(r));
           if (sCompBlend != null && r < sCompBlend.size()) vm.setGlobalFloat(BridgeContract.G_COMP_BLEND + "_" + r, sCompBlend.getFloat(r));
           if (sCompHpf != null && r < sCompHpf.size()) vm.setGlobalFloat(BridgeContract.G_COMP_SIDECHAIN_HPF + "_" + r, sCompHpf.getFloat(r));
+          if (sCompRatio != null && r < sCompRatio.size()) vm.setGlobalFloat(BridgeContract.G_COMP_RATIO + "_" + r, sCompRatio.getFloat(r));
 
           // ── Step automation blend: modify per-track globals in place ──
           // Volume: step automation adds on top of track volume
@@ -2198,13 +2232,21 @@ public class DelugeEngineDSL implements Shred, Runnable {
             float compRelease = sCompRelease != null && r < sCompRelease.size() ? (float) sCompRelease.getFloat(r) : 0.0f;
             double releaseMS = 50.0 + (Math.exp(2.0 * compRelease) - 1.0) * 50.0;
             compArr[u].releaseTime(releaseMS * sr / 1000.0);
-            // Ratio: fraction = 0.5 + knob/2, ratio = 1/(1-fraction) → range 2..256
-            // Default 4:1 → fraction=0.5/0.75 = 0.666, knob=0 → fraction=0.5, ratio=2
-            // Without per-track ratio array, use fixed knob=0.33 → fraction=0.665 → ratio≈3:1
-            float compRatio = 0.33f; // default ~3:1
+            // Ratio from bridge array (default 0.5 → ~3:1)
+            float compRatio = sCompRatio != null && r < sCompRatio.size() ? (float) sCompRatio.getFloat(r) : 0.5f;
             double fraction = 0.5 + compRatio / 2.0;
             double ratio = 1.0 / Math.max(0.0039, 1.0 - fraction);
             compArr[u].ratio((float) Math.max(2.0, Math.min(256.0, ratio)));
+            // Parallel compression blend (dry/wet on Dyno)
+            float cb = sCompBlend != null && r < sCompBlend.size() ? (float) sCompBlend.getFloat(r) : 0.0f;
+            compArr[u].dryWet(cb);
+            // Sidechain HPF approximation: raise effective threshold for low frequencies
+            float hpfFreq = sCompHpf != null && r < sCompHpf.size() ? (float) sCompHpf.getFloat(r) : 0.0f;
+            if (hpfFreq > 0.01f) {
+              float hpfAmount = hpfFreq * 0.5f; // max 6dB reduction in sensitivity
+              float effectiveThresh = (float) Math.max(0.01, Math.min(0.99, th * (1.0 + hpfAmount)));
+              compArr[u].thresh(effectiveThresh);
+            }
           }
 
           // Per-track ModFxUnit param update (every step for live modulation)
