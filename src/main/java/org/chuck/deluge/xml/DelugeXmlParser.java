@@ -615,11 +615,17 @@ public class DelugeXmlParser {
               }
             }
 
-            // Parse per-clip <kitParams> for kit tracks
+            // Parse per-clip <kitParams> for kit tracks or <params> for synth clips
             if (targetTrack instanceof KitTrackModel) {
               Element kitParamsEl = getFirstChild(clipElem, "kitParams");
               if (kitParamsEl != null) {
                 parseKitParamsElement(kitParamsEl, clip);
+              }
+            } else {
+              // Synth track: <params> child has same hex-attribute set as <kitParams>
+              NodeList paramsList2 = clipElem.getElementsByTagName("params");
+              if (paramsList2.getLength() > 0) {
+                parseParamsAsKitParams((Element) paramsList2.item(0), clip);
               }
             }
           }
@@ -2067,46 +2073,59 @@ public class DelugeXmlParser {
 
   /** Parse &lt;kitParams&gt; element (mirrors &lt;songParams&gt; but stores values in a Map on ClipModel). */
   private static void parseKitParamsElement(Element kp, ClipModel clip) {
-    readKitHexAttr(kp, "reverbAmount", clip, "reverbAmount");
-    readKitHexAttr(kp, "volume", clip, "volume");
-    readKitHexAttr(kp, "pan", clip, "pan");
-    readKitHexAttr(kp, "sidechainCompressorShape", clip, "sidechainCompressorShape");
-    readKitHexAttr(kp, "modFXRate", clip, "modFXRate");
-    readKitHexAttr(kp, "modFXDepth", clip, "modFXDepth");
-    readKitHexAttr(kp, "modFXOffset", clip, "modFXOffset");
-    readKitHexAttr(kp, "modFXFeedback", clip, "modFXFeedback");
-    readKitHexAttr(kp, "stutterRate", clip, "stutterRate");
-    readKitHexAttr(kp, "sampleRateReduction", clip, "sampleRateReduction");
-    readKitHexAttr(kp, "bitCrush", clip, "bitCrush");
-    readKitHexAttr(kp, "compressorThreshold", clip, "compressorThreshold");
-    readKitHexAttr(kp, "lpfMorph", clip, "lpfMorph");
-    readKitHexAttr(kp, "hpfMorph", clip, "hpfMorph");
-    // Child elements
-    NodeList kpDelay = kp.getElementsByTagName("delay");
-    if (kpDelay.getLength() > 0) {
-      Element d = (Element) kpDelay.item(0);
+    parseParamsAsKitParams(kp, clip);
+  }
+
+  /**
+   * Parse a &lt;params&gt; or &lt;kitParams&gt; element into ClipModel.kitParams. Handles the same
+   * hex-attribute set as the real firmware's GlobalEffectable serialisation.
+   */
+  private static void parseParamsAsKitParams(Element params, ClipModel clip) {
+    readKitHexAttr(params, "reverbAmount", clip, "reverbAmount");
+    readKitHexAttr(params, "volume", clip, "volume");
+    readKitHexAttr(params, "pan", clip, "pan");
+    readKitHexAttr(params, "sidechainCompressorShape", clip, "sidechainCompressorShape");
+    readKitHexAttr(params, "modFXRate", clip, "modFXRate");
+    readKitHexAttr(params, "modFXDepth", clip, "modFXDepth");
+    readKitHexAttr(params, "modFXOffset", clip, "modFXOffset");
+    readKitHexAttr(params, "modFXFeedback", clip, "modFXFeedback");
+    readKitHexAttr(params, "stutterRate", clip, "stutterRate");
+    readKitHexAttr(params, "sampleRateReduction", clip, "sampleRateReduction");
+    readKitHexAttr(params, "bitCrush", clip, "bitCrush");
+    readKitHexAttr(params, "compressorThreshold", clip, "compressorThreshold");
+    readKitHexAttr(params, "lpfMorph", clip, "lpfMorph");
+    readKitHexAttr(params, "hpfMorph", clip, "hpfMorph");
+    // Child elements (delay, lpf, hpf, equalizer)
+    parseKitParamChildElements(params, clip);
+  }
+
+  /** Parse child elements (delay, lpf, hpf, equalizer) of a kitParams/params element. */
+  private static void parseKitParamChildElements(Element parent, ClipModel clip) {
+    NodeList delay = parent.getElementsByTagName("delay");
+    if (delay.getLength() > 0) {
+      Element d = (Element) delay.item(0);
       readKitHexAttr(d, "rate", clip, "delayRate");
       readKitHexAttr(d, "feedback", clip, "delayFeedback");
     }
-    NodeList kpLpf = kp.getElementsByTagName("lpf");
-    if (kpLpf.getLength() > 0) {
-      Element l = (Element) kpLpf.item(0);
+    NodeList lpf = parent.getElementsByTagName("lpf");
+    if (lpf.getLength() > 0) {
+      Element l = (Element) lpf.item(0);
       readKitHexAttr(l, "frequency", clip, "lpfFrequency");
       readKitHexAttr(l, "resonance", clip, "lpfResonance");
     }
-    NodeList kpHpf = kp.getElementsByTagName("hpf");
-    if (kpHpf.getLength() > 0) {
-      Element h = (Element) kpHpf.item(0);
+    NodeList hpf = parent.getElementsByTagName("hpf");
+    if (hpf.getLength() > 0) {
+      Element h = (Element) hpf.item(0);
       readKitHexAttr(h, "frequency", clip, "hpfFrequency");
       readKitHexAttr(h, "resonance", clip, "hpfResonance");
     }
-    NodeList kpEq = kp.getElementsByTagName("equalizer");
-    if (kpEq.getLength() > 0) {
-      Element eq = (Element) kpEq.item(0);
-      readKitHexAttr(eq, "bass", clip, "eqBass");
-      readKitHexAttr(eq, "treble", clip, "eqTreble");
-      readKitHexAttr(eq, "bassFrequency", clip, "eqBassFrequency");
-      readKitHexAttr(eq, "trebleFrequency", clip, "eqTrebleFrequency");
+    NodeList eq = parent.getElementsByTagName("equalizer");
+    if (eq.getLength() > 0) {
+      Element eqEl = (Element) eq.item(0);
+      readKitHexAttr(eqEl, "bass", clip, "eqBass");
+      readKitHexAttr(eqEl, "treble", clip, "eqTreble");
+      readKitHexAttr(eqEl, "bassFrequency", clip, "eqBassFrequency");
+      readKitHexAttr(eqEl, "trebleFrequency", clip, "eqTrebleFrequency");
     }
   }
 

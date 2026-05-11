@@ -726,12 +726,88 @@ public class SwingDelugeApp extends JFrame {
       masterFxPanel.setMasterVol(Math.round(currentProject.getMasterVolume() * 100));
     }
 
+    // ── Apply GlobalEffectable clip FX overrides for each track's active clip ──
+    // This overrides song-level G_SP_* globals with per-clip kitParams where present.
+    for (int t = 0; t < tracks.size(); t++) {
+      org.chuck.deluge.model.TrackModel track = tracks.get(t);
+      int clipIdx = track.getActiveClipIndex();
+      if (clipIdx >= 0 && clipIdx < track.getClips().size()) {
+        applyClipFxOverrides(t, clipIdx);
+      }
+    }
+
     // Signal engine shreds to re-allocate their UGen arrays (track add/remove)
     // NOTE: do NOT set G_RELOAD here — the initial advance(loadEvent) in engine sub-shreds
     // already triggers one doInit(). Setting G_RELOAD would cause a second, wasteful re-init.
     if (!tracks.isEmpty()) {
       vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
     }
+  }
+
+  /**
+   * Override song-level FX parameters (G_SP_* globals) with the active clip's kitParams.
+   * If the clip has no override for a given parameter, the song-level default is preserved.
+   * This implements the real Deluge firmware's GlobalEffectable pattern where InstrumentClip
+   * can override Song-level FX parameters.
+   */
+  private void applyClipFxOverrides(int track, int clipIdx) {
+    java.util.List<org.chuck.deluge.model.TrackModel> tracks = currentProject.getTracks();
+    if (track < 0 || track >= tracks.size()) return;
+    org.chuck.deluge.model.TrackModel trk = tracks.get(track);
+    if (clipIdx < 0 || clipIdx >= trk.getClips().size()) return;
+    ClipModel clip = trk.getClips().get(clipIdx);
+    java.util.Map<String, Float> kp = clip.getKitParams();
+    if (kp == null || kp.isEmpty()) return;
+
+    // For each G_SP_* global: clip override if present, otherwise song default (already set above)
+    if (kp.containsKey("volume"))
+      vm.setGlobalFloat(BridgeContract.G_SP_VOLUME, kp.get("volume"));
+    if (kp.containsKey("pan"))
+      vm.setGlobalFloat(BridgeContract.G_SP_PAN, kp.get("pan"));
+    if (kp.containsKey("reverbAmount"))
+      vm.setGlobalFloat(BridgeContract.G_SP_REVERB_AMOUNT, kp.get("reverbAmount"));
+    if (kp.containsKey("delayRate"))
+      vm.setGlobalFloat(BridgeContract.G_SP_DELAY_RATE, kp.get("delayRate"));
+    if (kp.containsKey("delayFeedback"))
+      vm.setGlobalFloat(BridgeContract.G_SP_DELAY_FEEDBACK, kp.get("delayFeedback"));
+    if (kp.containsKey("sidechainCompressorShape"))
+      vm.setGlobalFloat(BridgeContract.G_SP_SIDECHAIN_SHAPE, kp.get("sidechainCompressorShape"));
+    if (kp.containsKey("stutterRate"))
+      vm.setGlobalFloat(BridgeContract.G_SP_STUTTER_RATE, kp.get("stutterRate"));
+    if (kp.containsKey("sampleRateReduction"))
+      vm.setGlobalFloat(BridgeContract.G_SP_SAMPLE_RATE_REDUCTION, kp.get("sampleRateReduction"));
+    if (kp.containsKey("bitCrush"))
+      vm.setGlobalFloat(BridgeContract.G_SP_BITCRUSH, kp.get("bitCrush"));
+    if (kp.containsKey("modFXRate"))
+      vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_RATE, kp.get("modFXRate"));
+    if (kp.containsKey("modFXDepth"))
+      vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_DEPTH, kp.get("modFXDepth"));
+    if (kp.containsKey("modFXOffset"))
+      vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_OFFSET, kp.get("modFXOffset"));
+    if (kp.containsKey("modFXFeedback"))
+      vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_FEEDBACK, kp.get("modFXFeedback"));
+    if (kp.containsKey("compressorThreshold"))
+      vm.setGlobalFloat(BridgeContract.G_SP_COMPRESSOR_THRESHOLD, kp.get("compressorThreshold"));
+    if (kp.containsKey("lpfMorph"))
+      vm.setGlobalFloat(BridgeContract.G_SP_LPF_MORPH, kp.get("lpfMorph"));
+    if (kp.containsKey("hpfMorph"))
+      vm.setGlobalFloat(BridgeContract.G_SP_HPF_MORPH, kp.get("hpfMorph"));
+    if (kp.containsKey("lpfFrequency"))
+      vm.setGlobalFloat(BridgeContract.G_SP_LPF_FREQ, kp.get("lpfFrequency"));
+    if (kp.containsKey("lpfResonance"))
+      vm.setGlobalFloat(BridgeContract.G_SP_LPF_RES, kp.get("lpfResonance"));
+    if (kp.containsKey("hpfFrequency"))
+      vm.setGlobalFloat(BridgeContract.G_SP_HPF_FREQ, kp.get("hpfFrequency"));
+    if (kp.containsKey("hpfResonance"))
+      vm.setGlobalFloat(BridgeContract.G_SP_HPF_RES, kp.get("hpfResonance"));
+    if (kp.containsKey("eqBass"))
+      vm.setGlobalFloat(BridgeContract.G_SP_EQ_BASS, kp.get("eqBass"));
+    if (kp.containsKey("eqTreble"))
+      vm.setGlobalFloat(BridgeContract.G_SP_EQ_TREBLE, kp.get("eqTreble"));
+    if (kp.containsKey("eqBassFrequency"))
+      vm.setGlobalFloat(BridgeContract.G_SP_EQ_BASS_FREQ, kp.get("eqBassFrequency"));
+    if (kp.containsKey("eqTrebleFrequency"))
+      vm.setGlobalFloat(BridgeContract.G_SP_EQ_TREBLE_FREQ, kp.get("eqTrebleFrequency"));
   }
 
   public SwingDelugeApp(
