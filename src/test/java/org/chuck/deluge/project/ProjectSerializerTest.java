@@ -6,6 +6,7 @@ import java.io.File;
 import java.nio.file.Files;
 import org.chuck.deluge.model.KitTrackModel;
 import org.chuck.deluge.model.ProjectModel;
+import org.chuck.deluge.model.SoundDrum;
 import org.chuck.deluge.model.SynthTrackModel;
 import org.junit.jupiter.api.Test;
 
@@ -17,10 +18,10 @@ public class ProjectSerializerTest {
     model.setBpm(130.0f);
 
     KitTrackModel kit = new KitTrackModel("DRUMS");
-    KitTrackModel.KitSound sound = new KitTrackModel.KitSound("KICK");
+    SoundDrum sound = new SoundDrum("KICK");
     // Use a SAMPLES-relative path so the serializer preserves it on all platforms
     sound.setSamplePath("SAMPLES/DRUMS/Kick/kick.wav");
-    kit.addSound(sound);
+    kit.addDrum(sound);
 
     // Add a clip with a note
     org.chuck.deluge.model.ClipModel clip = new org.chuck.deluge.model.ClipModel("CLIP 1", 8, 16);

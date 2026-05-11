@@ -533,7 +533,7 @@ public class SwingGridPanel extends JPanel {
         && editedModelTrack < projectModel.getTracks().size()) {
       org.chuck.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
       if (t instanceof org.chuck.deluge.model.KitTrackModel kit) {
-        return kit.getSounds().size();
+        return kit.getDrums().size();
       }
       // Synth always uses gridMode.rows as voice count
       return gridMode.rows;
@@ -621,7 +621,7 @@ public class SwingGridPanel extends JPanel {
         && editedModelTrack < projectModel.getTracks().size()) {
       org.chuck.deluge.model.TrackModel rowTrack = projectModel.getTracks().get(editedModelTrack);
       if (rowTrack instanceof org.chuck.deluge.model.KitTrackModel kit) {
-        java.util.List<org.chuck.deluge.model.KitTrackModel.KitSound> sounds = kit.getSounds();
+        java.util.List<org.chuck.deluge.model.Drum> sounds = kit.getDrums();
         trackName = (modelRow < sounds.size()) ? sounds.get(sounds.size() - 1 - modelRow).getName() : rowTrack.getName();
       } else {
         trackName = (modelRow == 0) ? rowTrack.getName() : "-" + modelRow + "st";
@@ -1709,7 +1709,7 @@ public class SwingGridPanel extends JPanel {
         org.chuck.deluge.model.TrackModel rowTrack = projectModel.getTracks().get(editedModelTrack);
         if (rowTrack instanceof org.chuck.deluge.model.KitTrackModel kit) {
           // Kit CLIP rows show the individual sound name
-          java.util.List<org.chuck.deluge.model.KitTrackModel.KitSound> sounds = kit.getSounds();
+          java.util.List<org.chuck.deluge.model.Drum> sounds = kit.getDrums();
           trackName = (t < sounds.size()) ? sounds.get(sounds.size() - 1 - t).getName() : rowTrack.getName();
         } else {
           // Synth CLIP: row 0 shows track name, rows 1-7 show pitch

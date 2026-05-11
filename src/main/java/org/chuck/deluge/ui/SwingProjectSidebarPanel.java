@@ -204,10 +204,10 @@ public class SwingProjectSidebarPanel extends JPanel {
                         org.chuck.deluge.model.KitTrackModel kit =
                             org.chuck.deluge.xml.DelugeXmlParser.parseKit(is, name);
                         int baseTrack = 0;
-                        java.util.List<org.chuck.deluge.model.KitTrackModel.KitSound> sounds =
-                            kit.getSounds();
+                        java.util.List<org.chuck.deluge.model.Drum> sounds =
+                            kit.getDrums();
                         for (int i = 0; i < sounds.size(); i++) {
-                          String sp = sounds.get(i).getSamplePath();
+                          String sp = ((org.chuck.deluge.model.SoundDrum) sounds.get(i)).getSamplePath();
                           vm.setGlobalString("g_sample_" + (baseTrack + i), sp != null ? sp : "");
                           bridge.setSamplePath(baseTrack + i, sp != null ? sp : "");
                           bridge.setMute(baseTrack + i, false);
@@ -232,9 +232,9 @@ public class SwingProjectSidebarPanel extends JPanel {
                         for (org.chuck.deluge.model.TrackModel track : loadedProject.getTracks()) {
                           if (engineRow >= org.chuck.deluge.BridgeContract.TRACKS) break;
                           if (track instanceof org.chuck.deluge.model.KitTrackModel kit) {
-                            java.util.List<org.chuck.deluge.model.KitTrackModel.KitSound> sounds = kit.getSounds();
+                            java.util.List<org.chuck.deluge.model.Drum> sounds = kit.getDrums();
                             for (int i = 0; i < sounds.size(); i++) {
-                              String sp = sounds.get(i).getSamplePath();
+                              String sp = ((org.chuck.deluge.model.SoundDrum) sounds.get(i)).getSamplePath();
                               // Check if sample file exists on disk
                               if (sp != null && !sp.isEmpty()) {
                                 java.io.File sf = new java.io.File(sp);

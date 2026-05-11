@@ -33,7 +33,7 @@ public class SwingUiFlowDiagnosticTest {
     InputStream is = getClass().getResourceAsStream("/KITS/000 TR-808.XML");
     assertTrue(is != null, "808 Kit resource not found");
     KitTrackModel kit = DelugeXmlParser.parseKit(is, "808");
-    int voiceCount = Math.min(16, kit.getSounds().size());
+    int voiceCount = Math.min(16, kit.getDrums().size());
 
     // Add a clip and project (same as addTrack callback)
     kit.addClip(new ClipModel("CLIP 1", voiceCount, 16));
@@ -102,7 +102,7 @@ public class SwingUiFlowDiagnosticTest {
     InputStream is = getClass().getResourceAsStream("/KITS/000 TR-808.XML");
     assertTrue(is != null, "808 Kit resource not found");
     KitTrackModel kit = DelugeXmlParser.parseKit(is, "808");
-    int voiceCount = Math.min(16, kit.getSounds().size());
+    int voiceCount = Math.min(16, kit.getDrums().size());
 
     // Add a clip with steps pre-populated
     ClipModel clip = new ClipModel("CLIP 1", voiceCount, 16);

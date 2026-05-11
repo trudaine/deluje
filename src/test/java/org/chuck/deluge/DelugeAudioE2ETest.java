@@ -6,6 +6,7 @@ import java.io.InputStream;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.engine.DelugeEngineDSL;
 import org.chuck.deluge.model.KitTrackModel;
+import org.chuck.deluge.model.SoundDrum;
 import org.chuck.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
@@ -38,8 +39,8 @@ public class DelugeAudioE2ETest {
 
     KitTrackModel kit = DelugeXmlParser.parseKit(is, "808");
 
-    for (int i = 0; i < Math.min(8, kit.getSounds().size()); i++) {
-      String path = kit.getSounds().get(i).getSamplePath();
+    for (int i = 0; i < Math.min(8, kit.getDrums().size()); i++) {
+      String path = ((SoundDrum) kit.getDrums().get(i)).getSamplePath();
       if (path != null && !path.isEmpty()) {
         vm.setGlobalString("g_sample_" + i, path);
         bridge.setMute(i, false);

@@ -10,6 +10,7 @@ import org.chuck.core.ChuckArray;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.xml.DelugeXmlParser;
 import org.chuck.deluge.model.KitTrackModel;
+import org.chuck.deluge.model.SoundDrum;
 
 import org.chuck.audio.*;
 import org.chuck.audio.filter.*;
@@ -38,7 +39,7 @@ public class AdsrSoloTest {
     InputStream is = getClass().getResourceAsStream("/KITS/000 TR-808.XML");
     assertNotNull(is);
     KitTrackModel kit = DelugeXmlParser.parseKit(is, "000 TR-808");
-    String samplePath = kit.getSounds().get(0).getSamplePath();
+    String samplePath = ((SoundDrum) kit.getDrums().get(0)).getSamplePath();
     File localTarget = new File("target/classes/" + samplePath);
     assertTrue(localTarget.exists(), "Sample file not found: " + localTarget);
     String absPath = localTarget.getAbsolutePath();

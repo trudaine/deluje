@@ -42,7 +42,7 @@ public class SwingDelugeApp extends JFrame {
   private java.io.File currentProjectFile = null;
 
   // Engine voice mapping: for each model track, the start engine row and voice count.
-  // Kit tracks occupy getSounds().size() rows; Synth tracks occupy 1 row.
+  // Kit tracks occupy getDrums().size() rows; Synth tracks occupy 1 row.
   private int[] trackEngineStart;
   private int[] trackVoiceCount;
 
@@ -62,7 +62,7 @@ public class SwingDelugeApp extends JFrame {
       trackEngineStart[t] = nextRow;
       boolean isKit = tracks.get(t) instanceof org.chuck.deluge.model.KitTrackModel;
       int voices = isKit
-        ? ((org.chuck.deluge.model.KitTrackModel) tracks.get(t)).getSounds().size()
+        ? ((org.chuck.deluge.model.KitTrackModel) tracks.get(t)).getDrums().size()
         : 8;
       int capped = Math.min(voices, BridgeContract.TRACKS - nextRow);
       trackVoiceCount[t] = capped;
@@ -213,17 +213,17 @@ public class SwingDelugeApp extends JFrame {
           if (trackTypeArr != null) trackTypeArr.setInt(startRow + v, 0L);
         }
 
-        // Push each kit sound: sample path, pitch, mute group, reverse, ADSR
-        java.util.List<org.chuck.deluge.model.KitTrackModel.KitSound> sounds = kit.getSounds();
+        // Push each drum: sample path, pitch, mute group, reverse, ADSR
+        java.util.List<org.chuck.deluge.model.Drum> sounds = kit.getDrums();
         for (int v = 0; v < voiceCount; v++) {
           int engineRow = startRow + v;
-          String path = v < sounds.size() ? sounds.get(sounds.size() - 1 - v).getSamplePath() : "";
+          String path = v < sounds.size() ? ((org.chuck.deluge.model.SoundDrum) sounds.get(sounds.size() - 1 - v)).getSamplePath() : "";
           vm.setGlobalString("g_sample_" + engineRow, path);
           bridge.setSamplePath(engineRow, path);
 
           // ── Zone (sample truncation) ──
           if (v < sounds.size()) {
-            org.chuck.deluge.model.KitTrackModel.KitSound snd = sounds.get(sounds.size() - 1 - v);
+            org.chuck.deluge.model.SoundDrum snd = (org.chuck.deluge.model.SoundDrum) sounds.get(sounds.size() - 1 - v);
             float[] range = org.chuck.deluge.BridgeContract.computeNormalizedRange(snd, path);
             if (range[0] > 0.0f || range[1] < 1.0f) {
               bridge.setSampleRange(engineRow, range[0], range[1]);
@@ -231,7 +231,7 @@ public class SwingDelugeApp extends JFrame {
           }
 
           if (v < sounds.size()) {
-            org.chuck.deluge.model.KitTrackModel.KitSound snd = sounds.get(sounds.size() - 1 - v);
+            org.chuck.deluge.model.SoundDrum snd = (org.chuck.deluge.model.SoundDrum) sounds.get(sounds.size() - 1 - v);
             try {
               ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_PITCH))
                   .setFloat(engineRow, snd.getPitchSemitones());
@@ -1781,7 +1781,7 @@ public class SwingDelugeApp extends JFrame {
         track -> {
           // Add a default clip so notes entered on grid are stored in the model
           if (track instanceof org.chuck.deluge.model.KitTrackModel kit) {
-            int rowCount = kit.getSounds().size();
+            int rowCount = kit.getDrums().size();
             if (rowCount < 1) rowCount = 1;
             kit.addClip(new org.chuck.deluge.model.ClipModel("CLIP 1", rowCount, 16));
           } else if (track instanceof org.chuck.deluge.model.SynthTrackModel synth) {

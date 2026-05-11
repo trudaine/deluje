@@ -11,6 +11,7 @@ import org.chuck.core.ChuckVM;
 import org.chuck.core.Shred;
 import org.chuck.deluge.xml.DelugeXmlParser;
 import org.chuck.deluge.model.KitTrackModel;
+import org.chuck.deluge.model.SoundDrum;
 import org.chuck.deluge.engine.DelugeEngineDSL;
 
 import org.chuck.audio.*;
@@ -40,7 +41,7 @@ public class KitDebugTest {
     InputStream is = getClass().getResourceAsStream("/KITS/000 TR-808.XML");
     assertNotNull(is);
     KitTrackModel kit = DelugeXmlParser.parseKit(is, "000 TR-808");
-    String samplePath = kit.getSounds().get(0).getSamplePath();
+    String samplePath = ((SoundDrum) kit.getDrums().get(0)).getSamplePath();
     System.out.println("KICK sample path from XML: " + samplePath);
 
     // Resolve sample path
