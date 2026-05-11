@@ -3,9 +3,6 @@ package org.chuck.deluge;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.*;
-import javax.sound.sampled.AudioInputStream;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.AudioFormat;
 import org.chuck.core.ChuckArray;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.xml.DelugeXmlParser;
@@ -114,7 +111,7 @@ public class AdsrInlineTest {
   private void analyzeWav(String name, String path) throws Exception {
     File f = new File(path);
     if (!f.exists()) { System.out.println(name + ": FILE NOT FOUND"); return; }
-    float[] samples = loadWavAsFloat(path);
+    float[] samples = AudioAnalyzer.loadWav(new File(path));
     System.out.println(name + ": " + samples.length + " samples, RMS=" + rms(samples) + ", peak=" + peak(samples));
     boolean hasAudio = false;
     for (int j = 0; j < Math.min(5000, samples.length); j++) {
@@ -130,58 +127,6 @@ public class AdsrInlineTest {
         break;
       }
     }
-  }
-
-  private float[] loadWavAsFloat(String path) throws Exception {
-    File f = new File(path);
-    try (AudioInputStream ais = AudioSystem.getAudioInputStream(
-        new BufferedInputStream(new FileInputStream(f)))) {
-      AudioFormat fmt = ais.getFormat();
-      if (fmt.getEncoding() != AudioFormat.Encoding.PCM_SIGNED
-          || fmt.getSampleSizeInBits() != 16) {
-        AudioFormat target = new AudioFormat(
-            AudioFormat.Encoding.PCM_SIGNED, fmt.getSampleRate(), 16,
-            1, 2, fmt.getSampleRate(), false);
-        try (AudioInputStream converted = AudioSystem.getAudioInputStream(target, ais)) {
-          return readFrames(converted, 1);
-        }
-      }
-      return readFrames(ais, fmt.getChannels());
-    }
-  }
-
-  private float[] readFrames(AudioInputStream ais, int channels) throws IOException {
-    int frameSize = ais.getFormat().getFrameSize();
-    long frameLen = ais.getFrameLength();
-    if (frameLen <= 0) {
-      java.util.List<Float> list = new java.util.ArrayList<>();
-      byte[] buf = new byte[frameSize > 0 ? frameSize : 2];
-      while (ais.read(buf) != -1) {
-        float sum = 0;
-        for (int c = 0; c < channels; c++) {
-          int idx = c * 2;
-          short pcm = (short) ((buf[idx + 1] << 8) | (buf[idx] & 0xFF));
-          sum += pcm / 32768.0f;
-        }
-        list.add(sum / channels);
-      }
-      float[] arr = new float[list.size()];
-      for (int i = 0; i < arr.length; i++) arr[i] = list.get(i);
-      return arr;
-    }
-    float[] samples = new float[(int) frameLen];
-    byte[] buf = new byte[frameSize > 0 ? frameSize : 2];
-    for (int i = 0; i < frameLen; i++) {
-      ais.read(buf);
-      float sum = 0;
-      for (int c = 0; c < channels; c++) {
-        int idx = c * 2;
-        short pcm = (short) ((buf[idx + 1] << 8) | (buf[idx] & 0xFF));
-        sum += pcm / 32768.0f;
-      }
-      samples[i] = sum / channels;
-    }
-    return samples;
   }
 
   private double rms(float[] data) {

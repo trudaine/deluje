@@ -3,7 +3,6 @@ package org.chuck.deluge;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.*;
-import javax.sound.sampled.*;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.xml.DelugeXmlParser;
 import org.chuck.deluge.model.KitTrackModel;
@@ -36,7 +35,7 @@ public class ManualTickTest {
     System.out.println("Sample: " + absPath);
 
     // Load original
-    float[] original = loadWavAsFloat(absPath);
+    float[] original = AudioAnalyzer.loadWav(new File(absPath));
     System.out.println("Original: " + original.length + " samples, peak=" + peak(original));
 
     // Create UGens
@@ -87,7 +86,7 @@ public class ManualTickTest {
     wvOut.closeFile();
 
     // Load and check output
-    float[] engineOut = loadWavAsFloat(wavPath);
+    float[] engineOut = AudioAnalyzer.loadWav(new File(wavPath));
     System.out.println("\nEngine output: " + engineOut.length + " samples, RMS=" + rms(engineOut) + ", peak=" + peak(engineOut));
 
     // Check first 20 samples
@@ -119,7 +118,7 @@ public class ManualTickTest {
     assertTrue(localTarget.exists());
     String absPath = localTarget.getAbsolutePath();
 
-    float[] original = loadWavAsFloat(absPath);
+    float[] original = AudioAnalyzer.loadWav(new File(absPath));
 
     SndBuf buf = new SndBuf();
     WvOut2 wvOut = new WvOut2(sampleRate);
@@ -165,7 +164,7 @@ public class ManualTickTest {
     }
 
     wvOut.closeFile();
-    float[] engineOut = loadWavAsFloat(wavPath);
+    float[] engineOut = AudioAnalyzer.loadWav(new File(wavPath));
     System.out.println("\nEngine: " + engineOut.length + " samples, peak=" + peak(engineOut));
 
     boolean hasAudio = false;
@@ -176,54 +175,6 @@ public class ManualTickTest {
   }
 
   // --- helpers ---
-  private float[] loadWavAsFloat(String path) throws Exception {
-    File f = new File(path);
-    try (AudioInputStream ais = AudioSystem.getAudioInputStream(new BufferedInputStream(new FileInputStream(f)))) {
-      AudioFormat fmt = ais.getFormat();
-      if (fmt.getEncoding() != AudioFormat.Encoding.PCM_SIGNED || fmt.getSampleSizeInBits() != 16) {
-        AudioFormat target = new AudioFormat(AudioFormat.Encoding.PCM_SIGNED, fmt.getSampleRate(), 16, 1, 2, fmt.getSampleRate(), false);
-        try (AudioInputStream converted = AudioSystem.getAudioInputStream(target, ais)) {
-          return readFrames(converted, 1);
-        }
-      }
-      return readFrames(ais, fmt.getChannels());
-    }
-  }
-
-  private float[] readFrames(AudioInputStream ais, int channels) throws IOException {
-    int frameSize = ais.getFormat().getFrameSize();
-    long frameLen = ais.getFrameLength();
-    if (frameLen <= 0) {
-      java.util.List<Float> list = new java.util.ArrayList<>();
-      byte[] buf = new byte[frameSize > 0 ? frameSize : 2];
-      while (ais.read(buf) != -1) {
-        float sum = 0;
-        for (int c = 0; c < channels; c++) {
-          int idx = c * 2;
-          short pcm = (short) ((buf[idx + 1] << 8) | (buf[idx] & 0xFF));
-          sum += pcm / 32768.0f;
-        }
-        list.add(sum / channels);
-      }
-      float[] arr = new float[list.size()];
-      for (int i = 0; i < arr.length; i++) arr[i] = list.get(i);
-      return arr;
-    }
-    float[] samples = new float[(int) frameLen];
-    byte[] buf = new byte[frameSize > 0 ? frameSize : 2];
-    for (int i = 0; i < frameLen; i++) {
-      ais.read(buf);
-      float sum = 0;
-      for (int c = 0; c < channels; c++) {
-        int idx = c * 2;
-        short pcm = (short) ((buf[idx + 1] << 8) | (buf[idx] & 0xFF));
-        sum += pcm / 32768.0f;
-      }
-      samples[i] = sum / channels;
-    }
-    return samples;
-  }
-
   private double rms(float[] data) {
     double sumSq = 0;
     for (float v : data) sumSq += v * v;

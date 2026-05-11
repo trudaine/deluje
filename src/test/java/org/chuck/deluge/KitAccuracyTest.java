@@ -5,9 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
-import javax.sound.sampled.AudioInputStream;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.AudioFormat;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.engine.DelugeEngineDSL;
 import org.chuck.deluge.model.Drum;
@@ -64,74 +61,6 @@ public class KitAccuracyTest {
   @AfterAll
   static void tearDownAll() {
     if (vm != null) vm.shutdown();
-  }
-
-  /**
-   * Load a WAV file into a float array (mono, averaged from all channels).
-   * Mirrors what SndBuf does internally.
-   */
-  private float[] loadWavAsFloat(String path) throws Exception {
-    File f = new File(path);
-    if (!f.exists()) {
-      // Try classpath resource
-      String resPath = path.startsWith("/") ? path : "/" + path;
-      InputStream ris = getClass().getResourceAsStream(resPath);
-      if (ris == null) throw new FileNotFoundException("Cannot find: " + path);
-      return loadWavFromStream(ris);
-    }
-    return loadWavFromStream(new FileInputStream(f));
-  }
-
-  private float[] loadWavFromStream(InputStream stream) throws Exception {
-    try (AudioInputStream ais = AudioSystem.getAudioInputStream(new BufferedInputStream(stream))) {
-      AudioFormat fmt = ais.getFormat();
-      // Convert to PCM_SIGNED 16-bit mono if needed
-      if (fmt.getEncoding() != AudioFormat.Encoding.PCM_SIGNED || fmt.getSampleSizeInBits() != 16) {
-        AudioFormat target = new AudioFormat(
-            AudioFormat.Encoding.PCM_SIGNED, fmt.getSampleRate(), 16,
-            1, 2, fmt.getSampleRate(), false);
-        try (AudioInputStream converted = AudioSystem.getAudioInputStream(target, ais)) {
-          return readFrames(converted, 1);
-        }
-      }
-      return readFrames(ais, fmt.getChannels());
-    }
-  }
-
-  private float[] readFrames(AudioInputStream ais, int channels) throws IOException {
-    int frameSize = ais.getFormat().getFrameSize();
-    long frameLen = ais.getFrameLength();
-    if (frameLen <= 0) {
-      // Read all
-      List<Float> list = new ArrayList<>();
-      byte[] buf = new byte[frameSize > 0 ? frameSize : 2];
-      while (ais.read(buf) != -1) {
-        float sum = 0;
-        for (int c = 0; c < channels; c++) {
-          int idx = c * 2;
-          short pcm = (short) ((buf[idx + 1] << 8) | (buf[idx] & 0xFF));
-          sum += pcm / 32768.0f;
-        }
-        list.add(sum / channels);
-      }
-      float[] arr = new float[list.size()];
-      for (int i = 0; i < arr.length; i++) arr[i] = list.get(i);
-      return arr;
-    }
-    float[] samples = new float[(int) frameLen];
-    byte[] buf = new byte[frameSize > 0 ? frameSize : 2];
-    for (int i = 0; i < frameLen; i++) {
-      int read = ais.read(buf);
-      if (read == -1) break;
-      float sum = 0;
-      for (int c = 0; c < channels; c++) {
-        int idx = c * 2;
-        short pcm = (short) ((buf[idx + 1] << 8) | (buf[idx] & 0xFF));
-        sum += pcm / 32768.0f;
-      }
-      samples[i] = sum / channels;
-    }
-    return samples;
   }
 
   /** Compute RMS of a float array. */
@@ -329,7 +258,7 @@ public class KitAccuracyTest {
       // Load original source WAV
       float[] original;
       try {
-        original = loadWavAsFloat(resolvedPaths[i]);
+        original = AudioAnalyzer.loadWav(new File(resolvedPaths[i]));
       } catch (Exception e) {
         System.out.printf("%-20s %-8s %-8s %-10s %-10s %-8s ERR: %s%n",
             names[i], "-", "-", "-", "-", "-", e.getMessage());
@@ -396,7 +325,7 @@ public class KitAccuracyTest {
       File engineWav = new File(wavPath);
       float[] engineOut;
       if (engineWav.exists() && engineWav.length() > 44) {
-        engineOut = loadWavAsFloat(engineWav.getAbsolutePath());
+        engineOut = AudioAnalyzer.loadWav(engineWav);
         System.out.printf("  Original: RMS=%.6f peak=%.6f len=%d%n", originalRms[i], peak(original), original.length);
         System.out.printf("  Engine:   RMS=%.6f peak=%.6f len=%d%n", rms(engineOut), peak(engineOut), engineOut.length);
       } else {
@@ -584,7 +513,7 @@ public class KitAccuracyTest {
       // ── Load original source WAV ──
       float[] original;
       try {
-        original = loadWavAsFloat(resolvedPaths[i]);
+        original = AudioAnalyzer.loadWav(new File(resolvedPaths[i]));
       } catch (Exception e) {
         System.out.printf("%-20s %-8s %-8s %-10s %-10s %-8s ERR: %s%n",
             names[i], "-", "-", "-", "-", "-", e.getMessage());
@@ -664,7 +593,7 @@ public class KitAccuracyTest {
       File engineWav = new File(wavPath);
       float[] engineOut;
       if (engineWav.exists() && engineWav.length() > 44) {
-        engineOut = loadWavAsFloat(engineWav.getAbsolutePath());
+        engineOut = AudioAnalyzer.loadWav(engineWav);
         System.out.printf("  Original: RMS=%.6f peak=%.6f len=%d%n", originalRms[i], peak(original), original.length);
         System.out.printf("  Engine:   RMS=%.6f peak=%.6f len=%d%n", rms(engineOut), peak(engineOut), engineOut.length);
         // DIAG: scan engine output for signal energy in 100ms windows
