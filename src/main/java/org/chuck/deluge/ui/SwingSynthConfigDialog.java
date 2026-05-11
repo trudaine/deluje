@@ -494,10 +494,26 @@ public class SwingSynthConfigDialog extends JDialog {
         "Depth of FM modulation — how strongly the modulator affects the carrier (0–100%)",
         0, 100, (int)(bridge.getFmAmount(trackIndex) * 100),
         val -> bridge.setFmAmount(trackIndex, val / 100.0), "%", "fmAmount");
-    row = addSlider(panel, c, row, "Carrier FB:",
+    row = addSlider(panel, c, row, "Carrier 1 FB:",
         "Carrier 1 self-feedback amount (0–100%). Creates characteristic FM feedback timbre.",
         0, 100, (int)(bridge.getCarrier1Fb(trackIndex) * 100),
         val -> bridge.setCarrier1Fb(trackIndex, val / 100.0f), "%", "carrier1Fb");
+    row = addSlider(panel, c, row, "Mod 1 FB:",
+        "Modulator 1 self-feedback amount (0–100%). Adds complexity to FM timbre.",
+        0, 100, (int)(bridge.getMod1Fb(trackIndex) * 100),
+        val -> bridge.setMod1Fb(trackIndex, val / 100.0f), "%", "mod1Fb");
+    row = addSlider(panel, c, row, "Mod 2 Amt:",
+        "Modulator 2 output amount / gain (0–100%). Controls how strongly Mod 2 affects the carrier.",
+        0, 100, (int)(bridge.getMod2Amt(trackIndex) * 100),
+        val -> bridge.setMod2Amt(trackIndex, val / 100.0f), "%", "mod2Amt");
+    row = addSlider(panel, c, row, "Mod 2 FB:",
+        "Modulator 2 self-feedback amount (0–100%). Increases FM harmonic complexity.",
+        0, 100, (int)(bridge.getMod2Fb(trackIndex) * 100),
+        val -> bridge.setMod2Fb(trackIndex, val / 100.0f), "%", "mod2Fb");
+    row = addSlider(panel, c, row, "Carrier 2 FB:",
+        "Carrier 2 self-feedback amount (0–100%). Second carrier feedback for 2-op FM configurations.",
+        0, 100, (int)(bridge.getCarrier2Fb(trackIndex) * 100),
+        val -> bridge.setCarrier2Fb(trackIndex, val / 100.0f), "%", "carrier2Fb");
 
     return panel;
   }
