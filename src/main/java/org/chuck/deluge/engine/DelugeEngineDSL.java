@@ -1474,8 +1474,10 @@ public class DelugeEngineDSL implements Shred, Runnable {
             if (kitLpfNotchObj instanceof ChuckArray kn && r < kn.size()) kitFil[r].notchMode(kn.getInt(r) != 0);
             if (kitHpfF != null && r < kitHpfF.size()) kitHpfArr[r].freq(Math.max(20.0f, (float) kitHpfF.getFloat(r)));
             if (kitHpfR != null && r < kitHpfR.size()) kitHpfArr[r].Q(1.0f + Math.max(0.0f, (float) kitHpfR.getFloat(r)) * 9.0f);
-            // HPF morph/mode from per-track globals (stored in BridgeContract loop above)
-            // (currently unused — global not published by UI yet)
+            if (kitHpfMorph instanceof ChuckArray hm && r < hm.size()) kitHpfArr[r].morph(hm.getFloat(r));
+            if (kitHpfMode instanceof ChuckArray hm) {
+              kitHpfArr[r].notchMode(r < hm.size() && hm.getInt(r) == 1);
+            }
           }
           // Per-voice compressor Dyno param update (RMSFeedbackCompressor-correct formulas)
           if (kitComp != null && r < kitComp.length && kitComp[r] != null) {
