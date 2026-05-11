@@ -1,6 +1,9 @@
 package org.chuck.deluge.ui;
 
 import java.awt.*;
+import java.io.IOException;
+import javax.sound.sampled.LineUnavailableException;
+import javax.sound.sampled.UnsupportedAudioFileException;
 import javax.swing.*;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
@@ -597,9 +600,9 @@ public class SwingDelugeApp extends JFrame {
       // Track length and stepCount for all rows of this track
       int rowLen = track.getClips().isEmpty() ? 16 : track.getClips().get(0).getStepCount();
       int totalRows = voiceCount;
-      if (track instanceof org.chuck.deluge.model.SynthTrackModel) {
-        int acIdx = ((org.chuck.deluge.model.SynthTrackModel) track).getActiveClipIndex();
-        var clips = ((org.chuck.deluge.model.SynthTrackModel) track).getClips();
+      if (track instanceof org.chuck.deluge.model.SynthTrackModel synthTrackModel) {
+        int acIdx = synthTrackModel.getActiveClipIndex();
+        var clips = synthTrackModel.getClips();
         if (acIdx >= 0 && acIdx < clips.size()) {
           totalRows = Math.max(voiceCount, clips.get(acIdx).getRowCount());
         }
@@ -684,6 +687,7 @@ public class SwingDelugeApp extends JFrame {
     vm.setGlobalFloat(BridgeContract.G_MASTER_COMP_ATTACK, currentProject.getCompressorAttack());
     vm.setGlobalFloat(BridgeContract.G_MASTER_COMP_RELEASE, currentProject.getCompressorRelease());
     vm.setGlobalFloat(BridgeContract.G_MASTER_COMP_RATIO, currentProject.getCompressorRatio());
+    vm.setGlobalFloat(BridgeContract.G_MASTER_COMP_BLEND, currentProject.getCompressorBlend());
 
     // ── Transpose / humanize globals ──
     vm.setGlobalInt(BridgeContract.G_TRANSPOSE, currentProject.getTranspose());
@@ -887,8 +891,7 @@ public class SwingDelugeApp extends JFrame {
     while (keys.hasMoreElements()) {
       Object key = keys.nextElement();
       Object value = UIManager.get(key);
-      if (value instanceof javax.swing.plaf.FontUIResource) {
-        javax.swing.plaf.FontUIResource orig = (javax.swing.plaf.FontUIResource) value;
+      if (value instanceof javax.swing.plaf.FontUIResource orig) {
         Font font = new Font(orig.getFontName(), orig.getStyle(), 20); // Increased size
         UIManager.put(key, new javax.swing.plaf.FontUIResource(font));
       }
@@ -956,7 +959,7 @@ public class SwingDelugeApp extends JFrame {
                                   c.open(stream);
                                   c.start();
                                 }
-                              } catch (Exception ex) {
+                              } catch (IOException | LineUnavailableException | UnsupportedAudioFileException ex) {
                               }
                             })
                         .start();
@@ -1094,18 +1097,18 @@ public class SwingDelugeApp extends JFrame {
     var stack = currentProject.getUndoRedoStack();
     if (!stack.canUndo()) return;
     var action = stack.peekUndo();
-    if (action instanceof Consequence.TrackStructureConsequence tsc) {
-      handleTrackStructUndoRedo(tsc, true);
-      stack.undo();
-    } else if (action instanceof Consequence.ClipStructureConsequence csc) {
-      handleClipStructUndoRedo(csc, true);
-      stack.undo();
-    } else if (action instanceof Consequence.PatternLoadConsequence plc) {
-      handlePatternLoadUndoRedo(plc, true);
-      stack.undo();
-    } else {
-      stack.undo();
-    }
+      switch (action) {
+          case Consequence.TrackStructureConsequence tsc -> {
+              handleTrackStructUndoRedo(tsc, true);
+              stack.undo();
+          }     case Consequence.ClipStructureConsequence csc -> {
+              handleClipStructUndoRedo(csc, true);
+              stack.undo();
+          }     case Consequence.PatternLoadConsequence plc -> {
+              handlePatternLoadUndoRedo(plc, true);
+              stack.undo();
+          }     default -> stack.undo();
+      }
     pushModelToBridge();
     refreshGrids();
   }
@@ -1115,18 +1118,18 @@ public class SwingDelugeApp extends JFrame {
     var stack = currentProject.getUndoRedoStack();
     if (!stack.canRedo()) return;
     var action = stack.peekRedo();
-    if (action instanceof Consequence.TrackStructureConsequence tsc) {
-      handleTrackStructUndoRedo(tsc, false);
-      stack.redo();
-    } else if (action instanceof Consequence.ClipStructureConsequence csc) {
-      handleClipStructUndoRedo(csc, false);
-      stack.redo();
-    } else if (action instanceof Consequence.PatternLoadConsequence plc) {
-      handlePatternLoadUndoRedo(plc, false);
-      stack.redo();
-    } else {
-      stack.redo();
-    }
+      switch (action) {
+          case Consequence.TrackStructureConsequence tsc -> {
+              handleTrackStructUndoRedo(tsc, false);
+              stack.redo();
+          }     case Consequence.ClipStructureConsequence csc -> {
+              handleClipStructUndoRedo(csc, false);
+              stack.redo();
+          }     case Consequence.PatternLoadConsequence plc -> {
+              handlePatternLoadUndoRedo(plc, false);
+              stack.redo();
+          }     default -> stack.redo();
+      }
     pushModelToBridge();
     refreshGrids();
   }
@@ -1395,7 +1398,7 @@ public class SwingDelugeApp extends JFrame {
       JOptionPane.showMessageDialog(
           this, "Script loaded successfully:\n" + file.getName(),
           "Script Loaded", JOptionPane.INFORMATION_MESSAGE);
-    } catch (Exception ex) {
+    } catch (HeadlessException | IOException ex) {
       JOptionPane.showMessageDialog(
           this, "Failed to load script:\n" + ex.getMessage(),
           "Error", JOptionPane.ERROR_MESSAGE);
@@ -1789,14 +1792,17 @@ public class SwingDelugeApp extends JFrame {
     // Wire sidebar "add track" callback — KITS/SYNTHS double-click adds to current project
     java.util.function.Consumer<org.chuck.deluge.model.TrackModel> addTrack =
         track -> {
-          // Add a default clip so notes entered on grid are stored in the model
-          if (track instanceof org.chuck.deluge.model.KitTrackModel kit) {
-            int rowCount = kit.getDrums().size();
-            if (rowCount < 1) rowCount = 1;
-            kit.addClip(new org.chuck.deluge.model.ClipModel("CLIP 1", rowCount, 16));
-          } else if (track instanceof org.chuck.deluge.model.SynthTrackModel synth) {
-            synth.addClip(new org.chuck.deluge.model.ClipModel("CLIP 1", 8, 16));
-          }
+        // Add a default clip so notes entered on grid are stored in the model
+        switch (track) {
+            case org.chuck.deluge.model.KitTrackModel kit -> {
+                int rowCount = kit.getDrums().size();
+                if (rowCount < 1) rowCount = 1;
+                kit.addClip(new org.chuck.deluge.model.ClipModel("CLIP 1", rowCount, 16));
+            }
+            case org.chuck.deluge.model.SynthTrackModel synth -> synth.addClip(new org.chuck.deluge.model.ClipModel("CLIP 1", 8, 16));
+            default -> {
+            }
+        }
           int idx = currentProject.getTracks().size();
           currentProject.addTrack(track);
           currentProject.getUndoRedoStack().push(
@@ -2015,32 +2021,29 @@ public class SwingDelugeApp extends JFrame {
       var stack = currentProject.getUndoRedoStack();
       int idx;
       switch (type) {
-        case "KIT": {
+        case "KIT" ->  {
           KitTrackModel kit = new KitTrackModel(name);
           kit.addClip(new ClipModel("CLIP 1", 8, 16));
           idx = currentProject.getTracks().size();
           currentProject.addTrack(kit);
           stack.push(new Consequence.TrackStructureConsequence(
               Consequence.TrackStructureConsequence.ADD, idx, kit, "Add kit track"));
-          break;
         }
-        case "SYNTH": {
+        case "SYNTH" ->  {
           SynthTrackModel synth = new SynthTrackModel(name);
           synth.addClip(new ClipModel("CLIP 1", 8, 16));
           idx = currentProject.getTracks().size();
           currentProject.addTrack(synth);
           stack.push(new Consequence.TrackStructureConsequence(
               Consequence.TrackStructureConsequence.ADD, idx, synth, "Add synth track"));
-          break;
         }
-        case "AUDIO": {
+        case "AUDIO" ->  {
           AudioTrackModel audio = new AudioTrackModel(name);
           audio.addClip(new ClipModel("CLIP 1", 1, 16));
           idx = currentProject.getTracks().size();
           currentProject.addTrack(audio);
           stack.push(new Consequence.TrackStructureConsequence(
               Consequence.TrackStructureConsequence.ADD, idx, audio, "Add audio track"));
-          break;
         }
       }
       propagateCurrentModel();

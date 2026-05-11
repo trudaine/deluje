@@ -4,6 +4,8 @@ import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.chuck.deluge.model.*;
@@ -12,6 +14,8 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
 public class DelugeXmlParser {
+
+  private static final Logger LOG = Logger.getLogger(DelugeXmlParser.class.getName());
 
   // ── Declarative bindings for simple synth fields ──
 
@@ -703,7 +707,24 @@ public class DelugeXmlParser {
       NodeList rpNodes = osc1.getElementsByTagName("retrigPhase");
       if (rpNodes.getLength() > 0) {
         try { synth.setRetrigPhase(Integer.parseInt(rpNodes.item(0).getTextContent().trim())); }
-        catch (NumberFormatException ignored) {}
+        catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
+      }
+
+      // Osc1 sample playback params (loopMode, reversed, timeStretch)
+      String lmStr = osc1.getAttribute("loopMode");
+      if (lmStr != null && !lmStr.isBlank()) {
+        try { synth.setOsc1LoopMode(Integer.parseInt(lmStr)); } catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
+      }
+      readAttrBool(osc1, "reversed", synth::setOsc1Reversed);
+      String tsStr = osc1.getAttribute("timeStretchEnable");
+      if (tsStr != null && !tsStr.isBlank()) {
+        synth.setOsc1TimeStretch("true".equalsIgnoreCase(tsStr) || "1".equals(tsStr));
+      }
+      readAttrFloatHex(osc1, "timeStretchAmount", synth::setOsc1TimeStretchAmount, true);
+      // Osc1 cents (fine detune)
+      String centsStr = osc1.getAttribute("cents");
+      if (centsStr != null && !centsStr.isBlank()) {
+        try { synth.setOsc1Cents(Integer.parseInt(centsStr)); } catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
       }
     }
 
@@ -714,7 +735,17 @@ public class DelugeXmlParser {
       NodeList rpNodes2 = osc2.getElementsByTagName("retrigPhase");
       if (rpNodes2.getLength() > 0) {
         try { synth.setRetrigPhase(Integer.parseInt(rpNodes2.item(0).getTextContent().trim())); }
-        catch (NumberFormatException ignored) {}
+        catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
+      }
+      // Osc2 transpose (semitones)
+      String transStr = osc2.getAttribute("transpose");
+      if (transStr != null && !transStr.isBlank()) {
+        try { synth.setOsc2Transpose(Integer.parseInt(transStr)); } catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
+      }
+      // Osc2 cents (fine detune)
+      String centsStr2 = osc2.getAttribute("cents");
+      if (centsStr2 != null && !centsStr2.isBlank()) {
+        try { synth.setOsc2Cents(Integer.parseInt(centsStr2)); } catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
       }
     }
 
@@ -734,46 +765,58 @@ public class DelugeXmlParser {
     if (soundNode.hasAttribute("synthAlgorithm")) {
       try {
         synth.setSynthAlgorithm(Integer.parseInt(soundNode.getAttribute("synthAlgorithm")));
-      } catch (NumberFormatException ignored) {}
+      } catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
     }
 
     // -- Engine type (-1=AUTO, 0=MODERN, 1=VINTAGE) --
     if (soundNode.hasAttribute("engineType")) {
       try {
         synth.setEngineType(Integer.parseInt(soundNode.getAttribute("engineType")));
-      } catch (NumberFormatException ignored) {}
+      } catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
+    }
+
+    // -- Transpose (attribute on <sound>, semitones) --
+    if (soundNode.hasAttribute("transpose")) {
+      try { synth.setTranspose(Integer.parseInt(soundNode.getAttribute("transpose"))); }
+      catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
+    }
+
+    // -- Max voices (attribute on <sound>) --
+    if (soundNode.hasAttribute("maxVoices")) {
+      try { synth.setMaxVoiceCount(Integer.parseInt(soundNode.getAttribute("maxVoices"))); }
+      catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
     }
 
     // ── FM ratio/amount (from ProjectSerializer track attributes) ──
     if (soundNode.hasAttribute("fmRatio")) {
       try { synth.setFmRatio(Float.parseFloat(soundNode.getAttribute("fmRatio"))); }
-      catch (NumberFormatException ignored) {}
+      catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
     }
     if (soundNode.hasAttribute("fmAmount")) {
       try { synth.setFmAmount(Float.parseFloat(soundNode.getAttribute("fmAmount"))); }
-      catch (NumberFormatException ignored) {}
+      catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
     }
 
     // ── FM feedback params (from ProjectSerializer track attributes, hex-encoded) ──
     String attrM1f = soundNode.getAttribute("modulator1Feedback");
     if (attrM1f != null && !attrM1f.isEmpty()) {
-      try { synth.setModulator1Feedback(DelugeHexMapper.hexToFloat(attrM1f)); } catch (Exception ignored) {}
+      try { synth.setModulator1Feedback(DelugeHexMapper.hexToFloat(attrM1f)); } catch (Exception e) { LOG.log(Level.FINE, "Exception parsing XML hex attribute", e); }
     }
     String attrM2a = soundNode.getAttribute("modulator2Amount");
     if (attrM2a != null && !attrM2a.isEmpty()) {
-      try { synth.setModulator2Amount(DelugeHexMapper.hexToFloat(attrM2a)); } catch (Exception ignored) {}
+      try { synth.setModulator2Amount(DelugeHexMapper.hexToFloat(attrM2a)); } catch (Exception e) { LOG.log(Level.FINE, "Exception parsing XML hex attribute", e); }
     }
     String attrM2f = soundNode.getAttribute("modulator2Feedback");
     if (attrM2f != null && !attrM2f.isEmpty()) {
-      try { synth.setModulator2Feedback(DelugeHexMapper.hexToFloat(attrM2f)); } catch (Exception ignored) {}
+      try { synth.setModulator2Feedback(DelugeHexMapper.hexToFloat(attrM2f)); } catch (Exception e) { LOG.log(Level.FINE, "Exception parsing XML hex attribute", e); }
     }
     String attrC1f = soundNode.getAttribute("carrier1Feedback");
     if (attrC1f != null && !attrC1f.isEmpty()) {
-      try { synth.setCarrier1Feedback(DelugeHexMapper.hexToFloat(attrC1f)); } catch (Exception ignored) {}
+      try { synth.setCarrier1Feedback(DelugeHexMapper.hexToFloat(attrC1f)); } catch (Exception e) { LOG.log(Level.FINE, "Exception parsing XML hex attribute", e); }
     }
     String attrC2f = soundNode.getAttribute("carrier2Feedback");
     if (attrC2f != null && !attrC2f.isEmpty()) {
-      try { synth.setCarrier2Feedback(DelugeHexMapper.hexToFloat(attrC2f)); } catch (Exception ignored) {}
+      try { synth.setCarrier2Feedback(DelugeHexMapper.hexToFloat(attrC2f)); } catch (Exception e) { LOG.log(Level.FINE, "Exception parsing XML hex attribute", e); }
     }
 
     // ── Envelopes 0-3 ──
@@ -788,6 +831,22 @@ public class DelugeXmlParser {
 
     // ── Compressor ──
     parseSynthCompressor(soundNode, synth);
+
+    // ── Sidechain (at sound level, separate from compressor) ──
+    NodeList sidechainNodes = soundNode.getElementsByTagName("sidechain");
+    if (sidechainNodes.getLength() > 0) {
+      Element sc = (Element) sidechainNodes.item(0);
+      readAttrFloatHex(sc, "attack", synth::setSidechainAttack, true);
+      readAttrFloatHex(sc, "release", synth::setSidechainRelease, true);
+      if (sc.hasAttribute("syncLevel")) {
+        try { synth.setSidechainSyncLevel(Integer.parseInt(sc.getAttribute("syncLevel"))); }
+        catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
+      }
+      if (sc.hasAttribute("syncType")) {
+        try { synth.setSidechainSyncType(Integer.parseInt(sc.getAttribute("syncType"))); }
+        catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
+      }
+    }
 
     // ── defaultParams bindings (LPF/HPF freq+res, FM feedback params, + extended) ──
     applyDefaultParamsBindings(soundNode, synth);
@@ -1008,7 +1067,7 @@ public class DelugeXmlParser {
         try {
           int transpose = Integer.parseInt(transpNodes.item(0).getTextContent().trim());
           synth.setFmRatio((float) Math.pow(2.0, transpose / 12.0));
-        } catch (NumberFormatException ignored) {}
+        } catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
       }
     }
     NodeList mod1AmtNodes = soundNode.getElementsByTagName("modulator1Amount");
@@ -1122,12 +1181,19 @@ public class DelugeXmlParser {
     // syncLevel: attribute first, child-element fallback
     String syncStr = lfoEl.getAttribute("syncLevel");
     if (syncStr != null && !syncStr.isBlank()) {
-      try { syncLevel = Integer.parseInt(syncStr); } catch (NumberFormatException ignored) {}
+      try { syncLevel = Integer.parseInt(syncStr); } catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
     } else {
       String syncChild = getChildText(lfoEl, "syncLevel");
       if (syncChild != null) {
-        try { syncLevel = Integer.parseInt(syncChild); } catch (NumberFormatException ignored) {}
+        try { syncLevel = Integer.parseInt(syncChild); } catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
       }
+    }
+
+    // syncType: attribute on lfo element
+    int syncType = 0;
+    String syncTypeStr = lfoEl.getAttribute("syncType");
+    if (syncTypeStr != null && !syncTypeStr.isBlank()) {
+      try { syncType = Integer.parseInt(syncTypeStr); } catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
     }
 
     int lfoIndex = switch (lfoTag) {
@@ -1139,7 +1205,7 @@ public class DelugeXmlParser {
     };
 
     if (lfoIndex >= 0 && lfoIndex < 4) {
-      synth.setLfo(lfoIndex, new LfoModel(rateHz, waveform, depth, "NONE", isLocal, syncLevel));
+      synth.setLfo(lfoIndex, new LfoModel(rateHz, waveform, depth, "NONE", isLocal, syncLevel, syncType));
     }
   }
 
@@ -1160,7 +1226,7 @@ public class DelugeXmlParser {
     String rateStr = getChildText(arpEl, "rate");
     if (rateStr != null) rate = Math.abs(DelugeHexMapper.hexToFloat(rateStr));
     String octStr = getChildText(arpEl, "octaves");
-    if (octStr != null) { try { octaves = Integer.parseInt(octStr); } catch (NumberFormatException ignored) {} }
+    if (octStr != null) { try { octaves = Integer.parseInt(octStr); } catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); } }
     String gateStr = getChildText(arpEl, "gate");
     if (gateStr != null) gate = Math.abs(DelugeHexMapper.hexToFloat(gateStr));
     String activeStr = arpEl.getAttribute("active");
@@ -1176,21 +1242,42 @@ public class DelugeXmlParser {
     int rhythmIndex = 0;
     int seqLength = 8;
     String syncStr = getChildText(arpEl, "sync");
-    if (syncStr != null) { try { syncLevel = Integer.parseInt(syncStr); } catch (NumberFormatException ignored) {} }
+    if (syncStr != null) { try { syncLevel = Integer.parseInt(syncStr); } catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); } }
     String noteModeStr = arpEl.getAttribute("noteMode");
     if (noteModeStr != null && !noteModeStr.isBlank()) noteMode = noteModeStr.toUpperCase();
     String octModeStr = arpEl.getAttribute("octaveMode");
     if (octModeStr != null && !octModeStr.isBlank()) octaveMode = octModeStr.toUpperCase();
     String repeatStr = getChildText(arpEl, "stepRepeat");
-    if (repeatStr != null) { try { stepRepeat = Integer.parseInt(repeatStr); } catch (NumberFormatException ignored) {} }
+    if (repeatStr != null) { try { stepRepeat = Integer.parseInt(repeatStr); } catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); } }
     String rhythmStr = getChildText(arpEl, "rhythm");
-    if (rhythmStr != null) { try { rhythmIndex = Integer.parseInt(rhythmStr); } catch (NumberFormatException ignored) {} }
+    if (rhythmStr != null) { try { rhythmIndex = Integer.parseInt(rhythmStr); } catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); } }
     String seqLenStr = getChildText(arpEl, "seqLength");
-    if (seqLenStr != null) { try { seqLength = Integer.parseInt(seqLenStr); } catch (NumberFormatException ignored) {} }
+    if (seqLenStr != null) { try { seqLength = Integer.parseInt(seqLenStr); } catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); } }
+
+    // arpMode: attribute on arpeggiator element
+    int arpModeVal = -1;
+    String arpModeStr = arpEl.getAttribute("arpMode");
+    if (arpModeStr != null && !arpModeStr.isBlank()) {
+      try { arpModeVal = Integer.parseInt(arpModeStr); } catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
+    }
+
+    // mpeVelocity: attribute on arpeggiator element
+    int mpeVelocity = 0;
+    String mpeStr = arpEl.getAttribute("mpeVelocity");
+    if (mpeStr != null && !mpeStr.isBlank()) {
+      try { mpeVelocity = Integer.parseInt(mpeStr); } catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
+    }
+
+    // syncType: attribute on arpeggiator element
+    int syncType = 0;
+    String arpSyncStr = arpEl.getAttribute("syncType");
+    if (arpSyncStr != null && !arpSyncStr.isBlank()) {
+      try { syncType = Integer.parseInt(arpSyncStr); } catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
+    }
 
     synth.setArp(new ArpModel(active, mode, rate, octaves, Math.abs(gate),
         syncLevel, noteMode, octaveMode, stepRepeat, rhythmIndex, seqLength,
-        0f, 0f, 0f, 0));
+        0f, 0f, 0f, 0, mpeVelocity, syncType));
   }
 
   /** Parse compressor element for synth tracks. */
@@ -1208,7 +1295,15 @@ public class DelugeXmlParser {
     }
     String syncStr = compEl.getAttribute("syncLevel");
     if (syncStr != null && !syncStr.isBlank()) {
-      try { synth.setCompressorSyncLevel(Integer.parseInt(syncStr)); } catch (NumberFormatException ignored) {}
+      try { synth.setCompressorSyncLevel(Integer.parseInt(syncStr)); } catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
+    }
+    readAttrFloatHex(compEl, "threshold", v -> synth.setCompressorThreshold(v), true);
+    readAttrFloatHex(compEl, "ratio", v -> synth.setCompressorRatio(v), true);
+    readAttrFloatHex(compEl, "blend", v -> synth.setCompressorBlend(v), true);
+    // syncType: sidechain sync type attribute on compressor element
+    String syncTypeStr = compEl.getAttribute("syncType");
+    if (syncTypeStr != null && !syncTypeStr.isBlank()) {
+      try { synth.setCompressorSyncType(Integer.parseInt(syncTypeStr)); } catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
     }
   }
 
@@ -1288,7 +1383,7 @@ public class DelugeXmlParser {
       NodeList rpNodes = osc1El.getElementsByTagName("retrigPhase");
       if (rpNodes.getLength() > 0) {
         try { sound.setRetrigPhase(Integer.parseInt(rpNodes.item(0).getTextContent().trim())); }
-        catch (NumberFormatException ignored) {}
+        catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
       }
     }
 
@@ -1320,7 +1415,7 @@ public class DelugeXmlParser {
       NodeList rpNodes2 = osc2.getElementsByTagName("retrigPhase");
       if (rpNodes2.getLength() > 0) {
         try { sound.setRetrigPhase(Integer.parseInt(rpNodes2.item(0).getTextContent().trim())); }
-        catch (NumberFormatException ignored) {}
+        catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
       }
     }
 
@@ -1333,6 +1428,10 @@ public class DelugeXmlParser {
     if (unisonEl != null) {
       sound.setUnisonNum(readIntAttr(unisonEl, "num", 1));
       sound.setUnisonDetune(Math.abs(DelugeHexMapper.hexToFloat(readAttr(unisonEl, "detune"))));
+      String spreadStr = readAttr(unisonEl, "spread");
+      if (spreadStr != null && !spreadStr.isEmpty()) {
+        sound.setUnisonStereoSpread(Math.abs(DelugeHexMapper.hexToFloat(spreadStr)));
+      }
     }
 
     // delay
@@ -1340,6 +1439,8 @@ public class DelugeXmlParser {
     if (delayEl != null) {
       sound.setDelayRate(DelugeHexMapper.hexToFloat(readAttr(delayEl, "rate")));
       sound.setDelayFeedback(DelugeHexMapper.hexToFloat(readAttr(delayEl, "feedback")));
+      sound.setDelayPingPong(readIntAttr(delayEl, "pingPong", 0));
+      sound.setDelayAnalog(readIntAttr(delayEl, "analog", 0));
     }
 
     // audioCompressor
@@ -1348,7 +1449,26 @@ public class DelugeXmlParser {
       sound.setCompressorAttack(DelugeHexMapper.hexToFloat(readAttr(compEl, "attack")));
       sound.setCompressorRelease(DelugeHexMapper.hexToFloat(readAttr(compEl, "release")));
       sound.setCompressorSyncLevel(readIntAttr(compEl, "syncLevel", 0));
+      String thresholdStr = readAttr(compEl, "threshold");
+      if (thresholdStr != null) sound.setCompressorThreshold(Math.abs(DelugeHexMapper.hexToFloat(thresholdStr)));
+      String ratioStr = readAttr(compEl, "ratio");
+      if (ratioStr != null) sound.setCompressorRatio(Math.abs(DelugeHexMapper.hexToFloat(ratioStr)));
+      String blendStr = readAttr(compEl, "blend");
+      if (blendStr != null) sound.setCompressorBlend(Math.abs(DelugeHexMapper.hexToFloat(blendStr)));
+      String compHpfStr = readAttr(compEl, "sidechainHpf");
+      if (compHpfStr != null) sound.setCompressorSidechainHpf(Math.abs(DelugeHexMapper.hexToFloat(compHpfStr)));
     }
+
+      // sidechain (at sound level, separate from compressor)
+      Element sidechainEl = getFirstChild(soundNode, "sidechain");
+      if (sidechainEl != null) {
+        String scAttack = readAttr(sidechainEl, "attack");
+        if (scAttack != null) sound.setSidechainAttack(Math.abs(DelugeHexMapper.hexToFloat(scAttack)));
+        String scRelease = readAttr(sidechainEl, "release");
+        if (scRelease != null) sound.setSidechainRelease(Math.abs(DelugeHexMapper.hexToFloat(scRelease)));
+        sound.setSidechainSyncLevel(readIntAttr(sidechainEl, "syncLevel", 0));
+        sound.setSidechainSyncType(readIntAttr(sidechainEl, "syncType", 0));
+      }
 
     // arpeggiator
     Element arpEl = getFirstChild(soundNode, "arpeggiator");
@@ -1403,15 +1523,22 @@ public class DelugeXmlParser {
     // syncLevel: read attr first, fallback to child element
     String syncLevelStr = readAttr(lfoEl, "syncLevel");
     if (syncLevelStr != null && !syncLevelStr.isEmpty()) {
-      try { syncLevel = Integer.parseInt(syncLevelStr); } catch (NumberFormatException ignored) {}
+      try { syncLevel = Integer.parseInt(syncLevelStr); } catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
     } else {
       String syncChild = getChildText(lfoEl, "syncLevel");
       if (syncChild != null) {
-        try { syncLevel = Integer.parseInt(syncChild); } catch (NumberFormatException ignored) {}
+        try { syncLevel = Integer.parseInt(syncChild); } catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
       }
     }
 
-    LfoModel lfo = new LfoModel(rateHz, waveform, depth, "NONE", isLocal, syncLevel);
+    // syncType: attribute on lfo element
+    String syncTypeStr = readAttr(lfoEl, "syncType");
+    int syncType = 0;
+    if (syncTypeStr != null && !syncTypeStr.isEmpty()) {
+      try { syncType = Integer.parseInt(syncTypeStr); } catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
+    }
+
+    LfoModel lfo = new LfoModel(rateHz, waveform, depth, "NONE", isLocal, syncLevel, syncType);
     if (lfoTag.equals("lfo1")) {
       sound.setLfo1(lfo);
     } else {
@@ -1802,7 +1929,7 @@ public class DelugeXmlParser {
     String lpfHz = sp.getAttribute("lpfFrequency");
     if (lpfHz != null && !lpfHz.isBlank() && !lpfHz.startsWith("0x")) {
       try { clip.setRowSoundParam(row, "lpfFrequency", Float.parseFloat(lpfHz) / 20000.0f); }
-      catch (NumberFormatException ignored) {}
+      catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
     }
     // envelope1-4 child elements with hex ADSR values
     String[] envTags = {"envelope1", "envelope2", "envelope3", "envelope4"};

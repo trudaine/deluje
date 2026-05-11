@@ -60,6 +60,7 @@ public class ProjectModel {
   private float compressorRelease = 0.0f;
   private float compressorThreshold = 0.0f;
   private float compressorRatio = 0.0f;
+  private float compressorBlend = 1.0f;
 
   // ── SongParams values (from <songParams> element) ──
   private float songParamVolume = 1.0f;
@@ -545,6 +546,12 @@ public class ProjectModel {
   public void setCompressorRatio(float v) {
     float old = this.compressorRatio; this.compressorRatio = v;
     if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("compressorRatio", old, v));
+    notifyCompressorChanged();
+  }
+  public float getCompressorBlend() { return compressorBlend; }
+  public void setCompressorBlend(float v) {
+    float old = this.compressorBlend; this.compressorBlend = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("compressorBlend", old, v));
     notifyCompressorChanged();
   }
 

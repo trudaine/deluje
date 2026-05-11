@@ -16,12 +16,14 @@ public record ArpModel(
     float octaveSpread, // 0.0-1.0 randomization of octave
     float gateSpread,   // 0.0-1.0 randomization of gate
     float velSpread,    // 0.0-1.0 randomization of velocity
-    int ratchetAmount   // 0-4 sub-divisions per step
+    int ratchetAmount,  // 0-4 sub-divisions per step
+    int mpeVelocity,    // 0=off, 1=on (MPE velocity tracking)
+    int syncType        // 0=rate-based, 1=note-sync, etc. (firmware ArpSyncType enum)
 ) {
 
   public static ArpModel defaultConfig() {
     return new ArpModel(false, "UP", 1.0f, 1, 0.5f,
         0, "UP", "UP", 1, 0, 8,
-        0.0f, 0.0f, 0.0f, 0);
+        0.0f, 0.0f, 0.0f, 0, 0, 0);
   }
 }

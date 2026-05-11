@@ -34,6 +34,8 @@ public abstract class Drum {
   // Delay
   protected float delayRate = 0.0f;
   protected float delayFeedback = 0.0f;
+  protected int delayPingPong = 0; // 0=off, 1=on
+  protected int delayAnalog = 0;   // 0=digital, 1=analog
 
   // Mod knobs & patch cables
   protected final List<ModKnob> modKnobs = new ArrayList<>(16);
@@ -55,12 +57,20 @@ public abstract class Drum {
   protected int compressorSyncLevel = 0;
   protected float compressorBlend = 0.0f;
   protected float compressorSidechainHpf = 0.0f;
+  protected float compressorThreshold = 0.0f;
+  protected float compressorRatio = 0.0f;
 
   // LPF Mode
   protected FilterMode lpfMode = FilterMode.LADDER_12;
   protected float lpfDrive = 1.0f;
   protected boolean lpfNotch = false;
   protected int maxVoiceCount = 8;
+
+  // Sidechain (at sound level)
+  protected int sidechainSyncLevel = 0;
+  protected int sidechainSyncType = 0;
+  protected float sidechainAttack = 0.0f;
+  protected float sidechainRelease = 0.0f;
 
   // Mod FX
   protected String modFxType = "NONE";
@@ -129,6 +139,15 @@ public abstract class Drum {
   public float getSidechainSend() { return sidechainSend; }
   public void setSidechainSend(float v) { this.sidechainSend = v; }
 
+  public int getSidechainSyncLevel() { return sidechainSyncLevel; }
+  public void setSidechainSyncLevel(int v) { this.sidechainSyncLevel = v; }
+  public int getSidechainSyncType() { return sidechainSyncType; }
+  public void setSidechainSyncType(int v) { this.sidechainSyncType = v; }
+  public float getSidechainAttack() { return sidechainAttack; }
+  public void setSidechainAttack(float v) { this.sidechainAttack = v; }
+  public float getSidechainRelease() { return sidechainRelease; }
+  public void setSidechainRelease(float v) { this.sidechainRelease = v; }
+
   public EnvelopeModel getEnv2() { return env2; }
   public void setEnv2(EnvelopeModel v) { this.env2 = v; }
 
@@ -149,6 +168,12 @@ public abstract class Drum {
 
   public float getDelayFeedback() { return delayFeedback; }
   public void setDelayFeedback(float v) { this.delayFeedback = v; }
+
+  public int getDelayPingPong() { return delayPingPong; }
+  public void setDelayPingPong(int v) { this.delayPingPong = v; }
+
+  public int getDelayAnalog() { return delayAnalog; }
+  public void setDelayAnalog(int v) { this.delayAnalog = v; }
 
   public List<ModKnob> getModKnobs() { return modKnobs; }
   public void setModKnob(int index, ModKnob knob) { this.modKnobs.set(index, knob); }
@@ -190,6 +215,11 @@ public abstract class Drum {
 
   public float getCompressorSidechainHpf() { return compressorSidechainHpf; }
   public void setCompressorSidechainHpf(float v) { this.compressorSidechainHpf = Math.max(0.0f, Math.min(1.0f, v)); }
+
+  public float getCompressorThreshold() { return compressorThreshold; }
+  public void setCompressorThreshold(float v) { this.compressorThreshold = v; }
+  public float getCompressorRatio() { return compressorRatio; }
+  public void setCompressorRatio(float v) { this.compressorRatio = v; }
 
   public FilterMode getLpfMode() { return lpfMode; }
   public void setLpfMode(FilterMode v) { this.lpfMode = v; }
