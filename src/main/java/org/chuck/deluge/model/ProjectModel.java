@@ -8,6 +8,13 @@ import java.util.Map;
 /** The root model for a full Deluge project/song. */
 public class ProjectModel {
 
+  // Undo/redo stack — cleared on new project load
+  private final UndoRedoStack undoRedoStack = new UndoRedoStack(64);
+
+  public UndoRedoStack getUndoRedoStack() {
+    return undoRedoStack;
+  }
+
   // Global Sequencer state
   private float bpm = 120.0f;
   private float swing = 0.5f;
@@ -98,7 +105,11 @@ public class ProjectModel {
   }
 
   public void setMasterVolume(float vol) {
+    float old = this.masterVolume;
     this.masterVolume = vol;
+    if (old != this.masterVolume) {
+      undoRedoStack.push(new Consequence.ProjectParamConsequence("masterVolume", old, this.masterVolume));
+    }
     notifyMasterVolumeChanged(vol);
   }
 
@@ -107,7 +118,11 @@ public class ProjectModel {
   }
 
   public void setMasterPan(float pan) {
+    float old = this.masterPan;
     this.masterPan = pan;
+    if (old != this.masterPan) {
+      undoRedoStack.push(new Consequence.ProjectParamConsequence("masterPan", old, this.masterPan));
+    }
     notifyMasterPanChanged(pan);
   }
 
@@ -116,7 +131,11 @@ public class ProjectModel {
   }
 
   public void setMasterDelay(float del) {
+    float old = this.masterDelay;
     this.masterDelay = del;
+    if (old != this.masterDelay) {
+      undoRedoStack.push(new Consequence.ProjectParamConsequence("masterDelay", old, this.masterDelay));
+    }
     notifyDelayChanged();
   }
 
@@ -135,7 +154,11 @@ public class ProjectModel {
   }
 
   public void setBpm(float bpm) {
+    float old = this.bpm;
     this.bpm = Math.max(1.0f, Math.min(300.0f, bpm));
+    if (old != this.bpm) {
+      undoRedoStack.push(new Consequence.ProjectParamConsequence("bpm", old, this.bpm));
+    }
     notifyBpmChanged(this.bpm);
   }
 
@@ -144,7 +167,11 @@ public class ProjectModel {
   }
 
   public void setSwing(float swing) {
+    float old = this.swing;
     this.swing = Math.max(0.0f, Math.min(1.0f, swing));
+    if (old != this.swing) {
+      undoRedoStack.push(new Consequence.ProjectParamConsequence("swing", old, this.swing));
+    }
     notifySwingChanged(this.swing);
   }
 
@@ -153,7 +180,11 @@ public class ProjectModel {
   }
 
   public void setTimeSigNum(int timeSigNum) {
+    int old = this.timeSigNum;
     this.timeSigNum = Math.max(1, timeSigNum);
+    if (old != this.timeSigNum) {
+      undoRedoStack.push(new Consequence.ProjectParamConsequence("timeSigNum", (float) old, (float) this.timeSigNum));
+    }
   }
 
   public int getTimeSigDenom() {
@@ -161,7 +192,11 @@ public class ProjectModel {
   }
 
   public void setTimeSigDenom(int timeSigDenom) {
+    int old = this.timeSigDenom;
     this.timeSigDenom = Math.max(1, timeSigDenom);
+    if (old != this.timeSigDenom) {
+      undoRedoStack.push(new Consequence.ProjectParamConsequence("timeSigDenom", (float) old, (float) this.timeSigDenom));
+    }
   }
 
   public int getTranspose() {
@@ -169,7 +204,11 @@ public class ProjectModel {
   }
 
   public void setTranspose(int transpose) {
+    int old = this.transpose;
     this.transpose = transpose;
+    if (old != this.transpose) {
+      undoRedoStack.push(new Consequence.ProjectParamConsequence("transpose", (float) old, (float) this.transpose));
+    }
     notifyTransposeChanged(transpose);
   }
 
@@ -178,7 +217,11 @@ public class ProjectModel {
   }
 
   public void setHumanize(float humanize) {
+    float old = this.humanize;
     this.humanize = Math.max(0.0f, Math.min(1.0f, humanize));
+    if (old != this.humanize) {
+      undoRedoStack.push(new Consequence.ProjectParamConsequence("humanize", old, this.humanize));
+    }
     notifyHumanizeChanged(this.humanize);
   }
 
@@ -353,118 +396,314 @@ public class ProjectModel {
   // ── Reverb getters/setters ──
 
   public float getReverbRoomSize() { return reverbRoomSize; }
-  public void setReverbRoomSize(float v) { this.reverbRoomSize = v; notifyReverbChanged(); }
+  public void setReverbRoomSize(float v) {
+    float old = this.reverbRoomSize; this.reverbRoomSize = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("reverbRoomSize", old, v));
+    notifyReverbChanged();
+  }
   public float getReverbDampening() { return reverbDampening; }
-  public void setReverbDampening(float v) { this.reverbDampening = v; notifyReverbChanged(); }
+  public void setReverbDampening(float v) {
+    float old = this.reverbDampening; this.reverbDampening = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("reverbDampening", old, v));
+    notifyReverbChanged();
+  }
   public float getReverbWidth() { return reverbWidth; }
-  public void setReverbWidth(float v) { this.reverbWidth = v; notifyReverbChanged(); }
+  public void setReverbWidth(float v) {
+    float old = this.reverbWidth; this.reverbWidth = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("reverbWidth", old, v));
+    notifyReverbChanged();
+  }
   public float getReverbHpf() { return reverbHpf; }
-  public void setReverbHpf(float v) { this.reverbHpf = v; notifyReverbChanged(); }
+  public void setReverbHpf(float v) {
+    float old = this.reverbHpf; this.reverbHpf = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("reverbHpf", old, v));
+    notifyReverbChanged();
+  }
   public float getReverbPan() { return reverbPan; }
-  public void setReverbPan(float v) { this.reverbPan = v; notifyReverbChanged(); }
+  public void setReverbPan(float v) {
+    float old = this.reverbPan; this.reverbPan = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("reverbPan", old, v));
+    notifyReverbChanged();
+  }
   public int getReverbModel() { return reverbModel; }
-  public void setReverbModel(int v) { this.reverbModel = v; notifyReverbChanged(); }
+  public void setReverbModel(int v) {
+    int old = this.reverbModel; this.reverbModel = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("reverbModel", (float) old, (float) v));
+    notifyReverbChanged();
+  }
   public float getReverbCompressorAttack() { return reverbCompressorAttack; }
-  public void setReverbCompressorAttack(float v) { this.reverbCompressorAttack = v; notifyReverbChanged(); }
+  public void setReverbCompressorAttack(float v) {
+    float old = this.reverbCompressorAttack; this.reverbCompressorAttack = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("reverbCompressorAttack", old, v));
+    notifyReverbChanged();
+  }
   public float getReverbCompressorRelease() { return reverbCompressorRelease; }
-  public void setReverbCompressorRelease(float v) { this.reverbCompressorRelease = v; notifyReverbChanged(); }
+  public void setReverbCompressorRelease(float v) {
+    float old = this.reverbCompressorRelease; this.reverbCompressorRelease = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("reverbCompressorRelease", old, v));
+    notifyReverbChanged();
+  }
   public int getReverbCompressorSyncLevel() { return reverbCompressorSyncLevel; }
-  public void setReverbCompressorSyncLevel(int v) { this.reverbCompressorSyncLevel = v; notifyReverbChanged(); }
+  public void setReverbCompressorSyncLevel(int v) {
+    int old = this.reverbCompressorSyncLevel; this.reverbCompressorSyncLevel = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("reverbCompressorSyncLevel", (float) old, (float) v));
+    notifyReverbChanged();
+  }
   public float getReverbCompHpf() { return reverbCompHpf; }
-  public void setReverbCompHpf(float v) { this.reverbCompHpf = v; notifyReverbChanged(); }
+  public void setReverbCompHpf(float v) {
+    float old = this.reverbCompHpf; this.reverbCompHpf = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("reverbCompHpf", old, v));
+    notifyReverbChanged();
+  }
   public float getReverbCompBlend() { return reverbCompBlend; }
-  public void setReverbCompBlend(float v) { this.reverbCompBlend = v; notifyReverbChanged(); }
+  public void setReverbCompBlend(float v) {
+    float old = this.reverbCompBlend; this.reverbCompBlend = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("reverbCompBlend", old, v));
+    notifyReverbChanged();
+  }
 
   // ── Delay getters/setters ──
 
   public int getDelayPingPong() { return delayPingPong; }
-  public void setDelayPingPong(int v) { this.delayPingPong = v; notifyDelayChanged(); }
+  public void setDelayPingPong(int v) {
+    int old = this.delayPingPong; this.delayPingPong = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("delayPingPong", (float) old, (float) v));
+    notifyDelayChanged();
+  }
   public int getDelayAnalog() { return delayAnalog; }
-  public void setDelayAnalog(int v) { this.delayAnalog = v; notifyDelayChanged(); }
+  public void setDelayAnalog(int v) {
+    int old = this.delayAnalog; this.delayAnalog = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("delayAnalog", (float) old, (float) v));
+    notifyDelayChanged();
+  }
   public int getDelaySyncLevel() { return delaySyncLevel; }
-  public void setDelaySyncLevel(int v) { this.delaySyncLevel = v; notifyDelayChanged(); }
+  public void setDelaySyncLevel(int v) {
+    int old = this.delaySyncLevel; this.delaySyncLevel = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("delaySyncLevel", (float) old, (float) v));
+    notifyDelayChanged();
+  }
   public int getDelaySyncType() { return delaySyncType; }
-  public void setDelaySyncType(int v) { this.delaySyncType = v; notifyDelayChanged(); }
+  public void setDelaySyncType(int v) {
+    int old = this.delaySyncType; this.delaySyncType = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("delaySyncType", (float) old, (float) v));
+    notifyDelayChanged();
+  }
 
   // ── Sidechain getters/setters ──
 
   public float getSidechainAttack() { return sidechainAttack; }
-  public void setSidechainAttack(float v) { this.sidechainAttack = v; notifySidechainChanged(); }
+  public void setSidechainAttack(float v) {
+    float old = this.sidechainAttack; this.sidechainAttack = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("sidechainAttack", old, v));
+    notifySidechainChanged();
+  }
   public float getSidechainRelease() { return sidechainRelease; }
-  public void setSidechainRelease(float v) { this.sidechainRelease = v; notifySidechainChanged(); }
+  public void setSidechainRelease(float v) {
+    float old = this.sidechainRelease; this.sidechainRelease = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("sidechainRelease", old, v));
+    notifySidechainChanged();
+  }
   public int getSidechainSyncLevel() { return sidechainSyncLevel; }
-  public void setSidechainSyncLevel(int v) { this.sidechainSyncLevel = v; notifySidechainChanged(); }
+  public void setSidechainSyncLevel(int v) {
+    int old = this.sidechainSyncLevel; this.sidechainSyncLevel = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("sidechainSyncLevel", (float) old, (float) v));
+    notifySidechainChanged();
+  }
   public int getSidechainSyncType() { return sidechainSyncType; }
-  public void setSidechainSyncType(int v) { this.sidechainSyncType = v; notifySidechainChanged(); }
+  public void setSidechainSyncType(int v) {
+    int old = this.sidechainSyncType; this.sidechainSyncType = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("sidechainSyncType", (float) old, (float) v));
+    notifySidechainChanged();
+  }
 
   // ── Compressor getters/setters ──
 
   public float getCompressorAttack() { return compressorAttack; }
-  public void setCompressorAttack(float v) { this.compressorAttack = v; notifyCompressorChanged(); }
+  public void setCompressorAttack(float v) {
+    float old = this.compressorAttack; this.compressorAttack = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("compressorAttack", old, v));
+    notifyCompressorChanged();
+  }
   public float getCompressorRelease() { return compressorRelease; }
-  public void setCompressorRelease(float v) { this.compressorRelease = v; notifyCompressorChanged(); }
+  public void setCompressorRelease(float v) {
+    float old = this.compressorRelease; this.compressorRelease = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("compressorRelease", old, v));
+    notifyCompressorChanged();
+  }
   public float getCompressorThreshold() { return compressorThreshold; }
-  public void setCompressorThreshold(float v) { this.compressorThreshold = v; notifyCompressorChanged(); }
+  public void setCompressorThreshold(float v) {
+    float old = this.compressorThreshold; this.compressorThreshold = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("compressorThreshold", old, v));
+    notifyCompressorChanged();
+  }
   public float getCompressorRatio() { return compressorRatio; }
-  public void setCompressorRatio(float v) { this.compressorRatio = v; notifyCompressorChanged(); }
+  public void setCompressorRatio(float v) {
+    float old = this.compressorRatio; this.compressorRatio = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("compressorRatio", old, v));
+    notifyCompressorChanged();
+  }
 
   // ── SongParams getters/setters ──
 
   public float getSongParamVolume() { return songParamVolume; }
-  public void setSongParamVolume(float v) { this.songParamVolume = v; notifySongParamsChanged(); }
+  public void setSongParamVolume(float v) {
+    float old = this.songParamVolume; this.songParamVolume = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamVolume", old, v));
+    notifySongParamsChanged();
+  }
   public float getSongParamPan() { return songParamPan; }
-  public void setSongParamPan(float v) { this.songParamPan = v; notifySongParamsChanged(); }
+  public void setSongParamPan(float v) {
+    float old = this.songParamPan; this.songParamPan = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamPan", old, v));
+    notifySongParamsChanged();
+  }
   public float getSongParamReverbAmount() { return songParamReverbAmount; }
-  public void setSongParamReverbAmount(float v) { this.songParamReverbAmount = v; notifySongParamsChanged(); }
+  public void setSongParamReverbAmount(float v) {
+    float old = this.songParamReverbAmount; this.songParamReverbAmount = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamReverbAmount", old, v));
+    notifySongParamsChanged();
+  }
   public float getSongParamDelayRate() { return songParamDelayRate; }
-  public void setSongParamDelayRate(float v) { this.songParamDelayRate = v; notifySongParamsChanged(); }
+  public void setSongParamDelayRate(float v) {
+    float old = this.songParamDelayRate; this.songParamDelayRate = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamDelayRate", old, v));
+    notifySongParamsChanged();
+  }
   public float getSongParamDelayFeedback() { return songParamDelayFeedback; }
-  public void setSongParamDelayFeedback(float v) { this.songParamDelayFeedback = v; notifySongParamsChanged(); }
+  public void setSongParamDelayFeedback(float v) {
+    float old = this.songParamDelayFeedback; this.songParamDelayFeedback = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamDelayFeedback", old, v));
+    notifySongParamsChanged();
+  }
   public float getSongParamSidechainShape() { return songParamSidechainShape; }
-  public void setSongParamSidechainShape(float v) { this.songParamSidechainShape = v; notifySongParamsChanged(); }
+  public void setSongParamSidechainShape(float v) {
+    float old = this.songParamSidechainShape; this.songParamSidechainShape = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamSidechainShape", old, v));
+    notifySongParamsChanged();
+  }
   public float getSongParamStutterRate() { return songParamStutterRate; }
-  public void setSongParamStutterRate(float v) { this.songParamStutterRate = v; notifySongParamsChanged(); }
+  public void setSongParamStutterRate(float v) {
+    float old = this.songParamStutterRate; this.songParamStutterRate = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamStutterRate", old, v));
+    notifySongParamsChanged();
+  }
   public float getSongParamSampleRateReduction() { return songParamSampleRateReduction; }
-  public void setSongParamSampleRateReduction(float v) { this.songParamSampleRateReduction = v; notifySongParamsChanged(); }
+  public void setSongParamSampleRateReduction(float v) {
+    float old = this.songParamSampleRateReduction; this.songParamSampleRateReduction = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamSampleRateReduction", old, v));
+    notifySongParamsChanged();
+  }
   public float getSongParamBitCrush() { return songParamBitCrush; }
-  public void setSongParamBitCrush(float v) { this.songParamBitCrush = v; notifySongParamsChanged(); }
+  public void setSongParamBitCrush(float v) {
+    float old = this.songParamBitCrush; this.songParamBitCrush = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamBitCrush", old, v));
+    notifySongParamsChanged();
+  }
   public float getSongParamModFXRate() { return songParamModFXRate; }
-  public void setSongParamModFXRate(float v) { this.songParamModFXRate = v; notifySongParamsChanged(); }
+  public void setSongParamModFXRate(float v) {
+    float old = this.songParamModFXRate; this.songParamModFXRate = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamModFXRate", old, v));
+    notifySongParamsChanged();
+  }
   public float getSongParamModFXDepth() { return songParamModFXDepth; }
-  public void setSongParamModFXDepth(float v) { this.songParamModFXDepth = v; notifySongParamsChanged(); }
+  public void setSongParamModFXDepth(float v) {
+    float old = this.songParamModFXDepth; this.songParamModFXDepth = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamModFXDepth", old, v));
+    notifySongParamsChanged();
+  }
   public float getSongParamModFXOffset() { return songParamModFXOffset; }
-  public void setSongParamModFXOffset(float v) { this.songParamModFXOffset = v; notifySongParamsChanged(); }
+  public void setSongParamModFXOffset(float v) {
+    float old = this.songParamModFXOffset; this.songParamModFXOffset = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamModFXOffset", old, v));
+    notifySongParamsChanged();
+  }
   public float getSongParamModFXFeedback() { return songParamModFXFeedback; }
-  public void setSongParamModFXFeedback(float v) { this.songParamModFXFeedback = v; notifySongParamsChanged(); }
+  public void setSongParamModFXFeedback(float v) {
+    float old = this.songParamModFXFeedback; this.songParamModFXFeedback = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamModFXFeedback", old, v));
+    notifySongParamsChanged();
+  }
   public float getSongParamCompressorThreshold() { return songParamCompressorThreshold; }
-  public void setSongParamCompressorThreshold(float v) { this.songParamCompressorThreshold = v; notifySongParamsChanged(); }
+  public void setSongParamCompressorThreshold(float v) {
+    float old = this.songParamCompressorThreshold; this.songParamCompressorThreshold = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamCompressorThreshold", old, v));
+    notifySongParamsChanged();
+  }
   public float getSongParamLpfMorph() { return songParamLpfMorph; }
-  public void setSongParamLpfMorph(float v) { this.songParamLpfMorph = v; notifySongParamsChanged(); }
+  public void setSongParamLpfMorph(float v) {
+    float old = this.songParamLpfMorph; this.songParamLpfMorph = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamLpfMorph", old, v));
+    notifySongParamsChanged();
+  }
   public float getSongParamHpfMorph() { return songParamHpfMorph; }
-  public void setSongParamHpfMorph(float v) { this.songParamHpfMorph = v; notifySongParamsChanged(); }
+  public void setSongParamHpfMorph(float v) {
+    float old = this.songParamHpfMorph; this.songParamHpfMorph = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamHpfMorph", old, v));
+    notifySongParamsChanged();
+  }
   public float getSongParamLpfFrequency() { return songParamLpfFrequency; }
-  public void setSongParamLpfFrequency(float v) { this.songParamLpfFrequency = v; notifySongParamsChanged(); }
+  public void setSongParamLpfFrequency(float v) {
+    float old = this.songParamLpfFrequency; this.songParamLpfFrequency = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamLpfFrequency", old, v));
+    notifySongParamsChanged();
+  }
   public float getSongParamLpfResonance() { return songParamLpfResonance; }
-  public void setSongParamLpfResonance(float v) { this.songParamLpfResonance = v; notifySongParamsChanged(); }
+  public void setSongParamLpfResonance(float v) {
+    float old = this.songParamLpfResonance; this.songParamLpfResonance = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamLpfResonance", old, v));
+    notifySongParamsChanged();
+  }
   public float getSongParamHpfFrequency() { return songParamHpfFrequency; }
-  public void setSongParamHpfFrequency(float v) { this.songParamHpfFrequency = v; notifySongParamsChanged(); }
+  public void setSongParamHpfFrequency(float v) {
+    float old = this.songParamHpfFrequency; this.songParamHpfFrequency = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamHpfFrequency", old, v));
+    notifySongParamsChanged();
+  }
   public float getSongParamHpfResonance() { return songParamHpfResonance; }
-  public void setSongParamHpfResonance(float v) { this.songParamHpfResonance = v; notifySongParamsChanged(); }
+  public void setSongParamHpfResonance(float v) {
+    float old = this.songParamHpfResonance; this.songParamHpfResonance = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamHpfResonance", old, v));
+    notifySongParamsChanged();
+  }
   public float getSongParamEqBass() { return songParamEqBass; }
-  public void setSongParamEqBass(float v) { this.songParamEqBass = v; notifySongParamsChanged(); }
+  public void setSongParamEqBass(float v) {
+    float old = this.songParamEqBass; this.songParamEqBass = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamEqBass", old, v));
+    notifySongParamsChanged();
+  }
   public float getSongParamEqTreble() { return songParamEqTreble; }
-  public void setSongParamEqTreble(float v) { this.songParamEqTreble = v; notifySongParamsChanged(); }
+  public void setSongParamEqTreble(float v) {
+    float old = this.songParamEqTreble; this.songParamEqTreble = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamEqTreble", old, v));
+    notifySongParamsChanged();
+  }
   public float getSongParamEqBassFrequency() { return songParamEqBassFrequency; }
-  public void setSongParamEqBassFrequency(float v) { this.songParamEqBassFrequency = v; notifySongParamsChanged(); }
+  public void setSongParamEqBassFrequency(float v) {
+    float old = this.songParamEqBassFrequency; this.songParamEqBassFrequency = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamEqBassFrequency", old, v));
+    notifySongParamsChanged();
+  }
   public float getSongParamEqTrebleFrequency() { return songParamEqTrebleFrequency; }
-  public void setSongParamEqTrebleFrequency(float v) { this.songParamEqTrebleFrequency = v; notifySongParamsChanged(); }
+  public void setSongParamEqTrebleFrequency(float v) {
+    float old = this.songParamEqTrebleFrequency; this.songParamEqTrebleFrequency = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamEqTrebleFrequency", old, v));
+    notifySongParamsChanged();
+  }
 
   // ── Scales getters/setters ──
 
   public int getUserScale() { return userScale; }
-  public void setUserScale(int v) { this.userScale = v; notifyScalesChanged(); }
+  public void setUserScale(int v) {
+    int old = this.userScale; this.userScale = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("userScale", (float) old, (float) v));
+    notifyScalesChanged();
+  }
   public int getDisabledPresetScales() { return disabledPresetScales; }
-  public void setDisabledPresetScales(int v) { this.disabledPresetScales = v; notifyScalesChanged(); }
+  public void setDisabledPresetScales(int v) {
+    int old = this.disabledPresetScales; this.disabledPresetScales = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("disabledPresetScales", (float) old, (float) v));
+    notifyScalesChanged();
+  }
 
   // ── Mode notes getters/setters ──
 
@@ -476,7 +715,11 @@ public class ProjectModel {
   }
 
   public void setKey(String key) {
+    String old = this.key;
     this.key = key;
+    if (!old.equals(key)) {
+      undoRedoStack.push(new Consequence.ProjectParamConsequence("key", 0, 0));
+    }
     notifyKeyChanged(key);
   }
 
@@ -485,7 +728,11 @@ public class ProjectModel {
   }
 
   public void setScale(String scale) {
+    String old = this.scale;
     this.scale = scale;
+    if (!old.equals(scale)) {
+      undoRedoStack.push(new Consequence.ProjectParamConsequence("scale", 0, 0));
+    }
     notifyScaleChanged(scale);
   }
 }
