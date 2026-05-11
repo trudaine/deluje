@@ -61,6 +61,7 @@ public class SwingSynthConfigDialog extends JDialog {
     tabs.addTab("LFO", buildLfoPanel(vm, bridge, trackIndex));
     tabs.addTab("ENVELOPE", buildEnvelopePanel(model, bridge, trackIndex));
     tabs.addTab("MODULATION", buildModulationPanel(model, bridge, trackIndex));
+    tabs.addTab("COMPRESSOR", buildCompressorPanel(model, bridge, trackIndex));
     tabs.addTab("AUTOMATION", buildAutomationPanel(model, bridge, trackIndex));
 
     // Enable/disable DX7 tab when synth mode changes (the mode combo is in the main panel)
@@ -1416,6 +1417,54 @@ public class SwingSynthConfigDialog extends JDialog {
     outer.add(split, BorderLayout.CENTER);
 
     return outer;
+  }
+
+  /**
+   * Build the COMPRESSOR tab: attack, release, ratio, blend, threshold, and sidechain HPF sliders.
+   */
+  private JPanel buildCompressorPanel(SynthTrackModel model, BridgeContract bridge, int trackIndex) {
+    JPanel panel = new JPanel(new GridBagLayout());
+    panel.setBackground(new Color(0x22, 0x22, 0x22));
+    GridBagConstraints c = new GridBagConstraints();
+    c.fill = GridBagConstraints.HORIZONTAL;
+    c.insets = new Insets(6, 10, 6, 10);
+    c.anchor = GridBagConstraints.WEST;
+    int row = 0;
+
+    // ── Track Compressor ──
+    c.gridx = 0; c.gridy = row; c.gridwidth = 3;
+    panel.add(sectionLabel("TRACK COMPRESSOR"), c); row++;
+
+    row = addSlider(panel, c, row, "Attack:",
+        "Compressor attack (0-100). Higher = slower response to transients.",
+        0, 100, (int)(bridge.getCompAttack(trackIndex) * 100),
+        val -> bridge.setCompAttack(trackIndex, val / 100f), "", "compAttack");
+
+    row = addSlider(panel, c, row, "Release:",
+        "Compressor release (0-100). Higher = slower return to unity gain.",
+        0, 100, (int)(bridge.getCompRelease(trackIndex) * 100),
+        val -> bridge.setCompRelease(trackIndex, val / 100f), "", "compRelease");
+
+    row = addSlider(panel, c, row, "Ratio:",
+        "Compression ratio. 0-100 mapped to 2:1 – 256:1. Higher = stronger compression.",
+        0, 100, (int)(bridge.getCompRatio(trackIndex)),
+        val -> bridge.setCompRatio(trackIndex, val), "", "compRatio");
+
+    row = addSlider(panel, c, row, "Blend:",
+        "Dry/wet blend. 0% = dry, 100% = fully compressed (parallel compression).",
+        0, 100, (int)(bridge.getCompBlend(trackIndex) * 100),
+        val -> bridge.setCompBlend(trackIndex, val / 100f), "%", "compBlend");
+
+    // ── Sidechain section ──
+    c.gridx = 0; c.gridy = row; c.gridwidth = 3;
+    panel.add(sectionLabel("SIDECHAIN HPF"), c); row++;
+
+    row = addSlider(panel, c, row, "HPF:",
+        "Sidechain high-pass filter (0-100%). Filters low frequencies from the sidechain input so bass doesn't trigger compression.",
+        0, 100, (int)(bridge.getCompSidechainHpf(trackIndex) * 100),
+        val -> bridge.setCompSidechainHpf(trackIndex, val / 100f), "%", "compSidechainHpf");
+
+    return panel;
   }
 
   /**
