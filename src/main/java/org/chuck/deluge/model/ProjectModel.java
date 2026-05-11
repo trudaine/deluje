@@ -21,7 +21,6 @@ public class ProjectModel {
 
   private float masterVolume = 1.0f;
   private float masterPan = 0.0f;
-  private float masterReverb = 0.3f;
   private float masterDelay = 0.3f;
 
   // ── Song-level reverb params ──
@@ -110,15 +109,6 @@ public class ProjectModel {
   public void setMasterPan(float pan) {
     this.masterPan = pan;
     notifyMasterPanChanged(pan);
-  }
-
-  public float getMasterReverb() {
-    return masterReverb;
-  }
-
-  public void setMasterReverb(float rev) {
-    this.masterReverb = rev;
-    notifyReverbChanged();
   }
 
   public float getMasterDelay() {

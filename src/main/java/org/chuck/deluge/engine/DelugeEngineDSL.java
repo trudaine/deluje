@@ -747,6 +747,14 @@ public class DelugeEngineDSL implements Shred, Runnable {
 
           float rate = audioRate != null ? (float) audioRate.getFloat(r) : 1.0f;
           lisa[r].rate(0, rate);
+
+          // Apply per-track audio clip sample position (loop sub-region)
+          double clipStart = vm.getGlobalFloat("g_audio_clip_start_" + r);
+          double clipEnd = vm.getGlobalFloat("g_audio_clip_end_" + r);
+          if (clipEnd > clipStart) {
+            lisa[r].loopStart(0, clipStart);
+            lisa[r].loopEnd(0, clipEnd);
+          }
         }
       }
     }
