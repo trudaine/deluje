@@ -65,6 +65,7 @@ public class SwingSynthConfigDialog extends JDialog {
     tabs.addTab("COMPRESSOR", buildCompressorPanel(model, bridge, trackIndex));
     tabs.addTab("EQ", buildEqPanel(model, bridge, trackIndex));
     tabs.addTab("MOD FX", buildModFxPanel(model, bridge, trackIndex));
+    tabs.addTab("HPF", buildHpfPanel(model, bridge, trackIndex));
     tabs.addTab("AUTOMATION", buildAutomationPanel(model, bridge, trackIndex));
 
     // Enable/disable DX7 tab when synth mode changes (the mode combo is in the main panel)
@@ -451,40 +452,13 @@ public class SwingSynthConfigDialog extends JDialog {
     panel.add(routeCombo, c); row++;
 
     // ── Filter (HPF) ──
-    c.gridx = 0; c.gridy = row; c.gridwidth = 3;
-    panel.add(sectionLabel("FILTER (HPF)"), c); row++;
+	    c.gridx = 0; c.gridy = row; c.gridwidth = 3;
+	    JLabel hpfNote = new JLabel("HPF controls moved to HPF tab →");
+	    hpfNote.setForeground(new Color(0x88, 0x88, 0x88));
+	    hpfNote.setFont(hpfNote.getFont().deriveFont(Font.ITALIC));
+	    panel.add(hpfNote, c); row++;
 
-    row = addSlider(panel, c, row, "Cutoff:",
-        "High-pass filter cutoff (0% = 20Hz/off, 100% = ~20kHz)",
-        0, 100, (int)(bridge.getHpfFreq(trackIndex) / 200.0f * 100),
-        val -> bridge.setHpfFreq(trackIndex, val / 100.0f * 200.0f), "Hz", "hpfCutoff");
-    row = addSlider(panel, c, row, "Resonance:",
-        "HPF resonance / Q",
-        0, 100, (int)(bridge.getHpfRes(trackIndex) * 100),
-        val -> bridge.setHpfRes(trackIndex, val / 100.0f), "%", "hpfResonance");
-    row = addSlider(panel, c, row, "Morph:",
-        "HPF morph: 0=fully HP, 50=fully LP (inverted vs LPF morph). Only for SVF-based modes.",
-        0, 50, (int)(bridge.getHpfMorph(trackIndex) * 50),
-        val -> bridge.setHpfMorph(trackIndex, val / 50.0f), "", "hpfMorph");
-    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
-    JLabel hpfModeLbl = label("HPF Mode:");
-    hpfModeLbl.setToolTipText("0=LADDER_12, 1=LADDER_24, 2=SVF, 3=DRIVE, 4=SVF_BAND, 5=SVF_NOTCH");
-    panel.add(hpfModeLbl, c);
-    c.gridx = 1; c.gridwidth = 2;
-    JComboBox<String> hpfModeCombo = new JComboBox<>(
-        new String[]{"12dB", "24dB", "SVF", "DRIVE", "SVF BAND", "SVF NOTCH"});
-    hpfModeCombo.setSelectedIndex(bridge.getHpfMode(trackIndex));
-    hpfModeCombo.setBackground(new Color(0x33, 0x33, 0x33));
-    hpfModeCombo.setForeground(Color.WHITE);
-    hpfModeCombo.addActionListener(e ->
-        bridge.setHpfMode(trackIndex, hpfModeCombo.getSelectedIndex()));
-    panel.add(hpfModeCombo, c); row++;
-    row = addSlider(panel, c, row, "FM:",
-        "HPF FM amount — modulates HPF cutoff with audio-rate signal",
-        0, 100, (int)(bridge.getHpfFm(trackIndex) * 100),
-        val -> bridge.setHpfFm(trackIndex, val / 100.0f), "%", "hpfFm");
-
-    // ── FM ──
+// ── FM ──
     c.gridx = 0; c.gridy = row; c.gridwidth = 3;
     panel.add(sectionLabel("FM SYNTHESIS"), c); row++;
 
@@ -1507,6 +1481,64 @@ public class SwingSynthConfigDialog extends JDialog {
         "Treble shelving EQ cut/boost (-100% = -12dB cut, 0% = flat, +100% = +12dB boost)",
         -100, 100, (int)(bridge.getEqTreble(trackIndex) * 100),
         val -> bridge.setEqTreble(trackIndex, val / 100f), "%", "eqTreble");
+
+    return panel;
+  }
+
+  /**
+   * Build the HPF tab: cutoff, resonance, morph, mode, FM amount.
+   */
+  private JPanel buildHpfPanel(SynthTrackModel model, BridgeContract bridge, int trackIndex) {
+    JPanel panel = new JPanel(new GridBagLayout());
+    panel.setBackground(new Color(0x22, 0x22, 0x22));
+    GridBagConstraints c = new GridBagConstraints();
+    c.fill = GridBagConstraints.HORIZONTAL;
+    c.insets = new Insets(6, 10, 6, 10);
+    c.anchor = GridBagConstraints.WEST;
+    int row = 0;
+
+    c.gridx = 0; c.gridy = row; c.gridwidth = 3;
+    panel.add(sectionLabel("HIGH-PASS FILTER"), c); row++;
+
+    // HPF cutoff: 0-100 maps to 0-20000 Hz
+    row = addSlider(panel, c, row, "Cutoff:",
+        "HPF cutoff frequency (0–20000 Hz). Higher = more low-end removed.",
+        0, 100, (int)(bridge.getHpfFreq(trackIndex) / 200.0f),
+        val -> bridge.setHpfFreq(trackIndex, val / 100.0f * 200.0f), "Hz", "hpfCutoff");
+
+    // HPF resonance: 0-100
+    row = addSlider(panel, c, row, "Resonance:",
+        "HPF resonance/emphasis (0–100%). Higher = more pronounced peak at cutoff.",
+        0, 100, (int)(bridge.getHpfRes(trackIndex) * 100),
+        val -> bridge.setHpfRes(trackIndex, val / 100.0f), "%", "hpfResonance");
+
+    // HPF morph: 0-50 maps to 0-1
+    row = addSlider(panel, c, row, "Morph:",
+        "HPF morph/contour (0–100%). Changes filter character.",
+        0, 50, (int)(bridge.getHpfMorph(trackIndex) * 50),
+        val -> bridge.setHpfMorph(trackIndex, val / 50.0f), "", "hpfMorph");
+
+    // HPF mode combo
+    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
+    panel.add(label("Mode:"), c);
+    c.gridx = 1; c.gridwidth = 2;
+    String[] modeNames = java.util.Arrays.stream(org.chuck.deluge.model.FilterMode.values())
+        .map(Enum::name).toArray(String[]::new);
+    JComboBox<String> hpfModeCombo = new JComboBox<>(modeNames);
+    hpfModeCombo.setSelectedIndex(bridge.getHpfMode(trackIndex));
+    hpfModeCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    hpfModeCombo.setForeground(Color.WHITE);
+    hpfModeCombo.addActionListener(ev -> {
+      int idx = hpfModeCombo.getSelectedIndex();
+      bridge.setHpfMode(trackIndex, idx);
+    });
+    panel.add(hpfModeCombo, c); row++;
+
+    // HPF FM amount: 0-100
+    row = addSlider(panel, c, row, "FM:",
+        "HPF FM amount (0–100%). Modulates HPF cutoff with the filter envelope.",
+        0, 100, (int)(bridge.getHpfFm(trackIndex) * 100),
+        val -> bridge.setHpfFm(trackIndex, val / 100.0f), "%", "hpfFm");
 
     return panel;
   }
