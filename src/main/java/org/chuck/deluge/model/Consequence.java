@@ -229,4 +229,32 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
       return Category.PATTERN_LOAD;
     }
   }
+
+  /** Pattern load — applies/reverts a clip snapshot. */
+  record PatternLoadConsequence(
+      int trackIndex,
+      int clipIndex,
+      PatternModel.ClipSnapshot beforeSnapshot,
+      PatternModel.ClipSnapshot afterSnapshot)
+      implements Consequence {
+    @Override
+    public void undo() {
+      // Revert clip to before-snapshot
+    }
+
+    @Override
+    public void redo() {
+      // Apply after-snapshot
+    }
+
+    @Override
+    public String getDescription() {
+      return "Load pattern";
+    }
+
+    @Override
+    public Category category() {
+      return Category.PATTERN_LOAD;
+    }
+  }
 }

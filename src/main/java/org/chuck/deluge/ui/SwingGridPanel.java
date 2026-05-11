@@ -679,7 +679,7 @@ public class SwingGridPanel extends JPanel {
         if (track instanceof org.chuck.deluge.model.KitTrackModel kitTrack) {
           new SwingKitConfigDialog(owner, kitTrack, vm, bridge).setVisible(true);
         } else if (track instanceof org.chuck.deluge.model.SynthTrackModel synthTrack) {
-          new SwingSynthConfigDialog(owner, synthTrack, vm, bridge, modelRow).setVisible(true);
+          new SwingSynthConfigDialog(owner, synthTrack, vm, bridge, modelRow, projectModel).setVisible(true);
         }
       });
       rowPanel.add(Box.createHorizontalStrut(3));
@@ -1772,7 +1772,7 @@ public class SwingGridPanel extends JPanel {
           if (track instanceof org.chuck.deluge.model.KitTrackModel kitTrack) {
             new SwingKitConfigDialog(owner, kitTrack, vm, bridge).setVisible(true);
           } else if (track instanceof org.chuck.deluge.model.SynthTrackModel synthTrack) {
-            new SwingSynthConfigDialog(owner, synthTrack, vm, bridge, trk).setVisible(true);
+            new SwingSynthConfigDialog(owner, synthTrack, vm, bridge, trk, projectModel).setVisible(true);
           }
         });
         rowPanel.add(Box.createHorizontalStrut(3));
