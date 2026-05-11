@@ -2386,9 +2386,9 @@ public class DelugeEngineDSL implements Shred, Runnable {
           hf += totalModF * hpfFmMod * 5000.0f;
           hpfArr[u].freq(Math.max(20.0f, hf));
           hpfArr[u].Q(1.0f + Math.max(0.0f, hr) * 9.0f);
-          // HPF morph/mode: continuous morph + notch/drive (from bridge arrays)
-          hpfArr[u].morph(1.0);
-          hpfArr[u].notchMode(false);
+          // HPF morph/notch from bridge arrays (hpfMorphArr continuous 0-1; hpfModeArr 0=morph mode, 1=notch mode)
+          hpfArr[u].morph(hpfMorphArr != null ? hpfMorphArr.getFloat(r) : 1.0);
+          hpfArr[u].notchMode(hpfModeArr != null && hpfModeArr.getInt(r) == 1);
           // Per-step delay/reverb/filter-mode overrides (-1 = no override for filter mode; 0=no override for delay/reverb)
           if (sStepDelay != null) { float sd = (float) sStepDelay.getFloat(idx); if (sd > 0f) sDsend[u].gain(sd); }
           if (sStepReverb != null) { float srV = (float) sStepReverb.getFloat(idx); if (srV > 0f) sRsend[u].gain(srV); }
