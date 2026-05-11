@@ -52,6 +52,44 @@ public class PreferencesManager {
     }
   }
 
+  // ── Hardware character keys ──────────────────────────────────────────────
+  private static final String KEY_MASTER_SATURATION = "masterSaturation";
+  private static final String KEY_FILTER_DRIVE = "filterDrive";
+  private static final String KEY_BIT_CRUNCH = "bitCrunch";
+  private static final String KEY_REVERB_MODEL = "reverbModel";
+
+  public static boolean isMasterSaturationEnabled() {
+    return prefs.getBoolean(KEY_MASTER_SATURATION, false);
+  }
+
+  public static void setMasterSaturationEnabled(boolean enabled) {
+    prefs.putBoolean(KEY_MASTER_SATURATION, enabled);
+  }
+
+  public static boolean isFilterDriveEnabled() {
+    return prefs.getBoolean(KEY_FILTER_DRIVE, false);
+  }
+
+  public static void setFilterDriveEnabled(boolean enabled) {
+    prefs.putBoolean(KEY_FILTER_DRIVE, enabled);
+  }
+
+  public static boolean isBitCrunchEnabled() {
+    return prefs.getBoolean(KEY_BIT_CRUNCH, false);
+  }
+
+  public static void setBitCrunchEnabled(boolean enabled) {
+    prefs.putBoolean(KEY_BIT_CRUNCH, enabled);
+  }
+
+  public static String getReverbModel() {
+    return prefs.get(KEY_REVERB_MODEL, "JCRev");
+  }
+
+  public static void setReverbModel(String model) {
+    prefs.put(KEY_REVERB_MODEL, model);
+  }
+
   private static final String KEY_GRID_MODE = "grid.mode";
   private static final String KEY_SEQUENCER_ENGINE = "sequencer.engine";
 

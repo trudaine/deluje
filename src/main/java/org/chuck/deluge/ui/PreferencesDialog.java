@@ -38,6 +38,9 @@ public class PreferencesDialog extends JDialog {
   /** Populate combo boxes and checkboxes from saved preferences. */
   private void loadCurrentPreferences() {
     reverbCombo.setSelectedItem(PreferencesManager.get("reverb.model", "JCRev"));
+    masterSatCheck.setSelected(PreferencesManager.isMasterSaturationEnabled());
+    filterDriveCheck.setSelected(PreferencesManager.isFilterDriveEnabled());
+    bitCrunchCheck.setSelected(PreferencesManager.isBitCrunchEnabled());
     visCheck.setSelected(Boolean.parseBoolean(PreferencesManager.get("show.visualizers", "true")));
     debugCheck.setSelected(Boolean.parseBoolean(PreferencesManager.get("debug.audio", "false")));
     gridModeCheck.setSelected(Boolean.parseBoolean(PreferencesManager.get("midi.grid.mode", "false")));
@@ -119,7 +122,7 @@ public class PreferencesDialog extends JDialog {
     reverbLabel.setText("Reverb Model:");
 
     reverbCombo.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 24));
-    reverbCombo.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "JCRev", "FreeVerb", "MVerb", "ProceduralReverb" }));
+    reverbCombo.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "JCRev", "FreeVerb", "MVerb", "ProceduralReverb", "RingsReverb" }));
 
     reverbHelp.setFont(new java.awt.Font("SansSerif", java.awt.Font.ITALIC, 18));
     reverbHelp.setForeground(new java.awt.Color(128, 128, 128));
@@ -134,6 +137,27 @@ public class PreferencesDialog extends JDialog {
     midiHelp.setFont(new java.awt.Font("SansSerif", java.awt.Font.ITALIC, 18));
     midiHelp.setForeground(new java.awt.Color(128, 128, 128));
     midiHelp.setText("Requires application reboot to re-route");
+
+    masterSatLabel.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 24));
+    masterSatLabel.setForeground(new java.awt.Color(224, 224, 224));
+    masterSatLabel.setText("Master Saturation:");
+
+    masterSatCheck.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 24));
+    masterSatCheck.setText("");
+
+    filterDriveLabel.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 24));
+    filterDriveLabel.setForeground(new java.awt.Color(224, 224, 224));
+    filterDriveLabel.setText("Filter Drive (v1.3.1+):");
+
+    filterDriveCheck.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 24));
+    filterDriveCheck.setText("");
+
+    bitCrunchLabel.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 24));
+    bitCrunchLabel.setForeground(new java.awt.Color(224, 224, 224));
+    bitCrunchLabel.setText("14-bit DAC Crunch:");
+
+    bitCrunchCheck.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 24));
+    bitCrunchCheck.setText("");
 
     showVisLabel.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 24));
     showVisLabel.setForeground(new java.awt.Color(224, 224, 224));
@@ -230,6 +254,9 @@ public class PreferencesDialog extends JDialog {
           .addComponent(gridModeLabel)
           .addComponent(reverbLabel)
           .addComponent(midiLabel)
+          .addComponent(masterSatLabel)
+          .addComponent(filterDriveLabel)
+          .addComponent(bitCrunchLabel)
           .addComponent(showVisLabel)
           .addComponent(debugAudioLabel)
           .addComponent(midiGridLabel)
@@ -251,6 +278,15 @@ public class PreferencesDialog extends JDialog {
             .addGap(0, 0, Short.MAX_VALUE))
           .addGroup(mainPanelLayout.createSequentialGroup()
             .addComponent(midiHelp)
+            .addGap(0, 0, Short.MAX_VALUE))
+          .addGroup(mainPanelLayout.createSequentialGroup()
+            .addComponent(masterSatCheck)
+            .addGap(0, 0, Short.MAX_VALUE))
+          .addGroup(mainPanelLayout.createSequentialGroup()
+            .addComponent(filterDriveCheck)
+            .addGap(0, 0, Short.MAX_VALUE))
+          .addGroup(mainPanelLayout.createSequentialGroup()
+            .addComponent(bitCrunchCheck)
             .addGap(0, 0, Short.MAX_VALUE))
           .addGroup(mainPanelLayout.createSequentialGroup()
             .addComponent(visCheck)
@@ -299,6 +335,18 @@ public class PreferencesDialog extends JDialog {
           .addComponent(reverbCombo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
         .addComponent(reverbHelp)
+        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+        .addGroup(mainPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+          .addComponent(masterSatLabel)
+          .addComponent(masterSatCheck))
+        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+        .addGroup(mainPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+          .addComponent(filterDriveLabel)
+          .addComponent(filterDriveCheck))
+        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+        .addGroup(mainPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+          .addComponent(bitCrunchLabel)
+          .addComponent(bitCrunchCheck))
         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
         .addGroup(mainPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
           .addComponent(midiLabel)
@@ -394,6 +442,9 @@ public class PreferencesDialog extends JDialog {
     String newRes = (String) screenResCombo.getSelectedItem();
 
     PreferencesManager.set("reverb.model", (String) reverbCombo.getSelectedItem());
+    PreferencesManager.setMasterSaturationEnabled(masterSatCheck.isSelected());
+    PreferencesManager.setFilterDriveEnabled(filterDriveCheck.isSelected());
+    PreferencesManager.setBitCrunchEnabled(bitCrunchCheck.isSelected());
     PreferencesManager.set("midi.input", (String) midiCombo.getSelectedItem());
     PreferencesManager.set("show.visualizers", String.valueOf(visCheck.isSelected()));
     PreferencesManager.set("debug.audio", String.valueOf(debugCheck.isSelected()));
@@ -424,6 +475,12 @@ public class PreferencesDialog extends JDialog {
   private javax.swing.JButton browseBtn;
   private javax.swing.JLabel debugAudioLabel;
   private javax.swing.JCheckBox debugCheck;
+  private javax.swing.JLabel masterSatLabel;
+  private javax.swing.JCheckBox masterSatCheck;
+  private javax.swing.JLabel filterDriveLabel;
+  private javax.swing.JCheckBox filterDriveCheck;
+  private javax.swing.JLabel bitCrunchLabel;
+  private javax.swing.JCheckBox bitCrunchCheck;
   private javax.swing.JLabel dirLabel;
   private javax.swing.JLabel gridHelp;
   private javax.swing.JCheckBox gridModeCheck;

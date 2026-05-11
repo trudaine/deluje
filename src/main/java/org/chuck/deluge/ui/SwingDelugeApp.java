@@ -760,6 +760,16 @@ public class SwingDelugeApp extends JFrame {
     if (!tracks.isEmpty()) {
       vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
     }
+
+    // ── Push hardware character preferences to engine globals ──
+    vm.setGlobalFloat(BridgeContract.G_MASTER_SATURATION,
+        org.chuck.deluge.project.PreferencesManager.isMasterSaturationEnabled() ? 1.0f : 0.0f);
+    vm.setGlobalFloat(BridgeContract.G_CHAR_FILTER_DRIVE,
+        org.chuck.deluge.project.PreferencesManager.isFilterDriveEnabled() ? 1.0f : 0.0f);
+    vm.setGlobalFloat(BridgeContract.G_BIT_CRUNCH,
+        org.chuck.deluge.project.PreferencesManager.isBitCrunchEnabled() ? 1.0f : 0.0f);
+
+    // Reverb model is already pushed via PreferencesManager.get("reverb.model") in loadProject — skip here
   }
 
   /**
