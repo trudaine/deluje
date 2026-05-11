@@ -823,7 +823,7 @@ public class SwingGridPanel extends JPanel {
                     double v = bridge.getVelocity(engineRow, s);
                     steps.add(new Consequence.StepConsequence(
                         editedModelTrack, activeClipId, modelRow, s,
-                        new org.chuck.deluge.model.StepData(true, (float)v, 0.5f, 1.0f, 0),
+                        org.chuck.deluge.model.StepData.of(true, (float)v, 0.5f, 1.0f, 0),
                         org.chuck.deluge.model.StepData.empty()));
                   }
                   bridge.setStep(engineRow, s, false);
@@ -905,12 +905,16 @@ public class SwingGridPanel extends JPanel {
                                   if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
                                       int engineRow = baseTrackId + modelRow;
                                       double curVel = bridge.getVelocity(engineRow, activeCol);
+                                      int curIt = bridge.getIterance(engineRow, activeCol);
+                                      int curFill = (int)(bridge.getStepFill(engineRow, activeCol) * 100);
                                       StepPropertiesDialog dlg = new StepPropertiesDialog(
                                               (Frame) javax.swing.SwingUtilities.getWindowAncestor(SwingGridPanel.this),
-                                              (int)(curVel * 100));
+                                              (int)(curVel * 100), curIt, curFill);
                                       dlg.setVisible(true);
                                       int newVel = dlg.getVelocity();
-                                      if (newVel != (int)(curVel * 100)) {
+                                      int newIt = dlg.getIterance();
+                                      int newFill = dlg.getFill();
+                                      if (newVel != (int)(curVel * 100) || newIt != curIt || newFill != curFill) {
                                           org.chuck.deluge.model.StepData oldStep = null;
                                           if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
                                               org.chuck.deluge.model.TrackModel tModel =
@@ -920,6 +924,8 @@ public class SwingGridPanel extends JPanel {
                                               }
                                           }
                                           bridge.setVelocity(engineRow, activeCol, newVel / 100.0);
+                                          bridge.setIterance(engineRow, activeCol, newIt);
+                                          bridge.setStepFill(engineRow, activeCol, newFill / 100.0);
                                           if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
                                               org.chuck.deluge.model.TrackModel tModel =
                                                       projectModel.getTracks().get(editedModelTrack);
@@ -928,7 +934,7 @@ public class SwingGridPanel extends JPanel {
                                                   boolean st = bridge.getStep(engineRow, activeCol);
                                                   double prob = bridge.getStepProbability(engineRow, activeCol);
                                                   cModel.setStep(modelRow, activeCol,
-                                                          new org.chuck.deluge.model.StepData(st, newVel / 100.0f, 0.5f, (float)prob, 0));
+                                                          new org.chuck.deluge.model.StepData(st, newVel / 100.0f, 0.5f, (float)prob, 0, newIt, newFill / 100.0f));
                                                   if (oldStep != null) {
                                                       projectModel.getUndoRedoStack().push(
                                                           new Consequence.StepConsequence(editedModelTrack, activeClipId, modelRow, activeCol,
@@ -973,7 +979,7 @@ public class SwingGridPanel extends JPanel {
                                                   double curVel = bridge.getVelocity(baseTrackId + modelRow, activeCol);
                                                   double curProb = bridge.getStepProbability(baseTrackId + modelRow, activeCol);
                                                   cModel.setStep(modelRow, activeCol,
-                                                          new org.chuck.deluge.model.StepData(!st, (float)curVel, 0.5f, (float)curProb, 0));
+                                                          org.chuck.deluge.model.StepData.of(!st, (float)curVel, 0.5f, (float)curProb, 0));
                                                   if (oldStep != null) {
                                                       projectModel.getUndoRedoStack().push(
                                                           new Consequence.StepConsequence(editedModelTrack, activeClipId, modelRow, activeCol,
@@ -1016,7 +1022,7 @@ public class SwingGridPanel extends JPanel {
                                                   double curVel = bridge.getVelocity(engineRow, activeCol);
                                                   double curProb = bridge.getStepProbability(engineRow, activeCol);
                                                   cModel.setStep(modelRow, activeCol,
-                                                          new org.chuck.deluge.model.StepData(!stepState, (float)curVel, 0.5f, (float)curProb, pitchMidi));
+                                                          org.chuck.deluge.model.StepData.of(!stepState, (float)curVel, 0.5f, (float)curProb, pitchMidi));
                                                   if (oldStep != null) {
                                                       projectModel.getUndoRedoStack().push(
                                                           new Consequence.StepConsequence(editedModelTrack, activeClipId, modelRow, activeCol,
@@ -1047,7 +1053,7 @@ public class SwingGridPanel extends JPanel {
                                                   double curVel = bridge.getVelocity(baseTrackId + modelRow, activeCol);
                                                   double curProb = bridge.getStepProbability(baseTrackId + modelRow, activeCol);
                                                   cModel.setStep(modelRow, activeCol,
-                                                          new org.chuck.deluge.model.StepData(!stepState, (float)curVel, 0.5f, (float)curProb, 0));
+                                                          org.chuck.deluge.model.StepData.of(!stepState, (float)curVel, 0.5f, (float)curProb, 0));
                                                   if (oldStep != null) {
                                                       projectModel.getUndoRedoStack().push(
                                                           new Consequence.StepConsequence(editedModelTrack, activeClipId, modelRow, activeCol,
@@ -2006,7 +2012,7 @@ public class SwingGridPanel extends JPanel {
                       double v = bridge.getVelocity(engineRow, s);
                       steps.add(new Consequence.StepConsequence(
                           editedModelTrack, activeClipId, trk, s,
-                          new org.chuck.deluge.model.StepData(true, (float)v, 0.5f, 1.0f, 0),
+                          org.chuck.deluge.model.StepData.of(true, (float)v, 0.5f, 1.0f, 0),
                           org.chuck.deluge.model.StepData.empty()));
                     }
                     bridge.setStep(engineRow, s, false);
@@ -2090,12 +2096,16 @@ public class SwingGridPanel extends JPanel {
                     if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
                       int engineRow = baseTrackId + trk;
                       double curVel = bridge.getVelocity(engineRow, colId);
+                      int curIt = bridge.getIterance(engineRow, colId);
+                      int curFill = (int)(bridge.getStepFill(engineRow, colId) * 100);
                       StepPropertiesDialog dlg = new StepPropertiesDialog(
                           (Frame) javax.swing.SwingUtilities.getWindowAncestor(SwingGridPanel.this),
-                          (int)(curVel * 100));
+                          (int)(curVel * 100), curIt, curFill);
                       dlg.setVisible(true);
                       int newVel = dlg.getVelocity();
-                      if (newVel != (int)(curVel * 100)) {
+                      int newIt = dlg.getIterance();
+                      int newFill = dlg.getFill();
+                      if (newVel != (int)(curVel * 100) || newIt != curIt || newFill != curFill) {
                         org.chuck.deluge.model.StepData oldStep = null;
                         if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
                           org.chuck.deluge.model.TrackModel tModel =
@@ -2105,6 +2115,8 @@ public class SwingGridPanel extends JPanel {
                           }
                         }
                         bridge.setVelocity(engineRow, colId, newVel / 100.0);
+                        bridge.setIterance(engineRow, colId, newIt);
+                        bridge.setStepFill(engineRow, colId, newFill / 100.0);
                         if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
                           org.chuck.deluge.model.TrackModel tModel =
                               projectModel.getTracks().get(editedModelTrack);
@@ -2114,7 +2126,7 @@ public class SwingGridPanel extends JPanel {
                             boolean st = bridge.getStep(engineRow, colId);
                             double prob = bridge.getStepProbability(engineRow, colId);
                             cModel.setStep(trk, colId,
-                                new org.chuck.deluge.model.StepData(st, newVel / 100.0f, 0.5f, (float)prob, 0));
+                                new org.chuck.deluge.model.StepData(st, newVel / 100.0f, 0.5f, (float)prob, 0, newIt, newFill / 100.0f));
                             if (oldStep != null) {
                               projectModel.getUndoRedoStack().push(
                                   new Consequence.StepConsequence(editedModelTrack, activeClipId, trk, colId,
@@ -2163,7 +2175,7 @@ public class SwingGridPanel extends JPanel {
                                 tModel.getClips().get(activeClipId);
                             cModel.setStep(
                                 trk, colId,
-                                new org.chuck.deluge.model.StepData(
+                                org.chuck.deluge.model.StepData.of(
                                     !st, 0.8f, 0.5f, 1.0f, 0));
                             if (oldStep != null) {
                               projectModel.getUndoRedoStack().push(
@@ -2207,7 +2219,7 @@ public class SwingGridPanel extends JPanel {
                             cModel.setStep(
                                 trk,
                                 colId,
-                                new org.chuck.deluge.model.StepData(
+                                org.chuck.deluge.model.StepData.of(
                                     !stepState, (float)curVel, 0.5f, (float)curProb, 0));
                             if (oldStep != null) {
                               projectModel.getUndoRedoStack().push(

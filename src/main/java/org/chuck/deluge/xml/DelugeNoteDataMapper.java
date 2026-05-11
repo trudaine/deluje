@@ -83,7 +83,7 @@ public class DelugeNoteDataMapper {
       }
 
       if (step >= 0 && step < stepCount) {
-        row.set(step, new StepData(true, velocity, gate, 1.0f, 0));
+        row.set(step, StepData.of(true, velocity, gate, 1.0f, 0));
       }
 
       idx += hexCharsPerNote;

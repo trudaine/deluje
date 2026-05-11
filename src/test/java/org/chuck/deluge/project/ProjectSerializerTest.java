@@ -25,7 +25,7 @@ public class ProjectSerializerTest {
 
     // Add a clip with a note
     org.chuck.deluge.model.ClipModel clip = new org.chuck.deluge.model.ClipModel("CLIP 1", 8, 16);
-    clip.setStep(0, 0, new org.chuck.deluge.model.StepData(true, 0.8f, 0.9f, 1.0f, 0));
+    clip.setStep(0, 0, org.chuck.deluge.model.StepData.of(true, 0.8f, 0.9f, 1.0f, 0));
     kit.addClip(clip);
 
     model.addTrack(kit);

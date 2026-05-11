@@ -169,7 +169,7 @@ public class AllSoundsComparisonTest {
     for (int r = 0; r < VOICES_PER_SYNTH; r++) {
       for (int s = 0; s < CLIP_STEPS; s++) {
         float vel = V_VELOCITY[s] / 100.0f;
-        clip.setStep(r, s, new StepData(true, vel, 0.5f, 1.0f, 60 + r - 4));
+        clip.setStep(r, s, StepData.of(true, vel, 0.5f, 1.0f, 60 + r - 4));
       }
     }
     synth.addClip(clip);

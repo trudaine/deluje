@@ -116,6 +116,9 @@ public final class BridgeContract {
   public static final String G_GATE = "g_gate";
   public static final String G_PITCH = "g_pitch";
   public static final String G_PROBABILITY = "g_probability";
+  public static final String G_ITERANCE = "g_iterance";
+  public static final String G_FILL = "g_fill";
+  public static final String G_FILL_ACTIVE = "g_fill_active";
   public static final String G_STEP_FILTER = "g_step_filter";
   public static final String G_STEP_RES = "g_step_res";
   public static final String G_STEP_FILTER_MODE = "g_step_filter_mode";
@@ -428,6 +431,8 @@ public final class BridgeContract {
     final float[] gate = new float[PATTERN_SIZE];
     final int[] pitch = new int[PATTERN_SIZE];
     final float[] probability = new float[PATTERN_SIZE];
+    final int[] iterance = new int[PATTERN_SIZE];
+    final float[] fill = new float[PATTERN_SIZE];
     final float[] stepFilter = new float[PATTERN_SIZE];
     final float[] stepRes = new float[PATTERN_SIZE];
     final int[] stepFilterMode = new int[PATTERN_SIZE];
@@ -496,6 +501,8 @@ public final class BridgeContract {
         gate[i] = 0.9f;
         pitch[i] = 0;
         probability[i] = 1f;
+        iterance[i] = 0;
+        fill[i] = 0f;
         stepFilter[i] = 0f;
         stepRes[i] = 0f;
         stepFilterMode[i] = -1;
@@ -558,6 +565,8 @@ public final class BridgeContract {
       vm.setGlobalObject(G_GATE, new ChuckArray(gate));
       vm.setGlobalObject(G_PITCH, new ChuckArray(pitch));
       vm.setGlobalObject(G_PROBABILITY, new ChuckArray(probability));
+      vm.setGlobalObject(G_ITERANCE, new ChuckArray(iterance));
+      vm.setGlobalObject(G_FILL, new ChuckArray(fill));
       vm.setGlobalObject(G_STEP_FILTER, new ChuckArray(stepFilter));
       vm.setGlobalObject(G_STEP_RES, new ChuckArray(stepRes));
       vm.setGlobalObject(G_STEP_FILTER_MODE, new ChuckArray(stepFilterMode));
@@ -1383,6 +1392,10 @@ public final class BridgeContract {
   public int getPitch(int track, int sidx) { return step.pitch[track * STEPS + sidx]; }
   public void setStepProbability(int track, int sidx, double val) { step.probability[track * STEPS + sidx] = (float) val; }
   public double getStepProbability(int track, int sidx) { return step.probability[track * STEPS + sidx]; }
+  public void setIterance(int track, int sidx, int val) { step.iterance[track * STEPS + sidx] = Math.max(0, Math.min(3, val)); }
+  public int getIterance(int track, int sidx) { return step.iterance[track * STEPS + sidx]; }
+  public void setStepFill(int track, int sidx, double val) { step.fill[track * STEPS + sidx] = (float) Math.max(0.0, Math.min(1.0, val)); }
+  public double getStepFill(int track, int sidx) { return step.fill[track * STEPS + sidx]; }
 
   public ChuckArray getClipArray(String baseName, int clipIdx) {
     if (clipIdx <= 0) return (ChuckArray) vm.getGlobalObject(baseName);

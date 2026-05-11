@@ -17,7 +17,7 @@ class DelugeNoteDataMapperTest {
       row.add(StepData.empty());
     }
     // Set step 2 active (24 ticks)
-    row.set(2, new StepData(true, 0.8f, 1.0f, 1.0f, 0));
+    row.set(2, StepData.of(true, 0.8f, 1.0f, 1.0f, 0));
 
     String hex = DelugeNoteDataMapper.encodeRow(row);
 

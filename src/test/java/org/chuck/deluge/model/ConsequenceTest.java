@@ -10,7 +10,7 @@ class ConsequenceTest {
   @Test
   void stepConsequenceStoresFields() {
     StepData oldS = StepData.empty();
-    StepData newS = new StepData(true, 0.8f, 0.5f, 1.0f, 60);
+    StepData newS = StepData.of(true, 0.8f, 0.5f, 1.0f, 60);
     var c = new Consequence.StepConsequence(0, 1, 2, 3, oldS, newS);
     assertEquals(0, c.trackIndex());
     assertEquals(1, c.clipIndex());
@@ -75,8 +75,8 @@ class ConsequenceTest {
 
   @Test
   void compoundConsequenceUndoesInReverse() {
-    var a1 = new Consequence.StepConsequence(0, 0, 0, 0, StepData.empty(), new StepData(true, 0.8f, 0.5f, 1.0f, 60));
-    var a2 = new Consequence.StepConsequence(0, 0, 0, 1, StepData.empty(), new StepData(true, 0.8f, 0.5f, 1.0f, 61));
+    var a1 = new Consequence.StepConsequence(0, 0, 0, 0, StepData.empty(), StepData.of(true, 0.8f, 0.5f, 1.0f, 60));
+    var a2 = new Consequence.StepConsequence(0, 0, 0, 1, StepData.empty(), StepData.of(true, 0.8f, 0.5f, 1.0f, 61));
     var c = new Consequence.CompoundConsequence("Clear row", List.of(a1, a2));
     assertEquals("Clear row", c.getDescription());
     assertEquals(Consequence.Category.PATTERN_LOAD, c.category());
