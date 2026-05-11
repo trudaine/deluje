@@ -1,8 +1,9 @@
 package org.chuck.deluge;
 
 import java.io.*;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Arrays;
-import javax.sound.sampled.*;
 import org.chuck.audio.util.Dx7Engine;
 import org.chuck.audio.util.Dx7EngineLookupTables;
 import org.chuck.deluge.xml.DelugeXmlParser;
@@ -209,20 +210,33 @@ public class Dx7SingleNoteAnalysis {
     static void saveWav(float[] mono, String path) throws Exception {
         File f = new File(path);
         f.getParentFile().mkdirs();
-        short[] pcm = new short[mono.length];
+        byte[] data = new byte[mono.length * 2];
         for (int i = 0; i < mono.length; i++) {
-            float v = Math.max(-1f, Math.min(1f, mono[i]));
-            pcm[i] = (short) (v * 32767f);
+            short s = (short) (Math.max(-1f, Math.min(1f, mono[i])) * 32767f);
+            data[i * 2] = (byte) (s & 0xFF);
+            data[i * 2 + 1] = (byte) ((s >> 8) & 0xFF);
         }
-        byte[] bytes = new byte[pcm.length * 2];
-        for (int i = 0; i < pcm.length; i++) {
-            bytes[i * 2] = (byte) (pcm[i] & 0xFF);
-            bytes[i * 2 + 1] = (byte) ((pcm[i] >> 8) & 0xFF);
+        long dataSize = data.length;
+        long fileSize = 36 + dataSize;
+        long byteRate = SAMPLE_RATE * 2L; // sampleRate * channels * bytesPerSample = 44100 * 1 * 2
+        ByteBuffer header = ByteBuffer.allocate(44).order(ByteOrder.LITTLE_ENDIAN);
+        header.put("RIFF".getBytes());
+        header.putInt((int) fileSize);
+        header.put("WAVE".getBytes());
+        header.put("fmt ".getBytes());
+        header.putInt(16);               // chunk size
+        header.putShort((short) 1);      // PCM format
+        header.putShort((short) 1);      // channels (mono)
+        header.putInt(SAMPLE_RATE);
+        header.putInt((int) byteRate);
+        header.putShort((short) 2);      // block align
+        header.putShort((short) 16);     // bits per sample
+        header.put("data".getBytes());
+        header.putInt((int) dataSize);
+        try (FileOutputStream fos = new FileOutputStream(f)) {
+            fos.write(header.array());
+            fos.write(data);
         }
-        AudioFormat fmt = new AudioFormat(SAMPLE_RATE, 16, 1, true, false);
-        AudioInputStream ais = new AudioInputStream(
-            new ByteArrayInputStream(bytes), fmt, pcm.length);
-        AudioSystem.write(ais, AudioFileFormat.Type.WAVE, f);
         System.out.println("  Saved " + f.getAbsolutePath());
     }
 }

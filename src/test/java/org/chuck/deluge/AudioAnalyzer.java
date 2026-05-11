@@ -3,16 +3,15 @@ package org.chuck.deluge;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
-import javax.sound.sampled.AudioFormat;
-import javax.sound.sampled.AudioInputStream;
-import javax.sound.sampled.AudioSystem;
+import org.chuck.audio.util.WavReader;
+import org.chuck.audio.util.WavReader.WavData;
 
 /**
  * Shared audio analysis utilities for engine accuracy tests.
  *
- * <p>Provides WAV loading, RMS/peak metrics, cross-correlation alignment, frequency
- * estimation (autocorrelation), and harmonic profile extraction for waveform shape
- * validation.
+ * <p>Provides WAV loading (via {@link WavReader}, no javax.sound), RMS/peak metrics,
+ * cross-correlation alignment, frequency estimation (autocorrelation), and harmonic profile
+ * extraction for waveform shape validation.
  */
 public class AudioAnalyzer {
 
@@ -33,56 +32,23 @@ public class AudioAnalyzer {
   }
 
   public static float[] loadWav(File f) throws Exception {
-    return loadWavFromStream(new FileInputStream(f));
+    WavData data = WavReader.read(f);
+    int n = data.frameCount();
+    float[] mono = new float[n];
+    for (int i = 0; i < n; i++) {
+      mono[i] = (data.channels[0][i] + data.channels[1][i]) * 0.5f;
+    }
+    return mono;
   }
 
   private static float[] loadWavFromStream(InputStream stream) throws Exception {
-    try (AudioInputStream ais = AudioSystem.getAudioInputStream(new BufferedInputStream(stream))) {
-      AudioFormat fmt = ais.getFormat();
-      if (fmt.getEncoding() != AudioFormat.Encoding.PCM_SIGNED || fmt.getSampleSizeInBits() != 16) {
-        AudioFormat target = new AudioFormat(
-            AudioFormat.Encoding.PCM_SIGNED, fmt.getSampleRate(), 16, 1, 2, fmt.getSampleRate(), false);
-        try (AudioInputStream converted = AudioSystem.getAudioInputStream(target, ais)) {
-          return readFrames(converted, 1);
-        }
-      }
-      return readFrames(ais, fmt.getChannels());
+    WavData data = WavReader.read(stream);
+    int n = data.frameCount();
+    float[] mono = new float[n];
+    for (int i = 0; i < n; i++) {
+      mono[i] = (data.channels[0][i] + data.channels[1][i]) * 0.5f;
     }
-  }
-
-  private static float[] readFrames(AudioInputStream ais, int channels) throws IOException {
-    int frameSize = ais.getFormat().getFrameSize();
-    long frameLen = ais.getFrameLength();
-    if (frameLen <= 0) {
-      List<Float> list = new ArrayList<>();
-      byte[] buf = new byte[frameSize > 0 ? frameSize : 2];
-      while (ais.read(buf) != -1) {
-        float sum = 0;
-        for (int c = 0; c < channels; c++) {
-          int idx = c * 2;
-          short pcm = (short) ((buf[idx + 1] << 8) | (buf[idx] & 0xFF));
-          sum += pcm / 32768.0f;
-        }
-        list.add(sum / channels);
-      }
-      float[] arr = new float[list.size()];
-      for (int i = 0; i < arr.length; i++) arr[i] = list.get(i);
-      return arr;
-    }
-    float[] samples = new float[(int) frameLen];
-    byte[] buf = new byte[frameSize > 0 ? frameSize : 2];
-    for (int i = 0; i < frameLen; i++) {
-      int read = ais.read(buf);
-      if (read == -1) break;
-      float sum = 0;
-      for (int c = 0; c < channels; c++) {
-        int idx = c * 2;
-        short pcm = (short) ((buf[idx + 1] << 8) | (buf[idx] & 0xFF));
-        sum += pcm / 32768.0f;
-      }
-      samples[i] = sum / channels;
-    }
-    return samples;
+    return mono;
   }
 
   /** Compute RMS of a float array. */

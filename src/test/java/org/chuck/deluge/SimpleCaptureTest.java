@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.chuck.core.ChuckDSL.*;
 
 import java.io.*;
-import javax.sound.sampled.*;
 import org.chuck.core.ChuckVM;
 import org.chuck.audio.util.*;
 import org.junit.jupiter.api.Test;
@@ -25,7 +24,7 @@ public class SimpleCaptureTest {
 
     File kickFile = getKickFile();
 
-    float[] orig = loadWav(kickFile);
+    float[] orig = AudioAnalyzer.loadWav(kickFile);
     System.out.printf("ORIG: len=%d RMS=%.6f peak=%.6f%n", orig.length, rms(orig), peak(orig));
     System.out.print("ORIG[0..9]:");
     for (int i = 0; i < 10 && i < orig.length; i++) System.out.printf(" %.4f", orig[i]);
@@ -57,7 +56,7 @@ public class SimpleCaptureTest {
 
       wv.closeFile();
       try {
-        output[0] = loadWav(tmpWav);
+        output[0] = AudioAnalyzer.loadWav(tmpWav);
       } catch (Exception e) {
         throw new RuntimeException(e);
       }
@@ -91,7 +90,7 @@ public class SimpleCaptureTest {
     vm.setLogLevel(0);
 
     File kickFile = getKickFile();
-    float[] orig = loadWav(kickFile);
+    float[] orig = AudioAnalyzer.loadWav(kickFile);
     System.out.printf("ORIG: len=%d RMS=%.6f peak=%.6f%n", orig.length, rms(orig), peak(orig));
 
     float[][] output = new float[1][];
@@ -127,7 +126,7 @@ public class SimpleCaptureTest {
 
       wv.closeFile();
       try {
-        output[0] = loadWav(tmpWav);
+        output[0] = AudioAnalyzer.loadWav(tmpWav);
       } catch (Exception e) {
         throw new RuntimeException(e);
       }
@@ -165,25 +164,6 @@ public class SimpleCaptureTest {
       f = tmp;
     }
     return f;
-  }
-
-  private float[] loadWav(File f) throws Exception {
-    try (AudioInputStream ais = AudioSystem.getAudioInputStream(f)) {
-      AudioFormat fmt = ais.getFormat();
-      int ch = fmt.getChannels();
-      long frames = ais.getFrameLength();
-      float[] data = new float[(int) frames];
-      byte[] buf = new byte[fmt.getFrameSize()];
-      for (int i = 0; i < frames && ais.read(buf) != -1; i++) {
-        float sum = 0;
-        for (int c = 0; c < ch; c++) {
-          short pcm = (short) ((buf[c*2+1] << 8) | (buf[c*2] & 0xFF));
-          sum += pcm / 32768.0f;
-        }
-        data[i] = sum / ch;
-      }
-      return data;
-    }
   }
 
   private double rms(float[] d) {
