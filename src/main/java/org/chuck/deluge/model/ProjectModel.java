@@ -69,6 +69,7 @@ public class ProjectModel {
   private float songParamDelayRate = 0.0f;
   private float songParamDelayFeedback = 0.0f;
   private float songParamSidechainShape = 0.5f;
+  private float songParamSidechainVolume = 0.0f;
   private float songParamStutterRate = 0.0f;
   private float songParamSampleRateReduction = 0.0f;
   private float songParamBitCrush = 0.0f;
@@ -591,6 +592,12 @@ public class ProjectModel {
   public void setSongParamSidechainShape(float v) {
     float old = this.songParamSidechainShape; this.songParamSidechainShape = v;
     if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamSidechainShape", old, v));
+    notifySongParamsChanged();
+  }
+  public float getSongParamSidechainVolume() { return songParamSidechainVolume; }
+  public void setSongParamSidechainVolume(float v) {
+    float old = this.songParamSidechainVolume; this.songParamSidechainVolume = v;
+    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamSidechainVolume", old, v));
     notifySongParamsChanged();
   }
   public float getSongParamStutterRate() { return songParamStutterRate; }

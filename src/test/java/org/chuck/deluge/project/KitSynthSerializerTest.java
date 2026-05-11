@@ -320,7 +320,7 @@ public class KitSynthSerializerTest {
     synth.setOsc1Type("SAW");
     synth.setOsc2Type("SINE");
     synth.setPolyphony(PolyphonyMode.LEGATO);
-    synth.setArp(new ArpModel(false, "UP", 1.0f, 1, 0.5f, 0, "UP", "UP", 1, 0, 8, 0f, 0f, 0f, 0, 0, 0));
+    synth.setArp(new ArpModel(false, "UP", 1.0f, 1, 0.5f, 0, "UP", "UP", 1, 0, 8, 0f, 0f, 0f, 0, 0, 0, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0));
     synth.setCompressorAttack(0.05f);
     synth.setCompressorRelease(0.25f);
     synth.setCompressorSyncLevel(3);
@@ -480,7 +480,7 @@ public class KitSynthSerializerTest {
     synth.setSampleRateReduction(0.15f);
     synth.setBitCrush(0.25f);
     synth.setPortamento(0.35f);
-    synth.setArp(new ArpModel(true, "DOWN", 0.5f, 2, 0.7f, 0, "UP", "UP", 1, 0, 8, 0f, 0f, 0f, 0, 0, 0));
+    synth.setArp(new ArpModel(true, "DOWN", 0.5f, 2, 0.7f, 0, "UP", "UP", 1, 0, 8, 0f, 0f, 0f, 0, 0, 0, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0));
     synth.setEnv(0, new EnvelopeModel(0.01f, 0.1f, 0.7f, 0.2f, "VOLUME", 1.0f));
     synth.setEnv(1, new EnvelopeModel(0.05f, 0.2f, 0.5f, 0.4f, "LPF", 0.6f));
     synth.setEnv(2, new EnvelopeModel(0.02f, 0.15f, 0.6f, 0.3f, "PITCH", 0.4f));

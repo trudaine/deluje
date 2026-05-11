@@ -10,11 +10,21 @@ public class SoundDrum extends Drum {
   private int startSamplePos = -1;
   private int endSamplePos = -1;
 
+  // Loop points in zone samples
+  private int startLoopPos = -1;
+  private int endLoopPos = -1;
+
   // Second oscillator (sample or synth)
   private String osc2Type = "NONE";
   private String osc2SamplePath = "";
   private int osc2StartSamplePos = -1;
   private int osc2EndSamplePos = -1;
+  // Osc2 sample-playback params
+  private int osc2LoopMode = 0;
+  private boolean osc2Reversed = false;
+  private boolean osc2TimeStretch = false;
+  private float osc2TimeStretchAmount = 0.0f;
+  private boolean osc2LinearInterpolation = false;
 
   public SoundDrum(String name) {
     super(name);
@@ -43,6 +53,11 @@ public class SoundDrum extends Drum {
   public int getEndSamplePos() { return endSamplePos; }
   public void setEndSamplePos(int v) { this.endSamplePos = v; }
 
+  public int getStartLoopPos() { return startLoopPos; }
+  public void setStartLoopPos(int v) { this.startLoopPos = v; }
+  public int getEndLoopPos() { return endLoopPos; }
+  public void setEndLoopPos(int v) { this.endLoopPos = v; }
+
   public String getOsc2Type() { return osc2Type; }
   public void setOsc2Type(String v) { this.osc2Type = v; }
 
@@ -54,4 +69,15 @@ public class SoundDrum extends Drum {
 
   public int getOsc2EndSamplePos() { return osc2EndSamplePos; }
   public void setOsc2EndSamplePos(int v) { this.osc2EndSamplePos = v; }
+
+  public int getOsc2LoopMode() { return osc2LoopMode; }
+  public void setOsc2LoopMode(int v) { this.osc2LoopMode = v; }
+  public boolean isOsc2Reversed() { return osc2Reversed; }
+  public void setOsc2Reversed(boolean v) { this.osc2Reversed = v; }
+  public boolean isOsc2TimeStretch() { return osc2TimeStretch; }
+  public void setOsc2TimeStretch(boolean v) { this.osc2TimeStretch = v; }
+  public float getOsc2TimeStretchAmount() { return osc2TimeStretchAmount; }
+  public void setOsc2TimeStretchAmount(float v) { this.osc2TimeStretchAmount = v; }
+  public boolean isOsc2LinearInterpolation() { return osc2LinearInterpolation; }
+  public void setOsc2LinearInterpolation(boolean v) { this.osc2LinearInterpolation = v; }
 }

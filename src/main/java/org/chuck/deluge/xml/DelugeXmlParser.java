@@ -140,6 +140,20 @@ public class DelugeXmlParser {
     if (!sSec.isEmpty()) sound.setStartMs(Float.parseFloat(sSec) * 1000.0f);
     if (!em.isEmpty()) sound.setEndMs(Float.parseFloat(em));
     if (!sm.isEmpty()) sound.setStartMs(Float.parseFloat(sm));
+
+    // startLoopPos/endLoopPos (conditional — firmware only writes these for looped zones)
+    String slp = zone.getAttribute("startLoopPos");
+    if (slp.isEmpty()) {
+      NodeList slpNodes = zone.getElementsByTagName("startLoopPos");
+      if (slpNodes.getLength() > 0) slp = slpNodes.item(0).getTextContent();
+    }
+    String elp = zone.getAttribute("endLoopPos");
+    if (elp.isEmpty()) {
+      NodeList elpNodes = zone.getElementsByTagName("endLoopPos");
+      if (elpNodes.getLength() > 0) elp = elpNodes.item(0).getTextContent();
+    }
+    if (!slp.isEmpty()) sound.setStartLoopPos(Integer.parseInt(slp));
+    if (!elp.isEmpty()) sound.setEndLoopPos(Integer.parseInt(elp));
   }
 
   public static SynthTrackModel parseSynth(java.io.File xmlFile) throws Exception {
@@ -703,6 +717,16 @@ public class DelugeXmlParser {
       if (osc1.hasAttribute("dx7patch")) {
         synth.setDx7Patch(osc1.getAttribute("dx7patch"));
       }
+      // DX7 engine mode (dx7enginemode attribute on osc1 — write-on-demand, conditional on non-zero)
+      String dx7EngineModeStr = osc1.getAttribute("dx7enginemode");
+      if (dx7EngineModeStr != null && !dx7EngineModeStr.isBlank()) {
+        try { synth.setEngineType(Integer.parseInt(dx7EngineModeStr)); } catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
+      }
+      // DX7 random detune (dx7randomdetune attribute on osc1)
+      String dx7RandStr = osc1.getAttribute("dx7randomdetune");
+      if (dx7RandStr != null && !dx7RandStr.isBlank()) {
+        try { synth.setDx7RandomDetune(Integer.parseInt(dx7RandStr)); } catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
+      }
       // retrigPhase as child element (firmware XML format)
       NodeList rpNodes = osc1.getElementsByTagName("retrigPhase");
       if (rpNodes.getLength() > 0) {
@@ -721,6 +745,7 @@ public class DelugeXmlParser {
         synth.setOsc1TimeStretch("true".equalsIgnoreCase(tsStr) || "1".equals(tsStr));
       }
       readAttrFloatHex(osc1, "timeStretchAmount", synth::setOsc1TimeStretchAmount, true);
+      readAttrBool(osc1, "linearInterpolation", v -> synth.setOsc1LinearInterpolation(v));
       // Osc1 cents (fine detune)
       String centsStr = osc1.getAttribute("cents");
       if (centsStr != null && !centsStr.isBlank()) {
@@ -747,6 +772,17 @@ public class DelugeXmlParser {
       if (centsStr2 != null && !centsStr2.isBlank()) {
         try { synth.setOsc2Cents(Integer.parseInt(centsStr2)); } catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
       }
+      // Osc2 oscillatorSync (hard sync on osc2, firmware writes only when s==1 && oscillatorSync)
+      readAttrBool(osc2, "oscillatorSync", v -> synth.setOscillatorSync(v));
+      // Osc2 sample-playback attrs (loopMode, reversed, timeStretch, linearInterpolation)
+      String osc2lm = osc2.getAttribute("loopMode");
+      if (osc2lm != null && !osc2lm.isBlank()) {
+        try { synth.setOsc2LoopMode(Integer.parseInt(osc2lm)); } catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
+      }
+      readAttrBool(osc2, "reversed", synth::setOsc2Reversed);
+      readAttrBool(osc2, "timeStretchEnable", synth::setOsc2TimeStretch);
+      readAttrFloatHex(osc2, "timeStretchAmount", synth::setOsc2TimeStretchAmount, true);
+      readAttrBool(osc2, "linearInterpolation", synth::setOsc2LinearInterpolation);
     }
 
     // ── Synth Mode ──
@@ -847,6 +883,9 @@ public class DelugeXmlParser {
         catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
       }
     }
+
+    // ── Stutter config (quantized, reverse, pingPong) ──
+    parseStutter(soundNode, synth);
 
     // ── defaultParams bindings (LPF/HPF freq+res, FM feedback params, + extended) ──
     applyDefaultParamsBindings(soundNode, synth);
@@ -955,6 +994,7 @@ public class DelugeXmlParser {
     readAttrFloatHex(params, "pan", clip::setPan, false);
     readAttrFloatHex(params, "reverbAmount", clip::setReverbAmount, true);
     readAttrFloatHex(params, "sidechainCompressorShape", clip::setSidechainShape, true);
+    readAttrFloatHex(params, "sidechainCompressorVolume", clip::setSidechainVolume, true);
     readAttrFloatHex(params, "modFXRate", clip::setModFXRate, true);
     readAttrFloatHex(params, "modFXDepth", clip::setModFXDepth, true);
     readAttrFloatHex(params, "modFXOffset", clip::setModFXOffset, true);
@@ -1275,9 +1315,25 @@ public class DelugeXmlParser {
       try { syncType = Integer.parseInt(arpSyncStr); } catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
     }
 
+    // Spread and probability attributes (attributes written by firmware via writeParamAsAttribute)
+    float octaveSpread = readAttrFloatWithDefault(arpEl, "spreadOctave", 0f, false);
+    float gateSpread = readAttrFloatWithDefault(arpEl, "spreadGate", 0f, false);
+    float velSpread = readAttrFloatWithDefault(arpEl, "spreadVelocity", 0f, false);
+    int ratchetAmount = readIntAttrWithDefault(arpEl, "ratchetAmount", 0);
+
+    float noteProb = readAttrFloatWithDefault(arpEl, "noteProbability", 0f, false);
+    float bassProb = readAttrFloatWithDefault(arpEl, "bassProbability", 0f, false);
+    float swapProb = readAttrFloatWithDefault(arpEl, "swapProbability", 0f, false);
+    float glideProb = readAttrFloatWithDefault(arpEl, "glideProbability", 0f, false);
+    float reverseProb = readAttrFloatWithDefault(arpEl, "reverseProbability", 0f, false);
+    float chordProb = readAttrFloatWithDefault(arpEl, "chordProbability", 0f, false);
+    float ratchetProb = readAttrFloatWithDefault(arpEl, "ratchetProbability", 0f, false);
+    int chordPolyphony = readIntAttrWithDefault(arpEl, "chordPolyphony", 0);
+
     synth.setArp(new ArpModel(active, mode, rate, octaves, Math.abs(gate),
         syncLevel, noteMode, octaveMode, stepRepeat, rhythmIndex, seqLength,
-        0f, 0f, 0f, 0, mpeVelocity, syncType));
+        octaveSpread, gateSpread, velSpread, ratchetAmount, mpeVelocity, syncType,
+        noteProb, bassProb, swapProb, glideProb, reverseProb, chordProb, ratchetProb, chordPolyphony));
   }
 
   /** Parse compressor element for synth tracks. */
@@ -1405,12 +1461,23 @@ public class DelugeXmlParser {
       if (osc2fn != null && !osc2fn.isBlank()) {
         sound.setOsc2SamplePath(osc2fn);
       }
-      // osc2 zone (startSamplePos/endSamplePos)
+      // osc2 zone (startSamplePos/endSamplePos/startLoopPos/endLoopPos)
       Element osc2Zone = getFirstChild(osc2, "zone");
       if (osc2Zone != null) {
         sound.setOsc2StartSamplePos(readIntAttr(osc2Zone, "startSamplePos", -1));
         sound.setOsc2EndSamplePos(readIntAttr(osc2Zone, "endSamplePos", -1));
+        sound.setStartLoopPos(readIntAttr(osc2Zone, "startLoopPos", -1));
+        sound.setEndLoopPos(readIntAttr(osc2Zone, "endLoopPos", -1));
       }
+      // osc2 sample-playback attrs
+      String osc2lm = osc2.getAttribute("loopMode");
+      if (osc2lm != null && !osc2lm.isBlank()) {
+        try { sound.setOsc2LoopMode(Integer.parseInt(osc2lm)); } catch (NumberFormatException e) { LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e); }
+      }
+      readAttrBool(osc2, "reversed", sound::setOsc2Reversed);
+      readAttrBool(osc2, "timeStretchEnable", sound::setOsc2TimeStretch);
+      readAttrFloatHex(osc2, "timeStretchAmount", sound::setOsc2TimeStretchAmount, true);
+      readAttrBool(osc2, "linearInterpolation", sound::setOsc2LinearInterpolation);
       // osc2 retrigPhase
       NodeList rpNodes2 = osc2.getElementsByTagName("retrigPhase");
       if (rpNodes2.getLength() > 0) {
@@ -1459,7 +1526,10 @@ public class DelugeXmlParser {
       if (compHpfStr != null) sound.setCompressorSidechainHpf(Math.abs(DelugeHexMapper.hexToFloat(compHpfStr)));
     }
 
-      // sidechain (at sound level, separate from compressor)
+    // ── Stutter config (quantized, reverse, pingPong) ──
+    parseStutter(soundNode, sound);
+
+    // sidechain (at sound level, separate from compressor)
       Element sidechainEl = getFirstChild(soundNode, "sidechain");
       if (sidechainEl != null) {
         String scAttack = readAttr(sidechainEl, "attack");
@@ -1789,8 +1859,46 @@ public class DelugeXmlParser {
     }
   }
 
+  /** Parse <stutter> sub-element with quantized/reverse/pingPong attributes. */
+  private static void parseStutter(Element soundNode, SynthTrackModel synth) {
+    NodeList nodes = soundNode.getElementsByTagName("stutter");
+    if (nodes.getLength() == 0) return;
+    Element stut = (Element) nodes.item(0);
+    readAttrBool(stut, "quantized", synth::setStutterQuantized);
+    readAttrBool(stut, "reverse", synth::setStutterReversed);
+    readAttrBool(stut, "pingPong", synth::setStutterPingPong);
+  }
+
+  /** Parse <stutter> sub-element for a SoundDrum. */
+  private static void parseStutter(Element soundNode, SoundDrum sound) {
+    NodeList nodes = soundNode.getElementsByTagName("stutter");
+    if (nodes.getLength() == 0) return;
+    Element stut = (Element) nodes.item(0);
+    readAttrBool(stut, "quantized", sound::setStutterQuantized);
+    readAttrBool(stut, "reverse", sound::setStutterReversed);
+    readAttrBool(stut, "pingPong", sound::setStutterPingPong);
+  }
+
   /** Read an int attribute with default. */
   private static int readIntAttr(Element el, String attr, int def) {
+    String val = readAttr(el, attr);
+    if (val != null && !val.isEmpty()) {
+      try { return Integer.parseInt(val); } catch (NumberFormatException e) { return def; }
+    }
+    return def;
+  }
+
+  /** Read a float attribute with default (hex-encoded if hex=true, plain float otherwise). */
+  private static float readAttrFloatWithDefault(Element el, String attr, float def, boolean hex) {
+    String val = readAttr(el, attr);
+    if (val != null && !val.isEmpty()) {
+      try { return hex ? Math.abs(DelugeHexMapper.hexToFloat(val)) : Float.parseFloat(val); } catch (NumberFormatException e) { return def; }
+    }
+    return def;
+  }
+
+  /** Read an int attribute with default (plain integer). */
+  private static int readIntAttrWithDefault(Element el, String attr, int def) {
     String val = readAttr(el, attr);
     if (val != null && !val.isEmpty()) {
       try { return Integer.parseInt(val); } catch (NumberFormatException e) { return def; }
@@ -2039,6 +2147,7 @@ public class DelugeXmlParser {
       readSongHexAttr(sp, "volume",        project::setSongParamVolume);
       readSongHexAttr(sp, "pan",           project::setSongParamPan);
       readSongHexAttr(sp, "sidechainCompressorShape", project::setSongParamSidechainShape);
+      readSongHexAttr(sp, "sidechainCompressorVolume", project::setSongParamSidechainVolume);
       readSongHexAttr(sp, "modFXRate",     project::setSongParamModFXRate);
       readSongHexAttr(sp, "modFXDepth",    project::setSongParamModFXDepth);
       readSongHexAttr(sp, "modFXOffset",   project::setSongParamModFXOffset);
@@ -2167,6 +2276,7 @@ public class DelugeXmlParser {
     readKitHexAttr(params, "volume", clip, "volume");
     readKitHexAttr(params, "pan", clip, "pan");
     readKitHexAttr(params, "sidechainCompressorShape", clip, "sidechainCompressorShape");
+    readKitHexAttr(params, "sidechainCompressorVolume", clip, "sidechainCompressorVolume");
     readKitHexAttr(params, "modFXRate", clip, "modFXRate");
     readKitHexAttr(params, "modFXDepth", clip, "modFXDepth");
     readKitHexAttr(params, "modFXOffset", clip, "modFXOffset");
