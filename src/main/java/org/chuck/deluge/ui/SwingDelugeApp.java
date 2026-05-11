@@ -514,6 +514,7 @@ public class SwingDelugeApp extends JFrame {
           bridge.setModFxRate(startRow + v, synth.getModFxRate());
           bridge.setModFxDepth(startRow + v, synth.getModFxDepth());
           bridge.setModFxFeedback(startRow + v, synth.getModFxFeedback());
+          bridge.setModFxOffset(startRow + v, synth.getModFxOffset());
         }
         for (int v = 0; v < totalSynthRows; v++) {
           bridge.setPortamento(startRow + v, synth.getPortamento());
