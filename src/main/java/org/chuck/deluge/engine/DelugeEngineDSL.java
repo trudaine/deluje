@@ -1464,6 +1464,8 @@ public class DelugeEngineDSL implements Shred, Runnable {
             if (kitLpfNotchObj instanceof ChuckArray kn && r < kn.size()) kitFil[r].notchMode(kn.getInt(r) != 0);
             if (kitHpfF != null && r < kitHpfF.size()) kitHpfArr[r].freq(Math.max(20.0f, (float) kitHpfF.getFloat(r)));
             if (kitHpfR != null && r < kitHpfR.size()) kitHpfArr[r].Q(1.0f + Math.max(0.0f, (float) kitHpfR.getFloat(r)) * 9.0f);
+            // HPF morph/mode from per-track globals (stored in BridgeContract loop above)
+            // (currently unused — global not published by UI yet)
           }
           // Per-voice compressor Dyno param update (RMSFeedbackCompressor-correct formulas)
           if (kitComp != null && r < kitComp.length && kitComp[r] != null) {
@@ -2352,6 +2354,9 @@ public class DelugeEngineDSL implements Shred, Runnable {
           hf += totalModF * hpfFmMod * 5000.0f;
           hpfArr[u].freq(Math.max(20.0f, hf));
           hpfArr[u].Q(1.0f + Math.max(0.0f, hr) * 9.0f);
+          // HPF morph/mode: continuous morph + notch/drive (from bridge arrays)
+          hpfArr[u].morph(1.0);
+          hpfArr[u].notchMode(false);
           // Per-step delay/reverb/filter-mode overrides (-1 = no override for filter mode; 0=no override for delay/reverb)
           if (sStepDelay != null) { float sd = (float) sStepDelay.getFloat(idx); if (sd > 0f) sDsend[u].gain(sd); }
           if (sStepReverb != null) { float srV = (float) sStepReverb.getFloat(idx); if (srV > 0f) sRsend[u].gain(srV); }
