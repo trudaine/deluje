@@ -89,6 +89,7 @@ public class SynthTrackModel extends TrackModel {
   private float modFxRate = 0.0f;
   private float modFxDepth = 0.0f;
   private float modFxFeedback = 0.0f;
+  private float modFxOffset = 0.0f;
   private float delaySend = 0.0f;
   private float reverbSend = 0.0f;
   private float eqBass = 0.0f;
@@ -389,6 +390,14 @@ public class SynthTrackModel extends TrackModel {
 
   public void setModFxFeedback(float modFxFeedback) {
     this.modFxFeedback = modFxFeedback;
+  }
+
+  public float getModFxOffset() {
+    return modFxOffset;
+  }
+
+  public void setModFxOffset(float modFxOffset) {
+    this.modFxOffset = modFxOffset;
   }
 
   public float getDelaySend() {
