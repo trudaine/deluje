@@ -386,6 +386,21 @@ public class DelugeEngineDSL implements Shred, Runnable {
 
     private boolean isRunning() { return outer.isRunning(); }
 
+    // ── Hardware character UGens (created once, controlled by globals) ──
+    static final class BitCrunchUGen extends org.chuck.audio.ChuckUGen {
+      private boolean enabled = false;
+      void setEnabled(boolean e) { this.enabled = e; }
+      @Override
+      protected float compute(float input, long systemTime) {
+        if (!enabled) return input;
+        // 14-bit truncation with TPDF dither: 2^14 = 16384 levels
+        float scale = 8192.0f;
+        float dither = (float) (Math.random() - Math.random()); // TPDF: -1..+1
+        float val = input * scale + dither;
+        return (float) Math.round(val) / scale;
+      }
+    }
+
     @Override
     public void run() {
       float sr = (float) sampleRate();
@@ -393,17 +408,21 @@ public class DelugeEngineDSL implements Shred, Runnable {
       Dyno comp = new Dyno(sr);
       EQShelving bassEq = new EQShelving(sr);
       EQShelving trebleEq = new EQShelving(sr);
+      Distortion masterSat = new Distortion();
+      BitCrunchUGen bitCrunch = new BitCrunchUGen();
       Gain masterVol = new Gain();
       Gain masterTap = (Gain) vm.getGlobalObject(BridgeContract.G_MASTER_TAP);
 
       // Firmware renderSongFX order: filters (LPF+HPF) → SRR+bitcrush → stutter → pan → compressor
-      // Our mono ADC chain approximates as: HPF → comp → trebleEQ → bassEQ → masterVol → masterTap → dac()
+      // Our mono ADC chain approximates as: HPF → comp → masterSat → trebleEQ → bassEQ → masterVol → bitCrunch → masterTap → dac()
       // NOTE: EQ is per-track in firmware (ModControllableAudio::doEQ), not song-level.
       // We keep it here as a convenience—the firmware's equivalent per-track EQ runs for each sound.
+      masterSat.drive(2.5f); // moderate tanh-like overdrive when enabled
+      masterSat.gain(1.0f);
       ((Gain) vm.getGlobalObject(BridgeContract.G_SYNTH_BUS))
-          .chuck(hpf).chuck(comp).chuck(trebleEq).chuck(bassEq).chuck(masterVol).chuck(masterTap).chuck(dac());
+          .chuck(hpf).chuck(comp).chuck(masterSat).chuck(trebleEq).chuck(bassEq).chuck(masterVol).chuck(bitCrunch).chuck(masterTap).chuck(dac());
       ((Gain) vm.getGlobalObject(BridgeContract.G_AUDIO_BUS))
-          .chuck(hpf).chuck(comp).chuck(trebleEq).chuck(bassEq).chuck(masterVol).chuck(masterTap).chuck(dac());
+          .chuck(hpf).chuck(comp).chuck(masterSat).chuck(trebleEq).chuck(bassEq).chuck(masterVol).chuck(bitCrunch).chuck(masterTap).chuck(dac());
       hpf.freq(20);
       bassEq.type(EQShelving.LOW_SHELF);
       bassEq.freq(200);
@@ -446,6 +465,14 @@ public class DelugeEngineDSL implements Shred, Runnable {
         if (spVol < 0.001) spVol = 1.0;
         double mv = vm.getGlobalFloat(BridgeContract.G_MASTER_VOL);
         masterVol.gain((float) (mv * spVol));
+
+        // ── Hardware character: master saturation ──
+        float masterSatOn = (float) vm.getGlobalFloat(BridgeContract.G_MASTER_SATURATION);
+        masterSat.gain(masterSatOn > 0.5f ? 1.0f : 0.0f);
+
+        // ── Hardware character: 14-bit crunch ──
+        float bitCrunchOn = (float) vm.getGlobalFloat(BridgeContract.G_BIT_CRUNCH);
+        bitCrunch.setEnabled(bitCrunchOn > 0.5f);
 
         // ── LPF/HPF via song params (firmware's GlobalEffectable::setupFilterSetConfig) ──
         double spLpfFreq = vm.getGlobalFloat(BridgeContract.G_SP_LPF_FREQ);
@@ -1301,7 +1328,13 @@ public class DelugeEngineDSL implements Shred, Runnable {
               int klm = (int) lm.getInt(r);
               kitFil[r].morph(klm == 2 ? 0.5 : 0.0);
             }
-            if (kitLpfDriveObj instanceof ChuckArray kd && r < kd.size()) kitFil[r].drive((float) kd.getFloat(r));
+            if (kitLpfDriveObj instanceof ChuckArray kd && r < kd.size()) {
+              float baseDrive = (float) kd.getFloat(r);
+              // Apply global filter drive preference: if enabled, lift drive floor to 1.8
+              float gfd = (float) vm.getGlobalFloat(BridgeContract.G_CHAR_FILTER_DRIVE);
+              if (gfd > 0.5f) baseDrive = Math.max(baseDrive, 1.8f);
+              kitFil[r].drive(baseDrive);
+            }
             if (kitLpfNotchObj instanceof ChuckArray kn && r < kn.size()) kitFil[r].notchMode(kn.getInt(r) != 0);
             if (kitHpfF != null && r < kitHpfF.size()) kitHpfArr[r].freq(Math.max(20.0f, (float) kitHpfF.getFloat(r)));
             if (kitHpfR != null && r < kitHpfR.size()) kitHpfArr[r].Q(1.0f + Math.max(0.0f, (float) kitHpfR.getFloat(r)) * 9.0f);
@@ -1814,7 +1847,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
         ChuckArray trackType = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
         ChuckArray filterModeArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_FILTER_MODE);
         ChuckArray filterMorphArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_FILTER_MORPH);
-        ChuckArray filterDriveArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_FILTER_DRIVE);
+        ChuckArray filterDriveArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_CHAR_FILTER_DRIVE);
         ChuckArray filterNotchArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_FILTER_NOTCH);
         ChuckArray filterRouteArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_FILTER_ROUTE);
         double masterPan = vm.getGlobalFloat(BridgeContract.G_MASTER_PAN);
@@ -2071,6 +2104,9 @@ public class DelugeEngineDSL implements Shred, Runnable {
           double fmorph = filterMorphArr != null ? filterMorphArr.getFloat(r) : 0.0;
           fil[u].morph(fmorph);
           float fd = filterDriveArr != null ? (float) filterDriveArr.getFloat(r) : 1.0f;
+          // Apply global filter drive preference: if enabled, lift drive floor to 1.8
+          float gfd = (float) vm.getGlobalFloat(BridgeContract.G_CHAR_FILTER_DRIVE);
+          if (gfd > 0.5f) fd = Math.max(fd, 1.8f);
           int fn = filterNotchArr != null ? (int) filterNotchArr.getInt(r) : 0;
           fil[u].drive(fd);
           fil[u].notchMode(fn != 0);

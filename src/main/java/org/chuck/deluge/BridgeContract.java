@@ -261,6 +261,10 @@ public final class BridgeContract {
   public static final String G_SP_EQ_TREBLE = "g_sp_eq_treble";
   public static final String G_SP_EQ_BASS_FREQ = "g_sp_eq_bass_freq";
   public static final String G_SP_EQ_TREBLE_FREQ = "g_sp_eq_treble_freq";
+  // ── Hardware character (user preferences) ─────────────────────────────────
+  public static final String G_MASTER_SATURATION = "g_masterSat";  // 0.0=off, 1.0=on
+  public static final String G_CHAR_FILTER_DRIVE = "g_charFilterDrive"; // 0.0=clean, 1.0=driven
+  public static final String G_BIT_CRUNCH = "g_bitCrunch";       // 0.0=off, 1.0=on (14-bit + dither)
   // ── MIDI Follow Mode ─────────────────────────────────────────────────────
   public static final String G_FOLLOW_ENABLED = "g_follow_enabled";
   public static final String G_FOLLOW_CH_A = "g_follow_ch_a";
