@@ -358,7 +358,7 @@ public class DelugeXmlParser {
               if (notePitch > 0) {
                 for (int s = 0; s < stepCount; s++) {
                   StepData existing = clip.getStep(r, s);
-                  clip.setStep(r, s, new StepData(existing.active(), existing.velocity(), existing.gate(), existing.probability(), notePitch));
+                  clip.setStep(r, s, StepData.of(existing.active(), existing.velocity(), existing.gate(), existing.probability(), notePitch));
                 }
               }
 
@@ -574,7 +574,7 @@ public class DelugeXmlParser {
               if (notePitch > 0) {
                 for (int s = 0; s < stepCount; s++) {
                   StepData existing = clip.getStep(r, s);
-                  clip.setStep(r, s, new StepData(existing.active(), existing.velocity(), existing.gate(), existing.probability(), notePitch));
+                  clip.setStep(r, s, StepData.of(existing.active(), existing.velocity(), existing.gate(), existing.probability(), notePitch));
                 }
               }
 

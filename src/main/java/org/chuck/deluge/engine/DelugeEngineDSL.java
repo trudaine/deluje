@@ -1297,11 +1297,21 @@ public class DelugeEngineDSL implements Shred, Runnable {
           ChuckArray clipSStart = outer.getClipArray(BridgeContract.G_STEP_START, clipIdx);
           ChuckArray clipSEnd = outer.getClipArray(BridgeContract.G_STEP_END, clipIdx);
           ChuckArray clipProb = outer.getClipArray(BridgeContract.G_PROBABILITY, clipIdx);
+          ChuckArray clipFill = outer.getClipArray(BridgeContract.G_FILL, clipIdx);
+          ChuckArray clipIterance = outer.getClipArray(BridgeContract.G_ITERANCE, clipIdx);
           int len = trkLen != null ? (int) Math.max(1, trkLen.getInt(r)) : BridgeContract.STEPS;
           int step = (int) (currentStep % len);
           int idx = r * BridgeContract.STEPS + step;
           if (clipPat == null || clipPat.getInt(idx) == 0) continue;
           if (clipProb != null && Math.random() > clipProb.getFloat(idx)) continue;
+          // Fill mode: fill=0 → regular step, fill>0 → fill-only (plays only when fill active)
+          { double sf = clipFill != null ? clipFill.getFloat(idx) : 0.0;
+            int fillActive = (int) vm.getGlobalInt(BridgeContract.G_FILL_ACTIVE);
+            if (fillActive != 0) { if (sf <= 0f || Math.random() > sf) continue; }
+            else { if (sf > 0f) continue; }
+          }
+          // Iterance: extra sub-triggers (0-3)
+          int it = clipIterance != null ? Math.max(0, Math.min(3, (int) clipIterance.getFloat(idx))) : 0;
           if (kitMuteGrp != null) {
             long grp = kitMuteGrp.getInt(r);
             if (grp > 0) {
@@ -1516,9 +1526,29 @@ public class DelugeEngineDSL implements Shred, Runnable {
           int genCapture = triggerGen;
           int stopR = r;
           SndBuf[] stopSubs = kitSub != null && r < kitSub.length ? kitSub[r] : null;
+          int itLocal = it;
+          double itDur = itLocal > 0 ? durSec / (itLocal + 1) : durSec;
           vm.spork(() -> {
-            advance(second(durSec));
-            if (triggerGeneration[trackIdx] != genCapture) return;
+            int subTriggers = Math.max(1, itLocal + 1);
+            for (int si = 0; si < subTriggers; si++) {
+              if (si > 0) {
+                kit[trackIdx].pos(startPos);
+                kit[trackIdx].rate(reverse ? (float) -rate : (float) rate);
+                kitEnv[trackIdx][0].keyOn(); kitEnv[trackIdx][1].keyOn(); kitEnv[trackIdx][2].keyOn(); kitEnv[trackIdx][3].keyOn();
+                if (stopSubs != null) {
+                  for (int us = 0; us < stopSubs.length; us++) {
+                    if (stopSubs[us] != null) { stopSubs[us].pos(startPos); stopSubs[us].rate(reverse ? (float) -rate : (float) rate); }
+                  }
+                }
+              }
+              advance(second(itDur));
+              if (triggerGeneration[trackIdx] != genCapture) return;
+              if (si < subTriggers - 1) {
+                kitEnv[trackIdx][0].keyOff(); kitEnv[trackIdx][1].keyOff(); kitEnv[trackIdx][2].keyOff(); kitEnv[trackIdx][3].keyOff();
+                kit[trackIdx].rate(0);
+                if (stopSubs != null) { for (int us = 0; us < stopSubs.length; us++) { if (stopSubs[us] != null) stopSubs[us].rate(0); } }
+              }
+            }
             kitEnv[trackIdx][0].keyOff(); kitEnv[trackIdx][1].keyOff(); kitEnv[trackIdx][2].keyOff(); kitEnv[trackIdx][3].keyOff();
             kit[trackIdx].rate(0);
             if (stopSubs != null) { for (int us = 0; us < stopSubs.length; us++) { if (stopSubs[us] != null) stopSubs[us].rate(0); } }
@@ -2243,6 +2273,8 @@ public class DelugeEngineDSL implements Shred, Runnable {
           ChuckArray clipPat = outer.getClipArray(BridgeContract.G_PATTERN, clipIdx);
           ChuckArray clipVel = outer.getClipArray(BridgeContract.G_VELOCITY, clipIdx);
           ChuckArray clipProb = outer.getClipArray(BridgeContract.G_PROBABILITY, clipIdx);
+          ChuckArray clipFill = outer.getClipArray(BridgeContract.G_FILL, clipIdx);
+          ChuckArray clipIterance = outer.getClipArray(BridgeContract.G_ITERANCE, clipIdx);
           int len = trkLen != null ? (int) Math.max(1, trkLen.getInt(r)) : BridgeContract.STEPS;
           int step = (int) (currentStep % len);
           int idx = r * BridgeContract.STEPS + step;
@@ -2550,6 +2582,12 @@ public class DelugeEngineDSL implements Shred, Runnable {
           }
 
           if (clipProb != null && Math.random() > clipProb.getFloat(idx)) continue;
+          // Fill mode: fill=0 → regular step, fill>0 → fill-only (plays only when fill active)
+          { double sf = clipFill != null ? clipFill.getFloat(idx) : 0.0;
+            int fillActive = (int) vm.getGlobalInt(BridgeContract.G_FILL_ACTIVE);
+            if (fillActive != 0) { if (sf <= 0f || Math.random() > sf) continue; }
+            else { if (sf > 0f) continue; }
+          }
           if (envArr != null) {
             for (int ei = 0; ei < BridgeContract.ENV_COUNT; ei++) {
               int eb = (r * BridgeContract.ENV_COUNT + ei) * BridgeContract.ENV_PARAMS;
@@ -2602,6 +2640,10 @@ public class DelugeEngineDSL implements Shred, Runnable {
           if (humanizeAmt > 0.0) stepPitchOffset += (Math.random() - 0.5) * humanizeAmt;
           stepPitchOffset += transpose;
 
+          // Iterance: extra sub-triggers per step (0-3). Each sub-division re-fires the envelope.
+          int it = clipIterance != null ? Math.max(0, Math.min(3, (int) clipIterance.getFloat(idx))) : 0;
+          double itGateSec = it > 0 ? gateSec / (it + 1) : gateSec;
+
           // ── Polyphony mode + voice stealing ──
           int synthPoly = polyphonyArr != null ? (int) polyphonyArr.getInt(r) : 0;
           int maxVoices = maxVoicesArr != null ? (int) maxVoicesArr.getInt(r) : BridgeContract.TRACKS;
@@ -2651,7 +2693,17 @@ public class DelugeEngineDSL implements Shred, Runnable {
             int rv = u;
             ChuckUGen srcRef = src[u];
             int capturedR = r;
-            vm.spork(() -> { advance(second(noteSec)); outer.releaseStkNote(srcRef); env[rv][0].keyOff(); env[rv][1].keyOff(); env[rv][2].keyOff(); env[rv][3].keyOff(); voiceActive[capturedR] = false; });
+            int itLocal = it;
+            double itGS = itGateSec;
+            vm.spork(() -> {
+              int subTriggers = Math.max(1, itLocal + 1);
+              for (int si = 0; si < subTriggers; si++) {
+                if (si > 0) { env[rv][0].gain((float) gainVal); env[rv][0].keyOn(); env[rv][1].keyOn(); env[rv][2].keyOn(); env[rv][3].keyOn(); }
+                advance(second(itGS));
+                if (si < subTriggers - 1) { env[rv][0].keyOff(); env[rv][1].keyOff(); env[rv][2].keyOff(); env[rv][3].keyOff(); }
+              }
+              outer.releaseStkNote(srcRef); voiceActive[capturedR] = false;
+            });
           } else if (dx7[u] != null) {
             int midiNote = notePitchArr != null ? (int) notePitchArr.getInt(idx) : 0;
             if (midiNote <= 0) midiNote = ((24 - 1) - (r - synthBase)) + 60;
@@ -2659,14 +2711,25 @@ public class DelugeEngineDSL implements Shred, Runnable {
             dx7[u].setFreq((float) f);
             int dx7Vel = clipVel != null ? (int) (clipVel.getFloat(idx) * 127) : 100;
             if (dx7Vel <= 0) dx7Vel = 100;
-            dx7[u].noteOn(dx7Vel);
+            final int capturedDx7Vel = dx7Vel;
+            dx7[u].noteOn(capturedDx7Vel);
             // DX7: no env[u][*] calls — per-operator envelopes handle all amplitude shaping.
             // Track volume is applied via routingMix[u] which is set during load.
             routingMix[u].gain((float) gainVal);
             double noteSec = gateSec;
             int capturedRv = u;
             int capturedR2 = r;
-            vm.spork(() -> { advance(second(noteSec)); dx7[capturedRv].noteOff(); voiceActive[capturedR2] = false; });
+            int itLocal = it;
+            double itGS = itGateSec;
+            vm.spork(() -> {
+              int subTriggers = Math.max(1, itLocal + 1);
+              for (int si = 0; si < subTriggers; si++) {
+                if (si > 0) dx7[capturedRv].noteOn(capturedDx7Vel);
+                advance(second(itGS));
+                if (si < subTriggers - 1) dx7[capturedRv].noteOff();
+              }
+              voiceActive[capturedR2] = false;
+            });
           } else if (arpOn != null && arpOn.getInt(r) == 1) {
             int baseMidi = (int) ((24 - 1) - (r - synthBase)) + 60;
             int capturedR3 = r;
@@ -2734,7 +2797,18 @@ public class DelugeEngineDSL implements Shred, Runnable {
             if (vm.getLogLevel() >= 2) vm.print("SYNTH trigger track: " + r + " step: " + (idx % BridgeContract.STEPS) + "\n");
             int[] capturedR = new int[]{r};
             int rv = u;
-            vm.spork(() -> { advance(second(noteSec)); env[rv][0].keyOff(); env[rv][1].keyOff(); env[rv][2].keyOff(); env[rv][3].keyOff(); voiceActive[capturedR[0]] = false; if (vm.getLogLevel() >= 2) vm.print("SYNTH note end track: " + capturedR[0] + "\n"); });
+            int itLocal = it;
+            double itGS = itGateSec;
+            vm.spork(() -> {
+              int subTriggers = Math.max(1, itLocal + 1);
+              for (int si = 0; si < subTriggers; si++) {
+                if (si > 0) { env[rv][0].gain((float) gainVal); env[rv][0].keyOn(); env[rv][1].keyOn(); env[rv][2].keyOn(); env[rv][3].keyOn(); }
+                advance(second(itGS));
+                if (si < subTriggers - 1) { env[rv][0].keyOff(); env[rv][1].keyOff(); env[rv][2].keyOff(); env[rv][3].keyOff(); }
+              }
+              voiceActive[capturedR[0]] = false;
+              if (vm.getLogLevel() >= 2) vm.print("SYNTH note end track: " + capturedR[0] + "\n");
+            });
           }
         }
       }

@@ -106,7 +106,7 @@ public class SwingUiFlowDiagnosticTest {
 
     // Add a clip with steps pre-populated
     ClipModel clip = new ClipModel("CLIP 1", voiceCount, 16);
-    StepData active = new StepData(true, 0.8f, 1.0f, 1.0f, 60);
+    StepData active = StepData.of(true, 0.8f, 1.0f, 1.0f, 60);
     clip.setStep(0, 0, active);
     clip.setStep(0, 4, active);
     clip.setStep(0, 8, active);

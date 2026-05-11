@@ -22,13 +22,13 @@ public class VerifySync {
         clip.setRowCount(8);
         for (int r = 0; r < 8; r++) {
           for (int s = 0; s < clip.getStepCount(); s++) {
-            clip.setStep(r, s, new org.chuck.deluge.model.StepData(false, 0.8f, 0.5f, 1.0f, 0));
+            clip.setStep(r, s, org.chuck.deluge.model.StepData.of(false, 0.8f, 0.5f, 1.0f, 0));
           }
         }
 
         for (int s = 0; s < clip.getStepCount(); s++) {
           int r = (s < 8) ? s : (15 - s);
-          clip.setStep(r, s, new org.chuck.deluge.model.StepData(true, 0.8f, 0.5f, 1.0f, 0));
+          clip.setStep(r, s, org.chuck.deluge.model.StepData.of(true, 0.8f, 0.5f, 1.0f, 0));
         }
       }
     }

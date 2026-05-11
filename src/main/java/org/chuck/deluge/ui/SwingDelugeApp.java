@@ -322,6 +322,8 @@ public class SwingDelugeApp extends JFrame {
               if (step != null && step.active() && r < voiceCount) {
                 bridge.setStep(startRow + r, s, true);
                 bridge.setVelocity(startRow + r, s, step.velocity());
+                bridge.setIterance(startRow + r, s, step.iterance());
+                bridge.setStepFill(startRow + r, s, step.fill());
               }
             }
           }
@@ -354,6 +356,8 @@ public class SwingDelugeApp extends JFrame {
                 bridge.setVelocity(engineRow, s, step.velocity());
                 bridge.setGate(engineRow, s, step.gate());
                 bridge.setPitch(engineRow, s, step.pitch());
+                bridge.setIterance(engineRow, s, step.iterance());
+                bridge.setStepFill(engineRow, s, step.fill());
               }
             }
           }
