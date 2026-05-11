@@ -53,13 +53,14 @@ public class SwingSynthConfigDialog extends JDialog {
     tabs.setBackground(new Color(0x25, 0x25, 0x25));
     tabs.setForeground(Color.WHITE);
 
-    tabs.addTab("ARP / FILTER / FM", buildMainPanel(model, vm, bridge, trackIndex));
+    tabs.addTab("OSC / FILTER / FM", buildMainPanel(model, vm, bridge, trackIndex));
     // DX7 tab inserted at index 1 — visible only when synthMode==1 or dx7patch loaded
     JPanel dx7Panel = buildDx7Panel(model, vm, bridge, trackIndex);
     tabs.insertTab("DX7", null, dx7Panel, "DX7 6-operator FM editing", 1);
     tabs.setEnabledAt(1, model.getSynthMode() == 1);
     tabs.addTab("ALGORITHM", buildAlgorithmPanel(model, bridge, trackIndex));
     tabs.addTab("LFO", buildLfoPanel(vm, bridge, trackIndex));
+    tabs.addTab("ARP", buildArpPanel(model, bridge, trackIndex));
     tabs.addTab("ENVELOPE", buildEnvelopePanel(model, bridge, trackIndex));
     tabs.addTab("MODULATION", buildModulationPanel(model, bridge, trackIndex));
     tabs.addTab("COMPRESSOR", buildCompressorPanel(model, bridge, trackIndex));
@@ -256,137 +257,11 @@ public class SwingSynthConfigDialog extends JDialog {
 
     // ── Arpeggiator ──
     c.gridx = 0; c.gridy = row; c.gridwidth = 3;
-    panel.add(sectionLabel("ARPEGGIATOR"), c); row++;
+    JLabel arpNote = new JLabel("Arpeggiator controls moved to ARP tab →");
+    arpNote.setForeground(new Color(0x88, 0x88, 0x88));
+    arpNote.setFont(arpNote.getFont().deriveFont(Font.ITALIC));
+    panel.add(arpNote, c); row++;
 
-    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
-    JLabel arpLbl = label("ARP ON:");
-    arpLbl.setToolTipText("Enable the arpeggiator — plays notes in sequence automatically");
-    panel.add(arpLbl, c);
-    c.gridx = 1; c.gridwidth = 2;
-    JCheckBox arpBox = new JCheckBox();
-    arpBox.setSelected(bridge.getArpOn(trackIndex));
-    arpBox.setBackground(new Color(0x22, 0x22, 0x22));
-    arpBox.setToolTipText("Enable the arpeggiator");
-    arpBox.addActionListener(e -> bridge.setArpOn(trackIndex, arpBox.isSelected()));
-    panel.add(arpBox, c); row++;
-
-    // Arp Mode
-    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
-    panel.add(label("Mode:"), c);
-    c.gridx = 1; c.gridwidth = 2;
-    String[] arpModes = {"UP", "DOWN", "UP_DOWN", "RANDOM", "WALK"};
-    JComboBox<String> arpModeBox = new JComboBox<>(arpModes);
-    arpModeBox.setSelectedIndex(bridge.getArpMode(trackIndex));
-    arpModeBox.setBackground(new Color(0x33, 0x33, 0x33));
-    arpModeBox.setToolTipText("Arpeggiator note sequence direction");
-    int idx = trackIndex;
-    arpModeBox.addActionListener(e -> bridge.setArpMode(idx, arpModeBox.getSelectedIndex()));
-    panel.add(arpModeBox, c); row++;
-
-    row = addSlider(panel, c, row, "Rate (×):",
-        "Arpeggiator speed multiplier (0.25× to 4.00×)",
-        25, 400, (int)(bridge.getArpRate(trackIndex) * 100),
-        val -> bridge.setArpRate(idx, val / 100.0), "×0.01", "arpRate");
-
-    row = addSlider(panel, c, row, "Gate:",
-        "Note-on duration as percentage of step (10%-100%)",
-        10, 100, (int)(bridge.getArpGate(trackIndex) * 100),
-        val -> bridge.setArpGate(idx, val / 100.0), "%", "arpGate");
-
-    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
-    panel.add(label("Sync:"), c);
-    c.gridx = 1; c.gridwidth = 2;
-    String[] syncRates = {"OFF", "1/1", "1/2", "1/2T", "1/4", "1/4T", "1/8", "1/8T", "1/16", "1/16T", "1/32", "1/32T", "1/64"};
-    JComboBox<String> syncCombo = new JComboBox<>(syncRates);
-    syncCombo.setSelectedIndex(bridge.getArpSyncLevel(trackIndex));
-    syncCombo.setBackground(new Color(0x33, 0x33, 0x33));
-    syncCombo.setToolTipText("Sync arpeggiator rate to note division (overrides Rate slider)");
-    syncCombo.addActionListener(e -> bridge.setArpSyncLevel(idx, syncCombo.getSelectedIndex()));
-    panel.add(syncCombo, c); row++;
-
-    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
-    panel.add(label("Octaves:"), c);
-    c.gridx = 1; c.gridwidth = 2;
-    JComboBox<Integer> octCombo = new JComboBox<>(new Integer[]{1, 2, 3, 4});
-    octCombo.setSelectedItem(bridge.getArpOctave(trackIndex));
-    octCombo.setBackground(new Color(0x33, 0x33, 0x33));
-    octCombo.setToolTipText("Number of octaves the arpeggiator spans");
-    octCombo.addActionListener(e -> bridge.setArpOctave(idx, (Integer) octCombo.getSelectedItem()));
-    panel.add(octCombo, c); row++;
-
-    // Note Mode
-    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
-    panel.add(label("Note Mode:"), c);
-    c.gridx = 1; c.gridwidth = 2;
-    String[] noteModes = {"UP", "DOWN", "UPDN", "RAND", "WLK1", "WLK2", "WLK3", "PLAY", "PATT"};
-    JComboBox<String> noteModeCombo = new JComboBox<>(noteModes);
-    noteModeCombo.setSelectedIndex(bridge.getArpNoteMode(trackIndex));
-    noteModeCombo.setBackground(new Color(0x33, 0x33, 0x33));
-    noteModeCombo.setToolTipText("Note selection pattern within the arpeggiated chord");
-    noteModeCombo.addActionListener(e -> bridge.setArpNoteMode(idx, noteModeCombo.getSelectedIndex()));
-    panel.add(noteModeCombo, c); row++;
-
-    // Octave Mode
-    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
-    panel.add(label("Oct Mode:"), c);
-    c.gridx = 1; c.gridwidth = 2;
-    String[] octModes = {"UP", "DOWN", "UPDN", "ALT", "RAND"};
-    JComboBox<String> octModeCombo = new JComboBox<>(octModes);
-    octModeCombo.setSelectedIndex(bridge.getArpOctaveMode(trackIndex));
-    octModeCombo.setBackground(new Color(0x33, 0x33, 0x33));
-    octModeCombo.setToolTipText("Octave progression pattern");
-    octModeCombo.addActionListener(e -> bridge.setArpOctaveMode(idx, octModeCombo.getSelectedIndex()));
-    panel.add(octModeCombo, c); row++;
-
-    row = addSlider(panel, c, row, "Repeat:",
-        "Repeat each step N times (1-8)",
-        1, 8, bridge.getArpStepRepeat(trackIndex),
-        val -> bridge.setArpStepRepeat(idx, val), "×", "arpStepRepeat");
-
-    row = addSlider(panel, c, row, "Rhythm:",
-        "Rhythm silence pattern index (0-49). 0 = all play, 1-50 = firmware patterns.",
-        0, 49, bridge.getArpRhythm(trackIndex),
-        val -> bridge.setArpRhythm(idx, val), "", "arpRhythm");
-
-    row = addSlider(panel, c, row, "Seq Len:",
-        "Number of active steps in the arpeggiator sequence (1-16)",
-        1, 16, bridge.getArpSeqLength(trackIndex),
-        val -> bridge.setArpSeqLength(idx, val), "", "arpSeqLength");
-
-    row = addSlider(panel, c, row, "Oct Spread:",
-        "Randomize octave offset per note (0-100%). Higher = wilder octave jumps.",
-        0, 100, (int)(bridge.getArpOctaveSpread(trackIndex) * 100),
-        val -> bridge.setArpOctaveSpread(idx, val / 100.0), "%", "arpOctaveSpread");
-
-    row = addSlider(panel, c, row, "Gate Spread:",
-        "Randomize note gate duration per step (0-100%). Higher = more timing variation.",
-        0, 100, (int)(bridge.getArpGateSpread(trackIndex) * 100),
-        val -> bridge.setArpGateSpread(idx, val / 100.0), "%", "arpGateSpread");
-
-    row = addSlider(panel, c, row, "Vel Spread:",
-        "Randomize note velocity per step (0-100%). Higher = more dynamic contrast.",
-        0, 100, (int)(bridge.getArpVelSpread(trackIndex) * 100),
-        val -> bridge.setArpVelSpread(idx, val / 100.0), "%", "arpVelSpread");
-
-    row = addSlider(panel, c, row, "Ratchet:",
-        "Sub-divide each step into N+1 mini-notes (0-4). 1 = double-trigger, 4 = machine-gun.",
-        0, 4, bridge.getArpRatchet(trackIndex),
-        val -> bridge.setArpRatchet(idx, val), "x", "arpRatchet");
-
-    row = addSlider(panel, c, row, "Note Prob:",
-        "Probability that each step plays a note (0-100%). 100% = always play. Applied after rhythm silences.",
-        0, 100, (int)(bridge.getArpNoteProbability(trackIndex) * 100),
-        val -> bridge.setArpNoteProbability(idx, val / 100.0), "%", "arpNoteProb");
-
-    row = addSlider(panel, c, row, "Chord Poly:",
-        "Maximum number of notes in a chord (1-8). 1 = single note. Only effective with Chord Probability > 0%.",
-        1, 8, bridge.getArpChordPoly(trackIndex),
-        val -> bridge.setArpChordPoly(idx, val), "x", "arpChordPoly");
-
-    row = addSlider(panel, c, row, "Chord Prob:",
-        "Probability that a step plays a chord instead of a single note (0-100%). Chord size determined by Chord Poly.",
-        0, 100, (int)(bridge.getArpChordProb(trackIndex) * 100),
-        val -> bridge.setArpChordProb(idx, val / 100.0), "%", "arpChordProb");
 
     // ── Filter (LPF) ──
     c.gridx = 0; c.gridy = row; c.gridwidth = 3;
@@ -490,6 +365,164 @@ public class SwingSynthConfigDialog extends JDialog {
         "Carrier 2 self-feedback amount (0–100%). Second carrier feedback for 2-op FM configurations.",
         0, 100, (int)(bridge.getCarrier2Fb(trackIndex) * 100),
         val -> bridge.setCarrier2Fb(trackIndex, val / 100.0f), "%", "carrier2Fb");
+
+    return panel;
+  }
+
+  /**
+   * Build the ARP tab: arpeggiator toggle, mode, rate, gate, sync, octaves,
+   * note/octave modes, repeat, rhythm, seq length, spreads, ratchet, probabilities.
+   */
+  private JPanel buildArpPanel(SynthTrackModel model, BridgeContract bridge, int trackIndex) {
+    JPanel panel = new JPanel(new GridBagLayout());
+    panel.setBackground(new Color(0x22, 0x22, 0x22));
+    GridBagConstraints c = new GridBagConstraints();
+    c.fill = GridBagConstraints.HORIZONTAL;
+    c.insets = new Insets(6, 10, 6, 10);
+    c.anchor = GridBagConstraints.WEST;
+    int row = 0;
+    int idx = trackIndex;
+
+    c.gridx = 0; c.gridy = row; c.gridwidth = 3;
+    panel.add(sectionLabel("ARPEGGIATOR"), c); row++;
+
+    // ARP ON
+    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
+    JLabel arpLbl = label("ARP ON:");
+    arpLbl.setToolTipText("Enable the arpeggiator — plays notes in sequence automatically");
+    panel.add(arpLbl, c);
+    c.gridx = 1; c.gridwidth = 2;
+    JCheckBox arpBox = new JCheckBox();
+    arpBox.setSelected(bridge.getArpOn(trackIndex));
+    arpBox.setBackground(new Color(0x22, 0x22, 0x22));
+    arpBox.setForeground(Color.WHITE);
+    arpBox.setToolTipText("Enable the arpeggiator");
+    arpBox.addActionListener(e -> bridge.setArpOn(trackIndex, arpBox.isSelected()));
+    panel.add(arpBox, c); row++;
+
+    // Arp Mode
+    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
+    panel.add(label("Mode:"), c);
+    c.gridx = 1; c.gridwidth = 2;
+    String[] arpModes = {"UP", "DOWN", "UP_DOWN", "RANDOM", "WALK"};
+    JComboBox<String> arpModeBox = new JComboBox<>(arpModes);
+    arpModeBox.setSelectedIndex(bridge.getArpMode(trackIndex));
+    arpModeBox.setBackground(new Color(0x33, 0x33, 0x33));
+    arpModeBox.setForeground(Color.WHITE);
+    arpModeBox.setToolTipText("Arpeggiator note sequence direction");
+    arpModeBox.addActionListener(e -> bridge.setArpMode(idx, arpModeBox.getSelectedIndex()));
+    panel.add(arpModeBox, c); row++;
+
+    row = addSlider(panel, c, row, "Rate (\u00d7):",
+        "Arpeggiator speed multiplier (0.25\u00d7 to 4.00\u00d7)",
+        25, 400, (int)(bridge.getArpRate(trackIndex) * 100),
+        val -> bridge.setArpRate(idx, val / 100.0), "\u00d70.01", "arpRate");
+
+    row = addSlider(panel, c, row, "Gate:",
+        "Note-on duration as percentage of step (10%-100%)",
+        10, 100, (int)(bridge.getArpGate(trackIndex) * 100),
+        val -> bridge.setArpGate(idx, val / 100.0), "%", "arpGate");
+
+    // Sync
+    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
+    panel.add(label("Sync:"), c);
+    c.gridx = 1; c.gridwidth = 2;
+    String[] syncRates = {"OFF", "1/1", "1/2", "1/2T", "1/4", "1/4T", "1/8", "1/8T", "1/16", "1/16T", "1/32", "1/32T", "1/64"};
+    JComboBox<String> syncCombo = new JComboBox<>(syncRates);
+    syncCombo.setSelectedIndex(bridge.getArpSyncLevel(trackIndex));
+    syncCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    syncCombo.setForeground(Color.WHITE);
+    syncCombo.setToolTipText("Sync arpeggiator rate to note division (overrides Rate slider)");
+    syncCombo.addActionListener(e -> bridge.setArpSyncLevel(idx, syncCombo.getSelectedIndex()));
+    panel.add(syncCombo, c); row++;
+
+    // Octaves
+    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
+    panel.add(label("Octaves:"), c);
+    c.gridx = 1; c.gridwidth = 2;
+    JComboBox<Integer> octCombo = new JComboBox<>(new Integer[]{1, 2, 3, 4});
+    octCombo.setSelectedItem(bridge.getArpOctave(trackIndex));
+    octCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    octCombo.setForeground(Color.WHITE);
+    octCombo.setToolTipText("Number of octaves the arpeggiator spans");
+    octCombo.addActionListener(e -> bridge.setArpOctave(idx, (Integer) octCombo.getSelectedItem()));
+    panel.add(octCombo, c); row++;
+
+    // Note Mode
+    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
+    panel.add(label("Note Mode:"), c);
+    c.gridx = 1; c.gridwidth = 2;
+    String[] noteModes = {"UP", "DOWN", "UPDN", "RAND", "WLK1", "WLK2", "WLK3", "PLAY", "PATT"};
+    JComboBox<String> noteModeCombo = new JComboBox<>(noteModes);
+    noteModeCombo.setSelectedIndex(bridge.getArpNoteMode(trackIndex));
+    noteModeCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    noteModeCombo.setForeground(Color.WHITE);
+    noteModeCombo.setToolTipText("Note selection pattern within the arpeggiated chord");
+    noteModeCombo.addActionListener(e -> bridge.setArpNoteMode(idx, noteModeCombo.getSelectedIndex()));
+    panel.add(noteModeCombo, c); row++;
+
+    // Octave Mode
+    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
+    panel.add(label("Oct Mode:"), c);
+    c.gridx = 1; c.gridwidth = 2;
+    String[] octModes = {"UP", "DOWN", "UPDN", "ALT", "RAND"};
+    JComboBox<String> octModeCombo = new JComboBox<>(octModes);
+    octModeCombo.setSelectedIndex(bridge.getArpOctaveMode(trackIndex));
+    octModeCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    octModeCombo.setForeground(Color.WHITE);
+    octModeCombo.setToolTipText("Octave progression pattern");
+    octModeCombo.addActionListener(e -> bridge.setArpOctaveMode(idx, octModeCombo.getSelectedIndex()));
+    panel.add(octModeCombo, c); row++;
+
+    row = addSlider(panel, c, row, "Repeat:",
+        "Repeat each step N times (1-8)",
+        1, 8, bridge.getArpStepRepeat(trackIndex),
+        val -> bridge.setArpStepRepeat(idx, val), "\u00d7", "arpStepRepeat");
+
+    row = addSlider(panel, c, row, "Rhythm:",
+        "Rhythm silence pattern index (0-49). 0 = all play, 1-50 = firmware patterns.",
+        0, 49, bridge.getArpRhythm(trackIndex),
+        val -> bridge.setArpRhythm(idx, val), "", "arpRhythm");
+
+    row = addSlider(panel, c, row, "Seq Len:",
+        "Number of active steps in the arpeggiator sequence (1-16)",
+        1, 16, bridge.getArpSeqLength(trackIndex),
+        val -> bridge.setArpSeqLength(idx, val), "", "arpSeqLength");
+
+    row = addSlider(panel, c, row, "Oct Spread:",
+        "Randomize octave offset per note (0-100%). Higher = wilder octave jumps.",
+        0, 100, (int)(bridge.getArpOctaveSpread(trackIndex) * 100),
+        val -> bridge.setArpOctaveSpread(idx, val / 100.0), "%", "arpOctaveSpread");
+
+    row = addSlider(panel, c, row, "Gate Spread:",
+        "Randomize note gate duration per step (0-100%). Higher = more timing variation.",
+        0, 100, (int)(bridge.getArpGateSpread(trackIndex) * 100),
+        val -> bridge.setArpGateSpread(idx, val / 100.0), "%", "arpGateSpread");
+
+    row = addSlider(panel, c, row, "Vel Spread:",
+        "Randomize note velocity per step (0-100%). Higher = more dynamic contrast.",
+        0, 100, (int)(bridge.getArpVelSpread(trackIndex) * 100),
+        val -> bridge.setArpVelSpread(idx, val / 100.0), "%", "arpVelSpread");
+
+    row = addSlider(panel, c, row, "Ratchet:",
+        "Sub-divide each step into N+1 mini-notes (0-4). 1 = double-trigger, 4 = machine-gun.",
+        0, 4, bridge.getArpRatchet(trackIndex),
+        val -> bridge.setArpRatchet(idx, val), "x", "arpRatchet");
+
+    row = addSlider(panel, c, row, "Note Prob:",
+        "Probability that each step plays a note (0-100%). 100% = always play. Applied after rhythm silences.",
+        0, 100, (int)(bridge.getArpNoteProbability(trackIndex) * 100),
+        val -> bridge.setArpNoteProbability(idx, val / 100.0), "%", "arpNoteProb");
+
+    row = addSlider(panel, c, row, "Chord Poly:",
+        "Maximum number of notes in a chord (1-8). 1 = single note. Only effective with Chord Probability > 0%.",
+        1, 8, bridge.getArpChordPoly(trackIndex),
+        val -> bridge.setArpChordPoly(idx, val), "x", "arpChordPoly");
+
+    row = addSlider(panel, c, row, "Chord Prob:",
+        "Probability that a step plays a chord instead of a single note (0-100%). Chord size determined by Chord Poly.",
+        0, 100, (int)(bridge.getArpChordProb(trackIndex) * 100),
+        val -> bridge.setArpChordProb(idx, val / 100.0), "%", "arpChordProb");
 
     return panel;
   }
