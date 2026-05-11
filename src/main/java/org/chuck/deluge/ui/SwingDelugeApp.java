@@ -266,6 +266,8 @@ public class SwingDelugeApp extends JFrame {
               bridge.setKitBitCrush(engineRow, snd.getBitCrush());
               bridge.setKitHpfFreq(engineRow, snd.getHpfFreq());
               bridge.setKitHpfRes(engineRow, snd.getHpfRes());
+              bridge.setKitHpfMorph(engineRow, snd.getHpfMorph());
+              bridge.setKitHpfMode(engineRow, snd.getHpfMode().ordinal());
               bridge.setKitLpfMode(engineRow, lpfModeOrdinal(snd.getLpfMode()));
               bridge.setKitModFxType(engineRow, modFxTypeOrdinal(snd.getModFxType()));
               bridge.setKitModFxRate(engineRow, snd.getModFxRate());
