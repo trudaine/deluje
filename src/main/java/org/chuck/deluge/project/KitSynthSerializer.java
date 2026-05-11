@@ -322,6 +322,9 @@ public class KitSynthSerializer {
     appendHexChild(doc, arp, "gateSpread", synth.getArp().gateSpread());
     appendHexChild(doc, arp, "velSpread", synth.getArp().velSpread());
     appendTextChild(doc, arp, "ratchetAmount", String.valueOf(synth.getArp().ratchetAmount()));
+    appendTextChild(doc, arp, "noteProbability", String.valueOf(synth.getArp().noteProbability()));
+    appendTextChild(doc, arp, "chordPolyphony", String.valueOf(synth.getArp().chordPolyphony()));
+    appendTextChild(doc, arp, "chordProbability", String.valueOf(synth.getArp().chordProbability()));
     root.appendChild(arp);
 
     // ── delay ──

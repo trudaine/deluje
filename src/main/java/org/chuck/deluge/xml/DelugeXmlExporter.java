@@ -73,6 +73,9 @@ public class DelugeXmlExporter {
     arp.setAttribute("gateSpread", String.valueOf(bridge.getArpGateSpread(trackIndex)));
     arp.setAttribute("velSpread", String.valueOf(bridge.getArpVelSpread(trackIndex)));
     arp.setAttribute("ratchetAmount", String.valueOf(bridge.getArpRatchet(trackIndex)));
+    arp.setAttribute("noteProbability", String.valueOf(bridge.getArpNoteProbability(trackIndex)));
+    arp.setAttribute("chordPolyphony", String.valueOf(bridge.getArpChordPoly(trackIndex)));
+    arp.setAttribute("chordProbability", String.valueOf(bridge.getArpChordProb(trackIndex)));
     rootElement.appendChild(arp);
 
     // Write the content into xml file

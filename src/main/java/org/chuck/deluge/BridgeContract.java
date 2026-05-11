@@ -302,6 +302,9 @@ public final class BridgeContract {
   public static final String G_ARP_GATE_SPREAD = "g_arp_gate_spread";
   public static final String G_ARP_VEL_SPREAD = "g_arp_vel_spread";
   public static final String G_ARP_RATCHET = "g_arp_ratchet";
+  public static final String G_ARP_NOTE_PROBABILITY = "g_arp_note_probability";
+  public static final String G_ARP_CHORD_POLY = "g_arp_chord_poly";
+  public static final String G_ARP_CHORD_PROB = "g_arp_chord_prob";
   public static final String G_FM_RATIO = "g_fm_ratio";
   public static final String G_FM_AMOUNT = "g_fm_amount";
   public static final String G_PREVIEW_TRACK = "g_preview_track";
@@ -711,6 +714,9 @@ public final class BridgeContract {
     final float[] arpGateSpread = new float[TRACKS];
     final float[] arpVelSpread = new float[TRACKS];
     final int[] arpRatchet = new int[TRACKS];
+    final float[] arpNoteProbability = new float[TRACKS];
+    final int[] arpChordPoly = new int[TRACKS];
+    final float[] arpChordProb = new float[TRACKS];
     final float[] fmRatio = new float[TRACKS];
     final float[] fmAmount = new float[TRACKS];
     final int[] synthAlgo = new int[TRACKS];
@@ -777,6 +783,9 @@ public final class BridgeContract {
         arpGateSpread[t] = 0f;
         arpVelSpread[t] = 0f;
         arpRatchet[t] = 0;
+        arpNoteProbability[t] = 1.0f;
+        arpChordPoly[t] = 1;
+        arpChordProb[t] = 0f;
         fmRatio[t] = 1f;
         fmAmount[t] = 0f;
         synthAlgo[t] = 0;
@@ -867,6 +876,9 @@ public final class BridgeContract {
       vm.setGlobalObject(G_ARP_GATE_SPREAD, new ChuckArray(arpGateSpread));
       vm.setGlobalObject(G_ARP_VEL_SPREAD, new ChuckArray(arpVelSpread));
       vm.setGlobalObject(G_ARP_RATCHET, new ChuckArray(arpRatchet));
+      vm.setGlobalObject(G_ARP_NOTE_PROBABILITY, new ChuckArray(arpNoteProbability));
+      vm.setGlobalObject(G_ARP_CHORD_POLY, new ChuckArray(arpChordPoly));
+      vm.setGlobalObject(G_ARP_CHORD_PROB, new ChuckArray(arpChordProb));
       vm.setGlobalObject(G_FM_RATIO, new ChuckArray(fmRatio));
       vm.setGlobalObject(G_FM_AMOUNT, new ChuckArray(fmAmount));
       vm.setGlobalObject(G_SYNTH_ALGO, new ChuckArray(synthAlgo));
@@ -2307,6 +2319,12 @@ public final class BridgeContract {
   public void setArpVelSpread(int track, double v) { synth.arpVelSpread[track] = (float) v; }
   public int getArpRatchet(int track) { return synth.arpRatchet[track]; }
   public void setArpRatchet(int track, int v) { synth.arpRatchet[track] = v; }
+  public double getArpNoteProbability(int track) { return synth.arpNoteProbability[track]; }
+  public void setArpNoteProbability(int track, double v) { synth.arpNoteProbability[track] = (float) v; }
+  public int getArpChordPoly(int track) { return synth.arpChordPoly[track]; }
+  public void setArpChordPoly(int track, int v) { synth.arpChordPoly[track] = v; }
+  public double getArpChordProb(int track) { return synth.arpChordProb[track]; }
+  public void setArpChordProb(int track, double v) { synth.arpChordProb[track] = (float) v; }
   public double getFmRatio(int track) { return synth.fmRatio[track]; }
   public void setFmRatio(int track, double r) { synth.fmRatio[track] = (float) r; }
   public double getFmAmount(int track) { return synth.fmAmount[track]; }
