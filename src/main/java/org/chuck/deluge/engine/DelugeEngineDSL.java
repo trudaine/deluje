@@ -268,7 +268,6 @@ public class DelugeEngineDSL implements Shred, Runnable {
         // Delay time: sync-level overrides free-running delay time
         long syncLevel = vm.getGlobalInt(BridgeContract.G_DELAY_SYNC_LEVEL);
         long syncType = vm.getGlobalInt(BridgeContract.G_DELAY_SYNC_TYPE);
-        long pingPong = vm.getGlobalInt(BridgeContract.G_DELAY_PINGPONG);
         long analog = vm.getGlobalInt(BridgeContract.G_DELAY_ANALOG);
         if (syncLevel > 0) {
           double stepSec = outer.stepDuration(0).samples() / sr;
@@ -292,7 +291,6 @@ public class DelugeEngineDSL implements Shred, Runnable {
         float revCompAttack = (float) vm.getGlobalFloat(BridgeContract.G_REVERB_COMP_ATTACK);
         float revCompRelease = (float) vm.getGlobalFloat(BridgeContract.G_REVERB_COMP_RELEASE);
         long revCompSyncLevel = vm.getGlobalInt(BridgeContract.G_REVERB_COMP_SYNC_LEVEL);
-        float revCompHpf = (float) vm.getGlobalFloat(BridgeContract.G_REVERB_COMP_HPF);
         float revCompBlend = (float) vm.getGlobalFloat(BridgeContract.G_REVERB_COMP_BLEND);
         // Map 0-1 → 1-100ms attack, 10-500ms release
         revComp.attackTime((revCompAttack * 0.099f + 0.001f) * sr);
@@ -303,11 +301,6 @@ public class DelugeEngineDSL implements Shred, Runnable {
           double stepSec = outer.stepDuration(0).samples() / sr;
           double syncRelease = stepSec * Math.pow(2.0, revCompSyncLevel - 1);
           revComp.releaseTime(syncRelease * sr);
-        }
-        // Rev comp HPF: insert HPF before revComp in the reverb chain
-        if (revCompHpf > 0.001f) {
-          // We don't have a dynamic HPF insertion, so just pass the HPF freq via bridge
-          // The engine would need a separate HPF on the sidechain — for now, note it
         }
         rev.gain(1.0f + (revPan - 0.5f) * 0.5f);
         // Song-level reverb/delay amounts — scale the send bus gains
@@ -351,6 +344,8 @@ public class DelugeEngineDSL implements Shred, Runnable {
           rings.setStructure(revRoom);
           rings.setPosition(revWidth);
           rings.setDamping(revDamp * 0.3f);
+          rings.setExcitation((float) vm.getGlobalFloat(BridgeContract.G_REVERB_EXCITATION));
+          rings.setMode((int) vm.getGlobalInt(BridgeContract.G_REVERB_MODE));
         }
 
         // Runtime reverb model hot-swap
@@ -413,10 +408,13 @@ public class DelugeEngineDSL implements Shred, Runnable {
       Gain masterVol = new Gain();
       Gain masterTap = (Gain) vm.getGlobalObject(BridgeContract.G_MASTER_TAP);
 
-      // Firmware renderSongFX order: filters (LPF+HPF) → SRR+bitcrush → stutter → pan → compressor
-      // Our mono ADC chain approximates as: HPF → comp → masterSat → trebleEQ → bassEQ → masterVol → bitCrunch → masterTap → dac()
+      // ── Master compressor internal tanh ──────────────────────────────────────
+      // Firmware's RMSFeedbackCompressor always applies getTanHAntialiased to its output.
+      // There is no separate always-on summing tanh — only this compressor-internal stage
+      // plus the user-toggleable per-clip saturation controlled by clippingAmount.
+      // Our chain: HPF → comp → masterSat → EQ → masterVol → bitCrunch → masterTap → dac()
       // NOTE: EQ is per-track in firmware (ModControllableAudio::doEQ), not song-level.
-      // We keep it here as a convenience—the firmware's equivalent per-track EQ runs for each sound.
+      // We keep it here as a convenience — the firmware's equivalent per-track EQ runs for each sound.
       masterSat.drive(2.5f); // moderate tanh-like overdrive when enabled
       masterSat.gain(1.0f);
       ((Gain) vm.getGlobalObject(BridgeContract.G_SYNTH_BUS))
@@ -460,6 +458,10 @@ public class DelugeEngineDSL implements Shred, Runnable {
         double ratio = 1.0 / Math.max(0.0039, 1.0 - fraction); // avoid div-by-zero, min ratio ~256
         comp.ratio((float) Math.max(2.0, Math.min(256.0, ratio)));
 
+        // ── Master compressor dry/wet blend ──
+        float compBlend = (float) vm.getGlobalFloat(BridgeContract.G_MASTER_COMP_BLEND);
+        comp.dryWet(compBlend);
+
         // ── Master volume ──
         double spVol = vm.getGlobalFloat(BridgeContract.G_SP_VOLUME);
         if (spVol < 0.001) spVol = 1.0;
@@ -492,11 +494,6 @@ public class DelugeEngineDSL implements Shred, Runnable {
         if (spHpfFreq > 20.1 || spHpfMorph > 0.01) {
           double hpMorphOffset = spHpfMorph * 10000.0;
           hpCutoff = Math.max(20.0, Math.min(20000.0, spHpfFreq + hpMorphOffset));
-        }
-        double lpCutoff = 20000.0;
-        if (spLpfFreq < 19980.0 || spLpfMorph > 0.01) {
-          double lpMorphOffset = spLpfMorph * 10000.0;
-          lpCutoff = Math.max(20.0, Math.min(20000.0, spLpfFreq + lpMorphOffset));
         }
         // Combined: HPF dominates low end, LPF complement is effectively a high-pass too
         hpf.freq((float) Math.max(20.0, Math.min(20000.0, hpCutoff)));
@@ -531,18 +528,6 @@ public class DelugeEngineDSL implements Shred, Runnable {
         trebleEq.shelfGain((float) Math.max(0.0, Math.min(2.0, 1.0 + eqTrebleAmount)));
         trebleEq.freq((float) Math.max(20.0, Math.min(20000.0, spEqTrebleFreq * 19980.0 + 20.0)));
 
-        // ── SongParams — read for potential future use ──
-        double spReverb = vm.getGlobalFloat(BridgeContract.G_SP_REVERB_AMOUNT);
-        double spDelayRate = vm.getGlobalFloat(BridgeContract.G_SP_DELAY_RATE);
-        double spSidechainShape = vm.getGlobalFloat(BridgeContract.G_SP_SIDECHAIN_SHAPE);
-        double spStutter = vm.getGlobalFloat(BridgeContract.G_SP_STUTTER_RATE);
-        double spSrr = vm.getGlobalFloat(BridgeContract.G_SP_SAMPLE_RATE_REDUCTION);
-        double spBitCrush = vm.getGlobalFloat(BridgeContract.G_SP_BITCRUSH);
-        double spModRate = vm.getGlobalFloat(BridgeContract.G_SP_MOD_FX_RATE);
-        double spModDepth = vm.getGlobalFloat(BridgeContract.G_SP_MOD_FX_DEPTH);
-        double spModOffset = vm.getGlobalFloat(BridgeContract.G_SP_MOD_FX_OFFSET);
-        double spModFeedback = vm.getGlobalFloat(BridgeContract.G_SP_MOD_FX_FEEDBACK);
-        double spCompThresh = vm.getGlobalFloat(BridgeContract.G_SP_COMPRESSOR_THRESHOLD);
       }
     }
   }
@@ -590,7 +575,6 @@ public class DelugeEngineDSL implements Shred, Runnable {
           if (vm.getLogLevel() >= 1) vm.print("[sidechain] shape=" + sidechainShape + "\n");
         }
         // shape=0: hard square (full gain reduction), shape=1: smooth exponential curve
-        float shapeDuckGain = 0.05f + (0.15f - 0.05f) * (1.0f - sidechainShape);
         synthBus.gain(Math.min(synthBus.gain(), duckedGain * (1.0f - sidechainShape * 0.5f)));
         advance(ms(duckMs));
         int steps = 8;
@@ -1090,6 +1074,18 @@ public class DelugeEngineDSL implements Shred, Runnable {
         ChuckArray kitStutter = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_STUTTER_RATE);
         ChuckArray kitSrr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_SAMPLE_RATE_RED);
         ChuckArray kitBc = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_BITCRUSH);
+        // ── Unwired per-kit globals (bridging gap between model/bridge and engine) ──
+        ChuckArray kitHpfMode = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_HPF_MODE);
+        ChuckArray kitHpfMorph = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_HPF_MORPH);
+        ChuckArray kitOsc2Type = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_OSC2_TYPE);
+        ChuckArray kitUnisonNum = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_UNISON_NUM);
+        ChuckArray kitUnisonDetune = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_UNISON_DETUNE);
+        ChuckArray kitUnisonSpread = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_UNISON_SPREAD);
+        ChuckArray kitWaveIndex = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_WAVE_INDEX);
+        ChuckArray kitDelayRate = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_DELAY_RATE);
+        ChuckArray kitDelayFb = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_DELAY_FB);
+        ChuckArray kitMaxVoices = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_MAX_VOICES);
+        ChuckArray kitPolyphony = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_POLYPHONY);
         ChuckArray envArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ENV);
         // ── Extended per-step automation arrays (shared with SynthShred) ──
         ChuckArray sStepVolume = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_VOLUME);
@@ -1122,6 +1118,18 @@ public class DelugeEngineDSL implements Shred, Runnable {
           if (kitStutter != null && r < kitStutter.size()) vm.setGlobalFloat(BridgeContract.G_KIT_STUTTER_RATE + "_" + r, kitStutter.getFloat(r));
           if (kitSrr != null && r < kitSrr.size()) vm.setGlobalFloat(BridgeContract.G_KIT_SAMPLE_RATE_RED + "_" + r, kitSrr.getFloat(r));
           if (kitBc != null && r < kitBc.size()) vm.setGlobalFloat(BridgeContract.G_KIT_BITCRUSH + "_" + r, kitBc.getFloat(r));
+          // ── Unwired per-kit globals (previously never written by engine) ──
+          if (kitHpfMode != null && r < kitHpfMode.size()) vm.setGlobalFloat(BridgeContract.G_KIT_HPF_MODE + "_" + r, kitHpfMode.getFloat(r));
+          if (kitHpfMorph != null && r < kitHpfMorph.size()) vm.setGlobalFloat(BridgeContract.G_KIT_HPF_MORPH + "_" + r, kitHpfMorph.getFloat(r));
+          if (kitOsc2Type != null && r < kitOsc2Type.size()) vm.setGlobalFloat(BridgeContract.G_KIT_OSC2_TYPE + "_" + r, kitOsc2Type.getFloat(r));
+          if (kitUnisonNum != null && r < kitUnisonNum.size()) vm.setGlobalFloat(BridgeContract.G_KIT_UNISON_NUM + "_" + r, kitUnisonNum.getFloat(r));
+          if (kitUnisonDetune != null && r < kitUnisonDetune.size()) vm.setGlobalFloat(BridgeContract.G_KIT_UNISON_DETUNE + "_" + r, kitUnisonDetune.getFloat(r));
+          if (kitUnisonSpread != null && r < kitUnisonSpread.size()) vm.setGlobalFloat(BridgeContract.G_KIT_UNISON_SPREAD + "_" + r, kitUnisonSpread.getFloat(r));
+          if (kitWaveIndex != null && r < kitWaveIndex.size()) vm.setGlobalFloat(BridgeContract.G_KIT_WAVE_INDEX + "_" + r, kitWaveIndex.getFloat(r));
+          if (kitDelayRate != null && r < kitDelayRate.size()) vm.setGlobalFloat(BridgeContract.G_KIT_DELAY_RATE + "_" + r, kitDelayRate.getFloat(r));
+          if (kitDelayFb != null && r < kitDelayFb.size()) vm.setGlobalFloat(BridgeContract.G_KIT_DELAY_FB + "_" + r, kitDelayFb.getFloat(r));
+          if (kitMaxVoices != null && r < kitMaxVoices.size()) vm.setGlobalFloat(BridgeContract.G_KIT_MAX_VOICES + "_" + r, kitMaxVoices.getFloat(r));
+          if (kitPolyphony != null && r < kitPolyphony.size()) vm.setGlobalFloat(BridgeContract.G_KIT_POLYPHONY + "_" + r, kitPolyphony.getFloat(r));
           if (kitCompA != null && r < kitCompA.size()) vm.setGlobalFloat(BridgeContract.G_KIT_COMP_ATTACK + "_" + r, kitCompA.getFloat(r));
           if (kitCompR != null && r < kitCompR.size()) vm.setGlobalFloat(BridgeContract.G_KIT_COMP_RELEASE + "_" + r, kitCompR.getFloat(r));
           if (kitCompBlend != null && r < kitCompBlend.size()) vm.setGlobalFloat(BridgeContract.G_KIT_COMP_BLEND + "_" + r, kitCompBlend.getFloat(r));
@@ -1257,7 +1265,6 @@ public class DelugeEngineDSL implements Shred, Runnable {
           if (sStepPortamento != null) {
             vm.setGlobalFloat(BridgeContract.G_PORTAMENTO + "_" + r, sStepPortamento.getFloat(idx));
           }
-
           // ── Kit patch cable modulation evaluation ──
           double pcModPit = 0, pcModV = 0;
           ChuckArray pcCountArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_PC_COUNT);
@@ -2067,9 +2074,26 @@ public class DelugeEngineDSL implements Shred, Runnable {
               }
             }
           }
-          // Declare stepLfoMod here so it's in scope for totalMod below;
-          // the actual LFO iteration computation happens after per-track defaults.
+          // LFO step modulation: scale per-track LFO output by step automation
+          // (computed first so totalMod* below uses the correct value)
           double stepLfoMod = 1.0;
+          if (sStepLfo0Rate != null || sStepLfo1Rate != null || sStepLfo2Rate != null || sStepLfo3Rate != null) {
+            // Step LFO modulation applies as an additive offset to the per-track LFO value
+            double lfoStepMod = 0;
+            for (int l = 0; l < BridgeContract.LFO_COUNT; l++) {
+              double stepDepthAdd = switch (l) {
+                case 0 -> sStepLfo0Depth != null ? sStepLfo0Depth.getFloat(idx) : 0.0;
+                case 1 -> sStepLfo1Depth != null ? sStepLfo1Depth.getFloat(idx) : 0.0;
+                case 2 -> sStepLfo2Depth != null ? sStepLfo2Depth.getFloat(idx) : 0.0;
+                case 3 -> sStepLfo3Depth != null ? sStepLfo3Depth.getFloat(idx) : 0.0;
+                default -> 0.0;
+              };
+              // Apply step LFO modulation to the accumulated lfoVals
+              lfoStepMod += stepDepthAdd;
+            }
+            // Scale total LFO output by step modulation (normalized to LFO_COUNT)
+            stepLfoMod = 1.0 + lfoStepMod / BridgeContract.LFO_COUNT;
+          }
           // Apply step LFO modulation as a global scalar to all LFO-derived modulation values
           double slm = stepLfoMod;
           double totalModF = (lfoF + pcModF) * slm;
@@ -2226,32 +2250,6 @@ public class DelugeEngineDSL implements Shred, Runnable {
           // FM ratio/amount: blend step automation (used directly in FM section below via local vars)
           double stepFmRatio = sStepFmRatio != null ? sStepFmRatio.getFloat(idx) : 0.0;
           double stepFmAmt = sStepFmAmt != null ? sStepFmAmt.getFloat(idx) : 0.0;
-          // LFO step modulation: scale per-track LFO output by step automation
-          // (stepLfoMod is declared before totalMod section above, this reassigns it)
-          if (sStepLfo0Rate != null || sStepLfo1Rate != null || sStepLfo2Rate != null || sStepLfo3Rate != null) {
-            // Step LFO modulation applies as an additive offset to the per-track LFO value
-            double lfoStepMod = 0;
-            for (int l = 0; l < BridgeContract.LFO_COUNT; l++) {
-              double stepRateAdd = switch (l) {
-                case 0 -> sStepLfo0Rate != null ? sStepLfo0Rate.getFloat(idx) : 0.0;
-                case 1 -> sStepLfo1Rate != null ? sStepLfo1Rate.getFloat(idx) : 0.0;
-                case 2 -> sStepLfo2Rate != null ? sStepLfo2Rate.getFloat(idx) : 0.0;
-                case 3 -> sStepLfo3Rate != null ? sStepLfo3Rate.getFloat(idx) : 0.0;
-                default -> 0.0;
-              };
-              double stepDepthAdd = switch (l) {
-                case 0 -> sStepLfo0Depth != null ? sStepLfo0Depth.getFloat(idx) : 0.0;
-                case 1 -> sStepLfo1Depth != null ? sStepLfo1Depth.getFloat(idx) : 0.0;
-                case 2 -> sStepLfo2Depth != null ? sStepLfo2Depth.getFloat(idx) : 0.0;
-                case 3 -> sStepLfo3Depth != null ? sStepLfo3Depth.getFloat(idx) : 0.0;
-                default -> 0.0;
-              };
-              // Apply step LFO modulation to the accumulated lfoVals
-              lfoStepMod += stepDepthAdd;
-            }
-            // Scale total LFO output by step modulation (normalized to LFO_COUNT)
-            stepLfoMod = 1.0 + lfoStepMod / BridgeContract.LFO_COUNT;
-          }
           // Arp rate/gate: blend step automation
           if (sStepArpRate != null) {
             double perTrack = arpOn != null && r < arpOn.size() ? (int) arpOn.getInt(r) == 1 ? 0.5 : 0.0 : 0.0;

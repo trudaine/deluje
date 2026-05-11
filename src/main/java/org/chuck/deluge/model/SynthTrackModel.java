@@ -16,6 +16,17 @@ public class SynthTrackModel extends TrackModel {
   private float unisonStereoSpread = 0.0f;
   private float waveIndex = 0.0f;
 
+  // Oscillator 1 sample-playback params (maps to firmware SampleRecorder/playback)
+  private int osc1LoopMode = 0;       // 0=off, 1=loop, 2=oneshot
+  private boolean osc1Reversed = false;
+  private boolean osc1TimeStretch = false;
+  private float osc1TimeStretchAmount = 0.0f;
+  private int osc1Cents = 0;          // fine detune in cents (-50 to 50)
+
+  // Oscillator 2 transpose/detune
+  private int osc2Transpose = 0;      // semitones
+  private int osc2Cents = 0;          // cents
+
   // Filter
   private FilterMode filterMode = FilterMode.LADDER_12;
   private float lpfFreq = 20000.0f;
@@ -56,6 +67,15 @@ public class SynthTrackModel extends TrackModel {
   private int compressorSyncLevel = 0;
   private float compressorBlend = 0.0f;
   private float compressorSidechainHpf = 0.0f;
+  private int compressorSyncType = 0; // sidechain sync type
+
+  // Sidechain (at sound level, separate from compressor)
+  private int sidechainSyncLevel = 0;
+  private int sidechainSyncType = 0;
+  private float sidechainAttack = 0.0f;
+  private float sidechainRelease = 0.0f;
+  private float compressorThreshold = 0.0f;  // dB, negative = compression threshold
+  private float compressorRatio = 0.0f;      // compression ratio (0 = off)
 
   private String modFxType = "NONE";
   private float modFxRate = 0.0f;
@@ -90,6 +110,9 @@ public class SynthTrackModel extends TrackModel {
 
   private PolyphonyMode polyphony = PolyphonyMode.POLY;
   private int maxVoiceCount = 8;
+
+  /** Semitone transpose of the entire sound, typically -24 to 24. Maps to XML `<sound>` transpose attr. */
+  private int transpose = 0;
 
   /** DX7 patch hex string (312 hex chars = 156 bytes), null if not a DX7 track. */
   private String dx7patch = null;
@@ -174,6 +197,22 @@ public class SynthTrackModel extends TrackModel {
 
   public float getWaveIndex() { return waveIndex; }
   public void setWaveIndex(float v) { this.waveIndex = v; }
+
+  public int getOsc1LoopMode() { return osc1LoopMode; }
+  public void setOsc1LoopMode(int v) { this.osc1LoopMode = v; }
+  public boolean isOsc1Reversed() { return osc1Reversed; }
+  public void setOsc1Reversed(boolean v) { this.osc1Reversed = v; }
+  public boolean isOsc1TimeStretch() { return osc1TimeStretch; }
+  public void setOsc1TimeStretch(boolean v) { this.osc1TimeStretch = v; }
+  public float getOsc1TimeStretchAmount() { return osc1TimeStretchAmount; }
+  public void setOsc1TimeStretchAmount(float v) { this.osc1TimeStretchAmount = v; }
+  public int getOsc1Cents() { return osc1Cents; }
+  public void setOsc1Cents(int v) { this.osc1Cents = Math.max(-50, Math.min(50, v)); }
+
+  public int getOsc2Transpose() { return osc2Transpose; }
+  public void setOsc2Transpose(int v) { this.osc2Transpose = Math.max(-24, Math.min(24, v)); }
+  public int getOsc2Cents() { return osc2Cents; }
+  public void setOsc2Cents(int v) { this.osc2Cents = Math.max(-50, Math.min(50, v)); }
 
   public FilterMode getFilterMode() {
     return filterMode;
@@ -382,6 +421,22 @@ public class SynthTrackModel extends TrackModel {
   public void setCompressorBlend(float v) { this.compressorBlend = Math.max(0.0f, Math.min(1.0f, v)); }
   public float getCompressorSidechainHpf() { return compressorSidechainHpf; }
   public void setCompressorSidechainHpf(float v) { this.compressorSidechainHpf = Math.max(0.0f, Math.min(1.0f, v)); }
+  public float getCompressorThreshold() { return compressorThreshold; }
+  public void setCompressorThreshold(float v) { this.compressorThreshold = v; }
+  public float getCompressorRatio() { return compressorRatio; }
+  public void setCompressorRatio(float v) { this.compressorRatio = v; }
+  public int getCompressorSyncType() { return compressorSyncType; }
+  public void setCompressorSyncType(int v) { this.compressorSyncType = v; }
+
+  // Sidechain (at sound level)
+  public int getSidechainSyncLevel() { return sidechainSyncLevel; }
+  public void setSidechainSyncLevel(int v) { this.sidechainSyncLevel = v; }
+  public int getSidechainSyncType() { return sidechainSyncType; }
+  public void setSidechainSyncType(int v) { this.sidechainSyncType = v; }
+  public float getSidechainAttack() { return sidechainAttack; }
+  public void setSidechainAttack(float v) { this.sidechainAttack = v; }
+  public float getSidechainRelease() { return sidechainRelease; }
+  public void setSidechainRelease(float v) { this.sidechainRelease = v; }
 
   public int getSynthMode() {
     return synthMode;
@@ -390,6 +445,9 @@ public class SynthTrackModel extends TrackModel {
   public void setSynthMode(int synthMode) {
     this.synthMode = synthMode;
   }
+
+  public int getTranspose() { return transpose; }
+  public void setTranspose(int transpose) { this.transpose = Math.max(-24, Math.min(24, transpose)); }
 
   public String getDx7Patch() { return dx7patch; }
   public void setDx7Patch(String dx7patch) { this.dx7patch = dx7patch; }

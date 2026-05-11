@@ -3,7 +3,6 @@ package org.chuck.deluge;
 import org.chuck.core.ChuckArray;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.model.AudioTrackModel;
-import org.chuck.deluge.model.KitTrackModel;
 import org.chuck.deluge.model.SoundDrum;
 
 /**
@@ -206,7 +205,6 @@ public final class BridgeContract {
   public static final String G_ROOT_KEY = "g_root_key";
   public static final String G_RELOAD = "g_reload";
   public static final String G_LOAD_TRIGGER = "g_load_trigger";
-  public static final String TICK_EVENT = "tick_event";
   public static final String E_TICK = "tick_event";
   // ── Extended reverb globals ─────────────────────────────────────────────
   public static final String G_REVERB_WIDTH = "g_reverb_width";
@@ -218,6 +216,9 @@ public final class BridgeContract {
   public static final String G_REVERB_COMP_SYNC_LEVEL = "g_reverb_comp_sync_level";
   public static final String G_REVERB_COMP_HPF = "g_reverb_comp_hpf";
   public static final String G_REVERB_COMP_BLEND = "g_reverb_comp_blend";
+  // ── Rings-reverb specific globals ─────────────────────────────────────────
+  public static final String G_REVERB_EXCITATION = "g_reverb_excitation";
+  public static final String G_REVERB_MODE = "g_reverb_mode";
   // ── Extended delay globals ──────────────────────────────────────────────
   public static final String G_DELAY_PINGPONG = "g_delay_pingpong";
   public static final String G_DELAY_ANALOG = "g_delay_analog";
@@ -232,6 +233,7 @@ public final class BridgeContract {
   public static final String G_MASTER_COMP_ATTACK = "g_master_comp_attack";
   public static final String G_MASTER_COMP_RELEASE = "g_master_comp_release";
   public static final String G_MASTER_COMP_RATIO = "g_master_comp_ratio";
+  public static final String G_MASTER_COMP_BLEND = "g_master_comp_blend";
   public static final String G_MASTER_COMP = "g_master_comp"; // threshold (existing)
   // ── Transpose / humanize ─────────────────────────────────────────────────
   public static final String G_TRANSPOSE = "g_transpose";
@@ -1140,6 +1142,8 @@ public final class BridgeContract {
   private int reverbCompSyncLevel = 0;
   private float reverbCompHpf = 0.0f;
   private float reverbCompBlend = 0.5f;
+  private float reverbExcitation = 0.0f;
+  private int reverbMode = 0; // 0=RESONATOR, 1=KARPLUS_STRONG
   // ── Extended delay scalars ──
   private int delayPingPong = 0;
   private int delayAnalog = 0;
@@ -1154,6 +1158,7 @@ public final class BridgeContract {
   private float masterCompAttack = 0.0f;
   private float masterCompRelease = 0.0f;
   private float masterCompRatio = 0.0f;
+  private float masterCompBlend = 1.0f;
   // ── Transpose / humanize ──
   private int transpose = 0;
   private float humanize = 0.0f;
@@ -1237,7 +1242,7 @@ public final class BridgeContract {
     vm.setGlobalObject(E_PREVIEW, new org.chuck.core.ChuckEvent());
     vm.setGlobalObject(E_SIDECHAIN, new org.chuck.core.ChuckEvent());
     vm.setGlobalObject(G_LOAD_TRIGGER, new org.chuck.core.ChuckEvent());
-    vm.setGlobalObject(TICK_EVENT, new org.chuck.core.ChuckEvent());
+    vm.setGlobalObject(E_TICK, new org.chuck.core.ChuckEvent());
     step.register(vm);
     track.register(vm);
     synth.register(vm);
@@ -1261,6 +1266,8 @@ public final class BridgeContract {
     vm.setGlobalInt(G_REVERB_COMP_SYNC_LEVEL, (long) reverbCompSyncLevel);
     vm.setGlobalFloat(G_REVERB_COMP_HPF, (double) reverbCompHpf);
     vm.setGlobalFloat(G_REVERB_COMP_BLEND, (double) reverbCompBlend);
+    vm.setGlobalFloat(G_REVERB_EXCITATION, (double) reverbExcitation);
+    vm.setGlobalInt(G_REVERB_MODE, (long) reverbMode);
 
     // ── Extended delay scalars ──
     vm.setGlobalInt(G_DELAY_PINGPONG, (long) delayPingPong);
@@ -1278,6 +1285,7 @@ public final class BridgeContract {
     vm.setGlobalFloat(G_MASTER_COMP_ATTACK, (double) masterCompAttack);
     vm.setGlobalFloat(G_MASTER_COMP_RELEASE, (double) masterCompRelease);
     vm.setGlobalFloat(G_MASTER_COMP_RATIO, (double) masterCompRatio);
+    vm.setGlobalFloat(G_MASTER_COMP_BLEND, (double) masterCompBlend);
 
     // ── Transpose / humanize ──
     vm.setGlobalInt(G_TRANSPOSE, (long) transpose);
@@ -1395,9 +1403,7 @@ public final class BridgeContract {
   public void setClipPlayModeArray(int t, int[] modes) {
     if (modes == null) return;
     int max = Math.min(modes.length, MAX_CLIPS_PER_TRACK);
-    for (int ci = 0; ci < max; ci++) {
-      track.clipPlayMode[t * MAX_CLIPS_PER_TRACK + ci] = modes[ci];
-    }
+    System.arraycopy(modes, 0, track.clipPlayMode, t * MAX_CLIPS_PER_TRACK, max);
   }
   public int getQueueStep() { return vm != null ? (int) vm.getGlobalInt(G_QUEUE_STEP) : 0; }
   public void setQueueStep(int sidx) { if (vm != null) vm.setGlobalInt(G_QUEUE_STEP, (long) sidx); }
@@ -1465,16 +1471,6 @@ public final class BridgeContract {
   public void setStepSrr(int track, int sidx, double val) { step.stepSrr[track * STEPS + sidx] = (float) val; }
   public double getStepPitch(int track, int sidx) { return step.stepPitch[track * STEPS + sidx]; }
 
-  // ── Step automation accessors with clip index ──
-  // clipIdx == 0 writes to primary arrays; clipIdx > 0 writes to _C{n} globals
-  private void setStepArray(String baseName, int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) {
-      // clip 0 writes to primary arrays — handled by the base setStep* methods called from SwingDelugeApp
-    } else {
-      ChuckArray ca = getClipArray(baseName, clipIdx);
-      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
-    }
-  }
   public void setStepFilter(int track, int sidx, double val, int clipIdx) {
     if (clipIdx <= 0) { step.stepFilter[track * STEPS + sidx] = (float) val; }
     else { ChuckArray ca = getClipArray(G_STEP_FILTER, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
@@ -1865,6 +1861,18 @@ public final class BridgeContract {
   }
   public double getReverbCompBlend() { return reverbCompBlend; }
 
+  // ── Rings-reverb setters ─────────────────────────────────
+  public void setReverbExcitation(double v) {
+    this.reverbExcitation = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_REVERB_EXCITATION, v);
+  }
+  public double getReverbExcitation() { return reverbExcitation; }
+  public void setReverbMode(int v) {
+    this.reverbMode = v;
+    if (vm != null) vm.setGlobalInt(G_REVERB_MODE, (long) v);
+  }
+  public int getReverbMode() { return reverbMode; }
+
   // ── Extended delay setters ────────────────────────────────
   public void setDelayPingPong(int v) {
     this.delayPingPong = v;
@@ -1925,6 +1933,11 @@ public final class BridgeContract {
     if (vm != null) vm.setGlobalFloat(G_MASTER_COMP_RATIO, v);
   }
   public double getMasterCompRatio() { return masterCompRatio; }
+  public void setMasterCompBlend(double v) {
+    this.masterCompBlend = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_MASTER_COMP_BLEND, v);
+  }
+  public double getMasterCompBlend() { return masterCompBlend; }
 
   // ── Transpose / humanize ───────────────────────────────────
   public void setTranspose(int v) {
@@ -2078,7 +2091,9 @@ public final class BridgeContract {
   public float getWaveIndex(int track) { return synth.waveIndex[track]; }
   // ── Patch cable accessors (synth) ──
 
-  /** Write all patch cables for a given synth track into the bridge arrays. */
+  /** Write all patch cables for a given synth track into the bridge arrays.
+     * @param track
+     * @param cables */
   public void setSynthPatchCables(int track, java.util.List<org.chuck.deluge.model.PatchCable> cables) {
     if (track < 0 || track >= TRACKS) return;
     int count = Math.min(cables.size(), MAX_CABLES_PER_TRACK);
@@ -2102,7 +2117,9 @@ public final class BridgeContract {
 
   // ── Patch cable accessors (kit) ──
 
-  /** Write all patch cables for a given kit sound into the bridge arrays. */
+  /** Write all patch cables for a given kit sound into the bridge arrays.
+     * @param track
+     * @param cables */
   public void setKitPatchCables(int track, java.util.List<org.chuck.deluge.model.PatchCable> cables) {
     if (track < 0 || track >= TRACKS) return;
     int count = Math.min(cables.size(), MAX_CABLES_PER_TRACK);
