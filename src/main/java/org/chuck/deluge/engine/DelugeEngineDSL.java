@@ -698,6 +698,31 @@ public class DelugeEngineDSL implements Shred, Runnable {
             lisa[r].loop(0, 1);
             lisaDsend[r].gain(0.0f);
             lisaRsend[r].gain(0.15f);
+
+            // Load pre-existing audio clip file into LiSa buffer if configured
+            Object filePathObj = vm.getGlobalObject("g_audio_file_path_" + r);
+            if (filePathObj instanceof String filePath && !filePath.isEmpty()) {
+              java.io.File wavFile = new java.io.File(filePath);
+              if (!wavFile.exists()) {
+                java.io.File libraryDir = org.chuck.deluge.project.PreferencesManager.getLibraryDir();
+                wavFile = new java.io.File(libraryDir, filePath);
+              }
+              if (wavFile.exists()) {
+                try {
+                  org.chuck.audio.util.WavReader.WavData wavData = org.chuck.audio.util.WavReader.read(wavFile);
+                  float[] mono = new float[wavData.frameCount()];
+                  for (int s = 0; s < wavData.frameCount(); s++) {
+                    mono[s] = (wavData.channels[0][s] + wavData.channels[1][s]) * 0.5f;
+                  }
+                  lisa[r].loadSamples(mono);
+                  vm.print("[audio] loaded " + mono.length + " samples from " + wavFile.getAbsolutePath() + "\n");
+                } catch (Exception e) {
+                  vm.print("[audio] ERROR loading " + wavFile.getAbsolutePath() + " \u2014 " + e.getMessage() + "\n");
+                }
+              } else {
+                vm.print("[audio] WARN: audio clip file not found: " + filePath + "\n");
+              }
+            }
           }
 
           ChuckArray dlySnd = (ChuckArray) vm.getGlobalObject(BridgeContract.G_DELAY_SEND);
