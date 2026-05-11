@@ -46,12 +46,54 @@ public class UndoRedoStack {
     return !redoStack.isEmpty();
   }
 
+  public UndoableAction peekUndo() {
+    return undoStack.peekFirst();
+  }
+
+  public UndoableAction peekRedo() {
+    return redoStack.peekFirst();
+  }
+
+  /**
+   * Replace the most recent undo entry (top of undo stack) with a new action. Used for coalescing —
+   * e.g., during a slider drag, replace the last entry with updated newValue instead of pushing a
+   * new one every frame.
+   */
+  public void replaceLast(UndoableAction action) {
+    if (!undoStack.isEmpty()) {
+      undoStack.removeFirst();
+    }
+    undoStack.addFirst(action);
+  }
+
+  /** Clear all undo and redo history. Call when loading a new project. */
+  public void clear() {
+    undoStack.clear();
+    redoStack.clear();
+  }
+
+  /** Number of entries in the undo stack. */
+  public int size() {
+    return undoStack.size();
+  }
+
+  /** Description of the top undo action, or null if empty. */
+  public String getUndoDescription() {
+    UndoableAction a = undoStack.peekFirst();
+    return a != null ? a.getDescription() : null;
+  }
+
+  /** Description of the top redo action, or null if empty. */
+  public String getRedoDescription() {
+    UndoableAction a = redoStack.peekFirst();
+    return a != null ? a.getDescription() : null;
+  }
+
   public void undo() {
     if (canUndo()) {
       UndoableAction action = undoStack.removeFirst();
       action.undo();
       redoStack.addFirst(action);
-      System.out.println("Undo: " + action.getDescription());
     }
   }
 
@@ -60,7 +102,6 @@ public class UndoRedoStack {
       UndoableAction action = redoStack.removeFirst();
       action.redo();
       undoStack.addFirst(action);
-      System.out.println("Redo: " + action.getDescription());
     }
   }
 }

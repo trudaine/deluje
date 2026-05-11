@@ -1078,6 +1078,22 @@ public class SwingDelugeApp extends JFrame {
     if (arrGridPanel != null) arrGridPanel.refresh();
   }
 
+  private void doUndo() {
+    if (currentProject == null) return;
+    if (!currentProject.getUndoRedoStack().canUndo()) return;
+    currentProject.getUndoRedoStack().undo();
+    pushModelToBridge();
+    refreshGrids();
+  }
+
+  private void doRedo() {
+    if (currentProject == null) return;
+    if (!currentProject.getUndoRedoStack().canRedo()) return;
+    currentProject.getUndoRedoStack().redo();
+    pushModelToBridge();
+    refreshGrids();
+  }
+
   private void saveProject(boolean forceChooser) {
     java.io.File target = currentProjectFile;
     if (target == null || forceChooser) {
@@ -1476,9 +1492,62 @@ public class SwingDelugeApp extends JFrame {
 
     settingsMenu.add(prefItem);
 
+    // Edit menu — Undo/Redo
+    JMenu editMenu = new JMenu("Edit");
+
+    JMenuItem undoItem = new JMenuItem("Undo");
+    undoItem.setAccelerator(
+        KeyStroke.getKeyStroke(
+            java.awt.event.KeyEvent.VK_Z, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+    undoItem.addActionListener(e -> doUndo());
+
+    JMenuItem redoItem = new JMenuItem("Redo");
+    redoItem.setAccelerator(
+        KeyStroke.getKeyStroke(
+            java.awt.event.KeyEvent.VK_Y, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+    redoItem.addActionListener(e -> doRedo());
+
+    editMenu.add(undoItem);
+    editMenu.add(redoItem);
+
     menuBar.add(fileMenu);
+    menuBar.add(editMenu);
     menuBar.add(settingsMenu);
     setJMenuBar(menuBar);
+
+    // Global undo/redo keyboard shortcuts (always active regardless of focus)
+    getRootPane()
+        .getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
+        .put(
+            KeyStroke.getKeyStroke(
+                java.awt.event.KeyEvent.VK_Z, java.awt.event.InputEvent.CTRL_DOWN_MASK),
+            "undo");
+    getRootPane()
+        .getActionMap()
+        .put(
+            "undo",
+            new AbstractAction() {
+              @Override
+              public void actionPerformed(java.awt.event.ActionEvent e) {
+                doUndo();
+              }
+            });
+    getRootPane()
+        .getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
+        .put(
+            KeyStroke.getKeyStroke(
+                java.awt.event.KeyEvent.VK_Y, java.awt.event.InputEvent.CTRL_DOWN_MASK),
+            "redo");
+    getRootPane()
+        .getActionMap()
+        .put(
+            "redo",
+            new AbstractAction() {
+              @Override
+              public void actionPerformed(java.awt.event.ActionEvent e) {
+                doRedo();
+              }
+            });
 
     final JDialog leftFloat = new JDialog(this, "SD Explorer", false);
     leftFloat.setSize(300, 700);
