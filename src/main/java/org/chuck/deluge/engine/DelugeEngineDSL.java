@@ -1508,6 +1508,9 @@ public class DelugeEngineDSL implements Shred, Runnable {
       ChuckArray gateSpreadArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ARP_GATE_SPREAD);
       ChuckArray velSpreadArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ARP_VEL_SPREAD);
       ChuckArray ratchetArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ARP_RATCHET);
+      ChuckArray noteProbArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ARP_NOTE_PROBABILITY);
+      ChuckArray chordPolyArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ARP_CHORD_POLY);
+      ChuckArray chordProbArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ARP_CHORD_PROB);
       float octaveSpread = octaveSpreadArr != null ? (float) octaveSpreadArr.getFloat(v) : 0f;
       float gateSpread = gateSpreadArr != null ? (float) gateSpreadArr.getFloat(v) : 0f;
       float velSpread = velSpreadArr != null ? (float) velSpreadArr.getFloat(v) : 0f;
@@ -1605,8 +1608,8 @@ public class DelugeEngineDSL implements Shred, Runnable {
         }
       }
 
-      // Rhythm patterns — timing offsets as fraction of step
-      float[] rhythmOffsets = getArpRhythmPattern(rhythmIdx, seqLen);
+      // Rhythm patterns — silence mask from firmware table
+      boolean[] rhythmMask = getArpRhythmMask(rhythmIdx);
 
       // Build sequence: each entry = (noteIndex, octaveOffset, repeatCount)
       // noteIndex selects from noteOrder; actual midi = baseMidi + octaveOffset * 12 + chordNote * 0 + noteIndexOffset
@@ -1615,6 +1618,21 @@ public class DelugeEngineDSL implements Shred, Runnable {
         int noteIdx = noteOrder[s % noteOrder.length];
         int octOffset = octOffsets[s];
         int repeats = stepRepeat;
+
+        // Rhythm silence check: if mask says silence for this step position,
+        // skip the entire note-on but still advance the step duration
+        boolean playStep = (rhythmMask == null) || (s < rhythmMask.length && rhythmMask[s]);
+        // Note probability check: applied after rhythm (only on playable steps)
+        if (playStep && noteProbArr != null) {
+          playStep = Math.random() < noteProbArr.getFloat(v);
+        }
+        if (!playStep) {
+          // Advance through the full step duration (silent)
+          advance(samp(stepDurSec * sampleRate()));
+          seqPos++;
+          if (vm.getGlobalInt(BridgeContract.G_PLAY) == 0 || (arpOn != null && arpOn.getInt(v) == 0)) return;
+          continue;
+        }
 
         for (int r = 0; r < repeats; r++) {
           // Ratchet sub-division: when ratchet > 0, sub-divide this repeat
@@ -1646,30 +1664,20 @@ public class DelugeEngineDSL implements Shred, Runnable {
               midiNote += spreadSemitones;
             }
 
-            double f = outer.mtof(midiNote);
-            car.freq((float) f);
-            if (synthMode == 1) { mod.freq((float) (f * (fmRatio != null ? fmRatio.getFloat(v) : 1.0))); }
-            else { mod.gain(0.0f); }
-
-            // Apply rhythm timing offset (only before first ratchet sub-note)
-            float rhyOff = 0f;
-            if (rr == 0) {
-              rhyOff = (rhythmOffsets != null && seqPos < rhythmOffsets.length) ? rhythmOffsets[seqPos % rhythmOffsets.length] : 0f;
-              if (rhyOff > 0f) {
-                advance(samp(stepDurSec * sampleRate() * rhyOff));
+            // Chord polyphony: intervals in half-steps (root, 3rd, 5th, 7th, 9th, 11th, 13th, double-octave)
+            int[] chordIntervals = {0, 4, 7, 10, 14, 17, 21, 24};
+            int chordSize = 1;
+            boolean chordTriggered = false;
+            if (chordProbArr != null && chordPolyArr != null) {
+              float chordProb = (float) chordProbArr.getFloat(v);
+              if (chordProb > 0f && Math.random() < chordProb) {
+                chordSize = Math.min((int) chordPolyArr.getInt(v), chordIntervals.length);
+                if (chordSize < 1) chordSize = 1;
+                chordTriggered = true;
               }
             }
 
-            // Apply velSpread: randomize gain per note
-            float velGain = (float) (gain * 0.8);
-            if (velSpread > 0f) {
-              velGain *= (1f + (float)(Math.random() * 2f - 1f) * velSpread);
-              if (velGain < 0f) velGain = 0f;
-            }
-            env[0].gain(velGain);
-            env[0].keyOn(); env[1].keyOn(); env[2].keyOn(); env[3].keyOn();
-
-            // Apply gateSpread: randomize gate fraction per note
+            // Effective gate for this note (or per chord sub-note)
             float effectiveGate = (float) gateFrac;
             if (gateSpread > 0f) {
               effectiveGate *= (1f + (float)(Math.random() * 2f - 1f) * gateSpread);
@@ -1679,9 +1687,34 @@ public class DelugeEngineDSL implements Shred, Runnable {
             // Ratchet mini-notes use tighter gate
             if (ratchetCount > 1) effectiveGate *= (0.5f / ratchetCount);
 
-            ChuckDuration onDur = samp(stepDurSec * sampleRate() * effectiveGate);
-            advance(onDur);
-            env[0].keyOff(); env[1].keyOff(); env[2].keyOff(); env[3].keyOff();
+            double baseOnDurSec = stepDurSec * effectiveGate;
+            // When chord triggered, divide the on-duration among chord notes
+            double chordOnDurSec = chordTriggered ? baseOnDurSec / chordSize : baseOnDurSec;
+
+            for (int ci = 0; ci < chordSize; ci++) {
+              int chordMidi = midiNote + chordIntervals[Math.min(ci, chordIntervals.length - 1)];
+
+              double f = outer.mtof(chordMidi);
+              car.freq((float) f);
+              if (synthMode == 1) { mod.freq((float) (f * (fmRatio != null ? fmRatio.getFloat(v) : 1.0))); }
+              else { mod.gain(0.0f); }
+
+              // Apply velSpread: randomize gain per note
+              float velGain = (float) (gain * 0.8);
+              if (velSpread > 0f) {
+                velGain *= (1f + (float)(Math.random() * 2f - 1f) * velSpread);
+                if (velGain < 0f) velGain = 0f;
+              }
+              env[0].gain(velGain);
+              env[0].keyOn(); env[1].keyOn(); env[2].keyOn(); env[3].keyOn();
+
+              ChuckDuration onDur = samp(chordOnDurSec * sampleRate());
+              advance(onDur);
+              env[0].keyOff(); env[1].keyOff(); env[2].keyOff(); env[3].keyOff();
+
+              // Tiny gap between chord sub-notes (1ms) to create separation
+              if (ci < chordSize - 1) advance(samp(0.001 * sampleRate()));
+            }
 
             // Rest duration — ratchet notes squeeze into the same step slot
             double restFrac = 1.0 / ratchetCount;
@@ -1690,7 +1723,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
               restFrac = 1.0 - effectiveGate * ratchetCount;
               if (restFrac < 0) restFrac = 0;
             }
-            double effectiveRestDur = stepDurSec * restFrac - stepDurSec * rhyOff;
+            double effectiveRestDur = stepDurSec * restFrac;
             if (effectiveRestDur < 0) effectiveRestDur = 0;
             if (effectiveRestDur > 0) advance(samp(effectiveRestDur * sampleRate()));
 
@@ -1701,23 +1734,69 @@ public class DelugeEngineDSL implements Shred, Runnable {
       }
     }
 
-    private float[] getArpRhythmPattern(int idx, int seqLen) {
-      // Generate rhythm pattern timing offsets (0.0-0.5 fraction of step delay before the note)
-      // 50 patterns: idx 0 = straight (all zeros), idx 1-49 = varied offsets
-      float[] p = new float[seqLen];
-      if (idx == 0) return p; // straight
+    /** Firmware-accurate rhythm pattern table. Index 0 = all play (no silences). */
+    private static final boolean[][] ARP_RHYTHM_PATTERNS = {
+      {true},                                                     //  0: None
+      {true, false, false},                                       //  1: 0--
+      {true, true, false},                                        //  2: 00-
+      {true, false, true},                                        //  3: 0-0
+      {true, false, true, true},                                  //  4: 0-00
+      {true, true, false, false},                                 //  5: 00--
+      {true, true, true, false},                                  //  6: 000-
+      {true, false, false, true},                                 //  7: 0--0
+      {true, true, false, true},                                  //  8: 00-0
+      {true, false, false, false, false},                         //  9: 0----
+      {true, false, true, true, true},                            // 10: 0-000
+      {true, true, false, false, false},                          // 11: 00---
+      {true, true, true, true, false},                            // 12: 0000-
+      {true, false, false, false, true},                          // 13: 0---0
+      {true, true, false, true, true},                            // 14: 00-00
+      {true, false, true, false, false},                          // 15: 0-0--
+      {true, true, true, false, true},                            // 16: 000-0
+      {true, false, false, true, false},                          // 17: 0--0-
+      {true, false, false, true, true},                           // 18: 0--00
+      {true, true, true, false, false},                           // 19: 000--
+      {true, true, false, false, true},                           // 20: 00--0
+      {true, false, true, true, false},                           // 21: 0-00-
+      {true, true, false, true, false},                           // 22: 00-0-
+      {true, false, true, false, true},                           // 23: 0-0-0
+      {true, false, false, false, false, false},                  // 24: 0-----
+      {true, false, true, true, true, true},                      // 25: 0-0000
+      {true, true, false, false, false, false},                   // 26: 00----
+      {true, true, true, true, true, false},                      // 27: 00000-
+      {true, false, false, false, false, true},                   // 28: 0----0
+      {true, true, false, true, true, true},                      // 29: 00-000
+      {true, false, true, false, false, false},                   // 30: 0-0---
+      {true, true, true, true, false, true},                      // 31: 0000-0
+      {true, false, false, false, true, false},                   // 32: 0---0-
+      {true, true, true, false, true, true},                      // 33: 000-00
+      {true, false, false, true, true, true},                     // 34: 0--000
+      {true, true, true, false, false, false},                    // 35: 000---
+      {true, true, true, true, false, false},                     // 36: 0000--
+      {true, false, false, false, true, true},                    // 37: 0---00
+      {true, true, false, false, true, true},                     // 38: 00--00
+      {true, false, true, true, false, false},                    // 39: 0-00--
+      {true, true, true, false, false, true},                     // 40: 000--0
+      {true, false, false, true, true, false},                    // 41: 0--00-
+      {true, false, true, false, true, true},                     // 42: 0-0-00
+      {true, true, false, true, false, false},                    // 43: 00-0--
+      {true, true, true, false, true, false},                     // 44: 000-0-
+      {true, false, false, true, false, true},                    // 45: 0--0-0
+      {true, false, true, true, true, false},                     // 46: 0-000-
+      {true, true, false, false, false, true},                    // 47: 00---0
+      {true, true, false, false, true, false},                    // 48: 00--0-
+      {true, false, true, false, false, true},                    // 49: 0-0--0
+      {true, true, false, true, false, true},                     // 50: 00-0-0
+    };
 
-      // Simple deterministic patterns based on idx and step position
-      long seed = idx * 31L + 17L;
-      for (int i = 0; i < seqLen; i++) {
-        seed = seed * 1103515245L + 12345L;
-        float v = ((seed >> 16) & 0x7FFF) / (float) 0x7FFF;
-        p[i] = v * 0.5f * (idx / 50.0f);
-      }
-      if (idx == 1) { // swing-ish: offset every other
-        for (int i = 1; i < seqLen; i += 2) p[i] = 0.15f;
-      }
-      return p;
+    /**
+     * Get the rhythm silence mask for a given pattern index.
+     * Returns the pattern array (true=play, false=silence), or null for index 0 (all play).
+     */
+    private static boolean[] getArpRhythmMask(int idx) {
+      if (idx < 0 || idx >= ARP_RHYTHM_PATTERNS.length) return null;
+      if (idx == 0) return null; // null means "all play"
+      return ARP_RHYTHM_PATTERNS[idx];
     }
 
     @Override

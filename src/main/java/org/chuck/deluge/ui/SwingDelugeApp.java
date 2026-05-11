@@ -458,6 +458,9 @@ public class SwingDelugeApp extends JFrame {
             bridge.setArpGateSpread(startRow + v, arp.gateSpread());
             bridge.setArpVelSpread(startRow + v, arp.velSpread());
             bridge.setArpRatchet(startRow + v, arp.ratchetAmount());
+            bridge.setArpNoteProbability(startRow + v, arp.noteProbability());
+            bridge.setArpChordPoly(startRow + v, arp.chordPolyphony());
+            bridge.setArpChordProb(startRow + v, arp.chordProbability());
           }
         }
 

@@ -339,7 +339,7 @@ public class SwingSynthConfigDialog extends JDialog {
         val -> bridge.setArpStepRepeat(idx, val), "×", "arpStepRepeat");
 
     row = addSlider(panel, c, row, "Rhythm:",
-        "Rhythm pattern index (0-49). Controls step timing offsets.",
+        "Rhythm silence pattern index (0-49). 0 = all play, 1-50 = firmware patterns.",
         0, 49, bridge.getArpRhythm(trackIndex),
         val -> bridge.setArpRhythm(idx, val), "", "arpRhythm");
 
@@ -367,6 +367,21 @@ public class SwingSynthConfigDialog extends JDialog {
         "Sub-divide each step into N+1 mini-notes (0-4). 1 = double-trigger, 4 = machine-gun.",
         0, 4, bridge.getArpRatchet(trackIndex),
         val -> bridge.setArpRatchet(idx, val), "x", "arpRatchet");
+
+    row = addSlider(panel, c, row, "Note Prob:",
+        "Probability that each step plays a note (0-100%). 100% = always play. Applied after rhythm silences.",
+        0, 100, (int)(bridge.getArpNoteProbability(trackIndex) * 100),
+        val -> bridge.setArpNoteProbability(idx, val / 100.0), "%", "arpNoteProb");
+
+    row = addSlider(panel, c, row, "Chord Poly:",
+        "Maximum number of notes in a chord (1-8). 1 = single note. Only effective with Chord Probability > 0%.",
+        1, 8, bridge.getArpChordPoly(trackIndex),
+        val -> bridge.setArpChordPoly(idx, val), "x", "arpChordPoly");
+
+    row = addSlider(panel, c, row, "Chord Prob:",
+        "Probability that a step plays a chord instead of a single note (0-100%). Chord size determined by Chord Poly.",
+        0, 100, (int)(bridge.getArpChordProb(trackIndex) * 100),
+        val -> bridge.setArpChordProb(idx, val / 100.0), "%", "arpChordProb");
 
     // ── Filter (LPF) ──
     c.gridx = 0; c.gridy = row; c.gridwidth = 3;
