@@ -597,6 +597,11 @@ public class SwingDelugeApp extends JFrame {
           // Push sample position globals for LiSa playback region
           vm.setGlobalFloat("g_audio_clip_start_" + startRow, (float) aClip.getStartSamplePos());
           vm.setGlobalFloat("g_audio_clip_end_" + startRow, (float) aClip.getEndSamplePos());
+          // Push audio file path for LiSa sample loading
+          String filePath = aClip.getFilePath();
+          if (filePath != null && !filePath.isEmpty()) {
+            vm.setGlobalString("g_audio_file_path_" + startRow, filePath);
+          }
         }
       }
 
