@@ -35,6 +35,7 @@ public class AudioTrackModel extends TrackModel {
     private float pan = 0.0f;
     private float reverbAmount = 0.0f;
     private float sidechainShape = 0.0f;
+    private float sidechainVolume = 0.0f;
     private float modFXRate = 0.0f;
     private float modFXDepth = 0.0f;
     private float modFXOffset = 0.0f;
@@ -94,6 +95,8 @@ public class AudioTrackModel extends TrackModel {
     public void setReverbAmount(float v) { this.reverbAmount = v; }
     public float getSidechainShape() { return sidechainShape; }
     public void setSidechainShape(float v) { this.sidechainShape = v; }
+    public float getSidechainVolume() { return sidechainVolume; }
+    public void setSidechainVolume(float v) { this.sidechainVolume = v; }
     public float getModFXRate() { return modFXRate; }
     public void setModFXRate(float v) { this.modFXRate = v; }
     public float getModFXDepth() { return modFXDepth; }

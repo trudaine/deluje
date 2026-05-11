@@ -22,6 +22,14 @@ public class SynthTrackModel extends TrackModel {
   private boolean osc1TimeStretch = false;
   private float osc1TimeStretchAmount = 0.0f;
   private int osc1Cents = 0;          // fine detune in cents (-50 to 50)
+  private boolean osc1LinearInterpolation = false;
+
+  // Oscillator 2 sample-playback params (maps to firmware SampleRecorder/playback)
+  private int osc2LoopMode = 0;       // 0=off, 1=loop, 2=oneshot
+  private boolean osc2Reversed = false;
+  private boolean osc2TimeStretch = false;
+  private float osc2TimeStretchAmount = 0.0f;
+  private boolean osc2LinearInterpolation = false;
 
   // Oscillator 2 transpose/detune
   private int osc2Transpose = 0;      // semitones
@@ -117,6 +125,9 @@ public class SynthTrackModel extends TrackModel {
   /** DX7 patch hex string (312 hex chars = 156 bytes), null if not a DX7 track. */
   private String dx7patch = null;
 
+  /** DX7 random detune amount (written as dx7randomdetune on osc1 element). */
+  private int dx7RandomDetune = 0;
+
   /**
    * DX7 engine type: -1=AUTO (firmware default, MkI for algo 3/5 with feedback),
    * 0=MODERN (sinLookup/exp2Lookup, 32-bit float path), 1=VINTAGE (mkiSin, 14-bit envelopes).
@@ -125,6 +136,9 @@ public class SynthTrackModel extends TrackModel {
 
   // Synthesis algorithm: 0=FM, 10=Mandolin, 11=Rhodey, 12=ModalBar, 13=Moog
   private int synthAlgorithm = 0;
+
+  // Oscillator sync (hard sync, applies to osc2 when true)
+  private boolean oscillatorSync = false;
 
   public SynthTrackModel(String name) {
     super(name, TrackType.SYNTH);
@@ -208,11 +222,24 @@ public class SynthTrackModel extends TrackModel {
   public void setOsc1TimeStretchAmount(float v) { this.osc1TimeStretchAmount = v; }
   public int getOsc1Cents() { return osc1Cents; }
   public void setOsc1Cents(int v) { this.osc1Cents = Math.max(-50, Math.min(50, v)); }
+  public boolean isOsc1LinearInterpolation() { return osc1LinearInterpolation; }
+  public void setOsc1LinearInterpolation(boolean v) { this.osc1LinearInterpolation = v; }
 
   public int getOsc2Transpose() { return osc2Transpose; }
   public void setOsc2Transpose(int v) { this.osc2Transpose = Math.max(-24, Math.min(24, v)); }
   public int getOsc2Cents() { return osc2Cents; }
   public void setOsc2Cents(int v) { this.osc2Cents = Math.max(-50, Math.min(50, v)); }
+
+  public int getOsc2LoopMode() { return osc2LoopMode; }
+  public void setOsc2LoopMode(int v) { this.osc2LoopMode = v; }
+  public boolean isOsc2Reversed() { return osc2Reversed; }
+  public void setOsc2Reversed(boolean v) { this.osc2Reversed = v; }
+  public boolean isOsc2TimeStretch() { return osc2TimeStretch; }
+  public void setOsc2TimeStretch(boolean v) { this.osc2TimeStretch = v; }
+  public float getOsc2TimeStretchAmount() { return osc2TimeStretchAmount; }
+  public void setOsc2TimeStretchAmount(float v) { this.osc2TimeStretchAmount = v; }
+  public boolean isOsc2LinearInterpolation() { return osc2LinearInterpolation; }
+  public void setOsc2LinearInterpolation(boolean v) { this.osc2LinearInterpolation = v; }
 
   public FilterMode getFilterMode() {
     return filterMode;
@@ -452,6 +479,9 @@ public class SynthTrackModel extends TrackModel {
   public String getDx7Patch() { return dx7patch; }
   public void setDx7Patch(String dx7patch) { this.dx7patch = dx7patch; }
 
+  public int getDx7RandomDetune() { return dx7RandomDetune; }
+  public void setDx7RandomDetune(int v) { this.dx7RandomDetune = v; }
+
   public int getEngineType() { return engineType; }
   public void setEngineType(int engineType) { this.engineType = engineType; }
 
@@ -462,6 +492,9 @@ public class SynthTrackModel extends TrackModel {
   public void setSynthAlgorithm(int synthAlgorithm) {
     this.synthAlgorithm = synthAlgorithm;
   }
+
+  public boolean isOscillatorSync() { return oscillatorSync; }
+  public void setOscillatorSync(boolean v) { this.oscillatorSync = v; }
 
   public float getFmRatio() {
     return fmRatio;
@@ -494,6 +527,11 @@ public class SynthTrackModel extends TrackModel {
   public float getCarrier2Feedback() { return carrier2Feedback; }
   public void setCarrier2Feedback(float v) { this.carrier2Feedback = v; }
 
+  // Stutter config (ModControllableAudio::stutterConfig)
+  private boolean stutterQuantized = true;
+  private boolean stutterReversed = false;
+  private boolean stutterPingPong = false;
+
   /** Oscillator retrigger phase. -1=FREE (free running), 0=RESET, positive=phase offset in degrees. */
   private int retrigPhase = 0;
 
@@ -507,4 +545,11 @@ public class SynthTrackModel extends TrackModel {
   public void setPolyphony(PolyphonyMode polyphony) {
     this.polyphony = polyphony;
   }
+
+  public boolean isStutterQuantized() { return stutterQuantized; }
+  public void setStutterQuantized(boolean v) { this.stutterQuantized = v; }
+  public boolean isStutterReversed() { return stutterReversed; }
+  public void setStutterReversed(boolean v) { this.stutterReversed = v; }
+  public boolean isStutterPingPong() { return stutterPingPong; }
+  public void setStutterPingPong(boolean v) { this.stutterPingPong = v; }
 }

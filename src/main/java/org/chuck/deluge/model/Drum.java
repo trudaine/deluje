@@ -100,6 +100,11 @@ public abstract class Drum {
   protected float arpeggiatorGate = 0.0f;
   protected float portamento = 0.0f;
   protected float stutterRate = 0.0f;
+
+  // Stutter config (ModControllableAudio::stutterConfig)
+  protected boolean stutterQuantized = true;
+  protected boolean stutterReversed = false;
+  protected boolean stutterPingPong = false;
   protected float sampleRateReduction = 0.0f;
   protected float bitCrush = 0.0f;
   protected float fmAmount = 0.0f;
@@ -289,6 +294,13 @@ public abstract class Drum {
 
   public float getStutterRate() { return stutterRate; }
   public void setStutterRate(float v) { this.stutterRate = v; }
+
+  public boolean isStutterQuantized() { return stutterQuantized; }
+  public void setStutterQuantized(boolean v) { this.stutterQuantized = v; }
+  public boolean isStutterReversed() { return stutterReversed; }
+  public void setStutterReversed(boolean v) { this.stutterReversed = v; }
+  public boolean isStutterPingPong() { return stutterPingPong; }
+  public void setStutterPingPong(boolean v) { this.stutterPingPong = v; }
 
   public float getSampleRateReduction() { return sampleRateReduction; }
   public void setSampleRateReduction(float v) { this.sampleRateReduction = v; }

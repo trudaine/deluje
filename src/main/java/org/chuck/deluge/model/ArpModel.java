@@ -18,12 +18,21 @@ public record ArpModel(
     float velSpread,    // 0.0-1.0 randomization of velocity
     int ratchetAmount,  // 0-4 sub-divisions per step
     int mpeVelocity,    // 0=off, 1=on (MPE velocity tracking)
-    int syncType        // 0=rate-based, 1=note-sync, etc. (firmware ArpSyncType enum)
+    int syncType,       // 0=rate-based, 1=note-sync, etc. (firmware ArpSyncType enum)
+    float noteProbability,   // 0.0-1.0 probability a note fires (firmware UNPATCHED_NOTE_PROBABILITY)
+    float bassProbability,   // 0.0-1.0 probability bass note fires (UNPATCHED_ARP_BASS_PROBABILITY)
+    float swapProbability,   // 0.0-1.0 probability note order swaps (UNPATCHED_ARP_SWAP_PROBABILITY)
+    float glideProbability,  // 0.0-1.0 probability glide between notes (UNPATCHED_ARP_GLIDE_PROBABILITY)
+    float reverseProbability,// 0.0-1.0 probability direction reverses (UNPATCHED_REVERSE_PROBABILITY)
+    float chordProbability,  // 0.0-1.0 probability chord triggers (UNPATCHED_ARP_CHORD_PROBABILITY)
+    float ratchetProbability,// 0.0-1.0 probability ratchet fires (UNPATCHED_ARP_RATCHET_PROBABILITY)
+    int chordPolyphony       // 0=off, 1-8 voices in chord (UNPATCHED_ARP_CHORD_POLYPHONY)
 ) {
 
   public static ArpModel defaultConfig() {
     return new ArpModel(false, "UP", 1.0f, 1, 0.5f,
         0, "UP", "UP", 1, 0, 8,
-        0.0f, 0.0f, 0.0f, 0, 0, 0);
+        0.0f, 0.0f, 0.0f, 0, 0, 0,
+        0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
   }
 }
