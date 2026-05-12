@@ -266,12 +266,14 @@ public class DelugeE2ETest {
     }
   }
 
-  /** Map oscillator type string to engine type index. */
+  /** Map oscillator type string to engine type index. Case-insensitive. */
   private static int oscTypeIndex(String type) {
-    if ("SINE".equals(type)) return 0;
-    if ("SAW".equals(type)) return 1;
-    if ("SQUARE".equals(type)) return 2;
-    if ("TRIANGLE".equals(type)) return 3;
+    if (type == null) return 0;
+    String t = type.toUpperCase();
+    if ("SINE".equals(t)) return 0;
+    if ("SAW".equals(t)) return 1;
+    if ("SQUARE".equals(t)) return 2;
+    if ("TRIANGLE".equals(t)) return 3;
     return 0;
   }
 }
