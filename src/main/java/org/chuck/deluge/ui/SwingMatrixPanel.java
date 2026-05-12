@@ -34,29 +34,36 @@ public class SwingMatrixPanel extends JPanel {
 
     setBackground(new Color(0x20, 0x20, 0x20));
     setPreferredSize(new Dimension(2000, 1200));
+    setLayout(null);
 
     setFocusable(true);
     addKeyListener(
         new java.awt.event.KeyAdapter() {
           @Override
           public void keyPressed(java.awt.event.KeyEvent e) {
-            if (e.getKeyCode() == java.awt.event.KeyEvent.VK_P) {
-              String hitsStr =
-                  JOptionPane.showInputDialog(SwingMatrixPanel.this, "Euclidean Hits (K):", "4");
-              String stepsStr =
-                  JOptionPane.showInputDialog(SwingMatrixPanel.this, "Sequence Steps (N):", "16");
-              if (hitsStr != null && stepsStr != null) {
-                int K = Integer.parseInt(hitsStr);
-                int N = Integer.parseInt(stepsStr);
-                for (int i = 0; i < stepCount; i++) {
-                  boolean active = ((i * K) % N) < K;
-                  bridge.setStep(baseTrack, i, active);
-                }
-                repaint();
-              }
-            }
+            // P key reserved for Euclidean dialog (access via button below)
           }
         });
+
+    // Euclidean rhythm generator button
+    JButton euclideanBtn = new JButton("Euclidean");
+    euclideanBtn.setBackground(new Color(0x33, 0x44, 0x55));
+    euclideanBtn.setForeground(Color.WHITE);
+    euclideanBtn.setBounds(10, 10, 120, 30);
+    euclideanBtn.setToolTipText("Open Euclidean rhythm generator for the current row");
+    euclideanBtn.addActionListener(e -> {
+      Frame frame = (Frame) javax.swing.SwingUtilities.getWindowAncestor(this);
+      String rowName = null;
+      if (vm != null) {
+        Object obj = vm.getGlobalObject("g_sample_" + baseTrack);
+        rowName = (obj instanceof String) ? (String) obj : null;
+      }
+      if (rowName == null || rowName.isBlank()) rowName = "Row " + (baseTrack + 1);
+      EuclideanRhythmDialog dlg = new EuclideanRhythmDialog(
+          frame, bridge, baseTrack, stepCount, rowName, SwingMatrixPanel.this::repaint);
+      dlg.setVisible(true);
+    });
+    add(euclideanBtn);
 
     addMouseListener(
         new java.awt.event.MouseAdapter() {

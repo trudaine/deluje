@@ -2364,9 +2364,9 @@ Appears in the Context Panel when the selected Synth track has `osc1.type = wave
 
 ---
 
-#### 24.5.4 `EuclideanRhythmControl.java` — Pattern Generator
+#### 24.5.4 `EuclideanRhythmDialog.java` — Pattern Generator
 
-Accessed via the Kit track [⚙] dialog. Generates a Euclidean rhythm (Bjorklund algorithm) for the row.
+Implemented at `ui/EuclideanRhythmDialog.java`. Accessed via the "Euclidean" button in `SwingMatrixPanel`. Generates a Euclidean rhythm (even-distribution algorithm matching the firmware's `editNumEuclideanEvents()`) for the current row.
 
 ```
   Euclidean Rhythm Generator:
@@ -2386,7 +2386,7 @@ Accessed via the Kit track [⚙] dialog. Generates a Euclidean rhythm (Bjorklund
 
 **Rotation** shifts all hits forward/backward by N steps (polyrhythmic offset). `E(3,8,2)` = common clave pattern.
 
-On **[Apply to Row]**, the Bjorklund output is written to `BridgeContract.setStep()` for each cell of the selected track row. Existing velocity/gate/probability values are preserved for active steps.
+On **[Apply]**, the even-distribution output is written to `BridgeContract.setStep()` for each cell of the selected track row, clearing existing steps first. Default velocity 0.8 is written for active steps.
 
 **Algorithm**: Bjorklund / Euclidean rhythm:
 ```java
