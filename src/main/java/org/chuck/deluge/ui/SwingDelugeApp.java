@@ -291,6 +291,17 @@ public class SwingDelugeApp extends JFrame {
               bridge.setKitMaxVoices(engineRow, snd.getMaxVoiceCount());
               bridge.setKitPolyphony(engineRow, snd.getPolyphony().ordinal());
 
+              // ── Push kit FX arrays (delay pingpong/analog, reverb, comp, sidechain) ──
+              bridge.setKitDelayPingpong(engineRow, snd.getDelayPingPong());
+              bridge.setKitDelayAnalog(engineRow, snd.getDelayAnalog());
+              bridge.setKitReverbAmount(engineRow, snd.getReverbAmount());
+              bridge.setKitCompThreshold(engineRow, snd.getCompressorThreshold());
+              bridge.setKitCompSyncLevel(engineRow, snd.getCompressorSyncLevel());
+              bridge.setKitSidechainSyncLevel(engineRow, snd.getSidechainSyncLevel());
+              bridge.setKitSidechainSyncType(engineRow, snd.getSidechainSyncType());
+              bridge.setKitSidechainAttack(engineRow, snd.getSidechainAttack());
+              bridge.setKitSidechainRelease(engineRow, snd.getSidechainRelease());
+
               // ── Push kit patch cables ──
               bridge.setKitPatchCables(engineRow, snd.getPatchCables());
 

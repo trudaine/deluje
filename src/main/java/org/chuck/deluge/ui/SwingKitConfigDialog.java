@@ -16,7 +16,7 @@ public class SwingKitConfigDialog extends JDialog {
   public SwingKitConfigDialog(
       Frame owner, KitTrackModel kit, ChuckVM vm, BridgeContract bridge) {
     super(owner, "Kit Config: " + kit.getName(), false);
-    setSize(1280, 550);
+    setSize(1280, 800);
     setLocationRelativeTo(owner);
     setLayout(new BorderLayout());
     getContentPane().setBackground(new Color(0x1a, 0x1a, 0x1a));
@@ -30,7 +30,10 @@ public class SwingKitConfigDialog extends JDialog {
       tabs.addTab(sounds.get(i).getName(), buildSoundPanel((SoundDrum) sounds.get(i), i, vm, bridge));
     }
 
-    add(tabs, BorderLayout.CENTER);
+    JScrollPane scroll = new JScrollPane(tabs);
+    scroll.getVerticalScrollBar().setUnitIncrement(16);
+    scroll.setBorder(null);
+    add(scroll, BorderLayout.CENTER);
 
     JButton closeBtn = new JButton("Close");
     closeBtn.addActionListener(e -> dispose());
@@ -186,6 +189,127 @@ public class SwingKitConfigDialog extends JDialog {
       getKitArray(vm, BridgeContract.G_KIT_REVERSE).setInt(idx, reverseBox.isSelected() ? 1L : 0L);
     });
     panel.add(reverseBox, c);
+
+    // ═══════════════════════════════════════════════════════════
+    // Per-drum FX chain
+    // ═══════════════════════════════════════════════════════════
+
+    // ── Delay FX ──
+    c.gridx = 0; c.gridy = row; c.gridwidth = 3;
+    panel.add(sectionLabel("DELAY FX"), c);
+    row++;
+
+    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
+    panel.add(tip(label("Ping-Pong:"), "Alternate delay repeats between left and right channels"), c);
+    c.gridx = 1; c.gridwidth = 2;
+    JComboBox<String> pingpongCombo = new JComboBox<>(new String[]{"Off", "On"});
+    pingpongCombo.setSelectedIndex(Math.max(0, Math.min(1, sound.getDelayPingPong())));
+    pingpongCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    pingpongCombo.setForeground(Color.WHITE);
+    pingpongCombo.addActionListener(e -> {
+      int v = pingpongCombo.getSelectedIndex();
+      sound.setDelayPingPong(v);
+      bridge.setKitDelayPingpong(idx, v);
+    });
+    panel.add(pingpongCombo, c);
+    row++;
+
+    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
+    panel.add(tip(label("Analog:"), "Digital or analog-modeled delay repeats"), c);
+    c.gridx = 1; c.gridwidth = 2;
+    JComboBox<String> analogCombo = new JComboBox<>(new String[]{"Digital", "Analog"});
+    analogCombo.setSelectedIndex(Math.max(0, Math.min(1, sound.getDelayAnalog())));
+    analogCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    analogCombo.setForeground(Color.WHITE);
+    analogCombo.addActionListener(e -> {
+      int v = analogCombo.getSelectedIndex();
+      sound.setDelayAnalog(v);
+      bridge.setKitDelayAnalog(idx, v);
+    });
+    panel.add(analogCombo, c);
+    row++;
+
+    // ── Reverb ──
+    c.gridx = 0; c.gridy = row; c.gridwidth = 3;
+    panel.add(sectionLabel("REVERB"), c);
+    row++;
+
+    row = addSlider(panel, c, row, "Amount (0-100):",
+        "Amount of reverb send for this sound (0–100%)",
+        0, 100, (int)(sound.getReverbAmount() * 100),
+        val -> {
+          float amt = val / 100f;
+          sound.setReverbAmount(amt);
+          bridge.setKitReverbAmount(idx, amt);
+        });
+
+    // ── Compressor ──
+    c.gridx = 0; c.gridy = row; c.gridwidth = 3;
+    panel.add(sectionLabel("COMPRESSOR"), c);
+    row++;
+
+    row = addSlider(panel, c, row, "Threshold (0-100):",
+        "Compressor threshold: lower values compress more aggressively (0–100%)",
+        0, 100, (int)(sound.getCompressorThreshold() * 100),
+        val -> {
+          float t = val / 100f;
+          sound.setCompressorThreshold(t);
+          bridge.setKitCompThreshold(idx, t);
+        });
+
+    row = addSlider(panel, c, row, "Sync Level (0-100):",
+        "Compressor sync level for tempo-synchronized ducking (0–100%)",
+        0, 100, sound.getCompressorSyncLevel(),
+        val -> {
+          sound.setCompressorSyncLevel(val);
+          bridge.setKitCompSyncLevel(idx, val);
+        });
+
+    // ── Sidechain ──
+    c.gridx = 0; c.gridy = row; c.gridwidth = 3;
+    panel.add(sectionLabel("SIDECHAIN"), c);
+    row++;
+
+    row = addSlider(panel, c, row, "Sync Level (0-100):",
+        "Sidechain sync level for tempo-synchronized ducking (0–100%)",
+        0, 100, sound.getSidechainSyncLevel(),
+        val -> {
+          sound.setSidechainSyncLevel(val);
+          bridge.setKitSidechainSyncLevel(idx, val);
+        });
+
+    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
+    panel.add(tip(label("Sync Type:"), "Sidechain sync type (e.g. Off, 8th, 16th)"), c);
+    c.gridx = 1; c.gridwidth = 2;
+    JComboBox<String> scTypeCombo = new JComboBox<>(new String[]{"Off", "1/1", "1/2", "1/4", "1/8", "1/16", "1/32"});
+    scTypeCombo.setSelectedIndex(Math.max(0, Math.min(6, sound.getSidechainSyncType())));
+    scTypeCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    scTypeCombo.setForeground(Color.WHITE);
+    scTypeCombo.addActionListener(e -> {
+      int v = scTypeCombo.getSelectedIndex();
+      sound.setSidechainSyncType(v);
+      bridge.setKitSidechainSyncType(idx, v);
+    });
+    panel.add(scTypeCombo, c);
+    row++;
+
+    row = addSlider(panel, c, row, "Attack (0-100):",
+        "Sidechain attack time (0–100%)",
+        0, 100, (int)(sound.getSidechainAttack() * 100),
+        val -> {
+          float a = val / 100f;
+          sound.setSidechainAttack(a);
+          bridge.setKitSidechainAttack(idx, a);
+        });
+
+    row = addSlider(panel, c, row, "Release (0-100):",
+        "Sidechain release time (0–100%)",
+        0, 100, (int)(sound.getSidechainRelease() * 100),
+        val -> {
+          float r = val / 100f;
+          sound.setSidechainRelease(r);
+          bridge.setKitSidechainRelease(idx, r);
+        });
 
     return panel;
   }

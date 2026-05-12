@@ -435,6 +435,16 @@ public final class BridgeContract {
   public static final String G_KIT_PC_DEST = "g_kit_pc_dest";
   public static final String G_KIT_PC_AMOUNT = "g_kit_pc_amount";
   public static final String G_KIT_PC_POLARITY = "g_kit_pc_polarity";
+  // ── Kit per-sound FX arrays (added for SwingKitConfigDialog) ──
+  public static final String G_KIT_DELAY_PINGPONG = "g_kit_delay_pingpong";
+  public static final String G_KIT_DELAY_ANALOG = "g_kit_delay_analog";
+  public static final String G_KIT_REVERB_AMOUNT = "g_kit_reverb_amount";
+  public static final String G_KIT_COMP_THRESHOLD = "g_kit_comp_threshold";
+  public static final String G_KIT_COMP_SYNC_LEVEL = "g_kit_comp_sync_level";
+  public static final String G_KIT_SIDECHAIN_SYNC_LEVEL = "g_kit_sidechain_sync_level";
+  public static final String G_KIT_SIDECHAIN_SYNC_TYPE = "g_kit_sidechain_sync_type";
+  public static final String G_KIT_SIDECHAIN_ATTACK = "g_kit_sidechain_attack";
+  public static final String G_KIT_SIDECHAIN_RELEASE = "g_kit_sidechain_release";
   public static final String G_AUDIO_REC = "g_audio_rec";
   public static final String G_AUDIO_PLAY = "g_audio_play";
   public static final String G_AUDIO_LOOP = "g_audio_loop";
@@ -1048,6 +1058,15 @@ public final class BridgeContract {
     final float[] kitCompressorSidechainHpfArr = new float[TRACKS];
     final float[] kitDelayRate = new float[TRACKS];
     final float[] kitDelayFb = new float[TRACKS];
+    final int[] kitDelayPingpong = new int[TRACKS];
+    final int[] kitDelayAnalog = new int[TRACKS];
+    final float[] kitReverbAmount = new float[TRACKS];
+    final float[] kitCompThreshold = new float[TRACKS];
+    final int[] kitCompSyncLevel = new int[TRACKS];
+    final int[] kitSidechainSyncLevel = new int[TRACKS];
+    final int[] kitSidechainSyncType = new int[TRACKS];
+    final float[] kitSidechainAttack = new float[TRACKS];
+    final float[] kitSidechainRelease = new float[TRACKS];
     final float[] kitVolume = new float[TRACKS];
     final float[] kitPan = new float[TRACKS];
     final float[] kitNoiseVol = new float[TRACKS];
@@ -1100,6 +1119,15 @@ public final class BridgeContract {
         kitCompressorSidechainHpfArr[t] = 0f;
         kitDelayRate[t] = 0f;
         kitDelayFb[t] = 0f;
+        kitDelayPingpong[t] = 0;
+        kitDelayAnalog[t] = 0;
+        kitReverbAmount[t] = 0f;
+        kitCompThreshold[t] = 0f;
+        kitCompSyncLevel[t] = 0;
+        kitSidechainSyncLevel[t] = 0;
+        kitSidechainSyncType[t] = 0;
+        kitSidechainAttack[t] = 0f;
+        kitSidechainRelease[t] = 0f;
         kitVolume[t] = 0.5f;
         kitPan[t] = 0f;
         kitNoiseVol[t] = 0f;
@@ -1155,6 +1183,15 @@ public final class BridgeContract {
       vm.setGlobalObject(G_KIT_COMP_SIDECHAIN_HPF, new ChuckArray(kitCompressorSidechainHpfArr));
       vm.setGlobalObject(G_KIT_DELAY_RATE, new ChuckArray(kitDelayRate));
       vm.setGlobalObject(G_KIT_DELAY_FB, new ChuckArray(kitDelayFb));
+      vm.setGlobalObject(G_KIT_DELAY_PINGPONG, new ChuckArray(kitDelayPingpong));
+      vm.setGlobalObject(G_KIT_DELAY_ANALOG, new ChuckArray(kitDelayAnalog));
+      vm.setGlobalObject(G_KIT_REVERB_AMOUNT, new ChuckArray(kitReverbAmount));
+      vm.setGlobalObject(G_KIT_COMP_THRESHOLD, new ChuckArray(kitCompThreshold));
+      vm.setGlobalObject(G_KIT_COMP_SYNC_LEVEL, new ChuckArray(kitCompSyncLevel));
+      vm.setGlobalObject(G_KIT_SIDECHAIN_SYNC_LEVEL, new ChuckArray(kitSidechainSyncLevel));
+      vm.setGlobalObject(G_KIT_SIDECHAIN_SYNC_TYPE, new ChuckArray(kitSidechainSyncType));
+      vm.setGlobalObject(G_KIT_SIDECHAIN_ATTACK, new ChuckArray(kitSidechainAttack));
+      vm.setGlobalObject(G_KIT_SIDECHAIN_RELEASE, new ChuckArray(kitSidechainRelease));
       vm.setGlobalObject(G_KIT_VOLUME, new ChuckArray(kitVolume));
       vm.setGlobalObject(G_KIT_PAN, new ChuckArray(kitPan));
       vm.setGlobalObject(G_KIT_NOISE_VOL, new ChuckArray(kitNoiseVol));
@@ -2393,6 +2430,25 @@ public final class BridgeContract {
       if (arr != null) arr.setInt(track, (long) v);
     }
   }
+  // ── Kit per-sound FX setters ─────────────────────────────────
+  public void setKitDelayPingpong(int track, int v) { kit.kitDelayPingpong[track] = v; }
+  public int getKitDelayPingpong(int track) { return kit.kitDelayPingpong[track]; }
+  public void setKitDelayAnalog(int track, int v) { kit.kitDelayAnalog[track] = v; }
+  public int getKitDelayAnalog(int track) { return kit.kitDelayAnalog[track]; }
+  public void setKitReverbAmount(int track, float v) { kit.kitReverbAmount[track] = v; }
+  public float getKitReverbAmount(int track) { return kit.kitReverbAmount[track]; }
+  public void setKitCompThreshold(int track, float v) { kit.kitCompThreshold[track] = v; }
+  public float getKitCompThreshold(int track) { return kit.kitCompThreshold[track]; }
+  public void setKitCompSyncLevel(int track, int v) { kit.kitCompSyncLevel[track] = v; }
+  public int getKitCompSyncLevel(int track) { return kit.kitCompSyncLevel[track]; }
+  public void setKitSidechainSyncLevel(int track, int v) { kit.kitSidechainSyncLevel[track] = v; }
+  public int getKitSidechainSyncLevel(int track) { return kit.kitSidechainSyncLevel[track]; }
+  public void setKitSidechainSyncType(int track, int v) { kit.kitSidechainSyncType[track] = v; }
+  public int getKitSidechainSyncType(int track) { return kit.kitSidechainSyncType[track]; }
+  public void setKitSidechainAttack(int track, float v) { kit.kitSidechainAttack[track] = v; }
+  public float getKitSidechainAttack(int track) { return kit.kitSidechainAttack[track]; }
+  public void setKitSidechainRelease(int track, float v) { kit.kitSidechainRelease[track] = v; }
+  public float getKitSidechainRelease(int track) { return kit.kitSidechainRelease[track]; }
   public void setAudioThreshold(int trackIdx, int v) {
     audio.audioThreshold[trackIdx] = Math.max(0, Math.min(3, v));
     if (vm != null) {

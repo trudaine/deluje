@@ -1184,6 +1184,16 @@ public class DelugeEngineDSL implements Shred, Runnable {
         ChuckArray kitDelayFb = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_DELAY_FB);
         ChuckArray kitMaxVoices = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_MAX_VOICES);
         ChuckArray kitPolyphony = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_POLYPHONY);
+        // ── Kit per-sound FX arrays ──
+        ChuckArray kitDelayPingpong = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_DELAY_PINGPONG);
+        ChuckArray kitDelayAnalog = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_DELAY_ANALOG);
+        ChuckArray kitReverbAmount = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_REVERB_AMOUNT);
+        ChuckArray kitCompThreshold = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_COMP_THRESHOLD);
+        ChuckArray kitCompSyncLevel = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_COMP_SYNC_LEVEL);
+        ChuckArray kitSidechainSyncLevel = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_SIDECHAIN_SYNC_LEVEL);
+        ChuckArray kitSidechainSyncType = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_SIDECHAIN_SYNC_TYPE);
+        ChuckArray kitSidechainAttack = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_SIDECHAIN_ATTACK);
+        ChuckArray kitSidechainRelease = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_SIDECHAIN_RELEASE);
         ChuckArray envArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ENV);
         // ── Extended per-step automation arrays (shared with SynthShred) ──
         ChuckArray sStepVolume = (ChuckArray) vm.getGlobalObject(BridgeContract.G_STEP_VOLUME);
@@ -1230,6 +1240,15 @@ public class DelugeEngineDSL implements Shred, Runnable {
           if (kitWaveIndex != null && r < kitWaveIndex.size()) vm.setGlobalFloat(BridgeContract.G_KIT_WAVE_INDEX + "_" + r, kitWaveIndex.getFloat(r));
           if (kitDelayRate != null && r < kitDelayRate.size()) vm.setGlobalFloat(BridgeContract.G_KIT_DELAY_RATE + "_" + r, kitDelayRate.getFloat(r));
           if (kitDelayFb != null && r < kitDelayFb.size()) vm.setGlobalFloat(BridgeContract.G_KIT_DELAY_FB + "_" + r, kitDelayFb.getFloat(r));
+          if (kitDelayPingpong != null && r < kitDelayPingpong.size()) vm.setGlobalFloat(BridgeContract.G_KIT_DELAY_PINGPONG + "_" + r, kitDelayPingpong.getFloat(r));
+          if (kitDelayAnalog != null && r < kitDelayAnalog.size()) vm.setGlobalFloat(BridgeContract.G_KIT_DELAY_ANALOG + "_" + r, kitDelayAnalog.getFloat(r));
+          if (kitReverbAmount != null && r < kitReverbAmount.size()) vm.setGlobalFloat(BridgeContract.G_KIT_REVERB_AMOUNT + "_" + r, kitReverbAmount.getFloat(r));
+          if (kitCompThreshold != null && r < kitCompThreshold.size()) vm.setGlobalFloat(BridgeContract.G_KIT_COMP_THRESHOLD + "_" + r, kitCompThreshold.getFloat(r));
+          if (kitCompSyncLevel != null && r < kitCompSyncLevel.size()) vm.setGlobalFloat(BridgeContract.G_KIT_COMP_SYNC_LEVEL + "_" + r, kitCompSyncLevel.getFloat(r));
+          if (kitSidechainSyncLevel != null && r < kitSidechainSyncLevel.size()) vm.setGlobalFloat(BridgeContract.G_KIT_SIDECHAIN_SYNC_LEVEL + "_" + r, kitSidechainSyncLevel.getFloat(r));
+          if (kitSidechainSyncType != null && r < kitSidechainSyncType.size()) vm.setGlobalFloat(BridgeContract.G_KIT_SIDECHAIN_SYNC_TYPE + "_" + r, kitSidechainSyncType.getFloat(r));
+          if (kitSidechainAttack != null && r < kitSidechainAttack.size()) vm.setGlobalFloat(BridgeContract.G_KIT_SIDECHAIN_ATTACK + "_" + r, kitSidechainAttack.getFloat(r));
+          if (kitSidechainRelease != null && r < kitSidechainRelease.size()) vm.setGlobalFloat(BridgeContract.G_KIT_SIDECHAIN_RELEASE + "_" + r, kitSidechainRelease.getFloat(r));
           if (kitMaxVoices != null && r < kitMaxVoices.size()) vm.setGlobalFloat(BridgeContract.G_KIT_MAX_VOICES + "_" + r, kitMaxVoices.getFloat(r));
           if (kitPolyphony != null && r < kitPolyphony.size()) vm.setGlobalFloat(BridgeContract.G_KIT_POLYPHONY + "_" + r, kitPolyphony.getFloat(r));
           if (kitCompA != null && r < kitCompA.size()) vm.setGlobalFloat(BridgeContract.G_KIT_COMP_ATTACK + "_" + r, kitCompA.getFloat(r));
