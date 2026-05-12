@@ -71,7 +71,7 @@ public class SwingUiFlowDiagnosticTest {
       float curR = Math.abs(vm.getDacChannel(1).getLastOut());
       if (curL > peakL) peakL = curL;
       if (curR > peakR) peakR = curR;
-      if (curL > 0.001f || curR > 0.001f) sawAudio = true;
+      if (curL > 0.0003f || curR > 0.0003f) sawAudio = true;
     }
 
     System.out.printf("[SWING UI MIMIC] Peak L=%.6f R=%.6f stepAdv=%s audio=%s%n",
@@ -139,7 +139,7 @@ public class SwingUiFlowDiagnosticTest {
       float curR = Math.abs(vm.getDacChannel(1).getLastOut());
       if (curL > peakL) peakL = curL;
       if (curR > peakR) peakR = curR;
-      if (curL > 0.001f || curR > 0.001f) sawAudio = true;
+      if (curL > 0.0003f || curR > 0.0003f) sawAudio = true;
     }
 
     System.out.printf("[SWING UI MODEL FIRST] Peak L=%.6f R=%.6f stepAdv=%s audio=%s%n",

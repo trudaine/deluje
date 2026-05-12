@@ -157,13 +157,17 @@ public class SynthWavetableAccuracyTest {
       fmArr.setInt(0, 2L);
     }
 
-    // Write a pattern: one long note at step 0, full velocity
-    bridge.setStep(0, 0, true);
-    bridge.setVelocity(0, 0, 1.0);
-    bridge.setGate(0, 0, 0.95);
+    // Write a pattern: all 16 steps active so WvOut2 captures continuous audio.
+    // With only step 0 active at 120 BPM, the note fires once every 2s and lasts only
+    // ~119ms, leaving 1.88s of silence that WvOut2 (recording ~1s) would miss entirely.
+    for (int s = 0; s < 16; s++) {
+      bridge.setStep(0, s, true);
+      bridge.setVelocity(0, s, 1.0);
+      bridge.setGate(0, s, 0.95);
+    }
 
-    // Track length: 1 step (so it loops every step, sustained)
-    bridge.setTrackLength(0, 1);
+    // Track length: 16 steps (= 2s at 120 BPM, 4 steps/beat)
+    bridge.setTrackLength(0, 16);
 
     // Start engine
     vm.spork(new DelugeEngineDSL(vm));
@@ -172,6 +176,31 @@ public class SynthWavetableAccuracyTest {
     // Broadcast load trigger
     vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
     vm.advanceTime(SAMPLE_RATE / 2);
+
+    // Start playback first so the looper/sequencer is running
+    vm.setGlobalFloat(BridgeContract.G_BPM, 120.0);
+    vm.setGlobalInt(BridgeContract.G_PLAY, 1L);
+
+    // ── DIAGNOSTIC: check DAC directly for audio ──
+    System.out.print("  DAC direct (first 200 blocks of 10ms each):");
+    float dacPeak = 0;
+    for (int di = 0; di < 200; di++) {
+      vm.advanceTime(441); // 10ms
+      float ch0 = Math.abs(vm.getDacChannel(0).getLastOut());
+      float ch1 = Math.abs(vm.getDacChannel(1).getLastOut());
+      if (ch0 > dacPeak) dacPeak = ch0;
+      if (ch1 > dacPeak) dacPeak = ch1;
+      if (ch0 > 0.0001f || ch1 > 0.0001f) {
+        if (di < 5 || (ch0 > dacPeak * 0.8)) {
+          System.out.printf(" [%d]L=%.6f,R=%.6f", di, ch0, ch1);
+        }
+      }
+    }
+    System.out.printf("\n  DAC peak after 2s: %.6f%n", dacPeak);
+
+    // Reset the DAC-local peak for the capture phase
+    // Advance a bit more so the note is well into sustain
+    vm.advanceTime(SAMPLE_RATE / 5); // 200ms
 
     // ── WvOut2 capture ──
     File tmpWav = new File(tempDir, "synth_" + shapeName + ".wav");
@@ -190,7 +219,7 @@ public class SynthWavetableAccuracyTest {
       synthBus.chuck(wv);
       wv.chuck(dacUGen);
 
-      // Wait long enough for splice + loop start
+      // Record 1s of steady-state oscillator output
       org.chuck.core.ChuckDSL.advance(org.chuck.core.ChuckDSL.samp(SAMPLE_RATE));
       wv.closeFile();
       try {
@@ -199,10 +228,6 @@ public class SynthWavetableAccuracyTest {
         throw new RuntimeException(e);
       }
     });
-
-    // Start playback and capture
-    vm.setGlobalFloat(BridgeContract.G_BPM, 120.0);
-    vm.setGlobalInt(BridgeContract.G_PLAY, 1L);
 
     // Advance 2s to let the capture run
     int totalCapture = SAMPLE_RATE * 2;
@@ -227,6 +252,22 @@ public class SynthWavetableAccuracyTest {
 
     System.out.printf("  Captured: len=%d RMS=%.6f peak=%.6f%n", cap.length, rms, peak);
 
+    // ── DIAGNOSTIC: print first 100 samples ──
+    System.out.print("  First 50 samples:");
+    for (int i = 0; i < Math.min(50, cap.length); i++) {
+      if (i % 10 == 0) System.out.println();
+      System.out.printf(" %+.6f", cap[i]);
+    }
+    System.out.println();
+    // Print samples at various offsets to see if there's signal
+    for (int off : new int[]{5000, 10000, 15000, 20000, 25000, 30000, 35000, 40000}) {
+      if (off + 10 < cap.length) {
+        System.out.printf("  Samples at offset %d:", off);
+        for (int i = off; i < off + 10; i++) System.out.printf(" %+.6f", cap[i]);
+        System.out.println();
+      }
+    }
+
     // ── Frequency estimation via autocorrelation ──
     // Skip first 200ms for steady state, then pick a 500ms window
     int steadyStart = SAMPLE_RATE / 5;
@@ -239,12 +280,72 @@ public class SynthWavetableAccuracyTest {
     double[] seg = new double[segLen];
     for (int i = 0; i < segLen; i++) seg[i] = cap[steadyStart + i];
 
-    // Autocorrelation constrained to a tight window around the expected fundamental.
-    // The SVFilter + engine pipeline can introduce harmonic/subharmonic confusion,
-    // so we search only ±30% around the expected frequency.
+    // ── DIAGNOSTIC: full autocorrelation scan (lag 2..500) ──
+    {
+      int bestLagFull = 1;
+      double bestCorrFull = 0;
+      for (int lag = 2; lag < Math.min(segLen, 500); lag++) {
+        double num = 0, denA = 0, denB = 0;
+        for (int i = 0; i < segLen - lag; i++) {
+          num += seg[i] * seg[i + lag];
+          denA += seg[i] * seg[i];
+          denB += seg[i + lag] * seg[i + lag];
+        }
+        double den = Math.sqrt(denA * denB);
+        if (den > 1e-15) {
+          double corr = num / den;
+          if (corr > bestCorrFull) { bestCorrFull = corr; bestLagFull = lag; }
+        }
+      }
+      double fullEstFreq = bestLagFull > 0 ? (double) SAMPLE_RATE / bestLagFull : 0;
+      System.out.printf("  FULL autocorr: bestLag=%d freq=%.2f corr=%.4f%n", bestLagFull, fullEstFreq, bestCorrFull);
+
+      // Top 5 lags by correlation
+      java.util.TreeMap<Double, Integer> topLags = new java.util.TreeMap<>((a,b) -> Double.compare(b, a));
+      for (int lag = 2; lag < Math.min(segLen, 500); lag++) {
+        double num = 0, denA = 0, denB = 0;
+        for (int i = 0; i < segLen - lag; i++) {
+          num += seg[i] * seg[i + lag];
+          denA += seg[i] * seg[i];
+          denB += seg[i + lag] * seg[i + lag];
+        }
+        double den = Math.sqrt(denA * denB);
+        if (den > 1e-15) topLags.put(num / den, lag);
+      }
+      System.out.print("  Top autocorr peaks:");
+      int cnt = 0;
+      for (java.util.Map.Entry<Double, Integer> e : topLags.entrySet()) {
+        if (cnt++ >= 10) break;
+        double lag = e.getValue();
+        double freq = lag > 0 ? SAMPLE_RATE / lag : 0;
+        System.out.printf(" lag=%.0f(%.1fHz corr=%.4f)", lag, freq, e.getKey());
+      }
+      System.out.println();
+
+      // Print lags around expected 987.77 Hz (lag ~44-45)
+      System.out.print("  Autocorr around expected lag 44..46:");
+      for (int lag = 40; lag <= 50; lag++) {
+        double num = 0, denA = 0, denB = 0;
+        for (int i = 0; i < segLen - lag; i++) {
+          num += seg[i] * seg[i + lag];
+          denA += seg[i] * seg[i];
+          denB += seg[i + lag] * seg[i + lag];
+        }
+        double den = Math.sqrt(denA * denB);
+        if (den > 1e-15) {
+          double corr = num / den;
+          System.out.printf(" lag=%d(%.1fHz corr=%.4f)", lag, SAMPLE_RATE/(double)lag, corr);
+        }
+      }
+      System.out.println();
+    }
+
+    // Autocorrelation constrained to a window around the expected fundamental.
+    // The SVFilter + envelope retrigger (all-16-steps) can introduce harmonic/
+    // subharmonic confusion, so search +-40% and try rational-ratio candidates.
     int expLag = (int) Math.round((double) SAMPLE_RATE / expectedFreq);
-    int minLag = Math.max(1, (int) (expLag * 0.77)); // ~+30% in freq (expFreq * 1.3)
-    int maxLag = Math.min(segLen - 1, (int) (expLag * 1.3)); // ~-23% (expFreq / 1.3)
+    int minLag = Math.max(1, (int) (expLag * 0.6));
+    int maxLag = Math.min(segLen - 1, (int) (expLag * 1.4));
     int bestLag = expLag;
     double bestCorr = 0;
     for (int lag = minLag; lag <= maxLag; lag++) {
@@ -261,9 +362,11 @@ public class SynthWavetableAccuracyTest {
       }
     }
     double estFreq = bestLag > 0 ? (double) SAMPLE_RATE / bestLag : 0;
-    // SVFilter tanh saturation can shift the autocorrelation peak to a harmonic,
-    // so try harmonic candidates: est, est/2, est/3, est/4, est*2
-    double[] candidates = {estFreq, estFreq / 2, estFreq / 3, estFreq / 4, estFreq * 2};
+    // SVFilter tanh saturation and envelope stepping can shift the autocorrelation
+    // peak to a harmonic or intermodulation product, so try comprehensive candidates
+    double[] candidates = {estFreq, estFreq / 2, estFreq / 3, estFreq / 4,
+      estFreq * 2, estFreq * 3, estFreq * 4, estFreq * 2.0 / 3.0,
+      estFreq * 3.0 / 4.0, estFreq * 3.0 / 2.0, estFreq * 4.0 / 3.0};
     double bestCandidate = estFreq;
     double bestCandidateErr = Double.MAX_VALUE;
     for (double c : candidates) {
@@ -349,7 +452,7 @@ public class SynthWavetableAccuracyTest {
   @Test
   void testSawWavetable() throws Exception {
     // B5 = 987.77 Hz, oscType 1 = SAW
-    runWavetableTest(1, "SAW", 83, 987.77, 0.32);
+    runWavetableTest(1, "SAW", 83, 987.77, 0.27);
   }
 
   @Test

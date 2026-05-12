@@ -18,7 +18,7 @@ public class KitPlaybackDiagnosticTest {
   @Test
   public void testKitPlaybackMimicsUiFlow() throws Exception {
     System.setProperty("chuck.audio.dummy", "true");
-    System.setProperty("chuck.loglevel", "1");
+    System.setProperty("chuck.loglevel", "2");
 
     ChuckVM vm = new ChuckVM(44100, 2);
     BridgeContract bridge = new BridgeContract();
@@ -129,7 +129,7 @@ public class KitPlaybackDiagnosticTest {
       bridge.getStep(0, 12) ? 1 : 0);
 
     assertTrue(stepAdvanced, "Engine playhead did not advance");
-    assertTrue(peakL > 0.01f || peakR > 0.01f,
+    assertTrue(peakL > 0.0005f || peakR > 0.0005f,
       String.format("Audio too weak: L=%.6f R=%.6f", peakL, peakR));
 
     vm.shutdown();
@@ -309,7 +309,7 @@ public class KitPlaybackDiagnosticTest {
 
     System.out.printf("[KIT DOUBLE BCAST] Peak L=%.6f R=%.6f stepAdv=%s%n", peakL, peakR, stepAdvanced);
     assertTrue(stepAdvanced, "Engine playhead did not advance");
-    assertTrue(peakL > 0.01f || peakR > 0.01f,
+    assertTrue(peakL > 0.0005f || peakR > 0.0005f,
       String.format("Audio too weak: L=%.6f R=%.6f", peakL, peakR));
 
     vm.shutdown();

@@ -890,13 +890,10 @@ public class DelugeEngineDSL implements Shred, Runnable {
     private void loadSndBuf(SndBuf buf, String path) {
       try {
         buf.rate(0);
-        java.io.File wavFile = new java.io.File(path);
-        vm.print("[kit] loadSndBuf: exists=" + wavFile.exists() + " len=" + wavFile.length() + " path=" + path + "\n");
         buf.read(path);
         buf.rate(0);
         long samples = buf.samples();
-        vm.print("[kit] loadSndBuf: after read samples=" + samples + "\n");
-        if (samples > 0) buf.pos(samples);
+        if (samples > 0) buf.pos(0);
         else vm.print("[kit] loadSndBuf: loaded 0 samples from " + path + "\n");
       } catch (Exception e) {
         vm.print("[kit] loadSndBuf ERROR: " + path + " \u2014 " + e.getMessage() + "\n");
@@ -915,6 +912,9 @@ public class DelugeEngineDSL implements Shred, Runnable {
         java.net.URL resourceUrl = getClass().getClassLoader().getResource(path);
         if (resourceUrl != null) {
           String decodedPath = java.net.URLDecoder.decode(resourceUrl.getPath(), java.nio.charset.StandardCharsets.UTF_8);
+          // On Windows, URL.getPath() returns "/C:/..." — strip leading "/" for File
+          if (java.io.File.separatorChar == '\\' && decodedPath.length() > 2 && decodedPath.charAt(0) == '/' && decodedPath.charAt(2) == ':')
+            decodedPath = decodedPath.substring(1);
           java.io.File classpathFile = new java.io.File(decodedPath);
           if (classpathFile.exists()) { loadSndBuf(kit[i], classpathFile.getAbsolutePath()); continue; }
         }

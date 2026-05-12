@@ -362,6 +362,21 @@ public final class BridgeContract {
   public static final String G_OSC2_TYPE = "g_osc2_type";
   public static final String G_RETRIG_PHASE = "g_retrig_phase";
   public static final String G_WAVE_INDEX = "g_wave_index";
+  // ── Oscillator sample-playback params ──
+  public static final String G_OSC1_LOOP_MODE = "g_osc1_loop_mode";
+  public static final String G_OSC1_REVERSED = "g_osc1_reversed";
+  public static final String G_OSC1_TIME_STRETCH = "g_osc1_time_stretch";
+  public static final String G_OSC1_TIME_STRETCH_AMT = "g_osc1_time_stretch_amt";
+  public static final String G_OSC1_CENTS = "g_osc1_cents";
+  public static final String G_OSC1_LINEAR_INTERP = "g_osc1_linear_interp";
+  public static final String G_OSC2_LOOP_MODE = "g_osc2_loop_mode";
+  public static final String G_OSC2_REVERSED = "g_osc2_reversed";
+  public static final String G_OSC2_TIME_STRETCH = "g_osc2_time_stretch";
+  public static final String G_OSC2_TIME_STRETCH_AMT = "g_osc2_time_stretch_amt";
+  public static final String G_OSC2_CENTS = "g_osc2_cents";
+  public static final String G_OSC2_LINEAR_INTERP = "g_osc2_linear_interp";
+  public static final String G_OSC2_TRANSPOSE = "g_osc2_transpose";
+  public static final String G_OSCILLATOR_SYNC = "g_oscillator_sync";
   // ── Patch cable arrays (shared between SynthData and KitData) ──
   public static final String G_PC_COUNT = "g_pc_count";
   public static final String G_PC_SOURCE = "g_pc_source";
@@ -767,6 +782,21 @@ public final class BridgeContract {
     final int[] osc2Type = new int[TRACKS];
     final int[] retrigPhase = new int[TRACKS];
     final float[] waveIndex = new float[TRACKS];
+    // Oscillator sample-playback params (per-track)
+    final int[] osc1LoopMode = new int[TRACKS];          // 0=off, 1=loop, 2=oneshot
+    final int[] osc1Reversed = new int[TRACKS];
+    final int[] osc1TimeStretch = new int[TRACKS];
+    final float[] osc1TimeStretchAmount = new float[TRACKS];
+    final int[] osc1Cents = new int[TRACKS];             // -50 to 50
+    final int[] osc1LinearInterpolation = new int[TRACKS];
+    final int[] osc2LoopMode = new int[TRACKS];
+    final int[] osc2Reversed = new int[TRACKS];
+    final int[] osc2TimeStretch = new int[TRACKS];
+    final float[] osc2TimeStretchAmount = new float[TRACKS];
+    final int[] osc2Cents = new int[TRACKS];
+    final int[] osc2LinearInterpolation = new int[TRACKS];
+    final int[] osc2Transpose = new int[TRACKS];         // -24 to 24
+    final int[] oscillatorSync = new int[TRACKS];
     // Patch cable arrays: each track has up to MAX_CABLES_PER_TRACK cables, indexed by
     // pcCount[t], pcSource[t * MAX_CABLES_PER_TRACK + c], etc.
     final int[] pcCount = new int[TRACKS];
@@ -836,6 +866,20 @@ public final class BridgeContract {
         osc2Type[t] = 0;
         retrigPhase[t] = 0;
         waveIndex[t] = 0f;
+        osc1LoopMode[t] = 0;
+        osc1Reversed[t] = 0;
+        osc1TimeStretch[t] = 0;
+        osc1TimeStretchAmount[t] = 0f;
+        osc1Cents[t] = 0;
+        osc1LinearInterpolation[t] = 0;
+        osc2LoopMode[t] = 0;
+        osc2Reversed[t] = 0;
+        osc2TimeStretch[t] = 0;
+        osc2TimeStretchAmount[t] = 0f;
+        osc2Cents[t] = 0;
+        osc2LinearInterpolation[t] = 0;
+        osc2Transpose[t] = 0;
+        oscillatorSync[t] = 0;
         pcCount[t] = 0;
       }
       for (int c = 0; c < TRACKS * MAX_CABLES_PER_TRACK; c++) {
@@ -929,6 +973,20 @@ public final class BridgeContract {
       vm.setGlobalObject(G_OSC2_TYPE, new ChuckArray(osc2Type));
       vm.setGlobalObject(G_RETRIG_PHASE, new ChuckArray(retrigPhase));
       vm.setGlobalObject(G_WAVE_INDEX, new ChuckArray(waveIndex));
+      vm.setGlobalObject(G_OSC1_LOOP_MODE, new ChuckArray(osc1LoopMode));
+      vm.setGlobalObject(G_OSC1_REVERSED, new ChuckArray(osc1Reversed));
+      vm.setGlobalObject(G_OSC1_TIME_STRETCH, new ChuckArray(osc1TimeStretch));
+      vm.setGlobalObject(G_OSC1_TIME_STRETCH_AMT, new ChuckArray(osc1TimeStretchAmount));
+      vm.setGlobalObject(G_OSC1_CENTS, new ChuckArray(osc1Cents));
+      vm.setGlobalObject(G_OSC1_LINEAR_INTERP, new ChuckArray(osc1LinearInterpolation));
+      vm.setGlobalObject(G_OSC2_LOOP_MODE, new ChuckArray(osc2LoopMode));
+      vm.setGlobalObject(G_OSC2_REVERSED, new ChuckArray(osc2Reversed));
+      vm.setGlobalObject(G_OSC2_TIME_STRETCH, new ChuckArray(osc2TimeStretch));
+      vm.setGlobalObject(G_OSC2_TIME_STRETCH_AMT, new ChuckArray(osc2TimeStretchAmount));
+      vm.setGlobalObject(G_OSC2_CENTS, new ChuckArray(osc2Cents));
+      vm.setGlobalObject(G_OSC2_LINEAR_INTERP, new ChuckArray(osc2LinearInterpolation));
+      vm.setGlobalObject(G_OSC2_TRANSPOSE, new ChuckArray(osc2Transpose));
+      vm.setGlobalObject(G_OSCILLATOR_SYNC, new ChuckArray(oscillatorSync));
       vm.setGlobalObject(G_PC_COUNT, new ChuckArray(pcCount));
       vm.setGlobalObject(G_PC_SOURCE, new ChuckArray(pcSource));
       vm.setGlobalObject(G_PC_DEST, new ChuckArray(pcDest));
@@ -2114,6 +2172,35 @@ public final class BridgeContract {
   public int getRetrigPhase(int track) { return synth.retrigPhase[track]; }
   public void setWaveIndex(int track, float v) { synth.waveIndex[track] = v; }
   public float getWaveIndex(int track) { return synth.waveIndex[track]; }
+  // ── Oscillator sample-playback accessors ──
+  public void setOsc1LoopMode(int track, int v) { synth.osc1LoopMode[track] = v; }
+  public int getOsc1LoopMode(int track) { return synth.osc1LoopMode[track]; }
+  public void setOsc1Reversed(int track, int v) { synth.osc1Reversed[track] = v; }
+  public int getOsc1Reversed(int track) { return synth.osc1Reversed[track]; }
+  public void setOsc1TimeStretch(int track, int v) { synth.osc1TimeStretch[track] = v; }
+  public int getOsc1TimeStretch(int track) { return synth.osc1TimeStretch[track]; }
+  public void setOsc1TimeStretchAmount(int track, float v) { synth.osc1TimeStretchAmount[track] = v; }
+  public float getOsc1TimeStretchAmount(int track) { return synth.osc1TimeStretchAmount[track]; }
+  public void setOsc1Cents(int track, int v) { synth.osc1Cents[track] = v; }
+  public int getOsc1Cents(int track) { return synth.osc1Cents[track]; }
+  public void setOsc1LinearInterpolation(int track, int v) { synth.osc1LinearInterpolation[track] = v; }
+  public int getOsc1LinearInterpolation(int track) { return synth.osc1LinearInterpolation[track]; }
+  public void setOsc2LoopMode(int track, int v) { synth.osc2LoopMode[track] = v; }
+  public int getOsc2LoopMode(int track) { return synth.osc2LoopMode[track]; }
+  public void setOsc2Reversed(int track, int v) { synth.osc2Reversed[track] = v; }
+  public int getOsc2Reversed(int track) { return synth.osc2Reversed[track]; }
+  public void setOsc2TimeStretch(int track, int v) { synth.osc2TimeStretch[track] = v; }
+  public int getOsc2TimeStretch(int track) { return synth.osc2TimeStretch[track]; }
+  public void setOsc2TimeStretchAmount(int track, float v) { synth.osc2TimeStretchAmount[track] = v; }
+  public float getOsc2TimeStretchAmount(int track) { return synth.osc2TimeStretchAmount[track]; }
+  public void setOsc2Cents(int track, int v) { synth.osc2Cents[track] = v; }
+  public int getOsc2Cents(int track) { return synth.osc2Cents[track]; }
+  public void setOsc2LinearInterpolation(int track, int v) { synth.osc2LinearInterpolation[track] = v; }
+  public int getOsc2LinearInterpolation(int track) { return synth.osc2LinearInterpolation[track]; }
+  public void setOsc2Transpose(int track, int v) { synth.osc2Transpose[track] = v; }
+  public int getOsc2Transpose(int track) { return synth.osc2Transpose[track]; }
+  public void setOscillatorSync(int track, int v) { synth.oscillatorSync[track] = v; }
+  public int getOscillatorSync(int track) { return synth.oscillatorSync[track]; }
   // ── Patch cable accessors (synth) ──
 
   /** Write all patch cables for a given synth track into the bridge arrays.

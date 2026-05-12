@@ -9,10 +9,10 @@ public class NativeMidiExporterTest {
     @Test
     public void testExport() {
         NativeMidiExporter exporter = new NativeMidiExporter();
+        File temp = new File("test_midi_export.mid");
+        exporter.open(temp.getAbsolutePath());
         exporter.addNote(0, 60, 100, 480);
         exporter.advance(480);
-        
-        File temp = new File("test_midi_export.mid");
         exporter.save(temp.getAbsolutePath());
         
         assertTrue(temp.exists());
