@@ -108,11 +108,15 @@ public class SynthFmAccuracyTest {
     // ADSR
     localBridge.setEnv(0, 0, 0.005, 0.1, 0.9, 0.01);
 
-    // Pattern: sustained note at step 0
-    localBridge.setStep(0, 0, true);
-    localBridge.setVelocity(0, 0, 1.0);
-    localBridge.setGate(0, 0, 0.95);
-    localBridge.setTrackLength(0, 1);
+    // Pattern: all 16 steps active so WvOut2 captures continuous audio.
+    // With only step 0 active, the note fires once every 2s (trackLen=16 below)
+    // and lasts only ~119ms, leaving 1.88s of silence that WvOut2 would miss.
+    for (int s = 0; s < 16; s++) {
+      localBridge.setStep(0, s, true);
+      localBridge.setVelocity(0, s, 1.0);
+      localBridge.setGate(0, s, 0.95);
+    }
+    localBridge.setTrackLength(0, 16);
 
     // Ensure env array
     if (localVm.getGlobalObject(BridgeContract.G_ENV) == null) {
@@ -125,6 +129,11 @@ public class SynthFmAccuracyTest {
     localVm.advanceTime(BLOCK_SIZE * 10);
     localVm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
     localVm.advanceTime(SAMPLE_RATE / 2);
+
+    // Start playback first so the sequencer/looper is running
+    localVm.setGlobalFloat(BridgeContract.G_BPM, 120.0);
+    localVm.setGlobalInt(BridgeContract.G_PLAY, 1L);
+    localVm.advanceTime(SAMPLE_RATE / 5); // 200ms — let envelope reach sustain
 
     // WvOut2 capture
     File tmpWav = new File(tempDir, "fm_" + label + ".wav");
@@ -149,9 +158,6 @@ public class SynthFmAccuracyTest {
         throw new RuntimeException(e);
       }
     });
-
-    localVm.setGlobalFloat(BridgeContract.G_BPM, 120.0);
-    localVm.setGlobalInt(BridgeContract.G_PLAY, 1L);
 
     int totalCapture = SAMPLE_RATE * 2;
     int blocks = totalCapture / BLOCK_SIZE;
@@ -209,13 +215,14 @@ public class SynthFmAccuracyTest {
       float[] steady = new float[steadyLen];
       System.arraycopy(fmOutput, steadyStart, steady, 0, steadyLen);
 
-      // Estimate fundamental
+      // Estimate fundamental for diagnostics
       double estFreq = AudioAnalyzer.estimateFrequency(steady, SAMPLE_RATE, 100, 500);
-      System.out.printf("  FM estimated fundamental: %.2f Hz%n", estFreq);
+      double knownFundamental = 261.63; // MIDI 60 = C4
+      System.out.printf("  FM estimated fundamental: %.2f Hz (known=%.2f)%n", estFreq, knownFundamental);
 
-      // Harmonic profile
-      double[] harm = AudioAnalyzer.harmonicProfile(steady, estFreq > 0 ? (float) estFreq : 261.63f,
-          SAMPLE_RATE, 10);
+      // Use known fundamental for harmonic profile (autocorrelation is unreliable
+      // for FM-modulated signals with sidebands — the sidebands confuse peak picking).
+      double[] harm = AudioAnalyzer.harmonicProfile(steady, knownFundamental, SAMPLE_RATE, 10);
       System.out.print("  FM harmonics:");
       for (int h = 0; h < Math.min(10, harm.length); h++) {
         System.out.printf(" h%d=%.3f", h + 1, harm[h]);
