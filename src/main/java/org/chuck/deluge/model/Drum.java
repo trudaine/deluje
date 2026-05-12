@@ -84,6 +84,7 @@ public abstract class Drum {
   protected float hpfRes = 0.0f;
   protected float hpfMorph = 0.0f;
   protected FilterMode hpfMode = FilterMode.LADDER_12;
+  protected float hpfFm = 0.0f;
 
   // Oscillator retrigger phase
   protected int retrigPhase = 0;
@@ -264,6 +265,9 @@ public abstract class Drum {
 
   public FilterMode getHpfMode() { return hpfMode; }
   public void setHpfMode(FilterMode v) { this.hpfMode = v; }
+
+  public float getHpfFm() { return hpfFm; }
+  public void setHpfFm(float v) { this.hpfFm = v; }
 
   public int getRetrigPhase() { return retrigPhase; }
   public void setRetrigPhase(int v) { this.retrigPhase = v; }

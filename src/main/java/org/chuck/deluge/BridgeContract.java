@@ -190,6 +190,13 @@ public final class BridgeContract {
   public static final String G_FILTER_ROUTE = "g_filter_route";
   public static final String G_MAX_VOICES = "g_max_voices";
   public static final String G_ENV = "g_env";
+  // ── Hard-wired envelope-to-DSP modulation depths (per-track floats) ──
+  public static final String G_ENV2_FILTER_DEPTH = "g_env2_filter_depth";   // env[1] -> filter cutoff, 0..1
+  public static final String G_ENV3_PITCH_DEPTH = "g_env3_pitch_depth";     // env[2] -> pitch, 0..1
+  public static final String G_ENV3_VOLUME_DEPTH = "g_env3_volume_depth";   // env[2] -> volume, 0..1
+  public static final String G_ENV4_FILTER_DEPTH = "g_env4_filter_depth";   // env[3] -> filter cutoff, 0..1
+  public static final String G_ENV4_PITCH_DEPTH = "g_env4_pitch_depth";     // env[3] -> pitch, 0..1
+  public static final String G_ENV4_VOLUME_DEPTH = "g_env4_volume_depth";   // env[3] -> volume, 0..1
   public static final String G_LFO_RATE = "g_lfo_rate";
   public static final String G_LFO_TYPE = "g_lfo_type";
   public static final String G_LFO_DEPTH = "g_lfo_depth";
@@ -290,6 +297,7 @@ public final class BridgeContract {
   public static final String G_DELAY_IN = "g_delay_in";
   public static final String G_REVERB_IN = "g_reverb_in";
   public static final String G_SYNTH_BUS = "g_synth_bus";
+  public static final String G_KIT_BUS = "g_kit_bus";
   public static final String G_ARP_ON = "g_arp_on";
   public static final String G_ARP_RATE = "g_arp_rate";
   public static final String G_ARP_OCTAVE = "g_arp_octave";
@@ -399,6 +407,7 @@ public final class BridgeContract {
   public static final String G_KIT_HPF_RES = "g_kit_hpf_res";
   public static final String G_KIT_HPF_MORPH = "g_kit_hpf_morph";
   public static final String G_KIT_HPF_MODE = "g_kit_hpf_mode";
+  public static final String G_KIT_HPF_FM = "g_kit_hpf_fm";
   public static final String G_KIT_OSC2_TYPE = "g_kit_osc2_type";
   public static final String G_KIT_UNISON_NUM = "g_kit_unison_num";
   public static final String G_KIT_UNISON_DETUNE = "g_kit_unison_detune";
@@ -1024,6 +1033,7 @@ public final class BridgeContract {
     final float[] kitHpfRes = new float[TRACKS];
     final float[] kitHpfMorph = new float[TRACKS];
     final int[] kitHpfMode = new int[TRACKS];
+    final float[] kitHpfFm = new float[TRACKS];
     final int[] kitOsc2Type = new int[TRACKS];
     final int[] kitUnisonNum = new int[TRACKS];
     final float[] kitUnisonDetune = new float[TRACKS];
@@ -1074,6 +1084,7 @@ public final class BridgeContract {
         kitHpfRes[t] = 0f;
         kitHpfMorph[t] = 0f;
         kitHpfMode[t] = 0;
+        kitHpfFm[t] = 0f;
         kitOsc2Type[t] = 0;
         kitUnisonNum[t] = 1;
         kitUnisonDetune[t] = 0f;
@@ -1127,6 +1138,7 @@ public final class BridgeContract {
       vm.setGlobalObject(G_KIT_HPF_RES, new ChuckArray(kitHpfRes));
       vm.setGlobalObject(G_KIT_HPF_MORPH, new ChuckArray(kitHpfMorph));
       vm.setGlobalObject(G_KIT_HPF_MODE, new ChuckArray(kitHpfMode));
+      vm.setGlobalObject(G_KIT_HPF_FM, new ChuckArray(kitHpfFm));
       vm.setGlobalObject(G_KIT_OSC2_TYPE, new ChuckArray(kitOsc2Type));
       vm.setGlobalObject(G_KIT_UNISON_NUM, new ChuckArray(kitUnisonNum));
       vm.setGlobalObject(G_KIT_UNISON_DETUNE, new ChuckArray(kitUnisonDetune));
@@ -2309,6 +2321,8 @@ public final class BridgeContract {
   public float getKitHpfMorph(int track) { return kit.kitHpfMorph[track]; }
   public void setKitHpfMode(int track, int v) { kit.kitHpfMode[track] = v; }
   public int getKitHpfMode(int track) { return kit.kitHpfMode[track]; }
+  public void setKitHpfFm(int track, float v) { kit.kitHpfFm[track] = v; }
+  public float getKitHpfFm(int track) { return kit.kitHpfFm[track]; }
   public void setKitOsc2Type(int track, int v) { kit.kitOsc2Type[track] = v; }
   public int getKitOsc2Type(int track) { return kit.kitOsc2Type[track]; }
   public void setKitUnisonNum(int track, int v) { kit.kitUnisonNum[track] = v; }

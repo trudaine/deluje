@@ -418,6 +418,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
       EQShelving bassEq = new EQShelving(sr);
       EQShelving trebleEq = new EQShelving(sr);
       Distortion masterSat = new Distortion();
+      masterSat.gain(1.0f); // always 1 — bypass handled via mode/drive
       BitCrunchUGen bitCrunch = new BitCrunchUGen();
       SummingTanhUGen summingTanh = new SummingTanhUGen();
       Gain masterVol = new Gain();
@@ -432,11 +433,11 @@ public class DelugeEngineDSL implements Shred, Runnable {
       // Our chain: HPF → comp → summingTanh → masterSat → EQ → masterVol → bitCrunch → masterTap → dac()
       // NOTE: EQ is per-track in firmware (ModControllableAudio::doEQ), not song-level.
       // We keep it here as a convenience — the firmware's equivalent per-track EQ runs for each sound.
-      masterSat.drive(2.5f); // moderate tanh-like overdrive when enabled
-      masterSat.gain(1.0f);
       ((Gain) vm.getGlobalObject(BridgeContract.G_SYNTH_BUS))
           .chuck(hpf).chuck(comp).chuck(summingTanh).chuck(masterSat).chuck(trebleEq).chuck(bassEq).chuck(masterVol).chuck(bitCrunch).chuck(masterTap).chuck(dac());
       ((Gain) vm.getGlobalObject(BridgeContract.G_AUDIO_BUS))
+          .chuck(hpf).chuck(comp).chuck(summingTanh).chuck(masterSat).chuck(trebleEq).chuck(bassEq).chuck(masterVol).chuck(bitCrunch).chuck(masterTap).chuck(dac());
+      ((Gain) vm.getGlobalObject(BridgeContract.G_KIT_BUS))
           .chuck(hpf).chuck(comp).chuck(summingTanh).chuck(masterSat).chuck(trebleEq).chuck(bassEq).chuck(masterVol).chuck(bitCrunch).chuck(masterTap).chuck(dac());
       hpf.freq(20);
       bassEq.type(EQShelving.LOW_SHELF);
@@ -492,13 +493,19 @@ public class DelugeEngineDSL implements Shred, Runnable {
         masterVol.gain((float) (mv * spVol));
 
         // ── Hardware character: master saturation ──
-        // NOTE: Do NOT set masterSat.gain(0) here — that kills ALL audio since
-        // ChuckUGen.tick() returns compute() * this.gain. Distortion.compute()
-        // uses its own private gain field (init=1.0), so it always produces
-        // non-zero output, but tick() then multiplies by ChuckUGen.gain=0 → 0.
-        // TODO: proper bypass — route around the Distortion node when saturation
-        // is off, instead of relying on gain=0 which breaks the signal chain.
-        // The MasterShred chain is: synthBus→HPF→comp→summingTanh→masterSat→EQ→vol→dac()
+        // Use Distortion in FOLDBACK mode with very high threshold as a bypass
+        // (prevents double-gain multiplication issue with ChuckUGen.gain=0).
+        float masterSatOn = (float) vm.getGlobalFloat(BridgeContract.G_MASTER_SATURATION);
+        if (masterSatOn > 0.5f) {
+          masterSat.mode(Distortion.MODE_OVERDRIVE);
+          masterSat.drive(2.5f);
+          masterSat.gain(1.0f);
+        } else {
+          masterSat.mode(Distortion.MODE_FOLDBACK);
+          masterSat.threshold(1000.0f);
+          masterSat.drive(1.0f);
+          masterSat.gain(1.0f);
+        }
 
         // ── Hardware character: 14-bit crunch ──
         float bitCrunchOn = (float) vm.getGlobalFloat(BridgeContract.G_BIT_CRUNCH);
@@ -992,8 +999,8 @@ public class DelugeEngineDSL implements Shred, Runnable {
       Gain master = new Gain();
       HPF hpf = new HPF(sr);
       Dyno limit = new Dyno(sr);
-      Gain masterTap = (Gain) vm.getGlobalObject(BridgeContract.G_MASTER_TAP);
-      master.chuck(hpf).chuck(limit).chuck(masterTap).chuck(dac());
+      Gain kitBus = (Gain) vm.getGlobalObject(BridgeContract.G_KIT_BUS);
+      master.chuck(hpf).chuck(limit).chuck(kitBus);
       hpf.freq(20);
       limit.limiter();
       ChuckEvent loadEvent = (ChuckEvent) vm.getGlobalObject(BridgeContract.G_LOAD_TRIGGER);
@@ -1166,6 +1173,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
         // ── Unwired per-kit globals (bridging gap between model/bridge and engine) ──
         ChuckArray kitHpfMode = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_HPF_MODE);
         ChuckArray kitHpfMorph = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_HPF_MORPH);
+        ChuckArray kitHpfFm = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_HPF_FM);
         ChuckArray kitOsc2Type = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_OSC2_TYPE);
         ChuckArray kitUnisonNum = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_UNISON_NUM);
         ChuckArray kitUnisonDetune = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_UNISON_DETUNE);
@@ -1212,6 +1220,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
           // ── Unwired per-kit globals (previously never written by engine) ──
           if (kitHpfMode != null && r < kitHpfMode.size()) vm.setGlobalFloat(BridgeContract.G_KIT_HPF_MODE + "_" + r, kitHpfMode.getFloat(r));
           if (kitHpfMorph != null && r < kitHpfMorph.size()) vm.setGlobalFloat(BridgeContract.G_KIT_HPF_MORPH + "_" + r, kitHpfMorph.getFloat(r));
+          if (kitHpfFm != null && r < kitHpfFm.size()) vm.setGlobalFloat(BridgeContract.G_KIT_HPF_FM + "_" + r, kitHpfFm.getFloat(r));
           if (kitOsc2Type != null && r < kitOsc2Type.size()) vm.setGlobalFloat(BridgeContract.G_KIT_OSC2_TYPE + "_" + r, kitOsc2Type.getFloat(r));
           if (kitUnisonNum != null && r < kitUnisonNum.size()) vm.setGlobalFloat(BridgeContract.G_KIT_UNISON_NUM + "_" + r, kitUnisonNum.getFloat(r));
           if (kitUnisonDetune != null && r < kitUnisonDetune.size()) vm.setGlobalFloat(BridgeContract.G_KIT_UNISON_DETUNE + "_" + r, kitUnisonDetune.getFloat(r));
@@ -1371,6 +1380,17 @@ public class DelugeEngineDSL implements Shred, Runnable {
           // Per-step delay/reverb send overrides (0 = no override, use per-track send)
           if (sStepDelay != null) { float sd = (float) sStepDelay.getFloat(idx); if (sd > 0f) dSend[r].gain(sd); }
           if (sStepReverb != null) { float srV = (float) sStepReverb.getFloat(idx); if (srV > 0f) rSend[r].gain(srV); }
+          // ── Hard-wired Env 2-4 → DSP modulation (kit uses same per-track depth globals) ──
+          double kEnvMod1 = kitEnv[r][1].lastOut;
+          double kEnvMod2 = kitEnv[r][2].lastOut;
+          double kEnvMod3 = kitEnv[r][3].lastOut;
+          double kEnvToPit = 0, kEnvToV = 0, kEnvToF = 0;
+          kEnvToPit += kEnvMod2 * (float) vm.getGlobalFloat(BridgeContract.G_ENV3_PITCH_DEPTH + "_" + r);
+          kEnvToV   += kEnvMod2 * (float) vm.getGlobalFloat(BridgeContract.G_ENV3_VOLUME_DEPTH + "_" + r);
+          kEnvToPit += kEnvMod3 * (float) vm.getGlobalFloat(BridgeContract.G_ENV4_PITCH_DEPTH + "_" + r);
+          kEnvToV   += kEnvMod3 * (float) vm.getGlobalFloat(BridgeContract.G_ENV4_VOLUME_DEPTH + "_" + r);
+          kEnvToF   += kEnvMod1 * (float) vm.getGlobalFloat(BridgeContract.G_ENV2_FILTER_DEPTH + "_" + r);
+
           // ── Kit patch cable modulation evaluation ──
           double pcModPit = 0, pcModV = 0;
           ChuckArray pcCountArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_PC_COUNT);
@@ -1407,8 +1427,9 @@ public class DelugeEngineDSL implements Shred, Runnable {
               }
             }
           }
-          double totalModPit = lfoPit + pcModPit * 12.0;
-          double totalModV = lfoV + pcModV;
+          double totalModPit = lfoPit + pcModPit * 12.0 + kEnvToPit;
+          double totalModV = lfoV + pcModV + kEnvToV;
+          double totalModF = kEnvToF;
           double pitchSemi = (kitPitch != null) ? kitPitch.getFloat(r) : 0.0;
           // Global transpose (semitones) applied on top of per-sample pitch
           pitchSemi += vm.getGlobalInt(BridgeContract.G_TRANSPOSE);
@@ -1477,9 +1498,12 @@ public class DelugeEngineDSL implements Shred, Runnable {
               kitFil[r].drive(baseDrive);
             }
             if (kitLpfNotchObj instanceof ChuckArray kn && r < kn.size()) kitFil[r].notchMode(kn.getInt(r) != 0);
-            if (kitHpfF != null && r < kitHpfF.size()) kitHpfArr[r].freq(Math.max(20.0f, (float) kitHpfF.getFloat(r)));
+            float hpfFmMod = kitHpfFm != null && r < kitHpfFm.size() ? (float) kitHpfFm.getFloat(r) : 0f;
+            float baseHpfFreq = kitHpfF != null && r < kitHpfF.size() ? (float) kitHpfF.getFloat(r) : 20.0f;
+            kitHpfArr[r].freq(Math.max(20.0f, baseHpfFreq + (float) (totalModF * hpfFmMod * 5000.0)));
             if (kitHpfR != null && r < kitHpfR.size()) kitHpfArr[r].Q(1.0f + Math.max(0.0f, (float) kitHpfR.getFloat(r)) * 9.0f);
             if (kitHpfMorph instanceof ChuckArray hm && r < hm.size()) kitHpfArr[r].morph(hm.getFloat(r));
+            if (kitHpfFm != null && r < kitHpfFm.size()) vm.setGlobalFloat(BridgeContract.G_KIT_HPF_FM + "_" + r, kitHpfFm.getFloat(r));
             if (kitHpfMode instanceof ChuckArray hm) {
               kitHpfArr[r].notchMode(r < hm.size() && hm.getInt(r) == 1);
             }
@@ -2293,6 +2317,21 @@ public class DelugeEngineDSL implements Shred, Runnable {
           if (clipPat.getInt(idx) == 0) { env[u][0].keyOff(); env[u][1].keyOff(); env[u][2].keyOff(); env[u][3].keyOff(); continue; }
           if (mute.getInt(r) != 0) { env[u][0].keyOff(); env[u][1].keyOff(); env[u][2].keyOff(); env[u][3].keyOff(); continue; }
 
+          // Read current envelope output values for hard-wired + patch cable modulation
+          double envMod0 = env[u][0].lastOut;  // volume envelope
+          double envMod1 = env[u][1].lastOut;  // filter envelope
+          double envMod2 = env[u][2].lastOut;  // pitch/aux envelope
+          double envMod3 = env[u][3].lastOut;  // aux envelope
+
+          // ── Hard-wired Env 2-4 → DSP modulation (before patch cables; depths stored as per-track floats) ──
+          double envToF = 0, envToQ = 0, envToPit = 0, envToV = 0;
+          envToF  += envMod1 * (float) vm.getGlobalFloat(BridgeContract.G_ENV2_FILTER_DEPTH + "_" + r);
+          envToPit += envMod2 * (float) vm.getGlobalFloat(BridgeContract.G_ENV3_PITCH_DEPTH + "_" + r);
+          envToV  += envMod2 * (float) vm.getGlobalFloat(BridgeContract.G_ENV3_VOLUME_DEPTH + "_" + r);
+          envToF  += envMod3 * (float) vm.getGlobalFloat(BridgeContract.G_ENV4_FILTER_DEPTH + "_" + r);
+          envToPit += envMod3 * (float) vm.getGlobalFloat(BridgeContract.G_ENV4_PITCH_DEPTH + "_" + r);
+          envToV  += envMod3 * (float) vm.getGlobalFloat(BridgeContract.G_ENV4_VOLUME_DEPTH + "_" + r);
+
           // ── Patch cable modulation evaluation (after clipPat/clipVel/idx available) ──
           double pcModF = 0, pcModQ = 0, pcModP = 0, pcModPit = 0, pcModV = 0;
           double pcModOscA = 0, pcModOscB = 0, pcModNoise = 0, pcModMfxR = 0, pcModMfxD = 0;
@@ -2304,11 +2343,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
           if (pcCountArr != null) {
             long cableCount = pcCountArr.getInt(r);
             int base = r * BridgeContract.MAX_CABLES_PER_TRACK;
-            double[] envCur = new double[4];
-            envCur[0] = env[u][0].lastOut;
-            envCur[1] = env[u][1].lastOut;
-            envCur[2] = env[u][2].lastOut;
-            envCur[3] = env[u][3].lastOut;
+            double[] envCur = new double[]{envMod0, envMod1, envMod2, envMod3};
             double curVel = clipPat.getInt(idx) != 0 && clipVel != null ? clipVel.getFloat(idx) : 0.0;
             double curNoteMidi = ((24 - 1) - (r - synthBase)) + 60;
             for (int c = 0; c < cableCount; c++) {
@@ -2365,11 +2400,12 @@ public class DelugeEngineDSL implements Shred, Runnable {
           }
           // Apply step LFO modulation as a global scalar to all LFO-derived modulation values
           double slm = stepLfoMod;
-          double totalModF = (lfoF + pcModF) * slm;
-          double totalModQ = (lfoQ + pcModQ) * slm;
+          // Hard-wired envelope modulation values are additive, not scaled by step LFO
+          double totalModF = (lfoF + pcModF) * slm + envToF;
+          double totalModQ = (lfoQ + pcModQ) * slm + envToQ;
           double totalModP = (lfoP + pcModP) * slm;
-          double totalModPit = (lfoPit + pcModPit * 12.0) * slm;
-          double totalModV = (lfoV + pcModV) * slm;
+          double totalModPit = (lfoPit + pcModPit * 12.0) * slm + envToPit;
+          double totalModV = (lfoV + pcModV) * slm + envToV;
           double totalModOscA = (lfoOscA + pcModOscA) * slm;
           double totalModOscB = (lfoOscB + pcModOscB) * slm;
           double totalModNoise = (lfoNoise + pcModNoise) * slm;
@@ -2827,6 +2863,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
       vm.setGlobalObject(BridgeContract.G_REVERB_IN, new Gain());
       vm.setGlobalObject(BridgeContract.G_SYNTH_BUS, new Gain());
       vm.setGlobalObject(BridgeContract.G_AUDIO_BUS, new Gain());
+      vm.setGlobalObject(BridgeContract.G_KIT_BUS, new Gain());
       vm.setGlobalObject(BridgeContract.G_MASTER_TAP, new Gain());
       vm.setGlobalObject(BridgeContract.E_SIDECHAIN, new ChuckEvent());
 
