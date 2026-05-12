@@ -92,6 +92,15 @@ public class DelugeNoteDataMapper {
     return row;
   }
 
+  /**
+   * Encode a single note as a 20-hex-char (10-byte) noteData entry.
+   * Format: 8 chars tick position + 8 chars tick length + 4 chars flags ("4014").
+   * Matches the existing encodeRow() output format.
+   */
+  public static String encodeTickNote(int tickPos, int tickLen) {
+    return String.format("%08X%08X4014", tickPos, Math.max(1, tickLen));
+  }
+
   /** Backward-compatible decode using 20-char notes and internal ticks-per-step. */
   public static List<StepData> decodeRow(String hex, int stepCount) {
     return decodeRow(hex, stepCount, TICKS_PER_STEP, HEX_CHARS_PER_NOTE_OLD);

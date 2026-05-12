@@ -470,7 +470,7 @@ public class KitSynthSerializer {
   // ── Helper serializers ──
 
   /** Append an LFO element with type and syncLevel children. */
-  private static void appendLfo(Document doc, Element parent, String tag, LfoModel lfo) {
+  public static void appendLfo(Document doc, Element parent, String tag, LfoModel lfo) {
     Element lfoElem = doc.createElement(tag);
     appendTextChild(doc, lfoElem, "type", lfoTypeName(lfo.waveform()));
     if (lfo.syncLevel() > 0) {
@@ -480,7 +480,7 @@ public class KitSynthSerializer {
   }
 
   /** Append a synth-style LFO element (without isLocal distinction). */
-  private static void appendSynthLfo(Document doc, Element parent, String tag, LfoModel lfo) {
+  public static void appendSynthLfo(Document doc, Element parent, String tag, LfoModel lfo) {
     Element lfoElem = doc.createElement(tag);
     appendTextChild(doc, lfoElem, "type", lfoTypeName(lfo.waveform()));
     if (lfo.syncLevel() > 0) {
@@ -490,7 +490,7 @@ public class KitSynthSerializer {
   }
 
   /** Convert LfoType to lowercase XML name. */
-  private static String lfoTypeName(LfoType type) {
+  public static String lfoTypeName(LfoType type) {
     return switch (type) {
       case SINE -> "sine";
       case SAW -> "saw";
@@ -503,7 +503,7 @@ public class KitSynthSerializer {
   }
 
   /** Append an envelope element with attack/decay/sustain/release children. */
-  private static void appendEnvelope(Document doc, Element parent, String tag, EnvelopeModel env) {
+  public static void appendEnvelope(Document doc, Element parent, String tag, EnvelopeModel env) {
     Element envElem = doc.createElement(tag);
     // Envelope times use exponential bipolar mapping; sustain uses linear bipolar mapping.
     appendHexChild(doc, envElem, "attack", DelugeHexMapper.normFromEnvTime(env.attack()));
@@ -514,7 +514,7 @@ public class KitSynthSerializer {
   }
 
   /** Append a child element with a hex string value from a normalized float. */
-  private static void appendHexChild(Document doc, Element parent, String tag, float value) {
+  public static void appendHexChild(Document doc, Element parent, String tag, float value) {
     if (parent.getElementsByTagName(tag).getLength() > 0) return;
     Element child = doc.createElement(tag);
     child.setTextContent(DelugeHexMapper.floatToHex(value));
@@ -522,7 +522,7 @@ public class KitSynthSerializer {
   }
 
   /** Append a child element with a hex frequency value from a Hz float. */
-  private static void appendHexFreq(Document doc, Element parent, String tag, float hz) {
+  public static void appendHexFreq(Document doc, Element parent, String tag, float hz) {
     if (parent.getElementsByTagName(tag).getLength() > 0) return;
     Element child = doc.createElement(tag);
     child.setTextContent(DelugeHexMapper.hzToHex(hz));
@@ -530,12 +530,12 @@ public class KitSynthSerializer {
   }
 
   /** Append a text-attribute to an element: e.g. &lt;el attr="value"&gt;. */
-  private static void appendTextAttr(Element el, String attr, String value) {
+  public static void appendTextAttr(Element el, String attr, String value) {
     el.setAttribute(attr, value);
   }
 
   /** Append a child element with plain text content. */
-  private static void appendTextChild(Document doc, Element parent, String tag, String value) {
+  public static void appendTextChild(Document doc, Element parent, String tag, String value) {
     Element child = doc.createElement(tag);
     child.setTextContent(value);
     parent.appendChild(child);
