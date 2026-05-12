@@ -492,8 +492,13 @@ public class DelugeEngineDSL implements Shred, Runnable {
         masterVol.gain((float) (mv * spVol));
 
         // ── Hardware character: master saturation ──
-        float masterSatOn = (float) vm.getGlobalFloat(BridgeContract.G_MASTER_SATURATION);
-        masterSat.gain(masterSatOn > 0.5f ? 1.0f : 0.0f);
+        // NOTE: Do NOT set masterSat.gain(0) here — that kills ALL audio since
+        // ChuckUGen.tick() returns compute() * this.gain. Distortion.compute()
+        // uses its own private gain field (init=1.0), so it always produces
+        // non-zero output, but tick() then multiplies by ChuckUGen.gain=0 → 0.
+        // TODO: proper bypass — route around the Distortion node when saturation
+        // is off, instead of relying on gain=0 which breaks the signal chain.
+        // The MasterShred chain is: synthBus→HPF→comp→summingTanh→masterSat→EQ→vol→dac()
 
         // ── Hardware character: 14-bit crunch ──
         float bitCrunchOn = (float) vm.getGlobalFloat(BridgeContract.G_BIT_CRUNCH);
@@ -1969,7 +1974,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
         synthBaseHolder[0] = sb;
         vm.setGlobalInt(BridgeContract.G_SYNTH_BASE, (long) sb);
         maxSynthBridgeRowHolder[0] = mx;
-        System.out.println("[synth_shred] init synthBase=" + sb + " maxSynthBridgeRow=" + mx + " slots=" + total);
+
         ChuckArray algoArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_SYNTH_ALGO);
         ChuckUGen[] src = new ChuckUGen[total];
         Gain[] routingMix = new Gain[total];
@@ -2633,7 +2638,6 @@ public class DelugeEngineDSL implements Shred, Runnable {
             }
           }
           double gainVal = (clipVel.getFloat(idx) + stepVol * 0.5) * trkLvl.getFloat(r) * 0.8 * Math.max(0.0, 1.0 + totalModV * 0.5);
-          if (vm.getLogLevel() >= 1) vm.print("[synth] TRIGGER r=" + r + " vel=" + clipVel.getFloat(idx) + " trkLvl=" + trkLvl.getFloat(r) + " gainVal=" + gainVal + "\n");
           double gateSec = (gateArr != null ? gateArr.getFloat(idx) : 0.9) * outer.stepDuration(step % 2).samples() / sampleRate();
           double stepPitchOffset = sPitchArr != null ? sPitchArr.getFloat(idx) * 24.0 : 0.0;
           // Global transpose (semitones) + humanize (±random cents)
