@@ -60,8 +60,9 @@ public abstract class Drum {
   protected float compressorThreshold = 0.0f;
   protected float compressorRatio = 0.0f;
 
-  // LPF Mode
+  // LPF Mode/Morph
   protected FilterMode lpfMode = FilterMode.LADDER_12;
+  protected float lpfMorph = 0.0f;
   protected float lpfDrive = 1.0f;
   protected boolean lpfNotch = false;
   protected int maxVoiceCount = 8;
@@ -229,6 +230,9 @@ public abstract class Drum {
 
   public FilterMode getLpfMode() { return lpfMode; }
   public void setLpfMode(FilterMode v) { this.lpfMode = v; }
+
+  public float getLpfMorph() { return lpfMorph; }
+  public void setLpfMorph(float v) { this.lpfMorph = v; }
 
   public float getLpfDrive() { return lpfDrive; }
   public void setLpfDrive(float v) { this.lpfDrive = Math.max(0.0f, Math.min(2.0f, v)); }

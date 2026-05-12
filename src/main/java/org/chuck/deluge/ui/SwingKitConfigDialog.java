@@ -111,6 +111,20 @@ public class SwingKitConfigDialog extends JDialog {
           getKitArray(vm, BridgeContract.G_KIT_PITCH).setFloat(idx, val);
         });
 
+    // ── LPF ──
+    c.gridx = 0; c.gridy = row; c.gridwidth = 3;
+    panel.add(sectionLabel("LOW-PASS FILTER"), c);
+    row++;
+
+    row = addSlider(panel, c, row, "Morph (0-50):",
+        "SVF filter morph: 0 = fully low-pass, 50 = fully high-pass. Controls morphing between LP and HP.",
+        0, 50, (int)(sound.getLpfMorph() * 50),
+        val -> {
+          float morph = val / 50.0f;
+          sound.setLpfMorph(morph);
+          getKitArray(vm, BridgeContract.G_KIT_LPF_MORPH).setFloat(idx, morph);
+        });
+
     // ── ADSR ──
     ChuckArray atk = getKitArray(vm, BridgeContract.G_KIT_ATTACK);
     ChuckArray dec = getKitArray(vm, BridgeContract.G_KIT_DECAY);
