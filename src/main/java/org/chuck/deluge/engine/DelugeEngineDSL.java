@@ -1174,6 +1174,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
         ChuckArray kitHpfMode = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_HPF_MODE);
         ChuckArray kitHpfMorph = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_HPF_MORPH);
         ChuckArray kitHpfFm = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_HPF_FM);
+        ChuckArray kitLpfMorph = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_LPF_MORPH);
         ChuckArray kitOsc2Type = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_OSC2_TYPE);
         ChuckArray kitUnisonNum = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_UNISON_NUM);
         ChuckArray kitUnisonDetune = (ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_UNISON_DETUNE);
@@ -1221,6 +1222,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
           if (kitHpfMode != null && r < kitHpfMode.size()) vm.setGlobalFloat(BridgeContract.G_KIT_HPF_MODE + "_" + r, kitHpfMode.getFloat(r));
           if (kitHpfMorph != null && r < kitHpfMorph.size()) vm.setGlobalFloat(BridgeContract.G_KIT_HPF_MORPH + "_" + r, kitHpfMorph.getFloat(r));
           if (kitHpfFm != null && r < kitHpfFm.size()) vm.setGlobalFloat(BridgeContract.G_KIT_HPF_FM + "_" + r, kitHpfFm.getFloat(r));
+          if (kitLpfMorph != null && r < kitLpfMorph.size()) vm.setGlobalFloat(BridgeContract.G_KIT_LPF_MORPH + "_" + r, kitLpfMorph.getFloat(r));
           if (kitOsc2Type != null && r < kitOsc2Type.size()) vm.setGlobalFloat(BridgeContract.G_KIT_OSC2_TYPE + "_" + r, kitOsc2Type.getFloat(r));
           if (kitUnisonNum != null && r < kitUnisonNum.size()) vm.setGlobalFloat(BridgeContract.G_KIT_UNISON_NUM + "_" + r, kitUnisonNum.getFloat(r));
           if (kitUnisonDetune != null && r < kitUnisonDetune.size()) vm.setGlobalFloat(BridgeContract.G_KIT_UNISON_DETUNE + "_" + r, kitUnisonDetune.getFloat(r));
@@ -1488,7 +1490,9 @@ public class DelugeEngineDSL implements Shred, Runnable {
             kitFil[r].Q(1.0f + kq * 9.0f);
             if (kitLpfModeObj instanceof ChuckArray lm && r < lm.size()) {
               int klm = (int) lm.getInt(r);
-              kitFil[r].morph(klm == 2 ? 0.5 : 0.0);
+              // LPF morph: prefer per-sound morph from G_KIT_LPF_MORPH, fall back to mode-based default
+              double kmorph = (kitLpfMorph != null && r < kitLpfMorph.size()) ? kitLpfMorph.getFloat(r) : (klm == 2 ? 0.5 : 0.0);
+              kitFil[r].morph(kmorph);
             }
             if (kitLpfDriveObj instanceof ChuckArray kd && r < kd.size()) {
               float baseDrive = (float) kd.getFloat(r);

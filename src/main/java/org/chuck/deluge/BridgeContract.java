@@ -393,6 +393,7 @@ public final class BridgeContract {
   public static final String G_PC_POLARITY = "g_pc_polarity";
   // ── Extended per-track kit-specific arrays ──
   public static final String G_KIT_LPF_MODE = "g_kit_lpf_mode";
+  public static final String G_KIT_LPF_MORPH = "g_kit_lpf_morph";
   public static final String G_KIT_LPF_DRIVE = "g_kit_lpf_drive";
   public static final String G_KIT_LPF_NOTCH = "g_kit_lpf_notch";
   public static final String G_KIT_EQ_BASS = "g_kit_eq_bass";
@@ -1017,6 +1018,7 @@ public final class BridgeContract {
     final int[] kitReverse = new int[TRACKS];
     final int[] kitMuteGroup = new int[TRACKS];
     final int[] kitLpfMode = new int[TRACKS];
+    final float[] kitLpfMorph = new float[TRACKS];
     final float[] kitLpfDrive = new float[TRACKS];
     final int[] kitLpfNotch = new int[TRACKS];
     final int[] kitMaxVoices = new int[TRACKS];
@@ -1068,6 +1070,7 @@ public final class BridgeContract {
         kitReverse[t] = 0;
         kitMuteGroup[t] = 0;
         kitLpfMode[t] = 0;
+        kitLpfMorph[t] = 0f;
         kitLpfDrive[t] = 1.0f;
         kitLpfNotch[t] = 0;
         kitMaxVoices[t] = 8;
@@ -1122,6 +1125,7 @@ public final class BridgeContract {
       vm.setGlobalObject(G_KIT_REVERSE, new ChuckArray(kitReverse));
       vm.setGlobalObject(G_KIT_MUTE_GROUP, new ChuckArray(kitMuteGroup));
       vm.setGlobalObject(G_KIT_LPF_MODE, new ChuckArray(kitLpfMode));
+      vm.setGlobalObject(G_KIT_LPF_MORPH, new ChuckArray(kitLpfMorph));
       vm.setGlobalObject(G_KIT_LPF_DRIVE, new ChuckArray(kitLpfDrive));
       vm.setGlobalObject(G_KIT_LPF_NOTCH, new ChuckArray(kitLpfNotch));
       vm.setGlobalObject(G_KIT_MAX_VOICES, new ChuckArray(kitMaxVoices));
@@ -2297,6 +2301,8 @@ public final class BridgeContract {
 
   public void setKitLpfMode(int track, int v) { kit.kitLpfMode[track] = v; }
   public int getKitLpfMode(int track) { return kit.kitLpfMode[track]; }
+  public void setKitLpfMorph(int track, float v) { kit.kitLpfMorph[track] = v; }
+  public float getKitLpfMorph(int track) { return kit.kitLpfMorph[track]; }
   public void setKitEqBass(int track, float v) { kit.kitEqBass[track] = v; }
   public float getKitEqBass(int track) { return kit.kitEqBass[track]; }
   public void setKitEqTreble(int track, float v) { kit.kitEqTreble[track] = v; }
