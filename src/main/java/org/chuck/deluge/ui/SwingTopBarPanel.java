@@ -17,14 +17,15 @@ import org.chuck.deluge.model.ProjectModel;
 /**
  * Top toolbar panel with view mode toggles, track add buttons, transport controls, and master
  * sliders. Uses FlowLayout so controls wrap to multiple rows when the window is too narrow to fit
- * them on one line. Placed inside a BorderLayout.NORTH wrapper in SwingDelugeApp so the top bar
- * can grow vertically as controls wrap.
+ * them on one line. Placed inside a BorderLayout.NORTH wrapper in SwingDelugeApp so the top bar can
+ * grow vertically as controls wrap.
  */
 public class SwingTopBarPanel extends JPanel {
 
   /** Callback interface for actions that need to reach the parent frame. */
   public interface TopBarListener {
     void onViewModeChanged(String viewMode);
+
     void onAddTrack(String type);
   }
 
@@ -35,12 +36,12 @@ public class SwingTopBarPanel extends JPanel {
   private final TopBarListener listener;
 
   /**
-   * @param vm           ChucK virtual machine for direct bridge writes
-   * @param bridge       bridge contract (used only for G_PLAY/G_STOP constants)
+   * @param vm ChucK virtual machine for direct bridge writes
+   * @param bridge bridge contract (used only for G_PLAY/G_STOP constants)
    * @param projectModel current project model (used for track count in dialogs)
-   * @param leftFloat    the explorer JDialog toggled by the EXPLORER button
-   * @param rightFloat   the monitor JDialog toggled by the MONITOR button
-   * @param listener     callback for view-mode changes and track additions
+   * @param leftFloat the explorer JDialog toggled by the EXPLORER button
+   * @param rightFloat the monitor JDialog toggled by the MONITOR button
+   * @param listener callback for view-mode changes and track additions
    */
   public SwingTopBarPanel(
       ChuckVM vm,
@@ -137,10 +138,11 @@ public class SwingTopBarPanel extends JPanel {
 
     JToggleButton recBtn = new JToggleButton("\u25CF REC");
     recBtn.setForeground(Color.RED);
-    recBtn.addActionListener(e -> {
-      // Rec button references midiService which lives in SwingDelugeApp — skip it here;
-      // SwingDelugeApp can observe the button state via a public accessor if needed.
-    });
+    recBtn.addActionListener(
+        e -> {
+          // Rec button references midiService which lives in SwingDelugeApp — skip it here;
+          // SwingDelugeApp can observe the button state via a public accessor if needed.
+        });
     add(recBtn);
     add(new JSeparator(JSeparator.VERTICAL));
 
@@ -159,8 +161,7 @@ public class SwingTopBarPanel extends JPanel {
     add(swingLabel);
 
     JSlider swingSlider = new JSlider(0, 100, (int) (projectModel.getSwing() * 100));
-    swingSlider.addChangeListener(
-        e -> projectModel.setSwing(swingSlider.getValue() / 100.0f));
+    swingSlider.addChangeListener(e -> projectModel.setSwing(swingSlider.getValue() / 100.0f));
     add(swingSlider);
 
     JLabel volLabel = new JLabel("MASTER:");

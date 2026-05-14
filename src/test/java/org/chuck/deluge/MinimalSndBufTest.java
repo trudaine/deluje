@@ -1,22 +1,20 @@
 package org.chuck.deluge;
 
+import static org.chuck.core.ChuckDSL.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.*;
-import org.chuck.core.ChuckVM;
-import org.chuck.deluge.xml.DelugeXmlParser;
-import org.chuck.deluge.model.KitTrackModel;
-import org.chuck.deluge.model.SoundDrum;
-
 import org.chuck.audio.*;
 import org.chuck.audio.util.*;
-import static org.chuck.core.ChuckDSL.*;
-
+import org.chuck.core.ChuckVM;
+import org.chuck.deluge.model.KitTrackModel;
+import org.chuck.deluge.model.SoundDrum;
+import org.chuck.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
 /**
- * Minimal test: SndBuf → ADSR → WvOut2 directly, no engine.
- * Isolates whether SndBuf and WvOut2 work correctly.
+ * Minimal test: SndBuf → ADSR → WvOut2 directly, no engine. Isolates whether SndBuf and WvOut2 work
+ * correctly.
  */
 public class MinimalSndBufTest {
 
@@ -42,7 +40,13 @@ public class MinimalSndBufTest {
 
     // Load original for comparison
     float[] original = AudioAnalyzer.loadWav(new File(absPath));
-    System.out.println("Original: " + original.length + " samples, RMS=" + rms(original) + ", peak=" + peak(original));
+    System.out.println(
+        "Original: "
+            + original.length
+            + " samples, RMS="
+            + rms(original)
+            + ", peak="
+            + peak(original));
 
     File tempDir = new File(System.getProperty("java.io.tmpdir"), "deluge-minimal-test");
     tempDir.mkdirs();
@@ -50,67 +54,76 @@ public class MinimalSndBufTest {
     capturedWavPath = wavPath;
 
     // Create a simple shred that plays the sample through SndBuf → ADSR → WvOut2 → dac
-    vm.spork(() -> {
-      try {
-        float sr = (float) sampleRate();
-        SndBuf buf = new SndBuf();
-        DelugeAdsr env = new DelugeAdsr();
-        WvOut2 wvOut = new WvOut2(sr);
+    vm.spork(
+        () -> {
+          try {
+            float sr = (float) sampleRate();
+            SndBuf buf = new SndBuf();
+            DelugeAdsr env = new DelugeAdsr();
+            WvOut2 wvOut = new WvOut2(sr);
 
-        // Chain: buf → env → wvOut → dac
-        buf.chuck(env).chuck(wvOut).chuck(dac());
+            // Chain: buf → env → wvOut → dac
+            buf.chuck(env).chuck(wvOut).chuck(dac());
 
-        // Load sample
-        System.out.println("[shred] Loading sample...");
-        buf.read(absPath);
-        System.out.println("[shred] Loaded: " + buf.samples() + " samples");
+            // Load sample
+            System.out.println("[shred] Loading sample...");
+            buf.read(absPath);
+            System.out.println("[shred] Loaded: " + buf.samples() + " samples");
 
-        if (buf.samples() > 0) {
-          buf.pos(0);
-          buf.rate(1.0f);
-          env.set(0.001, 0.0, 1.0, 0.05);
-          env.keyOn();
+            if (buf.samples() > 0) {
+              buf.pos(0);
+              buf.rate(1.0f);
+              env.set(0.001, 0.0, 1.0, 0.05);
+              env.keyOn();
 
-          wvOut.wavWrite(wavPath);
-          wvOut.fileGain(1.0f);
+              wvOut.wavWrite(wavPath);
+              wvOut.fileGain(1.0f);
 
-          System.out.println("[shred] Recording to: " + wavPath);
+              System.out.println("[shred] Recording to: " + wavPath);
 
-          // Advance enough to play through the sample
-          double sampleDurSec = buf.samples() / (double) sr;
-          System.out.println("[shred] Sample duration: " + String.format("%.3f", sampleDurSec) + "s");
-          System.out.println("[shred] Before advance: pos=" + buf.pos() + " rate=" + buf.rate() + " env.state=" + env.state());
+              // Advance enough to play through the sample
+              double sampleDurSec = buf.samples() / (double) sr;
+              System.out.println(
+                  "[shred] Sample duration: " + String.format("%.3f", sampleDurSec) + "s");
+              System.out.println(
+                  "[shred] Before advance: pos="
+                      + buf.pos()
+                      + " rate="
+                      + buf.rate()
+                      + " env.state="
+                      + env.state());
 
-          // DIAGNOSTIC: manually tick a few samples
-          System.out.println("[shred] Diagnostic manual ticks:");
-          for (int t = 1; t <= 20; t++) {
-            float b = buf.tick(t);
-            float e = env.tick(t);
-            float w = wvOut.tick(t);
-            if (t <= 10 || t == 20) {
-              System.out.printf("[shred] t=%d: buf=%.6f env=%.6f wvOut=%.6f%n", t, b, e, w);
+              // DIAGNOSTIC: manually tick a few samples
+              System.out.println("[shred] Diagnostic manual ticks:");
+              for (int t = 1; t <= 20; t++) {
+                float b = buf.tick(t);
+                float e = env.tick(t);
+                float w = wvOut.tick(t);
+                if (t <= 10 || t == 20) {
+                  System.out.printf("[shred] t=%d: buf=%.6f env=%.6f wvOut=%.6f%n", t, b, e, w);
+                }
+              }
+              // Reset for actual play
+              buf.pos(0);
+              env.keyOn();
+
+              advance(second(sampleDurSec + 0.2));
+              System.out.println(
+                  "[shred] After advance: pos=" + buf.pos() + " env.state=" + env.state());
+              env.keyOff();
+              advance(second(0.1));
+
+              wvOut.closeFile();
+              System.out.println("[shred] WAV written.");
+              capturedWavPath = wavPath;
+            } else {
+              System.out.println("[shred] FAILED: SndBuf has 0 samples after read!");
             }
+          } catch (Exception e) {
+            System.err.println("[shred] Error: " + e.getMessage());
+            e.printStackTrace();
           }
-          // Reset for actual play
-          buf.pos(0);
-          env.keyOn();
-
-          advance(second(sampleDurSec + 0.2));
-          System.out.println("[shred] After advance: pos=" + buf.pos() + " env.state=" + env.state());
-          env.keyOff();
-          advance(second(0.1));
-
-          wvOut.closeFile();
-          System.out.println("[shred] WAV written.");
-          capturedWavPath = wavPath;
-        } else {
-          System.out.println("[shred] FAILED: SndBuf has 0 samples after read!");
-        }
-      } catch (Exception e) {
-        System.err.println("[shred] Error: " + e.getMessage());
-        e.printStackTrace();
-      }
-    });
+        });
 
     // Run for enough time
     vm.advanceTime(SAMPLE_RATE * 3); // 3 seconds
@@ -122,7 +135,13 @@ public class MinimalSndBufTest {
     assertTrue(engineWav.length() > 44, "WAV too small: " + engineWav.length());
 
     float[] engineOut = AudioAnalyzer.loadWav(new File(capturedWavPath));
-    System.out.println("Engine output: " + engineOut.length + " samples, RMS=" + rms(engineOut) + ", peak=" + peak(engineOut));
+    System.out.println(
+        "Engine output: "
+            + engineOut.length
+            + " samples, RMS="
+            + rms(engineOut)
+            + ", peak="
+            + peak(engineOut));
 
     // Print first 20 samples
     System.out.println("First 20 engine samples:");
@@ -137,7 +156,10 @@ public class MinimalSndBufTest {
     // Should have some non-zero audio
     boolean hasAudio = false;
     for (int i = 0; i < Math.min(5000, engineOut.length); i++) {
-      if (Math.abs(engineOut[i]) > 0.01) { hasAudio = true; break; }
+      if (Math.abs(engineOut[i]) > 0.01) {
+        hasAudio = true;
+        break;
+      }
     }
     assertTrue(hasAudio, "Engine output is all near-zero!");
     System.out.println("BASIC SndBuf→WvOut TEST PASSED: engine produces audio");
@@ -164,75 +186,83 @@ public class MinimalSndBufTest {
     String wavPath = new File(tempDir, "minimal_kick2.wav").getAbsolutePath();
 
     // Spork producer (plays the sample) and recorder (captures with WvOut2)
-    vm.spork(() -> {
-      SndBuf buf = new SndBuf();
-      DelugeAdsr env = new DelugeAdsr();
-      // Chain: buf → env → dac
-      buf.chuck(env).chuck(dac());
+    vm.spork(
+        () -> {
+          SndBuf buf = new SndBuf();
+          DelugeAdsr env = new DelugeAdsr();
+          // Chain: buf → env → dac
+          buf.chuck(env).chuck(dac());
 
-      buf.read(absPath);
-      System.out.println("[play] Loaded " + buf.samples() + " samples");
+          buf.read(absPath);
+          System.out.println("[play] Loaded " + buf.samples() + " samples");
 
-      // Wait a tiny bit for recorder to set up
-      advance(samp(100));
+          // Wait a tiny bit for recorder to set up
+          advance(samp(100));
 
-      // Play
-      buf.pos(0);
-      buf.rate(1.0f);
-      env.set(0.001, 0.0, 1.0, 0.05);
-      env.keyOn();
+          // Play
+          buf.pos(0);
+          buf.rate(1.0f);
+          env.set(0.001, 0.0, 1.0, 0.05);
+          env.keyOn();
 
-      // Advance through sample
-      double durSec = buf.samples() / (double) SAMPLE_RATE;
-      advance(second(durSec + 0.2));
-      env.keyOff();
-      advance(second(0.1));
-      System.out.println("[play] Done playing");
+          // Advance through sample
+          double durSec = buf.samples() / (double) SAMPLE_RATE;
+          advance(second(durSec + 0.2));
+          env.keyOff();
+          advance(second(0.1));
+          System.out.println("[play] Done playing");
 
-      // Set flag to stop
-      vm.setGlobalInt("g_done", 1L);
-    });
+          // Set flag to stop
+          vm.setGlobalInt("g_done", 1L);
+        });
 
-    vm.spork(() -> {
-      float sr = (float) sampleRate();
-      WvOut2 wvOut = new WvOut2(sr);
+    vm.spork(
+        () -> {
+          float sr = (float) sampleRate();
+          WvOut2 wvOut = new WvOut2(sr);
 
-      // Wait a bit for the producer to get ready
-      advance(samp(200));
+          // Wait a bit for the producer to get ready
+          advance(samp(200));
 
-      // Splice into chain: insert WvOut2 between last UGen and dac
-      // Since we can't modify the producer's chain from here, we use a tap approach
-      Gain tap = new Gain();
-      tap.gain(1.0f);
-      tap.chuck(wvOut).chuck(dac());
+          // Splice into chain: insert WvOut2 between last UGen and dac
+          // Since we can't modify the producer's chain from here, we use a tap approach
+          Gain tap = new Gain();
+          tap.gain(1.0f);
+          tap.chuck(wvOut).chuck(dac());
 
-      // Actually let's connect tap to dac and the producer connects to tap
-      // But we can't modify producer from here...
+          // Actually let's connect tap to dac and the producer connects to tap
+          // But we can't modify producer from here...
 
-      // Alternative: the WvOut2 just needs to be connected to dac to capture everything
-      // WvOut2 captures all audio flowing through it
-      wvOut.chuck(dac());
-      wvOut.wavWrite(wavPath);
-      wvOut.fileGain(1.0f);
+          // Alternative: the WvOut2 just needs to be connected to dac to capture everything
+          // WvOut2 captures all audio flowing through it
+          wvOut.chuck(dac());
+          wvOut.wavWrite(wavPath);
+          wvOut.fileGain(1.0f);
 
-      System.out.println("[rec] Recording to: " + wavPath);
+          System.out.println("[rec] Recording to: " + wavPath);
 
-      // Wait until done
-      while (vm.getGlobalInt("g_done") == 0) {
-        advance(ms(50));
-      }
+          // Wait until done
+          while (vm.getGlobalInt("g_done") == 0) {
+            advance(ms(50));
+          }
 
-      wvOut.closeFile();
-      System.out.println("[rec] WAV written.");
+          wvOut.closeFile();
+          System.out.println("[rec] WAV written.");
 
-      // Read back
-      try {
-        float[] engineOut = AudioAnalyzer.loadWav(new File(wavPath));
-        System.out.println("[rec] Engine output: " + engineOut.length + " samples, RMS=" + rms(engineOut) + ", peak=" + peak(engineOut));
-      } catch (Exception e) {
-        System.out.println("[rec] Failed to read WAV: " + e.getMessage());
-      }
-    });
+          // Read back
+          try {
+            float[] engineOut = AudioAnalyzer.loadWav(new File(wavPath));
+            System.out.println(
+                "[rec] Engine output: "
+                    + engineOut.length
+                    + " samples, RMS="
+                    + rms(engineOut)
+                    + ", peak="
+                    + peak(engineOut));
+          } catch (Exception e) {
+            System.out.println("[rec] Failed to read WAV: " + e.getMessage());
+          }
+        });
 
     vm.advanceTime(SAMPLE_RATE * 5); // 5 seconds
     vm.shutdown();
@@ -246,7 +276,10 @@ public class MinimalSndBufTest {
 
   private double peak(float[] data) {
     double p = 0;
-    for (float v : data) { double abs = Math.abs(v); if (abs > p) p = abs; }
+    for (float v : data) {
+      double abs = Math.abs(v);
+      if (abs > p) p = abs;
+    }
     return p;
   }
 }

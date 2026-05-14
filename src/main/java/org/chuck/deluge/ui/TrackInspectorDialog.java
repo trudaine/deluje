@@ -12,7 +12,10 @@ public class TrackInspectorDialog extends JDialog {
   private final JSlider ratioSlider;
 
   public TrackInspectorDialog(
-      Frame owner, int trackIndex, java.util.List<org.chuck.deluge.model.TrackModel> tracks, Runnable onRefresh) {
+      Frame owner,
+      int trackIndex,
+      java.util.List<org.chuck.deluge.model.TrackModel> tracks,
+      Runnable onRefresh) {
     super(owner, "Track Inspector", true);
     setSize(900, 550);
     setLocationRelativeTo(owner);
@@ -62,7 +65,8 @@ public class TrackInspectorDialog extends JDialog {
     gcm.gridx = 1;
     volumeSlider = new JSlider(0, 100, 80);
     volumeSlider.setPreferredSize(new Dimension(400, 50));
-    volumeSlider.addChangeListener(ev -> System.out.println("Track " + trackIndex + " Vol: " + volumeSlider.getValue()));
+    volumeSlider.addChangeListener(
+        ev -> System.out.println("Track " + trackIndex + " Vol: " + volumeSlider.getValue()));
     p3.add(volumeSlider, gcm);
     tabs.addTab("MIXER", p3);
 
@@ -94,24 +98,26 @@ public class TrackInspectorDialog extends JDialog {
     p4.add(ratioSlider);
     tabs.addTab("FM OPERATORS", p4);
 
-    cloneBtn.addActionListener(ev -> {
-      if (trackIndex < tracks.size()) {
-        org.chuck.deluge.model.TrackModel tModel = tracks.get(trackIndex);
-        if (!tModel.getClips().isEmpty()) {
-          tModel.addClip(tModel.getClips().get(0));
-        }
-      }
-      dispose();
-      onRefresh.run();
-    });
+    cloneBtn.addActionListener(
+        ev -> {
+          if (trackIndex < tracks.size()) {
+            org.chuck.deluge.model.TrackModel tModel = tracks.get(trackIndex);
+            if (!tModel.getClips().isEmpty()) {
+              tModel.addClip(tModel.getClips().get(0));
+            }
+          }
+          dispose();
+          onRefresh.run();
+        });
 
-    cb.addActionListener(ev -> {
-      if (trackIndex < tracks.size()) {
-        tracks.get(trackIndex).setName((String) cb.getSelectedItem());
-      }
-      dispose();
-      onRefresh.run();
-    });
+    cb.addActionListener(
+        ev -> {
+          if (trackIndex < tracks.size()) {
+            tracks.get(trackIndex).setName((String) cb.getSelectedItem());
+          }
+          dispose();
+          onRefresh.run();
+        });
 
     add(tabs);
   }

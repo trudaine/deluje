@@ -36,14 +36,23 @@ public class ParameterHookupTest {
     vm.setGlobalString("g_sample_0", "examples/data/kick.wav");
 
     System.out.println("INIT: Advancing 100");
-    System.out.println("INIT: VM now=" + vm.getCurrentTime() + " activeShreds=" + vm.getActiveShredCount());
+    System.out.println(
+        "INIT: VM now=" + vm.getCurrentTime() + " activeShreds=" + vm.getActiveShredCount());
     try {
       vm.advanceTime(100);
     } catch (RuntimeException e) {
       System.out.println("=== THREAD DUMP ===");
-      for (java.util.Map.Entry<Thread, StackTraceElement[]> entry : Thread.getAllStackTraces().entrySet()) {
+      for (java.util.Map.Entry<Thread, StackTraceElement[]> entry :
+          Thread.getAllStackTraces().entrySet()) {
         Thread t = entry.getKey();
-        System.out.println("Thread: " + t.getName() + " (daemon=" + t.isDaemon() + ", state=" + t.getState() + ")");
+        System.out.println(
+            "Thread: "
+                + t.getName()
+                + " (daemon="
+                + t.isDaemon()
+                + ", state="
+                + t.getState()
+                + ")");
         StackTraceElement[] stack = entry.getValue();
         for (int i = 0; i < Math.min(10, stack.length); i++) {
           System.out.println("  " + stack[i]);
@@ -119,22 +128,23 @@ public class ParameterHookupTest {
   void testStutterHookup() {
     System.out.println("--- TEST: STUTTER HOOKUP ---");
     vm.setGlobalInt(BridgeContract.G_PLAY, 1L);
-    vm.advanceTime(44100); 
+    vm.advanceTime(44100);
 
     long stepBefore = vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
     vm.setGlobalInt("g_stutter_on", 1L);
-    vm.setGlobalFloat("g_stutter_div", 10.0); 
+    vm.setGlobalFloat("g_stutter_div", 10.0);
 
-    vm.advanceTime(8820); 
+    vm.advanceTime(8820);
     long stepAfter = vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
 
     assertEquals(stepBefore, stepAfter, "Current step should not advance during Stutter");
 
     vm.setGlobalInt("g_stutter_on", 0L);
-    vm.advanceTime(17640); 
+    vm.advanceTime(17640);
     long stepFinally = vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
 
-    assertNotEquals(stepAfter, stepFinally, "Current step should resume advancing after Stutter off");
+    assertNotEquals(
+        stepAfter, stepFinally, "Current step should resume advancing after Stutter off");
   }
 
   @Test
@@ -184,9 +194,13 @@ public class ParameterHookupTest {
     // that opening the filter increases the peak — a resonant low-frequency
     // filter rings on transients, often producing higher instantaneous peaks
     // than a wide-open filter passing attenuated harmonics.
-    assertTrue(Math.abs(openPeak - closedPeak) > 0.0001,
-        "Filter frequency change from 0.0 (" + closedPeak + ") to 0.3 (" + openPeak
-        + ") should measurably affect peak output");
+    assertTrue(
+        Math.abs(openPeak - closedPeak) > 0.0001,
+        "Filter frequency change from 0.0 ("
+            + closedPeak
+            + ") to 0.3 ("
+            + openPeak
+            + ") should measurably affect peak output");
   }
 
   @Test
@@ -195,7 +209,7 @@ public class ParameterHookupTest {
     int track = 4;
     bridge.setStep(track, 0, true);
 
-    bridge.setPitch(track, 0, 12); 
+    bridge.setPitch(track, 0, 12);
     vm.setGlobalInt(BridgeContract.G_PLAY, 1L);
     vm.advanceTime(44100);
 

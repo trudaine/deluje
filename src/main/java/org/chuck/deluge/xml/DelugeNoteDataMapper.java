@@ -47,12 +47,15 @@ public class DelugeNoteDataMapper {
 
   /**
    * Decode firmware XML noteData into step data.
+   *
    * @param hex the hex-encoded noteData string
    * @param stepCount total steps in the clip (determines output list size)
    * @param ticksPerStep tick-per-step ratio of the source data (24 for firmware, 12 for our format)
-   * @param hexCharsPerNote number of hex chars per note (20 for old, 22 for noteDataWithLift, 28 for noteDataWithSplitProb)
+   * @param hexCharsPerNote number of hex chars per note (20 for old, 22 for noteDataWithLift, 28
+   *     for noteDataWithSplitProb)
    */
-  public static List<StepData> decodeRow(String hex, int stepCount, int ticksPerStep, int hexCharsPerNote) {
+  public static List<StepData> decodeRow(
+      String hex, int stepCount, int ticksPerStep, int hexCharsPerNote) {
     List<StepData> row = new ArrayList<>();
     for (int s = 0; s < stepCount; s++) {
       row.add(StepData.empty());
@@ -93,9 +96,8 @@ public class DelugeNoteDataMapper {
   }
 
   /**
-   * Encode a single note as a 20-hex-char (10-byte) noteData entry.
-   * Format: 8 chars tick position + 8 chars tick length + 4 chars flags ("4014").
-   * Matches the existing encodeRow() output format.
+   * Encode a single note as a 20-hex-char (10-byte) noteData entry. Format: 8 chars tick position +
+   * 8 chars tick length + 4 chars flags ("4014"). Matches the existing encodeRow() output format.
    */
   public static String encodeTickNote(int tickPos, int tickLen) {
     return String.format("%08X%08X4014", tickPos, Math.max(1, tickLen));

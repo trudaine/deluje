@@ -24,20 +24,20 @@ public class SilenceWithNoCellsTest {
     ChuckConfig.addSearchPath("src/main/resources");
     ChuckConfig.addSearchPath("../deluge/src/main/resources");
     bridge = new BridgeContract();
-    
+
     // Ensure at least one kit and synth track exist to prevent init hangs in DSL
-    bridge.setTrackType(0, 0); 
-    bridge.setTrackType(4, 1); 
-    
+    bridge.setTrackType(0, 0);
+    bridge.setTrackType(4, 1);
+
     bridge.register(vm);
 
     // Spork Java DSL Engine
     vm.spork(new org.chuck.deluge.engine.DelugeEngineDSL(vm));
 
     // Allow shreds to initialize
-    vm.advanceTime(100); 
+    vm.advanceTime(100);
     vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
-    
+
     // Let engine initialise (300ms)
     float[][] buf = new float[2][44100 / 4 * 3];
     vm.advanceTime(buf, 0, 44100 / 4 * 3);
@@ -76,10 +76,7 @@ public class SilenceWithNoCellsTest {
     System.out.printf("[TEST] RMS with no cells active: %.8f%n", rms);
 
     assertEquals(
-        0.0,
-        rms,
-        1e-5,
-        "Engine should produce zero audio when no pattern cells are active.");
+        0.0, rms, 1e-5, "Engine should produce zero audio when no pattern cells are active.");
   }
 
   private double rms(float[][] buf) {
@@ -88,4 +85,3 @@ public class SilenceWithNoCellsTest {
     return Math.sqrt(sum / (buf.length * buf[0].length));
   }
 }
-

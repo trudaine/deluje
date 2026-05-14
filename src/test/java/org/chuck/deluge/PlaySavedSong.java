@@ -2,18 +2,17 @@ package org.chuck.deluge;
 
 import java.io.*;
 import java.util.List;
-import org.chuck.core.ChuckArray;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.engine.DelugeEngineDSL;
 import org.chuck.deluge.model.*;
-import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.xml.DelugeXmlParser;
 
 /**
- * CLI tool: load a saved song XML from the filesystem, parse it, run through
- * the DSL engine for N seconds, and export a WAV.
+ * CLI tool: load a saved song XML from the filesystem, parse it, run through the DSL engine for N
+ * seconds, and export a WAV.
  *
- * Usage: mvn exec:java -pl deluge -Dexec.mainClass="org.chuck.deluge.PlaySavedSong" -Dexec.args="C:\Users\ludo\Deluge\SONGS\lll.xml 10"
+ * <p>Usage: mvn exec:java -pl deluge -Dexec.mainClass="org.chuck.deluge.PlaySavedSong"
+ * -Dexec.args="C:\Users\ludo\Deluge\SONGS\lll.xml 10"
  */
 public class PlaySavedSong {
 
@@ -93,9 +92,10 @@ public class PlaySavedSong {
     for (int t = 0; t < project.getTracks().size(); t++) {
       TrackModel track = project.getTracks().get(t);
       int voiceCount = 8;
-      int trackRows = (track instanceof KitTrackModel)
-          ? Math.min(voiceCount, ((KitTrackModel) track).getDrums().size())
-          : voiceCount;
+      int trackRows =
+          (track instanceof KitTrackModel)
+              ? Math.min(voiceCount, ((KitTrackModel) track).getDrums().size())
+              : voiceCount;
       if (!track.getClips().isEmpty()) {
         ClipModel clip = track.getClips().get(0);
         int stepCount = clip.getStepCount();
@@ -137,8 +137,10 @@ public class PlaySavedSong {
       vm.advanceTime(441); // 10ms at 44100
       int toWrite = Math.min(441, totalSamples - written);
       for (int s = 0; s < toWrite && written < totalSamples; s++) {
-        leftBuf[written] = (short) Math.max(-32768, Math.min(32767, vm.getDacChannel(0).getLastOut() * 32767));
-        rightBuf[written] = (short) Math.max(-32768, Math.min(32767, vm.getDacChannel(1).getLastOut() * 32767));
+        leftBuf[written] =
+            (short) Math.max(-32768, Math.min(32767, vm.getDacChannel(0).getLastOut() * 32767));
+        rightBuf[written] =
+            (short) Math.max(-32768, Math.min(32767, vm.getDacChannel(1).getLastOut() * 32767));
         written++;
         vm.advanceTime(1);
       }
@@ -147,11 +149,14 @@ public class PlaySavedSong {
     // Find output WAV name
     String wavPath = xmlPath.replace(".xml", ".wav");
     writeWav(wavPath, leftBuf, rightBuf, written);
-    System.out.println("WAV written: " + wavPath + " (" + written + " samples, " + durationSec + "s)");
+    System.out.println(
+        "WAV written: " + wavPath + " (" + written + " samples, " + durationSec + "s)");
   }
 
-  private static void writeWav(String path, short[] left, short[] right, int len) throws IOException {
-    try (DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(path)))) {
+  private static void writeWav(String path, short[] left, short[] right, int len)
+      throws IOException {
+    try (DataOutputStream dos =
+        new DataOutputStream(new BufferedOutputStream(new FileOutputStream(path)))) {
       int dataLen = len * 4; // 16-bit stereo = 4 bytes per sample pair
       dos.writeBytes("RIFF");
       dos.writeInt(Integer.reverseBytes(36 + dataLen));

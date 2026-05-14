@@ -1,25 +1,22 @@
 package org.chuck.deluge;
 
+import static org.chuck.core.ChuckDSL.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.*;
-import org.chuck.core.ChuckArray;
-import org.chuck.core.ChuckVM;
-import org.chuck.core.Shred;
-import org.chuck.deluge.xml.DelugeXmlParser;
-import org.chuck.deluge.model.KitTrackModel;
-import org.chuck.deluge.model.SoundDrum;
-import org.chuck.deluge.engine.DelugeEngineDSL;
-
 import org.chuck.audio.*;
 import org.chuck.audio.util.*;
-import static org.chuck.core.ChuckDSL.*;
-
+import org.chuck.core.ChuckArray;
+import org.chuck.core.ChuckVM;
+import org.chuck.deluge.engine.DelugeEngineDSL;
+import org.chuck.deluge.model.KitTrackModel;
+import org.chuck.deluge.model.SoundDrum;
+import org.chuck.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
 /**
- * Quick diagnostic: load the 808 kick into SndBuf through the engine pipeline,
- * capture via WvOut2, and compare raw samples against the source WAV.
+ * Quick diagnostic: load the 808 kick into SndBuf through the engine pipeline, capture via WvOut2,
+ * and compare raw samples against the source WAV.
  */
 public class KitDebugTest {
 
@@ -132,30 +129,31 @@ public class KitDebugTest {
     // The engine's transport_shred and kit_shred have already created their chains.
     // masterTap is a Gain that sits between the kit chain and dac.
     // We'll create a WvOut2 and splice it into the chain from the test's own shred.
-    vm.spork(() -> {
-      // Wait for engine to be fully initialized (sample load, etc.)
-      advance(samp(100));
-      Gain masterTap = (Gain) vm.getGlobalObject(BridgeContract.G_MASTER_TAP);
-      WvOut2 diagWv = new WvOut2(SAMPLE_RATE);
-      // Splicing BEFORE export_shred does:
-      //   masterTap → diagWv → dac
-      // This replaces: masterTap → dac
-      // NOTE: if export_shred also splices later, there could be two WvOut2s.
-      // We do this BEFORE setting G_PLAY to ensure it's in the graph from the start.
-      ChuckUGen dacObj = dac();
-      masterTap.unchuck(dacObj);
-      masterTap.chuck(diagWv);
-      diagWv.chuck(dacObj);
-      diagWv.wavWrite(diagWav);
-      diagWv.fileGain(1.0f);
-      // We set a flag so the test can track we're ready
-      vm.setGlobalFloat("g_diag_ready", 1.0f);
-      System.out.println("[diag] Diagnostic WvOut2 connected. Recording to: " + diagWav);
-      // Record for 3 seconds, then close
-      advance(second(3));
-      diagWv.closeFile();
-      System.out.println("[diag] Diagnostic WAV closed.");
-    });
+    vm.spork(
+        () -> {
+          // Wait for engine to be fully initialized (sample load, etc.)
+          advance(samp(100));
+          Gain masterTap = (Gain) vm.getGlobalObject(BridgeContract.G_MASTER_TAP);
+          WvOut2 diagWv = new WvOut2(SAMPLE_RATE);
+          // Splicing BEFORE export_shred does:
+          //   masterTap → diagWv → dac
+          // This replaces: masterTap → dac
+          // NOTE: if export_shred also splices later, there could be two WvOut2s.
+          // We do this BEFORE setting G_PLAY to ensure it's in the graph from the start.
+          ChuckUGen dacObj = dac();
+          masterTap.unchuck(dacObj);
+          masterTap.chuck(diagWv);
+          diagWv.chuck(dacObj);
+          diagWv.wavWrite(diagWav);
+          diagWv.fileGain(1.0f);
+          // We set a flag so the test can track we're ready
+          vm.setGlobalFloat("g_diag_ready", 1.0f);
+          System.out.println("[diag] Diagnostic WvOut2 connected. Recording to: " + diagWav);
+          // Record for 3 seconds, then close
+          advance(second(3));
+          diagWv.closeFile();
+          System.out.println("[diag] Diagnostic WAV closed.");
+        });
     vm.advanceTime(SAMPLE_RATE); // Wait for diag shred to connect
 
     // Play
@@ -168,18 +166,31 @@ public class KitDebugTest {
     vm.advanceTime(4410);
 
     // Check G_CURRENT_STEP to see if clock advanced
-    System.out.println("G_CURRENT_STEP after 3s=" + vm.getGlobalInt(BridgeContract.G_CURRENT_STEP) + " (expected ~24)");
+    System.out.println(
+        "G_CURRENT_STEP after 3s="
+            + vm.getGlobalInt(BridgeContract.G_CURRENT_STEP)
+            + " (expected ~24)");
 
     // Load and analyze diagnostic WAV
     File diagFile = new File(diagWav);
     if (diagFile.exists()) {
       assertTrue(diagFile.length() > 44, "Diagnostic WAV too small");
       float[] diagOut = AudioAnalyzer.loadWav(new File(diagWav));
-      System.out.println("DIAGNOSTIC (" + diagWav + "): " + diagOut.length + " samples, RMS=" + rms(diagOut)
-          + ", peak=" + peak(diagOut));
+      System.out.println(
+          "DIAGNOSTIC ("
+              + diagWav
+              + "): "
+              + diagOut.length
+              + " samples, RMS="
+              + rms(diagOut)
+              + ", peak="
+              + peak(diagOut));
       boolean diagHasAudio = false;
       for (int i = 0; i < Math.min(5000, diagOut.length); i++) {
-        if (Math.abs(diagOut[i]) > 0.01) { diagHasAudio = true; break; }
+        if (Math.abs(diagOut[i]) > 0.01) {
+          diagHasAudio = true;
+          break;
+        }
       }
       System.out.println("DIAGNOSTIC has audio: " + diagHasAudio);
       System.out.println("First 10 diagnostic samples:");
@@ -189,7 +200,6 @@ public class KitDebugTest {
     } else {
       System.out.println("DIAGNOSTIC WAV NOT FOUND: " + diagWav);
     }
-
   }
 
   private double rms(float[] data) {
@@ -200,8 +210,10 @@ public class KitDebugTest {
 
   private double peak(float[] data) {
     double p = 0;
-    for (float v : data) { double abs = Math.abs(v); if (abs > p) p = abs; }
+    for (float v : data) {
+      double abs = Math.abs(v);
+      if (abs > p) p = abs;
+    }
     return p;
   }
-
 }

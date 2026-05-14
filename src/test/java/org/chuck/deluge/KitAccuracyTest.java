@@ -17,13 +17,13 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
- * Accuracy test: load the 808 kit, play each sound through the full engine pipeline,
- * capture the DAC output as WAV, and compare against the original sample file.
+ * Accuracy test: load the 808 kit, play each sound through the full engine pipeline, capture the
+ * DAC output as WAV, and compare against the original sample file.
  *
- * <p>The engine applies: ADSR envelope, HPF at 20Hz, gain scaling, limiter, and the
- * SndBuf's mono-downmix (channels averaged). This test quantifies how much the engine
- * transforms the original signal by computing RMS error, peak error, and cross-correlation
- * after accounting for known gain/offset differences.
+ * <p>The engine applies: ADSR envelope, HPF at 20Hz, gain scaling, limiter, and the SndBuf's
+ * mono-downmix (channels averaged). This test quantifies how much the engine transforms the
+ * original signal by computing RMS error, peak error, and cross-correlation after accounting for
+ * known gain/offset differences.
  */
 @Tag("slow")
 public class KitAccuracyTest {
@@ -80,10 +80,7 @@ public class KitAccuracyTest {
     return p;
   }
 
-  /**
-   * Normalize the source array to have the same RMS as the target.
-   * Returns a new array.
-   */
+  /** Normalize the source array to have the same RMS as the target. Returns a new array. */
   private float[] normalizeRms(float[] src, float[] target) {
     double srcRms = rms(src);
     double tgtRms = rms(target);
@@ -95,15 +92,19 @@ public class KitAccuracyTest {
   }
 
   /**
-   * Compute normalized cross-correlation at zero lag.
-   * Returns a value in [-1, 1] where 1 = identical shape.
+   * Compute normalized cross-correlation at zero lag. Returns a value in [-1, 1] where 1 =
+   * identical shape.
    */
   private double correlation(float[] a, float[] b) {
     int len = Math.min(a.length, b.length);
     if (len < 2) return 0;
     double meanA = 0, meanB = 0;
-    for (int i = 0; i < len; i++) { meanA += a[i]; meanB += b[i]; }
-    meanA /= len; meanB /= len;
+    for (int i = 0; i < len; i++) {
+      meanA += a[i];
+      meanB += b[i];
+    }
+    meanA /= len;
+    meanB /= len;
     double num = 0, denA = 0, denB = 0;
     for (int i = 0; i < len; i++) {
       double da = a[i] - meanA;
@@ -116,9 +117,7 @@ public class KitAccuracyTest {
     return den > 1e-15 ? num / den : 0;
   }
 
-  /**
-   * Compute RMS error between two equal-length arrays after optimal gain scaling.
-   */
+  /** Compute RMS error between two equal-length arrays after optimal gain scaling. */
   private double rmsError(float[] reference, float[] candidate) {
     int len = Math.min(reference.length, candidate.length);
     if (len < 2) return 999;
@@ -146,9 +145,7 @@ public class KitAccuracyTest {
     }
   }
 
-  /**
-   * Find the sample offset (lag) that maximizes cross-correlation between two signals.
-   */
+  /** Find the sample offset (lag) that maximizes cross-correlation between two signals. */
   private int findBestLag(float[] a, float[] b, int maxLag) {
     int len = Math.min(a.length, b.length);
     int bestLag = 0;
@@ -221,8 +218,8 @@ public class KitAccuracyTest {
             if (ris != null) {
               String uniqueName = "ref909_" + i + "_" + new File(rp).getName();
               File tmp = new File(tempDir, uniqueName);
-              java.nio.file.Files.copy(ris, tmp.toPath(),
-                  java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+              java.nio.file.Files.copy(
+                  ris, tmp.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
               resolvedPaths[i] = tmp.getAbsolutePath();
             }
           }
@@ -245,13 +242,14 @@ public class KitAccuracyTest {
     vm.advanceTime(SAMPLE_RATE / 2);
 
     System.out.println("\n=== 909 Kit Accuracy Test ===");
-    System.out.printf("%-20s %-8s %-8s %-10s %-10s %-8s %s%n",
+    System.out.printf(
+        "%-20s %-8s %-8s %-10s %-10s %-8s %s%n",
         "Sound", "OrigRMS", "EngRMS", "Correlation", "RMSErr", "Samples", "Result");
 
     for (int i = 0; i < count; i++) {
       if (resolvedPaths[i] == null) {
-        System.out.printf("%-20s %-8s %-8s %-10s %-10s %-8s SKIP%n",
-            names[i], "-", "-", "-", "-", "-");
+        System.out.printf(
+            "%-20s %-8s %-8s %-10s %-10s %-8s SKIP%n", names[i], "-", "-", "-", "-", "-");
         continue;
       }
 
@@ -260,7 +258,8 @@ public class KitAccuracyTest {
       try {
         original = AudioAnalyzer.loadWav(new File(resolvedPaths[i]));
       } catch (Exception e) {
-        System.out.printf("%-20s %-8s %-8s %-10s %-10s %-8s ERR: %s%n",
+        System.out.printf(
+            "%-20s %-8s %-8s %-10s %-10s %-8s ERR: %s%n",
             names[i], "-", "-", "-", "-", "-", e.getMessage());
         errors.add(names[i] + ": load failed - " + e.getMessage());
         continue;
@@ -281,13 +280,41 @@ public class KitAccuracyTest {
       bridge.setTrackType(i, 0);
       bridge.setMute(i, false);
       bridge.setTrackLevel(i, 1.0);
-      { org.chuck.core.ChuckArray _a_ = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_PITCH); if (_a_ != null) _a_.setFloat(i, 0.0); }
-      { org.chuck.core.ChuckArray _a_ = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_ATTACK); if (_a_ != null) _a_.setFloat(i, 0.001f); }
-      { org.chuck.core.ChuckArray _a_ = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_DECAY); if (_a_ != null) _a_.setFloat(i, 0.0f); }
-      { org.chuck.core.ChuckArray _a_ = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_SUSTAIN); if (_a_ != null) _a_.setFloat(i, 1.0f); }
-      { org.chuck.core.ChuckArray _a_ = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_RELEASE); if (_a_ != null) _a_.setFloat(i, 0.001f); }
-      { org.chuck.core.ChuckArray _a_ = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_DELAY_SEND); if (_a_ != null) _a_.setFloat(i, 0.0f); }
-      { org.chuck.core.ChuckArray _a_ = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_REVERB_SEND); if (_a_ != null) _a_.setFloat(i, 0.0f); }
+      {
+        org.chuck.core.ChuckArray _a_ =
+            (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_PITCH);
+        if (_a_ != null) _a_.setFloat(i, 0.0);
+      }
+      {
+        org.chuck.core.ChuckArray _a_ =
+            (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_ATTACK);
+        if (_a_ != null) _a_.setFloat(i, 0.001f);
+      }
+      {
+        org.chuck.core.ChuckArray _a_ =
+            (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_DECAY);
+        if (_a_ != null) _a_.setFloat(i, 0.0f);
+      }
+      {
+        org.chuck.core.ChuckArray _a_ =
+            (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_SUSTAIN);
+        if (_a_ != null) _a_.setFloat(i, 1.0f);
+      }
+      {
+        org.chuck.core.ChuckArray _a_ =
+            (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_RELEASE);
+        if (_a_ != null) _a_.setFloat(i, 0.001f);
+      }
+      {
+        org.chuck.core.ChuckArray _a_ =
+            (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_DELAY_SEND);
+        if (_a_ != null) _a_.setFloat(i, 0.0f);
+      }
+      {
+        org.chuck.core.ChuckArray _a_ =
+            (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_REVERB_SEND);
+        if (_a_ != null) _a_.setFloat(i, 0.0f);
+      }
 
       // Mute all other tracks
       for (int t = 0; t < BridgeContract.TRACKS; t++) {
@@ -326,11 +353,15 @@ public class KitAccuracyTest {
       float[] engineOut;
       if (engineWav.exists() && engineWav.length() > 44) {
         engineOut = AudioAnalyzer.loadWav(engineWav);
-        System.out.printf("  Original: RMS=%.6f peak=%.6f len=%d%n", originalRms[i], peak(original), original.length);
-        System.out.printf("  Engine:   RMS=%.6f peak=%.6f len=%d%n", rms(engineOut), peak(engineOut), engineOut.length);
+        System.out.printf(
+            "  Original: RMS=%.6f peak=%.6f len=%d%n",
+            originalRms[i], peak(original), original.length);
+        System.out.printf(
+            "  Engine:   RMS=%.6f peak=%.6f len=%d%n",
+            rms(engineOut), peak(engineOut), engineOut.length);
       } else {
-        System.out.printf("%-20s %-8s %-8s %-10s %-10s %-8s NO OUTPUT%n",
-            names[i], "-", "-", "-", "-", "-");
+        System.out.printf(
+            "%-20s %-8s %-8s %-10s %-10s %-8s NO OUTPUT%n", names[i], "-", "-", "-", "-", "-");
         errors.add(names[i] + ": engine produced no output WAV");
         continue;
       }
@@ -384,7 +415,8 @@ public class KitAccuracyTest {
 
         bestErrors[i] = rmsError(origSlice, engSlice);
         correlations[i] = correlation(origSlice, engSlice);
-        System.out.printf("  DIAG: aligned compLen=%d fineLag=%d correlation=%.4f rmsError=%.6f%n",
+        System.out.printf(
+            "  DIAG: aligned compLen=%d fineLag=%d correlation=%.4f rmsError=%.6f%n",
             origSlice.length, fineLag, correlations[i], bestErrors[i]);
       }
 
@@ -396,13 +428,22 @@ public class KitAccuracyTest {
       else if (passed[i]) result = "PASS";
       else result = "FAIL";
 
-      assertTrue(isSilence || correlations[i] > 0.8,
-          names[i] + ": correlation=" + String.format("%.4f", correlations[i])
+      assertTrue(
+          isSilence || correlations[i] > 0.8,
+          names[i]
+              + ": correlation="
+              + String.format("%.4f", correlations[i])
               + " too low (expected >0.8)");
 
-      System.out.printf("%-20s %-8.4f %-8.4f %-10.4f %-10.6f %-8d %s%n",
-          names[i], originalRms[i], engineRms[i],
-          correlations[i], bestErrors[i], sampleCounts[i], result);
+      System.out.printf(
+          "%-20s %-8.4f %-8.4f %-10.4f %-10.6f %-8d %s%n",
+          names[i],
+          originalRms[i],
+          engineRms[i],
+          correlations[i],
+          bestErrors[i],
+          sampleCounts[i],
+          result);
     }
 
     // Summary
@@ -426,7 +467,8 @@ public class KitAccuracyTest {
 
     int tested = count - skipCount;
     if (tested > 0) {
-      assertTrue(failCount <= tested * 0.3,
+      assertTrue(
+          failCount <= tested * 0.3,
           failCount + "/" + tested + " 909 sounds failed correlation check (threshold: 30%)");
     }
     System.out.println("\n909 Accuracy test: " + passCount + "/" + tested + " passed.");
@@ -473,8 +515,8 @@ public class KitAccuracyTest {
             if (ris != null) {
               String uniqueName = "ref_" + i + "_" + new File(rp).getName();
               File tmp = new File(tempDir, uniqueName);
-              java.nio.file.Files.copy(ris, tmp.toPath(),
-                  java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+              java.nio.file.Files.copy(
+                  ris, tmp.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
               resolvedPaths[i] = tmp.getAbsolutePath();
             }
           }
@@ -500,13 +542,14 @@ public class KitAccuracyTest {
     vm.advanceTime(SAMPLE_RATE / 2);
 
     System.out.println("=== 808 Kit Accuracy Test ===");
-    System.out.printf("%-20s %-8s %-8s %-10s %-10s %-8s %s%n",
+    System.out.printf(
+        "%-20s %-8s %-8s %-10s %-10s %-8s %s%n",
         "Sound", "OrigRMS", "EngRMS", "Correlation", "RMSErr", "Samples", "Result");
 
     for (int i = 0; i < count; i++) {
       if (resolvedPaths[i] == null) {
-        System.out.printf("%-20s %-8s %-8s %-10s %-10s %-8s SKIP%n",
-            names[i], "-", "-", "-", "-", "-");
+        System.out.printf(
+            "%-20s %-8s %-8s %-10s %-10s %-8s SKIP%n", names[i], "-", "-", "-", "-", "-");
         continue;
       }
 
@@ -515,7 +558,8 @@ public class KitAccuracyTest {
       try {
         original = AudioAnalyzer.loadWav(new File(resolvedPaths[i]));
       } catch (Exception e) {
-        System.out.printf("%-20s %-8s %-8s %-10s %-10s %-8s ERR: %s%n",
+        System.out.printf(
+            "%-20s %-8s %-8s %-10s %-10s %-8s ERR: %s%n",
             names[i], "-", "-", "-", "-", "-", e.getMessage());
         errors.add(names[i] + ": load failed - " + e.getMessage());
         continue;
@@ -538,13 +582,41 @@ public class KitAccuracyTest {
       bridge.setMute(i, false);
       bridge.setTrackLevel(i, 1.0);
       // Kit ADSR/pitch/delay/reverb via direct ChuckArray access (no bridge setters)
-      { org.chuck.core.ChuckArray _a_ = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_PITCH); if (_a_ != null) _a_.setFloat(i, 0.0); }
-      { org.chuck.core.ChuckArray _a_ = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_ATTACK); if (_a_ != null) _a_.setFloat(i, 0.001f); }
-      { org.chuck.core.ChuckArray _a_ = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_DECAY); if (_a_ != null) _a_.setFloat(i, 0.0f); }
-      { org.chuck.core.ChuckArray _a_ = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_SUSTAIN); if (_a_ != null) _a_.setFloat(i, 1.0f); }
-      { org.chuck.core.ChuckArray _a_ = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_RELEASE); if (_a_ != null) _a_.setFloat(i, 0.001f); }
-      { org.chuck.core.ChuckArray _a_ = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_DELAY_SEND); if (_a_ != null) _a_.setFloat(i, 0.0f); }
-      { org.chuck.core.ChuckArray _a_ = (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_REVERB_SEND); if (_a_ != null) _a_.setFloat(i, 0.0f); }
+      {
+        org.chuck.core.ChuckArray _a_ =
+            (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_PITCH);
+        if (_a_ != null) _a_.setFloat(i, 0.0);
+      }
+      {
+        org.chuck.core.ChuckArray _a_ =
+            (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_ATTACK);
+        if (_a_ != null) _a_.setFloat(i, 0.001f);
+      }
+      {
+        org.chuck.core.ChuckArray _a_ =
+            (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_DECAY);
+        if (_a_ != null) _a_.setFloat(i, 0.0f);
+      }
+      {
+        org.chuck.core.ChuckArray _a_ =
+            (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_SUSTAIN);
+        if (_a_ != null) _a_.setFloat(i, 1.0f);
+      }
+      {
+        org.chuck.core.ChuckArray _a_ =
+            (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_RELEASE);
+        if (_a_ != null) _a_.setFloat(i, 0.001f);
+      }
+      {
+        org.chuck.core.ChuckArray _a_ =
+            (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_DELAY_SEND);
+        if (_a_ != null) _a_.setFloat(i, 0.0f);
+      }
+      {
+        org.chuck.core.ChuckArray _a_ =
+            (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_REVERB_SEND);
+        if (_a_ != null) _a_.setFloat(i, 0.0f);
+      }
 
       // Mute all other tracks
       for (int t = 0; t < BridgeContract.TRACKS; t++) {
@@ -594,18 +666,25 @@ public class KitAccuracyTest {
       float[] engineOut;
       if (engineWav.exists() && engineWav.length() > 44) {
         engineOut = AudioAnalyzer.loadWav(engineWav);
-        System.out.printf("  Original: RMS=%.6f peak=%.6f len=%d%n", originalRms[i], peak(original), original.length);
-        System.out.printf("  Engine:   RMS=%.6f peak=%.6f len=%d%n", rms(engineOut), peak(engineOut), engineOut.length);
+        System.out.printf(
+            "  Original: RMS=%.6f peak=%.6f len=%d%n",
+            originalRms[i], peak(original), original.length);
+        System.out.printf(
+            "  Engine:   RMS=%.6f peak=%.6f len=%d%n",
+            rms(engineOut), peak(engineOut), engineOut.length);
         // DIAG: scan engine output for signal energy in 100ms windows
         if (i == 0) {
-          System.out.println("  DIAG: max engine sample=" + peak(engineOut) + " totalLen=" + engineOut.length);
+          System.out.println(
+              "  DIAG: max engine sample=" + peak(engineOut) + " totalLen=" + engineOut.length);
           int windowSamples = SAMPLE_RATE / 10; // 100ms windows
           int windows = engineOut.length / windowSamples;
           System.out.println("  DIAG: Energy per 100ms window (" + windows + " windows):");
           for (int w = 0; w < windows; w++) {
             double winRms = 0;
             double winPeak = 0;
-            for (int s = w * windowSamples; s < (w + 1) * windowSamples && s < engineOut.length; s++) {
+            for (int s = w * windowSamples;
+                s < (w + 1) * windowSamples && s < engineOut.length;
+                s++) {
               double a = Math.abs(engineOut[s]);
               winRms += a * a;
               if (a > winPeak) winPeak = a;
@@ -621,17 +700,27 @@ public class KitAccuracyTest {
           double maxVal = -1;
           for (int di = 0; di < engineOut.length; di++) {
             double a = Math.abs(engineOut[di]);
-            if (a > maxVal) { maxVal = a; maxIdx = di; }
+            if (a > maxVal) {
+              maxVal = a;
+              maxIdx = di;
+            }
           }
-          System.out.println("  DIAG: max sample at idx=" + maxIdx + " (~" + (maxIdx * 1000L / SAMPLE_RATE) + "ms)");
+          System.out.println(
+              "  DIAG: max sample at idx="
+                  + maxIdx
+                  + " (~"
+                  + (maxIdx * 1000L / SAMPLE_RATE)
+                  + "ms)");
           System.out.println("  DIAG: samples around max:");
-          for (int di = Math.max(0, maxIdx - 10); di < Math.min(engineOut.length, maxIdx + 90); di++) {
+          for (int di = Math.max(0, maxIdx - 10);
+              di < Math.min(engineOut.length, maxIdx + 90);
+              di++) {
             System.out.printf("  eng[%5d] = %.6f%n", di, engineOut[di]);
           }
         }
       } else {
-        System.out.printf("%-20s %-8s %-8s %-10s %-10s %-8s NO OUTPUT%n",
-            names[i], "-", "-", "-", "-", "-");
+        System.out.printf(
+            "%-20s %-8s %-8s %-10s %-10s %-8s NO OUTPUT%n", names[i], "-", "-", "-", "-", "-");
         errors.add(names[i] + ": engine produced no output WAV");
         continue;
       }
@@ -693,7 +782,8 @@ public class KitAccuracyTest {
 
         bestErrors[i] = rmsError(origSlice, engSlice);
         correlations[i] = correlation(origSlice, engSlice);
-        System.out.printf("  DIAG: aligned compLen=%d fineLag=%d correlation=%.4f rmsError=%.6f%n",
+        System.out.printf(
+            "  DIAG: aligned compLen=%d fineLag=%d correlation=%.4f rmsError=%.6f%n",
             origSlice.length, fineLag, correlations[i], bestErrors[i]);
       }
 
@@ -707,13 +797,22 @@ public class KitAccuracyTest {
       else if (passed[i]) result = "PASS";
       else result = "FAIL";
 
-      assertTrue(isSilence || correlations[i] > 0.8,
-          names[i] + ": correlation=" + String.format("%.4f", correlations[i])
+      assertTrue(
+          isSilence || correlations[i] > 0.8,
+          names[i]
+              + ": correlation="
+              + String.format("%.4f", correlations[i])
               + " too low (expected >0.8)");
 
-      System.out.printf("%-20s %-8.4f %-8.4f %-10.4f %-10.6f %-8d %s%n",
-          names[i], originalRms[i], engineRms[i],
-          correlations[i], bestErrors[i], sampleCounts[i], result);
+      System.out.printf(
+          "%-20s %-8.4f %-8.4f %-10.4f %-10.6f %-8d %s%n",
+          names[i],
+          originalRms[i],
+          engineRms[i],
+          correlations[i],
+          bestErrors[i],
+          sampleCounts[i],
+          result);
     }
 
     // Summary
@@ -738,7 +837,8 @@ public class KitAccuracyTest {
     // Fail the test if more than 30% of non-skipped sounds fail
     int tested = count - skipCount;
     if (tested > 0) {
-      assertTrue(failCount <= tested * 0.3,
+      assertTrue(
+          failCount <= tested * 0.3,
           failCount + "/" + tested + " sounds failed correlation check (threshold: 30%)");
     }
     System.out.println("\nAccuracy test: " + passCount + "/" + tested + " passed.");

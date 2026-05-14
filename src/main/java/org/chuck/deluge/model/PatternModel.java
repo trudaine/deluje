@@ -12,9 +12,9 @@ public class PatternModel {
   private String category = "MELODIC";
 
   /**
-   * A snapshot of a single clip/track within this pattern. Holds the full step grid,
-   * automation data, row sound params, and kit params so the pattern can be saved to
-   * disk and reloaded independently of the active project.
+   * A snapshot of a single clip/track within this pattern. Holds the full step grid, automation
+   * data, row sound params, and kit params so the pattern can be saved to disk and reloaded
+   * independently of the active project.
    */
   public static class ClipSnapshot {
     private int trackIndex;
@@ -40,11 +40,12 @@ public class PatternModel {
     }
 
     /**
-     * Build a ClipSnapshot from an in-memory ClipModel and track info.
-     * Deep-copies all step, automation, row sound param, and kit param data.
+     * Build a ClipSnapshot from an in-memory ClipModel and track info. Deep-copies all step,
+     * automation, row sound param, and kit param data.
      */
     public static ClipSnapshot fromClipModel(ClipModel clip, int trackIndex, String trackName) {
-      ClipSnapshot snap = new ClipSnapshot(trackIndex, trackName, clip.getRowCount(), clip.getStepCount());
+      ClipSnapshot snap =
+          new ClipSnapshot(trackIndex, trackName, clip.getRowCount(), clip.getStepCount());
       snap.colourHex = clip.getColor();
       // Deep-copy grid
       for (int r = 0; r < clip.getRowCount(); r++) {
@@ -82,9 +83,10 @@ public class PatternModel {
       // Clear and rebuild grid
       for (int r = 0; r < rows; r++) {
         for (int s = 0; s < steps; s++) {
-          StepData data = (r < rowCount && s < stepCount && r < grid.size() && s < grid.get(r).size())
-              ? grid.get(r).get(s)
-              : StepData.empty();
+          StepData data =
+              (r < rowCount && s < stepCount && r < grid.size() && s < grid.get(r).size())
+                  ? grid.get(r).get(s)
+                  : StepData.empty();
           clip.setStep(r, s, data);
         }
       }
@@ -110,26 +112,85 @@ public class PatternModel {
 
     // ── Getters / Setters ──
 
-    public int getTrackIndex() { return trackIndex; }
-    public void setTrackIndex(int v) { this.trackIndex = v; }
-    public String getTrackName() { return trackName; }
-    public void setTrackName(String v) { this.trackName = v; }
-    public int getRowCount() { return rowCount; }
-    public void setRowCount(int v) { this.rowCount = v; }
-    public int getStepCount() { return stepCount; }
-    public void setStepCount(int v) { this.stepCount = v; }
-    public List<List<StepData>> getGrid() { return grid; }
-    public Map<String, float[]> getAutomationData() { return automationData; }
-    public Map<Integer, Map<String, Float>> getRowSoundParams() { return rowSoundParams; }
-    public Map<String, Float> getKitParams() { return kitParams; }
-    public String getInstrumentSlot() { return instrumentSlot; }
-    public void setInstrumentSlot(String v) { this.instrumentSlot = v; }
-    public float getVolumeOverride() { return volumeOverride; }
-    public void setVolumeOverride(float v) { this.volumeOverride = v; }
-    public float getPanOverride() { return panOverride; }
-    public void setPanOverride(float v) { this.panOverride = v; }
-    public String getColourHex() { return colourHex; }
-    public void setColourHex(String v) { this.colourHex = v; }
+    public int getTrackIndex() {
+      return trackIndex;
+    }
+
+    public void setTrackIndex(int v) {
+      this.trackIndex = v;
+    }
+
+    public String getTrackName() {
+      return trackName;
+    }
+
+    public void setTrackName(String v) {
+      this.trackName = v;
+    }
+
+    public int getRowCount() {
+      return rowCount;
+    }
+
+    public void setRowCount(int v) {
+      this.rowCount = v;
+    }
+
+    public int getStepCount() {
+      return stepCount;
+    }
+
+    public void setStepCount(int v) {
+      this.stepCount = v;
+    }
+
+    public List<List<StepData>> getGrid() {
+      return grid;
+    }
+
+    public Map<String, float[]> getAutomationData() {
+      return automationData;
+    }
+
+    public Map<Integer, Map<String, Float>> getRowSoundParams() {
+      return rowSoundParams;
+    }
+
+    public Map<String, Float> getKitParams() {
+      return kitParams;
+    }
+
+    public String getInstrumentSlot() {
+      return instrumentSlot;
+    }
+
+    public void setInstrumentSlot(String v) {
+      this.instrumentSlot = v;
+    }
+
+    public float getVolumeOverride() {
+      return volumeOverride;
+    }
+
+    public void setVolumeOverride(float v) {
+      this.volumeOverride = v;
+    }
+
+    public float getPanOverride() {
+      return panOverride;
+    }
+
+    public void setPanOverride(float v) {
+      this.panOverride = v;
+    }
+
+    public String getColourHex() {
+      return colourHex;
+    }
+
+    public void setColourHex(String v) {
+      this.colourHex = v;
+    }
   }
 
   private final List<ClipSnapshot> clipSnapshots = new ArrayList<>();
@@ -139,17 +200,37 @@ public class PatternModel {
     this.name = name;
   }
 
-  public String getId() { return id; }
-  public void setId(String id) { this.id = id; }
-  public String getName() { return name; }
-  public void setName(String name) { this.name = name; }
+  public String getId() {
+    return id;
+  }
 
-  public String getCategory() { return category; }
-  public void setCategory(String category) { this.category = category; }
+  public void setId(String id) {
+    this.id = id;
+  }
 
-  public List<ClipSnapshot> getClipSnapshots() { return clipSnapshots; }
+  public String getName() {
+    return name;
+  }
 
-  public void addClipSnapshot(ClipSnapshot snap) { clipSnapshots.add(snap); }
+  public void setName(String name) {
+    this.name = name;
+  }
+
+  public String getCategory() {
+    return category;
+  }
+
+  public void setCategory(String category) {
+    this.category = category;
+  }
+
+  public List<ClipSnapshot> getClipSnapshots() {
+    return clipSnapshots;
+  }
+
+  public void addClipSnapshot(ClipSnapshot snap) {
+    clipSnapshots.add(snap);
+  }
 
   public void removeClipSnapshot(int index) {
     if (index >= 0 && index < clipSnapshots.size()) clipSnapshots.remove(index);

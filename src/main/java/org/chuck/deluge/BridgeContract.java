@@ -6,41 +6,49 @@ import org.chuck.deluge.model.AudioTrackModel;
 import org.chuck.deluge.model.SoundDrum;
 
 /**
- * Typed contract between the Java Swing UI and the ChucK audio engine — every global that
- * either side reads or writes is declared, created, and registered here.
+ * Typed contract between the Java Swing UI and the ChucK audio engine — every global that either
+ * side reads or writes is declared, created, and registered here.
  *
  * <h2>Architecture</h2>
- * This class serves as the single source of truth for all shared state. The UI writes
- * step data, track parameters, and transport controls into primitive Java arrays
- * and scalar globals; the engine's shreds (sporked by {@code DelugeEngineDSL}) read them every
- * tick via {@link ChuckArray} wrappers that point to these same primitive arrays.
- * No locks are needed because the UI writes between ticks and the engine reads at
- * tick boundaries.
+ *
+ * This class serves as the single source of truth for all shared state. The UI writes step data,
+ * track parameters, and transport controls into primitive Java arrays and scalar globals; the
+ * engine's shreds (sporked by {@code DelugeEngineDSL}) read them every tick via {@link ChuckArray}
+ * wrappers that point to these same primitive arrays. No locks are needed because the UI writes
+ * between ticks and the engine reads at tick boundaries.
  *
  * <h2>Inner Data Classes</h2>
+ *
  * The arrays are grouped into logical inner static classes to keep the file manageable:
+ *
  * <ul>
- *   <li>{@link StepData} — 22 per-step arrays of size PATTERN_SIZE (pattern, velocity, gate, pitch, ...)</li>
- *   <li>{@link TrackData} — per-track arrays (type, level, mute, filter, length, clip state)</li>
- *   <li>{@link SynthData} — per-track synth parameters (osc mix, unison, FM feedback, envelopes, LFO)</li>
- *   <li>{@link KitData} — per-track kit parameters (ADSR, pitch, reverse, mute group, EQ, FX)</li>
- *   <li>{@link AudioData} — per-track audio clip state (record, play, loop, rate)</li>
+ *   <li>{@link StepData} — 22 per-step arrays of size PATTERN_SIZE (pattern, velocity, gate, pitch,
+ *       ...)
+ *   <li>{@link TrackData} — per-track arrays (type, level, mute, filter, length, clip state)
+ *   <li>{@link SynthData} — per-track synth parameters (osc mix, unison, FM feedback, envelopes,
+ *       LFO)
+ *   <li>{@link KitData} — per-track kit parameters (ADSR, pitch, reverse, mute group, EQ, FX)
+ *   <li>{@link AudioData} — per-track audio clip state (record, play, loop, rate)
  * </ul>
+ *
  * Each inner class has its own {@code initDefaults()} and {@code register(ChuckVM)} methods.
  *
  * <h2>Dimensions</h2>
+ *
  * <ul>
- *   <li>{@link #TRACKS} — 64 (configurable via {@code deluge.tracks} system property)</li>
- *   <li>{@link #STEPS} — 192 (max step capacity per clip, matching real Deluge hardware)</li>
- *   <li>{@link #PATTERN_SIZE} = {@code TRACKS × STEPS} = 12 288 — sizes all 22 step-data arrays</li>
+ *   <li>{@link #TRACKS} — 64 (configurable via {@code deluge.tracks} system property)
+ *   <li>{@link #STEPS} — 192 (max step capacity per clip, matching real Deluge hardware)
+ *   <li>{@link #PATTERN_SIZE} = {@code TRACKS × STEPS} = 12 288 — sizes all 22 step-data arrays
  * </ul>
  *
  * <h2>Array Layout</h2>
- * Step-data arrays use a flat stride layout: {@code index = track * STEPS + step}.
- * All accessor methods ({@link #getStep}, {@link #setPitch}, etc.) follow this convention.
- * Track-level arrays (level, mute, filter, etc.) are indexed directly by {@code track}.
+ *
+ * Step-data arrays use a flat stride layout: {@code index = track * STEPS + step}. All accessor
+ * methods ({@link #getStep}, {@link #setPitch}, etc.) follow this convention. Track-level arrays
+ * (level, mute, filter, etc.) are indexed directly by {@code track}.
  *
  * <h2>Global Name Conventions (used in the ChucK VM)</h2>
+ *
  * <table>
  *   <caption>Global naming groups</caption>
  *   <tr><td>{@code g_*}</td><td>Scalar globals (BPM, play state, master volume)</td></tr>
@@ -55,22 +63,25 @@ import org.chuck.deluge.model.SoundDrum;
  * </table>
  *
  * <h2>Engine Internals (UGen buses)</h2>
- * The {@link #register} method also creates four {@code Gain} UGens that structure the
- * engine's audio graph:
+ *
+ * The {@link #register} method also creates four {@code Gain} UGens that structure the engine's
+ * audio graph:
+ *
  * <ol>
- *   <li>{@code g_delay_in} — kit/synth Pan2 sends → Echo → fxIn → dac</li>
- *   <li>{@code g_reverb_in} — kit/synth Pan2 sends → JCRev/FreeVerb/MVerb → fxIn → dac</li>
- *   <li>{@code g_synth_bus} — all synth voices → HPF → compressor → limiter → masterTap → dac</li>
- *   <li>{@code g_audio_bus} — all LiSa outputs → HPF → compressor → limiter → masterTap → dac</li>
- *   <li>{@code g_master_tap} — WvOut2 spliced in during export; direct pass-through otherwise</li>
+ *   <li>{@code g_delay_in} — kit/synth Pan2 sends → Echo → fxIn → dac
+ *   <li>{@code g_reverb_in} — kit/synth Pan2 sends → JCRev/FreeVerb/MVerb → fxIn → dac
+ *   <li>{@code g_synth_bus} — all synth voices → HPF → compressor → limiter → masterTap → dac
+ *   <li>{@code g_audio_bus} — all LiSa outputs → HPF → compressor → limiter → masterTap → dac
+ *   <li>{@code g_master_tap} — WvOut2 spliced in during export; direct pass-through otherwise
  * </ol>
  *
  * <h2>Lifecycle</h2>
- * 1. Constructed in the UI thread with all default values.
- * 2. {@link #register(ChuckVM)} called after the VM is created — registers all globals and UGens.
- * 3. On song load, the UI calls setter methods to copy model data into the arrays.
- * 4. {@code pushModelToBridge()} in {@code SwingDelugeApp} synchronises the full ProjectModel.
- * 5. The engine's shreds read these arrays on every tick event.
+ *
+ * 1. Constructed in the UI thread with all default values. 2. {@link #register(ChuckVM)} called
+ * after the VM is created — registers all globals and UGens. 3. On song load, the UI calls setter
+ * methods to copy model data into the arrays. 4. {@code pushModelToBridge()} in {@code
+ * SwingDelugeApp} synchronises the full ProjectModel. 5. The engine's shreds read these arrays on
+ * every tick event.
  *
  * @see org.chuck.deluge.engine.DelugeEngineDSL
  * @see org.chuck.deluge.ui.SwingDelugeApp
@@ -102,6 +113,7 @@ public final class BridgeContract {
   public static final String G_LAUNCH_QUEUE = "g_launch_queue";
   public static final String G_CLIP_PLAY_MODE = "g_clip_play_mode";
   public static final String G_QUEUE_STEP = "g_queue_step";
+  public static final String G_HI_FI_MODE = "g_hi_fi_mode";
   // ── Transport & Master ─────────────────────────────────────────────────
   public static final String G_BPM = "g_bpm";
   public static final String G_SWING = "g_swing";
@@ -191,12 +203,14 @@ public final class BridgeContract {
   public static final String G_MAX_VOICES = "g_max_voices";
   public static final String G_ENV = "g_env";
   // ── Hard-wired envelope-to-DSP modulation depths (per-track floats) ──
-  public static final String G_ENV2_FILTER_DEPTH = "g_env2_filter_depth";   // env[1] -> filter cutoff, 0..1
-  public static final String G_ENV3_PITCH_DEPTH = "g_env3_pitch_depth";     // env[2] -> pitch, 0..1
-  public static final String G_ENV3_VOLUME_DEPTH = "g_env3_volume_depth";   // env[2] -> volume, 0..1
-  public static final String G_ENV4_FILTER_DEPTH = "g_env4_filter_depth";   // env[3] -> filter cutoff, 0..1
-  public static final String G_ENV4_PITCH_DEPTH = "g_env4_pitch_depth";     // env[3] -> pitch, 0..1
-  public static final String G_ENV4_VOLUME_DEPTH = "g_env4_volume_depth";   // env[3] -> volume, 0..1
+  public static final String G_ENV2_FILTER_DEPTH =
+      "g_env2_filter_depth"; // env[1] -> filter cutoff, 0..1
+  public static final String G_ENV3_PITCH_DEPTH = "g_env3_pitch_depth"; // env[2] -> pitch, 0..1
+  public static final String G_ENV3_VOLUME_DEPTH = "g_env3_volume_depth"; // env[2] -> volume, 0..1
+  public static final String G_ENV4_FILTER_DEPTH =
+      "g_env4_filter_depth"; // env[3] -> filter cutoff, 0..1
+  public static final String G_ENV4_PITCH_DEPTH = "g_env4_pitch_depth"; // env[3] -> pitch, 0..1
+  public static final String G_ENV4_VOLUME_DEPTH = "g_env4_volume_depth"; // env[3] -> volume, 0..1
   public static final String G_LFO_RATE = "g_lfo_rate";
   public static final String G_LFO_TYPE = "g_lfo_type";
   public static final String G_LFO_DEPTH = "g_lfo_depth";
@@ -274,9 +288,9 @@ public final class BridgeContract {
   public static final String G_SP_EQ_BASS_FREQ = "g_sp_eq_bass_freq";
   public static final String G_SP_EQ_TREBLE_FREQ = "g_sp_eq_treble_freq";
   // ── Hardware character (user preferences) ─────────────────────────────────
-  public static final String G_MASTER_SATURATION = "g_masterSat";  // 0.0=off, 1.0=on
+  public static final String G_MASTER_SATURATION = "g_masterSat"; // 0.0=off, 1.0=on
   public static final String G_CHAR_FILTER_DRIVE = "g_charFilterDrive"; // 0.0=clean, 1.0=driven
-  public static final String G_BIT_CRUNCH = "g_bitCrunch";       // 0.0=off, 1.0=on (14-bit + dither)
+  public static final String G_BIT_CRUNCH = "g_bitCrunch"; // 0.0=off, 1.0=on (14-bit + dither)
   // ── MIDI Follow Mode ─────────────────────────────────────────────────────
   public static final String G_FOLLOW_ENABLED = "g_follow_enabled";
   public static final String G_FOLLOW_CH_A = "g_follow_ch_a";
@@ -803,11 +817,11 @@ public final class BridgeContract {
     final int[] retrigPhase = new int[TRACKS];
     final float[] waveIndex = new float[TRACKS];
     // Oscillator sample-playback params (per-track)
-    final int[] osc1LoopMode = new int[TRACKS];          // 0=off, 1=loop, 2=oneshot
+    final int[] osc1LoopMode = new int[TRACKS]; // 0=off, 1=loop, 2=oneshot
     final int[] osc1Reversed = new int[TRACKS];
     final int[] osc1TimeStretch = new int[TRACKS];
     final float[] osc1TimeStretchAmount = new float[TRACKS];
-    final int[] osc1Cents = new int[TRACKS];             // -50 to 50
+    final int[] osc1Cents = new int[TRACKS]; // -50 to 50
     final int[] osc1LinearInterpolation = new int[TRACKS];
     final int[] osc2LoopMode = new int[TRACKS];
     final int[] osc2Reversed = new int[TRACKS];
@@ -815,7 +829,7 @@ public final class BridgeContract {
     final float[] osc2TimeStretchAmount = new float[TRACKS];
     final int[] osc2Cents = new int[TRACKS];
     final int[] osc2LinearInterpolation = new int[TRACKS];
-    final int[] osc2Transpose = new int[TRACKS];         // -24 to 24
+    final int[] osc2Transpose = new int[TRACKS]; // -24 to 24
     final int[] oscillatorSync = new int[TRACKS];
     // Patch cable arrays: each track has up to MAX_CABLES_PER_TRACK cables, indexed by
     // pcCount[t], pcSource[t * MAX_CABLES_PER_TRACK + c], etc.
@@ -1239,8 +1253,6 @@ public final class BridgeContract {
     }
   }
 
-
-
   // ═══════════════════════════════════════════════════════════════════════
   //  Inner Data-Class Instances
   // ═══════════════════════════════════════════════════════════════════════
@@ -1326,6 +1338,7 @@ public final class BridgeContract {
 
   private double bpm = 120.0;
   private double swing = 0.5;
+  private int hiFiMode = 0; // 0 = legacy, 1 = high fidelity firmware port
   // ── MIDI Follow Mode scalars ──
   private int followEnabled = 0;
   private int followChA = 0, followChB = 1, followChC = 2;
@@ -1357,6 +1370,7 @@ public final class BridgeContract {
     this.vm = vm;
     vm.setGlobalFloat(G_BPM, bpm);
     vm.setGlobalFloat(G_SWING, swing);
+    vm.setGlobalInt(G_HI_FI_MODE, (long) hiFiMode);
     vm.setGlobalInt(G_PLAY, 0L);
     vm.setGlobalInt(G_CURRENT_STEP, -1L);
     vm.setGlobalFloat(G_MASTER_VOL, (double) masterVol);
@@ -1470,12 +1484,20 @@ public final class BridgeContract {
     }
   }
 
-  public ChuckVM getVm() { return vm; }
-  public ChuckArray patternArray() { return (ChuckArray) vm.getGlobalObject(G_PATTERN); }
+  public ChuckVM getVm() {
+    return vm;
+  }
+
+  public ChuckArray patternArray() {
+    return (ChuckArray) vm.getGlobalObject(G_PATTERN);
+  }
 
   // ── Step accessors ────────────────────────────────────────
 
-  public void setStep(int track, int sidx, boolean active) { step.pattern[track * STEPS + sidx] = active ? 1 : 0; }
+  public void setStep(int track, int sidx, boolean active) {
+    step.pattern[track * STEPS + sidx] = active ? 1 : 0;
+  }
+
   public void setStep(int track, int sidx, boolean active, int clipIdx) {
     if (clipIdx == 0) {
       step.pattern[track * STEPS + sidx] = active ? 1 : 0;
@@ -1484,9 +1506,19 @@ public final class BridgeContract {
       if (ca != null) ca.setInt(track * STEPS + sidx, active ? 1L : 0L);
     }
   }
-  public void clearAllSteps() { for (int i = 0; i < step.pattern.length; i++) step.pattern[i] = 0; }
-  public boolean getStep(int track, int sidx) { return step.pattern[track * STEPS + sidx] > 0; }
-  public void setVelocity(int track, int sidx, double val) { step.velocity[track * STEPS + sidx] = (float) Math.max(0.0, Math.min(1.0, val)); }
+
+  public void clearAllSteps() {
+    for (int i = 0; i < step.pattern.length; i++) step.pattern[i] = 0;
+  }
+
+  public boolean getStep(int track, int sidx) {
+    return step.pattern[track * STEPS + sidx] > 0;
+  }
+
+  public void setVelocity(int track, int sidx, double val) {
+    step.velocity[track * STEPS + sidx] = (float) Math.max(0.0, Math.min(1.0, val));
+  }
+
   public void setVelocity(int track, int sidx, double val, int clipIdx) {
     float clamped = (float) Math.max(0.0, Math.min(1.0, val));
     if (clipIdx == 0) {
@@ -1496,17 +1528,50 @@ public final class BridgeContract {
       if (ca != null) ca.setFloat(track * STEPS + sidx, val);
     }
   }
-  public double getVelocity(int track, int sidx) { return step.velocity[track * STEPS + sidx]; }
-  public void setGate(int track, int sidx, double val) { step.gate[track * STEPS + sidx] = (float) val; }
-  public double getGate(int track, int sidx) { return step.gate[track * STEPS + sidx]; }
-  public void setPitch(int track, int sidx, int p) { step.pitch[track * STEPS + sidx] = p; }
-  public int getPitch(int track, int sidx) { return step.pitch[track * STEPS + sidx]; }
-  public void setStepProbability(int track, int sidx, double val) { step.probability[track * STEPS + sidx] = (float) val; }
-  public double getStepProbability(int track, int sidx) { return step.probability[track * STEPS + sidx]; }
-  public void setIterance(int track, int sidx, int val) { step.iterance[track * STEPS + sidx] = Math.max(0, Math.min(3, val)); }
-  public int getIterance(int track, int sidx) { return step.iterance[track * STEPS + sidx]; }
-  public void setStepFill(int track, int sidx, double val) { step.fill[track * STEPS + sidx] = (float) Math.max(0.0, Math.min(1.0, val)); }
-  public double getStepFill(int track, int sidx) { return step.fill[track * STEPS + sidx]; }
+
+  public double getVelocity(int track, int sidx) {
+    return step.velocity[track * STEPS + sidx];
+  }
+
+  public void setGate(int track, int sidx, double val) {
+    step.gate[track * STEPS + sidx] = (float) val;
+  }
+
+  public double getGate(int track, int sidx) {
+    return step.gate[track * STEPS + sidx];
+  }
+
+  public void setPitch(int track, int sidx, int p) {
+    step.pitch[track * STEPS + sidx] = p;
+  }
+
+  public int getPitch(int track, int sidx) {
+    return step.pitch[track * STEPS + sidx];
+  }
+
+  public void setStepProbability(int track, int sidx, double val) {
+    step.probability[track * STEPS + sidx] = (float) val;
+  }
+
+  public double getStepProbability(int track, int sidx) {
+    return step.probability[track * STEPS + sidx];
+  }
+
+  public void setIterance(int track, int sidx, int val) {
+    step.iterance[track * STEPS + sidx] = Math.max(0, Math.min(3, val));
+  }
+
+  public int getIterance(int track, int sidx) {
+    return step.iterance[track * STEPS + sidx];
+  }
+
+  public void setStepFill(int track, int sidx, double val) {
+    step.fill[track * STEPS + sidx] = (float) Math.max(0.0, Math.min(1.0, val));
+  }
+
+  public double getStepFill(int track, int sidx) {
+    return step.fill[track * STEPS + sidx];
+  }
 
   public ChuckArray getClipArray(String baseName, int clipIdx) {
     if (clipIdx <= 0) return (ChuckArray) vm.getGlobalObject(baseName);
@@ -1514,337 +1579,831 @@ public final class BridgeContract {
     Object obj = vm.getGlobalObject(name);
     if (obj instanceof ChuckArray ca) return ca;
     ChuckArray base = (ChuckArray) vm.getGlobalObject(baseName);
-    ChuckArray arr = "int".equals(base.elementTypeName) 
-        ? new ChuckArray(new int[PATTERN_SIZE]) 
-        : new ChuckArray(new float[PATTERN_SIZE]);
+    ChuckArray arr =
+        "int".equals(base.elementTypeName)
+            ? new ChuckArray(new int[PATTERN_SIZE])
+            : new ChuckArray(new float[PATTERN_SIZE]);
     vm.setGlobalObject(name, arr);
     return arr;
   }
 
-  public int getClipCount(int t) { return track.clipCount[t]; }
-  public void setClipCount(int t, int count) { track.clipCount[t] = count; }
-  public int getCurrentClip(int t) { return track.currentClip[t]; }
-  public void setCurrentClip(int t, int idx) { track.currentClip[t] = idx; }
-  public int getLaunchQueue(int t) { return track.launchQueue[t]; }
-  public void setLaunchQueue(int t, int clipIdx) { track.launchQueue[t] = clipIdx; }
+  public int getClipCount(int t) {
+    return track.clipCount[t];
+  }
+
+  public void setClipCount(int t, int count) {
+    track.clipCount[t] = count;
+  }
+
+  public int getCurrentClip(int t) {
+    return track.currentClip[t];
+  }
+
+  public void setCurrentClip(int t, int idx) {
+    track.currentClip[t] = idx;
+  }
+
+  public int getLaunchQueue(int t) {
+    return track.launchQueue[t];
+  }
+
+  public void setLaunchQueue(int t, int clipIdx) {
+    track.launchQueue[t] = clipIdx;
+  }
+
   public int getClipPlayMode(int t, int clipIdx) {
     if (clipIdx < 0 || clipIdx >= MAX_CLIPS_PER_TRACK) return 0;
     return track.clipPlayMode[t * MAX_CLIPS_PER_TRACK + clipIdx];
   }
+
   public void setClipPlayMode(int t, int clipIdx, int mode) {
     if (clipIdx >= 0 && clipIdx < MAX_CLIPS_PER_TRACK) {
       track.clipPlayMode[t * MAX_CLIPS_PER_TRACK + clipIdx] = mode;
     }
   }
+
   public void setClipPlayModeArray(int t, int[] modes) {
     if (modes == null) return;
     int max = Math.min(modes.length, MAX_CLIPS_PER_TRACK);
     System.arraycopy(modes, 0, track.clipPlayMode, t * MAX_CLIPS_PER_TRACK, max);
   }
-  public int getQueueStep() { return vm != null ? (int) vm.getGlobalInt(G_QUEUE_STEP) : 0; }
-  public void setQueueStep(int sidx) { if (vm != null) vm.setGlobalInt(G_QUEUE_STEP, (long) sidx); }
 
-  public void setStepFilter(int track, int sidx, double val) { step.stepFilter[track * STEPS + sidx] = (float) val; }
-  public double getStepFilter(int track, int sidx) { return step.stepFilter[track * STEPS + sidx]; }
-  public void setStepRes(int track, int sidx, double val) { step.stepRes[track * STEPS + sidx] = (float) val; }
-  public double getStepRes(int track, int sidx) { return step.stepRes[track * STEPS + sidx]; }
-  public void setStepPan(int track, int sidx, double val) { step.stepPan[track * STEPS + sidx] = (float) val; }
-  public double getStepPan(int track, int sidx) { return step.stepPan[track * STEPS + sidx]; }
-  public void setStepDelay(int track, int sidx, double val) { step.stepDelay[track * STEPS + sidx] = (float) val; }
-  public double getStepDelay(int track, int sidx) { return step.stepDelay[track * STEPS + sidx]; }
-  public void setStepReverb(int track, int sidx, double val) { step.stepReverb[track * STEPS + sidx] = (float) val; }
-  public double getStepReverb(int track, int sidx) { return step.stepReverb[track * STEPS + sidx]; }
-  public void setStepHpfFreq(int track, int sidx, double val) { step.stepHpfFreq[track * STEPS + sidx] = (float) val; }
-  public double getStepHpfFreq(int track, int sidx) { return step.stepHpfFreq[track * STEPS + sidx]; }
-  public void setStepHpfRes(int track, int sidx, double val) { step.stepHpfRes[track * STEPS + sidx] = (float) val; }
-  public double getStepHpfRes(int track, int sidx) { return step.stepHpfRes[track * STEPS + sidx]; }
-  public void setStepModRate(int track, int sidx, double val) { step.stepModRate[track * STEPS + sidx] = (float) val; }
-  public double getStepModRate(int track, int sidx) { return step.stepModRate[track * STEPS + sidx]; }
-  public void setStepModDepth(int track, int sidx, double val) { step.stepModDepth[track * STEPS + sidx] = (float) val; }
-  public double getStepModDepth(int track, int sidx) { return step.stepModDepth[track * STEPS + sidx]; }
-  public void setStepOscAVol(int track, int sidx, double val) { step.stepOscAVol[track * STEPS + sidx] = (float) val; }
-  public double getStepOscAVol(int track, int sidx) { return step.stepOscAVol[track * STEPS + sidx]; }
-  public void setStepOscBVol(int track, int sidx, double val) { step.stepOscBVol[track * STEPS + sidx] = (float) val; }
-  public double getStepOscBVol(int track, int sidx) { return step.stepOscBVol[track * STEPS + sidx]; }
-  public void setStepNoiseVol(int track, int sidx, double val) { step.stepNoiseVol[track * STEPS + sidx] = (float) val; }
-  public double getStepNoiseVol(int track, int sidx) { return step.stepNoiseVol[track * STEPS + sidx]; }
-  public void setStepPitch(int track, int sidx, double val) { step.stepPitch[track * STEPS + sidx] = (float) val; }
-  public void setStepVolume(int track, int sidx, double val) { step.stepVolume[track * STEPS + sidx] = (float) val; }
-  public void setStepEnv0Attack(int track, int sidx, double val) { step.stepEnv0Attack[track * STEPS + sidx] = (float) val; }
-  public void setStepEnv0Decay(int track, int sidx, double val) { step.stepEnv0Decay[track * STEPS + sidx] = (float) val; }
-  public void setStepEnv0Sustain(int track, int sidx, double val) { step.stepEnv0Sustain[track * STEPS + sidx] = (float) val; }
-  public void setStepEnv0Release(int track, int sidx, double val) { step.stepEnv0Release[track * STEPS + sidx] = (float) val; }
-  public void setStepEnv1Attack(int track, int sidx, double val) { step.stepEnv1Attack[track * STEPS + sidx] = (float) val; }
-  public void setStepEnv1Decay(int track, int sidx, double val) { step.stepEnv1Decay[track * STEPS + sidx] = (float) val; }
-  public void setStepEnv1Sustain(int track, int sidx, double val) { step.stepEnv1Sustain[track * STEPS + sidx] = (float) val; }
-  public void setStepEnv1Release(int track, int sidx, double val) { step.stepEnv1Release[track * STEPS + sidx] = (float) val; }
-  public void setStepEnv2Attack(int track, int sidx, double val) { step.stepEnv2Attack[track * STEPS + sidx] = (float) val; }
-  public void setStepEnv2Decay(int track, int sidx, double val) { step.stepEnv2Decay[track * STEPS + sidx] = (float) val; }
-  public void setStepEnv2Sustain(int track, int sidx, double val) { step.stepEnv2Sustain[track * STEPS + sidx] = (float) val; }
-  public void setStepEnv2Release(int track, int sidx, double val) { step.stepEnv2Release[track * STEPS + sidx] = (float) val; }
-  public void setStepEnv3Attack(int track, int sidx, double val) { step.stepEnv3Attack[track * STEPS + sidx] = (float) val; }
-  public void setStepEnv3Decay(int track, int sidx, double val) { step.stepEnv3Decay[track * STEPS + sidx] = (float) val; }
-  public void setStepEnv3Sustain(int track, int sidx, double val) { step.stepEnv3Sustain[track * STEPS + sidx] = (float) val; }
-  public void setStepEnv3Release(int track, int sidx, double val) { step.stepEnv3Release[track * STEPS + sidx] = (float) val; }
-  public void setStepLfo0Rate(int track, int sidx, double val) { step.stepLfo0Rate[track * STEPS + sidx] = (float) val; }
-  public void setStepLfo0Depth(int track, int sidx, double val) { step.stepLfo0Depth[track * STEPS + sidx] = (float) val; }
-  public void setStepLfo1Rate(int track, int sidx, double val) { step.stepLfo1Rate[track * STEPS + sidx] = (float) val; }
-  public void setStepLfo1Depth(int track, int sidx, double val) { step.stepLfo1Depth[track * STEPS + sidx] = (float) val; }
-  public void setStepLfo2Rate(int track, int sidx, double val) { step.stepLfo2Rate[track * STEPS + sidx] = (float) val; }
-  public void setStepLfo2Depth(int track, int sidx, double val) { step.stepLfo2Depth[track * STEPS + sidx] = (float) val; }
-  public void setStepLfo3Rate(int track, int sidx, double val) { step.stepLfo3Rate[track * STEPS + sidx] = (float) val; }
-  public void setStepLfo3Depth(int track, int sidx, double val) { step.stepLfo3Depth[track * STEPS + sidx] = (float) val; }
-  public void setStepArpRate(int track, int sidx, double val) { step.stepArpRate[track * STEPS + sidx] = (float) val; }
-  public void setStepArpGate(int track, int sidx, double val) { step.stepArpGate[track * STEPS + sidx] = (float) val; }
-  public void setStepFmAmount(int track, int sidx, double val) { step.stepFmAmount[track * STEPS + sidx] = (float) val; }
-  public void setStepFmRatio(int track, int sidx, double val) { step.stepFmRatio[track * STEPS + sidx] = (float) val; }
-  public void setStepModFxFeedback(int track, int sidx, double val) { step.stepModFxFeedback[track * STEPS + sidx] = (float) val; }
-  public void setStepCompAttack(int track, int sidx, double val) { step.stepCompAttack[track * STEPS + sidx] = (float) val; }
-  public void setStepCompRelease(int track, int sidx, double val) { step.stepCompRelease[track * STEPS + sidx] = (float) val; }
-  public void setStepPortamento(int track, int sidx, double val) { step.stepPortamento[track * STEPS + sidx] = (float) val; }
-  public void setStepStutter(int track, int sidx, double val) { step.stepStutter[track * STEPS + sidx] = (float) val; }
-  public void setStepBitcrush(int track, int sidx, double val) { step.stepBitcrush[track * STEPS + sidx] = (float) val; }
-  public void setStepSrr(int track, int sidx, double val) { step.stepSrr[track * STEPS + sidx] = (float) val; }
-  public double getStepPitch(int track, int sidx) { return step.stepPitch[track * STEPS + sidx]; }
+  public int getQueueStep() {
+    return vm != null ? (int) vm.getGlobalInt(G_QUEUE_STEP) : 0;
+  }
+
+  public void setQueueStep(int sidx) {
+    if (vm != null) vm.setGlobalInt(G_QUEUE_STEP, (long) sidx);
+  }
+
+  public void setStepFilter(int track, int sidx, double val) {
+    step.stepFilter[track * STEPS + sidx] = (float) val;
+  }
+
+  public double getStepFilter(int track, int sidx) {
+    return step.stepFilter[track * STEPS + sidx];
+  }
+
+  public void setStepRes(int track, int sidx, double val) {
+    step.stepRes[track * STEPS + sidx] = (float) val;
+  }
+
+  public double getStepRes(int track, int sidx) {
+    return step.stepRes[track * STEPS + sidx];
+  }
+
+  public void setStepPan(int track, int sidx, double val) {
+    step.stepPan[track * STEPS + sidx] = (float) val;
+  }
+
+  public double getStepPan(int track, int sidx) {
+    return step.stepPan[track * STEPS + sidx];
+  }
+
+  public void setStepDelay(int track, int sidx, double val) {
+    step.stepDelay[track * STEPS + sidx] = (float) val;
+  }
+
+  public double getStepDelay(int track, int sidx) {
+    return step.stepDelay[track * STEPS + sidx];
+  }
+
+  public void setStepReverb(int track, int sidx, double val) {
+    step.stepReverb[track * STEPS + sidx] = (float) val;
+  }
+
+  public double getStepReverb(int track, int sidx) {
+    return step.stepReverb[track * STEPS + sidx];
+  }
+
+  public void setStepHpfFreq(int track, int sidx, double val) {
+    step.stepHpfFreq[track * STEPS + sidx] = (float) val;
+  }
+
+  public double getStepHpfFreq(int track, int sidx) {
+    return step.stepHpfFreq[track * STEPS + sidx];
+  }
+
+  public void setStepHpfRes(int track, int sidx, double val) {
+    step.stepHpfRes[track * STEPS + sidx] = (float) val;
+  }
+
+  public double getStepHpfRes(int track, int sidx) {
+    return step.stepHpfRes[track * STEPS + sidx];
+  }
+
+  public void setStepModRate(int track, int sidx, double val) {
+    step.stepModRate[track * STEPS + sidx] = (float) val;
+  }
+
+  public double getStepModRate(int track, int sidx) {
+    return step.stepModRate[track * STEPS + sidx];
+  }
+
+  public void setStepModDepth(int track, int sidx, double val) {
+    step.stepModDepth[track * STEPS + sidx] = (float) val;
+  }
+
+  public double getStepModDepth(int track, int sidx) {
+    return step.stepModDepth[track * STEPS + sidx];
+  }
+
+  public void setStepOscAVol(int track, int sidx, double val) {
+    step.stepOscAVol[track * STEPS + sidx] = (float) val;
+  }
+
+  public double getStepOscAVol(int track, int sidx) {
+    return step.stepOscAVol[track * STEPS + sidx];
+  }
+
+  public void setStepOscBVol(int track, int sidx, double val) {
+    step.stepOscBVol[track * STEPS + sidx] = (float) val;
+  }
+
+  public double getStepOscBVol(int track, int sidx) {
+    return step.stepOscBVol[track * STEPS + sidx];
+  }
+
+  public void setStepNoiseVol(int track, int sidx, double val) {
+    step.stepNoiseVol[track * STEPS + sidx] = (float) val;
+  }
+
+  public double getStepNoiseVol(int track, int sidx) {
+    return step.stepNoiseVol[track * STEPS + sidx];
+  }
+
+  public void setStepPitch(int track, int sidx, double val) {
+    step.stepPitch[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepVolume(int track, int sidx, double val) {
+    step.stepVolume[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepEnv0Attack(int track, int sidx, double val) {
+    step.stepEnv0Attack[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepEnv0Decay(int track, int sidx, double val) {
+    step.stepEnv0Decay[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepEnv0Sustain(int track, int sidx, double val) {
+    step.stepEnv0Sustain[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepEnv0Release(int track, int sidx, double val) {
+    step.stepEnv0Release[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepEnv1Attack(int track, int sidx, double val) {
+    step.stepEnv1Attack[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepEnv1Decay(int track, int sidx, double val) {
+    step.stepEnv1Decay[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepEnv1Sustain(int track, int sidx, double val) {
+    step.stepEnv1Sustain[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepEnv1Release(int track, int sidx, double val) {
+    step.stepEnv1Release[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepEnv2Attack(int track, int sidx, double val) {
+    step.stepEnv2Attack[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepEnv2Decay(int track, int sidx, double val) {
+    step.stepEnv2Decay[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepEnv2Sustain(int track, int sidx, double val) {
+    step.stepEnv2Sustain[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepEnv2Release(int track, int sidx, double val) {
+    step.stepEnv2Release[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepEnv3Attack(int track, int sidx, double val) {
+    step.stepEnv3Attack[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepEnv3Decay(int track, int sidx, double val) {
+    step.stepEnv3Decay[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepEnv3Sustain(int track, int sidx, double val) {
+    step.stepEnv3Sustain[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepEnv3Release(int track, int sidx, double val) {
+    step.stepEnv3Release[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepLfo0Rate(int track, int sidx, double val) {
+    step.stepLfo0Rate[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepLfo0Depth(int track, int sidx, double val) {
+    step.stepLfo0Depth[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepLfo1Rate(int track, int sidx, double val) {
+    step.stepLfo1Rate[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepLfo1Depth(int track, int sidx, double val) {
+    step.stepLfo1Depth[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepLfo2Rate(int track, int sidx, double val) {
+    step.stepLfo2Rate[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepLfo2Depth(int track, int sidx, double val) {
+    step.stepLfo2Depth[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepLfo3Rate(int track, int sidx, double val) {
+    step.stepLfo3Rate[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepLfo3Depth(int track, int sidx, double val) {
+    step.stepLfo3Depth[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepArpRate(int track, int sidx, double val) {
+    step.stepArpRate[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepArpGate(int track, int sidx, double val) {
+    step.stepArpGate[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepFmAmount(int track, int sidx, double val) {
+    step.stepFmAmount[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepFmRatio(int track, int sidx, double val) {
+    step.stepFmRatio[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepModFxFeedback(int track, int sidx, double val) {
+    step.stepModFxFeedback[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepCompAttack(int track, int sidx, double val) {
+    step.stepCompAttack[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepCompRelease(int track, int sidx, double val) {
+    step.stepCompRelease[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepPortamento(int track, int sidx, double val) {
+    step.stepPortamento[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepStutter(int track, int sidx, double val) {
+    step.stepStutter[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepBitcrush(int track, int sidx, double val) {
+    step.stepBitcrush[track * STEPS + sidx] = (float) val;
+  }
+
+  public void setStepSrr(int track, int sidx, double val) {
+    step.stepSrr[track * STEPS + sidx] = (float) val;
+  }
+
+  public double getStepPitch(int track, int sidx) {
+    return step.stepPitch[track * STEPS + sidx];
+  }
 
   public void setStepFilter(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepFilter[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_FILTER, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepFilter[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_FILTER, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepRes(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepRes[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_RES, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepRes[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_RES, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepPan(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepPan[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_PAN, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepPan[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_PAN, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepDelay(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepDelay[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_DELAY, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepDelay[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_DELAY, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepReverb(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepReverb[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_REVERB, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepReverb[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_REVERB, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepHpfFreq(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepHpfFreq[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_HPF_FREQ, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepHpfFreq[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_HPF_FREQ, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepHpfRes(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepHpfRes[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_HPF_RES, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepHpfRes[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_HPF_RES, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepModRate(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepModRate[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_MOD_RATE, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepModRate[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_MOD_RATE, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepModDepth(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepModDepth[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_MOD_DEPTH, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepModDepth[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_MOD_DEPTH, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepOscAVol(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepOscAVol[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_OSC_A_VOL, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepOscAVol[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_OSC_A_VOL, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepOscBVol(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepOscBVol[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_OSC_B_VOL, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepOscBVol[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_OSC_B_VOL, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepNoiseVol(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepNoiseVol[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_NOISE_VOL, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepNoiseVol[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_NOISE_VOL, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepPitch(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepPitch[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_PITCH, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepPitch[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_PITCH, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepVolume(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepVolume[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_VOLUME, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepVolume[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_VOLUME, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepEnv0Attack(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepEnv0Attack[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_ENV_0_ATTACK, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepEnv0Attack[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_ENV_0_ATTACK, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepEnv0Decay(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepEnv0Decay[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_ENV_0_DECAY, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepEnv0Decay[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_ENV_0_DECAY, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepEnv0Sustain(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepEnv0Sustain[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_ENV_0_SUSTAIN, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepEnv0Sustain[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_ENV_0_SUSTAIN, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepEnv0Release(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepEnv0Release[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_ENV_0_RELEASE, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepEnv0Release[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_ENV_0_RELEASE, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepEnv1Attack(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepEnv1Attack[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_ENV_1_ATTACK, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepEnv1Attack[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_ENV_1_ATTACK, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepEnv1Decay(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepEnv1Decay[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_ENV_1_DECAY, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepEnv1Decay[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_ENV_1_DECAY, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepEnv1Sustain(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepEnv1Sustain[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_ENV_1_SUSTAIN, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepEnv1Sustain[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_ENV_1_SUSTAIN, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepEnv1Release(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepEnv1Release[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_ENV_1_RELEASE, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepEnv1Release[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_ENV_1_RELEASE, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepEnv2Attack(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepEnv2Attack[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_ENV_2_ATTACK, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepEnv2Attack[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_ENV_2_ATTACK, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepEnv2Decay(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepEnv2Decay[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_ENV_2_DECAY, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepEnv2Decay[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_ENV_2_DECAY, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepEnv2Sustain(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepEnv2Sustain[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_ENV_2_SUSTAIN, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepEnv2Sustain[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_ENV_2_SUSTAIN, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepEnv2Release(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepEnv2Release[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_ENV_2_RELEASE, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepEnv2Release[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_ENV_2_RELEASE, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepEnv3Attack(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepEnv3Attack[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_ENV_3_ATTACK, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepEnv3Attack[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_ENV_3_ATTACK, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepEnv3Decay(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepEnv3Decay[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_ENV_3_DECAY, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepEnv3Decay[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_ENV_3_DECAY, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepEnv3Sustain(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepEnv3Sustain[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_ENV_3_SUSTAIN, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepEnv3Sustain[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_ENV_3_SUSTAIN, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepEnv3Release(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepEnv3Release[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_ENV_3_RELEASE, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepEnv3Release[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_ENV_3_RELEASE, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepLfo0Rate(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepLfo0Rate[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_LFO_0_RATE, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepLfo0Rate[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_LFO_0_RATE, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepLfo0Depth(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepLfo0Depth[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_LFO_0_DEPTH, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepLfo0Depth[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_LFO_0_DEPTH, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepLfo1Rate(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepLfo1Rate[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_LFO_1_RATE, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepLfo1Rate[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_LFO_1_RATE, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepLfo1Depth(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepLfo1Depth[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_LFO_1_DEPTH, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepLfo1Depth[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_LFO_1_DEPTH, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepLfo2Rate(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepLfo2Rate[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_LFO_2_RATE, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepLfo2Rate[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_LFO_2_RATE, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepLfo2Depth(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepLfo2Depth[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_LFO_2_DEPTH, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepLfo2Depth[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_LFO_2_DEPTH, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepLfo3Rate(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepLfo3Rate[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_LFO_3_RATE, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepLfo3Rate[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_LFO_3_RATE, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepLfo3Depth(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepLfo3Depth[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_LFO_3_DEPTH, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepLfo3Depth[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_LFO_3_DEPTH, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepArpRate(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepArpRate[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_ARP_RATE, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepArpRate[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_ARP_RATE, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepArpGate(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepArpGate[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_ARP_GATE, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepArpGate[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_ARP_GATE, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepFmAmount(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepFmAmount[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_FM_AMOUNT, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepFmAmount[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_FM_AMOUNT, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepFmRatio(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepFmRatio[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_FM_RATIO, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepFmRatio[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_FM_RATIO, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepModFxFeedback(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepModFxFeedback[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_MOD_FX_FEEDBACK, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepModFxFeedback[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_MOD_FX_FEEDBACK, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepCompAttack(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepCompAttack[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_COMP_ATTACK, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepCompAttack[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_COMP_ATTACK, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepCompRelease(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepCompRelease[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_COMP_RELEASE, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepCompRelease[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_COMP_RELEASE, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepPortamento(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepPortamento[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_PORTAMENTO, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepPortamento[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_PORTAMENTO, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepStutter(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepStutter[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_STUTTER, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepStutter[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_STUTTER, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepBitcrush(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepBitcrush[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_BITCRUSH, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepBitcrush[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_BITCRUSH, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
+
   public void setStepSrr(int track, int sidx, double val, int clipIdx) {
-    if (clipIdx <= 0) { step.stepSrr[track * STEPS + sidx] = (float) val; }
-    else { ChuckArray ca = getClipArray(G_STEP_SRR, clipIdx); if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val); }
+    if (clipIdx <= 0) {
+      step.stepSrr[track * STEPS + sidx] = (float) val;
+    } else {
+      ChuckArray ca = getClipArray(G_STEP_SRR, clipIdx);
+      if (ca != null) ca.setFloat(track * STEPS + sidx, (float) val);
+    }
   }
 
   // ── Track accessors ──────────────────────────────────────
 
-  public void setTrackLevel(int t, double val) { track.trackLevel[t] = (float) val; }
-  public double getTrackLevel(int t) { return track.trackLevel[t]; }
-  public void setMute(int t, boolean val) { 
-    track.mute[t] = val ? 1 : 0; 
+  public void setTrackLevel(int t, double val) {
+    track.trackLevel[t] = (float) val;
+  }
+
+  public double getTrackLevel(int t) {
+    return track.trackLevel[t];
+  }
+
+  public void setMute(int t, boolean val) {
+    track.mute[t] = val ? 1 : 0;
     if (vm != null) vm.setGlobalInt("g_mute_" + t, val ? 1L : 0L);
   }
-  public boolean getMute(int t) { 
+
+  public boolean getMute(int t) {
     if (vm != null) return vm.getGlobalInt("g_mute_" + t) > 0;
-    return track.mute[t] > 0; 
+    return track.mute[t] > 0;
   }
-  public int getTrackType(int t) { return track.trackType[t]; }
-  public void setTrackType(int t, int type) { track.trackType[t] = type; }
-  public void setFilterFreq(int t, double val) { track.filter[t * 2] = (float) val; }
-  public double getTrackFilterFreq(int t) { return track.filter[t * 2]; }
-  public void setFilterRes(int t, double val) { track.filter[t * 2 + 1] = (float) val; }
-  public double getTrackFilterRes(int t) { return track.filter[t * 2 + 1]; }
-  public void setFilterMode(int t, int mode) { track.filterMode[t] = mode; }
-  public void setFilterMorph(int t, double morph) { track.filterMorph[t] = (float) morph; }
+
+  public int getTrackType(int t) {
+    return track.trackType[t];
+  }
+
+  public void setTrackType(int t, int type) {
+    track.trackType[t] = type;
+  }
+
+  public void setFilterFreq(int t, double val) {
+    track.filter[t * 2] = (float) val;
+  }
+
+  public double getTrackFilterFreq(int t) {
+    return track.filter[t * 2];
+  }
+
+  public void setFilterRes(int t, double val) {
+    track.filter[t * 2 + 1] = (float) val;
+  }
+
+  public double getTrackFilterRes(int t) {
+    return track.filter[t * 2 + 1];
+  }
+
+  public void setFilterMode(int t, int mode) {
+    track.filterMode[t] = mode;
+  }
+
+  public void setFilterMorph(int t, double morph) {
+    track.filterMorph[t] = (float) morph;
+  }
+
   public void setFilterDrive(int t, double drive) {
     track.filterDrive[t] = (float) Math.max(0.0, Math.min(2.0, drive));
     if (vm != null) {
-      org.chuck.core.ChuckArray arr = (org.chuck.core.ChuckArray) vm.getGlobalObject(G_FILTER_DRIVE);
+      org.chuck.core.ChuckArray arr =
+          (org.chuck.core.ChuckArray) vm.getGlobalObject(G_FILTER_DRIVE);
       if (arr != null) arr.setFloat(t, track.filterDrive[t]);
     }
   }
+
   public void setFilterNotch(int t, int notch) {
     track.filterNotch[t] = notch;
     if (vm != null) {
-      org.chuck.core.ChuckArray arr = (org.chuck.core.ChuckArray) vm.getGlobalObject(G_FILTER_NOTCH);
+      org.chuck.core.ChuckArray arr =
+          (org.chuck.core.ChuckArray) vm.getGlobalObject(G_FILTER_NOTCH);
       if (arr != null) arr.setInt(t, (long) notch);
     }
   }
+
   public void setFilterRoute(int t, int route) {
     track.filterRoute[t] = Math.max(0, Math.min(2, route));
     if (vm != null) {
-      org.chuck.core.ChuckArray arr = (org.chuck.core.ChuckArray) vm.getGlobalObject(G_FILTER_ROUTE);
+      org.chuck.core.ChuckArray arr =
+          (org.chuck.core.ChuckArray) vm.getGlobalObject(G_FILTER_ROUTE);
       if (arr != null) arr.setInt(t, (long) track.filterRoute[t]);
     }
   }
+
   public void setMaxVoices(int t, int count) {
     track.maxVoices[t] = Math.max(1, Math.min(16, count));
     if (vm != null) {
@@ -1852,37 +2411,85 @@ public final class BridgeContract {
       if (arr != null) arr.setInt(t, (long) track.maxVoices[t]);
     }
   }
+
   public void setEnv(int row, int envIndex, double a, double d, double s, double r) {
     int b = (row * ENV_COUNT + envIndex) * ENV_PARAMS;
-    synth.env[b + 0] = (float) a; synth.env[b + 1] = (float) d; synth.env[b + 2] = (float) s; synth.env[b + 3] = (float) r;
+    synth.env[b + 0] = (float) a;
+    synth.env[b + 1] = (float) d;
+    synth.env[b + 2] = (float) s;
+    synth.env[b + 3] = (float) r;
   }
+
   public void setLfo(int lfoIndex, double rateHz, int waveType, double depth, int syncLevel) {
-    synth.lfoRate[lfoIndex] = (float) rateHz; synth.lfoType[lfoIndex] = waveType; synth.lfoDepth[lfoIndex] = (float) depth; synth.lfoSyncLevel[lfoIndex] = syncLevel;
+    synth.lfoRate[lfoIndex] = (float) rateHz;
+    synth.lfoType[lfoIndex] = waveType;
+    synth.lfoDepth[lfoIndex] = (float) depth;
+    synth.lfoSyncLevel[lfoIndex] = syncLevel;
   }
-  public void setLfoTarget(int lfoIndex, int target) { synth.lfoTarget[lfoIndex] = target; }
-  public int getLfoTarget(int lfoIndex) { return synth.lfoTarget[lfoIndex]; }
-  public void setLfoTrack(int lfoIndex, int t) { synth.lfoTrack[lfoIndex] = t; }
-  public int getLfoTrack(int lfoIndex) { return synth.lfoTrack[lfoIndex]; }
-  public void setTrackLength(int t, int steps) { track.trackLength[t] = steps; }
-  public int getTrackLength(int t) { return track.trackLength[t]; }
+
+  public void setLfoTarget(int lfoIndex, int target) {
+    synth.lfoTarget[lfoIndex] = target;
+  }
+
+  public int getLfoTarget(int lfoIndex) {
+    return synth.lfoTarget[lfoIndex];
+  }
+
+  public void setLfoTrack(int lfoIndex, int t) {
+    synth.lfoTrack[lfoIndex] = t;
+  }
+
+  public int getLfoTrack(int lfoIndex) {
+    return synth.lfoTrack[lfoIndex];
+  }
+
+  public void setTrackLength(int t, int steps) {
+    track.trackLength[t] = steps;
+  }
+
+  public int getTrackLength(int t) {
+    return track.trackLength[t];
+  }
+
   // ── Scalar state accessors ───────────────────────────────
 
-  public void setBpm(double bpm) { 
+  public void setBpm(double bpm) {
     this.bpm = bpm;
-    if (vm != null) vm.setGlobalFloat(G_BPM, bpm); 
+    if (vm != null) vm.setGlobalFloat(G_BPM, bpm);
   }
-  public double getBpm() { return bpm; }
+
+  public double getBpm() {
+    return bpm;
+  }
+
   public void setSwing(double swing) {
     this.swing = swing;
     if (vm != null) vm.setGlobalFloat(G_SWING, swing);
   }
-  public double getSwing() { return swing; }
+
+  public double getSwing() {
+    return swing;
+  }
+
+  public void setHiFiMode(int mode) {
+    this.hiFiMode = mode;
+    if (vm != null) vm.setGlobalInt(G_HI_FI_MODE, (long) mode);
+  }
+
+  public int getHiFiMode() {
+    return hiFiMode;
+  }
+
   // ── MIDI Follow Mode accessors ──
   public void setFollowEnabled(boolean enabled) {
     this.followEnabled = enabled ? 1 : 0;
     if (vm != null) vm.setGlobalInt(G_FOLLOW_ENABLED, this.followEnabled);
   }
-  public boolean getFollowEnabled() { return followEnabled != 0; }
+
+  public boolean getFollowEnabled() {
+    return followEnabled != 0;
+  }
+
   public void setFollowChannel(char label, int midiChannel) {
     if (midiChannel < 0 || midiChannel > 15) return;
     String channelKey = label == 'A' ? G_FOLLOW_CH_A : label == 'B' ? G_FOLLOW_CH_B : G_FOLLOW_CH_C;
@@ -1891,24 +2498,33 @@ public final class BridgeContract {
     else followChC = midiChannel;
     if (vm != null) vm.setGlobalInt(channelKey, midiChannel);
   }
+
   public void setFollowTrack(char label, int track) {
-    String trackKey = label == 'A' ? G_FOLLOW_TRACK_A : label == 'B' ? G_FOLLOW_TRACK_B : G_FOLLOW_TRACK_C;
+    String trackKey =
+        label == 'A' ? G_FOLLOW_TRACK_A : label == 'B' ? G_FOLLOW_TRACK_B : G_FOLLOW_TRACK_C;
     if (label == 'A') followTrackA = track;
     else if (label == 'B') followTrackB = track;
     else followTrackC = track;
     if (vm != null) vm.setGlobalInt(trackKey, track);
   }
+
   public int getFollowMidChannel(char label) {
     return label == 'A' ? followChA : label == 'B' ? followChB : followChC;
   }
+
   public int getFollowTrack(char label) {
     return label == 'A' ? followTrackA : label == 'B' ? followTrackB : followTrackC;
   }
+
   public void setFollowTrackChanged(int val) {
     this.followTrackChanged = val;
     if (vm != null) vm.setGlobalInt(G_FOLLOW_TRACK_CHANGED, val);
   }
-  public int getFollowTrackChanged() { return followTrackChanged; }
+
+  public int getFollowTrackChanged() {
+    return followTrackChanged;
+  }
+
   public void setFollowCc(int source, int num, int val) {
     this.followCcSource = source;
     this.followCcNum = num;
@@ -1919,16 +2535,25 @@ public final class BridgeContract {
       vm.setGlobalInt(G_FOLLOW_CC_VAL, val);
     }
   }
+
   public void setMasterVol(double val) {
     this.masterVol = (float) val;
     if (vm != null) vm.setGlobalFloat(G_MASTER_VOL, val);
   }
-  public double getMasterVol() { return masterVol; }
+
+  public double getMasterVol() {
+    return masterVol;
+  }
+
   public void setMasterPan(double val) {
     this.masterPan = (float) val;
     if (vm != null) vm.setGlobalFloat(G_MASTER_PAN, val);
   }
-  public double getMasterPan() { return masterPan; }
+
+  public double getMasterPan() {
+    return masterPan;
+  }
+
   public void setDelayParams(double time, double fb) {
     this.delayTime = (float) time;
     this.delayFb = (float) fb;
@@ -1937,8 +2562,15 @@ public final class BridgeContract {
       vm.setGlobalFloat(G_DELAY_FB, fb);
     }
   }
-  public double getDelayTime() { return delayTime; }
-  public double getDelayFb() { return delayFb; }
+
+  public double getDelayTime() {
+    return delayTime;
+  }
+
+  public double getDelayFb() {
+    return delayFb;
+  }
+
   public void setReverbParams(double room, double damp) {
     this.reverbRoom = (float) room;
     this.reverbDamp = (float) damp;
@@ -1947,217 +2579,494 @@ public final class BridgeContract {
       vm.setGlobalFloat(G_REVERB_DAMP, damp);
     }
   }
-  public double getReverbRoom() { return reverbRoom; }
-  public double getReverbDamp() { return reverbDamp; }
+
+  public double getReverbRoom() {
+    return reverbRoom;
+  }
+
+  public double getReverbDamp() {
+    return reverbDamp;
+  }
 
   // ── Extended reverb setters ───────────────────────────────
   public void setReverbWidth(double v) {
     this.reverbWidth = (float) v;
     if (vm != null) vm.setGlobalFloat(G_REVERB_WIDTH, v);
   }
-  public double getReverbWidth() { return reverbWidth; }
+
+  public double getReverbWidth() {
+    return reverbWidth;
+  }
+
   public void setReverbHpf(double v) {
     this.reverbHpf = (float) v;
     if (vm != null) vm.setGlobalFloat(G_REVERB_HPF, v);
   }
-  public double getReverbHpf() { return reverbHpf; }
+
+  public double getReverbHpf() {
+    return reverbHpf;
+  }
+
   public void setReverbPan2(double v) {
     this.reverbPan = (float) v;
     if (vm != null) vm.setGlobalFloat(G_REVERB_PAN, v);
   }
-  public double getReverbPan2() { return reverbPan; }
+
+  public double getReverbPan2() {
+    return reverbPan;
+  }
+
   public void setReverbModel(int v) {
     this.reverbModel = v;
     if (vm != null) vm.setGlobalInt(G_REVERB_MODEL, (long) v);
   }
-  public int getReverbModel() { return reverbModel; }
+
+  public int getReverbModel() {
+    return reverbModel;
+  }
+
   public void setReverbCompAttack(double v) {
     this.reverbCompAttack = (float) v;
     if (vm != null) vm.setGlobalFloat(G_REVERB_COMP_ATTACK, v);
   }
-  public double getReverbCompAttack() { return reverbCompAttack; }
+
+  public double getReverbCompAttack() {
+    return reverbCompAttack;
+  }
+
   public void setReverbCompRelease(double v) {
     this.reverbCompRelease = (float) v;
     if (vm != null) vm.setGlobalFloat(G_REVERB_COMP_RELEASE, v);
   }
-  public double getReverbCompRelease() { return reverbCompRelease; }
+
+  public double getReverbCompRelease() {
+    return reverbCompRelease;
+  }
+
   public void setReverbCompSyncLevel(int v) {
     this.reverbCompSyncLevel = v;
     if (vm != null) vm.setGlobalInt(G_REVERB_COMP_SYNC_LEVEL, (long) v);
   }
-  public int getReverbCompSyncLevel() { return reverbCompSyncLevel; }
+
+  public int getReverbCompSyncLevel() {
+    return reverbCompSyncLevel;
+  }
+
   public void setReverbCompHpf(double v) {
     this.reverbCompHpf = (float) v;
     if (vm != null) vm.setGlobalFloat(G_REVERB_COMP_HPF, v);
   }
-  public double getReverbCompHpf() { return reverbCompHpf; }
+
+  public double getReverbCompHpf() {
+    return reverbCompHpf;
+  }
+
   public void setReverbCompBlend(double v) {
     this.reverbCompBlend = (float) v;
     if (vm != null) vm.setGlobalFloat(G_REVERB_COMP_BLEND, v);
   }
-  public double getReverbCompBlend() { return reverbCompBlend; }
+
+  public double getReverbCompBlend() {
+    return reverbCompBlend;
+  }
 
   // ── Rings-reverb setters ─────────────────────────────────
   public void setReverbExcitation(double v) {
     this.reverbExcitation = (float) v;
     if (vm != null) vm.setGlobalFloat(G_REVERB_EXCITATION, v);
   }
-  public double getReverbExcitation() { return reverbExcitation; }
+
+  public double getReverbExcitation() {
+    return reverbExcitation;
+  }
+
   public void setReverbMode(int v) {
     this.reverbMode = v;
     if (vm != null) vm.setGlobalInt(G_REVERB_MODE, (long) v);
   }
-  public int getReverbMode() { return reverbMode; }
+
+  public int getReverbMode() {
+    return reverbMode;
+  }
 
   // ── Extended delay setters ────────────────────────────────
   public void setDelayPingPong(int v) {
     this.delayPingPong = v;
     if (vm != null) vm.setGlobalInt(G_DELAY_PINGPONG, (long) v);
   }
-  public int getDelayPingPong() { return delayPingPong; }
+
+  public int getDelayPingPong() {
+    return delayPingPong;
+  }
+
   public void setDelayAnalog(int v) {
     this.delayAnalog = v;
     if (vm != null) vm.setGlobalInt(G_DELAY_ANALOG, (long) v);
   }
-  public int getDelayAnalog() { return delayAnalog; }
+
+  public int getDelayAnalog() {
+    return delayAnalog;
+  }
+
   public void setDelaySyncLevel(int v) {
     this.delaySyncLevel = v;
     if (vm != null) vm.setGlobalInt(G_DELAY_SYNC_LEVEL, (long) v);
   }
-  public int getDelaySyncLevel() { return delaySyncLevel; }
+
+  public int getDelaySyncLevel() {
+    return delaySyncLevel;
+  }
+
   public void setDelaySyncType(int v) {
     this.delaySyncType = v;
     if (vm != null) vm.setGlobalInt(G_DELAY_SYNC_TYPE, (long) v);
   }
-  public int getDelaySyncType() { return delaySyncType; }
+
+  public int getDelaySyncType() {
+    return delaySyncType;
+  }
 
   // ── Sidechain setters ──────────────────────────────────────
   public void setSidechainAttack(double v) {
     this.sidechainAttack = (float) v;
     if (vm != null) vm.setGlobalFloat(G_SIDECHAIN_ATTACK, v);
   }
-  public double getSidechainAttack() { return sidechainAttack; }
+
+  public double getSidechainAttack() {
+    return sidechainAttack;
+  }
+
   public void setSidechainRelease(double v) {
     this.sidechainRelease = (float) v;
     if (vm != null) vm.setGlobalFloat(G_SIDECHAIN_RELEASE, v);
   }
-  public double getSidechainRelease() { return sidechainRelease; }
+
+  public double getSidechainRelease() {
+    return sidechainRelease;
+  }
+
   public void setSidechainSyncLevel(int v) {
     this.sidechainSyncLevel = v;
     if (vm != null) vm.setGlobalInt(G_SIDECHAIN_SYNC_LEVEL, (long) v);
   }
-  public int getSidechainSyncLevel() { return sidechainSyncLevel; }
+
+  public int getSidechainSyncLevel() {
+    return sidechainSyncLevel;
+  }
+
   public void setSidechainSyncType(int v) {
     this.sidechainSyncType = v;
     if (vm != null) vm.setGlobalInt(G_SIDECHAIN_SYNC_TYPE, (long) v);
   }
-  public int getSidechainSyncType() { return sidechainSyncType; }
+
+  public int getSidechainSyncType() {
+    return sidechainSyncType;
+  }
 
   // ── Master compressor setters ──────────────────────────────
   public void setMasterCompAttack(double v) {
     this.masterCompAttack = (float) v;
     if (vm != null) vm.setGlobalFloat(G_MASTER_COMP_ATTACK, v);
   }
-  public double getMasterCompAttack() { return masterCompAttack; }
+
+  public double getMasterCompAttack() {
+    return masterCompAttack;
+  }
+
   public void setMasterCompRelease(double v) {
     this.masterCompRelease = (float) v;
     if (vm != null) vm.setGlobalFloat(G_MASTER_COMP_RELEASE, v);
   }
-  public double getMasterCompRelease() { return masterCompRelease; }
+
+  public double getMasterCompRelease() {
+    return masterCompRelease;
+  }
+
   public void setMasterCompRatio(double v) {
     this.masterCompRatio = (float) v;
     if (vm != null) vm.setGlobalFloat(G_MASTER_COMP_RATIO, v);
   }
-  public double getMasterCompRatio() { return masterCompRatio; }
+
+  public double getMasterCompRatio() {
+    return masterCompRatio;
+  }
+
   public void setMasterCompBlend(double v) {
     this.masterCompBlend = (float) v;
     if (vm != null) vm.setGlobalFloat(G_MASTER_COMP_BLEND, v);
   }
-  public double getMasterCompBlend() { return masterCompBlend; }
+
+  public double getMasterCompBlend() {
+    return masterCompBlend;
+  }
 
   // ── Transpose / humanize ───────────────────────────────────
   public void setTranspose(int v) {
     this.transpose = v;
     if (vm != null) vm.setGlobalInt(G_TRANSPOSE, (long) v);
   }
-  public int getTranspose() { return transpose; }
+
+  public int getTranspose() {
+    return transpose;
+  }
+
   public void setHumanize(double v) {
     this.humanize = (float) v;
     if (vm != null) vm.setGlobalFloat(G_HUMANIZE, v);
   }
-  public double getHumanize() { return humanize; }
+
+  public double getHumanize() {
+    return humanize;
+  }
 
   // ── SongParams setters ─────────────────────────────────────
-  public void setSpVolume(double v) { this.spVolume = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_VOLUME, v); }
-  public double getSpVolume() { return spVolume; }
-  public void setSpPan(double v) { this.spPan = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_PAN, v); }
-  public double getSpPan() { return spPan; }
-  public void setSpReverbAmount(double v) { this.spReverbAmount = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_REVERB_AMOUNT, v); }
-  public double getSpReverbAmount() { return spReverbAmount; }
-  public void setSpDelayRate(double v) { this.spDelayRate = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_DELAY_RATE, v); }
-  public double getSpDelayRate() { return spDelayRate; }
-  public void setSpDelayFeedback(double v) { this.spDelayFeedback = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_DELAY_FEEDBACK, v); }
-  public double getSpDelayFeedback() { return spDelayFeedback; }
-  public void setSpSidechainShape(double v) { this.spSidechainShape = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_SIDECHAIN_SHAPE, v); }
-  public double getSpSidechainShape() { return spSidechainShape; }
-  public void setSpStutterRate(double v) { this.spStutterRate = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_STUTTER_RATE, v); }
-  public double getSpStutterRate() { return spStutterRate; }
-  public void setSpSampleRateReduction(double v) { this.spSampleRateReduction = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_SAMPLE_RATE_REDUCTION, v); }
-  public double getSpSampleRateReduction() { return spSampleRateReduction; }
-  public void setSpBitCrush(double v) { this.spBitCrush = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_BITCRUSH, v); }
-  public double getSpBitCrush() { return spBitCrush; }
-  public void setSpModFxRate(double v) { this.spModFxRate = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_MOD_FX_RATE, v); }
-  public double getSpModFxRate() { return spModFxRate; }
-  public void setSpModFxDepth(double v) { this.spModFxDepth = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_MOD_FX_DEPTH, v); }
-  public double getSpModFxDepth() { return spModFxDepth; }
-  public void setSpModFxOffset(double v) { this.spModFxOffset = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_MOD_FX_OFFSET, v); }
-  public double getSpModFxOffset() { return spModFxOffset; }
-  public void setSpModFxFeedback(double v) { this.spModFxFeedback = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_MOD_FX_FEEDBACK, v); }
-  public double getSpModFxFeedback() { return spModFxFeedback; }
-  public void setSpCompressorThreshold(double v) { this.spCompressorThreshold = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_COMPRESSOR_THRESHOLD, v); }
-  public double getSpCompressorThreshold() { return spCompressorThreshold; }
-  public void setSpLpfMorph(double v) { this.spLpfMorph = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_LPF_MORPH, v); }
-  public double getSpLpfMorph() { return spLpfMorph; }
-  public void setSpHpfMorph(double v) { this.spHpfMorph = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_HPF_MORPH, v); }
-  public double getSpHpfMorph() { return spHpfMorph; }
-  public void setSpLpfFrequency(double v) { this.spLpfFrequency = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_LPF_FREQ, v); }
-  public double getSpLpfFrequency() { return spLpfFrequency; }
-  public void setSpLpfResonance(double v) { this.spLpfResonance = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_LPF_RES, v); }
-  public double getSpLpfResonance() { return spLpfResonance; }
-  public void setSpHpfFrequency(double v) { this.spHpfFrequency = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_HPF_FREQ, v); }
-  public double getSpHpfFrequency() { return spHpfFrequency; }
-  public void setSpHpfResonance(double v) { this.spHpfResonance = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_HPF_RES, v); }
-  public double getSpHpfResonance() { return spHpfResonance; }
-  public void setSpEqBass(double v) { this.spEqBass = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_EQ_BASS, v); }
-  public double getSpEqBass() { return spEqBass; }
-  public void setSpEqTreble(double v) { this.spEqTreble = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_EQ_TREBLE, v); }
-  public double getSpEqTreble() { return spEqTreble; }
-  public void setSpEqBassFrequency(double v) { this.spEqBassFrequency = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_EQ_BASS_FREQ, v); }
-  public double getSpEqBassFrequency() { return spEqBassFrequency; }
-  public void setSpEqTrebleFrequency(double v) { this.spEqTrebleFrequency = (float) v; if (vm != null) vm.setGlobalFloat(G_SP_EQ_TREBLE_FREQ, v); }
-  public double getSpEqTrebleFrequency() { return spEqTrebleFrequency; }
+  public void setSpVolume(double v) {
+    this.spVolume = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_SP_VOLUME, v);
+  }
+
+  public double getSpVolume() {
+    return spVolume;
+  }
+
+  public void setSpPan(double v) {
+    this.spPan = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_SP_PAN, v);
+  }
+
+  public double getSpPan() {
+    return spPan;
+  }
+
+  public void setSpReverbAmount(double v) {
+    this.spReverbAmount = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_SP_REVERB_AMOUNT, v);
+  }
+
+  public double getSpReverbAmount() {
+    return spReverbAmount;
+  }
+
+  public void setSpDelayRate(double v) {
+    this.spDelayRate = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_SP_DELAY_RATE, v);
+  }
+
+  public double getSpDelayRate() {
+    return spDelayRate;
+  }
+
+  public void setSpDelayFeedback(double v) {
+    this.spDelayFeedback = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_SP_DELAY_FEEDBACK, v);
+  }
+
+  public double getSpDelayFeedback() {
+    return spDelayFeedback;
+  }
+
+  public void setSpSidechainShape(double v) {
+    this.spSidechainShape = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_SP_SIDECHAIN_SHAPE, v);
+  }
+
+  public double getSpSidechainShape() {
+    return spSidechainShape;
+  }
+
+  public void setSpStutterRate(double v) {
+    this.spStutterRate = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_SP_STUTTER_RATE, v);
+  }
+
+  public double getSpStutterRate() {
+    return spStutterRate;
+  }
+
+  public void setSpSampleRateReduction(double v) {
+    this.spSampleRateReduction = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_SP_SAMPLE_RATE_REDUCTION, v);
+  }
+
+  public double getSpSampleRateReduction() {
+    return spSampleRateReduction;
+  }
+
+  public void setSpBitCrush(double v) {
+    this.spBitCrush = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_SP_BITCRUSH, v);
+  }
+
+  public double getSpBitCrush() {
+    return spBitCrush;
+  }
+
+  public void setSpModFxRate(double v) {
+    this.spModFxRate = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_SP_MOD_FX_RATE, v);
+  }
+
+  public double getSpModFxRate() {
+    return spModFxRate;
+  }
+
+  public void setSpModFxDepth(double v) {
+    this.spModFxDepth = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_SP_MOD_FX_DEPTH, v);
+  }
+
+  public double getSpModFxDepth() {
+    return spModFxDepth;
+  }
+
+  public void setSpModFxOffset(double v) {
+    this.spModFxOffset = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_SP_MOD_FX_OFFSET, v);
+  }
+
+  public double getSpModFxOffset() {
+    return spModFxOffset;
+  }
+
+  public void setSpModFxFeedback(double v) {
+    this.spModFxFeedback = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_SP_MOD_FX_FEEDBACK, v);
+  }
+
+  public double getSpModFxFeedback() {
+    return spModFxFeedback;
+  }
+
+  public void setSpCompressorThreshold(double v) {
+    this.spCompressorThreshold = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_SP_COMPRESSOR_THRESHOLD, v);
+  }
+
+  public double getSpCompressorThreshold() {
+    return spCompressorThreshold;
+  }
+
+  public void setSpLpfMorph(double v) {
+    this.spLpfMorph = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_SP_LPF_MORPH, v);
+  }
+
+  public double getSpLpfMorph() {
+    return spLpfMorph;
+  }
+
+  public void setSpHpfMorph(double v) {
+    this.spHpfMorph = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_SP_HPF_MORPH, v);
+  }
+
+  public double getSpHpfMorph() {
+    return spHpfMorph;
+  }
+
+  public void setSpLpfFrequency(double v) {
+    this.spLpfFrequency = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_SP_LPF_FREQ, v);
+  }
+
+  public double getSpLpfFrequency() {
+    return spLpfFrequency;
+  }
+
+  public void setSpLpfResonance(double v) {
+    this.spLpfResonance = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_SP_LPF_RES, v);
+  }
+
+  public double getSpLpfResonance() {
+    return spLpfResonance;
+  }
+
+  public void setSpHpfFrequency(double v) {
+    this.spHpfFrequency = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_SP_HPF_FREQ, v);
+  }
+
+  public double getSpHpfFrequency() {
+    return spHpfFrequency;
+  }
+
+  public void setSpHpfResonance(double v) {
+    this.spHpfResonance = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_SP_HPF_RES, v);
+  }
+
+  public double getSpHpfResonance() {
+    return spHpfResonance;
+  }
+
+  public void setSpEqBass(double v) {
+    this.spEqBass = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_SP_EQ_BASS, v);
+  }
+
+  public double getSpEqBass() {
+    return spEqBass;
+  }
+
+  public void setSpEqTreble(double v) {
+    this.spEqTreble = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_SP_EQ_TREBLE, v);
+  }
+
+  public double getSpEqTreble() {
+    return spEqTreble;
+  }
+
+  public void setSpEqBassFrequency(double v) {
+    this.spEqBassFrequency = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_SP_EQ_BASS_FREQ, v);
+  }
+
+  public double getSpEqBassFrequency() {
+    return spEqBassFrequency;
+  }
+
+  public void setSpEqTrebleFrequency(double v) {
+    this.spEqTrebleFrequency = (float) v;
+    if (vm != null) vm.setGlobalFloat(G_SP_EQ_TREBLE_FREQ, v);
+  }
+
+  public double getSpEqTrebleFrequency() {
+    return spEqTrebleFrequency;
+  }
 
   // ── Scales setters ──────────────────────────────────────────
   public void setUserScale(int v) {
     this.userScale = v;
     if (vm != null) vm.setGlobalInt(G_USER_SCALE, (long) v);
   }
-  public int getUserScale() { return userScale; }
+
+  public int getUserScale() {
+    return userScale;
+  }
+
   public void setDisabledPresetScales(int v) {
     this.disabledPresetScales = v;
     if (vm != null) vm.setGlobalInt(G_DISABLED_PRESET_SCALES, (long) v);
   }
-  public int getDisabledPresetScales() { return disabledPresetScales; }
+
+  public int getDisabledPresetScales() {
+    return disabledPresetScales;
+  }
+
   public void setModeNote(int semitone, boolean enabled) {
     if (semitone >= 0 && semitone < 12) {
       this.modeNotes[semitone] = enabled ? 1 : 0;
       if (vm != null) vm.setGlobalInt(G_MODE_NOTES + "_" + semitone, enabled ? 1L : 0L);
     }
   }
+
   public int getModeNote(int semitone) {
     if (semitone >= 0 && semitone < 12) return modeNotes[semitone];
     return 0;
   }
+
   public void setAllModeNotes(boolean[] notes) {
     if (notes == null || notes.length < 12) return;
     for (int i = 0; i < 12; i++) {
@@ -2165,7 +3074,11 @@ public final class BridgeContract {
       if (vm != null) vm.setGlobalInt(G_MODE_NOTES + "_" + i, notes[i] ? 1L : 0L);
     }
   }
-  public int[] getModeNotesRaw() { return modeNotes; }
+
+  public int[] getModeNotesRaw() {
+    return modeNotes;
+  }
+
   public void setModeNotesRaw(int[] notes) {
     if (notes == null || notes.length < 12) return;
     for (int i = 0; i < 12; i++) {
@@ -2173,93 +3086,332 @@ public final class BridgeContract {
       if (vm != null) vm.setGlobalInt(G_MODE_NOTES + "_" + i, (long) notes[i]);
     }
   }
+
   // ── Extended per-track synth accessors ───────────────────
 
-  public void setOscMix(int track, float v) { synth.oscMix[track] = v; }
-  public float getOscMix(int track) { return synth.oscMix[track]; }
-  public void setNoiseVol(int track, float v) { synth.noiseVol[track] = v; }
-  public float getNoiseVol(int track) { return synth.noiseVol[track]; }
-  public void setUnisonNum(int track, int v) { synth.unisonNum[track] = v; }
-  public int getUnisonNum(int track) { return synth.unisonNum[track]; }
-  public void setUnisonDetune(int track, float v) { synth.unisonDetune[track] = v; }
-  public float getUnisonDetune(int track) { return synth.unisonDetune[track]; }
-  public void setUnisonSpread(int track, float v) { synth.unisonSpread[track] = v; }
-  public float getUnisonSpread(int track) { return synth.unisonSpread[track]; }
-  public void setModFxType(int track, int v) { synth.modFxType[track] = v; }
-  public int getModFxType(int track) { return synth.modFxType[track]; }
-  public void setModFxRate(int track, float v) { synth.modFxRate[track] = v; }
-  public float getModFxRate(int track) { return synth.modFxRate[track]; }
-  public void setModFxDepth(int track, float v) { synth.modFxDepth[track] = v; }
-  public float getModFxDepth(int track) { return synth.modFxDepth[track]; }
-  public void setModFxFeedback(int track, float v) { synth.modFxFeedback[track] = v; }
-  public float getModFxFeedback(int track) { return synth.modFxFeedback[track]; }
-  public void setModFxOffset(int track, float v) { synth.modFxOffset[track] = v; }
-  public float getModFxOffset(int track) { return synth.modFxOffset[track]; }
-  public void setPortamento(int track, float v) { synth.portamento[track] = v; }
-  public float getPortamento(int track) { return synth.portamento[track]; }
-  public void setEqBass(int track, float v) { synth.eqBass[track] = v; }
-  public float getEqBass(int track) { return synth.eqBass[track]; }
-  public void setEqTreble(int track, float v) { synth.eqTreble[track] = v; }
-  public float getEqTreble(int track) { return synth.eqTreble[track]; }
-  public void setTrackPan(int track, float v) { synth.panArr[track] = v; }
-  public float getTrackPan(int track) { return synth.panArr[track]; }
-  public void setStutterRate(int track, float v) { synth.stutterRateArr[track] = v; }
-  public float getStutterRate(int track) { return synth.stutterRateArr[track]; }
-  public void setSampleRateReduction(int track, float v) { synth.sampleRateReductionArr[track] = v; }
-  public float getSampleRateReduction(int track) { return synth.sampleRateReductionArr[track]; }
-  public void setBitCrush(int track, float v) { synth.bitCrushArr[track] = v; }
-  public float getBitCrush(int track) { return synth.bitCrushArr[track]; }
-  public void setCompAttack(int track, float v) { synth.compressorAttackArr[track] = v; }
-  public float getCompAttack(int track) { return synth.compressorAttackArr[track]; }
-  public void setCompRelease(int track, float v) { synth.compressorReleaseArr[track] = v; }
-  public float getCompRelease(int track) { return synth.compressorReleaseArr[track]; }
-  public void setCompBlend(int track, float v) { synth.compressorBlendArr[track] = v; }
-  public float getCompBlend(int track) { return synth.compressorBlendArr[track]; }
-  public void setCompRatio(int track, float v) { synth.compressorRatioArr[track] = v; }
-  public float getCompRatio(int track) { return synth.compressorRatioArr[track]; }
-  public void setCompSidechainHpf(int track, float v) { synth.compressorSidechainHpfArr[track] = v; }
-  public float getCompSidechainHpf(int track) { return synth.compressorSidechainHpfArr[track]; }
-  public void setOsc2Type(int track, int v) { synth.osc2Type[track] = v; }
-  public int getOsc2Type(int track) { return synth.osc2Type[track]; }
-  public void setRetrigPhase(int track, int v) { synth.retrigPhase[track] = v; }
-  public int getRetrigPhase(int track) { return synth.retrigPhase[track]; }
-  public void setWaveIndex(int track, float v) { synth.waveIndex[track] = v; }
-  public float getWaveIndex(int track) { return synth.waveIndex[track]; }
+  public void setOscMix(int track, float v) {
+    synth.oscMix[track] = v;
+  }
+
+  public float getOscMix(int track) {
+    return synth.oscMix[track];
+  }
+
+  public void setNoiseVol(int track, float v) {
+    synth.noiseVol[track] = v;
+  }
+
+  public float getNoiseVol(int track) {
+    return synth.noiseVol[track];
+  }
+
+  public void setUnisonNum(int track, int v) {
+    synth.unisonNum[track] = v;
+  }
+
+  public int getUnisonNum(int track) {
+    return synth.unisonNum[track];
+  }
+
+  public void setUnisonDetune(int track, float v) {
+    synth.unisonDetune[track] = v;
+  }
+
+  public float getUnisonDetune(int track) {
+    return synth.unisonDetune[track];
+  }
+
+  public void setUnisonSpread(int track, float v) {
+    synth.unisonSpread[track] = v;
+  }
+
+  public float getUnisonSpread(int track) {
+    return synth.unisonSpread[track];
+  }
+
+  public void setModFxType(int track, int v) {
+    synth.modFxType[track] = v;
+  }
+
+  public int getModFxType(int track) {
+    return synth.modFxType[track];
+  }
+
+  public void setModFxRate(int track, float v) {
+    synth.modFxRate[track] = v;
+  }
+
+  public float getModFxRate(int track) {
+    return synth.modFxRate[track];
+  }
+
+  public void setModFxDepth(int track, float v) {
+    synth.modFxDepth[track] = v;
+  }
+
+  public float getModFxDepth(int track) {
+    return synth.modFxDepth[track];
+  }
+
+  public void setModFxFeedback(int track, float v) {
+    synth.modFxFeedback[track] = v;
+  }
+
+  public float getModFxFeedback(int track) {
+    return synth.modFxFeedback[track];
+  }
+
+  public void setModFxOffset(int track, float v) {
+    synth.modFxOffset[track] = v;
+  }
+
+  public float getModFxOffset(int track) {
+    return synth.modFxOffset[track];
+  }
+
+  public void setPortamento(int track, float v) {
+    synth.portamento[track] = v;
+  }
+
+  public float getPortamento(int track) {
+    return synth.portamento[track];
+  }
+
+  public void setEqBass(int track, float v) {
+    synth.eqBass[track] = v;
+  }
+
+  public float getEqBass(int track) {
+    return synth.eqBass[track];
+  }
+
+  public void setEqTreble(int track, float v) {
+    synth.eqTreble[track] = v;
+  }
+
+  public float getEqTreble(int track) {
+    return synth.eqTreble[track];
+  }
+
+  public void setTrackPan(int track, float v) {
+    synth.panArr[track] = v;
+  }
+
+  public float getTrackPan(int track) {
+    return synth.panArr[track];
+  }
+
+  public void setStutterRate(int track, float v) {
+    synth.stutterRateArr[track] = v;
+  }
+
+  public float getStutterRate(int track) {
+    return synth.stutterRateArr[track];
+  }
+
+  public void setSampleRateReduction(int track, float v) {
+    synth.sampleRateReductionArr[track] = v;
+  }
+
+  public float getSampleRateReduction(int track) {
+    return synth.sampleRateReductionArr[track];
+  }
+
+  public void setBitCrush(int track, float v) {
+    synth.bitCrushArr[track] = v;
+  }
+
+  public float getBitCrush(int track) {
+    return synth.bitCrushArr[track];
+  }
+
+  public void setCompAttack(int track, float v) {
+    synth.compressorAttackArr[track] = v;
+  }
+
+  public float getCompAttack(int track) {
+    return synth.compressorAttackArr[track];
+  }
+
+  public void setCompRelease(int track, float v) {
+    synth.compressorReleaseArr[track] = v;
+  }
+
+  public float getCompRelease(int track) {
+    return synth.compressorReleaseArr[track];
+  }
+
+  public void setCompBlend(int track, float v) {
+    synth.compressorBlendArr[track] = v;
+  }
+
+  public float getCompBlend(int track) {
+    return synth.compressorBlendArr[track];
+  }
+
+  public void setCompRatio(int track, float v) {
+    synth.compressorRatioArr[track] = v;
+  }
+
+  public float getCompRatio(int track) {
+    return synth.compressorRatioArr[track];
+  }
+
+  public void setCompSidechainHpf(int track, float v) {
+    synth.compressorSidechainHpfArr[track] = v;
+  }
+
+  public float getCompSidechainHpf(int track) {
+    return synth.compressorSidechainHpfArr[track];
+  }
+
+  public void setOsc2Type(int track, int v) {
+    synth.osc2Type[track] = v;
+  }
+
+  public int getOsc2Type(int track) {
+    return synth.osc2Type[track];
+  }
+
+  public void setRetrigPhase(int track, int v) {
+    synth.retrigPhase[track] = v;
+  }
+
+  public int getRetrigPhase(int track) {
+    return synth.retrigPhase[track];
+  }
+
+  public void setWaveIndex(int track, float v) {
+    synth.waveIndex[track] = v;
+  }
+
+  public float getWaveIndex(int track) {
+    return synth.waveIndex[track];
+  }
+
   // ── Oscillator sample-playback accessors ──
-  public void setOsc1LoopMode(int track, int v) { synth.osc1LoopMode[track] = v; }
-  public int getOsc1LoopMode(int track) { return synth.osc1LoopMode[track]; }
-  public void setOsc1Reversed(int track, int v) { synth.osc1Reversed[track] = v; }
-  public int getOsc1Reversed(int track) { return synth.osc1Reversed[track]; }
-  public void setOsc1TimeStretch(int track, int v) { synth.osc1TimeStretch[track] = v; }
-  public int getOsc1TimeStretch(int track) { return synth.osc1TimeStretch[track]; }
-  public void setOsc1TimeStretchAmount(int track, float v) { synth.osc1TimeStretchAmount[track] = v; }
-  public float getOsc1TimeStretchAmount(int track) { return synth.osc1TimeStretchAmount[track]; }
-  public void setOsc1Cents(int track, int v) { synth.osc1Cents[track] = v; }
-  public int getOsc1Cents(int track) { return synth.osc1Cents[track]; }
-  public void setOsc1LinearInterpolation(int track, int v) { synth.osc1LinearInterpolation[track] = v; }
-  public int getOsc1LinearInterpolation(int track) { return synth.osc1LinearInterpolation[track]; }
-  public void setOsc2LoopMode(int track, int v) { synth.osc2LoopMode[track] = v; }
-  public int getOsc2LoopMode(int track) { return synth.osc2LoopMode[track]; }
-  public void setOsc2Reversed(int track, int v) { synth.osc2Reversed[track] = v; }
-  public int getOsc2Reversed(int track) { return synth.osc2Reversed[track]; }
-  public void setOsc2TimeStretch(int track, int v) { synth.osc2TimeStretch[track] = v; }
-  public int getOsc2TimeStretch(int track) { return synth.osc2TimeStretch[track]; }
-  public void setOsc2TimeStretchAmount(int track, float v) { synth.osc2TimeStretchAmount[track] = v; }
-  public float getOsc2TimeStretchAmount(int track) { return synth.osc2TimeStretchAmount[track]; }
-  public void setOsc2Cents(int track, int v) { synth.osc2Cents[track] = v; }
-  public int getOsc2Cents(int track) { return synth.osc2Cents[track]; }
-  public void setOsc2LinearInterpolation(int track, int v) { synth.osc2LinearInterpolation[track] = v; }
-  public int getOsc2LinearInterpolation(int track) { return synth.osc2LinearInterpolation[track]; }
-  public void setOsc2Transpose(int track, int v) { synth.osc2Transpose[track] = v; }
-  public int getOsc2Transpose(int track) { return synth.osc2Transpose[track]; }
-  public void setOscillatorSync(int track, int v) { synth.oscillatorSync[track] = v; }
-  public int getOscillatorSync(int track) { return synth.oscillatorSync[track]; }
+  public void setOsc1LoopMode(int track, int v) {
+    synth.osc1LoopMode[track] = v;
+  }
+
+  public int getOsc1LoopMode(int track) {
+    return synth.osc1LoopMode[track];
+  }
+
+  public void setOsc1Reversed(int track, int v) {
+    synth.osc1Reversed[track] = v;
+  }
+
+  public int getOsc1Reversed(int track) {
+    return synth.osc1Reversed[track];
+  }
+
+  public void setOsc1TimeStretch(int track, int v) {
+    synth.osc1TimeStretch[track] = v;
+  }
+
+  public int getOsc1TimeStretch(int track) {
+    return synth.osc1TimeStretch[track];
+  }
+
+  public void setOsc1TimeStretchAmount(int track, float v) {
+    synth.osc1TimeStretchAmount[track] = v;
+  }
+
+  public float getOsc1TimeStretchAmount(int track) {
+    return synth.osc1TimeStretchAmount[track];
+  }
+
+  public void setOsc1Cents(int track, int v) {
+    synth.osc1Cents[track] = v;
+  }
+
+  public int getOsc1Cents(int track) {
+    return synth.osc1Cents[track];
+  }
+
+  public void setOsc1LinearInterpolation(int track, int v) {
+    synth.osc1LinearInterpolation[track] = v;
+  }
+
+  public int getOsc1LinearInterpolation(int track) {
+    return synth.osc1LinearInterpolation[track];
+  }
+
+  public void setOsc2LoopMode(int track, int v) {
+    synth.osc2LoopMode[track] = v;
+  }
+
+  public int getOsc2LoopMode(int track) {
+    return synth.osc2LoopMode[track];
+  }
+
+  public void setOsc2Reversed(int track, int v) {
+    synth.osc2Reversed[track] = v;
+  }
+
+  public int getOsc2Reversed(int track) {
+    return synth.osc2Reversed[track];
+  }
+
+  public void setOsc2TimeStretch(int track, int v) {
+    synth.osc2TimeStretch[track] = v;
+  }
+
+  public int getOsc2TimeStretch(int track) {
+    return synth.osc2TimeStretch[track];
+  }
+
+  public void setOsc2TimeStretchAmount(int track, float v) {
+    synth.osc2TimeStretchAmount[track] = v;
+  }
+
+  public float getOsc2TimeStretchAmount(int track) {
+    return synth.osc2TimeStretchAmount[track];
+  }
+
+  public void setOsc2Cents(int track, int v) {
+    synth.osc2Cents[track] = v;
+  }
+
+  public int getOsc2Cents(int track) {
+    return synth.osc2Cents[track];
+  }
+
+  public void setOsc2LinearInterpolation(int track, int v) {
+    synth.osc2LinearInterpolation[track] = v;
+  }
+
+  public int getOsc2LinearInterpolation(int track) {
+    return synth.osc2LinearInterpolation[track];
+  }
+
+  public void setOsc2Transpose(int track, int v) {
+    synth.osc2Transpose[track] = v;
+  }
+
+  public int getOsc2Transpose(int track) {
+    return synth.osc2Transpose[track];
+  }
+
+  public void setOscillatorSync(int track, int v) {
+    synth.oscillatorSync[track] = v;
+  }
+
+  public int getOscillatorSync(int track) {
+    return synth.oscillatorSync[track];
+  }
+
   // ── Patch cable accessors (synth) ──
 
-  /** Write all patch cables for a given synth track into the bridge arrays.
-     * @param track
-     * @param cables */
-  public void setSynthPatchCables(int track, java.util.List<org.chuck.deluge.model.PatchCable> cables) {
+  /**
+   * Write all patch cables for a given synth track into the bridge arrays.
+   *
+   * @param track
+   * @param cables
+   */
+  public void setSynthPatchCables(
+      int track, java.util.List<org.chuck.deluge.model.PatchCable> cables) {
     if (track < 0 || track >= TRACKS) return;
     int count = Math.min(cables.size(), MAX_CABLES_PER_TRACK);
     synth.pcCount[track] = count;
@@ -2269,7 +3421,8 @@ public final class BridgeContract {
       synth.pcSource[base + c] = srcStringToOrdinal(pc.source());
       synth.pcDest[base + c] = dstStringToOrdinal(pc.destination());
       synth.pcAmount[base + c] = pc.amount();
-      synth.pcPolarity[base + c] = pc.polarity() == org.chuck.deluge.model.PatchCable.Polarity.BIPOLAR ? 1 : 0;
+      synth.pcPolarity[base + c] =
+          pc.polarity() == org.chuck.deluge.model.PatchCable.Polarity.BIPOLAR ? 1 : 0;
     }
     // Zero out remaining slots
     for (int c = count; c < MAX_CABLES_PER_TRACK; c++) {
@@ -2282,10 +3435,14 @@ public final class BridgeContract {
 
   // ── Patch cable accessors (kit) ──
 
-  /** Write all patch cables for a given kit sound into the bridge arrays.
-     * @param track
-     * @param cables */
-  public void setKitPatchCables(int track, java.util.List<org.chuck.deluge.model.PatchCable> cables) {
+  /**
+   * Write all patch cables for a given kit sound into the bridge arrays.
+   *
+   * @param track
+   * @param cables
+   */
+  public void setKitPatchCables(
+      int track, java.util.List<org.chuck.deluge.model.PatchCable> cables) {
     if (track < 0 || track >= TRACKS) return;
     int count = Math.min(cables.size(), MAX_CABLES_PER_TRACK);
     kit.kitPcCount[track] = count;
@@ -2295,7 +3452,8 @@ public final class BridgeContract {
       kit.kitPcSource[base + c] = srcStringToOrdinal(pc.source());
       kit.kitPcDest[base + c] = dstStringToOrdinal(pc.destination());
       kit.kitPcAmount[base + c] = pc.amount();
-      kit.kitPcPolarity[base + c] = pc.polarity() == org.chuck.deluge.model.PatchCable.Polarity.BIPOLAR ? 1 : 0;
+      kit.kitPcPolarity[base + c] =
+          pc.polarity() == org.chuck.deluge.model.PatchCable.Polarity.BIPOLAR ? 1 : 0;
     }
     for (int c = count; c < MAX_CABLES_PER_TRACK; c++) {
       kit.kitPcSource[base + c] = -1;
@@ -2306,254 +3464,788 @@ public final class BridgeContract {
   }
 
   /**
-   * Maps a modulation source string to its ordinal for bridge transport.
-   * Must match MOD_SRC_OPTIONS in SwingSynthConfigDialog.
+   * Maps a modulation source string to its ordinal for bridge transport. Must match MOD_SRC_OPTIONS
+   * in SwingSynthConfigDialog.
    */
   private static int srcStringToOrdinal(String src) {
     if (src == null) return -1;
     return switch (src) {
       case "velocity" -> 0;
-      case "envelope1" -> 1; case "envelope2" -> 2; case "envelope3" -> 3; case "envelope4" -> 4;
-      case "lfo1" -> 5; case "lfo2" -> 6; case "lfo3" -> 7; case "lfo4" -> 8;
-      case "aftertouch" -> 9; case "note" -> 10; case "random" -> 11; case "sidechain" -> 12;
+      case "envelope1" -> 1;
+      case "envelope2" -> 2;
+      case "envelope3" -> 3;
+      case "envelope4" -> 4;
+      case "lfo1" -> 5;
+      case "lfo2" -> 6;
+      case "lfo3" -> 7;
+      case "lfo4" -> 8;
+      case "aftertouch" -> 9;
+      case "note" -> 10;
+      case "random" -> 11;
+      case "sidechain" -> 12;
       default -> -1;
     };
   }
 
   /**
-   * Maps a modulation destination string to its ordinal for bridge transport.
-   * Must match MOD_DST_OPTIONS in SwingSynthConfigDialog.
+   * Maps a modulation destination string to its ordinal for bridge transport. Must match
+   * MOD_DST_OPTIONS in SwingSynthConfigDialog.
    */
   private static int dstStringToOrdinal(String dst) {
     if (dst == null) return -1;
     return switch (dst) {
-      case "volume" -> 0; case "pan" -> 1; case "lpfFrequency" -> 2; case "lpfResonance" -> 3;
-      case "oscAVolume" -> 4; case "oscBVolume" -> 5; case "pitch" -> 6;
-      case "noiseVolume" -> 7; case "modFxRate" -> 8; case "modFxDepth" -> 9;
+      case "volume" -> 0;
+      case "pan" -> 1;
+      case "lpfFrequency" -> 2;
+      case "lpfResonance" -> 3;
+      case "oscAVolume" -> 4;
+      case "oscBVolume" -> 5;
+      case "pitch" -> 6;
+      case "noiseVolume" -> 7;
+      case "modFxRate" -> 8;
+      case "modFxDepth" -> 9;
       default -> -1;
     };
   }
 
   // ── Extended per-track kit accessors ─────────────────────
 
-  public void setKitLpfMode(int track, int v) { kit.kitLpfMode[track] = v; }
-  public int getKitLpfMode(int track) { return kit.kitLpfMode[track]; }
-  public void setKitLpfMorph(int track, float v) { kit.kitLpfMorph[track] = v; }
-  public float getKitLpfMorph(int track) { return kit.kitLpfMorph[track]; }
-  public void setKitEqBass(int track, float v) { kit.kitEqBass[track] = v; }
-  public float getKitEqBass(int track) { return kit.kitEqBass[track]; }
-  public void setKitEqTreble(int track, float v) { kit.kitEqTreble[track] = v; }
-  public float getKitEqTreble(int track) { return kit.kitEqTreble[track]; }
-  public void setKitSidechain(int track, float v) { kit.kitSidechain[track] = v; }
-  public float getKitSidechain(int track) { return kit.kitSidechain[track]; }
-  public void setKitModFxType(int track, int v) { kit.kitModFxType[track] = v; }
-  public int getKitModFxType(int track) { return kit.kitModFxType[track]; }
-  public void setKitModFxRate(int track, float v) { kit.kitModFxRate[track] = v; }
-  public float getKitModFxRate(int track) { return kit.kitModFxRate[track]; }
-  public void setKitModFxDepth(int track, float v) { kit.kitModFxDepth[track] = v; }
-  public float getKitModFxDepth(int track) { return kit.kitModFxDepth[track]; }
-  public void setKitModFxOffset(int track, float v) { kit.kitModFxOffset[track] = v; }
-  public float getKitModFxOffset(int track) { return kit.kitModFxOffset[track]; }
-  public void setKitModFxFeedback(int track, float v) { kit.kitModFxFeedback[track] = v; }
-  public float getKitModFxFeedback(int track) { return kit.kitModFxFeedback[track]; }
-  public void setKitHpfFreq(int track, float v) { kit.kitHpfFreq[track] = v; }
-  public float getKitHpfFreq(int track) { return kit.kitHpfFreq[track]; }
-  public void setKitHpfRes(int track, float v) { kit.kitHpfRes[track] = v; }
-  public float getKitHpfRes(int track) { return kit.kitHpfRes[track]; }
-  public void setKitHpfMorph(int track, float v) { kit.kitHpfMorph[track] = v; }
-  public float getKitHpfMorph(int track) { return kit.kitHpfMorph[track]; }
-  public void setKitHpfMode(int track, int v) { kit.kitHpfMode[track] = v; }
-  public int getKitHpfMode(int track) { return kit.kitHpfMode[track]; }
-  public void setKitHpfFm(int track, float v) { kit.kitHpfFm[track] = v; }
-  public float getKitHpfFm(int track) { return kit.kitHpfFm[track]; }
-  public void setKitOsc2Type(int track, int v) { kit.kitOsc2Type[track] = v; }
-  public int getKitOsc2Type(int track) { return kit.kitOsc2Type[track]; }
-  public void setKitUnisonNum(int track, int v) { kit.kitUnisonNum[track] = v; }
-  public int getKitUnisonNum(int track) { return kit.kitUnisonNum[track]; }
-  public void setKitUnisonDetune(int track, float v) { kit.kitUnisonDetune[track] = v; }
-  public float getKitUnisonDetune(int track) { return kit.kitUnisonDetune[track]; }
-  public void setKitUnisonSpread(int track, float v) { kit.kitUnisonSpread[track] = v; }
-  public float getKitUnisonSpread(int track) { return kit.kitUnisonSpread[track]; }
-  public void setKitWaveIndex(int track, float v) { kit.kitWaveIndex[track] = v; }
-  public float getKitWaveIndex(int track) { return kit.kitWaveIndex[track]; }
-  public void setKitCompAttack(int track, float v) { kit.kitCompressorAttackArr[track] = v; }
-  public float getKitCompAttack(int track) { return kit.kitCompressorAttackArr[track]; }
-  public void setKitCompRelease(int track, float v) { kit.kitCompressorReleaseArr[track] = v; }
-  public float getKitCompRelease(int track) { return kit.kitCompressorReleaseArr[track]; }
-  public void setKitCompBlend(int track, float v) { kit.kitCompressorBlendArr[track] = v; }
-  public float getKitCompBlend(int track) { return kit.kitCompressorBlendArr[track]; }
-  public void setKitCompSidechainHpf(int track, float v) { kit.kitCompressorSidechainHpfArr[track] = v; }
-  public float getKitCompSidechainHpf(int track) { return kit.kitCompressorSidechainHpfArr[track]; }
-  public void setKitCompRatio(int track, float v) { kit.kitCompressorRatioArr[track] = v; }
-  public float getKitCompRatio(int track) { return kit.kitCompressorRatioArr[track]; }
-  public void setKitDelayRate(int track, float v) { kit.kitDelayRate[track] = v; }
-  public float getKitDelayRate(int track) { return kit.kitDelayRate[track]; }
-  public void setKitDelayFb(int track, float v) { kit.kitDelayFb[track] = v; }
-  public float getKitDelayFb(int track) { return kit.kitDelayFb[track]; }
-  public void setKitVolume(int track, float v) { kit.kitVolume[track] = v; }
-  public float getKitVolume(int track) { return kit.kitVolume[track]; }
-  public void setKitPan(int track, float v) { kit.kitPan[track] = v; }
-  public float getKitPan(int track) { return kit.kitPan[track]; }
-  public void setKitNoiseVol(int track, float v) { kit.kitNoiseVol[track] = v; }
-  public float getKitNoiseVol(int track) { return kit.kitNoiseVol[track]; }
-  public void setKitStutterRate(int track, float v) { kit.kitStutterRate[track] = v; }
-  public float getKitStutterRate(int track) { return kit.kitStutterRate[track]; }
-  public void setKitSampleRateRed(int track, float v) { kit.kitSampleRateRed[track] = v; }
-  public float getKitSampleRateRed(int track) { return kit.kitSampleRateRed[track]; }
-  public void setKitBitCrush(int track, float v) { kit.kitBitCrush[track] = v; }
-  public float getKitBitCrush(int track) { return kit.kitBitCrush[track]; }
+  public void setKitLpfMode(int track, int v) {
+    kit.kitLpfMode[track] = v;
+  }
+
+  public int getKitLpfMode(int track) {
+    return kit.kitLpfMode[track];
+  }
+
+  public void setKitLpfMorph(int track, float v) {
+    kit.kitLpfMorph[track] = v;
+  }
+
+  public float getKitLpfMorph(int track) {
+    return kit.kitLpfMorph[track];
+  }
+
+  public void setKitEqBass(int track, float v) {
+    kit.kitEqBass[track] = v;
+  }
+
+  public float getKitEqBass(int track) {
+    return kit.kitEqBass[track];
+  }
+
+  public void setKitEqTreble(int track, float v) {
+    kit.kitEqTreble[track] = v;
+  }
+
+  public float getKitEqTreble(int track) {
+    return kit.kitEqTreble[track];
+  }
+
+  public void setKitSidechain(int track, float v) {
+    kit.kitSidechain[track] = v;
+  }
+
+  public float getKitSidechain(int track) {
+    return kit.kitSidechain[track];
+  }
+
+  public void setKitModFxType(int track, int v) {
+    kit.kitModFxType[track] = v;
+  }
+
+  public int getKitModFxType(int track) {
+    return kit.kitModFxType[track];
+  }
+
+  public void setKitModFxRate(int track, float v) {
+    kit.kitModFxRate[track] = v;
+  }
+
+  public float getKitModFxRate(int track) {
+    return kit.kitModFxRate[track];
+  }
+
+  public void setKitModFxDepth(int track, float v) {
+    kit.kitModFxDepth[track] = v;
+  }
+
+  public float getKitModFxDepth(int track) {
+    return kit.kitModFxDepth[track];
+  }
+
+  public void setKitModFxOffset(int track, float v) {
+    kit.kitModFxOffset[track] = v;
+  }
+
+  public float getKitModFxOffset(int track) {
+    return kit.kitModFxOffset[track];
+  }
+
+  public void setKitModFxFeedback(int track, float v) {
+    kit.kitModFxFeedback[track] = v;
+  }
+
+  public float getKitModFxFeedback(int track) {
+    return kit.kitModFxFeedback[track];
+  }
+
+  public void setKitHpfFreq(int track, float v) {
+    kit.kitHpfFreq[track] = v;
+  }
+
+  public float getKitHpfFreq(int track) {
+    return kit.kitHpfFreq[track];
+  }
+
+  public void setKitHpfRes(int track, float v) {
+    kit.kitHpfRes[track] = v;
+  }
+
+  public float getKitHpfRes(int track) {
+    return kit.kitHpfRes[track];
+  }
+
+  public void setKitHpfMorph(int track, float v) {
+    kit.kitHpfMorph[track] = v;
+  }
+
+  public float getKitHpfMorph(int track) {
+    return kit.kitHpfMorph[track];
+  }
+
+  public void setKitHpfMode(int track, int v) {
+    kit.kitHpfMode[track] = v;
+  }
+
+  public int getKitHpfMode(int track) {
+    return kit.kitHpfMode[track];
+  }
+
+  public void setKitHpfFm(int track, float v) {
+    kit.kitHpfFm[track] = v;
+  }
+
+  public float getKitHpfFm(int track) {
+    return kit.kitHpfFm[track];
+  }
+
+  public void setKitOsc2Type(int track, int v) {
+    kit.kitOsc2Type[track] = v;
+  }
+
+  public int getKitOsc2Type(int track) {
+    return kit.kitOsc2Type[track];
+  }
+
+  public void setKitUnisonNum(int track, int v) {
+    kit.kitUnisonNum[track] = v;
+  }
+
+  public int getKitUnisonNum(int track) {
+    return kit.kitUnisonNum[track];
+  }
+
+  public void setKitUnisonDetune(int track, float v) {
+    kit.kitUnisonDetune[track] = v;
+  }
+
+  public float getKitUnisonDetune(int track) {
+    return kit.kitUnisonDetune[track];
+  }
+
+  public void setKitUnisonSpread(int track, float v) {
+    kit.kitUnisonSpread[track] = v;
+  }
+
+  public float getKitUnisonSpread(int track) {
+    return kit.kitUnisonSpread[track];
+  }
+
+  public void setKitWaveIndex(int track, float v) {
+    kit.kitWaveIndex[track] = v;
+  }
+
+  public float getKitWaveIndex(int track) {
+    return kit.kitWaveIndex[track];
+  }
+
+  public void setKitCompAttack(int track, float v) {
+    kit.kitCompressorAttackArr[track] = v;
+  }
+
+  public float getKitCompAttack(int track) {
+    return kit.kitCompressorAttackArr[track];
+  }
+
+  public void setKitCompRelease(int track, float v) {
+    kit.kitCompressorReleaseArr[track] = v;
+  }
+
+  public float getKitCompRelease(int track) {
+    return kit.kitCompressorReleaseArr[track];
+  }
+
+  public void setKitCompBlend(int track, float v) {
+    kit.kitCompressorBlendArr[track] = v;
+  }
+
+  public float getKitCompBlend(int track) {
+    return kit.kitCompressorBlendArr[track];
+  }
+
+  public void setKitCompSidechainHpf(int track, float v) {
+    kit.kitCompressorSidechainHpfArr[track] = v;
+  }
+
+  public float getKitCompSidechainHpf(int track) {
+    return kit.kitCompressorSidechainHpfArr[track];
+  }
+
+  public void setKitCompRatio(int track, float v) {
+    kit.kitCompressorRatioArr[track] = v;
+  }
+
+  public float getKitCompRatio(int track) {
+    return kit.kitCompressorRatioArr[track];
+  }
+
+  public void setKitDelayRate(int track, float v) {
+    kit.kitDelayRate[track] = v;
+  }
+
+  public float getKitDelayRate(int track) {
+    return kit.kitDelayRate[track];
+  }
+
+  public void setKitDelayFb(int track, float v) {
+    kit.kitDelayFb[track] = v;
+  }
+
+  public float getKitDelayFb(int track) {
+    return kit.kitDelayFb[track];
+  }
+
+  public void setKitVolume(int track, float v) {
+    kit.kitVolume[track] = v;
+  }
+
+  public float getKitVolume(int track) {
+    return kit.kitVolume[track];
+  }
+
+  public void setKitPan(int track, float v) {
+    kit.kitPan[track] = v;
+  }
+
+  public float getKitPan(int track) {
+    return kit.kitPan[track];
+  }
+
+  public void setKitNoiseVol(int track, float v) {
+    kit.kitNoiseVol[track] = v;
+  }
+
+  public float getKitNoiseVol(int track) {
+    return kit.kitNoiseVol[track];
+  }
+
+  public void setKitStutterRate(int track, float v) {
+    kit.kitStutterRate[track] = v;
+  }
+
+  public float getKitStutterRate(int track) {
+    return kit.kitStutterRate[track];
+  }
+
+  public void setKitSampleRateRed(int track, float v) {
+    kit.kitSampleRateRed[track] = v;
+  }
+
+  public float getKitSampleRateRed(int track) {
+    return kit.kitSampleRateRed[track];
+  }
+
+  public void setKitBitCrush(int track, float v) {
+    kit.kitBitCrush[track] = v;
+  }
+
+  public float getKitBitCrush(int track) {
+    return kit.kitBitCrush[track];
+  }
+
   public void setKitLpfDrive(int track, float v) {
     kit.kitLpfDrive[track] = Math.max(0.0f, Math.min(2.0f, v));
     if (vm != null) {
-      org.chuck.core.ChuckArray arr = (org.chuck.core.ChuckArray) vm.getGlobalObject(G_KIT_LPF_DRIVE);
+      org.chuck.core.ChuckArray arr =
+          (org.chuck.core.ChuckArray) vm.getGlobalObject(G_KIT_LPF_DRIVE);
       if (arr != null) arr.setFloat(track, kit.kitLpfDrive[track]);
     }
   }
+
   public void setKitLpfNotch(int track, int v) {
     kit.kitLpfNotch[track] = v;
     if (vm != null) {
-      org.chuck.core.ChuckArray arr = (org.chuck.core.ChuckArray) vm.getGlobalObject(G_KIT_LPF_NOTCH);
+      org.chuck.core.ChuckArray arr =
+          (org.chuck.core.ChuckArray) vm.getGlobalObject(G_KIT_LPF_NOTCH);
       if (arr != null) arr.setInt(track, (long) v);
     }
   }
+
   public void setKitMaxVoices(int track, int v) {
     kit.kitMaxVoices[track] = Math.max(1, Math.min(16, v));
     if (vm != null) {
-      org.chuck.core.ChuckArray arr = (org.chuck.core.ChuckArray) vm.getGlobalObject(G_KIT_MAX_VOICES);
+      org.chuck.core.ChuckArray arr =
+          (org.chuck.core.ChuckArray) vm.getGlobalObject(G_KIT_MAX_VOICES);
       if (arr != null) arr.setInt(track, (long) kit.kitMaxVoices[track]);
     }
   }
+
   public void setKitPolyphony(int track, int v) {
     kit.kitPolyphony[track] = v;
     if (vm != null) {
-      org.chuck.core.ChuckArray arr = (org.chuck.core.ChuckArray) vm.getGlobalObject(G_KIT_POLYPHONY);
+      org.chuck.core.ChuckArray arr =
+          (org.chuck.core.ChuckArray) vm.getGlobalObject(G_KIT_POLYPHONY);
       if (arr != null) arr.setInt(track, (long) v);
     }
   }
+
   // ── Kit per-sound FX setters ─────────────────────────────────
-  public void setKitDelayPingpong(int track, int v) { kit.kitDelayPingpong[track] = v; }
-  public int getKitDelayPingpong(int track) { return kit.kitDelayPingpong[track]; }
-  public void setKitDelayAnalog(int track, int v) { kit.kitDelayAnalog[track] = v; }
-  public int getKitDelayAnalog(int track) { return kit.kitDelayAnalog[track]; }
-  public void setKitReverbAmount(int track, float v) { kit.kitReverbAmount[track] = v; }
-  public float getKitReverbAmount(int track) { return kit.kitReverbAmount[track]; }
-  public void setKitCompThreshold(int track, float v) { kit.kitCompThreshold[track] = v; }
-  public float getKitCompThreshold(int track) { return kit.kitCompThreshold[track]; }
-  public void setKitCompSyncLevel(int track, int v) { kit.kitCompSyncLevel[track] = v; }
-  public int getKitCompSyncLevel(int track) { return kit.kitCompSyncLevel[track]; }
-  public void setKitSidechainSyncLevel(int track, int v) { kit.kitSidechainSyncLevel[track] = v; }
-  public int getKitSidechainSyncLevel(int track) { return kit.kitSidechainSyncLevel[track]; }
-  public void setKitSidechainSyncType(int track, int v) { kit.kitSidechainSyncType[track] = v; }
-  public int getKitSidechainSyncType(int track) { return kit.kitSidechainSyncType[track]; }
-  public void setKitSidechainAttack(int track, float v) { kit.kitSidechainAttack[track] = v; }
-  public float getKitSidechainAttack(int track) { return kit.kitSidechainAttack[track]; }
-  public void setKitSidechainRelease(int track, float v) { kit.kitSidechainRelease[track] = v; }
-  public float getKitSidechainRelease(int track) { return kit.kitSidechainRelease[track]; }
+  public void setKitDelayPingpong(int track, int v) {
+    kit.kitDelayPingpong[track] = v;
+  }
+
+  public int getKitDelayPingpong(int track) {
+    return kit.kitDelayPingpong[track];
+  }
+
+  public void setKitDelayAnalog(int track, int v) {
+    kit.kitDelayAnalog[track] = v;
+  }
+
+  public int getKitDelayAnalog(int track) {
+    return kit.kitDelayAnalog[track];
+  }
+
+  public void setKitReverbAmount(int track, float v) {
+    kit.kitReverbAmount[track] = v;
+  }
+
+  public float getKitReverbAmount(int track) {
+    return kit.kitReverbAmount[track];
+  }
+
+  public void setKitCompThreshold(int track, float v) {
+    kit.kitCompThreshold[track] = v;
+  }
+
+  public float getKitCompThreshold(int track) {
+    return kit.kitCompThreshold[track];
+  }
+
+  public void setKitCompSyncLevel(int track, int v) {
+    kit.kitCompSyncLevel[track] = v;
+  }
+
+  public int getKitCompSyncLevel(int track) {
+    return kit.kitCompSyncLevel[track];
+  }
+
+  public void setKitSidechainSyncLevel(int track, int v) {
+    kit.kitSidechainSyncLevel[track] = v;
+  }
+
+  public int getKitSidechainSyncLevel(int track) {
+    return kit.kitSidechainSyncLevel[track];
+  }
+
+  public void setKitSidechainSyncType(int track, int v) {
+    kit.kitSidechainSyncType[track] = v;
+  }
+
+  public int getKitSidechainSyncType(int track) {
+    return kit.kitSidechainSyncType[track];
+  }
+
+  public void setKitSidechainAttack(int track, float v) {
+    kit.kitSidechainAttack[track] = v;
+  }
+
+  public float getKitSidechainAttack(int track) {
+    return kit.kitSidechainAttack[track];
+  }
+
+  public void setKitSidechainRelease(int track, float v) {
+    kit.kitSidechainRelease[track] = v;
+  }
+
+  public float getKitSidechainRelease(int track) {
+    return kit.kitSidechainRelease[track];
+  }
+
   public void setAudioThreshold(int trackIdx, int v) {
     audio.audioThreshold[trackIdx] = Math.max(0, Math.min(3, v));
     if (vm != null) {
-      org.chuck.core.ChuckArray arr = (org.chuck.core.ChuckArray) vm.getGlobalObject(G_AUDIO_THRESHOLD);
+      org.chuck.core.ChuckArray arr =
+          (org.chuck.core.ChuckArray) vm.getGlobalObject(G_AUDIO_THRESHOLD);
       if (arr != null) arr.setInt(trackIdx, (long) audio.audioThreshold[trackIdx]);
     }
   }
+
   public void setAudioThresholdLevel(int trackIdx, float v) {
     audio.audioThresholdLevel[trackIdx] = v;
     if (vm != null) {
-      org.chuck.core.ChuckArray arr = (org.chuck.core.ChuckArray) vm.getGlobalObject(G_AUDIO_THRESHOLD_LEVEL);
+      org.chuck.core.ChuckArray arr =
+          (org.chuck.core.ChuckArray) vm.getGlobalObject(G_AUDIO_THRESHOLD_LEVEL);
       if (arr != null) arr.setFloat(trackIdx, v);
     }
   }
+
   // ── Arp / FM / synth mode accessors ──────────────────────
 
-  public boolean getArpOn(int track) { return synth.arpOn[track] > 0; }
-  public void setArpOn(int track, boolean on) { synth.arpOn[track] = on ? 1 : 0; }
-  public double getArpRate(int track) { return synth.arpRate[track]; }
-  public void setArpRate(int track, double rate) { synth.arpRate[track] = (float) rate; }
-  public int getArpOctave(int track) { return synth.arpOctave[track]; }
-  public void setArpOctave(int track, int oct) { synth.arpOctave[track] = oct; }
-  public int getArpMode(int track) { return synth.arpMode[track]; }
-  public void setArpMode(int track, int mode) { synth.arpMode[track] = mode; }
-  public double getArpGate(int track) { return synth.arpGate[track]; }
-  public void setArpGate(int track, double v) { synth.arpGate[track] = (float) v; }
-  public int getArpSyncLevel(int track) { return synth.arpSyncLevel[track]; }
-  public void setArpSyncLevel(int track, int v) { synth.arpSyncLevel[track] = v; }
-  public int getArpNoteMode(int track) { return synth.arpNoteMode[track]; }
-  public void setArpNoteMode(int track, int v) { synth.arpNoteMode[track] = v; }
-  public int getArpOctaveMode(int track) { return synth.arpOctaveMode[track]; }
-  public void setArpOctaveMode(int track, int v) { synth.arpOctaveMode[track] = v; }
-  public int getArpStepRepeat(int track) { return synth.arpStepRepeat[track]; }
-  public void setArpStepRepeat(int track, int v) { synth.arpStepRepeat[track] = v; }
-  public int getArpRhythm(int track) { return synth.arpRhythm[track]; }
-  public void setArpRhythm(int track, int v) { synth.arpRhythm[track] = v; }
-  public int getArpSeqLength(int track) { return synth.arpSeqLength[track]; }
-  public void setArpSeqLength(int track, int v) { synth.arpSeqLength[track] = v; }
-  public double getArpOctaveSpread(int track) { return synth.arpOctaveSpread[track]; }
-  public void setArpOctaveSpread(int track, double v) { synth.arpOctaveSpread[track] = (float) v; }
-  public double getArpGateSpread(int track) { return synth.arpGateSpread[track]; }
-  public void setArpGateSpread(int track, double v) { synth.arpGateSpread[track] = (float) v; }
-  public double getArpVelSpread(int track) { return synth.arpVelSpread[track]; }
-  public void setArpVelSpread(int track, double v) { synth.arpVelSpread[track] = (float) v; }
-  public int getArpRatchet(int track) { return synth.arpRatchet[track]; }
-  public void setArpRatchet(int track, int v) { synth.arpRatchet[track] = v; }
-  public double getArpNoteProbability(int track) { return synth.arpNoteProbability[track]; }
-  public void setArpNoteProbability(int track, double v) { synth.arpNoteProbability[track] = (float) v; }
-  public int getArpChordPoly(int track) { return synth.arpChordPoly[track]; }
-  public void setArpChordPoly(int track, int v) { synth.arpChordPoly[track] = v; }
-  public double getArpChordProb(int track) { return synth.arpChordProb[track]; }
-  public void setArpChordProb(int track, double v) { synth.arpChordProb[track] = (float) v; }
-  public double getFmRatio(int track) { return synth.fmRatio[track]; }
-  public void setFmRatio(int track, double r) { synth.fmRatio[track] = (float) r; }
-  public double getFmAmount(int track) { return synth.fmAmount[track]; }
-  public void setFmAmount(int track, double a) { synth.fmAmount[track] = (float) a; }
-  public int getSynthAlgo(int track) { return synth.synthAlgo[track]; }
-  public void setSynthAlgo(int track, int algo) { synth.synthAlgo[track] = algo; }
-  public int getSynthMode(int track) { return synth.synthMode[track]; }
-  public void setSynthMode(int track, int mode) { synth.synthMode[track] = mode; }
-  public int getEngineType(int track) { return synth.dx7EngineType[track]; }
-  public void setEngineType(int track, int type) { synth.dx7EngineType[track] = type; }
-  public void setHpfFreq(int track, float freq) { synth.hpfFreq[track] = freq; }
-  public float getHpfFreq(int track) { return synth.hpfFreq[track]; }
-  public void setHpfRes(int track, float res) { synth.hpfRes[track] = res; }
-  public float getHpfRes(int track) { return synth.hpfRes[track]; }
-  public void setHpfMorph(int track, float v) { synth.hpfMorph[track] = v; }
-  public float getHpfMorph(int track) { return synth.hpfMorph[track]; }
-  public void setHpfMode(int track, int v) { synth.hpfMode[track] = v; }
-  public int getHpfMode(int track) { return synth.hpfMode[track]; }
-  public void setHpfFm(int track, float v) { synth.hpfFm[track] = v; }
-  public float getHpfFm(int track) { return synth.hpfFm[track]; }
-  public void setPolyphony(int track, int mode) { synth.polyphony[track] = mode; }
-  public int getPolyphony(int track) { return synth.polyphony[track]; }
-  public float getMod1Fb(int track) { return synth.mod1Fb[track]; }
-  public void setMod1Fb(int track, float v) { synth.mod1Fb[track] = v; }
-  public float getMod2Amt(int track) { return synth.mod2Amt[track]; }
-  public void setMod2Amt(int track, float v) { synth.mod2Amt[track] = v; }
-  public float getMod2Fb(int track) { return synth.mod2Fb[track]; }
-  public void setMod2Fb(int track, float v) { synth.mod2Fb[track] = v; }
-  public float getCarrier1Fb(int track) { return synth.carrier1Fb[track]; }
-  public void setCarrier1Fb(int track, float v) { synth.carrier1Fb[track] = v; }
-  public float getCarrier2Fb(int track) { return synth.carrier2Fb[track]; }
-  public void setCarrier2Fb(int track, float v) { synth.carrier2Fb[track] = v; }
+  public boolean getArpOn(int track) {
+    return synth.arpOn[track] > 0;
+  }
+
+  public void setArpOn(int track, boolean on) {
+    synth.arpOn[track] = on ? 1 : 0;
+  }
+
+  public double getArpRate(int track) {
+    return synth.arpRate[track];
+  }
+
+  public void setArpRate(int track, double rate) {
+    synth.arpRate[track] = (float) rate;
+  }
+
+  public int getArpOctave(int track) {
+    return synth.arpOctave[track];
+  }
+
+  public void setArpOctave(int track, int oct) {
+    synth.arpOctave[track] = oct;
+  }
+
+  public int getArpMode(int track) {
+    return synth.arpMode[track];
+  }
+
+  public void setArpMode(int track, int mode) {
+    synth.arpMode[track] = mode;
+  }
+
+  public double getArpGate(int track) {
+    return synth.arpGate[track];
+  }
+
+  public void setArpGate(int track, double v) {
+    synth.arpGate[track] = (float) v;
+  }
+
+  public int getArpSyncLevel(int track) {
+    return synth.arpSyncLevel[track];
+  }
+
+  public void setArpSyncLevel(int track, int v) {
+    synth.arpSyncLevel[track] = v;
+  }
+
+  public int getArpNoteMode(int track) {
+    return synth.arpNoteMode[track];
+  }
+
+  public void setArpNoteMode(int track, int v) {
+    synth.arpNoteMode[track] = v;
+  }
+
+  public int getArpOctaveMode(int track) {
+    return synth.arpOctaveMode[track];
+  }
+
+  public void setArpOctaveMode(int track, int v) {
+    synth.arpOctaveMode[track] = v;
+  }
+
+  public int getArpStepRepeat(int track) {
+    return synth.arpStepRepeat[track];
+  }
+
+  public void setArpStepRepeat(int track, int v) {
+    synth.arpStepRepeat[track] = v;
+  }
+
+  public int getArpRhythm(int track) {
+    return synth.arpRhythm[track];
+  }
+
+  public void setArpRhythm(int track, int v) {
+    synth.arpRhythm[track] = v;
+  }
+
+  public int getArpSeqLength(int track) {
+    return synth.arpSeqLength[track];
+  }
+
+  public void setArpSeqLength(int track, int v) {
+    synth.arpSeqLength[track] = v;
+  }
+
+  public double getArpOctaveSpread(int track) {
+    return synth.arpOctaveSpread[track];
+  }
+
+  public void setArpOctaveSpread(int track, double v) {
+    synth.arpOctaveSpread[track] = (float) v;
+  }
+
+  public double getArpGateSpread(int track) {
+    return synth.arpGateSpread[track];
+  }
+
+  public void setArpGateSpread(int track, double v) {
+    synth.arpGateSpread[track] = (float) v;
+  }
+
+  public double getArpVelSpread(int track) {
+    return synth.arpVelSpread[track];
+  }
+
+  public void setArpVelSpread(int track, double v) {
+    synth.arpVelSpread[track] = (float) v;
+  }
+
+  public int getArpRatchet(int track) {
+    return synth.arpRatchet[track];
+  }
+
+  public void setArpRatchet(int track, int v) {
+    synth.arpRatchet[track] = v;
+  }
+
+  public double getArpNoteProbability(int track) {
+    return synth.arpNoteProbability[track];
+  }
+
+  public void setArpNoteProbability(int track, double v) {
+    synth.arpNoteProbability[track] = (float) v;
+  }
+
+  public int getArpChordPoly(int track) {
+    return synth.arpChordPoly[track];
+  }
+
+  public void setArpChordPoly(int track, int v) {
+    synth.arpChordPoly[track] = v;
+  }
+
+  public double getArpChordProb(int track) {
+    return synth.arpChordProb[track];
+  }
+
+  public void setArpChordProb(int track, double v) {
+    synth.arpChordProb[track] = (float) v;
+  }
+
+  public double getFmRatio(int track) {
+    return synth.fmRatio[track];
+  }
+
+  public void setFmRatio(int track, double r) {
+    synth.fmRatio[track] = (float) r;
+  }
+
+  public double getFmAmount(int track) {
+    return synth.fmAmount[track];
+  }
+
+  public void setFmAmount(int track, double a) {
+    synth.fmAmount[track] = (float) a;
+  }
+
+  public int getSynthAlgo(int track) {
+    return synth.synthAlgo[track];
+  }
+
+  public void setSynthAlgo(int track, int algo) {
+    synth.synthAlgo[track] = algo;
+  }
+
+  public int getSynthMode(int track) {
+    return synth.synthMode[track];
+  }
+
+  public void setSynthMode(int track, int mode) {
+    synth.synthMode[track] = mode;
+  }
+
+  public int getEngineType(int track) {
+    return synth.dx7EngineType[track];
+  }
+
+  public void setEngineType(int track, int type) {
+    synth.dx7EngineType[track] = type;
+  }
+
+  public void setHpfFreq(int track, float freq) {
+    synth.hpfFreq[track] = freq;
+  }
+
+  public float getHpfFreq(int track) {
+    return synth.hpfFreq[track];
+  }
+
+  public void setHpfRes(int track, float res) {
+    synth.hpfRes[track] = res;
+  }
+
+  public float getHpfRes(int track) {
+    return synth.hpfRes[track];
+  }
+
+  public void setHpfMorph(int track, float v) {
+    synth.hpfMorph[track] = v;
+  }
+
+  public float getHpfMorph(int track) {
+    return synth.hpfMorph[track];
+  }
+
+  public void setHpfMode(int track, int v) {
+    synth.hpfMode[track] = v;
+  }
+
+  public int getHpfMode(int track) {
+    return synth.hpfMode[track];
+  }
+
+  public void setHpfFm(int track, float v) {
+    synth.hpfFm[track] = v;
+  }
+
+  public float getHpfFm(int track) {
+    return synth.hpfFm[track];
+  }
+
+  public void setPolyphony(int track, int mode) {
+    synth.polyphony[track] = mode;
+  }
+
+  public int getPolyphony(int track) {
+    return synth.polyphony[track];
+  }
+
+  public float getMod1Fb(int track) {
+    return synth.mod1Fb[track];
+  }
+
+  public void setMod1Fb(int track, float v) {
+    synth.mod1Fb[track] = v;
+  }
+
+  public float getMod2Amt(int track) {
+    return synth.mod2Amt[track];
+  }
+
+  public void setMod2Amt(int track, float v) {
+    synth.mod2Amt[track] = v;
+  }
+
+  public float getMod2Fb(int track) {
+    return synth.mod2Fb[track];
+  }
+
+  public void setMod2Fb(int track, float v) {
+    synth.mod2Fb[track] = v;
+  }
+
+  public float getCarrier1Fb(int track) {
+    return synth.carrier1Fb[track];
+  }
+
+  public void setCarrier1Fb(int track, float v) {
+    synth.carrier1Fb[track] = v;
+  }
+
+  public float getCarrier2Fb(int track) {
+    return synth.carrier2Fb[track];
+  }
+
+  public void setCarrier2Fb(int track, float v) {
+    synth.carrier2Fb[track] = v;
+  }
+
   // ── Audio track accessors ────────────────────────────────
 
-  public int getAudioRec(int track) { return audio.audioRec[track]; }
-  public void setAudioRec(int track, int state) { audio.audioRec[track] = state; }
-  public int getAudioPlay(int track) { return audio.audioPlay[track]; }
-  public void setAudioPlay(int track, int state) { audio.audioPlay[track] = state; }
-  public int getAudioLoop(int track) { return audio.audioLoop[track]; }
-  public void setAudioLoop(int track, int looping) { audio.audioLoop[track] = looping; }
-  public float getAudioRate(int track) { return audio.audioRate[track]; }
-  public void setAudioRate(int track, float rate) { audio.audioRate[track] = rate; }
+  public int getAudioRec(int track) {
+    return audio.audioRec[track];
+  }
+
+  public void setAudioRec(int track, int state) {
+    audio.audioRec[track] = state;
+  }
+
+  public int getAudioPlay(int track) {
+    return audio.audioPlay[track];
+  }
+
+  public void setAudioPlay(int track, int state) {
+    audio.audioPlay[track] = state;
+  }
+
+  public int getAudioLoop(int track) {
+    return audio.audioLoop[track];
+  }
+
+  public void setAudioLoop(int track, int looping) {
+    audio.audioLoop[track] = looping;
+  }
+
+  public float getAudioRate(int track) {
+    return audio.audioRate[track];
+  }
+
+  public void setAudioRate(int track, float rate) {
+    audio.audioRate[track] = rate;
+  }
+
   // ── Export / misc ────────────────────────────────────────
 
-  public boolean isExporting() { return vm != null && vm.getGlobalFloat(G_WVOUT_ACTIVE) > 0.5; }
-  public void startExport(String filePath) { if (vm != null) { vm.setGlobalString(G_WVOUT_FILE, filePath); vm.setGlobalFloat(G_WVOUT_ACTIVE, 1.0); } }
-  public void stopExport() { if (vm != null) vm.setGlobalFloat(G_WVOUT_ACTIVE, 0.0); }
+  public boolean isExporting() {
+    return vm != null && vm.getGlobalFloat(G_WVOUT_ACTIVE) > 0.5;
+  }
+
+  public void startExport(String filePath) {
+    if (vm != null) {
+      vm.setGlobalString(G_WVOUT_FILE, filePath);
+      vm.setGlobalFloat(G_WVOUT_ACTIVE, 1.0);
+    }
+  }
+
+  public void stopExport() {
+    if (vm != null) vm.setGlobalFloat(G_WVOUT_ACTIVE, 0.0);
+  }
+
   public void syncActiveClipToLibrary(int track) {}
+
   public void loadSynthPreset(int track, org.chuck.deluge.model.SynthTrackModel model) {}
-  public void loadClip(int track, int clipIdx) { setCurrentClip(track, clipIdx); }
-  public void clearPattern() { for (int i = 0; i < PATTERN_SIZE; i++) step.pattern[i] = 0; }
-  public void setSamplePath(int track, String path) { samplePaths[track] = path; }
-  public String getSamplePath(int track) { return samplePaths[track]; }
+
+  public void loadClip(int track, int clipIdx) {
+    setCurrentClip(track, clipIdx);
+  }
+
+  public void clearPattern() {
+    for (int i = 0; i < PATTERN_SIZE; i++) step.pattern[i] = 0;
+  }
+
+  public void setSamplePath(int track, String path) {
+    samplePaths[track] = path;
+  }
+
+  public String getSamplePath(int track) {
+    return samplePaths[track];
+  }
+
   public void setSampleRange(int track, float start, float end) {
     if (track < 0 || track >= TRACKS) return;
     float s = Math.max(0.0f, Math.min(1.0f, start));
@@ -2565,8 +4257,7 @@ public final class BridgeContract {
     }
   }
 
-  public static float[] computeNormalizedRange(
-      SoundDrum snd, String resolvedPath) {
+  public static float[] computeNormalizedRange(SoundDrum snd, String resolvedPath) {
     float startNorm = 0.0f;
     float endNorm = 1.0f;
     boolean hasZone = false;
@@ -2614,18 +4305,17 @@ public final class BridgeContract {
         }
       }
     }
-    return hasZone ? new float[]{startNorm, endNorm} : new float[]{0.0f, 1.0f};
+    return hasZone ? new float[] {startNorm, endNorm} : new float[] {0.0f, 1.0f};
   }
 
-  public static float[] computeAudioClipRange(
-      AudioTrackModel.AudioClip clip, String resolvedPath) {
+  public static float[] computeAudioClipRange(AudioTrackModel.AudioClip clip, String resolvedPath) {
     float startNorm = 0.0f;
     float endNorm = 1.0f;
     boolean hasZone = false;
     java.io.File wavFile = new java.io.File(resolvedPath);
-    if (!wavFile.exists()) return new float[]{0.0f, 1.0f};
+    if (!wavFile.exists()) return new float[] {0.0f, 1.0f};
     long dataSize = wavFile.length() - 44;
-    if (dataSize <= 0) return new float[]{0.0f, 1.0f};
+    if (dataSize <= 0) return new float[] {0.0f, 1.0f};
     float totalSamples = dataSize / 2.0f;
     if (clip.getEndSamplePos() > 0) {
       hasZone = true;
@@ -2635,38 +4325,103 @@ public final class BridgeContract {
       hasZone = true;
       startNorm = clip.getStartSamplePos() / totalSamples;
     }
-    return hasZone ? new float[]{startNorm, endNorm} : new float[]{0.0f, 1.0f};
+    return hasZone ? new float[] {startNorm, endNorm} : new float[] {0.0f, 1.0f};
   }
 
-  public String getDx7Patch(int track) { return dx7Patch[track]; }
-  public void setDx7Patch(int track, String hex) { dx7Patch[track] = hex; }
-  public int[] getPatternRaw() { return step.pattern; }
-  public int[] getPitchRaw() { return step.pitch; }
-  public float[] getVelocityRaw() { return step.velocity; }
-  public float[] getProbabilityRaw() { return step.probability; }
-  public float[] getGateRaw() { return step.gate; }
-  public int[] getTrackTypeRaw() { return track.trackType; }
-  public float[] getTrackLevelRaw() { return track.trackLevel; }
-  public int[] getMuteRaw() { return track.mute; }
-  public float[] getTrackFilterFreqRaw() { return track.filter; }
-  public float[] getEnvRaw() { return synth.env; }
-  public float[] getLfoRateRaw() { return synth.lfoRate; }
-  public int[] getLfoTypeRaw() { return synth.lfoType; }
-  public float[] getLfoDepthRaw() { return synth.lfoDepth; }
-  public int[] getLfoTargetRaw() { return synth.lfoTarget; }
-  public int[] getLfoTrackRaw() { return synth.lfoTrack; }
-  public int getPlayState() { return javaPlayState; }
+  public String getDx7Patch(int track) {
+    return dx7Patch[track];
+  }
+
+  public void setDx7Patch(int track, String hex) {
+    dx7Patch[track] = hex;
+  }
+
+  public int[] getPatternRaw() {
+    return step.pattern;
+  }
+
+  public int[] getPitchRaw() {
+    return step.pitch;
+  }
+
+  public float[] getVelocityRaw() {
+    return step.velocity;
+  }
+
+  public float[] getProbabilityRaw() {
+    return step.probability;
+  }
+
+  public float[] getGateRaw() {
+    return step.gate;
+  }
+
+  public int[] getTrackTypeRaw() {
+    return track.trackType;
+  }
+
+  public float[] getTrackLevelRaw() {
+    return track.trackLevel;
+  }
+
+  public int[] getMuteRaw() {
+    return track.mute;
+  }
+
+  public float[] getTrackFilterFreqRaw() {
+    return track.filter;
+  }
+
+  public float[] getEnvRaw() {
+    return synth.env;
+  }
+
+  public float[] getLfoRateRaw() {
+    return synth.lfoRate;
+  }
+
+  public int[] getLfoTypeRaw() {
+    return synth.lfoType;
+  }
+
+  public float[] getLfoDepthRaw() {
+    return synth.lfoDepth;
+  }
+
+  public int[] getLfoTargetRaw() {
+    return synth.lfoTarget;
+  }
+
+  public int[] getLfoTrackRaw() {
+    return synth.lfoTrack;
+  }
+
+  public int getPlayState() {
+    return javaPlayState;
+  }
+
   public void setPlayState(int state) {
     this.javaPlayState = state;
     if (vm != null) vm.setGlobalInt(G_PLAY, (long) state);
   }
-  public int getCurrentStep() { return javaCurrentStep; }
+
+  public int getCurrentStep() {
+    return javaCurrentStep;
+  }
+
   public void setCurrentStep(int v) {
     this.javaCurrentStep = v;
     if (vm != null) vm.setGlobalInt(G_CURRENT_STEP, (long) v);
   }
-  public long getStutterOn() { return vm != null ? vm.getGlobalInt(G_STUTTER_ON) : 0L; }
-  public double getStutterDiv() { return vm != null ? vm.getGlobalFloat(G_STUTTER_DIV) : 1.0; }
+
+  public long getStutterOn() {
+    return vm != null ? vm.getGlobalInt(G_STUTTER_ON) : 0L;
+  }
+
+  public double getStutterDiv() {
+    return vm != null ? vm.getGlobalFloat(G_STUTTER_DIV) : 1.0;
+  }
+
   public void processLaunchQueue() {
     for (int t = 0; t < TRACKS; t++) {
       int q = track.launchQueue[t];
@@ -2676,6 +4431,7 @@ public final class BridgeContract {
       }
     }
   }
+
   public int getPatternAtClip(int t, int sidx, int clipIdx) {
     if (clipIdx <= 0) return step.pattern[t * STEPS + sidx];
     if (vm == null) return step.pattern[t * STEPS + sidx];
@@ -2683,6 +4439,7 @@ public final class BridgeContract {
     if (arr != null) return (int) arr.getInt(t * STEPS + sidx);
     return step.pattern[t * STEPS + sidx];
   }
+
   public int getPitchAtClip(int t, int sidx, int clipIdx) {
     if (clipIdx <= 0) return step.pitch[t * STEPS + sidx];
     if (vm == null) return step.pitch[t * STEPS + sidx];
@@ -2690,6 +4447,7 @@ public final class BridgeContract {
     if (arr != null) return (int) arr.getInt(t * STEPS + sidx);
     return step.pitch[t * STEPS + sidx];
   }
+
   public float getVelocityAtClip(int t, int sidx, int clipIdx) {
     if (clipIdx <= 0) return step.velocity[t * STEPS + sidx];
     if (vm == null) return step.velocity[t * STEPS + sidx];
@@ -2697,6 +4455,7 @@ public final class BridgeContract {
     if (arr != null) return (float) arr.getFloat(t * STEPS + sidx);
     return step.velocity[t * STEPS + sidx];
   }
+
   public float getProbabilityAtClip(int t, int sidx, int clipIdx) {
     if (clipIdx <= 0) return step.probability[t * STEPS + sidx];
     if (vm == null) return step.probability[t * STEPS + sidx];
@@ -2704,61 +4463,212 @@ public final class BridgeContract {
     if (arr != null) return (float) arr.getFloat(t * STEPS + sidx);
     return step.probability[t * STEPS + sidx];
   }
-  public void setRecording(boolean r) { this.recording = r; }
-  public boolean isRecording() { return recording; }
-  public boolean isUseJavaEngine() { return true; }
-  public void setDelaySend(int t, float v) { track.delaySend[t] = v; }
-  public float getDelaySend(int t) { return track.delaySend[t]; }
-  public void setReverbSend(int t, float v) { track.reverbSend[t] = v; }
-  public float getReverbSend(int t) { return track.reverbSend[t]; }
+
+  public void setRecording(boolean r) {
+    this.recording = r;
+  }
+
+  public boolean isRecording() {
+    return recording;
+  }
+
+  public boolean isUseJavaEngine() {
+    return true;
+  }
+
+  public void setDelaySend(int t, float v) {
+    track.delaySend[t] = v;
+  }
+
+  public float getDelaySend(int t) {
+    return track.delaySend[t];
+  }
+
+  public void setReverbSend(int t, float v) {
+    track.reverbSend[t] = v;
+  }
+
+  public float getReverbSend(int t) {
+    return track.reverbSend[t];
+  }
 
   // ── Raw array accessors for tests ────────────────────────────────────
 
   // SynthData
-  public float[] getPanRaw() { return synth.panArr; }
-  public int[] getOsc2TypeRaw() { return synth.osc2Type; }
-  public int[] getRetrigPhaseRaw() { return synth.retrigPhase; }
-  public float[] getWaveIndexRaw() { return synth.waveIndex; }
-  public float[] getMod1FbRaw() { return synth.mod1Fb; }
-  public float[] getMod2AmtRaw() { return synth.mod2Amt; }
-  public float[] getMod2FbRaw() { return synth.mod2Fb; }
-  public float[] getCarrier2FbRaw() { return synth.carrier2Fb; }
-  public float[] getOscMixRaw() { return synth.oscMix; }
-  public float[] getNoiseVolRaw() { return synth.noiseVol; }
-  public int[] getUnisonNumRaw() { return synth.unisonNum; }
-  public float[] getUnisonDetuneRaw() { return synth.unisonDetune; }
-  public int[] getModFxTypeRaw() { return synth.modFxType; }
-  public float[] getModFxRateRaw() { return synth.modFxRate; }
-  public float[] getModFxDepthRaw() { return synth.modFxDepth; }
-  public float[] getModFxFeedbackRaw() { return synth.modFxFeedback; }
-  public float[] getModFxOffsetRaw() { return synth.modFxOffset; }
-  public float[] getPortamentoRaw() { return synth.portamento; }
-  public float[] getEqBassRaw() { return synth.eqBass; }
-  public float[] getEqTrebleRaw() { return synth.eqTreble; }
-  public float[] getStutterRateRaw() { return synth.stutterRateArr; }
-  public float[] getSampleRateRedRaw() { return synth.sampleRateReductionArr; }
-  public float[] getBitCrushRaw() { return synth.bitCrushArr; }
-  public float[] getCompAttackRaw() { return synth.compressorAttackArr; }
-  public float[] getCompReleaseRaw() { return synth.compressorReleaseArr; }
-  public float[] getCompBlendRaw() { return synth.compressorBlendArr; }
-  public float[] getCompSidechainHpfRaw() { return synth.compressorSidechainHpfArr; }
+  public float[] getPanRaw() {
+    return synth.panArr;
+  }
+
+  public int[] getOsc2TypeRaw() {
+    return synth.osc2Type;
+  }
+
+  public int[] getRetrigPhaseRaw() {
+    return synth.retrigPhase;
+  }
+
+  public float[] getWaveIndexRaw() {
+    return synth.waveIndex;
+  }
+
+  public float[] getMod1FbRaw() {
+    return synth.mod1Fb;
+  }
+
+  public float[] getMod2AmtRaw() {
+    return synth.mod2Amt;
+  }
+
+  public float[] getMod2FbRaw() {
+    return synth.mod2Fb;
+  }
+
+  public float[] getCarrier2FbRaw() {
+    return synth.carrier2Fb;
+  }
+
+  public float[] getOscMixRaw() {
+    return synth.oscMix;
+  }
+
+  public float[] getNoiseVolRaw() {
+    return synth.noiseVol;
+  }
+
+  public int[] getUnisonNumRaw() {
+    return synth.unisonNum;
+  }
+
+  public float[] getUnisonDetuneRaw() {
+    return synth.unisonDetune;
+  }
+
+  public int[] getModFxTypeRaw() {
+    return synth.modFxType;
+  }
+
+  public float[] getModFxRateRaw() {
+    return synth.modFxRate;
+  }
+
+  public float[] getModFxDepthRaw() {
+    return synth.modFxDepth;
+  }
+
+  public float[] getModFxFeedbackRaw() {
+    return synth.modFxFeedback;
+  }
+
+  public float[] getModFxOffsetRaw() {
+    return synth.modFxOffset;
+  }
+
+  public float[] getPortamentoRaw() {
+    return synth.portamento;
+  }
+
+  public float[] getEqBassRaw() {
+    return synth.eqBass;
+  }
+
+  public float[] getEqTrebleRaw() {
+    return synth.eqTreble;
+  }
+
+  public float[] getStutterRateRaw() {
+    return synth.stutterRateArr;
+  }
+
+  public float[] getSampleRateRedRaw() {
+    return synth.sampleRateReductionArr;
+  }
+
+  public float[] getBitCrushRaw() {
+    return synth.bitCrushArr;
+  }
+
+  public float[] getCompAttackRaw() {
+    return synth.compressorAttackArr;
+  }
+
+  public float[] getCompReleaseRaw() {
+    return synth.compressorReleaseArr;
+  }
+
+  public float[] getCompBlendRaw() {
+    return synth.compressorBlendArr;
+  }
+
+  public float[] getCompSidechainHpfRaw() {
+    return synth.compressorSidechainHpfArr;
+  }
 
   // KitData
-  public float[] getKitVolumeRaw() { return kit.kitVolume; }
-  public float[] getKitPanRaw() { return kit.kitPan; }
-  public float[] getKitHpfFreqRaw() { return kit.kitHpfFreq; }
-  public float[] getKitHpfResRaw() { return kit.kitHpfRes; }
-  public float[] getKitNoiseVolRaw() { return kit.kitNoiseVol; }
-  public float[] getKitEqBassRaw() { return kit.kitEqBass; }
-  public float[] getKitEqTrebleRaw() { return kit.kitEqTreble; }
-  public float[] getKitSidechainRaw() { return kit.kitSidechain; }
-  public float[] getKitWaveIndexRaw() { return kit.kitWaveIndex; }
-  public int[] getKitModFxTypeRaw() { return kit.kitModFxType; }
-  public float[] getKitStutterRateRaw() { return kit.kitStutterRate; }
-  public float[] getKitSampleRateRedRaw() { return kit.kitSampleRateRed; }
-  public float[] getKitBitCrushRaw() { return kit.kitBitCrush; }
-  public float[] getKitCompAttackRaw() { return kit.kitCompressorAttackArr; }
-  public float[] getKitCompReleaseRaw() { return kit.kitCompressorReleaseArr; }
-  public float[] getKitCompBlendRaw() { return kit.kitCompressorBlendArr; }
-  public float[] getKitCompSidechainHpfRaw() { return kit.kitCompressorSidechainHpfArr; }
+  public float[] getKitVolumeRaw() {
+    return kit.kitVolume;
+  }
+
+  public float[] getKitPanRaw() {
+    return kit.kitPan;
+  }
+
+  public float[] getKitHpfFreqRaw() {
+    return kit.kitHpfFreq;
+  }
+
+  public float[] getKitHpfResRaw() {
+    return kit.kitHpfRes;
+  }
+
+  public float[] getKitNoiseVolRaw() {
+    return kit.kitNoiseVol;
+  }
+
+  public float[] getKitEqBassRaw() {
+    return kit.kitEqBass;
+  }
+
+  public float[] getKitEqTrebleRaw() {
+    return kit.kitEqTreble;
+  }
+
+  public float[] getKitSidechainRaw() {
+    return kit.kitSidechain;
+  }
+
+  public float[] getKitWaveIndexRaw() {
+    return kit.kitWaveIndex;
+  }
+
+  public int[] getKitModFxTypeRaw() {
+    return kit.kitModFxType;
+  }
+
+  public float[] getKitStutterRateRaw() {
+    return kit.kitStutterRate;
+  }
+
+  public float[] getKitSampleRateRedRaw() {
+    return kit.kitSampleRateRed;
+  }
+
+  public float[] getKitBitCrushRaw() {
+    return kit.kitBitCrush;
+  }
+
+  public float[] getKitCompAttackRaw() {
+    return kit.kitCompressorAttackArr;
+  }
+
+  public float[] getKitCompReleaseRaw() {
+    return kit.kitCompressorReleaseArr;
+  }
+
+  public float[] getKitCompBlendRaw() {
+    return kit.kitCompressorBlendArr;
+  }
+
+  public float[] getKitCompSidechainHpfRaw() {
+    return kit.kitCompressorSidechainHpfArr;
+  }
 }

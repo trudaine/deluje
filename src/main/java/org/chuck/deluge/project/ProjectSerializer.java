@@ -26,11 +26,11 @@ import org.w3c.dom.Element;
 public class ProjectSerializer {
 
   /**
-   * Resolves a sample path against the samples directory and copies it into a subdirectory
-   * next to the song XML, preserving the relative path structure after "SAMPLES/". Rewrites
-   * the PathKitSound's samplePath to the new relative location.
+   * Resolves a sample path against the samples directory and copies it into a subdirectory next to
+   * the song XML, preserving the relative path structure after "SAMPLES/". Rewrites the
+   * PathKitSound's samplePath to the new relative location.
    *
-   * <p>Samples are loaded from the filesystem only, using PreferencesManager paths.</p>
+   * <p>Samples are loaded from the filesystem only, using PreferencesManager paths.
    */
   private static void cloneSamples(ProjectModel model, File songFile) throws Exception {
     String samplesDir = PreferencesManager.getSamplesDir();
@@ -83,12 +83,12 @@ public class ProjectSerializer {
   }
 
   /**
-   * Save a project model to a Deluge song XML file, using a pre-built {@code <tracks>}
-   * DOM element for the note data. This overload is used by the ALS converter which
-   * generates tick-precise note data directly (bypassing ClipModel's step-grid).
+   * Save a project model to a Deluge song XML file, using a pre-built {@code <tracks>} DOM element
+   * for the note data. This overload is used by the ALS converter which generates tick-precise note
+   * data directly (bypassing ClipModel's step-grid).
    *
-   * @param model         the project model with instrument definitions
-   * @param file          the output file (song.xml)
+   * @param model the project model with instrument definitions
+   * @param file the output file (song.xml)
    * @param tracksElement a pre-built {@code <tracks>} DOM element containing noteRows
    */
   public static void save(ProjectModel model, File file, Element tracksElement) throws Exception {
@@ -155,15 +155,20 @@ public class ProjectSerializer {
         trackElem.setAttribute("engineType", String.valueOf(synth.getEngineType()));
         trackElem.setAttribute("fmRatio", String.valueOf(synth.getFmRatio()));
         trackElem.setAttribute("fmAmount", String.valueOf(synth.getFmAmount()));
-        trackElem.setAttribute("modulator1Feedback",
+        trackElem.setAttribute(
+            "modulator1Feedback",
             org.chuck.deluge.xml.DelugeHexMapper.floatToHex(synth.getModulator1Feedback()));
-        trackElem.setAttribute("modulator2Amount",
+        trackElem.setAttribute(
+            "modulator2Amount",
             org.chuck.deluge.xml.DelugeHexMapper.floatToHex(synth.getModulator2Amount()));
-        trackElem.setAttribute("modulator2Feedback",
+        trackElem.setAttribute(
+            "modulator2Feedback",
             org.chuck.deluge.xml.DelugeHexMapper.floatToHex(synth.getModulator2Feedback()));
-        trackElem.setAttribute("carrier1Feedback",
+        trackElem.setAttribute(
+            "carrier1Feedback",
             org.chuck.deluge.xml.DelugeHexMapper.floatToHex(synth.getCarrier1Feedback()));
-        trackElem.setAttribute("carrier2Feedback",
+        trackElem.setAttribute(
+            "carrier2Feedback",
             org.chuck.deluge.xml.DelugeHexMapper.floatToHex(synth.getCarrier2Feedback()));
 
         instruments.appendChild(trackElem);
@@ -251,15 +256,20 @@ public class ProjectSerializer {
         trackElem.setAttribute("engineType", String.valueOf(synth.getEngineType()));
         trackElem.setAttribute("fmRatio", String.valueOf(synth.getFmRatio()));
         trackElem.setAttribute("fmAmount", String.valueOf(synth.getFmAmount()));
-        trackElem.setAttribute("modulator1Feedback",
+        trackElem.setAttribute(
+            "modulator1Feedback",
             org.chuck.deluge.xml.DelugeHexMapper.floatToHex(synth.getModulator1Feedback()));
-        trackElem.setAttribute("modulator2Amount",
+        trackElem.setAttribute(
+            "modulator2Amount",
             org.chuck.deluge.xml.DelugeHexMapper.floatToHex(synth.getModulator2Amount()));
-        trackElem.setAttribute("modulator2Feedback",
+        trackElem.setAttribute(
+            "modulator2Feedback",
             org.chuck.deluge.xml.DelugeHexMapper.floatToHex(synth.getModulator2Feedback()));
-        trackElem.setAttribute("carrier1Feedback",
+        trackElem.setAttribute(
+            "carrier1Feedback",
             org.chuck.deluge.xml.DelugeHexMapper.floatToHex(synth.getCarrier1Feedback()));
-        trackElem.setAttribute("carrier2Feedback",
+        trackElem.setAttribute(
+            "carrier2Feedback",
             org.chuck.deluge.xml.DelugeHexMapper.floatToHex(synth.getCarrier2Feedback()));
 
         instruments.appendChild(trackElem);

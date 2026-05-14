@@ -27,33 +27,38 @@ public class AlgorithmPanel extends JPanel {
     int curEngineIdx = 0;
     for (int i = 0; i < stkValues.length; i++) {
       if (stkValues[i] == curAlgo || (i == 0 && curAlgo < 10)) {
-        curEngineIdx = i; break;
+        curEngineIdx = i;
+        break;
       }
     }
     engineCombo.setSelectedIndex(curEngineIdx);
-    engineCombo.addActionListener(e -> {
-      int ei = engineCombo.getSelectedIndex();
-      int algoVal = stkValues[ei];
-      model.setSynthAlgorithm(algoVal);
-      bridge.setSynthAlgo(trackIndex, algoVal);
-    });
+    engineCombo.addActionListener(
+        e -> {
+          int ei = engineCombo.getSelectedIndex();
+          int algoVal = stkValues[ei];
+          model.setSynthAlgorithm(algoVal);
+          bridge.setSynthAlgo(trackIndex, algoVal);
+        });
     topPanel.add(engineCombo);
 
     // Engine Type
     topPanel.add(Box.createHorizontalStrut(16));
     topPanel.add(SwingSynthConfigDialog.sectionLabel("ENGINE TYPE:"));
-    String[] engineTypeNames = {"Auto (firmware default)", "Modern (32-bit float)", "Vintage (14-bit ENV)"};
+    String[] engineTypeNames = {
+      "Auto (firmware default)", "Modern (32-bit float)", "Vintage (14-bit ENV)"
+    };
     JComboBox<String> engineTypeCombo = new JComboBox<>(engineTypeNames);
     engineTypeCombo.setBackground(new Color(0x33, 0x33, 0x33));
     engineTypeCombo.setForeground(Color.WHITE);
     int curEngineType = model.getEngineType();
     engineTypeCombo.setSelectedIndex(curEngineType + 1);
-    engineTypeCombo.addActionListener(ev -> {
-      int idx = engineTypeCombo.getSelectedIndex();
-      int typeVal = idx - 1;
-      model.setEngineType(typeVal);
-      bridge.setEngineType(trackIndex, typeVal);
-    });
+    engineTypeCombo.addActionListener(
+        ev -> {
+          int idx = engineTypeCombo.getSelectedIndex();
+          int typeVal = idx - 1;
+          model.setEngineType(typeVal);
+          bridge.setEngineType(trackIndex, typeVal);
+        });
     topPanel.add(engineTypeCombo);
     add(topPanel, BorderLayout.NORTH);
 
@@ -62,17 +67,19 @@ public class AlgorithmPanel extends JPanel {
     gridPanel.setBackground(new Color(0x22, 0x22, 0x22));
     JScrollPane scroll = new JScrollPane(gridPanel);
     scroll.setPreferredSize(new Dimension(700, 400));
-    scroll.setBorder(BorderFactory.createTitledBorder(
-        BorderFactory.createLineBorder(new Color(0x44, 0x44, 0x44)),
-        "DX7 ALGORITHMS (0–31)"));
+    scroll.setBorder(
+        BorderFactory.createTitledBorder(
+            BorderFactory.createLineBorder(new Color(0x44, 0x44, 0x44)), "DX7 ALGORITHMS (0–31)"));
     scroll.getViewport().setBackground(new Color(0x22, 0x22, 0x22));
 
     for (int algo = 0; algo < 32; algo++) {
       final int a = algo;
       JPanel algoCard = new JPanel(new BorderLayout(4, 2));
-      algoCard.setBackground(curAlgo == a ? new Color(0x3a, 0x5a, 0x3a) : new Color(0x2a, 0x2a, 0x2a));
-      algoCard.setBorder(BorderFactory.createLineBorder(
-          curAlgo == a ? Color.CYAN : new Color(0x44, 0x44, 0x44), 1));
+      algoCard.setBackground(
+          curAlgo == a ? new Color(0x3a, 0x5a, 0x3a) : new Color(0x2a, 0x2a, 0x2a));
+      algoCard.setBorder(
+          BorderFactory.createLineBorder(
+              curAlgo == a ? Color.CYAN : new Color(0x44, 0x44, 0x44), 1));
 
       JTextArea algoPreview = new JTextArea(formatAlgorithmMini(a));
       algoPreview.setEditable(false);
@@ -90,15 +97,19 @@ public class AlgorithmPanel extends JPanel {
       labelRow.add(algoLabel);
       JButton selectBtn = new JButton("Select");
       selectBtn.setFont(selectBtn.getFont().deriveFont(10f));
-      selectBtn.addActionListener(ev -> {
-        model.setSynthAlgorithm(a);
-        bridge.setSynthAlgo(trackIndex, a);
-        for (Component comp : gridPanel.getComponents()) {
-          if (comp instanceof JPanel card) {
-            card.setBackground(a == getAlgoForCard(card, gridPanel) ? new Color(0x3a, 0x5a, 0x3a) : new Color(0x2a, 0x2a, 0x2a));
-          }
-        }
-      });
+      selectBtn.addActionListener(
+          ev -> {
+            model.setSynthAlgorithm(a);
+            bridge.setSynthAlgo(trackIndex, a);
+            for (Component comp : gridPanel.getComponents()) {
+              if (comp instanceof JPanel card) {
+                card.setBackground(
+                    a == getAlgoForCard(card, gridPanel)
+                        ? new Color(0x3a, 0x5a, 0x3a)
+                        : new Color(0x2a, 0x2a, 0x2a));
+              }
+            }
+          });
       labelRow.add(selectBtn);
       algoCard.add(labelRow, BorderLayout.SOUTH);
 
@@ -107,13 +118,13 @@ public class AlgorithmPanel extends JPanel {
     add(scroll, BorderLayout.CENTER);
 
     // ── Bottom: STK description ──
-    JTextArea desc = new JTextArea(
-        "Algo 0-9: Standard DX7 FM algorithms (6-op, algorithm routing determined by firmware tables).\n" +
-        "Algo 10: Mandolin — Plucked string physical model with body resonance.\n" +
-        "Algo 11: Rhodey EP — FM electric piano based on the Rhodes sound.\n" +
-        "Algo 12: ModalBar — Mallet percussion with adjustable bar material.\n" +
-        "Algo 13: Moog Bass — Monophonic bass synthesizer with ladder filter."
-    );
+    JTextArea desc =
+        new JTextArea(
+            "Algo 0-9: Standard DX7 FM algorithms (6-op, algorithm routing determined by firmware tables).\n"
+                + "Algo 10: Mandolin — Plucked string physical model with body resonance.\n"
+                + "Algo 11: Rhodey EP — FM electric piano based on the Rhodes sound.\n"
+                + "Algo 12: ModalBar — Mallet percussion with adjustable bar material.\n"
+                + "Algo 13: Moog Bass — Monophonic bass synthesizer with ladder filter.");
     desc.setEditable(false);
     desc.setBackground(new Color(0x2a, 0x2a, 0x2a));
     desc.setForeground(Color.LIGHT_GRAY);
@@ -132,7 +143,8 @@ public class AlgorithmPanel extends JPanel {
     for (int i = 0; i < 3; i++) {
       int flags = algos[base + i];
       String opLabel = "OP" + (i + 1);
-      char out = (flags & 0x01) != 0 ? '1' : (flags & 0x02) != 0 ? '2' : (flags & 0x04) != 0 ? 'A' : '?';
+      char out =
+          (flags & 0x01) != 0 ? '1' : (flags & 0x02) != 0 ? '2' : (flags & 0x04) != 0 ? 'A' : '?';
       char fb = (flags & 0x80) != 0 ? 'F' : ' ';
       sb.append(String.format("%s%c%c ", opLabel, fb, out));
     }
@@ -140,7 +152,8 @@ public class AlgorithmPanel extends JPanel {
     for (int i = 3; i < 6; i++) {
       int flags = algos[base + i];
       String opLabel = "OP" + (i + 1);
-      char out = (flags & 0x01) != 0 ? '1' : (flags & 0x02) != 0 ? '2' : (flags & 0x04) != 0 ? 'A' : '?';
+      char out =
+          (flags & 0x01) != 0 ? '1' : (flags & 0x02) != 0 ? '2' : (flags & 0x04) != 0 ? 'A' : '?';
       char fb = (flags & 0x80) != 0 ? 'F' : ' ';
       sb.append(String.format("%s%c%c ", opLabel, fb, out));
     }

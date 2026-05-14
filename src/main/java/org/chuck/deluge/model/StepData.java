@@ -1,8 +1,14 @@
 package org.chuck.deluge.model;
 
 /** Represents a single step in a track's sequence pattern. */
-public record StepData(boolean active, float velocity, float gate, float probability, int pitch,
-                       int iterance, float fill) {
+public record StepData(
+    boolean active,
+    float velocity,
+    float gate,
+    float probability,
+    int pitch,
+    int iterance,
+    float fill) {
   public StepData {
     // Clamp values
     velocity = Math.max(0.0f, Math.min(1.0f, velocity));
@@ -18,7 +24,8 @@ public record StepData(boolean active, float velocity, float gate, float probabi
   }
 
   /** Convenience factory: creates a step with default iterance=0, fill=0.0. */
-  public static StepData of(boolean active, float velocity, float gate, float probability, int pitch) {
+  public static StepData of(
+      boolean active, float velocity, float gate, float probability, int pitch) {
     return new StepData(active, velocity, gate, probability, pitch, 0, 0.0f);
   }
 }

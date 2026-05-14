@@ -1,6 +1,8 @@
 package org.chuck.deluge.model;
 
-/** Distinguishes between Kit tracks (samples), Synth tracks (oscillators), and Audio tracks (LiSa). */
+/**
+ * Distinguishes between Kit tracks (samples), Synth tracks (oscillators), and Audio tracks (LiSa).
+ */
 public enum TrackType {
   KIT,
   SYNTH,

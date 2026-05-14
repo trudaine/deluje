@@ -1,9 +1,6 @@
 package org.chuck.deluge.ui;
 
 import java.awt.*;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.util.Arrays;
 import java.util.List;
 import javax.swing.*;
 import javax.swing.border.LineBorder;
@@ -72,38 +69,42 @@ public class SwingChordKeyboardPanel extends JPanel {
 
     JComboBox<KeyboardLayout> layoutCombo = new JComboBox<>(KeyboardLayout.values());
     layoutCombo.setSelectedItem(layout);
-    layoutCombo.addActionListener(e -> {
-      layout = (KeyboardLayout) layoutCombo.getSelectedItem();
-      rebuildGrid();
-    });
+    layoutCombo.addActionListener(
+        e -> {
+          layout = (KeyboardLayout) layoutCombo.getSelectedItem();
+          rebuildGrid();
+        });
     topBar.add(layoutCombo);
 
     topBar.add(Box.createHorizontalStrut(10));
 
     JToggleButton corkModeBtn = new JToggleButton("COLUMN", true);
-    corkModeBtn.addActionListener(e -> {
-      corkColumnMode = corkModeBtn.isSelected();
-      corkModeBtn.setText(corkColumnMode ? "COLUMN" : "ROW");
-      rebuildGrid();
-    });
+    corkModeBtn.addActionListener(
+        e -> {
+          corkColumnMode = corkModeBtn.isSelected();
+          corkModeBtn.setText(corkColumnMode ? "COLUMN" : "ROW");
+          rebuildGrid();
+        });
     topBar.add(new JLabel("CORK:"));
     topBar.add(corkModeBtn);
 
     topBar.add(Box.createHorizontalStrut(10));
 
     JButton upBtn = new JButton("\u25B2");
-    upBtn.addActionListener(e -> {
-      scrollOffset++;
-      rebuildGrid();
-    });
+    upBtn.addActionListener(
+        e -> {
+          scrollOffset++;
+          rebuildGrid();
+        });
     topBar.add(upBtn);
 
     JButton downBtn = new JButton("\u25BC");
-    downBtn.addActionListener(e -> {
-      scrollOffset--;
-      if (scrollOffset < 0) scrollOffset = 0;
-      rebuildGrid();
-    });
+    downBtn.addActionListener(
+        e -> {
+          scrollOffset--;
+          if (scrollOffset < 0) scrollOffset = 0;
+          rebuildGrid();
+        });
     topBar.add(downBtn);
 
     statusLabel = new JLabel(getStatusText());
@@ -119,9 +120,10 @@ public class SwingChordKeyboardPanel extends JPanel {
     // ── Bottom info bar ──
     JPanel infoBar = new JPanel(new FlowLayout(FlowLayout.LEFT));
     infoBar.setBackground(new Color(0x25, 0x25, 0x25));
-    JLabel infoLabel = new JLabel(
-      "<html><b>CHORD KEYBOARD</b> — CORK: column/row mode &nbsp;|&nbsp; "
-      + "CORL: chord library &nbsp;|&nbsp; Scale-aware chords</html>");
+    JLabel infoLabel =
+        new JLabel(
+            "<html><b>CHORD KEYBOARD</b> — CORK: column/row mode &nbsp;|&nbsp; "
+                + "CORL: chord library &nbsp;|&nbsp; Scale-aware chords</html>");
     infoLabel.setForeground(Color.LIGHT_GRAY);
     infoBar.add(infoLabel);
     add(infoBar, BorderLayout.SOUTH);
@@ -158,7 +160,9 @@ public class SwingChordKeyboardPanel extends JPanel {
     // Remove the old grid if exists
     Component oldCenter = null;
     for (Component c : getComponents()) {
-      if (c instanceof JPanel && c != getComponent(0) && c != getComponent(getComponentCount() - 1)) {
+      if (c instanceof JPanel
+          && c != getComponent(0)
+          && c != getComponent(getComponentCount() - 1)) {
         oldCenter = c;
         break;
       }
@@ -180,20 +184,21 @@ public class SwingChordKeyboardPanel extends JPanel {
     gc.gridy = 0;
     for (int c = 0; c < COLS; c++) {
       gc.gridx = c;
-      String h = switch (layout) {
-        case PIANO -> c < 12 ? Scales.KEY_NAMES[c] : "";
-        case CHORD -> {
-          if (c >= COLS - 2) {
-            yield c == COLS - 2 ? (corkColumnMode ? "ROW" : "COL") : "MODE";
-          }
-          // Scale degree label: I, ii, iii, IV, V, vi, vii
-          yield scaleDegreeLabel(c + scrollOffset);
-        }
-        case CHORD_LIBRARY -> {
-          if (c == COLS - 1) yield "";
-          yield c < 12 ? Scales.KEY_NAMES[(c + scrollOffset) % 12] : "";
-        }
-      };
+      String h =
+          switch (layout) {
+            case PIANO -> c < 12 ? Scales.KEY_NAMES[c] : "";
+            case CHORD -> {
+              if (c >= COLS - 2) {
+                yield c == COLS - 2 ? (corkColumnMode ? "ROW" : "COL") : "MODE";
+              }
+              // Scale degree label: I, ii, iii, IV, V, vi, vii
+              yield scaleDegreeLabel(c + scrollOffset);
+            }
+            case CHORD_LIBRARY -> {
+              if (c == COLS - 1) yield "";
+              yield c < 12 ? Scales.KEY_NAMES[(c + scrollOffset) % 12] : "";
+            }
+          };
       JLabel header = new JLabel(h, SwingConstants.CENTER);
       header.setOpaque(true);
       header.setBackground(new Color(0x30, 0x30, 0x30));
@@ -251,8 +256,8 @@ public class SwingChordKeyboardPanel extends JPanel {
       pad.setEnabled(false);
       return;
     }
-    boolean isBlack = (note % 12 == 1 || note % 12 == 3
-        || note % 12 == 6 || note % 12 == 8 || note % 12 == 10);
+    boolean isBlack =
+        (note % 12 == 1 || note % 12 == 3 || note % 12 == 6 || note % 12 == 8 || note % 12 == 10);
     pad.setText(String.valueOf(note));
     pad.setBackground(isBlack ? new Color(0x33, 0x33, 0x33) : Color.WHITE);
     pad.setForeground(isBlack ? Color.WHITE : Color.BLACK);
@@ -268,10 +273,11 @@ public class SwingChordKeyboardPanel extends JPanel {
         pad.setText(corkColumnMode ? "ROW" : "COL");
         pad.setBackground(new Color(0x44, 0x44, 0x88));
         pad.setForeground(Color.WHITE);
-        pad.addActionListener(e -> {
-          corkColumnMode = !corkColumnMode;
-          rebuildGrid();
-        });
+        pad.addActionListener(
+            e -> {
+              corkColumnMode = !corkColumnMode;
+              rebuildGrid();
+            });
       } else {
         pad.setBackground(new Color(0x1a, 0x1a, 0x1a));
         pad.setEnabled(false);
@@ -346,11 +352,10 @@ public class SwingChordKeyboardPanel extends JPanel {
       pad.setForeground(Color.WHITE);
       int fifthSemitones = 7; // perfect 5th
       final int fRowRoot = rowRoot;
-      pad.addActionListener(e -> triggerChord(List.of(
-        fRowRoot,
-        fRowRoot + fifthSemitones,
-        fRowRoot + thirdSemitones + 12
-      )));
+      pad.addActionListener(
+          e ->
+              triggerChord(
+                  List.of(fRowRoot, fRowRoot + fifthSemitones, fRowRoot + thirdSemitones + 12)));
     } else {
       // Interval columns: each represents a specific interval from row root
       // Following firmware spec scale-step intervals
@@ -411,8 +416,8 @@ public class SwingChordKeyboardPanel extends JPanel {
 
       // Build chord notes from this root
       List<Integer> chordNotes = ChordModel.buildChord(rootNote, chord);
-      boolean allInScale = chordNotes.stream()
-          .allMatch(n -> Scales.isNoteInScale(n, rootKey, scaleType));
+      boolean allInScale =
+          chordNotes.stream().allMatch(n -> Scales.isNoteInScale(n, rootKey, scaleType));
 
       pad.setText(chord.name());
       Color bg = allInScale ? colorForQuality(chord) : new Color(0x33, 0x33, 0x33);
@@ -428,10 +433,11 @@ public class SwingChordKeyboardPanel extends JPanel {
       pad.setText("\u25BC " + noteName);
       pad.setBackground(new Color(0x22, 0x22, 0x22));
       pad.setForeground(Color.DARK_GRAY);
-      pad.addActionListener(e -> {
-        scrollOffset += 12;
-        rebuildGrid();
-      });
+      pad.addActionListener(
+          e -> {
+            scrollOffset += 12;
+            rebuildGrid();
+          });
     }
   }
 
@@ -475,12 +481,12 @@ public class SwingChordKeyboardPanel extends JPanel {
   private static Color colorForQuality(ChordType chord) {
     ChordModel.Quality q = ChordModel.getQuality(chord);
     return switch (q) {
-      case MAJOR -> new Color(0x33, 0x66, 0xff);       // Blue
-      case MINOR -> new Color(0x99, 0x44, 0xcc);        // Purple
-      case DOMINANT -> new Color(0x33, 0xcc, 0xcc);     // Cyan
-      case DIMINISHED -> new Color(0x44, 0xaa, 0x44);   // Green
-      case AUGMENTED -> new Color(0x88, 0x88, 0xbb);    // Greyish Blue
-      case OTHER -> new Color(0xcc, 0xcc, 0x44);        // Yellow
+      case MAJOR -> new Color(0x33, 0x66, 0xff); // Blue
+      case MINOR -> new Color(0x99, 0x44, 0xcc); // Purple
+      case DOMINANT -> new Color(0x33, 0xcc, 0xcc); // Cyan
+      case DIMINISHED -> new Color(0x44, 0xaa, 0x44); // Green
+      case AUGMENTED -> new Color(0x88, 0x88, 0xbb); // Greyish Blue
+      case OTHER -> new Color(0xcc, 0xcc, 0x44); // Yellow
     };
   }
 

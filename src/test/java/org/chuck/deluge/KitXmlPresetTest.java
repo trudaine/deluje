@@ -17,8 +17,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Loads every KITS/*.XML preset into the engine, plays a simple pattern, and verifies
- * audible output. Each kit gets a fresh VM for clean isolation.
+ * Loads every KITS/*.XML preset into the engine, plays a simple pattern, and verifies audible
+ * output. Each kit gets a fresh VM for clean isolation.
  */
 @Tag("slow")
 public class KitXmlPresetTest {
@@ -31,23 +31,48 @@ public class KitXmlPresetTest {
     // on the classpath (Maven copies src/main/resources to target/classes).
     List<String> names = new ArrayList<>();
     String[] known = {
-      "000 TR-808.XML", "001 DDD-1.XML", "002 SDS-5.XML", "003 TR-909.XML",
-      "004 R-50.XML", "005 R-100.XML", "006 LD.XML", "007 HR-16B.XML",
-      "008 SCDT.XML", "009 RX-5.XML", "010 XV-5080.XML", "011 KR-55.XML",
-      "012 HR-II.XML", "013 AT Rhythm.XML", "014 CR-78.XML",
-      "015 Andrew Stirton Frugal.XML", "016 Electronisounds 1.XML",
-      "017 Electronisounds 2.XML", "018 Electronisounds 3.XML",
-      "019 Fairburg.XML", "020 Leonard Ludvigsen Beatbox.XML",
-      "021 hodeur 1.XML", "022 hodeur 2.XML", "023 hodeur 3.XML",
-      "024 James R Closs 1.XML", "025 James R Closs 2.XML",
-      "026 Amiga909.XML", "027 Reciprocal Sound.XML",
-      "028 Danny Taurus.XML", "029 Danny Taurus 2.XML",
-      "030 Chaz Bundick.XML", "031 Reuben Winter.XML",
-      "032 Kody Nielson.XML", "033 Alfred Darlington.XML",
-      "034 Travis Egedy.XML", "035 Sjionel Timu.XML",
-      "036 Stefanie Franciotti.XML", "037 Stephanie Engelbrecht.XML",
-      "038 Jonathan Snipes (FX).XML", "039 Campbell Kneale.XML",
-      "040 John Atkinson.XML", "041 Jonathan Snipes (Waterfalls).XML",
+      "000 TR-808.XML",
+      "001 DDD-1.XML",
+      "002 SDS-5.XML",
+      "003 TR-909.XML",
+      "004 R-50.XML",
+      "005 R-100.XML",
+      "006 LD.XML",
+      "007 HR-16B.XML",
+      "008 SCDT.XML",
+      "009 RX-5.XML",
+      "010 XV-5080.XML",
+      "011 KR-55.XML",
+      "012 HR-II.XML",
+      "013 AT Rhythm.XML",
+      "014 CR-78.XML",
+      "015 Andrew Stirton Frugal.XML",
+      "016 Electronisounds 1.XML",
+      "017 Electronisounds 2.XML",
+      "018 Electronisounds 3.XML",
+      "019 Fairburg.XML",
+      "020 Leonard Ludvigsen Beatbox.XML",
+      "021 hodeur 1.XML",
+      "022 hodeur 2.XML",
+      "023 hodeur 3.XML",
+      "024 James R Closs 1.XML",
+      "025 James R Closs 2.XML",
+      "026 Amiga909.XML",
+      "027 Reciprocal Sound.XML",
+      "028 Danny Taurus.XML",
+      "029 Danny Taurus 2.XML",
+      "030 Chaz Bundick.XML",
+      "031 Reuben Winter.XML",
+      "032 Kody Nielson.XML",
+      "033 Alfred Darlington.XML",
+      "034 Travis Egedy.XML",
+      "035 Sjionel Timu.XML",
+      "036 Stefanie Franciotti.XML",
+      "037 Stephanie Engelbrecht.XML",
+      "038 Jonathan Snipes (FX).XML",
+      "039 Campbell Kneale.XML",
+      "040 John Atkinson.XML",
+      "041 Jonathan Snipes (Waterfalls).XML",
       "042 Phil Elverum.XML"
     };
     for (String n : known) names.add(n);
@@ -55,8 +80,8 @@ public class KitXmlPresetTest {
   }
 
   /**
-   * Capture peak and RMS from both channels while advancing the VM.
-   * Same pattern as AllSoundsComparisonTest.captureOutput().
+   * Capture peak and RMS from both channels while advancing the VM. Same pattern as
+   * AllSoundsComparisonTest.captureOutput().
    */
   private double[] captureOutput(int durationMs) {
     float peakL = 0, peakR = 0;
@@ -78,7 +103,7 @@ public class KitXmlPresetTest {
       samples++;
     }
 
-    return new double[]{peakL, peakR, Math.sqrt(sumSqL / samples), Math.sqrt(sumSqR / samples)};
+    return new double[] {peakL, peakR, Math.sqrt(sumSqL / samples), Math.sqrt(sumSqR / samples)};
   }
 
   @AfterEach
@@ -136,7 +161,7 @@ public class KitXmlPresetTest {
 
     // 4. Write a pattern: kick on 0,4,8,12 for the first 8 sounds
     for (int v = 0; v < Math.min(8, soundCount); v++) {
-      for (int step : new int[]{0, 4, 8, 12}) {
+      for (int step : new int[] {0, 4, 8, 12}) {
         bridge.setStep(v, step, true);
         bridge.setVelocity(v, step, 0.9);
       }
@@ -156,10 +181,12 @@ public class KitXmlPresetTest {
     double peakAvg = (stats[0] + stats[1]) / 2.0;
     double rmsAvg = (stats[2] + stats[3]) / 2.0;
 
-    System.out.printf("Kit %-40s sounds=%2d Peak L=%.6f R=%.6f RMS L=%.6f R=%.6f (avg peak=%.6f)%n",
+    System.out.printf(
+        "Kit %-40s sounds=%2d Peak L=%.6f R=%.6f RMS L=%.6f R=%.6f (avg peak=%.6f)%n",
         kitName, soundCount, stats[0], stats[1], stats[2], stats[3], peakAvg);
 
-    assertTrue(peakAvg > 0.001,
+    assertTrue(
+        peakAvg > 0.001,
         "Kit " + kitName + " should produce audible output (peak avg=" + peakAvg + ")");
   }
 }

@@ -9,7 +9,6 @@ import org.chuck.core.ChuckArray;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.engine.DelugeEngineDSL;
 import org.chuck.deluge.model.EnvelopeModel;
-import org.chuck.deluge.model.FilterMode;
 import org.chuck.deluge.model.SynthTrackModel;
 import org.chuck.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.AfterEach;
@@ -18,15 +17,15 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Loads every SYNTHS/*.XML preset into the engine, pushes its parameters to the bridge,
- * plays a 16-step pattern on all 8 rows, and verifies audible output.
+ * Loads every SYNTHS/*.XML preset into the engine, pushes its parameters to the bridge, plays a
+ * 16-step pattern on all 8 rows, and verifies audible output.
  *
  * <p>Each synth gets a fresh VM for clean isolation. 171 presets × ~4s ≈ 11 minutes total.
  *
- * <p><b>Caveat:</b> Synth XMLs encode "subtractive mode" parameters, but our engine only has
- * an FM signal path. We set algo=0 (FM) with minimal modulation so the carrier oscillates
- * freely. This tests "engine produces sound from parsed XML data" (regression coverage),
- * not "engine sounds identical to a real Deluge" (firmware compliance — separate work).
+ * <p><b>Caveat:</b> Synth XMLs encode "subtractive mode" parameters, but our engine only has an FM
+ * signal path. We set algo=0 (FM) with minimal modulation so the carrier oscillates freely. This
+ * tests "engine produces sound from parsed XML data" (regression coverage), not "engine sounds
+ * identical to a real Deluge" (firmware compliance — separate work).
  */
 @Tag("slow")
 public class SynthXmlPresetTest {
@@ -36,63 +35,178 @@ public class SynthXmlPresetTest {
   /** Returns all 171 synth XML filenames. */
   static Stream<String> synthFiles() {
     return List.of(
-      "000 Rich Saw Bass.XML", "001 Sync Bass.XML", "002 Basic Square Bass.XML",
-      "003 Synthwave Bass.XML", "004 Dubby Bass.XML", "005 Sweet Mono Bass.XML",
-      "006 Vaporwave Bass.XML", "007 Detuned Saw Bass.XML", "008 FM Rich Distorted Bass.XML",
-      "009 Hoover Bass.XML", "010 Gravel Basscamp.XML", "011 Dubstep Bass.XML",
-      "012 Blunt Sync Bass.XML", "013 Trap Bass 1.XML", "014 Trap Bass 2.XML",
-      "015 Resonant Filter Bass.XML", "016 Dark Saturated Bass.XML", "017 Impact Saw Lead.XML",
-      "018 Rich Saw Lead.XML", "019 Fizzy Strings.XML", "020 Soft Saw Lead.XML",
-      "021 80s TV Lead.XML", "022 Rich Filter LFO Lead.XML", "023 Analog Mono Wow.XML",
-      "024 Warble Bass Pluck.XML", "025 Soft Synth Organ.XML", "026 PW Organ.XML",
-      "027 PW Envelope.XML", "028 PWM.XML", "029 Chiptune Trill.XML",
-      "030 Distant Porta.XML", "031 Nasal Choir.XML", "032 Bandpass Choir.XML",
-      "033 Rich Square.XML", "034 Square Choir.XML", "035 Bell Lead & Bass.XML",
-      "036 Analog Ambient Square.XML", "037 Echo Chord.XML", "038 Vapor Arp.XML",
-      "039 Detuned Retriggering Saws.XML", "040 Spacer Leader.XML", "041 Zithar - Vibed.XML",
-      "042 High Triangle.XML", "043 Square Porta.XML", "044 8-Bit Lead.XML",
-      "045 Square Sync.XML", "046 Saw Sync.XML", "047 Basic Dirty Bass.XML",
-      "048 Thin Pulse Bass.XML", "049 Basic FM.XML", "050 FM Basic Bass.XML",
-      "051 FM Rich Brass.XML", "052 Soft FM.XML", "053 Detuned FM Horns.XML",
-      "054 Ghostly Sines.XML", "055 FM Theremin.XML", "056 FM Bell Modulation.XML",
-      "057 FM Lead.XML", "058 FM Rising Attack.XML", "059 Distorted Lead Guitar.XML",
-      "060 Bass Guitar.XML", "061 Blown-Staccato-Panpipes.XML", "062 Trumpet.XML",
-      "063 Tuba.XML", "064 Reeds-Flute-Oboe.XML", "065 Cello.XML", "066 Violin.XML",
-      "067 Marimba.XML", "068 FM Bells 1.XML", "069 FM Bells 2.XML",
-      "070 Glockenspiel.XML", "071 Rhodes.XML", "072 Kyoto Phono.XML", "073 Piano.XML",
-      "074 Electric Piano.XML", "075 Electric Piano With Strings.XML", "076 Organ.XML",
-      "077 FM Perc-Organ.XML", "078 House.XML", "079 Phased Arper.XML", "080 House.XML",
-      "081 Xylophone Big Bass.XML", "082 Short Sharp Delay.XML", "083 Dark Chorus.XML",
-      "084 FM Narrow Band.XML", "085 Deep Fizz.XML", "086 Techno Organ.XML",
-      "087 Define Leader.XML", "088 Yelp Chords.XML", "089 Degraded Retro Lead.XML",
-      "090 FM Organ.XML", "091 FM Ricochet.XML", "092 Degraded Tremolo.XML",
-      "093 FM Distorted Bells.XML", "094 Ambient Occlusion Lead.XML", "095 Harsh FM Feedback.XML",
-      "096 FM Guitar Power Chord.XML", "097 Saturated Filter.XML", "098 Saturated Sync.XML",
-      "099 Overdrive Reese Sync.XML", "100 Noise Lead.XML", "101 Atebit.XML",
-      "102 Harsh 5th.XML", "103 Sci-fi Chaos.XML", "104 Alien Vomit.XML",
-      "105 Attack Bass.XML", "106 Hang Drum.XML", "107 FM LPG Percussion.XML",
-      "108 Robo Arp.XML", "109 Talking Arp.XML", "110 Crystalline Ringmod.XML",
-      "111 Satellite Drum.XML", "112 Hard Tech Beat.XML", "113 Bio Lab.XML",
-      "114 Sootheerio.XML", "115 Sounds After Take-off.XML", "116 Evolving Frequencies.XML",
-      "117 Belledy.XML", "118 Small Bridge Pad.XML", "119 Stars Of The Bin Pad.XML",
-      "120 High Harsh Pad.XML", "121 Tiny Lights.XML", "122 Majestic Synth Orchestra.XML",
-      "123 Space Dust.XML", "124 Filter Modulation Pad.XML", "125 Evolving Pad.XML",
-      "126 Dark FM Pad.XML", "127 Alien Larvae.XML", "128 Lunar Landing.XML",
-      "129 Sci-fi Scenic.XML", "130 Dark Strings.XML", "131 Warm Strings.XML",
-      "132 Organ Strings.XML", "133 80s Strings.XML", "134 Melody String.XML",
-      "135 Soothing Growth Pad.XML", "136 Synthwave Pad.XML", "137 Epic Saw Modulation Pad.XML",
-      "138 Brassy Pad.XML", "139 Detuned Saw Pad.XML", "140 Slow Aural Swells.XML",
-      "141 Ringmod Pad.XML", "142 Phaser.XML", "143 Chillout Pad.XML",
-      "144 Sweep Chords.XML", "145 Eerie High Pad.XML", "146 Atmospheric Squares Pad.XML",
-      "147 Resonant Filter Pad.XML", "148 Warm 5th Pad.XML", "149 Cold 5th Pad.XML",
-      "150 Vaporwave Pad.XML", "151 Radiant FM Pad.XML", "152 Small Jet Pad.XML",
-      "153 FM Modulation Pad.XML", "154 Rich FM Pad 1.XML", "155 Rich FM Pad 2.XML",
-      "156 Rich FM Pad 3.XML", "157 Rich FM Pad 4.XML", "158 Tempo-Synced LFO.XML",
-      "159 80s Bass Rhythm.XML", "160 Synthwave Bass Arp.XML", "161 Synthwave Vibrato Arp.XML",
-      "162 Busy Arp.XML", "163 Crisp Pop Arp.XML", "164 Study Arp.XML",
-      "165 Acid Arp.XML", "166 Harpsichord Cyborg.XML", "167 FM Metallic Bass Arp.XML",
-      "168 Hang Drum.XML", "169 Double Bass.XML", "170 Sitar.XML"
-    ).stream();
+        "000 Rich Saw Bass.XML",
+        "001 Sync Bass.XML",
+        "002 Basic Square Bass.XML",
+        "003 Synthwave Bass.XML",
+        "004 Dubby Bass.XML",
+        "005 Sweet Mono Bass.XML",
+        "006 Vaporwave Bass.XML",
+        "007 Detuned Saw Bass.XML",
+        "008 FM Rich Distorted Bass.XML",
+        "009 Hoover Bass.XML",
+        "010 Gravel Basscamp.XML",
+        "011 Dubstep Bass.XML",
+        "012 Blunt Sync Bass.XML",
+        "013 Trap Bass 1.XML",
+        "014 Trap Bass 2.XML",
+        "015 Resonant Filter Bass.XML",
+        "016 Dark Saturated Bass.XML",
+        "017 Impact Saw Lead.XML",
+        "018 Rich Saw Lead.XML",
+        "019 Fizzy Strings.XML",
+        "020 Soft Saw Lead.XML",
+        "021 80s TV Lead.XML",
+        "022 Rich Filter LFO Lead.XML",
+        "023 Analog Mono Wow.XML",
+        "024 Warble Bass Pluck.XML",
+        "025 Soft Synth Organ.XML",
+        "026 PW Organ.XML",
+        "027 PW Envelope.XML",
+        "028 PWM.XML",
+        "029 Chiptune Trill.XML",
+        "030 Distant Porta.XML",
+        "031 Nasal Choir.XML",
+        "032 Bandpass Choir.XML",
+        "033 Rich Square.XML",
+        "034 Square Choir.XML",
+        "035 Bell Lead & Bass.XML",
+        "036 Analog Ambient Square.XML",
+        "037 Echo Chord.XML",
+        "038 Vapor Arp.XML",
+        "039 Detuned Retriggering Saws.XML",
+        "040 Spacer Leader.XML",
+        "041 Zithar - Vibed.XML",
+        "042 High Triangle.XML",
+        "043 Square Porta.XML",
+        "044 8-Bit Lead.XML",
+        "045 Square Sync.XML",
+        "046 Saw Sync.XML",
+        "047 Basic Dirty Bass.XML",
+        "048 Thin Pulse Bass.XML",
+        "049 Basic FM.XML",
+        "050 FM Basic Bass.XML",
+        "051 FM Rich Brass.XML",
+        "052 Soft FM.XML",
+        "053 Detuned FM Horns.XML",
+        "054 Ghostly Sines.XML",
+        "055 FM Theremin.XML",
+        "056 FM Bell Modulation.XML",
+        "057 FM Lead.XML",
+        "058 FM Rising Attack.XML",
+        "059 Distorted Lead Guitar.XML",
+        "060 Bass Guitar.XML",
+        "061 Blown-Staccato-Panpipes.XML",
+        "062 Trumpet.XML",
+        "063 Tuba.XML",
+        "064 Reeds-Flute-Oboe.XML",
+        "065 Cello.XML",
+        "066 Violin.XML",
+        "067 Marimba.XML",
+        "068 FM Bells 1.XML",
+        "069 FM Bells 2.XML",
+        "070 Glockenspiel.XML",
+        "071 Rhodes.XML",
+        "072 Kyoto Phono.XML",
+        "073 Piano.XML",
+        "074 Electric Piano.XML",
+        "075 Electric Piano With Strings.XML",
+        "076 Organ.XML",
+        "077 FM Perc-Organ.XML",
+        "078 House.XML",
+        "079 Phased Arper.XML",
+        "080 House.XML",
+        "081 Xylophone Big Bass.XML",
+        "082 Short Sharp Delay.XML",
+        "083 Dark Chorus.XML",
+        "084 FM Narrow Band.XML",
+        "085 Deep Fizz.XML",
+        "086 Techno Organ.XML",
+        "087 Define Leader.XML",
+        "088 Yelp Chords.XML",
+        "089 Degraded Retro Lead.XML",
+        "090 FM Organ.XML",
+        "091 FM Ricochet.XML",
+        "092 Degraded Tremolo.XML",
+        "093 FM Distorted Bells.XML",
+        "094 Ambient Occlusion Lead.XML",
+        "095 Harsh FM Feedback.XML",
+        "096 FM Guitar Power Chord.XML",
+        "097 Saturated Filter.XML",
+        "098 Saturated Sync.XML",
+        "099 Overdrive Reese Sync.XML",
+        "100 Noise Lead.XML",
+        "101 Atebit.XML",
+        "102 Harsh 5th.XML",
+        "103 Sci-fi Chaos.XML",
+        "104 Alien Vomit.XML",
+        "105 Attack Bass.XML",
+        "106 Hang Drum.XML",
+        "107 FM LPG Percussion.XML",
+        "108 Robo Arp.XML",
+        "109 Talking Arp.XML",
+        "110 Crystalline Ringmod.XML",
+        "111 Satellite Drum.XML",
+        "112 Hard Tech Beat.XML",
+        "113 Bio Lab.XML",
+        "114 Sootheerio.XML",
+        "115 Sounds After Take-off.XML",
+        "116 Evolving Frequencies.XML",
+        "117 Belledy.XML",
+        "118 Small Bridge Pad.XML",
+        "119 Stars Of The Bin Pad.XML",
+        "120 High Harsh Pad.XML",
+        "121 Tiny Lights.XML",
+        "122 Majestic Synth Orchestra.XML",
+        "123 Space Dust.XML",
+        "124 Filter Modulation Pad.XML",
+        "125 Evolving Pad.XML",
+        "126 Dark FM Pad.XML",
+        "127 Alien Larvae.XML",
+        "128 Lunar Landing.XML",
+        "129 Sci-fi Scenic.XML",
+        "130 Dark Strings.XML",
+        "131 Warm Strings.XML",
+        "132 Organ Strings.XML",
+        "133 80s Strings.XML",
+        "134 Melody String.XML",
+        "135 Soothing Growth Pad.XML",
+        "136 Synthwave Pad.XML",
+        "137 Epic Saw Modulation Pad.XML",
+        "138 Brassy Pad.XML",
+        "139 Detuned Saw Pad.XML",
+        "140 Slow Aural Swells.XML",
+        "141 Ringmod Pad.XML",
+        "142 Phaser.XML",
+        "143 Chillout Pad.XML",
+        "144 Sweep Chords.XML",
+        "145 Eerie High Pad.XML",
+        "146 Atmospheric Squares Pad.XML",
+        "147 Resonant Filter Pad.XML",
+        "148 Warm 5th Pad.XML",
+        "149 Cold 5th Pad.XML",
+        "150 Vaporwave Pad.XML",
+        "151 Radiant FM Pad.XML",
+        "152 Small Jet Pad.XML",
+        "153 FM Modulation Pad.XML",
+        "154 Rich FM Pad 1.XML",
+        "155 Rich FM Pad 2.XML",
+        "156 Rich FM Pad 3.XML",
+        "157 Rich FM Pad 4.XML",
+        "158 Tempo-Synced LFO.XML",
+        "159 80s Bass Rhythm.XML",
+        "160 Synthwave Bass Arp.XML",
+        "161 Synthwave Vibrato Arp.XML",
+        "162 Busy Arp.XML",
+        "163 Crisp Pop Arp.XML",
+        "164 Study Arp.XML",
+        "165 Acid Arp.XML",
+        "166 Harpsichord Cyborg.XML",
+        "167 FM Metallic Bass Arp.XML",
+        "168 Hang Drum.XML",
+        "169 Double Bass.XML",
+        "170 Sitar.XML")
+        .stream();
   }
 
   /** Map oscillator type string to engine type index. */
@@ -105,8 +219,8 @@ public class SynthXmlPresetTest {
   }
 
   /**
-   * Capture peak and RMS from both channels.
-   * Same pattern as AllSoundsComparisonTest.captureOutput().
+   * Capture peak and RMS from both channels. Same pattern as
+   * AllSoundsComparisonTest.captureOutput().
    */
   private double[] captureOutput(int durationMs) {
     float peakL = 0, peakR = 0;
@@ -128,7 +242,7 @@ public class SynthXmlPresetTest {
       samples++;
     }
 
-    return new double[]{peakL, peakR, Math.sqrt(sumSqL / samples), Math.sqrt(sumSqR / samples)};
+    return new double[] {peakL, peakR, Math.sqrt(sumSqL / samples), Math.sqrt(sumSqR / samples)};
   }
 
   @AfterEach
@@ -235,10 +349,12 @@ public class SynthXmlPresetTest {
 
     String oscType = synth.getOsc1Type();
     String filterMode = synth.getFilterMode().name();
-    System.out.printf("Synth %-40s osc=%-8s filter=%-10s Peak L=%.6f R=%.6f RMS L=%.6f R=%.6f (avg peak=%.6f)%n",
+    System.out.printf(
+        "Synth %-40s osc=%-8s filter=%-10s Peak L=%.6f R=%.6f RMS L=%.6f R=%.6f (avg peak=%.6f)%n",
         synthName, oscType, filterMode, stats[0], stats[1], stats[2], stats[3], peakAvg);
 
-    assertTrue(peakAvg > 0.001,
+    assertTrue(
+        peakAvg > 0.001,
         "Synth " + synthName + " should produce audible output (peak avg=" + peakAvg + ")");
   }
 }

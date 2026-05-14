@@ -12,12 +12,13 @@ import org.junit.jupiter.api.Test;
  * Diagnostic test to determine why macOS produces zero audio.
  *
  * <p>Tests are structured to isolate the failure point:
+ *
  * <ol>
- *   <li>Does {@code ChuckVM.advanceTime()} complete without timeout?</li>
- *   <li>Does {@code vm.spork(Runnable)} execute and call {@code advance(event)}?</li>
- *   <li>Does the engine's {@code clock_shred} set {@code G_CURRENT_STEP}?</li>
- *   <li>Does the engine's {@code synth_shred} produce any DAC output?</li>
- *   <li>Do the DX7 engine and sample playback produce signal?</li>
+ *   <li>Does {@code ChuckVM.advanceTime()} complete without timeout?
+ *   <li>Does {@code vm.spork(Runnable)} execute and call {@code advance(event)}?
+ *   <li>Does the engine's {@code clock_shred} set {@code G_CURRENT_STEP}?
+ *   <li>Does the engine's {@code synth_shred} produce any DAC output?
+ *   <li>Do the DX7 engine and sample playback produce signal?
  * </ol>
  */
 public class MacOSDiagnosticTest {
@@ -31,9 +32,10 @@ public class MacOSDiagnosticTest {
     ChuckVM vm = new ChuckVM(SAMPLE_RATE, 2);
 
     final boolean[] ran = {false};
-    vm.spork(() -> {
-      ran[0] = true;
-    });
+    vm.spork(
+        () -> {
+          ran[0] = true;
+        });
 
     // Must advance enough for the shred to be scheduled and run
     vm.advanceTime(SAMPLE_RATE);
@@ -56,25 +58,37 @@ public class MacOSDiagnosticTest {
     // Also track from the test side
     final int[] testEventWaiting = {0};
 
-    vm.spork(() -> {
-      System.out.println("[DIAG] event-test shred started at now=" + org.chuck.core.ChuckDSL.now());
-      org.chuck.core.ChuckDSL.advance(evt);
-      wakeStep[0] = org.chuck.core.ChuckDSL.now();
-      eventReceived[0] = true;
-      System.out.println("[DIAG] event-test shred received event at now=" + wakeStep[0]);
-    });
+    vm.spork(
+        () -> {
+          System.out.println(
+              "[DIAG] event-test shred started at now=" + org.chuck.core.ChuckDSL.now());
+          org.chuck.core.ChuckDSL.advance(evt);
+          wakeStep[0] = org.chuck.core.ChuckDSL.now();
+          eventReceived[0] = true;
+          System.out.println("[DIAG] event-test shred received event at now=" + wakeStep[0]);
+        });
 
     // Advance in small increments to see what happens
     for (int i = 0; i < 10; i++) {
       vm.advanceTime(441);
       testEventWaiting[0] = evt.getWaitingCount();
-      System.out.println("[DIAG] after advance #" + i + ": now=" + vm.getCurrentTime()
-          + " waiting=" + testEventWaiting[0] + " eventReceived=" + eventReceived[0]);
+      System.out.println(
+          "[DIAG] after advance #"
+              + i
+              + ": now="
+              + vm.getCurrentTime()
+              + " waiting="
+              + testEventWaiting[0]
+              + " eventReceived="
+              + eventReceived[0]);
       if (eventReceived[0]) break; // shouldn't happen without broadcast
     }
     // should not have fired yet
-    System.out.println("[DIAG] before broadcast: waiting=" + evt.getWaitingCount()
-        + " eventReceived=" + eventReceived[0]);
+    System.out.println(
+        "[DIAG] before broadcast: waiting="
+            + evt.getWaitingCount()
+            + " eventReceived="
+            + eventReceived[0]);
 
     // Broadcast using vm.broadcastGlobalEvent() or evt.broadcast(vm)
     // NOTE: evt.broadcast() (no-arg) only works inside a sporked shred because it
@@ -82,7 +96,8 @@ public class MacOSDiagnosticTest {
     evt.broadcast(vm);
     System.out.println("[DIAG] after broadcast, before advance: waiting=" + evt.getWaitingCount());
     vm.advanceTime(4410);
-    System.out.println("[DIAG] final: eventReceived=" + eventReceived[0] + " wakeStep=" + wakeStep[0]);
+    System.out.println(
+        "[DIAG] final: eventReceived=" + eventReceived[0] + " wakeStep=" + wakeStep[0]);
 
     System.out.println("[DIAG] testEventBroadcastWakesShred: eventReceived=" + eventReceived[0]);
     assertTrue(eventReceived[0], "Shred waiting on event should wake when broadcast");
@@ -185,11 +200,11 @@ public class MacOSDiagnosticTest {
     vm.setGlobalInt(BridgeContract.G_PLAY, 0L);
     double peakAvg = (peakL + peakR) / 2.0;
 
-    System.out.printf("[DIAG] testSynthShredProducesAudio: stepAdvanced=%s peakL=%.8f peakR=%.8f peakAvg=%.8f%n",
+    System.out.printf(
+        "[DIAG] testSynthShredProducesAudio: stepAdvanced=%s peakL=%.8f peakR=%.8f peakAvg=%.8f%n",
         stepAdvanced, peakL, peakR, peakAvg);
     assertTrue(stepAdvanced, "Step should advance");
-    assertTrue(peakAvg > 0.0001,
-        "SAW synth should produce audible output peakAvg=" + peakAvg);
+    assertTrue(peakAvg > 0.0001, "SAW synth should produce audible output peakAvg=" + peakAvg);
     vm.shutdown();
   }
 }

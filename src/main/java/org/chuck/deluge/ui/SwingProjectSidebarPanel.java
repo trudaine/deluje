@@ -63,16 +63,29 @@ public class SwingProjectSidebarPanel extends JPanel {
     File songsDir = org.chuck.deluge.project.PreferencesManager.getSongsDir();
     File midiDevicesDir = org.chuck.deluge.project.PreferencesManager.getMidiDevicesDir();
     File patternsDir = org.chuck.deluge.project.PreferencesManager.getPatternsDir();
-    System.out.println("reloadLibrary: kitsDir=" + kitsDir + " exists=" + (kitsDir != null && kitsDir.isDirectory()));
-    System.out.println("reloadLibrary: synthsDir=" + synthsDir + " exists=" + (synthsDir != null && synthsDir.isDirectory()));
-    System.out.println("reloadLibrary: songsDir=" + songsDir + " exists=" + (songsDir != null && songsDir.isDirectory()));
+    System.out.println(
+        "reloadLibrary: kitsDir="
+            + kitsDir
+            + " exists="
+            + (kitsDir != null && kitsDir.isDirectory()));
+    System.out.println(
+        "reloadLibrary: synthsDir="
+            + synthsDir
+            + " exists="
+            + (synthsDir != null && synthsDir.isDirectory()));
+    System.out.println(
+        "reloadLibrary: songsDir="
+            + songsDir
+            + " exists="
+            + (songsDir != null && songsDir.isDirectory()));
     libraryRoot.removeAllChildren();
     addDirsToTree(libraryRoot, "KITS", kitsDir);
     addDirsToTree(libraryRoot, "SYNTHS", synthsDir);
     addDirsToTree(libraryRoot, "SONGS", songsDir);
     addDirsToTree(libraryRoot, "MIDI_DEVICES", midiDevicesDir);
     addDirsToTree(libraryRoot, "PATTERNS", patternsDir);
-    File examplesDir = new File(org.chuck.deluge.project.PreferencesManager.getLibraryDir(), "EXAMPLES");
+    File examplesDir =
+        new File(org.chuck.deluge.project.PreferencesManager.getLibraryDir(), "EXAMPLES");
     if (examplesDir.isDirectory()) {
       addDirsToTree(libraryRoot, "EXAMPLES", examplesDir);
     }
@@ -88,11 +101,17 @@ public class SwingProjectSidebarPanel extends JPanel {
   private JComponent createLibraryTab() {
     libraryRoot = new DefaultMutableTreeNode("SD CARD");
     addDirsToTree(libraryRoot, "KITS", org.chuck.deluge.project.PreferencesManager.getKitsDir());
-    addDirsToTree(libraryRoot, "SYNTHS", org.chuck.deluge.project.PreferencesManager.getSynthsDir());
+    addDirsToTree(
+        libraryRoot, "SYNTHS", org.chuck.deluge.project.PreferencesManager.getSynthsDir());
     addDirsToTree(libraryRoot, "SONGS", org.chuck.deluge.project.PreferencesManager.getSongsDir());
-    addDirsToTree(libraryRoot, "MIDI_DEVICES", org.chuck.deluge.project.PreferencesManager.getMidiDevicesDir());
-    addDirsToTree(libraryRoot, "PATTERNS", org.chuck.deluge.project.PreferencesManager.getPatternsDir());
-    File examplesDir = new File(org.chuck.deluge.project.PreferencesManager.getLibraryDir(), "EXAMPLES");
+    addDirsToTree(
+        libraryRoot,
+        "MIDI_DEVICES",
+        org.chuck.deluge.project.PreferencesManager.getMidiDevicesDir());
+    addDirsToTree(
+        libraryRoot, "PATTERNS", org.chuck.deluge.project.PreferencesManager.getPatternsDir());
+    File examplesDir =
+        new File(org.chuck.deluge.project.PreferencesManager.getLibraryDir(), "EXAMPLES");
     if (examplesDir.isDirectory()) {
       addDirsToTree(libraryRoot, "EXAMPLES", examplesDir);
     }
@@ -120,21 +139,37 @@ public class SwingProjectSidebarPanel extends JPanel {
                 javax.swing.tree.DefaultMutableTreeNode node =
                     (javax.swing.tree.DefaultMutableTreeNode) path.getLastPathComponent();
                 if (node.isLeaf()) {
-                                    String name = node.getUserObject().toString();
+                  String name = node.getUserObject().toString();
                   // Determine base directory from the top-level category
                   String category = path.getPathComponent(1).toString();
                   File baseDir;
                   switch (category) {
-                    case "KITS": baseDir = org.chuck.deluge.project.PreferencesManager.getKitsDir(); break;
-                    case "SYNTHS": baseDir = org.chuck.deluge.project.PreferencesManager.getSynthsDir(); break;
-                    case "SONGS": baseDir = org.chuck.deluge.project.PreferencesManager.getSongsDir(); break;
-                    case "MIDI_DEVICES": baseDir = org.chuck.deluge.project.PreferencesManager.getMidiDevicesDir(); break;
-                    case "PATTERNS": baseDir = org.chuck.deluge.project.PreferencesManager.getPatternsDir(); break;
-                    case "EXAMPLES": baseDir = new File(org.chuck.deluge.project.PreferencesManager.getLibraryDir(), "EXAMPLES"); break;
-                    default: baseDir = null;
+                    case "KITS":
+                      baseDir = org.chuck.deluge.project.PreferencesManager.getKitsDir();
+                      break;
+                    case "SYNTHS":
+                      baseDir = org.chuck.deluge.project.PreferencesManager.getSynthsDir();
+                      break;
+                    case "SONGS":
+                      baseDir = org.chuck.deluge.project.PreferencesManager.getSongsDir();
+                      break;
+                    case "MIDI_DEVICES":
+                      baseDir = org.chuck.deluge.project.PreferencesManager.getMidiDevicesDir();
+                      break;
+                    case "PATTERNS":
+                      baseDir = org.chuck.deluge.project.PreferencesManager.getPatternsDir();
+                      break;
+                    case "EXAMPLES":
+                      baseDir =
+                          new File(
+                              org.chuck.deluge.project.PreferencesManager.getLibraryDir(),
+                              "EXAMPLES");
+                      break;
+                    default:
+                      baseDir = null;
                   }
                   if (baseDir == null) return;
-                  
+
                   // Build relative path from category node down (skip root and category)
                   StringBuilder relBuilder = new StringBuilder();
                   for (int i = 2; i < path.getPathCount(); i++) {
@@ -142,7 +177,7 @@ public class SwingProjectSidebarPanel extends JPanel {
                     relBuilder.append(path.getPathComponent(i).toString());
                   }
                   String relPath = relBuilder.toString();
-                  
+
                   // Resolve file with extension fallbacks
                   File leafFile = null;
                   String[] tryExts = {".XML", ".xml", ".ck"};
@@ -154,15 +189,18 @@ public class SwingProjectSidebarPanel extends JPanel {
                     }
                   }
                   if (leafFile == null) return;
-                  
+
                   String fileName = leafFile.getName().toLowerCase();
-                  
+
                   if (fileName.endsWith(".ck")) {
-                    System.out.println("Swing: Loading ChucK script: " + leafFile.getAbsolutePath());
+                    System.out.println(
+                        "Swing: Loading ChucK script: " + leafFile.getAbsolutePath());
                     activeScriptPath = leafFile.getAbsolutePath();
                     try {
-                      String content = new String(java.nio.file.Files.readAllBytes(leafFile.toPath()),
-                          java.nio.charset.StandardCharsets.UTF_8);
+                      String content =
+                          new String(
+                              java.nio.file.Files.readAllBytes(leafFile.toPath()),
+                              java.nio.charset.StandardCharsets.UTF_8);
                       if (scriptArea != null) {
                         scriptArea.setText(content);
                         tabs.setSelectedIndex(1);
@@ -179,10 +217,10 @@ public class SwingProjectSidebarPanel extends JPanel {
                             slider.setBackground(new Color(0x1f, 0x1f, 0x1f));
                             slider.addChangeListener(
                                 ev -> {
-                              varLabel.setText(varName + ": " + slider.getValue());
-                              if (vm != null) {
-                                vm.setGlobalFloat(varName, slider.getValue() / 100.0);
-                              }
+                                  varLabel.setText(varName + ": " + slider.getValue());
+                                  if (vm != null) {
+                                    vm.setGlobalFloat(varName, slider.getValue() / 100.0);
+                                  }
                                 });
                             ckParamsBox.add(varLabel);
                             ckParamsBox.add(slider);
@@ -197,98 +235,100 @@ public class SwingProjectSidebarPanel extends JPanel {
                     }
                     return;
                   }
-                  
-                    System.out.println("Swing: Loading Preset: " + leafFile.getAbsolutePath());
-                    try (java.io.InputStream is = new java.io.FileInputStream(leafFile)) {
-                      if ("KITS".equals(category)) {
-                        org.chuck.deluge.model.KitTrackModel kit =
-                            org.chuck.deluge.xml.DelugeXmlParser.parseKit(is, name);
-                        int baseTrack = 0;
-                        java.util.List<org.chuck.deluge.model.Drum> sounds =
-                            kit.getDrums();
-                        for (int i = 0; i < sounds.size(); i++) {
-                          String sp = ((org.chuck.deluge.model.SoundDrum) sounds.get(i)).getSamplePath();
-                          vm.setGlobalString("g_sample_" + (baseTrack + i), sp != null ? sp : "");
-                          bridge.setSamplePath(baseTrack + i, sp != null ? sp : "");
-                          bridge.setMute(baseTrack + i, false);
-                        }
-                        if (onTrackAdded != null) {
-                          onTrackAdded.accept(kit);
-                        } else {
-                          org.chuck.deluge.model.ProjectModel mockProj =
-                              new org.chuck.deluge.model.ProjectModel();
-                          mockProj.addTrack(kit);
-                          if (onSongLoaded != null) {
-                            onSongLoaded.accept(mockProj);
-                          }
-                        }
-                        vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
-                      } else if ("SONGS".equals(category)) {
-                        org.chuck.deluge.model.ProjectModel loadedProject =
-                            org.chuck.deluge.xml.DelugeXmlParser.parseSong(is, name);
-                        int engineRow = 0;
-                        java.io.File libraryDir = org.chuck.deluge.project.PreferencesManager.getLibraryDir();
-                        java.util.ArrayList<String> missingFiles = new java.util.ArrayList<>();
-                        for (org.chuck.deluge.model.TrackModel track : loadedProject.getTracks()) {
-                          if (engineRow >= org.chuck.deluge.BridgeContract.TRACKS) break;
-                          if (track instanceof org.chuck.deluge.model.KitTrackModel kit) {
-                            java.util.List<org.chuck.deluge.model.Drum> sounds = kit.getDrums();
-                            for (int i = 0; i < sounds.size(); i++) {
-                              String sp = ((org.chuck.deluge.model.SoundDrum) sounds.get(i)).getSamplePath();
-                              // Check if sample file exists on disk
-                              if (sp != null && !sp.isEmpty()) {
-                                java.io.File sf = new java.io.File(sp);
-                                if (!sf.exists()) {
-                                  sf = new java.io.File(libraryDir, sp);
-                                }
-                                if (!sf.exists()) {
-                                  missingFiles.add(sp);
-                                }
-                              }
-                              vm.setGlobalString("g_sample_" + (engineRow + i), sp != null ? sp : "");
-                              bridge.setMute(engineRow + i, false);
-                              bridge.setTrackType(engineRow + i, 0);
-                            }
-                          }
-                          engineRow++;
-                        }
-                        if (!missingFiles.isEmpty()) {
-                          StringBuilder sb = new StringBuilder("Missing sample files:\n");
-                          for (String mf : missingFiles) {
-                            sb.append("  - ").append(mf).append("\n");
-                          }
-                          System.err.println(sb.toString());
-                          javax.swing.JOptionPane.showMessageDialog(
-                              SwingProjectSidebarPanel.this,
-                              sb.toString(),
-                              "Samples Not Found",
-                              javax.swing.JOptionPane.ERROR_MESSAGE);
-                        }
+
+                  System.out.println("Swing: Loading Preset: " + leafFile.getAbsolutePath());
+                  try (java.io.InputStream is = new java.io.FileInputStream(leafFile)) {
+                    if ("KITS".equals(category)) {
+                      org.chuck.deluge.model.KitTrackModel kit =
+                          org.chuck.deluge.xml.DelugeXmlParser.parseKit(is, name);
+                      int baseTrack = 0;
+                      java.util.List<org.chuck.deluge.model.Drum> sounds = kit.getDrums();
+                      for (int i = 0; i < sounds.size(); i++) {
+                        String sp =
+                            ((org.chuck.deluge.model.SoundDrum) sounds.get(i)).getSamplePath();
+                        vm.setGlobalString("g_sample_" + (baseTrack + i), sp != null ? sp : "");
+                        bridge.setSamplePath(baseTrack + i, sp != null ? sp : "");
+                        bridge.setMute(baseTrack + i, false);
+                      }
+                      if (onTrackAdded != null) {
+                        onTrackAdded.accept(kit);
+                      } else {
+                        org.chuck.deluge.model.ProjectModel mockProj =
+                            new org.chuck.deluge.model.ProjectModel();
+                        mockProj.addTrack(kit);
                         if (onSongLoaded != null) {
-                          onSongLoaded.accept(loadedProject);
-                        }
-                        vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
-                      } else if ("SYNTHS".equals(category)) {
-                        org.chuck.deluge.model.SynthTrackModel synth =
-                            org.chuck.deluge.xml.DelugeXmlParser.parseSynth(is, name);
-                        if (onTrackAdded != null) {
-                          onTrackAdded.accept(synth);
-                        } else {
-                          org.chuck.deluge.model.ProjectModel mockProj =
-                              new org.chuck.deluge.model.ProjectModel();
-                          mockProj.addTrack(synth);
-                          if (onSongLoaded != null) {
-                            onSongLoaded.accept(mockProj);
-                          }
-                        }
-                      } else if ("PATTERNS".equals(category)) {
-                        if (onPatternLoad != null) {
-                          onPatternLoad.accept(leafFile);
+                          onSongLoaded.accept(mockProj);
                         }
                       }
-                    } catch (Exception ex) {
-                      ex.printStackTrace();
+                      vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+                    } else if ("SONGS".equals(category)) {
+                      org.chuck.deluge.model.ProjectModel loadedProject =
+                          org.chuck.deluge.xml.DelugeXmlParser.parseSong(is, name);
+                      int engineRow = 0;
+                      java.io.File libraryDir =
+                          org.chuck.deluge.project.PreferencesManager.getLibraryDir();
+                      java.util.ArrayList<String> missingFiles = new java.util.ArrayList<>();
+                      for (org.chuck.deluge.model.TrackModel track : loadedProject.getTracks()) {
+                        if (engineRow >= org.chuck.deluge.BridgeContract.TRACKS) break;
+                        if (track instanceof org.chuck.deluge.model.KitTrackModel kit) {
+                          java.util.List<org.chuck.deluge.model.Drum> sounds = kit.getDrums();
+                          for (int i = 0; i < sounds.size(); i++) {
+                            String sp =
+                                ((org.chuck.deluge.model.SoundDrum) sounds.get(i)).getSamplePath();
+                            // Check if sample file exists on disk
+                            if (sp != null && !sp.isEmpty()) {
+                              java.io.File sf = new java.io.File(sp);
+                              if (!sf.exists()) {
+                                sf = new java.io.File(libraryDir, sp);
+                              }
+                              if (!sf.exists()) {
+                                missingFiles.add(sp);
+                              }
+                            }
+                            vm.setGlobalString("g_sample_" + (engineRow + i), sp != null ? sp : "");
+                            bridge.setMute(engineRow + i, false);
+                            bridge.setTrackType(engineRow + i, 0);
+                          }
+                        }
+                        engineRow++;
+                      }
+                      if (!missingFiles.isEmpty()) {
+                        StringBuilder sb = new StringBuilder("Missing sample files:\n");
+                        for (String mf : missingFiles) {
+                          sb.append("  - ").append(mf).append("\n");
+                        }
+                        System.err.println(sb.toString());
+                        javax.swing.JOptionPane.showMessageDialog(
+                            SwingProjectSidebarPanel.this,
+                            sb.toString(),
+                            "Samples Not Found",
+                            javax.swing.JOptionPane.ERROR_MESSAGE);
+                      }
+                      if (onSongLoaded != null) {
+                        onSongLoaded.accept(loadedProject);
+                      }
+                      vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+                    } else if ("SYNTHS".equals(category)) {
+                      org.chuck.deluge.model.SynthTrackModel synth =
+                          org.chuck.deluge.xml.DelugeXmlParser.parseSynth(is, name);
+                      if (onTrackAdded != null) {
+                        onTrackAdded.accept(synth);
+                      } else {
+                        org.chuck.deluge.model.ProjectModel mockProj =
+                            new org.chuck.deluge.model.ProjectModel();
+                        mockProj.addTrack(synth);
+                        if (onSongLoaded != null) {
+                          onSongLoaded.accept(mockProj);
+                        }
+                      }
+                    } else if ("PATTERNS".equals(category)) {
+                      if (onPatternLoad != null) {
+                        onPatternLoad.accept(leafFile);
+                      }
                     }
+                  } catch (Exception ex) {
+                    ex.printStackTrace();
+                  }
                 }
               }
             }
@@ -313,9 +353,10 @@ public class SwingProjectSidebarPanel extends JPanel {
     savePatternBtn.setBackground(new Color(0x33, 0x66, 0x33));
     savePatternBtn.setForeground(Color.WHITE);
     savePatternBtn.setFont(new Font("SansSerif", Font.BOLD, 14));
-    savePatternBtn.addActionListener(e -> {
-      if (onPatternSave != null) onPatternSave.run();
-    });
+    savePatternBtn.addActionListener(
+        e -> {
+          if (onPatternSave != null) onPatternSave.run();
+        });
     buttonPanel.add(savePatternBtn);
 
     JPanel wrapper = new JPanel(new BorderLayout());
@@ -350,8 +391,7 @@ public class SwingProjectSidebarPanel extends JPanel {
   }
 
   /** Recursively add directories and XML/CK files from a filesystem directory to the tree. */
-  private void addDirsToTree(
-      javax.swing.tree.DefaultMutableTreeNode root, String label, File dir) {
+  private void addDirsToTree(javax.swing.tree.DefaultMutableTreeNode root, String label, File dir) {
     if (dir == null || !dir.isDirectory()) return;
     javax.swing.tree.DefaultMutableTreeNode folder =
         new javax.swing.tree.DefaultMutableTreeNode(label);
@@ -362,8 +402,8 @@ public class SwingProjectSidebarPanel extends JPanel {
   private void buildFileTree(javax.swing.tree.DefaultMutableTreeNode node, File dir) {
     File[] entries = dir.listFiles();
     if (entries == null) return;
-    java.util.Arrays.sort(entries, (a, b) ->
-        a.getName().toUpperCase().compareTo(b.getName().toUpperCase()));
+    java.util.Arrays.sort(
+        entries, (a, b) -> a.getName().toUpperCase().compareTo(b.getName().toUpperCase()));
     for (File f : entries) {
       if (f.isDirectory()) {
         javax.swing.tree.DefaultMutableTreeNode sub =
@@ -564,8 +604,7 @@ public class SwingProjectSidebarPanel extends JPanel {
     // ── Device Selection ──
     java.util.List<org.chuck.deluge.midi.MidiDeviceDefinition> devices =
         org.chuck.deluge.midi.MidiDeviceDefinitionLoader.loadAll();
-    JComboBox<org.chuck.deluge.midi.MidiDeviceDefinition> deviceCombo =
-        new JComboBox<>();
+    JComboBox<org.chuck.deluge.midi.MidiDeviceDefinition> deviceCombo = new JComboBox<>();
     deviceCombo.addItem(null); // "None"
     for (var d : devices) {
       deviceCombo.addItem(d);
@@ -651,15 +690,17 @@ public class SwingProjectSidebarPanel extends JPanel {
           learnBtn.setEnabled(false);
           // Re-enable after timeout
           Timer timer =
-              new Timer(10000, ev -> {
-                learnBtn.setEnabled(true);
-                if (midiService.isLearning()) {
-                  learnStatus.setText("Learn timed out");
-                } else {
-                  learnStatus.setText("Learned!");
-                  rebuildMidiTable(outer);
-                }
-              });
+              new Timer(
+                  10000,
+                  ev -> {
+                    learnBtn.setEnabled(true);
+                    if (midiService.isLearning()) {
+                      learnStatus.setText("Learn timed out");
+                    } else {
+                      learnStatus.setText("Learned!");
+                      rebuildMidiTable(outer);
+                    }
+                  });
           timer.setRepeats(false);
           timer.start();
         });
@@ -677,19 +718,21 @@ public class SwingProjectSidebarPanel extends JPanel {
     JPanel followPanel = new JPanel();
     followPanel.setLayout(new BoxLayout(followPanel, BoxLayout.Y_AXIS));
     followPanel.setBackground(new Color(0x25, 0x25, 0x25));
-    followPanel.setBorder(BorderFactory.createTitledBorder(
-        BorderFactory.createLineBorder(new Color(0x60, 0x60, 0x60)),
-        "MIDI Follow Mode",
-        TitledBorder.LEFT,
-        TitledBorder.TOP,
-        new Font("SansSerif", Font.BOLD, 13),
-        new Color(0xcc, 0xcc, 0xcc)));
+    followPanel.setBorder(
+        BorderFactory.createTitledBorder(
+            BorderFactory.createLineBorder(new Color(0x60, 0x60, 0x60)),
+            "MIDI Follow Mode",
+            TitledBorder.LEFT,
+            TitledBorder.TOP,
+            new Font("SansSerif", Font.BOLD, 13),
+            new Color(0xcc, 0xcc, 0xcc)));
 
     JCheckBox followEnable = new JCheckBox("Enabled");
     followEnable.setForeground(Color.WHITE);
     followEnable.setBackground(new Color(0x25, 0x25, 0x25));
     followEnable.setSelected(
-        org.chuck.deluge.project.PreferencesManager.get("midi.follow.enabled", "true").equals("true"));
+        org.chuck.deluge.project.PreferencesManager.get("midi.follow.enabled", "true")
+            .equals("true"));
     followEnable.addActionListener(
         e -> {
           org.chuck.deluge.project.PreferencesManager.set(
@@ -697,11 +740,28 @@ public class SwingProjectSidebarPanel extends JPanel {
         });
     followPanel.add(followEnable);
 
-    String[] midiChannels = {"1", "2", "3", "4", "5", "6", "7", "8",
-                             "9", "10", "11", "12", "13", "14", "15", "16"};
-    String[] trackLabels = {"Track 1", "Track 2", "Track 3", "Track 4", "Track 5",
-                            "Track 6", "Track 7", "Track 8", "Track 9", "Track 10",
-                            "Track 11", "Track 12", "Track 13", "Track 14", "Track 15", "Track 16"};
+    String[] midiChannels = {
+      "1", "2", "3", "4", "5", "6", "7", "8",
+      "9", "10", "11", "12", "13", "14", "15", "16"
+    };
+    String[] trackLabels = {
+      "Track 1",
+      "Track 2",
+      "Track 3",
+      "Track 4",
+      "Track 5",
+      "Track 6",
+      "Track 7",
+      "Track 8",
+      "Track 9",
+      "Track 10",
+      "Track 11",
+      "Track 12",
+      "Track 13",
+      "Track 14",
+      "Track 15",
+      "Track 16"
+    };
     char[] followLabels = {'A', 'B', 'C'};
     for (int i = 0; i < 3; i++) {
       final char fLabel = followLabels[i];
@@ -710,25 +770,25 @@ public class SwingProjectSidebarPanel extends JPanel {
       JLabel fl = new JLabel("Channel " + fLabel + ":");
       fl.setForeground(Color.WHITE);
       JComboBox<String> chCombo = new JComboBox<>(midiChannels);
-      int savedCh = Integer.parseInt(
-          org.chuck.deluge.project.PreferencesManager.get("midi.follow.ch" + fLabel, "1"));
+      int savedCh =
+          Integer.parseInt(
+              org.chuck.deluge.project.PreferencesManager.get("midi.follow.ch" + fLabel, "1"));
       chCombo.setSelectedIndex(savedCh - 1);
       chCombo.addActionListener(
           e -> {
             org.chuck.deluge.project.PreferencesManager.set(
-                "midi.follow.ch" + fLabel,
-                String.valueOf(chCombo.getSelectedIndex() + 1));
+                "midi.follow.ch" + fLabel, String.valueOf(chCombo.getSelectedIndex() + 1));
           });
       JComboBox<String> trCombo = new JComboBox<>(trackLabels);
-      int savedTr = Integer.parseInt(
-          org.chuck.deluge.project.PreferencesManager.get(
-              "midi.follow.track" + fLabel, String.valueOf(i)));
+      int savedTr =
+          Integer.parseInt(
+              org.chuck.deluge.project.PreferencesManager.get(
+                  "midi.follow.track" + fLabel, String.valueOf(i)));
       trCombo.setSelectedIndex(Math.min(savedTr, 15));
       trCombo.addActionListener(
           e -> {
             org.chuck.deluge.project.PreferencesManager.set(
-                "midi.follow.track" + fLabel,
-                String.valueOf(trCombo.getSelectedIndex()));
+                "midi.follow.track" + fLabel, String.valueOf(trCombo.getSelectedIndex()));
           });
       row.add(fl);
       row.add(new JLabel("MIDI Ch:"));

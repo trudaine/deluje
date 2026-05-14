@@ -52,17 +52,19 @@ public class DelugeEngineDSLTest {
 
     // Initial step should be -1 or 0
     long step0 = vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
-    
+
     // Advance time by one 16th note at 120 BPM
     // 120 BPM = 2 beats/sec. 1 beat = 0.5s. 16th note = 0.125s.
-    vm.advanceTime( (int)(44100 * 0.13) ); 
+    vm.advanceTime((int) (44100 * 0.13));
 
     long step1 = vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
     assertTrue(step1 >= 0, "Engine did not advance from initial state");
-    
-    vm.advanceTime( (int)(44100 * 0.2) );
+
+    vm.advanceTime((int) (44100 * 0.2));
     long step2 = vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
-    assertTrue(step2 > step1, "Engine step did not continue to advance. Step1: " + step1 + " Step2: " + step2);
+    assertTrue(
+        step2 > step1,
+        "Engine step did not continue to advance. Step1: " + step1 + " Step2: " + step2);
   }
 
   @Test
@@ -72,16 +74,16 @@ public class DelugeEngineDSLTest {
     vm.setGlobalString("g_sample_0", "examples/data/kick.wav");
 
     vm.spork(new org.chuck.deluge.engine.DelugeEngineDSL());
-    
+
     // Trigger load event to break the init loop in DelugeEngineDSL
     vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
-    
+
     vm.advanceTime(100); // Give it a moment to init voices
 
     // Verify playhead starts moving when play is set
     vm.setGlobalInt(BridgeContract.G_PLAY, 1L);
     vm.advanceTime(44100);
-    
+
     long step = vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
     assertTrue(step >= 0, "Engine failed to start after kit initialization");
   }
@@ -98,7 +100,7 @@ public class DelugeEngineDSLTest {
 
     long startStep = vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
     vm.advanceTime(44100);
-    
+
     // In stutter mode, the step doesn't advance in clock_shred, it just broadcasts ticks
     // (Based on the logic: if stutter_on != 0, it doesn't increment step++)
     long endStep = vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);

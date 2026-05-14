@@ -12,13 +12,12 @@ import org.chuck.deluge.model.EnvelopeModel;
 import org.chuck.deluge.model.FilterMode;
 import org.chuck.deluge.model.KitTrackModel;
 import org.chuck.deluge.model.LfoModel;
-import org.chuck.deluge.model.SoundDrum;
 import org.chuck.deluge.model.LfoType;
 import org.chuck.deluge.model.ModKnob;
 import org.chuck.deluge.model.PatchCable;
+import org.chuck.deluge.model.SoundDrum;
 import org.chuck.deluge.model.SynthTrackModel;
 import org.chuck.deluge.model.SynthTrackModel.PolyphonyMode;
-import org.chuck.deluge.xml.DelugeHexMapper;
 import org.chuck.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
@@ -40,8 +39,7 @@ public class KitSynthSerializerTest {
     temp.deleteOnExit();
     KitSynthSerializer.saveKit(original, temp);
 
-    KitTrackModel parsed =
-        DelugeXmlParser.parseKit(new FileInputStream(temp), "TEST_KIT");
+    KitTrackModel parsed = DelugeXmlParser.parseKit(new FileInputStream(temp), "TEST_KIT");
 
     assertEquals(original.getDrums().size(), parsed.getDrums().size());
     SoundDrum orig = (SoundDrum) original.getDrums().get(0);
@@ -153,8 +151,7 @@ public class KitSynthSerializerTest {
     temp.deleteOnExit();
     KitSynthSerializer.saveSynth(original, temp);
 
-    SynthTrackModel parsed =
-        DelugeXmlParser.parseSynth(new FileInputStream(temp), "TEST_SYNTH");
+    SynthTrackModel parsed = DelugeXmlParser.parseSynth(new FileInputStream(temp), "TEST_SYNTH");
 
     // Oscillators (from DIRECT_BINDINGS: osc1 type attr, osc2 type child)
     assertEquals(original.getOsc1Type(), parsed.getOsc1Type());
@@ -244,16 +241,13 @@ public class KitSynthSerializerTest {
     // Patch cables (from parsePatchCables)
     assertEquals(original.getPatchCables().size(), parsed.getPatchCables().size());
     for (int i = 0; i < original.getPatchCables().size(); i++) {
-      assertPatchCableRoundTrip(
-          original.getPatchCables().get(i), parsed.getPatchCables().get(i));
+      assertPatchCableRoundTrip(original.getPatchCables().get(i), parsed.getPatchCables().get(i));
     }
 
     // Mod knobs (from parseModKnobs)
-    assertEquals(
-        original.getModKnobs().size(), parsed.getModKnobs().size());
+    assertEquals(original.getModKnobs().size(), parsed.getModKnobs().size());
     for (int i = 0; i < original.getModKnobs().size(); i++) {
-      assertModKnobEquals(
-          original.getModKnobs().get(i), parsed.getModKnobs().get(i));
+      assertModKnobEquals(original.getModKnobs().get(i), parsed.getModKnobs().get(i));
     }
   }
 
@@ -276,7 +270,8 @@ public class KitSynthSerializerTest {
     // DEBUG: print file length and content
     System.out.println("DEBUG file length=" + temp.length());
     System.out.println("DEBUG xml len=" + xml.length());
-    System.out.println("DEBUG XML=" + xml.replace("\n", "\\n").substring(0, Math.min(3000, xml.length())));
+    System.out.println(
+        "DEBUG XML=" + xml.replace("\n", "\\n").substring(0, Math.min(3000, xml.length())));
 
     // Root element
     assertTrue(xml.contains("<kit"), "root should be <kit>");
@@ -310,7 +305,8 @@ public class KitSynthSerializerTest {
     assertTrue(xml.contains("<envelope4>"), "should contain <envelope4> in defaultParams");
 
     // modKnobs
-    assertTrue(xml.contains("<midiKnobs/>") || xml.contains("<midiKnobs></midiKnobs>"),
+    assertTrue(
+        xml.contains("<midiKnobs/>") || xml.contains("<midiKnobs></midiKnobs>"),
         "should contain <midiKnobs>");
   }
 
@@ -320,7 +316,10 @@ public class KitSynthSerializerTest {
     synth.setOsc1Type("SAW");
     synth.setOsc2Type("SINE");
     synth.setPolyphony(PolyphonyMode.LEGATO);
-    synth.setArp(new ArpModel(false, "UP", 1.0f, 1, 0.5f, 0, "UP", "UP", 1, 0, 8, 0f, 0f, 0f, 0, 0, 0, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0));
+    synth.setArp(
+        new ArpModel(
+            false, "UP", 1.0f, 1, 0.5f, 0, "UP", "UP", 1, 0, 8, 0f, 0f, 0f, 0, 0, 0, 0f, 0f, 0f, 0f,
+            0f, 0f, 0f, 0));
     synth.setCompressorAttack(0.05f);
     synth.setCompressorRelease(0.25f);
     synth.setCompressorSyncLevel(3);
@@ -343,8 +342,7 @@ public class KitSynthSerializerTest {
     assertTrue(xml.contains("<type>sine</type>"), "osc2 type should be sine");
 
     // Polyphonic
-    assertTrue(xml.contains("<polyphonic>legato</polyphonic>"),
-        "polyphonic should contain legato");
+    assertTrue(xml.contains("<polyphonic>legato</polyphonic>"), "polyphonic should contain legato");
 
     // LFOs
     assertTrue(xml.contains("<lfo1>"), "should contain <lfo1>");
@@ -358,13 +356,12 @@ public class KitSynthSerializerTest {
     assertTrue(xml.contains("<envelope4>"), "should contain <envelope4> in defaultParams");
 
     // Patch cables
-    assertTrue(xml.contains("<patchCables>"),
-        "should contain <patchCables>");
-    assertTrue(xml.contains("<source>LFO1</source>"),
-        "should contain source LFO1");
+    assertTrue(xml.contains("<patchCables>"), "should contain <patchCables>");
+    assertTrue(xml.contains("<source>LFO1</source>"), "should contain source LFO1");
 
     // Mod knobs
-    assertTrue(xml.contains("<midiKnobs/>") || xml.contains("<midiKnobs></midiKnobs>"),
+    assertTrue(
+        xml.contains("<midiKnobs/>") || xml.contains("<midiKnobs></midiKnobs>"),
         "should contain <midiKnobs>");
   }
 
@@ -390,8 +387,7 @@ public class KitSynthSerializerTest {
     assertTrue(xml.contains("0x"), "hex values should use 0x prefix");
 
     // Re-parse and check volume survives
-    KitTrackModel parsed =
-        DelugeXmlParser.parseKit(new FileInputStream(temp), "HEX_TEST");
+    KitTrackModel parsed = DelugeXmlParser.parseKit(new FileInputStream(temp), "HEX_TEST");
     assertEquals(0.5f, parsed.getDrums().get(0).getVolume(), 0.01f);
     assertEquals(0.0f, parsed.getDrums().get(0).getPan(), 0.01f);
     assertEquals(20000.0f, parsed.getDrums().get(0).getLpfFreq(), 1.0f);
@@ -480,7 +476,10 @@ public class KitSynthSerializerTest {
     synth.setSampleRateReduction(0.15f);
     synth.setBitCrush(0.25f);
     synth.setPortamento(0.35f);
-    synth.setArp(new ArpModel(true, "DOWN", 0.5f, 2, 0.7f, 0, "UP", "UP", 1, 0, 8, 0f, 0f, 0f, 0, 0, 0, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0));
+    synth.setArp(
+        new ArpModel(
+            true, "DOWN", 0.5f, 2, 0.7f, 0, "UP", "UP", 1, 0, 8, 0f, 0f, 0f, 0, 0, 0, 0f, 0f, 0f,
+            0f, 0f, 0f, 0f, 0));
     synth.setEnv(0, new EnvelopeModel(0.01f, 0.1f, 0.7f, 0.2f, "VOLUME", 1.0f));
     synth.setEnv(1, new EnvelopeModel(0.05f, 0.2f, 0.5f, 0.4f, "LPF", 0.6f));
     synth.setEnv(2, new EnvelopeModel(0.02f, 0.15f, 0.6f, 0.3f, "PITCH", 0.4f));

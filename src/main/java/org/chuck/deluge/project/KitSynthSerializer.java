@@ -22,8 +22,8 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
 /**
- * Serializes a single Kit or Synth track to a standalone preset XML file.
- * Matches the Deluge factory XML format (child-element style).
+ * Serializes a single Kit or Synth track to a standalone preset XML file. Matches the Deluge
+ * factory XML format (child-element style).
  */
 public class KitSynthSerializer {
 
@@ -56,7 +56,8 @@ public class KitSynthSerializer {
       appendTextChild(doc, osc1, "fileName", samplePath);
       Element zone = doc.createElement("zone");
       appendTextChild(doc, zone, "startMilliseconds", String.valueOf((int) sound.getStartMs()));
-      appendTextChild(doc, zone, "endMilliseconds", String.valueOf((int) Math.max(sound.getEndMs(), 1)));
+      appendTextChild(
+          doc, zone, "endMilliseconds", String.valueOf((int) Math.max(sound.getEndMs(), 1)));
       osc1.appendChild(zone);
       appendTextChild(doc, osc1, "retrigPhase", String.valueOf(sound.getRetrigPhase()));
       soundElem.appendChild(osc1);
@@ -82,14 +83,18 @@ public class KitSynthSerializer {
       appendTextChild(doc, soundElem, "polyphonic", sound.isPolyphonic() ? "1" : "0");
 
       // ── clippingAmount ──
-      appendTextChild(doc, soundElem, "clippingAmount", String.valueOf((int) sound.getClippingAmount()));
+      appendTextChild(
+          doc, soundElem, "clippingAmount", String.valueOf((int) sound.getClippingAmount()));
 
       // ── voicePriority ──
       appendTextChild(doc, soundElem, "voicePriority", String.valueOf(sound.getVoicePriority()));
 
       // ── sideChainSend ──
       if (sound.getSidechainSend() > 0) {
-        appendTextChild(doc, soundElem, "sideChainSend",
+        appendTextChild(
+            doc,
+            soundElem,
+            "sideChainSend",
             String.valueOf((int) (sound.getSidechainSend() * Integer.MAX_VALUE)));
       }
 
@@ -107,11 +112,19 @@ public class KitSynthSerializer {
       soundElem.appendChild(unison);
 
       // ── compressor ──
-      if (sound.getCompressorAttack() > 0 || sound.getCompressorRelease() > 0 || sound.getCompressorSyncLevel() > 0) {
+      if (sound.getCompressorAttack() > 0
+          || sound.getCompressorRelease() > 0
+          || sound.getCompressorSyncLevel() > 0) {
         Element comp = doc.createElement("compressor");
         appendTextAttr(comp, "syncLevel", String.valueOf(sound.getCompressorSyncLevel()));
-        appendTextAttr(comp, "attack", String.valueOf((int) (sound.getCompressorAttack() * Integer.MAX_VALUE)));
-        appendTextAttr(comp, "release", String.valueOf((int) (sound.getCompressorRelease() * Integer.MAX_VALUE)));
+        appendTextAttr(
+            comp,
+            "attack",
+            String.valueOf((int) (sound.getCompressorAttack() * Integer.MAX_VALUE)));
+        appendTextAttr(
+            comp,
+            "release",
+            String.valueOf((int) (sound.getCompressorRelease() * Integer.MAX_VALUE)));
         soundElem.appendChild(comp);
       }
 
@@ -125,22 +138,24 @@ public class KitSynthSerializer {
       }
 
       // ── lpfMode ──
-      String lpfModeStr = switch (sound.getLpfMode()) {
-        case LADDER_24 -> "24dB";
-        case SVF -> "SVF";
-        default -> "12dB";
-      };
+      String lpfModeStr =
+          switch (sound.getLpfMode()) {
+            case LADDER_24 -> "24dB";
+            case SVF -> "SVF";
+            default -> "12dB";
+          };
       appendTextChild(doc, soundElem, "lpfMode", lpfModeStr);
 
       // ── hpfMode ──
-      String hpfModeStr = switch (sound.getHpfMode()) {
-        case LADDER_24 -> "24dB";
-        case SVF -> "SVF";
-        case DRIVE -> "DRIVE";
-        case SVF_BAND -> "SVF Band";
-        case SVF_NOTCH -> "SVF Notch";
-        default -> "12dB";
-      };
+      String hpfModeStr =
+          switch (sound.getHpfMode()) {
+            case LADDER_24 -> "24dB";
+            case SVF -> "SVF";
+            case DRIVE -> "DRIVE";
+            case SVF_BAND -> "SVF Band";
+            case SVF_NOTCH -> "SVF Notch";
+            default -> "12dB";
+          };
       appendTextChild(doc, soundElem, "hpfMode", hpfModeStr);
 
       // ── modFXType ──
@@ -184,7 +199,8 @@ public class KitSynthSerializer {
       appendEnvelope(doc, dp, "envelope4", sound.getEnv4());
 
       // LFO rates inside defaultParams
-      appendHexChild(doc, dp, "lfo1Rate", sound.getLfo1().rateHz() / 100.0f); // normalize to 0-1 range
+      appendHexChild(
+          doc, dp, "lfo1Rate", sound.getLfo1().rateHz() / 100.0f); // normalize to 0-1 range
       appendHexChild(doc, dp, "lfo2Rate", sound.getLfo2().rateHz() / 100.0f);
 
       // FM params (default values)
@@ -271,11 +287,12 @@ public class KitSynthSerializer {
     root.appendChild(osc2);
 
     // ── polyphonic ──
-    String polyVal = switch (synth.getPolyphony()) {
-      case MONO -> "0";
-      case LEGATO -> "legato";
-      default -> "1";
-    };
+    String polyVal =
+        switch (synth.getPolyphony()) {
+          case MONO -> "0";
+          case LEGATO -> "legato";
+          default -> "1";
+        };
     appendTextChild(doc, root, "polyphonic", polyVal);
 
     // ── clippingAmount ──
@@ -289,11 +306,12 @@ public class KitSynthSerializer {
     appendSynthLfo(doc, root, "lfo2", synth.getLfo(1));
 
     // ── synth mode ──
-    String mode = switch (synth.getSynthMode()) {
-      case 1 -> "fm";
-      case 2 -> "ringmod";
-      default -> "subtractive";
-    };
+    String mode =
+        switch (synth.getSynthMode()) {
+          case 1 -> "fm";
+          case 2 -> "ringmod";
+          default -> "subtractive";
+        };
     appendTextChild(doc, root, "mode", mode);
 
     // ── transpose (global synth transpose) ──
@@ -324,7 +342,8 @@ public class KitSynthSerializer {
     appendTextChild(doc, arp, "ratchetAmount", String.valueOf(synth.getArp().ratchetAmount()));
     appendTextChild(doc, arp, "noteProbability", String.valueOf(synth.getArp().noteProbability()));
     appendTextChild(doc, arp, "chordPolyphony", String.valueOf(synth.getArp().chordPolyphony()));
-    appendTextChild(doc, arp, "chordProbability", String.valueOf(synth.getArp().chordProbability()));
+    appendTextChild(
+        doc, arp, "chordProbability", String.valueOf(synth.getArp().chordProbability()));
     root.appendChild(arp);
 
     // ── delay ──
@@ -337,22 +356,24 @@ public class KitSynthSerializer {
     }
 
     // ── lpfMode ──
-    String lpfModeStr = switch (synth.getFilterMode()) {
-      case LADDER_24 -> "24dB";
-      case SVF -> "SVF";
-      default -> "12dB";
-    };
+    String lpfModeStr =
+        switch (synth.getFilterMode()) {
+          case LADDER_24 -> "24dB";
+          case SVF -> "SVF";
+          default -> "12dB";
+        };
     appendTextChild(doc, root, "lpfMode", lpfModeStr);
 
     // ── hpfMode ──
-    String hpfModeSynthStr = switch (synth.getHpfMode()) {
-      case LADDER_24 -> "24dB";
-      case SVF -> "SVF";
-      case DRIVE -> "DRIVE";
-      case SVF_BAND -> "SVF Band";
-      case SVF_NOTCH -> "SVF Notch";
-      default -> "12dB";
-    };
+    String hpfModeSynthStr =
+        switch (synth.getHpfMode()) {
+          case LADDER_24 -> "24dB";
+          case SVF -> "SVF";
+          case DRIVE -> "DRIVE";
+          case SVF_BAND -> "SVF Band";
+          case SVF_NOTCH -> "SVF Notch";
+          default -> "12dB";
+        };
     appendTextChild(doc, root, "hpfMode", hpfModeSynthStr);
 
     // ── modFXType ──

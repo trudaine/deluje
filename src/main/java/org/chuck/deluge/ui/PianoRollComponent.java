@@ -8,8 +8,8 @@ import java.awt.Graphics2D;
 import javax.swing.JComponent;
 
 /**
- * Draws a 28-key piano keyboard overlay for isomorphic pad visualization.
- * Used inside the CLIP view of {@link SwingGridPanel}.
+ * Draws a 28-key piano keyboard overlay for isomorphic pad visualization. Used inside the CLIP view
+ * of {@link SwingGridPanel}.
  */
 public class PianoRollComponent extends JComponent {
 

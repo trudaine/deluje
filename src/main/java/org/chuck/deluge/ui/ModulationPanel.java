@@ -12,11 +12,35 @@ import org.chuck.deluge.model.SynthTrackModel;
 /** MODULATION tab: patch cables section + mod knobs grid. */
 public class ModulationPanel extends JPanel {
 
-  private static final String[] MOD_SRC_OPTIONS = {"velocity", "envelope1", "envelope2", "envelope3", "envelope4",
-      "lfo1", "lfo2", "lfo3", "lfo4", "aftertouch", "note", "random", "sidechain"};
-  private static final String[] MOD_DST_OPTIONS = {"volume", "pan", "lpfFrequency", "lpfResonance",
-      "oscAVolume", "oscBVolume", "pitch", "noiseVolume", "modFxRate", "modFxDepth",
-      "modFxFeedback", "modFxOffset"};
+  private static final String[] MOD_SRC_OPTIONS = {
+    "velocity",
+    "envelope1",
+    "envelope2",
+    "envelope3",
+    "envelope4",
+    "lfo1",
+    "lfo2",
+    "lfo3",
+    "lfo4",
+    "aftertouch",
+    "note",
+    "random",
+    "sidechain"
+  };
+  private static final String[] MOD_DST_OPTIONS = {
+    "volume",
+    "pan",
+    "lpfFrequency",
+    "lpfResonance",
+    "oscAVolume",
+    "oscBVolume",
+    "pitch",
+    "noiseVolume",
+    "modFxRate",
+    "modFxDepth",
+    "modFxFeedback",
+    "modFxOffset"
+  };
 
   public ModulationPanel(SynthTrackModel model, BridgeContract bridge, int trackIndex) {
     super(new BorderLayout(4, 4));
@@ -33,28 +57,45 @@ public class ModulationPanel extends JPanel {
     cableRows.setBackground(new Color(0x22, 0x22, 0x22));
     List<JPanel> cableRowPanels = new ArrayList<>();
 
-    Runnable rebuildCableRows = () -> rebuildCableRows(cableRows, model, MOD_SRC_OPTIONS, MOD_DST_OPTIONS);
+    Runnable rebuildCableRows =
+        () -> rebuildCableRows(cableRows, model, MOD_SRC_OPTIONS, MOD_DST_OPTIONS);
 
     JScrollPane cableScroll = new JScrollPane(cableRows);
     cableScroll.setPreferredSize(new Dimension(500, 180));
     cablePanel.add(cableScroll, BorderLayout.CENTER);
 
     JButton addCableBtn = new JButton("+ Add Cable");
-    addCableBtn.addActionListener(ev -> {
-      model.addPatchCable(new PatchCable("velocity", "volume", 0.0f));
-      rebuildCableRows.run();
-    });
+    addCableBtn.addActionListener(
+        ev -> {
+          model.addPatchCable(new PatchCable("velocity", "volume", 0.0f));
+          rebuildCableRows.run();
+        });
     cablePanel.add(addCableBtn, BorderLayout.SOUTH);
 
     // ── Mod Knobs section ──
     JPanel knobPanel = new JPanel(new BorderLayout(4, 4));
     knobPanel.setBackground(new Color(0x22, 0x22, 0x22));
-    knobPanel.add(SwingSynthConfigDialog.sectionLabel("MOD KNOBS (Gold Knobs)"), BorderLayout.NORTH);
+    knobPanel.add(
+        SwingSynthConfigDialog.sectionLabel("MOD KNOBS (Gold Knobs)"), BorderLayout.NORTH);
 
-    String[] knobParams = {"NONE", "volume", "pan", "reverb", "delay",
-        "lpfFrequency", "lpfResonance", "hpfFrequency", "pitch", "oscAVolume",
-        "oscBVolume", "noiseVolume", "modFxRate", "modFxDepth", "modFxFeedback",
-        "modFxOffset"};
+    String[] knobParams = {
+      "NONE",
+      "volume",
+      "pan",
+      "reverb",
+      "delay",
+      "lpfFrequency",
+      "lpfResonance",
+      "hpfFrequency",
+      "pitch",
+      "oscAVolume",
+      "oscBVolume",
+      "noiseVolume",
+      "modFxRate",
+      "modFxDepth",
+      "modFxFeedback",
+      "modFxOffset"
+    };
 
     JPanel knobGrid = new JPanel(new GridLayout(4, 4, 6, 6));
     knobGrid.setBackground(new Color(0x22, 0x22, 0x22));
@@ -69,10 +110,11 @@ public class ModulationPanel extends JPanel {
       knobCombo.setSelectedItem(knobs.get(i).param());
       knobCombo.setBackground(new Color(0x33, 0x33, 0x33));
       knobCombo.setForeground(Color.WHITE);
-      knobCombo.addActionListener(ev -> {
-        String sel = (String) knobCombo.getSelectedItem();
-        model.setModKnob(ki, new ModKnob(sel, "NONE"));
-      });
+      knobCombo.addActionListener(
+          ev -> {
+            String sel = (String) knobCombo.getSelectedItem();
+            model.setModKnob(ki, new ModKnob(sel, "NONE"));
+          });
       kp.add(knobCombo, BorderLayout.CENTER);
       knobGrid.add(kp);
     }
@@ -87,10 +129,7 @@ public class ModulationPanel extends JPanel {
 
   /** Rebuild the patch cable rows panel from the model. */
   private static void rebuildCableRows(
-      JPanel cableRows,
-      SynthTrackModel model,
-      String[] srcOptions,
-      String[] dstOptions) {
+      JPanel cableRows, SynthTrackModel model, String[] srcOptions, String[] dstOptions) {
     cableRows.removeAll();
     java.util.List<PatchCable> cur = model.getPatchCables();
     for (int i = 0; i < cur.size(); i++) {
@@ -103,27 +142,37 @@ public class ModulationPanel extends JPanel {
       srcCombo.setSelectedItem(pc.source());
       srcCombo.setBackground(new Color(0x33, 0x33, 0x33));
       srcCombo.setForeground(Color.WHITE);
-      srcCombo.addActionListener(ev -> {
-        PatchCable old = model.getPatchCables().get(idx);
-        model.getPatchCables().set(idx, new PatchCable(
-            (String) srcCombo.getSelectedItem(), old.destination(), old.amount()));
-      });
+      srcCombo.addActionListener(
+          ev -> {
+            PatchCable old = model.getPatchCables().get(idx);
+            model
+                .getPatchCables()
+                .set(
+                    idx,
+                    new PatchCable(
+                        (String) srcCombo.getSelectedItem(), old.destination(), old.amount()));
+          });
       row.add(new JLabel("Src:"));
 
       JComboBox<String> dstCombo = new JComboBox<>(dstOptions);
       dstCombo.setSelectedItem(pc.destination());
       dstCombo.setBackground(new Color(0x33, 0x33, 0x33));
       dstCombo.setForeground(Color.WHITE);
-      dstCombo.addActionListener(ev -> {
-        PatchCable old = model.getPatchCables().get(idx);
-        model.getPatchCables().set(idx, new PatchCable(
-            old.source(), (String) dstCombo.getSelectedItem(), old.amount()));
-      });
+      dstCombo.addActionListener(
+          ev -> {
+            PatchCable old = model.getPatchCables().get(idx);
+            model
+                .getPatchCables()
+                .set(
+                    idx,
+                    new PatchCable(
+                        old.source(), (String) dstCombo.getSelectedItem(), old.amount()));
+          });
       row.add(new JLabel("Dst:"));
 
       boolean isBipolar = pc.polarity() == PatchCable.Polarity.BIPOLAR;
       int sliderMin = isBipolar ? -100 : 0;
-      JSlider amtSlider = new JSlider(sliderMin, 100, (int)(pc.amount() * 100));
+      JSlider amtSlider = new JSlider(sliderMin, 100, (int) (pc.amount() * 100));
       amtSlider.setBackground(new Color(0x22, 0x22, 0x22));
       JLabel amtVal = new JLabel(String.format("%.0f%%", pc.amount() * 100));
       amtVal.setForeground(Color.CYAN);
@@ -134,34 +183,43 @@ public class ModulationPanel extends JPanel {
       polBtn.setBackground(isBipolar ? new Color(0x66, 0x44, 0x00) : new Color(0x33, 0x33, 0x33));
       polBtn.setForeground(Color.WHITE);
       polBtn.setPreferredSize(new Dimension(40, 22));
-      polBtn.addActionListener(ev -> {
-        PatchCable old = model.getPatchCables().get(idx);
-        PatchCable.Polarity newPol = polBtn.isSelected() ? PatchCable.Polarity.BIPOLAR : PatchCable.Polarity.UNIPOLAR;
-        model.getPatchCables().set(idx, new PatchCable(old.source(), old.destination(), old.amount(), newPol));
-        polBtn.setBackground(polBtn.isSelected() ? new Color(0x66, 0x44, 0x00) : new Color(0x33, 0x33, 0x33));
-        if (polBtn.isSelected()) {
-          amtSlider.setMinimum(-100);
-        } else {
-          amtSlider.setMinimum(0);
-          if (amtSlider.getValue() < 0) amtSlider.setValue(0);
-        }
-      });
+      polBtn.addActionListener(
+          ev -> {
+            PatchCable old = model.getPatchCables().get(idx);
+            PatchCable.Polarity newPol =
+                polBtn.isSelected() ? PatchCable.Polarity.BIPOLAR : PatchCable.Polarity.UNIPOLAR;
+            model
+                .getPatchCables()
+                .set(idx, new PatchCable(old.source(), old.destination(), old.amount(), newPol));
+            polBtn.setBackground(
+                polBtn.isSelected() ? new Color(0x66, 0x44, 0x00) : new Color(0x33, 0x33, 0x33));
+            if (polBtn.isSelected()) {
+              amtSlider.setMinimum(-100);
+            } else {
+              amtSlider.setMinimum(0);
+              if (amtSlider.getValue() < 0) amtSlider.setValue(0);
+            }
+          });
       row.add(polBtn);
 
-      amtSlider.addChangeListener(ev -> {
-        float v = amtSlider.getValue() / 100f;
-        PatchCable old = model.getPatchCables().get(idx);
-        model.getPatchCables().set(idx, new PatchCable(old.source(), old.destination(), v, old.polarity()));
-        amtVal.setText(String.format("%.0f%%", v * 100));
-      });
+      amtSlider.addChangeListener(
+          ev -> {
+            float v = amtSlider.getValue() / 100f;
+            PatchCable old = model.getPatchCables().get(idx);
+            model
+                .getPatchCables()
+                .set(idx, new PatchCable(old.source(), old.destination(), v, old.polarity()));
+            amtVal.setText(String.format("%.0f%%", v * 100));
+          });
       row.add(amtSlider);
       row.add(amtVal);
 
       JButton removeBtn = new JButton("X");
-      removeBtn.addActionListener(ev -> {
-        model.getPatchCables().remove(idx);
-        rebuildCableRows(cableRows, model, srcOptions, dstOptions);
-      });
+      removeBtn.addActionListener(
+          ev -> {
+            model.getPatchCables().remove(idx);
+            rebuildCableRows(cableRows, model, srcOptions, dstOptions);
+          });
       row.add(removeBtn);
 
       cableRows.add(row);

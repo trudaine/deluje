@@ -1,8 +1,6 @@
 package org.chuck.deluge;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.List;
 import org.chuck.audio.util.WavReader;
 import org.chuck.audio.util.WavReader.WavData;
 
@@ -19,8 +17,8 @@ public class AudioAnalyzer {
   public static final int SAMPLE_RATE = 44100;
 
   /**
-   * Load a WAV file into a mono float array (channels averaged).
-   * Handles absolute paths, relative paths, and classpath resources.
+   * Load a WAV file into a mono float array (channels averaged). Handles absolute paths, relative
+   * paths, and classpath resources.
    */
   public static float[] loadWav(String path) throws Exception {
     File f = new File(path);
@@ -68,9 +66,7 @@ public class AudioAnalyzer {
     return p;
   }
 
-  /**
-   * Normalize source array to have the same RMS as target. Returns a new array.
-   */
+  /** Normalize source array to have the same RMS as target. Returns a new array. */
   public static float[] normalizeRms(float[] src, float[] target) {
     double srcRms = rms(src);
     double tgtRms = rms(target);
@@ -82,15 +78,19 @@ public class AudioAnalyzer {
   }
 
   /**
-   * Compute normalized cross-correlation at zero lag.
-   * Returns a value in [-1, 1] where 1 = identical shape.
+   * Compute normalized cross-correlation at zero lag. Returns a value in [-1, 1] where 1 =
+   * identical shape.
    */
   public static double correlation(float[] a, float[] b) {
     int len = Math.min(a.length, b.length);
     if (len < 2) return 0;
     double meanA = 0, meanB = 0;
-    for (int i = 0; i < len; i++) { meanA += a[i]; meanB += b[i]; }
-    meanA /= len; meanB /= len;
+    for (int i = 0; i < len; i++) {
+      meanA += a[i];
+      meanB += b[i];
+    }
+    meanA /= len;
+    meanB /= len;
     double num = 0, denA = 0, denB = 0;
     for (int i = 0; i < len; i++) {
       double da = a[i] - meanA;
@@ -103,9 +103,7 @@ public class AudioAnalyzer {
     return den > 1e-15 ? num / den : 0;
   }
 
-  /**
-   * Compute RMS error between two arrays after optimal linear scaling.
-   */
+  /** Compute RMS error between two arrays after optimal linear scaling. */
   public static double rmsError(float[] reference, float[] candidate) {
     int len = Math.min(reference.length, candidate.length);
     if (len < 2) return 999;
@@ -123,9 +121,7 @@ public class AudioAnalyzer {
     return Math.sqrt(errSq / len);
   }
 
-  /**
-   * Find the sample offset (lag) that maximizes cross-correlation.
-   */
+  /** Find the sample offset (lag) that maximizes cross-correlation. */
   public static int findBestLag(float[] a, float[] b, int maxLag) {
     int len = Math.min(a.length, b.length);
     int bestLag = 0;
@@ -155,8 +151,8 @@ public class AudioAnalyzer {
   }
 
   /**
-   * Align two signals by finding the onset in {@code signal} and returning
-   * aligned slices of {@code ref} and {@code signal} for comparison.
+   * Align two signals by finding the onset in {@code signal} and returning aligned slices of {@code
+   * ref} and {@code signal} for comparison.
    *
    * @return array of 2 float[]: [0] = reference slice, [1] = signal slice
    */
@@ -197,12 +193,12 @@ public class AudioAnalyzer {
       System.arraycopy(signal, engOnset + shift, engSlice, 0, alen);
     }
 
-    return new float[][]{origSlice, engSlice};
+    return new float[][] {origSlice, engSlice};
   }
 
   /**
-   * Estimate fundamental frequency via autocorrelation.
-   * Returns frequency in Hz, or 0 if undetectable.
+   * Estimate fundamental frequency via autocorrelation. Returns frequency in Hz, or 0 if
+   * undetectable.
    */
   public static double estimateFrequency(float[] buf, int sr, double minFreq, double maxFreq) {
     int minLag = (int) (sr / maxFreq);
@@ -236,11 +232,11 @@ public class AudioAnalyzer {
   }
 
   /**
-   * Extract harmonic magnitudes via Goertzel-like DFT at integer multiples of the
-   * fundamental frequency. Uses the closest FFT bin.
+   * Extract harmonic magnitudes via Goertzel-like DFT at integer multiples of the fundamental
+   * frequency. Uses the closest FFT bin.
    *
-   * <p>Performs an N-point DFT (N = buf length or nextPow2) and picks the peak
-   * magnitude in the bin closest to each harmonic.
+   * <p>Performs an N-point DFT (N = buf length or nextPow2) and picks the peak magnitude in the bin
+   * closest to each harmonic.
    *
    * @param buf input signal
    * @param fundamental fundamental frequency in Hz
@@ -265,7 +261,10 @@ public class AudioAnalyzer {
     for (int h = 0; h < nHarmonics; h++) {
       double freq = fundamental * (h + 1);
       int bin = (int) Math.round(freq * fftSize / sr);
-      if (bin >= fftSize / 2) { profile[h] = 0; continue; }
+      if (bin >= fftSize / 2) {
+        profile[h] = 0;
+        continue;
+      }
 
       // Single-bin DFT (Goertzel-style)
       double real = 0, imag = 0;
@@ -354,9 +353,7 @@ public class AudioAnalyzer {
     return maxScore > 0 ? score / maxScore : 0;
   }
 
-  /**
-   * Find the first sample index where signal exceeds noiseFloor.
-   */
+  /** Find the first sample index where signal exceeds noiseFloor. */
   public static int findOnset(float[] signal) {
     double nf = rms(signal) * 0.1;
     if (nf < 0.0001) nf = 0.0001;

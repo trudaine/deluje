@@ -11,12 +11,11 @@ import org.junit.jupiter.api.Test;
 /**
  * Integration tests for the 4-envelope audio engine ({@code DelugeEngineDSL}).
  *
- * <p>Verifies that all 4 envelopes per track are independently controllable.
- * Envelope 0 drives volume (main gain), envelopes 1-3 modulate filter,
- * pitch, and pan respectively by default.
+ * <p>Verifies that all 4 envelopes per track are independently controllable. Envelope 0 drives
+ * volume (main gain), envelopes 1-3 modulate filter, pitch, and pan respectively by default.
  *
- * <p>The env array is indexed: {@code base = (row * ENV_COUNT + envIndex) * ENV_PARAMS}.
- * Array size is {@code TRACKS * ENV_COUNT * ENV_PARAMS}.
+ * <p>The env array is indexed: {@code base = (row * ENV_COUNT + envIndex) * ENV_PARAMS}. Array size
+ * is {@code TRACKS * ENV_COUNT * ENV_PARAMS}.
  */
 public class MultiEnvelopeTest {
 

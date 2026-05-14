@@ -5,15 +5,21 @@ import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.List;
 import javax.swing.*;
+import org.chuck.audio.util.Dx7Patch;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.model.SynthTrackModel;
-import org.chuck.audio.util.Dx7Patch;
 
 /** DX7 tab: patch info, LFO, 6-operator table, .syx loader. Only functional when synthMode==1. */
 public class Dx7Panel extends JPanel {
 
-  public Dx7Panel(SynthTrackModel model, ChuckVM vm, BridgeContract bridge, int trackIndex, Window owner, Runnable reloadCallback) {
+  public Dx7Panel(
+      SynthTrackModel model,
+      ChuckVM vm,
+      BridgeContract bridge,
+      int trackIndex,
+      Window owner,
+      Runnable reloadCallback) {
     super(new BorderLayout(4, 4));
     setBackground(new Color(0x22, 0x22, 0x22));
 
@@ -26,34 +32,43 @@ public class Dx7Panel extends JPanel {
     int row = 0;
 
     // ── Load .syx button ──
-    c.gridx = 0; c.gridy = row; c.gridwidth = 4;
+    c.gridx = 0;
+    c.gridy = row;
+    c.gridwidth = 4;
     JButton loadSyxBtn = new JButton("Load .syx (DX7 Patch File)");
     loadSyxBtn.setToolTipText("Open a Roland SysEx bulk dump (.syx) containing DX7 voice patches");
-    loadSyxBtn.addActionListener(e -> {
-      JFileChooser fc = new JFileChooser();
-      fc.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("DX7 SysEx (*.syx)", "syx"));
-      if (fc.showOpenDialog(owner) == JFileChooser.APPROVE_OPTION) {
-        try {
-          java.util.List<org.chuck.audio.util.Dx7Patch> patches =
-              org.chuck.deluge.xml.Dx7SyxParser.parseSyx(fc.getSelectedFile());
-          if (!patches.isEmpty()) {
-            applyDx7Patch(model, vm, bridge, trackIndex, patches.get(0));
-            reloadCallback.run();
+    loadSyxBtn.addActionListener(
+        e -> {
+          JFileChooser fc = new JFileChooser();
+          fc.setFileFilter(
+              new javax.swing.filechooser.FileNameExtensionFilter("DX7 SysEx (*.syx)", "syx"));
+          if (fc.showOpenDialog(owner) == JFileChooser.APPROVE_OPTION) {
+            try {
+              java.util.List<org.chuck.audio.util.Dx7Patch> patches =
+                  org.chuck.deluge.xml.Dx7SyxParser.parseSyx(fc.getSelectedFile());
+              if (!patches.isEmpty()) {
+                applyDx7Patch(model, vm, bridge, trackIndex, patches.get(0));
+                reloadCallback.run();
+              }
+            } catch (Exception ex) {
+              JOptionPane.showMessageDialog(
+                  owner,
+                  "Failed to load .syx: " + ex.getMessage(),
+                  "Parse Error",
+                  JOptionPane.ERROR_MESSAGE);
+            }
           }
-        } catch (Exception ex) {
-          JOptionPane.showMessageDialog(owner,
-              "Failed to load .syx: " + ex.getMessage(),
-              "Parse Error", JOptionPane.ERROR_MESSAGE);
-        }
-      }
-    });
-    content.add(loadSyxBtn, c); row++;
+        });
+    content.add(loadSyxBtn, c);
+    row++;
     c.gridwidth = 1;
 
     // ── Patch Name ──
-    c.gridx = 0; c.gridy = row;
+    c.gridx = 0;
+    c.gridy = row;
     content.add(SwingSynthConfigDialog.label("Patch Name:"), c);
-    c.gridx = 1; c.gridwidth = 3;
+    c.gridx = 1;
+    c.gridwidth = 3;
     JTextField patchNameField = new JTextField(16);
     patchNameField.setBackground(new Color(0x33, 0x33, 0x33));
     patchNameField.setForeground(Color.WHITE);
@@ -61,19 +76,25 @@ public class Dx7Panel extends JPanel {
     if (curPatch != null && !curPatch.isEmpty()) {
       try {
         patchNameField.setText(org.chuck.audio.util.Dx7Patch.fromHex(curPatch).name());
-      } catch (Exception ignored) {}
+      } catch (Exception ignored) {
+      }
     }
     patchNameField.setEditable(false);
     patchNameField.setToolTipText("Patch name from the loaded DX7 SysEx data (read-only)");
-    content.add(patchNameField, c); row++;
+    content.add(patchNameField, c);
+    row++;
     c.gridwidth = 1;
 
     // ── Patch globals ──
-    c.gridx = 0; c.gridy = row; c.gridwidth = 4;
-    content.add(SwingSynthConfigDialog.sectionLabel("PATCH GLOBALS"), c); row++;
+    c.gridx = 0;
+    c.gridy = row;
+    c.gridwidth = 4;
+    content.add(SwingSynthConfigDialog.sectionLabel("PATCH GLOBALS"), c);
+    row++;
     c.gridwidth = 1;
 
-    c.gridx = 0; c.gridy = row;
+    c.gridx = 0;
+    c.gridy = row;
     content.add(SwingSynthConfigDialog.label("Algorithm:"), c);
     c.gridx = 1;
     JLabel algoVal = new JLabel(curPatch != null ? String.valueOf(model.getSynthAlgorithm()) : "-");
@@ -88,38 +109,47 @@ public class Dx7Panel extends JPanel {
     fbSlider.setBackground(new Color(0x22, 0x22, 0x22));
     JLabel fbVal = new JLabel(String.valueOf(fbInit));
     fbVal.setForeground(Color.CYAN);
-    fbSlider.addChangeListener(ev -> {
-      setPatchByte(model, curPatch, Dx7Patch.OFF_FEEDBACK, fbSlider.getValue());
-      fbVal.setText(String.valueOf(fbSlider.getValue()));
-    });
+    fbSlider.addChangeListener(
+        ev -> {
+          setPatchByte(model, curPatch, Dx7Patch.OFF_FEEDBACK, fbSlider.getValue());
+          fbVal.setText(String.valueOf(fbSlider.getValue()));
+        });
     JPanel fbPanel = new JPanel(new BorderLayout(4, 0));
     fbPanel.setBackground(new Color(0x22, 0x22, 0x22));
     fbPanel.add(fbSlider, BorderLayout.CENTER);
     fbPanel.add(fbVal, BorderLayout.EAST);
-    content.add(fbPanel, c); row++;
+    content.add(fbPanel, c);
+    row++;
 
     // Transpose
-    c.gridx = 0; c.gridy = row;
+    c.gridx = 0;
+    c.gridy = row;
     content.add(SwingSynthConfigDialog.label("Transpose:"), c);
-    c.gridx = 1; c.gridwidth = 3;
+    c.gridx = 1;
+    c.gridwidth = 3;
     int transpInit = curPatch != null ? getPatchByte(curPatch, Dx7Patch.OFF_TRANSPOSE) : 64;
     JSlider transpSlider = new JSlider(0, 127, transpInit);
     transpSlider.setBackground(new Color(0x22, 0x22, 0x22));
     JLabel transpVal = new JLabel(String.valueOf(transpInit));
     transpVal.setForeground(Color.CYAN);
-    transpSlider.addChangeListener(ev -> {
-      setPatchByte(model, curPatch, Dx7Patch.OFF_TRANSPOSE, transpSlider.getValue());
-      transpVal.setText(String.valueOf(transpSlider.getValue()));
-    });
+    transpSlider.addChangeListener(
+        ev -> {
+          setPatchByte(model, curPatch, Dx7Patch.OFF_TRANSPOSE, transpSlider.getValue());
+          transpVal.setText(String.valueOf(transpSlider.getValue()));
+        });
     JPanel transpPanel = new JPanel(new BorderLayout(4, 0));
     transpPanel.setBackground(new Color(0x22, 0x22, 0x22));
     transpPanel.add(transpSlider, BorderLayout.CENTER);
     transpPanel.add(transpVal, BorderLayout.EAST);
-    content.add(transpPanel, c); row++;
+    content.add(transpPanel, c);
+    row++;
 
     // ── DX7 LFO ──
-    c.gridx = 0; c.gridy = row; c.gridwidth = 4;
-    content.add(SwingSynthConfigDialog.sectionLabel("DX7 LFO"), c); row++;
+    c.gridx = 0;
+    c.gridy = row;
+    c.gridwidth = 4;
+    content.add(SwingSynthConfigDialog.sectionLabel("DX7 LFO"), c);
+    row++;
     c.gridwidth = 1;
 
     addDx7SliderRow(content, c, "Speed:", 0, 99, curPatch, Dx7Patch.OFF_LFO_SPEED, model);
@@ -133,12 +163,19 @@ public class Dx7Panel extends JPanel {
     addDx7SliderRow(content, c, "Sync:", 0, 1, curPatch, Dx7Patch.OFF_LFO_SYNC, model);
 
     // ── Operator table ──
-    c.gridx = 0; c.gridy = row; c.gridwidth = 4;
-    content.add(SwingSynthConfigDialog.sectionLabel("OPERATORS (OP1-OP6)"), c); row++;
+    c.gridx = 0;
+    c.gridy = row;
+    c.gridwidth = 4;
+    content.add(SwingSynthConfigDialog.sectionLabel("OPERATORS (OP1-OP6)"), c);
+    row++;
     c.gridwidth = 1;
 
-    String[] opCols = {"OP", "ON", "Lv", "Md", "Crse", "Fine", "Det", "R1", "R2", "R3", "R4", "L1", "L2", "L3", "L4", "VS", "AM"};
-    c.gridx = 0; c.gridy = row;
+    String[] opCols = {
+      "OP", "ON", "Lv", "Md", "Crse", "Fine", "Det", "R1", "R2", "R3", "R4", "L1", "L2", "L3", "L4",
+      "VS", "AM"
+    };
+    c.gridx = 0;
+    c.gridy = row;
     for (int ci = 0; ci < opCols.length; ci++) {
       c.gridx = ci;
       content.add(SwingSynthConfigDialog.headerLabel(opCols[ci]), c);
@@ -155,25 +192,29 @@ public class Dx7Panel extends JPanel {
       opRow.setFocusTraversalPolicyProvider(true);
 
       // OP label
-      c.gridx = 0; c.gridy = 0;
+      c.gridx = 0;
+      c.gridy = 0;
       opRow.add(SwingSynthConfigDialog.label("OP" + (op + 1)), c);
 
       // ON/OFF toggle
       c.gridx = 1;
       String curPatchInner = model.getDx7Patch();
-      boolean opOn = curPatchInner != null && ((getPatchByte(curPatchInner, Dx7Patch.OFF_OP_SWITCH) >> op) & 1) != 0;
+      boolean opOn =
+          curPatchInner != null
+              && ((getPatchByte(curPatchInner, Dx7Patch.OFF_OP_SWITCH) >> op) & 1) != 0;
       JCheckBox opOnBox = new JCheckBox("", opOn);
       opOnBox.setBackground(new Color(0x22, 0x22, 0x22));
-      opOnBox.addActionListener(ev -> {
-        byte[] raw = getCurrentRaw(model, model.getDx7Patch());
-        if (raw == null) return;
-        if (opOnBox.isSelected()) {
-          raw[Dx7Patch.OFF_OP_SWITCH] |= (byte) (1 << op);
-        } else {
-          raw[Dx7Patch.OFF_OP_SWITCH] &= (byte) ~(1 << op);
-        }
-        model.setDx7Patch(Dx7Patch.bytesToHex(raw));
-      });
+      opOnBox.addActionListener(
+          ev -> {
+            byte[] raw = getCurrentRaw(model, model.getDx7Patch());
+            if (raw == null) return;
+            if (opOnBox.isSelected()) {
+              raw[Dx7Patch.OFF_OP_SWITCH] |= (byte) (1 << op);
+            } else {
+              raw[Dx7Patch.OFF_OP_SWITCH] &= (byte) ~(1 << op);
+            }
+            model.setDx7Patch(Dx7Patch.bytesToHex(raw));
+          });
       opRow.add(opOnBox, c);
 
       // Output level (0-99)
@@ -199,48 +240,55 @@ public class Dx7Panel extends JPanel {
       // Amp mod sensitivity (0-3)
       addDx7OpSliderTo(opRow, c, 16, op, 14, 0, 3, model);
 
-      opRow.setFocusTraversalPolicy(new FocusTraversalPolicy() {
-        @Override
-        public Component getComponentAfter(Container focusCycleRoot, Component aComponent) {
-          List<Component> order = getAllOrder();
-          int idx = order.indexOf(aComponent);
-          return order.get((idx + 1) % order.size());
-        }
-        @Override
-        public Component getComponentBefore(Container focusCycleRoot, Component aComponent) {
-          List<Component> order = getAllOrder();
-          int idx = order.indexOf(aComponent);
-          return order.get((idx - 1 + order.size()) % order.size());
-        }
-        @Override
-        public Component getFirstComponent(Container focusCycleRoot) {
-          List<Component> order = getAllOrder();
-          return order.isEmpty() ? null : order.get(0);
-        }
-        @Override
-        public Component getLastComponent(Container focusCycleRoot) {
-          List<Component> order = getAllOrder();
-          return order.isEmpty() ? null : order.get(order.size() - 1);
-        }
-        @Override
-        public Component getDefaultComponent(Container focusCycleRoot) {
-          return getFirstComponent(focusCycleRoot);
-        }
-        private List<Component> getAllOrder() {
-          List<Component> all = new ArrayList<>();
-          for (Component child : opRow.getComponents()) {
-            if (child instanceof JCheckBox) all.add(child);
-            else if (child instanceof JPanel) {
-              for (Component sub : ((JPanel) child).getComponents()) {
-                if (sub instanceof JSlider || sub instanceof JLabel) all.add(sub);
-              }
+      opRow.setFocusTraversalPolicy(
+          new FocusTraversalPolicy() {
+            @Override
+            public Component getComponentAfter(Container focusCycleRoot, Component aComponent) {
+              List<Component> order = getAllOrder();
+              int idx = order.indexOf(aComponent);
+              return order.get((idx + 1) % order.size());
             }
-          }
-          return all;
-        }
-      });
 
-      c.gridx = 0; c.gridy = row;
+            @Override
+            public Component getComponentBefore(Container focusCycleRoot, Component aComponent) {
+              List<Component> order = getAllOrder();
+              int idx = order.indexOf(aComponent);
+              return order.get((idx - 1 + order.size()) % order.size());
+            }
+
+            @Override
+            public Component getFirstComponent(Container focusCycleRoot) {
+              List<Component> order = getAllOrder();
+              return order.isEmpty() ? null : order.get(0);
+            }
+
+            @Override
+            public Component getLastComponent(Container focusCycleRoot) {
+              List<Component> order = getAllOrder();
+              return order.isEmpty() ? null : order.get(order.size() - 1);
+            }
+
+            @Override
+            public Component getDefaultComponent(Container focusCycleRoot) {
+              return getFirstComponent(focusCycleRoot);
+            }
+
+            private List<Component> getAllOrder() {
+              List<Component> all = new ArrayList<>();
+              for (Component child : opRow.getComponents()) {
+                if (child instanceof JCheckBox) all.add(child);
+                else if (child instanceof JPanel) {
+                  for (Component sub : ((JPanel) child).getComponents()) {
+                    if (sub instanceof JSlider || sub instanceof JLabel) all.add(sub);
+                  }
+                }
+              }
+              return all;
+            }
+          });
+
+      c.gridx = 0;
+      c.gridy = row;
       c.gridwidth = opCols.length;
       content.add(opRow, c);
       opPanels.add(opRow);
@@ -248,31 +296,34 @@ public class Dx7Panel extends JPanel {
     }
 
     // ── Keyboard focus cycling across operators ──
-    KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventPostProcessor(e -> {
-      if (e.getID() != KeyEvent.KEY_PRESSED) return false;
-      if (e.getKeyCode() != KeyEvent.VK_TAB) return false;
-      Component focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager().getFocusOwner();
-      if (focusOwner == null) return false;
-      int curOp = -1;
-      for (int i = 0; i < opPanels.size(); i++) {
-        if (SwingUtilities.isDescendingFrom(focusOwner, opPanels.get(i))) {
-          curOp = i;
-          break;
-        }
-      }
-      if (curOp < 0) return false;
-      int nextOp;
-      if (e.isShiftDown()) {
-        nextOp = (curOp - 1 + opPanels.size()) % opPanels.size();
-      } else {
-        nextOp = (curOp + 1) % opPanels.size();
-      }
-      e.consume();
-      JPanel nextPanel = opPanels.get(nextOp);
-      Component first = nextPanel.getFocusTraversalPolicy().getDefaultComponent(nextPanel);
-      if (first != null) first.requestFocus();
-      return true;
-    });
+    KeyboardFocusManager.getCurrentKeyboardFocusManager()
+        .addKeyEventPostProcessor(
+            e -> {
+              if (e.getID() != KeyEvent.KEY_PRESSED) return false;
+              if (e.getKeyCode() != KeyEvent.VK_TAB) return false;
+              Component focusOwner =
+                  KeyboardFocusManager.getCurrentKeyboardFocusManager().getFocusOwner();
+              if (focusOwner == null) return false;
+              int curOp = -1;
+              for (int i = 0; i < opPanels.size(); i++) {
+                if (SwingUtilities.isDescendingFrom(focusOwner, opPanels.get(i))) {
+                  curOp = i;
+                  break;
+                }
+              }
+              if (curOp < 0) return false;
+              int nextOp;
+              if (e.isShiftDown()) {
+                nextOp = (curOp - 1 + opPanels.size()) % opPanels.size();
+              } else {
+                nextOp = (curOp + 1) % opPanels.size();
+              }
+              e.consume();
+              JPanel nextPanel = opPanels.get(nextOp);
+              Component first = nextPanel.getFocusTraversalPolicy().getDefaultComponent(nextPanel);
+              if (first != null) first.requestFocus();
+              return true;
+            });
     JScrollPane scroll = new JScrollPane(content);
     scroll.setPreferredSize(new Dimension(900, 600));
     scroll.getViewport().setBackground(new Color(0x22, 0x22, 0x22));
@@ -280,8 +331,15 @@ public class Dx7Panel extends JPanel {
   }
 
   /** Helper: add a compact slider cell for a DX7 operator byte field. */
-  private void addDx7OpSlider(JPanel panel, GridBagConstraints c, int col, int opOff, int fieldOff,
-      int min, int max, SynthTrackModel model) {
+  private void addDx7OpSlider(
+      JPanel panel,
+      GridBagConstraints c,
+      int col,
+      int opOff,
+      int fieldOff,
+      int min,
+      int max,
+      SynthTrackModel model) {
     c.gridx = col;
     String curPatch = model.getDx7Patch();
     int val = min;
@@ -300,16 +358,17 @@ public class Dx7Panel extends JPanel {
     valLabel.setForeground(Color.CYAN);
     valLabel.setPreferredSize(new Dimension(28, 20));
     valLabel.setFont(valLabel.getFont().deriveFont(9f));
-    slider.addChangeListener(ev -> {
-      byte[] raw = getCurrentRaw(model, model.getDx7Patch());
-      if (raw == null) return;
-      int idx = opOff * 21 + fieldOff;
-      if (idx >= 0 && idx < raw.length) {
-        raw[idx] = (byte) slider.getValue();
-        model.setDx7Patch(Dx7Patch.bytesToHex(raw));
-      }
-      valLabel.setText(String.valueOf(slider.getValue()));
-    });
+    slider.addChangeListener(
+        ev -> {
+          byte[] raw = getCurrentRaw(model, model.getDx7Patch());
+          if (raw == null) return;
+          int idx = opOff * 21 + fieldOff;
+          if (idx >= 0 && idx < raw.length) {
+            raw[idx] = (byte) slider.getValue();
+            model.setDx7Patch(Dx7Patch.bytesToHex(raw));
+          }
+          valLabel.setText(String.valueOf(slider.getValue()));
+        });
     JPanel cell = new JPanel(new BorderLayout(0, 0));
     cell.setBackground(new Color(0x22, 0x22, 0x22));
     cell.add(slider, BorderLayout.CENTER);
@@ -318,8 +377,15 @@ public class Dx7Panel extends JPanel {
   }
 
   /** Helper: add a compact slider cell to an existing operator row. */
-  private void addDx7OpSliderTo(JPanel target, GridBagConstraints c, int col, int opOff, int fieldOff,
-      int min, int max, SynthTrackModel model) {
+  private void addDx7OpSliderTo(
+      JPanel target,
+      GridBagConstraints c,
+      int col,
+      int opOff,
+      int fieldOff,
+      int min,
+      int max,
+      SynthTrackModel model) {
     c.gridx = col;
     String curPatch = model.getDx7Patch();
     int val = min;
@@ -338,16 +404,17 @@ public class Dx7Panel extends JPanel {
     valLabel.setForeground(Color.CYAN);
     valLabel.setPreferredSize(new Dimension(28, 20));
     valLabel.setFont(valLabel.getFont().deriveFont(9f));
-    slider.addChangeListener(ev -> {
-      byte[] raw = getCurrentRaw(model, model.getDx7Patch());
-      if (raw == null) return;
-      int idx = opOff * 21 + fieldOff;
-      if (idx >= 0 && idx < raw.length) {
-        raw[idx] = (byte) slider.getValue();
-        model.setDx7Patch(Dx7Patch.bytesToHex(raw));
-      }
-      valLabel.setText(String.valueOf(slider.getValue()));
-    });
+    slider.addChangeListener(
+        ev -> {
+          byte[] raw = getCurrentRaw(model, model.getDx7Patch());
+          if (raw == null) return;
+          int idx = opOff * 21 + fieldOff;
+          if (idx >= 0 && idx < raw.length) {
+            raw[idx] = (byte) slider.getValue();
+            model.setDx7Patch(Dx7Patch.bytesToHex(raw));
+          }
+          valLabel.setText(String.valueOf(slider.getValue()));
+        });
     JPanel cell = new JPanel(new BorderLayout(0, 0));
     cell.setBackground(new Color(0x22, 0x22, 0x22));
     cell.add(slider, BorderLayout.CENTER);
@@ -356,8 +423,15 @@ public class Dx7Panel extends JPanel {
   }
 
   /** Helper: add a slider row for a DX7 global byte (patch offset). */
-  private void addDx7SliderRow(JPanel panel, GridBagConstraints c,
-      String labelText, int min, int max, String curPatch, int offset, SynthTrackModel model) {
+  private void addDx7SliderRow(
+      JPanel panel,
+      GridBagConstraints c,
+      String labelText,
+      int min,
+      int max,
+      String curPatch,
+      int offset,
+      SynthTrackModel model) {
     int val = min;
     if (curPatch != null && !curPatch.isEmpty()) {
       byte[] raw = Dx7Patch.hexToBytes(curPatch);
@@ -366,17 +440,21 @@ public class Dx7Panel extends JPanel {
       }
     }
     int clamped = Math.max(min, Math.min(max, val));
-    c.gridx = 0; c.gridy++; c.gridwidth = 1;
+    c.gridx = 0;
+    c.gridy++;
+    c.gridwidth = 1;
     panel.add(SwingSynthConfigDialog.label(labelText), c);
-    c.gridx = 1; c.gridwidth = 3;
+    c.gridx = 1;
+    c.gridwidth = 3;
     JSlider slider = new JSlider(min, max, clamped);
     slider.setBackground(new Color(0x22, 0x22, 0x22));
     JLabel valLabel = new JLabel(String.valueOf(clamped));
     valLabel.setForeground(Color.CYAN);
-    slider.addChangeListener(ev -> {
-      setPatchByte(model, curPatch, offset, slider.getValue());
-      valLabel.setText(String.valueOf(slider.getValue()));
-    });
+    slider.addChangeListener(
+        ev -> {
+          setPatchByte(model, curPatch, offset, slider.getValue());
+          valLabel.setText(String.valueOf(slider.getValue()));
+        });
     JPanel rowPanel = new JPanel(new BorderLayout(4, 0));
     rowPanel.setBackground(new Color(0x22, 0x22, 0x22));
     rowPanel.add(slider, BorderLayout.CENTER);
@@ -385,8 +463,14 @@ public class Dx7Panel extends JPanel {
   }
 
   /** Helper: add a combo box row for a DX7 global byte (patch offset). */
-  private void addDx7ComboRow(JPanel panel, GridBagConstraints c,
-      String labelText, String[] options, String curPatch, int offset, SynthTrackModel model) {
+  private void addDx7ComboRow(
+      JPanel panel,
+      GridBagConstraints c,
+      String labelText,
+      String[] options,
+      String curPatch,
+      int offset,
+      SynthTrackModel model) {
     int val = 0;
     if (curPatch != null && !curPatch.isEmpty()) {
       byte[] raw = Dx7Patch.hexToBytes(curPatch);
@@ -395,16 +479,20 @@ public class Dx7Panel extends JPanel {
       }
     }
     int idx = Math.max(0, Math.min(options.length - 1, val));
-    c.gridx = 0; c.gridy++; c.gridwidth = 1;
+    c.gridx = 0;
+    c.gridy++;
+    c.gridwidth = 1;
     panel.add(SwingSynthConfigDialog.label(labelText), c);
-    c.gridx = 1; c.gridwidth = 3;
+    c.gridx = 1;
+    c.gridwidth = 3;
     JComboBox<String> combo = new JComboBox<>(options);
     combo.setSelectedIndex(idx);
     combo.setBackground(new Color(0x33, 0x33, 0x33));
     combo.setForeground(Color.WHITE);
-    combo.addActionListener(ev -> {
-      setPatchByte(model, curPatch, offset, combo.getSelectedIndex());
-    });
+    combo.addActionListener(
+        ev -> {
+          setPatchByte(model, curPatch, offset, combo.getSelectedIndex());
+        });
     panel.add(combo, c);
   }
 
@@ -434,8 +522,12 @@ public class Dx7Panel extends JPanel {
   }
 
   /** Apply a Dx7Patch to the model and push to the bridge. */
-  private static void applyDx7Patch(SynthTrackModel model, ChuckVM vm,
-      BridgeContract bridge, int trackIndex, org.chuck.audio.util.Dx7Patch patch) {
+  private static void applyDx7Patch(
+      SynthTrackModel model,
+      ChuckVM vm,
+      BridgeContract bridge,
+      int trackIndex,
+      org.chuck.audio.util.Dx7Patch patch) {
     String hex = org.chuck.deluge.xml.Dx7SyxParser.patchToHex(patch);
     model.setDx7Patch(hex);
     model.setSynthMode(1);

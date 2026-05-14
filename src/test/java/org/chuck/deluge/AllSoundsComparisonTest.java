@@ -7,11 +7,11 @@ import java.util.List;
 import org.chuck.core.ChuckConfig;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.engine.DelugeEngineDSL;
+import org.chuck.deluge.model.ClipModel;
 import org.chuck.deluge.model.EnvelopeModel;
 import org.chuck.deluge.model.FilterMode;
-import org.chuck.deluge.model.SynthTrackModel;
-import org.chuck.deluge.model.ClipModel;
 import org.chuck.deluge.model.StepData;
+import org.chuck.deluge.model.SynthTrackModel;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
@@ -20,14 +20,14 @@ import org.junit.jupiter.api.Test;
 /**
  * Headless audio comparison test covering ALL synth and kit sounds.
  *
- * <p>Tests 10 synth configurations (FM with varied osc types, filter modes, envelopes,
- * STK physical models) and 10 kit sounds (different samples loaded per voice).
- * Each configuration plays a V-shaped 16-step clip, captured as peak/RMS per buffer,
- * and verified to produce audibly distinct output.
+ * <p>Tests 10 synth configurations (FM with varied osc types, filter modes, envelopes, STK physical
+ * models) and 10 kit sounds (different samples loaded per voice). Each configuration plays a
+ * V-shaped 16-step clip, captured as peak/RMS per buffer, and verified to produce audibly distinct
+ * output.
  *
- * <p>Both synth and kit tests share a single bridge/VM with {@code deluge.tracks=80},
- * allowing 10 synths × 8 rows + 10 kit tracks + margin. The engine handles mixed
- * track types (type 0 = kit, type 1 = synth) within the same project.
+ * <p>Both synth and kit tests share a single bridge/VM with {@code deluge.tracks=80}, allowing 10
+ * synths × 8 rows + 10 kit tracks + margin. The engine handles mixed track types (type 0 = kit,
+ * type 1 = synth) within the same project.
  */
 @Tag("slow")
 public class AllSoundsComparisonTest {
@@ -90,7 +90,8 @@ public class AllSoundsComparisonTest {
       vm.setGlobalString("g_sample_" + i, SAMPLE_PATHS[i]);
     }
 
-    // Pre-set synth tracks (type 1) at rows KIT_COUNT..KIT_COUNT+SYNTH_COUNT*VOICES_PER_SYNTH-1 with algos
+    // Pre-set synth tracks (type 1) at rows KIT_COUNT..KIT_COUNT+SYNTH_COUNT*VOICES_PER_SYNTH-1
+    // with algos
     int synthBase = KIT_COUNT;
     for (int j = 0; j < SYNTH_COUNT; j++) {
       int algo = algos[j];
@@ -130,19 +131,34 @@ public class AllSoundsComparisonTest {
   private static SynthTrackModel createSynth(int index) {
     SynthTrackModel synth = new SynthTrackModel("Synth " + (index + 1));
 
-    String[] oscTypes = {"SINE", "SAW", "SQUARE", "TRIANGLE", "SAW",
-                         "SINE", "SAW", "SQUARE", "TRIANGLE", "SQUARE"};
+    String[] oscTypes = {
+      "SINE", "SAW", "SQUARE", "TRIANGLE", "SAW",
+      "SINE", "SAW", "SQUARE", "TRIANGLE", "SQUARE"
+    };
     synth.setOsc1Type(oscTypes[index % oscTypes.length]);
 
-    FilterMode[] filterModes = {FilterMode.LADDER_12, FilterMode.LADDER_24, FilterMode.SVF,
-                                FilterMode.LADDER_12, FilterMode.LADDER_24, FilterMode.SVF,
-                                FilterMode.LADDER_12, FilterMode.SVF, FilterMode.LADDER_24, FilterMode.SVF};
+    FilterMode[] filterModes = {
+      FilterMode.LADDER_12,
+      FilterMode.LADDER_24,
+      FilterMode.SVF,
+      FilterMode.LADDER_12,
+      FilterMode.LADDER_24,
+      FilterMode.SVF,
+      FilterMode.LADDER_12,
+      FilterMode.SVF,
+      FilterMode.LADDER_24,
+      FilterMode.SVF
+    };
     synth.setFilterMode(filterModes[index]);
 
-    float[] lpfFreqs = {20000f, 8000f, 3000f, 500f, 12000f,
-                        15000f, 2000f, 10000f, 4000f, 600f};
-    float[] lpfRess  = {0f, 2f, 20f, 40f, 5f,
-                        10f, 30f, 15f, 25f, 50f};
+    float[] lpfFreqs = {
+      20000f, 8000f, 3000f, 500f, 12000f,
+      15000f, 2000f, 10000f, 4000f, 600f
+    };
+    float[] lpfRess = {
+      0f, 2f, 20f, 40f, 5f,
+      10f, 30f, 15f, 25f, 50f
+    };
     synth.setLpfFreq(lpfFreqs[index]);
     synth.setLpfRes(lpfRess[index]);
 
@@ -256,7 +272,7 @@ public class AllSoundsComparisonTest {
       samples++;
     }
 
-    return new double[]{peakL, peakR, Math.sqrt(sumSqL / samples), Math.sqrt(sumSqR / samples)};
+    return new double[] {peakL, peakR, Math.sqrt(sumSqL / samples), Math.sqrt(sumSqR / samples)};
   }
 
   /** Mute everything except the tracks between startRow and startRow+count (inclusive). */
@@ -315,29 +331,32 @@ public class AllSoundsComparisonTest {
       vm.setGlobalInt(BridgeContract.G_PLAY, 0L);
       vm.advanceTime(4410);
 
-      System.out.printf("Kit %2d (%-12s): Peak L=%.6f R=%.6f RMS L=%.6f R=%.6f%n",
+      System.out.printf(
+          "Kit %2d (%-12s): Peak L=%.6f R=%.6f RMS L=%.6f R=%.6f%n",
           v + 1, SOUND_NAMES[v], stats[0], stats[1], stats[2], stats[3]);
 
       if (stats[0] > 0.001 || stats[1] > 0.001) anySignificant = true;
     }
 
     System.out.println("\n=== Kit Comparison Table ===");
-    System.out.printf("%-6s %-12s %-15s %-15s %-12s%n",
-        "Kit", "Name", "Peak (avg)", "RMS (avg)", "Distinct?");
+    System.out.printf(
+        "%-6s %-12s %-15s %-15s %-12s%n", "Kit", "Name", "Peak (avg)", "RMS (avg)", "Distinct?");
     int distinct = 0;
     for (int i = 0; i < KIT_COUNT; i++) {
       double peakAvg = (results[i][0] + results[i][1]) / 2.0;
       double rmsAvg = (results[i][2] + results[i][3]) / 2.0;
-      boolean d = i == 0
-          || Math.abs(peakAvg - (results[i-1][0] + results[i-1][1]) / 2.0) > 0.001
-          || Math.abs(rmsAvg - (results[i-1][2] + results[i-1][3]) / 2.0) > 0.0001;
+      boolean d =
+          i == 0
+              || Math.abs(peakAvg - (results[i - 1][0] + results[i - 1][1]) / 2.0) > 0.001
+              || Math.abs(rmsAvg - (results[i - 1][2] + results[i - 1][3]) / 2.0) > 0.0001;
       if (d) distinct++;
-      System.out.printf("Kit %2d %-12s %-15.6f %-15.6f %-12s%n",
+      System.out.printf(
+          "Kit %2d %-12s %-15.6f %-15.6f %-12s%n",
           i + 1, SOUND_NAMES[i], peakAvg, rmsAvg, d ? "✓" : "⚠ similar");
     }
 
-    assertTrue(anySignificant,
-        "At least one kit voice should produce audible output (peak > 0.001)");
+    assertTrue(
+        anySignificant, "At least one kit voice should produce audible output (peak > 0.001)");
     assertTrue(distinct >= 3, "At least 3/" + KIT_COUNT + " kit voices distinct, got " + distinct);
     System.out.printf("%nKit test passed: %d/%d distinct.%n", distinct, KIT_COUNT);
   }
@@ -390,37 +409,50 @@ public class AllSoundsComparisonTest {
       vm.setGlobalInt(BridgeContract.G_PLAY, 0L);
       vm.advanceTime(4410);
 
-      System.out.printf("Synth %2d (%-18s algo=%2d osc=%-8s filter=%-10s): "
-          + "Peak L=%.6f R=%.6f RMS L=%.6f R=%.6f%n",
-          i + 1, synths[i].getName(),
+      System.out.printf(
+          "Synth %2d (%-18s algo=%2d osc=%-8s filter=%-10s): "
+              + "Peak L=%.6f R=%.6f RMS L=%.6f R=%.6f%n",
+          i + 1,
+          synths[i].getName(),
           synths[i].getSynthAlgorithm(),
           synths[i].getOsc1Type(),
           synths[i].getFilterMode(),
-          stats[0], stats[1], stats[2], stats[3]);
+          stats[0],
+          stats[1],
+          stats[2],
+          stats[3]);
 
       if (stats[0] > 0.001 || stats[1] > 0.001) anySignificant = true;
     }
 
     System.out.println("\n=== Synth Comparison Table ===");
-    System.out.printf("%-6s %-18s %-10s %-10s %-10s %-12s %-12s %-12s%n",
+    System.out.printf(
+        "%-6s %-18s %-10s %-10s %-10s %-12s %-12s %-12s%n",
         "Synth", "Name", "Osc", "Filter", "Algo", "Peak (avg)", "RMS (avg)", "Distinct?");
     int distinct = 0;
     for (int i = 0; i < SYNTH_COUNT; i++) {
       double peakAvg = (results[i][0] + results[i][1]) / 2.0;
       double rmsAvg = (results[i][2] + results[i][3]) / 2.0;
-      boolean d = i == 0
-          || Math.abs(peakAvg - (results[i-1][0] + results[i-1][1]) / 2.0) > 0.001
-          || Math.abs(rmsAvg - (results[i-1][2] + results[i-1][3]) / 2.0) > 0.0001;
+      boolean d =
+          i == 0
+              || Math.abs(peakAvg - (results[i - 1][0] + results[i - 1][1]) / 2.0) > 0.001
+              || Math.abs(rmsAvg - (results[i - 1][2] + results[i - 1][3]) / 2.0) > 0.0001;
       if (d) distinct++;
-      System.out.printf("Synth %2d %-18s %-10s %-10s %-10d %-12.6f %-12.6f %-12s%n",
-          i + 1, synths[i].getName(), synths[i].getOsc1Type(),
-          synths[i].getFilterMode().name(), synths[i].getSynthAlgorithm(),
-          peakAvg, rmsAvg, d ? "✓" : "⚠ similar");
+      System.out.printf(
+          "Synth %2d %-18s %-10s %-10s %-10d %-12.6f %-12.6f %-12s%n",
+          i + 1,
+          synths[i].getName(),
+          synths[i].getOsc1Type(),
+          synths[i].getFilterMode().name(),
+          synths[i].getSynthAlgorithm(),
+          peakAvg,
+          rmsAvg,
+          d ? "✓" : "⚠ similar");
     }
 
-    assertTrue(anySignificant,
-        "At least one synth should produce audible output (peak > 0.001)");
-    assertTrue(vm.getGlobalInt(BridgeContract.G_CURRENT_STEP) >= 0,
+    assertTrue(anySignificant, "At least one synth should produce audible output (peak > 0.001)");
+    assertTrue(
+        vm.getGlobalInt(BridgeContract.G_CURRENT_STEP) >= 0,
         "Engine playhead should advance during playback");
     System.out.printf("%nSynth test passed: %d/%d distinct.%n", distinct, SYNTH_COUNT);
   }

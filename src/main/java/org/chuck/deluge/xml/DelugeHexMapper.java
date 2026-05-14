@@ -45,11 +45,11 @@ public class DelugeHexMapper {
   // ── Envelope time mapping ──
 
   /**
-   * Deluge envelope time (attack/decay/release) uses bipolar hex [-1, 1] mapped
-   * exponentially to [MIN_TIME, MAX_TIME] seconds.
-   * -1.0 → MIN_TIME (instant), 0.0 → ~MID_TIME, +1.0 → MAX_TIME
+   * Deluge envelope time (attack/decay/release) uses bipolar hex [-1, 1] mapped exponentially to
+   * [MIN_TIME, MAX_TIME] seconds. -1.0 → MIN_TIME (instant), 0.0 → ~MID_TIME, +1.0 → MAX_TIME
    */
   public static final float ENV_MIN_TIME = 0.001f;
+
   public static final float ENV_MID_TIME = 0.15f;
   public static final float ENV_MAX_TIME = 30.0f;
 

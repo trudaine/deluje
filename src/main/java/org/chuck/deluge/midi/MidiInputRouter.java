@@ -10,10 +10,11 @@ import org.chuck.midi.MidiMsg;
  * rather than always writing to {@code activeTrackIndex}.
  *
  * <h2>Follow Mode Routing</h2>
- * Three follow channels (A/B/C) each pair a MIDI channel with a target track index.
- * When follow mode is enabled, Note On/Off messages target the track mapped to their
- * MIDI channel (or fall back to {@code activeTrackIndex} for unmapped channels).
- * When disabled, all notes route to {@code activeTrackIndex} (legacy behavior).
+ *
+ * Three follow channels (A/B/C) each pair a MIDI channel with a target track index. When follow
+ * mode is enabled, Note On/Off messages target the track mapped to their MIDI channel (or fall back
+ * to {@code activeTrackIndex} for unmapped channels). When disabled, all notes route to {@code
+ * activeTrackIndex} (legacy behavior).
  */
 public class MidiInputRouter {
 

@@ -11,8 +11,8 @@ import org.junit.jupiter.api.Test;
 /**
  * Integration tests for SVFilter drive, notch mode, and filter routing.
  *
- * <p>Verifies that filter drive saturation, SVF NOTCH mode, and series/parallel
- * filter routing produce expected behavior.
+ * <p>Verifies that filter drive saturation, SVF NOTCH mode, and series/parallel filter routing
+ * produce expected behavior.
  */
 public class FilterDriveTest {
 

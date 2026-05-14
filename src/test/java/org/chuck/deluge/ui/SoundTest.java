@@ -16,11 +16,11 @@ public class SoundTest {
     vm = new ChuckVM(44100, 2);
     vm.setLogLevel(0);
     bridge = new BridgeContract();
-    
+
     // Default tracks to prevent DSL hang if XML parsing fails or is delayed
     bridge.setTrackType(0, 0);
     bridge.setTrackType(4, 1);
-    
+
     bridge.register(vm);
   }
 

@@ -24,12 +24,7 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
 
   /** A single grid pad toggle. */
   record StepConsequence(
-      int trackIndex,
-      int clipIndex,
-      int row,
-      int step,
-      StepData oldData,
-      StepData newData)
+      int trackIndex, int clipIndex, int row, int step, StepData oldData, StepData newData)
       implements Consequence {
     @Override
     public void undo() {
@@ -54,12 +49,7 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
 
   /** An automation point set or cleared. */
   record AutomationConsequence(
-      int trackIndex,
-      int clipIndex,
-      String paramName,
-      int step,
-      float oldValue,
-      float newValue)
+      int trackIndex, int clipIndex, String paramName, int step, float oldValue, float newValue)
       implements Consequence {
     @Override
     public void undo() {

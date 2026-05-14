@@ -17,16 +17,20 @@ public class EuclideanRhythmDialog extends JDialog {
   private boolean[] currentPattern;
 
   /**
-   * @param owner     parent frame
-   * @param bridge    contract for writing steps
+   * @param owner parent frame
+   * @param bridge contract for writing steps
    * @param baseTrack track row index to write to
    * @param stepCount number of steps in the pattern (e.g. 16)
-   * @param rowName   display name for the target row
-   * @param onApply   callback after pattern is written
+   * @param rowName display name for the target row
+   * @param onApply callback after pattern is written
    */
   public EuclideanRhythmDialog(
-      Frame owner, BridgeContract bridge, int baseTrack,
-      int stepCount, String rowName, Runnable onApply) {
+      Frame owner,
+      BridgeContract bridge,
+      int baseTrack,
+      int stepCount,
+      String rowName,
+      Runnable onApply) {
     super(owner, "Euclidean Rhythm Generator", true);
     this.bridge = bridge;
     this.baseTrack = baseTrack;
@@ -47,14 +51,19 @@ public class EuclideanRhythmDialog extends JDialog {
     c.anchor = GridBagConstraints.WEST;
     int row = 0;
 
-    c.gridx = 0; c.gridy = row; c.gridwidth = 3;
+    c.gridx = 0;
+    c.gridy = row;
+    c.gridwidth = 3;
     controls.add(sectionLabel("Euclidean Rhythm Generator"), c);
     row++;
 
     // Target row
-    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
+    c.gridx = 0;
+    c.gridy = row;
+    c.gridwidth = 1;
     controls.add(tip(label("Target Row:"), "The grid row this pattern will be written to"), c);
-    c.gridx = 1; c.gridwidth = 2;
+    c.gridx = 1;
+    c.gridwidth = 2;
     JLabel rowLabel = label(rowName != null ? rowName : "Row " + (baseTrack + 1));
     controls.add(rowLabel, c);
     row++;
@@ -62,33 +71,49 @@ public class EuclideanRhythmDialog extends JDialog {
     // Pulses (K)
     JSpinner pulsesSpinner = new JSpinner(new SpinnerNumberModel(4, 1, 16, 1));
     pulsesSpinner.setBackground(new Color(0x33, 0x33, 0x33));
-    ((JSpinner.DefaultEditor) pulsesSpinner.getEditor()).getTextField().setBackground(new Color(0x33, 0x33, 0x33));
+    ((JSpinner.DefaultEditor) pulsesSpinner.getEditor())
+        .getTextField()
+        .setBackground(new Color(0x33, 0x33, 0x33));
     ((JSpinner.DefaultEditor) pulsesSpinner.getEditor()).getTextField().setForeground(Color.WHITE);
-    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
-    controls.add(tip(label("Pulses (K):"), "Number of active hits to distribute across the steps"), c);
-    c.gridx = 1; c.gridwidth = 2;
+    c.gridx = 0;
+    c.gridy = row;
+    c.gridwidth = 1;
+    controls.add(
+        tip(label("Pulses (K):"), "Number of active hits to distribute across the steps"), c);
+    c.gridx = 1;
+    c.gridwidth = 2;
     controls.add(pulsesSpinner, c);
     row++;
 
     // Steps (N)
     JSpinner stepsSpinner = new JSpinner(new SpinnerNumberModel(16, 1, 16, 1));
     stepsSpinner.setBackground(new Color(0x33, 0x33, 0x33));
-    ((JSpinner.DefaultEditor) stepsSpinner.getEditor()).getTextField().setBackground(new Color(0x33, 0x33, 0x33));
+    ((JSpinner.DefaultEditor) stepsSpinner.getEditor())
+        .getTextField()
+        .setBackground(new Color(0x33, 0x33, 0x33));
     ((JSpinner.DefaultEditor) stepsSpinner.getEditor()).getTextField().setForeground(Color.WHITE);
-    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
+    c.gridx = 0;
+    c.gridy = row;
+    c.gridwidth = 1;
     controls.add(tip(label("Steps (N):"), "Total number of steps in the sequence"), c);
-    c.gridx = 1; c.gridwidth = 2;
+    c.gridx = 1;
+    c.gridwidth = 2;
     controls.add(stepsSpinner, c);
     row++;
 
     // Rotation
     JSpinner rotSpinner = new JSpinner(new SpinnerNumberModel(0, 0, 15, 1));
     rotSpinner.setBackground(new Color(0x33, 0x33, 0x33));
-    ((JSpinner.DefaultEditor) rotSpinner.getEditor()).getTextField().setBackground(new Color(0x33, 0x33, 0x33));
+    ((JSpinner.DefaultEditor) rotSpinner.getEditor())
+        .getTextField()
+        .setBackground(new Color(0x33, 0x33, 0x33));
     ((JSpinner.DefaultEditor) rotSpinner.getEditor()).getTextField().setForeground(Color.WHITE);
-    c.gridx = 0; c.gridy = row; c.gridwidth = 1;
+    c.gridx = 0;
+    c.gridy = row;
+    c.gridwidth = 1;
     controls.add(tip(label("Rotation:"), "Shift all hits forward by this many steps"), c);
-    c.gridx = 1; c.gridwidth = 2;
+    c.gridx = 1;
+    c.gridwidth = 2;
     controls.add(rotSpinner, c);
     row++;
 
@@ -96,7 +121,9 @@ public class EuclideanRhythmDialog extends JDialog {
     wheelPanel = new EuclideanWheelPanel();
     currentPattern = euclidean(4, 16, 0);
     wheelPanel.setPattern(currentPattern);
-    c.gridx = 0; c.gridy = row; c.gridwidth = 3;
+    c.gridx = 0;
+    c.gridy = row;
+    c.gridwidth = 3;
     c.fill = GridBagConstraints.BOTH;
     c.weightx = 1.0;
     c.weighty = 1.0;
@@ -105,15 +132,16 @@ public class EuclideanRhythmDialog extends JDialog {
     add(controls, BorderLayout.CENTER);
 
     // ── Shared change listener ──
-    ChangeListener updater = e -> {
-      int K = (Integer) pulsesSpinner.getValue();
-      int N = (Integer) stepsSpinner.getValue();
-      int rot = (Integer) rotSpinner.getValue();
-      currentPattern = euclidean(K, N, rot);
-      wheelPanel.setPattern(currentPattern);
-      wheelPanel.setStepCount(N);
-      wheelPanel.repaint();
-    };
+    ChangeListener updater =
+        e -> {
+          int K = (Integer) pulsesSpinner.getValue();
+          int N = (Integer) stepsSpinner.getValue();
+          int rot = (Integer) rotSpinner.getValue();
+          currentPattern = euclidean(K, N, rot);
+          wheelPanel.setPattern(currentPattern);
+          wheelPanel.setStepCount(N);
+          wheelPanel.repaint();
+        };
     pulsesSpinner.addChangeListener(updater);
     stepsSpinner.addChangeListener(updater);
     rotSpinner.addChangeListener(updater);
@@ -125,11 +153,12 @@ public class EuclideanRhythmDialog extends JDialog {
     JButton applyBtn = new JButton("Apply");
     applyBtn.setBackground(new Color(0x33, 0x44, 0x55));
     applyBtn.setForeground(Color.WHITE);
-    applyBtn.addActionListener(e -> {
-      applyPattern();
-      if (onApply != null) onApply.run();
-      dispose();
-    });
+    applyBtn.addActionListener(
+        e -> {
+          applyPattern();
+          if (onApply != null) onApply.run();
+          dispose();
+        });
     south.add(applyBtn);
 
     JButton closeBtn = new JButton("Close");
@@ -158,10 +187,9 @@ public class EuclideanRhythmDialog extends JDialog {
   // ── Euclidean algorithm (even distribution, matching firmware) ──
 
   /**
-   * Distribute {@code pulses} hits as evenly as possible across {@code steps}
-   * positions, then apply rotation. Mirrors the firmware's
-   * {@code editNumEuclideanEvents()} logic:
-   * {@code pos = (n * numStepsAvailable) / N * squareWidth}.
+   * Distribute {@code pulses} hits as evenly as possible across {@code steps} positions, then apply
+   * rotation. Mirrors the firmware's {@code editNumEuclideanEvents()} logic: {@code pos = (n *
+   * numStepsAvailable) / N * squareWidth}.
    */
   static boolean[] euclidean(int pulses, int steps, int rotation) {
     boolean[] pattern = new boolean[steps];
@@ -184,8 +212,13 @@ public class EuclideanRhythmDialog extends JDialog {
     private boolean[] pattern = new boolean[0];
     private int stepCount = 16;
 
-    void setPattern(boolean[] p) { this.pattern = p != null ? p : new boolean[0]; }
-    void setStepCount(int n) { this.stepCount = Math.max(1, n); }
+    void setPattern(boolean[] p) {
+      this.pattern = p != null ? p : new boolean[0];
+    }
+
+    void setStepCount(int n) {
+      this.stepCount = Math.max(1, n);
+    }
 
     EuclideanWheelPanel() {
       setBackground(new Color(0x22, 0x22, 0x22));

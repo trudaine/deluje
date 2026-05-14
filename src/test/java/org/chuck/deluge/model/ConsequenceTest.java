@@ -54,8 +54,9 @@ class ConsequenceTest {
   @Test
   void trackStructureConsequenceAdd() {
     KitTrackModel kit = new KitTrackModel("test");
-    var c = new Consequence.TrackStructureConsequence(
-        Consequence.TrackStructureConsequence.ADD, 0, kit, "Add track");
+    var c =
+        new Consequence.TrackStructureConsequence(
+            Consequence.TrackStructureConsequence.ADD, 0, kit, "Add track");
     assertEquals(Consequence.TrackStructureConsequence.ADD, c.operation());
     assertEquals("test", c.trackSnapshot().getName());
     assertEquals("Add track", c.getDescription());
@@ -65,8 +66,9 @@ class ConsequenceTest {
   @Test
   void clipStructureConsequenceStoresFields() {
     ClipModel clip = new ClipModel("CLIP 1", 8, 16);
-    var c = new Consequence.ClipStructureConsequence(
-        0, 0, Consequence.ClipStructureConsequence.RENAME, clip, "OLD", "NEW");
+    var c =
+        new Consequence.ClipStructureConsequence(
+            0, 0, Consequence.ClipStructureConsequence.RENAME, clip, "OLD", "NEW");
     assertEquals("NEW", c.newName());
     assertEquals("OLD", c.previousName());
     assertEquals("Rename clip to NEW", c.getDescription());
@@ -75,8 +77,12 @@ class ConsequenceTest {
 
   @Test
   void compoundConsequenceUndoesInReverse() {
-    var a1 = new Consequence.StepConsequence(0, 0, 0, 0, StepData.empty(), StepData.of(true, 0.8f, 0.5f, 1.0f, 60));
-    var a2 = new Consequence.StepConsequence(0, 0, 0, 1, StepData.empty(), StepData.of(true, 0.8f, 0.5f, 1.0f, 61));
+    var a1 =
+        new Consequence.StepConsequence(
+            0, 0, 0, 0, StepData.empty(), StepData.of(true, 0.8f, 0.5f, 1.0f, 60));
+    var a2 =
+        new Consequence.StepConsequence(
+            0, 0, 0, 1, StepData.empty(), StepData.of(true, 0.8f, 0.5f, 1.0f, 61));
     var c = new Consequence.CompoundConsequence("Clear row", List.of(a1, a2));
     assertEquals("Clear row", c.getDescription());
     assertEquals(Consequence.Category.PATTERN_LOAD, c.category());

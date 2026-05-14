@@ -10,8 +10,8 @@ import org.chuck.deluge.engine.DelugeEngineDSL;
 import org.chuck.deluge.midi.MidiInputRouter;
 import org.chuck.deluge.midi.MidiService;
 import org.chuck.deluge.model.ClipModel;
-import org.chuck.deluge.model.EnvelopeModel;
 import org.chuck.deluge.model.Drum;
+import org.chuck.deluge.model.EnvelopeModel;
 import org.chuck.deluge.model.KitTrackModel;
 import org.chuck.deluge.model.ProjectModel;
 import org.chuck.deluge.model.SoundDrum;
@@ -19,10 +19,9 @@ import org.chuck.deluge.model.StepData;
 import org.chuck.deluge.model.SynthTrackModel;
 import org.chuck.deluge.model.TrackModel;
 import org.chuck.deluge.xml.DelugeXmlParser;
-import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.junit.jupiter.api.Test;
 
 public class DelugeE2ETest {
 
@@ -100,12 +99,13 @@ public class DelugeE2ETest {
   // ── Song playback tests ──────────────────────────────────────────────────
 
   /**
-   * Parses each song XML, pushes all tracks and clip data to the engine bridge,
-   * starts playback, and verifies that (a) the step playhead advances and
-   * (b) audible signal (>0.001 peak) is produced.
+   * Parses each song XML, pushes all tracks and clip data to the engine bridge, starts playback,
+   * and verifies that (a) the step playhead advances and (b) audible signal (>0.001 peak) is
+   * produced.
    */
   @ParameterizedTest(name = "[{index}] {0}")
-  @ValueSource(strings = {"song1.xml", "song2.xml", "song3.xml", "Dx7A.xml", "Dx7B.xml", "Dx7C.xml"})
+  @ValueSource(
+      strings = {"song1.xml", "song2.xml", "song3.xml", "Dx7A.xml", "Dx7B.xml", "Dx7C.xml"})
   public void testSongPlayback(String songFile) throws Exception {
     System.out.println("\n=== testSongPlayback: " + songFile + " ===");
     System.setProperty("chuck.audio.dummy", "true");
@@ -200,9 +200,8 @@ public class DelugeE2ETest {
           int stepCount = clip.getStepCount();
           int rowCount = clip.getRowCount();
           // Set track length for all rows this track occupies
-          int clipTrackLen = (track instanceof SynthTrackModel)
-              ? Math.max(voiceCount, rowCount)
-              : voiceCount;
+          int clipTrackLen =
+              (track instanceof SynthTrackModel) ? Math.max(voiceCount, rowCount) : voiceCount;
           for (int rr = 0; rr < clipTrackLen; rr++) {
             bridge.setTrackLength(engineRow + rr, stepCount);
           }
@@ -217,9 +216,10 @@ public class DelugeE2ETest {
             }
           }
         }
-        engineRow += (track instanceof SynthTrackModel)
-            ? Math.max(voiceCount, clip != null ? clip.getRowCount() : voiceCount)
-            : voiceCount;
+        engineRow +=
+            (track instanceof SynthTrackModel)
+                ? Math.max(voiceCount, clip != null ? clip.getRowCount() : voiceCount)
+                : voiceCount;
       }
 
       // 5. Start engine (after all bridge data — including DX7 patches — is pushed)
@@ -254,11 +254,13 @@ public class DelugeE2ETest {
       vm.setGlobalInt(BridgeContract.G_PLAY, 0L);
 
       double peakAvg = (peakL + peakR) / 2.0;
-      System.out.printf("Song %s: tracks=%d peak=%.6f stepAdvanced=%s%n",
+      System.out.printf(
+          "Song %s: tracks=%d peak=%.6f stepAdvanced=%s%n",
           songName, tracks.size(), peakAvg, stepAdvanced);
 
       assertTrue(stepAdvanced, "Song " + songName + " engine playhead should advance");
-      assertTrue(peakAvg > 0.0009,
+      assertTrue(
+          peakAvg > 0.0009,
           "Song " + songName + " should produce audible output (peak avg=" + peakAvg + ")");
 
     } finally {

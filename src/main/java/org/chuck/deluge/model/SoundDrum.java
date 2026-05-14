@@ -35,49 +35,139 @@ public class SoundDrum extends Drum {
     this.samplePath = samplePath;
   }
 
-  public String getSamplePath() { return samplePath; }
-  public void setSamplePath(String v) { this.samplePath = v; }
+  public String getSamplePath() {
+    return samplePath;
+  }
 
-  public boolean isReverse() { return reverse; }
-  public void setReverse(boolean v) { this.reverse = v; }
+  public void setSamplePath(String v) {
+    this.samplePath = v;
+  }
 
-  public float getStartMs() { return startMs; }
-  public void setStartMs(float v) { this.startMs = v; }
+  public boolean isReverse() {
+    return reverse;
+  }
 
-  public float getEndMs() { return endMs; }
-  public void setEndMs(float v) { this.endMs = v; }
+  public void setReverse(boolean v) {
+    this.reverse = v;
+  }
 
-  public int getStartSamplePos() { return startSamplePos; }
-  public void setStartSamplePos(int v) { this.startSamplePos = v; }
+  public float getStartMs() {
+    return startMs;
+  }
 
-  public int getEndSamplePos() { return endSamplePos; }
-  public void setEndSamplePos(int v) { this.endSamplePos = v; }
+  public void setStartMs(float v) {
+    this.startMs = v;
+  }
 
-  public int getStartLoopPos() { return startLoopPos; }
-  public void setStartLoopPos(int v) { this.startLoopPos = v; }
-  public int getEndLoopPos() { return endLoopPos; }
-  public void setEndLoopPos(int v) { this.endLoopPos = v; }
+  public float getEndMs() {
+    return endMs;
+  }
 
-  public String getOsc2Type() { return osc2Type; }
-  public void setOsc2Type(String v) { this.osc2Type = v; }
+  public void setEndMs(float v) {
+    this.endMs = v;
+  }
 
-  public String getOsc2SamplePath() { return osc2SamplePath; }
-  public void setOsc2SamplePath(String v) { this.osc2SamplePath = v; }
+  public int getStartSamplePos() {
+    return startSamplePos;
+  }
 
-  public int getOsc2StartSamplePos() { return osc2StartSamplePos; }
-  public void setOsc2StartSamplePos(int v) { this.osc2StartSamplePos = v; }
+  public void setStartSamplePos(int v) {
+    this.startSamplePos = v;
+  }
 
-  public int getOsc2EndSamplePos() { return osc2EndSamplePos; }
-  public void setOsc2EndSamplePos(int v) { this.osc2EndSamplePos = v; }
+  public int getEndSamplePos() {
+    return endSamplePos;
+  }
 
-  public int getOsc2LoopMode() { return osc2LoopMode; }
-  public void setOsc2LoopMode(int v) { this.osc2LoopMode = v; }
-  public boolean isOsc2Reversed() { return osc2Reversed; }
-  public void setOsc2Reversed(boolean v) { this.osc2Reversed = v; }
-  public boolean isOsc2TimeStretch() { return osc2TimeStretch; }
-  public void setOsc2TimeStretch(boolean v) { this.osc2TimeStretch = v; }
-  public float getOsc2TimeStretchAmount() { return osc2TimeStretchAmount; }
-  public void setOsc2TimeStretchAmount(float v) { this.osc2TimeStretchAmount = v; }
-  public boolean isOsc2LinearInterpolation() { return osc2LinearInterpolation; }
-  public void setOsc2LinearInterpolation(boolean v) { this.osc2LinearInterpolation = v; }
+  public void setEndSamplePos(int v) {
+    this.endSamplePos = v;
+  }
+
+  public int getStartLoopPos() {
+    return startLoopPos;
+  }
+
+  public void setStartLoopPos(int v) {
+    this.startLoopPos = v;
+  }
+
+  public int getEndLoopPos() {
+    return endLoopPos;
+  }
+
+  public void setEndLoopPos(int v) {
+    this.endLoopPos = v;
+  }
+
+  public String getOsc2Type() {
+    return osc2Type;
+  }
+
+  public void setOsc2Type(String v) {
+    this.osc2Type = v;
+  }
+
+  public String getOsc2SamplePath() {
+    return osc2SamplePath;
+  }
+
+  public void setOsc2SamplePath(String v) {
+    this.osc2SamplePath = v;
+  }
+
+  public int getOsc2StartSamplePos() {
+    return osc2StartSamplePos;
+  }
+
+  public void setOsc2StartSamplePos(int v) {
+    this.osc2StartSamplePos = v;
+  }
+
+  public int getOsc2EndSamplePos() {
+    return osc2EndSamplePos;
+  }
+
+  public void setOsc2EndSamplePos(int v) {
+    this.osc2EndSamplePos = v;
+  }
+
+  public int getOsc2LoopMode() {
+    return osc2LoopMode;
+  }
+
+  public void setOsc2LoopMode(int v) {
+    this.osc2LoopMode = v;
+  }
+
+  public boolean isOsc2Reversed() {
+    return osc2Reversed;
+  }
+
+  public void setOsc2Reversed(boolean v) {
+    this.osc2Reversed = v;
+  }
+
+  public boolean isOsc2TimeStretch() {
+    return osc2TimeStretch;
+  }
+
+  public void setOsc2TimeStretch(boolean v) {
+    this.osc2TimeStretch = v;
+  }
+
+  public float getOsc2TimeStretchAmount() {
+    return osc2TimeStretchAmount;
+  }
+
+  public void setOsc2TimeStretchAmount(float v) {
+    this.osc2TimeStretchAmount = v;
+  }
+
+  public boolean isOsc2LinearInterpolation() {
+    return osc2LinearInterpolation;
+  }
+
+  public void setOsc2LinearInterpolation(boolean v) {
+    this.osc2LinearInterpolation = v;
+  }
 }

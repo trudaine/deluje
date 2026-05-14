@@ -2,7 +2,6 @@ package org.chuck.deluge.project;
 
 import java.io.File;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
@@ -26,18 +25,16 @@ import org.w3c.dom.NodeList;
  * Serializes PatternModel to/from XML files in the PATTERNS directory.
  *
  * <p>Directory layout:
+ *
  * <ul>
- *   <li>PATTERNS/MELODIC/ — synth pattern XML files</li>
- *   <li>PATTERNS/RHYTHMIC/DRUM/ — drum pattern XML files</li>
- *   <li>PATTERNS/RHYTHMIC/KIT/ — kit pattern XML files</li>
+ *   <li>PATTERNS/MELODIC/ — synth pattern XML files
+ *   <li>PATTERNS/RHYTHMIC/DRUM/ — drum pattern XML files
+ *   <li>PATTERNS/RHYTHMIC/KIT/ — kit pattern XML files
  * </ul>
  */
 public class PatternSerializer {
 
-  /**
-   * Save a pattern model to the given XML file.
-   * Creates parent directories as needed.
-   */
+  /** Save a pattern model to the given XML file. Creates parent directories as needed. */
   public static void save(PatternModel pattern, File file) throws Exception {
     file.getParentFile().mkdirs();
 
@@ -91,9 +88,7 @@ public class PatternSerializer {
         Element nrElem = doc.createElement("noteRow");
         noteRowsElem.appendChild(nrElem);
 
-        List<StepData> row = (r < snap.getGrid().size())
-            ? snap.getGrid().get(r)
-            : List.of();
+        List<StepData> row = (r < snap.getGrid().size()) ? snap.getGrid().get(r) : List.of();
         String hexData = DelugeNoteDataMapper.encodeRow(row);
         Element ndElem = doc.createElement("noteData");
         ndElem.setTextContent(hexData);
@@ -153,16 +148,12 @@ public class PatternSerializer {
     transformer.transform(source, result);
   }
 
-  /**
-   * Load a pattern model from the given XML file.
-   */
+  /** Load a pattern model from the given XML file. */
   public static PatternModel load(File file) throws Exception {
     return load(Files.newInputStream(file.toPath()), file.getName());
   }
 
-  /**
-   * Load a pattern model from an input stream.
-   */
+  /** Load a pattern model from an input stream. */
   public static PatternModel load(InputStream is, String fileName) throws Exception {
     DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
     DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
@@ -223,7 +214,8 @@ public class PatternSerializer {
               String pv = attr.getNodeValue();
               try {
                 rowParams.put(pn, DelugeHexMapper.hexToFloat(pv));
-              } catch (Exception ignored) {}
+              } catch (Exception ignored) {
+              }
             }
             if (!rowParams.isEmpty()) {
               snap.getRowSoundParams().put(ri, rowParams);
@@ -252,7 +244,8 @@ public class PatternSerializer {
               String valStr = stepElem.getAttribute("value");
               try {
                 arr[idx] = DelugeHexMapper.hexToFloat(valStr);
-              } catch (Exception ignored) {}
+              } catch (Exception ignored) {
+              }
             }
           }
           snap.getAutomationData().put(paramName, arr);
@@ -269,7 +262,8 @@ public class PatternSerializer {
           String pv = attr.getNodeValue();
           try {
             snap.getKitParams().put(pn, DelugeHexMapper.hexToFloat(pv));
-          } catch (Exception ignored) {}
+          } catch (Exception ignored) {
+          }
         }
       }
 
@@ -302,6 +296,10 @@ public class PatternSerializer {
 
   private static int parseIntOrDefault(String s, int def) {
     if (s == null || s.isEmpty()) return def;
-    try { return Integer.parseInt(s); } catch (NumberFormatException e) { return def; }
+    try {
+      return Integer.parseInt(s);
+    } catch (NumberFormatException e) {
+      return def;
+    }
   }
 }
