@@ -81,11 +81,12 @@ public class SwingMasterFxPanel extends JPanel {
     hiFiCheck.setForeground(Color.WHITE);
     hiFiCheck.setBackground(new Color(0x25, 0x25, 0x25));
     hiFiCheck.setSelected(vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0);
-    hiFiCheck.addActionListener(
-        e -> {
-          vm.setGlobalInt(BridgeContract.G_HI_FI_MODE, hiFiCheck.isSelected() ? 1L : 0L);
-          System.out.println("[UI] High Fidelity Mode: " + hiFiCheck.isSelected());
-        });
+    hiFiCheck.addActionListener(e -> {
+      boolean selected = hiFiCheck.isSelected();
+      vm.setGlobalInt(BridgeContract.G_HI_FI_MODE, selected ? 1L : 0L);
+      System.out.println("[UI] High Fidelity Mode: " + selected);
+      org.chuck.deluge.firmware.hid.FirmwareDisplay.get().displayPopup(selected ? "HI-FI ON" : "HI-FI OFF");
+    });
     add(hiFiCheck);
 
     // ── Status Counter ──
