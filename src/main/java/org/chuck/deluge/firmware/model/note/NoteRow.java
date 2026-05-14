@@ -45,6 +45,41 @@ public class NoteRow {
     return notes.size();
   }
 
+  public void quantize(int increment, int amount) {
+    if (notes.isEmpty()) return;
+
+    int halfIncrement = increment / 2;
+    int lastPos = Integer.MIN_VALUE;
+
+    java.util.List<Note> newNotes = new java.util.ArrayList<>();
+
+    for (Note note : notes) {
+      int destination = ((note.pos - 1 + halfIncrement) / increment) * increment;
+      if (amount < 0) { // Humanize
+        int hmAmount = (int) (Math.random() * halfIncrement / 2) - (increment / 100);
+        destination = note.pos + hmAmount;
+      }
+      int distance = destination - note.pos;
+      distance = (distance * Math.abs(amount)) / 100;
+      int newPos = note.pos + distance;
+
+      if (newPos != lastPos) {
+        Note writeNote = new Note();
+        writeNote.pos = newPos;
+        writeNote.length = note.length;
+        writeNote.setVelocity(note.getVelocity());
+        writeNote.setProbability(note.getProbability());
+        writeNote.setIterance(note.getIterance());
+        writeNote.setFill(note.getFill());
+        newNotes.add(writeNote);
+      }
+      lastPos = newPos;
+    }
+
+    notes.clear();
+    notes.addAll(newNotes);
+  }
+
   public int attemptNoteAdd(
       int pos, int length, int velocity, int probability, Iterance iterance, int fill) {
     Note note = new Note();

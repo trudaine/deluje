@@ -59,15 +59,26 @@ public class Q31 {
     return (float) (val / 2147483648.0);
   }
 
-  public static int addSaturate(int a, int b) {
-    long res = (long) a + b;
+  public static int subSaturate(int a, int b) {
+    long res = (long) a - b;
     if (res > ONE) return ONE;
     if (res < NEGATIVE_ONE) return NEGATIVE_ONE;
     return (int) res;
   }
 
-  public static int subSaturate(int a, int b) {
-    long res = (long) a - b;
+  public static int signedSaturate(int val, int sat) {
+    int limit = (1 << (sat - 1)) - 1;
+    if (val > limit) return limit;
+    if (val < -limit - 1) return -limit - 1;
+    return val;
+  }
+
+  public static int lshiftAndSaturate(int val, int lshift) {
+    return signedSaturate(val, 32 - lshift) << lshift;
+  }
+
+  public static int addSaturate(int a, int b) {
+    long res = (long) a + b;
     if (res > ONE) return ONE;
     if (res < NEGATIVE_ONE) return NEGATIVE_ONE;
     return (int) res;

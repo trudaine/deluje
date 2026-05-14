@@ -13,6 +13,9 @@ public class Song extends TimelineCounter {
   public int lastSwungTickActioned = 0;
   public int swungTicksTilNextEvent = Integer.MAX_VALUE;
 
+  public int swingAmount = 0; // -49 to 49
+  public int swingInterval = 3; // SyncLevel (e.g. 1/16)
+
   public Song() {
     tempoBPM = 120.0f;
   }

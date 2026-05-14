@@ -6,6 +6,7 @@ import org.chuck.deluge.firmware.dsp.StereoSample;
 import org.chuck.deluge.firmware.dsp.compressor.RMSFeedbackCompressor;
 import org.chuck.deluge.firmware.dsp.delay.Delay;
 import org.chuck.deluge.firmware.dsp.reverb.freeverb.Freeverb;
+import org.chuck.deluge.firmware.util.Q31;
 
 /** Port of the Deluge's AudioEngine class, managing the master rendering loop and windowing. */
 public class FirmwareAudioEngine {
@@ -19,6 +20,9 @@ public class FirmwareAudioEngine {
   public final Delay masterDelay = new Delay();
   public final Freeverb masterReverb = new Freeverb();
   public final Delay.State delayState = new Delay.State();
+
+  public int masterVolumeAdjustmentL = Q31.ONE;
+  public int masterVolumeAdjustmentR = Q31.ONE;
 
   public FirmwareAudioEngine() {
     for (int i = 0; i < masterBuffer.length; i++) {
@@ -63,5 +67,17 @@ public class FirmwareAudioEngine {
 
     // 5. Apply Master Compression
     masterCompressor.renderVolNeutral(masterBuffer, 1 << 27);
+
+    // 6. Master Volume & Clipping
+    for (int i = 0; i < numSamples; i++) {
+      long lAdjustedBig = (long) masterBuffer[i].l * masterVolumeAdjustmentL;
+      long rAdjustedBig = (long) masterBuffer[i].r * masterVolumeAdjustmentR;
+
+      int lAdjusted = (int) (lAdjustedBig >> 31);
+      int rAdjusted = (int) (rAdjustedBig >> 31);
+
+      masterBuffer[i].l = Q31.lshiftAndSaturate(lAdjusted, 8);
+      masterBuffer[i].r = Q31.lshiftAndSaturate(rAdjusted, 8);
+    }
   }
 }

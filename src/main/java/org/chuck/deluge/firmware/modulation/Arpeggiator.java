@@ -91,6 +91,16 @@ public class Arpeggiator {
   private int currentOctave = 0;
   private int octaveDirection = 1;
 
+  public static final int PATTERN_MAX_BUFFER_SIZE = 128;
+  public int[] notePattern = new int[PATTERN_MAX_BUFFER_SIZE];
+
+  public void generateNewNotePattern() {
+    java.util.Random rand = new java.util.Random();
+    for (int i = 0; i < PATTERN_MAX_BUFFER_SIZE; i++) {
+      notePattern[i] = rand.nextInt(i + 1);
+    }
+  }
+
   // Rhythm state
   private int notesPlayedFromRhythm = 0;
   private int lastNormalNotePlayedFromRhythm = 0;
@@ -109,6 +119,7 @@ public class Arpeggiator {
 
   public Arpeggiator(Settings settings) {
     this.settings = settings;
+    generateNewNotePattern();
   }
 
   public void noteOn(int note, int vel) {
