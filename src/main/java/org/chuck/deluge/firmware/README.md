@@ -70,7 +70,15 @@ This port (`org.chuck.deluge.firmware`) aims for **bit-for-bit parity** by:
 - [x] **Oscillator Sync & Cross-Mod**: Implemented sample-accurate phase resetting and FM modulation.
 - [x] **Wavetable Cycle Spanning**: Completed the boundary crossing math in `WaveTable.java` for smooth position modulation.
 - [x] **Arpeggiator & LFOs**: Completed porting of full arpeggiator (rhythms, ratcheting, probabilities) and LFO logic.
-- [x] **LED Hardware Replication**: Added a simulated LED display in the `SwingTopBarPanel` that replicates real-time feedback (Transport state, Position, Parameter changes) from the firmware.
+- [x] **LED Hardware Replication**: Added a simulated LED display in the `SwingTopBarPanel`.
+- [x] **Virtual Hardware Abstraction**: Ported `MatrixDriver` and `PadLEDs` to create a "Virtual Hardware" layer.
+
+### Virtual Hardware Layer Abstraction
+
+By porting the hardware-level HID drivers, the Swing UI now benefits from:
+1.  **Logical-Physical Decoupling**: The Swing UI is now a "dumb terminal" that renders a virtual RGB framebuffer (`PadLEDs`). It no longer needs to implement complex blinking or animation logic—it simply paints what the firmware "Brain" dictates.
+2.  **Chord & Shortcut Support**: `MatrixDriver` maintains a global state of all pads. This allows for complex Deluge shortcuts (e.g., `Shift + Pad`) to be implemented once in the firmware logic and inherited automatically by the Java UI.
+3.  **Blinking & Layering**: Integrated a global `Flasher` system and `occupancyMask` that allows different UI views to overlap and blink (e.g., a fast-blinking recording playhead over a static sequence) with bit-accurate timing to the original hardware.
 
 ## Current Status
 

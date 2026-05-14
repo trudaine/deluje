@@ -7,6 +7,10 @@ import javax.sound.sampled.UnsupportedAudioFileException;
 import javax.swing.*;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
+import org.chuck.deluge.firmware.engine.FirmwareFactory;
+import org.chuck.deluge.firmware.gui.views.SessionView;
+import org.chuck.deluge.firmware.hid.Flasher;
+import org.chuck.deluge.firmware.hid.MatrixDriver;
 import org.chuck.deluge.model.AudioTrackModel;
 import org.chuck.deluge.model.ClipModel;
 import org.chuck.deluge.model.Consequence;
@@ -1165,6 +1169,10 @@ public class SwingDelugeApp extends JFrame {
     setTitle("DELUGE WORKSTATION [SWING EDITION]");
     setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
+    // ── Virtual Hardware Initialization ──
+    Flasher.startGlobal();
+    MatrixDriver.get().pushUI(new SessionView(null)); // Placeholder song
+
     setFocusable(true);
     addKeyListener(
         new java.awt.event.KeyAdapter() {
@@ -1343,6 +1351,11 @@ public class SwingDelugeApp extends JFrame {
 
     pushModelToBridge();
     propagateCurrentModel();
+
+    // ── Sync Firmware Logic ──
+    org.chuck.deluge.firmware.model.Song fwSong = FirmwareFactory.createSong(model);
+    MatrixDriver.get().popUI();
+    MatrixDriver.get().pushUI(new SessionView(fwSong));
 
     if (clipPanel != null) clipPanel.setProjectModel(model);
     if (songPanel != null) songPanel.setProjectModel(model);

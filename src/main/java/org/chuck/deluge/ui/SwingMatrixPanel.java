@@ -5,6 +5,10 @@ import java.awt.event.MouseEvent;
 import javax.swing.*;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
+import org.chuck.deluge.firmware.hid.FirmwareUI;
+import org.chuck.deluge.firmware.hid.MatrixDriver;
+import org.chuck.deluge.firmware.hid.PadLEDs;
+import org.chuck.deluge.firmware.hid.RGB;
 
 /** Custom painted sequencer step grid panel using pure Java2D. */
 public class SwingMatrixPanel extends JPanel {
@@ -92,12 +96,20 @@ public class SwingMatrixPanel extends JPanel {
     int gridX = 200; // Offset to the right for labels
     int gridY = 20;
 
-    int offset = (currentStep >= 0) ? (currentStep / stepCount) * stepCount : 0;
     int c = (e.getX() - gridX) / cellW;
+    int r = (e.getY() - gridY) / cellH;
+
+    if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
+      MatrixDriver.get().padAction(c, r, 127);
+      repaint();
+      return;
+    }
+
+    int offset = (currentStep >= 0) ? (currentStep / stepCount) * stepCount : 0;
     if (e.getX() - gridX >= stepCount * cellW + 20) {
       c = (e.getX() - gridX - 20) / cellW;
     }
-    int r = (e.getY() - gridY) / cellH;
+    r = (e.getY() - gridY) / cellH;
 
     if (c >= 0 && c < cols && r >= 0 && r < rows) {
       if (bridge != null) {
@@ -234,6 +246,14 @@ public class SwingMatrixPanel extends JPanel {
     Graphics2D g2 = (Graphics2D) g;
     g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
+    boolean hiFi = vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0;
+    if (hiFi) {
+      FirmwareUI currentUI = MatrixDriver.get().getCurrentUI();
+      if (currentUI != null) {
+        currentUI.setLedStates();
+      }
+    }
+
     int cellW = 120;
     int cellH = 120;
     int gridX = 200;
@@ -280,6 +300,19 @@ public class SwingMatrixPanel extends JPanel {
           g2.setColor(Color.DARK_GRAY);
           g2.setStroke(new BasicStroke(2));
           g2.drawLine(padX - 10, gridY, padX - 10, gridY + rows * cellH);
+        }
+
+        if (hiFi && c < 18) {
+          RGB led = PadLEDs.image[r][c];
+          boolean ledActive = (led.r > 0 || led.g > 0 || led.b > 0);
+          if (ledActive) {
+            g2.setColor(new Color(led.r, led.g, led.b));
+            g2.fillRoundRect(padX, padY, padW, padH, 10, 10);
+            g2.setColor(Color.WHITE);
+            g2.setStroke(new BasicStroke(2));
+            g2.drawRoundRect(padX + 2, padY + 2, padW - 4, padH - 4, 8, 8);
+            continue;
+          }
         }
 
         if (active) {

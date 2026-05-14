@@ -1,0 +1,49 @@
+package org.chuck.deluge.firmware.hid;
+
+import java.util.Stack;
+
+/** Virtual button matrix driver. Ports the logic from matrix_driver.h. */
+public class MatrixDriver {
+  public static final int kDisplayWidth = 16;
+  public static final int kDisplayHeight = 8;
+  public static final int kSideBarWidth = 2;
+
+  private static final MatrixDriver INSTANCE = new MatrixDriver();
+
+  public static MatrixDriver get() {
+    return INSTANCE;
+  }
+
+  private final boolean[][] padStates = new boolean[kDisplayWidth + kSideBarWidth][kDisplayHeight];
+  private final Stack<FirmwareUI> uiStack = new Stack<>();
+
+  public void pushUI(FirmwareUI ui) {
+    uiStack.push(ui);
+  }
+
+  public void popUI() {
+    if (!uiStack.isEmpty()) uiStack.pop();
+  }
+
+  public FirmwareUI getCurrentUI() {
+    return uiStack.isEmpty() ? null : uiStack.peek();
+  }
+
+  public void padAction(int x, int y, int velocity) {
+    if (x >= 0 && x < kDisplayWidth + kSideBarWidth && y >= 0 && y < kDisplayHeight) {
+      padStates[x][y] = (velocity != 0);
+
+      FirmwareUI current = getCurrentUI();
+      if (current != null) {
+        current.padAction(x, y, velocity);
+      }
+    }
+  }
+
+  public boolean isPadPressed(int x, int y) {
+    if (x >= 0 && x < kDisplayWidth + kSideBarWidth && y >= 0 && y < kDisplayHeight) {
+      return padStates[x][y];
+    }
+    return false;
+  }
+}
