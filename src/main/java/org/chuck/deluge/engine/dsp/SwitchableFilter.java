@@ -5,6 +5,7 @@ import org.chuck.audio.filter.SVFilter;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.firmware.dsp.filter.FirmwareFilter;
+import org.chuck.deluge.firmware.hid.FirmwareDisplay;
 
 /**
  * Filter that can switch between the legacy native ZDF SVF and the high-fidelity fixed-point
@@ -22,31 +23,22 @@ public class SwitchableFilter extends ChuckUGen {
   }
 
   public void freq(double f) {
-    nativeFilter.freq(f);
-    // Normalize f (0-20000) to 0-1 for firmware wrapper
-    firmwareFilter.setConfig(
-        (float) (f / 22050.0),
-        (float) nativeFilter.Q(),
-        getFirmwareMode(),
-        (float) nativeFilter.morph());
+      nativeFilter.freq(f);
+      // Normalize f (0-20000) to 0-1 for firmware wrapper
+      firmwareFilter.setConfig((float) (f / 22050.0), (float) nativeFilter.Q(), getFirmwareMode(), (float) nativeFilter.morph());
+      FirmwareDisplay.get().displayNotification("FREQ", String.format("%.1f", f));
   }
 
   public void Q(double q) {
-    nativeFilter.Q(q);
-    firmwareFilter.setConfig(
-        (float) (nativeFilter.freq() / 22050.0),
-        (float) q,
-        getFirmwareMode(),
-        (float) nativeFilter.morph());
+      nativeFilter.Q(q);
+      firmwareFilter.setConfig((float) (nativeFilter.freq() / 22050.0), (float) q, getFirmwareMode(), (float) nativeFilter.morph());
+      FirmwareDisplay.get().displayNotification("RES", String.format("%.2f", q));
   }
 
   public void morph(double m) {
-    nativeFilter.morph(m);
-    firmwareFilter.setConfig(
-        (float) (nativeFilter.freq() / 22050.0),
-        (float) nativeFilter.Q(),
-        getFirmwareMode(),
-        (float) m);
+      nativeFilter.morph(m);
+      firmwareFilter.setConfig((float) (nativeFilter.freq() / 22050.0), (float) nativeFilter.Q(), getFirmwareMode(), (float) m);
+      FirmwareDisplay.get().displayNotification("MORPH", String.format("%.2f", m));
   }
 
   public void drive(float d) {

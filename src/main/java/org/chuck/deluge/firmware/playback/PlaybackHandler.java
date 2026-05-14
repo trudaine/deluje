@@ -1,5 +1,6 @@
 package org.chuck.deluge.firmware.playback;
 
+import org.chuck.deluge.firmware.hid.FirmwareDisplay;
 import org.chuck.deluge.firmware.model.Clip;
 import org.chuck.deluge.firmware.model.ClipInstance;
 import org.chuck.deluge.firmware.model.Song;
@@ -25,22 +26,23 @@ public class PlaybackHandler {
   }
 
   public void start() {
-    playing = true;
-    lastSwungTickActioned = 0;
-    swungTicksTilNextEvent = 0;
-    if (currentSong != null) {
-      for (Clip clip : currentSong.clips) {
-        clip.lastProcessedPos = 0;
-        clip.repeatCount = 0;
+      playing = true;
+      lastSwungTickActioned = 0;
+      swungTicksTilNextEvent = 0;
+      FirmwareDisplay.get().setText(" PLAYING ");
+      if (currentSong != null) {
+          for (Clip clip : currentSong.clips) {
+              clip.lastProcessedPos = 0;
+              clip.repeatCount = 0;
+          }
       }
-    }
-    arrangement.resetPlayPos(0);
+      arrangement.resetPlayPos(0);
   }
 
   public void stop() {
-    playing = false;
+      playing = false;
+      FirmwareDisplay.get().setText(" STOPPED ");
   }
-
   /** Advance the sequencer by a number of ticks. */
   public void advanceTicks(int numTicks) {
     if (!playing || currentSong == null) return;
@@ -70,5 +72,11 @@ public class PlaybackHandler {
 
       ticksRemaining -= toAdvance;
     }
+    
+    // Update LED with bar:beat:tick
+    int bars = (lastSwungTickActioned / (24 * 16)) + 1;
+    int beats = ((lastSwungTickActioned / 24) % 16) + 1;
+    int ticks = (lastSwungTickActioned % 24) + 1;
+    FirmwareDisplay.get().setText(String.format(" %02d:%02d:%02d ", bars, beats, ticks));
   }
 }

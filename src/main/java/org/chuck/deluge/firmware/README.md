@@ -70,6 +70,7 @@ This port (`org.chuck.deluge.firmware`) aims for **bit-for-bit parity** by:
 - [x] **Oscillator Sync & Cross-Mod**: Implemented sample-accurate phase resetting and FM modulation.
 - [x] **Wavetable Cycle Spanning**: Completed the boundary crossing math in `WaveTable.java` for smooth position modulation.
 - [x] **Arpeggiator & LFOs**: Completed porting of full arpeggiator (rhythms, ratcheting, probabilities) and LFO logic.
+- [x] **LED Hardware Replication**: Added a simulated LED display in the `SwingTopBarPanel` that replicates real-time feedback (Transport state, Position, Parameter changes) from the firmware.
 
 ## Current Status
 
