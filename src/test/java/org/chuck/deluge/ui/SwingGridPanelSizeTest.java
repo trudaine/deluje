@@ -1,13 +1,12 @@
 package org.chuck.deluge.ui;
 
-import org.chuck.deluge.project.PreferencesManager;
-import org.chuck.deluge.project.PreferencesManager.GridMode;
-import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
+import org.chuck.deluge.project.PreferencesManager.GridMode;
+import org.junit.jupiter.api.Test;
+
 /**
- * Tests that SwingGridPanel renders the correct number of rows/columns
- * for each grid mode setting.
+ * Tests that SwingGridPanel renders the correct number of rows/columns for each grid mode setting.
  */
 public class SwingGridPanelSizeTest {
 
@@ -35,13 +34,16 @@ public class SwingGridPanelSizeTest {
 
     // Test with GRID_16x24: 16 rows, 24+2=26 columns
     GridMode mode = GridMode.GRID_16x24;
-    int expectedVoiceRows = mode.rows;     // 16
-    int expectedColumns  = mode.columns;   // 24
+    int expectedVoiceRows = mode.rows; // 16
+    int expectedColumns = mode.columns; // 24
     int expectedTotalColumns = expectedColumns + 2; // 26
 
     assertEquals(16, expectedVoiceRows, "GRID_16x24 should draw 16 voice rows");
     assertEquals(24, expectedColumns, "GRID_16x24 should have 24 step columns");
-    assertEquals(26, expectedTotalColumns, "GRID_16x24 should have 26 total columns (24 steps + MUTE + SOLO)");
+    assertEquals(
+        26,
+        expectedTotalColumns,
+        "GRID_16x24 should have 26 total columns (24 steps + MUTE + SOLO)");
 
     // Test with GRID_8x16: 8 rows, 16+2=18 columns
     mode = GridMode.GRID_8x16;

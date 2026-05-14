@@ -12,10 +12,13 @@ import org.chuck.audio.util.Dx7Patch;
  * Parses Roland SysEx (.syx) bulk dumps containing Yamaha DX7 voice patches.
  *
  * <p>Bulk dump format (32 voices):
+ *
  * <pre>
  *   F0 43 00/01 00 01  {32 × (156 bytes data + 1 checksum)}  F7
  * </pre>
+ *
  * Single voice dump format:
+ *
  * <pre>
  *   F0 43 00/01 00 00  {156 bytes data + 1 checksum}  F7
  * </pre>
@@ -26,11 +29,13 @@ public class Dx7SyxParser {
 
   /** Roland SysEx manufacturer ID. */
   private static final int SYSEX_START = 0xF0;
+
   private static final int SYSEX_END = 0xF7;
   private static final int YAMAHA_ID = 0x43;
 
   /** Sub-status: 0x00 = single voice, 0x01 = bulk dump. */
   private static final int SUB_SINGLE = 0x00;
+
   private static final int SUB_BULK = 0x01;
 
   /** Size of a single DX7 voice in bytes (excluding checksum). */
@@ -65,9 +70,7 @@ public class Dx7SyxParser {
     return parseSyx(syxData, sourceName);
   }
 
-  /**
-   * Convert a Dx7Patch back to its 312-character hex string (for internal XML storage).
-   */
+  /** Convert a Dx7Patch back to its 312-character hex string (for internal XML storage). */
   public static String patchToHex(Dx7Patch patch) {
     byte[] raw = patch.raw();
     StringBuilder sb = new StringBuilder(raw.length * 2);
@@ -187,8 +190,7 @@ public class Dx7SyxParser {
     }
 
     if (patches.isEmpty()) {
-      throw new IllegalArgumentException(
-          "No valid DX7 patches found in " + sourceName);
+      throw new IllegalArgumentException("No valid DX7 patches found in " + sourceName);
     }
 
     return patches;
@@ -200,8 +202,8 @@ public class Dx7SyxParser {
     int computed = computeChecksum(data, off, VOICE_SIZE);
     if (checksum != computed) {
       throw new IllegalArgumentException(
-          String.format("DX7 patch checksum mismatch: expected 0x%02X, computed 0x%02X",
-              checksum, computed));
+          String.format(
+              "DX7 patch checksum mismatch: expected 0x%02X, computed 0x%02X", checksum, computed));
     }
 
     // Build hex string from the 156 data bytes
@@ -214,8 +216,8 @@ public class Dx7SyxParser {
   }
 
   /**
-   * Compute the DX7 checksum: XOR of all bytes in the range.
-   * Checksum is masked to 7 bits (0-127) as per SysEx convention.
+   * Compute the DX7 checksum: XOR of all bytes in the range. Checksum is masked to 7 bits (0-127)
+   * as per SysEx convention.
    */
   static int computeChecksum(byte[] data, int off, int len) {
     int xor = 0;

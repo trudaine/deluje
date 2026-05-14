@@ -9,11 +9,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Integration tests for the 4-LFO engine with all 7 waveform types (SINE, SAW, SQUARE,
- * TRIANGLE, S_AND_H, RANDOM_WALK, WARBLER).
+ * Integration tests for the 4-LFO engine with all 7 waveform types (SINE, SAW, SQUARE, TRIANGLE,
+ * S_AND_H, RANDOM_WALK, WARBLER).
  *
- * <p>Verifies LFO array dimensions, waveform type selection, and independent
- * rate/depth/target controls.
+ * <p>Verifies LFO array dimensions, waveform type selection, and independent rate/depth/target
+ * controls.
  */
 public class MultiLfoTest {
 

@@ -29,19 +29,41 @@ public class MidiDeviceDefinition {
     this.name = name;
   }
 
-  public String getId() { return id; }
-  public void setId(String id) { this.id = id; }
+  public String getId() {
+    return id;
+  }
 
-  public String getName() { return name; }
-  public void setName(String name) { this.name = name; }
+  public void setId(String id) {
+    this.id = id;
+  }
 
-  public String getManufacturer() { return manufacturer; }
-  public void setManufacturer(String m) { this.manufacturer = m != null ? m : ""; }
+  public String getName() {
+    return name;
+  }
 
-  public String getDescription() { return description; }
-  public void setDescription(String d) { this.description = d != null ? d : ""; }
+  public void setName(String name) {
+    this.name = name;
+  }
 
-  public List<CcMapping> getCcMappings() { return ccMappings; }
+  public String getManufacturer() {
+    return manufacturer;
+  }
+
+  public void setManufacturer(String m) {
+    this.manufacturer = m != null ? m : "";
+  }
+
+  public String getDescription() {
+    return description;
+  }
+
+  public void setDescription(String d) {
+    this.description = d != null ? d : "";
+  }
+
+  public List<CcMapping> getCcMappings() {
+    return ccMappings;
+  }
 
   public void addCcMapping(CcMapping mapping) {
     ccMappings.add(mapping);

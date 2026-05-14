@@ -9,11 +9,11 @@ import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.model.AudioTrackModel;
 import org.chuck.deluge.model.ClipModel;
+import org.chuck.deluge.model.Consequence;
 import org.chuck.deluge.model.EnvelopeModel;
 import org.chuck.deluge.model.KitTrackModel;
 import org.chuck.deluge.model.LfoModel;
 import org.chuck.deluge.model.PatternModel;
-import org.chuck.deluge.model.Consequence;
 import org.chuck.deluge.model.SynthTrackModel;
 
 /** Alternative lightweight UI running purely on Java Swing (no native libs). */
@@ -38,6 +38,7 @@ public class SwingDelugeApp extends JFrame {
     grid.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
     return grid;
   }
+
   private CardLayout cardLayout;
 
   private org.chuck.deluge.model.ProjectModel currentProject =
@@ -64,122 +65,321 @@ public class SwingDelugeApp extends JFrame {
     for (int t = 0; t < n && nextRow < BridgeContract.TRACKS; t++) {
       trackEngineStart[t] = nextRow;
       boolean isKit = tracks.get(t) instanceof org.chuck.deluge.model.KitTrackModel;
-      int voices = isKit
-        ? ((org.chuck.deluge.model.KitTrackModel) tracks.get(t)).getDrums().size()
-        : 8;
+      int voices =
+          isKit ? ((org.chuck.deluge.model.KitTrackModel) tracks.get(t)).getDrums().size() : 8;
       int capped = Math.min(voices, BridgeContract.TRACKS - nextRow);
       trackVoiceCount[t] = capped;
       nextRow += capped;
     }
   }
 
-  /** Push the current project model into engine globals (G_TRACK_TYPE, samples, kit params, patterns). */
   /**
-   * Push per-step automation data for a single clip to the bridge, targeting
-   * the clip-indexed _C{n} arrays (c==0 writes to primary arrays).
+   * Push the current project model into engine globals (G_TRACK_TYPE, samples, kit params,
+   * patterns).
    */
-  private void pushClipAutomation(int trackIdx, BridgeContract br, ClipModel clip, int clipIdx, int startRow) {
+  /**
+   * Push per-step automation data for a single clip to the bridge, targeting the clip-indexed _C{n}
+   * arrays (c==0 writes to primary arrays).
+   */
+  private void pushClipAutomation(
+      int trackIdx, BridgeContract br, ClipModel clip, int clipIdx, int startRow) {
     int stepCount = clip.getStepCount();
     int engRow = startRow;
     for (int s = 0; s < stepCount; s++) {
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_LPF_FREQ, s))
-        br.setStepFilter(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_LPF_FREQ, s), clipIdx);
+        br.setStepFilter(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_LPF_FREQ, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_LPF_RES, s))
-        br.setStepRes(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_LPF_RES, s), clipIdx);
+        br.setStepRes(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_LPF_RES, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_PAN, s))
-        br.setStepPan(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_PAN, s), clipIdx);
+        br.setStepPan(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_PAN, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_DELAY, s))
-        br.setStepDelay(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_DELAY, s), clipIdx);
+        br.setStepDelay(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_DELAY, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_REVERB, s))
-        br.setStepReverb(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_REVERB, s), clipIdx);
+        br.setStepReverb(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_REVERB, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_HPF_FREQ, s))
-        br.setStepHpfFreq(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_HPF_FREQ, s), clipIdx);
+        br.setStepHpfFreq(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_HPF_FREQ, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_HPF_RES, s))
-        br.setStepHpfRes(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_HPF_RES, s), clipIdx);
+        br.setStepHpfRes(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_HPF_RES, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_MOD_FX_RATE, s))
-        br.setStepModRate(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_MOD_FX_RATE, s), clipIdx);
+        br.setStepModRate(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_MOD_FX_RATE, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_MOD_FX_DEPTH, s))
-        br.setStepModDepth(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_MOD_FX_DEPTH, s), clipIdx);
+        br.setStepModDepth(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_MOD_FX_DEPTH, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_OSC_A_VOL, s))
-        br.setStepOscAVol(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_OSC_A_VOL, s), clipIdx);
+        br.setStepOscAVol(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_OSC_A_VOL, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_OSC_B_VOL, s))
-        br.setStepOscBVol(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_OSC_B_VOL, s), clipIdx);
+        br.setStepOscBVol(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_OSC_B_VOL, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_NOISE_VOL, s))
-        br.setStepNoiseVol(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_NOISE_VOL, s), clipIdx);
+        br.setStepNoiseVol(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_NOISE_VOL, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_PITCH, s))
-        br.setStepPitch(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_PITCH, s), clipIdx);
+        br.setStepPitch(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_PITCH, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_VOLUME, s))
-        br.setStepVolume(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_VOLUME, s), clipIdx);
+        br.setStepVolume(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_VOLUME, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_0_ATTACK, s))
-        br.setStepEnv0Attack(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_0_ATTACK, s), clipIdx);
+        br.setStepEnv0Attack(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_0_ATTACK, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_0_DECAY, s))
-        br.setStepEnv0Decay(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_0_DECAY, s), clipIdx);
+        br.setStepEnv0Decay(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_0_DECAY, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_0_SUSTAIN, s))
-        br.setStepEnv0Sustain(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_0_SUSTAIN, s), clipIdx);
+        br.setStepEnv0Sustain(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_0_SUSTAIN, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_0_RELEASE, s))
-        br.setStepEnv0Release(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_0_RELEASE, s), clipIdx);
+        br.setStepEnv0Release(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_0_RELEASE, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_1_ATTACK, s))
-        br.setStepEnv1Attack(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_1_ATTACK, s), clipIdx);
+        br.setStepEnv1Attack(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_1_ATTACK, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_1_DECAY, s))
-        br.setStepEnv1Decay(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_1_DECAY, s), clipIdx);
+        br.setStepEnv1Decay(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_1_DECAY, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_1_SUSTAIN, s))
-        br.setStepEnv1Sustain(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_1_SUSTAIN, s), clipIdx);
+        br.setStepEnv1Sustain(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_1_SUSTAIN, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_1_RELEASE, s))
-        br.setStepEnv1Release(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_1_RELEASE, s), clipIdx);
+        br.setStepEnv1Release(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_1_RELEASE, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_2_ATTACK, s))
-        br.setStepEnv2Attack(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_2_ATTACK, s), clipIdx);
+        br.setStepEnv2Attack(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_2_ATTACK, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_2_DECAY, s))
-        br.setStepEnv2Decay(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_2_DECAY, s), clipIdx);
+        br.setStepEnv2Decay(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_2_DECAY, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_2_SUSTAIN, s))
-        br.setStepEnv2Sustain(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_2_SUSTAIN, s), clipIdx);
+        br.setStepEnv2Sustain(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_2_SUSTAIN, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_2_RELEASE, s))
-        br.setStepEnv2Release(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_2_RELEASE, s), clipIdx);
+        br.setStepEnv2Release(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_2_RELEASE, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_3_ATTACK, s))
-        br.setStepEnv3Attack(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_3_ATTACK, s), clipIdx);
+        br.setStepEnv3Attack(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_3_ATTACK, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_3_DECAY, s))
-        br.setStepEnv3Decay(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_3_DECAY, s), clipIdx);
+        br.setStepEnv3Decay(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_3_DECAY, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_3_SUSTAIN, s))
-        br.setStepEnv3Sustain(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_3_SUSTAIN, s), clipIdx);
+        br.setStepEnv3Sustain(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_3_SUSTAIN, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_3_RELEASE, s))
-        br.setStepEnv3Release(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_3_RELEASE, s), clipIdx);
+        br.setStepEnv3Release(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ENV_3_RELEASE, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_0_RATE, s))
-        br.setStepLfo0Rate(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_0_RATE, s), clipIdx);
+        br.setStepLfo0Rate(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_0_RATE, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_0_DEPTH, s))
-        br.setStepLfo0Depth(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_0_DEPTH, s), clipIdx);
+        br.setStepLfo0Depth(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_0_DEPTH, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_1_RATE, s))
-        br.setStepLfo1Rate(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_1_RATE, s), clipIdx);
+        br.setStepLfo1Rate(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_1_RATE, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_1_DEPTH, s))
-        br.setStepLfo1Depth(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_1_DEPTH, s), clipIdx);
+        br.setStepLfo1Depth(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_1_DEPTH, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_2_RATE, s))
-        br.setStepLfo2Rate(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_2_RATE, s), clipIdx);
+        br.setStepLfo2Rate(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_2_RATE, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_2_DEPTH, s))
-        br.setStepLfo2Depth(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_2_DEPTH, s), clipIdx);
+        br.setStepLfo2Depth(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_2_DEPTH, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_3_RATE, s))
-        br.setStepLfo3Rate(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_3_RATE, s), clipIdx);
+        br.setStepLfo3Rate(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_3_RATE, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_3_DEPTH, s))
-        br.setStepLfo3Depth(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_3_DEPTH, s), clipIdx);
+        br.setStepLfo3Depth(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_LFO_3_DEPTH, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ARP_RATE, s))
-        br.setStepArpRate(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ARP_RATE, s), clipIdx);
+        br.setStepArpRate(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ARP_RATE, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_ARP_GATE, s))
-        br.setStepArpGate(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ARP_GATE, s), clipIdx);
+        br.setStepArpGate(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_ARP_GATE, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_FM_AMOUNT, s))
-        br.setStepFmAmount(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_FM_AMOUNT, s), clipIdx);
+        br.setStepFmAmount(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_FM_AMOUNT, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_FM_RATIO, s))
-        br.setStepFmRatio(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_FM_RATIO, s), clipIdx);
+        br.setStepFmRatio(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_FM_RATIO, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_MOD_FX_FEEDBACK, s))
-        br.setStepModFxFeedback(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_MOD_FX_FEEDBACK, s), clipIdx);
+        br.setStepModFxFeedback(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_MOD_FX_FEEDBACK, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_COMP_ATTACK, s))
-        br.setStepCompAttack(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_COMP_ATTACK, s), clipIdx);
+        br.setStepCompAttack(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_COMP_ATTACK, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_COMP_RELEASE, s))
-        br.setStepCompRelease(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_COMP_RELEASE, s), clipIdx);
+        br.setStepCompRelease(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_COMP_RELEASE, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_PORTAMENTO, s))
-        br.setStepPortamento(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_PORTAMENTO, s), clipIdx);
+        br.setStepPortamento(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_PORTAMENTO, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_STUTTER_RATE, s))
-        br.setStepStutter(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_STUTTER_RATE, s), clipIdx);
+        br.setStepStutter(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_STUTTER_RATE, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_BITCRUSH, s))
-        br.setStepBitcrush(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_BITCRUSH, s), clipIdx);
+        br.setStepBitcrush(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_BITCRUSH, s),
+            clipIdx);
       if (clip.hasAutomation(org.chuck.deluge.model.AutomationParam.A_SAMPLE_RATE_RED, s))
-        br.setStepSrr(engRow, s, clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_SAMPLE_RATE_RED, s), clipIdx);
+        br.setStepSrr(
+            engRow,
+            s,
+            clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_SAMPLE_RATE_RED, s),
+            clipIdx);
     }
   }
 
@@ -220,13 +420,18 @@ public class SwingDelugeApp extends JFrame {
         java.util.List<org.chuck.deluge.model.Drum> sounds = kit.getDrums();
         for (int v = 0; v < voiceCount; v++) {
           int engineRow = startRow + v;
-          String path = v < sounds.size() ? ((org.chuck.deluge.model.SoundDrum) sounds.get(sounds.size() - 1 - v)).getSamplePath() : "";
+          String path =
+              v < sounds.size()
+                  ? ((org.chuck.deluge.model.SoundDrum) sounds.get(sounds.size() - 1 - v))
+                      .getSamplePath()
+                  : "";
           vm.setGlobalString("g_sample_" + engineRow, path);
           bridge.setSamplePath(engineRow, path);
 
           // ── Zone (sample truncation) ──
           if (v < sounds.size()) {
-            org.chuck.deluge.model.SoundDrum snd = (org.chuck.deluge.model.SoundDrum) sounds.get(sounds.size() - 1 - v);
+            org.chuck.deluge.model.SoundDrum snd =
+                (org.chuck.deluge.model.SoundDrum) sounds.get(sounds.size() - 1 - v);
             float[] range = org.chuck.deluge.BridgeContract.computeNormalizedRange(snd, path);
             if (range[0] > 0.0f || range[1] < 1.0f) {
               bridge.setSampleRange(engineRow, range[0], range[1]);
@@ -234,7 +439,8 @@ public class SwingDelugeApp extends JFrame {
           }
 
           if (v < sounds.size()) {
-            org.chuck.deluge.model.SoundDrum snd = (org.chuck.deluge.model.SoundDrum) sounds.get(sounds.size() - 1 - v);
+            org.chuck.deluge.model.SoundDrum snd =
+                (org.chuck.deluge.model.SoundDrum) sounds.get(sounds.size() - 1 - v);
             try {
               ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_PITCH))
                   .setFloat(engineRow, snd.getPitchSemitones());
@@ -314,14 +520,25 @@ public class SwingDelugeApp extends JFrame {
               int lfoBase = Math.min(v * 2, BridgeContract.LFO_COUNT - 2);
               LfoModel lfo1 = snd.getLfo1();
               if (lfo1 != null && lfoBase < BridgeContract.LFO_COUNT) {
-                  bridge.setLfo(lfoBase, lfo1.rateHz(), lfo1.waveform().ordinal(), lfo1.depth(), lfo1.syncLevel());
+                bridge.setLfo(
+                    lfoBase,
+                    lfo1.rateHz(),
+                    lfo1.waveform().ordinal(),
+                    lfo1.depth(),
+                    lfo1.syncLevel());
               }
               LfoModel lfo2 = snd.getLfo2();
               if (lfo2 != null && lfoBase + 1 < BridgeContract.LFO_COUNT) {
-                  bridge.setLfo(lfoBase + 1, lfo2.rateHz(), lfo2.waveform().ordinal(), lfo2.depth(), lfo2.syncLevel());
+                bridge.setLfo(
+                    lfoBase + 1,
+                    lfo2.rateHz(),
+                    lfo2.waveform().ordinal(),
+                    lfo2.depth(),
+                    lfo2.syncLevel());
               }
             } catch (Exception ex) {
-              System.err.println("[pushModel] kit param error at row " + engineRow + ": " + ex.getMessage());
+              System.err.println(
+                  "[pushModel] kit param error at row " + engineRow + ": " + ex.getMessage());
             }
           }
         }
@@ -348,7 +565,8 @@ public class SwingDelugeApp extends JFrame {
         int activeClipIdx = synth.getActiveClipIndex();
         int totalSynthRows = voiceCount;
         if (activeClipIdx >= 0 && activeClipIdx < synth.getClips().size()) {
-          totalSynthRows = Math.max(totalSynthRows, synth.getClips().get(activeClipIdx).getRowCount());
+          totalSynthRows =
+              Math.max(totalSynthRows, synth.getClips().get(activeClipIdx).getRowCount());
         }
         for (int v = 0; v < totalSynthRows; v++) {
           bridge.setTrackType(startRow + v, 1);
@@ -409,7 +627,8 @@ public class SwingDelugeApp extends JFrame {
           org.chuck.deluge.model.EnvelopeModel adsr = synth.getEnv(e);
           if (adsr != null) {
             for (int v = 0; v < totalSynthRows; v++) {
-              bridge.setEnv(startRow + v, e, adsr.attack(), adsr.decay(), adsr.sustain(), adsr.release());
+              bridge.setEnv(
+                  startRow + v, e, adsr.attack(), adsr.decay(), adsr.sustain(), adsr.release());
             }
           }
         }
@@ -436,31 +655,34 @@ public class SwingDelugeApp extends JFrame {
         // Push arp params to ALL rows
         org.chuck.deluge.model.ArpModel arp = synth.getArp();
         if (arp != null) {
-          int arpMode = switch (arp.mode()) {
-            case "DOWN" -> 1;
-            case "UP_DOWN" -> 2;
-            case "RANDOM" -> 3;
-            case "WALK" -> 4;
-            default -> 0; // UP
-          };
-          int arpNoteMode = switch (arp.noteMode()) {
-            case "DOWN" -> 1;
-            case "UPDN" -> 2;
-            case "RAND" -> 3;
-            case "WLK1" -> 4;
-            case "WLK2" -> 5;
-            case "WLK3" -> 6;
-            case "PLAY" -> 7;
-            case "PATT" -> 8;
-            default -> 0; // UP
-          };
-          int arpOctaveMode = switch (arp.octaveMode()) {
-            case "DOWN" -> 1;
-            case "UPDN" -> 2;
-            case "ALT" -> 3;
-            case "RAND" -> 4;
-            default -> 0; // UP
-          };
+          int arpMode =
+              switch (arp.mode()) {
+                case "DOWN" -> 1;
+                case "UP_DOWN" -> 2;
+                case "RANDOM" -> 3;
+                case "WALK" -> 4;
+                default -> 0; // UP
+              };
+          int arpNoteMode =
+              switch (arp.noteMode()) {
+                case "DOWN" -> 1;
+                case "UPDN" -> 2;
+                case "RAND" -> 3;
+                case "WLK1" -> 4;
+                case "WLK2" -> 5;
+                case "WLK3" -> 6;
+                case "PLAY" -> 7;
+                case "PATT" -> 8;
+                default -> 0; // UP
+              };
+          int arpOctaveMode =
+              switch (arp.octaveMode()) {
+                case "DOWN" -> 1;
+                case "UPDN" -> 2;
+                case "ALT" -> 3;
+                case "RAND" -> 4;
+                default -> 0; // UP
+              };
           for (int v = 0; v < totalSynthRows; v++) {
             bridge.setArpOn(startRow + v, arp.active());
             bridge.setArpRate(startRow + v, arp.rate());
@@ -582,7 +804,8 @@ public class SwingDelugeApp extends JFrame {
             for (int v = 0; v < totalSynthRows; v++) {
               vm.setGlobalInt("g_dx7_opSwitch_" + (startRow + v), opSwitch);
             }
-          } catch (Exception ignored) {}
+          } catch (Exception ignored) {
+          }
         }
       } else if (track instanceof org.chuck.deluge.model.AudioTrackModel audio) {
         // Mark engine row as type-2 (audio)
@@ -693,9 +916,12 @@ public class SwingDelugeApp extends JFrame {
     vm.setGlobalFloat(BridgeContract.G_REVERB_HPF, currentProject.getReverbHpf());
     vm.setGlobalFloat(BridgeContract.G_REVERB_PAN, currentProject.getReverbPan());
     vm.setGlobalInt(BridgeContract.G_REVERB_MODEL, currentProject.getReverbModel());
-    vm.setGlobalFloat(BridgeContract.G_REVERB_COMP_ATTACK, currentProject.getReverbCompressorAttack());
-    vm.setGlobalFloat(BridgeContract.G_REVERB_COMP_RELEASE, currentProject.getReverbCompressorRelease());
-    vm.setGlobalInt(BridgeContract.G_REVERB_COMP_SYNC_LEVEL, currentProject.getReverbCompressorSyncLevel());
+    vm.setGlobalFloat(
+        BridgeContract.G_REVERB_COMP_ATTACK, currentProject.getReverbCompressorAttack());
+    vm.setGlobalFloat(
+        BridgeContract.G_REVERB_COMP_RELEASE, currentProject.getReverbCompressorRelease());
+    vm.setGlobalInt(
+        BridgeContract.G_REVERB_COMP_SYNC_LEVEL, currentProject.getReverbCompressorSyncLevel());
     vm.setGlobalFloat(BridgeContract.G_REVERB_COMP_HPF, currentProject.getReverbCompHpf());
     vm.setGlobalFloat(BridgeContract.G_REVERB_COMP_BLEND, currentProject.getReverbCompBlend());
 
@@ -726,16 +952,22 @@ public class SwingDelugeApp extends JFrame {
     vm.setGlobalFloat(BridgeContract.G_SP_PAN, currentProject.getSongParamPan());
     vm.setGlobalFloat(BridgeContract.G_SP_REVERB_AMOUNT, currentProject.getSongParamReverbAmount());
     vm.setGlobalFloat(BridgeContract.G_SP_DELAY_RATE, currentProject.getSongParamDelayRate());
-    vm.setGlobalFloat(BridgeContract.G_SP_DELAY_FEEDBACK, currentProject.getSongParamDelayFeedback());
-    vm.setGlobalFloat(BridgeContract.G_SP_SIDECHAIN_SHAPE, currentProject.getSongParamSidechainShape());
+    vm.setGlobalFloat(
+        BridgeContract.G_SP_DELAY_FEEDBACK, currentProject.getSongParamDelayFeedback());
+    vm.setGlobalFloat(
+        BridgeContract.G_SP_SIDECHAIN_SHAPE, currentProject.getSongParamSidechainShape());
     vm.setGlobalFloat(BridgeContract.G_SP_STUTTER_RATE, currentProject.getSongParamStutterRate());
-    vm.setGlobalFloat(BridgeContract.G_SP_SAMPLE_RATE_REDUCTION, currentProject.getSongParamSampleRateReduction());
+    vm.setGlobalFloat(
+        BridgeContract.G_SP_SAMPLE_RATE_REDUCTION,
+        currentProject.getSongParamSampleRateReduction());
     vm.setGlobalFloat(BridgeContract.G_SP_BITCRUSH, currentProject.getSongParamBitCrush());
     vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_RATE, currentProject.getSongParamModFXRate());
     vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_DEPTH, currentProject.getSongParamModFXDepth());
     vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_OFFSET, currentProject.getSongParamModFXOffset());
-    vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_FEEDBACK, currentProject.getSongParamModFXFeedback());
-    vm.setGlobalFloat(BridgeContract.G_SP_COMPRESSOR_THRESHOLD, currentProject.getSongParamCompressorThreshold());
+    vm.setGlobalFloat(
+        BridgeContract.G_SP_MOD_FX_FEEDBACK, currentProject.getSongParamModFXFeedback());
+    vm.setGlobalFloat(
+        BridgeContract.G_SP_COMPRESSOR_THRESHOLD, currentProject.getSongParamCompressorThreshold());
     vm.setGlobalFloat(BridgeContract.G_SP_LPF_MORPH, currentProject.getSongParamLpfMorph());
     vm.setGlobalFloat(BridgeContract.G_SP_HPF_MORPH, currentProject.getSongParamHpfMorph());
     vm.setGlobalFloat(BridgeContract.G_SP_LPF_FREQ, currentProject.getSongParamLpfFrequency());
@@ -744,12 +976,15 @@ public class SwingDelugeApp extends JFrame {
     vm.setGlobalFloat(BridgeContract.G_SP_HPF_RES, currentProject.getSongParamHpfResonance());
     vm.setGlobalFloat(BridgeContract.G_SP_EQ_BASS, currentProject.getSongParamEqBass());
     vm.setGlobalFloat(BridgeContract.G_SP_EQ_TREBLE, currentProject.getSongParamEqTreble());
-    vm.setGlobalFloat(BridgeContract.G_SP_EQ_BASS_FREQ, currentProject.getSongParamEqBassFrequency());
-    vm.setGlobalFloat(BridgeContract.G_SP_EQ_TREBLE_FREQ, currentProject.getSongParamEqTrebleFrequency());
+    vm.setGlobalFloat(
+        BridgeContract.G_SP_EQ_BASS_FREQ, currentProject.getSongParamEqBassFrequency());
+    vm.setGlobalFloat(
+        BridgeContract.G_SP_EQ_TREBLE_FREQ, currentProject.getSongParamEqTrebleFrequency());
 
     // ── Scales globals ──
     vm.setGlobalInt(BridgeContract.G_USER_SCALE, currentProject.getUserScale());
-    vm.setGlobalInt(BridgeContract.G_DISABLED_PRESET_SCALES, currentProject.getDisabledPresetScales());
+    vm.setGlobalInt(
+        BridgeContract.G_DISABLED_PRESET_SCALES, currentProject.getDisabledPresetScales());
     boolean[] modeNotes = currentProject.getModeNotes();
     if (modeNotes != null) {
       for (int i = 0; i < 12 && i < modeNotes.length; i++) {
@@ -794,25 +1029,30 @@ public class SwingDelugeApp extends JFrame {
     }
 
     // ── Push hardware character preferences to engine globals ──
-    vm.setGlobalFloat(BridgeContract.G_MASTER_SATURATION,
+    vm.setGlobalFloat(
+        BridgeContract.G_MASTER_SATURATION,
         org.chuck.deluge.project.PreferencesManager.isMasterSaturationEnabled() ? 1.0f : 0.0f);
-    vm.setGlobalFloat(BridgeContract.G_CHAR_FILTER_DRIVE,
+    vm.setGlobalFloat(
+        BridgeContract.G_CHAR_FILTER_DRIVE,
         org.chuck.deluge.project.PreferencesManager.isFilterDriveEnabled() ? 1.0f : 0.0f);
-    vm.setGlobalFloat(BridgeContract.G_BIT_CRUNCH,
+    vm.setGlobalFloat(
+        BridgeContract.G_BIT_CRUNCH,
         org.chuck.deluge.project.PreferencesManager.isBitCrunchEnabled() ? 1.0f : 0.0f);
 
-    // Reverb model is already pushed via PreferencesManager.get("reverb.model") in loadProject — skip here
+    // Reverb model is already pushed via PreferencesManager.get("reverb.model") in loadProject —
+    // skip here
   }
 
   /**
    * Override song-level FX parameters (G_SP_* globals) with the active clip's per-clip FX params.
    *
    * <p>For synth/kit tracks, reads {@link ClipModel#getKitParams()} (a {@code Map<String, Float>}).
-   * For audio tracks, reads typed fields from {@link org.chuck.deluge.model.AudioTrackModel.AudioClip} getters.
-   * If the clip has no override for a given parameter, the song-level default is preserved.
+   * For audio tracks, reads typed fields from {@link
+   * org.chuck.deluge.model.AudioTrackModel.AudioClip} getters. If the clip has no override for a
+   * given parameter, the song-level default is preserved.
    *
-   * <p>This implements the real Deluge firmware's GlobalEffectable pattern where InstrumentClip
-   * can override Song-level FX parameters.
+   * <p>This implements the real Deluge firmware's GlobalEffectable pattern where InstrumentClip can
+   * override Song-level FX parameters.
    */
   private void applyClipFxOverrides(int track, int clipIdx) {
     java.util.List<org.chuck.deluge.model.TrackModel> tracks = currentProject.getTracks();
@@ -858,10 +1098,8 @@ public class SwingDelugeApp extends JFrame {
     if (kp == null || kp.isEmpty()) return;
 
     // For each G_SP_* global: clip override if present, otherwise song default (already set above)
-    if (kp.containsKey("volume"))
-      vm.setGlobalFloat(BridgeContract.G_SP_VOLUME, kp.get("volume"));
-    if (kp.containsKey("pan"))
-      vm.setGlobalFloat(BridgeContract.G_SP_PAN, kp.get("pan"));
+    if (kp.containsKey("volume")) vm.setGlobalFloat(BridgeContract.G_SP_VOLUME, kp.get("volume"));
+    if (kp.containsKey("pan")) vm.setGlobalFloat(BridgeContract.G_SP_PAN, kp.get("pan"));
     if (kp.containsKey("reverbAmount"))
       vm.setGlobalFloat(BridgeContract.G_SP_REVERB_AMOUNT, kp.get("reverbAmount"));
     if (kp.containsKey("delayRate"))
@@ -898,8 +1136,7 @@ public class SwingDelugeApp extends JFrame {
       vm.setGlobalFloat(BridgeContract.G_SP_HPF_FREQ, kp.get("hpfFrequency"));
     if (kp.containsKey("hpfResonance"))
       vm.setGlobalFloat(BridgeContract.G_SP_HPF_RES, kp.get("hpfResonance"));
-    if (kp.containsKey("eqBass"))
-      vm.setGlobalFloat(BridgeContract.G_SP_EQ_BASS, kp.get("eqBass"));
+    if (kp.containsKey("eqBass")) vm.setGlobalFloat(BridgeContract.G_SP_EQ_BASS, kp.get("eqBass"));
     if (kp.containsKey("eqTreble"))
       vm.setGlobalFloat(BridgeContract.G_SP_EQ_TREBLE, kp.get("eqTreble"));
     if (kp.containsKey("eqBassFrequency"))
@@ -987,7 +1224,9 @@ public class SwingDelugeApp extends JFrame {
                                   c.open(stream);
                                   c.start();
                                 }
-                              } catch (IOException | LineUnavailableException | UnsupportedAudioFileException ex) {
+                              } catch (IOException
+                                  | LineUnavailableException
+                                  | UnsupportedAudioFileException ex) {
                               }
                             })
                         .start();
@@ -1063,7 +1302,7 @@ public class SwingDelugeApp extends JFrame {
               if (tapTimes.size() >= 2) {
                 long[] arr = tapTimes.stream().mapToLong(Long::longValue).toArray();
                 long totalGap = arr[arr.length - 1] - arr[0];
-                double avgGap = totalGap / (double)(arr.length - 1);
+                double avgGap = totalGap / (double) (arr.length - 1);
                 double bpm = 60000.0 / avgGap;
                 bpm = Math.max(20, Math.min(300, bpm));
                 bridge.setBpm(bpm);
@@ -1125,18 +1364,21 @@ public class SwingDelugeApp extends JFrame {
     var stack = currentProject.getUndoRedoStack();
     if (!stack.canUndo()) return;
     var action = stack.peekUndo();
-      switch (action) {
-          case Consequence.TrackStructureConsequence tsc -> {
-              handleTrackStructUndoRedo(tsc, true);
-              stack.undo();
-          }     case Consequence.ClipStructureConsequence csc -> {
-              handleClipStructUndoRedo(csc, true);
-              stack.undo();
-          }     case Consequence.PatternLoadConsequence plc -> {
-              handlePatternLoadUndoRedo(plc, true);
-              stack.undo();
-          }     default -> stack.undo();
+    switch (action) {
+      case Consequence.TrackStructureConsequence tsc -> {
+        handleTrackStructUndoRedo(tsc, true);
+        stack.undo();
       }
+      case Consequence.ClipStructureConsequence csc -> {
+        handleClipStructUndoRedo(csc, true);
+        stack.undo();
+      }
+      case Consequence.PatternLoadConsequence plc -> {
+        handlePatternLoadUndoRedo(plc, true);
+        stack.undo();
+      }
+      default -> stack.undo();
+    }
     pushModelToBridge();
     refreshGrids();
   }
@@ -1146,23 +1388,27 @@ public class SwingDelugeApp extends JFrame {
     var stack = currentProject.getUndoRedoStack();
     if (!stack.canRedo()) return;
     var action = stack.peekRedo();
-      switch (action) {
-          case Consequence.TrackStructureConsequence tsc -> {
-              handleTrackStructUndoRedo(tsc, false);
-              stack.redo();
-          }     case Consequence.ClipStructureConsequence csc -> {
-              handleClipStructUndoRedo(csc, false);
-              stack.redo();
-          }     case Consequence.PatternLoadConsequence plc -> {
-              handlePatternLoadUndoRedo(plc, false);
-              stack.redo();
-          }     default -> stack.redo();
+    switch (action) {
+      case Consequence.TrackStructureConsequence tsc -> {
+        handleTrackStructUndoRedo(tsc, false);
+        stack.redo();
       }
+      case Consequence.ClipStructureConsequence csc -> {
+        handleClipStructUndoRedo(csc, false);
+        stack.redo();
+      }
+      case Consequence.PatternLoadConsequence plc -> {
+        handlePatternLoadUndoRedo(plc, false);
+        stack.redo();
+      }
+      default -> stack.redo();
+    }
     pushModelToBridge();
     refreshGrids();
   }
 
-  private void handleTrackStructUndoRedo(Consequence.TrackStructureConsequence tsc, boolean isUndo) {
+  private void handleTrackStructUndoRedo(
+      Consequence.TrackStructureConsequence tsc, boolean isUndo) {
     var tracks = currentProject.getTracks();
     int idx = tsc.index();
     switch (tsc.operation()) {
@@ -1270,7 +1516,8 @@ public class SwingDelugeApp extends JFrame {
     // Return whichever panel is currently visible
     for (java.awt.Component comp : centerCardPanel.getComponents()) {
       if (comp.isVisible() && comp instanceof SwingGridPanel sgp) return sgp;
-      if (comp.isVisible() && comp instanceof JScrollPane sp
+      if (comp.isVisible()
+          && comp instanceof JScrollPane sp
           && sp.getViewport().getView() instanceof SwingGridPanel sgp) return sgp;
     }
     return clipPanel;
@@ -1305,27 +1552,29 @@ public class SwingDelugeApp extends JFrame {
   }
 
   /**
-   * Save the active clip of the currently focused track as a pattern XML file.
-   * Prompts the user for a file location under the PATTERNS directory.
+   * Save the active clip of the currently focused track as a pattern XML file. Prompts the user for
+   * a file location under the PATTERNS directory.
    */
   private void saveCurrentClipAsPattern() {
     SwingGridPanel active = activeGridPanel();
     if (active == null) return;
     int focusTrack = active.getFocusTrack();
     if (focusTrack < 0 || focusTrack >= currentProject.getTracks().size()) {
-      JOptionPane.showMessageDialog(this, "No track selected.", "Save Pattern", JOptionPane.WARNING_MESSAGE);
+      JOptionPane.showMessageDialog(
+          this, "No track selected.", "Save Pattern", JOptionPane.WARNING_MESSAGE);
       return;
     }
     var track = currentProject.getTracks().get(focusTrack);
     int clipIdx = track.getActiveClipIndex();
     if (clipIdx < 0 || clipIdx >= track.getClips().size()) {
-      JOptionPane.showMessageDialog(this, "Active clip not found.", "Save Pattern", JOptionPane.WARNING_MESSAGE);
+      JOptionPane.showMessageDialog(
+          this, "Active clip not found.", "Save Pattern", JOptionPane.WARNING_MESSAGE);
       return;
     }
     ClipModel clip = track.getClips().get(clipIdx);
 
-    JFileChooser chooser = new JFileChooser(
-        org.chuck.deluge.project.PreferencesManager.getPatternsDir());
+    JFileChooser chooser =
+        new JFileChooser(org.chuck.deluge.project.PreferencesManager.getPatternsDir());
     chooser.setDialogTitle("Save Pattern");
     chooser.setFileFilter(
         new javax.swing.filechooser.FileNameExtensionFilter("Pattern XML", "xml", "XML"));
@@ -1339,34 +1588,38 @@ public class SwingDelugeApp extends JFrame {
     }
 
     try {
-      PatternModel pattern = new PatternModel(java.util.UUID.randomUUID().toString(), clip.getName());
+      PatternModel pattern =
+          new PatternModel(java.util.UUID.randomUUID().toString(), clip.getName());
       pattern.setCategory("MELODIC");
 
-      PatternModel.ClipSnapshot snap = PatternModel.ClipSnapshot.fromClipModel(
-          clip, focusTrack, track.getName());
+      PatternModel.ClipSnapshot snap =
+          PatternModel.ClipSnapshot.fromClipModel(clip, focusTrack, track.getName());
       snap.setInstrumentSlot(track.getName());
       snap.setColourHex(track.getColourHex());
       pattern.addClipSnapshot(snap);
 
       org.chuck.deluge.project.PatternSerializer.save(pattern, target);
-      JOptionPane.showMessageDialog(this, "Pattern saved:\n" + target.getName(),
-          "Save Pattern", JOptionPane.INFORMATION_MESSAGE);
+      JOptionPane.showMessageDialog(
+          this,
+          "Pattern saved:\n" + target.getName(),
+          "Save Pattern",
+          JOptionPane.INFORMATION_MESSAGE);
     } catch (Exception ex) {
-      JOptionPane.showMessageDialog(this, "Failed to save pattern:\n" + ex.getMessage(),
-          "Error", JOptionPane.ERROR_MESSAGE);
+      JOptionPane.showMessageDialog(
+          this, "Failed to save pattern:\n" + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
     }
   }
 
   /**
-   * Load a pattern from an XML file and apply it to the active clip of the focused track.
-   * Prompts the user to select a target track if the focused track doesn't have a compatible clip.
+   * Load a pattern from an XML file and apply it to the active clip of the focused track. Prompts
+   * the user to select a target track if the focused track doesn't have a compatible clip.
    */
   private void loadPatternIntoActiveTrack(java.io.File patternFile) {
     try {
       PatternModel pattern = org.chuck.deluge.project.PatternSerializer.load(patternFile);
       if (pattern.getClipSnapshots().isEmpty()) {
-        JOptionPane.showMessageDialog(this, "Pattern file contains no clips.",
-            "Load Pattern", JOptionPane.WARNING_MESSAGE);
+        JOptionPane.showMessageDialog(
+            this, "Pattern file contains no clips.", "Load Pattern", JOptionPane.WARNING_MESSAGE);
         return;
       }
 
@@ -1378,36 +1631,46 @@ public class SwingDelugeApp extends JFrame {
       var track = currentProject.getTracks().get(focusTrack);
       int clipIdx = track.getActiveClipIndex();
       if (clipIdx < 0 || clipIdx >= track.getClips().size()) {
-        JOptionPane.showMessageDialog(this, "Active clip not found on target track.",
-            "Load Pattern", JOptionPane.WARNING_MESSAGE);
+        JOptionPane.showMessageDialog(
+            this,
+            "Active clip not found on target track.",
+            "Load Pattern",
+            JOptionPane.WARNING_MESSAGE);
         return;
       }
       ClipModel clip = track.getClips().get(clipIdx);
 
       // Capture before-snapshot for undo
-      var beforeSnapshot = PatternModel.ClipSnapshot.fromClipModel(clip, focusTrack, track.getName());
+      var beforeSnapshot =
+          PatternModel.ClipSnapshot.fromClipModel(clip, focusTrack, track.getName());
 
       // Apply the first clip snapshot to the active clip
       pattern.getClipSnapshots().get(0).applyTo(clip);
 
       // Push undo: re-apply the old snapshot
-      var afterSnapshot = PatternModel.ClipSnapshot.fromClipModel(clip, focusTrack, track.getName());
-      currentProject.getUndoRedoStack().push(
-          new Consequence.CompoundConsequence("Load pattern",
-              java.util.List.of(
-                  new Consequence.PatternLoadConsequence(
-                      focusTrack, clipIdx, beforeSnapshot, afterSnapshot))));
+      var afterSnapshot =
+          PatternModel.ClipSnapshot.fromClipModel(clip, focusTrack, track.getName());
+      currentProject
+          .getUndoRedoStack()
+          .push(
+              new Consequence.CompoundConsequence(
+                  "Load pattern",
+                  java.util.List.of(
+                      new Consequence.PatternLoadConsequence(
+                          focusTrack, clipIdx, beforeSnapshot, afterSnapshot))));
 
       pushModelToBridge();
       propagateCurrentModel();
       refreshGrids();
 
-      JOptionPane.showMessageDialog(this,
+      JOptionPane.showMessageDialog(
+          this,
           "Pattern loaded into: " + track.getName(),
-          "Load Pattern", JOptionPane.INFORMATION_MESSAGE);
+          "Load Pattern",
+          JOptionPane.INFORMATION_MESSAGE);
     } catch (Exception ex) {
-      JOptionPane.showMessageDialog(this, "Failed to load pattern:\n" + ex.getMessage(),
-          "Error", JOptionPane.ERROR_MESSAGE);
+      JOptionPane.showMessageDialog(
+          this, "Failed to load pattern:\n" + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
     }
   }
 
@@ -1424,18 +1687,19 @@ public class SwingDelugeApp extends JFrame {
       String content = new String(java.nio.file.Files.readAllBytes(file.toPath()));
       vm.eval(content);
       JOptionPane.showMessageDialog(
-          this, "Script loaded successfully:\n" + file.getName(),
-          "Script Loaded", JOptionPane.INFORMATION_MESSAGE);
+          this,
+          "Script loaded successfully:\n" + file.getName(),
+          "Script Loaded",
+          JOptionPane.INFORMATION_MESSAGE);
     } catch (HeadlessException | IOException ex) {
       JOptionPane.showMessageDialog(
-          this, "Failed to load script:\n" + ex.getMessage(),
-          "Error", JOptionPane.ERROR_MESSAGE);
+          this, "Failed to load script:\n" + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
     }
   }
 
   private void assembleKitFromSynths() {
-    JFileChooser chooser = new JFileChooser(
-        org.chuck.deluge.project.PreferencesManager.getSongsDir());
+    JFileChooser chooser =
+        new JFileChooser(org.chuck.deluge.project.PreferencesManager.getSongsDir());
     chooser.setDialogTitle("Select Synth Preset XML Files");
     chooser.setMultiSelectionEnabled(true);
     chooser.setFileFilter(
@@ -1465,21 +1729,31 @@ public class SwingDelugeApp extends JFrame {
 
       c.gridy = i;
       c.gridwidth = 1;
-      configPanel.add(new JLabel((i + 1) + ":"), c); c.gridx = 1;
-      configPanel.add(nameFld, c); c.gridx = 2;
-      configPanel.add(new JLabel("MG:"), c); c.gridx = 3;
-      configPanel.add(muteSpinner, c); c.gridx = 4;
-      configPanel.add(new JLabel("Pitch:"), c); c.gridx = 5;
-      configPanel.add(pitchSpinner, c); c.gridx = 0;
+      configPanel.add(new JLabel((i + 1) + ":"), c);
+      c.gridx = 1;
+      configPanel.add(nameFld, c);
+      c.gridx = 2;
+      configPanel.add(new JLabel("MG:"), c);
+      c.gridx = 3;
+      configPanel.add(muteSpinner, c);
+      c.gridx = 4;
+      configPanel.add(new JLabel("Pitch:"), c);
+      c.gridx = 5;
+      configPanel.add(pitchSpinner, c);
+      c.gridx = 0;
 
       nameFields.add(nameFld);
       muteFields.add(muteSpinner);
       pitchFields.add(pitchSpinner);
     }
 
-    int result = JOptionPane.showConfirmDialog(
-        this, configPanel, "Configure Kit Lanes",
-        JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+    int result =
+        JOptionPane.showConfirmDialog(
+            this,
+            configPanel,
+            "Configure Kit Lanes",
+            JOptionPane.OK_CANCEL_OPTION,
+            JOptionPane.PLAIN_MESSAGE);
     if (result != JOptionPane.OK_OPTION) return;
 
     try {
@@ -1495,13 +1769,10 @@ public class SwingDelugeApp extends JFrame {
 
       org.chuck.deluge.model.KitTrackModel kit =
           org.chuck.deluge.kit.KitAssembler.assembleFromSynths(
-              kitName,
-              java.util.Arrays.asList(selected),
-              muteGroups,
-              pitchOffsets);
+              kitName, java.util.Arrays.asList(selected), muteGroups, pitchOffsets);
 
-      JFileChooser saveChooser = new JFileChooser(
-          org.chuck.deluge.project.PreferencesManager.getSongsDir());
+      JFileChooser saveChooser =
+          new JFileChooser(org.chuck.deluge.project.PreferencesManager.getSongsDir());
       saveChooser.setDialogTitle("Save Kit As");
       saveChooser.setFileFilter(
           new javax.swing.filechooser.FileNameExtensionFilter("Kit XML", "xml", "XML"));
@@ -1515,12 +1786,13 @@ public class SwingDelugeApp extends JFrame {
       org.chuck.deluge.project.KitSynthSerializer.saveKit(kit, saveFile);
 
       JOptionPane.showMessageDialog(
-          this, "Kit saved to:\n" + saveFile.getAbsolutePath(),
-          "Kit Assembly Complete", JOptionPane.INFORMATION_MESSAGE);
+          this,
+          "Kit saved to:\n" + saveFile.getAbsolutePath(),
+          "Kit Assembly Complete",
+          JOptionPane.INFORMATION_MESSAGE);
     } catch (Exception ex) {
       JOptionPane.showMessageDialog(
-          this, "Failed to assemble kit:\n" + ex.getMessage(),
-          "Error", JOptionPane.ERROR_MESSAGE);
+          this, "Failed to assemble kit:\n" + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
       ex.printStackTrace();
     }
   }
@@ -1632,18 +1904,21 @@ public class SwingDelugeApp extends JFrame {
     JMenuItem prefItem = new JMenuItem("Preferences...");
     prefItem.addActionListener(
         e -> {
-          PreferencesDialog dialog = new PreferencesDialog(
-              SwingDelugeApp.this, () -> {
-                org.chuck.deluge.project.PreferencesManager.GridMode mode =
-                    org.chuck.deluge.project.PreferencesManager.getGridMode();
-                if (clipPanel != null) clipPanel.setGridMode(mode);
-                if (songPanel != null) songPanel.setGridMode(mode);
-                if (arrGridPanel != null) arrGridPanel.setGridMode(mode);
-                recalcWrapperSize();
-              }, () -> {
-                sidebarPanel.reloadLibrary();
-                floatingSidebar.reloadLibrary();
-              });
+          PreferencesDialog dialog =
+              new PreferencesDialog(
+                  SwingDelugeApp.this,
+                  () -> {
+                    org.chuck.deluge.project.PreferencesManager.GridMode mode =
+                        org.chuck.deluge.project.PreferencesManager.getGridMode();
+                    if (clipPanel != null) clipPanel.setGridMode(mode);
+                    if (songPanel != null) songPanel.setGridMode(mode);
+                    if (arrGridPanel != null) arrGridPanel.setGridMode(mode);
+                    recalcWrapperSize();
+                  },
+                  () -> {
+                    sidebarPanel.reloadLibrary();
+                    floatingSidebar.reloadLibrary();
+                  });
           if (midiService != null) dialog.setMappings(midiService.getMappings());
           dialog.setVisible(true);
         });
@@ -1724,11 +1999,12 @@ public class SwingDelugeApp extends JFrame {
     clipPanel.setViewMode(SwingGridPanel.GridViewMode.CLIP);
     clipPanel.setProjectModel(currentProject);
     clipPanel.setOnProjectChanged(this::propagateCurrentModel);
-    clipPanel.setOnClipChanged(() -> {
-      propagateCurrentModel();
-      pushModelToBridge();
-      clipPanel.refresh();
-    });
+    clipPanel.setOnClipChanged(
+        () -> {
+          propagateCurrentModel();
+          pushModelToBridge();
+          clipPanel.refresh();
+        });
     centerCardPanel.add(wrapGridPanel(clipPanel), "CLIP");
 
     songPanel = new SwingGridPanel(vm, bridge);
@@ -1754,15 +2030,14 @@ public class SwingDelugeApp extends JFrame {
     centerCardPanel.add(performancePanel, "PERF");
 
     topBar =
-        new SwingTopBarPanel(
-            vm,
-            currentProject,
-            leftFloat,
-            rightFloat,
-            new AppTopBarListener());
+        new SwingTopBarPanel(vm, currentProject, leftFloat, rightFloat, new AppTopBarListener());
 
     // DEBUG: solid background colors to visualize panel sizes
-    System.out.println("DEBUG setupUI: topBar bg=" + topBar.getBackground() + " contentPane bg=" + getContentPane().getBackground());
+    System.out.println(
+        "DEBUG setupUI: topBar bg="
+            + topBar.getBackground()
+            + " contentPane bg="
+            + getContentPane().getBackground());
 
     JPanel topBarWrapper = new JPanel();
     topBarWrapper.setLayout(new BoxLayout(topBarWrapper, BoxLayout.Y_AXIS));
@@ -1786,8 +2061,7 @@ public class SwingDelugeApp extends JFrame {
 
     // 2. Left Area (SD Card / Editors)
     sidebarPanel = new SwingProjectSidebarPanel(vm, bridge, midiService);
-    floatingSidebar =
-        new SwingProjectSidebarPanel(vm, bridge, midiService);
+    floatingSidebar = new SwingProjectSidebarPanel(vm, bridge, midiService);
     sidebarPanel.setOnSongLoaded(
         model -> {
           // Load shared project state (clears pattern, updates all panels, fires engine reload)
@@ -1820,22 +2094,24 @@ public class SwingDelugeApp extends JFrame {
     // Wire sidebar "add track" callback — KITS/SYNTHS double-click adds to current project
     java.util.function.Consumer<org.chuck.deluge.model.TrackModel> addTrack =
         track -> {
-        // Add a default clip so notes entered on grid are stored in the model
-        switch (track) {
+          // Add a default clip so notes entered on grid are stored in the model
+          switch (track) {
             case org.chuck.deluge.model.KitTrackModel kit -> {
-                int rowCount = kit.getDrums().size();
-                if (rowCount < 1) rowCount = 1;
-                kit.addClip(new org.chuck.deluge.model.ClipModel("CLIP 1", rowCount, 16));
+              int rowCount = kit.getDrums().size();
+              if (rowCount < 1) rowCount = 1;
+              kit.addClip(new org.chuck.deluge.model.ClipModel("CLIP 1", rowCount, 16));
             }
-            case org.chuck.deluge.model.SynthTrackModel synth -> synth.addClip(new org.chuck.deluge.model.ClipModel("CLIP 1", 8, 16));
-            default -> {
-            }
-        }
+            case org.chuck.deluge.model.SynthTrackModel synth ->
+                synth.addClip(new org.chuck.deluge.model.ClipModel("CLIP 1", 8, 16));
+            default -> {}
+          }
           int idx = currentProject.getTracks().size();
           currentProject.addTrack(track);
-          currentProject.getUndoRedoStack().push(
-              new Consequence.TrackStructureConsequence(
-                  Consequence.TrackStructureConsequence.ADD, idx, track, "Add track"));
+          currentProject
+              .getUndoRedoStack()
+              .push(
+                  new Consequence.TrackStructureConsequence(
+                      Consequence.TrackStructureConsequence.ADD, idx, track, "Add track"));
           pushModelToBridge();
           propagateCurrentModel();
           refreshGrids();
@@ -1985,6 +2261,14 @@ public class SwingDelugeApp extends JFrame {
   public static void main(String[] args) {
     org.chuck.core.ChuckVM vm = new org.chuck.core.ChuckVM(44100, 2);
     org.chuck.deluge.BridgeContract bridge = new org.chuck.deluge.BridgeContract();
+
+    for (String arg : args) {
+      if ("--hifi".equalsIgnoreCase(arg)) {
+        bridge.setHiFiMode(1);
+        System.out.println("[main] High Fidelity Mode ENABLED");
+      }
+    }
+
     bridge.register(vm);
 
     org.chuck.audio.ChuckAudio audio = new org.chuck.audio.ChuckAudio(vm, 1024, 2, 44100);
@@ -1997,7 +2281,10 @@ public class SwingDelugeApp extends JFrame {
     System.out.println("[main] engine sporked, activeShreds=" + vm.getActiveShredCount());
 
     // Give engine time to initialize before UI loads
-    try { Thread.sleep(200); } catch (InterruptedException ie) {}
+    try {
+      Thread.sleep(200);
+    } catch (InterruptedException ie) {
+    }
     System.out.println("[main] after 200ms sleep, activeShreds=" + vm.getActiveShredCount());
 
     org.chuck.deluge.midi.MidiInputRouter router =
@@ -2049,29 +2336,32 @@ public class SwingDelugeApp extends JFrame {
       var stack = currentProject.getUndoRedoStack();
       int idx;
       switch (type) {
-        case "KIT" ->  {
+        case "KIT" -> {
           KitTrackModel kit = new KitTrackModel(name);
           kit.addClip(new ClipModel("CLIP 1", 8, 16));
           idx = currentProject.getTracks().size();
           currentProject.addTrack(kit);
-          stack.push(new Consequence.TrackStructureConsequence(
-              Consequence.TrackStructureConsequence.ADD, idx, kit, "Add kit track"));
+          stack.push(
+              new Consequence.TrackStructureConsequence(
+                  Consequence.TrackStructureConsequence.ADD, idx, kit, "Add kit track"));
         }
-        case "SYNTH" ->  {
+        case "SYNTH" -> {
           SynthTrackModel synth = new SynthTrackModel(name);
           synth.addClip(new ClipModel("CLIP 1", 8, 16));
           idx = currentProject.getTracks().size();
           currentProject.addTrack(synth);
-          stack.push(new Consequence.TrackStructureConsequence(
-              Consequence.TrackStructureConsequence.ADD, idx, synth, "Add synth track"));
+          stack.push(
+              new Consequence.TrackStructureConsequence(
+                  Consequence.TrackStructureConsequence.ADD, idx, synth, "Add synth track"));
         }
-        case "AUDIO" ->  {
+        case "AUDIO" -> {
           AudioTrackModel audio = new AudioTrackModel(name);
           audio.addClip(new ClipModel("CLIP 1", 1, 16));
           idx = currentProject.getTracks().size();
           currentProject.addTrack(audio);
-          stack.push(new Consequence.TrackStructureConsequence(
-              Consequence.TrackStructureConsequence.ADD, idx, audio, "Add audio track"));
+          stack.push(
+              new Consequence.TrackStructureConsequence(
+                  Consequence.TrackStructureConsequence.ADD, idx, audio, "Add audio track"));
         }
       }
       propagateCurrentModel();
@@ -2087,36 +2377,55 @@ public class SwingDelugeApp extends JFrame {
       this.model = model;
     }
 
-    @Override public void onTrackListChanged() {
+    @Override
+    public void onTrackListChanged() {
       pushModelToBridge();
       propagateCurrentModel();
       refreshGrids();
     }
-    @Override public void onBpmChanged(float bpm) {
+
+    @Override
+    public void onBpmChanged(float bpm) {
       vm.setGlobalFloat(BridgeContract.G_BPM, bpm);
     }
-    @Override public void onSwingChanged(float swing) {
+
+    @Override
+    public void onSwingChanged(float swing) {
       vm.setGlobalFloat(BridgeContract.G_SWING, swing);
     }
-    @Override public void onMasterVolumeChanged(float vol) {
+
+    @Override
+    public void onMasterVolumeChanged(float vol) {
       vm.setGlobalFloat(BridgeContract.G_MASTER_VOL, vol);
     }
-    @Override public void onMasterPanChanged(float pan) {
+
+    @Override
+    public void onMasterPanChanged(float pan) {
       vm.setGlobalFloat(BridgeContract.G_MASTER_PAN, pan);
     }
-    @Override public void onKeyChanged(String key) {
+
+    @Override
+    public void onKeyChanged(String key) {
       vm.setGlobalInt(BridgeContract.G_ROOT_KEY, parseRootKey(key));
     }
-    @Override public void onScaleChanged(String scale) {
+
+    @Override
+    public void onScaleChanged(String scale) {
       vm.setGlobalInt(BridgeContract.G_SCALE, parseScaleIndex(scale));
     }
-    @Override public void onTransposeChanged(int transpose) {
+
+    @Override
+    public void onTransposeChanged(int transpose) {
       vm.setGlobalInt(BridgeContract.G_TRANSPOSE, transpose);
     }
-    @Override public void onHumanizeChanged(float humanize) {
+
+    @Override
+    public void onHumanizeChanged(float humanize) {
       vm.setGlobalFloat(BridgeContract.G_HUMANIZE, humanize);
     }
-    @Override public void onReverbChanged() {
+
+    @Override
+    public void onReverbChanged() {
       vm.setGlobalFloat(BridgeContract.G_REVERB_ROOM, model.getReverbRoomSize());
       vm.setGlobalFloat(BridgeContract.G_REVERB_DAMP, model.getReverbDampening());
       vm.setGlobalFloat(BridgeContract.G_REVERB_WIDTH, model.getReverbWidth());
@@ -2125,11 +2434,14 @@ public class SwingDelugeApp extends JFrame {
       vm.setGlobalInt(BridgeContract.G_REVERB_MODEL, model.getReverbModel());
       vm.setGlobalFloat(BridgeContract.G_REVERB_COMP_ATTACK, model.getReverbCompressorAttack());
       vm.setGlobalFloat(BridgeContract.G_REVERB_COMP_RELEASE, model.getReverbCompressorRelease());
-      vm.setGlobalInt(BridgeContract.G_REVERB_COMP_SYNC_LEVEL, model.getReverbCompressorSyncLevel());
+      vm.setGlobalInt(
+          BridgeContract.G_REVERB_COMP_SYNC_LEVEL, model.getReverbCompressorSyncLevel());
       vm.setGlobalFloat(BridgeContract.G_REVERB_COMP_HPF, model.getReverbCompHpf());
       vm.setGlobalFloat(BridgeContract.G_REVERB_COMP_BLEND, model.getReverbCompBlend());
     }
-    @Override public void onDelayChanged() {
+
+    @Override
+    public void onDelayChanged() {
       vm.setGlobalFloat(BridgeContract.G_DELAY_TIME, model.getMasterDelay());
       vm.setGlobalFloat(BridgeContract.G_DELAY_FB, model.getSongParamDelayFeedback());
       vm.setGlobalInt(BridgeContract.G_DELAY_PINGPONG, model.getDelayPingPong());
@@ -2137,19 +2449,25 @@ public class SwingDelugeApp extends JFrame {
       vm.setGlobalInt(BridgeContract.G_DELAY_SYNC_LEVEL, model.getDelaySyncLevel());
       vm.setGlobalInt(BridgeContract.G_DELAY_SYNC_TYPE, model.getDelaySyncType());
     }
-    @Override public void onSidechainChanged() {
+
+    @Override
+    public void onSidechainChanged() {
       vm.setGlobalFloat(BridgeContract.G_SIDECHAIN_ATTACK, model.getSidechainAttack());
       vm.setGlobalFloat(BridgeContract.G_SIDECHAIN_RELEASE, model.getSidechainRelease());
       vm.setGlobalInt(BridgeContract.G_SIDECHAIN_SYNC_LEVEL, model.getSidechainSyncLevel());
       vm.setGlobalInt(BridgeContract.G_SIDECHAIN_SYNC_TYPE, model.getSidechainSyncType());
     }
-    @Override public void onCompressorChanged() {
+
+    @Override
+    public void onCompressorChanged() {
       vm.setGlobalFloat(BridgeContract.G_MASTER_COMP, model.getCompressorThreshold());
       vm.setGlobalFloat(BridgeContract.G_MASTER_COMP_ATTACK, model.getCompressorAttack());
       vm.setGlobalFloat(BridgeContract.G_MASTER_COMP_RELEASE, model.getCompressorRelease());
       vm.setGlobalFloat(BridgeContract.G_MASTER_COMP_RATIO, model.getCompressorRatio());
     }
-    @Override public void onSongParamsChanged() {
+
+    @Override
+    public void onSongParamsChanged() {
       vm.setGlobalFloat(BridgeContract.G_SP_VOLUME, model.getSongParamVolume());
       vm.setGlobalFloat(BridgeContract.G_SP_PAN, model.getSongParamPan());
       vm.setGlobalFloat(BridgeContract.G_SP_REVERB_AMOUNT, model.getSongParamReverbAmount());
@@ -2157,13 +2475,15 @@ public class SwingDelugeApp extends JFrame {
       vm.setGlobalFloat(BridgeContract.G_SP_DELAY_FEEDBACK, model.getSongParamDelayFeedback());
       vm.setGlobalFloat(BridgeContract.G_SP_SIDECHAIN_SHAPE, model.getSongParamSidechainShape());
       vm.setGlobalFloat(BridgeContract.G_SP_STUTTER_RATE, model.getSongParamStutterRate());
-      vm.setGlobalFloat(BridgeContract.G_SP_SAMPLE_RATE_REDUCTION, model.getSongParamSampleRateReduction());
+      vm.setGlobalFloat(
+          BridgeContract.G_SP_SAMPLE_RATE_REDUCTION, model.getSongParamSampleRateReduction());
       vm.setGlobalFloat(BridgeContract.G_SP_BITCRUSH, model.getSongParamBitCrush());
       vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_RATE, model.getSongParamModFXRate());
       vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_DEPTH, model.getSongParamModFXDepth());
       vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_OFFSET, model.getSongParamModFXOffset());
       vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_FEEDBACK, model.getSongParamModFXFeedback());
-      vm.setGlobalFloat(BridgeContract.G_SP_COMPRESSOR_THRESHOLD, model.getSongParamCompressorThreshold());
+      vm.setGlobalFloat(
+          BridgeContract.G_SP_COMPRESSOR_THRESHOLD, model.getSongParamCompressorThreshold());
       vm.setGlobalFloat(BridgeContract.G_SP_LPF_MORPH, model.getSongParamLpfMorph());
       vm.setGlobalFloat(BridgeContract.G_SP_HPF_MORPH, model.getSongParamHpfMorph());
       vm.setGlobalFloat(BridgeContract.G_SP_LPF_FREQ, model.getSongParamLpfFrequency());
@@ -2175,7 +2495,9 @@ public class SwingDelugeApp extends JFrame {
       vm.setGlobalFloat(BridgeContract.G_SP_EQ_BASS_FREQ, model.getSongParamEqBassFrequency());
       vm.setGlobalFloat(BridgeContract.G_SP_EQ_TREBLE_FREQ, model.getSongParamEqTrebleFrequency());
     }
-    @Override public void onScalesChanged() {
+
+    @Override
+    public void onScalesChanged() {
       vm.setGlobalInt(BridgeContract.G_USER_SCALE, model.getUserScale());
       vm.setGlobalInt(BridgeContract.G_DISABLED_PRESET_SCALES, model.getDisabledPresetScales());
       boolean[] modeNotes = model.getModeNotes();

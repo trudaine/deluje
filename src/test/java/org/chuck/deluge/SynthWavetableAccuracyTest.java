@@ -3,11 +3,11 @@ package org.chuck.deluge;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.*;
-import org.chuck.core.ChuckArray;
 import org.chuck.audio.ChuckUGen;
+import org.chuck.audio.util.WvOut2;
+import org.chuck.core.ChuckArray;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.engine.DelugeEngineDSL;
-import org.chuck.audio.util.WvOut2;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -16,19 +16,20 @@ import org.junit.jupiter.api.Test;
  * Accuracy test for pure wavetable oscillators through the full engine pipeline.
  *
  * <p>For each of the 4 waveform shapes (sine/saw/square/triangle), we:
+ *
  * <ol>
- *   <li>Set up a single synth track in SUBTRACTIVE mode (synthMode=0)</li>
- *   <li>Play a sustained MIDI note (the engine maps bridge row 0 → MIDI 83 = B5 = 987.77 Hz)</li>
- *   <li>Capture 1s of DAC output as WAV via WvOut2</li>
- *   <li>Validate frequency via autocorrelation (within ±2% of expected)</li>
- *   <li>Validate harmonic profile (shape match quality > threshold)</li>
+ *   <li>Set up a single synth track in SUBTRACTIVE mode (synthMode=0)
+ *   <li>Play a sustained MIDI note (the engine maps bridge row 0 → MIDI 83 = B5 = 987.77 Hz)
+ *   <li>Capture 1s of DAC output as WAV via WvOut2
+ *   <li>Validate frequency via autocorrelation (within ±2% of expected)
+ *   <li>Validate harmonic profile (shape match quality > threshold)
  * </ol>
  *
  * <p><b>Firmware validation reference:</b> The real Deluge firmware uses a 256-entry sine table
- * (kSineTableSizeMagnitude = 8) with 32-bit phase accumulator, and looks up wave shapes via
- * linear interpolation. Our MorphingWavetable uses the same 256-entry tables and linear phase
- * interpolation, so the output should match the firmware's oscillator output at the same
- * frequency and gain settings (modulo the engine's ADSR/filter/Dyno pipeline).
+ * (kSineTableSizeMagnitude = 8) with 32-bit phase accumulator, and looks up wave shapes via linear
+ * interpolation. Our MorphingWavetable uses the same 256-entry tables and linear phase
+ * interpolation, so the output should match the firmware's oscillator output at the same frequency
+ * and gain settings (modulo the engine's ADSR/filter/Dyno pipeline).
  */
 public class SynthWavetableAccuracyTest {
 
@@ -76,8 +77,11 @@ public class SynthWavetableAccuracyTest {
 
     // Ensure env array exists
     if (vm.getGlobalObject(BridgeContract.G_ENV) == null) {
-      vm.setGlobalObject(BridgeContract.G_ENV, new ChuckArray("float",
-          BridgeContract.TRACKS * BridgeContract.ENV_COUNT * BridgeContract.ENV_PARAMS));
+      vm.setGlobalObject(
+          BridgeContract.G_ENV,
+          new ChuckArray(
+              "float",
+              BridgeContract.TRACKS * BridgeContract.ENV_COUNT * BridgeContract.ENV_PARAMS));
     }
   }
 
@@ -94,15 +98,24 @@ public class SynthWavetableAccuracyTest {
   /**
    * Run a single wavetable test: configure engine, capture, analyze.
    *
-   * <p>This test validates the full engine pipeline (osc → SVFilter → HPF → ADSR → synthBus).
-   * The SVFilter adds nonzero harmonic coloration even at wide-open cutoff, so shape thresholds
-   * are intentionally low here. For pure oscillator shape validation, see
-   * {@link MorphingWavetableDirectTest}.
+   * <p>This test validates the full engine pipeline (osc → SVFilter → HPF → ADSR → synthBus). The
+   * SVFilter adds nonzero harmonic coloration even at wide-open cutoff, so shape thresholds are
+   * intentionally low here. For pure oscillator shape validation, see {@link
+   * MorphingWavetableDirectTest}.
    */
-  private void runWavetableTest(int oscTypeIdx, String shapeName, int midiNote,
-      double expectedFreq, double minShapeScore) throws Exception {
-    System.out.println("\n=== Waveform Test: " + shapeName
-        + " (oscType=" + oscTypeIdx + " note=" + midiNote + " freq=" + expectedFreq + " Hz) ===");
+  private void runWavetableTest(
+      int oscTypeIdx, String shapeName, int midiNote, double expectedFreq, double minShapeScore)
+      throws Exception {
+    System.out.println(
+        "\n=== Waveform Test: "
+            + shapeName
+            + " (oscType="
+            + oscTypeIdx
+            + " note="
+            + midiNote
+            + " freq="
+            + expectedFreq
+            + " Hz) ===");
 
     // Reset VM for clean state
     vm.shutdown();
@@ -136,8 +149,8 @@ public class SynthWavetableAccuracyTest {
         filArr = new ChuckArray("float", BridgeContract.TRACKS * 2);
         vm.setGlobalObject(BridgeContract.G_FILTER, filArr);
       }
-      filArr.setFloat(0, 2.0f);   // freq near max (20000 Hz)
-      filArr.setFloat(1, 0.0f);   // resonance at minimum
+      filArr.setFloat(0, 2.0f); // freq near max (20000 Hz)
+      filArr.setFloat(1, 0.0f); // resonance at minimum
     }
     {
       ChuckArray hpfArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_HPF_FREQ);
@@ -145,7 +158,7 @@ public class SynthWavetableAccuracyTest {
         hpfArr = new ChuckArray("float", BridgeContract.TRACKS);
         vm.setGlobalObject(BridgeContract.G_HPF_FREQ, hpfArr);
       }
-      hpfArr.setFloat(0, 20.0f);  // HPF at minimum
+      hpfArr.setFloat(0, 20.0f); // HPF at minimum
     }
     // Set filter mode to SVF (2) with morph=0 (LP)
     {
@@ -206,28 +219,29 @@ public class SynthWavetableAccuracyTest {
     File tmpWav = new File(tempDir, "synth_" + shapeName + ".wav");
     float[][] captured = new float[1][];
 
-    vm.spork(() -> {
-      // Tap synthBus directly (pre master compressor/limiter) for clean waveform capture
-      ChuckUGen synthBus = (ChuckUGen) vm.getGlobalObject(BridgeContract.G_SYNTH_BUS);
-      WvOut2 wv = new WvOut2(SAMPLE_RATE);
-      wv.record(1);
-      wv.wavWrite(tmpWav.getAbsolutePath());
+    vm.spork(
+        () -> {
+          // Tap synthBus directly (pre master compressor/limiter) for clean waveform capture
+          ChuckUGen synthBus = (ChuckUGen) vm.getGlobalObject(BridgeContract.G_SYNTH_BUS);
+          WvOut2 wv = new WvOut2(SAMPLE_RATE);
+          wv.record(1);
+          wv.wavWrite(tmpWav.getAbsolutePath());
 
-      // Splice WvOut2 between synthBus and its downstream chain
-      ChuckUGen dacUGen = org.chuck.core.ChuckDSL.dac();
-      synthBus.unchuck(dacUGen);
-      synthBus.chuck(wv);
-      wv.chuck(dacUGen);
+          // Splice WvOut2 between synthBus and its downstream chain
+          ChuckUGen dacUGen = org.chuck.core.ChuckDSL.dac();
+          synthBus.unchuck(dacUGen);
+          synthBus.chuck(wv);
+          wv.chuck(dacUGen);
 
-      // Record 1s of steady-state oscillator output
-      org.chuck.core.ChuckDSL.advance(org.chuck.core.ChuckDSL.samp(SAMPLE_RATE));
-      wv.closeFile();
-      try {
-        captured[0] = AudioAnalyzer.loadWav(tmpWav);
-      } catch (Exception e) {
-        throw new RuntimeException(e);
-      }
-    });
+          // Record 1s of steady-state oscillator output
+          org.chuck.core.ChuckDSL.advance(org.chuck.core.ChuckDSL.samp(SAMPLE_RATE));
+          wv.closeFile();
+          try {
+            captured[0] = AudioAnalyzer.loadWav(tmpWav);
+          } catch (Exception e) {
+            throw new RuntimeException(e);
+          }
+        });
 
     // Advance 2s to let the capture run
     int totalCapture = SAMPLE_RATE * 2;
@@ -241,14 +255,15 @@ public class SynthWavetableAccuracyTest {
 
     // ── Analyze ──
     float[] cap = captured[0];
-    assertTrue(cap != null && cap.length > 100,
-        shapeName + ": captured buffer should have data, got len="
+    assertTrue(
+        cap != null && cap.length > 100,
+        shapeName
+            + ": captured buffer should have data, got len="
             + (cap == null ? 0 : cap.length));
 
     double peak = AudioAnalyzer.peak(cap);
     double rms = AudioAnalyzer.rms(cap);
-    assertTrue(peak > 0.001,
-        shapeName + ": peak too low: " + peak + " (engine may be silent)");
+    assertTrue(peak > 0.001, shapeName + ": peak too low: " + peak + " (engine may be silent)");
 
     System.out.printf("  Captured: len=%d RMS=%.6f peak=%.6f%n", cap.length, rms, peak);
 
@@ -260,7 +275,7 @@ public class SynthWavetableAccuracyTest {
     }
     System.out.println();
     // Print samples at various offsets to see if there's signal
-    for (int off : new int[]{5000, 10000, 15000, 20000, 25000, 30000, 35000, 40000}) {
+    for (int off : new int[] {5000, 10000, 15000, 20000, 25000, 30000, 35000, 40000}) {
       if (off + 10 < cap.length) {
         System.out.printf("  Samples at offset %d:", off);
         for (int i = off; i < off + 10; i++) System.out.printf(" %+.6f", cap[i]);
@@ -294,14 +309,20 @@ public class SynthWavetableAccuracyTest {
         double den = Math.sqrt(denA * denB);
         if (den > 1e-15) {
           double corr = num / den;
-          if (corr > bestCorrFull) { bestCorrFull = corr; bestLagFull = lag; }
+          if (corr > bestCorrFull) {
+            bestCorrFull = corr;
+            bestLagFull = lag;
+          }
         }
       }
       double fullEstFreq = bestLagFull > 0 ? (double) SAMPLE_RATE / bestLagFull : 0;
-      System.out.printf("  FULL autocorr: bestLag=%d freq=%.2f corr=%.4f%n", bestLagFull, fullEstFreq, bestCorrFull);
+      System.out.printf(
+          "  FULL autocorr: bestLag=%d freq=%.2f corr=%.4f%n",
+          bestLagFull, fullEstFreq, bestCorrFull);
 
       // Top 5 lags by correlation
-      java.util.TreeMap<Double, Integer> topLags = new java.util.TreeMap<>((a,b) -> Double.compare(b, a));
+      java.util.TreeMap<Double, Integer> topLags =
+          new java.util.TreeMap<>((a, b) -> Double.compare(b, a));
       for (int lag = 2; lag < Math.min(segLen, 500); lag++) {
         double num = 0, denA = 0, denB = 0;
         for (int i = 0; i < segLen - lag; i++) {
@@ -334,7 +355,7 @@ public class SynthWavetableAccuracyTest {
         double den = Math.sqrt(denA * denB);
         if (den > 1e-15) {
           double corr = num / den;
-          System.out.printf(" lag=%d(%.1fHz corr=%.4f)", lag, SAMPLE_RATE/(double)lag, corr);
+          System.out.printf(" lag=%d(%.1fHz corr=%.4f)", lag, SAMPLE_RATE / (double) lag, corr);
         }
       }
       System.out.println();
@@ -358,30 +379,53 @@ public class SynthWavetableAccuracyTest {
       double den = Math.sqrt(denA * denB);
       if (den > 1e-15) {
         double corr = num / den;
-        if (corr > bestCorr) { bestCorr = corr; bestLag = lag; }
+        if (corr > bestCorr) {
+          bestCorr = corr;
+          bestLag = lag;
+        }
       }
     }
     double estFreq = bestLag > 0 ? (double) SAMPLE_RATE / bestLag : 0;
     // SVFilter tanh saturation and envelope stepping can shift the autocorrelation
     // peak to a harmonic or intermodulation product, so try comprehensive candidates
-    double[] candidates = {estFreq, estFreq / 2, estFreq / 3, estFreq / 4,
-      estFreq * 2, estFreq * 3, estFreq * 4, estFreq * 2.0 / 3.0,
-      estFreq * 3.0 / 4.0, estFreq * 3.0 / 2.0, estFreq * 4.0 / 3.0};
+    double[] candidates = {
+      estFreq,
+      estFreq / 2,
+      estFreq / 3,
+      estFreq / 4,
+      estFreq * 2,
+      estFreq * 3,
+      estFreq * 4,
+      estFreq * 2.0 / 3.0,
+      estFreq * 3.0 / 4.0,
+      estFreq * 3.0 / 2.0,
+      estFreq * 4.0 / 3.0
+    };
     double bestCandidate = estFreq;
     double bestCandidateErr = Double.MAX_VALUE;
     for (double c : candidates) {
       if (c <= 0) continue;
       double err = Math.abs(c - expectedFreq) / expectedFreq;
-      if (err < bestCandidateErr) { bestCandidateErr = err; bestCandidate = c; }
+      if (err < bestCandidateErr) {
+        bestCandidateErr = err;
+        bestCandidate = c;
+      }
     }
-    System.out.printf("  Frequency: expected=%.2f Hz autocorr=%.2f Hz (lag=%d/%d corr=%.4f) candidate=%.2f Hz err=%.3f%n",
+    System.out.printf(
+        "  Frequency: expected=%.2f Hz autocorr=%.2f Hz (lag=%d/%d corr=%.4f) candidate=%.2f Hz err=%.3f%n",
         expectedFreq, estFreq, bestLag, expLag, bestCorr, bestCandidate, bestCandidateErr);
 
-    assertTrue(bestCandidateErr < 0.15,
-        shapeName + ": frequency error too high: expected=" + expectedFreq
-            + " candidate=" + String.format("%.1f", bestCandidate)
-            + " raw=" + String.format("%.1f", estFreq)
-            + " err=" + String.format("%.3f", bestCandidateErr));
+    assertTrue(
+        bestCandidateErr < 0.15,
+        shapeName
+            + ": frequency error too high: expected="
+            + expectedFreq
+            + " candidate="
+            + String.format("%.1f", bestCandidate)
+            + " raw="
+            + String.format("%.1f", estFreq)
+            + " err="
+            + String.format("%.3f", bestCandidateErr));
 
     // ── Harmonic profile analysis ──
     // Use an integer number of cycles of steady-state data for clean DFT alignment
@@ -406,16 +450,20 @@ public class SynthWavetableAccuracyTest {
     double shapeScore = AudioAnalyzer.shapeMatchQuality(harmonics, shapeName);
     System.out.printf("  Shape match score: %.4f (threshold=%.4f)%n", shapeScore, minShapeScore);
 
-    assertTrue(shapeScore >= minShapeScore,
-        shapeName + ": shape match too low: " + String.format("%.4f", shapeScore)
-            + " < " + String.format("%.4f", minShapeScore));
+    assertTrue(
+        shapeScore >= minShapeScore,
+        shapeName
+            + ": shape match too low: "
+            + String.format("%.4f", shapeScore)
+            + " < "
+            + String.format("%.4f", minShapeScore));
 
     System.out.println("  Result: PASS");
   }
 
   /**
-   * Harmonic profile via DFT on a cycle-aligned buffer (no window needed).
-   * Uses integer number of cycles for clean bin alignment.
+   * Harmonic profile via DFT on a cycle-aligned buffer (no window needed). Uses integer number of
+   * cycles for clean bin alignment.
    */
   private static double[] harmonicProfile(float[] buf, double fundamental, int sr, int nHarmonics) {
     int n = buf.length;

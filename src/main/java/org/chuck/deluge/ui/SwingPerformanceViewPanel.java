@@ -13,13 +13,14 @@ import org.chuck.deluge.model.ProjectModel;
 /**
  * Performance View — a 16-column × 8-row grid of FX pads.
  *
- * <p>Each column maps to one FX type (volume, filter, delay, reverb, mod FX, stutter, bitcrush, SRR,
- * sidechain, compressor, EQ bass, EQ treble, FM amount, arp rate, portamento, noise vol).<br>
+ * <p>Each column maps to one FX type (volume, filter, delay, reverb, mod FX, stutter, bitcrush,
+ * SRR, sidechain, compressor, EQ bass, EQ treble, FM amount, arp rate, portamento, noise vol).<br>
  * Each row represents a value intensity (0–7).<br>
  * Modes:
+ *
  * <ul>
- *   <li>LATCH — tap toggles the pad on/off mutli-select style</li>
- *   <li>MOMENTARY — press-and-hold activates, release restores previous value</li>
+ *   <li>LATCH — tap toggles the pad on/off mutli-select style
+ *   <li>MOMENTARY — press-and-hold activates, release restores previous value
  * </ul>
  *
  * <p>Integration: added as "PERF" card in the CardLayout of SwingDelugeApp, toggled from top bar.
@@ -47,22 +48,22 @@ public class SwingPerformanceViewPanel extends JPanel {
   // Column → SongParam or track param name.
   // For performance view, we modulate the *currently selected track* (focus track).
   private static final String[] FX_GLOBALS = {
-    BridgeContract.G_TRACK_LEVEL,   // VOLUME
-    BridgeContract.G_PAN,            // PAN
-    BridgeContract.G_FILTER,         // LPF FREQ (stored at index 0 of stride-2)
-    BridgeContract.G_FILTER_MODE,    // LPF RES (actually filter res is at index 1)
-    BridgeContract.G_HPF_FREQ,       // HPF FREQ
-    BridgeContract.G_HPF_RES,        // HPF RES
-    BridgeContract.G_MOD_FX_RATE,    // MOD FX RATE
-    BridgeContract.G_MOD_FX_DEPTH,   // MOD FX DEPTH
-    null,                            // DELAY (send)
-    null,                            // REVERB (send)
-    null,                            // STUTTER
-    null,                            // BITCRUSH
-    null,                            // SRR
-    null,                            // SIDECHAIN
-    null,                            // COMP (threshold)
-    null                             // NOISE VOL
+    BridgeContract.G_TRACK_LEVEL, // VOLUME
+    BridgeContract.G_PAN, // PAN
+    BridgeContract.G_FILTER, // LPF FREQ (stored at index 0 of stride-2)
+    BridgeContract.G_FILTER_MODE, // LPF RES (actually filter res is at index 1)
+    BridgeContract.G_HPF_FREQ, // HPF FREQ
+    BridgeContract.G_HPF_RES, // HPF RES
+    BridgeContract.G_MOD_FX_RATE, // MOD FX RATE
+    BridgeContract.G_MOD_FX_DEPTH, // MOD FX DEPTH
+    null, // DELAY (send)
+    null, // REVERB (send)
+    null, // STUTTER
+    null, // BITCRUSH
+    null, // SRR
+    null, // SIDECHAIN
+    null, // COMP (threshold)
+    null // NOISE VOL
   };
 
   // Row 0 = min value, row 7 = max value per column
@@ -102,18 +103,19 @@ public class SwingPerformanceViewPanel extends JPanel {
     topBar.setBackground(new Color(0x25, 0x25, 0x25));
 
     JToggleButton modeToggle = new JToggleButton("MOMENTARY");
-    modeToggle.addActionListener(e -> {
-      momentaryMode = modeToggle.isSelected();
-      modeToggle.setText(momentaryMode ? "MOMENTARY" : "LATCH");
-      // Clear all latch state when switching to momentary
-      if (momentaryMode) {
-        for (int r = 0; r < ROWS; r++) {
-          Arrays.fill(latchState[r], false);
-        }
-        for (int c = 0; c < COLS; c++) columnMuteState[c] = false;
-        refreshPadColors();
-      }
-    });
+    modeToggle.addActionListener(
+        e -> {
+          momentaryMode = modeToggle.isSelected();
+          modeToggle.setText(momentaryMode ? "MOMENTARY" : "LATCH");
+          // Clear all latch state when switching to momentary
+          if (momentaryMode) {
+            for (int r = 0; r < ROWS; r++) {
+              Arrays.fill(latchState[r], false);
+            }
+            for (int c = 0; c < COLS; c++) columnMuteState[c] = false;
+            refreshPadColors();
+          }
+        });
     topBar.add(new JLabel("MODE:"));
     topBar.add(modeToggle);
 
@@ -123,11 +125,13 @@ public class SwingPerformanceViewPanel extends JPanel {
     trackLabel.setForeground(Color.WHITE);
     topBar.add(trackLabel);
 
-    JSpinner trackSpinner = new JSpinner(new SpinnerNumberModel(0, 0, BridgeContract.TRACKS - 1, 1));
-    trackSpinner.addChangeListener(e -> {
-      focusTrack = (int) trackSpinner.getValue();
-      statusLabel.setText("Track " + focusTrack);
-    });
+    JSpinner trackSpinner =
+        new JSpinner(new SpinnerNumberModel(0, 0, BridgeContract.TRACKS - 1, 1));
+    trackSpinner.addChangeListener(
+        e -> {
+          focusTrack = (int) trackSpinner.getValue();
+          statusLabel.setText("Track " + focusTrack);
+        });
     topBar.add(trackSpinner);
 
     JButton allOffBtn = new JButton("ALL OFF");
@@ -135,11 +139,12 @@ public class SwingPerformanceViewPanel extends JPanel {
     topBar.add(allOffBtn);
 
     JButton columnOffBtn = new JButton("COL OFF");
-    columnOffBtn.addActionListener(e -> {
-      for (int c = 0; c < COLS; c++) columnMuteState[c] = false;
-      for (int r = 0; r < ROWS; r++) Arrays.fill(latchState[r], false);
-      refreshPadColors();
-    });
+    columnOffBtn.addActionListener(
+        e -> {
+          for (int c = 0; c < COLS; c++) columnMuteState[c] = false;
+          for (int r = 0; r < ROWS; r++) Arrays.fill(latchState[r], false);
+          refreshPadColors();
+        });
     topBar.add(columnOffBtn);
 
     statusLabel = new JLabel("Track 0 | LATCH");
@@ -213,52 +218,53 @@ public class SwingPerformanceViewPanel extends JPanel {
         final int col = c;
 
         // Mouse handler for both LATCH and MOMENTARY
-        pad.addMouseListener(new MouseAdapter() {
-          @Override
-          public void mousePressed(MouseEvent e) {
-            if (momentaryMode) {
-              // Momentary: activate on press
-              activatePad(row, col);
-              pad.setBackground(activeColor(col));
-            } else {
-              // Latch: toggle
-              boolean newState = !latchState[row][col];
-              latchState[row][col] = newState;
-              if (newState) {
-                activatePad(row, col);
-              } else {
-                deactivatePad(row, col);
+        pad.addMouseListener(
+            new MouseAdapter() {
+              @Override
+              public void mousePressed(MouseEvent e) {
+                if (momentaryMode) {
+                  // Momentary: activate on press
+                  activatePad(row, col);
+                  pad.setBackground(activeColor(col));
+                } else {
+                  // Latch: toggle
+                  boolean newState = !latchState[row][col];
+                  latchState[row][col] = newState;
+                  if (newState) {
+                    activatePad(row, col);
+                  } else {
+                    deactivatePad(row, col);
+                  }
+                  refreshPadColors();
+                }
               }
-              refreshPadColors();
-            }
-          }
 
-          @Override
-          public void mouseReleased(MouseEvent e) {
-            if (momentaryMode) {
-              // Momentary: deactivate on release
-              deactivatePad(row, col);
-              refreshPadColors();
-            }
-          }
+              @Override
+              public void mouseReleased(MouseEvent e) {
+                if (momentaryMode) {
+                  // Momentary: deactivate on release
+                  deactivatePad(row, col);
+                  refreshPadColors();
+                }
+              }
 
-          @Override
-          public void mouseEntered(MouseEvent e) {
-            // Drag-to-activate in momentary mode when button is held
-            if (momentaryMode && (e.getModifiersEx() & MouseEvent.BUTTON1_DOWN_MASK) != 0) {
-              activatePad(row, col);
-              pad.setBackground(activeColor(col));
-            }
-          }
+              @Override
+              public void mouseEntered(MouseEvent e) {
+                // Drag-to-activate in momentary mode when button is held
+                if (momentaryMode && (e.getModifiersEx() & MouseEvent.BUTTON1_DOWN_MASK) != 0) {
+                  activatePad(row, col);
+                  pad.setBackground(activeColor(col));
+                }
+              }
 
-          @Override
-          public void mouseExited(MouseEvent e) {
-            if (momentaryMode && (e.getModifiersEx() & MouseEvent.BUTTON1_DOWN_MASK) != 0) {
-              deactivatePad(row, col);
-              refreshPadColors();
-            }
-          }
-        });
+              @Override
+              public void mouseExited(MouseEvent e) {
+                if (momentaryMode && (e.getModifiersEx() & MouseEvent.BUTTON1_DOWN_MASK) != 0) {
+                  deactivatePad(row, col);
+                  refreshPadColors();
+                }
+              }
+            });
 
         pads[r][c] = pad;
         gridPanel.add(pad, gc);
@@ -270,10 +276,11 @@ public class SwingPerformanceViewPanel extends JPanel {
     // ── Bottom info bar ──
     JPanel infoBar = new JPanel(new FlowLayout(FlowLayout.LEFT));
     infoBar.setBackground(new Color(0x25, 0x25, 0x25));
-    JLabel infoLabel = new JLabel(
-      "<html><b>PERFORMANCE VIEW</b> — 16 FX columns × 8 values &nbsp;&nbsp;|&nbsp;&nbsp; "
-      + "LATCH: tap to toggle &nbsp;&nbsp;|&nbsp;&nbsp; MOMENTARY: press & hold &nbsp;&nbsp;|&nbsp;&nbsp; "
-      + "Column header = section on/off</html>");
+    JLabel infoLabel =
+        new JLabel(
+            "<html><b>PERFORMANCE VIEW</b> — 16 FX columns × 8 values &nbsp;&nbsp;|&nbsp;&nbsp; "
+                + "LATCH: tap to toggle &nbsp;&nbsp;|&nbsp;&nbsp; MOMENTARY: press & hold &nbsp;&nbsp;|&nbsp;&nbsp; "
+                + "Column header = section on/off</html>");
     infoLabel.setForeground(Color.LIGHT_GRAY);
     infoBar.add(infoLabel);
     add(infoBar, BorderLayout.SOUTH);
@@ -316,22 +323,22 @@ public class SwingPerformanceViewPanel extends JPanel {
   /** Map normalized 0-1 to the actual parameter range for a column. */
   private static float mapToParamRange(int col, float t) {
     return switch (col) {
-      case 0  -> 0.1f + t * 0.9f;           // VOLUME 0.1-1.0
-      case 1  -> -1.0f + t * 2.0f;          // PAN -1..1
-      case 2  -> 20.0f + t * 19980.0f;      // LPF FREQ 20-20000
-      case 3  -> t;                          // LPF RES 0-1
-      case 4  -> 20.0f + t * 19980.0f;      // HPF FREQ 20-20000
-      case 5  -> t;                          // HPF RES 0-1
-      case 6  -> t * 20.0f;                  // MOD FX RATE 0-20
-      case 7  -> t;                          // MOD FX DEPTH 0-1
-      case 8  -> t;                          // DELAY 0-1
-      case 9  -> t;                          // REVERB 0-1
-      case 10 -> t;                          // STUTTER 0-1
-      case 11 -> t;                          // BITCRUSH 0-1
-      case 12 -> t;                          // SRR 0-1
-      case 13 -> t;                          // SIDECHAIN 0-1
-      case 14 -> t;                          // COMP 0-1
-      case 15 -> t;                          // NOISE VOL 0-1
+      case 0 -> 0.1f + t * 0.9f; // VOLUME 0.1-1.0
+      case 1 -> -1.0f + t * 2.0f; // PAN -1..1
+      case 2 -> 20.0f + t * 19980.0f; // LPF FREQ 20-20000
+      case 3 -> t; // LPF RES 0-1
+      case 4 -> 20.0f + t * 19980.0f; // HPF FREQ 20-20000
+      case 5 -> t; // HPF RES 0-1
+      case 6 -> t * 20.0f; // MOD FX RATE 0-20
+      case 7 -> t; // MOD FX DEPTH 0-1
+      case 8 -> t; // DELAY 0-1
+      case 9 -> t; // REVERB 0-1
+      case 10 -> t; // STUTTER 0-1
+      case 11 -> t; // BITCRUSH 0-1
+      case 12 -> t; // SRR 0-1
+      case 13 -> t; // SIDECHAIN 0-1
+      case 14 -> t; // COMP 0-1
+      case 15 -> t; // NOISE VOL 0-1
       default -> t;
     };
   }
@@ -392,7 +399,8 @@ public class SwingPerformanceViewPanel extends JPanel {
       if (obj instanceof org.chuck.core.ChuckArray arr) {
         return (float) arr.getFloat(track);
       }
-    } catch (Exception ignored) {}
+    } catch (Exception ignored) {
+    }
     return 0f;
   }
 
@@ -403,7 +411,8 @@ public class SwingPerformanceViewPanel extends JPanel {
       if (obj instanceof org.chuck.core.ChuckArray arr) {
         arr.setFloat(track, val);
       }
-    } catch (Exception ignored) {}
+    } catch (Exception ignored) {
+    }
   }
 
   /** Read a per-track int from a VM ChuckArray global. */
@@ -413,7 +422,8 @@ public class SwingPerformanceViewPanel extends JPanel {
       if (obj instanceof org.chuck.core.ChuckArray arr) {
         return (int) arr.getInt(track);
       }
-    } catch (Exception ignored) {}
+    } catch (Exception ignored) {
+    }
     return 0;
   }
 
@@ -424,23 +434,24 @@ public class SwingPerformanceViewPanel extends JPanel {
       if (obj instanceof org.chuck.core.ChuckArray arr) {
         arr.setInt(track, (long) val);
       }
-    } catch (Exception ignored) {}
+    } catch (Exception ignored) {
+    }
   }
 
   /** Read current value of a column's parameter for the focus track. */
   private float readValue(int col) {
     if (focusTrack < 0) return 0f;
     return switch (col) {
-      case 0  -> readChuckFloat(BridgeContract.G_TRACK_LEVEL, focusTrack);
-      case 1  -> readChuckFloat(BridgeContract.G_PAN, focusTrack);
-      case 2  -> (float) bridge.getTrackFilterFreq(focusTrack);  // LPF freq
-      case 3  -> (float) bridge.getTrackFilterRes(focusTrack);   // LPF res
-      case 4  -> readChuckFloat(BridgeContract.G_HPF_FREQ, focusTrack);
-      case 5  -> readChuckFloat(BridgeContract.G_HPF_RES, focusTrack);
-      case 6  -> readChuckFloat(BridgeContract.G_MOD_FX_RATE, focusTrack);
-      case 7  -> readChuckFloat(BridgeContract.G_MOD_FX_DEPTH, focusTrack);
-      case 8  -> bridge.getDelaySend(focusTrack);
-      case 9  -> bridge.getReverbSend(focusTrack);
+      case 0 -> readChuckFloat(BridgeContract.G_TRACK_LEVEL, focusTrack);
+      case 1 -> readChuckFloat(BridgeContract.G_PAN, focusTrack);
+      case 2 -> (float) bridge.getTrackFilterFreq(focusTrack); // LPF freq
+      case 3 -> (float) bridge.getTrackFilterRes(focusTrack); // LPF res
+      case 4 -> readChuckFloat(BridgeContract.G_HPF_FREQ, focusTrack);
+      case 5 -> readChuckFloat(BridgeContract.G_HPF_RES, focusTrack);
+      case 6 -> readChuckFloat(BridgeContract.G_MOD_FX_RATE, focusTrack);
+      case 7 -> readChuckFloat(BridgeContract.G_MOD_FX_DEPTH, focusTrack);
+      case 8 -> bridge.getDelaySend(focusTrack);
+      case 9 -> bridge.getReverbSend(focusTrack);
       case 10 -> readChuckFloat(BridgeContract.G_STUTTER_RATE, focusTrack);
       case 11 -> readChuckFloat(BridgeContract.G_BITCRUSH, focusTrack);
       case 12 -> readChuckFloat(BridgeContract.G_SAMPLE_RATE_RED, focusTrack);
@@ -455,16 +466,16 @@ public class SwingPerformanceViewPanel extends JPanel {
   private void writeValue(int col, float val) {
     if (focusTrack < 0) return;
     switch (col) {
-      case 0  -> writeChuckFloat(BridgeContract.G_TRACK_LEVEL, focusTrack, val);
-      case 1  -> writeChuckFloat(BridgeContract.G_PAN, focusTrack, val);
-      case 2  -> bridge.setFilterFreq(focusTrack, val);
-      case 3  -> bridge.setFilterRes(focusTrack, val);
-      case 4  -> writeChuckFloat(BridgeContract.G_HPF_FREQ, focusTrack, val);
-      case 5  -> writeChuckFloat(BridgeContract.G_HPF_RES, focusTrack, val);
-      case 6  -> writeChuckFloat(BridgeContract.G_MOD_FX_RATE, focusTrack, val);
-      case 7  -> writeChuckFloat(BridgeContract.G_MOD_FX_DEPTH, focusTrack, val);
-      case 8  -> bridge.setDelaySend(focusTrack, val);
-      case 9  -> bridge.setReverbSend(focusTrack, val);
+      case 0 -> writeChuckFloat(BridgeContract.G_TRACK_LEVEL, focusTrack, val);
+      case 1 -> writeChuckFloat(BridgeContract.G_PAN, focusTrack, val);
+      case 2 -> bridge.setFilterFreq(focusTrack, val);
+      case 3 -> bridge.setFilterRes(focusTrack, val);
+      case 4 -> writeChuckFloat(BridgeContract.G_HPF_FREQ, focusTrack, val);
+      case 5 -> writeChuckFloat(BridgeContract.G_HPF_RES, focusTrack, val);
+      case 6 -> writeChuckFloat(BridgeContract.G_MOD_FX_RATE, focusTrack, val);
+      case 7 -> writeChuckFloat(BridgeContract.G_MOD_FX_DEPTH, focusTrack, val);
+      case 8 -> bridge.setDelaySend(focusTrack, val);
+      case 9 -> bridge.setReverbSend(focusTrack, val);
       case 10 -> writeChuckFloat(BridgeContract.G_STUTTER_RATE, focusTrack, val);
       case 11 -> writeChuckFloat(BridgeContract.G_BITCRUSH, focusTrack, val);
       case 12 -> writeChuckFloat(BridgeContract.G_SAMPLE_RATE_RED, focusTrack, val);

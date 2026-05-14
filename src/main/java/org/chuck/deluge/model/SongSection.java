@@ -19,14 +19,29 @@ public class SongSection {
     return id;
   }
 
-  public int getNumRepeats() { return numRepeats; }
-  public void setNumRepeats(int v) { this.numRepeats = v; }
+  public int getNumRepeats() {
+    return numRepeats;
+  }
 
-  public int getLoopToSection() { return loopToSection; }
-  public void setLoopToSection(int v) { this.loopToSection = v; }
+  public void setNumRepeats(int v) {
+    this.numRepeats = v;
+  }
 
-  public int getLinkToSection() { return linkToSection; }
-  public void setLinkToSection(int v) { this.linkToSection = v; }
+  public int getLoopToSection() {
+    return loopToSection;
+  }
+
+  public void setLoopToSection(int v) {
+    this.loopToSection = v;
+  }
+
+  public int getLinkToSection() {
+    return linkToSection;
+  }
+
+  public void setLinkToSection(int v) {
+    this.linkToSection = v;
+  }
 
   public List<String> getPatternIds() {
     return patternIds;

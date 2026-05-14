@@ -14,9 +14,9 @@ import org.chuck.deluge.model.ProjectModel;
 
 /**
  * Bottom MASTER FX panel containing master volume, transpose, scale selector, and playback status.
- * Uses ProjectModel for master volume so changes flow through MVC (model → listener → bridge).
- * Used in the main layout's bottom row. The status counter label is exposed so the playback timer
- * can update it.
+ * Uses ProjectModel for master volume so changes flow through MVC (model → listener → bridge). Used
+ * in the main layout's bottom row. The status counter label is exposed so the playback timer can
+ * update it.
  */
 public class SwingMasterFxPanel extends JPanel {
 
@@ -25,9 +25,9 @@ public class SwingMasterFxPanel extends JPanel {
   private final ProjectModel projectModel;
 
   /**
-   * @param vm          ChucK VM for bridge writes
+   * @param vm ChucK VM for bridge writes
    * @param projectModel project model for MVC-bound controls
-   * @param topBar      top bar panel for two-way master vol sync
+   * @param topBar top bar panel for two-way master vol sync
    */
   public SwingMasterFxPanel(ChuckVM vm, ProjectModel projectModel, SwingTopBarPanel topBar) {
     this.projectModel = projectModel;
@@ -59,11 +59,12 @@ public class SwingMasterFxPanel extends JPanel {
     transSlider.setSnapToTicks(true);
     transSlider.setMajorTickSpacing(12);
     transSlider.setPaintTicks(true);
-    transSlider.addChangeListener(e -> {
-      if (!transSlider.getValueIsAdjusting()) {
-        projectModel.setTranspose(transSlider.getValue());
-      }
-    });
+    transSlider.addChangeListener(
+        e -> {
+          if (!transSlider.getValueIsAdjusting()) {
+            projectModel.setTranspose(transSlider.getValue());
+          }
+        });
     add(transLabel);
     add(transSlider);
 
@@ -74,6 +75,18 @@ public class SwingMasterFxPanel extends JPanel {
         new JComboBox<>(new String[] {"Major", "Minor", "Pentatonic", "Chromatic"});
     add(scaleLabel);
     add(scaleCombo);
+
+    // ── High Fidelity Mode ──
+    javax.swing.JCheckBox hiFiCheck = new javax.swing.JCheckBox("Hi-Fi");
+    hiFiCheck.setForeground(Color.WHITE);
+    hiFiCheck.setBackground(new Color(0x25, 0x25, 0x25));
+    hiFiCheck.setSelected(vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0);
+    hiFiCheck.addActionListener(
+        e -> {
+          vm.setGlobalInt(BridgeContract.G_HI_FI_MODE, hiFiCheck.isSelected() ? 1L : 0L);
+          System.out.println("[UI] High Fidelity Mode: " + hiFiCheck.isSelected());
+        });
+    add(hiFiCheck);
 
     // ── Status Counter ──
     statusCounter = new JLabel("1:1:1");

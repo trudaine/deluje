@@ -10,8 +10,8 @@ import org.chuck.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
 /**
- * Diagnostic test that mimics the exact UI flow for kit playback.
- * Load a kit like the sidebar does, add a clip, push to bridge, set steps, then play.
+ * Diagnostic test that mimics the exact UI flow for kit playback. Load a kit like the sidebar does,
+ * add a clip, push to bridge, set steps, then play.
  */
 public class KitPlaybackDiagnosticTest {
 
@@ -67,8 +67,10 @@ public class KitPlaybackDiagnosticTest {
     // Set sample paths (reversed like pushModelToBridge does)
     for (int v = 0; v < voiceCount; v++) {
       int engineRow = v;
-      String path = v < kit.getDrums().size()
-        ? ((SoundDrum) kit.getDrums().get(kit.getDrums().size() - 1 - v)).getSamplePath() : "";
+      String path =
+          v < kit.getDrums().size()
+              ? ((SoundDrum) kit.getDrums().get(kit.getDrums().size() - 1 - v)).getSamplePath()
+              : "";
       vm.setGlobalString("g_sample_" + engineRow, path);
       bridge.setSamplePath(engineRow, path);
     }
@@ -122,15 +124,17 @@ public class KitPlaybackDiagnosticTest {
     System.out.printf("[KIT UI MIMIC] Peak L=%.6f R=%.6f stepAdv=%s%n", peakL, peakR, stepAdvanced);
 
     // Check pattern values
-    System.out.printf("[KIT UI MIMIC] pattern[0*16+0]=%d  pattern[0*16+4]=%d  pattern[0*16+8]=%d  pattern[0*16+12]=%d%n",
-      bridge.getStep(0, 0) ? 1 : 0,
-      bridge.getStep(0, 4) ? 1 : 0,
-      bridge.getStep(0, 8) ? 1 : 0,
-      bridge.getStep(0, 12) ? 1 : 0);
+    System.out.printf(
+        "[KIT UI MIMIC] pattern[0*16+0]=%d  pattern[0*16+4]=%d  pattern[0*16+8]=%d  pattern[0*16+12]=%d%n",
+        bridge.getStep(0, 0) ? 1 : 0,
+        bridge.getStep(0, 4) ? 1 : 0,
+        bridge.getStep(0, 8) ? 1 : 0,
+        bridge.getStep(0, 12) ? 1 : 0);
 
     assertTrue(stepAdvanced, "Engine playhead did not advance");
-    assertTrue(peakL > 0.0005f || peakR > 0.0005f,
-      String.format("Audio too weak: L=%.6f R=%.6f", peakL, peakR));
+    assertTrue(
+        peakL > 0.0005f || peakR > 0.0005f,
+        String.format("Audio too weak: L=%.6f R=%.6f", peakL, peakR));
 
     vm.shutdown();
   }
@@ -157,8 +161,10 @@ public class KitPlaybackDiagnosticTest {
     int voiceCount = Math.min(16, kit.getDrums().size());
 
     for (int i = 0; i < voiceCount; i++) {
-      String path = ((SoundDrum) kit.getDrums().get(i)).getSamplePath() != null
-        ? ((SoundDrum) kit.getDrums().get(i)).getSamplePath() : "";
+      String path =
+          ((SoundDrum) kit.getDrums().get(i)).getSamplePath() != null
+              ? ((SoundDrum) kit.getDrums().get(i)).getSamplePath()
+              : "";
       vm.setGlobalString("g_sample_" + i, path);
       bridge.setSamplePath(i, path);
       bridge.setMute(i, false);
@@ -177,8 +183,10 @@ public class KitPlaybackDiagnosticTest {
     for (int v = 0; v < voiceCount; v++) bridge.setTrackType(v, 0);
     for (int v = 0; v < voiceCount; v++) {
       int engineRow = v;
-      String path = v < kit.getDrums().size()
-        ? ((SoundDrum) kit.getDrums().get(kit.getDrums().size() - 1 - v)).getSamplePath() : "";
+      String path =
+          v < kit.getDrums().size()
+              ? ((SoundDrum) kit.getDrums().get(kit.getDrums().size() - 1 - v)).getSamplePath()
+              : "";
       vm.setGlobalString("g_sample_" + engineRow, path);
       bridge.setSamplePath(engineRow, path);
     }
@@ -221,8 +229,8 @@ public class KitPlaybackDiagnosticTest {
       if (r > peak2) peak2 = r;
     }
     System.out.printf("[PREVIEW REGRESSION] 2nd click: peak=%.6f (1st=%.6f)%n", peak2, peak1);
-    assertTrue(peak2 > 0.001f,
-      "Second preview click on same track produced no audio — dedup regression");
+    assertTrue(
+        peak2 > 0.001f, "Second preview click on same track produced no audio — dedup regression");
 
     vm.shutdown();
   }
@@ -269,8 +277,10 @@ public class KitPlaybackDiagnosticTest {
     }
     for (int v = 0; v < voiceCount; v++) {
       int engineRow = v;
-      String path = v < kit.getDrums().size()
-        ? ((SoundDrum) kit.getDrums().get(kit.getDrums().size() - 1 - v)).getSamplePath() : "";
+      String path =
+          v < kit.getDrums().size()
+              ? ((SoundDrum) kit.getDrums().get(kit.getDrums().size() - 1 - v)).getSamplePath()
+              : "";
       vm.setGlobalString("g_sample_" + engineRow, path);
       bridge.setSamplePath(engineRow, path);
     }
@@ -307,10 +317,12 @@ public class KitPlaybackDiagnosticTest {
       if (curR > peakR) peakR = curR;
     }
 
-    System.out.printf("[KIT DOUBLE BCAST] Peak L=%.6f R=%.6f stepAdv=%s%n", peakL, peakR, stepAdvanced);
+    System.out.printf(
+        "[KIT DOUBLE BCAST] Peak L=%.6f R=%.6f stepAdv=%s%n", peakL, peakR, stepAdvanced);
     assertTrue(stepAdvanced, "Engine playhead did not advance");
-    assertTrue(peakL > 0.0005f || peakR > 0.0005f,
-      String.format("Audio too weak: L=%.6f R=%.6f", peakL, peakR));
+    assertTrue(
+        peakL > 0.0005f || peakR > 0.0005f,
+        String.format("Audio too weak: L=%.6f R=%.6f", peakL, peakR));
 
     vm.shutdown();
   }

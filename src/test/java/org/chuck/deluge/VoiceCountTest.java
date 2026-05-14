@@ -9,11 +9,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Integration tests for voice management: voice count limiting, voice stealing,
- * and polyphony modes (POLY, MONO, LEGATO, AUTO, CHOKE).
+ * Integration tests for voice management: voice count limiting, voice stealing, and polyphony modes
+ * (POLY, MONO, LEGATO, AUTO, CHOKE).
  *
- * <p>Verifies that the engine respects max voice limits and polyphony mode settings
- * to prevent uncontrolled voice allocation.
+ * <p>Verifies that the engine respects max voice limits and polyphony mode settings to prevent
+ * uncontrolled voice allocation.
  */
 public class VoiceCountTest {
 

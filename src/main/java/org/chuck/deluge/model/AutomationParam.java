@@ -1,16 +1,15 @@
 package org.chuck.deluge.model;
 
-import java.util.List;
-
 /**
  * Canonical parameter name constants for per-step automation data in {@link ClipModel}.
  *
  * <p>81 automatable params organized into 4 categories matching firmware c1.3.0 Automation View:
+ *
  * <ul>
- *   <li>Synth/Kit with Affect-Entire disabled (26 params)</li>
- *   <li>Kit with Affect-Entire enabled / Audio (26 params)</li>
- *   <li>Arranger (22 params)</li>
- *   <li>Patch Cables / MIDI CCs (7 pseudo-params, firmware exposes 0-119 + PB + AT)</li>
+ *   <li>Synth/Kit with Affect-Entire disabled (26 params)
+ *   <li>Kit with Affect-Entire enabled / Audio (26 params)
+ *   <li>Arranger (22 params)
+ *   <li>Patch Cables / MIDI CCs (7 pseudo-params, firmware exposes 0-119 + PB + AT)
  * </ul>
  *
  * <p>Values are stored as normalized 0.0–1.0 floats in {@code ClipModel.automationData}.
@@ -121,62 +120,117 @@ public final class AutomationParam {
 
   /** Synth/Kit params (affect-entire disabled): 26 params. */
   public static final String[] SYTH_PARAMS = {
-    A_VOLUME, A_PAN,
-    A_LPF_FREQ, A_LPF_RES,
-    A_HPF_FREQ, A_HPF_RES,
-    A_MOD_FX_RATE, A_MOD_FX_DEPTH,
-    A_ENV_0_ATTACK, A_ENV_0_DECAY, A_ENV_0_SUSTAIN, A_ENV_0_RELEASE,
-    A_ENV_1_ATTACK, A_ENV_1_DECAY, A_ENV_1_SUSTAIN, A_ENV_1_RELEASE,
-    A_ENV_2_ATTACK, A_ENV_2_DECAY, A_ENV_2_SUSTAIN, A_ENV_2_RELEASE,
-    A_ENV_3_ATTACK, A_ENV_3_DECAY, A_ENV_3_SUSTAIN, A_ENV_3_RELEASE,
-    A_LFO_0_RATE, A_LFO_0_DEPTH,
-    A_LFO_1_RATE, A_LFO_1_DEPTH,
-    A_LFO_2_RATE, A_LFO_2_DEPTH,
-    A_LFO_3_RATE, A_LFO_3_DEPTH,
-    A_ARP_RATE, A_ARP_GATE,
-    A_DELAY, A_REVERB,
+    A_VOLUME,
+    A_PAN,
+    A_LPF_FREQ,
+    A_LPF_RES,
+    A_HPF_FREQ,
+    A_HPF_RES,
+    A_MOD_FX_RATE,
+    A_MOD_FX_DEPTH,
+    A_ENV_0_ATTACK,
+    A_ENV_0_DECAY,
+    A_ENV_0_SUSTAIN,
+    A_ENV_0_RELEASE,
+    A_ENV_1_ATTACK,
+    A_ENV_1_DECAY,
+    A_ENV_1_SUSTAIN,
+    A_ENV_1_RELEASE,
+    A_ENV_2_ATTACK,
+    A_ENV_2_DECAY,
+    A_ENV_2_SUSTAIN,
+    A_ENV_2_RELEASE,
+    A_ENV_3_ATTACK,
+    A_ENV_3_DECAY,
+    A_ENV_3_SUSTAIN,
+    A_ENV_3_RELEASE,
+    A_LFO_0_RATE,
+    A_LFO_0_DEPTH,
+    A_LFO_1_RATE,
+    A_LFO_1_DEPTH,
+    A_LFO_2_RATE,
+    A_LFO_2_DEPTH,
+    A_LFO_3_RATE,
+    A_LFO_3_DEPTH,
+    A_ARP_RATE,
+    A_ARP_GATE,
+    A_DELAY,
+    A_REVERB,
     A_PITCH,
-    A_OSC_A_VOL, A_OSC_B_VOL, A_NOISE_VOL,
-    A_FM_AMOUNT, A_FM_RATIO,
+    A_OSC_A_VOL,
+    A_OSC_B_VOL,
+    A_NOISE_VOL,
+    A_FM_AMOUNT,
+    A_FM_RATIO,
     A_MOD_FX_FEEDBACK,
-    A_COMP_ATTACK, A_COMP_RELEASE,
+    A_COMP_ATTACK,
+    A_COMP_RELEASE,
     A_PORTAMENTO,
-    A_STUTTER_RATE, A_BITCRUSH, A_SAMPLE_RATE_RED,
+    A_STUTTER_RATE,
+    A_BITCRUSH,
+    A_SAMPLE_RATE_RED,
   };
 
   /** Kit/affect-entire / Audio params: 26 params (similar to synth but some overlap). */
   public static final String[] KIT_PARAMS = {
-    A_VOLUME, A_PAN,
-    A_LPF_FREQ, A_LPF_RES,
-    A_HPF_FREQ, A_HPF_RES,
-    A_MOD_FX_RATE, A_MOD_FX_DEPTH,
-    A_ENV_0_ATTACK, A_ENV_0_DECAY, A_ENV_0_SUSTAIN, A_ENV_0_RELEASE,
-    A_ENV_1_ATTACK, A_ENV_1_DECAY, A_ENV_1_SUSTAIN, A_ENV_1_RELEASE,
-    A_DELAY, A_REVERB,
+    A_VOLUME,
+    A_PAN,
+    A_LPF_FREQ,
+    A_LPF_RES,
+    A_HPF_FREQ,
+    A_HPF_RES,
+    A_MOD_FX_RATE,
+    A_MOD_FX_DEPTH,
+    A_ENV_0_ATTACK,
+    A_ENV_0_DECAY,
+    A_ENV_0_SUSTAIN,
+    A_ENV_0_RELEASE,
+    A_ENV_1_ATTACK,
+    A_ENV_1_DECAY,
+    A_ENV_1_SUSTAIN,
+    A_ENV_1_RELEASE,
+    A_DELAY,
+    A_REVERB,
     A_PITCH,
-    A_OSC_A_VOL, A_OSC_B_VOL, A_NOISE_VOL,
-    A_COMP_ATTACK, A_COMP_RELEASE,
-    A_STUTTER_RATE, A_BITCRUSH, A_SAMPLE_RATE_RED,
+    A_OSC_A_VOL,
+    A_OSC_B_VOL,
+    A_NOISE_VOL,
+    A_COMP_ATTACK,
+    A_COMP_RELEASE,
+    A_STUTTER_RATE,
+    A_BITCRUSH,
+    A_SAMPLE_RATE_RED,
   };
 
   /** Arranger params: 22 params. */
   public static final String[] ARR_PARAMS = {
-    A_ARR_VOLUME, A_ARR_PAN,
-    A_ARR_LPF_FREQ, A_ARR_LPF_RES,
-    A_ARR_HPF_FREQ, A_ARR_HPF_RES,
-    A_ARR_MOD_FX_RATE, A_ARR_MOD_FX_DEPTH,
-    A_ARR_DELAY, A_ARR_REVERB,
+    A_ARR_VOLUME,
+    A_ARR_PAN,
+    A_ARR_LPF_FREQ,
+    A_ARR_LPF_RES,
+    A_ARR_HPF_FREQ,
+    A_ARR_HPF_RES,
+    A_ARR_MOD_FX_RATE,
+    A_ARR_MOD_FX_DEPTH,
+    A_ARR_DELAY,
+    A_ARR_REVERB,
     A_ARR_PITCH,
-    A_ARR_OSC_A_VOL, A_ARR_OSC_B_VOL, A_ARR_NOISE_VOL,
-    A_ARR_FM_AMOUNT, A_ARR_FM_RATIO,
-    A_ARR_COMP_ATTACK, A_ARR_COMP_RELEASE,
+    A_ARR_OSC_A_VOL,
+    A_ARR_OSC_B_VOL,
+    A_ARR_NOISE_VOL,
+    A_ARR_FM_AMOUNT,
+    A_ARR_FM_RATIO,
+    A_ARR_COMP_ATTACK,
+    A_ARR_COMP_RELEASE,
     A_ARR_PORTAMENTO,
-    A_ARR_STUTTER, A_ARR_BITCRUSH, A_ARR_SAMPLE_RATE_RED,
+    A_ARR_STUTTER,
+    A_ARR_BITCRUSH,
+    A_ARR_SAMPLE_RATE_RED,
   };
 
   /**
-   * Compact display labels for the overview grid.
-   * Maps param constant → short label (max 6 chars for grid fitting).
+   * Compact display labels for the overview grid. Maps param constant → short label (max 6 chars
+   * for grid fitting).
    */
   public static String labelFor(String param) {
     return switch (param) {
@@ -275,13 +329,19 @@ public final class AutomationParam {
 
   /** The original 14 v1 automation params, kept for back compat. */
   public static final String[] ALL = {
-    A_VOLUME, A_PAN,
-    A_LPF_FREQ, A_LPF_RES,
-    A_HPF_FREQ, A_HPF_RES,
-    A_MOD_FX_RATE, A_MOD_FX_DEPTH,
-    A_DELAY, A_REVERB,
+    A_VOLUME,
+    A_PAN,
+    A_LPF_FREQ,
+    A_LPF_RES,
+    A_HPF_FREQ,
+    A_HPF_RES,
+    A_MOD_FX_RATE,
+    A_MOD_FX_DEPTH,
+    A_DELAY,
+    A_REVERB,
     A_PITCH,
-    A_OSC_A_VOL, A_OSC_B_VOL,
+    A_OSC_A_VOL,
+    A_OSC_B_VOL,
     A_NOISE_VOL,
   };
 }

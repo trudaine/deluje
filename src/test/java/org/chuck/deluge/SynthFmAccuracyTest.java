@@ -3,28 +3,27 @@ package org.chuck.deluge;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.*;
-import org.chuck.core.ChuckArray;
 import org.chuck.audio.ChuckUGen;
+import org.chuck.audio.util.WvOut2;
+import org.chuck.core.ChuckArray;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.engine.DelugeEngineDSL;
-import org.chuck.audio.util.WvOut2;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Accuracy test for FM synthesis modulation.
  *
- * <p>Validates that FM modulation (synthMode=1) produces audibly different output from
- * carrier-only (SUBTRACTIVE) operation. The real Deluge firmware uses sine-only modulators
- * with 32-bit wrapping phase shift: carrierPhase += modulatorSample + feedback.
+ * <p>Validates that FM modulation (synthMode=1) produces audibly different output from carrier-only
+ * (SUBTRACTIVE) operation. The real Deluge firmware uses sine-only modulators with 32-bit wrapping
+ * phase shift: carrierPhase += modulatorSample + feedback.
  *
- * <p><b>Firmware reference:</b> In the real firmware (voice.cpp), the FM phase shift is a
- * wrapping 32-bit unsigned addition of the modulator sample into the carrier phase. Feedback
- * is hard-clipped to 22 bits (signed_saturate<22>). Our engine uses wavetable modulators
- * (oscType-driven) vs the firmware's sine-only modulators — this test validates our FM path
- * is at least producing modulation (not just passing carrier through unchanged).
+ * <p><b>Firmware reference:</b> In the real firmware (voice.cpp), the FM phase shift is a wrapping
+ * 32-bit unsigned addition of the modulator sample into the carrier phase. Feedback is hard-clipped
+ * to 22 bits (signed_saturate<22>). Our engine uses wavetable modulators (oscType-driven) vs the
+ * firmware's sine-only modulators — this test validates our FM path is at least producing
+ * modulation (not just passing carrier through unchanged).
  */
 public class SynthFmAccuracyTest {
 
@@ -54,11 +53,12 @@ public class SynthFmAccuracyTest {
   }
 
   /**
-   * Capture 1s of DAC output from the engine with a single synth track.
-   * Returns the captured float array.
+   * Capture 1s of DAC output from the engine with a single synth track. Returns the captured float
+   * array.
    */
-  private float[] captureSynth(boolean useFm, double fmRatio, double fmAmount,
-      int oscType, int midiNote, String label) throws Exception {
+  private float[] captureSynth(
+      boolean useFm, double fmRatio, double fmAmount, int oscType, int midiNote, String label)
+      throws Exception {
     System.setProperty("chuck.audio.dummy", "true");
     System.setProperty("deluge.tracks", "128");
 
@@ -120,8 +120,11 @@ public class SynthFmAccuracyTest {
 
     // Ensure env array
     if (localVm.getGlobalObject(BridgeContract.G_ENV) == null) {
-      localVm.setGlobalObject(BridgeContract.G_ENV, new ChuckArray("float",
-          BridgeContract.TRACKS * BridgeContract.ENV_COUNT * BridgeContract.ENV_PARAMS));
+      localVm.setGlobalObject(
+          BridgeContract.G_ENV,
+          new ChuckArray(
+              "float",
+              BridgeContract.TRACKS * BridgeContract.ENV_COUNT * BridgeContract.ENV_PARAMS));
     }
 
     // Start engine
@@ -139,25 +142,26 @@ public class SynthFmAccuracyTest {
     File tmpWav = new File(tempDir, "fm_" + label + ".wav");
     float[][] captured = new float[1][];
 
-    localVm.spork(() -> {
-      // Tap synthBus directly (pre master compressor/limiter) for clean waveform capture
-      ChuckUGen synthBus = (ChuckUGen) localVm.getGlobalObject(BridgeContract.G_SYNTH_BUS);
-      WvOut2 wv = new WvOut2(SAMPLE_RATE);
-      wv.record(1);
-      wv.wavWrite(tmpWav.getAbsolutePath());
+    localVm.spork(
+        () -> {
+          // Tap synthBus directly (pre master compressor/limiter) for clean waveform capture
+          ChuckUGen synthBus = (ChuckUGen) localVm.getGlobalObject(BridgeContract.G_SYNTH_BUS);
+          WvOut2 wv = new WvOut2(SAMPLE_RATE);
+          wv.record(1);
+          wv.wavWrite(tmpWav.getAbsolutePath());
 
-      synthBus.unchuck(org.chuck.core.ChuckDSL.dac());
-      synthBus.chuck(wv);
-      wv.chuck(org.chuck.core.ChuckDSL.dac());
+          synthBus.unchuck(org.chuck.core.ChuckDSL.dac());
+          synthBus.chuck(wv);
+          wv.chuck(org.chuck.core.ChuckDSL.dac());
 
-      org.chuck.core.ChuckDSL.advance(org.chuck.core.ChuckDSL.samp(SAMPLE_RATE));
-      wv.closeFile();
-      try {
-        captured[0] = AudioAnalyzer.loadWav(tmpWav);
-      } catch (Exception e) {
-        throw new RuntimeException(e);
-      }
-    });
+          org.chuck.core.ChuckDSL.advance(org.chuck.core.ChuckDSL.samp(SAMPLE_RATE));
+          wv.closeFile();
+          try {
+            captured[0] = AudioAnalyzer.loadWav(tmpWav);
+          } catch (Exception e) {
+            throw new RuntimeException(e);
+          }
+        });
 
     int totalCapture = SAMPLE_RATE * 2;
     int blocks = totalCapture / BLOCK_SIZE;
@@ -176,37 +180,42 @@ public class SynthFmAccuracyTest {
   void testFmModulationChangesOutput() throws Exception {
     // Capture carrier-only (no FM)
     float[] carrierOnly = captureSynth(false, 0, 0, 0, 60, "carrier_only");
-    assertTrue(carrierOnly != null && carrierOnly.length > 100,
+    assertTrue(
+        carrierOnly != null && carrierOnly.length > 100,
         "Carrier-only capture failed, len=" + (carrierOnly == null ? 0 : carrierOnly.length));
 
     double carPeak = AudioAnalyzer.peak(carrierOnly);
     double carRms = AudioAnalyzer.rms(carrierOnly);
     System.out.println("\n=== FM Modulation Test ===");
-    System.out.printf("  Carrier-only: peak=%.6f RMS=%.6f len=%d%n",
-        carPeak, carRms, carrierOnly.length);
+    System.out.printf(
+        "  Carrier-only: peak=%.6f RMS=%.6f len=%d%n", carPeak, carRms, carrierOnly.length);
     assertTrue(carPeak > 0.001, "Carrier-only peak too low: " + carPeak);
 
     // Capture with FM: ratio=2.0, amount=0.5
     float[] fmOutput = captureSynth(true, 2.0, 0.5, 0, 60, "fm_on");
-    assertTrue(fmOutput != null && fmOutput.length > 100,
+    assertTrue(
+        fmOutput != null && fmOutput.length > 100,
         "FM capture failed, len=" + (fmOutput == null ? 0 : fmOutput.length));
 
     double fmPeak = AudioAnalyzer.peak(fmOutput);
     double fmRms = AudioAnalyzer.rms(fmOutput);
-    double fmCarCorr = AudioAnalyzer.correlation(
-        trimLength(carrierOnly, Math.min(carrierOnly.length, fmOutput.length)),
-        trimLength(fmOutput, Math.min(carrierOnly.length, fmOutput.length)));
+    double fmCarCorr =
+        AudioAnalyzer.correlation(
+            trimLength(carrierOnly, Math.min(carrierOnly.length, fmOutput.length)),
+            trimLength(fmOutput, Math.min(carrierOnly.length, fmOutput.length)));
 
-    System.out.printf("  FM on:        peak=%.6f RMS=%.6f len=%d%n",
-        fmPeak, fmRms, fmOutput.length);
+    System.out.printf(
+        "  FM on:        peak=%.6f RMS=%.6f len=%d%n", fmPeak, fmRms, fmOutput.length);
     System.out.printf("  Carrier vs FM correlation: %.4f%n", fmCarCorr);
     System.out.printf("  RMS ratio: FM/NoFM = %.4f%n", carRms > 0 ? fmRms / carRms : 0);
 
     // FM should produce noticeably different output from carrier-only.
     // If the correlation is too high (>0.95), the FM path isn't modulating.
-    assertTrue(fmCarCorr < 0.95,
+    assertTrue(
+        fmCarCorr < 0.95,
         "FM output should differ from carrier-only (correlation="
-            + String.format("%.4f", fmCarCorr) + ")");
+            + String.format("%.4f", fmCarCorr)
+            + ")");
 
     // FM analysis: sideband detection via harmonic profile
     int steadyStart = SAMPLE_RATE / 10;
@@ -218,7 +227,8 @@ public class SynthFmAccuracyTest {
       // Estimate fundamental for diagnostics
       double estFreq = AudioAnalyzer.estimateFrequency(steady, SAMPLE_RATE, 100, 500);
       double knownFundamental = 261.63; // MIDI 60 = C4
-      System.out.printf("  FM estimated fundamental: %.2f Hz (known=%.2f)%n", estFreq, knownFundamental);
+      System.out.printf(
+          "  FM estimated fundamental: %.2f Hz (known=%.2f)%n", estFreq, knownFundamental);
 
       // Use known fundamental for harmonic profile (autocorrelation is unreliable
       // for FM-modulated signals with sidebands — the sidebands confuse peak picking).
@@ -237,14 +247,17 @@ public class SynthFmAccuracyTest {
         if ((h + 1) % 2 == 0) evenEnergy += harm[h] * harm[h];
         else oddEnergy += harm[h] * harm[h];
       }
-      System.out.printf("  FM harmonic energy: even=%.4f odd=%.4f ratio=%.4f%n",
+      System.out.printf(
+          "  FM harmonic energy: even=%.4f odd=%.4f ratio=%.4f%n",
           evenEnergy, oddEnergy, evenEnergy > 0 ? oddEnergy / evenEnergy : 0);
 
       // With FM, there should be measurable energy in harmonics
       double totalHarmonicEnergy = evenEnergy + oddEnergy;
-      assertTrue(totalHarmonicEnergy > 0.01,
+      assertTrue(
+          totalHarmonicEnergy > 0.01,
           "FM should produce harmonic sidebands (harmonic energy="
-              + String.format("%.4f", totalHarmonicEnergy) + ")");
+              + String.format("%.4f", totalHarmonicEnergy)
+              + ")");
     }
 
     System.out.println("  Result: PASS");
@@ -261,21 +274,26 @@ public class SynthFmAccuracyTest {
     assertTrue(fmRatio3 != null && fmRatio3.length > 100, "FM ratio=3 capture failed");
 
     // Correlation should be significantly different (different spectral content)
-    double r1r3Corr = AudioAnalyzer.correlation(
-        trimLength(fmRatio1, Math.min(fmRatio1.length, fmRatio3.length)),
-        trimLength(fmRatio3, Math.min(fmRatio1.length, fmRatio3.length)));
+    double r1r3Corr =
+        AudioAnalyzer.correlation(
+            trimLength(fmRatio1, Math.min(fmRatio1.length, fmRatio3.length)),
+            trimLength(fmRatio3, Math.min(fmRatio1.length, fmRatio3.length)));
 
     System.out.println("\n=== FM Ratio Variation Test ===");
     System.out.printf("  FM ratio=1 vs ratio=3 correlation: %.4f%n", r1r3Corr);
-    System.out.printf("  FM ratio=1: peak=%.6f RMS=%.6f%n",
+    System.out.printf(
+        "  FM ratio=1: peak=%.6f RMS=%.6f%n",
         AudioAnalyzer.peak(fmRatio1), AudioAnalyzer.rms(fmRatio1));
-    System.out.printf("  FM ratio=3: peak=%.6f RMS=%.6f%n",
+    System.out.printf(
+        "  FM ratio=3: peak=%.6f RMS=%.6f%n",
         AudioAnalyzer.peak(fmRatio3), AudioAnalyzer.rms(fmRatio3));
 
     // Different ratios should produce measurably different output
-    assertTrue(r1r3Corr < 0.98,
+    assertTrue(
+        r1r3Corr < 0.98,
         "FM ratio=1 and ratio=3 should produce different output (correlation="
-            + String.format("%.4f", r1r3Corr) + ")");
+            + String.format("%.4f", r1r3Corr)
+            + ")");
 
     System.out.println("  Result: PASS");
   }

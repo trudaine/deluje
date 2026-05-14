@@ -12,9 +12,9 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests for the GlobalEffectable-style per-clip FX overrides in SwingDelugeApp.
  *
- * <p>Verifies that {@code applyClipFxOverrides()} pushes per-clip FX params to the correct
- * G_SP_* globals, overriding song-level defaults, and that switching clips restores the
- * correct set of overrides.
+ * <p>Verifies that {@code applyClipFxOverrides()} pushes per-clip FX params to the correct G_SP_*
+ * globals, overriding song-level defaults, and that switching clips restores the correct set of
+ * overrides.
  */
 class GlobalEffectableOverridesTest {
 

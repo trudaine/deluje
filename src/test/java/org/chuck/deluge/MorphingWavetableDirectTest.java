@@ -9,8 +9,8 @@ import org.junit.jupiter.api.Test;
  * Direct unit test for {@link MorphingWavetable} — no engine pipeline, no SVFilter.
  *
  * <p>Creates the oscillator directly, sets freq and table index, ticks it sample-by-sample,
- * captures the output array, and validates frequency (via zero-crossing count) and harmonic
- * profile (via DFT) against ideal waveform shapes.
+ * captures the output array, and validates frequency (via zero-crossing count) and harmonic profile
+ * (via DFT) against ideal waveform shapes.
  *
  * <p>This tests the wavetable oscillator in isolation. For engine-pipeline wavetable tests
  * (including SVFilter coloration), see {@link SynthWavetableAccuracyTest}.
@@ -35,13 +35,17 @@ public class MorphingWavetableDirectTest {
     return t;
   }
 
-  /**
-   * Run a single wavetable test: tick the oscillator, capture output, validate.
-   */
+  /** Run a single wavetable test: tick the oscillator, capture output, validate. */
   private void runWavetableTest(int oscTypeIdx, String shapeName, double minShapeScore)
       throws Exception {
-    System.out.println("\n=== Direct Wavetable Test: " + shapeName
-        + " (oscType=" + oscTypeIdx + " freq=" + EXPECTED_FREQ + " Hz) ===");
+    System.out.println(
+        "\n=== Direct Wavetable Test: "
+            + shapeName
+            + " (oscType="
+            + oscTypeIdx
+            + " freq="
+            + EXPECTED_FREQ
+            + " Hz) ===");
 
     // Build oscillator with same tables as engine
     float[][] tables = buildWaveTables();
@@ -62,7 +66,8 @@ public class MorphingWavetableDirectTest {
     // Tick the oscillator sample-by-sample using public tick(float manualInput).
     // MorphingWavetable.compute applies its own gain, and tick also multiplies by gain.
     // We use gain=0.8 in osc.gain() above; tick multiplies again, so set gain to 1.
-    System.out.printf("  samplesPerCycle=%d actualCycleFreq=%.4f Hz totalSamples=%d%n",
+    System.out.printf(
+        "  samplesPerCycle=%d actualCycleFreq=%.4f Hz totalSamples=%d%n",
         samplesPerCycle, actualCycleFreq, totalSamples);
     for (int i = 0; i < totalSamples; i++) {
       output[i] = osc.tick(0, i);
@@ -87,14 +92,20 @@ public class MorphingWavetableDirectTest {
       lastPositive = positive;
     }
     double estFreq = (zeroCrossings / 2.0) * SAMPLE_RATE / (zcEnd - zcStart);
-    System.out.printf("  Zero-crossings (skip=%d, range=%d): %d → estimated freq: %.2f Hz%n",
+    System.out.printf(
+        "  Zero-crossings (skip=%d, range=%d): %d → estimated freq: %.2f Hz%n",
         skipSamples, zcEnd - zcStart, zeroCrossings, estFreq);
 
     double freqErr = Math.abs(estFreq - EXPECTED_FREQ) / EXPECTED_FREQ;
-    assertTrue(freqErr < 0.02,
-        shapeName + ": frequency error too high: expected="
-            + String.format("%.2f", EXPECTED_FREQ) + " got=" + String.format("%.2f", estFreq)
-            + " err=" + String.format("%.4f", freqErr));
+    assertTrue(
+        freqErr < 0.02,
+        shapeName
+            + ": frequency error too high: expected="
+            + String.format("%.2f", EXPECTED_FREQ)
+            + " got="
+            + String.format("%.2f", estFreq)
+            + " err="
+            + String.format("%.4f", freqErr));
 
     // ── Harmonic profile ──
     double[] harmonics = harmonicProfile(output, EXPECTED_FREQ, SAMPLE_RATE, 10);
@@ -107,9 +118,13 @@ public class MorphingWavetableDirectTest {
     double shapeScore = shapeMatchQuality(harmonics, shapeName);
     System.out.printf("  Shape match score: %.4f (threshold=%.4f)%n", shapeScore, minShapeScore);
 
-    assertTrue(shapeScore >= minShapeScore,
-        shapeName + ": shape match too low: " + String.format("%.4f", shapeScore)
-            + " < " + String.format("%.4f", minShapeScore));
+    assertTrue(
+        shapeScore >= minShapeScore,
+        shapeName
+            + ": shape match too low: "
+            + String.format("%.4f", shapeScore)
+            + " < "
+            + String.format("%.4f", minShapeScore));
 
     System.out.println("  Result: PASS");
   }
@@ -167,8 +182,11 @@ public class MorphingWavetableDirectTest {
     }
     double fmPeak = peak(fmOut);
     double fmRms = rms(fmOut);
-    System.out.println("FM direct test: peak=" + String.format("%.6f", fmPeak)
-        + " RMS=" + String.format("%.6f", fmRms));
+    System.out.println(
+        "FM direct test: peak="
+            + String.format("%.6f", fmPeak)
+            + " RMS="
+            + String.format("%.6f", fmRms));
 
     // Now without FM
     mod.gain(0);
@@ -179,17 +197,24 @@ public class MorphingWavetableDirectTest {
     }
     double carPeak = peak(carOut);
     double carRms = rms(carOut);
-    System.out.println("Carrier direct test: peak=" + String.format("%.6f", carPeak)
-        + " RMS=" + String.format("%.6f", carRms));
+    System.out.println(
+        "Carrier direct test: peak="
+            + String.format("%.6f", carPeak)
+            + " RMS="
+            + String.format("%.6f", carRms));
 
     assertTrue(fmPeak > 0.001, "FM should produce output, peak=" + String.format("%.6f", fmPeak));
-    assertTrue(carPeak > 0.001, "Carrier should produce output, peak=" + String.format("%.6f", carPeak));
+    assertTrue(
+        carPeak > 0.001, "Carrier should produce output, peak=" + String.format("%.6f", carPeak));
     System.out.println("  Result: PASS");
   }
 
   private static double peak(float[] data) {
     double p = 0;
-    for (float v : data) { double a = Math.abs(v); if (a > p) p = a; }
+    for (float v : data) {
+      double a = Math.abs(v);
+      if (a > p) p = a;
+    }
     return p;
   }
 
@@ -200,9 +225,9 @@ public class MorphingWavetableDirectTest {
   }
 
   /**
-   * Harmonic profile via DFT on a cycle-aligned buffer (no window needed).
-   * The buffer must contain exactly an integer number of cycles at the fundamental,
-   * so DFT bins align perfectly with harmonic frequencies.
+   * Harmonic profile via DFT on a cycle-aligned buffer (no window needed). The buffer must contain
+   * exactly an integer number of cycles at the fundamental, so DFT bins align perfectly with
+   * harmonic frequencies.
    */
   private static double[] harmonicProfile(float[] buf, double fundamental, int sr, int nHarmonics) {
     int n = buf.length;
@@ -229,9 +254,7 @@ public class MorphingWavetableDirectTest {
     return profile;
   }
 
-  /**
-   * Compare harmonic profile against ideal shape model.
-   */
+  /** Compare harmonic profile against ideal shape model. */
   private static double shapeMatchQuality(double[] profile, String shape) {
     int nh = profile.length;
     double score = 0;

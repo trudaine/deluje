@@ -2,7 +2,6 @@ package org.chuck.deluge;
 
 import java.io.*;
 import java.util.*;
-import org.chuck.core.ChuckArray;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.engine.DelugeEngineDSL;
 import org.chuck.deluge.model.*;
@@ -11,12 +10,11 @@ import org.chuck.deluge.xml.DelugeXmlParser;
 /**
  * Renders a saved song through multiple engine modes and saves each as a WAV.
  *
- * Modes:
- *   dsl      — Default DSL engine (as-is)
- *   dsl-raw  — DSL engine with SVFilter bypassed
- *   dsl-loud — DSL engine with higher gain staging
+ * <p>Modes: dsl — Default DSL engine (as-is) dsl-raw — DSL engine with SVFilter bypassed dsl-loud —
+ * DSL engine with higher gain staging
  *
- * Usage: mvn exec:java -pl deluge -Dexec.classpathScope=test -Dexec.mainClass="org.chuck.deluge.CompareSongModes" -Dexec.args="<xmlPath> [durationSec]"
+ * <p>Usage: mvn exec:java -pl deluge -Dexec.classpathScope=test
+ * -Dexec.mainClass="org.chuck.deluge.CompareSongModes" -Dexec.args="<xmlPath> [durationSec]"
  */
 public class CompareSongModes {
 
@@ -54,7 +52,8 @@ public class CompareSongModes {
     compareWavs(base);
   }
 
-  static void renderMode(ProjectModel project, String wavPath, int durationSec, String mode) throws Exception {
+  static void renderMode(ProjectModel project, String wavPath, int durationSec, String mode)
+      throws Exception {
     System.setProperty("chuck.loglevel", "0");
 
     ChuckVM vm = new ChuckVM(44100, 2);
@@ -102,9 +101,10 @@ public class CompareSongModes {
     engineRow = 0;
     for (TrackModel track : project.getTracks()) {
       int voiceCount = 8;
-      int trackRows = (track instanceof KitTrackModel)
-          ? Math.min(voiceCount, ((KitTrackModel) track).getDrums().size())
-          : voiceCount;
+      int trackRows =
+          (track instanceof KitTrackModel)
+              ? Math.min(voiceCount, ((KitTrackModel) track).getDrums().size())
+              : voiceCount;
       if (!track.getClips().isEmpty()) {
         ClipModel clip = track.getClips().get(0);
         int stepCount = clip.getStepCount();
@@ -145,8 +145,10 @@ public class CompareSongModes {
       vm.advanceTime(441);
       int toWrite = Math.min(441, totalSamples - written);
       for (int s = 0; s < toWrite && written < totalSamples; s++) {
-        leftBuf[written] = (short) Math.max(-32768, Math.min(32767, vm.getDacChannel(0).getLastOut() * 32767));
-        rightBuf[written] = (short) Math.max(-32768, Math.min(32767, vm.getDacChannel(1).getLastOut() * 32767));
+        leftBuf[written] =
+            (short) Math.max(-32768, Math.min(32767, vm.getDacChannel(0).getLastOut() * 32767));
+        rightBuf[written] =
+            (short) Math.max(-32768, Math.min(32767, vm.getDacChannel(1).getLastOut() * 32767));
         written++;
         vm.advanceTime(1);
       }
@@ -168,8 +170,12 @@ public class CompareSongModes {
     for (int i = 0; i < suffixes.length; i++) {
       labels[i] = suffixes[i].replace(".wav", "");
       File wf = new File(base + suffixes[i]);
-      if (!wf.exists()) { System.out.println(labels[i] + ": NOT FOUND"); continue; }
-      try (DataInputStream dis = new DataInputStream(new BufferedInputStream(new FileInputStream(wf)))) {
+      if (!wf.exists()) {
+        System.out.println(labels[i] + ": NOT FOUND");
+        continue;
+      }
+      try (DataInputStream dis =
+          new DataInputStream(new BufferedInputStream(new FileInputStream(wf)))) {
         byte[] header = new byte[44];
         dis.readFully(header);
         int dataLen = Integer.reverseBytes(readInt(header, 40));
@@ -188,10 +194,16 @@ public class CompareSongModes {
           if (l != 0) nonZeroL++;
           if (r != 0) nonZeroR++;
         }
-        peaks[i] = new double[]{peakL, peakR, sumL / sampleCount, sumR / sampleCount};
-        System.out.printf("%s: peak L=%.4f R=%.4f  avg L=%.4f R=%.4f  nonZero=%d/%d%n",
-            labels[i], peakL, peakR, sumL / sampleCount, sumR / sampleCount,
-            (nonZeroL + nonZeroR) / 2, sampleCount);
+        peaks[i] = new double[] {peakL, peakR, sumL / sampleCount, sumR / sampleCount};
+        System.out.printf(
+            "%s: peak L=%.4f R=%.4f  avg L=%.4f R=%.4f  nonZero=%d/%d%n",
+            labels[i],
+            peakL,
+            peakR,
+            sumL / sampleCount,
+            sumR / sampleCount,
+            (nonZeroL + nonZeroR) / 2,
+            sampleCount);
       }
     }
 
@@ -199,10 +211,13 @@ public class CompareSongModes {
     if (peaks[0] != null && peaks[1] != null) {
       File f1 = new File(base + "-dsl.wav");
       File f2 = new File(base + "-dsl-quiet.wav");
-      try (DataInputStream d1 = new DataInputStream(new BufferedInputStream(new FileInputStream(f1)));
-           DataInputStream d2 = new DataInputStream(new BufferedInputStream(new FileInputStream(f2)))) {
+      try (DataInputStream d1 =
+              new DataInputStream(new BufferedInputStream(new FileInputStream(f1)));
+          DataInputStream d2 =
+              new DataInputStream(new BufferedInputStream(new FileInputStream(f2)))) {
         byte[] hdr = new byte[44];
-        d1.readFully(hdr); d2.readFully(hdr);
+        d1.readFully(hdr);
+        d2.readFully(hdr);
         int len = Integer.reverseBytes(readInt(hdr, 40)) / 4;
         double maxDiff = 0;
         long diffCount = 0;
@@ -213,21 +228,26 @@ public class CompareSongModes {
           if (diff > maxDiff) maxDiff = diff;
           if (diff > 0.0001) diffCount++;
         }
-        System.out.printf("\ndsl vs dsl-quiet: maxSampleDiff=%.6f differingSamples=%d/%d%n",
+        System.out.printf(
+            "\ndsl vs dsl-quiet: maxSampleDiff=%.6f differingSamples=%d/%d%n",
             maxDiff, diffCount, len);
-        if (maxDiff < 0.001) System.out.println("  => BIT-IDENTICAL (logging change doesn't affect audio)");
+        if (maxDiff < 0.001)
+          System.out.println("  => BIT-IDENTICAL (logging change doesn't affect audio)");
         else System.out.println("  => DIFFERENT (unexpected)");
       }
     }
   }
 
   static int readInt(byte[] buf, int off) {
-    return (buf[off] & 0xff) | ((buf[off+1] & 0xff) << 8)
-         | ((buf[off+2] & 0xff) << 16) | ((buf[off+3] & 0xff) << 24);
+    return (buf[off] & 0xff)
+        | ((buf[off + 1] & 0xff) << 8)
+        | ((buf[off + 2] & 0xff) << 16)
+        | ((buf[off + 3] & 0xff) << 24);
   }
 
   static void writeWav(String path, short[] left, short[] right, int len) throws IOException {
-    try (DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(path)))) {
+    try (DataOutputStream dos =
+        new DataOutputStream(new BufferedOutputStream(new FileOutputStream(path)))) {
       int dataLen = len * 4;
       dos.writeBytes("RIFF");
       dos.writeInt(Integer.reverseBytes(36 + dataLen));

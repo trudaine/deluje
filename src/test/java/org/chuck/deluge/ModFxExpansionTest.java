@@ -11,8 +11,8 @@ import org.junit.jupiter.api.Test;
 /**
  * Integration tests for ModFX expansion: WARBLER, DIMENSION, and GRAIN effects.
  *
- * <p>Verifies that the per-track ModFxUnit switches between effect types correctly
- * and produces output for each type (non-zero, non-clipped).
+ * <p>Verifies that the per-track ModFxUnit switches between effect types correctly and produces
+ * output for each type (non-zero, non-clipped).
  */
 public class ModFxExpansionTest {
 
@@ -112,11 +112,20 @@ public class ModFxExpansionTest {
 
     vm.advanceTime(44100); // 1 second
 
-    assertEquals(0.8, ((ChuckArray) vm.getGlobalObject(BridgeContract.G_MOD_FX_RATE)).getFloat(0), 0.001,
+    assertEquals(
+        0.8,
+        ((ChuckArray) vm.getGlobalObject(BridgeContract.G_MOD_FX_RATE)).getFloat(0),
+        0.001,
         "Mod FX rate should persist after engine runs");
-    assertEquals(0.4, ((ChuckArray) vm.getGlobalObject(BridgeContract.G_MOD_FX_DEPTH)).getFloat(0), 0.001,
+    assertEquals(
+        0.4,
+        ((ChuckArray) vm.getGlobalObject(BridgeContract.G_MOD_FX_DEPTH)).getFloat(0),
+        0.001,
         "Mod FX depth should persist after engine runs");
-    assertEquals(0.2, ((ChuckArray) vm.getGlobalObject(BridgeContract.G_MOD_FX_FEEDBACK)).getFloat(0), 0.001,
+    assertEquals(
+        0.2,
+        ((ChuckArray) vm.getGlobalObject(BridgeContract.G_MOD_FX_FEEDBACK)).getFloat(0),
+        0.001,
         "Mod FX feedback should persist");
   }
 }

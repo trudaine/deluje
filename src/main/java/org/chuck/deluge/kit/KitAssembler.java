@@ -11,15 +11,13 @@ import org.chuck.deluge.xml.DelugeXmlParser;
 public class KitAssembler {
 
   /**
-   * Loads multiple synth XML files and produces a KitTrackModel where each synth sound is
-   * assigned to one lane. The synth preset path is stored as the "sample" reference,
-   * producing valid XML that the Deluge hardware can interpret as a synth-on-kit-lane.
+   * Loads multiple synth XML files and produces a KitTrackModel where each synth sound is assigned
+   * to one lane. The synth preset path is stored as the "sample" reference, producing valid XML
+   * that the Deluge hardware can interpret as a synth-on-kit-lane.
    */
   public static KitTrackModel assembleFromSynths(
-      String kitName,
-      List<File> synthFiles,
-      List<Integer> muteGroups,
-      List<Integer> pitchOffsets) throws Exception {
+      String kitName, List<File> synthFiles, List<Integer> muteGroups, List<Integer> pitchOffsets)
+      throws Exception {
 
     KitTrackModel kit = new KitTrackModel(kitName);
 

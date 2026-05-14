@@ -7,8 +7,8 @@ import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.model.AudioTrackModel;
 
 /**
- * Sidebar/editor panel for controlling an Audio track: record, play, loop, rate.
- * Talks to the engine via BridgeContract globals (G_AUDIO_REC, G_AUDIO_PLAY, etc.).
+ * Sidebar/editor panel for controlling an Audio track: record, play, loop, rate. Talks to the
+ * engine via BridgeContract globals (G_AUDIO_REC, G_AUDIO_PLAY, etc.).
  */
 public class SwingAudioTrackPanel extends JPanel {
 
@@ -28,20 +28,22 @@ public class SwingAudioTrackPanel extends JPanel {
     this.bridge = bridge;
     setLayout(new GridBagLayout());
     setBackground(new Color(0x2a, 0x2a, 0x2a));
-    setBorder(BorderFactory.createTitledBorder(
-        BorderFactory.createLineBorder(new Color(0x44, 0x44, 0x44)),
-        "Audio Track",
-        javax.swing.border.TitledBorder.DEFAULT_JUSTIFICATION,
-        javax.swing.border.TitledBorder.DEFAULT_POSITION,
-        new Font("Monospaced", Font.BOLD, 12),
-        new Color(0x88, 0xcc, 0xaa)));
+    setBorder(
+        BorderFactory.createTitledBorder(
+            BorderFactory.createLineBorder(new Color(0x44, 0x44, 0x44)),
+            "Audio Track",
+            javax.swing.border.TitledBorder.DEFAULT_JUSTIFICATION,
+            javax.swing.border.TitledBorder.DEFAULT_POSITION,
+            new Font("Monospaced", Font.BOLD, 12),
+            new Color(0x88, 0xcc, 0xaa)));
 
     GridBagConstraints c = new GridBagConstraints();
     c.insets = new Insets(4, 6, 4, 6);
     c.fill = GridBagConstraints.HORIZONTAL;
 
     // Record
-    c.gridx = 0; c.gridy = 0;
+    c.gridx = 0;
+    c.gridy = 0;
     recordBtn.setBackground(new Color(0x66, 0x22, 0x22));
     recordBtn.setForeground(Color.WHITE);
     recordBtn.setToolTipText("Toggle recording from audio input");
@@ -49,7 +51,8 @@ public class SwingAudioTrackPanel extends JPanel {
     add(recordBtn, c);
 
     // Play
-    c.gridx = 1; c.gridy = 0;
+    c.gridx = 1;
+    c.gridy = 0;
     playBtn.setBackground(new Color(0x22, 0x66, 0x22));
     playBtn.setForeground(Color.WHITE);
     playBtn.setToolTipText("Toggle playback");
@@ -57,7 +60,8 @@ public class SwingAudioTrackPanel extends JPanel {
     add(playBtn, c);
 
     // Loop
-    c.gridx = 2; c.gridy = 0;
+    c.gridx = 2;
+    c.gridy = 0;
     loopBtn.setSelected(true);
     loopBtn.setBackground(new Color(0x44, 0x44, 0x22));
     loopBtn.setForeground(Color.WHITE);
@@ -66,14 +70,18 @@ public class SwingAudioTrackPanel extends JPanel {
     add(loopBtn, c);
 
     // Rate slider
-    c.gridx = 0; c.gridy = 1; c.gridwidth = 2;
+    c.gridx = 0;
+    c.gridy = 1;
+    c.gridwidth = 2;
     rateSlider.setMajorTickSpacing(75);
     rateSlider.setPaintTicks(true);
     rateSlider.setForeground(Color.LIGHT_GRAY);
     rateSlider.addChangeListener(e -> pushRate());
     add(rateSlider, c);
 
-    c.gridx = 2; c.gridy = 1; c.gridwidth = 1;
+    c.gridx = 2;
+    c.gridy = 1;
+    c.gridwidth = 1;
     rateLabel.setForeground(Color.LIGHT_GRAY);
     rateLabel.setFont(new Font("Monospaced", Font.PLAIN, 11));
     add(rateLabel, c);

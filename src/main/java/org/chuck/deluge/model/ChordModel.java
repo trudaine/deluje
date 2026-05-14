@@ -85,53 +85,60 @@ public class ChordModel {
   public static ChordType[] chordsForScaleDegree(int degree) {
     // Scale degrees: I=0, ii=1, iii=2, IV=3, V=4, vi=5, vii=6
     return switch (degree % 7) {
-      case 0 -> new ChordType[] {
-        CHORD_TYPES[0],  // M
-        CHORD_TYPES[7],  // M7
-        CHORD_TYPES[8],  // M9
-        CHORD_TYPES[17], // 6
-        CHORD_TYPES[21], // add9
-        CHORD_TYPES[22], // M7#11
-      };
-      case 1 -> new ChordType[] {
-        CHORD_TYPES[1],  // -
-        CHORD_TYPES[8],  // -7
-        CHORD_TYPES[17], // -6
-        CHORD_TYPES[19], // -add9
-        CHORD_TYPES[9],  // -7b5 (*)
-      };
-      case 2 -> new ChordType[] {
-        CHORD_TYPES[1],  // -
-        CHORD_TYPES[8],  // -7
-        CHORD_TYPES[3],  // AUG (*)
-      };
-      case 3 -> new ChordType[] {
-        CHORD_TYPES[0],  // M
-        CHORD_TYPES[7],  // M7
-        CHORD_TYPES[17], // 6
-        CHORD_TYPES[22], // M7#11
-      };
-      case 4 -> new ChordType[] {
-        CHORD_TYPES[6],  // 7
-        CHORD_TYPES[11], // 7b5
-        CHORD_TYPES[13], // 7#9
-        CHORD_TYPES[14], // 7b9
-        CHORD_TYPES[15], // 9
-        CHORD_TYPES[13], // 13
-        CHORD_TYPES[24], // 7sus4
-        CHORD_TYPES[21], // 7#11
-      };
-      case 5 -> new ChordType[] {
-        CHORD_TYPES[1],  // -
-        CHORD_TYPES[8],  // -7
-        CHORD_TYPES[18], // -6
-        CHORD_TYPES[15], // -9
-      };
-      case 6 -> new ChordType[] {
-        CHORD_TYPES[2],  // DIM
-        CHORD_TYPES[9],  // -7b5
-        CHORD_TYPES[10], // DIM7
-      };
+      case 0 ->
+          new ChordType[] {
+            CHORD_TYPES[0], // M
+            CHORD_TYPES[7], // M7
+            CHORD_TYPES[8], // M9
+            CHORD_TYPES[17], // 6
+            CHORD_TYPES[21], // add9
+            CHORD_TYPES[22], // M7#11
+          };
+      case 1 ->
+          new ChordType[] {
+            CHORD_TYPES[1], // -
+            CHORD_TYPES[8], // -7
+            CHORD_TYPES[17], // -6
+            CHORD_TYPES[19], // -add9
+            CHORD_TYPES[9], // -7b5 (*)
+          };
+      case 2 ->
+          new ChordType[] {
+            CHORD_TYPES[1], // -
+            CHORD_TYPES[8], // -7
+            CHORD_TYPES[3], // AUG (*)
+          };
+      case 3 ->
+          new ChordType[] {
+            CHORD_TYPES[0], // M
+            CHORD_TYPES[7], // M7
+            CHORD_TYPES[17], // 6
+            CHORD_TYPES[22], // M7#11
+          };
+      case 4 ->
+          new ChordType[] {
+            CHORD_TYPES[6], // 7
+            CHORD_TYPES[11], // 7b5
+            CHORD_TYPES[13], // 7#9
+            CHORD_TYPES[14], // 7b9
+            CHORD_TYPES[15], // 9
+            CHORD_TYPES[13], // 13
+            CHORD_TYPES[24], // 7sus4
+            CHORD_TYPES[21], // 7#11
+          };
+      case 5 ->
+          new ChordType[] {
+            CHORD_TYPES[1], // -
+            CHORD_TYPES[8], // -7
+            CHORD_TYPES[18], // -6
+            CHORD_TYPES[15], // -9
+          };
+      case 6 ->
+          new ChordType[] {
+            CHORD_TYPES[2], // DIM
+            CHORD_TYPES[9], // -7b5
+            CHORD_TYPES[10], // DIM7
+          };
       default -> new ChordType[] {CHORD_TYPES[0]};
     };
   }
@@ -145,7 +152,10 @@ public class ChordModel {
   public static final int[][] ROW_MODE_INTERVALS = {
     // Scale-step intervals from row root: 0=root, 1=2nd, 2=3rd, etc.
     // Semitones will be derived by looking up the actual scale interval.
-    {0, 4, 2, 6, 4, 2, 1, 5, 7, 4, 6, 2, 1}, // Row 0: I, 5th, 3rd+8ve, 7th+8ve, 5th+8ve, 3rd+16ve, 2nd+16ve, 6th+8ve, 8ve, 5th, 7th, 3rd-8ve, 2nd
+    {
+      0, 4, 2, 6, 4, 2, 1, 5, 7, 4, 6, 2, 1
+    }, // Row 0: I, 5th, 3rd+8ve, 7th+8ve, 5th+8ve, 3rd+16ve, 2nd+16ve, 6th+8ve, 8ve, 5th, 7th,
+    // 3rd-8ve, 2nd
     // (scale step offsets mapped from firmware spec)
   };
 
@@ -153,32 +163,32 @@ public class ChordModel {
 
   /** Chord library row index → chord type mapping. Row 0=root, 1=M, 2=-, 3=DIM, etc. */
   public static final ChordType[] CHORD_LIBRARY_ROWS = {
-    null,               // Row 0: root note (single note)
-    CHORD_TYPES[0],     // Row 1: M (major triad)
-    CHORD_TYPES[1],     // Row 2: - (minor triad)
-    CHORD_TYPES[2],     // Row 3: DIM
-    CHORD_TYPES[3],     // Row 4: AUG
-    CHORD_TYPES[17],    // Row 5: 6
-    CHORD_TYPES[18],    // Row 6: -6
-    CHORD_TYPES[6],     // Row 7: 7
-    CHORD_TYPES[8],     // Row 8: -7
-    CHORD_TYPES[7],     // Row 9: M7
-    CHORD_TYPES[4],     // Row 10: SUS2
-    CHORD_TYPES[5],     // Row 11: SUS4
-    CHORD_TYPES[9],     // Row 12: -7b5
-    CHORD_TYPES[10],    // Row 13: DIM7
-    CHORD_TYPES[13],    // Row 14: 7#9
-    CHORD_TYPES[15],    // Row 15: 9
-    CHORD_TYPES[16],    // Row 16: M9
-    CHORD_TYPES[11],    // Row 17: 7b5
-    CHORD_TYPES[20],    // Row 18: 7#11
-    CHORD_TYPES[24],    // Row 19: 7sus4
-    CHORD_TYPES[14],    // Row 20: 7b9
-    CHORD_TYPES[12],    // Row 21: M7#5
-    CHORD_TYPES[19],    // Row 22: -add9
-    CHORD_TYPES[22],    // Row 23: M7#11
-    CHORD_TYPES[21],    // Row 24: add9
-    CHORD_TYPES[23],    // Row 25: 13
+    null, // Row 0: root note (single note)
+    CHORD_TYPES[0], // Row 1: M (major triad)
+    CHORD_TYPES[1], // Row 2: - (minor triad)
+    CHORD_TYPES[2], // Row 3: DIM
+    CHORD_TYPES[3], // Row 4: AUG
+    CHORD_TYPES[17], // Row 5: 6
+    CHORD_TYPES[18], // Row 6: -6
+    CHORD_TYPES[6], // Row 7: 7
+    CHORD_TYPES[8], // Row 8: -7
+    CHORD_TYPES[7], // Row 9: M7
+    CHORD_TYPES[4], // Row 10: SUS2
+    CHORD_TYPES[5], // Row 11: SUS4
+    CHORD_TYPES[9], // Row 12: -7b5
+    CHORD_TYPES[10], // Row 13: DIM7
+    CHORD_TYPES[13], // Row 14: 7#9
+    CHORD_TYPES[15], // Row 15: 9
+    CHORD_TYPES[16], // Row 16: M9
+    CHORD_TYPES[11], // Row 17: 7b5
+    CHORD_TYPES[20], // Row 18: 7#11
+    CHORD_TYPES[24], // Row 19: 7sus4
+    CHORD_TYPES[14], // Row 20: 7b9
+    CHORD_TYPES[12], // Row 21: M7#5
+    CHORD_TYPES[19], // Row 22: -add9
+    CHORD_TYPES[22], // Row 23: M7#11
+    CHORD_TYPES[21], // Row 24: add9
+    CHORD_TYPES[23], // Row 25: 13
   };
 
   // ── Utility: build note list from chord type + root ──

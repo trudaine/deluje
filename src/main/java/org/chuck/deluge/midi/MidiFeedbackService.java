@@ -4,19 +4,20 @@ import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 
 /**
- * Sends MIDI feedback (CC messages) to an external hardware controller — e.g., LED rings,
- * motor faders, or parameter displays on devices like the Arturia KeyLab or Novation SL.
+ * Sends MIDI feedback (CC messages) to an external hardware controller — e.g., LED rings, motor
+ * faders, or parameter displays on devices like the Arturia KeyLab or Novation SL.
  *
- * <p>Uses a MidiOut device opened at startup. All methods are no-ops when no output port
- * is configured or when the port cannot be opened — the service degrades gracefully.
+ * <p>Uses a MidiOut device opened at startup. All methods are no-ops when no output port is
+ * configured or when the port cannot be opened — the service degrades gracefully.
  *
  * <p>Feedback messages are:
+ *
  * <ul>
- *   <li>{@link #notifyTrackChanged(int)} — sends the new track number as a CC so the
- *       controller can update its track/group display</li>
- *   <li>{@link #notifyParamChanged(String, float)} — looks up the param name in the
- *       current device definition and sends its current value as a CC</li>
- *   <li>{@link #sendCc(int, int, int)} — raw CC output (channel, CC, value)</li>
+ *   <li>{@link #notifyTrackChanged(int)} — sends the new track number as a CC so the controller can
+ *       update its track/group display
+ *   <li>{@link #notifyParamChanged(String, float)} — looks up the param name in the current device
+ *       definition and sends its current value as a CC
+ *   <li>{@link #sendCc(int, int, int)} — raw CC output (channel, CC, value)
  * </ul>
  */
 public class MidiFeedbackService {
@@ -38,8 +39,8 @@ public class MidiFeedbackService {
   }
 
   /**
-   * Attempt to open a MIDI output port. Call once during app startup; safe to call again
-   * to switch ports.
+   * Attempt to open a MIDI output port. Call once during app startup; safe to call again to switch
+   * ports.
    *
    * @param portName exact name as returned by {@code MidiOut.list()}, or empty/null to skip
    */
@@ -71,7 +72,10 @@ public class MidiFeedbackService {
   /** Close the output port. */
   public void close() {
     if (midiOut != null) {
-      try { midiOut.close(); } catch (Exception ignored) {}
+      try {
+        midiOut.close();
+      } catch (Exception ignored) {
+      }
       midiOut = null;
     }
     available = false;
@@ -96,8 +100,8 @@ public class MidiFeedbackService {
    * Send a raw CC message on the given MIDI channel.
    *
    * @param channel 0-indexed MIDI channel (0-15)
-   * @param cc      CC number (0-127)
-   * @param value   0-127
+   * @param cc CC number (0-127)
+   * @param value 0-127
    */
   public void sendCc(int channel, int cc, int value) {
     if (!available || midiOut == null) return;
@@ -109,8 +113,8 @@ public class MidiFeedbackService {
   }
 
   /**
-   * Notify the controller that the active track has changed. Sends the track index
-   * on the configured {@code trackChangeCc}.
+   * Notify the controller that the active track has changed. Sends the track index on the
+   * configured {@code trackChangeCc}.
    */
   public void notifyTrackChanged(int newTrackIndex) {
     sendCc(0, trackChangeCc, Math.max(0, Math.min(127, newTrackIndex)));
@@ -118,8 +122,8 @@ public class MidiFeedbackService {
   }
 
   /**
-   * Notify the controller that a parameter value has changed. Looks up the param name
-   * in the current device definition and sends the current value as a CC.
+   * Notify the controller that a parameter value has changed. Looks up the param name in the
+   * current device definition and sends the current value as a CC.
    */
   public void notifyParamChanged(String paramName, float normalizedValue) {
     if (deviceDefinition == null) return;

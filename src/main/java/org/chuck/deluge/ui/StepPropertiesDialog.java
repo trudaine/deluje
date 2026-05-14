@@ -19,7 +19,8 @@ public class StepPropertiesDialog extends JDialog {
     this(owner, currentVelocity, 0, 0);
   }
 
-  public StepPropertiesDialog(Frame owner, int currentVelocity, int currentIterance, int currentFill) {
+  public StepPropertiesDialog(
+      Frame owner, int currentVelocity, int currentIterance, int currentFill) {
     super(owner, "Step Properties", true);
     setSize(1600, 550);
     setLocationRelativeTo(owner);

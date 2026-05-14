@@ -23,9 +23,14 @@ public class AssetLibrary {
   }
 
   private void loadLibrary() {
-    scanDir("SYNTHS", org.chuck.deluge.project.PreferencesManager.getSynthsDir(), synthPresets, false);
+    scanDir(
+        "SYNTHS", org.chuck.deluge.project.PreferencesManager.getSynthsDir(), synthPresets, false);
     scanDir("KITS", org.chuck.deluge.project.PreferencesManager.getKitsDir(), kitPresets, false);
-    scanDir("SONGS", org.chuck.deluge.project.PreferencesManager.getSongsDir(), new ArrayList<>(), false);
+    scanDir(
+        "SONGS",
+        org.chuck.deluge.project.PreferencesManager.getSongsDir(),
+        new ArrayList<>(),
+        false);
   }
 
   private void scanDir(String category, File dir, List<AssetEntry> list, boolean isFactory) {
@@ -37,7 +42,8 @@ public class AssetLibrary {
     }
   }
 
-  private void scanRecursive(String category, File root, File current, List<AssetEntry> list, boolean isFactory)
+  private void scanRecursive(
+      String category, File root, File current, List<AssetEntry> list, boolean isFactory)
       throws IOException {
     File[] files = current.listFiles();
     if (files == null) return;

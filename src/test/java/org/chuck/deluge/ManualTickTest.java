@@ -3,19 +3,16 @@ package org.chuck.deluge;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.*;
-import org.chuck.core.ChuckVM;
-import org.chuck.deluge.xml.DelugeXmlParser;
-import org.chuck.deluge.model.KitTrackModel;
-import org.chuck.deluge.model.SoundDrum;
-
 import org.chuck.audio.*;
 import org.chuck.audio.util.*;
-
+import org.chuck.deluge.model.KitTrackModel;
+import org.chuck.deluge.model.SoundDrum;
+import org.chuck.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
 /**
- * Manual tick test: bypass the VM's advanceTime and manually tick UGens
- * step by step to isolate where the signal is lost.
+ * Manual tick test: bypass the VM's advanceTime and manually tick UGens step by step to isolate
+ * where the signal is lost.
  */
 public class ManualTickTest {
 
@@ -78,7 +75,8 @@ public class ManualTickTest {
       float wvOutOut = wvOut.tick(t);
 
       if (t <= 10 || (t % printInterval == 0) || t == numSamples) {
-        System.out.printf("t=%6d: buf=%10.8f env=%10.8f wvOut[0]=%10.8f wvOut[1]=%10.8f%n",
+        System.out.printf(
+            "t=%6d: buf=%10.8f env=%10.8f wvOut[0]=%10.8f wvOut[1]=%10.8f%n",
             t, bufOut, envOut, wvOut.getChannelLastOut(0), wvOut.getChannelLastOut(1));
       }
     }
@@ -87,7 +85,13 @@ public class ManualTickTest {
 
     // Load and check output
     float[] engineOut = AudioAnalyzer.loadWav(new File(wavPath));
-    System.out.println("\nEngine output: " + engineOut.length + " samples, RMS=" + rms(engineOut) + ", peak=" + peak(engineOut));
+    System.out.println(
+        "\nEngine output: "
+            + engineOut.length
+            + " samples, RMS="
+            + rms(engineOut)
+            + ", peak="
+            + peak(engineOut));
 
     // Check first 20 samples
     System.out.println("\nFirst 20 engine samples:");
@@ -98,7 +102,10 @@ public class ManualTickTest {
     // Check if any audio
     boolean hasAudio = false;
     for (int i = 0; i < Math.min(5000, engineOut.length); i++) {
-      if (Math.abs(engineOut[i]) > 0.001) { hasAudio = true; break; }
+      if (Math.abs(engineOut[i]) > 0.001) {
+        hasAudio = true;
+        break;
+      }
     }
     assertTrue(hasAudio, "Engine output is all near-zero! peak=" + peak(engineOut));
     System.out.println("\nPASSED: Manual tick produces audio");
@@ -126,7 +133,8 @@ public class ManualTickTest {
     g.gain(1.0f);
 
     // Chain: buf → g → wvOut
-    buf.chuck(g); g.chuck(wvOut);
+    buf.chuck(g);
+    g.chuck(wvOut);
 
     buf.read(absPath);
     buf.pos(0);
@@ -158,8 +166,9 @@ public class ManualTickTest {
     for (int t = 1; t <= numSamples; t++) {
       float w = wvOut.tick(t);
       if (t <= 5 || t % 4410 == 0) {
-        System.out.printf("t=%d: wvOut[0]=%f wvOut[1]=%f%n", t,
-          wvOut.getChannelLastOut(0), wvOut.getChannelLastOut(1));
+        System.out.printf(
+            "t=%d: wvOut[0]=%f wvOut[1]=%f%n",
+            t, wvOut.getChannelLastOut(0), wvOut.getChannelLastOut(1));
       }
     }
 
@@ -169,7 +178,10 @@ public class ManualTickTest {
 
     boolean hasAudio = false;
     for (int i = 0; i < Math.min(5000, engineOut.length); i++) {
-      if (Math.abs(engineOut[i]) > 0.001) { hasAudio = true; break; }
+      if (Math.abs(engineOut[i]) > 0.001) {
+        hasAudio = true;
+        break;
+      }
     }
     assertTrue(hasAudio, "All near-zero! peak=" + peak(engineOut));
   }
@@ -183,7 +195,10 @@ public class ManualTickTest {
 
   private double peak(float[] data) {
     double p = 0;
-    for (float v : data) { double abs = Math.abs(v); if (abs > p) p = abs; }
+    for (float v : data) {
+      double abs = Math.abs(v);
+      if (abs > p) p = abs;
+    }
     return p;
   }
 }

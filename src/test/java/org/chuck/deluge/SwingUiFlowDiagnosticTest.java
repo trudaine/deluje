@@ -11,8 +11,8 @@ import org.chuck.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests the EXACT Swing UI flow: uses loadProject() which calls pushModelToBridge(),
- * verifying that the full Swing UI code path produces audio.
+ * Tests the EXACT Swing UI flow: uses loadProject() which calls pushModelToBridge(), verifying that
+ * the full Swing UI code path produces audio.
  */
 public class SwingUiFlowDiagnosticTest {
 
@@ -74,14 +74,15 @@ public class SwingUiFlowDiagnosticTest {
       if (curL > 0.0003f || curR > 0.0003f) sawAudio = true;
     }
 
-    System.out.printf("[SWING UI MIMIC] Peak L=%.6f R=%.6f stepAdv=%s audio=%s%n",
-      peakL, peakR, stepAdvanced, sawAudio);
-    System.out.printf("[SWING UI MIMIC] pattern[0]=%d pattern[4]=%d%n",
-      bridge.getStep(0, 0) ? 1 : 0, bridge.getStep(0, 4) ? 1 : 0);
+    System.out.printf(
+        "[SWING UI MIMIC] Peak L=%.6f R=%.6f stepAdv=%s audio=%s%n",
+        peakL, peakR, stepAdvanced, sawAudio);
+    System.out.printf(
+        "[SWING UI MIMIC] pattern[0]=%d pattern[4]=%d%n",
+        bridge.getStep(0, 0) ? 1 : 0, bridge.getStep(0, 4) ? 1 : 0);
 
     assertTrue(stepAdvanced, "Engine playhead did not advance");
-    assertTrue(sawAudio,
-      String.format("No audio detected: L=%.6f R=%.6f", peakL, peakR));
+    assertTrue(sawAudio, String.format("No audio detected: L=%.6f R=%.6f", peakL, peakR));
 
     vm.shutdown();
   }
@@ -142,12 +143,12 @@ public class SwingUiFlowDiagnosticTest {
       if (curL > 0.0003f || curR > 0.0003f) sawAudio = true;
     }
 
-    System.out.printf("[SWING UI MODEL FIRST] Peak L=%.6f R=%.6f stepAdv=%s audio=%s%n",
-      peakL, peakR, stepAdvanced, sawAudio);
+    System.out.printf(
+        "[SWING UI MODEL FIRST] Peak L=%.6f R=%.6f stepAdv=%s audio=%s%n",
+        peakL, peakR, stepAdvanced, sawAudio);
 
     assertTrue(stepAdvanced, "Engine playhead did not advance");
-    assertTrue(sawAudio,
-      String.format("No audio detected: L=%.6f R=%.6f", peakL, peakR));
+    assertTrue(sawAudio, String.format("No audio detected: L=%.6f R=%.6f", peakL, peakR));
 
     vm.shutdown();
   }

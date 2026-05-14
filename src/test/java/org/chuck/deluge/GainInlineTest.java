@@ -1,25 +1,22 @@
 package org.chuck.deluge;
 
+import static org.chuck.core.ChuckDSL.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.*;
-import org.chuck.core.ChuckVM;
-import org.chuck.deluge.xml.DelugeXmlParser;
-import org.chuck.deluge.model.KitTrackModel;
-import org.chuck.deluge.model.SoundDrum;
-
 import org.chuck.audio.*;
 import org.chuck.audio.filter.*;
-import org.chuck.audio.util.*;
 import org.chuck.audio.fx.*;
-import static org.chuck.core.ChuckDSL.*;
-
+import org.chuck.audio.util.*;
+import org.chuck.core.ChuckVM;
+import org.chuck.deluge.model.KitTrackModel;
+import org.chuck.deluge.model.SoundDrum;
+import org.chuck.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
 /**
- * Test: does Gain work as a drop-in replacement for ADSR?
- * Chain: buf -> gain -> wv -> dac
- * If this works, the issue is specific to DelugeAdsr.compute().
+ * Test: does Gain work as a drop-in replacement for ADSR? Chain: buf -> gain -> wv -> dac If this
+ * works, the issue is specific to DelugeAdsr.compute().
  */
 public class GainInlineTest {
 
@@ -43,31 +40,32 @@ public class GainInlineTest {
     tempDir.mkdirs();
     String wavPath = new File(tempDir, "gaintest.wav").getAbsolutePath();
 
-    vm.spork(() -> {
-      float sr = (float) sampleRate();
-      SndBuf buf = new SndBuf();
-      Gain g = new Gain();
-      WvOut2 wv = new WvOut2(sr);
+    vm.spork(
+        () -> {
+          float sr = (float) sampleRate();
+          SndBuf buf = new SndBuf();
+          Gain g = new Gain();
+          WvOut2 wv = new WvOut2(sr);
 
-      // Chain: buf -> gain -> wv -> dac
-      buf.chuck(g).chuck(wv).chuck(dac());
+          // Chain: buf -> gain -> wv -> dac
+          buf.chuck(g).chuck(wv).chuck(dac());
 
-      advance(samp(100));
-      buf.read(absPath);
-      wv.wavWrite(wavPath);
-      advance(samp(100));
+          advance(samp(100));
+          buf.read(absPath);
+          wv.wavWrite(wavPath);
+          advance(samp(100));
 
-      buf.rate(1.0f);
-      buf.pos(0);
-      buf.gain(0.8f);
+          buf.rate(1.0f);
+          buf.pos(0);
+          buf.gain(0.8f);
 
-      double durSec = buf.samples() / (double) sr + 0.5;
-      System.out.println("[shred] Advancing " + String.format("%.3f", durSec) + " sec...");
-      advance(second(durSec));
-      System.out.println("[shred] buf.pos=" + buf.pos());
+          double durSec = buf.samples() / (double) sr + 0.5;
+          System.out.println("[shred] Advancing " + String.format("%.3f", durSec) + " sec...");
+          advance(second(durSec));
+          System.out.println("[shred] buf.pos=" + buf.pos());
 
-      wv.closeFile();
-    });
+          wv.closeFile();
+        });
 
     vm.advanceTime(SAMPLE_RATE * 5);
     vm.shutdown();
@@ -77,12 +75,19 @@ public class GainInlineTest {
 
   private void analyzeWav(String name, String path) throws Exception {
     File f = new File(path);
-    if (!f.exists()) { System.out.println(name + ": FILE NOT FOUND"); return; }
+    if (!f.exists()) {
+      System.out.println(name + ": FILE NOT FOUND");
+      return;
+    }
     float[] samples = AudioAnalyzer.loadWav(new File(path));
-    System.out.println(name + ": " + samples.length + " samples, RMS=" + rms(samples) + ", peak=" + peak(samples));
+    System.out.println(
+        name + ": " + samples.length + " samples, RMS=" + rms(samples) + ", peak=" + peak(samples));
     boolean hasAudio = false;
     for (int j = 0; j < Math.min(5000, samples.length); j++) {
-      if (Math.abs(samples[j]) > 0.01) { hasAudio = true; break; }
+      if (Math.abs(samples[j]) > 0.01) {
+        hasAudio = true;
+        break;
+      }
     }
     System.out.println("  hasAudio=" + hasAudio);
     System.out.println("  first20:");
@@ -93,7 +98,10 @@ public class GainInlineTest {
 
   private double peak(float[] data) {
     double p = 0;
-    for (float v : data) { double abs = Math.abs(v); if (abs > p) p = abs; }
+    for (float v : data) {
+      double abs = Math.abs(v);
+      if (abs > p) p = abs;
+    }
     return p;
   }
 

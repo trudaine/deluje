@@ -1,7 +1,5 @@
 package org.chuck.deluge.midi;
 
-import java.util.ArrayList;
-import java.util.List;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.project.PreferencesManager;
@@ -106,7 +104,12 @@ public class MidiService {
           vm.setGlobalFloat(mapping.paramName(), normalizedVal);
           if (vm.getLogLevel() >= 2) {
             System.out.println(
-                "MIDI: Updated " + mapping.paramName() + " to " + normalizedVal + " via device " + currentDevice.getName());
+                "MIDI: Updated "
+                    + mapping.paramName()
+                    + " to "
+                    + normalizedVal
+                    + " via device "
+                    + currentDevice.getName());
           }
           return;
         }
@@ -177,7 +180,10 @@ public class MidiService {
     return currentDevice;
   }
 
-  /** Returns merged mappings: device definition CCs (keyed by param name) overlaid with learn-based CCs. */
+  /**
+   * Returns merged mappings: device definition CCs (keyed by param name) overlaid with learn-based
+   * CCs.
+   */
   public java.util.Map<String, Integer> getMappings() {
     java.util.Map<String, Integer> mappings = new java.util.HashMap<>();
 

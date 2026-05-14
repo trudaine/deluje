@@ -26,7 +26,8 @@ public class FieldBinding<T> {
   }
 
   private FieldBinding(
-      String container, String tag,
+      String container,
+      String tag,
       BiConsumer<SynthTrackModel, T> setter,
       Function<String, T> converter,
       boolean unipolar,
@@ -66,24 +67,36 @@ public class FieldBinding<T> {
 
   // ── Accessors needed by custom strategies ──
 
-  String tag() { return tag; }
-  BiConsumer<SynthTrackModel, T> setter() { return setter; }
-  Function<String, T> converter() { return converter; }
+  String tag() {
+    return tag;
+  }
+
+  BiConsumer<SynthTrackModel, T> setter() {
+    return setter;
+  }
+
+  Function<String, T> converter() {
+    return converter;
+  }
 
   // ── Factory methods ──
 
   /** Direct child element, hex-encoded float, unipolar (abs). */
-  public static FieldBinding<Float> hexFloat(String tag, BiConsumer<SynthTrackModel, Float> setter) {
+  public static FieldBinding<Float> hexFloat(
+      String tag, BiConsumer<SynthTrackModel, Float> setter) {
     return hexFloat(null, tag, setter);
   }
 
   /** Scoped child element, hex-encoded float, unipolar (abs). */
-  public static FieldBinding<Float> hexFloat(String container, String tag, BiConsumer<SynthTrackModel, Float> setter) {
-    return new FieldBinding<>(container, tag, setter, s -> DelugeHexMapper.hexToFloat(s), true, null);
+  public static FieldBinding<Float> hexFloat(
+      String container, String tag, BiConsumer<SynthTrackModel, Float> setter) {
+    return new FieldBinding<>(
+        container, tag, setter, s -> DelugeHexMapper.hexToFloat(s), true, null);
   }
 
   /** Scoped child element, hex-encoded frequency value. */
-  public static FieldBinding<Float> hexHz(String container, String tag, BiConsumer<SynthTrackModel, Float> setter) {
+  public static FieldBinding<Float> hexHz(
+      String container, String tag, BiConsumer<SynthTrackModel, Float> setter) {
     return new FieldBinding<>(container, tag, setter, s -> DelugeHexMapper.hexToHz(s), false, null);
   }
 
@@ -93,8 +106,17 @@ public class FieldBinding<T> {
   }
 
   /** Attribute of a direct child element. */
-  public static <T> FieldBinding<T> attr(String childTag, String attrName, BiConsumer<SynthTrackModel, T> setter, Function<String, T> converter) {
-    return new FieldBinding<>(null, childTag, setter, converter, false,
+  public static <T> FieldBinding<T> attr(
+      String childTag,
+      String attrName,
+      BiConsumer<SynthTrackModel, T> setter,
+      Function<String, T> converter) {
+    return new FieldBinding<>(
+        null,
+        childTag,
+        setter,
+        converter,
+        false,
         (soundNode, binding, synth) -> {
           NodeList nodes = soundNode.getElementsByTagName(binding.tag());
           if (nodes.getLength() == 0) return;
@@ -109,8 +131,17 @@ public class FieldBinding<T> {
   }
 
   /** Attribute OR child element for a child of soundNode. Tries attribute first. */
-  public static FieldBinding<String> attrOrChild(String childTag, String attrName, BiConsumer<SynthTrackModel, String> setter, Function<String, String> transform) {
-    return new FieldBinding<>(null, childTag, setter, transform, false,
+  public static FieldBinding<String> attrOrChild(
+      String childTag,
+      String attrName,
+      BiConsumer<SynthTrackModel, String> setter,
+      Function<String, String> transform) {
+    return new FieldBinding<>(
+        null,
+        childTag,
+        setter,
+        transform,
+        false,
         (soundNode, binding, synth) -> {
           NodeList nodes = soundNode.getElementsByTagName(binding.tag());
           if (nodes.getLength() == 0) return;
@@ -124,16 +155,26 @@ public class FieldBinding<T> {
             raw = inner.item(0).getTextContent();
           }
           if (raw == null || raw.isBlank()) return;
-          ((BiConsumer<SynthTrackModel, String>) binding.setter()).accept(synth, transform.apply(raw.trim()));
+          ((BiConsumer<SynthTrackModel, String>) binding.setter())
+              .accept(synth, transform.apply(raw.trim()));
         });
   }
 
   /**
-   * Reads text content from a named child element of a container element.
-   * E.g. {@code childText("osc2", "type", setter, toUpper)} reads {@code <osc2><type>TEXT</type></osc2>}.
+   * Reads text content from a named child element of a container element. E.g. {@code
+   * childText("osc2", "type", setter, toUpper)} reads {@code <osc2><type>TEXT</type></osc2>}.
    */
-  public static FieldBinding<String> childText(String containerTag, String childTag, BiConsumer<SynthTrackModel, String> setter, Function<String, String> transform) {
-    return new FieldBinding<>(null, containerTag, setter, transform, false,
+  public static FieldBinding<String> childText(
+      String containerTag,
+      String childTag,
+      BiConsumer<SynthTrackModel, String> setter,
+      Function<String, String> transform) {
+    return new FieldBinding<>(
+        null,
+        containerTag,
+        setter,
+        transform,
+        false,
         (soundNode, binding, synth) -> {
           NodeList containers = soundNode.getElementsByTagName(binding.tag());
           if (containers.getLength() == 0) return;
@@ -142,12 +183,15 @@ public class FieldBinding<T> {
           if (children.getLength() == 0) return;
           String raw = children.item(0).getTextContent();
           if (raw == null || raw.isBlank()) return;
-          ((BiConsumer<SynthTrackModel, String>) binding.setter()).accept(synth, transform.apply(raw.trim()));
+          ((BiConsumer<SynthTrackModel, String>) binding.setter())
+              .accept(synth, transform.apply(raw.trim()));
         });
   }
 
   /** Direct child element, integer value from text content. */
-  public static FieldBinding<Integer> integer(String tag, BiConsumer<SynthTrackModel, Integer> setter) {
-    return new FieldBinding<>(null, tag, (s, v) -> setter.accept(s, v), Integer::parseInt, false, null);
+  public static FieldBinding<Integer> integer(
+      String tag, BiConsumer<SynthTrackModel, Integer> setter) {
+    return new FieldBinding<>(
+        null, tag, (s, v) -> setter.accept(s, v), Integer::parseInt, false, null);
   }
 }

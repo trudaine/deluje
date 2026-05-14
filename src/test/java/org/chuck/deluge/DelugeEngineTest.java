@@ -15,7 +15,8 @@ import org.junit.jupiter.api.Test;
 public class DelugeEngineTest {
   private static ChuckVM vm;
   private static BridgeContract bridge;
-  private static final List<String> logs = java.util.Collections.synchronizedList(new ArrayList<>());
+  private static final List<String> logs =
+      java.util.Collections.synchronizedList(new ArrayList<>());
   private static final int TRACKS = 8;
 
   @BeforeAll
@@ -67,7 +68,8 @@ public class DelugeEngineTest {
     // Note: Engine doesn't currently log kit triggers (only synth). This is a known gap.
     // Kit audio output is verified by KitXmlPresetTest and DelugeE2ETest.
     boolean triggerFound = logs.stream().anyMatch(l -> l.contains("trigger track: 0 step: 0"));
-    System.out.println("Kit test: found trigger log = " + triggerFound + " (engine only logs synth triggers)");
+    System.out.println(
+        "Kit test: found trigger log = " + triggerFound + " (engine only logs synth triggers)");
   }
 
   @Test
@@ -82,8 +84,7 @@ public class DelugeEngineTest {
     vm.advanceTime(44100 * 3); // Advance 3 seconds
 
     // Verify logs
-    boolean startFound =
-        logs.stream().anyMatch(l -> l.contains("SYNTH trigger track: 4 step: 0"));
+    boolean startFound = logs.stream().anyMatch(l -> l.contains("SYNTH trigger track: 4 step: 0"));
     boolean endFound = logs.stream().anyMatch(l -> l.contains("SYNTH note end track: 4"));
 
     assertTrue(startFound, "Engine did not start tied note (loglevel=" + vm.getLogLevel() + ")");
@@ -187,7 +188,11 @@ public class DelugeEngineTest {
     // These are set in bridge.initDefaults or are 0 by default
     for (int t = 0; t < TRACKS; t++) {
       if (t == r) continue; // skip track 4, already verified
-      assertEquals(0.0, vm.getGlobalFloat(BridgeContract.G_MOD_FX_RATE + "_" + t), 0.001, "other modFxRate[" + t + "] should be default");
+      assertEquals(
+          0.0,
+          vm.getGlobalFloat(BridgeContract.G_MOD_FX_RATE + "_" + t),
+          0.001,
+          "other modFxRate[" + t + "] should be default");
     }
   }
 
@@ -234,7 +239,8 @@ public class DelugeEngineTest {
 
     // Per-track globals written by KitShred (lines 769-778):
     //   G_KIT_HPF_FREQ, G_KIT_HPF_RES, G_KIT_NOISE_VOL, G_KIT_EQ_BASS, G_KIT_EQ_TREBLE,
-    //   G_KIT_SIDECHAIN, G_KIT_MOD_FX_TYPE, G_KIT_STUTTER_RATE, G_KIT_SAMPLE_RATE_RED, G_KIT_BITCRUSH
+    //   G_KIT_SIDECHAIN, G_KIT_MOD_FX_TYPE, G_KIT_STUTTER_RATE, G_KIT_SAMPLE_RATE_RED,
+    // G_KIT_BITCRUSH
     // NOTE: kitVolume/kitPan are applied directly to UGens (not stored as per-track globals).
     // NOTE: kitCompAttack/kitCompRelease are fetched for FX bus but not written here.
     for (int t = 0; t < TRACKS; t++) {
@@ -284,7 +290,7 @@ public class DelugeEngineTest {
   @Test
   void testChuckArrayIntBackedGetFloat() {
     // Verify that ChuckArray constructed from int[] can be read via getFloat()
-    org.chuck.core.ChuckArray intArr = new org.chuck.core.ChuckArray(new int[]{0, 1, 2, 3, 42});
+    org.chuck.core.ChuckArray intArr = new org.chuck.core.ChuckArray(new int[] {0, 1, 2, 3, 42});
 
     assertEquals(0.0, intArr.getFloat(0), 0.001, "intArr[0]");
     assertEquals(1.0, intArr.getFloat(1), 0.001, "intArr[1]");
@@ -295,7 +301,8 @@ public class DelugeEngineTest {
 
   @Test
   void testChuckArrayFloatBackedGetFloat() {
-    org.chuck.core.ChuckArray floatArr = new org.chuck.core.ChuckArray(new float[]{0.5f, 1.5f, 2.5f});
+    org.chuck.core.ChuckArray floatArr =
+        new org.chuck.core.ChuckArray(new float[] {0.5f, 1.5f, 2.5f});
 
     assertEquals(0.5, floatArr.getFloat(0), 0.001, "floatArr[0]");
     assertEquals(1.5, floatArr.getFloat(1), 0.001, "floatArr[1]");

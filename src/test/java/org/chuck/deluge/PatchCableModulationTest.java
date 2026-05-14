@@ -11,8 +11,8 @@ import org.junit.jupiter.api.Test;
 /**
  * Integration tests for patch cable modulation routing with polarity support.
  *
- * <p>Verifies that modulation sources (envelope, LFO, velocity) can be routed to
- * destinations (pitch, volume, filter cutoff, pan) with correct polarity and amount scaling.
+ * <p>Verifies that modulation sources (envelope, LFO, velocity) can be routed to destinations
+ * (pitch, volume, filter cutoff, pan) with correct polarity and amount scaling.
  */
 public class PatchCableModulationTest {
 
@@ -120,7 +120,7 @@ public class PatchCableModulationTest {
     bridge.setTrackType(0, 1);
     pcCount.setInt(0, 1);
     pcSource.setInt(0, 2); // ENV_0
-    pcDest.setInt(0, 0);   // PITCH
+    pcDest.setInt(0, 0); // PITCH
     pcAmt.setFloat(0, 0.7f);
 
     assertEquals(0.7, pcAmt.getFloat(0), 0.001);
@@ -142,7 +142,7 @@ public class PatchCableModulationTest {
     // Two patch cables for kit sound 0
     pcCount.setInt(0, 2);
     int base = 0 * BridgeContract.MAX_CABLES_PER_TRACK;
-    pcSource.setInt(base, 0);     // velocity -> volume
+    pcSource.setInt(base, 0); // velocity -> volume
     pcDest.setInt(base, 1);
     pcAmt.setFloat(base, 0.3f);
     pcPol.setInt(base, 0);
@@ -150,7 +150,7 @@ public class PatchCableModulationTest {
     pcSource.setInt(base + 1, 1); // aftertouch -> filter
     pcDest.setInt(base + 1, 3);
     pcAmt.setFloat(base + 1, 0.6f);
-    pcPol.setInt(base + 1, 1);    // BIPOLAR
+    pcPol.setInt(base + 1, 1); // BIPOLAR
 
     assertEquals(2, pcCount.getInt(0));
     assertEquals(0, pcSource.getInt(base));

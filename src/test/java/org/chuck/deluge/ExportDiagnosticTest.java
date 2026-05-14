@@ -2,8 +2,6 @@ package org.chuck.deluge;
 
 import java.io.*;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import org.chuck.audio.ChuckAudio;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.engine.DelugeEngineDSL;
@@ -11,12 +9,11 @@ import org.chuck.deluge.model.*;
 import org.chuck.deluge.xml.DelugeXmlParser;
 
 /**
- * Diagnostic: runs the DSL engine WITH a real audio callback (like the Swing UI),
- * triggers export via BridgeContract globals, and checks the WAV.
+ * Diagnostic: runs the DSL engine WITH a real audio callback (like the Swing UI), triggers export
+ * via BridgeContract globals, and checks the WAV.
  *
- * Usage: mvn exec:java -pl deluge -Dexec.classpathScope=test
- *   -Dexec.mainClass="org.chuck.deluge.ExportDiagnosticTest"
- *   -Dexec.args="<xmlPath>"
+ * <p>Usage: mvn exec:java -pl deluge -Dexec.classpathScope=test
+ * -Dexec.mainClass="org.chuck.deluge.ExportDiagnosticTest" -Dexec.args="<xmlPath>"
  */
 public class ExportDiagnosticTest {
 
@@ -27,7 +24,10 @@ public class ExportDiagnosticTest {
     }
     String xmlPath = args[0];
     File f = new File(xmlPath);
-    if (!f.exists()) { System.err.println("Not found: " + xmlPath); System.exit(1); }
+    if (!f.exists()) {
+      System.err.println("Not found: " + xmlPath);
+      System.exit(1);
+    }
 
     String songName = f.getName().replace(".xml", "");
     System.setProperty("chuck.loglevel", "0");
@@ -89,9 +89,10 @@ public class ExportDiagnosticTest {
     for (int t = 0; t < project.getTracks().size(); t++) {
       TrackModel track = project.getTracks().get(t);
       int voiceCount = 8;
-      int trackRows = (track instanceof KitTrackModel)
-          ? Math.min(voiceCount, ((KitTrackModel) track).getDrums().size())
-          : voiceCount;
+      int trackRows =
+          (track instanceof KitTrackModel)
+              ? Math.min(voiceCount, ((KitTrackModel) track).getDrums().size())
+              : voiceCount;
       if (!track.getClips().isEmpty()) {
         ClipModel clip = track.getClips().get(0);
         int stepCount = clip.getStepCount();
@@ -154,7 +155,8 @@ public class ExportDiagnosticTest {
       long len = exportFile.length();
       System.out.println("  Export file exists: " + exportPath + " (" + len + " bytes)");
       if (len > 44) {
-        try (DataInputStream dis = new DataInputStream(new BufferedInputStream(new FileInputStream(exportFile)))) {
+        try (DataInputStream dis =
+            new DataInputStream(new BufferedInputStream(new FileInputStream(exportFile)))) {
           byte[] header = new byte[44];
           dis.readFully(header);
           int dataLen = readIntLE(header, 40);
@@ -167,8 +169,15 @@ public class ExportDiagnosticTest {
             short r = Short.reverseBytes(dis.readShort());
             if (l != 0 || r != 0) nonZero++;
           }
-          System.out.println("  Non-zero sample pairs in first " + totalChecked + ": " + nonZero + "/" + totalChecked);
-          System.out.println(nonZero > 0 ? "  *** EXPORT WORKING ***" : "  *** EXPORT IS SILENT (all zeros) ***");
+          System.out.println(
+              "  Non-zero sample pairs in first "
+                  + totalChecked
+                  + ": "
+                  + nonZero
+                  + "/"
+                  + totalChecked);
+          System.out.println(
+              nonZero > 0 ? "  *** EXPORT WORKING ***" : "  *** EXPORT IS SILENT (all zeros) ***");
         }
       } else {
         System.out.println("  Export file is too small (header only?)");
@@ -183,7 +192,9 @@ public class ExportDiagnosticTest {
 
   /** Read 4-byte little-endian int. */
   static int readIntLE(byte[] buf, int off) {
-    return (buf[off] & 0xff) | ((buf[off+1] & 0xff) << 8)
-         | ((buf[off+2] & 0xff) << 16) | ((buf[off+3] & 0xff) << 24);
+    return (buf[off] & 0xff)
+        | ((buf[off + 1] & 0xff) << 8)
+        | ((buf[off + 2] & 0xff) << 16)
+        | ((buf[off + 3] & 0xff) << 24);
   }
 }

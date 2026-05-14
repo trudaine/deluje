@@ -21,8 +21,8 @@ public class KitTrackModel extends TrackModel {
   }
 
   /**
-   * Convenience: returns the sample path of the first SoundDrum, or empty string
-   * if there are no SoundDrum entries.
+   * Convenience: returns the sample path of the first SoundDrum, or empty string if there are no
+   * SoundDrum entries.
    */
   public String getSamplePath() {
     for (Drum d : drums) {

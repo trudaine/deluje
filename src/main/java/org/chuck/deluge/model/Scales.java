@@ -7,10 +7,9 @@ import java.util.List;
 public class Scales {
 
   /**
-   * ScaleType ordinals must match {@code parseScaleIndex} in SwingDelugeApp:
-   * 0=Major, 1=Minor, 2=Harmonic Minor, 3=Melodic Minor, 4=Dorian, 5=Phrygian,
-   * 6=Lydian, 7=Mixolydian, 8=Locrian, 9=Whole Tone, 10=Whole Half Dim,
-   * 11=Half Whole Dim, 12=Maj Pent, 13=Min Pent, 14=Chromatic.
+   * ScaleType ordinals must match {@code parseScaleIndex} in SwingDelugeApp: 0=Major, 1=Minor,
+   * 2=Harmonic Minor, 3=Melodic Minor, 4=Dorian, 5=Phrygian, 6=Lydian, 7=Mixolydian, 8=Locrian,
+   * 9=Whole Tone, 10=Whole Half Dim, 11=Half Whole Dim, 12=Maj Pent, 13=Min Pent, 14=Chromatic.
    */
   public enum ScaleType {
     MAJOR("Major", new int[] {0, 2, 4, 5, 7, 9, 11}),

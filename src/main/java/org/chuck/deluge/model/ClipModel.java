@@ -36,16 +36,17 @@ public class ClipModel {
   private final Map<String, float[]> automationData = new HashMap<>();
 
   /**
-   * Per-noteRow sound parameter overrides. Maps row index → parameter name → normalized float value.
-   * These are parsed from &lt;soundParams&gt; children of &lt;noteRow&gt; elements, containing 35+ hex
-   * attributes that override the per-sound default parameters for that specific pattern row.
+   * Per-noteRow sound parameter overrides. Maps row index → parameter name → normalized float
+   * value. These are parsed from &lt;soundParams&gt; children of &lt;noteRow&gt; elements,
+   * containing 35+ hex attributes that override the per-sound default parameters for that specific
+   * pattern row.
    */
   private final Map<Integer, Map<String, Float>> rowSoundParams = new HashMap<>();
 
   /**
-   * Per-clip kit parameter overrides. Maps parameter name → normalized float value.
-   * Parsed from &lt;kitParams&gt; child of &lt;instrumentClip isKitClip="true"&gt;.
-   * Mirrors the same attributes as &lt;songParams&gt; but for kit tracks.
+   * Per-clip kit parameter overrides. Maps parameter name → normalized float value. Parsed from
+   * &lt;kitParams&gt; child of &lt;instrumentClip isKitClip="true"&gt;. Mirrors the same attributes
+   * as &lt;songParams&gt; but for kit tracks.
    */
   private final Map<String, Float> kitParams = new HashMap<>();
 
@@ -105,8 +106,13 @@ public class ClipModel {
     this.color = color;
   }
 
-  public PlayMode getPlayMode() { return playMode; }
-  public void setPlayMode(PlayMode playMode) { this.playMode = playMode; }
+  public PlayMode getPlayMode() {
+    return playMode;
+  }
+
+  public void setPlayMode(PlayMode playMode) {
+    this.playMode = playMode;
+  }
 
   public int getRowCount() {
     return rowCount;
@@ -198,8 +204,8 @@ public class ClipModel {
   // ── Per-parameter automation data ──
 
   /**
-   * Set an automation value for a parameter at a specific step. Range 0.0–1.0.
-   * Calling with 0.0 or any valid value creates or updates the automation entry.
+   * Set an automation value for a parameter at a specific step. Range 0.0–1.0. Calling with 0.0 or
+   * any valid value creates or updates the automation entry.
    */
   public void setAutomation(String paramName, int step, float value) {
     float[] arr = automationData.get(paramName);
@@ -216,6 +222,7 @@ public class ClipModel {
 
   /**
    * Get an automation value for a parameter at a specific step.
+   *
    * @return 0.0–1.0 if automation data exists, or -1 if no automation is set for this param
    */
   public float getAutomation(String paramName, int step) {
@@ -262,6 +269,7 @@ public class ClipModel {
 
   /**
    * Get a sound parameter override for a specific row.
+   *
    * @return the value, or -1 if no override exists for this row+param combination.
    */
   public float getRowSoundParam(int row, String paramName) {
@@ -284,10 +292,22 @@ public class ClipModel {
 
   // ── Per-clip kit parameter overrides ──
 
-  public Map<String, Float> getKitParams() { return kitParams; }
-  public void setKitParam(String param, float value) { kitParams.put(param, value); }
-  public void setKitParams(Map<String, Float> params) { kitParams.clear(); kitParams.putAll(params); }
-  public float getKitParam(String param) { return kitParams.getOrDefault(param, -1f); }
+  public Map<String, Float> getKitParams() {
+    return kitParams;
+  }
+
+  public void setKitParam(String param, float value) {
+    kitParams.put(param, value);
+  }
+
+  public void setKitParams(Map<String, Float> params) {
+    kitParams.clear();
+    kitParams.putAll(params);
+  }
+
+  public float getKitParam(String param) {
+    return kitParams.getOrDefault(param, -1f);
+  }
 
   // ── Internal helpers called by stepCount setter ──
 

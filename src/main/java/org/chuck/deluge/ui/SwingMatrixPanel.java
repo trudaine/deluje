@@ -51,18 +51,20 @@ public class SwingMatrixPanel extends JPanel {
     euclideanBtn.setForeground(Color.WHITE);
     euclideanBtn.setBounds(10, 10, 120, 30);
     euclideanBtn.setToolTipText("Open Euclidean rhythm generator for the current row");
-    euclideanBtn.addActionListener(e -> {
-      Frame frame = (Frame) javax.swing.SwingUtilities.getWindowAncestor(this);
-      String rowName = null;
-      if (vm != null) {
-        Object obj = vm.getGlobalObject("g_sample_" + baseTrack);
-        rowName = (obj instanceof String) ? (String) obj : null;
-      }
-      if (rowName == null || rowName.isBlank()) rowName = "Row " + (baseTrack + 1);
-      EuclideanRhythmDialog dlg = new EuclideanRhythmDialog(
-          frame, bridge, baseTrack, stepCount, rowName, SwingMatrixPanel.this::repaint);
-      dlg.setVisible(true);
-    });
+    euclideanBtn.addActionListener(
+        e -> {
+          Frame frame = (Frame) javax.swing.SwingUtilities.getWindowAncestor(this);
+          String rowName = null;
+          if (vm != null) {
+            Object obj = vm.getGlobalObject("g_sample_" + baseTrack);
+            rowName = (obj instanceof String) ? (String) obj : null;
+          }
+          if (rowName == null || rowName.isBlank()) rowName = "Row " + (baseTrack + 1);
+          EuclideanRhythmDialog dlg =
+              new EuclideanRhythmDialog(
+                  frame, bridge, baseTrack, stepCount, rowName, SwingMatrixPanel.this::repaint);
+          dlg.setVisible(true);
+        });
     add(euclideanBtn);
 
     addMouseListener(

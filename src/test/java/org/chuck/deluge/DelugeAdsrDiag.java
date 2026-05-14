@@ -1,13 +1,11 @@
 package org.chuck.deluge;
 
 import java.io.*;
-import java.util.Arrays;
 import org.chuck.audio.util.DelugeAdsr;
 
 /**
- * Diagnostic subclass of DelugeAdsr that overrides the block tick to dump
- * the first few samples of each block to stderr, so we can see what ADSR
- * is outputting during block-based advance().
+ * Diagnostic subclass of DelugeAdsr that overrides the block tick to dump the first few samples of
+ * each block to stderr, so we can see what ADSR is outputting during block-based advance().
  */
 public class DelugeAdsrDiag extends DelugeAdsr {
 
@@ -41,14 +39,31 @@ public class DelugeAdsrDiag extends DelugeAdsr {
     blockCount++;
 
     // ALWAYS log every blockTick
-    System.err.println("[AdsrDiag] blockTick #" + blockCount + " sysTime=" + systemTime
-        + " length=" + length + " state=" + state() + " value=" + value());
+    System.err.println(
+        "[AdsrDiag] blockTick #"
+            + blockCount
+            + " sysTime="
+            + systemTime
+            + " length="
+            + length
+            + " state="
+            + state()
+            + " value="
+            + value());
 
     // Call the default block tick (per-sample loop via super)
     super.tick(buffer, offset, length, systemTime);
 
     // Write all output samples to binary dump file
-    System.err.println("[AdsrDiag] dumpStream=" + dumpStream + " buffer=" + buffer + " offset=" + offset + " length=" + length);
+    System.err.println(
+        "[AdsrDiag] dumpStream="
+            + dumpStream
+            + " buffer="
+            + buffer
+            + " offset="
+            + offset
+            + " length="
+            + length);
     if (dumpStream != null && buffer != null) {
       try {
         for (int i = 0; i < length; i++) {
@@ -66,7 +81,14 @@ public class DelugeAdsrDiag extends DelugeAdsr {
   @Override
   public float tick(long systemTime) {
     boolean shouldLog = (systemTime == 99999); // only log the known manual tick at 99999
-    if (shouldLog) System.err.println("[AdsrDiag] tick(long) called: sysTime=" + systemTime + " state=" + state() + " value=" + value());
+    if (shouldLog)
+      System.err.println(
+          "[AdsrDiag] tick(long) called: sysTime="
+              + systemTime
+              + " state="
+              + state()
+              + " value="
+              + value());
     float result = super.tick(systemTime);
     if (shouldLog) System.err.println("[AdsrDiag] tick(long) result=" + result);
     return result;

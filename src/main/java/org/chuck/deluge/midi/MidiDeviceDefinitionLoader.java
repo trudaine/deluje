@@ -34,7 +34,8 @@ public class MidiDeviceDefinitionLoader {
         MidiDeviceDefinition def = load(f);
         if (def != null) result.add(def);
       } catch (Exception e) {
-        System.err.println("MIDI: Failed to load device definition: " + f.getName() + " - " + e.getMessage());
+        System.err.println(
+            "MIDI: Failed to load device definition: " + f.getName() + " - " + e.getMessage());
       }
     }
     return result;
@@ -49,7 +50,8 @@ public class MidiDeviceDefinitionLoader {
 
     Element root = doc.getDocumentElement();
     if (!"midiDeviceDefinition".equals(root.getNodeName())) {
-      throw new IllegalArgumentException("Expected <midiDeviceDefinition> root, got <" + root.getNodeName() + ">");
+      throw new IllegalArgumentException(
+          "Expected <midiDeviceDefinition> root, got <" + root.getNodeName() + ">");
     }
 
     MidiDeviceDefinition def = new MidiDeviceDefinition();

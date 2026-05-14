@@ -17,23 +17,23 @@ public class SynthTrackModel extends TrackModel {
   private float waveIndex = 0.0f;
 
   // Oscillator 1 sample-playback params (maps to firmware SampleRecorder/playback)
-  private int osc1LoopMode = 0;       // 0=off, 1=loop, 2=oneshot
+  private int osc1LoopMode = 0; // 0=off, 1=loop, 2=oneshot
   private boolean osc1Reversed = false;
   private boolean osc1TimeStretch = false;
   private float osc1TimeStretchAmount = 0.0f;
-  private int osc1Cents = 0;          // fine detune in cents (-50 to 50)
+  private int osc1Cents = 0; // fine detune in cents (-50 to 50)
   private boolean osc1LinearInterpolation = false;
 
   // Oscillator 2 sample-playback params (maps to firmware SampleRecorder/playback)
-  private int osc2LoopMode = 0;       // 0=off, 1=loop, 2=oneshot
+  private int osc2LoopMode = 0; // 0=off, 1=loop, 2=oneshot
   private boolean osc2Reversed = false;
   private boolean osc2TimeStretch = false;
   private float osc2TimeStretchAmount = 0.0f;
   private boolean osc2LinearInterpolation = false;
 
   // Oscillator 2 transpose/detune
-  private int osc2Transpose = 0;      // semitones
-  private int osc2Cents = 0;          // cents
+  private int osc2Transpose = 0; // semitones
+  private int osc2Cents = 0; // cents
 
   // Filter
   private FilterMode filterMode = FilterMode.LADDER_12;
@@ -82,8 +82,8 @@ public class SynthTrackModel extends TrackModel {
   private int sidechainSyncType = 0;
   private float sidechainAttack = 0.0f;
   private float sidechainRelease = 0.0f;
-  private float compressorThreshold = 0.0f;  // dB, negative = compression threshold
-  private float compressorRatio = 0.0f;      // compression ratio (0 = off)
+  private float compressorThreshold = 0.0f; // dB, negative = compression threshold
+  private float compressorRatio = 0.0f; // compression ratio (0 = off)
 
   private String modFxType = "NONE";
   private float modFxRate = 0.0f;
@@ -99,28 +99,45 @@ public class SynthTrackModel extends TrackModel {
   /** Synth mode: 0=SUBTRACTIVE, 1=FM, 2=RINGMOD. Maps to XML `<mode>` tag content. */
   private int synthMode = 0;
 
-  /** FM modulator ratio derived from <modulator1><transpose> — 2^(transpose/12). 1.0 = no transposition. */
+  /**
+   * FM modulator ratio derived from <modulator1><transpose> — 2^(transpose/12). 1.0 = no
+   * transposition.
+   */
   private float fmRatio = 1.0f;
+
   /** FM modulator amount (0-1) derived from <modulator1Amount> hex knob value. */
   private float fmAmount = 0.0f;
 
   /** Modulator 1 feedback amount (0-1) — self-modulation of the FM modulator. */
   private float modulator1Feedback = 0.0f;
+
   /** Modulator 2 FM amount (0-1). */
   private float modulator2Amount = 0.0f;
+
   /** Modulator 2 feedback amount (0-1). */
   private float modulator2Feedback = 0.0f;
+
   /** Carrier 1 feedback amount (0-1) — self-modulation of the FM carrier. */
   private float carrier1Feedback = 0.0f;
+
   /** Carrier 2 feedback amount (0-1). */
   private float carrier2Feedback = 0.0f;
 
-  public enum PolyphonyMode { POLY, MONO, LEGATO, AUTO, CHOKE }
+  public enum PolyphonyMode {
+    POLY,
+    MONO,
+    LEGATO,
+    AUTO,
+    CHOKE
+  }
 
   private PolyphonyMode polyphony = PolyphonyMode.POLY;
   private int maxVoiceCount = 8;
 
-  /** Semitone transpose of the entire sound, typically -24 to 24. Maps to XML `<sound>` transpose attr. */
+  /**
+   * Semitone transpose of the entire sound, typically -24 to 24. Maps to XML `<sound>` transpose
+   * attr.
+   */
   private int transpose = 0;
 
   /** DX7 patch hex string (312 hex chars = 156 bytes), null if not a DX7 track. */
@@ -130,8 +147,8 @@ public class SynthTrackModel extends TrackModel {
   private int dx7RandomDetune = 0;
 
   /**
-   * DX7 engine type: -1=AUTO (firmware default, MkI for algo 3/5 with feedback),
-   * 0=MODERN (sinLookup/exp2Lookup, 32-bit float path), 1=VINTAGE (mkiSin, 14-bit envelopes).
+   * DX7 engine type: -1=AUTO (firmware default, MkI for algo 3/5 with feedback), 0=MODERN
+   * (sinLookup/exp2Lookup, 32-bit float path), 1=VINTAGE (mkiSin, 14-bit envelopes).
    */
   private int engineType = -1;
 
@@ -210,37 +227,117 @@ public class SynthTrackModel extends TrackModel {
     this.unisonStereoSpread = unisonStereoSpread;
   }
 
-  public float getWaveIndex() { return waveIndex; }
-  public void setWaveIndex(float v) { this.waveIndex = v; }
+  public float getWaveIndex() {
+    return waveIndex;
+  }
 
-  public int getOsc1LoopMode() { return osc1LoopMode; }
-  public void setOsc1LoopMode(int v) { this.osc1LoopMode = v; }
-  public boolean isOsc1Reversed() { return osc1Reversed; }
-  public void setOsc1Reversed(boolean v) { this.osc1Reversed = v; }
-  public boolean isOsc1TimeStretch() { return osc1TimeStretch; }
-  public void setOsc1TimeStretch(boolean v) { this.osc1TimeStretch = v; }
-  public float getOsc1TimeStretchAmount() { return osc1TimeStretchAmount; }
-  public void setOsc1TimeStretchAmount(float v) { this.osc1TimeStretchAmount = v; }
-  public int getOsc1Cents() { return osc1Cents; }
-  public void setOsc1Cents(int v) { this.osc1Cents = Math.max(-50, Math.min(50, v)); }
-  public boolean isOsc1LinearInterpolation() { return osc1LinearInterpolation; }
-  public void setOsc1LinearInterpolation(boolean v) { this.osc1LinearInterpolation = v; }
+  public void setWaveIndex(float v) {
+    this.waveIndex = v;
+  }
 
-  public int getOsc2Transpose() { return osc2Transpose; }
-  public void setOsc2Transpose(int v) { this.osc2Transpose = Math.max(-24, Math.min(24, v)); }
-  public int getOsc2Cents() { return osc2Cents; }
-  public void setOsc2Cents(int v) { this.osc2Cents = Math.max(-50, Math.min(50, v)); }
+  public int getOsc1LoopMode() {
+    return osc1LoopMode;
+  }
 
-  public int getOsc2LoopMode() { return osc2LoopMode; }
-  public void setOsc2LoopMode(int v) { this.osc2LoopMode = v; }
-  public boolean isOsc2Reversed() { return osc2Reversed; }
-  public void setOsc2Reversed(boolean v) { this.osc2Reversed = v; }
-  public boolean isOsc2TimeStretch() { return osc2TimeStretch; }
-  public void setOsc2TimeStretch(boolean v) { this.osc2TimeStretch = v; }
-  public float getOsc2TimeStretchAmount() { return osc2TimeStretchAmount; }
-  public void setOsc2TimeStretchAmount(float v) { this.osc2TimeStretchAmount = v; }
-  public boolean isOsc2LinearInterpolation() { return osc2LinearInterpolation; }
-  public void setOsc2LinearInterpolation(boolean v) { this.osc2LinearInterpolation = v; }
+  public void setOsc1LoopMode(int v) {
+    this.osc1LoopMode = v;
+  }
+
+  public boolean isOsc1Reversed() {
+    return osc1Reversed;
+  }
+
+  public void setOsc1Reversed(boolean v) {
+    this.osc1Reversed = v;
+  }
+
+  public boolean isOsc1TimeStretch() {
+    return osc1TimeStretch;
+  }
+
+  public void setOsc1TimeStretch(boolean v) {
+    this.osc1TimeStretch = v;
+  }
+
+  public float getOsc1TimeStretchAmount() {
+    return osc1TimeStretchAmount;
+  }
+
+  public void setOsc1TimeStretchAmount(float v) {
+    this.osc1TimeStretchAmount = v;
+  }
+
+  public int getOsc1Cents() {
+    return osc1Cents;
+  }
+
+  public void setOsc1Cents(int v) {
+    this.osc1Cents = Math.max(-50, Math.min(50, v));
+  }
+
+  public boolean isOsc1LinearInterpolation() {
+    return osc1LinearInterpolation;
+  }
+
+  public void setOsc1LinearInterpolation(boolean v) {
+    this.osc1LinearInterpolation = v;
+  }
+
+  public int getOsc2Transpose() {
+    return osc2Transpose;
+  }
+
+  public void setOsc2Transpose(int v) {
+    this.osc2Transpose = Math.max(-24, Math.min(24, v));
+  }
+
+  public int getOsc2Cents() {
+    return osc2Cents;
+  }
+
+  public void setOsc2Cents(int v) {
+    this.osc2Cents = Math.max(-50, Math.min(50, v));
+  }
+
+  public int getOsc2LoopMode() {
+    return osc2LoopMode;
+  }
+
+  public void setOsc2LoopMode(int v) {
+    this.osc2LoopMode = v;
+  }
+
+  public boolean isOsc2Reversed() {
+    return osc2Reversed;
+  }
+
+  public void setOsc2Reversed(boolean v) {
+    this.osc2Reversed = v;
+  }
+
+  public boolean isOsc2TimeStretch() {
+    return osc2TimeStretch;
+  }
+
+  public void setOsc2TimeStretch(boolean v) {
+    this.osc2TimeStretch = v;
+  }
+
+  public float getOsc2TimeStretchAmount() {
+    return osc2TimeStretchAmount;
+  }
+
+  public void setOsc2TimeStretchAmount(float v) {
+    this.osc2TimeStretchAmount = v;
+  }
+
+  public boolean isOsc2LinearInterpolation() {
+    return osc2LinearInterpolation;
+  }
+
+  public void setOsc2LinearInterpolation(boolean v) {
+    this.osc2LinearInterpolation = v;
+  }
 
   public FilterMode getFilterMode() {
     return filterMode;
@@ -298,19 +395,53 @@ public class SynthTrackModel extends TrackModel {
     this.hpfMorph = hpfMorph;
   }
 
-  public FilterMode getHpfMode() { return hpfMode; }
-  public void setHpfMode(FilterMode hpfMode) { this.hpfMode = hpfMode; }
-  public float getHpfFm() { return hpfFm; }
-  public void setHpfFm(float hpfFm) { this.hpfFm = hpfFm; }
+  public FilterMode getHpfMode() {
+    return hpfMode;
+  }
 
-  public float getFilterDrive() { return filterDrive; }
-  public void setFilterDrive(float filterDrive) { this.filterDrive = Math.max(0.0f, Math.min(2.0f, filterDrive)); }
-  public boolean isFilterNotch() { return filterNotch; }
-  public void setFilterNotch(boolean filterNotch) { this.filterNotch = filterNotch; }
-  public int getFilterRoute() { return filterRoute; }
-  public void setFilterRoute(int filterRoute) { this.filterRoute = filterRoute; }
-  public int getMaxVoiceCount() { return maxVoiceCount; }
-  public void setMaxVoiceCount(int maxVoiceCount) { this.maxVoiceCount = Math.max(1, Math.min(16, maxVoiceCount)); }
+  public void setHpfMode(FilterMode hpfMode) {
+    this.hpfMode = hpfMode;
+  }
+
+  public float getHpfFm() {
+    return hpfFm;
+  }
+
+  public void setHpfFm(float hpfFm) {
+    this.hpfFm = hpfFm;
+  }
+
+  public float getFilterDrive() {
+    return filterDrive;
+  }
+
+  public void setFilterDrive(float filterDrive) {
+    this.filterDrive = Math.max(0.0f, Math.min(2.0f, filterDrive));
+  }
+
+  public boolean isFilterNotch() {
+    return filterNotch;
+  }
+
+  public void setFilterNotch(boolean filterNotch) {
+    this.filterNotch = filterNotch;
+  }
+
+  public int getFilterRoute() {
+    return filterRoute;
+  }
+
+  public void setFilterRoute(int filterRoute) {
+    this.filterRoute = filterRoute;
+  }
+
+  public int getMaxVoiceCount() {
+    return maxVoiceCount;
+  }
+
+  public void setMaxVoiceCount(int maxVoiceCount) {
+    this.maxVoiceCount = Math.max(1, Math.min(16, maxVoiceCount));
+  }
 
   public EnvelopeModel getEnv(int index) {
     return env[index];
@@ -433,46 +564,145 @@ public class SynthTrackModel extends TrackModel {
   }
 
   @Override
-  public float getVolume() { return volume; }
-  @Override
-  public void setVolume(float v) { this.volume = v; }
-  @Override
-  public float getPan() { return pan; }
-  @Override
-  public void setPan(float v) { this.pan = v; }
-  public float getStutterRate() { return stutterRate; }
-  public void setStutterRate(float v) { this.stutterRate = v; }
-  public float getSampleRateReduction() { return sampleRateReduction; }
-  public void setSampleRateReduction(float v) { this.sampleRateReduction = v; }
-  public float getBitCrush() { return bitCrush; }
-  public void setBitCrush(float v) { this.bitCrush = v; }
+  public float getVolume() {
+    return volume;
+  }
 
-  public float getCompressorAttack() { return compressorAttack; }
-  public void setCompressorAttack(float v) { this.compressorAttack = v; }
-  public float getCompressorRelease() { return compressorRelease; }
-  public void setCompressorRelease(float v) { this.compressorRelease = v; }
-  public int getCompressorSyncLevel() { return compressorSyncLevel; }
-  public void setCompressorSyncLevel(int v) { this.compressorSyncLevel = v; }
-  public float getCompressorBlend() { return compressorBlend; }
-  public void setCompressorBlend(float v) { this.compressorBlend = Math.max(0.0f, Math.min(1.0f, v)); }
-  public float getCompressorSidechainHpf() { return compressorSidechainHpf; }
-  public void setCompressorSidechainHpf(float v) { this.compressorSidechainHpf = Math.max(0.0f, Math.min(1.0f, v)); }
-  public float getCompressorThreshold() { return compressorThreshold; }
-  public void setCompressorThreshold(float v) { this.compressorThreshold = v; }
-  public float getCompressorRatio() { return compressorRatio; }
-  public void setCompressorRatio(float v) { this.compressorRatio = v; }
-  public int getCompressorSyncType() { return compressorSyncType; }
-  public void setCompressorSyncType(int v) { this.compressorSyncType = v; }
+  @Override
+  public void setVolume(float v) {
+    this.volume = v;
+  }
+
+  @Override
+  public float getPan() {
+    return pan;
+  }
+
+  @Override
+  public void setPan(float v) {
+    this.pan = v;
+  }
+
+  public float getStutterRate() {
+    return stutterRate;
+  }
+
+  public void setStutterRate(float v) {
+    this.stutterRate = v;
+  }
+
+  public float getSampleRateReduction() {
+    return sampleRateReduction;
+  }
+
+  public void setSampleRateReduction(float v) {
+    this.sampleRateReduction = v;
+  }
+
+  public float getBitCrush() {
+    return bitCrush;
+  }
+
+  public void setBitCrush(float v) {
+    this.bitCrush = v;
+  }
+
+  public float getCompressorAttack() {
+    return compressorAttack;
+  }
+
+  public void setCompressorAttack(float v) {
+    this.compressorAttack = v;
+  }
+
+  public float getCompressorRelease() {
+    return compressorRelease;
+  }
+
+  public void setCompressorRelease(float v) {
+    this.compressorRelease = v;
+  }
+
+  public int getCompressorSyncLevel() {
+    return compressorSyncLevel;
+  }
+
+  public void setCompressorSyncLevel(int v) {
+    this.compressorSyncLevel = v;
+  }
+
+  public float getCompressorBlend() {
+    return compressorBlend;
+  }
+
+  public void setCompressorBlend(float v) {
+    this.compressorBlend = Math.max(0.0f, Math.min(1.0f, v));
+  }
+
+  public float getCompressorSidechainHpf() {
+    return compressorSidechainHpf;
+  }
+
+  public void setCompressorSidechainHpf(float v) {
+    this.compressorSidechainHpf = Math.max(0.0f, Math.min(1.0f, v));
+  }
+
+  public float getCompressorThreshold() {
+    return compressorThreshold;
+  }
+
+  public void setCompressorThreshold(float v) {
+    this.compressorThreshold = v;
+  }
+
+  public float getCompressorRatio() {
+    return compressorRatio;
+  }
+
+  public void setCompressorRatio(float v) {
+    this.compressorRatio = v;
+  }
+
+  public int getCompressorSyncType() {
+    return compressorSyncType;
+  }
+
+  public void setCompressorSyncType(int v) {
+    this.compressorSyncType = v;
+  }
 
   // Sidechain (at sound level)
-  public int getSidechainSyncLevel() { return sidechainSyncLevel; }
-  public void setSidechainSyncLevel(int v) { this.sidechainSyncLevel = v; }
-  public int getSidechainSyncType() { return sidechainSyncType; }
-  public void setSidechainSyncType(int v) { this.sidechainSyncType = v; }
-  public float getSidechainAttack() { return sidechainAttack; }
-  public void setSidechainAttack(float v) { this.sidechainAttack = v; }
-  public float getSidechainRelease() { return sidechainRelease; }
-  public void setSidechainRelease(float v) { this.sidechainRelease = v; }
+  public int getSidechainSyncLevel() {
+    return sidechainSyncLevel;
+  }
+
+  public void setSidechainSyncLevel(int v) {
+    this.sidechainSyncLevel = v;
+  }
+
+  public int getSidechainSyncType() {
+    return sidechainSyncType;
+  }
+
+  public void setSidechainSyncType(int v) {
+    this.sidechainSyncType = v;
+  }
+
+  public float getSidechainAttack() {
+    return sidechainAttack;
+  }
+
+  public void setSidechainAttack(float v) {
+    this.sidechainAttack = v;
+  }
+
+  public float getSidechainRelease() {
+    return sidechainRelease;
+  }
+
+  public void setSidechainRelease(float v) {
+    this.sidechainRelease = v;
+  }
 
   public int getSynthMode() {
     return synthMode;
@@ -482,17 +712,37 @@ public class SynthTrackModel extends TrackModel {
     this.synthMode = synthMode;
   }
 
-  public int getTranspose() { return transpose; }
-  public void setTranspose(int transpose) { this.transpose = Math.max(-24, Math.min(24, transpose)); }
+  public int getTranspose() {
+    return transpose;
+  }
 
-  public String getDx7Patch() { return dx7patch; }
-  public void setDx7Patch(String dx7patch) { this.dx7patch = dx7patch; }
+  public void setTranspose(int transpose) {
+    this.transpose = Math.max(-24, Math.min(24, transpose));
+  }
 
-  public int getDx7RandomDetune() { return dx7RandomDetune; }
-  public void setDx7RandomDetune(int v) { this.dx7RandomDetune = v; }
+  public String getDx7Patch() {
+    return dx7patch;
+  }
 
-  public int getEngineType() { return engineType; }
-  public void setEngineType(int engineType) { this.engineType = engineType; }
+  public void setDx7Patch(String dx7patch) {
+    this.dx7patch = dx7patch;
+  }
+
+  public int getDx7RandomDetune() {
+    return dx7RandomDetune;
+  }
+
+  public void setDx7RandomDetune(int v) {
+    this.dx7RandomDetune = v;
+  }
+
+  public int getEngineType() {
+    return engineType;
+  }
+
+  public void setEngineType(int engineType) {
+    this.engineType = engineType;
+  }
 
   public int getSynthAlgorithm() {
     return synthAlgorithm;
@@ -502,8 +752,13 @@ public class SynthTrackModel extends TrackModel {
     this.synthAlgorithm = synthAlgorithm;
   }
 
-  public boolean isOscillatorSync() { return oscillatorSync; }
-  public void setOscillatorSync(boolean v) { this.oscillatorSync = v; }
+  public boolean isOscillatorSync() {
+    return oscillatorSync;
+  }
+
+  public void setOscillatorSync(boolean v) {
+    this.oscillatorSync = v;
+  }
 
   public float getFmRatio() {
     return fmRatio;
@@ -521,31 +776,63 @@ public class SynthTrackModel extends TrackModel {
     this.fmAmount = fmAmount;
   }
 
-  public float getModulator1Feedback() { return modulator1Feedback; }
-  public void setModulator1Feedback(float v) { this.modulator1Feedback = v; }
+  public float getModulator1Feedback() {
+    return modulator1Feedback;
+  }
 
-  public float getModulator2Amount() { return modulator2Amount; }
-  public void setModulator2Amount(float v) { this.modulator2Amount = v; }
+  public void setModulator1Feedback(float v) {
+    this.modulator1Feedback = v;
+  }
 
-  public float getModulator2Feedback() { return modulator2Feedback; }
-  public void setModulator2Feedback(float v) { this.modulator2Feedback = v; }
+  public float getModulator2Amount() {
+    return modulator2Amount;
+  }
 
-  public float getCarrier1Feedback() { return carrier1Feedback; }
-  public void setCarrier1Feedback(float v) { this.carrier1Feedback = v; }
+  public void setModulator2Amount(float v) {
+    this.modulator2Amount = v;
+  }
 
-  public float getCarrier2Feedback() { return carrier2Feedback; }
-  public void setCarrier2Feedback(float v) { this.carrier2Feedback = v; }
+  public float getModulator2Feedback() {
+    return modulator2Feedback;
+  }
+
+  public void setModulator2Feedback(float v) {
+    this.modulator2Feedback = v;
+  }
+
+  public float getCarrier1Feedback() {
+    return carrier1Feedback;
+  }
+
+  public void setCarrier1Feedback(float v) {
+    this.carrier1Feedback = v;
+  }
+
+  public float getCarrier2Feedback() {
+    return carrier2Feedback;
+  }
+
+  public void setCarrier2Feedback(float v) {
+    this.carrier2Feedback = v;
+  }
 
   // Stutter config (ModControllableAudio::stutterConfig)
   private boolean stutterQuantized = true;
   private boolean stutterReversed = false;
   private boolean stutterPingPong = false;
 
-  /** Oscillator retrigger phase. -1=FREE (free running), 0=RESET, positive=phase offset in degrees. */
+  /**
+   * Oscillator retrigger phase. -1=FREE (free running), 0=RESET, positive=phase offset in degrees.
+   */
   private int retrigPhase = 0;
 
-  public int getRetrigPhase() { return retrigPhase; }
-  public void setRetrigPhase(int v) { this.retrigPhase = v; }
+  public int getRetrigPhase() {
+    return retrigPhase;
+  }
+
+  public void setRetrigPhase(int v) {
+    this.retrigPhase = v;
+  }
 
   public PolyphonyMode getPolyphony() {
     return polyphony;
@@ -555,10 +842,27 @@ public class SynthTrackModel extends TrackModel {
     this.polyphony = polyphony;
   }
 
-  public boolean isStutterQuantized() { return stutterQuantized; }
-  public void setStutterQuantized(boolean v) { this.stutterQuantized = v; }
-  public boolean isStutterReversed() { return stutterReversed; }
-  public void setStutterReversed(boolean v) { this.stutterReversed = v; }
-  public boolean isStutterPingPong() { return stutterPingPong; }
-  public void setStutterPingPong(boolean v) { this.stutterPingPong = v; }
+  public boolean isStutterQuantized() {
+    return stutterQuantized;
+  }
+
+  public void setStutterQuantized(boolean v) {
+    this.stutterQuantized = v;
+  }
+
+  public boolean isStutterReversed() {
+    return stutterReversed;
+  }
+
+  public void setStutterReversed(boolean v) {
+    this.stutterReversed = v;
+  }
+
+  public boolean isStutterPingPong() {
+    return stutterPingPong;
+  }
+
+  public void setStutterPingPong(boolean v) {
+    this.stutterPingPong = v;
+  }
 }
