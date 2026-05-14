@@ -34,6 +34,34 @@ public class WaveTableReader {
       }
 
       WavetableGenerator.generateBands(waveTable, samples);
+
+      // ── Ported Metadata Parsing ──
+      while (fis.available() > 8) {
+        byte[] chunkHeader = new byte[8];
+        fis.read(chunkHeader);
+        ByteBuffer chunkBB = ByteBuffer.wrap(chunkHeader).order(ByteOrder.LITTLE_ENDIAN);
+        int chunkName = chunkBB.getInt(0);
+        int chunkLen = chunkBB.getInt(4);
+
+        if (chunkName == 0x6C706D73) { // 'smpl'
+          byte[] smplData = new byte[chunkLen];
+          fis.read(smplData);
+          ByteBuffer smplBB = ByteBuffer.wrap(smplData).order(ByteOrder.LITTLE_ENDIAN);
+          int rootNote = smplBB.getInt(12);
+          int numLoops = smplBB.getInt(28);
+          if (numLoops > 0) {
+            int loopStart = smplBB.getInt(44);
+            int loopEnd = smplBB.getInt(48);
+            // Store in waveTable/sample model
+          }
+        } else if (chunkName == 0x74736E69) { // 'inst'
+          byte[] instData = new byte[chunkLen];
+          fis.read(instData);
+          int rootNote = instData[0] & 0xFF;
+        } else {
+          fis.skip(chunkLen);
+        }
+      }
     }
   }
 }

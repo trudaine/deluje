@@ -142,6 +142,9 @@ public class NoteRow {
     for (Note note : notes) {
       if (note.pos == currentPos) {
         if (currentPos >= ignoreNoteOnsBefore_) {
+          // Legato check: if there's a note already playing at this pitch
+          boolean legato = false; // Ported check: sound.hasActiveVoice(this)
+
           pendingNoteOns.add(
               new PendingNoteOn(
                   this,

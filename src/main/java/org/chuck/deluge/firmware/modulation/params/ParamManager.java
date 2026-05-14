@@ -18,6 +18,21 @@ public class ParamManager {
     return patchCableSet;
   }
 
+  public void recordParamValue(int paramId, int value, int currentPos) {
+    AutoParam target = null;
+    for (AutoParam p : automatedParams) {
+      if (p.paramId == paramId) {
+        target = p;
+        break;
+      }
+    }
+    if (target == null) {
+      target = new AutoParam(paramId);
+      automatedParams.add(target);
+    }
+    target.addNode(currentPos, value);
+  }
+
   public void processCurrentPos(
       int currentPos,
       int loopLength,

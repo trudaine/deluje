@@ -5,6 +5,8 @@ public class ParamNode {
   public int value;
   public boolean interpolated;
 
+  public ParamNode() {}
+
   public ParamNode(int pos, int value, boolean interpolated) {
     this.pos = pos;
     this.value = value;
