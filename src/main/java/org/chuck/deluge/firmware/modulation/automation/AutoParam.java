@@ -4,8 +4,33 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class AutoParam {
+  public final int paramId;
   public List<ParamNode> nodes = new ArrayList<>();
   public int currentValue;
+
+  public AutoParam(int paramId) {
+    this.paramId = paramId;
+  }
+
+  public void addNode(int pos, int value) {
+    ParamNode node = new ParamNode();
+    node.pos = pos;
+    node.value = value;
+    nodes.add(node);
+    nodes.sort((a, b) -> Integer.compare(a.pos, b.pos));
+  }
+
+  public int getValueAt(int pos) {
+    if (nodes.isEmpty()) return 0;
+    // Simple search
+    for (int i = 0; i < nodes.size() - 1; i++) {
+        if (pos >= nodes.get(i).pos && pos < nodes.get(i+1).pos) {
+            return nodes.get(i).value;
+        }
+    }
+    return nodes.get(nodes.size() - 1).value;
+  }
+
   public int valueIncrementPerHalfTick;
   public int ticksTilNextEvent = Integer.MAX_VALUE;
 

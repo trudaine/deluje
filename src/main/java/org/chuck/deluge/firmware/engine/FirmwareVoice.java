@@ -132,7 +132,9 @@ public class FirmwareVoice {
     // Apply Env0 to combined volume
     int env0Gain = (sourceValues[PatchSource.ENVELOPE_0.ordinal()] >> 1) + 1073741824;
     for (int i = 0; i < numSamples; i++) {
-      buffer[i] += Q31.mult(tempBuffer[i], env0Gain);
+      int wet = Q31.mult(tempBuffer[i], env0Gain);
+      // Per-voice saturation
+      buffer[i] = Q31.addSaturate(buffer[i], Q31.lshiftAndSaturate(wet, 1));
     }
 
     return true;

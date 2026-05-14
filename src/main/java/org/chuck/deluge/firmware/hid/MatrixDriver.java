@@ -29,13 +29,37 @@ public class MatrixDriver {
     return uiStack.isEmpty() ? null : uiStack.peek();
   }
 
+  public enum VelocityCurve {
+    LINEAR,
+    LOG,
+    EXP
+  }
+
+  private VelocityCurve velocityCurve = VelocityCurve.LINEAR;
+
+  public void setVelocityCurve(VelocityCurve curve) {
+    this.velocityCurve = curve;
+  }
+
+  private int applyCurve(int velocity) {
+    switch (velocityCurve) {
+      case LOG:
+        return (int) (127 * Math.log1p(velocity / 127.0 * (Math.E - 1)));
+      case EXP:
+        return (int) (127 * (Math.pow(Math.E, velocity / 127.0) - 1) / (Math.E - 1));
+      default:
+        return velocity;
+    }
+  }
+
   public void padAction(int x, int y, int velocity) {
     if (x >= 0 && x < kDisplayWidth + kSideBarWidth && y >= 0 && y < kDisplayHeight) {
-      padStates[x][y] = (velocity != 0);
+      int curvedVelocity = applyCurve(velocity);
+      padStates[x][y] = (curvedVelocity != 0);
 
       FirmwareUI current = getCurrentUI();
       if (current != null) {
-        current.padAction(x, y, velocity);
+        current.padAction(x, y, curvedVelocity);
       }
     }
   }

@@ -16,6 +16,16 @@ public class FirmwareDisplay {
   private BiConsumer<String, String> listener;
   private String lastMainText = "";
   private String lastPopupText = "";
+  private float[] waveformPreview;
+
+  public void setWaveformPreview(float[] data) {
+    this.waveformPreview = data;
+    notifyListener();
+  }
+
+  public float[] getWaveformPreview() {
+    return waveformPreview;
+  }
 
   public void setListener(BiConsumer<String, String> listener) {
     this.listener = listener;
