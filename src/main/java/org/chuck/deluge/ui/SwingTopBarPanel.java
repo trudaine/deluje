@@ -2,6 +2,8 @@ package org.chuck.deluge.ui;
 
 import java.awt.Color;
 import java.awt.FlowLayout;
+import java.awt.Font;
+import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
 import javax.swing.JDialog;
@@ -12,11 +14,9 @@ import javax.swing.JSlider;
 import javax.swing.JToggleButton;
 import javax.swing.SwingConstants;
 import javax.swing.Timer;
-import javax.swing.BorderFactory;
-import java.awt.Font;
-import org.chuck.deluge.firmware.hid.FirmwareDisplay;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
+import org.chuck.deluge.firmware.hid.FirmwareDisplay;
 import org.chuck.deluge.model.ProjectModel;
 
 /**
@@ -190,24 +190,30 @@ public class SwingTopBarPanel extends JPanel {
     ledDisplay.setHorizontalAlignment(SwingConstants.CENTER);
     add(ledDisplay);
 
-    FirmwareDisplay.get().setListener((main, popup) -> {
-      javax.swing.SwingUtilities.invokeLater(() -> {
-          if (popup != null && !popup.isEmpty()) {
-              ledDisplay.setText(popup);
-              ledDisplay.setForeground(Color.YELLOW);
-              // Simple timer to clear popup
-              Timer timer = new Timer(2000, t -> {
-                  ledDisplay.setText(FirmwareDisplay.get().getMainText());
-                  ledDisplay.setForeground(Color.GREEN);
-              });
-              timer.setRepeats(false);
-              timer.start();
-          } else {
-              ledDisplay.setText(main);
-              ledDisplay.setForeground(Color.GREEN);
-          }
-      });
-    });
+    FirmwareDisplay.get()
+        .setListener(
+            (main, popup) -> {
+              javax.swing.SwingUtilities.invokeLater(
+                  () -> {
+                    if (popup != null && !popup.isEmpty()) {
+                      ledDisplay.setText(popup);
+                      ledDisplay.setForeground(Color.YELLOW);
+                      // Simple timer to clear popup
+                      Timer timer =
+                          new Timer(
+                              2000,
+                              t -> {
+                                ledDisplay.setText(FirmwareDisplay.get().getMainText());
+                                ledDisplay.setForeground(Color.GREEN);
+                              });
+                      timer.setRepeats(false);
+                      timer.start();
+                    } else {
+                      ledDisplay.setText(main);
+                      ledDisplay.setForeground(Color.GREEN);
+                    }
+                  });
+            });
   }
 
   /** Programmatically select the CLIP view toggle button (e.g. after loading a project). */
