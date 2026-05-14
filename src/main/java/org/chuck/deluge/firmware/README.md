@@ -70,6 +70,9 @@ This port (`org.chuck.deluge.firmware`) aims for **bit-for-bit parity** by:
 - [x] **Oscillator Sync & Cross-Mod**: Implemented sample-accurate phase resetting and FM modulation.
 - [x] **Wavetable Cycle Spanning**: Completed the boundary crossing math in `WaveTable.java` for smooth position modulation.
 - [x] **Arpeggiator & LFOs**: Completed porting of full arpeggiator (rhythms, ratcheting, probabilities) and LFO logic.
+- [x] **High-Fidelity FM & Granular**: Ported bit-accurate FM kernels via Java Vector API and high-fidelity granular grain shaping.
+- [x] **Time-Stretching Engine**: Completed phase-vocoder dual-head crossfading logic for real-time artifact-free stretching.
+- [x] **Sequencer Timing**: Ported hardware-accurate swing (amount and interval) and humanization/quantization logic.
 - [x] **LED Hardware Replication**: Added a simulated LED display in the `SwingTopBarPanel`.
 - [x] **Virtual Hardware Abstraction**: Ported `MatrixDriver` and `PadLEDs` to create a "Virtual Hardware" layer.
 
