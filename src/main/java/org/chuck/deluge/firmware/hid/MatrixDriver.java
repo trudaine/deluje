@@ -64,6 +64,41 @@ public class MatrixDriver {
     }
   }
 
+  public void buttonAction(int buttonId, boolean on) {
+    FirmwareUI current = getCurrentUI();
+    if (current != null) {
+      current.buttonAction(buttonId, on);
+    }
+  }
+
+  public void horizontalEncoderAction(int offset) {
+    FirmwareUI current = getCurrentUI();
+    if (current != null) {
+      current.horizontalEncoderAction(offset);
+    }
+  }
+
+  public void verticalEncoderAction(int offset) {
+    FirmwareUI current = getCurrentUI();
+    if (current != null) {
+      current.verticalEncoderAction(offset);
+    }
+  }
+
+  public void selectEncoderAction(int offset) {
+    FirmwareUI current = getCurrentUI();
+    if (current != null) {
+      current.selectEncoderAction(offset);
+    }
+  }
+
+  public void selectButtonAction(boolean on) {
+    FirmwareUI current = getCurrentUI();
+    if (current != null) {
+      current.selectButtonPress(on);
+    }
+  }
+
   public boolean isPadPressed(int x, int y) {
     if (x >= 0 && x < kDisplayWidth + kSideBarWidth && y >= 0 && y < kDisplayHeight) {
       return padStates[x][y];

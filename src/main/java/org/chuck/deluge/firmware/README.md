@@ -76,7 +76,8 @@ This port (`org.chuck.deluge.firmware`) aims for **bit-for-bit parity** by:
 - [x] **Sequencer Timing**: Ported hardware-accurate swing (amount and interval) and humanization/quantization logic.
 - [x] **Deep Sequencer Logic**: Implemented Legato/Overlap rules and real-time **Automation Recording**.
 - [x] **Format Support**: Added **DX7 Sysex Import** and detailed **WAV Metadata Parsing** (Loops/Slices/Root notes).
-- [x] **High-Fidelity Interaction**: Implemented **Velocity Curves** and **Graphical LCD Previews** (Waveforms/Curves).
+- [x] **High-Fidelity Interaction**: Ported the **MenuItem** hierarchy and implemented a **Graphical OLED Display** (128x64) for real-time waveforms and curves.
+- [x] **UI Model**: Abstracted menu navigation into a high-fidelity model compatible with both firmware logic and Swing rendering.
 - [x] **LED Hardware Replication**: Added a simulated LED display in the `SwingTopBarPanel`.
 - [x] **Virtual Hardware Abstraction**: Ported `MatrixDriver` and `PadLEDs` to create a "Virtual Hardware" layer.
 

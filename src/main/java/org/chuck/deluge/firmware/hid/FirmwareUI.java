@@ -8,6 +8,16 @@ public abstract class FirmwareUI {
     return ActionResult.NOT_DEALT_WITH;
   }
 
+  public void horizontalEncoderAction(int offset) {}
+
+  public void verticalEncoderAction(int offset) {}
+
+  public void selectEncoderAction(int offset) {}
+
+  public ActionResult selectButtonPress(boolean on) {
+    return ActionResult.NOT_DEALT_WITH;
+  }
+
   /**
    * Called by the system to allow the UI to paint the LED grid. This is the "Firmware as the Brain"
    * decoupling point.

@@ -39,7 +39,6 @@ public class SwingTopBarPanel extends JPanel {
   private final JToggleButton clipBtn;
   private final JSlider masterVolSlider;
   private final TopBarListener listener;
-  private final JLabel ledDisplay;
 
   /**
    * @param vm ChucK virtual machine for direct bridge writes
@@ -179,40 +178,16 @@ public class SwingTopBarPanel extends JPanel {
         e -> projectModel.setMasterVolume(masterVolSlider.getValue() / 100.0f));
     add(masterVolSlider);
 
-    // ── Firmware LED Display ──
-    ledDisplay = new JLabel(" DELUGE ");
-    ledDisplay.setOpaque(true);
-    ledDisplay.setBackground(Color.BLACK);
-    ledDisplay.setForeground(Color.GREEN);
-    ledDisplay.setFont(new Font("Monospaced", Font.BOLD, 18));
-    ledDisplay.setBorder(BorderFactory.createLineBorder(Color.DARK_GRAY, 2));
-    ledDisplay.setPreferredSize(new java.awt.Dimension(200, 40));
-    ledDisplay.setHorizontalAlignment(SwingConstants.CENTER);
-    add(ledDisplay);
+    // ── Firmware LED Display (OLED) ──
+    SwingOledPanel oledPanel = new SwingOledPanel();
+    oledPanel.setBorder(BorderFactory.createLineBorder(Color.DARK_GRAY, 2));
+    add(oledPanel);
 
     FirmwareDisplay.get()
         .setListener(
             (main, popup) -> {
-              javax.swing.SwingUtilities.invokeLater(
-                  () -> {
-                    if (popup != null && !popup.isEmpty()) {
-                      ledDisplay.setText(popup);
-                      ledDisplay.setForeground(Color.YELLOW);
-                      // Simple timer to clear popup
-                      Timer timer =
-                          new Timer(
-                              2000,
-                              t -> {
-                                ledDisplay.setText(FirmwareDisplay.get().getMainText());
-                                ledDisplay.setForeground(Color.GREEN);
-                              });
-                      timer.setRepeats(false);
-                      timer.start();
-                    } else {
-                      ledDisplay.setText(main);
-                      ledDisplay.setForeground(Color.GREEN);
-                    }
-                  });
+                // Keep the listener for potential other logic, 
+                // but the oledPanel now handles rendering directly.
             });
   }
 
