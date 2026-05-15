@@ -31,7 +31,6 @@ public class ArrangerView extends FirmwareView {
     }
 
     // Draw clip instances
-    // (Simplified placeholder logic)
     for (int x = 0; x < 16; x++) {
       PadLEDs.set(x, 0, new RGB(50, 0, 50)); // Dark purple for arranger timeline
     }

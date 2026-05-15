@@ -2,6 +2,8 @@ package org.chuck.deluge.firmware.dsp.filter;
 
 import static org.chuck.deluge.firmware.util.Q31.*;
 
+import org.chuck.deluge.firmware.dsp.StereoSample;
+
 public class FilterSet {
   public final LpLadderFilter lpLadder = new LpLadderFilter();
   public final SVFilter lpSVF = new SVFilter();
@@ -87,6 +89,53 @@ public class FilterSet {
         }
         break;
     }
+  }
+
+  public void renderStereoInterleaved(StereoSample[] buffer, int numSamples) {
+      if (!LPFOn && !HPFOn) return;
+
+      int[] l = new int[numSamples];
+      int[] r = new int[numSamples];
+      for (int i = 0; i < numSamples; i++) {
+          l[i] = buffer[i].l;
+          r[i] = buffer[i].r;
+      }
+
+      switch (routing) {
+          case HIGH_TO_LOW:
+              renderHPFStereo(l, 0, numSamples);
+              renderHPFStereo(r, 0, numSamples);
+              renderLPFStereo(l, 0, numSamples);
+              renderLPFStereo(r, 0, numSamples);
+              break;
+          case LOW_TO_HIGH:
+              renderLPFStereo(l, 0, numSamples);
+              renderLPFStereo(r, 0, numSamples);
+              renderHPFStereo(l, 0, numSamples);
+              renderHPFStereo(r, 0, numSamples);
+              break;
+          case PARALLEL:
+              int[] l_temp = new int[numSamples];
+              int[] r_temp = new int[numSamples];
+              System.arraycopy(l, 0, l_temp, 0, numSamples);
+              System.arraycopy(r, 0, r_temp, 0, numSamples);
+              
+              renderHPFStereo(l_temp, 0, numSamples);
+              renderHPFStereo(r_temp, 0, numSamples);
+              renderLPFStereo(l, 0, numSamples);
+              renderLPFStereo(r, 0, numSamples);
+              
+              for (int i = 0; i < numSamples; i++) {
+                  l[i] = addSaturate(l[i], l_temp[i]);
+                  r[i] = addSaturate(r[i], r_temp[i]);
+              }
+              break;
+      }
+
+      for (int i = 0; i < numSamples; i++) {
+          buffer[i].l = l[i];
+          buffer[i].r = r[i];
+      }
   }
 
   public void renderStereo(int[] buffer, int offset, int length) {

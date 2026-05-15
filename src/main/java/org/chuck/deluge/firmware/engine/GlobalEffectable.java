@@ -47,14 +47,9 @@ public abstract class GlobalEffectable {
   }
 
   public void processFilters(StereoSample[] buffer, int numSamples) {
-      int[] l = new int[numSamples];
-      int[] r = new int[numSamples];
-      for (int i = 0; i < numSamples; i++) { l[i] = buffer[i].l; r[i] = buffer[i].r; }
-      
-      filterSet.renderStereo(l, 0, numSamples);
-      filterSet.renderStereo(r, 0, numSamples); // Simplified: should use proper interleaving
-      
-      for (int i = 0; i < numSamples; i++) { buffer[i].l = l[i]; buffer[i].r = r[i]; }
+      // ── Bit-Accurate Stereo Filter Rendering ──
+      // In hardware, this happens in-place on the stereo stream
+      filterSet.renderStereoInterleaved(buffer, numSamples);
   }
 
   public void processReverbSendAndVolume(

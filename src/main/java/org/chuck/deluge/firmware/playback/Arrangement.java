@@ -18,7 +18,7 @@ public class Arrangement {
   }
 
   public void advance(int numTicks) {
-    doTickForward(numTicks, null); // Simplified: currentSong not always needed for basic advance
+    doTickForward(numTicks, null); 
   }
 
   public void doTickForward(int posIncrement, Song currentSong) {

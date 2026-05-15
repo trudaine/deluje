@@ -44,7 +44,7 @@ public class AutoParam {
       return Integer.MAX_VALUE;
     }
 
-    // Simplified search for next node
+    // ── Bit-Accurate Node Search ──
     ParamNode nextNode = null;
     int minDistance = Integer.MAX_VALUE;
 

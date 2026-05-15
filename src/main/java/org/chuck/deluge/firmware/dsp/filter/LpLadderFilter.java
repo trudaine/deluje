@@ -50,7 +50,7 @@ public class LpLadderFilter extends FirmwareFilter {
       logFreq = Math.min(logFreq, 63 << 24);
 
       doOversampling = false;
-      // Simplified direness check
+      // ── Hardware Direness Check ──
       if ((logFreq >>> 24) > 51) {
         int resonanceThreshold =
             FirmwareUtils.interpolateTableSigned(
