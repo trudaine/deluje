@@ -106,6 +106,12 @@ public class PreferencesDialog extends JDialog {
     engineLabel = new javax.swing.JLabel();
     engineCombo = new javax.swing.JComboBox<>();
     engineHelp = new javax.swing.JLabel();
+    masterSatLabel = new javax.swing.JLabel();
+    masterSatCheck = new javax.swing.JCheckBox();
+    filterDriveLabel = new javax.swing.JLabel();
+    filterDriveCheck = new javax.swing.JCheckBox();
+    bitCrunchLabel = new javax.swing.JLabel();
+    bitCrunchCheck = new javax.swing.JCheckBox();
     mappingsLabel = new javax.swing.JLabel();
     mappingsScroll = new javax.swing.JScrollPane();
     mappingList = new javax.swing.JList<>();
@@ -589,7 +595,7 @@ public class PreferencesDialog extends JDialog {
   } // </editor-fold>//GEN-END:initComponents
 
   private void browseBtnActionPerformed(java.awt.event.ActionEvent evt) {
-    JFileChooser chooser = new JFileChooser();
+    JFileChooser chooser = new JFileChooser(PreferencesManager.getLibraryDir());
     chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
     if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
       PreferencesManager.setLibraryDir(chooser.getSelectedFile().getAbsolutePath());

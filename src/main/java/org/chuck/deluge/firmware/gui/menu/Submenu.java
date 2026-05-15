@@ -21,6 +21,11 @@ public class Submenu extends MenuItem {
     items.add(item);
   }
 
+  public MenuItem getFocusedItem() {
+    if (items.isEmpty()) return null;
+    return items.get(focusIndex);
+  }
+
   @Override
   public void selectEncoderAction(int offset) {
     if (items.isEmpty()) return;
