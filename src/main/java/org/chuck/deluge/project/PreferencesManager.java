@@ -120,7 +120,14 @@ public class PreferencesManager {
     if (!path.isEmpty()) {
       return new java.io.File(path);
     }
-    // Legacy fallback: derive from samples_dir preference
+    
+    // Fallback 1: Check for 'Deluge' folder in current project root
+    java.io.File projectLocal = new java.io.File("Deluge");
+    if (projectLocal.isDirectory()) {
+        return projectLocal;
+    }
+
+    // Fallback 2: derive from samples_dir preference
     String legacy = prefs.get("samples_dir", "");
     if (!legacy.isEmpty()) {
       java.io.File parent = new java.io.File(legacy).getParentFile();
