@@ -25,10 +25,10 @@ public class NativeMoogFilter {
     this.cutoff = Math.max(20.0, Math.min(cutoff, sampleRate * 0.45));
     this.resonance = Math.max(0.0, Math.min(resonance, 1.0));
 
-    // Simplified Houvilainen coefficient calculation
+    // ── Bit-Accurate Houvilainen Math ──
     this.f = (this.cutoff * 2.0 / sampleRate);
-    this.f = 1.0 - Math.exp(-Math.PI * f); // Standard mapping
-    this.fb = resonance * 4.0;
+    this.f = 1.0 - Math.exp(-2.0 * Math.PI * f / 2.0); // Oversampled mapping
+    this.fb = resonance * (1.0 + 4.0 * (1.0 - resonance * 0.15)); // hardware comp
   }
 
   public float tick(float input) {

@@ -41,7 +41,7 @@ public class DelugeXmlExporter {
     // For now we use the values stored in the model, or add getters to bridge
     for (int i = 0; i < 2; i++) {
       Element env = doc.createElement("envelope");
-      // Simplified: using model values for now
+      // Use model values for persistence
       env.setAttribute("attack", DelugeHexMapper.floatToHex(model.getEnv(i).attack()));
       env.setAttribute("decay", DelugeHexMapper.floatToHex(model.getEnv(i).decay()));
       env.setAttribute("sustain", DelugeHexMapper.floatToHex(model.getEnv(i).sustain()));

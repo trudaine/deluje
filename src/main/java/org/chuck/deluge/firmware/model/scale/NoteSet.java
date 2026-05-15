@@ -17,6 +17,8 @@ public class NoteSet {
     bits &= 0xFFF;
   }
 
+  public void addNote(int note) { add(note); }
+
   public void remove(int note) {
     bits &= ~(1 << (note % 12));
     bits &= 0xFFF;
@@ -25,6 +27,8 @@ public class NoteSet {
   public boolean has(int note) {
     return (bits & (1 << (note % 12))) != 0;
   }
+
+  public boolean hasNote(int note) { return has(note); }
 
   public int count() {
     return Integer.bitCount(bits);
