@@ -3,6 +3,7 @@ package org.chuck.deluge.firmware.gui.menu;
 import java.util.ArrayList;
 import java.util.List;
 import org.chuck.deluge.firmware.hid.ActionResult;
+import org.chuck.deluge.firmware.hid.Button;
 import org.chuck.deluge.firmware.hid.FirmwareDisplay;
 
 /**
@@ -44,8 +45,8 @@ public class Submenu extends MenuItem {
   }
 
   @Override
-  public ActionResult buttonAction(int buttonId, boolean on) {
+  public ActionResult buttonAction(Button b, boolean on) {
     if (items.isEmpty()) return ActionResult.NOT_DEALT_WITH;
-    return items.get(focusIndex).buttonAction(buttonId, on);
+    return items.get(focusIndex).buttonAction(b, on);
   }
 }

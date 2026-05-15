@@ -45,24 +45,21 @@ public class MenuView extends FirmwareView {
 
   @Override
   public void horizontalEncoderAction(int offset) {
-      // In some menus, horizontal encoder scrolls through values
       menu.horizontalEncoderAction(offset);
   }
 
   @Override
-  public ActionResult buttonAction(int buttonId, boolean on) {
-    // Back button (usually select button on other units, but here let's use a dummy id)
-    if (buttonId == 999 && on) { // DUMMY BACK BUTTON
+  public ActionResult buttonAction(Button b, boolean on) {
+    if (b == Button.BACK && on) {
         MatrixDriver.get().popUI();
         return ActionResult.DEALT_WITH;
     }
-    return menu.buttonAction(buttonId, on);
+    return menu.buttonAction(b, on);
   }
 
   @Override
   public void setLedStates() {
     PadLEDs.clearAll();
-    // Grid could show 'shortcuts' in high-fidelity mode
   }
   
   public Submenu getMenu() {

@@ -1,6 +1,7 @@
 package org.chuck.deluge.firmware.gui.menu;
 
 import org.chuck.deluge.firmware.hid.ActionResult;
+import org.chuck.deluge.firmware.hid.Button;
 
 /**
  * Base class for all high-fidelity menu items.
@@ -20,7 +21,7 @@ public abstract class MenuItem {
   }
 
   /** Handle a button press. */
-  public ActionResult buttonAction(int buttonId, boolean on) {
+  public ActionResult buttonAction(Button b, boolean on) {
     return ActionResult.NOT_DEALT_WITH;
   }
 

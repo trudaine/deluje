@@ -64,10 +64,10 @@ public class MatrixDriver {
     }
   }
 
-  public void buttonAction(int buttonId, boolean on) {
+  public void buttonAction(Button b, boolean on) {
     FirmwareUI current = getCurrentUI();
     if (current != null) {
-      current.buttonAction(buttonId, on);
+      current.buttonAction(b, on);
     }
   }
 

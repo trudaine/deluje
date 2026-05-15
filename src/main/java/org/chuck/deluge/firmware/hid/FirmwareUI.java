@@ -4,7 +4,7 @@ package org.chuck.deluge.firmware.hid;
 public abstract class FirmwareUI {
   public abstract ActionResult padAction(int x, int y, int velocity);
 
-  public ActionResult buttonAction(int buttonId, boolean on) {
+  public ActionResult buttonAction(Button b, boolean on) {
     return ActionResult.NOT_DEALT_WITH;
   }
 
