@@ -6,11 +6,17 @@ import org.chuck.deluge.project.PreferencesManager;
 import org.chuck.midi.MidiIn;
 import org.chuck.midi.MidiMsg;
 
-/** Manages the hardware MIDI Input connection and MIDI Learn state for the Deluge. */
+/**
+ * Manages the hardware MIDI Input connection, MIDI Learn state, and the MidiEngine for the Deluge.
+ *
+ * <p>Delegates message dispatch to the MidiEngine while retaining MIDI Learn and device definition
+ * management at this layer. Uses rtmidijava via MidiIn — no javax.sound.midi dependency.
+ */
 public class MidiService {
   private final ChuckVM vm;
   private final BridgeContract bridge;
   private final MidiInputRouter router;
+  private final MidiEngine engine;
   private MidiIn midiIn;
   private boolean learning = false;
   private String learnTargetParam;
@@ -20,6 +26,20 @@ public class MidiService {
     this.vm = vm;
     this.bridge = bridge;
     this.router = router;
+    this.engine = new MidiEngine();
+
+    // Wire up engine callbacks
+    engine.setOnNoteOn(this::handleNoteOn);
+    engine.setOnNoteOff(this::handleNoteOff);
+    engine.setOnControlChange(this::handleControlChangeFromEngine);
+    engine.setOnPitchBend(this::handlePitchBend);
+    engine.setOnChannelAftertouch(this::handleChannelAftertouch);
+    engine.setOnSystemRealtime(this::handleSystemRealtime);
+  }
+
+  /** Returns the MidiEngine instance for direct access. */
+  public MidiEngine getEngine() {
+    return engine;
   }
 
   public void start() {
@@ -35,6 +55,7 @@ public class MidiService {
       currentDevice = MidiDeviceDefinitionLoader.findById(deviceId);
       if (currentDevice != null) {
         System.out.println("MIDI: Loaded device definition: " + currentDevice.getName());
+        router.setDeviceDefinition(currentDevice);
       }
     }
 
@@ -53,7 +74,7 @@ public class MidiService {
         midiIn.open(portIdx);
         System.out.println("MIDI: Opened input port: " + portName);
 
-        // Start a virtual thread to poll the MIDI queue
+        // Start a virtual thread to poll the MIDI queue and route through engine
         Thread.ofVirtual()
             .name("DelugeMidiReader")
             .start(
@@ -61,7 +82,7 @@ public class MidiService {
                   MidiMsg m = new MidiMsg();
                   while (midiIn != null) {
                     if (midiIn.recv(m)) {
-                      handleMessage(m);
+                      engine.midiMessageReceived(MIDIMessage.fromMidiMsg(m), midiIn);
                     } else {
                       try {
                         Thread.sleep(5);
@@ -81,61 +102,106 @@ public class MidiService {
     }
   }
 
-  private void handleMessage(MidiMsg msg) {
-    boolean isCc = (msg.data1 & 0xF0) == 0xB0;
+  // ===================== Engine Callbacks =====================
+
+  /** Called by engine when a Note On is received. Routes to MidiInputRouter. */
+  private void handleNoteOn(MIDIMessage msg) {
+    MidiMsg legacy = msg.toMidiMsg();
+    router.handleMidiMessage(legacy);
+  }
+
+  /** Called by engine when a Note Off is received. Routes to MidiInputRouter. */
+  private void handleNoteOff(MIDIMessage msg) {
+    MidiMsg legacy = msg.toMidiMsg();
+    router.handleMidiMessage(legacy);
+  }
+
+  /**
+   * Called by engine when a CC is received. Handles MIDI Learn, device definition mapping, and
+   * preferences-based fallback.
+   */
+  private void handleControlChangeFromEngine(MIDIMessage msg) {
+    int cc = msg.data1();
+    int val = msg.data2();
     String portName = PreferencesManager.get("midi.input", "None");
 
-    if (learning && isCc) {
-      int cc = msg.data2;
+    if (learning) {
       System.out.println(
           "MIDI LEARN: Bound CC " + cc + " to " + learnTargetParam + " on device " + portName);
       PreferencesManager.set("midi.learn." + portName + "." + learnTargetParam, String.valueOf(cc));
       learning = false;
       learnTargetParam = null;
-    } else if (!learning && isCc) {
-      int cc = msg.data2;
-      int val = msg.data3;
+      return;
+    }
 
-      // First check device definition for this CC
-      if (currentDevice != null) {
-        MidiDeviceDefinition.CcMapping mapping = currentDevice.findMapping(cc);
-        if (mapping != null) {
+    // First check device definition for this CC
+    if (currentDevice != null) {
+      MidiDeviceDefinition.CcMapping mapping = currentDevice.findMapping(cc);
+      if (mapping != null) {
+        float normalizedVal = val / 127.0f;
+        vm.setGlobalFloat(mapping.paramName(), normalizedVal);
+        if (vm.getLogLevel() >= 2) {
+          System.out.println(
+              "MIDI: Updated "
+                  + mapping.paramName()
+                  + " to "
+                  + normalizedVal
+                  + " via device "
+                  + currentDevice.getName());
+        }
+        return;
+      }
+    }
+
+    // Fall back to preferences-based mappings
+    String[] keys = PreferencesManager.getKeys();
+    String prefix = "midi.learn." + portName + ".";
+    for (String key : keys) {
+      if (key.startsWith(prefix)) {
+        String mappedCc = PreferencesManager.get(key, "None");
+        if (mappedCc.equals(String.valueOf(cc))) {
+          String paramName = key.substring(prefix.length());
           float normalizedVal = val / 127.0f;
-          vm.setGlobalFloat(mapping.paramName(), normalizedVal);
+          vm.setGlobalFloat(paramName, normalizedVal);
           if (vm.getLogLevel() >= 2) {
             System.out.println(
-                "MIDI: Updated "
-                    + mapping.paramName()
-                    + " to "
-                    + normalizedVal
-                    + " via device "
-                    + currentDevice.getName());
-          }
-          return;
-        }
-      }
-
-      // Fall back to preferences-based mappings
-      String[] keys = PreferencesManager.getKeys();
-      String prefix = "midi.learn." + portName + ".";
-      for (String key : keys) {
-        if (key.startsWith(prefix)) {
-          String mappedCc = PreferencesManager.get(key, "None");
-          if (mappedCc.equals(String.valueOf(cc))) {
-            String paramName = key.substring(prefix.length());
-            // Map 0-127 to 0.0-1.0
-            float normalizedVal = val / 127.0f;
-            vm.setGlobalFloat(paramName, normalizedVal);
-            if (vm.getLogLevel() >= 2) {
-              System.out.println(
-                  "MIDI: Updated " + paramName + " to " + normalizedVal + " via " + portName);
-            }
+                "MIDI: Updated " + paramName + " to " + normalizedVal + " via " + portName);
           }
         }
       }
-    } else {
-      router.handleMidiMessage(msg);
     }
+  }
+
+  /** Called by engine when a Pitch Bend is received. */
+  private void handlePitchBend(MIDIMessage msg) {
+    // TODO: Route pitch bend to MPE zone or Sound parameter
+    if (vm.getLogLevel() >= 2) {
+      System.out.println("MIDI: Pitch Bend ch=" + msg.channel() + " value=" + msg.pitchBendValue());
+    }
+  }
+
+  /** Called by engine when a Channel Aftertouch is received. */
+  private void handleChannelAftertouch(MIDIMessage msg) {
+    // TODO: Route aftertouch to Sound parameter
+  }
+
+  /** Called by engine for System Real-Time messages (clock, start, stop). */
+  private void handleSystemRealtime(MIDIMessage msg) {
+    if (msg.isClock()) {
+      // TODO: Forward to Transport
+    } else if (msg.isMidiStart()) {
+      // TODO: Start transport
+    } else if (msg.isMidiStop()) {
+      // TODO: Stop transport
+    }
+  }
+
+  // ===================== Legacy API (kept for backward compat, delegates to engine) =====================
+
+  /** @deprecated Use engine.midiMessageReceived() directly. */
+  @Deprecated
+  private void handleMessage(MidiMsg msg) {
+    engine.midiMessageReceived(MIDIMessage.fromMidiMsg(msg), midiIn);
   }
 
   public void stop() {
@@ -143,6 +209,7 @@ public class MidiService {
       midiIn.close();
       midiIn = null;
     }
+    engine.close();
   }
 
   public void startLearn(String param) {
