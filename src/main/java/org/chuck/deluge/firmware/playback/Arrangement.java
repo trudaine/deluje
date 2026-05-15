@@ -17,6 +17,10 @@ public class Arrangement {
     instances.add(instance);
   }
 
+  public void advance(int numTicks) {
+    doTickForward(numTicks, null); // Simplified: currentSong not always needed for basic advance
+  }
+
   public void doTickForward(int posIncrement, Song currentSong) {
     lastProcessedPos += posIncrement;
     swungTicksTilNextEvent = Integer.MAX_VALUE;

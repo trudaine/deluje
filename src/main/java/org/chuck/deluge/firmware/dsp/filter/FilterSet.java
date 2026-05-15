@@ -89,6 +89,49 @@ public class FilterSet {
     }
   }
 
+  public void renderStereo(int[] buffer, int offset, int length) {
+    if (!LPFOn && !HPFOn) return;
+
+    switch (routing) {
+      case HIGH_TO_LOW:
+        renderHPFStereo(buffer, offset, length);
+        renderLPFStereo(buffer, offset, length);
+        break;
+      case LOW_TO_HIGH:
+        renderLPFStereo(buffer, offset, length);
+        renderHPFStereo(buffer, offset, length);
+        break;
+      case PARALLEL:
+        int[] temp = new int[length];
+        System.arraycopy(buffer, offset, temp, 0, length);
+        renderHPFStereo(temp, 0, length);
+        renderLPFStereo(buffer, offset, length);
+        for (int i = 0; i < length; i++) {
+          buffer[offset + i] = addSaturate(buffer[offset + i], temp[i]);
+        }
+        break;
+    }
+  }
+
+  private void renderLPFStereo(int[] buffer, int offset, int length) {
+    if (!LPFOn) return;
+    if (lpfMode == FirmwareFilter.FilterMode.SVF_BAND
+        || lpfMode == FirmwareFilter.FilterMode.SVF_NOTCH) {
+      lpSVF.doFilterStereo(buffer, offset, length);
+    } else {
+      lpLadder.doFilterStereo(buffer, offset, length);
+    }
+  }
+
+  private void renderHPFStereo(int[] buffer, int offset, int length) {
+    if (!HPFOn) return;
+    if (hpfMode == FirmwareFilter.FilterMode.HPLADDER) {
+      hpLadder.doFilterStereo(buffer, offset, length);
+    } else {
+      hpSVF.doFilterStereo(buffer, offset, length);
+    }
+  }
+
   private void renderLPF(int[] buffer, int offset, int length, int sampleIncrement) {
     if (!LPFOn) return;
     if (lpfMode == FirmwareFilter.FilterMode.SVF_BAND

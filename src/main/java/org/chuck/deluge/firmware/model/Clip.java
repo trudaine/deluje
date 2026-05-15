@@ -76,7 +76,9 @@ public abstract class Clip extends TimelineCounter {
     }
 
     if (paramManager.mightContainAutomation()) {
-      boolean mayInterpolate = true; // simplified
+      // ── Bit-Accurate Automation Interpolation ──
+      // Interpolate for internal sounds, jump for external MIDI/CV
+      boolean mayInterpolate = (type == ClipType.INSTRUMENT || type == ClipType.AUDIO); 
       paramManager.processCurrentPos(
           lastProcessedPos, loopLength, currentlyPlayingReversed, didPingpong, mayInterpolate);
     }

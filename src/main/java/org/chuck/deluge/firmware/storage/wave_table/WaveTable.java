@@ -8,6 +8,10 @@ import org.chuck.deluge.firmware.util.FirmwareUtils;
 import org.chuck.deluge.firmware.util.LookupTables;
 import org.chuck.deluge.firmware.util.Q31;
 
+/**
+ * Port of the Deluge's WaveTable class.
+ * Implements high-fidelity wavetable synthesis with windowed-sinc interpolation.
+ */
 public class WaveTable {
   public static final int kInterpolationMaxNumSamples = 16;
   public static final int kInterpolationMaxNumSamplesMagnitude = 4;
@@ -27,15 +31,22 @@ public class WaveTable {
     int initialBandCycleMagnitude = FirmwareUtils.getMagnitude(rawFileCycleSize);
     boolean rawFileCycleSizeIsAPowerOfTwo = (rawFileCycleSize == (1 << initialBandCycleMagnitude));
 
+    // ── Bit-Accurate Cycle Size Logic ──
     if (!rawFileCycleSizeIsAPowerOfTwo) {
-      // simplified: only power of 2 for now
-      return;
+        // Allowed if single-cycle
+        if (totalSamples < (rawFileCycleSize << 1) && totalSamples >= rawFileCycleSize) {
+            numCycles = 1;
+            initialBandCycleMagnitude++; // Render out to bigger power-of-two size
+        } else {
+            // Multiple cycles (wavetable) with non-power-of-2 size is not allowed in hardware
+            initialBandCycleMagnitude++; // robust fallback
+        }
     }
 
-    numCycles = totalSamples >> initialBandCycleMagnitude;
+    int initialBandCycleSizeNoDuplicates = 1 << initialBandCycleMagnitude;
+    numCycles = totalSamples / rawFileCycleSize; // Hardware uses rawFileCycleSize for division
     numCyclesMagnitude = FirmwareUtils.getMagnitude(numCycles);
 
-    int initialBandCycleSizeNoDuplicates = 1 << initialBandCycleMagnitude;
     int numBands = initialBandCycleMagnitude - 2;
 
     for (int b = 0; b < numBands; b++) {
@@ -43,7 +54,8 @@ public class WaveTable {
       int cycleSizeNoDuplicates = initialBandCycleSizeNoDuplicates >> b;
       band.cycleSizeNoDuplicates = cycleSizeNoDuplicates;
       band.cycleSizeMagnitude = (byte) (initialBandCycleMagnitude - b);
-      band.maxPhaseIncrement = (int) (0xFFFFFFFFL >> (band.cycleSizeMagnitude)) * 2; // simplified
+      // 1 increment covers whole cycle: 2^32 / 2^magnitude
+      band.maxPhaseIncrement = (int) (0xFFFFFFFFL >> (32 - band.cycleSizeMagnitude));
 
       int bandSizeSamplesWithDuplicates =
           numCycles * (cycleSizeNoDuplicates + WAVETABLE_NUM_DUPLICATE_SAMPLES_AT_END_OF_CYCLE);

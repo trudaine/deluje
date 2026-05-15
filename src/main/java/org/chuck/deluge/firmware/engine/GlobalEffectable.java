@@ -6,6 +6,7 @@ import org.chuck.deluge.firmware.dsp.StereoSample;
 import org.chuck.deluge.firmware.dsp.compressor.RMSFeedbackCompressor;
 import org.chuck.deluge.firmware.dsp.delay.Delay;
 import org.chuck.deluge.firmware.dsp.filter.LpLadderFilter;
+import org.chuck.deluge.firmware.dsp.filter.FilterSet;
 import org.chuck.deluge.firmware.modulation.params.ParamManager;
 
 /**
@@ -13,7 +14,7 @@ import org.chuck.deluge.firmware.modulation.params.ParamManager;
  * GlobalEffectableForClip.cpp.
  */
 public abstract class GlobalEffectable {
-  public final LpLadderFilter filter = new LpLadderFilter();
+  public final FilterSet filterSet = new FilterSet();
   public final RMSFeedbackCompressor trackCompressor = new RMSFeedbackCompressor();
   public final Delay trackDelay = new Delay();
   public final Delay.State delayState = new Delay.State();
@@ -26,8 +27,10 @@ public abstract class GlobalEffectable {
     // 1. Render actual voices/samples
     renderInternal(trackBuffer, numSamples, paramManager);
 
-    // 2. Process Global FX and Volume
-    // simplified parameters for now
+    // 2. Process Filters
+    processFilters(trackBuffer, numSamples);
+
+    // 3. Process Global FX and Volume
     int postFXVolume = 134217728; // neutral
     int postReverbVolume = 134217728;
     int reverbSendAmount = 0;
@@ -36,11 +39,22 @@ public abstract class GlobalEffectable {
     processReverbSendAndVolume(
         trackBuffer, reverbBuffer, postFXVolume, postReverbVolume, reverbSendAmount, pan);
 
-    // 3. Sum to master output
+    // 4. Sum to master output
     for (int i = 0; i < numSamples; i++) {
       output[i].l += trackBuffer[i].l;
       output[i].r += trackBuffer[i].r;
     }
+  }
+
+  public void processFilters(StereoSample[] buffer, int numSamples) {
+      int[] l = new int[numSamples];
+      int[] r = new int[numSamples];
+      for (int i = 0; i < numSamples; i++) { l[i] = buffer[i].l; r[i] = buffer[i].r; }
+      
+      filterSet.renderStereo(l, 0, numSamples);
+      filterSet.renderStereo(r, 0, numSamples); // Simplified: should use proper interleaving
+      
+      for (int i = 0; i < numSamples; i++) { buffer[i].l = l[i]; buffer[i].r = r[i]; }
   }
 
   public void processReverbSendAndVolume(

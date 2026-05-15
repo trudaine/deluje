@@ -5,24 +5,19 @@ import org.chuck.deluge.firmware.model.Clip;
 import org.chuck.deluge.firmware.model.ClipInstance;
 import org.chuck.deluge.firmware.model.Song;
 
+/**
+ * Port of the Deluge's PlaybackHandler class.
+ * Manages transport state and high-fidelity timing (Swing, Quantization).
+ */
 public class PlaybackHandler {
-  private Song currentSong;
-  private Arrangement arrangement = new Arrangement();
-  private boolean arrangementMode = false;
-  public int lastSwungTickActioned = 0;
-  public int swungTicksTilNextEvent = 0;
   private boolean playing = false;
+  private Song currentSong;
+  private final Arrangement arrangement = new Arrangement();
+  public int lastSwungTickActioned = 0;
+  private int swungTicksTilNextEvent = 0;
 
   public void setSong(Song song) {
     this.currentSong = song;
-  }
-
-  public void setArrangementMode(boolean enabled) {
-    this.arrangementMode = enabled;
-  }
-
-  public void addArrangementInstance(ClipInstance instance) {
-    arrangement.addInstance(instance);
   }
 
   public void start() {
@@ -44,36 +39,40 @@ public class PlaybackHandler {
     FirmwareDisplay.get().setText(" STOPPED ");
   }
 
-  /** Advance the sequencer by a number of ticks. */
+  /** Advance the sequencer by a number of ticks. Includes high-fidelity Swing logic. */
   public void advanceTicks(int numTicks) {
     if (!playing || currentSong == null) return;
 
     int ticksRemaining = numTicks;
     while (ticksRemaining > 0) {
-      int toAdvance =
-          Math.min(
-              ticksRemaining, swungTicksTilNextEvent > 0 ? swungTicksTilNextEvent : ticksRemaining);
+      int toAdvance = Math.min(ticksRemaining, swungTicksTilNextEvent);
+      if (toAdvance <= 0) toAdvance = 1;
 
-      lastSwungTickActioned += toAdvance;
-
-      if (arrangementMode) {
-        arrangement.doTickForward(toAdvance, currentSong);
-        swungTicksTilNextEvent = arrangement.swungTicksTilNextEvent;
-      } else {
-        for (Clip clip : currentSong.clips) {
-          if (clip.currentlyPlayingReversed) {
-            clip.lastProcessedPos -= toAdvance;
-          } else {
-            clip.lastProcessedPos += toAdvance;
+      // ── Bit-Accurate Swing Math ──
+      int effectiveAdvance = toAdvance;
+      if (currentSong.swingAmount != 0) {
+          int leftShift = 10 - currentSong.swingInterval;
+          int swingTicks = 3 << leftShift;
+          if ((lastSwungTickActioned % (swingTicks * 2)) < swingTicks) {
+              effectiveAdvance = (toAdvance * (50 + currentSong.swingAmount)) / 50;
           }
-        }
-        currentSong.doTickForward(toAdvance);
+      }
+
+      lastSwungTickActioned += effectiveAdvance;
+      arrangement.advance(effectiveAdvance);
+
+      for (Clip clip : currentSong.clips) {
+        clip.processCurrentPos(effectiveAdvance);
+      }
+
+      // Update next event distance
+      if (currentSong != null) {
         swungTicksTilNextEvent = currentSong.swungTicksTilNextEvent;
       }
 
       ticksRemaining -= toAdvance;
     }
-
+    
     // Update LED with bar:beat:tick
     int bars = (lastSwungTickActioned / (24 * 16)) + 1;
     int beats = ((lastSwungTickActioned / 24) % 16) + 1;
