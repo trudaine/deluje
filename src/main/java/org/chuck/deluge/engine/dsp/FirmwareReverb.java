@@ -3,6 +3,7 @@ package org.chuck.deluge.engine.dsp;
 import org.chuck.audio.util.StereoUGen;
 import org.chuck.deluge.firmware.dsp.StereoSample;
 import org.chuck.deluge.firmware.dsp.reverb.freeverb.Freeverb;
+import org.chuck.deluge.firmware.util.Q31;
 
 /** Wrapper for the high-fidelity ported Freeverb. */
 public class FirmwareReverb extends StereoUGen {
@@ -17,14 +18,16 @@ public class FirmwareReverb extends StereoUGen {
 
   @Override
   protected void computeStereo(float left, float right, long systemTime) {
-    // Firmware Freeverb.process takes a mono int[] input and StereoSample[] output
-    // We approximate mono input by averaging
-    inputBuffer[0] = (int) (((left + right) * 0.5f) * 2147483648.0);
+    // ── Bit-Accurate Mono Summing ──
+    // Hardware sums L+R and divides by 2 before entering Freeverb
+    int l = Q31.fromFloat(left);
+    int r = Q31.fromFloat(right);
+    inputBuffer[0] = (l >> 1) + (r >> 1);
 
     firmware.process(inputBuffer, outputSample);
 
-    lastOutChannels[0] = (float) (outputSample[0].l / 2147483648.0);
-    lastOutChannels[1] = (float) (outputSample[0].r / 2147483648.0);
+    lastOutChannels[0] = Q31.toFloat(outputSample[0].l);
+    lastOutChannels[1] = Q31.toFloat(outputSample[0].r);
   }
 
   @Override

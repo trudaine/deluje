@@ -34,10 +34,12 @@ public class SwitchableCompressor extends ChuckUGen {
 
   public void attackTime(float ms) {
     nativeComp.attackTime(ms * 44.1);
-  } // approximated mapping
+    firmwareComp.setAttackMS(ms);
+  }
 
   public void releaseTime(float ms) {
     nativeComp.releaseTime(ms * 44.1);
+    firmwareComp.setReleaseMS(ms);
   }
 
   public void dryWet(float v) {
