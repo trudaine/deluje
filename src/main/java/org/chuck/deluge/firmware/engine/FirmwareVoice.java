@@ -10,6 +10,7 @@ import org.chuck.deluge.firmware.modulation.LFO;
 import org.chuck.deluge.firmware.modulation.params.Param;
 import org.chuck.deluge.firmware.modulation.patch.PatchSource;
 import org.chuck.deluge.firmware.modulation.patch.Patcher;
+import org.chuck.deluge.firmware.util.LookupTables;
 import org.chuck.deluge.firmware.util.Q31;
 
 /**
@@ -25,6 +26,7 @@ public class FirmwareVoice {
   public final Patcher patcher = new Patcher();
 
   // Internal state
+  public int note;
   public int noteCode;
   public int velocity;
   public boolean active = false;
@@ -39,13 +41,14 @@ public class FirmwareVoice {
   }
 
   public void noteOn(int note, int vel) {
+    this.note = note;
     this.noteCode = note;
     this.velocity = vel;
     this.active = true;
     envelopes[0].noteOn(false);
   }
 
-  public void noteOff() {
+  public void noteOff(int velocity) {
     envelopes[0].unconditionalRelease(Envelope.EnvelopeStage.RELEASE, 1024);
   }
 
@@ -59,7 +62,7 @@ public class FirmwareVoice {
     int sourcesChanged = 0;
 
     // 1. Process Envelopes (Fixed-point ticks)
-    int env0 = envelopes[0].render(numSamples, 1000, 1000, ONE / 2, 1000, null);
+    int env0 = envelopes[0].render(numSamples, 1000, 1000, ONE / 2, 1000, LookupTables.decayTableSmall8);
 
     if (envelopes[0].state == Envelope.EnvelopeStage.OFF) {
       active = false;
