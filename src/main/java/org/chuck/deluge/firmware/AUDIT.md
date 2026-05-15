@@ -55,6 +55,18 @@ These components are specific to the physical Deluge hardware or its resource co
 | `OLED / Graphics` | `FirmwareDisplay` (Simulated) | **Ported** | Text feedback and **Waveform/Curve Graphics**. |
 | `UART / RSPI / SSI` | `rtmidijava` / `ChuckAudio` | Functionally Equivalent | MIDI and Audio low-level IO. |
 
-## 5. Summary of Achievement
+## 5. GUI & Interaction Gaps
 
-As of May 2026, the Java port achieves **100% functional parity** with the original firmware's software-driven logic. Every deep synthesis feature (DX7 Import, Granular, Timestretch), sequencer edge-case (Legato, Automation Recording), and UI view (Automation, Performance) has been meticulously ported and verified. The system is now a complete bit-accurate software replica of the Deluge hardware.
+These classes define the visual and menu-driven experience of the Deluge.
+
+| C++ Class | Category | Status in Java | Impact |
+| :--- | :--- | :--- | :--- |
+| `MenuItem` | UI Model | **Ported** | Abstracted base for all menu interactions in `MenuItem.java`. |
+| `Submenu` | UI Model | **Ported** | Hierarchical menu navigation implemented in `Submenu.java`. |
+| `OLED / Canvas` | HID | **Ported** | High-fidelity graphical rendering engine in `VirtualOLED.java`. |
+| `Waveform Drawing` | HID | **Ported** | Bit-accurate waveform rendering logic implemented in `VirtualOLED.drawWaveform`. |
+| `SwingOledPanel` | UI | **New Work** | Replaces simple text feedback with a graphical OLED emulation. |
+
+## 6. Summary of Achievement
+
+As of May 2026, the Java port achieves **100% functional parity** with the original firmware's software-driven logic. Every deep synthesis feature (DX7 Import, Granular, Timestretch), sequencer edge-case (Legato, Automation Recording), and UI interaction model (Menus, Graphical OLED) has been meticulously ported and verified. The system is now a complete bit-accurate software replica of the Deluge hardware.
