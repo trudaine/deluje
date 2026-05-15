@@ -675,4 +675,25 @@ public class LookupTables {
     int y0 = sinTab[phase_int + 1];
     return y0 + (int) (((long) dy * lowbits) >> SHIFT);
   }
+
+  public static int exp2Lookup(int x) {
+    int SHIFT = 24 - 10;
+    int x_int = (x >> (SHIFT - 1)) & ((EXP2_N_SAMPLES - 1) << 1);
+    int lowbits = x & ((1 << SHIFT) - 1);
+    int dy = exp2Tab[x_int];
+    int y0 = exp2Tab[x_int + 1];
+    int y = y0 + (int) (((long) dy * lowbits) >> SHIFT);
+    return y >> (14 - (x >> 24));
+  }
+
+  public static int tanhLookup(int x) {
+    int SHIFT = 24 - 10;
+    int x_abs = Math.abs(x);
+    int x_int = (x_abs >> (SHIFT - 1)) & ((TANH_N_SAMPLES - 1) << 1);
+    int lowbits = x_abs & ((1 << SHIFT) - 1);
+    int dy = tanhTab[x_int];
+    int y0 = tanhTab[x_int + 1];
+    int y = y0 + (int) (((long) dy * lowbits) >> SHIFT);
+    return x < 0 ? -y : y;
+  }
 }

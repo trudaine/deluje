@@ -94,7 +94,15 @@ public class Stutterer {
           audio[i].l = curr.l;
           audio[i].r = curr.r;
         } else {
-          // resampled playback stub
+          int strength2 =
+              buffer.advance(
+                  () -> {
+                    // loop around
+                  });
+          int strength1 = 65536 - strength2;
+          StereoSample s = buffer.readResampled(strength1, strength2);
+          audio[i].l = s.l;
+          audio[i].r = s.r;
         }
       }
     }

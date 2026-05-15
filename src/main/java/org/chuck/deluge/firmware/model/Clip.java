@@ -89,7 +89,7 @@ public abstract class Clip extends TimelineCounter {
   }
 
   protected void pingpongOccurred() {
-    // stub
+    paramManager.notifyPingpongOccurred();
   }
 
   public int getActualCurrentPosAsIfPlayingInForwardDirection() {

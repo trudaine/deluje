@@ -76,6 +76,8 @@ public class InstrumentClip extends Clip {
   }
 
   private void triggerNote(PendingNoteOn noteOn) {
-    // System.out.println("Triggering note: " + noteOn.noteRow.y + " vel: " + noteOn.velocity);
+    if (sound != null) {
+        sound.triggerNote(noteOn.noteRow.y, noteOn.velocity);
+    }
   }
 }

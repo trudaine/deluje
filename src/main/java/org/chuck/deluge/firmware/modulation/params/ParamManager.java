@@ -26,6 +26,12 @@ public class ParamManager {
     return !automatedParams.isEmpty();
   }
 
+  public void notifyPingpongOccurred() {
+      for (AutoParam param : automatedParams) {
+          param.notifyPingpongOccurred();
+      }
+  }
+
   public PatchCableSet getPatchCableSet() {
     return patchCableSet;
   }
