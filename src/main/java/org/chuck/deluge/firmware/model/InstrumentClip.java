@@ -23,12 +23,16 @@ public class InstrumentClip extends Clip {
 
   @Override
   public void resumePlayback(boolean mayMakeSound) {
-    // stub
+    for (NoteRow noteRow : noteRows) {
+        noteRow.resumePlayback(lastProcessedPos, loopLength, mayMakeSound);
+    }
   }
 
   @Override
   public void expectNoFurtherTicks(boolean actuallySoundChange) {
-    // stub
+    if (actuallySoundChange && sound != null) {
+        sound.noteOffAll();
+    }
   }
 
   @Override

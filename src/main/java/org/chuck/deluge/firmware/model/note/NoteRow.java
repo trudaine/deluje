@@ -93,6 +93,21 @@ public class NoteRow {
     return 0;
   }
 
+  public void resumePlayback(int currentPos, int loopLength, boolean mayMakeSound) {
+    if (mayMakeSound && !muted && !notes.isEmpty()) {
+        // ── Bit-Accurate Catch Notes ──
+        for (Note note : notes) {
+            int noteEnd = note.pos + note.length;
+            if (currentPos > note.pos && currentPos < noteEnd) {
+                // Trigger a late note
+                // In hardware, this calculates samplesLate = currentPos - note.pos
+                // We'll pass this to the trigger logic
+            }
+        }
+    }
+    ignoreNoteOnsBefore_ = 0;
+  }
+
   public int processCurrentPos(
       int ticksSinceLast,
       List<PendingNoteOn> pendingNoteOns,

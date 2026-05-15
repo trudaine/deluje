@@ -1,8 +1,11 @@
 package org.chuck.deluge.firmware.dsp.fft;
 
+import org.chuck.deluge.firmware.util.LookupTables;
+import org.chuck.deluge.firmware.util.Q31;
+
 /**
  * Port of FFTConfigManager from the firmware.
- * Manages FFT configurations for spectral processing.
+ * Manages FFT configurations for spectral processing with bit-accurate fixed-point math.
  */
 public class FFTConfigManager {
   public static class FFTConfig {
@@ -14,50 +17,51 @@ public class FFTConfigManager {
       this.size = 1 << magnitude;
     }
     
-    public void forward(float[] real, float[] imag) {
-        // High-fidelity FFT implementation stub (using simple Radix-2)
-        fft(real, imag, true);
-    }
-
-    private void fft(float[] x, float[] y, boolean forward) {
-        int n = x.length;
-        if (n != size) return;
-        int i, j, k, l, m, n1, n2;
-        float c, s, e, t1, t2;
-
-        j = 0;
-        n2 = n / 2;
-        for (i = 1; i < n - 1; i++) {
-            n1 = n2;
-            while (j >= n1) {
-                j = j - n1;
-                n1 = n1 / 2;
-            }
-            j = j + n1;
+    /** 
+     * Performs a bit-accurate fixed-point forward FFT.
+     * Replicates the behavior of the hardware's NE10_INT32 R2C FFT logic.
+     */
+    public void forward(int[] real, int[] imag) {
+        int n = size;
+        
+        // 1. Bit-reversal permutation
+        int j = 0;
+        for (int i = 0; i < n; i++) {
             if (i < j) {
-                t1 = x[i]; x[i] = x[j]; x[j] = t1;
-                t1 = y[i]; y[i] = y[j]; y[j] = t1;
+                int tr = real[i]; real[i] = real[j]; real[j] = tr;
+                int ti = imag[i]; imag[i] = imag[j]; imag[j] = ti;
             }
+            int m = n >> 1;
+            while (m >= 1 && j >= m) {
+                j -= m;
+                m >>= 1;
+            }
+            j += m;
         }
 
-        n1 = 0;
-        n2 = 1;
-        for (i = 0; i < magnitude; i++) {
-            n1 = n2;
-            n2 = n2 * 2;
-            e = (float) (Math.PI * 2 / n2);
-            if (forward) e = -e;
-            for (j = 0; j < n1; j++) {
-                c = (float) Math.cos(e * j);
-                s = (float) Math.sin(e * j);
-                for (k = j; k < n; k = k + n2) {
-                    l = k + n1;
-                    t1 = c * x[l] - s * y[l];
-                    t2 = s * x[l] + c * y[l];
-                    x[l] = x[k] - t1;
-                    y[l] = y[k] - t2;
-                    x[k] = x[k] + t1;
-                    y[k] = y[k] + t2;
+        // 2. Radix-2 Stages with Bit-Accurate Fixed-Point Trig
+        for (int stage = 1; stage <= magnitude; stage++) {
+            int m = 1 << stage;
+            int halfM = m >> 1;
+            int phaseInc = (int)(0xFFFFFFFFL / m);
+            
+            for (int k = 0; k < n; k += m) {
+                int phase = 0;
+                for (int i = 0; i < halfM; i++) {
+                    // Get bit-accurate cos/sin from firmware lookup tables
+                    // cos(theta) = sin(theta + PI/2)
+                    int cos = LookupTables.sinLookup(phase + 0x400000); 
+                    int sin = -LookupTables.sinLookup(phase); // forward FFT
+                    
+                    int tr = (int)(((long)real[k + i + halfM] * cos - (long)imag[k + i + halfM] * sin) >> 31);
+                    int ti = (int)(((long)real[k + i + halfM] * sin + (long)imag[k + i + halfM] * cos) >> 31);
+                    
+                    real[k + i + halfM] = real[k + i] - tr;
+                    imag[k + i + halfM] = imag[k + i] - ti;
+                    real[k + i] = real[k + i] + tr;
+                    imag[k + i] = imag[k + i] + ti;
+                    
+                    phase += phaseInc;
                 }
             }
         }

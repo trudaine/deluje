@@ -124,4 +124,10 @@ public class FirmwareSound extends GlobalEffectable {
       voices.add(v);
     }
   }
+
+  public void noteOffAll() {
+    for (FirmwareVoice v : voices) {
+      if (v.active) v.noteOff(0);
+    }
+  }
 }
