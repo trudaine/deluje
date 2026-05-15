@@ -25,9 +25,9 @@ public class ArrangerView extends FirmwareView {
   public void setLedStates() {
     PadLEDs.clearAll();
 
-    // Draw track headers in sidebar (simplified)
+    // Draw track headers in sidebar
     for (int y = 0; y < 8; y++) {
-      PadLEDs.set(16, y, new RGB(100, 100, 0)); // Gold for tracks
+      PadLEDs.set(0, y, new RGB(100, 100, 100)); // Header area
     }
 
     // Draw clip instances

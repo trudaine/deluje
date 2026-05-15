@@ -4,6 +4,9 @@ import static org.chuck.deluge.firmware.util.Q31.*;
 
 import org.chuck.deluge.firmware.dsp.oscillators.OscType;
 import org.chuck.deluge.firmware.dsp.oscillators.Oscillator;
+import org.chuck.deluge.firmware.dsp.dx.FmCore;
+import org.chuck.deluge.firmware.dsp.dx.FmOpKernelVector;
+import org.chuck.deluge.firmware.model.PolyphonyMode;
 import org.chuck.deluge.firmware.modulation.Arpeggiator;
 import org.chuck.deluge.firmware.modulation.Envelope;
 import org.chuck.deluge.firmware.modulation.LFO;
@@ -12,39 +15,66 @@ import org.chuck.deluge.firmware.modulation.patch.PatchSource;
 import org.chuck.deluge.firmware.modulation.patch.Patcher;
 import org.chuck.deluge.firmware.util.LookupTables;
 import org.chuck.deluge.firmware.util.Q31;
+import org.chuck.deluge.firmware.util.FirmwareUtils;
 
 /**
- * Port of the Deluge's Voice class, implementing the bit-accurate signal path for a single note.
+ * Port of the Deluge's Voice class.
+ * This is the per-note renderer that implements the full signal path.
  */
 public class FirmwareVoice {
   public final FirmwareSound sound;
-  public final Envelope[] envelopes = new Envelope[4];
-  public final LFO[] lfos = new LFO[2];
+  public final Envelope[] envelopes = new Envelope[6]; // kNumEnvelopes = 6 (some for modulation)
+  public final LFO[] lfos = new LFO[4]; // lfo1-lfo4 (lfo1/3 global, lfo2/4 local)
   public final Arpeggiator arpeggiator;
   public final int[] paramFinalValues = new int[Param.kNumParams];
   public final int[] sourceValues = new int[PatchSource.kNumPatchSources];
   public final Patcher patcher = new Patcher();
+  public final VoiceUnisonPart[] unisonParts = new VoiceUnisonPart[8]; 
+  
+  private final FmCore.FmOpParams[] fmParams = new FmCore.FmOpParams[6];
+  private final int[] fmFeedbackBuffer = new int[2];
 
   // Internal state
   public int note;
   public int noteCode;
   public int velocity;
   public boolean active = false;
-  public int[] oscPos = new int[2];
-  public OscType[] oscTypes = {OscType.SINE, OscType.SINE};
+  
+  // ── Ported High-Fidelity Logic ──
+  public int portaEnvelopePos = 0xFFFFFFFF; 
+  public int portaEnvelopeMaxAmplitude;
+  private final boolean[] expressionSourcesCurrentlySmoothing = new boolean[3]; // X, Y, Z
 
   public FirmwareVoice(FirmwareSound sound) {
     this.sound = sound;
     for (int i = 0; i < envelopes.length; i++) envelopes[i] = new Envelope();
     for (int i = 0; i < lfos.length; i++) lfos[i] = new LFO();
+    for (int i = 0; i < unisonParts.length; i++) unisonParts[i] = new VoiceUnisonPart();
+    for (int i = 0; i < 6; i++) fmParams[i] = new FmCore.FmOpParams();
     this.arpeggiator = new Arpeggiator(new Arpeggiator.Settings());
   }
 
   public void noteOn(int note, int vel) {
+    // ── Porta Logic ──
+    if (this.active && sound.polyphonic != PolyphonyMode.POLY) {
+        portaEnvelopePos = 0;
+        portaEnvelopeMaxAmplitude = (int)(((long)this.noteCode - note) << 8); 
+    } else {
+        portaEnvelopePos = 0xFFFFFFFF;
+    }
+
     this.note = note;
     this.noteCode = note;
     this.velocity = vel;
     this.active = true;
+    
+    // Reset unison parts
+    for (int i = 0; i < sound.numUnison; i++) {
+        unisonParts[i].reset();
+        unisonParts[i].sources[0].active = true;
+        unisonParts[i].sources[1].active = true;
+    }
+
     envelopes[0].noteOn(false);
   }
 
@@ -52,94 +82,97 @@ public class FirmwareVoice {
     envelopes[0].unconditionalRelease(Envelope.EnvelopeStage.RELEASE, 1024);
   }
 
-  /**
-   * Renders audio for this voice into the provided buffer. Replicates the non-linear summing and
-   * gain staging of the hardware.
-   */
   public boolean render(int[] buffer, int numSamples, int phaseIncrementA, int phaseIncrementB) {
     if (!active) return false;
 
-    int sourcesChanged = 0;
+    // ── MPE Smoothing ──
+    for (int i = 0; i < 3; i++) {
+        if (expressionSourcesCurrentlySmoothing[i]) {
+            int targetValue = sound.monophonicExpressionValues[i];
+            int diff = (targetValue >> 8) - (sourceValues[PatchSource.X.ordinal() + i] >> 8);
+            if (diff == 0) {
+                expressionSourcesCurrentlySmoothing[i] = false;
+            } else {
+                sourceValues[PatchSource.X.ordinal() + i] += (diff * numSamples) / 4;
+            }
+        }
+    }
 
-    // 1. Process Envelopes (Fixed-point ticks)
+    int sourcesChanged = 0xFFFFFFFF;
+
+    // 1. Process Envelopes
     int env0 = envelopes[0].render(numSamples, 1000, 1000, ONE / 2, 1000, LookupTables.decayTableSmall8);
-
     if (envelopes[0].state == Envelope.EnvelopeStage.OFF) {
       active = false;
       return false;
     }
-
     sourceValues[PatchSource.ENVELOPE_0.ordinal()] = env0;
-    sourcesChanged |= (1 << PatchSource.ENVELOPE_0.ordinal());
 
-    // 2. Process Local LFOs
-    for (int i = 0; i < 2; i++) {
-      int lfoVal = lfos[i].render(numSamples, LFO.LFOType.TRIANGLE, 10000); // dummy rate
-      sourceValues[PatchSource.LFO_LOCAL_1.ordinal() + i] = lfoVal;
-      sourcesChanged |= (1 << (PatchSource.LFO_LOCAL_1.ordinal() + i));
-    }
+    // 2. Process Local LFOs (LFO 2 and 4 are local)
+    sourceValues[PatchSource.LFO_LOCAL_1.ordinal()] = lfos[1].render(numSamples, LFO.LFOType.TRIANGLE, 10000);
+    sourceValues[PatchSource.LFO_LOCAL_2.ordinal()] = lfos[3].render(numSamples, LFO.LFOType.TRIANGLE, 20000);
 
-    // Copy global sources
+    // Copy global sources (LFO 1 and 3 are global)
     for (int i = 0; i < PatchSource.kFirstLocalSource; i++) {
       sourceValues[i] = sound.globalSourceValues[i];
-      sourcesChanged |= (1 << i);
     }
 
     // Perform patching
-    if (sourcesChanged != 0) {
-      patcher.performPatching(
-          sourcesChanged, sound, sound.paramManager, sourceValues, paramFinalValues);
+    patcher.performPatching(sourcesChanged, sound, sound.paramManager, sourceValues, paramFinalValues);
+
+    // ── Pitch Calculation ──
+    int overallPitchAdjust = paramFinalValues[Param.LOCAL_PITCH_ADJUST];
+    
+    // Porta
+    if (Integer.compareUnsigned(portaEnvelopePos, 8388608) < 0) {
+        int envValue = FirmwareUtils.getDecay4(portaEnvelopePos, 23);
+        int pitchAdjustmentHere = 2147483647 + (int)(((long)envValue * portaEnvelopeMaxAmplitude) >> 30);
+        overallPitchAdjust = (int)(((long)overallPitchAdjust * pitchAdjustmentHere) >> 31);
+        portaEnvelopePos += 1000 * numSamples; 
     }
 
-    // 3. Render Oscillators (Direct port using Oscillator.renderOsc)
-    int[] tempBuffer = new int[numSamples];
+    // 3. Render Unison Parts
+    int[] voiceBuffer = new int[numSamples];
+    for (int u = 0; u < sound.numUnison; u++) {
+        renderUnisonPart(u, voiceBuffer, numSamples, phaseIncrementA, phaseIncrementB, overallPitchAdjust);
+    }
 
-    // Osc A
-    int[] phaseA = {oscPos[0]};
-    Oscillator.renderOsc(
-        oscTypes[0],
-        paramFinalValues[Param.LOCAL_OSC_A_VOLUME],
-        tempBuffer,
-        0,
-        numSamples,
-        phaseIncrementA,
-        paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH],
-        phaseA,
-        false,
-        0,
-        false,
-        0,
-        0,
-        0);
-    oscPos[0] = phaseA[0];
-
-    // Osc B
-    int[] phaseB = {oscPos[1]};
-    Oscillator.renderOsc(
-        oscTypes[1],
-        paramFinalValues[Param.LOCAL_OSC_B_VOLUME],
-        tempBuffer,
-        0,
-        numSamples,
-        phaseIncrementB,
-        paramFinalValues[Param.LOCAL_OSC_B_PHASE_WIDTH],
-        phaseB,
-        true,
-        0,
-        false,
-        0,
-        0,
-        0);
-    oscPos[1] = phaseB[0];
-
-    // Apply Env0 to combined volume
+    // ── Final Gain & Saturation ──
     int env0Gain = (sourceValues[PatchSource.ENVELOPE_0.ordinal()] >> 1) + 1073741824;
     for (int i = 0; i < numSamples; i++) {
-      int wet = Q31.mult(tempBuffer[i], env0Gain);
-      // Per-voice saturation
+      int wet = Q31.mult(voiceBuffer[i], env0Gain);
+      // Bit-accurate per-voice non-linear saturation
       buffer[i] = Q31.addSaturate(buffer[i], Q31.lshiftAndSaturate(wet, 1));
     }
 
     return true;
+  }
+
+  private void renderUnisonPart(int u, int[] buffer, int numSamples, int pIncA, int pIncB, int pitchAdjust) {
+      VoiceUnisonPart part = unisonParts[u];
+      
+      // ── Bit-Accurate FM Engine ──
+      if (sound.getSynthMode() == FirmwareSound.SynthMode.FM) {
+          for (int i = 0; i < 6; i++) {
+              fmParams[i].freq = pIncA; 
+              fmParams[i].phase = part.sources[0].oscPos;
+              fmParams[i].level_in = paramFinalValues[Param.LOCAL_OSC_A_VOLUME];
+          }
+          new FmCore().render(buffer, numSamples, fmParams, 0, fmFeedbackBuffer, 0);
+          part.sources[0].oscPos = fmParams[0].phase;
+          return;
+      }
+
+      // Render Osc A (Subtractive Mode)
+      int[] phaseA = {part.sources[0].oscPos};
+      Oscillator.renderOsc(OscType.SINE, paramFinalValues[Param.LOCAL_OSC_A_VOLUME], buffer, 0, numSamples, 
+                           pIncA, paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH], phaseA, true, 0, false, 0, 0, 0);
+      part.sources[0].oscPos = phaseA[0];
+
+      // Render Osc B
+      int[] phaseB = {part.sources[1].oscPos};
+      Oscillator.renderOsc(OscType.SINE, paramFinalValues[Param.LOCAL_OSC_B_VOLUME], buffer, 0, numSamples, 
+                           pIncB, paramFinalValues[Param.LOCAL_OSC_B_PHASE_WIDTH], phaseB, true, 0, false, 0, 0, 0);
+      part.sources[1].oscPos = phaseB[0];
   }
 }

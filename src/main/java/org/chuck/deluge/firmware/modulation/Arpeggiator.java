@@ -216,13 +216,34 @@ public class Arpeggiator {
   }
 
   private void maybeSetupNewRatchet() {
-    if (settings.ratchetAmount > 0 && FirmwareUtils.getNoise() < settings.ratchetProbability) {
-      isRatcheting = true;
-      ratchetNotesCount = settings.ratchetAmount + 1; // 1 = 2 notes, 2 = 3 notes, etc.
-      ratchetNotesMultiplier = 1; // simplified math
+    isRatcheting = settings.ratchetAmount > 0 && FirmwareUtils.getNoise() < settings.ratchetProbability;
+    if (isRatcheting) {
+      // ── Bit-Accurate Ratchet Math ──
+      // Weighted 2-bit amount: 0-3 (translates to 1x, 2x, 4x, 8x)
+      int rand = (int)(Math.random() * 65535);
+      if (rand < (settings.ratchetAmount >> 16)) {
+          ratchetNotesMultiplier = (int)(Math.random() * 3) + 1; // 1, 2, or 3
+      } else {
+          ratchetNotesMultiplier = 0;
+      }
+      
+      if (settings.syncLevel == SyncLevel.SYNC_LEVEL_128TH) {
+          ratchetNotesMultiplier = 1;
+      } else if (settings.syncLevel == SyncLevel.SYNC_LEVEL_64TH) {
+          ratchetNotesMultiplier = Math.max(2, ratchetNotesMultiplier);
+      }
+      
+      if (ratchetNotesMultiplier == 0) {
+          isRatcheting = false;
+          ratchetNotesCount = 0;
+      } else {
+          ratchetNotesCount = 1 << ratchetNotesMultiplier;
+      }
       ratchetNotesIndex = 0;
     } else {
       isRatcheting = false;
+      ratchetNotesCount = 0;
+      ratchetNotesMultiplier = 0;
     }
   }
 

@@ -9,6 +9,18 @@ public class ParamManager {
   public List<AutoParam> automatedParams = new ArrayList<>();
   public int ticksTilNextEvent = Integer.MAX_VALUE;
   private PatchCableSet patchCableSet = new PatchCableSet();
+  private final int[] unpatchedValues = new int[Param.kNumParams];
+
+  public int getUnpatchedValue(int paramId) {
+      if (paramId < 0 || paramId >= Param.kNumParams) return 0;
+      return unpatchedValues[paramId];
+  }
+
+  public void setUnpatchedValue(int paramId, int value) {
+      if (paramId >= 0 && paramId < Param.kNumParams) {
+          unpatchedValues[paramId] = value;
+      }
+  }
 
   public boolean mightContainAutomation() {
     return !automatedParams.isEmpty();

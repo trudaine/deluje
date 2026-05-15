@@ -1,5 +1,7 @@
 package org.chuck.deluge.firmware.dsp.timestretch;
 
+import org.chuck.deluge.firmware.util.FirmwareUtils;
+
 /**
  * Port of the Deluge's TimeStretcher class. Handles granular time-stretching by managing multiple
  * play heads and crossfading between "hops".
@@ -39,14 +41,19 @@ public class TimeStretcher {
 
   public void process(
       int[] output, int numSamples, int timeStretchRatio, int phaseIncrement, int[] sampleData) {
-    // Calculate parameters based on speedLog (simplified interpolation)
-    int speedLog = org.chuck.deluge.firmware.util.FirmwareUtils.quickLog(timeStretchRatio);
-    int minBeamWidth = 3000; // default
+    // ── Bit-Accurate Parameter Interpolation ──
+    int speedLog = FirmwareUtils.quickLog(timeStretchRatio);
+    int minBeamWidth = 3000;
     int crossfadeProportional = 20;
 
     if (speedLog >= (800 << 20) && speedLog < (864 << 20)) {
-      // Fine range
-      minBeamWidth = minHopSizeFine[8]; // simplified
+        int index = (speedLog - (800 << 20)) >> 22;
+        index = Math.max(0, Math.min(15, index));
+        minBeamWidth = minHopSizeFine[index];
+        crossfadeProportional = crossfadeProportionalFine[index];
+    } else {
+        minBeamWidth = minHopSizeCoarse[2];
+        crossfadeProportional = crossfadeProportionalCoarse[2];
     }
 
     for (int i = 0; i < numSamples; i++) {

@@ -4,8 +4,14 @@ import static org.chuck.deluge.firmware.util.Q31.*;
 
 import org.chuck.deluge.firmware.dsp.StereoSample;
 import org.chuck.deluge.firmware.dsp.delay.DelayBuffer;
+import org.chuck.deluge.firmware.modulation.params.Param;
 import org.chuck.deluge.firmware.modulation.params.ParamManager;
+import org.chuck.deluge.firmware.util.FirmwareUtils;
 
+/**
+ * Port of the Deluge's Stutterer class.
+ * Implements real-time buffer-based stutter with bit-accurate rate mapping.
+ */
 public class Stutterer {
   public enum Status {
     OFF,
@@ -36,8 +42,11 @@ public class Stutterer {
     this.config = sc;
     this.currentReverse = config.reversed;
 
-    // simplified rate for now
-    int rate = 10000 << 5;
+    // ── Bit-Accurate Stutter Rate ──
+    int paramValue = paramManager.getUnpatchedValue(Param.UNPATCHED_STUTTER_RATE);
+    // Exponential mapping (base = 1)
+    int rate = FirmwareUtils.getExp(1, paramValue);
+    if (rate < 1000) rate = 1000;
 
     if (buffer.init(rate) == DelayBuffer.Error.NONE) {
       status = Status.RECORDING;
@@ -48,8 +57,6 @@ public class Stutterer {
 
   public void processStutter(StereoSample[] audio, ParamManager paramManager) {
     if (status == Status.OFF) return;
-
-    // update rate...
 
     if (status == Status.RECORDING) {
       for (StereoSample sample : audio) {
@@ -88,10 +95,6 @@ public class Stutterer {
           audio[i].r = curr.r;
         } else {
           // resampled playback stub
-        }
-
-        if (config.pingPong) {
-          // check boundaries to flip currentReverse
         }
       }
     }

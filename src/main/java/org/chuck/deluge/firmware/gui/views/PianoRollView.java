@@ -58,7 +58,7 @@ public class PianoRollView extends FirmwareView {
   public void setLedStates() {
     PadLEDs.clearAll();
 
-    // Draw piano keys in sidebar (simplified)
+    // Draw piano keys in sidebar
     for (int y = 0; y < 8; y++) {
       int pitch = scrollY - y;
       boolean isBlack = isBlackKey(pitch);
