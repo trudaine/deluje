@@ -100,8 +100,14 @@ public class NoteRow {
             int noteEnd = note.pos + note.length;
             if (currentPos > note.pos && currentPos < noteEnd) {
                 // Trigger a late note
-                // In hardware, this calculates samplesLate = currentPos - note.pos
-                // We'll pass this to the trigger logic
+                int samplesLate = (currentPos - note.pos) * 100; // standard tick-to-sample conversion
+                pendingNoteOns.add(
+                    new PendingNoteOn(
+                        this,
+                        note.getVelocity(),
+                        note.getProbability(),
+                        note.getIterance(),
+                        note.getFill()));
             }
         }
     }
