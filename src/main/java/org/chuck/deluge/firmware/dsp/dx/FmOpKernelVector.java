@@ -13,35 +13,42 @@ public class FmOpKernelVector {
 
   public static void compute(
       int[] output, int n, int[] input, int phase0, int freq, int gain1, int dgain, boolean add) {
-    int i = 0;
-    int upperBound = SPECIES.loopBound(n);
+    computeScalar(output, 0, n, input, phase0, freq, gain1, dgain, add);
+  }
 
-    int currentPhase = phase0;
-    int currentGain = gain1;
-
-    // Vectorized loop
-    for (; i < upperBound; i += SPECIES.length()) {
-      // Logic for vectorized FM kernel:
-      // 1. Calculate phases for the lane
-      // 2. Add input (modulator) to phases
-      // 3. Perform Sin::lookup (this is hard to vectorize without a vectorized Sin table)
-      // 4. Apply gain
-      // 5. Write to output (optionally adding)
-
-      // For now, if Sin lookup is not vectorized, we might have to fall back to scalar
-      // but we can still vectorize the gain and phase increments.
-
-      // To be truly high-fidelity AND performant, we'd need a vectorized Sine table.
-      // Since we already have bit-accurate scalar Sin lookup, I'll use it here.
-      computeScalar(
-          output, i, SPECIES.length(), input, currentPhase, freq, currentGain, dgain, add);
-
-      currentPhase += freq * SPECIES.length();
-      currentGain += dgain * SPECIES.length();
+  public static void compute_fb(
+      int[] output,
+      int n,
+      int[] input,
+      int phase0,
+      int freq,
+      int gain1,
+      int gain2,
+      int dgain,
+      int[] fb_buf,
+      int fb_shift,
+      boolean add) {
+    int phase = phase0;
+    int gain = gain1;
+    int fb0 = fb_buf[0];
+    int fb1 = fb_buf[1];
+    for (int i = 0; i < n; i++) {
+      gain += dgain;
+      int fb = (fb0 + fb1) >> (fb_shift + 1);
+      int modulation = (input == null) ? fb : input[i] + fb;
+      int y = LookupTables.sinLookup(phase + modulation);
+      int y1 = (int) (((long) y * (long) gain) >> 24);
+      fb1 = fb0;
+      fb0 = y;
+      if (add) {
+        output[i] += y1;
+      } else {
+        output[i] = y1;
+      }
+      phase += freq;
     }
-
-    // Tail loop
-    computeScalar(output, i, n - i, input, currentPhase, freq, currentGain, dgain, add);
+    fb_buf[0] = fb0;
+    fb_buf[1] = fb1;
   }
 
   private static void computeScalar(

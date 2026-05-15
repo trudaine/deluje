@@ -213,6 +213,17 @@ public class DelayBuffer {
     return (longPos >>> 8) & 65535;
   }
 
+  public StereoSample readResampled(int strength1, int strength2) {
+      StereoSample s1 = buffer[currentOffset];
+      int nextOffset = currentOffset + 1;
+      if (nextOffset >= endOffset) nextOffset = startOffset;
+      StereoSample s2 = buffer[nextOffset];
+      
+      int l = (int)(((long)s1.l * strength1 + (long)s2.l * strength2) >> 16);
+      int r = (int)(((long)s1.r * strength1 + (long)s2.r * strength2) >> 16);
+      return new StereoSample(l, r);
+  }
+
   public void writeNative(StereoSample toDelay) {
     int writePos = currentOffset - delaySpaceBetweenReadAndWrite;
     if (writePos < startOffset) {

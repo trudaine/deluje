@@ -107,6 +107,10 @@ public class AutoParam {
     return dist;
   }
 
+  public void notifyPingpongOccurred() {
+      valueIncrementPerHalfTick = -valueIncrementPerHalfTick;
+  }
+
   public void tickSamples(int numSamples, int timePerTimerTickInverse) {
     if (valueIncrementPerHalfTick != 0) {
       // Emulate fixed-point interpolation over numSamples
