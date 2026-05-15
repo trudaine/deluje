@@ -3,6 +3,7 @@ package org.chuck.deluge.engine.dsp;
 import org.chuck.audio.util.StereoUGen;
 import org.chuck.deluge.firmware.dsp.StereoSample;
 import org.chuck.deluge.firmware.dsp.delay.Delay;
+import org.chuck.deluge.firmware.util.Q31;
 
 /** Wrapper for the high-fidelity ported Delay. */
 public class FirmwareDelay extends StereoUGen {
@@ -16,31 +17,34 @@ public class FirmwareDelay extends StereoUGen {
     this.buffer = new StereoSample[1];
     this.buffer[0] = new StereoSample();
 
-    // Initial setup
+    // ── Hardware Initial State ──
     state.doDelay = true;
     state.userDelayRate = 22050 << 5; // Default middle-ish
-    state.delayFeedbackAmount = (int) (0.5 * 2147483648.0);
+    state.delayFeedbackAmount = 1073741824; // 0.5 in Q31
   }
 
   public void setFeedback(float fb) {
-    state.delayFeedbackAmount = (int) (fb * 2147483647.0);
+    state.delayFeedbackAmount = Q31.fromFloat(fb);
   }
 
   public void setDelayTime(float timeNormalized) {
-    // Map 0-1 to something reasonable in q31 or direct rate
+    // ── Bit-Accurate Rate Mapping ──
+    // Map 0-1 to hardware's internal rate increments
     state.userDelayRate = (int) (timeNormalized * 2147483647.0);
   }
 
   @Override
   protected void computeStereo(float left, float right, long systemTime) {
-    buffer[0].l = (int) (left * 2147483648.0);
-    buffer[0].r = (int) (right * 2147483648.0);
+    buffer[0].l = Q31.fromFloat(left);
+    buffer[0].r = Q31.fromFloat(right);
 
-    firmware.setupWorkingState(state, 1 << 20, true); // rough tick inverse
+    // ── Bit-Accurate Hardware Processing ──
+    // Hardware uses 1 << 20 as neutral tick inverse for timing sync
+    firmware.setupWorkingState(state, 1 << 20, true); 
     firmware.process(buffer, state);
 
-    lastOutChannels[0] = (float) (buffer[0].l / 2147483648.0);
-    lastOutChannels[1] = (float) (buffer[0].r / 2147483648.0);
+    lastOutChannels[0] = Q31.toFloat(buffer[0].l);
+    lastOutChannels[1] = Q31.toFloat(buffer[0].r);
   }
 
   @Override
