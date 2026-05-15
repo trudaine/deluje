@@ -2074,6 +2074,7 @@ public class SwingDelugeApp extends JFrame {
 
     // 2. Left Area (SD Card / Editors)
     sidebarPanel = new SwingProjectSidebarPanel(vm, bridge, midiService);
+    sidebarPanel.reloadLibrary();
     floatingSidebar = new SwingProjectSidebarPanel(vm, bridge, midiService);
     sidebarPanel.setOnSongLoaded(
         model -> {
