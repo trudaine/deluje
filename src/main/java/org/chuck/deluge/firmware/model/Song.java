@@ -12,6 +12,7 @@ public class Song extends TimelineCounter {
   public ParamManager paramManager = new ParamManager();
   public int lastSwungTickActioned = 0;
   public int swungTicksTilNextEvent = Integer.MAX_VALUE;
+  public boolean inArrangerMode = false;
 
   public int swingAmount = 0; // -49 to 49
   public int swingInterval = 3; // SyncLevel (e.g. 1/16)
@@ -49,6 +50,10 @@ public class Song extends TimelineCounter {
 
   public void setRootNote(int rootNote) {
     this.rootNote = rootNote;
+  }
+
+  public boolean isInArrangerMode() {
+    return inArrangerMode;
   }
 
   public void doTickForward(int posIncrement) {

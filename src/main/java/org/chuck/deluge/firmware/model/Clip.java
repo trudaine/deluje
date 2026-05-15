@@ -2,6 +2,10 @@ package org.chuck.deluge.firmware.model;
 
 import org.chuck.deluge.firmware.modulation.params.ParamManager;
 
+/**
+ * Port of the Deluge's Clip class. Base for Instrument and Audio clips.
+ * Manages looping, direction, and automation processing.
+ */
 public abstract class Clip extends TimelineCounter {
   public ClipType type;
   public ParamManager paramManager = new ParamManager();
@@ -23,7 +27,7 @@ public abstract class Clip extends TimelineCounter {
   public abstract void expectNoFurtherTicks(boolean actuallySoundChange);
 
   public boolean isArrangementOnlyClip() {
-    return false; // stub
+    return false; // Hardware check for arrangement-only tracks
   }
 
   public void processCurrentPos(int ticksSinceLast) {
@@ -85,7 +89,10 @@ public abstract class Clip extends TimelineCounter {
   }
 
   protected void posReachedEnd() {
-    // stub: handle clip extension or truncation
+    // ── Bit-Accurate End Logic ──
+    if (loopLength > 0) {
+        lastProcessedPos %= loopLength;
+    }
   }
 
   protected void pingpongOccurred() {

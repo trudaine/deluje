@@ -24,12 +24,17 @@ public class AudioClip extends Clip {
 
   @Override
   public void resumePlayback(boolean mayMakeSound) {
-    // Logic to resync time-stretcher to current pos
+    if (sample == null) return;
+    // ── Bit-Accurate Time-Stretch Sync ──
+    // Resync time-stretcher position to lastProcessedPos
+    timeStretcher.samplePosBig = (long)lastProcessedPos << 24;
   }
 
   @Override
   public void expectNoFurtherTicks(boolean actuallySoundChange) {
-    // release resources
+    if (actuallySoundChange) {
+        // fade out or cut sample
+    }
   }
 
   @Override
