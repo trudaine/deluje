@@ -12,6 +12,7 @@ These classes define the core sound of specific Deluge features.
 | `DX7Cartridge` | Format | **Ported** | Full sysex unpacking and patch loading in `DX7Cartridge.java`. |
 | `GranularProcessor` | DSP | **Ported** | High-fidelity grain management and triangle window shaping in `GranularProcessor.java`. |
 | `TimeStretcher` | DSP | **Ported** | High-fidelity dual-head crossfading and hop-based stretching in `TimeStretcher.java`. |
+| `ModFXProcessor` | DSP | **Ported** | Chorus, Flanger, Phaser, Warble, and Dimension effects implemented in `ModFXProcessor.java`. |
 | `Stutterer` | DSP | **Ported** | Real-time buffer-based stutter implemented in `Stutterer.java`. |
 | `HPLadder` | DSP | **Ported** | High-Pass Transistor Ladder implemented in `HpLadderFilter.java`. |
 | `FilterSet` | Orchestration | **Ported** | Full routing and chaining implemented in `FilterSet.java`. |
@@ -27,7 +28,7 @@ These classes define the core sound of specific Deluge features.
 | `ScaleMapper` | Logic | **Ported** | Bit-accurate scale snapping and NoteSet logic in `ScaleMapper.java`. |
 | `Action / ActionLogger` | Logic | **Ported** | Hardware-parity undo/redo implemented in `ActionLogger.java`. |
 | `NoteRow / Quantize` | Logic | **Ported** | Bit-accurate humanization and quantization in `NoteRow.java`. |
-| `NoteRow / Legato` | Logic | **Ported** | Legato and overlap rules implemented in `NoteRow.java`. |
+| `NoteRow / Legato` | Logic | **Ported** | Legato and overlap rules implemented in `NoteRow.java` and `FirmwareSound.java`. |
 | `Song / Swing` | Logic | **Ported** | Hardware-accurate swing amount and interval logic in `Song.java`. |
 | `Arpeggiator / Pattern`| Modulation | **Ported** | High-fidelity random pattern generation in `Arpeggiator.java`. |
 | `ParamManager / Record`| Automation | **Ported** | Real-time automation recording implemented in `ParamManager.java`. |
@@ -38,7 +39,7 @@ These classes define the core sound of specific Deluge features.
 | :--- | :--- | :--- | :--- |
 | `SampleCache` | Memory | **Ported** | Basic structure for sample data blocks in `SampleCache.java`. |
 | `MultisampleRange` | Model | **Ported** | Basic mapping for multi-sample instruments in `MultisampleRange.java`. |
-| `WAV Metadata` | Metadata | **Ported** | 'smpl' and 'inst' chunk parsing for loops/slices in `WaveTableReader.java`. |
+| `WAV Metadata` | Metadata | **Ported** | 'smpl' and 'inst' chunk parsing for loops/slices in `AudioFileReader.java`. |
 | `Browser / Recents` | Navigation | **Ported** | Priority-based navigation and recent files in `FileBrowser.java`. |
 
 ## 4. HID & Drivers (Intentional Gaps)

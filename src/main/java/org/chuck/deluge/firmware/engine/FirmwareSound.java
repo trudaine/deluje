@@ -6,6 +6,7 @@ import org.chuck.deluge.firmware.dsp.StereoSample;
 import org.chuck.deluge.firmware.modulation.LFO;
 import org.chuck.deluge.firmware.modulation.params.Param;
 import org.chuck.deluge.firmware.modulation.params.ParamManager;
+import org.chuck.deluge.firmware.model.PolyphonyMode;
 import org.chuck.deluge.firmware.modulation.patch.PatchSource;
 
 /** Port of the Deluge's Sound class, managing voice allocation and global modulation. */
@@ -13,6 +14,7 @@ public class FirmwareSound extends GlobalEffectable {
   public final List<FirmwareVoice> voices = new ArrayList<>();
   public final LFO[] globalLfos = new LFO[2];
   public int maxPolyphony = 64;
+  public PolyphonyMode polyphonic = PolyphonyMode.POLY;
   public ParamManager paramManager = new ParamManager();
   public int[] paramNeutralValues = new int[Param.kNumParams];
   public int[] globalSourceValues = new int[PatchSource.kNumPatchSources];
@@ -44,6 +46,27 @@ public class FirmwareSound extends GlobalEffectable {
   }
 
   public void triggerNote(int note, int vel) {
+    FirmwareVoice voiceForLegato = null;
+
+    if (polyphonic != PolyphonyMode.POLY) {
+      for (FirmwareVoice v : voices) {
+        if (v.active) {
+          if (polyphonic == PolyphonyMode.LEGATO) {
+            voiceForLegato = v;
+            break;
+          }
+          if (polyphonic == PolyphonyMode.MONO) {
+            v.noteOff(0);
+          }
+        }
+      }
+    }
+
+    if (voiceForLegato != null) {
+      voiceForLegato.noteOn(note, vel);
+      return;
+    }
+
     // Find free voice
     for (FirmwareVoice v : voices) {
       if (!v.active) {
