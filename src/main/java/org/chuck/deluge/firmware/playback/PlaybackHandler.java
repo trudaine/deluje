@@ -20,6 +20,10 @@ public class PlaybackHandler {
     this.currentSong = song;
   }
 
+  public Song getSong() {
+    return currentSong;
+  }
+
   public void start() {
     playing = true;
     lastSwungTickActioned = 0;
