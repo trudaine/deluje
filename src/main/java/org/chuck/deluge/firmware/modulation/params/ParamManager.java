@@ -12,14 +12,14 @@ public class ParamManager {
   private final int[] unpatchedValues = new int[Param.kNumParams];
 
   public int getUnpatchedValue(int paramId) {
-      if (paramId < 0 || paramId >= Param.kNumParams) return 0;
-      return unpatchedValues[paramId];
+    if (paramId < 0 || paramId >= Param.kNumParams) return 0;
+    return unpatchedValues[paramId];
   }
 
   public void setUnpatchedValue(int paramId, int value) {
-      if (paramId >= 0 && paramId < Param.kNumParams) {
-          unpatchedValues[paramId] = value;
-      }
+    if (paramId >= 0 && paramId < Param.kNumParams) {
+      unpatchedValues[paramId] = value;
+    }
   }
 
   public boolean mightContainAutomation() {
@@ -27,9 +27,9 @@ public class ParamManager {
   }
 
   public void notifyPingpongOccurred() {
-      for (AutoParam param : automatedParams) {
-          param.notifyPingpongOccurred();
-      }
+    for (AutoParam param : automatedParams) {
+      param.notifyPingpongOccurred();
+    }
   }
 
   public PatchCableSet getPatchCableSet() {

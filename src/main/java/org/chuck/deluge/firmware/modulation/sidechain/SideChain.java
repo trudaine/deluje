@@ -9,8 +9,8 @@ import org.chuck.deluge.firmware.util.FirmwareUtils;
 import org.chuck.deluge.firmware.util.Q31;
 
 /**
- * Port of the Deluge's SideChain class.
- * Implements high-fidelity ducking with bit-accurate shape modulation.
+ * Port of the Deluge's SideChain class. Implements high-fidelity ducking with bit-accurate shape
+ * modulation.
  */
 public class SideChain {
   public Envelope.EnvelopeStage status = Envelope.EnvelopeStage.OFF;
@@ -58,18 +58,19 @@ public class SideChain {
     }
 
     // ── Bit-Accurate Shape Modulation ──
-    int positiveShapeValue = (int)(shapeValue + 2147483648L);
+    int positiveShapeValue = (int) (shapeValue + 2147483648L);
     int preValue;
 
     int curvedness16 = (positiveShapeValue >> 15) - (pos >> 7);
     if (curvedness16 < 0) {
-        preValue = pos << 8;
+      preValue = pos << 8;
     } else {
-        if (curvedness16 > 65536) curvedness16 = 65536;
-        int straightness = 65536 - curvedness16;
-        // Blend between straight (linear) and exponential (decay8)
-        preValue = straightness * (pos >> 8) + 
-                   (FirmwareUtils.getDecay8(8388608 - pos, 23) >> 16) * curvedness16;
+      if (curvedness16 > 65536) curvedness16 = 65536;
+      int straightness = 65536 - curvedness16;
+      // Blend between straight (linear) and exponential (decay8)
+      preValue =
+          straightness * (pos >> 8)
+              + (FirmwareUtils.getDecay8(8388608 - pos, 23) >> 16) * curvedness16;
     }
 
     lastValue = ONE - envelopeHeight + (Q31.multiply_32x32_rshift32(preValue, envelopeHeight) << 1);

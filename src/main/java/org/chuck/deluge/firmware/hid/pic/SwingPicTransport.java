@@ -19,12 +19,21 @@ import org.chuck.deluge.firmware.hid.RGB;
  */
 public class SwingPicTransport implements PicTransport {
 
-  private static int kDisplayWidth()  { return GridConfig.getDisplayWidth(); }
-  private static int kDisplayHeight() { return GridConfig.getDisplayHeight(); }
-  private static int kTotalWidth()    { return GridConfig.getTotalWidth(); }
+  private static int kDisplayWidth() {
+    return GridConfig.getDisplayWidth();
+  }
+
+  private static int kDisplayHeight() {
+    return GridConfig.getDisplayHeight();
+  }
+
+  private static int kTotalWidth() {
+    return GridConfig.getTotalWidth();
+  }
 
   /** Framebuffer: pad colours indexed as [y][x]. Allocate at max possible grid. */
-  private static final int MAX_WIDTH  = 26; // 24 + 2 sidebar
+  private static final int MAX_WIDTH = 26; // 24 + 2 sidebar
+
   private static final int MAX_HEIGHT = 16;
 
   private final RGB[][] framebuffer = new RGB[MAX_HEIGHT][MAX_WIDTH];
@@ -163,7 +172,7 @@ public class SwingPicTransport implements PicTransport {
         if (decodeByteCount % 3 == 0 && decodeByteCount > 0) {
           int rgbIdx = decodeByteCount / 3 - 1;
           int dispHeight = GridConfig.getDisplayHeight();
-          int dispWidth  = GridConfig.getDisplayWidth();
+          int dispWidth = GridConfig.getDisplayWidth();
           int totalWidth = GridConfig.getTotalWidth();
           int padX = decodeColumnPair * 2 + (rgbIdx / dispHeight);
           int padY = rgbIdx % dispHeight;

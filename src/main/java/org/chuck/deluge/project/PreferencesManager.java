@@ -120,11 +120,11 @@ public class PreferencesManager {
     if (!path.isEmpty()) {
       return new java.io.File(path);
     }
-    
+
     // Fallback 1: Check for 'Deluge' folder in current project root
     java.io.File projectLocal = new java.io.File("Deluge");
     if (projectLocal.isDirectory()) {
-        return projectLocal;
+      return projectLocal;
     }
 
     // Fallback 2: derive from samples_dir preference

@@ -29,10 +29,10 @@ public class FirmwareSVFilter extends ChuckUGen {
   @Override
   protected float compute(float input, long systemTime) {
     sampleBuffer[0] = Q31.fromFloat(input);
-    
+
     // In-place processing
     firmware.doFilter(sampleBuffer, 0, 1, 1);
-    
+
     return Q31.toFloat(sampleBuffer[0]);
   }
 }

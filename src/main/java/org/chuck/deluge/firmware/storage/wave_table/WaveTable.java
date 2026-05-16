@@ -9,8 +9,8 @@ import org.chuck.deluge.firmware.util.LookupTables;
 import org.chuck.deluge.firmware.util.Q31;
 
 /**
- * Port of the Deluge's WaveTable class.
- * Implements high-fidelity wavetable synthesis with windowed-sinc interpolation.
+ * Port of the Deluge's WaveTable class. Implements high-fidelity wavetable synthesis with
+ * windowed-sinc interpolation.
  */
 public class WaveTable {
   public static final int kInterpolationMaxNumSamples = 16;
@@ -33,14 +33,14 @@ public class WaveTable {
 
     // ── Bit-Accurate Cycle Size Logic ──
     if (!rawFileCycleSizeIsAPowerOfTwo) {
-        // Allowed if single-cycle
-        if (totalSamples < (rawFileCycleSize << 1) && totalSamples >= rawFileCycleSize) {
-            numCycles = 1;
-            initialBandCycleMagnitude++; // Render out to bigger power-of-two size
-        } else {
-            // Multiple cycles (wavetable) with non-power-of-2 size is not allowed in hardware
-            initialBandCycleMagnitude++; // robust fallback
-        }
+      // Allowed if single-cycle
+      if (totalSamples < (rawFileCycleSize << 1) && totalSamples >= rawFileCycleSize) {
+        numCycles = 1;
+        initialBandCycleMagnitude++; // Render out to bigger power-of-two size
+      } else {
+        // Multiple cycles (wavetable) with non-power-of-2 size is not allowed in hardware
+        initialBandCycleMagnitude++; // robust fallback
+      }
     }
 
     int initialBandCycleSizeNoDuplicates = 1 << initialBandCycleMagnitude;

@@ -30,7 +30,6 @@ public class BasicWaves {
     int upperBound = SPECIES.loopBound(numSamples);
 
     for (; i < upperBound; i += SPECIES.length()) {
-      int[] tempPhases = new int[SPECIES.length()];
       int[] tempValues = new int[SPECIES.length()];
 
       for (int j = 0; j < SPECIES.length(); j++) {
@@ -38,14 +37,13 @@ public class BasicWaves {
         int p = currentPhase + phaseToAdd;
 
         int whichValue = p >>> (32 - tableSizeMagnitude);
-        int v1 = table[whichValue] & 0xFFFF;
-        int v2 = table[whichValue + 1] & 0xFFFF;
+        int v1 = table[whichValue];
+        int v2 = table[whichValue + 1];
 
         int strength2 = (p >>> (32 - 16 - tableSizeMagnitude)) & 0xFFFF;
-        strength2 >>>= 1;
+        int strength1 = 65536 - strength2;
 
-        int diff = (short) v2 - (short) v1;
-        tempValues[j] = (v1 << 16) + (diff * strength2 * 2);
+        tempValues[j] = v1 * strength1 + v2 * strength2;
       }
 
       IntVector valueVector = IntVector.fromArray(SPECIES, tempValues, 0);
@@ -71,18 +69,17 @@ public class BasicWaves {
       int p = currentPhase + phaseToAdd;
 
       int whichValue = p >>> (32 - tableSizeMagnitude);
-      int v1 = table[whichValue] & 0xFFFF;
-      int v2 = table[whichValue + 1] & 0xFFFF;
+      int v1 = table[whichValue];
+      int v2 = table[whichValue + 1];
 
       int strength2 = (p >>> (32 - 16 - tableSizeMagnitude)) & 0xFFFF;
-      strength2 >>>= 1;
-
-      int diff = (short) v2 - (short) v1;
-      int val = (v1 << 16) + (diff * strength2 * 2);
+      int strength1 = 65536 - strength2;
+      int val = v1 * strength1 + v2 * strength2;
 
       if (applyAmplitude) {
         currentAmplitude += amplitudeIncrement;
-        outputBuffer[offset + i] += Q31.mult(currentAmplitude, val);
+        int wet = Q31.mult(currentAmplitude, val);
+        outputBuffer[offset + i] = Q31.addSaturate(outputBuffer[offset + i], wet);
       } else {
         outputBuffer[offset + i] = val;
       }
@@ -102,7 +99,7 @@ public class BasicWaves {
       int phaseIncrement,
       int phase,
       boolean applyAmplitude,
-      int phaseToAdd,
+      int pulseWidth,
       int amplitudeIncrement) {
 
     int currentPhase = phase;
@@ -117,26 +114,27 @@ public class BasicWaves {
       for (int j = 0; j < SPECIES.length(); j++) {
         currentPhase += phaseIncrement;
         int phaseA = currentPhase;
-        int phaseB = currentPhase + phaseToAdd;
+        int phaseB = currentPhase + pulseWidth;
 
         // Sample A
         int whichValueA = phaseA >>> (32 - tableSizeMagnitude);
-        int vA1 = table[whichValueA] & 0xFFFF;
-        int vA2 = table[whichValueA + 1] & 0xFFFF;
-        int strengthA2 = (phaseA >>> (32 - 16 - tableSizeMagnitude)) & 0x7FFF;
-        int diffA = (short) vA2 - (short) vA1;
-        int valA = (vA1 << 16) + (diffA * strengthA2 * 2);
+        int vA1 = table[whichValueA];
+        int vA2 = table[whichValueA + 1];
+        int strengthA2 = (phaseA >>> (32 - 16 - tableSizeMagnitude)) & 0xFFFF;
+        int strengthA1 = 65536 - strengthA2;
+        int valA = vA1 * strengthA1 + vA2 * strengthA2;
 
         // Sample B
         int whichValueB = phaseB >>> (32 - tableSizeMagnitude);
-        int vB1 = table[whichValueB] & 0xFFFF;
-        int vB2 = table[whichValueB + 1] & 0xFFFF;
-        int strengthB2 = (phaseB >>> (32 - 16 - tableSizeMagnitude)) & 0x7FFF;
-        int diffB = (short) vB2 - (short) vB1;
-        int valB = (vB1 << 16) + (diffB * strengthB2 * 2);
+        int vB1 = table[whichValueB];
+        int vB2 = table[whichValueB + 1];
+        int strengthB2 = (phaseB >>> (32 - 16 - tableSizeMagnitude)) & 0xFFFF;
+        int strengthB1 = 65536 - strengthB2;
+        int valB = vB1 * strengthB1 + vB2 * strengthB2;
 
         // Ring mod (multiplication)
-        tempValues[j] = Q31.mult(valA, valB) << 1;
+        // No redundant shift back - Q31 mult is already full scale
+        tempValues[j] = Q31.mult(valA, valB);
       }
 
       IntVector valueVector = IntVector.fromArray(SPECIES, tempValues, 0);
@@ -160,25 +158,28 @@ public class BasicWaves {
     for (; i < numSamples; i++) {
       currentPhase += phaseIncrement;
       int phaseA = currentPhase;
-      int phaseB = currentPhase + phaseToAdd;
+      int phaseB = currentPhase + pulseWidth;
 
       int whichValueA = phaseA >>> (32 - tableSizeMagnitude);
-      int vA1 = table[whichValueA] & 0xFFFF;
-      int vA2 = table[whichValueA + 1] & 0xFFFF;
-      int strengthA2 = (phaseA >>> (32 - 16 - tableSizeMagnitude)) & 0x7FFF;
-      int valA = (vA1 << 16) + ((short) vA2 - (short) vA1) * strengthA2 * 2;
+      int vA1 = table[whichValueA];
+      int vA2 = table[whichValueA + 1];
+      int strengthA2 = (phaseA >>> (32 - 16 - tableSizeMagnitude)) & 0xFFFF;
+      int strengthA1 = 65536 - strengthA2;
+      int valA = vA1 * strengthA1 + vA2 * strengthA2;
 
       int whichValueB = phaseB >>> (32 - tableSizeMagnitude);
-      int vB1 = table[whichValueB] & 0xFFFF;
-      int vB2 = table[whichValueB + 1] & 0xFFFF;
-      int strengthB2 = (phaseB >>> (32 - 16 - tableSizeMagnitude)) & 0x7FFF;
-      int valB = (vB1 << 16) + ((short) vB2 - (short) vB1) * strengthB2 * 2;
+      int vB1 = table[whichValueB];
+      int vB2 = table[whichValueB + 1];
+      int strengthB2 = (phaseB >>> (32 - 16 - tableSizeMagnitude)) & 0xFFFF;
+      int strengthB1 = 65536 - strengthB2;
+      int valB = vB1 * strengthB1 + vB2 * strengthB2;
 
-      int val = Q31.mult(valA, valB) << 1;
+      int val = Q31.mult(valA, valB);
 
       if (applyAmplitude) {
         currentAmplitude += amplitudeIncrement;
-        outputBuffer[offset + i] += Q31.mult(currentAmplitude, val);
+        int wet = Q31.mult(currentAmplitude, val);
+        outputBuffer[offset + i] = Q31.addSaturate(outputBuffer[offset + i], wet);
       } else {
         outputBuffer[offset + i] = val;
       }

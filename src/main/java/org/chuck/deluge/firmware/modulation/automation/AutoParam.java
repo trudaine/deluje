@@ -24,9 +24,9 @@ public class AutoParam {
     if (nodes.isEmpty()) return 0;
     // Simple search
     for (int i = 0; i < nodes.size() - 1; i++) {
-        if (pos >= nodes.get(i).pos && pos < nodes.get(i+1).pos) {
-            return nodes.get(i).value;
-        }
+      if (pos >= nodes.get(i).pos && pos < nodes.get(i + 1).pos) {
+        return nodes.get(i).value;
+      }
     }
     return nodes.get(nodes.size() - 1).value;
   }
@@ -108,7 +108,7 @@ public class AutoParam {
   }
 
   public void notifyPingpongOccurred() {
-      valueIncrementPerHalfTick = -valueIncrementPerHalfTick;
+    valueIncrementPerHalfTick = -valueIncrementPerHalfTick;
   }
 
   public void tickSamples(int numSamples, int timePerTimerTickInverse) {

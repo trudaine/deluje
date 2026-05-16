@@ -4,8 +4,8 @@ import org.chuck.deluge.firmware.hid.ActionResult;
 import org.chuck.deluge.firmware.hid.Button;
 
 /**
- * Base class for all high-fidelity menu items.
- * Replicates the behavior and interaction model of the Deluge's MenuItem C++ class.
+ * Base class for all high-fidelity menu items. Replicates the behavior and interaction model of the
+ * Deluge's MenuItem C++ class.
  */
 public abstract class MenuItem {
   public final String name;

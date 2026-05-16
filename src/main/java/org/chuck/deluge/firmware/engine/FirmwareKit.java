@@ -6,8 +6,8 @@ import org.chuck.deluge.firmware.dsp.StereoSample;
 import org.chuck.deluge.firmware.modulation.params.ParamManager;
 
 /**
- * Port of the Deluge's Kit class.
- * Manages multiple drum sounds (FirmwareSound instances) in a single instrument track.
+ * Port of the Deluge's Kit class. Manages multiple drum sounds (FirmwareSound instances) in a
+ * single instrument track.
  */
 public class FirmwareKit extends GlobalEffectable {
   public final List<FirmwareSound> drumSounds = new ArrayList<>();
@@ -22,14 +22,16 @@ public class FirmwareKit extends GlobalEffectable {
   @Override
   protected void renderInternal(StereoSample[] buffer, int numSamples, ParamManager paramManager) {
     for (FirmwareSound drum : drumSounds) {
-      drum.renderInternal(buffer, numSamples, paramManager); 
+      if (!drum.voices.isEmpty()) {
+          drum.renderToBuffer(buffer, numSamples, null);
+      }
     }
   }
 
   public void triggerDrum(int row, int vel) {
-    System.out.println("[Kit] Trigger drum row " + row + " with velocity " + vel);
     if (row >= 0 && row < drumSounds.size()) {
-      drumSounds.get(row).triggerNote(60, vel);
+      FirmwareSound drum = drumSounds.get(row);
+      drum.triggerNote(60, vel);
     }
   }
 }

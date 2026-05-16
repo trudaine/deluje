@@ -67,21 +67,21 @@ public class GranularProcessor {
   private void setupGrainFX(
       int grainRate, int grainMix, int grainDensity, int pitchRandomness, float tempoBPM) {
     _grainShift = 44 * 300;
-    
+
     // ── Bit-Accurate Rate & Size Math ──
     if (_densityKnobPos != grainDensity || _rateKnobPos != grainRate) {
-        _densityKnobPos = grainDensity;
-        int density = ((grainDensity / 2) + (1073741824));
-        _grainSize = 1760 + Q31.multiply_32x32_rshift32(_grainRate << 3, density);
+      _densityKnobPos = grainDensity;
+      int density = ((grainDensity / 2) + (1073741824));
+      _grainSize = 1760 + Q31.multiply_32x32_rshift32(_grainRate << 3, density);
     }
-    
+
     if (_rateKnobPos != grainRate) {
-        _rateKnobPos = grainRate;
-        int grainRateRaw = org.chuck.deluge.firmware.util.FirmwareUtils.quickLog(grainRate);
-        grainRateRaw = Math.max(0, Math.min(256, (grainRateRaw - 364249088) >> 21));
-        _grainRate = ((360 * grainRateRaw >> 8) * grainRateRaw >> 8); 
-        _grainRate = Math.max(1, _grainRate);
-        _grainRate = (44100 << 1) / _grainRate;
+      _rateKnobPos = grainRate;
+      int grainRateRaw = org.chuck.deluge.firmware.util.FirmwareUtils.quickLog(grainRate);
+      grainRateRaw = Math.max(0, Math.min(256, (grainRateRaw - 364249088) >> 21));
+      _grainRate = ((360 * grainRateRaw >> 8) * grainRateRaw >> 8);
+      _grainRate = Math.max(1, _grainRate);
+      _grainRate = (44100 << 1) / _grainRate;
     }
 
     _pitchRandomness = Math.abs(pitchRandomness);

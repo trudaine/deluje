@@ -5,9 +5,8 @@ import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 
 /**
- * High-fidelity virtual OLED display.
- * Replicates the oled_canvas::Canvas behavior with bit-accurate rendering.
- * Provides a BufferedImage for Swing integration.
+ * High-fidelity virtual OLED display. Replicates the oled_canvas::Canvas behavior with bit-accurate
+ * rendering. Provides a BufferedImage for Swing integration.
  */
 public class VirtualOLED {
   public static final int WIDTH = 128;
@@ -55,18 +54,18 @@ public class VirtualOLED {
   }
 
   /**
-   * Draws a bit-accurate waveform from the given data.
-   * Replicates the firmware's waveform drawing routine.
+   * Draws a bit-accurate waveform from the given data. Replicates the firmware's waveform drawing
+   * routine.
    */
   public void drawWaveform(short[] data, int start, int length) {
     if (data == null || length <= 0) return;
     g2d.setColor(Color.WHITE);
-    
+
     float xStep = (float) WIDTH / length;
     for (int i = 0; i < length - 1; i++) {
       int y1 = HEIGHT / 2 + (data[start + i] * HEIGHT / 65536);
       int y2 = HEIGHT / 2 + (data[start + i + 1] * HEIGHT / 65536);
-      g2d.drawLine((int)(i * xStep), y1, (int)((i + 1) * xStep), y2);
+      g2d.drawLine((int) (i * xStep), y1, (int) ((i + 1) * xStep), y2);
     }
     dirty = true;
   }

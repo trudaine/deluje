@@ -10,10 +10,21 @@ import org.chuck.deluge.firmware.hid.RGB;
 public class PIC {
 
   /** Convenience references to {@link GridConfig} — the single source of truth. */
-  public static int kDisplayWidth()   { return GridConfig.getDisplayWidth(); }
-  public static int kDisplayHeight()  { return GridConfig.getDisplayHeight(); }
-  public static int kSideBarWidth()   { return GridConfig.kSideBarWidth; }
-  public static int kMainPadCount()   { return GridConfig.getMainPadCount(); }
+  public static int kDisplayWidth() {
+    return GridConfig.getDisplayWidth();
+  }
+
+  public static int kDisplayHeight() {
+    return GridConfig.getDisplayHeight();
+  }
+
+  public static int kSideBarWidth() {
+    return GridConfig.kSideBarWidth;
+  }
+
+  public static int kMainPadCount() {
+    return GridConfig.getMainPadCount();
+  }
 
   private static final int kNumGoldKnobIndicatorLEDs = 24;
   private static final int kNumericDisplayLength = 4;
@@ -120,10 +131,10 @@ public class PIC {
   }
 
   /**
-   * Set colour for two columns of LEDs. The Deluge main pads are updated in groups of two
-   * adjacent columns as though they were a continuous strip of 16 LEDs.
+   * Set colour for two columns of LEDs. The Deluge main pads are updated in groups of two adjacent
+   * columns as though they were a continuous strip of 16 LEDs.
    *
-   * @param idx  column-pair index (0-3 for main pads, 4 for side bar)
+   * @param idx column-pair index (0-3 for main pads, 4 for side bar)
    * @param colours 16 colours (8 rows × 2 columns)
    */
   public static void setColourForTwoColumns(int idx, RGB[] colours) {

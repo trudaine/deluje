@@ -6,10 +6,7 @@ import org.chuck.deluge.firmware.hid.ActionResult;
 import org.chuck.deluge.firmware.hid.Button;
 import org.chuck.deluge.firmware.hid.FirmwareDisplay;
 
-/**
- * A menu item that opens a submenu when selected.
- * Navigable via the select encoder.
- */
+/** A menu item that opens a submenu when selected. Navigable via the select encoder. */
 public class Submenu extends MenuItem {
   private final List<MenuItem> items = new ArrayList<>();
   private int focusIndex = 0;
@@ -32,7 +29,7 @@ public class Submenu extends MenuItem {
     if (items.isEmpty()) return;
     focusIndex = (focusIndex + offset) % items.size();
     if (focusIndex < 0) focusIndex += items.size();
-    
+
     MenuItem focused = items.get(focusIndex);
     focused.onFocus();
     FirmwareDisplay.get().setText(focused.title);

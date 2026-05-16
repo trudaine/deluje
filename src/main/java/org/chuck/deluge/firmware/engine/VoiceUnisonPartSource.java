@@ -3,11 +3,11 @@ package org.chuck.deluge.firmware.engine;
 import org.chuck.deluge.firmware.model.sample.Sample;
 
 /**
- * Port of VoiceUnisonPartSource from the firmware.
- * Ties an oscillator or sample playback to a specific unison voice.
+ * Port of VoiceUnisonPartSource from the firmware. Ties an oscillator or sample playback to a
+ * specific unison voice.
  */
 public class VoiceUnisonPartSource {
-  public int oscPos;
+  public long oscPos;
   public int phaseIncrementStoredValue;
   public int carrierFeedback;
   public boolean active;
@@ -35,7 +35,8 @@ public class VoiceUnisonPartSource {
     }
   }
 
-  public void render(int[] buffer, int numSamples, int phaseIncrement, Sample sample, int amplitude) {
+  public void render(
+      int[] buffer, int numSamples, int phaseIncrement, Sample sample, int amplitude) {
     if (!active) return;
     if (voiceSample != null) {
       voiceSample.render(buffer, numSamples, phaseIncrement, sample, amplitude);

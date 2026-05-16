@@ -40,7 +40,7 @@ public class FirmwareDelay extends StereoUGen {
 
     // ── Bit-Accurate Hardware Processing ──
     // Hardware uses 1 << 20 as neutral tick inverse for timing sync
-    firmware.setupWorkingState(state, 1 << 20, true); 
+    firmware.setupWorkingState(state, 1 << 20, true);
     firmware.process(buffer, state);
 
     lastOutChannels[0] = Q31.toFloat(buffer[0].l);

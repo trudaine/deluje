@@ -10,8 +10,8 @@ import java.util.Map;
  * <p>Phase A (current): CC → global float parameter mapping, device definition integration, note →
  * Sound parameter routing, MidiTakeover integration.
  *
- * <p>Phase B (extended): Feedback (send current param values back as CC), pitch bend / aftertouch
- * → parameter routing, per-clip MIDI Follow routing.
+ * <p>Phase B (extended): Feedback (send current param values back as CC), pitch bend / aftertouch →
+ * parameter routing, per-clip MIDI Follow routing.
  */
 public class MidiFollow {
 
@@ -20,12 +20,7 @@ public class MidiFollow {
    * display, feedback, and takeover.
    */
   public static record ParamMapping(
-      int cc,
-      String globalName,
-      String displayName,
-      float min,
-      float max,
-      boolean bipolar) {
+      int cc, String globalName, String displayName, float min, float max, boolean bipolar) {
 
     public float normalize(int value) {
       float v = (value & 0x7F) / 127.0f;
@@ -116,8 +111,8 @@ public class MidiFollow {
    * @param max maximum parameter value (after normalization)
    * @param bipolar true if CC 64 is center (e.g. pan)
    */
-  public void register(int cc, String globalName, String displayName, float min, float max,
-      boolean bipolar) {
+  public void register(
+      int cc, String globalName, String displayName, float min, float max, boolean bipolar) {
     if (cc < 0 || cc > 127) throw new IllegalArgumentException("CC out of range: " + cc);
     paramRegistry.put(cc, new ParamMapping(cc, globalName, displayName, min, max, bipolar));
   }
@@ -227,10 +222,7 @@ public class MidiFollow {
       }
       if (logLevel >= 1) {
         System.out.println(
-            "[MidiFollow] "
-                + pm.displayName()
-                + " = "
-                + String.format("%.3f", value));
+            "[MidiFollow] " + pm.displayName() + " = " + String.format("%.3f", value));
       }
       return;
     }

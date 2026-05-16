@@ -5,13 +5,19 @@ import org.chuck.deluge.firmware.hid.pic.GridConfig;
 /** Virtual framebuffer for the Deluge's grid and sidebars. Ports the logic from pad_leds.h. */
 public class PadLEDs {
   /** Width of main pad area — delegates to {@link GridConfig}. */
-  public static int kDisplayWidth()  { return GridConfig.getDisplayWidth(); }
+  public static int kDisplayWidth() {
+    return GridConfig.getDisplayWidth();
+  }
+
   /** Height of main pad area — delegates to {@link GridConfig}. */
-  public static int kDisplayHeight() { return GridConfig.getDisplayHeight(); }
+  public static int kDisplayHeight() {
+    return GridConfig.getDisplayHeight();
+  }
+
   public static final int kSideBarWidth = GridConfig.kSideBarWidth;
 
   // Allocate for maximum possible grid (24+2 × 16) so the arrays are resizable.
-  private static final int MAX_WIDTH  = 26; // 24 + 2 sidebar
+  private static final int MAX_WIDTH = 26; // 24 + 2 sidebar
   private static final int MAX_HEIGHT = 16;
 
   public static final RGB[][] image = new RGB[MAX_HEIGHT][MAX_WIDTH];

@@ -1,15 +1,20 @@
 package org.chuck.deluge.firmware.hid;
 
 import java.util.Stack;
-
 import org.chuck.deluge.firmware.hid.pic.GridConfig;
 
 /** Virtual button matrix driver. Ports the logic from matrix_driver.h. */
 public class MatrixDriver {
   /** Width of main pad area — delegates to {@link GridConfig}. */
-  public static int kDisplayWidth()  { return GridConfig.getDisplayWidth(); }
+  public static int kDisplayWidth() {
+    return GridConfig.getDisplayWidth();
+  }
+
   /** Height of main pad area — delegates to {@link GridConfig}. */
-  public static int kDisplayHeight() { return GridConfig.getDisplayHeight(); }
+  public static int kDisplayHeight() {
+    return GridConfig.getDisplayHeight();
+  }
+
   public static final int kSideBarWidth = GridConfig.kSideBarWidth;
 
   private static final MatrixDriver INSTANCE = new MatrixDriver();
@@ -20,7 +25,7 @@ public class MatrixDriver {
 
   // Allocate for maximum possible grid; resizing with final arrays is safe
   // since GridConfig dimensions only grow from 16×8 to at most 24×16.
-  private static final int MAX_WIDTH  = 24;
+  private static final int MAX_WIDTH = 24;
   private static final int MAX_HEIGHT = 16;
   private final boolean[][] padStates = new boolean[MAX_WIDTH + kSideBarWidth][MAX_HEIGHT];
   private final Stack<FirmwareUI> uiStack = new Stack<>();
@@ -104,6 +109,20 @@ public class MatrixDriver {
     FirmwareUI current = getCurrentUI();
     if (current != null) {
       current.selectButtonPress(on);
+    }
+  }
+
+  public void horizontalButtonAction(boolean on) {
+    FirmwareUI current = getCurrentUI();
+    if (current != null) {
+      current.buttonAction(Button.SELECT, on);
+    }
+  }
+
+  public void verticalButtonAction(boolean on) {
+    FirmwareUI current = getCurrentUI();
+    if (current != null) {
+      current.buttonAction(Button.SELECT, on);
     }
   }
 
