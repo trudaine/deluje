@@ -23,7 +23,7 @@ public class VoiceSample {
         }
     }
 
-    public void render(int[] buffer, int numSamples, int phaseIncrement, Sample sample) {
+    public void render(int[] buffer, int numSamples, int phaseIncrement, Sample sample, int amplitude) {
         if (sample == null || sample.data == null) return;
 
         float[] data = sample.data;
@@ -48,7 +48,8 @@ public class VoiceSample {
             float s1 = data[(intPos + 1) * numChannels];
             float out = s0 + (s1 - s0) * (frac / 16777216.0f);
 
-            buffer[i] += (int)(out * 2147483647.0f);
+            int valQ31 = (int)(out * 2147483647.0f);
+            buffer[i] = Q31.addSaturate(buffer[i], Q31.mult(valQ31, amplitude));
 
             playPosBig += (long)phaseIncrement * playDirection;
         }

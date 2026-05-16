@@ -108,7 +108,7 @@ public class Oscillator {
         BasicWaves.renderWave(
             LookupTables.sineWaveSmall,
             8,
-            amplitude << 1,
+            amplitude,
             buffer,
             offset,
             numSamples,
@@ -116,7 +116,7 @@ public class Oscillator {
             phase,
             applyAmplitude,
             phaseToAdd,
-            amplitudeIncrement << 1);
+            amplitudeIncrement);
       }
     } else if (type == OscType.SAW) {
       if (tableNumber < 6 || doOscSync) { // Fallback to crude if sync
@@ -156,7 +156,7 @@ public class Oscillator {
         BasicWaves.renderPulseWave(
             LookupTables.sineWaveSmall,
             8,
-            amplitude << 1,
+            amplitude,
             buffer,
             offset,
             numSamples,
@@ -164,7 +164,7 @@ public class Oscillator {
             phase,
             applyAmplitude,
             pulseWidth,
-            amplitudeIncrement << 1);
+            amplitudeIncrement);
       } else {
         renderCrudeSquare(
             buffer,
