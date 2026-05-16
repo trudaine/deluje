@@ -1,16 +1,24 @@
 package org.chuck.deluge.firmware.engine;
 
+import java.io.File;
+import java.io.IOException;
+import org.chuck.deluge.firmware.dsp.oscillators.OscType;
 import org.chuck.deluge.firmware.model.InstrumentClip;
 import org.chuck.deluge.firmware.model.Song;
 import org.chuck.deluge.firmware.model.note.NoteRow;
+import org.chuck.deluge.firmware.model.sample.Sample;
 import org.chuck.deluge.firmware.modulation.params.Param;
 import org.chuck.deluge.firmware.modulation.patch.PatchSource;
+import org.chuck.deluge.firmware.storage.audio.AudioFileReader;
 import org.chuck.deluge.model.ClipModel;
+import org.chuck.deluge.model.Drum;
 import org.chuck.deluge.model.KitTrackModel;
 import org.chuck.deluge.model.ProjectModel;
+import org.chuck.deluge.model.SoundDrum;
 import org.chuck.deluge.model.StepData;
 import org.chuck.deluge.model.SynthTrackModel;
 import org.chuck.deluge.model.TrackModel;
+import org.chuck.deluge.project.PreferencesManager;
 
 /** Glue code to convert the existing XML-loaded models into the high-fidelity firmware engine. */
 public class FirmwareFactory {
@@ -19,6 +27,7 @@ public class FirmwareFactory {
     Song song = new Song();
     song.tempoBPM = model.getBpm();
 
+    System.out.println("[FirmwareFactory] Creating FW Song. Tracks in model: " + model.getTracks().size());
     for (TrackModel track : model.getTracks()) {
       if (track instanceof SynthTrackModel synthTrack) {
         InstrumentClip clip = createInstrumentClip(synthTrack);
@@ -38,7 +47,6 @@ public class FirmwareFactory {
     FirmwareSound sound = new FirmwareSound();
     clip.sound = sound;
 
-    // Map note rows
     if (!model.getClips().isEmpty()) {
       ClipModel clipModel = model.getClips().get(0);
       clip.loopLength = clipModel.getStepCount() * 24;
@@ -55,33 +63,50 @@ public class FirmwareFactory {
         clip.noteRows.add(row);
       }
     }
-
-    // Map patch cables
-    for (org.chuck.deluge.model.PatchCable cable : model.getPatchCables()) {
-      int paramId = mapParam(cable.destination());
-      if (paramId != -1) {
-        org.chuck.deluge.firmware.modulation.patch.PatchCable fwCable =
-            new org.chuck.deluge.firmware.modulation.patch.PatchCable();
-        fwCable.from = mapSource(cable.source());
-        fwCable.amount = (int) (cable.amount() * 2147483647.0);
-        sound.paramManager.getPatchCableSet().addCable(paramId, fwCable);
-      }
-    }
-
     return clip;
   }
 
-  private static InstrumentClip createKitClip(KitTrackModel model) {
+  public static InstrumentClip createKitClip(KitTrackModel model) {
     InstrumentClip clip = new InstrumentClip();
-    FirmwareSound sound = new FirmwareSound();
-    clip.sound = sound;
+    FirmwareKit kit = new FirmwareKit();
+    clip.sound = kit;
     clip.loopLength = 16 * 24;
+
+    File sdRoot = PreferencesManager.getLibraryDir();
+    // ── High-Fidelity Path Resolution ──
+    // In dev environment, samples are often in src/main/resources/SAMPLES
+    File devSamples = new File("deluge/src/main/resources");
+
+    int drumIdx = 0;
+    for (Drum d : model.getDrums()) {
+      if (drumIdx >= kit.drumSounds.size()) break;
+      if (d instanceof SoundDrum sd) {
+        FirmwareSound drumSound = kit.drumSounds.get(drumIdx);
+        drumSound.oscTypes[0] = OscType.SAMPLE;
+        
+        String path = sd.getSamplePath();
+        if (path != null && !path.isEmpty()) {
+            File f = resolveSample(path, sdRoot, devSamples);
+            if (f != null && f.exists()) {
+                try {
+                    Sample sample = AudioFileReader.readSample(f.getAbsolutePath());
+                    drumSound.samples[0] = sample;
+                    System.out.println("[FirmwareFactory] Loaded sample: " + f.getName() + " (size: " + sample.getNumSamples() + ")");
+                } catch (IOException e) {
+                    System.err.println("[FirmwareFactory] Failed to load kit sample: " + path);
+                }
+            } else {
+                System.err.println("[FirmwareFactory] Sample NOT FOUND: " + path);
+            }
+        }
+      }
+      drumIdx++;
+    }
 
     if (!model.getClips().isEmpty()) {
       ClipModel clipModel = model.getClips().get(0);
       clip.loopLength = clipModel.getStepCount() * 24;
       for (int r = 0; r < clipModel.getRowCount(); r++) {
-        // For Kits, y attribute or row index maps to drumIndex
         NoteRow row = new NoteRow(r);
         for (int s = 0; s < clipModel.getStepCount(); s++) {
           StepData step = clipModel.getStep(r, s);
@@ -96,50 +121,24 @@ public class FirmwareFactory {
     return clip;
   }
 
-  private static int mapParam(String p) {
-    if (p == null) return -1;
-    return switch (p) {
-      case "lpfFrequency" -> Param.LOCAL_LPF_FREQ;
-      case "lpfResonance" -> Param.LOCAL_LPF_RESONANCE;
-      case "hpfFrequency" -> Param.LOCAL_HPF_FREQ;
-      case "hpfResonance" -> Param.LOCAL_HPF_RESONANCE;
-      case "volume" -> Param.LOCAL_VOLUME;
-      case "pan" -> Param.LOCAL_PAN;
-      case "oscAVolume" -> Param.LOCAL_OSC_A_VOLUME;
-      case "oscBVolume" -> Param.LOCAL_OSC_B_VOLUME;
-      case "noiseVolume" -> Param.LOCAL_NOISE_VOLUME;
-      case "modulator1Feedback" -> Param.LOCAL_MODULATOR_0_FEEDBACK;
-      case "modulator2Feedback" -> Param.LOCAL_MODULATOR_1_FEEDBACK;
-      case "carrier1Feedback" -> Param.LOCAL_CARRIER_0_FEEDBACK;
-      case "carrier2Feedback" -> Param.LOCAL_CARRIER_1_FEEDBACK;
-      case "modFXRate" -> Param.GLOBAL_MOD_FX_RATE;
-      case "modFXDepth" -> Param.GLOBAL_MOD_FX_DEPTH;
-      case "delayRate" -> Param.GLOBAL_DELAY_RATE;
-      case "reverbAmount" -> Param.GLOBAL_REVERB_AMOUNT;
-      case "stutterRate" -> Param.UNPATCHED_STUTTER_RATE;
-      case "sampleRateReduction" -> Param.UNPATCHED_SAMPLE_RATE_REDUCTION;
-      case "bitCrush" -> Param.UNPATCHED_BITCRUSHING;
-      case "waveIndex" -> Param.LOCAL_OSC_A_WAVE_INDEX;
-      default -> -1;
-    };
-  }
-
-  private static PatchSource mapSource(String s) {
-    if (s == null) return PatchSource.NONE;
-    return switch (s.toUpperCase()) {
-      case "LFO1" -> PatchSource.LFO_LOCAL_1;
-      case "LFO2" -> PatchSource.LFO_LOCAL_2;
-      case "ENVELOPE1" -> PatchSource.ENVELOPE_0;
-      case "ENVELOPE2" -> PatchSource.ENVELOPE_1;
-      case "ENVELOPE3" -> PatchSource.ENVELOPE_2;
-      case "ENVELOPE4" -> PatchSource.ENVELOPE_3;
-      case "VELOCITY" -> PatchSource.VELOCITY;
-      case "AFTERTOUCH" -> PatchSource.AFTERTOUCH;
-      case "RANDOM" -> PatchSource.RANDOM;
-      case "X" -> PatchSource.X;
-      case "Y" -> PatchSource.Y;
-      case "SIDECHAIN" -> PatchSource.SIDECHAIN;
-      default -> PatchSource.NONE;
-    };
+  private static File resolveSample(String path, File sdRoot, File devRoot) {
+      File[] roots = {sdRoot, devRoot, new File(".")};
+      for (File root : roots) {
+          if (root == null) continue;
+          File f = new File(root, path);
+          if (f.exists()) return f;
+          
+          // Case-insensitive fallback
+          File parent = new File(root, new File(path).getParent() != null ? new File(path).getParent() : "");
+          if (parent.isDirectory()) {
+              String name = new File(path).getName();
+              File[] matches = parent.listFiles((dir, n) -> n.equalsIgnoreCase(name));
+              if (matches != null && matches.length > 0) return matches[0];
+          }
+      }
+      // Absolute path check
+      File absolute = new File(path);
+      if (absolute.exists()) return absolute;
+      return null;
   }
 }

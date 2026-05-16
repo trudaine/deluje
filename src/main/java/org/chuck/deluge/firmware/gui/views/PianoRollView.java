@@ -22,6 +22,13 @@ public class PianoRollView extends FirmwareView {
       int notePitch = scrollY - y;
 
       if (velocity > 0) {
+        // ── Bit-Accurate Audition ──
+        if (clip.sound != null) {
+            if (clip.sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound) {
+                ((org.chuck.deluge.firmware.engine.FirmwareSound)clip.sound).triggerNote(notePitch, velocity);
+            }
+        }
+
         // Toggle note
         NoteRow row = null;
         for (NoteRow r : clip.noteRows) {

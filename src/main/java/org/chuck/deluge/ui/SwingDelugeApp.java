@@ -8,6 +8,8 @@ import javax.swing.*;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.firmware.engine.FirmwareFactory;
+import org.chuck.deluge.firmware.gui.views.KitView;
+import org.chuck.deluge.firmware.gui.views.PianoRollView;
 import org.chuck.deluge.firmware.gui.views.SessionView;
 import org.chuck.deluge.firmware.hid.Flasher;
 import org.chuck.deluge.firmware.hid.MatrixDriver;
@@ -1149,11 +1151,27 @@ public class SwingDelugeApp extends JFrame {
       vm.setGlobalFloat(BridgeContract.G_SP_EQ_TREBLE_FREQ, kp.get("eqTrebleFrequency"));
   }
 
+  private org.chuck.deluge.engine.PureFirmwareEngine pureEngine;
+
   public SwingDelugeApp(
       ChuckVM vm, BridgeContract bridge, org.chuck.deluge.midi.MidiService midiService) {
+    this(vm, bridge, midiService, false);
+  }
+
+  public SwingDelugeApp(
+      ChuckVM vm, BridgeContract bridge, org.chuck.deluge.midi.MidiService midiService, boolean pureMode) {
     this.vm = vm;
     this.bridge = bridge;
     this.midiService = midiService;
+
+    if (pureMode) {
+      System.out.println("[UI] Initializing Pure Java High-Fidelity Engine...");
+      this.pureEngine = new org.chuck.deluge.engine.PureFirmwareEngine();
+      this.pureEngine.start(vm);
+      // Register in bridge for components that poll it
+      vm.setGlobalObject(BridgeContract.G_FIRMWARE_ENGINE, pureEngine.getAudioEngine());
+      vm.setGlobalObject(BridgeContract.G_PLAYBACK_HANDLER, pureEngine.getPlaybackHandler());
+    }
 
     // Inflate Font Sizes globally (2x bigger)
     java.util.Enumeration<Object> keys = UIManager.getDefaults().keys();
@@ -1351,11 +1369,7 @@ public class SwingDelugeApp extends JFrame {
 
     pushModelToBridge();
     propagateCurrentModel();
-
-    // ── Sync Firmware Logic ──
-    org.chuck.deluge.firmware.model.Song fwSong = FirmwareFactory.createSong(model);
-    MatrixDriver.get().popUI();
-    MatrixDriver.get().pushUI(new SessionView(fwSong));
+    syncHighFidelityEngine(model);
 
     if (clipPanel != null) clipPanel.setProjectModel(model);
     if (songPanel != null) songPanel.setProjectModel(model);
@@ -1364,6 +1378,47 @@ public class SwingDelugeApp extends JFrame {
     setTitle(
         "DELUGE WORKSTATION — "
             + (currentProjectFile != null ? currentProjectFile.getName() : "Untitled"));
+  }
+
+  private void syncHighFidelityEngine(org.chuck.deluge.model.ProjectModel model) {
+    org.chuck.deluge.firmware.model.Song fwSong = FirmwareFactory.createSong(model);
+    MatrixDriver.get().popUI();
+    
+    // Switch View to the first track's clip if possible
+    if (!fwSong.clips.isEmpty()) {
+        org.chuck.deluge.firmware.model.Clip first = fwSong.clips.get(0);
+        if (first instanceof org.chuck.deluge.firmware.model.InstrumentClip ic) {
+            if (ic.sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit) {
+                MatrixDriver.get().pushUI(new KitView(ic));
+            } else {
+                MatrixDriver.get().pushUI(new PianoRollView(ic));
+            }
+        } else {
+            MatrixDriver.get().pushUI(new SessionView(fwSong));
+        }
+    } else {
+        MatrixDriver.get().pushUI(new SessionView(fwSong));
+    }
+
+    // ── Sync Audio Registry ──
+    Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+    if (fwEngineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
+        fwEngine.sounds.clear();
+        for (org.chuck.deluge.firmware.model.Clip c : fwSong.clips) {
+            if (c instanceof org.chuck.deluge.firmware.model.InstrumentClip ic && ic.sound != null) {
+                if (!fwEngine.sounds.contains(ic.sound)) fwEngine.sounds.add(ic.sound);
+            }
+        }
+        
+        float masterVol = (float) vm.getGlobalFloat(BridgeContract.G_MASTER_VOL);
+        fwEngine.masterVolumeAdjustmentL = (int)(masterVol * 2147483647.0);
+        fwEngine.masterVolumeAdjustmentR = fwEngine.masterVolumeAdjustmentL;
+    }
+    
+    Object fwHandlerObj = vm.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
+    if (fwHandlerObj instanceof org.chuck.deluge.firmware.playback.PlaybackHandler fwHandler) {
+        fwHandler.setSong(fwSong);
+    }
   }
 
   private void refreshGrids() {
@@ -2128,6 +2183,7 @@ public class SwingDelugeApp extends JFrame {
                       Consequence.TrackStructureConsequence.ADD, idx, track, "Add track"));
           pushModelToBridge();
           propagateCurrentModel();
+          syncHighFidelityEngine(currentProject);
           refreshGrids();
           cardLayout.show(centerCardPanel, "CLIP");
           if (topBar != null) topBar.selectClipView();
@@ -2276,23 +2332,33 @@ public class SwingDelugeApp extends JFrame {
     org.chuck.core.ChuckVM vm = new org.chuck.core.ChuckVM(44100, 2);
     org.chuck.deluge.BridgeContract bridge = new org.chuck.deluge.BridgeContract();
 
+    boolean pureModeLocal = false;
     for (String arg : args) {
       if ("--hifi".equalsIgnoreCase(arg)) {
         bridge.setHiFiMode(1);
         System.out.println("[main] High Fidelity Mode ENABLED");
       }
+      if ("--pure".equalsIgnoreCase(arg)) {
+        pureModeLocal = true;
+        bridge.setHiFiMode(1);
+        System.out.println("[main] Pure Java Mode ENABLED (Bypassing ChucK DSL)");
+      }
     }
 
     bridge.register(vm);
 
-    org.chuck.audio.ChuckAudio audio = new org.chuck.audio.ChuckAudio(vm, 1024, 2, 44100);
-    vm.setAudio(audio);
-    System.out.println("[main] audio.outputLine=" + (audio.isOutputLineReady() ? "OK" : "NULL"));
-    audio.start();
-    System.out.println("[main] audio started, activeShreds=" + vm.getActiveShredCount());
+    if (!pureModeLocal) {
+      org.chuck.audio.ChuckAudio audio = new org.chuck.audio.ChuckAudio(vm, 1024, 2, 44100);
+      vm.setAudio(audio);
+      System.out.println("[main] audio.outputLine=" + (audio.isOutputLineReady() ? "OK" : "NULL"));
+      audio.start();
+      System.out.println("[main] audio started, activeShreds=" + vm.getActiveShredCount());
 
-    vm.spork(new org.chuck.deluge.engine.DelugeEngineDSL());
-    System.out.println("[main] engine sporked, activeShreds=" + vm.getActiveShredCount());
+      vm.spork(new org.chuck.deluge.engine.DelugeEngineDSL());
+      System.out.println("[main] engine sporked, activeShreds=" + vm.getActiveShredCount());
+    } else {
+      System.out.println("[main] Pure Mode: Skipping ChucK Audio & DSL.");
+    }
 
     // Give engine time to initialize before UI loads
     try {
@@ -2307,9 +2373,10 @@ public class SwingDelugeApp extends JFrame {
         new org.chuck.deluge.midi.MidiService(vm, bridge, router);
     midiService.start();
 
+    final boolean finalPureMode = pureModeLocal;
     java.awt.EventQueue.invokeLater(
         () -> {
-          SwingDelugeApp app = new SwingDelugeApp(vm, bridge, midiService);
+          SwingDelugeApp app = new SwingDelugeApp(vm, bridge, midiService, finalPureMode);
           app.setVisible(true);
           // Auto-load if a file path is provided as argument
           if (args.length > 0 && args[0] != null && !args[0].isEmpty()) {

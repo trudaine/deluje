@@ -10,6 +10,8 @@ import org.chuck.audio.util.*;
 import org.chuck.core.*;
 import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.engine.dsp.*;
+import org.chuck.deluge.firmware.engine.FirmwareAudioEngine;
+import org.chuck.deluge.firmware.playback.PlaybackHandler;
 
 /**
  * Native Java implementation of the Deluge audio engine, written in the ChucK-Java DSL.
@@ -396,6 +398,80 @@ public class DelugeEngineDSL implements Shred, Runnable {
         case 4 -> new org.chuck.audio.fx.RingsReverb();
         default -> new JCRev();
       };
+    }
+  }
+
+  // ── PureFirmwareMasterShred ──────────────────────────────────
+  /** 
+   * High-fidelity 'Pure Java' path. Bypasses all ChucK synthesis and sequencing.
+   * Runs the ported C++ logic directly.
+   */
+  public static final class PureFirmwareMasterShred implements Runnable {
+    private final ChuckVM vm;
+    private final FirmwareAudioEngine fwEngine = new FirmwareAudioEngine();
+    private final PlaybackHandler playbackHandler = new PlaybackHandler();
+
+    public PureFirmwareMasterShred(ChuckVM vm) {
+      this.vm = vm;
+    }
+
+    @Override
+    public void run() {
+      System.out.println("[PureFirmwareMasterShred] Active - Hi-Fi Mode");
+      
+      // Register engine and handler in bridge for UI access
+      vm.setGlobalObject(BridgeContract.G_FIRMWARE_ENGINE, fwEngine);
+      vm.setGlobalObject(BridgeContract.G_PLAYBACK_HANDLER, playbackHandler);
+
+      // 1. Initial State
+      playbackHandler.start();
+
+      // 2. Output Bridge
+      FirmwareEngineUGen outputBridge = new FirmwareEngineUGen(fwEngine, playbackHandler);
+      outputBridge.chuck(vm.dac);
+
+      // 3. State Synchronization Loop
+      while (true) {
+          float bpm = (float) vm.getGlobalFloat(BridgeContract.G_BPM);
+          outputBridge.updateBpm(bpm);
+          
+          // ── Real-Time Parameter Sync ──
+          for (org.chuck.deluge.firmware.engine.GlobalEffectable sound : fwEngine.sounds) {
+              // 1. Synth-specific params
+              if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound fs) {
+                  fs.paramNeutralValues[org.chuck.deluge.firmware.modulation.params.Param.LOCAL_VOLUME] = 
+                      (int)(vm.getGlobalFloat(BridgeContract.G_SP_VOLUME) * 2147483647.0);
+                  fs.paramNeutralValues[org.chuck.deluge.firmware.modulation.params.Param.LOCAL_PAN] = 
+                      (int)(vm.getGlobalFloat(BridgeContract.G_SP_PAN) * 2147483647.0);
+                  fs.paramNeutralValues[org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_FREQ] = 
+                      (int)(vm.getGlobalFloat(BridgeContract.G_SP_LPF_FREQ) * 2147483647.0);
+                  fs.paramNeutralValues[org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_RESONANCE] = 
+                      (int)(vm.getGlobalFloat(BridgeContract.G_SP_LPF_RES) * 2147483647.0);
+                  fs.paramNeutralValues[org.chuck.deluge.firmware.modulation.params.Param.GLOBAL_REVERB_AMOUNT] = 
+                      (int)(vm.getGlobalFloat(BridgeContract.G_SP_REVERB_AMOUNT) * 2147483647.0);
+                  fs.paramNeutralValues[org.chuck.deluge.firmware.modulation.params.Param.GLOBAL_DELAY_RATE] = 
+                      (int)(vm.getGlobalFloat(BridgeContract.G_SP_DELAY_RATE) * 2147483647.0);
+                  fs.paramNeutralValues[org.chuck.deluge.firmware.modulation.params.Param.UNPATCHED_STUTTER_RATE] = 
+                      (int)(vm.getGlobalFloat(BridgeContract.G_SP_STUTTER_RATE) * 2147483647.0);
+              }
+              
+              // 2. Global Track FX (Filters, Delay, Reverb)
+              sound.filterSet.setConfig(
+                  (int)(vm.getGlobalFloat(BridgeContract.G_SP_LPF_FREQ) * 2147483647.0),
+                  (int)(vm.getGlobalFloat(BridgeContract.G_SP_LPF_RES) * 536870896.0),
+                  org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.TRANSISTOR_12DB,
+                  0, // morph
+                  (int)(vm.getGlobalFloat(BridgeContract.G_SP_HPF_FREQ) * 2147483647.0),
+                  (int)(vm.getGlobalFloat(BridgeContract.G_SP_HPF_RES) * 536870896.0),
+                  org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF,
+                  0, // morph
+                  1 << 28, // gain
+                  org.chuck.deluge.firmware.dsp.filter.FilterRoute.HIGH_TO_LOW
+              );
+          }
+          
+          advance(second(0.05)); 
+      }
     }
   }
 
@@ -3714,6 +3790,18 @@ public class DelugeEngineDSL implements Shred, Runnable {
 
   private void transport_shred() {
     System.out.println("[transport] entered");
+
+    // ── High Fidelity / Pure Java Path ──
+    if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
+        System.out.println("[transport] Entering High-Fidelity (Pure Java) Mode");
+        vm.spork(new PureFirmwareMasterShred(vm)::run);
+        
+        while (isRunning()) {
+            advance(ms(100));
+        }
+        return;
+    }
+
     vm.setGlobalObject(BridgeContract.G_DELAY_IN, new Gain());
     vm.setGlobalObject(BridgeContract.G_REVERB_IN, new Gain());
     vm.setGlobalObject(BridgeContract.G_SYNTH_BUS, new Gain());

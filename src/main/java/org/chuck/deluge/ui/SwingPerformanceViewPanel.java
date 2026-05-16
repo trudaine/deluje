@@ -465,6 +465,22 @@ public class SwingPerformanceViewPanel extends JPanel {
   /** Write a value to the column's parameter for the focus track. */
   private void writeValue(int col, float val) {
     if (focusTrack < 0) return;
+    
+    // ── Sync with Firmware Engine ──
+    Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+    if (fwEngineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
+        if (focusTrack < fwEngine.sounds.size()) {
+            org.chuck.deluge.firmware.engine.GlobalEffectable sound = fwEngine.sounds.get(focusTrack);
+            if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound fs) {
+                // Map performance column to firmware param
+                int paramId = mapPerfColToParam(col);
+                if (paramId != -1) {
+                    fs.paramNeutralValues[paramId] = (int)(val * 2147483647.0);
+                }
+            }
+        }
+    }
+
     switch (col) {
       case 0 -> writeChuckFloat(BridgeContract.G_TRACK_LEVEL, focusTrack, val);
       case 1 -> writeChuckFloat(BridgeContract.G_PAN, focusTrack, val);
@@ -484,6 +500,19 @@ public class SwingPerformanceViewPanel extends JPanel {
       case 15 -> writeChuckFloat(BridgeContract.G_NOISE_VOL, focusTrack, val);
       default -> {}
     }
+  }
+
+  private int mapPerfColToParam(int col) {
+      return switch (col) {
+          case 0 -> org.chuck.deluge.firmware.modulation.params.Param.LOCAL_VOLUME;
+          case 1 -> org.chuck.deluge.firmware.modulation.params.Param.LOCAL_PAN;
+          case 2 -> org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_FREQ;
+          case 3 -> org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_RESONANCE;
+          case 8 -> org.chuck.deluge.firmware.modulation.params.Param.GLOBAL_DELAY_RATE;
+          case 9 -> org.chuck.deluge.firmware.modulation.params.Param.GLOBAL_REVERB_AMOUNT;
+          case 10 -> org.chuck.deluge.firmware.modulation.params.Param.UNPATCHED_STUTTER_RATE;
+          default -> -1;
+      };
   }
 
   /** Refresh all pad background colors from latch state. */

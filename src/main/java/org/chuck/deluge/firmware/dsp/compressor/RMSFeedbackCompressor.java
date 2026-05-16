@@ -145,9 +145,9 @@ public class RMSFeedbackCompressor {
 
     if (!onLastTime) {
       lastSaturationTanHWorkingValue[0] =
-          FirmwareUtils.lshiftAndSaturateUnknown(buffer[0].l, saturationAmount) + 2147483647;
+          FirmwareUtils.lshiftAndSaturate(buffer[0].l, saturationAmount) + 2147483647;
       lastSaturationTanHWorkingValue[1] =
-          FirmwareUtils.lshiftAndSaturateUnknown(buffer[0].r, saturationAmount) + 2147483647;
+          FirmwareUtils.lshiftAndSaturate(buffer[0].r, saturationAmount) + 2147483647;
       onLastTime = true;
     }
 

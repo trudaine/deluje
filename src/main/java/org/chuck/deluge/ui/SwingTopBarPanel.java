@@ -1,5 +1,6 @@
 package org.chuck.deluge.ui;
 
+import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -13,17 +14,16 @@ import javax.swing.JSeparator;
 import javax.swing.JSlider;
 import javax.swing.JToggleButton;
 import javax.swing.SwingConstants;
-import javax.swing.Timer;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.firmware.hid.FirmwareDisplay;
+import org.chuck.deluge.firmware.hid.MatrixDriver;
 import org.chuck.deluge.model.ProjectModel;
 
 /**
  * Top toolbar panel with view mode toggles, track add buttons, transport controls, and master
  * sliders. Uses FlowLayout so controls wrap to multiple rows when the window is too narrow to fit
- * them on one line. Placed inside a BorderLayout.NORTH wrapper in SwingDelugeApp so the top bar can
- * grow vertically as controls wrap.
+ * them on one line.
  */
 public class SwingTopBarPanel extends JPanel {
 
@@ -42,7 +42,6 @@ public class SwingTopBarPanel extends JPanel {
 
   /**
    * @param vm ChucK virtual machine for direct bridge writes
-   * @param bridge bridge contract (used only for G_PLAY/G_STOP constants)
    * @param projectModel current project model (used for track count in dialogs)
    * @param leftFloat the explorer JDialog toggled by the EXPLORER button
    * @param rightFloat the monitor JDialog toggled by the MONITOR button
@@ -93,19 +92,16 @@ public class SwingTopBarPanel extends JPanel {
     JButton addKitBtn = new JButton("+ KIT");
     addKitBtn.setBackground(new Color(0x33, 0x44, 0x55));
     addKitBtn.setForeground(Color.WHITE);
-    addKitBtn.setToolTipText("Add a new Kit (drum) track to the song");
     addKitBtn.addActionListener(e -> listener.onAddTrack("KIT"));
 
     JButton addSynthBtn = new JButton("+ SYNTH");
     addSynthBtn.setBackground(new Color(0x44, 0x33, 0x55));
     addSynthBtn.setForeground(Color.WHITE);
-    addSynthBtn.setToolTipText("Add a new Synth track to the song");
     addSynthBtn.addActionListener(e -> listener.onAddTrack("SYNTH"));
 
     JButton addAudioBtn = new JButton("+ AUDIO");
     addAudioBtn.setBackground(new Color(0x33, 0x55, 0x44));
     addAudioBtn.setForeground(Color.WHITE);
-    addAudioBtn.setToolTipText("Add a new Audio (recording) track to the song");
     addAudioBtn.addActionListener(e -> listener.onAddTrack("AUDIO"));
 
     add(addKitBtn);
@@ -140,68 +136,82 @@ public class SwingTopBarPanel extends JPanel {
     stopBtn.setForeground(Color.WHITE);
     stopBtn.addActionListener(e -> vm.setGlobalInt(BridgeContract.G_PLAY, 0L));
     add(stopBtn);
-
-    JToggleButton recBtn = new JToggleButton("\u25CF REC");
-    recBtn.setForeground(Color.RED);
-    recBtn.addActionListener(
-        e -> {
-          // Rec button references midiService which lives in SwingDelugeApp — skip it here;
-          // SwingDelugeApp can observe the button state via a public accessor if needed.
-        });
-    add(recBtn);
     add(new JSeparator(JSeparator.VERTICAL));
 
     // ── Sliders ──
 
-    JLabel tempoLabel = new JLabel("BPM:");
-    tempoLabel.setForeground(Color.WHITE);
-    add(tempoLabel);
-
+    add(new JLabel("BPM:"));
     JSlider bpmSlider = new JSlider(60, 200, (int) projectModel.getBpm());
     bpmSlider.addChangeListener(e -> projectModel.setBpm(bpmSlider.getValue()));
     add(bpmSlider);
 
-    JLabel swingLabel = new JLabel("SWING:");
-    swingLabel.setForeground(Color.WHITE);
-    add(swingLabel);
-
-    JSlider swingSlider = new JSlider(0, 100, (int) (projectModel.getSwing() * 100));
-    swingSlider.addChangeListener(e -> projectModel.setSwing(swingSlider.getValue() / 100.0f));
-    add(swingSlider);
-
-    JLabel volLabel = new JLabel("MASTER:");
-    volLabel.setForeground(Color.WHITE);
-    add(volLabel);
-
+    add(new JLabel("MASTER:"));
     masterVolSlider = new JSlider(0, 100, (int) (projectModel.getMasterVolume() * 100));
     masterVolSlider.addChangeListener(
         e -> projectModel.setMasterVolume(masterVolSlider.getValue() / 100.0f));
     add(masterVolSlider);
+
+    // ── Pure Java Mode Indicator ──
+    JLabel pureLabel = new JLabel(" PURE JAVA ");
+    pureLabel.setOpaque(true);
+    pureLabel.setBackground(new Color(0, 50, 0));
+    pureLabel.setForeground(new Color(0, 255, 0));
+    pureLabel.setFont(new Font("Monospaced", Font.BOLD, 12));
+    pureLabel.setBorder(BorderFactory.createLineBorder(Color.GREEN, 1));
+    pureLabel.setVisible(vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0);
+    add(pureLabel);
 
     // ── Firmware LED Display (OLED) ──
     SwingOledPanel oledPanel = new SwingOledPanel();
     oledPanel.setBorder(BorderFactory.createLineBorder(Color.DARK_GRAY, 2));
     add(oledPanel);
 
-    FirmwareDisplay.get()
-        .setListener(
-            (main, popup) -> {
-                // Keep the listener for potential other logic, 
-                // but the oledPanel now handles rendering directly.
-            });
+    // ── High-Fidelity Encoders ──
+    JPanel encoderPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 2));
+    encoderPanel.setBackground(new Color(0x25, 0x25, 0x25));
+    
+    encoderPanel.add(createEncoderSim("HORIZ", (offset) -> MatrixDriver.get().horizontalEncoderAction(offset)));
+    encoderPanel.add(createEncoderSim("VERT", (offset) -> MatrixDriver.get().verticalEncoderAction(offset)));
+    
+    JButton selectBtn = new JButton("SELECT");
+    selectBtn.setBackground(new Color(0xaa, 0xaa, 0xaa));
+    selectBtn.addActionListener(e -> MatrixDriver.get().selectButtonAction(true));
+    encoderPanel.add(selectBtn);
+    
+    encoderPanel.add(createEncoderSim("SCROLL", (offset) -> MatrixDriver.get().selectEncoderAction(offset)));
+    
+    add(encoderPanel);
+
+    FirmwareDisplay.get().setListener((main, popup) -> {
+        // Handled by oledPanel
+    });
   }
 
-  /** Programmatically select the CLIP view toggle button (e.g. after loading a project). */
+  private JPanel createEncoderSim(String name, java.util.function.Consumer<Integer> onRotate) {
+    JPanel p = new JPanel(new BorderLayout());
+    p.setBackground(new Color(0x33, 0x33, 0x33));
+    JLabel l = new JLabel(name, SwingConstants.CENTER);
+    l.setForeground(Color.WHITE);
+    l.setFont(new Font("SansSerif", Font.BOLD, 10));
+    p.add(l, BorderLayout.NORTH);
+    
+    JButton left = new JButton("<");
+    JButton right = new JButton(">");
+    left.addActionListener(e -> onRotate.accept(-1));
+    right.addActionListener(e -> onRotate.accept(1));
+    p.add(left, BorderLayout.WEST);
+    p.add(right, BorderLayout.EAST);
+    return p;
+  }
+
   public void selectClipView() {
     clipBtn.setSelected(true);
   }
 
-  /** Programmatically set the master volume slider value (e.g. for bottom-slider sync). */
   public void setMasterVol(int value) {
     masterVolSlider.setValue(value);
   }
 
-  /** Current master volume slider value. */
   public int getMasterVol() {
     return masterVolSlider.getValue();
   }
