@@ -35,6 +35,34 @@ public class MidiService {
     engine.setOnPitchBend(this::handlePitchBend);
     engine.setOnChannelAftertouch(this::handleChannelAftertouch);
     engine.setOnSystemRealtime(this::handleSystemRealtime);
+
+    // Wire MidiFollow into the engine's CC path
+    engine.setMidiFollow(createMidiFollow());
+  }
+
+  /** Create and configure the MidiFollow instance for this service. */
+  private MidiFollow createMidiFollow() {
+    MidiFollow follow = new MidiFollow();
+    follow.setTakeover(new MidiTakeover());
+
+    // Route params through the VM
+    follow.setOnSetParam((paramName, value) -> {
+      if (vm != null && paramName != null) {
+        vm.setGlobalFloat(paramName, (double) value);
+        if (vm.getLogLevel() >= 2) {
+          System.out.println("[MidiFollow] Set " + paramName + " = " + String.format("%.3f", value));
+        }
+      }
+    });
+
+    // Forward unhandled CCs to the existing fallback path
+    follow.setOnUnhandledCC(msg -> {
+      String portName = PreferencesManager.get("midi.input", "None");
+      fallbackCCHandler(msg.data1(), msg.data2() & 0x7F, portName);
+    });
+
+    follow.setLogLevel(vm != null ? vm.getLogLevel() : 0);
+    return follow;
   }
 
   /** Returns the MidiEngine instance for direct access. */
@@ -117,15 +145,15 @@ public class MidiService {
   }
 
   /**
-   * Called by engine when a CC is received. Handles MIDI Learn, device definition mapping, and
-   * preferences-based fallback.
+   * Called by engine when a CC is received. Delegates to MidiFollow for routing, with MIDI Learn
+   * intercepted before the normal path.
    */
   private void handleControlChangeFromEngine(MIDIMessage msg) {
     int cc = msg.data1();
-    int val = msg.data2();
-    String portName = PreferencesManager.get("midi.input", "None");
 
+    // MIDI Learn intercept — take over before MidiFollow routes
     if (learning) {
+      String portName = PreferencesManager.get("midi.input", "None");
       System.out.println(
           "MIDI LEARN: Bound CC " + cc + " to " + learnTargetParam + " on device " + portName);
       PreferencesManager.set("midi.learn." + portName + "." + learnTargetParam, String.valueOf(cc));
@@ -134,26 +162,17 @@ public class MidiService {
       return;
     }
 
-    // First check device definition for this CC
-    if (currentDevice != null) {
-      MidiDeviceDefinition.CcMapping mapping = currentDevice.findMapping(cc);
-      if (mapping != null) {
-        float normalizedVal = val / 127.0f;
-        vm.setGlobalFloat(mapping.paramName(), normalizedVal);
-        if (vm.getLogLevel() >= 2) {
-          System.out.println(
-              "MIDI: Updated "
-                  + mapping.paramName()
-                  + " to "
-                  + normalizedVal
-                  + " via device "
-                  + currentDevice.getName());
-        }
-        return;
-      }
+    // Delegate to MidiFollow for all CC routing
+    if (engine.getMidiFollow() != null) {
+      engine.getMidiFollow().handleCC(msg);
     }
+  }
 
-    // Fall back to preferences-based mappings
+  /**
+   * Fallback CC handler — used by MidiFollow when no device definition or built-in registry mapping
+   * exists for a CC. Uses PreferencesManager-based learned mappings.
+   */
+  private void fallbackCCHandler(int cc, int val, String portName) {
     String[] keys = PreferencesManager.getKeys();
     String prefix = "midi.learn." + portName + ".";
     for (String key : keys) {
@@ -239,6 +258,9 @@ public class MidiService {
   public void setDeviceDefinition(MidiDeviceDefinition def) {
     this.currentDevice = def;
     router.setDeviceDefinition(def);
+    if (engine.getMidiFollow() != null) {
+      engine.getMidiFollow().setDeviceDefinition(def);
+    }
     String portName = PreferencesManager.get("midi.input", "None");
     PreferencesManager.set("midi.device." + portName, def != null ? def.getId() : "");
   }
