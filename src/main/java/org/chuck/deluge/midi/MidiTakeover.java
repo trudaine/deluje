@@ -100,9 +100,7 @@ public class MidiTakeover {
 
   // ===================== State Management =====================
 
-  /**
-   * Update the tracked value for a CC without processing (set after internal parameter change).
-   */
+  /** Update the tracked value for a CC without processing (set after internal parameter change). */
   public void setTrackedValue(int cc, int value) {
     if (cc >= 0 && cc < 128) {
       trackedValues[cc] = value & 0x7F;

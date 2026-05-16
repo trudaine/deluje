@@ -1,21 +1,21 @@
 package org.chuck.deluge.engine.dsp;
 
 import org.chuck.audio.util.StereoUGen;
+import org.chuck.deluge.firmware.dsp.StereoSample;
 import org.chuck.deluge.firmware.engine.FirmwareAudioEngine;
 import org.chuck.deluge.firmware.playback.PlaybackHandler;
-import org.chuck.deluge.firmware.dsp.StereoSample;
 import org.chuck.deluge.firmware.util.Q31;
 
-/** 
- * A UGen that acts as the output bridge for the Pure Java Firmware Engine.
- * It pulls samples from the FirmwareAudioEngine and pushes them into the ChucK stream.
+/**
+ * A UGen that acts as the output bridge for the Pure Java Firmware Engine. It pulls samples from
+ * the FirmwareAudioEngine and pushes them into the ChucK stream.
  */
 public class FirmwareEngineUGen extends StereoUGen {
   private final FirmwareAudioEngine engine;
   private final PlaybackHandler playbackHandler;
   private int currentSampleIdx = 0;
   private int lastNumSamples = 0;
-  
+
   private double ticksPerSample = 0.005; // Default for 120BPM
   private double accumulatedTicks = 0;
 
@@ -26,11 +26,11 @@ public class FirmwareEngineUGen extends StereoUGen {
   }
 
   public void updateBpm(float bpm) {
-      // 96 PPQN, 4 beats per bar, 44100 samples per sec
-      // ticksPerSec = (bpm / 60) * 96
-      // ticksPerSample = ticksPerSec / 44100
-      double ticksPerSec = (bpm / 60.0) * 96.0;
-      this.ticksPerSample = ticksPerSec / 44100.0;
+    // 96 PPQN, 4 beats per bar, 44100 samples per sec
+    // ticksPerSec = (bpm / 60) * 96
+    // ticksPerSample = ticksPerSec / 44100
+    double ticksPerSec = (bpm / 60.0) * 96.0;
+    this.ticksPerSample = ticksPerSec / 44100.0;
   }
 
   @Override
@@ -38,12 +38,12 @@ public class FirmwareEngineUGen extends StereoUGen {
     if (currentSampleIdx >= lastNumSamples) {
       // 1. Advance the sequencer by the number of ticks in the last block
       if (playbackHandler != null && lastNumSamples > 0) {
-          accumulatedTicks += ticksPerSample * lastNumSamples;
-          int ticksToAdvance = (int) accumulatedTicks;
-          if (ticksToAdvance > 0) {
-              playbackHandler.advanceTicks(ticksToAdvance);
-              accumulatedTicks -= ticksToAdvance;
-          }
+        accumulatedTicks += ticksPerSample * lastNumSamples;
+        int ticksToAdvance = (int) accumulatedTicks;
+        if (ticksToAdvance > 0) {
+          playbackHandler.advanceTicks(ticksToAdvance);
+          accumulatedTicks -= ticksToAdvance;
+        }
       }
 
       // 2. Trigger a block render in the firmware synthesis engine

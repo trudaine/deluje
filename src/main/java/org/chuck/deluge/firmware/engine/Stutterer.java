@@ -9,8 +9,8 @@ import org.chuck.deluge.firmware.modulation.params.ParamManager;
 import org.chuck.deluge.firmware.util.FirmwareUtils;
 
 /**
- * Port of the Deluge's Stutterer class.
- * Implements real-time buffer-based stutter with bit-accurate rate mapping.
+ * Port of the Deluge's Stutterer class. Implements real-time buffer-based stutter with bit-accurate
+ * rate mapping.
  */
 public class Stutterer {
   public enum Status {

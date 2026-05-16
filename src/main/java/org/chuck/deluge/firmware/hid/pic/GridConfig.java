@@ -9,8 +9,8 @@ import org.chuck.deluge.project.PreferencesManager;
  * multiple grid sizes for the Swing UI, driven by {@link PreferencesManager.GridMode}.
  *
  * <p>All display-layer classes ({@link PIC}, {@link org.chuck.deluge.firmware.hid.MatrixDriver
- * MatrixDriver}, {@link org.chuck.deluge.firmware.hid.PadLEDs PadLEDs},
- * {@link SwingPicTransport}) reference these values rather than declaring their own constants.
+ * MatrixDriver}, {@link org.chuck.deluge.firmware.hid.PadLEDs PadLEDs}, {@link SwingPicTransport})
+ * reference these values rather than declaring their own constants.
  */
 public final class GridConfig {
 
@@ -18,8 +18,10 @@ public final class GridConfig {
 
   /** Default (hardware-real) display width in pads. */
   public static final int kHardwareWidth = 16;
+
   /** Default (hardware-real) display height in pads. */
   public static final int kHardwareHeight = 8;
+
   /** Fixed sidebar width — always 2 for the real Deluge and Swing alike. */
   public static final int kSideBarWidth = 2;
 

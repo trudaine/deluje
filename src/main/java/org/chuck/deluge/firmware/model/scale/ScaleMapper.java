@@ -1,8 +1,8 @@
 package org.chuck.deluge.firmware.model.scale;
 
 /**
- * Port of the Deluge's ScaleMapper class.
- * Implements bit-accurate scale transformations and note-snapping.
+ * Port of the Deluge's ScaleMapper class. Implements bit-accurate scale transformations and
+ * note-snapping.
  */
 public class ScaleMapper {
   private NoteSet lastTransitionNotes = new NoteSet();
@@ -23,7 +23,7 @@ public class ScaleMapper {
     // ── Bit-Accurate Scale Mapping ──
     // Hardware steps through transitional scales to find the best match
     // for moving notes from one scale to another without jarring jumps.
-    
+
     if (sourceScale.count() == targetScale.count()) {
       for (int i = 0; i < sourceScale.count(); i++) {
         int sNote = sourceScale.getNoteAt(i);
@@ -37,26 +37,26 @@ public class ScaleMapper {
     NoteSet initialScale = initialTransitionScale(sourceScale);
     int size = initialScale.count();
     NoteSet transitionScale = initialScale;
-    
+
     while (size != targetScale.count()) {
-        // Find next scale degree that minimizes distance
-        int bestNote = -1;
-        int minDistance = 100;
-        for (int i = 0; i < 12; i++) {
-            if (targetScale.hasNote(i) && !transitionScale.hasNote(i)) {
-                // heuristic mapping
-                bestNote = i;
-                break;
-            }
+      // Find next scale degree that minimizes distance
+      int bestNote = -1;
+      int minDistance = 100;
+      for (int i = 0; i < 12; i++) {
+        if (targetScale.hasNote(i) && !transitionScale.hasNote(i)) {
+          // heuristic mapping
+          bestNote = i;
+          break;
         }
-        if (bestNote == -1) break;
-        transitionScale.addNote(bestNote);
-        size = transitionScale.count();
+      }
+      if (bestNote == -1) break;
+      transitionScale.addNote(bestNote);
+      size = transitionScale.count();
     }
-    
+
     // Store offsets
     for (int i = 0; i < sourceScale.count() && i < targetScale.count(); i++) {
-        changes.setOffset(i, (byte)(targetScale.getNoteAt(i) - sourceScale.getNoteAt(i)));
+      changes.setOffset(i, (byte) (targetScale.getNoteAt(i) - sourceScale.getNoteAt(i)));
     }
 
     return true;

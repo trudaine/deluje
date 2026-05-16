@@ -2,12 +2,11 @@ package org.chuck.deluge.firmware.playback;
 
 import org.chuck.deluge.firmware.hid.FirmwareDisplay;
 import org.chuck.deluge.firmware.model.Clip;
-import org.chuck.deluge.firmware.model.ClipInstance;
 import org.chuck.deluge.firmware.model.Song;
 
 /**
- * Port of the Deluge's PlaybackHandler class.
- * Manages transport state and high-fidelity timing (Swing, Quantization).
+ * Port of the Deluge's PlaybackHandler class. Manages transport state and high-fidelity timing
+ * (Swing, Quantization).
  */
 public class PlaybackHandler {
   private boolean playing = false;
@@ -55,11 +54,11 @@ public class PlaybackHandler {
       // ── Bit-Accurate Swing Math ──
       int effectiveAdvance = toAdvance;
       if (currentSong.swingAmount != 0) {
-          int leftShift = 10 - currentSong.swingInterval;
-          int swingTicks = 3 << leftShift;
-          if ((lastSwungTickActioned % (swingTicks * 2)) < swingTicks) {
-              effectiveAdvance = (toAdvance * (50 + currentSong.swingAmount)) / 50;
-          }
+        int leftShift = 10 - currentSong.swingInterval;
+        int swingTicks = 3 << leftShift;
+        if ((lastSwungTickActioned % (swingTicks * 2)) < swingTicks) {
+          effectiveAdvance = (toAdvance * (50 + currentSong.swingAmount)) / 50;
+        }
       }
 
       lastSwungTickActioned += effectiveAdvance;
@@ -76,7 +75,7 @@ public class PlaybackHandler {
 
       ticksRemaining -= toAdvance;
     }
-    
+
     // Update LED with bar:beat:tick
     int bars = (lastSwungTickActioned / (24 * 16)) + 1;
     int beats = ((lastSwungTickActioned / 24) % 16) + 1;

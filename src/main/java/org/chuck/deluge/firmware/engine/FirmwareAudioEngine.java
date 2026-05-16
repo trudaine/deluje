@@ -1,6 +1,5 @@
 package org.chuck.deluge.firmware.engine;
 
-import java.util.ArrayList;
 import java.util.List;
 import org.chuck.deluge.firmware.dsp.StereoSample;
 import org.chuck.deluge.firmware.dsp.compressor.RMSFeedbackCompressor;
@@ -10,7 +9,7 @@ import org.chuck.deluge.firmware.util.Q31;
 
 /** Port of the Deluge's AudioEngine class. Performs master summing and global FX. */
 public class FirmwareAudioEngine {
-  public final List<GlobalEffectable> sounds = new ArrayList<>();
+  public final List<GlobalEffectable> sounds = new java.util.concurrent.CopyOnWriteArrayList<>();
   public final StereoSample[] masterBuffer = new StereoSample[128];
   public final StereoSample[] delayBuffer = new StereoSample[128];
   public final StereoSample[] reverbBuffer = new StereoSample[128];
@@ -31,8 +30,9 @@ public class FirmwareAudioEngine {
       delayBuffer[i] = new StereoSample();
       reverbBuffer[i] = new StereoSample();
     }
-    delayState.doDelay = true;
-    delayState.userDelayRate = 22050 << 5;
+    delayState.doDelay = false;
+    masterVolumeAdjustmentL = Q31.ONE;
+    masterVolumeAdjustmentR = Q31.ONE;
   }
 
   public void renderBlock(int numSamples) {
@@ -48,14 +48,16 @@ public class FirmwareAudioEngine {
     }
 
     for (GlobalEffectable sound : sounds) {
+      if (sound != null) {
         sound.renderOutput(masterBuffer, numSamples, monoReverbBuffer);
+      }
     }
 
     masterReverb.process(monoReverbBuffer, masterBuffer);
     masterDelay.process(masterBuffer, delayState);
-    
+
     // Hardware Master Compressor
-    masterCompressor.renderVolNeutral(masterBuffer, 1 << 27);
+    masterCompressor.renderVolNeutral(masterBuffer, Q31.ONE);
 
     // ── Master Gain & Limiter ──
     for (int i = 0; i < numSamples; i++) {

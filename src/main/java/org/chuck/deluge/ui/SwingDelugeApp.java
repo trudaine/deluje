@@ -1161,7 +1161,10 @@ public class SwingDelugeApp extends JFrame {
   }
 
   public SwingDelugeApp(
-      ChuckVM vm, BridgeContract bridge, org.chuck.deluge.midi.MidiService midiService, boolean pureMode) {
+      ChuckVM vm,
+      BridgeContract bridge,
+      org.chuck.deluge.midi.MidiService midiService,
+      boolean pureMode) {
     this.vm = vm;
     this.bridge = bridge;
     this.midiService = midiService;
@@ -1385,45 +1388,55 @@ public class SwingDelugeApp extends JFrame {
   private void syncHighFidelityEngine(org.chuck.deluge.model.ProjectModel model) {
     org.chuck.deluge.firmware.model.Song fwSong = FirmwareFactory.createSong(model);
     MatrixDriver.get().popUI();
-    
+
     // Switch View to the first track's clip if possible
     if (!fwSong.clips.isEmpty()) {
-        org.chuck.deluge.firmware.model.Clip first = fwSong.clips.get(0);
-        if (first instanceof org.chuck.deluge.firmware.model.InstrumentClip ic) {
-            if (ic.sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit) {
-                MatrixDriver.get().pushUI(new KitView(ic));
-            } else {
-                MatrixDriver.get().pushUI(new PianoRollView(ic));
-            }
+      org.chuck.deluge.firmware.model.Clip first = fwSong.clips.get(0);
+      if (first instanceof org.chuck.deluge.firmware.model.InstrumentClip ic) {
+        if (ic.sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit) {
+          MatrixDriver.get().pushUI(new KitView(ic));
         } else {
-            MatrixDriver.get().pushUI(new SessionView(fwSong));
+          MatrixDriver.get().pushUI(new PianoRollView(ic));
         }
-    } else {
+      } else {
         MatrixDriver.get().pushUI(new SessionView(fwSong));
+      }
+    } else {
+      MatrixDriver.get().pushUI(new SessionView(fwSong));
     }
 
     // ── Sync Audio Registry ──
     Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
     if (fwEngineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
-        fwEngine.sounds.clear();
-        for (org.chuck.deluge.firmware.model.Clip c : fwSong.clips) {
-            if (c instanceof org.chuck.deluge.firmware.model.InstrumentClip ic && ic.sound != null) {
-                if (!fwEngine.sounds.contains(ic.sound)) {
-                    fwEngine.sounds.add(ic.sound);
-                }
-            }
+      fwEngine.sounds.clear();
+      // Ensure sounds list matches track count for direct indexing
+      for (int i = 0; i < model.getTracks().size(); i++) {
+        fwEngine.sounds.add(null);
+      }
+
+      for (int i = 0; i < fwSong.clips.size() && i < model.getTracks().size(); i++) {
+        org.chuck.deluge.firmware.model.Clip c = fwSong.clips.get(i);
+        if (c instanceof org.chuck.deluge.firmware.model.InstrumentClip ic && ic.sound != null) {
+          fwEngine.sounds.set(i, ic.sound);
+          System.out.println(
+              "[UI] Registered track " + i + " sound: " + ic.sound.getClass().getSimpleName());
         }
-        
-        float masterVol = (float) vm.getGlobalFloat(BridgeContract.G_MASTER_VOL);
-        fwEngine.masterVolumeAdjustmentL = (int)(masterVol * 2147483647.0);
-        fwEngine.masterVolumeAdjustmentR = fwEngine.masterVolumeAdjustmentL;
-        
-        System.out.println("[UI] Registered " + fwEngine.sounds.size() + " instruments for Hi-Fi Rendering. MasterVol: " + masterVol);
+      }
+
+      float masterVol = (float) vm.getGlobalFloat(BridgeContract.G_MASTER_VOL);
+      fwEngine.masterVolumeAdjustmentL = (int) (masterVol * 2147483647.0);
+      fwEngine.masterVolumeAdjustmentR = fwEngine.masterVolumeAdjustmentL;
+
+      System.out.println(
+          "[UI] Synchronized "
+              + fwEngine.sounds.size()
+              + " track slots for Hi-Fi Rendering. MasterVol: "
+              + masterVol);
     }
-    
+
     Object fwHandlerObj = vm.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
     if (fwHandlerObj instanceof org.chuck.deluge.firmware.playback.PlaybackHandler fwHandler) {
-        fwHandler.setSong(fwSong);
+      fwHandler.setSong(fwSong);
     }
   }
 
@@ -1578,10 +1591,11 @@ public class SwingDelugeApp extends JFrame {
     try {
       // Sync firmware model -> Java model before save, if firmware engine is active
       if (pureEngine != null) {
-          var fwSong = pureEngine.getPlaybackHandler().getSong();
-          if (fwSong != null) {
-              org.chuck.deluge.firmware.engine.FirmwareFactory.syncFirmwareToModel(fwSong, currentProject);
-          }
+        var fwSong = pureEngine.getPlaybackHandler().getSong();
+        if (fwSong != null) {
+          org.chuck.deluge.firmware.engine.FirmwareFactory.syncFirmwareToModel(
+              fwSong, currentProject);
+        }
       }
       pushModelToBridge();
       org.chuck.deluge.project.ProjectSerializer.save(currentProject, target);
@@ -2426,10 +2440,10 @@ public class SwingDelugeApp extends JFrame {
     @Override
     public void onViewModeChanged(String viewMode) {
       cardLayout.show(centerCardPanel, viewMode);
-      
+
       // Update High-Fidelity UI Stack
       if ("CLIP".equals(viewMode) || "SONG".equals(viewMode)) {
-          syncHighFidelityEngine(currentProject); 
+        syncHighFidelityEngine(currentProject);
       }
     }
 
@@ -2473,6 +2487,22 @@ public class SwingDelugeApp extends JFrame {
         }
       }
       propagateCurrentModel();
+    }
+
+    @Override
+    public void onPlayToggle() {
+      vm.setGlobalInt(
+          BridgeContract.G_PLAY, vm.getGlobalInt(BridgeContract.G_PLAY) == 1L ? 0L : 1L);
+    }
+
+    @Override
+    public void onStop() {
+      vm.setGlobalInt(BridgeContract.G_PLAY, 0L);
+    }
+
+    @Override
+    public void onMasterVolumeChanged(float vol) {
+      vm.setGlobalFloat(BridgeContract.G_MASTER_VOL, vol);
     }
   }
 

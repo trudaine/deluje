@@ -47,13 +47,13 @@ public class TimeStretcher {
     int crossfadeProportional = 20;
 
     if (speedLog >= (800 << 20) && speedLog < (864 << 20)) {
-        int index = (speedLog - (800 << 20)) >> 22;
-        index = Math.max(0, Math.min(15, index));
-        minBeamWidth = minHopSizeFine[index];
-        crossfadeProportional = crossfadeProportionalFine[index];
+      int index = (speedLog - (800 << 20)) >> 22;
+      index = Math.max(0, Math.min(15, index));
+      minBeamWidth = minHopSizeFine[index];
+      crossfadeProportional = crossfadeProportionalFine[index];
     } else {
-        minBeamWidth = minHopSizeCoarse[2];
-        crossfadeProportional = crossfadeProportionalCoarse[2];
+      minBeamWidth = minHopSizeCoarse[2];
+      crossfadeProportional = crossfadeProportionalCoarse[2];
     }
 
     for (int i = 0; i < numSamples; i++) {

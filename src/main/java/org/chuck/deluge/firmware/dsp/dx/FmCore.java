@@ -1,11 +1,10 @@
 package org.chuck.deluge.firmware.dsp.dx;
 
 import org.chuck.deluge.firmware.util.LookupTables;
-import org.chuck.deluge.firmware.util.Q31;
 
 /**
- * Port of FmCore from fm_core.cpp.
- * Implements 100% bit-accurate 6-operator FM synthesis with 32 algorithms.
+ * Port of FmCore from fm_core.cpp. Implements 100% bit-accurate 6-operator FM synthesis with 32
+ * algorithms.
  */
 public class FmCore {
   public static final int DX_MAX_N = 132;
@@ -77,7 +76,7 @@ public class FmCore {
 
     for (int op = 0; op < 6; op++) {
       int flags = alg.ops[op];
-      boolean add = (flags & 0x04) != 0; 
+      boolean add = (flags & 0x04) != 0;
       FmOpParams param = params[op];
       int inbus = (flags >> 4) & 3;
       int outbus = flags & 3;
@@ -93,15 +92,26 @@ public class FmCore {
         if (!has_contents[outbus]) add = false;
 
         int[] inptr = (inbus == 0) ? null : buf[inbus - 1];
-        
+
         if (inptr == null || !has_contents[inbus]) {
           if ((flags & 0xc0) == 0xc0 && feedback_shift < 16) {
-             FmOpKernelVector.compute_fb(outptr, n, inptr, param.phase, param.freq, gain1, gain2, dgain, fb_buf, feedback_shift, add);
+            FmOpKernelVector.compute_fb(
+                outptr,
+                n,
+                inptr,
+                param.phase,
+                param.freq,
+                gain1,
+                gain2,
+                dgain,
+                fb_buf,
+                feedback_shift,
+                add);
           } else {
-             FmOpKernelVector.compute(outptr, n, null, param.phase, param.freq, gain1, dgain, add);
+            FmOpKernelVector.compute(outptr, n, null, param.phase, param.freq, gain1, dgain, add);
           }
         } else {
-           FmOpKernelVector.compute(outptr, n, inptr, param.phase, param.freq, gain1, dgain, add);
+          FmOpKernelVector.compute(outptr, n, inptr, param.phase, param.freq, gain1, dgain, add);
         }
         has_contents[outbus] = true;
       } else if (!add) {

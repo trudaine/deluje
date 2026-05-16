@@ -46,20 +46,23 @@ public class MidiService {
     follow.setTakeover(new MidiTakeover());
 
     // Route params through the VM
-    follow.setOnSetParam((paramName, value) -> {
-      if (vm != null && paramName != null) {
-        vm.setGlobalFloat(paramName, (double) value);
-        if (vm.getLogLevel() >= 2) {
-          System.out.println("[MidiFollow] Set " + paramName + " = " + String.format("%.3f", value));
-        }
-      }
-    });
+    follow.setOnSetParam(
+        (paramName, value) -> {
+          if (vm != null && paramName != null) {
+            vm.setGlobalFloat(paramName, (double) value);
+            if (vm.getLogLevel() >= 2) {
+              System.out.println(
+                  "[MidiFollow] Set " + paramName + " = " + String.format("%.3f", value));
+            }
+          }
+        });
 
     // Forward unhandled CCs to the existing fallback path
-    follow.setOnUnhandledCC(msg -> {
-      String portName = PreferencesManager.get("midi.input", "None");
-      fallbackCCHandler(msg.data1(), msg.data2() & 0x7F, portName);
-    });
+    follow.setOnUnhandledCC(
+        msg -> {
+          String portName = PreferencesManager.get("midi.input", "None");
+          fallbackCCHandler(msg.data1(), msg.data2() & 0x7F, portName);
+        });
 
     follow.setLogLevel(vm != null ? vm.getLogLevel() : 0);
     return follow;
@@ -215,9 +218,12 @@ public class MidiService {
     }
   }
 
-  // ===================== Legacy API (kept for backward compat, delegates to engine) =====================
+  // ===================== Legacy API (kept for backward compat, delegates to engine)
+  // =====================
 
-  /** @deprecated Use engine.midiMessageReceived() directly. */
+  /**
+   * @deprecated Use engine.midiMessageReceived() directly.
+   */
   @Deprecated
   private void handleMessage(MidiMsg msg) {
     engine.midiMessageReceived(MIDIMessage.fromMidiMsg(msg), midiIn);

@@ -2,12 +2,12 @@ package org.chuck.deluge.firmware.model;
 
 import org.chuck.deluge.firmware.dsp.StereoSample;
 import org.chuck.deluge.firmware.dsp.timestretch.TimeStretcher;
-import org.chuck.deluge.firmware.modulation.Envelope;
 import org.chuck.deluge.firmware.model.sample.Sample;
+import org.chuck.deluge.firmware.modulation.Envelope;
 
 /**
- * Port of the Deluge's AudioClip class.
- * Handles bit-accurate sample playback with real-time time-stretching and lifecycle management.
+ * Port of the Deluge's AudioClip class. Handles bit-accurate sample playback with real-time
+ * time-stretching and lifecycle management.
  */
 public class AudioClip extends Clip {
   public Sample sample;
@@ -28,38 +28,38 @@ public class AudioClip extends Clip {
   @Override
   public void resumePlayback(boolean mayMakeSound) {
     if (sample == null || sample.unplayable) return;
-    
+
     // ── Bit-Accurate Time-Stretch Sync ──
     // Resync time-stretcher position to lastProcessedPos (24-bit fractional)
-    timeStretcher.samplePosBig = (long)lastProcessedPos << 24;
+    timeStretcher.samplePosBig = (long) lastProcessedPos << 24;
 
     if (!mayMakeSound) {
-        return;
+      return;
     }
 
     // ── Late Start Logic ──
     // If already playing, we let the stretcher handle it.
     // Otherwise, we flag a late start which will trigger note-on in the next render.
     if (outputEnvelope.state == Envelope.EnvelopeStage.OFF) {
-        doingLateStart = true;
+      doingLateStart = true;
     }
   }
 
   @Override
   public void expectNoFurtherTicks(boolean actuallySoundChange) {
     if (actuallySoundChange) {
-        // ── Bit-Accurate Release ──
-        if (doingLateStart) {
-            if (outputEnvelope.state.ordinal() < Envelope.EnvelopeStage.FAST_RELEASE.ordinal()) {
-                doingLateStart = false;
-                outputEnvelope.unconditionalOff();
-            } else {
-                doingLateStart = false;
-            }
+      // ── Bit-Accurate Release ──
+      if (doingLateStart) {
+        if (outputEnvelope.state.ordinal() < Envelope.EnvelopeStage.FAST_RELEASE.ordinal()) {
+          doingLateStart = false;
+          outputEnvelope.unconditionalOff();
         } else {
-            // Fade out when stopping
-            outputEnvelope.unconditionalRelease(Envelope.EnvelopeStage.FAST_RELEASE, 1024);
+          doingLateStart = false;
         }
+      } else {
+        // Fade out when stopping
+        outputEnvelope.unconditionalRelease(Envelope.EnvelopeStage.FAST_RELEASE, 1024);
+      }
     }
   }
 
@@ -75,10 +75,10 @@ public class AudioClip extends Clip {
 
   public void render(StereoSample[] buffer, int numSamples, int phaseIncrement) {
     if (sample == null || sample.data == null) return;
-    
+
     if (doingLateStart) {
-        outputEnvelope.noteOn(false);
-        doingLateStart = false;
+      outputEnvelope.noteOn(false);
+      doingLateStart = false;
     }
 
     if (outputEnvelope.state == Envelope.EnvelopeStage.OFF) return;
@@ -86,19 +86,19 @@ public class AudioClip extends Clip {
     // In Java, we convert float data to int for the high-fidelity processors
     int[] monoData = new int[sample.data.length];
     for (int i = 0; i < sample.data.length; i++) {
-        monoData[i] = (int)(sample.data[i] * 2147483647.0f);
+      monoData[i] = (int) (sample.data[i] * 2147483647.0f);
     }
-    
+
     int[] output = new int[numSamples];
     timeStretcher.process(output, numSamples, timeStretchRatio, phaseIncrement, monoData);
-    
+
     // Process Envelope (dummy values for now)
     int env = outputEnvelope.render(numSamples, 1000, 1000, 1 << 30, 1000, null);
 
     for (int i = 0; i < numSamples; i++) {
-        int wet = (int)(((long)output[i] * env) >> 31);
-        buffer[i].l = wet;
-        buffer[i].r = wet;
+      int wet = (int) (((long) output[i] * env) >> 31);
+      buffer[i].l = wet;
+      buffer[i].r = wet;
     }
   }
 }

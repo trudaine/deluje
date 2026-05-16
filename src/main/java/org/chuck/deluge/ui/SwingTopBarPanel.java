@@ -4,6 +4,7 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.Insets;
 import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
@@ -32,6 +33,12 @@ public class SwingTopBarPanel extends JPanel {
     void onViewModeChanged(String viewMode);
 
     void onAddTrack(String type);
+
+    void onPlayToggle();
+
+    void onStop();
+
+    void onMasterVolumeChanged(float vol);
   }
 
   private final ProjectModel projectModel;
@@ -170,15 +177,9 @@ public class SwingTopBarPanel extends JPanel {
     JPanel encoderPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 2));
     encoderPanel.setBackground(new Color(0x25, 0x25, 0x25));
     
-    encoderPanel.add(createEncoderSim("HORIZ", (offset) -> MatrixDriver.get().horizontalEncoderAction(offset)));
-    encoderPanel.add(createEncoderSim("VERT", (offset) -> MatrixDriver.get().verticalEncoderAction(offset)));
-    
-    JButton selectBtn = new JButton("SELECT");
-    selectBtn.setBackground(new Color(0xaa, 0xaa, 0xaa));
-    selectBtn.addActionListener(e -> MatrixDriver.get().selectButtonAction(true));
-    encoderPanel.add(selectBtn);
-    
-    encoderPanel.add(createEncoderSim("SCROLL", (offset) -> MatrixDriver.get().selectEncoderAction(offset)));
+    encoderPanel.add(createEncoderSim("HORIZ", (offset) -> MatrixDriver.get().horizontalEncoderAction(offset), (on) -> MatrixDriver.get().horizontalButtonAction(on)));
+    encoderPanel.add(createEncoderSim("VERT", (offset) -> MatrixDriver.get().verticalEncoderAction(offset), (on) -> MatrixDriver.get().verticalButtonAction(on)));
+    encoderPanel.add(createEncoderSim("SELECT", (offset) -> MatrixDriver.get().selectEncoderAction(offset), (on) -> MatrixDriver.get().selectButtonAction(on)));
     
     add(encoderPanel);
 
@@ -187,7 +188,7 @@ public class SwingTopBarPanel extends JPanel {
     });
   }
 
-  private JPanel createEncoderSim(String name, java.util.function.Consumer<Integer> onRotate) {
+  private JPanel createEncoderSim(String name, java.util.function.Consumer<Integer> onRotate, java.util.function.Consumer<Boolean> onClick) {
     JPanel p = new JPanel(new BorderLayout());
     p.setBackground(new Color(0x33, 0x33, 0x33));
     JLabel l = new JLabel(name, SwingConstants.CENTER);
@@ -201,6 +202,16 @@ public class SwingTopBarPanel extends JPanel {
     right.addActionListener(e -> onRotate.accept(1));
     p.add(left, BorderLayout.WEST);
     p.add(right, BorderLayout.EAST);
+
+    JButton click = new JButton("●");
+    click.setFont(new Font("SansSerif", Font.PLAIN, 8));
+    click.setMargin(new Insets(0,0,0,0));
+    click.addMouseListener(new java.awt.event.MouseAdapter() {
+        @Override public void mousePressed(java.awt.event.MouseEvent e) { onClick.accept(true); }
+        @Override public void mouseReleased(java.awt.event.MouseEvent e) { onClick.accept(false); }
+    });
+    p.add(click, BorderLayout.CENTER);
+
     return p;
   }
 

@@ -9,8 +9,8 @@ import org.chuck.deluge.firmware.util.FirmwareUtils;
 import org.chuck.deluge.firmware.util.Q31;
 
 /**
- * Port of the Deluge's Patcher class.
- * Implements 1:N modulation routing with bit-accurate linear, hybrid, and exponential mapping.
+ * Port of the Deluge's Patcher class. Implements 1:N modulation routing with bit-accurate linear,
+ * hybrid, and exponential mapping.
  */
 public class Patcher {
 
@@ -64,7 +64,7 @@ public class Patcher {
     int runningTotal = 0;
     for (PatchCable cable : dest.cables) {
       int srcVal = sourceValues[cable.from.ordinal()];
-      int strength = cable.getAmount(); 
+      int strength = cable.getAmount();
       int scaled = Q31.multiply_32x32_rshift32(srcVal, strength);
       runningTotal += scaled;
     }
@@ -80,7 +80,7 @@ public class Patcher {
     int runningTotal = 0;
     for (PatchCable cable : dest.cables) {
       int srcVal = sourceValues[cable.from.ordinal()];
-      int strength = cable.getAmount(); 
+      int strength = cable.getAmount();
       int scaled = Q31.multiply_32x32_rshift32(srcVal, strength);
       runningTotal += scaled;
     }

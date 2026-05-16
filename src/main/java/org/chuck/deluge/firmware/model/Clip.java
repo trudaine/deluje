@@ -3,8 +3,8 @@ package org.chuck.deluge.firmware.model;
 import org.chuck.deluge.firmware.modulation.params.ParamManager;
 
 /**
- * Port of the Deluge's Clip class. Base for Instrument and Audio clips.
- * Manages looping, direction, and automation processing.
+ * Port of the Deluge's Clip class. Base for Instrument and Audio clips. Manages looping, direction,
+ * and automation processing.
  */
 public abstract class Clip extends TimelineCounter {
   public ClipType type;
@@ -82,7 +82,7 @@ public abstract class Clip extends TimelineCounter {
     if (paramManager.mightContainAutomation()) {
       // ── Bit-Accurate Automation Interpolation ──
       // Interpolate for internal sounds, jump for external MIDI/CV
-      boolean mayInterpolate = (type == ClipType.INSTRUMENT || type == ClipType.AUDIO); 
+      boolean mayInterpolate = (type == ClipType.INSTRUMENT || type == ClipType.AUDIO);
       paramManager.processCurrentPos(
           lastProcessedPos, loopLength, currentlyPlayingReversed, didPingpong, mayInterpolate);
     }
@@ -91,7 +91,7 @@ public abstract class Clip extends TimelineCounter {
   protected void posReachedEnd() {
     // ── Bit-Accurate End Logic ──
     if (loopLength > 0) {
-        lastProcessedPos %= loopLength;
+      lastProcessedPos %= loopLength;
     }
   }
 

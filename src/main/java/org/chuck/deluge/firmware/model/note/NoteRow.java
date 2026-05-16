@@ -95,14 +95,14 @@ public class NoteRow {
 
   public void resumePlayback(int currentPos, int loopLength, boolean mayMakeSound) {
     if (mayMakeSound && !muted && !notes.isEmpty()) {
-        // ── Bit-Accurate Catch Notes ──
-        for (Note note : notes) {
-            int noteEnd = note.pos + note.length;
-            if (currentPos > note.pos && currentPos < noteEnd) {
-                // Trigger a late note
-                int samplesLate = (currentPos - note.pos) * 100; // standard tick-to-sample conversion
-            }
+      // ── Bit-Accurate Catch Notes ──
+      for (Note note : notes) {
+        int noteEnd = note.pos + note.length;
+        if (currentPos > note.pos && currentPos < noteEnd) {
+          // Trigger a late note
+          int samplesLate = (currentPos - note.pos) * 100; // standard tick-to-sample conversion
         }
+      }
     }
     ignoreNoteOnsBefore_ = 0;
   }
