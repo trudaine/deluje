@@ -29,8 +29,8 @@ public class FirmwareVoice {
   public final int[] paramFinalValues = new int[Param.kNumParams];
   public final int[] sourceValues = new int[PatchSource.kNumPatchSources];
   public final Patcher patcher = new Patcher();
-  public final VoiceUnisonPart[] unisonParts = new VoiceUnisonPart[8]; 
-  
+  public final VoiceUnisonPart[] unisonParts = new VoiceUnisonPart[8];
+
   private final FmCore.FmOpParams[] fmParams = new FmCore.FmOpParams[6];
   private final int[] fmFeedbackBuffer = new int[2];
 
@@ -39,9 +39,9 @@ public class FirmwareVoice {
   public int noteCode;
   public int velocity;
   public boolean active = false;
-  
+
   // ── Ported High-Fidelity Logic ──
-  public int portaEnvelopePos = 0xFFFFFFFF; 
+  public int portaEnvelopePos = 0xFFFFFFFF;
   public int portaEnvelopeMaxAmplitude;
   private final boolean[] expressionSourcesCurrentlySmoothing = new boolean[3]; // X, Y, Z
 
@@ -58,7 +58,7 @@ public class FirmwareVoice {
     // ── Porta Logic ──
     if (this.active && sound.polyphonic != PolyphonyMode.POLY) {
         portaEnvelopePos = 0;
-        portaEnvelopeMaxAmplitude = (int)(((long)this.noteCode - note) << 8); 
+        portaEnvelopeMaxAmplitude = (int)(((long)this.noteCode - note) << 8);
     } else {
         portaEnvelopePos = 0xFFFFFFFF;
     }
@@ -67,7 +67,7 @@ public class FirmwareVoice {
     this.noteCode = note;
     this.velocity = vel;
     this.active = true;
-    
+
     // Reset unison parts
     for (int i = 0; i < sound.numUnison; i++) {
         unisonParts[i].reset();
@@ -126,13 +126,13 @@ public class FirmwareVoice {
 
     // ── Pitch Calculation ──
     int overallPitchAdjust = paramFinalValues[Param.LOCAL_PITCH_ADJUST];
-    
+
     // Porta
     if (Integer.compareUnsigned(portaEnvelopePos, 8388608) < 0) {
         int envValue = FirmwareUtils.getDecay4(portaEnvelopePos, 23);
         int pitchAdjustmentHere = 2147483647 + (int)(((long)envValue * portaEnvelopeMaxAmplitude) >> 30);
         overallPitchAdjust = (int)(((long)overallPitchAdjust * pitchAdjustmentHere) >> 31);
-        portaEnvelopePos += 1000 * numSamples; 
+        portaEnvelopePos += 1000 * numSamples;
     }
 
     // 3. Render Unison Parts
@@ -143,8 +143,13 @@ public class FirmwareVoice {
 
     // ── Final Gain & Saturation ──
     int env0Gain = (sourceValues[PatchSource.ENVELOPE_0.ordinal()] >> 1) + 1073741824;
+
+    // Safety check: ensure volume is not squashed to zero by un-patched synth defaults
+    int trackVol = paramFinalValues[Param.LOCAL_VOLUME];
+
     for (int i = 0; i < numSamples; i++) {
       int wet = Q31.mult(voiceBuffer[i], env0Gain);
+      wet = Q31.mult(wet, trackVol);
       // Bit-accurate per-voice non-linear saturation
       buffer[i] = Q31.addSaturate(buffer[i], Q31.lshiftAndSaturate(wet, 1));
     }
@@ -167,42 +172,28 @@ public class FirmwareVoice {
           return;
       }
 
-      // Apply pitch adjustment from patching
-      int adjA = (int)(((long)pIncA * pitchAdjust) >> 31);
-      int adjB = (int)(((long)pIncB * pitchAdjust) >> 31);
+      // ── Bit-Accurate Subtractive / Sample Engine with patch pitch adjustment ──
+      for (int s = 0; s < 2; s++) {
+          OscType type = sound.oscTypes[s];
+          int pInc = (s == 0) ? pIncA : pIncB;
+          // Apply pitch adjustment from patching
+          int adjPInc = (int)(((long)pInc * pitchAdjust) >> 31);
 
-      // Determine oscillator types from the sound
-      OscType typeA = u < sound.oscTypes.length ? sound.oscTypes[0] : OscType.SINE;
-      OscType typeB = u < sound.oscTypes.length ? sound.oscTypes[Math.min(1, sound.oscTypes.length - 1)] : OscType.SINE;
+          int vol = (s == 0) ? paramFinalValues[Param.LOCAL_OSC_A_VOLUME]
+                             : paramFinalValues[Param.LOCAL_OSC_B_VOLUME];
+          if (vol == 0) vol = ONE; // default to full volume if unpatched
 
-      // Render Osc A
-      int[] phaseA = {part.sources[0].oscPos};
-      int ampA = paramFinalValues[Param.LOCAL_OSC_A_VOLUME];
-      if (ampA == 0) ampA = ONE; // default to full volume if unpatched
+          if (type == OscType.SAMPLE) {
+              part.sources[s].render(buffer, numSamples, adjPInc, sound.samples[s], vol);
+          } else {
+              int[] phase = {part.sources[s].oscPos};
+              int pw = (s == 0) ? paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH]
+                                : paramFinalValues[Param.LOCAL_OSC_B_PHASE_WIDTH];
 
-      // SAMPLE mode: render from sample data instead of oscillator
-      if (typeA == OscType.SAMPLE && u < sound.samples.length && sound.samples[u] != null) {
-          renderSample(part.sources[0], sound.samples[u], buffer, numSamples, adjA, ampA);
-      } else {
-          Oscillator.renderOsc(typeA, ampA, buffer, 0, numSamples,
-                               adjA, paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH],
-                               phaseA, true, 0, false, 0, 0, 0);
+              Oscillator.renderOsc(type, vol, buffer, 0, numSamples, adjPInc, pw, phase, true, 0, false, 0, 0, 0);
+              part.sources[s].oscPos = phase[0];
+          }
       }
-      part.sources[0].oscPos = phaseA[0];
-
-      // Render Osc B
-      int[] phaseB = {part.sources[1].oscPos};
-      int ampB = paramFinalValues[Param.LOCAL_OSC_B_VOLUME];
-      if (ampB == 0) ampB = ONE;
-
-      if (typeB == OscType.SAMPLE && u < sound.samples.length && sound.samples[u] != null) {
-          renderSample(part.sources[1], sound.samples[u], buffer, numSamples, adjB, ampB);
-      } else {
-          Oscillator.renderOsc(typeB, ampB, buffer, 0, numSamples,
-                               adjB, paramFinalValues[Param.LOCAL_OSC_B_PHASE_WIDTH],
-                               phaseB, true, 0, false, 0, 0, 0);
-      }
-      part.sources[1].oscPos = phaseB[0];
   }
 
   /** Render a sample into the voice buffer using the unison part's current position. */

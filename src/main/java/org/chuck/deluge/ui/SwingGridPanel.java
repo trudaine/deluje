@@ -1146,13 +1146,28 @@ public class SwingGridPanel extends JPanel {
                                       trackColors[visibleRow % trackColors.length], velS)
                                   : new Color(0x33, 0x33, 0x33));
                           refresh();
-                          // Preview voice: wrap to first POW (8) engine rows since
-                          // synth_preview_shred checks r < car.length (8 UGen voices)
-                          int voiceSlot = baseTrackId + (modelRow % 8);
-                          vm.setGlobalFloat(
-                              BridgeContract.G_PREVIEW_PITCH, (float) (pitchMidi - 60));
-                          vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) voiceSlot);
-                          vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
+                          
+                          if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
+                              Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+                              if (fwEngineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
+                                  if (editedModelTrack < fwEngine.sounds.size()) {
+                                      org.chuck.deluge.firmware.engine.GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
+                                      if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
+                                          kit.triggerDrum(modelRow, 127);
+                                      } else if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
+                                          synth.triggerNote(pitchMidi, 127);
+                                      }
+                                  }
+                              }
+                          } else {
+                              // Preview voice: wrap to first POW (8) engine rows since
+                              // synth_preview_shred checks r < car.length (8 UGen voices)
+                              int voiceSlot = baseTrackId + (modelRow % 8);
+                              vm.setGlobalFloat(
+                                  BridgeContract.G_PREVIEW_PITCH, (float) (pitchMidi - 60));
+                              vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) voiceSlot);
+                              vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
+                          }
                           if (projectModel != null
                               && editedModelTrack < projectModel.getTracks().size()) {
                             org.chuck.deluge.model.TrackModel tModel =
@@ -1242,11 +1257,26 @@ public class SwingGridPanel extends JPanel {
                           }
                           refresh();
                           if (!stepState) {
-                            // Single preview trigger — click a cell, play the sound once.
-                            // The engine reads G_PREVIEW_TRACK on wake and re-triggers.
-                            vm.setGlobalInt(
-                                BridgeContract.G_PREVIEW_TRACK, (long) (baseTrackId + modelRow));
-                            vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
+                            if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
+                                // ── High-Fidelity Audition ──
+                                Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+                                if (fwEngineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
+                                    if (editedModelTrack < fwEngine.sounds.size()) {
+                                        org.chuck.deluge.firmware.engine.GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
+                                        if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
+                                            kit.triggerDrum(modelRow, 127);
+                                        } else if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
+                                            synth.triggerNote(60, 127);
+                                        }
+                                    }
+                                }
+                            } else {
+                                // Single preview trigger — click a cell, play the sound once.
+                                // The engine reads G_PREVIEW_TRACK on wake and re-triggers.
+                                vm.setGlobalInt(
+                                    BridgeContract.G_PREVIEW_TRACK, (long) (baseTrackId + modelRow));
+                                vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
+                            }
                           }
                         }
                       }

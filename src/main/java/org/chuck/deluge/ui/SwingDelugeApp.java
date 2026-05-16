@@ -1408,13 +1408,17 @@ public class SwingDelugeApp extends JFrame {
         fwEngine.sounds.clear();
         for (org.chuck.deluge.firmware.model.Clip c : fwSong.clips) {
             if (c instanceof org.chuck.deluge.firmware.model.InstrumentClip ic && ic.sound != null) {
-                if (!fwEngine.sounds.contains(ic.sound)) fwEngine.sounds.add(ic.sound);
+                if (!fwEngine.sounds.contains(ic.sound)) {
+                    fwEngine.sounds.add(ic.sound);
+                }
             }
         }
         
         float masterVol = (float) vm.getGlobalFloat(BridgeContract.G_MASTER_VOL);
         fwEngine.masterVolumeAdjustmentL = (int)(masterVol * 2147483647.0);
         fwEngine.masterVolumeAdjustmentR = fwEngine.masterVolumeAdjustmentL;
+        
+        System.out.println("[UI] Registered " + fwEngine.sounds.size() + " instruments for Hi-Fi Rendering. MasterVol: " + masterVol);
     }
     
     Object fwHandlerObj = vm.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
@@ -2414,6 +2418,11 @@ public class SwingDelugeApp extends JFrame {
     @Override
     public void onViewModeChanged(String viewMode) {
       cardLayout.show(centerCardPanel, viewMode);
+      
+      // Update High-Fidelity UI Stack
+      if ("CLIP".equals(viewMode) || "SONG".equals(viewMode)) {
+          syncHighFidelityEngine(currentProject); 
+      }
     }
 
     @Override

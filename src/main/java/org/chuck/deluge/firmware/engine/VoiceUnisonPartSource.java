@@ -35,10 +35,10 @@ public class VoiceUnisonPartSource {
     }
   }
 
-  public void render(int[] buffer, int numSamples, int phaseIncrement, Sample sample) {
+  public void render(int[] buffer, int numSamples, int phaseIncrement, Sample sample, int amplitude) {
     if (!active) return;
     if (voiceSample != null) {
-      voiceSample.render(buffer, numSamples, phaseIncrement, sample);
+      voiceSample.render(buffer, numSamples, phaseIncrement, sample, amplitude);
     }
   }
 }
