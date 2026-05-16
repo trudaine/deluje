@@ -1,5 +1,50 @@
 package org.chuck.deluge.firmware.util;
 
+/**
+ * Bit-accurate port of the Deluge firmware's {@code lookup_tables.h} with
+ * additional tables from the dexed/msfa FM engine consolidated into one class.
+ *
+ * <h3>Origin</h3>
+ * The static literal arrays (tanTable, decayTableSmall*, sineWaveSmall,
+ * windowedSincKernel, expTableSmall, tanHSmall, resonanceThresholdsForOversampling,
+ * resonanceLimitTable) are direct 1:1 copies of the C++ {@code lookup_tables.h}.
+ *
+ * <h3>Divergence from C++</h3>
+ * The C++ source scatters runtime-computed FM tables across {@code lookup_tables.h}
+ * and {@code engine.h} (dexed/msfa). This Java class consolidates them:
+ * <ul>
+ *   <li>{@code sinTab}, {@code exp2Tab}, {@code tanhTab} — CORDIC-rotated sine,
+ *       {@code 2^x}, and 4th-order Runge-Kutta tanh tables from the FM engine,
+ *       initialized in {@code static {}}.</li>
+ *   <li>Three lookup methods ({@link #sinLookup}, {@link #exp2Lookup},
+ *       {@link #tanhLookup}) provide linear interpolation between entries.</li>
+ * </ul>
+ * DX7 algorithm-specific static tables (ALGORITHMS, operator frequency ratios,
+ * amp mod sensitivity) live in a separate file at
+ * {@code chuck-core/.../Dx7EngineLookupTables.java} because they belong to the
+ * shared audio library, not the Deluge application layer.
+ *
+ * <h3>Unsigned type handling</h3>
+ * <p>Three {@code short[]} arrays store C++ {@code uint16_t} values with
+ * explicit {@code (short)} casts — the standard Java idiom. The two's
+ * complement truncation is bit-identical to C++ {@code uint16_t} storage:</p>
+ * <ul>
+ *   <li>{@link #decayTableSmall8} — first 32 entries exceed {@code 32767}</li>
+ *   <li>{@link #decayTableSmall4} — first 59 entries exceed {@code 32767}</li>
+ *   <li>{@link #expTableSmall} — entries 128–255 exceed {@code 32767}</li>
+ * </ul>
+ * <p>Every consumer reads these via {@code interpolateTable()} which uses
+ * {@code &amp; 0xFFFF} to widen back to unsigned {@code int}. This preserves
+ * bit-accuracy. See the canonical type mapping in
+ * {@code org.chuck.deluge.firmware package-info.java}.</p>
+ *
+ * <h3>Known fix</h3>
+ * The original C++ {@code sineWaveSmall} had 257 entries (256 half-wave samples
+ * plus sentinel). The initial Java port was one short — the trailing sentinel
+ * {@code 0} was missing. Fixed in commit {@code d95c73b3} by appending
+ * {@code (short) 0, (short) 0}. Numeric values are otherwise bit-identical
+ * to the C++ originals.
+ */
 public class LookupTables {
   public static final int[] tanTable = {
     0, 6040817, 12087756, 18146962, 24224633, 30327039, 36460554, 42631679,
