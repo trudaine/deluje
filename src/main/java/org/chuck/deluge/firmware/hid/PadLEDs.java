@@ -1,21 +1,30 @@
 package org.chuck.deluge.firmware.hid;
 
-/** Virtual framebuffer for the Deluge's 8x16 grid and sidebars. Ports the logic from pad_leds.h. */
-public class PadLEDs {
-  public static final int kDisplayWidth = 16;
-  public static final int kDisplayHeight = 8;
-  public static final int kSideBarWidth = 2;
+import org.chuck.deluge.firmware.hid.pic.GridConfig;
 
-  public static final RGB[][] image = new RGB[kDisplayHeight][kDisplayWidth + kSideBarWidth];
-  public static final byte[][] occupancyMask =
-      new byte[kDisplayHeight][kDisplayWidth + kSideBarWidth];
+/** Virtual framebuffer for the Deluge's grid and sidebars. Ports the logic from pad_leds.h. */
+public class PadLEDs {
+  /** Width of main pad area — delegates to {@link GridConfig}. */
+  public static int kDisplayWidth()  { return GridConfig.getDisplayWidth(); }
+  /** Height of main pad area — delegates to {@link GridConfig}. */
+  public static int kDisplayHeight() { return GridConfig.getDisplayHeight(); }
+  public static final int kSideBarWidth = GridConfig.kSideBarWidth;
+
+  // Allocate for maximum possible grid (24+2 × 16) so the arrays are resizable.
+  private static final int MAX_WIDTH  = 26; // 24 + 2 sidebar
+  private static final int MAX_HEIGHT = 16;
+
+  public static final RGB[][] image = new RGB[MAX_HEIGHT][MAX_WIDTH];
+  public static final byte[][] occupancyMask = new byte[MAX_HEIGHT][MAX_WIDTH];
 
   private static boolean flashStateFast = false;
   private static boolean flashStateSlow = false;
 
   static {
-    for (int y = 0; y < kDisplayHeight; y++) {
-      for (int x = 0; x < kDisplayWidth + kSideBarWidth; x++) {
+    int h = GridConfig.getTotalHeight();
+    int w = GridConfig.getTotalWidth();
+    for (int y = 0; y < h; y++) {
+      for (int x = 0; x < w; x++) {
         image[y][x] = new RGB();
       }
     }
@@ -36,7 +45,7 @@ public class PadLEDs {
   }
 
   public static void set(int x, int y, RGB color) {
-    if (x >= 0 && x < kDisplayWidth + kSideBarWidth && y >= 0 && y < kDisplayHeight) {
+    if (x >= 0 && x < GridConfig.getTotalWidth() && y >= 0 && y < GridConfig.getTotalHeight()) {
       // Apply color to the image array
       image[y][x].r = color.r;
       image[y][x].g = color.g;
@@ -45,8 +54,10 @@ public class PadLEDs {
   }
 
   public static void clearAll() {
-    for (int y = 0; y < kDisplayHeight; y++) {
-      for (int x = 0; x < kDisplayWidth + kSideBarWidth; x++) {
+    int h = GridConfig.getTotalHeight();
+    int w = GridConfig.getTotalWidth();
+    for (int y = 0; y < h; y++) {
+      for (int x = 0; x < w; x++) {
         image[y][x].r = 0;
         image[y][x].g = 0;
         image[y][x].b = 0;

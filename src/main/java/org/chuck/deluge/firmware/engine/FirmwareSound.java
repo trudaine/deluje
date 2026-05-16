@@ -28,7 +28,6 @@ public class FirmwareSound extends GlobalEffectable {
   public final org.chuck.deluge.firmware.dsp.oscillators.OscType[] oscTypes = {org.chuck.deluge.firmware.dsp.oscillators.OscType.SINE, org.chuck.deluge.firmware.dsp.oscillators.OscType.SINE};
   public int maxPolyphony = 64;
   public PolyphonyMode polyphonic = PolyphonyMode.POLY;
-  public ParamManager paramManager = new ParamManager();
   public int[] paramNeutralValues = new int[Param.kNumParams];
   public int[] globalSourceValues = new int[PatchSource.kNumPatchSources];
 

@@ -13,16 +13,21 @@ import org.chuck.deluge.firmware.hid.RGB;
  * Instead of the firmware calling {@code SwingGridPanel.setPadColour(x, y, rgb)} directly, the
  * firmware calls {@code PIC.setColourForTwoColumns(idx, colours)} which flows through this
  * transport, writing to a framebuffer and optionally flushing to the Swing UI.
+ *
+ * <p>Dimensions are driven by {@link GridConfig}, defaulting to 16×8 (real Deluge hardware) and
+ * extendable to larger grids via {@link PreferencesManager.GridMode}.
  */
 public class SwingPicTransport implements PicTransport {
 
-  private static final int kDisplayWidth = 16;
-  private static final int kDisplayHeight = 8;
-  private static final int kSideBarWidth = 2;
-  private static final int kTotalWidth = kDisplayWidth + kSideBarWidth; // 18
+  private static int kDisplayWidth()  { return GridConfig.getDisplayWidth(); }
+  private static int kDisplayHeight() { return GridConfig.getDisplayHeight(); }
+  private static int kTotalWidth()    { return GridConfig.getTotalWidth(); }
 
-  /** Framebuffer: pad colours indexed as [y][x]. */
-  private final RGB[][] framebuffer = new RGB[kDisplayHeight][kTotalWidth];
+  /** Framebuffer: pad colours indexed as [y][x]. Allocate at max possible grid. */
+  private static final int MAX_WIDTH  = 26; // 24 + 2 sidebar
+  private static final int MAX_HEIGHT = 16;
+
+  private final RGB[][] framebuffer = new RGB[MAX_HEIGHT][MAX_WIDTH];
 
   private JButton[][] padButtons;
 
@@ -40,8 +45,10 @@ public class SwingPicTransport implements PicTransport {
   private int[] decodeRGBBytes = new int[3];
 
   public SwingPicTransport() {
-    for (int y = 0; y < kDisplayHeight; y++) {
-      for (int x = 0; x < kTotalWidth; x++) {
+    int h = kDisplayHeight();
+    int w = kTotalWidth();
+    for (int y = 0; y < h; y++) {
+      for (int x = 0; x < w; x++) {
         framebuffer[y][x] = new RGB();
       }
     }
@@ -76,8 +83,10 @@ public class SwingPicTransport implements PicTransport {
   public void flush() {
     // Push framebuffer to Swing pad buttons
     if (padButtons == null) return;
-    for (int y = 0; y < kDisplayHeight; y++) {
-      for (int x = 0; x < kTotalWidth; x++) {
+    int h = kDisplayHeight();
+    int w = kTotalWidth();
+    for (int y = 0; y < h; y++) {
+      for (int x = 0; x < w; x++) {
         RGB rgb = framebuffer[y][x];
         JButton btn = padButtons[y][x];
         if (btn != null) {
@@ -89,7 +98,7 @@ public class SwingPicTransport implements PicTransport {
 
   /** Directly set a pad colour in the framebuffer without sending through the PIC protocol. */
   public void setPadColour(int x, int y, RGB colour) {
-    if (x >= 0 && x < kTotalWidth && y >= 0 && y < kDisplayHeight) {
+    if (x >= 0 && x < kTotalWidth() && y >= 0 && y < kDisplayHeight()) {
       framebuffer[y][x].r = colour.r;
       framebuffer[y][x].g = colour.g;
       framebuffer[y][x].b = colour.b;
@@ -98,8 +107,10 @@ public class SwingPicTransport implements PicTransport {
 
   /** Clear all pads to black. */
   public void clearAll() {
-    for (int y = 0; y < kDisplayHeight; y++) {
-      for (int x = 0; x < kTotalWidth; x++) {
+    int h = kDisplayHeight();
+    int w = kTotalWidth();
+    for (int y = 0; y < h; y++) {
+      for (int x = 0; x < w; x++) {
         framebuffer[y][x].r = 0;
         framebuffer[y][x].g = 0;
         framebuffer[y][x].b = 0;
@@ -119,7 +130,8 @@ public class SwingPicTransport implements PicTransport {
       case IDLE -> {
         // Check if this byte is a SET_COLOUR_FOR_TWO_COLUMNS header
         int base = PIC.Message.SET_COLOUR_FOR_TWO_COLUMNS.value; // 1
-        if (b >= base && b < base + 5) { // 5 column pairs: 4 main + 1 side
+        int numColumnPairs = GridConfig.getColumnPairCount();
+        if (b >= base && b < base + numColumnPairs) {
           decodeColumnPair = b - base;
           decodeState = DecodeState.COLOUR_COLUMNS_HEADER;
           decodeByteCount = 0;
@@ -129,7 +141,8 @@ public class SwingPicTransport implements PicTransport {
       }
       case COLOUR_COLUMNS_HEADER -> {
         // The "header" is just the message byte itself; data follows immediately.
-        // 16 RGB values per column pair = 48 bytes.
+        // 2×kDisplayHeight RGB values per column pair = 2*height*3 bytes.
+        int expectedBytes = GridConfig.getDisplayHeight() * 2 * 3;
         decodeState = DecodeState.COLOUR_COLUMNS_DATA;
         decodeByteCount = 0;
         decodeRGBIndex = 0;
@@ -139,7 +152,7 @@ public class SwingPicTransport implements PicTransport {
         int component = decodeByteCount % 3;
         decodeRGBBytes[component] = b;
         decodeByteCount++;
-        if (decodeByteCount >= 16 * 3) {
+        if (decodeByteCount >= expectedBytes) {
           finishColumnPair();
         }
       }
@@ -149,15 +162,20 @@ public class SwingPicTransport implements PicTransport {
         decodeByteCount++;
         if (decodeByteCount % 3 == 0 && decodeByteCount > 0) {
           int rgbIdx = decodeByteCount / 3 - 1;
-          int padX = decodeColumnPair * 2 + (rgbIdx / kDisplayHeight);
-          int padY = rgbIdx % kDisplayHeight;
-          if (padX < kDisplayWidth || (padX < kTotalWidth && decodeColumnPair == 4)) {
+          int dispHeight = GridConfig.getDisplayHeight();
+          int dispWidth  = GridConfig.getDisplayWidth();
+          int totalWidth = GridConfig.getTotalWidth();
+          int padX = decodeColumnPair * 2 + (rgbIdx / dispHeight);
+          int padY = rgbIdx % dispHeight;
+          int lastMainPair = (dispWidth + 1) / 2 - 1;
+          if (padX < dispWidth || (padX < totalWidth && decodeColumnPair == lastMainPair + 1)) {
             framebuffer[padY][padX].r = decodeRGBBytes[0];
             framebuffer[padY][padX].g = decodeRGBBytes[1];
             framebuffer[padY][padX].b = decodeRGBBytes[2];
           }
         }
-        if (decodeByteCount >= 16 * 3) {
+        int expectedBytes = GridConfig.getDisplayHeight() * 2 * 3;
+        if (decodeByteCount >= expectedBytes) {
           finishColumnPair();
         }
       }

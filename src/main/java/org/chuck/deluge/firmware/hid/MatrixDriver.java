@@ -2,11 +2,15 @@ package org.chuck.deluge.firmware.hid;
 
 import java.util.Stack;
 
+import org.chuck.deluge.firmware.hid.pic.GridConfig;
+
 /** Virtual button matrix driver. Ports the logic from matrix_driver.h. */
 public class MatrixDriver {
-  public static final int kDisplayWidth = 16;
-  public static final int kDisplayHeight = 8;
-  public static final int kSideBarWidth = 2;
+  /** Width of main pad area — delegates to {@link GridConfig}. */
+  public static int kDisplayWidth()  { return GridConfig.getDisplayWidth(); }
+  /** Height of main pad area — delegates to {@link GridConfig}. */
+  public static int kDisplayHeight() { return GridConfig.getDisplayHeight(); }
+  public static final int kSideBarWidth = GridConfig.kSideBarWidth;
 
   private static final MatrixDriver INSTANCE = new MatrixDriver();
 
@@ -14,7 +18,11 @@ public class MatrixDriver {
     return INSTANCE;
   }
 
-  private final boolean[][] padStates = new boolean[kDisplayWidth + kSideBarWidth][kDisplayHeight];
+  // Allocate for maximum possible grid; resizing with final arrays is safe
+  // since GridConfig dimensions only grow from 16×8 to at most 24×16.
+  private static final int MAX_WIDTH  = 24;
+  private static final int MAX_HEIGHT = 16;
+  private final boolean[][] padStates = new boolean[MAX_WIDTH + kSideBarWidth][MAX_HEIGHT];
   private final Stack<FirmwareUI> uiStack = new Stack<>();
 
   public void pushUI(FirmwareUI ui) {
@@ -53,7 +61,7 @@ public class MatrixDriver {
   }
 
   public void padAction(int x, int y, int velocity) {
-    if (x >= 0 && x < kDisplayWidth + kSideBarWidth && y >= 0 && y < kDisplayHeight) {
+    if (x >= 0 && x < GridConfig.getTotalWidth() && y >= 0 && y < GridConfig.getTotalHeight()) {
       int curvedVelocity = applyCurve(velocity);
       padStates[x][y] = (curvedVelocity != 0);
 
@@ -100,7 +108,7 @@ public class MatrixDriver {
   }
 
   public boolean isPadPressed(int x, int y) {
-    if (x >= 0 && x < kDisplayWidth + kSideBarWidth && y >= 0 && y < kDisplayHeight) {
+    if (x >= 0 && x < GridConfig.getTotalWidth() && y >= 0 && y < GridConfig.getTotalHeight()) {
       return padStates[x][y];
     }
     return false;

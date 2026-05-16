@@ -10,6 +10,7 @@ import org.chuck.deluge.firmware.model.note.Note;
 import org.chuck.deluge.firmware.model.note.NoteRow;
 import org.chuck.deluge.firmware.model.sample.Sample;
 import org.chuck.deluge.firmware.modulation.params.Param;
+import org.chuck.deluge.firmware.modulation.patch.PatchCable;
 import org.chuck.deluge.firmware.modulation.patch.PatchSource;
 import org.chuck.deluge.firmware.storage.audio.AudioFileReader;
 import org.chuck.deluge.model.ClipModel;
@@ -20,13 +21,93 @@ import org.chuck.deluge.model.SoundDrum;
 import org.chuck.deluge.model.StepData;
 import org.chuck.deluge.model.SynthTrackModel;
 import org.chuck.deluge.model.TrackModel;
-import org.chuck.deluge.model.TrackType;
-import org.chuck.deluge.firmware.modulation.params.Param;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.chuck.deluge.firmware.util.Q31;
 import org.chuck.deluge.project.PreferencesManager;
 
 /** Glue code to convert the existing XML-loaded models into the high-fidelity firmware engine. */
 public class FirmwareFactory {
+
+  // ── Model string → firmware enum mapping tables ────────────────────────
+
+  /** Maps model patch source names (e.g. "LFO1", "ENV1", "VELOCITY") to firmware PatchSource ordinals. */
+  private static final Map<String, PatchSource> SOURCE_MAP = new HashMap<>();
+  /** Maps model patch destination names (e.g. "lpfFrequency", "volume", "pan") to firmware Param constants. */
+  private static final Map<String, Integer> DEST_MAP = new HashMap<>();
+
+  static {
+    // Sources (model → firmware PatchSource)
+    SOURCE_MAP.put("LFO1",          PatchSource.LFO_LOCAL_1);
+    SOURCE_MAP.put("LFO2",          PatchSource.LFO_LOCAL_2);
+    SOURCE_MAP.put("LFO_GLOBAL_1",  PatchSource.LFO_GLOBAL_1);
+    SOURCE_MAP.put("LFO_GLOBAL_2",  PatchSource.LFO_GLOBAL_2);
+    SOURCE_MAP.put("ENVELOPE_0",    PatchSource.ENVELOPE_0);
+    SOURCE_MAP.put("ENVELOPE_1",    PatchSource.ENVELOPE_1);
+    SOURCE_MAP.put("ENVELOPE_2",    PatchSource.ENVELOPE_2);
+    SOURCE_MAP.put("ENVELOPE_3",    PatchSource.ENVELOPE_3);
+    SOURCE_MAP.put("SIDECHAIN",     PatchSource.SIDECHAIN);
+    SOURCE_MAP.put("X",             PatchSource.X);
+    SOURCE_MAP.put("Y",             PatchSource.Y);
+    SOURCE_MAP.put("AFTERTOUCH",    PatchSource.AFTERTOUCH);
+    SOURCE_MAP.put("VELOCITY",      PatchSource.VELOCITY);
+    SOURCE_MAP.put("NOTE",          PatchSource.NOTE);
+    SOURCE_MAP.put("RANDOM",        PatchSource.RANDOM);
+
+    // Destinations (model → firmware Param constant)
+    DEST_MAP.put("volume",            Param.LOCAL_VOLUME);
+    DEST_MAP.put("pan",               Param.LOCAL_PAN);
+    DEST_MAP.put("lpfFrequency",      Param.LOCAL_LPF_FREQ);
+    DEST_MAP.put("lpfResonance",      Param.LOCAL_LPF_RESONANCE);
+    DEST_MAP.put("lpfMorph",          Param.LOCAL_LPF_MORPH);
+    DEST_MAP.put("hpfFrequency",      Param.LOCAL_HPF_FREQ);
+    DEST_MAP.put("hpfResonance",      Param.LOCAL_HPF_RESONANCE);
+    DEST_MAP.put("hpfMorph",          Param.LOCAL_HPF_MORPH);
+    DEST_MAP.put("PITCH",             Param.LOCAL_PITCH_ADJUST);
+    DEST_MAP.put("osc1Volume",        Param.LOCAL_OSC_A_VOLUME);
+    DEST_MAP.put("osc2Volume",        Param.LOCAL_OSC_B_VOLUME);
+    DEST_MAP.put("osc1Pitch",         Param.LOCAL_OSC_A_PITCH_ADJUST);
+    DEST_MAP.put("osc2Pitch",         Param.LOCAL_OSC_B_PITCH_ADJUST);
+    DEST_MAP.put("osc1PhaseWidth",    Param.LOCAL_OSC_A_PHASE_WIDTH);
+    DEST_MAP.put("osc2PhaseWidth",    Param.LOCAL_OSC_B_PHASE_WIDTH);
+    DEST_MAP.put("osc1WaveIndex",     Param.LOCAL_OSC_A_WAVE_INDEX);
+    DEST_MAP.put("osc2WaveIndex",     Param.LOCAL_OSC_B_WAVE_INDEX);
+    DEST_MAP.put("noiseVolume",       Param.LOCAL_NOISE_VOLUME);
+    DEST_MAP.put("mod0Volume",        Param.LOCAL_MODULATOR_0_VOLUME);
+    DEST_MAP.put("mod1Volume",        Param.LOCAL_MODULATOR_1_VOLUME);
+    DEST_MAP.put("mod0Feedback",      Param.LOCAL_MODULATOR_0_FEEDBACK);
+    DEST_MAP.put("mod1Feedback",      Param.LOCAL_MODULATOR_1_FEEDBACK);
+    DEST_MAP.put("carrier0Feedback",  Param.LOCAL_CARRIER_0_FEEDBACK);
+    DEST_MAP.put("carrier1Feedback",  Param.LOCAL_CARRIER_1_FEEDBACK);
+    DEST_MAP.put("env0Sustain",       Param.LOCAL_ENV_0_SUSTAIN);
+    DEST_MAP.put("env1Sustain",       Param.LOCAL_ENV_1_SUSTAIN);
+    DEST_MAP.put("env2Sustain",       Param.LOCAL_ENV_2_SUSTAIN);
+    DEST_MAP.put("env3Sustain",       Param.LOCAL_ENV_3_SUSTAIN);
+    DEST_MAP.put("env0Attack",        Param.LOCAL_ENV_0_ATTACK);
+    DEST_MAP.put("env1Attack",        Param.LOCAL_ENV_1_ATTACK);
+    DEST_MAP.put("env2Attack",        Param.LOCAL_ENV_2_ATTACK);
+    DEST_MAP.put("env3Attack",        Param.LOCAL_ENV_3_ATTACK);
+    DEST_MAP.put("env0Decay",         Param.LOCAL_ENV_0_DECAY);
+    DEST_MAP.put("env1Decay",         Param.LOCAL_ENV_1_DECAY);
+    DEST_MAP.put("env2Decay",         Param.LOCAL_ENV_2_DECAY);
+    DEST_MAP.put("env3Decay",         Param.LOCAL_ENV_3_DECAY);
+    DEST_MAP.put("env0Release",       Param.LOCAL_ENV_0_RELEASE);
+    DEST_MAP.put("env1Release",       Param.LOCAL_ENV_1_RELEASE);
+    DEST_MAP.put("env2Release",       Param.LOCAL_ENV_2_RELEASE);
+    DEST_MAP.put("env3Release",       Param.LOCAL_ENV_3_RELEASE);
+    DEST_MAP.put("lfoLocalFreq1",     Param.LOCAL_LFO_LOCAL_FREQ_1);
+    DEST_MAP.put("lfoLocalFreq2",     Param.LOCAL_LFO_LOCAL_FREQ_2);
+  }
+
+  /**
+   * Converts a model patch cable's float amount to Q31 fixed-point.
+   * PITCH destinations get exponential (quadratic) scaling to match firmware behavior.
+   */
+  private static int amountToQ31(String dest, float amount) {
+    float scaled = org.chuck.deluge.model.PatchCable.applyScaling(dest, amount);
+    return (int)(scaled * Q31.ONE);
+  }
 
   public static Song createSong(ProjectModel model) {
     Song song = new Song();
@@ -51,6 +132,21 @@ public class FirmwareFactory {
 
     FirmwareSound sound = new FirmwareSound();
     clip.sound = sound;
+
+    // ── Copy patch cables from model to firmware ParamManager ──
+    List<org.chuck.deluge.model.PatchCable> modelCables = model.getPatchCables();
+    if (modelCables != null) {
+      for (org.chuck.deluge.model.PatchCable pc : modelCables) {
+        PatchSource src = SOURCE_MAP.get(pc.source());
+        Integer dstId = DEST_MAP.get(pc.destination());
+        if (src != null && dstId != null) {
+          PatchCable fwCable = new PatchCable();
+          fwCable.from = src;
+          fwCable.amount = amountToQ31(pc.destination(), pc.amount());
+          sound.paramManager.getPatchCableSet().addCable(dstId, fwCable);
+        }
+      }
+    }
 
     if (!model.getClips().isEmpty()) {
       ClipModel clipModel = model.getClips().get(0);
