@@ -229,6 +229,8 @@ public final class BridgeContract {
   public static final String G_ROOT_KEY = "g_root_key";
   public static final String G_RELOAD = "g_reload";
   public static final String G_LOAD_TRIGGER = "g_load_trigger";
+  public static final String G_FIRMWARE_ENGINE = "g_firmware_engine";
+  public static final String G_PLAYBACK_HANDLER = "g_playback_handler";
   public static final String E_TICK = "tick_event";
   // ── Extended reverb globals ─────────────────────────────────────────────
   public static final String G_REVERB_WIDTH = "g_reverb_width";

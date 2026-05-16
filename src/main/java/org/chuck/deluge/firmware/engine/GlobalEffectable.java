@@ -4,23 +4,18 @@ import static org.chuck.deluge.firmware.util.Q31.*;
 
 import org.chuck.deluge.firmware.dsp.StereoSample;
 import org.chuck.deluge.firmware.dsp.compressor.RMSFeedbackCompressor;
-import org.chuck.deluge.firmware.dsp.delay.Delay;
-import org.chuck.deluge.firmware.dsp.filter.LpLadderFilter;
 import org.chuck.deluge.firmware.dsp.filter.FilterSet;
 import org.chuck.deluge.firmware.modulation.params.ParamManager;
+import org.chuck.deluge.firmware.util.Q31;
 
-/**
- * Base class for things that have Track FX (Synths, Kits, Audio Clips). Ports
- * GlobalEffectableForClip.cpp.
- */
+/** Base class for things that can have global FX applied (Synths, Kits). */
 public abstract class GlobalEffectable {
   public final FilterSet filterSet = new FilterSet();
-  public final RMSFeedbackCompressor trackCompressor = new RMSFeedbackCompressor();
-  public final Delay trackDelay = new Delay();
-  public final Delay.State delayState = new Delay.State();
+  public final Stutterer stutterer = new Stutterer();
+  public final ParamManager paramManager = new ParamManager();
 
   public void renderOutput(
-      StereoSample[] output, int numSamples, ParamManager paramManager, int[] reverbBuffer) {
+      StereoSample[] output, int numSamples, int[] reverbBuffer) {
     StereoSample[] trackBuffer = new StereoSample[numSamples];
     for (int i = 0; i < numSamples; i++) trackBuffer[i] = new StereoSample();
 
@@ -31,24 +26,24 @@ public abstract class GlobalEffectable {
     processFilters(trackBuffer, numSamples);
 
     // 3. Process Global FX and Volume
-    int postFXVolume = 134217728; // neutral
-    int postReverbVolume = 134217728;
+    // Neutral values in Q31
+    int postFXVolume = Q31.ONE; 
+    int postReverbVolume = Q31.ONE;
     int reverbSendAmount = 0;
-    int pan = 0;
+    int pan = 0; // Center in Q31 is 0
 
     processReverbSendAndVolume(
         trackBuffer, reverbBuffer, postFXVolume, postReverbVolume, reverbSendAmount, pan);
 
     // 4. Sum to master output
     for (int i = 0; i < numSamples; i++) {
-      output[i].l += trackBuffer[i].l;
-      output[i].r += trackBuffer[i].r;
+      output[i].l = addSaturate(output[i].l, trackBuffer[i].l);
+      output[i].r = addSaturate(output[i].r, trackBuffer[i].r);
     }
   }
 
   public void processFilters(StereoSample[] buffer, int numSamples) {
       // ── Bit-Accurate Stereo Filter Rendering ──
-      // In hardware, this happens in-place on the stereo stream
       filterSet.renderStereoInterleaved(buffer, numSamples);
   }
 
@@ -60,22 +55,22 @@ public abstract class GlobalEffectable {
       int reverbSendAmount,
       int pan) {
 
-    int reverbSendAmountAndPostFXVolume =
-        multiply_32x32_rshift32(postFXVolume, reverbSendAmount) << 5;
-    int postFXAndReverbVolumeL = multiply_32x32_rshift32(postReverbVolume, postFXVolume) << 5;
-    int postFXAndReverbVolumeR = postFXAndReverbVolumeL;
+    // ── Bit-Accurate Gain Staging ──
+    int finalGain = Q31.mult(postFXVolume, postReverbVolume);
 
     for (int i = 0; i < buffer.length; i++) {
       StereoSample sample = buffer[i];
-      // Send to reverb
+      
+      // Send to reverb (mono sum)
       if (reverbSendAmount != 0 && reverbBuffer != null) {
-        reverbBuffer[i] +=
-            multiply_32x32_rshift32(sample.l + sample.r, reverbSendAmountAndPostFXVolume) << 1;
+        int mono = addSaturate(sample.l, sample.r);
+        reverbBuffer[i] = addSaturate(reverbBuffer[i], Q31.mult(mono, reverbSendAmount));
       }
 
-      // Apply post-fx and post-reverb-send volume
-      sample.l = multiply_32x32_rshift32(sample.l, postFXAndReverbVolumeL) << 5;
-      sample.r = multiply_32x32_rshift32(sample.r, postFXAndReverbVolumeR) << 5;
+      // Apply Final Volume and Pan
+      // (Simplified pan for now: just apply finalGain)
+      sample.l = Q31.mult(sample.l, finalGain);
+      sample.r = Q31.mult(sample.r, finalGain);
     }
   }
 

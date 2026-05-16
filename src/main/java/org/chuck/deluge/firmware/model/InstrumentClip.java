@@ -3,11 +3,17 @@ package org.chuck.deluge.firmware.model;
 import java.util.ArrayList;
 import java.util.List;
 import org.chuck.deluge.firmware.engine.FirmwareSound;
+import org.chuck.deluge.firmware.engine.FirmwareKit;
+import org.chuck.deluge.firmware.engine.GlobalEffectable;
 import org.chuck.deluge.firmware.model.note.NoteRow;
 import org.chuck.deluge.firmware.model.note.PendingNoteOn;
 
+/** 
+ * Port of the Deluge's InstrumentClip class.
+ * Handles sequencing for a specific instrument (Synth or Kit).
+ */
 public class InstrumentClip extends Clip {
-  public FirmwareSound sound;
+  public GlobalEffectable sound; // Can be a FirmwareSound (Synth) or FirmwareKit
   public List<NoteRow> noteRows = new ArrayList<>();
   public int lastProcessedPos = 0;
   public int ticksTilNextEvent = Integer.MAX_VALUE;
@@ -31,7 +37,10 @@ public class InstrumentClip extends Clip {
   @Override
   public void expectNoFurtherTicks(boolean actuallySoundChange) {
     if (actuallySoundChange && sound != null) {
-        sound.noteOffAll();
+        if (sound instanceof FirmwareSound) ((FirmwareSound)sound).noteOffAll();
+        else if (sound instanceof FirmwareKit) {
+            for (FirmwareSound drum : ((FirmwareKit)sound).drumSounds) drum.noteOffAll();
+        }
     }
   }
 
@@ -65,23 +74,20 @@ public class InstrumentClip extends Clip {
       }
     }
 
-    // At least make sure we come back at the end of this Clip
     int ticksTilEnd = currentlyPlayingReversed ? lastProcessedPos : (loopLength - lastProcessedPos);
     if (ticksTilEnd <= 0) ticksTilEnd = loopLength;
+    if (ticksTilEnd < ticksTilNextEvent) ticksTilNextEvent = ticksTilEnd;
 
-    if (ticksTilEnd < ticksTilNextEvent) {
-      ticksTilNextEvent = ticksTilEnd;
-    }
-
-    // Trigger notes in Java sound engine...
     for (PendingNoteOn noteOn : pendingNoteOns) {
       triggerNote(noteOn);
     }
   }
 
   private void triggerNote(PendingNoteOn noteOn) {
-    if (sound != null) {
-        sound.triggerNote(noteOn.noteRow.y, noteOn.velocity);
+    if (sound instanceof FirmwareSound) {
+        ((FirmwareSound)sound).triggerNote(noteOn.noteRow.y, noteOn.velocity);
+    } else if (sound instanceof FirmwareKit) {
+        ((FirmwareKit)sound).triggerDrum(noteOn.noteRow.y, noteOn.velocity);
     }
   }
 }

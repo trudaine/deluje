@@ -27,6 +27,7 @@ public class FirmwareKit extends GlobalEffectable {
   }
 
   public void triggerDrum(int row, int vel) {
+    System.out.println("[Kit] Trigger drum row " + row + " with velocity " + vel);
     if (row >= 0 && row < drumSounds.size()) {
       drumSounds.get(row).triggerNote(60, vel);
     }

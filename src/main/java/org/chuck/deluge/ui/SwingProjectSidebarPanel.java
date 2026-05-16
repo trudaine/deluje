@@ -511,6 +511,7 @@ public class SwingProjectSidebarPanel extends JPanel {
           lpfLabel.setText("LPF Cutoff: " + lpfSlider.getValue());
           if (bridge != null) {
             bridge.setFilterFreq(0, lpfSlider.getValue() / 127.0);
+            org.chuck.deluge.firmware.hid.FirmwareDisplay.get().displayNotification("LPF FREQ", String.valueOf(lpfSlider.getValue()));
           }
         });
     filterBox.add(lpfLabel);
@@ -531,6 +532,7 @@ public class SwingProjectSidebarPanel extends JPanel {
           attLabel.setText("Attack: " + attSlider.getValue());
           if (bridge != null) {
             bridge.setEnv(0, 0, attSlider.getValue() / 100.0, 0.2, 0.8, 0.3);
+            org.chuck.deluge.firmware.hid.FirmwareDisplay.get().displayNotification("ENV1 ATT", String.valueOf(attSlider.getValue()));
           }
         });
     envBox.add(attLabel);
