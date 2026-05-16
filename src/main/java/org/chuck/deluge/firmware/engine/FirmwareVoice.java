@@ -101,7 +101,9 @@ public class FirmwareVoice {
     int sourcesChanged = 0xFFFFFFFF;
 
     // 1. Process Envelopes
-    int env0 = envelopes[0].render(numSamples, 1000, 1000, ONE / 2, 1000, LookupTables.decayTableSmall8);
+    // Use reasonable envelope times for audible sound at 96 PPQN:
+    // ATTACK ~10ms, DECAY ~200ms, SUSTAIN ~75%, RELEASE ~100ms
+    int env0 = envelopes[0].render(numSamples, 44100, 2205, (int)(ONE * 0.75), 4410, LookupTables.decayTableSmall8);
     if (envelopes[0].state == Envelope.EnvelopeStage.OFF) {
       active = false;
       return false;
@@ -117,7 +119,9 @@ public class FirmwareVoice {
       sourceValues[i] = sound.globalSourceValues[i];
     }
 
-    // Perform patching
+    // Initialize paramFinalValues with neutral (base) values before patching
+    System.arraycopy(sound.paramNeutralValues, 0, paramFinalValues, 0, Math.min(sound.paramNeutralValues.length, paramFinalValues.length));
+    // Perform patching (writes non-default values on top where cables exist)
     patcher.performPatching(sourcesChanged, sound, sound.paramManager, sourceValues, paramFinalValues);
 
     // ── Pitch Calculation ──
@@ -150,11 +154,11 @@ public class FirmwareVoice {
 
   private void renderUnisonPart(int u, int[] buffer, int numSamples, int pIncA, int pIncB, int pitchAdjust) {
       VoiceUnisonPart part = unisonParts[u];
-      
+
       // ── Bit-Accurate FM Engine ──
       if (sound.getSynthMode() == FirmwareSound.SynthMode.FM) {
           for (int i = 0; i < 6; i++) {
-              fmParams[i].freq = pIncA; 
+              fmParams[i].freq = pIncA;
               fmParams[i].phase = part.sources[0].oscPos;
               fmParams[i].level_in = paramFinalValues[Param.LOCAL_OSC_A_VOLUME];
           }
@@ -163,16 +167,82 @@ public class FirmwareVoice {
           return;
       }
 
-      // Render Osc A (Subtractive Mode)
+      // Apply pitch adjustment from patching
+      int adjA = (int)(((long)pIncA * pitchAdjust) >> 31);
+      int adjB = (int)(((long)pIncB * pitchAdjust) >> 31);
+
+      // Determine oscillator types from the sound
+      OscType typeA = u < sound.oscTypes.length ? sound.oscTypes[0] : OscType.SINE;
+      OscType typeB = u < sound.oscTypes.length ? sound.oscTypes[Math.min(1, sound.oscTypes.length - 1)] : OscType.SINE;
+
+      // Render Osc A
       int[] phaseA = {part.sources[0].oscPos};
-      Oscillator.renderOsc(OscType.SINE, paramFinalValues[Param.LOCAL_OSC_A_VOLUME], buffer, 0, numSamples, 
-                           pIncA, paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH], phaseA, true, 0, false, 0, 0, 0);
+      int ampA = paramFinalValues[Param.LOCAL_OSC_A_VOLUME];
+      if (ampA == 0) ampA = ONE; // default to full volume if unpatched
+
+      // SAMPLE mode: render from sample data instead of oscillator
+      if (typeA == OscType.SAMPLE && u < sound.samples.length && sound.samples[u] != null) {
+          renderSample(part.sources[0], sound.samples[u], buffer, numSamples, adjA, ampA);
+      } else {
+          Oscillator.renderOsc(typeA, ampA, buffer, 0, numSamples,
+                               adjA, paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH],
+                               phaseA, true, 0, false, 0, 0, 0);
+      }
       part.sources[0].oscPos = phaseA[0];
 
       // Render Osc B
       int[] phaseB = {part.sources[1].oscPos};
-      Oscillator.renderOsc(OscType.SINE, paramFinalValues[Param.LOCAL_OSC_B_VOLUME], buffer, 0, numSamples, 
-                           pIncB, paramFinalValues[Param.LOCAL_OSC_B_PHASE_WIDTH], phaseB, true, 0, false, 0, 0, 0);
+      int ampB = paramFinalValues[Param.LOCAL_OSC_B_VOLUME];
+      if (ampB == 0) ampB = ONE;
+
+      if (typeB == OscType.SAMPLE && u < sound.samples.length && sound.samples[u] != null) {
+          renderSample(part.sources[1], sound.samples[u], buffer, numSamples, adjB, ampB);
+      } else {
+          Oscillator.renderOsc(typeB, ampB, buffer, 0, numSamples,
+                               adjB, paramFinalValues[Param.LOCAL_OSC_B_PHASE_WIDTH],
+                               phaseB, true, 0, false, 0, 0, 0);
+      }
       part.sources[1].oscPos = phaseB[0];
+  }
+
+  /** Render a sample into the voice buffer using the unison part's current position. */
+  private void renderSample(VoiceUnisonPartSource source, org.chuck.deluge.firmware.model.sample.Sample sample,
+                            int[] buffer, int numSamples, int phaseInc, int amp) {
+      long samplePos = source.oscPos & 0xFFFFFFFFL;
+      float[] sampleData = sample.data;
+      int sampleLen = sample.getNumSamples();
+      if (sampleData == null || sampleLen == 0) return;
+
+      // Convert oscillator phase increment to sample playback rate.
+      // Osc phase inc for 440Hz = (440 * 2^32) / 44100 ≈ 42868558.
+      // At this rate a 440Hz tone would play one full waveform cycle per output sample period.
+      // For sample playback: we want 1 sample-position-unit per output sample at original pitch.
+      // The sampler's original pitch is sample.midiNoteFromFile (default 60 = C4).
+      // Convert the phaseInc from "whatever note it was triggered at" to a sample-rate ratio:
+      //   sampleInc = (triggerNoteFreq / originalSampleFreq) * (2^32 / 2^something)
+      // Simplified: at original pitch, inc = 2^32 / (sample.midiNoteFromFile freq in cycles)
+      //   = (freq_of_note / 44100) * 2^32 for oscillator phase increment
+      //   = 1.0 for sample position (1 sample per output sample)
+      // So just: sampleInc = (phaseInc * 44100) / (freq_of_note * 2^32) * 2^32
+      // Actually simpler: for 44100 sample rate, inc=1 per output sample at original pitch,
+      // i.e. inc = 1 in 32:32 fixed point = 0x100000000 for each 44100 output samples.
+      // Scale from the oscillator domain to sample domain:
+      double freqOfNote = 440.0 * Math.pow(2.0, (note - 69) / 12.0);
+      double freqOfSample = 440.0 * Math.pow(2.0, (sample.midiNoteFromFile - 69) / 12.0);
+      double pitchRatio = freqOfNote / freqOfSample;
+      // In 32:32 fixed point, 1.0 = 0x100000000. Scale by pitchRatio.
+      long inc = (long)(pitchRatio * 0x100000000L);
+      if (inc == 0) inc = 0x100000000L; // safety: play at original pitch if calculation fails
+
+      for (int i = 0; i < numSamples; i++) {
+          int idx = (int)(samplePos >> 32);
+          if (idx >= sampleLen) break;
+          // Convert float [-1,1] to Q31
+          int val = (int)(sampleData[idx] * 2147483647.0);
+          int wet = Q31.mult(val, amp);
+          buffer[i] = Q31.addSaturate(buffer[i], Q31.lshiftAndSaturate(wet, 1));
+          samplePos += inc;
+      }
+      source.oscPos = (int)samplePos;
   }
 }
