@@ -139,8 +139,13 @@ public class FirmwareVoice {
 
     // ── Final Gain & Saturation ──
     int env0Gain = (sourceValues[PatchSource.ENVELOPE_0.ordinal()] >> 1) + 1073741824;
+    
+    // Safety check: ensure volume is not squashed to zero by un-patched synth defaults
+    int trackVol = paramFinalValues[Param.LOCAL_VOLUME];
+    
     for (int i = 0; i < numSamples; i++) {
       int wet = Q31.mult(voiceBuffer[i], env0Gain);
+      wet = Q31.mult(wet, trackVol);
       // Bit-accurate per-voice non-linear saturation
       buffer[i] = Q31.addSaturate(buffer[i], Q31.lshiftAndSaturate(wet, 1));
     }
@@ -163,16 +168,21 @@ public class FirmwareVoice {
           return;
       }
 
-      // Render Osc A (Subtractive Mode)
-      int[] phaseA = {part.sources[0].oscPos};
-      Oscillator.renderOsc(OscType.SINE, paramFinalValues[Param.LOCAL_OSC_A_VOLUME], buffer, 0, numSamples, 
-                           pIncA, paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH], phaseA, true, 0, false, 0, 0, 0);
-      part.sources[0].oscPos = phaseA[0];
-
-      // Render Osc B
-      int[] phaseB = {part.sources[1].oscPos};
-      Oscillator.renderOsc(OscType.SINE, paramFinalValues[Param.LOCAL_OSC_B_VOLUME], buffer, 0, numSamples, 
-                           pIncB, paramFinalValues[Param.LOCAL_OSC_B_PHASE_WIDTH], phaseB, true, 0, false, 0, 0, 0);
-      part.sources[1].oscPos = phaseB[0];
+      // ── Bit-Accurate Subtractive / Sample Engine ──
+      for (int s = 0; s < 2; s++) {
+          OscType type = sound.oscTypes[s];
+          int vol = (s == 0) ? paramFinalValues[Param.LOCAL_OSC_A_VOLUME] : paramFinalValues[Param.LOCAL_OSC_B_VOLUME];
+          int pInc = (s == 0) ? pIncA : pIncB;
+          
+          if (type == OscType.SAMPLE) {
+              part.sources[s].render(buffer, numSamples, pInc, sound.samples[s], vol);
+          } else {
+              int[] phase = {part.sources[s].oscPos};
+              int pw = (s == 0) ? paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH] : paramFinalValues[Param.LOCAL_OSC_B_PHASE_WIDTH];
+              
+              Oscillator.renderOsc(type, vol, buffer, 0, numSamples, pInc, pw, phase, true, 0, false, 0, 0, 0);
+              part.sources[s].oscPos = phase[0];
+          }
+      }
   }
 }
