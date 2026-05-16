@@ -73,6 +73,15 @@ public class FirmwareVoice {
         unisonParts[i].reset();
         unisonParts[i].sources[0].active = true;
         unisonParts[i].sources[1].active = true;
+
+        // If this sound uses sample oscillators, prime the unison source
+        // with the loaded sample so VoiceUnisonPartSource.render() has a
+        // non-null voiceSample to render from.
+        for (int s = 0; s < 2; s++) {
+            if (sound.oscTypes[s] == OscType.SAMPLE && sound.samples[s] != null) {
+                unisonParts[i].sources[s].noteOn(sound.samples[s], 0);
+            }
+        }
     }
 
     envelopes[0].noteOn(false);
