@@ -9,10 +9,12 @@ import org.chuck.deluge.firmware.hid.RGB;
  */
 public class PIC {
 
-  private static final int kDisplayWidth = 16;
-  private static final int kDisplayHeight = 8;
-  private static final int kSideBarWidth = 2;
-  private static final int kMainPadCount = kDisplayWidth * kDisplayHeight; // 128
+  /** Convenience references to {@link GridConfig} — the single source of truth. */
+  public static int kDisplayWidth()   { return GridConfig.getDisplayWidth(); }
+  public static int kDisplayHeight()  { return GridConfig.getDisplayHeight(); }
+  public static int kSideBarWidth()   { return GridConfig.kSideBarWidth; }
+  public static int kMainPadCount()   { return GridConfig.getMainPadCount(); }
+
   private static final int kNumGoldKnobIndicatorLEDs = 24;
   private static final int kNumericDisplayLength = 4;
 
