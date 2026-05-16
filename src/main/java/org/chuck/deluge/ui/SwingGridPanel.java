@@ -73,6 +73,11 @@ public class SwingGridPanel extends JPanel {
     new Color(0x99, 0xcc, 0xff), // Baby Blue
   };
 
+  /** Returns the backing JButton pad array. Used by SwingPicTransport to render physical pad colours. */
+  public JButton[][] getPadButtons() {
+    return pads;
+  }
+
   /** Cached pad size, computed once per resize so refresh() is idempotent. */
   private int cachedPadSz = 48;
 

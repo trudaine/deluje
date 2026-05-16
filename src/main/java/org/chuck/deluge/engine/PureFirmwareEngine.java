@@ -95,27 +95,12 @@ public class PureFirmwareEngine {
       playbackHandler.start();
       
       // ── Start Audio Thread ──
-      // The driver drives the renderBlock() calls
+      // The driver drives the renderBlock() calls and advances ticks
       audioThread = Thread.ofVirtual().name("DelugeAudio").start(() -> {
-          // We wrap the driver run to also handle sequencer advancement
-          runAudioAndSequencer();
+          audioDriver.run();
       });
       
       System.out.println("[PureFirmwareEngine] Workstation Started (Pure Java Mode)");
-  }
-
-  private void runAudioAndSequencer() {
-      // Logic to advance ticks based on samples rendered
-      // 96 PPQN
-      double ticksPerSample = ((currentBpm / 60.0) * 96.0) / 44100.0;
-      
-      // Start the driver but we'll manually step the sequencer
-      // Actually, let's just use the driver and update it to accept a callback
-      // Or simply do the loop here.
-      
-      // For simplicity in this pass, I'll let the driver just run
-      // and we'll sync in a different thread or use a shared state.
-      audioDriver.run();
   }
 
   public void stop() {

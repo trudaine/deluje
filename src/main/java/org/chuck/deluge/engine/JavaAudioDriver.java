@@ -46,21 +46,6 @@ public class JavaAudioDriver implements Runnable {
 
             System.out.println("[JavaAudioDriver] Opened SUCCESS: " + line.getLineInfo());
             
-            // ── HARDWARE TEST BEEP (2 SECONDS, VERY LOUD) ──
-            System.out.println("[JavaAudioDriver] >>> STARTING 2s BEEP TEST <<<");
-            for (int b = 0; b < 700; b++) {
-                for (int i = 0; i < BLOCK_SIZE; i++) {
-                    double sample = Math.sin(2.0 * Math.PI * 440.0 * (b * BLOCK_SIZE + i) / 44100.0) * 0.7;
-                    short val = (short)(sample * 32767.0);
-                    byteBuffer[i * 4] = (byte) (val & 0xFF);
-                    byteBuffer[i * 4 + 1] = (byte) ((val >> 8) & 0xFF);
-                    byteBuffer[i * 4 + 2] = (byte) (val & 0xFF);
-                    byteBuffer[i * 4 + 3] = (byte) ((val >> 8) & 0xFF);
-                }
-                line.write(byteBuffer, 0, byteBuffer.length);
-            }
-            System.out.println("[JavaAudioDriver] >>> BEEP TEST COMPLETE <<<");
-
             int peak = 0;
             int blockCounter = 0;
 

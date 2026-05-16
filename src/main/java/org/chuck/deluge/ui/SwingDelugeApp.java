@@ -13,6 +13,8 @@ import org.chuck.deluge.firmware.gui.views.PianoRollView;
 import org.chuck.deluge.firmware.gui.views.SessionView;
 import org.chuck.deluge.firmware.hid.Flasher;
 import org.chuck.deluge.firmware.hid.MatrixDriver;
+import org.chuck.deluge.firmware.hid.pic.PIC;
+import org.chuck.deluge.firmware.hid.pic.SwingPicTransport;
 import org.chuck.deluge.model.AudioTrackModel;
 import org.chuck.deluge.model.ClipModel;
 import org.chuck.deluge.model.Consequence;
@@ -2075,6 +2077,11 @@ public class SwingDelugeApp extends JFrame {
         });
     centerCardPanel.add(wrapGridPanel(clipPanel), "CLIP");
 
+    // Wire PIC transport to Swing pad buttons for protocol-level pad rendering
+    SwingPicTransport picTransport = new SwingPicTransport();
+    picTransport.setPadButtons(clipPanel.getPadButtons());
+    PIC.setTransport(picTransport);
+
     songPanel = new SwingGridPanel(vm, bridge);
     songPanel.setViewMode(SwingGridPanel.GridViewMode.SONG);
     songPanel.setProjectModel(currentProject);
@@ -2261,6 +2268,9 @@ public class SwingDelugeApp extends JFrame {
     rightFloat.add(visualizerPanel);
 
     new Timer(33, e -> visualizerPanel.repaint()).start();
+
+    // Periodically flush PIC framebuffer to Swing pad buttons (≈30 fps)
+    new Timer(33, e -> picTransport.flush()).start();
 
     // bottom lane purged
 
