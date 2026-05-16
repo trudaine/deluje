@@ -3,8 +3,10 @@ package org.chuck.deluge.firmware.engine;
 import java.io.File;
 import java.io.IOException;
 import org.chuck.deluge.firmware.dsp.oscillators.OscType;
+import org.chuck.deluge.firmware.model.Clip;
 import org.chuck.deluge.firmware.model.InstrumentClip;
 import org.chuck.deluge.firmware.model.Song;
+import org.chuck.deluge.firmware.model.note.Note;
 import org.chuck.deluge.firmware.model.note.NoteRow;
 import org.chuck.deluge.firmware.model.sample.Sample;
 import org.chuck.deluge.firmware.modulation.params.Param;
@@ -18,6 +20,9 @@ import org.chuck.deluge.model.SoundDrum;
 import org.chuck.deluge.model.StepData;
 import org.chuck.deluge.model.SynthTrackModel;
 import org.chuck.deluge.model.TrackModel;
+import org.chuck.deluge.model.TrackType;
+import org.chuck.deluge.firmware.modulation.params.Param;
+import org.chuck.deluge.firmware.util.Q31;
 import org.chuck.deluge.project.PreferencesManager;
 
 /** Glue code to convert the existing XML-loaded models into the high-fidelity firmware engine. */
@@ -127,7 +132,7 @@ public class FirmwareFactory {
           if (root == null) continue;
           File f = new File(root, path);
           if (f.exists()) return f;
-          
+
           // Case-insensitive fallback
           File parent = new File(root, new File(path).getParent() != null ? new File(path).getParent() : "");
           if (parent.isDirectory()) {
@@ -140,5 +145,69 @@ public class FirmwareFactory {
       File absolute = new File(path);
       if (absolute.exists()) return absolute;
       return null;
+  }
+
+  /**
+   * Back-sync from firmware Song → ProjectModel before XML save.
+   *
+   * <p>Iterates each firmware InstrumentClip and copies Note data back into the corresponding
+   * ClipModel, and copies FirmwareSound param values back into the SynthTrackModel/KitTrackModel.
+   * This ensures edits made through firmware-native views (PianoRoll, MidiFollow) survive XML
+   * serialization.
+   */
+  public static void syncFirmwareToModel(Song song, ProjectModel model) {
+      int clipIdx = 0;
+      for (Clip c : song.clips) {
+          if (!(c instanceof InstrumentClip ic)) continue;
+          if (clipIdx >= model.getTracks().size()) break;
+
+          TrackModel track = model.getTracks().get(clipIdx);
+
+          // ── Sync note data ──
+          if (!track.getClips().isEmpty()) {
+              ClipModel cm = track.getClips().get(0);
+              cm.setRowCount(Math.max(cm.getRowCount(), ic.noteRows.size()));
+              int stepsPerTick = 24;
+
+              for (int r = 0; r < ic.noteRows.size(); r++) {
+                  NoteRow nr = ic.noteRows.get(r);
+                  // Clear existing step data for this row
+                  for (int s = 0; s < cm.getStepCount(); s++) {
+                      cm.setStep(r, s, StepData.empty());
+                  }
+                  // Write firmware notes back as steps
+                  for (Note n : nr.notes) {
+                      int step = n.pos / stepsPerTick;
+                      int gateTicks = n.length;
+                      float gate = (float) gateTicks / stepsPerTick;
+                      float vel = n.getVelocity() / 127f;
+                      int pitch = nr.y;
+                      cm.setStep(r, step,
+                          new StepData(true, vel, Math.min(gate, 1.0f),
+                              n.getProbability() / 100f, pitch, 0, 0.0f));
+                  }
+              }
+          }
+
+          // ── Sync track-level params from FirmwareSound ──
+          if (ic.sound instanceof FirmwareSound fs) {
+              int volQ31 = fs.paramNeutralValues[Param.LOCAL_VOLUME];
+              int lpfQ31 = fs.paramNeutralValues[Param.LOCAL_LPF_FREQ];
+              int panQ31 = fs.paramNeutralValues[Param.LOCAL_PAN];
+              float vol = volQ31 / (float) Q31.ONE;
+              float lpf = lpfQ31 / (float) Q31.ONE;
+              float pan = panQ31 / (float) Q31.ONE;
+
+              if (track instanceof SynthTrackModel synth) {
+                  synth.setVolume(Math.max(0.0f, vol));
+                  synth.setLpfFreq(Math.max(20.0f, lpf * 20000.0f));
+                  synth.setPan(pan);
+              } else if (track instanceof KitTrackModel kit) {
+                  // KitTrackModel uses per-drum params, not per-track
+              }
+          }
+
+          clipIdx++;
+      }
   }
 }

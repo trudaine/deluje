@@ -1576,6 +1576,14 @@ public class SwingDelugeApp extends JFrame {
       }
     }
     try {
+      // Sync firmware model -> Java model before save, if firmware engine is active
+      if (pureEngine != null) {
+          var fwSong = pureEngine.getPlaybackHandler().getSong();
+          if (fwSong != null) {
+              org.chuck.deluge.firmware.engine.FirmwareFactory.syncFirmwareToModel(fwSong, currentProject);
+          }
+      }
+      pushModelToBridge();
       org.chuck.deluge.project.ProjectSerializer.save(currentProject, target);
       currentProjectFile = target;
       setTitle("DELUGE WORKSTATION — " + target.getName());
