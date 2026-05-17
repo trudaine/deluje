@@ -1,54 +1,5 @@
 package org.chuck.deluge.firmware.util;
 
-/**
- * Bit-accurate port of the Deluge firmware's {@code lookup_tables.h} with additional tables from
- * the dexed/msfa FM engine consolidated into one class.
- *
- * <h3>Origin</h3>
- *
- * The static literal arrays (tanTable, decayTableSmall*, sineWaveSmall, windowedSincKernel,
- * expTableSmall, tanHSmall, resonanceThresholdsForOversampling, resonanceLimitTable) are direct 1:1
- * copies of the C++ {@code lookup_tables.h}.
- *
- * <h3>Divergence from C++</h3>
- *
- * The C++ source scatters runtime-computed FM tables across {@code lookup_tables.h} and {@code
- * engine.h} (dexed/msfa). This Java class consolidates them:
- *
- * <ul>
- *   <li>{@code sinTab}, {@code exp2Tab}, {@code tanhTab} — CORDIC-rotated sine, {@code 2^x}, and
- *       4th-order Runge-Kutta tanh tables from the FM engine, initialized in {@code static {}}.
- *   <li>Three lookup methods ({@link #sinLookup}, {@link #exp2Lookup}, {@link #tanhLookup}) provide
- *       linear interpolation between entries.
- * </ul>
- *
- * DX7 algorithm-specific static tables (ALGORITHMS, operator frequency ratios, amp mod sensitivity)
- * live in a separate file at {@code chuck-core/.../Dx7EngineLookupTables.java} because they belong
- * to the shared audio library, not the Deluge application layer.
- *
- * <h3>Unsigned type handling</h3>
- *
- * <p>Three {@code short[]} arrays store C++ {@code uint16_t} values with explicit {@code (short)}
- * casts — the standard Java idiom. The two's complement truncation is bit-identical to C++ {@code
- * uint16_t} storage:
- *
- * <ul>
- *   <li>{@link #decayTableSmall8} — first 32 entries exceed {@code 32767}
- *   <li>{@link #decayTableSmall4} — first 59 entries exceed {@code 32767}
- *   <li>{@link #expTableSmall} — entries 128–255 exceed {@code 32767}
- * </ul>
- *
- * <p>Every consumer reads these via {@code interpolateTable()} which uses {@code &amp; 0xFFFF} to
- * widen back to unsigned {@code int}. This preserves bit-accuracy. See the canonical type mapping
- * in {@code org.chuck.deluge.firmware package-info.java}.
- *
- * <h3>Known fix</h3>
- *
- * The original C++ {@code sineWaveSmall} had 257 entries (256 half-wave samples plus sentinel). The
- * initial Java port was one short — the trailing sentinel {@code 0} was missing. Fixed in commit
- * {@code d95c73b3} by appending {@code (short) 0, (short) 0}. Numeric values are otherwise
- * bit-identical to the C++ originals.
- */
 public class LookupTables {
   public static final int[] tanTable = {
     0, 6040817, 12087756, 18146962, 24224633, 30327039, 36460554, 42631679,
@@ -157,36 +108,24 @@ public class LookupTables {
   public static final short[] sineWaveSmall = {
     0, 804, 1608, 2410, 3212, 4011, 4808, 5602, 6393, 7179, 7962, 8739, 9512, 10278, 11039, 11793,
     12539, 13279, 14010, 14732, 15446, 16151, 16846, 17530, 18204, 18868, 19519, 20159, 20787,
-        21403, 22005, 22594,
-    23170, 23731, 24279, 24811, 25329, 25832, 26319, 26790, 27245, 27683, 28105, 28510, 28898,
-        29268, 29621, 29956,
-    30273, 30571, 30852, 31113, 31356, 31580, 31785, 31971, 32137, 32285, 32412, 32521, 32609,
-        32678, 32728, 32757,
-    32767, 32757, 32728, 32678, 32609, 32521, 32412, 32285, 32137, 31971, 31785, 31580, 31356,
-        31113, 30852, 30571,
-    30273, 29956, 29621, 29268, 28898, 28510, 28105, 27683, 27245, 26790, 26319, 25832, 25329,
-        24811, 24279, 23731,
-    23170, 22594, 22005, 21403, 20787, 20159, 19519, 18868, 18204, 17530, 16846, 16151, 15446,
-        14732, 14010, 13279,
-    12539, 11793, 11039, 10278, 9512, 8739, 7962, 7179, 6393, 5602, 4808, 4011, 3212, 2410, 1608,
-        804,
-    0, -804, -1608, -2410, -3212, -4011, -4808, -5602, -6393, -7179, -7962, -8739, -9512, -10278,
-        -11039, -11793,
-    -12539, -13279, -14010, -14732, -15446, -16151, -16846, -17530, -18204, -18868, -19519, -20159,
-        -20787, -21403, -22005, -22594,
+    21403, 22005, 22594, 23170, 23731, 24279, 24811, 25329, 25832, 26319, 26790, 27245, 27683,
+    28105, 28510, 28898, 29268, 29621, 29956, 30273, 30571, 30852, 31113, 31356, 31580, 31785,
+    31971, 32137, 32285, 32412, 32521, 32609, 32678, 32728, 32757, 32767, 32757, 32728, 32678,
+    32609, 32521, 32412, 32285, 32137, 31971, 31785, 31580, 31356, 31113, 30852, 30571, 30273,
+    29956, 29621, 29268, 28898, 28510, 28105, 27683, 27245, 26790, 26319, 25832, 25329, 24811,
+    24279, 23731, 23170, 22594, 22005, 21403, 20787, 20159, 19519, 18868, 18204, 17530, 16846,
+    16151, 15446, 14732, 14010, 13279, 12539, 11793, 11039, 10278, 9512, 8739, 7962, 7179, 6393,
+    5602, 4808, 4011, 3212, 2410, 1608, 804, 0, -804, -1608, -2410, -3212, -4011, -4808, -5602,
+    -6393, -7179, -7962, -8739, -9512, -10278, -11039, -11793, -12539, -13279, -14010, -14732,
+    -15446, -16151, -16846, -17530, -18204, -18868, -19519, -20159, -20787, -21403, -22005, -22594,
     -23170, -23731, -24279, -24811, -25329, -25832, -26319, -26790, -27245, -27683, -28105, -28510,
-        -28898, -29268, -29621, -29956,
-    -30273, -30571, -30852, -31113, -31356, -31580, -31785, -31971, -32137, -32285, -32412, -32521,
-        -32609, -32678, -32728, -32757,
-    -32767, -32757, -32728, -32678, -32609, -32521, -32412, -32285, -32137, -31971, -31785, -31580,
-        -31356, -31113, -30852, -30571,
+    -28898, -29268, -29621, -29956, -30273, -30571, -30852, -31113, -31356, -31580, -31785, -31971,
+    -32137, -32285, -32412, -32521, -32609, -32678, -32728, -32757, -32767, -32757, -32728, -32678,
+    -32609, -32521, -32412, -32285, -32137, -31971, -31785, -31580, -31356, -31113, -30852, -30571,
     -30273, -29956, -29621, -29268, -28898, -28510, -28105, -27683, -27245, -26790, -26319, -25832,
-        -25329, -24811, -24279, -23731,
-    -23170, -22594, -22005, -21403, -20787, -20159, -19519, -18868, -18204, -17530, -16846, -16151,
-        -15446, -14732, -14010, -13279,
-    -12539, -11793, -11039, -10278, -9512, -8739, -7962, -7179, -6393, -5602, -4808, -4011, -3212,
-        -2410, -1608, -804,
-    0,
+    -25329, -24811, -24279, -23731, -23170, -22594, -22005, -21403, -20787, -20159, -19519, -18868,
+    -18204, -17530, -16846, -16151, -15446, -14732, -14010, -13279, -12539, -11793, -11039, -10278,
+    -9512, -8739, -7962, -7179, -6393, -5602, -4808, -4011, -3212, -2410, -1608, -804, 0
   };
 
   public static final short[][][] windowedSincKernel = {

@@ -35,11 +35,18 @@ public class VoiceUnisonPartSource {
     }
   }
 
-  public void render(
+  public boolean render(
       int[] buffer, int numSamples, int phaseIncrement, Sample sample, int amplitude) {
-    if (!active) return;
+    if (!active) return false;
     if (voiceSample != null) {
       voiceSample.render(buffer, numSamples, phaseIncrement, sample, amplitude);
+      // Logic to check if sample finished
+      if (!voiceSample.looping && (voiceSample.playPosBig >> 32) >= sample.getNumSamples() - 1) {
+          active = false;
+          return false;
+      }
+      return true;
     }
+    return false;
   }
 }

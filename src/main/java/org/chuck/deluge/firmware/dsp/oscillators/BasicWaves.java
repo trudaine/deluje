@@ -9,7 +9,7 @@ import org.chuck.deluge.firmware.util.Q31;
 public class BasicWaves {
   private static final VectorSpecies<Integer> SPECIES = IntVector.SPECIES_PREFERRED;
 
-  /** Renders a wave from a lookup table. Emulates SIMD rendering logic from basic_waves.cpp. */
+  /** Renders a wave from a lookup table. Bit-accurate signed promotion and interpolation. */
   public static int renderWave(
       short[] table,
       int tableSizeMagnitude,
@@ -26,63 +26,31 @@ public class BasicWaves {
     int currentPhase = phase;
     int currentAmplitude = amplitude;
 
-    int i = 0;
-    int upperBound = SPECIES.loopBound(numSamples);
-
-    for (; i < upperBound; i += SPECIES.length()) {
-      int[] tempValues = new int[SPECIES.length()];
-
-      for (int j = 0; j < SPECIES.length(); j++) {
-        currentPhase += phaseIncrement;
-        int p = currentPhase + phaseToAdd;
-
-        int whichValue = p >>> (32 - tableSizeMagnitude);
-        int v1 = table[whichValue];
-        int v2 = table[whichValue + 1];
-
-        int strength2 = (p >>> (32 - 16 - tableSizeMagnitude)) & 0xFFFF;
-        int strength1 = 65536 - strength2;
-
-        tempValues[j] = v1 * strength1 + v2 * strength2;
-      }
-
-      IntVector valueVector = IntVector.fromArray(SPECIES, tempValues, 0);
-
-      if (applyAmplitude) {
-        int[] res = new int[SPECIES.length()];
-        for (int j = 0; j < SPECIES.length(); j++) {
-          currentAmplitude += amplitudeIncrement;
-          res[j] = Q31.mult(currentAmplitude, tempValues[j]);
-        }
-        valueVector = IntVector.fromArray(SPECIES, res, 0);
-
-        IntVector existing = IntVector.fromArray(SPECIES, outputBuffer, offset + i);
-        valueVector = valueVector.add(existing);
-      }
-
-      valueVector.intoArray(outputBuffer, offset + i);
-    }
-
-    // Tail processing
-    for (; i < numSamples; i++) {
+    for (int i = 0; i < numSamples; i++) {
       currentPhase += phaseIncrement;
       int p = currentPhase + phaseToAdd;
 
       int whichValue = p >>> (32 - tableSizeMagnitude);
-      int v1 = table[whichValue];
-      int v2 = table[whichValue + 1];
+      // SIGNED promotion (no masking)
+      long v1 = table[whichValue];
+      long v2 = table[whichValue + 1];
 
-      int strength2 = (p >>> (32 - 16 - tableSizeMagnitude)) & 0xFFFF;
-      int strength1 = 65536 - strength2;
-      int val = v1 * strength1 + v2 * strength2;
+      // 16-bit fractional part for linear interpolation
+      long frac = (p >>> (32 - 16 - tableSizeMagnitude)) & 0xFFFF;
+      
+      // Interpolate in 32:32 domain
+      long v1_32 = v1 << 16;
+      long v2_32 = v2 << 16;
+      int val = (int) (v1_32 + ((v2_32 - v1_32) * frac >> 16));
 
+      int wet = val;
       if (applyAmplitude) {
         currentAmplitude += amplitudeIncrement;
-        int wet = Q31.mult(currentAmplitude, val);
-        outputBuffer[offset + i] = Q31.addSaturate(outputBuffer[offset + i], wet);
-      } else {
-        outputBuffer[offset + i] = val;
+        wet = Q31.mult(currentAmplitude, val);
       }
+      
+      // Saturating sum to maintain signal integrity
+      outputBuffer[offset + i] = Q31.addSaturate(outputBuffer[offset + i], wet);
     }
 
     return currentPhase;
@@ -99,90 +67,40 @@ public class BasicWaves {
       int phaseIncrement,
       int phase,
       boolean applyAmplitude,
-      int pulseWidth,
+      int phaseToAdd,
       int amplitudeIncrement) {
 
     int currentPhase = phase;
     int currentAmplitude = amplitude;
 
-    int i = 0;
-    int upperBound = SPECIES.loopBound(numSamples);
-
-    for (; i < upperBound; i += SPECIES.length()) {
-      int[] tempValues = new int[SPECIES.length()];
-
-      for (int j = 0; j < SPECIES.length(); j++) {
-        currentPhase += phaseIncrement;
-        int phaseA = currentPhase;
-        int phaseB = currentPhase + pulseWidth;
-
-        // Sample A
-        int whichValueA = phaseA >>> (32 - tableSizeMagnitude);
-        int vA1 = table[whichValueA];
-        int vA2 = table[whichValueA + 1];
-        int strengthA2 = (phaseA >>> (32 - 16 - tableSizeMagnitude)) & 0xFFFF;
-        int strengthA1 = 65536 - strengthA2;
-        int valA = vA1 * strengthA1 + vA2 * strengthA2;
-
-        // Sample B
-        int whichValueB = phaseB >>> (32 - tableSizeMagnitude);
-        int vB1 = table[whichValueB];
-        int vB2 = table[whichValueB + 1];
-        int strengthB2 = (phaseB >>> (32 - 16 - tableSizeMagnitude)) & 0xFFFF;
-        int strengthB1 = 65536 - strengthB2;
-        int valB = vB1 * strengthB1 + vB2 * strengthB2;
-
-        // Ring mod (multiplication)
-        // No redundant shift back - Q31 mult is already full scale
-        tempValues[j] = Q31.mult(valA, valB);
-      }
-
-      IntVector valueVector = IntVector.fromArray(SPECIES, tempValues, 0);
-
-      if (applyAmplitude) {
-        int[] res = new int[SPECIES.length()];
-        for (int j = 0; j < SPECIES.length(); j++) {
-          currentAmplitude += amplitudeIncrement;
-          res[j] = Q31.mult(currentAmplitude, tempValues[j]);
-        }
-        valueVector = IntVector.fromArray(SPECIES, res, 0);
-
-        IntVector existing = IntVector.fromArray(SPECIES, outputBuffer, offset + i);
-        valueVector = valueVector.add(existing);
-      }
-
-      valueVector.intoArray(outputBuffer, offset + i);
-    }
-
-    // Tail
-    for (; i < numSamples; i++) {
+    for (int i = 0; i < numSamples; i++) {
       currentPhase += phaseIncrement;
       int phaseA = currentPhase;
-      int phaseB = currentPhase + pulseWidth;
+      int phaseB = currentPhase + phaseToAdd;
 
+      // Sample A
       int whichValueA = phaseA >>> (32 - tableSizeMagnitude);
-      int vA1 = table[whichValueA];
-      int vA2 = table[whichValueA + 1];
-      int strengthA2 = (phaseA >>> (32 - 16 - tableSizeMagnitude)) & 0xFFFF;
-      int strengthA1 = 65536 - strengthA2;
-      int valA = vA1 * strengthA1 + vA2 * strengthA2;
+      long vA1 = (long)table[whichValueA] << 16;
+      long vA2 = (long)table[whichValueA + 1] << 16;
+      int fracA = (phaseA >>> (32 - 16 - tableSizeMagnitude)) & 0xFFFF;
+      int valA = (int) (vA1 + ((vA2 - vA1) * fracA >> 16));
 
+      // Sample B
       int whichValueB = phaseB >>> (32 - tableSizeMagnitude);
-      int vB1 = table[whichValueB];
-      int vB2 = table[whichValueB + 1];
-      int strengthB2 = (phaseB >>> (32 - 16 - tableSizeMagnitude)) & 0xFFFF;
-      int strengthB1 = 65536 - strengthB2;
-      int valB = vB1 * strengthB1 + vB2 * strengthB2;
+      long vB1 = (long)table[whichValueB] << 16;
+      long vB2 = (long)table[whichValueB + 1] << 16;
+      int fracB = (phaseB >>> (32 - 16 - tableSizeMagnitude)) & 0xFFFF;
+      int valB = (int) (vB1 + ((vB2 - vB1) * fracB >> 16));
 
+      // Ring mod
       int val = Q31.mult(valA, valB);
 
+      int wet = val;
       if (applyAmplitude) {
         currentAmplitude += amplitudeIncrement;
-        int wet = Q31.mult(currentAmplitude, val);
-        outputBuffer[offset + i] = Q31.addSaturate(outputBuffer[offset + i], wet);
-      } else {
-        outputBuffer[offset + i] = val;
+        wet = Q31.mult(currentAmplitude, val);
       }
+      outputBuffer[offset + i] = Q31.addSaturate(outputBuffer[offset + i], wet);
     }
     return currentPhase;
   }
@@ -200,9 +118,9 @@ public class BasicWaves {
     for (int i = 0; i < numSamples; i++) {
       currentPhase += phaseIncrement;
       currentAmplitude += amplitudeIncrement;
-      buffer[offset + i] =
-          Q31.multiply_accumulate_32x32_rshift32_rounded(
-              buffer[offset + i], currentPhase, currentAmplitude);
+      int val = currentPhase >> 1;
+      int wet = Q31.mult(currentAmplitude, val);
+      buffer[offset + i] = Q31.addSaturate(buffer[offset + i], wet);
     }
     return currentPhase;
   }
@@ -212,7 +130,7 @@ public class BasicWaves {
     int currentPhase = phase;
     for (int i = 0; i < numSamples; i++) {
       currentPhase += phaseIncrement;
-      buffer[offset + i] = currentPhase >> 1;
+      buffer[offset + i] = Q31.addSaturate(buffer[offset + i], currentPhase >> 1);
     }
     return currentPhase;
   }

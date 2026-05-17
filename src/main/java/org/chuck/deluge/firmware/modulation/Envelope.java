@@ -35,6 +35,7 @@ public class Envelope {
           pos += attack * numSamples;
           if (pos >= 8388608) {
             pos = 0;
+            lastValuePreCurrentStage = 2147483647;
             setState(EnvelopeStage.DECAY);
             continue;
           }
