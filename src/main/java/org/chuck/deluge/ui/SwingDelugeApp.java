@@ -1290,6 +1290,13 @@ public class SwingDelugeApp extends JFrame {
     setLayout(new BorderLayout(10, 10));
 
     setupUI();
+    if (pureMode) {
+      // Initialize bridge globals from initial model state
+      vm.setGlobalFloat(BridgeContract.G_MASTER_VOL, currentProject.getMasterVolume());
+      vm.setGlobalFloat(BridgeContract.G_BPM, currentProject.getBpm());
+      
+      syncHighFidelityEngine(currentProject);
+    }
     // Register ProjectListener on the default project so slider changes (BPM, volume, swing, etc.)
     // propagate to the bridge/engine in real time (also registered in loadProject()).
     currentProject.addProjectListener(new BridgeProjectListener(currentProject));
@@ -1424,6 +1431,7 @@ public class SwingDelugeApp extends JFrame {
       }
 
       float masterVol = (float) vm.getGlobalFloat(BridgeContract.G_MASTER_VOL);
+      System.out.println("[UI] Engine Sync - MasterVol Global: " + masterVol);
       fwEngine.masterVolumeAdjustmentL = (int) (masterVol * 2147483647.0);
       fwEngine.masterVolumeAdjustmentR = fwEngine.masterVolumeAdjustmentL;
 

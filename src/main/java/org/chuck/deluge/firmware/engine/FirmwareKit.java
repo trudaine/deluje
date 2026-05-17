@@ -4,34 +4,45 @@ import java.util.ArrayList;
 import java.util.List;
 import org.chuck.deluge.firmware.dsp.StereoSample;
 import org.chuck.deluge.firmware.modulation.params.ParamManager;
+import org.chuck.deluge.firmware.util.Q31;
 
 /**
- * Port of the Deluge's Kit class. Manages multiple drum sounds (FirmwareSound instances) in a
- * single instrument track.
+ * Port of the Deluge's Kit class.
  */
 public class FirmwareKit extends GlobalEffectable {
   public final List<FirmwareSound> drumSounds = new ArrayList<>();
+  private final StereoSample[] isolatedBuffer = new StereoSample[128];
 
   public FirmwareKit() {
-    // A Kit usually has 16 primary drum slots
     for (int i = 0; i < 16; i++) {
       drumSounds.add(new FirmwareSound());
     }
+    for (int i = 0; i < 128; i++) isolatedBuffer[i] = new StereoSample();
   }
 
   @Override
   protected void renderInternal(StereoSample[] buffer, int numSamples, ParamManager paramManager) {
     for (FirmwareSound drum : drumSounds) {
       if (!drum.voices.isEmpty()) {
-          drum.renderToBuffer(buffer, numSamples, null);
+          // Clear temp buffer
+          for (int i = 0; i < numSamples; i++) {
+              isolatedBuffer[i].l = 0;
+              isolatedBuffer[i].r = 0;
+          }
+          // Render drum track with its own FX chain
+          drum.renderOutput(isolatedBuffer, numSamples, null);
+          // Sum to Kit buffer
+          for (int i = 0; i < numSamples; i++) {
+              buffer[i].l = Q31.addSaturate(buffer[i].l, isolatedBuffer[i].l);
+              buffer[i].r = Q31.addSaturate(buffer[i].r, isolatedBuffer[i].r);
+          }
       }
     }
   }
 
   public void triggerDrum(int row, int vel) {
     if (row >= 0 && row < drumSounds.size()) {
-      FirmwareSound drum = drumSounds.get(row);
-      drum.triggerNote(60, vel);
+      drumSounds.get(row).triggerNote(60, vel);
     }
   }
 }

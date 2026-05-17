@@ -5,6 +5,7 @@ import org.chuck.deluge.firmware.dsp.StereoSample;
 import org.chuck.deluge.firmware.dsp.compressor.RMSFeedbackCompressor;
 import org.chuck.deluge.firmware.dsp.delay.Delay;
 import org.chuck.deluge.firmware.dsp.reverb.freeverb.Freeverb;
+import org.chuck.deluge.firmware.util.FirmwareUtils;
 import org.chuck.deluge.firmware.util.Q31;
 
 /** Port of the Deluge's AudioEngine class. Performs master summing and global FX. */
@@ -59,10 +60,14 @@ public class FirmwareAudioEngine {
     // Hardware Master Compressor
     masterCompressor.renderVolNeutral(masterBuffer, Q31.ONE);
 
-    // ── Master Gain & Limiter ──
+    // ── Master Gain & Soft-Clip Limiter ──
     for (int i = 0; i < numSamples; i++) {
-      masterBuffer[i].l = Q31.mult(masterBuffer[i].l, masterVolumeAdjustmentL);
-      masterBuffer[i].r = Q31.mult(masterBuffer[i].r, masterVolumeAdjustmentR);
+      int l = Q31.mult(masterBuffer[i].l, masterVolumeAdjustmentL);
+      int r = Q31.mult(masterBuffer[i].r, masterVolumeAdjustmentR);
+      
+      // Bit-accurate soft clipping via tanH lookup
+      masterBuffer[i].l = org.chuck.deluge.firmware.util.FirmwareUtils.getTanHUnknown(l, 0) << 1;
+      masterBuffer[i].r = org.chuck.deluge.firmware.util.FirmwareUtils.getTanHUnknown(r, 0) << 1;
     }
   }
 }
