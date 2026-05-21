@@ -1012,6 +1012,12 @@ public class SwingDelugeApp extends JFrame {
     // Sync the master FX panel slider with the model's volume
     if (masterFxPanel != null) {
       masterFxPanel.setMasterVol(Math.round(currentProject.getMasterVolume() * 100));
+      masterFxPanel.updateCompressorUI(
+          currentProject.getCompressorThreshold(),
+          currentProject.getCompressorAttack(),
+          currentProject.getCompressorRelease(),
+          currentProject.getCompressorRatio(),
+          currentProject.getCompressorBlend());
     }
 
     // ── Apply GlobalEffectable clip FX overrides for each track's active clip ──
@@ -2610,6 +2616,16 @@ public class SwingDelugeApp extends JFrame {
       vm.setGlobalFloat(BridgeContract.G_MASTER_COMP_ATTACK, model.getCompressorAttack());
       vm.setGlobalFloat(BridgeContract.G_MASTER_COMP_RELEASE, model.getCompressorRelease());
       vm.setGlobalFloat(BridgeContract.G_MASTER_COMP_RATIO, model.getCompressorRatio());
+      vm.setGlobalFloat(BridgeContract.G_MASTER_COMP_BLEND, model.getCompressorBlend());
+
+      if (masterFxPanel != null) {
+        masterFxPanel.updateCompressorUI(
+            model.getCompressorThreshold(),
+            model.getCompressorAttack(),
+            model.getCompressorRelease(),
+            model.getCompressorRatio(),
+            model.getCompressorBlend());
+      }
     }
 
     @Override

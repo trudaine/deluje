@@ -121,6 +121,35 @@ public class RMSFeedbackCompressor {
     baseGain_ = baseGain;
   }
 
+  public void setAttackFloat(float attack) {
+    attackMS = (float) (0.5 + (Math.exp(2.0 * attack) - 1.0) * 10.0);
+    a_ = (-1000.0f / kSampleRate) / attackMS;
+    attackKnobPos = (int) (attack * ONE);
+  }
+
+  public void setReleaseFloat(float release) {
+    releaseMS = (float) (50.0 + (Math.exp(2.0 * release) - 1.0) * 50.0);
+    r_ = (-1000.0f / kSampleRate) / releaseMS;
+    releaseKnobPos = (int) (release * ONE);
+  }
+
+  public void setThresholdFloat(float t) {
+    thresholdKnobPos = (int) (t * ONE);
+    threshold = 1.0f - 0.8f * t;
+  }
+
+  public void setRatioFloat(float rat) {
+    ratioKnobPos = (int) (rat * ONE);
+    fraction = 0.5f + rat / 2.0f;
+    ratio = 1.0f / (1.0f - fraction);
+  }
+
+  public void setBlendFloat(float blend) {
+    int blendInt = (int) (blend * ONE);
+    dry = ONE - blendInt;
+    wet = blendInt;
+  }
+
   private void updateER(float numSamples, int finalVolume) {
     float songVolumedB = (float) Math.log((double) finalVolume + 1e-10);
 
