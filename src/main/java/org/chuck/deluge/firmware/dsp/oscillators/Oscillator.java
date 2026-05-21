@@ -4,6 +4,9 @@ import static org.chuck.deluge.firmware.util.Q31.*;
 
 import org.chuck.deluge.firmware.util.LookupTables;
 import org.chuck.deluge.firmware.util.Q31;
+import org.chuck.deluge.firmware.util.SawLookupTables;
+import org.chuck.deluge.firmware.util.SquareLookupTables;
+import org.chuck.deluge.firmware.util.TriangleLookupTables;
 
 public class Oscillator {
 
@@ -148,8 +151,18 @@ public class Oscillator {
               retriggerPhase);
         }
       } else {
-        BasicWaves.renderCrudeSawWaveWithAmplitude(
-            buffer, offset, numSamples, phase, phaseIncrement, amplitude, amplitudeIncrement);
+        BasicWaves.renderWave(
+            SawLookupTables.sawWaveTables[tableNumber],
+            tableSizeMagnitude,
+            amplitude,
+            buffer,
+            offset,
+            numSamples,
+            phaseIncrement,
+            phase,
+            applyAmplitude,
+            phaseToAdd,
+            amplitudeIncrement);
       }
     } else if (type == OscType.SQUARE) {
       if (doPulseWave && !doOscSync) {
@@ -164,6 +177,19 @@ public class Oscillator {
             phase,
             applyAmplitude,
             pulseWidth,
+            amplitudeIncrement);
+      } else if (!doOscSync && tableNumber >= 6) {
+        BasicWaves.renderWave(
+            SquareLookupTables.squareWaveTables[tableNumber],
+            tableSizeMagnitude,
+            amplitude,
+            buffer,
+            offset,
+            numSamples,
+            phaseIncrement,
+            phase,
+            applyAmplitude,
+            phaseToAdd,
             amplitudeIncrement);
       } else {
         renderCrudeSquare(
@@ -183,20 +209,56 @@ public class Oscillator {
             retriggerPhase);
       }
     } else if (type == OscType.TRIANGLE) {
-      renderCrudeTriangle(
-          buffer,
-          offset,
-          numSamples,
-          phase,
-          phaseIncrement,
-          amplitude,
-          amplitudeIncrement,
-          applyAmplitude,
-          doOscSync,
-          resetterPhase,
-          resetterPhaseIncrement,
-          resetterDivideByPhaseIncrement,
-          retriggerPhase);
+      if (!doOscSync && phaseIncrement >= 69273666) {
+        short[] table;
+        int tSize;
+        if (phaseIncrement <= 429496729) {
+          tSize = 7;
+          if (phaseIncrement <= 102261126) {
+            table = TriangleLookupTables.triangleWaveAntiAliasing21;
+          } else if (phaseIncrement <= 143165576) {
+            table = TriangleLookupTables.triangleWaveAntiAliasing15;
+          } else if (phaseIncrement <= 238609294) {
+            table = TriangleLookupTables.triangleWaveAntiAliasing9;
+          } else {
+            table = TriangleLookupTables.triangleWaveAntiAliasing5;
+          }
+        } else {
+          tSize = 6;
+          if (phaseIncrement <= 715827882) {
+            table = TriangleLookupTables.triangleWaveAntiAliasing3;
+          } else {
+            table = TriangleLookupTables.triangleWaveAntiAliasing1;
+          }
+        }
+        BasicWaves.renderWave(
+            table,
+            tSize,
+            amplitude,
+            buffer,
+            offset,
+            numSamples,
+            phaseIncrement,
+            phase,
+            applyAmplitude,
+            phaseToAdd,
+            amplitudeIncrement);
+      } else {
+        renderCrudeTriangle(
+            buffer,
+            offset,
+            numSamples,
+            phase,
+            phaseIncrement,
+            amplitude,
+            amplitudeIncrement,
+            applyAmplitude,
+            doOscSync,
+            resetterPhase,
+            resetterPhaseIncrement,
+            resetterDivideByPhaseIncrement,
+            retriggerPhase);
+      }
     }
   }
 

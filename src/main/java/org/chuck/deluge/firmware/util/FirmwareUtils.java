@@ -158,8 +158,43 @@ public class FirmwareUtils {
   }
 
   public static int getTanHAntialiased(int input, int[] lastWorkingValue, int saturationAmount) {
-    lastWorkingValue[0] = (int) (lshiftAndSaturateUnknown(input, saturationAmount) + 2147483648L);
-    return getTanHUnknown(input, saturationAmount) << 1;
+    int workingValue = (int) (lshiftAndSaturateUnknown(input, saturationAmount) + 2147483648L);
+    int toReturn =
+        interpolateTableSigned2d(
+                workingValue, lastWorkingValue[0], 32, 32, TanHLookupTable.tanH2d, 7, 6)
+            >> (saturationAmount + 1);
+    lastWorkingValue[0] = workingValue;
+    return toReturn;
+  }
+
+  public static int interpolateTableSigned2d(
+      int inputX,
+      int inputY,
+      int numBitsInInputX,
+      int numBitsInInputY,
+      short[][] table,
+      int numBitsInTableSizeX,
+      int numBitsInTableSizeY) {
+    int whichValue = inputY >>> (numBitsInInputY - numBitsInTableSizeY);
+
+    // Interpolate horizontal slices (row 'whichValue' and 'whichValue + 1')
+    int value1 =
+        interpolateTableSigned(inputX, numBitsInInputX, table[whichValue], numBitsInTableSizeX);
+    int value2 =
+        interpolateTableSigned(inputX, numBitsInInputX, table[whichValue + 1], numBitsInTableSizeX);
+
+    int rshiftAmount = numBitsInInputY - 16 - numBitsInTableSizeY;
+    int rshifted;
+    if (rshiftAmount >= 0) {
+      rshifted = inputY >>> rshiftAmount;
+    } else {
+      rshifted = inputY << (-rshiftAmount);
+    }
+
+    int strength2 = rshifted & 65535;
+    int strength1 = 65536 - strength2;
+
+    return (int) (((long) value1 * strength1 + (long) value2 * strength2) >> 16);
   }
 
   public static int getTanHUnknown(int input, int saturationAmount) {
