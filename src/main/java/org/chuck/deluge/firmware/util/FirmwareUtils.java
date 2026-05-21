@@ -51,7 +51,7 @@ public class FirmwareUtils {
   }
 
   public static int getNoise() {
-    jcong = 69069 * jcong + 12345;
+    jcong = 69069 * jcong + 1234567;
     return jcong;
   }
 
