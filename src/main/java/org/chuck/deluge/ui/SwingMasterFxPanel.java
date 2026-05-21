@@ -23,6 +23,11 @@ public class SwingMasterFxPanel extends JPanel {
   private final JSlider masterVolSlider;
   private final JLabel statusCounter;
   private final ProjectModel projectModel;
+  private final JSlider threshSlider;
+  private final JSlider attackSlider;
+  private final JSlider releaseSlider;
+  private final JSlider ratioSlider;
+  private final JSlider blendSlider;
 
   /**
    * @param vm ChucK VM for bridge writes
@@ -96,6 +101,70 @@ public class SwingMasterFxPanel extends JPanel {
     statusCounter.setForeground(Color.GREEN);
     statusCounter.setFont(new Font("Monospaced", Font.BOLD, 24));
     add(statusCounter);
+
+    // ── Master Compressor Sub-Panel ──
+    JPanel compPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 2));
+    compPanel.setBackground(new Color(0x2E, 0x2E, 0x2E));
+    compPanel.setBorder(
+        BorderFactory.createTitledBorder(
+            BorderFactory.createLineBorder(Color.GRAY),
+            "MASTER COMPRESSOR",
+            0,
+            0,
+            null,
+            Color.WHITE));
+
+    JLabel threshLabel = new JLabel("Thresh:");
+    threshLabel.setForeground(Color.WHITE);
+    threshSlider = new JSlider(0, 100, (int) (projectModel.getCompressorThreshold() * 100));
+    threshSlider.addChangeListener(
+        e -> {
+          projectModel.setCompressorThreshold(threshSlider.getValue() / 100.0f);
+        });
+    compPanel.add(threshLabel);
+    compPanel.add(threshSlider);
+
+    JLabel attackLabel = new JLabel("Attack:");
+    attackLabel.setForeground(Color.WHITE);
+    attackSlider = new JSlider(0, 100, (int) (projectModel.getCompressorAttack() * 100));
+    attackSlider.addChangeListener(
+        e -> {
+          projectModel.setCompressorAttack(attackSlider.getValue() / 100.0f);
+        });
+    compPanel.add(attackLabel);
+    compPanel.add(attackSlider);
+
+    JLabel releaseLabel = new JLabel("Release:");
+    releaseLabel.setForeground(Color.WHITE);
+    releaseSlider = new JSlider(0, 100, (int) (projectModel.getCompressorRelease() * 100));
+    releaseSlider.addChangeListener(
+        e -> {
+          projectModel.setCompressorRelease(releaseSlider.getValue() / 100.0f);
+        });
+    compPanel.add(releaseLabel);
+    compPanel.add(releaseSlider);
+
+    JLabel ratioLabel = new JLabel("Ratio:");
+    ratioLabel.setForeground(Color.WHITE);
+    ratioSlider = new JSlider(0, 100, (int) (projectModel.getCompressorRatio() * 100));
+    ratioSlider.addChangeListener(
+        e -> {
+          projectModel.setCompressorRatio(ratioSlider.getValue() / 100.0f);
+        });
+    compPanel.add(ratioLabel);
+    compPanel.add(ratioSlider);
+
+    JLabel blendLabel = new JLabel("Blend:");
+    blendLabel.setForeground(Color.WHITE);
+    blendSlider = new JSlider(0, 100, (int) (projectModel.getCompressorBlend() * 100));
+    blendSlider.addChangeListener(
+        e -> {
+          projectModel.setCompressorBlend(blendSlider.getValue() / 100.0f);
+        });
+    compPanel.add(blendLabel);
+    compPanel.add(blendSlider);
+
+    add(compPanel);
   }
 
   /** Current master volume slider value. */
@@ -111,5 +180,15 @@ public class SwingMasterFxPanel extends JPanel {
   /** The status counter label, updated by the playback timer. */
   public JLabel getStatusCounter() {
     return statusCounter;
+  }
+
+  /** Synchronizes master compressor sliders with new float parameter values. */
+  public void updateCompressorUI(
+      float thresh, float attack, float release, float ratio, float blend) {
+    threshSlider.setValue((int) (thresh * 100));
+    attackSlider.setValue((int) (attack * 100));
+    releaseSlider.setValue((int) (release * 100));
+    ratioSlider.setValue((int) (ratio * 100));
+    blendSlider.setValue((int) (blend * 100));
   }
 }

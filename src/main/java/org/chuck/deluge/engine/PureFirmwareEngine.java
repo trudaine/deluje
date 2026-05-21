@@ -75,6 +75,19 @@ public class PureFirmwareEngine {
     audioEngine.masterVolumeAdjustmentL = (int) (masterVol * 2147483647.0);
     audioEngine.masterVolumeAdjustmentR = audioEngine.masterVolumeAdjustmentL;
 
+    // Sync master compressor settings
+    float compThreshold = (float) vm.getGlobalFloat(BridgeContract.G_MASTER_COMP);
+    float compAttack = (float) vm.getGlobalFloat(BridgeContract.G_MASTER_COMP_ATTACK);
+    float compRelease = (float) vm.getGlobalFloat(BridgeContract.G_MASTER_COMP_RELEASE);
+    float compRatio = (float) vm.getGlobalFloat(BridgeContract.G_MASTER_COMP_RATIO);
+    float compBlend = (float) vm.getGlobalFloat(BridgeContract.G_MASTER_COMP_BLEND);
+
+    audioEngine.masterCompressor.setThresholdFloat(compThreshold);
+    audioEngine.masterCompressor.setAttackFloat(compAttack);
+    audioEngine.masterCompressor.setReleaseFloat(compRelease);
+    audioEngine.masterCompressor.setRatioFloat(compRatio);
+    audioEngine.masterCompressor.setBlendFloat(compBlend);
+
     // Sync individual track params
     float spVol = (float) vm.getGlobalFloat(BridgeContract.G_SP_VOLUME);
     if (spVol < 0.01f && System.currentTimeMillis() % 2000 < 50) {
