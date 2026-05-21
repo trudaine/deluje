@@ -176,26 +176,43 @@ public class SwingTopBarPanel extends JPanel {
     // ── High-Fidelity Encoders ──
     JPanel encoderPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 2));
     encoderPanel.setBackground(new Color(0x25, 0x25, 0x25));
-    
-    encoderPanel.add(createEncoderSim("HORIZ", (offset) -> MatrixDriver.get().horizontalEncoderAction(offset), (on) -> MatrixDriver.get().horizontalButtonAction(on)));
-    encoderPanel.add(createEncoderSim("VERT", (offset) -> MatrixDriver.get().verticalEncoderAction(offset), (on) -> MatrixDriver.get().verticalButtonAction(on)));
-    encoderPanel.add(createEncoderSim("SELECT", (offset) -> MatrixDriver.get().selectEncoderAction(offset), (on) -> MatrixDriver.get().selectButtonAction(on)));
-    
+
+    encoderPanel.add(
+        createEncoderSim(
+            "HORIZ",
+            (offset) -> MatrixDriver.get().horizontalEncoderAction(offset),
+            (on) -> MatrixDriver.get().horizontalButtonAction(on)));
+    encoderPanel.add(
+        createEncoderSim(
+            "VERT",
+            (offset) -> MatrixDriver.get().verticalEncoderAction(offset),
+            (on) -> MatrixDriver.get().verticalButtonAction(on)));
+    encoderPanel.add(
+        createEncoderSim(
+            "SELECT",
+            (offset) -> MatrixDriver.get().selectEncoderAction(offset),
+            (on) -> MatrixDriver.get().selectButtonAction(on)));
+
     add(encoderPanel);
 
-    FirmwareDisplay.get().setListener((main, popup) -> {
-        // Handled by oledPanel
-    });
+    FirmwareDisplay.get()
+        .setListener(
+            (main, popup) -> {
+              // Handled by oledPanel
+            });
   }
 
-  private JPanel createEncoderSim(String name, java.util.function.Consumer<Integer> onRotate, java.util.function.Consumer<Boolean> onClick) {
+  private JPanel createEncoderSim(
+      String name,
+      java.util.function.Consumer<Integer> onRotate,
+      java.util.function.Consumer<Boolean> onClick) {
     JPanel p = new JPanel(new BorderLayout());
     p.setBackground(new Color(0x33, 0x33, 0x33));
     JLabel l = new JLabel(name, SwingConstants.CENTER);
     l.setForeground(Color.WHITE);
     l.setFont(new Font("SansSerif", Font.BOLD, 10));
     p.add(l, BorderLayout.NORTH);
-    
+
     JButton left = new JButton("<");
     JButton right = new JButton(">");
     left.addActionListener(e -> onRotate.accept(-1));
@@ -205,11 +222,19 @@ public class SwingTopBarPanel extends JPanel {
 
     JButton click = new JButton("●");
     click.setFont(new Font("SansSerif", Font.PLAIN, 8));
-    click.setMargin(new Insets(0,0,0,0));
-    click.addMouseListener(new java.awt.event.MouseAdapter() {
-        @Override public void mousePressed(java.awt.event.MouseEvent e) { onClick.accept(true); }
-        @Override public void mouseReleased(java.awt.event.MouseEvent e) { onClick.accept(false); }
-    });
+    click.setMargin(new Insets(0, 0, 0, 0));
+    click.addMouseListener(
+        new java.awt.event.MouseAdapter() {
+          @Override
+          public void mousePressed(java.awt.event.MouseEvent e) {
+            onClick.accept(true);
+          }
+
+          @Override
+          public void mouseReleased(java.awt.event.MouseEvent e) {
+            onClick.accept(false);
+          }
+        });
     p.add(click, BorderLayout.CENTER);
 
     return p;

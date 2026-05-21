@@ -13,7 +13,8 @@ public class IntegerRangeMenuItem extends MenuItem {
     this(name, initial, min, max, null);
   }
 
-  public IntegerRangeMenuItem(String name, int initial, int min, int max, java.util.function.Consumer<Integer> callback) {
+  public IntegerRangeMenuItem(
+      String name, int initial, int min, int max, java.util.function.Consumer<Integer> callback) {
     super(name);
     this.value = initial;
     this.min = min;
@@ -30,7 +31,7 @@ public class IntegerRangeMenuItem extends MenuItem {
   public void selectEncoderAction(int offset) {
     value = Math.max(min, Math.min(max, value + offset));
     if (callback != null) {
-        callback.accept(value);
+      callback.accept(value);
     }
     onFocus();
   }

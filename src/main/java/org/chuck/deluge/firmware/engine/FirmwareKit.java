@@ -6,9 +6,7 @@ import org.chuck.deluge.firmware.dsp.StereoSample;
 import org.chuck.deluge.firmware.modulation.params.ParamManager;
 import org.chuck.deluge.firmware.util.Q31;
 
-/**
- * Port of the Deluge's Kit class.
- */
+/** Port of the Deluge's Kit class. */
 public class FirmwareKit extends GlobalEffectable {
   public final List<FirmwareSound> drumSounds = new ArrayList<>();
   private final StereoSample[] isolatedBuffer = new StereoSample[128];
@@ -24,18 +22,18 @@ public class FirmwareKit extends GlobalEffectable {
   protected void renderInternal(StereoSample[] buffer, int numSamples, ParamManager paramManager) {
     for (FirmwareSound drum : drumSounds) {
       if (!drum.voices.isEmpty()) {
-          // Clear temp buffer
-          for (int i = 0; i < numSamples; i++) {
-              isolatedBuffer[i].l = 0;
-              isolatedBuffer[i].r = 0;
-          }
-          // Render drum track with its own FX chain
-          drum.renderOutput(isolatedBuffer, numSamples, null);
-          // Sum to Kit buffer
-          for (int i = 0; i < numSamples; i++) {
-              buffer[i].l = Q31.addSaturate(buffer[i].l, isolatedBuffer[i].l);
-              buffer[i].r = Q31.addSaturate(buffer[i].r, isolatedBuffer[i].r);
-          }
+        // Clear temp buffer
+        for (int i = 0; i < numSamples; i++) {
+          isolatedBuffer[i].l = 0;
+          isolatedBuffer[i].r = 0;
+        }
+        // Render drum track with its own FX chain
+        drum.renderOutput(isolatedBuffer, numSamples, null);
+        // Sum to Kit buffer
+        for (int i = 0; i < numSamples; i++) {
+          buffer[i].l = Q31.addSaturate(buffer[i].l, isolatedBuffer[i].l);
+          buffer[i].r = Q31.addSaturate(buffer[i].r, isolatedBuffer[i].r);
+        }
       }
     }
   }

@@ -42,8 +42,8 @@ public class VoiceUnisonPartSource {
       voiceSample.render(buffer, numSamples, phaseIncrement, sample, amplitude);
       // Logic to check if sample finished
       if (!voiceSample.looping && (voiceSample.playPosBig >> 32) >= sample.getNumSamples() - 1) {
-          active = false;
-          return false;
+        active = false;
+        return false;
       }
       return true;
     }

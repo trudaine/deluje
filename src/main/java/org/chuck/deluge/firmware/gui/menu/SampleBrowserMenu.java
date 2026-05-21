@@ -1,13 +1,11 @@
 package org.chuck.deluge.firmware.gui.menu;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
 import org.chuck.deluge.firmware.engine.FirmwareSound;
-import org.chuck.deluge.firmware.storage.audio.AudioFileReader;
-import org.chuck.deluge.firmware.model.sample.Sample;
 import org.chuck.deluge.firmware.hid.ActionResult;
 import org.chuck.deluge.firmware.hid.FirmwareDisplay;
+import org.chuck.deluge.firmware.model.sample.Sample;
+import org.chuck.deluge.firmware.storage.audio.AudioFileReader;
 import org.chuck.deluge.project.PreferencesManager;
 
 /** A specialized menu for browsing and loading samples into a sound slot. */
@@ -68,20 +66,20 @@ public class SampleBrowserMenu extends Submenu {
 
     @Override
     public ActionResult enter() {
-        // Audition and Load
-        try {
-            Sample s = AudioFileReader.readSample(file.getAbsolutePath());
-            if (s != null) {
-                sound.samples[oscSlot] = s;
-                sound.oscTypes[oscSlot] = org.chuck.deluge.firmware.dsp.oscillators.OscType.SAMPLE;
-                // Trigger audition
-                sound.triggerNote(60, 100);
-                FirmwareDisplay.get().setText("LOADED: " + name);
-            }
-        } catch (Exception e) {
-            FirmwareDisplay.get().setText("ERR: " + e.getMessage());
+      // Audition and Load
+      try {
+        Sample s = AudioFileReader.readSample(file.getAbsolutePath());
+        if (s != null) {
+          sound.samples[oscSlot] = s;
+          sound.oscTypes[oscSlot] = org.chuck.deluge.firmware.dsp.oscillators.OscType.SAMPLE;
+          // Trigger audition
+          sound.triggerNote(60, 100);
+          FirmwareDisplay.get().setText("LOADED: " + name);
         }
-        return ActionResult.DEALT_WITH;
+      } catch (Exception e) {
+        FirmwareDisplay.get().setText("ERR: " + e.getMessage());
+      }
+      return ActionResult.DEALT_WITH;
     }
   }
 }

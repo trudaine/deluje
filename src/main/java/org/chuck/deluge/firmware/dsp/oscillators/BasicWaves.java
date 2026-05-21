@@ -37,7 +37,7 @@ public class BasicWaves {
 
       // 16-bit fractional part for linear interpolation
       long frac = (p >>> (32 - 16 - tableSizeMagnitude)) & 0xFFFF;
-      
+
       // Interpolate in 32:32 domain
       long v1_32 = v1 << 16;
       long v2_32 = v2 << 16;
@@ -48,7 +48,7 @@ public class BasicWaves {
         currentAmplitude += amplitudeIncrement;
         wet = Q31.mult(currentAmplitude, val);
       }
-      
+
       // Saturating sum to maintain signal integrity
       outputBuffer[offset + i] = Q31.addSaturate(outputBuffer[offset + i], wet);
     }
@@ -80,15 +80,15 @@ public class BasicWaves {
 
       // Sample A
       int whichValueA = phaseA >>> (32 - tableSizeMagnitude);
-      long vA1 = (long)table[whichValueA] << 16;
-      long vA2 = (long)table[whichValueA + 1] << 16;
+      long vA1 = (long) table[whichValueA] << 16;
+      long vA2 = (long) table[whichValueA + 1] << 16;
       int fracA = (phaseA >>> (32 - 16 - tableSizeMagnitude)) & 0xFFFF;
       int valA = (int) (vA1 + ((vA2 - vA1) * fracA >> 16));
 
       // Sample B
       int whichValueB = phaseB >>> (32 - tableSizeMagnitude);
-      long vB1 = (long)table[whichValueB] << 16;
-      long vB2 = (long)table[whichValueB + 1] << 16;
+      long vB1 = (long) table[whichValueB] << 16;
+      long vB2 = (long) table[whichValueB + 1] << 16;
       int fracB = (phaseB >>> (32 - 16 - tableSizeMagnitude)) & 0xFFFF;
       int valB = (int) (vB1 + ((vB2 - vB1) * fracB >> 16));
 
