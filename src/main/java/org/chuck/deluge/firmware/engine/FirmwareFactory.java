@@ -3,29 +3,25 @@ package org.chuck.deluge.firmware.engine;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import org.chuck.deluge.firmware.dsp.oscillators.OscType;
-import org.chuck.deluge.firmware.model.Clip;
 import org.chuck.deluge.firmware.model.InstrumentClip;
 import org.chuck.deluge.firmware.model.Song;
-import org.chuck.deluge.firmware.model.note.Note;
 import org.chuck.deluge.firmware.model.note.NoteRow;
 import org.chuck.deluge.firmware.model.sample.Sample;
 import org.chuck.deluge.firmware.modulation.params.Param;
 import org.chuck.deluge.firmware.modulation.patch.PatchCable;
 import org.chuck.deluge.firmware.modulation.patch.PatchSource;
 import org.chuck.deluge.firmware.storage.audio.AudioFileReader;
-import org.chuck.deluge.firmware.util.Q31;
 import org.chuck.deluge.model.ClipModel;
 import org.chuck.deluge.model.Drum;
+import org.chuck.deluge.model.EnvelopeModel;
 import org.chuck.deluge.model.KitTrackModel;
 import org.chuck.deluge.model.ProjectModel;
 import org.chuck.deluge.model.SoundDrum;
 import org.chuck.deluge.model.StepData;
 import org.chuck.deluge.model.SynthTrackModel;
 import org.chuck.deluge.model.TrackModel;
-import org.chuck.deluge.model.EnvelopeModel;
 import org.chuck.deluge.project.PreferencesManager;
 
 /** Glue code to convert the existing XML-loaded models into the high-fidelity firmware engine. */
@@ -146,9 +142,10 @@ public class FirmwareFactory {
 
     sound.numUnison = model.getUnisonNum();
     try {
-        sound.polyphonic = org.chuck.deluge.firmware.model.PolyphonyMode.valueOf(model.getPolyphony().name());
+      sound.polyphonic =
+          org.chuck.deluge.firmware.model.PolyphonyMode.valueOf(model.getPolyphony().name());
     } catch (Exception e) {
-        sound.polyphonic = org.chuck.deluge.firmware.model.PolyphonyMode.POLY;
+      sound.polyphonic = org.chuck.deluge.firmware.model.PolyphonyMode.POLY;
     }
 
     // Patch Cables
@@ -156,26 +153,28 @@ public class FirmwareFactory {
       try {
         String destStr = pcm.destination().toUpperCase();
         String srcStr = pcm.source().toUpperCase();
-        
+
         // Manual mapping from string to Param ID
         int paramId = -1;
-        if (destStr.contains("LPFFREQUENCY") || destStr.contains("LPF_FREQ")) paramId = Param.LOCAL_LPF_FREQ;
-        else if (destStr.contains("LPFRESONANCE") || destStr.contains("LPF_RES")) paramId = Param.LOCAL_LPF_RESONANCE;
+        if (destStr.contains("LPFFREQUENCY") || destStr.contains("LPF_FREQ"))
+          paramId = Param.LOCAL_LPF_FREQ;
+        else if (destStr.contains("LPFRESONANCE") || destStr.contains("LPF_RES"))
+          paramId = Param.LOCAL_LPF_RESONANCE;
         else if (destStr.contains("VOLUME")) paramId = Param.LOCAL_VOLUME;
-        
+
         if (paramId != -1) {
-            // Clean up source string (e.g. "LFO1" -> "LFO_LOCAL_1")
-            String cleanSrc = srcStr;
-            if (cleanSrc.equals("LFO1")) cleanSrc = "LFO_LOCAL_1";
-            else if (cleanSrc.equals("LFO2")) cleanSrc = "LFO_LOCAL_2";
-            else if (cleanSrc.equals("ENV1")) cleanSrc = "ENVELOPE_1";
-            
-            PatchSource source = PatchSource.valueOf(cleanSrc);
-            int amount = (int) (pcm.amount() * 2147483647.0);
-            PatchCable engineCable = new PatchCable();
-            engineCable.from = source;
-            engineCable.amount = amount;
-            sound.paramManager.getPatchCableSet().addCable(paramId, engineCable);
+          // Clean up source string (e.g. "LFO1" -> "LFO_LOCAL_1")
+          String cleanSrc = srcStr;
+          if (cleanSrc.equals("LFO1")) cleanSrc = "LFO_LOCAL_1";
+          else if (cleanSrc.equals("LFO2")) cleanSrc = "LFO_LOCAL_2";
+          else if (cleanSrc.equals("ENV1")) cleanSrc = "ENVELOPE_1";
+
+          PatchSource source = PatchSource.valueOf(cleanSrc);
+          int amount = (int) (pcm.amount() * 2147483647.0);
+          PatchCable engineCable = new PatchCable();
+          engineCable.from = source;
+          engineCable.amount = amount;
+          sound.paramManager.getPatchCableSet().addCable(paramId, engineCable);
         }
       } catch (Exception e) {
         // Skip invalid cables
@@ -217,7 +216,12 @@ public class FirmwareFactory {
               Sample s = AudioFileReader.readSample(f.getAbsolutePath());
               if (s != null) {
                 drumSound.samples[0] = s;
-                System.out.println("[FirmwareFactory] Loaded sample: " + f.getName() + " (size: " + s.getNumSamples() + ")");
+                System.out.println(
+                    "[FirmwareFactory] Loaded sample: "
+                        + f.getName()
+                        + " (size: "
+                        + s.getNumSamples()
+                        + ")");
               }
             } catch (IOException e) {
               System.err.println("[FirmwareFactory] Failed to load kit sample: " + path);

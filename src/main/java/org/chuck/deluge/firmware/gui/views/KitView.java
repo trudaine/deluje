@@ -17,19 +17,21 @@ public class KitView extends FirmwareView {
 
   @Override
   public void selectEncoderAction(int offset) {
-      currentRow = Math.clamp(currentRow + offset, 0, 7);
+    currentRow = Math.clamp(currentRow + offset, 0, 7);
   }
 
   @Override
   public ActionResult selectButtonPress(boolean on) {
-      if (on && clip.sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
-          if (currentRow < kit.drumSounds.size()) {
-              org.chuck.deluge.firmware.engine.FirmwareSound drum = kit.drumSounds.get(currentRow);
-              MatrixDriver.get().pushUI(new MenuView(org.chuck.deluge.firmware.gui.menu.SoundEditor.createRootMenu(drum)));
-              return ActionResult.DEALT_WITH;
-          }
+    if (on && clip.sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
+      if (currentRow < kit.drumSounds.size()) {
+        org.chuck.deluge.firmware.engine.FirmwareSound drum = kit.drumSounds.get(currentRow);
+        MatrixDriver.get()
+            .pushUI(
+                new MenuView(org.chuck.deluge.firmware.gui.menu.SoundEditor.createRootMenu(drum)));
+        return ActionResult.DEALT_WITH;
       }
-      return ActionResult.NOT_DEALT_WITH;
+    }
+    return ActionResult.NOT_DEALT_WITH;
   }
 
   @Override
@@ -73,7 +75,7 @@ public class KitView extends FirmwareView {
     // Draw drum row status in sidebar
     for (int y = 0; y < 8; y++) {
       RGB color = (y == currentRow) ? new RGB(255, 255, 255) : new RGB(255, 100, 0);
-      PadLEDs.set(16, y, color); 
+      PadLEDs.set(16, y, color);
     }
 
     // Draw notes in the grid

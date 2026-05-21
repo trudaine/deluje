@@ -3,7 +3,6 @@ package org.chuck.deluge.firmware.engine;
 import static org.chuck.deluge.firmware.util.Q31.*;
 
 import org.chuck.deluge.firmware.dsp.StereoSample;
-import org.chuck.deluge.firmware.dsp.compressor.RMSFeedbackCompressor;
 import org.chuck.deluge.firmware.dsp.filter.FilterSet;
 import org.chuck.deluge.firmware.modulation.params.ParamManager;
 import org.chuck.deluge.firmware.util.Q31;
@@ -13,19 +12,19 @@ public abstract class GlobalEffectable {
   public final FilterSet filterSet = new FilterSet();
   public final Stutterer stutterer = new Stutterer();
   public final ParamManager paramManager = new ParamManager();
-  
+
   // Pre-allocate to avoid GC jitter
   private final StereoSample[] trackBuffer = new StereoSample[128];
 
   public GlobalEffectable() {
-      for (int i = 0; i < 128; i++) trackBuffer[i] = new StereoSample();
+    for (int i = 0; i < 128; i++) trackBuffer[i] = new StereoSample();
   }
 
   public void renderOutput(StereoSample[] output, int numSamples, int[] reverbBuffer) {
     // 1. Clear pre-allocated buffer
     for (int i = 0; i < numSamples; i++) {
-        trackBuffer[i].l = 0;
-        trackBuffer[i].r = 0;
+      trackBuffer[i].l = 0;
+      trackBuffer[i].r = 0;
     }
 
     // 2. Render actual voices/samples
@@ -35,7 +34,7 @@ public abstract class GlobalEffectable {
     processFilters(trackBuffer, numSamples);
 
     // 4. Process Global FX and Volume
-    int postFXVolume = Q31.ONE; 
+    int postFXVolume = Q31.ONE;
     int postReverbVolume = Q31.ONE;
     int reverbSendAmount = 0;
     int pan = 0; // Center in Q31 is 0
@@ -51,7 +50,7 @@ public abstract class GlobalEffectable {
   }
 
   public void processFilters(StereoSample[] buffer, int numSamples) {
-      filterSet.renderStereoInterleaved(buffer, numSamples);
+    filterSet.renderStereoInterleaved(buffer, numSamples);
   }
 
   public void processReverbSendAndVolume(

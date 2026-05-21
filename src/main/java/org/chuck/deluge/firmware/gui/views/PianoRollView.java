@@ -23,7 +23,9 @@ public class PianoRollView extends FirmwareView {
   @Override
   public ActionResult selectButtonPress(boolean on) {
     if (on && clip.sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
-      MatrixDriver.get().pushUI(new MenuView(org.chuck.deluge.firmware.gui.menu.SoundEditor.createRootMenu(synth)));
+      MatrixDriver.get()
+          .pushUI(
+              new MenuView(org.chuck.deluge.firmware.gui.menu.SoundEditor.createRootMenu(synth)));
       return ActionResult.DEALT_WITH;
     }
     return ActionResult.NOT_DEALT_WITH;
