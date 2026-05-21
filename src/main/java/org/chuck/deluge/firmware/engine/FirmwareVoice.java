@@ -76,7 +76,7 @@ public class FirmwareVoice {
       // Prime sample oscillators
       for (int s = 0; s < 2; s++) {
         if (sound.oscTypes[s] == OscType.SAMPLE && sound.samples[s] != null) {
-          unisonParts[i].sources[s].noteOn(sound.samples[s], 0);
+          unisonParts[i].sources[s].noteOn(sound.samples[s], sound.sampleSettings[s], 0);
         }
       }
     }

@@ -8,6 +8,7 @@ public class IntegerRangeMenuItem extends MenuItem {
   private final int min;
   private final int max;
   private final java.util.function.Consumer<Integer> callback;
+  private java.util.function.Function<Integer, String> labelMapper;
 
   public IntegerRangeMenuItem(String name, int initial, int min, int max) {
     this(name, initial, min, max, null);
@@ -22,9 +23,25 @@ public class IntegerRangeMenuItem extends MenuItem {
     this.callback = callback;
   }
 
+  public IntegerRangeMenuItem(
+      String name,
+      int initial,
+      int min,
+      int max,
+      java.util.function.Function<Integer, String> labelMapper,
+      java.util.function.Consumer<Integer> callback) {
+    super(name);
+    this.value = initial;
+    this.min = min;
+    this.max = max;
+    this.labelMapper = labelMapper;
+    this.callback = callback;
+  }
+
   @Override
   public void onFocus() {
-    FirmwareDisplay.get().setText(name + ": " + value);
+    String valStr = (labelMapper != null) ? labelMapper.apply(value) : String.valueOf(value);
+    FirmwareDisplay.get().setText(name + ": " + valStr);
   }
 
   @Override

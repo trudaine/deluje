@@ -6,10 +6,18 @@ import org.chuck.deluge.firmware.hid.FirmwareDisplay;
 /** A menu item for toggling a boolean setting. */
 public class ToggleMenuItem extends MenuItem {
   private boolean value;
+  private java.util.function.Consumer<Boolean> listener;
 
   public ToggleMenuItem(String name, boolean initialValue) {
     super(name);
     this.value = initialValue;
+  }
+
+  public ToggleMenuItem(
+      String name, boolean initialValue, java.util.function.Consumer<Boolean> listener) {
+    super(name);
+    this.value = initialValue;
+    this.listener = listener;
   }
 
   @Override
@@ -20,6 +28,9 @@ public class ToggleMenuItem extends MenuItem {
   @Override
   public ActionResult enter() {
     value = !value;
+    if (listener != null) {
+      listener.accept(value);
+    }
     onFocus();
     return ActionResult.DEALT_WITH;
   }

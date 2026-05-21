@@ -27,11 +27,14 @@ public class VoiceUnisonPartSource {
     }
   }
 
-  public void noteOn(Sample sample, int samplesLate) {
+  public void noteOn(
+      Sample sample,
+      org.chuck.deluge.firmware.model.sample.SampleVoiceSettings settings,
+      int samplesLate) {
     this.active = true;
     if (sample != null) {
       if (voiceSample == null) voiceSample = new VoiceSample();
-      voiceSample.noteOn(sample, samplesLate);
+      voiceSample.noteOn(sample, settings, samplesLate);
     }
   }
 
@@ -40,8 +43,8 @@ public class VoiceUnisonPartSource {
     if (!active) return false;
     if (voiceSample != null) {
       voiceSample.render(buffer, numSamples, phaseIncrement, sample, amplitude);
-      // Logic to check if sample finished
-      if (!voiceSample.looping && (voiceSample.playPosBig >> 32) >= sample.getNumSamples() - 1) {
+      // Generic boundary completion gate
+      if (!voiceSample.active) {
         active = false;
         return false;
       }

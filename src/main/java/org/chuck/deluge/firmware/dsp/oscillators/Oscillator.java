@@ -2,6 +2,7 @@ package org.chuck.deluge.firmware.dsp.oscillators;
 
 import static org.chuck.deluge.firmware.util.Q31.*;
 
+import org.chuck.deluge.firmware.util.FirmwareUtils;
 import org.chuck.deluge.firmware.util.LookupTables;
 import org.chuck.deluge.firmware.util.Q31;
 import org.chuck.deluge.firmware.util.SawLookupTables;
@@ -306,13 +307,8 @@ public class Oscillator {
               retriggerPhase);
       currentAmplitude += amplitudeIncrement;
 
-      int whichValue = currentPhase >>> (32 - 8);
-      int v1 = LookupTables.sineWaveSmall[whichValue] & 0xFFFF;
-      int v2 = LookupTables.sineWaveSmall[whichValue + 1] & 0xFFFF;
-      int strength2 = (currentPhase >>> (32 - 16 - 8)) & 0xFFFF;
-      strength2 >>>= 1;
-      int diff = (short) v2 - (short) v1;
-      int val = (v1 << 16) + (diff * strength2 * 2);
+      int val =
+          FirmwareUtils.interpolateTableSigned(currentPhase, 32, LookupTables.sineWaveSmall, 8);
 
       buffer[offset + i] += Q31.mult(currentAmplitude << 1, val);
     }
