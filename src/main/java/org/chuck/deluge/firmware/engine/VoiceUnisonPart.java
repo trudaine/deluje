@@ -25,7 +25,8 @@ public class VoiceUnisonPart {
 
   public void noteOn(Sample sample, int samplesLate) {
     for (VoiceUnisonPartSource s : sources) {
-      s.noteOn(sample, samplesLate);
+      s.noteOn(
+          sample, new org.chuck.deluge.firmware.model.sample.SampleVoiceSettings(), samplesLate);
     }
   }
 }

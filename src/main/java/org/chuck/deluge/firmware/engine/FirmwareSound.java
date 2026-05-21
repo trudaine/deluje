@@ -29,6 +29,10 @@ public class FirmwareSound extends GlobalEffectable {
   public final LFO[] globalLfos = new LFO[2];
   public final org.chuck.deluge.firmware.model.sample.Sample[] samples =
       new org.chuck.deluge.firmware.model.sample.Sample[2];
+  public final org.chuck.deluge.firmware.model.sample.SampleVoiceSettings[] sampleSettings = {
+    new org.chuck.deluge.firmware.model.sample.SampleVoiceSettings(),
+    new org.chuck.deluge.firmware.model.sample.SampleVoiceSettings()
+  };
   public final org.chuck.deluge.firmware.dsp.oscillators.OscType[] oscTypes = {
     org.chuck.deluge.firmware.dsp.oscillators.OscType.SINE,
     org.chuck.deluge.firmware.dsp.oscillators.OscType.SINE
