@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import org.chuck.deluge.firmware.dsp.StereoSample;
 import org.chuck.deluge.firmware.dsp.oscillators.OscType;
 import org.chuck.deluge.firmware.engine.FirmwareSound;
+import org.chuck.deluge.firmware.engine.FirmwareVoice;
 import org.chuck.deluge.firmware.modulation.params.Param;
 import org.chuck.deluge.firmware.util.Q31;
 import org.chuck.deluge.model.FilterMode;
