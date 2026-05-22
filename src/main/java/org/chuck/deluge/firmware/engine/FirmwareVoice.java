@@ -278,11 +278,12 @@ public class FirmwareVoice {
           fmParams[i].freq = pIncA;
           fmParams[i].level_in = 0;
         }
-        int srcIdx = (i == 4) ? 2 : ((i == 2) ? 3 : 0);
+        int srcIdx = (i == 5) ? 0 : ((i == 4) ? 2 : ((i == 3) ? 1 : ((i == 2) ? 3 : 0)));
         fmParams[i].phase = (int) part.sources[srcIdx].oscPos;
       }
       new FmCore().render(buffer, numSamples, fmParams, 0, fmFeedbackBuffer, 0);
       part.sources[0].oscPos = fmParams[5].phase;
+      part.sources[1].oscPos = fmParams[3].phase;
       part.sources[2].oscPos = fmParams[4].phase;
       part.sources[3].oscPos = fmParams[2].phase;
       return;

@@ -68,7 +68,7 @@ public class VoiceSample {
     int numChannels = sample.numChannels;
     int totalSamples = sample.getNumSamples();
 
-    long inc = (long) (phaseIncrement * sampleRateScale);
+    long inc = (long) (((double) (phaseIncrement << 8)) * sampleRateScale);
     if (inc == 0) inc = 0x100000000L; // Safety fallback
 
     for (int i = 0; i < numSamples; i++) {
