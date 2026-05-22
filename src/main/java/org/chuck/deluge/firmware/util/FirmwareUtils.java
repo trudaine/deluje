@@ -197,14 +197,14 @@ public class FirmwareUtils {
     return (int) (((long) value1 * strength1 + (long) value2 * strength2) >> 16);
   }
 
-  public static int getTanHUnknown(int input, int saturationAmount) {
-    int workingValue;
-    if (saturationAmount != 0)
-      workingValue = (int) (lshiftAndSaturateUnknown(input, saturationAmount) + 2147483648L);
-    else workingValue = (int) (input + 2147483648L);
-
-    return interpolateTableSigned(workingValue, 32, LookupTables.tanHSmall, 8)
-        >> (saturationAmount + 2);
+  public static int getTanHUnknown(int workingValue, int saturationAmount) {
+    int absVal = Math.abs(workingValue);
+    if (absVal < 0) {
+      absVal = Integer.MAX_VALUE; // Math.abs(Integer.MIN_VALUE) overflow safety
+    }
+    int result = interpolateTableSigned(absVal, 32, LookupTables.tanHSmall, 8);
+    int signedResult = (workingValue < 0) ? -result : result;
+    return signedResult >> (saturationAmount + 2);
   }
 
   public static int lshiftAndSaturateUnknown(int val, int lshift) {
