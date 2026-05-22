@@ -165,6 +165,18 @@ public class AutodispWorkstationDiagnostic {
 
     sound.triggerNote(60, 127);
 
+    if (!sound.voices.isEmpty()) {
+      FirmwareVoice voice = sound.voices.iterator().next();
+      System.out.println(
+          "  [DIAG] Voice Env0 Attack: " + voice.paramFinalValues[Param.LOCAL_ENV_0_ATTACK]);
+      System.out.println(
+          "  [DIAG] Voice Env0 Decay: " + voice.paramFinalValues[Param.LOCAL_ENV_0_DECAY]);
+      System.out.println(
+          "  [DIAG] Voice Env0 Sustain: " + voice.paramFinalValues[Param.LOCAL_ENV_0_SUSTAIN]);
+      System.out.println(
+          "  [DIAG] Voice Env0 Release: " + voice.paramFinalValues[Param.LOCAL_ENV_0_RELEASE]);
+    }
+
     // Capture dynamic envelope steps at block transitions
     int numBlocks = 20;
     double[] blockPeaks = new double[numBlocks];
