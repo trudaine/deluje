@@ -87,4 +87,46 @@ public class MidiInputRouterTest {
 
     assertEquals(64.0 / 127.0, vm.getGlobalFloat(target), 0.01);
   }
+
+  @Test
+  void testNoteOffContextSwitchSafety() {
+    // Map MIDI channel 0 → Track 4 (follow channel A)
+    router.setFollowChannel(0, 0, 4);
+    router.setActiveTrack(4);
+
+    // Fake sequencer stopped (step 0)
+    vm.setGlobalInt(BridgeContract.G_CURRENT_STEP, 0L);
+
+    MidiMsg noteOn = new MidiMsg();
+    noteOn.data1 = 0x90; // Note On, CH 1
+    noteOn.data2 = 72; // C5
+    noteOn.data3 = 100; // Velocity
+
+    router.handleMidiMessage(noteOn);
+
+    // Now switch active track index to a DIFFERENT track (e.g. 5)
+    router.setActiveTrack(5);
+    vm.advanceTime(4410);
+
+    MidiMsg noteOff = new MidiMsg();
+    noteOff.data1 = 0x80; // Note Off, CH 1
+    noteOff.data2 = 72; // C5
+    noteOff.data3 = 0;
+
+    router.handleMidiMessage(noteOff);
+
+    // Retrieve gate array from bridge
+    ChuckArray gateArray = (ChuckArray) vm.getGlobalObject(BridgeContract.G_GATE);
+
+    // Track 4 index step 0
+    int index4 = 4 * BridgeContract.STEPS + 0;
+    // Track 5 index step 0
+    int index5 = 5 * BridgeContract.STEPS + 0;
+
+    // Gate on original track 4 should be updated to a positive float value of exactly 0.8
+    // (calculated from 4410 samples / 100ms time advance)
+    assertEquals(0.8f, gateArray.getFloat(index4), 0.01f, "track 4 gate should be set to 0.8");
+    // Gate on track 5 should remain at its pre-initialized default value (0.9f)
+    assertEquals(0.9f, gateArray.getFloat(index5), 0.01f, "track 5 gate should remain untouched");
+  }
 }

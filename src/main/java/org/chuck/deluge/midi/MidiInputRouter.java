@@ -31,10 +31,12 @@ public class MidiInputRouter {
   private static class NoteStartInfo {
     long time;
     int step;
+    int track;
 
-    NoteStartInfo(long t, int s) {
+    NoteStartInfo(long t, int s, int tr) {
       this.time = t;
       this.step = s;
+      this.track = tr;
     }
   }
 
@@ -195,8 +197,9 @@ public class MidiInputRouter {
         }
       }
 
-      // Store start time and step
-      activeNoteStarts.put(midiNote, new NoteStartInfo(vm.getCurrentTime(), currentStep));
+      // Store start time, step and target track
+      activeNoteStarts.put(
+          midiNote, new NoteStartInfo(vm.getCurrentTime(), currentStep, targetTrack));
 
       if (targetTrack < 4) {
         // Kit track: map note to row (e.g., 36 -> row 0, 38 -> row 1, etc.)
@@ -220,7 +223,7 @@ public class MidiInputRouter {
       if (start != null) {
         long duration = vm.getCurrentTime() - start.time;
         double gate = (double) duration / (vm.getSampleRate() * 0.125);
-        bridge.setGate(targetTrack, start.step, gate);
+        bridge.setGate(start.track, start.step, gate);
       }
     }
   }
