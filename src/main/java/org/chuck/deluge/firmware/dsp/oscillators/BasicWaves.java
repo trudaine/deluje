@@ -43,6 +43,12 @@ public class BasicWaves {
       long v2_32 = v2 << 16;
       int val = (int) (v1_32 + ((v2_32 - v1_32) * frac >> 16));
 
+      if (i < 10 && offset == 0 && numSamples == 128) {
+        System.out.printf(
+            "        [WAVE DEBUG] i=%d | which=%d | v1=%d | frac=%d | val=%d\n",
+            i, whichValue, v1, frac, val);
+      }
+
       int wet = val;
       if (applyAmplitude) {
         currentAmplitude += amplitudeIncrement;
@@ -144,17 +150,17 @@ public class BasicWaves {
     if (phaseIncrement <= 7040929) return new int[] {6, 11};
     if (phaseIncrement <= 9988296) return new int[] {6, 11};
     if (phaseIncrement <= 14035840) return new int[] {7, 11};
-    if (phaseIncrement <= 19701684) return new int[] {8, 10};
-    if (phaseIncrement <= 28163718) return new int[] {9, 10};
-    if (phaseIncrement <= 39953186) return new int[] {10, 10};
-    if (phaseIncrement <= 56143360) return new int[] {11, 10};
-    if (phaseIncrement <= 82137088) return new int[] {12, 10};
-    if (phaseIncrement <= 112286720) return new int[] {13, 9};
-    if (phaseIncrement <= 164274176) return new int[] {14, 9};
-    if (phaseIncrement <= 224573440) return new int[] {15, 8};
-    if (phaseIncrement <= 328548352) return new int[] {16, 8};
-    if (phaseIncrement <= 449146880) return new int[] {17, 7};
-    if (phaseIncrement <= 898293760) return new int[] {18, 6};
-    return new int[] {19, 5};
+    if (phaseIncrement <= 19701684) return new int[] {8, 11};
+    if (phaseIncrement <= 28163718) return new int[] {9, 11};
+    if (phaseIncrement <= 39953186) return new int[] {10, 11};
+    if (phaseIncrement <= 56143360) return new int[] {11, 11};
+    if (phaseIncrement <= 82137088) return new int[] {12, 11};
+    if (phaseIncrement <= 112286720) return new int[] {13, 11};
+    if (phaseIncrement <= 164274176) return new int[] {14, 11};
+    if (phaseIncrement <= 224573440) return new int[] {15, 11};
+    if (phaseIncrement <= 328548352) return new int[] {16, 11};
+    if (phaseIncrement <= 449146880) return new int[] {17, 11};
+    if (phaseIncrement <= 898293760) return new int[] {18, 11};
+    return new int[] {19, 11};
   }
 }
