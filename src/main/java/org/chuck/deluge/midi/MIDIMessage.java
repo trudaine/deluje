@@ -148,6 +148,10 @@ public record MIDIMessage(int statusType, int channel, int data1, int data2) {
     return statusType == 0x0F && channel == 0x0C;
   }
 
+  public boolean isMidiContinue() {
+    return statusType == 0x0F && channel == 0x0B;
+  }
+
   /** Returns the pitch bend 14-bit value (0-16383, 8192 = center). */
   public int pitchBendValue() {
     return (data2 << 7) | data1;

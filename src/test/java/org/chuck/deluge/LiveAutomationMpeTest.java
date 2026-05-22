@@ -191,6 +191,41 @@ public class LiveAutomationMpeTest {
   }
 
   @Test
+  void testMidiRealtimeTransportControls() {
+    org.chuck.core.ChuckVM vm = new org.chuck.core.ChuckVM(44100, 2);
+    org.chuck.deluge.BridgeContract bridge = new org.chuck.deluge.BridgeContract();
+    bridge.register(vm);
+
+    org.chuck.deluge.firmware.playback.PlaybackHandler playbackHandler =
+        new org.chuck.deluge.firmware.playback.PlaybackHandler();
+    vm.setGlobalObject(org.chuck.deluge.BridgeContract.G_PLAYBACK_HANDLER, playbackHandler);
+
+    org.chuck.deluge.midi.MidiInputRouter router =
+        new org.chuck.deluge.midi.MidiInputRouter(vm, bridge);
+    org.chuck.deluge.midi.MidiService service =
+        new org.chuck.deluge.midi.MidiService(vm, bridge, router);
+
+    assertFalse(playbackHandler.isPlaying()); // initial stop state!
+
+    // Send Start message via active service engine callbacks
+    service.getEngine().midiMessageReceived(org.chuck.deluge.midi.MIDIMessage.start(), "TEST");
+    assertTrue(playbackHandler.isPlaying()); // transport starts playing!
+
+    // Send Stop message
+    service.getEngine().midiMessageReceived(org.chuck.deluge.midi.MIDIMessage.stop(), "TEST");
+    assertFalse(playbackHandler.isPlaying()); // transport stops!
+
+    // Send Continue message
+    service
+        .getEngine()
+        .midiMessageReceived(org.chuck.deluge.midi.MIDIMessage.continueMsg(), "TEST");
+    assertTrue(playbackHandler.isPlaying()); // transport resumes!
+
+    // Shutdown VM cleanly
+    vm.shutdown();
+  }
+
+  @Test
   void testMidiTakeoverPickupMode() {
     org.chuck.deluge.midi.MidiTakeover takeover = new org.chuck.deluge.midi.MidiTakeover();
     takeover.setMode(org.chuck.deluge.midi.MidiTakeover.Mode.PICKUP);
