@@ -3,6 +3,8 @@ package org.chuck.deluge.firmware.engine;
 import java.util.ArrayList;
 import java.util.List;
 import org.chuck.deluge.firmware.dsp.StereoSample;
+import org.chuck.deluge.firmware.dsp.oscillators.OscType;
+import org.chuck.deluge.firmware.modulation.params.Param;
 import org.chuck.deluge.firmware.modulation.params.ParamManager;
 import org.chuck.deluge.firmware.util.Q31;
 
@@ -13,7 +15,13 @@ public class FirmwareKit extends GlobalEffectable {
 
   public FirmwareKit() {
     for (int i = 0; i < 16; i++) {
-      drumSounds.add(new FirmwareSound());
+      FirmwareSound drumSound = new FirmwareSound();
+      drumSound.isDrum = true;
+      drumSound.oscTypes[0] = OscType.SAMPLE;
+      drumSound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = 0;
+      drumSound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = 0;
+      drumSound.paramNeutralValues[Param.LOCAL_NOISE_VOLUME] = 0;
+      drumSounds.add(drumSound);
     }
     for (int i = 0; i < 128; i++) isolatedBuffer[i] = new StereoSample();
   }
@@ -29,6 +37,14 @@ public class FirmwareKit extends GlobalEffectable {
         }
         // Render drum track with its own FX chain
         drum.renderOutput(isolatedBuffer, numSamples, null);
+        if (drum == drumSounds.get(0) && isolatedBuffer[0].l != 0) {
+          System.out.println(
+              "[DIAG-KIT-SUM] lane=0 isolated[0]="
+                  + isolatedBuffer[0].l
+                  + " master_buffer[0]="
+                  + buffer[0].l);
+        }
+
         // Sum to Kit buffer
         for (int i = 0; i < numSamples; i++) {
           buffer[i].l = Q31.addSaturate(buffer[i].l, isolatedBuffer[i].l);
