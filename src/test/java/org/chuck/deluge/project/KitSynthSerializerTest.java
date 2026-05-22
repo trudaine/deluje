@@ -222,10 +222,8 @@ public class KitSynthSerializerTest {
     assertEquals(original.getDelaySend(), parsed.getDelaySend(), 0.01f);
     assertEquals(original.getReverbSend(), parsed.getReverbSend(), 0.01f);
 
-    // EQ (not parsed from defaultParams children currently)
-    // TODO: add eq bass/treble/freq binding
-    // assertEquals(original.getEqBass(), parsed.getEqBass(), 0.01f);
-    // assertEquals(original.getEqTreble(), parsed.getEqTreble(), 0.01f);
+    assertEquals(original.getEqBass(), parsed.getEqBass(), 0.01f);
+    assertEquals(original.getEqTreble(), parsed.getEqTreble(), 0.01f);
 
     // Compressor (from parseSynthCompressor)
     assertEquals(original.getCompressorAttack(), parsed.getCompressorAttack(), 0.01f);
@@ -468,6 +466,8 @@ public class KitSynthSerializerTest {
     synth.setHpfRes(0.1f);
     synth.setVolume(0.65f);
     synth.setPan(0.15f);
+    synth.setEqBass(0.3f);
+    synth.setEqTreble(-0.1f);
     synth.setStutterRate(0.3f);
     synth.setSampleRateReduction(0.15f);
     synth.setBitCrush(0.25f);

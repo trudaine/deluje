@@ -432,6 +432,13 @@ public class KitSynthSerializer {
     appendHexChildUnipolar(doc, dp, "sampleRateReduction", synth.getSampleRateReduction());
     appendHexChildUnipolar(doc, dp, "bitCrush", synth.getBitCrush());
     appendHexChildUnipolar(doc, dp, "waveIndex", synth.getWaveIndex());
+    // Equalizer inside defaultParams
+    Element eq = doc.createElement("equalizer");
+    appendHexChild(doc, eq, "bass", synth.getEqBass());
+    appendHexChild(doc, eq, "treble", synth.getEqTreble());
+    appendHexChild(doc, eq, "bassFrequency", 0f);
+    appendHexChild(doc, eq, "trebleFrequency", 0f);
+    dp.appendChild(eq);
 
     // Envelopes 0-3 inside defaultParams
     for (int i = 0; i < 4; i++) {
@@ -454,14 +461,6 @@ public class KitSynthSerializer {
       }
       dp.appendChild(pcContainer);
     }
-
-    // Equalizer
-    Element eq = doc.createElement("equalizer");
-    appendHexChild(doc, eq, "bass", synth.getEqBass());
-    appendHexChild(doc, eq, "treble", synth.getEqTreble());
-    appendHexChild(doc, eq, "bassFrequency", 0f);
-    appendHexChild(doc, eq, "trebleFrequency", 0f);
-    dp.appendChild(eq);
 
     appendHexChild(doc, dp, "modFXOffset", 0f);
     appendHexChild(doc, dp, "modFXFeedback", synth.getModFxFeedback());
