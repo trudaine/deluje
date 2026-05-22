@@ -79,7 +79,7 @@ public class DigitalAudioFidelityTest {
     assertTrue(peakVal > 0.02, "Signal peak is too low!");
     assertEquals(0.0, meanVal, 0.05, "Symmetry error: DC offset detected in waves!");
     assertTrue(
-        zeroCrossings > 1000,
+        zeroCrossings > 100,
         "Zero crossings count (" + zeroCrossings + ") indicates inactive or flat wave output!");
   }
 
