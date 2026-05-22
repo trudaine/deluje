@@ -355,13 +355,33 @@ public class FirmwareSound extends GlobalEffectable {
       return;
     }
 
-    int lpfFrequency = paramNeutralValues[Param.LOCAL_LPF_FREQ];
-    int lpfResonance = paramNeutralValues[Param.LOCAL_LPF_RESONANCE];
-    int lpfMorph = paramNeutralValues[Param.LOCAL_LPF_MORPH];
+    int lpfFrequency, lpfResonance, lpfMorph;
+    int hpfFrequency, hpfResonance, hpfMorph;
 
-    int hpfFrequency = paramNeutralValues[Param.LOCAL_HPF_FREQ];
-    int hpfResonance = paramNeutralValues[Param.LOCAL_HPF_RESONANCE];
-    int hpfMorph = paramNeutralValues[Param.LOCAL_HPF_MORPH];
+    FirmwareVoice primaryVoice = null;
+    synchronized (voices) {
+      if (!voices.isEmpty()) {
+        primaryVoice = voices.iterator().next();
+      }
+    }
+
+    if (primaryVoice != null) {
+      lpfFrequency = primaryVoice.paramFinalValues[Param.LOCAL_LPF_FREQ];
+      lpfResonance = primaryVoice.paramFinalValues[Param.LOCAL_LPF_RESONANCE];
+      lpfMorph = primaryVoice.paramFinalValues[Param.LOCAL_LPF_MORPH];
+
+      hpfFrequency = primaryVoice.paramFinalValues[Param.LOCAL_HPF_FREQ];
+      hpfResonance = primaryVoice.paramFinalValues[Param.LOCAL_HPF_RESONANCE];
+      hpfMorph = primaryVoice.paramFinalValues[Param.LOCAL_HPF_MORPH];
+    } else {
+      lpfFrequency = paramNeutralValues[Param.LOCAL_LPF_FREQ];
+      lpfResonance = paramNeutralValues[Param.LOCAL_LPF_RESONANCE];
+      lpfMorph = paramNeutralValues[Param.LOCAL_LPF_MORPH];
+
+      hpfFrequency = paramNeutralValues[Param.LOCAL_HPF_FREQ];
+      hpfResonance = paramNeutralValues[Param.LOCAL_HPF_RESONANCE];
+      hpfMorph = paramNeutralValues[Param.LOCAL_HPF_MORPH];
+    }
 
     // Configure filter set and render
     filterSet.setConfig(
