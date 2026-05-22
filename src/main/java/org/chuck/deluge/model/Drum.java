@@ -90,6 +90,8 @@ public abstract class Drum {
   // Oscillator retrigger phases
   protected int osc1RetrigPhase = 0;
   protected int osc2RetrigPhase = 0;
+  protected int mod1RetrigPhase = -1;
+  protected int mod2RetrigPhase = -1;
 
   // Wavetable position
   protected float waveIndex = 0.0f;
@@ -558,6 +560,22 @@ public abstract class Drum {
 
   public void setOsc2RetrigPhase(int v) {
     this.osc2RetrigPhase = v;
+  }
+
+  public int getMod1RetrigPhase() {
+    return mod1RetrigPhase;
+  }
+
+  public void setMod1RetrigPhase(int v) {
+    this.mod1RetrigPhase = v;
+  }
+
+  public int getMod2RetrigPhase() {
+    return mod2RetrigPhase;
+  }
+
+  public void setMod2RetrigPhase(int v) {
+    this.mod2RetrigPhase = v;
   }
 
   public int getRetrigPhase() {

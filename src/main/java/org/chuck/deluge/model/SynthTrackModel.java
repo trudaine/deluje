@@ -827,6 +827,8 @@ public class SynthTrackModel extends TrackModel {
   private int osc1RetrigPhase = 0;
 
   private int osc2RetrigPhase = 0;
+  private int mod1RetrigPhase = -1;
+  private int mod2RetrigPhase = -1;
 
   public int getOsc1RetrigPhase() {
     return osc1RetrigPhase;
@@ -842,6 +844,22 @@ public class SynthTrackModel extends TrackModel {
 
   public void setOsc2RetrigPhase(int v) {
     this.osc2RetrigPhase = v;
+  }
+
+  public int getMod1RetrigPhase() {
+    return mod1RetrigPhase;
+  }
+
+  public void setMod1RetrigPhase(int v) {
+    this.mod1RetrigPhase = v;
+  }
+
+  public int getMod2RetrigPhase() {
+    return mod2RetrigPhase;
+  }
+
+  public void setMod2RetrigPhase(int v) {
+    this.mod2RetrigPhase = v;
   }
 
   public int getRetrigPhase() {

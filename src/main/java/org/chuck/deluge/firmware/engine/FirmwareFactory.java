@@ -136,6 +136,8 @@ public class FirmwareFactory {
     // Retrigger Phases
     sound.osc1RetriggerPhase = model.getOsc1RetrigPhase();
     sound.osc2RetriggerPhase = model.getOsc2RetrigPhase();
+    sound.mod1RetrigPhase = model.getMod1RetrigPhase();
+    sound.mod2RetrigPhase = model.getMod2RetrigPhase();
 
     // Envelopes
     for (int i = 0; i < 4; i++) {
@@ -220,6 +222,8 @@ public class FirmwareFactory {
         drumSound.oscTypes[0] = OscType.SAMPLE;
         drumSound.osc1RetriggerPhase = sd.getOsc1RetrigPhase();
         drumSound.osc2RetriggerPhase = sd.getOsc2RetrigPhase();
+        drumSound.mod1RetrigPhase = sd.getMod1RetrigPhase();
+        drumSound.mod2RetrigPhase = sd.getMod2RetrigPhase();
 
         // Map per-lane step automation from the ClipModel to the drum sound's ParamManager
         if (!model.getClips().isEmpty()) {

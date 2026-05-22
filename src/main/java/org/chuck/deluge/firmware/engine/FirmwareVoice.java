@@ -78,12 +78,16 @@ public class FirmwareVoice {
     // Translate starting phases from degrees to Q31 bounds
     int osc1Phase = getStartingPhase(sound.osc1RetriggerPhase);
     int osc2Phase = getStartingPhase(sound.osc2RetriggerPhase);
+    int mod1Phase = getStartingPhase(sound.mod1RetrigPhase);
+    int mod2Phase = getStartingPhase(sound.mod2RetrigPhase);
 
     // Reset unison parts with custom initial phases
     for (int i = 0; i < sound.numUnison; i++) {
-      unisonParts[i].reset(osc1Phase, osc2Phase);
+      unisonParts[i].reset(osc1Phase, osc2Phase, mod1Phase, mod2Phase);
       unisonParts[i].sources[0].active = true;
       unisonParts[i].sources[1].active = true;
+      unisonParts[i].sources[2].active = true;
+      unisonParts[i].sources[3].active = true;
 
       // Prime sample oscillators
       for (int s = 0; s < 2; s++) {
@@ -255,11 +259,14 @@ public class FirmwareVoice {
     if (sound.getSynthMode() == FirmwareSound.SynthMode.FM) {
       for (int i = 0; i < 6; i++) {
         fmParams[i].freq = pIncA;
-        fmParams[i].phase = (int) part.sources[0].oscPos;
+        int srcIdx = (i == 1) ? 2 : ((i == 2) ? 3 : 0);
+        fmParams[i].phase = (int) part.sources[srcIdx].oscPos;
         fmParams[i].level_in = paramFinalValues[Param.LOCAL_OSC_A_VOLUME];
       }
       new FmCore().render(buffer, numSamples, fmParams, 0, fmFeedbackBuffer, 0);
       part.sources[0].oscPos = fmParams[0].phase;
+      part.sources[2].oscPos = fmParams[1].phase;
+      part.sources[3].oscPos = fmParams[2].phase;
       return;
     }
 
