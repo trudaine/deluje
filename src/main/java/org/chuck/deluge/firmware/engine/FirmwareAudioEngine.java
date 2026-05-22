@@ -53,9 +53,8 @@ public class FirmwareAudioEngine {
       }
     }
 
-    // Force bypass master reverb and delay for direct dry diagnostics!
-    // masterReverb.process(monoReverbBuffer, masterBuffer);
-    // masterDelay.process(masterBuffer, delayState);
+    masterReverb.process(monoReverbBuffer, masterBuffer);
+    masterDelay.process(masterBuffer, delayState);
 
     // Hardware Master Compressor
     // masterCompressor.renderVolNeutral(masterBuffer, Q31.ONE);

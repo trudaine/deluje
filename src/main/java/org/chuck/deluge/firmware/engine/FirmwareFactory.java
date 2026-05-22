@@ -138,14 +138,16 @@ public class FirmwareFactory {
     sound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = (int) (oscMix * 2147483647.0);
     sound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = (int) ((1.0f - oscMix) * 2147483647.0);
     sound.paramNeutralValues[Param.LOCAL_NOISE_VOLUME] = (int) (model.getNoiseVol() * 2147483647.0);
+    sound.paramNeutralValues[Param.LOCAL_OSC_B_PITCH_ADJUST] =
+        (model.getOsc2Transpose() * 100 + model.getOsc2Cents()) * 178956;
 
-    // Filter
+    // Filter (scaled to Q26 format to match tangent log curver)
     sound.paramNeutralValues[Param.LOCAL_LPF_FREQ] =
-        (int) (model.getLpfFreq() / 20000.0 * 2147483647.0);
+        (int) (model.getLpfFreq() / 20000.0 * 67108864.0);
     sound.paramNeutralValues[Param.LOCAL_LPF_RESONANCE] = (int) (model.getLpfRes() * 2147483647.0);
     sound.paramNeutralValues[Param.LOCAL_LPF_MORPH] = (int) (model.getLpfMorph() * 2147483647.0);
     sound.paramNeutralValues[Param.LOCAL_HPF_FREQ] =
-        (int) (model.getHpfFreq() / 20000.0 * 2147483647.0);
+        (int) (model.getHpfFreq() / 20000.0 * 67108864.0);
     sound.paramNeutralValues[Param.LOCAL_HPF_RESONANCE] = (int) (model.getHpfRes() * 2147483647.0);
     sound.paramNeutralValues[Param.LOCAL_HPF_MORPH] = (int) (model.getHpfMorph() * 2147483647.0);
 
@@ -198,13 +200,7 @@ public class FirmwareFactory {
         else if (destStr.contains("VOLUME")) paramId = Param.LOCAL_VOLUME;
 
         if (paramId != -1) {
-          // Clean up source string (e.g. "LFO1" -> "LFO_LOCAL_1")
-          String cleanSrc = srcStr;
-          if (cleanSrc.equals("LFO1")) cleanSrc = "LFO_LOCAL_1";
-          else if (cleanSrc.equals("LFO2")) cleanSrc = "LFO_LOCAL_2";
-          else if (cleanSrc.equals("ENV1")) cleanSrc = "ENVELOPE_1";
-
-          PatchSource source = PatchSource.valueOf(cleanSrc);
+          PatchSource source = stringToPatchSource(pcm.source());
           int amount = (int) (pcm.amount() * 2147483647.0);
           PatchCable engineCable = new PatchCable();
           engineCable.from = source;
@@ -214,6 +210,31 @@ public class FirmwareFactory {
       } catch (Exception e) {
         // Skip invalid cables
       }
+    }
+  }
+
+  public static PatchSource stringToPatchSource(String str) {
+    if (str == null) return PatchSource.NONE;
+    String clean = str.trim().toUpperCase().replace("_", "").replace(" ", "");
+    if (clean.equals("LFO1") || clean.equals("LFOLOCAL1")) return PatchSource.LFO_LOCAL_1;
+    if (clean.equals("LFO2") || clean.equals("LFOLOCAL2")) return PatchSource.LFO_LOCAL_2;
+    if (clean.equals("LFOGLOBAL1")) return PatchSource.LFO_GLOBAL_1;
+    if (clean.equals("LFOGLOBAL2")) return PatchSource.LFO_GLOBAL_2;
+    if (clean.equals("ENVELOPE1") || clean.equals("ENV1")) return PatchSource.ENVELOPE_0;
+    if (clean.equals("ENVELOPE2") || clean.equals("ENV2")) return PatchSource.ENVELOPE_1;
+    if (clean.equals("ENVELOPE3") || clean.equals("ENV3")) return PatchSource.ENVELOPE_2;
+    if (clean.equals("ENVELOPE4") || clean.equals("ENV4")) return PatchSource.ENVELOPE_3;
+    if (clean.equals("SIDECHAIN")) return PatchSource.SIDECHAIN;
+    if (clean.equals("X")) return PatchSource.X;
+    if (clean.equals("Y")) return PatchSource.Y;
+    if (clean.equals("AFTERTOUCH")) return PatchSource.AFTERTOUCH;
+    if (clean.equals("VELOCITY")) return PatchSource.VELOCITY;
+    if (clean.equals("NOTE")) return PatchSource.NOTE;
+    if (clean.equals("RANDOM")) return PatchSource.RANDOM;
+    try {
+      return PatchSource.valueOf(str.toUpperCase());
+    } catch (Exception e) {
+      return PatchSource.NONE;
     }
   }
 

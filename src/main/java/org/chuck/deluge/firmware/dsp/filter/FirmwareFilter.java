@@ -52,7 +52,7 @@ public abstract class FirmwareFilter {
     // input frequency is q31
     tannedFrequency =
         FirmwareUtils.instantTan(FirmwareUtils.lshiftAndSaturate(frequency, 5))
-            >>> 14; // Convert Q31 to Q17!
+            << 1; // Convert Q27 to Q28!
 
     // this is 1q31*1q16/(1q16+tan(f)/2)
     // tan(f) is q17 (wait, Deluge says tannedFrequency is q17? Let's check)

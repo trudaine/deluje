@@ -33,6 +33,7 @@ public class HpLadderFilter extends FirmwareFilter {
   @Override
   public int setConfig(
       int hpfFrequency, int hpfResonance, FilterMode lpfMode, int lpfMorph, int filterGain) {
+    hpfFrequency = Math.max(0, Math.min(67108864, hpfFrequency));
     int extraFeedback = 1200000000;
     this.morph_ = lpfMorph;
     curveFrequency(hpfFrequency);

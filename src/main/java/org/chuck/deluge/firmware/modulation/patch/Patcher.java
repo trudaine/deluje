@@ -14,6 +14,8 @@ import org.chuck.deluge.firmware.util.Q31;
  */
 public class Patcher {
 
+  public static int exponentialModShift = 0;
+
   public void performPatching(
       int sourcesChangedMask,
       FirmwareSound sound,
@@ -47,7 +49,9 @@ public class Patcher {
         finalValue = neutralValue + combo;
       } else {
         // Exp params
-        int combo = combineCablesExp(dest, paramId, sound, paramManager, sourceValues);
+        int combo =
+            combineCablesExp(dest, paramId, sound, paramManager, sourceValues)
+                >> exponentialModShift;
         finalValue = FirmwareUtils.getExp(neutralValue, combo);
       }
 

@@ -244,6 +244,14 @@ public class FirmwareVoice {
     // ── Final Gain & Saturation ──
     int env0Gain = envelopes[0].lastValue;
 
+    if (noteCode == 72 && Math.random() < 0.005) {
+      System.out.printf(
+          "      [DSP VOICE STATE] Note=72 | LOCAL_VOLUME=%d | LOCAL_OSC_A_VOLUME=%d | Env0Gain=%d\n",
+          paramFinalValues[Param.LOCAL_VOLUME],
+          paramFinalValues[Param.LOCAL_OSC_A_VOLUME],
+          env0Gain);
+    }
+
     // Safety check: ensure volume is not squashed to zero by un-patched synth defaults
     int trackVol = paramFinalValues[Param.LOCAL_VOLUME];
 

@@ -260,15 +260,14 @@ public class AudioAnalyzer {
 
     for (int h = 0; h < nHarmonics; h++) {
       double freq = fundamental * (h + 1);
-      int bin = (int) Math.round(freq * fftSize / sr);
-      if (bin >= fftSize / 2) {
+      if (freq >= sr / 2.0) {
         profile[h] = 0;
         continue;
       }
 
-      // Single-bin DFT (Goertzel-style)
+      // Continuous Goertzel-style DFT at exact harmonic frequency
       double real = 0, imag = 0;
-      double angle = 2.0 * Math.PI * bin / fftSize;
+      double angle = 2.0 * Math.PI * freq / sr;
       for (int i = 0; i < n; i++) {
         double t = angle * i;
         real += window[i] * Math.cos(t);
