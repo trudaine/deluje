@@ -43,33 +43,116 @@ public class SoundEditor {
     root.addItem(osc);
 
     Submenu filter = new Submenu("FILTER");
-    filter.addItem(
+
+    // LPF Submenu
+    Submenu lpf = new Submenu("LOWPASS (LPF)");
+    lpf.addItem(
         new IntegerRangeMenuItem(
             "LPF FREQ",
-            64,
+            (int) (sound.paramNeutralValues[Param.LOCAL_LPF_FREQ] * 100.0 / 2147483647.0),
             0,
-            127,
+            100,
             (v) -> {
-              sound.paramNeutralValues[Param.LOCAL_LPF_FREQ] = (int) (v * 16909320.0);
+              sound.paramNeutralValues[Param.LOCAL_LPF_FREQ] = (int) (v * 21474836.47);
             }));
-    filter.addItem(
+    lpf.addItem(
         new IntegerRangeMenuItem(
             "LPF RES",
+            (int) (sound.paramNeutralValues[Param.LOCAL_LPF_RESONANCE] * 100.0 / 2147483647.0),
             0,
-            0,
-            127,
+            100,
             (v) -> {
-              sound.paramNeutralValues[Param.LOCAL_LPF_RESONANCE] = (int) (v * 16909320.0);
+              sound.paramNeutralValues[Param.LOCAL_LPF_RESONANCE] = (int) (v * 21474836.47);
             }));
-    filter.addItem(
+    lpf.addItem(
+        new IntegerRangeMenuItem(
+            "LPF MORPH",
+            (int) (sound.paramNeutralValues[Param.LOCAL_LPF_MORPH] * 100.0 / 2147483647.0),
+            0,
+            100,
+            (v) -> {
+              sound.paramNeutralValues[Param.LOCAL_LPF_MORPH] = (int) (v * 21474836.47);
+            }));
+    lpf.addItem(
+        new IntegerRangeMenuItem(
+            "LPF MODE",
+            lpfModeToIndex(sound.lpfMode),
+            0,
+            4,
+            (v) -> {
+              if (v == 0) return "12dB";
+              if (v == 1) return "24dB";
+              if (v == 2) return "DRIVE";
+              if (v == 3) return "SVF BAND";
+              return "SVF NOTCH";
+            },
+            (v) -> {
+              sound.lpfMode = indexToLpfMode(v);
+            }));
+    filter.addItem(lpf);
+
+    // HPF Submenu
+    Submenu hpf = new Submenu("HIGHPASS (HPF)");
+    hpf.addItem(
         new IntegerRangeMenuItem(
             "HPF FREQ",
+            (int) (sound.paramNeutralValues[Param.LOCAL_HPF_FREQ] * 100.0 / 2147483647.0),
             0,
-            0,
-            127,
+            100,
             (v) -> {
-              sound.paramNeutralValues[Param.LOCAL_HPF_FREQ] = (int) (v * 16909320.0);
+              sound.paramNeutralValues[Param.LOCAL_HPF_FREQ] = (int) (v * 21474836.47);
             }));
+    hpf.addItem(
+        new IntegerRangeMenuItem(
+            "HPF RES",
+            (int) (sound.paramNeutralValues[Param.LOCAL_HPF_RESONANCE] * 100.0 / 2147483647.0),
+            0,
+            100,
+            (v) -> {
+              sound.paramNeutralValues[Param.LOCAL_HPF_RESONANCE] = (int) (v * 21474836.47);
+            }));
+    hpf.addItem(
+        new IntegerRangeMenuItem(
+            "HPF MORPH",
+            (int) (sound.paramNeutralValues[Param.LOCAL_HPF_MORPH] * 100.0 / 2147483647.0),
+            0,
+            100,
+            (v) -> {
+              sound.paramNeutralValues[Param.LOCAL_HPF_MORPH] = (int) (v * 21474836.47);
+            }));
+    hpf.addItem(
+        new IntegerRangeMenuItem(
+            "HPF MODE",
+            hpfModeToIndex(sound.hpfMode),
+            0,
+            3,
+            (v) -> {
+              if (v == 0) return "OFF";
+              if (v == 1) return "24dB";
+              if (v == 2) return "SVF BAND";
+              return "SVF NOTCH";
+            },
+            (v) -> {
+              sound.hpfMode = indexToHpfMode(v);
+            }));
+    filter.addItem(hpf);
+
+    // Routing Item
+    filter.addItem(
+        new IntegerRangeMenuItem(
+            "ROUTING",
+            routeToCode(sound.filterRoute),
+            0,
+            2,
+            (v) -> {
+              if (v == 0) return "HPF LPF";
+              if (v == 1) return "LPF HPF";
+              return "PARALLEL";
+            },
+            (v) -> {
+              sound.setFilterRoute(v);
+            }));
+
     root.addItem(filter);
 
     Submenu lfo = new Submenu("LFO");
@@ -222,5 +305,52 @@ public class SoundEditor {
             }));
 
     return menu;
+  }
+
+  private static int lpfModeToIndex(
+      org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode mode) {
+    if (mode == org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.TRANSISTOR_12DB)
+      return 0;
+    if (mode == org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.TRANSISTOR_24DB)
+      return 1;
+    if (mode
+        == org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.TRANSISTOR_24DB_DRIVE)
+      return 2;
+    if (mode == org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.SVF_BAND) return 3;
+    return 4;
+  }
+
+  private static org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode indexToLpfMode(
+      int index) {
+    if (index == 0)
+      return org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.TRANSISTOR_12DB;
+    if (index == 1)
+      return org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.TRANSISTOR_24DB;
+    if (index == 2)
+      return org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.TRANSISTOR_24DB_DRIVE;
+    if (index == 3) return org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.SVF_BAND;
+    return org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.SVF_NOTCH;
+  }
+
+  private static int hpfModeToIndex(
+      org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode mode) {
+    if (mode == org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF) return 0;
+    if (mode == org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.HPLADDER) return 1;
+    if (mode == org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.SVF_BAND) return 2;
+    return 3;
+  }
+
+  private static org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode indexToHpfMode(
+      int index) {
+    if (index == 0) return org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF;
+    if (index == 1) return org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.HPLADDER;
+    if (index == 2) return org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.SVF_BAND;
+    return org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.SVF_NOTCH;
+  }
+
+  private static int routeToCode(org.chuck.deluge.firmware.dsp.filter.FilterRoute route) {
+    if (route == org.chuck.deluge.firmware.dsp.filter.FilterRoute.LOW_TO_HIGH) return 1;
+    if (route == org.chuck.deluge.firmware.dsp.filter.FilterRoute.PARALLEL) return 2;
+    return 0;
   }
 }

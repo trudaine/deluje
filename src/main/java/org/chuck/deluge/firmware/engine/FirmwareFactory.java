@@ -123,8 +123,15 @@ public class FirmwareFactory {
     sound.paramNeutralValues[Param.LOCAL_LPF_FREQ] =
         (int) (model.getLpfFreq() / 20000.0 * 2147483647.0);
     sound.paramNeutralValues[Param.LOCAL_LPF_RESONANCE] = (int) (model.getLpfRes() * 2147483647.0);
+    sound.paramNeutralValues[Param.LOCAL_LPF_MORPH] = (int) (model.getLpfMorph() * 2147483647.0);
     sound.paramNeutralValues[Param.LOCAL_HPF_FREQ] =
         (int) (model.getHpfFreq() / 20000.0 * 2147483647.0);
+    sound.paramNeutralValues[Param.LOCAL_HPF_RESONANCE] = (int) (model.getHpfRes() * 2147483647.0);
+    sound.paramNeutralValues[Param.LOCAL_HPF_MORPH] = (int) (model.getHpfMorph() * 2147483647.0);
+
+    sound.setLpfMode(model.getFilterMode());
+    sound.setHpfMode(model.getHpfMode());
+    sound.setFilterRoute(model.getFilterRoute());
 
     // Envelopes
     for (int i = 0; i < 4; i++) {

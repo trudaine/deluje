@@ -61,6 +61,13 @@ public class FirmwareSound extends GlobalEffectable {
     // Default neutral values as requested for LKG state
     paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = Q31.ONE;
     paramNeutralValues[Param.LOCAL_VOLUME] = Q31.ONE;
+    // Default filter neutral settings
+    paramNeutralValues[Param.LOCAL_LPF_FREQ] = Q31.ONE;
+    paramNeutralValues[Param.LOCAL_LPF_RESONANCE] = 0;
+    paramNeutralValues[Param.LOCAL_LPF_MORPH] = 0;
+    paramNeutralValues[Param.LOCAL_HPF_FREQ] = 0;
+    paramNeutralValues[Param.LOCAL_HPF_RESONANCE] = 0;
+    paramNeutralValues[Param.LOCAL_HPF_MORPH] = 0;
   }
 
   public SynthMode getSynthMode() {
@@ -174,5 +181,98 @@ public class FirmwareSound extends GlobalEffectable {
         }
       }
     }
+  }
+
+  // ── High-Fidelity Filter States & Modulations ──
+  public org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode lpfMode =
+      org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.TRANSISTOR_24DB;
+  public org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode hpfMode =
+      org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF;
+  public org.chuck.deluge.firmware.dsp.filter.FilterRoute filterRoute =
+      org.chuck.deluge.firmware.dsp.filter.FilterRoute.HIGH_TO_LOW;
+
+  public void setLpfMode(org.chuck.deluge.model.FilterMode modelMode) {
+    if (modelMode == null) return;
+    switch (modelMode) {
+      case LADDER_12:
+        this.lpfMode =
+            org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.TRANSISTOR_12DB;
+        break;
+      case LADDER_24:
+        this.lpfMode =
+            org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.TRANSISTOR_24DB;
+        break;
+      case DRIVE:
+        this.lpfMode =
+            org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.TRANSISTOR_24DB_DRIVE;
+        break;
+      case SVF:
+      case SVF_NOTCH:
+        this.lpfMode = org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.SVF_NOTCH;
+        break;
+      case SVF_BAND:
+        this.lpfMode = org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.SVF_BAND;
+        break;
+    }
+  }
+
+  public void setHpfMode(org.chuck.deluge.model.FilterMode modelMode) {
+    if (modelMode == null) return;
+    switch (modelMode) {
+      case LADDER_24:
+        this.hpfMode = org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.HPLADDER;
+        break;
+      case SVF:
+      case SVF_BAND:
+        this.hpfMode = org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.SVF_BAND;
+        break;
+      case SVF_NOTCH:
+        this.hpfMode = org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.SVF_NOTCH;
+        break;
+      default:
+        this.hpfMode = org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF;
+        break;
+    }
+  }
+
+  public void setFilterRoute(int routeCode) {
+    if (routeCode == 1) {
+      this.filterRoute = org.chuck.deluge.firmware.dsp.filter.FilterRoute.LOW_TO_HIGH;
+    } else if (routeCode == 2) {
+      this.filterRoute = org.chuck.deluge.firmware.dsp.filter.FilterRoute.PARALLEL;
+    } else {
+      this.filterRoute = org.chuck.deluge.firmware.dsp.filter.FilterRoute.HIGH_TO_LOW;
+    }
+  }
+
+  @Override
+  public void processFilters(StereoSample[] buffer, int numSamples) {
+    if (voices.isEmpty()) {
+      filterSet.reset();
+      return;
+    }
+
+    int lpfFrequency = paramNeutralValues[Param.LOCAL_LPF_FREQ];
+    int lpfResonance = paramNeutralValues[Param.LOCAL_LPF_RESONANCE];
+    int lpfMorph = paramNeutralValues[Param.LOCAL_LPF_MORPH];
+
+    int hpfFrequency = paramNeutralValues[Param.LOCAL_HPF_FREQ];
+    int hpfResonance = paramNeutralValues[Param.LOCAL_HPF_RESONANCE];
+    int hpfMorph = paramNeutralValues[Param.LOCAL_HPF_MORPH];
+
+    // Configure filter set and render
+    filterSet.setConfig(
+        lpfFrequency,
+        lpfResonance,
+        lpfMode,
+        lpfMorph,
+        hpfFrequency,
+        hpfResonance,
+        hpfMode,
+        hpfMorph,
+        Q31.ONE,
+        filterRoute);
+
+    filterSet.renderStereoInterleaved(buffer, numSamples);
   }
 }
