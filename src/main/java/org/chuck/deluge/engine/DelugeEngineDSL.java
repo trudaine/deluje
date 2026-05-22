@@ -427,7 +427,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
       playbackHandler.start();
 
       // 2. Output Bridge
-      FirmwareEngineUGen outputBridge = new FirmwareEngineUGen(fwEngine, playbackHandler);
+      FirmwareEngineUGen outputBridge = new FirmwareEngineUGen(vm, fwEngine, playbackHandler);
       outputBridge.chuck(vm.dac);
 
       // 3. State Synchronization Loop
