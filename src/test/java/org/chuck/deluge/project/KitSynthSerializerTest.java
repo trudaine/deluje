@@ -97,9 +97,7 @@ public class KitSynthSerializerTest {
     assertEquals(orig.getHpfFreq(), parsedSound.getHpfFreq(), 1.0f);
     assertEquals(orig.getHpfRes(), parsedSound.getHpfRes(), 0.01f);
 
-    // ── Mod FX ──
-    // modFXType read from <sound attr="modFXType">; serializer writes <modFXType> child
-    // assertEquals(orig.getModFxType(), parsedSound.getModFxType());
+    assertEquals(orig.getModFxType(), parsedSound.getModFxType());
 
     // ── Default params ──
     assertEquals(orig.getVolume(), parsedSound.getVolume(), 0.01f);
@@ -215,9 +213,7 @@ public class KitSynthSerializerTest {
     assertEquals(original.getCarrier1Feedback(), parsed.getCarrier1Feedback(), 0.01f);
     assertEquals(original.getCarrier2Feedback(), parsed.getCarrier2Feedback(), 0.01f);
 
-    // Mod FX — not parsed by populateSynth()
-    // TODO: add modFXType/mode parsing to populateSynth()
-    // assertEquals(original.getModFxType(), parsed.getModFxType());
+    assertEquals(original.getModFxType(), parsed.getModFxType());
     assertEquals(original.getModFxRate(), parsed.getModFxRate(), 0.01f);
     assertEquals(original.getModFxDepth(), parsed.getModFxDepth(), 0.01f);
     assertEquals(original.getModFxFeedback(), parsed.getModFxFeedback(), 0.01f);
@@ -422,6 +418,7 @@ public class KitSynthSerializerTest {
     s.setUnisonNum(3);
     s.setUnisonDetune(0.15f);
     s.setSidechainSend(0.8f);
+    s.setModFxType("FLANGER");
     s.setLpfFreq(8000.0f);
     s.setLpfRes(0.3f);
     s.setHpfFreq(200.0f);
@@ -464,6 +461,7 @@ public class KitSynthSerializerTest {
     synth.setUnisonDetune(0.2f);
     synth.setPolyphony(PolyphonyMode.LEGATO);
     synth.setFilterMode(FilterMode.SVF);
+    synth.setModFxType("CHORUS");
     synth.setLpfFreq(5000.0f);
     synth.setLpfRes(0.4f);
     synth.setHpfFreq(100.0f);

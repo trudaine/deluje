@@ -1152,6 +1152,26 @@ public class DelugeXmlParser {
 
     // ── Mod Knobs ──
     parseModKnobs(soundNode, synth);
+
+    // ── Mod FX Type ──
+    String mfxVal = soundNode.getAttribute("modFXType");
+    if (mfxVal == null || mfxVal.isEmpty()) {
+      mfxVal = soundNode.getAttribute("modFxType");
+    }
+    if (mfxVal == null || mfxVal.isEmpty()) {
+      NodeList mfxNodes = soundNode.getElementsByTagName("modFXType");
+      if (mfxNodes.getLength() > 0) {
+        mfxVal = mfxNodes.item(0).getTextContent();
+      } else {
+        NodeList mfxNodesAlt = soundNode.getElementsByTagName("modFxType");
+        if (mfxNodesAlt.getLength() > 0) {
+          mfxVal = mfxNodesAlt.item(0).getTextContent();
+        }
+      }
+    }
+    if (mfxVal != null && !mfxVal.isBlank()) {
+      synth.setModFxType(mfxVal.trim().toUpperCase());
+    }
   }
 
   // ── Kit/song element parsers ──
@@ -1783,8 +1803,8 @@ public class DelugeXmlParser {
     int vp = readIntAttr(soundNode, "voicePriority", 1);
     sound.setVoicePriority(vp);
     readAttrFloatHex(soundNode, "sideChainSend", sound::setSidechainSend, true);
-    readAttrString(soundNode, "modFXType", sound::setModFxType);
-    readAttrString(soundNode, "modFxType", sound::setModFxType);
+    readAttrOrChildString(soundNode, "modFXType", sound::setModFxType);
+    readAttrOrChildString(soundNode, "modFxType", sound::setModFxType);
     readAttrString(
         soundNode,
         "lpfMode",
@@ -2365,6 +2385,18 @@ public class DelugeXmlParser {
     String val = readAttr(el, attr);
     if (val != null && !val.isEmpty()) {
       setter.accept(val);
+    }
+  }
+
+  /** Read a string attribute or child element and trim it. */
+  private static void readAttrOrChildString(
+      Element el, String tagOrAttr, java.util.function.Consumer<String> setter) {
+    String val = el.getAttribute(tagOrAttr);
+    if (val == null || val.isEmpty()) {
+      val = getChildText(el, tagOrAttr);
+    }
+    if (val != null && !val.isEmpty()) {
+      setter.accept(val.trim());
     }
   }
 

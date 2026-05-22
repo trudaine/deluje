@@ -496,7 +496,7 @@ public class SynthTrackModel extends TrackModel {
   }
 
   public void setModFxType(String modFxType) {
-    this.modFxType = modFxType;
+    this.modFxType = modFxType != null ? modFxType.toUpperCase() : null;
   }
 
   public float getModFxRate() {
