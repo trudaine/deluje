@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <sound>
-	<mode>fm</mode>
+	<mode>subtractive</mode>
 	<polyphonic>1</polyphonic>
 	<voicePriority>1</voicePriority>
 	<unison>
