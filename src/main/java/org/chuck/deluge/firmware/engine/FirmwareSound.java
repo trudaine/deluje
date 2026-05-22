@@ -68,6 +68,20 @@ public class FirmwareSound extends GlobalEffectable {
     paramNeutralValues[Param.LOCAL_HPF_FREQ] = 0;
     paramNeutralValues[Param.LOCAL_HPF_RESONANCE] = 0;
     paramNeutralValues[Param.LOCAL_HPF_MORPH] = 0;
+
+    // Default LFO rate mappings
+    paramNeutralValues[Param.GLOBAL_LFO_FREQ_1] = (int) (0.45 * 2147483647.0);
+    paramNeutralValues[Param.GLOBAL_LFO_FREQ_2] = (int) (0.40 * 2147483647.0);
+    paramNeutralValues[Param.LOCAL_LFO_LOCAL_FREQ_1] = (int) (0.45 * 2147483647.0);
+    paramNeutralValues[Param.LOCAL_LFO_LOCAL_FREQ_2] = (int) (0.40 * 2147483647.0);
+
+    // Default ADSR Envelopes configuration
+    for (int i = 0; i < 4; i++) {
+      paramNeutralValues[Param.LOCAL_ENV_0_ATTACK + i] = 20000;
+      paramNeutralValues[Param.LOCAL_ENV_0_DECAY + i] = 400;
+      paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN + i] = (i == 0) ? Q31.ONE : 0;
+      paramNeutralValues[Param.LOCAL_ENV_0_RELEASE + i] = 400;
+    }
   }
 
   public SynthMode getSynthMode() {
@@ -81,11 +95,16 @@ public class FirmwareSound extends GlobalEffectable {
 
   @Override
   protected void renderInternal(StereoSample[] buffer, int numSamples, ParamManager unused) {
-    // 1. Update Global LFOs
-    for (int i = 0; i < 2; i++) {
-      globalSourceValues[PatchSource.LFO_GLOBAL_1.ordinal() + i] =
-          globalLfos[i].render(numSamples, LFO.LFOType.SINE, 5000);
-    }
+    // 1. Update Global LFOs with dynamic logarithmic rates
+    int lfoRate1 = paramNeutralValues[Param.GLOBAL_LFO_FREQ_1];
+    int phaseInc1 = (int) (200 + Math.pow(2.0, (double) lfoRate1 / 2147483647.0 * 10.0) * 500.0);
+    globalSourceValues[PatchSource.LFO_GLOBAL_1.ordinal()] =
+        globalLfos[0].render(numSamples, LFO.LFOType.SINE, phaseInc1);
+
+    int lfoRate2 = paramNeutralValues[Param.GLOBAL_LFO_FREQ_2];
+    int phaseInc2 = (int) (200 + Math.pow(2.0, (double) lfoRate2 / 2147483647.0 * 10.0) * 500.0);
+    globalSourceValues[PatchSource.LFO_GLOBAL_2.ordinal()] =
+        globalLfos[1].render(numSamples, LFO.LFOType.SINE, phaseInc2);
 
     // 2. Sum Voices
     int[] monoBuffer = new int[numSamples];
