@@ -38,14 +38,24 @@ public class AutodispWorkstationDiagnostic {
 
       sound.triggerNote(note, 127);
 
-      // Render 1024 samples of output
+      // Render 1024 samples of output in loops of 128 block units
       int totalSamples = 1024;
       StereoSample[] buffer = new StereoSample[totalSamples];
-      for (int i = 0; i < totalSamples; i++) {
-        buffer[i] = new StereoSample();
-      }
+      StereoSample[] subBuffer = new StereoSample[128];
+      for (int i = 0; i < 128; i++) subBuffer[i] = new StereoSample();
 
-      sound.renderOutput(buffer, totalSamples, null);
+      for (int b = 0; b < totalSamples / 128; b++) {
+        for (int i = 0; i < 128; i++) {
+          subBuffer[i].l = 0;
+          subBuffer[i].r = 0;
+        }
+        sound.renderOutput(subBuffer, 128, null);
+        for (int i = 0; i < 128; i++) {
+          buffer[b * 128 + i] = new StereoSample();
+          buffer[b * 128 + i].l = subBuffer[i].l;
+          buffer[b * 128 + i].r = subBuffer[i].r;
+        }
+      }
 
       // Analyze physical waveform properties
       double rmsDiff = 0.0;
@@ -145,11 +155,11 @@ public class AutodispWorkstationDiagnostic {
     sound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = 0;
     sound.paramNeutralValues[Param.LOCAL_VOLUME] = Q31.ONE;
 
-    // Set high-speed envelope settings: 100ms Decay, Sustain at 50%
-    sound.paramNeutralValues[Param.LOCAL_ENV_0_ATTACK] = 100;
-    sound.paramNeutralValues[Param.LOCAL_ENV_0_DECAY] = 2000;
+    // Set high-speed rate envelope settings (larger values mean faster transition rates!)
+    sound.paramNeutralValues[Param.LOCAL_ENV_0_ATTACK] = 1000000; // Instant attack (1 block)
+    sound.paramNeutralValues[Param.LOCAL_ENV_0_DECAY] = 80000; // Fast decay
     sound.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN] = Q31.ONE / 2;
-    sound.paramNeutralValues[Param.LOCAL_ENV_0_RELEASE] = 1000;
+    sound.paramNeutralValues[Param.LOCAL_ENV_0_RELEASE] = 50000;
 
     sound.triggerNote(60, 127);
 
@@ -213,11 +223,24 @@ public class AutodispWorkstationDiagnostic {
 
     sound.triggerNote(84, 127); // Note C6 (1046Hz)
 
+    // Render 256 samples of output in loops of 128 block units
     int totalSamples = 256;
     StereoSample[] buffer = new StereoSample[totalSamples];
-    for (int i = 0; i < totalSamples; i++) buffer[i] = new StereoSample();
+    StereoSample[] subBuffer = new StereoSample[128];
+    for (int i = 0; i < 128; i++) subBuffer[i] = new StereoSample();
 
-    sound.renderOutput(buffer, totalSamples, null);
+    for (int b = 0; b < totalSamples / 128; b++) {
+      for (int i = 0; i < 128; i++) {
+        subBuffer[i].l = 0;
+        subBuffer[i].r = 0;
+      }
+      sound.renderOutput(subBuffer, 128, null);
+      for (int i = 0; i < 128; i++) {
+        buffer[b * 128 + i] = new StereoSample();
+        buffer[b * 128 + i].l = subBuffer[i].l;
+        buffer[b * 128 + i].r = subBuffer[i].r;
+      }
+    }
 
     double peak = 0.0;
     for (int i = 0; i < totalSamples; i++) {
