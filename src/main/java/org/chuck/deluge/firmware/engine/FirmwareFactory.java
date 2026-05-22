@@ -115,6 +115,20 @@ public class FirmwareFactory {
     sound.oscTypes[0] = stringToOscType(model.getOsc1Type());
     sound.oscTypes[1] = stringToOscType(model.getOsc2Type());
 
+    // Map Synth Mode (0=Subtractive, 1=FM, 2=RingMod)
+    int modeVal = model.getSynthMode();
+    if (modeVal == 1) {
+      sound.synthMode = FirmwareSound.SynthMode.FM;
+    } else if (modeVal == 2) {
+      sound.synthMode = FirmwareSound.SynthMode.RINGMOD;
+    } else {
+      sound.synthMode = FirmwareSound.SynthMode.SUBTRACTIVE;
+    }
+
+    // Map FM Ratios
+    sound.fmRatio1 = model.getFmRatio();
+    sound.fmRatio2 = model.getFmRatio() * 2.0f;
+
     // Volume/Pan
     sound.paramNeutralValues[Param.LOCAL_VOLUME] = (int) (model.getVolume() * 2147483647.0);
     sound.paramNeutralValues[Param.LOCAL_PAN] = (int) ((model.getPan() + 1.0) * 1073741823.0);

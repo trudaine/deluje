@@ -350,4 +350,6 @@ public class FirmwareSound extends GlobalEffectable {
   public int osc2RetriggerPhase = 0;
   public int mod1RetrigPhase = -1;
   public int mod2RetrigPhase = -1;
+  public float fmRatio1 = 1.0f;
+  public float fmRatio2 = 1.0f;
 }
