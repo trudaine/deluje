@@ -29,11 +29,13 @@ public class AutodispWorkstationDiagnostic {
       sound.oscTypes[1] = OscType.SINE; // Solo single oscillator
       sound.numUnison = 1;
       sound.setLpfMode(null); // Bypass filter set
+      sound.osc1RetriggerPhase = 0; // Force exact phase alignment at sample 0!
 
       // Max volume parameters, bypass envelope modulation by setting sustain to MAX
       sound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = Q31.ONE;
       sound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = 0;
       sound.paramNeutralValues[Param.LOCAL_VOLUME] = Q31.ONE;
+      sound.paramNeutralValues[Param.LOCAL_ENV_0_ATTACK] = 10000000; // Instant attack!
       sound.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN] = Q31.ONE; // Max sustain!
 
       sound.triggerNote(note, 127);
@@ -209,17 +211,19 @@ public class AutodispWorkstationDiagnostic {
     sound.oscTypes[1] = OscType.SINE;
     sound.numUnison = 1;
 
-    // Set 24dB Ladder Low-pass Filter mode
-    sound.setLpfMode(FilterMode.LADDER_24);
+    // Set SVF Low-pass Filter mode
+    sound.setLpfMode(FilterMode.SVF);
 
     sound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = Q31.ONE;
     sound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = 0;
     sound.paramNeutralValues[Param.LOCAL_VOLUME] = Q31.ONE;
+    sound.paramNeutralValues[Param.LOCAL_ENV_0_ATTACK] = 10000000; // Instant attack!
     sound.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN] = Q31.ONE;
 
-    // Set filter cutoff low at 300Hz (represented in Q31 as a lower threshold)
-    sound.paramNeutralValues[Param.LOCAL_LPF_FREQ] = (int) (0.1 * 2147483647.0); // Very low cutoff
+    // Set filter cutoff extremely low (represented in Q31 as a lower threshold)
+    sound.paramNeutralValues[Param.LOCAL_LPF_FREQ] = (int) (0.01 * 2147483647.0); // Very low cutoff
     sound.paramNeutralValues[Param.LOCAL_LPF_RESONANCE] = 0;
+    sound.paramNeutralValues[Param.LOCAL_LPF_MORPH] = 0; // Pure LPF mode!
 
     sound.triggerNote(84, 127); // Note C6 (1046Hz)
 
