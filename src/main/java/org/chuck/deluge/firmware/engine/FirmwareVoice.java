@@ -257,11 +257,26 @@ public class FirmwareVoice {
 
     // ── Bit-Accurate FM Engine ──
     if (sound.getSynthMode() == FirmwareSound.SynthMode.FM) {
+      int envLevel = sourceValues[PatchSource.ENVELOPE_0.ordinal()];
+      int volumeLevel = paramFinalValues[Param.LOCAL_VOLUME];
+      int finalCarrierLevel = (int) (((long) envLevel * volumeLevel) >> 31);
+
       for (int i = 0; i < 6; i++) {
-        fmParams[i].freq = pIncA;
+        if (i == 0) {
+          fmParams[i].freq = pIncA;
+          fmParams[i].level_in = finalCarrierLevel;
+        } else if (i == 1) {
+          fmParams[i].freq = (int) (pIncA * sound.fmRatio1);
+          fmParams[i].level_in = paramFinalValues[Param.LOCAL_OSC_B_VOLUME];
+        } else if (i == 2) {
+          fmParams[i].freq = (int) (pIncA * sound.fmRatio2);
+          fmParams[i].level_in = (int) (0.2 * 2147483647.0);
+        } else {
+          fmParams[i].freq = pIncA;
+          fmParams[i].level_in = 0;
+        }
         int srcIdx = (i == 1) ? 2 : ((i == 2) ? 3 : 0);
         fmParams[i].phase = (int) part.sources[srcIdx].oscPos;
-        fmParams[i].level_in = paramFinalValues[Param.LOCAL_OSC_A_VOLUME];
       }
       new FmCore().render(buffer, numSamples, fmParams, 0, fmFeedbackBuffer, 0);
       part.sources[0].oscPos = fmParams[0].phase;

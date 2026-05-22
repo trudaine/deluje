@@ -30,7 +30,7 @@
 		<retrigPhase>180</retrigPhase>
 	</modulator2>
 	<arpeggiator>
-		<active>1</active>
+		<active>0</active>
 		<mode>UP</mode>
 		<rate>4.0</rate>
 		<octaves>3</octaves>
@@ -48,26 +48,26 @@
 	</arpeggiator>
 	<lpfMode>24dB</lpfMode>
 	<defaultParams>
-		<volume>0x40000000</volume>
+		<volume>0x50000000</volume>
 		<pan>0x00000000</pan>
 		<lpfFrequency>0x60000000</lpfFrequency>
 		<lpfResonance>0x15000000</lpfResonance>
 		<envelope1>
-			<attack>0x80000000</attack>
-			<decay>0xB0000000</decay>
+			<attack>0xAE147AD9</attack>
+			<decay>0xD1EB8510</decay>
 			<sustain>0xCCCCCCBF</sustain>
-			<release>0xC0000000</release>
+			<release>0xC28F5C1D</release>
 		</envelope1>
 		<envelope2>
-			<attack>0x90000000</attack>
-			<decay>0x90000000</decay>
+			<attack>0xC7AE146E</attack>
+			<decay>0xC7AE146E</decay>
 			<sustain>0x80000000</sustain>
 			<release>0xCCCCCCBF</release>
 		</envelope2>
-		<modulator1Amount>0xD0000000</modulator1Amount>
-		<modulator1Feedback>0x10000000</modulator1Feedback>
-		<modulator2Amount>0x20000000</modulator2Amount>
-		<modulator2Feedback>0x10000000</modulator2Feedback>
+		<modulator1Amount>0xD1EB8510</modulator1Amount>
+		<modulator1Feedback>0x80000000</modulator1Feedback>
+		<modulator2Amount>0x80000000</modulator2Amount>
+		<modulator2Feedback>0x80000000</modulator2Feedback>
 		<reverbAmount>0x15000000</reverbAmount>
 		<delayRate>0x10000000</delayRate>
 		<delayFeedback>0x20000000</delayFeedback>
