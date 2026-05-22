@@ -1,0 +1,288 @@
+package org.chuck.deluge;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.io.File;
+import org.chuck.deluge.firmware.dsp.StereoSample;
+import org.chuck.deluge.firmware.engine.FirmwareFactory;
+import org.chuck.deluge.firmware.engine.FirmwareKit;
+import org.chuck.deluge.firmware.engine.FirmwareSound;
+import org.chuck.deluge.firmware.model.Song;
+import org.chuck.deluge.model.KitTrackModel;
+import org.chuck.deluge.model.ProjectModel;
+import org.chuck.deluge.model.SynthTrackModel;
+import org.chuck.deluge.xml.DelugeXmlParser;
+import org.junit.jupiter.api.Test;
+
+/**
+ * JNI-Free Digital Signal Quality and Waveform Fidelity Test. Directly renders the wave presets in
+ * memory and analyzes their real physical components (RMS, DC Offset, Zero-Crossings, and transient
+ * decay envelopes).
+ */
+public class DigitalAudioFidelityTest {
+
+  private static final int SAMPLE_RATE = 44100;
+
+  @Test
+  void testFmSynthFidelityAndOscillation() throws Exception {
+    File synthFile = new File("src/main/resources/SYNTHS/999 Ultimate Workstation Showcase.XML");
+    if (!synthFile.exists()) {
+      synthFile =
+          new File("deluge/src/main/resources/SYNTHS/999 Ultimate Workstation Showcase.XML");
+    }
+    assertTrue(synthFile.exists(), "Showcase Synth XML not found!");
+
+    SynthTrackModel synthModel = DelugeXmlParser.parseSynth(synthFile);
+    ProjectModel project = new ProjectModel();
+    project.addTrack(synthModel);
+    Song fwSong = FirmwareFactory.createSong(project);
+
+    // Retrieve active sound instrument
+    org.chuck.deluge.firmware.model.InstrumentClip clip =
+        (org.chuck.deluge.firmware.model.InstrumentClip) fwSong.clips.get(0);
+    FirmwareSound synth = (FirmwareSound) clip.sound;
+    synth.triggerNote(60, 127); // Trigger note C4 (261Hz)
+
+    int totalSamples = 44032; // ~1 second
+    float[] outputWave = new float[totalSamples];
+    StereoSample[] block = new StereoSample[128];
+    for (int i = 0; i < 128; i++) {
+      block[i] = new StereoSample();
+    }
+
+    for (int b = 0; b < totalSamples / 128; b++) {
+      for (int i = 0; i < 128; i++) {
+        block[i].l = 0;
+        block[i].r = 0;
+      }
+      synth.renderOutput(block, 128, null);
+      for (int i = 0; i < 128; i++) {
+        outputWave[b * 128 + i] = block[i].l / 2147483648.0f;
+      }
+    }
+
+    // Mathematical Waveform Analysis
+    double rmsVal = calculateRMS(outputWave);
+    double peakVal = calculatePeak(outputWave);
+    double meanVal = calculateMean(outputWave);
+    int zeroCrossings = countZeroCrossings(outputWave, 0.001);
+
+    System.out.println("\n=== FM SYNTH DIRECT RENDERING FIDELITY REPORT ===");
+    System.out.println("  RMS power: " + rmsVal);
+    System.out.println("  Peak amplitude: " + peakVal);
+    System.out.println("  Mean (DC Offset): " + meanVal);
+    System.out.println("  Zero Crossings count: " + zeroCrossings);
+    System.out.println("=================================================");
+
+    // Wave assertions:
+    assertTrue(rmsVal > 0.01, "Audio signal is too quiet or silent!");
+    assertTrue(peakVal > 0.02, "Signal peak is too low!");
+    assertEquals(0.0, meanVal, 1E-4, "Symmetry error: DC offset detected in waves!");
+    assertTrue(
+        zeroCrossings > 1000,
+        "Zero crossings count (" + zeroCrossings + ") indicates inactive or flat wave output!");
+  }
+
+  @Test
+  void testKitDrumFidelityAndDecay() throws Exception {
+    File kitFile = new File("src/main/resources/KITS/000 TR-808.XML");
+    if (!kitFile.exists()) {
+      kitFile = new File("deluge/src/main/resources/KITS/000 TR-808.XML");
+    }
+    assertTrue(kitFile.exists(), "TR-808 Kit XML not found!");
+
+    KitTrackModel kitModel = DelugeXmlParser.parseKit(kitFile);
+    ProjectModel project = new ProjectModel();
+    project.addTrack(kitModel);
+    Song fwSong = FirmwareFactory.createSong(project);
+
+    // Retrieve active kit instrument
+    org.chuck.deluge.firmware.model.InstrumentClip clip =
+        (org.chuck.deluge.firmware.model.InstrumentClip) fwSong.clips.get(0);
+    FirmwareKit kit = (FirmwareKit) clip.sound;
+
+    // Diagnostic print loop for all 16 drum lanes
+    for (int i = 0; i < 16; i++) {
+      FirmwareSound drum = kit.drumSounds.get(i);
+      if (drum.samples[0] != null) {
+        System.out.println(
+            "[DIAG-METADATA] Lane "
+                + i
+                + ": name="
+                + drum.samples[0].fileName
+                + " midiNote="
+                + drum.samples[0].midiNoteFromFile
+                + " rate="
+                + drum.samples[0].sampleRate);
+      }
+    }
+
+    kit.triggerDrum(0, 127); // Trigger Kick drum
+
+    int totalSamples = 66048; // ~1.5 seconds
+    float[] outputWave = new float[totalSamples];
+    StereoSample[] block = new StereoSample[128];
+    for (int i = 0; i < 128; i++) {
+      block[i] = new StereoSample();
+    }
+
+    for (int b = 0; b < totalSamples / 128; b++) {
+      for (int i = 0; i < 128; i++) {
+        block[i].l = 0;
+        block[i].r = 0;
+      }
+      kit.renderOutput(block, 128, null);
+      for (int i = 0; i < 128; i++) {
+        outputWave[b * 128 + i] = block[i].l / 2147483648.0f;
+      }
+    }
+
+    // Wave Attack vs. Decay analysis
+    int splitIdx = 22016; // 0.5s mark
+    float[] firstHalf = new float[splitIdx];
+    float[] secondHalf = new float[outputWave.length - splitIdx];
+    System.arraycopy(outputWave, 0, firstHalf, 0, firstHalf.length);
+    System.arraycopy(outputWave, splitIdx, secondHalf, 0, secondHalf.length);
+
+    double firstRMS = calculateRMS(firstHalf);
+    double secondRMS = calculateRMS(secondHalf);
+    double peakVal = calculatePeak(outputWave);
+    double meanVal = calculateMean(outputWave);
+    double ratio = firstRMS / Math.max(1E-6, secondRMS);
+
+    System.out.println("\n=== DRUM KIT DIRECT RENDERING FIDELITY REPORT ===");
+    System.out.println("  Total Peak amplitude: " + peakVal);
+    System.out.println("  First Half RMS (Attack): " + firstRMS);
+    System.out.println("  Second Half RMS (Decay): " + secondRMS);
+    System.out.println("  Mean (DC Offset): " + meanVal);
+    System.out.println("  Attack/Decay Energy Ratio: " + ratio);
+    System.out.println("=================================================");
+
+    // Direct side-by-side raw vs render comparison
+    try {
+      File rawFile = new File("src/main/resources/SAMPLES/DRUMS/Kick/808 Kick.wav");
+      if (!rawFile.exists()) {
+        rawFile = new File("deluge/src/main/resources/SAMPLES/DRUMS/Kick/808 Kick.wav");
+      }
+      float[] rawKick = loadMonoWavChannel(rawFile, 0);
+      System.out.println("=== KICK RENDER VS RAW SIDE-BY-SIDE ===");
+      for (int i = 0; i < 10; i++) {
+        System.out.println(
+            "  i="
+                + i
+                + " raw="
+                + rawKick[i]
+                + " render="
+                + outputWave[i]
+                + " ratio="
+                + (outputWave[i] / Math.max(1E-6, rawKick[i])));
+      }
+      System.out.println("=========================================");
+    } catch (Exception e) {
+      System.out.println("Could not load raw Kick for comparison: " + e.getMessage());
+    }
+
+    // Wave assertions:
+    assertTrue(peakVal > 0.05, "Transient kick peak is too low!");
+    assertTrue(firstRMS > 0.005, "Drum attack transient energy is too low!");
+    assertEquals(0.0, meanVal, 0.005, "DC offset detected in drum wave!");
+
+    // Drum Decay validation
+    assertTrue(
+        ratio > 5.0,
+        "Drum sample did not decay! Loop is playing continuous digital noise (Decay RMS: "
+            + secondRMS
+            + ")");
+  }
+
+  // Analytics Waveform Helpers
+  private double calculateRMS(float[] samples) {
+    double sum = 0;
+    for (float s : samples) {
+      sum += s * s;
+    }
+    return Math.sqrt(sum / samples.length);
+  }
+
+  private double calculatePeak(float[] samples) {
+    double max = 0;
+    for (float s : samples) {
+      if (Math.abs(s) > max) {
+        max = Math.abs(s);
+      }
+    }
+    return max;
+  }
+
+  private double calculateMean(float[] samples) {
+    double sum = 0;
+    for (float s : samples) {
+      sum += s;
+    }
+    return sum / samples.length;
+  }
+
+  private int countZeroCrossings(float[] samples, double noiseThreshold) {
+    int count = 0;
+    if (samples.length == 0) return 0;
+    boolean positive = samples[0] >= 0;
+    for (int i = 1; i < samples.length; i++) {
+      float s = samples[i];
+      if (Math.abs(s) < noiseThreshold) continue;
+      boolean currentPos = s >= 0;
+      if (currentPos != positive) {
+        count++;
+        positive = currentPos;
+      }
+    }
+    return count;
+  }
+
+  private float[] loadMonoWavChannel(File file, int channel) throws Exception {
+    try (java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
+      java.io.DataInputStream dis = new java.io.DataInputStream(fis);
+      byte[] chunkHeader = new byte[4];
+      dis.readFully(chunkHeader); // RIFF
+      dis.readInt(); // size
+      dis.readFully(chunkHeader); // WAVE
+
+      int numChannels = 1;
+      int byteDepth = 2;
+      int chunkLen = 0;
+
+      while (fis.available() > 0) {
+        dis.readFully(chunkHeader);
+        int len = Integer.reverseBytes(dis.readInt());
+        String chunkName = new String(chunkHeader);
+        if (chunkName.equals("fmt ")) {
+          dis.readShort(); // format
+          numChannels = Short.reverseBytes(dis.readShort());
+          dis.readInt(); // sample rate
+          dis.readInt(); // byte rate
+          dis.readShort(); // block align
+          byteDepth = Short.reverseBytes(dis.readShort()) / 8;
+          if (len > 16) dis.skipBytes(len - 16);
+        } else if (chunkName.equals("data")) {
+          chunkLen = len;
+          break;
+        } else {
+          dis.skipBytes(len);
+        }
+      }
+
+      int numSamples = chunkLen / (numChannels * byteDepth);
+      float[] output = new float[numSamples];
+      byte[] frame = new byte[numChannels * byteDepth];
+
+      for (int i = 0; i < numSamples; i++) {
+        dis.readFully(frame);
+        int offset = channel * byteDepth;
+        if (byteDepth == 2) {
+          short val = (short) ((frame[offset] & 0xFF) | (frame[offset + 1] << 8));
+          output[i] = val / 32768.0f;
+        }
+      }
+      return output;
+    }
+  }
+}

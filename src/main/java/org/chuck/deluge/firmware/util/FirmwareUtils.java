@@ -136,15 +136,15 @@ public class FirmwareUtils {
 
   public static int interpolateTableSigned(
       int input, int numBitsInInput, short[] table, int numBitsInTableSize) {
-    int whichValue = input >>> (numBitsInInput - numBitsInTableSize);
-    int rshiftAmount = numBitsInInput - 16 - numBitsInTableSize;
-    int rshifted;
-    if (rshiftAmount >= 0) rshifted = input >>> rshiftAmount;
-    else rshifted = input << (-rshiftAmount);
+    long uInput = (long) input & 0xFFFFFFFFL;
+    int whichValue = (int) (uInput >>> (32 - numBitsInTableSize));
+    int rshiftAmount = 32 - 16 - numBitsInTableSize;
+    int rshifted = (int) (uInput >>> rshiftAmount);
 
     int strength2 = rshifted & 65535;
     int strength1 = 65536 - strength2;
-    return (table[whichValue] * strength1 + table[whichValue + 1] * strength2);
+    long sum = (long) table[whichValue] * strength1 + (long) table[whichValue + 1] * strength2;
+    return (int) sum;
   }
 
   public static int instantTan(int input) {
@@ -197,14 +197,15 @@ public class FirmwareUtils {
     return (int) (((long) value1 * strength1 + (long) value2 * strength2) >> 16);
   }
 
-  public static int getTanHUnknown(int workingValue, int saturationAmount) {
-    int absVal = Math.abs(workingValue);
-    if (absVal < 0) {
-      absVal = Integer.MAX_VALUE; // Math.abs(Integer.MIN_VALUE) overflow safety
+  public static int getTanHUnknown(int input, int saturationAmount) {
+    int workingValue;
+    if (saturationAmount != 0) {
+      workingValue = (int) (lshiftAndSaturateUnknown(input, saturationAmount) + 2147483648L);
+    } else {
+      workingValue = (int) (input + 2147483648L);
     }
-    int result = interpolateTableSigned(absVal, 32, LookupTables.tanHSmall, 8);
-    int signedResult = (workingValue < 0) ? -result : result;
-    return signedResult >> (saturationAmount + 2);
+    int result = interpolateTableSigned(workingValue, 32, LookupTables.tanHSmall, 8);
+    return result >> (saturationAmount + 2);
   }
 
   public static int lshiftAndSaturateUnknown(int val, int lshift) {
@@ -212,10 +213,7 @@ public class FirmwareUtils {
   }
 
   public static int signedSaturateOperandUnknown(int val, int bits) {
-    int limit = 1 << (bits - 1);
-    if (val >= limit) return limit - 1;
-    if (val < -limit) return -limit;
-    return val;
+    return org.chuck.deluge.firmware.util.Q31.signedSaturate(val, bits);
   }
 
   public static int lshiftAndSaturate(int val, int lshift) {
