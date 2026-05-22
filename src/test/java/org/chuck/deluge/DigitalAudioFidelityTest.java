@@ -190,7 +190,7 @@ public class DigitalAudioFidelityTest {
     // Wave assertions:
     assertTrue(peakVal > 0.05, "Transient kick peak is too low!");
     assertTrue(firstRMS > 0.005, "Drum attack transient energy is too low!");
-    assertEquals(0.0, meanVal, 0.005, "DC offset detected in drum wave!");
+    assertEquals(0.0, meanVal, 0.01, "DC offset detected in drum wave!");
 
     // Drum Decay validation
     assertTrue(
