@@ -9,6 +9,10 @@ import org.chuck.deluge.firmware.model.InstrumentClip;
 import org.chuck.deluge.firmware.model.Song;
 import org.chuck.deluge.firmware.model.note.NoteRow;
 import org.chuck.deluge.firmware.playback.PlaybackHandler;
+import org.chuck.deluge.firmware.engine.FirmwareSound;
+import org.chuck.deluge.firmware.engine.FirmwareKit;
+import org.chuck.deluge.firmware.modulation.params.Param;
+import org.chuck.deluge.firmware.modulation.automation.AutoParam;
 import org.rtmidijava.RtMidiFactory;
 import org.rtmidijava.RtMidiIn;
 
@@ -264,6 +268,18 @@ public class RtMidiInputRouter {
       template.setADSR(env[eb], env[eb + 1], env[eb + 2], env[eb + 3]);
     }
     eventQueue.push(template);
+
+    // Direct audio trigger for real-time MPE notes
+    if (currentSong != null && track < currentSong.clips.size()) {
+      Clip clip = currentSong.clips.get(track);
+      if (clip instanceof InstrumentClip iclip) {
+        if (iclip.sound instanceof FirmwareSound fs) {
+          fs.triggerNote(note, velocity, channel);
+        } else if (iclip.sound instanceof FirmwareKit fk) {
+          fk.triggerDrum(note, velocity);
+        }
+      }
+    }
   }
 
   private void handleNoteOff(int note, int channel) {
@@ -281,6 +297,16 @@ public class RtMidiInputRouter {
       cmd = TickEventQueue.Command.SYNTH_NOTE_OFF;
     }
     eventQueue.pushNoteOff(cmd, track, note);
+
+    // Direct audio release for real-time MPE notes
+    if (currentSong != null && track < currentSong.clips.size()) {
+      Clip clip = currentSong.clips.get(track);
+      if (clip instanceof InstrumentClip iclip) {
+        if (iclip.sound instanceof FirmwareSound fs) {
+          fs.releaseNote(note, channel);
+        }
+      }
+    }
   }
 
   private void handleControlChange(int cc, int value, int channel) {
@@ -291,12 +317,23 @@ public class RtMidiInputRouter {
     if (cc == 74) {
       mpeTimbre[channel] = value;
       bridge.setFilterFreq(track, normalized); // Route to filter roughly
+      if (currentSong != null && track < currentSong.clips.size()) {
+        Clip clip = currentSong.clips.get(track);
+        if (clip instanceof InstrumentClip iclip && iclip.sound instanceof FirmwareSound fs) {
+          fs.mpeTimbre(channel, value);
+        }
+      }
     }
 
     // Record automation if enabled
     if (recordingEnabled && currentSong != null && track < currentSong.clips.size()) {
       Clip clip = currentSong.clips.get(track);
-      // In a full implementation, we'd map CC to a specific AutoParam in paramManager
+      int paramId = getParamIdFromCc(cc);
+      if (paramId != -1) {
+        int pos = playbackHandler.lastSwungTickActioned % clip.getLoopLength();
+        int q31Val = (int) (normalized * 2147483647.0);
+        clip.paramManager.recordParamValue(paramId, q31Val, pos);
+      }
     }
 
     switch (cc) {
@@ -335,15 +372,40 @@ public class RtMidiInputRouter {
     double pitchOffset = (bend - 8192.0) / 8192.0 * 2.0; // +/- 2 semitones default
     bridge.setStepPitch(track, 0, pitchOffset / 24.0);
 
+    if (currentSong != null && track < currentSong.clips.size()) {
+      Clip clip = currentSong.clips.get(track);
+      if (clip instanceof InstrumentClip iclip && iclip.sound instanceof FirmwareSound fs) {
+        fs.mpePitchBend(channel, bend);
+      }
+    }
+
     // Record automation
     if (recordingEnabled && currentSong != null && track < currentSong.clips.size()) {
       Clip clip = currentSong.clips.get(track);
-      // Would record to pitch adjust param
+      int pos = playbackHandler.lastSwungTickActioned % clip.getLoopLength();
+      int bendVal = (int) (((double) bend / 16383.0) * 2147483647.0);
+      clip.paramManager.recordParamValue(Param.LOCAL_PITCH_ADJUST, bendVal, pos);
     }
   }
 
   private void handleChannelPressure(int pressure, int channel) {
     mpePressure[channel] = pressure;
-    // In MPE, pressure routes to aftertouch modulation source
+    int track = resolveTrack();
+    if (currentSong != null && track < currentSong.clips.size()) {
+      Clip clip = currentSong.clips.get(track);
+      if (clip instanceof InstrumentClip iclip && iclip.sound instanceof FirmwareSound fs) {
+        fs.mpePressure(channel, pressure);
+      }
+    }
+  }
+
+  private int getParamIdFromCc(int cc) {
+    return switch (cc) {
+      case 7 -> Param.LOCAL_VOLUME;
+      case 10 -> Param.LOCAL_PAN;
+      case 74 -> Param.LOCAL_LPF_FREQ;
+      case 71 -> Param.LOCAL_LPF_RESONANCE;
+      default -> -1;
+    };
   }
 }

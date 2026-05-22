@@ -153,6 +153,10 @@ public class FirmwareSound extends GlobalEffectable {
   private final int[] voiceMonoBuffer = new int[128];
 
   public void triggerNote(int note, int vel) {
+    triggerNote(note, vel, -1);
+  }
+
+  public void triggerNote(int note, int vel, int midiChannel) {
     synchronized (voices) {
       FirmwareVoice voiceToUse = null;
 
@@ -166,18 +170,30 @@ public class FirmwareSound extends GlobalEffectable {
       }
 
       if (voiceToUse != null) {
+        voiceToUse.midiChannel = midiChannel;
+        voiceToUse.mpePitchBend = 8192;
+        voiceToUse.mpePressure = 0;
+        voiceToUse.mpeTimbre = 64;
         voiceToUse.noteOn(note, vel);
         return;
       }
 
       for (FirmwareVoice v : voices) {
         if (!v.active) {
+          v.midiChannel = midiChannel;
+          v.mpePitchBend = 8192;
+          v.mpePressure = 0;
+          v.mpeTimbre = 64;
           v.noteOn(note, vel);
           return;
         }
       }
       if (voices.size() < maxPolyphony) {
         FirmwareVoice v = new FirmwareVoice(this);
+        v.midiChannel = midiChannel;
+        v.mpePitchBend = 8192;
+        v.mpePressure = 0;
+        v.mpeTimbre = 64;
         v.noteOn(note, vel);
         voices.add(v);
       }
@@ -193,10 +209,44 @@ public class FirmwareSound extends GlobalEffectable {
   }
 
   public void releaseNote(int note) {
+    releaseNote(note, -1);
+  }
+
+  public void releaseNote(int note, int midiChannel) {
     synchronized (voices) {
       for (FirmwareVoice v : voices) {
-        if (v.active && v.note == note) {
+        if (v.active && v.note == note && (midiChannel == -1 || v.midiChannel == midiChannel)) {
           v.noteOff(0);
+        }
+      }
+    }
+  }
+
+  public void mpePitchBend(int midiChannel, int value) {
+    synchronized (voices) {
+      for (FirmwareVoice v : voices) {
+        if (v.active && v.midiChannel == midiChannel) {
+          v.mpePitchBend = value;
+        }
+      }
+    }
+  }
+
+  public void mpePressure(int midiChannel, int value) {
+    synchronized (voices) {
+      for (FirmwareVoice v : voices) {
+        if (v.active && v.midiChannel == midiChannel) {
+          v.mpePressure = value;
+        }
+      }
+    }
+  }
+
+  public void mpeTimbre(int midiChannel, int value) {
+    synchronized (voices) {
+      for (FirmwareVoice v : voices) {
+        if (v.active && v.midiChannel == midiChannel) {
+          v.mpeTimbre = value;
         }
       }
     }

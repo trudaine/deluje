@@ -8,6 +8,7 @@ import org.chuck.deluge.firmware.dsp.oscillators.Oscillator;
 import org.chuck.deluge.firmware.model.PolyphonyMode;
 import org.chuck.deluge.firmware.modulation.Arpeggiator;
 import org.chuck.deluge.firmware.modulation.Envelope;
+import org.chuck.deluge.firmware.modulation.automation.AutoParam;
 import org.chuck.deluge.firmware.modulation.LFO;
 import org.chuck.deluge.firmware.modulation.params.Param;
 import org.chuck.deluge.firmware.modulation.patch.PatchSource;
@@ -38,6 +39,12 @@ public class FirmwareVoice {
   public int noteCode;
   public int velocity;
   public boolean active = false;
+  public int midiChannel = -1;
+
+  // MPE Expression States
+  public int mpePitchBend = 8192;
+  public int mpePressure = 0;
+  public int mpeTimbre = 64;
 
   // ── Ported High-Fidelity Logic ──
   public int portaEnvelopePos = 0xFFFFFFFF;
@@ -171,10 +178,12 @@ public class FirmwareVoice {
     sourceValues[PatchSource.LFO_LOCAL_2.ordinal()] =
         lfos[3].render(numSamples, LFO.LFOType.TRIANGLE, phaseInc2);
 
-    // 3. Update voice static sources (Velocity, Note, Random, Sidechain)
+    // 3. Update voice static sources (Velocity, Note, Random, Sidechain, MPE aftertouch/timbre)
     sourceValues[PatchSource.VELOCITY.ordinal()] = velocity * 16909320;
     sourceValues[PatchSource.NOTE.ordinal()] = (note - 60) * 17895697;
     sourceValues[PatchSource.RANDOM.ordinal()] = voiceRandomValue;
+    sourceValues[PatchSource.AFTERTOUCH.ordinal()] = mpePressure * 16909320;
+    sourceValues[PatchSource.Y.ordinal()] = mpeTimbre * 16909320;
     sourceValues[PatchSource.SIDECHAIN.ordinal()] = sound.sidechain.render(numSamples, 0);
 
     // Copy global sources (LFO 1 and 3 are global)
@@ -182,13 +191,15 @@ public class FirmwareVoice {
       sourceValues[i] = sound.globalSourceValues[i];
     }
 
-    // Initialize paramFinalValues with neutral values before patching
-    System.arraycopy(
-        sound.paramNeutralValues,
-        0,
-        paramFinalValues,
-        0,
-        Math.min(sound.paramNeutralValues.length, paramFinalValues.length));
+    // Initialize paramFinalValues with neutral/automated values before patching
+    for (int i = 0; i < paramFinalValues.length; i++) {
+      int val = (i < sound.paramNeutralValues.length) ? sound.paramNeutralValues[i] : 0;
+      AutoParam autoParam = sound.paramManager.getAutomatedParam(i);
+      if (autoParam != null) {
+        val = autoParam.currentValue;
+      }
+      paramFinalValues[i] = val;
+    }
 
     // Perform patching
     patcher.performPatching(
@@ -196,6 +207,13 @@ public class FirmwareVoice {
 
     // ── Pitch Calculation ──
     int overallPitchAdjust = paramFinalValues[Param.LOCAL_PITCH_ADJUST];
+
+    // Apply polyphonic MPE pitch bend offset
+    if (mpePitchBend != 8192) {
+      double bendSemitones = ((double) mpePitchBend - 8192.0) / 8192.0 * 48.0;
+      double bendFactor = Math.pow(2.0, bendSemitones / 12.0);
+      overallPitchAdjust = (int) (overallPitchAdjust * bendFactor);
+    }
 
     // Porta
     if (Integer.compareUnsigned(portaEnvelopePos, 8388608) < 0) {
