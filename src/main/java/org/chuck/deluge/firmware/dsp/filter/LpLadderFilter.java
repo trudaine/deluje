@@ -43,7 +43,7 @@ public class LpLadderFilter extends FirmwareFilter {
     this.morph = lpfMorph;
 
     if (lpfMode == FilterMode.TRANSISTOR_24DB_DRIVE) {
-      int resonance = ONE - (lpfResonance << 2);
+      int resonance = ONE - (Math.abs(lpfResonance) << 2);
       processedResonance = ONE - resonance;
 
       int logFreq = FirmwareUtils.quickLog(lpfFrequency);
@@ -72,7 +72,7 @@ public class LpLadderFilter extends FirmwareFilter {
     if (lpfMode == FilterMode.TRANSISTOR_24DB || lpfMode == FilterMode.TRANSISTOR_12DB) {
       int howMuchToKeep = ONE - 33;
       int resonanceUpperLimit = 510000000;
-      int resonance = ONE - (Math.min(lpfResonance, resonanceUpperLimit) << 2);
+      int resonance = ONE - (Math.min(Math.abs(lpfResonance), resonanceUpperLimit) << 2);
       resonance = multiply_32x32_rshift32_rounded(resonance, resonance) << 1;
       processedResonance = ONE - resonance;
       processedResonance = multiply_32x32_rshift32_rounded(processedResonance, howMuchToKeep) << 1;
