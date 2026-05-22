@@ -294,4 +294,8 @@ public class FirmwareSound extends GlobalEffectable {
 
     filterSet.renderStereoInterleaved(buffer, numSamples);
   }
+
+  // ── Subtractive Oscillator Retrigger Starting Phases ──
+  public int osc1RetriggerPhase = 0;
+  public int osc2RetriggerPhase = 0;
 }

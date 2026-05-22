@@ -822,16 +822,35 @@ public class SynthTrackModel extends TrackModel {
   private boolean stutterPingPong = false;
 
   /**
-   * Oscillator retrigger phase. -1=FREE (free running), 0=RESET, positive=phase offset in degrees.
+   * Oscillator retrigger phases. -1=FREE (free running), 0=RESET, positive=phase offset in degrees.
    */
-  private int retrigPhase = 0;
+  private int osc1RetrigPhase = 0;
+
+  private int osc2RetrigPhase = 0;
+
+  public int getOsc1RetrigPhase() {
+    return osc1RetrigPhase;
+  }
+
+  public void setOsc1RetrigPhase(int v) {
+    this.osc1RetrigPhase = v;
+  }
+
+  public int getOsc2RetrigPhase() {
+    return osc2RetrigPhase;
+  }
+
+  public void setOsc2RetrigPhase(int v) {
+    this.osc2RetrigPhase = v;
+  }
 
   public int getRetrigPhase() {
-    return retrigPhase;
+    return osc1RetrigPhase;
   }
 
   public void setRetrigPhase(int v) {
-    this.retrigPhase = v;
+    this.osc1RetrigPhase = v;
+    this.osc2RetrigPhase = v;
   }
 
   public PolyphonyMode getPolyphony() {

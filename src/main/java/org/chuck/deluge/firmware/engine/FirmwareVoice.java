@@ -68,9 +68,13 @@ public class FirmwareVoice {
     this.velocity = vel;
     this.active = true;
 
-    // Reset unison parts
+    // Translate starting phases from degrees to Q31 bounds
+    int osc1Phase = getStartingPhase(sound.osc1RetriggerPhase);
+    int osc2Phase = getStartingPhase(sound.osc2RetriggerPhase);
+
+    // Reset unison parts with custom initial phases
     for (int i = 0; i < sound.numUnison; i++) {
-      unisonParts[i].reset();
+      unisonParts[i].reset(osc1Phase, osc2Phase);
       unisonParts[i].sources[0].active = true;
       unisonParts[i].sources[1].active = true;
 
@@ -263,10 +267,35 @@ public class FirmwareVoice {
                 ? paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH]
                 : paramFinalValues[Param.LOCAL_OSC_B_PHASE_WIDTH];
 
+        int rp =
+            (s == 0)
+                ? getStartingPhase(sound.osc1RetriggerPhase)
+                : getStartingPhase(sound.osc2RetriggerPhase);
         Oscillator.renderOsc(
-            type, vol, buffer, 0, numSamples, pInc, pw, phase, true, 0, false, 0, 0, 0);
+            type,
+            vol,
+            buffer,
+            0,
+            numSamples,
+            pInc,
+            pw,
+            phase,
+            true,
+            0,
+            false,
+            0,
+            0,
+            Math.max(0, rp));
         part.sources[s].oscPos = phase[0];
       }
     }
+  }
+
+  private int getStartingPhase(int retrigPhaseDegrees) {
+    if (retrigPhaseDegrees == -1) {
+      return -1; // Keep running phase (FREE)
+    }
+    // Scale 0-360 degrees to Q31 bounds (0 to 2147483647)
+    return (int) ((double) retrigPhaseDegrees / 360.0 * 2147483647.0);
   }
 }

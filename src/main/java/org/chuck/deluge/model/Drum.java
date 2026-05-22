@@ -87,8 +87,9 @@ public abstract class Drum {
   protected FilterMode hpfMode = FilterMode.LADDER_12;
   protected float hpfFm = 0.0f;
 
-  // Oscillator retrigger phase
-  protected int retrigPhase = 0;
+  // Oscillator retrigger phases
+  protected int osc1RetrigPhase = 0;
+  protected int osc2RetrigPhase = 0;
 
   // Wavetable position
   protected float waveIndex = 0.0f;
@@ -543,12 +544,29 @@ public abstract class Drum {
     this.hpfFm = v;
   }
 
+  public int getOsc1RetrigPhase() {
+    return osc1RetrigPhase;
+  }
+
+  public void setOsc1RetrigPhase(int v) {
+    this.osc1RetrigPhase = v;
+  }
+
+  public int getOsc2RetrigPhase() {
+    return osc2RetrigPhase;
+  }
+
+  public void setOsc2RetrigPhase(int v) {
+    this.osc2RetrigPhase = v;
+  }
+
   public int getRetrigPhase() {
-    return retrigPhase;
+    return osc1RetrigPhase;
   }
 
   public void setRetrigPhase(int v) {
-    this.retrigPhase = v;
+    this.osc1RetrigPhase = v;
+    this.osc2RetrigPhase = v;
   }
 
   public float getWaveIndex() {

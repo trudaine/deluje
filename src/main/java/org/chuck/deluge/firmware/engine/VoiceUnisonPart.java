@@ -15,11 +15,15 @@ public class VoiceUnisonPart {
   }
 
   public void reset() {
+    reset(0, 0);
+  }
+
+  public void reset(int osc1InitialPhase, int osc2InitialPhase) {
     for (int i = 0; i < 2; i++) {
       modulatorPhase[i] = 0;
       modulatorPhaseIncrement[i] = 0;
       modulatorFeedback[i] = 0;
-      sources[i].reset();
+      sources[i].reset(i == 0 ? osc1InitialPhase : osc2InitialPhase);
     }
   }
 
