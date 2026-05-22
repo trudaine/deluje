@@ -108,24 +108,6 @@ public class VoiceSample {
       int valQ31 = (int) (out * 2147483647.0);
       int wet = Q31.mult(valQ31, amplitude);
 
-      if (intPos < 5) {
-        System.out.println(
-            "[DIAG-TRACE] tick="
-                + intPos
-                + " s0="
-                + s0
-                + " s1="
-                + s1
-                + " frac="
-                + frac
-                + " out="
-                + out
-                + " valQ31="
-                + valQ31
-                + " wet="
-                + wet);
-      }
-
       buffer[i] = Q31.addSaturate(buffer[i], wet);
 
       playPosBig += inc * playDirection;

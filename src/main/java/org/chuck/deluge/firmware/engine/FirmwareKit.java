@@ -37,13 +37,6 @@ public class FirmwareKit extends GlobalEffectable {
         }
         // Render drum track with its own FX chain
         drum.renderOutput(isolatedBuffer, numSamples, null);
-        if (drum == drumSounds.get(0) && isolatedBuffer[0].l != 0) {
-          System.out.println(
-              "[DIAG-KIT-SUM] lane=0 isolated[0]="
-                  + isolatedBuffer[0].l
-                  + " master_buffer[0]="
-                  + buffer[0].l);
-        }
 
         // Sum to Kit buffer
         for (int i = 0; i < numSamples; i++) {
