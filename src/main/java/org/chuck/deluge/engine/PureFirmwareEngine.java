@@ -37,7 +37,11 @@ public class PureFirmwareEngine {
             .name("DelugeAudio")
             .start(
                 () -> {
-                  Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
+                  try {
+                    Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
+                  } catch (SecurityException se) {
+                    // Safe ignore in sandboxed environments
+                  }
                   audioDriver.run();
                 });
 
@@ -143,7 +147,11 @@ public class PureFirmwareEngine {
             .name("DelugeAudio")
             .start(
                 () -> {
-                  Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
+                  try {
+                    Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
+                  } catch (SecurityException se) {
+                    // Safe ignore in sandboxed environments
+                  }
                   audioDriver.run();
                 });
 
