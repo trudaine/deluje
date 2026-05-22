@@ -43,6 +43,7 @@ public class FirmwareVoice {
   public int portaEnvelopePos = 0xFFFFFFFF;
   public int portaEnvelopeMaxAmplitude;
   private final boolean[] expressionSourcesCurrentlySmoothing = new boolean[3]; // X, Y, Z
+  private int voiceRandomValue;
 
   public FirmwareVoice(FirmwareSound sound) {
     this.sound = sound;
@@ -81,11 +82,19 @@ public class FirmwareVoice {
       }
     }
 
-    envelopes[0].noteOn(false);
+    // Initialize voice-level random value
+    this.voiceRandomValue = (int) (Math.random() * 2147483647.0);
+
+    // Trigger all 4 envelopes
+    for (int i = 0; i < 4; i++) {
+      envelopes[i].noteOn(false);
+    }
   }
 
   public void noteOff(int velocity) {
-    envelopes[0].unconditionalRelease(Envelope.EnvelopeStage.RELEASE, 1024);
+    for (int i = 0; i < 4; i++) {
+      envelopes[i].unconditionalRelease(Envelope.EnvelopeStage.RELEASE, 1024);
+    }
   }
 
   public boolean render(int[] buffer, int numSamples, int phaseIncrementA, int phaseIncrementB) {
@@ -121,6 +130,7 @@ public class FirmwareVoice {
     if (release == 0) release = 400;
     if (!sound.isDrum && sustain == 0) sustain = ONE / 2;
 
+    // 1. Process Envelopes 0 to 3
     int env0 =
         envelopes[0].render(
             numSamples, attack, decay, sustain, release, LookupTables.decayTableSmall8);
@@ -130,11 +140,38 @@ public class FirmwareVoice {
     }
     sourceValues[PatchSource.ENVELOPE_0.ordinal()] = env0;
 
-    // 2. Process Local LFOs (LFO 2 and 4 are local)
+    for (int i = 1; i < 4; i++) {
+      int eAttack = paramFinalValues[Param.LOCAL_ENV_0_ATTACK + i];
+      int eDecay = paramFinalValues[Param.LOCAL_ENV_0_DECAY + i];
+      int eSustain = paramFinalValues[Param.LOCAL_ENV_0_SUSTAIN + i];
+      int eRelease = paramFinalValues[Param.LOCAL_ENV_0_RELEASE + i];
+
+      if (eAttack == 0) eAttack = 20000;
+      if (eDecay == 0) eDecay = 400;
+      if (eRelease == 0) eRelease = 400;
+
+      int envVal =
+          envelopes[i].render(
+              numSamples, eAttack, eDecay, eSustain, eRelease, LookupTables.decayTableSmall8);
+      sourceValues[PatchSource.ENVELOPE_0.ordinal() + i] = envVal;
+    }
+
+    // 2. Process Local LFOs with dynamic logarithmic rates
+    int lfoRate1 = paramFinalValues[Param.LOCAL_LFO_LOCAL_FREQ_1];
+    int phaseInc1 = (int) (200 + Math.pow(2.0, (double) lfoRate1 / 2147483647.0 * 10.0) * 500.0);
     sourceValues[PatchSource.LFO_LOCAL_1.ordinal()] =
-        lfos[1].render(numSamples, LFO.LFOType.TRIANGLE, 10000);
+        lfos[1].render(numSamples, LFO.LFOType.TRIANGLE, phaseInc1);
+
+    int lfoRate2 = paramFinalValues[Param.LOCAL_LFO_LOCAL_FREQ_2];
+    int phaseInc2 = (int) (200 + Math.pow(2.0, (double) lfoRate2 / 2147483647.0 * 10.0) * 500.0);
     sourceValues[PatchSource.LFO_LOCAL_2.ordinal()] =
-        lfos[3].render(numSamples, LFO.LFOType.TRIANGLE, 20000);
+        lfos[3].render(numSamples, LFO.LFOType.TRIANGLE, phaseInc2);
+
+    // 3. Update voice static sources (Velocity, Note, Random, Sidechain)
+    sourceValues[PatchSource.VELOCITY.ordinal()] = velocity * 16909320;
+    sourceValues[PatchSource.NOTE.ordinal()] = (note - 60) * 17895697;
+    sourceValues[PatchSource.RANDOM.ordinal()] = voiceRandomValue;
+    sourceValues[PatchSource.SIDECHAIN.ordinal()] = sound.sidechain.render(numSamples, 0);
 
     // Copy global sources (LFO 1 and 3 are global)
     for (int i = 0; i < PatchSource.kFirstLocalSource; i++) {
