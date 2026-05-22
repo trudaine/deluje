@@ -42,6 +42,10 @@ public class Arpeggiator {
     public int chordProbability = 0;
     public int ratchetProbability = 0;
     public int ratchetAmount = 0;
+    public int velocitySpread = 0;
+    public int gateSpread = 0;
+    public int octaveSpread = 0;
+    public int chordPolyphony = 1;
 
     public boolean randomizerLock = false;
   }
@@ -116,6 +120,8 @@ public class Arpeggiator {
   private boolean isPlayBassForCurrentStep = false;
   private boolean lastNormalNotePlayedFromNoteProbability = true;
   private boolean lastNormalNotePlayedFromBassProbability = false;
+  private int stepRepeatCounter = 0;
+  private int currentStepGate = 2147483647 / 2;
 
   public Arpeggiator(Settings settings) {
     this.settings = settings;
@@ -147,13 +153,15 @@ public class Arpeggiator {
     isRatcheting = false;
     ratchetNotesCount = 0;
     ratchetNotesIndex = 0;
+    stepRepeatCounter = 0;
+    currentStepGate = settings.gate;
   }
 
   public void render(ReturnInstruction instr, int numSamples, int phaseIncrement) {
     if (settings.mode == ArpMode.OFF || inputNotes.isEmpty()) return;
 
     int maxGate = 1 << 24;
-    int gateThresholdSmall = (settings.gate >>> 8);
+    int gateThresholdSmall = (currentStepGate >>> 8);
 
     if (isRatcheting) {
       gateThresholdSmall >>= ratchetNotesMultiplier;
@@ -180,6 +188,15 @@ public class Arpeggiator {
 
   private void switchNoteOn(ReturnInstruction instr, boolean isRatchet) {
     if (!isRatchet) {
+      // Generate randomized currentStepGate
+      int stepGate = settings.gate;
+      if (settings.gateSpread > 0) {
+        double noiseNorm = (double) FirmwareUtils.getNoise() / 2147483647.0 * 2.0 - 1.0;
+        int spread = (int) (noiseNorm * settings.gateSpread);
+        stepGate = Math.clamp(stepGate + spread, 0, 2147483647);
+      }
+      currentStepGate = stepGate;
+
       boolean shouldCarryOnRhythmNote = evaluateRhythm(settings.rhythm, isRatchet);
       isPlayNoteForCurrentStep = evaluateNoteProbability();
       isPlayBassForCurrentStep = evaluateBassProbability();
@@ -251,23 +268,56 @@ public class Arpeggiator {
   private void advanceArp(ReturnInstruction instr, boolean playBass) {
     if (inputNotes.isEmpty()) return;
 
-    whichNoteIndex++;
-    if (whichNoteIndex >= inputNotes.size()) {
-      whichNoteIndex = 0;
-      currentOctave += octaveDirection;
-      if (currentOctave >= settings.numOctaves || currentOctave < 0) {
-        if (settings.octaveMode == ArpOctaveMode.UPDOWN) {
-          octaveDirection = -octaveDirection;
-          currentOctave += 2 * octaveDirection;
-        } else {
-          currentOctave = 0;
+    if (stepRepeatCounter < settings.numStepRepeats - 1) {
+      stepRepeatCounter++;
+    } else {
+      stepRepeatCounter = 0;
+      whichNoteIndex++;
+      if (whichNoteIndex >= inputNotes.size()) {
+        whichNoteIndex = 0;
+        currentOctave += octaveDirection;
+        if (currentOctave >= settings.numOctaves || currentOctave < 0) {
+          if (settings.octaveMode == ArpOctaveMode.UPDOWN) {
+            octaveDirection = -octaveDirection;
+            currentOctave += 2 * octaveDirection;
+          } else {
+            currentOctave = 0;
+          }
         }
       }
     }
 
-    ArpNote next = inputNotes.get(playBass ? 0 : whichNoteIndex);
+    if (whichNoteIndex >= inputNotes.size()) {
+      whichNoteIndex = 0;
+    }
+
+    // Apply swap probability
+    int targetIndex = playBass ? 0 : whichNoteIndex;
+    if (!playBass && inputNotes.size() > 1 && settings.swapProbability > 0) {
+      if (FirmwareUtils.getNoise() < settings.swapProbability) {
+        targetIndex = (targetIndex + 1) % inputNotes.size();
+      }
+    }
+
+    ArpNote next = inputNotes.get(targetIndex);
     instr.noteOn = true;
-    instr.noteCode = next.noteCode + (currentOctave * 12);
-    instr.velocity = next.velocity;
+
+    // Apply octave spread
+    int targetOctave = currentOctave;
+    if (settings.octaveSpread > 0) {
+      double noiseNorm = (double) FirmwareUtils.getNoise() / 2147483647.0 * 2.0 - 1.0;
+      int spreadVal = (int) Math.round(noiseNorm * settings.octaveSpread);
+      targetOctave = Math.clamp(targetOctave + spreadVal, 0, settings.numOctaves - 1);
+    }
+    instr.noteCode = next.noteCode + (targetOctave * 12);
+
+    // Apply velocity spread
+    int velocity = next.velocity;
+    if (settings.velocitySpread > 0) {
+      double noiseNorm = (double) FirmwareUtils.getNoise() / 2147483647.0 * 2.0 - 1.0;
+      int spread = (int) (noiseNorm * settings.velocitySpread);
+      velocity = Math.clamp(velocity + spread, 1, 127);
+    }
+    instr.velocity = velocity;
   }
 }

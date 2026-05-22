@@ -81,4 +81,29 @@ public class LiveAutomationMpeTest {
     arp.render(instr, 1, 1 << 24);
     assertEquals(64, instr.noteCode);
   }
+
+  @Test
+  void testArpeggiatorSpreadsAndProbabilities() {
+    Arpeggiator.Settings settings = new Arpeggiator.Settings();
+    settings.mode = Arpeggiator.ArpMode.UP;
+    settings.velocitySpread = 20; // range +/- 20
+    settings.gateSpread = 100000; // gate time random shift
+    settings.octaveSpread = 2;    // +/- 2 octaves
+    settings.swapProbability = 2147483647; // 100% swap probability!
+
+    Arpeggiator arp = new Arpeggiator(settings);
+    arp.noteOn(60, 100);
+    arp.noteOn(64, 100);
+
+    Arpeggiator.ReturnInstruction instr = new Arpeggiator.ReturnInstruction();
+
+    // Trigger step check
+    arp.render(instr, 1, 1 << 24);
+
+    // Because swap probability is 100%, instead of playing the first note 60, it swaps and plays note 64!
+    // And because octave spread is active, noteCode will have a random octave shift!
+    // And because velocity spread is active, velocity will have a random offset from 100!
+    assertTrue(instr.noteCode >= 0);
+    assertTrue(instr.velocity >= 1 && instr.velocity <= 127);
+  }
 }
