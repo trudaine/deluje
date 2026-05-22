@@ -103,7 +103,7 @@ public class KitSynthSerializerTest {
 
     // ── Default params ──
     assertEquals(orig.getVolume(), parsedSound.getVolume(), 0.01f);
-    assertEquals(Math.abs(orig.getPan()), parsedSound.getPan(), 0.01f);
+    assertEquals(orig.getPan(), parsedSound.getPan(), 0.01f);
     assertEquals(orig.getOscAVolume(), parsedSound.getOscAVolume(), 0.01f);
     assertEquals(orig.getOscBVolume(), parsedSound.getOscBVolume(), 0.01f);
     assertEquals(orig.getNoiseVolume(), parsedSound.getNoiseVolume(), 0.01f);
@@ -127,7 +127,7 @@ public class KitSynthSerializerTest {
 
     // ── EQ ──
     assertEquals(orig.getEqBass(), parsedSound.getEqBass(), 0.01f);
-    assertEquals(Math.abs(orig.getEqTreble()), parsedSound.getEqTreble(), 0.01f);
+    assertEquals(orig.getEqTreble(), parsedSound.getEqTreble(), 0.01f);
 
     // ── Patch cables ──
     assertEquals(orig.getPatchCables().size(), parsedSound.getPatchCables().size());

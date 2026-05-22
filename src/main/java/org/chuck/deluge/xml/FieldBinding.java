@@ -59,7 +59,7 @@ public class FieldBinding<T> {
       if (raw == null || raw.isBlank()) return;
       T value = converter.apply(raw.trim());
       if (value instanceof Float f && unipolar) {
-        value = (T) Float.valueOf(Math.abs(f));
+        value = (T) Float.valueOf((f + 1.0f) / 2.0f);
       }
       setter.accept(synth, value);
     }
@@ -92,6 +92,13 @@ public class FieldBinding<T> {
       String container, String tag, BiConsumer<SynthTrackModel, Float> setter) {
     return new FieldBinding<>(
         container, tag, setter, s -> DelugeHexMapper.hexToFloat(s), true, null);
+  }
+
+  /** Scoped child element, hex-encoded float, bipolar. */
+  public static FieldBinding<Float> hexFloatBipolar(
+      String container, String tag, BiConsumer<SynthTrackModel, Float> setter) {
+    return new FieldBinding<>(
+        container, tag, setter, s -> DelugeHexMapper.hexToFloat(s), false, null);
   }
 
   /** Scoped child element, hex-encoded frequency value. */

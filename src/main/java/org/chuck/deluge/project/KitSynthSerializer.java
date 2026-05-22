@@ -164,33 +164,33 @@ public class KitSynthSerializer {
 
       // ── defaultParams ──
       Element dp = doc.createElement("defaultParams");
-      appendHexChild(doc, dp, "arpeggiatorGate", sound.getArpeggiatorGate());
-      appendHexChild(doc, dp, "portamento", sound.getPortamento());
-      appendHexChild(doc, dp, "compressorShape", 0.92f); // typical default
-      appendHexChild(doc, dp, "oscAVolume", sound.getOscAVolume());
-      appendHexChild(doc, dp, "oscAPulseWidth", 0f);
-      appendHexChild(doc, dp, "oscBVolume", sound.getOscBVolume());
-      appendHexChild(doc, dp, "oscBPulseWidth", 0f);
-      appendHexChild(doc, dp, "noiseVolume", sound.getNoiseVolume());
-      appendHexChild(doc, dp, "volume", sound.getVolume());
+      appendHexChildUnipolar(doc, dp, "arpeggiatorGate", sound.getArpeggiatorGate());
+      appendHexChildUnipolar(doc, dp, "portamento", sound.getPortamento());
+      appendHexChildUnipolar(doc, dp, "compressorShape", 0.92f); // typical default
+      appendHexChildUnipolar(doc, dp, "oscAVolume", sound.getOscAVolume());
+      appendHexChildUnipolar(doc, dp, "oscAPulseWidth", 0f);
+      appendHexChildUnipolar(doc, dp, "oscBVolume", sound.getOscBVolume());
+      appendHexChildUnipolar(doc, dp, "oscBPulseWidth", 0f);
+      appendHexChildUnipolar(doc, dp, "noiseVolume", sound.getNoiseVolume());
+      appendHexChildUnipolar(doc, dp, "volume", sound.getVolume());
       appendHexChild(doc, dp, "pan", sound.getPan());
       appendHexFreq(doc, dp, "lpfFrequency", sound.getLpfFreq());
-      appendHexChild(doc, dp, "lpfResonance", sound.getLpfRes());
+      appendHexChildUnipolar(doc, dp, "lpfResonance", sound.getLpfRes());
       appendHexFreq(doc, dp, "hpfFrequency", sound.getHpfFreq());
-      appendHexChild(doc, dp, "hpfResonance", sound.getHpfRes());
-      appendHexChild(doc, dp, "hpfMorph", sound.getHpfMorph());
-      appendHexChild(doc, dp, "modFXRate", sound.getModFxRate());
-      appendHexChild(doc, dp, "modFXDepth", sound.getModFxDepth());
-      appendHexChild(doc, dp, "modFXOffset", sound.getModFxOffset());
-      appendHexChild(doc, dp, "modFXFeedback", sound.getModFxFeedback());
-      appendHexChild(doc, dp, "delayRate", sound.getDelayRate());
-      appendHexChild(doc, dp, "delayFeedback", sound.getDelayFeedback());
-      appendHexChild(doc, dp, "reverbAmount", sound.getReverbAmount());
-      appendHexChild(doc, dp, "arpeggiatorRate", 0f);
-      appendHexChild(doc, dp, "stutterRate", sound.getStutterRate());
-      appendHexChild(doc, dp, "sampleRateReduction", sound.getSampleRateReduction());
-      appendHexChild(doc, dp, "bitCrush", sound.getBitCrush());
-      appendHexChild(doc, dp, "waveIndex", sound.getWaveIndex());
+      appendHexChildUnipolar(doc, dp, "hpfResonance", sound.getHpfRes());
+      appendHexChildUnipolar(doc, dp, "hpfMorph", sound.getHpfMorph());
+      appendHexChildUnipolar(doc, dp, "modFXRate", sound.getModFxRate());
+      appendHexChildUnipolar(doc, dp, "modFXDepth", sound.getModFxDepth());
+      appendHexChildUnipolar(doc, dp, "modFXOffset", sound.getModFxOffset());
+      appendHexChildUnipolar(doc, dp, "modFXFeedback", sound.getModFxFeedback());
+      appendHexChildUnipolar(doc, dp, "delayRate", sound.getDelayRate());
+      appendHexChildUnipolar(doc, dp, "delayFeedback", sound.getDelayFeedback());
+      appendHexChildUnipolar(doc, dp, "reverbAmount", sound.getReverbAmount());
+      appendHexChildUnipolar(doc, dp, "arpeggiatorRate", 0f);
+      appendHexChildUnipolar(doc, dp, "stutterRate", sound.getStutterRate());
+      appendHexChildUnipolar(doc, dp, "sampleRateReduction", sound.getSampleRateReduction());
+      appendHexChildUnipolar(doc, dp, "bitCrush", sound.getBitCrush());
+      appendHexChildUnipolar(doc, dp, "waveIndex", sound.getWaveIndex());
 
       // Envelopes 1-4 inside defaultParams
       appendEnvelope(doc, dp, "envelope1", sound.getAdsr());
@@ -204,7 +204,7 @@ public class KitSynthSerializer {
       appendHexChild(doc, dp, "lfo2Rate", sound.getLfo2().rateHz() / 100.0f);
 
       // FM params (default values)
-      appendHexChild(doc, dp, "modulator1Amount", sound.getFmAmount());
+      appendHexChildUnipolar(doc, dp, "modulator1Amount", sound.getFmAmount());
       appendHexChild(doc, dp, "modulator1Feedback", 0f);
       appendHexChild(doc, dp, "modulator2Amount", 0f);
       appendHexChild(doc, dp, "modulator2Feedback", 0f);
@@ -394,42 +394,42 @@ public class KitSynthSerializer {
 
     // ── defaultParams ──
     Element dp = doc.createElement("defaultParams");
-    appendHexChild(doc, dp, "arpeggiatorGate", synth.getArp().gate());
-    appendHexChild(doc, dp, "portamento", synth.getPortamento());
-    appendHexChild(doc, dp, "compressorShape", 0.92f);
-    appendHexChild(doc, dp, "oscAVolume", synth.getOscMix());
-    appendHexChild(doc, dp, "oscAPulseWidth", 0f);
-    appendHexChild(doc, dp, "oscBVolume", 1.0f - synth.getOscMix());
-    appendHexChild(doc, dp, "oscBPulseWidth", 0f);
-    appendHexChild(doc, dp, "noiseVolume", synth.getNoiseVol());
-    appendHexChild(doc, dp, "volume", synth.getVolume());
+    appendHexChildUnipolar(doc, dp, "arpeggiatorGate", synth.getArp().gate());
+    appendHexChildUnipolar(doc, dp, "portamento", synth.getPortamento());
+    appendHexChildUnipolar(doc, dp, "compressorShape", 0.92f);
+    appendHexChildUnipolar(doc, dp, "oscAVolume", synth.getOscMix());
+    appendHexChildUnipolar(doc, dp, "oscAPulseWidth", 0f);
+    appendHexChildUnipolar(doc, dp, "oscBVolume", 1.0f - synth.getOscMix());
+    appendHexChildUnipolar(doc, dp, "oscBPulseWidth", 0f);
+    appendHexChildUnipolar(doc, dp, "noiseVolume", synth.getNoiseVol());
+    appendHexChildUnipolar(doc, dp, "volume", synth.getVolume());
     appendHexChild(doc, dp, "pan", synth.getPan());
     appendHexFreq(doc, dp, "lpfFrequency", synth.getLpfFreq());
-    appendHexChild(doc, dp, "lpfResonance", synth.getLpfRes());
+    appendHexChildUnipolar(doc, dp, "lpfResonance", synth.getLpfRes());
     appendHexFreq(doc, dp, "hpfFrequency", synth.getHpfFreq());
-    appendHexChild(doc, dp, "hpfResonance", synth.getHpfRes());
-    appendHexChild(doc, dp, "hpfMorph", synth.getHpfMorph());
+    appendHexChildUnipolar(doc, dp, "hpfResonance", synth.getHpfRes());
+    appendHexChildUnipolar(doc, dp, "hpfMorph", synth.getHpfMorph());
 
     // FM params
-    appendHexChild(doc, dp, "modulator1Amount", synth.getFmAmount());
-    appendHexChild(doc, dp, "modulator1Feedback", synth.getModulator1Feedback());
-    appendHexChild(doc, dp, "modulator2Amount", synth.getModulator2Amount());
-    appendHexChild(doc, dp, "modulator2Feedback", synth.getModulator2Feedback());
-    appendHexChild(doc, dp, "carrier1Feedback", synth.getCarrier1Feedback());
-    appendHexChild(doc, dp, "carrier2Feedback", synth.getCarrier2Feedback());
+    appendHexChildUnipolar(doc, dp, "modulator1Amount", synth.getFmAmount());
+    appendHexChildUnipolar(doc, dp, "modulator1Feedback", synth.getModulator1Feedback());
+    appendHexChildUnipolar(doc, dp, "modulator2Amount", synth.getModulator2Amount());
+    appendHexChildUnipolar(doc, dp, "modulator2Feedback", synth.getModulator2Feedback());
+    appendHexChildUnipolar(doc, dp, "carrier1Feedback", synth.getCarrier1Feedback());
+    appendHexChildUnipolar(doc, dp, "carrier2Feedback", synth.getCarrier2Feedback());
 
-    appendHexChild(doc, dp, "modFXRate", synth.getModFxRate());
-    appendHexChild(doc, dp, "modFXDepth", synth.getModFxDepth());
-    appendHexChild(doc, dp, "modFXOffset", 0f);
-    appendHexChild(doc, dp, "modFXFeedback", synth.getModFxFeedback());
-    appendHexChild(doc, dp, "delayRate", synth.getDelaySend());
-    appendHexChild(doc, dp, "delayFeedback", 0f);
-    appendHexChild(doc, dp, "reverbAmount", synth.getReverbSend());
-    appendHexChild(doc, dp, "arpeggiatorRate", 0f);
-    appendHexChild(doc, dp, "stutterRate", synth.getStutterRate());
-    appendHexChild(doc, dp, "sampleRateReduction", synth.getSampleRateReduction());
-    appendHexChild(doc, dp, "bitCrush", synth.getBitCrush());
-    appendHexChild(doc, dp, "waveIndex", synth.getWaveIndex());
+    appendHexChildUnipolar(doc, dp, "modFXRate", synth.getModFxRate());
+    appendHexChildUnipolar(doc, dp, "modFXDepth", synth.getModFxDepth());
+    appendHexChildUnipolar(doc, dp, "modFXOffset", 0f);
+    appendHexChildUnipolar(doc, dp, "modFXFeedback", synth.getModFxFeedback());
+    appendHexChildUnipolar(doc, dp, "delayRate", synth.getDelaySend());
+    appendHexChildUnipolar(doc, dp, "delayFeedback", 0f);
+    appendHexChildUnipolar(doc, dp, "reverbAmount", synth.getReverbSend());
+    appendHexChildUnipolar(doc, dp, "arpeggiatorRate", 0f);
+    appendHexChildUnipolar(doc, dp, "stutterRate", synth.getStutterRate());
+    appendHexChildUnipolar(doc, dp, "sampleRateReduction", synth.getSampleRateReduction());
+    appendHexChildUnipolar(doc, dp, "bitCrush", synth.getBitCrush());
+    appendHexChildUnipolar(doc, dp, "waveIndex", synth.getWaveIndex());
 
     // Envelopes 0-3 inside defaultParams
     for (int i = 0; i < 4; i++) {
@@ -539,6 +539,14 @@ public class KitSynthSerializer {
     if (parent.getElementsByTagName(tag).getLength() > 0) return;
     Element child = doc.createElement(tag);
     child.setTextContent(DelugeHexMapper.floatToHex(value));
+    parent.appendChild(child);
+  }
+
+  /** Append a child element with a hex string value from a unipolar float (scaled to bipolar). */
+  public static void appendHexChildUnipolar(Document doc, Element parent, String tag, float value) {
+    if (parent.getElementsByTagName(tag).getLength() > 0) return;
+    Element child = doc.createElement(tag);
+    child.setTextContent(DelugeHexMapper.floatToHex(value * 2.0f - 1.0f));
     parent.appendChild(child);
   }
 

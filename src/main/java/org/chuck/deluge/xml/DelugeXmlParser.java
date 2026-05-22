@@ -48,7 +48,7 @@ public class DelugeXmlParser {
           FieldBinding.hexFloat("defaultParams", "oscAVolume", SynthTrackModel::setOscMix),
           FieldBinding.hexFloat("defaultParams", "noiseVolume", SynthTrackModel::setNoiseVol),
           FieldBinding.hexFloat("defaultParams", "volume", SynthTrackModel::setVolume),
-          FieldBinding.hexFloat("defaultParams", "pan", SynthTrackModel::setPan),
+          FieldBinding.hexFloatBipolar("defaultParams", "pan", SynthTrackModel::setPan),
           FieldBinding.hexFloat("defaultParams", "portamento", SynthTrackModel::setPortamento),
           FieldBinding.hexFloat("defaultParams", "modFXRate", SynthTrackModel::setModFxRate),
           FieldBinding.hexFloat("defaultParams", "modFXDepth", SynthTrackModel::setModFxDepth),
@@ -970,7 +970,7 @@ public class DelugeXmlParser {
           String val = detuneStr.trim();
           float dVal;
           if (val.startsWith("0x") || val.startsWith("0X")) {
-            dVal = toUnipolar(DelugeHexMapper.hexToFloat(val));
+            dVal = Math.abs(DelugeHexMapper.hexToFloat(val));
           } else {
             dVal = Float.parseFloat(val);
           }
@@ -988,7 +988,7 @@ public class DelugeXmlParser {
           String val = spreadStr.trim();
           float sVal;
           if (val.startsWith("0x") || val.startsWith("0X")) {
-            sVal = toUnipolar(DelugeHexMapper.hexToFloat(val));
+            sVal = Math.abs(DelugeHexMapper.hexToFloat(val));
           } else {
             sVal = Float.parseFloat(val);
           }
@@ -1564,7 +1564,7 @@ public class DelugeXmlParser {
     String modeStr = arpEl.getAttribute("mode");
     if (modeStr != null && !modeStr.isBlank()) mode = modeStr.toUpperCase();
     String rateStr = getChildText(arpEl, "rate");
-    if (rateStr != null) rate = toUnipolar(DelugeHexMapper.hexToFloat(rateStr));
+    if (rateStr != null) rate = Math.abs(DelugeHexMapper.hexToFloat(rateStr));
     String octStr = getChildText(arpEl, "octaves");
     if (octStr != null) {
       try {
@@ -1574,7 +1574,7 @@ public class DelugeXmlParser {
       }
     }
     String gateStr = getChildText(arpEl, "gate");
-    if (gateStr != null) gate = toUnipolar(DelugeHexMapper.hexToFloat(gateStr));
+    if (gateStr != null) gate = Math.abs(DelugeHexMapper.hexToFloat(gateStr));
     String activeStr = arpEl.getAttribute("active");
     if (activeStr != null && !activeStr.isBlank()) {
       active = "true".equalsIgnoreCase(activeStr) || "1".equals(activeStr);
@@ -1708,11 +1708,11 @@ public class DelugeXmlParser {
     Element compEl = (Element) compNodes.item(0);
     String attackStr = compEl.getAttribute("attack");
     if (attackStr != null && !attackStr.isBlank()) {
-      synth.setCompressorAttack(toUnipolar(DelugeHexMapper.hexToFloat(attackStr)));
+      synth.setCompressorAttack(Math.abs(DelugeHexMapper.hexToFloat(attackStr)));
     }
     String releaseStr = compEl.getAttribute("release");
     if (releaseStr != null && !releaseStr.isBlank()) {
-      synth.setCompressorRelease(toUnipolar(DelugeHexMapper.hexToFloat(releaseStr)));
+      synth.setCompressorRelease(Math.abs(DelugeHexMapper.hexToFloat(releaseStr)));
     }
     String syncStr = compEl.getAttribute("syncLevel");
     if (syncStr != null && !syncStr.isBlank()) {
@@ -1891,10 +1891,10 @@ public class DelugeXmlParser {
     Element unisonEl = getFirstChild(soundNode, "unison");
     if (unisonEl != null) {
       sound.setUnisonNum(readIntAttr(unisonEl, "num", 1));
-      sound.setUnisonDetune(toUnipolar(DelugeHexMapper.hexToFloat(readAttr(unisonEl, "detune"))));
+      sound.setUnisonDetune(Math.abs(DelugeHexMapper.hexToFloat(readAttr(unisonEl, "detune"))));
       String spreadStr = readAttr(unisonEl, "spread");
       if (spreadStr != null && !spreadStr.isEmpty()) {
-        sound.setUnisonStereoSpread(toUnipolar(DelugeHexMapper.hexToFloat(spreadStr)));
+        sound.setUnisonStereoSpread(Math.abs(DelugeHexMapper.hexToFloat(spreadStr)));
       }
     }
 
@@ -1915,16 +1915,16 @@ public class DelugeXmlParser {
       sound.setCompressorSyncLevel(readIntAttr(compEl, "syncLevel", 0));
       String thresholdStr = readAttr(compEl, "threshold");
       if (thresholdStr != null)
-        sound.setCompressorThreshold(toUnipolar(DelugeHexMapper.hexToFloat(thresholdStr)));
+        sound.setCompressorThreshold(Math.abs(DelugeHexMapper.hexToFloat(thresholdStr)));
       String ratioStr = readAttr(compEl, "ratio");
       if (ratioStr != null)
-        sound.setCompressorRatio(toUnipolar(DelugeHexMapper.hexToFloat(ratioStr)));
+        sound.setCompressorRatio(Math.abs(DelugeHexMapper.hexToFloat(ratioStr)));
       String blendStr = readAttr(compEl, "blend");
       if (blendStr != null)
-        sound.setCompressorBlend(toUnipolar(DelugeHexMapper.hexToFloat(blendStr)));
+        sound.setCompressorBlend(Math.abs(DelugeHexMapper.hexToFloat(blendStr)));
       String compHpfStr = readAttr(compEl, "sidechainHpf");
       if (compHpfStr != null)
-        sound.setCompressorSidechainHpf(toUnipolar(DelugeHexMapper.hexToFloat(compHpfStr)));
+        sound.setCompressorSidechainHpf(Math.abs(DelugeHexMapper.hexToFloat(compHpfStr)));
     }
 
     // ── Stutter config (quantized, reverse, pingPong) ──
@@ -1935,10 +1935,10 @@ public class DelugeXmlParser {
     if (sidechainEl != null) {
       String scAttack = readAttr(sidechainEl, "attack");
       if (scAttack != null)
-        sound.setSidechainAttack(toUnipolar(DelugeHexMapper.hexToFloat(scAttack)));
+        sound.setSidechainAttack(Math.abs(DelugeHexMapper.hexToFloat(scAttack)));
       String scRelease = readAttr(sidechainEl, "release");
       if (scRelease != null)
-        sound.setSidechainRelease(toUnipolar(DelugeHexMapper.hexToFloat(scRelease)));
+        sound.setSidechainRelease(Math.abs(DelugeHexMapper.hexToFloat(scRelease)));
       sound.setSidechainSyncLevel(readIntAttr(sidechainEl, "syncLevel", 0));
       sound.setSidechainSyncType(readIntAttr(sidechainEl, "syncType", 0));
     }
@@ -2033,34 +2033,34 @@ public class DelugeXmlParser {
 
   /** Parse defaultParams child element for kit sounds — ~25 hex attributes. */
   private static void parseDrumDefaultParams(Element dp, Drum sound) {
-    readHexFloat(dp, "oscAVolume", sound::setOscAVolume);
-    readHexFloat(dp, "oscBVolume", sound::setOscBVolume);
-    readHexFloat(dp, "noiseVolume", sound::setNoiseVolume);
-    readHexFloat(dp, "volume", sound::setVolume);
+    readHexFloatUnipolar(dp, "oscAVolume", sound::setOscAVolume);
+    readHexFloatUnipolar(dp, "oscBVolume", sound::setOscBVolume);
+    readHexFloatUnipolar(dp, "noiseVolume", sound::setNoiseVolume);
+    readHexFloatUnipolar(dp, "volume", sound::setVolume);
     readHexFloat(dp, "pan", sound::setPan);
     readHexHz(dp, "lpfFrequency", sound::setLpfFreq);
-    readHexFloat(dp, "lpfResonance", sound::setLpfRes);
+    readHexFloatUnipolar(dp, "lpfResonance", sound::setLpfRes);
     readHexHz(dp, "hpfFrequency", sound::setHpfFreq);
-    readHexFloat(dp, "hpfResonance", sound::setHpfRes);
-    readHexFloat(dp, "modulator1Amount", sound::setFmAmount);
-    readHexFloat(dp, "modulator1Feedback", v -> {});
-    readHexFloat(dp, "modulator2Amount", v -> {});
-    readHexFloat(dp, "modulator2Feedback", v -> {});
-    readHexFloat(dp, "carrier1Feedback", v -> {});
-    readHexFloat(dp, "carrier2Feedback", v -> {});
-    readHexFloat(dp, "modFXRate", sound::setModFxRate);
-    readHexFloat(dp, "modFXDepth", sound::setModFxDepth);
-    readHexFloat(dp, "modFXOffset", sound::setModFxOffset);
-    readHexFloat(dp, "modFXFeedback", sound::setModFxFeedback);
-    readHexFloat(dp, "delayRate", sound::setDelayRate);
-    readHexFloat(dp, "delayFeedback", sound::setDelayFeedback);
-    readHexFloat(dp, "reverbAmount", sound::setReverbAmount);
-    readHexFloat(dp, "arpeggiatorGate", sound::setArpeggiatorGate);
-    readHexFloat(dp, "portamento", sound::setPortamento);
-    readHexFloat(dp, "stutterRate", sound::setStutterRate);
-    readHexFloat(dp, "sampleRateReduction", sound::setSampleRateReduction);
-    readHexFloat(dp, "bitCrush", sound::setBitCrush);
-    readHexFloat(dp, "waveIndex", sound::setWaveIndex);
+    readHexFloatUnipolar(dp, "hpfResonance", sound::setHpfRes);
+    readHexFloatUnipolar(dp, "modulator1Amount", sound::setFmAmount);
+    readHexFloatUnipolar(dp, "modulator1Feedback", v -> {});
+    readHexFloatUnipolar(dp, "modulator2Amount", v -> {});
+    readHexFloatUnipolar(dp, "modulator2Feedback", v -> {});
+    readHexFloatUnipolar(dp, "carrier1Feedback", v -> {});
+    readHexFloatUnipolar(dp, "carrier2Feedback", v -> {});
+    readHexFloatUnipolar(dp, "modFXRate", sound::setModFxRate);
+    readHexFloatUnipolar(dp, "modFXDepth", sound::setModFxDepth);
+    readHexFloatUnipolar(dp, "modFXOffset", sound::setModFxOffset);
+    readHexFloatUnipolar(dp, "modFXFeedback", sound::setModFxFeedback);
+    readHexFloatUnipolar(dp, "delayRate", sound::setDelayRate);
+    readHexFloatUnipolar(dp, "delayFeedback", sound::setDelayFeedback);
+    readHexFloatUnipolar(dp, "reverbAmount", sound::setReverbAmount);
+    readHexFloatUnipolar(dp, "arpeggiatorGate", sound::setArpeggiatorGate);
+    readHexFloatUnipolar(dp, "portamento", sound::setPortamento);
+    readHexFloatUnipolar(dp, "stutterRate", sound::setStutterRate);
+    readHexFloatUnipolar(dp, "sampleRateReduction", sound::setSampleRateReduction);
+    readHexFloatUnipolar(dp, "bitCrush", sound::setBitCrush);
+    readHexFloatUnipolar(dp, "waveIndex", sound::setWaveIndex);
 
     // Envelopes 1-4 as child elements of defaultParams (child-element format)
     for (int i = 1; i <= 4; i++) {
@@ -2381,6 +2381,22 @@ public class DelugeXmlParser {
       val = child.getTextContent();
     }
     if (val != null && !val.isBlank()) {
+      float f = DelugeHexMapper.hexToFloat(val.trim());
+      setter.accept(f);
+    }
+  }
+
+  /** Read a unipolar hex float from a child element's attribute, apply to setter. */
+  private static void readHexFloatUnipolar(
+      Element parent, String tag, java.util.function.Consumer<Float> setter) {
+    NodeList nodes = parent.getElementsByTagName(tag);
+    if (nodes.getLength() == 0) return;
+    Element child = (Element) nodes.item(0);
+    String val = child.getAttribute("value");
+    if (val == null || val.isEmpty()) {
+      val = child.getTextContent();
+    }
+    if (val != null && !val.isBlank()) {
       float f = toUnipolar(DelugeHexMapper.hexToFloat(val.trim()));
       setter.accept(f);
     }
@@ -2550,10 +2566,10 @@ public class DelugeXmlParser {
       Element eq = (Element) eqNodes.item(0);
       String bassVal = eq.getAttribute("bass");
       if (bassVal != null && !bassVal.isBlank())
-        clip.setRowSoundParam(row, "eqBass", toUnipolar(DelugeHexMapper.hexToFloat(bassVal)));
+        clip.setRowSoundParam(row, "eqBass", Math.abs(DelugeHexMapper.hexToFloat(bassVal)));
       String trebleVal = eq.getAttribute("treble");
       if (trebleVal != null && !trebleVal.isBlank())
-        clip.setRowSoundParam(row, "eqTreble", toUnipolar(DelugeHexMapper.hexToFloat(trebleVal)));
+        clip.setRowSoundParam(row, "eqTreble", Math.abs(DelugeHexMapper.hexToFloat(trebleVal)));
     }
     parseNoteRowAutomation(sp, clip, row);
   }
@@ -2761,7 +2777,7 @@ public class DelugeXmlParser {
     if (val.isEmpty()) return;
     try {
       // Deluge stores these as raw int32 bit patterns; treat as hex→float
-      setter.accept(toUnipolar(DelugeHexMapper.hexToFloat(val)));
+      setter.accept(Math.abs(DelugeHexMapper.hexToFloat(val)));
     } catch (Exception e) {
       // fall through, don't set
     }
@@ -2774,7 +2790,7 @@ public class DelugeXmlParser {
     String val = el.getAttribute(attr).trim();
     if (val.isEmpty()) return;
     try {
-      setter.accept(toUnipolar(DelugeHexMapper.hexToFloat(val)));
+      setter.accept(Math.abs(DelugeHexMapper.hexToFloat(val)));
     } catch (Exception e) {
     }
   }
@@ -2786,7 +2802,7 @@ public class DelugeXmlParser {
     String val = el.getAttribute(attr).trim();
     if (val.isEmpty() || !val.startsWith("0x")) return;
     try {
-      setter.accept(toUnipolar(DelugeHexMapper.hexToFloat(val)));
+      setter.accept(Math.abs(DelugeHexMapper.hexToFloat(val)));
     } catch (Exception e) {
     }
   }
@@ -2873,7 +2889,7 @@ public class DelugeXmlParser {
     String val = el.getAttribute(attr).trim();
     if (val.isEmpty() || !val.startsWith("0x")) return;
     try {
-      clip.setKitParam(paramName, toUnipolar(DelugeHexMapper.hexToFloat(val)));
+      clip.setKitParam(paramName, Math.abs(DelugeHexMapper.hexToFloat(val)));
     } catch (Exception e) {
     }
   }
