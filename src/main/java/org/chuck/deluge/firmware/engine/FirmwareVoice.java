@@ -262,12 +262,15 @@ public class FirmwareVoice {
       int finalCarrierLevel = (int) (((long) envLevel * volumeLevel) >> 31);
 
       for (int i = 0; i < 6; i++) {
-        if (i == 0) {
+        if (i == 5) {
           fmParams[i].freq = pIncA;
           fmParams[i].level_in = finalCarrierLevel;
-        } else if (i == 1) {
+        } else if (i == 4) {
           fmParams[i].freq = (int) (pIncA * sound.fmRatio1);
           fmParams[i].level_in = paramFinalValues[Param.LOCAL_OSC_B_VOLUME];
+        } else if (i == 3) {
+          fmParams[i].freq = pIncA;
+          fmParams[i].level_in = finalCarrierLevel;
         } else if (i == 2) {
           fmParams[i].freq = (int) (pIncA * sound.fmRatio2);
           fmParams[i].level_in = (int) (0.2 * 2147483647.0);
@@ -275,7 +278,7 @@ public class FirmwareVoice {
           fmParams[i].freq = pIncA;
           fmParams[i].level_in = 0;
         }
-        int srcIdx = (i == 1) ? 2 : ((i == 2) ? 3 : 0);
+        int srcIdx = (i == 4) ? 2 : ((i == 2) ? 3 : 0);
         fmParams[i].phase = (int) part.sources[srcIdx].oscPos;
       }
       new FmCore().render(buffer, numSamples, fmParams, 0, fmFeedbackBuffer, 0);
