@@ -236,7 +236,7 @@ public class FirmwareVoice {
     }
 
     // ── Final Gain & Saturation ──
-    int env0Gain = (sourceValues[PatchSource.ENVELOPE_0.ordinal()] >> 1) + 1073741824;
+    int env0Gain = sourceValues[PatchSource.ENVELOPE_0.ordinal()];
 
     // Safety check: ensure volume is not squashed to zero by un-patched synth defaults
     int trackVol = paramFinalValues[Param.LOCAL_VOLUME];
