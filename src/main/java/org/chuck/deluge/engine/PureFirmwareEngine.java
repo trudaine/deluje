@@ -98,13 +98,13 @@ public class PureFirmwareEngine {
       if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound fs) {
         fs.paramNeutralValues[Param.LOCAL_VOLUME] = (int) (spVol * 2147483647.0);
         fs.paramNeutralValues[Param.LOCAL_LPF_FREQ] =
-            (int) (vm.getGlobalFloat(BridgeContract.G_SP_LPF_FREQ) * 2147483647.0);
+            (int) (vm.getGlobalFloat(BridgeContract.G_SP_LPF_FREQ) / 20000.0f * 2147483647.0);
         fs.paramNeutralValues[Param.LOCAL_LPF_RESONANCE] =
             (int) (vm.getGlobalFloat(BridgeContract.G_SP_LPF_RES) * 2147483647.0);
         fs.paramNeutralValues[Param.LOCAL_LPF_MORPH] =
             (int) (vm.getGlobalFloat(BridgeContract.G_SP_LPF_MORPH) * 2147483647.0);
         fs.paramNeutralValues[Param.LOCAL_HPF_FREQ] =
-            (int) (vm.getGlobalFloat(BridgeContract.G_SP_HPF_FREQ) * 2147483647.0);
+            (int) (vm.getGlobalFloat(BridgeContract.G_SP_HPF_FREQ) / 20000.0f * 2147483647.0);
         fs.paramNeutralValues[Param.LOCAL_HPF_RESONANCE] =
             (int) (vm.getGlobalFloat(BridgeContract.G_SP_HPF_RES) * 2147483647.0);
         fs.paramNeutralValues[Param.LOCAL_HPF_MORPH] =
