@@ -36,6 +36,7 @@ public class Envelope {
           if (pos >= 8388608) {
             pos = 0;
             lastValuePreCurrentStage = 2147483647;
+            smoothedSustain = 2147483647; // Start decay from peak level!
             setState(EnvelopeStage.DECAY);
             continue;
           }
