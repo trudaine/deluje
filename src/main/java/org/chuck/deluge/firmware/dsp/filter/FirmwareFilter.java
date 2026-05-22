@@ -50,7 +50,9 @@ public abstract class FirmwareFilter {
   protected void curveFrequency(int frequency) {
     // Between 0 and 8. 1 represented by 268435456 (q28)
     // input frequency is q31
-    tannedFrequency = FirmwareUtils.instantTan(FirmwareUtils.lshiftAndSaturate(frequency, 5));
+    tannedFrequency =
+        FirmwareUtils.instantTan(FirmwareUtils.lshiftAndSaturate(frequency, 5))
+            >>> 14; // Convert Q31 to Q17!
 
     // this is 1q31*1q16/(1q16+tan(f)/2)
     // tan(f) is q17 (wait, Deluge says tannedFrequency is q17? Let's check)
