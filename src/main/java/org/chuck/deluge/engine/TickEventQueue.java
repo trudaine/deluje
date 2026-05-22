@@ -29,6 +29,7 @@ public class TickEventQueue {
     public int midiNote;
     public int velocity;
     public int slotHint; // preferred voice slot (-1 = allocator decides)
+    public int midiChannel = -1;
     public float gain;
     public double cutoff;
     public double resonance;
@@ -46,6 +47,7 @@ public class TickEventQueue {
       this.midiNote = midiNote;
       this.velocity = velocity;
       this.slotHint = slotHint;
+      this.midiChannel = -1;
       this.gain = 0.15f;
       this.cutoff = 1000.0;
       this.resonance = 0.1;
@@ -117,6 +119,7 @@ public class TickEventQueue {
     e.midiNote = template.midiNote;
     e.velocity = template.velocity;
     e.slotHint = template.slotHint;
+    e.midiChannel = template.midiChannel;
     e.gain = template.gain;
     e.cutoff = template.cutoff;
     e.resonance = template.resonance;
@@ -132,26 +135,33 @@ public class TickEventQueue {
     return true;
   }
 
-  /** Convenience: push a note-on event. */
   public boolean pushNoteOn(Command cmd, int track, int midiNote, int velocity) {
+    return pushNoteOn(cmd, track, midiNote, velocity, -1);
+  }
+
+  public boolean pushNoteOn(Command cmd, int track, int midiNote, int velocity, int midiChannel) {
     int next = (writeHead + 1) & (QUEUE_SIZE - 1);
     if (next == readTail) return false;
 
     Event e = events[writeHead];
     e.set(cmd, track, midiNote, velocity, -1);
+    e.midiChannel = midiChannel;
     writeHead = next;
     return true;
   }
 
-  /** Convenience: push a note-off event. */
   public boolean pushNoteOff(Command cmd, int track, int midiNote) {
+    return pushNoteOff(cmd, track, midiNote, -1);
+  }
+
+  public boolean pushNoteOff(Command cmd, int track, int midiNote, int midiChannel) {
     int next = (writeHead + 1) & (QUEUE_SIZE - 1);
     if (next == readTail) return false;
 
     Event e = events[writeHead];
     e.set(cmd, track, midiNote, 0, -1);
+    e.midiChannel = midiChannel;
     e.command = cmd; // override to off variant
-    // For note-off, use the corresponding OFF command
     switch (cmd) {
       case SYNTH_NOTE_ON -> e.command = Command.SYNTH_NOTE_OFF;
       case SAMPLE_NOTE_ON -> e.command = Command.SAMPLE_NOTE_OFF;

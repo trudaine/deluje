@@ -51,6 +51,15 @@ public class ParamManager {
     target.addNode(currentPos, value);
   }
 
+  public AutoParam getAutomatedParam(int paramId) {
+    for (AutoParam p : automatedParams) {
+      if (p.paramId == paramId) {
+        return p;
+      }
+    }
+    return null;
+  }
+
   public void processCurrentPos(
       int currentPos,
       int loopLength,
