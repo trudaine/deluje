@@ -947,6 +947,58 @@ public class DelugeXmlParser {
       readAttrBool(osc2, "linearInterpolation", synth::setOsc2LinearInterpolation);
     }
 
+    // ── Unison ──
+    Element unisonEl = getFirstChild(soundNode, "unison");
+    if (unisonEl != null) {
+      String numStr =
+          unisonEl.hasAttribute("num")
+              ? unisonEl.getAttribute("num")
+              : getChildText(unisonEl, "num");
+      if (numStr != null && !numStr.isBlank()) {
+        try {
+          synth.setUnisonNum(Integer.parseInt(numStr.trim()));
+        } catch (NumberFormatException e) {
+          LOG.log(Level.FINE, "Error parsing unison num", e);
+        }
+      }
+      String detuneStr =
+          unisonEl.hasAttribute("detune")
+              ? unisonEl.getAttribute("detune")
+              : getChildText(unisonEl, "detune");
+      if (detuneStr != null && !detuneStr.isBlank()) {
+        try {
+          String val = detuneStr.trim();
+          float dVal;
+          if (val.startsWith("0x") || val.startsWith("0X")) {
+            dVal = Math.abs(DelugeHexMapper.hexToFloat(val));
+          } else {
+            dVal = Float.parseFloat(val);
+          }
+          synth.setUnisonDetune(dVal);
+        } catch (NumberFormatException e) {
+          LOG.log(Level.FINE, "Error parsing unison detune", e);
+        }
+      }
+      String spreadStr =
+          unisonEl.hasAttribute("spread")
+              ? unisonEl.getAttribute("spread")
+              : getChildText(unisonEl, "spread");
+      if (spreadStr != null && !spreadStr.isBlank()) {
+        try {
+          String val = spreadStr.trim();
+          float sVal;
+          if (val.startsWith("0x") || val.startsWith("0X")) {
+            sVal = Math.abs(DelugeHexMapper.hexToFloat(val));
+          } else {
+            sVal = Float.parseFloat(val);
+          }
+          synth.setUnisonStereoSpread(sVal);
+        } catch (NumberFormatException e) {
+          LOG.log(Level.FINE, "Error parsing unison spread", e);
+        }
+      }
+    }
+
     // ── Synth Mode ──
     parseSynthMode(soundNode, synth);
 
