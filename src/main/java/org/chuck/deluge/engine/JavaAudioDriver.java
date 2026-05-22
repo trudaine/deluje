@@ -42,9 +42,9 @@ public class JavaAudioDriver implements Runnable {
       line.open(format, 65536);
       line.start();
 
-      // Prime the line buffer with a 4-block silence cushion to protect against initial JIT
+      // Prime the line buffer with a 16-block silence cushion to protect against initial JIT
       // compilation latency spikes!
-      byte[] priming = new byte[BLOCK_SIZE * 4 * 4];
+      byte[] priming = new byte[BLOCK_SIZE * 16 * 4];
       line.write(priming, 0, priming.length);
 
       System.out.println("[JavaAudioDriver] Opened SUCCESS: " + line.getLineInfo());
