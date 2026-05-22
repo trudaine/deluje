@@ -46,6 +46,7 @@ public class Arpeggiator {
     public int gateSpread = 0;
     public int octaveSpread = 0;
     public int chordPolyphony = 1;
+    public int mpeVelocity = 0;
 
     public boolean randomizerLock = false;
   }
@@ -122,10 +123,15 @@ public class Arpeggiator {
   private boolean lastNormalNotePlayedFromBassProbability = false;
   private int stepRepeatCounter = 0;
   private int currentStepGate = 2147483647 / 2;
+  private int liveMpePressure = 0;
 
   public Arpeggiator(Settings settings) {
     this.settings = settings;
     generateNewNotePattern();
+  }
+
+  public void setLiveMpePressure(int pressure) {
+    this.liveMpePressure = pressure;
   }
 
   public void noteOn(int note, int vel) {
@@ -155,6 +161,7 @@ public class Arpeggiator {
     ratchetNotesIndex = 0;
     stepRepeatCounter = 0;
     currentStepGate = settings.gate;
+    liveMpePressure = 0;
   }
 
   public void render(ReturnInstruction instr, int numSamples, int phaseIncrement) {
@@ -225,16 +232,16 @@ public class Arpeggiator {
   }
 
   private boolean evaluateNoteProbability() {
-    return FirmwareUtils.getNoise() < settings.noteProbability;
+    return Integer.compareUnsigned(FirmwareUtils.getNoise(), settings.noteProbability) < 0;
   }
 
   private boolean evaluateBassProbability() {
-    return FirmwareUtils.getNoise() < settings.bassProbability;
+    return Integer.compareUnsigned(FirmwareUtils.getNoise(), settings.bassProbability) < 0;
   }
 
   private void maybeSetupNewRatchet() {
     isRatcheting =
-        settings.ratchetAmount > 0 && FirmwareUtils.getNoise() < settings.ratchetProbability;
+        settings.ratchetAmount > 0 && Integer.compareUnsigned(FirmwareUtils.getNoise(), settings.ratchetProbability) < 0;
     if (isRatcheting) {
       // ── Bit-Accurate Ratchet Math ──
       // Weighted 2-bit amount: 0-3 (translates to 1x, 2x, 4x, 8x)
@@ -268,7 +275,10 @@ public class Arpeggiator {
   private void advanceArp(ReturnInstruction instr, boolean playBass) {
     if (inputNotes.isEmpty()) return;
 
-    if (stepRepeatCounter < settings.numStepRepeats - 1) {
+    if (whichNoteIndex == -1) {
+      whichNoteIndex = 0;
+      stepRepeatCounter = 0;
+    } else if (stepRepeatCounter < settings.numStepRepeats - 1) {
       stepRepeatCounter++;
     } else {
       stepRepeatCounter = 0;
@@ -294,7 +304,7 @@ public class Arpeggiator {
     // Apply swap probability
     int targetIndex = playBass ? 0 : whichNoteIndex;
     if (!playBass && inputNotes.size() > 1 && settings.swapProbability > 0) {
-      if (FirmwareUtils.getNoise() < settings.swapProbability) {
+      if (Integer.compareUnsigned(FirmwareUtils.getNoise(), settings.swapProbability) < 0) {
         targetIndex = (targetIndex + 1) % inputNotes.size();
       }
     }
@@ -318,6 +328,12 @@ public class Arpeggiator {
       int spread = (int) (noiseNorm * settings.velocitySpread);
       velocity = Math.clamp(velocity + spread, 1, 127);
     }
+
+    // Apply MPE pressure-velocity tracking
+    if (settings.mpeVelocity == 1 && liveMpePressure > 0) {
+      velocity = Math.clamp(liveMpePressure, 1, 127);
+    }
+
     instr.velocity = velocity;
   }
 }

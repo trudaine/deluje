@@ -4,15 +4,14 @@ import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.util.*;
 import org.chuck.deluge.BridgeContract;
+import org.chuck.deluge.firmware.engine.FirmwareKit;
+import org.chuck.deluge.firmware.engine.FirmwareSound;
 import org.chuck.deluge.firmware.model.Clip;
 import org.chuck.deluge.firmware.model.InstrumentClip;
 import org.chuck.deluge.firmware.model.Song;
 import org.chuck.deluge.firmware.model.note.NoteRow;
-import org.chuck.deluge.firmware.playback.PlaybackHandler;
-import org.chuck.deluge.firmware.engine.FirmwareSound;
-import org.chuck.deluge.firmware.engine.FirmwareKit;
 import org.chuck.deluge.firmware.modulation.params.Param;
-import org.chuck.deluge.firmware.modulation.automation.AutoParam;
+import org.chuck.deluge.firmware.playback.PlaybackHandler;
 import org.rtmidijava.RtMidiFactory;
 import org.rtmidijava.RtMidiIn;
 

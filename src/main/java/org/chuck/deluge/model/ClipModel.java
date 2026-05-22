@@ -44,6 +44,30 @@ public class ClipModel {
   private final Map<Integer, Map<String, Float>> rowSoundParams = new HashMap<>();
 
   /**
+   * Per-noteRow step-by-step automation curves (for kit sub-drum lanes). Maps row index → parameter
+   * name → float array of stepCount length.
+   */
+  private final Map<Integer, Map<String, float[]>> rowAutomationData = new HashMap<>();
+
+  public void setRowAutomation(int rowIndex, String paramName, int stepIndex, float value) {
+    Map<String, float[]> rowAutos =
+        rowAutomationData.computeIfAbsent(rowIndex, k -> new HashMap<>());
+    float[] array = rowAutos.computeIfAbsent(paramName, k -> new float[stepCount]);
+    if (stepIndex >= 0 && stepIndex < stepCount) {
+      array[stepIndex] = value;
+    }
+  }
+
+  public float[] getRowAutomation(int rowIndex, String paramName) {
+    Map<String, float[]> rowAutos = rowAutomationData.get(rowIndex);
+    return rowAutos != null ? rowAutos.get(paramName) : null;
+  }
+
+  public Map<Integer, Map<String, float[]>> getRowAutomationData() {
+    return rowAutomationData;
+  }
+
+  /**
    * Per-clip kit parameter overrides. Maps parameter name → normalized float value. Parsed from
    * &lt;kitParams&gt; child of &lt;instrumentClip isKitClip="true"&gt;. Mirrors the same attributes
    * as &lt;songParams&gt; but for kit tracks.
@@ -71,6 +95,14 @@ public class ClipModel {
     // Deep-copy row sound params
     for (Map.Entry<Integer, Map<String, Float>> e : rowSoundParams.entrySet()) {
       copy.rowSoundParams.put(e.getKey(), new HashMap<>(e.getValue()));
+    }
+    // Deep-copy row automation data
+    for (Map.Entry<Integer, Map<String, float[]>> e : rowAutomationData.entrySet()) {
+      Map<String, float[]> copiedMap = new HashMap<>();
+      for (Map.Entry<String, float[]> subEntry : e.getValue().entrySet()) {
+        copiedMap.put(subEntry.getKey(), subEntry.getValue().clone());
+      }
+      copy.rowAutomationData.put(e.getKey(), copiedMap);
     }
     // Deep-copy kit params
     copy.kitParams.putAll(this.kitParams);

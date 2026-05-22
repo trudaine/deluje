@@ -221,6 +221,27 @@ public class FirmwareFactory {
         drumSound.osc1RetriggerPhase = sd.getOsc1RetrigPhase();
         drumSound.osc2RetriggerPhase = sd.getOsc2RetrigPhase();
 
+        // Map per-lane step automation from the ClipModel to the drum sound's ParamManager
+        if (!model.getClips().isEmpty()) {
+          org.chuck.deluge.model.ClipModel clipModel = model.getClips().get(0);
+          java.util.Map<String, float[]> rowAutos = clipModel.getRowAutomationData().get(drumIdx);
+          if (rowAutos != null) {
+            for (java.util.Map.Entry<String, float[]> entry : rowAutos.entrySet()) {
+              int paramId = getParamIdFromName(entry.getKey());
+              if (paramId != -1) {
+                float[] array = entry.getValue();
+                for (int s = 0; s < array.length; s++) {
+                  if (array[s] > 0.0f) {
+                    int q31Val = (int) (array[s] * 2147483647.0);
+                    int pos = s * 24; // 24 ticks per step (16th notes)
+                    drumSound.paramManager.recordParamValue(paramId, q31Val, pos);
+                  }
+                }
+              }
+            }
+          }
+        }
+
         String path = sd.getSamplePath();
         if (path != null && !path.isEmpty()) {
           File f = resolveSample(path, sdRoot, devSamples);
@@ -287,5 +308,22 @@ public class FirmwareFactory {
       return (int) (amount * 1000000.0);
     }
     return (int) (amount * 2147483647.0);
+  }
+
+  private static int getParamIdFromName(String name) {
+    return switch (name) {
+      case "volume" -> Param.LOCAL_VOLUME;
+      case "pan" -> Param.LOCAL_PAN;
+      case "lpfFrequency" -> Param.LOCAL_LPF_FREQ;
+      case "lpfResonance" -> Param.LOCAL_LPF_RESONANCE;
+      case "lpfMorph" -> Param.LOCAL_LPF_MORPH;
+      case "hpfFrequency" -> Param.LOCAL_HPF_FREQ;
+      case "hpfResonance" -> Param.LOCAL_HPF_RESONANCE;
+      case "hpfMorph" -> Param.LOCAL_HPF_MORPH;
+      case "delayRate" -> Param.GLOBAL_DELAY_RATE;
+      case "delayFeedback" -> Param.GLOBAL_DELAY_FEEDBACK;
+      case "reverbAmount" -> Param.GLOBAL_REVERB_AMOUNT;
+      default -> -1;
+    };
   }
 }

@@ -66,6 +66,19 @@ public class MidiInputRouter {
     this.learningTarget = target;
   }
 
+  public int getCcForParam(String target) {
+    for (java.util.Map.Entry<Integer, String> entry : ccMappings.entrySet()) {
+      if (entry.getValue().equals(target)) {
+        return entry.getKey();
+      }
+    }
+    return -1;
+  }
+
+  public void clearMapping(String target) {
+    ccMappings.values().removeIf(val -> val.equals(target));
+  }
+
   /** Set the device definition for CC-to-param routing. */
   public void setDeviceDefinition(MidiDeviceDefinition def) {
     this.currentDevice = def;
