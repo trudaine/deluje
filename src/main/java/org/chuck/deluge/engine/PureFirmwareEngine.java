@@ -33,10 +33,11 @@ public class PureFirmwareEngine {
 
     // ── Start Audio Thread ──
     audioThread =
-        Thread.ofVirtual()
+        Thread.ofPlatform()
             .name("DelugeAudio")
             .start(
                 () -> {
+                  Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
                   audioDriver.run();
                 });
 
@@ -138,10 +139,11 @@ public class PureFirmwareEngine {
     // ── Start Audio Thread ──
     // The driver drives the renderBlock() calls and advances ticks
     audioThread =
-        Thread.ofVirtual()
+        Thread.ofPlatform()
             .name("DelugeAudio")
             .start(
                 () -> {
+                  Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
                   audioDriver.run();
                 });
 

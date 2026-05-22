@@ -38,7 +38,7 @@ public class JavaAudioDriver implements Runnable {
       AudioFormat format = new AudioFormat(44100, 16, 2, true, false);
       DataLine.Info info = new DataLine.Info(SourceDataLine.class, format);
       line = (SourceDataLine) AudioSystem.getLine(info);
-      line.open(format, 16384);
+      line.open(format, 65536);
       line.start();
 
       System.out.println("[JavaAudioDriver] Opened SUCCESS: " + line.getLineInfo());
