@@ -305,10 +305,13 @@ public class FirmwareVoice {
           (s == 0)
               ? paramFinalValues[Param.LOCAL_OSC_A_VOLUME]
               : paramFinalValues[Param.LOCAL_OSC_B_VOLUME];
+
+      double gainScale = 1.0 / Math.sqrt(sound.numUnison);
+      int scaledVol = (int) (vol * gainScale);
       int pInc = (s == 0) ? detunedPIncA : detunedPIncB;
 
       if (type == OscType.SAMPLE) {
-        if (!part.sources[s].render(buffer, numSamples, pInc, sound.samples[s], vol)) {
+        if (!part.sources[s].render(buffer, numSamples, pInc, sound.samples[s], scaledVol)) {
           // Sample finished, can we deactivate the voice?
           // (Simplification: only deactivate if oscA finished)
           if (s == 0) active = false;
@@ -326,7 +329,7 @@ public class FirmwareVoice {
                 : getStartingPhase(sound.osc2RetriggerPhase);
         Oscillator.renderOsc(
             type,
-            vol,
+            scaledVol,
             buffer,
             0,
             numSamples,
