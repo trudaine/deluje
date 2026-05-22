@@ -34,11 +34,15 @@ public class Comb {
     int output = buffer[bufidx];
 
     filterstore =
-        (multiply_32x32_rshift32_rounded(output, damp2)
-                + multiply_32x32_rshift32_rounded(filterstore, damp1))
-            << 1;
+        lshiftAndSaturate(
+            addSaturate(
+                multiply_32x32_rshift32_rounded(output, damp2),
+                multiply_32x32_rshift32_rounded(filterstore, damp1)),
+            1);
 
-    buffer[bufidx] = input + (multiply_32x32_rshift32_rounded(filterstore, feedback) << 1);
+    buffer[bufidx] =
+        addSaturate(
+            input, lshiftAndSaturate(multiply_32x32_rshift32_rounded(filterstore, feedback), 1));
 
     if (++bufidx >= buffer.length) {
       bufidx = 0;

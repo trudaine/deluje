@@ -16,9 +16,9 @@ public class Allpass {
 
   public int process(int input) {
     int bufout = buffer[bufidx];
-    int output = -input + bufout;
+    int output = org.chuck.deluge.firmware.util.Q31.addSaturate(-input, bufout);
 
-    buffer[bufidx] = input + (bufout >> 1);
+    buffer[bufidx] = org.chuck.deluge.firmware.util.Q31.addSaturate(input, bufout >> 1);
 
     if (++bufidx >= buffer.length) {
       bufidx = 0;
