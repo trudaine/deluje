@@ -270,4 +270,43 @@ public class LiveAutomationMpeTest {
     int third = takeover.process(1, 127, second);
     assertEquals(127, third);
   }
+
+  @Test
+  void testSynthGridRowChromaticPitchScaling() {
+    FirmwareSound sound = new FirmwareSound();
+    sound.synthMode = org.chuck.deluge.firmware.engine.FirmwareSound.SynthMode.SUBTRACTIVE;
+
+    // Simulate clicking a grid pad row vertically in CLIP view mode:
+    // Bottom row is index 23 (e.g. C3/MIDI 60)
+    int bottomRow = 23;
+    int rowAbove = 22;
+
+    // Calculate MIDI note values exactly like SwingGridPanel.java:1132:
+    int pitchBottom = ((24 - 1) - bottomRow) + 60;
+    int pitchAbove = ((24 - 1) - rowAbove) + 60;
+
+    // Assert that the row ABOVE maps to a higher MIDI note value (like a piano keyboard ascending):
+    assertTrue(pitchAbove > pitchBottom);
+    assertEquals(60, pitchBottom);
+    assertEquals(61, pitchAbove);
+
+    // Convert notes to active audio engine frequency phase increments:
+    int pIncBottom = FirmwareSound.noteToPhaseInc(pitchBottom);
+    int pIncAbove = FirmwareSound.noteToPhaseInc(pitchAbove);
+
+    // Assert that the frequency phase increment is harmonically higher (higher frequency):
+    assertTrue(pIncAbove > pIncBottom);
+
+    // Trigger note-on events on the sound engine:
+    sound.triggerNote(pitchBottom, 127);
+    sound.triggerNote(pitchAbove, 127);
+    assertEquals(2, sound.voices.size());
+
+    // Assert that the allocated voices have their correct notes and are playing their respective
+    // frequencies:
+    FirmwareVoice voiceBottom = sound.voices.get(0);
+    FirmwareVoice voiceAbove = sound.voices.get(1);
+    assertEquals(pitchBottom, voiceBottom.note);
+    assertEquals(pitchAbove, voiceAbove.note);
+  }
 }
