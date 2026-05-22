@@ -57,7 +57,7 @@ public class FirmwareAudioEngine {
     masterDelay.process(masterBuffer, delayState);
 
     // Hardware Master Compressor
-    masterCompressor.renderVolNeutral(masterBuffer, Q31.ONE);
+    // masterCompressor.renderVolNeutral(masterBuffer, Q31.ONE);
 
     // ── Master Gain & Soft-Clip Limiter ──
     for (int i = 0; i < numSamples; i++) {
