@@ -1736,7 +1736,37 @@ public class DelugeXmlParser {
   /** Parse compressor element for synth tracks. */
   private static void parseSynthCompressor(Element soundNode, SynthTrackModel synth) {
     NodeList compNodes = soundNode.getElementsByTagName("compressor");
-    if (compNodes.getLength() == 0) return;
+    if (compNodes.getLength() == 0) {
+      // Fallback: look up direct attributes on the soundNode
+      String attackStr = soundNode.getAttribute("compressorAttack");
+      if (attackStr != null && !attackStr.isBlank()) {
+        synth.setCompressorAttack(Math.abs(DelugeHexMapper.hexToFloat(attackStr)));
+      }
+      String releaseStr = soundNode.getAttribute("compressorRelease");
+      if (releaseStr != null && !releaseStr.isBlank()) {
+        synth.setCompressorRelease(Math.abs(DelugeHexMapper.hexToFloat(releaseStr)));
+      }
+      String syncStr = soundNode.getAttribute("compressorSyncLevel");
+      if (syncStr != null && !syncStr.isBlank()) {
+        try {
+          synth.setCompressorSyncLevel(Integer.parseInt(syncStr));
+        } catch (NumberFormatException e) {
+          LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
+        }
+      }
+      readAttrFloatHex(soundNode, "compressorThreshold", synth::setCompressorThreshold, true);
+      readAttrFloatHex(soundNode, "compressorRatio", synth::setCompressorRatio, true);
+      readAttrFloatHex(soundNode, "compressorBlend", synth::setCompressorBlend, true);
+      String syncTypeStr = soundNode.getAttribute("compressorSyncType");
+      if (syncTypeStr != null && !syncTypeStr.isBlank()) {
+        try {
+          synth.setCompressorSyncType(Integer.parseInt(syncTypeStr));
+        } catch (NumberFormatException e) {
+          LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
+        }
+      }
+      return;
+    }
     Element compEl = (Element) compNodes.item(0);
     String attackStr = compEl.getAttribute("attack");
     if (attackStr != null && !attackStr.isBlank()) {
@@ -1937,10 +1967,21 @@ public class DelugeXmlParser {
       sound.setDelayFeedback(DelugeHexMapper.hexToFloat(readAttr(delayEl, "feedback")));
       sound.setDelayPingPong(readIntAttr(delayEl, "pingPong", 0));
       sound.setDelayAnalog(readIntAttr(delayEl, "analog", 0));
+    } else {
+      // Fallback: look up direct attributes on soundNode
+      String rateStr = readAttr(soundNode, "delayRate");
+      if (rateStr != null) sound.setDelayRate(DelugeHexMapper.hexToFloat(rateStr));
+      String feedbackStr = readAttr(soundNode, "delayFeedback");
+      if (feedbackStr != null) sound.setDelayFeedback(DelugeHexMapper.hexToFloat(feedbackStr));
+      sound.setDelayPingPong(readIntAttr(soundNode, "delayPingPong", 0));
+      sound.setDelayAnalog(readIntAttr(soundNode, "delayAnalog", 0));
     }
 
     // audioCompressor
     Element compEl = getFirstChild(soundNode, "audioCompressor");
+    if (compEl == null) {
+      compEl = getFirstChild(soundNode, "compressor"); // tag fallback
+    }
     if (compEl != null) {
       sound.setCompressorAttack(DelugeHexMapper.hexToFloat(readAttr(compEl, "attack")));
       sound.setCompressorRelease(DelugeHexMapper.hexToFloat(readAttr(compEl, "release")));
@@ -1955,6 +1996,25 @@ public class DelugeXmlParser {
       if (blendStr != null)
         sound.setCompressorBlend(Math.abs(DelugeHexMapper.hexToFloat(blendStr)));
       String compHpfStr = readAttr(compEl, "sidechainHpf");
+      if (compHpfStr != null)
+        sound.setCompressorSidechainHpf(Math.abs(DelugeHexMapper.hexToFloat(compHpfStr)));
+    } else {
+      // Fallback: look up direct attributes on soundNode
+      String attackStr = readAttr(soundNode, "compressorAttack");
+      if (attackStr != null) sound.setCompressorAttack(DelugeHexMapper.hexToFloat(attackStr));
+      String releaseStr = readAttr(soundNode, "compressorRelease");
+      if (releaseStr != null) sound.setCompressorRelease(DelugeHexMapper.hexToFloat(releaseStr));
+      sound.setCompressorSyncLevel(readIntAttr(soundNode, "compressorSyncLevel", 0));
+      String thresholdStr = readAttr(soundNode, "compressorThreshold");
+      if (thresholdStr != null)
+        sound.setCompressorThreshold(Math.abs(DelugeHexMapper.hexToFloat(thresholdStr)));
+      String ratioStr = readAttr(soundNode, "compressorRatio");
+      if (ratioStr != null)
+        sound.setCompressorRatio(Math.abs(DelugeHexMapper.hexToFloat(ratioStr)));
+      String blendStr = readAttr(soundNode, "compressorBlend");
+      if (blendStr != null)
+        sound.setCompressorBlend(Math.abs(DelugeHexMapper.hexToFloat(blendStr)));
+      String compHpfStr = readAttr(soundNode, "compressorSidechainHpf");
       if (compHpfStr != null)
         sound.setCompressorSidechainHpf(Math.abs(DelugeHexMapper.hexToFloat(compHpfStr)));
     }
