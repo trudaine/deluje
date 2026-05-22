@@ -218,8 +218,8 @@ public class FirmwareUtils {
   public static int lshiftAndSaturate(int val, int lshift) {
     int bits = 32 - lshift;
     int limit = 1 << (bits - 1);
-    if (val >= limit) return limit - 1;
-    if (val < -limit) return -limit;
+    if (val >= limit) return (limit - 1) << lshift;
+    if (val < -limit) return (-limit) << lshift;
     return val << lshift;
   }
 }
