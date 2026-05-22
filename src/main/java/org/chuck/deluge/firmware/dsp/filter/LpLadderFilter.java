@@ -197,22 +197,24 @@ public class LpLadderFilter extends FirmwareFilter {
 
   private int scaleInput(int input, int feedbacksSum) {
     int temp;
+    int resonanceFeedback =
+        lshiftAndSaturate(multiply_32x32_rshift32_rounded(feedbacksSum, processedResonance), 3);
+    int subNode = subSaturate(input, resonanceFeedback);
+
     if (morph > 0 || processedResonance > 510000000) {
       temp =
-          multiply_32x32_rshift32_rounded(
-                  (input
-                      - (multiply_32x32_rshift32_rounded(feedbacksSum, processedResonance) << 3)),
-                  divideByTotalMoveabilityAndProcessedResonance)
-              << 2;
+          lshiftAndSaturate(
+              multiply_32x32_rshift32_rounded(
+                  subNode, divideByTotalMoveabilityAndProcessedResonance),
+              2);
       int extra = 2 * multiply_32x32_rshift32(input, morph);
-      temp = FirmwareUtils.getTanHUnknown(temp + extra, 2);
+      temp = FirmwareUtils.getTanHUnknown(addSaturate(temp, extra), 2);
     } else {
       temp =
-          multiply_32x32_rshift32_rounded(
-                  (input
-                      - (multiply_32x32_rshift32_rounded(feedbacksSum, processedResonance) << 3)),
-                  divideByTotalMoveabilityAndProcessedResonance)
-              << 2;
+          lshiftAndSaturate(
+              multiply_32x32_rshift32_rounded(
+                  subNode, divideByTotalMoveabilityAndProcessedResonance),
+              2);
     }
     return temp;
   }
@@ -224,14 +226,17 @@ public class LpLadderFilter extends FirmwareFilter {
     int noisy_m = moveability + multiply_32x32_rshift32(moveability, state.noiseLastValue);
 
     int feedbacksSum =
-        state.lpfLPF1.getFeedbackOutput(lpf1Feedback)
-            + state.lpfLPF2.getFeedbackOutput(lpf2Feedback)
-            + state.lpfLPF3.getFeedbackOutput(divideBy1PlusTannedFrequency);
+        addSaturate(
+            addSaturate(
+                state.lpfLPF1.getFeedbackOutput(lpf1Feedback),
+                state.lpfLPF2.getFeedbackOutput(lpf2Feedback)),
+            state.lpfLPF3.getFeedbackOutput(divideBy1PlusTannedFrequency));
     int x = scaleInput(input, feedbacksSum);
 
-    return state.lpfLPF3.doAPF(
-            state.lpfLPF2.doFilter(state.lpfLPF1.doFilter(x, noisy_m), noisy_m), noisy_m)
-        << 1;
+    return lshiftAndSaturate(
+        state.lpfLPF3.doAPF(
+            state.lpfLPF2.doFilter(state.lpfLPF1.doFilter(x, noisy_m), noisy_m), noisy_m),
+        1);
   }
 
   private int do24dBLPFOnSample(int input, LpLadderState state) {
@@ -240,20 +245,24 @@ public class LpLadderFilter extends FirmwareFilter {
     state.noiseLastValue += distanceToGo >> 7;
     int noisy_m = moveability + multiply_32x32_rshift32(moveability, state.noiseLastValue);
 
-    int feedbacksSum =
-        (state.lpfLPF1.getFeedbackOutputWithoutLshift(lpf1Feedback)
-                + state.lpfLPF2.getFeedbackOutputWithoutLshift(lpf2Feedback)
-                + state.lpfLPF3.getFeedbackOutputWithoutLshift(lpf3Feedback)
-                + state.lpfLPF4.getFeedbackOutputWithoutLshift(divideBy1PlusTannedFrequency))
-            << 2;
+    int sum =
+        addSaturate(
+            addSaturate(
+                state.lpfLPF1.getFeedbackOutputWithoutLshift(lpf1Feedback),
+                state.lpfLPF2.getFeedbackOutputWithoutLshift(lpf2Feedback)),
+            addSaturate(
+                state.lpfLPF3.getFeedbackOutputWithoutLshift(lpf3Feedback),
+                state.lpfLPF4.getFeedbackOutputWithoutLshift(divideBy1PlusTannedFrequency)));
+    int feedbacksSum = lshiftAndSaturate(sum, 2);
 
     int x = scaleInput(input, feedbacksSum);
 
-    return state.lpfLPF4.doFilter(
+    return lshiftAndSaturate(
+        state.lpfLPF4.doFilter(
             state.lpfLPF3.doFilter(
                 state.lpfLPF2.doFilter(state.lpfLPF1.doFilter(x, noisy_m), noisy_m), noisy_m),
-            noisy_m)
-        << 1;
+            noisy_m),
+        1);
   }
 
   private int doDriveLPFOnSample(int input, LpLadderState state) {
@@ -262,12 +271,15 @@ public class LpLadderFilter extends FirmwareFilter {
     state.noiseLastValue += distanceToGo >> 7;
     int noisy_m = moveability + multiply_32x32_rshift32(moveability, state.noiseLastValue);
 
-    int feedbacksSum =
-        (state.lpfLPF1.getFeedbackOutputWithoutLshift(lpf1Feedback)
-                + state.lpfLPF2.getFeedbackOutputWithoutLshift(lpf2Feedback)
-                + state.lpfLPF3.getFeedbackOutputWithoutLshift(lpf3Feedback)
-                + state.lpfLPF4.getFeedbackOutputWithoutLshift(divideBy1PlusTannedFrequency))
-            << 2;
+    int sum =
+        addSaturate(
+            addSaturate(
+                state.lpfLPF1.getFeedbackOutputWithoutLshift(lpf1Feedback),
+                state.lpfLPF2.getFeedbackOutputWithoutLshift(lpf2Feedback)),
+            addSaturate(
+                state.lpfLPF3.getFeedbackOutputWithoutLshift(lpf3Feedback),
+                state.lpfLPF4.getFeedbackOutputWithoutLshift(divideBy1PlusTannedFrequency)));
+    int feedbacksSum = lshiftAndSaturate(sum, 2);
 
     feedbacksSum = FirmwareUtils.getTanHUnknown(feedbacksSum, 7);
     int x = scaleInput(input, feedbacksSum);
@@ -275,7 +287,7 @@ public class LpLadderFilter extends FirmwareFilter {
     int a = state.lpfLPF1.doFilter(x, noisy_m);
     int b = state.lpfLPF2.doFilter(a, noisy_m);
     int c = state.lpfLPF3.doFilter(b, noisy_m);
-    int d = state.lpfLPF4.doFilter(c, noisy_m) << 1;
+    int d = lshiftAndSaturate(state.lpfLPF4.doFilter(c, noisy_m), 1);
 
     return d;
   }
