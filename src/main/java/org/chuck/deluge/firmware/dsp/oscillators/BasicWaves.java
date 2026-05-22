@@ -136,25 +136,25 @@ public class BasicWaves {
   }
 
   public static int[] getTableInfo(int phaseIncrement) {
-    if (phaseIncrement <= 1247086) return new int[] {0, 13};
-    if (phaseIncrement <= 1764571) return new int[] {1, 12};
-    if (phaseIncrement <= 2494173) return new int[] {2, 12};
-    if (phaseIncrement <= 3526245) return new int[] {3, 11};
-    if (phaseIncrement <= 4982560) return new int[] {4, 11};
-    if (phaseIncrement <= 7040929) return new int[] {5, 11};
-    if (phaseIncrement <= 9988296) return new int[] {6, 11};
-    if (phaseIncrement <= 14035840) return new int[] {7, 11};
-    if (phaseIncrement <= 19701684) return new int[] {8, 10};
-    if (phaseIncrement <= 28163718) return new int[] {9, 10};
-    if (phaseIncrement <= 39953186) return new int[] {10, 10};
-    if (phaseIncrement <= 56143360) return new int[] {11, 10};
-    if (phaseIncrement <= 82137088) return new int[] {12, 10};
-    if (phaseIncrement <= 112286720) return new int[] {13, 9};
-    if (phaseIncrement <= 164274176) return new int[] {14, 9};
-    if (phaseIncrement <= 224573440) return new int[] {15, 8};
-    if (phaseIncrement <= 328548352) return new int[] {16, 8};
-    if (phaseIncrement <= 449146880) return new int[] {17, 7};
-    if (phaseIncrement <= 898293760) return new int[] {18, 6};
-    return new int[] {19, 5};
+    if (phaseIncrement <= 1247086) return new int[] {19, 13};
+    if (phaseIncrement <= 1764571) return new int[] {18, 12};
+    if (phaseIncrement <= 2494173) return new int[] {17, 12};
+    if (phaseIncrement <= 3526245) return new int[] {16, 11};
+    if (phaseIncrement <= 4982560) return new int[] {15, 11};
+    if (phaseIncrement <= 7040929) return new int[] {14, 11};
+    if (phaseIncrement <= 9988296) return new int[] {13, 11};
+    if (phaseIncrement <= 14035840) return new int[] {12, 11};
+    if (phaseIncrement <= 19701684) return new int[] {11, 10};
+    if (phaseIncrement <= 28163718) return new int[] {10, 10};
+    if (phaseIncrement <= 39953186) return new int[] {9, 10};
+    if (phaseIncrement <= 56143360) return new int[] {8, 10};
+    if (phaseIncrement <= 82137088) return new int[] {7, 10};
+    if (phaseIncrement <= 112286720) return new int[] {6, 9};
+    if (phaseIncrement <= 164274176) return new int[] {5, 9};
+    if (phaseIncrement <= 224573440) return new int[] {4, 8};
+    if (phaseIncrement <= 328548352) return new int[] {3, 8};
+    if (phaseIncrement <= 449146880) return new int[] {2, 7};
+    if (phaseIncrement <= 898293760) return new int[] {1, 6};
+    return new int[] {0, 5};
   }
 }
