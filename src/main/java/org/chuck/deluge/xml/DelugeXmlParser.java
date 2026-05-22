@@ -723,7 +723,7 @@ public class DelugeXmlParser {
         // attack is stored as a raw signed int32 in XML (not a 0x hex float), normalize via
         // hexToFloat
         if (clipElem.hasAttribute("attack"))
-          clip.setAttack(Math.abs(DelugeHexMapper.hexToFloat(clipElem.getAttribute("attack"))));
+          clip.setAttack(toUnipolar(DelugeHexMapper.hexToFloat(clipElem.getAttribute("attack"))));
         if (clipElem.hasAttribute("priority"))
           clip.setPriority(Integer.parseInt(clipElem.getAttribute("priority")));
         if (clipElem.hasAttribute("pitchSpeedIndependent"))
@@ -1379,7 +1379,7 @@ public class DelugeXmlParser {
     NodeList mod1AmtNodes = soundNode.getElementsByTagName("modulator1Amount");
     if (mod1AmtNodes.getLength() > 0) {
       float hexVal = DelugeHexMapper.hexToFloat(mod1AmtNodes.item(0).getTextContent());
-      synth.setFmAmount(Math.abs(hexVal));
+      synth.setFmAmount(toUnipolar(hexVal));
     }
   }
 
@@ -1498,10 +1498,10 @@ public class DelugeXmlParser {
     // depth: hex float attribute or child text
     String depthStr = lfoEl.getAttribute("depth");
     if (depthStr != null && !depthStr.isBlank()) {
-      depth = Math.abs(DelugeHexMapper.hexToFloat(depthStr));
+      depth = toUnipolar(DelugeHexMapper.hexToFloat(depthStr));
     } else {
       String depthChild = getChildText(lfoEl, "depth");
-      if (depthChild != null) depth = Math.abs(DelugeHexMapper.hexToFloat(depthChild));
+      if (depthChild != null) depth = toUnipolar(DelugeHexMapper.hexToFloat(depthChild));
     }
 
     // syncLevel: attribute first, child-element fallback
@@ -1564,7 +1564,7 @@ public class DelugeXmlParser {
     String modeStr = arpEl.getAttribute("mode");
     if (modeStr != null && !modeStr.isBlank()) mode = modeStr.toUpperCase();
     String rateStr = getChildText(arpEl, "rate");
-    if (rateStr != null) rate = Math.abs(DelugeHexMapper.hexToFloat(rateStr));
+    if (rateStr != null) rate = toUnipolar(DelugeHexMapper.hexToFloat(rateStr));
     String octStr = getChildText(arpEl, "octaves");
     if (octStr != null) {
       try {
@@ -1574,7 +1574,7 @@ public class DelugeXmlParser {
       }
     }
     String gateStr = getChildText(arpEl, "gate");
-    if (gateStr != null) gate = Math.abs(DelugeHexMapper.hexToFloat(gateStr));
+    if (gateStr != null) gate = toUnipolar(DelugeHexMapper.hexToFloat(gateStr));
     String activeStr = arpEl.getAttribute("active");
     if (activeStr != null && !activeStr.isBlank()) {
       active = "true".equalsIgnoreCase(activeStr) || "1".equals(activeStr);
