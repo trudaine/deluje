@@ -254,7 +254,7 @@ public class FirmwareSound extends GlobalEffectable {
 
   // ── High-Fidelity Filter States & Modulations ──
   public org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode lpfMode =
-      org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.TRANSISTOR_24DB;
+      org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF;
   public org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode hpfMode =
       org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF;
   public org.chuck.deluge.firmware.dsp.filter.FilterRoute filterRoute =
