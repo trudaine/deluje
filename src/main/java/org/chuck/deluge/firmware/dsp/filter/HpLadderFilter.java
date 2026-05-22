@@ -38,7 +38,7 @@ public class HpLadderFilter extends FirmwareFilter {
     curveFrequency(hpfFrequency);
 
     int resonanceUpperLimit = 536870911;
-    int resonance = ONE - (Math.min(hpfResonance, resonanceUpperLimit) << 2);
+    int resonance = ONE - (Math.min(Math.abs(hpfResonance), resonanceUpperLimit) << 2);
     resonance = multiply_32x32_rshift32_rounded(resonance, resonance) << 1;
 
     hpfProcessedResonance = ONE - resonance;
@@ -65,7 +65,7 @@ public class HpLadderFilter extends FirmwareFilter {
         (int) ((double) hpfProcessedResonance * 67108864.0 / (double) toDivideBy);
 
     // Adjust volume for HPF resonance
-    int rawResonance = Math.min(hpfResonance, ONE >>> 2) << 2;
+    int rawResonance = Math.min(Math.abs(hpfResonance), ONE >>> 2) << 2;
     int squared = multiply_32x32_rshift32(rawResonance, rawResonance) << 1;
     squared = (multiply_32x32_rshift32(squared, squared) >>> 4) * 19;
     filterGain = multiply_32x32_rshift32(filterGain, ONE - squared) << 1;

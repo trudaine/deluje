@@ -33,7 +33,7 @@ public class SVFilter extends FirmwareFilter {
 
     // raw resonance is 0 - 536870896 (2^28ish)
     // Multiply by 4 to bring it to the q31 0-1 range
-    q = (ONE - 4 * res);
+    q = (ONE - 4 * Math.abs(res));
     in = (q >>> 1) + (ONE >>> 1);
 
     // squared q is a better match for the ladders
