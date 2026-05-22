@@ -970,7 +970,7 @@ public class DelugeXmlParser {
           String val = detuneStr.trim();
           float dVal;
           if (val.startsWith("0x") || val.startsWith("0X")) {
-            dVal = Math.abs(DelugeHexMapper.hexToFloat(val));
+            dVal = toUnipolar(DelugeHexMapper.hexToFloat(val));
           } else {
             dVal = Float.parseFloat(val);
           }
@@ -988,7 +988,7 @@ public class DelugeXmlParser {
           String val = spreadStr.trim();
           float sVal;
           if (val.startsWith("0x") || val.startsWith("0X")) {
-            sVal = Math.abs(DelugeHexMapper.hexToFloat(val));
+            sVal = toUnipolar(DelugeHexMapper.hexToFloat(val));
           } else {
             sVal = Float.parseFloat(val);
           }
@@ -2276,13 +2276,17 @@ public class DelugeXmlParser {
     return el.hasAttribute(attr) ? el.getAttribute(attr).trim() : null;
   }
 
-  /** Read a hex float attribute and apply via setter (unipolar = Math.abs). */
+  private static float toUnipolar(float f) {
+    return (f + 1.0f) / 2.0f;
+  }
+
+  /** Read a hex float attribute and apply via setter (unipolar scaling). */
   private static void readAttrFloatHex(
       Element el, String attr, java.util.function.Consumer<Float> setter, boolean unipolar) {
     String val = readAttr(el, attr);
     if (val != null && !val.isEmpty()) {
       float f = DelugeHexMapper.hexToFloat(val);
-      if (unipolar) f = Math.abs(f);
+      if (unipolar) f = toUnipolar(f);
       setter.accept(f);
     }
   }
@@ -2377,7 +2381,7 @@ public class DelugeXmlParser {
       val = child.getTextContent();
     }
     if (val != null && !val.isBlank()) {
-      float f = Math.abs(DelugeHexMapper.hexToFloat(val.trim()));
+      float f = toUnipolar(DelugeHexMapper.hexToFloat(val.trim()));
       setter.accept(f);
     }
   }
@@ -2409,7 +2413,7 @@ public class DelugeXmlParser {
     if (val == null || val.isEmpty()) val = child.getTextContent();
     if (val != null && !val.isBlank()) {
       try {
-        return Math.abs(DelugeHexMapper.hexToFloat(val.trim()));
+        return toUnipolar(DelugeHexMapper.hexToFloat(val.trim()));
       } catch (Exception e) {
         return def;
       }
