@@ -471,7 +471,7 @@ public abstract class Drum {
   }
 
   public void setModFxType(String v) {
-    this.modFxType = v;
+    this.modFxType = v != null ? v.toUpperCase() : null;
   }
 
   public float getModFxRate() {
