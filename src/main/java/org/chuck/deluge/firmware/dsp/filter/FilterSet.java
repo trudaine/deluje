@@ -94,47 +94,17 @@ public class FilterSet {
   public void renderStereoInterleaved(StereoSample[] buffer, int numSamples) {
     if (!LPFOn && !HPFOn) return;
 
-    int[] l = new int[numSamples];
-    int[] r = new int[numSamples];
+    int[] temp = new int[2 * numSamples];
     for (int i = 0; i < numSamples; i++) {
-      l[i] = buffer[i].l;
-      r[i] = buffer[i].r;
+      temp[2 * i] = buffer[i].l;
+      temp[2 * i + 1] = buffer[i].r;
     }
 
-    switch (routing) {
-      case HIGH_TO_LOW:
-        renderHPFStereo(l, 0, numSamples);
-        renderHPFStereo(r, 0, numSamples);
-        renderLPFStereo(l, 0, numSamples);
-        renderLPFStereo(r, 0, numSamples);
-        break;
-      case LOW_TO_HIGH:
-        renderLPFStereo(l, 0, numSamples);
-        renderLPFStereo(r, 0, numSamples);
-        renderHPFStereo(l, 0, numSamples);
-        renderHPFStereo(r, 0, numSamples);
-        break;
-      case PARALLEL:
-        int[] l_temp = new int[numSamples];
-        int[] r_temp = new int[numSamples];
-        System.arraycopy(l, 0, l_temp, 0, numSamples);
-        System.arraycopy(r, 0, r_temp, 0, numSamples);
-
-        renderHPFStereo(l_temp, 0, numSamples);
-        renderHPFStereo(r_temp, 0, numSamples);
-        renderLPFStereo(l, 0, numSamples);
-        renderLPFStereo(r, 0, numSamples);
-
-        for (int i = 0; i < numSamples; i++) {
-          l[i] = addSaturate(l[i], l_temp[i]);
-          r[i] = addSaturate(r[i], r_temp[i]);
-        }
-        break;
-    }
+    renderStereo(temp, 0, 2 * numSamples);
 
     for (int i = 0; i < numSamples; i++) {
-      buffer[i].l = l[i];
-      buffer[i].r = r[i];
+      buffer[i].l = temp[2 * i];
+      buffer[i].r = temp[2 * i + 1];
     }
   }
 
