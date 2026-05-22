@@ -241,7 +241,8 @@ public class Arpeggiator {
 
   private void maybeSetupNewRatchet() {
     isRatcheting =
-        settings.ratchetAmount > 0 && Integer.compareUnsigned(FirmwareUtils.getNoise(), settings.ratchetProbability) < 0;
+        settings.ratchetAmount > 0
+            && Integer.compareUnsigned(FirmwareUtils.getNoise(), settings.ratchetProbability) < 0;
     if (isRatcheting) {
       // ── Bit-Accurate Ratchet Math ──
       // Weighted 2-bit amount: 0-3 (translates to 1x, 2x, 4x, 8x)

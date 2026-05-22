@@ -171,4 +171,22 @@ public class LiveAutomationMpeTest {
     assertNotNull(ap);
     assertEquals((int) (0.75 * 2147483647.0), ap.currentValue);
   }
+
+  @Test
+  void testFmModulatorsRetriggerPhases() {
+    FirmwareSound sound = new FirmwareSound();
+    sound.synthMode = org.chuck.deluge.firmware.engine.FirmwareSound.SynthMode.FM;
+    sound.mod1RetrigPhase = 90; // 90 degrees
+    sound.mod2RetrigPhase = 180; // 180 degrees
+
+    // Trigger note-on
+    sound.triggerNote(60, 100, 0);
+    assertFalse(sound.voices.isEmpty());
+
+    FirmwareVoice voice = sound.voices.get(0);
+    // 90 degrees is Q31 space = 536870911
+    // 180 degrees is Q31 space = 1073741823
+    assertEquals(536870911, voice.unisonParts[0].sources[2].oscPos);
+    assertEquals(1073741823, voice.unisonParts[0].sources[3].oscPos);
+  }
 }

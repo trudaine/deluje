@@ -958,6 +958,7 @@ public class DelugeXmlParser {
 
     // ── FM Modulator 1 ──
     parseModulator1(soundNode, synth);
+    parseModulator2(soundNode, synth);
 
     // ── Synth algorithm (from ProjectSerializer track attribute) ──
     if (soundNode.hasAttribute("synthAlgorithm")) {
@@ -1314,11 +1315,34 @@ public class DelugeXmlParser {
           LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
         }
       }
+      NodeList rpNodes = mod1.getElementsByTagName("retrigPhase");
+      if (rpNodes.getLength() > 0) {
+        try {
+          synth.setMod1RetrigPhase(Integer.parseInt(rpNodes.item(0).getTextContent().trim()));
+        } catch (NumberFormatException e) {
+          LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
+        }
+      }
     }
     NodeList mod1AmtNodes = soundNode.getElementsByTagName("modulator1Amount");
     if (mod1AmtNodes.getLength() > 0) {
       float hexVal = DelugeHexMapper.hexToFloat(mod1AmtNodes.item(0).getTextContent());
       synth.setFmAmount(Math.abs(hexVal));
+    }
+  }
+
+  private static void parseModulator2(Element soundNode, SynthTrackModel synth) {
+    NodeList mod2Nodes = soundNode.getElementsByTagName("modulator2");
+    if (mod2Nodes.getLength() > 0) {
+      Element mod2 = (Element) mod2Nodes.item(0);
+      NodeList rpNodes = mod2.getElementsByTagName("retrigPhase");
+      if (rpNodes.getLength() > 0) {
+        try {
+          synth.setMod2RetrigPhase(Integer.parseInt(rpNodes.item(0).getTextContent().trim()));
+        } catch (NumberFormatException e) {
+          LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
+        }
+      }
     }
   }
 

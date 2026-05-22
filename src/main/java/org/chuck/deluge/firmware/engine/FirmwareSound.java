@@ -348,4 +348,6 @@ public class FirmwareSound extends GlobalEffectable {
   // ── Subtractive Oscillator Retrigger Starting Phases ──
   public int osc1RetriggerPhase = 0;
   public int osc2RetriggerPhase = 0;
+  public int mod1RetrigPhase = -1;
+  public int mod2RetrigPhase = -1;
 }
