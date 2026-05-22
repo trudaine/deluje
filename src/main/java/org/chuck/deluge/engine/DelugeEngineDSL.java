@@ -445,7 +445,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
                 (int) (vm.getGlobalFloat(BridgeContract.G_SP_PAN) * 2147483647.0);
             fs.paramNeutralValues[
                     org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_FREQ] =
-                (int) (vm.getGlobalFloat(BridgeContract.G_SP_LPF_FREQ) * 2147483647.0);
+                (int) (vm.getGlobalFloat(BridgeContract.G_SP_LPF_FREQ) / 20000.0f * 2147483647.0);
             fs.paramNeutralValues[
                     org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_RESONANCE] =
                 (int) (vm.getGlobalFloat(BridgeContract.G_SP_LPF_RES) * 2147483647.0);
@@ -462,11 +462,11 @@ public class DelugeEngineDSL implements Shred, Runnable {
 
           // 2. Global Track FX (Filters, Delay, Reverb)
           sound.filterSet.setConfig(
-              (int) (vm.getGlobalFloat(BridgeContract.G_SP_LPF_FREQ) * 2147483647.0),
+              (int) (vm.getGlobalFloat(BridgeContract.G_SP_LPF_FREQ) / 20000.0f * 2147483647.0),
               (int) (vm.getGlobalFloat(BridgeContract.G_SP_LPF_RES) * 536870896.0),
               org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.TRANSISTOR_12DB,
               0, // morph
-              (int) (vm.getGlobalFloat(BridgeContract.G_SP_HPF_FREQ) * 2147483647.0),
+              (int) (vm.getGlobalFloat(BridgeContract.G_SP_HPF_FREQ) / 20000.0f * 2147483647.0),
               (int) (vm.getGlobalFloat(BridgeContract.G_SP_HPF_RES) * 536870896.0),
               org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF,
               0, // morph

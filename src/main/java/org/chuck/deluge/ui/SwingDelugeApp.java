@@ -2388,14 +2388,17 @@ public class SwingDelugeApp extends JFrame {
     org.chuck.core.ChuckVM vm = new org.chuck.core.ChuckVM(44100, 2);
     org.chuck.deluge.BridgeContract bridge = new org.chuck.deluge.BridgeContract();
 
-    boolean pureModeLocal = false;
-    // Default to High Fidelity Mode enabled by default for premium Swing user experience!
+    // Default to Pure Java (Pure Firmware) direct soundcard output mode by default!
+    boolean pureModeLocal = true;
     bridge.setHiFiMode(1);
-    System.out.println("[main] High Fidelity Mode ENABLED by default");
+    System.out.println(
+        "[main] Pure Java (Pure Firmware) direct soundcard output ENABLED by default");
 
     for (String arg : args) {
       if ("--hifi".equalsIgnoreCase(arg)) {
-        // Already active
+        pureModeLocal = false;
+        bridge.setHiFiMode(1);
+        System.out.println("[main] High Fidelity Mode ENABLED (using ChucK DSL output bridge)");
       }
       if ("--pure".equalsIgnoreCase(arg)) {
         pureModeLocal = true;
