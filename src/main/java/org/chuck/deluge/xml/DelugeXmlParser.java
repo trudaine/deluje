@@ -1153,6 +1153,16 @@ public class DelugeXmlParser {
     // ── Mod Knobs ──
     parseModKnobs(soundNode, synth);
 
+    // ── Equalizer inside defaultParams ──
+    Element dpEl = getFirstChild(soundNode, "defaultParams");
+    if (dpEl != null) {
+      Element eqEl = getFirstChild(dpEl, "equalizer");
+      if (eqEl != null) {
+        readHexFloat(eqEl, "bass", synth::setEqBass);
+        readHexFloat(eqEl, "treble", synth::setEqTreble);
+      }
+    }
+
     // ── Mod FX Type ──
     String mfxVal = soundNode.getAttribute("modFXType");
     if (mfxVal == null || mfxVal.isEmpty()) {
