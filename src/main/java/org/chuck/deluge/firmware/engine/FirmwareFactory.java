@@ -269,6 +269,14 @@ public class FirmwareFactory {
               if (s != null) {
                 drumSound.samples[0] = s;
                 System.out.println(
+                    "[DIAG] Sample: "
+                        + s.fileName
+                        + " size="
+                        + s.data.length
+                        + " first10="
+                        + java.util.Arrays.toString(
+                            java.util.Arrays.copyOfRange(s.data, 0, Math.min(s.data.length, 10))));
+                System.out.println(
                     "[FirmwareFactory] Loaded sample: "
                         + f.getName()
                         + " (size: "
