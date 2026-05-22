@@ -11,12 +11,12 @@ import org.chuck.deluge.firmware.util.LookupTables;
 public class FmOpKernelVector {
   private static final VectorSpecies<Integer> SPECIES = IntVector.SPECIES_PREFERRED;
 
-  public static void compute(
+  public static int compute(
       int[] output, int n, int[] input, int phase0, int freq, int gain1, int dgain, boolean add) {
-    computeScalar(output, 0, n, input, phase0, freq, gain1, dgain, add);
+    return computeScalar(output, 0, n, input, phase0, freq, gain1, dgain, add);
   }
 
-  public static void compute_fb(
+  public static int compute_fb(
       int[] output,
       int n,
       int[] input,
@@ -49,9 +49,10 @@ public class FmOpKernelVector {
     }
     fb_buf[0] = fb0;
     fb_buf[1] = fb1;
+    return phase;
   }
 
-  private static void computeScalar(
+  private static int computeScalar(
       int[] output,
       int offset,
       int length,
@@ -75,5 +76,6 @@ public class FmOpKernelVector {
       }
       phase += freq;
     }
+    return phase;
   }
 }
