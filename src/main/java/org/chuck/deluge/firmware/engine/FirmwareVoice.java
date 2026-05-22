@@ -290,13 +290,22 @@ public class FirmwareVoice {
     }
 
     // ── Bit-Accurate Subtractive / Sample Engine ──
+    double offset = 0.0;
+    if (sound.numUnison > 1) {
+      offset = (double) (2 * u - (sound.numUnison - 1)) / (double) (sound.numUnison - 1);
+    }
+    double cents = (double) sound.unisonDetune * offset;
+    double pitchFactor = Math.pow(2.0, cents / 1200.0);
+    int detunedPIncA = (int) (pIncA * pitchFactor);
+    int detunedPIncB = (int) (pIncB * pitchFactor);
+
     for (int s = 0; s < 2; s++) {
       OscType type = sound.oscTypes[s];
       int vol =
           (s == 0)
               ? paramFinalValues[Param.LOCAL_OSC_A_VOLUME]
               : paramFinalValues[Param.LOCAL_OSC_B_VOLUME];
-      int pInc = (s == 0) ? pIncA : pIncB;
+      int pInc = (s == 0) ? detunedPIncA : detunedPIncB;
 
       if (type == OscType.SAMPLE) {
         if (!part.sources[s].render(buffer, numSamples, pInc, sound.samples[s], vol)) {
