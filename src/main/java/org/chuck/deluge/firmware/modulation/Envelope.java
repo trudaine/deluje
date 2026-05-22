@@ -48,10 +48,9 @@ public class Envelope {
           smoothedSustain =
               addSaturate(smoothedSustain, numSamples * ((sustain - smoothedSustain) >> 9));
           lastValue =
-              smoothedSustain
-                  + multiply_32x32_rshift32(
-                          FirmwareUtils.getDecay8(pos, 23), 2147483647 - smoothedSustain)
-                      * 2;
+              addSaturate(
+                  smoothedSustain,
+                  mult(FirmwareUtils.getDecay8(pos, 23), 2147483647 - smoothedSustain));
 
           pos += decay * numSamples;
           if (pos >= 8388608) {
@@ -78,10 +77,9 @@ public class Envelope {
             return -2147483648;
           }
           lastValue =
-              multiply_32x32_rshift32(
-                      FirmwareUtils.interpolateTable(pos, 23, releaseTable, 8),
-                      lastValuePreCurrentStage)
-                  << 1;
+              mult(
+                  FirmwareUtils.interpolateTable(pos, 23, releaseTable, 8),
+                  lastValuePreCurrentStage);
           break;
 
         case FAST_RELEASE:
@@ -96,10 +94,9 @@ public class Envelope {
           }
 
           lastValue =
-              multiply_32x32_rshift32(
-                      (FirmwareUtils.getSine(pos + (8388608 >> 1), 24) >> 1) + 1073741824,
-                      lastValuePreCurrentStage)
-                  << 1;
+              mult(
+                  (FirmwareUtils.getSine(pos + (8388608 >> 1), 24) >> 1) + 1073741824,
+                  lastValuePreCurrentStage);
           break;
 
         default: // OFF
