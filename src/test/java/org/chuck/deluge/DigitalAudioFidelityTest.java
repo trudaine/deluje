@@ -132,6 +132,11 @@ public class DigitalAudioFidelityTest {
         block[i].r = 0;
       }
       kit.renderOutput(block, 128, null);
+      if (b == 0) {
+        for (int i = 0; i < 5; i++) {
+          System.out.println("[DIAG-BLOCK-INT] sequential i=" + i + " intVal=" + block[i].l);
+        }
+      }
       for (int i = 0; i < 128; i++) {
         outputWave[b * 128 + i] = block[i].l / 2147483648.0f;
       }

@@ -153,8 +153,7 @@ public class FirmwareUtils {
     int value1 = LookupTables.tanTable[whichValue];
     int value2 = LookupTables.tanTable[whichValue + 1];
     return (multiply_32x32_rshift32(value2, howMuchFurther)
-            + multiply_32x32_rshift32(value1, 2147483647 - howMuchFurther))
-        << 1;
+        + multiply_32x32_rshift32(value1, 2147483647 - howMuchFurther));
   }
 
   public static int getTanHAntialiased(int input, int[] lastWorkingValue, int saturationAmount) {
