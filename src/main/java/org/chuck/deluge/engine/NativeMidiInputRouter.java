@@ -28,6 +28,7 @@ public class NativeMidiInputRouter {
   private final List<Integer>[] heldNotes = new List[BridgeContract.TRACKS];
 
   private final int[] activePitchBend = new int[BridgeContract.TRACKS];
+  private final int[] noteToTrackTracked = new int[128];
   private final Map<Integer, Long> noteOnTimes = new HashMap<>();
 
   private int activeTrack = 0;
@@ -43,6 +44,7 @@ public class NativeMidiInputRouter {
       heldNotes[i] = new ArrayList<>();
       activePitchBend[i] = 64; // center
     }
+    java.util.Arrays.fill(noteToTrackTracked, -1);
   }
 
   public void setActiveTrack(int track) {
@@ -169,7 +171,6 @@ public class NativeMidiInputRouter {
   }
 
   private void handleShortMessage(ShortMessage msg) {
-    int track = resolveTrack();
     int cmd = msg.getCommand();
 
     switch (cmd) {
@@ -177,21 +178,35 @@ public class NativeMidiInputRouter {
         int note = msg.getData1();
         int vel = msg.getData2();
         if (vel == 0) {
+          int track = noteToTrackTracked[note];
+          if (track == -1) {
+            track = resolveTrack();
+          }
           handleNoteOff(track, note);
+          noteToTrackTracked[note] = -1;
           return;
         }
+        int track = resolveTrack();
+        noteToTrackTracked[note] = track;
         handleNoteOn(track, note, vel);
       }
       case ShortMessage.NOTE_OFF -> {
         int note = msg.getData1();
+        int track = noteToTrackTracked[note];
+        if (track == -1) {
+          track = resolveTrack();
+        }
         handleNoteOff(track, note);
+        noteToTrackTracked[note] = -1;
       }
       case ShortMessage.CONTROL_CHANGE -> {
+        int track = resolveTrack();
         int cc = msg.getData1();
         int val = msg.getData2();
         handleControlChange(track, cc, val);
       }
       case ShortMessage.PITCH_BEND -> {
+        int track = resolveTrack();
         int lsb = msg.getData1();
         int msb = msg.getData2();
         int bend = (msb << 7) | lsb;

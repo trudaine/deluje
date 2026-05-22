@@ -46,6 +46,7 @@ public class RtMidiInputRouter {
   private final int[] mpePitchBend = new int[16];
   private final int[] mpeTimbre = new int[16]; // CC 74
   private final int[] mpePressure = new int[16]; // Channel Pressure
+  private final int[] noteToTrackTracked = new int[128];
 
   private int activeTrack = 0;
   private boolean followMode = true;
@@ -62,6 +63,7 @@ public class RtMidiInputRouter {
       activePitchBend[i] = 64; // center
     }
     Arrays.fill(mpePitchBend, 8192);
+    java.util.Arrays.fill(noteToTrackTracked, -1);
   }
 
   public void setPlaybackHandler(PlaybackHandler handler, Song song) {
@@ -181,12 +183,26 @@ public class RtMidiInputRouter {
     switch (cmd) {
       case 0x90 -> { // NOTE_ON
         if (data2 == 0) {
-          handleNoteOff(data1, channel);
+          int track = noteToTrackTracked[data1];
+          if (track == -1) {
+            track = resolveTrack();
+          }
+          handleNoteOff(track, data1, channel);
+          noteToTrackTracked[data1] = -1;
         } else {
-          handleNoteOn(data1, data2, channel);
+          int track = resolveTrack();
+          noteToTrackTracked[data1] = track;
+          handleNoteOn(track, data1, data2, channel);
         }
       }
-      case 0x80 -> handleNoteOff(data1, channel); // NOTE_OFF
+      case 0x80 -> { // NOTE_OFF
+        int track = noteToTrackTracked[data1];
+        if (track == -1) {
+          track = resolveTrack();
+        }
+        handleNoteOff(track, data1, channel);
+        noteToTrackTracked[data1] = -1;
+      }
       case 0xB0 -> handleControlChange(data1, data2, channel); // CC
       case 0xE0 -> handlePitchBend(data1, data2, channel); // PITCH_BEND (lsb, msb)
       case 0xD0 -> handleChannelPressure(data1, channel); // Channel Pressure
@@ -215,8 +231,7 @@ public class RtMidiInputRouter {
     return activeTrack;
   }
 
-  private void handleNoteOn(int note, int velocity, int channel) {
-    int track = resolveTrack();
+  private void handleNoteOn(int track, int note, int velocity, int channel) {
     noteOnTimes.put(note, System.nanoTime());
     heldNotes[track].add(note);
 
@@ -281,8 +296,7 @@ public class RtMidiInputRouter {
     }
   }
 
-  private void handleNoteOff(int note, int channel) {
-    int track = resolveTrack();
+  private void handleNoteOff(int track, int note, int channel) {
     heldNotes[track].remove((Integer) note);
     noteOnTimes.remove(note);
 
@@ -350,7 +364,7 @@ public class RtMidiInputRouter {
       case 64: // Sustain pedal
         if (value < 64) {
           for (int n : new ArrayList<>(heldNotes[track])) {
-            handleNoteOff(n, channel);
+            handleNoteOff(track, n, channel);
           }
         }
         break;
