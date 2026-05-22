@@ -236,7 +236,7 @@ public class FirmwareVoice {
     }
 
     // ── Final Gain & Saturation ──
-    int env0Gain = sourceValues[PatchSource.ENVELOPE_0.ordinal()];
+    int env0Gain = envelopes[0].lastValue;
 
     // Safety check: ensure volume is not squashed to zero by un-patched synth defaults
     int trackVol = paramFinalValues[Param.LOCAL_VOLUME];
@@ -257,9 +257,9 @@ public class FirmwareVoice {
 
     // ── Bit-Accurate FM Engine ──
     if (sound.getSynthMode() == FirmwareSound.SynthMode.FM) {
-      int envLevel = sourceValues[PatchSource.ENVELOPE_0.ordinal()];
-      int volumeLevel = paramFinalValues[Param.LOCAL_VOLUME];
-      int finalCarrierLevel = (int) (((long) envLevel * volumeLevel) >> 31);
+      int env0Gain = envelopes[0].lastValue;
+      int voiceVolume = paramFinalValues[Param.LOCAL_VOLUME];
+      int finalCarrierLevel = (int) (((long) env0Gain * voiceVolume) >> 31);
 
       for (int i = 0; i < 6; i++) {
         if (i == 5) {
@@ -309,6 +309,9 @@ public class FirmwareVoice {
       double gainScale = 1.0 / Math.sqrt(sound.numUnison);
       int scaledVol = (int) (vol * gainScale);
       int pInc = (s == 0) ? detunedPIncA : detunedPIncB;
+      if (type != OscType.SAMPLE) {
+        pInc <<= 8;
+      }
 
       if (type == OscType.SAMPLE) {
         if (!part.sources[s].render(buffer, numSamples, pInc, sound.samples[s], scaledVol)) {
