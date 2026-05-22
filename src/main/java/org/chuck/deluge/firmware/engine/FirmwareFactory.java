@@ -133,6 +133,12 @@ public class FirmwareFactory {
     sound.paramNeutralValues[Param.LOCAL_VOLUME] = (int) (model.getVolume() * 2147483647.0);
     sound.paramNeutralValues[Param.LOCAL_PAN] = (int) ((model.getPan() + 1.0) * 1073741823.0);
 
+    // Oscillator & Noise Volumes (derived from mix/noiseVol)
+    float oscMix = model.getOscMix();
+    sound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = (int) (oscMix * 2147483647.0);
+    sound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = (int) ((1.0f - oscMix) * 2147483647.0);
+    sound.paramNeutralValues[Param.LOCAL_NOISE_VOLUME] = (int) (model.getNoiseVol() * 2147483647.0);
+
     // Filter
     sound.paramNeutralValues[Param.LOCAL_LPF_FREQ] =
         (int) (model.getLpfFreq() / 20000.0 * 2147483647.0);
@@ -168,6 +174,8 @@ public class FirmwareFactory {
     }
 
     sound.numUnison = model.getUnisonNum();
+    sound.unisonDetune = (int) model.getUnisonDetune();
+    sound.unisonStereoSpread = (int) (model.getUnisonStereoSpread() * 2147483647.0);
     try {
       sound.polyphonic =
           org.chuck.deluge.firmware.model.PolyphonyMode.valueOf(model.getPolyphony().name());
