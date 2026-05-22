@@ -64,7 +64,7 @@ public abstract class FirmwareFilter {
 
     double denom = (double) ONE_Q16 + (tannedFrequency >> 1);
     divideBy1PlusTannedFrequency = (int) (288230376151711744.0 / denom);
-    fc = multiply_32x32_rshift32_rounded(tannedFrequency, divideBy1PlusTannedFrequency) << 4;
+    fc = (int) (((long) tannedFrequency * divideBy1PlusTannedFrequency) >> 28);
   }
 
   protected void updateBlend() {
