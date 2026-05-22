@@ -304,6 +304,8 @@ public class KitSynthSerializer {
     // ── LFOs ──
     appendSynthLfo(doc, root, "lfo1", synth.getLfo(0));
     appendSynthLfo(doc, root, "lfo2", synth.getLfo(1));
+    appendSynthLfo(doc, root, "lfo3", synth.getLfo(2));
+    appendSynthLfo(doc, root, "lfo4", synth.getLfo(3));
 
     // ── synth mode ──
     String mode =
@@ -498,6 +500,11 @@ public class KitSynthSerializer {
     if (lfo.syncLevel() > 0) {
       appendTextChild(doc, lfoElem, "syncLevel", String.valueOf(lfo.syncLevel()));
     }
+    appendHexLfoFreq(doc, lfoElem, "rate", lfo.rateHz());
+    appendHexChildUnipolar(doc, lfoElem, "depth", lfo.depth());
+    if (lfo.syncType() > 0) {
+      appendTextChild(doc, lfoElem, "syncType", String.valueOf(lfo.syncType()));
+    }
     parent.appendChild(lfoElem);
   }
 
@@ -507,6 +514,11 @@ public class KitSynthSerializer {
     appendTextChild(doc, lfoElem, "type", lfoTypeName(lfo.waveform()));
     if (lfo.syncLevel() > 0) {
       appendTextChild(doc, lfoElem, "syncLevel", String.valueOf(lfo.syncLevel()));
+    }
+    appendHexLfoFreq(doc, lfoElem, "rate", lfo.rateHz());
+    appendHexChildUnipolar(doc, lfoElem, "depth", lfo.depth());
+    if (lfo.syncType() > 0) {
+      appendTextChild(doc, lfoElem, "syncType", String.valueOf(lfo.syncType()));
     }
     parent.appendChild(lfoElem);
   }
@@ -556,6 +568,14 @@ public class KitSynthSerializer {
     if (parent.getElementsByTagName(tag).getLength() > 0) return;
     Element child = doc.createElement(tag);
     child.setTextContent(DelugeHexMapper.hzToHex(hz));
+    parent.appendChild(child);
+  }
+
+  /** Append a child element with a hex LFO frequency value from a Hz float. */
+  public static void appendHexLfoFreq(Document doc, Element parent, String tag, float hz) {
+    if (parent.getElementsByTagName(tag).getLength() > 0) return;
+    Element child = doc.createElement(tag);
+    child.setTextContent(DelugeHexMapper.lfoHzToHex(hz));
     parent.appendChild(child);
   }
 

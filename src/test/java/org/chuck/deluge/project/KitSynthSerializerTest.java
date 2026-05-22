@@ -197,8 +197,8 @@ public class KitSynthSerializerTest {
       assertEnvelopeEquals(original.getEnv(i), parsed.getEnv(i));
     }
 
-    // LFOs 0-1 (from parseSynthLfo). LFO 2-3 not parsed.
-    for (int i = 0; i < 2; i++) {
+    // LFOs 0-3 (from parseSynthLfo)
+    for (int i = 0; i < 4; i++) {
       assertLfoEquals(original.getLfo(i), parsed.getLfo(i));
     }
 
@@ -523,12 +523,11 @@ public class KitSynthSerializerTest {
   private static void assertLfoEquals(LfoModel expected, LfoModel actual) {
     assertNotNull(expected);
     assertNotNull(actual);
-    // rateHz is written as lfo1Rate/lfo2Rate inside defaultParams as a normalized
-    // hex (rateHz/100) but the parser does not map it back into LfoModel.rateHz.
-    // TODO: add LFO rate/depth to the LFO element and parse back.
-    // assertEquals(expected.rateHz(), actual.rateHz(), 1.0f, "rateHz");
+    assertEquals(expected.rateHz(), actual.rateHz(), 1.0f, "rateHz");
     assertEquals(expected.waveform(), actual.waveform(), "waveform");
+    assertEquals(expected.depth(), actual.depth(), 0.01f, "depth");
     assertEquals(expected.syncLevel(), actual.syncLevel(), "syncLevel");
+    assertEquals(expected.syncType(), actual.syncType(), "syncType");
   }
 
   private static void assertPatchCableEquals(PatchCable expected, PatchCable actual) {
