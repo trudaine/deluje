@@ -39,6 +39,7 @@ public class LpLadderFilter extends FirmwareFilter {
   @Override
   public int setConfig(
       int lpfFrequency, int lpfResonance, FilterMode mode, int lpfMorph, int filterGain) {
+    lpfFrequency = Math.max(0, Math.min(67108864, lpfFrequency));
     this.lpfMode = mode;
     this.morph = lpfMorph;
 

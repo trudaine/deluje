@@ -43,12 +43,6 @@ public class BasicWaves {
       long v2_32 = v2 << 16;
       int val = (int) (v1_32 + ((v2_32 - v1_32) * frac >> 16));
 
-      if (i < 10 && offset == 0 && numSamples == 128) {
-        System.out.printf(
-            "        [WAVE DEBUG] i=%d | which=%d | v1=%d | frac=%d | val=%d\n",
-            i, whichValue, v1, frac, val);
-      }
-
       int wet = val;
       if (applyAmplitude) {
         currentAmplitude += amplitudeIncrement;
