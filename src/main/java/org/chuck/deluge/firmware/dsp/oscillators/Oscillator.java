@@ -343,7 +343,7 @@ public class Oscillator {
                 resetterDivideByPhaseIncrement,
                 retriggerPhase);
       currentAmplitude += amplitudeIncrement;
-      buffer[offset + i] +=
+      buffer[offset + i] =
           Q31.multiply_accumulate_32x32_rshift32_rounded(
               buffer[offset + i], currentPhase, currentAmplitude);
     }
