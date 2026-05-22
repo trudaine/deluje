@@ -55,6 +55,7 @@ public class FirmwareSound extends GlobalEffectable {
   public final GranularProcessor granular = new GranularProcessor();
   public final SideChain sidechain = new SideChain();
   public final Stutterer stutterer = new Stutterer();
+  private int silentBlockCount = 200; // Starts gated on boot
 
   public FirmwareSound() {
     for (int i = 0; i < globalLfos.length; i++) globalLfos[i] = new LFO();
@@ -95,6 +96,19 @@ public class FirmwareSound extends GlobalEffectable {
 
   @Override
   protected void renderInternal(StereoSample[] buffer, int numSamples, ParamManager unused) {
+    boolean hasActiveVoices;
+    synchronized (voices) {
+      hasActiveVoices = !voices.isEmpty();
+    }
+    if (!hasActiveVoices && silentBlockCount > 100) {
+      // Fast bypass: write silence and return
+      for (int i = 0; i < numSamples; i++) {
+        buffer[i].l = 0;
+        buffer[i].r = 0;
+      }
+      return;
+    }
+
     // 1. Update Global LFOs with dynamic logarithmic rates
     int lfoRate1 = paramNeutralValues[Param.GLOBAL_LFO_FREQ_1];
     int phaseInc1 = (int) (200 + Math.pow(2.0, (double) lfoRate1 / 2147483647.0 * 10.0) * 500.0);
@@ -148,6 +162,26 @@ public class FirmwareSound extends GlobalEffectable {
 
     // Filters (handled by processFilters in GlobalEffectable)
     processFilters(buffer, numSamples);
+
+    // Update gate status
+    if (hasActiveVoices) {
+      silentBlockCount = 0;
+    } else {
+      boolean isSilent = true;
+      for (int i = 0; i < numSamples; i++) {
+        if (buffer[i].l != 0 || buffer[i].r != 0) {
+          isSilent = false;
+          break;
+        }
+      }
+      if (isSilent) {
+        if (silentBlockCount <= 100) {
+          silentBlockCount++;
+        }
+      } else {
+        silentBlockCount = 0;
+      }
+    }
   }
 
   private final int[] voiceMonoBuffer = new int[128];
