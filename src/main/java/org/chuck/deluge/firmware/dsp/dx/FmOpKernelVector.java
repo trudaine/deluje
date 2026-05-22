@@ -65,7 +65,8 @@ public class FmOpKernelVector {
     int gain = gain1;
     for (int i = 0; i < length; i++) {
       gain += dgain;
-      int y = LookupTables.sinLookup(phase + input[offset + i]);
+      int modulation = (input == null) ? 0 : input[offset + i];
+      int y = LookupTables.sinLookup(phase + modulation);
       int y1 = (int) (((long) y * (long) gain) >> 24);
       if (add) {
         output[offset + i] += y1;
