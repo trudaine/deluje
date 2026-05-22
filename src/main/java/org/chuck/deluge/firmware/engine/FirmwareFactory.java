@@ -236,6 +236,10 @@ public class FirmwareFactory {
         drumSound.oscTypes[0] = OscType.SAMPLE;
         drumSound
                 .paramNeutralValues[
+                org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_A_VOLUME] =
+            org.chuck.deluge.firmware.util.Q31.ONE;
+        drumSound
+                .paramNeutralValues[
                 org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_B_VOLUME] =
             0;
         drumSound
@@ -244,8 +248,8 @@ public class FirmwareFactory {
             0;
         drumSound.osc1RetriggerPhase = sd.getOsc1RetrigPhase();
         drumSound.osc2RetriggerPhase = sd.getOsc2RetrigPhase();
-        drumSound.mod1RetrigPhase = sd.getMod1RetrigPhase();
-        drumSound.mod2RetrigPhase = sd.getMod2RetrigPhase();
+        drumSound.mod1RetriggerPhase = sd.getMod1RetrigPhase();
+        drumSound.mod2RetriggerPhase = sd.getMod2RetrigPhase();
 
         // Map per-lane step automation from the ClipModel to the drum sound's ParamManager
         if (!model.getClips().isEmpty()) {
