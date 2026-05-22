@@ -133,6 +133,10 @@ public class FirmwareFactory {
     sound.setHpfMode(model.getHpfMode());
     sound.setFilterRoute(model.getFilterRoute());
 
+    // Retrigger Phases
+    sound.osc1RetriggerPhase = model.getOsc1RetrigPhase();
+    sound.osc2RetriggerPhase = model.getOsc2RetrigPhase();
+
     // Envelopes
     for (int i = 0; i < 4; i++) {
       EnvelopeModel em = model.getEnv(i);
@@ -214,6 +218,8 @@ public class FirmwareFactory {
         FirmwareSound drumSound = kit.drumSounds.get(drumIdx);
         drumSound.isDrum = true;
         drumSound.oscTypes[0] = OscType.SAMPLE;
+        drumSound.osc1RetriggerPhase = sd.getOsc1RetrigPhase();
+        drumSound.osc2RetriggerPhase = sd.getOsc2RetrigPhase();
 
         String path = sd.getSamplePath();
         if (path != null && !path.isEmpty()) {

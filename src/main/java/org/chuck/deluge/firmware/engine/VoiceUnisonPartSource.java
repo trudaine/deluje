@@ -18,7 +18,13 @@ public class VoiceUnisonPartSource {
   public VoiceUnisonPartSource() {}
 
   public void reset() {
-    oscPos = 0;
+    reset(0);
+  }
+
+  public void reset(int initialPhase) {
+    if (initialPhase != -1) {
+      oscPos = initialPhase;
+    }
     phaseIncrementStoredValue = 0;
     carrierFeedback = 0;
     active = false;
