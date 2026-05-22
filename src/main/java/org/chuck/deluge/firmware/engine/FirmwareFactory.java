@@ -234,6 +234,9 @@ public class FirmwareFactory {
         FirmwareSound drumSound = kit.drumSounds.get(drumIdx);
         drumSound.isDrum = true;
         drumSound.oscTypes[0] = OscType.SAMPLE;
+        drumSound.oscTypes[1] = OscType.OFF;
+        drumSound.paramNeutralValues[org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_B_VOLUME] = 0;
+        drumSound.paramNeutralValues[org.chuck.deluge.firmware.modulation.params.Param.LOCAL_NOISE_VOLUME] = 0;
         drumSound.osc1RetriggerPhase = sd.getOsc1RetrigPhase();
         drumSound.osc2RetriggerPhase = sd.getOsc2RetrigPhase();
         drumSound.mod1RetrigPhase = sd.getMod1RetrigPhase();
