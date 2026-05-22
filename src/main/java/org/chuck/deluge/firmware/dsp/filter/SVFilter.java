@@ -89,6 +89,22 @@ public class SVFilter extends FirmwareFilter {
 
     input = multiply_32x32_rshift32(in, input);
 
+    if (state == l) {
+      System.out.println(
+          "[SVF_DEBUG] input="
+              + input
+              + " low="
+              + low
+              + " band="
+              + band
+              + " fc="
+              + fc
+              + " q="
+              + q
+              + " in="
+              + in);
+    }
+
     low = low + 2 * multiply_32x32_rshift32(band, fc);
     int high = input - low;
     high = high - 2 * multiply_32x32_rshift32(band, q);
