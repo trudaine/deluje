@@ -43,6 +43,8 @@ public class MidiFollow {
   /** Called to set a global float parameter value (0-1 range). */
   private java.util.function.BiConsumer<String, Float> onSetParam;
 
+  private java.util.function.Function<String, Float> onGetParam;
+
   /** Called when a CC should be forwarded to the engine (unmapped / unresolved). */
   private java.util.function.Consumer<MIDIMessage> onUnhandledCC;
 
@@ -151,6 +153,10 @@ public class MidiFollow {
     this.onSetParam = callback;
   }
 
+  public void setOnGetParam(java.util.function.Function<String, Float> callback) {
+    this.onGetParam = callback;
+  }
+
   public void setOnUnhandledCC(java.util.function.Consumer<MIDIMessage> callback) {
     this.onUnhandledCC = callback;
   }
@@ -180,10 +186,33 @@ public class MidiFollow {
       System.out.println("[MidiFollow] CC " + cc + " = " + rawValue + " ch=" + msg.channel());
     }
 
-    // 1. Apply takeover
+    // Look up target parameter name to resolve current virtual level
+    String targetParam = null;
+    if (currentDevice != null) {
+      MidiDeviceDefinition.CcMapping mapping = currentDevice.findMapping(cc);
+      if (mapping != null) {
+        targetParam = mapping.paramName();
+      }
+    }
+    if (targetParam == null) {
+      ParamMapping pm = paramRegistry.get(cc);
+      if (pm != null) {
+        targetParam = pm.globalName();
+      }
+    }
+
+    int currentVirtual = 64; // Fallback center
+    if (targetParam != null && onGetParam != null) {
+      Float currentFloat = onGetParam.apply(targetParam);
+      if (currentFloat != null) {
+        currentVirtual = (int) (currentFloat * 127.0f);
+      }
+    }
+
+    // 1. Apply takeover with current virtual value feedback
     int effectiveValue = rawValue;
     if (takeover != null) {
-      effectiveValue = takeover.process(cc, rawValue);
+      effectiveValue = takeover.process(cc, rawValue, currentVirtual);
       if (effectiveValue < 0) {
         if (logLevel >= 2) {
           System.out.println("[MidiFollow] Takeover blocked CC " + cc);

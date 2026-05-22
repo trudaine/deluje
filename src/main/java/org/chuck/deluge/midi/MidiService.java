@@ -61,6 +61,15 @@ public class MidiService {
           }
         });
 
+    // Get live param levels from the VM
+    follow.setOnGetParam(
+        paramName -> {
+          if (vm != null && paramName != null) {
+            return (float) vm.getGlobalFloat(paramName);
+          }
+          return 0.5f;
+        });
+
     // Forward unhandled CCs to the existing fallback path
     follow.setOnUnhandledCC(
         msg -> {

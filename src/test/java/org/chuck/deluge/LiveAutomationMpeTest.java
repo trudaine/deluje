@@ -189,4 +189,50 @@ public class LiveAutomationMpeTest {
     assertEquals(536870911, voice.unisonParts[0].sources[2].oscPos);
     assertEquals(1073741823, voice.unisonParts[0].sources[3].oscPos);
   }
+
+  @Test
+  void testMidiTakeoverPickupMode() {
+    org.chuck.deluge.midi.MidiTakeover takeover = new org.chuck.deluge.midi.MidiTakeover();
+    takeover.setMode(org.chuck.deluge.midi.MidiTakeover.Mode.PICKUP);
+
+    // Virtual level is 80
+    int virtual = 80;
+
+    // First hardware move at 20 (no previous history) -> registers history and returns virtual
+    int first = takeover.process(1, 20, virtual);
+    assertEquals(virtual, first);
+
+    // Hardware moves to 50 (still below 80) -> returns virtual (ignored)
+    int second = takeover.process(1, 50, virtual);
+    assertEquals(virtual, second);
+
+    // Hardware moves to 85 (crosses 80!) -> PICKED UP! Returns hardware value 85!
+    int third = takeover.process(1, 85, virtual);
+    assertEquals(85, third);
+
+    // Hardware continues to 90 -> returns 90!
+    int fourth = takeover.process(1, 90, 85);
+    assertEquals(90, fourth);
+  }
+
+  @Test
+  void testMidiTakeoverScaleMode() {
+    org.chuck.deluge.midi.MidiTakeover takeover = new org.chuck.deluge.midi.MidiTakeover();
+    takeover.setMode(org.chuck.deluge.midi.MidiTakeover.Mode.SCALE);
+
+    // Virtual level is 100
+    int virtual = 100;
+
+    // First hardware move at 20 -> registers history and returns virtual
+    int first = takeover.process(1, 20, virtual);
+    assertEquals(virtual, first);
+
+    // Hardware moves to 30 (+10 increase) -> scales value up smoothly!
+    int second = takeover.process(1, 30, virtual);
+    assertTrue(second > 100 && second < 127);
+
+    // Hardware moves to 127 (limit) -> virtual reaches 127 exactly!
+    int third = takeover.process(1, 127, second);
+    assertEquals(127, third);
+  }
 }

@@ -1,7 +1,7 @@
 package org.chuck.deluge.midi;
 
 /**
- * Port of the C++ midi_takeover.cpp (~240 lines). Handles MIDI knob takeover modes: JUMP, PICKUP,
+ * Port of the C++ midi_takeover.cpp (~200 lines). Handles MIDI knob takeover modes: JUMP, PICKUP,
  * SCALE, and VALUE_SCALE.
  *
  * <p>Takeover determines what happens when a physical controller knob is moved and the internally
@@ -27,14 +27,14 @@ public class MidiTakeover {
 
   private Mode mode = Mode.JUMP;
 
-  /** Tracked internal value per CC (0-127). */
+  /** Tracked last known physical hardware position history per CC (0-127). */
+  private final int[] previousHardwareValues = new int[128];
+
+  /** Tracked virtual value overrides. */
   private final int[] trackedValues = new int[128];
 
   public MidiTakeover() {
-    // Initialize with -1 (no tracked value yet)
-    for (int i = 0; i < 128; i++) {
-      trackedValues[i] = -1;
-    }
+    reset();
   }
 
   // ===================== Configuration =====================
@@ -50,57 +50,112 @@ public class MidiTakeover {
   // ===================== Processing =====================
 
   /**
-   * Process a CC message through the takeover algorithm. Returns the effective CC value (0-127), or
-   * -1 if the message should be ignored (PICKUP mode before hardware passes tracked value).
+   * Process a CC message through the takeover algorithm.
    *
-   * <p>TODO: Full port of midi_takeover.cpp JUMP/PICKUP/SCALE/VALUE_SCALE logic.
+   * @param cc CC number (0-127)
+   * @param hardwareValue Incoming CC value from hardware (0-127)
+   * @param currentVirtualValue Current virtual parameter level (0-127)
+   * @return The effective CC value to apply (0-127)
    */
-  public int process(int cc, int hardwareValue) {
-    if (cc < 0 || cc > 127) return -1;
+  public int process(int cc, int hardwareValue, int currentVirtualValue) {
+    if (cc < 0 || cc > 127) return currentVirtualValue;
 
     return switch (mode) {
       case JUMP -> processJump(cc, hardwareValue);
-      case PICKUP -> processPickup(cc, hardwareValue);
-      case SCALE -> processScale(cc, hardwareValue);
-      case VALUE_SCALE -> processValueScale(cc, hardwareValue);
+      case PICKUP -> processPickup(cc, hardwareValue, currentVirtualValue);
+      case SCALE, VALUE_SCALE -> processScale(cc, hardwareValue, currentVirtualValue);
     };
   }
 
   private int processJump(int cc, int hardwareValue) {
+    previousHardwareValues[cc] = hardwareValue;
     trackedValues[cc] = hardwareValue;
     return hardwareValue;
   }
 
-  private int processPickup(int cc, int hardwareValue) {
-    int tracked = trackedValues[cc];
-    if (tracked < 0) {
-      // First move: track and pass through
+  private int processPickup(int cc, int hardwareValue, int currentVirtualValue) {
+    int previous = previousHardwareValues[cc];
+    if (previous < 0) {
+      previous = hardwareValue;
+      previousHardwareValues[cc] = previous;
+    }
+
+    // Check if hardware path has crossed/picked up the current virtual value
+    if ((previous <= currentVirtualValue && hardwareValue >= currentVirtualValue)
+        || (previous >= currentVirtualValue && hardwareValue <= currentVirtualValue)) {
+      previousHardwareValues[cc] = hardwareValue;
       trackedValues[cc] = hardwareValue;
       return hardwareValue;
     }
-    // Only pass through if hardware value passes the tracked value
-    if (Math.abs(hardwareValue - tracked) > 2) {
+
+    previousHardwareValues[cc] = hardwareValue;
+    // Return the current virtual value (meaning state is ignored/unchanged)
+    return currentVirtualValue;
+  }
+
+  private int processScale(int cc, int hardwareValue, int currentVirtualValue) {
+    int previous = previousHardwareValues[cc];
+    if (previous < 0) {
+      previous = hardwareValue;
+      previousHardwareValues[cc] = previous;
+      return currentVirtualValue;
+    }
+
+    // Check pick-up first: if we cross the virtual value, switch back to absolute absolute values!
+    if ((previous <= currentVirtualValue && hardwareValue >= currentVirtualValue)
+        || (previous >= currentVirtualValue && hardwareValue <= currentVirtualValue)) {
+      previousHardwareValues[cc] = hardwareValue;
       trackedValues[cc] = hardwareValue;
       return hardwareValue;
     }
-    return -1; // Ignore
-  }
 
-  private int processScale(int cc, int hardwareValue) {
-    // TODO: Scale hardware range to internal range
-    trackedValues[cc] = hardwareValue;
-    return hardwareValue;
-  }
+    int hardwareChange = hardwareValue - previous;
+    if (hardwareChange == 0) {
+      previousHardwareValues[cc] = hardwareValue;
+      return currentVirtualValue;
+    }
 
-  private int processValueScale(int cc, int hardwareValue) {
-    // TODO: Value-scale mapping
-    trackedValues[cc] = hardwareValue;
-    return hardwareValue;
+    double newVirtual = currentVirtualValue;
+
+    // Turning right/increasing: scale relative to remaining positive runway
+    if (hardwareChange > 0) {
+      int hardwareMaxDelta = 127 - hardwareValue;
+      int virtualMaxDelta = 127 - currentVirtualValue;
+      if (hardwareMaxDelta > 0) {
+        double changePercentage = (double) hardwareChange / (hardwareMaxDelta + hardwareChange);
+        newVirtual = currentVirtualValue + (virtualMaxDelta * changePercentage);
+        if (newVirtual < currentVirtualValue) {
+          newVirtual = currentVirtualValue;
+        }
+      } else {
+        newVirtual = 127;
+      }
+    }
+    // Turning left/decreasing: scale relative to remaining negative runway
+    else {
+      int hardwareMinDelta = hardwareValue;
+      int virtualMinDelta = currentVirtualValue;
+      if (hardwareMinDelta > 0) {
+        double changePercentage = (double) hardwareChange / (hardwareMinDelta - hardwareChange);
+        newVirtual = currentVirtualValue + (virtualMinDelta * changePercentage);
+        if (newVirtual > currentVirtualValue) {
+          newVirtual = currentVirtualValue;
+        }
+      } else {
+        newVirtual = 0;
+      }
+    }
+
+    int finalValue = (int) Math.round(newVirtual);
+    finalValue = Math.clamp(finalValue, 0, 127);
+
+    previousHardwareValues[cc] = hardwareValue;
+    trackedValues[cc] = finalValue;
+    return finalValue;
   }
 
   // ===================== State Management =====================
 
-  /** Update the tracked value for a CC without processing (set after internal parameter change). */
   public void setTrackedValue(int cc, int value) {
     if (cc >= 0 && cc < 128) {
       trackedValues[cc] = value & 0x7F;
@@ -115,6 +170,7 @@ public class MidiTakeover {
   /** Reset all tracked values (e.g. when switching presets/patches). */
   public void reset() {
     for (int i = 0; i < 128; i++) {
+      previousHardwareValues[i] = -1;
       trackedValues[i] = -1;
     }
   }
