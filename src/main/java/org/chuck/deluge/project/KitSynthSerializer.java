@@ -320,7 +320,9 @@ public class KitSynthSerializer {
     // ── unison ──
     Element unison = doc.createElement("unison");
     appendTextChild(doc, unison, "num", String.valueOf(synth.getUnisonNum()));
-    appendTextChild(doc, unison, "detune", String.valueOf((int) synth.getUnisonDetune()));
+    appendTextChild(doc, unison, "detune", DelugeHexMapper.floatToHex(synth.getUnisonDetune()));
+    appendTextChild(
+        doc, unison, "spread", DelugeHexMapper.floatToHex(synth.getUnisonStereoSpread()));
     root.appendChild(unison);
 
     // ── arpeggiator ──
