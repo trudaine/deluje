@@ -23,6 +23,10 @@ public class PlaybackHandler {
     return currentSong;
   }
 
+  public boolean isPlaying() {
+    return playing;
+  }
+
   public void start() {
     playing = true;
     lastSwungTickActioned = 0;

@@ -222,12 +222,25 @@ public class MidiService {
 
   /** Called by engine for System Real-Time messages (clock, start, stop). */
   private void handleSystemRealtime(MIDIMessage msg) {
-    if (msg.isClock()) {
-      // TODO: Forward to Transport
-    } else if (msg.isMidiStart()) {
-      // TODO: Start transport
-    } else if (msg.isMidiStop()) {
-      // TODO: Stop transport
+    if (vm == null) return;
+    Object ph = vm.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
+    if (ph instanceof org.chuck.deluge.firmware.playback.PlaybackHandler playbackHandler) {
+      if (msg.isMidiStart() || msg.isMidiContinue()) {
+        playbackHandler.start();
+        if (vm.getLogLevel() >= 2) {
+          System.out.println("[MidiService] Real-Time Transport: START");
+        }
+      } else if (msg.isMidiStop()) {
+        playbackHandler.stop();
+        if (vm.getLogLevel() >= 2) {
+          System.out.println("[MidiService] Real-Time Transport: STOP");
+        }
+      } else if (msg.isClock()) {
+        // External clock tick advance: 4 Deluge ticks per 24 PPQN MIDI clock pulse!
+        // (Only active if external clock sync mode is desired - for now, always accept clock
+        // ticks!)
+        playbackHandler.advanceTicks(4);
+      }
     }
   }
 

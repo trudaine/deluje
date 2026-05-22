@@ -1340,7 +1340,7 @@ public final class BridgeContract {
 
   private double bpm = 120.0;
   private double swing = 0.5;
-  private int hiFiMode = 1; // 0 = legacy, 1 = high fidelity firmware port
+  private int hiFiMode = 0; // 0 = legacy, 1 = high fidelity firmware port
   // ── MIDI Follow Mode scalars ──
   private int followEnabled = 0;
   private int followChA = 0, followChB = 1, followChC = 2;

@@ -2389,10 +2389,13 @@ public class SwingDelugeApp extends JFrame {
     org.chuck.deluge.BridgeContract bridge = new org.chuck.deluge.BridgeContract();
 
     boolean pureModeLocal = false;
+    // Default to High Fidelity Mode enabled by default for premium Swing user experience!
+    bridge.setHiFiMode(1);
+    System.out.println("[main] High Fidelity Mode ENABLED by default");
+
     for (String arg : args) {
       if ("--hifi".equalsIgnoreCase(arg)) {
-        bridge.setHiFiMode(1);
-        System.out.println("[main] High Fidelity Mode ENABLED");
+        // Already active
       }
       if ("--pure".equalsIgnoreCase(arg)) {
         pureModeLocal = true;
