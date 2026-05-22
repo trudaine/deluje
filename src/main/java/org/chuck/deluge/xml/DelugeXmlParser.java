@@ -1112,6 +1112,8 @@ public class DelugeXmlParser {
     // ── LFOs ──
     parseSynthLfo(soundNode, "lfo1", synth, true);
     parseSynthLfo(soundNode, "lfo2", synth, false);
+    parseSynthLfo(soundNode, "lfo3", synth, false);
+    parseSynthLfo(soundNode, "lfo4", synth, false);
 
     // ── Arpeggiator ──
     parseSynthArp(soundNode, synth);
@@ -1519,10 +1521,10 @@ public class DelugeXmlParser {
     // rate: hex Hz attribute or child text
     String rateStr = lfoEl.getAttribute("rate");
     if (rateStr != null && !rateStr.isBlank()) {
-      rateHz = DelugeHexMapper.hexToHz(rateStr);
+      rateHz = DelugeHexMapper.hexToLfoHz(rateStr);
     } else {
       String rateChild = getChildText(lfoEl, "rate");
-      if (rateChild != null) rateHz = DelugeHexMapper.hexToHz(rateChild);
+      if (rateChild != null) rateHz = DelugeHexMapper.hexToLfoHz(rateChild);
     }
 
     // depth: hex float attribute or child text
@@ -2012,14 +2014,17 @@ public class DelugeXmlParser {
 
     String rateStr = readAttr(lfoEl, "rate");
     if (rateStr != null) {
-      rateHz = DelugeHexMapper.hexToHz(rateStr);
+      rateHz = DelugeHexMapper.hexToLfoHz(rateStr);
     } else {
       String rateChild = getChildText(lfoEl, "rate");
-      if (rateChild != null) rateHz = DelugeHexMapper.hexToHz(rateChild);
+      if (rateChild != null) rateHz = DelugeHexMapper.hexToLfoHz(rateChild);
     }
 
     String depthStr = readAttr(lfoEl, "depth");
-    if (depthStr != null) {
+    if (depthStr == null || depthStr.isBlank()) {
+      depthStr = getChildText(lfoEl, "depth");
+    }
+    if (depthStr != null && !depthStr.isBlank()) {
       depth = toUnipolar(DelugeHexMapper.hexToFloat(depthStr));
     }
 
@@ -2042,8 +2047,11 @@ public class DelugeXmlParser {
       }
     }
 
-    // syncType: attribute on lfo element
+    // syncType: attribute first, child-element fallback
     String syncTypeStr = readAttr(lfoEl, "syncType");
+    if (syncTypeStr == null || syncTypeStr.isBlank()) {
+      syncTypeStr = getChildText(lfoEl, "syncType");
+    }
     int syncType = 0;
     if (syncTypeStr != null && !syncTypeStr.isEmpty()) {
       try {

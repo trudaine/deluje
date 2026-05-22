@@ -42,6 +42,20 @@ public class DelugeHexMapper {
     return floatToHex(norm);
   }
 
+  /** LFO frequency exponential mapping: [-1.0, 1.0] maps to [0.01, 100.0] Hz. */
+  public static float hexToLfoHz(String hex) {
+    float norm = hexToFloat(hex);
+    double exponent = (norm + 1.0f) / 2.0f;
+    return (float) (0.01 * Math.pow(10000.0, exponent));
+  }
+
+  public static String lfoHzToHex(float hz) {
+    hz = Math.max(0.01f, Math.min(100.0f, hz));
+    double exponent = Math.log(hz / 0.01) / Math.log(10000.0);
+    float norm = (float) (exponent * 2.0 - 1.0);
+    return floatToHex(norm);
+  }
+
   // ── Envelope time mapping ──
 
   /**
