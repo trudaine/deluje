@@ -2475,6 +2475,35 @@ public class DelugeXmlParser {
       if (trebleVal != null && !trebleVal.isBlank())
         clip.setRowSoundParam(row, "eqTreble", Math.abs(DelugeHexMapper.hexToFloat(trebleVal)));
     }
+    parseNoteRowAutomation(sp, clip, row);
+  }
+
+  private static void parseNoteRowAutomation(Element soundParamsEl, ClipModel clip, int rowIndex) {
+    NodeList autoNodes = soundParamsEl.getElementsByTagName("automation");
+    if (autoNodes.getLength() == 0) return;
+    Element autoEl = (Element) autoNodes.item(0);
+
+    NodeList children = autoEl.getChildNodes();
+    for (int i = 0; i < children.getLength(); i++) {
+      if (children.item(i).getNodeType() != org.w3c.dom.Node.ELEMENT_NODE) continue;
+      Element paramEl = (Element) children.item(i);
+      String paramName = paramEl.getNodeName();
+
+      NodeList nodes = paramEl.getElementsByTagName("autoNode");
+      for (int j = 0; j < nodes.getLength(); j++) {
+        Element nodeEl = (Element) nodes.item(j);
+        String posStr = nodeEl.getAttribute("pos");
+        String valStr = nodeEl.getAttribute("val");
+        if (!posStr.isEmpty() && !valStr.isEmpty()) {
+          try {
+            int pos = Integer.parseInt(posStr);
+            float val = Float.parseFloat(valStr);
+            clip.setRowAutomation(rowIndex, paramName, pos, Math.max(0.0f, Math.min(1.0f, val)));
+          } catch (NumberFormatException ignored) {
+          }
+        }
+      }
+    }
   }
 
   // ────────────────────────────────────────────────────────────────

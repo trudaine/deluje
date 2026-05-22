@@ -40,6 +40,10 @@ public class MidiService {
     engine.setMidiFollow(createMidiFollow());
   }
 
+  public MidiInputRouter getRouter() {
+    return router;
+  }
+
   /** Create and configure the MidiFollow instance for this service. */
   private MidiFollow createMidiFollow() {
     MidiFollow follow = new MidiFollow();

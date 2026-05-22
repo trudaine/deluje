@@ -15,7 +15,6 @@ import org.chuck.deluge.firmware.model.note.PendingNoteOn;
 public class InstrumentClip extends Clip {
   public GlobalEffectable sound; // Can be a FirmwareSound (Synth) or FirmwareKit
   public List<NoteRow> noteRows = new ArrayList<>();
-  public int lastProcessedPos = 0;
   public int ticksTilNextEvent = Integer.MAX_VALUE;
 
   public InstrumentClip() {
@@ -57,6 +56,17 @@ public class InstrumentClip extends Clip {
   @Override
   public void processCurrentPos(int ticksSinceLast) {
     super.processCurrentPos(ticksSinceLast);
+
+    // Real-time parameters automation for individual kit sub-drum sounds
+    if (sound instanceof FirmwareKit kit) {
+      boolean mayInterpolate = true;
+      for (FirmwareSound drumSound : kit.drumSounds) {
+        if (drumSound.paramManager.mightContainAutomation()) {
+          drumSound.paramManager.processCurrentPos(
+              lastProcessedPos, loopLength, currentlyPlayingReversed, false, mayInterpolate);
+        }
+      }
+    }
 
     List<PendingNoteOn> pendingNoteOns = new ArrayList<>();
     ticksTilNextEvent = Integer.MAX_VALUE;

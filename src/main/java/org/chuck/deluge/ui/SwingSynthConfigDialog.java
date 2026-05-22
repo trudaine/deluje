@@ -18,6 +18,7 @@ public class SwingSynthConfigDialog extends JDialog {
   private final JTabbedPane tabs = new JTabbedPane();
   private final ProjectModel projectModel;
   private final int trackIndex;
+  private MidiLearnPanel midiLearnPanel;
 
   public SwingSynthConfigDialog(
       Frame owner,
@@ -60,6 +61,9 @@ public class SwingSynthConfigDialog extends JDialog {
     tabs.addTab("HPF", new HpfPanel(model, bridge, trackIndex, projectModel));
     tabs.addTab("AUTOMATION", new AutomationPanel(model, bridge, trackIndex));
 
+    midiLearnPanel = new MidiLearnPanel();
+    tabs.addTab("MIDI LEARN", midiLearnPanel);
+
     // Enable/disable DX7 tab when synth mode changes
     add(tabs, BorderLayout.CENTER);
 
@@ -69,6 +73,14 @@ public class SwingSynthConfigDialog extends JDialog {
     south.setBackground(new Color(0x25, 0x25, 0x25));
     south.add(closeBtn);
     add(south, BorderLayout.SOUTH);
+  }
+
+  @Override
+  public void dispose() {
+    if (midiLearnPanel != null) {
+      midiLearnPanel.stopTimer();
+    }
+    super.dispose();
   }
 
   private JPanel buildMainPanel(

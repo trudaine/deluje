@@ -26,6 +26,7 @@ import org.chuck.deluge.model.SynthTrackModel;
 
 /** Alternative lightweight UI running purely on Java Swing (no native libs). */
 public class SwingDelugeApp extends JFrame {
+  public static SwingDelugeApp mainInstance;
   private final ChuckVM vm;
   private final BridgeContract bridge;
 
@@ -389,6 +390,10 @@ public class SwingDelugeApp extends JFrame {
             clip.getAutomation(org.chuck.deluge.model.AutomationParam.A_SAMPLE_RATE_RED, s),
             clipIdx);
     }
+  }
+
+  public org.chuck.deluge.midi.MidiService getMidiService() {
+    return midiService;
   }
 
   public void pushModelToBridge() {
@@ -1174,6 +1179,7 @@ public class SwingDelugeApp extends JFrame {
     this.vm = vm;
     this.bridge = bridge;
     this.midiService = midiService;
+    mainInstance = this;
 
     if (pureMode) {
       System.out.println("[UI] Initializing Pure Java High-Fidelity Engine...");
