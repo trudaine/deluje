@@ -166,18 +166,6 @@ public class AutodispWorkstationDiagnostic {
 
     sound.triggerNote(60, 127);
 
-    if (!sound.voices.isEmpty()) {
-      FirmwareVoice voice = sound.voices.iterator().next();
-      System.out.println(
-          "  [DIAG] Voice Env0 Attack: " + voice.paramFinalValues[Param.LOCAL_ENV_0_ATTACK]);
-      System.out.println(
-          "  [DIAG] Voice Env0 Decay: " + voice.paramFinalValues[Param.LOCAL_ENV_0_DECAY]);
-      System.out.println(
-          "  [DIAG] Voice Env0 Sustain: " + voice.paramFinalValues[Param.LOCAL_ENV_0_SUSTAIN]);
-      System.out.println(
-          "  [DIAG] Voice Env0 Release: " + voice.paramFinalValues[Param.LOCAL_ENV_0_RELEASE]);
-    }
-
     // Capture dynamic envelope steps at block transitions
     int numBlocks = 20;
     double[] blockPeaks = new double[numBlocks];
@@ -190,6 +178,22 @@ public class AutodispWorkstationDiagnostic {
         buffer[i].r = 0;
       }
       sound.renderOutput(buffer, 128, null);
+
+      if (b == 0 && !sound.voices.isEmpty()) {
+        FirmwareVoice voice = sound.voices.iterator().next();
+        System.out.println(
+            "  [DIAG] Sound Neutral Attack: " + sound.paramNeutralValues[Param.LOCAL_ENV_0_ATTACK]);
+        System.out.println(
+            "  [DIAG] Voice Env0 Attack (Active): "
+                + voice.paramFinalValues[Param.LOCAL_ENV_0_ATTACK]);
+        System.out.println(
+            "  [DIAG] Voice Env0 Decay (Active): "
+                + voice.paramFinalValues[Param.LOCAL_ENV_0_DECAY]);
+        System.out.println(
+            "  [DIAG] Voice Env0 Sustain (Active): "
+                + voice.paramFinalValues[Param.LOCAL_ENV_0_SUSTAIN]);
+      }
+
       double peak = 0.0;
       for (int i = 0; i < 128; i++) {
         double val = Math.abs(buffer[i].l / 2147483648.0);
