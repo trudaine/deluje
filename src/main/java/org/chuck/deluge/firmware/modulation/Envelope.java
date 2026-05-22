@@ -29,6 +29,19 @@ public class Envelope {
 
   public int render(
       int numSamples, int attack, int decay, int sustain, int release, short[] releaseTable) {
+    if (state != EnvelopeStage.OFF) {
+      System.out.println(
+          "[ENV_DEBUG] state="
+              + state
+              + " attack="
+              + attack
+              + " decay="
+              + decay
+              + " sustain="
+              + sustain
+              + " pos="
+              + pos);
+    }
     while (true) {
       switch (state) {
         case ATTACK:
