@@ -29,10 +29,19 @@ public class KitSynthSerializer {
 
   public static void saveKit(KitTrackModel kit, File file) throws Exception {
     Document doc = newDoc();
-    Element root = doc.createElement("kit");
+    Element root = serializeKit(doc, kit, false);
     doc.appendChild(root);
+    write(doc, file);
+  }
 
+  /** Serializes a KitTrackModel into an XML <kit> element under the given DOM Document. */
+  public static Element serializeKit(Document doc, KitTrackModel kit, boolean isSongSlot)
+      throws Exception {
+    Element root = doc.createElement("kit");
     root.setAttribute("name", kit.getName());
+    if (isSongSlot) {
+      appendTextChild(doc, root, "presetSlot", kit.getName());
+    }
 
     for (Drum drum : kit.getDrums()) {
       SoundDrum sound = (SoundDrum) drum;
@@ -43,41 +52,48 @@ public class KitSynthSerializer {
       nameElem.setTextContent(sound.getName());
       soundElem.appendChild(nameElem);
 
-      // ── osc1 (sample reference) ──
-      Element osc1 = doc.createElement("osc1");
-      osc1.setAttribute("type", "sample");
-      appendTextChild(doc, osc1, "transpose", "0");
-      appendTextChild(doc, osc1, "cents", "0");
-      appendTextChild(doc, osc1, "loopMode", "1");
-      appendTextChild(doc, osc1, "reversed", sound.isReverse() ? "1" : "0");
-      appendTextChild(doc, osc1, "timeStretchEnable", "0");
-      appendTextChild(doc, osc1, "timeStretchAmount", "0");
-      String samplePath = sound.getSamplePath() != null ? sound.getSamplePath() : "";
-      appendTextChild(doc, osc1, "fileName", samplePath);
-      Element zone = doc.createElement("zone");
-      appendTextChild(doc, zone, "startMilliseconds", String.valueOf((int) sound.getStartMs()));
-      appendTextChild(
-          doc, zone, "endMilliseconds", String.valueOf((int) Math.max(sound.getEndMs(), 1)));
-      osc1.appendChild(zone);
-      appendTextChild(doc, osc1, "retrigPhase", String.valueOf(sound.getOsc1RetrigPhase()));
-      soundElem.appendChild(osc1);
+      if (isSongSlot) {
+        // ── sample (song slot sample reference) ──
+        Element sample = doc.createElement("sample");
+        sample.setAttribute("fileName", sound.getSamplePath() != null ? sound.getSamplePath() : "");
+        soundElem.appendChild(sample);
+      } else {
+        // ── osc1 (sample reference) ──
+        Element osc1 = doc.createElement("osc1");
+        osc1.setAttribute("type", "sample");
+        appendTextChild(doc, osc1, "transpose", "0");
+        appendTextChild(doc, osc1, "cents", "0");
+        appendTextChild(doc, osc1, "loopMode", "1");
+        appendTextChild(doc, osc1, "reversed", sound.isReverse() ? "1" : "0");
+        appendTextChild(doc, osc1, "timeStretchEnable", "0");
+        appendTextChild(doc, osc1, "timeStretchAmount", "0");
+        String samplePath = sound.getSamplePath() != null ? sound.getSamplePath() : "";
+        appendTextChild(doc, osc1, "fileName", samplePath);
+        Element zone = doc.createElement("zone");
+        appendTextChild(doc, zone, "startMilliseconds", String.valueOf((int) sound.getStartMs()));
+        appendTextChild(
+            doc, zone, "endMilliseconds", String.valueOf((int) Math.max(sound.getEndMs(), 1)));
+        osc1.appendChild(zone);
+        appendTextChild(doc, osc1, "retrigPhase", String.valueOf(sound.getOsc1RetrigPhase()));
+        soundElem.appendChild(osc1);
 
-      // ── osc2 (always present, often empty) ──
-      Element osc2 = doc.createElement("osc2");
-      osc2.setAttribute("type", sound.getOsc2Type().toLowerCase());
-      appendTextChild(doc, osc2, "transpose", "0");
-      appendTextChild(doc, osc2, "cents", "0");
-      appendTextChild(doc, osc2, "loopMode", "1");
-      appendTextChild(doc, osc2, "reversed", "0");
-      appendTextChild(doc, osc2, "timeStretchEnable", "0");
-      appendTextChild(doc, osc2, "timeStretchAmount", "0");
-      appendTextChild(doc, osc2, "fileName", "");
-      appendTextChild(doc, osc2, "retrigPhase", String.valueOf(sound.getOsc2RetrigPhase()));
-      Element zone2 = doc.createElement("zone");
-      appendTextChild(doc, zone2, "startMilliseconds", "0");
-      appendTextChild(doc, zone2, "endMilliseconds", "9999999");
-      osc2.appendChild(zone2);
-      soundElem.appendChild(osc2);
+        // ── osc2 (always present, often empty) ──
+        Element osc2 = doc.createElement("osc2");
+        osc2.setAttribute("type", sound.getOsc2Type().toLowerCase());
+        appendTextChild(doc, osc2, "transpose", "0");
+        appendTextChild(doc, osc2, "cents", "0");
+        appendTextChild(doc, osc2, "loopMode", "1");
+        appendTextChild(doc, osc2, "reversed", "0");
+        appendTextChild(doc, osc2, "timeStretchEnable", "0");
+        appendTextChild(doc, osc2, "timeStretchAmount", "0");
+        appendTextChild(doc, osc2, "fileName", "");
+        appendTextChild(doc, osc2, "retrigPhase", String.valueOf(sound.getOsc2RetrigPhase()));
+        Element zone2 = doc.createElement("zone");
+        appendTextChild(doc, zone2, "startMilliseconds", "0");
+        appendTextChild(doc, zone2, "endMilliseconds", "9999999");
+        osc2.appendChild(zone2);
+        soundElem.appendChild(osc2);
+      }
 
       // ── polyphonic ──
       appendTextChild(doc, soundElem, "polyphonic", sound.isPolyphonic() ? "1" : "0");
@@ -259,13 +275,23 @@ public class KitSynthSerializer {
       root.appendChild(soundElem);
     }
 
-    write(doc, file);
+    return root;
   }
 
   public static void saveSynth(SynthTrackModel synth, File file) throws Exception {
     Document doc = newDoc();
-    Element root = doc.createElement("sound");
+    Element root = serializeSynth(doc, synth, false);
     doc.appendChild(root);
+    write(doc, file);
+  }
+
+  /** Serializes a SynthTrackModel into an XML <sound> element under the given DOM Document. */
+  public static Element serializeSynth(Document doc, SynthTrackModel synth, boolean isSongSlot)
+      throws Exception {
+    Element root = doc.createElement("sound");
+    if (isSongSlot) {
+      appendTextChild(doc, root, "presetSlot", synth.getName());
+    }
 
     // ── osc1 ──
     Element osc1 = doc.createElement("osc1");
@@ -488,7 +514,7 @@ public class KitSynthSerializer {
       root.appendChild(mkContainer);
     }
 
-    write(doc, file);
+    return root;
   }
 
   // ── Helper serializers ──

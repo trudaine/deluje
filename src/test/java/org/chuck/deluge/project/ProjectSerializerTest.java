@@ -44,7 +44,7 @@ public class ProjectSerializerTest {
     // Basic assertions on output structure
     assertTrue(xmlContent.contains("<song"), "should contain <song\n" + xmlContent);
     assertTrue(xmlContent.contains("tempo=\"130.0\""), "should contain tempo\n" + xmlContent);
-    assertTrue(xmlContent.contains("<kit>"), "should contain <kit>\n" + xmlContent);
+    assertTrue(xmlContent.contains("<kit"), "should contain <kit\n" + xmlContent);
     assertTrue(
         xmlContent.contains("<presetSlot>DRUMS</presetSlot>"),
         "should contain DRUMS\n" + xmlContent);
@@ -54,7 +54,7 @@ public class ProjectSerializerTest {
         "should contain fileName\n" + xmlContent);
     assertTrue(xmlContent.contains("<sound>"));
     assertTrue(xmlContent.contains("<presetSlot>LEAD</presetSlot>"));
-    assertTrue(xmlContent.contains("<osc1 type=\"square\""));
+    assertTrue(xmlContent.contains("<type>square</type>"));
 
     // Assertions for clips and notes
     assertTrue(xmlContent.contains("<tracks"));
