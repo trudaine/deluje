@@ -228,6 +228,12 @@ public class FirmwareVoice {
       portaEnvelopePos += 1000 * numSamples;
     }
 
+    // Dynamically calculate phaseIncrementB to support precise Oscillator 2 transposition & cents
+    // detuning!
+    int osc2PitchOffset = paramFinalValues[Param.LOCAL_OSC_B_PITCH_ADJUST];
+    double osc2PitchFactor = Math.pow(2.0, (double) osc2PitchOffset / (12.0 * 17895697.0));
+    phaseIncrementB = (int) (phaseIncrementA * osc2PitchFactor);
+
     // 3. Render Unison Parts
     int[] voiceBuffer = new int[numSamples];
     for (int u = 0; u < sound.numUnison; u++) {
