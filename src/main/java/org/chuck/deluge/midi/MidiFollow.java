@@ -165,6 +165,26 @@ public class MidiFollow {
     this.onNoteToParam = callback;
   }
 
+  public interface TriConsumer<A, B, C> {
+    void accept(A a, B b, C c);
+  }
+
+  private java.util.function.BiConsumer<Integer, Integer> onPitchBend;
+  private java.util.function.BiConsumer<Integer, Integer> onAftertouch;
+  private TriConsumer<Integer, Integer, Integer> onPolyAftertouch;
+
+  public void setOnPitchBend(java.util.function.BiConsumer<Integer, Integer> callback) {
+    this.onPitchBend = callback;
+  }
+
+  public void setOnAftertouch(java.util.function.BiConsumer<Integer, Integer> callback) {
+    this.onAftertouch = callback;
+  }
+
+  public void setOnPolyAftertouch(TriConsumer<Integer, Integer, Integer> callback) {
+    this.onPolyAftertouch = callback;
+  }
+
   // ===================== CC Handling =====================
 
   /**
@@ -279,34 +299,35 @@ public class MidiFollow {
     // Phase A: no-op; notes are routed by MidiInputRouter
   }
 
-  // ===================== Pitch Bend =====================
-
   /**
    * Handle an incoming Pitch Bend for MIDI Follow param mapping.
-   *
-   * <p>TODO: Pitch bend → parameter routing (Phase B).
    */
   public void handlePitchBend(MIDIMessage msg) {
-    // Reserved for Phase B
+    int lsb = msg.data1();
+    int msb = msg.data2();
+    int bend = (msb << 7) | lsb;
+    if (onPitchBend != null) {
+      onPitchBend.accept(msg.channel(), bend);
+    }
   }
 
   // ===================== Aftertouch =====================
 
   /**
    * Handle incoming Channel Aftertouch for MIDI Follow param mapping.
-   *
-   * <p>TODO: Aftertouch → parameter routing (Phase B).
    */
   public void handleChannelAftertouch(MIDIMessage msg) {
-    // Reserved for Phase B
+    if (onAftertouch != null) {
+      onAftertouch.accept(msg.channel(), msg.data1());
+    }
   }
 
   /**
    * Handle incoming Polyphonic Aftertouch for MIDI Follow param mapping.
-   *
-   * <p>TODO: Poly aftertouch → parameter routing (Phase B).
    */
   public void handlePolyAftertouch(MIDIMessage msg) {
-    // Reserved for Phase B
+    if (onPolyAftertouch != null) {
+      onPolyAftertouch.accept(msg.channel(), msg.data1(), msg.data2());
+    }
   }
 }
