@@ -34,12 +34,18 @@ public class JavaAudioDriver implements Runnable {
   @Override
   public void run() {
     try {
+      Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
       System.out.println("[JavaAudioDriver] Searching for audio line...");
       AudioFormat format = new AudioFormat(44100, 16, 2, true, false);
       DataLine.Info info = new DataLine.Info(SourceDataLine.class, format);
       line = (SourceDataLine) AudioSystem.getLine(info);
       line.open(format, 65536);
       line.start();
+
+      // Prime the line buffer with a 4-block silence cushion to protect against initial JIT
+      // compilation latency spikes!
+      byte[] priming = new byte[BLOCK_SIZE * 4 * 4];
+      line.write(priming, 0, priming.length);
 
       System.out.println("[JavaAudioDriver] Opened SUCCESS: " + line.getLineInfo());
 
