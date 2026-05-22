@@ -282,8 +282,8 @@ public class FirmwareVoice {
         fmParams[i].phase = (int) part.sources[srcIdx].oscPos;
       }
       new FmCore().render(buffer, numSamples, fmParams, 0, fmFeedbackBuffer, 0);
-      part.sources[0].oscPos = fmParams[0].phase;
-      part.sources[2].oscPos = fmParams[1].phase;
+      part.sources[0].oscPos = fmParams[5].phase;
+      part.sources[2].oscPos = fmParams[4].phase;
       part.sources[3].oscPos = fmParams[2].phase;
       return;
     }

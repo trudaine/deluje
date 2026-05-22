@@ -95,23 +95,28 @@ public class FmCore {
 
         if (inptr == null || !has_contents[inbus]) {
           if ((flags & 0xc0) == 0xc0 && feedback_shift < 16) {
-            FmOpKernelVector.compute_fb(
-                outptr,
-                n,
-                inptr,
-                param.phase,
-                param.freq,
-                gain1,
-                gain2,
-                dgain,
-                fb_buf,
-                feedback_shift,
-                add);
+            param.phase =
+                FmOpKernelVector.compute_fb(
+                    outptr,
+                    n,
+                    inptr,
+                    param.phase,
+                    param.freq,
+                    gain1,
+                    gain2,
+                    dgain,
+                    fb_buf,
+                    feedback_shift,
+                    add);
           } else {
-            FmOpKernelVector.compute(outptr, n, null, param.phase, param.freq, gain1, dgain, add);
+            param.phase =
+                FmOpKernelVector.compute(
+                    outptr, n, null, param.phase, param.freq, gain1, dgain, add);
           }
         } else {
-          FmOpKernelVector.compute(outptr, n, inptr, param.phase, param.freq, gain1, dgain, add);
+          param.phase =
+              FmOpKernelVector.compute(
+                  outptr, n, inptr, param.phase, param.freq, gain1, dgain, add);
         }
         has_contents[outbus] = true;
       } else if (!add) {

@@ -90,7 +90,7 @@ public class FirmwareSound extends GlobalEffectable {
 
   public static int noteToPhaseInc(int note) {
     double freq = 440.0 * Math.pow(2.0, (note - 69) / 12.0);
-    return (int) (freq * (4294967296.0 / 44100.0));
+    return (int) (freq * (16777216.0 / 44100.0));
   }
 
   @Override
