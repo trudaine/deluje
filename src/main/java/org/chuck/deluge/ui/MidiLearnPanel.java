@@ -23,9 +23,41 @@ public class MidiLearnPanel extends JPanel {
   private JToggleButton activeLearningButton = null;
 
   public MidiLearnPanel() {
-    setLayout(new BorderLayout());
+    setLayout(new BorderLayout(0, 10));
     setBackground(new Color(0x1a, 0x1a, 0x1a));
     setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+
+    // Build Help Header Panel
+    JPanel headerPanel = new JPanel(new BorderLayout(15, 0));
+    headerPanel.setBackground(new Color(0x2d, 0x2d, 0x2d));
+    headerPanel.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
+
+    JLabel helpLabel =
+        new JLabel(
+            "<html>💡 <b>MIDI LEARN MATRIX:</b> Click <b>'LEARN'</b> and wiggle a hardware knob to bind it. MPE slides (Y/Z) are routed automatically!</html>");
+    helpLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
+    helpLabel.setForeground(new Color(0xff, 0xcc, 0x00)); // Yellow text tip
+    headerPanel.add(helpLabel, BorderLayout.CENTER);
+
+    JButton resetBtn = new JButton("RESET ALL TO DELUGE DEFAULT CCs");
+    resetBtn.setBackground(new Color(0x3e, 0x5e, 0x3e));
+    resetBtn.setForeground(Color.WHITE);
+    resetBtn.setFocusable(false);
+    resetBtn.addActionListener(
+        e -> {
+          MidiInputRouter router = getRouter();
+          if (router != null) {
+            router.resetToDefaults();
+            refreshMappings();
+            JOptionPane.showMessageDialog(
+                this,
+                "Standard Deluge factory MIDI CC mappings restored!",
+                "MIDI Learn Success",
+                JOptionPane.INFORMATION_MESSAGE);
+          }
+        });
+    headerPanel.add(resetBtn, BorderLayout.EAST);
+    add(headerPanel, BorderLayout.NORTH);
 
     // Initialize the primary automatable parameters set
     targets.add(new ParameterTarget("g_sp_volume", "Volume"));

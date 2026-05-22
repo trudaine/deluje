@@ -79,6 +79,23 @@ public class MidiInputRouter {
     ccMappings.values().removeIf(val -> val.equals(target));
   }
 
+  public void resetToDefaults() {
+    ccMappings.clear();
+    ccMappings.put(7, "g_sp_volume");
+    ccMappings.put(10, "g_sp_pan");
+    ccMappings.put(71, "g_sp_lpf_freq");
+    ccMappings.put(72, "g_sp_lpf_res");
+    ccMappings.put(74, "g_sp_lpf_morph");
+    ccMappings.put(75, "g_sp_hpf_freq");
+    ccMappings.put(76, "g_sp_hpf_res");
+    ccMappings.put(77, "g_sp_hpf_morph");
+    ccMappings.put(94, "g_sp_delay_rate");
+    ccMappings.put(95, "g_sp_delay_feedback");
+    ccMappings.put(91, "g_sp_reverb_amount");
+    ccMappings.put(80, "g_sp_eq_bass");
+    ccMappings.put(81, "g_sp_eq_treble");
+  }
+
   /** Set the device definition for CC-to-param routing. */
   public void setDeviceDefinition(MidiDeviceDefinition def) {
     this.currentDevice = def;
