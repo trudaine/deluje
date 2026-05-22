@@ -71,7 +71,13 @@ public class JavaAudioDriver implements Runnable {
           }
         }
 
+        long start = System.nanoTime();
         engine.renderBlock(BLOCK_SIZE);
+        long duration = System.nanoTime() - start;
+        if (duration > 2900000) {
+          System.out.println(
+              "[WARN] Audio block render took too long: " + (duration / 1000000.0) + " ms");
+        }
 
         for (int i = 0; i < BLOCK_SIZE; i++) {
           StereoSample s = engine.masterBuffer[i];
