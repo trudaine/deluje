@@ -165,10 +165,8 @@ public class KitSynthSerializerTest {
     // Noise volume (from DEFAULT_PARAMS_BINDINGS: noiseVolume)
     assertEquals(original.getNoiseVol(), parsed.getNoiseVol(), 0.01f);
 
-    // Unison — populateSynth does NOT parse <unison> elements
-    // TODO: add unison parsing to populateSynth()
-    // assertEquals(original.getUnisonNum(), parsed.getUnisonNum());
-    // assertEquals(original.getUnisonDetune(), parsed.getUnisonDetune(), 0.01f);
+    assertEquals(original.getUnisonNum(), parsed.getUnisonNum());
+    assertEquals(original.getUnisonDetune(), parsed.getUnisonDetune(), 0.01f);
 
     // Polyphony (from parsePolyphony: <polyphonic> child element)
     assertEquals(original.getPolyphony(), parsed.getPolyphony());
