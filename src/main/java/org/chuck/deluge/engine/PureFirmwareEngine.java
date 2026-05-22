@@ -99,6 +99,16 @@ public class PureFirmwareEngine {
         fs.paramNeutralValues[Param.LOCAL_VOLUME] = (int) (spVol * 2147483647.0);
         fs.paramNeutralValues[Param.LOCAL_LPF_FREQ] =
             (int) (vm.getGlobalFloat(BridgeContract.G_SP_LPF_FREQ) * 2147483647.0);
+        fs.paramNeutralValues[Param.LOCAL_LPF_RESONANCE] =
+            (int) (vm.getGlobalFloat(BridgeContract.G_SP_LPF_RES) * 2147483647.0);
+        fs.paramNeutralValues[Param.LOCAL_LPF_MORPH] =
+            (int) (vm.getGlobalFloat(BridgeContract.G_SP_LPF_MORPH) * 2147483647.0);
+        fs.paramNeutralValues[Param.LOCAL_HPF_FREQ] =
+            (int) (vm.getGlobalFloat(BridgeContract.G_SP_HPF_FREQ) * 2147483647.0);
+        fs.paramNeutralValues[Param.LOCAL_HPF_RESONANCE] =
+            (int) (vm.getGlobalFloat(BridgeContract.G_SP_HPF_RES) * 2147483647.0);
+        fs.paramNeutralValues[Param.LOCAL_HPF_MORPH] =
+            (int) (vm.getGlobalFloat(BridgeContract.G_SP_HPF_MORPH) * 2147483647.0);
       }
     }
   }
