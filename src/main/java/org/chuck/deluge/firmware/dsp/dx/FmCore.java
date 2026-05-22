@@ -119,10 +119,12 @@ public class FmCore {
                   outptr, n, inptr, param.phase, param.freq, gain1, dgain, add);
         }
         has_contents[outbus] = true;
-      } else if (!add) {
-        has_contents[outbus] = false;
+      } else {
+        if (!add) {
+          has_contents[outbus] = false;
+        }
+        param.phase += param.freq * n;
       }
-      param.phase += param.freq * n;
     }
   }
 }
