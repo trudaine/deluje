@@ -98,11 +98,24 @@ public class FirmwareFactory {
       for (int r = 0; r < clipModel.getRowCount(); r++) {
         int pitch = clipModel.getStep(r, 0).pitch();
         NoteRow row = new NoteRow(pitch);
-        for (int s = 0; s < clipModel.getStepCount(); s++) {
-          StepData step = clipModel.getStep(r, s);
-          if (step.active()) {
+        java.util.List<org.chuck.deluge.model.HighResNote> rawNotes = clipModel.getRawNoteEvents(r);
+        if (rawNotes != null && !rawNotes.isEmpty()) {
+          for (org.chuck.deluge.model.HighResNote note : rawNotes) {
             row.attemptNoteAdd(
-                s * 24, (int) (step.gate() * 24), (int) step.velocity(), 100, null, 0);
+                note.getTickPos(),
+                note.getTickLen(),
+                (int) (note.getVelocity() * 127),
+                (int) (note.getProbability() * 100),
+                null,
+                0);
+          }
+        } else {
+          for (int s = 0; s < clipModel.getStepCount(); s++) {
+            StepData step = clipModel.getStep(r, s);
+            if (step.active()) {
+              row.attemptNoteAdd(
+                  s * 24, (int) (step.gate() * 24), (int) step.velocity(), 100, null, 0);
+            }
           }
         }
         clip.noteRows.add(row);
@@ -362,11 +375,24 @@ public class FirmwareFactory {
       for (int r = 0; r < clipModel.getRowCount(); r++) {
         int pitch = clipModel.getStep(r, 0).pitch();
         NoteRow row = new NoteRow(pitch);
-        for (int s = 0; s < clipModel.getStepCount(); s++) {
-          StepData step = clipModel.getStep(r, s);
-          if (step.active()) {
+        java.util.List<org.chuck.deluge.model.HighResNote> rawNotes = clipModel.getRawNoteEvents(r);
+        if (rawNotes != null && !rawNotes.isEmpty()) {
+          for (org.chuck.deluge.model.HighResNote note : rawNotes) {
             row.attemptNoteAdd(
-                s * 24, (int) (step.gate() * 24), (int) step.velocity(), 100, null, 0);
+                note.getTickPos(),
+                note.getTickLen(),
+                (int) (note.getVelocity() * 127),
+                (int) (note.getProbability() * 100),
+                null,
+                0);
+          }
+        } else {
+          for (int s = 0; s < clipModel.getStepCount(); s++) {
+            StepData step = clipModel.getStep(r, s);
+            if (step.active()) {
+              row.attemptNoteAdd(
+                  s * 24, (int) (step.gate() * 24), (int) step.velocity(), 100, null, 0);
+            }
           }
         }
         clip.noteRows.add(row);
