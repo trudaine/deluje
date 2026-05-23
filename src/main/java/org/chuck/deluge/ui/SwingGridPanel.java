@@ -34,7 +34,7 @@ public class SwingGridPanel extends JPanel {
   private org.chuck.deluge.project.PreferencesManager.GridMode gridMode =
       org.chuck.deluge.project.PreferencesManager.getGridMode();
   private int stepCount = 16; // steps per row, derived from gridMode
-  private int columnCount = 18; // stepCount + 2 (MUTE + SOLO), derived from gridMode
+  int columnCount = 18; // stepCount + 2 (MUTE + SOLO), derived from gridMode
 
   public enum GridViewMode {
     CLIP,
@@ -84,7 +84,7 @@ public class SwingGridPanel extends JPanel {
   }
 
   /** Cached pad size, computed once per resize so refresh() is idempotent. */
-  private int cachedPadSz = 48;
+  int cachedPadSz = 48;
 
   private boolean refreshInProgress = false;
 
@@ -1813,8 +1813,41 @@ public class SwingGridPanel extends JPanel {
   }
 
   public void updatePlayhead(int step) {
-    if (step < 0) return;
     int trackLen = bridge != null ? bridge.getTrackLength(baseTrackId) : stepCount;
+    int rowsToScan = (viewMode == GridViewMode.CLIP) ? voiceRowCount : gridMode.rows;
+    boolean isAdvanced =
+        org.chuck.deluge.project.PreferencesManager.getGridPanelType()
+            == org.chuck.deluge.project.PreferencesManager.GridPanelType.ADVANCED;
+
+    if (step < 0) {
+      if (isAdvanced) {
+        for (int t = 0; t < rowsToScan; t++) {
+          for (int c = 0; c < columnCount; c++) {
+            if (pads[t][c] instanceof DelugePadButton pad) {
+              pad.setPlayhead(false);
+            }
+          }
+        }
+      } else {
+        for (int t = 0; t < rowsToScan; t++) {
+          for (int c = 0; c < columnCount; c++) {
+            if (pads[t][c] == null) continue;
+            int engineRow = baseTrackId + (viewMode == GridViewMode.CLIP ? scrollOffset + t : t);
+            int engineStep = (trackLen < stepCount) ? (c % trackLen) : c;
+            boolean isTriggered = (bridge != null) && bridge.getStep(engineRow, engineStep);
+            if (!isTriggered && pads[t][c].getBackground().equals(Color.WHITE)) {
+              double vel = bridge.getVelocity(engineRow, engineStep);
+              pads[t][c].setBackground(
+                  bridge.getStep(engineRow, engineStep)
+                      ? velocityBlend(trackColors[t % trackColors.length], vel)
+                      : new Color(0x33, 0x33, 0x33));
+            }
+          }
+        }
+      }
+      return;
+    }
+
     // Map the engine step to a visual column — for clips wider than viewport, offset by
     // scrollOffsetX
     int stepMod;
@@ -1827,10 +1860,6 @@ public class SwingGridPanel extends JPanel {
     } else {
       stepMod = step % stepCount;
     }
-    int rowsToScan = (viewMode == GridViewMode.CLIP) ? voiceRowCount : gridMode.rows;
-    boolean isAdvanced =
-        org.chuck.deluge.project.PreferencesManager.getGridPanelType()
-            == org.chuck.deluge.project.PreferencesManager.GridPanelType.ADVANCED;
 
     if (isAdvanced) {
       for (int t = 0; t < rowsToScan; t++) {
@@ -1842,21 +1871,23 @@ public class SwingGridPanel extends JPanel {
       }
     } else {
       for (int t = 0; t < rowsToScan; t++) {
-        if (pads[t][stepMod] == null) continue;
-        int engineRow = baseTrackId + (viewMode == GridViewMode.CLIP ? scrollOffset + t : t);
-        // When clip is shorter than viewport, wrap to get the real engine step index
-        int engineStep = (trackLen < stepCount) ? (stepMod % trackLen) : stepMod;
-        boolean isTriggered = (bridge != null) && bridge.getStep(engineRow, engineStep);
-        if (isTriggered) {
-          pads[t][stepMod].setBackground(Color.WHITE);
-        } else if (pads[t][stepMod].getBackground().equals(Color.WHITE)) {
-          // Restore to velocity-blended color using the wrapped engine step
-          double vel = bridge.getVelocity(engineRow, engineStep);
-          boolean stepActive = bridge.getStep(engineRow, engineStep);
-          pads[t][stepMod].setBackground(
-              stepActive
-                  ? velocityBlend(trackColors[t % trackColors.length], vel)
-                  : new Color(0x33, 0x33, 0x33));
+        for (int c = 0; c < columnCount; c++) {
+          if (pads[t][c] == null) continue;
+          int engineRow = baseTrackId + (viewMode == GridViewMode.CLIP ? scrollOffset + t : t);
+          int engineStep = (trackLen < stepCount) ? (c % trackLen) : c;
+          if (c == stepMod) {
+            pads[t][c].setBackground(Color.WHITE);
+          } else {
+            // Restore past step backgrounds if they were highlighted white and aren't triggered
+            boolean isTriggered = (bridge != null) && bridge.getStep(engineRow, engineStep);
+            if (!isTriggered && pads[t][c].getBackground().equals(Color.WHITE)) {
+              double vel = bridge.getVelocity(engineRow, engineStep);
+              pads[t][c].setBackground(
+                  bridge.getStep(engineRow, engineStep)
+                      ? velocityBlend(trackColors[t % trackColors.length], vel)
+                      : new Color(0x33, 0x33, 0x33));
+            }
+          }
         }
       }
     }
@@ -2966,7 +2997,7 @@ public class SwingGridPanel extends JPanel {
 
     if (viewMode == GridViewMode.CLIP) {
       add(Box.createVerticalStrut(10));
-      add(new PianoRollComponent());
+      add(new PianoRollComponent(this));
     }
 
     refreshInProgress = false;

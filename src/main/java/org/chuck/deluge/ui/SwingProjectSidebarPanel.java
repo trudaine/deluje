@@ -37,14 +37,14 @@ public class SwingProjectSidebarPanel extends JPanel {
     this.bridge = bridge;
     this.midiService = midiService;
 
-    setPreferredSize(new Dimension(400, 0));
-    setBackground(new Color(0x25, 0x25, 0x25));
+    setPreferredSize(new Dimension(300, 0));
+    setBackground(new Color(0x12, 0x12, 0x14));
     setLayout(new BorderLayout());
 
     tabs = new JTabbedPane();
-
-    tabs.setBackground(new Color(0x33, 0x33, 0x33));
-    tabs.setForeground(Color.WHITE);
+    tabs.setBackground(new Color(0x12, 0x12, 0x14));
+    tabs.setForeground(Color.LIGHT_GRAY);
+    tabs.setFont(new Font("SansSerif", Font.BOLD, 10));
 
     tabs.addTab("LIBRARY", createLibraryTab());
     tabs.addTab("EDITOR", createEditorTab());
@@ -117,15 +117,17 @@ public class SwingProjectSidebarPanel extends JPanel {
     }
 
     libraryTree = new JTree(libraryRoot);
-    libraryTree.setBackground(new Color(0x1f, 0x1f, 0x1f));
-    libraryTree.setRowHeight(30); // More vertical spacing
+    libraryTree.setBackground(new Color(0x12, 0x12, 0x14));
+    libraryTree.setFont(new Font("SansSerif", Font.PLAIN, 10));
+    libraryTree.setRowHeight(20);
 
     javax.swing.tree.DefaultTreeCellRenderer renderer =
         new javax.swing.tree.DefaultTreeCellRenderer();
-    renderer.setBackgroundNonSelectionColor(new Color(0x1f, 0x1f, 0x1f));
+    renderer.setFont(new Font("SansSerif", Font.PLAIN, 10));
+    renderer.setBackgroundNonSelectionColor(new Color(0x12, 0x12, 0x14));
     renderer.setTextNonSelectionColor(Color.LIGHT_GRAY);
     renderer.setTextSelectionColor(Color.WHITE);
-    renderer.setBackgroundSelectionColor(new Color(0x00, 0xff, 0xcc, 0x55));
+    renderer.setBackgroundSelectionColor(new Color(0x00, 0xff, 0xcc, 0x33));
     libraryTree.setCellRenderer(renderer);
 
     libraryTree.addMouseListener(
@@ -212,9 +214,9 @@ public class SwingProjectSidebarPanel extends JPanel {
                           while (m.find()) {
                             String varName = m.group(1);
                             JLabel varLabel = new JLabel(varName + ": 50");
-                            varLabel.setForeground(Color.WHITE);
+                            styleLabel(varLabel, false);
                             JSlider slider = new JSlider(0, 100, 50);
-                            slider.setBackground(new Color(0x1f, 0x1f, 0x1f));
+                            styleSlider(slider);
                             slider.addChangeListener(
                                 ev -> {
                                   varLabel.setText(varName + ": " + slider.getValue());
@@ -336,12 +338,17 @@ public class SwingProjectSidebarPanel extends JPanel {
         });
 
     JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 2));
-    buttonPanel.setBackground(new Color(0x25, 0x25, 0x25));
+    buttonPanel.setBackground(new Color(0x12, 0x12, 0x14));
 
-    JButton shuffleBtn = new JButton("🎲 SHUFFLE DRUM KIT");
-    shuffleBtn.setBackground(new Color(0x33, 0x33, 0x33));
-    shuffleBtn.setForeground(Color.WHITE);
-    shuffleBtn.setFont(new Font("SansSerif", Font.BOLD, 14));
+    JButton shuffleBtn = new JButton("🎲 SHUFFLE KIT");
+    shuffleBtn.setContentAreaFilled(false);
+    shuffleBtn.setOpaque(true);
+    shuffleBtn.setFocusPainted(false);
+    shuffleBtn.setBackground(new Color(0x1e, 0x32, 0x32));
+    shuffleBtn.setForeground(new Color(0x00, 0xff, 0xcc));
+    shuffleBtn.setFont(new Font("SansSerif", Font.BOLD, 10));
+    shuffleBtn.setBorder(BorderFactory.createLineBorder(new Color(0x00, 0xff, 0xcc), 1));
+    shuffleBtn.setMargin(new Insets(3, 8, 3, 8));
 
     shuffleBtn.addActionListener(
         e -> {
@@ -350,9 +357,14 @@ public class SwingProjectSidebarPanel extends JPanel {
     buttonPanel.add(shuffleBtn);
 
     JButton savePatternBtn = new JButton("💾 SAVE PATTERN");
-    savePatternBtn.setBackground(new Color(0x33, 0x66, 0x33));
-    savePatternBtn.setForeground(Color.WHITE);
-    savePatternBtn.setFont(new Font("SansSerif", Font.BOLD, 14));
+    savePatternBtn.setContentAreaFilled(false);
+    savePatternBtn.setOpaque(true);
+    savePatternBtn.setFocusPainted(false);
+    savePatternBtn.setBackground(new Color(0x1e, 0x32, 0x22));
+    savePatternBtn.setForeground(new Color(0x33, 0xff, 0x33));
+    savePatternBtn.setFont(new Font("SansSerif", Font.BOLD, 10));
+    savePatternBtn.setBorder(BorderFactory.createLineBorder(new Color(0x33, 0xff, 0x33), 1));
+    savePatternBtn.setMargin(new Insets(3, 8, 3, 8));
     savePatternBtn.addActionListener(
         e -> {
           if (onPatternSave != null) onPatternSave.run();
@@ -360,8 +372,13 @@ public class SwingProjectSidebarPanel extends JPanel {
     buttonPanel.add(savePatternBtn);
 
     JPanel wrapper = new JPanel(new BorderLayout());
+    wrapper.setBackground(new Color(0x12, 0x12, 0x14));
     wrapper.add(buttonPanel, BorderLayout.NORTH);
-    wrapper.add(new JScrollPane(libraryTree), BorderLayout.CENTER);
+    JScrollPane scrollPane = new JScrollPane(libraryTree);
+    scrollPane.setBackground(new Color(0x12, 0x12, 0x14));
+    scrollPane.getViewport().setBackground(new Color(0x12, 0x12, 0x14));
+    scrollPane.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(0x2d, 0x2d, 0x32)));
+    wrapper.add(scrollPane, BorderLayout.CENTER);
 
     return wrapper;
   }
@@ -425,7 +442,7 @@ public class SwingProjectSidebarPanel extends JPanel {
 
     JPanel panel = new JPanel();
     panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-    panel.setBackground(new Color(0x25, 0x25, 0x25));
+    panel.setBackground(new Color(0x12, 0x12, 0x14));
     panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
     ckParamsBox = createSection("CHUCK PARAMS");
@@ -436,49 +453,47 @@ public class SwingProjectSidebarPanel extends JPanel {
     JPanel oscBox = createSection("OSCILLATORS");
 
     JLabel osc1TypeLabel = new JLabel("Osc 1 Type:");
-    osc1TypeLabel.setForeground(Color.WHITE);
+    styleLabel(osc1TypeLabel, false);
     JComboBox<String> osc1TypeCombo =
         new JComboBox<>(new String[] {"Sine", "Saw", "Square", "Triangle", "Noise"});
-    osc1TypeCombo.setBackground(new Color(0x1f, 0x1f, 0x1f));
-    osc1TypeCombo.setMaximumSize(new Dimension(180, 28));
+    styleCombo(osc1TypeCombo);
     oscBox.add(osc1TypeLabel);
     oscBox.add(osc1TypeCombo);
 
     oscBox.add(Box.createVerticalStrut(5));
 
     JLabel osc1Label = new JLabel("Osc 1 Vol: 64");
-    osc1Label.setForeground(Color.WHITE);
+    styleLabel(osc1Label, false);
     volSlider = new JSlider(0, 127, 64);
+    styleSlider(volSlider);
 
-    volSlider.setBackground(new Color(0x1f, 0x1f, 0x1f));
     volSlider.addChangeListener(e -> osc1Label.setText("Osc 1 Vol: " + volSlider.getValue()));
     oscBox.add(osc1Label);
     oscBox.add(volSlider);
     oscBox.add(Box.createVerticalStrut(10));
 
     JLabel osc2TypeLabel = new JLabel("Osc 2 Type:");
-    osc2TypeLabel.setForeground(Color.WHITE);
+    styleLabel(osc2TypeLabel, false);
     JComboBox<String> osc2TypeCombo =
         new JComboBox<>(new String[] {"Sine", "Saw", "Square", "Triangle", "Noise"});
-    osc2TypeCombo.setBackground(new Color(0x1f, 0x1f, 0x1f));
-    osc2TypeCombo.setMaximumSize(new Dimension(180, 28));
+    styleCombo(osc2TypeCombo);
     oscBox.add(osc2TypeLabel);
     oscBox.add(osc2TypeCombo);
 
     oscBox.add(Box.createVerticalStrut(5));
 
     JLabel osc2Label = new JLabel("Osc 2 Vol: 0");
-    osc2Label.setForeground(Color.WHITE);
+    styleLabel(osc2Label, false);
     JSlider vol2Slider = new JSlider(0, 127, 0);
-    vol2Slider.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    styleSlider(vol2Slider);
     vol2Slider.addChangeListener(e -> osc2Label.setText("Osc 2 Vol: " + vol2Slider.getValue()));
     oscBox.add(osc2Label);
     oscBox.add(vol2Slider);
 
     JLabel pwLabel = new JLabel("Pulse Width: 50");
-    pwLabel.setForeground(Color.WHITE);
+    styleLabel(pwLabel, false);
     JSlider pwSlider = new JSlider(0, 100, 50);
-    pwSlider.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    styleSlider(pwSlider);
     pwSlider.addChangeListener(e -> pwLabel.setText("Pulse Width: " + pwSlider.getValue()));
     oscBox.add(pwLabel);
     oscBox.add(pwSlider);
@@ -490,9 +505,9 @@ public class SwingProjectSidebarPanel extends JPanel {
     // Modulators
     JPanel modBox = createSection("MODULATORS");
     JLabel mod1Label = new JLabel("Mod 1 Amount: 0");
-    mod1Label.setForeground(Color.WHITE);
+    styleLabel(mod1Label, false);
     JSlider mod1Slider = new JSlider(0, 127, 0);
-    mod1Slider.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    styleSlider(mod1Slider);
     mod1Slider.addChangeListener(e -> mod1Label.setText("Mod 1 Amount: " + mod1Slider.getValue()));
     modBox.add(mod1Label);
     modBox.add(mod1Slider);
@@ -502,10 +517,10 @@ public class SwingProjectSidebarPanel extends JPanel {
     // Filters Section
     JPanel filterBox = createSection("FILTERS");
     JLabel lpfLabel = new JLabel("LPF Cutoff: 64");
-    lpfLabel.setForeground(Color.WHITE);
+    styleLabel(lpfLabel, false);
     lpfSlider = new JSlider(0, 127, 64);
+    styleSlider(lpfSlider);
 
-    lpfSlider.setBackground(new Color(0x1f, 0x1f, 0x1f));
     lpfSlider.addChangeListener(
         e -> {
           lpfLabel.setText("LPF Cutoff: " + lpfSlider.getValue());
@@ -524,10 +539,10 @@ public class SwingProjectSidebarPanel extends JPanel {
     JPanel envBox = createSection("ENVELOPES");
 
     JLabel attLabel = new JLabel("Attack: 10");
-    attLabel.setForeground(Color.WHITE);
+    styleLabel(attLabel, false);
     attSlider = new JSlider(0, 100, 10);
+    styleSlider(attSlider);
 
-    attSlider.setBackground(new Color(0x1f, 0x1f, 0x1f));
     attSlider.addChangeListener(
         e -> {
           attLabel.setText("Attack: " + attSlider.getValue());
@@ -542,39 +557,40 @@ public class SwingProjectSidebarPanel extends JPanel {
     envBox.add(Box.createVerticalStrut(5));
 
     JLabel decLabel = new JLabel("Decay: 20");
-    decLabel.setForeground(Color.WHITE);
+    styleLabel(decLabel, false);
     JSlider decSlider = new JSlider(0, 100, 20);
-    decSlider.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    styleSlider(decSlider);
     decSlider.addChangeListener(e -> decLabel.setText("Decay: " + decSlider.getValue()));
     envBox.add(decLabel);
     envBox.add(decSlider);
     envBox.add(Box.createVerticalStrut(5));
 
     JLabel susLabel = new JLabel("Sustain: 80");
-    susLabel.setForeground(Color.WHITE);
+    styleLabel(susLabel, false);
     JSlider susSlider = new JSlider(0, 100, 80);
-    susSlider.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    styleSlider(susSlider);
     susSlider.addChangeListener(e -> susLabel.setText("Sustain: " + susSlider.getValue()));
     envBox.add(susLabel);
     envBox.add(susSlider);
     envBox.add(Box.createVerticalStrut(5));
 
     JLabel relLabel = new JLabel("Release: 30");
-    relLabel.setForeground(Color.WHITE);
+    styleLabel(relLabel, false);
     JSlider relSlider = new JSlider(0, 100, 30);
-    relSlider.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    styleSlider(relSlider);
     relSlider.addChangeListener(e -> relLabel.setText("Release: " + relSlider.getValue()));
     envBox.add(relLabel);
     envBox.add(relSlider);
 
     panel.add(envBox);
+    panel.add(Box.createVerticalStrut(15));
 
     // Distortions
     JPanel distBox = createSection("DISTORTIONS");
     JLabel bitLabel = new JLabel("Bitcrush Bits: 16");
-    bitLabel.setForeground(Color.WHITE);
+    styleLabel(bitLabel, false);
     JSlider bitSlider = new JSlider(1, 16, 16);
-    bitSlider.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    styleSlider(bitSlider);
     bitSlider.addChangeListener(e -> bitLabel.setText("Bitcrush Bits: " + bitSlider.getValue()));
     distBox.add(bitLabel);
     distBox.add(bitSlider);
@@ -583,11 +599,19 @@ public class SwingProjectSidebarPanel extends JPanel {
 
     // Master FX section
     JPanel fxBox = createSection("MASTER FX");
-    fxBox.add(new JLabel("Decimations:"));
-    fxBox.add(new JSlider(0, 100, 0));
+    JLabel decimationsLabel = new JLabel("Decimations:");
+    styleLabel(decimationsLabel, false);
+    fxBox.add(decimationsLabel);
+    JSlider decimSlider = new JSlider(0, 100, 0);
+    styleSlider(decimSlider);
+    fxBox.add(decimSlider);
     panel.add(fxBox);
 
-    return new JScrollPane(panel);
+    JScrollPane scrollPane = new JScrollPane(panel);
+    scrollPane.setBackground(new Color(0x12, 0x12, 0x14));
+    scrollPane.getViewport().setBackground(new Color(0x12, 0x12, 0x14));
+    scrollPane.setBorder(BorderFactory.createEmptyBorder());
+    return scrollPane;
   }
 
   private JComponent createMidiTab() {
@@ -596,13 +620,13 @@ public class SwingProjectSidebarPanel extends JPanel {
       noService.setForeground(new Color(0x88, 0x88, 0x88));
       noService.setHorizontalAlignment(SwingConstants.CENTER);
       JPanel p = new JPanel(new BorderLayout());
-      p.setBackground(new Color(0x25, 0x25, 0x25));
+      p.setBackground(new Color(0x12, 0x12, 0x14));
       p.add(noService, BorderLayout.CENTER);
       return p;
     }
 
     JPanel outer = new JPanel(new BorderLayout(0, 10));
-    outer.setBackground(new Color(0x25, 0x25, 0x25));
+    outer.setBackground(new Color(0x12, 0x12, 0x14));
     outer.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
 
     // ── Device Selection ──
@@ -632,6 +656,7 @@ public class SwingProjectSidebarPanel extends JPanel {
           midiService.setDeviceDefinition(selected);
           rebuildMidiTable(outer);
         });
+    styleCombo(deviceCombo);
     deviceCombo.setRenderer(
         new DefaultListCellRenderer() {
           @Override
@@ -648,9 +673,9 @@ public class SwingProjectSidebarPanel extends JPanel {
         });
 
     JPanel devicePanel = new JPanel(new BorderLayout(5, 0));
-    devicePanel.setBackground(new Color(0x25, 0x25, 0x25));
+    devicePanel.setBackground(new Color(0x12, 0x12, 0x14));
     JLabel deviceLabel = new JLabel("Device:");
-    deviceLabel.setForeground(Color.WHITE);
+    styleLabel(deviceLabel, false);
     devicePanel.add(deviceLabel, BorderLayout.WEST);
     devicePanel.add(deviceCombo, BorderLayout.CENTER);
 
@@ -669,19 +694,38 @@ public class SwingProjectSidebarPanel extends JPanel {
     }
     String[] cols = {"Parameter", "CC", "State"};
     JTable mappingTable = new JTable(tableData, cols);
-    mappingTable.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    mappingTable.setBackground(new Color(0x18, 0x18, 0x1c));
     mappingTable.setForeground(Color.WHITE);
-    mappingTable.setFont(new Font("SansSerif", Font.PLAIN, 14));
-    mappingTable.setRowHeight(26);
-    mappingTable.setGridColor(new Color(0x40, 0x40, 0x40));
+    mappingTable.setFont(new Font("SansSerif", Font.PLAIN, 10));
+    mappingTable.setRowHeight(20);
+    mappingTable.setGridColor(new Color(0x2d, 0x2d, 0x32));
+    mappingTable.getTableHeader().setBackground(new Color(0x2d, 0x2d, 0x32));
+    mappingTable.getTableHeader().setForeground(Color.LIGHT_GRAY);
+    mappingTable.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 10));
 
     JPanel learnSection = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 5));
-    learnSection.setBackground(new Color(0x25, 0x25, 0x25));
+    learnSection.setBackground(new Color(0x12, 0x12, 0x14));
     JTextField learnParamField = new JTextField(15);
+    learnParamField.setBackground(new Color(0x18, 0x18, 0x1c));
+    learnParamField.setForeground(Color.WHITE);
+    learnParamField.setCaretColor(Color.WHITE);
+    learnParamField.setFont(new Font("SansSerif", Font.PLAIN, 10));
+    learnParamField.setBorder(BorderFactory.createLineBorder(new Color(0x2d, 0x2d, 0x32)));
     learnParamField.setToolTipText("Parameter name to learn (e.g. g_master_vol)");
     JButton learnBtn = new JButton("LEARN");
+    learnBtn.setFont(new Font("SansSerif", Font.BOLD, 10));
+    learnBtn.setBackground(new Color(0x1e, 0x32, 0x32));
+    learnBtn.setForeground(new Color(0x00, 0xff, 0xcc));
+    learnBtn.setBorder(BorderFactory.createLineBorder(new Color(0x00, 0xff, 0xcc), 1));
+    learnBtn.setFocusPainted(false);
+    learnBtn.setContentAreaFilled(false);
+    learnBtn.setOpaque(true);
+    learnBtn.setMargin(new Insets(3, 8, 3, 8));
+
     JLabel learnStatus = new JLabel("");
     learnStatus.setForeground(new Color(0xff, 0xcc, 0x00));
+    learnStatus.setFont(new Font("SansSerif", Font.PLAIN, 10));
+
     learnBtn.addActionListener(
         e -> {
           String param = learnParamField.getText().trim();
@@ -708,32 +752,39 @@ public class SwingProjectSidebarPanel extends JPanel {
           timer.setRepeats(false);
           timer.start();
         });
-    learnSection.add(new JLabel("Learn:"));
+    JLabel learnLabel = new JLabel("Learn:");
+    styleLabel(learnLabel, false);
+    learnSection.add(learnLabel);
     learnSection.add(learnParamField);
     learnSection.add(learnBtn);
     learnSection.add(learnStatus);
 
     JPanel tableSection = new JPanel(new BorderLayout(0, 5));
-    tableSection.setBackground(new Color(0x25, 0x25, 0x25));
-    tableSection.add(new JScrollPane(mappingTable), BorderLayout.CENTER);
+    tableSection.setBackground(new Color(0x12, 0x12, 0x14));
+    JScrollPane tableScroll = new JScrollPane(mappingTable);
+    tableScroll.setBackground(new Color(0x12, 0x12, 0x14));
+    tableScroll.getViewport().setBackground(new Color(0x12, 0x12, 0x14));
+    tableScroll.setBorder(BorderFactory.createLineBorder(new Color(0x2d, 0x2d, 0x32)));
+    tableSection.add(tableScroll, BorderLayout.CENTER);
     tableSection.add(learnSection, BorderLayout.SOUTH);
 
     // ── Follow Mode Controls ──
     JPanel followPanel = new JPanel();
     followPanel.setLayout(new BoxLayout(followPanel, BoxLayout.Y_AXIS));
-    followPanel.setBackground(new Color(0x25, 0x25, 0x25));
+    followPanel.setBackground(new Color(0x18, 0x18, 0x1c));
     followPanel.setBorder(
         BorderFactory.createTitledBorder(
-            BorderFactory.createLineBorder(new Color(0x60, 0x60, 0x60)),
+            BorderFactory.createLineBorder(new Color(0x2d, 0x2d, 0x32)),
             "MIDI Follow Mode",
             TitledBorder.LEFT,
             TitledBorder.TOP,
-            new Font("SansSerif", Font.BOLD, 13),
-            new Color(0xcc, 0xcc, 0xcc)));
+            new Font("SansSerif", Font.BOLD, 10),
+            Color.LIGHT_GRAY));
 
     JCheckBox followEnable = new JCheckBox("Enabled");
-    followEnable.setForeground(Color.WHITE);
-    followEnable.setBackground(new Color(0x25, 0x25, 0x25));
+    followEnable.setForeground(Color.LIGHT_GRAY);
+    followEnable.setBackground(new Color(0x18, 0x18, 0x1c));
+    followEnable.setFont(new Font("SansSerif", Font.PLAIN, 10));
     followEnable.setSelected(
         org.chuck.deluge.project.PreferencesManager.get("midi.follow.enabled", "true")
             .equals("true"));
@@ -770,14 +821,17 @@ public class SwingProjectSidebarPanel extends JPanel {
     for (int i = 0; i < 3; i++) {
       final char fLabel = followLabels[i];
       JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 2));
-      row.setBackground(new Color(0x25, 0x25, 0x25));
+      row.setBackground(new Color(0x18, 0x18, 0x1c));
       JLabel fl = new JLabel("Channel " + fLabel + ":");
-      fl.setForeground(Color.WHITE);
+      styleLabel(fl, true);
       JComboBox<String> chCombo = new JComboBox<>(midiChannels);
       int savedCh =
           Integer.parseInt(
               org.chuck.deluge.project.PreferencesManager.get("midi.follow.ch" + fLabel, "1"));
       chCombo.setSelectedIndex(savedCh - 1);
+      styleCombo(chCombo);
+      chCombo.setMaximumSize(new Dimension(50, 20));
+      chCombo.setPreferredSize(new Dimension(50, 20));
       chCombo.addActionListener(
           e -> {
             org.chuck.deluge.project.PreferencesManager.set(
@@ -789,29 +843,40 @@ public class SwingProjectSidebarPanel extends JPanel {
               org.chuck.deluge.project.PreferencesManager.get(
                   "midi.follow.track" + fLabel, String.valueOf(i)));
       trCombo.setSelectedIndex(Math.min(savedTr, 15));
+      styleCombo(trCombo);
+      trCombo.setMaximumSize(new Dimension(85, 20));
+      trCombo.setPreferredSize(new Dimension(85, 20));
       trCombo.addActionListener(
           e -> {
             org.chuck.deluge.project.PreferencesManager.set(
                 "midi.follow.track" + fLabel, String.valueOf(trCombo.getSelectedIndex()));
           });
+      JLabel midiChLbl = new JLabel("MIDI Ch:");
+      styleLabel(midiChLbl, false);
+      JLabel trLbl = new JLabel("→ Track:");
+      styleLabel(trLbl, false);
       row.add(fl);
-      row.add(new JLabel("MIDI Ch:"));
+      row.add(midiChLbl);
       row.add(chCombo);
-      row.add(new JLabel("→ Track:"));
+      row.add(trLbl);
       row.add(trCombo);
       followPanel.add(row);
     }
 
     // ── Assemble ──
     JPanel north = new JPanel(new BorderLayout(0, 10));
-    north.setBackground(new Color(0x25, 0x25, 0x25));
+    north.setBackground(new Color(0x12, 0x12, 0x14));
     north.add(devicePanel, BorderLayout.NORTH);
     north.add(tableSection, BorderLayout.CENTER);
 
     outer.add(north, BorderLayout.NORTH);
     outer.add(followPanel, BorderLayout.SOUTH);
 
-    return new JScrollPane(outer);
+    JScrollPane scrollPane = new JScrollPane(outer);
+    scrollPane.setBackground(new Color(0x12, 0x12, 0x14));
+    scrollPane.getViewport().setBackground(new Color(0x12, 0x12, 0x14));
+    scrollPane.setBorder(BorderFactory.createEmptyBorder());
+    return scrollPane;
   }
 
   /** Rebuilds the MIDI tab table section after device/learn changes. */
@@ -853,11 +918,14 @@ public class SwingProjectSidebarPanel extends JPanel {
     }
     String[] cols = {"Parameter", "CC", "State"};
     JTable freshTable = new JTable(tableData, cols);
-    freshTable.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    freshTable.setBackground(new Color(0x18, 0x18, 0x1c));
     freshTable.setForeground(Color.WHITE);
-    freshTable.setFont(new Font("SansSerif", Font.PLAIN, 14));
-    freshTable.setRowHeight(26);
-    freshTable.setGridColor(new Color(0x40, 0x40, 0x40));
+    freshTable.setFont(new Font("SansSerif", Font.PLAIN, 10));
+    freshTable.setRowHeight(20);
+    freshTable.setGridColor(new Color(0x2d, 0x2d, 0x32));
+    freshTable.getTableHeader().setBackground(new Color(0x2d, 0x2d, 0x32));
+    freshTable.getTableHeader().setForeground(Color.LIGHT_GRAY);
+    freshTable.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 10));
 
     // Replace scrollpane view
     Component[] kids = tableSection.getComponents();
@@ -885,22 +953,29 @@ public class SwingProjectSidebarPanel extends JPanel {
 
   private JComponent createScriptTab() {
     JPanel panel = new JPanel(new BorderLayout());
-    panel.setBackground(new Color(0x25, 0x25, 0x25));
+    panel.setBackground(new Color(0x12, 0x12, 0x14));
 
     scriptArea = new JTextArea();
-    scriptArea.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    scriptArea.setBackground(new Color(0x18, 0x18, 0x1c));
     scriptArea.setForeground(Color.GREEN);
-    scriptArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+    scriptArea.setFont(new Font("Monospaced", Font.PLAIN, 10));
     scriptArea.setCaretColor(Color.WHITE);
 
     JTextArea logArea = new JTextArea("Console logs: Ready");
-    logArea.setBackground(Color.BLACK);
+    logArea.setBackground(new Color(0x12, 0x12, 0x14));
     logArea.setForeground(Color.CYAN);
+    logArea.setFont(new Font("Monospaced", Font.PLAIN, 10));
     logArea.setEditable(false);
 
     JButton reloadBtn = new JButton("💾 SAVE & RELOAD");
-    reloadBtn.setBackground(new Color(0x33, 0x66, 0x33));
-    reloadBtn.setForeground(Color.WHITE);
+    reloadBtn.setFont(new Font("SansSerif", Font.BOLD, 10));
+    reloadBtn.setBackground(new Color(0x1e, 0x32, 0x22));
+    reloadBtn.setForeground(new Color(0x33, 0xff, 0x33));
+    reloadBtn.setBorder(BorderFactory.createLineBorder(new Color(0x33, 0xff, 0x33), 1));
+    reloadBtn.setFocusPainted(false);
+    reloadBtn.setContentAreaFilled(false);
+    reloadBtn.setOpaque(true);
+    reloadBtn.setMargin(new Insets(3, 8, 3, 8));
 
     reloadBtn.addActionListener(
         e -> {
@@ -919,11 +994,19 @@ public class SwingProjectSidebarPanel extends JPanel {
           }
         });
 
-    panel.add(reloadBtn, BorderLayout.NORTH);
+    JPanel btnWrapper = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 2));
+    btnWrapper.setBackground(new Color(0x12, 0x12, 0x14));
+    btnWrapper.add(reloadBtn);
+    panel.add(btnWrapper, BorderLayout.NORTH);
 
     JPanel centerSplit = new JPanel(new GridLayout(2, 1, 5, 5));
-    centerSplit.add(new JScrollPane(scriptArea));
-    centerSplit.add(new JScrollPane(logArea));
+    centerSplit.setBackground(new Color(0x12, 0x12, 0x14));
+    JScrollPane scriptScroll = new JScrollPane(scriptArea);
+    scriptScroll.setBorder(BorderFactory.createLineBorder(new Color(0x2d, 0x2d, 0x32)));
+    JScrollPane logScroll = new JScrollPane(logArea);
+    logScroll.setBorder(BorderFactory.createLineBorder(new Color(0x2d, 0x2d, 0x32)));
+    centerSplit.add(scriptScroll);
+    centerSplit.add(logScroll);
     panel.add(centerSplit, BorderLayout.CENTER);
 
     return panel;
@@ -931,18 +1014,25 @@ public class SwingProjectSidebarPanel extends JPanel {
 
   private JComponent createProfilerTab() {
     JPanel panel = new JPanel(new BorderLayout());
-    panel.setBackground(new Color(0x25, 0x25, 0x25));
+    panel.setBackground(new Color(0x12, 0x12, 0x14));
 
     DefaultListModel<String> model = new DefaultListModel<>();
     model.addElement("Shred 1: DelugeEngineDSL (Master Clock)");
     model.addElement("Shred 2: custom_fm.ck (Active)");
     JList<String> list = new JList<>(model);
-    list.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    list.setBackground(new Color(0x18, 0x18, 0x1c));
     list.setForeground(Color.CYAN);
+    list.setFont(new Font("SansSerif", Font.PLAIN, 10));
 
     JButton killBtn = new JButton("KILL SELECTED SHRED");
-    killBtn.setBackground(new Color(0xaa, 0x33, 0x33));
-    killBtn.setForeground(Color.WHITE);
+    killBtn.setFont(new Font("SansSerif", Font.BOLD, 10));
+    killBtn.setBackground(new Color(0x4a, 0x1a, 0x1a));
+    killBtn.setForeground(new Color(0xff, 0x55, 0x55));
+    killBtn.setBorder(BorderFactory.createLineBorder(new Color(0xff, 0x55, 0x55), 1));
+    killBtn.setFocusPainted(false);
+    killBtn.setContentAreaFilled(false);
+    killBtn.setOpaque(true);
+    killBtn.setMargin(new Insets(3, 8, 3, 8));
     killBtn.addActionListener(
         e -> {
           int idx = list.getSelectedIndex();
@@ -951,19 +1041,26 @@ public class SwingProjectSidebarPanel extends JPanel {
           }
         });
 
-    panel.add(killBtn, BorderLayout.SOUTH);
-    panel.add(new JScrollPane(list), BorderLayout.CENTER);
+    JPanel btnWrapper = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 2));
+    btnWrapper.setBackground(new Color(0x12, 0x12, 0x14));
+    btnWrapper.add(killBtn);
+
+    panel.add(btnWrapper, BorderLayout.SOUTH);
+    JScrollPane scrollPane = new JScrollPane(list);
+    scrollPane.setBorder(BorderFactory.createLineBorder(new Color(0x2d, 0x2d, 0x32)));
+    panel.add(scrollPane, BorderLayout.CENTER);
     return panel;
   }
 
   private JComponent createSnippetsTab() {
     JPanel panel = new JPanel(new BorderLayout());
-    panel.setBackground(new Color(0x25, 0x25, 0x25));
+    panel.setBackground(new Color(0x12, 0x12, 0x14));
 
     String[] snippets = {"SawOsc Synth", "Pulse Lead", "Noise Percussion"};
     JList<String> list = new JList<>(snippets);
-    list.setBackground(new Color(0x1f, 0x1f, 0x1f));
+    list.setBackground(new Color(0x18, 0x18, 0x1c));
     list.setForeground(Color.WHITE);
+    list.setFont(new Font("SansSerif", Font.PLAIN, 10));
 
     list.addMouseListener(
         new java.awt.event.MouseAdapter() {
@@ -977,18 +1074,55 @@ public class SwingProjectSidebarPanel extends JPanel {
           }
         });
 
-    panel.add(new JLabel("Double-click snippet to insert:"), BorderLayout.NORTH);
-    panel.add(new JScrollPane(list), BorderLayout.CENTER);
+    JLabel infoLabel = new JLabel("Double-click snippet to insert:");
+    styleLabel(infoLabel, true);
+    JPanel infoWrapper = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 2));
+    infoWrapper.setBackground(new Color(0x12, 0x12, 0x14));
+    infoWrapper.add(infoLabel);
+
+    panel.add(infoWrapper, BorderLayout.NORTH);
+    JScrollPane scrollPane = new JScrollPane(list);
+    scrollPane.setBorder(BorderFactory.createLineBorder(new Color(0x2d, 0x2d, 0x32)));
+    panel.add(scrollPane, BorderLayout.CENTER);
     return panel;
   }
 
   private JPanel createSection(String title) {
     JPanel panel = new JPanel();
     panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-    panel.setBackground(new Color(0x33, 0x33, 0x33));
+    panel.setBackground(new Color(0x18, 0x18, 0x1c));
     panel.setBorder(
         BorderFactory.createTitledBorder(
-            BorderFactory.createLineBorder(Color.GRAY), title, 0, 0, null, Color.WHITE));
+            BorderFactory.createLineBorder(new Color(0x2d, 0x2d, 0x32)),
+            title,
+            0,
+            0,
+            new Font("SansSerif", Font.BOLD, 9),
+            Color.LIGHT_GRAY));
     return panel;
+  }
+
+  private void styleLabel(JLabel label, boolean bold) {
+    label.setForeground(Color.LIGHT_GRAY);
+    label.setFont(new Font("SansSerif", bold ? Font.BOLD : Font.PLAIN, 10));
+  }
+
+  private void styleSlider(JSlider slider) {
+    slider.setBackground(new Color(0x18, 0x18, 0x1c));
+    slider.setForeground(new Color(0x00, 0xff, 0xcc));
+    slider.setPreferredSize(new Dimension(180, 18));
+    slider.setMinimumSize(new Dimension(180, 18));
+    slider.setMaximumSize(new Dimension(180, 18));
+    slider.setPaintTicks(false);
+    slider.setPaintLabels(false);
+  }
+
+  private void styleCombo(JComboBox<?> combo) {
+    combo.setFont(new Font("SansSerif", Font.PLAIN, 10));
+    combo.setBackground(new Color(0x2d, 0x2d, 0x32));
+    combo.setForeground(Color.WHITE);
+    combo.setMaximumSize(new Dimension(180, 22));
+    combo.setPreferredSize(new Dimension(180, 22));
+    combo.setFocusable(false);
   }
 }

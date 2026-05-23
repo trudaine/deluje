@@ -2272,6 +2272,15 @@ public class SwingDelugeApp extends JFrame {
           propagateCurrentModel();
           syncHighFidelityEngine(currentProject);
           refreshGrids();
+
+          if (trackEngineStart != null && idx < trackEngineStart.length) {
+            int engineBase = trackEngineStart[idx];
+            clipPanel.setBaseTrackId(engineBase);
+            clipPanel.setEditedModelTrack(idx);
+            clipPanel.setActiveClipId(0);
+            clipPanel.refresh();
+          }
+
           cardLayout.show(centerCardPanel, "CLIP");
           if (topBar != null) topBar.selectClipView();
         };
@@ -2362,7 +2371,7 @@ public class SwingDelugeApp extends JFrame {
     this.masterFxPanel = masterFxPanel;
     // DEBUG: masterFxPanel.setBorder(BorderFactory.createLineBorder(Color.YELLOW, 3));
 
-    masterFxPanel.setPreferredSize(new Dimension(1, 132));
+    masterFxPanel.setPreferredSize(new Dimension(1, 54));
     add(masterFxPanel, BorderLayout.SOUTH);
 
     revalidate();
