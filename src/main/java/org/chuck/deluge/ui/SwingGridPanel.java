@@ -4629,6 +4629,43 @@ public class SwingGridPanel extends JPanel {
     }
   }
 
+  public void handleShiftHover(int row, int col) {
+    if (row < 0 || row >= 8 || col < 0 || col >= 16) return;
+    String param = SHIFT_LABELS[row][col];
+    if (param == null || param.isEmpty()) return;
+
+    if (projectModel == null || editedModelTrack >= projectModel.getTracks().size()) return;
+    org.chuck.deluge.model.TrackModel genericTrack = projectModel.getTracks().get(editedModelTrack);
+
+    boolean applicable = isParamApplicable(param, row, col, genericTrack);
+    if (!applicable) {
+      if (SwingDelugeApp.mainInstance != null) {
+        SwingDelugeApp.mainInstance.updateHardwareLedDisplay("----", "----");
+      }
+      return;
+    }
+
+    String code = getParamShortCode(param);
+    String valStr = getParamFormattedValue(param, row, col);
+    if (SwingDelugeApp.mainInstance != null) {
+      SwingDelugeApp.mainInstance.updateHardwareLedDisplay(code, valStr);
+    }
+  }
+
+  public void handleShiftHoverExit() {
+    if (activeShiftParam != null) {
+      String code = getParamShortCode(activeShiftParam);
+      String valStr = getParamFormattedValue(activeShiftParam, activeShiftRow, activeShiftCol);
+      if (SwingDelugeApp.mainInstance != null) {
+        SwingDelugeApp.mainInstance.updateHardwareLedDisplay(code, valStr);
+      }
+    } else {
+      if (SwingDelugeApp.mainInstance != null) {
+        SwingDelugeApp.mainInstance.updateHardwareLedDisplay(null, null);
+      }
+    }
+  }
+
   public void handleShiftClick(int row, int col, Point localPos, Component comp) {
     if (row < 0 || row >= 8 || col < 0 || col >= 16) return;
     String param = SHIFT_LABELS[row][col];
