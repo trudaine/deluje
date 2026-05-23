@@ -148,7 +148,13 @@ public class FirmwareUtils {
   }
 
   public static int instantTan(int input) {
+    if (input < 0) {
+      input = 0;
+    }
     int whichValue = input >>> 25;
+    if (whichValue > 63) {
+      return LookupTables.tanTable[64];
+    }
     int howMuchFurther = (input << 6) & 2147483647;
     int value1 = LookupTables.tanTable[whichValue];
     int value2 = LookupTables.tanTable[whichValue + 1];
