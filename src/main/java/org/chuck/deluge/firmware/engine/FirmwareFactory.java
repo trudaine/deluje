@@ -17,6 +17,7 @@ import org.chuck.deluge.model.ClipModel;
 import org.chuck.deluge.model.Drum;
 import org.chuck.deluge.model.EnvelopeModel;
 import org.chuck.deluge.model.KitTrackModel;
+import org.chuck.deluge.model.LfoModel;
 import org.chuck.deluge.model.ProjectModel;
 import org.chuck.deluge.model.SoundDrum;
 import org.chuck.deluge.model.StepData;
@@ -156,10 +157,17 @@ public class FirmwareFactory {
     sound.paramNeutralValues[Param.LOCAL_VOLUME] = (int) (model.getVolume() * 2147483647.0);
     sound.paramNeutralValues[Param.LOCAL_PAN] = (int) ((model.getPan() + 1.0) * 1073741823.0);
 
-    // Oscillator & Noise Volumes (derived from mix/noiseVol)
-    float oscMix = model.getOscMix();
-    sound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = (int) (oscMix * 2147483647.0);
-    sound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = (int) ((1.0f - oscMix) * 2147483647.0);
+    // Oscillator & Noise Volumes (derived from mix/noiseVol, with custom FM index amount mapping!)
+    if (sound.synthMode == FirmwareSound.SynthMode.FM) {
+      sound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = 2147483647;
+      sound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] =
+          (int) (model.getFmAmount() * 2147483647.0);
+    } else {
+      sound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] =
+          (int) (model.getOscAVolume() * 2147483647.0);
+      sound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] =
+          (int) (model.getOscBVolume() * 2147483647.0);
+    }
     sound.paramNeutralValues[Param.LOCAL_NOISE_VOLUME] = (int) (model.getNoiseVol() * 2147483647.0);
     sound.paramNeutralValues[Param.LOCAL_OSC_B_PITCH_ADJUST] =
         (model.getOsc2Transpose() * 100 + model.getOsc2Cents()) * 178956;
@@ -230,6 +238,33 @@ public class FirmwareFactory {
           org.chuck.deluge.firmware.model.PolyphonyMode.valueOf(model.getPolyphony().name());
     } catch (Exception e) {
       sound.polyphonic = org.chuck.deluge.firmware.model.PolyphonyMode.POLY;
+    }
+
+    // Map LFO waveforms and dynamic rates
+    for (int i = 0; i < 4; i++) {
+      LfoModel lm = model.getLfo(i);
+      if (lm != null) {
+        sound.lfoWaveforms[i] = mapLfoType(lm.waveform());
+
+        // Convert rateHz back to standard Q31 signed frequency parameter using inverse exponential
+        // function
+        float hz = lm.rateHz();
+        double exponent = Math.log(Math.max(0.01, Math.min(100.0, hz)) / 0.01) / Math.log(10000.0);
+        float norm = (float) (exponent * 2.0 - 1.0);
+        int q31Rate = (int) (norm * 2147483647.0);
+
+        int paramId =
+            switch (i) {
+              case 0 -> Param.GLOBAL_LFO_FREQ_1;
+              case 1 -> Param.LOCAL_LFO_LOCAL_FREQ_1;
+              case 2 -> Param.GLOBAL_LFO_FREQ_2;
+              case 3 -> Param.LOCAL_LFO_LOCAL_FREQ_2;
+              default -> -1;
+            };
+        if (paramId != -1) {
+          sound.paramNeutralValues[paramId] = q31Rate;
+        }
+      }
     }
 
     // Patch Cables
@@ -452,5 +487,16 @@ public class FirmwareFactory {
       case "reverbAmount" -> Param.GLOBAL_REVERB_AMOUNT;
       default -> -1;
     };
+  }
+
+  private static org.chuck.deluge.firmware.modulation.LFO.LFOType mapLfoType(
+      org.chuck.deluge.model.LfoType type) {
+    if (type == null) return org.chuck.deluge.firmware.modulation.LFO.LFOType.SINE;
+    switch (type) {
+      case S_AND_H:
+        return org.chuck.deluge.firmware.modulation.LFO.LFOType.SAMPLE_AND_HOLD;
+      default:
+        return org.chuck.deluge.firmware.modulation.LFO.LFOType.valueOf(type.name());
+    }
   }
 }

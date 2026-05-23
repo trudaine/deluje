@@ -27,6 +27,10 @@ public class FirmwareSound extends GlobalEffectable {
 
   public final List<FirmwareVoice> voices = new ArrayList<>();
   public final LFO[] globalLfos = new LFO[2];
+  public final LFO.LFOType[] lfoWaveforms = {
+    LFO.LFOType.SINE, LFO.LFOType.TRIANGLE,
+    LFO.LFOType.SINE, LFO.LFOType.TRIANGLE
+  };
   public final org.chuck.deluge.firmware.model.sample.Sample[] samples =
       new org.chuck.deluge.firmware.model.sample.Sample[2];
   public final org.chuck.deluge.firmware.model.sample.SampleVoiceSettings[] sampleSettings = {
@@ -118,12 +122,12 @@ public class FirmwareSound extends GlobalEffectable {
     int lfoRate1 = paramNeutralValues[Param.GLOBAL_LFO_FREQ_1];
     int phaseInc1 = (int) (200 + Math.pow(2.0, (double) lfoRate1 / 2147483647.0 * 10.0) * 500.0);
     globalSourceValues[PatchSource.LFO_GLOBAL_1.ordinal()] =
-        globalLfos[0].render(numSamples, LFO.LFOType.SINE, phaseInc1);
+        globalLfos[0].render(numSamples, lfoWaveforms[0], phaseInc1);
 
     int lfoRate2 = paramNeutralValues[Param.GLOBAL_LFO_FREQ_2];
     int phaseInc2 = (int) (200 + Math.pow(2.0, (double) lfoRate2 / 2147483647.0 * 10.0) * 500.0);
     globalSourceValues[PatchSource.LFO_GLOBAL_2.ordinal()] =
-        globalLfos[1].render(numSamples, LFO.LFOType.SINE, phaseInc2);
+        globalLfos[1].render(numSamples, lfoWaveforms[2], phaseInc2);
 
     // 2. Sum Voices
     int[] monoBuffer = new int[numSamples];
@@ -417,20 +421,20 @@ public class FirmwareSound extends GlobalEffectable {
       hpfMorph = paramNeutralValues[Param.LOCAL_HPF_MORPH];
     }
 
-    // Configure filter set and render
-    filterSet.setConfig(
-        lpfFrequency,
-        lpfResonance,
-        lpfMode,
-        lpfMorph,
-        hpfFrequency,
-        hpfResonance,
-        hpfMode,
-        hpfMorph,
-        Q31.ONE,
-        filterRoute);
-
-    filterSet.renderStereoInterleaved(buffer, numSamples);
+    // Bypassed: Migrated to polyphonic per-voice FilterSet rendering stage in FirmwareVoice.java!
+    // Keep global filter inactive to avoid double-filtering.
+    // filterSet.setConfig(
+    //     lpfFrequency,
+    //     lpfResonance,
+    //     lpfMode,
+    //     lpfMorph,
+    //     hpfFrequency,
+    //     hpfResonance,
+    //     hpfMode,
+    //     hpfMorph,
+    //     Q31.ONE,
+    //     filterRoute);
+    // filterSet.renderStereoInterleaved(buffer, numSamples);
   }
 
   // ── Subtractive Oscillator Retrigger Starting Phases ──

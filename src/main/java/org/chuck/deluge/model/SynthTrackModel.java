@@ -133,6 +133,8 @@ public class SynthTrackModel extends TrackModel {
 
   private PolyphonyMode polyphony = PolyphonyMode.POLY;
   private int maxVoiceCount = 8;
+  private float oscAVolume = 1.0f;
+  private float oscBVolume = 1.0f;
 
   /**
    * Semitone transpose of the entire sound, typically -24 to 24. Maps to XML `<sound>` transpose
@@ -193,6 +195,23 @@ public class SynthTrackModel extends TrackModel {
 
   public void setOscMix(float oscMix) {
     this.oscMix = oscMix;
+  }
+
+  public float getOscAVolume() {
+    return oscAVolume;
+  }
+
+  public void setOscAVolume(float oscAVolume) {
+    this.oscAVolume = oscAVolume;
+    this.oscMix = oscAVolume;
+  }
+
+  public float getOscBVolume() {
+    return oscBVolume;
+  }
+
+  public void setOscBVolume(float oscBVolume) {
+    this.oscBVolume = oscBVolume;
   }
 
   public float getNoiseVol() {
