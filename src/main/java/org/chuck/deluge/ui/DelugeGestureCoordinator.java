@@ -49,6 +49,13 @@ public class DelugeGestureCoordinator {
   public MouseAdapter createMouseAdapter(final int row, final int col) {
     return new MouseAdapter() {
       @Override
+      public void mouseEntered(MouseEvent e) {
+        if (parentGridPanel instanceof SwingGridPanel sg && sg.isShiftHeld()) {
+          sg.handleShiftHover(row, col);
+        }
+      }
+
+      @Override
       public void mousePressed(MouseEvent e) {
         if (parentGridPanel instanceof SwingGridPanel sg && sg.isShiftHeld()) {
           sg.handleShiftClick(row, col, e.getPoint(), e.getComponent());
@@ -149,8 +156,12 @@ public class DelugeGestureCoordinator {
 
       @Override
       public void mouseExited(MouseEvent e) {
-        // Release note preview if cursor leaves button bounds
-        listener.onStepReleased(row, col);
+        if (parentGridPanel instanceof SwingGridPanel sg && sg.isShiftHeld()) {
+          sg.handleShiftHoverExit();
+        } else {
+          // Release note preview if cursor leaves button bounds
+          listener.onStepReleased(row, col);
+        }
       }
     };
   }
