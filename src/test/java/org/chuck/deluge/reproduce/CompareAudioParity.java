@@ -91,11 +91,13 @@ public class CompareAudioParity {
       float[] alignedSw = new float[len];
       System.arraycopy(sw, startSw, alignedSw, 0, len);
 
-      // Slices 100ms window right after the note onset starts
+      // Slices 100ms window right after the note onset starts (steady state sustain phase)
       int windowSize = 4410;
+      int activeOffset = swStart - startSw;
       int hwZeroIdx =
-          findPositiveZeroCrossing(alignedHw, 1000); // skip initial transient click zone
-      int swZeroIdx = findPositiveZeroCrossing(alignedSw, 1000);
+          findPositiveZeroCrossing(
+              alignedHw, activeOffset + 2000); // skip initial transient click zone
+      int swZeroIdx = findPositiveZeroCrossing(alignedSw, activeOffset + 2000);
 
       float[] hwWindow = new float[windowSize];
       System.arraycopy(alignedHw, hwZeroIdx, hwWindow, 0, windowSize);
