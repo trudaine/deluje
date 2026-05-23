@@ -1473,7 +1473,13 @@ public class SwingGridPanel extends JPanel {
             pad.setInLoop(true);
             pad.setActive(true);
             pad.setBaseColor(SHIFT_COLORS[visibleRow][colId]);
-            pad.setNoteText(SHIFT_LABELS[visibleRow][colId]);
+            String prefix = getGroupPrefix(colId);
+            String shortcutLabel = SHIFT_LABELS[visibleRow][colId];
+            String noteText =
+                (prefix != null && !shortcutLabel.isEmpty())
+                    ? prefix + "\n" + shortcutLabel.replace(" ", "\n")
+                    : shortcutLabel.replace(" ", "\n");
+            pad.setNoteText(noteText);
             pad.setMuted(false);
             pad.setIntensity(1.0f);
             pad.setPlayhead(false);
@@ -1544,17 +1550,21 @@ public class SwingGridPanel extends JPanel {
               String param = SHIFT_LABELS[visibleRow][colId];
               applicable = isParamApplicable(param, visibleRow, colId, genericTrack);
             }
+            String prefix = getGroupPrefix(colId);
+            String shortcutLabel = SHIFT_LABELS[visibleRow][colId];
+            String text =
+                (prefix != null && !shortcutLabel.isEmpty())
+                    ? prefix + "<br>" + shortcutLabel.replace(" ", "<br>")
+                    : shortcutLabel.replace(" ", "<br>");
             if (applicable) {
               clipBtn.setBackground(SHIFT_COLORS[visibleRow][colId]);
               clipBtn.setText(
-                  "<html><center><font size='1'><b>"
-                      + SHIFT_LABELS[visibleRow][colId]
-                      + "</b></font></center></html>");
+                  "<html><center><font size='1'><b>" + text + "</b></font></center></html>");
             } else {
               clipBtn.setBackground(new Color(44, 44, 48));
               clipBtn.setText(
                   "<html><center><font size='1' color='#66666e'><b>"
-                      + SHIFT_LABELS[visibleRow][colId]
+                      + text
                       + "</b></font></center></html>");
               clipBtn.setEnabled(false);
             }
@@ -5140,6 +5150,20 @@ public class SwingGridPanel extends JPanel {
       default:
         return false;
     }
+  }
+
+  private String getGroupPrefix(int colId) {
+    if (colId == 0) return "S1";
+    if (colId == 1) return "S2";
+    if (colId == 2) return "OSC1";
+    if (colId == 3) return "OSC2";
+    if (colId == 4) return "FM1";
+    if (colId == 5) return "FM2";
+    if (colId == 8) return "ENV1";
+    if (colId == 9) return "ENV2";
+    if (colId == 12) return "LFO1";
+    if (colId == 13) return "LFO2";
+    return null;
   }
 
   private String getParamShortCode(String param) {
