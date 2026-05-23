@@ -1522,8 +1522,32 @@ public class SwingDelugeApp extends JFrame {
     }
 
     Object fwHandlerObj = vm.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
+    System.out.println(
+        "[DIAG sync] fwHandlerObj="
+            + fwHandlerObj
+            + " isPlaybackHandler="
+            + (fwHandlerObj instanceof org.chuck.deluge.firmware.playback.PlaybackHandler)
+            + " fwSongClips="
+            + (fwSong != null ? fwSong.clips.size() : "null"));
     if (fwHandlerObj instanceof org.chuck.deluge.firmware.playback.PlaybackHandler fwHandler) {
       fwHandler.setSong(fwSong);
+      System.out.println(
+          "[DIAG sync] Successfully set fwSong inside PlaybackHandler! Current active play state="
+              + fwHandler.isPlaying()
+              + " songBpm="
+              + fwSong.tempoBPM);
+      if (fwSong.clips.size() > 0
+          && fwSong.clips.get(0) instanceof org.chuck.deluge.firmware.model.InstrumentClip ic) {
+        int activeNotesCount = 0;
+        for (var row : ic.noteRows) {
+          activeNotesCount += row.notes.size();
+        }
+        System.out.println(
+            "[DIAG sync] First Clip Active NoteRows Count: "
+                + ic.noteRows.size()
+                + " Total Programmed Note Events: "
+                + activeNotesCount);
+      }
     }
   }
 
@@ -2255,10 +2279,11 @@ public class SwingDelugeApp extends JFrame {
     cardLayout = new CardLayout();
     centerCardPanel = new JPanel(cardLayout);
 
-    Runnable projectChangeHandler = () -> {
-      propagateCurrentModel();
-      syncHighFidelityEngine(currentProject);
-    };
+    Runnable projectChangeHandler =
+        () -> {
+          propagateCurrentModel();
+          syncHighFidelityEngine(currentProject);
+        };
 
     clipPanel = new SwingGridPanel(vm, bridge);
     clipPanel.setViewMode(SwingGridPanel.GridViewMode.CLIP);
