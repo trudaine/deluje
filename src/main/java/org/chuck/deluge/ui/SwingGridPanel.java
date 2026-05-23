@@ -1533,6 +1533,7 @@ public class SwingGridPanel extends JPanel {
       } else {
         if (clipBtn instanceof DelugePadButton pad) {
           if (shiftHeld && visibleRow < 8 && colId < 16) {
+            pad.setInLoop(true);
             org.chuck.deluge.model.TrackModel curTrack =
                 (editedModelTrack < projectModel.getTracks().size())
                     ? projectModel.getTracks().get(editedModelTrack)

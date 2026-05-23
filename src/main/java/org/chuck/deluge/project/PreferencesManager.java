@@ -285,6 +285,15 @@ public class PreferencesManager {
     prefs.put(key, value);
   }
 
+  public static void remove(String key) {
+    prefs.remove(key);
+    try {
+      prefs.flush();
+    } catch (Exception e) {
+      // Ignore
+    }
+  }
+
   public static String[] getKeys() {
     try {
       return prefs.keys();
