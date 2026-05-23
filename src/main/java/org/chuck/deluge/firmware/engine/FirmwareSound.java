@@ -266,6 +266,16 @@ public class FirmwareSound extends GlobalEffectable {
     }
   }
 
+  public void releaseAllNotes() {
+    synchronized (voices) {
+      for (FirmwareVoice v : voices) {
+        if (v.active) {
+          v.noteOff(0);
+        }
+      }
+    }
+  }
+
   public void mpePitchBend(int midiChannel, int value) {
     synchronized (voices) {
       for (FirmwareVoice v : voices) {

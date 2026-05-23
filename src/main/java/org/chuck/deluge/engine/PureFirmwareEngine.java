@@ -81,6 +81,15 @@ public class PureFirmwareEngine {
     } else {
       if (playbackHandler.isPlaying()) {
         playbackHandler.stop();
+        for (var sound : audioEngine.sounds) {
+          if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound fs) {
+            fs.releaseAllNotes();
+          } else if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit fk) {
+            for (var ds : fk.drumSounds) {
+              ds.releaseAllNotes();
+            }
+          }
+        }
       }
       vm.setGlobalInt(BridgeContract.G_CURRENT_STEP, -1L);
     }
