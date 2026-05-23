@@ -142,19 +142,19 @@ public class CompareAudioParity {
 
     for (int b = 0; b < blockCount; b++) {
       if (b == triggerBlock) {
-        sound.triggerNote(60, 100); // C4 pitch
+        sound.triggerNote(72, 100); // C5 pitch (matches actual hardware C5 file fundamental!)
       }
       if (b == releaseBlock) {
-        sound.releaseNote(60);
+        sound.releaseNote(72);
       }
 
       engine.renderBlock(128);
 
       for (int i = 0; i < 128; i++) {
         StereoSample s = engine.masterBuffer[i];
-        // Bit-accurate mapping to 16-bit PCM bytes
-        int leftVal = s.l >> 15;
-        int rightVal = s.r >> 15;
+        // Bit-accurate mapping to 16-bit PCM bytes (stop clipping by using proper shift by 16!)
+        int leftVal = s.l >> 16;
+        int rightVal = s.r >> 16;
         short left = (short) Math.max(-32768, Math.min(32767, leftVal));
         short right = (short) Math.max(-32768, Math.min(32767, rightVal));
 
