@@ -65,9 +65,9 @@ public class SwingTopBarPanel extends JPanel {
     this.listener = listener;
 
     setLayout(new FlowLayout(FlowLayout.LEFT, 10, 4));
-    setBackground(new Color(0x25, 0x25, 0x25));
+    setBackground(new Color(0x12, 0x12, 0x14));
 
-    // ── View mode toggles ──
+    // ── View mode toggles styled as macOS tab segments ──
 
     clipBtn = new JToggleButton("CLIP", true);
     JToggleButton songBtn = new JToggleButton("SONG");
@@ -81,11 +81,34 @@ public class SwingTopBarPanel extends JPanel {
     modeGroup.add(autoBtn);
     modeGroup.add(perfBtn);
 
-    clipBtn.addActionListener(e -> listener.onViewModeChanged("CLIP"));
-    songBtn.addActionListener(e -> listener.onViewModeChanged("SONG"));
-    arrBtn.addActionListener(e -> listener.onViewModeChanged("ARR"));
-    autoBtn.addActionListener(e -> listener.onViewModeChanged("AUTO"));
-    perfBtn.addActionListener(e -> listener.onViewModeChanged("PERF"));
+    // Initial styling
+    updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
+
+    clipBtn.addActionListener(
+        e -> {
+          updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
+          listener.onViewModeChanged("CLIP");
+        });
+    songBtn.addActionListener(
+        e -> {
+          updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
+          listener.onViewModeChanged("SONG");
+        });
+    arrBtn.addActionListener(
+        e -> {
+          updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
+          listener.onViewModeChanged("ARR");
+        });
+    autoBtn.addActionListener(
+        e -> {
+          updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
+          listener.onViewModeChanged("AUTO");
+        });
+    perfBtn.addActionListener(
+        e -> {
+          updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
+          listener.onViewModeChanged("PERF");
+        });
 
     add(clipBtn);
     add(songBtn);
@@ -94,21 +117,18 @@ public class SwingTopBarPanel extends JPanel {
     add(perfBtn);
     add(new JSeparator(JSeparator.VERTICAL));
 
-    // ── Track add buttons ──
+    // ── Track add buttons with high contrast and custom themes ──
 
     JButton addKitBtn = new JButton("+ KIT");
-    addKitBtn.setBackground(new Color(0x33, 0x44, 0x55));
-    addKitBtn.setForeground(Color.WHITE);
+    styleButton(addKitBtn, new Color(0x1e, 0x32, 0x32), new Color(0x00, 0xff, 0xcc));
     addKitBtn.addActionListener(e -> listener.onAddTrack("KIT"));
 
     JButton addSynthBtn = new JButton("+ SYNTH");
-    addSynthBtn.setBackground(new Color(0x44, 0x33, 0x55));
-    addSynthBtn.setForeground(Color.WHITE);
+    styleButton(addSynthBtn, new Color(0x32, 0x1e, 0x32), new Color(0xff, 0x33, 0xcc));
     addSynthBtn.addActionListener(e -> listener.onAddTrack("SYNTH"));
 
     JButton addAudioBtn = new JButton("+ AUDIO");
-    addAudioBtn.setBackground(new Color(0x33, 0x55, 0x44));
-    addAudioBtn.setForeground(Color.WHITE);
+    styleButton(addAudioBtn, new Color(0x1e, 0x32, 0x22), new Color(0x33, 0xff, 0x33));
     addAudioBtn.addActionListener(e -> listener.onAddTrack("AUDIO"));
 
     add(addKitBtn);
@@ -119,10 +139,12 @@ public class SwingTopBarPanel extends JPanel {
     // ── Explorer / Monitor toggles ──
 
     JButton btnExplorer = new JButton("EXPLORER");
+    styleButton(btnExplorer, new Color(0x23, 0x23, 0x28), Color.WHITE);
     btnExplorer.addActionListener(e -> leftFloat.setVisible(!leftFloat.isVisible()));
     add(btnExplorer);
 
     JButton btnMonitor = new JButton("MONITOR");
+    styleButton(btnMonitor, new Color(0x23, 0x23, 0x28), Color.WHITE);
     btnMonitor.addActionListener(e -> rightFloat.setVisible(!rightFloat.isVisible()));
     add(btnMonitor);
     add(new JSeparator(JSeparator.VERTICAL));
@@ -130,8 +152,7 @@ public class SwingTopBarPanel extends JPanel {
     // ── Transport ──
 
     JButton playBtn = new JButton("\u25B6 PLAY");
-    playBtn.setBackground(new Color(0x33, 0x66, 0x33));
-    playBtn.setForeground(Color.WHITE);
+    styleButton(playBtn, new Color(0x1a, 0x4a, 0x1a), new Color(0x00, 0xff, 0x66));
     playBtn.addActionListener(
         e ->
             vm.setGlobalInt(
@@ -139,21 +160,32 @@ public class SwingTopBarPanel extends JPanel {
     add(playBtn);
 
     JButton stopBtn = new JButton("\u25A0 STOP");
-    stopBtn.setBackground(new Color(0x66, 0x33, 0x33));
-    stopBtn.setForeground(Color.WHITE);
+    styleButton(stopBtn, new Color(0x4a, 0x1a, 0x1a), new Color(0xff, 0x33, 0x33));
     stopBtn.addActionListener(e -> vm.setGlobalInt(BridgeContract.G_PLAY, 0L));
     add(stopBtn);
     add(new JSeparator(JSeparator.VERTICAL));
 
     // ── Sliders ──
 
-    add(new JLabel("BPM:"));
+    JLabel bpmLabel = new JLabel("BPM:");
+    bpmLabel.setForeground(Color.WHITE);
+    bpmLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
+    add(bpmLabel);
+
     JSlider bpmSlider = new JSlider(60, 200, (int) projectModel.getBpm());
+    bpmSlider.setBackground(new Color(0x12, 0x12, 0x14));
+    bpmSlider.setForeground(new Color(0x00, 0xff, 0xcc));
     bpmSlider.addChangeListener(e -> projectModel.setBpm(bpmSlider.getValue()));
     add(bpmSlider);
 
-    add(new JLabel("MASTER:"));
+    JLabel masterLabel = new JLabel("MASTER:");
+    masterLabel.setForeground(Color.WHITE);
+    masterLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
+    add(masterLabel);
+
     masterVolSlider = new JSlider(0, 100, (int) (projectModel.getMasterVolume() * 100));
+    masterVolSlider.setBackground(new Color(0x12, 0x12, 0x14));
+    masterVolSlider.setForeground(new Color(0x00, 0xff, 0xcc));
     masterVolSlider.addChangeListener(
         e -> projectModel.setMasterVolume(masterVolSlider.getValue() / 100.0f));
     add(masterVolSlider);
@@ -242,6 +274,15 @@ public class SwingTopBarPanel extends JPanel {
 
   public void selectClipView() {
     clipBtn.setSelected(true);
+    // Force tab update
+    java.awt.Component[] comps = getComponents();
+    java.util.List<JToggleButton> tabs = new java.util.ArrayList<>();
+    for (java.awt.Component c : comps) {
+      if (c instanceof JToggleButton tb) {
+        tabs.add(tb);
+      }
+    }
+    updateTabStyles(tabs.toArray(new JToggleButton[0]));
   }
 
   public void setMasterVol(int value) {
@@ -250,5 +291,47 @@ public class SwingTopBarPanel extends JPanel {
 
   public int getMasterVol() {
     return masterVolSlider.getValue();
+  }
+
+  private void updateTabStyles(JToggleButton... buttons) {
+    for (JToggleButton b : buttons) {
+      b.setContentAreaFilled(false);
+      b.setOpaque(true);
+      b.setFocusPainted(false);
+      b.setBorder(BorderFactory.createLineBorder(new Color(0x44, 0x44, 0x4f), 1));
+      b.setFont(new Font("SansSerif", Font.BOLD, 12));
+      b.setMargin(new Insets(4, 12, 4, 12));
+      if (b.isSelected()) {
+        b.setBackground(Color.WHITE);
+        b.setForeground(Color.BLACK);
+      } else {
+        b.setBackground(new Color(0x18, 0x18, 0x1c));
+        b.setForeground(Color.LIGHT_GRAY);
+      }
+    }
+  }
+
+  private void styleButton(JButton btn, Color bg, Color fg) {
+    btn.setContentAreaFilled(false);
+    btn.setOpaque(true);
+    btn.setFocusPainted(false);
+    btn.setBackground(bg);
+    btn.setForeground(fg);
+    btn.setFont(new Font("SansSerif", Font.BOLD, 12));
+    btn.setBorder(BorderFactory.createLineBorder(fg, 1));
+    btn.setMargin(new Insets(4, 12, 4, 12));
+
+    btn.addMouseListener(
+        new java.awt.event.MouseAdapter() {
+          @Override
+          public void mouseEntered(java.awt.event.MouseEvent e) {
+            btn.setBackground(bg.brighter());
+          }
+
+          @Override
+          public void mouseExited(java.awt.event.MouseEvent e) {
+            btn.setBackground(bg);
+          }
+        });
   }
 }

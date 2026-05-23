@@ -1,5 +1,6 @@
 package org.chuck.deluge;
 
+import static org.chuck.deluge.firmware.util.Q31.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.File;
@@ -8,6 +9,7 @@ import org.chuck.deluge.firmware.engine.FirmwareFactory;
 import org.chuck.deluge.firmware.engine.FirmwareKit;
 import org.chuck.deluge.firmware.engine.FirmwareSound;
 import org.chuck.deluge.firmware.model.Song;
+import org.chuck.deluge.firmware.util.Q31;
 import org.chuck.deluge.model.KitTrackModel;
 import org.chuck.deluge.model.ProjectModel;
 import org.chuck.deluge.model.SynthTrackModel;
@@ -284,5 +286,96 @@ public class DigitalAudioFidelityTest {
       }
       return output;
     }
+  }
+
+  @Test
+  void testSidechainDuckingFidelity() {
+    org.chuck.deluge.firmware.engine.GlobalSidechainBus.reset();
+
+    org.chuck.deluge.firmware.engine.FirmwareAudioEngine engine =
+        new org.chuck.deluge.firmware.engine.FirmwareAudioEngine();
+
+    // Create a steady-state voice with maximum infinite sustain
+    FirmwareSound synth = new FirmwareSound();
+    synth.oscTypes[0] = org.chuck.deluge.firmware.dsp.oscillators.OscType.SAW;
+    synth
+            .paramNeutralValues[
+            org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_SUSTAIN] =
+        Q31.ONE;
+    synth
+            .paramNeutralValues[
+            org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_RELEASE] =
+        100000000;
+    synth
+            .paramNeutralValues[
+            org.chuck.deluge.firmware.modulation.params.Param.UNPATCHED_SIDECHAIN_SHAPE] =
+        0; // linear
+    synth.sidechainSend = 0; // Only receives sidechain ducking
+
+    engine.sounds.add(synth);
+
+    // Trigger infinite steady state saw wave note on
+    synth.triggerNote(60, 100);
+
+    // Render 10 blocks (1280 samples) to stabilize output gain
+    for (int b = 0; b < 10; b++) {
+      engine.renderBlock(128);
+    }
+
+    // Record pre-hit steady-state average peak value
+    double preHitPeak = 0.0;
+    for (int i = 0; i < 128; i++) {
+      preHitPeak = Math.max(preHitPeak, Math.abs(engine.masterBuffer[i].l / 2147483648.0));
+    }
+    org.junit.jupiter.api.Assertions.assertTrue(
+        preHitPeak > 0.4, "Steady state voice should have solid active signal level");
+
+    // Create sidechain trigger sound (representing a kick drum slot!)
+    FirmwareSound kick = new FirmwareSound();
+    kick.sidechainSend = Q31.ONE; // Max send level
+
+    engine.sounds.add(kick);
+
+    // Trigger a note on the kick to register sidechain trigger hit
+    kick.triggerNote(36, 127);
+
+    // Render next block — this block is the EXACT moment of impact (maximum ducking!)
+    engine.renderBlock(128);
+
+    // Calculate post-hit maximum peak level
+    double postHitPeak = 0.0;
+    for (int i = 0; i < 128; i++) {
+      postHitPeak = Math.max(postHitPeak, Math.abs(engine.masterBuffer[i].l / 2147483648.0));
+    }
+
+    System.out.println("=== HIGH-FIDELITY SIDECHAIN ROUTING FIDELITY CHECK ===");
+    System.out.println("  Pre-Hit Steady State Peak: " + preHitPeak);
+    System.out.println("  Post-Hit Ducked Peak Level: " + postHitPeak);
+    System.out.println("  Ducking Ratio (Ducked / Pre): " + (postHitPeak / preHitPeak));
+
+    // Assert that ducking successfully suppressed the audio level significantly (at least 70% level
+    // drop!)
+    org.junit.jupiter.api.Assertions.assertTrue(
+        postHitPeak / preHitPeak < 0.3,
+        "Sidechain ducking should drop the signal peak by at least 70%");
+
+    // Render next 12 blocks (1536 samples) to let it recover
+    for (int b = 0; b < 12; b++) {
+      engine.renderBlock(128);
+    }
+
+    // Calculate post-recovery peak level
+    double recoveredPeak = 0.0;
+    for (int i = 0; i < 128; i++) {
+      recoveredPeak = Math.max(recoveredPeak, Math.abs(engine.masterBuffer[i].l / 2147483648.0));
+    }
+    System.out.println("  Recovered Post-Decay Peak Level: " + recoveredPeak);
+    System.out.println("======================================================");
+
+    // Assert that output gain successfully recovered back to near original level (at least 80%
+    // original level!)
+    org.junit.jupiter.api.Assertions.assertTrue(
+        recoveredPeak / preHitPeak > 0.8,
+        "Sidechain level should recover back to near steady-state peak levels post-release");
   }
 }

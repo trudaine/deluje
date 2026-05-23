@@ -36,6 +36,7 @@ public class FirmwareAudioEngine {
   }
 
   public void renderBlock(int numSamples) {
+    GlobalSidechainBus.beginAudioFrame();
     int[] monoReverbBuffer = new int[numSamples];
     for (int i = 0; i < numSamples; i++) {
       masterBuffer[i].l = 0;

@@ -178,6 +178,26 @@ public class FirmwareFactory {
     sound.numUnison = model.getUnisonNum();
     sound.unisonDetune = (int) model.getUnisonDetune();
     sound.unisonStereoSpread = (int) (model.getUnisonStereoSpread() * 2147483647.0);
+
+    // Sidechain settings
+    int sidechainAttackVal =
+        (int) (200 + Math.pow(2.0, (1.0 - model.getSidechainAttack()) * 12.0) * 2.0);
+    int sidechainReleaseVal =
+        (int) (50 + Math.pow(2.0, (1.0 - model.getSidechainRelease()) * 12.0) * 1.5);
+    sound.sidechain.attack = sidechainAttackVal;
+    sound.sidechain.release = sidechainReleaseVal;
+    sound.sidechain.syncLevel =
+        org.chuck.deluge.firmware.model.SyncLevel.values()[
+            model.getSidechainSyncLevel()
+                % org.chuck.deluge.firmware.model.SyncLevel.values().length];
+    sound.sidechain.syncType =
+        org.chuck.deluge.firmware.model.SyncType.values()[
+            model.getSidechainSyncType()
+                % org.chuck.deluge.firmware.model.SyncType.values().length];
+    sound
+            .paramNeutralValues[
+            org.chuck.deluge.firmware.modulation.params.Param.UNPATCHED_SIDECHAIN_SHAPE] =
+        0; // default shape
     try {
       sound.polyphonic =
           org.chuck.deluge.firmware.model.PolyphonyMode.valueOf(model.getPolyphony().name());
@@ -279,6 +299,7 @@ public class FirmwareFactory {
         drumSound.osc2RetriggerPhase = sd.getOsc2RetrigPhase();
         drumSound.mod1RetrigPhase = sd.getMod1RetrigPhase();
         drumSound.mod2RetrigPhase = sd.getMod2RetrigPhase();
+        drumSound.sidechainSend = (int) (sd.getSidechainSend() * 2147483647.0);
 
         // Map per-lane step automation from the ClipModel to the drum sound's ParamManager
         if (!model.getClips().isEmpty()) {

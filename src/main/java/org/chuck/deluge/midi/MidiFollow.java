@@ -299,9 +299,7 @@ public class MidiFollow {
     // Phase A: no-op; notes are routed by MidiInputRouter
   }
 
-  /**
-   * Handle an incoming Pitch Bend for MIDI Follow param mapping.
-   */
+  /** Handle an incoming Pitch Bend for MIDI Follow param mapping. */
   public void handlePitchBend(MIDIMessage msg) {
     int lsb = msg.data1();
     int msb = msg.data2();
@@ -313,18 +311,14 @@ public class MidiFollow {
 
   // ===================== Aftertouch =====================
 
-  /**
-   * Handle incoming Channel Aftertouch for MIDI Follow param mapping.
-   */
+  /** Handle incoming Channel Aftertouch for MIDI Follow param mapping. */
   public void handleChannelAftertouch(MIDIMessage msg) {
     if (onAftertouch != null) {
       onAftertouch.accept(msg.channel(), msg.data1());
     }
   }
 
-  /**
-   * Handle incoming Polyphonic Aftertouch for MIDI Follow param mapping.
-   */
+  /** Handle incoming Polyphonic Aftertouch for MIDI Follow param mapping. */
   public void handlePolyAftertouch(MIDIMessage msg) {
     if (onPolyAftertouch != null) {
       onPolyAftertouch.accept(msg.channel(), msg.data1(), msg.data2());
