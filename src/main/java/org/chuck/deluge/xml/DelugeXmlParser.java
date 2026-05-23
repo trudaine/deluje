@@ -366,6 +366,10 @@ public class DelugeXmlParser {
                 for (int s = 0; s < stepCount; s++) {
                   clip.setStep(r, s, row.get(s));
                 }
+
+                java.util.List<org.chuck.deluge.model.HighResNote> rawNotes =
+                    DelugeNoteDataMapper.decodeRawNotes(hexData, hcpn);
+                clip.setRawNoteEvents(r, rawNotes);
               }
 
               // Apply per-row pitch from y attribute to all steps in this row
@@ -621,6 +625,10 @@ public class DelugeXmlParser {
               for (int s = 0; s < stepCount; s++) {
                 clip.setStep(r, s, row.get(s));
               }
+
+              java.util.List<org.chuck.deluge.model.HighResNote> rawNotes =
+                  DelugeNoteDataMapper.decodeRawNotes(hexData, hcpn);
+              clip.setRawNoteEvents(r, rawNotes);
 
               // DIAGNOSTIC: active steps per row
               StringBuilder sb = new StringBuilder();

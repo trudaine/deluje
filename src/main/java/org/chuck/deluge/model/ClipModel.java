@@ -74,6 +74,25 @@ public class ClipModel {
    */
   private final Map<String, Float> kitParams = new HashMap<>();
 
+  /** Raw, unquantized high-resolution note events list per row index. */
+  private final Map<Integer, List<HighResNote>> rawNoteEvents = new HashMap<>();
+
+  public void setRawNoteEvents(int rowIndex, List<HighResNote> notes) {
+    if (notes == null) {
+      rawNoteEvents.remove(rowIndex);
+    } else {
+      rawNoteEvents.put(rowIndex, new ArrayList<>(notes));
+    }
+  }
+
+  public List<HighResNote> getRawNoteEvents(int rowIndex) {
+    return rawNoteEvents.get(rowIndex);
+  }
+
+  public Map<Integer, List<HighResNote>> getRawNoteEventsMap() {
+    return rawNoteEvents;
+  }
+
   public ClipModel(String name, int rowCount, int stepCount) {
     this.name = name;
     this.rowCount = Math.max(1, rowCount);
@@ -106,6 +125,10 @@ public class ClipModel {
     }
     // Deep-copy kit params
     copy.kitParams.putAll(this.kitParams);
+    // Deep-copy raw high-resolution note events
+    for (Map.Entry<Integer, List<HighResNote>> e : this.rawNoteEvents.entrySet()) {
+      copy.rawNoteEvents.put(e.getKey(), new ArrayList<>(e.getValue()));
+    }
     // Copy play mode
     copy.playMode = this.playMode;
     return copy;

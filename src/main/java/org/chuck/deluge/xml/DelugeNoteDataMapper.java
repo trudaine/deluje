@@ -95,6 +95,35 @@ public class DelugeNoteDataMapper {
     return row;
   }
 
+  public static List<org.chuck.deluge.model.HighResNote> decodeRawNotes(
+      String hex, int hexCharsPerNote) {
+    List<org.chuck.deluge.model.HighResNote> list = new ArrayList<>();
+    if (hex == null || !hex.startsWith("0x") || hex.length() < 2 + hexCharsPerNote) {
+      return list;
+    }
+
+    String data = hex.substring(2);
+    int idx = 0;
+    while (idx + hexCharsPerNote <= data.length()) {
+      String hexPos = data.substring(idx, idx + 8);
+      String hexLen = data.substring(idx + 8, idx + 16);
+
+      int pos = (int) Long.parseLong(hexPos, 16);
+      int len = (int) Long.parseLong(hexLen, 16);
+
+      float velocity = 0.8f;
+      if (hexCharsPerNote >= 22) {
+        String hexVel = data.substring(idx + 16, idx + 18);
+        int velInt = Integer.parseInt(hexVel, 16);
+        velocity = velInt / 127.0f;
+      }
+
+      list.add(new org.chuck.deluge.model.HighResNote(pos, len, velocity, 1.0f, 0));
+      idx += hexCharsPerNote;
+    }
+    return list;
+  }
+
   /**
    * Encode a single note as a 20-hex-char (10-byte) noteData entry. Format: 8 chars tick position +
    * 8 chars tick length + 4 chars flags ("4014"). Matches the existing encodeRow() output format.

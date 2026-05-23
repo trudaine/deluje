@@ -1849,6 +1849,7 @@ public class SwingGridPanel extends JPanel {
                                         0.5f,
                                         (float) curProb,
                                         pitchMidi));
+                                cModel.setRawNoteEvents(modelRow, null);
                                 if (oldStep != null) {
                                   projectModel
                                       .getUndoRedoStack()
