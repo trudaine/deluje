@@ -1437,13 +1437,13 @@ public class SwingGridPanel extends JPanel {
 
                 if (soloRow == modelRow) {
                   soloRow = -1;
-                  for (int i = 0; i < MAX_GRID_ROWS; i++) bridge.setMute(baseTrackId + i, false);
+                  for (int i = 0; i < voiceRowCount; i++) bridge.setMute(baseTrackId + i, false);
                   if (SwingDelugeApp.mainInstance != null) {
                     SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient("SOLO", "OFF");
                   }
                 } else {
                   soloRow = modelRow;
-                  for (int i = 0; i < MAX_GRID_ROWS; i++) {
+                  for (int i = 0; i < voiceRowCount; i++) {
                     bridge.setMute(baseTrackId + i, i != modelRow);
                   }
                   if (SwingDelugeApp.mainInstance != null) {
