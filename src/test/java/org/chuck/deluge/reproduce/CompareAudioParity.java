@@ -60,9 +60,13 @@ public class CompareAudioParity {
         }
       }
 
+      // Auto-normalize peaks to 0.5 to make transient onset detection level-independent
+      float[] normHw = normalizePeak(hw, 0.5f);
+      float[] normSw = normalizePeak(sw, 0.5f);
+
       // 3. Find optimal start-transient onset points and align first active note cycles
-      int hwStart = findActiveStart(hw, 0.02f);
-      int swStart = findActiveStart(sw, 0.01f);
+      int hwStart = findActiveStart(normHw, 0.05f);
+      int swStart = findActiveStart(normSw, 0.05f);
       int bestLag = hwStart - swStart;
       System.out.println(
           "Transient-Based Alignment Lag (samples): "
@@ -319,5 +323,18 @@ public class CompareAudioParity {
       }
     }
     return startSearchIdx;
+  }
+
+  private static float[] normalizePeak(float[] data, float targetPeak) {
+    double max = 0;
+    for (float v : data) {
+      double abs = Math.abs(v);
+      if (abs > max) max = abs;
+    }
+    if (max < 1e-9) return data.clone();
+    float scale = (float) (targetPeak / max);
+    float[] out = new float[data.length];
+    for (int i = 0; i < data.length; i++) out[i] = data[i] * scale;
+    return out;
   }
 }
