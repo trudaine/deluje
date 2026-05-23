@@ -1,9 +1,11 @@
 package org.chuck.deluge.ui;
 
 import java.awt.Color;
+import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import javax.swing.BorderFactory;
+import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -14,9 +16,7 @@ import org.chuck.deluge.model.ProjectModel;
 
 /**
  * Bottom MASTER FX panel containing master volume, transpose, scale selector, and playback status.
- * Uses ProjectModel for master volume so changes flow through MVC (model → listener → bridge). Used
- * in the main layout's bottom row. The status counter label is exposed so the playback timer can
- * update it.
+ * Re-designed to be ultra-compact (54px height) with custom-styled, high-contrast controls.
  */
 public class SwingMasterFxPanel extends JPanel {
 
@@ -36,34 +36,24 @@ public class SwingMasterFxPanel extends JPanel {
    */
   public SwingMasterFxPanel(ChuckVM vm, ProjectModel projectModel, SwingTopBarPanel topBar) {
     this.projectModel = projectModel;
-    setLayout(new FlowLayout(FlowLayout.LEFT, 15, 5));
-    setBackground(new Color(0x25, 0x25, 0x25));
+    setLayout(new FlowLayout(FlowLayout.LEFT, 12, 4));
+    setBackground(new Color(0x12, 0x12, 0x14)); // Dark charcoal matching top bar
     setBorder(
-        BorderFactory.createTitledBorder(
-            BorderFactory.createLineBorder(Color.GRAY), "MASTER FX", 0, 0, null, Color.WHITE));
+        BorderFactory.createMatteBorder(
+            1, 0, 0, 0, new Color(0x2d, 0x2d, 0x32))); // Clean top divider
 
-    // ── Master Volume ──
-    JLabel bVolLabel = new JLabel("Master Vol:");
-    bVolLabel.setForeground(Color.WHITE);
-    masterVolSlider = new JSlider(0, 100, (int) (projectModel.getMasterVolume() * 100));
-    masterVolSlider.addChangeListener(
-        e -> {
-          double v = masterVolSlider.getValue() / 100.0;
-          projectModel.setMasterVolume((float) v);
-          if (topBar != null && topBar.getMasterVol() != masterVolSlider.getValue()) {
-            topBar.setMasterVol(masterVolSlider.getValue());
-          }
-        });
-    add(bVolLabel);
-    add(masterVolSlider);
+    // ── Status Counter ──
+    statusCounter = new JLabel("1:1:1");
+    statusCounter.setForeground(new Color(0x00, 0xff, 0x66)); // neon green
+    statusCounter.setFont(new Font("Monospaced", Font.BOLD, 18));
+    add(statusCounter);
 
     // ── Transpose ──
-    JLabel transLabel = new JLabel("Transpose:");
-    transLabel.setForeground(Color.WHITE);
+    JLabel transLabel = new JLabel("TRANSPOSE:");
+    styleLabel(transLabel, true);
     JSlider transSlider = new JSlider(-24, 24, projectModel.getTranspose());
+    styleSlider(transSlider, 70);
     transSlider.setSnapToTicks(true);
-    transSlider.setMajorTickSpacing(12);
-    transSlider.setPaintTicks(true);
     transSlider.addChangeListener(
         e -> {
           if (!transSlider.getValueIsAdjusting()) {
@@ -74,17 +64,24 @@ public class SwingMasterFxPanel extends JPanel {
     add(transSlider);
 
     // ── Scale Selector ──
-    JLabel scaleLabel = new JLabel("Scale:");
-    scaleLabel.setForeground(Color.WHITE);
+    JLabel scaleLabel = new JLabel("SCALE:");
+    styleLabel(scaleLabel, true);
     JComboBox<String> scaleCombo =
         new JComboBox<>(new String[] {"Major", "Minor", "Pentatonic", "Chromatic"});
+    scaleCombo.setFont(new Font("SansSerif", Font.PLAIN, 10));
+    scaleCombo.setBackground(new Color(0x2d, 0x2d, 0x32));
+    scaleCombo.setForeground(Color.WHITE);
+    scaleCombo.setPreferredSize(new Dimension(80, 20));
+    scaleCombo.setFocusable(false);
     add(scaleLabel);
     add(scaleCombo);
 
-    // ── High Fidelity Mode ──
-    javax.swing.JCheckBox hiFiCheck = new javax.swing.JCheckBox("Hi-Fi");
-    hiFiCheck.setForeground(Color.WHITE);
-    hiFiCheck.setBackground(new Color(0x25, 0x25, 0x25));
+    // ── High Fidelity Mode Checkbox ──
+    JCheckBox hiFiCheck = new JCheckBox("HI-FI");
+    hiFiCheck.setForeground(Color.LIGHT_GRAY);
+    hiFiCheck.setFont(new Font("SansSerif", Font.BOLD, 10));
+    hiFiCheck.setOpaque(false);
+    hiFiCheck.setFocusable(false);
     hiFiCheck.setSelected(vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0);
     hiFiCheck.addActionListener(
         e -> {
@@ -96,75 +93,95 @@ public class SwingMasterFxPanel extends JPanel {
         });
     add(hiFiCheck);
 
-    // ── Status Counter ──
-    statusCounter = new JLabel("1:1:1");
-    statusCounter.setForeground(Color.GREEN);
-    statusCounter.setFont(new Font("Monospaced", Font.BOLD, 24));
-    add(statusCounter);
-
     // ── Master Compressor Sub-Panel ──
-    JPanel compPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 2));
-    compPanel.setBackground(new Color(0x2E, 0x2E, 0x2E));
+    JPanel compPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 2));
+    compPanel.setBackground(new Color(0x18, 0x18, 0x1c));
     compPanel.setBorder(
         BorderFactory.createTitledBorder(
-            BorderFactory.createLineBorder(Color.GRAY),
+            BorderFactory.createLineBorder(new Color(0x2d, 0x2d, 0x32)),
             "MASTER COMPRESSOR",
             0,
             0,
-            null,
-            Color.WHITE));
+            new Font("SansSerif", Font.BOLD, 9),
+            Color.LIGHT_GRAY));
 
-    JLabel threshLabel = new JLabel("Thresh:");
-    threshLabel.setForeground(Color.WHITE);
+    JLabel threshLabel = new JLabel("THRESH:");
+    styleLabel(threshLabel, false);
     threshSlider = new JSlider(0, 100, (int) (projectModel.getCompressorThreshold() * 100));
+    styleSlider(threshSlider, 70);
     threshSlider.addChangeListener(
-        e -> {
-          projectModel.setCompressorThreshold(threshSlider.getValue() / 100.0f);
-        });
+        e -> projectModel.setCompressorThreshold(threshSlider.getValue() / 100.0f));
     compPanel.add(threshLabel);
     compPanel.add(threshSlider);
 
-    JLabel attackLabel = new JLabel("Attack:");
-    attackLabel.setForeground(Color.WHITE);
+    JLabel attackLabel = new JLabel("ATTACK:");
+    styleLabel(attackLabel, false);
     attackSlider = new JSlider(0, 100, (int) (projectModel.getCompressorAttack() * 100));
+    styleSlider(attackSlider, 70);
     attackSlider.addChangeListener(
-        e -> {
-          projectModel.setCompressorAttack(attackSlider.getValue() / 100.0f);
-        });
+        e -> projectModel.setCompressorAttack(attackSlider.getValue() / 100.0f));
     compPanel.add(attackLabel);
     compPanel.add(attackSlider);
 
-    JLabel releaseLabel = new JLabel("Release:");
-    releaseLabel.setForeground(Color.WHITE);
+    JLabel releaseLabel = new JLabel("RELEASE:");
+    styleLabel(releaseLabel, false);
     releaseSlider = new JSlider(0, 100, (int) (projectModel.getCompressorRelease() * 100));
+    styleSlider(releaseSlider, 70);
     releaseSlider.addChangeListener(
-        e -> {
-          projectModel.setCompressorRelease(releaseSlider.getValue() / 100.0f);
-        });
+        e -> projectModel.setCompressorRelease(releaseSlider.getValue() / 100.0f));
     compPanel.add(releaseLabel);
     compPanel.add(releaseSlider);
 
-    JLabel ratioLabel = new JLabel("Ratio:");
-    ratioLabel.setForeground(Color.WHITE);
+    JLabel ratioLabel = new JLabel("RATIO:");
+    styleLabel(ratioLabel, false);
     ratioSlider = new JSlider(0, 100, (int) (projectModel.getCompressorRatio() * 100));
+    styleSlider(ratioSlider, 70);
     ratioSlider.addChangeListener(
-        e -> {
-          projectModel.setCompressorRatio(ratioSlider.getValue() / 100.0f);
-        });
+        e -> projectModel.setCompressorRatio(ratioSlider.getValue() / 100.0f));
     compPanel.add(ratioLabel);
     compPanel.add(ratioSlider);
 
-    JLabel blendLabel = new JLabel("Blend:");
-    blendLabel.setForeground(Color.WHITE);
+    JLabel blendLabel = new JLabel("BLEND:");
+    styleLabel(blendLabel, false);
     blendSlider = new JSlider(0, 100, (int) (projectModel.getCompressorBlend() * 100));
+    styleSlider(blendSlider, 70);
     blendSlider.addChangeListener(
-        e -> {
-          projectModel.setCompressorBlend(blendSlider.getValue() / 100.0f);
-        });
+        e -> projectModel.setCompressorBlend(blendSlider.getValue() / 100.0f));
     compPanel.add(blendLabel);
     compPanel.add(blendSlider);
 
     add(compPanel);
+
+    // ── Master Volume ──
+    JLabel bVolLabel = new JLabel("VOLUME:");
+    styleLabel(bVolLabel, true);
+    masterVolSlider = new JSlider(0, 100, (int) (projectModel.getMasterVolume() * 100));
+    styleSlider(masterVolSlider, 80);
+    masterVolSlider.addChangeListener(
+        e -> {
+          double v = masterVolSlider.getValue() / 100.0;
+          projectModel.setMasterVolume((float) v);
+          if (topBar != null && topBar.getMasterVol() != masterVolSlider.getValue()) {
+            topBar.setMasterVol(masterVolSlider.getValue());
+          }
+        });
+    add(bVolLabel);
+    add(masterVolSlider);
+  }
+
+  private void styleSlider(JSlider slider, int width) {
+    slider.setBackground(new Color(0x12, 0x12, 0x14));
+    slider.setForeground(new Color(0x00, 0xff, 0xcc));
+    slider.setPreferredSize(new Dimension(width, 18));
+    slider.setMinimumSize(new Dimension(width, 18));
+    slider.setMaximumSize(new Dimension(width, 18));
+    slider.setPaintTicks(false);
+    slider.setPaintLabels(false);
+  }
+
+  private void styleLabel(JLabel label, boolean bold) {
+    label.setForeground(Color.LIGHT_GRAY);
+    label.setFont(new Font("SansSerif", bold ? Font.BOLD : Font.PLAIN, 10));
   }
 
   /** Current master volume slider value. */

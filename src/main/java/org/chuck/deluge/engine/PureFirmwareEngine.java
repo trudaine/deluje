@@ -71,6 +71,20 @@ public class PureFirmwareEngine {
   private void syncFromBridge(ChuckVM vm) {
     if (vm == null) return;
 
+    long play = vm.getGlobalInt(BridgeContract.G_PLAY);
+    if (play == 1L) {
+      if (!playbackHandler.isPlaying()) {
+        playbackHandler.start();
+      }
+      int currentStep = playbackHandler.lastSwungTickActioned / 24;
+      vm.setGlobalInt(BridgeContract.G_CURRENT_STEP, (long) currentStep);
+    } else {
+      if (playbackHandler.isPlaying()) {
+        playbackHandler.stop();
+      }
+      vm.setGlobalInt(BridgeContract.G_CURRENT_STEP, -1L);
+    }
+
     float bpm = (float) vm.getGlobalFloat(BridgeContract.G_BPM);
     if (bpm != currentBpm) {
       setBpm(bpm);

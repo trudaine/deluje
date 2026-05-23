@@ -9,25 +9,25 @@ import org.chuck.deluge.firmware.model.Song;
  * (Swing, Quantization).
  */
 public class PlaybackHandler {
-  private boolean playing = false;
+  private volatile boolean playing = false;
   private Song currentSong;
   private final Arrangement arrangement = new Arrangement();
-  public int lastSwungTickActioned = 0;
+  public volatile int lastSwungTickActioned = 0;
   private int swungTicksTilNextEvent = 0;
 
-  public void setSong(Song song) {
+  public synchronized void setSong(Song song) {
     this.currentSong = song;
   }
 
-  public Song getSong() {
+  public synchronized Song getSong() {
     return currentSong;
   }
 
-  public boolean isPlaying() {
+  public synchronized boolean isPlaying() {
     return playing;
   }
 
-  public void start() {
+  public synchronized void start() {
     playing = true;
     lastSwungTickActioned = 0;
     swungTicksTilNextEvent = 0;
@@ -41,13 +41,13 @@ public class PlaybackHandler {
     arrangement.resetPlayPos(0);
   }
 
-  public void stop() {
+  public synchronized void stop() {
     playing = false;
     FirmwareDisplay.get().setText(" STOPPED ");
   }
 
   /** Advance the sequencer by a number of ticks. Includes high-fidelity Swing logic. */
-  public void advanceTicks(int numTicks) {
+  public synchronized void advanceTicks(int numTicks) {
     if (!playing || currentSong == null) return;
 
     int ticksRemaining = numTicks;

@@ -5,6 +5,7 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import javax.swing.JComponent;
 
 /**
@@ -13,19 +14,31 @@ import javax.swing.JComponent;
  */
 public class PianoRollComponent extends JComponent {
 
-  public PianoRollComponent() {
-    setPreferredSize(new Dimension(2600, 120));
-    setMaximumSize(new Dimension(2600, 120));
+  private final SwingGridPanel gridPanel;
+
+  public PianoRollComponent(SwingGridPanel gridPanel) {
+    this.gridPanel = gridPanel;
+    // Compact size: height 80 instead of 120
+    setPreferredSize(new Dimension(3000, 80));
+    setMinimumSize(new Dimension(100, 80));
+    setMaximumSize(new Dimension(3000, 80));
   }
 
   @Override
   protected void paintComponent(Graphics g) {
-    Graphics2D g2 = (Graphics2D) g;
-    int gridX = 160;
+    Graphics2D g2 = (Graphics2D) g.create();
+    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-    double totalWidth = 18 * 125.0 + 20.0;
+    // Compute dynamic starting position to align with grid column pads
+    int lw = Math.max(60, Math.min(140, gridPanel.getWidth() / 12));
+    int gridX = lw + 91;
+
+    // Compute dynamic total width spanning all step pads
+    int padSz = gridPanel.cachedPadSz;
+    int cols = gridPanel.columnCount - 2;
+    double totalWidth = cols * (padSz + 5) - 5;
     double keyW = totalWidth / 28.0;
-    int keyH = 110;
+    int keyH = 70; // compact keyboard key height
 
     // White keys
     for (int i = 0; i < 28; i++) {
@@ -53,13 +66,13 @@ public class PianoRollComponent extends JComponent {
       g2.fillRect(bx, 0, (int) (keyW / 2.0), keyH / 2);
     }
 
-    // QWERTY assistants
-    g2.setFont(new Font("SansSerif", Font.BOLD, 14));
+    // QWERTY assistants styled cleanly and scaled
+    g2.setFont(new Font("SansSerif", Font.BOLD, 10));
     String[] whiteQwerty = {"Z", "X", "C", "V", "B", "N", "M"};
     for (int i = 0; i < 7; i++) {
       int x = (int) (gridX + i * keyW);
       g2.setColor(Color.GRAY);
-      g2.drawString(whiteQwerty[i], x + 10, keyH - 15);
+      g2.drawString(whiteQwerty[i], x + (int) (keyW / 2.0) - 3, keyH - 8);
     }
 
     String[] blackQwerty = {"S", "D", "", "G", "H", "J"};
@@ -71,8 +84,10 @@ public class PianoRollComponent extends JComponent {
         int kw = nextX - x;
         int bx = x + kw - (int) (keyW / 3.0);
         g2.setColor(Color.WHITE);
-        g2.drawString(blackQwerty[i], bx + 2, (keyH / 2) - 5);
+        g2.drawString(blackQwerty[i], bx + (int) (keyW / 4.0) - 2, (keyH / 2) - 3);
       }
     }
+
+    g2.dispose();
   }
 }

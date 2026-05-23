@@ -153,15 +153,12 @@ public class SwingTopBarPanel extends JPanel {
 
     JButton playBtn = new JButton("\u25B6 PLAY");
     styleButton(playBtn, new Color(0x1a, 0x4a, 0x1a), new Color(0x00, 0xff, 0x66));
-    playBtn.addActionListener(
-        e ->
-            vm.setGlobalInt(
-                BridgeContract.G_PLAY, vm.getGlobalInt(BridgeContract.G_PLAY) == 1L ? 0L : 1L));
+    playBtn.addActionListener(e -> listener.onPlayToggle());
     add(playBtn);
 
     JButton stopBtn = new JButton("\u25A0 STOP");
     styleButton(stopBtn, new Color(0x4a, 0x1a, 0x1a), new Color(0xff, 0x33, 0x33));
-    stopBtn.addActionListener(e -> vm.setGlobalInt(BridgeContract.G_PLAY, 0L));
+    stopBtn.addActionListener(e -> listener.onStop());
     add(stopBtn);
     add(new JSeparator(JSeparator.VERTICAL));
 
