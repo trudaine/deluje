@@ -96,5 +96,17 @@ We have generated 4 new extreme stress-testing templates to validate dynamic eng
 *   **`126_ARPEGGIATOR_GATE_SPREAD_C5.XML` (Dynamic Arpeggiator Gate Spread):**
     *   *Osc 1:* Sawtooth wave
     *   *Arpeggiator:* Active mode down, sequence length 16, gate at `0x60000000`, gate spread set to `0.8`, velocity spread set to `0.4`.
-    *   *Recording instructions:* Hold a multi-note chord (e.g., C5-E5-G5, MIDI Notes 72, 76, 79) for 4 seconds. Save the resampled wave as `reference_arpeggiator_gate_spread_c5.wav`.
+*   **`127_SYNTH_HARD_SYNC_C5.XML` (Oscillator Hard Sync):**
+    *   *Osc 1:* Sawtooth wave, 100% Volume.
+    *   *Osc 2:* Sawtooth wave, 100% Volume, transposed detune = +12 semitones, cents = +50, with `oscillatorSync="1"` enabled to reset Osc 2's phase on each Osc 1 cycle.
+    *   *Recording instructions:* Record a sustained **C5 note (MIDI Note 72)** for 4 seconds. Save the resampled mono wave as `reference_synth_hard_sync_c5.wav`.
+*   **`128_SYNTH_DUAL_MOD_C5.XML` (Modulation Matrix Multi-Source Summing):**
+    *   *Osc 1:* Sawtooth wave, 100% Volume.
+    *   *LFO 1:* Sine wave running at slow speed (`rate = 0x20000000`) targeted to low-pass filter cutoff (`amount = 0x20000000`).
+    *   *LFO 2:* Triangle wave running at fast speed (`rate = 0x40000000`) targeted to low-pass filter cutoff (`amount = 0x18000000`). Tests correct summing of multiple modulators on the same destination path.
+    *   *Recording instructions:* Record a sustained **C5 note (MIDI Note 72)** for 4 seconds. Save the resampled mono wave as `reference_synth_dual_mod_c5.wav`.
+*   **`129_FM_GLIDE_RATIO_C5.XML` (FM Portamento Glide Ratio):**
+    *   *Engine Type:* FM mode (2-Operator FM with carrier/modulator ratio = 2.0).
+    *   *Portamento:* Slide time configured (`portamento = 0x40000000`). Evaluates whether carrier and modulator frequencies stay in perfect ratio locks during pitch slides.
+    *   *Recording instructions:* Record a legato step sequence transition playing **C4 (MIDI Note 60) transitioning to C5 (MIDI Note 72)** with pitch glide enabled. Save the resampled wave as `reference_fm_glide_ratio_c5.wav`.
 
