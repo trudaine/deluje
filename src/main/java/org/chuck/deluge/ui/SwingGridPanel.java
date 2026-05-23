@@ -1362,8 +1362,17 @@ public class SwingGridPanel extends JPanel {
 
       if (colId == columnCount - 2) {
         final int engineRow = baseTrackId + modelRow;
-        clipBtn.setText("MUTE");
-        clipBtn.setBackground(bridge.getMute(engineRow) ? Color.RED : new Color(0x33, 0x33, 0x33));
+        boolean isMuted = bridge.getMute(engineRow);
+        if (clipBtn instanceof DelugePadButton pad) {
+          pad.setText("");
+          pad.setNoteText("");
+          pad.setActive(true);
+          pad.setBaseColor(isMuted ? Color.RED : new Color(0x2a, 0x10, 0x10));
+          pad.setIntensity(isMuted ? 1.0f : 0.4f);
+        } else {
+          clipBtn.setText("MUTE");
+          clipBtn.setBackground(isMuted ? Color.RED : new Color(0x33, 0x33, 0x33));
+        }
         clipBtn.addActionListener(
             e -> {
               if ((e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0) {
@@ -1393,17 +1402,31 @@ public class SwingGridPanel extends JPanel {
                 refresh();
                 return;
               }
-              boolean isMuted = bridge.getMute(engineRow);
-              bridge.setMute(engineRow, !isMuted);
-              clipBtn.setBackground(!isMuted ? Color.RED : new Color(0x33, 0x33, 0x33));
+              boolean nextMute = !isMuted;
+              bridge.setMute(engineRow, nextMute);
+              if (clipBtn instanceof DelugePadButton pad) {
+                pad.setBaseColor(nextMute ? Color.RED : new Color(0x2a, 0x10, 0x10));
+                pad.setIntensity(nextMute ? 1.0f : 0.4f);
+              } else {
+                clipBtn.setBackground(nextMute ? Color.RED : new Color(0x33, 0x33, 0x33));
+              }
               if (SwingDelugeApp.mainInstance != null) {
                 SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient(
-                    "MUT ", (!isMuted ? "ON  " : "OFF ") + "T" + (modelRow + 1));
+                    "MUT ", (nextMute ? "ON  " : "OFF ") + "T" + (modelRow + 1));
               }
             });
       } else if (colId == columnCount - 1) {
-        clipBtn.setText("SOLO");
-        clipBtn.setBackground(soloRow == modelRow ? Color.GREEN : new Color(0x33, 0x33, 0x33));
+        boolean isSoloed = (soloRow == modelRow);
+        if (clipBtn instanceof DelugePadButton pad) {
+          pad.setText("");
+          pad.setNoteText("");
+          pad.setActive(true);
+          pad.setBaseColor(isSoloed ? Color.GREEN : new Color(0x10, 0x2a, 0x10));
+          pad.setIntensity(isSoloed ? 1.0f : 0.4f);
+        } else {
+          clipBtn.setText("SOLO");
+          clipBtn.setBackground(isSoloed ? Color.GREEN : new Color(0x33, 0x33, 0x33));
+        }
 
         clipBtn.addActionListener(
             e -> {
@@ -2130,69 +2153,13 @@ public class SwingGridPanel extends JPanel {
 
       if (isAdvanced) {
         if (rowIdx == 8) {
-          // MACROS row
+          // Combined Macro Sliders!
           if (c < 16) {
             String[] allParams = {
               "LEVEL", "PAN", "PITCH", "FILTER", "RESONANCE", "OSC1", "OSC2", "LFO",
               "MOD FX", "DELAY", "REVERB", "STUTTER", "PROBABILITY", "GATE", "VELOCITY", "SAMPLE"
             };
-            DelugePadButton pad = new DelugePadButton();
-            pad.setActive(false);
-            pad.setNoteText(allParams[c]);
-            clipBtn = pad;
-          } else {
-            DelugePadButton pad = new DelugePadButton();
-            pad.setEnabled(false);
-            clipBtn = pad;
-          }
-        } else if (rowIdx == 9) {
-          // SLIDERS row
-          if (c < 16) {
-            DelugePadButton pad =
-                new DelugePadButton() {
-                  @Override
-                  protected void paintComponent(Graphics g) {
-                    Graphics2D g2 = (Graphics2D) g.create();
-                    g2.setRenderingHint(
-                        RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                    int h = getHeight();
-                    int w = getWidth();
-                    // Dark track background
-                    g2.setColor(new Color(0x1d, 0x1d, 0x22));
-                    g2.fillRoundRect(2, 2, w - 4, h - 4, 8, 8);
-
-                    double val = (bridge != null) ? bridge.getVelocity(0, colId) : 0.5;
-                    int barH = (int) (val * (h - 4));
-
-                    // Glow bar
-                    g2.setColor(new Color(0x00, 0xff, 0xcc, 180));
-                    g2.fillRoundRect(2, h - 2 - barH, w - 4, barH, 8, 8);
-
-                    // Border
-                    g2.setColor(new Color(0x32, 0x32, 0x3a));
-                    g2.drawRoundRect(2, 2, w - 4, h - 4, 8, 8);
-                    g2.dispose();
-                  }
-                };
-            pad.addMouseMotionListener(
-                new java.awt.event.MouseAdapter() {
-                  @Override
-                  public void mouseDragged(java.awt.event.MouseEvent e) {
-                    double v = 1.0 - (double) e.getY() / pad.getHeight();
-                    v = Math.max(0.0, Math.min(1.0, v));
-                    bridge.setVelocity(0, colId, v);
-                    pad.repaint();
-                  }
-
-                  @Override
-                  public void mousePressed(java.awt.event.MouseEvent e) {
-                    double v = 1.0 - (double) e.getY() / pad.getHeight();
-                    v = Math.max(0.0, Math.min(1.0, v));
-                    bridge.setVelocity(0, colId, v);
-                    pad.repaint();
-                  }
-                });
-            clipBtn = pad;
+            clipBtn = new MacroSliderButton(c, allParams[c]);
           } else {
             DelugePadButton pad = new DelugePadButton();
             pad.setEnabled(false);
@@ -2239,55 +2206,13 @@ public class SwingGridPanel extends JPanel {
         }
       } else {
         if (rowIdx == 8) {
-          // MACROS row: labelled buttons
+          // Combined Macro Sliders for legacy mode too!
           if (c < 16) {
             String[] allParams = {
               "LEVEL", "PAN", "PITCH", "FILTER", "RESONANCE", "OSC1", "OSC2", "LFO",
               "MOD FX", "DELAY", "REVERB", "STUTTER", "PROBABILITY", "GATE", "VELOCITY", "SAMPLE"
             };
-            clipBtn = new JButton("<html><center><b>" + allParams[c] + "</b></center></html>");
-            clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
-            clipBtn.setForeground(Color.LIGHT_GRAY);
-            clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 14 : 10));
-          } else {
-            clipBtn = new JButton();
-            clipBtn.setBackground(new Color(0x1a, 0x1a, 0x1a));
-            clipBtn.setEnabled(false);
-          }
-        } else if (rowIdx == 9) {
-          // SLIDERS row: velocity slider
-          if (c < 16) {
-            clipBtn =
-                new JButton() {
-                  @Override
-                  protected void paintComponent(Graphics g) {
-                    super.paintComponent(g);
-                    int h = getHeight();
-                    int w = getWidth();
-                    g.setColor(new Color(0x00, 0xff, 0xcc, 0xaa));
-                    double val = (bridge != null) ? bridge.getVelocity(0, colId) : 0.5;
-                    int barH = (int) (val * h);
-                    g.fillRect(0, h - barH, w, barH);
-                  }
-                };
-            clipBtn.addMouseMotionListener(
-                new java.awt.event.MouseAdapter() {
-                  @Override
-                  public void mouseDragged(java.awt.event.MouseEvent e) {
-                    double v = 1.0 - (double) e.getY() / clipBtn.getHeight();
-                    v = Math.max(0.0, Math.min(1.0, v));
-                    bridge.setVelocity(0, colId, v);
-                    clipBtn.repaint();
-                  }
-
-                  @Override
-                  public void mousePressed(java.awt.event.MouseEvent e) {
-                    double v = 1.0 - (double) e.getY() / clipBtn.getHeight();
-                    v = Math.max(0.0, Math.min(1.0, v));
-                    bridge.setVelocity(0, colId, v);
-                    clipBtn.repaint();
-                  }
-                });
+            clipBtn = new MacroSliderButton(c, allParams[c]);
           } else {
             clipBtn = new JButton();
             clipBtn.setBackground(new Color(0x1a, 0x1a, 0x1a));
@@ -2303,10 +2228,12 @@ public class SwingGridPanel extends JPanel {
                     || colId % 12 == 6
                     || colId % 12 == 8
                     || colId % 12 == 10);
+
             clipBtn = new JButton(String.valueOf(note));
             clipBtn.setBackground(isBlack ? new Color(0x33, 0x33, 0x33) : Color.WHITE);
             clipBtn.setForeground(isBlack ? Color.WHITE : Color.BLACK);
             clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 14 : 10));
+
             clipBtn.addActionListener(
                 e -> {
                   try {
@@ -2783,10 +2710,9 @@ public class SwingGridPanel extends JPanel {
         add(voicePanel);
       }
 
-      // Section 3: Fixed rows — MACROS, SLIDERS, KEYBOARD
-      for (int fixedRow = 8; fixedRow <= 10; fixedRow++) {
-        add(buildFixedRow(fixedRow, padSz));
-      }
+      // Section 3: Fixed rows — MACROS, KEYBOARD (Combined)
+      add(buildFixedRow(8, padSz));
+      add(buildFixedRow(10, padSz));
 
     } else {
       // ===== SONG / ARRANGEMENT: gridMode.rows + 3 fixed rows (MACROS/SLIDERS/KEYBOARD) =====
@@ -2814,7 +2740,7 @@ public class SwingGridPanel extends JPanel {
         add(sectionBar);
       }
 
-      for (int t = 0; t < songVoiceRows + 3; t++) {
+      for (int t = 0; t < songVoiceRows + 2; t++) {
 
         JPanel rowPanel = new JPanel();
         rowPanel.setLayout(new BoxLayout(rowPanel, BoxLayout.X_AXIS));
@@ -2857,8 +2783,7 @@ public class SwingGridPanel extends JPanel {
           trackName = (t < tracks.size()) ? tracks.get(t).getName() : "EMPTY " + (t + 1);
         }
         if (t == songVoiceRows) trackName = "MACROS";
-        if (t == songVoiceRows + 1) trackName = "SLIDERS";
-        if (t == songVoiceRows + 2) trackName = "KEYBOARD";
+        if (t == songVoiceRows + 1) trackName = "KEYBOARD";
 
         final int trk = currentTrack;
         final String tName = trackName;
@@ -3005,31 +2930,41 @@ public class SwingGridPanel extends JPanel {
                 });
         vuTimer.start();
 
+        String[] allParams = {
+          "LEVEL", "PAN", "PITCH", "FILTER", "RESONANCE", "OSC1", "OSC2", "LFO",
+          "MOD FX", "DELAY", "REVERB", "STUTTER", "PROBABILITY", "GATE", "VELOCITY", "SAMPLE"
+        };
+
         for (int c = 0; c < columnCount; c++) {
           final int slot = c;
           final int trkId = t;
           final int colId = c;
 
+          boolean isAdvanced =
+              org.chuck.deluge.project.PreferencesManager.getGridPanelType()
+                  == org.chuck.deluge.project.PreferencesManager.GridPanelType.ADVANCED;
           JButton clipBtn;
-          int macR = songVoiceRows, sliR = songVoiceRows + 1, keyR = songVoiceRows + 2;
-          if (trkId == sliR && colId < 16) {
-            clipBtn =
-                new JButton() {
-                  @Override
-                  protected void paintComponent(Graphics g) {
-                    super.paintComponent(g);
-                    int h = getHeight();
-                    int w = getWidth();
-                    g.setColor(new Color(0x00, 0xff, 0xcc, 0xaa));
-                    double val = (bridge != null) ? bridge.getVelocity(0, colId) : 0.5;
-                    int barH = (int) (val * h);
-                    g.fillRect(0, h - barH, w, barH);
-                  }
-                };
+          int macR = songVoiceRows, keyR = songVoiceRows + 1;
+          if (trkId == macR && colId < 16) {
+            clipBtn = new MacroSliderButton(colId, allParams[colId]);
           } else if (trkId == keyR && colId < 18) {
-            clipBtn = new JButton();
+            if (isAdvanced) {
+              DelugePadButton pad = new DelugePadButton();
+              pad.putClientProperty("row", t);
+              pad.putClientProperty("col", c);
+              clipBtn = pad;
+            } else {
+              clipBtn = new JButton();
+            }
           } else {
-            clipBtn = new JButton();
+            if (isAdvanced) {
+              DelugePadButton pad = new DelugePadButton();
+              pad.putClientProperty("row", t);
+              pad.putClientProperty("col", c);
+              clipBtn = pad;
+            } else {
+              clipBtn = new JButton();
+            }
           }
 
           clipBtn.setPreferredSize(new Dimension(padSz, padSz));
@@ -3041,44 +2976,7 @@ public class SwingGridPanel extends JPanel {
 
           if (t == macR) {
             if (c < 16) {
-              String[] allParams = {
-                "LEVEL", "PAN", "PITCH", "FILTER", "RESONANCE", "OSC1", "OSC2", "LFO",
-                "MOD FX", "DELAY", "REVERB", "STUTTER", "PROBABILITY", "GATE", "VELOCITY", "SAMPLE"
-              };
-              clipBtn.setText("<html><center><b>" + allParams[c] + "</b></center></html>");
-              clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
-              clipBtn.setForeground(Color.LIGHT_GRAY);
-              clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 14 : 10));
-            } else {
-              clipBtn.setBackground(new Color(0x1a, 0x1a, 0x1a));
-              clipBtn.setEnabled(false);
-            }
-          } else if (trkId == sliR) {
-            if (colId < 16) {
-
-              clipBtn.setPreferredSize(new Dimension(padSz, padSz));
-              clipBtn.setMinimumSize(new Dimension(padSz, padSz));
-              clipBtn.setMaximumSize(new Dimension(padSz, padSz));
-
-              clipBtn.addMouseMotionListener(
-                  new java.awt.event.MouseAdapter() {
-                    @Override
-                    public void mouseDragged(java.awt.event.MouseEvent e) {
-                      double v = 1.0 - (double) e.getY() / pads[sliR][colId].getHeight();
-                      v = Math.max(0.0, Math.min(1.0, v));
-                      bridge.setVelocity(0, colId, v);
-                      pads[sliR][colId].repaint();
-                    }
-
-                    @Override
-                    public void mousePressed(java.awt.event.MouseEvent e) {
-                      double v = 1.0 - (double) e.getY() / pads[sliR][colId].getHeight();
-                      v = Math.max(0.0, Math.min(1.0, v));
-                      bridge.setVelocity(0, colId, v);
-                      pads[sliR][colId].repaint();
-                    }
-                  });
-
+              // Handled inside MacroSliderButton!
             } else {
               clipBtn.setBackground(new Color(0x1a, 0x1a, 0x1a));
               clipBtn.setEnabled(false);
@@ -5572,5 +5470,333 @@ public class SwingGridPanel extends JPanel {
     int noteIdx = pitchMidi % 12;
     int octave = (pitchMidi / 12) - 1;
     return names[noteIdx] + octave;
+  }
+
+  private double getMacroValue(int col, org.chuck.deluge.model.TrackModel track) {
+    if (track == null) return 0.5;
+    switch (col) {
+      case 0:
+        return Math.max(0.0, Math.min(1.0, track.getVolume() / 1.5));
+      case 1:
+        return track.getPan();
+      case 2:
+        if (track instanceof org.chuck.deluge.model.SynthTrackModel st) {
+          return (st.getTranspose() + 24) / 48.0;
+        }
+        return 0.5;
+      case 3:
+        if (track instanceof org.chuck.deluge.model.SynthTrackModel st) {
+          return Math.max(
+              0.0, Math.min(1.0, Math.log10(st.getLpfFreq() / 20.0) / Math.log10(1000.0)));
+        }
+        return 0.8;
+      case 4:
+        if (track instanceof org.chuck.deluge.model.SynthTrackModel st) {
+          return st.getLpfRes();
+        }
+        return 0.0;
+      case 5:
+        if (track instanceof org.chuck.deluge.model.SynthTrackModel st) {
+          return st.getOscMix();
+        }
+        return 0.5;
+      case 6:
+        if (track instanceof org.chuck.deluge.model.SynthTrackModel st) {
+          return st.getNoiseVol();
+        }
+        return 0.0;
+      case 7:
+        if (track instanceof org.chuck.deluge.model.SynthTrackModel st && st.getLfo(0) != null) {
+          return st.getLfo(0).rateHz() / 20.0f;
+        }
+        return 0.2;
+      case 8:
+        if (track instanceof org.chuck.deluge.model.SynthTrackModel st) {
+          return st.getModFxDepth();
+        }
+        return 0.0;
+      case 9:
+        if (track instanceof org.chuck.deluge.model.SynthTrackModel st) {
+          return st.getDelaySend();
+        }
+        return 0.0;
+      case 10:
+        if (track instanceof org.chuck.deluge.model.SynthTrackModel st) {
+          return st.getReverbSend();
+        }
+        return 0.0;
+      case 11:
+        if (track instanceof org.chuck.deluge.model.SynthTrackModel st) {
+          return st.getStutterRate();
+        }
+        return 0.0;
+      default:
+        return 0.5;
+    }
+  }
+
+  private void setMacroValue(int col, double v, org.chuck.deluge.model.TrackModel track) {
+    if (track == null) return;
+    switch (col) {
+      case 0:
+        track.setVolume((float) (v * 1.5));
+        break;
+      case 1:
+        track.setPan((float) v);
+        break;
+      case 2:
+        if (track instanceof org.chuck.deluge.model.SynthTrackModel st) {
+          st.setTranspose((int) (v * 48.0 - 24.0));
+        }
+        break;
+      case 3:
+        if (track instanceof org.chuck.deluge.model.SynthTrackModel st) {
+          float freq = (float) (20.0 * Math.pow(1000.0, v));
+          st.setLpfFreq(freq);
+        }
+        break;
+      case 4:
+        if (track instanceof org.chuck.deluge.model.SynthTrackModel st) {
+          st.setLpfRes((float) v);
+        }
+        break;
+      case 5:
+        if (track instanceof org.chuck.deluge.model.SynthTrackModel st) {
+          st.setOscMix((float) v);
+        }
+        break;
+      case 6:
+        if (track instanceof org.chuck.deluge.model.SynthTrackModel st) {
+          st.setNoiseVol((float) v);
+        }
+        break;
+      case 7:
+        if (track instanceof org.chuck.deluge.model.SynthTrackModel st && st.getLfo(0) != null) {
+          org.chuck.deluge.model.LfoModel oldLfo = st.getLfo(0);
+          st.setLfo(
+              0,
+              new org.chuck.deluge.model.LfoModel(
+                  (float) (v * 20.0f),
+                  oldLfo.waveform(),
+                  oldLfo.depth(),
+                  oldLfo.target(),
+                  oldLfo.isLocal(),
+                  oldLfo.syncLevel(),
+                  oldLfo.syncType()));
+        }
+        break;
+      case 8:
+        if (track instanceof org.chuck.deluge.model.SynthTrackModel st) {
+          st.setModFxDepth((float) v);
+        }
+        break;
+      case 9:
+        if (track instanceof org.chuck.deluge.model.SynthTrackModel st) {
+          st.setDelaySend((float) v);
+        }
+        break;
+      case 10:
+        if (track instanceof org.chuck.deluge.model.SynthTrackModel st) {
+          st.setReverbSend((float) v);
+        }
+        break;
+      case 11:
+        if (track instanceof org.chuck.deluge.model.SynthTrackModel st) {
+          st.setStutterRate((float) v);
+        }
+        break;
+    }
+  }
+
+  public class MacroSliderButton extends JButton {
+    private final int colId;
+    private final String paramName;
+    private boolean isSliding = false;
+    private double value = 0.5;
+    private String displayValueStr = "";
+
+    public MacroSliderButton(int colId, String paramName) {
+      this.colId = colId;
+      this.paramName = paramName;
+
+      setContentAreaFilled(false);
+      setBorderPainted(false);
+      setFocusPainted(false);
+      setOpaque(false);
+      setMargin(new java.awt.Insets(0, 0, 0, 0));
+
+      updateValueFromModel();
+
+      java.awt.event.MouseAdapter adapter =
+          new java.awt.event.MouseAdapter() {
+            @Override
+            public void mousePressed(java.awt.event.MouseEvent e) {
+              handleDrag(e);
+            }
+
+            @Override
+            public void mouseReleased(java.awt.event.MouseEvent e) {
+              isSliding = false;
+              repaint();
+              propagateValueToModel();
+              SwingGridPanel.this.fireProjectChanged();
+              SwingGridPanel.this.refresh();
+            }
+
+            @Override
+            public void mouseDragged(java.awt.event.MouseEvent e) {
+              handleDrag(e);
+            }
+
+            private void handleDrag(java.awt.event.MouseEvent e) {
+              double v = 1.0 - (double) e.getY() / getHeight();
+              v = Math.max(0.0, Math.min(1.0, v));
+              value = v;
+              isSliding = true;
+
+              propagateValueToModel();
+              updateDisplayValueStr();
+              repaint();
+
+              if (SwingDelugeApp.mainInstance != null) {
+                SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient(
+                    paramName.substring(0, Math.min(4, paramName.length())).toUpperCase(),
+                    displayValueStr);
+              }
+            }
+          };
+
+      addMouseListener(adapter);
+      addMouseMotionListener(adapter);
+    }
+
+    public void updateValueFromModel() {
+      if (projectModel == null || editedModelTrack >= projectModel.getTracks().size()) return;
+      org.chuck.deluge.model.TrackModel track = projectModel.getTracks().get(editedModelTrack);
+      value = getMacroValue(colId, track);
+      updateDisplayValueStr();
+    }
+
+    private void updateDisplayValueStr() {
+      switch (colId) {
+        case 0:
+          displayValueStr = (int) (value * 100) + "%";
+          break;
+        case 1:
+          int panPct = (int) ((value - 0.5) * 200);
+          displayValueStr =
+              panPct == 0 ? "C" : (panPct < 0 ? "L" + Math.abs(panPct) : "R" + panPct);
+          break;
+        case 2:
+          int semi = (int) (value * 48 - 24);
+          displayValueStr = (semi >= 0 ? "+" : "") + semi;
+          break;
+        case 3:
+          float freq = (float) (20.0 * Math.pow(1000.0, value));
+          displayValueStr =
+              freq >= 1000.0f
+                  ? String.format("%.1fk", freq / 1000.0f)
+                  : String.format("%.0f", freq);
+          break;
+        case 4:
+          displayValueStr = (int) (value * 100) + "%";
+          break;
+        case 5:
+          displayValueStr = (int) (value * 100) + "%";
+          break;
+        case 6:
+          displayValueStr = (int) (value * 100) + "%";
+          break;
+        case 7:
+          displayValueStr = String.format("%.1fH", value * 20.0f);
+          break;
+        case 8:
+          displayValueStr = (int) (value * 100) + "%";
+          break;
+        case 9:
+          displayValueStr = (int) (value * 100) + "%";
+          break;
+        case 10:
+          displayValueStr = (int) (value * 100) + "%";
+          break;
+        case 11:
+          displayValueStr = (int) (value * 100) + "%";
+          break;
+        case 12:
+          displayValueStr = (int) (value * 100) + "%";
+          break;
+        case 13:
+          displayValueStr = (int) (value * 100) + "%";
+          break;
+        case 14:
+          displayValueStr = (int) (value * 100) + "%";
+          break;
+        case 15:
+          displayValueStr = "SMPL";
+          break;
+        default:
+          displayValueStr = String.format("%.2f", value);
+      }
+    }
+
+    private void propagateValueToModel() {
+      if (projectModel == null || editedModelTrack >= projectModel.getTracks().size()) return;
+      org.chuck.deluge.model.TrackModel track = projectModel.getTracks().get(editedModelTrack);
+      setMacroValue(colId, value, track);
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+      Graphics2D g2 = (Graphics2D) g.create();
+      g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+      g2.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
+
+      int w = getWidth();
+      int h = getHeight();
+      int xPad = 2;
+      int yPad = 2;
+      int rw = w - 2 * xPad;
+      int rh = h - 2 * yPad;
+      int arc = 6;
+
+      g2.setColor(new Color(0x15, 0x15, 0x18));
+      g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
+
+      int barH = (int) (value * rh);
+      if (barH > 0) {
+        GradientPaint grad =
+            new GradientPaint(
+                w / 2.0f,
+                h - yPad,
+                new Color(0x00, 0xe6, 0x76, 90),
+                w / 2.0f,
+                h - yPad - barH,
+                new Color(0x00, 0xb0, 0xff, 140));
+        g2.setPaint(grad);
+        g2.fillRoundRect(xPad, h - yPad - barH, rw, barH, arc, arc);
+
+        g2.setColor(new Color(0x00, 0xb0, 0xff, 220));
+        g2.setStroke(new BasicStroke(1.5f));
+        g2.drawLine(xPad + 2, h - yPad - barH, w - xPad - 2, h - yPad - barH);
+      }
+
+      g2.setColor(isSliding ? new Color(0x00, 0xb0, 0xff) : new Color(0x2d, 0x2d, 0x35));
+      g2.setStroke(new BasicStroke(isSliding ? 1.5f : 1.0f));
+      g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
+
+      g2.setFont(new Font("SansSerif", Font.BOLD, w > 65 ? 10 : 8));
+      FontMetrics fm = g2.getFontMetrics();
+      String activeText = isSliding ? displayValueStr : paramName;
+      int tx = (w - fm.stringWidth(activeText)) / 2;
+      int ty = (h + fm.getAscent() - fm.getLeading()) / 2 - 1;
+
+      g2.setColor(new Color(0, 0, 0, 200));
+      g2.drawString(activeText, tx + 1, ty + 1);
+
+      g2.setColor(isSliding ? Color.WHITE : new Color(0xe2, 0xe2, 0xe8));
+      g2.drawString(activeText, tx, ty);
+
+      g2.dispose();
+    }
   }
 }

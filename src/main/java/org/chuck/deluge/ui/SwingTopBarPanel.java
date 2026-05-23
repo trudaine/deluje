@@ -76,7 +76,7 @@ public class SwingTopBarPanel extends JPanel {
     this.retroLedDisplay = new RetroLedDisplay();
     this.oledPanel = new SwingOledPanel();
 
-    setLayout(new FlowLayout(FlowLayout.LEFT, 10, 4));
+    setLayout(new WrapLayout());
     setBackground(new Color(0x12, 0x12, 0x14));
 
     // ── View mode toggles styled as macOS tab segments ──
@@ -501,6 +501,61 @@ public class SwingTopBarPanel extends JPanel {
       label.setForeground(new Color(0xff, 0x33, 0x33)); // rest standard red
       setBackground(new Color(0x1a, 0x05, 0x05));
       setBorder(BorderFactory.createLineBorder(new Color(0xaa, 0x33, 0x33), 1));
+    }
+  }
+
+  /**
+   * A FlowLayout subclass that dynamically wraps components on multiple lines, expanding the
+   * container height to fit wrapped components rather than clipping them.
+   */
+  public static class WrapLayout extends java.awt.FlowLayout {
+    public WrapLayout() {
+      super(java.awt.FlowLayout.LEFT, 10, 4);
+    }
+
+    @Override
+    public java.awt.Dimension preferredLayoutSize(java.awt.Container target) {
+      return layoutSize(target, true);
+    }
+
+    @Override
+    public java.awt.Dimension minimumLayoutSize(java.awt.Container target) {
+      return layoutSize(target, false);
+    }
+
+    private java.awt.Dimension layoutSize(java.awt.Container target, boolean preferred) {
+      synchronized (target.getTreeLock()) {
+        int targetWidth = target.getWidth();
+        if (targetWidth == 0) targetWidth = 1200; // Default fallback width
+
+        java.awt.Insets insets = target.getInsets();
+        int hgap = getHgap();
+        int vgap = getVgap();
+        int maxwidth = targetWidth - (insets.left + insets.right + hgap * 2);
+
+        int x = 0;
+        int y = insets.top + vgap;
+        int rowHeight = 0;
+        int reqWidth = 0;
+
+        for (java.awt.Component m : target.getComponents()) {
+          if (m.isVisible()) {
+            java.awt.Dimension d = preferred ? m.getPreferredSize() : m.getMinimumSize();
+            if (x == 0 || x + d.width <= maxwidth) {
+              if (x > 0) x += hgap;
+              x += d.width;
+              rowHeight = Math.max(rowHeight, d.height);
+            } else {
+              x = d.width;
+              y += vgap + rowHeight;
+              rowHeight = d.height;
+            }
+            reqWidth = Math.max(reqWidth, x);
+          }
+        }
+        y += rowHeight + vgap + insets.bottom;
+        return new java.awt.Dimension(reqWidth + insets.left + insets.right, y);
+      }
     }
   }
 }
