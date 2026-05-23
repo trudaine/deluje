@@ -1387,7 +1387,7 @@ public class SwingGridPanel extends JPanel {
 
               pad.setActive(stepState);
               pad.setBaseColor(trackColors[visibleRow % trackColors.length]);
-              pad.setIntensity((float) vel);
+              pad.setIntensity((float) (vel * (0.2f + 0.8f * prob)));
 
               boolean isSynthMode = bridge != null && bridge.getTrackType(baseTrackId) == 1;
               if (stepState) {
