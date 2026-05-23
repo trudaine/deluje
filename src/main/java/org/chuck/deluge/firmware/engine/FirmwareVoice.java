@@ -107,10 +107,13 @@ public class FirmwareVoice {
   }
 
   public void noteOff(int velocity) {
+    int releaseParam = paramFinalValues[Param.LOCAL_ENV_0_RELEASE];
     System.out.println(
         "[DIAG voice] noteOff called for voice note="
             + note
-            + " envelopes[0].state before unconditionalRelease="
+            + " releaseParam="
+            + releaseParam
+            + " envelopes[0].state before="
             + envelopes[0].state);
     for (int i = 0; i < 4; i++) {
       envelopes[i].unconditionalRelease(Envelope.EnvelopeStage.RELEASE, 1024);
@@ -118,7 +121,7 @@ public class FirmwareVoice {
     System.out.println(
         "[DIAG voice] noteOff completed for voice note="
             + note
-            + " envelopes[0].state after unconditionalRelease="
+            + " envelopes[0].state after="
             + envelopes[0].state);
   }
 
