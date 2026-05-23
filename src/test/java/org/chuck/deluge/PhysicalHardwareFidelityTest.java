@@ -922,6 +922,111 @@ public class PhysicalHardwareFidelityTest {
         Math.abs(hwRms - swRms) < 0.25f, "Noise LPF RMS is within safe bounds");
   }
 
+  @Test
+  public void testHighLfoRateParity() throws Exception {
+    System.out.println("=== RUNNING HARDWARE REGRESSION: HIGH LFO RATE C5 ===");
+    String wavPath = "/fidelity/reference_lfo_high_rate_c5.wav";
+    java.net.URL resource = getClass().getResource(wavPath);
+    if (resource == null) {
+      System.out.println(
+          "  [SKIP REGRESSION] reference_lfo_high_rate_c5.wav is not generated yet.");
+      float[] sw = renderXmlTrackPreset("/fidelity/123_HIGH_LFO_RATE_C5.XML", 44100, 100, 1100, 72);
+      org.junit.jupiter.api.Assertions.assertTrue(calculateRms(sw) > 0.01f);
+      return;
+    }
+    float[] hw = loadWavFromResource(wavPath);
+    int triggerBlock = 100;
+    float[] sw =
+        renderXmlTrackPreset(
+            "/fidelity/123_HIGH_LFO_RATE_C5.XML", hw.length, triggerBlock, triggerBlock + 1000, 72);
+    int hwStart = findPositiveZeroCrossing(hw, 10000);
+    int swStart = findPositiveZeroCrossing(sw, 12800);
+    assertWaveShapeFidelity(hw, sw, 0.01, 15000, hwStart, swStart, "High LFO Rate C5");
+  }
+
+  @Test
+  public void testSaturatedDelayFeedbackParity() throws Exception {
+    System.out.println("=== RUNNING HARDWARE REGRESSION: SATURATED DELAY FEEDBACK C5 ===");
+    String wavPath = "/fidelity/reference_saturated_delay_feedback_c5.wav";
+    java.net.URL resource = getClass().getResource(wavPath);
+    if (resource == null) {
+      System.out.println(
+          "  [SKIP REGRESSION] reference_saturated_delay_feedback_c5.wav is not generated yet.");
+      float[] sw =
+          renderXmlTrackPreset(
+              "/fidelity/124_SATURATED_DELAY_FEEDBACK_C5.XML", 44100, 100, 1100, 72);
+      org.junit.jupiter.api.Assertions.assertTrue(calculateRms(sw) > 0.01f);
+      return;
+    }
+    float[] hw = loadWavFromResource(wavPath);
+    int triggerBlock = 100;
+    float[] sw =
+        renderXmlTrackPreset(
+            "/fidelity/124_SATURATED_DELAY_FEEDBACK_C5.XML",
+            hw.length,
+            triggerBlock,
+            triggerBlock + 1000,
+            72);
+    int hwStart = findPositiveZeroCrossing(hw, 10000);
+    int swStart = findPositiveZeroCrossing(sw, 12800);
+    assertWaveShapeFidelity(hw, sw, 0.01, 15000, hwStart, swStart, "Saturated Delay Feedback C5");
+  }
+
+  @Test
+  public void testEightVoiceUnisonParity() throws Exception {
+    System.out.println("=== RUNNING HARDWARE REGRESSION: EIGHT VOICE UNISON SAW C5 ===");
+    String wavPath = "/fidelity/reference_eight_voice_unison_saw_c5.wav";
+    java.net.URL resource = getClass().getResource(wavPath);
+    if (resource == null) {
+      System.out.println(
+          "  [SKIP REGRESSION] reference_eight_voice_unison_saw_c5.wav is not generated yet.");
+      float[] sw =
+          renderXmlTrackPreset("/fidelity/125_EIGHT_VOICE_UNISON_SAW_C5.XML", 44100, 100, 1100, 48);
+      org.junit.jupiter.api.Assertions.assertTrue(calculateRms(sw) > 0.01f);
+      return;
+    }
+    float[] hw = loadWavFromResource(wavPath);
+    int triggerBlock = 100;
+    float[] sw =
+        renderXmlTrackPreset(
+            "/fidelity/125_EIGHT_VOICE_UNISON_SAW_C5.XML",
+            hw.length,
+            triggerBlock,
+            triggerBlock + 1000,
+            48);
+    int hwStart = findPositiveZeroCrossing(hw, 10000);
+    int swStart = findPositiveZeroCrossing(sw, 12800);
+    assertWaveShapeFidelity(hw, sw, 0.01, 15000, hwStart, swStart, "Eight Voice Unison Saw C5");
+  }
+
+  @Test
+  public void testArpeggiatorGateSpreadParity() throws Exception {
+    System.out.println("=== RUNNING HARDWARE REGRESSION: ARPEGGIATOR GATE SPREAD C5 ===");
+    String wavPath = "/fidelity/reference_arpeggiator_gate_spread_c5.wav";
+    java.net.URL resource = getClass().getResource(wavPath);
+    if (resource == null) {
+      System.out.println(
+          "  [SKIP REGRESSION] reference_arpeggiator_gate_spread_c5.wav is not generated yet.");
+      float[] sw =
+          renderXmlTrackPreset(
+              "/fidelity/126_ARPEGGIATOR_GATE_SPREAD_C5.XML", 44100, 100, 1100, 72);
+      org.junit.jupiter.api.Assertions.assertTrue(calculateRms(sw) > 0.01f);
+      return;
+    }
+    float[] hw = loadWavFromResource(wavPath);
+    int triggerBlock = 100;
+    float[] sw =
+        renderXmlTrackPreset(
+            "/fidelity/126_ARPEGGIATOR_GATE_SPREAD_C5.XML",
+            hw.length,
+            triggerBlock,
+            triggerBlock + 1000,
+            72);
+    int hwStart = findPositiveZeroCrossing(hw, 10000);
+    int swStart = findPositiveZeroCrossing(sw, 12800);
+    assertWaveShapeFidelity(hw, sw, 0.01, 15000, hwStart, swStart, "Arpeggiator Gate Spread C5");
+  }
+
   private static float calculateRms(float[] data) {
     double sum = 0.0;
     for (float v : data) sum += v * v;

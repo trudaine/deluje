@@ -75,3 +75,26 @@ The tool will auto-align zero-crossing phases, perform peak-normalization, and p
 1. Aligned transient delay onset offsets.
 2. 100ms drift-free window shape cross-correlation indexes (Target >= 90%).
 3. Active amplitude levels, RMS ratios, and fundamental pitch frequency correlation checks.
+
+---
+
+## 6. Extreme Boundary & Summing Test Targets (Pending WAV Captures)
+We have generated 4 new extreme stress-testing templates to validate dynamic engine boundary checks, multi-voice summing under full spread, unity delay lines, and fast arpeggiator gate dynamics:
+
+*   **`123_HIGH_LFO_RATE_C5.XML` (High LFO Rate Nyquist Boundary):**
+    *   *Osc 1:* Triangle wave
+    *   *LFO 1:* Sine wave running at absolute maximum speed (`rate = 0x7FFFFFFF` $\approx 100\text{ Hz}$) targeted to pitch modulation (`amount = 0x30000000`).
+    *   *Recording instructions:* Record a **C5 note (MIDI Note 72)** for 4 seconds. Save the resampled mono/stereo wave as `reference_lfo_high_rate_c5.wav`.
+*   **`124_SATURATED_DELAY_FEEDBACK_C5.XML` (Saturated Unity Delay Feedback):**
+    *   *Osc 1:* Sawtooth wave
+    *   *Delay:* Delay rate at `0x30000000`, delay feedback at maximum limit (`0x7FFFFFFF` representing unity loop gain). Summing paths must maintain robust clipping protection under infinite resonance.
+    *   *Recording instructions:* Record a brief, single staccato **C5 note (MIDI Note 72)** (hold for 100ms then release) to capture the infinite tail response. Save the resampled wave as `reference_saturated_delay_feedback_c5.wav`.
+*   **`125_EIGHT_VOICE_UNISON_SAW_C5.XML` (8-Voice Unison Summing):**
+    *   *Osc 1:* Sawtooth wave
+    *   *Unison:* Voice count set to maximum 8, detuning to `25.0` cents, stereo spread to maximum `1.0`. Enforces multi-voice virtual engine summing stability.
+    *   *Recording instructions:* Record a **C4 note (MIDI Note 48, triggered at pitch 48)** for 4 seconds. Save the resampled wave as `reference_eight_voice_unison_saw_c5.wav`.
+*   **`126_ARPEGGIATOR_GATE_SPREAD_C5.XML` (Dynamic Arpeggiator Gate Spread):**
+    *   *Osc 1:* Sawtooth wave
+    *   *Arpeggiator:* Active mode down, sequence length 16, gate at `0x60000000`, gate spread set to `0.8`, velocity spread set to `0.4`.
+    *   *Recording instructions:* Hold a multi-note chord (e.g., C5-E5-G5, MIDI Notes 72, 76, 79) for 4 seconds. Save the resampled wave as `reference_arpeggiator_gate_spread_c5.wav`.
+
