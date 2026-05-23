@@ -100,15 +100,15 @@ public class ProjectModel {
     ProjectModel project = new ProjectModel();
     project.setBpm(120.0f);
 
-    // Spawn a default hardware-compatible Synth Track
+    // Spawn a default hardware-compatible Synth Track (reverted to precise dry, bright physical
+    // Deluge init SAW defaults)
     SynthTrackModel defaultSynth = new SynthTrackModel("Synth 1");
     defaultSynth.setOsc1Type("SAW");
-    defaultSynth.setOsc2Type("ANALOG_SQUARE");
-    defaultSynth.setOscMix(0.5f);
-    defaultSynth.setOsc2Transpose(-12); // Octave down warm sub-bass layering
-    defaultSynth.setLpfFreq(3000.0f); // Warm, friendly filter cutoff
-    defaultSynth.setLpfRes(0.2f); // Smooth, pleasant filter resonance Q
-    defaultSynth.setVolume(0.45f);
+    defaultSynth.setOsc2Type("NONE");
+    defaultSynth.setOscMix(1.0f); // 100% Osc 1
+    defaultSynth.setLpfFreq(20000.0f); // LPF fully open
+    defaultSynth.setLpfRes(0.0f);
+    defaultSynth.setVolume(0.5f);
 
     // Add a single default clip so pads can be clicked to place steps immediately
     defaultSynth.addClip(new ClipModel("CLIP 1", 8, 16));
