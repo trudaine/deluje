@@ -2555,6 +2555,10 @@ public class SwingDelugeApp extends JFrame {
   }
 
   public static void main(String[] args) {
+    // Configure global tooltip timing parameters (pop up after 250ms, keep open for 20s)
+    javax.swing.ToolTipManager.sharedInstance().setDismissDelay(20000);
+    javax.swing.ToolTipManager.sharedInstance().setInitialDelay(250);
+
     org.chuck.core.ChuckVM vm = new org.chuck.core.ChuckVM(44100, 2);
     org.chuck.deluge.BridgeContract bridge = new org.chuck.deluge.BridgeContract();
 
