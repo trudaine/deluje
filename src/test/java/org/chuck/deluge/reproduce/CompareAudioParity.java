@@ -91,18 +91,22 @@ public class CompareAudioParity {
       float[] alignedSw = new float[len];
       System.arraycopy(sw, startSw, alignedSw, 0, len);
 
+      // Remove DC offsets to align zero-crossings perfectly
+      float[] noDcHw = removeDcOffset(alignedHw);
+      float[] noDcSw = removeDcOffset(alignedSw);
+
       // Slices 100ms window right after the note onset starts (steady state sustain phase)
       int windowSize = 4410;
       int activeOffset = swStart - startSw;
       int hwZeroIdx =
           findPositiveZeroCrossing(
-              alignedHw, activeOffset + 2000); // skip initial transient click zone
-      int swZeroIdx = findPositiveZeroCrossing(alignedSw, activeOffset + 2000);
+              noDcHw, activeOffset + 2000); // skip initial transient click zone
+      int swZeroIdx = findPositiveZeroCrossing(noDcSw, activeOffset + 2000);
 
       float[] hwWindow = new float[windowSize];
-      System.arraycopy(alignedHw, hwZeroIdx, hwWindow, 0, windowSize);
+      System.arraycopy(noDcHw, hwZeroIdx, hwWindow, 0, windowSize);
       float[] swWindow = new float[windowSize];
-      System.arraycopy(alignedSw, swZeroIdx, swWindow, 0, windowSize);
+      System.arraycopy(noDcSw, swZeroIdx, swWindow, 0, windowSize);
 
       System.out.println(
           "[DIAG zero] hwZeroIdx="
@@ -351,6 +355,15 @@ public class CompareAudioParity {
     float scale = (float) (targetPeak / max);
     float[] out = new float[data.length];
     for (int i = 0; i < data.length; i++) out[i] = data[i] * scale;
+    return out;
+  }
+
+  private static float[] removeDcOffset(float[] data) {
+    double sum = 0;
+    for (float v : data) sum += v;
+    float mean = (float) (sum / data.length);
+    float[] out = new float[data.length];
+    for (int i = 0; i < data.length; i++) out[i] = data[i] - mean;
     return out;
   }
 }
