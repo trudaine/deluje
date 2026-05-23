@@ -1489,6 +1489,9 @@ public class SwingGridPanel extends JPanel {
               applicable = isParamApplicable(param, visibleRow, colId, genericTrack);
             }
             pad.setApplicable(applicable);
+            String tooltipText =
+                getShiftShortcutTooltip(visibleRow, colId, applicable, genericTrack);
+            pad.setToolTipText(tooltipText);
             pad.setInLoop(true);
             pad.setActive(true);
             pad.setBaseColor(SHIFT_COLORS[visibleRow][colId]);
@@ -1527,15 +1530,37 @@ public class SwingGridPanel extends JPanel {
               pad.setIntensity((float) (vel * (0.2f + 0.8f * prob)));
 
               boolean isSynthMode = bridge != null && bridge.getTrackType(baseTrackId) == 1;
+              int pitchMidi = isSynthMode ? (((24 - 1) - modelRow) + 60) : 60;
               if (stepState) {
                 if (isSynthMode) {
-                  int pitchMidi = ((24 - 1) - modelRow) + 60;
                   pad.setNoteText(getNoteName(pitchMidi));
                 } else {
                   pad.setNoteText(String.format("v%d", (int) (vel * 100)));
                 }
+                pad.setToolTipText(
+                    String.format(
+                        "<html><body style='font-size: 9px; font-family: sans-serif;'>"
+                            + "<b>Step %d Event</b><br>"
+                            + "• Pitch: %s (MIDI %d)<br>"
+                            + "• Velocity: %d%%<br>"
+                            + "• Probability: %d%%<br>"
+                            + "• Click to toggle OFF"
+                            + "</body></html>",
+                        activeCol + 1,
+                        getNoteName(pitchMidi),
+                        pitchMidi,
+                        (int) (vel * 100),
+                        (int) (prob * 100)));
               } else {
                 pad.setNoteText("");
+                pad.setToolTipText(
+                    String.format(
+                        "<html><body style='font-size: 9px; font-family: sans-serif;'>"
+                            + "<b>Empty Step %d</b><br>"
+                            + "• Target Row: %d (MIDI %d)<br>"
+                            + "• Click to toggle ON"
+                            + "</body></html>",
+                        activeCol + 1, modelRow + 1, pitchMidi));
               }
             } else {
               // SONG, ARRANGEMENT
@@ -1544,12 +1569,39 @@ public class SwingGridPanel extends JPanel {
               pad.setIntensity(0.8f);
               if (hasClip) {
                 if (modelRow < tracks.size() && c < tracks.get(modelRow).getClips().size()) {
-                  pad.setNoteText(tracks.get(modelRow).getClips().get(c).getName());
+                  org.chuck.deluge.model.TrackModel t = tracks.get(modelRow);
+                  pad.setNoteText(t.getClips().get(c).getName());
+                  pad.setToolTipText(
+                      "<html><body style='font-size: 9px; font-family: sans-serif;'>"
+                          + "<b>Track: "
+                          + t.getName()
+                          + "</b><br>"
+                          + "• View Mode: "
+                          + viewMode
+                          + "<br>"
+                          + "• Status: Click to select/edit this clip!"
+                          + "</body></html>");
                 } else {
                   pad.setNoteText("CLIP");
+                  pad.setToolTipText(
+                      "<html><body style='font-size: 9px; font-family: sans-serif;'>"
+                          + "<b>Session Clip Slot</b><br>"
+                          + "• View Mode: "
+                          + viewMode
+                          + "<br>"
+                          + "• Status: Active clip populated!"
+                          + "</body></html>");
                 }
               } else {
                 pad.setNoteText("");
+                pad.setToolTipText(
+                    "<html><body style='font-size: 9px; font-family: sans-serif;'>"
+                        + "<b>Empty Session Slot</b><br>"
+                        + "• View Mode: "
+                        + viewMode
+                        + "<br>"
+                        + "• Action: Click to create new clip pattern slot!"
+                        + "</body></html>");
               }
             }
 
@@ -1575,6 +1627,9 @@ public class SwingGridPanel extends JPanel {
                 (prefix != null && !shortcutLabel.isEmpty())
                     ? prefix + "<br>" + shortcutLabel.replace(" ", "<br>")
                     : shortcutLabel.replace(" ", "<br>");
+            String tooltipText =
+                getShiftShortcutTooltip(visibleRow, colId, applicable, genericTrack);
+            clipBtn.setToolTipText(tooltipText);
             if (applicable) {
               clipBtn.setBackground(SHIFT_COLORS[visibleRow][colId]);
               clipBtn.setText(
@@ -1589,17 +1644,76 @@ public class SwingGridPanel extends JPanel {
             }
           } else {
             if (viewMode == GridViewMode.CLIP) {
-              boolean stepState = bridge.getStep(baseTrackId + modelRow, activeCol);
-              double vel = bridge.getVelocity(baseTrackId + modelRow, activeCol);
+              int engineRow = baseTrackId + modelRow;
+              boolean stepState = bridge.getStep(engineRow, activeCol);
+              double vel = bridge.getVelocity(engineRow, activeCol);
+              double prob = bridge.getStepProbability(engineRow, activeCol);
               clipBtn.setBackground(
                   stepState
                       ? velocityBlend(trackColors[visibleRow % trackColors.length], vel)
                       : new Color(0x33, 0x33, 0x33));
+              boolean isSynthMode = bridge != null && bridge.getTrackType(baseTrackId) == 1;
+              int pitchMidi = isSynthMode ? (((24 - 1) - modelRow) + 60) : 60;
+              if (stepState) {
+                clipBtn.setToolTipText(
+                    String.format(
+                        "<html><body style='font-size: 9px; font-family: sans-serif;'>"
+                            + "<b>Step %d Event</b><br>"
+                            + "• Pitch: %s (MIDI %d)<br>"
+                            + "• Velocity: %d%%<br>"
+                            + "• Probability: %d%%<br>"
+                            + "• Click to toggle OFF"
+                            + "</body></html>",
+                        activeCol + 1,
+                        getNoteName(pitchMidi),
+                        pitchMidi,
+                        (int) (vel * 100),
+                        (int) (prob * 100)));
+              } else {
+                clipBtn.setToolTipText(
+                    String.format(
+                        "<html><body style='font-size: 9px; font-family: sans-serif;'>"
+                            + "<b>Empty Step %d</b><br>"
+                            + "• Target Row: %d (MIDI %d)<br>"
+                            + "• Click to toggle ON"
+                            + "</body></html>",
+                        activeCol + 1, modelRow + 1, pitchMidi));
+              }
             } else {
               if (hasClip) {
                 clipBtn.setBackground(trackColors[visibleRow % trackColors.length]);
+                if (modelRow < tracks.size() && c < tracks.get(modelRow).getClips().size()) {
+                  org.chuck.deluge.model.TrackModel t = tracks.get(modelRow);
+                  clipBtn.setToolTipText(
+                      "<html><body style='font-size: 9px; font-family: sans-serif;'>"
+                          + "<b>Track: "
+                          + t.getName()
+                          + "</b><br>"
+                          + "• View Mode: "
+                          + viewMode
+                          + "<br>"
+                          + "• Status: Click to select/edit this clip!"
+                          + "</body></html>");
+                } else {
+                  clipBtn.setToolTipText(
+                      "<html><body style='font-size: 9px; font-family: sans-serif;'>"
+                          + "<b>Session Clip Slot</b><br>"
+                          + "• View Mode: "
+                          + viewMode
+                          + "<br>"
+                          + "• Status: Active clip populated!"
+                          + "</body></html>");
+                }
               } else {
                 clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
+                clipBtn.setToolTipText(
+                    "<html><body style='font-size: 9px; font-family: sans-serif;'>"
+                        + "<b>Empty Session Slot</b><br>"
+                        + "• View Mode: "
+                        + viewMode
+                        + "<br>"
+                        + "• Action: Click to create new clip pattern slot!"
+                        + "</body></html>");
               }
             }
           }
@@ -5147,6 +5261,91 @@ public class SwingGridPanel extends JPanel {
 
     popup.add(wrapper);
     popup.show(comp, localPos.x, localPos.y);
+  }
+
+  private String getShiftShortcutTooltip(
+      int row, int col, boolean applicable, org.chuck.deluge.model.TrackModel track) {
+    String paramName = SHIFT_LABELS[row][col];
+    if (paramName == null || paramName.isEmpty()) {
+      return null;
+    }
+    String prefix = getGroupPrefix(col);
+    String fullParam = (prefix != null) ? prefix + " " + paramName : paramName;
+
+    String description = getParamDescription(paramName);
+    String trackTypeStr =
+        (track instanceof org.chuck.deluge.model.SynthTrackModel)
+            ? "Synth Track"
+            : (track instanceof org.chuck.deluge.model.KitTrackModel ? "Kit Track" : "Audio Track");
+    String appStr =
+        applicable
+            ? "<font color='#00ffcc'><b>[APPLICABLE]</b></font>"
+            : "<font color='#ff6666'><b>[NOT APPLICABLE]</b> for " + trackTypeStr + "</font>";
+
+    return String.format(
+        "<html><body style='font-size: 9px; font-family: sans-serif; width: 180px;'>"
+            + "<b>Shift Shortcut: %s</b><br>"
+            + "• Group: %s<br>"
+            + "• Parameter: <b>%s</b><br>"
+            + "• Status: %s<br>"
+            + "• Action: %s"
+            + "</body></html>",
+        fullParam, (prefix != null ? prefix : "None"), paramName, appStr, description);
+  }
+
+  private String getParamDescription(String paramName) {
+    switch (paramName) {
+      case "WAVE FORM":
+        return "Selects waveform shape (SINE, TRIANGLE, SAW, SQUARE, WAVETABLE).";
+      case "NOISE":
+        return "Toggles or adjusts white noise level.";
+      case "OSC SYNC":
+        return "Toggles hard oscillator pitch synchronization.";
+      case "DIRECTION":
+        return "Adjusts sample playback direction (Forward vs Reverse).";
+      case "SATURATE":
+        return "Applies analog saturation distortion gain.";
+      case "CUTOFF":
+        return "Adjusts Lowpass Filter Cutoff frequency (20Hz - 20kHz).";
+      case "RESONANCE":
+        return "Adjusts Lowpass Filter Resonance Q feedback factor.";
+      case "HPF CUTOFF":
+        return "Adjusts Highpass Filter Cutoff frequency.";
+      case "HPF RES":
+        return "Adjusts Highpass Filter Resonance Q feedback.";
+      case "ATTACK":
+        return "Adjusts Envelope Attack duration time (seconds).";
+      case "DECAY":
+        return "Adjusts Envelope Decay duration time.";
+      case "SUSTAIN":
+        return "Adjusts Envelope Sustain level height percentage.";
+      case "RELEASE":
+        return "Adjusts Envelope Release duration time.";
+      case "SPEED":
+        return "Adjusts LFO Speed rate frequency (Hz or subdivisions).";
+      case "DEPTH":
+        return "Adjusts LFO Modulation depth amount.";
+      case "FEEDBACK":
+        return "Adjusts Delay feedback or Mod FX regeneration level.";
+      case "DELAY SEND":
+        return "Adjusts master Delay send bus amount.";
+      case "REVERB SEND":
+        return "Adjusts master Reverb send bus amount.";
+      case "VOLUME":
+        return "Adjusts master channel volume level (0.0 - 1.5 multiplier).";
+      case "PAN":
+        return "Adjusts stereo balance panning position.";
+      case "PITCH":
+        return "Shifts note pitches (semitones / cents).";
+      case "ARPRATE":
+        return "Adjusts Arpeggiator rate clock speed.";
+      case "GATE":
+        return "Adjusts step gate length or Arp gate duration.";
+      case "VELOCITY":
+        return "Adjusts key trigger strike velocity.";
+      default:
+        return "Selects or adjusts the " + paramName.toLowerCase() + " parameter.";
+    }
   }
 
   private boolean isParamApplicable(
