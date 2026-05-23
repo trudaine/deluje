@@ -51,6 +51,15 @@ public class CompareAudioParity {
           "Generated Software Render:  %d samples (%.2f seconds)\n",
           sw.length, sw.length / 44100.0);
 
+      // Check for any initial non-zero sample leaks causing early transient trigger detection
+      for (int i = 0; i < Math.min(100000, sw.length); i++) {
+        if (Math.abs(sw[i]) > 0.0001f) {
+          System.out.println(
+              "[DIAG sw leak] First non-zero software sample at index " + i + " value=" + sw[i]);
+          break;
+        }
+      }
+
       // 3. Find optimal start-transient onset points and align first active note cycles
       int hwStart = findActiveStart(hw, 0.02f);
       int swStart = findActiveStart(sw, 0.01f);
