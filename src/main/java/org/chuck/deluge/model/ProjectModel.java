@@ -103,7 +103,12 @@ public class ProjectModel {
     // Spawn a default hardware-compatible Synth Track
     SynthTrackModel defaultSynth = new SynthTrackModel("Synth 1");
     defaultSynth.setOsc1Type("SAW");
-    defaultSynth.setVolume(0.5f);
+    defaultSynth.setOsc2Type("ANALOG_SQUARE");
+    defaultSynth.setOscMix(0.5f);
+    defaultSynth.setOsc2Transpose(-12); // Octave down warm sub-bass layering
+    defaultSynth.setLpfFreq(3000.0f); // Warm, friendly filter cutoff
+    defaultSynth.setLpfRes(0.2f); // Smooth, pleasant filter resonance Q
+    defaultSynth.setVolume(0.45f);
 
     // Add a single default clip so pads can be clicked to place steps immediately
     defaultSynth.addClip(new ClipModel("CLIP 1", 8, 16));

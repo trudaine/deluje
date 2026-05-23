@@ -373,8 +373,7 @@ public class FirmwareFactory {
       ClipModel clipModel = model.getClips().get(0);
       clip.loopLength = clipModel.getStepCount() * 24;
       for (int r = 0; r < clipModel.getRowCount(); r++) {
-        int pitch = clipModel.getStep(r, 0).pitch();
-        NoteRow row = new NoteRow(pitch);
+        NoteRow row = new NoteRow(r);
         java.util.List<org.chuck.deluge.model.HighResNote> rawNotes = clipModel.getRawNoteEvents(r);
         if (rawNotes != null && !rawNotes.isEmpty()) {
           for (org.chuck.deluge.model.HighResNote note : rawNotes) {
