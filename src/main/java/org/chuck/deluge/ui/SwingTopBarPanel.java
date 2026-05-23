@@ -47,9 +47,14 @@ public class SwingTopBarPanel extends JPanel {
   private final JSlider masterVolSlider;
   private final TopBarListener listener;
   private final RetroLedDisplay retroLedDisplay;
+  private final SwingOledPanel oledPanel;
 
   public RetroLedDisplay getRetroLedDisplay() {
     return retroLedDisplay;
+  }
+
+  public SwingOledPanel getOledPanel() {
+    return oledPanel;
   }
 
   /**
@@ -68,6 +73,8 @@ public class SwingTopBarPanel extends JPanel {
     this.projectModel = projectModel;
     this.vm = vm;
     this.listener = listener;
+    this.retroLedDisplay = new RetroLedDisplay();
+    this.oledPanel = new SwingOledPanel();
 
     setLayout(new FlowLayout(FlowLayout.LEFT, 10, 4));
     setBackground(new Color(0x12, 0x12, 0x14));
@@ -158,12 +165,20 @@ public class SwingTopBarPanel extends JPanel {
 
     JButton playBtn = new JButton("\u25B6 PLAY");
     styleButton(playBtn, new Color(0x1a, 0x4a, 0x1a), new Color(0x00, 0xff, 0x66));
-    playBtn.addActionListener(e -> listener.onPlayToggle());
+    playBtn.addActionListener(
+        e -> {
+          listener.onPlayToggle();
+          retroLedDisplay.printTransient("PLAY", "ON");
+        });
     add(playBtn);
 
     JButton stopBtn = new JButton("\u25A0 STOP");
     styleButton(stopBtn, new Color(0x4a, 0x1a, 0x1a), new Color(0xff, 0x33, 0x33));
-    stopBtn.addActionListener(e -> listener.onStop());
+    stopBtn.addActionListener(
+        e -> {
+          listener.onStop();
+          retroLedDisplay.printTransient("STOP", "OFF");
+        });
     add(stopBtn);
     add(new JSeparator(JSeparator.VERTICAL));
 
@@ -177,7 +192,12 @@ public class SwingTopBarPanel extends JPanel {
     JSlider bpmSlider = new JSlider(60, 200, (int) projectModel.getBpm());
     bpmSlider.setBackground(new Color(0x12, 0x12, 0x14));
     bpmSlider.setForeground(new Color(0x00, 0xff, 0xcc));
-    bpmSlider.addChangeListener(e -> projectModel.setBpm(bpmSlider.getValue()));
+    bpmSlider.addChangeListener(
+        e -> {
+          int val = bpmSlider.getValue();
+          projectModel.setBpm(val);
+          retroLedDisplay.printTransient("TEM ", String.valueOf(val));
+        });
     add(bpmSlider);
 
     JLabel masterLabel = new JLabel("MASTER:");
@@ -189,7 +209,11 @@ public class SwingTopBarPanel extends JPanel {
     masterVolSlider.setBackground(new Color(0x12, 0x12, 0x14));
     masterVolSlider.setForeground(new Color(0x00, 0xff, 0xcc));
     masterVolSlider.addChangeListener(
-        e -> projectModel.setMasterVolume(masterVolSlider.getValue() / 100.0f));
+        e -> {
+          int val = masterVolSlider.getValue();
+          projectModel.setMasterVolume(val / 100.0f);
+          retroLedDisplay.printTransient("VOL ", val + "%");
+        });
     add(masterVolSlider);
 
     // ── Pure Java Mode Indicator ──
@@ -203,12 +227,10 @@ public class SwingTopBarPanel extends JPanel {
     add(pureLabel);
 
     // ── Firmware LED Display (OLED) ──
-    SwingOledPanel oledPanel = new SwingOledPanel();
     oledPanel.setBorder(BorderFactory.createLineBorder(Color.DARK_GRAY, 2));
     add(oledPanel);
 
     // ── Retro Character LED Display (For shift rotary shortcuts!) ──
-    this.retroLedDisplay = new RetroLedDisplay();
     add(retroLedDisplay);
 
     // ── High-Fidelity Encoders ──
@@ -247,6 +269,8 @@ public class SwingTopBarPanel extends JPanel {
             (main, popup) -> {
               // Handled by oledPanel
             });
+
+    applyDisplayPreferences();
   }
 
   private JPanel createEncoderSim(
@@ -298,6 +322,23 @@ public class SwingTopBarPanel extends JPanel {
       }
     }
     updateTabStyles(tabs.toArray(new JToggleButton[0]));
+  }
+
+  public void applyDisplayPreferences() {
+    org.chuck.deluge.project.PreferencesManager.DisplayType dt =
+        org.chuck.deluge.project.PreferencesManager.getDisplayType();
+    if (oledPanel != null) {
+      oledPanel.setVisible(
+          dt == org.chuck.deluge.project.PreferencesManager.DisplayType.BOTH
+              || dt == org.chuck.deluge.project.PreferencesManager.DisplayType.OLED_ONLY);
+    }
+    if (retroLedDisplay != null) {
+      retroLedDisplay.setVisible(
+          dt == org.chuck.deluge.project.PreferencesManager.DisplayType.BOTH
+              || dt == org.chuck.deluge.project.PreferencesManager.DisplayType.LED_ONLY);
+    }
+    revalidate();
+    repaint();
   }
 
   public void setMasterVol(int value) {
@@ -367,11 +408,22 @@ public class SwingTopBarPanel extends JPanel {
       add(label, BorderLayout.CENTER);
     }
 
+    private javax.swing.Timer resetTimer;
+
     public void print(String code, String val) {
+      if (resetTimer != null) resetTimer.stop();
       label.setText(String.format("[ %-4s  %6s ]", code.toUpperCase(), val));
       label.setForeground(new Color(0xff, 0x88, 0x00)); // active amber glow!
       setBackground(new Color(0x24, 0x10, 0x00)); // active amber background
       setBorder(BorderFactory.createLineBorder(new Color(0xff, 0x88, 0x00), 1));
+    }
+
+    public void printTransient(String code, String val) {
+      print(code, val);
+      if (resetTimer != null) resetTimer.stop();
+      resetTimer = new javax.swing.Timer(1500, e -> reset());
+      resetTimer.setRepeats(false);
+      resetTimer.start();
     }
 
     public void reset() {

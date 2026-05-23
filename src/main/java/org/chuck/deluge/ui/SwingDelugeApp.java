@@ -1341,6 +1341,32 @@ public class SwingDelugeApp extends JFrame {
     // bridge/engine!
     loadProject(currentProject);
 
+    // Trigger a high-fidelity retro rolling welcome message on boot!
+    if (topBar != null && topBar.getRetroLedDisplay() != null) {
+      topBar.getRetroLedDisplay().print("HELO", "    ");
+      javax.swing.Timer timer1 =
+          new javax.swing.Timer(
+              800,
+              e -> {
+                if (topBar != null && topBar.getRetroLedDisplay() != null) {
+                  topBar.getRetroLedDisplay().print("DELU", "V1.0");
+                }
+              });
+      timer1.setRepeats(false);
+      timer1.start();
+
+      javax.swing.Timer timer2 =
+          new javax.swing.Timer(
+              1600,
+              e -> {
+                if (topBar != null && topBar.getRetroLedDisplay() != null) {
+                  topBar.getRetroLedDisplay().reset();
+                }
+              });
+      timer2.setRepeats(false);
+      timer2.start();
+    }
+
     startPlaybackTimer();
 
     setFocusable(true);
@@ -1685,8 +1711,18 @@ public class SwingDelugeApp extends JFrame {
     }
   }
 
+  public void updateHardwareLedDisplayTransient(String paramCode, String valueString) {
+    if (topBar != null && topBar.getRetroLedDisplay() != null) {
+      topBar.getRetroLedDisplay().printTransient(paramCode, valueString);
+    }
+  }
+
   public SwingGridPanel getClipPanel() {
     return clipPanel;
+  }
+
+  public SwingTopBarPanel getTopBar() {
+    return topBar;
   }
 
   private void exportAudio() {
