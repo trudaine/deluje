@@ -121,6 +121,7 @@ public final class BridgeContract {
   public static final String G_CURRENT_STEP = "g_current_step";
   public static final String G_STUTTER_ON = "g_stutter_on";
   public static final String G_STUTTER_DIV = "g_stutter_div";
+  public static final String G_TRACK_ACTIVITY = "g_track_activity";
 
   // ── Step-data arrays (size PATTERN_SIZE each) ─────────────────────────
   public static final String G_PATTERN = "g_pattern";
@@ -1355,6 +1356,7 @@ public final class BridgeContract {
 
   private final String[] samplePaths = new String[TRACKS];
   private final String[] dx7Patch = new String[TRACKS];
+  private final float[] trackActivity = new float[TRACKS];
 
   // ── Constructor ────────────────────────────────────────────────────────
 
@@ -1391,6 +1393,7 @@ public final class BridgeContract {
     vm.setGlobalObject(E_SIDECHAIN, new org.chuck.core.ChuckEvent());
     vm.setGlobalObject(G_LOAD_TRIGGER, new org.chuck.core.ChuckEvent());
     vm.setGlobalObject(E_TICK, new org.chuck.core.ChuckEvent());
+    vm.setGlobalObject(G_TRACK_ACTIVITY, new org.chuck.core.ChuckArray(trackActivity));
     step.register(vm);
     track.register(vm);
     synth.register(vm);
@@ -2471,6 +2474,21 @@ public final class BridgeContract {
 
   public double getSwing() {
     return swing;
+  }
+
+  public float[] getTrackActivity() {
+    return trackActivity;
+  }
+
+  public float getTrackActivity(int t) {
+    if (t >= 0 && t < TRACKS) return trackActivity[t];
+    return 0.0f;
+  }
+
+  public void setTrackActivity(int t, float val) {
+    if (t >= 0 && t < TRACKS) {
+      trackActivity[t] = val;
+    }
   }
 
   public void setHiFiMode(int mode) {

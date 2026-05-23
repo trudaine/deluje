@@ -996,11 +996,31 @@ public class SwingGridPanel extends JPanel {
     @Override
     protected void paintComponent(Graphics g) {
       super.paintComponent(g);
-      g.setColor(Color.DARK_GRAY);
-      g.fillRect(0, 0, getWidth(), getHeight());
-      g.setColor(Color.GREEN);
+      java.awt.Graphics2D g2d = (java.awt.Graphics2D) g;
+      g2d.setColor(new Color(0x18, 0x18, 0x1a)); // deep charcoal frame
+      g2d.fillRect(0, 0, getWidth(), getHeight());
+
       int h = (int) (lvl * getHeight());
-      g.fillRect(0, getHeight() - h, getWidth(), h);
+      if (h <= 0) return;
+
+      // Draw standard green level (0% to 65% height)
+      int greenH = Math.min(h, (int) (0.65 * getHeight()));
+      g2d.setColor(new Color(0x00, 0xff, 0x66)); // neon green
+      g2d.fillRect(0, getHeight() - greenH, getWidth(), greenH);
+
+      // Draw yellow headroom (65% to 85% height)
+      if (h > (int) (0.65 * getHeight())) {
+        int yellowH = Math.min(h, (int) (0.85 * getHeight())) - (int) (0.65 * getHeight());
+        g2d.setColor(new Color(0xff, 0xaa, 0x00)); // amber/orange
+        g2d.fillRect(0, getHeight() - (int) (0.65 * getHeight()) - yellowH, getWidth(), yellowH);
+      }
+
+      // Draw red clipping (85% to 100% height)
+      if (h > (int) (0.85 * getHeight())) {
+        int redH = h - (int) (0.85 * getHeight());
+        g2d.setColor(new Color(0xff, 0x33, 0x33)); // bright red
+        g2d.fillRect(0, getHeight() - (int) (0.85 * getHeight()) - redH, getWidth(), redH);
+      }
     }
   }
 
@@ -3492,7 +3512,7 @@ public class SwingGridPanel extends JPanel {
                     int engineRow =
                         baseTrackId + (viewMode == GridViewMode.CLIP ? scrollOffset + t : t);
                     if (bridge.getStep(engineRow, engineActiveCol)) {
-                      vuLevels[t] = 1.0; // Spike VU Meter!
+                      vuLevels[engineRow] = 1.0; // Spike VU Meter!
                       if (finalMidiOut != null) {
                         try {
                           finalMidiOut.sendMessage(
