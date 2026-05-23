@@ -1027,6 +1027,87 @@ public class PhysicalHardwareFidelityTest {
     assertWaveShapeFidelity(hw, sw, 0.01, 15000, hwStart, swStart, "Arpeggiator Gate Spread C5");
   }
 
+  @Test
+  public void testSynthHardSyncParity() throws Exception {
+    System.out.println("=== RUNNING HARDWARE REGRESSION: SYNTH HARD SYNC C5 ===");
+    String wavPath = "/fidelity/reference_synth_hard_sync_c5.wav";
+    java.net.URL resource = getClass().getResource(wavPath);
+    if (resource == null) {
+      System.out.println(
+          "  [SKIP REGRESSION] reference_synth_hard_sync_c5.wav is not generated yet.");
+      float[] sw =
+          renderXmlTrackPreset("/fidelity/127_SYNTH_HARD_SYNC_C5.XML", 44100, 100, 1100, 72);
+      org.junit.jupiter.api.Assertions.assertTrue(calculateRms(sw) > 0.01f);
+      return;
+    }
+    float[] hw = loadWavFromResource(wavPath);
+    int triggerBlock = 100;
+    float[] sw =
+        renderXmlTrackPreset(
+            "/fidelity/127_SYNTH_HARD_SYNC_C5.XML",
+            hw.length,
+            triggerBlock,
+            triggerBlock + 1000,
+            72);
+    int hwStart = findPositiveZeroCrossing(hw, 10000);
+    int swStart = findPositiveZeroCrossing(sw, 12800);
+    assertWaveShapeFidelity(hw, sw, 0.01, 15000, hwStart, swStart, "Synth Hard Sync C5");
+  }
+
+  @Test
+  public void testSynthDualModParity() throws Exception {
+    System.out.println("=== RUNNING HARDWARE REGRESSION: SYNTH DUAL MOD C5 ===");
+    String wavPath = "/fidelity/reference_synth_dual_mod_c5.wav";
+    java.net.URL resource = getClass().getResource(wavPath);
+    if (resource == null) {
+      System.out.println(
+          "  [SKIP REGRESSION] reference_synth_dual_mod_c5.wav is not generated yet.");
+      float[] sw =
+          renderXmlTrackPreset("/fidelity/128_SYNTH_DUAL_MOD_C5.XML", 44100, 100, 1100, 72);
+      org.junit.jupiter.api.Assertions.assertTrue(calculateRms(sw) > 0.01f);
+      return;
+    }
+    float[] hw = loadWavFromResource(wavPath);
+    int triggerBlock = 100;
+    float[] sw =
+        renderXmlTrackPreset(
+            "/fidelity/128_SYNTH_DUAL_MOD_C5.XML",
+            hw.length,
+            triggerBlock,
+            triggerBlock + 1000,
+            72);
+    int hwStart = findPositiveZeroCrossing(hw, 10000);
+    int swStart = findPositiveZeroCrossing(sw, 12800);
+    assertWaveShapeFidelity(hw, sw, 0.01, 15000, hwStart, swStart, "Synth Dual Mod C5");
+  }
+
+  @Test
+  public void testFmGlideRatioParity() throws Exception {
+    System.out.println("=== RUNNING HARDWARE REGRESSION: FM GLIDE RATIO C5 ===");
+    String wavPath = "/fidelity/reference_fm_glide_ratio_c5.wav";
+    java.net.URL resource = getClass().getResource(wavPath);
+    if (resource == null) {
+      System.out.println(
+          "  [SKIP REGRESSION] reference_fm_glide_ratio_c5.wav is not generated yet.");
+      float[] sw =
+          renderXmlTrackPreset("/fidelity/129_FM_GLIDE_RATIO_C5.XML", 44100, 100, 1100, 72);
+      org.junit.jupiter.api.Assertions.assertTrue(calculateRms(sw) > 0.01f);
+      return;
+    }
+    float[] hw = loadWavFromResource(wavPath);
+    int triggerBlock = 100;
+    float[] sw =
+        renderXmlTrackPreset(
+            "/fidelity/129_FM_GLIDE_RATIO_C5.XML",
+            hw.length,
+            triggerBlock,
+            triggerBlock + 1000,
+            72);
+    int hwStart = findPositiveZeroCrossing(hw, 10000);
+    int swStart = findPositiveZeroCrossing(sw, 12800);
+    assertWaveShapeFidelity(hw, sw, 0.01, 15000, hwStart, swStart, "FM Glide Ratio C5");
+  }
+
   private static float calculateRms(float[] data) {
     double sum = 0.0;
     for (float v : data) sum += v * v;
