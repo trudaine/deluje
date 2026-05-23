@@ -107,9 +107,19 @@ public class FirmwareVoice {
   }
 
   public void noteOff(int velocity) {
+    System.out.println(
+        "[DIAG voice] noteOff called for voice note="
+            + note
+            + " envelopes[0].state before unconditionalRelease="
+            + envelopes[0].state);
     for (int i = 0; i < 4; i++) {
       envelopes[i].unconditionalRelease(Envelope.EnvelopeStage.RELEASE, 1024);
     }
+    System.out.println(
+        "[DIAG voice] noteOff completed for voice note="
+            + note
+            + " envelopes[0].state after unconditionalRelease="
+            + envelopes[0].state);
   }
 
   public boolean render(int[] buffer, int numSamples, int phaseIncrementA, int phaseIncrementB) {

@@ -258,8 +258,22 @@ public class FirmwareSound extends GlobalEffectable {
 
   public void releaseNote(int note, int midiChannel) {
     synchronized (voices) {
+      System.out.println(
+          "[DIAG release] releaseNote requested for pitch="
+              + note
+              + " voicesPoolSize="
+              + voices.size());
       for (FirmwareVoice v : voices) {
+        System.out.println(
+            "[DIAG release] Active voice candidate check: pitch="
+                + v.note
+                + " active="
+                + v.active
+                + " pitchMatch="
+                + (v.note == note));
         if (v.active && v.note == note && (midiChannel == -1 || v.midiChannel == midiChannel)) {
+          System.out.println(
+              "[DIAG release] MATCH SUCCESS: Calling noteOff for voice note=" + v.note);
           v.noteOff(0);
         }
       }
