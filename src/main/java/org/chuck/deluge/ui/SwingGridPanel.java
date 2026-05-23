@@ -54,6 +54,11 @@ public class SwingGridPanel extends JPanel {
   private int activeShiftRow = -1;
   private int activeShiftCol = -1;
 
+  private int clonePreviewStartRow = -1;
+  private int clonePreviewStartCol = -1;
+  private int clonePreviewCurrentRow = -1;
+  private int clonePreviewCurrentCol = -1;
+
   public int getActiveShiftRow() {
     return activeShiftRow;
   }
@@ -1078,6 +1083,39 @@ public class SwingGridPanel extends JPanel {
     label.setMinimumSize(new Dimension(lw, 30));
     label.setMaximumSize(new Dimension(lw, 30));
 
+    label.setTransferHandler(
+        new TransferHandler() {
+          @Override
+          public boolean canImport(TransferSupport support) {
+            return support.isDataFlavorSupported(
+                java.awt.datatransfer.DataFlavor.javaFileListFlavor);
+          }
+
+          @SuppressWarnings("unchecked")
+          @Override
+          public boolean importData(TransferSupport support) {
+            if (!canImport(support)) return false;
+            try {
+              java.util.List<java.io.File> files =
+                  (java.util.List<java.io.File>)
+                      support
+                          .getTransferable()
+                          .getTransferData(java.awt.datatransfer.DataFlavor.javaFileListFlavor);
+              if (files != null && !files.isEmpty()) {
+                java.io.File soundFile = files.get(0);
+                if (soundFile.getName().toLowerCase().endsWith(".wav")
+                    || soundFile.getName().toLowerCase().endsWith(".aif")) {
+                  hotSwapTrackSample(modelRow, visibleRow, soundFile);
+                  return true;
+                }
+              }
+            } catch (Exception ex) {
+              LOG.warning("Sample drop import failed: " + ex.getMessage());
+            }
+            return false;
+          }
+        });
+
     label.setForeground(Color.LIGHT_GRAY);
     label.setCursor(new Cursor(Cursor.HAND_CURSOR));
     label.addMouseListener(
@@ -1414,6 +1452,12 @@ public class SwingGridPanel extends JPanel {
               } else {
                 pad.setNoteText("");
               }
+            }
+
+            if (visibleRow == clonePreviewCurrentRow && colId == clonePreviewCurrentCol) {
+              pad.setBorder(BorderFactory.createLineBorder(new Color(0x00, 0xf0, 0xff), 3));
+            } else {
+              pad.setBorder(UIManager.getBorder("Button.border"));
             }
           }
         } else {
@@ -2764,6 +2808,39 @@ public class SwingGridPanel extends JPanel {
         label.setPreferredSize(new Dimension(lw, 30));
         label.setMinimumSize(new Dimension(lw, 30));
         label.setMaximumSize(new Dimension(lw, 30));
+
+        label.setTransferHandler(
+            new TransferHandler() {
+              @Override
+              public boolean canImport(TransferSupport support) {
+                return support.isDataFlavorSupported(
+                    java.awt.datatransfer.DataFlavor.javaFileListFlavor);
+              }
+
+              @SuppressWarnings("unchecked")
+              @Override
+              public boolean importData(TransferSupport support) {
+                if (!canImport(support)) return false;
+                try {
+                  java.util.List<java.io.File> files =
+                      (java.util.List<java.io.File>)
+                          support
+                              .getTransferable()
+                              .getTransferData(java.awt.datatransfer.DataFlavor.javaFileListFlavor);
+                  if (files != null && !files.isEmpty()) {
+                    java.io.File soundFile = files.get(0);
+                    if (soundFile.getName().toLowerCase().endsWith(".wav")
+                        || soundFile.getName().toLowerCase().endsWith(".aif")) {
+                      hotSwapTrackSample(trk, 0, soundFile);
+                      return true;
+                    }
+                  }
+                } catch (Exception ex) {
+                  LOG.warning("Sample drop import failed: " + ex.getMessage());
+                }
+                return false;
+              }
+            });
 
         label.setForeground(Color.LIGHT_GRAY);
         label.setCursor(new Cursor(Cursor.HAND_CURSOR));
@@ -4683,6 +4760,117 @@ public class SwingGridPanel extends JPanel {
       if (SwingDelugeApp.mainInstance != null) {
         SwingDelugeApp.mainInstance.updateHardwareLedDisplay(null, null);
       }
+    }
+  }
+
+  public void setClonePreview(int startR, int startC, int currR, int currC) {
+    this.clonePreviewStartRow = startR;
+    this.clonePreviewStartCol = startC;
+    this.clonePreviewCurrentRow = currR;
+    this.clonePreviewCurrentCol = currC;
+    refresh();
+  }
+
+  public void duplicateStep(int startRow, int startCol, int targetRow, int targetCol) {
+    if (bridge == null) return;
+    int trackLen = bridge.getTrackLength(baseTrackId);
+
+    int srcRow = baseTrackId + (viewMode == GridViewMode.CLIP ? scrollOffset + startRow : startRow);
+    int srcCol = (trackLen < stepCount) ? (startCol % trackLen) : (startCol + scrollOffsetX);
+
+    int dstRow =
+        baseTrackId + (viewMode == GridViewMode.CLIP ? scrollOffset + targetRow : targetRow);
+    int dstCol = (trackLen < stepCount) ? (targetCol % trackLen) : (targetCol + scrollOffsetX);
+
+    // Read step parameters
+    boolean active = bridge.getStep(srcRow, srcCol);
+    double vel = bridge.getVelocity(srcRow, srcCol);
+    double gate = bridge.getGate(srcRow, srcCol);
+    int pitch = bridge.getPitch(srcRow, srcCol);
+    double prob = bridge.getStepProbability(srcRow, srcCol);
+    double fill = bridge.getStepFill(srcRow, srcCol);
+    double stepFilterVal = bridge.getStepFilter(srcRow, srcCol);
+    double stepResVal = bridge.getStepRes(srcRow, srcCol);
+    double stepPanVal = bridge.getStepPan(srcRow, srcCol);
+    double stepDelayVal = bridge.getStepDelay(srcRow, srcCol);
+    double stepReverbVal = bridge.getStepReverb(srcRow, srcCol);
+
+    // Save to target step
+    bridge.setStep(dstRow, dstCol, active);
+    bridge.setVelocity(dstRow, dstCol, vel);
+    bridge.setGate(dstRow, dstCol, gate);
+    bridge.setPitch(dstRow, dstCol, pitch);
+    bridge.setStepProbability(dstRow, dstCol, prob);
+    bridge.setStepFill(dstRow, dstCol, fill);
+    bridge.setStepFilter(dstRow, dstCol, stepFilterVal);
+    bridge.setStepRes(dstRow, dstCol, stepResVal);
+    bridge.setStepPan(dstRow, dstCol, stepPanVal);
+    bridge.setStepDelay(dstRow, dstCol, stepDelayVal);
+    bridge.setStepReverb(dstRow, dstCol, stepReverbVal);
+
+    // Push Undo/Redo step copy event!
+    java.util.ArrayList<Consequence> steps = new java.util.ArrayList<>();
+    steps.add(
+        new Consequence.StepConsequence(
+            editedModelTrack,
+            activeClipId,
+            targetRow,
+            targetCol,
+            org.chuck.deluge.model.StepData.of(
+                active, (float) vel, (float) gate, (float) prob, (int) fill),
+            org.chuck.deluge.model.StepData.empty()));
+    if (projectModel != null) {
+      projectModel
+          .getUndoRedoStack()
+          .push(new Consequence.CompoundConsequence("Clone step to " + targetCol, steps));
+    }
+
+    fireProjectChanged();
+    refresh();
+  }
+
+  public void hotSwapTrackSample(int modelRow, int visibleRow, java.io.File soundFile) {
+    if (projectModel == null) return;
+    java.util.List<org.chuck.deluge.model.TrackModel> tracks = projectModel.getTracks();
+    if (modelRow < 0 || modelRow >= tracks.size()) return;
+
+    org.chuck.deluge.model.TrackModel track = tracks.get(modelRow);
+
+    if (viewMode == GridViewMode.CLIP
+        && track instanceof org.chuck.deluge.model.KitTrackModel kit) {
+      java.util.List<org.chuck.deluge.model.Drum> sounds = kit.getDrums();
+      int drumIdx = sounds.size() - 1 - visibleRow;
+      if (drumIdx >= 0 && drumIdx < sounds.size()) {
+        org.chuck.deluge.model.Drum drum = sounds.get(drumIdx);
+        if (drum instanceof org.chuck.deluge.model.SoundDrum soundDrum) {
+          soundDrum.setSamplePath(soundFile.getAbsolutePath());
+        }
+        if (bridge != null) {
+          bridge.setSamplePath(modelRow, soundFile.getAbsolutePath());
+        }
+        if (SwingDelugeApp.mainInstance != null) {
+          SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient("SMPL", "SWAP");
+        }
+        fireProjectChanged();
+        refresh();
+      }
+    } else if (track instanceof org.chuck.deluge.model.AudioTrackModel audioTrack) {
+      if (audioTrack.getAudioClips().isEmpty()) {
+        org.chuck.deluge.model.AudioTrackModel.AudioClip clip =
+            new org.chuck.deluge.model.AudioTrackModel.AudioClip();
+        clip.setFilePath(soundFile.getAbsolutePath());
+        audioTrack.getAudioClips().add(clip);
+      } else {
+        audioTrack.getAudioClips().get(0).setFilePath(soundFile.getAbsolutePath());
+      }
+      if (bridge != null) {
+        bridge.setSamplePath(modelRow, soundFile.getAbsolutePath());
+      }
+      if (SwingDelugeApp.mainInstance != null) {
+        SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient("SMPL", "SWAP");
+      }
+      fireProjectChanged();
+      refresh();
     }
   }
 
