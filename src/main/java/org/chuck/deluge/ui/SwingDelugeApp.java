@@ -1296,7 +1296,13 @@ public class SwingDelugeApp extends JFrame {
                     if (clipPanel != null) clipPanel.setShiftHeld(false);
                     if (songPanel != null) songPanel.setShiftHeld(false);
                     if (arrGridPanel != null) arrGridPanel.setShiftHeld(false);
-                    picTransport.flush();
+                    if (bridge != null && bridge.getPlayState() != 0) {
+                      picTransport.flush();
+                    } else {
+                      if (clipPanel != null) clipPanel.refresh();
+                      if (songPanel != null) songPanel.refresh();
+                      if (arrGridPanel != null) arrGridPanel.refresh();
+                    }
                   }
                 }
 
@@ -2470,6 +2476,9 @@ public class SwingDelugeApp extends JFrame {
                 return;
               }
               if (arrGridPanel != null && arrGridPanel.isShiftHeld()) {
+                return;
+              }
+              if (bridge != null && bridge.getPlayState() == 0) {
                 return;
               }
               picTransport.flush();
