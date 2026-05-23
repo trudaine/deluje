@@ -1574,6 +1574,9 @@ public class SwingGridPanel extends JPanel {
               double vel = bridge != null ? bridge.getVelocity(engineRow, activeCol) : 0.8;
               double prob = bridge != null ? bridge.getStepProbability(engineRow, activeCol) : 1.0;
 
+              int curTrackLen = bridge != null ? bridge.getTrackLength(engineRow) : stepCount;
+              boolean inLoop = activeCol < curTrackLen;
+              pad.setInLoop(inLoop);
               pad.setActive(stepState);
               pad.setBaseColor(trackColors[visibleRow % trackColors.length]);
               pad.setIntensity((float) (vel * (0.2f + 0.8f * prob)));
