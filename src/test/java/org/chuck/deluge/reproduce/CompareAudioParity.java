@@ -104,6 +104,20 @@ public class CompareAudioParity {
       float[] swWindow = new float[windowSize];
       System.arraycopy(alignedSw, swZeroIdx, swWindow, 0, windowSize);
 
+      System.out.println(
+          "[DIAG zero] hwZeroIdx="
+              + hwZeroIdx
+              + " swZeroIdx="
+              + swZeroIdx
+              + " diff="
+              + (hwZeroIdx - swZeroIdx));
+      System.out.print("[DIAG hwWindow samples] ");
+      for (int i = 0; i < 10; i++) System.out.printf("%.6f ", hwWindow[i]);
+      System.out.println();
+      System.out.print("[DIAG swWindow samples] ");
+      for (int i = 0; i < 10; i++) System.out.printf("%.6f ", swWindow[i]);
+      System.out.println();
+
       // 5. Compute multi-dimensional analysis metrics
       double correlation = AudioAnalyzer.correlation(hwWindow, swWindow);
       double hwRms = AudioAnalyzer.rms(alignedHw);
