@@ -51,10 +51,18 @@ public class CompareAudioParity {
           "Generated Software Render:  %d samples (%.2f seconds)\n",
           sw.length, sw.length / 44100.0);
 
-      // 3. Find optimal phase-alignment lag via cross-correlation
-      int maxLagSearch = Math.min(22050, hw.length / 4); // search window
-      int bestLag = AudioAnalyzer.findBestLag(hw, sw, maxLagSearch);
-      System.out.println("Optimal Phase-Alignment Lag (samples): " + bestLag);
+      // 3. Find optimal start-transient onset points and align first active note cycles
+      int hwStart = findActiveStart(hw, 0.02f);
+      int swStart = findActiveStart(sw, 0.01f);
+      int bestLag = hwStart - swStart;
+      System.out.println(
+          "Transient-Based Alignment Lag (samples): "
+              + bestLag
+              + " (hwStart="
+              + hwStart
+              + ", swStart="
+              + swStart
+              + ")");
 
       // 4. Align signals based on lag
       int startHw = Math.max(0, bestLag);
@@ -70,11 +78,16 @@ public class CompareAudioParity {
       float[] alignedSw = new float[len];
       System.arraycopy(sw, startSw, alignedSw, 0, len);
 
-      // Extract a short 100ms window from the loudest segment to calculate true wave-shape
-      // correlation without clock drift
+      // Slices 100ms window right after the note onset starts
       int windowSize = 4410;
-      float[] hwWindow = getLoudestSegment(alignedHw, windowSize);
-      float[] swWindow = getLoudestSegment(alignedSw, windowSize);
+      int hwZeroIdx =
+          findPositiveZeroCrossing(alignedHw, 1000); // skip initial transient click zone
+      int swZeroIdx = findPositiveZeroCrossing(alignedSw, 1000);
+
+      float[] hwWindow = new float[windowSize];
+      System.arraycopy(alignedHw, hwZeroIdx, hwWindow, 0, windowSize);
+      float[] swWindow = new float[windowSize];
+      System.arraycopy(alignedSw, swZeroIdx, swWindow, 0, windowSize);
 
       // 5. Compute multi-dimensional analysis metrics
       double correlation = AudioAnalyzer.correlation(hwWindow, swWindow);
@@ -279,5 +292,23 @@ public class CompareAudioParity {
     float[] out = new float[length];
     System.arraycopy(data, maxIdx, out, 0, length);
     return out;
+  }
+
+  private static int findActiveStart(float[] data, float threshold) {
+    for (int i = 0; i < data.length; i++) {
+      if (Math.abs(data[i]) > threshold) {
+        return i;
+      }
+    }
+    return 0;
+  }
+
+  private static int findPositiveZeroCrossing(float[] data, int startSearchIdx) {
+    for (int i = startSearchIdx; i < data.length - 1; i++) {
+      if (data[i] <= 0.0f && data[i + 1] > 0.0f) {
+        return i + 1;
+      }
+    }
+    return startSearchIdx;
   }
 }
