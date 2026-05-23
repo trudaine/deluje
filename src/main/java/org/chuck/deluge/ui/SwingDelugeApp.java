@@ -2087,7 +2087,7 @@ public class SwingDelugeApp extends JFrame {
 
     JMenu settingsMenu = new JMenu("Settings");
 
-    JMenuItem sampleItem = new JMenuItem("Set SD Card Root Directory...");
+    JMenuItem sampleItem = new JMenuItem("Set SD Card Root...");
     sampleItem.addActionListener(
         e -> {
           JFileChooser chooser =
@@ -2101,8 +2101,7 @@ public class SwingDelugeApp extends JFrame {
           }
         });
 
-    final JCheckBoxMenuItem hifiModeItem =
-        new JCheckBoxMenuItem("Audio High Fidelity (ChucK VM Engine)");
+    final JCheckBoxMenuItem hifiModeItem = new JCheckBoxMenuItem("High Fidelity Audio");
     hifiModeItem.setSelected(bridge.getHiFiMode() == 0);
     hifiModeItem.addActionListener(
         e -> {
@@ -2115,7 +2114,7 @@ public class SwingDelugeApp extends JFrame {
                   + " output driver.");
         });
 
-    JMenuItem clearMidiItem = new JMenuItem("Reset Learned MIDI CC Mappings");
+    JMenuItem clearMidiItem = new JMenuItem("Reset MIDI Mappings");
     clearMidiItem.addActionListener(
         e -> {
           int ok =
