@@ -149,10 +149,10 @@ public class CompareAudioParity {
 
     for (int b = 0; b < blockCount; b++) {
       if (b == triggerBlock) {
-        sound.triggerNote(72, 100); // C5 pitch (matches actual hardware C5 file fundamental!)
+        sound.triggerNote(48, 100); // C3 pitch (matches actual hardware C3 file fundamental!)
       }
       if (b == releaseBlock) {
-        sound.releaseNote(72);
+        sound.releaseNote(48);
       }
 
       engine.renderBlock(128);
