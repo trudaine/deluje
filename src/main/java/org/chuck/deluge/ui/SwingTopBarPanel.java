@@ -465,15 +465,15 @@ public class SwingTopBarPanel extends JPanel {
     public RetroLedDisplay() {
       setLayout(new BorderLayout());
       setBackground(new Color(0x1a, 0x05, 0x05)); // dark red background
-      setPreferredSize(new java.awt.Dimension(260, 40));
+      setPreferredSize(new java.awt.Dimension(180, 32));
       setBorder(
           BorderFactory.createCompoundBorder(
               BorderFactory.createLineBorder(new Color(0xaa, 0x33, 0x33), 1),
-              BorderFactory.createEmptyBorder(2, 6, 2, 6)));
+              BorderFactory.createEmptyBorder(1, 4, 1, 4)));
 
       label = new JLabel("[  --    --  ]");
       label.setForeground(new Color(0xff, 0x33, 0x33)); // bright LED red
-      label.setFont(new Font("Monospaced", Font.BOLD, 20));
+      label.setFont(new Font("Monospaced", Font.BOLD, 15));
       label.setHorizontalAlignment(SwingConstants.CENTER);
       add(label, BorderLayout.CENTER);
     }

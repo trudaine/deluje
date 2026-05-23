@@ -1172,6 +1172,7 @@ public class SwingGridPanel extends JPanel {
         });
 
     label.setForeground(Color.LIGHT_GRAY);
+    label.setFont(new Font("SansSerif", Font.BOLD, 10));
     label.setCursor(new Cursor(Cursor.HAND_CURSOR));
     label.addMouseListener(
         new java.awt.event.MouseAdapter() {
@@ -1461,36 +1462,18 @@ public class SwingGridPanel extends JPanel {
         if (clipBtn instanceof DelugePadButton pad) {
           if (shiftHeld && visibleRow < 8 && colId < 16) {
             pad.setInLoop(true);
-            org.chuck.deluge.model.TrackModel curTrack =
-                (editedModelTrack < projectModel.getTracks().size())
-                    ? projectModel.getTracks().get(editedModelTrack)
-                    : null;
-            boolean applicable =
-                isParamApplicable(SHIFT_LABELS[visibleRow][colId], visibleRow, colId, curTrack);
-            if (!applicable) {
-              pad.setActive(true);
-              pad.setBaseColor(new Color(0x25, 0x25, 0x2a)); // greyed out charcoal
-              pad.setNoteText(SHIFT_LABELS[visibleRow][colId]);
-              pad.setMuted(false);
-              pad.setIntensity(0.12f); // dimmed LED backlight
-              pad.setPlayhead(false);
-              pad.setTied(false);
-              pad.setText("");
-              pad.setBorder(UIManager.getBorder("Button.border"));
+            pad.setActive(true);
+            pad.setBaseColor(SHIFT_COLORS[visibleRow][colId]);
+            pad.setNoteText(SHIFT_LABELS[visibleRow][colId]);
+            pad.setMuted(false);
+            pad.setIntensity(1.0f);
+            pad.setPlayhead(false);
+            pad.setTied(false);
+            pad.setText("");
+            if (visibleRow == activeShiftRow && colId == activeShiftCol) {
+              pad.setBorder(BorderFactory.createLineBorder(new Color(255, 215, 0), 3));
             } else {
-              pad.setActive(true);
-              pad.setBaseColor(SHIFT_COLORS[visibleRow][colId]);
-              pad.setNoteText(SHIFT_LABELS[visibleRow][colId]);
-              pad.setMuted(false);
-              pad.setIntensity(1.0f);
-              pad.setPlayhead(false);
-              pad.setTied(false);
-              pad.setText("");
-              if (visibleRow == activeShiftRow && colId == activeShiftCol) {
-                pad.setBorder(BorderFactory.createLineBorder(new Color(255, 215, 0), 3));
-              } else {
-                pad.setBorder(UIManager.getBorder("Button.border"));
-              }
+              pad.setBorder(UIManager.getBorder("Button.border"));
             }
           } else {
             int engineRow = baseTrackId + modelRow;
@@ -1544,25 +1527,11 @@ public class SwingGridPanel extends JPanel {
           }
         } else {
           if (shiftHeld && visibleRow < 8 && colId < 16) {
-            org.chuck.deluge.model.TrackModel curTrack =
-                (editedModelTrack < projectModel.getTracks().size())
-                    ? projectModel.getTracks().get(editedModelTrack)
-                    : null;
-            boolean applicable =
-                isParamApplicable(SHIFT_LABELS[visibleRow][colId], visibleRow, colId, curTrack);
-            if (!applicable) {
-              clipBtn.setBackground(new Color(0x25, 0x25, 0x2a));
-              clipBtn.setText(
-                  "<html><center><font size='1' color='#55555d'><b>"
-                      + SHIFT_LABELS[visibleRow][colId]
-                      + "</b></font></center></html>");
-            } else {
-              clipBtn.setBackground(SHIFT_COLORS[visibleRow][colId]);
-              clipBtn.setText(
-                  "<html><center><font size='1'><b>"
-                      + SHIFT_LABELS[visibleRow][colId]
-                      + "</b></font></center></html>");
-            }
+            clipBtn.setBackground(SHIFT_COLORS[visibleRow][colId]);
+            clipBtn.setText(
+                "<html><center><font size='1'><b>"
+                    + SHIFT_LABELS[visibleRow][colId]
+                    + "</b></font></center></html>");
           } else {
             if (viewMode == GridViewMode.CLIP) {
               boolean stepState = bridge.getStep(baseTrackId + modelRow, activeCol);
@@ -2827,6 +2796,7 @@ public class SwingGridPanel extends JPanel {
             });
 
         label.setForeground(Color.LIGHT_GRAY);
+        label.setFont(new Font("SansSerif", Font.BOLD, 10));
         label.setCursor(new Cursor(Cursor.HAND_CURSOR));
         label.addMouseListener(
             new java.awt.event.MouseAdapter() {
