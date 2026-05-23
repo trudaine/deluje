@@ -1280,6 +1280,24 @@ public class SwingDelugeApp extends JFrame {
           }
         });
 
+    // Register a global KeyEventDispatcher to capture Shift key state changes instantly across all
+    // child components
+    KeyboardFocusManager.getCurrentKeyboardFocusManager()
+        .addKeyEventDispatcher(
+            new KeyEventDispatcher() {
+              @Override
+              public boolean dispatchKeyEvent(java.awt.event.KeyEvent e) {
+                if (e.getKeyCode() == java.awt.event.KeyEvent.VK_SHIFT) {
+                  if (e.getID() == java.awt.event.KeyEvent.KEY_PRESSED) {
+                    if (clipPanel != null) clipPanel.setShiftHeld(true);
+                  } else if (e.getID() == java.awt.event.KeyEvent.KEY_RELEASED) {
+                    if (clipPanel != null) clipPanel.setShiftHeld(false);
+                  }
+                }
+                return false; // Pass event downstream
+              }
+            });
+
     int w =
         Integer.parseInt(org.chuck.deluge.project.PreferencesManager.get("window.width", "2800"));
     int h =
