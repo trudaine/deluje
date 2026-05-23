@@ -1453,6 +1453,7 @@ public class SwingDelugeApp extends JFrame {
   public void loadProject(org.chuck.deluge.model.ProjectModel model) {
     currentProject = model;
     vm.setGlobalInt(BridgeContract.G_PLAY, 0L);
+    if (bridge != null) bridge.setPlayState(0);
 
     // Register listener so structural and param changes auto-sync to bridge
     model.addProjectListener(new BridgeProjectListener(model));
@@ -2466,24 +2467,26 @@ public class SwingDelugeApp extends JFrame {
     new Timer(33, e -> visualizerPanel.repaint()).start();
 
     // Periodically flush PIC framebuffer to Swing pad buttons (≈30 fps)
-    new Timer(
-            33,
-            e -> {
-              if (clipPanel != null && clipPanel.isShiftHeld()) {
-                return;
-              }
-              if (songPanel != null && songPanel.isShiftHeld()) {
-                return;
-              }
-              if (arrGridPanel != null && arrGridPanel.isShiftHeld()) {
-                return;
-              }
-              if (bridge != null && bridge.getPlayState() == 0) {
-                return;
-              }
-              picTransport.flush();
-            })
-        .start();
+    if (this.pureEngine == null) {
+      new Timer(
+              33,
+              e -> {
+                if (clipPanel != null && clipPanel.isShiftHeld()) {
+                  return;
+                }
+                if (songPanel != null && songPanel.isShiftHeld()) {
+                  return;
+                }
+                if (arrGridPanel != null && arrGridPanel.isShiftHeld()) {
+                  return;
+                }
+                if (bridge != null && bridge.getPlayState() == 0) {
+                  return;
+                }
+                picTransport.flush();
+              })
+          .start();
+    }
 
     // bottom lane purged
 
@@ -2690,13 +2693,15 @@ public class SwingDelugeApp extends JFrame {
 
     @Override
     public void onPlayToggle() {
-      vm.setGlobalInt(
-          BridgeContract.G_PLAY, vm.getGlobalInt(BridgeContract.G_PLAY) == 1L ? 0L : 1L);
+      long nextPlay = vm.getGlobalInt(BridgeContract.G_PLAY) == 1L ? 0L : 1L;
+      vm.setGlobalInt(BridgeContract.G_PLAY, nextPlay);
+      if (bridge != null) bridge.setPlayState((int) nextPlay);
     }
 
     @Override
     public void onStop() {
       vm.setGlobalInt(BridgeContract.G_PLAY, 0L);
+      if (bridge != null) bridge.setPlayState(0);
     }
 
     @Override

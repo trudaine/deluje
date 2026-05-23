@@ -2083,6 +2083,47 @@ public class SwingGridPanel extends JPanel {
     return rowPanel;
   }
 
+  private void triggerKeyboardNote(int note) {
+    if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
+      try {
+        Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+        if (fwEngineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
+          if (editedModelTrack < fwEngine.sounds.size()) {
+            org.chuck.deluge.firmware.engine.GlobalEffectable sound =
+                fwEngine.sounds.get(editedModelTrack);
+            if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
+              synth.triggerNote(note, 127);
+              return;
+            } else if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
+              if (!kit.drumSounds.isEmpty()) {
+                int drumIdx = note % kit.drumSounds.size();
+                kit.triggerDrum(drumIdx, 127);
+              }
+              return;
+            }
+          }
+        }
+      } catch (Exception ex) {
+        LOG.warning("Hi-Fi keyboard trigger failed: " + ex.getMessage());
+      }
+    }
+
+    try {
+      org.chuck.core.ChuckEvent noteEv =
+          (org.chuck.core.ChuckEvent) vm.getGlobalObject("g_ck_noteOn");
+      if (noteEv != null) {
+        org.chuck.core.ChuckArray pitchArr =
+            (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_PITCH);
+        if (pitchArr != null) {
+          pitchArr.setInt(0, (long) (note - 60));
+          noteEv.broadcast();
+        }
+      }
+    } catch (Exception ex) {
+      LOG.warning("Standard keyboard trigger failed: " + ex.getMessage());
+    }
+  }
+
   /** Build a fixed row (MACROS, SLIDERS, KEYBOARD) for the CLIP grid. */
   private JPanel buildFixedRow(int rowIdx, int padSz) {
     JPanel rowPanel = new JPanel();
@@ -2151,21 +2192,7 @@ public class SwingGridPanel extends JPanel {
             pad.setNoteText(String.valueOf(note));
             pad.setFont(new Font("Monospaced", Font.BOLD, 10));
 
-            pad.addActionListener(
-                e -> {
-                  try {
-                    org.chuck.core.ChuckEvent noteEv =
-                        (org.chuck.core.ChuckEvent) vm.getGlobalObject("g_ck_noteOn");
-                    if (noteEv != null) {
-                      org.chuck.core.ChuckArray pitchArr =
-                          (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_PITCH);
-                      pitchArr.setInt(0, (long) (note - 60));
-                      noteEv.broadcast();
-                    }
-                  } catch (Exception ex) {
-                    LOG.warning("Keyboard note broadcast failed: " + ex.getMessage());
-                  }
-                });
+            pad.addActionListener(e -> triggerKeyboardNote(note));
             clipBtn = pad;
           } else {
             DelugePadButton pad = new DelugePadButton();
@@ -2203,21 +2230,7 @@ public class SwingGridPanel extends JPanel {
             clipBtn.setForeground(isBlack ? Color.WHITE : Color.BLACK);
             clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 14 : 10));
 
-            clipBtn.addActionListener(
-                e -> {
-                  try {
-                    org.chuck.core.ChuckEvent noteEv =
-                        (org.chuck.core.ChuckEvent) vm.getGlobalObject("g_ck_noteOn");
-                    if (noteEv != null) {
-                      org.chuck.core.ChuckArray pitchArr =
-                          (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_PITCH);
-                      pitchArr.setInt(0, (long) (note - 60));
-                      noteEv.broadcast();
-                    }
-                  } catch (Exception ex) {
-                    LOG.warning("Keyboard note broadcast failed: " + ex.getMessage());
-                  }
-                });
+            clipBtn.addActionListener(e -> triggerKeyboardNote(note));
           } else {
             clipBtn = new JButton();
             clipBtn.setBackground(new Color(0x1a, 0x1a, 0x1a));
@@ -2966,22 +2979,7 @@ public class SwingGridPanel extends JPanel {
               clipBtn.setText(String.valueOf(note));
               clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 14 : 10));
 
-              clipBtn.addActionListener(
-                  e -> {
-                    try {
-                      org.chuck.core.ChuckEvent noteEv =
-                          (org.chuck.core.ChuckEvent) vm.getGlobalObject("g_ck_noteOn");
-                      if (noteEv != null) {
-                        org.chuck.core.ChuckArray pitchArr =
-                            (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_PITCH);
-                        pitchArr.setInt(0, (long) (note - 60));
-                        noteEv.broadcast();
-                      }
-                    } catch (Exception ex) {
-                      LOG.warning(
-                          "Keyboard note broadcast failed (keyboard row): " + ex.getMessage());
-                    }
-                  });
+              clipBtn.addActionListener(e -> triggerKeyboardNote(note));
             }
           } else {
 
@@ -3572,13 +3570,20 @@ public class SwingGridPanel extends JPanel {
                         // playback
                         boolean stepActive = bridge.getStep(engineRow2, engineCol);
                         double velPb = bridge.getVelocity(engineRow2, engineCol);
-                        pads[t][c].setBackground(
-                            stepActive
-                                ? velocityBlend(trackColors[t % trackColors.length], velPb)
-                                : new Color(0x33, 0x33, 0x33));
+                        if (pads[t][c] instanceof DelugePadButton pad) {
+                          pad.setActive(stepActive);
+                          pad.setIntensity((float) (velPb * 0.8f));
+                          pad.setBaseColor(trackColors[t % trackColors.length]);
+                        } else {
+                          pads[t][c].setBackground(
+                              stepActive
+                                  ? velocityBlend(trackColors[t % trackColors.length], velPb)
+                                  : new Color(0x33, 0x33, 0x33));
+                        }
                       }
                     }
                   }
+                  SwingGridPanel.this.repaint();
                 } // end if (viewMode != AUTOMATION)
               }
             });
