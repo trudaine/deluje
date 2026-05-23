@@ -5556,6 +5556,42 @@ public class SwingGridPanel extends JPanel {
           return st.getStutterRate();
         }
         return 0.0;
+      case 12:
+        if (!track.getClips().isEmpty()) {
+          org.chuck.deluge.model.ClipModel clip = track.getClips().get(0);
+          for (int r = 0; r < clip.getRowCount(); r++) {
+            for (int s = 0; s < clip.getStepCount(); s++) {
+              if (clip.getStep(r, s).active()) return clip.getStep(r, s).probability();
+            }
+          }
+        }
+        return 1.0;
+      case 13:
+        if (!track.getClips().isEmpty()) {
+          org.chuck.deluge.model.ClipModel clip = track.getClips().get(0);
+          for (int r = 0; r < clip.getRowCount(); r++) {
+            for (int s = 0; s < clip.getStepCount(); s++) {
+              if (clip.getStep(r, s).active())
+                return Math.max(0.0, Math.min(1.0, clip.getStep(r, s).gate() / 2.0f));
+            }
+          }
+        }
+        return 0.5;
+      case 14:
+        if (!track.getClips().isEmpty()) {
+          org.chuck.deluge.model.ClipModel clip = track.getClips().get(0);
+          for (int r = 0; r < clip.getRowCount(); r++) {
+            for (int s = 0; s < clip.getStepCount(); s++) {
+              if (clip.getStep(r, s).active()) return clip.getStep(r, s).velocity();
+            }
+          }
+        }
+        return 0.8;
+      case 15:
+        if (track instanceof org.chuck.deluge.model.SynthTrackModel st) {
+          return Math.max(0.0, Math.min(1.0, st.getArp().rate() / 2.0f));
+        }
+        return 0.5;
       default:
         return 0.5;
     }
@@ -5629,6 +5665,93 @@ public class SwingGridPanel extends JPanel {
       case 11:
         if (track instanceof org.chuck.deluge.model.SynthTrackModel st) {
           st.setStutterRate((float) v);
+        }
+        break;
+      case 12:
+        if (!track.getClips().isEmpty()) {
+          org.chuck.deluge.model.ClipModel clip = track.getClips().get(0);
+          for (int r = 0; r < clip.getRowCount(); r++) {
+            for (int s = 0; s < clip.getStepCount(); s++) {
+              org.chuck.deluge.model.StepData step = clip.getStep(r, s);
+              if (step.active()) {
+                clip.setStep(
+                    r,
+                    s,
+                    org.chuck.deluge.model.StepData.of(
+                        step.active(), step.velocity(), step.gate(), (float) v, step.pitch()));
+              }
+            }
+          }
+        }
+        break;
+      case 13:
+        if (!track.getClips().isEmpty()) {
+          org.chuck.deluge.model.ClipModel clip = track.getClips().get(0);
+          for (int r = 0; r < clip.getRowCount(); r++) {
+            for (int s = 0; s < clip.getStepCount(); s++) {
+              org.chuck.deluge.model.StepData step = clip.getStep(r, s);
+              if (step.active()) {
+                clip.setStep(
+                    r,
+                    s,
+                    org.chuck.deluge.model.StepData.of(
+                        step.active(),
+                        step.velocity(),
+                        (float) (v * 2.0f),
+                        step.probability(),
+                        step.pitch()));
+              }
+            }
+          }
+        }
+        break;
+      case 14:
+        if (!track.getClips().isEmpty()) {
+          org.chuck.deluge.model.ClipModel clip = track.getClips().get(0);
+          for (int r = 0; r < clip.getRowCount(); r++) {
+            for (int s = 0; s < clip.getStepCount(); s++) {
+              org.chuck.deluge.model.StepData step = clip.getStep(r, s);
+              if (step.active()) {
+                clip.setStep(
+                    r,
+                    s,
+                    org.chuck.deluge.model.StepData.of(
+                        step.active(), (float) v, step.gate(), step.probability(), step.pitch()));
+              }
+            }
+          }
+        }
+        break;
+      case 15:
+        if (track instanceof org.chuck.deluge.model.SynthTrackModel st) {
+          org.chuck.deluge.model.ArpModel oldArp = st.getArp();
+          st.setArp(
+              new org.chuck.deluge.model.ArpModel(
+                  oldArp.active(),
+                  oldArp.mode(),
+                  (float) (v * 2.0f),
+                  oldArp.octaves(),
+                  oldArp.gate(),
+                  oldArp.syncLevel(),
+                  oldArp.noteMode(),
+                  oldArp.octaveMode(),
+                  oldArp.stepRepeat(),
+                  oldArp.rhythmIndex(),
+                  oldArp.seqLength(),
+                  oldArp.octaveSpread(),
+                  oldArp.gateSpread(),
+                  oldArp.velSpread(),
+                  oldArp.ratchetAmount(),
+                  oldArp.mpeVelocity(),
+                  oldArp.syncType(),
+                  oldArp.noteProbability(),
+                  oldArp.bassProbability(),
+                  oldArp.swapProbability(),
+                  oldArp.glideProbability(),
+                  oldArp.reverseProbability(),
+                  oldArp.chordProbability(),
+                  oldArp.ratchetProbability(),
+                  oldArp.chordPolyphony()));
         }
         break;
     }
