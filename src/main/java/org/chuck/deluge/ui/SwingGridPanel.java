@@ -1875,7 +1875,6 @@ public class SwingGridPanel extends JPanel {
                                 }
                               }
                             }
-                            refresh();
                             if (projectModel != null
                                 && editedModelTrack < projectModel.getTracks().size()) {
                               org.chuck.deluge.model.TrackModel tModel =
@@ -1906,6 +1905,7 @@ public class SwingGridPanel extends JPanel {
                                 }
                               }
                             }
+                            fireProjectChanged();
                           } else if (isSynthMode) {
                             // Synth piano roll: each row = MIDI note, higher row = lower pitch.
                             // Use unique engine row per visual row for independent bridge state.
@@ -1934,7 +1934,6 @@ public class SwingGridPanel extends JPanel {
                                     ? velocityBlend(
                                         trackColors[visibleRow % trackColors.length], velS)
                                     : new Color(0x33, 0x33, 0x33));
-                            refresh();
 
                             if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
                               Object fwEngineObj =
@@ -1997,6 +1996,7 @@ public class SwingGridPanel extends JPanel {
                                 }
                               }
                             }
+                            fireProjectChanged();
                           } else {
                             // Kit track
                             org.chuck.deluge.model.StepData oldStep = null;
@@ -2056,7 +2056,6 @@ public class SwingGridPanel extends JPanel {
                               activeStutterTimer.stop();
                               activeStutterTimer = null;
                             }
-                            refresh();
                             if (!stepState) {
                               if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
                                 // ── High-Fidelity Audition ──
@@ -2089,6 +2088,7 @@ public class SwingGridPanel extends JPanel {
                                 vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
                               }
                             }
+                            fireProjectChanged();
                           }
                         }
                       }

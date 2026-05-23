@@ -96,7 +96,7 @@ public class FirmwareFactory {
       ClipModel clipModel = model.getClips().get(0);
       clip.loopLength = clipModel.getStepCount() * 24;
       for (int r = 0; r < clipModel.getRowCount(); r++) {
-        int pitch = clipModel.getStep(r, 0).pitch();
+        int pitch = ((clipModel.getRowCount() - 1) - r) + 60;
         NoteRow row = new NoteRow(pitch);
         java.util.List<org.chuck.deluge.model.HighResNote> rawNotes = clipModel.getRawNoteEvents(r);
         if (rawNotes != null && !rawNotes.isEmpty()) {
@@ -114,7 +114,7 @@ public class FirmwareFactory {
             StepData step = clipModel.getStep(r, s);
             if (step.active()) {
               row.attemptNoteAdd(
-                  s * 24, (int) (step.gate() * 24), (int) step.velocity(), 100, null, 0);
+                  s * 24, (int) (step.gate() * 24), (int) (step.velocity() * 127.0f), 100, null, 0);
             }
           }
         }
@@ -391,7 +391,7 @@ public class FirmwareFactory {
             StepData step = clipModel.getStep(r, s);
             if (step.active()) {
               row.attemptNoteAdd(
-                  s * 24, (int) (step.gate() * 24), (int) step.velocity(), 100, null, 0);
+                  s * 24, (int) (step.gate() * 24), (int) (step.velocity() * 127.0f), 100, null, 0);
             }
           }
         }

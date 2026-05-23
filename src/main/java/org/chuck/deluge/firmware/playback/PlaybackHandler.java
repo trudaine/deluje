@@ -69,6 +69,7 @@ public class PlaybackHandler {
       arrangement.advance(effectiveAdvance);
 
       for (Clip clip : currentSong.clips) {
+        clip.lastProcessedPos += effectiveAdvance;
         clip.processCurrentPos(effectiveAdvance);
       }
 

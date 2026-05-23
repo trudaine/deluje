@@ -2255,14 +2255,20 @@ public class SwingDelugeApp extends JFrame {
     cardLayout = new CardLayout();
     centerCardPanel = new JPanel(cardLayout);
 
+    Runnable projectChangeHandler = () -> {
+      propagateCurrentModel();
+      syncHighFidelityEngine(currentProject);
+    };
+
     clipPanel = new SwingGridPanel(vm, bridge);
     clipPanel.setViewMode(SwingGridPanel.GridViewMode.CLIP);
     clipPanel.setProjectModel(currentProject);
-    clipPanel.setOnProjectChanged(this::propagateCurrentModel);
+    clipPanel.setOnProjectChanged(projectChangeHandler);
     clipPanel.setOnClipChanged(
         () -> {
           propagateCurrentModel();
           pushModelToBridge();
+          syncHighFidelityEngine(currentProject);
           clipPanel.refresh();
         });
     centerCardPanel.add(wrapGridPanel(clipPanel), "CLIP");
@@ -2275,19 +2281,19 @@ public class SwingDelugeApp extends JFrame {
     songPanel = new SwingGridPanel(vm, bridge);
     songPanel.setViewMode(SwingGridPanel.GridViewMode.SONG);
     songPanel.setProjectModel(currentProject);
-    songPanel.setOnProjectChanged(this::propagateCurrentModel);
+    songPanel.setOnProjectChanged(projectChangeHandler);
     centerCardPanel.add(wrapGridPanel(songPanel), "SONG");
 
     arrGridPanel = new SwingGridPanel(vm, bridge);
     arrGridPanel.setViewMode(SwingGridPanel.GridViewMode.ARRANGEMENT);
     arrGridPanel.setProjectModel(currentProject);
-    arrGridPanel.setOnProjectChanged(this::propagateCurrentModel);
+    arrGridPanel.setOnProjectChanged(projectChangeHandler);
     centerCardPanel.add(wrapGridPanel(arrGridPanel), "ARR");
 
     autoPanel = new SwingGridPanel(vm, bridge);
     autoPanel.setViewMode(SwingGridPanel.GridViewMode.AUTOMATION);
     autoPanel.setProjectModel(currentProject);
-    autoPanel.setOnProjectChanged(this::propagateCurrentModel);
+    autoPanel.setOnProjectChanged(projectChangeHandler);
     centerCardPanel.add(wrapGridPanel(autoPanel), "AUTO");
 
     performancePanel = new SwingPerformanceViewPanel(vm, bridge, currentProject);
