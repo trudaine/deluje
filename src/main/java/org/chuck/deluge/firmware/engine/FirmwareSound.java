@@ -40,7 +40,7 @@ public class FirmwareSound extends GlobalEffectable {
   public int maxPolyphony = 64;
   public PolyphonyMode polyphonic = PolyphonyMode.POLY;
   public boolean isDrum = false;
-  public int[] paramNeutralValues = new int[Param.kNumParams];
+  public int[] paramNeutralValues = new int[200];
   public int[] globalSourceValues = new int[PatchSource.kNumPatchSources];
 
   // ── Ported High-Fidelity Logic ──
@@ -54,6 +54,7 @@ public class FirmwareSound extends GlobalEffectable {
   public ModFXType modFXType = ModFXType.NONE;
   public final GranularProcessor granular = new GranularProcessor();
   public final SideChain sidechain = new SideChain();
+  public int sidechainSend = 0;
   public final Stutterer stutterer = new Stutterer();
   private int silentBlockCount = 200; // Starts gated on boot
 
@@ -96,6 +97,10 @@ public class FirmwareSound extends GlobalEffectable {
 
   @Override
   protected void renderInternal(StereoSample[] buffer, int numSamples, ParamManager unused) {
+    int scHit = GlobalSidechainBus.getActiveFrameHit();
+    if (scHit != 0) {
+      sidechain.registerHit(scHit);
+    }
     boolean hasActiveVoices;
     synchronized (voices) {
       hasActiveVoices = !voices.isEmpty();
@@ -154,7 +159,9 @@ public class FirmwareSound extends GlobalEffectable {
     modFX.processModFX(buffer, modFXType, 100, 100, postFXVolume, 0, 0);
 
     // Sidechain
-    int scAmount = sidechain.render(numSamples, 0);
+    int shape = paramNeutralValues[Param.UNPATCHED_SIDECHAIN_SHAPE];
+    int scAmount = sidechain.render(numSamples, shape);
+    globalSourceValues[PatchSource.SIDECHAIN.ordinal()] = scAmount;
     for (int i = 0; i < numSamples; i++) {
       buffer[i].l = (int) (((long) buffer[i].l * scAmount) >> 31);
       buffer[i].r = (int) (((long) buffer[i].r * scAmount) >> 31);
@@ -191,6 +198,9 @@ public class FirmwareSound extends GlobalEffectable {
   }
 
   public void triggerNote(int note, int vel, int midiChannel) {
+    if (sidechainSend != 0) {
+      GlobalSidechainBus.registerHit(sidechainSend);
+    }
     synchronized (voices) {
       FirmwareVoice voiceToUse = null;
 

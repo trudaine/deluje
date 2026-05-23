@@ -19,6 +19,7 @@ public class PreferencesDialog extends JDialog {
   private final Runnable onGridModeChanged;
   private final Runnable onLibraryChanged;
   private final DefaultListModel<String> listModel = new DefaultListModel<>();
+  private JCheckBox advancedGridStyleCheck;
 
   /**
    * Creates new form PreferencesDialog
@@ -33,6 +34,25 @@ public class PreferencesDialog extends JDialog {
     this.onGridModeChanged = onGridModeChanged;
     this.onLibraryChanged = onLibraryChanged;
     initComponents();
+
+    // Add advanced UI checkbox programmatically outside the fold
+    JPanel advPanel = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.CENTER));
+    advPanel.setBackground(new java.awt.Color(24, 24, 24));
+    JLabel advLabel = new JLabel("Advanced Grid UI Style:");
+    advLabel.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 20));
+    advLabel.setForeground(java.awt.Color.LIGHT_GRAY);
+    advancedGridStyleCheck = new JCheckBox();
+    advancedGridStyleCheck.setBackground(new java.awt.Color(24, 24, 24));
+    advPanel.add(advLabel);
+    advPanel.add(advancedGridStyleCheck);
+
+    // Wrap original content pane
+    java.awt.Container contentPane = getContentPane();
+    JPanel wrapper = new JPanel(new java.awt.BorderLayout());
+    setContentPane(wrapper);
+    wrapper.add(contentPane, java.awt.BorderLayout.CENTER);
+    wrapper.add(advPanel, java.awt.BorderLayout.NORTH);
+
     setLocationRelativeTo(owner);
     loadCurrentPreferences();
   }
@@ -51,6 +71,9 @@ public class PreferencesDialog extends JDialog {
     screenResCombo.setSelectedItem(PreferencesManager.get("screen.resolution", "QHD"));
     gridModeCombo.setSelectedItem(PreferencesManager.getGridMode().name());
     engineCombo.setSelectedItem(PreferencesManager.getSequencerEngine().name());
+
+    advancedGridStyleCheck.setSelected(
+        PreferencesManager.getGridPanelType() == PreferencesManager.GridPanelType.ADVANCED);
 
     // MIDI input ports
     String[] ports = org.chuck.midi.MidiIn.list();
@@ -626,6 +649,12 @@ public class PreferencesDialog extends JDialog {
     PreferencesManager.SequencerEngine selectedEngine =
         PreferencesManager.SequencerEngine.fromString((String) engineCombo.getSelectedItem());
     PreferencesManager.setSequencerEngine(selectedEngine);
+
+    PreferencesManager.GridPanelType panelType =
+        advancedGridStyleCheck.isSelected()
+            ? PreferencesManager.GridPanelType.ADVANCED
+            : PreferencesManager.GridPanelType.LEGACY;
+    PreferencesManager.setGridPanelType(panelType);
 
     if (onGridModeChanged != null) onGridModeChanged.run();
     if (onLibraryChanged != null) onLibraryChanged.run();

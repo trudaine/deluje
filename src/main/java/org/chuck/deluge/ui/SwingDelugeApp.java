@@ -2017,6 +2017,24 @@ public class SwingDelugeApp extends JFrame {
                 chooser.getSelectedFile().getAbsolutePath());
           }
         });
+
+    final JCheckBoxMenuItem advancedUiItem = new JCheckBoxMenuItem("Advanced Grid UI Style");
+    advancedUiItem.setSelected(
+        org.chuck.deluge.project.PreferencesManager.getGridPanelType()
+            == org.chuck.deluge.project.PreferencesManager.GridPanelType.ADVANCED);
+    advancedUiItem.addActionListener(
+        e -> {
+          org.chuck.deluge.project.PreferencesManager.GridPanelType newType =
+              advancedUiItem.isSelected()
+                  ? org.chuck.deluge.project.PreferencesManager.GridPanelType.ADVANCED
+                  : org.chuck.deluge.project.PreferencesManager.GridPanelType.LEGACY;
+          org.chuck.deluge.project.PreferencesManager.setGridPanelType(newType);
+          if (clipPanel != null) clipPanel.refresh();
+          if (songPanel != null) songPanel.refresh();
+          if (arrGridPanel != null) arrGridPanel.refresh();
+          recalcWrapperSize();
+        });
+
     JMenuItem prefItem = new JMenuItem("Preferences...");
     prefItem.addActionListener(
         e -> {
@@ -2026,9 +2044,21 @@ public class SwingDelugeApp extends JFrame {
                   () -> {
                     org.chuck.deluge.project.PreferencesManager.GridMode mode =
                         org.chuck.deluge.project.PreferencesManager.getGridMode();
-                    if (clipPanel != null) clipPanel.setGridMode(mode);
-                    if (songPanel != null) songPanel.setGridMode(mode);
-                    if (arrGridPanel != null) arrGridPanel.setGridMode(mode);
+                    if (clipPanel != null) {
+                      clipPanel.setGridMode(mode);
+                      clipPanel.refresh();
+                    }
+                    if (songPanel != null) {
+                      songPanel.setGridMode(mode);
+                      songPanel.refresh();
+                    }
+                    if (arrGridPanel != null) {
+                      arrGridPanel.setGridMode(mode);
+                      arrGridPanel.refresh();
+                    }
+                    advancedUiItem.setSelected(
+                        org.chuck.deluge.project.PreferencesManager.getGridPanelType()
+                            == org.chuck.deluge.project.PreferencesManager.GridPanelType.ADVANCED);
                     recalcWrapperSize();
                   },
                   () -> {
@@ -2039,6 +2069,10 @@ public class SwingDelugeApp extends JFrame {
           dialog.setVisible(true);
         });
 
+    settingsMenu.add(sampleItem);
+    settingsMenu.addSeparator();
+    settingsMenu.add(advancedUiItem);
+    settingsMenu.addSeparator();
     settingsMenu.add(prefItem);
 
     // Edit menu — Undo/Redo

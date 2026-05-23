@@ -52,6 +52,20 @@ public class PreferencesManager {
     }
   }
 
+  /** Grid panel UI style implementations. */
+  public enum GridPanelType {
+    LEGACY,
+    ADVANCED;
+
+    public static GridPanelType fromString(String s) {
+      try {
+        return valueOf(s);
+      } catch (Exception e) {
+        return ADVANCED;
+      }
+    }
+  }
+
   // ── Hardware character keys ──────────────────────────────────────────────
   private static final String KEY_MASTER_SATURATION = "masterSaturation";
   private static final String KEY_FILTER_DRIVE = "filterDrive";
@@ -107,6 +121,16 @@ public class PreferencesManager {
 
   public static void setSequencerEngine(SequencerEngine engine) {
     prefs.put(KEY_SEQUENCER_ENGINE, engine.name());
+  }
+
+  private static final String KEY_GRID_PANEL_TYPE = "grid.panel.type";
+
+  public static GridPanelType getGridPanelType() {
+    return GridPanelType.fromString(prefs.get(KEY_GRID_PANEL_TYPE, "ADVANCED"));
+  }
+
+  public static void setGridPanelType(GridPanelType type) {
+    prefs.put(KEY_GRID_PANEL_TYPE, type.name());
   }
 
   private static final String KEY_LIBRARY_DIR = "library_dir";
