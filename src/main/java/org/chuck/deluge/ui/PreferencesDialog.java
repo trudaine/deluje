@@ -21,6 +21,7 @@ public class PreferencesDialog extends JDialog {
   private final DefaultListModel<String> listModel = new DefaultListModel<>();
   private JCheckBox advancedGridStyleCheck;
   private JComboBox<String> interactionModeCombo;
+  private JComboBox<String> displayTypeCombo;
 
   /**
    * Creates new form PreferencesDialog
@@ -53,11 +54,22 @@ public class PreferencesDialog extends JDialog {
     interactionModeCombo.setBackground(new java.awt.Color(34, 34, 34));
     interactionModeCombo.setForeground(java.awt.Color.WHITE);
 
+    JLabel displayLabel = new JLabel("Screen Style:");
+    displayLabel.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 14));
+    displayLabel.setForeground(java.awt.Color.LIGHT_GRAY);
+    displayTypeCombo =
+        new JComboBox<>(new String[] {"Show Both", "OLED Screen Only", "Classic LED Only"});
+    displayTypeCombo.setBackground(new java.awt.Color(34, 34, 34));
+    displayTypeCombo.setForeground(java.awt.Color.WHITE);
+
     advPanel.add(advLabel);
     advPanel.add(advancedGridStyleCheck);
     advPanel.add(new JSeparator(JSeparator.VERTICAL));
     advPanel.add(shiftLabel);
     advPanel.add(interactionModeCombo);
+    advPanel.add(new JSeparator(JSeparator.VERTICAL));
+    advPanel.add(displayLabel);
+    advPanel.add(displayTypeCombo);
 
     // Wrap original content pane
     java.awt.Container contentPane = getContentPane();
@@ -93,6 +105,15 @@ public class PreferencesDialog extends JDialog {
       interactionModeCombo.setSelectedIndex(0);
     } else {
       interactionModeCombo.setSelectedIndex(1);
+    }
+
+    PreferencesManager.DisplayType dt = PreferencesManager.getDisplayType();
+    if (dt == PreferencesManager.DisplayType.BOTH) {
+      displayTypeCombo.setSelectedIndex(0);
+    } else if (dt == PreferencesManager.DisplayType.OLED_ONLY) {
+      displayTypeCombo.setSelectedIndex(1);
+    } else {
+      displayTypeCombo.setSelectedIndex(2);
     }
 
     // MIDI input ports
@@ -680,6 +701,15 @@ public class PreferencesDialog extends JDialog {
         interactionModeCombo.getSelectedIndex() == 0
             ? PreferencesManager.ShiftInteractionMode.POPUP_SLIDER
             : PreferencesManager.ShiftInteractionMode.ROTARY_ENCODER);
+
+    PreferencesManager.DisplayType dt = PreferencesManager.DisplayType.BOTH;
+    if (displayTypeCombo.getSelectedIndex() == 1) dt = PreferencesManager.DisplayType.OLED_ONLY;
+    else if (displayTypeCombo.getSelectedIndex() == 2) dt = PreferencesManager.DisplayType.LED_ONLY;
+    PreferencesManager.setDisplayType(dt);
+
+    if (SwingDelugeApp.mainInstance != null && SwingDelugeApp.mainInstance.getTopBar() != null) {
+      SwingDelugeApp.mainInstance.getTopBar().applyDisplayPreferences();
+    }
 
     if (onGridModeChanged != null) onGridModeChanged.run();
     if (onLibraryChanged != null) onLibraryChanged.run();

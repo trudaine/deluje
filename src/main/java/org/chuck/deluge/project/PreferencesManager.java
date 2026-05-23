@@ -157,6 +157,31 @@ public class PreferencesManager {
     prefs.put(KEY_SHIFT_INTERACTION_MODE, mode.name());
   }
 
+  /** Hardware Screen Display Style (Both, OLED Only, or Retro LED Only). */
+  public enum DisplayType {
+    BOTH,
+    OLED_ONLY,
+    LED_ONLY;
+
+    public static DisplayType fromString(String s) {
+      try {
+        return valueOf(s);
+      } catch (Exception e) {
+        return BOTH;
+      }
+    }
+  }
+
+  private static final String KEY_DISPLAY_TYPE = "display.type";
+
+  public static DisplayType getDisplayType() {
+    return DisplayType.fromString(prefs.get(KEY_DISPLAY_TYPE, "BOTH"));
+  }
+
+  public static void setDisplayType(DisplayType type) {
+    prefs.put(KEY_DISPLAY_TYPE, type.name());
+  }
+
   private static final String KEY_LIBRARY_DIR = "library_dir";
   private static final String KEY_RECENT_FILES =
       "recent_files"; // Comma-separated for simplicity MVP

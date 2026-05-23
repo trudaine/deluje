@@ -1283,6 +1283,10 @@ public class SwingGridPanel extends JPanel {
               boolean isMuted = bridge.getMute(engineRow);
               bridge.setMute(engineRow, !isMuted);
               clipBtn.setBackground(!isMuted ? Color.RED : new Color(0x33, 0x33, 0x33));
+              if (SwingDelugeApp.mainInstance != null) {
+                SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient(
+                    "MUT ", (!isMuted ? "ON  " : "OFF ") + "T" + (modelRow + 1));
+              }
             });
       } else if (colId == columnCount - 1) {
         clipBtn.setText("SOLO");
@@ -1297,10 +1301,17 @@ public class SwingGridPanel extends JPanel {
                 if (soloRow == modelRow) {
                   soloRow = -1;
                   for (int i = 0; i < MAX_GRID_ROWS; i++) bridge.setMute(baseTrackId + i, false);
+                  if (SwingDelugeApp.mainInstance != null) {
+                    SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient("SOLO", "OFF");
+                  }
                 } else {
                   soloRow = modelRow;
                   for (int i = 0; i < MAX_GRID_ROWS; i++) {
                     bridge.setMute(baseTrackId + i, i != modelRow);
+                  }
+                  if (SwingDelugeApp.mainInstance != null) {
+                    SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient(
+                        "SOLO", "T" + (modelRow + 1));
                   }
                 }
                 refresh();
