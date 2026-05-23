@@ -169,18 +169,17 @@ public class DelugePadButton extends JButton {
         g2.setFont(getFont());
         FontMetrics fm = g2.getFontMetrics();
         int fh = fm.getHeight();
+        int fa = fm.getAscent();
         g2.setColor(new Color(0x55, 0x55, 0x5a));
 
-        if (noteText.contains("\n")) {
-          String[] parts = noteText.split("\n", 2);
-          int w1 = fm.stringWidth(parts[0]);
-          int w2 = fm.stringWidth(parts[1]);
-          g2.drawString(parts[0], (w - w1) / 2, h / 2 - 2);
-          g2.drawString(parts[1], (w - w2) / 2, h / 2 + fm.getAscent() - 4);
-        } else {
-          int textW = fm.stringWidth(noteText);
-          int textH = fm.getAscent();
-          g2.drawString(noteText, (w - textW) / 2, (h + textH) / 2 - 2);
+        String[] parts = noteText.split("\n");
+        int partsCount = parts.length;
+        int totalH = fh * partsCount - (fh - fa);
+
+        for (int i = 0; i < partsCount; i++) {
+          int wp = fm.stringWidth(parts[i]);
+          int yPart = (h - totalH) / 2 + i * fh + fa - 1;
+          g2.drawString(parts[i], (w - wp) / 2, yPart);
         }
       }
       g2.dispose();
@@ -268,38 +267,29 @@ public class DelugePadButton extends JButton {
       g2.setFont(getFont());
       FontMetrics fm = g2.getFontMetrics();
       int fh = fm.getHeight();
-      String[] parts = noteText.split(" ");
-      if (parts.length == 2) {
-        String part1 = parts[0];
-        String part2 = parts[1];
-        int w1 = fm.stringWidth(part1);
-        int w2 = fm.stringWidth(part2);
-        int maxW = Math.max(w1, w2);
-        int totalH = fh * 2 - 4;
+      int fa = fm.getAscent();
+      String[] parts = noteText.split("\n");
+      int partsCount = parts.length;
 
-        if (active) {
-          g2.setColor(new Color(0, 0, 0, 160));
-          g2.fillRect((w - maxW) / 2 - 3, (h - totalH) / 2 - 2, maxW + 6, totalH + 4);
-          g2.setColor(Color.WHITE);
-        } else {
-          g2.setColor(new Color(0xcc, 0xcc, 0xdd));
-        }
+      int maxW = 0;
+      for (String p : parts) {
+        int wp = fm.stringWidth(p);
+        if (wp > maxW) maxW = wp;
+      }
+      int totalH = fh * partsCount - (fh - fa);
 
-        g2.drawString(part1, (w - w1) / 2, h / 2 - 2);
-        g2.drawString(part2, (w - w2) / 2, h / 2 + fh - 4);
+      if (active) {
+        g2.setColor(new Color(0, 0, 0, 160));
+        g2.fillRect((w - maxW) / 2 - 4, (h - totalH) / 2 - 2, maxW + 8, totalH + 4);
+        g2.setColor(Color.WHITE);
       } else {
-        int textW = fm.stringWidth(noteText);
-        int textH = fm.getAscent();
+        g2.setColor(new Color(0xcc, 0xcc, 0xdd));
+      }
 
-        if (active) {
-          g2.setColor(new Color(0, 0, 0, 160));
-          g2.fillRect((w - textW) / 2 - 2, (h - textH) / 2 - 1, textW + 4, textH + 2);
-          g2.setColor(Color.WHITE);
-        } else {
-          g2.setColor(new Color(0xcc, 0xcc, 0xdd));
-        }
-
-        g2.drawString(noteText, (w - textW) / 2, (h + textH) / 2 - 2);
+      for (int i = 0; i < partsCount; i++) {
+        int wp = fm.stringWidth(parts[i]);
+        int yPart = (h - totalH) / 2 + i * fh + fa - 1;
+        g2.drawString(parts[i], (w - wp) / 2, yPart);
       }
     }
 
