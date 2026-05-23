@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sound>
+	<mode>subtractive</mode>
+	<polyphonic>poly</polyphonic>
+	<voicePriority>1</voicePriority>
+	<osc1>
+		<type>none</type>
+	</osc1>
+	<osc2>
+		<type>none</type>
+	</osc2>
+	<defaultParams>
+		<volume>0x50000000</volume>
+		<pan>0x00000000</pan>
+		<oscAVolume>0x80000000</oscAVolume>
+		<oscBVolume>0x80000000</oscBVolume>
+		<noiseVolume>0x7FFFFFFF</noiseVolume>
+		<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+		<lpfResonance>0x80000000</lpfResonance>
+		<hpfFrequency>0x80000000</hpfFrequency>
+		<hpfResonance>0x80000000</hpfResonance>
+		<envelope1>
+			<attack>0x80000000</attack>
+			<decay>0xE6666654</decay>
+			<sustain>0x7FFFFFFF</sustain>
+			<release>0xDE000000</release>
+		</envelope1>
+	</defaultParams>
+</sound>

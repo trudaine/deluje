@@ -80,32 +80,62 @@ public class DelugeHexMapper {
     return (float) (2.0 * Math.log(clamped / ENV_MIN_TIME) / Math.log(ratio) - 1.0);
   }
 
-  /** Read envelope time from hex string, returning seconds. */
-  public static float hexToEnvTime(String hex) {
-    return envTimeFromNorm(hexToFloat(hex));
+  /** Helper to parse signed 32-bit hex values linearly to the unipolar range [0.0, 1.0]. */
+  public static float hexToUnipolarFloatUnified(String hex) {
+    if (hex == null || hex.isEmpty()) return 0.0f;
+    try {
+      long parsed = Long.decode(hex.trim());
+      int val = (int) parsed;
+      double norm = ((double) val + 2147483648.0) / 4294967295.0;
+      return (float) Math.max(0.0, Math.min(1.0, norm));
+    } catch (NumberFormatException e) {
+      return 0.0f;
+    }
   }
 
-  /** Write envelope time (seconds) to hex string. */
+  /** Helper to serialize unipolar floats linearly to signed 32-bit hex strings. */
+  public static String unipolarFloatToHexUnified(float norm) {
+    norm = Math.max(0.0f, Math.min(1.0f, norm));
+    long raw = (long) (norm * 4294967295.0 - 2147483648.0);
+    int intVal = (int) raw;
+    return String.format("0x%08X", intVal);
+  }
+
+  /**
+   * Read envelope time from hex string, returning seconds (unified signed unipolar exponential
+   * mapping).
+   */
+  public static float hexToEnvTime(String hex) {
+    float norm = hexToUnipolarFloatUnified(hex);
+    return (float) (0.001 * Math.pow(30000.0, norm));
+  }
+
+  /** Write envelope time (seconds) to hex string (unified signed unipolar exponential mapping). */
   public static String envTimeToHex(float timeSec) {
-    return floatToHex(normFromEnvTime(timeSec));
+    float clamped = Math.max(0.001f, Math.min(30.0f, timeSec));
+    double norm = Math.log(clamped / 0.001) / Math.log(30000.0);
+    return unipolarFloatToHexUnified((float) norm);
   }
 
   // ── Envelope sustain mapping ──
 
-  /** Sustain maps linearly: [-1, 1] → [0, 1]. */
+  /**
+   * Sustain maps linearly as standard unipolar parameter: [0x80000000, 0x7FFFFFFF] -> [0.0, 1.0].
+   */
+  public static float hexToSustain(String hex) {
+    return hexToUnipolarFloatUnified(hex);
+  }
+
+  public static String sustainToHex(float sustain) {
+    return unipolarFloatToHexUnified(sustain);
+  }
+
+  // ── Legacy Bipolar Sustain Methods (retained for serializer backwards compatibility) ──
   public static float sustainFromNorm(float norm) {
     return (norm + 1.0f) * 0.5f;
   }
 
   public static float normFromSustain(float sustain) {
     return sustain * 2.0f - 1.0f;
-  }
-
-  public static float hexToSustain(String hex) {
-    return sustainFromNorm(hexToFloat(hex));
-  }
-
-  public static String sustainToHex(float sustain) {
-    return floatToHex(normFromSustain(sustain));
   }
 }

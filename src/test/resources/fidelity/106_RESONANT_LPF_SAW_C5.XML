@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sound>
+	<mode>subtractive</mode>
+	<polyphonic>poly</polyphonic>
+	<voicePriority>1</voicePriority>
+	<osc1>
+		<type>saw</type>
+		<transpose>0</transpose>
+		<cents>0</cents>
+		<retrigPhase>-1</retrigPhase>
+	</osc1>
+	<osc2>
+		<type>none</type>
+	</osc2>
+	<lpfMode>24dB</lpfMode>
+	<defaultParams>
+		<volume>0x50000000</volume>
+		<pan>0x00000000</pan>
+		<oscAVolume>0x7FFFFFFF</oscAVolume>
+		<oscBVolume>0x80000000</oscBVolume>
+		<noiseVolume>0x80000000</noiseVolume>
+		<lpfFrequency>0x10000000</lpfFrequency>
+		<lpfResonance>0x30000000</lpfResonance>
+		<hpfFrequency>0x80000000</hpfFrequency>
+		<hpfResonance>0x80000000</hpfResonance>
+		<envelope1>
+			<attack>0x80000000</attack>
+			<decay>0xE6666654</decay>
+			<sustain>0x7FFFFFFF</sustain>
+			<release>0xDE000000</release>
+		</envelope1>
+		<envelope2>
+			<attack>0x80000000</attack>
+			<decay>0xC0000000</decay>
+			<sustain>0x00000000</sustain>
+			<release>0x80000000</release>
+		</envelope2>
+	</defaultParams>
+	<patchCables>
+		<patchCable source="envelope2" destination="lpfFrequency" amount="0x50000000" />
+	</patchCables>
+</sound>

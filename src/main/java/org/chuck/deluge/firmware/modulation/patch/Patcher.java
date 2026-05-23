@@ -47,6 +47,11 @@ public class Patcher {
         // Hybrid params
         int combo = combineCablesLinear(dest, paramId, sound, paramManager, sourceValues);
         finalValue = neutralValue + combo;
+      } else if (paramId >= Param.LOCAL_PITCH_ADJUST
+          && paramId <= Param.LOCAL_MODULATOR_1_PITCH_ADJUST) {
+        // Pitch adjust parameters are combined LINEARLY!
+        int combo = combineCablesLinear(dest, paramId, sound, paramManager, sourceValues);
+        finalValue = neutralValue + combo;
       } else {
         // Exp params
         int combo =

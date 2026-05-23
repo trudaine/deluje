@@ -3,6 +3,7 @@ package org.chuck.deluge.firmware.engine;
 import static org.chuck.deluge.firmware.util.Q31.*;
 
 import org.chuck.deluge.firmware.dsp.dx.FmCore;
+import org.chuck.deluge.firmware.dsp.filter.FilterSet;
 import org.chuck.deluge.firmware.dsp.oscillators.OscType;
 import org.chuck.deluge.firmware.dsp.oscillators.Oscillator;
 import org.chuck.deluge.firmware.model.PolyphonyMode;
@@ -22,6 +23,8 @@ import org.chuck.deluge.firmware.util.Q31;
  * path.
  */
 public class FirmwareVoice {
+  public static int testStartPhaseOverrideOsc1 = -2;
+  public static int testStartPhaseOverrideOsc2 = -2;
   public final FirmwareSound sound;
   public final Envelope[] envelopes = new Envelope[6]; // kNumEnvelopes = 6 (some for modulation)
   public final LFO[] lfos = new LFO[4]; // lfo1-lfo4 (lfo1/3 global, lfo2/4 local)
@@ -51,6 +54,7 @@ public class FirmwareVoice {
   public int portaEnvelopeMaxAmplitude;
   private final boolean[] expressionSourcesCurrentlySmoothing = new boolean[3]; // X, Y, Z
   private int voiceRandomValue;
+  public final FilterSet filterSet = new FilterSet();
 
   public FirmwareVoice(FirmwareSound sound) {
     this.sound = sound;
@@ -74,16 +78,39 @@ public class FirmwareVoice {
     this.noteCode = note;
     this.velocity = vel;
     this.active = true;
+    filterSet.reset();
 
-    // Translate starting phases from degrees to Q31 bounds
-    int osc1Phase = getStartingPhase(sound.osc1RetriggerPhase);
-    int osc2Phase = getStartingPhase(sound.osc2RetriggerPhase);
-    int mod1Phase = getStartingPhase(sound.mod1RetrigPhase);
-    int mod2Phase = getStartingPhase(sound.mod2RetrigPhase);
-
-    // Reset unison parts with custom initial phases
+    // Reset unison parts with custom initial phases (generating unique per-keypress starting phases
+    // for each unison part if -1!)
     for (int i = 0; i < sound.numUnison; i++) {
-      unisonParts[i].reset(osc1Phase, osc2Phase, mod1Phase, mod2Phase);
+      int uOsc1Phase =
+          testStartPhaseOverrideOsc1 != -2
+              ? testStartPhaseOverrideOsc1
+              : (sound.osc1RetriggerPhase == -1
+                  ? java.util.concurrent.ThreadLocalRandom.current().nextInt(2147483647)
+                  : getStartingPhase(sound.osc1RetriggerPhase));
+      int uOsc2Phase =
+          testStartPhaseOverrideOsc2 != -2
+              ? testStartPhaseOverrideOsc2
+              : (sound.osc2RetriggerPhase == -1
+                  ? java.util.concurrent.ThreadLocalRandom.current().nextInt(2147483647)
+                  : getStartingPhase(sound.osc2RetriggerPhase));
+
+      if (testStartPhaseOverrideOsc1 != -2) {
+        System.out.printf(
+            "  [DIAG noteOn] Phase override applied: osc1=%d | osc2=%d\n", uOsc1Phase, uOsc2Phase);
+      }
+
+      int uMod1Phase =
+          sound.mod1RetrigPhase == -1
+              ? java.util.concurrent.ThreadLocalRandom.current().nextInt(2147483647)
+              : getStartingPhase(sound.mod1RetrigPhase);
+      int uMod2Phase =
+          sound.mod2RetrigPhase == -1
+              ? java.util.concurrent.ThreadLocalRandom.current().nextInt(2147483647)
+              : getStartingPhase(sound.mod2RetrigPhase);
+
+      unisonParts[i].reset(uOsc1Phase, uOsc2Phase, uMod1Phase, uMod2Phase);
       unisonParts[i].sources[0].active = true;
       unisonParts[i].sources[1].active = true;
       unisonParts[i].sources[2].active = true;
@@ -188,12 +215,12 @@ public class FirmwareVoice {
     int lfoRate1 = paramFinalValues[Param.LOCAL_LFO_LOCAL_FREQ_1];
     int phaseInc1 = (int) (200 + Math.pow(2.0, (double) lfoRate1 / 2147483647.0 * 10.0) * 500.0);
     sourceValues[PatchSource.LFO_LOCAL_1.ordinal()] =
-        lfos[1].render(numSamples, LFO.LFOType.TRIANGLE, phaseInc1);
+        lfos[1].render(numSamples, sound.lfoWaveforms[1], phaseInc1);
 
     int lfoRate2 = paramFinalValues[Param.LOCAL_LFO_LOCAL_FREQ_2];
     int phaseInc2 = (int) (200 + Math.pow(2.0, (double) lfoRate2 / 2147483647.0 * 10.0) * 500.0);
     sourceValues[PatchSource.LFO_LOCAL_2.ordinal()] =
-        lfos[3].render(numSamples, LFO.LFOType.TRIANGLE, phaseInc2);
+        lfos[3].render(numSamples, sound.lfoWaveforms[3], phaseInc2);
 
     // 3. Update voice static sources (Velocity, Note, Random, Sidechain, MPE aftertouch/timbre)
     sourceValues[PatchSource.VELOCITY.ordinal()] = velocity * 16909320;
@@ -265,14 +292,31 @@ public class FirmwareVoice {
           env0Gain);
     }
 
-    // Safety check: ensure volume is not squashed to zero by un-patched synth defaults
+    // Apply envelope gain and track volume to voice buffer before filtering (to drive non-linear
+    // filters correctly!)
     int trackVol = paramFinalValues[Param.LOCAL_VOLUME];
-
     for (int i = 0; i < numSamples; i++) {
       int wet = Q31.mult(voiceBuffer[i], env0Gain);
-      wet = Q31.mult(wet, trackVol);
-      // Bit-accurate per-voice non-linear saturation
-      buffer[i] = Q31.addSaturate(buffer[i], Q31.lshiftAndSaturate(wet, 1));
+      voiceBuffer[i] = Q31.mult(wet, trackVol);
+    }
+
+    // Configure and render dynamic polyphonic per-voice filter set!
+    filterSet.setConfig(
+        paramFinalValues[Param.LOCAL_LPF_FREQ],
+        paramFinalValues[Param.LOCAL_LPF_RESONANCE],
+        sound.lpfMode,
+        paramFinalValues[Param.LOCAL_LPF_MORPH],
+        paramFinalValues[Param.LOCAL_HPF_FREQ],
+        paramFinalValues[Param.LOCAL_HPF_RESONANCE],
+        sound.hpfMode,
+        paramFinalValues[Param.LOCAL_HPF_MORPH],
+        Q31.ONE,
+        sound.filterRoute);
+    filterSet.render(voiceBuffer, 0, numSamples, 1);
+
+    for (int i = 0; i < numSamples; i++) {
+      // Bit-accurate per-voice non-linear saturation summing (sum directly without left-shifting!)
+      buffer[i] = Q31.addSaturate(buffer[i], voiceBuffer[i]);
     }
 
     return true;
@@ -291,16 +335,16 @@ public class FirmwareVoice {
       for (int i = 0; i < 6; i++) {
         if (i == 5) {
           fmParams[i].freq = pIncA;
-          fmParams[i].level_in = finalCarrierLevel;
+          fmParams[i].level_in = linearToDx7Level(finalCarrierLevel);
         } else if (i == 4) {
           fmParams[i].freq = (int) (pIncA * sound.fmRatio1);
-          fmParams[i].level_in = paramFinalValues[Param.LOCAL_OSC_B_VOLUME];
+          fmParams[i].level_in = linearToDx7Level(paramFinalValues[Param.LOCAL_OSC_B_VOLUME]);
         } else if (i == 3) {
           fmParams[i].freq = pIncA;
-          fmParams[i].level_in = finalCarrierLevel;
+          fmParams[i].level_in = linearToDx7Level(finalCarrierLevel);
         } else if (i == 2) {
           fmParams[i].freq = (int) (pIncA * sound.fmRatio2);
-          fmParams[i].level_in = (int) (0.2 * 2147483647.0);
+          fmParams[i].level_in = linearToDx7Level((int) (0.2 * 2147483647.0));
         } else {
           fmParams[i].freq = pIncA;
           fmParams[i].level_in = 0;
@@ -309,6 +353,12 @@ public class FirmwareVoice {
         fmParams[i].phase = (int) part.sources[srcIdx].oscPos;
       }
       new FmCore().render(buffer, numSamples, fmParams, 0, fmFeedbackBuffer, 0);
+
+      // Shift raw 12-bit/14-bit DX7 operator outputs up to the Q31 Master signed range!
+      for (int i = 0; i < numSamples; i++) {
+        buffer[i] = buffer[i] << 19;
+      }
+
       part.sources[0].oscPos = fmParams[5].phase;
       part.sources[1].oscPos = fmParams[3].phase;
       part.sources[2].oscPos = fmParams[4].phase;
@@ -375,6 +425,33 @@ public class FirmwareVoice {
         part.sources[s].oscPos = phase[0];
       }
     }
+
+    // ── Render Noise Generator ──
+    int noiseVol = paramFinalValues[Param.LOCAL_NOISE_VOLUME];
+    if (noiseVol > 0) {
+      double gainScale = 1.0 / Math.sqrt(sound.numUnison);
+      int scaledNoiseVol = (int) (noiseVol * gainScale);
+      for (int i = 0; i < numSamples; i++) {
+        int noiseSample =
+            (int)
+                (((long) org.chuck.deluge.firmware.util.FirmwareUtils.getNoise() * scaledNoiseVol)
+                    >> 31);
+        buffer[i] += noiseSample;
+      }
+    }
+
+    // Prevent digital clipping by scaling down the multi-source mix sum if multiple are active!
+    int activePaths = 0;
+    if (paramFinalValues[Param.LOCAL_OSC_A_VOLUME] > 0) activePaths++;
+    if (paramFinalValues[Param.LOCAL_OSC_B_VOLUME] > 0) activePaths++;
+    if (paramFinalValues[Param.LOCAL_NOISE_VOLUME] > 0) activePaths++;
+
+    if (activePaths > 1) {
+      int shift = (activePaths == 3) ? 2 : 1;
+      for (int i = 0; i < numSamples; i++) {
+        buffer[i] = buffer[i] >> shift;
+      }
+    }
   }
 
   private int getStartingPhase(int retrigPhaseDegrees) {
@@ -383,5 +460,13 @@ public class FirmwareVoice {
     }
     // Scale 0-360 degrees to Q31 bounds (0 to 2147483647)
     return (int) ((double) retrigPhaseDegrees / 360.0 * 2147483647.0);
+  }
+
+  public static int linearToDx7Level(int q31Gain) {
+    if (q31Gain <= 0) return 0;
+    double gainFloat = q31Gain / 2147483647.0;
+    double log2Val = Math.log(gainFloat) / Math.log(2.0);
+    int level = (14 << 24) + (int) (log2Val * 16777216.0);
+    return Math.max(0, Math.min(14 << 24, level));
   }
 }

@@ -45,7 +45,8 @@ public class DelugeXmlParser {
           FieldBinding.hexFloat(
               "defaultParams", "carrier2Feedback", SynthTrackModel::setCarrier2Feedback),
           // Extended defaultParams fields
-          FieldBinding.hexFloat("defaultParams", "oscAVolume", SynthTrackModel::setOscMix),
+          FieldBinding.hexFloat("defaultParams", "oscAVolume", SynthTrackModel::setOscAVolume),
+          FieldBinding.hexFloat("defaultParams", "oscBVolume", SynthTrackModel::setOscBVolume),
           FieldBinding.hexFloat("defaultParams", "noiseVolume", SynthTrackModel::setNoiseVol),
           FieldBinding.hexFloat("defaultParams", "volume", SynthTrackModel::setVolume),
           FieldBinding.hexFloatBipolar("defaultParams", "pan", SynthTrackModel::setPan),
@@ -1446,10 +1447,10 @@ public class DelugeXmlParser {
         Element envNode = (Element) envNodes.item(i);
         EnvelopeModel env =
             new EnvelopeModel(
-                DelugeHexMapper.hexToFloat(envNode.getAttribute("attack")),
-                DelugeHexMapper.hexToFloat(envNode.getAttribute("decay")),
-                DelugeHexMapper.hexToFloat(envNode.getAttribute("sustain")),
-                DelugeHexMapper.hexToFloat(envNode.getAttribute("release")),
+                DelugeHexMapper.hexToEnvTime(envNode.getAttribute("attack")),
+                DelugeHexMapper.hexToEnvTime(envNode.getAttribute("decay")),
+                DelugeHexMapper.hexToSustain(envNode.getAttribute("sustain")),
+                DelugeHexMapper.hexToEnvTime(envNode.getAttribute("release")),
                 "NONE",
                 0.0f);
         synth.setEnv(i, env);
@@ -1483,12 +1484,21 @@ public class DelugeXmlParser {
     NodeList cableList = soundNode.getElementsByTagName("patchCable");
     for (int i = 0; i < cableList.getLength(); i++) {
       Element cableElem = (Element) cableList.item(i);
-      String src = getChildText(cableElem, "source");
-      String dst = getChildText(cableElem, "destination");
-      String amtStr = getChildText(cableElem, "amount");
-      if (src != null && dst != null && amtStr != null) {
-        float amt = PatchCable.applyScaling(dst, DelugeHexMapper.hexToFloat(amtStr));
-        synth.addPatchCable(new PatchCable(src, dst, amt));
+      String src = cableElem.getAttribute("source");
+      if (src == null || src.isEmpty()) src = getChildText(cableElem, "source");
+      String dst = cableElem.getAttribute("destination");
+      if (dst == null || dst.isEmpty()) dst = getChildText(cableElem, "destination");
+      String amtStr = cableElem.getAttribute("amount");
+      if (amtStr == null || amtStr.isEmpty()) amtStr = getChildText(cableElem, "amount");
+
+      if (src != null
+          && !src.isEmpty()
+          && dst != null
+          && !dst.isEmpty()
+          && amtStr != null
+          && !amtStr.isEmpty()) {
+        float amt = PatchCable.applyScaling(dst.trim(), DelugeHexMapper.hexToFloat(amtStr));
+        synth.addPatchCable(new PatchCable(src.trim(), dst.trim(), amt));
       }
     }
   }

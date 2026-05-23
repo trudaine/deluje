@@ -47,6 +47,7 @@ public class Envelope {
         case DECAY:
           smoothedSustain =
               addSaturate(smoothedSustain, numSamples * ((sustain - smoothedSustain) >> 9));
+          smoothedSustain = Math.max(0, smoothedSustain);
           lastValue =
               addSaturate(
                   smoothedSustain,
@@ -74,7 +75,7 @@ public class Envelope {
           if (pos >= 8388608) {
             setState(EnvelopeStage.OFF);
             lastValue = 0;
-            return -2147483648;
+            return 0;
           }
           lastValue =
               mult(
@@ -90,7 +91,7 @@ public class Envelope {
           pos += fastReleaseIncrement * numSamples;
           if (pos >= 8388608) {
             setState(EnvelopeStage.OFF);
-            return -2147483648;
+            return 0;
           }
 
           lastValue =
@@ -100,12 +101,12 @@ public class Envelope {
           break;
 
         default: // OFF
-          return -2147483648;
+          return 0;
       }
       break;
     }
 
-    return (lastValue - 1073741824) << 1;
+    return lastValue;
   }
 
   public int noteOn(boolean directlyToDecay) {
@@ -119,7 +120,7 @@ public class Envelope {
       lastValue = 2147483647;
     }
 
-    return (lastValue - 1073741824) << 1;
+    return lastValue;
   }
 
   public void setState(EnvelopeStage newState) {

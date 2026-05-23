@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sound maxVoices="8">
+	<polyphonic>poly</polyphonic>
+	<voicePriority>1</voicePriority>
+	<osc1
+		type="dx7"
+		transpose="0"
+		cents="0"
+		retrigPhase="-1"
+		dx7enginemode="1"
+		dx7randomdetune="0"
+		dx7patch="63521B19604E0000290000000000000363010147076355141C5B30000036000000000000006001014F076332193063000000360000000003000048000000075F251416635C00003B00000000070002630000000762626262323232320707010000630001040718546F6D737765657020203F" />
+	<osc2
+		type="none" />
+	<defaultParams>
+		<volume>0x60000000</volume>
+		<pan>0x00000000</pan>
+		<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+		<lpfResonance>0x80000000</lpfResonance>
+		<hpfFrequency>0x80000000</hpfFrequency>
+		<hpfResonance>0x80000000</hpfResonance>
+		<envelope1>
+			<attack>0x80000000</attack>
+			<decay>0xE6666654</decay>
+			<sustain>0x7FFFFFFF</sustain>
+			<release>0xDE000000</release>
+		</envelope1>
+	</defaultParams>
+</sound>
