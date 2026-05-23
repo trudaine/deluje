@@ -4457,7 +4457,7 @@ public class SwingGridPanel extends JPanel {
         }
       }
     }
-    refresh();
+    fireProjectChanged();
   }
 
   private void handleStepLongPressed(int row, int col, Point screenPos) {
@@ -4687,7 +4687,7 @@ public class SwingGridPanel extends JPanel {
                     editedModelTrack, activeClipId, modelRow, activeCol, oldStep, newStep));
       }
     }
-    refresh();
+    fireProjectChanged();
   }
 
   private void applyVelocity(int row, int col, double vel) {
@@ -4739,7 +4739,7 @@ public class SwingGridPanel extends JPanel {
                     editedModelTrack, activeClipId, modelRow, activeCol, oldStep, newStep));
       }
     }
-    refresh();
+    fireProjectChanged();
   }
 
   private void handleStepTied(int row, int colStart, int colEnd) {
@@ -4797,7 +4797,7 @@ public class SwingGridPanel extends JPanel {
         }
       }
     }
-    refresh();
+    fireProjectChanged();
   }
 
   private void handleDragPreview(int row, int colStart, int colCurrent) {
