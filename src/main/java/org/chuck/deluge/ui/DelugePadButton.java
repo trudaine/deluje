@@ -116,79 +116,113 @@ public class DelugePadButton extends JButton {
     }
   }
 
+  private boolean inLoop = true;
+
+  public boolean isInLoop() {
+    return inLoop;
+  }
+
+  public void setInLoop(boolean inLoop) {
+    if (this.inLoop != inLoop) {
+      this.inLoop = inLoop;
+      repaint();
+    }
+  }
+
   @Override
   protected void paintComponent(Graphics g) {
     Graphics2D g2 = (Graphics2D) g.create();
     g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+    g2.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
 
     int w = getWidth();
     int h = getHeight();
 
-    // Subtle padding inside cells for spacing
     int xPad = 2;
     int yPad = 2;
     int rw = w - 2 * xPad;
     int rh = h - 2 * yPad;
-    int arc = 8; // rounded corner radius
+    int arc = 6;
 
-    // 1. Draw Background (Inactive/Active/Muted)
-    if (!active) {
-      // Inactive dark pad
-      g2.setColor(new Color(0x1d, 0x1d, 0x22));
+    if (!inLoop) {
+      // 1. Out of loop: deep dark matte charcoal
+      g2.setColor(new Color(0x10, 0x10, 0x12));
       g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
-
-      // Subtle border for grid definition
-      g2.setColor(new Color(0x32, 0x32, 0x3a));
-      g2.setStroke(new BasicStroke(1));
+      g2.setColor(new Color(0x20, 0x20, 0x24));
+      g2.setStroke(new BasicStroke(1.0f));
       g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
-    } else {
-      // Active backlit LED
-      Color ledColor = baseColor;
-      if (muted) {
-        // Desaturate and dim if row is muted
-        ledColor = getDesaturatedColor(baseColor);
+    } else if (!active) {
+      // 2. Inactive inside loop: beautiful dimmed track signature color
+      Color base = baseColor != null ? baseColor : new Color(0x33, 0x33, 0x33);
+      if (base.equals(new Color(0x33, 0x33, 0x33)) || base.equals(new Color(0x1d, 0x1d, 0x22))) {
+        // Neutral gray pad
+        g2.setColor(new Color(0x1a, 0x1a, 0x1e));
+        g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
+        g2.setColor(new Color(0x2d, 0x2d, 0x35));
+        g2.setStroke(new BasicStroke(1.0f));
+        g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
+      } else {
+        // Dimmed colored pad (translucent flat signature)
+        Color dimBg = new Color(base.getRed(), base.getGreen(), base.getBlue(), 35); // ~14% alpha
+        g2.setColor(new Color(0x15, 0x15, 0x18)); // dark back base
+        g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
+        g2.setColor(dimBg);
+        g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
+
+        // Colored frame
+        Color dimBorder =
+            new Color(base.getRed(), base.getGreen(), base.getBlue(), 70); // ~27% alpha
+        g2.setColor(dimBorder);
+        g2.setStroke(new BasicStroke(1.0f));
+        g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
       }
+    } else {
+      // 3. Active step: Full bright glowing solid track color
+      Color base = baseColor != null ? baseColor : Color.GREEN;
+      Color ledColor = muted ? getDesaturatedColor(base) : base;
 
-      // Blend color with intensity (velocity)
+      // Blend color with dynamic velocity/probability intensity
       Color finalColor = blendWithBlack(ledColor, intensity);
-      Color centerColor = getBrightCenterColor(finalColor);
-
-      // Radial gradient for premium glowing look
-      float radius = Math.max(rw, rh) * 0.8f;
-      float[] fractions = {0.0f, 0.4f, 1.0f};
-      Color[] colors = {centerColor, finalColor, blendWithBlack(finalColor, 0.4f)};
-
-      RadialGradientPaint gradient =
-          new RadialGradientPaint(w / 2.0f, h / 2.0f, radius, fractions, colors);
-      g2.setPaint(gradient);
+      g2.setColor(finalColor);
       g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
 
-      // Accent border
-      g2.setColor(new Color(finalColor.getRed(), finalColor.getGreen(), finalColor.getBlue(), 120));
+      // Bright accent border
+      Color brightBorder =
+          new Color(
+              Math.min(255, finalColor.getRed() + 20),
+              Math.min(255, finalColor.getGreen() + 20),
+              Math.min(255, finalColor.getBlue() + 20),
+              220);
+      g2.setColor(brightBorder);
       g2.setStroke(new BasicStroke(1.5f));
       g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
+
+      // Symmetrical physical center hotspot (white silicone glowing core)
+      g2.setColor(new Color(255, 255, 255, 160));
+      int cw = Math.max(4, rw / 4);
+      int ch = Math.max(4, rh / 4);
+      g2.fillOval((w - cw) / 2, (h - ch) / 2, cw, ch);
     }
 
-    // 2. Draw Horizontal Tie-Drag Connector
+    // 4. Horizontal Tie-Drag Connector
     if (isTied) {
-      g2.setColor(new Color(0xff, 0xff, 0xff, 80));
-      g2.setStroke(new BasicStroke(3, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-      g2.drawLine(xPad, h / 2, w - xPad, h / 2);
+      g2.setColor(new Color(0xff, 0xff, 0xff, 120));
+      g2.setStroke(new BasicStroke(2.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+      g2.drawLine(xPad + 2, h / 2, w - xPad - 2, h / 2);
     }
 
-    // 3. Draw Playhead Highlight Ring (glowing white)
+    // 5. Playhead Highlight Ring (glowing neon-white)
     if (isPlayhead) {
-      g2.setColor(new Color(255, 255, 255, 200));
-      g2.setStroke(new BasicStroke(2.5f));
+      g2.setColor(new Color(255, 255, 255, 220));
+      g2.setStroke(new BasicStroke(2.0f));
       g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
     }
 
-    // 4. Render minimal text overlays (with two-line split centering if a space is present)
+    // 6. Minimal Text overlays
     if (!noteText.isEmpty()) {
       g2.setFont(getFont());
       FontMetrics fm = g2.getFontMetrics();
       int fh = fm.getHeight();
-
       String[] parts = noteText.split(" ");
       if (parts.length == 2) {
         String part1 = parts[0];
@@ -199,11 +233,11 @@ public class DelugePadButton extends JButton {
         int totalH = fh * 2 - 4;
 
         if (active) {
-          g2.setColor(new Color(0, 0, 0, 180));
+          g2.setColor(new Color(0, 0, 0, 160));
           g2.fillRect((w - maxW) / 2 - 3, (h - totalH) / 2 - 2, maxW + 6, totalH + 4);
           g2.setColor(Color.WHITE);
         } else {
-          g2.setColor(new Color(0x88, 0x88, 0x95));
+          g2.setColor(new Color(0xcc, 0xcc, 0xdd));
         }
 
         g2.drawString(part1, (w - w1) / 2, h / 2 - 2);
@@ -213,11 +247,11 @@ public class DelugePadButton extends JButton {
         int textH = fm.getAscent();
 
         if (active) {
-          g2.setColor(new Color(0, 0, 0, 180));
+          g2.setColor(new Color(0, 0, 0, 160));
           g2.fillRect((w - textW) / 2 - 2, (h - textH) / 2 - 1, textW + 4, textH + 2);
           g2.setColor(Color.WHITE);
         } else {
-          g2.setColor(new Color(0x88, 0x88, 0x95));
+          g2.setColor(new Color(0xcc, 0xcc, 0xdd));
         }
 
         g2.drawString(noteText, (w - textW) / 2, (h + textH) / 2 - 2);

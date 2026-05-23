@@ -2560,6 +2560,12 @@ public class SwingDelugeApp extends JFrame {
     final boolean finalPureMode = pureModeLocal;
     java.awt.EventQueue.invokeLater(
         () -> {
+          javax.swing.UIManager.put(
+              "Menu.font", new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 11));
+          javax.swing.UIManager.put(
+              "MenuItem.font", new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 11));
+          javax.swing.UIManager.put(
+              "MenuBar.font", new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 11));
           SwingDelugeApp app = new SwingDelugeApp(vm, bridge, midiService, finalPureMode);
           app.setVisible(true);
           // Auto-load if a file path is provided as argument
