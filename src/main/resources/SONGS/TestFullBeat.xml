@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<song swing="0x40000000" tempo="120.0">
+  <instruments>
+    <kit>
+      <presetSlot>KIT KIT 0</presetSlot>
+      <sound>
+        <name>KICK</name>
+        <sample fileName="SAMPLES/DRUMS/Kick/808 Kick.wav"/>
+      </sound>
+      <sound>
+        <name>SNARE</name>
+        <sample fileName="SAMPLES/DRUMS/Snare/808 Snare.wav"/>
+      </sound>
+    </kit>
+    <sound>
+      <presetSlot>SYNTH SYNTH 0</presetSlot>
+      <osc1 type="saw"/>
+      <lpf attack="10" decay="30" sustain="10" release="10"/>
+    </sound>
+  </instruments>
+  <tracks>
+    <track>
+      <noteRows>
+        <noteRow drumIndex="0">
+          <noteData>0x000000000000000c4014000000300000000c4014000000600000000c4014000000900000000c4014</noteData>
+        </noteRow>
+        <noteRow drumIndex="1">
+          <noteData>0x000000180000000c4014000000480000000c4014000000780000000c4014000000a80000000c4014</noteData>
+        </noteRow>
+      </noteRows>
+    </track>
+    <track>
+      <noteRows>
+        <noteRow y="7">
+          <noteData>0x000000000000000c40140000000c0000000c4014000000180000000c4014000000240000000c4014000000300000000c40140000003c0000000c4014000000480000000c4014000000540000000c4014</noteData>
+        </noteRow>
+      </noteRows>
+    </track>
+  </tracks>
+</song>
