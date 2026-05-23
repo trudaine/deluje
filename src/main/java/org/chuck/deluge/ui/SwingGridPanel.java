@@ -92,19 +92,19 @@ public class SwingGridPanel extends JPanel {
   }
 
   // ── Shift hardware colors layout ──
-  private static final Color COLOR_PEACH = new Color(255, 138, 128); // #ff8a80
-  private static final Color COLOR_YELLOW = new Color(255, 245, 157); // #fff59d
-  private static final Color COLOR_SLATE = new Color(144, 202, 249); // #90caf9
-  private static final Color COLOR_DEEP_BLUE = new Color(100, 181, 246); // #64b5f6
-  private static final Color COLOR_BEIGE = new Color(255, 224, 130); // #ffe082
-  private static final Color COLOR_ORANGE = new Color(255, 183, 77); // #ffb74d
-  private static final Color COLOR_PINK = new Color(244, 143, 177); // #f48fb1
-  private static final Color COLOR_BRIGHT_YELLOW = new Color(212, 225, 87); // #d4e157
-  private static final Color COLOR_SOFT_GREEN = new Color(165, 214, 167); // #a5d6a7
-  private static final Color COLOR_SOFT_BLUE = new Color(128, 222, 234); // #80deea
-  private static final Color COLOR_SOFT_RED = new Color(239, 154, 154); // #ef9a9a
-  private static final Color COLOR_OCHRE = new Color(255, 204, 128); // #ffcc80
-  private static final Color COLOR_WHITE = new Color(245, 245, 245); // off-white
+  private static final Color COLOR_PEACH = new Color(229, 115, 115); // Vibrant soft coral
+  private static final Color COLOR_YELLOW = new Color(229, 229, 0); // Vibrant solid yellow
+  private static final Color COLOR_SLATE = new Color(79, 154, 221); // Slate steel blue
+  private static final Color COLOR_DEEP_BLUE = new Color(100, 181, 246); // Sky blue
+  private static final Color COLOR_BEIGE = new Color(255, 204, 128); // Warm orange peach
+  private static final Color COLOR_ORANGE = new Color(255, 167, 38); // Vibrant orange
+  private static final Color COLOR_PINK = new Color(240, 98, 146); // Vibrant rose pink
+  private static final Color COLOR_BRIGHT_YELLOW = new Color(175, 216, 84); // Lime green LPF/HPF
+  private static final Color COLOR_SOFT_GREEN = new Color(175, 216, 84); // Lime green LPF/HPF
+  private static final Color COLOR_SOFT_BLUE = new Color(100, 181, 246); // Sky blue LFO
+  private static final Color COLOR_SOFT_RED = new Color(239, 154, 154); // Light coral red
+  private static final Color COLOR_OCHRE = new Color(255, 204, 128); // Warm orange
+  private static final Color COLOR_WHITE = new Color(245, 245, 245); // Off-white
 
   private static final String[][] SHIFT_LABELS = {
     {
@@ -255,148 +255,52 @@ public class SwingGridPanel extends JPanel {
 
   private static final Color[][] SHIFT_COLORS = {
     {
-      COLOR_PEACH,
-      COLOR_PEACH,
-      COLOR_PEACH,
-      COLOR_PEACH,
-      COLOR_YELLOW,
-      COLOR_WHITE,
-      COLOR_SLATE,
-      COLOR_WHITE,
-      COLOR_BEIGE,
-      COLOR_ORANGE,
-      COLOR_PINK,
-      COLOR_BRIGHT_YELLOW,
-      COLOR_SOFT_GREEN,
-      COLOR_SOFT_BLUE,
-      COLOR_SOFT_RED,
-      COLOR_OCHRE
+      COLOR_PEACH, COLOR_PEACH, COLOR_PEACH, COLOR_PEACH,
+      COLOR_YELLOW, COLOR_WHITE, COLOR_YELLOW, COLOR_WHITE,
+      COLOR_BRIGHT_YELLOW, COLOR_BRIGHT_YELLOW, COLOR_BRIGHT_YELLOW, COLOR_BRIGHT_YELLOW,
+      COLOR_BRIGHT_YELLOW, COLOR_BRIGHT_YELLOW, COLOR_WHITE, COLOR_WHITE
     },
     {
-      COLOR_PEACH,
-      COLOR_PEACH,
-      COLOR_PEACH,
-      COLOR_PEACH,
-      COLOR_YELLOW,
-      COLOR_YELLOW,
-      COLOR_SLATE,
-      COLOR_WHITE,
-      COLOR_BEIGE,
-      COLOR_ORANGE,
-      COLOR_PINK,
-      COLOR_BRIGHT_YELLOW,
-      COLOR_SOFT_GREEN,
-      COLOR_SOFT_BLUE,
-      COLOR_SOFT_RED,
-      COLOR_OCHRE
+      COLOR_PEACH, COLOR_PEACH, COLOR_PEACH, COLOR_PEACH,
+      COLOR_YELLOW, COLOR_YELLOW, COLOR_YELLOW, COLOR_WHITE,
+      COLOR_BRIGHT_YELLOW, COLOR_BRIGHT_YELLOW, COLOR_BRIGHT_YELLOW, COLOR_BRIGHT_YELLOW,
+      COLOR_BRIGHT_YELLOW, COLOR_BRIGHT_YELLOW, COLOR_YELLOW, COLOR_YELLOW
     },
     {
-      COLOR_PEACH,
-      COLOR_PEACH,
-      COLOR_PEACH,
-      COLOR_PEACH,
-      COLOR_YELLOW,
-      COLOR_YELLOW,
-      COLOR_SLATE,
-      COLOR_WHITE,
-      COLOR_BEIGE,
-      COLOR_WHITE,
-      COLOR_PINK,
-      COLOR_WHITE,
-      COLOR_SOFT_GREEN,
-      COLOR_SOFT_BLUE,
-      COLOR_SOFT_RED,
-      COLOR_OCHRE
+      COLOR_PEACH, COLOR_PEACH, COLOR_PEACH, COLOR_PEACH,
+      COLOR_YELLOW, COLOR_YELLOW, COLOR_YELLOW, COLOR_WHITE,
+      COLOR_BRIGHT_YELLOW, COLOR_WHITE, COLOR_PINK, COLOR_WHITE,
+      COLOR_BRIGHT_YELLOW, COLOR_BRIGHT_YELLOW, COLOR_SLATE, COLOR_SLATE
     },
     {
-      COLOR_PEACH,
-      COLOR_PEACH,
-      COLOR_PEACH,
-      COLOR_PEACH,
-      COLOR_YELLOW,
-      COLOR_YELLOW,
-      COLOR_SLATE,
-      COLOR_DEEP_BLUE,
-      COLOR_WHITE,
-      COLOR_WHITE,
-      COLOR_PINK,
-      COLOR_BRIGHT_YELLOW,
-      COLOR_SOFT_GREEN,
-      COLOR_SOFT_BLUE,
-      COLOR_SOFT_RED,
-      COLOR_OCHRE
+      COLOR_PEACH, COLOR_PEACH, COLOR_PEACH, COLOR_PEACH,
+      COLOR_WHITE, COLOR_WHITE, COLOR_DEEP_BLUE, COLOR_DEEP_BLUE,
+      COLOR_WHITE, COLOR_WHITE, COLOR_PINK, COLOR_YELLOW,
+      COLOR_BRIGHT_YELLOW, COLOR_BRIGHT_YELLOW, COLOR_PINK, COLOR_ORANGE
     },
     {
-      COLOR_PEACH,
-      COLOR_PEACH,
-      COLOR_PEACH,
-      COLOR_PEACH,
-      COLOR_YELLOW,
-      COLOR_YELLOW,
-      COLOR_SLATE,
-      COLOR_DEEP_BLUE,
-      COLOR_BEIGE,
-      COLOR_ORANGE,
-      COLOR_PINK,
-      COLOR_BRIGHT_YELLOW,
-      COLOR_SOFT_GREEN,
-      COLOR_SOFT_BLUE,
-      COLOR_SOFT_RED,
-      COLOR_OCHRE
+      COLOR_PEACH, COLOR_PEACH, COLOR_PEACH, COLOR_PEACH,
+      COLOR_WHITE, COLOR_WHITE, COLOR_DEEP_BLUE, COLOR_DEEP_BLUE,
+      COLOR_ORANGE, COLOR_ORANGE, COLOR_PINK, COLOR_YELLOW,
+      COLOR_BRIGHT_YELLOW, COLOR_SLATE, COLOR_PINK, COLOR_ORANGE
     },
     {
-      COLOR_PEACH,
-      COLOR_PEACH,
-      COLOR_PEACH,
-      COLOR_PEACH,
-      COLOR_YELLOW,
-      COLOR_YELLOW,
-      COLOR_SLATE,
-      COLOR_DEEP_BLUE,
-      COLOR_BEIGE,
-      COLOR_ORANGE,
-      COLOR_PINK,
-      COLOR_BRIGHT_YELLOW,
-      COLOR_SOFT_GREEN,
-      COLOR_SOFT_BLUE,
-      COLOR_SOFT_RED,
-      COLOR_OCHRE
+      COLOR_PEACH, COLOR_PEACH, COLOR_PEACH, COLOR_PEACH,
+      COLOR_YELLOW, COLOR_YELLOW, COLOR_DEEP_BLUE, COLOR_DEEP_BLUE,
+      COLOR_ORANGE, COLOR_ORANGE, COLOR_PINK, COLOR_YELLOW,
+      COLOR_SLATE, COLOR_SLATE, COLOR_PINK, COLOR_ORANGE
     },
     {
-      COLOR_PEACH,
-      COLOR_PEACH,
-      COLOR_PEACH,
-      COLOR_PEACH,
-      COLOR_YELLOW,
-      COLOR_YELLOW,
-      COLOR_SLATE,
-      COLOR_DEEP_BLUE,
-      COLOR_BEIGE,
-      COLOR_ORANGE,
-      COLOR_PINK,
-      COLOR_BRIGHT_YELLOW,
-      COLOR_SOFT_GREEN,
-      COLOR_SOFT_BLUE,
-      COLOR_SOFT_RED,
-      COLOR_OCHRE
+      COLOR_PEACH, COLOR_PEACH, COLOR_PEACH, COLOR_PEACH,
+      COLOR_YELLOW, COLOR_YELLOW, COLOR_DEEP_BLUE, COLOR_DEEP_BLUE,
+      COLOR_ORANGE, COLOR_ORANGE, COLOR_PINK, COLOR_YELLOW,
+      COLOR_SLATE, COLOR_SLATE, COLOR_SLATE, COLOR_ORANGE
     },
     {
-      COLOR_PEACH,
-      COLOR_PEACH,
-      COLOR_PEACH,
-      COLOR_PEACH,
-      COLOR_YELLOW,
-      COLOR_YELLOW,
-      COLOR_SLATE,
-      COLOR_DEEP_BLUE,
-      COLOR_BEIGE,
-      COLOR_ORANGE,
-      COLOR_PINK,
-      COLOR_BRIGHT_YELLOW,
-      COLOR_SOFT_GREEN,
-      COLOR_SOFT_BLUE,
-      COLOR_SOFT_RED,
-      COLOR_OCHRE
+      COLOR_PEACH, COLOR_PEACH, COLOR_PEACH, COLOR_PEACH,
+      COLOR_YELLOW, COLOR_YELLOW, COLOR_DEEP_BLUE, COLOR_DEEP_BLUE,
+      COLOR_ORANGE, COLOR_ORANGE, COLOR_PINK, COLOR_YELLOW,
+      COLOR_SLATE, COLOR_SLATE, COLOR_PINK, COLOR_ORANGE
     }
   };
   private String autoDragParam; // param name being dragged (for undo capture)
@@ -5165,6 +5069,40 @@ public class SwingGridPanel extends JPanel {
     slider.setBackground(new Color(0x12, 0x12, 0x14));
     slider.setForeground(new Color(0x00, 0xff, 0xcc));
     slider.setPreferredSize(new Dimension(150, 18));
+    slider.setOpaque(false);
+    slider.setFocusable(false);
+    slider.setUI(
+        new javax.swing.plaf.basic.BasicSliderUI(slider) {
+          @Override
+          public void paintTrack(java.awt.Graphics g) {
+            java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+            g2.setRenderingHint(
+                java.awt.RenderingHints.KEY_ANTIALIASING,
+                java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+            int cy = trackRect.y + (trackRect.height / 2) - 2;
+            g2.setColor(new Color(0x66, 0x66, 0x6e));
+            g2.fillRoundRect(trackRect.x, cy, trackRect.width, 4, 2, 2);
+            int thumbPos = thumbRect.x + (thumbRect.width / 2);
+            g2.setColor(new Color(0x00, 0xff, 0xcc));
+            g2.fillRoundRect(trackRect.x, cy, Math.max(0, thumbPos - trackRect.x), 4, 2, 2);
+            g2.dispose();
+          }
+
+          @Override
+          public void paintThumb(java.awt.Graphics g) {
+            java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+            g2.setRenderingHint(
+                java.awt.RenderingHints.KEY_ANTIALIASING,
+                java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(Color.WHITE);
+            g2.fillOval(
+                thumbRect.x + 2, thumbRect.y + 2, thumbRect.width - 4, thumbRect.height - 4);
+            g2.setColor(new Color(0x00, 0xff, 0xcc));
+            g2.drawOval(
+                thumbRect.x + 2, thumbRect.y + 2, thumbRect.width - 4, thumbRect.height - 4);
+            g2.dispose();
+          }
+        });
     wrapper.add(slider, BorderLayout.CENTER);
 
     JLabel valueLabel = new JLabel(initialLabel);

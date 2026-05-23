@@ -177,6 +177,47 @@ public class SwingMasterFxPanel extends JPanel {
     slider.setMaximumSize(new Dimension(width, 18));
     slider.setPaintTicks(false);
     slider.setPaintLabels(false);
+    slider.setOpaque(false);
+    slider.setFocusable(false);
+
+    slider.setUI(
+        new javax.swing.plaf.basic.BasicSliderUI(slider) {
+          @Override
+          public void paintTrack(java.awt.Graphics g) {
+            java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+            g2.setRenderingHint(
+                java.awt.RenderingHints.KEY_ANTIALIASING,
+                java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+            int cy = trackRect.y + (trackRect.height / 2) - 2;
+
+            // Background track: visible light white/gray!
+            g2.setColor(new Color(0x66, 0x66, 0x6e));
+            g2.fillRoundRect(trackRect.x, cy, trackRect.width, 4, 2, 2);
+
+            // Active segment: glowing cyan!
+            int thumbPos = thumbRect.x + (thumbRect.width / 2);
+            g2.setColor(new Color(0x00, 0xff, 0xcc));
+            g2.fillRoundRect(trackRect.x, cy, Math.max(0, thumbPos - trackRect.x), 4, 2, 2);
+            g2.dispose();
+          }
+
+          @Override
+          public void paintThumb(java.awt.Graphics g) {
+            java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+            g2.setRenderingHint(
+                java.awt.RenderingHints.KEY_ANTIALIASING,
+                java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+
+            g2.setColor(Color.WHITE);
+            g2.fillOval(
+                thumbRect.x + 2, thumbRect.y + 2, thumbRect.width - 4, thumbRect.height - 4);
+
+            g2.setColor(new Color(0x00, 0xff, 0xcc));
+            g2.drawOval(
+                thumbRect.x + 2, thumbRect.y + 2, thumbRect.width - 4, thumbRect.height - 4);
+            g2.dispose();
+          }
+        });
   }
 
   private void styleLabel(JLabel label, boolean bold) {
