@@ -99,6 +99,16 @@ public class ProjectModel {
   public static ProjectModel createDefaultProject() {
     ProjectModel project = new ProjectModel();
     project.setBpm(120.0f);
+
+    // Spawn a default hardware-compatible Synth Track
+    SynthTrackModel defaultSynth = new SynthTrackModel("Synth 1");
+    defaultSynth.setOsc1Type("SAW");
+    defaultSynth.setVolume(0.5f);
+
+    // Add a single default clip so pads can be clicked to place steps immediately
+    defaultSynth.addClip(new ClipModel("CLIP 1", 8, 16));
+
+    project.addTrack(defaultSynth);
     return project;
   }
 

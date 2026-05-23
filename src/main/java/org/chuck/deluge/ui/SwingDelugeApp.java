@@ -1302,16 +1302,11 @@ public class SwingDelugeApp extends JFrame {
     setLayout(new BorderLayout(10, 10));
 
     setupUI();
-    if (pureMode) {
-      // Initialize bridge globals from initial model state
-      vm.setGlobalFloat(BridgeContract.G_MASTER_VOL, currentProject.getMasterVolume());
-      vm.setGlobalFloat(BridgeContract.G_BPM, currentProject.getBpm());
 
-      syncHighFidelityEngine(currentProject);
-    }
-    // Register ProjectListener on the default project so slider changes (BPM, volume, swing, etc.)
-    // propagate to the bridge/engine in real time (also registered in loadProject()).
-    currentProject.addProjectListener(new BridgeProjectListener(currentProject));
+    // Auto-load our default initial song project to sync tracks, presets, and listeners to the
+    // bridge/engine!
+    loadProject(currentProject);
+
     startPlaybackTimer();
 
     setFocusable(true);
