@@ -1294,6 +1294,22 @@ public class SwingDelugeApp extends JFrame {
                     if (clipPanel != null) clipPanel.setShiftHeld(false);
                   }
                 }
+
+                // Intercept Up/Down arrow keys to adjust current parameter value when a grid
+                // shortcut is focused in Shift mode
+                if (clipPanel != null
+                    && clipPanel.isShiftHeld()
+                    && clipPanel.getActiveShiftParam() != null) {
+                  if (e.getID() == java.awt.event.KeyEvent.KEY_PRESSED) {
+                    if (e.getKeyCode() == java.awt.event.KeyEvent.VK_UP) {
+                      clipPanel.adjustRotaryParameter(1);
+                      return true; // consume the event!
+                    } else if (e.getKeyCode() == java.awt.event.KeyEvent.VK_DOWN) {
+                      clipPanel.adjustRotaryParameter(-1);
+                      return true; // consume the event!
+                    }
+                  }
+                }
                 return false; // Pass event downstream
               }
             });
@@ -1657,6 +1673,20 @@ public class SwingDelugeApp extends JFrame {
     if (songPanel != null) songPanel.setProjectModel(currentProject);
     if (arrGridPanel != null) arrGridPanel.setProjectModel(currentProject);
     if (autoPanel != null) autoPanel.setProjectModel(currentProject);
+  }
+
+  public void updateHardwareLedDisplay(String paramCode, String valueString) {
+    if (topBar != null && topBar.getRetroLedDisplay() != null) {
+      if (paramCode == null || valueString == null) {
+        topBar.getRetroLedDisplay().reset();
+      } else {
+        topBar.getRetroLedDisplay().print(paramCode, valueString);
+      }
+    }
+  }
+
+  public SwingGridPanel getClipPanel() {
+    return clipPanel;
   }
 
   private void exportAudio() {
