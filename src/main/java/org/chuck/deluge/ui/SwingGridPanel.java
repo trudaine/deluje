@@ -1029,6 +1029,81 @@ public class SwingGridPanel extends JPanel {
     }
   }
 
+  private static final java.util.Map<String, float[]> waveformCache =
+      new java.util.concurrent.ConcurrentHashMap<>();
+
+  private static float[] getCachedWaveform(String path) {
+    if (path == null || path.isEmpty()) return null;
+    return waveformCache.computeIfAbsent(
+        path,
+        p -> {
+          try {
+            java.io.File file = new java.io.File(p);
+            if (!file.exists()) return null;
+            try (javax.sound.sampled.AudioInputStream ais =
+                javax.sound.sampled.AudioSystem.getAudioInputStream(file)) {
+              javax.sound.sampled.AudioFormat format = ais.getFormat();
+              int bytesPerFrame = format.getFrameSize();
+              if (bytesPerFrame == 0) return null;
+              byte[] buffer = new byte[4096];
+              int read;
+              java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+              while ((read = ais.read(buffer)) != -1) {
+                baos.write(buffer, 0, read);
+              }
+              byte[] audioBytes = baos.toByteArray();
+              int totalSamples = audioBytes.length / bytesPerFrame;
+              if (totalSamples <= 0) return null;
+
+              int targetPoints = 256;
+              float[] points = new float[targetPoints];
+              int step = Math.max(1, totalSamples / targetPoints);
+
+              boolean isBigEndian = format.isBigEndian();
+              int sampleSizeInBits = format.getSampleSizeInBits();
+
+              for (int i = 0; i < targetPoints; i++) {
+                int sampleIndex = i * step;
+                int byteIndex = sampleIndex * bytesPerFrame;
+                if (byteIndex + bytesPerFrame > audioBytes.length) break;
+
+                float val = 0.0f;
+                if (sampleSizeInBits == 16) {
+                  int b1 = audioBytes[byteIndex];
+                  int b2 = audioBytes[byteIndex + 1];
+                  short sample =
+                      isBigEndian
+                          ? (short) ((b1 << 8) | (b2 & 0xff))
+                          : (short) ((b2 << 8) | (b1 & 0xff));
+                  val = Math.abs(sample / 32768.0f);
+                } else if (sampleSizeInBits == 8) {
+                  int sample = audioBytes[byteIndex] & 0xff;
+                  val = Math.abs((sample - 128) / 128.0f);
+                }
+                points[i] = val;
+              }
+              float[] smoothed = new float[targetPoints];
+              for (int i = 0; i < targetPoints; i++) {
+                float sum = 0;
+                int count = 0;
+                for (int w = -2; w <= 2; w++) {
+                  int idx = i + w;
+                  if (idx >= 0 && idx < targetPoints) {
+                    sum += points[idx];
+                    count++;
+                  }
+                }
+                smoothed[i] = sum / count;
+              }
+              return smoothed;
+            }
+          } catch (Exception ex) {
+            LOG.warning("Waveform parsing failed for " + p + ": " + ex.getMessage());
+            return null;
+          }
+        });
+  }
+
   /**
    * Build a single voice row panel. modelRow = the actual engine row index (0..voiceRowCount-1).
    */
@@ -1037,7 +1112,83 @@ public class SwingGridPanel extends JPanel {
       int visibleRow,
       int padSz,
       java.util.List<org.chuck.deluge.model.TrackModel> tracks) {
-    JPanel rowPanel = new JPanel();
+    String samplePathLoc = null;
+    if (modelRow < tracks.size()) {
+      org.chuck.deluge.model.TrackModel track = tracks.get(modelRow);
+      if (viewMode == GridViewMode.CLIP
+          && track instanceof org.chuck.deluge.model.KitTrackModel kit) {
+        java.util.List<org.chuck.deluge.model.Drum> sounds = kit.getDrums();
+        int drumIdx = sounds.size() - 1 - modelRow;
+        if (drumIdx >= 0 && drumIdx < sounds.size()) {
+          org.chuck.deluge.model.Drum drum = sounds.get(drumIdx);
+          if (drum instanceof org.chuck.deluge.model.SoundDrum soundDrum) {
+            samplePathLoc = soundDrum.getSamplePath();
+          }
+        }
+      } else if (track instanceof org.chuck.deluge.model.AudioTrackModel audioTrack
+          && !audioTrack.getAudioClips().isEmpty()) {
+        samplePathLoc = audioTrack.getAudioClips().get(0).getFilePath();
+      }
+    }
+    final String targetSamplePath = samplePathLoc;
+
+    JPanel rowPanel =
+        new JPanel() {
+          @Override
+          protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            if (targetSamplePath == null || targetSamplePath.isEmpty()) return;
+            float[] points = getCachedWaveform(targetSamplePath);
+            if (points == null || points.length == 0) return;
+
+            int startX = 0;
+            int endX = getWidth();
+            boolean foundPads = false;
+            for (Component c : getComponents()) {
+              if (c instanceof DelugePadButton pad) {
+                Integer col = (Integer) pad.getClientProperty("col");
+                if (col != null) {
+                  if (col == 0) {
+                    startX = pad.getX();
+                    foundPads = true;
+                  }
+                  if (col == stepCount - 1) {
+                    endX = pad.getX() + pad.getWidth();
+                  }
+                }
+              }
+            }
+
+            int width = endX - startX;
+            if (!foundPads || width <= 0) return;
+
+            Graphics2D g2d = (Graphics2D) g;
+            g2d.setRenderingHint(
+                RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2d.setColor(new Color(0x00, 0xff, 0x66, 0x1a)); // transparent soft green glow
+
+            int midY = getHeight() / 2;
+            int maxAmp = (int) (getHeight() * 0.45);
+
+            java.awt.geom.Path2D.Float path = new java.awt.geom.Path2D.Float();
+            for (int i = 0; i < points.length; i++) {
+              int x = startX + (int) ((i / (float) (points.length - 1)) * width);
+              int yOffset = (int) (points[i] * maxAmp);
+              if (i == 0) {
+                path.moveTo(x, midY - yOffset);
+              } else {
+                path.lineTo(x, midY - yOffset);
+              }
+            }
+            for (int i = points.length - 1; i >= 0; i--) {
+              int x = startX + (int) ((i / (float) (points.length - 1)) * width);
+              int yOffset = (int) (points[i] * maxAmp);
+              path.lineTo(x, midY + yOffset);
+            }
+            path.closePath();
+            g2d.fill(path);
+          }
+        };
     rowPanel.setLayout(new BoxLayout(rowPanel, BoxLayout.X_AXIS));
     rowPanel.setBackground(new Color(0x22, 0x22, 0x22));
     rowPanel.setPreferredSize(new Dimension(3000, padSz));
