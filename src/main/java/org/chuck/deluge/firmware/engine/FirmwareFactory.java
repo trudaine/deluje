@@ -96,7 +96,7 @@ public class FirmwareFactory {
       ClipModel clipModel = model.getClips().get(0);
       clip.loopLength = clipModel.getStepCount() * 24;
       for (int r = 0; r < clipModel.getRowCount(); r++) {
-        int pitch = ((clipModel.getRowCount() - 1) - r) + 60;
+        int pitch = ((24 - 1) - r) + 60;
         NoteRow row = new NoteRow(pitch);
         java.util.List<org.chuck.deluge.model.HighResNote> rawNotes = clipModel.getRawNoteEvents(r);
         if (rawNotes != null && !rawNotes.isEmpty()) {
@@ -110,6 +110,16 @@ public class FirmwareFactory {
                 0);
           }
         } else {
+          // If the step cell has a custom explicit pitch parameter (e.g. from tests/custom XMLs!),
+          // use it to override the row's pitch!
+          for (int s = 0; s < clipModel.getStepCount(); s++) {
+            StepData step = clipModel.getStep(r, s);
+            if (step.active() && step.pitch() > 0) {
+              pitch = step.pitch();
+              row = new NoteRow(pitch);
+              break;
+            }
+          }
           for (int s = 0; s < clipModel.getStepCount(); s++) {
             StepData step = clipModel.getStep(r, s);
             if (step.active()) {
@@ -177,10 +187,14 @@ public class FirmwareFactory {
     // Envelopes
     for (int i = 0; i < 4; i++) {
       EnvelopeModel em = model.getEnv(i);
-      // Scale 0.0-1.0 to increments
-      int attackInc = (int) (20000 / (em.attack() * 100.0 + 1));
-      int decayInc = (int) (1000 / (em.decay() * 10.0 + 1));
-      int releaseInc = (int) (1000 / (em.release() * 10.0 + 1));
+      // Mathematically correct physical time-to-increment mapping: Inc = 190.2 / Time
+      float aTime = Math.max(0.0001f, em.attack());
+      float dTime = Math.max(0.0001f, em.decay());
+      float rTime = Math.max(0.0001f, em.release());
+
+      int attackInc = Math.max(1, Math.min(8388608, (int) (190.2f / aTime)));
+      int decayInc = Math.max(1, Math.min(8388608, (int) (190.2f / dTime)));
+      int releaseInc = Math.max(1, Math.min(8388608, (int) (190.2f / rTime)));
 
       sound.paramNeutralValues[Param.LOCAL_ENV_0_ATTACK + i] = attackInc;
       sound.paramNeutralValues[Param.LOCAL_ENV_0_DECAY + i] = decayInc;

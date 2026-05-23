@@ -75,8 +75,8 @@ public class JavaAudioDriver implements Runnable {
           int absL = Math.abs(s.l);
           if (absL > peak) peak = absL;
 
-          int leftVal = s.l >> 15;
-          int rightVal = s.r >> 15;
+          int leftVal = s.l >> 16;
+          int rightVal = s.r >> 16;
           short left = (short) Math.max(-32768, Math.min(32767, leftVal));
           short right = (short) Math.max(-32768, Math.min(32767, rightVal));
 

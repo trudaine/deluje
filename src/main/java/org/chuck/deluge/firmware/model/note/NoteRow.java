@@ -110,6 +110,7 @@ public class NoteRow {
   public int processCurrentPos(
       int ticksSinceLast,
       List<PendingNoteOn> pendingNoteOns,
+      List<Integer> pendingNoteOffs,
       int clipLastProcessedPos,
       int clipLoopLength,
       boolean clipCurrentlyPlayingReversed) {
@@ -151,10 +152,15 @@ public class NoteRow {
     if (muted) return Integer.MAX_VALUE;
 
     int ticksTilNextNoteEvent = Integer.MAX_VALUE;
+    int startTick = (currentPos - ticksSinceLast + effectiveLength) % effectiveLength;
 
-    // Find notes that are triggered at exactly currentPos
+    // Find notes that are triggered or released inside the advanced interval range
     for (Note note : notes) {
-      if (note.pos == currentPos) {
+      int releasePos = (note.pos + note.length) % effectiveLength;
+      if (isTickReached(startTick, ticksSinceLast, releasePos, effectiveLength)) {
+        pendingNoteOffs.add(y);
+      }
+      if (isTickReached(startTick, ticksSinceLast, note.pos, effectiveLength)) {
         if (currentPos >= ignoreNoteOnsBefore_) {
           // Legato check: if there's a note already playing at this pitch
           boolean legato = false; // Ported check: sound.hasActiveVoice(this)
@@ -179,5 +185,17 @@ public class NoteRow {
     }
 
     return Math.min(ticksTilNextNoteEvent, paramManager.ticksTilNextEvent);
+  }
+
+  private static boolean isTickReached(
+      int startTick, int ticksSinceLast, int target, int effectiveLength) {
+    if (ticksSinceLast <= 0) return false;
+    if (startTick == 0 && target == 0) return true;
+    int endTick = (startTick + ticksSinceLast) % effectiveLength;
+    if (startTick <= endTick) {
+      return startTick < target && target <= endTick;
+    } else {
+      return target > startTick || target <= endTick;
+    }
   }
 }

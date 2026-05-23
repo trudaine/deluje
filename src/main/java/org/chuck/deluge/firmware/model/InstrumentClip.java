@@ -69,6 +69,7 @@ public class InstrumentClip extends Clip {
     }
 
     List<PendingNoteOn> pendingNoteOns = new ArrayList<>();
+    List<Integer> pendingNoteOffs = new ArrayList<>();
     ticksTilNextEvent = Integer.MAX_VALUE;
 
     for (NoteRow noteRow : noteRows) {
@@ -76,6 +77,7 @@ public class InstrumentClip extends Clip {
           noteRow.processCurrentPos(
               ticksSinceLast,
               pendingNoteOns,
+              pendingNoteOffs,
               lastProcessedPos,
               loopLength,
               currentlyPlayingReversed);
@@ -88,8 +90,25 @@ public class InstrumentClip extends Clip {
     if (ticksTilEnd <= 0) ticksTilEnd = loopLength;
     if (ticksTilEnd < ticksTilNextEvent) ticksTilNextEvent = ticksTilEnd;
 
+    // Process Note-Off events BEFORE triggering new Note-On events!
+    for (int pitchToRelease : pendingNoteOffs) {
+      releaseNote(pitchToRelease);
+    }
+
     for (PendingNoteOn noteOn : pendingNoteOns) {
       triggerNote(noteOn);
+    }
+  }
+
+  private void releaseNote(int pitch) {
+    if (sound instanceof FirmwareSound) {
+      ((FirmwareSound) sound).releaseNote(pitch);
+    } else if (sound instanceof FirmwareKit) {
+      // Drum Kit trigger notes: drumSounds lane maps modulo total size bounds
+      var kit = (FirmwareKit) sound;
+      if (pitch < kit.drumSounds.size()) {
+        kit.drumSounds.get(pitch).releaseNote(60);
+      }
     }
   }
 

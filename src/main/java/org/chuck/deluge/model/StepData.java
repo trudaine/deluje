@@ -18,9 +18,11 @@ public record StepData(
     fill = Math.max(0.0f, Math.min(1.0f, fill));
   }
 
+  public static final float DEFAULT_CLICK_GATE = 0.9f;
+
   /** Default empty step. */
   public static StepData empty() {
-    return new StepData(false, 0.8f, 0.5f, 1.0f, 60, 0, 0.0f);
+    return new StepData(false, 0.8f, DEFAULT_CLICK_GATE, 1.0f, 60, 0, 0.0f);
   }
 
   /** Convenience factory: creates a step with default iterance=0, fill=0.0. */

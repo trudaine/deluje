@@ -1407,7 +1407,12 @@ public class SwingGridPanel extends JPanel {
                             activeClipId,
                             modelRow,
                             s,
-                            org.chuck.deluge.model.StepData.of(true, (float) v, 0.5f, 1.0f, 0),
+                            org.chuck.deluge.model.StepData.of(
+                                true,
+                                (float) v,
+                                org.chuck.deluge.model.StepData.DEFAULT_CLICK_GATE,
+                                1.0f,
+                                0),
                             org.chuck.deluge.model.StepData.empty()));
                   }
                   bridge.setStep(engineRow, s, false);
@@ -1890,7 +1895,11 @@ public class SwingGridPanel extends JPanel {
                                     modelRow,
                                     activeCol,
                                     org.chuck.deluge.model.StepData.of(
-                                        !st, (float) curVel, 0.5f, (float) curProb, 0));
+                                        !st,
+                                        (float) curVel,
+                                        org.chuck.deluge.model.StepData.DEFAULT_CLICK_GATE,
+                                        (float) curProb,
+                                        0));
                                 if (oldStep != null) {
                                   projectModel
                                       .getUndoRedoStack()
@@ -1978,7 +1987,7 @@ public class SwingGridPanel extends JPanel {
                                     org.chuck.deluge.model.StepData.of(
                                         !stepState,
                                         (float) curVel,
-                                        0.5f,
+                                        org.chuck.deluge.model.StepData.DEFAULT_CLICK_GATE,
                                         (float) curProb,
                                         pitchMidi));
                                 cModel.setRawNoteEvents(modelRow, null);
@@ -2035,7 +2044,11 @@ public class SwingGridPanel extends JPanel {
                                     modelRow,
                                     activeCol,
                                     org.chuck.deluge.model.StepData.of(
-                                        !stepState, (float) curVel, 0.5f, (float) curProb, 0));
+                                        !stepState,
+                                        (float) curVel,
+                                        org.chuck.deluge.model.StepData.DEFAULT_CLICK_GATE,
+                                        (float) curProb,
+                                        0));
                                 if (oldStep != null) {
                                   projectModel
                                       .getUndoRedoStack()
@@ -3228,7 +3241,12 @@ public class SwingGridPanel extends JPanel {
                                 activeClipId,
                                 trk,
                                 s,
-                                org.chuck.deluge.model.StepData.of(true, (float) v, 0.5f, 1.0f, 0),
+                                org.chuck.deluge.model.StepData.of(
+                                    true,
+                                    (float) v,
+                                    org.chuck.deluge.model.StepData.DEFAULT_CLICK_GATE,
+                                    1.0f,
+                                    0),
                                 org.chuck.deluge.model.StepData.empty()));
                       }
                       bridge.setStep(engineRow, s, false);
@@ -3425,7 +3443,12 @@ public class SwingGridPanel extends JPanel {
                               cModel.setStep(
                                   trk,
                                   colId,
-                                  org.chuck.deluge.model.StepData.of(!st, 0.8f, 0.5f, 1.0f, 0));
+                                  org.chuck.deluge.model.StepData.of(
+                                      !st,
+                                      0.8f,
+                                      org.chuck.deluge.model.StepData.DEFAULT_CLICK_GATE,
+                                      1.0f,
+                                      0));
                               if (oldStep != null) {
                                 projectModel
                                     .getUndoRedoStack()
@@ -3481,7 +3504,11 @@ public class SwingGridPanel extends JPanel {
                                   trk,
                                   colId,
                                   org.chuck.deluge.model.StepData.of(
-                                      !stepState, (float) curVel, 0.5f, (float) curProb, 0));
+                                      !stepState,
+                                      (float) curVel,
+                                      org.chuck.deluge.model.StepData.DEFAULT_CLICK_GATE,
+                                      (float) curProb,
+                                      0));
                               if (oldStep != null) {
                                 projectModel
                                     .getUndoRedoStack()
@@ -4442,7 +4469,11 @@ public class SwingGridPanel extends JPanel {
             modelRow,
             activeCol,
             org.chuck.deluge.model.StepData.of(
-                nextState, (float) curVel, 0.5f, (float) curProb, pitch));
+                nextState,
+                (float) curVel,
+                org.chuck.deluge.model.StepData.DEFAULT_CLICK_GATE,
+                (float) curProb,
+                pitch));
         if (oldStep != null) {
           projectModel
               .getUndoRedoStack()

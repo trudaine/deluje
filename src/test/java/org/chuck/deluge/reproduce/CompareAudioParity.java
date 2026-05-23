@@ -1,6 +1,5 @@
 package org.chuck.deluge.reproduce;
 
-import java.io.File;
 import org.chuck.deluge.AudioAnalyzer;
 import org.chuck.deluge.firmware.dsp.StereoSample;
 import org.chuck.deluge.firmware.engine.FirmwareAudioEngine;
@@ -19,29 +18,24 @@ import org.chuck.deluge.model.SynthTrackModel;
 public class CompareAudioParity {
 
   public static void main(String[] args) {
-    if (args.length < 2) {
-      System.out.println("Usage: java CompareAudioParity <patchType: A|C> <recordedWavPath>");
-      System.out.println("  Patch A: Dry Sawtooth C4");
-      System.out.println("  Patch C: ADSR Decay/Release C4");
-      return;
-    }
+    String patchType = "A";
+    String wavPath = "/fidelity/reference_rec07.wav";
 
-    String patchType = args[0].toUpperCase();
-    String wavPath = args[1];
+    if (args.length >= 2) {
+      patchType = args[0].toUpperCase();
+      wavPath = args[1];
+    } else {
+      System.out.println(
+          "[INFO] No arguments specified. Falling back to default: Patch A with dry C4 reference");
+    }
 
     try {
       System.out.println("=== STARTING AUDIO INSTRUMENTATION ANALYSIS ===");
       System.out.println("Patch Type Selected: " + patchType);
       System.out.println("Recorded Wave Path:  " + wavPath);
 
-      File wavFile = new File(wavPath);
-      if (!wavFile.exists()) {
-        System.err.println("[ERROR] Recorded WAV file not found at path: " + wavPath);
-        return;
-      }
-
-      // 1. Load Ground Truth hardware audio (channels averaged to mono)
-      float[] hw = AudioAnalyzer.loadWav(wavFile);
+      // 1. Load Ground Truth hardware audio (handles both files and classpath resources!)
+      float[] hw = AudioAnalyzer.loadWav(wavPath);
       System.out.printf(
           "Loaded Hardware Recording: %d samples (%.2f seconds)\n", hw.length, hw.length / 44100.0);
 
@@ -92,12 +86,14 @@ public class CompareAudioParity {
       System.arraycopy(sw, startSw, alignedSw, 0, len);
 
       // Remove DC offsets to align zero-crossings perfectly
-      float[] noDcHw = removeDcOffset(alignedHw);
-      float[] noDcSw = removeDcOffset(alignedSw);
-
       // Slices 100ms window right after the note onset starts (steady state sustain phase)
-      int windowSize = 4410;
       int activeOffset = swStart - startSw;
+
+      // Remove active DC offsets to align zero-crossings perfectly
+      float[] noDcHw = removeActiveDcOffset(alignedHw, activeOffset);
+      float[] noDcSw = removeActiveDcOffset(alignedSw, activeOffset);
+
+      int windowSize = 4410;
       int hwZeroIdx =
           findPositiveZeroCrossing(
               noDcHw, activeOffset + 2000); // skip initial transient click zone
@@ -122,8 +118,32 @@ public class CompareAudioParity {
       for (int i = 0; i < 10; i++) System.out.printf("%.6f ", swWindow[i]);
       System.out.println();
 
+      // Create inverted software window to test the descending/inverted sawtooth phase slope
+      // hypothesis
+      float[] invSwWindow = new float[windowSize];
+      for (int i = 0; i < windowSize; i++) invSwWindow[i] = -swWindow[i];
+
       // 5. Compute multi-dimensional analysis metrics
-      double correlation = AudioAnalyzer.correlation(hwWindow, swWindow);
+      double correlationNormal = AudioAnalyzer.correlation(hwWindow, swWindow);
+      double correlationInverted = AudioAnalyzer.correlation(hwWindow, invSwWindow);
+      double correlation = Math.max(correlationNormal, correlationInverted);
+      boolean isInvertedBest = correlationInverted > correlationNormal;
+
+      if (isInvertedBest) {
+        System.out.println(
+            "[DIAG shape] INVERTED polarity matches best! correlationInverted="
+                + correlationInverted
+                + " correlationNormal="
+                + correlationNormal);
+        swWindow = invSwWindow;
+      } else {
+        System.out.println(
+            "[DIAG shape] NORMAL polarity matches best! correlationNormal="
+                + correlationNormal
+                + " correlationInverted="
+                + correlationInverted);
+      }
+
       double hwRms = AudioAnalyzer.rms(alignedHw);
       double swRms = AudioAnalyzer.rms(alignedSw);
       double rmsRatio = swRms / (hwRms > 1e-9 ? hwRms : 1.0);
@@ -195,10 +215,10 @@ public class CompareAudioParity {
 
     for (int b = 0; b < blockCount; b++) {
       if (b == triggerBlock) {
-        sound.triggerNote(48, 100); // C3 pitch (matches actual hardware C3 file fundamental!)
+        sound.triggerNote(72, 100); // C5 pitch (matches actual physical C5 resample file!)
       }
       if (b == releaseBlock) {
-        sound.releaseNote(48);
+        sound.releaseNote(72);
       }
 
       engine.renderBlock(128);
@@ -358,12 +378,22 @@ public class CompareAudioParity {
     return out;
   }
 
-  private static float[] removeDcOffset(float[] data) {
+  private static float[] removeActiveDcOffset(float[] data, int activeStart) {
     double sum = 0;
-    for (float v : data) sum += v;
-    float mean = (float) (sum / data.length);
+    int count = 0;
+    for (int i = activeStart; i < data.length; i++) {
+      sum += data[i];
+      count++;
+    }
+    float mean = count > 0 ? (float) (sum / count) : 0.0f;
     float[] out = new float[data.length];
-    for (int i = 0; i < data.length; i++) out[i] = data[i] - mean;
+    for (int i = 0; i < data.length; i++) {
+      if (i >= activeStart) {
+        out[i] = data[i] - mean;
+      } else {
+        out[i] = data[i];
+      }
+    }
     return out;
   }
 }
