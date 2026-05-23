@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<song swing="0x40000000" tempo="120.0">
+  <instruments>
+    <sound>
+      <presetSlot>SYNTH SYNTH 0</presetSlot>
+      <osc1 type="square"/>
+      <lpf attack="10" decay="40" sustain="0" release="10"/>
+    </sound>
+  </instruments>
+  <tracks>
+    <track>
+      <noteRows>
+        <noteRow y="0">
+          <noteData>0x000000000000000c4014</noteData>
+        </noteRow>
+        <noteRow y="4">
+          <noteData>0x0000000c0000000c4014000000540000000c4014</noteData>
+        </noteRow>
+        <noteRow y="7">
+          <noteData>0x000000180000000c4014000000480000000c4014</noteData>
+        </noteRow>
+        <noteRow y="11">
+          <noteData>0x000000240000000c40140000003c0000000c4014</noteData>
+        </noteRow>
+        <noteRow y="12">
+          <noteData>0x000000300000000c4014</noteData>
+        </noteRow>
+      </noteRows>
+    </track>
+  </tracks>
+</song>
