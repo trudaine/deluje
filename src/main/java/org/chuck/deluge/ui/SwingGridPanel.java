@@ -5277,20 +5277,22 @@ public class SwingGridPanel extends JPanel {
         (track instanceof org.chuck.deluge.model.SynthTrackModel)
             ? "Synth Track"
             : (track instanceof org.chuck.deluge.model.KitTrackModel ? "Kit Track" : "Audio Track");
-    String appStr =
+    String header =
         applicable
-            ? "<font color='#00ffcc'><b>[APPLICABLE]</b></font>"
-            : "<font color='#ff6666'><b>[NOT APPLICABLE]</b> for " + trackTypeStr + "</font>";
+            ? ""
+            : "<font color='#ff6666'><b>[NOT APPLICABLE FOR "
+                + trackTypeStr.toUpperCase()
+                + "]</b></font><br>";
 
     return String.format(
         "<html><body style='font-size: 9px; font-family: sans-serif; width: 180px;'>"
+            + "%s"
             + "<b>Shift Shortcut: %s</b><br>"
             + "• Group: %s<br>"
             + "• Parameter: <b>%s</b><br>"
-            + "• Status: %s<br>"
             + "• Action: %s"
             + "</body></html>",
-        fullParam, (prefix != null ? prefix : "None"), paramName, appStr, description);
+        header, fullParam, (prefix != null ? prefix : "None"), paramName, description);
   }
 
   private String getParamDescription(String paramName) {
