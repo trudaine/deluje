@@ -198,10 +198,12 @@ public class DelugePadButton extends JButton {
       g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
 
       // Symmetrical physical center hotspot (white silicone glowing core)
-      g2.setColor(new Color(255, 255, 255, 160));
-      int cw = Math.max(4, rw / 4);
-      int ch = Math.max(4, rh / 4);
-      g2.fillOval((w - cw) / 2, (h - ch) / 2, cw, ch);
+      if (noteText.isEmpty()) {
+        g2.setColor(new Color(255, 255, 255, 160));
+        int cw = Math.max(4, rw / 4);
+        int ch = Math.max(4, rh / 4);
+        g2.fillOval((w - cw) / 2, (h - ch) / 2, cw, ch);
+      }
     }
 
     // 4. Horizontal Tie-Drag Connector

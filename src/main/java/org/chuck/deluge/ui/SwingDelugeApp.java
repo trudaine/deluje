@@ -2086,32 +2086,54 @@ public class SwingDelugeApp extends JFrame {
     fileMenu.add(exitItem);
 
     JMenu settingsMenu = new JMenu("Settings");
-    JMenuItem sampleItem = new JMenuItem("Set Samples Directory...");
+
+    JMenuItem sampleItem = new JMenuItem("Set SD Card Root Directory...");
     sampleItem.addActionListener(
         e -> {
-          JFileChooser chooser = new JFileChooser();
+          JFileChooser chooser =
+              new JFileChooser(org.chuck.deluge.project.PreferencesManager.getLibraryDir());
           chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
           if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             org.chuck.deluge.project.PreferencesManager.setLibraryDir(
                 chooser.getSelectedFile().getAbsolutePath());
+            sidebarPanel.reloadLibrary();
+            floatingSidebar.reloadLibrary();
           }
         });
 
-    final JCheckBoxMenuItem advancedUiItem = new JCheckBoxMenuItem("Advanced Grid UI Style");
-    advancedUiItem.setSelected(
-        org.chuck.deluge.project.PreferencesManager.getGridPanelType()
-            == org.chuck.deluge.project.PreferencesManager.GridPanelType.ADVANCED);
-    advancedUiItem.addActionListener(
+    final JCheckBoxMenuItem hifiModeItem =
+        new JCheckBoxMenuItem("Audio High Fidelity (ChucK VM Engine)");
+    hifiModeItem.setSelected(bridge.getHiFiMode() == 0);
+    hifiModeItem.addActionListener(
         e -> {
-          org.chuck.deluge.project.PreferencesManager.GridPanelType newType =
-              advancedUiItem.isSelected()
-                  ? org.chuck.deluge.project.PreferencesManager.GridPanelType.ADVANCED
-                  : org.chuck.deluge.project.PreferencesManager.GridPanelType.LEGACY;
-          org.chuck.deluge.project.PreferencesManager.setGridPanelType(newType);
-          if (clipPanel != null) clipPanel.refresh();
-          if (songPanel != null) songPanel.refresh();
-          if (arrGridPanel != null) arrGridPanel.refresh();
-          recalcWrapperSize();
+          int newMode = hifiModeItem.isSelected() ? 0 : 1;
+          bridge.setHiFiMode(newMode);
+          JOptionPane.showMessageDialog(
+              SwingDelugeApp.this,
+              "Audio render engine updated! Please restart workstation to engage the "
+                  + (newMode == 0 ? "ChucK VM High Fidelity" : "Direct Low-Latency JVM")
+                  + " output driver.");
+        });
+
+    JMenuItem clearMidiItem = new JMenuItem("Reset Learned MIDI CC Mappings");
+    clearMidiItem.addActionListener(
+        e -> {
+          int ok =
+              JOptionPane.showConfirmDialog(
+                  SwingDelugeApp.this,
+                  "Are you sure you want to clear all dynamically learned physical MIDI CC controllers mappings?",
+                  "Clear MIDI Mappings",
+                  JOptionPane.YES_NO_OPTION);
+          if (ok == JOptionPane.YES_OPTION) {
+            String[] prefKeys = org.chuck.deluge.project.PreferencesManager.getKeys();
+            for (String key : prefKeys) {
+              if (key.startsWith("midi.learn.")) {
+                org.chuck.deluge.project.PreferencesManager.remove(key);
+              }
+            }
+            JOptionPane.showMessageDialog(
+                SwingDelugeApp.this, "All learned physical MIDI CC bindings cleared successfully!");
+          }
         });
 
     JMenuItem prefItem = new JMenuItem("Preferences...");
@@ -2135,9 +2157,6 @@ public class SwingDelugeApp extends JFrame {
                       arrGridPanel.setGridMode(mode);
                       arrGridPanel.refresh();
                     }
-                    advancedUiItem.setSelected(
-                        org.chuck.deluge.project.PreferencesManager.getGridPanelType()
-                            == org.chuck.deluge.project.PreferencesManager.GridPanelType.ADVANCED);
                     recalcWrapperSize();
                   },
                   () -> {
@@ -2150,7 +2169,8 @@ public class SwingDelugeApp extends JFrame {
 
     settingsMenu.add(sampleItem);
     settingsMenu.addSeparator();
-    settingsMenu.add(advancedUiItem);
+    settingsMenu.add(hifiModeItem);
+    settingsMenu.add(clearMidiItem);
     settingsMenu.addSeparator();
     settingsMenu.add(prefItem);
 
