@@ -14,7 +14,6 @@ import org.chuck.deluge.firmware.gui.views.SessionView;
 import org.chuck.deluge.firmware.hid.Flasher;
 import org.chuck.deluge.firmware.hid.MatrixDriver;
 import org.chuck.deluge.firmware.hid.pic.PIC;
-import org.chuck.deluge.firmware.hid.pic.SwingPicTransport;
 import org.chuck.deluge.model.AudioTrackModel;
 import org.chuck.deluge.model.ClipModel;
 import org.chuck.deluge.model.Consequence;
@@ -62,6 +61,7 @@ public class SwingDelugeApp extends JFrame {
   private final org.chuck.deluge.midi.MidiService midiService;
   private SwingProjectSidebarPanel sidebarPanel;
   private SwingProjectSidebarPanel floatingSidebar;
+  private org.chuck.deluge.firmware.hid.pic.SwingPicTransport picTransport;
   private final java.util.ArrayDeque<Long> tapTimes = new java.util.ArrayDeque<>();
 
   /** Recompute trackEngineStart and trackVoiceCount from the current project model. */
@@ -1290,8 +1290,13 @@ public class SwingDelugeApp extends JFrame {
                 if (e.getKeyCode() == java.awt.event.KeyEvent.VK_SHIFT) {
                   if (e.getID() == java.awt.event.KeyEvent.KEY_PRESSED) {
                     if (clipPanel != null) clipPanel.setShiftHeld(true);
+                    if (songPanel != null) songPanel.setShiftHeld(true);
+                    if (arrGridPanel != null) arrGridPanel.setShiftHeld(true);
                   } else if (e.getID() == java.awt.event.KeyEvent.KEY_RELEASED) {
                     if (clipPanel != null) clipPanel.setShiftHeld(false);
+                    if (songPanel != null) songPanel.setShiftHeld(false);
+                    if (arrGridPanel != null) arrGridPanel.setShiftHeld(false);
+                    picTransport.flush();
                   }
                 }
 
@@ -2256,7 +2261,7 @@ public class SwingDelugeApp extends JFrame {
     centerCardPanel.add(wrapGridPanel(clipPanel), "CLIP");
 
     // Wire PIC transport to Swing pad buttons for protocol-level pad rendering
-    SwingPicTransport picTransport = new SwingPicTransport();
+    this.picTransport = new org.chuck.deluge.firmware.hid.pic.SwingPicTransport();
     picTransport.setPadButtons(clipPanel.getPadButtons());
     PIC.setTransport(picTransport);
 
@@ -2292,10 +2297,8 @@ public class SwingDelugeApp extends JFrame {
             + " contentPane bg="
             + getContentPane().getBackground());
 
-    JPanel topBarWrapper = new JPanel();
-    topBarWrapper.setLayout(new BoxLayout(topBarWrapper, BoxLayout.Y_AXIS));
-    topBarWrapper.add(topBar);
-    topBarWrapper.setPreferredSize(new Dimension(1, 132));
+    JPanel topBarWrapper = new JPanel(new BorderLayout());
+    topBarWrapper.add(topBar, BorderLayout.CENTER);
     add(topBarWrapper, BorderLayout.NORTH);
 
     JScrollPane centerScroll =
@@ -2457,7 +2460,21 @@ public class SwingDelugeApp extends JFrame {
     new Timer(33, e -> visualizerPanel.repaint()).start();
 
     // Periodically flush PIC framebuffer to Swing pad buttons (≈30 fps)
-    new Timer(33, e -> picTransport.flush()).start();
+    new Timer(
+            33,
+            e -> {
+              if (clipPanel != null && clipPanel.isShiftHeld()) {
+                return;
+              }
+              if (songPanel != null && songPanel.isShiftHeld()) {
+                return;
+              }
+              if (arrGridPanel != null && arrGridPanel.isShiftHeld()) {
+                return;
+              }
+              picTransport.flush();
+            })
+        .start();
 
     // bottom lane purged
 

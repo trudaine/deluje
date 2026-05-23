@@ -198,7 +198,7 @@ public class DelugePadButton extends JButton {
       g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
 
       // Symmetrical physical center hotspot (white silicone glowing core)
-      if (noteText.isEmpty()) {
+      if (noteText.isEmpty() && getText().isEmpty()) {
         g2.setColor(new Color(255, 255, 255, 160));
         int cw = Math.max(4, rw / 4);
         int ch = Math.max(4, rh / 4);

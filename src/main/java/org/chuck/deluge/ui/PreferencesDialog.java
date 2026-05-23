@@ -415,6 +415,22 @@ public class PreferencesDialog extends JDialog {
 
     // Customize inner drop arrow button renderer list if applicable
     combo.setFocusable(false);
+
+    combo.setRenderer(
+        new DefaultListCellRenderer() {
+          @Override
+          public Component getListCellRendererComponent(
+              JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+            JLabel label =
+                (JLabel)
+                    super.getListCellRendererComponent(
+                        list, value, index, isSelected, cellHasFocus);
+            label.setBackground(isSelected ? ACCENT_GREEN : BG_CARD);
+            label.setForeground(isSelected ? new Color(0x0c, 0x38, 0x1f) : TEXT_LIGHT);
+            label.setOpaque(true);
+            return label;
+          }
+        });
   }
 
   private void styleCheckBox(JCheckBox check) {
