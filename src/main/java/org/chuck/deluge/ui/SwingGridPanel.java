@@ -1460,7 +1460,16 @@ public class SwingGridPanel extends JPanel {
             });
       } else {
         if (clipBtn instanceof DelugePadButton pad) {
+          pad.setApplicable(true);
           if (shiftHeld && visibleRow < 8 && colId < 16) {
+            org.chuck.deluge.model.TrackModel genericTrack =
+                (editedModelTrack < tracks.size()) ? tracks.get(editedModelTrack) : null;
+            boolean applicable = true;
+            if (genericTrack != null) {
+              String param = SHIFT_LABELS[visibleRow][colId];
+              applicable = isParamApplicable(param, visibleRow, colId, genericTrack);
+            }
+            pad.setApplicable(applicable);
             pad.setInLoop(true);
             pad.setActive(true);
             pad.setBaseColor(SHIFT_COLORS[visibleRow][colId]);
@@ -1470,7 +1479,7 @@ public class SwingGridPanel extends JPanel {
             pad.setPlayhead(false);
             pad.setTied(false);
             pad.setText("");
-            if (visibleRow == activeShiftRow && colId == activeShiftCol) {
+            if (applicable && visibleRow == activeShiftRow && colId == activeShiftCol) {
               pad.setBorder(BorderFactory.createLineBorder(new Color(255, 215, 0), 3));
             } else {
               pad.setBorder(UIManager.getBorder("Button.border"));
@@ -1526,12 +1535,29 @@ public class SwingGridPanel extends JPanel {
             }
           }
         } else {
+          clipBtn.setEnabled(true);
           if (shiftHeld && visibleRow < 8 && colId < 16) {
-            clipBtn.setBackground(SHIFT_COLORS[visibleRow][colId]);
-            clipBtn.setText(
-                "<html><center><font size='1'><b>"
-                    + SHIFT_LABELS[visibleRow][colId]
-                    + "</b></font></center></html>");
+            org.chuck.deluge.model.TrackModel genericTrack =
+                (editedModelTrack < tracks.size()) ? tracks.get(editedModelTrack) : null;
+            boolean applicable = true;
+            if (genericTrack != null) {
+              String param = SHIFT_LABELS[visibleRow][colId];
+              applicable = isParamApplicable(param, visibleRow, colId, genericTrack);
+            }
+            if (applicable) {
+              clipBtn.setBackground(SHIFT_COLORS[visibleRow][colId]);
+              clipBtn.setText(
+                  "<html><center><font size='1'><b>"
+                      + SHIFT_LABELS[visibleRow][colId]
+                      + "</b></font></center></html>");
+            } else {
+              clipBtn.setBackground(new Color(44, 44, 48));
+              clipBtn.setText(
+                  "<html><center><font size='1' color='#66666e'><b>"
+                      + SHIFT_LABELS[visibleRow][colId]
+                      + "</b></font></center></html>");
+              clipBtn.setEnabled(false);
+            }
           } else {
             if (viewMode == GridViewMode.CLIP) {
               boolean stepState = bridge.getStep(baseTrackId + modelRow, activeCol);

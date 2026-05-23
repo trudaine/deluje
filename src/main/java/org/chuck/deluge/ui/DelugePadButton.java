@@ -129,6 +129,19 @@ public class DelugePadButton extends JButton {
     }
   }
 
+  private boolean applicable = true;
+
+  public boolean isApplicable() {
+    return applicable;
+  }
+
+  public void setApplicable(boolean applicable) {
+    if (this.applicable != applicable) {
+      this.applicable = applicable;
+      repaint();
+    }
+  }
+
   @Override
   protected void paintComponent(Graphics g) {
     Graphics2D g2 = (Graphics2D) g.create();
@@ -143,6 +156,36 @@ public class DelugePadButton extends JButton {
     int rw = w - 2 * xPad;
     int rh = h - 2 * yPad;
     int arc = 6;
+
+    if (!applicable) {
+      // Color-neutral titanium grey pad
+      g2.setColor(new Color(0x15, 0x15, 0x17));
+      g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
+      g2.setColor(new Color(0x2d, 0x2d, 0x32));
+      g2.setStroke(new BasicStroke(1.0f));
+      g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
+
+      if (noteText != null && !noteText.isEmpty()) {
+        g2.setFont(getFont());
+        FontMetrics fm = g2.getFontMetrics();
+        int fh = fm.getHeight();
+        g2.setColor(new Color(0x55, 0x55, 0x5a));
+
+        if (noteText.contains("\n")) {
+          String[] parts = noteText.split("\n", 2);
+          int w1 = fm.stringWidth(parts[0]);
+          int w2 = fm.stringWidth(parts[1]);
+          g2.drawString(parts[0], (w - w1) / 2, h / 2 - 2);
+          g2.drawString(parts[1], (w - w2) / 2, h / 2 + fm.getAscent() - 4);
+        } else {
+          int textW = fm.stringWidth(noteText);
+          int textH = fm.getAscent();
+          g2.drawString(noteText, (w - textW) / 2, (h + textH) / 2 - 2);
+        }
+      }
+      g2.dispose();
+      return;
+    }
 
     if (!inLoop) {
       // 1. Out of loop: deep dark matte charcoal
