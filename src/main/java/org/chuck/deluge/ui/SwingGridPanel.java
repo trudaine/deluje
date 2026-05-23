@@ -50,10 +50,33 @@ public class SwingGridPanel extends JPanel {
   private boolean automationDragging = false;
 
   private boolean shiftHeld = false;
+  private String activeShiftParam = null;
+  private int activeShiftRow = -1;
+  private int activeShiftCol = -1;
+
+  public int getActiveShiftRow() {
+    return activeShiftRow;
+  }
+
+  public int getActiveShiftCol() {
+    return activeShiftCol;
+  }
+
+  public String getActiveShiftParam() {
+    return activeShiftParam;
+  }
 
   public void setShiftHeld(boolean held) {
     if (this.shiftHeld != held) {
       this.shiftHeld = held;
+      if (!held) {
+        activeShiftParam = null;
+        activeShiftRow = -1;
+        activeShiftCol = -1;
+        if (SwingDelugeApp.mainInstance != null) {
+          SwingDelugeApp.mainInstance.updateHardwareLedDisplay(null, null);
+        }
+      }
       repaint();
       refresh();
     }
@@ -455,6 +478,14 @@ public class SwingGridPanel extends JPanel {
 
     setBackground(new Color(0x1a, 0x1a, 0x1a));
     setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+
+    addMouseWheelListener(
+        e -> {
+          if (shiftHeld && activeShiftParam != null) {
+            int rotation = e.getWheelRotation();
+            adjustRotaryParameter(-rotation);
+          }
+        });
 
     // Recompute padSz on user window resize (not on internal revalidate from refresh)
     addComponentListener(
@@ -1297,6 +1328,7 @@ public class SwingGridPanel extends JPanel {
               pad.setPlayhead(false);
               pad.setTied(false);
               pad.setText("");
+              pad.setBorder(UIManager.getBorder("Button.border"));
             } else {
               pad.setActive(true);
               pad.setBaseColor(SHIFT_COLORS[visibleRow][colId]);
@@ -1306,6 +1338,11 @@ public class SwingGridPanel extends JPanel {
               pad.setPlayhead(false);
               pad.setTied(false);
               pad.setText("");
+              if (visibleRow == activeShiftRow && colId == activeShiftCol) {
+                pad.setBorder(BorderFactory.createLineBorder(new Color(255, 215, 0), 3));
+              } else {
+                pad.setBorder(UIManager.getBorder("Button.border"));
+              }
             }
           } else {
             int engineRow = baseTrackId + modelRow;
@@ -4612,6 +4649,22 @@ public class SwingGridPanel extends JPanel {
             ? (org.chuck.deluge.model.SynthTrackModel) genericTrack
             : null;
 
+    boolean isRotary =
+        org.chuck.deluge.project.PreferencesManager.getShiftInteractionMode()
+            == org.chuck.deluge.project.PreferencesManager.ShiftInteractionMode.ROTARY_ENCODER;
+    if (isRotary) {
+      this.activeShiftParam = param;
+      this.activeShiftRow = row;
+      this.activeShiftCol = col;
+      String code = getParamShortCode(param);
+      String valStr = getParamFormattedValue(param, row, col);
+      if (SwingDelugeApp.mainInstance != null) {
+        SwingDelugeApp.mainInstance.updateHardwareLedDisplay(code, valStr);
+      }
+      refresh();
+      return;
+    }
+
     JPopupMenu popup = new JPopupMenu();
     popup.setBackground(new Color(0x18, 0x18, 0x1c));
     popup.setBorder(BorderFactory.createLineBorder(new Color(0x2d, 0x2d, 0x32)));
@@ -4839,6 +4892,326 @@ public class SwingGridPanel extends JPanel {
       default:
         return false;
     }
+  }
+
+  private String getParamShortCode(String param) {
+    if (param == null) return "----";
+    switch (param.toUpperCase()) {
+      case "WAVE FORM":
+        return "WAVE";
+      case "INTER POLATION":
+        return "INTR";
+      case "BROWSE":
+        return "BROW";
+      case "RECORD":
+        return "REC";
+      case "PITCH SPEED":
+        return "PTSP";
+      case "SPEED":
+        return "SPED";
+      case "REVERSE":
+        return "REV";
+      case "MODE":
+        return "MODE";
+      case "NOISE":
+        return "NOIS";
+      case "OSC SYNC":
+        return "SYNC";
+      case "WAVETABLE":
+        return "WTBL";
+      case "FEED BACK":
+        return "FDBK";
+      case "RETRIG PHASE":
+        return "RPHS";
+      case "PW":
+        return "PW";
+      case "TYPE":
+        return "TYPE";
+      case "TRANS POSE":
+        return "TRAN";
+      case "LEVEL":
+        return "LEVEL";
+      case "DIRECTION":
+        return "DIR";
+      case "DESTI NATION":
+        return "DEST";
+      case "RETRIG":
+        return "RTRG";
+      case "SATURATE":
+        return "SAT";
+      case "BITCRUSH":
+        return "CRSH";
+      case "DECIMATE":
+        return "DECI";
+      case "SYNTH MODE":
+        return "MODE";
+      case "UNISON VOICES":
+        return "UNIS";
+      case "UNISON DETUNE":
+        return "DETN";
+      case "VOICE PRIORITY":
+        return "PRIO";
+      case "POLY PHONY":
+        return "POLY";
+      case "GLIDE":
+        return "GLID";
+      case "CUTOFF":
+        return "CUT";
+      case "RESONANCE":
+        return "RES";
+      case "SLOPE":
+        return "SLOP";
+      case "SEND":
+        return "SEND";
+      case "SHAPE":
+        return "SHAP";
+      case "ATTACK":
+        return "ATK";
+      case "DECAY":
+        return "DECY";
+      case "SUSTAIN":
+        return "SUST";
+      case "RELEASE":
+        return "REL";
+      case "VOL DUCK":
+        return "DUCK";
+      case "ARP MODE":
+        return "AMOD";
+      case "ARP OCTAVES":
+        return "AOCT";
+      case "ARP GATE":
+        return "AGAT";
+      case "ARP SYNC":
+        return "ASYNC";
+      case "ARP RATE":
+        return "ARAT";
+      case "RATE":
+        return "RATE";
+      case "DEPTH":
+        return "DPTH";
+      case "FDBACK":
+        return "FDBK";
+      case "OFFSET":
+        return "OFST";
+      case "SIZE":
+        return "SIZE";
+      case "DAMP":
+        return "DAMP";
+      case "WIDTH":
+        return "WDTH";
+      case "PAN":
+        return "PAN";
+      case "ENV 1":
+        return "ENV1";
+      case "ENV 2":
+        return "ENV2";
+      case "LFO 1":
+        return "LFO1";
+      case "LFO 2":
+        return "LFO2";
+      case "MONO/ STEREO":
+        return "MSTE";
+      case "AMOUNT":
+        return "AMT";
+      case "DIGI/ ANALOG":
+        return "DIGI";
+      case "SDCHAIN":
+        return "SDCH";
+      case "NOTE":
+        return "NOTE";
+      case "RANDOM":
+        return "RAND";
+      case "VELOCITY":
+        return "VEL";
+      case "AFTER TOUCH":
+        return "AFTC";
+      default:
+        return param.length() > 4 ? param.substring(0, 4) : param;
+    }
+  }
+
+  private String getParamFormattedValue(String param, int row, int col) {
+    if (projectModel == null || editedModelTrack >= projectModel.getTracks().size()) return "--";
+    org.chuck.deluge.model.TrackModel genericTrack = projectModel.getTracks().get(editedModelTrack);
+    org.chuck.deluge.model.SynthTrackModel track =
+        (genericTrack instanceof org.chuck.deluge.model.SynthTrackModel)
+            ? (org.chuck.deluge.model.SynthTrackModel) genericTrack
+            : null;
+
+    final int envIdx = (col == 9) ? 1 : 0;
+
+    switch (param) {
+      case "CUTOFF":
+        if (row == 0 && track != null) {
+          float freq = (col == 8) ? track.getLpfFreq() : track.getHpfFreq();
+          return (freq >= 1000.0f)
+              ? String.format("%.1fk", freq / 1000.0f)
+              : String.format("%.0f", freq);
+        } else if (row == 1 && track != null) {
+          float res = (col == 8) ? track.getLpfRes() : track.getHpfRes();
+          return String.format("%d%%", (int) (res * 100.0f));
+        }
+        break;
+      case "RESONANCE":
+        if (track != null) {
+          float res = (col == 8) ? track.getLpfRes() : track.getHpfRes();
+          return String.format("%d%%", (int) (res * 100.0f));
+        }
+        break;
+      case "ATTACK":
+        if (track != null) {
+          return String.format("%.2fs", track.getEnv(envIdx).attack());
+        }
+        break;
+      case "DECAY":
+        if (track != null) {
+          return String.format("%.2fs", track.getEnv(envIdx).decay());
+        }
+        break;
+      case "SUSTAIN":
+        if (track != null) {
+          return String.format("%d%%", (int) (track.getEnv(envIdx).sustain() * 100.0f));
+        }
+        break;
+      case "RELEASE":
+        if (track != null) {
+          return String.format("%.2fs", track.getEnv(envIdx).release());
+        }
+        break;
+      case "PAN":
+        if (row == 4 && col == 6) {
+          int panVal = (int) (genericTrack.getPan() * 100.0f);
+          if (panVal == 50) return "C";
+          return (panVal < 50)
+              ? String.format("L%d", 50 - panVal)
+              : String.format("R%d", panVal - 50);
+        }
+        break;
+      case "LEVEL":
+        if (row == 7 && col == 6) {
+          return String.format("%d%%", (int) (genericTrack.getVolume() * 100.0f));
+        } else if (row == 7 && (col == 2 || col == 3) && track != null) {
+          return String.format("%d%%", (int) (track.getOscMix() * 100.0f));
+        }
+        break;
+      case "GLIDE":
+        if (track != null) {
+          return String.format("%.2fs", track.getPortamento());
+        }
+        break;
+    }
+    return "--";
+  }
+
+  public void adjustRotaryParameter(int delta) {
+    if (activeShiftParam == null
+        || projectModel == null
+        || editedModelTrack >= projectModel.getTracks().size()) return;
+    org.chuck.deluge.model.TrackModel genericTrack = projectModel.getTracks().get(editedModelTrack);
+    org.chuck.deluge.model.SynthTrackModel track =
+        (genericTrack instanceof org.chuck.deluge.model.SynthTrackModel)
+            ? (org.chuck.deluge.model.SynthTrackModel) genericTrack
+            : null;
+
+    final int envIdx = (activeShiftCol == 9) ? 1 : 0;
+
+    switch (activeShiftParam) {
+      case "CUTOFF":
+        if (activeShiftRow == 0 && track != null) {
+          float freq = (activeShiftCol == 8) ? track.getLpfFreq() : track.getHpfFreq();
+          freq = (float) (freq * Math.pow(1.05, delta));
+          freq = Math.max(20.0f, Math.min(20000.0f, freq));
+          if (activeShiftCol == 8) track.setLpfFreq(freq);
+          else track.setHpfFreq(freq);
+        } else if (activeShiftRow == 1 && track != null) {
+          float res = (activeShiftCol == 8) ? track.getLpfRes() : track.getHpfRes();
+          res = Math.max(0.0f, Math.min(1.0f, res + delta * 0.02f));
+          if (activeShiftCol == 8) track.setLpfRes(res);
+          else track.setHpfRes(res);
+        }
+        break;
+      case "RESONANCE":
+        if (track != null) {
+          float res = (activeShiftCol == 8) ? track.getLpfRes() : track.getHpfRes();
+          res = Math.max(0.0f, Math.min(1.0f, res + delta * 0.02f));
+          if (activeShiftCol == 8) track.setLpfRes(res);
+          else track.setHpfRes(res);
+        }
+        break;
+      case "ATTACK":
+        if (track != null) {
+          var old = track.getEnv(envIdx);
+          float a = Math.max(0.0f, Math.min(10.0f, old.attack() + delta * 0.05f));
+          track.setEnv(
+              envIdx,
+              new org.chuck.deluge.model.EnvelopeModel(
+                  a, old.decay(), old.sustain(), old.release(), old.target(), old.amount()));
+        }
+        break;
+      case "DECAY":
+        if (track != null) {
+          var old = track.getEnv(envIdx);
+          float d = Math.max(0.0f, Math.min(10.0f, old.decay() + delta * 0.05f));
+          track.setEnv(
+              envIdx,
+              new org.chuck.deluge.model.EnvelopeModel(
+                  old.attack(), d, old.sustain(), old.release(), old.target(), old.amount()));
+        }
+        break;
+      case "SUSTAIN":
+        if (track != null) {
+          var old = track.getEnv(envIdx);
+          float s = Math.max(0.0f, Math.min(1.0f, old.sustain() + delta * 0.02f));
+          track.setEnv(
+              envIdx,
+              new org.chuck.deluge.model.EnvelopeModel(
+                  old.attack(), old.decay(), s, old.release(), old.target(), old.amount()));
+        }
+        break;
+      case "RELEASE":
+        if (track != null) {
+          var old = track.getEnv(envIdx);
+          float r = Math.max(0.0f, Math.min(10.0f, old.release() + delta * 0.05f));
+          track.setEnv(
+              envIdx,
+              new org.chuck.deluge.model.EnvelopeModel(
+                  old.attack(), old.decay(), old.sustain(), r, old.target(), old.amount()));
+        }
+        break;
+      case "PAN":
+        if (activeShiftRow == 4 && activeShiftCol == 6) {
+          float p = Math.max(0.0f, Math.min(1.0f, genericTrack.getPan() + delta * 0.02f));
+          genericTrack.setPan(p);
+        }
+        break;
+      case "LEVEL":
+        if (activeShiftRow == 7 && activeShiftCol == 6) {
+          float vol = Math.max(0.0f, genericTrack.getVolume() + delta * 0.02f);
+          genericTrack.setVolume(vol);
+        } else if (activeShiftRow == 7
+            && (activeShiftCol == 2 || activeShiftCol == 3)
+            && track != null) {
+          float mixVal = Math.max(0.0f, Math.min(1.0f, track.getOscMix() + delta * 0.02f));
+          track.setOscMix(mixVal);
+        }
+        break;
+      case "GLIDE":
+        if (track != null) {
+          float port = Math.max(0.0f, Math.min(2.0f, track.getPortamento() + delta * 0.02f));
+          track.setPortamento(port);
+        }
+        break;
+    }
+
+    // Update LED readout panel with new value
+    String code = getParamShortCode(activeShiftParam);
+    String valStr = getParamFormattedValue(activeShiftParam, activeShiftRow, activeShiftCol);
+    if (SwingDelugeApp.mainInstance != null) {
+      SwingDelugeApp.mainInstance.updateHardwareLedDisplay(code, valStr);
+    }
+
+    fireProjectChanged();
+    refresh();
   }
 
   private void handleDragCleared() {

@@ -20,6 +20,7 @@ public class PreferencesDialog extends JDialog {
   private final Runnable onLibraryChanged;
   private final DefaultListModel<String> listModel = new DefaultListModel<>();
   private JCheckBox advancedGridStyleCheck;
+  private JComboBox<String> interactionModeCombo;
 
   /**
    * Creates new form PreferencesDialog
@@ -36,15 +37,27 @@ public class PreferencesDialog extends JDialog {
     initComponents();
 
     // Add advanced UI checkbox programmatically outside the fold
-    JPanel advPanel = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.CENTER));
+    JPanel advPanel = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.CENTER, 15, 2));
     advPanel.setBackground(new java.awt.Color(24, 24, 24));
+
     JLabel advLabel = new JLabel("Advanced Grid UI Style:");
-    advLabel.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 20));
+    advLabel.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 14));
     advLabel.setForeground(java.awt.Color.LIGHT_GRAY);
     advancedGridStyleCheck = new JCheckBox();
     advancedGridStyleCheck.setBackground(new java.awt.Color(24, 24, 24));
+
+    JLabel shiftLabel = new JLabel("Shift Shortcut Style:");
+    shiftLabel.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 14));
+    shiftLabel.setForeground(java.awt.Color.LIGHT_GRAY);
+    interactionModeCombo = new JComboBox<>(new String[] {"Desktop Slider", "Hardware Rotary"});
+    interactionModeCombo.setBackground(new java.awt.Color(34, 34, 34));
+    interactionModeCombo.setForeground(java.awt.Color.WHITE);
+
     advPanel.add(advLabel);
     advPanel.add(advancedGridStyleCheck);
+    advPanel.add(new JSeparator(JSeparator.VERTICAL));
+    advPanel.add(shiftLabel);
+    advPanel.add(interactionModeCombo);
 
     // Wrap original content pane
     java.awt.Container contentPane = getContentPane();
@@ -74,6 +87,13 @@ public class PreferencesDialog extends JDialog {
 
     advancedGridStyleCheck.setSelected(
         PreferencesManager.getGridPanelType() == PreferencesManager.GridPanelType.ADVANCED);
+
+    if (PreferencesManager.getShiftInteractionMode()
+        == PreferencesManager.ShiftInteractionMode.POPUP_SLIDER) {
+      interactionModeCombo.setSelectedIndex(0);
+    } else {
+      interactionModeCombo.setSelectedIndex(1);
+    }
 
     // MIDI input ports
     String[] ports = org.chuck.midi.MidiIn.list();
@@ -655,6 +675,11 @@ public class PreferencesDialog extends JDialog {
             ? PreferencesManager.GridPanelType.ADVANCED
             : PreferencesManager.GridPanelType.LEGACY;
     PreferencesManager.setGridPanelType(panelType);
+
+    PreferencesManager.setShiftInteractionMode(
+        interactionModeCombo.getSelectedIndex() == 0
+            ? PreferencesManager.ShiftInteractionMode.POPUP_SLIDER
+            : PreferencesManager.ShiftInteractionMode.ROTARY_ENCODER);
 
     if (onGridModeChanged != null) onGridModeChanged.run();
     if (onLibraryChanged != null) onLibraryChanged.run();

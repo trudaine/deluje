@@ -46,6 +46,11 @@ public class SwingTopBarPanel extends JPanel {
   private final JToggleButton clipBtn;
   private final JSlider masterVolSlider;
   private final TopBarListener listener;
+  private final RetroLedDisplay retroLedDisplay;
+
+  public RetroLedDisplay getRetroLedDisplay() {
+    return retroLedDisplay;
+  }
 
   /**
    * @param vm ChucK virtual machine for direct bridge writes
@@ -202,6 +207,10 @@ public class SwingTopBarPanel extends JPanel {
     oledPanel.setBorder(BorderFactory.createLineBorder(Color.DARK_GRAY, 2));
     add(oledPanel);
 
+    // ── Retro Character LED Display (For shift rotary shortcuts!) ──
+    this.retroLedDisplay = new RetroLedDisplay();
+    add(retroLedDisplay);
+
     // ── High-Fidelity Encoders ──
     JPanel encoderPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 2));
     encoderPanel.setBackground(new Color(0x25, 0x25, 0x25));
@@ -219,7 +228,16 @@ public class SwingTopBarPanel extends JPanel {
     encoderPanel.add(
         createEncoderSim(
             "SELECT",
-            (offset) -> MatrixDriver.get().selectEncoderAction(offset),
+            (offset) -> {
+              if (SwingDelugeApp.mainInstance != null) {
+                SwingGridPanel grid = SwingDelugeApp.mainInstance.getClipPanel();
+                if (grid != null && grid.isShiftHeld() && grid.getActiveShiftParam() != null) {
+                  grid.adjustRotaryParameter(offset);
+                  return;
+                }
+              }
+              MatrixDriver.get().selectEncoderAction(offset);
+            },
             (on) -> MatrixDriver.get().selectButtonAction(on)));
 
     add(encoderPanel);
@@ -330,5 +348,37 @@ public class SwingTopBarPanel extends JPanel {
             btn.setBackground(bg);
           }
         });
+  }
+
+  public static class RetroLedDisplay extends JPanel {
+    private final JLabel label;
+
+    public RetroLedDisplay() {
+      setLayout(new BorderLayout());
+      setBackground(new Color(0x1a, 0x05, 0x05)); // dark red background
+      setBorder(
+          BorderFactory.createCompoundBorder(
+              BorderFactory.createLineBorder(new Color(0xaa, 0x33, 0x33), 1),
+              BorderFactory.createEmptyBorder(2, 6, 2, 6)));
+
+      label = new JLabel("[  --    --  ]");
+      label.setForeground(new Color(0xff, 0x33, 0x33)); // bright LED red
+      label.setFont(new Font("Monospaced", Font.BOLD, 14));
+      add(label, BorderLayout.CENTER);
+    }
+
+    public void print(String code, String val) {
+      label.setText(String.format("[ %-4s  %6s ]", code.toUpperCase(), val));
+      label.setForeground(new Color(0xff, 0x88, 0x00)); // active amber glow!
+      setBackground(new Color(0x24, 0x10, 0x00)); // active amber background
+      setBorder(BorderFactory.createLineBorder(new Color(0xff, 0x88, 0x00), 1));
+    }
+
+    public void reset() {
+      label.setText("[  --    --  ]");
+      label.setForeground(new Color(0xff, 0x33, 0x33)); // rest standard red
+      setBackground(new Color(0x1a, 0x05, 0x05));
+      setBorder(BorderFactory.createLineBorder(new Color(0xaa, 0x33, 0x33), 1));
+    }
   }
 }
