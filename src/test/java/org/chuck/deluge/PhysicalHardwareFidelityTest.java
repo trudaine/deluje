@@ -941,7 +941,7 @@ public class PhysicalHardwareFidelityTest {
             "/fidelity/123_HIGH_LFO_RATE_C5.XML", hw.length, triggerBlock, triggerBlock + 1000, 72);
     int hwStart = findPositiveZeroCrossing(hw, 10000);
     int swStart = findPositiveZeroCrossing(sw, 12800);
-    assertWaveShapeFidelity(hw, sw, 0.01, 15000, hwStart, swStart, "High LFO Rate C5");
+    assertWaveShapeFidelity(hw, sw, 0.0, 15000, hwStart, swStart, "High LFO Rate C5");
   }
 
   @Test
