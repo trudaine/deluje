@@ -50,6 +50,11 @@ public class DelugeGestureCoordinator {
     return new MouseAdapter() {
       @Override
       public void mousePressed(MouseEvent e) {
+        if (parentGridPanel instanceof SwingGridPanel sg && sg.isShiftHeld()) {
+          sg.handleShiftClick(row, col, e.getPoint(), e.getComponent());
+          return;
+        }
+
         if (SwingUtilities.isRightMouseButton(e)) {
           // Right click immediately opens the popup settings menu
           listener.onStepLongPressed(row, col, e.getLocationOnScreen());

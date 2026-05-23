@@ -133,6 +133,30 @@ public class PreferencesManager {
     prefs.put(KEY_GRID_PANEL_TYPE, type.name());
   }
 
+  /** Interaction mode when holding Shift and clicking grid parameter shortcut cells. */
+  public enum ShiftInteractionMode {
+    POPUP_SLIDER,
+    ROTARY_ENCODER;
+
+    public static ShiftInteractionMode fromString(String s) {
+      try {
+        return valueOf(s);
+      } catch (Exception e) {
+        return POPUP_SLIDER;
+      }
+    }
+  }
+
+  private static final String KEY_SHIFT_INTERACTION_MODE = "grid.shift.interactionMode";
+
+  public static ShiftInteractionMode getShiftInteractionMode() {
+    return ShiftInteractionMode.fromString(prefs.get(KEY_SHIFT_INTERACTION_MODE, "POPUP_SLIDER"));
+  }
+
+  public static void setShiftInteractionMode(ShiftInteractionMode mode) {
+    prefs.put(KEY_SHIFT_INTERACTION_MODE, mode.name());
+  }
+
   private static final String KEY_LIBRARY_DIR = "library_dir";
   private static final String KEY_RECENT_FILES =
       "recent_files"; // Comma-separated for simplicity MVP

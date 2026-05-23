@@ -26,6 +26,20 @@ public class DelugePadButton extends JButton {
     setFont(new Font("Monospaced", Font.BOLD, 9));
   }
 
+  @Override
+  public void setBackground(Color c) {
+    super.setBackground(c);
+    if (c != null) {
+      this.baseColor = c;
+      if (!c.equals(new Color(0x33, 0x33, 0x33)) && !c.equals(new Color(0x1d, 0x1d, 0x22))) {
+        this.active = true;
+      } else {
+        this.active = false;
+      }
+      repaint();
+    }
+  }
+
   public boolean isActive() {
     return active;
   }
@@ -169,23 +183,45 @@ public class DelugePadButton extends JButton {
       g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
     }
 
-    // 4. Render minimal text overlays
+    // 4. Render minimal text overlays (with two-line split centering if a space is present)
     if (!noteText.isEmpty()) {
       g2.setFont(getFont());
       FontMetrics fm = g2.getFontMetrics();
-      int textW = fm.stringWidth(noteText);
-      int textH = fm.getAscent();
+      int fh = fm.getHeight();
 
-      // High-contrast text outline or background box if active
-      if (active) {
-        g2.setColor(new Color(0, 0, 0, 180));
-        g2.fillRect((w - textW) / 2 - 2, (h - textH) / 2 - 1, textW + 4, textH + 2);
-        g2.setColor(Color.WHITE);
+      String[] parts = noteText.split(" ");
+      if (parts.length == 2) {
+        String part1 = parts[0];
+        String part2 = parts[1];
+        int w1 = fm.stringWidth(part1);
+        int w2 = fm.stringWidth(part2);
+        int maxW = Math.max(w1, w2);
+        int totalH = fh * 2 - 4;
+
+        if (active) {
+          g2.setColor(new Color(0, 0, 0, 180));
+          g2.fillRect((w - maxW) / 2 - 3, (h - totalH) / 2 - 2, maxW + 6, totalH + 4);
+          g2.setColor(Color.WHITE);
+        } else {
+          g2.setColor(new Color(0x88, 0x88, 0x95));
+        }
+
+        g2.drawString(part1, (w - w1) / 2, h / 2 - 2);
+        g2.drawString(part2, (w - w2) / 2, h / 2 + fh - 4);
       } else {
-        g2.setColor(new Color(0x88, 0x88, 0x95));
-      }
+        int textW = fm.stringWidth(noteText);
+        int textH = fm.getAscent();
 
-      g2.drawString(noteText, (w - textW) / 2, (h + textH) / 2 - 2);
+        if (active) {
+          g2.setColor(new Color(0, 0, 0, 180));
+          g2.fillRect((w - textW) / 2 - 2, (h - textH) / 2 - 1, textW + 4, textH + 2);
+          g2.setColor(Color.WHITE);
+        } else {
+          g2.setColor(new Color(0x88, 0x88, 0x95));
+        }
+
+        g2.drawString(noteText, (w - textW) / 2, (h + textH) / 2 - 2);
+      }
     }
 
     g2.dispose();

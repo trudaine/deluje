@@ -48,6 +48,329 @@ public class SwingGridPanel extends JPanel {
   private String selectedAutomationParam = org.chuck.deluge.model.AutomationParam.SYTH_PARAMS[0];
   private javax.swing.JComboBox<String> automationParamCombo;
   private boolean automationDragging = false;
+
+  private boolean shiftHeld = false;
+
+  public void setShiftHeld(boolean held) {
+    if (this.shiftHeld != held) {
+      this.shiftHeld = held;
+      repaint();
+      refresh();
+    }
+  }
+
+  public boolean isShiftHeld() {
+    return shiftHeld;
+  }
+
+  // ── Shift hardware colors layout ──
+  private static final Color COLOR_PEACH = new Color(255, 138, 128); // #ff8a80
+  private static final Color COLOR_YELLOW = new Color(255, 245, 157); // #fff59d
+  private static final Color COLOR_SLATE = new Color(144, 202, 249); // #90caf9
+  private static final Color COLOR_DEEP_BLUE = new Color(100, 181, 246); // #64b5f6
+  private static final Color COLOR_BEIGE = new Color(255, 224, 130); // #ffe082
+  private static final Color COLOR_ORANGE = new Color(255, 183, 77); // #ffb74d
+  private static final Color COLOR_PINK = new Color(244, 143, 177); // #f48fb1
+  private static final Color COLOR_BRIGHT_YELLOW = new Color(212, 225, 87); // #d4e157
+  private static final Color COLOR_SOFT_GREEN = new Color(165, 214, 167); // #a5d6a7
+  private static final Color COLOR_SOFT_BLUE = new Color(128, 222, 234); // #80deea
+  private static final Color COLOR_SOFT_RED = new Color(239, 154, 154); // #ef9a9a
+  private static final Color COLOR_OCHRE = new Color(255, 204, 128); // #ffcc80
+  private static final Color COLOR_WHITE = new Color(245, 245, 245); // off-white
+
+  private static final String[][] SHIFT_LABELS = {
+    {
+      "WAVE FORM",
+      "WAVE FORM",
+      "NOISE",
+      "OSC SYNC",
+      "DIRECTION",
+      "",
+      "SATURATE",
+      "",
+      "CUTOFF",
+      "CUTOFF",
+      "BASS FREQ",
+      "TREBLE FREQ",
+      "RATE",
+      "SIZE",
+      "X",
+      "Y"
+    },
+    {
+      "INTER POLATION",
+      "INTER POLATION",
+      "WAVETABLE",
+      "WAVETABLE",
+      "DESTI NATION",
+      "DESTI NATION",
+      "BITCRUSH",
+      "",
+      "RESONANCE",
+      "RESONANCE",
+      "BASS GAIN",
+      "TREBLE GAIN",
+      "DEPTH",
+      "DAMP",
+      "ENV 1",
+      "ENV 2"
+    },
+    {
+      "FEED BACK",
+      "FEED BACK",
+      "FEED BACK",
+      "FEED BACK",
+      "FEED BACK",
+      "FEED BACK",
+      "DECIMATE",
+      "",
+      "SLOPE",
+      "",
+      "SEND",
+      "",
+      "FDBACK",
+      "WIDTH",
+      "LFO 1",
+      "LFO 2"
+    },
+    {
+      "RECORD",
+      "RECORD",
+      "RETRIG PHASE",
+      "RETRIG PHASE",
+      "RETRIG",
+      "RETRIG",
+      "SYNTH MODE",
+      "UNISON VOICES",
+      "",
+      "",
+      "SHAPE",
+      "ARP MODE",
+      "OFFSET",
+      "PAN",
+      "MONO/ STEREO",
+      "SDCHAIN"
+    },
+    {
+      "PITCH SPEED",
+      "PITCH SPEED",
+      "PW",
+      "PW",
+      "PW",
+      "PW",
+      "PAN",
+      "UNISON DETUNE",
+      "ATTACK",
+      "ATTACK",
+      "ATTACK",
+      "ARP OCTAVES",
+      "TYPE",
+      "AMOUNT",
+      "AMOUNT",
+      "NOTE"
+    },
+    {
+      "SPEED",
+      "SPEED",
+      "TYPE",
+      "TYPE",
+      "TYPE",
+      "TYPE",
+      "VIBRATO",
+      "VOICE PRIORITY",
+      "DECAY",
+      "DECAY",
+      "VOL DUCK",
+      "ARP GATE",
+      "SHAPE",
+      "SHAPE",
+      "DIGI/ ANALOG",
+      "RANDOM"
+    },
+    {
+      "REVERSE",
+      "REVERSE",
+      "TRANS POSE",
+      "TRANS POSE",
+      "TRANS POSE",
+      "TRANS POSE",
+      "TRANS POSE",
+      "POLY PHONY",
+      "SUSTAIN",
+      "SUSTAIN",
+      "SYNC",
+      "ARP SYNC",
+      "SYNC",
+      "SYNC",
+      "SYNC",
+      "VELOCITY"
+    },
+    {
+      "MODE",
+      "MODE",
+      "LEVEL",
+      "LEVEL",
+      "LEVEL",
+      "LEVEL",
+      "GLIDE",
+      "GLIDE",
+      "RELEASE",
+      "RELEASE",
+      "LEVEL",
+      "ARP RATE",
+      "RATE",
+      "RATE",
+      "RATE",
+      "AFTER TOUCH"
+    }
+  };
+
+  private static final Color[][] SHIFT_COLORS = {
+    {
+      COLOR_PEACH,
+      COLOR_PEACH,
+      COLOR_PEACH,
+      COLOR_PEACH,
+      COLOR_YELLOW,
+      COLOR_WHITE,
+      COLOR_SLATE,
+      COLOR_WHITE,
+      COLOR_BEIGE,
+      COLOR_ORANGE,
+      COLOR_PINK,
+      COLOR_BRIGHT_YELLOW,
+      COLOR_SOFT_GREEN,
+      COLOR_SOFT_BLUE,
+      COLOR_SOFT_RED,
+      COLOR_OCHRE
+    },
+    {
+      COLOR_PEACH,
+      COLOR_PEACH,
+      COLOR_PEACH,
+      COLOR_PEACH,
+      COLOR_YELLOW,
+      COLOR_YELLOW,
+      COLOR_SLATE,
+      COLOR_WHITE,
+      COLOR_BEIGE,
+      COLOR_ORANGE,
+      COLOR_PINK,
+      COLOR_BRIGHT_YELLOW,
+      COLOR_SOFT_GREEN,
+      COLOR_SOFT_BLUE,
+      COLOR_SOFT_RED,
+      COLOR_OCHRE
+    },
+    {
+      COLOR_PEACH,
+      COLOR_PEACH,
+      COLOR_PEACH,
+      COLOR_PEACH,
+      COLOR_YELLOW,
+      COLOR_YELLOW,
+      COLOR_SLATE,
+      COLOR_WHITE,
+      COLOR_BEIGE,
+      COLOR_WHITE,
+      COLOR_PINK,
+      COLOR_WHITE,
+      COLOR_SOFT_GREEN,
+      COLOR_SOFT_BLUE,
+      COLOR_SOFT_RED,
+      COLOR_OCHRE
+    },
+    {
+      COLOR_PEACH,
+      COLOR_PEACH,
+      COLOR_PEACH,
+      COLOR_PEACH,
+      COLOR_YELLOW,
+      COLOR_YELLOW,
+      COLOR_SLATE,
+      COLOR_DEEP_BLUE,
+      COLOR_WHITE,
+      COLOR_WHITE,
+      COLOR_PINK,
+      COLOR_BRIGHT_YELLOW,
+      COLOR_SOFT_GREEN,
+      COLOR_SOFT_BLUE,
+      COLOR_SOFT_RED,
+      COLOR_OCHRE
+    },
+    {
+      COLOR_PEACH,
+      COLOR_PEACH,
+      COLOR_PEACH,
+      COLOR_PEACH,
+      COLOR_YELLOW,
+      COLOR_YELLOW,
+      COLOR_SLATE,
+      COLOR_DEEP_BLUE,
+      COLOR_BEIGE,
+      COLOR_ORANGE,
+      COLOR_PINK,
+      COLOR_BRIGHT_YELLOW,
+      COLOR_SOFT_GREEN,
+      COLOR_SOFT_BLUE,
+      COLOR_SOFT_RED,
+      COLOR_OCHRE
+    },
+    {
+      COLOR_PEACH,
+      COLOR_PEACH,
+      COLOR_PEACH,
+      COLOR_PEACH,
+      COLOR_YELLOW,
+      COLOR_YELLOW,
+      COLOR_SLATE,
+      COLOR_DEEP_BLUE,
+      COLOR_BEIGE,
+      COLOR_ORANGE,
+      COLOR_PINK,
+      COLOR_BRIGHT_YELLOW,
+      COLOR_SOFT_GREEN,
+      COLOR_SOFT_BLUE,
+      COLOR_SOFT_RED,
+      COLOR_OCHRE
+    },
+    {
+      COLOR_PEACH,
+      COLOR_PEACH,
+      COLOR_PEACH,
+      COLOR_PEACH,
+      COLOR_YELLOW,
+      COLOR_YELLOW,
+      COLOR_SLATE,
+      COLOR_DEEP_BLUE,
+      COLOR_BEIGE,
+      COLOR_ORANGE,
+      COLOR_PINK,
+      COLOR_BRIGHT_YELLOW,
+      COLOR_SOFT_GREEN,
+      COLOR_SOFT_BLUE,
+      COLOR_SOFT_RED,
+      COLOR_OCHRE
+    },
+    {
+      COLOR_PEACH,
+      COLOR_PEACH,
+      COLOR_PEACH,
+      COLOR_PEACH,
+      COLOR_YELLOW,
+      COLOR_YELLOW,
+      COLOR_SLATE,
+      COLOR_DEEP_BLUE,
+      COLOR_BEIGE,
+      COLOR_ORANGE,
+      COLOR_PINK,
+      COLOR_BRIGHT_YELLOW,
+      COLOR_SOFT_GREEN,
+      COLOR_SOFT_BLUE,
+      COLOR_SOFT_RED,
+      COLOR_OCHRE
+    }
+  };
   private String autoDragParam; // param name being dragged (for undo capture)
   private int autoDragStep = -1; // step index being dragged
   private float autoDragOldValue = -1f; // value before drag started
@@ -957,60 +1280,109 @@ public class SwingGridPanel extends JPanel {
               }
             });
       } else {
-        // Rendering
         if (clipBtn instanceof DelugePadButton pad) {
-          int engineRow = baseTrackId + modelRow;
-          boolean isMuted = bridge != null && bridge.getMute(engineRow);
-          pad.setMuted(isMuted);
-
-          if (viewMode == GridViewMode.CLIP) {
-            boolean stepState = bridge.getStep(engineRow, activeCol);
-            double vel = bridge != null ? bridge.getVelocity(engineRow, activeCol) : 0.8;
-            double prob = bridge != null ? bridge.getStepProbability(engineRow, activeCol) : 1.0;
-
-            pad.setActive(stepState);
-            pad.setBaseColor(trackColors[visibleRow % trackColors.length]);
-            pad.setIntensity((float) vel);
-
-            boolean isSynthMode = bridge != null && bridge.getTrackType(baseTrackId) == 1;
-            if (stepState) {
-              if (isSynthMode) {
-                int pitchMidi = ((24 - 1) - modelRow) + 60;
-                pad.setNoteText(getNoteName(pitchMidi));
-              } else {
-                pad.setNoteText(String.format("v%d", (int) (vel * 100)));
-              }
+          if (shiftHeld && visibleRow < 8 && colId < 16) {
+            org.chuck.deluge.model.TrackModel curTrack =
+                (editedModelTrack < projectModel.getTracks().size())
+                    ? projectModel.getTracks().get(editedModelTrack)
+                    : null;
+            boolean applicable =
+                isParamApplicable(SHIFT_LABELS[visibleRow][colId], visibleRow, colId, curTrack);
+            if (!applicable) {
+              pad.setActive(true);
+              pad.setBaseColor(new Color(0x25, 0x25, 0x2a)); // greyed out charcoal
+              pad.setNoteText(SHIFT_LABELS[visibleRow][colId]);
+              pad.setMuted(false);
+              pad.setIntensity(0.12f); // dimmed LED backlight
+              pad.setPlayhead(false);
+              pad.setTied(false);
+              pad.setText("");
             } else {
-              pad.setNoteText("");
+              pad.setActive(true);
+              pad.setBaseColor(SHIFT_COLORS[visibleRow][colId]);
+              pad.setNoteText(SHIFT_LABELS[visibleRow][colId]);
+              pad.setMuted(false);
+              pad.setIntensity(1.0f);
+              pad.setPlayhead(false);
+              pad.setTied(false);
+              pad.setText("");
             }
           } else {
-            // SONG, ARRANGEMENT
-            pad.setActive(hasClip);
-            pad.setBaseColor(trackColors[visibleRow % trackColors.length]);
-            pad.setIntensity(0.8f);
-            if (hasClip) {
-              if (modelRow < tracks.size() && c < tracks.get(modelRow).getClips().size()) {
-                pad.setNoteText(tracks.get(modelRow).getClips().get(c).getName());
+            int engineRow = baseTrackId + modelRow;
+            boolean isMuted = bridge != null && bridge.getMute(engineRow);
+            pad.setMuted(isMuted);
+
+            if (viewMode == GridViewMode.CLIP) {
+              boolean stepState = bridge.getStep(engineRow, activeCol);
+              double vel = bridge != null ? bridge.getVelocity(engineRow, activeCol) : 0.8;
+              double prob = bridge != null ? bridge.getStepProbability(engineRow, activeCol) : 1.0;
+
+              pad.setActive(stepState);
+              pad.setBaseColor(trackColors[visibleRow % trackColors.length]);
+              pad.setIntensity((float) vel);
+
+              boolean isSynthMode = bridge != null && bridge.getTrackType(baseTrackId) == 1;
+              if (stepState) {
+                if (isSynthMode) {
+                  int pitchMidi = ((24 - 1) - modelRow) + 60;
+                  pad.setNoteText(getNoteName(pitchMidi));
+                } else {
+                  pad.setNoteText(String.format("v%d", (int) (vel * 100)));
+                }
               } else {
-                pad.setNoteText("CLIP");
+                pad.setNoteText("");
               }
             } else {
-              pad.setNoteText("");
+              // SONG, ARRANGEMENT
+              pad.setActive(hasClip);
+              pad.setBaseColor(trackColors[visibleRow % trackColors.length]);
+              pad.setIntensity(0.8f);
+              if (hasClip) {
+                if (modelRow < tracks.size() && c < tracks.get(modelRow).getClips().size()) {
+                  pad.setNoteText(tracks.get(modelRow).getClips().get(c).getName());
+                } else {
+                  pad.setNoteText("CLIP");
+                }
+              } else {
+                pad.setNoteText("");
+              }
             }
           }
         } else {
-          if (viewMode == GridViewMode.CLIP) {
-            boolean stepState = bridge.getStep(baseTrackId + modelRow, activeCol);
-            double vel = bridge.getVelocity(baseTrackId + modelRow, activeCol);
-            clipBtn.setBackground(
-                stepState
-                    ? velocityBlend(trackColors[visibleRow % trackColors.length], vel)
-                    : new Color(0x33, 0x33, 0x33));
-          } else {
-            if (hasClip) {
-              clipBtn.setBackground(trackColors[visibleRow % trackColors.length]);
+          if (shiftHeld && visibleRow < 8 && colId < 16) {
+            org.chuck.deluge.model.TrackModel curTrack =
+                (editedModelTrack < projectModel.getTracks().size())
+                    ? projectModel.getTracks().get(editedModelTrack)
+                    : null;
+            boolean applicable =
+                isParamApplicable(SHIFT_LABELS[visibleRow][colId], visibleRow, colId, curTrack);
+            if (!applicable) {
+              clipBtn.setBackground(new Color(0x25, 0x25, 0x2a));
+              clipBtn.setText(
+                  "<html><center><font size='1' color='#55555d'><b>"
+                      + SHIFT_LABELS[visibleRow][colId]
+                      + "</b></font></center></html>");
             } else {
-              clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
+              clipBtn.setBackground(SHIFT_COLORS[visibleRow][colId]);
+              clipBtn.setText(
+                  "<html><center><font size='1'><b>"
+                      + SHIFT_LABELS[visibleRow][colId]
+                      + "</b></font></center></html>");
+            }
+          } else {
+            if (viewMode == GridViewMode.CLIP) {
+              boolean stepState = bridge.getStep(baseTrackId + modelRow, activeCol);
+              double vel = bridge.getVelocity(baseTrackId + modelRow, activeCol);
+              clipBtn.setBackground(
+                  stepState
+                      ? velocityBlend(trackColors[visibleRow % trackColors.length], vel)
+                      : new Color(0x33, 0x33, 0x33));
+            } else {
+              if (hasClip) {
+                clipBtn.setBackground(trackColors[visibleRow % trackColors.length]);
+              } else {
+                clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
+              }
             }
           }
         }
@@ -1029,6 +1401,10 @@ public class SwingGridPanel extends JPanel {
                     new java.awt.event.MouseAdapter() {
                       @Override
                       public void mousePressed(java.awt.event.MouseEvent e) {
+                        if (shiftHeld && visibleRow < 8 && colId < 16) {
+                          handleShiftClick(visibleRow, colId, e.getPoint(), e.getComponent());
+                          return;
+                        }
                         LOG.info(
                             "[grid] mPressed bVR: modelRow="
                                 + modelRow
@@ -3105,6 +3481,7 @@ public class SwingGridPanel extends JPanel {
                     int trackLenT = bridge != null ? bridge.getTrackLength(engineRow2) : stepCount;
                     for (int c = 0; c < stepCount; c++) {
                       if (pads[t][c] != null) {
+                        if (shiftHeld) continue;
                         // Map visual column to engine column when scrolled horizontally
                         int engineCol;
                         if (trackLenT > stepCount) {
@@ -4201,6 +4578,266 @@ public class SwingGridPanel extends JPanel {
         }
         pad.setTied(tiedInModel || (c >= start && c <= end));
       }
+    }
+  }
+
+  public void handleShiftClick(int row, int col, Point localPos, Component comp) {
+    if (row < 0 || row >= 8 || col < 0 || col >= 16) return;
+    String param = SHIFT_LABELS[row][col];
+    if (param == null || param.isEmpty()) return;
+
+    if (projectModel == null || editedModelTrack >= projectModel.getTracks().size()) return;
+    org.chuck.deluge.model.TrackModel genericTrack = projectModel.getTracks().get(editedModelTrack);
+
+    // Check parameter applicability first
+    boolean applicable = isParamApplicable(param, row, col, genericTrack);
+    if (!applicable) {
+      JPopupMenu tooltip = new JPopupMenu();
+      tooltip.setBackground(new Color(0x2a, 0x15, 0x15));
+      tooltip.setBorder(BorderFactory.createLineBorder(new Color(0xaa, 0x33, 0x33)));
+      JLabel alert = new JLabel("  PARAMETER NOT APPLICABLE  ");
+      alert.setForeground(new Color(0xff, 0x55, 0x55));
+      alert.setFont(new Font("SansSerif", Font.BOLD, 10));
+      tooltip.add(alert);
+      tooltip.show(comp, localPos.x, localPos.y);
+      Timer dismiss = new Timer(1500, ev -> tooltip.setVisible(false));
+      dismiss.setRepeats(false);
+      dismiss.start();
+      return;
+    }
+
+    // Extract track references (cast to SynthTrackModel for synth-specific operations)
+    org.chuck.deluge.model.SynthTrackModel track =
+        (genericTrack instanceof org.chuck.deluge.model.SynthTrackModel)
+            ? (org.chuck.deluge.model.SynthTrackModel) genericTrack
+            : null;
+
+    JPopupMenu popup = new JPopupMenu();
+    popup.setBackground(new Color(0x18, 0x18, 0x1c));
+    popup.setBorder(BorderFactory.createLineBorder(new Color(0x2d, 0x2d, 0x32)));
+
+    JPanel wrapper = new JPanel(new BorderLayout(5, 5));
+    wrapper.setBackground(new Color(0x18, 0x18, 0x1c));
+    wrapper.setBorder(BorderFactory.createEmptyBorder(6, 8, 6, 8));
+
+    JLabel title = new JLabel(param.toUpperCase());
+    title.setForeground(new Color(0x00, 0xff, 0xcc));
+    title.setFont(new Font("SansSerif", Font.BOLD, 10));
+    wrapper.add(title, BorderLayout.NORTH);
+
+    int initVal = 50;
+    String initialLabel = "";
+    final int envIdx = (col == 9) ? 1 : 0;
+
+    switch (param) {
+      case "CUTOFF":
+        if (row == 0 && track != null) { // LPF/HPF Cutoff
+          float freq = (col == 8) ? track.getLpfFreq() : track.getHpfFreq();
+          initVal = (int) (100.0 * Math.log(freq / 20.0) / Math.log(1000.0));
+          initialLabel = String.format("%.0f Hz", freq);
+        } else if (row == 1 && track != null) { // LPF/HPF Resonance
+          float res = (col == 8) ? track.getLpfRes() : track.getHpfRes();
+          initVal = (int) (res * 100.0f);
+          initialLabel = String.format("%d%%", initVal);
+        }
+        break;
+      case "RESONANCE":
+        if (track != null) {
+          float resVal = (col == 8) ? track.getLpfRes() : track.getHpfRes();
+          initVal = (int) (resVal * 100.0f);
+          initialLabel = String.format("%d%%", initVal);
+        }
+        break;
+      case "ATTACK":
+        if (track != null) {
+          float att = track.getEnv(envIdx).attack();
+          initVal = (int) (att * 10.0f);
+          initialLabel = String.format("%.2f s", att);
+        }
+        break;
+      case "DECAY":
+        if (track != null) {
+          float dec = track.getEnv(envIdx).decay();
+          initVal = (int) (dec * 10.0f);
+          initialLabel = String.format("%.2f s", dec);
+        }
+        break;
+      case "SUSTAIN":
+        if (track != null) {
+          float sus = track.getEnv(envIdx).sustain();
+          initVal = (int) (sus * 100.0f);
+          initialLabel = String.format("%d%%", initVal);
+        }
+        break;
+      case "RELEASE":
+        if (track != null) {
+          float rel = track.getEnv(envIdx).release();
+          initVal = (int) (rel * 10.0f);
+          initialLabel = String.format("%.2f s", rel);
+        }
+        break;
+      case "PAN":
+        if (row == 4 && col == 6) { // Master pan
+          initVal = (int) (genericTrack.getPan() * 100.0f);
+          initialLabel = String.format("%d%%", initVal);
+        }
+        break;
+      case "LEVEL":
+        if (row == 7 && col == 6) { // Master volume
+          initVal = (int) (genericTrack.getVolume() * 100.0f);
+          initialLabel = String.format("%d%%", initVal);
+        } else if (row == 7 && (col == 2 || col == 3) && track != null) { // Osc levels
+          initVal = (int) (track.getOscMix() * 100.0f);
+          initialLabel = String.format("%d%%", initVal);
+        }
+        break;
+      case "GLIDE":
+        initVal = (int) (track.getPortamento() * 50.0f);
+        initialLabel = String.format("%.2f s", track.getPortamento());
+        break;
+    }
+
+    JSlider slider = new JSlider(0, 100, Math.max(0, Math.min(100, initVal)));
+    slider.setBackground(new Color(0x12, 0x12, 0x14));
+    slider.setForeground(new Color(0x00, 0xff, 0xcc));
+    slider.setPreferredSize(new Dimension(150, 18));
+    wrapper.add(slider, BorderLayout.CENTER);
+
+    JLabel valueLabel = new JLabel(initialLabel);
+    valueLabel.setForeground(Color.LIGHT_GRAY);
+    valueLabel.setFont(new Font("Monospaced", Font.PLAIN, 10));
+    wrapper.add(valueLabel, BorderLayout.SOUTH);
+
+    slider.addChangeListener(
+        e -> {
+          int val = slider.getValue();
+          switch (param) {
+            case "CUTOFF":
+              if (row == 0) {
+                float freq = (float) (20.0 * Math.pow(1000.0, val / 100.0));
+                if (col == 8) track.setLpfFreq(freq);
+                else track.setHpfFreq(freq);
+                valueLabel.setText(String.format("%.0f Hz", freq));
+              } else if (row == 1) {
+                float res = val / 100.0f;
+                if (col == 8) track.setLpfRes(res);
+                else track.setHpfRes(res);
+                valueLabel.setText(String.format("%d%%", val));
+              }
+              break;
+            case "RESONANCE":
+              float res = val / 100.0f;
+              if (col == 8) track.setLpfRes(res);
+              else track.setHpfRes(res);
+              valueLabel.setText(String.format("%d%%", val));
+              break;
+            case "ATTACK":
+              float aTime = val / 10.0f;
+              var attEnv = track.getEnv(envIdx);
+              track.setEnv(
+                  envIdx,
+                  new org.chuck.deluge.model.EnvelopeModel(
+                      aTime,
+                      attEnv.decay(),
+                      attEnv.sustain(),
+                      attEnv.release(),
+                      attEnv.target(),
+                      attEnv.amount()));
+              valueLabel.setText(String.format("%.2f s", aTime));
+              break;
+            case "DECAY":
+              float dTime = val / 10.0f;
+              var decEnv = track.getEnv(envIdx);
+              track.setEnv(
+                  envIdx,
+                  new org.chuck.deluge.model.EnvelopeModel(
+                      decEnv.attack(),
+                      dTime,
+                      decEnv.sustain(),
+                      decEnv.release(),
+                      decEnv.target(),
+                      decEnv.amount()));
+              valueLabel.setText(String.format("%.2f s", dTime));
+              break;
+            case "SUSTAIN":
+              float sLevel = val / 100.0f;
+              var susEnv = track.getEnv(envIdx);
+              track.setEnv(
+                  envIdx,
+                  new org.chuck.deluge.model.EnvelopeModel(
+                      susEnv.attack(),
+                      susEnv.decay(),
+                      sLevel,
+                      susEnv.release(),
+                      susEnv.target(),
+                      susEnv.amount()));
+              valueLabel.setText(String.format("%d%%", val));
+              break;
+            case "RELEASE":
+              float rTime = val / 10.0f;
+              var relEnv = track.getEnv(envIdx);
+              track.setEnv(
+                  envIdx,
+                  new org.chuck.deluge.model.EnvelopeModel(
+                      relEnv.attack(),
+                      relEnv.decay(),
+                      relEnv.sustain(),
+                      rTime,
+                      relEnv.target(),
+                      relEnv.amount()));
+              valueLabel.setText(String.format("%.2f s", rTime));
+              break;
+            case "PAN":
+              if (row == 4 && col == 6) {
+                float p = val / 100.0f;
+                genericTrack.setPan(p);
+                valueLabel.setText(String.format("%d%%", val));
+              }
+              break;
+            case "LEVEL":
+              if (row == 7 && col == 6) {
+                float vol = val / 100.0f;
+                genericTrack.setVolume(vol);
+                valueLabel.setText(String.format("%d%%", val));
+              } else if (row == 7 && (col == 2 || col == 3) && track != null) {
+                float mixVal = val / 100.0f;
+                track.setOscMix(mixVal);
+                valueLabel.setText(String.format("%d%%", val));
+              }
+              break;
+            case "GLIDE":
+              float port = val / 50.0f;
+              track.setPortamento(port);
+              valueLabel.setText(String.format("%.2f s", port));
+              break;
+          }
+          fireProjectChanged();
+        });
+
+    popup.add(wrapper);
+    popup.show(comp, localPos.x, localPos.y);
+  }
+
+  private boolean isParamApplicable(
+      String param, int row, int col, org.chuck.deluge.model.TrackModel track) {
+    if (track == null || param == null || param.isEmpty()) return false;
+    if (track instanceof org.chuck.deluge.model.SynthTrackModel) {
+      return true;
+    }
+    // For non-synth tracks (Kit/Audio), only master track sends are applicable!
+    switch (param) {
+      case "LEVEL":
+        return (row == 7 && col == 6);
+      case "PAN":
+        return (row == 4 && col == 6);
+      case "SIZE":
+        return (row == 0 && col == 13);
+      case "RATE":
+        return (row == 7 && col == 14);
+      case "SDCHAIN":
+        return (row == 3 && col == 15);
+      default:
+        return false;
     }
   }
 
