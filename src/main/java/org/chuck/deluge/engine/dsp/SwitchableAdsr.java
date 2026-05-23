@@ -40,12 +40,21 @@ public class SwitchableAdsr extends ChuckUGen {
     firmwareAdsr.forceMute();
   }
 
+  private float lastValue = 0.0f;
+
+  public float getLastValue() {
+    return lastValue;
+  }
+
   @Override
   protected float compute(float input, long systemTime) {
+    float val;
     if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
-      return firmwareAdsr.tick(input, systemTime);
+      val = firmwareAdsr.tick(input, systemTime);
     } else {
-      return nativeAdsr.tick(input, systemTime);
+      val = nativeAdsr.tick(input, systemTime);
     }
+    lastValue = val;
+    return val;
   }
 }
