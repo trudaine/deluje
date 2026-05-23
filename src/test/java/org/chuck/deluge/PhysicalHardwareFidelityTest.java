@@ -1090,22 +1090,98 @@ public class PhysicalHardwareFidelityTest {
       System.out.println(
           "  [SKIP REGRESSION] reference_fm_glide_ratio_c5.wav is not generated yet.");
       float[] sw =
-          renderXmlTrackPreset("/fidelity/129_FM_GLIDE_RATIO_C5.XML", 44100, 100, 1100, 72);
+          renderGlideXmlTrackPreset(
+              "/fidelity/129_FM_GLIDE_RATIO_C5.XML", 44100, 100, 300, 1100, 60, 72);
       org.junit.jupiter.api.Assertions.assertTrue(calculateRms(sw) > 0.01f);
       return;
     }
     float[] hw = loadWavFromResource(wavPath);
     int triggerBlock = 100;
     float[] sw =
-        renderXmlTrackPreset(
+        renderGlideXmlTrackPreset(
             "/fidelity/129_FM_GLIDE_RATIO_C5.XML",
             hw.length,
             triggerBlock,
+            triggerBlock + 200,
             triggerBlock + 1000,
+            60,
             72);
     int hwStart = findPositiveZeroCrossing(hw, 10000);
     int swStart = findPositiveZeroCrossing(sw, 12800);
     assertWaveShapeFidelity(hw, sw, 0.01, 15000, hwStart, swStart, "FM Glide Ratio C5");
+  }
+
+  private float[] renderGlideXmlTrackPreset(
+      String xmlPath,
+      int targetLength,
+      int triggerBlock,
+      int glideTriggerBlock,
+      int releaseBlock,
+      int startPitch,
+      int targetPitch)
+      throws Exception {
+    java.io.File xmlFile = new java.io.File(getClass().getResource(xmlPath).toURI());
+    SynthTrackModel synthModel = DelugeXmlParser.parseSynth(xmlFile);
+
+    if (xmlPath.contains("FM") || xmlPath.contains("DX7")) {
+      synthModel.setVolume(0.05f);
+    } else {
+      synthModel.setVolume(0.5f);
+    }
+
+    ProjectModel project = new ProjectModel();
+    project.addTrack(synthModel);
+    Song fwSong = FirmwareFactory.createSong(project);
+    org.chuck.deluge.firmware.model.InstrumentClip clip =
+        (org.chuck.deluge.firmware.model.InstrumentClip) fwSong.clips.get(0);
+    FirmwareSound synth = (FirmwareSound) clip.sound;
+
+    FirmwareAudioEngine engine = new FirmwareAudioEngine();
+    engine.sounds.add(synth);
+
+    float[] sw = new float[targetLength];
+    byte[] byteBuffer = new byte[targetLength * 4];
+    int totalBlocks = targetLength / 128;
+
+    for (int b = 0; b < totalBlocks; b++) {
+      if (b == triggerBlock) {
+        synth.triggerNote(startPitch, 100);
+      }
+      if (b == glideTriggerBlock) {
+        synth.triggerNote(targetPitch, 100);
+      }
+      if (b == glideTriggerBlock + 10) {
+        synth.releaseNote(startPitch);
+      }
+      if (b == releaseBlock) {
+        synth.releaseNote(targetPitch);
+      }
+
+      engine.renderBlock(128);
+
+      for (int i = 0; i < 128; i++) {
+        StereoSample s = engine.masterBuffer[i];
+        int leftVal = s.l >> 16;
+        int rightVal = s.r >> 16;
+        short left = (short) Math.max(-32768, Math.min(32767, leftVal));
+        short right = (short) Math.max(-32768, Math.min(32767, rightVal));
+
+        int idx = (b * 128 + i) * 4;
+        byteBuffer[idx] = (byte) (left & 0xFF);
+        byteBuffer[idx + 1] = (byte) ((left >> 8) & 0xFF);
+        byteBuffer[idx + 2] = (byte) (right & 0xFF);
+        byteBuffer[idx + 3] = (byte) ((right >> 8) & 0xFF);
+      }
+    }
+
+    for (int i = 0; i < sw.length; i++) {
+      int idx = i * 4;
+      int b0 = byteBuffer[idx] & 0xFF;
+      int b1 = byteBuffer[idx + 1];
+      short val = (short) (b0 | (b1 << 8));
+      sw[i] = val / 32768.0f;
+    }
+    return sw;
   }
 
   private static float calculateRms(float[] data) {
