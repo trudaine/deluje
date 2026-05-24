@@ -2348,6 +2348,22 @@ public class SwingDelugeApp extends JFrame {
         });
     toolsMenu.add(slicerItem);
 
+    JMenuItem debugKitItem = new JMenuItem("Debug Kit Config Open...");
+    debugKitItem.setAccelerator(
+        KeyStroke.getKeyStroke(
+            java.awt.event.KeyEvent.VK_K, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+    debugKitItem.addActionListener(
+        e -> {
+          java.util.List<org.chuck.deluge.model.TrackModel> tracks = currentProject.getTracks();
+          for (org.chuck.deluge.model.TrackModel t : tracks) {
+            if (t instanceof org.chuck.deluge.model.KitTrackModel kt) {
+              new SwingKitConfigDialog(this, kt, vm, bridge).setVisible(true);
+              break;
+            }
+          }
+        });
+    toolsMenu.add(debugKitItem);
+
     menuBar.add(fileMenu);
     menuBar.add(editMenu);
     menuBar.add(toolsMenu);
@@ -2618,6 +2634,23 @@ public class SwingDelugeApp extends JFrame {
 
     // Push default project to engine and broadcast load trigger to unblock shreds
     pushModelToBridge();
+
+    // Programmatic startup song file loader!
+    if (startupFilePath != null) {
+      java.io.File file = new java.io.File(startupFilePath);
+      if (file.exists()) {
+        try {
+          org.chuck.deluge.model.ProjectModel loaded =
+              org.chuck.deluge.xml.DelugeXmlParser.parseSong(file);
+          loadProject(loaded);
+          currentProjectFile = file;
+          System.out.println(
+              "[main] Successfully pre-loaded startup song project: " + file.getName());
+        } catch (Exception ex) {
+          System.err.println("[main] Startup load failed: " + ex.getMessage());
+        }
+      }
+    }
   }
 
   /** No-op: centeredWrapper removed, scroll pane sizes to content naturally. */
@@ -2667,7 +2700,14 @@ public class SwingDelugeApp extends JFrame {
     timer.start();
   }
 
+  public static String startupFilePath = null;
+
   public static void main(String[] args) {
+    for (String arg : args) {
+      if (arg.toUpperCase().endsWith(".XML")) {
+        startupFilePath = arg;
+      }
+    }
     // Configure global tooltip timing parameters (pop up after 250ms, keep open for 20s)
     javax.swing.ToolTipManager.sharedInstance().setDismissDelay(20000);
     javax.swing.ToolTipManager.sharedInstance().setInitialDelay(250);
