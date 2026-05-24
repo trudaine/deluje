@@ -277,6 +277,33 @@ public class PreferencesManager {
     prefs.remove(KEY_RECENT_FILES);
   }
 
+  private static final String KEY_WINDOW_WIDTH = "windowWidth";
+  private static final String KEY_WINDOW_HEIGHT = "windowHeight";
+
+  public static int getWindowWidth(int defaultVal) {
+    return prefs.getInt(KEY_WINDOW_WIDTH, defaultVal);
+  }
+
+  public static void setWindowWidth(int width) {
+    prefs.putInt(KEY_WINDOW_WIDTH, width);
+    try {
+      prefs.flush();
+    } catch (Exception ignored) {
+    }
+  }
+
+  public static int getWindowHeight(int defaultVal) {
+    return prefs.getInt(KEY_WINDOW_HEIGHT, defaultVal);
+  }
+
+  public static void setWindowHeight(int height) {
+    prefs.putInt(KEY_WINDOW_HEIGHT, height);
+    try {
+      prefs.flush();
+    } catch (Exception ignored) {
+    }
+  }
+
   public static String get(String key, String def) {
     return prefs.get(key, def);
   }

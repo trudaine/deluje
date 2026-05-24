@@ -1,5 +1,9 @@
 package org.chuck.deluge.engine;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
 import javax.sound.sampled.*;
 import org.chuck.deluge.firmware.dsp.StereoSample;
 import org.chuck.deluge.firmware.engine.FirmwareAudioEngine;
@@ -7,6 +11,40 @@ import org.chuck.deluge.firmware.playback.PlaybackHandler;
 
 /** Pure Java audio driver using javax.sound.sampled. */
 public class JavaAudioDriver implements Runnable {
+  public static volatile boolean isResamplingActive = false;
+  private static final ByteArrayOutputStream recordedBytes = new ByteArrayOutputStream();
+
+  public static void startResampling() {
+    synchronized (recordedBytes) {
+      recordedBytes.reset();
+    }
+    isResamplingActive = true;
+    System.out.println("[Resampler] Recording started...");
+  }
+
+  public static byte[] stopResampling() {
+    isResamplingActive = false;
+    synchronized (recordedBytes) {
+      byte[] data = recordedBytes.toByteArray();
+      recordedBytes.reset();
+      System.out.println("[Resampler] Recording stopped. Captured " + data.length + " bytes.");
+      return data;
+    }
+  }
+
+  public static void saveWavFile(byte[] pcmData, File targetFile) throws IOException {
+    AudioFormat format = new AudioFormat(44100, 16, 2, true, false);
+    ByteArrayInputStream bais = new ByteArrayInputStream(pcmData);
+    AudioInputStream ais = new AudioInputStream(bais, format, pcmData.length / 4);
+    try {
+      AudioSystem.write(ais, AudioFileFormat.Type.WAVE, targetFile);
+      System.out.println(
+          "[Resampler] Saved WAV loop successfully: " + targetFile.getAbsolutePath());
+    } finally {
+      ais.close();
+    }
+  }
+
   private final FirmwareAudioEngine engine;
   private final PlaybackHandler playbackHandler;
   private SourceDataLine line;
@@ -125,6 +163,11 @@ public class JavaAudioDriver implements Runnable {
         if (blockCounter % 200 == 0) peak = 0;
         blockCounter++;
 
+        if (isResamplingActive) {
+          synchronized (recordedBytes) {
+            recordedBytes.write(byteBuffer, 0, byteBuffer.length);
+          }
+        }
         line.write(byteBuffer, 0, byteBuffer.length);
       }
 
