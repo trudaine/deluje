@@ -3603,6 +3603,50 @@ public class SwingGridPanel extends JPanel {
                 }
               });
         }
+        // Bottom play rate step speed resolution zoom JComboBox selector
+        double currentRes = (bridge != null) ? bridge.getStepResolution() : 0.25;
+        String[] rateLabels = {"1 Bar", "1/2", "1/4", "1/8", "1/16", "1/32", "1/64", "1/128"};
+        double[] rateValues = {4.0, 2.0, 1.0, 0.5, 0.25, 0.125, 0.0625, 0.03125};
+
+        int currentRateIdx = 4; // default 1/16
+        for (int i = 0; i < rateValues.length; i++) {
+          if (Math.abs(rateValues[i] - currentRes) < 0.0001) {
+            currentRateIdx = i;
+            break;
+          }
+        }
+
+        JComboBox<String> rateCombo = new JComboBox<>(rateLabels);
+        rateCombo.setSelectedIndex(currentRateIdx);
+        rateCombo.setFont(new Font("Monospaced", Font.BOLD, 10));
+        rateCombo.setPreferredSize(new Dimension(72, 22));
+        rateCombo.setMinimumSize(new Dimension(72, 22));
+        rateCombo.setMaximumSize(new Dimension(72, 22));
+        rateCombo.setForeground(new Color(0xff, 0xcc, 0x00));
+        rateCombo.setBackground(new Color(0x2d, 0x2d, 0x32));
+        rateCombo.setFocusable(false);
+        rateCombo.setToolTipText(
+            "Change sequence play step rate resolution speed (Alt-Hold dial equivalent)");
+
+        rateCombo.addActionListener(
+            e -> {
+              int idx = rateCombo.getSelectedIndex();
+              if (idx >= 0 && idx < rateValues.length) {
+                double newVal = rateValues[idx];
+                if (bridge != null) {
+                  bridge.setStepResolution(newVal);
+                }
+                if (SwingDelugeApp.mainInstance != null) {
+                  SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient(
+                      "RATE", rateLabels[idx] + " ");
+                }
+                refresh();
+              }
+            });
+
+        scrollRow.add(rateCombo);
+        scrollRow.add(Box.createRigidArea(new Dimension(8, 10)));
+
         // Bottom loop step length badge controller
         int clipSteps = (bridge != null) ? bridge.getTrackLength(baseTrackId) : stepCount;
         JLabel bottomLenBadge = new JLabel("[" + clipSteps + "]");
@@ -3650,9 +3694,9 @@ public class SwingGridPanel extends JPanel {
 
         horizScrollBar.setEnabled(true);
         int colsWidth = stepCount * (padSz + 5) - 5;
-        horizScrollBar.setPreferredSize(new Dimension(colsWidth - 54, 12));
+        horizScrollBar.setPreferredSize(new Dimension(colsWidth - 134, 12));
         horizScrollBar.setMinimumSize(new Dimension(100, 12));
-        horizScrollBar.setMaximumSize(new Dimension(colsWidth - 54, 12));
+        horizScrollBar.setMaximumSize(new Dimension(colsWidth - 134, 12));
         horizScrollBar.setValues(scrollOffsetX, stepCount, 0, Math.max(stepCount, trackLenH));
         scrollRow.add(horizScrollBar);
 

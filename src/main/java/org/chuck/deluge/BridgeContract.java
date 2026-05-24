@@ -122,6 +122,7 @@ public final class BridgeContract {
   public static final String G_STUTTER_ON = "g_stutter_on";
   public static final String G_STUTTER_DIV = "g_stutter_div";
   public static final String G_TRACK_ACTIVITY = "g_track_activity";
+  public static final String G_STEP_RESOLUTION = "g_step_resolution";
 
   // ── Step-data arrays (size PATTERN_SIZE each) ─────────────────────────
   public static final String G_PATTERN = "g_pattern";
@@ -1340,6 +1341,7 @@ public final class BridgeContract {
   private final int[] modeNotes = new int[12]; // boolean array packed as int[12] (0 or 1)
 
   private double bpm = 120.0;
+  private double stepResolution = 0.25;
   private double swing = 0.5;
   private int hiFiMode = 0; // 0 = legacy, 1 = high fidelity firmware port
   // ── MIDI Follow Mode scalars ──
@@ -1376,6 +1378,7 @@ public final class BridgeContract {
     vm.setGlobalFloat(G_SWING, swing);
     vm.setGlobalInt(G_HI_FI_MODE, (long) hiFiMode);
     vm.setGlobalInt(G_PLAY, 0L);
+    vm.setGlobalFloat(G_STEP_RESOLUTION, stepResolution);
     vm.setGlobalInt(G_CURRENT_STEP, -1L);
     vm.setGlobalFloat(G_MASTER_VOL, (double) masterVol);
     vm.setGlobalFloat(G_MASTER_PAN, (double) masterPan);
@@ -2465,6 +2468,17 @@ public final class BridgeContract {
 
   public double getBpm() {
     return bpm;
+  }
+
+  public synchronized void setStepResolution(double res) {
+    this.stepResolution = res;
+    if (vm != null) {
+      vm.setGlobalFloat(G_STEP_RESOLUTION, res);
+    }
+  }
+
+  public synchronized double getStepResolution() {
+    return stepResolution;
   }
 
   public void setSwing(double swing) {
