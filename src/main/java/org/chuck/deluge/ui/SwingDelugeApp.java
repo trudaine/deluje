@@ -2349,6 +2349,7 @@ public class SwingDelugeApp extends JFrame {
     clipPanel = new SwingGridPanel(vm, bridge);
     clipPanel.setViewMode(SwingGridPanel.GridViewMode.CLIP);
     clipPanel.setProjectModel(currentProject);
+    clipPanel.resetScrollOffset();
     clipPanel.setOnProjectChanged(projectChangeHandler);
     clipPanel.setOnClipChanged(
         () -> {
@@ -2402,8 +2403,8 @@ public class SwingDelugeApp extends JFrame {
     JScrollPane centerScroll =
         new JScrollPane(
             centerCardPanel,
-            ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
-            ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+            ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER,
+            ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
 
     // DEBUG: centerScroll.setBorder(BorderFactory.createLineBorder(Color.YELLOW, 3));
     /*centerScroll.getViewport().setOpaque(true);
@@ -2816,6 +2817,96 @@ public class SwingDelugeApp extends JFrame {
   /** Handles top-bar view-mode and add-track actions. */
   private class AppTopBarListener implements SwingTopBarPanel.TopBarListener {
     @Override
+    public void onLiveRecordToggle(JButton btn) {
+      SwingGridPanel.isLiveRecordModeActive = !SwingGridPanel.isLiveRecordModeActive;
+      if (SwingGridPanel.isLiveRecordModeActive) {
+        btn.setBackground(new Color(0xd3, 0x2f, 0x2f));
+        btn.setForeground(Color.WHITE);
+        btn.setText("\u25CF RECORDING");
+        if (topBar != null && topBar.getRetroLedDisplay() != null) {
+          topBar.getRetroLedDisplay().printTransient("REC", "ON");
+        }
+      } else {
+        btn.setBackground(new Color(0x3a, 0x0c, 0x0c));
+        btn.setForeground(new Color(0xff, 0x33, 0x33));
+        btn.setText("\u25CF REC");
+        if (topBar != null && topBar.getRetroLedDisplay() != null) {
+          topBar.getRetroLedDisplay().printTransient("REC", "OFF");
+        }
+      }
+    }
+
+    @Override
+    public void onResampleToggle(JButton btn) {
+      if (!org.chuck.deluge.engine.JavaAudioDriver.isResamplingActive) {
+        // Start resample mode: auto-start play if not playing
+        if (vm.getGlobalInt(BridgeContract.G_PLAY) == 0L) {
+          onPlayToggle();
+        }
+        org.chuck.deluge.engine.JavaAudioDriver.startResampling();
+        btn.setBackground(new Color(0xff, 0xaa, 0x00));
+        btn.setForeground(Color.WHITE);
+        btn.setText("\u25CF SAMPLING");
+        if (topBar != null && topBar.getRetroLedDisplay() != null) {
+          topBar.getRetroLedDisplay().printTransient("LOOP", "REC");
+        }
+      } else {
+        // Stop resample: build looper KitTrack dynamically with a 4-on-the-floor trigger step
+        // pattern
+        byte[] pcmData = org.chuck.deluge.engine.JavaAudioDriver.stopResampling();
+        btn.setBackground(new Color(0x3e, 0x27, 0x0c));
+        btn.setForeground(new Color(0xff, 0xb3, 0x00));
+        btn.setText("\u25CF RESAMPLE");
+        if (topBar != null && topBar.getRetroLedDisplay() != null) {
+          topBar.getRetroLedDisplay().printTransient("LOOP", "DONE");
+        }
+
+        if (pcmData == null || pcmData.length < 100) return;
+
+        try {
+          java.io.File resampleDir =
+              new java.io.File(
+                  org.chuck.deluge.project.PreferencesManager.getLibraryDir(), "SAMPLES/RESAMPLE");
+          if (!resampleDir.exists()) resampleDir.mkdirs();
+          String sampleName = "Resample_" + System.currentTimeMillis() + ".wav";
+          java.io.File targetFile = new java.io.File(resampleDir, sampleName);
+
+          org.chuck.deluge.engine.JavaAudioDriver.saveWavFile(pcmData, targetFile);
+
+          // Instantiate a new Kit track with our recorded loop sample loaded
+          org.chuck.deluge.model.KitTrackModel kitTrack =
+              new org.chuck.deluge.model.KitTrackModel(
+                  "Resample " + (currentProject.getTracks().size() + 1));
+          org.chuck.deluge.model.Drum drum =
+              new org.chuck.deluge.model.SoundDrum(sampleName, "SAMPLES/RESAMPLE/" + sampleName);
+          kitTrack.addDrum(drum);
+
+          // Program 4-on-the-floor loop triggers (Col 0, 4, 8, 12)
+          org.chuck.deluge.model.ClipModel clip =
+              new org.chuck.deluge.model.ClipModel("CLIP 1", 1, 16);
+          clip.setStep(0, 0, org.chuck.deluge.model.StepData.of(true, 1.0f, 1.0f, 1.0f, 0));
+          clip.setStep(0, 4, org.chuck.deluge.model.StepData.of(true, 1.0f, 1.0f, 1.0f, 0));
+          clip.setStep(0, 8, org.chuck.deluge.model.StepData.of(true, 1.0f, 1.0f, 1.0f, 0));
+          clip.setStep(0, 12, org.chuck.deluge.model.StepData.of(true, 1.0f, 1.0f, 1.0f, 0));
+          kitTrack.addClip(clip);
+
+          currentProject.addTrack(kitTrack);
+
+          // Synchronize model changes to both engines
+          propagateCurrentModel();
+          pushModelToBridge();
+          syncHighFidelityEngine(currentProject);
+
+          if (clipPanel != null) {
+            clipPanel.refresh();
+          }
+        } catch (Exception ex) {
+          System.err.println("Failed to save and load master resample: " + ex.getMessage());
+        }
+      }
+    }
+
+    @Override
     public void onViewModeChanged(String viewMode) {
       activeViewMode = viewMode;
       cardLayout.show(centerCardPanel, viewMode);
@@ -2877,6 +2968,11 @@ public class SwingDelugeApp extends JFrame {
 
     @Override
     public void onStop() {
+      if (org.chuck.deluge.engine.JavaAudioDriver.isResamplingActive) {
+        if (topBar != null) {
+          topBar.stopRecordingIfActive();
+        }
+      }
       vm.setGlobalInt(BridgeContract.G_PLAY, 0L);
       if (bridge != null) bridge.setPlayState(0);
 

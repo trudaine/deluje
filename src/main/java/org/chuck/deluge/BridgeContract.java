@@ -90,7 +90,7 @@ public final class BridgeContract {
 
   // ── Dimensions ────────────────────────────────────────────────────────
 
-  public static final int TRACKS = Integer.getInteger("deluge.tracks", 64);
+  public static final int TRACKS = Integer.getInteger("deluge.tracks", 128);
   public static final int STEPS = 192;
   public static final int PATTERN_SIZE = TRACKS * STEPS;
 

@@ -28,8 +28,27 @@ import org.chuck.deluge.model.ProjectModel;
  */
 public class SwingTopBarPanel extends JPanel {
 
+  private JButton recBtn;
+  private JButton resampleBtn;
+
+  public void stopRecordingIfActive() {
+    if (org.chuck.deluge.engine.JavaAudioDriver.isResamplingActive) {
+      if (resampleBtn != null) {
+        for (java.awt.event.ActionListener al : resampleBtn.getActionListeners()) {
+          al.actionPerformed(
+              new java.awt.event.ActionEvent(
+                  resampleBtn, java.awt.event.ActionEvent.ACTION_PERFORMED, ""));
+        }
+      }
+    }
+  }
+
   /** Callback interface for actions that need to reach the parent frame. */
   public interface TopBarListener {
+    void onLiveRecordToggle(JButton btn);
+
+    void onResampleToggle(JButton btn);
+
     void onViewModeChanged(String viewMode);
 
     void onAddTrack(String type);
@@ -174,6 +193,17 @@ public class SwingTopBarPanel extends JPanel {
           retroLedDisplay.printTransient("STOP", "OFF");
         });
     add(stopBtn);
+
+    recBtn = new JButton("\u25CF REC");
+    styleButton(recBtn, new Color(0x3a, 0x0c, 0x0c), new Color(0xff, 0x33, 0x33));
+    recBtn.addActionListener(e -> listener.onLiveRecordToggle(recBtn));
+    add(recBtn);
+
+    resampleBtn = new JButton("\u25CF RESAMPLE");
+    styleButton(resampleBtn, new Color(0x3e, 0x27, 0x0c), new Color(0xff, 0xb3, 0x00));
+    resampleBtn.addActionListener(e -> listener.onResampleToggle(resampleBtn));
+    add(resampleBtn);
+
     add(new JSeparator(JSeparator.VERTICAL));
 
     // ── Sliders ──
@@ -291,61 +321,8 @@ public class SwingTopBarPanel extends JPanel {
     JPanel encoderPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 2));
     encoderPanel.setBackground(new Color(0x18, 0x18, 0x1c));
     encoderPanel.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
-    encoderPanel.setPreferredSize(new Dimension(280, 42));
-    encoderPanel.setMaximumSize(new Dimension(280, 42));
-
-    encoderPanel.add(
-        createEncoderSim(
-            "HORIZ",
-            (offset) -> {
-              System.out.println("[TRACE topbar] HORIZ rotate offset=" + offset);
-              if (SwingDelugeApp.mainInstance != null) {
-                SwingGridPanel activeGrid = SwingDelugeApp.mainInstance.getActiveGridPanel();
-                System.out.println(
-                    "[TRACE topbar] HORIZ target activeGrid="
-                        + (activeGrid != null ? activeGrid.getViewMode() : "null"));
-                if (activeGrid != null) {
-                  activeGrid.scrollHorizontally(offset);
-                }
-              }
-              MatrixDriver.get().horizontalEncoderAction(offset);
-            },
-            (on) -> {
-              System.out.println("[TRACE topbar] HORIZ click on=" + on);
-              if (on && SwingDelugeApp.mainInstance != null) {
-                SwingGridPanel activeGrid = SwingDelugeApp.mainInstance.getActiveGridPanel();
-                if (activeGrid != null) {
-                  activeGrid.resetHorizontalScroll();
-                }
-              }
-              MatrixDriver.get().horizontalButtonAction(on);
-            }));
-    encoderPanel.add(
-        createEncoderSim(
-            "VERT",
-            (offset) -> {
-              System.out.println("[TRACE topbar] VERT rotate offset=" + offset);
-              if (SwingDelugeApp.mainInstance != null) {
-                SwingGridPanel activeGrid = SwingDelugeApp.mainInstance.getActiveGridPanel();
-                System.out.println(
-                    "[TRACE topbar] VERT target activeGrid="
-                        + (activeGrid != null ? activeGrid.getViewMode() : "null"));
-                if (activeGrid != null) {
-                  activeGrid.scrollVertically(offset);
-                }
-              }
-              MatrixDriver.get().verticalEncoderAction(offset);
-            },
-            (on) -> {
-              System.out.println("[TRACE topbar] VERT click on=" + on);
-              if (on && SwingDelugeApp.mainInstance != null) {
-                SwingGridPanel activeGrid = SwingDelugeApp.mainInstance.getActiveGridPanel();
-                if (activeGrid != null) {
-                  activeGrid.resetVerticalScroll();
-                }
-              }
-              MatrixDriver.get().verticalButtonAction(on);
-            }));
+    encoderPanel.setPreferredSize(new Dimension(90, 42));
+    encoderPanel.setMaximumSize(new Dimension(90, 42));
     encoderPanel.add(
         createEncoderSim(
             "SELECT",
