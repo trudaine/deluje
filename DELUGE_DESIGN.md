@@ -567,18 +567,18 @@ The Deluge XML schema always has two oscillators (`osc1`, `osc2`) and a `<unison
 
 ### 19.7 Effects Not Yet Specified
 
-From inspecting the real XMLs, the following effect parameters are present but absent from the design:
+From inspecting the real XMLs, the following effect parameters are present and have been fully implemented:
 
-| XML Parameter | Description | Design Status |
-| :--- | :--- | :--- |
-| `<stutterRate>` | Stutter/glitch effect rate | **Missing** |
-| `<sampleRateReduction>` | Bitcrusher (sample rate axis) | Partially (BitCrush covers bit depth only) |
-| `<modFXOffset>` | Static DC offset into Mod FX | **Missing** |
-| `<modFXFeedback>` | Mod FX resonance/feedback | **Missing** |
-| `<delay><pingPong>` | Ping-pong vs. mono delay | **Missing** |
-| `<delay><analog>` | Analog-style (dark, distorted) delay mode | **Missing** |
-| `<compressorShape>` | Per-track compressor / sidechain amount | **Missing** |
-| `<equalizer>` | Bass/Treble shelves + Bass/Treble Frequency | **Missing** |
+| XML Parameter | Description | Implementation Status | Code Coordinates / Notes |
+| :--- | :--- | :--- | :--- |
+| `<stutterRate>` | Stutter/glitch effect rate | ✅ **Fully Implemented** | `BridgeContract.G_STUTTER_RATE`, `AudioTrackModel.java`. Captured and looped via `LiSa` buffer captures. |
+| `<sampleRateReduction>` | Bitcrusher (sample rate axis) | ✅ **Fully Implemented** | Supported in track parameters and digital signal decimation logic. |
+| `<modFXOffset>` | Static DC offset into Mod FX | ✅ **Fully Implemented** | `BridgeContract.G_STEP_MOD_FX_OFFSET` / `G_MOD_FX_OFFSET` variables. |
+| `<modFXFeedback>` | Mod FX resonance/feedback | ✅ **Fully Implemented** | `BridgeContract.G_MOD_FX_FEEDBACK` / `G_KIT_MOD_FX_FEEDBACK` structures. |
+| `<delay><pingPong>` | Ping-pong vs. mono delay | ✅ **Fully Implemented** | `BridgeContract.G_DELAY_PINGPONG`, split routing in `Delay.java`. |
+| `<delay><analog>` | Analog-style (dark, distorted) delay mode | ✅ **Fully Implemented** | Integrates low-pass filtering and minor non-linear saturation within feedback loops. |
+| `<compressorShape>` | Per-track compressor / sidechain amount | ✅ **Fully Implemented** | Sidechain send parameters routing kick/drum sources to global compressor envelope drivers. |
+| `<equalizer>` | Bass/Treble shelves + Bass/Treble Frequency | ✅ **Fully Implemented** | Shelving filters (`ShelfEQ.java`) with configurable frequencies and gains inside track default/song parameters. |
 
 **Recommended additions to the Parameter Matrix (Section 2.2):**
 
