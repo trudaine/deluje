@@ -3200,6 +3200,88 @@ public class SwingGridPanel extends JPanel {
         add(voicePanel);
       }
 
+      // ── Interactive Horizontal Scrollbar aligned under step columns ──
+      int trackLenH = (bridge != null) ? bridge.getTrackLength(baseTrackId) : stepCount;
+      if (trackLenH > stepCount) {
+        JPanel scrollRow = new JPanel();
+        scrollRow.setLayout(new BoxLayout(scrollRow, BoxLayout.X_AXIS));
+        scrollRow.setBackground(new Color(0x15, 0x15, 0x15));
+        scrollRow.setPreferredSize(new Dimension(3000, 14));
+        scrollRow.setMinimumSize(new Dimension(100, 14));
+        scrollRow.setMaximumSize(new Dimension(3000, 14));
+        scrollRow.setBorder(BorderFactory.createEmptyBorder(2, 0, 2, 0));
+
+        // Left spacer matching header labels and action buttons (lw + 69)
+        int lw = Math.max(60, Math.min(140, getWidth() / 12));
+        int leftSpacing = lw + 69;
+        scrollRow.add(Box.createRigidArea(new Dimension(leftSpacing, 10)));
+
+        // Center scrollbar aligned to step columns width
+        JScrollBar scrollBar =
+            new JScrollBar(JScrollBar.HORIZONTAL, scrollOffsetX, stepCount, 0, trackLenH);
+        scrollBar.setBackground(new Color(0x15, 0x15, 0x18));
+        scrollBar.setForeground(new Color(0x00, 0xff, 0xcc));
+        int colsWidth = stepCount * (padSz + 5) - 5;
+        scrollBar.setPreferredSize(new Dimension(colsWidth, 10));
+        scrollBar.setMinimumSize(new Dimension(100, 10));
+        scrollBar.setMaximumSize(new Dimension(colsWidth, 10));
+
+        scrollBar.setUI(
+            new javax.swing.plaf.basic.BasicScrollBarUI() {
+              @Override
+              protected void paintTrack(Graphics g, JComponent c, Rectangle trackBounds) {
+                g.setColor(new Color(0x18, 0x18, 0x20));
+                g.fillRect(trackBounds.x, trackBounds.y, trackBounds.width, trackBounds.height);
+              }
+
+              @Override
+              protected void paintThumb(Graphics g, JComponent c, Rectangle thumbBounds) {
+                g.setColor(new Color(0x00, 0xd2, 0xff, 180)); // Glowing cyan thumb
+                g.fillRoundRect(
+                    thumbBounds.x + 1,
+                    thumbBounds.y + 1,
+                    thumbBounds.width - 2,
+                    thumbBounds.height - 2,
+                    4,
+                    4);
+              }
+
+              @Override
+              protected JButton createDecreaseButton(int orientation) {
+                return createZeroButton();
+              }
+
+              @Override
+              protected JButton createIncreaseButton(int orientation) {
+                return createZeroButton();
+              }
+
+              private JButton createZeroButton() {
+                JButton b = new JButton();
+                b.setPreferredSize(new Dimension(0, 0));
+                b.setMinimumSize(new Dimension(0, 0));
+                b.setMaximumSize(new Dimension(0, 0));
+                return b;
+              }
+            });
+
+        scrollBar.addAdjustmentListener(
+            e -> {
+              int val = e.getValue();
+              if (val != scrollOffsetX) {
+                scrollOffsetX = val;
+                refresh();
+              }
+            });
+        scrollRow.add(scrollBar);
+
+        // Right spacer matching columns 17/18 mute/solo panel (2 * padSz + 22)
+        int rightSpacing = (viewMode == GridViewMode.AUTOMATION) ? 10 : (2 * padSz + 22);
+        scrollRow.add(Box.createRigidArea(new Dimension(rightSpacing, 10)));
+
+        add(scrollRow);
+      }
+
       // Section 3: Fixed rows — MACROS, KEYBOARD (Combined)
       add(buildFixedRow(8, padSz));
       add(buildFixedRow(10, padSz));
