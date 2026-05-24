@@ -960,6 +960,35 @@ public class SwingGridPanel extends JPanel {
     }
   }
 
+  private static class KeyboardMouseAdapter extends java.awt.event.MouseAdapter {
+    private final int note;
+    private final SwingGridPanel panel;
+
+    KeyboardMouseAdapter(SwingGridPanel panel, int note) {
+      this.panel = panel;
+      this.note = note;
+    }
+
+    @Override
+    public void mousePressed(java.awt.event.MouseEvent e) {
+      panel.triggerKeyboardNote(note);
+    }
+
+    @Override
+    public void mouseReleased(java.awt.event.MouseEvent e) {
+      panel.triggerKeyboardNoteRelease(note);
+    }
+  }
+
+  private void clearKeyboardMouseListeners(JButton btn) {
+    if (btn == null) return;
+    for (java.awt.event.MouseListener ml : btn.getMouseListeners()) {
+      if (ml instanceof KeyboardMouseAdapter) {
+        btn.removeMouseListener(ml);
+      }
+    }
+  }
+
   private int getActiveStepCol(int row, int col) {
     int trackLen = 0;
     if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
@@ -2885,10 +2914,10 @@ public class SwingGridPanel extends JPanel {
             DelugePadButton pad = new DelugePadButton();
             pad.setActive(true);
             pad.setBaseColor(isBlack ? new Color(0x18, 0x18, 0x1c) : Color.WHITE);
-            pad.setNoteText(String.valueOf(note));
+            pad.setNoteText(getNoteName(note));
             pad.setFont(new Font("Monospaced", Font.BOLD, 10));
 
-            pad.addActionListener(e -> triggerKeyboardNote(note));
+            pad.addMouseListener(new KeyboardMouseAdapter(this, note));
             clipBtn = pad;
           } else {
             DelugePadButton pad = new DelugePadButton();
@@ -2927,7 +2956,7 @@ public class SwingGridPanel extends JPanel {
             clipBtn.setFont(
                 new Font("SansSerif", Font.BOLD, rowHeight < 35 ? 9 : (padSz > 70 ? 14 : 10)));
 
-            clipBtn.addActionListener(e -> triggerKeyboardNote(note));
+            clipBtn.addMouseListener(new KeyboardMouseAdapter(this, note));
           } else {
             clipBtn = new JButton();
             clipBtn.setBackground(new Color(0x1a, 0x1a, 0x1a));
@@ -3926,7 +3955,8 @@ public class SwingGridPanel extends JPanel {
               clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 14 : 10));
 
               clearActionListeners(clipBtn);
-              clipBtn.addActionListener(e -> triggerKeyboardNote(note));
+              clearKeyboardMouseListeners(clipBtn);
+              clipBtn.addMouseListener(new KeyboardMouseAdapter(this, note));
             }
           } else {
 
