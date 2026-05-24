@@ -70,7 +70,7 @@ public class SwingArrangerPanel extends JPanel {
       g2.setColor(Color.LIGHT_GRAY);
       g2.drawString("TRACK " + (t + 1), 15, t * trackHeight + 25);
 
-      g2.setColor(new Color(0x33, 0x33, 0x33));
+      g2.setColor(SwingSynthConfigDialog.BG_CONTROL);
       g2.drawLine(100, t * trackHeight, w, t * trackHeight);
     }
 

@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
  * <p>Verifies that the per-track ModFxUnit switches between effect types correctly and produces
  * output for each type (non-zero, non-clipped).
  */
+@org.junit.jupiter.api.Tag("slow")
 public class ModFxExpansionTest {
 
   private ChuckVM vm;

@@ -10,7 +10,7 @@ import javax.swing.JButton;
  */
 public class DelugePadButton extends JButton {
   private boolean active = false;
-  private Color baseColor = new Color(0x33, 0x33, 0x33);
+  private Color baseColor = SwingSynthConfigDialog.BG_CONTROL;
   private boolean muted = false;
   private boolean isPlayhead = false;
   private boolean isTied = false;
@@ -31,7 +31,7 @@ public class DelugePadButton extends JButton {
     super.setBackground(c);
     if (c != null) {
       this.baseColor = c;
-      if (!c.equals(new Color(0x33, 0x33, 0x33)) && !c.equals(new Color(0x1d, 0x1d, 0x22))) {
+      if (!c.equals(SwingSynthConfigDialog.BG_CONTROL) && !c.equals(new Color(0x1d, 0x1d, 0x22))) {
         this.active = true;
       } else {
         this.active = false;
@@ -195,8 +195,9 @@ public class DelugePadButton extends JButton {
       g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
     } else if (!active) {
       // 2. Inactive inside loop: beautiful dimmed track signature color
-      Color base = baseColor != null ? baseColor : new Color(0x33, 0x33, 0x33);
-      if (base.equals(new Color(0x33, 0x33, 0x33)) || base.equals(new Color(0x1d, 0x1d, 0x22))) {
+      Color base = baseColor != null ? baseColor : SwingSynthConfigDialog.BG_CONTROL;
+      if (base.equals(SwingSynthConfigDialog.BG_CONTROL)
+          || base.equals(new Color(0x1d, 0x1d, 0x22))) {
         // Neutral gray pad
         g2.setColor(new Color(0x1a, 0x1a, 0x1e));
         g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
@@ -315,7 +316,7 @@ public class DelugePadButton extends JButton {
 
   private Color blendWithBlack(Color base, float factor) {
     if (factor >= 1.0f) return base;
-    if (factor <= 0.0f) return new Color(0x33, 0x33, 0x33);
+    if (factor <= 0.0f) return SwingSynthConfigDialog.BG_CONTROL;
     int r = (int) (base.getRed() * factor + 0x22 * (1 - factor));
     int g = (int) (base.getGreen() * factor + 0x22 * (1 - factor));
     int b = (int) (base.getBlue() * factor + 0x22 * (1 - factor));

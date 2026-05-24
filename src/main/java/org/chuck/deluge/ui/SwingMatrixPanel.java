@@ -352,7 +352,7 @@ public class SwingMatrixPanel extends JPanel {
             g2.drawString("SOLO", padX + 20, padY + cellH / 2 + 8);
           }
         } else {
-          g2.setColor(new Color(0x33, 0x33, 0x33));
+          g2.setColor(SwingSynthConfigDialog.BG_CONTROL);
           g2.fillRoundRect(padX, padY, padW, padH, 10, 10);
           if (c == 16) {
             g2.setColor(Color.GRAY);

@@ -22,6 +22,73 @@ public class PianoRollComponent extends JComponent {
     setPreferredSize(new Dimension(3000, 80));
     setMinimumSize(new Dimension(100, 80));
     setMaximumSize(new Dimension(3000, 80));
+
+    addMouseListener(
+        new java.awt.event.MouseAdapter() {
+          @Override
+          public void mousePressed(java.awt.event.MouseEvent e) {
+            int x = e.getX();
+            int y = e.getY();
+
+            // Compute the exact layout coordinates same as paintComponent
+            int lw = Math.max(60, Math.min(140, gridPanel.getWidth() / 12));
+            int gridX = lw + 91;
+            int padSz = gridPanel.cachedPadSz;
+            int cols = gridPanel.columnCount - 2;
+            double totalWidth = cols * (padSz + 5) - 5;
+            double keyW = totalWidth / 28.0;
+            int keyH = 70;
+
+            if (x < gridX || x > gridX + totalWidth || y < 0 || y > keyH) {
+              return;
+            }
+
+            int midiNote = -1;
+
+            // 1. Check black keys in top half
+            if (y <= keyH / 2) {
+              int[] blackKeyOffsets = {
+                0, 1, 3, 4, 5, 7, 8, 10, 11, 12, 14, 15, 17, 18, 19, 21, 22, 24, 25, 26
+              };
+              int[] sharpValues = {1, 3, -1, 6, 8, 10, -1};
+
+              for (int offsetKey : blackKeyOffsets) {
+                int xStart = (int) (gridX + offsetKey * keyW);
+                int nextX = (int) (gridX + (offsetKey + 1) * keyW);
+                int kw = nextX - xStart;
+                int bx = xStart + kw - (int) (keyW / 3.0);
+                int bw = (int) (keyW / 2.0);
+
+                if (x >= bx && x <= bx + bw) {
+                  int oct = offsetKey / 7;
+                  int noteInOct = offsetKey % 7;
+                  int sharpVal = sharpValues[noteInOct];
+                  if (sharpVal != -1) {
+                    midiNote = 60 + oct * 12 + sharpVal;
+                    break;
+                  }
+                }
+              }
+            }
+
+            // 2. If not black key, it is a white key click
+            if (midiNote == -1) {
+              int i = (int) ((x - gridX) / keyW);
+              if (i >= 0 && i < 28) {
+                int oct = i / 7;
+                int noteInOct = i % 7;
+                int[] whiteNoteValues = {0, 2, 4, 5, 7, 9, 11};
+                midiNote = 60 + oct * 12 + whiteNoteValues[noteInOct];
+              }
+            }
+
+            // 3. Trigger note and flash grid UI
+            if (midiNote >= 60 && midiNote < 128) {
+              gridPanel.triggerKeyboardNote(midiNote);
+              gridPanel.flashIsomorphicNote(midiNote);
+            }
+          }
+        });
   }
 
   @Override

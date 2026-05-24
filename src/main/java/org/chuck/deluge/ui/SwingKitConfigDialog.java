@@ -45,7 +45,7 @@ public class SwingKitConfigDialog extends JDialog {
 
   private JPanel buildSoundPanel(SoundDrum sound, int idx, ChuckVM vm, BridgeContract bridge) {
     JPanel panel = new JPanel(new GridBagLayout());
-    panel.setBackground(new Color(0x22, 0x22, 0x22));
+    panel.setBackground(SwingSynthConfigDialog.BG_CARD);
     GridBagConstraints c = new GridBagConstraints();
     c.fill = GridBagConstraints.HORIZONTAL;
     c.insets = new Insets(6, 10, 6, 10);
@@ -60,7 +60,7 @@ public class SwingKitConfigDialog extends JDialog {
 
     JTextField pathField = new JTextField(sound.getSamplePath(), 24);
     pathField.setEditable(false);
-    pathField.setBackground(new Color(0x33, 0x33, 0x33));
+    pathField.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     pathField.setForeground(Color.LIGHT_GRAY);
     pathField.setToolTipText("Full path to the sample file");
 
@@ -102,7 +102,7 @@ public class SwingKitConfigDialog extends JDialog {
         });
 
     JPanel sampleRow = new JPanel(new BorderLayout(6, 0));
-    sampleRow.setBackground(new Color(0x22, 0x22, 0x22));
+    sampleRow.setBackground(SwingSynthConfigDialog.BG_CARD);
     sampleRow.add(pathField, BorderLayout.CENTER);
     sampleRow.add(browseBtn, BorderLayout.EAST);
     c.gridx = 1;
@@ -222,7 +222,7 @@ public class SwingKitConfigDialog extends JDialog {
     c.gridwidth = 2;
     JComboBox<String> muteCombo = new JComboBox<>(new String[] {"None", "1", "2", "3", "4"});
     muteCombo.setSelectedIndex(Math.max(0, Math.min(4, sound.getMuteGroup())));
-    muteCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    muteCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     muteCombo.setForeground(Color.WHITE);
     muteCombo.setToolTipText("Sounds in the same group cut each other off");
     muteCombo.addActionListener(
@@ -243,7 +243,7 @@ public class SwingKitConfigDialog extends JDialog {
     c.gridwidth = 2;
     JCheckBox reverseBox = new JCheckBox();
     reverseBox.setSelected(sound.isReverse());
-    reverseBox.setBackground(new Color(0x22, 0x22, 0x22));
+    reverseBox.setBackground(SwingSynthConfigDialog.BG_CARD);
     reverseBox.setToolTipText("Play the sample backwards");
     reverseBox.addActionListener(
         e -> {
@@ -273,7 +273,7 @@ public class SwingKitConfigDialog extends JDialog {
     c.gridwidth = 2;
     JComboBox<String> pingpongCombo = new JComboBox<>(new String[] {"Off", "On"});
     pingpongCombo.setSelectedIndex(Math.max(0, Math.min(1, sound.getDelayPingPong())));
-    pingpongCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    pingpongCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     pingpongCombo.setForeground(Color.WHITE);
     pingpongCombo.addActionListener(
         e -> {
@@ -292,7 +292,7 @@ public class SwingKitConfigDialog extends JDialog {
     c.gridwidth = 2;
     JComboBox<String> analogCombo = new JComboBox<>(new String[] {"Digital", "Analog"});
     analogCombo.setSelectedIndex(Math.max(0, Math.min(1, sound.getDelayAnalog())));
-    analogCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    analogCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     analogCombo.setForeground(Color.WHITE);
     analogCombo.addActionListener(
         e -> {
@@ -395,7 +395,7 @@ public class SwingKitConfigDialog extends JDialog {
     JComboBox<String> scTypeCombo =
         new JComboBox<>(new String[] {"Off", "1/1", "1/2", "1/4", "1/8", "1/16", "1/32"});
     scTypeCombo.setSelectedIndex(Math.max(0, Math.min(6, sound.getSidechainSyncType())));
-    scTypeCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    scTypeCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     scTypeCombo.setForeground(Color.WHITE);
     scTypeCombo.addActionListener(
         e -> {
@@ -456,7 +456,7 @@ public class SwingKitConfigDialog extends JDialog {
     c.gridwidth = 1;
     panel.add(tip(label(labelText), tooltip), c);
     JSlider slider = new JSlider(min, max, Math.max(min, Math.min(max, initial)));
-    slider.setBackground(new Color(0x22, 0x22, 0x22));
+    slider.setBackground(SwingSynthConfigDialog.BG_CARD);
     slider.setToolTipText(tooltip);
     JLabel valLabel = new JLabel(String.valueOf(initial));
     valLabel.setForeground(Color.CYAN);

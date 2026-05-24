@@ -1,6 +1,7 @@
 package org.chuck.deluge.firmware.hid;
 
 import java.awt.Color;
+import java.awt.Font;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 
@@ -19,6 +20,8 @@ public class VirtualOLED {
   public VirtualOLED() {
     this.image = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_ARGB);
     this.g2d = image.createGraphics();
+    g2d.setFont(
+        new Font("Monospaced", Font.BOLD, 9)); // Crisp, hardware-authentic monospaced display font
     clear();
   }
 

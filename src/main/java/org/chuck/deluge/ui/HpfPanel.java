@@ -13,7 +13,7 @@ public class HpfPanel extends JPanel {
   public HpfPanel(
       SynthTrackModel model, BridgeContract bridge, int trackIndex, ProjectModel projectModel) {
     super(new GridBagLayout());
-    setBackground(new Color(0x22, 0x22, 0x22));
+    setBackground(SwingSynthConfigDialog.BG_CARD);
     GridBagConstraints c = new GridBagConstraints();
     c.fill = GridBagConstraints.HORIZONTAL;
     c.insets = new Insets(6, 10, 6, 10);
@@ -90,7 +90,7 @@ public class HpfPanel extends JPanel {
             .toArray(String[]::new);
     JComboBox<String> hpfModeCombo = new JComboBox<>(modeNames);
     hpfModeCombo.setSelectedIndex(bridge.getHpfMode(trackIndex));
-    hpfModeCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    hpfModeCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     hpfModeCombo.setForeground(Color.WHITE);
     hpfModeCombo.addActionListener(
         ev -> {

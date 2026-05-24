@@ -14,7 +14,7 @@ public class AutomationPanel extends JPanel {
 
   public AutomationPanel(SynthTrackModel model, BridgeContract bridge, int trackIndex) {
     super(new BorderLayout(4, 4));
-    setBackground(new Color(0x22, 0x22, 0x22));
+    setBackground(SwingSynthConfigDialog.BG_CARD);
 
     ClipModel clip =
         model.getClips().isEmpty() ? null : model.getClips().get(model.getActiveClipIndex());
@@ -22,7 +22,7 @@ public class AutomationPanel extends JPanel {
 
     // ── Header with Clear All button ──
     JPanel topBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
-    topBar.setBackground(new Color(0x22, 0x22, 0x22));
+    topBar.setBackground(SwingSynthConfigDialog.BG_CARD);
     topBar.add(
         SwingSynthConfigDialog.sectionLabel(
             "PER-STEP AUTOMATION — Active clip: " + (clip != null ? clip.getName() : "none")));
@@ -42,7 +42,7 @@ public class AutomationPanel extends JPanel {
 
     // ── Scrollable table: rows = params, columns = steps ──
     JPanel tablePanel = new JPanel(new GridBagLayout());
-    tablePanel.setBackground(new Color(0x22, 0x22, 0x22));
+    tablePanel.setBackground(SwingSynthConfigDialog.BG_CARD);
     GridBagConstraints c = new GridBagConstraints();
     c.fill = GridBagConstraints.HORIZONTAL;
     c.insets = new Insets(2, 4, 2, 4);
@@ -72,7 +72,7 @@ public class AutomationPanel extends JPanel {
       boolean paramHasData = clip != null && clip.hasAutomation(paramName);
       JCheckBox enableBox = new JCheckBox(paramName, paramHasData);
       enableBox.setForeground(paramHasData ? Color.CYAN : Color.LIGHT_GRAY);
-      enableBox.setBackground(new Color(0x22, 0x22, 0x22));
+      enableBox.setBackground(SwingSynthConfigDialog.BG_CARD);
       enableBox.setPreferredSize(new Dimension(140, 24));
       enableBox.addActionListener(
           ev -> {
@@ -100,7 +100,7 @@ public class AutomationPanel extends JPanel {
         int val = hasAuto ? (int) (clip.getAutomation(paramName, s) * 127) : 0;
 
         JSlider slider = new JSlider(0, 127, val);
-        slider.setBackground(new Color(0x22, 0x22, 0x22));
+        slider.setBackground(SwingSynthConfigDialog.BG_CARD);
         slider.setPreferredSize(new Dimension(70, 22));
         slider.setPaintTicks(false);
         slider.setPaintLabels(false);
@@ -118,7 +118,7 @@ public class AutomationPanel extends JPanel {
             });
 
         JPanel cell = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 0));
-        cell.setBackground(new Color(0x22, 0x22, 0x22));
+        cell.setBackground(SwingSynthConfigDialog.BG_CARD);
         cell.add(slider);
         cell.add(valLabel);
 

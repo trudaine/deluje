@@ -12,7 +12,7 @@ public class OscPanel extends JPanel {
   public OscPanel(
       SynthTrackModel model, BridgeContract bridge, int trackIndex, ProjectModel projectModel) {
     super(new GridBagLayout());
-    setBackground(new Color(0x22, 0x22, 0x22));
+    setBackground(SwingSynthConfigDialog.BG_CARD);
     GridBagConstraints c = new GridBagConstraints();
     c.fill = GridBagConstraints.HORIZONTAL;
     c.insets = new Insets(6, 10, 6, 10);
@@ -100,7 +100,7 @@ public class OscPanel extends JPanel {
     String[] loopModes = {"OFF", "LOOP", "ONESHOT"};
     JComboBox<String> osc1LoopCombo = new JComboBox<>(loopModes);
     osc1LoopCombo.setSelectedIndex(model.getOsc1LoopMode());
-    osc1LoopCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    osc1LoopCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     osc1LoopCombo.setForeground(Color.WHITE);
     osc1LoopCombo.setToolTipText(
         "Sample playback loop mode: OFF = play once, LOOP = repeat, ONESHOT = play entire sample ignoring note-off");
@@ -122,7 +122,7 @@ public class OscPanel extends JPanel {
     c.gridwidth = 2;
     JCheckBox osc1RevBox = new JCheckBox("Play sample in reverse");
     osc1RevBox.setSelected(model.isOsc1Reversed());
-    osc1RevBox.setBackground(new Color(0x22, 0x22, 0x22));
+    osc1RevBox.setBackground(SwingSynthConfigDialog.BG_CARD);
     osc1RevBox.setForeground(Color.WHITE);
     osc1RevBox.setToolTipText("Reverse sample playback direction");
     osc1RevBox.addActionListener(
@@ -143,7 +143,7 @@ public class OscPanel extends JPanel {
     c.gridwidth = 2;
     JCheckBox osc1TsBox = new JCheckBox("Enable time stretching");
     osc1TsBox.setSelected(model.isOsc1TimeStretch());
-    osc1TsBox.setBackground(new Color(0x22, 0x22, 0x22));
+    osc1TsBox.setBackground(SwingSynthConfigDialog.BG_CARD);
     osc1TsBox.setForeground(Color.WHITE);
     osc1TsBox.setToolTipText("Time-stretch sample to match project tempo without changing pitch");
     osc1TsBox.addActionListener(
@@ -204,7 +204,7 @@ public class OscPanel extends JPanel {
     c.gridwidth = 2;
     JCheckBox osc1LinBox = new JCheckBox("Linear (smoother, less aliasing)");
     osc1LinBox.setSelected(model.isOsc1LinearInterpolation());
-    osc1LinBox.setBackground(new Color(0x22, 0x22, 0x22));
+    osc1LinBox.setBackground(SwingSynthConfigDialog.BG_CARD);
     osc1LinBox.setForeground(Color.WHITE);
     osc1LinBox.setToolTipText(
         "Unchecked = zero-order hold (gritty); Checked = linear interpolation (smoother pitch shifting)");
@@ -233,7 +233,7 @@ public class OscPanel extends JPanel {
     c.gridwidth = 2;
     JComboBox<String> osc2LoopCombo = new JComboBox<>(loopModes);
     osc2LoopCombo.setSelectedIndex(model.getOsc2LoopMode());
-    osc2LoopCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    osc2LoopCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     osc2LoopCombo.setForeground(Color.WHITE);
     osc2LoopCombo.setToolTipText(
         "Sample playback loop mode: OFF = play once, LOOP = repeat, ONESHOT = play entire sample ignoring note-off");
@@ -255,7 +255,7 @@ public class OscPanel extends JPanel {
     c.gridwidth = 2;
     JCheckBox osc2RevBox = new JCheckBox("Play sample in reverse");
     osc2RevBox.setSelected(model.isOsc2Reversed());
-    osc2RevBox.setBackground(new Color(0x22, 0x22, 0x22));
+    osc2RevBox.setBackground(SwingSynthConfigDialog.BG_CARD);
     osc2RevBox.setForeground(Color.WHITE);
     osc2RevBox.setToolTipText("Reverse sample playback direction");
     osc2RevBox.addActionListener(
@@ -276,7 +276,7 @@ public class OscPanel extends JPanel {
     c.gridwidth = 2;
     JCheckBox osc2TsBox = new JCheckBox("Enable time stretching");
     osc2TsBox.setSelected(model.isOsc2TimeStretch());
-    osc2TsBox.setBackground(new Color(0x22, 0x22, 0x22));
+    osc2TsBox.setBackground(SwingSynthConfigDialog.BG_CARD);
     osc2TsBox.setForeground(Color.WHITE);
     osc2TsBox.setToolTipText("Time-stretch sample to match project tempo without changing pitch");
     osc2TsBox.addActionListener(
@@ -337,7 +337,7 @@ public class OscPanel extends JPanel {
     c.gridwidth = 2;
     JCheckBox osc2LinBox = new JCheckBox("Linear (smoother, less aliasing)");
     osc2LinBox.setSelected(model.isOsc2LinearInterpolation());
-    osc2LinBox.setBackground(new Color(0x22, 0x22, 0x22));
+    osc2LinBox.setBackground(SwingSynthConfigDialog.BG_CARD);
     osc2LinBox.setForeground(Color.WHITE);
     osc2LinBox.setToolTipText(
         "Unchecked = zero-order hold (gritty); Checked = linear interpolation (smoother pitch shifting)");
@@ -385,7 +385,7 @@ public class OscPanel extends JPanel {
     c.gridwidth = 2;
     JCheckBox syncBox = new JCheckBox("Reset osc 2 phase from osc 1 (hard sync)");
     syncBox.setSelected(model.isOscillatorSync());
-    syncBox.setBackground(new Color(0x22, 0x22, 0x22));
+    syncBox.setBackground(SwingSynthConfigDialog.BG_CARD);
     syncBox.setForeground(Color.WHITE);
     syncBox.setToolTipText(
         "Oscillator hard sync: osc 2's phase is reset by osc 1's cycle, creating characteristic sync sweep sounds");

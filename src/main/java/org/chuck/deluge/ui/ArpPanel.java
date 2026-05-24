@@ -12,7 +12,7 @@ public class ArpPanel extends JPanel {
   public ArpPanel(
       SynthTrackModel model, BridgeContract bridge, int trackIndex, ProjectModel projectModel) {
     super(new GridBagLayout());
-    setBackground(new Color(0x22, 0x22, 0x22));
+    setBackground(SwingSynthConfigDialog.BG_CARD);
     GridBagConstraints c = new GridBagConstraints();
     c.fill = GridBagConstraints.HORIZONTAL;
     c.insets = new Insets(6, 10, 6, 10);
@@ -37,7 +37,7 @@ public class ArpPanel extends JPanel {
     c.gridwidth = 2;
     JCheckBox arpBox = new JCheckBox();
     arpBox.setSelected(bridge.getArpOn(trackIndex));
-    arpBox.setBackground(new Color(0x22, 0x22, 0x22));
+    arpBox.setBackground(SwingSynthConfigDialog.BG_CARD);
     arpBox.setForeground(Color.WHITE);
     arpBox.setToolTipText("Enable the arpeggiator");
     arpBox.addActionListener(e -> bridge.setArpOn(trackIndex, arpBox.isSelected()));
@@ -54,7 +54,7 @@ public class ArpPanel extends JPanel {
     String[] arpModes = {"UP", "DOWN", "UP_DOWN", "RANDOM", "WALK"};
     JComboBox<String> arpModeBox = new JComboBox<>(arpModes);
     arpModeBox.setSelectedIndex(bridge.getArpMode(trackIndex));
-    arpModeBox.setBackground(new Color(0x33, 0x33, 0x33));
+    arpModeBox.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     arpModeBox.setForeground(Color.WHITE);
     arpModeBox.setToolTipText("Arpeggiator note sequence direction");
     arpModeBox.addActionListener(e -> bridge.setArpMode(idx, arpModeBox.getSelectedIndex()));
@@ -106,7 +106,7 @@ public class ArpPanel extends JPanel {
     };
     JComboBox<String> syncCombo = new JComboBox<>(syncRates);
     syncCombo.setSelectedIndex(bridge.getArpSyncLevel(trackIndex));
-    syncCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    syncCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     syncCombo.setForeground(Color.WHITE);
     syncCombo.setToolTipText("Sync arpeggiator rate to note division (overrides Rate slider)");
     syncCombo.addActionListener(e -> bridge.setArpSyncLevel(idx, syncCombo.getSelectedIndex()));
@@ -122,7 +122,7 @@ public class ArpPanel extends JPanel {
     c.gridwidth = 2;
     JComboBox<Integer> octCombo = new JComboBox<>(new Integer[] {1, 2, 3, 4});
     octCombo.setSelectedItem(bridge.getArpOctave(trackIndex));
-    octCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    octCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     octCombo.setForeground(Color.WHITE);
     octCombo.setToolTipText("Number of octaves the arpeggiator spans");
     octCombo.addActionListener(e -> bridge.setArpOctave(idx, (Integer) octCombo.getSelectedItem()));
@@ -139,7 +139,7 @@ public class ArpPanel extends JPanel {
     String[] noteModes = {"UP", "DOWN", "UPDN", "RAND", "WLK1", "WLK2", "WLK3", "PLAY", "PATT"};
     JComboBox<String> noteModeCombo = new JComboBox<>(noteModes);
     noteModeCombo.setSelectedIndex(bridge.getArpNoteMode(trackIndex));
-    noteModeCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    noteModeCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     noteModeCombo.setForeground(Color.WHITE);
     noteModeCombo.setToolTipText("Note selection pattern within the arpeggiated chord");
     noteModeCombo.addActionListener(
@@ -157,7 +157,7 @@ public class ArpPanel extends JPanel {
     String[] octModes = {"UP", "DOWN", "UPDN", "ALT", "RAND"};
     JComboBox<String> octModeCombo = new JComboBox<>(octModes);
     octModeCombo.setSelectedIndex(bridge.getArpOctaveMode(trackIndex));
-    octModeCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    octModeCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     octModeCombo.setForeground(Color.WHITE);
     octModeCombo.setToolTipText("Octave progression pattern");
     octModeCombo.addActionListener(

@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
  * firmware's sine-only modulators — this test validates our FM path is at least producing
  * modulation (not just passing carrier through unchanged).
  */
+@org.junit.jupiter.api.Tag("slow")
 public class SynthFmAccuracyTest {
 
   private static final int SAMPLE_RATE = 44100;

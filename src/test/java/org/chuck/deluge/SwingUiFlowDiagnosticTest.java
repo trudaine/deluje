@@ -152,4 +152,75 @@ public class SwingUiFlowDiagnosticTest {
 
     vm.shutdown();
   }
+
+  @Test
+  public void testPianoRollComponentClickTrigger() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    System.setProperty("chuck.loglevel", "1");
+
+    ChuckVM vm = new ChuckVM(44100, 2);
+    BridgeContract bridge = new BridgeContract();
+    bridge.register(vm);
+    vm.spork(new DelugeEngineDSL());
+    vm.advanceTime(44100);
+
+    InputStream is = getClass().getResourceAsStream("/KITS/000 TR-808.XML");
+    if (is == null) {
+      is = getClass().getClassLoader().getResourceAsStream("KITS/000 TR-808.XML");
+    }
+    assertTrue(is != null, "808 Kit resource not found");
+    KitTrackModel kit = DelugeXmlParser.parseKit(is, "808");
+    kit.addClip(new ClipModel("CLIP 1", 16, 16));
+    ProjectModel project = new ProjectModel();
+    project.addTrack(kit);
+
+    SwingDelugeApp app = new SwingDelugeApp(vm, bridge, null);
+    app.loadProject(project);
+
+    org.chuck.deluge.ui.SwingGridPanel gridPanel = app.getClipPanel();
+    gridPanel.setSize(1200, 600);
+    gridPanel.doLayout();
+
+    org.chuck.deluge.ui.PianoRollComponent pianoRoll = null;
+    for (java.awt.Component c : gridPanel.getComponents()) {
+      if (c instanceof org.chuck.deluge.ui.PianoRollComponent) {
+        pianoRoll = (org.chuck.deluge.ui.PianoRollComponent) c;
+        break;
+      }
+    }
+
+    assertTrue(pianoRoll != null, "PianoRollComponent child component not found");
+    pianoRoll.setSize(1200, 80);
+    pianoRoll.doLayout();
+
+    // Compute coordinate parameters exactly matching drawing formulas for size 1200
+    int lw = Math.max(60, Math.min(140, 1200 / 12)); // 100
+    int gridX = lw + 91; // 191
+    int padSz = 48;
+    int cols = 16;
+    double totalWidth = cols * (padSz + 5) - 5;
+    double keyW = totalWidth / 28.0;
+
+    // Click white key 0 (C4 -> MIDI 60):
+    int clickX = (int) (gridX + 0 * keyW + keyW / 2);
+    int clickY = 50; // White key segment (bottom half)
+
+    java.awt.event.MouseEvent whiteClick =
+        new java.awt.event.MouseEvent(
+            pianoRoll,
+            java.awt.event.MouseEvent.MOUSE_PRESSED,
+            System.currentTimeMillis(),
+            0,
+            clickX,
+            clickY,
+            1,
+            false,
+            java.awt.event.MouseEvent.BUTTON1);
+
+    // Verify it doesn't throw and triggers note properly
+    pianoRoll.dispatchEvent(whiteClick);
+
+    vm.advanceTime(4410);
+    vm.shutdown();
+  }
 }

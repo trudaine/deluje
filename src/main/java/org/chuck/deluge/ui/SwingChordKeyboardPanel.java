@@ -259,7 +259,7 @@ public class SwingChordKeyboardPanel extends JPanel {
     boolean isBlack =
         (note % 12 == 1 || note % 12 == 3 || note % 12 == 6 || note % 12 == 8 || note % 12 == 10);
     pad.setText(String.valueOf(note));
-    pad.setBackground(isBlack ? new Color(0x33, 0x33, 0x33) : Color.WHITE);
+    pad.setBackground(isBlack ? SwingSynthConfigDialog.BG_CONTROL : Color.WHITE);
     pad.setForeground(isBlack ? Color.WHITE : Color.BLACK);
     final int fNote = note;
     pad.addActionListener(e -> triggerNote(fNote));
@@ -420,7 +420,7 @@ public class SwingChordKeyboardPanel extends JPanel {
           chordNotes.stream().allMatch(n -> Scales.isNoteInScale(n, rootKey, scaleType));
 
       pad.setText(chord.name());
-      Color bg = allInScale ? colorForQuality(chord) : new Color(0x33, 0x33, 0x33);
+      Color bg = allInScale ? colorForQuality(chord) : SwingSynthConfigDialog.BG_CONTROL;
       pad.setBackground(bg);
       pad.setForeground(allInScale ? Color.WHITE : Color.GRAY);
       pad.setEnabled(true);
@@ -431,7 +431,7 @@ public class SwingChordKeyboardPanel extends JPanel {
       // Scroll indicator for lower rows
       String noteName = Scales.KEY_NAMES[chromaticNote];
       pad.setText("\u25BC " + noteName);
-      pad.setBackground(new Color(0x22, 0x22, 0x22));
+      pad.setBackground(SwingSynthConfigDialog.BG_CARD);
       pad.setForeground(Color.DARK_GRAY);
       pad.addActionListener(
           e -> {
