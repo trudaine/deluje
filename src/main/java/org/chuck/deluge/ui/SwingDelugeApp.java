@@ -64,6 +64,9 @@ public class SwingDelugeApp extends JFrame {
   private SwingProjectSidebarPanel sidebarPanel;
   private SwingProjectSidebarPanel floatingSidebar;
   private org.chuck.deluge.firmware.hid.pic.SwingPicTransport picTransport;
+  private JDialog leftFloat;
+  private JDialog rightFloat;
+  private JCheckBoxMenuItem showMonitorItem;
   private final java.util.ArrayDeque<Long> tapTimes = new java.util.ArrayDeque<>();
 
   /** Recompute trackEngineStart and trackVoiceCount from the current project model. */
@@ -2211,12 +2214,24 @@ public class SwingDelugeApp extends JFrame {
           dialog.setVisible(true);
         });
 
+    showMonitorItem = new JCheckBoxMenuItem("Acoustics Monitor");
+    showMonitorItem.setAccelerator(
+        KeyStroke.getKeyStroke(
+            java.awt.event.KeyEvent.VK_M, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+    showMonitorItem.addActionListener(
+        e -> {
+          if (rightFloat != null) {
+            rightFloat.setVisible(showMonitorItem.isSelected());
+          }
+        });
+
     settingsMenu.add(sampleItem);
     settingsMenu.addSeparator();
     settingsMenu.add(hifiModeItem);
     settingsMenu.add(clearMidiItem);
     settingsMenu.addSeparator();
     settingsMenu.add(prefItem);
+    settingsMenu.add(showMonitorItem);
 
     // Edit menu — Undo/Redo
     JMenu editMenu = new JMenu("Edit");
@@ -2275,13 +2290,30 @@ public class SwingDelugeApp extends JFrame {
               }
             });
 
-    final JDialog leftFloat = new JDialog(this, "SD Explorer", false);
+    leftFloat = new JDialog(this, "SD Explorer", false);
     leftFloat.setSize(300, 700);
     leftFloat.setLocation(50, 150);
 
-    final JDialog rightFloat = new JDialog(this, "Acoustics Monitor", false);
+    rightFloat = new JDialog(this, "Acoustics Monitor", false);
     rightFloat.setSize(280, 700);
     rightFloat.setLocation(1600, 150);
+    rightFloat.addWindowListener(
+        new java.awt.event.WindowAdapter() {
+          @Override
+          public void windowOpened(java.awt.event.WindowEvent e) {
+            if (showMonitorItem != null) showMonitorItem.setSelected(true);
+          }
+
+          @Override
+          public void windowClosing(java.awt.event.WindowEvent e) {
+            if (showMonitorItem != null) showMonitorItem.setSelected(false);
+          }
+
+          @Override
+          public void windowClosed(java.awt.event.WindowEvent e) {
+            if (showMonitorItem != null) showMonitorItem.setSelected(false);
+          }
+        });
 
     // 1. Top Area (Buttons, Modes, Transport, Sliders)
 
@@ -2334,8 +2366,7 @@ public class SwingDelugeApp extends JFrame {
     performancePanel.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
     centerCardPanel.add(performancePanel, "PERF");
 
-    topBar =
-        new SwingTopBarPanel(vm, currentProject, leftFloat, rightFloat, new AppTopBarListener());
+    topBar = new SwingTopBarPanel(vm, currentProject, leftFloat, new AppTopBarListener());
 
     // DEBUG: solid background colors to visualize panel sizes
     System.out.println(

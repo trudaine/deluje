@@ -150,11 +150,11 @@ public class BasicWaves {
     if (phaseIncrement <= 56143360) return new int[] {11, 11};
     if (phaseIncrement <= 82137088) return new int[] {12, 11};
     if (phaseIncrement <= 112286720) return new int[] {13, 11};
-    if (phaseIncrement <= 164274176) return new int[] {14, 11};
-    if (phaseIncrement <= 224573440) return new int[] {15, 11};
-    if (phaseIncrement <= 328548352) return new int[] {16, 11};
-    if (phaseIncrement <= 449146880) return new int[] {17, 11};
-    if (phaseIncrement <= 898293760) return new int[] {18, 11};
-    return new int[] {19, 11};
+    if (phaseIncrement <= 164274176) return new int[] {14, 10};
+    if (phaseIncrement <= 224573440) return new int[] {15, 10};
+    if (phaseIncrement <= 328548352) return new int[] {16, 10};
+    if (phaseIncrement <= 449146880) return new int[] {17, 10};
+    if (phaseIncrement <= 898293760) return new int[] {18, 9};
+    return new int[] {19, 9};
   }
 }
