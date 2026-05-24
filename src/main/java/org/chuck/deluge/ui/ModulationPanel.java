@@ -35,6 +35,8 @@ public class ModulationPanel extends JPanel {
     "pan",
     "lpfFrequency",
     "lpfResonance",
+    "hpfFrequency",
+    "hpfResonance",
     "oscAVolume",
     "oscBVolume",
     "pitch",
@@ -42,7 +44,12 @@ public class ModulationPanel extends JPanel {
     "modFxRate",
     "modFxDepth",
     "modFxFeedback",
-    "modFxOffset"
+    "modFxOffset",
+    "lfo1Rate",
+    "lfo2Rate",
+    "envelope1ADSR",
+    "envelope2ADSR",
+    "wavetablePosition"
   };
 
   private final SynthTrackModel model;
