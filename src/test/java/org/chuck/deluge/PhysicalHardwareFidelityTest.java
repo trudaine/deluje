@@ -14,6 +14,7 @@ import org.chuck.deluge.model.SynthTrackModel;
 import org.chuck.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
+@org.junit.jupiter.api.Tag("slow")
 public class PhysicalHardwareFidelityTest {
 
   @Test
