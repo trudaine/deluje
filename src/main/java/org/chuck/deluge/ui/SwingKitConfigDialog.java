@@ -10,11 +10,18 @@ import org.chuck.deluge.model.Drum;
 import org.chuck.deluge.model.KitTrackModel;
 import org.chuck.deluge.model.SoundDrum;
 
-/** Swing dialog for editing all sounds in a Kit track (ADSR, Mute Group, Reverse, Pitch). */
+/**
+ * A beautiful, 2-column wide-screen optimized layout for Drum Kit voice and FX parameters,
+ * preventing vertical scrolling and providing an integrated quick help status guide.
+ */
 public class SwingKitConfigDialog extends JDialog {
 
+  private JLabel helpLabel;
+  private final String DEFAULT_HELP_TEXT =
+      "<html>💡 <b>QUICK HELP:</b> Hover over any drum sample control or FX slider to see its details and hardware mappings here!</html>";
+
   public SwingKitConfigDialog(Frame owner, KitTrackModel kit, ChuckVM vm, BridgeContract bridge) {
-    super(owner, "Kit Config: " + kit.getName(), false);
+    super(owner, "Kit Sound Editor: " + kit.getName(), false);
     setSize(1280, 800);
     setLocationRelativeTo(owner);
     setLayout(new BorderLayout());
@@ -30,40 +37,101 @@ public class SwingKitConfigDialog extends JDialog {
           sounds.get(i).getName(), buildSoundPanel((SoundDrum) sounds.get(i), i, vm, bridge));
     }
 
-    JScrollPane scroll = new JScrollPane(tabs);
-    scroll.getVerticalScrollBar().setUnitIncrement(16);
-    scroll.setBorder(null);
-    add(scroll, BorderLayout.CENTER);
+    add(tabs, BorderLayout.CENTER);
+
+    // ── Composite South Panel Stack (Help Bar + Close button) ──
+    JPanel southStack = new JPanel();
+    southStack.setLayout(new BoxLayout(southStack, BoxLayout.Y_AXIS));
+
+    JPanel helpBarPanel = new JPanel(new BorderLayout());
+    helpBarPanel.setBackground(new Color(0x1a, 0x1a, 0x1e));
+    helpBarPanel.setBorder(
+        BorderFactory.createCompoundBorder(
+            BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(0x2d, 0x2d, 0x32)),
+            BorderFactory.createEmptyBorder(6, 16, 6, 16)));
+    helpBarPanel.setPreferredSize(new Dimension(1200, 48));
+    helpBarPanel.setMinimumSize(new Dimension(100, 48));
+    helpBarPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 48));
+
+    helpLabel = new JLabel(DEFAULT_HELP_TEXT);
+    helpLabel.setFont(new Font("SansSerif", Font.PLAIN, 11));
+    helpLabel.setForeground(Color.LIGHT_GRAY);
+    helpLabel.setVerticalAlignment(SwingConstants.TOP);
+    helpBarPanel.add(helpLabel, BorderLayout.CENTER);
+    southStack.add(helpBarPanel);
 
     JButton closeBtn = new JButton("Close");
     closeBtn.addActionListener(e -> dispose());
     JPanel south = new JPanel();
     south.setBackground(new Color(0x25, 0x25, 0x25));
     south.add(closeBtn);
-    add(south, BorderLayout.SOUTH);
+    southStack.add(south);
+
+    add(southStack, BorderLayout.SOUTH);
+
     DarkComboBoxRenderer.styleComponentTree(this);
+  }
+
+  public void attachHoverHelp(JComponent comp, String helpText) {
+    if (comp == null || helpText == null || helpText.isEmpty()) return;
+    comp.addMouseListener(
+        new java.awt.event.MouseAdapter() {
+          @Override
+          public void mouseEntered(java.awt.event.MouseEvent e) {
+            if (helpLabel != null) {
+              helpLabel.setText("<html>💡 " + helpText + "</html>");
+            }
+          }
+
+          @Override
+          public void mouseExited(java.awt.event.MouseEvent e) {
+            if (helpLabel != null) {
+              helpLabel.setText(DEFAULT_HELP_TEXT);
+            }
+          }
+        });
   }
 
   private JPanel buildSoundPanel(SoundDrum sound, int idx, ChuckVM vm, BridgeContract bridge) {
     JPanel panel = new JPanel(new GridBagLayout());
     panel.setBackground(SwingSynthConfigDialog.BG_CARD);
-    GridBagConstraints c = new GridBagConstraints();
-    c.fill = GridBagConstraints.HORIZONTAL;
-    c.insets = new Insets(6, 10, 6, 10);
-    c.anchor = GridBagConstraints.WEST;
-    int row = 0;
 
-    // ── Sample ──
-    c.gridx = 0;
-    c.gridy = row;
-    c.gridwidth = 1;
-    panel.add(tip(label("Sample:"), "WAV/AIFF/FLAC file loaded for this drum sound"), c);
+    // Create left and right sub-panels for parallel 2-column layout
+    JPanel leftPanel = new JPanel(new GridBagLayout());
+    leftPanel.setBackground(SwingSynthConfigDialog.BG_CARD);
+    GridBagConstraints cLeft = new GridBagConstraints();
+    cLeft.fill = GridBagConstraints.HORIZONTAL;
+    cLeft.insets = new Insets(6, 10, 6, 10);
+    cLeft.anchor = GridBagConstraints.WEST;
+    int leftRow = 0;
 
-    JTextField pathField = new JTextField(sound.getSamplePath(), 24);
+    JPanel rightPanel = new JPanel(new GridBagLayout());
+    rightPanel.setBackground(SwingSynthConfigDialog.BG_CARD);
+    GridBagConstraints cRight = new GridBagConstraints();
+    cRight.fill = GridBagConstraints.HORIZONTAL;
+    cRight.insets = new Insets(6, 10, 6, 10);
+    cRight.anchor = GridBagConstraints.WEST;
+    int rightRow = 0;
+
+    // ── Left Column: SAMPLE & UTILITY ──
+
+    // Sample Row
+    cLeft.gridx = 0;
+    cLeft.gridy = leftRow;
+    cLeft.gridwidth = 1;
+    JLabel sampleLabel = label("Sample:");
+    String sampleHelp =
+        "<b>DRUM SAMPLE:</b> WAV/AIFF/FLAC sample file loaded for this drum sound slot. — <i>Physical Deluge:</i> Press shift + first top encoder in file browser.";
+    sampleLabel.setToolTipText(sampleHelp);
+    attachHoverHelp(sampleLabel, sampleHelp);
+    leftPanel.add(sampleLabel, cLeft);
+
+    JTextField pathField = new JTextField(sound.getSamplePath(), 20);
     pathField.setEditable(false);
     pathField.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     pathField.setForeground(Color.LIGHT_GRAY);
-    pathField.setToolTipText("Full path to the sample file");
+    pathField.setToolTipText(sampleHelp);
+    attachHoverHelp(pathField, sampleHelp);
 
     JButton browseBtn = new JButton("Browse...");
     browseBtn.setBackground(new Color(0x33, 0x44, 0x55));
@@ -86,7 +154,6 @@ public class SwingKitConfigDialog extends JDialog {
                   "Audio files", "wav", "aif", "aiff", "flac", "WAV", "AIF", "AIFF", "FLAC"));
           chooser.setAcceptAllFileFilterUsed(true);
           if (chooser.showOpenDialog(panel) == JFileChooser.APPROVE_OPTION) {
-            // Normalize to forward slashes — ChucK engine requires them on all platforms
             String path = chooser.getSelectedFile().getAbsolutePath().replace('\\', '/');
             sound.setSamplePath(path);
             pathField.setText(path);
@@ -106,19 +173,21 @@ public class SwingKitConfigDialog extends JDialog {
     sampleRow.setBackground(SwingSynthConfigDialog.BG_CARD);
     sampleRow.add(pathField, BorderLayout.CENTER);
     sampleRow.add(browseBtn, BorderLayout.EAST);
-    c.gridx = 1;
-    c.gridwidth = 2;
-    panel.add(sampleRow, c);
-    row++;
+    cLeft.gridx = 1;
+    cLeft.gridwidth = 2;
+    leftPanel.add(sampleRow, cLeft);
+    leftRow++;
 
-    // ── Pitch ──
-    row =
+    // Pitch
+    String pitchHelp =
+        "<b>DRUM PITCH:</b> Transpose this drum sound sample pitch in semitones (−24 to +24 semitones). — <i>Physical Deluge:</i> Turn SELECT/transpose dial.";
+    leftRow =
         addSlider(
-            panel,
-            c,
-            row,
+            leftPanel,
+            cLeft,
+            leftRow,
             "Pitch (ST):",
-            "Transpose this sound in semitones (−24 to +24)",
+            pitchHelp,
             -24,
             24,
             (int) sound.getPitchSemitones(),
@@ -127,20 +196,22 @@ public class SwingKitConfigDialog extends JDialog {
               getKitArray(vm, BridgeContract.G_KIT_PITCH).setFloat(idx, val);
             });
 
-    // ── LPF ──
-    c.gridx = 0;
-    c.gridy = row;
-    c.gridwidth = 3;
-    panel.add(sectionLabel("LOW-PASS FILTER"), c);
-    row++;
+    // LPF Header
+    cLeft.gridx = 0;
+    cLeft.gridy = leftRow;
+    cLeft.gridwidth = 3;
+    leftPanel.add(sectionLabel("LOW-PASS FILTER"), cLeft);
+    leftRow++;
 
-    row =
+    String morphHelp =
+        "<b>LPF MORPH:</b> State-variable filter morph: 0% = fully low-pass, 100% = fully high-pass. — <i>Physical Deluge:</i> Turn LPF CUTOFF dynamic shortcut knob.";
+    leftRow =
         addSlider(
-            panel,
-            c,
-            row,
+            leftPanel,
+            cLeft,
+            leftRow,
             "Morph (0-50):",
-            "SVF filter morph: 0 = fully low-pass, 50 = fully high-pass. Controls morphing between LP and HP.",
+            morphHelp,
             0,
             50,
             (int) (sound.getLpfMorph() * 50),
@@ -150,174 +221,217 @@ public class SwingKitConfigDialog extends JDialog {
               getKitArray(vm, BridgeContract.G_KIT_LPF_MORPH).setFloat(idx, morph);
             });
 
-    // ── ADSR ──
+    // ADSR Header
+    cLeft.gridx = 0;
+    cLeft.gridy = leftRow;
+    cLeft.gridwidth = 3;
+    leftPanel.add(sectionLabel("ADSR ENVELOPE"), cLeft);
+    leftRow++;
+
     ChuckArray atk = getKitArray(vm, BridgeContract.G_KIT_ATTACK);
     ChuckArray dec = getKitArray(vm, BridgeContract.G_KIT_DECAY);
     ChuckArray sus = getKitArray(vm, BridgeContract.G_KIT_SUSTAIN);
     ChuckArray rel = getKitArray(vm, BridgeContract.G_KIT_RELEASE);
 
-    c.gridx = 0;
-    c.gridy = row;
-    c.gridwidth = 3;
-    panel.add(sectionLabel("ADSR Envelope"), c);
-    row++;
-
-    row =
+    String atkHelp =
+        "<b>ENV ATTACK:</b> Ramps up the volume envelope speed from silence to peak after a note is triggered (0 to 2000 ms). — <i>Physical Deluge:</i> Hold shift + turn ATTACK gold shortcut dial.";
+    leftRow =
         addSlider(
-            panel,
-            c,
-            row,
+            leftPanel,
+            cLeft,
+            leftRow,
             "Attack (ms):",
-            "Time to ramp from silence to full volume after the note triggers (0–2000 ms)",
+            atkHelp,
             0,
             2000,
             (int) (atk.getFloat(idx) * 1000),
             val -> atk.setFloat(idx, val / 1000f));
 
-    row =
+    String decHelp =
+        "<b>ENV DECAY:</b> Time to decay from peak down to the sustain level (0 to 5000 ms). — <i>Physical Deluge:</i> Hold shift + turn DECAY gold shortcut dial.";
+    leftRow =
         addSlider(
-            panel,
-            c,
-            row,
+            leftPanel,
+            cLeft,
+            leftRow,
             "Decay (ms):",
-            "Time to fall from peak level down to the sustain level (0–5000 ms)",
+            decHelp,
             0,
             5000,
             (int) (dec.getFloat(idx) * 1000),
             val -> dec.setFloat(idx, val / 1000f));
 
-    row =
+    String susHelp =
+        "<b>ENV SUSTAIN:</b> Level of volume held while the note remains pressed (0% to 100%). — <i>Physical Deluge:</i> Hold shift + turn SUSTAIN gold shortcut dial.";
+    leftRow =
         addSlider(
-            panel,
-            c,
-            row,
+            leftPanel,
+            cLeft,
+            leftRow,
             "Sustain (%):",
-            "Volume level held while the note is held, after the decay phase (0–100%)",
+            susHelp,
             0,
             100,
             (int) (sus.getFloat(idx) * 100),
             val -> sus.setFloat(idx, val / 100f));
 
-    row =
+    String relHelp =
+        "<b>ENV RELEASE:</b> Time to fade the volume down to absolute silence after the note is released (0 to 5000 ms). — <i>Physical Deluge:</i> Hold shift + turn RELEASE gold shortcut dial.";
+    leftRow =
         addSlider(
-            panel,
-            c,
-            row,
+            leftPanel,
+            cLeft,
+            leftRow,
             "Release (ms):",
-            "Time to fade to silence after the note is released (0–5000 ms)",
+            relHelp,
             0,
             5000,
             (int) (rel.getFloat(idx) * 1000),
             val -> rel.setFloat(idx, val / 1000f));
 
-    // ── Mute Group ──
-    c.gridx = 0;
-    c.gridy = row;
-    c.gridwidth = 1;
-    panel.add(
-        tip(
-            label("Mute Group:"),
-            "Sounds in the same group cut each other off — e.g. open/closed hi-hat"),
-        c);
-    c.gridx = 1;
-    c.gridwidth = 2;
+    // UTILITY Header
+    cLeft.gridx = 0;
+    cLeft.gridy = leftRow;
+    cLeft.gridwidth = 3;
+    leftPanel.add(sectionLabel("UTILITY & GROUPS"), cLeft);
+    leftRow++;
+
+    // Mute Group
+    cLeft.gridx = 0;
+    cLeft.gridy = leftRow;
+    cLeft.gridwidth = 1;
+    JLabel muteLabel = label("Mute Group:");
+    String muteHelp =
+        "<b>MUTE GROUP:</b> Group drum sounds together so they cut each other off (e.g. open hi-hat muting closed hi-hat). — <i>Physical Deluge:</i> Set standard voice priority groups.";
+    muteLabel.setToolTipText(muteHelp);
+    attachHoverHelp(muteLabel, muteHelp);
+    leftPanel.add(muteLabel, cLeft);
+
+    cLeft.gridx = 1;
+    cLeft.gridwidth = 2;
     JComboBox<String> muteCombo = new JComboBox<>(new String[] {"None", "1", "2", "3", "4"});
     muteCombo.setSelectedIndex(Math.max(0, Math.min(4, sound.getMuteGroup())));
     muteCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     muteCombo.setForeground(Color.WHITE);
-    muteCombo.setToolTipText("Sounds in the same group cut each other off");
+    muteCombo.setToolTipText(muteHelp);
+    attachHoverHelp(muteCombo, muteHelp);
     muteCombo.addActionListener(
         e -> {
           int mg = muteCombo.getSelectedIndex();
           sound.setMuteGroup(mg);
           getKitArray(vm, BridgeContract.G_KIT_MUTE_GROUP).setInt(idx, (long) mg);
         });
-    panel.add(muteCombo, c);
-    row++;
+    leftPanel.add(muteCombo, cLeft);
+    leftRow++;
 
-    // ── Reverse ──
-    c.gridx = 0;
-    c.gridy = row;
-    c.gridwidth = 1;
-    panel.add(tip(label("Reverse:"), "Play the sample backwards"), c);
-    c.gridx = 1;
-    c.gridwidth = 2;
+    // Reverse Checkbox
+    cLeft.gridx = 0;
+    cLeft.gridy = leftRow;
+    cLeft.gridwidth = 1;
+    JLabel reverseLabel = label("Reverse:");
+    String reverseHelp =
+        "<b>REVERSE PLAYBACK:</b> Reverse the sample audio playback direction. — <i>Physical Deluge:</i> Press shift + click REVERSE button.";
+    reverseLabel.setToolTipText(reverseHelp);
+    attachHoverHelp(reverseLabel, reverseHelp);
+    leftPanel.add(reverseLabel, cLeft);
+
+    cLeft.gridx = 1;
+    cLeft.gridwidth = 2;
     JCheckBox reverseBox = new JCheckBox();
     reverseBox.setSelected(sound.isReverse());
     reverseBox.setBackground(SwingSynthConfigDialog.BG_CARD);
-    reverseBox.setToolTipText("Play the sample backwards");
+    reverseBox.setToolTipText(reverseHelp);
+    attachHoverHelp(reverseBox, reverseHelp);
     reverseBox.addActionListener(
         e -> {
           sound.setReverse(reverseBox.isSelected());
           getKitArray(vm, BridgeContract.G_KIT_REVERSE)
               .setInt(idx, reverseBox.isSelected() ? 1L : 0L);
         });
-    panel.add(reverseBox, c);
+    leftPanel.add(reverseBox, cLeft);
+    leftRow++;
 
-    // ═══════════════════════════════════════════════════════════
-    // Per-drum FX chain
-    // ═══════════════════════════════════════════════════════════
+    // ── Right Column: DELAY, REVERB & SIDECHAIN ──
 
-    // ── Delay FX ──
-    c.gridx = 0;
-    c.gridy = row;
-    c.gridwidth = 3;
-    panel.add(sectionLabel("DELAY FX"), c);
-    row++;
+    // Delay Header
+    cRight.gridx = 0;
+    cRight.gridy = rightRow;
+    cRight.gridwidth = 3;
+    rightPanel.add(sectionLabel("DELAY FX"), cRight);
+    rightRow++;
 
-    c.gridx = 0;
-    c.gridy = row;
-    c.gridwidth = 1;
-    panel.add(
-        tip(label("Ping-Pong:"), "Alternate delay repeats between left and right channels"), c);
-    c.gridx = 1;
-    c.gridwidth = 2;
+    // Ping Pong
+    cRight.gridx = 0;
+    cRight.gridy = rightRow;
+    cRight.gridwidth = 1;
+    JLabel pingpongLabel = label("Ping-Pong:");
+    String pingpongHelp =
+        "<b>DELAY PING-PONG:</b> Alternate the echo repeats between left and right channels for immersive stereo field. — <i>Physical Deluge:</i> Set delay mode paths.";
+    pingpongLabel.setToolTipText(pingpongHelp);
+    attachHoverHelp(pingpongLabel, pingpongHelp);
+    rightPanel.add(pingpongLabel, cRight);
+
+    cRight.gridx = 1;
+    cRight.gridwidth = 2;
     JComboBox<String> pingpongCombo = new JComboBox<>(new String[] {"Off", "On"});
     pingpongCombo.setSelectedIndex(Math.max(0, Math.min(1, sound.getDelayPingPong())));
     pingpongCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     pingpongCombo.setForeground(Color.WHITE);
+    pingpongCombo.setToolTipText(pingpongHelp);
+    attachHoverHelp(pingpongCombo, pingpongHelp);
     pingpongCombo.addActionListener(
         e -> {
           int v = pingpongCombo.getSelectedIndex();
           sound.setDelayPingPong(v);
           bridge.setKitDelayPingpong(idx, v);
         });
-    panel.add(pingpongCombo, c);
-    row++;
+    rightPanel.add(pingpongCombo, cRight);
+    rightRow++;
 
-    c.gridx = 0;
-    c.gridy = row;
-    c.gridwidth = 1;
-    panel.add(tip(label("Analog:"), "Digital or analog-modeled delay repeats"), c);
-    c.gridx = 1;
-    c.gridwidth = 2;
+    // Analog mode delay
+    cRight.gridx = 0;
+    cRight.gridy = rightRow;
+    cRight.gridwidth = 1;
+    JLabel analogLabel = label("Analog:");
+    String analogHelp =
+        "<b>DELAY MODE:</b> Selects digital high-fidelity delay or vintage analog-modeled bucket brigade delay line simulation. — <i>Physical Deluge:</i> Set delay tape options.";
+    analogLabel.setToolTipText(analogHelp);
+    attachHoverHelp(analogLabel, analogHelp);
+    rightPanel.add(analogLabel, cRight);
+
+    cRight.gridx = 1;
+    cRight.gridwidth = 2;
     JComboBox<String> analogCombo = new JComboBox<>(new String[] {"Digital", "Analog"});
     analogCombo.setSelectedIndex(Math.max(0, Math.min(1, sound.getDelayAnalog())));
     analogCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     analogCombo.setForeground(Color.WHITE);
+    analogCombo.setToolTipText(analogHelp);
+    attachHoverHelp(analogCombo, analogHelp);
     analogCombo.addActionListener(
         e -> {
           int v = analogCombo.getSelectedIndex();
           sound.setDelayAnalog(v);
           bridge.setKitDelayAnalog(idx, v);
         });
-    panel.add(analogCombo, c);
-    row++;
+    rightPanel.add(analogCombo, cRight);
+    rightRow++;
 
-    // ── Reverb ──
-    c.gridx = 0;
-    c.gridy = row;
-    c.gridwidth = 3;
-    panel.add(sectionLabel("REVERB"), c);
-    row++;
+    // Reverb Header
+    cRight.gridx = 0;
+    cRight.gridy = rightRow;
+    cRight.gridwidth = 3;
+    rightPanel.add(sectionLabel("REVERB"), cRight);
+    rightRow++;
 
-    row =
+    String reverbHelp =
+        "<b>REVERB SEND:</b> Send ratio level of this drum channel signal to the global algorithmic reverb tank (0% to 100%). — <i>Physical Deluge:</i> Turn dynamic reverb gold shortcut knob.";
+    rightRow =
         addSlider(
-            panel,
-            c,
-            row,
+            rightPanel,
+            cRight,
+            rightRow,
             "Amount (0-100):",
-            "Amount of reverb send for this sound (0–100%)",
+            reverbHelp,
             0,
             100,
             (int) (sound.getReverbAmount() * 100),
@@ -327,20 +441,22 @@ public class SwingKitConfigDialog extends JDialog {
               bridge.setKitReverbAmount(idx, amt);
             });
 
-    // ── Compressor ──
-    c.gridx = 0;
-    c.gridy = row;
-    c.gridwidth = 3;
-    panel.add(sectionLabel("COMPRESSOR"), c);
-    row++;
+    // Compressor Header
+    cRight.gridx = 0;
+    cRight.gridy = rightRow;
+    cRight.gridwidth = 3;
+    rightPanel.add(sectionLabel("COMPRESSOR"), cRight);
+    rightRow++;
 
-    row =
+    String thresholdHelp =
+        "<b>COMPRESSOR THRESHOLD:</b> Signal level at which compression begins. Lower levels trigger stronger dynamic compression. — <i>Physical Deluge:</i> Set kit compression parameters.";
+    rightRow =
         addSlider(
-            panel,
-            c,
-            row,
+            rightPanel,
+            cRight,
+            rightRow,
             "Threshold (0-100):",
-            "Compressor threshold: lower values compress more aggressively (0–100%)",
+            thresholdHelp,
             0,
             100,
             (int) (sound.getCompressorThreshold() * 100),
@@ -350,13 +466,15 @@ public class SwingKitConfigDialog extends JDialog {
               bridge.setKitCompThreshold(idx, t);
             });
 
-    row =
+    String compSyncHelp =
+        "<b>COMPRESSOR SYNC:</b> Lock-sync the compression trigger to tempo divisions for sidechain-style ducking effects. — <i>Physical Deluge:</i> Set sync level.";
+    rightRow =
         addSlider(
-            panel,
-            c,
-            row,
+            rightPanel,
+            cRight,
+            rightRow,
             "Sync Level (0-100):",
-            "Compressor sync level for tempo-synchronized ducking (0–100%)",
+            compSyncHelp,
             0,
             100,
             sound.getCompressorSyncLevel(),
@@ -365,20 +483,22 @@ public class SwingKitConfigDialog extends JDialog {
               bridge.setKitCompSyncLevel(idx, val);
             });
 
-    // ── Sidechain ──
-    c.gridx = 0;
-    c.gridy = row;
-    c.gridwidth = 3;
-    panel.add(sectionLabel("SIDECHAIN"), c);
-    row++;
+    // Sidechain Header
+    cRight.gridx = 0;
+    cRight.gridy = rightRow;
+    cRight.gridwidth = 3;
+    rightPanel.add(sectionLabel("SIDECHAIN DUCKING"), cRight);
+    rightRow++;
 
-    row =
+    String scSyncHelp =
+        "<b>SIDECHAIN SYNC:</b> Amount of volume ducking applied by the sidechain trigger signal (0% to 100%). — <i>Physical Deluge:</i> Set sync level.";
+    rightRow =
         addSlider(
-            panel,
-            c,
-            row,
+            rightPanel,
+            cRight,
+            rightRow,
             "Sync Level (0-100):",
-            "Sidechain sync level for tempo-synchronized ducking (0–100%)",
+            scSyncHelp,
             0,
             100,
             sound.getSidechainSyncLevel(),
@@ -387,33 +507,44 @@ public class SwingKitConfigDialog extends JDialog {
               bridge.setKitSidechainSyncLevel(idx, val);
             });
 
-    c.gridx = 0;
-    c.gridy = row;
-    c.gridwidth = 1;
-    panel.add(tip(label("Sync Type:"), "Sidechain sync type (e.g. Off, 8th, 16th)"), c);
-    c.gridx = 1;
-    c.gridwidth = 2;
+    // Sync Type combo
+    cRight.gridx = 0;
+    cRight.gridy = rightRow;
+    cRight.gridwidth = 1;
+    JLabel scTypeLabel = label("Sync Type:");
+    String scTypeHelp =
+        "<b>SIDECHAIN BEAT SYNC:</b> Locks the ducking trigger rate to project BPM divisions (triplets, 8th, 16th notes, etc.). — <i>Physical Deluge:</i> Set sidechain sync rate.";
+    scTypeLabel.setToolTipText(scTypeHelp);
+    attachHoverHelp(scTypeLabel, scTypeHelp);
+    rightPanel.add(scTypeLabel, cRight);
+
+    cRight.gridx = 1;
+    cRight.gridwidth = 2;
     JComboBox<String> scTypeCombo =
         new JComboBox<>(new String[] {"Off", "1/1", "1/2", "1/4", "1/8", "1/16", "1/32"});
     scTypeCombo.setSelectedIndex(Math.max(0, Math.min(6, sound.getSidechainSyncType())));
     scTypeCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     scTypeCombo.setForeground(Color.WHITE);
+    scTypeCombo.setToolTipText(scTypeHelp);
+    attachHoverHelp(scTypeCombo, scTypeHelp);
     scTypeCombo.addActionListener(
         e -> {
           int v = scTypeCombo.getSelectedIndex();
           sound.setSidechainSyncType(v);
           bridge.setKitSidechainSyncType(idx, v);
         });
-    panel.add(scTypeCombo, c);
-    row++;
+    rightPanel.add(scTypeCombo, cRight);
+    rightRow++;
 
-    row =
+    String scAtkHelp =
+        "<b>SIDECHAIN ATTACK:</b> How fast the volume ducks down to the minimum level when triggered. — <i>Physical Deluge:</i> Set sidechain envelope attack.";
+    rightRow =
         addSlider(
-            panel,
-            c,
-            row,
+            rightPanel,
+            cRight,
+            rightRow,
             "Attack (0-100):",
-            "Sidechain attack time (0–100%)",
+            scAtkHelp,
             0,
             100,
             (int) (sound.getSidechainAttack() * 100),
@@ -423,13 +554,15 @@ public class SwingKitConfigDialog extends JDialog {
               bridge.setKitSidechainAttack(idx, a);
             });
 
-    row =
+    String scRelHelp =
+        "<b>SIDECHAIN RELEASE:</b> How fast the volume recovers back to normal levels after a trigger. — <i>Physical Deluge:</i> Set sidechain envelope release.";
+    rightRow =
         addSlider(
-            panel,
-            c,
-            row,
+            rightPanel,
+            cRight,
+            rightRow,
             "Release (0-100):",
-            "Sidechain release time (0–100%)",
+            scRelHelp,
             0,
             100,
             (int) (sound.getSidechainRelease() * 100),
@@ -438,6 +571,22 @@ public class SwingKitConfigDialog extends JDialog {
               sound.setSidechainRelease(r);
               bridge.setKitSidechainRelease(idx, r);
             });
+
+    // ── Main side-by-side assembly ──
+    setLayout(new GridBagLayout());
+    GridBagConstraints cMain = new GridBagConstraints();
+    cMain.fill = GridBagConstraints.BOTH;
+    cMain.weightx = 0.5;
+    cMain.weighty = 1.0;
+    cMain.gridy = 0;
+
+    cMain.gridx = 0;
+    cMain.insets = new Insets(0, 0, 0, 15);
+    add(leftPanel, cMain);
+
+    cMain.gridx = 1;
+    cMain.insets = new Insets(0, 15, 0, 0);
+    add(rightPanel, cMain);
 
     return panel;
   }
@@ -455,18 +604,26 @@ public class SwingKitConfigDialog extends JDialog {
     c.gridx = 0;
     c.gridy = row;
     c.gridwidth = 1;
-    panel.add(tip(label(labelText), tooltip), c);
+    JLabel lbl = label(labelText);
+    lbl.setToolTipText(tooltip);
+    attachHoverHelp(lbl, tooltip);
+    panel.add(lbl, c);
+
     JSlider slider = new JSlider(min, max, Math.max(min, Math.min(max, initial)));
     slider.setBackground(SwingSynthConfigDialog.BG_CARD);
     slider.setToolTipText(tooltip);
+    attachHoverHelp(slider, tooltip);
+
     JLabel valLabel = new JLabel(String.valueOf(initial));
     valLabel.setForeground(Color.CYAN);
     valLabel.setPreferredSize(new Dimension(55, 20));
+
     slider.addChangeListener(
         e -> {
           onChange.accept(slider.getValue());
           valLabel.setText(String.valueOf(slider.getValue()));
         });
+
     c.gridx = 1;
     c.gridwidth = 1;
     panel.add(slider, c);
