@@ -65,6 +65,14 @@ public class LfoPanel extends JPanel {
       shapeCombo.setSelectedIndex(Math.max(0, Math.min(LFO_SHAPES.length - 1, lfoType)));
       shapeCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
       shapeCombo.setForeground(Color.WHITE);
+      String shapeTooltip =
+          "LFO " + lfoIdx + " Shape: Waveform shape of the low-frequency modulator.";
+      String shapeHelp =
+          "<b>LFO "
+              + lfoIdx
+              + " SHAPE:</b> Selects the low-frequency modulator's oscillator waveform shape (SINE, SAW, SQUARE, TRI, S&H, RANDOM WALK, etc.). — <i>Physical Deluge:</i> Hold shift + turn LFO parameter dial.";
+      shapeCombo.setToolTipText(shapeTooltip);
+      SwingSynthConfigDialog.attachHoverHelp(shapeCombo, shapeHelp);
       shapeCombo.addActionListener(
           e -> {
             int type = shapeCombo.getSelectedIndex();
@@ -83,6 +91,14 @@ public class LfoPanel extends JPanel {
       rateValLabel.setPreferredSize(new Dimension(45, 20));
       JSlider rateSlider = new JSlider(1, 2000, Math.max(1, Math.min(2000, rateInit)));
       rateSlider.setBackground(SwingSynthConfigDialog.BG_CARD);
+      String rateTooltip =
+          "LFO " + lfoIdx + " Rate (Hz): Modulator speed frequency in cycles per second.";
+      String rateHelp =
+          "<b>LFO "
+              + lfoIdx
+              + " RATE:</b> Controls LFO speed in Hz (0.01Hz to 20Hz) when free-running. — <i>Physical Deluge:</i> Press LFO menu button ➔ turn SELECT dial.";
+      rateSlider.setToolTipText(rateTooltip);
+      SwingSynthConfigDialog.attachHoverHelp(rateSlider, rateHelp);
       rateSlider.addChangeListener(
           e -> {
             double hz = rateSlider.getValue() / 100.0;
@@ -106,6 +122,13 @@ public class LfoPanel extends JPanel {
       depthValLabel.setPreferredSize(new Dimension(40, 20));
       JSlider depthSlider = new JSlider(0, 100, depthInit);
       depthSlider.setBackground(SwingSynthConfigDialog.BG_CARD);
+      String depthTooltip = "LFO " + lfoIdx + " Depth (%): Modulator amplitude amount.";
+      String depthHelp =
+          "<b>LFO "
+              + lfoIdx
+              + " DEPTH:</b> Controls LFO modulator signal volume/modulation depth (0% to 100%) sent to destination target. — <i>Physical Deluge:</i> Turn LFO DEPTH gold shortcut dial knob.";
+      depthSlider.setToolTipText(depthTooltip);
+      SwingSynthConfigDialog.attachHoverHelp(depthSlider, depthHelp);
       depthSlider.addChangeListener(
           e -> {
             float depth = depthSlider.getValue() / 100f;
@@ -127,6 +150,13 @@ public class LfoPanel extends JPanel {
       targetCombo.setSelectedIndex(Math.max(0, Math.min(5, bridge.getLfoTarget(l))));
       targetCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
       targetCombo.setForeground(Color.WHITE);
+      String targetTooltip = "LFO " + lfoIdx + " Target: Destination modulated parameter.";
+      String targetHelp =
+          "<b>LFO "
+              + lfoIdx
+              + " TARGET:</b> Selects the synthesizer parameter (Filter, Res, Pan, Pitch, Vol, FM) targeted by this LFO modulator. — <i>Physical Deluge:</i> Select targets inside LFO menu patch setup.";
+      targetCombo.setToolTipText(targetTooltip);
+      SwingSynthConfigDialog.attachHoverHelp(targetCombo, targetHelp);
       targetCombo.addActionListener(
           e -> bridge.setLfoTarget(lfoIdx, targetCombo.getSelectedIndex()));
       c.gridx = col++;
@@ -141,6 +171,13 @@ public class LfoPanel extends JPanel {
       syncCombo.setSelectedIndex(curSync);
       syncCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
       syncCombo.setForeground(Color.WHITE);
+      String syncTooltip = "LFO " + lfoIdx + " Sync: Project BPM beat division rate.";
+      String syncHelp =
+          "<b>LFO "
+              + lfoIdx
+              + " SYNC:</b> Lock-syncs the LFO modulator rate to project BPM tempo divisions (whole notes, half notes, triplets, dotted notes, etc.). — <i>Physical Deluge:</i> Set sync values inside LFO parameters list.";
+      syncCombo.setToolTipText(syncTooltip);
+      SwingSynthConfigDialog.attachHoverHelp(syncCombo, syncHelp);
       syncCombo.addActionListener(
           e -> {
             int syncIdx = syncCombo.getSelectedIndex();

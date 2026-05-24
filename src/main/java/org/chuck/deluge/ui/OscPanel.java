@@ -104,6 +104,9 @@ public class OscPanel extends JPanel {
     osc1LoopCombo.setForeground(Color.WHITE);
     osc1LoopCombo.setToolTipText(
         "Sample playback loop mode: OFF = play once, LOOP = repeat, ONESHOT = play entire sample ignoring note-off");
+    SwingSynthConfigDialog.attachHoverHelp(
+        osc1LoopCombo,
+        "<b>OSC 1 LOOP MODE:</b> Sample playback loop mode (OFF = play once, LOOP = repeat, ONESHOT = play entire sample ignoring note-off). — <i>Physical Deluge:</i> Press shift + turn first top encoder in sample editor.");
     osc1LoopCombo.addActionListener(
         e -> {
           int idx = osc1LoopCombo.getSelectedIndex();
@@ -125,6 +128,9 @@ public class OscPanel extends JPanel {
     osc1RevBox.setBackground(SwingSynthConfigDialog.BG_CARD);
     osc1RevBox.setForeground(Color.WHITE);
     osc1RevBox.setToolTipText("Reverse sample playback direction");
+    SwingSynthConfigDialog.attachHoverHelp(
+        osc1RevBox,
+        "<b>OSC 1 REVERSED:</b> Reverse sample playback direction. — <i>Physical Deluge:</i> Hold shift + click REVERSE button.");
     osc1RevBox.addActionListener(
         e -> {
           boolean sel = osc1RevBox.isSelected();
@@ -146,6 +152,9 @@ public class OscPanel extends JPanel {
     osc1TsBox.setBackground(SwingSynthConfigDialog.BG_CARD);
     osc1TsBox.setForeground(Color.WHITE);
     osc1TsBox.setToolTipText("Time-stretch sample to match project tempo without changing pitch");
+    SwingSynthConfigDialog.attachHoverHelp(
+        osc1TsBox,
+        "<b>OSC 1 TIME STRETCH:</b> Time-stretch sample to match project tempo without changing pitch. — <i>Physical Deluge:</i> Set standard TEMPO mapping options.");
     osc1TsBox.addActionListener(
         e -> {
           boolean sel = osc1TsBox.isSelected();
@@ -208,6 +217,9 @@ public class OscPanel extends JPanel {
     osc1LinBox.setForeground(Color.WHITE);
     osc1LinBox.setToolTipText(
         "Unchecked = zero-order hold (gritty); Checked = linear interpolation (smoother pitch shifting)");
+    SwingSynthConfigDialog.attachHoverHelp(
+        osc1LinBox,
+        "<b>OSC 1 INTERPOLATION:</b> Selects pitch-shifting algorithm (Unchecked = zero-order hold/gritty; Checked = linear interpolation/smooth). — <i>Physical Deluge:</i> Hold shift + select INTERPOLATION category.");
     osc1LinBox.addActionListener(
         e -> {
           boolean sel = osc1LinBox.isSelected();
@@ -237,6 +249,9 @@ public class OscPanel extends JPanel {
     osc2LoopCombo.setForeground(Color.WHITE);
     osc2LoopCombo.setToolTipText(
         "Sample playback loop mode: OFF = play once, LOOP = repeat, ONESHOT = play entire sample ignoring note-off");
+    SwingSynthConfigDialog.attachHoverHelp(
+        osc2LoopCombo,
+        "<b>OSC 2 LOOP MODE:</b> Sample playback loop mode (OFF = play once, LOOP = repeat, ONESHOT = play entire sample ignoring note-off). — <i>Physical Deluge:</i> Press shift + turn first top encoder in sample editor.");
     osc2LoopCombo.addActionListener(
         e -> {
           int idx = osc2LoopCombo.getSelectedIndex();
@@ -258,6 +273,9 @@ public class OscPanel extends JPanel {
     osc2RevBox.setBackground(SwingSynthConfigDialog.BG_CARD);
     osc2RevBox.setForeground(Color.WHITE);
     osc2RevBox.setToolTipText("Reverse sample playback direction");
+    SwingSynthConfigDialog.attachHoverHelp(
+        osc2RevBox,
+        "<b>OSC 2 REVERSED:</b> Reverse sample playback direction. — <i>Physical Deluge:</i> Hold shift + click REVERSE button.");
     osc2RevBox.addActionListener(
         e -> {
           boolean sel = osc2RevBox.isSelected();
@@ -279,6 +297,9 @@ public class OscPanel extends JPanel {
     osc2TsBox.setBackground(SwingSynthConfigDialog.BG_CARD);
     osc2TsBox.setForeground(Color.WHITE);
     osc2TsBox.setToolTipText("Time-stretch sample to match project tempo without changing pitch");
+    SwingSynthConfigDialog.attachHoverHelp(
+        osc2TsBox,
+        "<b>OSC 2 TIME STRETCH:</b> Time-stretch sample to match project tempo without changing pitch. — <i>Physical Deluge:</i> Set standard TEMPO mapping options.");
     osc2TsBox.addActionListener(
         e -> {
           boolean sel = osc2TsBox.isSelected();
@@ -341,6 +362,9 @@ public class OscPanel extends JPanel {
     osc2LinBox.setForeground(Color.WHITE);
     osc2LinBox.setToolTipText(
         "Unchecked = zero-order hold (gritty); Checked = linear interpolation (smoother pitch shifting)");
+    SwingSynthConfigDialog.attachHoverHelp(
+        osc2LinBox,
+        "<b>OSC 2 INTERPOLATION:</b> Selects pitch-shifting algorithm (Unchecked = zero-order hold/gritty; Checked = linear interpolation/smooth). — <i>Physical Deluge:</i> Hold shift + select INTERPOLATION category.");
     osc2LinBox.addActionListener(
         e -> {
           boolean sel = osc2LinBox.isSelected();
@@ -389,6 +413,9 @@ public class OscPanel extends JPanel {
     syncBox.setForeground(Color.WHITE);
     syncBox.setToolTipText(
         "Oscillator hard sync: osc 2's phase is reset by osc 1's cycle, creating characteristic sync sweep sounds");
+    SwingSynthConfigDialog.attachHoverHelp(
+        syncBox,
+        "<b>OSCILLATOR SYNC:</b> Hard sync oscillator 2 phase frequency bounds to oscillator 1. — <i>Physical Deluge:</i> Hold shift + click OSC SYNC button.");
     syncBox.addActionListener(
         e -> {
           boolean sel = syncBox.isSelected();

@@ -427,7 +427,14 @@ public class Dx7Panel extends JPanel {
           } else {
             raw[Dx7Patch.OFF_OP_SWITCH] &= (byte) ~(1 << currentSelectedOp);
           }
-          model.setDx7Patch(Dx7Patch.bytesToHex(raw));
+          String newHex = Dx7Patch.bytesToHex(raw);
+          model.setDx7Patch(newHex);
+          bridge.setDx7Patch(trackIndex, newHex);
+          if (vm != null) {
+            vm.setGlobalString("g_dx7_patch_" + trackIndex, newHex);
+            int opSwitchVal = raw[Dx7Patch.OFF_OP_SWITCH] & 0xFF;
+            vm.setGlobalInt("g_dx7_opSwitch_" + trackIndex, opSwitchVal);
+          }
           syncActiveOperatorDetails();
         });
     detailsGrid.add(activeCheckbox, dc);
@@ -849,7 +856,12 @@ public class Dx7Panel extends JPanel {
     if (raw == null) return;
     int opOff = currentSelectedOp * 21;
     raw[opOff + fieldOff] = (byte) (value & 0xFF);
-    model.setDx7Patch(Dx7Patch.bytesToHex(raw));
+    String newHex = Dx7Patch.bytesToHex(raw);
+    model.setDx7Patch(newHex);
+    bridge.setDx7Patch(trackIndex, newHex);
+    if (vm != null) {
+      vm.setGlobalString("g_dx7_patch_" + trackIndex, newHex);
+    }
 
     // Live update envelope graph if this is a rate/level parameter!
     if (fieldOff < 8) {
@@ -940,12 +952,17 @@ public class Dx7Panel extends JPanel {
   }
 
   /** Set a byte in the DX7 patch hex string and update the model. */
-  private static void setPatchByte(SynthTrackModel model, String curHex, int offset, int value) {
+  private void setPatchByte(SynthTrackModel model, String curHex, int offset, int value) {
     byte[] raw = getCurrentRaw(model, curHex);
     if (raw == null) return;
     if (offset >= 0 && offset < raw.length) {
       raw[offset] = (byte) (value & 0xFF);
-      model.setDx7Patch(Dx7Patch.bytesToHex(raw));
+      String newHex = Dx7Patch.bytesToHex(raw);
+      model.setDx7Patch(newHex);
+      bridge.setDx7Patch(trackIndex, newHex);
+      if (vm != null) {
+        vm.setGlobalString("g_dx7_patch_" + trackIndex, newHex);
+      }
     }
   }
 

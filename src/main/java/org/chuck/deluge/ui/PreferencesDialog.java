@@ -123,6 +123,7 @@ public class PreferencesDialog extends JDialog {
     actionsPanel.add(cancelBtn);
     actionsPanel.add(saveBtn);
     mainContainer.add(actionsPanel, BorderLayout.SOUTH);
+    DarkComboBoxRenderer.styleComponentTree(this);
   }
 
   // --- TAB BUILDERS ---

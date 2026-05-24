@@ -2143,6 +2143,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
         new int[0]; // tracks per-voice filter routing mode for dynamic reconnection
     private final boolean[] voiceActive =
         new boolean[BridgeContract.TRACKS]; // true while envelope is in attack/decay/sustain
+    private final String[] lastLoadedDx7Patch = new String[BridgeContract.TRACKS];
     private final long[] triggerGeneration =
         new long[BridgeContract.TRACKS]; // generation counter for voice stealing
     private long globalTriggerCounter =
@@ -2925,6 +2926,16 @@ public class DelugeEngineDSL implements Shred, Runnable {
         for (int r = synthBase; r <= maxSynthBridgeRow; r++) {
           int u = r - synthBase;
           if (trackType != null && trackType.getInt(r) != 1) continue;
+
+          // Live DX7 6-operator FM Voice Patch parameters real-time hot-reloading check
+          if (dx7 != null && u < dx7.length && dx7[u] != null) {
+            String currentPatch = (String) vm.getGlobalObject("g_dx7_patch_" + r);
+            if (currentPatch != null && !currentPatch.equals(lastLoadedDx7Patch[r])) {
+              lastLoadedDx7Patch[r] = currentPatch;
+              dx7[u].loadPatch(org.chuck.audio.util.Dx7Patch.fromHex(currentPatch));
+            }
+          }
+
           int algo = algoArrLive != null ? (int) algoArrLive.getInt(r) : 0;
           double[] lfoVals = new double[BridgeContract.LFO_COUNT];
           for (int l = 0; l < BridgeContract.LFO_COUNT; l++) {

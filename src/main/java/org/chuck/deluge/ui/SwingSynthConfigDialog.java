@@ -24,6 +24,9 @@ public class SwingSynthConfigDialog extends JDialog {
   private final ProjectModel projectModel;
   private final int trackIndex;
   private MidiLearnPanel midiLearnPanel;
+  private static JLabel globalHelpLabel;
+  private static final String DEFAULT_HELP_TEXT =
+      "<html>\uD83D\uDCA1 <b>QUICK HELP:</b> Hover over any control knob or slider to see its details and hardware mappings here!</html>";
 
   public SwingSynthConfigDialog(
       Frame owner,
@@ -72,12 +75,31 @@ public class SwingSynthConfigDialog extends JDialog {
     // Enable/disable DX7 tab when synth mode changes
     add(tabs, BorderLayout.CENTER);
 
+    // ── Composite South Panel Stack (Help Bar + Close button) ──
+    JPanel southStack = new JPanel();
+    southStack.setLayout(new BoxLayout(southStack, BoxLayout.Y_AXIS));
+
+    JPanel helpBarPanel = new JPanel(new BorderLayout());
+    helpBarPanel.setBackground(new Color(0x1a, 0x1a, 0x1e));
+    helpBarPanel.setBorder(
+        BorderFactory.createCompoundBorder(
+            BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(0x2d, 0x2d, 0x32)),
+            BorderFactory.createEmptyBorder(8, 16, 8, 16)));
+    globalHelpLabel = new JLabel(DEFAULT_HELP_TEXT);
+    globalHelpLabel.setFont(new Font("SansSerif", Font.PLAIN, 11));
+    globalHelpLabel.setForeground(Color.LIGHT_GRAY);
+    helpBarPanel.add(globalHelpLabel, BorderLayout.CENTER);
+    southStack.add(helpBarPanel);
+
     JButton closeBtn = new JButton("Close");
     closeBtn.addActionListener(e -> dispose());
     JPanel south = new JPanel();
     south.setBackground(new Color(0x25, 0x25, 0x25));
     south.add(closeBtn);
-    add(south, BorderLayout.SOUTH);
+    southStack.add(south);
+
+    add(southStack, BorderLayout.SOUTH);
+    DarkComboBoxRenderer.styleComponentTree(this);
   }
 
   @Override
@@ -657,6 +679,38 @@ public class SwingSynthConfigDialog extends JDialog {
 
   // ── Shared UI helpers (package-private, called by panel classes) ──
 
+  public static void updateGlobalHelp(String htmlHelpText) {
+    if (globalHelpLabel != null) {
+      if (htmlHelpText == null || htmlHelpText.isEmpty()) {
+        resetGlobalHelp();
+      } else {
+        globalHelpLabel.setText("<html>\uD83D\uDCA1 " + htmlHelpText + "</html>");
+      }
+    }
+  }
+
+  public static void resetGlobalHelp() {
+    if (globalHelpLabel != null) {
+      globalHelpLabel.setText(DEFAULT_HELP_TEXT);
+    }
+  }
+
+  public static void attachHoverHelp(JComponent comp, String helpText) {
+    if (comp == null || helpText == null || helpText.isEmpty()) return;
+    comp.addMouseListener(
+        new java.awt.event.MouseAdapter() {
+          @Override
+          public void mouseEntered(java.awt.event.MouseEvent e) {
+            updateGlobalHelp(helpText);
+          }
+
+          @Override
+          public void mouseExited(java.awt.event.MouseEvent e) {
+            resetGlobalHelp();
+          }
+        });
+  }
+
   static int addSlider(
       JPanel panel,
       GridBagConstraints c,
@@ -676,12 +730,14 @@ public class SwingSynthConfigDialog extends JDialog {
     c.gridwidth = 1;
     JLabel lbl = label(labelText);
     lbl.setToolTipText(tooltip);
+    attachHoverHelp(lbl, tooltip);
     panel.add(lbl, c);
     c.gridx = 1;
     c.gridwidth = 1;
     JSlider slider = new JSlider(min, max, Math.max(min, Math.min(max, initial)));
     slider.setBackground(BG_CARD);
     slider.setToolTipText(tooltip);
+    attachHoverHelp(slider, tooltip);
     c.gridx = 2;
     c.gridwidth = 1;
     JLabel valLabel = new JLabel(initial + unit);
