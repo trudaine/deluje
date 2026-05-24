@@ -61,6 +61,7 @@ public class SwingKitConfigDialog extends JDialog {
     southStack.add(helpBarPanel);
 
     JButton closeBtn = new JButton("Close");
+    styleButton(closeBtn, new Color(0x3a, 0x3a, 0x3e), Color.WHITE);
     closeBtn.addActionListener(e -> dispose());
     JPanel south = new JPanel();
     south.setBackground(new Color(0x25, 0x25, 0x25));
@@ -134,8 +135,7 @@ public class SwingKitConfigDialog extends JDialog {
     attachHoverHelp(pathField, sampleHelp);
 
     JButton browseBtn = new JButton("Browse...");
-    browseBtn.setBackground(new Color(0x33, 0x44, 0x55));
-    browseBtn.setForeground(Color.WHITE);
+    styleButton(browseBtn, new Color(0x33, 0x44, 0x55), Color.WHITE);
     browseBtn.setToolTipText("Open file chooser rooted at your Samples library directory");
     browseBtn.addActionListener(
         e -> {
@@ -652,5 +652,18 @@ public class SwingKitConfigDialog extends JDialog {
     l.setForeground(new Color(0x00, 0xff, 0xcc));
     l.setFont(l.getFont().deriveFont(Font.BOLD));
     return l;
+  }
+
+  private void styleButton(AbstractButton btn, Color bg, Color fg) {
+    btn.setOpaque(true);
+    btn.setBorderPainted(true);
+    btn.setContentAreaFilled(true);
+    btn.setBackground(bg);
+    btn.setForeground(fg);
+    btn.setFocusable(false);
+    btn.setBorder(
+        BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(bg.brighter(), 1),
+            BorderFactory.createEmptyBorder(4, 12, 4, 12)));
   }
 }

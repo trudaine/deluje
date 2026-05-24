@@ -62,6 +62,7 @@ public class SwingTopBarPanel extends JPanel {
 
   private final ProjectModel projectModel;
   private final ChuckVM vm;
+  private final org.chuck.deluge.BridgeContract bridge;
   private final JToggleButton clipBtn;
   private final JToggleButton songBtn;
   private final JToggleButton arrBtn;
@@ -82,13 +83,19 @@ public class SwingTopBarPanel extends JPanel {
 
   /**
    * @param vm ChucK virtual machine for direct bridge writes
+   * @param bridge active project real-time bridge
    * @param projectModel current project model (used for track count in dialogs)
    * @param leftFloat the explorer JDialog toggled by the EXPLORER button
    * @param listener callback for view-mode changes and track additions
    */
   public SwingTopBarPanel(
-      ChuckVM vm, ProjectModel projectModel, JDialog leftFloat, TopBarListener listener) {
+      ChuckVM vm,
+      org.chuck.deluge.BridgeContract bridge,
+      ProjectModel projectModel,
+      JDialog leftFloat,
+      TopBarListener listener) {
     this.projectModel = projectModel;
+    this.bridge = bridge;
     this.vm = vm;
     this.listener = listener;
     this.retroLedDisplay = new RetroLedDisplay();
@@ -172,6 +179,18 @@ public class SwingTopBarPanel extends JPanel {
     styleButton(btnExplorer, new Color(0x23, 0x23, 0x28), Color.WHITE);
     btnExplorer.addActionListener(e -> leftFloat.setVisible(!leftFloat.isVisible()));
     add(btnExplorer);
+
+    JButton btnRandomize = new JButton("🎲 RANDOMIZE");
+    styleButton(btnRandomize, new Color(0x3e, 0x27, 0x0c), new Color(0xff, 0xb3, 0x00));
+    btnRandomize.setToolTipText("Open the Delugeator Web Randomizer to morph synth parameters");
+    btnRandomize.addActionListener(
+        e -> {
+          java.awt.Frame frame =
+              (java.awt.Frame) javax.swing.SwingUtilities.getWindowAncestor(this);
+          new SwingRandomizerDialog(frame, vm, bridge, projectModel).setVisible(true);
+        });
+    add(btnRandomize);
+
     add(new JSeparator(JSeparator.VERTICAL));
 
     // ── Transport ──

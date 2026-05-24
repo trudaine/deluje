@@ -1534,7 +1534,7 @@ public class SwingDelugeApp extends JFrame {
             + (currentProjectFile != null ? currentProjectFile.getName() : "Untitled"));
   }
 
-  private void syncHighFidelityEngine(org.chuck.deluge.model.ProjectModel model) {
+  public void syncHighFidelityEngine(org.chuck.deluge.model.ProjectModel model) {
     org.chuck.deluge.firmware.model.Song fwSong = FirmwareFactory.createSong(model);
     MatrixDriver.get().popUI();
 
@@ -1614,7 +1614,7 @@ public class SwingDelugeApp extends JFrame {
     }
   }
 
-  private void refreshGrids() {
+  public void refreshGrids() {
     if (clipPanel != null) clipPanel.refresh();
     if (songPanel != null) songPanel.refresh();
     if (arrGridPanel != null) arrGridPanel.refresh();
@@ -1813,7 +1813,7 @@ public class SwingDelugeApp extends JFrame {
     return clipPanel;
   }
 
-  private void propagateCurrentModel() {
+  public void propagateCurrentModel() {
     if (clipPanel != null) clipPanel.setProjectModel(currentProject);
     if (songPanel != null) songPanel.setProjectModel(currentProject);
     if (arrGridPanel != null) arrGridPanel.setProjectModel(currentProject);
@@ -2438,7 +2438,7 @@ public class SwingDelugeApp extends JFrame {
     performancePanel.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
     centerCardPanel.add(performancePanel, "PERF");
 
-    topBar = new SwingTopBarPanel(vm, currentProject, leftFloat, new AppTopBarListener());
+    topBar = new SwingTopBarPanel(vm, bridge, currentProject, leftFloat, new AppTopBarListener());
 
     // DEBUG: solid background colors to visualize panel sizes
     System.out.println(
@@ -3270,5 +3270,10 @@ public class SwingDelugeApp extends JFrame {
       case "Chromatic" -> 14;
       default -> 0;
     };
+  }
+
+  public void reloadSidebarLibraries() {
+    if (sidebarPanel != null) sidebarPanel.reloadLibrary();
+    if (floatingSidebar != null) floatingSidebar.reloadLibrary();
   }
 }
