@@ -377,10 +377,10 @@ public class SwingGridPanel extends JPanel {
   }
 
   /** Recompute cachedPadSz from current width/height. Called on resize, not on every refresh(). */
-  private void recomputePadSize() {
+  private boolean recomputePadSize() {
     // Block recursive recompute triggered by revalidate() during refresh() — the inflated
     // 3000-wide preferred sizes cause getWidth() to balloon and padSz to grow on each cycle.
-    if (refreshInProgress) return;
+    if (refreshInProgress) return false;
     int availWidth = Math.min(getWidth() > 0 ? getWidth() : 1200, 1600);
     int availHeight = Math.min(getHeight() > 0 ? getHeight() : 600, 700);
     int labelWidth = Math.max(60, Math.min(140, availWidth / 12));
@@ -404,7 +404,9 @@ public class SwingGridPanel extends JPanel {
               + columnCount
               + ")");
       cachedPadSz = newSz;
+      return true;
     }
+    return false;
   }
 
   public SwingGridPanel(ChuckVM vm, BridgeContract bridge) {
@@ -435,7 +437,9 @@ public class SwingGridPanel extends JPanel {
               lastW = w;
               lastH = h;
               System.out.println("DEBUG resize: " + lastW + "x" + lastH + " -> recomputePadSize");
-              recomputePadSize();
+              if (recomputePadSize() && !refreshInProgress) {
+                refresh();
+              }
             }
           }
         });
