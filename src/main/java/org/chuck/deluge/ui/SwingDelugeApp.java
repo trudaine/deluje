@@ -2322,8 +2322,21 @@ public class SwingDelugeApp extends JFrame {
     editMenu.add(undoItem);
     editMenu.add(redoItem);
 
+    // Tools menu — Delugeator Randomizer
+    JMenu toolsMenu = new JMenu("Tools");
+    JMenuItem randomizerItem = new JMenuItem("Delugeator Randomizer...");
+    randomizerItem.setAccelerator(
+        KeyStroke.getKeyStroke(
+            java.awt.event.KeyEvent.VK_R, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+    randomizerItem.addActionListener(
+        e -> {
+          new SwingRandomizerDialog(this, vm, bridge, currentProject).setVisible(true);
+        });
+    toolsMenu.add(randomizerItem);
+
     menuBar.add(fileMenu);
     menuBar.add(editMenu);
+    menuBar.add(toolsMenu);
     menuBar.add(settingsMenu);
     setJMenuBar(menuBar);
 
