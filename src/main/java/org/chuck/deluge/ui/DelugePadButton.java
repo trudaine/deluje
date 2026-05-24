@@ -29,6 +29,19 @@ public class DelugePadButton extends JButton {
     }
   }
 
+  private boolean isRowGlow = false;
+
+  public boolean isRowGlow() {
+    return isRowGlow;
+  }
+
+  public void setRowGlow(boolean rowGlow) {
+    if (this.isRowGlow != rowGlow) {
+      this.isRowGlow = rowGlow;
+      repaint();
+    }
+  }
+
   public DelugePadButton() {
     setContentAreaFilled(false);
     setBorderPainted(false);
@@ -283,6 +296,15 @@ public class DelugePadButton extends JButton {
 
       g2.setColor(new Color(0x00, 0xd2, 0xff, 35));
       g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
+    }
+
+    // 5.6 Row Panning Glow (soft neon-cyan/mint)
+    if (isRowGlow) {
+      g2.setColor(new Color(0x00, 0xff, 0xcc, 40));
+      g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
+      g2.setColor(new Color(0x00, 0xff, 0xcc, 110));
+      g2.setStroke(new BasicStroke(1.5f));
+      g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
     }
 
     // 6. Minimal Text overlays

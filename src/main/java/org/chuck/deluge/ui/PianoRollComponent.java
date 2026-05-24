@@ -143,12 +143,34 @@ public class PianoRollComponent extends JComponent {
       g2.fillRect(bx, 0, (int) (keyW / 2.0), keyH / 2);
     }
 
-    // QWERTY assistants styled cleanly and scaled
-    g2.setFont(new Font("SansSerif", Font.BOLD, 10));
+    // 1. Draw base musical note pitch names and C-octave markers on white keys
+    g2.setFont(new Font("SansSerif", Font.PLAIN, 8));
+    String[] whiteNotes = {"C", "D", "E", "F", "G", "A", "B"};
+    for (int i = 0; i < 28; i++) {
+      int x = (int) (gridX + i * keyW);
+      int nextX = (int) (gridX + (i + 1) * keyW);
+      int kw = (nextX - x) - 2;
+
+      // Draw subtle pitch letter at the top of the key
+      g2.setColor(new Color(0x77, 0x77, 0x7a));
+      g2.drawString(whiteNotes[i % 7], x + 4, 12);
+
+      // Draw C-octave markers (C4, C5, C6, C7) at the bottom C-keys
+      if (i % 7 == 0) {
+        int octNumber = 4 + (i / 7);
+        g2.setFont(new Font("SansSerif", Font.BOLD, 10));
+        g2.setColor(new Color(0x00, 0xb2, 0xa0)); // Clean mint/teal
+        g2.drawString("C" + octNumber, x + (kw / 2) - 6, keyH - 22);
+        g2.setFont(new Font("SansSerif", Font.PLAIN, 8));
+      }
+    }
+
+    // 2. QWERTY key assistants styled cleanly in dark gray at the bottom
+    g2.setFont(new Font("SansSerif", Font.BOLD, 9));
     String[] whiteQwerty = {"Z", "X", "C", "V", "B", "N", "M"};
     for (int i = 0; i < 7; i++) {
       int x = (int) (gridX + i * keyW);
-      g2.setColor(Color.GRAY);
+      g2.setColor(new Color(0x55, 0x55, 0x5a));
       g2.drawString(whiteQwerty[i], x + (int) (keyW / 2.0) - 3, keyH - 8);
     }
 
@@ -160,7 +182,7 @@ public class PianoRollComponent extends JComponent {
         int nextX = (int) (gridX + (offsetKey + 1) * keyW);
         int kw = nextX - x;
         int bx = x + kw - (int) (keyW / 3.0);
-        g2.setColor(Color.WHITE);
+        g2.setColor(new Color(0x55, 0x55, 0x5a));
         g2.drawString(blackQwerty[i], bx + (int) (keyW / 4.0) - 2, (keyH / 2) - 3);
       }
     }

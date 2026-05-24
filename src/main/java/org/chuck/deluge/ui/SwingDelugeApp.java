@@ -2672,9 +2672,10 @@ public class SwingDelugeApp extends JFrame {
 
     if (newTrackIdx != currentTrackIdx) {
       final int targetTrack = newTrackIdx;
-      javax.swing.SwingUtilities.invokeLater(() -> {
-        switchToTrackEdit(targetTrack, 0);
-      });
+      javax.swing.SwingUtilities.invokeLater(
+          () -> {
+            switchToTrackEdit(targetTrack, 0);
+          });
     }
   }
 

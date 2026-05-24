@@ -66,6 +66,7 @@ public class SwingGridPanel extends JPanel {
   private int dragSelCurrRow = -1;
   private int dragSelCurrCol = -1;
   private boolean isDragSelecting = false;
+  private JPanel voicePanel;
 
   public int getActiveShiftRow() {
     return activeShiftRow;
@@ -909,8 +910,8 @@ public class SwingGridPanel extends JPanel {
       if (t instanceof org.chuck.deluge.model.KitTrackModel kit) {
         return kit.getDrums().size();
       }
-      // Synth always uses gridMode.rows as voice count
-      return gridMode.rows;
+      // Synth uses a full 24-note pitch layout (C4 to B5)
+      return 24;
     }
     // SONG / ARRANGEMENT — use gridMode.rows as the total number of voice slots
     return gridMode.rows;
@@ -1178,7 +1179,8 @@ public class SwingGridPanel extends JPanel {
                 ? sounds.get(sounds.size() - 1 - modelRow).getName()
                 : rowTrack.getName();
       } else {
-        trackName = (modelRow == 0) ? rowTrack.getName() : "-" + modelRow + "st";
+        int pitchMidi = ((24 - 1) - modelRow) + 60;
+        trackName = getNoteName(pitchMidi);
       }
     } else {
       trackName =
@@ -2668,14 +2670,56 @@ public class SwingGridPanel extends JPanel {
 
   /** Flash a pad cell to indicate a note-on event from the isomorphic / QWERTY keyboard. */
   public void flashIsomorphicNote(int note) {
-    int r = (note - 60) / 5;
-    int c = (note - 60) % 5;
-    if (r >= 0 && r < gridMode.rows && c >= 0 && c < 5 && pads[r][c] != null) {
-      Color orig = pads[r][c].getBackground();
-      pads[r][c].setBackground(Color.WHITE);
-      Timer restore = new Timer(150, ev -> pads[r][c].setBackground(orig));
-      restore.setRepeats(false);
-      restore.start();
+    if (viewMode != GridViewMode.CLIP || voicePanel == null) return;
+    boolean isSynthMode = bridge != null && bridge.getTrackType(baseTrackId) == 1;
+
+    int modelRow;
+    if (isSynthMode) {
+      modelRow = (24 - 1) - (note - 60);
+    } else {
+      modelRow = note % voiceRowCount;
+    }
+
+    int visibleRowIdx = modelRow - scrollOffset;
+    if (visibleRowIdx >= 0 && visibleRowIdx < gridMode.rows) {
+      try {
+        Component rowComp = voicePanel.getComponent(visibleRowIdx);
+        if (rowComp instanceof JPanel rowPanel) {
+          // 1. Flash the row header label
+          Component labelComp = rowPanel.getComponent(0);
+          Color origColor = labelComp.getForeground();
+          Font origFont = labelComp.getFont();
+          labelComp.setForeground(new Color(0x00, 0xff, 0xcc));
+          labelComp.setFont(origFont.deriveFont(Font.BOLD, origFont.getSize() + 1.5f));
+
+          // 2. Set row glow highlight for sequencer step pads
+          for (Component c : rowPanel.getComponents()) {
+            if (c instanceof DelugePadButton pad) {
+              Integer col = (Integer) pad.getClientProperty("col");
+              if (col != null && col < 16) {
+                pad.setRowGlow(true);
+              }
+            }
+          }
+
+          Timer restore =
+              new Timer(
+                  200,
+                  ev -> {
+                    labelComp.setForeground(origColor);
+                    labelComp.setFont(origFont);
+                    for (Component c : rowPanel.getComponents()) {
+                      if (c instanceof DelugePadButton pad) {
+                        pad.setRowGlow(false);
+                      }
+                    }
+                  });
+          restore.setRepeats(false);
+          restore.start();
+        }
+      } catch (Exception ex) {
+        // ignore out of bounds
+      }
     }
   }
 
@@ -3125,7 +3169,7 @@ public class SwingGridPanel extends JPanel {
       }
 
       // Section 2: Scrollable voice rows — always show gridMode.rows slots in the viewport
-      JPanel voicePanel = new JPanel();
+      voicePanel = new JPanel();
       voicePanel.setLayout(new BoxLayout(voicePanel, BoxLayout.Y_AXIS));
       for (int v = 0; v < gridMode.rows; v++) {
         int modelRow = scrollOffset + v;
