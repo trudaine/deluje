@@ -3718,25 +3718,46 @@ public class SwingGridPanel extends JPanel {
 
       // ── Section bar (A-Z) for SONG mode ──
       if (viewMode == GridViewMode.SONG) {
-        JPanel sectionBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 2));
-        sectionBar.setBackground(new Color(0x15, 0x15, 0x15));
-        sectionBar.setMaximumSize(new Dimension(rowW, 24));
-        sectionBar.setAlignmentX(Component.LEFT_ALIGNMENT);
-        JLabel secLabel = new JLabel("SECTION:");
-        secLabel.setForeground(Color.LIGHT_GRAY);
-        secLabel.setFont(new Font("SansSerif", Font.BOLD, 11));
-        sectionBar.add(secLabel);
         java.util.List<SongSection> sections = getProjectModel().getSongSections();
-        for (int i = 0; i < 26; i++) {
-          String letter = String.valueOf((char) ('A' + i));
-          JButton btn = new JButton(letter);
-          btn.setFont(new Font("Monospaced", Font.PLAIN, 10));
-          btn.setMargin(new Insets(0, 4, 0, 4));
-          int sectionIdx = i;
-          btn.addActionListener(e -> activateSection(sectionIdx));
-          sectionBar.add(btn);
+        if (sections != null && !sections.isEmpty()) {
+          JPanel sectionBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 2));
+          sectionBar.setBackground(new Color(0x15, 0x15, 0x15));
+          sectionBar.setMaximumSize(new Dimension(rowW, 24));
+          sectionBar.setAlignmentX(Component.LEFT_ALIGNMENT);
+          JLabel secLabel = new JLabel("SECTION:");
+          secLabel.setForeground(Color.LIGHT_GRAY);
+          secLabel.setFont(new Font("SansSerif", Font.BOLD, 11));
+          sectionBar.add(secLabel);
+          for (int i = 0; i < sections.size(); i++) {
+            SongSection sec = sections.get(i);
+            JButton btn = new JButton(sec.getId());
+            btn.setFont(new Font("Monospaced", Font.BOLD, 10));
+            btn.setMargin(new Insets(0, 6, 0, 6));
+            btn.setBackground(new Color(0x2d, 0x3d, 0x2d));
+            btn.setForeground(Color.WHITE);
+            btn.setFocusable(false);
+            btn.setToolTipText(
+                "Activate/Launch Song Section "
+                    + sec.getId()
+                    + " (contains "
+                    + sec.getPatternIds().size()
+                    + " clips)");
+
+            // Wire to dynamic Quick Help status bar!
+            SwingSynthConfigDialog.attachHoverHelp(
+                btn,
+                "<b>LAUNCH SECTION "
+                    + sec.getId()
+                    + ":</b> Queues and launches all clips and pattern tracks associated with Section "
+                    + sec.getId()
+                    + " in perfect beat synchronization!");
+
+            int sectionIdx = i;
+            btn.addActionListener(e -> activateSection(sectionIdx));
+            sectionBar.add(btn);
+          }
+          add(sectionBar);
         }
-        add(sectionBar);
       }
 
       for (int t = 0; t < songVoiceRows + 2; t++) {
