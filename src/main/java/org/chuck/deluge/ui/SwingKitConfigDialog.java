@@ -106,6 +106,8 @@ public class SwingKitConfigDialog extends JDialog {
     cLeft.anchor = GridBagConstraints.WEST;
     int leftRow = 0;
 
+    SwingWaveformPanel wavePanel = new SwingWaveformPanel(sound.getSamplePath());
+
     JPanel rightPanel = new JPanel(new GridBagLayout());
     rightPanel.setBackground(SwingSynthConfigDialog.BG_CARD);
     GridBagConstraints cRight = new GridBagConstraints();
@@ -157,6 +159,7 @@ public class SwingKitConfigDialog extends JDialog {
             String path = chooser.getSelectedFile().getAbsolutePath().replace('\\', '/');
             sound.setSamplePath(path);
             pathField.setText(path);
+            wavePanel.setSamplePath(path);
             bridge.setSamplePath(idx, path);
             if (vm != null) {
               try {
@@ -176,6 +179,15 @@ public class SwingKitConfigDialog extends JDialog {
     cLeft.gridx = 1;
     cLeft.gridwidth = 2;
     leftPanel.add(sampleRow, cLeft);
+    leftRow++;
+
+    // Waveform Visualizer Screen
+    cLeft.gridx = 0;
+    cLeft.gridy = leftRow;
+    cLeft.gridwidth = 3;
+    cLeft.insets = new Insets(8, 10, 8, 10);
+    leftPanel.add(wavePanel, cLeft);
+    cLeft.insets = new Insets(6, 10, 6, 10); // Restore normal row insets
     leftRow++;
 
     // Pitch

@@ -1,0 +1,217 @@
+package org.chuck.deluge.ui;
+
+import java.awt.*;
+import java.io.File;
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import javax.swing.*;
+
+/**
+ * A beautiful, real-time audio sample waveform visualizer component. Decodes WAV streams in
+ * parallel background virtual threads and renders a glowing, symmetric HSL gradient wave shape.
+ */
+public class SwingWaveformPanel extends JPanel {
+
+  private float[] wavePoints = null;
+  private String metadataText = "No Sample Loaded";
+  private boolean isLoading = false;
+  private String currentPath = null;
+
+  public SwingWaveformPanel(String initialPath) {
+    setBackground(new Color(0x0c, 0x0c, 0x0e));
+    setPreferredSize(new Dimension(380, 120));
+    setMinimumSize(new Dimension(200, 100));
+    setMaximumSize(new Dimension(Integer.MAX_VALUE, 150));
+    setSamplePath(initialPath);
+  }
+
+  /** Starts a Project Loom parallel virtual thread to decode raw audio frames in the background. */
+  public void setSamplePath(String path) {
+    if (path == null || path.isBlank()) {
+      this.wavePoints = null;
+      this.metadataText = "No Sample Loaded";
+      this.currentPath = null;
+      repaint();
+      return;
+    }
+
+    if (path.equals(currentPath)) {
+      return; // Already loaded!
+    }
+
+    this.currentPath = path;
+    this.isLoading = true;
+    this.metadataText = "⚡ DECODING WAVEFORM...";
+    repaint();
+
+    // Spawn Project Loom parallel virtual thread to decode without locking EDT!
+    Thread.startVirtualThread(
+        () -> {
+          float[] decoded = decodeWavFile(path);
+          SwingUtilities.invokeLater(
+              () -> {
+                this.wavePoints = decoded;
+                this.isLoading = false;
+                if (decoded == null) {
+                  this.metadataText = "⚠️ LOAD ERROR: Unsupported format or missing file";
+                }
+                repaint();
+              });
+        });
+  }
+
+  private float[] decodeWavFile(String path) {
+    File file = new File(path);
+    if (!file.exists()) return null;
+
+    try (AudioInputStream ais = AudioSystem.getAudioInputStream(file)) {
+      AudioFormat format = ais.getFormat();
+      int bytesPerFrame = format.getFrameSize();
+      if (bytesPerFrame <= 0) return null;
+
+      // Read raw PCM byte stream
+      byte[] buffer = new byte[8192];
+      int read;
+      java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+      while ((read = ais.read(buffer)) != -1) {
+        baos.write(buffer, 0, read);
+      }
+      byte[] audioBytes = baos.toByteArray();
+      int totalSamples = audioBytes.length / bytesPerFrame;
+      if (totalSamples <= 0) return null;
+
+      int targetPoints = 500; // high-resolution wave outline points!
+      float[] rawPoints = new float[targetPoints];
+      int step = Math.max(1, totalSamples / targetPoints);
+
+      boolean isBigEndian = format.isBigEndian();
+      int sampleSizeInBits = format.getSampleSizeInBits();
+
+      for (int i = 0; i < targetPoints; i++) {
+        int sampleIndex = i * step;
+        int byteIndex = sampleIndex * bytesPerFrame;
+        if (byteIndex + bytesPerFrame > audioBytes.length) break;
+
+        float val = 0.0f;
+        if (sampleSizeInBits == 16) {
+          int b1 = audioBytes[byteIndex];
+          int b2 = audioBytes[byteIndex + 1];
+          short sample;
+          if (isBigEndian) {
+            sample = (short) ((b1 << 8) | (b2 & 0xff));
+          } else {
+            sample = (short) ((b2 << 8) | (b1 & 0xff));
+          }
+          val = Math.abs(sample / 32768.0f);
+        } else if (sampleSizeInBits == 8) {
+          int sample = audioBytes[byteIndex] & 0xff;
+          val = Math.abs((sample - 128) / 128.0f);
+        }
+        rawPoints[i] = val;
+      }
+
+      // Apply 3-point moving average smoothing filter to remove sharp digital spikes
+      float[] smoothed = new float[targetPoints];
+      for (int i = 0; i < targetPoints; i++) {
+        float sum = 0;
+        int count = 0;
+        for (int w = -1; w <= 1; w++) {
+          int idx = i + w;
+          if (idx >= 0 && idx < targetPoints) {
+            sum += rawPoints[idx];
+            count++;
+          }
+        }
+        smoothed[i] = count > 0 ? (sum / count) : 0.0f;
+      }
+
+      // Formulate detailed sample metadata string
+      this.metadataText =
+          String.format(
+              "%s  |  %.1f kHz  |  %d-bit  |  %.2f sec",
+              file.getName(),
+              format.getSampleRate() / 1000.0f,
+              sampleSizeInBits,
+              (double) totalSamples / format.getSampleRate());
+
+      return smoothed;
+    } catch (Exception ex) {
+      System.err.println("[WaveformPanel] Decode error: " + ex.getMessage());
+      return null;
+    }
+  }
+
+  @Override
+  protected void paintComponent(Graphics g) {
+    super.paintComponent(g);
+    Graphics2D g2 = (Graphics2D) g.create();
+    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+    int w = getWidth();
+    int h = getHeight();
+
+    // Draw deep dark background slate box with rounded corners
+    g2.setColor(new Color(0x0a, 0x0a, 0x0c));
+    g2.fillRoundRect(0, 0, w, h, 8, 8);
+
+    // Draw border outline
+    g2.setColor(new Color(0x1d, 0x1d, 0x22));
+    g2.drawRoundRect(0, 0, w - 1, h - 1, 8, 8);
+
+    // Draw grid background laboratory guidelines
+    g2.setColor(new Color(0x13, 0x13, 0x17));
+    int gridSpacing = 25;
+    for (int x = gridSpacing; x < w; x += gridSpacing) {
+      g2.drawLine(x, 0, x, h);
+    }
+    for (int y = gridSpacing; y < h; y += gridSpacing) {
+      g2.drawLine(0, y, w, y);
+    }
+
+    // Draw center zero horizontal baseline
+    g2.setColor(new Color(0x1d, 0x1d, 0x22));
+    g2.drawLine(0, h / 2, w, h / 2);
+
+    if (isLoading || wavePoints == null) {
+      // Draw loading prompt
+      g2.setColor(isLoading ? new Color(0xff, 0xaa, 0x00) : Color.DARK_GRAY);
+      g2.setFont(new Font("SansSerif", Font.BOLD, 10));
+      FontMetrics fm = g2.getFontMetrics();
+      g2.drawString(metadataText, (w - fm.stringWidth(metadataText)) / 2, (h / 2) + 4);
+      g2.dispose();
+      return;
+    }
+
+    // Draw high-fidelity symmetric gradient waveform
+    int barX = 15;
+    int drawW = w - 30;
+    int waveMaxHeight = (h - 28) / 2;
+
+    for (int x = 0; x < drawW; x++) {
+      int ptIdx = (int) (((double) x / drawW) * wavePoints.length);
+      if (ptIdx >= wavePoints.length) break;
+
+      float amplitude = wavePoints[ptIdx];
+      int waveHeight = (int) (amplitude * waveMaxHeight);
+      int topY = (h / 2) - waveHeight;
+      int bottomY = (h / 2) + waveHeight;
+
+      // HSL Gradient calculation: Teal (#00ffcc) center, morphing to Magenta (#ff007f) bounds
+      double ratio = Math.abs(((double) x / drawW) - 0.5) * 2.0; // 0.0 center, 1.0 edges
+      int r = (int) (0x00 * (1 - ratio) + 0xff * ratio);
+      int gr = (int) (0xff * (1 - ratio) + 0x00 * ratio);
+      int b = (int) (0xcc * (1 - ratio) + 0x7f * ratio);
+      g2.setColor(new Color(r, gr, b));
+
+      g2.drawLine(barX + x, topY, barX + x, bottomY);
+    }
+
+    // Draw clean metadata text at the bottom-left edge
+    g2.setColor(Color.GRAY);
+    g2.setFont(new Font("SansSerif", Font.PLAIN, 9));
+    g2.drawString(metadataText, 15, h - 8);
+
+    g2.dispose();
+  }
+}
