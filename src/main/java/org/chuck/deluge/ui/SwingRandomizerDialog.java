@@ -64,7 +64,7 @@ public class SwingRandomizerDialog extends JDialog {
     this.bridge = bridge;
     this.projectModel = projectModel;
 
-    setSize(820, 840);
+    setSize(840, 940);
     setLocationRelativeTo(parent);
     setLayout(new BorderLayout(10, 10));
     getContentPane().setBackground(new Color(0x12, 0x12, 0x14));
@@ -148,8 +148,9 @@ public class SwingRandomizerDialog extends JDialog {
     scroll.setBorder(null);
     scroll.setBackground(new Color(0x12, 0x12, 0x14));
     scroll.getViewport().setBackground(new Color(0x12, 0x12, 0x14));
-    scroll.getVerticalScrollBar().setBackground(new Color(0x1d, 0x1d, 0x22));
     scroll.getVerticalScrollBar().setUnitIncrement(16);
+    styleScrollBar(scroll.getVerticalScrollBar());
+    styleScrollBar(scroll.getHorizontalScrollBar());
     add(scroll, BorderLayout.CENTER);
 
     // ── SOUTH PANEL (Gauge & Action Buttons) ──
@@ -472,5 +473,58 @@ public class SwingRandomizerDialog extends JDialog {
 
       g2.dispose();
     }
+  }
+
+  /** Style JScrollBar with high-contrast custom track and glowing thumb colors. */
+  public static void styleScrollBar(JScrollBar bar) {
+    if (bar == null) return;
+    bar.setUI(
+        new javax.swing.plaf.basic.BasicScrollBarUI() {
+          @Override
+          protected void configureScrollBarColors() {
+            this.thumbColor = new Color(0x55, 0x55, 0x5e);
+            this.trackColor = new Color(0x1d, 0x1d, 0x22);
+          }
+
+          @Override
+          protected void paintTrack(Graphics g, JComponent c, Rectangle trackBounds) {
+            g.setColor(trackColor);
+            g.fillRect(trackBounds.x, trackBounds.y, trackBounds.width, trackBounds.height);
+          }
+
+          @Override
+          protected void paintThumb(Graphics g, JComponent c, Rectangle thumbBounds) {
+            if (thumbBounds.isEmpty() || !scrollbar.isEnabled()) return;
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(isDragging ? new Color(0xff, 0xaa, 0x00) : thumbColor);
+            g2.fillRoundRect(
+                thumbBounds.x + 2,
+                thumbBounds.y + 2,
+                thumbBounds.width - 4,
+                thumbBounds.height - 4,
+                6,
+                6);
+            g2.dispose();
+          }
+
+          @Override
+          protected JButton createDecreaseButton(int orientation) {
+            return createZeroButton();
+          }
+
+          @Override
+          protected JButton createIncreaseButton(int orientation) {
+            return createZeroButton();
+          }
+
+          private JButton createZeroButton() {
+            JButton jb = new JButton();
+            jb.setPreferredSize(new Dimension(0, 0));
+            jb.setMinimumSize(new Dimension(0, 0));
+            jb.setMaximumSize(new Dimension(0, 0));
+            return jb;
+          }
+        });
   }
 }
