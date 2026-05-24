@@ -56,7 +56,6 @@ public class SwingSynthConfigDialog extends JDialog {
         };
     JPanel dx7Panel = new Dx7Panel(model, vm, bridge, trackIndex, this, reloadDialog);
     tabs.insertTab("DX7", null, dx7Panel, "DX7 6-operator FM editing", 1);
-    tabs.setEnabledAt(1, model.getSynthMode() == 1);
     tabs.addTab("ALGORITHM", new AlgorithmPanel(model, bridge, trackIndex));
     tabs.addTab("OSC", new OscPanel(model, bridge, trackIndex, projectModel));
     tabs.addTab("LFO", new LfoPanel(vm, bridge, trackIndex));
