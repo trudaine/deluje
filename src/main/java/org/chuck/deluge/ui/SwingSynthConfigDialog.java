@@ -83,10 +83,15 @@ public class SwingSynthConfigDialog extends JDialog {
     helpBarPanel.setBorder(
         BorderFactory.createCompoundBorder(
             BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(0x2d, 0x2d, 0x32)),
-            BorderFactory.createEmptyBorder(8, 16, 8, 16)));
+            BorderFactory.createEmptyBorder(6, 16, 6, 16)));
+    helpBarPanel.setPreferredSize(new Dimension(1200, 48));
+    helpBarPanel.setMinimumSize(new Dimension(100, 48));
+    helpBarPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 48));
+
     globalHelpLabel = new JLabel(DEFAULT_HELP_TEXT);
     globalHelpLabel.setFont(new Font("SansSerif", Font.PLAIN, 11));
     globalHelpLabel.setForeground(Color.LIGHT_GRAY);
+    globalHelpLabel.setVerticalAlignment(SwingConstants.TOP);
     helpBarPanel.add(globalHelpLabel, BorderLayout.CENTER);
     southStack.add(helpBarPanel);
 
