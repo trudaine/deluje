@@ -3200,6 +3200,23 @@ public class SwingGridPanel extends JPanel {
         int viewH = gridMode.rows * (padSz + 2);
         voiceScroll.setPreferredSize(new Dimension(3000, viewH));
         voiceScroll.setMaximumSize(new Dimension(3000, viewH));
+
+        // Intercept mouse wheel events and forward to sequencer step grid scrolling
+        voiceScroll.addMouseWheelListener(
+            e -> {
+              int rotation = e.getWheelRotation();
+              System.out.println(
+                  "[TRACE JScrollPane] mouseWheelMoved: rotation="
+                      + rotation
+                      + " shiftHeld="
+                      + e.isShiftDown());
+              if (e.isShiftDown()) {
+                scrollHorizontally(rotation);
+              } else {
+                scrollVertically(rotation);
+              }
+            });
+
         add(voiceScroll);
       } else {
         add(voicePanel);
