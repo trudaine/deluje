@@ -29,6 +29,9 @@ public class AutomationPanel extends JPanel {
 
     JButton clearAllBtn = new JButton("Clear All");
     clearAllBtn.setToolTipText("Remove all automation data for the active clip");
+    SwingSynthConfigDialog.attachHoverHelp(
+        clearAllBtn,
+        "<b>CLEAR ALL AUTOMATION:</b> Deletes all step automation data and envelope patterns for this active clip.");
     clearAllBtn.addActionListener(
         e -> {
           if (clip != null) {
@@ -38,6 +41,16 @@ public class AutomationPanel extends JPanel {
           }
         });
     topBar.add(clearAllBtn);
+
+    if (clip == null) {
+      clearAllBtn.setEnabled(false);
+      JLabel warnLabel =
+          new JLabel(
+              "⚠️ NO ACTIVE CLIP: Create a sequence pattern clip in Song view to enable step automation!");
+      warnLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
+      warnLabel.setForeground(new Color(0xff, 0x99, 0x00));
+      topBar.add(warnLabel);
+    }
     add(topBar, BorderLayout.NORTH);
 
     // ── Scrollable table: rows = params, columns = steps ──
@@ -91,6 +104,11 @@ public class AutomationPanel extends JPanel {
               ((JViewport) parent).getParent().repaint();
             }
           });
+      SwingSynthConfigDialog.attachHoverHelp(
+          enableBox,
+          "<b>AUTOMATION FOR "
+              + paramName.toUpperCase()
+              + ":</b> Click to enable or disable step automation for this parameter across the active clip. Enabling creates individual step sliders.");
       tablePanel.add(enableBox, c);
 
       // Per-step sliders
@@ -117,6 +135,17 @@ public class AutomationPanel extends JPanel {
               valLabel.setText(String.valueOf(slider.getValue()));
             });
 
+        SwingSynthConfigDialog.attachHoverHelp(
+            slider,
+            "<b>"
+                + paramName.toUpperCase()
+                + " STEP "
+                + (stepIdx + 1)
+                + ":</b> Adjust the value (0 to 127) of the "
+                + paramName.toUpperCase()
+                + " parameter specifically at sequencer step "
+                + (stepIdx + 1)
+                + ".");
         JPanel cell = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 0));
         cell.setBackground(SwingSynthConfigDialog.BG_CARD);
         cell.add(slider);

@@ -41,6 +41,9 @@ public class MidiLearnPanel extends JPanel {
 
     JButton resetBtn = new JButton("RESET ALL TO DELUGE DEFAULT CCs");
     styleButton(resetBtn, new Color(0x2d, 0x4d, 0x2d), Color.WHITE);
+    SwingSynthConfigDialog.attachHoverHelp(
+        resetBtn,
+        "<b>RESET ALL BINDINGS:</b> Instantly purges all dynamic custom wiggled mappings and restores standard factory hardware Deluge MIDI CC controller settings globally.");
     resetBtn.addActionListener(
         e -> {
           MidiInputRouter router = getRouter();
@@ -182,12 +185,26 @@ public class MidiLearnPanel extends JPanel {
       nameLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
       nameLabel.setForeground(Color.WHITE);
       nameLabel.setPreferredSize(new Dimension(200, 25));
+      SwingSynthConfigDialog.attachHoverHelp(
+          nameLabel,
+          "<b>"
+              + target.displayName.toUpperCase()
+              + " BINDING:</b> Visual display indicator panel row showing active physical MIDI CC mappings for the "
+              + target.displayName
+              + " channel control.");
       add(nameLabel, BorderLayout.WEST);
 
       valueLabel = new JLabel("UNMAPPED");
       valueLabel.setFont(new Font("SansSerif", Font.PLAIN, 13));
       valueLabel.setForeground(Color.GRAY);
       valueLabel.setHorizontalAlignment(SwingConstants.CENTER);
+      SwingSynthConfigDialog.attachHoverHelp(
+          valueLabel,
+          "<b>"
+              + target.displayName.toUpperCase()
+              + " BINDING:</b> Visual display indicator panel row showing active physical MIDI CC mappings for the "
+              + target.displayName
+              + " channel control.");
       add(valueLabel, BorderLayout.CENTER);
 
       JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
@@ -195,6 +212,11 @@ public class MidiLearnPanel extends JPanel {
 
       learnBtn = new JToggleButton("LEARN");
       styleButton(learnBtn, new Color(0x3e, 0x3e, 0x42), Color.WHITE);
+      SwingSynthConfigDialog.attachHoverHelp(
+          learnBtn,
+          "<b>MIDI LEARN "
+              + target.displayName.toUpperCase()
+              + ":</b> Click to arm MIDI CC learn, then wiggle/slide any physical controller knob/fader to bind it! — <i>Physical Deluge:</i> Hold learn button + turn dynamic parameter encoder.");
       learnBtn.addActionListener(
           e -> {
             if (learnBtn.isSelected()) {
@@ -207,6 +229,13 @@ public class MidiLearnPanel extends JPanel {
 
       clearBtn = new JButton("CLEAR");
       styleButton(clearBtn, new Color(0x6e, 0x2e, 0x2e), Color.WHITE);
+      SwingSynthConfigDialog.attachHoverHelp(
+          clearBtn,
+          "<b>CLEAR BINDING "
+              + target.displayName.toUpperCase()
+              + ":</b> Removes the custom USB MIDI controller CC knob mapping for "
+              + target.displayName
+              + " and restores its default state.");
       clearBtn.addActionListener(
           e -> {
             MidiInputRouter router = getRouter();
