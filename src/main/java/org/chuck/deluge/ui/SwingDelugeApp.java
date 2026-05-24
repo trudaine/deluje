@@ -50,6 +50,7 @@ public class SwingDelugeApp extends JFrame {
 
   private CardLayout cardLayout;
 
+  private String activeViewMode = "CLIP";
   private org.chuck.deluge.model.ProjectModel currentProject =
       org.chuck.deluge.model.ProjectModel.createDefaultProject();
   private java.io.File currentProjectFile = null;
@@ -2438,65 +2439,8 @@ public class SwingDelugeApp extends JFrame {
     floatingSidebar.setOnPatternSave(this::saveCurrentClipAsPattern);
     floatingSidebar.setOnPatternLoad(this::loadPatternIntoActiveTrack);
 
-    songPanel.setOnEditRequest(
-        (trackId, clipId) -> {
-          sidebarPanel.updateFocusTrack(trackId);
-
-          if (clipPanel != null && trackId < trackEngineStart.length) {
-            int engineBase = trackEngineStart[trackId];
-            int voiceCount = trackVoiceCount[trackId];
-
-            clipPanel.setActiveClipId(clipId);
-            clipPanel.setBaseTrackId(engineBase);
-            clipPanel.setEditedModelTrack(trackId);
-
-            java.util.List<org.chuck.deluge.model.TrackModel> allTrks =
-                clipPanel.getProjectModel() != null
-                    ? clipPanel.getProjectModel().getTracks()
-                    : java.util.List.of();
-
-            boolean editIsSynth =
-                trackId < allTrks.size()
-                    && allTrks.get(trackId) instanceof org.chuck.deluge.model.SynthTrackModel;
-
-            // Determine step count for clearing and re-pushing
-            int clearSteps = 16;
-            if (trackId < allTrks.size()) {
-              org.chuck.deluge.model.TrackModel tModel = allTrks.get(trackId);
-              if (clipId < tModel.getClips().size()) {
-                clearSteps = tModel.getClips().get(clipId).getStepCount();
-              }
-            }
-
-            // Clear engine rows for this track
-            for (int v = 0; v < voiceCount; v++) {
-              for (int s = 0; s < clearSteps; s++) bridge.setStep(engineBase + v, s, false);
-            }
-
-            if (trackId < allTrks.size()) {
-              org.chuck.deluge.model.TrackModel tModel = allTrks.get(trackId);
-              if (clipId < tModel.getClips().size()) {
-                org.chuck.deluge.model.ClipModel cModel = tModel.getClips().get(clipId);
-                int clipSteps = cModel.getStepCount();
-                for (int r = 0; r < cModel.getRowCount(); r++) {
-                  for (int s = 0; s < clipSteps; s++) {
-                    org.chuck.deluge.model.StepData sd = cModel.getStep(r, s);
-                    if (sd != null && sd.active()) {
-                      if (r < voiceCount) {
-                        bridge.setStep(engineBase + r, s, true);
-                      }
-                    }
-                  }
-                }
-              }
-            }
-
-            clipPanel.refresh();
-          }
-
-          cardLayout.show(centerCardPanel, "CLIP");
-          if (topBar != null) topBar.selectClipView();
-        });
+    songPanel.setOnEditRequest(this::switchToTrackEdit);
+    arrGridPanel.setOnEditRequest(this::switchToTrackEdit);
 
     visualizerPanel = new SwingVisualizerPanel(vm, bridge);
 
@@ -2712,10 +2656,115 @@ public class SwingDelugeApp extends JFrame {
 
   // ── Inner classes ──
 
+  public SwingGridPanel getActiveGridPanel() {
+    return activeGridPanel();
+  }
+
+  public void scrollActiveTrack(int offset) {
+    if (currentProject == null) return;
+    java.util.List<org.chuck.deluge.model.TrackModel> tracks = currentProject.getTracks();
+    if (tracks.isEmpty()) return;
+
+    int currentTrackIdx = clipPanel != null ? clipPanel.getEditedModelTrack() : 0;
+    int newTrackIdx = currentTrackIdx + offset;
+    if (newTrackIdx < 0) newTrackIdx = 0;
+    if (newTrackIdx >= tracks.size()) newTrackIdx = tracks.size() - 1;
+
+    if (newTrackIdx != currentTrackIdx) {
+      final int targetTrack = newTrackIdx;
+      javax.swing.SwingUtilities.invokeLater(() -> {
+        switchToTrackEdit(targetTrack, 0);
+      });
+    }
+  }
+
+  public void cycleViewMode() {
+    String[] modes = {"CLIP", "SONG", "ARR", "AUTO", "PERF"};
+    int currentIdx = 0;
+    for (int i = 0; i < modes.length; i++) {
+      if (modes[i].equals(activeViewMode)) {
+        currentIdx = i;
+        break;
+      }
+    }
+    int nextIdx = (currentIdx + 1) % modes.length;
+    String nextMode = modes[nextIdx];
+
+    activeViewMode = nextMode;
+    cardLayout.show(centerCardPanel, nextMode);
+    if (topBar != null) {
+      topBar.selectViewModeButton(nextMode);
+    }
+    if ("CLIP".equals(nextMode) || "SONG".equals(nextMode)) {
+      syncHighFidelityEngine(currentProject);
+    }
+  }
+
+  public void switchToTrackEdit(int trackId, int clipId) {
+    sidebarPanel.updateFocusTrack(trackId);
+
+    if (clipPanel != null && trackId < trackEngineStart.length) {
+      int engineBase = trackEngineStart[trackId];
+      int voiceCount = trackVoiceCount[trackId];
+
+      clipPanel.setActiveClipId(clipId);
+      clipPanel.setBaseTrackId(engineBase);
+      clipPanel.setEditedModelTrack(trackId);
+
+      java.util.List<org.chuck.deluge.model.TrackModel> allTrks =
+          clipPanel.getProjectModel() != null
+              ? clipPanel.getProjectModel().getTracks()
+              : java.util.List.of();
+
+      boolean editIsSynth =
+          trackId < allTrks.size()
+              && allTrks.get(trackId) instanceof org.chuck.deluge.model.SynthTrackModel;
+
+      // Determine step count for clearing and re-pushing
+      int clearSteps = 16;
+      if (trackId < allTrks.size()) {
+        org.chuck.deluge.model.TrackModel tModel = allTrks.get(trackId);
+        if (clipId < tModel.getClips().size()) {
+          clearSteps = tModel.getClips().get(clipId).getStepCount();
+        }
+      }
+
+      // Clear engine rows for this track
+      for (int v = 0; v < voiceCount; v++) {
+        for (int s = 0; s < clearSteps; s++) bridge.setStep(engineBase + v, s, false);
+      }
+
+      if (trackId < allTrks.size()) {
+        org.chuck.deluge.model.TrackModel tModel = allTrks.get(trackId);
+        if (clipId < tModel.getClips().size()) {
+          org.chuck.deluge.model.ClipModel cModel = tModel.getClips().get(clipId);
+          int clipSteps = cModel.getStepCount();
+          for (int r = 0; r < cModel.getRowCount(); r++) {
+            for (int s = 0; s < clipSteps; s++) {
+              org.chuck.deluge.model.StepData sd = cModel.getStep(r, s);
+              if (sd != null && sd.active()) {
+                if (r < voiceCount) {
+                  bridge.setStep(engineBase + r, s, true);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      clipPanel.refresh();
+    }
+
+    activeViewMode = "CLIP";
+    cardLayout.show(centerCardPanel, "CLIP");
+    if (topBar != null) topBar.selectViewModeButton("CLIP");
+  }
+
   /** Handles top-bar view-mode and add-track actions. */
   private class AppTopBarListener implements SwingTopBarPanel.TopBarListener {
     @Override
     public void onViewModeChanged(String viewMode) {
+      activeViewMode = viewMode;
       cardLayout.show(centerCardPanel, viewMode);
 
       // Update High-Fidelity UI Stack
