@@ -6,6 +6,7 @@ import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.swing.*;
+import org.chuck.deluge.project.PreferencesManager;
 
 /**
  * A beautiful, real-time audio sample waveform visualizer component. Decodes WAV streams in
@@ -62,8 +63,8 @@ public class SwingWaveformPanel extends JPanel {
   }
 
   private float[] decodeWavFile(String path) {
-    File file = new File(path);
-    if (!file.exists()) return null;
+    File file = resolveAudioFile(path);
+    if (file == null || !file.exists()) return null;
 
     try (AudioInputStream ais = AudioSystem.getAudioInputStream(file)) {
       AudioFormat format = ais.getFormat();
@@ -213,5 +214,67 @@ public class SwingWaveformPanel extends JPanel {
     g2.drawString(metadataText, 15, h - 8);
 
     g2.dispose();
+  }
+
+  /**
+   * Helper to search and resolve relative paths in XML, double folders SAMPLES/SAMPLES/ prefixes,
+   * or main resources sub-paths, ensuring wav files load stably.
+   */
+  private static File resolveAudioFile(String path) {
+    if (path == null || path.isBlank()) return null;
+
+    File f = new File(path);
+    if (f.exists()) return f;
+
+    // Fallback 1: Resolve against Preferences SAMPLES directory
+    String samplesDir = PreferencesManager.getSamplesDir();
+    if (samplesDir != null && !samplesDir.isBlank()) {
+      File f1 = new File(samplesDir, path);
+      if (f1.exists()) return f1;
+
+      // Try strip leading "SAMPLES/" if duplicate
+      if (path.toUpperCase().startsWith("SAMPLES/")) {
+        String stripped = path.substring(8);
+        File f1Stripped = new File(samplesDir, stripped);
+        if (f1Stripped.exists()) return f1Stripped;
+      }
+    }
+
+    // Fallback 2: Resolve against current directory resources sub-paths
+    String[] resourcePaths = {
+      "deluge/src/main/resources",
+      "deluge/src/main/resources/SAMPLES",
+      "deluge/src/main/resources/KITS",
+      "src/main/resources",
+      "src/main/resources/SAMPLES",
+      "src/main/resources/KITS"
+    };
+    for (String rp : resourcePaths) {
+      File f2 = new File(rp, path);
+      if (f2.exists()) return f2;
+
+      // Strip leading "SAMPLES/"
+      if (path.toUpperCase().startsWith("SAMPLES/")) {
+        File f2Stripped = new File(rp, path.substring(8));
+        if (f2Stripped.exists()) return f2Stripped;
+      }
+
+      // Just raw filename check
+      File f2Name = new File(rp, new File(path).getName());
+      if (f2Name.exists()) return f2Name;
+    }
+
+    // Fallback 3: Check parent directories up to 3 levels
+    File parent = new File(".").getAbsoluteFile();
+    for (int depth = 0; depth < 4; depth++) {
+      if (parent == null) break;
+      File f3 = new File(parent, "deluge/src/main/resources/SAMPLES/" + new File(path).getName());
+      if (f3.exists()) return f3;
+      File f4 = new File(parent, "deluge/src/main/resources/KITS/" + new File(path).getName());
+      if (f4.exists()) return f4;
+      parent = parent.getParentFile();
+    }
+
+    return null; // File not found!
   }
 }
