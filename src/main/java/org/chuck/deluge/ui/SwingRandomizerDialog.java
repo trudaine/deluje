@@ -64,7 +64,7 @@ public class SwingRandomizerDialog extends JDialog {
     this.bridge = bridge;
     this.projectModel = projectModel;
 
-    setSize(800, 720);
+    setSize(820, 840);
     setLocationRelativeTo(parent);
     setLayout(new BorderLayout(10, 10));
     getContentPane().setBackground(new Color(0x12, 0x12, 0x14));
@@ -146,6 +146,9 @@ public class SwingRandomizerDialog extends JDialog {
 
     JScrollPane scroll = new JScrollPane(slidersListPanel);
     scroll.setBorder(null);
+    scroll.setBackground(new Color(0x12, 0x12, 0x14));
+    scroll.getViewport().setBackground(new Color(0x12, 0x12, 0x14));
+    scroll.getVerticalScrollBar().setBackground(new Color(0x1d, 0x1d, 0x22));
     scroll.getVerticalScrollBar().setUnitIncrement(16);
     add(scroll, BorderLayout.CENTER);
 
