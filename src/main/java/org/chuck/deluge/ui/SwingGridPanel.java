@@ -899,7 +899,8 @@ public class SwingGridPanel extends JPanel {
 
   /** Reset scroll offsets when edited track changes. */
   public void resetScrollOffset() {
-    scrollOffset = 0;
+    boolean isSynth = bridge != null && bridge.getTrackType(baseTrackId) == 1;
+    scrollOffset = isSynth ? 40 : 0;
     scrollOffsetX = 0;
   }
 
@@ -915,8 +916,8 @@ public class SwingGridPanel extends JPanel {
       if (t instanceof org.chuck.deluge.model.KitTrackModel kit) {
         return kit.getDrums().size();
       }
-      // Synth uses a full 24-note pitch layout (C4 to B5)
-      return 24;
+      // Synth uses a full 84-note pitch layout (C2 to B8)
+      return 84;
     }
     // SONG / ARRANGEMENT — use gridMode.rows as the total number of voice slots
     return gridMode.rows;
@@ -1184,7 +1185,7 @@ public class SwingGridPanel extends JPanel {
                 ? sounds.get(sounds.size() - 1 - modelRow).getName()
                 : rowTrack.getName();
       } else {
-        int pitchMidi = ((24 - 1) - modelRow) + 60;
+        int pitchMidi = ((84 - 1) - modelRow) + 36;
         trackName = getNoteName(pitchMidi);
       }
     } else {
@@ -1525,7 +1526,7 @@ public class SwingGridPanel extends JPanel {
                   isPressed = true;
 
                   boolean isSynthMode = bridge != null && bridge.getTrackType(baseTrackId) == 1;
-                  int pitchMidi = isSynthMode ? (((24 - 1) - modelRow) + 60) : 60;
+                  int pitchMidi = isSynthMode ? (((84 - 1) - modelRow) + 36) : 60;
 
                   // ── Update LED Display ──
                   if (SwingDelugeApp.mainInstance != null) {
@@ -1583,7 +1584,7 @@ public class SwingGridPanel extends JPanel {
                   isPressed = false;
 
                   boolean isSynthMode = bridge != null && bridge.getTrackType(baseTrackId) == 1;
-                  int pitchMidi = isSynthMode ? (((24 - 1) - modelRow) + 60) : 60;
+                  int pitchMidi = isSynthMode ? (((84 - 1) - modelRow) + 36) : 60;
 
                   if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
                     Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
@@ -1720,7 +1721,7 @@ public class SwingGridPanel extends JPanel {
               boolean inLoop = activeCol < curTrackLen;
               pad.setInLoop(inLoop);
               pad.setActive(stepState);
-              pad.setBaseColor(trackColors[visibleRow % trackColors.length]);
+              pad.setBaseColor(trackColors[modelRow % trackColors.length]);
               pad.setIntensity((float) (vel * (0.2f + 0.8f * prob)));
 
               boolean isSelected = selectedCells.contains(modelRow + "," + activeCol);
@@ -1740,7 +1741,7 @@ public class SwingGridPanel extends JPanel {
               pad.setSelected(isSelected);
 
               boolean isSynthMode = bridge != null && bridge.getTrackType(baseTrackId) == 1;
-              int pitchMidi = isSynthMode ? (((24 - 1) - modelRow) + 60) : 60;
+              int pitchMidi = isSynthMode ? (((84 - 1) - modelRow) + 36) : 60;
               if (stepState) {
                 if (isSynthMode) {
                   pad.setNoteText(getNoteName(pitchMidi));
@@ -1775,7 +1776,7 @@ public class SwingGridPanel extends JPanel {
             } else {
               // SONG, ARRANGEMENT
               pad.setActive(hasClip);
-              pad.setBaseColor(trackColors[visibleRow % trackColors.length]);
+              pad.setBaseColor(trackColors[modelRow % trackColors.length]);
               pad.setIntensity(0.8f);
               if (hasClip) {
                 if (modelRow < tracks.size() && c < tracks.get(modelRow).getClips().size()) {
@@ -1860,10 +1861,10 @@ public class SwingGridPanel extends JPanel {
               double prob = bridge.getStepProbability(engineRow, activeCol);
               clipBtn.setBackground(
                   stepState
-                      ? velocityBlend(trackColors[visibleRow % trackColors.length], vel)
+                      ? velocityBlend(trackColors[modelRow % trackColors.length], vel)
                       : new Color(0x33, 0x33, 0x33));
               boolean isSynthMode = bridge != null && bridge.getTrackType(baseTrackId) == 1;
-              int pitchMidi = isSynthMode ? (((24 - 1) - modelRow) + 60) : 60;
+              int pitchMidi = isSynthMode ? (((84 - 1) - modelRow) + 36) : 60;
               if (stepState) {
                 clipBtn.setToolTipText(
                     String.format(
@@ -1891,7 +1892,7 @@ public class SwingGridPanel extends JPanel {
               }
             } else {
               if (hasClip) {
-                clipBtn.setBackground(trackColors[visibleRow % trackColors.length]);
+                clipBtn.setBackground(trackColors[modelRow % trackColors.length]);
                 if (modelRow < tracks.size() && c < tracks.get(modelRow).getClips().size()) {
                   org.chuck.deluge.model.TrackModel t = tracks.get(modelRow);
                   clipBtn.setToolTipText(
@@ -2131,7 +2132,7 @@ public class SwingGridPanel extends JPanel {
                             int engineRow = baseTrackId + modelRow;
                             // Base pitch: row 0 = highest (MIDI 83), each step down = 1 semitone
                             // Continues descending: modelRow=8 -> MIDI 75, modelRow=15 -> MIDI 68
-                            int pitchMidi = ((24 - 1) - modelRow) + 60;
+                            int pitchMidi = ((84 - 1) - modelRow) + 36;
                             org.chuck.deluge.model.StepData oldStep = null;
                             if (projectModel != null
                                 && editedModelTrack < projectModel.getTracks().size()) {
@@ -2151,7 +2152,7 @@ public class SwingGridPanel extends JPanel {
                             clipBtn.setBackground(
                                 !stepState
                                     ? velocityBlend(
-                                        trackColors[visibleRow % trackColors.length], velS)
+                                        trackColors[modelRow % trackColors.length], velS)
                                     : new Color(0x33, 0x33, 0x33));
 
                             if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
@@ -2237,7 +2238,7 @@ public class SwingGridPanel extends JPanel {
                             clipBtn.setBackground(
                                 !stepState
                                     ? velocityBlend(
-                                        trackColors[visibleRow % trackColors.length], velK)
+                                        trackColors[modelRow % trackColors.length], velK)
                                     : new Color(0x33, 0x33, 0x33));
                             if (projectModel != null
                                 && editedModelTrack < projectModel.getTracks().size()) {
@@ -2297,7 +2298,7 @@ public class SwingGridPanel extends JPanel {
                                     } else if (sound
                                         instanceof
                                         org.chuck.deluge.firmware.engine.FirmwareSound synth) {
-                                      int pitchMidi = ((24 - 1) - modelRow) + 60;
+                                      int pitchMidi = ((84 - 1) - modelRow) + 36;
                                       synth.triggerNote(pitchMidi, 127);
                                     }
                                   }
@@ -2339,7 +2340,7 @@ public class SwingGridPanel extends JPanel {
                                 }
                               } else if (sound
                                   instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
-                                int pitchMidi = ((24 - 1) - modelRow) + 60;
+                                int pitchMidi = ((84 - 1) - modelRow) + 36;
                                 synth.releaseNote(pitchMidi);
                               }
                             }
@@ -2370,7 +2371,7 @@ public class SwingGridPanel extends JPanel {
                                 }
                               } else if (sound
                                   instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
-                                int pitchMidi = ((24 - 1) - modelRow) + 60;
+                                int pitchMidi = ((84 - 1) - modelRow) + 36;
                                 synth.releaseNote(pitchMidi);
                               }
                             }
@@ -2457,10 +2458,10 @@ public class SwingGridPanel extends JPanel {
                 clipBtn.setBackground(new Color(0xff, 0xaa, 0x00)); // amber = queued
                 refresh();
               } else if (viewMode == GridViewMode.ARRANGEMENT) {
-                if (clipBtn.getBackground().equals(trackColors[visibleRow % trackColors.length])) {
+                if (clipBtn.getBackground().equals(trackColors[modelRow % trackColors.length])) {
                   clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
                 } else {
-                  clipBtn.setBackground(trackColors[visibleRow % trackColors.length]);
+                  clipBtn.setBackground(trackColors[modelRow % trackColors.length]);
                 }
               }
             });
@@ -2682,7 +2683,7 @@ public class SwingGridPanel extends JPanel {
 
     int modelRow;
     if (isSynthMode) {
-      modelRow = (24 - 1) - (note - 60);
+      modelRow = (84 - 1) - (note - 36);
     } else {
       modelRow = note % voiceRowCount;
     }
@@ -3189,6 +3190,8 @@ public class SwingGridPanel extends JPanel {
 
       // Section 2: Scrollable voice rows — always show gridMode.rows slots in the viewport
       voicePanel = new JPanel();
+      voicePanel.setBackground(new Color(0x15, 0x15, 0x15));
+      voicePanel.setOpaque(true);
       voicePanel.setLayout(new BoxLayout(voicePanel, BoxLayout.Y_AXIS));
       for (int v = 0; v < gridMode.rows; v++) {
         int modelRow = scrollOffset + v;
@@ -3650,8 +3653,7 @@ public class SwingGridPanel extends JPanel {
               clipBtn.setBackground(isBlack ? new Color(0x33, 0x33, 0x33) : Color.WHITE);
               clipBtn.setForeground(isBlack ? Color.WHITE : Color.BLACK);
               clipBtn.setText(String.valueOf(note));
-              clipBtn.setFont(
-                  new Font("SansSerif", Font.BOLD, rowHeight < 35 ? 9 : (padSz > 70 ? 14 : 10)));
+              clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 14 : 10));
 
               clipBtn.addActionListener(e -> triggerKeyboardNote(note));
             }
@@ -3979,7 +3981,7 @@ public class SwingGridPanel extends JPanel {
                           // Audition via engine preview (wrap to voice slot)
                           int slot = baseTrackId + (trk % 8);
                           vm.setGlobalFloat(
-                              BridgeContract.G_PREVIEW_PITCH, (float) ((24 - 1) - trk));
+                              BridgeContract.G_PREVIEW_PITCH, (float) ((84 - 1) - trk));
                           vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) slot);
                           vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
 
@@ -4906,7 +4908,7 @@ public class SwingGridPanel extends JPanel {
             org.chuck.deluge.model.ClipModel cModel = tModel.getClips().get(activeClipId);
             double curVel = bridge.getVelocity(engineRow, activeCol);
             double curProb = bridge.getStepProbability(engineRow, activeCol);
-            int pitch = isSynthMode ? (((24 - 1) - modelRow) + 60) : 0;
+            int pitch = isSynthMode ? (((84 - 1) - modelRow) + 36) : 0;
             cModel.setStep(
                 modelRow,
                 activeCol,
@@ -5017,7 +5019,7 @@ public class SwingGridPanel extends JPanel {
         }
       }
     } else if (isSynthMode) {
-      int pitchMidi = ((24 - 1) - modelRow) + 60;
+      int pitchMidi = ((84 - 1) - modelRow) + 36;
       if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
         Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
         if (fwEngineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
@@ -5068,7 +5070,7 @@ public class SwingGridPanel extends JPanel {
               kit.drumSounds.get(modelRow).releaseNote(60);
             }
           } else if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
-            int pitchMidi = ((24 - 1) - modelRow) + 60;
+            int pitchMidi = ((84 - 1) - modelRow) + 36;
             synth.releaseNote(pitchMidi);
           }
         }
@@ -5101,7 +5103,7 @@ public class SwingGridPanel extends JPanel {
         org.chuck.deluge.model.ClipModel cModel = tModel.getClips().get(activeClipId);
         double curVel = bridge.getVelocity(engineRow, activeCol);
         double curProb = bridge.getStepProbability(engineRow, activeCol);
-        int pitch = isSynthMode ? (((24 - 1) - modelRow) + 60) : 0;
+        int pitch = isSynthMode ? (((84 - 1) - modelRow) + 36) : 0;
         cModel.setStep(
             modelRow,
             activeCol,
@@ -5194,7 +5196,7 @@ public class SwingGridPanel extends JPanel {
                 int iter = bridge.getIterance(engineRow, activeCol);
                 double fill = bridge.getStepFill(engineRow, activeCol);
                 boolean isSynthMode = bridge.getTrackType(baseTrackId) == 1;
-                int pitch = isSynthMode ? (((24 - 1) - modelRow) + 60) : 0;
+                int pitch = isSynthMode ? (((84 - 1) - modelRow) + 36) : 0;
 
                 org.chuck.deluge.model.StepData newStep =
                     new org.chuck.deluge.model.StepData(
@@ -5232,7 +5234,7 @@ public class SwingGridPanel extends JPanel {
           int iter = bridge.getIterance(engineRow, activeCol);
           double fill = bridge.getStepFill(engineRow, activeCol);
           boolean isSynthMode = bridge.getTrackType(baseTrackId) == 1;
-          int pitch = isSynthMode ? (((24 - 1) - modelRow) + 60) : 0;
+          int pitch = isSynthMode ? (((84 - 1) - modelRow) + 36) : 0;
           copiedStep =
               new org.chuck.deluge.model.StepData(
                   st, (float) vel, (float) gate, (float) prob, pitch, iter, (float) fill);
@@ -5258,7 +5260,7 @@ public class SwingGridPanel extends JPanel {
                 org.chuck.deluge.model.ClipModel cModel = tModel.getClips().get(activeClipId);
                 org.chuck.deluge.model.StepData oldStep = cModel.getStep(modelRow, activeCol);
                 boolean isSynthMode = bridge.getTrackType(baseTrackId) == 1;
-                int pitch = isSynthMode ? (((24 - 1) - modelRow) + 60) : 0;
+                int pitch = isSynthMode ? (((84 - 1) - modelRow) + 36) : 0;
                 org.chuck.deluge.model.StepData newStep =
                     new org.chuck.deluge.model.StepData(
                         copiedStep.active(),
@@ -5324,7 +5326,7 @@ public class SwingGridPanel extends JPanel {
     int activeCol = getActiveCol(row, col);
     int engineRow = baseTrackId + modelRow;
     boolean isSynthMode = bridge.getTrackType(baseTrackId) == 1;
-    int pitch = isSynthMode ? (((24 - 1) - modelRow) + 60) : 0;
+    int pitch = isSynthMode ? (((84 - 1) - modelRow) + 36) : 0;
 
     org.chuck.deluge.model.StepData oldStep = null;
     org.chuck.deluge.model.TrackModel tModel = null;
@@ -5376,7 +5378,7 @@ public class SwingGridPanel extends JPanel {
     int activeCol = getActiveCol(row, col);
     int engineRow = baseTrackId + modelRow;
     boolean isSynthMode = bridge.getTrackType(baseTrackId) == 1;
-    int pitch = isSynthMode ? (((24 - 1) - modelRow) + 60) : 0;
+    int pitch = isSynthMode ? (((84 - 1) - modelRow) + 36) : 0;
 
     org.chuck.deluge.model.StepData oldStep = null;
     org.chuck.deluge.model.TrackModel tModel = null;
@@ -5426,7 +5428,7 @@ public class SwingGridPanel extends JPanel {
     boolean startActive = bridge.getStep(engineRow, startModelCol);
     double vel = startActive ? bridge.getVelocity(engineRow, startModelCol) : 0.8;
     double prob = startActive ? bridge.getStepProbability(engineRow, startModelCol) : 1.0;
-    int pitch = isSynthMode ? (((24 - 1) - modelRow) + 60) : 0;
+    int pitch = isSynthMode ? (((84 - 1) - modelRow) + 36) : 0;
     int iter = startActive ? bridge.getIterance(engineRow, startModelCol) : 0;
     double fill = startActive ? bridge.getStepFill(engineRow, startModelCol) : 0.0;
 
