@@ -1731,14 +1731,34 @@ public class SwingDelugeApp extends JFrame {
   }
 
   private SwingGridPanel activeGridPanel() {
-    if (cardLayout == null || centerCardPanel == null) return clipPanel;
-    // Return whichever panel is currently visible
+    if (cardLayout == null || centerCardPanel == null) {
+      System.out.println(
+          "[TRACE activeGrid] cardLayout or centerCardPanel is null! Returning default clipPanel.");
+      return clipPanel;
+    }
+    System.out.println("[TRACE activeGrid] Querying components inside centerCardPanel...");
     for (java.awt.Component comp : centerCardPanel.getComponents()) {
-      if (comp.isVisible() && comp instanceof SwingGridPanel sgp) return sgp;
+      System.out.println(
+          "[TRACE activeGrid] Comp: class="
+              + comp.getClass().getName()
+              + " visible="
+              + comp.isVisible());
+      if (comp.isVisible() && comp instanceof SwingGridPanel sgp) {
+        System.out.println(
+            "[TRACE activeGrid] Found visible SwingGridPanel: viewMode=" + sgp.getViewMode());
+        return sgp;
+      }
       if (comp.isVisible()
           && comp instanceof JScrollPane sp
-          && sp.getViewport().getView() instanceof SwingGridPanel sgp) return sgp;
+          && sp.getViewport().getView() instanceof SwingGridPanel sgp) {
+        System.out.println(
+            "[TRACE activeGrid] Found visible SwingGridPanel inside JScrollPane: viewMode="
+                + sgp.getViewMode());
+        return sgp;
+      }
     }
+    System.out.println(
+        "[TRACE activeGrid] No visible grid panel found! Fallback to default clipPanel.");
     return clipPanel;
   }
 

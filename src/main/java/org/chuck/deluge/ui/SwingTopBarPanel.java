@@ -298,8 +298,12 @@ public class SwingTopBarPanel extends JPanel {
         createEncoderSim(
             "HORIZ",
             (offset) -> {
+              System.out.println("[TRACE topbar] HORIZ rotate offset=" + offset);
               if (SwingDelugeApp.mainInstance != null) {
                 SwingGridPanel activeGrid = SwingDelugeApp.mainInstance.getActiveGridPanel();
+                System.out.println(
+                    "[TRACE topbar] HORIZ target activeGrid="
+                        + (activeGrid != null ? activeGrid.getViewMode() : "null"));
                 if (activeGrid != null) {
                   activeGrid.scrollHorizontally(offset);
                 }
@@ -307,6 +311,7 @@ public class SwingTopBarPanel extends JPanel {
               MatrixDriver.get().horizontalEncoderAction(offset);
             },
             (on) -> {
+              System.out.println("[TRACE topbar] HORIZ click on=" + on);
               if (on && SwingDelugeApp.mainInstance != null) {
                 SwingGridPanel activeGrid = SwingDelugeApp.mainInstance.getActiveGridPanel();
                 if (activeGrid != null) {
@@ -319,8 +324,12 @@ public class SwingTopBarPanel extends JPanel {
         createEncoderSim(
             "VERT",
             (offset) -> {
+              System.out.println("[TRACE topbar] VERT rotate offset=" + offset);
               if (SwingDelugeApp.mainInstance != null) {
                 SwingGridPanel activeGrid = SwingDelugeApp.mainInstance.getActiveGridPanel();
+                System.out.println(
+                    "[TRACE topbar] VERT target activeGrid="
+                        + (activeGrid != null ? activeGrid.getViewMode() : "null"));
                 if (activeGrid != null) {
                   activeGrid.scrollVertically(offset);
                 }
@@ -328,6 +337,7 @@ public class SwingTopBarPanel extends JPanel {
               MatrixDriver.get().verticalEncoderAction(offset);
             },
             (on) -> {
+              System.out.println("[TRACE topbar] VERT click on=" + on);
               if (on && SwingDelugeApp.mainInstance != null) {
                 SwingGridPanel activeGrid = SwingDelugeApp.mainInstance.getActiveGridPanel();
                 if (activeGrid != null) {
@@ -340,17 +350,21 @@ public class SwingTopBarPanel extends JPanel {
         createEncoderSim(
             "SELECT",
             (offset) -> {
+              System.out.println("[TRACE topbar] SELECT rotate offset=" + offset);
               if (SwingDelugeApp.mainInstance != null) {
                 SwingGridPanel grid = SwingDelugeApp.mainInstance.getActiveGridPanel();
                 if (grid != null && grid.isShiftHeld() && grid.getActiveShiftParam() != null) {
+                  System.out.println("[TRACE topbar] SELECT adjust shift param offset=" + offset);
                   grid.adjustRotaryParameter(offset);
                   return;
                 }
+                System.out.println("[TRACE topbar] SELECT scroll track offset=" + offset);
                 SwingDelugeApp.mainInstance.scrollActiveTrack(offset);
               }
               MatrixDriver.get().selectEncoderAction(offset);
             },
             (on) -> {
+              System.out.println("[TRACE topbar] SELECT click on=" + on);
               if (on && SwingDelugeApp.mainInstance != null) {
                 SwingDelugeApp.mainInstance.cycleViewMode();
               }
