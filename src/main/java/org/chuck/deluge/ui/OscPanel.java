@@ -8,7 +8,8 @@ import org.chuck.deluge.model.SynthTrackModel;
 
 /**
  * A beautiful, 2-column wide-screen optimized layout for Oscillator and Mix settings, preventing
- * vertical scroll clipping and providing a premium desktop dashboard.
+ * vertical scroll clipping and providing a premium desktop dashboard. Supports complete label
+ * tooltips and hover quick help mapping details globally.
  */
 public class OscPanel extends JPanel {
 
@@ -251,7 +252,12 @@ public class OscPanel extends JPanel {
     cLeft.gridx = 0;
     cLeft.gridy = leftRow;
     cLeft.gridwidth = 1;
-    leftPanel.add(SwingSynthConfigDialog.label("Loop Mode:"), cLeft);
+    JLabel osc1LoopLabel = SwingSynthConfigDialog.label("Loop Mode:");
+    osc1LoopLabel.setToolTipText(osc1LoopCombo.getToolTipText());
+    SwingSynthConfigDialog.attachHoverHelp(
+        osc1LoopLabel,
+        "<b>OSC 1 LOOP MODE:</b> Sample playback loop mode (OFF = play once, LOOP = repeat, ONESHOT = play entire sample ignoring note-off). — <i>Physical Deluge:</i> Press shift + turn first top encoder in sample editor.");
+    leftPanel.add(osc1LoopLabel, cLeft);
     cLeft.gridx = 1;
     cLeft.gridwidth = 2;
     leftPanel.add(osc1LoopCombo, cLeft);
@@ -260,7 +266,12 @@ public class OscPanel extends JPanel {
     cLeft.gridx = 0;
     cLeft.gridy = leftRow;
     cLeft.gridwidth = 1;
-    leftPanel.add(SwingSynthConfigDialog.label("Reversed:"), cLeft);
+    JLabel osc1RevLabel = SwingSynthConfigDialog.label("Reversed:");
+    osc1RevLabel.setToolTipText(osc1RevBox.getToolTipText());
+    SwingSynthConfigDialog.attachHoverHelp(
+        osc1RevLabel,
+        "<b>OSC 1 REVERSED:</b> Reverse sample playback direction. — <i>Physical Deluge:</i> Hold shift + click REVERSE button.");
+    leftPanel.add(osc1RevLabel, cLeft);
     cLeft.gridx = 1;
     cLeft.gridwidth = 2;
     leftPanel.add(osc1RevBox, cLeft);
@@ -269,7 +280,12 @@ public class OscPanel extends JPanel {
     cLeft.gridx = 0;
     cLeft.gridy = leftRow;
     cLeft.gridwidth = 1;
-    leftPanel.add(SwingSynthConfigDialog.label("Time Stretch:"), cLeft);
+    JLabel osc1TsLabel = SwingSynthConfigDialog.label("Time Stretch:");
+    osc1TsLabel.setToolTipText(osc1TsBox.getToolTipText());
+    SwingSynthConfigDialog.attachHoverHelp(
+        osc1TsLabel,
+        "<b>OSC 1 TIME STRETCH:</b> Time-stretch sample to match project tempo without changing pitch. — <i>Physical Deluge:</i> Set standard TEMPO mapping options.");
+    leftPanel.add(osc1TsLabel, cLeft);
     cLeft.gridx = 1;
     cLeft.gridwidth = 2;
     leftPanel.add(osc1TsBox, cLeft);
@@ -316,7 +332,12 @@ public class OscPanel extends JPanel {
     cLeft.gridx = 0;
     cLeft.gridy = leftRow;
     cLeft.gridwidth = 1;
-    leftPanel.add(SwingSynthConfigDialog.label("Interpolation:"), cLeft);
+    JLabel osc1LinLabel = SwingSynthConfigDialog.label("Interpolation:");
+    osc1LinLabel.setToolTipText(osc1LinBox.getToolTipText());
+    SwingSynthConfigDialog.attachHoverHelp(
+        osc1LinLabel,
+        "<b>OSC 1 INTERPOLATION:</b> Selects pitch-shifting algorithm (Unchecked = zero-order hold/gritty; Checked = linear interpolation/smooth). — <i>Physical Deluge:</i> Hold shift + select INTERPOLATION category.");
+    leftPanel.add(osc1LinLabel, cLeft);
     cLeft.gridx = 1;
     cLeft.gridwidth = 2;
     leftPanel.add(osc1LinBox, cLeft);
@@ -333,7 +354,12 @@ public class OscPanel extends JPanel {
     cRight.gridx = 0;
     cRight.gridy = rightRow;
     cRight.gridwidth = 1;
-    rightPanel.add(SwingSynthConfigDialog.label("Loop Mode:"), cRight);
+    JLabel osc2LoopLabel = SwingSynthConfigDialog.label("Loop Mode:");
+    osc2LoopLabel.setToolTipText(osc2LoopCombo.getToolTipText());
+    SwingSynthConfigDialog.attachHoverHelp(
+        osc2LoopLabel,
+        "<b>OSC 2 LOOP MODE:</b> Sample playback loop mode (OFF = play once, LOOP = repeat, ONESHOT = play entire sample ignoring note-off). — <i>Physical Deluge:</i> Press shift + turn first top encoder in sample editor.");
+    rightPanel.add(osc2LoopLabel, cRight);
     cRight.gridx = 1;
     cRight.gridwidth = 2;
     rightPanel.add(osc2LoopCombo, cRight);
@@ -342,7 +368,12 @@ public class OscPanel extends JPanel {
     cRight.gridx = 0;
     cRight.gridy = rightRow;
     cRight.gridwidth = 1;
-    rightPanel.add(SwingSynthConfigDialog.label("Reversed:"), cRight);
+    JLabel osc2RevLabel = SwingSynthConfigDialog.label("Reversed:");
+    osc2RevLabel.setToolTipText(osc2RevBox.getToolTipText());
+    SwingSynthConfigDialog.attachHoverHelp(
+        osc2RevLabel,
+        "<b>OSC 2 REVERSED:</b> Reverse sample playback direction. — <i>Physical Deluge:</i> Hold shift + click REVERSE button.");
+    rightPanel.add(osc2RevLabel, cRight);
     cRight.gridx = 1;
     cRight.gridwidth = 2;
     rightPanel.add(osc2RevBox, cRight);
@@ -351,7 +382,12 @@ public class OscPanel extends JPanel {
     cRight.gridx = 0;
     cRight.gridy = rightRow;
     cRight.gridwidth = 1;
-    rightPanel.add(SwingSynthConfigDialog.label("Time Stretch:"), cRight);
+    JLabel osc2TsLabel = SwingSynthConfigDialog.label("Time Stretch:");
+    osc2TsLabel.setToolTipText(osc2TsBox.getToolTipText());
+    SwingSynthConfigDialog.attachHoverHelp(
+        osc2TsLabel,
+        "<b>OSC 2 TIME STRETCH:</b> Time-stretch sample to match project tempo without changing pitch. — <i>Physical Deluge:</i> Set standard TEMPO mapping options.");
+    rightPanel.add(osc2TsLabel, cRight);
     cRight.gridx = 1;
     cRight.gridwidth = 2;
     rightPanel.add(osc2TsBox, cRight);
@@ -417,7 +453,12 @@ public class OscPanel extends JPanel {
     cRight.gridx = 0;
     cRight.gridy = rightRow;
     cRight.gridwidth = 1;
-    rightPanel.add(SwingSynthConfigDialog.label("Interpolation:"), cRight);
+    JLabel osc2LinLabel = SwingSynthConfigDialog.label("Interpolation:");
+    osc2LinLabel.setToolTipText(osc2LinBox.getToolTipText());
+    SwingSynthConfigDialog.attachHoverHelp(
+        osc2LinLabel,
+        "<b>OSC 2 INTERPOLATION:</b> Selects pitch-shifting algorithm (Unchecked = zero-order hold/gritty; Checked = linear interpolation/smooth). — <i>Physical Deluge:</i> Hold shift + select INTERPOLATION category.");
+    rightPanel.add(osc2LinLabel, cRight);
     cRight.gridx = 1;
     cRight.gridwidth = 2;
     rightPanel.add(osc2LinBox, cRight);
@@ -432,7 +473,12 @@ public class OscPanel extends JPanel {
     cRight.gridx = 0;
     cRight.gridy = rightRow;
     cRight.gridwidth = 1;
-    rightPanel.add(SwingSynthConfigDialog.label("Hard Sync:"), cRight);
+    JLabel syncLabel = SwingSynthConfigDialog.label("Hard Sync:");
+    syncLabel.setToolTipText(syncBox.getToolTipText());
+    SwingSynthConfigDialog.attachHoverHelp(
+        syncLabel,
+        "<b>OSCILLATOR SYNC:</b> Hard sync oscillator 2 phase frequency bounds to oscillator 1. — <i>Physical Deluge:</i> Hold shift + click OSC SYNC button.");
+    rightPanel.add(syncLabel, cRight);
     cRight.gridx = 1;
     cRight.gridwidth = 2;
     rightPanel.add(syncBox, cRight);
