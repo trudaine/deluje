@@ -92,7 +92,9 @@ public class DelugeEngineDSL implements Shred, Runnable {
     double bpm = vm.getGlobalFloat(BridgeContract.G_BPM);
     if (bpm < 1.0) bpm = 120.0;
     double swing = Math.max(0.0, Math.min(1.0, vm.getGlobalFloat(BridgeContract.G_SWING)));
-    double baseSec = 60.0 / bpm / 4.0;
+    double res = vm.getGlobalFloat(BridgeContract.G_STEP_RESOLUTION);
+    if (res <= 0.0) res = 0.25; // fallback to 1/16th standard!
+    double baseSec = 60.0 / bpm * res;
     if (step % 2 == 0) return second(baseSec * (1.0 + (swing - 0.5) * 0.4));
     return second(baseSec * (1.0 - (swing - 0.5) * 0.4));
   }
