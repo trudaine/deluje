@@ -573,7 +573,6 @@ public class SwingKitConfigDialog extends JDialog {
             });
 
     // ── Main side-by-side assembly ──
-    setLayout(new GridBagLayout());
     GridBagConstraints cMain = new GridBagConstraints();
     cMain.fill = GridBagConstraints.BOTH;
     cMain.weightx = 0.5;
