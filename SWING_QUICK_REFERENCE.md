@@ -521,30 +521,33 @@ To customise: edit `duckedGain`, `duckMs`, `releaseMs` in `DelugeEngineDSL.sidec
 
 ---
 
-## MISSING UI — IMPLEMENTATION PRIORITY LIST
+## COMPLETED DESKTOP WORKSTATION UI OVERHAUL
 
-The following features are **fully wired in the engine and BridgeContract** but have no
-Swing UI control yet. Listed roughly in priority order:
+The following core parameters and modules have been **fully built, visually styled, and operational** inside the desktop Swing user interface:
 
-| Priority | Feature | What needs building |
+| UI Module | What Was Built | Code Coordinates / Components |
 | :--- | :--- | :--- |
-| 🔴 High | LFO section in SynthConfigDialog | 4 LFO slots (shape/rate/depth/target/scope) |
-| 🔴 High | Kit ADSR in KitConfigDialog | 4 sliders: A/D/S/R |
-| 🔴 High | Mute group picker in KitConfigDialog | Dropdown: None / Group 1-4 |
-| 🔴 High | Reverse toggle in KitConfigDialog | Checkbox |
-| 🟡 Medium | Track length badge + right-click Set Length | Row header UI element |
-| 🟡 Medium | Step probability in StepEditorPopover | Slider already in engine |
-| 🟡 Medium | Undo / Redo | Pattern snapshot stack |
-| 🟡 Medium | Solo button on row header | `[S]` button, soloRow field exists |
-| 🟡 Medium | Tap Tempo | `T` key listener |
-| 🟠 Lower | Arranger clip drag & drop | AV01–AV12 |
-| 🟠 Lower | Clone clip / preset | Right-click context menu |
-| 🟠 Lower | Transpose clip | `Ctrl+Up/Down` |
-| 🟠 Lower | Automation recording | R + parameter change |
-| 🟠 Lower | MIDI learn | Learn mode + incoming CC |
-| ⬜ Future | Audio clips / Looper | Full AC / LO sections |
-| ⬜ Future | Multi-sampling | WF section |
-| ⬜ Future | Waveform view | Loop point editor |
+| **LFO Modulation Editor** | 4 full LFO slots with rate, shape, depth, and target routing drop-downs. | `LfoPanel.java` tab panel in `SwingSynthConfigDialog.java`. |
+| **Kit Sound ADSR Envelope** | Individual Attack/Decay/Sustain/Release milliseconds sliders per drum sound. | `SwingKitConfigDialog.java` (ADSR Section). |
+| **Kit Sound Mute Groups** | Drop-down selections (None / Group 1-4) to dynamically cut off sounds. | `SwingKitConfigDialog.java` (Mute Group Combobox). |
+| **Kit Sound Sample Reverse** | Interactive JCheckBox toggles to reverse sample playback directions. | `SwingKitConfigDialog.java` (Reverse Checkbox). |
+| **Step Properties Dialog** | Right-click context actions on grid pads to modify step velocity, sub-trigger repeats (iterance), and fill probability. | `StepPropertiesDialog.java` and `showStepPropertiesDialog()` in `SwingGridPanel.java`. |
+| **Undo / Redo Stack** | Unified command Consequence stack mapping step additions, deletions, properties changes, and project parameters updates. | `UndoRedoStack.java` integrated across standard grid edits and sliders. |
+| **MIDI Learn Interface Grid** | Dedicated dark-themed setup grid allowing automatic CC learning, incoming MIDI parameter updates, reset keys, and clear functions. | `MidiLearnPanel.java` tab view in top panels. |
+| **Track Solo & Audition Play** | Dedicated Column 18 Solo triggers in Song/Arranger view, and real-time press-and-hold Audition Play (with transient LED display note text) in Clip view. | Columns 17/18 implementation inside `SwingGridPanel.java`. |
+
+---
+
+## MISSING OR DEFERRED FUTURE WORK
+
+The following advanced timeline and wave-editing workflows are open/deferred for future versions:
+
+| Module | Feature | Scope / Needs |
+| :--- | :--- | :--- |
+| 🟡 Medium | Arranger clip timelines | AV01–AV12 cell placement layouts and dragging |
+| 🟠 Lower | Waveform view | Dynamic sample graph rendering with start/loop/end point markers |
+| ⬜ Future | Audio Clips / Looper | Audio clip import and loop recording channels |
+| ⬜ Future | Multi-sampling | Map wave files to different pitch regions of a single keyboard instrument |
 
 ---
 
