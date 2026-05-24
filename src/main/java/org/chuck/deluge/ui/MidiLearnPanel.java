@@ -77,7 +77,7 @@ public class MidiLearnPanel extends JPanel {
     // Build scrollable list
     JPanel listPanel = new JPanel();
     listPanel.setLayout(new BoxLayout(listPanel, BoxLayout.Y_AXIS));
-    listPanel.setBackground(new Color(0x22, 0x22, 0x22));
+    listPanel.setBackground(SwingSynthConfigDialog.BG_CARD);
 
     for (ParameterTarget target : targets) {
       RowPanel rp = new RowPanel(target);
@@ -96,7 +96,7 @@ public class MidiLearnPanel extends JPanel {
             null,
             Color.WHITE));
     scroll.setBackground(new Color(0x1a, 0x1a, 0x1a));
-    scroll.getViewport().setBackground(new Color(0x22, 0x22, 0x22));
+    scroll.getViewport().setBackground(SwingSynthConfigDialog.BG_CARD);
     add(scroll, BorderLayout.CENTER);
 
     // Setup active query refresh timer (every 150ms)

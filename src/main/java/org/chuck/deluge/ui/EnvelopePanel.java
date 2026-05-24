@@ -15,7 +15,7 @@ public class EnvelopePanel extends JPanel {
   public EnvelopePanel(
       SynthTrackModel model, BridgeContract bridge, int trackIndex, ProjectModel projectModel) {
     super(new BorderLayout(4, 4));
-    setBackground(new Color(0x22, 0x22, 0x22));
+    setBackground(SwingSynthConfigDialog.BG_CARD);
 
     JTabbedPane envTabs = new JTabbedPane();
     envTabs.setBackground(new Color(0x25, 0x25, 0x25));
@@ -25,7 +25,7 @@ public class EnvelopePanel extends JPanel {
       final int envIdx = e;
       EnvelopeModel env = model.getEnv(e);
       JPanel panel = new JPanel(new GridBagLayout());
-      panel.setBackground(new Color(0x22, 0x22, 0x22));
+      panel.setBackground(SwingSynthConfigDialog.BG_CARD);
       GridBagConstraints c = new GridBagConstraints();
       c.fill = GridBagConstraints.HORIZONTAL;
       c.insets = new Insets(6, 10, 6, 10);
@@ -143,7 +143,7 @@ public class EnvelopePanel extends JPanel {
       c.gridwidth = 2;
       JComboBox<String> targetCombo = new JComboBox<>(ENV_TARGETS);
       targetCombo.setSelectedItem(env.target());
-      targetCombo.setBackground(new Color(0x33, 0x33, 0x33));
+      targetCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
       targetCombo.setForeground(Color.WHITE);
       targetCombo.addActionListener(
           ev -> {

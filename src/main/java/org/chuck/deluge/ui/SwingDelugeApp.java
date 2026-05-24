@@ -26,6 +26,7 @@ import org.chuck.deluge.model.SynthTrackModel;
 /** Alternative lightweight UI running purely on Java Swing (no native libs). */
 public class SwingDelugeApp extends JFrame {
   public static SwingDelugeApp mainInstance;
+  public static boolean pureModeActive = false;
   private final ChuckVM vm;
   private final BridgeContract bridge;
 
@@ -1180,6 +1181,7 @@ public class SwingDelugeApp extends JFrame {
     this.bridge = bridge;
     this.midiService = midiService;
     mainInstance = this;
+    pureModeActive = pureMode;
 
     if (pureMode) {
       System.out.println("[UI] Initializing Pure Java High-Fidelity Engine...");
@@ -1190,13 +1192,19 @@ public class SwingDelugeApp extends JFrame {
       vm.setGlobalObject(BridgeContract.G_PLAYBACK_HANDLER, pureEngine.getPlaybackHandler());
     }
 
-    // Inflate Font Sizes globally (2x bigger)
+    // Inflate Font Sizes globally (excluding menus to prevent layout bloat!)
     java.util.Enumeration<Object> keys = UIManager.getDefaults().keys();
     while (keys.hasMoreElements()) {
       Object key = keys.nextElement();
+      String keyStr = key.toString();
+      if (keyStr.contains("Menu") || keyStr.contains("MenuBar") || keyStr.contains("MenuItem")) {
+        continue; // Keep all menu components standard and clean!
+      }
       Object value = UIManager.get(key);
       if (value instanceof javax.swing.plaf.FontUIResource orig) {
-        Font font = new Font(orig.getFontName(), orig.getStyle(), 20); // Increased size
+        Font font =
+            new Font(
+                orig.getFontName(), orig.getStyle(), 13); // Clean, professional desktop font scale
         UIManager.put(key, new javax.swing.plaf.FontUIResource(font));
       }
     }
@@ -2649,6 +2657,10 @@ public class SwingDelugeApp extends JFrame {
               "MenuItem.font", new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 11));
           javax.swing.UIManager.put(
               "MenuBar.font", new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 11));
+          javax.swing.UIManager.put(
+              "CheckBoxMenuItem.font", new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 11));
+          javax.swing.UIManager.put(
+              "RadioButtonMenuItem.font", new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 11));
           SwingDelugeApp app = new SwingDelugeApp(vm, bridge, midiService, finalPureMode);
           app.setVisible(true);
           // Auto-load if a file path is provided as argument

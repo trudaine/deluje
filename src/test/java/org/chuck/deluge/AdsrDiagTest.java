@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
  * Diagnostic test: use DelugeAdsrDiag (which overrides block tick and dumps output samples) to see
  * exactly what ADSR produces during the block advance.
  */
+@org.junit.jupiter.api.Tag("slow")
 public class AdsrDiagTest {
 
   private static final int SAMPLE_RATE = 44100;

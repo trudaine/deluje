@@ -284,15 +284,6 @@ public class SwingTopBarPanel extends JPanel {
         });
     add(masterVolSlider);
 
-    // ── Pure Java Mode Indicator ──
-    JLabel pureLabel = new JLabel(" PURE JAVA ");
-    pureLabel.setOpaque(true);
-    pureLabel.setBackground(new Color(0, 50, 0));
-    pureLabel.setForeground(new Color(0, 255, 0));
-    pureLabel.setFont(new Font("Monospaced", Font.BOLD, 12));
-    pureLabel.setBorder(BorderFactory.createLineBorder(Color.GREEN, 1));
-    pureLabel.setVisible(vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0);
-    add(pureLabel);
 
     // ── Firmware LED Display (OLED) ──
     oledPanel.setBorder(BorderFactory.createLineBorder(Color.DARK_GRAY, 2));
@@ -346,7 +337,7 @@ public class SwingTopBarPanel extends JPanel {
       java.util.function.Consumer<Integer> onRotate,
       java.util.function.Consumer<Boolean> onClick) {
     JPanel p = new JPanel(new BorderLayout());
-    p.setBackground(new Color(0x33, 0x33, 0x33));
+    p.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     JLabel l = new JLabel(name, SwingConstants.CENTER);
     l.setForeground(Color.WHITE);
     l.setFont(new Font("SansSerif", Font.BOLD, 10));
@@ -465,17 +456,21 @@ public class SwingTopBarPanel extends JPanel {
     public RetroLedDisplay() {
       setLayout(new BorderLayout());
       setBackground(new Color(0x1a, 0x05, 0x05)); // dark red background
-      setPreferredSize(new java.awt.Dimension(180, 32));
-      setBorder(
-          BorderFactory.createCompoundBorder(
-              BorderFactory.createLineBorder(new Color(0xaa, 0x33, 0x33), 1),
-              BorderFactory.createEmptyBorder(1, 4, 1, 4)));
+      setPreferredSize(new java.awt.Dimension(192, 96)); // Same size as OLED!
+      applyThemeBorder(new Color(0xaa, 0x33, 0x33));
 
       label = new JLabel("[  --    --  ]");
       label.setForeground(new Color(0xff, 0x33, 0x33)); // bright LED red
-      label.setFont(new Font("Monospaced", Font.BOLD, 15));
+      label.setFont(new Font("Monospaced", Font.BOLD, 20)); // Larger font to fill the 192x96 box
       label.setHorizontalAlignment(SwingConstants.CENTER);
       add(label, BorderLayout.CENTER);
+    }
+
+    private void applyThemeBorder(Color lineColor) {
+      setBorder(
+          BorderFactory.createCompoundBorder(
+              BorderFactory.createLineBorder(lineColor, 2),
+              BorderFactory.createEmptyBorder(10, 8, 10, 8)));
     }
 
     private javax.swing.Timer resetTimer;
@@ -485,7 +480,7 @@ public class SwingTopBarPanel extends JPanel {
       label.setText(String.format("[ %-4s  %6s ]", code.toUpperCase(), val));
       label.setForeground(new Color(0xff, 0x88, 0x00)); // active amber glow!
       setBackground(new Color(0x24, 0x10, 0x00)); // active amber background
-      setBorder(BorderFactory.createLineBorder(new Color(0xff, 0x88, 0x00), 1));
+      applyThemeBorder(new Color(0xff, 0x88, 0x00));
     }
 
     public void printTransient(String code, String val) {
@@ -500,7 +495,7 @@ public class SwingTopBarPanel extends JPanel {
       label.setText("[  --    --  ]");
       label.setForeground(new Color(0xff, 0x33, 0x33)); // rest standard red
       setBackground(new Color(0x1a, 0x05, 0x05));
-      setBorder(BorderFactory.createLineBorder(new Color(0xaa, 0x33, 0x33), 1));
+      applyThemeBorder(new Color(0xaa, 0x33, 0x33));
     }
   }
 

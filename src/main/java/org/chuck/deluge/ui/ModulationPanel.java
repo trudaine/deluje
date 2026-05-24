@@ -44,17 +44,17 @@ public class ModulationPanel extends JPanel {
 
   public ModulationPanel(SynthTrackModel model, BridgeContract bridge, int trackIndex) {
     super(new BorderLayout(4, 4));
-    setBackground(new Color(0x22, 0x22, 0x22));
+    setBackground(SwingSynthConfigDialog.BG_CARD);
 
     // ── Patch Cables section ──
     JPanel cablePanel = new JPanel(new BorderLayout(4, 4));
-    cablePanel.setBackground(new Color(0x22, 0x22, 0x22));
+    cablePanel.setBackground(SwingSynthConfigDialog.BG_CARD);
     cablePanel.add(SwingSynthConfigDialog.sectionLabel("PATCH CABLES"), BorderLayout.NORTH);
 
     List<PatchCable> cables = model.getPatchCables();
     JPanel cableRows = new JPanel();
     cableRows.setLayout(new BoxLayout(cableRows, BoxLayout.Y_AXIS));
-    cableRows.setBackground(new Color(0x22, 0x22, 0x22));
+    cableRows.setBackground(SwingSynthConfigDialog.BG_CARD);
     List<JPanel> cableRowPanels = new ArrayList<>();
 
     Runnable rebuildCableRows =
@@ -74,7 +74,7 @@ public class ModulationPanel extends JPanel {
 
     // ── Mod Knobs section ──
     JPanel knobPanel = new JPanel(new BorderLayout(4, 4));
-    knobPanel.setBackground(new Color(0x22, 0x22, 0x22));
+    knobPanel.setBackground(SwingSynthConfigDialog.BG_CARD);
     knobPanel.add(
         SwingSynthConfigDialog.sectionLabel("MOD KNOBS (Gold Knobs)"), BorderLayout.NORTH);
 
@@ -98,7 +98,7 @@ public class ModulationPanel extends JPanel {
     };
 
     JPanel knobGrid = new JPanel(new GridLayout(4, 4, 6, 6));
-    knobGrid.setBackground(new Color(0x22, 0x22, 0x22));
+    knobGrid.setBackground(SwingSynthConfigDialog.BG_CARD);
     java.util.List<ModKnob> knobs = model.getModKnobs();
     for (int i = 0; i < 16 && i < knobs.size(); i++) {
       final int ki = i;
@@ -108,7 +108,7 @@ public class ModulationPanel extends JPanel {
 
       JComboBox<String> knobCombo = new JComboBox<>(knobParams);
       knobCombo.setSelectedItem(knobs.get(i).param());
-      knobCombo.setBackground(new Color(0x33, 0x33, 0x33));
+      knobCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
       knobCombo.setForeground(Color.WHITE);
       knobCombo.addActionListener(
           ev -> {
@@ -123,7 +123,7 @@ public class ModulationPanel extends JPanel {
     // ── Split pane ──
     JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, cablePanel, knobPanel);
     split.setResizeWeight(0.4);
-    split.setBackground(new Color(0x22, 0x22, 0x22));
+    split.setBackground(SwingSynthConfigDialog.BG_CARD);
     add(split, BorderLayout.CENTER);
   }
 
@@ -136,11 +136,11 @@ public class ModulationPanel extends JPanel {
       final int idx = i;
       PatchCable pc = cur.get(i);
       JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 2));
-      row.setBackground(new Color(0x22, 0x22, 0x22));
+      row.setBackground(SwingSynthConfigDialog.BG_CARD);
 
       JComboBox<String> srcCombo = new JComboBox<>(srcOptions);
       srcCombo.setSelectedItem(pc.source());
-      srcCombo.setBackground(new Color(0x33, 0x33, 0x33));
+      srcCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
       srcCombo.setForeground(Color.WHITE);
       srcCombo.addActionListener(
           ev -> {
@@ -156,7 +156,7 @@ public class ModulationPanel extends JPanel {
 
       JComboBox<String> dstCombo = new JComboBox<>(dstOptions);
       dstCombo.setSelectedItem(pc.destination());
-      dstCombo.setBackground(new Color(0x33, 0x33, 0x33));
+      dstCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
       dstCombo.setForeground(Color.WHITE);
       dstCombo.addActionListener(
           ev -> {
@@ -173,14 +173,15 @@ public class ModulationPanel extends JPanel {
       boolean isBipolar = pc.polarity() == PatchCable.Polarity.BIPOLAR;
       int sliderMin = isBipolar ? -100 : 0;
       JSlider amtSlider = new JSlider(sliderMin, 100, (int) (pc.amount() * 100));
-      amtSlider.setBackground(new Color(0x22, 0x22, 0x22));
+      amtSlider.setBackground(SwingSynthConfigDialog.BG_CARD);
       JLabel amtVal = new JLabel(String.format("%.0f%%", pc.amount() * 100));
       amtVal.setForeground(Color.CYAN);
 
       JToggleButton polBtn = new JToggleButton("Bi", isBipolar);
       polBtn.setToolTipText("Toggle bipolar (Bi) / unipolar (Uni) mode");
       polBtn.setFont(polBtn.getFont().deriveFont(Font.PLAIN, 10f));
-      polBtn.setBackground(isBipolar ? new Color(0x66, 0x44, 0x00) : new Color(0x33, 0x33, 0x33));
+      polBtn.setBackground(
+          isBipolar ? new Color(0x66, 0x44, 0x00) : SwingSynthConfigDialog.BG_CONTROL);
       polBtn.setForeground(Color.WHITE);
       polBtn.setPreferredSize(new Dimension(40, 22));
       polBtn.addActionListener(
@@ -192,7 +193,9 @@ public class ModulationPanel extends JPanel {
                 .getPatchCables()
                 .set(idx, new PatchCable(old.source(), old.destination(), old.amount(), newPol));
             polBtn.setBackground(
-                polBtn.isSelected() ? new Color(0x66, 0x44, 0x00) : new Color(0x33, 0x33, 0x33));
+                polBtn.isSelected()
+                    ? new Color(0x66, 0x44, 0x00)
+                    : SwingSynthConfigDialog.BG_CONTROL);
             if (polBtn.isSelected()) {
               amtSlider.setMinimum(-100);
             } else {

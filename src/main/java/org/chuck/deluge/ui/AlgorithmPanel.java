@@ -10,18 +10,18 @@ public class AlgorithmPanel extends JPanel {
 
   public AlgorithmPanel(SynthTrackModel model, BridgeContract bridge, int trackIndex) {
     super(new BorderLayout(8, 8));
-    setBackground(new Color(0x22, 0x22, 0x22));
+    setBackground(SwingSynthConfigDialog.BG_CARD);
     setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
     // ── Top: STK engine selector ──
     JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
-    topPanel.setBackground(new Color(0x22, 0x22, 0x22));
+    topPanel.setBackground(SwingSynthConfigDialog.BG_CARD);
     topPanel.add(SwingSynthConfigDialog.sectionLabel("ENGINE:"));
 
     String[] stkNames = {"DX7 FM (6-op)", "Mandolin", "Rhodey EP", "ModalBar", "Moog Bass"};
     int[] stkValues = {0, 10, 11, 12, 13};
     JComboBox<String> engineCombo = new JComboBox<>(stkNames);
-    engineCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    engineCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     engineCombo.setForeground(Color.WHITE);
     int curAlgo = model.getSynthAlgorithm();
     int curEngineIdx = 0;
@@ -48,7 +48,7 @@ public class AlgorithmPanel extends JPanel {
       "Auto (firmware default)", "Modern (32-bit float)", "Vintage (14-bit ENV)"
     };
     JComboBox<String> engineTypeCombo = new JComboBox<>(engineTypeNames);
-    engineTypeCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    engineTypeCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     engineTypeCombo.setForeground(Color.WHITE);
     int curEngineType = model.getEngineType();
     engineTypeCombo.setSelectedIndex(curEngineType + 1);
@@ -64,13 +64,13 @@ public class AlgorithmPanel extends JPanel {
 
     // ── Center: 32-algorithm grid ──
     JPanel gridPanel = new JPanel(new GridLayout(16, 2, 6, 6));
-    gridPanel.setBackground(new Color(0x22, 0x22, 0x22));
+    gridPanel.setBackground(SwingSynthConfigDialog.BG_CARD);
     JScrollPane scroll = new JScrollPane(gridPanel);
     scroll.setPreferredSize(new Dimension(700, 400));
     scroll.setBorder(
         BorderFactory.createTitledBorder(
             BorderFactory.createLineBorder(new Color(0x44, 0x44, 0x44)), "DX7 ALGORITHMS (0–31)"));
-    scroll.getViewport().setBackground(new Color(0x22, 0x22, 0x22));
+    scroll.getViewport().setBackground(SwingSynthConfigDialog.BG_CARD);
 
     for (int algo = 0; algo < 32; algo++) {
       final int a = algo;
@@ -83,7 +83,7 @@ public class AlgorithmPanel extends JPanel {
 
       JTextArea algoPreview = new JTextArea(formatAlgorithmMini(a));
       algoPreview.setEditable(false);
-      algoPreview.setBackground(new Color(0x22, 0x22, 0x22));
+      algoPreview.setBackground(SwingSynthConfigDialog.BG_CARD);
       algoPreview.setForeground(Color.LIGHT_GRAY);
       algoPreview.setFont(algoPreview.getFont().deriveFont(10f));
       algoPreview.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));

@@ -10,6 +10,11 @@ import org.chuck.deluge.model.SynthTrackModel;
 
 /** Swing dialog for editing a Synth track: Arp, Filter, FM, and 4-slot LFO. */
 public class SwingSynthConfigDialog extends JDialog {
+  public static final Color BG_DARK = new Color(0x12, 0x12, 0x14);
+  public static final Color BG_CARD = new Color(0x1a, 0x1a, 0x1e);
+  public static final Color BG_CONTROL = new Color(0x2d, 0x2d, 0x32);
+  public static final Color ACCENT_BLUE = new Color(0x00, 0xcc, 0xff);
+  public static final Color ACCENT_MINT = new Color(0x00, 0xff, 0xcc);
 
   private static final String[] OSC_TYPES = {"SINE", "SAW", "SQUARE", "TRIANGLE", "NOISE"};
   private static final String[] SYNTH_MODES = {"SUBTRACTIVE", "FM", "RINGMOD"};
@@ -33,9 +38,9 @@ public class SwingSynthConfigDialog extends JDialog {
     setSize(1300, 750);
     setLocationRelativeTo(owner);
     setLayout(new BorderLayout());
-    getContentPane().setBackground(new Color(0x1a, 0x1a, 0x1a));
+    getContentPane().setBackground(BG_DARK);
 
-    tabs.setBackground(new Color(0x25, 0x25, 0x25));
+    tabs.setBackground(BG_CARD);
     tabs.setForeground(Color.WHITE);
 
     tabs.addTab("OSC / FILTER / FM", buildMainPanel(model, vm, bridge, trackIndex));
@@ -86,7 +91,7 @@ public class SwingSynthConfigDialog extends JDialog {
   private JPanel buildMainPanel(
       SynthTrackModel model, ChuckVM vm, BridgeContract bridge, int trackIndex) {
     JPanel panel = new JPanel(new GridBagLayout());
-    panel.setBackground(new Color(0x22, 0x22, 0x22));
+    panel.setBackground(BG_CARD);
     GridBagConstraints c = new GridBagConstraints();
     c.fill = GridBagConstraints.HORIZONTAL;
     c.insets = new Insets(6, 10, 6, 10);
@@ -111,7 +116,7 @@ public class SwingSynthConfigDialog extends JDialog {
     c.gridwidth = 2;
     JComboBox<String> osc1Combo = new JComboBox<>(OSC_TYPES);
     osc1Combo.setSelectedItem(model.getOsc1Type());
-    osc1Combo.setBackground(new Color(0x33, 0x33, 0x33));
+    osc1Combo.setBackground(BG_CONTROL);
     osc1Combo.setForeground(Color.WHITE);
     osc1Combo.addActionListener(
         e -> {
@@ -143,7 +148,7 @@ public class SwingSynthConfigDialog extends JDialog {
     JComboBox<String> osc2Combo = new JComboBox<>(OSC_TYPES);
     if ("NONE".equals(osc2Current) || osc2Current == null) osc2Combo.setSelectedIndex(0);
     else osc2Combo.setSelectedItem(osc2Current);
-    osc2Combo.setBackground(new Color(0x33, 0x33, 0x33));
+    osc2Combo.setBackground(BG_CONTROL);
     osc2Combo.setForeground(Color.WHITE);
     osc2Combo.addActionListener(e -> model.setOsc2Type((String) osc2Combo.getSelectedItem()));
     panel.add(osc2Combo, c);
@@ -171,7 +176,7 @@ public class SwingSynthConfigDialog extends JDialog {
           default -> 1;
         };
     retrigCombo.setSelectedIndex(retrigIdx);
-    retrigCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    retrigCombo.setBackground(BG_CONTROL);
     retrigCombo.setForeground(Color.WHITE);
     retrigCombo.addActionListener(
         e -> {
@@ -227,7 +232,7 @@ public class SwingSynthConfigDialog extends JDialog {
     c.gridwidth = 2;
     JComboBox<String> modeCombo = new JComboBox<>(SYNTH_MODES);
     modeCombo.setSelectedIndex(Math.max(0, Math.min(2, model.getSynthMode())));
-    modeCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    modeCombo.setBackground(BG_CONTROL);
     modeCombo.setForeground(Color.WHITE);
     modeCombo.addActionListener(
         e -> {
@@ -257,7 +262,7 @@ public class SwingSynthConfigDialog extends JDialog {
     c.gridwidth = 2;
     JComboBox<String> polyCombo = new JComboBox<>(POLY_MODES);
     polyCombo.setSelectedItem(model.getPolyphony().name());
-    polyCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    polyCombo.setBackground(BG_CONTROL);
     polyCombo.setForeground(Color.WHITE);
     polyCombo.addActionListener(
         e -> {
@@ -280,10 +285,10 @@ public class SwingSynthConfigDialog extends JDialog {
     c.gridx = 1;
     c.gridwidth = 2;
     JSpinner vcntSpinner = new JSpinner(new SpinnerNumberModel(model.getMaxVoiceCount(), 1, 16, 1));
-    vcntSpinner.setBackground(new Color(0x33, 0x33, 0x33));
+    vcntSpinner.setBackground(BG_CONTROL);
     vcntSpinner.setForeground(Color.WHITE);
     JSpinner.NumberEditor vcntEditor = (JSpinner.NumberEditor) vcntSpinner.getEditor();
-    vcntEditor.getTextField().setBackground(new Color(0x33, 0x33, 0x33));
+    vcntEditor.getTextField().setBackground(BG_CONTROL);
     vcntEditor.getTextField().setForeground(Color.WHITE);
     vcntSpinner.addChangeListener(
         e -> {
@@ -311,7 +316,7 @@ public class SwingSynthConfigDialog extends JDialog {
     c.gridwidth = 2;
     JComboBox<Integer> unisonNumCombo = new JComboBox<>(new Integer[] {1, 2, 3, 4, 5, 6, 7, 8});
     unisonNumCombo.setSelectedItem(model.getUnisonNum());
-    unisonNumCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    unisonNumCombo.setBackground(BG_CONTROL);
     unisonNumCombo.setForeground(Color.WHITE);
     unisonNumCombo.addActionListener(
         e -> {
@@ -431,7 +436,7 @@ public class SwingSynthConfigDialog extends JDialog {
     JComboBox<String> filterModeCombo =
         new JComboBox<>(new String[] {"LADDER_12", "LADDER_24", "SVF"});
     filterModeCombo.setSelectedItem(model.getFilterMode().name());
-    filterModeCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    filterModeCombo.setBackground(BG_CONTROL);
     filterModeCombo.setForeground(Color.WHITE);
 
     // SVF NOTCH checkbox
@@ -444,7 +449,7 @@ public class SwingSynthConfigDialog extends JDialog {
     JCheckBox notchBox = new JCheckBox("Enable NOTCH mode (SVF only)");
     notchBox.setSelected(model.isFilterNotch());
     notchBox.setEnabled(model.getFilterMode() == org.chuck.deluge.model.FilterMode.SVF);
-    notchBox.setBackground(new Color(0x22, 0x22, 0x22));
+    notchBox.setBackground(BG_CARD);
     notchBox.setForeground(Color.WHITE);
     notchBox.addActionListener(
         e -> {
@@ -473,7 +478,7 @@ public class SwingSynthConfigDialog extends JDialog {
     JComboBox<String> routeCombo =
         new JComboBox<>(new String[] {"SERIES LPF→HPF", "SERIES HPF→LPF", "PARALLEL"});
     routeCombo.setSelectedIndex(model.getFilterRoute());
-    routeCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    routeCombo.setBackground(BG_CONTROL);
     routeCombo.setForeground(Color.WHITE);
     routeCombo.addActionListener(
         e -> {
@@ -635,7 +640,7 @@ public class SwingSynthConfigDialog extends JDialog {
     c.gridx = 1;
     c.gridwidth = 1;
     JSlider slider = new JSlider(min, max, Math.max(min, Math.min(max, initial)));
-    slider.setBackground(new Color(0x22, 0x22, 0x22));
+    slider.setBackground(BG_CARD);
     slider.setToolTipText(tooltip);
     c.gridx = 2;
     c.gridwidth = 1;
@@ -693,14 +698,14 @@ public class SwingSynthConfigDialog extends JDialog {
 
   static JLabel headerLabel(String text) {
     JLabel l = new JLabel(text);
-    l.setForeground(new Color(0x00, 0xff, 0xcc));
+    l.setForeground(ACCENT_MINT);
     l.setFont(l.getFont().deriveFont(Font.BOLD, 11f));
     return l;
   }
 
   static JLabel sectionLabel(String text) {
     JLabel l = new JLabel(text);
-    l.setForeground(new Color(0x00, 0xff, 0xcc));
+    l.setForeground(ACCENT_MINT);
     l.setFont(l.getFont().deriveFont(Font.BOLD));
     return l;
   }

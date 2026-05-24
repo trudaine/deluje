@@ -17,6 +17,30 @@ public class JavaAudioDriver implements Runnable {
   private double ticksPerSample = 0.005; // 120BPM default
   private double accumulatedTicks = 0;
 
+  private static final float[] visBufferL = new float[2048];
+  private static final float[] visBufferR = new float[2048];
+  private static int visWriteIdx = 0;
+
+  public static float[] getLiveVisBufferL() {
+    float[] copy = new float[2048];
+    synchronized (visBufferL) {
+      int len = 2048;
+      System.arraycopy(visBufferL, visWriteIdx, copy, 0, len - visWriteIdx);
+      System.arraycopy(visBufferL, 0, copy, len - visWriteIdx, visWriteIdx);
+    }
+    return copy;
+  }
+
+  public static float[] getLiveVisBufferR() {
+    float[] copy = new float[2048];
+    synchronized (visBufferR) {
+      int len = 2048;
+      System.arraycopy(visBufferR, visWriteIdx, copy, 0, len - visWriteIdx);
+      System.arraycopy(visBufferR, 0, copy, len - visWriteIdx, visWriteIdx);
+    }
+    return copy;
+  }
+
   public JavaAudioDriver(FirmwareAudioEngine engine, PlaybackHandler playbackHandler) {
     this.engine = engine;
     this.playbackHandler = playbackHandler;
@@ -70,20 +94,29 @@ public class JavaAudioDriver implements Runnable {
               "[WARN] Audio block render took too long: " + (duration / 1000000.0) + " ms");
         }
 
-        for (int i = 0; i < BLOCK_SIZE; i++) {
-          StereoSample s = engine.masterBuffer[i];
-          int absL = Math.abs(s.l);
-          if (absL > peak) peak = absL;
+        synchronized (visBufferL) {
+          for (int i = 0; i < BLOCK_SIZE; i++) {
+            StereoSample s = engine.masterBuffer[i];
+            int absL = Math.abs(s.l);
+            if (absL > peak) peak = absL;
 
-          int leftVal = s.l >> 16;
-          int rightVal = s.r >> 16;
-          short left = (short) Math.max(-32768, Math.min(32767, leftVal));
-          short right = (short) Math.max(-32768, Math.min(32767, rightVal));
+            int leftVal = s.l >> 16;
+            int rightVal = s.r >> 16;
+            short left = (short) Math.max(-32768, Math.min(32767, leftVal));
+            short right = (short) Math.max(-32768, Math.min(32767, rightVal));
 
-          byteBuffer[i * 4] = (byte) (left & 0xFF);
-          byteBuffer[i * 4 + 1] = (byte) ((left >> 8) & 0xFF);
-          byteBuffer[i * 4 + 2] = (byte) (right & 0xFF);
-          byteBuffer[i * 4 + 3] = (byte) ((right >> 8) & 0xFF);
+            byteBuffer[i * 4] = (byte) (left & 0xFF);
+            byteBuffer[i * 4 + 1] = (byte) ((left >> 8) & 0xFF);
+            byteBuffer[i * 4 + 2] = (byte) (right & 0xFF);
+            byteBuffer[i * 4 + 3] = (byte) ((right >> 8) & 0xFF);
+
+            // Write to visualizer buffer: s.l is 32-bit fixed point: divide by 2^31 to float
+            float leftFloat = (float) s.l / 2147483648.0f;
+            float rightFloat = (float) s.r / 2147483648.0f;
+            visBufferL[visWriteIdx] = leftFloat;
+            visBufferR[visWriteIdx] = rightFloat;
+            visWriteIdx = (visWriteIdx + 1) % 2048;
+          }
         }
 
         if (blockCounter % 200 == 0 && peak > 1000) {

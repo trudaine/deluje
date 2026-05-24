@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
  * Direct ADSR test: put WvOut2 INLINE in the chain, not as a tap. If this works, the problem is in
  * the tap routing (multi-source pulling). Chain: buf -> env -> wv -> dac
  */
+@org.junit.jupiter.api.Tag("slow")
 public class AdsrInlineTest {
 
   private static final int SAMPLE_RATE = 44100;

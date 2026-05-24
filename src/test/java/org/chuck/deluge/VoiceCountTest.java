@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
  * <p>Verifies that the engine respects max voice limits and polyphony mode settings to prevent
  * uncontrolled voice allocation.
  */
+@org.junit.jupiter.api.Tag("slow")
 public class VoiceCountTest {
 
   private ChuckVM vm;

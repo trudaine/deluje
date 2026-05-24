@@ -210,7 +210,7 @@ public class SwingPerformanceViewPanel extends JPanel {
         pad.setFont(padFont);
         pad.setFocusPainted(false);
         pad.setMargin(new Insets(0, 0, 0, 0));
-        pad.setBackground(new Color(0x33, 0x33, 0x33));
+        pad.setBackground(SwingSynthConfigDialog.BG_CONTROL);
         pad.setForeground(Color.LIGHT_GRAY);
         pad.setBorder(new LineBorder(new Color(0x55, 0x55, 0x55), 1));
 
@@ -523,7 +523,7 @@ public class SwingPerformanceViewPanel extends JPanel {
           pads[r][c].setBackground(activeColor(c));
           pads[r][c].setForeground(Color.WHITE);
         } else {
-          pads[r][c].setBackground(new Color(0x33, 0x33, 0x33));
+          pads[r][c].setBackground(SwingSynthConfigDialog.BG_CONTROL);
           pads[r][c].setForeground(Color.LIGHT_GRAY);
         }
       }

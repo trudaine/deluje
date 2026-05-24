@@ -44,7 +44,7 @@ public class EuclideanRhythmDialog extends JDialog {
 
     // ── Controls panel (GridBagLayout) ──
     JPanel controls = new JPanel(new GridBagLayout());
-    controls.setBackground(new Color(0x22, 0x22, 0x22));
+    controls.setBackground(SwingSynthConfigDialog.BG_CARD);
     GridBagConstraints c = new GridBagConstraints();
     c.fill = GridBagConstraints.HORIZONTAL;
     c.insets = new Insets(6, 10, 6, 10);
@@ -70,10 +70,10 @@ public class EuclideanRhythmDialog extends JDialog {
 
     // Pulses (K)
     JSpinner pulsesSpinner = new JSpinner(new SpinnerNumberModel(4, 1, 16, 1));
-    pulsesSpinner.setBackground(new Color(0x33, 0x33, 0x33));
+    pulsesSpinner.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     ((JSpinner.DefaultEditor) pulsesSpinner.getEditor())
         .getTextField()
-        .setBackground(new Color(0x33, 0x33, 0x33));
+        .setBackground(SwingSynthConfigDialog.BG_CONTROL);
     ((JSpinner.DefaultEditor) pulsesSpinner.getEditor()).getTextField().setForeground(Color.WHITE);
     c.gridx = 0;
     c.gridy = row;
@@ -87,10 +87,10 @@ public class EuclideanRhythmDialog extends JDialog {
 
     // Steps (N)
     JSpinner stepsSpinner = new JSpinner(new SpinnerNumberModel(16, 1, 16, 1));
-    stepsSpinner.setBackground(new Color(0x33, 0x33, 0x33));
+    stepsSpinner.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     ((JSpinner.DefaultEditor) stepsSpinner.getEditor())
         .getTextField()
-        .setBackground(new Color(0x33, 0x33, 0x33));
+        .setBackground(SwingSynthConfigDialog.BG_CONTROL);
     ((JSpinner.DefaultEditor) stepsSpinner.getEditor()).getTextField().setForeground(Color.WHITE);
     c.gridx = 0;
     c.gridy = row;
@@ -103,10 +103,10 @@ public class EuclideanRhythmDialog extends JDialog {
 
     // Rotation
     JSpinner rotSpinner = new JSpinner(new SpinnerNumberModel(0, 0, 15, 1));
-    rotSpinner.setBackground(new Color(0x33, 0x33, 0x33));
+    rotSpinner.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     ((JSpinner.DefaultEditor) rotSpinner.getEditor())
         .getTextField()
-        .setBackground(new Color(0x33, 0x33, 0x33));
+        .setBackground(SwingSynthConfigDialog.BG_CONTROL);
     ((JSpinner.DefaultEditor) rotSpinner.getEditor()).getTextField().setForeground(Color.WHITE);
     c.gridx = 0;
     c.gridy = row;
@@ -221,7 +221,7 @@ public class EuclideanRhythmDialog extends JDialog {
     }
 
     EuclideanWheelPanel() {
-      setBackground(new Color(0x22, 0x22, 0x22));
+      setBackground(SwingSynthConfigDialog.BG_CARD);
     }
 
     @Override

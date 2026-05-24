@@ -21,7 +21,7 @@ public class LfoPanel extends JPanel {
 
   public LfoPanel(ChuckVM vm, BridgeContract bridge, int trackIndex) {
     super(new GridBagLayout());
-    setBackground(new Color(0x22, 0x22, 0x22));
+    setBackground(SwingSynthConfigDialog.BG_CARD);
     GridBagConstraints c = new GridBagConstraints();
     c.fill = GridBagConstraints.HORIZONTAL;
     c.insets = new Insets(4, 8, 4, 8);
@@ -63,7 +63,7 @@ public class LfoPanel extends JPanel {
       JComboBox<String> shapeCombo = new JComboBox<>(LFO_SHAPES);
       int lfoType = (int) lfoTypeArr.getInt(l);
       shapeCombo.setSelectedIndex(Math.max(0, Math.min(LFO_SHAPES.length - 1, lfoType)));
-      shapeCombo.setBackground(new Color(0x33, 0x33, 0x33));
+      shapeCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
       shapeCombo.setForeground(Color.WHITE);
       shapeCombo.addActionListener(
           e -> {
@@ -82,7 +82,7 @@ public class LfoPanel extends JPanel {
       rateValLabel.setForeground(Color.CYAN);
       rateValLabel.setPreferredSize(new Dimension(45, 20));
       JSlider rateSlider = new JSlider(1, 2000, Math.max(1, Math.min(2000, rateInit)));
-      rateSlider.setBackground(new Color(0x22, 0x22, 0x22));
+      rateSlider.setBackground(SwingSynthConfigDialog.BG_CARD);
       rateSlider.addChangeListener(
           e -> {
             double hz = rateSlider.getValue() / 100.0;
@@ -93,7 +93,7 @@ public class LfoPanel extends JPanel {
             rateValLabel.setText(String.format("%.2f", hz));
           });
       JPanel ratePanel = new JPanel(new BorderLayout(3, 0));
-      ratePanel.setBackground(new Color(0x22, 0x22, 0x22));
+      ratePanel.setBackground(SwingSynthConfigDialog.BG_CARD);
       ratePanel.add(rateSlider, BorderLayout.CENTER);
       ratePanel.add(rateValLabel, BorderLayout.EAST);
       c.gridx = col++;
@@ -105,7 +105,7 @@ public class LfoPanel extends JPanel {
       depthValLabel.setForeground(Color.CYAN);
       depthValLabel.setPreferredSize(new Dimension(40, 20));
       JSlider depthSlider = new JSlider(0, 100, depthInit);
-      depthSlider.setBackground(new Color(0x22, 0x22, 0x22));
+      depthSlider.setBackground(SwingSynthConfigDialog.BG_CARD);
       depthSlider.addChangeListener(
           e -> {
             float depth = depthSlider.getValue() / 100f;
@@ -116,7 +116,7 @@ public class LfoPanel extends JPanel {
             depthValLabel.setText(depthSlider.getValue() + "%");
           });
       JPanel depthPanel = new JPanel(new BorderLayout(3, 0));
-      depthPanel.setBackground(new Color(0x22, 0x22, 0x22));
+      depthPanel.setBackground(SwingSynthConfigDialog.BG_CARD);
       depthPanel.add(depthSlider, BorderLayout.CENTER);
       depthPanel.add(depthValLabel, BorderLayout.EAST);
       c.gridx = col++;
@@ -125,7 +125,7 @@ public class LfoPanel extends JPanel {
       // Target
       JComboBox<String> targetCombo = new JComboBox<>(LFO_TARGETS);
       targetCombo.setSelectedIndex(Math.max(0, Math.min(5, bridge.getLfoTarget(l))));
-      targetCombo.setBackground(new Color(0x33, 0x33, 0x33));
+      targetCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
       targetCombo.setForeground(Color.WHITE);
       targetCombo.addActionListener(
           e -> bridge.setLfoTarget(lfoIdx, targetCombo.getSelectedIndex()));
@@ -139,7 +139,7 @@ public class LfoPanel extends JPanel {
               ? Math.max(0, Math.min(SYNC_VALS.length - 1, (int) lfoSyncArr.getInt(l)))
               : 0;
       syncCombo.setSelectedIndex(curSync);
-      syncCombo.setBackground(new Color(0x33, 0x33, 0x33));
+      syncCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
       syncCombo.setForeground(Color.WHITE);
       syncCombo.addActionListener(
           e -> {
@@ -159,7 +159,7 @@ public class LfoPanel extends JPanel {
       int currentTrack = bridge.getLfoTrack(l);
       JComboBox<String> scopeCombo = new JComboBox<>(new String[] {"All tracks", "This track"});
       scopeCombo.setSelectedIndex(currentTrack == -1 ? 0 : 1);
-      scopeCombo.setBackground(new Color(0x33, 0x33, 0x33));
+      scopeCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
       scopeCombo.setForeground(Color.WHITE);
       scopeCombo.addActionListener(
           e -> bridge.setLfoTrack(lfoIdx, scopeCombo.getSelectedIndex() == 0 ? -1 : trackIndex));

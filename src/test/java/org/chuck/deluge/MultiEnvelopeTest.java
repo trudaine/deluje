@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
  * <p>The env array is indexed: {@code base = (row * ENV_COUNT + envIndex) * ENV_PARAMS}. Array size
  * is {@code TRACKS * ENV_COUNT * ENV_PARAMS}.
  */
+@org.junit.jupiter.api.Tag("slow")
 public class MultiEnvelopeTest {
 
   private ChuckVM vm;

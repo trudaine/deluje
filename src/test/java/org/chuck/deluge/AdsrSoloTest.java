@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
  * Minimal ADSR diagnostic: SndBuf -> Adsr -> WvOut2 -> dac No Pan2, no HPF, no Dyno, no complex tap
  * chains. Just the raw ADSR output to see if it works in a simple chain.
  */
+@org.junit.jupiter.api.Tag("slow")
 public class AdsrSoloTest {
 
   private static final int SAMPLE_RATE = 44100;

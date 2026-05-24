@@ -12,7 +12,7 @@ public class ModFxPanel extends JPanel {
   public ModFxPanel(
       SynthTrackModel model, BridgeContract bridge, int trackIndex, ProjectModel projectModel) {
     super(new GridBagLayout());
-    setBackground(new Color(0x22, 0x22, 0x22));
+    setBackground(SwingSynthConfigDialog.BG_CARD);
     GridBagConstraints c = new GridBagConstraints();
     c.fill = GridBagConstraints.HORIZONTAL;
     c.insets = new Insets(6, 10, 6, 10);
@@ -36,7 +36,7 @@ public class ModFxPanel extends JPanel {
     JComboBox<String> typeCombo =
         new JComboBox<>(new String[] {"NONE", "CHORUS", "FLANGER", "PHASER"});
     typeCombo.setSelectedItem(model.getModFxType());
-    typeCombo.setBackground(new Color(0x33, 0x33, 0x33));
+    typeCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     typeCombo.setForeground(Color.WHITE);
     typeCombo.addActionListener(
         ev -> {

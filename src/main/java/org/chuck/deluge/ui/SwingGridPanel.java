@@ -1791,63 +1791,65 @@ public class SwingGridPanel extends JPanel {
                                   curIt,
                                   curFill);
                           dlg.setVisible(true);
-                          int newVel = dlg.getVelocity();
-                          int newIt = dlg.getIterance();
-                          int newFill = dlg.getFill();
-                          if (newVel != (int) (curVel * 100)
-                              || newIt != curIt
-                              || newFill != curFill) {
-                            org.chuck.deluge.model.StepData oldStep = null;
-                            if (projectModel != null
-                                && editedModelTrack < projectModel.getTracks().size()) {
-                              org.chuck.deluge.model.TrackModel tModel =
-                                  projectModel.getTracks().get(editedModelTrack);
-                              if (activeClipId < tModel.getClips().size()) {
-                                oldStep =
-                                    tModel
-                                        .getClips()
-                                        .get(activeClipId)
-                                        .getStep(modelRow, activeCol);
-                              }
-                            }
-                            bridge.setVelocity(engineRow, activeCol, newVel / 100.0);
-                            bridge.setIterance(engineRow, activeCol, newIt);
-                            bridge.setStepFill(engineRow, activeCol, newFill / 100.0);
-                            if (projectModel != null
-                                && editedModelTrack < projectModel.getTracks().size()) {
-                              org.chuck.deluge.model.TrackModel tModel =
-                                  projectModel.getTracks().get(editedModelTrack);
-                              if (activeClipId < tModel.getClips().size()) {
-                                org.chuck.deluge.model.ClipModel cModel =
-                                    tModel.getClips().get(activeClipId);
-                                boolean st = bridge.getStep(engineRow, activeCol);
-                                double prob = bridge.getStepProbability(engineRow, activeCol);
-                                cModel.setStep(
-                                    modelRow,
-                                    activeCol,
-                                    new org.chuck.deluge.model.StepData(
-                                        st,
-                                        newVel / 100.0f,
-                                        0.5f,
-                                        (float) prob,
-                                        0,
-                                        newIt,
-                                        newFill / 100.0f));
-                                if (oldStep != null) {
-                                  projectModel
-                                      .getUndoRedoStack()
-                                      .push(
-                                          new Consequence.StepConsequence(
-                                              editedModelTrack,
-                                              activeClipId,
-                                              modelRow,
-                                              activeCol,
-                                              oldStep,
-                                              cModel.getStep(modelRow, activeCol)));
+                          if (dlg.isConfirmed()) {
+                            int newVel = dlg.getVelocity();
+                            int newIt = dlg.getIterance();
+                            int newFill = dlg.getFill();
+                            if (newVel != (int) (curVel * 100)
+                                || newIt != curIt
+                                || newFill != curFill) {
+                              org.chuck.deluge.model.StepData oldStep = null;
+                              if (projectModel != null
+                                  && editedModelTrack < projectModel.getTracks().size()) {
+                                org.chuck.deluge.model.TrackModel tModel =
+                                    projectModel.getTracks().get(editedModelTrack);
+                                if (activeClipId < tModel.getClips().size()) {
+                                  oldStep =
+                                      tModel
+                                          .getClips()
+                                          .get(activeClipId)
+                                          .getStep(modelRow, activeCol);
                                 }
                               }
+                              bridge.setVelocity(engineRow, activeCol, newVel / 100.0);
+                              bridge.setIterance(engineRow, activeCol, newIt);
+                              bridge.setStepFill(engineRow, activeCol, newFill / 100.0);
+                              if (projectModel != null
+                                  && editedModelTrack < projectModel.getTracks().size()) {
+                                org.chuck.deluge.model.TrackModel tModel =
+                                    projectModel.getTracks().get(editedModelTrack);
+                                if (activeClipId < tModel.getClips().size()) {
+                                  org.chuck.deluge.model.ClipModel cModel =
+                                      tModel.getClips().get(activeClipId);
+                                  boolean st = bridge.getStep(engineRow, activeCol);
+                                  double prob = bridge.getStepProbability(engineRow, activeCol);
+                                  cModel.setStep(
+                                      modelRow,
+                                      activeCol,
+                                      new org.chuck.deluge.model.StepData(
+                                          st,
+                                          newVel / 100.0f,
+                                          0.5f,
+                                          (float) prob,
+                                          0,
+                                          newIt,
+                                          newFill / 100.0f));
+                                  if (oldStep != null) {
+                                    projectModel
+                                        .getUndoRedoStack()
+                                        .push(
+                                            new Consequence.StepConsequence(
+                                                editedModelTrack,
+                                                activeClipId,
+                                                modelRow,
+                                                activeCol,
+                                                oldStep,
+                                                cModel.getStep(modelRow, activeCol)));
+                                  }
+                                }
+                              }
+                              refresh();
                             }
-                            refresh();
                           }
                         } else if (javax.swing.SwingUtilities.isLeftMouseButton(e)) {
                           boolean isSynthMode = bridge.getTrackType(baseTrackId) == 1;
@@ -2266,7 +2268,7 @@ public class SwingGridPanel extends JPanel {
     return rowPanel;
   }
 
-  private void triggerKeyboardNote(int note) {
+  void triggerKeyboardNote(int note) {
     if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
       try {
         Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
@@ -3347,59 +3349,61 @@ public class SwingGridPanel extends JPanel {
                                 curIt,
                                 curFill);
                         dlg.setVisible(true);
-                        int newVel = dlg.getVelocity();
-                        int newIt = dlg.getIterance();
-                        int newFill = dlg.getFill();
-                        if (newVel != (int) (curVel * 100)
-                            || newIt != curIt
-                            || newFill != curFill) {
-                          org.chuck.deluge.model.StepData oldStep = null;
-                          if (projectModel != null
-                              && editedModelTrack < projectModel.getTracks().size()) {
-                            org.chuck.deluge.model.TrackModel tModel =
-                                projectModel.getTracks().get(editedModelTrack);
-                            if (activeClipId < tModel.getClips().size()) {
-                              oldStep = tModel.getClips().get(activeClipId).getStep(trk, colId);
-                            }
-                          }
-                          bridge.setVelocity(engineRow, colId, newVel / 100.0);
-                          bridge.setIterance(engineRow, colId, newIt);
-                          bridge.setStepFill(engineRow, colId, newFill / 100.0);
-                          if (projectModel != null
-                              && editedModelTrack < projectModel.getTracks().size()) {
-                            org.chuck.deluge.model.TrackModel tModel =
-                                projectModel.getTracks().get(editedModelTrack);
-                            if (activeClipId < tModel.getClips().size()) {
-                              org.chuck.deluge.model.ClipModel cModel =
-                                  tModel.getClips().get(activeClipId);
-                              boolean st = bridge.getStep(engineRow, colId);
-                              double prob = bridge.getStepProbability(engineRow, colId);
-                              cModel.setStep(
-                                  trk,
-                                  colId,
-                                  new org.chuck.deluge.model.StepData(
-                                      st,
-                                      newVel / 100.0f,
-                                      0.5f,
-                                      (float) prob,
-                                      0,
-                                      newIt,
-                                      newFill / 100.0f));
-                              if (oldStep != null) {
-                                projectModel
-                                    .getUndoRedoStack()
-                                    .push(
-                                        new Consequence.StepConsequence(
-                                            editedModelTrack,
-                                            activeClipId,
-                                            trk,
-                                            colId,
-                                            oldStep,
-                                            cModel.getStep(trk, colId)));
+                        if (dlg.isConfirmed()) {
+                          int newVel = dlg.getVelocity();
+                          int newIt = dlg.getIterance();
+                          int newFill = dlg.getFill();
+                          if (newVel != (int) (curVel * 100)
+                              || newIt != curIt
+                              || newFill != curFill) {
+                            org.chuck.deluge.model.StepData oldStep = null;
+                            if (projectModel != null
+                                && editedModelTrack < projectModel.getTracks().size()) {
+                              org.chuck.deluge.model.TrackModel tModel =
+                                  projectModel.getTracks().get(editedModelTrack);
+                              if (activeClipId < tModel.getClips().size()) {
+                                oldStep = tModel.getClips().get(activeClipId).getStep(trk, colId);
                               }
                             }
+                            bridge.setVelocity(engineRow, colId, newVel / 100.0);
+                            bridge.setIterance(engineRow, colId, newIt);
+                            bridge.setStepFill(engineRow, colId, newFill / 100.0);
+                            if (projectModel != null
+                                && editedModelTrack < projectModel.getTracks().size()) {
+                              org.chuck.deluge.model.TrackModel tModel =
+                                  projectModel.getTracks().get(editedModelTrack);
+                              if (activeClipId < tModel.getClips().size()) {
+                                org.chuck.deluge.model.ClipModel cModel =
+                                    tModel.getClips().get(activeClipId);
+                                boolean st = bridge.getStep(engineRow, colId);
+                                double prob = bridge.getStepProbability(engineRow, colId);
+                                cModel.setStep(
+                                    trk,
+                                    colId,
+                                    new org.chuck.deluge.model.StepData(
+                                        st,
+                                        newVel / 100.0f,
+                                        0.5f,
+                                        (float) prob,
+                                        0,
+                                        newIt,
+                                        newFill / 100.0f));
+                                if (oldStep != null) {
+                                  projectModel
+                                      .getUndoRedoStack()
+                                      .push(
+                                          new Consequence.StepConsequence(
+                                              editedModelTrack,
+                                              activeClipId,
+                                              trk,
+                                              colId,
+                                              oldStep,
+                                              cModel.getStep(trk, colId)));
+                                }
+                              }
+                            }
+                            refresh();
                           }
-                          refresh();
                         }
                       } else if (javax.swing.SwingUtilities.isLeftMouseButton(e)) {
                         boolean isSynthMode = bridge.getTrackType(baseTrackId) == 1;
@@ -4671,11 +4675,13 @@ public class SwingGridPanel extends JPanel {
             curIt,
             curFill);
     dlg.setVisible(true);
-    int newVel = dlg.getVelocity();
-    int newIt = dlg.getIterance();
-    int newFill = dlg.getFill();
-    if (newVel != (int) (curVel * 100) || newIt != curIt || newFill != curFill) {
-      applyStepProperties(row, col, newVel / 100.0, newIt, newFill / 100.0);
+    if (dlg.isConfirmed()) {
+      int newVel = dlg.getVelocity();
+      int newIt = dlg.getIterance();
+      int newFill = dlg.getFill();
+      if (newVel != (int) (curVel * 100) || newIt != curIt || newFill != curFill) {
+        applyStepProperties(row, col, newVel / 100.0, newIt, newFill / 100.0);
+      }
     }
   }
 

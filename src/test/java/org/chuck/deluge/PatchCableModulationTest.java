@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
  * <p>Verifies that modulation sources (envelope, LFO, velocity) can be routed to destinations
  * (pitch, volume, filter cutoff, pan) with correct polarity and amount scaling.
  */
+@org.junit.jupiter.api.Tag("slow")
 public class PatchCableModulationTest {
 
   private ChuckVM vm;

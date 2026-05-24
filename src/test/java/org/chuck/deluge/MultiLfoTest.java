@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
  * <p>Verifies LFO array dimensions, waveform type selection, and independent rate/depth/target
  * controls.
  */
+@org.junit.jupiter.api.Tag("slow")
 public class MultiLfoTest {
 
   private ChuckVM vm;
