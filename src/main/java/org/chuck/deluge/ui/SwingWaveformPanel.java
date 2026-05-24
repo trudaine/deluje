@@ -25,6 +25,22 @@ public class SwingWaveformPanel extends JPanel {
   private int loopStartPos = -1;
   private int loopEndPos = -1;
   private int totalFrames = 0;
+  private int activeSlicesCount = 0;
+
+  public interface WaveformLoadListener {
+    void onWaveformLoaded(int totalFrames);
+  }
+
+  private WaveformLoadListener loadListener = null;
+
+  public void setLoadListener(WaveformLoadListener l) {
+    this.loadListener = l;
+  }
+
+  public void setSlicesGrid(int count) {
+    this.activeSlicesCount = count;
+    repaint();
+  }
 
   public SwingWaveformPanel(String initialPath) {
     setBackground(new Color(0x0c, 0x0c, 0x0e));
@@ -63,6 +79,9 @@ public class SwingWaveformPanel extends JPanel {
                 this.isLoading = false;
                 if (decoded == null) {
                   this.metadataText = "⚠️ LOAD ERROR: Unsupported format or missing file";
+                }
+                if (loadListener != null && decoded != null) {
+                  loadListener.onWaveformLoaded(totalFrames);
                 }
                 repaint();
               });
@@ -256,6 +275,27 @@ public class SwingWaveformPanel extends JPanel {
         g2.drawString("LE", lex - 14, 24);
       }
       g2.setStroke(new BasicStroke(1.0f)); // Restore standard stroke
+    }
+
+    // Draw dynamic visual orange slice-grid dividers!
+    if (activeSlicesCount > 0 && totalFrames > 0) {
+      g2.setStroke(
+          new BasicStroke(
+              1.0f,
+              BasicStroke.CAP_BUTT,
+              BasicStroke.JOIN_MITER,
+              1.0f,
+              new float[] {2f, 4f},
+              0.0f));
+      g2.setColor(new Color(0xff, 0x88, 0x00, 0xdd)); // translucent neon orange!
+      for (int s = 1; s < activeSlicesCount; s++) {
+        int slicePos = s * (totalFrames / activeSlicesCount);
+        int sx = barX + (int) (((double) slicePos / totalFrames) * drawW);
+        g2.drawLine(sx, 4, sx, h - 22);
+        g2.setFont(new Font("SansSerif", Font.PLAIN, 8));
+        g2.drawString(String.valueOf(s + 1), sx + 3, h - 24);
+      }
+      g2.setStroke(new BasicStroke(1.0f));
     }
 
     // Draw clean metadata text at the bottom-left edge

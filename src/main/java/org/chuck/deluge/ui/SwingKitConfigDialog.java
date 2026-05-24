@@ -190,6 +190,225 @@ public class SwingKitConfigDialog extends JDialog {
     cLeft.insets = new Insets(6, 10, 6, 10); // Restore normal row insets
     leftRow++;
 
+    // Interactive Loop and Crop Markers Panel
+    JPanel cropPanel = new JPanel(new GridBagLayout());
+    cropPanel.setBackground(SwingSynthConfigDialog.BG_CARD);
+    cropPanel.setBorder(
+        BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(0x2d, 0x2d, 0x32), 1),
+            BorderFactory.createEmptyBorder(6, 8, 6, 8)));
+    GridBagConstraints cc = new GridBagConstraints();
+    cc.fill = GridBagConstraints.HORIZONTAL;
+    cc.insets = new Insets(4, 6, 4, 6);
+    cc.weightx = 1.0;
+
+    // Start Slider row
+    cc.gridy = 0;
+    cc.gridx = 0;
+    cc.weightx = 0.0;
+    JLabel sl1 = label("Start:");
+    sl1.setFont(new Font("SansSerif", Font.BOLD, 10));
+    cropPanel.add(sl1, cc);
+
+    cc.gridx = 1;
+    cc.weightx = 1.0;
+    JSlider startSlider = new JSlider(0, 100, 0);
+    startSlider.setBackground(SwingSynthConfigDialog.BG_CARD);
+    cropPanel.add(startSlider, cc);
+
+    cc.gridx = 2;
+    cc.weightx = 0.0;
+    JLabel startValLbl = new JLabel("0");
+    startValLbl.setForeground(Color.CYAN);
+    startValLbl.setFont(new Font("Monospaced", Font.BOLD, 10));
+    cropPanel.add(startValLbl, cc);
+
+    // End Slider row
+    cc.gridy = 1;
+    cc.gridx = 0;
+    cc.weightx = 0.0;
+    JLabel sl2 = label("End:");
+    sl2.setFont(new Font("SansSerif", Font.BOLD, 10));
+    cropPanel.add(sl2, cc);
+
+    cc.gridx = 1;
+    cc.weightx = 1.0;
+    JSlider endSlider = new JSlider(0, 100, 100);
+    endSlider.setBackground(SwingSynthConfigDialog.BG_CARD);
+    cropPanel.add(endSlider, cc);
+
+    cc.gridx = 2;
+    cc.weightx = 0.0;
+    JLabel endValLbl = new JLabel("0");
+    endValLbl.setForeground(Color.CYAN);
+    endValLbl.setFont(new Font("Monospaced", Font.BOLD, 10));
+    cropPanel.add(endValLbl, cc);
+
+    // Loop Start Slider row
+    cc.gridy = 2;
+    cc.gridx = 0;
+    cc.weightx = 0.0;
+    JLabel sl3 = label("Loop S:");
+    sl3.setFont(new Font("SansSerif", Font.BOLD, 10));
+    cropPanel.add(sl3, cc);
+
+    cc.gridx = 1;
+    cc.weightx = 1.0;
+    JSlider loopStartSlider = new JSlider(0, 100, 0);
+    loopStartSlider.setBackground(SwingSynthConfigDialog.BG_CARD);
+    cropPanel.add(loopStartSlider, cc);
+
+    cc.gridx = 2;
+    cc.weightx = 0.0;
+    JLabel loopStartValLbl = new JLabel("0");
+    loopStartValLbl.setForeground(Color.CYAN);
+    loopStartValLbl.setFont(new Font("Monospaced", Font.BOLD, 10));
+    cropPanel.add(loopStartValLbl, cc);
+
+    // Loop End Slider row
+    cc.gridy = 3;
+    cc.gridx = 0;
+    cc.weightx = 0.0;
+    JLabel sl4 = label("Loop E:");
+    sl4.setFont(new Font("SansSerif", Font.BOLD, 10));
+    cropPanel.add(sl4, cc);
+
+    cc.gridx = 1;
+    cc.weightx = 1.0;
+    JSlider loopEndSlider = new JSlider(0, 100, 100);
+    loopEndSlider.setBackground(SwingSynthConfigDialog.BG_CARD);
+    cropPanel.add(loopEndSlider, cc);
+
+    cc.gridx = 2;
+    cc.weightx = 0.0;
+    JLabel loopEndValLbl = new JLabel("0");
+    loopEndValLbl.setForeground(Color.CYAN);
+    loopEndValLbl.setFont(new Font("Monospaced", Font.BOLD, 10));
+    cropPanel.add(loopEndValLbl, cc);
+
+    // Dynamic sliders listener triggers
+    startSlider.addChangeListener(
+        ev -> {
+          startValLbl.setText(String.valueOf(startSlider.getValue()));
+          wavePanel.setMarkers(
+              startSlider.getValue(),
+              endSlider.getValue(),
+              loopStartSlider.getValue(),
+              loopEndSlider.getValue());
+        });
+    endSlider.addChangeListener(
+        ev -> {
+          endValLbl.setText(String.valueOf(endSlider.getValue()));
+          wavePanel.setMarkers(
+              startSlider.getValue(),
+              endSlider.getValue(),
+              loopStartSlider.getValue(),
+              loopEndSlider.getValue());
+        });
+    loopStartSlider.addChangeListener(
+        ev -> {
+          loopStartValLbl.setText(String.valueOf(loopStartSlider.getValue()));
+          wavePanel.setMarkers(
+              startSlider.getValue(),
+              endSlider.getValue(),
+              loopStartSlider.getValue(),
+              loopEndSlider.getValue());
+        });
+    loopEndSlider.addChangeListener(
+        ev -> {
+          loopEndValLbl.setText(String.valueOf(loopEndSlider.getValue()));
+          wavePanel.setMarkers(
+              startSlider.getValue(),
+              endSlider.getValue(),
+              loopStartSlider.getValue(),
+              loopEndSlider.getValue());
+        });
+
+    // Wire virtual threads decoder complete callback!
+    wavePanel.setLoadListener(
+        totalFrames -> {
+          startSlider.setMaximum(totalFrames);
+          endSlider.setMaximum(totalFrames);
+          loopStartSlider.setMaximum(totalFrames);
+          loopEndSlider.setMaximum(totalFrames);
+
+          int sVal = sound.getStartSamplePos() >= 0 ? sound.getStartSamplePos() : 0;
+          int eVal = sound.getEndSamplePos() > 0 ? sound.getEndSamplePos() : totalFrames;
+          int lsVal = sound.getStartLoopPos() >= 0 ? sound.getStartLoopPos() : 0;
+          int leVal = sound.getEndLoopPos() > 0 ? sound.getEndLoopPos() : totalFrames;
+
+          startSlider.setValue(sVal);
+          endSlider.setValue(eVal);
+          loopStartSlider.setValue(lsVal);
+          loopEndSlider.setValue(leVal);
+
+          startValLbl.setText(String.valueOf(sVal));
+          endValLbl.setText(String.valueOf(eVal));
+          loopStartValLbl.setText(String.valueOf(lsVal));
+          loopEndValLbl.setText(String.valueOf(leVal));
+
+          wavePanel.setMarkers(sVal, eVal, lsVal, leVal);
+        });
+
+    // Action buttons row (Commit / Full size)
+    cc.gridy = 4;
+    cc.gridx = 0;
+    cc.gridwidth = 3;
+    cc.insets = new Insets(8, 0, 0, 0);
+    JPanel btnRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 0));
+    btnRow.setBackground(SwingSynthConfigDialog.BG_CARD);
+
+    JButton resetBtn = new JButton("Reset Loop Bounds");
+    styleButton(resetBtn, new Color(0x3a, 0x3a, 0x3e), Color.WHITE);
+    resetBtn.setFont(new Font("SansSerif", Font.BOLD, 10));
+    resetBtn.addActionListener(
+        ev -> {
+          int total = wavePanel.getTotalFrames();
+          if (total > 0) {
+            startSlider.setValue(0);
+            endSlider.setValue(total);
+            loopStartSlider.setValue(0);
+            loopEndSlider.setValue(total);
+            wavePanel.setMarkers(0, total, 0, total);
+          }
+        });
+    btnRow.add(resetBtn);
+
+    JButton commitBtn = new JButton("💾 Save & Apply Crop");
+    styleButton(commitBtn, new Color(0x0c, 0x38, 0x1f), Color.GREEN);
+    commitBtn.setFont(new Font("SansSerif", Font.BOLD, 10));
+    commitBtn.addActionListener(
+        ev -> {
+          sound.setStartSamplePos(startSlider.getValue());
+          sound.setEndSamplePos(endSlider.getValue());
+          sound.setStartLoopPos(loopStartSlider.getValue());
+          sound.setEndLoopPos(loopEndSlider.getValue());
+
+          // Save to SD Kit Preset and push to ChucK synthesis bridges list!
+          SwingDelugeApp.mainInstance.pushModelToBridge();
+          SwingDelugeApp.mainInstance.propagateCurrentModel();
+          SwingDelugeApp.mainInstance.syncHighFidelityEngine(
+              SwingDelugeApp.mainInstance.getCurrentProject());
+          SwingDelugeApp.mainInstance.refreshGrids();
+
+          JOptionPane.showMessageDialog(
+              this,
+              "🎉 Loop points and crop boundaries saved and cabled live successfully!",
+              "Success",
+              JOptionPane.INFORMATION_MESSAGE);
+        });
+    btnRow.add(commitBtn);
+    cropPanel.add(btnRow, cc);
+
+    // Add cropPanel to Left Column!
+    cLeft.gridx = 0;
+    cLeft.gridy = leftRow;
+    cLeft.gridwidth = 3;
+    cLeft.insets = new Insets(4, 10, 8, 10);
+    leftPanel.add(cropPanel, cLeft);
+    cLeft.insets = new Insets(6, 10, 6, 10); // Restore normal row insets
+    leftRow++;
+
     // Pitch
     String pitchHelp =
         "<b>DRUM PITCH:</b> Transpose this drum sound sample pitch in semitones (−24 to +24 semitones). — <i>Physical Deluge:</i> Turn SELECT/transpose dial.";
