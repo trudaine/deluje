@@ -28,7 +28,7 @@ public class SwingGridPanel extends JPanel {
   private int editedModelTrack = 0; // model track index currently being edited in CLIP mode
   private int soloRow = -1; // -1 = no solo
   private Timer playheadTimer; // single timer for playhead updates, avoids leaks
-  private int scrollOffset = 0; // vertical scroll offset for voice rows in CLIP mode
+  private int scrollOffset = 43; // vertical scroll offset for voice rows in CLIP mode
   private int scrollOffsetX = 0; // horizontal scroll offset for step columns in CLIP mode
   private int voiceRowCount = 8; // total number of voice rows for current track
   private org.chuck.deluge.project.PreferencesManager.GridMode gridMode =
@@ -900,7 +900,7 @@ public class SwingGridPanel extends JPanel {
   /** Reset scroll offsets when edited track changes. */
   public void resetScrollOffset() {
     boolean isSynth = bridge != null && bridge.getTrackType(baseTrackId) == 1;
-    scrollOffset = isSynth ? 40 : 0;
+    scrollOffset = isSynth ? 43 : 0;
     scrollOffsetX = 0;
   }
 
@@ -3075,114 +3075,38 @@ public class SwingGridPanel extends JPanel {
         JPanel controlsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
         controlsPanel.setOpaque(false);
 
-        // Vertical scroll buttons
-        if (voiceRowCount > gridMode.rows) {
-          JLabel vLabel = new JLabel("VOICES:");
-          vLabel.setForeground(new Color(0x88, 0x88, 0x8f));
-          vLabel.setFont(new Font("SansSerif", Font.BOLD, 10));
-          controlsPanel.add(vLabel);
+        // Simple numeric info labels inside controlsPanel (No clunky arrow text buttons!)
+        JLabel vLabel =
+            new JLabel(
+                "VOICES: "
+                    + (scrollOffset + 1)
+                    + "-"
+                    + Math.min(scrollOffset + gridMode.rows, voiceRowCount)
+                    + " / "
+                    + voiceRowCount);
+        vLabel.setForeground(Color.LIGHT_GRAY);
+        vLabel.setFont(new Font("Monospaced", Font.BOLD, 11));
+        controlsPanel.add(vLabel);
 
-          JButton upBtn = new JButton("\u25B2");
-          styleBtn.accept(upBtn);
-          upBtn.setToolTipText("Scroll up");
-          upBtn.setEnabled(scrollOffset > 0);
-          upBtn.addActionListener(
-              e -> {
-                int oldOffset = scrollOffset;
-                scrollOffset = Math.max(0, scrollOffset - 1);
-                System.out.println(
-                    "[TRACE grid] upBtn click: oldOffset="
-                        + oldOffset
-                        + " newOffset="
-                        + scrollOffset);
-                refresh();
-              });
-          controlsPanel.add(upBtn);
-
-          int labelLo = scrollOffset + 1;
-          int labelHi = Math.min(scrollOffset + gridMode.rows, voiceRowCount);
-          JLabel rowCountLabel = new JLabel(labelLo + "-" + labelHi + " / " + voiceRowCount);
-          rowCountLabel.setForeground(Color.LIGHT_GRAY);
-          rowCountLabel.setFont(new Font("Monospaced", Font.BOLD, 11));
-          controlsPanel.add(rowCountLabel);
-
-          JButton downBtn = new JButton("\u25BC");
-          styleBtn.accept(downBtn);
-          downBtn.setToolTipText("Scroll down");
-          int maxOff = voiceRowCount - gridMode.rows;
-          downBtn.setEnabled(scrollOffset < maxOff);
-          downBtn.addActionListener(
-              e -> {
-                int oldOffset = scrollOffset;
-                scrollOffset = Math.min(maxOff, scrollOffset + 1);
-                System.out.println(
-                    "[TRACE grid] downBtn click: oldOffset="
-                        + oldOffset
-                        + " newOffset="
-                        + scrollOffset);
-                refresh();
-              });
-          controlsPanel.add(downBtn);
-        } else {
-          JLabel rowCountLabel = new JLabel("VOICES: " + voiceRowCount);
-          rowCountLabel.setForeground(new Color(0x66, 0x66, 0x6e));
-          rowCountLabel.setFont(new Font("SansSerif", Font.BOLD, 10));
-          controlsPanel.add(rowCountLabel);
-        }
-
-        // Horizontal scroll buttons
         int trackLenH = bridge != null ? bridge.getTrackLength(baseTrackId) : stepCount;
-        if (trackLenH > stepCount) {
-          controlsPanel.add(Box.createHorizontalStrut(8));
-          JSeparator sep = new JSeparator(JSeparator.VERTICAL);
-          sep.setPreferredSize(new Dimension(2, 14));
-          sep.setForeground(new Color(0x3e, 0x3e, 0x42));
-          controlsPanel.add(sep);
-          controlsPanel.add(Box.createHorizontalStrut(8));
+        controlsPanel.add(Box.createHorizontalStrut(8));
+        JSeparator sep = new JSeparator(JSeparator.VERTICAL);
+        sep.setPreferredSize(new Dimension(2, 14));
+        sep.setForeground(new Color(0x3e, 0x3e, 0x42));
+        controlsPanel.add(sep);
+        controlsPanel.add(Box.createHorizontalStrut(8));
 
-          JLabel hLabel = new JLabel("STEPS:");
-          hLabel.setForeground(new Color(0x88, 0x88, 0x8f));
-          hLabel.setFont(new Font("SansSerif", Font.BOLD, 10));
-          controlsPanel.add(hLabel);
-
-          JButton leftBtn = new JButton("\u25C0");
-          styleBtn.accept(leftBtn);
-          leftBtn.setToolTipText("Scroll steps left");
-          leftBtn.setEnabled(scrollOffsetX > 0);
-          int maxOffX = trackLenH - stepCount;
-          leftBtn.addActionListener(
-              e -> {
-                scrollOffsetX = Math.max(0, scrollOffsetX - 1);
-                int maxX =
-                    (bridge != null ? bridge.getTrackLength(baseTrackId) : stepCount) - stepCount;
-                if (scrollOffsetX > maxX) scrollOffsetX = maxX;
-                if (scrollOffsetX < 0) scrollOffsetX = 0;
-                refresh();
-              });
-          controlsPanel.add(leftBtn);
-
-          JLabel stepLabel =
-              new JLabel(
-                  (scrollOffsetX + 1)
-                      + "-"
-                      + Math.min(scrollOffsetX + stepCount, trackLenH)
-                      + " / "
-                      + trackLenH);
-          stepLabel.setForeground(Color.LIGHT_GRAY);
-          stepLabel.setFont(new Font("Monospaced", Font.BOLD, 11));
-          controlsPanel.add(stepLabel);
-
-          JButton rightBtn = new JButton("\u25B6");
-          styleBtn.accept(rightBtn);
-          rightBtn.setToolTipText("Scroll steps right");
-          rightBtn.setEnabled(scrollOffsetX < maxOffX);
-          rightBtn.addActionListener(
-              e -> {
-                scrollOffsetX = Math.min(maxOffX, scrollOffsetX + 1);
-                refresh();
-              });
-          controlsPanel.add(rightBtn);
-        }
+        JLabel hLabel =
+            new JLabel(
+                "STEPS: "
+                    + (scrollOffsetX + 1)
+                    + "-"
+                    + Math.min(scrollOffsetX + stepCount, trackLenH)
+                    + " / "
+                    + trackLenH);
+        hLabel.setForeground(Color.LIGHT_GRAY);
+        hLabel.setFont(new Font("Monospaced", Font.BOLD, 11));
+        controlsPanel.add(hLabel);
 
         headerRow.add(controlsPanel, BorderLayout.EAST);
         add(headerRow);
@@ -3225,17 +3149,23 @@ public class SwingGridPanel extends JPanel {
             new javax.swing.plaf.basic.BasicScrollBarUI() {
               @Override
               protected void paintTrack(Graphics g, JComponent c, Rectangle trackBounds) {
-                g.setColor(new Color(0x18, 0x18, 0x20));
+                g.setColor(new Color(0x1a, 0x1a, 0x1c)); // matching deep panel background
                 g.fillRect(trackBounds.x, trackBounds.y, trackBounds.width, trackBounds.height);
+
+                // Draw a sleek, thin center off-white path line (2px wide)
+                g.setColor(new Color(0xdd, 0xdd, 0xe0, 80));
+                int midX = trackBounds.x + trackBounds.width / 2;
+                g.fillRect(midX - 1, trackBounds.y, 2, trackBounds.height);
               }
 
               @Override
               protected void paintThumb(Graphics g, JComponent c, Rectangle thumbBounds) {
-                g.setColor(new Color(0x00, 0xd2, 0xff, 180)); // Glowing cyan thumb
+                // Draw a clean, solid white active segment thumb
+                g.setColor(Color.WHITE);
                 g.fillRoundRect(
-                    thumbBounds.x + 1,
+                    thumbBounds.x + 3,
                     thumbBounds.y + 1,
-                    thumbBounds.width - 2,
+                    thumbBounds.width - 6,
                     thumbBounds.height - 2,
                     4,
                     4);
@@ -3309,22 +3239,27 @@ public class SwingGridPanel extends JPanel {
             new javax.swing.plaf.basic.BasicScrollBarUI() {
               @Override
               protected void paintTrack(Graphics g, JComponent c, Rectangle trackBounds) {
-                g.setColor(new Color(0x18, 0x18, 0x20));
+                g.setColor(new Color(0x1a, 0x1a, 0x1c)); // matching deep panel background
                 g.fillRect(trackBounds.x, trackBounds.y, trackBounds.width, trackBounds.height);
+
+                // Draw a sleek, thin horizontal center off-white path line (2px wide)
+                g.setColor(new Color(0xdd, 0xdd, 0xe0, 80));
+                int midY = trackBounds.y + trackBounds.height / 2;
+                g.fillRect(trackBounds.x, midY - 1, trackBounds.width, 2);
               }
 
               @Override
               protected void paintThumb(Graphics g, JComponent c, Rectangle thumbBounds) {
                 if (!scrollBar.isEnabled()) {
-                  g.setColor(new Color(0x55, 0x55, 0x5a, 80)); // Disabled gray thumb
+                  g.setColor(new Color(0x55, 0x55, 0x5a, 80)); // Dimmed disabled gray
                 } else {
-                  g.setColor(new Color(0x00, 0xd2, 0xff, 180)); // Glowing cyan thumb
+                  g.setColor(Color.WHITE); // Solid white active segment
                 }
                 g.fillRoundRect(
                     thumbBounds.x + 1,
-                    thumbBounds.y + 1,
+                    thumbBounds.y + 3,
                     thumbBounds.width - 2,
-                    thumbBounds.height - 2,
+                    thumbBounds.height - 6,
                     4,
                     4);
               }
