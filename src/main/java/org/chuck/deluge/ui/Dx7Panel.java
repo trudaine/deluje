@@ -94,6 +94,74 @@ public class Dx7Panel extends JPanel {
     setBackground(new Color(0x12, 0x12, 0x14));
     setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
+    // ── Active FM mode check & activation prompt card ──
+    if (model.getSynthMode() != 1) {
+      JPanel promptCard = new JPanel(new GridBagLayout());
+      promptCard.setBackground(new Color(0x18, 0x18, 0x1c));
+      promptCard.setBorder(BorderFactory.createEmptyBorder(40, 40, 40, 40));
+
+      GridBagConstraints cp = new GridBagConstraints();
+      cp.gridx = 0;
+      cp.gridy = 0;
+      cp.insets = new Insets(12, 12, 12, 12);
+      cp.anchor = GridBagConstraints.CENTER;
+
+      JLabel iconLabel = new JLabel("⚡ FM / DX7 SYNTHESIS IS INACTIVE");
+      iconLabel.setFont(new Font("SansSerif", Font.BOLD, 22));
+      iconLabel.setForeground(new Color(0xff, 0x99, 0x00)); // Gold/orange
+      promptCard.add(iconLabel, cp);
+
+      cp.gridy++;
+      JLabel descLabel =
+          new JLabel(
+              "<html><center>The active track is currently configured for <b>SUBTRACTIVE</b> synthesis.<br>Click below to activate high-fidelity 6-Operator FM synthesis matching the DX7 voice architectures!</center></html>");
+      descLabel.setFont(new Font("SansSerif", Font.PLAIN, 14));
+      descLabel.setForeground(Color.LIGHT_GRAY);
+      promptCard.add(descLabel, cp);
+
+      cp.gridy++;
+      JButton activateBtn = new JButton("⚡ Activate FM / DX7 Synthesis Mode");
+      activateBtn.setFont(new Font("SansSerif", Font.BOLD, 15));
+      activateBtn.setPreferredSize(new Dimension(320, 45));
+      activateBtn.setBackground(new Color(0x0c, 0x38, 0x1f));
+      activateBtn.setForeground(Color.GREEN);
+      activateBtn.setFocusable(false);
+
+      activateBtn.addActionListener(
+          e -> {
+            model.setSynthMode(1);
+            bridge.setSynthMode(trackIndex, 1);
+
+            // Load initial default DX7 voice patch!
+            byte[] defaultRaw = new byte[156];
+            // Set simple default patch values: algorithm 5, feedback 6, operator output switches
+            // active!
+            defaultRaw[Dx7Patch.OFF_ALGORITHM] = 5;
+            defaultRaw[Dx7Patch.OFF_OP_SWITCH] = 0x3F; // all 6 operators active!
+            // Set operator output levels to reasonable defaults (e.g. OP1 = 99, others = 75)
+            for (int op = 0; op < 6; op++) {
+              int opOff = op * 21;
+              defaultRaw[opOff + 15] = (byte) 99; // Level = 99
+              defaultRaw[opOff + 18] = (byte) 1; // Coarse ratio = 1.0
+            }
+            String defaultHex = Dx7Patch.bytesToHex(defaultRaw);
+            model.setDx7Patch(defaultHex);
+            bridge.setDx7Patch(trackIndex, defaultHex);
+            if (vm != null) {
+              vm.setGlobalString("g_dx7_patch_" + trackIndex, defaultHex);
+              vm.setGlobalInt("g_dx7_opSwitch_" + trackIndex, 0x3FL);
+            }
+
+            if (reloadCallback != null) {
+              reloadCallback.run();
+            }
+          });
+      promptCard.add(activateBtn, cp);
+
+      add(promptCard, BorderLayout.CENTER);
+      return;
+    }
+
     // ── Build Layout Components ──
     JPanel sidebar = buildSidebarPanel();
     JPanel operatorArea = buildOperatorAreaPanel();
