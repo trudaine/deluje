@@ -65,15 +65,10 @@ public class SwingTopBarPanel extends JPanel {
    * @param vm ChucK virtual machine for direct bridge writes
    * @param projectModel current project model (used for track count in dialogs)
    * @param leftFloat the explorer JDialog toggled by the EXPLORER button
-   * @param rightFloat the monitor JDialog toggled by the MONITOR button
    * @param listener callback for view-mode changes and track additions
    */
   public SwingTopBarPanel(
-      ChuckVM vm,
-      ProjectModel projectModel,
-      JDialog leftFloat,
-      JDialog rightFloat,
-      TopBarListener listener) {
+      ChuckVM vm, ProjectModel projectModel, JDialog leftFloat, TopBarListener listener) {
     this.projectModel = projectModel;
     this.vm = vm;
     this.listener = listener;
@@ -152,17 +147,12 @@ public class SwingTopBarPanel extends JPanel {
     add(addAudioBtn);
     add(new JSeparator(JSeparator.VERTICAL));
 
-    // ── Explorer / Monitor toggles ──
+    // ── Explorer toggle ──
 
     JButton btnExplorer = new JButton("EXPLORER");
     styleButton(btnExplorer, new Color(0x23, 0x23, 0x28), Color.WHITE);
     btnExplorer.addActionListener(e -> leftFloat.setVisible(!leftFloat.isVisible()));
     add(btnExplorer);
-
-    JButton btnMonitor = new JButton("MONITOR");
-    styleButton(btnMonitor, new Color(0x23, 0x23, 0x28), Color.WHITE);
-    btnMonitor.addActionListener(e -> rightFloat.setVisible(!rightFloat.isVisible()));
-    add(btnMonitor);
     add(new JSeparator(JSeparator.VERTICAL));
 
     // ── Transport ──
