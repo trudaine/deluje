@@ -2762,6 +2762,7 @@ public class SwingDelugeApp extends JFrame {
       clipPanel.setActiveClipId(clipId);
       clipPanel.setBaseTrackId(engineBase);
       clipPanel.setEditedModelTrack(trackId);
+      clipPanel.resetScrollOffset();
 
       java.util.List<org.chuck.deluge.model.TrackModel> allTrks =
           clipPanel.getProjectModel() != null
