@@ -2921,7 +2921,7 @@ public class SwingGridPanel extends JPanel {
                     || colId % 12 == 8
                     || colId % 12 == 10);
 
-            clipBtn = new JButton(String.valueOf(note));
+            clipBtn = new JButton(getNoteName(note));
             clipBtn.setBackground(isBlack ? new Color(0x33, 0x33, 0x33) : Color.WHITE);
             clipBtn.setForeground(isBlack ? Color.WHITE : Color.BLACK);
             clipBtn.setFont(
@@ -3922,7 +3922,7 @@ public class SwingGridPanel extends JPanel {
 
               clipBtn.setBackground(isBlack ? new Color(0x33, 0x33, 0x33) : Color.WHITE);
               clipBtn.setForeground(isBlack ? Color.WHITE : Color.BLACK);
-              clipBtn.setText(String.valueOf(note));
+              clipBtn.setText(getNoteName(note));
               clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 14 : 10));
 
               clearActionListeners(clipBtn);
