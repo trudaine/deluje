@@ -1510,6 +1510,7 @@ public class SwingDelugeApp extends JFrame {
             vm.dispatchHidMsg(msg);
           }
         });
+    DarkComboBoxRenderer.styleComponentTree(this);
   }
 
   public void loadProject(org.chuck.deluge.model.ProjectModel model) {

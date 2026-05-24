@@ -120,6 +120,7 @@ public class TrackInspectorDialog extends JDialog {
         });
 
     add(tabs);
+    DarkComboBoxRenderer.styleComponentTree(this);
   }
 
   public String getSelectedPreset() {

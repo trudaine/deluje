@@ -41,6 +41,7 @@ public class SwingKitConfigDialog extends JDialog {
     south.setBackground(new Color(0x25, 0x25, 0x25));
     south.add(closeBtn);
     add(south, BorderLayout.SOUTH);
+    DarkComboBoxRenderer.styleComponentTree(this);
   }
 
   private JPanel buildSoundPanel(SoundDrum sound, int idx, ChuckVM vm, BridgeContract bridge) {
