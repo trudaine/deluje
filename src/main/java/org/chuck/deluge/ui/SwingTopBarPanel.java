@@ -2,6 +2,7 @@ package org.chuck.deluge.ui;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Insets;
@@ -16,7 +17,6 @@ import javax.swing.JSlider;
 import javax.swing.JToggleButton;
 import javax.swing.SwingConstants;
 import org.chuck.core.ChuckVM;
-import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.firmware.hid.FirmwareDisplay;
 import org.chuck.deluge.firmware.hid.MatrixDriver;
 import org.chuck.deluge.model.ProjectModel;
@@ -194,6 +194,7 @@ public class SwingTopBarPanel extends JPanel {
     bpmSlider.setForeground(new Color(0x00, 0xff, 0xcc));
     bpmSlider.setOpaque(false);
     bpmSlider.setFocusable(false);
+    bpmSlider.setPreferredSize(new Dimension(100, 22));
     bpmSlider.setUI(
         new javax.swing.plaf.basic.BasicSliderUI(bpmSlider) {
           @Override
@@ -244,6 +245,7 @@ public class SwingTopBarPanel extends JPanel {
     masterVolSlider.setForeground(new Color(0x00, 0xff, 0xcc));
     masterVolSlider.setOpaque(false);
     masterVolSlider.setFocusable(false);
+    masterVolSlider.setPreferredSize(new Dimension(100, 22));
     masterVolSlider.setUI(
         new javax.swing.plaf.basic.BasicSliderUI(masterVolSlider) {
           @Override
@@ -284,7 +286,6 @@ public class SwingTopBarPanel extends JPanel {
         });
     add(masterVolSlider);
 
-
     // ── Firmware LED Display (OLED) ──
     oledPanel.setBorder(BorderFactory.createLineBorder(Color.DARK_GRAY, 2));
     add(oledPanel);
@@ -293,8 +294,11 @@ public class SwingTopBarPanel extends JPanel {
     add(retroLedDisplay);
 
     // ── High-Fidelity Encoders ──
-    JPanel encoderPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 2));
-    encoderPanel.setBackground(new Color(0x25, 0x25, 0x25));
+    JPanel encoderPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 2));
+    encoderPanel.setBackground(new Color(0x18, 0x18, 0x1c));
+    encoderPanel.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
+    encoderPanel.setPreferredSize(new Dimension(280, 42));
+    encoderPanel.setMaximumSize(new Dimension(280, 42));
 
     encoderPanel.add(
         createEncoderSim(
@@ -338,21 +342,33 @@ public class SwingTopBarPanel extends JPanel {
       java.util.function.Consumer<Boolean> onClick) {
     JPanel p = new JPanel(new BorderLayout());
     p.setBackground(SwingSynthConfigDialog.BG_CONTROL);
+    p.setPreferredSize(new Dimension(80, 38));
+    p.setMaximumSize(new Dimension(80, 38));
+
     JLabel l = new JLabel(name, SwingConstants.CENTER);
     l.setForeground(Color.WHITE);
-    l.setFont(new Font("SansSerif", Font.BOLD, 10));
+    l.setFont(new Font("SansSerif", Font.BOLD, 8));
     p.add(l, BorderLayout.NORTH);
 
     JButton left = new JButton("<");
-    JButton right = new JButton(">");
+    left.setFocusPainted(false);
+    left.setMargin(new Insets(1, 2, 1, 2));
+    left.setFont(new Font("SansSerif", Font.PLAIN, 8));
     left.addActionListener(e -> onRotate.accept(-1));
+
+    JButton right = new JButton(">");
+    right.setFocusPainted(false);
+    right.setMargin(new Insets(1, 2, 1, 2));
+    right.setFont(new Font("SansSerif", Font.PLAIN, 8));
     right.addActionListener(e -> onRotate.accept(1));
+
     p.add(left, BorderLayout.WEST);
     p.add(right, BorderLayout.EAST);
 
     JButton click = new JButton("●");
-    click.setFont(new Font("SansSerif", Font.PLAIN, 8));
-    click.setMargin(new Insets(0, 0, 0, 0));
+    click.setFocusPainted(false);
+    click.setFont(new Font("SansSerif", Font.PLAIN, 7));
+    click.setMargin(new Insets(1, 1, 1, 1));
     click.addMouseListener(
         new java.awt.event.MouseAdapter() {
           @Override
@@ -456,12 +472,14 @@ public class SwingTopBarPanel extends JPanel {
     public RetroLedDisplay() {
       setLayout(new BorderLayout());
       setBackground(new Color(0x1a, 0x05, 0x05)); // dark red background
-      setPreferredSize(new java.awt.Dimension(192, 96)); // Same size as OLED!
+      setPreferredSize(new java.awt.Dimension(192, 96));
+      setMinimumSize(new java.awt.Dimension(192, 96));
+      setMaximumSize(new java.awt.Dimension(192, 96));
       applyThemeBorder(new Color(0xaa, 0x33, 0x33));
 
       label = new JLabel("[  --    --  ]");
       label.setForeground(new Color(0xff, 0x33, 0x33)); // bright LED red
-      label.setFont(new Font("Monospaced", Font.BOLD, 20)); // Larger font to fill the 192x96 box
+      label.setFont(new Font("Monospaced", Font.BOLD, 16));
       label.setHorizontalAlignment(SwingConstants.CENTER);
       add(label, BorderLayout.CENTER);
     }

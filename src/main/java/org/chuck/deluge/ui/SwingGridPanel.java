@@ -59,6 +59,14 @@ public class SwingGridPanel extends JPanel {
   private int clonePreviewCurrentRow = -1;
   private int clonePreviewCurrentCol = -1;
 
+  // Multi-cell step selection state variables
+  private final java.util.Set<String> selectedCells = new java.util.HashSet<>();
+  private int dragSelStartRow = -1;
+  private int dragSelStartCol = -1;
+  private int dragSelCurrRow = -1;
+  private int dragSelCurrCol = -1;
+  private boolean isDragSelecting = false;
+
   public int getActiveShiftRow() {
     return activeShiftRow;
   }
@@ -444,6 +452,9 @@ public class SwingGridPanel extends JPanel {
     im.put(KeyStroke.getKeyStroke("PAGE_DOWN"), "scrollPageDown");
     im.put(KeyStroke.getKeyStroke("UP"), "scrollLineUp");
     im.put(KeyStroke.getKeyStroke("DOWN"), "scrollLineDown");
+    im.put(KeyStroke.getKeyStroke("DELETE"), "deleteSelectedSteps");
+    im.put(KeyStroke.getKeyStroke("BACK_SPACE"), "deleteSelectedSteps");
+    im.put(KeyStroke.getKeyStroke("ESCAPE"), "clearSelectedSteps");
 
     am.put(
         "scrollPageUp",
@@ -471,6 +482,20 @@ public class SwingGridPanel extends JPanel {
         new AbstractAction() {
           public void actionPerformed(java.awt.event.ActionEvent e) {
             if (viewMode == GridViewMode.CLIP) scrollBy(1);
+          }
+        });
+    am.put(
+        "deleteSelectedSteps",
+        new AbstractAction() {
+          public void actionPerformed(java.awt.event.ActionEvent e) {
+            deleteSelectedStepsAction();
+          }
+        });
+    am.put(
+        "clearSelectedSteps",
+        new AbstractAction() {
+          public void actionPerformed(java.awt.event.ActionEvent e) {
+            clearMultiSelection();
           }
         });
 
@@ -1381,107 +1406,252 @@ public class SwingGridPanel extends JPanel {
       }
 
       if (colId == columnCount - 2) {
-        final int engineRow = baseTrackId + modelRow;
-        boolean isMuted = bridge.getMute(engineRow);
-        if (clipBtn instanceof DelugePadButton pad) {
-          pad.setText("");
-          pad.setNoteText("");
-          pad.setActive(true);
-          pad.setBaseColor(isMuted ? Color.RED : new Color(0x2a, 0x10, 0x10));
-          pad.setIntensity(isMuted ? 1.0f : 0.4f);
+        boolean isSynthTrack = bridge != null && bridge.getTrackType(baseTrackId) == 1;
+        if (viewMode == GridViewMode.CLIP && isSynthTrack) {
+          // Column 17 is not applicable for Synth rows! Black it out!
+          if (clipBtn instanceof DelugePadButton pad) {
+            pad.setText("");
+            pad.setNoteText("");
+            pad.setActive(false);
+            pad.setBaseColor(Color.BLACK);
+            pad.setIntensity(0.0f);
+          } else {
+            clipBtn.setText("");
+            clipBtn.setBackground(Color.BLACK);
+            clipBtn.setEnabled(false);
+          }
+          // Do not add any action listener!
         } else {
-          clipBtn.setText("MUTE");
-          clipBtn.setBackground(isMuted ? Color.RED : new Color(0x33, 0x33, 0x33));
-        }
-        clipBtn.addActionListener(
-            e -> {
-              if ((e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0) {
-                java.util.ArrayList<Consequence> steps = new java.util.ArrayList<>();
-                for (int s = 0; s < stepCount; s++) {
-                  boolean wasOn = bridge.getStep(engineRow, s);
-                  if (wasOn) {
-                    double v = bridge.getVelocity(engineRow, s);
-                    steps.add(
-                        new Consequence.StepConsequence(
-                            editedModelTrack,
-                            activeClipId,
-                            modelRow,
-                            s,
-                            org.chuck.deluge.model.StepData.of(
-                                true,
-                                (float) v,
-                                org.chuck.deluge.model.StepData.DEFAULT_CLICK_GATE,
-                                1.0f,
-                                0),
-                            org.chuck.deluge.model.StepData.empty()));
+          final int engineRow = baseTrackId + modelRow;
+          boolean isMuted = bridge.getMute(engineRow);
+          if (clipBtn instanceof DelugePadButton pad) {
+            pad.setText("");
+            pad.setNoteText("");
+            pad.setActive(true);
+            pad.setBaseColor(isMuted ? Color.RED : new Color(0x2a, 0x10, 0x10));
+            pad.setIntensity(isMuted ? 1.0f : 0.4f);
+          } else {
+            clipBtn.setText("MUTE");
+            clipBtn.setBackground(isMuted ? Color.RED : new Color(0x33, 0x33, 0x33));
+            clipBtn.setEnabled(true);
+          }
+          clipBtn.addActionListener(
+              e -> {
+                if ((e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0) {
+                  java.util.ArrayList<Consequence> steps = new java.util.ArrayList<>();
+                  for (int s = 0; s < stepCount; s++) {
+                    boolean wasOn = bridge.getStep(engineRow, s);
+                    if (wasOn) {
+                      double v = bridge.getVelocity(engineRow, s);
+                      steps.add(
+                          new Consequence.StepConsequence(
+                              editedModelTrack,
+                              activeClipId,
+                              modelRow,
+                              s,
+                              org.chuck.deluge.model.StepData.of(
+                                  true,
+                                  (float) v,
+                                  org.chuck.deluge.model.StepData.DEFAULT_CLICK_GATE,
+                                  1.0f,
+                                  0),
+                              org.chuck.deluge.model.StepData.empty()));
+                    }
+                    bridge.setStep(engineRow, s, false);
                   }
-                  bridge.setStep(engineRow, s, false);
-                }
-                if (!steps.isEmpty() && projectModel != null) {
-                  projectModel
-                      .getUndoRedoStack()
-                      .push(
-                          new Consequence.CompoundConsequence(
-                              "Clear row " + (modelRow + 1), steps));
-                }
-                refresh();
-                return;
-              }
-              boolean nextMute = !isMuted;
-              bridge.setMute(engineRow, nextMute);
-              if (clipBtn instanceof DelugePadButton pad) {
-                pad.setBaseColor(nextMute ? Color.RED : new Color(0x2a, 0x10, 0x10));
-                pad.setIntensity(nextMute ? 1.0f : 0.4f);
-              } else {
-                clipBtn.setBackground(nextMute ? Color.RED : new Color(0x33, 0x33, 0x33));
-              }
-              if (SwingDelugeApp.mainInstance != null) {
-                SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient(
-                    "MUT ", (nextMute ? "ON  " : "OFF ") + "T" + (modelRow + 1));
-              }
-            });
-      } else if (colId == columnCount - 1) {
-        boolean isSoloed = (soloRow == modelRow);
-        if (clipBtn instanceof DelugePadButton pad) {
-          pad.setText("");
-          pad.setNoteText("");
-          pad.setActive(true);
-          pad.setBaseColor(isSoloed ? Color.GREEN : new Color(0x10, 0x2a, 0x10));
-          pad.setIntensity(isSoloed ? 1.0f : 0.4f);
-        } else {
-          clipBtn.setText("SOLO");
-          clipBtn.setBackground(isSoloed ? Color.GREEN : new Color(0x33, 0x33, 0x33));
-        }
-
-        clipBtn.addActionListener(
-            e -> {
-              if (viewMode == GridViewMode.CLIP) {
-                vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) modelRow);
-                vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
-
-                if (soloRow == modelRow) {
-                  soloRow = -1;
-                  for (int i = 0; i < voiceRowCount; i++) bridge.setMute(baseTrackId + i, false);
-                  if (SwingDelugeApp.mainInstance != null) {
-                    SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient("SOLO", "OFF");
+                  if (!steps.isEmpty() && projectModel != null) {
+                    projectModel
+                        .getUndoRedoStack()
+                        .push(
+                            new Consequence.CompoundConsequence(
+                                "Clear row " + (modelRow + 1), steps));
                   }
+                  refresh();
+                  return;
+                }
+                boolean nextMute = !bridge.getMute(engineRow);
+                bridge.setMute(engineRow, nextMute);
+                if (clipBtn instanceof DelugePadButton pad) {
+                  pad.setBaseColor(nextMute ? Color.RED : new Color(0x2a, 0x10, 0x10));
+                  pad.setIntensity(nextMute ? 1.0f : 0.4f);
                 } else {
-                  soloRow = modelRow;
-                  for (int i = 0; i < voiceRowCount; i++) {
-                    bridge.setMute(baseTrackId + i, i != modelRow);
-                  }
+                  clipBtn.setBackground(nextMute ? Color.RED : new Color(0x33, 0x33, 0x33));
+                }
+                if (SwingDelugeApp.mainInstance != null) {
+                  SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient(
+                      "MUT ", (nextMute ? "ON  " : "OFF ") + "T" + (modelRow + 1));
+                }
+              });
+        }
+      } else if (colId == columnCount - 1) {
+        if (viewMode == GridViewMode.CLIP) {
+          // ── Clip View Audition Play Mode ──
+          if (clipBtn instanceof DelugePadButton pad) {
+            pad.setText("");
+            pad.setNoteText("");
+            pad.setActive(true);
+            pad.setBaseColor(new Color(0x10, 0x2a, 0x10));
+            pad.setIntensity(0.4f);
+          } else {
+            clipBtn.setText("PLAY");
+            clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
+          }
+
+          clipBtn.addMouseListener(
+              new java.awt.event.MouseAdapter() {
+                private boolean isPressed = false;
+
+                private void startAudition() {
+                  if (isPressed) return;
+                  isPressed = true;
+
+                  boolean isSynthMode = bridge != null && bridge.getTrackType(baseTrackId) == 1;
+                  int pitchMidi = isSynthMode ? (((24 - 1) - modelRow) + 60) : 60;
+
+                  // ── Update LED Display ──
                   if (SwingDelugeApp.mainInstance != null) {
-                    SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient(
-                        "SOLO", "T" + (modelRow + 1));
+                    String labelStr = "DRUM";
+                    if (!isSynthMode) {
+                      if (projectModel != null
+                          && editedModelTrack < projectModel.getTracks().size()) {
+                        org.chuck.deluge.model.TrackModel rowTrack =
+                            projectModel.getTracks().get(editedModelTrack);
+                        if (rowTrack instanceof org.chuck.deluge.model.KitTrackModel kit) {
+                          java.util.List<org.chuck.deluge.model.Drum> sounds = kit.getDrums();
+                          if (modelRow < sounds.size()) {
+                            labelStr = sounds.get(sounds.size() - 1 - modelRow).getName();
+                          }
+                        }
+                      }
+                    } else {
+                      labelStr = getNoteName(pitchMidi);
+                    }
+                    SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient("AUD ", labelStr);
+                  }
+
+                  // ── Play Note ──
+                  if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
+                    Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+                    if (fwEngineObj
+                        instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
+                      if (editedModelTrack < fwEngine.sounds.size()) {
+                        org.chuck.deluge.firmware.engine.GlobalEffectable sound =
+                            fwEngine.sounds.get(editedModelTrack);
+                        if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
+                          if (modelRow < kit.drumSounds.size()) {
+                            kit.triggerDrum(modelRow, 127);
+                          }
+                        } else if (sound
+                            instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
+                          synth.triggerNote(pitchMidi, 127);
+                        }
+                      }
+                    }
+                  } else {
+                    vm.setGlobalInt(
+                        BridgeContract.G_PREVIEW_TRACK, (long) (baseTrackId + modelRow));
+                    if (isSynthMode) {
+                      vm.setGlobalFloat(BridgeContract.G_PREVIEW_PITCH, (float) (pitchMidi - 60));
+                    }
+                    vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
+                  }
+
+                  clipBtn.setBackground(Color.WHITE);
+                }
+
+                private void stopAudition() {
+                  if (!isPressed) return;
+                  isPressed = false;
+
+                  boolean isSynthMode = bridge != null && bridge.getTrackType(baseTrackId) == 1;
+                  int pitchMidi = isSynthMode ? (((24 - 1) - modelRow) + 60) : 60;
+
+                  if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
+                    Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+                    if (fwEngineObj
+                        instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
+                      if (editedModelTrack < fwEngine.sounds.size()) {
+                        org.chuck.deluge.firmware.engine.GlobalEffectable sound =
+                            fwEngine.sounds.get(editedModelTrack);
+                        if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
+                          if (modelRow < kit.drumSounds.size()) {
+                            kit.drumSounds.get(modelRow).releaseNote(60);
+                          }
+                        } else if (sound
+                            instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
+                          synth.releaseNote(pitchMidi);
+                        }
+                      }
+                    }
+                  }
+
+                  if (clipBtn instanceof DelugePadButton pad) {
+                    pad.setBackground(new Color(0x10, 0x2a, 0x10));
+                  } else {
+                    clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
                   }
                 }
-                refresh();
-                return;
-              }
-              if (onEditRequest != null) {
-                onEditRequest.accept(modelRow, 0);
-              }
-            });
+
+                @Override
+                public void mousePressed(java.awt.event.MouseEvent e) {
+                  if (javax.swing.SwingUtilities.isLeftMouseButton(e)) {
+                    startAudition();
+                  }
+                }
+
+                @Override
+                public void mouseReleased(java.awt.event.MouseEvent e) {
+                  stopAudition();
+                }
+
+                @Override
+                public void mouseExited(java.awt.event.MouseEvent e) {
+                  stopAudition();
+                }
+              });
+        } else {
+          // ── Song View / Arrangement View ──
+          boolean isSoloed = (soloRow == modelRow);
+          if (clipBtn instanceof DelugePadButton pad) {
+            pad.setText("");
+            pad.setNoteText("");
+            pad.setActive(true);
+            pad.setBaseColor(isSoloed ? Color.GREEN : new Color(0x10, 0x2a, 0x10));
+            pad.setIntensity(isSoloed ? 1.0f : 0.4f);
+          } else {
+            clipBtn.setText("SOLO");
+            clipBtn.setBackground(isSoloed ? Color.GREEN : new Color(0x33, 0x33, 0x33));
+          }
+
+          clipBtn.addActionListener(
+              e -> {
+                if (viewMode == GridViewMode.SONG) {
+                  if (soloRow == modelRow) {
+                    soloRow = -1;
+                    for (int i = 0; i < voiceRowCount; i++) {
+                      bridge.setMute(baseTrackId + i, false);
+                    }
+                    if (SwingDelugeApp.mainInstance != null) {
+                      SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient("SOLO", "OFF");
+                    }
+                  } else {
+                    soloRow = modelRow;
+                    for (int i = 0; i < voiceRowCount; i++) {
+                      bridge.setMute(baseTrackId + i, i != modelRow);
+                    }
+                    if (SwingDelugeApp.mainInstance != null) {
+                      SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient(
+                          "SOLO", "T" + (modelRow + 1));
+                    }
+                  }
+                  refresh();
+                } else if (viewMode == GridViewMode.ARRANGEMENT) {
+                  if (onEditRequest != null) {
+                    onEditRequest.accept(modelRow, 0);
+                  }
+                }
+              });
+        }
       } else {
         if (clipBtn instanceof DelugePadButton pad) {
           pad.setApplicable(true);
@@ -1533,6 +1703,22 @@ public class SwingGridPanel extends JPanel {
               pad.setActive(stepState);
               pad.setBaseColor(trackColors[visibleRow % trackColors.length]);
               pad.setIntensity((float) (vel * (0.2f + 0.8f * prob)));
+
+              boolean isSelected = selectedCells.contains(modelRow + "," + activeCol);
+              if (isDragSelecting) {
+                int minR = Math.min(dragSelStartRow, dragSelCurrRow);
+                int maxR = Math.max(dragSelStartRow, dragSelCurrRow);
+                int minC = Math.min(dragSelStartCol, dragSelCurrCol);
+                int maxC = Math.max(dragSelStartCol, dragSelCurrCol);
+                if (visibleRow >= minR
+                    && visibleRow <= maxR
+                    && colId >= minC
+                    && colId <= maxC
+                    && colId < 16) {
+                  isSelected = true;
+                }
+              }
+              pad.setSelected(isSelected);
 
               boolean isSynthMode = bridge != null && bridge.getTrackType(baseTrackId) == 1;
               int pitchMidi = isSynthMode ? (((24 - 1) - modelRow) + 60) : 60;
@@ -1732,7 +1918,10 @@ public class SwingGridPanel extends JPanel {
                   gestureCoordinator =
                       new DelugeGestureCoordinator(this, new DelugeGestureListener());
                 }
-                clipBtn.addMouseListener(gestureCoordinator.createMouseAdapter(visibleRow, colId));
+                java.awt.event.MouseAdapter gestureAdapter =
+                    gestureCoordinator.createMouseAdapter(visibleRow, colId);
+                clipBtn.addMouseListener(gestureAdapter);
+                clipBtn.addMouseMotionListener(gestureAdapter);
               } else {
                 clipBtn.addMouseListener(
                     new java.awt.event.MouseAdapter() {
@@ -2309,6 +2498,32 @@ public class SwingGridPanel extends JPanel {
     }
   }
 
+  void triggerKeyboardNoteRelease(int note) {
+    if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
+      try {
+        Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+        if (fwEngineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
+          if (editedModelTrack < fwEngine.sounds.size()) {
+            org.chuck.deluge.firmware.engine.GlobalEffectable sound =
+                fwEngine.sounds.get(editedModelTrack);
+            if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
+              synth.releaseNote(note);
+              return;
+            } else if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
+              if (!kit.drumSounds.isEmpty()) {
+                int drumIdx = note % kit.drumSounds.size();
+                kit.drumSounds.get(drumIdx).releaseNote(60);
+              }
+              return;
+            }
+          }
+        }
+      } catch (Exception ex) {
+        LOG.warning("Hi-Fi keyboard release failed: " + ex.getMessage());
+      }
+    }
+  }
+
   /** Build a fixed row (MACROS, SLIDERS, KEYBOARD) for the CLIP grid. */
   private JPanel buildFixedRow(int rowIdx, int padSz) {
     JPanel rowPanel = new JPanel();
@@ -2584,6 +2799,7 @@ public class SwingGridPanel extends JPanel {
       // ── Header bar ──
       JPanel autoHeader = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 2));
       autoHeader.setBackground(new Color(0x15, 0x15, 0x15));
+      autoHeader.setMaximumSize(new Dimension(3000, 32));
 
       JLabel autoLabel = new JLabel("AUTO");
       autoLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
@@ -2707,6 +2923,7 @@ public class SwingGridPanel extends JPanel {
         if (clipCount > 1) {
           JPanel clipBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 2));
           clipBar.setBackground(new Color(0x10, 0x10, 0x10));
+          clipBar.setMaximumSize(new Dimension(3000, 26));
           JLabel clipLabel = new JLabel("Clips:");
           clipLabel.setForeground(Color.LIGHT_GRAY);
           clipLabel.setFont(new Font("SansSerif", Font.PLAIN, 11));
@@ -2746,8 +2963,13 @@ public class SwingGridPanel extends JPanel {
       // Section 1: Track info header
       if (editedModelTrack < projectModel.getTracks().size()) {
         org.chuck.deluge.model.TrackModel curTrack = projectModel.getTracks().get(editedModelTrack);
-        JPanel headerRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 2));
+        JPanel headerRow = new JPanel(new BorderLayout(10, 0));
         headerRow.setBackground(new Color(0x15, 0x15, 0x15));
+        headerRow.setMaximumSize(new Dimension(3000, 36));
+        headerRow.setMinimumSize(new Dimension(100, 36));
+        headerRow.setPreferredSize(new Dimension(1200, 36));
+        headerRow.setBorder(BorderFactory.createEmptyBorder(6, 12, 6, 12));
+
         JLabel headerLabel =
             new JLabel(
                 "Editing: "
@@ -2757,15 +2979,48 @@ public class SwingGridPanel extends JPanel {
                     + " voices)  ["
                     + gridMode.name().replace('_', ' ')
                     + "]");
-        headerLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
+        headerLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
         headerLabel.setForeground(new Color(0x00, 0xff, 0xcc));
-        headerRow.add(headerLabel);
+        headerRow.add(headerLabel, BorderLayout.WEST);
 
-        // Scroll up/down buttons
+        // Helper to style buttons in the controls section
+        java.util.function.Consumer<JButton> styleBtn =
+            (btn) -> {
+              btn.setFocusable(false);
+              btn.setFont(new Font("SansSerif", Font.BOLD, 10));
+              btn.setForeground(Color.WHITE);
+              btn.setBackground(new Color(0x28, 0x28, 0x30));
+              btn.setBorder(
+                  BorderFactory.createCompoundBorder(
+                      BorderFactory.createLineBorder(new Color(0x44, 0x44, 0x4c), 1),
+                      BorderFactory.createEmptyBorder(2, 6, 2, 6)));
+              btn.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+              btn.addMouseListener(
+                  new java.awt.event.MouseAdapter() {
+                    @Override
+                    public void mouseEntered(java.awt.event.MouseEvent e) {
+                      if (btn.isEnabled()) btn.setBackground(new Color(0x38, 0x38, 0x42));
+                    }
+
+                    @Override
+                    public void mouseExited(java.awt.event.MouseEvent e) {
+                      if (btn.isEnabled()) btn.setBackground(new Color(0x28, 0x28, 0x30));
+                    }
+                  });
+            };
+
+        JPanel controlsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+        controlsPanel.setOpaque(false);
+
+        // Vertical scroll buttons
         if (voiceRowCount > gridMode.rows) {
+          JLabel vLabel = new JLabel("VOICES:");
+          vLabel.setForeground(new Color(0x88, 0x88, 0x8f));
+          vLabel.setFont(new Font("SansSerif", Font.BOLD, 10));
+          controlsPanel.add(vLabel);
+
           JButton upBtn = new JButton("\u25B2");
-          upBtn.setFont(new Font("SansSerif", Font.BOLD, 12));
-          upBtn.setMargin(new Insets(0, 4, 0, 4));
+          styleBtn.accept(upBtn);
           upBtn.setToolTipText("Scroll up");
           upBtn.setEnabled(scrollOffset > 0);
           upBtn.addActionListener(
@@ -2773,18 +3028,17 @@ public class SwingGridPanel extends JPanel {
                 scrollOffset = Math.max(0, scrollOffset - 1);
                 refresh();
               });
-          headerRow.add(upBtn);
+          controlsPanel.add(upBtn);
 
           int labelLo = scrollOffset + 1;
           int labelHi = Math.min(scrollOffset + gridMode.rows, voiceRowCount);
           JLabel rowCountLabel = new JLabel(labelLo + "-" + labelHi + " / " + voiceRowCount);
           rowCountLabel.setForeground(Color.LIGHT_GRAY);
-          rowCountLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
-          headerRow.add(rowCountLabel);
+          rowCountLabel.setFont(new Font("Monospaced", Font.BOLD, 11));
+          controlsPanel.add(rowCountLabel);
 
           JButton downBtn = new JButton("\u25BC");
-          downBtn.setFont(new Font("SansSerif", Font.BOLD, 12));
-          downBtn.setMargin(new Insets(0, 4, 0, 4));
+          styleBtn.accept(downBtn);
           downBtn.setToolTipText("Scroll down");
           int maxOff = voiceRowCount - gridMode.rows;
           downBtn.setEnabled(scrollOffset < maxOff);
@@ -2793,20 +3047,31 @@ public class SwingGridPanel extends JPanel {
                 scrollOffset = Math.min(maxOff, scrollOffset + 1);
                 refresh();
               });
-          headerRow.add(downBtn);
+          controlsPanel.add(downBtn);
         } else {
-          JLabel rowCountLabel = new JLabel("" + voiceRowCount + " voices");
-          rowCountLabel.setForeground(Color.LIGHT_GRAY);
-          rowCountLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
-          headerRow.add(rowCountLabel);
+          JLabel rowCountLabel = new JLabel("VOICES: " + voiceRowCount);
+          rowCountLabel.setForeground(new Color(0x66, 0x66, 0x6e));
+          rowCountLabel.setFont(new Font("SansSerif", Font.BOLD, 10));
+          controlsPanel.add(rowCountLabel);
         }
-        // Horizontal scroll buttons for CLIP mode
+
+        // Horizontal scroll buttons
         int trackLenH = bridge != null ? bridge.getTrackLength(baseTrackId) : stepCount;
         if (trackLenH > stepCount) {
-          headerRow.add(Box.createHorizontalStrut(20));
+          controlsPanel.add(Box.createHorizontalStrut(8));
+          JSeparator sep = new JSeparator(JSeparator.VERTICAL);
+          sep.setPreferredSize(new Dimension(2, 14));
+          sep.setForeground(new Color(0x3e, 0x3e, 0x42));
+          controlsPanel.add(sep);
+          controlsPanel.add(Box.createHorizontalStrut(8));
+
+          JLabel hLabel = new JLabel("STEPS:");
+          hLabel.setForeground(new Color(0x88, 0x88, 0x8f));
+          hLabel.setFont(new Font("SansSerif", Font.BOLD, 10));
+          controlsPanel.add(hLabel);
+
           JButton leftBtn = new JButton("\u25C0");
-          leftBtn.setFont(new Font("SansSerif", Font.BOLD, 12));
-          leftBtn.setMargin(new Insets(0, 4, 0, 4));
+          styleBtn.accept(leftBtn);
           leftBtn.setToolTipText("Scroll steps left");
           leftBtn.setEnabled(scrollOffsetX > 0);
           int maxOffX = trackLenH - stepCount;
@@ -2819,7 +3084,8 @@ public class SwingGridPanel extends JPanel {
                 if (scrollOffsetX < 0) scrollOffsetX = 0;
                 refresh();
               });
-          headerRow.add(leftBtn);
+          controlsPanel.add(leftBtn);
+
           JLabel stepLabel =
               new JLabel(
                   (scrollOffsetX + 1)
@@ -2828,11 +3094,11 @@ public class SwingGridPanel extends JPanel {
                       + " / "
                       + trackLenH);
           stepLabel.setForeground(Color.LIGHT_GRAY);
-          stepLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
-          headerRow.add(stepLabel);
+          stepLabel.setFont(new Font("Monospaced", Font.BOLD, 11));
+          controlsPanel.add(stepLabel);
+
           JButton rightBtn = new JButton("\u25B6");
-          rightBtn.setFont(new Font("SansSerif", Font.BOLD, 12));
-          rightBtn.setMargin(new Insets(0, 4, 0, 4));
+          styleBtn.accept(rightBtn);
           rightBtn.setToolTipText("Scroll steps right");
           rightBtn.setEnabled(scrollOffsetX < maxOffX);
           rightBtn.addActionListener(
@@ -2840,8 +3106,10 @@ public class SwingGridPanel extends JPanel {
                 scrollOffsetX = Math.min(maxOffX, scrollOffsetX + 1);
                 refresh();
               });
-          headerRow.add(rightBtn);
+          controlsPanel.add(rightBtn);
         }
+
+        headerRow.add(controlsPanel, BorderLayout.EAST);
         add(headerRow);
       }
 
@@ -2890,6 +3158,7 @@ public class SwingGridPanel extends JPanel {
       if (viewMode == GridViewMode.SONG) {
         JPanel sectionBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 2));
         sectionBar.setBackground(new Color(0x15, 0x15, 0x15));
+        sectionBar.setMaximumSize(new Dimension(3000, 24));
         JLabel secLabel = new JLabel("SECTION:");
         secLabel.setForeground(Color.LIGHT_GRAY);
         secLabel.setFont(new Font("SansSerif", Font.BOLD, 11));
@@ -3805,6 +4074,7 @@ public class SwingGridPanel extends JPanel {
     // Step number header row
     JPanel stepHeader = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
     stepHeader.setBackground(new Color(0x15, 0x15, 0x15));
+    stepHeader.setMaximumSize(new Dimension(3000, 20));
     int labelOffset = Math.max(60, Math.min(140, getWidth() / 12)) + 69 + 5 + 12 + 5;
     stepHeader.add(Box.createRigidArea(new Dimension(labelOffset, 20)));
     for (int c = 0; c < stepCount; c++) {
@@ -4006,6 +4276,7 @@ public class SwingGridPanel extends JPanel {
     // Step header
     JPanel stepHeader = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
     stepHeader.setBackground(new Color(0x15, 0x15, 0x15));
+    stepHeader.setMaximumSize(new Dimension(3000, 20));
     int labelOffset = Math.max(60, Math.min(140, getWidth() / 12));
     stepHeader.add(Box.createRigidArea(new Dimension(labelOffset + 5, 20)));
     for (int c = 0; c < stepCount; c++) {
@@ -4306,6 +4577,148 @@ public class SwingGridPanel extends JPanel {
   // ── Advanced Pad Gestures & LED Pad Helpers ──
 
   private static org.chuck.deluge.model.StepData copiedStep = null;
+
+  public boolean hasMultiSelection() {
+    return !selectedCells.isEmpty();
+  }
+
+  public void clearMultiSelection() {
+    if (!selectedCells.isEmpty()) {
+      selectedCells.clear();
+      refresh();
+    }
+  }
+
+  private void handleStepCtrlClicked(int row, int col) {
+    int mRow = getModelRow(row);
+    int aCol = getActiveCol(row, col);
+    String key = mRow + "," + aCol;
+    if (selectedCells.contains(key)) {
+      selectedCells.remove(key);
+    } else {
+      selectedCells.add(key);
+    }
+    refresh();
+  }
+
+  private void updateDragSelectionVisuals() {
+    if (!isDragSelecting) return;
+    int minR = Math.min(dragSelStartRow, dragSelCurrRow);
+    int maxR = Math.max(dragSelStartRow, dragSelCurrRow);
+    int minC = Math.min(dragSelStartCol, dragSelCurrCol);
+    int maxC = Math.max(dragSelStartCol, dragSelCurrCol);
+
+    int visibleRows = Math.min(gridMode.rows, voiceRowCount);
+    for (int r = 0; r < visibleRows; r++) {
+      int mRow = getModelRow(r);
+      for (int c = 0; c < 16; c++) {
+        JButton btn = pads[r][c];
+        if (btn instanceof DelugePadButton pad) {
+          int aCol = getActiveCol(r, c);
+          boolean selected = selectedCells.contains(mRow + "," + aCol);
+          if (r >= minR && r <= maxR && c >= minC && c <= maxC) {
+            selected = true;
+          }
+          pad.setSelected(selected);
+        }
+      }
+    }
+  }
+
+  private void finalizeDragSelection(
+      int startRow, int startCol, int currRow, int currCol, boolean isControlOrCmd) {
+    if (!isControlOrCmd) {
+      selectedCells.clear();
+    }
+    int minR = Math.min(startRow, currRow);
+    int maxR = Math.max(startRow, currRow);
+    int minC = Math.min(startCol, currCol);
+    int maxC = Math.max(startCol, currCol);
+
+    for (int r = minR; r <= maxR; r++) {
+      int mRow = getModelRow(r);
+      for (int c = minC; c <= maxC; c++) {
+        if (c >= 16) continue;
+        int aCol = getActiveCol(r, c);
+        String key = mRow + "," + aCol;
+        if (isControlOrCmd) {
+          if (selectedCells.contains(key)) {
+            selectedCells.remove(key);
+          } else {
+            selectedCells.add(key);
+          }
+        } else {
+          selectedCells.add(key);
+        }
+      }
+    }
+    isDragSelecting = false;
+    refresh();
+  }
+
+  private void deleteSelectedStepsAction() {
+    if (selectedCells.isEmpty() || bridge == null) return;
+
+    boolean changed = false;
+    boolean isSynthMode = bridge.getTrackType(baseTrackId) == 1;
+
+    for (String cellKey : new java.util.ArrayList<>(selectedCells)) {
+      String[] parts = cellKey.split(",");
+      if (parts.length != 2) continue;
+      int modelRow = Integer.parseInt(parts[0]);
+      int activeCol = Integer.parseInt(parts[1]);
+      int engineRow = baseTrackId + modelRow;
+
+      if (bridge.getStep(engineRow, activeCol)) {
+        org.chuck.deluge.model.StepData oldStep = null;
+        if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+          org.chuck.deluge.model.TrackModel tModel = projectModel.getTracks().get(editedModelTrack);
+          if (activeClipId < tModel.getClips().size()) {
+            oldStep = tModel.getClips().get(activeClipId).getStep(modelRow, activeCol);
+          }
+        }
+
+        bridge.setStep(engineRow, activeCol, false);
+
+        if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+          org.chuck.deluge.model.TrackModel tModel = projectModel.getTracks().get(editedModelTrack);
+          if (activeClipId < tModel.getClips().size()) {
+            org.chuck.deluge.model.ClipModel cModel = tModel.getClips().get(activeClipId);
+            double curVel = bridge.getVelocity(engineRow, activeCol);
+            double curProb = bridge.getStepProbability(engineRow, activeCol);
+            int pitch = isSynthMode ? (((24 - 1) - modelRow) + 60) : 0;
+            cModel.setStep(
+                modelRow,
+                activeCol,
+                org.chuck.deluge.model.StepData.of(
+                    false,
+                    (float) curVel,
+                    org.chuck.deluge.model.StepData.DEFAULT_CLICK_GATE,
+                    (float) curProb,
+                    pitch));
+
+            if (oldStep != null) {
+              projectModel
+                  .getUndoRedoStack()
+                  .push(
+                      new Consequence.StepConsequence(
+                          editedModelTrack,
+                          activeClipId,
+                          modelRow,
+                          activeCol,
+                          oldStep,
+                          cModel.getStep(modelRow, activeCol)));
+            }
+          }
+        }
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      fireProjectChanged();
+    }
+  }
 
   private int getModelRow(int visualRow) {
     return scrollOffset + visualRow;
@@ -6207,5 +6620,17 @@ public class SwingGridPanel extends JPanel {
 
       g2.dispose();
     }
+  }
+
+  public JButton[][] getPads() {
+    return pads;
+  }
+
+  public int getColumnCount() {
+    return columnCount;
+  }
+
+  public int getSoloRow() {
+    return soloRow;
   }
 }

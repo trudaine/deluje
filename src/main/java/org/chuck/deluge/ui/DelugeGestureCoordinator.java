@@ -5,7 +5,6 @@ import java.awt.Point;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import javax.swing.SwingUtilities;
-import javax.swing.Timer;
 
 /**
  * Coordinates gestures for Deluge grid pads, translating raw mouse events into high-level sequencer
@@ -28,6 +27,22 @@ public class DelugeGestureCoordinator {
     void onDragPreview(int row, int colStart, int colCurrent);
 
     void onDragCleared();
+
+    // New multi-cell selection support default methods
+    default void onDragSelectionStart(int row, int col, boolean isControlOrCmd) {}
+
+    default void onDragSelectionUpdate(int startRow, int startCol, int currRow, int currCol) {}
+
+    default void onDragSelectionFinalize(
+        int startRow, int startCol, int currRow, int currCol, boolean isControlOrCmd) {}
+
+    default void onStepCtrlClicked(int row, int col) {}
+
+    default boolean hasMultiSelection() {
+      return false;
+    }
+
+    default void clearMultiSelection() {}
   }
 
   private final Component parentGridPanel;
@@ -35,10 +50,12 @@ public class DelugeGestureCoordinator {
 
   private int dragStartRow = -1;
   private int dragStartCol = -1;
+  private int dragCurrentRow = -1;
   private int dragCurrentCol = -1;
   private boolean isDragging = false;
-  private boolean longPressFired = false;
-  private Timer longPressTimer;
+  private boolean dragActive = false;
+  private Point pressPoint = null;
+
   private boolean isAltCloning = false;
   private int cloneStartRow = -1;
   private int cloneStartCol = -1;
@@ -87,28 +104,13 @@ public class DelugeGestureCoordinator {
 
         dragStartRow = row;
         dragStartCol = col;
+        dragCurrentRow = row;
         dragCurrentCol = col;
+        dragActive = false;
+        pressPoint = e.getLocationOnScreen();
         isDragging = true;
-        longPressFired = false;
-
         // Trigger note preview on press
         listener.onStepPressed(row, col);
-
-        // Start long-press timer (500 ms threshold)
-        if (longPressTimer != null) {
-          longPressTimer.stop();
-        }
-        longPressTimer =
-            new Timer(
-                500,
-                ev -> {
-                  if (isDragging && dragCurrentCol == dragStartCol) {
-                    longPressFired = true;
-                    listener.onStepLongPressed(row, col, e.getLocationOnScreen());
-                  }
-                });
-        longPressTimer.setRepeats(false);
-        longPressTimer.start();
       }
 
       @Override
@@ -116,7 +118,7 @@ public class DelugeGestureCoordinator {
         if (isAltCloning) {
           Point parentPt =
               SwingUtilities.convertPoint(e.getComponent(), e.getPoint(), parentGridPanel);
-          Component under = parentGridPanel.getComponentAt(parentPt);
+          Component under = getDeepestComponentAt(parentGridPanel, parentPt);
           if (under instanceof javax.swing.JComponent jc) {
             Integer targetRow = (Integer) jc.getClientProperty("row");
             Integer targetCol = (Integer) jc.getClientProperty("col");
@@ -136,24 +138,28 @@ public class DelugeGestureCoordinator {
 
         if (!isDragging || SwingUtilities.isRightMouseButton(e)) return;
 
-        // Resolve component under current drag coordinates by converting to parent coordinate space
-        Point parentPt =
-            SwingUtilities.convertPoint(e.getComponent(), e.getPoint(), parentGridPanel);
-        Component under = parentGridPanel.getComponentAt(parentPt);
+        if (!dragActive && pressPoint != null) {
+          double dist = e.getLocationOnScreen().distance(pressPoint);
+          if (dist > 8) {
+            dragActive = true;
+            listener.onDragSelectionStart(
+                dragStartRow, dragStartCol, e.isControlDown() || e.isMetaDown());
+          }
+        }
 
-        if (under instanceof javax.swing.JComponent jc) {
-          Integer targetRow = (Integer) jc.getClientProperty("row");
-          Integer targetCol = (Integer) jc.getClientProperty("col");
-          if (targetRow != null && targetCol != null) {
-            if (targetRow == dragStartRow) {
-              if (targetCol != dragCurrentCol) {
+        if (dragActive) {
+          Point parentPt =
+              SwingUtilities.convertPoint(e.getComponent(), e.getPoint(), parentGridPanel);
+          Component under = getDeepestComponentAt(parentGridPanel, parentPt);
+          if (under instanceof javax.swing.JComponent jc) {
+            Integer targetRow = (Integer) jc.getClientProperty("row");
+            Integer targetCol = (Integer) jc.getClientProperty("col");
+            if (targetRow != null && targetCol != null && targetCol < 16) {
+              if (targetRow != dragCurrentRow || targetCol != dragCurrentCol) {
+                dragCurrentRow = targetRow;
                 dragCurrentCol = targetCol;
-
-                // Cancel long-press timer once cursor leaves the original starting column
-                if (longPressTimer != null) {
-                  longPressTimer.stop();
-                }
-                listener.onDragPreview(dragStartRow, dragStartCol, dragCurrentCol);
+                listener.onDragSelectionUpdate(
+                    dragStartRow, dragStartCol, dragCurrentRow, dragCurrentCol);
               }
             }
           }
@@ -168,7 +174,7 @@ public class DelugeGestureCoordinator {
             sg.setClonePreview(-1, -1, -1, -1);
             Point parentPt =
                 SwingUtilities.convertPoint(e.getComponent(), e.getPoint(), parentGridPanel);
-            Component under = parentGridPanel.getComponentAt(parentPt);
+            Component under = getDeepestComponentAt(parentGridPanel, parentPt);
             if (under instanceof javax.swing.JComponent jc) {
               Integer targetRow = (Integer) jc.getClientProperty("row");
               Integer targetCol = (Integer) jc.getClientProperty("col");
@@ -180,33 +186,36 @@ public class DelugeGestureCoordinator {
           return;
         }
 
-        if (longPressTimer != null) {
-          longPressTimer.stop();
-        }
-
         // Release note preview
         listener.onStepReleased(row, col);
 
         if (!isDragging || SwingUtilities.isRightMouseButton(e)) {
           isDragging = false;
+          dragActive = false;
           return;
         }
 
         isDragging = false;
-        listener.onDragCleared();
 
-        if (longPressFired) {
-          return;
-        }
-
-        if (dragCurrentCol > dragStartCol) {
-          listener.onStepTied(dragStartRow, dragStartCol, dragCurrentCol);
-        } else if (dragCurrentCol < dragStartCol) {
-          // Backward drag, tie left-to-right
-          listener.onStepTied(dragStartRow, dragCurrentCol, dragStartCol);
+        if (dragActive) {
+          dragActive = false;
+          listener.onDragSelectionFinalize(
+              dragStartRow,
+              dragStartCol,
+              dragCurrentRow,
+              dragCurrentCol,
+              e.isControlDown() || e.isMetaDown());
         } else {
           // Normal tap (short click)
-          listener.onStepToggled(row, col);
+          boolean ctrlOrCmd = e.isControlDown() || e.isMetaDown();
+          if (ctrlOrCmd) {
+            listener.onStepCtrlClicked(row, col);
+          } else {
+            if (listener.hasMultiSelection()) {
+              listener.clearMultiSelection();
+            }
+            listener.onStepToggled(row, col);
+          }
         }
       }
 
@@ -215,10 +224,26 @@ public class DelugeGestureCoordinator {
         if (parentGridPanel instanceof SwingGridPanel sg && sg.isShiftHeld()) {
           sg.handleShiftHoverExit();
         } else {
-          // Release note preview if cursor leaves button bounds
-          listener.onStepReleased(row, col);
+          // Release note preview if cursor leaves button bounds (but not during active multi-cell
+          // drag select)
+          if (!dragActive) {
+            listener.onStepReleased(row, col);
+          }
         }
       }
     };
+  }
+
+  /** Recursively finds the deepest JComponent at a specific relative coordinate path */
+  private Component getDeepestComponentAt(Component parent, Point pt) {
+    if (pt.x < 0 || pt.x >= parent.getWidth() || pt.y < 0 || pt.y >= parent.getHeight()) {
+      return parent;
+    }
+    Component child = parent.getComponentAt(pt);
+    if (child == null || child == parent) {
+      return parent;
+    }
+    Point childPt = new Point(pt.x - child.getX(), pt.y - child.getY());
+    return getDeepestComponentAt(child, childPt);
   }
 }

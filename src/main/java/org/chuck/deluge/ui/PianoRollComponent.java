@@ -15,6 +15,7 @@ import javax.swing.JComponent;
 public class PianoRollComponent extends JComponent {
 
   private final SwingGridPanel gridPanel;
+  private int activePlayingNote = -1;
 
   public PianoRollComponent(SwingGridPanel gridPanel) {
     this.gridPanel = gridPanel;
@@ -84,8 +85,17 @@ public class PianoRollComponent extends JComponent {
 
             // 3. Trigger note and flash grid UI
             if (midiNote >= 60 && midiNote < 128) {
+              activePlayingNote = midiNote;
               gridPanel.triggerKeyboardNote(midiNote);
               gridPanel.flashIsomorphicNote(midiNote);
+            }
+          }
+
+          @Override
+          public void mouseReleased(java.awt.event.MouseEvent e) {
+            if (activePlayingNote != -1) {
+              gridPanel.triggerKeyboardNoteRelease(activePlayingNote);
+              activePlayingNote = -1;
             }
           }
         });

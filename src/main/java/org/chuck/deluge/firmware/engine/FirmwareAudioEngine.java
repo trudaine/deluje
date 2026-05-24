@@ -70,4 +70,18 @@ public class FirmwareAudioEngine {
       masterBuffer[i].r = org.chuck.deluge.firmware.util.FirmwareUtils.getTanHUnknown(r, 0) << 1;
     }
   }
+
+  public void panic() {
+    for (GlobalEffectable sound : sounds) {
+      if (sound instanceof FirmwareSound synth) {
+        synth.releaseAllNotes();
+        synth.voices.clear();
+      } else if (sound instanceof FirmwareKit kit) {
+        for (FirmwareSound drum : kit.drumSounds) {
+          drum.releaseAllNotes();
+          drum.voices.clear();
+        }
+      }
+    }
+  }
 }

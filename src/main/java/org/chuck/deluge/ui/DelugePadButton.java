@@ -16,6 +16,18 @@ public class DelugePadButton extends JButton {
   private boolean isTied = false;
   private float intensity = 0.8f; // Velocity 0.0 - 1.0
   private String noteText = "";
+  private boolean isSelected = false;
+
+  public boolean isSelected() {
+    return isSelected;
+  }
+
+  public void setSelected(boolean selected) {
+    if (this.isSelected != selected) {
+      this.isSelected = selected;
+      repaint();
+    }
+  }
 
   public DelugePadButton() {
     setContentAreaFilled(false);
@@ -261,6 +273,16 @@ public class DelugePadButton extends JButton {
       g2.setColor(new Color(255, 255, 255, 220));
       g2.setStroke(new BasicStroke(2.0f));
       g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
+    }
+
+    // 5.5 Multi-Cell Selection Glow Ring (neon-cyan)
+    if (isSelected) {
+      g2.setColor(new Color(0x00, 0xd2, 0xff, 220));
+      g2.setStroke(new BasicStroke(2.5f));
+      g2.drawRoundRect(xPad + 1, yPad + 1, rw - 2, rh - 2, arc, arc);
+
+      g2.setColor(new Color(0x00, 0xd2, 0xff, 35));
+      g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
     }
 
     // 6. Minimal Text overlays

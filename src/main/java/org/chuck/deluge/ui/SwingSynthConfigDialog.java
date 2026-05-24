@@ -90,30 +90,43 @@ public class SwingSynthConfigDialog extends JDialog {
 
   private JPanel buildMainPanel(
       SynthTrackModel model, ChuckVM vm, BridgeContract bridge, int trackIndex) {
-    JPanel panel = new JPanel(new GridBagLayout());
-    panel.setBackground(BG_CARD);
-    GridBagConstraints c = new GridBagConstraints();
-    c.fill = GridBagConstraints.HORIZONTAL;
-    c.insets = new Insets(6, 10, 6, 10);
-    c.anchor = GridBagConstraints.WEST;
-    int row = 0;
+    JPanel mainContainer = new JPanel(new GridBagLayout());
+    mainContainer.setBackground(BG_CARD);
+
+    JPanel leftPanel = new JPanel(new GridBagLayout());
+    leftPanel.setBackground(BG_CARD);
+    GridBagConstraints lc = new GridBagConstraints();
+    lc.fill = GridBagConstraints.HORIZONTAL;
+    lc.insets = new Insets(6, 10, 6, 10);
+    lc.anchor = GridBagConstraints.WEST;
+    int leftRow = 0;
+
+    JPanel rightPanel = new JPanel(new GridBagLayout());
+    rightPanel.setBackground(BG_CARD);
+    GridBagConstraints rc = new GridBagConstraints();
+    rc.fill = GridBagConstraints.HORIZONTAL;
+    rc.insets = new Insets(6, 10, 6, 10);
+    rc.anchor = GridBagConstraints.WEST;
+    int rightRow = 0;
+
+    // ── Left Column: Oscillators & Mode & Poly & Unison ──
 
     // ── Oscillator section ──
-    c.gridx = 0;
-    c.gridy = row;
-    c.gridwidth = 3;
-    panel.add(sectionLabel("OSCILLATORS"), c);
-    row++;
+    lc.gridx = 0;
+    lc.gridy = leftRow;
+    lc.gridwidth = 3;
+    leftPanel.add(sectionLabel("OSCILLATORS"), lc);
+    leftRow++;
 
     // Osc1 type
-    c.gridx = 0;
-    c.gridy = row;
-    c.gridwidth = 1;
+    lc.gridx = 0;
+    lc.gridy = leftRow;
+    lc.gridwidth = 1;
     JLabel osc1Lbl = label("Osc 1:");
     osc1Lbl.setToolTipText("Carrier oscillator waveform type");
-    panel.add(osc1Lbl, c);
-    c.gridx = 1;
-    c.gridwidth = 2;
+    leftPanel.add(osc1Lbl, lc);
+    lc.gridx = 1;
+    lc.gridwidth = 2;
     JComboBox<String> osc1Combo = new JComboBox<>(OSC_TYPES);
     osc1Combo.setSelectedItem(model.getOsc1Type());
     osc1Combo.setBackground(BG_CONTROL);
@@ -132,18 +145,18 @@ public class SwingSynthConfigDialog extends JDialog {
               };
           bridge.setVelocity(trackIndex, 0, typeIdx);
         });
-    panel.add(osc1Combo, c);
-    row++;
+    leftPanel.add(osc1Combo, lc);
+    leftRow++;
 
     // Osc2 type
-    c.gridx = 0;
-    c.gridy = row;
-    c.gridwidth = 1;
+    lc.gridx = 0;
+    lc.gridy = leftRow;
+    lc.gridwidth = 1;
     JLabel osc2Lbl = label("Osc 2:");
     osc2Lbl.setToolTipText("Second oscillator type (modulator in FM mode)");
-    panel.add(osc2Lbl, c);
-    c.gridx = 1;
-    c.gridwidth = 2;
+    leftPanel.add(osc2Lbl, lc);
+    lc.gridx = 1;
+    lc.gridwidth = 2;
     String osc2Current = model.getOsc2Type();
     JComboBox<String> osc2Combo = new JComboBox<>(OSC_TYPES);
     if ("NONE".equals(osc2Current) || osc2Current == null) osc2Combo.setSelectedIndex(0);
@@ -151,19 +164,19 @@ public class SwingSynthConfigDialog extends JDialog {
     osc2Combo.setBackground(BG_CONTROL);
     osc2Combo.setForeground(Color.WHITE);
     osc2Combo.addActionListener(e -> model.setOsc2Type((String) osc2Combo.getSelectedItem()));
-    panel.add(osc2Combo, c);
-    row++;
+    leftPanel.add(osc2Combo, lc);
+    leftRow++;
 
     // Retrigger Phase
-    c.gridx = 0;
-    c.gridy = row;
-    c.gridwidth = 1;
+    lc.gridx = 0;
+    lc.gridy = leftRow;
+    lc.gridwidth = 1;
     JLabel retrigLbl = label("Retrig:");
     retrigLbl.setToolTipText(
         "Oscillator retrigger phase on note-on: FREE (no reset), RESET (phase=0), PHASE 90-270°");
-    panel.add(retrigLbl, c);
-    c.gridx = 1;
-    c.gridwidth = 2;
+    leftPanel.add(retrigLbl, lc);
+    lc.gridx = 1;
+    lc.gridwidth = 2;
     String[] RETRIG_OPTIONS = {"FREE", "RESET", "90°", "180°", "270°"};
     JComboBox<String> retrigCombo = new JComboBox<>(RETRIG_OPTIONS);
     int retrigIdx =
@@ -191,15 +204,15 @@ public class SwingSynthConfigDialog extends JDialog {
               };
           model.setRetrigPhase(val);
         });
-    panel.add(retrigCombo, c);
-    row++;
+    leftPanel.add(retrigCombo, lc);
+    leftRow++;
 
     // Wave Index
-    row =
+    leftRow =
         addSlider(
-            panel,
-            c,
-            row,
+            leftPanel,
+            lc,
+            leftRow,
             "Wave Idx:",
             "Wavetable position (0.0-1.0). Controls inter-table interpolation for wavetable-type oscillators.",
             0,
@@ -215,21 +228,21 @@ public class SwingSynthConfigDialog extends JDialog {
             trackIndex);
 
     // ── Synth Mode ──
-    c.gridx = 0;
-    c.gridy = row;
-    c.gridwidth = 3;
-    panel.add(sectionLabel("SYNTH MODE"), c);
-    row++;
+    lc.gridx = 0;
+    lc.gridy = leftRow;
+    lc.gridwidth = 3;
+    leftPanel.add(sectionLabel("SYNTH MODE"), lc);
+    leftRow++;
 
-    c.gridx = 0;
-    c.gridy = row;
-    c.gridwidth = 1;
+    lc.gridx = 0;
+    lc.gridy = leftRow;
+    lc.gridwidth = 1;
     JLabel modeLbl = label("Mode:");
     modeLbl.setToolTipText(
         "SUBTRACTIVE = single osc through filter; FM = mod→car FM; RINGMOD = carrier×mod");
-    panel.add(modeLbl, c);
-    c.gridx = 1;
-    c.gridwidth = 2;
+    leftPanel.add(modeLbl, lc);
+    lc.gridx = 1;
+    lc.gridwidth = 2;
     JComboBox<String> modeCombo = new JComboBox<>(SYNTH_MODES);
     modeCombo.setSelectedIndex(Math.max(0, Math.min(2, model.getSynthMode())));
     modeCombo.setBackground(BG_CONTROL);
@@ -241,25 +254,25 @@ public class SwingSynthConfigDialog extends JDialog {
           bridge.setSynthMode(trackIndex, mode);
           tabs.setEnabledAt(1, mode == 1);
         });
-    panel.add(modeCombo, c);
-    row++;
+    leftPanel.add(modeCombo, lc);
+    leftRow++;
 
     // ── Polyphony ──
-    c.gridx = 0;
-    c.gridy = row;
-    c.gridwidth = 3;
-    panel.add(sectionLabel("POLYPHONY"), c);
-    row++;
+    lc.gridx = 0;
+    lc.gridy = leftRow;
+    lc.gridwidth = 3;
+    leftPanel.add(sectionLabel("POLYPHONY"), lc);
+    leftRow++;
 
-    c.gridx = 0;
-    c.gridy = row;
-    c.gridwidth = 1;
+    lc.gridx = 0;
+    lc.gridy = leftRow;
+    lc.gridwidth = 1;
     JLabel polyLbl = label("Mode:");
     polyLbl.setToolTipText(
         "POLY = multiple simultaneous notes; MONO = one note at a time; LEGATO = mono with legato sliding; AUTO = auto-select POLY or MONO; CHOKE = cut previous note");
-    panel.add(polyLbl, c);
-    c.gridx = 1;
-    c.gridwidth = 2;
+    leftPanel.add(polyLbl, lc);
+    lc.gridx = 1;
+    lc.gridwidth = 2;
     JComboBox<String> polyCombo = new JComboBox<>(POLY_MODES);
     polyCombo.setSelectedItem(model.getPolyphony().name());
     polyCombo.setBackground(BG_CONTROL);
@@ -271,19 +284,19 @@ public class SwingSynthConfigDialog extends JDialog {
           model.setPolyphony(pm);
           bridge.setPolyphony(trackIndex, pm.ordinal());
         });
-    panel.add(polyCombo, c);
-    row++;
+    leftPanel.add(polyCombo, lc);
+    leftRow++;
 
     // VCNT
-    c.gridx = 0;
-    c.gridy = row;
-    c.gridwidth = 1;
+    lc.gridx = 0;
+    lc.gridy = leftRow;
+    lc.gridwidth = 1;
     JLabel vcntLbl = label("VCNT:");
     vcntLbl.setToolTipText(
         "Maximum voices (1-16). Useless beyond track rows, but sets voice stealing limit.");
-    panel.add(vcntLbl, c);
-    c.gridx = 1;
-    c.gridwidth = 2;
+    leftPanel.add(vcntLbl, lc);
+    lc.gridx = 1;
+    lc.gridwidth = 2;
     JSpinner vcntSpinner = new JSpinner(new SpinnerNumberModel(model.getMaxVoiceCount(), 1, 16, 1));
     vcntSpinner.setBackground(BG_CONTROL);
     vcntSpinner.setForeground(Color.WHITE);
@@ -296,24 +309,24 @@ public class SwingSynthConfigDialog extends JDialog {
           model.setMaxVoiceCount(vc);
           bridge.setMaxVoices(trackIndex, vc);
         });
-    panel.add(vcntSpinner, c);
-    row++;
+    leftPanel.add(vcntSpinner, lc);
+    leftRow++;
 
     // ── Unison ──
-    c.gridx = 0;
-    c.gridy = row;
-    c.gridwidth = 3;
-    panel.add(sectionLabel("UNISON"), c);
-    row++;
+    lc.gridx = 0;
+    lc.gridy = leftRow;
+    lc.gridwidth = 3;
+    leftPanel.add(sectionLabel("UNISON"), lc);
+    leftRow++;
 
-    c.gridx = 0;
-    c.gridy = row;
-    c.gridwidth = 1;
+    lc.gridx = 0;
+    lc.gridy = leftRow;
+    lc.gridwidth = 1;
     JLabel unisonNumLbl = label("Voices:");
     unisonNumLbl.setToolTipText("Number of unison voices (1-8)");
-    panel.add(unisonNumLbl, c);
-    c.gridx = 1;
-    c.gridwidth = 2;
+    leftPanel.add(unisonNumLbl, lc);
+    lc.gridx = 1;
+    lc.gridwidth = 2;
     JComboBox<Integer> unisonNumCombo = new JComboBox<>(new Integer[] {1, 2, 3, 4, 5, 6, 7, 8});
     unisonNumCombo.setSelectedItem(model.getUnisonNum());
     unisonNumCombo.setBackground(BG_CONTROL);
@@ -324,14 +337,14 @@ public class SwingSynthConfigDialog extends JDialog {
           model.setUnisonNum(v);
           bridge.setUnisonNum(trackIndex, v);
         });
-    panel.add(unisonNumCombo, c);
-    row++;
+    leftPanel.add(unisonNumCombo, lc);
+    leftRow++;
 
-    row =
+    leftRow =
         addSlider(
-            panel,
-            c,
-            row,
+            leftPanel,
+            lc,
+            leftRow,
             "Detune:",
             "Unison detune in cents (0-50). Higher values = wider, chorus-ier sound.",
             0,
@@ -346,11 +359,11 @@ public class SwingSynthConfigDialog extends JDialog {
             projectModel,
             trackIndex);
 
-    row =
+    leftRow =
         addSlider(
-            panel,
-            c,
-            row,
+            leftPanel,
+            lc,
+            leftRow,
             "Spread:",
             "Unison stereo spread (0-50). Distributes voices across stereo field.",
             0,
@@ -365,28 +378,20 @@ public class SwingSynthConfigDialog extends JDialog {
             projectModel,
             trackIndex);
 
-    // ── Arpeggiator reference ──
-    c.gridx = 0;
-    c.gridy = row;
-    c.gridwidth = 3;
-    JLabel arpNote = new JLabel("Arpeggiator controls moved to ARP tab →");
-    arpNote.setForeground(new Color(0x88, 0x88, 0x88));
-    arpNote.setFont(arpNote.getFont().deriveFont(Font.ITALIC));
-    panel.add(arpNote, c);
-    row++;
+    // ── Right Column: Filter LPF & FM Synthesis ──
 
     // ── Filter (LPF) ──
-    c.gridx = 0;
-    c.gridy = row;
-    c.gridwidth = 3;
-    panel.add(sectionLabel("FILTER (LPF)"), c);
-    row++;
+    rc.gridx = 0;
+    rc.gridy = rightRow;
+    rc.gridwidth = 3;
+    rightPanel.add(sectionLabel("FILTER (LPF)"), rc);
+    rightRow++;
 
-    row =
+    rightRow =
         addSlider(
-            panel,
-            c,
-            row,
+            rightPanel,
+            rc,
+            rightRow,
             "Cutoff:",
             "Low-pass filter cutoff frequency (0% = fully closed, 100% = fully open)",
             0,
@@ -397,11 +402,12 @@ public class SwingSynthConfigDialog extends JDialog {
             "lpfCutoff",
             projectModel,
             trackIndex);
-    row =
+
+    rightRow =
         addSlider(
-            panel,
-            c,
-            row,
+            rightPanel,
+            rc,
+            rightRow,
             "Resonance:",
             "Filter resonance / Q — emphasises frequencies around the cutoff",
             0,
@@ -413,11 +419,11 @@ public class SwingSynthConfigDialog extends JDialog {
             projectModel,
             trackIndex);
 
-    row =
+    rightRow =
         addSlider(
-            panel,
-            c,
-            row,
+            rightPanel,
+            rc,
+            rightRow,
             "Drive:",
             "Filter drive / saturation (0–200%). >100% adds soft-clip saturation.",
             0,
@@ -432,20 +438,28 @@ public class SwingSynthConfigDialog extends JDialog {
             projectModel,
             trackIndex);
 
-    // Filter mode selector
+    // Filter Mode Selector
+    rc.gridx = 0;
+    rc.gridy = rightRow;
+    rc.gridwidth = 1;
+    rightPanel.add(label("Mode:"), rc);
+    rc.gridx = 1;
+    rc.gridwidth = 2;
     JComboBox<String> filterModeCombo =
         new JComboBox<>(new String[] {"LADDER_12", "LADDER_24", "SVF"});
     filterModeCombo.setSelectedItem(model.getFilterMode().name());
     filterModeCombo.setBackground(BG_CONTROL);
     filterModeCombo.setForeground(Color.WHITE);
+    rightPanel.add(filterModeCombo, rc);
+    rightRow++;
 
     // SVF NOTCH checkbox
-    c.gridx = 0;
-    c.gridy = row;
-    c.gridwidth = 1;
-    panel.add(label("SVF NOTCH:"), c);
-    c.gridx = 1;
-    c.gridwidth = 2;
+    rc.gridx = 0;
+    rc.gridy = rightRow;
+    rc.gridwidth = 1;
+    rightPanel.add(label("SVF NOTCH:"), rc);
+    rc.gridx = 1;
+    rc.gridwidth = 2;
     JCheckBox notchBox = new JCheckBox("Enable NOTCH mode (SVF only)");
     notchBox.setSelected(model.isFilterNotch());
     notchBox.setEnabled(model.getFilterMode() == org.chuck.deluge.model.FilterMode.SVF);
@@ -461,20 +475,27 @@ public class SwingSynthConfigDialog extends JDialog {
           String sel = (String) filterModeCombo.getSelectedItem();
           boolean isSvf = "SVF".equals(sel);
           notchBox.setEnabled(isSvf);
-          if (!isSvf) notchBox.setSelected(false);
+          if (!isSvf) {
+            notchBox.setSelected(false);
+            model.setFilterNotch(false);
+            bridge.setFilterNotch(trackIndex, 0);
+          }
+          org.chuck.deluge.model.FilterMode fm = org.chuck.deluge.model.FilterMode.valueOf(sel);
+          model.setFilterMode(fm);
+          bridge.setFilterMode(trackIndex, fm.ordinal());
         });
-    panel.add(notchBox, c);
-    row++;
+    rightPanel.add(notchBox, rc);
+    rightRow++;
 
     // Filter route
-    c.gridx = 0;
-    c.gridy = row;
-    c.gridwidth = 1;
+    rc.gridx = 0;
+    rc.gridy = rightRow;
+    rc.gridwidth = 1;
     JLabel routeLbl = label("Route:");
     routeLbl.setToolTipText("0=SERIES LPF→HPF, 1=SERIES HPF→LPF, 2=PARALLEL");
-    panel.add(routeLbl, c);
-    c.gridx = 1;
-    c.gridwidth = 2;
+    rightPanel.add(routeLbl, rc);
+    rc.gridx = 1;
+    rc.gridwidth = 2;
     JComboBox<String> routeCombo =
         new JComboBox<>(new String[] {"SERIES LPF→HPF", "SERIES HPF→LPF", "PARALLEL"});
     routeCombo.setSelectedIndex(model.getFilterRoute());
@@ -486,31 +507,21 @@ public class SwingSynthConfigDialog extends JDialog {
           model.setFilterRoute(route);
           bridge.setFilterRoute(trackIndex, route);
         });
-    panel.add(routeCombo, c);
-    row++;
-
-    // ── HPF reference ──
-    c.gridx = 0;
-    c.gridy = row;
-    c.gridwidth = 3;
-    JLabel hpfNote = new JLabel("HPF controls moved to HPF tab →");
-    hpfNote.setForeground(new Color(0x88, 0x88, 0x88));
-    hpfNote.setFont(hpfNote.getFont().deriveFont(Font.ITALIC));
-    panel.add(hpfNote, c);
-    row++;
+    rightPanel.add(routeCombo, rc);
+    rightRow++;
 
     // ── FM ──
-    c.gridx = 0;
-    c.gridy = row;
-    c.gridwidth = 3;
-    panel.add(sectionLabel("FM SYNTHESIS"), c);
-    row++;
+    rc.gridx = 0;
+    rc.gridy = rightRow;
+    rc.gridwidth = 3;
+    rightPanel.add(sectionLabel("FM SYNTHESIS"), rc);
+    rightRow++;
 
-    row =
+    rightRow =
         addSlider(
-            panel,
-            c,
-            row,
+            rightPanel,
+            rc,
+            rightRow,
             "FM Ratio:",
             "Frequency ratio of the modulator oscillator relative to the carrier (0.25–4.00)",
             25,
@@ -521,11 +532,12 @@ public class SwingSynthConfigDialog extends JDialog {
             "fmRatio",
             projectModel,
             trackIndex);
-    row =
+
+    rightRow =
         addSlider(
-            panel,
-            c,
-            row,
+            rightPanel,
+            rc,
+            rightRow,
             "FM Amount:",
             "Depth of FM modulation — how strongly the modulator affects the carrier (0–100%)",
             0,
@@ -536,11 +548,12 @@ public class SwingSynthConfigDialog extends JDialog {
             "fmAmount",
             projectModel,
             trackIndex);
-    row =
+
+    rightRow =
         addSlider(
-            panel,
-            c,
-            row,
+            rightPanel,
+            rc,
+            rightRow,
             "Carrier 1 FB:",
             "Carrier 1 self-feedback amount (0–100%). Creates characteristic FM feedback timbre.",
             0,
@@ -551,11 +564,12 @@ public class SwingSynthConfigDialog extends JDialog {
             "carrier1Fb",
             projectModel,
             trackIndex);
-    row =
+
+    rightRow =
         addSlider(
-            panel,
-            c,
-            row,
+            rightPanel,
+            rc,
+            rightRow,
             "Mod 1 FB:",
             "Modulator 1 self-feedback amount (0–100%). Adds complexity to FM timbre.",
             0,
@@ -566,11 +580,12 @@ public class SwingSynthConfigDialog extends JDialog {
             "mod1Fb",
             projectModel,
             trackIndex);
-    row =
+
+    rightRow =
         addSlider(
-            panel,
-            c,
-            row,
+            rightPanel,
+            rc,
+            rightRow,
             "Mod 2 Amt:",
             "Modulator 2 output amount / gain (0–100%). Controls how strongly Mod 2 affects the carrier.",
             0,
@@ -581,11 +596,12 @@ public class SwingSynthConfigDialog extends JDialog {
             "mod2Amt",
             projectModel,
             trackIndex);
-    row =
+
+    rightRow =
         addSlider(
-            panel,
-            c,
-            row,
+            rightPanel,
+            rc,
+            rightRow,
             "Mod 2 FB:",
             "Modulator 2 self-feedback amount (0–100%). Increases FM harmonic complexity.",
             0,
@@ -596,11 +612,12 @@ public class SwingSynthConfigDialog extends JDialog {
             "mod2Fb",
             projectModel,
             trackIndex);
-    row =
+
+    rightRow =
         addSlider(
-            panel,
-            c,
-            row,
+            rightPanel,
+            rc,
+            rightRow,
             "Carrier 2 FB:",
             "Carrier 2 self-feedback amount (0–100%). Second carrier feedback for 2-op FM configurations.",
             0,
@@ -612,7 +629,30 @@ public class SwingSynthConfigDialog extends JDialog {
             projectModel,
             trackIndex);
 
-    return panel;
+    // ── Mount Left and Right Side-by-Side ──
+    mainContainer.setLayout(new GridBagLayout());
+    GridBagConstraints mc = new GridBagConstraints();
+    mc.fill = GridBagConstraints.BOTH;
+    mc.gridy = 0;
+    mc.weighty = 1.0;
+
+    mc.gridx = 0;
+    mc.weightx = 0.48;
+    mainContainer.add(leftPanel, mc);
+
+    mc.gridx = 1;
+    mc.weightx = 0.04;
+    mc.insets = new Insets(0, 15, 0, 15);
+    JSeparator separator = new JSeparator(JSeparator.VERTICAL);
+    separator.setForeground(new Color(0x33, 0x33, 0x35));
+    mainContainer.add(separator, mc);
+
+    mc.gridx = 2;
+    mc.weightx = 0.48;
+    mc.insets = new Insets(0, 0, 0, 0);
+    mainContainer.add(rightPanel, mc);
+
+    return mainContainer;
   }
 
   // ── Shared UI helpers (package-private, called by panel classes) ──
