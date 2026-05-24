@@ -1299,6 +1299,15 @@ public class SwingDelugeApp extends JFrame {
             new KeyEventDispatcher() {
               @Override
               public boolean dispatchKeyEvent(java.awt.event.KeyEvent e) {
+                if (e.getKeyCode() == java.awt.event.KeyEvent.VK_TAB) {
+                  if (e.getID() == java.awt.event.KeyEvent.KEY_PRESSED) {
+                    if (clipPanel != null) clipPanel.setTabHeld(true);
+                  } else if (e.getID() == java.awt.event.KeyEvent.KEY_RELEASED) {
+                    if (clipPanel != null) clipPanel.setTabHeld(false);
+                  }
+                  return true; // consume to prevent standard AWT focus traversal!
+                }
+
                 if (e.getKeyCode() == java.awt.event.KeyEvent.VK_SHIFT) {
                   if (e.getID() == java.awt.event.KeyEvent.KEY_PRESSED) {
                     if (clipPanel != null) clipPanel.setShiftHeld(true);
@@ -1331,6 +1340,47 @@ public class SwingDelugeApp extends JFrame {
                       clipPanel.adjustRotaryParameter(-1);
                       return true; // consume the event!
                     }
+                  }
+                }
+
+                // Global GridMode Zoom: Alt + PageUp/PageDown cycles through all grid modes
+                if (e.getID() == java.awt.event.KeyEvent.KEY_PRESSED) {
+                  boolean isAlt = e.isAltDown() || e.isMetaDown();
+                  if (isAlt
+                      && (e.getKeyCode() == java.awt.event.KeyEvent.VK_PAGE_UP
+                          || e.getKeyCode() == java.awt.event.KeyEvent.VK_PAGE_DOWN)) {
+                    boolean forward = (e.getKeyCode() == java.awt.event.KeyEvent.VK_PAGE_UP);
+                    org.chuck.deluge.project.PreferencesManager.GridMode[] modes =
+                        org.chuck.deluge.project.PreferencesManager.GridMode.values();
+                    org.chuck.deluge.project.PreferencesManager.GridMode currentMode =
+                        org.chuck.deluge.project.PreferencesManager.getGridMode();
+                    int currentIdx = 0;
+                    for (int i = 0; i < modes.length; i++) {
+                      if (modes[i] == currentMode) {
+                        currentIdx = i;
+                        break;
+                      }
+                    }
+                    int nextIdx = currentIdx + (forward ? -1 : 1);
+                    if (nextIdx >= 0 && nextIdx < modes.length) {
+                      org.chuck.deluge.project.PreferencesManager.GridMode nextMode =
+                          modes[nextIdx];
+                      org.chuck.deluge.project.PreferencesManager.setGridMode(nextMode);
+                      if (clipPanel != null) {
+                        clipPanel.setGridMode(nextMode);
+                        clipPanel.refresh();
+                      }
+                      if (songPanel != null) {
+                        songPanel.setGridMode(nextMode);
+                        songPanel.refresh();
+                      }
+                      if (arrGridPanel != null) {
+                        arrGridPanel.setGridMode(nextMode);
+                        arrGridPanel.refresh();
+                      }
+                      recalcWrapperSize();
+                    }
+                    return true; // consume event!
                   }
                 }
                 return false; // Pass event downstream
@@ -2543,7 +2593,7 @@ public class SwingDelugeApp extends JFrame {
   }
 
   /** No-op: centeredWrapper removed, scroll pane sizes to content naturally. */
-  private void recalcWrapperSize() {
+  public void recalcWrapperSize() {
     // content naturally sizes the scroll viewport
   }
 

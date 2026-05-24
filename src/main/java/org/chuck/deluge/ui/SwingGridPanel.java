@@ -54,6 +54,16 @@ public class SwingGridPanel extends JPanel {
   private boolean automationDragging = false;
 
   private boolean shiftHeld = false;
+  private boolean tabHeld = false;
+
+  public void setTabHeld(boolean held) {
+    this.tabHeld = held;
+  }
+
+  public boolean isTabHeld() {
+    return tabHeld;
+  }
+
   private String activeShiftParam = null;
   private int activeShiftRow = -1;
   private int activeShiftCol = -1;
@@ -432,30 +442,29 @@ public class SwingGridPanel extends JPanel {
           }
           int rotation = e.getWheelRotation();
 
-          // Vertical Zoom: Alt/Cmd + Wheel scrolls grid size between 8 -> 16 -> 24 rows
+          // Grid Mode Zooming: Alt/Cmd + Wheel cycles through all grid resolution modes
+          // sequentially
           if (e.isAltDown() || e.isMetaDown()) {
+            org.chuck.deluge.project.PreferencesManager.GridMode[] modes =
+                org.chuck.deluge.project.PreferencesManager.GridMode.values();
             org.chuck.deluge.project.PreferencesManager.GridMode currentMode =
                 org.chuck.deluge.project.PreferencesManager.getGridMode();
-            org.chuck.deluge.project.PreferencesManager.GridMode nextMode = currentMode;
-            if (rotation > 0) {
-              if (currentMode == org.chuck.deluge.project.PreferencesManager.GridMode.GRID_8x16) {
-                nextMode = org.chuck.deluge.project.PreferencesManager.GridMode.GRID_16x16;
-              } else if (currentMode
-                  == org.chuck.deluge.project.PreferencesManager.GridMode.GRID_16x16) {
-                nextMode = org.chuck.deluge.project.PreferencesManager.GridMode.GRID_24x16;
-              }
-            } else if (rotation < 0) {
-              if (currentMode == org.chuck.deluge.project.PreferencesManager.GridMode.GRID_24x16) {
-                nextMode = org.chuck.deluge.project.PreferencesManager.GridMode.GRID_16x16;
-              } else if (currentMode
-                  == org.chuck.deluge.project.PreferencesManager.GridMode.GRID_16x16) {
-                nextMode = org.chuck.deluge.project.PreferencesManager.GridMode.GRID_8x16;
+            int currentIdx = 0;
+            for (int i = 0; i < modes.length; i++) {
+              if (modes[i] == currentMode) {
+                currentIdx = i;
+                break;
               }
             }
-            if (nextMode != currentMode) {
+            int nextIdx = currentIdx + (rotation > 0 ? 1 : -1);
+            if (nextIdx >= 0 && nextIdx < modes.length) {
+              org.chuck.deluge.project.PreferencesManager.GridMode nextMode = modes[nextIdx];
               org.chuck.deluge.project.PreferencesManager.setGridMode(nextMode);
               setGridMode(nextMode);
               refresh();
+              if (SwingDelugeApp.mainInstance != null) {
+                SwingDelugeApp.mainInstance.recalcWrapperSize();
+              }
             }
             return;
           }
@@ -949,6 +958,179 @@ public class SwingGridPanel extends JPanel {
     for (java.awt.event.ActionListener al : btn.getActionListeners()) {
       btn.removeActionListener(al);
     }
+  }
+
+  private int getActiveStepCol(int row, int col) {
+    int trackLen = 0;
+    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+      org.chuck.deluge.model.TrackModel track = projectModel.getTracks().get(editedModelTrack);
+      if (activeClipId < track.getClips().size()) {
+        trackLen = track.getClips().get(activeClipId).getStepCount();
+      }
+    }
+    if (trackLen <= 0) {
+      trackLen = bridge != null ? bridge.getTrackLength(baseTrackId + row) : stepCount;
+    }
+    if (trackLen > 0 && trackLen < stepCount) {
+      return col % trackLen;
+    } else if (trackLen > stepCount) {
+      return Math.min(col + scrollOffsetX, trackLen - 1);
+    } else {
+      return col;
+    }
+  }
+
+  private org.chuck.deluge.model.StepData getModelStep(int row, int col) {
+    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+      org.chuck.deluge.model.TrackModel tModel = projectModel.getTracks().get(editedModelTrack);
+      if (activeClipId < tModel.getClips().size()) {
+        return tModel.getClips().get(activeClipId).getStep(row, col);
+      }
+    }
+    return null;
+  }
+
+  private void updateModelStep(
+      int row,
+      int col,
+      boolean state,
+      float vel,
+      float prob,
+      int iterance,
+      float fill,
+      org.chuck.deluge.model.StepData oldStep) {
+    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+      org.chuck.deluge.model.TrackModel tModel = projectModel.getTracks().get(editedModelTrack);
+      if (activeClipId < tModel.getClips().size()) {
+        org.chuck.deluge.model.ClipModel cModel = tModel.getClips().get(activeClipId);
+        int originalPitch = oldStep != null ? oldStep.pitch() : 60;
+        float originalGate =
+            oldStep != null ? oldStep.gate() : org.chuck.deluge.model.StepData.DEFAULT_CLICK_GATE;
+        cModel.setStep(
+            row,
+            col,
+            new org.chuck.deluge.model.StepData(
+                state, vel, originalGate, prob, originalPitch, iterance, fill));
+        if (oldStep != null) {
+          projectModel
+              .getUndoRedoStack()
+              .push(
+                  new Consequence.StepConsequence(
+                      editedModelTrack, activeClipId, row, col, oldStep, cModel.getStep(row, col)));
+        }
+      }
+    }
+    fireProjectChanged();
+  }
+
+  private boolean handleStepPressModifiers(
+      int targetTrackId, int row, int col, java.awt.event.MouseEvent e) {
+    final int engineRow = targetTrackId + row;
+    final int activeCol = (viewMode == GridViewMode.CLIP) ? getActiveStepCol(row, col) : col;
+
+    // 1. Alt + Click ➔ Directly open Step Properties Dialog!
+    if (e.isAltDown()) {
+      double curVel = bridge.getVelocity(engineRow, activeCol);
+      int curIt = bridge.getIterance(engineRow, activeCol);
+      int curFill = (int) (bridge.getStepFill(engineRow, activeCol) * 100);
+
+      StepPropertiesDialog dlg =
+          new StepPropertiesDialog(
+              (java.awt.Frame) javax.swing.SwingUtilities.getWindowAncestor(this),
+              (int) (curVel * 100),
+              curIt,
+              curFill);
+      dlg.setVisible(true);
+      if (dlg.isConfirmed()) {
+        int newVel = dlg.getVelocity();
+        int newIt = dlg.getIterance();
+        int newFill = dlg.getFill();
+
+        org.chuck.deluge.model.StepData oldStep = getModelStep(row, activeCol);
+
+        bridge.setVelocity(engineRow, activeCol, newVel / 100.0);
+        bridge.setIterance(engineRow, activeCol, newIt);
+        bridge.setStepFill(engineRow, activeCol, newFill / 100.0);
+
+        updateModelStep(
+            row,
+            activeCol,
+            bridge.getStep(engineRow, activeCol),
+            newVel / 100.0f,
+            (float) bridge.getStepProbability(engineRow, activeCol),
+            newIt,
+            newFill / 100.0f,
+            oldStep);
+        refresh();
+      }
+      return true;
+    }
+
+    // 2. Cmd + Click (or Ctrl + Click!) ➔ Cycle Probability: 100% -> 75% -> 50% -> 25% -> 100%
+    if (e.isControlDown() || e.isMetaDown()) {
+      double curProb = bridge.getStepProbability(engineRow, activeCol);
+      double newProb = 1.0;
+      if (curProb >= 0.9) newProb = 0.75;
+      else if (curProb >= 0.7) newProb = 0.5;
+      else if (curProb >= 0.4) newProb = 0.25;
+      else newProb = 1.0;
+
+      org.chuck.deluge.model.StepData oldStep = getModelStep(row, activeCol);
+      bridge.setStepProbability(engineRow, activeCol, newProb);
+
+      boolean stepOn = bridge.getStep(engineRow, activeCol);
+      if (!stepOn) {
+        bridge.setStep(engineRow, activeCol, true);
+        stepOn = true;
+      }
+      double curVel = bridge.getVelocity(engineRow, activeCol);
+      int curIt = bridge.getIterance(engineRow, activeCol);
+      double curFill = bridge.getStepFill(engineRow, activeCol);
+
+      updateModelStep(
+          row, activeCol, stepOn, (float) curVel, (float) newProb, curIt, (float) curFill, oldStep);
+
+      if (SwingDelugeApp.mainInstance != null) {
+        SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient(
+            "PROB", (int) (newProb * 100) + "% ");
+      }
+      refresh();
+      return true;
+    }
+
+    // 3. Tab + Click ➔ Cycle Step Velocity: 100% -> 75% -> 50% -> 25% -> 100%
+    if (tabHeld) {
+      double curVel = bridge.getVelocity(engineRow, activeCol);
+      double newVel = 1.0;
+      if (curVel >= 0.9) newVel = 0.75;
+      else if (curVel >= 0.7) newVel = 0.5;
+      else if (curVel >= 0.4) newVel = 0.25;
+      else newVel = 1.0;
+
+      org.chuck.deluge.model.StepData oldStep = getModelStep(row, activeCol);
+      bridge.setVelocity(engineRow, activeCol, newVel);
+
+      boolean stepOn = bridge.getStep(engineRow, activeCol);
+      if (!stepOn) {
+        bridge.setStep(engineRow, activeCol, true);
+        stepOn = true;
+      }
+      double curProb = bridge.getStepProbability(engineRow, activeCol);
+      int curIt = bridge.getIterance(engineRow, activeCol);
+      double curFill = bridge.getStepFill(engineRow, activeCol);
+
+      updateModelStep(
+          row, activeCol, stepOn, (float) newVel, (float) curProb, curIt, (float) curFill, oldStep);
+
+      if (SwingDelugeApp.mainInstance != null) {
+        SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient(
+            "VEL ", (int) (newVel * 100) + "% ");
+      }
+      refresh();
+      return true;
+    }
+
+    return false;
   }
 
   public int getGridWidth(int padSz, int lw) {
@@ -2125,6 +2307,7 @@ public class SwingGridPanel extends JPanel {
                             }
                           }
                         } else if (javax.swing.SwingUtilities.isLeftMouseButton(e)) {
+                          if (handleStepPressModifiers(baseTrackId, modelRow, colId, e)) return;
                           boolean isSynthMode = bridge.getTrackType(baseTrackId) == 1;
                           int trackType = bridge.getTrackType(modelRow);
 
