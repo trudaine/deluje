@@ -2661,6 +2661,34 @@ public class SwingDelugeApp extends JFrame {
               "CheckBoxMenuItem.font", new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 11));
           javax.swing.UIManager.put(
               "RadioButtonMenuItem.font", new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 11));
+
+          // Global JComboBox theme overrides (removes white-on-white text issues)
+          javax.swing.UIManager.put("ComboBox.background", new java.awt.Color(0x2d, 0x2d, 0x30));
+          javax.swing.UIManager.put("ComboBox.foreground", java.awt.Color.WHITE);
+          javax.swing.UIManager.put(
+              "ComboBox.selectionBackground", new java.awt.Color(0x00, 0x7a, 0xcc));
+          javax.swing.UIManager.put("ComboBox.selectionForeground", java.awt.Color.WHITE);
+          javax.swing.UIManager.put(
+              "ComboBox.buttonBackground", new java.awt.Color(0x2d, 0x2d, 0x30));
+          javax.swing.UIManager.put(
+              "ComboBox.buttonDarkShadow", new java.awt.Color(0x1a, 0x1a, 0x1c));
+
+          // Global dropdown list/viewport popups overrides (solves white list background)
+          javax.swing.UIManager.put("List.background", new java.awt.Color(0x1e, 0x1e, 0x20));
+          javax.swing.UIManager.put("List.foreground", java.awt.Color.WHITE);
+          javax.swing.UIManager.put(
+              "List.selectionBackground", new java.awt.Color(0x00, 0x7a, 0xcc));
+          javax.swing.UIManager.put("List.selectionForeground", java.awt.Color.WHITE);
+
+          // Global text inputs focus and contrast overrides
+          javax.swing.UIManager.put("TextField.background", new java.awt.Color(0x1e, 0x1e, 0x20));
+          javax.swing.UIManager.put("TextField.foreground", java.awt.Color.WHITE);
+          javax.swing.UIManager.put("TextField.caretForeground", java.awt.Color.WHITE);
+
+          javax.swing.UIManager.put("TextArea.background", new java.awt.Color(0x1e, 0x1e, 0x20));
+          javax.swing.UIManager.put("TextArea.foreground", java.awt.Color.WHITE);
+          javax.swing.UIManager.put("TextArea.caretForeground", java.awt.Color.WHITE);
+
           SwingDelugeApp app = new SwingDelugeApp(vm, bridge, midiService, finalPureMode);
           app.setVisible(true);
           // Auto-load if a file path is provided as argument
@@ -2749,6 +2777,15 @@ public class SwingDelugeApp extends JFrame {
     public void onStop() {
       vm.setGlobalInt(BridgeContract.G_PLAY, 0L);
       if (bridge != null) bridge.setPlayState(0);
+
+      try {
+        Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+        if (fwEngineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
+          fwEngine.panic();
+        }
+      } catch (Exception ex) {
+        // ignore
+      }
     }
 
     @Override

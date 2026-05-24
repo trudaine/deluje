@@ -40,9 +40,7 @@ public class MidiLearnPanel extends JPanel {
     headerPanel.add(helpLabel, BorderLayout.CENTER);
 
     JButton resetBtn = new JButton("RESET ALL TO DELUGE DEFAULT CCs");
-    resetBtn.setBackground(new Color(0x3e, 0x5e, 0x3e));
-    resetBtn.setForeground(Color.WHITE);
-    resetBtn.setFocusable(false);
+    styleButton(resetBtn, new Color(0x2d, 0x4d, 0x2d), Color.WHITE);
     resetBtn.addActionListener(
         e -> {
           MidiInputRouter router = getRouter();
@@ -152,6 +150,7 @@ public class MidiLearnPanel extends JPanel {
     activeLearningButton = btn;
 
     btn.setText("LEARNING...");
+    btn.setBackground(new Color(0x4d, 0x33, 0x00));
     btn.setForeground(new Color(0xff, 0x99, 0x00)); // Orange warning state
     router.startLearning(globalName);
   }
@@ -161,6 +160,7 @@ public class MidiLearnPanel extends JPanel {
     activeLearningButton = null;
     btn.setText(text);
     btn.setSelected(false);
+    btn.setBackground(new Color(0x3e, 0x3e, 0x42));
     btn.setForeground(Color.WHITE);
   }
 
@@ -194,9 +194,7 @@ public class MidiLearnPanel extends JPanel {
       actions.setBackground(new Color(0x2a, 0x2a, 0x2a));
 
       learnBtn = new JToggleButton("LEARN");
-      learnBtn.setBackground(new Color(0x3e, 0x3e, 0x3e));
-      learnBtn.setForeground(Color.WHITE);
-      learnBtn.setFocusable(false);
+      styleButton(learnBtn, new Color(0x3e, 0x3e, 0x42), Color.WHITE);
       learnBtn.addActionListener(
           e -> {
             if (learnBtn.isSelected()) {
@@ -208,9 +206,7 @@ public class MidiLearnPanel extends JPanel {
       actions.add(learnBtn);
 
       clearBtn = new JButton("CLEAR");
-      clearBtn.setBackground(new Color(0x5e, 0x2e, 0x2e));
-      clearBtn.setForeground(Color.WHITE);
-      clearBtn.setFocusable(false);
+      styleButton(clearBtn, new Color(0x6e, 0x2e, 0x2e), Color.WHITE);
       clearBtn.addActionListener(
           e -> {
             MidiInputRouter router = getRouter();
@@ -227,5 +223,18 @@ public class MidiLearnPanel extends JPanel {
 
   public void stopTimer() {
     refreshTimer.stop();
+  }
+
+  private void styleButton(AbstractButton btn, Color bg, Color fg) {
+    btn.setOpaque(true);
+    btn.setBorderPainted(true);
+    btn.setContentAreaFilled(true);
+    btn.setBackground(bg);
+    btn.setForeground(fg);
+    btn.setFocusable(false);
+    btn.setBorder(
+        BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(bg.brighter(), 1),
+            BorderFactory.createEmptyBorder(4, 12, 4, 12)));
   }
 }

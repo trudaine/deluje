@@ -18,7 +18,9 @@ public class SwingOledPanel extends JPanel {
   public SwingOledPanel() {
     this.virtualOLED = FirmwareDisplay.get().getVirtualOLED();
     setBackground(Color.BLACK);
-    setPreferredSize(new Dimension(192, 96)); // Compact, space-efficient hardware OLED slot
+    setPreferredSize(new Dimension(192, 96));
+    setMinimumSize(new Dimension(192, 96));
+    setMaximumSize(new Dimension(192, 96));
 
     FirmwareDisplay.get().setOledListener(this::repaint);
   }

@@ -1,8 +1,12 @@
 package org.chuck.deluge;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.InputStream;
+import javax.swing.JButton;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.engine.DelugeEngineDSL;
 import org.chuck.deluge.model.*;
@@ -219,6 +223,73 @@ public class SwingUiFlowDiagnosticTest {
 
     // Verify it doesn't throw and triggers note properly
     pianoRoll.dispatchEvent(whiteClick);
+
+    vm.advanceTime(4410);
+    vm.shutdown();
+  }
+
+  @Test
+  public void testColumns17And18Behavior() throws Exception {
+    if (java.awt.GraphicsEnvironment.isHeadless()) {
+      return;
+    }
+
+    ChuckVM vm = new ChuckVM(44100, 2);
+    BridgeContract bridge = new BridgeContract();
+    bridge.register(vm);
+    vm.spork(new DelugeEngineDSL());
+    vm.advanceTime(4410);
+
+    InputStream is = getClass().getResourceAsStream("/KITS/000 TR-808.XML");
+    if (is == null) {
+      is = getClass().getClassLoader().getResourceAsStream("KITS/000 TR-808.XML");
+    }
+    assertTrue(is != null, "808 Kit resource not found");
+    KitTrackModel kit = DelugeXmlParser.parseKit(is, "808");
+    kit.addClip(new ClipModel("CLIP 1", 16, 16));
+    ProjectModel project = new ProjectModel();
+    project.addTrack(kit);
+
+    SwingDelugeApp app = new SwingDelugeApp(vm, bridge, null);
+    app.loadProject(project);
+
+    org.chuck.deluge.ui.SwingGridPanel gridPanel = app.getClipPanel();
+    gridPanel.setSize(1200, 600);
+    gridPanel.doLayout();
+
+    JButton[][] pads = gridPanel.getPads();
+    int colCount = gridPanel.getColumnCount();
+
+    JButton muteBtn = pads[0][colCount - 2];
+    JButton playBtn = pads[0][colCount - 1];
+
+    assertNotNull(muteBtn, "Mute button for row 0 not found");
+    assertNotNull(playBtn, "Audition play button for row 0 not found");
+
+    // Click Mute button:
+    muteBtn.doClick();
+    assertTrue(bridge.getMute(0), "Row 0 should be muted after click");
+
+    muteBtn.doClick();
+    assertFalse(bridge.getMute(0), "Row 0 should be unmuted after second click");
+
+    // Press play audition button (simulate MousePressed on playBtn):
+    java.awt.event.MouseEvent pressEvent =
+        new java.awt.event.MouseEvent(
+            playBtn,
+            java.awt.event.MouseEvent.MOUSE_PRESSED,
+            System.currentTimeMillis(),
+            0,
+            10,
+            10,
+            1,
+            false,
+            java.awt.event.MouseEvent.BUTTON1);
+    playBtn.dispatchEvent(pressEvent);
+
+    // Verify no solo row is set:
+    assertEquals(
+        -1, gridPanel.getSoloRow(), "Clicking audition play button should NOT set a solo row");
 
     vm.advanceTime(4410);
     vm.shutdown();
