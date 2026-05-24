@@ -19,6 +19,13 @@ public class SwingWaveformPanel extends JPanel {
   private boolean isLoading = false;
   private String currentPath = null;
 
+  // Visual Crop and Loop Markers (frame position offsets)
+  private int startPos = -1;
+  private int endPos = -1;
+  private int loopStartPos = -1;
+  private int loopEndPos = -1;
+  private int totalFrames = 0;
+
   public SwingWaveformPanel(String initialPath) {
     setBackground(new Color(0x0c, 0x0c, 0x0e));
     setPreferredSize(new Dimension(380, 120));
@@ -81,6 +88,7 @@ public class SwingWaveformPanel extends JPanel {
       byte[] audioBytes = baos.toByteArray();
       int totalSamples = audioBytes.length / bytesPerFrame;
       if (totalSamples <= 0) return null;
+      this.totalFrames = totalSamples;
 
       int targetPoints = 500; // high-resolution wave outline points!
       float[] rawPoints = new float[targetPoints];
@@ -208,12 +216,67 @@ public class SwingWaveformPanel extends JPanel {
       g2.drawLine(barX + x, topY, barX + x, bottomY);
     }
 
+    // Draw vertical dotted colored lines for crop and loop boundaries!
+    if (totalFrames > 0) {
+      g2.setStroke(
+          new BasicStroke(
+              1.5f,
+              BasicStroke.CAP_BUTT,
+              BasicStroke.JOIN_MITER,
+              1.0f,
+              new float[] {3f, 3f},
+              0.0f));
+
+      if (startPos >= 0 && startPos <= totalFrames) {
+        int sx = barX + (int) (((double) startPos / totalFrames) * drawW);
+        g2.setColor(new Color(0x00, 0xff, 0x66));
+        g2.drawLine(sx, 4, sx, h - 22);
+        g2.setFont(new Font("SansSerif", Font.BOLD, 9));
+        g2.drawString("S", sx + 3, 12);
+      }
+      if (endPos >= 0 && endPos <= totalFrames) {
+        int ex = barX + (int) (((double) endPos / totalFrames) * drawW);
+        g2.setColor(new Color(0xff, 0x33, 0x33));
+        g2.drawLine(ex, 4, ex, h - 22);
+        g2.setFont(new Font("SansSerif", Font.BOLD, 9));
+        g2.drawString("E", ex - 10, 12);
+      }
+      if (loopStartPos >= 0 && loopStartPos <= totalFrames) {
+        int lsx = barX + (int) (((double) loopStartPos / totalFrames) * drawW);
+        g2.setColor(new Color(0x33, 0x99, 0xff));
+        g2.drawLine(lsx, 4, lsx, h - 22);
+        g2.setFont(new Font("SansSerif", Font.BOLD, 9));
+        g2.drawString("LS", lsx + 3, 24);
+      }
+      if (loopEndPos >= 0 && loopEndPos <= totalFrames) {
+        int lex = barX + (int) (((double) loopEndPos / totalFrames) * drawW);
+        g2.setColor(new Color(0xff, 0x33, 0xcc));
+        g2.drawLine(lex, 4, lex, h - 22);
+        g2.setFont(new Font("SansSerif", Font.BOLD, 9));
+        g2.drawString("LE", lex - 14, 24);
+      }
+      g2.setStroke(new BasicStroke(1.0f)); // Restore standard stroke
+    }
+
     // Draw clean metadata text at the bottom-left edge
     g2.setColor(Color.GRAY);
     g2.setFont(new Font("SansSerif", Font.PLAIN, 9));
     g2.drawString(metadataText, 15, h - 8);
 
     g2.dispose();
+  }
+
+  /** Set active marker frame boundaries and trigger safe panel redrawing updates. */
+  public void setMarkers(int start, int end, int loopStart, int loopEnd) {
+    this.startPos = start;
+    this.endPos = end;
+    this.loopStartPos = loopStart;
+    this.loopEndPos = loopEnd;
+    repaint();
+  }
+
+  public int getTotalFrames() {
+    return totalFrames;
   }
 
   /**
