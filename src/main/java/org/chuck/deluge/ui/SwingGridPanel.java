@@ -422,6 +422,13 @@ public class SwingGridPanel extends JPanel {
           if (shiftHeld && activeShiftParam != null) {
             int rotation = e.getWheelRotation();
             adjustRotaryParameter(-rotation);
+            return;
+          }
+          int rotation = e.getWheelRotation();
+          if (e.isShiftDown()) {
+            scrollHorizontally(rotation);
+          } else {
+            scrollVertically(rotation);
           }
         });
 
@@ -6623,6 +6630,55 @@ public class SwingGridPanel extends JPanel {
       g2.drawString(activeText, tx, ty);
 
       g2.dispose();
+    }
+  }
+
+  public GridViewMode getViewMode() {
+    return viewMode;
+  }
+
+  public int getEditedModelTrack() {
+    return editedModelTrack;
+  }
+
+  public void scrollHorizontally(int cellsOffset) {
+    if (bridge == null) return;
+    int trackLenH = (bridge != null) ? bridge.getTrackLength(baseTrackId) : stepCount;
+    if (trackLenH > stepCount) {
+      int maxOffX = trackLenH - stepCount;
+      int newOffset = scrollOffsetX + cellsOffset;
+      if (newOffset > maxOffX) newOffset = maxOffX;
+      if (newOffset < 0) newOffset = 0;
+      if (newOffset != scrollOffsetX) {
+        scrollOffsetX = newOffset;
+        refresh();
+      }
+    }
+  }
+
+  public void scrollVertically(int cellsOffset) {
+    if (bridge == null) return;
+    int maxOffset = Math.max(0, voiceRowCount - gridMode.rows);
+    int newOffset = scrollOffset + cellsOffset;
+    if (newOffset > maxOffset) newOffset = maxOffset;
+    if (newOffset < 0) newOffset = 0;
+    if (newOffset != scrollOffset) {
+      scrollOffset = newOffset;
+      refresh();
+    }
+  }
+
+  public void resetHorizontalScroll() {
+    if (scrollOffsetX != 0) {
+      scrollOffsetX = 0;
+      refresh();
+    }
+  }
+
+  public void resetVerticalScroll() {
+    if (scrollOffset != 0) {
+      scrollOffset = 0;
+      refresh();
     }
   }
 

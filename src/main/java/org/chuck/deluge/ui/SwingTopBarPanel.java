@@ -44,6 +44,10 @@ public class SwingTopBarPanel extends JPanel {
   private final ProjectModel projectModel;
   private final ChuckVM vm;
   private final JToggleButton clipBtn;
+  private final JToggleButton songBtn;
+  private final JToggleButton arrBtn;
+  private final JToggleButton autoBtn;
+  private final JToggleButton perfBtn;
   private final JSlider masterVolSlider;
   private final TopBarListener listener;
   private final RetroLedDisplay retroLedDisplay;
@@ -82,10 +86,10 @@ public class SwingTopBarPanel extends JPanel {
     // ── View mode toggles styled as macOS tab segments ──
 
     clipBtn = new JToggleButton("CLIP", true);
-    JToggleButton songBtn = new JToggleButton("SONG");
-    JToggleButton arrBtn = new JToggleButton("ARR");
-    JToggleButton autoBtn = new JToggleButton("AUTO");
-    JToggleButton perfBtn = new JToggleButton("PERF");
+    songBtn = new JToggleButton("SONG");
+    arrBtn = new JToggleButton("ARR");
+    autoBtn = new JToggleButton("AUTO");
+    perfBtn = new JToggleButton("PERF");
     ButtonGroup modeGroup = new ButtonGroup();
     modeGroup.add(clipBtn);
     modeGroup.add(songBtn);
@@ -303,27 +307,65 @@ public class SwingTopBarPanel extends JPanel {
     encoderPanel.add(
         createEncoderSim(
             "HORIZ",
-            (offset) -> MatrixDriver.get().horizontalEncoderAction(offset),
-            (on) -> MatrixDriver.get().horizontalButtonAction(on)));
+            (offset) -> {
+              if (SwingDelugeApp.mainInstance != null) {
+                SwingGridPanel activeGrid = SwingDelugeApp.mainInstance.getActiveGridPanel();
+                if (activeGrid != null) {
+                  activeGrid.scrollHorizontally(offset);
+                }
+              }
+              MatrixDriver.get().horizontalEncoderAction(offset);
+            },
+            (on) -> {
+              if (on && SwingDelugeApp.mainInstance != null) {
+                SwingGridPanel activeGrid = SwingDelugeApp.mainInstance.getActiveGridPanel();
+                if (activeGrid != null) {
+                  activeGrid.resetHorizontalScroll();
+                }
+              }
+              MatrixDriver.get().horizontalButtonAction(on);
+            }));
     encoderPanel.add(
         createEncoderSim(
             "VERT",
-            (offset) -> MatrixDriver.get().verticalEncoderAction(offset),
-            (on) -> MatrixDriver.get().verticalButtonAction(on)));
+            (offset) -> {
+              if (SwingDelugeApp.mainInstance != null) {
+                SwingGridPanel activeGrid = SwingDelugeApp.mainInstance.getActiveGridPanel();
+                if (activeGrid != null) {
+                  activeGrid.scrollVertically(offset);
+                }
+              }
+              MatrixDriver.get().verticalEncoderAction(offset);
+            },
+            (on) -> {
+              if (on && SwingDelugeApp.mainInstance != null) {
+                SwingGridPanel activeGrid = SwingDelugeApp.mainInstance.getActiveGridPanel();
+                if (activeGrid != null) {
+                  activeGrid.resetVerticalScroll();
+                }
+              }
+              MatrixDriver.get().verticalButtonAction(on);
+            }));
     encoderPanel.add(
         createEncoderSim(
             "SELECT",
             (offset) -> {
               if (SwingDelugeApp.mainInstance != null) {
-                SwingGridPanel grid = SwingDelugeApp.mainInstance.getClipPanel();
+                SwingGridPanel grid = SwingDelugeApp.mainInstance.getActiveGridPanel();
                 if (grid != null && grid.isShiftHeld() && grid.getActiveShiftParam() != null) {
                   grid.adjustRotaryParameter(offset);
                   return;
                 }
+                SwingDelugeApp.mainInstance.scrollActiveTrack(offset);
               }
               MatrixDriver.get().selectEncoderAction(offset);
             },
-            (on) -> MatrixDriver.get().selectButtonAction(on)));
+            (on) -> {
+              if (on && SwingDelugeApp.mainInstance != null) {
+                SwingDelugeApp.mainInstance.cycleViewMode();
+              }
+              MatrixDriver.get().selectButtonAction(on);
+            }));
 
     add(encoderPanel);
 
@@ -386,17 +428,18 @@ public class SwingTopBarPanel extends JPanel {
     return p;
   }
 
+  public void selectViewModeButton(String mode) {
+    if ("CLIP".equals(mode)) clipBtn.setSelected(true);
+    else if ("SONG".equals(mode)) songBtn.setSelected(true);
+    else if ("ARR".equals(mode)) arrBtn.setSelected(true);
+    else if ("AUTO".equals(mode)) autoBtn.setSelected(true);
+    else if ("PERF".equals(mode)) perfBtn.setSelected(true);
+
+    updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
+  }
+
   public void selectClipView() {
-    clipBtn.setSelected(true);
-    // Force tab update
-    java.awt.Component[] comps = getComponents();
-    java.util.List<JToggleButton> tabs = new java.util.ArrayList<>();
-    for (java.awt.Component c : comps) {
-      if (c instanceof JToggleButton tb) {
-        tabs.add(tb);
-      }
-    }
-    updateTabStyles(tabs.toArray(new JToggleButton[0]));
+    selectViewModeButton("CLIP");
   }
 
   public void applyDisplayPreferences() {
