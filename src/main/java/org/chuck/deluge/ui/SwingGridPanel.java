@@ -1350,6 +1350,7 @@ public class SwingGridPanel extends JPanel {
         clipBtn = pad;
       } else {
         clipBtn = new JButton();
+        clipBtn.setFocusable(false);
       }
 
       clipBtn.setPreferredSize(new Dimension(padSz, padSz));
@@ -2543,13 +2544,13 @@ public class SwingGridPanel extends JPanel {
   }
 
   /** Build a fixed row (MACROS, SLIDERS, KEYBOARD) for the CLIP grid. */
-  private JPanel buildFixedRow(int rowIdx, int padSz) {
+  private JPanel buildFixedRow(int rowIdx, int padSz, int rowHeight) {
     JPanel rowPanel = new JPanel();
     rowPanel.setLayout(new BoxLayout(rowPanel, BoxLayout.X_AXIS));
     rowPanel.setBackground(new Color(0x22, 0x22, 0x22));
-    rowPanel.setPreferredSize(new Dimension(3000, padSz));
-    rowPanel.setMinimumSize(new Dimension(3000, padSz));
-    rowPanel.setMaximumSize(new Dimension(3000, padSz));
+    rowPanel.setPreferredSize(new Dimension(3000, rowHeight));
+    rowPanel.setMinimumSize(new Dimension(3000, rowHeight));
+    rowPanel.setMaximumSize(new Dimension(3000, rowHeight));
 
     String trackName;
     if (rowIdx == 8) trackName = "MACROS";
@@ -2567,8 +2568,8 @@ public class SwingGridPanel extends JPanel {
     rowPanel.add(Box.createHorizontalStrut(5));
 
     VUMeterPanel vu = new VUMeterPanel();
-    vu.setPreferredSize(new Dimension(12, padSz));
-    vu.setMaximumSize(new Dimension(12, padSz));
+    vu.setPreferredSize(new Dimension(12, rowHeight));
+    vu.setMaximumSize(new Dimension(12, rowHeight));
     rowPanel.add(vu);
     rowPanel.add(Box.createHorizontalStrut(5));
 
@@ -2646,7 +2647,8 @@ public class SwingGridPanel extends JPanel {
             clipBtn = new JButton(String.valueOf(note));
             clipBtn.setBackground(isBlack ? new Color(0x33, 0x33, 0x33) : Color.WHITE);
             clipBtn.setForeground(isBlack ? Color.WHITE : Color.BLACK);
-            clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 14 : 10));
+            clipBtn.setFont(
+                new Font("SansSerif", Font.BOLD, rowHeight < 35 ? 9 : (padSz > 70 ? 14 : 10)));
 
             clipBtn.addActionListener(e -> triggerKeyboardNote(note));
           } else {
@@ -2657,9 +2659,9 @@ public class SwingGridPanel extends JPanel {
         }
       }
 
-      clipBtn.setPreferredSize(new Dimension(padSz, padSz));
-      clipBtn.setMinimumSize(new Dimension(padSz, padSz));
-      clipBtn.setMaximumSize(new Dimension(padSz, padSz));
+      clipBtn.setPreferredSize(new Dimension(padSz, rowHeight));
+      clipBtn.setMinimumSize(new Dimension(padSz, rowHeight));
+      clipBtn.setMaximumSize(new Dimension(padSz, rowHeight));
       clipBtn.setMargin(new Insets(0, 0, 0, 0));
 
       pads[rowIdx][c] = clipBtn;
@@ -3085,7 +3087,13 @@ public class SwingGridPanel extends JPanel {
           upBtn.setEnabled(scrollOffset > 0);
           upBtn.addActionListener(
               e -> {
+                int oldOffset = scrollOffset;
                 scrollOffset = Math.max(0, scrollOffset - 1);
+                System.out.println(
+                    "[TRACE grid] upBtn click: oldOffset="
+                        + oldOffset
+                        + " newOffset="
+                        + scrollOffset);
                 refresh();
               });
           controlsPanel.add(upBtn);
@@ -3104,7 +3112,13 @@ public class SwingGridPanel extends JPanel {
           downBtn.setEnabled(scrollOffset < maxOff);
           downBtn.addActionListener(
               e -> {
+                int oldOffset = scrollOffset;
                 scrollOffset = Math.min(maxOff, scrollOffset + 1);
+                System.out.println(
+                    "[TRACE grid] downBtn click: oldOffset="
+                        + oldOffset
+                        + " newOffset="
+                        + scrollOffset);
                 refresh();
               });
           controlsPanel.add(downBtn);
@@ -3190,65 +3204,21 @@ public class SwingGridPanel extends JPanel {
           voicePanel.add(blankRow);
         }
       }
-      // Wrap voice rows in a JScrollPane when content exceeds viewport
+      JPanel voiceWrapper = new JPanel(new BorderLayout());
+      voiceWrapper.setBackground(new Color(0x15, 0x15, 0x15));
+      int viewH = gridMode.rows * (padSz + 5) - 5;
+      voiceWrapper.setPreferredSize(new Dimension(3000, viewH));
+      voiceWrapper.setMaximumSize(new Dimension(3000, viewH));
+      voiceWrapper.add(voicePanel, BorderLayout.CENTER);
+
       if (voiceRowCount > gridMode.rows) {
-        JScrollPane voiceScroll = new JScrollPane(voicePanel);
-        voiceScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
-        voiceScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        voiceScroll.setBorder(BorderFactory.createEmptyBorder());
-        // Fix viewport height to show exactly gridMode.rows
-        int viewH = gridMode.rows * (padSz + 2);
-        voiceScroll.setPreferredSize(new Dimension(3000, viewH));
-        voiceScroll.setMaximumSize(new Dimension(3000, viewH));
+        JScrollBar vertScrollBar =
+            new JScrollBar(JScrollBar.VERTICAL, scrollOffset, gridMode.rows, 0, voiceRowCount);
+        vertScrollBar.setBackground(new Color(0x15, 0x15, 0x18));
+        vertScrollBar.setForeground(new Color(0x00, 0xff, 0xcc));
+        vertScrollBar.setPreferredSize(new Dimension(14, 200));
 
-        // Intercept mouse wheel events and forward to sequencer step grid scrolling
-        voiceScroll.addMouseWheelListener(
-            e -> {
-              int rotation = e.getWheelRotation();
-              System.out.println(
-                  "[TRACE JScrollPane] mouseWheelMoved: rotation="
-                      + rotation
-                      + " shiftHeld="
-                      + e.isShiftDown());
-              if (e.isShiftDown()) {
-                scrollHorizontally(rotation);
-              } else {
-                scrollVertically(rotation);
-              }
-            });
-
-        add(voiceScroll);
-      } else {
-        add(voicePanel);
-      }
-
-      // ── Interactive Horizontal Scrollbar aligned under step columns ──
-      int trackLenH = (bridge != null) ? bridge.getTrackLength(baseTrackId) : stepCount;
-      if (trackLenH > stepCount) {
-        JPanel scrollRow = new JPanel();
-        scrollRow.setLayout(new BoxLayout(scrollRow, BoxLayout.X_AXIS));
-        scrollRow.setBackground(new Color(0x15, 0x15, 0x15));
-        scrollRow.setPreferredSize(new Dimension(3000, 14));
-        scrollRow.setMinimumSize(new Dimension(100, 14));
-        scrollRow.setMaximumSize(new Dimension(3000, 14));
-        scrollRow.setBorder(BorderFactory.createEmptyBorder(2, 0, 2, 0));
-
-        // Left spacer matching header labels and action buttons (lw + 69)
-        int lw = Math.max(60, Math.min(140, getWidth() / 12));
-        int leftSpacing = lw + 69;
-        scrollRow.add(Box.createRigidArea(new Dimension(leftSpacing, 10)));
-
-        // Center scrollbar aligned to step columns width
-        JScrollBar scrollBar =
-            new JScrollBar(JScrollBar.HORIZONTAL, scrollOffsetX, stepCount, 0, trackLenH);
-        scrollBar.setBackground(new Color(0x15, 0x15, 0x18));
-        scrollBar.setForeground(new Color(0x00, 0xff, 0xcc));
-        int colsWidth = stepCount * (padSz + 5) - 5;
-        scrollBar.setPreferredSize(new Dimension(colsWidth, 10));
-        scrollBar.setMinimumSize(new Dimension(100, 10));
-        scrollBar.setMaximumSize(new Dimension(colsWidth, 10));
-
-        scrollBar.setUI(
+        vertScrollBar.setUI(
             new javax.swing.plaf.basic.BasicScrollBarUI() {
               @Override
               protected void paintTrack(Graphics g, JComponent c, Rectangle trackBounds) {
@@ -3287,11 +3257,101 @@ public class SwingGridPanel extends JPanel {
               }
             });
 
+        vertScrollBar.addAdjustmentListener(
+            e -> {
+              if (refreshInProgress) return;
+              int val = e.getValue();
+              if (val != scrollOffset) {
+                scrollOffset = val;
+                System.out.println(
+                    "[TRACE grid] vertScrollBar adjust scrollOffset=" + scrollOffset);
+                refresh();
+              }
+            });
+        voiceWrapper.add(vertScrollBar, BorderLayout.EAST);
+      }
+
+      add(voiceWrapper);
+
+      // ── Interactive Horizontal Scrollbar aligned under step columns ──
+      if (viewMode == GridViewMode.CLIP || viewMode == GridViewMode.AUTOMATION) {
+        JPanel scrollRow = new JPanel();
+        scrollRow.setLayout(new BoxLayout(scrollRow, BoxLayout.X_AXIS));
+        scrollRow.setBackground(new Color(0x15, 0x15, 0x15));
+        scrollRow.setPreferredSize(new Dimension(3000, 14));
+        scrollRow.setMinimumSize(new Dimension(100, 14));
+        scrollRow.setMaximumSize(new Dimension(3000, 14));
+        scrollRow.setBorder(BorderFactory.createEmptyBorder(2, 0, 2, 0));
+
+        // Left spacer matching header labels and action buttons (lw + 69)
+        int lw = Math.max(60, Math.min(140, getWidth() / 12));
+        int leftSpacing = lw + 69;
+        scrollRow.add(Box.createRigidArea(new Dimension(leftSpacing, 10)));
+
+        // Center scrollbar aligned to step columns width
+        int trackLenH = (bridge != null) ? bridge.getTrackLength(baseTrackId) : stepCount;
+        JScrollBar scrollBar =
+            new JScrollBar(
+                JScrollBar.HORIZONTAL, scrollOffsetX, stepCount, 0, Math.max(stepCount, trackLenH));
+        scrollBar.setBackground(new Color(0x15, 0x15, 0x18));
+        scrollBar.setForeground(new Color(0x00, 0xff, 0xcc));
+        scrollBar.setEnabled(trackLenH > stepCount);
+
+        int colsWidth = stepCount * (padSz + 5) - 5;
+        scrollBar.setPreferredSize(new Dimension(colsWidth, 10));
+        scrollBar.setMinimumSize(new Dimension(100, 10));
+        scrollBar.setMaximumSize(new Dimension(colsWidth, 10));
+
+        scrollBar.setUI(
+            new javax.swing.plaf.basic.BasicScrollBarUI() {
+              @Override
+              protected void paintTrack(Graphics g, JComponent c, Rectangle trackBounds) {
+                g.setColor(new Color(0x18, 0x18, 0x20));
+                g.fillRect(trackBounds.x, trackBounds.y, trackBounds.width, trackBounds.height);
+              }
+
+              @Override
+              protected void paintThumb(Graphics g, JComponent c, Rectangle thumbBounds) {
+                if (!scrollBar.isEnabled()) {
+                  g.setColor(new Color(0x55, 0x55, 0x5a, 80)); // Disabled gray thumb
+                } else {
+                  g.setColor(new Color(0x00, 0xd2, 0xff, 180)); // Glowing cyan thumb
+                }
+                g.fillRoundRect(
+                    thumbBounds.x + 1,
+                    thumbBounds.y + 1,
+                    thumbBounds.width - 2,
+                    thumbBounds.height - 2,
+                    4,
+                    4);
+              }
+
+              @Override
+              protected JButton createDecreaseButton(int orientation) {
+                return createZeroButton();
+              }
+
+              @Override
+              protected JButton createIncreaseButton(int orientation) {
+                return createZeroButton();
+              }
+
+              private JButton createZeroButton() {
+                JButton b = new JButton();
+                b.setPreferredSize(new Dimension(0, 0));
+                b.setMinimumSize(new Dimension(0, 0));
+                b.setMaximumSize(new Dimension(0, 0));
+                return b;
+              }
+            });
+
         scrollBar.addAdjustmentListener(
             e -> {
               int val = e.getValue();
               if (val != scrollOffsetX) {
                 scrollOffsetX = val;
+                System.out.println(
+                    "[TRACE grid] horizScrollBar adjust scrollOffsetX=" + scrollOffsetX);
                 refresh();
               }
             });
@@ -3305,8 +3365,8 @@ public class SwingGridPanel extends JPanel {
       }
 
       // Section 3: Fixed rows — MACROS, KEYBOARD (Combined)
-      add(buildFixedRow(8, padSz));
-      add(buildFixedRow(10, padSz));
+      add(buildFixedRow(8, padSz, 28));
+      add(buildFixedRow(10, padSz, 28));
 
     } else {
       // ===== SONG / ARRANGEMENT: gridMode.rows + 3 fixed rows (MACROS/SLIDERS/KEYBOARD) =====
@@ -3590,7 +3650,8 @@ public class SwingGridPanel extends JPanel {
               clipBtn.setBackground(isBlack ? new Color(0x33, 0x33, 0x33) : Color.WHITE);
               clipBtn.setForeground(isBlack ? Color.WHITE : Color.BLACK);
               clipBtn.setText(String.valueOf(note));
-              clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 14 : 10));
+              clipBtn.setFont(
+                  new Font("SansSerif", Font.BOLD, rowHeight < 35 ? 9 : (padSz > 70 ? 14 : 10)));
 
               clipBtn.addActionListener(e -> triggerKeyboardNote(note));
             }
