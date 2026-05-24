@@ -55,6 +55,10 @@ public class SwingDelugeApp extends JFrame {
       org.chuck.deluge.model.ProjectModel.createDefaultProject();
   private java.io.File currentProjectFile = null;
 
+  public org.chuck.deluge.model.ProjectModel getCurrentProject() {
+    return currentProject;
+  }
+
   // Engine voice mapping: for each model track, the start engine row and voice count.
   // Kit tracks occupy getDrums().size() rows; Synth tracks occupy 1 row.
   private int[] trackEngineStart;
@@ -2322,7 +2326,7 @@ public class SwingDelugeApp extends JFrame {
     editMenu.add(undoItem);
     editMenu.add(redoItem);
 
-    // Tools menu — Delugeator Randomizer
+    // Tools menu — Delugeator Randomizer & Loop Slicer
     JMenu toolsMenu = new JMenu("Tools");
     JMenuItem randomizerItem = new JMenuItem("Delugeator Randomizer...");
     randomizerItem.setAccelerator(
@@ -2333,6 +2337,16 @@ public class SwingDelugeApp extends JFrame {
           new SwingRandomizerDialog(this, vm, bridge, currentProject).setVisible(true);
         });
     toolsMenu.add(randomizerItem);
+
+    JMenuItem slicerItem = new JMenuItem("Audio Loop Slicer...");
+    slicerItem.setAccelerator(
+        KeyStroke.getKeyStroke(
+            java.awt.event.KeyEvent.VK_L, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+    slicerItem.addActionListener(
+        e -> {
+          new SwingAudioSlicerDialog(this, vm, bridge, currentProject).setVisible(true);
+        });
+    toolsMenu.add(slicerItem);
 
     menuBar.add(fileMenu);
     menuBar.add(editMenu);
