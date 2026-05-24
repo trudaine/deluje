@@ -581,11 +581,11 @@ public class SwingKitConfigDialog extends JDialog {
 
     cMain.gridx = 0;
     cMain.insets = new Insets(0, 0, 0, 15);
-    add(leftPanel, cMain);
+    panel.add(leftPanel, cMain);
 
     cMain.gridx = 1;
     cMain.insets = new Insets(0, 15, 0, 0);
-    add(rightPanel, cMain);
+    panel.add(rightPanel, cMain);
 
     return panel;
   }
