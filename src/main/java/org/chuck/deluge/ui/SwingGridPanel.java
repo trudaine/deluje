@@ -426,6 +426,11 @@ public class SwingGridPanel extends JPanel {
             return;
           }
           int rotation = e.getWheelRotation();
+          System.out.println(
+              "[TRACE grid] mouseWheelMoved: rotation="
+                  + rotation
+                  + " shiftHeld="
+                  + e.isShiftDown());
           if (e.isShiftDown()) {
             scrollHorizontally(rotation);
           } else {
@@ -6768,29 +6773,68 @@ public class SwingGridPanel extends JPanel {
   }
 
   public void scrollHorizontally(int cellsOffset) {
-    if (bridge == null) return;
+    System.out.println(
+        "[TRACE grid] scrollHorizontally called: offset=" + cellsOffset + " viewMode=" + viewMode);
+    if (bridge == null) {
+      System.out.println("[TRACE grid] scrollHorizontally ignored: bridge is null!");
+      return;
+    }
     int trackLenH = (bridge != null) ? bridge.getTrackLength(baseTrackId) : stepCount;
+    System.out.println(
+        "[TRACE grid] scrollHorizontally: trackLenH="
+            + trackLenH
+            + " stepCount="
+            + stepCount
+            + " currentOffsetX="
+            + scrollOffsetX);
     if (trackLenH > stepCount) {
       int maxOffX = trackLenH - stepCount;
       int newOffset = scrollOffsetX + cellsOffset;
       if (newOffset > maxOffX) newOffset = maxOffX;
       if (newOffset < 0) newOffset = 0;
+      System.out.println(
+          "[TRACE grid] scrollHorizontally newOffset=" + newOffset + " maxOffX=" + maxOffX);
       if (newOffset != scrollOffsetX) {
         scrollOffsetX = newOffset;
+        System.out.println(
+            "[TRACE grid] scrollHorizontally executing refresh at offset=" + scrollOffsetX);
         refresh();
       }
+    } else {
+      System.out.println(
+          "[TRACE grid] scrollHorizontally ignored: trackLenH <= stepCount (no steps to scroll!)");
     }
   }
 
   public void scrollVertically(int cellsOffset) {
-    if (bridge == null) return;
+    System.out.println(
+        "[TRACE grid] scrollVertically called: offset=" + cellsOffset + " viewMode=" + viewMode);
+    if (bridge == null) {
+      System.out.println("[TRACE grid] scrollVertically ignored: bridge is null!");
+      return;
+    }
     int maxOffset = Math.max(0, voiceRowCount - gridMode.rows);
     int newOffset = scrollOffset + cellsOffset;
+    System.out.println(
+        "[TRACE grid] scrollVertically: voiceRowCount="
+            + voiceRowCount
+            + " rowsInView="
+            + gridMode.rows
+            + " currentOffset="
+            + scrollOffset
+            + " maxOffset="
+            + maxOffset);
     if (newOffset > maxOffset) newOffset = maxOffset;
     if (newOffset < 0) newOffset = 0;
+    System.out.println("[TRACE grid] scrollVertically newOffset=" + newOffset);
     if (newOffset != scrollOffset) {
       scrollOffset = newOffset;
+      System.out.println(
+          "[TRACE grid] scrollVertically executing refresh at offset=" + scrollOffset);
       refresh();
+    } else {
+      System.out.println(
+          "[TRACE grid] scrollVertically ignored: no offset change or scroll locked!");
     }
   }
 
