@@ -34,7 +34,8 @@ public class PianoRollView extends FirmwareView {
   @Override
   public ActionResult padAction(int x, int y, int velocity) {
     if (x < 16 && y < 8) {
-      int notePos = scrollX + x * 24; // 1/16th steps
+      int stepTicks = clip.tripletMode ? 32 : 24;
+      int notePos = scrollX + x * stepTicks;
       int notePitch = scrollY - y;
 
       if (velocity > 0) {
@@ -70,7 +71,7 @@ public class PianoRollView extends FirmwareView {
         }
 
         if (!found) {
-          row.attemptNoteAdd(notePos, 24, velocity, 100, null, 0);
+          row.attemptNoteAdd(notePos, stepTicks, velocity, 100, null, 0);
         }
         return ActionResult.DEALT_WITH;
       }
@@ -90,11 +91,18 @@ public class PianoRollView extends FirmwareView {
     }
 
     // Draw notes
+    int stepTicks = clip.tripletMode ? 32 : 24;
     for (int x = 0; x < 16; x++) {
-      int notePos = scrollX + x * 24;
+      int notePos = scrollX + x * stepTicks;
       for (int y = 0; y < 8; y++) {
         int pitch = scrollY - y;
-        NoteRow row = clip.noteRows.get(pitch);
+        NoteRow row = null;
+        for (NoteRow r : clip.noteRows) {
+          if (r.y == pitch) {
+            row = r;
+            break;
+          }
+        }
         if (row != null) {
           for (Note n : row.notes) {
             if (n.pos == notePos) {

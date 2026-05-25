@@ -2699,9 +2699,20 @@ public class SwingDelugeApp extends JFrame {
             e -> {
               int step = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
 
-              int bar = step / 16 + 1;
-              int beat = (step % 16) / 4 + 1;
-              int subStep = (step % 4) + 1;
+              int stepCount = 16;
+              int beatSteps = 4;
+              if (currentProject != null
+                  && !currentProject.getTracks().isEmpty()
+                  && !currentProject.getTracks().get(0).getClips().isEmpty()) {
+                boolean isTriplet =
+                    currentProject.getTracks().get(0).getClips().get(0).isTripletMode();
+                stepCount = isTriplet ? 12 : 16;
+                beatSteps = isTriplet ? 3 : 4;
+              }
+
+              int bar = step / stepCount + 1;
+              int beat = (step % stepCount) / beatSteps + 1;
+              int subStep = (step % beatSteps) + 1;
 
               String statusStr = "STOP";
               if (vm.getGlobalInt(BridgeContract.G_PLAY) == 1L) {

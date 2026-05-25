@@ -79,10 +79,11 @@ public class KitView extends FirmwareView {
     }
 
     // Draw notes in the grid
+    int stepTicks = clip.tripletMode ? 32 : 24;
     for (int y = 0; y < Math.min(8, clip.noteRows.size()); y++) {
       NoteRow row = clip.noteRows.get(y);
       for (Note n : row.notes) {
-        int x = (n.pos - scrollX) / 24;
+        int x = (n.pos - scrollX) / stepTicks;
         if (x >= 0 && x < 16) {
           PadLEDs.set(x, y, new RGB(255, 255, 0)); // Yellow for drum hits
         }

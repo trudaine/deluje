@@ -128,9 +128,10 @@ public class SequencerClock implements Runnable {
         // Normal step advance
         durNs = calculateStepDurationNs(step, bpm, swing);
 
-        // Process bar-boundary clip queues (matching clock_shred: step % 16 == 0)
+        // Process bar-boundary clip queues (matching clock_shred: step % barSteps == 0)
         // Do this before the tick so the new clip is active for this step
-        if (step % 16 == 0) {
+        int barSteps = (bridge != null && bridge.getTrackLength(0) % 12 == 0) ? 12 : 16;
+        if (step % barSteps == 0) {
           bridge.processLaunchQueue();
         }
 
