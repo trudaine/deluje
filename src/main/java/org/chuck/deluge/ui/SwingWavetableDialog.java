@@ -22,7 +22,7 @@ public class SwingWavetableDialog extends JDialog {
   private final JComboBox<String> cycleSizeCombo;
 
   public SwingWavetableDialog(
-      Frame owner,
+      Window owner,
       org.chuck.deluge.model.SoundDrum sound,
       BridgeContract bridge,
       int trackIndex,
@@ -32,7 +32,7 @@ public class SwingWavetableDialog extends JDialog {
         String.format(
             "Wavetable Index Laboratory — Drum Slot %s (Track %d)",
             sound.getName(), trackIndex + 1),
-        false);
+        java.awt.Dialog.ModalityType.MODELESS);
     this.soundDrum = sound;
     this.bridge = bridge;
     this.trackIndex = trackIndex;
