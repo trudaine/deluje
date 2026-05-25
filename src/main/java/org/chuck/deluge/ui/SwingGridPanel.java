@@ -34,6 +34,8 @@ public class SwingGridPanel extends JPanel {
   private JScrollBar vertScrollBar;
   private JScrollBar horizScrollBar;
   private int scrollOffsetX = 0; // horizontal scroll offset for step columns in CLIP mode
+  private double preciseScrollAccumulatorX = 0.0;
+  private double preciseScrollAccumulatorY = 0.0;
   private int voiceRowCount = 8; // total number of voice rows for current track
   private org.chuck.deluge.project.PreferencesManager.GridMode gridMode =
       org.chuck.deluge.project.PreferencesManager.getGridMode();
@@ -469,15 +471,28 @@ public class SwingGridPanel extends JPanel {
             return;
           }
 
+          double preciseRotation = e.getPreciseWheelRotation();
           System.out.println(
               "[TRACE grid] mouseWheelMoved: rotation="
                   + rotation
+                  + " precise="
+                  + preciseRotation
                   + " shiftHeld="
                   + e.isShiftDown());
           if (e.isShiftDown()) {
-            scrollHorizontally(rotation);
+            preciseScrollAccumulatorX += preciseRotation;
+            int cellsToScroll = (int) preciseScrollAccumulatorX;
+            if (cellsToScroll != 0) {
+              scrollHorizontally(cellsToScroll);
+              preciseScrollAccumulatorX -= cellsToScroll;
+            }
           } else {
-            scrollVertically(rotation);
+            preciseScrollAccumulatorY += preciseRotation;
+            int cellsToScroll = (int) preciseScrollAccumulatorY;
+            if (cellsToScroll != 0) {
+              scrollVertically(cellsToScroll);
+              preciseScrollAccumulatorY -= cellsToScroll;
+            }
           }
         });
 
@@ -1022,7 +1037,7 @@ public class SwingGridPanel extends JPanel {
       }
     }
     if (trackLen <= 0) {
-      trackLen = bridge != null ? bridge.getTrackLength(baseTrackId + row) : stepCount;
+      trackLen = bridge != null ? bridge.getTrackLength(baseTrackId) : stepCount;
     }
     if (trackLen > 0 && trackLen < stepCount) {
       return col % trackLen;
@@ -1742,11 +1757,11 @@ public class SwingGridPanel extends JPanel {
         if (modelRow < tracks.size()) {
           org.chuck.deluge.model.TrackModel track = tracks.get(modelRow);
           if (activeClipId < track.getClips().size()) {
-            trackLen = track.getClips().get(activeClipId).getStepCount();
+            trackLen = bridge != null ? bridge.getTrackLength(baseTrackId) : stepCount;
           }
         }
         if (trackLen <= 0)
-          trackLen = bridge != null ? bridge.getTrackLength(baseTrackId + modelRow) : stepCount;
+          trackLen = bridge != null ? bridge.getTrackLength(baseTrackId) : stepCount;
         if (trackLen > 0 && trackLen < stepCount) {
           activeCol = colId % trackLen; // wrap when clip is shorter than viewport
         } else if (trackLen > stepCount) {
@@ -2053,7 +2068,7 @@ public class SwingGridPanel extends JPanel {
               double vel = bridge != null ? bridge.getVelocity(engineRow, activeCol) : 0.8;
               double prob = bridge != null ? bridge.getStepProbability(engineRow, activeCol) : 1.0;
 
-              int curTrackLen = bridge != null ? bridge.getTrackLength(engineRow) : stepCount;
+              int curTrackLen = bridge != null ? bridge.getTrackLength(baseTrackId) : stepCount;
               boolean inLoop = activeCol < curTrackLen;
               pad.setInLoop(inLoop);
               pad.setActive(stepState);
@@ -4818,7 +4833,7 @@ public class SwingGridPanel extends JPanel {
                   for (int t = 0; t < rows; t++) {
                     int engineRow2 =
                         baseTrackId + (viewMode == GridViewMode.CLIP ? scrollOffset + t : t);
-                    int trackLenT = bridge != null ? bridge.getTrackLength(engineRow2) : stepCount;
+                    int trackLenT = bridge != null ? bridge.getTrackLength(baseTrackId) : stepCount;
                     for (int c = 0; c < stepCount; c++) {
                       if (pads[t][c] != null) {
                         if (shiftHeld) continue;
@@ -5542,7 +5557,7 @@ public class SwingGridPanel extends JPanel {
           trackLen = track.getClips().get(activeClipId).getStepCount();
         }
       }
-      if (trackLen <= 0) trackLen = bridge.getTrackLength(baseTrackId + modelRow);
+      if (trackLen <= 0) trackLen = bridge.getTrackLength(baseTrackId);
       if (trackLen > 0 && trackLen < stepCount) {
         activeCol = visualCol % trackLen;
       } else if (trackLen > stepCount) {
