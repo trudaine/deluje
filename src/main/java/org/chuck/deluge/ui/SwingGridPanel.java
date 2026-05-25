@@ -3525,15 +3525,20 @@ public class SwingGridPanel extends JPanel {
         JPanel scrollRow = new JPanel();
         scrollRow.setLayout(new BoxLayout(scrollRow, BoxLayout.X_AXIS));
         scrollRow.setBackground(new Color(0x15, 0x15, 0x15));
-        scrollRow.setPreferredSize(new Dimension(rowW, 14));
-        scrollRow.setMinimumSize(new Dimension(100, 14));
-        scrollRow.setMaximumSize(new Dimension(rowW, 14));
+        scrollRow.setPreferredSize(new Dimension(rowW, 26));
+        scrollRow.setMinimumSize(new Dimension(100, 26));
+        scrollRow.setMaximumSize(new Dimension(rowW, 26));
         scrollRow.setAlignmentX(Component.LEFT_ALIGNMENT);
         scrollRow.setBorder(BorderFactory.createEmptyBorder(2, 0, 2, 0));
 
-        // Left spacer matching header labels and action buttons (lw + 69)
+        // Left spacer matching header labels and action buttons (pixel-perfect dynamic matching!)
         lw = Math.max(60, Math.min(140, getWidth() / 12));
-        int leftSpacing = lw + 69;
+        int leftSpacing;
+        if (viewMode == GridViewMode.AUTOMATION) {
+          leftSpacing = autoOverviewMode ? (lw + 17) : (lw + 91);
+        } else {
+          leftSpacing = lw + 69;
+        }
         scrollRow.add(Box.createRigidArea(new Dimension(leftSpacing, 10)));
 
         // Center scrollbar aligned to step columns width
@@ -3619,9 +3624,9 @@ public class SwingGridPanel extends JPanel {
         JComboBox<String> rateCombo = new JComboBox<>(rateLabels);
         rateCombo.setSelectedIndex(currentRateIdx);
         rateCombo.setFont(new Font("Monospaced", Font.BOLD, 10));
-        rateCombo.setPreferredSize(new Dimension(72, 22));
-        rateCombo.setMinimumSize(new Dimension(72, 22));
-        rateCombo.setMaximumSize(new Dimension(72, 22));
+        rateCombo.setPreferredSize(new Dimension(90, 22));
+        rateCombo.setMinimumSize(new Dimension(90, 22));
+        rateCombo.setMaximumSize(new Dimension(90, 22));
         rateCombo.setForeground(new Color(0xff, 0xcc, 0x00));
         rateCombo.setBackground(new Color(0x2d, 0x2d, 0x32));
         rateCombo.setFocusable(false);
@@ -4687,15 +4692,18 @@ public class SwingGridPanel extends JPanel {
       org.chuck.deluge.model.ClipModel autoClip, String param, int padSz) {
     if (param == null) param = org.chuck.deluge.model.AutomationParam.SYTH_PARAMS[0];
 
-    // Step number header row
-    JPanel stepHeader = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+    // Step number header row (pixel-perfect BoxLayout X_AXIS alignment!)
+    JPanel stepHeader = new JPanel();
+    stepHeader.setLayout(new BoxLayout(stepHeader, BoxLayout.X_AXIS));
     stepHeader.setBackground(new Color(0x15, 0x15, 0x15));
     stepHeader.setMaximumSize(new Dimension(3000, 20));
-    int labelOffset = Math.max(60, Math.min(140, getWidth() / 12)) + 69 + 5 + 12 + 5;
-    stepHeader.add(Box.createRigidArea(new Dimension(labelOffset, 20)));
+    int lw = Math.max(60, Math.min(140, getWidth() / 12));
+    stepHeader.add(Box.createRigidArea(new Dimension(lw + 91, 20)));
     for (int c = 0; c < stepCount; c++) {
       JLabel stepNum = new JLabel(String.valueOf(c + 1), javax.swing.SwingConstants.CENTER);
       stepNum.setPreferredSize(new Dimension(padSz, 18));
+      stepNum.setMinimumSize(new Dimension(padSz, 18));
+      stepNum.setMaximumSize(new Dimension(padSz, 18));
       stepNum.setForeground(Color.GRAY);
       stepNum.setFont(new Font("Monospaced", Font.PLAIN, 10));
       stepHeader.add(stepNum);
@@ -4889,15 +4897,18 @@ public class SwingGridPanel extends JPanel {
     int visibleParams = Math.min(maxVisible, totalParams - paramOffset);
     if (visibleParams <= 0) return;
 
-    // Step header
-    JPanel stepHeader = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+    // Step header (pixel-perfect BoxLayout X_AXIS alignment!)
+    JPanel stepHeader = new JPanel();
+    stepHeader.setLayout(new BoxLayout(stepHeader, BoxLayout.X_AXIS));
     stepHeader.setBackground(new Color(0x15, 0x15, 0x15));
     stepHeader.setMaximumSize(new Dimension(3000, 20));
-    int labelOffset = Math.max(60, Math.min(140, getWidth() / 12));
-    stepHeader.add(Box.createRigidArea(new Dimension(labelOffset + 5, 20)));
+    int pw = Math.max(60, Math.min(140, getWidth() / 12));
+    stepHeader.add(Box.createRigidArea(new Dimension(pw + 17, 20)));
     for (int c = 0; c < stepCount; c++) {
       JLabel stepNum = new JLabel(String.valueOf(c + 1), javax.swing.SwingConstants.CENTER);
       stepNum.setPreferredSize(new Dimension(padSz, 18));
+      stepNum.setMinimumSize(new Dimension(padSz, 18));
+      stepNum.setMaximumSize(new Dimension(padSz, 18));
       stepNum.setForeground(Color.GRAY);
       stepNum.setFont(new Font("Monospaced", Font.PLAIN, 10));
       stepHeader.add(stepNum);
