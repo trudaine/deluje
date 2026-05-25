@@ -3831,36 +3831,45 @@ public class SwingGridPanel extends JPanel {
         tripletBtn.setFont(new Font("SansSerif", Font.BOLD, 10));
         tripletBtn.setMargin(new Insets(0, 0, 0, 0));
 
-        final org.chuck.deluge.model.TrackModel curTrack =
-            projectModel.getTracks().get(editedModelTrack);
-        final org.chuck.deluge.model.ClipModel activeClip = curTrack.getClips().get(activeClipId);
-        boolean activeTrip = activeClip.isTripletMode();
+        org.chuck.deluge.model.TrackModel curTrack = null;
+        if (projectModel != null && editedModelTrack >= 0 && editedModelTrack < projectModel.getTracks().size()) {
+          curTrack = projectModel.getTracks().get(editedModelTrack);
+        }
+
+        org.chuck.deluge.model.ClipModel activeClip = null;
+        if (curTrack != null && activeClipId >= 0 && activeClipId < curTrack.getClips().size()) {
+          activeClip = curTrack.getClips().get(activeClipId);
+        }
+
+        boolean activeTrip = activeClip != null && activeClip.isTripletMode();
+        tripletBtn.setEnabled(activeClip != null);
         tripletBtn.setOpaque(false);
         tripletBtn.setContentAreaFilled(false);
         tripletBtn.setFocusPainted(false);
         if (activeTrip) {
           tripletBtn.setForeground(new Color(0xff, 0xb3, 0x00)); // Glowing gold!
           tripletBtn.setBorder(BorderFactory.createLineBorder(new Color(0xff, 0xb3, 0x00), 1));
-          tripletBtn.setToolTipText(
-              "Triplet grid active (12-step/triplets). Click to return to straight 16-step grid.");
+          tripletBtn.setToolTipText("Triplet grid active (12-step/triplets). Click to return to straight 16-step grid.");
         } else {
           tripletBtn.setForeground(Color.GRAY); // Inactive gray!
           tripletBtn.setBorder(BorderFactory.createLineBorder(Color.GRAY, 1));
-          tripletBtn.setToolTipText(
-              "Triplet grid inactive (straight 16-step). Click to activate 12-step triplet grid!");
+          tripletBtn.setToolTipText("Triplet grid inactive (straight 16-step). Click to activate 12-step triplet grid!");
         }
 
+        final org.chuck.deluge.model.ClipModel fActiveClip = activeClip;
         tripletBtn.addActionListener(
             ev -> {
-              boolean nextTrip = !activeClip.isTripletMode();
-              activeClip.setTripletMode(nextTrip);
-              activeClip.setStepCount(nextTrip ? 12 : 16);
+              if (fActiveClip != null) {
+                boolean nextTrip = !fActiveClip.isTripletMode();
+                fActiveClip.setTripletMode(nextTrip);
+                fActiveClip.setStepCount(nextTrip ? 12 : 16);
 
-              if (bridge != null) {
-                bridge.setTrackLength(baseTrackId, nextTrip ? 12 : 16);
+                if (bridge != null) {
+                  bridge.setTrackLength(baseTrackId, nextTrip ? 12 : 16);
+                }
+
+                refresh();
               }
-
-              refresh();
             });
 
         // Add the zoom/resolution options to its right!
