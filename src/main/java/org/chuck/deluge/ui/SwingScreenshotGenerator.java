@@ -268,6 +268,40 @@ public class SwingScreenshotGenerator {
                       captureComponent(stepBox[0], "deluge_step_properties");
                       stepBox[0].dispose();
                     });
+                Thread.sleep(1000);
+
+                // 9. Open and capture Pure JTree Project Explorer!
+                System.out.println(
+                    "[Screenshot] Spawning and capturing Pure JTree Project Explorer JDialog...");
+                SwingUtilities.invokeAndWait(
+                    () -> {
+                      JDialog explorerDialog = app.getLeftFloat();
+                      if (explorerDialog != null) {
+                        explorerDialog.setVisible(true);
+                        captureComponent(explorerDialog, "deluge_project_explorer");
+                        explorerDialog.setVisible(false);
+                      }
+                    });
+                Thread.sleep(1000);
+
+                // 10. Open and capture the new Dedicated MIDI Settings Dialog!
+                System.out.println(
+                    "[Screenshot] Spawning and capturing the new Dedicated MIDI Settings JDialog...");
+                final SwingMidiConfigDialog[] midiBox = new SwingMidiConfigDialog[1];
+                SwingUtilities.invokeAndWait(
+                    () -> {
+                      midiBox[0] = new SwingMidiConfigDialog(app, vm, bridge, app.getMidiService());
+                      midiBox[0].setModal(false); // Modality off for screenshots!
+                      midiBox[0].setSize(520, 640);
+                      midiBox[0].setVisible(true);
+                    });
+                Thread.sleep(2000);
+                SwingUtilities.invokeAndWait(
+                    () -> {
+                      captureComponent(midiBox[0], "deluge_midi_device_settings");
+                      midiBox[0].dispose();
+                    });
+                Thread.sleep(1000);
 
                 System.out.println(
                     "🎉 ALL EXPANDED SYSTEM REAL SCREENSHOTS GENERATED SUCCESSFULLY!");

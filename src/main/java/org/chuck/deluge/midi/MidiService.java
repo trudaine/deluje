@@ -274,6 +274,12 @@ public class MidiService {
     return learning;
   }
 
+  public void cancelLearn() {
+    this.learning = false;
+    this.learnTargetParam = null;
+    System.out.println("MIDI LEARN: Cancelled active learning loop hook.");
+  }
+
   public void setRecording(boolean active) {
     router.setFollowModeEnabled(active);
   }
