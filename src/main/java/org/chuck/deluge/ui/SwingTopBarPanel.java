@@ -480,9 +480,9 @@ public class SwingTopBarPanel extends JPanel {
     public RetroLedDisplay() {
       setLayout(new BorderLayout());
       setBackground(new Color(0x1a, 0x05, 0x05)); // dark red background
-      setPreferredSize(new java.awt.Dimension(128, 48));
-      setMinimumSize(new java.awt.Dimension(128, 48));
-      setMaximumSize(new java.awt.Dimension(128, 48));
+      setPreferredSize(new java.awt.Dimension(170, 48));
+      setMinimumSize(new java.awt.Dimension(170, 48));
+      setMaximumSize(new java.awt.Dimension(170, 48));
       applyThemeBorder(new Color(0xaa, 0x33, 0x33));
 
       label = new JLabel("[  --    --  ]");

@@ -30,7 +30,8 @@ public class VirtualOLED {
       // Shield for headless test environments
     }
     g2d.setFont(
-        new Font("Monospaced", Font.BOLD, 9)); // Crisp, hardware-authentic monospaced display font
+        new Font(
+            "Monospaced", Font.BOLD, 11)); // High-contrast, highly legible hardware monospaced font
     clear();
   }
 
