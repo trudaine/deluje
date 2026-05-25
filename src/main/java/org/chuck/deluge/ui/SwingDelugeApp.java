@@ -2348,22 +2348,6 @@ public class SwingDelugeApp extends JFrame {
         });
     toolsMenu.add(slicerItem);
 
-    JMenuItem debugKitItem = new JMenuItem("Debug Kit Config Open...");
-    debugKitItem.setAccelerator(
-        KeyStroke.getKeyStroke(
-            java.awt.event.KeyEvent.VK_K, java.awt.event.InputEvent.CTRL_DOWN_MASK));
-    debugKitItem.addActionListener(
-        e -> {
-          java.util.List<org.chuck.deluge.model.TrackModel> tracks = currentProject.getTracks();
-          for (org.chuck.deluge.model.TrackModel t : tracks) {
-            if (t instanceof org.chuck.deluge.model.KitTrackModel kt) {
-              new SwingKitConfigDialog(this, kt, vm, bridge).setVisible(true);
-              break;
-            }
-          }
-        });
-    toolsMenu.add(debugKitItem);
-
     menuBar.add(fileMenu);
     menuBar.add(editMenu);
     menuBar.add(toolsMenu);
@@ -2721,6 +2705,7 @@ public class SwingDelugeApp extends JFrame {
     System.out.println(
         "[main] Pure Java (Pure Firmware) direct soundcard output ENABLED by default");
 
+    boolean runScreenshots = false;
     for (String arg : args) {
       if ("--hifi".equalsIgnoreCase(arg)) {
         pureModeLocal = false;
@@ -2732,7 +2717,11 @@ public class SwingDelugeApp extends JFrame {
         bridge.setHiFiMode(1);
         System.out.println("[main] Pure Java Mode ENABLED (Bypassing ChucK DSL)");
       }
+      if ("--screenshot".equalsIgnoreCase(arg)) {
+        runScreenshots = true;
+      }
     }
+    final boolean finalRunScreenshots = runScreenshots;
 
     bridge.register(vm);
 
@@ -2805,6 +2794,21 @@ public class SwingDelugeApp extends JFrame {
 
           SwingDelugeApp app = new SwingDelugeApp(vm, bridge, midiService, finalPureMode);
           app.setVisible(true);
+
+          if (finalRunScreenshots) {
+            new Thread(
+                    () -> {
+                      try {
+                        System.out.println(
+                            "[Screenshot] Waiting 4 seconds for UI repaint and Loom threads...");
+                        Thread.sleep(4000);
+                        SwingScreenshotGenerator.runAutoScreenshots(app, vm, bridge);
+                      } catch (Exception ex) {
+                        System.err.println("[Screenshot] Trigger thread error: " + ex.getMessage());
+                      }
+                    })
+                .start();
+          }
           // Auto-load if a file path is provided as argument
           if (args.length > 0 && args[0] != null && !args[0].isEmpty()) {
             try {
