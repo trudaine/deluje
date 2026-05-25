@@ -373,6 +373,7 @@ public class FirmwareFactory {
         // Map per-lane step automation from the ClipModel to the drum sound's ParamManager
         if (!model.getClips().isEmpty()) {
           org.chuck.deluge.model.ClipModel clipModel = model.getClips().get(0);
+          int stepTicks = clipModel.isTripletMode() ? 32 : 24;
           java.util.Map<String, float[]> rowAutos = clipModel.getRowAutomationData().get(drumIdx);
           if (rowAutos != null) {
             for (java.util.Map.Entry<String, float[]> entry : rowAutos.entrySet()) {
@@ -382,7 +383,7 @@ public class FirmwareFactory {
                 for (int s = 0; s < array.length; s++) {
                   if (array[s] > 0.0f) {
                     int q31Val = (int) (array[s] * 2147483647.0);
-                    int pos = s * 24; // 24 ticks per step (16th notes)
+                    int pos = s * stepTicks;
                     drumSound.paramManager.recordParamValue(paramId, q31Val, pos);
                   }
                 }

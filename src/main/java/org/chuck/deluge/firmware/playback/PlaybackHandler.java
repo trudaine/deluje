@@ -93,9 +93,15 @@ public class PlaybackHandler {
     }
 
     // Update LED with bar:beat:tick
-    int bars = (lastSwungTickActioned / (24 * 16)) + 1;
-    int beats = ((lastSwungTickActioned / 24) % 16) + 1;
-    int ticks = (lastSwungTickActioned % 24) + 1;
+    int stepTicks = 24;
+    int stepCount = 16;
+    if (currentSong != null && !currentSong.clips.isEmpty()) {
+      stepTicks = currentSong.clips.get(0).tripletMode ? 32 : 24;
+      stepCount = currentSong.clips.get(0).tripletMode ? 12 : 16;
+    }
+    int bars = (lastSwungTickActioned / (stepTicks * stepCount)) + 1;
+    int beats = ((lastSwungTickActioned / stepTicks) % stepCount) + 1;
+    int ticks = (lastSwungTickActioned % stepTicks) + 1;
     FirmwareDisplay.get().setText(String.format(" %02d:%02d:%02d ", bars, beats, ticks));
   }
 }

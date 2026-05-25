@@ -36,10 +36,16 @@ public class SessionView extends FirmwareView {
     }
 
     // Draw clip launch pads
+    int stepTicks = 24;
+    int stepCount = 16;
+    if (song != null && !song.clips.isEmpty()) {
+      stepTicks = song.clips.get(0).tripletMode ? 32 : 24;
+      stepCount = song.clips.get(0).tripletMode ? 12 : 16;
+    }
     for (int x = 0; x < 16; x++) {
       for (int y = 0; y < 8; y++) {
         // If this is the current playhead position, blink white
-        boolean isPlayhead = (x == (song.lastSwungTickActioned / 24) % 16);
+        boolean isPlayhead = (x == (song.lastSwungTickActioned / stepTicks) % stepCount);
         if (isPlayhead) {
           if (PadLEDs.getFlashFast()) {
             PadLEDs.set(x, y, new RGB(255, 255, 255));
