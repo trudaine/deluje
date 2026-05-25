@@ -887,6 +887,14 @@ public class SwingGridPanel extends JPanel {
     refresh();
   }
 
+  public boolean isAutoOverviewMode() {
+    return autoOverviewMode;
+  }
+
+  public void setAutoOverviewMode(boolean overview) {
+    this.autoOverviewMode = overview;
+  }
+
   public org.chuck.deluge.model.ProjectModel getProjectModel() {
     return projectModel;
   }
@@ -4697,8 +4705,8 @@ public class SwingGridPanel extends JPanel {
     stepHeader.setLayout(new BoxLayout(stepHeader, BoxLayout.X_AXIS));
     stepHeader.setBackground(new Color(0x15, 0x15, 0x15));
     stepHeader.setMaximumSize(new Dimension(3000, 20));
-    int lw = Math.max(60, Math.min(140, getWidth() / 12));
-    stepHeader.add(Box.createRigidArea(new Dimension(lw + 91, 20)));
+    int topLw = Math.max(60, Math.min(140, getWidth() / 12));
+    stepHeader.add(Box.createRigidArea(new Dimension(topLw + 91, 20)));
     for (int c = 0; c < stepCount; c++) {
       JLabel stepNum = new JLabel(String.valueOf(c + 1), javax.swing.SwingConstants.CENTER);
       stepNum.setPreferredSize(new Dimension(padSz, 18));
@@ -4902,8 +4910,8 @@ public class SwingGridPanel extends JPanel {
     stepHeader.setLayout(new BoxLayout(stepHeader, BoxLayout.X_AXIS));
     stepHeader.setBackground(new Color(0x15, 0x15, 0x15));
     stepHeader.setMaximumSize(new Dimension(3000, 20));
-    int pw = Math.max(60, Math.min(140, getWidth() / 12));
-    stepHeader.add(Box.createRigidArea(new Dimension(pw + 17, 20)));
+    int topPw = Math.max(60, Math.min(140, getWidth() / 12));
+    stepHeader.add(Box.createRigidArea(new Dimension(topPw + 17, 20)));
     for (int c = 0; c < stepCount; c++) {
       JLabel stepNum = new JLabel(String.valueOf(c + 1), javax.swing.SwingConstants.CENTER);
       stepNum.setPreferredSize(new Dimension(padSz, 18));
