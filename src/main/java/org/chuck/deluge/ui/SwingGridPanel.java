@@ -611,6 +611,22 @@ public class SwingGridPanel extends JPanel {
     return new Color(Math.min(255, r), Math.min(255, g), Math.min(255, b));
   }
 
+  private Color getPadDefaultBg(int col) {
+    boolean triplet = false;
+    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+      org.chuck.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
+      if (activeClipId >= 0 && activeClipId < t.getClips().size()) {
+        triplet = t.getClips().get(activeClipId).isTripletMode();
+      }
+    }
+    int interval = triplet ? 3 : 4;
+    if (col % interval == 0) {
+      return new Color(0x3d, 0x3d, 0x42); // slightly lighter slate gray for start of beat steps!
+    }
+    return new Color(
+        0x27, 0x27, 0x2b); // deeper, beautiful dark charcoal for standard subdivisions!
+  }
+
   public int getFocusTrack() {
     return focusTrack;
   }
@@ -2182,7 +2198,7 @@ public class SwingGridPanel extends JPanel {
               clipBtn.setBackground(
                   stepState
                       ? velocityBlend(trackColors[modelRow % trackColors.length], vel)
-                      : new Color(0x33, 0x33, 0x33));
+                      : getPadDefaultBg(activeCol));
               boolean isSynthMode = bridge != null && bridge.getTrackType(baseTrackId) == 1;
               int pitchMidi = isSynthMode ? (((128 - 1) - modelRow) + 0) : 60;
               if (stepState) {
@@ -2474,7 +2490,7 @@ public class SwingGridPanel extends JPanel {
                                 !stepState
                                     ? velocityBlend(
                                         trackColors[modelRow % trackColors.length], velS)
-                                    : new Color(0x33, 0x33, 0x33));
+                                    : getPadDefaultBg(activeCol));
 
                             if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
                               Object fwEngineObj =
@@ -2560,7 +2576,7 @@ public class SwingGridPanel extends JPanel {
                                 !stepState
                                     ? velocityBlend(
                                         trackColors[modelRow % trackColors.length], velK)
-                                    : new Color(0x33, 0x33, 0x33));
+                                    : getPadDefaultBg(activeCol));
                             if (projectModel != null
                                 && editedModelTrack < projectModel.getTracks().size()) {
                               org.chuck.deluge.model.TrackModel tModel =
@@ -3110,7 +3126,7 @@ public class SwingGridPanel extends JPanel {
               pads[t][c].setBackground(
                   bridge.getStep(engineRow, engineStep)
                       ? velocityBlend(trackColors[t % trackColors.length], vel)
-                      : new Color(0x33, 0x33, 0x33));
+                      : getPadDefaultBg(c));
             }
           }
         }
@@ -3155,7 +3171,7 @@ public class SwingGridPanel extends JPanel {
               pads[t][c].setBackground(
                   bridge.getStep(engineRow, engineStep)
                       ? velocityBlend(trackColors[t % trackColors.length], vel)
-                      : new Color(0x33, 0x33, 0x33));
+                      : getPadDefaultBg(c));
             }
           }
         }
@@ -3184,6 +3200,22 @@ public class SwingGridPanel extends JPanel {
             + scrollOffset
             + " viewMode="
             + viewMode);
+    // Resolve dynamic active clip steps count limits (Triplet 12-step vs Straight 16-step!)
+    if ((viewMode == GridViewMode.CLIP || viewMode == GridViewMode.AUTOMATION)
+        && projectModel != null
+        && editedModelTrack < projectModel.getTracks().size()) {
+      org.chuck.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
+      if (activeClipId >= 0 && activeClipId < t.getClips().size()) {
+        org.chuck.deluge.model.ClipModel activeClip = t.getClips().get(activeClipId);
+        this.stepCount = activeClip.getStepCount();
+      } else {
+        this.stepCount = gridMode.columns;
+      }
+    } else {
+      this.stepCount = gridMode.columns;
+    }
+    this.columnCount = this.stepCount + (viewMode == GridViewMode.CLIP ? 2 : 0);
+
     // Reset scroll if needed
     int maxOffset = Math.max(0, voiceRowCount - gridMode.rows);
     if (scrollOffset > maxOffset) scrollOffset = maxOffset;
@@ -3790,10 +3822,53 @@ public class SwingGridPanel extends JPanel {
         // Add scrollbar FIRST (pixel-perfect columns bounds alignment!)
         scrollRow.add(horizScrollBar);
 
+        // Triplet divisions JToggleButton [3] (Triplet 12-step vs Straight 16-step toggle!)
+        JButton tripletBtn = new JButton("3");
+        tripletBtn.setPreferredSize(new Dimension(22, 22));
+        tripletBtn.setMinimumSize(new Dimension(22, 22));
+        tripletBtn.setMaximumSize(new Dimension(22, 22));
+        tripletBtn.setFocusable(false);
+        tripletBtn.setFont(new Font("SansSerif", Font.BOLD, 10));
+        tripletBtn.setMargin(new Insets(0, 0, 0, 0));
+
+        final org.chuck.deluge.model.TrackModel curTrack =
+            projectModel.getTracks().get(editedModelTrack);
+        final org.chuck.deluge.model.ClipModel activeClip = curTrack.getClips().get(activeClipId);
+        boolean activeTrip = activeClip.isTripletMode();
+        tripletBtn.setOpaque(false);
+        tripletBtn.setContentAreaFilled(false);
+        tripletBtn.setFocusPainted(false);
+        if (activeTrip) {
+          tripletBtn.setForeground(new Color(0xff, 0xb3, 0x00)); // Glowing gold!
+          tripletBtn.setBorder(BorderFactory.createLineBorder(new Color(0xff, 0xb3, 0x00), 1));
+          tripletBtn.setToolTipText(
+              "Triplet grid active (12-step/triplets). Click to return to straight 16-step grid.");
+        } else {
+          tripletBtn.setForeground(Color.GRAY); // Inactive gray!
+          tripletBtn.setBorder(BorderFactory.createLineBorder(Color.GRAY, 1));
+          tripletBtn.setToolTipText(
+              "Triplet grid inactive (straight 16-step). Click to activate 12-step triplet grid!");
+        }
+
+        tripletBtn.addActionListener(
+            ev -> {
+              boolean nextTrip = !activeClip.isTripletMode();
+              activeClip.setTripletMode(nextTrip);
+              activeClip.setStepCount(nextTrip ? 12 : 16);
+
+              if (bridge != null) {
+                bridge.setTrackLength(baseTrackId, nextTrip ? 12 : 16);
+              }
+
+              refresh();
+            });
+
         // Add the zoom/resolution options to its right!
-        scrollRow.add(Box.createRigidArea(new Dimension(20, 10)));
-        scrollRow.add(rateCombo);
         scrollRow.add(Box.createRigidArea(new Dimension(15, 10)));
+        scrollRow.add(rateCombo);
+        scrollRow.add(Box.createRigidArea(new Dimension(6, 10)));
+        scrollRow.add(tripletBtn);
+        scrollRow.add(Box.createRigidArea(new Dimension(10, 10)));
         scrollRow.add(bottomLenBadge);
 
         // Right spacer matching columns 17/18 mute/solo panel (2 * padSz + 22)

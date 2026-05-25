@@ -76,7 +76,11 @@ public class PureFirmwareEngine {
       if (!playbackHandler.isPlaying()) {
         playbackHandler.start();
       }
-      int currentStep = playbackHandler.lastSwungTickActioned / 24;
+      int stepTicks = 24;
+      if (playbackHandler.getSong() != null && !playbackHandler.getSong().clips.isEmpty()) {
+        stepTicks = playbackHandler.getSong().clips.get(0).tripletMode ? 32 : 24;
+      }
+      int currentStep = playbackHandler.lastSwungTickActioned / stepTicks;
       vm.setGlobalInt(BridgeContract.G_CURRENT_STEP, (long) currentStep);
     } else {
       if (playbackHandler.isPlaying()) {

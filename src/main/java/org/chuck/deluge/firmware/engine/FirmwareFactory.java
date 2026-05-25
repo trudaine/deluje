@@ -95,7 +95,9 @@ public class FirmwareFactory {
     // ── Note rendering logic remains ──
     if (!model.getClips().isEmpty()) {
       ClipModel clipModel = model.getClips().get(0);
-      clip.loopLength = clipModel.getStepCount() * 24;
+      int stepTicks = clipModel.isTripletMode() ? 32 : 24;
+      clip.tripletMode = clipModel.isTripletMode();
+      clip.loopLength = clipModel.getStepCount() * stepTicks;
       for (int r = 0; r < clipModel.getRowCount(); r++) {
         int pitch = ((24 - 1) - r) + 60;
         NoteRow row = new NoteRow(pitch);
@@ -125,7 +127,12 @@ public class FirmwareFactory {
             StepData step = clipModel.getStep(r, s);
             if (step.active()) {
               row.attemptNoteAdd(
-                  s * 24, (int) (step.gate() * 24), (int) (step.velocity() * 127.0f), 100, null, 0);
+                  s * stepTicks,
+                  (int) (step.gate() * stepTicks),
+                  (int) (step.velocity() * 127.0f),
+                  100,
+                  null,
+                  0);
             }
           }
         }
@@ -420,7 +427,9 @@ public class FirmwareFactory {
 
     if (!model.getClips().isEmpty()) {
       ClipModel clipModel = model.getClips().get(0);
-      clip.loopLength = clipModel.getStepCount() * 24;
+      int stepTicks = clipModel.isTripletMode() ? 32 : 24;
+      clip.tripletMode = clipModel.isTripletMode();
+      clip.loopLength = clipModel.getStepCount() * stepTicks;
       for (int r = 0; r < clipModel.getRowCount(); r++) {
         NoteRow row = new NoteRow(r);
         java.util.List<org.chuck.deluge.model.HighResNote> rawNotes = clipModel.getRawNoteEvents(r);
@@ -439,7 +448,12 @@ public class FirmwareFactory {
             StepData step = clipModel.getStep(r, s);
             if (step.active()) {
               row.attemptNoteAdd(
-                  s * 24, (int) (step.gate() * 24), (int) (step.velocity() * 127.0f), 100, null, 0);
+                  s * stepTicks,
+                  (int) (step.gate() * stepTicks),
+                  (int) (step.velocity() * 127.0f),
+                  100,
+                  null,
+                  0);
             }
           }
         }
