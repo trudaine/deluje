@@ -30,6 +30,11 @@ public class SwingGridPanel extends JPanel {
   private int editedModelTrack = 0; // model track index currently being edited in CLIP mode
   private int soloRow = -1; // -1 = no solo
   private Timer playheadTimer; // single timer for playhead updates, avoids leaks
+  private final java.util.Map<Integer, VUMeterPanel> voiceVuMeters =
+      new java.util.concurrent.ConcurrentHashMap<>();
+  private final java.util.Map<Integer, VUMeterPanel> trackVuMeters =
+      new java.util.concurrent.ConcurrentHashMap<>();
+  private Timer globalVuTimer;
   private int scrollOffset = 55; // vertical scroll offset for voice rows in CLIP mode
   private JScrollBar vertScrollBar;
   private JScrollBar horizScrollBar;
@@ -597,6 +602,22 @@ public class SwingGridPanel extends JPanel {
     if (isAdvanced) {
       this.gestureCoordinator = new DelugeGestureCoordinator(this, new DelugeGestureListener());
     }
+  }
+
+  @Override
+  public void removeNotify() {
+    if (playheadTimer != null) {
+      playheadTimer.stop();
+    }
+    if (activeStutterTimer != null) {
+      activeStutterTimer.stop();
+    }
+    if (globalVuTimer != null) {
+      globalVuTimer.stop();
+    }
+    voiceVuMeters.clear();
+    trackVuMeters.clear();
+    super.removeNotify();
   }
 
   private int focusTrack = 0;
@@ -1678,14 +1699,7 @@ public class SwingGridPanel extends JPanel {
     rowPanel.add(vu);
     rowPanel.add(Box.createHorizontalStrut(5));
 
-    Timer vuTimer =
-        new Timer(
-            33,
-            ev -> {
-              vuLevels[modelRow] *= 0.80;
-              vu.setLvl(vuLevels[modelRow]);
-            });
-    vuTimer.start();
+    voiceVuMeters.put(modelRow, vu);
 
     for (int c = 0; c < columnCount; c++) {
       final int colId = c;
@@ -3245,6 +3259,33 @@ public class SwingGridPanel extends JPanel {
     }
     this.columnCount = this.stepCount + (viewMode == GridViewMode.CLIP ? 2 : 0);
 
+    // Stop old VU timer and clear visual registers maps to prevent Swing leaks!
+    voiceVuMeters.clear();
+    trackVuMeters.clear();
+    if (globalVuTimer != null) {
+      globalVuTimer.stop();
+    }
+    globalVuTimer =
+        new Timer(
+            33,
+            ev -> {
+              voiceVuMeters.forEach(
+                  (r, vu) -> {
+                    if (r >= 0 && r < vuLevels.length) {
+                      vuLevels[r] *= 0.80;
+                      vu.setLvl(vuLevels[r]);
+                    }
+                  });
+              trackVuMeters.forEach(
+                  (t, vu) -> {
+                    if (t >= 0 && t < vuLevels.length) {
+                      vuLevels[t] *= 0.80;
+                      vu.setLvl(vuLevels[t]);
+                    }
+                  });
+            });
+    globalVuTimer.start();
+
     // Real-time pure timing audio engine notes hot-swap!
     if (vm != null && projectModel != null) {
       try {
@@ -3253,40 +3294,75 @@ public class SwingGridPanel extends JPanel {
         if (fwHandlerObj instanceof org.chuck.deluge.firmware.playback.PlaybackHandler fwHandler) {
           org.chuck.deluge.firmware.model.Song currentSong = fwHandler.getSong();
           if (currentSong != null) {
-            org.chuck.deluge.firmware.model.Song freshSong =
-                org.chuck.deluge.firmware.engine.FirmwareFactory.createSong(projectModel);
+            // Low-latency direct JMem steps-to-notes synchronization loop!
+            for (int i = 0;
+                i < projectModel.getTracks().size() && i < currentSong.clips.size();
+                i++) {
+              org.chuck.deluge.model.TrackModel trackModel = projectModel.getTracks().get(i);
+              org.chuck.deluge.firmware.model.Clip clip = currentSong.clips.get(i);
+              if (clip instanceof org.chuck.deluge.firmware.model.InstrumentClip
+                  && !trackModel.getClips().isEmpty()) {
+                org.chuck.deluge.firmware.model.InstrumentClip instClip =
+                    (org.chuck.deluge.firmware.model.InstrumentClip) clip;
+                org.chuck.deluge.model.ClipModel clipModel = trackModel.getClips().get(0);
 
-            // Swap the note patterns lists atomically without resetting voice sound/wavetable
-            // modules!
-            for (int i = 0; i < freshSong.clips.size() && i < currentSong.clips.size(); i++) {
-              org.chuck.deluge.firmware.model.Clip freshClip = freshSong.clips.get(i);
-              org.chuck.deluge.firmware.model.Clip currentClip = currentSong.clips.get(i);
-              if (freshClip instanceof org.chuck.deluge.firmware.model.InstrumentClip
-                  && currentClip instanceof org.chuck.deluge.firmware.model.InstrumentClip) {
-                org.chuck.deluge.firmware.model.InstrumentClip freshInst =
-                    (org.chuck.deluge.firmware.model.InstrumentClip) freshClip;
-                org.chuck.deluge.firmware.model.InstrumentClip currentInst =
-                    (org.chuck.deluge.firmware.model.InstrumentClip) currentClip;
+                int stepTicks = clipModel.isTripletMode() ? 32 : 24;
+                instClip.loopLength = clipModel.getStepCount() * stepTicks;
+                instClip.tripletMode = clipModel.isTripletMode();
 
-                currentInst.noteRows = freshInst.noteRows;
-                currentInst.loopLength = freshInst.loopLength;
-                currentInst.tripletMode = freshInst.tripletMode;
-                currentInst.ticksTilNextEvent = freshInst.ticksTilNextEvent;
+                boolean isKit = trackModel instanceof org.chuck.deluge.model.KitTrackModel;
+
+                java.util.List<org.chuck.deluge.firmware.model.note.NoteRow> nextRows =
+                    new java.util.ArrayList<>();
+                for (int r = 0; r < clipModel.getRowCount(); r++) {
+                  int pitch = isKit ? r : (clipModel.getRowCount() - 1) - r;
+                  org.chuck.deluge.firmware.model.note.NoteRow noteRow =
+                      new org.chuck.deluge.firmware.model.note.NoteRow(pitch);
+
+                  java.util.List<org.chuck.deluge.model.HighResNote> rawNotes =
+                      clipModel.getRawNoteEvents(r);
+                  if (rawNotes != null && !rawNotes.isEmpty()) {
+                    for (org.chuck.deluge.model.HighResNote hrn : rawNotes) {
+                      noteRow.attemptNoteAdd(
+                          hrn.getTickPos(),
+                          hrn.getTickLen(),
+                          (int) (hrn.getVelocity() * 127),
+                          (int) (hrn.getProbability() * 100),
+                          null,
+                          0);
+                    }
+                  } else {
+                    for (int s = 0; s < clipModel.getStepCount(); s++) {
+                      org.chuck.deluge.model.StepData stepData = clipModel.getStep(r, s);
+                      if (stepData.active()) {
+                        int pos = s * stepTicks;
+                        int len = (int) (stepData.gate() * stepTicks);
+                        int vel = (int) (stepData.velocity() * 127);
+                        int prob = (int) (stepData.probability() * 100);
+                        noteRow.attemptNoteAdd(pos, len, vel, prob, null, 0);
+                      }
+                    }
+                  }
+
+                  if (!noteRow.notes.isEmpty()) {
+                    nextRows.add(noteRow);
+                  }
+                }
+                // Atomic swap
+                instClip.noteRows = nextRows;
               }
             }
-
-            currentSong.tempoBPM = freshSong.tempoBPM;
-            currentSong.swingAmount = freshSong.swingAmount;
-            currentSong.swingInterval = freshSong.swingInterval;
+            currentSong.tempoBPM = projectModel.getBpm();
+            currentSong.swingAmount = (int) (projectModel.getSwing() * 100.0);
           } else {
-            // If there is no current song yet (e.g. initial setup!), build the full song reference
+            // Initial setup song compilation
             org.chuck.deluge.firmware.model.Song freshSong =
                 org.chuck.deluge.firmware.engine.FirmwareFactory.createSong(projectModel);
             fwHandler.setSong(freshSong);
           }
         }
       } catch (Exception ex) {
-        LOG.warning("Real-time audio engine notes hot-swap sync failed: " + ex.getMessage());
+        LOG.warning("Real-time audio engine low-latency notes sync failed: " + ex.getMessage());
       }
     }
 
@@ -4202,14 +4278,7 @@ public class SwingGridPanel extends JPanel {
         rowPanel.add(vu);
         rowPanel.add(Box.createHorizontalStrut(5));
 
-        Timer vuTimer =
-            new Timer(
-                33,
-                ev -> {
-                  vuLevels[trk] *= 0.80; // decay
-                  vu.setLvl(vuLevels[trk]);
-                });
-        vuTimer.start();
+        trackVuMeters.put(trk, vu);
 
         String[] allParams = {
           "LEVEL", "PAN", "PITCH", "FILTER", "RESONANCE", "OSC1", "OSC2", "LFO",

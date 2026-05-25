@@ -72,6 +72,9 @@ public class SwingDelugeApp extends JFrame {
   private JDialog rightFloat;
   private JCheckBoxMenuItem showMonitorItem;
   private final java.util.ArrayDeque<Long> tapTimes = new java.util.ArrayDeque<>();
+  private Timer visualizerRepaintTimer;
+  private Timer picTransportFlushTimer;
+  private Timer statusTextPlaybackTimer;
 
   /** Recompute trackEngineStart and trackVoiceCount from the current project model. */
   private void computeEngineMapping() {
@@ -2627,11 +2630,13 @@ public class SwingDelugeApp extends JFrame {
     leftFloat.add(floatingSidebar);
     rightFloat.add(visualizerPanel);
 
-    new Timer(33, e -> visualizerPanel.repaint()).start();
+    visualizerRepaintTimer = new Timer(33, e -> visualizerPanel.repaint());
+    visualizerRepaintTimer.start();
 
     // Periodically flush PIC framebuffer to Swing pad buttons (≈30 fps)
     if (this.pureEngine == null) {
-      new Timer(
+      picTransportFlushTimer =
+          new Timer(
               33,
               e -> {
                 if (clipPanel != null && clipPanel.isShiftHeld()) {
@@ -2647,8 +2652,8 @@ public class SwingDelugeApp extends JFrame {
                   return;
                 }
                 picTransport.flush();
-              })
-          .start();
+              });
+      picTransportFlushTimer.start();
     }
 
     // bottom lane purged
@@ -2693,7 +2698,10 @@ public class SwingDelugeApp extends JFrame {
   }
 
   private void startPlaybackTimer() {
-    Timer timer =
+    if (statusTextPlaybackTimer != null) {
+      statusTextPlaybackTimer.stop();
+    }
+    statusTextPlaybackTimer =
         new Timer(
             30,
             e -> {
@@ -2742,7 +2750,7 @@ public class SwingDelugeApp extends JFrame {
                 visualizerPanel.repaint();
               }
             });
-    timer.start();
+    statusTextPlaybackTimer.start();
   }
 
   public static String startupFilePath = null;
@@ -3413,5 +3421,19 @@ public class SwingDelugeApp extends JFrame {
   public void reloadSidebarLibraries() {
     if (sidebarPanel != null) sidebarPanel.reloadLibrary();
     if (floatingSidebar != null) floatingSidebar.reloadLibrary();
+  }
+
+  @Override
+  public void dispose() {
+    if (visualizerRepaintTimer != null) {
+      visualizerRepaintTimer.stop();
+    }
+    if (picTransportFlushTimer != null) {
+      picTransportFlushTimer.stop();
+    }
+    if (statusTextPlaybackTimer != null) {
+      statusTextPlaybackTimer.stop();
+    }
+    super.dispose();
   }
 }
