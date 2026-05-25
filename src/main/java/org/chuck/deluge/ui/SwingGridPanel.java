@@ -3116,17 +3116,17 @@ public class SwingGridPanel extends JPanel {
         }
       } else {
         for (int t = 0; t < rowsToScan; t++) {
-          for (int c = 0; c < columnCount; c++) {
+          for (int c = 0; c < stepCount; c++) {
             if (pads[t][c] == null) continue;
             int engineRow = baseTrackId + (viewMode == GridViewMode.CLIP ? scrollOffset + t : t);
-            int engineStep = (trackLen < stepCount) ? (c % trackLen) : c;
+            int engineStep = (trackLen < stepCount) ? (c % trackLen) : (c + scrollOffsetX);
             boolean isTriggered = (bridge != null) && bridge.getStep(engineRow, engineStep);
             if (!isTriggered && pads[t][c].getBackground().equals(Color.WHITE)) {
               double vel = bridge.getVelocity(engineRow, engineStep);
               pads[t][c].setBackground(
                   bridge.getStep(engineRow, engineStep)
                       ? velocityBlend(trackColors[t % trackColors.length], vel)
-                      : getPadDefaultBg(c));
+                      : getPadDefaultBg(c + scrollOffsetX));
             }
           }
         }
@@ -3157,10 +3157,10 @@ public class SwingGridPanel extends JPanel {
       }
     } else {
       for (int t = 0; t < rowsToScan; t++) {
-        for (int c = 0; c < columnCount; c++) {
+        for (int c = 0; c < stepCount; c++) {
           if (pads[t][c] == null) continue;
           int engineRow = baseTrackId + (viewMode == GridViewMode.CLIP ? scrollOffset + t : t);
-          int engineStep = (trackLen < stepCount) ? (c % trackLen) : c;
+          int engineStep = (trackLen < stepCount) ? (c % trackLen) : (c + scrollOffsetX);
           if (c == stepMod) {
             pads[t][c].setBackground(Color.WHITE);
           } else {
@@ -3171,7 +3171,7 @@ public class SwingGridPanel extends JPanel {
               pads[t][c].setBackground(
                   bridge.getStep(engineRow, engineStep)
                       ? velocityBlend(trackColors[t % trackColors.length], vel)
-                      : getPadDefaultBg(c));
+                      : getPadDefaultBg(c + scrollOffsetX));
             }
           }
         }
