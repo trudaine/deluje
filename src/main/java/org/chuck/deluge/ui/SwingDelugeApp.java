@@ -2203,11 +2203,23 @@ public class SwingDelugeApp extends JFrame {
     JMenuItem loadScriptItem = new JMenuItem("Load Script...");
     loadScriptItem.addActionListener(e -> loadChuckScript());
 
+    JMenuItem explorerItem = new JMenuItem("Show Explorer");
+    explorerItem.setAccelerator(
+        KeyStroke.getKeyStroke(
+            java.awt.event.KeyEvent.VK_E, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+    explorerItem.addActionListener(
+        e -> {
+          if (leftFloat != null) {
+            leftFloat.setVisible(!leftFloat.isVisible());
+          }
+        });
+
     JMenuItem exitItem = new JMenuItem("Exit");
     exitItem.addActionListener(e -> System.exit(0));
 
     fileMenu.add(newItem);
     fileMenu.add(openItem);
+    fileMenu.add(explorerItem);
     fileMenu.addSeparator();
     fileMenu.add(saveItem);
     fileMenu.add(saveAsItem);
