@@ -405,6 +405,10 @@ public class SwingDelugeApp extends JFrame {
     return midiService;
   }
 
+  public JDialog getLeftFloat() {
+    return leftFloat;
+  }
+
   public void pushModelToBridge() {
     computeEngineMapping();
     java.util.List<org.chuck.deluge.model.TrackModel> tracks = currentProject.getTracks();
@@ -2282,6 +2286,16 @@ public class SwingDelugeApp extends JFrame {
           }
         });
 
+    JMenuItem midiConfigItem = new JMenuItem("MIDI Device Settings...");
+    midiConfigItem.setAccelerator(
+        KeyStroke.getKeyStroke(
+            java.awt.event.KeyEvent.VK_M,
+            java.awt.event.InputEvent.CTRL_DOWN_MASK | java.awt.event.InputEvent.SHIFT_DOWN_MASK));
+    midiConfigItem.addActionListener(
+        e -> {
+          new SwingMidiConfigDialog(this, vm, bridge, midiService).setVisible(true);
+        });
+
     JMenuItem prefItem = new JMenuItem("Preferences...");
     prefItem.addActionListener(
         e -> {
@@ -2327,6 +2341,7 @@ public class SwingDelugeApp extends JFrame {
     settingsMenu.add(sampleItem);
     settingsMenu.addSeparator();
     settingsMenu.add(hifiModeItem);
+    settingsMenu.add(midiConfigItem);
     settingsMenu.add(clearMidiItem);
     settingsMenu.addSeparator();
     settingsMenu.add(prefItem);

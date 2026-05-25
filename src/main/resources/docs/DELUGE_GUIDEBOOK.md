@@ -611,15 +611,37 @@ The Pedal Looper turns the sequencer grid into a continuous, pedal-style audio o
 
 ---
 
-## 14. MIDI Clock Sync, Device Chains & Program Changes
+## 14. MIDI Hardware, Device Mappings & Pure SD File Explorer
 
-The Deluge Workstation operates as a robust hub to control external physical hardware instruments or align timing clocks across multi-device networks.
+The Deluge Workstation features a professional-grade, modern workspace re-organization, separating file-system assets browsing from hardware device settings. Following professional DAW paradigms (such as Ableton, Logic, and Reaper), the floating **SD Card Explorer** is a pure directory tree, while physical MIDI controllers, inputs, CC learning, and sync channels are managed in a dedicated central settings dialogue.
 
-### 13.1 MIDI Clock Master/Slave Sync Modes
+### 14.1 Pure JTree SD Card Explorer (`deluge_project_explorer.png`)
+* **The Interface**: Access the sidebar or float dialogue by pressing **`Command/Ctrl + E`** (or selecting **`File ➔ Show Explorer`**). The explorer is a focused, lightweight, high-contrast file and preset tree JDialog (`deluge_project_explorer.png`) scrolling through active SD Card paths:
+  * **`KITS`**: Browse kit XML files and load them directly onto project tracks.
+  * **`SYNTHS`**: Load individual voice and operator settings presets.
+  * **`SONGS`**: Double-click to load complete multi-track sequence song XML nodes.
+  * **`PATTERNS`**: Double-click to load saved track clip sequences or load script `.ck` files!
+* **Zero Clutter**: All legacy mocked or static placeholder tabs (like static sliders editor, script text views, and list lists profilers) have been cleanly pruned, leaving a fast and lightweight file-tree navigation core!
+
+![Pure JTree Project File Explorer](images/deluge_project_explorer.png)
+
+---
+
+### 14.2 Dedicated MIDI Settings & CC Learn Laboratory (`deluge_midi_device_settings.png`)
+* **The Interface**: Press **`Command/Ctrl + Shift + M`** (or select **`Settings ➔ MIDI Device Settings...`**) to open the central dark-neon MIDI Configuration JDialog (`deluge_midi_device_settings.png`). This panel acts as the master hub for external keyboard controllers, physical knobs mappings, and real-time controller assignments:
+  * **Device Port Selector**: A dropdown JComboBox list of all active physical MIDI input interfaces mounted on the host OS.
+  * **CC Mappings Table**: A scrollable high-contrast list tracking active JNI parameter bindings, cabled CC controller signals, and connection states.
+  * **Real-Time CC Learn**: Enter any JNI parameter target name (e.g. `g_master_vol`), click the glowing mint-green **`[START LEARN]`** button, and wiggle a physical knob/fader on your controller: the CC binding registers instantly and updates the mappings!
+
+![Dedicated MIDI Settings & CC Mappings Table JDialog](images/deluge_midi_device_settings.png)
+
+---
+
+### 14.3 MIDI Clock Master/Slave Sync Modes
 * **MIDI Clock Master (Send Sync)**: The JApp sends continuous real-time system clocks ($24\text{ pulses per quarter note (PPQN)}$ standard) to the active MIDI output ports, driving external drum machines and synthesizers to play in perfect tempo sync with the internal step sequencer.
 * **MIDI Clock Slave (Receive Sync)**: The JApp listens to incoming MIDI clock ticks on standard inputs, locking the internal playback playhead speed and start/stop triggers to the external hardware clock master!
 
-### 13.2 MIDI Program Changes & Hardware Chains
+### 14.4 MIDI Program Changes & Hardware Chains
 * **MIDI Program Change (PC) Messages**: Send PC commands (values 0–127) and bank select indices dynamically from target sequencer steps to automatically swap active presets/sounds on your hardware instruments live on stage!
 * **Multi-Device Chains (MIDI Thru)**: Daisy-chain multiple hardware synthesizers: set each sequencer lane to send data to a distinct MIDI Channel (Channels 1–16) to play polyphonic parts across separate physical keyboards from a single master track project!
 
