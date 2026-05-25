@@ -69,6 +69,8 @@ public class KitSynthSerializer {
         appendTextChild(doc, osc1, "timeStretchAmount", "0");
         String samplePath = sound.getSamplePath() != null ? sound.getSamplePath() : "";
         appendTextChild(doc, osc1, "fileName", samplePath);
+        appendTextChild(
+            doc, osc1, "wavetableIndexPct", String.valueOf(sound.getWavetableIndexPct()));
         Element zone = doc.createElement("zone");
         appendTextChild(doc, zone, "startMilliseconds", String.valueOf((int) sound.getStartMs()));
         appendTextChild(

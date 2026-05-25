@@ -3181,6 +3181,10 @@ public class SwingGridPanel extends JPanel {
       autoHeader.setMaximumSize(new Dimension(rowW, 32));
       autoHeader.setAlignmentX(Component.LEFT_ALIGNMENT);
 
+      int topLw = Math.max(60, Math.min(140, getWidth() / 12));
+      int leftOffset = autoOverviewMode ? (topLw + 17) : (topLw + 91);
+      autoHeader.add(Box.createRigidArea(new Dimension(leftOffset, 1)));
+
       JLabel autoLabel = new JLabel("AUTO");
       autoLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
       autoLabel.setForeground(new Color(0x00, 0xff, 0xcc));
@@ -3657,9 +3661,6 @@ public class SwingGridPanel extends JPanel {
               }
             });
 
-        scrollRow.add(rateCombo);
-        scrollRow.add(Box.createRigidArea(new Dimension(8, 10)));
-
         // Bottom loop step length badge controller
         int clipSteps = (bridge != null) ? bridge.getTrackLength(baseTrackId) : stepCount;
         JLabel bottomLenBadge = new JLabel("[" + clipSteps + "]");
@@ -3702,16 +3703,21 @@ public class SwingGridPanel extends JPanel {
                 }
               }
             });
-        scrollRow.add(bottomLenBadge);
-        scrollRow.add(Box.createRigidArea(new Dimension(6, 10)));
-
         horizScrollBar.setEnabled(true);
         int colsWidth = stepCount * (padSz + 5) - 5;
-        horizScrollBar.setPreferredSize(new Dimension(colsWidth - 134, 12));
+        horizScrollBar.setPreferredSize(new Dimension(colsWidth, 12));
         horizScrollBar.setMinimumSize(new Dimension(100, 12));
-        horizScrollBar.setMaximumSize(new Dimension(colsWidth - 134, 12));
+        horizScrollBar.setMaximumSize(new Dimension(colsWidth, 12));
         horizScrollBar.setValues(scrollOffsetX, stepCount, 0, Math.max(stepCount, trackLenH));
+
+        // Add scrollbar FIRST (pixel-perfect columns bounds alignment!)
         scrollRow.add(horizScrollBar);
+
+        // Add the zoom/resolution options to its right!
+        scrollRow.add(Box.createRigidArea(new Dimension(20, 10)));
+        scrollRow.add(rateCombo);
+        scrollRow.add(Box.createRigidArea(new Dimension(15, 10)));
+        scrollRow.add(bottomLenBadge);
 
         // Right spacer matching columns 17/18 mute/solo panel (2 * padSz + 22)
         int rightSpacing = (viewMode == GridViewMode.AUTOMATION) ? 10 : (2 * padSz + 22);
