@@ -3207,7 +3207,7 @@ public class SwingGridPanel extends JPanel {
       org.chuck.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
       if (activeClipId >= 0 && activeClipId < t.getClips().size()) {
         org.chuck.deluge.model.ClipModel activeClip = t.getClips().get(activeClipId);
-        this.stepCount = activeClip.getStepCount();
+        this.stepCount = activeClip.isTripletMode() ? 12 : gridMode.columns;
       } else {
         this.stepCount = gridMode.columns;
       }

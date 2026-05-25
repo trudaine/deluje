@@ -1,0 +1,35 @@
+
+<?xml version="1.0" encoding="UTF-8"?>
+<sound firmwareVersion="v1.3.0" anyOfMelodicKitPercussion="0">
+  <isPolyphonic>0</isPolyphonic>
+  <voicePriority>1</voicePriority>
+  <mode>0</mode> <osc1 type="0" detune="0" transpose="0" phaseShift="0" /> <osc2 type="0" detune="14" transpose="-12" phaseShift="64" /> <oscLevel1>50</oscLevel1>
+  <oscLevel2>42</oscLevel2>
+  <noiseLevel>4</noiseLevel> <filterType>0</filterType> <filterSlope>1</filterSlope> <frequency>18</frequency> <resonance>35</resonance> <amplitudes>
+    <envelope>
+      <attack>0</attack>
+      <decay>90</decay>
+      <sustain>45</sustain>
+      <release>15</release>
+    </envelope>
+  </amplitudes>
+
+  <filters>
+    <envelope>
+      <attack>0</attack>
+      <decay>48</decay> <sustain>0</sustain>
+      <release>10</release>
+    </envelope>
+  </filters>
+
+  <patchCables>
+    <patchCable source="filterEnvelope" destination="frequency" amount="78" />
+    <patchCable source="velocity" destination="filterEnvelope" amount="24" />
+  </patchCables>
+
+  <lpfHpfOrder>0</lpfHpfOrder> <compressor blend="64" threshold="32" attack="10" release="60" /> <distortionType>1</distortionType> <distortionAmount>38</distortionAmount> <delay>
+    <pingPong>1</pingPong>
+    <time>12</time> <feedback>25</feedback>
+    <amount>15</amount>
+  </delay>
+</sound>
