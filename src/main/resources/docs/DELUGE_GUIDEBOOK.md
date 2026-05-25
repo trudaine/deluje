@@ -88,6 +88,20 @@ Tracks can be configured to walk the step pointers in multiple structural pathwa
 
 ---
 
+### 1.5 Triplet Column Grid Divisions View (12-Step Triplets vs 16-Step Straights)
+
+Step sequencing is no longer restricted to straight subdivisions (sixteenth notes, 16 steps per bar)! The Deluge Workstation supports dynamic, per-track **Triplet Grid Divisions** switching, allowing you to build complex polyrhythms, drum shuffles, and eighth-note triplet sequences.
+
+* **The JToggleButton [3] Toggle**: Located at the bottom JScrollbar zoom toolbar (immediately next to the rate speed JComboBox), a warm-gold outline button labeled **`[3]`** switches step subdivisions on the active track clip dynamically:
+  * **Straight Mode (Default)**: Visual columns are set to **16 steps per bar**, with an underlying JPlayhead step time duration of exactly **24 ticks** (sixteenth notes).
+  * **Triplet Mode (3-Subdivisions)**: Visual columns swap instantly to **12 steps per bar**, with an underlying JPlayhead step time duration of exactly **32 ticks** (eighth-note triplets).
+* **Beat Divisions Visual Slate Stripes**: To guarantee that you can map your musical patterns with absolute visual speed, the empty pad cells' background colors dynamically display beat stripes guidelines based on the active clip's triplet state:
+  * **Sixteenth Straight beat divisions**: Emphasizes every **4 steps** (highlighted slate-gray columns on step 1, 5, 9, 13).
+  * **Eighth Triplet beat divisions**: Emphasizes every **3 steps** (highlighted slate-gray columns on step 1, 4, 7, 10).
+* **Parity XML loop lengths saving**: When saving files, the song XML writer dynamically computes the physical track loop duration ($12\text{ steps} \times 32\text{ ticks} = 384\text{ ticks}$ total loop length per bar) and saves it alongside the raw JNI ticks array structures and the `triplet="1"` attribute, ensuring 100% loss-free load cycles in all standard environments!
+
+---
+
 ## 2. Synthesizers & Sound Engines (Subtractive, FM, Wavetable)
 
 The sound design panel operates in three distinct, JRE-swappable hardware modeling modes:
