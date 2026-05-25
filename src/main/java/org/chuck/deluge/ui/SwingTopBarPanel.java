@@ -178,17 +178,6 @@ public class SwingTopBarPanel extends JPanel {
     btnExplorer.addActionListener(e -> leftFloat.setVisible(!leftFloat.isVisible()));
     add(btnExplorer);
 
-    JButton btnRandomize = new JButton("🎲 RANDOMIZE");
-    styleButton(btnRandomize, new Color(0x3e, 0x27, 0x0c), new Color(0xff, 0xb3, 0x00));
-    btnRandomize.setToolTipText("Open the Delugeator Web Randomizer to morph synth parameters");
-    btnRandomize.addActionListener(
-        e -> {
-          java.awt.Frame frame =
-              (java.awt.Frame) javax.swing.SwingUtilities.getWindowAncestor(this);
-          new SwingRandomizerDialog(frame, vm, bridge, projectModel).setVisible(true);
-        });
-    add(btnRandomize);
-
     add(new JSeparator(JSeparator.VERTICAL));
 
     // ── Transport ──
