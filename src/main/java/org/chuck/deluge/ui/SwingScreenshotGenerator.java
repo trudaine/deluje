@@ -57,6 +57,40 @@ public class SwingScreenshotGenerator {
                     });
                 Thread.sleep(500);
 
+                // 2b. Capture Automation Overview Matrix Grid!
+                System.out.println("[Screenshot] Switching to Automation Overview workspace...");
+                SwingUtilities.invokeAndWait(
+                    () -> {
+                      app.setWorkspaceView("AUTOMATION");
+                      app.getAutoPanel().setAutoOverviewMode(true);
+                      app.repaint();
+                    });
+                Thread.sleep(1500);
+                SwingUtilities.invokeAndWait(
+                    () -> captureComponent(app, "deluge_grid_automation_overview"));
+                Thread.sleep(1000);
+
+                // 2c. Capture Automation Detail Editor Grid!
+                System.out.println(
+                    "[Screenshot] Switching to Automation Detail Editor workspace...");
+                SwingUtilities.invokeAndWait(
+                    () -> {
+                      app.getAutoPanel().setAutoOverviewMode(false);
+                      app.repaint();
+                    });
+                Thread.sleep(1500);
+                SwingUtilities.invokeAndWait(
+                    () -> captureComponent(app, "deluge_grid_automation_editor"));
+                Thread.sleep(1000);
+
+                // Restore active display back to standard CLIP view before proceeding!
+                SwingUtilities.invokeAndWait(
+                    () -> {
+                      app.setWorkspaceView("CLIP");
+                      app.repaint();
+                    });
+                Thread.sleep(500);
+
                 // 3. Open and capture Randomizer Suite Dialog
                 System.out.println("[Screenshot] Spawning Delugeator Randomizer JDialog...");
                 final SwingRandomizerDialog[] randBox = new SwingRandomizerDialog[1];

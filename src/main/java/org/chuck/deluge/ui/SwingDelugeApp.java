@@ -1844,6 +1844,18 @@ public class SwingDelugeApp extends JFrame {
     return clipPanel;
   }
 
+  public SwingGridPanel getAutoPanel() {
+    return autoPanel;
+  }
+
+  public void setWorkspaceView(String viewName) {
+    activeViewMode = viewName;
+    if (topBar != null) topBar.selectViewModeButton(viewName);
+    cardLayout.show(centerCardPanel, viewName);
+    revalidate();
+    repaint();
+  }
+
   public SwingTopBarPanel getTopBar() {
     return topBar;
   }

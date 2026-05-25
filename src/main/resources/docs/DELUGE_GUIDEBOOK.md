@@ -40,7 +40,22 @@ The central focus of the Deluge Workstation is the multi-lane visual step sequen
   * **Repeat (Stutter)**: Subdivide a single grid step into automatic stutter retriggers (1x, 2x, 4x, 8x speed) for trap-style rolls.
 * **Quantized Playback Head**: A moving vertical white indicator line tracks the JNI playhead position across columns in real-time, matching standard system clocks.
 
-### 1.2 Step Parameter Properties, Probability & Fill Conditions
+### 1.2 Grid Automation Overview & Detail Editor Views
+
+The main sequencer pads grid can be toggled to **`AUTOMATION`** view mode. This view provides two distinct, visual perspective layouts:
+
+```carousel
+![Automation Overview Grid Workspace](images/deluge_grid_automation_overview.png)
+<!-- slide -->
+![Automation Detail Editor Grid Workspace](images/deluge_grid_automation_editor.png)
+```
+
+1. **AUTOMATION OVERVIEW Grid Mode (`deluge_grid_automation_overview.png`)**: Lists all synthesizer/track automatable parameters vertically (rows). Pads represent sequence columns step ticks: a step pad glows in solid green if it houses active automated points for that row's parameter, letting you scan entire automation states at a single glance!
+2. **AUTOMATION DETAIL EDITOR Grid Mode (`deluge_grid_automation_editor.png`)**: Selecting a specific parameter row in Overview mode opens the dedicated per-step value editor! The 8 grid rows act as value bands (from `0-15` up to `112-127`). You draw step-by-step values directly on the physical pads: a pad glows in bright cyan indicating the parameter value at that specific sequencer step!
+
+---
+
+### 1.3 Step Parameter Properties, Probability & Fill Conditions
 
 Double-clicking a sequence step opens our dedicated, high-contrast **`Step Properties`** JDialog. This provides precise, standard-compliant step parameters and random fill rules:
 
@@ -63,7 +78,7 @@ Double-clicking a sequence step opens our dedicated, high-contrast **`Step Prope
 
 ---
 
-### 1.3 Play Direction Modes (Forward, Reverse, Ping-Pong, Random)
+### 1.4 Play Direction Modes (Forward, Reverse, Ping-Pong, Random)
 
 Tracks can be configured to walk the step pointers in multiple structural pathways, parsed dynamically by the JNI timing clock:
 * **FORWARD**: The standard grid walk (from step 1 to step 16, wrapping back to 1).
