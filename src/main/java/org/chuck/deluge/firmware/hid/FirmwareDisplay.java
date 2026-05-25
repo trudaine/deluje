@@ -53,15 +53,17 @@ public class FirmwareDisplay {
   public void setText(String text) {
     this.lastMainText = text;
     virtualOLED.clear();
-    virtualOLED.drawString(text, 10, 30);
+    virtualOLED.setLargeFont(true);
+    virtualOLED.drawString(text, 10, 38);
     notifyOledListener();
     notifyListener();
   }
 
   public void displayPopup(String text) {
     this.lastPopupText = text;
+    virtualOLED.setLargeFont(true);
     virtualOLED.drawRect(5, 5, 118, 54, true);
-    virtualOLED.drawString(text, 10, 30);
+    virtualOLED.drawString(text, 10, 38);
     notifyOledListener();
     notifyListener();
   }
@@ -69,14 +71,16 @@ public class FirmwareDisplay {
   public void displayNotification(String title, String value) {
     this.lastPopupText = title + ": " + value;
     virtualOLED.clear();
-    virtualOLED.drawString(title, 5, 15);
-    virtualOLED.drawString(value, 5, 45);
+    virtualOLED.setLargeFont(true);
+    virtualOLED.drawString(title, 5, 22);
+    virtualOLED.drawString(value, 5, 52);
     notifyOledListener();
     notifyListener();
   }
 
   public void displayContextMenu(String title, String[] options, int selectedIdx) {
     virtualOLED.clear();
+    virtualOLED.setLargeFont(false); // Use the crisp smaller list font to prevent line overlapping!
     virtualOLED.drawRect(0, 0, 128, 14, true); // Header
     virtualOLED.drawString(title, 5, 11);
 
