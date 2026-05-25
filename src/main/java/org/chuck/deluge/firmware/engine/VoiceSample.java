@@ -101,8 +101,8 @@ public class VoiceSample {
       }
 
       // Linear interpolation
-      float s0 = data[intPos * numChannels];
-      float s1 = data[Math.min(data.length - 1, (intPos + 1) * numChannels)];
+      float s0 = data[Math.max(0, Math.min(data.length - 1, intPos * numChannels))];
+      float s1 = data[Math.max(0, Math.min(data.length - 1, (intPos + 1) * numChannels))];
       float out = s0 + (s1 - s0) * (float) (frac / 4294967296.0);
 
       int valQ31 = (int) (out * 2147483647.0);
