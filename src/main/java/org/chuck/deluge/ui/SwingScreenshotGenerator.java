@@ -212,11 +212,11 @@ public class SwingScreenshotGenerator {
     g2.dispose();
 
     try {
-      File out = new File("docs/images/" + filename + ".png");
+      File out = new File("deluge/src/main/resources/docs/images/" + filename + ".png");
       out.getParentFile().mkdirs();
       ImageIO.write(img, "PNG", out);
       System.out.println(
-          "✅ Saved real Swing screenshot: docs/images/"
+          "✅ Saved real Swing screenshot: deluge/src/main/resources/docs/images/"
               + filename
               + ".png ("
               + out.length()

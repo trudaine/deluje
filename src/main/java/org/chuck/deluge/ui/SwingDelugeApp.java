@@ -2348,10 +2348,21 @@ public class SwingDelugeApp extends JFrame {
         });
     toolsMenu.add(slicerItem);
 
+    // Help menu — Operations Manual JDialog
+    JMenu helpMenu = new JMenu("Help");
+    JMenuItem manualItem = new JMenuItem("Operations Manual...");
+    manualItem.setAccelerator(KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_F1, 0));
+    manualItem.addActionListener(
+        e -> {
+          new SwingHelpDialog(this).setVisible(true);
+        });
+    helpMenu.add(manualItem);
+
     menuBar.add(fileMenu);
     menuBar.add(editMenu);
     menuBar.add(toolsMenu);
     menuBar.add(settingsMenu);
+    menuBar.add(helpMenu);
     setJMenuBar(menuBar);
 
     // Global undo/redo keyboard shortcuts (always active regardless of focus)
