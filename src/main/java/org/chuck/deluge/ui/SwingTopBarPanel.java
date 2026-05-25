@@ -439,7 +439,15 @@ public class SwingTopBarPanel extends JPanel {
       b.setFocusPainted(false);
       b.setBorder(BorderFactory.createLineBorder(new Color(0x44, 0x44, 0x4f), 1));
       b.setFont(new Font("SansSerif", Font.BOLD, 12));
-      b.setMargin(new Insets(4, 12, 4, 12));
+      b.setMargin(new Insets(2, 6, 2, 6));
+
+      // Dynamic pixel-perfect 28px clamp heights!
+      Dimension pref = b.getPreferredSize();
+      int targetW = Math.max(65, pref.width + 12);
+      b.setPreferredSize(new Dimension(targetW, 28));
+      b.setMinimumSize(new Dimension(targetW, 28));
+      b.setMaximumSize(new Dimension(targetW, 28));
+
       if (b.isSelected()) {
         b.setBackground(Color.WHITE);
         b.setForeground(Color.BLACK);
@@ -458,7 +466,14 @@ public class SwingTopBarPanel extends JPanel {
     btn.setForeground(fg);
     btn.setFont(new Font("SansSerif", Font.BOLD, 12));
     btn.setBorder(BorderFactory.createLineBorder(fg, 1));
-    btn.setMargin(new Insets(4, 12, 4, 12));
+    btn.setMargin(new Insets(2, 6, 2, 6));
+
+    // Dynamic pixel-perfect 28px clamp heights!
+    Dimension pref = btn.getPreferredSize();
+    int targetW = Math.max(70, pref.width + 12);
+    btn.setPreferredSize(new Dimension(targetW, 28));
+    btn.setMinimumSize(new Dimension(targetW, 28));
+    btn.setMaximumSize(new Dimension(targetW, 28));
 
     btn.addMouseListener(
         new java.awt.event.MouseAdapter() {
