@@ -3245,36 +3245,48 @@ public class SwingGridPanel extends JPanel {
     }
     this.columnCount = this.stepCount + (viewMode == GridViewMode.CLIP ? 2 : 0);
 
-    // Real-time pure timing audio engine synchronization!
+    // Real-time pure timing audio engine notes hot-swap!
     if (vm != null && projectModel != null) {
       try {
-        org.chuck.deluge.firmware.model.Song fwSong =
-            org.chuck.deluge.firmware.engine.FirmwareFactory.createSong(projectModel);
         Object fwHandlerObj =
             vm.getGlobalObject(org.chuck.deluge.BridgeContract.G_PLAYBACK_HANDLER);
         if (fwHandlerObj instanceof org.chuck.deluge.firmware.playback.PlaybackHandler fwHandler) {
-          fwHandler.setSong(fwSong);
+          org.chuck.deluge.firmware.model.Song currentSong = fwHandler.getSong();
+          if (currentSong != null) {
+            org.chuck.deluge.firmware.model.Song freshSong =
+                org.chuck.deluge.firmware.engine.FirmwareFactory.createSong(projectModel);
 
-          // Update low-level sounds list for real-time sample playing key triggers
-          Object fwEngineObj =
-              vm.getGlobalObject(org.chuck.deluge.BridgeContract.G_FIRMWARE_ENGINE);
-          if (fwEngineObj
-              instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
-            fwEngine.sounds.clear();
-            for (int i = 0; i < projectModel.getTracks().size(); i++) {
-              fwEngine.sounds.add(null);
-            }
-            for (int i = 0; i < fwSong.clips.size() && i < projectModel.getTracks().size(); i++) {
-              org.chuck.deluge.firmware.model.Clip c = fwSong.clips.get(i);
-              if (c instanceof org.chuck.deluge.firmware.model.InstrumentClip ic
-                  && ic.sound != null) {
-                fwEngine.sounds.set(i, ic.sound);
+            // Swap the note patterns lists atomically without resetting voice sound/wavetable
+            // modules!
+            for (int i = 0; i < freshSong.clips.size() && i < currentSong.clips.size(); i++) {
+              org.chuck.deluge.firmware.model.Clip freshClip = freshSong.clips.get(i);
+              org.chuck.deluge.firmware.model.Clip currentClip = currentSong.clips.get(i);
+              if (freshClip instanceof org.chuck.deluge.firmware.model.InstrumentClip
+                  && currentClip instanceof org.chuck.deluge.firmware.model.InstrumentClip) {
+                org.chuck.deluge.firmware.model.InstrumentClip freshInst =
+                    (org.chuck.deluge.firmware.model.InstrumentClip) freshClip;
+                org.chuck.deluge.firmware.model.InstrumentClip currentInst =
+                    (org.chuck.deluge.firmware.model.InstrumentClip) currentClip;
+
+                currentInst.noteRows = freshInst.noteRows;
+                currentInst.loopLength = freshInst.loopLength;
+                currentInst.tripletMode = freshInst.tripletMode;
+                currentInst.ticksTilNextEvent = freshInst.ticksTilNextEvent;
               }
             }
+
+            currentSong.tempoBPM = freshSong.tempoBPM;
+            currentSong.swingAmount = freshSong.swingAmount;
+            currentSong.swingInterval = freshSong.swingInterval;
+          } else {
+            // If there is no current song yet (e.g. initial setup!), build the full song reference
+            org.chuck.deluge.firmware.model.Song freshSong =
+                org.chuck.deluge.firmware.engine.FirmwareFactory.createSong(projectModel);
+            fwHandler.setSong(freshSong);
           }
         }
       } catch (Exception ex) {
-        LOG.warning("Real-time audio engine hot-swap sync failed: " + ex.getMessage());
+        LOG.warning("Real-time audio engine notes hot-swap sync failed: " + ex.getMessage());
       }
     }
 

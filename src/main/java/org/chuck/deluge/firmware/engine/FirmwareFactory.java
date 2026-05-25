@@ -99,7 +99,7 @@ public class FirmwareFactory {
       clip.tripletMode = clipModel.isTripletMode();
       clip.loopLength = clipModel.getStepCount() * stepTicks;
       for (int r = 0; r < clipModel.getRowCount(); r++) {
-        int pitch = ((24 - 1) - r) + 60;
+        int pitch = (clipModel.getRowCount() - 1) - r;
         NoteRow row = new NoteRow(pitch);
         java.util.List<org.chuck.deluge.model.HighResNote> rawNotes = clipModel.getRawNoteEvents(r);
         if (rawNotes != null && !rawNotes.isEmpty()) {
