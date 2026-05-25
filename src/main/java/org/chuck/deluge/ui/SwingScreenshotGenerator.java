@@ -9,6 +9,7 @@ import javax.swing.*;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.model.KitTrackModel;
+import org.chuck.deluge.model.SynthTrackModel;
 import org.chuck.deluge.model.TrackModel;
 
 /**
@@ -20,20 +21,43 @@ public class SwingScreenshotGenerator {
 
   public static void runAutoScreenshots(SwingDelugeApp app, ChuckVM vm, BridgeContract bridge) {
 
-    // Start background scheduler thread so we do not freeze AWT EDT!
     new Thread(
             () -> {
               try {
                 System.out.println(
-                    "[Screenshot] Starting multi-threaded visual capture pipeline...");
+                    "[Screenshot] Starting expanded 12-tab visual capture pipeline...");
                 Thread.sleep(1000);
 
-                // 1. Capture Main sequencers Sequencer grid (Clip view!)
+                // 1. Capture Main Sequencer grid (Clip view!)
                 System.out.println("[Screenshot] Capturing Main Sequencer grid...");
+                SwingUtilities.invokeAndWait(
+                    () -> {
+                      app.getClipPanel().setShiftHeld(false);
+                      app.repaint();
+                    });
+                Thread.sleep(1000);
                 SwingUtilities.invokeAndWait(() -> captureComponent(app, "deluge_main_sequencer"));
                 Thread.sleep(1000);
 
-                // 2. Open and capture Randomizer Suite Dialog
+                // 2. Capture Shift state Active grid (displays function sub-labels!)
+                System.out.println(
+                    "[Screenshot] Capturing Sequencer Grid with Shift state active...");
+                SwingUtilities.invokeAndWait(
+                    () -> {
+                      app.getClipPanel().setShiftHeld(true);
+                      app.repaint();
+                    });
+                Thread.sleep(1500);
+                SwingUtilities.invokeAndWait(() -> captureComponent(app, "deluge_main_grid_shift"));
+                Thread.sleep(1000);
+                SwingUtilities.invokeAndWait(
+                    () -> {
+                      app.getClipPanel().setShiftHeld(false);
+                      app.repaint();
+                    });
+                Thread.sleep(500);
+
+                // 3. Open and capture Randomizer Suite Dialog
                 System.out.println("[Screenshot] Spawning Delugeator Randomizer JDialog...");
                 final SwingRandomizerDialog[] randBox = new SwingRandomizerDialog[1];
                 SwingUtilities.invokeAndWait(
@@ -44,10 +68,7 @@ public class SwingScreenshotGenerator {
                       randBox[0].setSize(840, 940);
                       randBox[0].setVisible(true);
                     });
-
-                // Wait for EDT to fully render all Amber channels and sliders!
                 Thread.sleep(1500);
-
                 SwingUtilities.invokeAndWait(
                     () -> {
                       captureComponent(randBox[0], "deluge_randomizer_suite");
@@ -55,7 +76,7 @@ public class SwingScreenshotGenerator {
                     });
                 Thread.sleep(1000);
 
-                // 3. Open and capture Loop Slicer Dialog
+                // 4. Open and capture Loop Slicer Dialog
                 System.out.println("[Screenshot] Spawning Audio Loop Slicer JDialog...");
                 final SwingAudioSlicerDialog[] slicerBox = new SwingAudioSlicerDialog[1];
                 SwingUtilities.invokeAndWait(
@@ -66,10 +87,7 @@ public class SwingScreenshotGenerator {
                       slicerBox[0].setSize(800, 500);
                       slicerBox[0].setVisible(true);
                     });
-
-                // Wait for EDT to decode files and paint orange division grids!
                 Thread.sleep(2000);
-
                 SwingUtilities.invokeAndWait(
                     () -> {
                       captureComponent(slicerBox[0], "deluge_audio_slicer");
@@ -77,7 +95,7 @@ public class SwingScreenshotGenerator {
                     });
                 Thread.sleep(1000);
 
-                // 4. Open and capture Kit Sound Config Dialog with WAV waveform crop deck
+                // 5. Open and capture Kit Sound Config Dialog with WAV waveform crop deck
                 System.out.println(
                     "[Screenshot] Spawning wide-screen Kit Configuration JDialog...");
                 List<TrackModel> tracks = app.getCurrentProject().getTracks();
@@ -91,10 +109,7 @@ public class SwingScreenshotGenerator {
                           kitBox[0].setSize(950, 720);
                           kitBox[0].setVisible(true);
                         });
-
-                    // Wait for Project Loom to finish decodes and paint neons!
                     Thread.sleep(2500);
-
                     SwingUtilities.invokeAndWait(
                         () -> {
                           captureComponent(kitBox[0], "deluge_waveform_crop");
@@ -103,8 +118,71 @@ public class SwingScreenshotGenerator {
                     break;
                   }
                 }
+                Thread.sleep(1000);
 
-                System.out.println("🎉 PROGRAMMATIC REAL SCREENSHOTS GENERATED SUCCESSFULLY!");
+                // 6. Open, cycle, and capture ALL tabs in Synth Sound Config Dialog
+                System.out.println(
+                    "[Screenshot] Spawning wide-screen Synth Configuration JDialog and cycling tabs...");
+                for (int i = 0; i < tracks.size(); i++) {
+                  TrackModel t = tracks.get(i);
+                  if (t instanceof SynthTrackModel st) {
+                    final int trackIdx = i;
+
+                    // Programmatically force FM (DX7 6-Operator) mode to showcase all dynamic tabs!
+                    st.setSynthMode(1);
+
+                    final SwingSynthConfigDialog[] synthBox = new SwingSynthConfigDialog[1];
+                    SwingUtilities.invokeAndWait(
+                        () -> {
+                          synthBox[0] =
+                              new SwingSynthConfigDialog(
+                                  app, st, vm, bridge, trackIdx, app.getCurrentProject());
+                          synthBox[0].pack();
+                          synthBox[0].setSize(950, 720);
+                          synthBox[0].setVisible(true);
+                        });
+                    Thread.sleep(1500);
+
+                    JTabbedPane synthTabs = synthBox[0].getTabbedPane();
+                    for (int tIdx = 0; tIdx < synthTabs.getTabCount(); tIdx++) {
+                      final int finalTIdx = tIdx;
+                      SwingUtilities.invokeAndWait(() -> synthTabs.setSelectedIndex(finalTIdx));
+                      Thread.sleep(1000); // Give the sub-panel EDT cycles to paint cleanly!
+
+                      String rawTitle = synthTabs.getTitleAt(tIdx);
+                      String tabName =
+                          rawTitle.toUpperCase().replaceAll("[^A-Z0-9]", "_").toLowerCase();
+                      SwingUtilities.invokeAndWait(
+                          () -> captureComponent(synthBox[0], "deluge_synth_tab_" + tabName));
+                    }
+
+                    SwingUtilities.invokeAndWait(() -> synthBox[0].dispose());
+                    break;
+                  }
+                }
+                Thread.sleep(1000);
+
+                // 7. Open and capture Settings Preferences Dialog
+                System.out.println("[Screenshot] Spawning system Settings Preferences JDialog...");
+                final PreferencesDialog[] prefBox = new PreferencesDialog[1];
+                SwingUtilities.invokeAndWait(
+                    () -> {
+                      prefBox[0] = new PreferencesDialog(app, () -> {}, () -> {});
+                      prefBox[0].setModal(
+                          false); // Disable modality for programmatic screenshot capture!
+                      prefBox[0].pack();
+                      prefBox[0].setSize(640, 560);
+                      prefBox[0].setVisible(true);
+                    });
+                Thread.sleep(1500);
+                SwingUtilities.invokeAndWait(
+                    () -> {
+                      captureComponent(prefBox[0], "deluge_preferences");
+                      prefBox[0].dispose();
+                    });
+
+                System.out.println(
+                    "🎉 ALL EXPANDED SYSTEM REAL SCREENSHOTS GENERATED SUCCESSFULLY!");
                 System.exit(0);
               } catch (Exception ex) {
                 System.err.println(
