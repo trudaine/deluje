@@ -17,6 +17,17 @@ public class VirtualOLED {
   private final Graphics2D g2d;
   private boolean dirty = true;
 
+  public static final Font LARGE_FONT = new Font("Monospaced", Font.BOLD, 14);
+  public static final Font SMALL_FONT = new Font("Monospaced", Font.BOLD, 9);
+
+  public void setLargeFont(boolean large) {
+    try {
+      g2d.setFont(large ? LARGE_FONT : SMALL_FONT);
+    } catch (Throwable t) {
+      // Shield
+    }
+  }
+
   public VirtualOLED() {
     this.image = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_ARGB);
     this.g2d = image.createGraphics();
@@ -29,9 +40,7 @@ public class VirtualOLED {
     } catch (Throwable t) {
       // Shield for headless test environments
     }
-    g2d.setFont(
-        new Font(
-            "Monospaced", Font.BOLD, 11)); // High-contrast, highly legible hardware monospaced font
+    g2d.setFont(LARGE_FONT); // Default to the large, highly legible main font!
     clear();
   }
 
