@@ -6,7 +6,7 @@ Welcome to the **ChucK-Java Deluge Workstation**, a modern, high-fidelity softwa
 
 ## Table of Contents
 1. [The Step Sequencer & Clip View](#1-the-step-sequencer--clip-view)
-2. [Synthesizers & Sound Engines (Subtractive, FM, Wavetable)](#2-synthesizers--sound-engines-subtractive-fm-wavetable)
+2. [Synthesizers & Sound Engines (Subtractive, FM, Wavetable, Legato, Multi-Sampler, Ring Mod)](#2-synthesizers--sound-engines-subtractive-fm-wavetable)
 3. [Drum Kits & Smart Keyword Auto-Mapper](#3-drum-kits--smart-keyword-auto-mapper)
 4. [DAW-Grade Visual Waveform Crop & Loop Markers Deck](#4-daw-grade-visual-waveform-crop--loop-markers-deck)
 5. [MPC-Style Automatic Loop Slicer & Kit Splitter](#5-mpc-style-automatic-loop-slicer--kit-splitter)
@@ -35,6 +35,37 @@ The central focus of the Deluge Workstation is the multi-lane visual step sequen
   * **Nudge (Micro-Timing)**: Offset step triggers by micro-fractions to introduce organic, humanized shuffle swings.
   * **Repeat (Stutter)**: Subdivide a single grid step into automatic stutter retriggers (1x, 2x, 4x, 8x speed) for trap-style rolls.
 * **Quantized Playback Head**: A moving vertical white indicator line tracks the JNI playhead position across columns in real-time, matching standard system clocks.
+
+### 1.2 Step Parameter Properties, Probability & Fill Conditions
+
+Double-clicking a sequence step opens our dedicated, high-contrast **`Step Properties`** JDialog. This provides precise, standard-compliant step parameters and random fill rules:
+
+![Per-Step Parameter Properties JDialog Dialog](images/deluge_step_properties.png)
+
+* **Velocity**: Scale note triggers velocities precisely from `1%` to `100%` (combines both slider and exact spinner values).
+* **Repeats (Sub-Triggers / Iterance)**: Subdivide standard sequencer steps into quick sub-triggers (0 to 3 subdivisions, where 3 represents active triplet step subdivisions within standard note ticks).
+* **Fill Probability % (Loop Conditionals)**: Program a step with specific chance properties:
+  * `0%`: Standard static step (triggers every single pass).
+  * `1% to 100%`: Fill-only conditional step! The step will only trigger on fills based on the random probability percentage selected, adding structural humanized variations to loops!
+
+#### 🔔 Tutorial E: Evolving Generative Ambient Sequence (Probability Sequencing)
+1. Select a Synth track grid. Sequence a basic chord progression across a 16-step grid lane: set warm pad steps on columns 1, 5, 9, 13!
+2. Now let's add secondary ambient "ornament plucks" on columns 3, 7, 11, and 15!
+3. Double-click the pluck note on Column 3. In the Step Properties dialog, slide the **Fill %** up to **`35%`** and click Apply (the pluck now has only a $35\%$ chance of playing on any loop pass!).
+4. Double-click the Column 7 pluck: set its **Fill %** to **`50%`**.
+5. Double-click the Column 11 pluck: set **Fill %** to **`20%`** and change **Repeats** to **`2`** (quick double-strike pluck!).
+6. Double-click the Column 15 pluck: set **Fill %** to **`60%`**.
+7. *Result*: Press play: you will hear a beautiful, organic, and endlessly evolving ambient track! The chord pads lay a steady foundation, while the ambient plucks strike at different random intervals, creating a generative composition that never sounds identical!
+
+---
+
+### 1.3 Play Direction Modes (Forward, Reverse, Ping-Pong, Random)
+
+Tracks can be configured to walk the step pointers in multiple structural pathways, parsed dynamically by the JNI timing clock:
+* **FORWARD**: The standard grid walk (from step 1 to step 16, wrapping back to 1).
+* **REVERSE**: The track steps play backward (from step 16 to step 1, wrapping back to 16). Great for reversing drum fills or mirror vocal phrases!
+* **PING-PONG**: Symmetrical bi-directional walk! Plays Forward from step 1 to 16, and then immediately plays backward from 15 down to 2, bouncing back and forth.
+* **RANDOM**: On every clock step division tick, the playhead jumps to a completely random step column. Perfect for generative noise sweeps or pointillistic FM plucks!
 
 ---
 
@@ -95,6 +126,73 @@ FM synthesis generates complex, metallic, and crystal timbres by modulating the 
 ### 2.3 Wavetable Synthesis Engine
 Wavetable synthesis loops single-cycle wave tables, allowing complex wavetable sweeps:
 * **Wavetable Index Sweeping**: Choose a multi-cycle wavetable WAV, set base index position coordinates, and write index automation sweeps to morph the waveshape over time.
+
+---
+
+### 2.4 Legato Glide & Portamento Pitch Slides
+
+Portamento (Glide) introduces a smooth, continuous slide transition between consecutive notes pitch frequencies rather than an immediate pitch step jump. 
+* **Legato Portamento mode (Auto-Glide)**: The pitch glide slides **only** when note pad keys overlap on the step sequencer grid! If notes are played staccato (separated gaps), pitch jumps immediately.
+* **Portamento Glide Time (ms)**: Scale the slide velocity transition time smoothly from quick slurs (`10ms`) up to long sweeping portamento rises (`1200ms`).
+
+#### 🎸 Tutorial F: 303 Acid Bassline Glide Slides
+1. Go to the **`OSC`** tab of your Synth config, set the mode to **`SUBTRACTIVE`**. Set Osc A to **`SAWTOOTH`** wave shape.
+2. Go to the **`FILTER`** tab, set LPF Cutoff base to a deep **`600Hz`** and Resonance to a high **`75%`** (acid squelch!). Set LPF Envelope Mod to **`+55%`** (filter dynamics).
+3. Select the **`OSC`** tab (or standard sidebar settings) to configure:
+   * **Polyphony Mode**: Toggle from `POLY` to **`LEGATO`** (auto-glide mode!).
+   * **Portamento Glide Time**: Set to **`150ms`**.
+4. Go to the Clip sequencer grid. Let's enter steps:
+   * Column 1: note **`C3`** (Length = 2 steps! It extends to the end of Column 2!).
+   * Column 2: note **`G3`** (Note starts on Column 2! Because Column 1's C3 is still active, the notes OVERLAP! This triggers the auto-glide!).
+   * Column 3: note **`F3`** (Length = 1 step).
+   * Column 4: note **`C4`** (Starts on Column 4, overlapping F3!).
+5. Go to step properties for the C4 note: check the **Fill %** as standard or leave velocity at **`100%`**.
+6. *Result*: Press play: you will hear a perfect, classic analog 303 acid bassline sequence, slurring and sliding its pitch slides and filter envelope sweeps beautifully on the overlapping steps!
+
+---
+
+### 2.5 Multi-Sample Keyzones & Pitch Ranges
+
+For highly realistic acoustic instrument modeling (such as pianos, string sections, or choirs), loading a single sample across the entire keyboard results in unnatural speed/pitch stretching ("chipmunk effect"). The Multi-Sampler engine lets you load multiple WAV files split across distinct key ranges:
+
+```mermaid
+graph TD
+    A[Play MIDI Note C2] -->|Map Range C0 to B2| B[Load Piano_Low.wav]
+    C[Play MIDI Note G4] -->|Map Range C3 to B5| D[Load Piano_Mid.wav]
+    E[Play MIDI Note D7] -->|Map Range C6 to C8| F[Load Piano_High.wav]
+```
+
+* **Keyzone Boundaries (Split Points)**: Configure target key boundaries (e.g., Zone 1 maps keys C0 to B2, Zone 2 maps C3 to B5, Zone 3 maps C6 to C8).
+* **Root Pitch Mapping**: Assign the baseline root pitch for each WAV file (e.g., Zone 2 file is a recording of Middle C, so its root pitch is set to C4 / MIDI 60). The engine calculates detunes relative to the file's root pitch, ensuring organic pitch playback speed scaling.
+
+#### 🎹 Tutorial G: High-Fidelity Acoustic Grand Piano Multi-Sampler
+1. In the Synth config panel, change the sound generator source from basic waveforms to the **`MULTI-SAMPLE`** engine deck.
+2. Add three keyzone slot rows mapping your instrument's raw acoustic recordings:
+   * **Zone Slot 1**: Select file **`Piano_Bass_C2.wav`**. Set Key Range from **`C0 to B2`** and Root Pitch to **`C2 (MIDI 36)`**.
+   * **Zone Slot 2**: Select file **`Piano_Mid_C4.wav`**. Set Key Range from **`C3 to B5`** and Root Pitch to **`C4 (MIDI 60)`**.
+   * **Zone Slot 3**: Select file **`Piano_Treble_C6.wav`**. Set Key Range from **`C6 to C8`** and Root Pitch to **`C6 (MIDI 84)`**.
+3. Go to the **`ENVELOPE`** tab (Envelope 1 VCA). Set Attack to **`1ms`** (instant strike), Decay to **`2.5s`**, Sustain to **`0%`**, and Release to **`250ms`** (natural acoustic resonance tail damping).
+4. *Result*: Play steps across separate octaves: the sequencer will dynamically load and trigger different high-fidelity recordings, delivering an incredibly rich, organic multi-sampled acoustic grand piano with perfect pitch parity!
+
+---
+
+### 2.6 Ring Modulation Sound Synthesis
+
+Ring Modulation multiplies two audio frequency signals at sample-accurate rates. The output signal contains the sum and difference frequencies of the input waves, but silences the individual original pitches, generating dark, metallic, or bell-like industrial timbres:
+
+$$V_{out}(t) = \text{Osc A}(t) \times \text{Osc B}(t)$$
+
+* **Oscillator A (Carrier) & Oscillator B (Modulator)**: Dual audio signal inputs multiplied at sample-accurate rates.
+* **Frequency Ratio Splits**: Tuning the frequency split between Osc A and Osc B to non-harmonic intervals (e.g. detuning Osc B by a tritone or major 7th) yields complex, highly aggressive robotic timbres.
+
+#### 🤖 Tutorial H: Metallic Industrial Ring-Mod Sound Pluck
+1. Open your Synth Config editor, go to the **`OSC`** tab. Change the active Synthesizer Mode from `SUBTRACTIVE` to **`RINGMOD`**.
+2. Configure your dual input oscillators:
+   * **Osc A Shape**: **`SINE`** (warm carrier fundamental), **Pitch Tuning**: **`0 semitones`**.
+   * **Osc B Shape**: **`SAWTOOTH`** (rich modulator harmonics), **Pitch Tuning**: **`+11 semitones`** (detuned major 7th interval creates metallic ring-modulation splits!).
+3. Go to the **`FILTER`** tab, set LPF Cutoff base to a dark **`700Hz`** and Resonance to a moderate **`45%`**.
+4. Go to the **`ENVELOPE`** tab (specifically Envelope 2 VCF). Set Attack to **`0ms`** (instant sharp strike), Decay to **`120ms`** (quick pluck decay), and Sustain to **`0%`**. Set the LPF Envelope Mod to a high **`+60%`** (plucky filter sweep!).
+5. *Result*: Sequence a steps phrase: you will hear a highly aggressive, sharp, metallic industrial ring-modulated sound pluck perfect for heavy dark techno or industrial music leads!
 
 ---
 
