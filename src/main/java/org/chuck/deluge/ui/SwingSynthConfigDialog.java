@@ -28,6 +28,10 @@ public class SwingSynthConfigDialog extends JDialog {
   private static final String DEFAULT_HELP_TEXT =
       "<html>\uD83D\uDCA1 <b>QUICK HELP:</b> Hover over any control knob or slider to see its details and hardware mappings here!</html>";
 
+  public JTabbedPane getTabbedPane() {
+    return tabs;
+  }
+
   public SwingSynthConfigDialog(
       Frame owner,
       SynthTrackModel model,
