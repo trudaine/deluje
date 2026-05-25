@@ -14,7 +14,7 @@ import org.chuck.deluge.firmware.model.note.PendingNoteOn;
  */
 public class InstrumentClip extends Clip {
   public GlobalEffectable sound; // Can be a FirmwareSound (Synth) or FirmwareKit
-  public List<NoteRow> noteRows = new ArrayList<>();
+  public volatile List<NoteRow> noteRows = new ArrayList<>();
   public int ticksTilNextEvent = Integer.MAX_VALUE;
 
   public InstrumentClip() {
