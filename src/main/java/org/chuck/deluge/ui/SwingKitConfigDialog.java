@@ -381,7 +381,7 @@ public class SwingKitConfigDialog extends JDialog {
         "Open the 3D perspective waterfall wavetable laboratory editor for custom indices scans!");
     wtLabBtn.addActionListener(
         ev -> {
-          Frame owner = (Frame) SwingUtilities.getWindowAncestor(btnRow);
+          Window owner = SwingUtilities.getWindowAncestor(btnRow);
           int trackIdx =
               (SwingDelugeApp.mainInstance != null
                       && SwingDelugeApp.mainInstance.getClipPanel() != null)
