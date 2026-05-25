@@ -1540,6 +1540,40 @@ public class SwingGridPanel extends JPanel {
 
     rowPanel.add(label);
 
+    // Dynamic drum voice direct-access config button (Clip mode kit slots)
+    if (viewMode == GridViewMode.CLIP
+        && projectModel != null
+        && editedModelTrack < projectModel.getTracks().size()) {
+      org.chuck.deluge.model.TrackModel activeTrack =
+          projectModel.getTracks().get(editedModelTrack);
+      if (activeTrack instanceof org.chuck.deluge.model.KitTrackModel kitTrack) {
+        java.util.List<org.chuck.deluge.model.Drum> drumsList = kitTrack.getDrums();
+        int soundIndex = drumsList.size() - 1 - modelRow;
+        if (soundIndex >= 0 && soundIndex < drumsList.size()) {
+          JButton drumCfgBtn = new JButton("⚙");
+          drumCfgBtn.setPreferredSize(new Dimension(20, 20));
+          drumCfgBtn.setMinimumSize(new Dimension(20, 20));
+          drumCfgBtn.setMaximumSize(new Dimension(20, 20));
+          drumCfgBtn.setMargin(new Insets(0, 0, 0, 0));
+          drumCfgBtn.setFont(new Font("SansSerif", Font.PLAIN, 10));
+          drumCfgBtn.setBackground(new Color(0x2d, 0x2d, 0x32));
+          drumCfgBtn.setForeground(new Color(0x00, 0xff, 0xcc));
+          drumCfgBtn.setFocusable(false);
+          drumCfgBtn.setToolTipText("Open full settings editor for drum slot: " + tName);
+          drumCfgBtn.addActionListener(
+              e -> {
+                Window owner = SwingUtilities.getWindowAncestor(rowPanel);
+                SwingKitConfigDialog dialog =
+                    new SwingKitConfigDialog((Frame) owner, kitTrack, vm, bridge);
+                dialog.setSelectedTab(soundIndex);
+                dialog.setVisible(true);
+              });
+          rowPanel.add(Box.createHorizontalStrut(3));
+          rowPanel.add(drumCfgBtn);
+        }
+      }
+    }
+
     // Config button and length badge only for modelRow < 8 (real model tracks)
     if (modelRow < tracks.size() && modelRow < 8) {
       org.chuck.deluge.model.TrackModel track = tracks.get(modelRow);
@@ -3551,7 +3585,44 @@ public class SwingGridPanel extends JPanel {
         } else {
           leftSpacing = lw + 69;
         }
-        scrollRow.add(Box.createRigidArea(new Dimension(leftSpacing, 10)));
+
+        // Add Synth Config direct-access button for active Carrier Synth track
+        if (viewMode == GridViewMode.CLIP
+            && projectModel != null
+            && editedModelTrack < projectModel.getTracks().size()
+            && projectModel.getTracks().get(editedModelTrack)
+                instanceof org.chuck.deluge.model.SynthTrackModel) {
+          int remainingSpacer = leftSpacing - 110;
+          if (remainingSpacer > 0) {
+            scrollRow.add(Box.createRigidArea(new Dimension(remainingSpacer, 10)));
+          }
+          JButton synthCfgBtn = new JButton("⚙ SYNTH CONFIG");
+          synthCfgBtn.setPreferredSize(new Dimension(110, 20));
+          synthCfgBtn.setMinimumSize(new Dimension(110, 20));
+          synthCfgBtn.setMaximumSize(new Dimension(110, 20));
+          synthCfgBtn.setMargin(new Insets(0, 2, 0, 2));
+          synthCfgBtn.setFont(new Font("SansSerif", Font.BOLD, 9));
+          synthCfgBtn.setBackground(new Color(0x2d, 0x2d, 0x32));
+          synthCfgBtn.setForeground(new Color(0x00, 0xff, 0xcc));
+          synthCfgBtn.setFocusable(false);
+          synthCfgBtn.setToolTipText(
+              "Open full synthesizer parameters dashboard (Envelopes, LFOs, Arp, FM matrix)");
+
+          synthCfgBtn.addActionListener(
+              e -> {
+                Window owner = SwingUtilities.getWindowAncestor(synthCfgBtn);
+                org.chuck.deluge.model.TrackModel activeTrack =
+                    projectModel.getTracks().get(editedModelTrack);
+                if (activeTrack instanceof org.chuck.deluge.model.SynthTrackModel synthTrack) {
+                  new SwingSynthConfigDialog(
+                          (Frame) owner, synthTrack, vm, bridge, editedModelTrack, projectModel)
+                      .setVisible(true);
+                }
+              });
+          scrollRow.add(synthCfgBtn);
+        } else {
+          scrollRow.add(Box.createRigidArea(new Dimension(leftSpacing, 10)));
+        }
 
         // Center scrollbar aligned to step columns width
         int trackLenH = (bridge != null) ? bridge.getTrackLength(baseTrackId) : stepCount;
