@@ -3832,7 +3832,9 @@ public class SwingGridPanel extends JPanel {
         tripletBtn.setMargin(new Insets(0, 0, 0, 0));
 
         org.chuck.deluge.model.TrackModel curTrack = null;
-        if (projectModel != null && editedModelTrack >= 0 && editedModelTrack < projectModel.getTracks().size()) {
+        if (projectModel != null
+            && editedModelTrack >= 0
+            && editedModelTrack < projectModel.getTracks().size()) {
           curTrack = projectModel.getTracks().get(editedModelTrack);
         }
 
@@ -3849,11 +3851,13 @@ public class SwingGridPanel extends JPanel {
         if (activeTrip) {
           tripletBtn.setForeground(new Color(0xff, 0xb3, 0x00)); // Glowing gold!
           tripletBtn.setBorder(BorderFactory.createLineBorder(new Color(0xff, 0xb3, 0x00), 1));
-          tripletBtn.setToolTipText("Triplet grid active (12-step/triplets). Click to return to straight 16-step grid.");
+          tripletBtn.setToolTipText(
+              "Triplet grid active (12-step/triplets). Click to return to straight 16-step grid.");
         } else {
           tripletBtn.setForeground(Color.GRAY); // Inactive gray!
           tripletBtn.setBorder(BorderFactory.createLineBorder(Color.GRAY, 1));
-          tripletBtn.setToolTipText("Triplet grid inactive (straight 16-step). Click to activate 12-step triplet grid!");
+          tripletBtn.setToolTipText(
+              "Triplet grid inactive (straight 16-step). Click to activate 12-step triplet grid!");
         }
 
         final org.chuck.deluge.model.ClipModel fActiveClip = activeClip;
