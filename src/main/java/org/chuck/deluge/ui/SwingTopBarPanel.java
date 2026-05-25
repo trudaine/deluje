@@ -3,7 +3,6 @@ package org.chuck.deluge.ui;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Insets;
 import javax.swing.BorderFactory;
@@ -18,7 +17,6 @@ import javax.swing.JToggleButton;
 import javax.swing.SwingConstants;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.firmware.hid.FirmwareDisplay;
-import org.chuck.deluge.firmware.hid.MatrixDriver;
 import org.chuck.deluge.model.ProjectModel;
 
 /**
@@ -336,39 +334,6 @@ public class SwingTopBarPanel extends JPanel {
     // ── Retro Character LED Display (For shift rotary shortcuts!) ──
     add(retroLedDisplay);
 
-    // ── High-Fidelity Encoders ──
-    JPanel encoderPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 2));
-    encoderPanel.setBackground(new Color(0x18, 0x18, 0x1c));
-    encoderPanel.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
-    encoderPanel.setPreferredSize(new Dimension(90, 42));
-    encoderPanel.setMaximumSize(new Dimension(90, 42));
-    encoderPanel.add(
-        createEncoderSim(
-            "SELECT",
-            (offset) -> {
-              System.out.println("[TRACE topbar] SELECT rotate offset=" + offset);
-              if (SwingDelugeApp.mainInstance != null) {
-                SwingGridPanel grid = SwingDelugeApp.mainInstance.getActiveGridPanel();
-                if (grid != null && grid.isShiftHeld() && grid.getActiveShiftParam() != null) {
-                  System.out.println("[TRACE topbar] SELECT adjust shift param offset=" + offset);
-                  grid.adjustRotaryParameter(offset);
-                  return;
-                }
-                System.out.println("[TRACE topbar] SELECT scroll track offset=" + offset);
-                SwingDelugeApp.mainInstance.scrollActiveTrack(offset);
-              }
-              MatrixDriver.get().selectEncoderAction(offset);
-            },
-            (on) -> {
-              System.out.println("[TRACE topbar] SELECT click on=" + on);
-              if (on && SwingDelugeApp.mainInstance != null) {
-                SwingDelugeApp.mainInstance.cycleViewMode();
-              }
-              MatrixDriver.get().selectButtonAction(on);
-            }));
-
-    add(encoderPanel);
-
     FirmwareDisplay.get()
         .setListener(
             (main, popup) -> {
@@ -515,14 +480,14 @@ public class SwingTopBarPanel extends JPanel {
     public RetroLedDisplay() {
       setLayout(new BorderLayout());
       setBackground(new Color(0x1a, 0x05, 0x05)); // dark red background
-      setPreferredSize(new java.awt.Dimension(192, 96));
-      setMinimumSize(new java.awt.Dimension(192, 96));
-      setMaximumSize(new java.awt.Dimension(192, 96));
+      setPreferredSize(new java.awt.Dimension(128, 48));
+      setMinimumSize(new java.awt.Dimension(128, 48));
+      setMaximumSize(new java.awt.Dimension(128, 48));
       applyThemeBorder(new Color(0xaa, 0x33, 0x33));
 
       label = new JLabel("[  --    --  ]");
       label.setForeground(new Color(0xff, 0x33, 0x33)); // bright LED red
-      label.setFont(new Font("Monospaced", Font.BOLD, 16));
+      label.setFont(new Font("Monospaced", Font.BOLD, 13));
       label.setHorizontalAlignment(SwingConstants.CENTER);
       add(label, BorderLayout.CENTER);
     }
@@ -531,7 +496,7 @@ public class SwingTopBarPanel extends JPanel {
       setBorder(
           BorderFactory.createCompoundBorder(
               BorderFactory.createLineBorder(lineColor, 2),
-              BorderFactory.createEmptyBorder(10, 8, 10, 8)));
+              BorderFactory.createEmptyBorder(2, 6, 2, 6)));
     }
 
     private javax.swing.Timer resetTimer;
