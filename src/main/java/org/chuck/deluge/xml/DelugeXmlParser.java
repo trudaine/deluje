@@ -311,9 +311,22 @@ public class DelugeXmlParser {
             NodeList noteRowList = noteRowsElem.getElementsByTagName("noteRow");
 
             int rowCount = noteRowList.getLength();
-            int stepCount = 16; // Default
+            boolean tripletMode =
+                "1".equals(trackElem.getAttribute("triplet"))
+                    || "true".equalsIgnoreCase(trackElem.getAttribute("triplet"));
+            int stepTicks = tripletMode ? 32 : 24;
+            int stepCount = 16;
+            if (trackElem.hasAttribute("length")) {
+              try {
+                int lengthTicks = Integer.parseInt(trackElem.getAttribute("length"));
+                stepCount = lengthTicks / stepTicks;
+                if (stepCount < 1) stepCount = 16;
+              } catch (Exception ignored) {
+              }
+            }
 
             ClipModel clip = new ClipModel("CLIP " + i, rowCount, stepCount);
+            clip.setTripletMode(tripletMode);
             System.out.println(
                 "PARSER: Created clip "
                     + clip.getName()
@@ -360,9 +373,9 @@ public class DelugeXmlParser {
                 if (liftAttr != null && !liftAttr.isEmpty()) {
                   hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_LIFT;
                 }
-                // Firmware XML uses 24 ticks per grid step
+                // Firmware XML uses dynamic ticks per grid step (triplet alignment check!)
                 java.util.List<StepData> row =
-                    DelugeNoteDataMapper.decodeRow(hexData, stepCount, 24, hcpn);
+                    DelugeNoteDataMapper.decodeRow(hexData, stepCount, stepTicks, hcpn);
 
                 for (int s = 0; s < stepCount; s++) {
                   clip.setStep(r, s, row.get(s));
@@ -514,12 +527,17 @@ public class DelugeXmlParser {
           NodeList noteRowList = noteRowsElem.getElementsByTagName("noteRow");
           int rowCount = noteRowList.getLength();
 
-          // Determine stepCount: use length attribute if present (1 step = 24 ticks of clip time)
+          // Determine stepCount: use length attribute if present (1 step = 24/32 ticks of clip
+          // time)
           // but also expand to cover the actual note positions in the hex data
+          boolean tripletMode =
+              "1".equals(clipElem.getAttribute("triplet"))
+                  || "true".equalsIgnoreCase(clipElem.getAttribute("triplet"));
+          int stepTicks = tripletMode ? 32 : 24;
           int stepCount = 16;
           if (clipElem.hasAttribute("length")) {
             int lengthTicks = Integer.parseInt(clipElem.getAttribute("length"));
-            stepCount = lengthTicks / 24; // 1 visible grid step = 24 ticks
+            stepCount = lengthTicks / stepTicks;
             if (stepCount < 1) stepCount = 16;
           }
           // Expand stepCount to cover max position found in noteData (pos in 12-tick units)
@@ -556,10 +574,11 @@ public class DelugeXmlParser {
               }
             }
           }
-          int dataStepCount = (maxPos / 24) + 1;
+          int dataStepCount = (maxPos / stepTicks) + 1;
           if (dataStepCount > stepCount) stepCount = dataStepCount;
 
           ClipModel clip = new ClipModel("SESSION_CLIP " + i, rowCount, stepCount);
+          clip.setTripletMode(tripletMode);
           System.out.println(
               "PARSER: Created clip "
                   + clip.getName()
@@ -620,9 +639,9 @@ public class DelugeXmlParser {
                   }
                 }
               }
-              // Firmware XML uses 24 ticks per grid step
+              // Firmware XML uses dynamic ticks per grid step (triplet alignment check!)
               java.util.List<StepData> row =
-                  DelugeNoteDataMapper.decodeRow(hexData, stepCount, 24, hcpn);
+                  DelugeNoteDataMapper.decodeRow(hexData, stepCount, stepTicks, hcpn);
               for (int s = 0; s < stepCount; s++) {
                 clip.setStep(r, s, row.get(s));
               }

@@ -63,4 +63,55 @@ public class ProjectSerializerTest {
     assertTrue(xmlContent.contains("<noteRow"));
     assertTrue(xmlContent.contains("<noteData"));
   }
+
+  @Test
+  void testSerializeTripletProject() throws Exception {
+    ProjectModel model = new ProjectModel();
+    model.setBpm(120.0f);
+
+    SynthTrackModel synth = new SynthTrackModel("LEAD");
+    synth.setOsc1Type("SAWTOOTH");
+
+    // Create a triplet clip with 12 steps!
+    org.chuck.deluge.model.ClipModel clip = new org.chuck.deluge.model.ClipModel("CLIP 1", 8, 12);
+    clip.setTripletMode(true);
+
+    // Add an active step event at step index 1!
+    clip.setStep(0, 1, org.chuck.deluge.model.StepData.of(true, 0.8f, 0.9f, 1.0f, 60));
+    synth.addClip(clip);
+    model.addTrack(synth);
+
+    File tempXml = File.createTempFile("deluge_test_triplet", ".xml");
+    tempXml.deleteOnExit();
+
+    ProjectSerializer.save(model, tempXml);
+
+    String xmlContent = Files.readString(tempXml.toPath());
+
+    // Assert JSave loop attributes!
+    assertTrue(xmlContent.contains("triplet=\"1\""), "should contain triplet=\"1\"\n" + xmlContent);
+    assertTrue(
+        xmlContent.contains("length=\"384\""), "should contain length=\"384\"\n" + xmlContent);
+
+    // Parse the file back and verify integrity!
+    ProjectModel parsed = org.chuck.deluge.xml.DelugeXmlParser.parseSong(tempXml);
+
+    org.junit.jupiter.api.Assertions.assertNotNull(parsed);
+    org.junit.jupiter.api.Assertions.assertEquals(1, parsed.getTracks().size());
+
+    org.chuck.deluge.model.TrackModel parsedTrack = parsed.getTracks().get(0);
+    org.junit.jupiter.api.Assertions.assertEquals(1, parsedTrack.getClips().size());
+
+    org.chuck.deluge.model.ClipModel parsedClip = parsedTrack.getClips().get(0);
+    org.junit.jupiter.api.Assertions.assertTrue(
+        parsedClip.isTripletMode(), "Parsed clip should be in triplet mode!");
+    org.junit.jupiter.api.Assertions.assertEquals(
+        12, parsedClip.getStepCount(), "Parsed clip should have exactly 12 steps!");
+
+    org.chuck.deluge.model.StepData parsedStep = parsedClip.getStep(0, 1);
+    org.junit.jupiter.api.Assertions.assertTrue(
+        parsedStep.active(), "Parsed step 1 should be active!");
+    org.junit.jupiter.api.Assertions.assertEquals(
+        0, parsedStep.pitch(), "Parsed step 1 pitch should be 0 (row-level semitone instead)!");
+  }
 }

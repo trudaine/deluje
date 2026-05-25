@@ -181,6 +181,11 @@ public class ProjectSerializer {
     for (TrackModel track : model.getTracks()) {
       for (org.chuck.deluge.model.ClipModel clip : track.getClips()) {
         Element clipTrackElem = doc.createElement("track");
+        int stepTicks = clip.isTripletMode() ? 32 : 24;
+        clipTrackElem.setAttribute("length", String.valueOf(clip.getStepCount() * stepTicks));
+        if (clip.isTripletMode()) {
+          clipTrackElem.setAttribute("triplet", "1");
+        }
         tracksElem.appendChild(clipTrackElem);
 
         Element noteRowsElem = doc.createElement("noteRows");
@@ -195,7 +200,7 @@ public class ProjectSerializer {
             row.add(clip.getStep(r, s));
           }
 
-          String hexData = org.chuck.deluge.xml.DelugeNoteDataMapper.encodeRow(row);
+          String hexData = org.chuck.deluge.xml.DelugeNoteDataMapper.encodeRow(row, stepTicks);
 
           Element noteDataElem = doc.createElement("noteData");
           noteDataElem.setTextContent(hexData);

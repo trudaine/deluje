@@ -27,6 +27,7 @@ public class ClipModel {
   private final List<List<StepData>> grid = new ArrayList<>();
   private String color = "#00ffcc"; // Default color
   private PlayMode playMode = PlayMode.NORMAL;
+  private boolean tripletMode = false;
 
   /**
    * Per-parameter per-step automation data. Maps param name (see {@link AutomationParam}) to a
@@ -195,6 +196,14 @@ public class ClipModel {
 
   public int getStepCount() {
     return stepCount;
+  }
+
+  public boolean isTripletMode() {
+    return tripletMode;
+  }
+
+  public void setTripletMode(boolean triplet) {
+    this.tripletMode = triplet;
   }
 
   public void setStepCount(int stepCount) {

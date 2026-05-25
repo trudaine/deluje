@@ -8,6 +8,7 @@ import org.chuck.deluge.firmware.modulation.params.ParamManager;
  */
 public abstract class Clip extends TimelineCounter {
   public ClipType type;
+  public boolean tripletMode = false;
   public ParamManager paramManager = new ParamManager();
   public int loopLength = 0;
 
