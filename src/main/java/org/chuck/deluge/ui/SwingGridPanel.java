@@ -1556,8 +1556,11 @@ public class SwingGridPanel extends JPanel {
           drumCfgBtn.setMaximumSize(new Dimension(20, 20));
           drumCfgBtn.setMargin(new Insets(0, 0, 0, 0));
           drumCfgBtn.setFont(new Font("SansSerif", Font.PLAIN, 10));
-          drumCfgBtn.setBackground(new Color(0x2d, 0x2d, 0x32));
           drumCfgBtn.setForeground(new Color(0x00, 0xff, 0xcc));
+          drumCfgBtn.setOpaque(false);
+          drumCfgBtn.setContentAreaFilled(false);
+          drumCfgBtn.setFocusPainted(false);
+          drumCfgBtn.setBorder(BorderFactory.createLineBorder(new Color(0x00, 0xff, 0xcc), 1));
           drumCfgBtn.setFocusable(false);
           drumCfgBtn.setToolTipText("Open full settings editor for drum slot: " + tName);
           drumCfgBtn.addActionListener(
@@ -3602,8 +3605,11 @@ public class SwingGridPanel extends JPanel {
           synthCfgBtn.setMaximumSize(new Dimension(110, 20));
           synthCfgBtn.setMargin(new Insets(0, 2, 0, 2));
           synthCfgBtn.setFont(new Font("SansSerif", Font.BOLD, 9));
-          synthCfgBtn.setBackground(new Color(0x2d, 0x2d, 0x32));
           synthCfgBtn.setForeground(new Color(0x00, 0xff, 0xcc));
+          synthCfgBtn.setOpaque(false);
+          synthCfgBtn.setContentAreaFilled(false);
+          synthCfgBtn.setFocusPainted(false);
+          synthCfgBtn.setBorder(BorderFactory.createLineBorder(new Color(0x00, 0xff, 0xcc), 1));
           synthCfgBtn.setFocusable(false);
           synthCfgBtn.setToolTipText(
               "Open full synthesizer parameters dashboard (Envelopes, LFOs, Arp, FM matrix)");
