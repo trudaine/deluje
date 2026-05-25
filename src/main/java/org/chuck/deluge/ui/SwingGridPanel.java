@@ -3149,6 +3149,20 @@ public class SwingGridPanel extends JPanel {
       return;
     }
 
+    // Playhead Follow Auto-Scrolling Mode!
+    if (step >= 0 && trackLen > stepCount) {
+      int targetPageOffset = ((step % trackLen) / stepCount) * stepCount;
+      if (targetPageOffset != scrollOffsetX) {
+        final int fTargetPage = targetPageOffset;
+        javax.swing.SwingUtilities.invokeLater(
+            () -> {
+              if (horizScrollBar != null && horizScrollBar.isEnabled()) {
+                horizScrollBar.setValue(fTargetPage);
+              }
+            });
+      }
+    }
+
     // Map the engine step to a visual column — for clips wider than viewport, offset by
     // scrollOffsetX
     int stepMod;
@@ -3230,6 +3244,39 @@ public class SwingGridPanel extends JPanel {
       this.stepCount = gridMode.columns;
     }
     this.columnCount = this.stepCount + (viewMode == GridViewMode.CLIP ? 2 : 0);
+
+    // Real-time pure timing audio engine synchronization!
+    if (vm != null && projectModel != null) {
+      try {
+        org.chuck.deluge.firmware.model.Song fwSong =
+            org.chuck.deluge.firmware.engine.FirmwareFactory.createSong(projectModel);
+        Object fwHandlerObj =
+            vm.getGlobalObject(org.chuck.deluge.BridgeContract.G_PLAYBACK_HANDLER);
+        if (fwHandlerObj instanceof org.chuck.deluge.firmware.playback.PlaybackHandler fwHandler) {
+          fwHandler.setSong(fwSong);
+
+          // Update low-level sounds list for real-time sample playing key triggers
+          Object fwEngineObj =
+              vm.getGlobalObject(org.chuck.deluge.BridgeContract.G_FIRMWARE_ENGINE);
+          if (fwEngineObj
+              instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
+            fwEngine.sounds.clear();
+            for (int i = 0; i < projectModel.getTracks().size(); i++) {
+              fwEngine.sounds.add(null);
+            }
+            for (int i = 0; i < fwSong.clips.size() && i < projectModel.getTracks().size(); i++) {
+              org.chuck.deluge.firmware.model.Clip c = fwSong.clips.get(i);
+              if (c instanceof org.chuck.deluge.firmware.model.InstrumentClip ic
+                  && ic.sound != null) {
+                fwEngine.sounds.set(i, ic.sound);
+              }
+            }
+          }
+        }
+      } catch (Exception ex) {
+        LOG.warning("Real-time audio engine hot-swap sync failed: " + ex.getMessage());
+      }
+    }
 
     // Reset scroll if needed
     int maxOffset = Math.max(0, voiceRowCount - gridMode.rows);

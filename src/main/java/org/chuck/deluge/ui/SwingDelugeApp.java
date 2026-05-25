@@ -3137,6 +3137,9 @@ public class SwingDelugeApp extends JFrame {
     @Override
     public void onPlayToggle() {
       long nextPlay = vm.getGlobalInt(BridgeContract.G_PLAY) == 1L ? 0L : 1L;
+      if (nextPlay == 1L) {
+        syncHighFidelityEngine(currentProject);
+      }
       vm.setGlobalInt(BridgeContract.G_PLAY, nextPlay);
       if (bridge != null) bridge.setPlayState((int) nextPlay);
     }
