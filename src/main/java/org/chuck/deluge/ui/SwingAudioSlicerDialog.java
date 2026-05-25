@@ -140,7 +140,7 @@ public class SwingAudioSlicerDialog extends JDialog {
     volRow.add(volLabelTitle);
 
     volSlider = new JSlider(0, 100, 80);
-    volSlider.setBackground(new Color(0x1a, 0x1a, 0x1e));
+    DarkSliderUI.styleSlider(volSlider, Color.CYAN);
     volSlider.setPreferredSize(new Dimension(150, 20));
     volSlider.addChangeListener(e -> volLabel.setText(volSlider.getValue() + "%"));
     volRow.add(volSlider);
