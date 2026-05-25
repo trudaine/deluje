@@ -180,6 +180,25 @@ public class SwingScreenshotGenerator {
                       captureComponent(prefBox[0], "deluge_preferences");
                       prefBox[0].dispose();
                     });
+                Thread.sleep(1000);
+
+                // 8. Open and capture Step Properties Dialog
+                System.out.println("[Screenshot] Spawning Step Properties JDialog...");
+                final StepPropertiesDialog[] stepBox = new StepPropertiesDialog[1];
+                SwingUtilities.invokeAndWait(
+                    () -> {
+                      stepBox[0] = new StepPropertiesDialog(app, 85, 2, 45);
+                      stepBox[0].setModal(false); // Disable modality for screenshots!
+                      stepBox[0].pack();
+                      stepBox[0].setSize(750, 450);
+                      stepBox[0].setVisible(true);
+                    });
+                Thread.sleep(1500);
+                SwingUtilities.invokeAndWait(
+                    () -> {
+                      captureComponent(stepBox[0], "deluge_step_properties");
+                      stepBox[0].dispose();
+                    });
 
                 System.out.println(
                     "🎉 ALL EXPANDED SYSTEM REAL SCREENSHOTS GENERATED SUCCESSFULLY!");
