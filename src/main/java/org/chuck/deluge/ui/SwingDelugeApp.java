@@ -2783,6 +2783,9 @@ public class SwingDelugeApp extends JFrame {
               "List.selectionBackground", new java.awt.Color(0x00, 0x7a, 0xcc));
           javax.swing.UIManager.put("List.selectionForeground", java.awt.Color.WHITE);
 
+          // Global JSlider UI delegate registration (solves black-on-black tracks bug!)
+          javax.swing.UIManager.put("SliderUI", "org.chuck.deluge.ui.DarkSliderUI");
+
           // Global text inputs focus and contrast overrides
           javax.swing.UIManager.put("TextField.background", new java.awt.Color(0x1e, 0x1e, 0x20));
           javax.swing.UIManager.put("TextField.foreground", java.awt.Color.WHITE);

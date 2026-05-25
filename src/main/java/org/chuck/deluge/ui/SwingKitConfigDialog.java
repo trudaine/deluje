@@ -213,7 +213,7 @@ public class SwingKitConfigDialog extends JDialog {
     cc.gridx = 1;
     cc.weightx = 1.0;
     JSlider startSlider = new JSlider(0, 100, 0);
-    startSlider.setBackground(SwingSynthConfigDialog.BG_CARD);
+    DarkSliderUI.styleSlider(startSlider, new Color(0x00, 0xe6, 0x76));
     cropPanel.add(startSlider, cc);
 
     cc.gridx = 2;
@@ -234,7 +234,7 @@ public class SwingKitConfigDialog extends JDialog {
     cc.gridx = 1;
     cc.weightx = 1.0;
     JSlider endSlider = new JSlider(0, 100, 100);
-    endSlider.setBackground(SwingSynthConfigDialog.BG_CARD);
+    DarkSliderUI.styleSlider(endSlider, new Color(0xff, 0x17, 0x44));
     cropPanel.add(endSlider, cc);
 
     cc.gridx = 2;
@@ -255,7 +255,7 @@ public class SwingKitConfigDialog extends JDialog {
     cc.gridx = 1;
     cc.weightx = 1.0;
     JSlider loopStartSlider = new JSlider(0, 100, 0);
-    loopStartSlider.setBackground(SwingSynthConfigDialog.BG_CARD);
+    DarkSliderUI.styleSlider(loopStartSlider, new Color(0x29, 0xb6, 0xf6));
     cropPanel.add(loopStartSlider, cc);
 
     cc.gridx = 2;
@@ -276,7 +276,7 @@ public class SwingKitConfigDialog extends JDialog {
     cc.gridx = 1;
     cc.weightx = 1.0;
     JSlider loopEndSlider = new JSlider(0, 100, 100);
-    loopEndSlider.setBackground(SwingSynthConfigDialog.BG_CARD);
+    DarkSliderUI.styleSlider(loopEndSlider, new Color(0xec, 0x40, 0x7a));
     cropPanel.add(loopEndSlider, cc);
 
     cc.gridx = 2;
@@ -840,7 +840,7 @@ public class SwingKitConfigDialog extends JDialog {
     panel.add(lbl, c);
 
     JSlider slider = new JSlider(min, max, Math.max(min, Math.min(max, initial)));
-    slider.setBackground(SwingSynthConfigDialog.BG_CARD);
+    DarkSliderUI.styleSlider(slider, new Color(0xff, 0xb3, 0x00));
     slider.setToolTipText(tooltip);
     attachHoverHelp(slider, tooltip);
 
