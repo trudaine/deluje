@@ -17,6 +17,14 @@ import org.chuck.deluge.model.SoundDrum;
 public class SwingKitConfigDialog extends JDialog {
 
   private JLabel helpLabel;
+  private JTabbedPane tabs;
+
+  public void setSelectedTab(int index) {
+    if (tabs != null && index >= 0 && index < tabs.getTabCount()) {
+      tabs.setSelectedIndex(index);
+    }
+  }
+
   private final String DEFAULT_HELP_TEXT =
       "<html>💡 <b>QUICK HELP:</b> Hover over any drum sample control or FX slider to see its details and hardware mappings here!</html>";
 

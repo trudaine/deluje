@@ -9,9 +9,9 @@ import javax.swing.*;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.model.KitTrackModel;
+import org.chuck.deluge.model.SoundDrum;
 import org.chuck.deluge.model.SynthTrackModel;
 import org.chuck.deluge.model.TrackModel;
-import org.chuck.deluge.model.SoundDrum;
 
 /**
  * Programmatic high-fidelity Swing JComponent screenshots generator. Uses a background scheduler
@@ -85,13 +85,16 @@ public class SwingScreenshotGenerator {
                 Thread.sleep(1000);
 
                 // 2d. Capture Performance View (PERF) Workspace Panel!
-                System.out.println("[Screenshot] Switching to Performance View (PERF) workspace...");
-                SwingUtilities.invokeAndWait(() -> {
-                  app.setWorkspaceView("PERF");
-                  app.repaint();
-                });
+                System.out.println(
+                    "[Screenshot] Switching to Performance View (PERF) workspace...");
+                SwingUtilities.invokeAndWait(
+                    () -> {
+                      app.setWorkspaceView("PERF");
+                      app.repaint();
+                    });
                 Thread.sleep(1500);
-                SwingUtilities.invokeAndWait(() -> captureComponent(app, "deluge_performance_view"));
+                SwingUtilities.invokeAndWait(
+                    () -> captureComponent(app, "deluge_performance_view"));
                 Thread.sleep(1000);
 
                 // Restore active display back to standard CLIP view before proceeding!
@@ -163,17 +166,21 @@ public class SwingScreenshotGenerator {
                     Thread.sleep(1000);
 
                     // 5b. Capture Wavetable Index Laboratory Dialog!
-                    System.out.println("[Screenshot] Spawning Wavetable Index Laboratory Dialog...");
+                    System.out.println(
+                        "[Screenshot] Spawning Wavetable Index Laboratory Dialog...");
                     final SwingWavetableDialog[] wtBox = new SwingWavetableDialog[1];
                     SoundDrum targetSound = (SoundDrum) kt.getDrums().get(0);
                     int trackIndex = tracks.indexOf(kt);
-                    SwingUtilities.invokeAndWait(() -> {
-                      wtBox[0] = new SwingWavetableDialog(app, targetSound, bridge, trackIndex, 0);
-                      wtBox[0].setSize(900, 480);
-                      wtBox[0].setVisible(true);
-                    });
+                    SwingUtilities.invokeAndWait(
+                        () -> {
+                          wtBox[0] =
+                              new SwingWavetableDialog(app, targetSound, bridge, trackIndex, 0);
+                          wtBox[0].setSize(900, 480);
+                          wtBox[0].setVisible(true);
+                        });
                     Thread.sleep(2000);
-                    SwingUtilities.invokeAndWait(() -> captureComponent(wtBox[0], "deluge_wavetable_laboratory"));
+                    SwingUtilities.invokeAndWait(
+                        () -> captureComponent(wtBox[0], "deluge_wavetable_laboratory"));
                     Thread.sleep(500);
                     SwingUtilities.invokeAndWait(() -> wtBox[0].dispose());
                     Thread.sleep(500);
