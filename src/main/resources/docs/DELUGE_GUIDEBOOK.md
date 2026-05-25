@@ -15,9 +15,13 @@ Welcome to the **ChucK-Java Deluge Workstation**, a modern, high-fidelity softwa
 8. [DSP FX Bounding Box Dials Deck](#8-dsp-fx-bounding-box-dials-deck)
 9. [Delugeator Multi-Generator Dashboard Suite](#9-delugeator-multi-generator-dashboard-suite)
 10. [UI Panels & Shift Shortcuts System Behavior](#10-ui-panels-&-shift-shortcuts-system-behavior)
-11. [System Settings, Directories Preferences & Shortcuts Table](#11-system-settings-directories-preferences--shortcuts-table)
-12. [Appendix: Programmatic High-Fidelity JNI Registers Architecture](#12-appendix-programmatic-high-fidelity-jni-registers-architecture)
-13. [Appendix: Pending Work Items & Future Development Roadmap (TODO List)](#13-appendix-pending-work-items--future-development-roadmap-todo-list)
+11. [Audio Tracks, Time-Stretching & Pitch-Shifting](#11-audio-tracks-time-stretching--pitch-shifting)
+12. [Pedal Looper & Continuous Multi-Layer Overdubs](#12-pedal-looper--continuous-multi-layer-overdubs)
+13. [MIDI Clock Sync, Device Chains & Program Changes](#13-midi-clock-sync-device-chains--program-changes)
+14. [MPE & Multi-Dimensional Controller Expression](#14-mpe--multi-dimensional-controller-expression)
+15. [System Settings, Directories Preferences & Shortcuts Table](#15-system-settings-directories-preferences--shortcuts-table)
+16. [Appendix: Programmatic High-Fidelity JNI Registers Architecture](#16-appendix-programmatic-high-fidelity-jni-registers-architecture)
+17. [Appendix: Pending Work Items & Future Development Roadmap (TODO List)](#17-appendix-pending-work-items--future-development-roadmap-todo-list)
 
 ---
 
@@ -520,7 +524,87 @@ The Settings Preferences Dialog is programmatically cabled in high-contrast slat
 
 ---
 
-## 11. System Settings, Directories Preferences & Shortcuts Table
+## 11. Audio Tracks, Time-Stretching & Pitch-Shifting
+
+Audio Tracks are designed to play back long, continuous audio resources (like full-length vocal tracks, live instrument stems, or guitar backdrops) rather than short MIDI-style note triggers or synthesized cycle wave loops. The real-time DSP engine provides advanced, independent control over playback speed (Time-Stretching) and key pitch (Pitch-Shifting):
+
+```mermaid
+graph TD
+    A[Vocal Stem 95 BPM] -->|Time-Stretch Active| B[Syncs to Master 120 BPM]
+    A -->|Pitch-Shift Active| C[Transpose Key without Speeding Up]
+    B --> D[Perfect Grid Time Alignment]
+    C --> D
+```
+
+* **Independent Time-Stretching**: Forces a loaded WAV stem loop to stretch its playback speed to match the global tempo (BPM) exactly, without altering the loop's original key or pitch! You can sweep the master BPM slider live from $60\text{ to }200\text{ BPM}$, and the vocal loop stays perfectly locked to the step sequencer grid ticks!
+* **Real-Time Pitch-Shifting**: Transposes the loop's pitch up or down by semitones and cents, without changing the speed of playback. High-fidelity JNI phase vocoders and windowed overlap-add (OLA) algorithms reconstruct the transient cycles cleanly to avoid temporal distortion.
+* **Transient Lock Points**: Pins specific timing landmarks within the file (such as primary drum transients or vocal downbeats) to maintain perfect time alignment even under extreme tempo shifts.
+
+#### 🎤 Tutorial I: Time-Stretching and Pitch-Shifting a Vocal Stem Loop
+1. Click **`File ➔ Load Audio Track...`** (or create a new lane row, set track type to `Audio Track`).
+2. Browse and select a vocal phrase WAV stem loop (e.g., recorded at $95\text{ BPM}$).
+3. Double-click the track to open its visual crop panel. You will see the symmetrical HSL waves representation.
+4. Locate the **Length (Bars)** field: set it to **`4 Bars`** (informs the engine that the loop represents exactly four bars of music).
+5. Toggle the **`[✓] Time-Stretch`** checkbox to active! The engine automatically stretches the sample loop playback speed to match your current session tempo (e.g. $120\text{ BPM}$)!
+6. Click the **Transpose** slider: set it to **`+3 semitones`** to pitch-shift the vocals higher to fit your song's new key!
+7. *Result*: Press play: the vocal stem plays in perfect synchronization with your drum kit beats, maintaining its exact pitched key even as you drag the master BPM slider live!
+
+---
+
+## 12. Pedal Looper & Continuous Multi-Layer Overdubs
+
+The Pedal Looper turns the sequencer grid into a continuous, pedal-style audio overdubbing station. Perfect for live instrumentalists (guitarists, violinists) or keyboard players to build entire arrangements in real-time.
+
+* **Continuous Multi-Layer Overdubs**: Record a primary baseline loop, and then layer consecutive parallel audio overdubs recursively onto the same lane timeline in perfect loop sync!
+* **Virtual Pedal Key mappings**: Bind standard external hardware foot-pedals (via MIDI CC) to trigger looper actions: Single-tap (Record/Play/Overdub), Double-tap (Stop), or Hold (Undo/Redo last layer).
+* **Automatic Tempo Detection (Auto-BPM)**: Record a primary loop without a click track! The engine calculates the loop cycle duration, defines the grid boundaries, and sets the system BPM tempo automatically based on the loop length!
+
+#### 🎸 Tutorial J: Recording a Live Multi-Layer Overdub Loop Stack
+1. Connect an external instrument (e.g. guitar, synthesizer line input) or select a microphone input source. Create a new looper track.
+2. Tap your mapped foot-pedal (or click the virtual **`[● REC]`** looper button on screen). The looper starts recording immediately!
+3. Play a 4-bar chord progression. Tap the pedal exactly at the end of the 4th bar loop boundary!
+   * The looper stops recording, enters playback mode, and the system **Auto-BPM** instantly locks the master clock tempo to your loop's precise cycle speed!
+   * The pad lane glows in solid green indicating the baseline loop is active!
+4. Tap the pedal again to enter **`[● OVERDUB]`** mode! The pad starts flashing red-yellow.
+5. Play a secondary lead melody line on top of the looping chords. The looper records this melody layer in perfect sync! Tap the pedal again to return to simple play mode.
+6. *Result / Layer Undo*: Make a mistake during your next overdub sweep? Simply **Hold down the foot-pedal for 2 seconds**! The JApp instantly triggers a **Layer Undo**, snipping the last recorded audio file out of the loop memory queue while keeping the rest of the backing tracks playing uninterrupted!
+
+---
+
+## 13. MIDI Clock Sync, Device Chains & Program Changes
+
+The Deluge Workstation operates as a robust hub to control external physical hardware instruments or align timing clocks across multi-device networks.
+
+### 13.1 MIDI Clock Master/Slave Sync Modes
+* **MIDI Clock Master (Send Sync)**: The JApp sends continuous real-time system clocks ($24\text{ pulses per quarter note (PPQN)}$ standard) to the active MIDI output ports, driving external drum machines and synthesizers to play in perfect tempo sync with the internal step sequencer.
+* **MIDI Clock Slave (Receive Sync)**: The JApp listens to incoming MIDI clock ticks on standard inputs, locking the internal playback playhead speed and start/stop triggers to the external hardware clock master!
+
+### 13.2 MIDI Program Changes & Hardware Chains
+* **MIDI Program Change (PC) Messages**: Send PC commands (values 0–127) and bank select indices dynamically from target sequencer steps to automatically swap active presets/sounds on your hardware instruments live on stage!
+* **Multi-Device Chains (MIDI Thru)**: Daisy-chain multiple hardware synthesizers: set each sequencer lane to send data to a distinct MIDI Channel (Channels 1–16) to play polyphonic parts across separate physical keyboards from a single master track project!
+
+---
+
+## 14. MPE & Multi-Dimensional Controller Expression
+
+Multi-Dimensional Polyphonic Expression (MPE) is the modern standard for expressive controller tracking, supported natively by our sound engine:
+
+```mermaid
+graph TD
+    A[MPE Controller - e.g. Seaboard] -->|Note On Channel 2| B[Voice 1 - Pitch/Pressure/Slide independent]
+    A -->|Note On Channel 3| C[Voice 2 - Pitch/Pressure/Slide independent]
+    A -->|Note On Channel 4| D[Voice 3 - Pitch/Pressure/Slide independent]
+```
+
+* **Polyphonic Multi-Channel Routing**: Unlike standard MIDI where modulations (like pitch bend or mod wheel) affect ALL active sounding notes globally, MPE assigns each individual voice note to its own distinct MIDI Channel (Channels 2–15).
+* **Multi-Dimensional Voice Vectors**: Tracks three axes of movement independently per key pressed:
+  * **X-Axis (Pitch Bend)**: Horizontal key movement. Smoothly bends the individual voice pitch across custom ranges (from $\pm 2\text{ semitones}$ to full $\pm 48\text{ semitones}$ ranges).
+  * **Y-Axis (Timbre / Slide)**: Vertical key position slides. Routed directly to filter cutoffs, FM modulation rates, or pulse-widths to sweep sounds individually.
+  * **Z-Axis (Pressure / Aftertouch)**: Dynamic key pressure depth. Routed to virtual VCAs or envelope intensities to modulate volumes and swell single chords polyphonically!
+
+---
+
+## 15. System Settings, Directories Preferences & Shortcuts Table
 
 The **`Settings ➔ Preferences...`** panel manages your paths and grid configurations without JNI hooks:
 * **SD Card Mounted Library Directory**: Set the root parent directory folder path representing your physical SD card library. All subdirectories (`SAMPLES/`, `KITS/`, `SYNTHS/`, `SONGS/`) are resolved relative to this parent root dynamically.
@@ -541,7 +625,7 @@ The **`Settings ➔ Preferences...`** panel manages your paths and grid configur
 
 ---
 
-## 12. Appendix: Programmatic High-Fidelity JNI Registers Architecture
+## 16. Appendix: Programmatic High-Fidelity JNI Registers Architecture
 
 When you play a sequence, the control parameters are written straight to ChucK VM global registers arrays. Below is a breakdown of the dynamic real-time data registers:
 
@@ -563,24 +647,24 @@ graph TD
 
 ---
 
-## 13. Appendix: Pending Work Items & Future Development Roadmap (TODO List)
+## 17. Appendix: Pending Work Items & Future Development Roadmap (TODO List)
 
 While the ChucK-Java Deluge Workstation provides a comprehensive operations platform, several features from the Deluge OS 4.0 firmware guidebook remain planned for upcoming development.
 
 ### 📋 Future Technical Roadmap:
-* **[ ] 13.1 Triplet Column Grid Divisions View (SwingGridPanel & ChucK Sequencer)**:
+* **[ ] 17.1 Triplet Column Grid Divisions View (SwingGridPanel & ChucK Sequencer)**:
   * *Goal*: Add a `[3]` grid toolbar toggle button to switch time divisions. The grid columns redraw from 16 to 12 segments (subdividing quarter beats into triplets of 3 instead of standard 4 eighth/sixteenth notes).
   * *ChucK Sync*: The clock step increment timing step shifts from $1/4$ note beats step parameters to $1/6$ divisions timing steps dynamically.
-* **[ ] 13.2 Advanced Wavetable Index Scan Editor (SwingKitConfigDialog & Synth Oscillators)**:
+* **[ ] 17.2 Advanced Wavetable Index Scan Editor (SwingKitConfigDialog & Synth Oscillators)**:
   * *Goal*: Build an interactive 3D grid visualizer to inspect single-cycle waves nodes in wavetable files.
   * *UI Control*: Drag a horizontal slider to sweep target table slices indexes, automatically redrawing the cycle frame outlines live and pushing JNI coordinates back to synthesis voice tracks.
-* **[ ] 13.3 MPE & Polyphonic Aftertouch Multi-Dimensional JNI Sweeps**:
+* **[ ] 17.3 MPE & Polyphonic Aftertouch Multi-Dimensional JNI Sweeps**:
   * *Goal*: Add active tracking layers for MPE controllers pressure (Z-axis) and vertical position slide (Y-axis) MIDI events.
   * *JNI Routing*: Cable these dynamic parameters to real-time arrays to drive individual synthesizer voice filters and pulse widths independently per key played.
-* **[ ] 13.4 Continuous Recursive Looper Stacking (Pedal-Style Overdub Panel)**:
+* **[ ] 17.4 Continuous Recursive Looper Stacking (Pedal-Style Overdub Panel)**:
   * *Goal*: Implement a live looper deck letting users layer endless audio overdubs recursively onto consecutive parallel lane tracks.
   * *Features*: Tempo detection algorithms automatically calibrate BPM clocks from the first recorded audio buffer frame limits, and dynamic undo buttons snip out individual loop layers in real-time.
-* **[ ] 13.5 Arranger Live Capture Suite**:
+* **[ ] 17.5 Arranger Live Capture Suite**:
   * *Goal*: Add a **`[🔴 Capture Live Performance]`** record mode. Actively records live SONG view launching clicks, mutes, solos, and tempo alterations straight into block timeline tracks inside ARRANGEMENT view for structured linear timelines exports!
 
 ---
