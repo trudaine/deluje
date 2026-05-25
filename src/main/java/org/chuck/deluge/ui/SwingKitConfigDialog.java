@@ -374,6 +374,25 @@ public class SwingKitConfigDialog extends JDialog {
         });
     btnRow.add(resetBtn);
 
+    JButton wtLabBtn = new JButton("🔬 Wavetable Laboratory...");
+    styleButton(wtLabBtn, new Color(0x1e, 0x32, 0x3c), new Color(0x00, 0xff, 0xcc));
+    wtLabBtn.setFont(new Font("SansSerif", Font.BOLD, 10));
+    wtLabBtn.setToolTipText(
+        "Open the 3D perspective waterfall wavetable laboratory editor for custom indices scans!");
+    wtLabBtn.addActionListener(
+        ev -> {
+          Frame owner = (Frame) SwingUtilities.getWindowAncestor(btnRow);
+          int trackIdx =
+              (SwingDelugeApp.mainInstance != null
+                      && SwingDelugeApp.mainInstance.getClipPanel() != null)
+                  ? SwingDelugeApp.mainInstance.getClipPanel().getEditedModelTrack()
+                  : 0;
+          SwingWavetableDialog wtDlg =
+              new SwingWavetableDialog(owner, sound, bridge, trackIdx, idx);
+          wtDlg.setVisible(true);
+        });
+    btnRow.add(wtLabBtn);
+
     JButton commitBtn = new JButton("💾 Save & Apply Crop");
     styleButton(commitBtn, new Color(0x0c, 0x38, 0x1f), Color.GREEN);
     commitBtn.setFont(new Font("SansSerif", Font.BOLD, 10));

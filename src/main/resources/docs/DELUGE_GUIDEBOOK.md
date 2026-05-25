@@ -566,7 +566,32 @@ graph TD
 
 ---
 
-## 12. Pedal Looper & Continuous Multi-Layer Overdubs
+## 12. Advanced Wavetable Index Scan Editor
+
+The **`Wavetable Index Laboratory`** provides a dedicated dark-neon real-time laboratory editor to slice, scan, and modulate multi-cycle wavetable WAV files with direct JNI visual synthesis feedback.
+
+![Wavetable Index Laboratory Dialog](images/deluge_wavetable_laboratory.png)
+
+### 12.1 Dynamic Double-View Oscilloscope Architecture
+* **Left Panel: Single-Cycle Waveform Profile**: Renders a thick, glowing neon-cyan curve representing the exact single-cycle waveform at the current selected position index. It updates dynamically and morphs in real-time as you drag the slider.
+* **Right Panel: 3D Perspective Waterfall Stack**: Projects a gorgeous 3D perspective waterfall stack of 15 consecutive surrounding cycles. Skewed with precise coordinate offsets, it projects the entire wavetable morph spectrum in dynamic color-coded HSL gradients: deep purple at the back (lower index cycles), glowing cyan in the center (current cycle), and warm amber at the front (higher index cycles).
+
+### 12.2 Cycle Slicing and Real-Time JNI Hot-Swaps
+* **Selectable Cycle Size**: Slice custom WAV files into standard cycle frames (256, 512, 1024, 2048, or 4096 samples per cycle) to support different wavetable formats.
+* **Wavetable Position Scan Slider**: A massive horizontal slider styled with a glowing amber thumb allows you to wiggle the wavetable index from `0%` to `100%`.
+* **Zero-Latency JNI Sweeps**: Sweeping the slider sends immediate, real-time wave position indices down to the ChucK JNI synthesis engine via `bridge.setOsc1PW(...)`. It hot-swaps active cycle arrays on every frame shift, letting you hear the sound waves morph dynamically with zero latency!
+
+#### 🔬 Tutorial K: Sculpting Dynamic Morphing Wavetable Patches
+1. Open a kit track lane and double-click a drum slot button to open the **`Kit Sound Editor`** JDialog.
+2. Click **`Browse...`** next to the sample path field and load a multi-cycle wavetable WAV file (e.g. a sweep morph wavetable).
+3. Click the **`🔬 Wavetable Laboratory...`** button next to the loop bounds panel! The spacious dark-neon laboratory window spawns in the center!
+4. Look at the **Cycle Size (Samples)** menu: set it to **`2048`** (the standard modern wavetable size). The 3D waterfall stack instantly aligns, projecting the wavy consecutive wave lines!
+5. Drag the **`Wavetable Position Scan Slider`** back and forth: watch the left cyan curve morph smoothly between round sine, detuned saw, and complex spectral form shapes, while the active white cursor line tracks the highlighted position in the 3D waterfall stack!
+6. Tap notes on your keyboard or play the sequencer: you will hear the active drum kit synth voice sweep dynamically, transforming from a warm bass hum into a bright, aggressive digital vocal lead in real-time! Click **`Apply & Close`** to save your selected wave state.
+
+---
+
+## 13. Pedal Looper & Continuous Multi-Layer Overdubs
 
 The Pedal Looper turns the sequencer grid into a continuous, pedal-style audio overdubbing station. Perfect for live instrumentalists (guitarists, violinists) or keyboard players to build entire arrangements in real-time.
 
@@ -586,7 +611,7 @@ The Pedal Looper turns the sequencer grid into a continuous, pedal-style audio o
 
 ---
 
-## 13. MIDI Clock Sync, Device Chains & Program Changes
+## 14. MIDI Clock Sync, Device Chains & Program Changes
 
 The Deluge Workstation operates as a robust hub to control external physical hardware instruments or align timing clocks across multi-device networks.
 
@@ -600,7 +625,48 @@ The Deluge Workstation operates as a robust hub to control external physical har
 
 ---
 
-## 14. MPE & Multi-Dimensional Controller Expression
+## 15. Performance View & FX Touch-Pads Grid
+
+The **`Performance View (PERF)`** provides a hardware-inspired 16-column × 8-row dynamic interactive touch grid. It maps variables and sends real-time global sweeps straight to the active focus track, creating an electronic performance launch pad.
+
+![Performance View FX Touch-Pads Grid](images/deluge_performance_view.png)
+
+### 15.1 Column FX Variables and Row Intensities Mapping
+* **16 Columns FX Destinations**:
+  1. `VOLUME`: Master track volume leveling.
+  2. `PAN`: Sound spatial panning sweep.
+  3. `LPF FREQ`: Low-pass filter cutoff frequency.
+  4. `LPF RES`: Low-pass filter resonance feedback.
+  5. `HPF FREQ`: High-pass filter cutoff sweep.
+  6. `HPF RES`: High-pass filter resonance sweep.
+  7. `MOD FX RATE`: Modulation LFO speed.
+  8. `MOD FX DEPTH`: Chorus/flanger depth.
+  9. `DELAY`: Echo send intensity.
+  10. `REVERB`: Space reverb send density.
+  11. `STUTTER`: Sequencer clock grid retrigger loop rate.
+  12. `BITCRUSH`: Digital sample resolution decimator.
+  13. `SRR`: Sample rate reduction sweep.
+  14. `SIDECHAIN`: Direct kick ducking volume envelope.
+  15. `COMP`: Master compressor threshold drive.
+  16. `NOISE VOL`: White noise generator injection.
+* **8 Rows Value Intensities (0 to 7)**: Row 0 represents the minimum value range of the column FX, and Row 7 represents the maximum value intensity. Clicking a pad lights it up and writes the level change instantly to JNI playback registers.
+
+### 15.2 Dual Interaction Play Modes: LATCH vs MOMENTARY
+* **LATCH Mode**: Tapping a pad toggles the effect on/off like a static switch, allowing you to select and keep multiple columns active at once (multi-select style) to build custom static multi-effects matrices!
+* **MOMENTARY Mode**: Actively triggers effects while you press-and-hold down a pad, and instantly restores the original parameters state the moment you release the mouse/pad! Perfect for quick glitch fills, transient filter sweeps, and dramatic drop build-ups!
+* **Column Section Mutes**: Pressing a column's header button acts as a group bypass/mute, instantly resetting all active values in that column block back to their safe baseline states.
+
+#### 🔊 Tutorial L: Live High-Pass Filtering & Stutter Sweeps during Drops
+1. Press **`Spacebar`** to start playing a heavy, 4-bar drum beat sequence.
+2. Click the **`PERF`** button on the top toolbar to open the Performance touch-pads grid.
+3. Look at the bottom toolbar: click the **`[MOMENTARY]`** button to activate live momentary triggers mode!
+4. As the song approaches the end of the 2nd bar, click and drag a vertical line on Column 5 (**`HPF FREQ`**) from Row 0 up to Row 7! You will hear the sound thin out beautifully as a high-pass sweeping filter slices out the low-end!
+5. Hold down the pad at Column 11 (**`STUTTER`**) Row 5: the drum beat instantly enters a fast, repeating $1/16$-note stutter loop!
+6. Exactly on the downbeat of the 3rd bar, release the mouse! The high-pass filter instantly snaps open, the stutter loop ends, the full thumping bass kick crashes back in, and the song drops with perfect timing!
+
+---
+
+## 16. MPE & Multi-Dimensional Controller Expression
 
 Multi-Dimensional Polyphonic Expression (MPE) is the modern standard for expressive controller tracking, supported natively by our sound engine:
 
@@ -619,7 +685,7 @@ graph TD
 
 ---
 
-## 15. System Settings, Directories Preferences & Shortcuts Table
+## 17. System Settings, Directories Preferences & Shortcuts Table
 
 The **`Settings ➔ Preferences...`** panel manages your paths and grid configurations without JNI hooks:
 * **SD Card Mounted Library Directory**: Set the root parent directory folder path representing your physical SD card library. All subdirectories (`SAMPLES/`, `KITS/`, `SYNTHS/`, `SONGS/`) are resolved relative to this parent root dynamically.
@@ -640,7 +706,7 @@ The **`Settings ➔ Preferences...`** panel manages your paths and grid configur
 
 ---
 
-## 16. Appendix: Programmatic High-Fidelity JNI Registers Architecture
+## 18. Appendix: Programmatic High-Fidelity JNI Registers Architecture
 
 When you play a sequence, the control parameters are written straight to ChucK VM global registers arrays. Below is a breakdown of the dynamic real-time data registers:
 
@@ -662,25 +728,22 @@ graph TD
 
 ---
 
-## 17. Appendix: Pending Work Items & Future Development Roadmap (TODO List)
+## 19. Appendix: Pending Work Items & Future Development Roadmap (TODO List)
 
 While the ChucK-Java Deluge Workstation provides a comprehensive operations platform, several features from the Deluge OS 4.0 firmware guidebook remain planned for upcoming development.
 
 ### 📋 Future Technical Roadmap:
-* **[ ] 17.1 Triplet Column Grid Divisions View (SwingGridPanel & ChucK Sequencer)**:
+* **[ ] 19.1 Triplet Column Grid Divisions View (SwingGridPanel & ChucK Sequencer)**:
   * *Goal*: Add a `[3]` grid toolbar toggle button to switch time divisions. The grid columns redraw from 16 to 12 segments (subdividing quarter beats into triplets of 3 instead of standard 4 eighth/sixteenth notes).
   * *ChucK Sync*: The clock step increment timing step shifts from $1/4$ note beats step parameters to $1/6$ divisions timing steps dynamically.
-* **[ ] 17.2 Advanced Wavetable Index Scan Editor (SwingKitConfigDialog & Synth Oscillators)**:
-  * *Goal*: Build an interactive 3D grid visualizer to inspect single-cycle waves nodes in wavetable files.
-  * *UI Control*: Drag a horizontal slider to sweep target table slices indexes, automatically redrawing the cycle frame outlines live and pushing JNI coordinates back to synthesis voice tracks.
-* **[ ] 17.3 MPE & Polyphonic Aftertouch Multi-Dimensional JNI Sweeps**:
+* **[x] 19.2 Advanced Wavetable Index Scan Editor (SwingKitConfigDialog)**: Completed! Dual single-cycle neon wave drawings, 3D perspective stacked waterfall lines, and real-time JNI position hot-swaps.
+* **[ ] 19.3 MPE & Polyphonic Aftertouch Multi-Dimensional JNI Sweeps**:
   * *Goal*: Add active tracking layers for MPE controllers pressure (Z-axis) and vertical position slide (Y-axis) MIDI events.
   * *JNI Routing*: Cable these dynamic parameters to real-time arrays to drive individual synthesizer voice filters and pulse widths independently per key played.
-* **[ ] 17.4 Continuous Recursive Looper Stacking (Pedal-Style Overdub Panel)**:
-  * *Goal*: Implement a live looper deck letting users layer endless audio overdubs recursively onto consecutive parallel lane tracks.
-  * *Features*: Tempo detection algorithms automatically calibrate BPM clocks from the first recorded audio buffer frame limits, and dynamic undo buttons snip out individual loop layers in real-time.
-* **[ ] 17.5 Arranger Live Capture Suite**:
+* **[x] 19.4 Continuous Recursive Looper Stacking (Pedal-Style Overdub Panel)**: Completed! Real-time looper decks, system Auto-BPM, and foot-pedal layer undos/redos.
+* **[ ] 19.5 Arranger Live Capture Suite**:
   * *Goal*: Add a **`[🔴 Capture Live Performance]`** record mode. Actively records live SONG view launching clicks, mutes, solos, and tempo alterations straight into block timeline tracks inside ARRANGEMENT view for structured linear timelines exports!
+* **[x] 19.6 Performance View & FX Touch-Pads Grid**: Completed! Multi-effects matrix launchers cabled to unipolar JNI track bounds and LATCH/MOMENTARY touch modes.
 
 ---
 

@@ -1911,6 +1911,14 @@ public class DelugeXmlParser {
           LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
         }
       }
+      NodeList wtNodes = osc1El.getElementsByTagName("wavetableIndexPct");
+      if (wtNodes.getLength() > 0) {
+        try {
+          sound.setWavetableIndexPct(Integer.parseInt(wtNodes.item(0).getTextContent().trim()));
+        } catch (NumberFormatException e) {
+          LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
+        }
+      }
     }
 
     // osc2

@@ -25,6 +25,15 @@ public class SoundDrum extends Drum {
   private boolean osc2TimeStretch = false;
   private float osc2TimeStretchAmount = 0.0f;
   private boolean osc2LinearInterpolation = false;
+  private int wavetableIndexPct = 50; // default middle wavetable scanning position
+
+  public int getWavetableIndexPct() {
+    return wavetableIndexPct;
+  }
+
+  public void setWavetableIndexPct(int val) {
+    this.wavetableIndexPct = Math.max(0, Math.min(100, val));
+  }
 
   public SoundDrum(String name) {
     super(name);
