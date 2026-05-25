@@ -4840,10 +4840,15 @@ public class SwingGridPanel extends JPanel {
                   engineActiveCol = currentStep % stepCount;
                 }
 
+                boolean isAdvanced =
+                    org.chuck.deluge.project.PreferencesManager.getGridPanelType()
+                        == org.chuck.deluge.project.PreferencesManager.GridPanelType.ADVANCED;
                 int rows =
                     (viewMode == GridViewMode.AUTOMATION)
                         ? 8
-                        : (viewMode == GridViewMode.CLIP) ? voiceRowCount : gridMode.rows;
+                        : (viewMode == GridViewMode.CLIP && isAdvanced)
+                            ? voiceRowCount
+                            : gridMode.rows;
                 if (activeCol != lastCol[0]) {
                   lastCol[0] = activeCol;
                   if (activeCol == 0) {
