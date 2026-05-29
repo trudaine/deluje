@@ -94,6 +94,7 @@ public class SwingRandomizerDialog extends JDialog {
 
     tabPane.addTab("🎲 Synth Randomizer", buildSynthRandomizerTab());
     tabPane.addTab("🥁 Kit Super-Generator", buildKitGeneratorTab());
+    tabPane.addTab("🎹 Chord Progression Generator", buildChordsGeneratorTab());
 
     add(tabPane, BorderLayout.CENTER);
 
@@ -991,5 +992,361 @@ public class SwingRandomizerDialog extends JDialog {
 
       g2.dispose();
     }
+  }
+
+  private JPanel buildChordsGeneratorTab() {
+    JPanel panel = new JPanel(new GridBagLayout());
+    panel.setBackground(new Color(0x12, 0x12, 0x14));
+    panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+    GridBagConstraints gbc = new GridBagConstraints();
+    gbc.insets = new Insets(8, 8, 8, 8);
+    gbc.fill = GridBagConstraints.HORIZONTAL;
+
+    // Row 0: Root note key selector
+    gbc.gridx = 0;
+    gbc.gridy = 0;
+    JLabel rootLbl = new JLabel("Key Root Center:");
+    rootLbl.setForeground(Color.WHITE);
+    panel.add(rootLbl, gbc);
+
+    gbc.gridx = 1;
+    String[] roots = {
+      "C (60)", "C# (61)", "D (62)", "D# (63)", "E (64)", "F (65)", "F# (66)", "G (67)", "G# (68)",
+      "A (69)", "A# (70)", "B (71)"
+    };
+    JComboBox<String> rootCombo = new JComboBox<>(roots);
+    rootCombo.setBackground(new Color(0x2d, 0x2d, 0x32));
+    rootCombo.setForeground(Color.WHITE);
+    panel.add(rootCombo, gbc);
+
+    // Row 1: Active Scale Info Indicator!
+    gbc.gridx = 0;
+    gbc.gridy = 1;
+    JLabel scaleLbl = new JLabel("Active Scale Source:");
+    scaleLbl.setForeground(Color.WHITE);
+    panel.add(scaleLbl, gbc);
+
+    gbc.gridx = 1;
+    org.chuck.deluge.model.tuning.ScalaScale scale =
+        org.chuck.deluge.model.tuning.ScalaScale.getActiveScale();
+    String scaleInfo =
+        (scale != null)
+            ? (scale.getName() + " (" + scale.getStepsCount() + " steps)")
+            : "12-TET Standard Scale (Equal Temperament)";
+    JLabel scaleInfoLabel =
+        new JLabel("<html><font color='#00ffcc'><b>" + scaleInfo + "</b></font></html>");
+    panel.add(scaleInfoLabel, gbc);
+
+    // Row 2: Chord Progression selection template
+    gbc.gridx = 0;
+    gbc.gridy = 2;
+    JLabel progLbl = new JLabel("Chords Progression:");
+    progLbl.setForeground(Color.WHITE);
+    panel.add(progLbl, gbc);
+
+    gbc.gridx = 1;
+    String[] progressions = {
+      "I - IV - V - I (Standard)",
+      "ii - V - I (Jazz Cadence)",
+      "I - V - vi - IV (Pop Cadence)",
+      "i - bVI - bIII - bVII (Epic Minor)",
+      "Custom (Comma-separated degrees below!)"
+    };
+    JComboBox<String> progressionCombo = new JComboBox<>(progressions);
+    progressionCombo.setBackground(new Color(0x2d, 0x2d, 0x32));
+    progressionCombo.setForeground(Color.WHITE);
+    panel.add(progressionCombo, gbc);
+
+    // Row 3: Custom progression degree entries field
+    gbc.gridx = 0;
+    gbc.gridy = 3;
+    JLabel customProgLbl = new JLabel("Custom Degree Steps:");
+    customProgLbl.setForeground(Color.WHITE);
+    panel.add(customProgLbl, gbc);
+
+    gbc.gridx = 1;
+    JTextField customField = new JTextField("0, 3, 4, 0"); // Default I - IV - V - I
+    customField.setBackground(new Color(0x2d, 0x2d, 0x32));
+    customField.setForeground(Color.WHITE);
+    customField.setCaretColor(Color.WHITE);
+    panel.add(customField, gbc);
+
+    // Row 4: Voicing Style Selector
+    gbc.gridx = 0;
+    gbc.gridy = 4;
+    JLabel voicingLbl = new JLabel("Chords Voicing:");
+    voicingLbl.setForeground(Color.WHITE);
+    panel.add(voicingLbl, gbc);
+
+    gbc.gridx = 1;
+    String[] voicings = {
+      "Triads (3-note stack)",
+      "7ths (4-note stack)",
+      "Sus4 Diatonic",
+      "Spread Open Pads (Root + 5th + Octave)"
+    };
+    JComboBox<String> voicingCombo = new JComboBox<>(voicings);
+    voicingCombo.setBackground(new Color(0x2d, 0x2d, 0x32));
+    voicingCombo.setForeground(Color.WHITE);
+    panel.add(voicingCombo, gbc);
+
+    // Row 5: Rhythm Pattern Selector
+    gbc.gridx = 0;
+    gbc.gridy = 5;
+    JLabel rhythmLbl = new JLabel("Rhythmic Style:");
+    rhythmLbl.setForeground(Color.WHITE);
+    panel.add(rhythmLbl, gbc);
+
+    gbc.gridx = 1;
+    String[] rhythms = {
+      "Whole Notes (1 chord per bar)",
+      "Half Notes (2 chords per bar)",
+      "Staccato Stabs (1/16th short gates)",
+      "Arpeggiated Wave (1/16th rolling waves)"
+    };
+    JComboBox<String> rhythmCombo = new JComboBox<>(rhythms);
+    rhythmCombo.setBackground(new Color(0x2d, 0x2d, 0x32));
+    rhythmCombo.setForeground(Color.WHITE);
+    panel.add(rhythmCombo, gbc);
+
+    // Row 6: Target Track Selector combo
+    gbc.gridx = 0;
+    gbc.gridy = 6;
+    JLabel trackLbl = new JLabel("Target Synth Track:");
+    trackLbl.setForeground(Color.WHITE);
+    panel.add(trackLbl, gbc);
+
+    gbc.gridx = 1;
+    ArrayList<String> synthTrackNames = new ArrayList<>();
+    ArrayList<Integer> synthTrackIndices = new ArrayList<>();
+    if (projectModel != null) {
+      for (int i = 0; i < projectModel.getTracks().size(); i++) {
+        TrackModel t = projectModel.getTracks().get(i);
+        if (t instanceof SynthTrackModel) {
+          synthTrackNames.add(t.getName() != null ? t.getName() : "Synth Track " + (i + 1));
+          synthTrackIndices.add(i);
+        }
+      }
+    }
+    JComboBox<String> trackCombo = new JComboBox<>(synthTrackNames.toArray(new String[0]));
+    trackCombo.setBackground(new Color(0x2d, 0x2d, 0x32));
+    trackCombo.setForeground(Color.WHITE);
+    panel.add(trackCombo, gbc);
+
+    // Row 7: Action Button!
+    gbc.gridx = 0;
+    gbc.gridy = 7;
+    gbc.gridwidth = 2;
+    gbc.fill = GridBagConstraints.NONE;
+    gbc.anchor = GridBagConstraints.CENTER;
+    JButton generateBtn = new JButton("🎹 GENERATE DIATONIC PROGRESSION");
+    generateBtn.setFont(new Font("SansSerif", Font.BOLD, 12));
+    generateBtn.setBackground(new Color(0x00, 0x4d, 0x3d));
+    generateBtn.setForeground(Color.WHITE);
+    generateBtn.setFocusable(false);
+    generateBtn.addActionListener(
+        e -> {
+          if (synthTrackIndices.isEmpty()) {
+            JOptionPane.showMessageDialog(
+                this, "Error: No active Synth track channel exists to draw chords onto!");
+            return;
+          }
+
+          int targetTrackIdx = synthTrackIndices.get(trackCombo.getSelectedIndex());
+          SynthTrackModel track = (SynthTrackModel) projectModel.getTracks().get(targetTrackIdx);
+
+          // Get or create active sequence clip!
+          ClipModel clip;
+          if (track.getClips().isEmpty()) {
+            clip = new ClipModel("CHORD PROGRESSION", 8, 16);
+            track.addClip(clip);
+          } else {
+            clip =
+                track
+                    .getClips()
+                    .get(track.getActiveClipIndex() >= 0 ? track.getActiveClipIndex() : 0);
+            // Clear all standard step cells in the grid to write fresh chord notes!
+            for (int r = 0; r < clip.getRowCount(); r++) {
+              for (int s = 0; s < clip.getStepCount(); s++) {
+                clip.setStep(r, s, org.chuck.deluge.model.StepData.empty());
+              }
+            }
+          }
+
+          // 1. Resolve Root Note Center
+          int baseRoot =
+              60 + rootCombo.getSelectedIndex(); // standard MIDI pitch center starting at C4 (60)
+
+          // 2. Parse degrees progression list
+          ArrayList<Integer> degrees = new ArrayList<>();
+          int selectedProg = progressionCombo.getSelectedIndex();
+          if (selectedProg == 0) { // I - IV - V - I
+            degrees.add(0);
+            degrees.add(3);
+            degrees.add(4);
+            degrees.add(0);
+          } else if (selectedProg == 1) { // ii - V - I
+            degrees.add(1);
+            degrees.add(4);
+            degrees.add(0);
+            degrees.add(0);
+          } else if (selectedProg == 2) { // I - V - vi - IV
+            degrees.add(0);
+            degrees.add(4);
+            degrees.add(5);
+            degrees.add(3);
+          } else if (selectedProg == 3) { // i - bVI - bIII - bVII
+            degrees.add(0);
+            degrees.add(5);
+            degrees.add(2);
+            degrees.add(6);
+          } else { // Custom progression degrees CSV
+            try {
+              String[] parts = customField.getText().split(",");
+              for (String p : parts) {
+                degrees.add(Integer.parseInt(p.trim()));
+              }
+            } catch (Exception ex) {
+              JOptionPane.showMessageDialog(this, "Error parsing custom degree integers list!");
+              return;
+            }
+          }
+
+          // If progression has less than 4 steps, repeat last index; if wider, crop to first 4
+          // bars grid boundaries!
+          while (degrees.size() < 4) {
+            degrees.add(0);
+          }
+
+          org.chuck.deluge.model.tuning.ScalaScale activeScale =
+              org.chuck.deluge.model.tuning.ScalaScale.getActiveScale();
+          int scaleSteps = (activeScale != null) ? activeScale.getStepsCount() : 12;
+          int spacing = Math.max(1, Math.round(scaleSteps / 7.0f)); // spacer for chord stacking
+
+          int voicingType = voicingCombo.getSelectedIndex();
+          int rhythmType = rhythmCombo.getSelectedIndex();
+
+          // Standard 12-TET Major/Minor fallback diatonic key intervals maps
+          int[] majorIntervals = {0, 2, 4, 5, 7, 9, 11};
+          int[] minorIntervals = {0, 2, 3, 5, 7, 8, 10};
+          boolean isMinorProg = (selectedProg == 3);
+
+          // Loop through 4 bars grids steps columns
+          for (int bar = 0; bar < 4; bar++) {
+            int degree = degrees.get(bar);
+
+            // Generate raw pitches for the chord stack
+            ArrayList<Integer> chordPitches = new ArrayList<>();
+
+            if (activeScale == null) {
+              // Standard 12-TET Diatonic scale interval map!
+              int[] intervals = isMinorProg ? minorIntervals : majorIntervals;
+              int rootOffset = intervals[Math.abs(degree) % 7] + 12 * (degree / 7);
+              int thirdOffset = intervals[Math.abs(degree + 2) % 7] + 12 * ((degree + 2) / 7);
+              int fifthOffset = intervals[Math.abs(degree + 4) % 7] + 12 * ((degree + 4) / 7);
+              int seventhOffset = intervals[Math.abs(degree + 6) % 7] + 12 * ((degree + 6) / 7);
+
+              if (voicingType == 0) { // Triad
+                chordPitches.add(baseRoot + rootOffset);
+                chordPitches.add(baseRoot + thirdOffset);
+                chordPitches.add(baseRoot + fifthOffset);
+              } else if (voicingType == 1) { // 7ths
+                chordPitches.add(baseRoot + rootOffset);
+                chordPitches.add(baseRoot + thirdOffset);
+                chordPitches.add(baseRoot + fifthOffset);
+                chordPitches.add(baseRoot + seventhOffset);
+              } else if (voicingType == 2) { // Sus4
+                int susOffset = intervals[Math.abs(degree + 3) % 7] + 12 * ((degree + 3) / 7);
+                chordPitches.add(baseRoot + rootOffset);
+                chordPitches.add(baseRoot + susOffset);
+                chordPitches.add(baseRoot + fifthOffset);
+              } else { // Spread pads: root + 5th + octave up
+                chordPitches.add(baseRoot + rootOffset);
+                chordPitches.add(baseRoot + fifthOffset);
+                chordPitches.add(baseRoot + rootOffset + 12);
+              }
+            } else {
+              // Custom Microtonal scale layout: degrees are step pitch notes directly!
+              int rootOffset = degree;
+              int thirdOffset = degree + spacing;
+              int fifthOffset = degree + 2 * spacing;
+              int seventhOffset = degree + 3 * spacing;
+
+              if (voicingType == 0) { // Triad
+                chordPitches.add(baseRoot + rootOffset);
+                chordPitches.add(baseRoot + thirdOffset);
+                chordPitches.add(baseRoot + fifthOffset);
+              } else if (voicingType == 1) { // 7ths
+                chordPitches.add(baseRoot + rootOffset);
+                chordPitches.add(baseRoot + thirdOffset);
+                chordPitches.add(baseRoot + fifthOffset);
+                chordPitches.add(baseRoot + seventhOffset);
+              } else if (voicingType == 2) { // Sus4 (Diatonic step 3 spacing!)
+                chordPitches.add(baseRoot + rootOffset);
+                chordPitches.add(baseRoot + degree + (int) Math.round(spacing * 1.5));
+                chordPitches.add(baseRoot + fifthOffset);
+              } else { // Spread pads: root + 5th + octave degree steps count!
+                chordPitches.add(baseRoot + rootOffset);
+                chordPitches.add(baseRoot + fifthOffset);
+                chordPitches.add(baseRoot + rootOffset + scaleSteps);
+              }
+            }
+
+            // Apply rhythm pattern styles writes
+            int barStartCol = bar * 4;
+            if (rhythmType == 0) { // Whole Notes (1 chord per bar, gate = 4.0)
+              for (int pitch : chordPitches) {
+                int rIdx = Math.max(0, Math.min(127, 127 - pitch));
+                clip.setStep(
+                    rIdx,
+                    barStartCol,
+                    org.chuck.deluge.model.StepData.of(true, pitch, 1.0f, 4.0f, 0));
+              }
+            } else if (rhythmType == 1) { // Half Notes (2 chords per bar, gate = 2.0)
+              for (int pitch : chordPitches) {
+                int rIdx = Math.max(0, Math.min(127, 127 - pitch));
+                clip.setStep(
+                    rIdx,
+                    barStartCol,
+                    org.chuck.deluge.model.StepData.of(true, pitch, 1.0f, 2.0f, 0));
+                clip.setStep(
+                    rIdx,
+                    barStartCol + 2,
+                    org.chuck.deluge.model.StepData.of(true, pitch, 1.0f, 2.0f, 0));
+              }
+            } else if (rhythmType == 2) { // Stabs (4 staccato stabs, gate = 0.25)
+              for (int sIdx = 0; sIdx < 4; sIdx++) {
+                for (int pitch : chordPitches) {
+                  int rIdx = Math.max(0, Math.min(127, 127 - pitch));
+                  clip.setStep(
+                      rIdx,
+                      barStartCol + sIdx,
+                      org.chuck.deluge.model.StepData.of(true, pitch, 1.0f, 0.25f, 0));
+                }
+              }
+            } else { // Arpeggiated Wave (1/16th rolling arps waves!)
+              for (int sIdx = 0; sIdx < 4; sIdx++) {
+                int noteIndex = sIdx % chordPitches.size();
+                int pitch = chordPitches.get(noteIndex);
+                int rIdx = Math.max(0, Math.min(127, 127 - pitch));
+                clip.setStep(
+                    rIdx,
+                    barStartCol + sIdx,
+                    org.chuck.deluge.model.StepData.of(true, pitch, 1.0f, 1.0f, 0));
+              }
+            }
+          }
+
+          // Sync and force grid graphics repaints!
+          if (parentFrame instanceof SwingDelugeApp app) {
+            app.getActiveGridPanel().refresh();
+          }
+          JOptionPane.showMessageDialog(
+              this, "Successfully generated chord progression on track: " + track.getName());
+        });
+    panel.add(generateBtn, gbc);
+
+    return panel;
   }
 }
