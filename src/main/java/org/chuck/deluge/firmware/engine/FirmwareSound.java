@@ -13,6 +13,7 @@ import org.chuck.deluge.firmware.modulation.params.ParamManager;
 import org.chuck.deluge.firmware.modulation.patch.PatchSource;
 import org.chuck.deluge.firmware.modulation.sidechain.SideChain;
 import org.chuck.deluge.firmware.util.Q31;
+import org.chuck.deluge.model.tuning.ScalaScale;
 
 /**
  * Port of the Deluge's Sound class. This is the central high-fidelity synthesis engine for a single
@@ -95,7 +96,8 @@ public class FirmwareSound extends GlobalEffectable {
   }
 
   public static int noteToPhaseInc(int note) {
-    double freq = 440.0 * Math.pow(2.0, (note - 69) / 12.0);
+    ScalaScale scale = ScalaScale.getActiveScale();
+    double freq = (scale != null) ? scale.mtof(note) : (440.0 * Math.pow(2.0, (note - 69) / 12.0));
     return (int) (freq * (16777216.0 / 44100.0));
   }
 

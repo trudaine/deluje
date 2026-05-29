@@ -1089,6 +1089,7 @@ public class SwingDelugeApp extends JFrame {
             org.chuck.deluge.model.tuning.ScalaScale scale =
                 org.chuck.deluge.model.tuning.ScalaScaleParser.parse(fis, file.getName());
             org.chuck.deluge.engine.DelugeEngineDSL.setScalaScale(scale);
+            org.chuck.deluge.model.tuning.ScalaScale.setActiveScale(scale);
             System.out.println(
                 "[Preferences] Successfully cabled tuning scale: " + scale.getName());
           }

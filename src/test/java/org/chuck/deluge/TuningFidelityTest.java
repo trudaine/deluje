@@ -121,6 +121,14 @@ public class TuningFidelityTest {
     // Assert fractional detuning: Middle C + 50 cents detuning
     double expectedCentsDetuned = 261.625565 * Math.pow(2.0, 0.5 / 12.0);
     assertEquals(expectedCentsDetuned, scale.mtof(60.5), 1e-5);
+
+    // Set central active scale to verify pure JRE engine static noteToPhaseInc conversions
+    ScalaScale.setActiveScale(scale);
+    assertEquals(99531, org.chuck.deluge.firmware.engine.FirmwareSound.noteToPhaseInc(60));
+    // Step 7 (Perfect Fifth) frequency: 261.625565 * 1.5 = 392.438347 Hz
+    // pInc = 392.438347 * 16777216 / 44100 = 149297
+    assertEquals(149297, org.chuck.deluge.firmware.engine.FirmwareSound.noteToPhaseInc(67));
+    ScalaScale.setActiveScale(null); // Cleanup
   }
 
   @Test

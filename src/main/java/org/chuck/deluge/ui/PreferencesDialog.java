@@ -306,6 +306,7 @@ public class PreferencesDialog extends JDialog {
           scalaPathField.setText("(no custom scale - 12-TET active)");
           PreferencesManager.set("scala.scale.path", "");
           DelugeEngineDSL.setScalaScale(null);
+          ScalaScale.setActiveScale(null);
         });
 
     scalaSelectPanel.add(scalaPathField, BorderLayout.CENTER);
@@ -568,6 +569,7 @@ public class PreferencesDialog extends JDialog {
         try (java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
           ScalaScale scale = ScalaScaleParser.parse(fis, file.getName());
           DelugeEngineDSL.setScalaScale(scale);
+          ScalaScale.setActiveScale(scale);
         } catch (Exception ignored) {
         }
       } else {
@@ -612,6 +614,7 @@ public class PreferencesDialog extends JDialog {
         scalaPathField.setText(file.getName());
         PreferencesManager.set("scala.scale.path", path);
         DelugeEngineDSL.setScalaScale(scale);
+        ScalaScale.setActiveScale(scale);
 
         JOptionPane.showMessageDialog(
             this,
