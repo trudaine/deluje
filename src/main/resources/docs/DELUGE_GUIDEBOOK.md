@@ -33,6 +33,13 @@ The central focus of the Deluge Workstation is the multi-lane visual step sequen
 
 ### Key Features:
 * **Interactive Step Matrix Grid**: A standard 16x8 matrix scroll list representing time divisions (columns) across voice lanes (rows). Pads are backlit and glow in warm HSL colors reflecting step status and velocity levels.
+* **Horizontal Step Drag-Ties (Extended Notes Entry)**: Click a pad and drag your mouse horizontally along the same row to extend note durations (ties) across multiple steps dynamically!
+  * Visual step cells in the drag range glow in a beautiful backlit color preview state during drags.
+  * Upon release, consecutive step properties (intermediate steps gate set to `1.0` and ending step gate set to `0.5`) are finalized inside the model.
+* **Smooth Proximity Auto-Scrolling**: When dragging note ties or selecting cell ranges, moving the cursor near the left/right view borders automatically shifts the scroll offset view by 4 steps smoothly:
+  * Dragging near the right panel boundary ($\ge \text{width} - 30\text{px}$) scrolls the viewport RIGHT.
+  * Dragging near the left panel boundary ($\le 130\text{px}$) scrolls the viewport LEFT.
+  * Active drag column indexes are updated dynamically during auto-scrolling, keeping your selection perfectly aligned!
 * **Note Characteristics Tweak Deck**: Hovering over or clicking a step exposes a dynamic wiggler slider to adjust:
   * **Velocity**: Scale note triggers velocities from `1%` to `100%`.
   * **Duration (Length)**: Extend a note's gate across consecutive pads from a quick sixteenth trigger up to multiple bars.
@@ -405,7 +412,22 @@ The workstation provides three distinct workspace perspectives to support multip
 
 * **CLIP View**: Focuses on a single sequencer pattern grid lane to draw steps and adjust gate timings.
 * **SONG View**: A launching matrix where different clip patterns (rows) are grouped into Song Sections. Launch or mute rows live to test transitions and structure arrangements.
-* **ARRANGEMENT View**: A horizontal linear track timeline grid where clip instances blocks are sequenced from left-to-right (time timeline). Drag the edge of a block to extend its playback length, solo vocal lanes, or draw structured linear builds.
+* **ARRANGEMENT View**: A horizontal linear track timeline grid (where grid rows represent track channels, and columns represent standard BARS, i.e., $1\text{ column} = 96\text{ ticks}$). Double-click a cell or right-click to place a clip block, drag the edge of a block to extend its playback length, or drag standard blocks horizontally to shift their start time coordinates!
+
+### 7.1 Widescreen Arranger Visual Grid Editor (Widescreen Mode)
+When the active view mode is set to ARRANGER, the step grid panel transforms into an interactive visual timeline workspace cabled to the track's real-time timeline models:
+*   **Empty Slot Click & Popup Creator:** Clicking an empty Arranger step slot opens a JPopupMenu listing all available clips for that track (plus a `"Create New Pattern Clip (1 bar)"` quick-access options builder). Selecting an item automatically instantiates and schedules the Arranger clip placement!
+*   **Widescreen Timeline Drag-Moving (Standard Drag):** Click a backlit clip block pad and drag it horizontally to shift its start time ticks position by increments of 1 bar ($96\text{ ticks}$ per grid column drag):
+    $$\text{newStartTicks} = \max(0, \text{dragStartTicks} + \text{colDiff} \times 96)$$
+*   **Widescreen Timeline Drag-Resizing (Shift + Drag):** Hold down the **Shift** key while dragging a backlit clip block pad horizontally to extend or contract its loop duration length by increments of 1 bar ($96\text{ ticks}$ per grid column drag):
+    $$\text{newDurationTicks} = \max(96, \text{dragDurationTicks} + \text{colDiff} \times 96)$$
+*   **Double-Click / Right-Click to Delete:** Double-clicking or right-clicking a backlit Arranger pad instantly removes that specific clip instance placement from the song model arrangement timeline!
+
+### 7.2 Arranger Real-Time Steps Scheduler & Live Capture Mode
+*   **Arranger Steps Playback Scheduler:** Spawns a high-priority, 5ms daemon background thread that monitors the real-time JNI playback step index. Ahead of the playhead hit, it pre-transfers cell active, pitch, velocity, and gate parameters for active arranger clips straight into the circular JNI step matrix column:
+    $$\text{col} = \text{upcomingStep} \bmod 16$$
+    If no placement is active on a track row, it automatically mutes the step channels to keep background audio perfectly quiet.
+*   **Live Session Clips Capture [🔴 CAPTURE]:** Clicking the glowing **`[🔴 CAPTURE]`** transport toggle button enables live recording session mode. When the user launches/stops a clip in Session view, the capture scheduler records the start ticks step and duration ticks, creating and appending the cabled `ArrangerClip` straight to the active arrangement timeline live!
 
 ### 7.1 Clip sequencing & Song Sections Workflow
 * **Grid Entry in CLIP Mode**: Click a cell to add a note event, double-click a step to configure its specific gate and velocity timings, or scroll mouse wheel vertically to search up/down vocal pitch scale lanes.
@@ -726,6 +748,9 @@ graph TD
 The **`Settings ➔ Preferences...`** panel manages your paths and grid configurations without JNI hooks:
 * **SD Card Mounted Library Directory**: Set the root parent directory folder path representing your physical SD card library. All subdirectories (`SAMPLES/`, `KITS/`, `SYNTHS/`, `SONGS/`) are resolved relative to this parent root dynamically.
 * **Grid Layout Profiles**: Standardize your interface to **`Grid 8x16`** or extended **`Grid 16x16`** formats.
+* **Microtonal Tuning (Scala)**: Load standard Scala scale (`.scl`) and optional keyboard mapping (`.kbm`) templates:
+  * **Browse SCL:** Click the button to launch a file chooser, select your custom tuning scale file. The parser immediately compiles the cent/ratio intervals, updates the active JNI pitch-to-frequency engine, and saves your path to preferences.
+  * **Clear / 12-TET:** Resets active tunings, restoring the standard 12-Tone Equal Temperament system instantly.
 
 ### Complete Keyboard Shortcuts Reference:
 | Shortcut Combination | Focused Panel / Action | Operational Description |
