@@ -820,6 +820,221 @@ public class DelugeXmlParser {
     // ── Parse scales ──
     parseSongScales(songNode, project);
 
+    // ── Parse Arrangement-Only Clips ──
+    java.util.List<ClipModel> allArrangementClips = new java.util.ArrayList<>();
+    NodeList arrangementOnlyClipsNodes = songNode.getElementsByTagName("arrangementOnlyClips");
+    if (arrangementOnlyClipsNodes.getLength() == 0) {
+      arrangementOnlyClipsNodes = songNode.getElementsByTagName("arrangementOnlyTracks");
+    }
+    if (arrangementOnlyClipsNodes.getLength() > 0) {
+      Element arrClipsElem = (Element) arrangementOnlyClipsNodes.item(0);
+      NodeList arrClipNodeList = arrClipsElem.getElementsByTagName("instrumentClip");
+      System.out.println(
+          "PARSER: Found " + arrClipNodeList.getLength() + " arrangement-only clips in XML");
+      for (int i = 0; i < arrClipNodeList.getLength(); i++) {
+        Element clipElem = (Element) arrClipNodeList.item(i);
+
+        // Match target track by trackName
+        String trackName =
+            clipElem.hasAttribute("trackName") ? clipElem.getAttribute("trackName") : null;
+        TrackModel targetTrack = null;
+        if (trackName != null) {
+          for (TrackModel t : project.getTracks()) {
+            if (trackName.equals(t.getName())) {
+              targetTrack = t;
+              break;
+            }
+          }
+        }
+
+        // Fallback: FIFO queue match
+        if (targetTrack == null && i < project.getTracks().size()) {
+          targetTrack = project.getTracks().get(i);
+        }
+
+        if (targetTrack != null) {
+          // Parse basic details: rowCount, stepCount
+          NodeList noteRowList = clipElem.getElementsByTagName("noteRow");
+          int rowCount = noteRowList.getLength();
+          boolean tripletMode =
+              "1".equals(clipElem.getAttribute("triplet"))
+                  || "true".equalsIgnoreCase(clipElem.getAttribute("triplet"));
+          int stepTicks = tripletMode ? 32 : 24;
+          int stepCount = 16;
+
+          if (clipElem.hasAttribute("length")) {
+            try {
+              int lengthTicks = Integer.parseInt(clipElem.getAttribute("length"));
+              stepCount = lengthTicks / stepTicks;
+            } catch (NumberFormatException ignored) {
+            }
+          }
+
+          // Pre-calculate step count limit based on note events bounds
+          int maxPos = 0;
+          for (int r = 0; r < rowCount; r++) {
+            Element nr = (Element) noteRowList.item(r);
+            String hd = null;
+            String la = nr.getAttribute("liftActions");
+            if (la != null && !la.isEmpty()) hd = la;
+            if (hd == null) {
+              String da = nr.getAttribute("noteData");
+              if (da != null && !da.isEmpty()) hd = da;
+            }
+            if (hd == null) {
+              NodeList ndl = nr.getElementsByTagName("noteData");
+              if (ndl.getLength() > 0) hd = ndl.item(0).getTextContent();
+            }
+            if (hd != null && hd.startsWith("0x")) {
+              String data = hd.substring(2);
+              int hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_OLD;
+              if (la != null && !la.isEmpty()) hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_LIFT;
+              else if (data.length() > 0
+                  && data.length() % DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT == 0) {
+                hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
+              }
+              for (int p = 0; p + hcpn <= data.length(); p += hcpn) {
+                try {
+                  int pos = (int) Long.parseLong(data.substring(p, p + 8), 16);
+                  if (pos > 2000) break;
+                  if (pos > maxPos) maxPos = pos;
+                } catch (NumberFormatException ignored) {
+                }
+              }
+            }
+          }
+          int dataStepCount = (maxPos / stepTicks) + 1;
+          if (dataStepCount > stepCount) stepCount = dataStepCount;
+
+          ClipModel clip = new ClipModel("ARR_CLIP " + i, rowCount, stepCount);
+          clip.setTripletMode(tripletMode);
+          clip.setArrangementOnly(true);
+
+          // Parse note row cells
+          for (int r = 0; r < rowCount; r++) {
+            Element nr = (Element) noteRowList.item(r);
+            String noteStr = nr.getAttribute("note");
+            int noteVal = noteStr != null && !noteStr.isEmpty() ? Integer.parseInt(noteStr) : 60;
+
+            String hd = null;
+            String la = nr.getAttribute("liftActions");
+            if (la != null && !la.isEmpty()) hd = la;
+            if (hd == null) {
+              String da = nr.getAttribute("noteData");
+              if (da != null && !da.isEmpty()) hd = da;
+            }
+            if (hd == null) {
+              NodeList ndl = nr.getElementsByTagName("noteData");
+              if (ndl.getLength() > 0) hd = ndl.item(0).getTextContent();
+            }
+            if (hd != null && hd.startsWith("0x")) {
+              String data = hd.substring(2);
+              int hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_OLD;
+              if (la != null && !la.isEmpty()) hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_LIFT;
+              else if (data.length() > 0
+                  && data.length() % DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT == 0) {
+                hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
+              }
+              for (int p = 0; p + hcpn <= data.length(); p += hcpn) {
+                try {
+                  int pos = (int) Long.parseLong(data.substring(p, p + 8), 16);
+                  int length = (int) Long.parseLong(data.substring(p + 8, p + 16), 16);
+                  int sVal =
+                      (hcpn > 16) ? (int) Long.parseLong(data.substring(p + 16, p + 24), 16) : 0;
+                  int velocity = (sVal & 0xFF00) >> 8;
+
+                  int sidx = pos / stepTicks;
+                  if (sidx >= 0 && sidx < stepCount) {
+                    clip.setStep(
+                        r,
+                        sidx,
+                        StepData.of(
+                            true, (float) noteVal, velocity / 127f, length / (float) stepTicks, 0));
+                  }
+                } catch (NumberFormatException ignored) {
+                }
+              }
+            }
+          }
+
+          targetTrack.addClip(clip);
+          allArrangementClips.add(clip);
+          System.out.println(
+              "PARSER: Loaded arrangement-only clip "
+                  + clip.getName()
+                  + " for track "
+                  + targetTrack.getName());
+        }
+      }
+    }
+
+    // ── Parse clipInstances and build ArrangerTimeline ──
+    java.util.List<ClipModel> allSessionClips = new java.util.ArrayList<>();
+    for (TrackModel track : project.getTracks()) {
+      for (ClipModel clip : track.getClips()) {
+        if (!clip.isArrangementOnly()) {
+          allSessionClips.add(clip);
+        }
+      }
+    }
+
+    NodeList tracksList = songNode.getElementsByTagName("track");
+    for (int t = 0; t < tracksList.getLength() && t < project.getTracks().size(); t++) {
+      Element trackElem = (Element) tracksList.item(t);
+
+      String hexStr = "";
+      if (trackElem.hasAttribute("clipInstances")) {
+        hexStr = trackElem.getAttribute("clipInstances");
+      } else {
+        NodeList ciList = trackElem.getElementsByTagName("clipInstances");
+        if (ciList.getLength() > 0) {
+          hexStr = ciList.item(0).getTextContent().trim();
+        }
+      }
+
+      if (hexStr != null && hexStr.startsWith("0x")) {
+        String data = hexStr.substring(2);
+        for (int p = 0; p + 24 <= data.length(); p += 24) {
+          String posHex = data.substring(p, p + 8);
+          String lenHex = data.substring(p + 8, p + 16);
+          String codeHex = data.substring(p + 16, p + 24);
+
+          try {
+            int pos = (int) Long.parseLong(posHex, 16);
+            int length = (int) Long.parseLong(lenHex, 16);
+            long code = Long.parseLong(codeHex, 16);
+
+            boolean isArrangementClip = (code & 0x80000000L) != 0;
+            int clipIndex = (int) (code & 0x7FFFFFFFL);
+
+            ClipModel targetClip = null;
+            if (isArrangementClip) {
+              if (clipIndex >= 0 && clipIndex < allArrangementClips.size()) {
+                targetClip = allArrangementClips.get(clipIndex);
+              }
+            } else {
+              if (clipIndex >= 0 && clipIndex < allSessionClips.size()) {
+                targetClip = allSessionClips.get(clipIndex);
+              }
+            }
+
+            if (targetClip != null) {
+              ArrangerClip arrangerClip = new ArrangerClip(t, targetClip, pos, length);
+              project.addArrangerClip(arrangerClip);
+              System.out.println(
+                  "PARSER: Loaded ArrangerClip placement on track index "
+                      + t
+                      + " at startTicks="
+                      + pos
+                      + " len="
+                      + length);
+            }
+          } catch (NumberFormatException ignored) {
+          }
+        }
+      }
+    }
+
     // DIAGNOSTIC: final ProjectModel summary
     System.out.println("=== PARSER: ProjectModel after parseSong ===");
     System.out.println(
