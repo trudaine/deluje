@@ -38,6 +38,7 @@ public class SwingDelugeApp extends JFrame {
   private SwingPerformanceViewPanel performancePanel;
 
   private SwingTopBarPanel topBar;
+  private AppTopBarListener appTopBarListener;
   private SwingMasterFxPanel masterFxPanel;
 
   private JPanel centerCardPanel;
@@ -57,6 +58,16 @@ public class SwingDelugeApp extends JFrame {
 
   public org.chuck.deluge.model.ProjectModel getCurrentProject() {
     return currentProject;
+  }
+
+  public void triggerPlayToggle() {
+    if (appTopBarListener != null) {
+      appTopBarListener.onPlayToggle();
+    }
+  }
+
+  public boolean isPlaying() {
+    return vm != null && vm.getGlobalInt(BridgeContract.G_PLAY) == 1L;
   }
 
   // Engine voice mapping: for each model track, the start engine row and voice count.
@@ -2430,6 +2441,22 @@ public class SwingDelugeApp extends JFrame {
         });
     toolsMenu.add(slicerItem);
 
+    JMenuItem thresholdSamplerItem = new JMenuItem("Threshold Loop Sampler...");
+    thresholdSamplerItem.setAccelerator(
+        KeyStroke.getKeyStroke(
+            java.awt.event.KeyEvent.VK_H, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+    thresholdSamplerItem.addActionListener(
+        e -> {
+          new ThresholdRecordDialog(
+                  this,
+                  currentProject,
+                  () -> {
+                    if (songPanel != null) songPanel.refresh();
+                  })
+              .setVisible(true);
+        });
+    toolsMenu.add(thresholdSamplerItem);
+
     // Help menu — Operations Manual JDialog
     JMenu helpMenu = new JMenu("Help");
     JMenuItem manualItem = new JMenuItem("Operations Manual...");
@@ -2558,7 +2585,8 @@ public class SwingDelugeApp extends JFrame {
     performancePanel.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
     centerCardPanel.add(performancePanel, "PERF");
 
-    topBar = new SwingTopBarPanel(vm, bridge, currentProject, leftFloat, new AppTopBarListener());
+    appTopBarListener = new AppTopBarListener();
+    topBar = new SwingTopBarPanel(vm, bridge, currentProject, leftFloat, appTopBarListener);
 
     // DEBUG: solid background colors to visualize panel sizes
     System.out.println(
