@@ -12,6 +12,7 @@ import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.engine.dsp.*;
 import org.chuck.deluge.firmware.engine.FirmwareAudioEngine;
 import org.chuck.deluge.firmware.playback.PlaybackHandler;
+import org.chuck.deluge.model.tuning.ScalaScale;
 
 /**
  * Native Java implementation of the Deluge audio engine, written in the ChucK-Java DSL.
@@ -99,7 +100,20 @@ public class DelugeEngineDSL implements Shred, Runnable {
     return second(baseSec * (1.0 - (swing - 0.5) * 0.4));
   }
 
+  private static volatile ScalaScale activeScalaScale = null;
+
+  public static void setScalaScale(ScalaScale scale) {
+    activeScalaScale = scale;
+  }
+
+  public static ScalaScale getScalaScale() {
+    return activeScalaScale;
+  }
+
   private double mtof(double m) {
+    if (activeScalaScale != null) {
+      return activeScalaScale.mtof(m);
+    }
     return 440.0 * Math.pow(2.0, (m - 69.0) / 12.0);
   }
 
