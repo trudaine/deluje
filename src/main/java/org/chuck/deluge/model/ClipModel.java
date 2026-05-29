@@ -28,6 +28,7 @@ public class ClipModel {
   private String color = "#00ffcc"; // Default color
   private PlayMode playMode = PlayMode.NORMAL;
   private boolean tripletMode = false;
+  private boolean isArrangementOnly = false;
 
   /**
    * Per-parameter per-step automation data. Maps param name (see {@link AutomationParam}) to a
@@ -204,6 +205,14 @@ public class ClipModel {
 
   public void setTripletMode(boolean triplet) {
     this.tripletMode = triplet;
+  }
+
+  public boolean isArrangementOnly() {
+    return isArrangementOnly;
+  }
+
+  public void setArrangementOnly(boolean value) {
+    this.isArrangementOnly = value;
   }
 
   public void setStepCount(int stepCount) {

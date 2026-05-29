@@ -32,13 +32,18 @@ public class SwingArrangerPanel extends JPanel {
             int bar = (e.getX() - 100) / pixelsPerBar + 1;
 
             if (SwingUtilities.isRightMouseButton(e)) {
-              clips.removeIf(clip -> clip.trackIndex() == t && clip.startBar() == bar);
+              clips.removeIf(c -> c.trackIndex() == t && (int) (c.getStartBar() + 1) == bar);
               repaint();
               return;
             }
 
             if (t >= 0 && t < numTracks && bar >= 1) {
-              clips.add(new org.chuck.deluge.model.ArrangerClip(t, "CLIP_" + (t + 1), bar, 2));
+              clips.add(
+                  new org.chuck.deluge.model.ArrangerClip(
+                      t,
+                      new org.chuck.deluge.model.ClipModel("CLIP_" + (t + 1), 1, 16),
+                      (bar - 1) * 96,
+                      2 * 96));
               repaint();
             }
           }
@@ -75,15 +80,20 @@ public class SwingArrangerPanel extends JPanel {
     }
 
     // Draw clips
-    for (org.chuck.deluge.model.ArrangerClip clip : clips) {
-      int t = clip.trackIndex();
+    for (org.chuck.deluge.model.ArrangerClip c : clips) {
+      int t = c.trackIndex();
       g2.setColor(new Color(0xff, 0xaa, 0x00, 0xaa));
-      int x = 100 + (clip.startBar() - 1) * pixelsPerBar;
+      int x = 100 + (int) (c.getStartBar() * pixelsPerBar);
       g2.fillRoundRect(
-          x, t * trackHeight + 4, clip.durationBars() * pixelsPerBar - 4, trackHeight - 10, 8, 8);
+          x,
+          t * trackHeight + 4,
+          (int) (c.getDurationBars() * pixelsPerBar) - 4,
+          trackHeight - 10,
+          8,
+          8);
 
       g2.setColor(Color.BLACK);
-      g2.drawString(clip.patternId(), x + 10, t * trackHeight + 25);
+      g2.drawString(c.clip().getName(), x + 10, t * trackHeight + 25);
     }
 
     // Playhead

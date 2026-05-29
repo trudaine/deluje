@@ -1205,6 +1205,11 @@ public class SwingDelugeApp extends JFrame {
   }
 
   private org.chuck.deluge.engine.PureFirmwareEngine pureEngine;
+  private org.chuck.deluge.ui.ArrangerPlaybackScheduler arrangerScheduler;
+
+  public org.chuck.deluge.ui.ArrangerPlaybackScheduler getArrangerScheduler() {
+    return arrangerScheduler;
+  }
 
   public SwingDelugeApp(
       ChuckVM vm, BridgeContract bridge, org.chuck.deluge.midi.MidiService midiService) {
@@ -1546,10 +1551,20 @@ public class SwingDelugeApp extends JFrame {
           }
         });
     DarkComboBoxRenderer.styleComponentTree(this);
+
+    // Instantiate Arranger Timeline real-time Scheduler
+    this.arrangerScheduler =
+        new org.chuck.deluge.ui.ArrangerPlaybackScheduler(vm, bridge, currentProject);
+    if (arrGridPanel != null) {
+      arrangerScheduler.setRepaintCallback(() -> arrGridPanel.refresh());
+    }
   }
 
   public void loadProject(org.chuck.deluge.model.ProjectModel model) {
     currentProject = model;
+    if (arrangerScheduler != null) {
+      arrangerScheduler.setProject(model);
+    }
     vm.setGlobalInt(BridgeContract.G_PLAY, 0L);
     if (bridge != null) bridge.setPlayState(0);
 
@@ -3132,6 +3147,18 @@ public class SwingDelugeApp extends JFrame {
       // Update High-Fidelity UI Stack
       if ("CLIP".equals(viewMode) || "SONG".equals(viewMode)) {
         syncHighFidelityEngine(currentProject);
+      }
+
+      // Dynamic real-time Arranger Mode activation
+      if (arrangerScheduler != null) {
+        arrangerScheduler.setArrangerModeActive("ARRANGER".equals(viewMode));
+      }
+    }
+
+    @Override
+    public void onArrangerCaptureToggle(boolean active) {
+      if (arrangerScheduler != null) {
+        arrangerScheduler.setCaptureActive(active);
       }
     }
 

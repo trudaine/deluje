@@ -5,6 +5,7 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Insets;
+import javax.swing.AbstractButton;
 import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
@@ -28,6 +29,7 @@ public class SwingTopBarPanel extends JPanel {
 
   private JButton recBtn;
   private JButton resampleBtn;
+  private JToggleButton captureBtn;
 
   public void stopRecordingIfActive() {
     if (org.chuck.deluge.engine.JavaAudioDriver.isResamplingActive) {
@@ -46,6 +48,8 @@ public class SwingTopBarPanel extends JPanel {
     void onLiveRecordToggle(JButton btn);
 
     void onResampleToggle(JButton btn);
+
+    void onArrangerCaptureToggle(boolean active);
 
     void onViewModeChanged(String viewMode);
 
@@ -209,6 +213,16 @@ public class SwingTopBarPanel extends JPanel {
     styleButton(resampleBtn, new Color(0x3e, 0x27, 0x0c), new Color(0xff, 0xb3, 0x00));
     resampleBtn.addActionListener(e -> listener.onResampleToggle(resampleBtn));
     add(resampleBtn);
+
+    captureBtn = new JToggleButton("\u25CF CAPTURE");
+    styleButton(captureBtn, new Color(0x2a, 0x0a, 0x0a), new Color(0xff, 0x00, 0x55));
+    captureBtn.addActionListener(
+        e -> {
+          boolean active = captureBtn.isSelected();
+          listener.onArrangerCaptureToggle(active);
+          retroLedDisplay.printTransient("CAP ", active ? "ON" : "OFF");
+        });
+    add(captureBtn);
 
     add(new JSeparator(JSeparator.VERTICAL));
 
@@ -447,7 +461,7 @@ public class SwingTopBarPanel extends JPanel {
     }
   }
 
-  private void styleButton(JButton btn, Color bg, Color fg) {
+  private void styleButton(AbstractButton btn, Color bg, Color fg) {
     btn.setContentAreaFilled(false);
     btn.setOpaque(true);
     btn.setFocusPainted(false);

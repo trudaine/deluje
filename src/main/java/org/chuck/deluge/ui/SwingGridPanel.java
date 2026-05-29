@@ -2820,6 +2820,19 @@ public class SwingGridPanel extends JPanel {
                 if ((e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0) return;
                 if (colId < 16 && modelRow < tracks.size()) {
                   bridge.setLaunchQueue(modelRow, colId);
+                  if (SwingDelugeApp.mainInstance != null
+                      && SwingDelugeApp.mainInstance.getArrangerScheduler() != null) {
+                    org.chuck.deluge.model.TrackModel targetTrack = tracks.get(modelRow);
+                    if (colId >= 0 && colId < targetTrack.getClips().size()) {
+                      SwingDelugeApp.mainInstance
+                          .getArrangerScheduler()
+                          .notifyClipLaunched(modelRow, targetTrack.getClips().get(colId));
+                    } else {
+                      SwingDelugeApp.mainInstance
+                          .getArrangerScheduler()
+                          .notifyClipStopped(modelRow);
+                    }
+                  }
                 }
                 clipBtn.setBackground(new Color(0xff, 0xaa, 0x00)); // amber = queued
                 refresh();
@@ -3554,6 +3567,18 @@ public class SwingGridPanel extends JPanel {
                 e -> {
                   activeClipId = clipIdx;
                   curTrack.setActiveClipIndex(clipIdx);
+                  if (SwingDelugeApp.mainInstance != null
+                      && SwingDelugeApp.mainInstance.getArrangerScheduler() != null) {
+                    if (clipIdx >= 0 && clipIdx < curTrack.getClips().size()) {
+                      SwingDelugeApp.mainInstance
+                          .getArrangerScheduler()
+                          .notifyClipLaunched(editedModelTrack, curTrack.getClips().get(clipIdx));
+                    } else {
+                      SwingDelugeApp.mainInstance
+                          .getArrangerScheduler()
+                          .notifyClipStopped(editedModelTrack);
+                    }
+                  }
                   if (onClipChanged != null) onClipChanged.run();
                   refresh();
                 });
@@ -4820,6 +4845,19 @@ public class SwingGridPanel extends JPanel {
                     }
                     if (colId < 16 && trkId < tracks.size()) {
                       bridge.setLaunchQueue(trkId, colId);
+                      if (SwingDelugeApp.mainInstance != null
+                          && SwingDelugeApp.mainInstance.getArrangerScheduler() != null) {
+                        org.chuck.deluge.model.TrackModel targetTrack = tracks.get(trkId);
+                        if (colId >= 0 && colId < targetTrack.getClips().size()) {
+                          SwingDelugeApp.mainInstance
+                              .getArrangerScheduler()
+                              .notifyClipLaunched(trkId, targetTrack.getClips().get(colId));
+                        } else {
+                          SwingDelugeApp.mainInstance
+                              .getArrangerScheduler()
+                              .notifyClipStopped(trkId);
+                        }
+                      }
                     }
                     clipBtn.setBackground(new Color(0xff, 0xaa, 0x00)); // amber = queued
                     refresh();
@@ -5521,6 +5559,12 @@ public class SwingGridPanel extends JPanel {
       for (int c = 0; c < track.getClips().size(); c++) {
         if (section.getPatternIds().contains(track.getClips().get(c).getName())) {
           bridge.setLaunchQueue(t, c);
+          if (SwingDelugeApp.mainInstance != null
+              && SwingDelugeApp.mainInstance.getArrangerScheduler() != null) {
+            SwingDelugeApp.mainInstance
+                .getArrangerScheduler()
+                .notifyClipLaunched(t, track.getClips().get(c));
+          }
           break;
         }
       }
