@@ -18,6 +18,7 @@ import org.chuck.deluge.model.Drum;
 import org.chuck.deluge.model.EnvelopeModel;
 import org.chuck.deluge.model.KitTrackModel;
 import org.chuck.deluge.model.LfoModel;
+import org.chuck.deluge.model.MidiTrackModel;
 import org.chuck.deluge.model.ProjectModel;
 import org.chuck.deluge.model.SoundDrum;
 import org.chuck.deluge.model.StepData;
@@ -77,6 +78,9 @@ public class FirmwareFactory {
       } else if (track instanceof KitTrackModel kitTrack) {
         InstrumentClip clip = createKitClip(kitTrack);
         song.addClip(clip);
+      } else if (track instanceof MidiTrackModel midiTrack) {
+        InstrumentClip clip = createMidiClip(midiTrack);
+        song.addClip(clip);
       }
     }
     return song;
@@ -115,6 +119,64 @@ public class FirmwareFactory {
         } else {
           // If the step cell has a custom explicit pitch parameter (e.g. from tests/custom XMLs!),
           // use it to override the row's pitch!
+          for (int s = 0; s < clipModel.getStepCount(); s++) {
+            StepData step = clipModel.getStep(r, s);
+            if (step.active() && step.pitch() > 0) {
+              pitch = step.pitch();
+              row = new NoteRow(pitch);
+              break;
+            }
+          }
+          for (int s = 0; s < clipModel.getStepCount(); s++) {
+            StepData step = clipModel.getStep(r, s);
+            if (step.active()) {
+              row.attemptNoteAdd(
+                  s * stepTicks,
+                  (int) (step.gate() * stepTicks),
+                  (int) (step.velocity() * 127.0f),
+                  100,
+                  null,
+                  0);
+            }
+          }
+        }
+        clip.noteRows.add(row);
+      }
+    }
+    return clip;
+  }
+
+  private static InstrumentClip createMidiClip(MidiTrackModel model) {
+    InstrumentClip clip = new InstrumentClip();
+    clip.loopLength = 16 * 24;
+
+    FirmwareMidiInstrument midiInstrument =
+        new FirmwareMidiInstrument(model.getMidiChannel(), model.isMpe());
+    midiInstrument.setMpeZone(model.getMpeZone());
+    clip.sound = midiInstrument;
+
+    if (!model.getClips().isEmpty()) {
+      ClipModel clipModel = model.getClips().get(0);
+      int stepTicks = clipModel.isTripletMode() ? 32 : 24;
+      clip.tripletMode = clipModel.isTripletMode();
+      clip.loopLength = clipModel.getStepCount() * stepTicks;
+      for (int r = 0; r < clipModel.getRowCount(); r++) {
+        int pitch = (clipModel.getRowCount() - 1) - r;
+        NoteRow row = new NoteRow(pitch);
+        java.util.List<org.chuck.deluge.model.HighResNote> rawNotes = clipModel.getRawNoteEvents(r);
+        if (rawNotes != null && !rawNotes.isEmpty()) {
+          for (org.chuck.deluge.model.HighResNote note : rawNotes) {
+            row.attemptNoteAdd(
+                note.getTickPos(),
+                note.getTickLen(),
+                (int) (note.getVelocity() * 127),
+                (int) (note.getProbability() * 100),
+                null,
+                0);
+          }
+        } else {
+          // If the step cell has a custom explicit pitch parameter, use it to override the row's
+          // pitch!
           for (int s = 0; s < clipModel.getStepCount(); s++) {
             StepData step = clipModel.getStep(r, s);
             if (step.active() && step.pitch() > 0) {

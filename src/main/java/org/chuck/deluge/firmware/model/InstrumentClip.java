@@ -3,6 +3,7 @@ package org.chuck.deluge.firmware.model;
 import java.util.ArrayList;
 import java.util.List;
 import org.chuck.deluge.firmware.engine.FirmwareKit;
+import org.chuck.deluge.firmware.engine.FirmwareMidiInstrument;
 import org.chuck.deluge.firmware.engine.FirmwareSound;
 import org.chuck.deluge.firmware.engine.GlobalEffectable;
 import org.chuck.deluge.firmware.model.note.NoteRow;
@@ -109,6 +110,8 @@ public class InstrumentClip extends Clip {
       if (pitch < kit.drumSounds.size()) {
         kit.drumSounds.get(pitch).releaseNote(60);
       }
+    } else if (sound instanceof FirmwareMidiInstrument) {
+      ((FirmwareMidiInstrument) sound).releaseNote(pitch);
     }
   }
 
@@ -117,6 +120,8 @@ public class InstrumentClip extends Clip {
       ((FirmwareSound) sound).triggerNote(noteOn.noteRow.y, noteOn.velocity);
     } else if (sound instanceof FirmwareKit) {
       ((FirmwareKit) sound).triggerDrum(noteOn.noteRow.y, noteOn.velocity);
+    } else if (sound instanceof FirmwareMidiInstrument) {
+      ((FirmwareMidiInstrument) sound).triggerNote(noteOn.noteRow.y, noteOn.velocity);
     }
   }
 }

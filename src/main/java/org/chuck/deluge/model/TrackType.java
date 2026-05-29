@@ -6,5 +6,6 @@ package org.chuck.deluge.model;
 public enum TrackType {
   KIT,
   SYNTH,
-  AUDIO
+  AUDIO,
+  MIDI
 }
