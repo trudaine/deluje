@@ -60,6 +60,13 @@ public class SwingGridPanel extends JPanel {
   private javax.swing.JComboBox<String> automationParamCombo;
   private boolean automationDragging = false;
 
+  // Arranger Timeline active drag/move gesture state fields
+  private org.chuck.deluge.model.ArrangerClip dragArrangerClip = null;
+  private int dragArrangerStartTicks = -1;
+  private int dragArrangerDurationTicks = -1;
+  private boolean isResizingArranger = false;
+  private int dragArrangerStartCol = -1;
+
   private boolean shiftHeld = false;
   private boolean tabHeld = false;
 
@@ -4402,14 +4409,37 @@ public class SwingGridPanel extends JPanel {
                           + "<br>Ga:1</font></html>");
                   break;
                 case ARRANGEMENT:
-                  String tn =
-                      (currentTrack < tracks.size()) ? tracks.get(currentTrack).getName() : "EMPTY";
-                  clipBtn.setText(
-                      "<html><center><font size='3'>"
-                          + tn
-                          + "<br><b>Bar "
-                          + (c + 1)
-                          + "</b></font></center></html>");
+                  org.chuck.deluge.model.ArrangerClip placement =
+                      getArrangerClipAt(currentTrack, c);
+                  if (placement != null && placement.clip() != null) {
+                    clipBtn.setText(
+                        "<html><center><font size='3'><b>"
+                            + placement.clip().getName()
+                            + "</b><br>Bar "
+                            + (c + 1)
+                            + "</font></center></html>");
+                    if (clipBtn instanceof DelugePadButton pad) {
+                      pad.setBaseColor(trackColors[currentTrack % trackColors.length]);
+                      pad.setIntensity(1.0f);
+                      pad.setActive(true);
+                    } else {
+                      clipBtn.setBackground(trackColors[currentTrack % trackColors.length]);
+                      clipBtn.setForeground(Color.BLACK);
+                    }
+                  } else {
+                    clipBtn.setText(
+                        "<html><center><font color='#555555' size='3'>Bar "
+                            + (c + 1)
+                            + "</font></center></html>");
+                    if (clipBtn instanceof DelugePadButton pad) {
+                      pad.setBaseColor(new Color(0x1e, 0x1e, 0x22));
+                      pad.setIntensity(0.2f);
+                      pad.setActive(false);
+                    } else {
+                      clipBtn.setBackground(new Color(0x22, 0x22, 0x24));
+                      clipBtn.setForeground(Color.GRAY);
+                    }
+                  }
                   break;
                 default:
                   if (t < tracks.size() && c < tracks.get(t).getClips().size()) {
@@ -4795,12 +4825,103 @@ public class SwingGridPanel extends JPanel {
                     @Override
                     public void mousePressed(java.awt.event.MouseEvent e) {
                       if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
-                        new BarAutomationDialog(
-                                (Frame)
-                                    javax.swing.SwingUtilities.getWindowAncestor(
-                                        SwingGridPanel.this),
-                                slot)
-                            .setVisible(true);
+                        org.chuck.deluge.model.ArrangerClip placement =
+                            getArrangerClipAt(currentTrack, colId);
+                        if (placement != null) {
+                          projectModel.getArrangerTimeline().remove(placement);
+                          fireProjectChanged();
+                          refresh();
+                        }
+                        return;
+                      }
+
+                      org.chuck.deluge.model.ArrangerClip placement =
+                          getArrangerClipAt(currentTrack, colId);
+                      if (e.getClickCount() == 2) {
+                        if (placement != null) {
+                          projectModel.getArrangerTimeline().remove(placement);
+                          fireProjectChanged();
+                          refresh();
+                        }
+                        return;
+                      }
+
+                      if (placement != null) {
+                        dragArrangerClip = placement;
+                        dragArrangerStartTicks = placement.startTicks();
+                        dragArrangerDurationTicks = placement.durationTicks();
+                        dragArrangerStartCol = colId;
+                        isResizingArranger = e.isShiftDown();
+                      } else {
+                        showArrangerClipSelectionPopup(clipBtn, currentTrack, colId);
+                      }
+                    }
+
+                    @Override
+                    public void mouseReleased(java.awt.event.MouseEvent e) {
+                      dragArrangerClip = null;
+                      dragArrangerStartTicks = -1;
+                      dragArrangerDurationTicks = -1;
+                      isResizingArranger = false;
+                      dragArrangerStartCol = -1;
+                      fireProjectChanged();
+                      refresh();
+                    }
+                  });
+
+              clipBtn.addMouseMotionListener(
+                  new java.awt.event.MouseMotionAdapter() {
+                    @Override
+                    public void mouseDragged(java.awt.event.MouseEvent e) {
+                      if (dragArrangerClip == null || projectModel == null) return;
+
+                      Point pt =
+                          javax.swing.SwingUtilities.convertPoint(
+                              e.getComponent(), e.getPoint(), SwingGridPanel.this);
+                      int currCol = colId;
+                      Component under = getComponentAt(pt);
+                      if (under instanceof JPanel rowPanel) {
+                        Component deepest =
+                            rowPanel.getComponentAt(
+                                new Point(pt.x - rowPanel.getX(), pt.y - rowPanel.getY()));
+                        if (deepest instanceof javax.swing.JComponent jc) {
+                          Integer col = (Integer) jc.getClientProperty("col");
+                          if (col != null) currCol = col;
+                        }
+                      }
+
+                      int colDiff = currCol - dragArrangerStartCol;
+                      if (colDiff != 0) {
+                        if (isResizingArranger) {
+                          int newDurationTicks =
+                              Math.max(96, dragArrangerDurationTicks + colDiff * 96);
+                          projectModel.getArrangerTimeline().remove(dragArrangerClip);
+                          org.chuck.deluge.model.ArrangerClip updated =
+                              new org.chuck.deluge.model.ArrangerClip(
+                                  currentTrack,
+                                  dragArrangerClip.clip(),
+                                  dragArrangerClip.startTicks(),
+                                  newDurationTicks);
+                          projectModel.addArrangerClip(updated);
+                          dragArrangerClip = updated;
+                          dragArrangerStartCol = currCol;
+                          dragArrangerDurationTicks = newDurationTicks;
+                          refresh();
+                        } else {
+                          int newStartTicks = Math.max(0, dragArrangerStartTicks + colDiff * 96);
+                          projectModel.getArrangerTimeline().remove(dragArrangerClip);
+                          org.chuck.deluge.model.ArrangerClip updated =
+                              new org.chuck.deluge.model.ArrangerClip(
+                                  currentTrack,
+                                  dragArrangerClip.clip(),
+                                  newStartTicks,
+                                  dragArrangerClip.durationTicks());
+                          projectModel.addArrangerClip(updated);
+                          dragArrangerClip = updated;
+                          dragArrangerStartCol = currCol;
+                          dragArrangerStartTicks = newStartTicks;
+                          refresh();
+                        }
                       }
                     }
                   });
@@ -7662,6 +7783,10 @@ public class SwingGridPanel extends JPanel {
     }
   }
 
+  public int getScrollOffsetX() {
+    return scrollOffsetX;
+  }
+
   public void scrollVertically(int cellsOffset) {
     System.out.println(
         "[TRACE grid] scrollVertically called: offset=" + cellsOffset + " viewMode=" + viewMode);
@@ -7718,5 +7843,69 @@ public class SwingGridPanel extends JPanel {
 
   public int getSoloRow() {
     return soloRow;
+  }
+
+  private org.chuck.deluge.model.ArrangerClip getArrangerClipAt(int trackIndex, int col) {
+    if (projectModel == null) return null;
+    int queryTicks = col * 96;
+    for (org.chuck.deluge.model.ArrangerClip placement : projectModel.getArrangerTimeline()) {
+      if (placement.trackIndex() == trackIndex) {
+        if (queryTicks >= placement.startTicks()
+            && queryTicks < placement.startTicks() + placement.durationTicks()) {
+          return placement;
+        }
+      }
+    }
+    return null;
+  }
+
+  private void showArrangerClipSelectionPopup(
+      Component invoker, final int trackIdx, final int col) {
+    if (projectModel == null || trackIdx >= projectModel.getTracks().size()) return;
+    org.chuck.deluge.model.TrackModel track = projectModel.getTracks().get(trackIdx);
+
+    JPopupMenu menu = new JPopupMenu();
+    menu.setBackground(new Color(0x1e, 0x1e, 0x22));
+    menu.setBorder(BorderFactory.createLineBorder(new Color(0x3e, 0x3e, 0x42), 1));
+
+    JMenuItem createNew = new JMenuItem("Create New Pattern Clip (1 bar)");
+    createNew.setForeground(new Color(0x00, 0xff, 0xcc));
+    createNew.setBackground(new Color(0x1e, 0x1e, 0x22));
+    createNew.addActionListener(
+        e -> {
+          int clipCount = track.getClips().size();
+          org.chuck.deluge.model.ClipModel newClip =
+              new org.chuck.deluge.model.ClipModel("CLIP " + (clipCount + 1), 8, 16);
+          track.addClip(newClip);
+          projectModel.addArrangerClip(
+              new org.chuck.deluge.model.ArrangerClip(trackIdx, newClip, col * 96, 96));
+          fireProjectChanged();
+          refresh();
+        });
+    menu.add(createNew);
+
+    if (!track.getClips().isEmpty()) {
+      menu.addSeparator();
+      for (int i = 0; i < track.getClips().size(); i++) {
+        final org.chuck.deluge.model.ClipModel clip = track.getClips().get(i);
+        String name =
+            clip.getName() != null && !clip.getName().isBlank()
+                ? clip.getName()
+                : "Pattern Clip " + (i + 1);
+        JMenuItem item = new JMenuItem("Place: " + name);
+        item.setForeground(Color.WHITE);
+        item.setBackground(new Color(0x1e, 0x1e, 0x22));
+        item.addActionListener(
+            e -> {
+              projectModel.addArrangerClip(
+                  new org.chuck.deluge.model.ArrangerClip(trackIdx, clip, col * 96, 96));
+              fireProjectChanged();
+              refresh();
+            });
+        menu.add(item);
+      }
+    }
+
+    menu.show(invoker, 0, invoker.getHeight());
   }
 }

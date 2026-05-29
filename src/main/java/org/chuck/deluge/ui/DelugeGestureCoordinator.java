@@ -62,9 +62,33 @@ public class DelugeGestureCoordinator {
   private int cloneCurrentRow = -1;
   private int cloneCurrentCol = -1;
 
+  private javax.swing.Timer autoScrollTimer = null;
+  private int autoScrollDirection = 0; // 1 = RIGHT, -1 = LEFT
+
   public DelugeGestureCoordinator(Component parentGridPanel, GestureListener listener) {
     this.parentGridPanel = parentGridPanel;
     this.listener = listener;
+
+    this.autoScrollTimer =
+        new javax.swing.Timer(
+            150,
+            e -> {
+              if (parentGridPanel instanceof SwingGridPanel sg && isDragging) {
+                int scrollAmount = autoScrollDirection * 4;
+                int oldOffset = sg.getScrollOffsetX();
+                sg.scrollHorizontally(scrollAmount);
+                int actualDiff = sg.getScrollOffsetX() - oldOffset;
+
+                if (actualDiff != 0) {
+                  dragCurrentCol += actualDiff;
+                  listener.onDragSelectionUpdate(
+                      dragStartRow, dragStartCol, dragCurrentRow, dragCurrentCol);
+                  if (dragCurrentRow == dragStartRow) {
+                    listener.onDragPreview(dragStartRow, dragStartCol, dragCurrentCol);
+                  }
+                }
+              }
+            });
   }
 
   /** Creates a MouseAdapter (for click and drag events) configured for a specific pad. */
@@ -142,8 +166,6 @@ public class DelugeGestureCoordinator {
           double dist = e.getLocationOnScreen().distance(pressPoint);
           if (dist > 8) {
             dragActive = true;
-            listener.onDragSelectionStart(
-                dragStartRow, dragStartCol, e.isControlDown() || e.isMetaDown());
           }
         }
 
@@ -158,10 +180,33 @@ public class DelugeGestureCoordinator {
               if (targetRow != dragCurrentRow || targetCol != dragCurrentCol) {
                 dragCurrentRow = targetRow;
                 dragCurrentCol = targetCol;
-                listener.onDragSelectionUpdate(
-                    dragStartRow, dragStartCol, dragCurrentRow, dragCurrentCol);
+                if (dragCurrentRow == dragStartRow) {
+                  listener.onDragPreview(dragStartRow, dragStartCol, dragCurrentCol);
+                } else {
+                  listener.onDragSelectionUpdate(
+                      dragStartRow, dragStartCol, dragCurrentRow, dragCurrentCol);
+                }
               }
             }
+          }
+        }
+
+        // ── Smooth auto-scrolling bounds check when dragging near panels borders ──
+        if (dragActive && parentGridPanel.getWidth() > 140) {
+          Point parentPt =
+              SwingUtilities.convertPoint(e.getComponent(), e.getPoint(), parentGridPanel);
+          if (parentPt.x >= parentGridPanel.getWidth() - 30) {
+            autoScrollDirection = 1;
+            if (!autoScrollTimer.isRunning()) {
+              autoScrollTimer.start();
+            }
+          } else if (parentPt.x <= 130) {
+            autoScrollDirection = -1;
+            if (!autoScrollTimer.isRunning()) {
+              autoScrollTimer.start();
+            }
+          } else {
+            autoScrollTimer.stop();
           }
         }
       }
@@ -186,8 +231,11 @@ public class DelugeGestureCoordinator {
           return;
         }
 
-        // Release note preview
+        // Release note preview and stop drag auto-scroller
         listener.onStepReleased(row, col);
+        if (autoScrollTimer != null) {
+          autoScrollTimer.stop();
+        }
 
         if (!isDragging || SwingUtilities.isRightMouseButton(e)) {
           isDragging = false;
@@ -199,12 +247,16 @@ public class DelugeGestureCoordinator {
 
         if (dragActive) {
           dragActive = false;
-          listener.onDragSelectionFinalize(
-              dragStartRow,
-              dragStartCol,
-              dragCurrentRow,
-              dragCurrentCol,
-              e.isControlDown() || e.isMetaDown());
+          if (dragCurrentRow == dragStartRow) {
+            listener.onStepTied(dragStartRow, dragStartCol, dragCurrentCol);
+          } else {
+            listener.onDragSelectionFinalize(
+                dragStartRow,
+                dragStartCol,
+                dragCurrentRow,
+                dragCurrentCol,
+                e.isControlDown() || e.isMetaDown());
+          }
         } else {
           // Normal tap (short click)
           boolean ctrlOrCmd = e.isControlDown() || e.isMetaDown();
