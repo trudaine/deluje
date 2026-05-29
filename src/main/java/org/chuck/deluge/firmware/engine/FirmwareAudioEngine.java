@@ -4,7 +4,7 @@ import java.util.List;
 import org.chuck.deluge.firmware.dsp.StereoSample;
 import org.chuck.deluge.firmware.dsp.compressor.RMSFeedbackCompressor;
 import org.chuck.deluge.firmware.dsp.delay.Delay;
-import org.chuck.deluge.firmware.dsp.reverb.freeverb.Freeverb;
+import org.chuck.deluge.firmware.dsp.reverb.ReverbContainer;
 import org.chuck.deluge.firmware.util.Q31;
 
 /** Port of the Deluge's AudioEngine class. Performs master summing and global FX. */
@@ -17,7 +17,7 @@ public class FirmwareAudioEngine {
   // Global FX
   public final RMSFeedbackCompressor masterCompressor = new RMSFeedbackCompressor();
   public final Delay masterDelay = new Delay();
-  public final Freeverb masterReverb = new Freeverb();
+  public final ReverbContainer masterReverb = new ReverbContainer();
   public final Delay.State delayState = new Delay.State();
 
   // ── High-Fidelity Gain Constants ──

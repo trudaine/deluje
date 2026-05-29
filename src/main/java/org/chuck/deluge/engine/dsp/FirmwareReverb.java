@@ -2,17 +2,17 @@ package org.chuck.deluge.engine.dsp;
 
 import org.chuck.audio.util.StereoUGen;
 import org.chuck.deluge.firmware.dsp.StereoSample;
-import org.chuck.deluge.firmware.dsp.reverb.freeverb.Freeverb;
+import org.chuck.deluge.firmware.dsp.reverb.ReverbContainer;
 import org.chuck.deluge.firmware.util.Q31;
 
-/** Wrapper for the high-fidelity ported Freeverb. */
+/** Wrapper for the high-fidelity ported ReverbContainer. */
 public class FirmwareReverb extends StereoUGen {
-  private final Freeverb firmware;
+  private final ReverbContainer firmware;
   private final int[] inputBuffer = new int[1];
   private final StereoSample[] outputSample = new StereoSample[1];
 
   public FirmwareReverb() {
-    this.firmware = new Freeverb();
+    this.firmware = new ReverbContainer();
     this.outputSample[0] = new StereoSample();
   }
 
@@ -45,5 +45,11 @@ public class FirmwareReverb extends StereoUGen {
 
   public void width(float v) {
     firmware.setWidth(v);
+  }
+
+  public void model(int m) {
+    if (m >= 0 && m < ReverbContainer.Model.values().length) {
+      firmware.setModel(ReverbContainer.Model.values()[m]);
+    }
   }
 }
