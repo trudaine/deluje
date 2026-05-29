@@ -1079,6 +1079,25 @@ public class SwingDelugeApp extends JFrame {
         BridgeContract.G_BIT_CRUNCH,
         org.chuck.deluge.project.PreferencesManager.isBitCrunchEnabled() ? 1.0f : 0.0f);
 
+    // ── Load global Scala tuning scale preference on startup ──
+    try {
+      String scalaPath = org.chuck.deluge.project.PreferencesManager.get("scala.scale.path", "");
+      if (!scalaPath.isEmpty()) {
+        java.io.File file = new java.io.File(scalaPath);
+        if (file.exists()) {
+          try (java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
+            org.chuck.deluge.model.tuning.ScalaScale scale =
+                org.chuck.deluge.model.tuning.ScalaScaleParser.parse(fis, file.getName());
+            org.chuck.deluge.engine.DelugeEngineDSL.setScalaScale(scale);
+            System.out.println(
+                "[Preferences] Successfully cabled tuning scale: " + scale.getName());
+          }
+        }
+      }
+    } catch (Exception e) {
+      System.err.println("[Preferences] Failed to load startup Scala scale: " + e.getMessage());
+    }
+
     // Reverb model is already pushed via PreferencesManager.get("reverb.model") in loadProject —
     // skip here
   }

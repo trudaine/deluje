@@ -3,6 +3,9 @@ package org.chuck.deluge.ui;
 import java.awt.*;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import org.chuck.deluge.engine.DelugeEngineDSL;
+import org.chuck.deluge.model.tuning.ScalaScale;
+import org.chuck.deluge.model.tuning.ScalaScaleParser;
 import org.chuck.deluge.project.PreferencesManager;
 
 /**
@@ -49,6 +52,10 @@ public class PreferencesDialog extends JDialog {
   private JButton browseBtn;
   private JButton saveBtn;
   private JButton cancelBtn;
+
+  private JTextField scalaPathField;
+  private JButton scalaBrowseBtn;
+  private JButton scalaClearBtn;
 
   public PreferencesDialog(
       java.awt.Frame owner, Runnable onGridModeChanged, Runnable onLibraryChanged) {
@@ -277,6 +284,45 @@ public class PreferencesDialog extends JDialog {
         "Gates digital hardware segment indicators layouts.",
         c,
         4);
+
+    JPanel scalaSelectPanel = new JPanel(new BorderLayout(5, 0));
+    scalaSelectPanel.setOpaque(false);
+
+    scalaPathField = new JTextField();
+    scalaPathField.setEditable(false);
+    scalaPathField.setBackground(new Color(0x2d, 0x2d, 0x30));
+    scalaPathField.setForeground(TEXT_LIGHT);
+    scalaPathField.setBorder(BorderFactory.createLineBorder(BORDER_COLOR, 1));
+    scalaPathField.setFont(new Font("SansSerif", Font.PLAIN, 11));
+
+    scalaBrowseBtn = new JButton("Browse SCL...");
+    styleButton(scalaBrowseBtn, new Color(0x3e, 0x3e, 0x42), TEXT_LIGHT);
+    scalaBrowseBtn.addActionListener(this::scalaBrowseBtnActionPerformed);
+
+    scalaClearBtn = new JButton("Clear / 12-TET");
+    styleButton(scalaClearBtn, new Color(0x6b, 0x24, 0x24), TEXT_LIGHT);
+    scalaClearBtn.addActionListener(
+        e -> {
+          scalaPathField.setText("(no custom scale - 12-TET active)");
+          PreferencesManager.set("scala.scale.path", "");
+          DelugeEngineDSL.setScalaScale(null);
+        });
+
+    scalaSelectPanel.add(scalaPathField, BorderLayout.CENTER);
+
+    JPanel btnSubPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
+    btnSubPanel.setOpaque(false);
+    btnSubPanel.add(scalaBrowseBtn);
+    btnSubPanel.add(scalaClearBtn);
+    scalaSelectPanel.add(btnSubPanel, BorderLayout.EAST);
+
+    addField(
+        panel,
+        "Microtonal Tuning (Scala)",
+        scalaSelectPanel,
+        "Load standard Scala (.scl) microtonal cent/ratio scale templates.",
+        c,
+        5);
 
     return panel;
   }
@@ -512,6 +558,24 @@ public class PreferencesDialog extends JDialog {
     // SD Card root directory
     String libDir = PreferencesManager.getLibraryDir().getAbsolutePath();
     dirLabel.setText(libDir != null ? libDir : "(not set)");
+
+    // Load active Scala path preference
+    String scalaPath = PreferencesManager.get("scala.scale.path", "");
+    if (!scalaPath.isEmpty()) {
+      java.io.File file = new java.io.File(scalaPath);
+      if (file.exists()) {
+        scalaPathField.setText(file.getName());
+        try (java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
+          ScalaScale scale = ScalaScaleParser.parse(fis, file.getName());
+          DelugeEngineDSL.setScalaScale(scale);
+        } catch (Exception ignored) {
+        }
+      } else {
+        scalaPathField.setText("(no custom scale - 12-TET active)");
+      }
+    } else {
+      scalaPathField.setText("(no custom scale - 12-TET active)");
+    }
   }
 
   public void setMappings(java.util.Map<String, Integer> mappings) {
@@ -531,6 +595,42 @@ public class PreferencesDialog extends JDialog {
       PreferencesManager.setLibraryDir(path);
       dirLabel.setText(path);
       if (onLibraryChanged != null) onLibraryChanged.run();
+    }
+  }
+
+  private void scalaBrowseBtnActionPerformed(java.awt.event.ActionEvent evt) {
+    JFileChooser chooser = new JFileChooser(PreferencesManager.getLibraryDir());
+    chooser.setFileFilter(
+        new javax.swing.filechooser.FileNameExtensionFilter("Scala Scales (*.scl)", "scl"));
+    if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+      java.io.File file = chooser.getSelectedFile();
+      try (java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
+        // Test parsing immediately to catch formatting errors
+        ScalaScale scale = ScalaScaleParser.parse(fis, file.getName());
+
+        String path = file.getAbsolutePath();
+        scalaPathField.setText(file.getName());
+        PreferencesManager.set("scala.scale.path", path);
+        DelugeEngineDSL.setScalaScale(scale);
+
+        JOptionPane.showMessageDialog(
+            this,
+            "Successfully loaded scale: "
+                + scale.getName()
+                + "\n"
+                + scale.getDescription()
+                + " ("
+                + scale.getStepsCount()
+                + " steps)",
+            "Tuning Scale Loaded",
+            JOptionPane.INFORMATION_MESSAGE);
+      } catch (Exception e) {
+        JOptionPane.showMessageDialog(
+            this,
+            "Failed to parse Scala file: " + e.getMessage(),
+            "Scale Parsing Error",
+            JOptionPane.ERROR_MESSAGE);
+      }
     }
   }
 
