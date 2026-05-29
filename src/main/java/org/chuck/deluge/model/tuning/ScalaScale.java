@@ -6,6 +6,16 @@ package org.chuck.deluge.model.tuning;
  * optional standard keyboard mapping (.kbm) files dynamically.
  */
 public class ScalaScale {
+  private static volatile ScalaScale activeScalaScale = null;
+
+  public static void setActiveScale(ScalaScale scale) {
+    activeScalaScale = scale;
+  }
+
+  public static ScalaScale getActiveScale() {
+    return activeScalaScale;
+  }
+
   private final String name;
   private final String description;
   private final int stepsCount;
