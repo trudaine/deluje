@@ -142,4 +142,16 @@ public class Freeverb extends ReverbBase {
     output_sample.l += multiply_32x32_rshift32_rounded(out_l_new, getPanLeft());
     output_sample.r += multiply_32x32_rshift32_rounded(out_r_new, getPanRight());
   }
+
+  @Override
+  public void clear() {
+    for (int i = 0; i < numcombs; i++) {
+      combL[i].mute();
+      combR[i].mute();
+    }
+    for (int i = 0; i < numallpasses; i++) {
+      allpassL[i].mute();
+      allpassR[i].mute();
+    }
+  }
 }

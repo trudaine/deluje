@@ -8,6 +8,8 @@ public abstract class ReverbBase {
 
   public abstract void process(int[] input, StereoSample[] output);
 
+  public abstract void clear();
+
   public void setPanLevels(int amplitudeLeft, int amplitudeRight) {
     this.amplitudeLeft = amplitudeLeft;
     this.amplitudeRight = amplitudeRight;
