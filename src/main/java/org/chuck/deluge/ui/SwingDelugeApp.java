@@ -86,8 +86,13 @@ public class SwingDelugeApp extends JFrame {
     for (int t = 0; t < n && nextRow < BridgeContract.TRACKS; t++) {
       trackEngineStart[t] = nextRow;
       boolean isKit = tracks.get(t) instanceof org.chuck.deluge.model.KitTrackModel;
+      boolean isMidi = tracks.get(t) instanceof org.chuck.deluge.model.MidiTrackModel;
       int voices =
-          isKit ? ((org.chuck.deluge.model.KitTrackModel) tracks.get(t)).getDrums().size() : 8;
+          isMidi
+              ? 0
+              : (isKit
+                  ? ((org.chuck.deluge.model.KitTrackModel) tracks.get(t)).getDrums().size()
+                  : 8);
       int capped = Math.min(voices, BridgeContract.TRACKS - nextRow);
       trackVoiceCount[t] = capped;
       nextRow += capped;

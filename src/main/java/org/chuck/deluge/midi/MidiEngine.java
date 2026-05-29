@@ -15,6 +15,7 @@ import org.chuck.midi.MidiMsg;
  * <p>Transport is abstracted via {@link MidiTransport} — no javax.sound.midi dependency.
  */
 public class MidiEngine {
+  public static volatile MidiEngine instance;
 
   // --- Constants ---
   private static final int MAX_CABLES = 8;
@@ -77,6 +78,7 @@ public class MidiEngine {
     for (int i = 0; i < MAX_CABLES; i++) {
       cables[i] = new MidiCable("Cable " + i);
     }
+    instance = this;
   }
 
   // ===================== Transport Management =====================

@@ -268,9 +268,18 @@ public class DelugeXmlParser {
         Element soundNode = (Element) soundNodes.item(i);
         if (soundNode.getParentNode() == instruments) {
           instrumentSoundNodes.add(soundNode);
-          SynthTrackModel synth = parseSynthElement(soundNode);
-          project.addTrack(synth);
-          System.out.println("PARSER: Loaded synth track " + synth.getName());
+          boolean isMidi =
+              soundNode.getElementsByTagName("midiChannel").getLength() > 0
+                  || soundNode.getElementsByTagName("zone").getLength() > 0;
+          if (isMidi) {
+            MidiTrackModel midiTrack = parseMidiElement(soundNode);
+            project.addTrack(midiTrack);
+            System.out.println("PARSER: Loaded midi track " + midiTrack.getName());
+          } else {
+            SynthTrackModel synth = parseSynthElement(soundNode);
+            project.addTrack(synth);
+            System.out.println("PARSER: Loaded synth track " + synth.getName());
+          }
         }
       }
 
@@ -412,8 +421,9 @@ public class DelugeXmlParser {
             }
             targetTrack.addClip(clip);
 
-            // ── Parse automation data for synth tracks ──
-            if (targetTrack instanceof SynthTrackModel && !instrumentSoundNodes.isEmpty()) {
+            // ── Parse automation data for synth and midi tracks ──
+            if ((targetTrack instanceof SynthTrackModel || targetTrack instanceof MidiTrackModel)
+                && !instrumentSoundNodes.isEmpty()) {
               // Count how many kit tracks came before this synth track to compute the
               // correct index into instrumentSoundNodes (which only contains <sound> elements).
               int kitCount = 0;
@@ -448,14 +458,15 @@ public class DelugeXmlParser {
 
       System.out.println("PARSER: Found " + clipNodeList.getLength() + " instrumentClips in XML");
 
-      // Build FIFO queues of kit tracks, synth tracks, and audio tracks for matching
+      // Build FIFO queues of kit tracks, non-drum instruments tracks, and audio tracks for matching
       java.util.List<TrackModel> projectTracks = project.getTracks();
       java.util.Queue<KitTrackModel> kitTrackQueue = new java.util.LinkedList<>();
-      java.util.Queue<SynthTrackModel> synthTrackQueue = new java.util.LinkedList<>();
+      java.util.Queue<TrackModel> instrumentTrackQueue = new java.util.LinkedList<>();
       java.util.Queue<AudioTrackModel> audioTrackQueue = new java.util.LinkedList<>();
       for (TrackModel t : projectTracks) {
         if (t instanceof KitTrackModel) kitTrackQueue.add((KitTrackModel) t);
-        else if (t instanceof SynthTrackModel) synthTrackQueue.add((SynthTrackModel) t);
+        else if (t instanceof SynthTrackModel || t instanceof MidiTrackModel)
+          instrumentTrackQueue.add(t);
         else if (t instanceof AudioTrackModel) audioTrackQueue.add((AudioTrackModel) t);
       }
 
@@ -480,7 +491,7 @@ public class DelugeXmlParser {
         if (isKitClip) {
           targetTrack = kitTrackQueue.poll();
         } else {
-          targetTrack = synthTrackQueue.poll();
+          targetTrack = instrumentTrackQueue.poll();
         }
 
         if (targetTrack == null) {
@@ -690,7 +701,7 @@ public class DelugeXmlParser {
           targetTrack.addClip(clip);
 
           // Parse automation from instrumentClip's <soundParams> child
-          if (targetTrack instanceof SynthTrackModel) {
+          if (targetTrack instanceof SynthTrackModel || targetTrack instanceof MidiTrackModel) {
             NodeList soundParamsList = clipElem.getElementsByTagName("soundParams");
             if (soundParamsList.getLength() > 0) {
               parseAutomation((Element) soundParamsList.item(0), clip);
@@ -1252,6 +1263,73 @@ public class DelugeXmlParser {
     SynthTrackModel synth = new SynthTrackModel(name);
     populateSynth(soundNode, synth);
     return synth;
+  }
+
+  private static MidiTrackModel parseMidiElement(Element soundNode) throws Exception {
+    String name = "MIDI";
+    NodeList slotNodes = soundNode.getElementsByTagName("presetSlot");
+    if (slotNodes.getLength() > 0) {
+      name = "MIDI " + slotNodes.item(0).getTextContent();
+    }
+
+    MidiTrackModel midiTrack = new MidiTrackModel(name);
+
+    // Parse MIDI Channel or MPE Zone
+    NodeList channelNodes = soundNode.getElementsByTagName("midiChannel");
+    if (channelNodes.getLength() > 0) {
+      try {
+        int chan = Integer.parseInt(channelNodes.item(0).getTextContent().trim());
+        midiTrack.setMidiChannel(chan);
+      } catch (Exception ignored) {
+      }
+    }
+
+    NodeList zoneNodes = soundNode.getElementsByTagName("zone");
+    if (zoneNodes.getLength() > 0) {
+      midiTrack.setMpe(true);
+      midiTrack.setMpeZone(zoneNodes.item(0).getTextContent().trim());
+    }
+
+    // Parse Device Info
+    NodeList deviceNodes = soundNode.getElementsByTagName("midiDevice");
+    if (deviceNodes.getLength() > 0) {
+      Element devNode = (Element) deviceNodes.item(0);
+      NodeList nameNodes = devNode.getElementsByTagName("name");
+      if (nameNodes.getLength() > 0) {
+        midiTrack.setDeviceName(nameNodes.item(0).getTextContent().trim());
+        midiTrack.setName(
+            midiTrack.getDeviceName()); // Auto-name MIDI track by external device name!
+      }
+      NodeList fileNodes = devNode.getElementsByTagName("definitionFile");
+      if (fileNodes.getLength() > 0) {
+        midiTrack.setDeviceDefinitionFile(fileNodes.item(0).getTextContent().trim());
+      }
+    }
+
+    // Parse CC Labels
+    NodeList ccLabelsList = soundNode.getElementsByTagName("ccLabels");
+    if (ccLabelsList.getLength() > 0) {
+      Element ccNode = (Element) ccLabelsList.item(0);
+      org.w3c.dom.NodeList children = ccNode.getChildNodes();
+      for (int i = 0; i < children.getLength(); i++) {
+        org.w3c.dom.Node child = children.item(i);
+        if (child.getNodeType() == org.w3c.dom.Node.ELEMENT_NODE) {
+          String tagName = child.getNodeName();
+          try {
+            String cleanTagName = tagName;
+            if (cleanTagName.startsWith("cc")) {
+              cleanTagName = cleanTagName.substring(2);
+            }
+            int ccNumber = Integer.parseInt(cleanTagName);
+            String label = child.getTextContent().trim();
+            midiTrack.setCcLabel(ccNumber, label);
+          } catch (NumberFormatException ignored) {
+          }
+        }
+      }
+    }
+
+    return midiTrack;
   }
 
   /**
