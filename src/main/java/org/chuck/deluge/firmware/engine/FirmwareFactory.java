@@ -406,6 +406,9 @@ public class FirmwareFactory {
 
     File sdRoot = PreferencesManager.getLibraryDir();
     File devSamples = new File("deluge/src/main/resources");
+    if (!devSamples.exists()) {
+      devSamples = new File("src/main/resources");
+    }
 
     int drumIdx = 0;
     for (Drum d : model.getDrums()) {

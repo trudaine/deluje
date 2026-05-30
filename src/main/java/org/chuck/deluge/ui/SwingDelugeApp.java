@@ -1813,11 +1813,21 @@ public class SwingDelugeApp extends JFrame {
   private void saveProject(boolean forceChooser) {
     java.io.File target = currentProjectFile;
     if (target == null || forceChooser) {
-      JFileChooser chooser =
-          new JFileChooser(org.chuck.deluge.project.PreferencesManager.getSongsDir());
+      java.io.File songsDir = org.chuck.deluge.project.PreferencesManager.getSongsDir();
+      java.io.File suggestedFile =
+          org.chuck.deluge.project.SaveNameSuggester.suggestNextSaveFile(
+              songsDir, currentProjectFile);
+
+      JFileChooser chooser = new JFileChooser(songsDir);
       chooser.setFileFilter(
           new javax.swing.filechooser.FileNameExtensionFilter("Song XML", "xml", "XML"));
-      if (currentProjectFile != null) chooser.setSelectedFile(currentProjectFile);
+
+      if (suggestedFile != null) {
+        chooser.setSelectedFile(suggestedFile);
+      } else if (currentProjectFile != null) {
+        chooser.setSelectedFile(currentProjectFile);
+      }
+
       if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
       target = chooser.getSelectedFile();
       if (!target.getName().toLowerCase().endsWith(".xml")) {
