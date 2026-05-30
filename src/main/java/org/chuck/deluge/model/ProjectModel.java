@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.chuck.deluge.project.PresetFinder;
 
 /** The root model for a full Deluge project/song. */
 public class ProjectModel {
@@ -100,20 +101,53 @@ public class ProjectModel {
     ProjectModel project = new ProjectModel();
     project.setBpm(120.0f);
 
-    // Spawn a default hardware-compatible Synth Track (reverted to precise dry, bright physical
-    // Deluge init SAW defaults)
-    SynthTrackModel defaultSynth = new SynthTrackModel("Synth 1");
-    defaultSynth.setOsc1Type("SAW");
-    defaultSynth.setOsc2Type("NONE");
-    defaultSynth.setOscMix(1.0f); // 100% Osc 1
-    defaultSynth.setLpfFreq(20000.0f); // LPF fully open
-    defaultSynth.setLpfRes(0.0f);
-    defaultSynth.setVolume(0.5f);
+    java.io.File synthsDir = org.chuck.deluge.project.PreferencesManager.getSynthsDir();
+    java.io.File kitsDir = org.chuck.deluge.project.PreferencesManager.getKitsDir();
 
-    // Add a single default clip so pads can be clicked to place steps immediately
-    defaultSynth.addClip(new ClipModel("CLIP 1", 8, 16));
+    // 1. Load first available Synth Preset, or fallback to default Saw
+    SynthTrackModel synthTrack = null;
+    try {
+      java.io.File firstSynthFile = PresetFinder.findFirstPreset(synthsDir);
+      if (firstSynthFile != null && firstSynthFile.exists()) {
+        synthTrack = org.chuck.deluge.xml.DelugeXmlParser.parseSynth(firstSynthFile);
+      }
+    } catch (Exception e) {
+      System.err.println("[ProjectModel] Could not parse first Synth preset: " + e.getMessage());
+    }
 
-    project.addTrack(defaultSynth);
+    if (synthTrack == null) {
+      synthTrack = new SynthTrackModel("Synth 1");
+      synthTrack.setOsc1Type("SAW");
+      synthTrack.setOsc2Type("NONE");
+      synthTrack.setOscMix(1.0f);
+      synthTrack.setLpfFreq(20000.0f);
+      synthTrack.setLpfRes(0.0f);
+      synthTrack.setVolume(0.5f);
+    }
+    if (synthTrack.getClips().isEmpty()) {
+      synthTrack.addClip(new ClipModel("CLIP 1", 8, 16));
+    }
+    project.addTrack(synthTrack);
+
+    // 2. Load first available Kit Preset, or fallback to default empty Kit
+    KitTrackModel kitTrack = null;
+    try {
+      java.io.File firstKitFile = PresetFinder.findFirstPreset(kitsDir);
+      if (firstKitFile != null && firstKitFile.exists()) {
+        kitTrack = org.chuck.deluge.xml.DelugeXmlParser.parseKit(firstKitFile);
+      }
+    } catch (Exception e) {
+      System.err.println("[ProjectModel] Could not parse first Kit preset: " + e.getMessage());
+    }
+
+    if (kitTrack == null) {
+      kitTrack = new KitTrackModel("Kit 1");
+    }
+    if (kitTrack.getClips().isEmpty()) {
+      kitTrack.addClip(new ClipModel("CLIP 1", 8, 16));
+    }
+    project.addTrack(kitTrack);
+
     return project;
   }
 
