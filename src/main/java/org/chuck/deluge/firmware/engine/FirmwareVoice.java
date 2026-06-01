@@ -376,6 +376,56 @@ public class FirmwareVoice {
     int detunedPIncA = (int) (pIncA * pitchFactor);
     int detunedPIncB = (int) (pIncB * pitchFactor);
 
+    // ── Bit-Accurate Ring Modulation Engine ──
+    // Port of voice.cpp's SynthMode::RINGMOD path: render osc A and osc B at fixed unit amplitude,
+    // then multiply them (A * B) scaled by amplitudeForRingMod, with the firmware's per-wave-type
+    // amplitude compensation (saw <<1, wavetable <<2). The master volume/envelope and filter are
+    // applied downstream, matching the firmware which applies overall amplitude after the product.
+    if (sound.getSynthMode() == FirmwareSound.SynthMode.RINGMOD) {
+      int[] in0 = new int[numSamples];
+      int[] in1 = new int[numSamples];
+      int amplitudeForRingMod = 1 << 27;
+
+      for (int s = 0; s < 2; s++) {
+        OscType type = sound.oscTypes[s];
+        int pInc = (s == 0) ? detunedPIncA : detunedPIncB;
+        if (type != OscType.SAMPLE) {
+          pInc <<= 8;
+        }
+        int[] target = (s == 0) ? in0 : in1;
+        int[] phase = {(int) part.sources[s].oscPos};
+        int pw =
+            (s == 0)
+                ? paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH]
+                : paramFinalValues[Param.LOCAL_OSC_B_PHASE_WIDTH];
+        int rp =
+            (s == 0)
+                ? getStartingPhase(sound.osc1RetriggerPhase)
+                : getStartingPhase(sound.osc2RetriggerPhase);
+        // Fixed-amplitude render (applyAmplitude=false): write the raw oscillator wave.
+        Oscillator.renderOsc(
+            type, 0, target, 0, numSamples, pInc, pw, phase, false, 0, false, 0, 0, Math.max(0, rp));
+        part.sources[s].oscPos = phase[0];
+
+        // Sine/triangle come out bigger in fixed-amplitude rendering, so saw/wavetable compensate.
+        if (type == OscType.SAW) {
+          amplitudeForRingMod <<= 1;
+        } else if (type == OscType.WAVETABLE) {
+          amplitudeForRingMod <<= 2;
+        }
+      }
+
+      // Unison gain compensation (1/sqrt(numUnison)), consistent with the subtractive path; the
+      // mono port sums products across unison parts.
+      double gainScale = 1.0 / Math.sqrt(sound.numUnison);
+      for (int i = 0; i < numSamples; i++) {
+        int prod = (int) (((long) in0[i] * in1[i]) >> 32); // multiply_32x32_rshift32
+        int out = (int) (((long) prod * amplitudeForRingMod + 0x80000000L) >> 32); // rounded rshift32
+        buffer[i] += (int) (out * gainScale);
+      }
+      return;
+    }
+
     for (int s = 0; s < 2; s++) {
       OscType type = sound.oscTypes[s];
       int vol =
@@ -440,18 +490,11 @@ public class FirmwareVoice {
       }
     }
 
-    // Prevent digital clipping by scaling down the multi-source mix sum if multiple are active!
-    int activePaths = 0;
-    if (paramFinalValues[Param.LOCAL_OSC_A_VOLUME] > 0) activePaths++;
-    if (paramFinalValues[Param.LOCAL_OSC_B_VOLUME] > 0) activePaths++;
-    if (paramFinalValues[Param.LOCAL_NOISE_VOLUME] > 0) activePaths++;
-
-    if (activePaths > 1) {
-      int shift = (activePaths == 3) ? 2 : 1;
-      for (int i = 0; i < numSamples; i++) {
-        buffer[i] = buffer[i] >> shift;
-      }
-    }
+    // NOTE: the firmware does NOT attenuate the multi-source sum here. Source volumes are already
+    // capped (LOCAL_OSC_x_VOLUME ~1/4 range) and unison is compensated by 1/sqrt(numUnison), so the
+    // straight sum matches voice.cpp; peaks are handled by the master limiter in FirmwareAudioEngine.
+    // (Removed a non-firmware `buffer >>= 1|2` clipping hack that attenuated multi-osc patches by
+    // 6–12 dB relative to hardware.)
   }
 
   private int getStartingPhase(int retrigPhaseDegrees) {
