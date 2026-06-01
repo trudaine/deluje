@@ -13,6 +13,9 @@ public abstract class GlobalEffectable {
   public final Stutterer stutterer = new Stutterer();
   public final ParamManager paramManager = new ParamManager();
 
+  /** Per-sound reverb send amount (Q31). 0 = dry (no contribution to the master reverb bus). */
+  public int reverbSendAmount = 0;
+
   // Pre-allocate to avoid GC jitter
   private final StereoSample[] trackBuffer = new StereoSample[128];
 
@@ -36,7 +39,6 @@ public abstract class GlobalEffectable {
     // 4. Process Global FX and Volume
     int postFXVolume = Q31.ONE;
     int postReverbVolume = Q31.ONE;
-    int reverbSendAmount = 0;
     int pan = 0; // Center in Q31 is 0
 
     processReverbSendAndVolume(

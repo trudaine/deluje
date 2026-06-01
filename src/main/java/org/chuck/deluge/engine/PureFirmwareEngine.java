@@ -120,6 +120,19 @@ public class PureFirmwareEngine {
     audioEngine.masterCompressor.setRatioFloat(compRatio);
     audioEngine.masterCompressor.setBlendFloat(compBlend);
 
+    // Sync master reverb model + room/damping/width from the song (previously left at defaults, so
+    // the song's reverb settings had no effect in the pure engine).
+    int reverbModel = (int) vm.getGlobalInt(BridgeContract.G_REVERB_MODEL);
+    audioEngine.masterReverb.setModel(
+        switch (reverbModel) {
+          case 1 -> org.chuck.deluge.firmware.dsp.reverb.ReverbContainer.Model.DIGITAL;
+          case 2 -> org.chuck.deluge.firmware.dsp.reverb.ReverbContainer.Model.MUTABLE;
+          default -> org.chuck.deluge.firmware.dsp.reverb.ReverbContainer.Model.FREEVERB;
+        });
+    audioEngine.masterReverb.setRoomSize((float) vm.getGlobalFloat(BridgeContract.G_REVERB_ROOM));
+    audioEngine.masterReverb.setDamping((float) vm.getGlobalFloat(BridgeContract.G_REVERB_DAMP));
+    audioEngine.masterReverb.setWidth((float) vm.getGlobalFloat(BridgeContract.G_REVERB_WIDTH));
+
     // Sync individual track params
     float spVol = (float) vm.getGlobalFloat(BridgeContract.G_SP_VOLUME);
     if (spVol < 0.01f && System.currentTimeMillis() % 2000 < 50) {

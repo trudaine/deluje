@@ -265,6 +265,9 @@ public class FirmwareFactory {
     sound.modFXOffset = (int) (clamp01(model.getModFxOffset()) * 2147483647.0);
     sound.modFXFeedback = (int) (clamp01(model.getModFxFeedback()) * 2147483647.0);
 
+    // Per-track reverb send (previously hardcoded to 0, so the master reverb bus was always silent).
+    sound.reverbSendAmount = (int) (clamp01(model.getReverbSend()) * 2147483647.0);
+
     // Retrigger Phases
     sound.osc1RetriggerPhase = model.getOsc1RetrigPhase();
     sound.osc2RetriggerPhase = model.getOsc2RetrigPhase();
@@ -457,6 +460,13 @@ public class FirmwareFactory {
         drumSound.mod1RetrigPhase = sd.getMod1RetrigPhase();
         drumSound.mod2RetrigPhase = sd.getMod2RetrigPhase();
         drumSound.sidechainSend = (int) (sd.getSidechainSend() * 2147483647.0);
+
+        // Per-drum modulation FX (same mapping as synth sounds).
+        drumSound.modFXType = stringToModFXType(sd.getModFxType());
+        drumSound.modFXRateIncrement = (int) ((double) sd.getModFxRate() * 4294967296.0 / 44100.0);
+        drumSound.modFXDepth = (int) (clamp01(sd.getModFxDepth()) * 2147483647.0);
+        drumSound.modFXOffset = (int) (clamp01(sd.getModFxOffset()) * 2147483647.0);
+        drumSound.modFXFeedback = (int) (clamp01(sd.getModFxFeedback()) * 2147483647.0);
 
         // Map per-lane step automation from the ClipModel to the drum sound's ParamManager
         if (!model.getClips().isEmpty()) {
