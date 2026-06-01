@@ -57,6 +57,10 @@ public class FirmwareSound extends GlobalEffectable {
 
   public final ModFXProcessor modFX = new ModFXProcessor();
   public ModFXType modFXType = ModFXType.NONE;
+  public int modFXRateIncrement = 0; // Q32 LFO phase increment per sample
+  public int modFXDepth = 0; // Q31
+  public int modFXOffset = 0; // Q31
+  public int modFXFeedback = 0; // Q31
   public final GranularProcessor granular = new GranularProcessor();
   public final SideChain sidechain = new SideChain();
   public int sidechainSend = 0;
@@ -160,9 +164,10 @@ public class FirmwareSound extends GlobalEffectable {
     // Stutter
     stutterer.processStutter(buffer, paramManager);
 
-    // Modulation FX (Chorus, Flanger, etc.)
+    // Modulation FX (Chorus, Flanger, etc.) — driven by the patch's type/rate/depth/offset/feedback.
     int[] postFXVolume = {2147483647};
-    modFX.processModFX(buffer, modFXType, 100, 100, postFXVolume, 0, 0);
+    modFX.processModFX(
+        buffer, modFXType, modFXRateIncrement, modFXDepth, postFXVolume, modFXOffset, modFXFeedback);
 
     // Sidechain
     int shape = paramNeutralValues[Param.UNPATCHED_SIDECHAIN_SHAPE];
