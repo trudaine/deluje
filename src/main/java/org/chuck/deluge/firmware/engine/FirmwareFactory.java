@@ -255,6 +255,16 @@ public class FirmwareFactory {
     sound.setHpfMode(model.getHpfMode());
     sound.setFilterRoute(model.getFilterRoute());
 
+    // Modulation FX (chorus/flanger/phaser/...). The model carries rate in Hz and
+    // depth/offset/feedback as 0..1; convert rate to a Q32 LFO phase increment and the rest to Q31,
+    // matching what ModFXProcessor expects. (Previously these were never set on the pure engine, so
+    // mod FX was inert regardless of the patch.)
+    sound.modFXType = stringToModFXType(model.getModFxType());
+    sound.modFXRateIncrement = (int) ((double) model.getModFxRate() * 4294967296.0 / 44100.0);
+    sound.modFXDepth = (int) (clamp01(model.getModFxDepth()) * 2147483647.0);
+    sound.modFXOffset = (int) (clamp01(model.getModFxOffset()) * 2147483647.0);
+    sound.modFXFeedback = (int) (clamp01(model.getModFxFeedback()) * 2147483647.0);
+
     // Retrigger Phases
     sound.osc1RetriggerPhase = model.getOsc1RetrigPhase();
     sound.osc2RetriggerPhase = model.getOsc2RetrigPhase();
@@ -396,6 +406,19 @@ public class FirmwareFactory {
     } catch (Exception e) {
       return OscType.SINE;
     }
+  }
+
+  private static org.chuck.deluge.firmware.dsp.fx.ModFXType stringToModFXType(String s) {
+    if (s == null) return org.chuck.deluge.firmware.dsp.fx.ModFXType.NONE;
+    try {
+      return org.chuck.deluge.firmware.dsp.fx.ModFXType.valueOf(s.trim().toUpperCase());
+    } catch (Exception e) {
+      return org.chuck.deluge.firmware.dsp.fx.ModFXType.NONE;
+    }
+  }
+
+  private static float clamp01(float v) {
+    return (v < 0f) ? 0f : (v > 1f ? 1f : v);
   }
 
   public static InstrumentClip createKitClip(KitTrackModel model) {
