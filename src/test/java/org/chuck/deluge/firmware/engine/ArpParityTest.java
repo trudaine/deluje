@@ -60,13 +60,17 @@ public class ArpParityTest {
         notesHeard.size() >= 2,
         "arp should step through multiple chord notes, heard=" + notesHeard);
     // ...all drawn from the held chord...
-    assertTrue(Set.of(60, 64, 67).containsAll(notesHeard), "arp notes must come from the held chord");
+    assertTrue(
+        Set.of(60, 64, 67).containsAll(notesHeard), "arp notes must come from the held chord");
     // ...sequentially: a sustained chord would have all 3 voices active immediately, but the arp
     // hasn't even reached its first step after one short block.
     assertTrue(
         activeAfterFirstBlock <= 1,
-        "arp must not sound the whole chord at once (got " + activeAfterFirstBlock + " immediately)");
+        "arp must not sound the whole chord at once (got "
+            + activeAfterFirstBlock
+            + " immediately)");
     // ...one voice at a time in mono.
-    assertTrue(maxConcurrent <= 1, "mono arp should sound one note at a time, max=" + maxConcurrent);
+    assertTrue(
+        maxConcurrent <= 1, "mono arp should sound one note at a time, max=" + maxConcurrent);
   }
 }

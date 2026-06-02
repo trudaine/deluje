@@ -86,7 +86,7 @@ public class FirmwareSound extends GlobalEffectable {
   // Granular mod-FX (ModFXType.GRAIN routes here instead of the LFO-based ModFXProcessor).
   public float currentBpm = 120.0f;
 
-  private boolean arpEnabled() {
+  public boolean arpEnabled() {
     return arpeggiator.settings.mode
         != org.chuck.deluge.firmware.modulation.Arpeggiator.ArpMode.OFF;
   }

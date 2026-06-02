@@ -7,10 +7,10 @@ import org.chuck.deluge.firmware.dsp.fx.ModFXType;
 import org.junit.jupiter.api.Test;
 
 /**
- * Verifies that modulation FX (chorus/flanger/...) are actually applied in the pure firmware engine.
- * Previously {@code FirmwareSound.modFXType} was never set and {@code processModFX} was called with
- * hardcoded rate/depth, so mod FX was inert regardless of the patch. This renders the same note with
- * and without chorus and asserts the chorus measurably changes the signal.
+ * Verifies that modulation FX (chorus/flanger/...) are actually applied in the pure firmware
+ * engine. Previously {@code FirmwareSound.modFXType} was never set and {@code processModFX} was
+ * called with hardcoded rate/depth, so mod FX was inert regardless of the patch. This renders the
+ * same note with and without chorus and asserts the chorus measurably changes the signal.
  */
 public class ModFxParityTest {
 
@@ -52,6 +52,10 @@ public class ModFxParityTest {
     // The chorus must change the signal meaningfully (>1% of the dry RMS).
     assertTrue(
         diffRms > dryRms * 0.01,
-        "Chorus should measurably alter the signal (diffRms=" + diffRms + ", dryRms=" + dryRms + ")");
+        "Chorus should measurably alter the signal (diffRms="
+            + diffRms
+            + ", dryRms="
+            + dryRms
+            + ")");
   }
 }

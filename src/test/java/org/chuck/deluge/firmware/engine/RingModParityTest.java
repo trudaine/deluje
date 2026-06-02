@@ -6,8 +6,8 @@ import org.chuck.deluge.firmware.dsp.StereoSample;
 import org.junit.jupiter.api.Test;
 
 /**
- * Verifies that SynthMode.RINGMOD actually ring-modulates (osc A × osc B) rather than degrading to a
- * plain oscillator sum. With two sine oscillators at the same note, ring modulation produces DC +
+ * Verifies that SynthMode.RINGMOD actually ring-modulates (osc A × osc B) rather than degrading to
+ * a plain oscillator sum. With two sine oscillators at the same note, ring modulation produces DC +
  * 2f (sin·sin = ½ − ½cos(2·2πft)), so after removing the DC offset the signal oscillates at twice
  * the fundamental — i.e. roughly double the zero-crossing rate of the subtractive (single-sine)
  * render. Before the fix, RINGMOD summed the sources and stayed at the fundamental.
@@ -62,7 +62,8 @@ public class RingModParityTest {
     int ringZc = zeroCrossings(ring, from, to);
 
     assertTrue(subRms > 0, "Subtractive render should be non-silent");
-    assertTrue(ringRms > 0, "RingMod render should be non-silent (regression: it was a silent/sum)");
+    assertTrue(
+        ringRms > 0, "RingMod render should be non-silent (regression: it was a silent/sum)");
 
     // Ring modulation of two equal-frequency sines doubles the effective frequency.
     assertTrue(

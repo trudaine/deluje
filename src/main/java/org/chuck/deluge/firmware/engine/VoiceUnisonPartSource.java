@@ -13,7 +13,7 @@ public class VoiceUnisonPartSource {
   public boolean active;
 
   public VoiceSample voiceSample = null;
-  public Object dxVoice = null;
+  public org.chuck.audio.util.Dx7Engine dxVoice = null;
 
   public VoiceUnisonPartSource() {}
 

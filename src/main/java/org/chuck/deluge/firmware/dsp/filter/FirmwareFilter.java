@@ -50,9 +50,13 @@ public abstract class FirmwareFilter {
   protected void curveFrequency(int frequency) {
     // Between 0 and 8. 1 represented by 268435456 (q28)
     // input frequency is q31
-    tannedFrequency =
-        FirmwareUtils.instantTan(FirmwareUtils.lshiftAndSaturate(frequency, 5))
-            << 1; // Convert Q27 to Q28!
+    long tanVal = FirmwareUtils.instantTan(FirmwareUtils.lshiftAndSaturate(frequency, 5));
+    // Safely clamp left shift to prevent wrapping to negative signed values (Q27 to Q28 conversion)
+    long tannedFreqLong = tanVal << 1;
+    if (tannedFreqLong > Integer.MAX_VALUE) {
+      tannedFreqLong = Integer.MAX_VALUE;
+    }
+    tannedFrequency = (int) tannedFreqLong;
 
     // this is 1q31*1q16/(1q16+tan(f)/2)
     // tan(f) is q17 (wait, Deluge says tannedFrequency is q17? Let's check)
@@ -65,6 +69,9 @@ public abstract class FirmwareFilter {
     // 288230376151711744.0 is 2^58.
 
     double denom = (double) ONE_Q16 + (tannedFrequency >> 1);
+    if (denom <= 0.0) {
+      denom = 1.0;
+    }
     divideBy1PlusTannedFrequency = (int) (288230376151711744.0 / denom);
     fc = (int) (((long) tannedFrequency * divideBy1PlusTannedFrequency) >> 28);
   }
