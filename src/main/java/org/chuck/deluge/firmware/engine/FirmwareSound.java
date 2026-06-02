@@ -61,6 +61,11 @@ public class FirmwareSound extends GlobalEffectable {
   public int modFXDepth = 0; // Q31
   public int modFXOffset = 0; // Q31
   public int modFXFeedback = 0; // Q31
+
+  public final org.chuck.deluge.firmware.dsp.fx.SrrBitcrushProcessor srrBitcrush =
+      new org.chuck.deluge.firmware.dsp.fx.SrrBitcrushProcessor();
+  public int bitcrushParam = Integer.MIN_VALUE; // bipolar Q31; MIN_VALUE = off
+  public int srrParam = Integer.MIN_VALUE; // bipolar Q31; MIN_VALUE = off
   public final GranularProcessor granular = new GranularProcessor();
   public final SideChain sidechain = new SideChain();
   public int sidechainSend = 0;
@@ -159,13 +164,16 @@ public class FirmwareSound extends GlobalEffectable {
       }
     }
 
-    // 3. Apply High-Fidelity FX Chain
+    // 3. Apply High-Fidelity FX Chain (firmware order: SRR/bitcrush → mod FX → stutter → ...)
+    int[] postFXVolume = {2147483647};
+
+    // Sample-rate reduction + bitcrushing
+    srrBitcrush.process(buffer, numSamples, bitcrushParam, srrParam, postFXVolume);
 
     // Stutter
     stutterer.processStutter(buffer, paramManager);
 
     // Modulation FX (Chorus, Flanger, etc.) — driven by the patch's type/rate/depth/offset/feedback.
-    int[] postFXVolume = {2147483647};
     modFX.processModFX(
         buffer, modFXType, modFXRateIncrement, modFXDepth, postFXVolume, modFXOffset, modFXFeedback);
 
