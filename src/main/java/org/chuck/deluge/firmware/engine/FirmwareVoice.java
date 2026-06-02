@@ -29,9 +29,6 @@ public class FirmwareVoice {
   public final Envelope[] envelopes = new Envelope[6]; // kNumEnvelopes = 6 (some for modulation)
   public final LFO[] lfos = new LFO[4]; // lfo1-lfo4 (lfo1/3 global, lfo2/4 local)
   public final Arpeggiator arpeggiator;
-
-  // Real DX7 (Dexed) engine — used instead of the native FM mapping when the sound has a DX7 patch.
-  private org.chuck.audio.util.Dx7Engine dx7;
   public final int[] paramFinalValues = new int[Param.kNumParams];
   public final int[] sourceValues = new int[PatchSource.kNumPatchSources];
   public final Patcher patcher = new Patcher();
@@ -135,13 +132,19 @@ public class FirmwareVoice {
       envelopes[i].noteOn(false);
     }
 
-    // DX7 patch: configure and trigger the real DX7 engine (its own EGs shape the amplitude).
+    // DX7 patch: configure and trigger all unison DX7 engines (internal EGs shape the carrier
+    // levels).
     if (sound.isDx7()) {
-      if (dx7 == null) dx7 = new org.chuck.audio.util.Dx7Engine(44100.0f);
-      dx7.loadPatch(sound.dx7Patch);
-      dx7.setForceVintage(sound.dx7EngineType);
-      dx7.setRandomDetuneScale(sound.dx7RandomDetune);
-      dx7.noteOn(note, vel);
+      for (int i = 0; i < sound.numUnison; i++) {
+        if (unisonParts[i].sources[0].dxVoice == null) {
+          unisonParts[i].sources[0].dxVoice = new org.chuck.audio.util.Dx7Engine(44100.0f);
+        }
+        org.chuck.audio.util.Dx7Engine dxVoice = unisonParts[i].sources[0].dxVoice;
+        dxVoice.loadPatch(sound.dx7Patch);
+        dxVoice.setForceVintage(sound.dx7EngineType);
+        dxVoice.setRandomDetuneScale(sound.dx7RandomDetune);
+        dxVoice.noteOn(note, vel);
+      }
     }
   }
 
@@ -157,7 +160,13 @@ public class FirmwareVoice {
     for (int i = 0; i < 4; i++) {
       envelopes[i].unconditionalRelease(Envelope.EnvelopeStage.RELEASE, 1024);
     }
-    if (dx7 != null) dx7.noteOff();
+    if (sound.isDx7()) {
+      for (int i = 0; i < sound.numUnison; i++) {
+        if (unisonParts[i].sources[0].dxVoice != null) {
+          unisonParts[i].sources[0].dxVoice.noteOff();
+        }
+      }
+    }
     System.out.println(
         "[DIAG voice] noteOff completed for voice note="
             + note
@@ -165,43 +174,52 @@ public class FirmwareVoice {
             + envelopes[0].state);
   }
 
-  /** DX7 (Dexed) render path: engine EGs are the amplitude env; only track volume + filter apply. */
-  private boolean renderDx7(int[] buffer, int numSamples) {
-    int trackVol = sound.paramNeutralValues[Param.LOCAL_VOLUME];
-    int[] vb = new int[numSamples];
-    for (int i = 0; i < numSamples; i++) {
-      // Dx7Engine.tick() is ~[-2.3, 2.3] float; scale into Q31 headroom (filter + master limiter
-      // tame peaks, mirroring the legacy DX7 chain where the filter attenuates loud harmonics).
-      int v = (int) (dx7.tick() * (2147483647.0 / 4.0));
-      vb[i] = Q31.mult(v, trackVol);
+  /**
+   * Renders all active unison DX7 engines into the voice buffer with custom detuning and pitch
+   * bend.
+   */
+  private void renderDx7(int[] voiceBuffer, int numSamples, int overallPitchAdjust) {
+    // Convert overallPitchAdjust scale factor in Q31 to Q24 log-frequency offset
+    double scale = (double) overallPitchAdjust / 2147483648.0;
+    int overallPitchBendOffset = 0;
+    if (scale > 0.0) {
+      overallPitchBendOffset = (int) (Math.log(scale) / Math.log(2.0) * (1 << 24));
     }
-    filterSet.setConfig(
-        sound.paramNeutralValues[Param.LOCAL_LPF_FREQ],
-        sound.paramNeutralValues[Param.LOCAL_LPF_RESONANCE],
-        sound.lpfMode,
-        sound.paramNeutralValues[Param.LOCAL_LPF_MORPH],
-        sound.paramNeutralValues[Param.LOCAL_HPF_FREQ],
-        sound.paramNeutralValues[Param.LOCAL_HPF_RESONANCE],
-        sound.hpfMode,
-        sound.paramNeutralValues[Param.LOCAL_HPF_MORPH],
-        Q31.ONE,
-        sound.filterRoute);
-    filterSet.render(vb, 0, numSamples, 1);
-    for (int i = 0; i < numSamples; i++) {
-      buffer[i] = Q31.addSaturate(buffer[i], vb[i]);
+
+    double gainScale = 1.0 / Math.sqrt(sound.numUnison);
+    int activeParts = 0;
+
+    for (int u = 0; u < sound.numUnison; u++) {
+      org.chuck.audio.util.Dx7Engine dxVoice = unisonParts[u].sources[0].dxVoice;
+      if (dxVoice == null || !dxVoice.isActive()) continue;
+
+      activeParts++;
+
+      // C++ voice.cpp: calculate detune per unison part
+      double offset = 0.0;
+      if (sound.numUnison > 1) {
+        offset = (double) (2 * u - (sound.numUnison - 1)) / (double) (sound.numUnison - 1);
+      }
+      double cents = (double) sound.unisonDetune * offset;
+      int centsOffset = (int) (cents * (1 << 24) / 1200.0);
+
+      // Pass total pitch bend + cents detuning into the DX7 engine
+      dxVoice.pitchBendOffset = overallPitchBendOffset + centsOffset;
+
+      // Render samples and sum into voiceBuffer
+      for (int i = 0; i < numSamples; i++) {
+        int v = (int) (dxVoice.tick() * (2147483647.0 / 4.0));
+        voiceBuffer[i] = Q31.addSaturate(voiceBuffer[i], (int) (v * gainScale));
+      }
     }
-    if (!dx7.isActive()) active = false;
-    return active;
+
+    if (activeParts == 0) {
+      active = false;
+    }
   }
 
   public boolean render(int[] buffer, int numSamples, int phaseIncrementA, int phaseIncrementB) {
     if (!active) return false;
-
-    // DX7 patch: render the real DX7 engine (its per-operator EGs are the amplitude envelope, so we
-    // skip the Deluge env0), then the per-voice filter — matching the legacy DX7 voice chain.
-    if (sound.isDx7() && dx7 != null) {
-      return renderDx7(buffer, numSamples);
-    }
 
     // ── MPE Smoothing ──
     for (int i = 0; i < 3; i++) {
@@ -324,9 +342,13 @@ public class FirmwareVoice {
 
     // 3. Render Unison Parts
     int[] voiceBuffer = new int[numSamples];
-    for (int u = 0; u < sound.numUnison; u++) {
-      renderUnisonPart(
-          u, voiceBuffer, numSamples, phaseIncrementA, phaseIncrementB, overallPitchAdjust);
+    if (sound.isDx7()) {
+      renderDx7(voiceBuffer, numSamples, overallPitchAdjust);
+    } else {
+      for (int u = 0; u < sound.numUnison; u++) {
+        renderUnisonPart(
+            u, voiceBuffer, numSamples, phaseIncrementA, phaseIncrementB, overallPitchAdjust);
+      }
     }
 
     // ── Final Gain & Saturation ──
