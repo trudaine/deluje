@@ -1,5 +1,6 @@
 package org.chuck.deluge.firmware.engine;
 
+import org.chuck.deluge.firmware.dsp.timestretch.TimeStretcher;
 import org.chuck.deluge.firmware.model.sample.Sample;
 import org.chuck.deluge.firmware.util.Q31;
 
@@ -18,6 +19,13 @@ public class VoiceSample {
   public int loopMode = 0; // 0 = OFF, 1 = ON, 2 = ONCE
   public double sampleRateScale = 1.0;
   public boolean active = true;
+
+  // Time-stretch (STRETCH / pitch-and-speed-independent) playback.
+  public boolean timestretch = false;
+  private final TimeStretcher timeStretcher = new TimeStretcher();
+  private int[] tsData; // mono Q31 sample data for the stretcher
+  private int tsRatio = 16777216; // duration advance (Q24); fixed per note (independent of pitch)
+  private int[] tsScratch;
 
   public void noteOn(
       Sample sample,
@@ -58,6 +66,15 @@ public class VoiceSample {
     } else {
       this.playPosBig = (long) (this.startSample + samplesLate) << 32;
     }
+
+    // Time-stretch: play the sample over its natural duration regardless of note pitch (the duration
+    // advance is fixed; the note pitch is applied as the read rate). Reverse isn't supported here.
+    this.timestretch = settings.timestretch && !settings.reverse;
+    if (this.timestretch) {
+      this.tsData = sample.getMonoIntData();
+      this.tsRatio = (int) Math.max(1, 16777216.0 * (sample.sampleRate / 44100.0));
+      this.timeStretcher.samplePosBig = (long) this.startSample << 24;
+    }
   }
 
   public void render(
@@ -70,6 +87,27 @@ public class VoiceSample {
 
     long inc = (long) (((double) ((long) phaseIncrement << 8)) * sampleRateScale);
     if (inc == 0) inc = 0x100000000L; // Safety fallback
+
+    // ── Time-stretch path: pitch (read rate) decoupled from duration (fixed tsRatio advance). ──
+    if (timestretch && tsData != null) {
+      int pitch = (int) Math.max(1, Math.min(Integer.MAX_VALUE, inc >> 8));
+      if (tsScratch == null || tsScratch.length < numSamples) tsScratch = new int[numSamples];
+      timeStretcher.process(tsScratch, numSamples, tsRatio, pitch, tsData);
+      for (int i = 0; i < numSamples; i++) {
+        buffer[i] = Q31.addSaturate(buffer[i], Q31.mult(tsScratch[i], amplitude));
+      }
+      int pos = (int) (timeStretcher.samplePosBig >> 24);
+      int end = (loopEndSamples != -1) ? loopEndSamples : endSample;
+      if (pos >= end) {
+        if (looping) {
+          int ls = (loopStartSamples != -1) ? loopStartSamples : startSample;
+          timeStretcher.samplePosBig = (long) ls << 24;
+        } else {
+          active = false;
+        }
+      }
+      return;
+    }
 
     for (int i = 0; i < numSamples; i++) {
       int intPos = (int) (playPosBig >> 32);
