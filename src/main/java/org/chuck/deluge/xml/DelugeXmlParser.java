@@ -3134,47 +3134,47 @@ public class DelugeXmlParser {
     NodeList spNodes = songNode.getElementsByTagName("songParams");
     if (spNodes.getLength() > 0) {
       Element sp = (Element) spNodes.item(0);
-      readSongHexAttr(sp, "reverbAmount", project::setSongParamReverbAmount);
-      readSongHexAttr(sp, "volume", project::setSongParamVolume);
-      readSongHexAttr(sp, "pan", project::setSongParamPan);
-      readSongHexAttr(sp, "sidechainCompressorShape", project::setSongParamSidechainShape);
-      readSongHexAttr(sp, "sidechainCompressorVolume", project::setSongParamSidechainVolume);
-      readSongHexAttr(sp, "modFXRate", project::setSongParamModFXRate);
-      readSongHexAttr(sp, "modFXDepth", project::setSongParamModFXDepth);
-      readSongHexAttr(sp, "modFXOffset", project::setSongParamModFXOffset);
-      readSongHexAttr(sp, "modFXFeedback", project::setSongParamModFXFeedback);
-      readSongHexAttr(sp, "stutterRate", project::setSongParamStutterRate);
-      readSongHexAttr(sp, "sampleRateReduction", project::setSongParamSampleRateReduction);
-      readSongHexAttr(sp, "bitCrush", project::setSongParamBitCrush);
-      readSongHexAttr(sp, "compressorThreshold", project::setSongParamCompressorThreshold);
-      readSongHexAttr(sp, "lpfMorph", project::setSongParamLpfMorph);
-      readSongHexAttr(sp, "hpfMorph", project::setSongParamHpfMorph);
+      readSongHexAttr(sp, "reverbAmount", project::setSongParamReverbAmount, true);
+      readSongHexAttr(sp, "volume", project::setSongParamVolume, true);
+      readSongHexAttr(sp, "pan", project::setSongParamPan, false);
+      readSongHexAttr(sp, "sidechainCompressorShape", project::setSongParamSidechainShape, true);
+      readSongHexAttr(sp, "sidechainCompressorVolume", project::setSongParamSidechainVolume, true);
+      readSongHexAttr(sp, "modFXRate", project::setSongParamModFXRate, true);
+      readSongHexAttr(sp, "modFXDepth", project::setSongParamModFXDepth, true);
+      readSongHexAttr(sp, "modFXOffset", project::setSongParamModFXOffset, true);
+      readSongHexAttr(sp, "modFXFeedback", project::setSongParamModFXFeedback, true);
+      readSongHexAttr(sp, "stutterRate", project::setSongParamStutterRate, true);
+      readSongHexAttr(sp, "sampleRateReduction", project::setSongParamSampleRateReduction, true);
+      readSongHexAttr(sp, "bitCrush", project::setSongParamBitCrush, true);
+      readSongHexAttr(sp, "compressorThreshold", project::setSongParamCompressorThreshold, true);
+      readSongHexAttr(sp, "lpfMorph", project::setSongParamLpfMorph, true);
+      readSongHexAttr(sp, "hpfMorph", project::setSongParamHpfMorph, true);
       // Child elements
       NodeList spDelay = sp.getElementsByTagName("delay");
       if (spDelay.getLength() > 0) {
         Element d = (Element) spDelay.item(0);
-        readSongHexAttr(d, "rate", project::setSongParamDelayRate);
-        readSongHexAttr(d, "feedback", project::setSongParamDelayFeedback);
+        readSongHexAttr(d, "rate", project::setSongParamDelayRate, true);
+        readSongHexAttr(d, "feedback", project::setSongParamDelayFeedback, true);
       }
       NodeList spLpf = sp.getElementsByTagName("lpf");
       if (spLpf.getLength() > 0) {
         Element l = (Element) spLpf.item(0);
         readSongHzHexAttr(l, "frequency", project::setSongParamLpfFrequency);
-        readSongHexAttr(l, "resonance", project::setSongParamLpfResonance);
+        readSongHexAttr(l, "resonance", project::setSongParamLpfResonance, true);
       }
       NodeList spHpf = sp.getElementsByTagName("hpf");
       if (spHpf.getLength() > 0) {
         Element h = (Element) spHpf.item(0);
         readSongHzHexAttr(h, "frequency", project::setSongParamHpfFrequency);
-        readSongHexAttr(h, "resonance", project::setSongParamHpfResonance);
+        readSongHexAttr(h, "resonance", project::setSongParamHpfResonance, true);
       }
       NodeList spEq = sp.getElementsByTagName("equalizer");
       if (spEq.getLength() > 0) {
         Element eq = (Element) spEq.item(0);
-        readSongHexAttr(eq, "bass", project::setSongParamEqBass);
-        readSongHexAttr(eq, "treble", project::setSongParamEqTreble);
-        readSongHexAttr(eq, "bassFrequency", project::setSongParamEqBassFrequency);
-        readSongHexAttr(eq, "trebleFrequency", project::setSongParamEqTrebleFrequency);
+        readSongHexAttr(eq, "bass", project::setSongParamEqBass, false);
+        readSongHexAttr(eq, "treble", project::setSongParamEqTreble, false);
+        readSongHexAttr(eq, "bassFrequency", project::setSongParamEqBassFrequency, true);
+        readSongHexAttr(eq, "trebleFrequency", project::setSongParamEqTrebleFrequency, true);
       }
     }
   }
@@ -3246,11 +3246,20 @@ public class DelugeXmlParser {
   /** Read a 0x-prefixed hex attribute from a songParams child. */
   private static void readSongHexAttr(
       Element el, String attr, java.util.function.Consumer<Float> setter) {
+    readSongHexAttr(el, attr, setter, true);
+  }
+
+  private static void readSongHexAttr(
+      Element el, String attr, java.util.function.Consumer<Float> setter, boolean unipolar) {
     if (!el.hasAttribute(attr)) return;
     String val = el.getAttribute(attr).trim();
     if (val.isEmpty() || !val.startsWith("0x")) return;
     try {
-      setter.accept(Math.abs(DelugeHexMapper.hexToFloat(val)));
+      float f = DelugeHexMapper.hexToFloat(val);
+      if (unipolar) {
+        f = toUnipolar(f);
+      }
+      setter.accept(f);
     } catch (Exception e) {
     }
   }
