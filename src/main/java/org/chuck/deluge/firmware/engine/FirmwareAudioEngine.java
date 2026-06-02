@@ -31,6 +31,9 @@ public class FirmwareAudioEngine {
       reverbBuffer[i] = new StereoSample();
     }
     delayState.doDelay = false;
+    // Drive delay time externally via userDelayRate; disable the delay's internal tempo-sync (which
+    // would otherwise rewrite userDelayRate using a tick-inverse the pure engine doesn't feed it).
+    masterDelay.syncLevel = org.chuck.deluge.firmware.model.SyncLevel.SYNC_LEVEL_NONE;
     masterVolumeAdjustmentL = Q31.ONE;
     masterVolumeAdjustmentR = Q31.ONE;
   }
@@ -55,6 +58,10 @@ public class FirmwareAudioEngine {
     }
 
     masterReverb.process(monoReverbBuffer, masterBuffer);
+    // setupWorkingState computes doDelay (from feedback) and must run before process or the delay
+    // never activates. The pure engine drives delay time externally via userDelayRate with the
+    // delay's own sync disabled (syncLevel NONE), so timePerInternalTickInverse is unused here.
+    masterDelay.setupWorkingState(delayState, 1 << 20, true);
     masterDelay.process(masterBuffer, delayState);
 
     // Hardware Master Compressor
