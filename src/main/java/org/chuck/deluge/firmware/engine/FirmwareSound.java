@@ -66,6 +66,11 @@ public class FirmwareSound extends GlobalEffectable {
       new org.chuck.deluge.firmware.dsp.fx.SrrBitcrushProcessor();
   public int bitcrushParam = Integer.MIN_VALUE; // bipolar Q31; MIN_VALUE = off
   public int srrParam = Integer.MIN_VALUE; // bipolar Q31; MIN_VALUE = off
+
+  public final org.chuck.deluge.firmware.dsp.fx.EqProcessor eq =
+      new org.chuck.deluge.firmware.dsp.fx.EqProcessor();
+  public int eqBassParam = 0; // bipolar Q31; 0 = flat
+  public int eqTrebleParam = 0; // bipolar Q31; 0 = flat
   public final GranularProcessor granular = new GranularProcessor();
   public final SideChain sidechain = new SideChain();
   public int sidechainSend = 0;
@@ -176,6 +181,9 @@ public class FirmwareSound extends GlobalEffectable {
     // Modulation FX (Chorus, Flanger, etc.) — driven by the patch's type/rate/depth/offset/feedback.
     modFX.processModFX(
         buffer, modFXType, modFXRateIncrement, modFXDepth, postFXVolume, modFXOffset, modFXFeedback);
+
+    // Bass/treble EQ
+    eq.process(buffer, numSamples, eqBassParam, eqTrebleParam);
 
     // Sidechain
     int shape = paramNeutralValues[Param.UNPATCHED_SIDECHAIN_SHAPE];
