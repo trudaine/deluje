@@ -36,6 +36,7 @@ public class ReverbSendParityTest {
     long wet = reverbBusEnergy(Q31.ONE);
 
     assertEquals(0, dry, "With send=0 the reverb bus must stay silent");
-    assertTrue(wet > 0, "With send>0 the sound must feed the reverb bus (regression: was always 0)");
+    assertTrue(
+        wet > 0, "With send>0 the sound must feed the reverb bus (regression: was always 0)");
   }
 }

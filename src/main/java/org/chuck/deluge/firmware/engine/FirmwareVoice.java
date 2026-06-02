@@ -404,7 +404,20 @@ public class FirmwareVoice {
                 : getStartingPhase(sound.osc2RetriggerPhase);
         // Fixed-amplitude render (applyAmplitude=false): write the raw oscillator wave.
         Oscillator.renderOsc(
-            type, 0, target, 0, numSamples, pInc, pw, phase, false, 0, false, 0, 0, Math.max(0, rp));
+            type,
+            0,
+            target,
+            0,
+            numSamples,
+            pInc,
+            pw,
+            phase,
+            false,
+            0,
+            false,
+            0,
+            0,
+            Math.max(0, rp));
         part.sources[s].oscPos = phase[0];
 
         // Sine/triangle come out bigger in fixed-amplitude rendering, so saw/wavetable compensate.
@@ -420,7 +433,8 @@ public class FirmwareVoice {
       double gainScale = 1.0 / Math.sqrt(sound.numUnison);
       for (int i = 0; i < numSamples; i++) {
         int prod = (int) (((long) in0[i] * in1[i]) >> 32); // multiply_32x32_rshift32
-        int out = (int) (((long) prod * amplitudeForRingMod + 0x80000000L) >> 32); // rounded rshift32
+        int out =
+            (int) (((long) prod * amplitudeForRingMod + 0x80000000L) >> 32); // rounded rshift32
         buffer[i] += (int) (out * gainScale);
       }
       return;
@@ -492,7 +506,8 @@ public class FirmwareVoice {
 
     // NOTE: the firmware does NOT attenuate the multi-source sum here. Source volumes are already
     // capped (LOCAL_OSC_x_VOLUME ~1/4 range) and unison is compensated by 1/sqrt(numUnison), so the
-    // straight sum matches voice.cpp; peaks are handled by the master limiter in FirmwareAudioEngine.
+    // straight sum matches voice.cpp; peaks are handled by the master limiter in
+    // FirmwareAudioEngine.
     // (Removed a non-firmware `buffer >>= 1|2` clipping hack that attenuated multi-osc patches by
     // 6–12 dB relative to hardware.)
   }

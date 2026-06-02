@@ -32,8 +32,8 @@ public final class SrrBitcrushProcessor {
    * @param srrParam bipolar Q31 sample-rate-reduction amount
    * @param postFXVolume single-element array, reduced for heavy bitcrushing (as in the firmware)
    */
-  public void process(StereoSample[] buffer, int numSamples, int bitcrushParam, int srrParam,
-      int[] postFXVolume) {
+  public void process(
+      StereoSample[] buffer, int numSamples, int bitcrushParam, int srrParam, int[] postFXVolume) {
     int bitCrushMaskForSRR = 0xFFFFFFFF;
     boolean srrEnabled = isSRREnabled(srrParam);
 
@@ -79,16 +79,21 @@ public final class SrrBitcrushProcessor {
 
           lastGrabbedSampleL = grabbedSampleL;
           lastGrabbedSampleR = grabbedSampleR;
-          grabbedSampleL = Q31.multiply_32x32_rshift32_rounded(lastSampleL, strength1 << 9)
-              + Q31.multiply_32x32_rshift32_rounded(sample.l, strength2 << 9);
-          grabbedSampleR = Q31.multiply_32x32_rshift32_rounded(lastSampleR, strength1 << 9)
-              + Q31.multiply_32x32_rshift32_rounded(sample.r, strength2 << 9);
+          grabbedSampleL =
+              Q31.multiply_32x32_rshift32_rounded(lastSampleL, strength1 << 9)
+                  + Q31.multiply_32x32_rshift32_rounded(sample.l, strength2 << 9);
+          grabbedSampleR =
+              Q31.multiply_32x32_rshift32_rounded(lastSampleR, strength1 << 9)
+                  + Q31.multiply_32x32_rshift32_rounded(sample.r, strength2 << 9);
           grabbedSampleL &= bitCrushMaskForSRR;
           grabbedSampleR &= bitCrushMaskForSRR;
 
           lowSampleRatePos += Integer.toUnsignedLong(lowSampleRateIncrement);
-          highSampleRatePos = ((long) Q31.multiply_32x32_rshift32_rounded(
-                  (int) (lowSampleRatePos & 4194303), highSampleRateIncrement << 8)) << 2;
+          highSampleRatePos =
+              ((long)
+                      Q31.multiply_32x32_rshift32_rounded(
+                          (int) (lowSampleRatePos & 4194303), highSampleRateIncrement << 8))
+                  << 2;
         }
         lowSampleRatePos -= 4194304;
         lastSampleL = sample.l;
@@ -97,10 +102,14 @@ public final class SrrBitcrushProcessor {
         // Convert up (linear interpolation between the two most recent grabbed samples).
         int strength2 = (int) Math.min(highSampleRatePos, 4194303L);
         int strength1 = 4194303 - strength2;
-        sample.l = (Q31.multiply_32x32_rshift32_rounded(lastGrabbedSampleL, strength1 << 9)
-                + Q31.multiply_32x32_rshift32_rounded(grabbedSampleL, strength2 << 9)) << 2;
-        sample.r = (Q31.multiply_32x32_rshift32_rounded(lastGrabbedSampleR, strength1 << 9)
-                + Q31.multiply_32x32_rshift32_rounded(grabbedSampleR, strength2 << 9)) << 2;
+        sample.l =
+            (Q31.multiply_32x32_rshift32_rounded(lastGrabbedSampleL, strength1 << 9)
+                    + Q31.multiply_32x32_rshift32_rounded(grabbedSampleL, strength2 << 9))
+                << 2;
+        sample.r =
+            (Q31.multiply_32x32_rshift32_rounded(lastGrabbedSampleR, strength1 << 9)
+                    + Q31.multiply_32x32_rshift32_rounded(grabbedSampleR, strength2 << 9))
+                << 2;
 
         highSampleRatePos += Integer.toUnsignedLong(highSampleRateIncrement);
       }

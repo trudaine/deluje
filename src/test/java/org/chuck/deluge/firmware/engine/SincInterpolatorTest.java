@@ -29,7 +29,8 @@ public class SincInterpolatorTest {
     for (int k = 0; k < WindowedSincKernel.NUM_KERNELS; k++) {
       for (int p = 0; p < WindowedSincKernel.NUM_PHASES; p++) {
         int sum = 0;
-        for (int t = 0; t < WindowedSincKernel.NUM_TAPS; t++) sum += WindowedSincKernel.KERNEL[k][p][t];
+        for (int t = 0; t < WindowedSincKernel.NUM_TAPS; t++)
+          sum += WindowedSincKernel.KERNEL[k][p][t];
         assertTrue(
             Math.abs(sum - 32768) < 2000,
             "kernel " + k + " phase " + p + " DC gain off (sum=" + sum + ")");

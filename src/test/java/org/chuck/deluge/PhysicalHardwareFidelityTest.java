@@ -323,6 +323,10 @@ public class PhysicalHardwareFidelityTest {
       }
     }
 
+    if (synth.arpEnabled()) {
+      synth.arpPhaseIncrement = 16777216;
+    }
+
     FirmwareAudioEngine engine = new FirmwareAudioEngine();
     engine.sounds.add(synth);
 

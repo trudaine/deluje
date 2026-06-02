@@ -49,7 +49,8 @@ public class SrrBitcrushParityTest {
     for (int i = 0; i < n; i++) expected[i] = in[i].l;
     int[] postFX = {2147483647};
     new SrrBitcrushProcessor().process(in, n, OFF, OFF, postFX);
-    for (int i = 0; i < n; i++) assertEquals(expected[i], in[i].l, "bitcrush off must be transparent");
+    for (int i = 0; i < n; i++)
+      assertEquals(expected[i], in[i].l, "bitcrush off must be transparent");
   }
 
   @Test

@@ -109,10 +109,11 @@ public class DelugeE2ETest {
   public void testSongPlayback(String songFile) throws Exception {
     System.out.println("\n=== testSongPlayback: " + songFile + " ===");
     System.setProperty("chuck.audio.dummy", "true");
-    System.setProperty("chuck.loglevel", "1");
+    System.setProperty("chuck.loglevel", "2");
     System.setProperty("deluge.tracks", "256");
 
     ChuckVM vm = new ChuckVM(44100, 2);
+    vm.setLogLevel(2);
     BridgeContract bridge = new BridgeContract();
     bridge.register(vm);
 
@@ -173,6 +174,7 @@ public class DelugeE2ETest {
             bridge.setFilterRes(r, synth.getLpfRes() / 100.0f);
             bridge.setFilterMode(r, synth.getFilterMode().ordinal());
             bridge.setSynthAlgo(r, Math.max(0, synth.getSynthAlgorithm()));
+            bridge.setEngineType(r, synth.getEngineType());
             if (dx7PatchStr != null && !dx7PatchStr.isEmpty()) {
               vm.setGlobalString("g_dx7_patch_" + r, dx7PatchStr);
             }
@@ -212,6 +214,9 @@ public class DelugeE2ETest {
                 bridge.setStep(engineRow + r, s, true);
                 bridge.setVelocity(engineRow + r, s, step.velocity());
                 bridge.setGate(engineRow + r, s, step.gate());
+                if (step.pitch() > 0) {
+                  bridge.setPitch(engineRow + r, s, step.pitch());
+                }
               }
             }
           }
@@ -237,13 +242,13 @@ public class DelugeE2ETest {
 
       // 8. Capture audio and check step advancement
       float peakL = 0, peakR = 0;
-      boolean stepAdvanced = false;
+      long maxStepReached = -1;
 
       for (int i = 0; i < 500; i++) { // 500 × 10ms = 5s
         vm.advanceTime(441);
 
         long step = vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
-        if (step >= 0) stepAdvanced = true;
+        if (step > maxStepReached) maxStepReached = step;
 
         float curL = Math.abs(vm.getDacChannel(0).getLastOut());
         float curR = Math.abs(vm.getDacChannel(1).getLastOut());
@@ -255,10 +260,10 @@ public class DelugeE2ETest {
 
       double peakAvg = (peakL + peakR) / 2.0;
       System.out.printf(
-          "Song %s: tracks=%d peak=%.6f stepAdvanced=%s%n",
-          songName, tracks.size(), peakAvg, stepAdvanced);
+          "Song %s: tracks=%d peak=%.6f maxStepReached=%d%n",
+          songName, tracks.size(), peakAvg, maxStepReached);
 
-      assertTrue(stepAdvanced, "Song " + songName + " engine playhead should advance");
+      assertTrue(maxStepReached > 0, "Song " + songName + " engine playhead should advance");
       assertTrue(
           peakAvg > 0.0009,
           "Song " + songName + " should produce audible output (peak avg=" + peakAvg + ")");

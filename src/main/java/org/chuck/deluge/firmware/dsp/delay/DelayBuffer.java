@@ -203,7 +203,8 @@ public class DelayBuffer {
   public int advance(Callback callback) {
     longPos += resampleConfig.actualSpinRate;
     // C++ uses uint8_t for these, so the position and the diff wrap mod 256. Without the masks the
-    // diff goes negative at every high-byte wrap and the callback (which advances the write head and
+    // diff goes negative at every high-byte wrap and the callback (which advances the write head
+    // and
     // the buffer-swap counter) is skipped — freezing the delay so it never starts reading back.
     int newShortPos = (longPos >>> 24) & 0xFF;
     int shortPosDiff = (newShortPos - lastShortPos) & 0xFF;

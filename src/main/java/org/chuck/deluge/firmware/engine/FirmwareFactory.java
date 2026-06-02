@@ -265,7 +265,8 @@ public class FirmwareFactory {
     sound.modFXOffset = (int) (clamp01(model.getModFxOffset()) * 2147483647.0);
     sound.modFXFeedback = (int) (clamp01(model.getModFxFeedback()) * 2147483647.0);
 
-    // Per-track reverb send (previously hardcoded to 0, so the master reverb bus was always silent).
+    // Per-track reverb send (previously hardcoded to 0, so the master reverb bus was always
+    // silent).
     sound.reverbSendAmount = (int) (clamp01(model.getReverbSend()) * 2147483647.0);
 
     // Bitcrush + sample-rate reduction (0..1 -> bipolar Q31; MIN_VALUE = off).
@@ -450,8 +451,7 @@ public class FirmwareFactory {
 
   /** Map an ArpModel onto a sound's per-sound arpeggiator settings. */
   private static void configureArp(
-      org.chuck.deluge.firmware.engine.FirmwareSound sound,
-      org.chuck.deluge.model.ArpModel arp) {
+      org.chuck.deluge.firmware.engine.FirmwareSound sound, org.chuck.deluge.model.ArpModel arp) {
     var s = sound.arpeggiator.settings;
     if (arp == null || !arp.active()) {
       s.mode = org.chuck.deluge.firmware.modulation.Arpeggiator.ArpMode.OFF;
@@ -466,7 +466,8 @@ public class FirmwareFactory {
     sound.arpDivision = (arp.syncLevel() > 0) ? arp.syncLevel() : 16;
   }
 
-  private static org.chuck.deluge.firmware.modulation.Arpeggiator.ArpMode stringToArpMode(String m) {
+  private static org.chuck.deluge.firmware.modulation.Arpeggiator.ArpMode stringToArpMode(
+      String m) {
     if (m == null) return org.chuck.deluge.firmware.modulation.Arpeggiator.ArpMode.UP;
     return switch (m.trim().toUpperCase()) {
       case "DOWN" -> org.chuck.deluge.firmware.modulation.Arpeggiator.ArpMode.DOWN;

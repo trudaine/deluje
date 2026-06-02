@@ -46,7 +46,8 @@ public class EqParityTest {
     int[] orig = new int[n];
     for (int i = 0; i < n; i++) orig[i] = in[i].l;
     new EqProcessor().process(in, n, 0, 0);
-    for (int i = 0; i < n; i++) assertEquals(orig[i], in[i].l, "EQ flat must be transparent at " + i);
+    for (int i = 0; i < n; i++)
+      assertEquals(orig[i], in[i].l, "EQ flat must be transparent at " + i);
   }
 
   @Test

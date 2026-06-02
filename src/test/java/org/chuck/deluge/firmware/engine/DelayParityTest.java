@@ -20,8 +20,9 @@ public class DelayParityTest {
   private static final int WARMUP = 7000;
 
   private static int rateForSeconds(double seconds) {
-    long rate = (long) ((long) DelayBuffer.kNeutralSize * DelayBuffer.kMaxSampleValue
-        / (seconds * 44100.0));
+    long rate =
+        (long)
+            ((long) DelayBuffer.kNeutralSize * DelayBuffer.kMaxSampleValue / (seconds * 44100.0));
     return (int) Math.min(rate, Integer.MAX_VALUE);
   }
 
