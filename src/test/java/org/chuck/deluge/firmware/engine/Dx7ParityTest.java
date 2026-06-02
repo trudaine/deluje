@@ -7,9 +7,9 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Verifies that a DX7 patch is rendered by the real DX7 (Dexed) engine in the pure firmware engine,
- * not the native-FM fallback (the bug behind "DX7 songs sound completely different"). A FirmwareSound
- * with a dx7Patch must produce non-silent, bounded audio that differs from the same note rendered
- * without the patch (generic FM).
+ * not the native-FM fallback (the bug behind "DX7 songs sound completely different"). A
+ * FirmwareSound with a dx7Patch must produce non-silent, bounded audio that differs from the same
+ * note rendered without the patch (generic FM).
  */
 public class Dx7ParityTest {
 
@@ -53,6 +53,10 @@ public class Dx7ParityTest {
     // The real DX7 voice must differ substantially from the generic FM fallback.
     assertTrue(
         diff > dx7Energy * 0.5,
-        "DX7 render must differ from the native-FM fallback (diff=" + diff + ", e=" + dx7Energy + ")");
+        "DX7 render must differ from the native-FM fallback (diff="
+            + diff
+            + ", e="
+            + dx7Energy
+            + ")");
   }
 }
