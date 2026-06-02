@@ -2085,9 +2085,10 @@ public class SwingGridPanel extends JPanel {
             pad.setMuted(isMuted);
 
             if (viewMode == GridViewMode.CLIP) {
-              boolean stepState = bridge.getStep(engineRow, activeCol);
-              double vel = bridge != null ? bridge.getVelocity(engineRow, activeCol) : 0.8;
-              double prob = bridge != null ? bridge.getStepProbability(engineRow, activeCol) : 1.0;
+              double[] outVelProb = {0.8, 1.0};
+              boolean stepState = isStepActiveOrSpanned(modelRow, activeCol, outVelProb);
+              double vel = outVelProb[0];
+              double prob = outVelProb[1];
 
               int curTrackLen = bridge != null ? bridge.getTrackLength(baseTrackId) : stepCount;
               boolean inLoop = activeCol < curTrackLen;
@@ -2095,6 +2096,7 @@ public class SwingGridPanel extends JPanel {
               pad.setActive(stepState);
               pad.setBaseColor(trackColors[modelRow % trackColors.length]);
               pad.setIntensity((float) (vel * (0.2f + 0.8f * prob)));
+              pad.setTied(isStepTied(modelRow, activeCol));
 
               boolean isSelected = selectedCells.contains(modelRow + "," + activeCol);
               if (isDragSelecting) {
@@ -5164,14 +5166,15 @@ public class SwingGridPanel extends JPanel {
                         } else {
                           pads[t][c].setBorder(UIManager.getBorder("Button.border"));
                         }
-                        // Re-sync background from bridge so cell selection stays correct during
-                        // playback
-                        boolean stepActive = bridge.getStep(engineRow2, engineCol);
-                        double velPb = bridge.getVelocity(engineRow2, engineCol);
+                        int modelRow = viewMode == GridViewMode.CLIP ? scrollOffset + t : t;
+                        double[] outVelProb = {0.8, 1.0};
+                        boolean stepActive = isStepActiveOrSpanned(modelRow, engineCol, outVelProb);
+                        double velPb = outVelProb[0];
                         if (pads[t][c] instanceof DelugePadButton pad) {
                           pad.setActive(stepActive);
                           pad.setIntensity((float) (velPb * 0.8f));
                           pad.setBaseColor(trackColors[t % trackColors.length]);
+                          pad.setTied(isStepTied(modelRow, engineCol));
                         } else {
                           pads[t][c].setBackground(
                               stepActive
@@ -5860,7 +5863,7 @@ public class SwingGridPanel extends JPanel {
     }
   }
 
-  private int getModelRow(int visualRow) {
+  int getModelRow(int visualRow) {
     return scrollOffset + visualRow;
   }
 
@@ -6332,13 +6335,12 @@ public class SwingGridPanel extends JPanel {
     fireProjectChanged();
   }
 
-  private void handleStepTied(int row, int colStart, int colEnd) {
+  void handleStepTied(int row, int colStart, int colEnd) {
     if (bridge == null) return;
     int start = Math.min(colStart, colEnd);
     int end = Math.max(colStart, colEnd);
 
     int startModelCol = getActiveCol(row, start);
-    int endModelCol = getActiveCol(row, end);
     int modelRow = getModelRow(row);
     int engineRow = baseTrackId + modelRow;
     boolean isSynthMode = bridge.getTrackType(baseTrackId) == 1;
@@ -6359,26 +6361,41 @@ public class SwingGridPanel extends JPanel {
       }
     }
 
-    // Since we drag visually, we convert visual column coordinates to model column coordinates
-    for (int c = start; c <= end; c++) {
-      int activeCol = getActiveCol(row, c);
-      org.chuck.deluge.model.StepData oldStep =
-          (cModel != null) ? cModel.getStep(modelRow, activeCol) : null;
-      double stepGate = (c == end) ? 0.5 : 1.0;
+    float totalGate = (end - start) + 0.9f;
 
-      bridge.setStep(engineRow, activeCol, true);
-      bridge.setVelocity(engineRow, activeCol, vel);
-      bridge.setGate(engineRow, activeCol, stepGate);
-      bridge.setStepProbability(engineRow, activeCol, prob);
-      bridge.setIterance(engineRow, activeCol, iter);
-      bridge.setStepFill(engineRow, activeCol, fill);
+    bridge.setStep(engineRow, startModelCol, true);
+    bridge.setVelocity(engineRow, startModelCol, vel);
+    bridge.setGate(engineRow, startModelCol, (double) totalGate);
+    bridge.setStepProbability(engineRow, startModelCol, prob);
+    bridge.setIterance(engineRow, startModelCol, iter);
+    bridge.setStepFill(engineRow, startModelCol, fill);
+
+    if (cModel != null) {
+      org.chuck.deluge.model.StepData oldStart = cModel.getStep(modelRow, startModelCol);
+      org.chuck.deluge.model.StepData newStart =
+          new org.chuck.deluge.model.StepData(
+              true, (float) vel, totalGate, (float) prob, pitch, iter, (float) fill);
+      cModel.setStep(modelRow, startModelCol, newStart);
+      if (oldStart != null && projectModel != null) {
+        projectModel
+            .getUndoRedoStack()
+            .push(
+                new Consequence.StepConsequence(
+                    editedModelTrack, activeClipId, modelRow, startModelCol, oldStart, newStart));
+      }
+    }
+
+    for (int c = start + 1; c <= end; c++) {
+      int activeCol = getActiveCol(row, c);
+      bridge.setStep(engineRow, activeCol, false);
+      bridge.setGate(engineRow, activeCol, 0.0);
 
       if (cModel != null) {
+        org.chuck.deluge.model.StepData oldStep = cModel.getStep(modelRow, activeCol);
         org.chuck.deluge.model.StepData newStep =
-            new org.chuck.deluge.model.StepData(
-                true, (float) vel, (float) stepGate, (float) prob, pitch, iter, (float) fill);
+            new org.chuck.deluge.model.StepData(false, 0.8f, 0.0f, 1.0f, 0, 0, 0.0f);
         cModel.setStep(modelRow, activeCol, newStep);
-        if (oldStep != null && projectModel != null) {
+        if (oldStep != null && projectModel != null && oldStep.active()) {
           projectModel
               .getUndoRedoStack()
               .push(
@@ -6387,7 +6404,83 @@ public class SwingGridPanel extends JPanel {
         }
       }
     }
+
     fireProjectChanged();
+    refresh();
+  }
+
+  private boolean isStepActiveOrSpanned(int modelRow, int activeCol, double[] outVelProb) {
+    org.chuck.deluge.model.TrackModel tModel = null;
+    org.chuck.deluge.model.ClipModel cModel = null;
+    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+      tModel = projectModel.getTracks().get(editedModelTrack);
+      if (activeClipId < tModel.getClips().size()) {
+        cModel = tModel.getClips().get(activeClipId);
+      }
+    }
+
+    if (cModel != null) {
+      for (int s = activeCol; s >= 0; s--) {
+        org.chuck.deluge.model.StepData step = cModel.getStep(modelRow, s);
+        if (step != null && step.active()) {
+          float gateVal = step.gate();
+          if (s + gateVal > activeCol + 0.05f) {
+            if (outVelProb != null && outVelProb.length >= 2) {
+              outVelProb[0] = step.velocity();
+              outVelProb[1] = step.probability();
+            }
+            return true;
+          }
+          break;
+        }
+      }
+    } else if (bridge != null) {
+      int engineRow = baseTrackId + modelRow;
+      for (int s = activeCol; s >= 0; s--) {
+        if (bridge.getStep(engineRow, s)) {
+          double gateVal = bridge.getGate(engineRow, s);
+          if (s + gateVal > activeCol + 0.05f) {
+            if (outVelProb != null && outVelProb.length >= 2) {
+              outVelProb[0] = bridge.getVelocity(engineRow, s);
+              outVelProb[1] = bridge.getStepProbability(engineRow, s);
+            }
+            return true;
+          }
+          break;
+        }
+      }
+    }
+    return false;
+  }
+
+  private boolean isStepTied(int modelRow, int activeCol) {
+    org.chuck.deluge.model.TrackModel tModel = null;
+    org.chuck.deluge.model.ClipModel cModel = null;
+    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+      tModel = projectModel.getTracks().get(editedModelTrack);
+      if (activeClipId < tModel.getClips().size()) {
+        cModel = tModel.getClips().get(activeClipId);
+      }
+    }
+
+    if (cModel != null) {
+      for (int s = activeCol; s >= 0; s--) {
+        org.chuck.deluge.model.StepData step = cModel.getStep(modelRow, s);
+        if (step != null && step.active()) {
+          float gateVal = step.gate();
+          return (s + gateVal >= activeCol + 1.0f - 0.05f);
+        }
+      }
+    } else if (bridge != null) {
+      int engineRow = baseTrackId + modelRow;
+      for (int s = activeCol; s >= 0; s--) {
+        if (bridge.getStep(engineRow, s)) {
+          double gateVal = bridge.getGate(engineRow, s);
+          return (s + gateVal >= activeCol + 1.0f - 0.05f);
+        }
+      }
+    }
+    return false;
   }
 
   private void handleDragPreview(int row, int colStart, int colCurrent) {

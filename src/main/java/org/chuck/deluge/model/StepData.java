@@ -12,7 +12,7 @@ public record StepData(
   public StepData {
     // Clamp values
     velocity = Math.max(0.0f, Math.min(1.0f, velocity));
-    gate = Math.max(0.0f, Math.min(1.0f, gate));
+    gate = Math.max(0.0f, Math.min(192.0f, gate));
     probability = Math.max(0.0f, Math.min(1.0f, probability));
     iterance = Math.max(0, Math.min(3, iterance));
     fill = Math.max(0.0f, Math.min(1.0f, fill));
