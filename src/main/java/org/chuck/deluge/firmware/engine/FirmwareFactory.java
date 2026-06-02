@@ -276,6 +276,9 @@ public class FirmwareFactory {
     sound.eqBassParam = dbToBipolarParam(model.getEqBass());
     sound.eqTrebleParam = dbToBipolarParam(model.getEqTreble());
 
+    // Arpeggiator
+    configureArp(sound, model.getArp());
+
     // Retrigger Phases
     sound.osc1RetriggerPhase = model.getOsc1RetrigPhase();
     sound.osc2RetriggerPhase = model.getOsc2RetrigPhase();
@@ -443,6 +446,48 @@ public class FirmwareFactory {
   private static int dbToBipolarParam(float db) {
     double norm = Math.max(-1.0, Math.min(1.0, db / 12.0));
     return (int) (norm * 2147483647.0);
+  }
+
+  /** Map an ArpModel onto a sound's per-sound arpeggiator settings. */
+  private static void configureArp(
+      org.chuck.deluge.firmware.engine.FirmwareSound sound,
+      org.chuck.deluge.model.ArpModel arp) {
+    var s = sound.arpeggiator.settings;
+    if (arp == null || !arp.active()) {
+      s.mode = org.chuck.deluge.firmware.modulation.Arpeggiator.ArpMode.OFF;
+      return;
+    }
+    s.mode = stringToArpMode(arp.mode());
+    s.octaveMode = stringToArpOctaveMode(arp.octaveMode());
+    s.numOctaves = Math.max(1, arp.octaves());
+    s.numStepRepeats = Math.max(1, arp.stepRepeat());
+    s.gate = (int) (Math.max(0f, Math.min(1f, arp.gate())) * 2147483647.0);
+    // syncLevel here is a note-division denominator (1=whole, 4=quarter, 16=16th); default 16th.
+    sound.arpDivision = (arp.syncLevel() > 0) ? arp.syncLevel() : 16;
+  }
+
+  private static org.chuck.deluge.firmware.modulation.Arpeggiator.ArpMode stringToArpMode(String m) {
+    if (m == null) return org.chuck.deluge.firmware.modulation.Arpeggiator.ArpMode.UP;
+    return switch (m.trim().toUpperCase()) {
+      case "DOWN" -> org.chuck.deluge.firmware.modulation.Arpeggiator.ArpMode.DOWN;
+      case "UP_DOWN", "UPDN", "UPDOWN" ->
+          org.chuck.deluge.firmware.modulation.Arpeggiator.ArpMode.UPDOWN;
+      case "RANDOM", "RAND", "WALK", "WLK1", "WLK2", "WLK3" ->
+          org.chuck.deluge.firmware.modulation.Arpeggiator.ArpMode.RANDOM;
+      case "OFF" -> org.chuck.deluge.firmware.modulation.Arpeggiator.ArpMode.OFF;
+      default -> org.chuck.deluge.firmware.modulation.Arpeggiator.ArpMode.UP;
+    };
+  }
+
+  private static org.chuck.deluge.firmware.modulation.Arpeggiator.ArpOctaveMode
+      stringToArpOctaveMode(String m) {
+    if (m == null) return org.chuck.deluge.firmware.modulation.Arpeggiator.ArpOctaveMode.UP;
+    return switch (m.trim().toUpperCase()) {
+      case "DOWN" -> org.chuck.deluge.firmware.modulation.Arpeggiator.ArpOctaveMode.DOWN;
+      case "UPDN", "UPDOWN", "ALT" ->
+          org.chuck.deluge.firmware.modulation.Arpeggiator.ArpOctaveMode.UPDOWN;
+      default -> org.chuck.deluge.firmware.modulation.Arpeggiator.ArpOctaveMode.UP;
+    };
   }
 
   public static InstrumentClip createKitClip(KitTrackModel model) {

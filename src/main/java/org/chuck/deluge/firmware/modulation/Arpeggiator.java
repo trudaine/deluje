@@ -90,7 +90,7 @@ public class Arpeggiator {
       };
 
   private final List<ArpNote> inputNotes = new ArrayList<>();
-  private final Settings settings;
+  public final Settings settings;
   private int gatePos = 0;
   private int whichNoteIndex = -1;
   private int currentOctave = 0;
@@ -148,6 +148,10 @@ public class Arpeggiator {
     if (inputNotes.isEmpty()) {
       reset();
     }
+  }
+
+  public boolean hasInputNotes() {
+    return !inputNotes.isEmpty();
   }
 
   public void reset() {

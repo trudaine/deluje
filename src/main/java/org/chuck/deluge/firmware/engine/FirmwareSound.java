@@ -71,6 +71,20 @@ public class FirmwareSound extends GlobalEffectable {
       new org.chuck.deluge.firmware.dsp.fx.EqProcessor();
   public int eqBassParam = 0; // bipolar Q31; 0 = flat
   public int eqTrebleParam = 0; // bipolar Q31; 0 = flat
+
+  // Per-sound arpeggiator: held notes feed the arp, which triggers individual voices on its clock.
+  public final org.chuck.deluge.firmware.modulation.Arpeggiator arpeggiator =
+      new org.chuck.deluge.firmware.modulation.Arpeggiator(
+          new org.chuck.deluge.firmware.modulation.Arpeggiator.Settings());
+  private final org.chuck.deluge.firmware.modulation.Arpeggiator.ReturnInstruction arpInstr =
+      new org.chuck.deluge.firmware.modulation.Arpeggiator.ReturnInstruction();
+  public int arpPhaseIncrement = 0; // arp clock (Q-units; one step == 1<<24 of gatePos)
+  public int arpDivision = 16; // step note division (16 = 16th note); used to derive arpPhaseIncrement
+  private int lastArpNote = -1;
+
+  private boolean arpEnabled() {
+    return arpeggiator.settings.mode != org.chuck.deluge.firmware.modulation.Arpeggiator.ArpMode.OFF;
+  }
   public final GranularProcessor granular = new GranularProcessor();
   public final SideChain sidechain = new SideChain();
   public int sidechainSend = 0;
@@ -121,11 +135,28 @@ public class FirmwareSound extends GlobalEffectable {
     if (scHit != 0) {
       sidechain.registerHit(scHit);
     }
+    // 0. Arpeggiator clock: advance the arp and action any note on/off it emits this block. Runs
+    // before the silent-bypass so it keeps stepping between sounding notes.
+    if (arpEnabled() && arpPhaseIncrement > 0) {
+      arpInstr.noteOn = false;
+      arpInstr.noteOff = false;
+      arpeggiator.render(arpInstr, numSamples, arpPhaseIncrement);
+      if (arpInstr.noteOff && lastArpNote >= 0) {
+        releaseVoice(lastArpNote, -1);
+        lastArpNote = -1;
+      }
+      if (arpInstr.noteOn) {
+        triggerVoice(arpInstr.noteCode, arpInstr.velocity, -1);
+        lastArpNote = arpInstr.noteCode;
+      }
+    }
+
     boolean hasActiveVoices;
     synchronized (voices) {
       hasActiveVoices = !voices.isEmpty();
     }
-    if (!hasActiveVoices && silentBlockCount > 100) {
+    boolean arpHolding = arpEnabled() && arpeggiator.hasInputNotes();
+    if (!hasActiveVoices && !arpHolding && silentBlockCount > 100) {
       // Fast bypass: write silence and return
       for (int i = 0; i < numSamples; i++) {
         buffer[i].l = 0;
@@ -225,6 +256,15 @@ public class FirmwareSound extends GlobalEffectable {
   }
 
   public void triggerNote(int note, int vel, int midiChannel) {
+    // When the arpeggiator is on, held notes go to it; it triggers voices on its own clock.
+    if (arpEnabled()) {
+      arpeggiator.noteOn(note, vel);
+      return;
+    }
+    triggerVoice(note, vel, midiChannel);
+  }
+
+  private void triggerVoice(int note, int vel, int midiChannel) {
     if (sidechainSend != 0) {
       GlobalSidechainBus.registerHit(sidechainSend);
     }
@@ -284,6 +324,14 @@ public class FirmwareSound extends GlobalEffectable {
   }
 
   public void releaseNote(int note, int midiChannel) {
+    if (arpEnabled()) {
+      arpeggiator.noteOff(note);
+      return;
+    }
+    releaseVoice(note, midiChannel);
+  }
+
+  private void releaseVoice(int note, int midiChannel) {
     synchronized (voices) {
       System.out.println(
           "[DIAG release] releaseNote requested for pitch="
