@@ -67,7 +67,8 @@ public class VoiceSample {
       this.playPosBig = (long) (this.startSample + samplesLate) << 32;
     }
 
-    // Time-stretch: play the sample over its natural duration regardless of note pitch (the duration
+    // Time-stretch: play the sample over its natural duration regardless of note pitch (the
+    // duration
     // advance is fixed; the note pitch is applied as the read rate). Reverse isn't supported here.
     this.timestretch = settings.timestretch && !settings.reverse;
     if (this.timestretch) {
