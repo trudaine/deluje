@@ -100,10 +100,15 @@ public class VoiceSample {
         }
       }
 
-      // Linear interpolation
-      float s0 = data[Math.max(0, Math.min(data.length - 1, intPos * numChannels))];
-      float s1 = data[Math.max(0, Math.min(data.length - 1, (intPos + 1) * numChannels))];
-      float out = s0 + (s1 - s0) * (float) (frac / 4294967296.0);
+      // Windowed-sinc interpolation (the Deluge default — anti-aliased, much less foldback on
+      // pitched samples than linear). Kernel chosen by playback rate; firmware phaseIncrement is
+      // Q24 (16777216 == 1.0), so derive it from the 32:32 per-sample advance via inc >> 8.
+      int whichKernel =
+          org.chuck.deluge.firmware.dsp.interpolate.SincInterpolator.getWhichKernel(
+              (int) Math.min(Integer.MAX_VALUE, inc >> 8));
+      float out =
+          org.chuck.deluge.firmware.dsp.interpolate.SincInterpolator.interpolate(
+              data, numChannels, 0, intPos, frac, whichKernel);
 
       int valQ31 = (int) (out * 2147483647.0);
       int wet = Q31.mult(valQ31, amplitude);
