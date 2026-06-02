@@ -79,12 +79,18 @@ public class FirmwareSound extends GlobalEffectable {
   private final org.chuck.deluge.firmware.modulation.Arpeggiator.ReturnInstruction arpInstr =
       new org.chuck.deluge.firmware.modulation.Arpeggiator.ReturnInstruction();
   public int arpPhaseIncrement = 0; // arp clock (Q-units; one step == 1<<24 of gatePos)
-  public int arpDivision = 16; // step note division (16 = 16th note); used to derive arpPhaseIncrement
+  public int arpDivision =
+      16; // step note division (16 = 16th note); used to derive arpPhaseIncrement
   private int lastArpNote = -1;
 
+  // Granular mod-FX (ModFXType.GRAIN routes here instead of the LFO-based ModFXProcessor).
+  public float currentBpm = 120.0f;
+
   private boolean arpEnabled() {
-    return arpeggiator.settings.mode != org.chuck.deluge.firmware.modulation.Arpeggiator.ArpMode.OFF;
+    return arpeggiator.settings.mode
+        != org.chuck.deluge.firmware.modulation.Arpeggiator.ArpMode.OFF;
   }
+
   public final GranularProcessor granular = new GranularProcessor();
   public final SideChain sidechain = new SideChain();
   public int sidechainSend = 0;
@@ -209,9 +215,22 @@ public class FirmwareSound extends GlobalEffectable {
     // Stutter
     stutterer.processStutter(buffer, paramManager);
 
-    // Modulation FX (Chorus, Flanger, etc.) — driven by the patch's type/rate/depth/offset/feedback.
-    modFX.processModFX(
-        buffer, modFXType, modFXRateIncrement, modFXDepth, postFXVolume, modFXOffset, modFXFeedback);
+    // Modulation FX. GRAIN is a granular processor (different from the LFO-based mod FX); the
+    // firmware routes it separately. Mapping: rate, depth (mix), offset (density), feedback (pitch
+    // randomness), tempo — mirroring ModControllableAudio::processGrainFX's argument order.
+    if (modFXType == ModFXType.GRAIN) {
+      granular.processGrainFX(
+          buffer, modFXRateIncrement, modFXDepth << 1, modFXOffset, modFXFeedback, currentBpm);
+    } else {
+      modFX.processModFX(
+          buffer,
+          modFXType,
+          modFXRateIncrement,
+          modFXDepth,
+          postFXVolume,
+          modFXOffset,
+          modFXFeedback);
+    }
 
     // Bass/treble EQ
     eq.process(buffer, numSamples, eqBassParam, eqTrebleParam);
