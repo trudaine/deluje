@@ -86,6 +86,17 @@ public class FirmwareSound extends GlobalEffectable {
   // Granular mod-FX (ModFXType.GRAIN routes here instead of the LFO-based ModFXProcessor).
   public float currentBpm = 120.0f;
 
+  // DX7 (Dexed) patch — when set, the voice renders via the real DX7 engine instead of the
+  // Deluge's native FM. The 156-byte unpacked single-voice patch defines the algorithm + 6
+  // operators + per-op EGs; engineType: -1=auto (MkI for algos 3/5 w/ feedback), 0=modern, 1=MkI.
+  public byte[] dx7Patch = null;
+  public int dx7EngineType = -1;
+  public int dx7RandomDetune = 0;
+
+  public boolean isDx7() {
+    return dx7Patch != null;
+  }
+
   public boolean arpEnabled() {
     return arpeggiator.settings.mode
         != org.chuck.deluge.firmware.modulation.Arpeggiator.ArpMode.OFF;
