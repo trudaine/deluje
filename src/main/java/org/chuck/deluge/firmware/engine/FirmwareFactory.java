@@ -5,8 +5,10 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import org.chuck.deluge.firmware.dsp.oscillators.OscType;
+import org.chuck.deluge.firmware.model.Clip;
 import org.chuck.deluge.firmware.model.InstrumentClip;
 import org.chuck.deluge.firmware.model.Song;
+import org.chuck.deluge.firmware.model.note.Note;
 import org.chuck.deluge.firmware.model.note.NoteRow;
 import org.chuck.deluge.firmware.model.sample.Sample;
 import org.chuck.deluge.firmware.modulation.params.Param;
@@ -666,8 +668,75 @@ public class FirmwareFactory {
   }
 
   public static void syncFirmwareToModel(Song fwSong, ProjectModel model) {
-    // TODO: Implement reverse mapping for saving
-    System.out.println("[FirmwareFactory] syncFirmwareToModel called (STUB)");
+    if (fwSong == null || model == null) return;
+    System.out.println(
+        "[FirmwareFactory] syncFirmwareToModel active, syncing " + fwSong.clips.size() + " clips");
+
+    int totalTracks = Math.min(fwSong.clips.size(), model.getTracks().size());
+    for (int t = 0; t < totalTracks; t++) {
+      Clip clip = fwSong.clips.get(t);
+      TrackModel trackModel = model.getTracks().get(t);
+
+      if (clip instanceof InstrumentClip instrumentClip) {
+        if (trackModel.getClips().isEmpty()) continue;
+        ClipModel clipModel = trackModel.getClips().get(0);
+        int stepTicks = clipModel.isTripletMode() ? 32 : 24;
+
+        // 1. Clear existing steps/notes in Java Model
+        for (int r = 0; r < clipModel.getRowCount(); r++) {
+          for (int s = 0; s < clipModel.getStepCount(); s++) {
+            clipModel.setStep(r, s, StepData.empty());
+          }
+          clipModel.setRawNoteEvents(r, null);
+        }
+
+        // 2. Back-propagate NoteRows from Layer 3 (firmware) to Layer 1 (Java Model)
+        for (NoteRow noteRow : instrumentClip.noteRows) {
+          int pitch = noteRow.y;
+          int r;
+          if (trackModel instanceof SynthTrackModel) {
+            r = (clipModel.getRowCount() - 1) - pitch;
+          } else if (trackModel instanceof KitTrackModel) {
+            r = pitch;
+          } else if (trackModel instanceof MidiTrackModel) {
+            r = (clipModel.getRowCount() - 1) - pitch;
+          } else {
+            r = pitch;
+          }
+
+          if (r < 0 || r >= clipModel.getRowCount()) continue;
+
+          java.util.List<org.chuck.deluge.model.HighResNote> rawNotes = new java.util.ArrayList<>();
+
+          for (Note note : noteRow.notes) {
+            int tickPos = note.pos;
+            int tickLen = note.length;
+            float vel = note.getVelocity() / 127.0f;
+            float prob = note.getProbability() / 100.0f;
+            rawNotes.add(new org.chuck.deluge.model.HighResNote(tickPos, tickLen, vel, prob, 0));
+
+            int startStep = tickPos / stepTicks;
+            if (startStep >= 0 && startStep < clipModel.getStepCount()) {
+              float gateSteps = (float) tickLen / stepTicks;
+              StepData step =
+                  new StepData(true, vel, gateSteps, prob, pitch, 0, note.getFill() / 100.0f);
+              clipModel.setStep(r, startStep, step);
+
+              int endStep = (int) (startStep + gateSteps - 0.05f);
+              for (int s = startStep + 1; s <= endStep; s++) {
+                if (s >= 0 && s < clipModel.getStepCount()) {
+                  clipModel.setStep(r, s, new StepData(false, 0.8f, 0.0f, 1.0f, 0, 0, 0.0f));
+                }
+              }
+            }
+          }
+
+          if (!rawNotes.isEmpty()) {
+            clipModel.setRawNoteEvents(r, rawNotes);
+          }
+        }
+      }
+    }
   }
 
   private static int amountToQ31(String dest, float amount) {
