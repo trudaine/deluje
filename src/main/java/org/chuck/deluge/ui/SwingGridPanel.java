@@ -3911,12 +3911,45 @@ public class SwingGridPanel extends JPanel {
                 }
               });
         }
+        // Resolve active clip and triplet mode
+        org.chuck.deluge.model.TrackModel curTrack = null;
+        if (projectModel != null
+            && editedModelTrack >= 0
+            && editedModelTrack < projectModel.getTracks().size()) {
+          curTrack = projectModel.getTracks().get(editedModelTrack);
+        }
+
+        org.chuck.deluge.model.ClipModel activeClip = null;
+        if (curTrack != null && activeClipId >= 0 && activeClipId < curTrack.getClips().size()) {
+          activeClip = curTrack.getClips().get(activeClipId);
+        }
+
+        boolean activeTrip = activeClip != null && activeClip.isTripletMode();
+
         // Bottom play rate step speed resolution zoom JComboBox selector
         double currentRes = (bridge != null) ? bridge.getStepResolution() : 0.25;
-        String[] rateLabels = {"1 Bar", "1/2", "1/4", "1/8", "1/16", "1/32", "1/64", "1/128"};
-        double[] rateValues = {4.0, 2.0, 1.0, 0.5, 0.25, 0.125, 0.0625, 0.03125};
+        String[] rateLabels;
+        double[] rateValues;
+        if (activeTrip) {
+          rateLabels =
+              new String[] {"1 Bar", "1/2T", "1/4T", "1/8T", "1/16T", "1/32T", "1/64T", "1/128T"};
+          rateValues =
+              new double[] {
+                4.0,
+                4.0 / 3.0,
+                2.0 / 3.0,
+                1.0 / 3.0,
+                0.5 / 3.0,
+                0.25 / 3.0,
+                0.125 / 3.0,
+                0.0625 / 3.0
+              };
+        } else {
+          rateLabels = new String[] {"1 Bar", "1/2", "1/4", "1/8", "1/16", "1/32", "1/64", "1/128"};
+          rateValues = new double[] {4.0, 2.0, 1.0, 0.5, 0.25, 0.125, 0.0625, 0.03125};
+        }
 
-        int currentRateIdx = 4; // default 1/16
+        int currentRateIdx = activeTrip ? 3 : 4; // default 1/8T for triplets, 1/16 for straight
         for (int i = 0; i < rateValues.length; i++) {
           if (Math.abs(rateValues[i] - currentRes) < 0.0001) {
             currentRateIdx = i;
@@ -4013,19 +4046,6 @@ public class SwingGridPanel extends JPanel {
         tripletBtn.setFont(new Font("SansSerif", Font.BOLD, 10));
         tripletBtn.setMargin(new Insets(0, 0, 0, 0));
 
-        org.chuck.deluge.model.TrackModel curTrack = null;
-        if (projectModel != null
-            && editedModelTrack >= 0
-            && editedModelTrack < projectModel.getTracks().size()) {
-          curTrack = projectModel.getTracks().get(editedModelTrack);
-        }
-
-        org.chuck.deluge.model.ClipModel activeClip = null;
-        if (curTrack != null && activeClipId >= 0 && activeClipId < curTrack.getClips().size()) {
-          activeClip = curTrack.getClips().get(activeClipId);
-        }
-
-        boolean activeTrip = activeClip != null && activeClip.isTripletMode();
         tripletBtn.setEnabled(activeClip != null);
         tripletBtn.setOpaque(false);
         tripletBtn.setContentAreaFilled(false);
@@ -4052,6 +4072,7 @@ public class SwingGridPanel extends JPanel {
 
                 if (bridge != null) {
                   bridge.setTrackLength(baseTrackId, nextTrip ? 12 : 16);
+                  bridge.setStepResolution(nextTrip ? (1.0 / 3.0) : 0.25);
                 }
 
                 refresh();
