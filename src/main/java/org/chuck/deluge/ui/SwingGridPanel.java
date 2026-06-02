@@ -7901,6 +7901,10 @@ public class SwingGridPanel extends JPanel {
     return scrollOffsetX;
   }
 
+  public int getStepCount() {
+    return stepCount;
+  }
+
   public void scrollVertically(int cellsOffset) {
     System.out.println(
         "[TRACE grid] scrollVertically called: offset=" + cellsOffset + " viewMode=" + viewMode);

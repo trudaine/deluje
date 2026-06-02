@@ -176,7 +176,11 @@ public class DelugeGestureCoordinator {
           if (under instanceof javax.swing.JComponent jc) {
             Integer targetRow = (Integer) jc.getClientProperty("row");
             Integer targetCol = (Integer) jc.getClientProperty("col");
-            if (targetRow != null && targetCol != null && targetCol < 16) {
+            int maxCol = 192;
+            if (parentGridPanel instanceof SwingGridPanel sg) {
+              maxCol = sg.getStepCount();
+            }
+            if (targetRow != null && targetCol != null && targetCol < maxCol) {
               if (targetRow != dragCurrentRow || targetCol != dragCurrentCol) {
                 dragCurrentRow = targetRow;
                 dragCurrentCol = targetCol;
