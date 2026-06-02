@@ -169,6 +169,17 @@ public class PureFirmwareEngine {
       System.out.println("[PureFirmwareEngine] WARNING: G_SP_VOLUME is very low: " + spVol);
     }
 
+    // Arpeggiator clock: one step = arpDivision note (16 = 16th). gatePos accumulates a full step
+    // (1<<24) over stepSamples, advancing by (phaseIncrement>>8) per sample → phaseInc = 2^32/steps.
+    double beatSec = (currentBpm > 0) ? 60.0 / currentBpm : 0.5;
+    for (org.chuck.deluge.firmware.engine.GlobalEffectable sound : audioEngine.sounds) {
+      if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound fsArp) {
+        int div = fsArp.arpDivision > 0 ? fsArp.arpDivision : 16;
+        double stepSamples = (4.0 / div) * beatSec * 44100.0;
+        fsArp.arpPhaseIncrement = (stepSamples > 1) ? (int) (4294967296.0 / stepSamples) : 0;
+      }
+    }
+
     for (org.chuck.deluge.firmware.engine.GlobalEffectable sound : audioEngine.sounds) {
       if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound fs) {
         fs.paramNeutralValues[Param.LOCAL_VOLUME] = (int) (spVol * 2147483647.0);
