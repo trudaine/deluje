@@ -280,6 +280,11 @@ public class FirmwareFactory {
     // Arpeggiator
     configureArp(sound, model.getArp());
 
+    // DX7 (Dexed) patch — render via the real DX7 engine instead of the native FM mapping.
+    sound.dx7Patch = hexToBytes(model.getDx7Patch());
+    sound.dx7EngineType = model.getEngineType();
+    sound.dx7RandomDetune = model.getDx7RandomDetune();
+
     // Retrigger Phases
     sound.osc1RetriggerPhase = model.getOsc1RetrigPhase();
     sound.osc2RetriggerPhase = model.getOsc2RetrigPhase();
@@ -441,6 +446,22 @@ public class FirmwareFactory {
     if (norm <= 0f) return Integer.MIN_VALUE;
     double v = (double) clamp01(norm) * 4294967295.0 - 2147483648.0;
     return (int) Math.round(v);
+  }
+
+  /** Parse a DX7 patch hex string (e.g. 312 chars = 156 bytes) to bytes; null/blank/odd → null. */
+  private static byte[] hexToBytes(String hex) {
+    if (hex == null) return null;
+    hex = hex.trim();
+    if (hex.isEmpty() || (hex.length() & 1) != 0) return null;
+    byte[] out = new byte[hex.length() / 2];
+    try {
+      for (int i = 0; i < out.length; i++) {
+        out[i] = (byte) Integer.parseInt(hex.substring(i * 2, i * 2 + 2), 16);
+      }
+    } catch (NumberFormatException e) {
+      return null;
+    }
+    return out;
   }
 
   /** Map an EQ gain in dB ([-12, 12], 0 = flat) to a bipolar Q31 param (0 = flat). */

@@ -29,6 +29,9 @@ public class FirmwareVoice {
   public final Envelope[] envelopes = new Envelope[6]; // kNumEnvelopes = 6 (some for modulation)
   public final LFO[] lfos = new LFO[4]; // lfo1-lfo4 (lfo1/3 global, lfo2/4 local)
   public final Arpeggiator arpeggiator;
+
+  // Real DX7 (Dexed) engine — used instead of the native FM mapping when the sound has a DX7 patch.
+  private org.chuck.audio.util.Dx7Engine dx7;
   public final int[] paramFinalValues = new int[Param.kNumParams];
   public final int[] sourceValues = new int[PatchSource.kNumPatchSources];
   public final Patcher patcher = new Patcher();
@@ -131,6 +134,15 @@ public class FirmwareVoice {
     for (int i = 0; i < 4; i++) {
       envelopes[i].noteOn(false);
     }
+
+    // DX7 patch: configure and trigger the real DX7 engine (its own EGs shape the amplitude).
+    if (sound.isDx7()) {
+      if (dx7 == null) dx7 = new org.chuck.audio.util.Dx7Engine(44100.0f);
+      dx7.loadPatch(sound.dx7Patch);
+      dx7.setForceVintage(sound.dx7EngineType);
+      dx7.setRandomDetuneScale(sound.dx7RandomDetune);
+      dx7.noteOn(note, vel);
+    }
   }
 
   public void noteOff(int velocity) {
@@ -145,6 +157,7 @@ public class FirmwareVoice {
     for (int i = 0; i < 4; i++) {
       envelopes[i].unconditionalRelease(Envelope.EnvelopeStage.RELEASE, 1024);
     }
+    if (dx7 != null) dx7.noteOff();
     System.out.println(
         "[DIAG voice] noteOff completed for voice note="
             + note
@@ -152,8 +165,43 @@ public class FirmwareVoice {
             + envelopes[0].state);
   }
 
+  /** DX7 (Dexed) render path: engine EGs are the amplitude env; only track volume + filter apply. */
+  private boolean renderDx7(int[] buffer, int numSamples) {
+    int trackVol = sound.paramNeutralValues[Param.LOCAL_VOLUME];
+    int[] vb = new int[numSamples];
+    for (int i = 0; i < numSamples; i++) {
+      // Dx7Engine.tick() is ~[-2.3, 2.3] float; scale into Q31 headroom (filter + master limiter
+      // tame peaks, mirroring the legacy DX7 chain where the filter attenuates loud harmonics).
+      int v = (int) (dx7.tick() * (2147483647.0 / 4.0));
+      vb[i] = Q31.mult(v, trackVol);
+    }
+    filterSet.setConfig(
+        sound.paramNeutralValues[Param.LOCAL_LPF_FREQ],
+        sound.paramNeutralValues[Param.LOCAL_LPF_RESONANCE],
+        sound.lpfMode,
+        sound.paramNeutralValues[Param.LOCAL_LPF_MORPH],
+        sound.paramNeutralValues[Param.LOCAL_HPF_FREQ],
+        sound.paramNeutralValues[Param.LOCAL_HPF_RESONANCE],
+        sound.hpfMode,
+        sound.paramNeutralValues[Param.LOCAL_HPF_MORPH],
+        Q31.ONE,
+        sound.filterRoute);
+    filterSet.render(vb, 0, numSamples, 1);
+    for (int i = 0; i < numSamples; i++) {
+      buffer[i] = Q31.addSaturate(buffer[i], vb[i]);
+    }
+    if (!dx7.isActive()) active = false;
+    return active;
+  }
+
   public boolean render(int[] buffer, int numSamples, int phaseIncrementA, int phaseIncrementB) {
     if (!active) return false;
+
+    // DX7 patch: render the real DX7 engine (its per-operator EGs are the amplitude envelope, so we
+    // skip the Deluge env0), then the per-voice filter — matching the legacy DX7 voice chain.
+    if (sound.isDx7() && dx7 != null) {
+      return renderDx7(buffer, numSamples);
+    }
 
     // ── MPE Smoothing ──
     for (int i = 0; i < 3; i++) {
