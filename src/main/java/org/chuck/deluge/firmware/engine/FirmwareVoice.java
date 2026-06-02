@@ -56,6 +56,32 @@ public class FirmwareVoice {
   private int voiceRandomValue;
   public final FilterSet filterSet = new FilterSet();
 
+  // Zero-GC Stereo Voice buffers
+  private org.chuck.deluge.firmware.dsp.StereoSample[] voiceBuffer = null;
+  private int[] tempMonoBuffer = null;
+
+  private void prepareVoiceBuffer(int numSamples) {
+    if (voiceBuffer == null || voiceBuffer.length < numSamples) {
+      voiceBuffer = new org.chuck.deluge.firmware.dsp.StereoSample[numSamples];
+      for (int i = 0; i < numSamples; i++) {
+        voiceBuffer[i] = new org.chuck.deluge.firmware.dsp.StereoSample();
+      }
+    } else {
+      for (int i = 0; i < numSamples; i++) {
+        voiceBuffer[i].l = 0;
+        voiceBuffer[i].r = 0;
+      }
+    }
+  }
+
+  private void prepareTempMonoBuffer(int numSamples) {
+    if (tempMonoBuffer == null || tempMonoBuffer.length < numSamples) {
+      tempMonoBuffer = new int[numSamples];
+    } else {
+      java.util.Arrays.fill(tempMonoBuffer, 0);
+    }
+  }
+
   public FirmwareVoice(FirmwareSound sound) {
     this.sound = sound;
     for (int i = 0; i < envelopes.length; i++) envelopes[i] = new Envelope();
@@ -175,10 +201,13 @@ public class FirmwareVoice {
   }
 
   /**
-   * Renders all active unison DX7 engines into the voice buffer with custom detuning and pitch
-   * bend.
+   * Renders all active unison DX7 engines into the stereo voice buffer with custom detuning, pitch
+   * bend, constant-power panning, and MPE modulation hookups.
    */
-  private void renderDx7(int[] voiceBuffer, int numSamples, int overallPitchAdjust) {
+  private void renderDx7(
+      org.chuck.deluge.firmware.dsp.StereoSample[] voiceBuffer,
+      int numSamples,
+      int overallPitchAdjust) {
     // Convert overallPitchAdjust scale factor in Q31 to Q24 log-frequency offset
     double scale = (double) overallPitchAdjust / 2147483648.0;
     int overallPitchBendOffset = 0;
@@ -195,6 +224,10 @@ public class FirmwareVoice {
 
       activeParts++;
 
+      // Route virtual CC modulations (Aftertouch and Mod Wheel/Timbre)
+      dxVoice.aftertouch = mpePressure; // MPE pressure (0-127)
+      dxVoice.modWheel = mpeTimbre; // MPE Timbre/Slide or Mod Wheel (0-127)
+
       // C++ voice.cpp: calculate detune per unison part
       double offset = 0.0;
       if (sound.numUnison > 1) {
@@ -206,10 +239,30 @@ public class FirmwareVoice {
       // Pass total pitch bend + cents detuning into the DX7 engine
       dxVoice.pitchBendOffset = overallPitchBendOffset + centsOffset;
 
-      // Render samples and sum into voiceBuffer
+      // Render samples into tempMonoBuffer
+      prepareTempMonoBuffer(numSamples);
       for (int i = 0; i < numSamples; i++) {
-        int v = (int) (dxVoice.tick() * (2147483647.0 / 4.0));
-        voiceBuffer[i] = Q31.addSaturate(voiceBuffer[i], (int) (v * gainScale));
+        tempMonoBuffer[i] = (int) (dxVoice.tick() * (2147483647.0 / 4.0));
+      }
+
+      // Constant power panning calculation incorporating track panning and unison spread
+      int voicePan = paramFinalValues[Param.LOCAL_PAN]; // Q31
+      double uPan = (double) voicePan / 2147483648.0;
+      uPan += 0.6 * offset; // 0.6 spread
+      if (uPan < -1.0) uPan = -1.0;
+      if (uPan > 1.0) uPan = 1.0;
+
+      double angle = (uPan + 1.0) * (Math.PI / 4.0);
+      int gainL = (int) (Math.cos(angle) * 2147483647.0);
+      int gainR = (int) (Math.sin(angle) * 2147483647.0);
+
+      int scaledL = (int) (gainL * gainScale);
+      int scaledR = (int) (gainR * gainScale);
+
+      // Sum stereo-panned signals into voiceBuffer
+      for (int i = 0; i < numSamples; i++) {
+        voiceBuffer[i].l = Q31.addSaturate(voiceBuffer[i].l, Q31.mult(tempMonoBuffer[i], scaledL));
+        voiceBuffer[i].r = Q31.addSaturate(voiceBuffer[i].r, Q31.mult(tempMonoBuffer[i], scaledR));
       }
     }
 
@@ -218,7 +271,11 @@ public class FirmwareVoice {
     }
   }
 
-  public boolean render(int[] buffer, int numSamples, int phaseIncrementA, int phaseIncrementB) {
+  public boolean render(
+      org.chuck.deluge.firmware.dsp.StereoSample[] buffer,
+      int numSamples,
+      int phaseIncrementA,
+      int phaseIncrementB) {
     if (!active) return false;
 
     // ── MPE Smoothing ──
@@ -294,7 +351,7 @@ public class FirmwareVoice {
     sourceValues[PatchSource.RANDOM.ordinal()] = voiceRandomValue;
     sourceValues[PatchSource.AFTERTOUCH.ordinal()] = mpePressure * 16909320;
     sourceValues[PatchSource.Y.ordinal()] = mpeTimbre * 16909320;
-    sourceValues[PatchSource.SIDECHAIN.ordinal()] = sound.sidechain.render(numSamples, 0);
+    sourceValues[PatchSource.SIDECHAIN.ordinal()] = sound.sidechain.lastValue;
 
     // Copy global sources (LFO 1 and 3 are global)
     for (int i = 0; i < PatchSource.kFirstLocalSource; i++) {
@@ -340,14 +397,35 @@ public class FirmwareVoice {
     double osc2PitchFactor = Math.pow(2.0, (double) osc2PitchOffset / (12.0 * 17895697.0));
     phaseIncrementB = (int) (phaseIncrementA * osc2PitchFactor);
 
-    // 3. Render Unison Parts
-    int[] voiceBuffer = new int[numSamples];
+    // 3. Render Unison Parts in Stereo
+    prepareVoiceBuffer(numSamples);
     if (sound.isDx7()) {
       renderDx7(voiceBuffer, numSamples, overallPitchAdjust);
     } else {
       for (int u = 0; u < sound.numUnison; u++) {
+        prepareTempMonoBuffer(numSamples);
         renderUnisonPart(
-            u, voiceBuffer, numSamples, phaseIncrementA, phaseIncrementB, overallPitchAdjust);
+            u, tempMonoBuffer, numSamples, phaseIncrementA, phaseIncrementB, overallPitchAdjust);
+
+        // Unison part constant-power panning calculation
+        double offset = 0.0;
+        if (sound.numUnison > 1) {
+          offset = (double) (2 * u - (sound.numUnison - 1)) / (double) (sound.numUnison - 1);
+        }
+        int voicePan = paramFinalValues[Param.LOCAL_PAN]; // Q31
+        double uPan = (double) voicePan / 2147483648.0;
+        uPan += 0.6 * offset; // 0.6 spread
+        if (uPan < -1.0) uPan = -1.0;
+        if (uPan > 1.0) uPan = 1.0;
+
+        double angle = (uPan + 1.0) * (Math.PI / 4.0);
+        int gainL = (int) (Math.cos(angle) * 2147483647.0);
+        int gainR = (int) (Math.sin(angle) * 2147483647.0);
+
+        for (int i = 0; i < numSamples; i++) {
+          voiceBuffer[i].l = Q31.addSaturate(voiceBuffer[i].l, Q31.mult(tempMonoBuffer[i], gainL));
+          voiceBuffer[i].r = Q31.addSaturate(voiceBuffer[i].r, Q31.mult(tempMonoBuffer[i], gainR));
+        }
       }
     }
 
@@ -362,15 +440,17 @@ public class FirmwareVoice {
           env0Gain);
     }
 
-    // Apply envelope gain and track volume to voice buffer before filtering (to drive non-linear
-    // filters correctly!)
+    // Apply envelope gain and track volume to stereo voice buffer before filtering
     int trackVol = paramFinalValues[Param.LOCAL_VOLUME];
     for (int i = 0; i < numSamples; i++) {
-      int wet = Q31.mult(voiceBuffer[i], env0Gain);
-      voiceBuffer[i] = Q31.mult(wet, trackVol);
+      int wetL = Q31.mult(voiceBuffer[i].l, env0Gain);
+      voiceBuffer[i].l = Q31.mult(wetL, trackVol);
+
+      int wetR = Q31.mult(voiceBuffer[i].r, env0Gain);
+      voiceBuffer[i].r = Q31.mult(wetR, trackVol);
     }
 
-    // Configure and render dynamic polyphonic per-voice filter set!
+    // Configure and render dynamic polyphonic per-voice filter set in stereo!
     filterSet.setConfig(
         paramFinalValues[Param.LOCAL_LPF_FREQ],
         paramFinalValues[Param.LOCAL_LPF_RESONANCE],
@@ -382,11 +462,12 @@ public class FirmwareVoice {
         paramFinalValues[Param.LOCAL_HPF_MORPH],
         Q31.ONE,
         sound.filterRoute);
-    filterSet.render(voiceBuffer, 0, numSamples, 1);
+    filterSet.renderStereoInterleaved(voiceBuffer, numSamples);
 
     for (int i = 0; i < numSamples; i++) {
       // Bit-accurate per-voice non-linear saturation summing (sum directly without left-shifting!)
-      buffer[i] = Q31.addSaturate(buffer[i], voiceBuffer[i]);
+      buffer[i].l = Q31.addSaturate(buffer[i].l, voiceBuffer[i].l);
+      buffer[i].r = Q31.addSaturate(buffer[i].r, voiceBuffer[i].r);
     }
 
     return true;

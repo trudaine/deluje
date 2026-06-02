@@ -37,7 +37,9 @@ public class LiveAutomationMpeTest {
     assertEquals(110, voice.mpeTimbre);
 
     // Render 1 block to compute active sources register slot values
-    int[] dummyBuffer = new int[128];
+    org.chuck.deluge.firmware.dsp.StereoSample[] dummyBuffer =
+        new org.chuck.deluge.firmware.dsp.StereoSample[128];
+    for (int i = 0; i < 128; i++) dummyBuffer[i] = new org.chuck.deluge.firmware.dsp.StereoSample();
     voice.render(dummyBuffer, 128, 100, 200);
 
     // Verify aftertouch and Y performer sources are updated

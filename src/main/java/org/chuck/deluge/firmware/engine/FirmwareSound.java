@@ -194,7 +194,6 @@ public class FirmwareSound extends GlobalEffectable {
         globalLfos[1].render(numSamples, lfoWaveforms[2], phaseInc2);
 
     // 2. Sum Voices
-    int[] monoBuffer = new int[numSamples];
     synchronized (voices) {
       java.util.Iterator<FirmwareVoice> it = voices.iterator();
       while (it.hasNext()) {
@@ -204,16 +203,9 @@ public class FirmwareSound extends GlobalEffectable {
           continue;
         }
 
-        java.util.Arrays.fill(monoBuffer, 0);
         int pIncA = noteToPhaseInc(voice.note);
         int pIncB = noteToPhaseInc(voice.note + 12);
-
-        if (voice.render(monoBuffer, numSamples, pIncA, pIncB)) {
-          for (int i = 0; i < numSamples; i++) {
-            buffer[i].l = Q31.addSaturate(buffer[i].l, monoBuffer[i]);
-            buffer[i].r = Q31.addSaturate(buffer[i].r, monoBuffer[i]);
-          }
-        }
+        voice.render(buffer, numSamples, pIncA, pIncB);
       }
     }
 
@@ -254,9 +246,6 @@ public class FirmwareSound extends GlobalEffectable {
       buffer[i].l = (int) (((long) buffer[i].l * scAmount) >> 31);
       buffer[i].r = (int) (((long) buffer[i].r * scAmount) >> 31);
     }
-
-    // Filters (handled by processFilters in GlobalEffectable)
-    processFilters(buffer, numSamples);
 
     // Update gate status
     if (hasActiveVoices) {

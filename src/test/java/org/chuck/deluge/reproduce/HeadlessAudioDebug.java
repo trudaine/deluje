@@ -55,10 +55,12 @@ public class HeadlessAudioDebug {
     for (FirmwareVoice v : kick.voices) {
       if (v.active) {
         activeVoices++;
-        int[] dummy = new int[128];
+        org.chuck.deluge.firmware.dsp.StereoSample[] dummy =
+            new org.chuck.deluge.firmware.dsp.StereoSample[128];
+        for (int i = 0; i < 128; i++) dummy[i] = new org.chuck.deluge.firmware.dsp.StereoSample();
         v.render(dummy, 128, 10000, 10000);
         long voiceSum = 0;
-        for (int val : dummy) voiceSum += Math.abs(val);
+        for (var s : dummy) voiceSum += Math.abs(s.l) + Math.abs(s.r);
         System.out.println("  Individual Voice Internal Sum: " + voiceSum);
       }
     }

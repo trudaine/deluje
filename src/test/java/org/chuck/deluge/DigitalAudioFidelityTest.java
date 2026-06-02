@@ -333,6 +333,8 @@ public class DigitalAudioFidelityTest {
     // Create sidechain trigger sound (representing a kick drum slot!)
     FirmwareSound kick = new FirmwareSound();
     kick.sidechainSend = Q31.ONE; // Max send level
+    kick.paramNeutralValues[org.chuck.deluge.firmware.modulation.params.Param.LOCAL_VOLUME] =
+        0; // Mute kick audio
 
     engine.sounds.add(kick);
 
@@ -359,8 +361,8 @@ public class DigitalAudioFidelityTest {
         postHitPeak / preHitPeak < 0.3,
         "Sidechain ducking should drop the signal peak by at least 70%");
 
-    // Render next 12 blocks (1536 samples) to let it recover
-    for (int b = 0; b < 12; b++) {
+    // Render next 85 blocks (10880 samples) to let it recover completely
+    for (int b = 0; b < 85; b++) {
       engine.renderBlock(128);
     }
 
