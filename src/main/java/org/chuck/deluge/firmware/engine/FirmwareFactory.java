@@ -268,6 +268,10 @@ public class FirmwareFactory {
     // Per-track reverb send (previously hardcoded to 0, so the master reverb bus was always silent).
     sound.reverbSendAmount = (int) (clamp01(model.getReverbSend()) * 2147483647.0);
 
+    // Bitcrush + sample-rate reduction (0..1 -> bipolar Q31; MIN_VALUE = off).
+    sound.bitcrushParam = normToBipolarParam(model.getBitCrush());
+    sound.srrParam = normToBipolarParam(model.getSampleRateReduction());
+
     // Retrigger Phases
     sound.osc1RetriggerPhase = model.getOsc1RetrigPhase();
     sound.osc2RetriggerPhase = model.getOsc2RetrigPhase();
@@ -424,6 +428,13 @@ public class FirmwareFactory {
     return (v < 0f) ? 0f : (v > 1f ? 1f : v);
   }
 
+  /** Map a 0..1 knob to the firmware's bipolar Q31 param range; 0 -> MIN_VALUE ("off"). */
+  private static int normToBipolarParam(float norm) {
+    if (norm <= 0f) return Integer.MIN_VALUE;
+    double v = (double) clamp01(norm) * 4294967295.0 - 2147483648.0;
+    return (int) Math.round(v);
+  }
+
   public static InstrumentClip createKitClip(KitTrackModel model) {
     InstrumentClip clip = new InstrumentClip();
     FirmwareKit kit = new FirmwareKit();
@@ -467,6 +478,8 @@ public class FirmwareFactory {
         drumSound.modFXDepth = (int) (clamp01(sd.getModFxDepth()) * 2147483647.0);
         drumSound.modFXOffset = (int) (clamp01(sd.getModFxOffset()) * 2147483647.0);
         drumSound.modFXFeedback = (int) (clamp01(sd.getModFxFeedback()) * 2147483647.0);
+        drumSound.bitcrushParam = normToBipolarParam(sd.getBitCrush());
+        drumSound.srrParam = normToBipolarParam(sd.getSampleRateReduction());
 
         // Map per-lane step automation from the ClipModel to the drum sound's ParamManager
         if (!model.getClips().isEmpty()) {
