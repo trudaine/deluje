@@ -272,6 +272,10 @@ public class FirmwareFactory {
     sound.bitcrushParam = normToBipolarParam(model.getBitCrush());
     sound.srrParam = normToBipolarParam(model.getSampleRateReduction());
 
+    // Bass/treble EQ (model stores dB in [-12, 12]; 0 dB = flat).
+    sound.eqBassParam = dbToBipolarParam(model.getEqBass());
+    sound.eqTrebleParam = dbToBipolarParam(model.getEqTreble());
+
     // Retrigger Phases
     sound.osc1RetriggerPhase = model.getOsc1RetrigPhase();
     sound.osc2RetriggerPhase = model.getOsc2RetrigPhase();
@@ -435,6 +439,12 @@ public class FirmwareFactory {
     return (int) Math.round(v);
   }
 
+  /** Map an EQ gain in dB ([-12, 12], 0 = flat) to a bipolar Q31 param (0 = flat). */
+  private static int dbToBipolarParam(float db) {
+    double norm = Math.max(-1.0, Math.min(1.0, db / 12.0));
+    return (int) (norm * 2147483647.0);
+  }
+
   public static InstrumentClip createKitClip(KitTrackModel model) {
     InstrumentClip clip = new InstrumentClip();
     FirmwareKit kit = new FirmwareKit();
@@ -480,6 +490,8 @@ public class FirmwareFactory {
         drumSound.modFXFeedback = (int) (clamp01(sd.getModFxFeedback()) * 2147483647.0);
         drumSound.bitcrushParam = normToBipolarParam(sd.getBitCrush());
         drumSound.srrParam = normToBipolarParam(sd.getSampleRateReduction());
+        drumSound.eqBassParam = dbToBipolarParam(sd.getEqBass());
+        drumSound.eqTrebleParam = dbToBipolarParam(sd.getEqTreble());
 
         // Map per-lane step automation from the ClipModel to the drum sound's ParamManager
         if (!model.getClips().isEmpty()) {
