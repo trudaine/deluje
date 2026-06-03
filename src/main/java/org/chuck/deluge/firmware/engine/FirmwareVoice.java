@@ -317,7 +317,8 @@ public class FirmwareVoice {
       return false;
     }
     // NOTE: firmware envelope.cpp centres the patch source: (lastValue - 1073741824) << 1. Doing
-    // that here is correct for env-as-modulation but changes env2->cutoff sweeps in a way that needs
+    // that here is correct for env-as-modulation but changes env2->cutoff sweeps in a way that
+    // needs
     // a hardware A/B to validate (it pushed Dx7C's filter near-shut). Left uncentred pending that
     // verification — see docs/java-port-review-non-dx7-2026-06-03.md finding #1.
     sourceValues[PatchSource.ENVELOPE_0.ordinal()] = env0;

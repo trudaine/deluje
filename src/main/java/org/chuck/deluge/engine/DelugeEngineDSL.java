@@ -3670,6 +3670,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
                     advance(second(itGS));
                     if (si < subTriggers - 1) dx7[capturedRv].noteOff();
                   }
+                  dx7[capturedRv].noteOff();
                   voiceActive[capturedR2] = false;
                 });
           } else if (arpOn != null && arpOn.getInt(r) == 1) {

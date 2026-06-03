@@ -10,8 +10,8 @@ import org.chuck.core.ChuckVM;
 import org.chuck.deluge.engine.DelugeEngineDSL;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 /**
  * Accuracy test for FM synthesis modulation.
@@ -27,7 +27,8 @@ import org.junit.jupiter.api.Disabled;
  * modulation (not just passing carrier through unchanged).
  */
 @org.junit.jupiter.api.Tag("slow")
-@Disabled("Legacy DelugeEngineDSL engine is unsupported; rebuild on the firmware pure engine. See docs/java-port-review-non-dx7-2026-06-03.md.")
+@Disabled(
+    "Legacy DelugeEngineDSL engine is unsupported; rebuild on the firmware pure engine. See docs/java-port-review-non-dx7-2026-06-03.md.")
 public class SynthFmAccuracyTest {
 
   private static final int SAMPLE_RATE = 44100;
