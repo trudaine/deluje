@@ -42,6 +42,37 @@ public class FirmwareFilterModeTest {
     return sound;
   }
 
+  private static void syncAuto(FirmwareSound s, int paramId) {
+    org.chuck.deluge.firmware.modulation.automation.AutoParam ap =
+        s.paramManager.getAutomatedParam(paramId);
+    if (ap != null) ap.currentValue = s.paramNeutralValues[paramId];
+  }
+
+  private static FirmwareSound buildSawLpf(float lpfHz, float res) {
+    SynthTrackModel m = new SynthTrackModel("test");
+    m.setOsc1Type("SAW");
+    m.setOsc2Type("NONE");
+    m.setOscMix(1.0f);
+    m.setLpfFreq(lpfHz);
+    m.setLpfRes(res);
+    m.setVolume(0.8f);
+    m.addClip(new ClipModel("c", 8, 16));
+    ProjectModel p = new ProjectModel();
+    p.addTrack(m);
+    Song s = org.chuck.deluge.firmware.engine.FirmwareFactory.createSong(p);
+    FirmwareSound sound = (FirmwareSound) ((InstrumentClip) s.clips.get(0)).sound;
+    syncAuto(sound, org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_FREQ);
+    syncAuto(sound, org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_RESONANCE);
+    return sound;
+  }
+
+  /** Energy in harmonics 3..8 relative to the fundamental — rises when resonance peaks up there. */
+  private static double upperToFundamental(float[] w, double fund) {
+    double upper = 0;
+    for (int h = 3; h <= 8; h++) upper += dftMag(w, fund * h);
+    return upper / (dftMag(w, fund) + 1e-9);
+  }
+
   private static float[] render(FirmwareSound s, int n) {
     float[] out = new float[n];
     StereoSample[] block = new StereoSample[128];
@@ -87,6 +118,28 @@ public class FirmwareFilterModeTest {
             + fundOpen
             + " hp="
             + fundHp
+            + ")");
+  }
+
+  @Test
+  public void lpfResonanceEmphasizesTheCutoffRegion() {
+    double fund = 261.63; // C4
+    float cutoff = 1500f; // a few harmonics below; the resonant peak lands among harmonics 3..8
+
+    FirmwareSound lowRes = buildSawLpf(cutoff, 0.0f);
+    lowRes.triggerNote(60, 110);
+    double ratioLo = upperToFundamental(render(lowRes, 22050), fund);
+
+    FirmwareSound hiRes = buildSawLpf(cutoff, 0.9f);
+    hiRes.triggerNote(60, 110);
+    double ratioHi = upperToFundamental(render(hiRes, 22050), fund);
+
+    assertTrue(
+        ratioHi > ratioLo * 1.3,
+        "high LPF resonance should emphasize the cutoff region (upper/fundamental lo="
+            + ratioLo
+            + " hi="
+            + ratioHi
             + ")");
   }
 }
