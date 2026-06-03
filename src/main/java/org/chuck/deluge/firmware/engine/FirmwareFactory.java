@@ -104,6 +104,7 @@ public class FirmwareFactory {
       int stepTicks = clipModel.isTripletMode() ? 32 : 24;
       clip.tripletMode = clipModel.isTripletMode();
       clip.loopLength = clipModel.getStepCount() * stepTicks;
+      mapPlayDirection(clipModel, clip);
       for (int r = 0; r < clipModel.getRowCount(); r++) {
         int pitch = (clipModel.getRowCount() - 1) - r;
         NoteRow row = new NoteRow(pitch);
@@ -162,6 +163,7 @@ public class FirmwareFactory {
       int stepTicks = clipModel.isTripletMode() ? 32 : 24;
       clip.tripletMode = clipModel.isTripletMode();
       clip.loopLength = clipModel.getStepCount() * stepTicks;
+      mapPlayDirection(clipModel, clip);
       for (int r = 0; r < clipModel.getRowCount(); r++) {
         int pitch = (clipModel.getRowCount() - 1) - r;
         NoteRow row = new NoteRow(pitch);
@@ -623,6 +625,7 @@ public class FirmwareFactory {
       int stepTicks = clipModel.isTripletMode() ? 32 : 24;
       clip.tripletMode = clipModel.isTripletMode();
       clip.loopLength = clipModel.getStepCount() * stepTicks;
+      mapPlayDirection(clipModel, clip);
       for (int r = 0; r < clipModel.getRowCount(); r++) {
         NoteRow row = new NoteRow(r);
         java.util.List<org.chuck.deluge.model.HighResNote> rawNotes = clipModel.getRawNoteEvents(r);
@@ -771,6 +774,21 @@ public class FirmwareFactory {
         return org.chuck.deluge.firmware.modulation.LFO.LFOType.SAMPLE_AND_HOLD;
       default:
         return org.chuck.deluge.firmware.modulation.LFO.LFOType.valueOf(type.name());
+    }
+  }
+
+  private static void mapPlayDirection(ClipModel clipModel, Clip clip) {
+    if (clipModel != null) {
+      clip.sequenceDirectionMode =
+          switch (clipModel.getPlayDirection()) {
+            case FORWARD -> org.chuck.deluge.firmware.model.SequenceDirection.FORWARD;
+            case REVERSE -> org.chuck.deluge.firmware.model.SequenceDirection.REVERSE;
+            case PING_PONG -> org.chuck.deluge.firmware.model.SequenceDirection.PINGPONG;
+            case RANDOM -> org.chuck.deluge.firmware.model.SequenceDirection.RANDOM;
+          };
+      if (clip.sequenceDirectionMode == org.chuck.deluge.firmware.model.SequenceDirection.REVERSE) {
+        clip.currentlyPlayingReversed = true;
+      }
     }
   }
 }

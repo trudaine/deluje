@@ -21,12 +21,21 @@ public class ClipModel {
     LOOP
   }
 
+  /** Play direction determines the structural pathway of step playback. */
+  public enum PlayDirection {
+    FORWARD,
+    REVERSE,
+    PING_PONG,
+    RANDOM
+  }
+
   private String name;
   private int rowCount;
   private int stepCount;
   private final List<List<StepData>> grid = new ArrayList<>();
   private String color = "#00ffcc"; // Default color
   private PlayMode playMode = PlayMode.NORMAL;
+  private PlayDirection playDirection = PlayDirection.FORWARD;
   private boolean tripletMode = false;
   private boolean isArrangementOnly = false;
 
@@ -133,6 +142,8 @@ public class ClipModel {
     }
     // Copy play mode
     copy.playMode = this.playMode;
+    // Copy play direction
+    copy.playDirection = this.playDirection;
     return copy;
   }
 
@@ -169,6 +180,14 @@ public class ClipModel {
 
   public void setPlayMode(PlayMode playMode) {
     this.playMode = playMode;
+  }
+
+  public PlayDirection getPlayDirection() {
+    return playDirection;
+  }
+
+  public void setPlayDirection(PlayDirection playDirection) {
+    this.playDirection = playDirection;
   }
 
   public int getRowCount() {

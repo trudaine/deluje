@@ -15,9 +15,9 @@ import org.chuck.deluge.model.SynthTrackModel;
 import org.junit.jupiter.api.Test;
 
 /**
- * Patch-cable modulation on the supported firmware pure engine: a source (velocity, envelope) routed
- * to a destination parameter (filter cutoff) actually modulates it. Replaces coverage from the
- * disabled legacy PatchCableModulation/MultiLfo DSL tests.
+ * Patch-cable modulation on the supported firmware pure engine: a source (velocity, envelope)
+ * routed to a destination parameter (filter cutoff) actually modulates it. Replaces coverage from
+ * the disabled legacy PatchCableModulation/MultiLfo DSL tests.
  */
 public class FirmwarePatchCableTest {
 

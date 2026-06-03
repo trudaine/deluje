@@ -186,6 +186,9 @@ public class ProjectSerializer {
         if (clip.isTripletMode()) {
           clipTrackElem.setAttribute("triplet", "1");
         }
+        if (clip.getPlayDirection() != org.chuck.deluge.model.ClipModel.PlayDirection.FORWARD) {
+          clipTrackElem.setAttribute("sequenceDirection", clip.getPlayDirection().name());
+        }
         tracksElem.appendChild(clipTrackElem);
 
         Element noteRowsElem = doc.createElement("noteRows");

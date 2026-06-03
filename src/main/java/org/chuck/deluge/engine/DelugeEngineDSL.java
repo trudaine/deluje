@@ -1419,6 +1419,9 @@ public class DelugeEngineDSL implements Shred, Runnable {
         if (currentStep == lastStep) continue;
         lastStep = currentStep;
         ChuckArray curClipArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_CURRENT_CLIP);
+        ChuckArray playDirArr =
+            (ChuckArray) vm.getGlobalObject(BridgeContract.G_CLIP_PLAY_DIRECTION);
+        ChuckArray trackIdArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_ID);
         ChuckArray pat = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PATTERN);
         ChuckArray vel = (ChuckArray) vm.getGlobalObject(BridgeContract.G_VELOCITY);
         ChuckArray mute = (ChuckArray) vm.getGlobalObject(BridgeContract.G_MUTE);
@@ -1714,7 +1717,32 @@ public class DelugeEngineDSL implements Shred, Runnable {
           ChuckArray clipFill = outer.getClipArray(BridgeContract.G_FILL, clipIdx);
           ChuckArray clipIterance = outer.getClipArray(BridgeContract.G_ITERANCE, clipIdx);
           int len = trkLen != null ? (int) Math.max(1, trkLen.getInt(r)) : BridgeContract.STEPS;
-          int step = (int) (currentStep % len);
+          int trackId = trackIdArr != null ? (int) trackIdArr.getInt(r) : r;
+          int direction =
+              playDirArr != null
+                  ? (int) playDirArr.getInt(trackId * BridgeContract.MAX_CLIPS_PER_TRACK + clipIdx)
+                  : 0;
+          int step = 0;
+          if (direction == 1) { // REVERSE
+            step = (int) ((len - 1) - (currentStep % len));
+          } else if (direction == 2) { // PING_PONG
+            if (len <= 2) {
+              step = (int) (currentStep % len);
+            } else {
+              int period = 2 * len - 2;
+              int phase = (int) (currentStep % period);
+              if (phase < len) {
+                step = phase;
+              } else {
+                step = period - phase;
+              }
+            }
+          } else if (direction == 3) { // RANDOM
+            java.util.Random rand = new java.util.Random(currentStep * 10003L + trackId * 17L);
+            step = rand.nextInt(len);
+          } else {
+            step = (int) (currentStep % len);
+          }
           int idx = r * BridgeContract.STEPS + step;
           if (clipPat == null || clipPat.getInt(idx) == 0) continue;
           if (clipProb != null && Math.random() > clipProb.getFloat(idx)) continue;
@@ -2788,6 +2816,9 @@ public class DelugeEngineDSL implements Shred, Runnable {
         Gain[] unisonSummer = unisonSummerRefHolder[0];
 
         ChuckArray curClipArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_CURRENT_CLIP);
+        ChuckArray playDirArr =
+            (ChuckArray) vm.getGlobalObject(BridgeContract.G_CLIP_PLAY_DIRECTION);
+        ChuckArray trackIdArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_ID);
         ChuckArray pat = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PATTERN);
         ChuckArray vel = (ChuckArray) vm.getGlobalObject(BridgeContract.G_VELOCITY);
         ChuckArray mute = (ChuckArray) vm.getGlobalObject(BridgeContract.G_MUTE);
@@ -3029,7 +3060,32 @@ public class DelugeEngineDSL implements Shred, Runnable {
           ChuckArray clipFill = outer.getClipArray(BridgeContract.G_FILL, clipIdx);
           ChuckArray clipIterance = outer.getClipArray(BridgeContract.G_ITERANCE, clipIdx);
           int len = trkLen != null ? (int) Math.max(1, trkLen.getInt(r)) : BridgeContract.STEPS;
-          int step = (int) (currentStep % len);
+          int trackId = trackIdArr != null ? (int) trackIdArr.getInt(r) : r;
+          int direction =
+              playDirArr != null
+                  ? (int) playDirArr.getInt(trackId * BridgeContract.MAX_CLIPS_PER_TRACK + clipIdx)
+                  : 0;
+          int step = 0;
+          if (direction == 1) { // REVERSE
+            step = (int) ((len - 1) - (currentStep % len));
+          } else if (direction == 2) { // PING_PONG
+            if (len <= 2) {
+              step = (int) (currentStep % len);
+            } else {
+              int period = 2 * len - 2;
+              int phase = (int) (currentStep % period);
+              if (phase < len) {
+                step = phase;
+              } else {
+                step = period - phase;
+              }
+            }
+          } else if (direction == 3) { // RANDOM
+            java.util.Random rand = new java.util.Random(currentStep * 10003L + trackId * 17L);
+            step = rand.nextInt(len);
+          } else {
+            step = (int) (currentStep % len);
+          }
           int idx = r * BridgeContract.STEPS + step;
           if (algo < 10 && oscType != null && car[u] != null) {
             double baseIdx = oscType.getInt(r);
