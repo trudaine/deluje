@@ -15,12 +15,14 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.api.Disabled;
 
 /**
  * Loads every KITS/*.XML preset into the engine, plays a simple pattern, and verifies audible
  * output. Each kit gets a fresh VM for clean isolation.
  */
 @Tag("slow")
+@Disabled("Legacy DelugeEngineDSL engine is unsupported; rebuild on the firmware pure engine. See docs/java-port-review-non-dx7-2026-06-03.md.")
 public class KitXmlPresetTest {
 
   private ChuckVM vm;

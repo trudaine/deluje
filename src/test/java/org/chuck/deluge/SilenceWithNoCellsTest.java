@@ -7,11 +7,13 @@ import org.chuck.audio.util.DacChannel;
 import org.chuck.core.ChuckConfig;
 import org.chuck.core.ChuckVM;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.Disabled;
 
 /**
  * Verifies the engine is silent when PLAY=1 but no pattern cells are active. Reproduces the
  * "continuous sound on empty pattern" bug.
  */
+@Disabled("Legacy DelugeEngineDSL engine is unsupported; rebuild on the firmware pure engine. See docs/java-port-review-non-dx7-2026-06-03.md.")
 public class SilenceWithNoCellsTest {
 
   private static ChuckVM vm;

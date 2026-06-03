@@ -9,11 +9,13 @@ import org.chuck.deluge.model.KitTrackModel;
 import org.chuck.deluge.model.SoundDrum;
 import org.chuck.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Disabled;
 
 /**
  * Robust End-to-End Test for Deluge Audio Output. Focuses on peak-meter analysis to prove actual
  * signal generation.
  */
+@Disabled("Legacy DelugeEngineDSL engine is unsupported; rebuild on the firmware pure engine. See docs/java-port-review-non-dx7-2026-06-03.md.")
 public class DelugeAudioE2ETest {
 
   @Test
