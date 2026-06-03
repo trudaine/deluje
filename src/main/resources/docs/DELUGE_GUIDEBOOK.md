@@ -794,9 +794,7 @@ graph TD
 While the ChucK-Java Deluge Workstation provides a comprehensive operations platform, several features from the Deluge OS 4.0 firmware guidebook remain planned for upcoming development.
 
 ### 📋 Future Technical Roadmap:
-* **[ ] 19.1 Triplet Column Grid Divisions View (SwingGridPanel & ChucK Sequencer)**:
-  * *Goal*: Add a `[3]` grid toolbar toggle button to switch time divisions. The grid columns redraw from 16 to 12 segments (subdividing quarter beats into triplets of 3 instead of standard 4 eighth/sixteenth notes).
-  * *ChucK Sync*: The clock step increment timing step shifts from $1/4$ note beats step parameters to $1/6$ divisions timing steps dynamically.
+* **[x] 19.1 Triplet Column Grid Divisions View (SwingGridPanel & ChucK Sequencer)**: Completed! Dynamic JToggleButton `[3]`, beat grid guidelines update, and loop lengths XML serialization.
 * **[x] 19.2 Advanced Wavetable Index Scan Editor (SwingKitConfigDialog)**: Completed! Dual single-cycle neon wave drawings, 3D perspective stacked waterfall lines, and real-time JNI position hot-swaps.
 * **[ ] 19.3 MPE & Polyphonic Aftertouch Multi-Dimensional JNI Sweeps**:
   * *Goal*: Add active tracking layers for MPE controllers pressure (Z-axis) and vertical position slide (Y-axis) MIDI events.
