@@ -6,7 +6,6 @@ import java.io.InputStream;
 import java.util.List;
 import org.chuck.core.ChuckArray;
 import org.chuck.core.ChuckVM;
-import org.chuck.deluge.engine.DelugeEngineDSL;
 import org.chuck.deluge.midi.MidiInputRouter;
 import org.chuck.deluge.midi.MidiService;
 import org.chuck.deluge.model.ClipModel;

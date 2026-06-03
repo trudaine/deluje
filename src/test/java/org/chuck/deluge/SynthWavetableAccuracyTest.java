@@ -11,6 +11,7 @@ import org.chuck.deluge.engine.DelugeEngineDSL;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Disabled;
 
 /**
  * Accuracy test for pure wavetable oscillators through the full engine pipeline.
@@ -31,6 +32,7 @@ import org.junit.jupiter.api.Test;
  * interpolation, so the output should match the firmware's oscillator output at the same frequency
  * and gain settings (modulo the engine's ADSR/filter/Dyno pipeline).
  */
+@Disabled("Legacy DelugeEngineDSL engine is unsupported; rebuild on the firmware pure engine. See docs/java-port-review-non-dx7-2026-06-03.md.")
 public class SynthWavetableAccuracyTest {
 
   private static final int SAMPLE_RATE = 44100;

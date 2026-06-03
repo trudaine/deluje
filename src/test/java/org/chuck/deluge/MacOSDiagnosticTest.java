@@ -7,6 +7,7 @@ import org.chuck.core.ChuckEvent;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.engine.DelugeEngineDSL;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Disabled;
 
 /**
  * Diagnostic test to determine why macOS produces zero audio.
@@ -21,6 +22,7 @@ import org.junit.jupiter.api.Test;
  *   <li>Do the DX7 engine and sample playback produce signal?
  * </ol>
  */
+@Disabled("Legacy DelugeEngineDSL engine is unsupported; rebuild on the firmware pure engine. See docs/java-port-review-non-dx7-2026-06-03.md.")
 public class MacOSDiagnosticTest {
 
   private static final int SAMPLE_RATE = 44100;

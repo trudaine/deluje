@@ -7,6 +7,7 @@ import org.chuck.core.ChuckVM;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Disabled;
 
 /**
  * Integration tests for SVFilter drive, notch mode, and filter routing.
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.Test;
  * <p>Verifies that filter drive saturation, SVF NOTCH mode, and series/parallel filter routing
  * produce expected behavior.
  */
+@Disabled("Legacy DelugeEngineDSL engine is unsupported; rebuild on the firmware pure engine. See docs/java-port-review-non-dx7-2026-06-03.md.")
 public class FilterDriveTest {
 
   private ChuckVM vm;

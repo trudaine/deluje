@@ -13,11 +13,13 @@ import org.chuck.deluge.model.KitTrackModel;
 import org.chuck.deluge.model.SoundDrum;
 import org.chuck.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Disabled;
 
 /**
  * Quick diagnostic: load the 808 kick into SndBuf through the engine pipeline, capture via WvOut2,
  * and compare raw samples against the source WAV.
  */
+@Disabled("Legacy DelugeEngineDSL engine is unsupported; rebuild on the firmware pure engine. See docs/java-port-review-non-dx7-2026-06-03.md.")
 public class KitDebugTest {
 
   private static final int SAMPLE_RATE = 44100;

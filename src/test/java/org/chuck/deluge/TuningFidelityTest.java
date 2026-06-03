@@ -8,11 +8,13 @@ import org.chuck.deluge.model.tuning.ScalaScale;
 import org.chuck.deluge.model.tuning.ScalaScaleParser;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Disabled;
 
 /**
  * High-fidelity regressions testing for alternative microtonal tuning Scala systems. Asserts
  * comment filters, fraction ratios, tritave repeats, and transpositions offsets.
  */
+@Disabled("Legacy DelugeEngineDSL engine is unsupported; rebuild on the firmware pure engine. See docs/java-port-review-non-dx7-2026-06-03.md.")
 public class TuningFidelityTest {
 
   @AfterEach

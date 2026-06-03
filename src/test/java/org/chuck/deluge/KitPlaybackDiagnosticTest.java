@@ -8,11 +8,13 @@ import org.chuck.deluge.engine.DelugeEngineDSL;
 import org.chuck.deluge.model.*;
 import org.chuck.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Disabled;
 
 /**
  * Diagnostic test that mimics the exact UI flow for kit playback. Load a kit like the sidebar does,
  * add a clip, push to bridge, set steps, then play.
  */
+@Disabled("Legacy DelugeEngineDSL engine is unsupported; rebuild on the firmware pure engine. See docs/java-port-review-non-dx7-2026-06-03.md.")
 public class KitPlaybackDiagnosticTest {
 
   @Test

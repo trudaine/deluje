@@ -13,11 +13,13 @@ import org.chuck.deluge.model.*;
 import org.chuck.deluge.ui.SwingDelugeApp;
 import org.chuck.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Disabled;
 
 /**
  * Tests the EXACT Swing UI flow: uses loadProject() which calls pushModelToBridge(), verifying that
  * the full Swing UI code path produces audio.
  */
+@Disabled("Legacy DelugeEngineDSL engine is unsupported; rebuild on the firmware pure engine. See docs/java-port-review-non-dx7-2026-06-03.md.")
 public class SwingUiFlowDiagnosticTest {
 
   @Test

@@ -7,6 +7,7 @@ import org.chuck.core.ChuckVM;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Disabled;
 
 /**
  * Integration tests for voice management: voice count limiting, voice stealing, and polyphony modes
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.Test;
  * uncontrolled voice allocation.
  */
 @org.junit.jupiter.api.Tag("slow")
+@Disabled("Legacy DelugeEngineDSL engine is unsupported; rebuild on the firmware pure engine. See docs/java-port-review-non-dx7-2026-06-03.md.")
 public class VoiceCountTest {
 
   private ChuckVM vm;

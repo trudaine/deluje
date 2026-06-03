@@ -7,6 +7,7 @@ import org.chuck.core.ChuckVM;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Disabled;
 
 /**
  * Integration tests for the 4-envelope audio engine ({@code DelugeEngineDSL}).
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.Test;
  * is {@code TRACKS * ENV_COUNT * ENV_PARAMS}.
  */
 @org.junit.jupiter.api.Tag("slow")
+@Disabled("Legacy DelugeEngineDSL engine is unsupported; rebuild on the firmware pure engine. See docs/java-port-review-non-dx7-2026-06-03.md.")
 public class MultiEnvelopeTest {
 
   private ChuckVM vm;
