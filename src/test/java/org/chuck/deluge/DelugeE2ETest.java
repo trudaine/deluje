@@ -108,169 +108,60 @@ public class DelugeE2ETest {
       strings = {"song1.xml", "song2.xml", "song3.xml", "Dx7A.xml", "Dx7B.xml", "Dx7C.xml"})
   public void testSongPlayback(String songFile) throws Exception {
     System.out.println("\n=== testSongPlayback: " + songFile + " ===");
-    System.setProperty("chuck.audio.dummy", "true");
-    System.setProperty("chuck.loglevel", "2");
-    System.setProperty("deluge.tracks", "256");
 
-    ChuckVM vm = new ChuckVM(44100, 2);
-    vm.setLogLevel(2);
-    BridgeContract bridge = new BridgeContract();
-    bridge.register(vm);
+    // 1. Parse the song.
+    String songName = songFile.replace(".xml", "");
+    InputStream is = getClass().getResourceAsStream("/SONGS/" + songFile);
+    assertNotNull(is, songFile + " resource not found");
+    ProjectModel project = DelugeXmlParser.parseSong(is, songName);
+    assertTrue(project.getTracks().size() > 0, "Song " + songName + " should have at least 1 track");
 
-    try {
-      // 1. Parse the song
-      String songName = songFile.replace(".xml", "");
-      InputStream is = getClass().getResourceAsStream("/SONGS/" + songFile);
-      assertNotNull(is, songFile + " resource not found");
-      ProjectModel project = DelugeXmlParser.parseSong(is, songName);
-
-      List<TrackModel> tracks = project.getTracks();
-      assertTrue(tracks.size() > 0, "Song " + songName + " should have at least 1 track");
-
-      // 2. Push tracks to bridge (replicating pushModelToBridge logic)
-      //    Must happen BEFORE engine start so init_synth() sees DX7 patch strings.
-      int engineRow = 0;
-      for (int t = 0; t < tracks.size(); t++) {
-        TrackModel track = tracks.get(t);
-        int voiceCount = 8; // default rows per track
-
-        if (track instanceof KitTrackModel kit) {
-          List<Drum> sounds = kit.getDrums();
-          for (int v = 0; v < Math.min(voiceCount, sounds.size()); v++) {
-            int r = engineRow + v;
-            bridge.setTrackType(r, 0);
-            bridge.setMute(r, false);
-            bridge.setTrackLevel(r, 0.8);
-
-            String path = ((SoundDrum) sounds.get(v)).getSamplePath();
-            if (path != null && !path.isEmpty()) {
-              vm.setGlobalString("g_sample_" + r, path);
-            }
-          }
-          engineRow += voiceCount;
-        } else if (track instanceof SynthTrackModel synth) {
-          // Ensure osc_type array exists
-          ChuckArray oscTypeArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_OSC_TYPE);
-          if (oscTypeArr == null) {
-            oscTypeArr = new ChuckArray("int", BridgeContract.TRACKS);
-            vm.setGlobalObject(BridgeContract.G_OSC_TYPE, oscTypeArr);
-          }
-
-          int typeIdx = oscTypeIndex(synth.getOsc1Type());
-          ClipModel clip = null;
-          if (!synth.getClips().isEmpty()) clip = synth.getClips().get(0);
-          int clipRows = (clip != null) ? clip.getRowCount() : voiceCount;
-          int totalRows = Math.max(voiceCount, clipRows);
-
-          String dx7PatchStr = synth.getDx7Patch();
-
-          for (int v = 0; v < totalRows; v++) {
-            int r = engineRow + v;
-            bridge.setTrackType(r, 1);
-            bridge.setMute(r, false);
-            bridge.setTrackLevel(r, 0.8);
-            oscTypeArr.setInt(r, typeIdx);
-            bridge.setFilterFreq(r, synth.getLpfFreq() / 20000.0f);
-            bridge.setFilterRes(r, synth.getLpfRes() / 100.0f);
-            bridge.setFilterMode(r, synth.getFilterMode().ordinal());
-            bridge.setSynthAlgo(r, Math.max(0, synth.getSynthAlgorithm()));
-            bridge.setEngineType(r, synth.getEngineType());
-            if (dx7PatchStr != null && !dx7PatchStr.isEmpty()) {
-              vm.setGlobalString("g_dx7_patch_" + r, dx7PatchStr);
-            }
-
-            for (int e = 0; e < 4; e++) {
-              EnvelopeModel adsr = synth.getEnv(e);
-              if (adsr != null) {
-                bridge.setEnv(r, e, adsr.attack(), adsr.decay(), adsr.sustain(), adsr.release());
-              }
-            }
-          }
-          engineRow += totalRows;
-        }
+    // 2. Build the firmware Song and drive the SUPPORTED pure engine offline (the JNI-free
+    //    FirmwareAudioEngine + PlaybackHandler). The legacy DelugeEngineDSL ("--hifi") path is
+    //    unsupported and intentionally NOT exercised here.
+    org.chuck.deluge.firmware.model.Song song =
+        org.chuck.deluge.firmware.engine.FirmwareFactory.createSong(project);
+    org.chuck.deluge.firmware.engine.FirmwareAudioEngine audioEngine =
+        new org.chuck.deluge.firmware.engine.FirmwareAudioEngine();
+    for (org.chuck.deluge.firmware.model.Clip c : song.clips) {
+      if (c instanceof org.chuck.deluge.firmware.model.InstrumentClip ic && ic.sound != null) {
+        audioEngine.sounds.add(ic.sound);
       }
-
-      // 4. Push clip pattern data (second pass after all tracks are mapped)
-      engineRow = 0;
-      for (int t = 0; t < tracks.size(); t++) {
-        TrackModel track = tracks.get(t);
-        int voiceCount = 8;
-        ClipModel clip = null;
-        if (!track.getClips().isEmpty()) clip = track.getClips().get(0);
-
-        if (clip != null) {
-          int stepCount = clip.getStepCount();
-          int rowCount = clip.getRowCount();
-          // Set track length for all rows this track occupies
-          int clipTrackLen =
-              (track instanceof SynthTrackModel) ? Math.max(voiceCount, rowCount) : voiceCount;
-          for (int rr = 0; rr < clipTrackLen; rr++) {
-            bridge.setTrackLength(engineRow + rr, stepCount);
-          }
-          for (int r = 0; r < rowCount; r++) {
-            for (int s = 0; s < stepCount; s++) {
-              StepData step = clip.getStep(r, s);
-              if (step != null && step.active()) {
-                bridge.setStep(engineRow + r, s, true);
-                bridge.setVelocity(engineRow + r, s, step.velocity());
-                bridge.setGate(engineRow + r, s, step.gate());
-                if (step.pitch() > 0) {
-                  bridge.setPitch(engineRow + r, s, step.pitch());
-                }
-              }
-            }
-          }
-        }
-        engineRow +=
-            (track instanceof SynthTrackModel)
-                ? Math.max(voiceCount, clip != null ? clip.getRowCount() : voiceCount)
-                : voiceCount;
-      }
-
-      // 5. Start engine (after all bridge data — including DX7 patches — is pushed)
-      vm.spork(new DelugeEngineDSL(vm));
-      vm.advanceTime(44100);
-
-      // 6. Broadcast load trigger and advance
-      vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
-      vm.advanceTime(44100);
-
-      // 7. Start playback
-      vm.setGlobalFloat(BridgeContract.G_MASTER_VOL, 1.0);
-      vm.setGlobalInt(BridgeContract.G_PLAY, 1L);
-      vm.setGlobalFloat(BridgeContract.G_BPM, project.getBpm() > 0 ? project.getBpm() : 120.0f);
-
-      // 8. Capture audio and check step advancement
-      float peakL = 0, peakR = 0;
-      long maxStepReached = -1;
-
-      for (int i = 0; i < 500; i++) { // 500 × 10ms = 5s
-        vm.advanceTime(441);
-
-        long step = vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
-        if (step > maxStepReached) maxStepReached = step;
-
-        float curL = Math.abs(vm.getDacChannel(0).getLastOut());
-        float curR = Math.abs(vm.getDacChannel(1).getLastOut());
-        if (curL > peakL) peakL = curL;
-        if (curR > peakR) peakR = curR;
-      }
-
-      vm.setGlobalInt(BridgeContract.G_PLAY, 0L);
-
-      double peakAvg = (peakL + peakR) / 2.0;
-      System.out.printf(
-          "Song %s: tracks=%d peak=%.6f maxStepReached=%d%n",
-          songName, tracks.size(), peakAvg, maxStepReached);
-
-      assertTrue(maxStepReached > 0, "Song " + songName + " engine playhead should advance");
-      assertTrue(
-          peakAvg > 0.0009,
-          "Song " + songName + " should produce audible output (peak avg=" + peakAvg + ")");
-
-    } finally {
-      vm.shutdown();
     }
+    org.chuck.deluge.firmware.playback.PlaybackHandler playbackHandler =
+        new org.chuck.deluge.firmware.playback.PlaybackHandler();
+    playbackHandler.setSong(song);
+    playbackHandler.start();
+
+    // 3. Render ~5s in 128-sample blocks, advancing the transport per BPM (as JavaAudioDriver does).
+    float bpm = project.getBpm() > 0 ? project.getBpm() : 120f;
+    double ticksPerSample = (bpm / 60.0) * 96.0 / 44100.0;
+    double accumulatedTicks = 0.0;
+    int blocks = (44100 * 5) / 128;
+    float peak = 0f;
+    long maxTick = 0;
+    for (int b = 0; b < blocks; b++) {
+      accumulatedTicks += ticksPerSample * 128.0;
+      int toAdvance = (int) accumulatedTicks;
+      if (toAdvance > 0) {
+        playbackHandler.advanceTicks(toAdvance);
+        accumulatedTicks -= toAdvance;
+      }
+      audioEngine.renderBlock(128);
+      for (int i = 0; i < 128; i++) {
+        float l = audioEngine.masterBuffer[i].l / 2147483648f;
+        float r = audioEngine.masterBuffer[i].r / 2147483648f;
+        peak = Math.max(peak, Math.max(Math.abs(l), Math.abs(r)));
+      }
+      maxTick = Math.max(maxTick, (long) playbackHandler.lastSwungTickActioned);
+    }
+
+    System.out.printf(
+        "Song %s: clips=%d peak=%.6f maxTick=%d%n", songName, song.clips.size(), peak, maxTick);
+
+    assertTrue(maxTick > 0, "Song " + songName + " transport should advance");
+    assertTrue(
+        peak > 0.0009, "Song " + songName + " should produce audible output (peak=" + peak + ")");
   }
 
   /** Map oscillator type string to engine type index. Case-insensitive. */
