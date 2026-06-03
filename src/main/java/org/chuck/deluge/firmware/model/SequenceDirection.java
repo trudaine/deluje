@@ -4,5 +4,6 @@ public enum SequenceDirection {
   FORWARD,
   REVERSE,
   PINGPONG,
+  RANDOM,
   OBEY_PARENT
 }

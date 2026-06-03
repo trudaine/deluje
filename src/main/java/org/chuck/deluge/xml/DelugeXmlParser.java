@@ -333,6 +333,7 @@ public class DelugeXmlParser {
 
           ClipModel clip = new ClipModel("CLIP " + i, rowCount, stepCount);
           clip.setTripletMode(tripletMode);
+          clip.setPlayDirection(readPlayDirectionAttr(trackElem));
           System.out.println(
               "PARSER: Created clip "
                   + clip.getName()
@@ -600,6 +601,7 @@ public class DelugeXmlParser {
 
         ClipModel clip = new ClipModel("SESSION_CLIP " + i, rowCount, stepCount);
         clip.setTripletMode(tripletMode);
+        clip.setPlayDirection(readPlayDirectionAttr(clipElem));
         System.out.println(
             "PARSER: Created clip "
                 + clip.getName()
@@ -2781,6 +2783,37 @@ public class DelugeXmlParser {
     readAttrBool(stut, "quantized", sound::setStutterQuantized);
     readAttrBool(stut, "reverse", sound::setStutterReversed);
     readAttrBool(stut, "pingPong", sound::setStutterPingPong);
+  }
+
+  private static ClipModel.PlayDirection readPlayDirectionAttr(Element el) {
+    String directionAttr = el.getAttribute("sequenceDirection");
+    if (directionAttr.isEmpty()) {
+      directionAttr = el.getAttribute("sequenceDirectionMode");
+    }
+    if (!directionAttr.isEmpty()) {
+      try {
+        String clean = directionAttr.toUpperCase().replace("_", "");
+        if ("PINGPONG".equals(clean)) {
+          return ClipModel.PlayDirection.PING_PONG;
+        } else {
+          return ClipModel.PlayDirection.valueOf(directionAttr.toUpperCase());
+        }
+      } catch (IllegalArgumentException iae) {
+        // Fallback to integer values (0=FORWARD, 1=REVERSE, 2=PINGPONG, 3=RANDOM)
+        try {
+          int val = Integer.parseInt(directionAttr);
+          return switch (val) {
+            case 1 -> ClipModel.PlayDirection.REVERSE;
+            case 2 -> ClipModel.PlayDirection.PING_PONG;
+            case 3 -> ClipModel.PlayDirection.RANDOM;
+            default -> ClipModel.PlayDirection.FORWARD;
+          };
+        } catch (NumberFormatException nfe) {
+          return ClipModel.PlayDirection.FORWARD;
+        }
+      }
+    }
+    return ClipModel.PlayDirection.FORWARD;
   }
 
   /** Read an int attribute with default. */

@@ -454,6 +454,17 @@ public class SwingDelugeApp extends JFrame {
       int startRow = trackEngineStart[t];
       int voiceCount = trackVoiceCount[t];
 
+      int rowsToSet = voiceCount;
+      if (track instanceof org.chuck.deluge.model.SynthTrackModel synth) {
+        int activeClipIdx = synth.getActiveClipIndex();
+        if (activeClipIdx >= 0 && activeClipIdx < synth.getClips().size()) {
+          rowsToSet = Math.max(rowsToSet, synth.getClips().get(activeClipIdx).getRowCount());
+        }
+      }
+      for (int v = 0; v < rowsToSet; v++) {
+        bridge.setTrackId(startRow + v, t);
+      }
+
       if (track instanceof org.chuck.deluge.model.KitTrackModel kit) {
         // Mark engine rows as type-0 (kit)
         for (int v = 0; v < voiceCount; v++) {
@@ -937,6 +948,8 @@ public class SwingDelugeApp extends JFrame {
 
         // Push per-clip play mode (0=NORMAL, 1=LOOP)
         bridge.setClipPlayMode(t, c, clip.getPlayMode().ordinal());
+        // Push per-clip play direction (0=FORWARD, 1=REVERSE, 2=PING_PONG, 3=RANDOM)
+        bridge.setClipPlayDirection(t, c, clip.getPlayDirection().ordinal());
       }
     }
 

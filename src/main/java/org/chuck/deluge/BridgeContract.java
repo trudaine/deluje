@@ -114,6 +114,8 @@ public final class BridgeContract {
   public static final String G_CLIP_PLAY_MODE = "g_clip_play_mode";
   public static final String G_QUEUE_STEP = "g_queue_step";
   public static final String G_HI_FI_MODE = "g_hi_fi_mode";
+  public static final String G_CLIP_PLAY_DIRECTION = "g_clip_play_direction";
+  public static final String G_TRACK_ID = "g_track_id";
   // ── Transport & Master ─────────────────────────────────────────────────
   public static final String G_BPM = "g_bpm";
   public static final String G_SWING = "g_swing";
@@ -699,6 +701,8 @@ public final class BridgeContract {
     final int[] clipCount = new int[TRACKS];
     final int[] launchQueue = new int[TRACKS];
     final int[] clipPlayMode = new int[TRACKS * MAX_CLIPS_PER_TRACK]; // flat: [t*MAX + ci]
+    final int[] clipPlayDirection = new int[TRACKS * MAX_CLIPS_PER_TRACK]; // flat: [t*MAX + ci]
+    final int[] trackId = new int[TRACKS];
 
     void initDefaults() {
       for (int t = 0; t < TRACKS; t++) {
@@ -720,8 +724,10 @@ public final class BridgeContract {
         currentClip[t] = 0;
         clipCount[t] = 0;
         launchQueue[t] = -1;
+        trackId[t] = t;
         for (int ci = 0; ci < MAX_CLIPS_PER_TRACK; ci++) {
           clipPlayMode[t * MAX_CLIPS_PER_TRACK + ci] = 0; // NORMAL
+          clipPlayDirection[t * MAX_CLIPS_PER_TRACK + ci] = 0; // FORWARD
         }
       }
     }
@@ -745,6 +751,8 @@ public final class BridgeContract {
       vm.setGlobalObject(G_CLIP_COUNT, new ChuckArray(clipCount));
       vm.setGlobalObject(G_LAUNCH_QUEUE, new ChuckArray(launchQueue));
       vm.setGlobalObject(G_CLIP_PLAY_MODE, new ChuckArray(clipPlayMode));
+      vm.setGlobalObject(G_CLIP_PLAY_DIRECTION, new ChuckArray(clipPlayDirection));
+      vm.setGlobalObject(G_TRACK_ID, new ChuckArray(trackId));
     }
   }
 
@@ -1634,6 +1642,34 @@ public final class BridgeContract {
     if (modes == null) return;
     int max = Math.min(modes.length, MAX_CLIPS_PER_TRACK);
     System.arraycopy(modes, 0, track.clipPlayMode, t * MAX_CLIPS_PER_TRACK, max);
+  }
+
+  public int getClipPlayDirection(int t, int clipIdx) {
+    if (clipIdx < 0 || clipIdx >= MAX_CLIPS_PER_TRACK) return 0;
+    return track.clipPlayDirection[t * MAX_CLIPS_PER_TRACK + clipIdx];
+  }
+
+  public void setClipPlayDirection(int t, int clipIdx, int direction) {
+    if (clipIdx >= 0 && clipIdx < MAX_CLIPS_PER_TRACK) {
+      track.clipPlayDirection[t * MAX_CLIPS_PER_TRACK + clipIdx] = direction;
+    }
+  }
+
+  public void setClipPlayDirectionArray(int t, int[] directions) {
+    if (directions == null) return;
+    int max = Math.min(directions.length, MAX_CLIPS_PER_TRACK);
+    System.arraycopy(directions, 0, track.clipPlayDirection, t * MAX_CLIPS_PER_TRACK, max);
+  }
+
+  public int getTrackId(int r) {
+    if (r < 0 || r >= TRACKS) return 0;
+    return track.trackId[r];
+  }
+
+  public void setTrackId(int r, int id) {
+    if (r >= 0 && r < TRACKS) {
+      track.trackId[r] = id;
+    }
   }
 
   public int getQueueStep() {

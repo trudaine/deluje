@@ -178,4 +178,21 @@ class BridgeContractTest {
     ChuckArray arr = bridge.patternArray();
     assertEquals(1L, arr.getInt(1 * BridgeContract.STEPS + 8));
   }
+
+  @Test
+  void testTrackIdAndClipPlayDirection() {
+    bridge.setTrackId(5, 42);
+    assertEquals(42, bridge.getTrackId(5));
+
+    bridge.setClipPlayDirection(2, 3, 2); // PING_PONG
+    assertEquals(2, bridge.getClipPlayDirection(2, 3));
+
+    ChuckArray dirArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_CLIP_PLAY_DIRECTION);
+    assertNotNull(dirArr);
+    assertEquals(2L, dirArr.getInt(2 * BridgeContract.MAX_CLIPS_PER_TRACK + 3));
+
+    ChuckArray trackIdArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_ID);
+    assertNotNull(trackIdArr);
+    assertEquals(42L, trackIdArr.getInt(5));
+  }
 }

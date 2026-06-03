@@ -932,6 +932,62 @@ public class SwingGridPanel extends JPanel {
 
     menu.add(playModeMenu);
 
+    // ── Play Direction submenu ──
+    JMenu playDirMenu = new JMenu("Play Direction");
+    org.chuck.deluge.model.ClipModel.PlayDirection currentDir = clip.getPlayDirection();
+
+    JRadioButtonMenuItem forwardItem =
+        new JRadioButtonMenuItem(
+            "Forward", currentDir == org.chuck.deluge.model.ClipModel.PlayDirection.FORWARD);
+    forwardItem.addActionListener(
+        e -> {
+          clip.setPlayDirection(org.chuck.deluge.model.ClipModel.PlayDirection.FORWARD);
+          if (bridge != null) bridge.setClipPlayDirection(trackIndex, clipIdx, 0);
+          fireProjectChanged();
+        });
+    playDirMenu.add(forwardItem);
+
+    JRadioButtonMenuItem reverseItem =
+        new JRadioButtonMenuItem(
+            "Reverse", currentDir == org.chuck.deluge.model.ClipModel.PlayDirection.REVERSE);
+    reverseItem.addActionListener(
+        e -> {
+          clip.setPlayDirection(org.chuck.deluge.model.ClipModel.PlayDirection.REVERSE);
+          if (bridge != null) bridge.setClipPlayDirection(trackIndex, clipIdx, 1);
+          fireProjectChanged();
+        });
+    playDirMenu.add(reverseItem);
+
+    JRadioButtonMenuItem pingPongItem =
+        new JRadioButtonMenuItem(
+            "Ping-Pong", currentDir == org.chuck.deluge.model.ClipModel.PlayDirection.PING_PONG);
+    pingPongItem.addActionListener(
+        e -> {
+          clip.setPlayDirection(org.chuck.deluge.model.ClipModel.PlayDirection.PING_PONG);
+          if (bridge != null) bridge.setClipPlayDirection(trackIndex, clipIdx, 2);
+          fireProjectChanged();
+        });
+    playDirMenu.add(pingPongItem);
+
+    JRadioButtonMenuItem randomItem =
+        new JRadioButtonMenuItem(
+            "Random", currentDir == org.chuck.deluge.model.ClipModel.PlayDirection.RANDOM);
+    randomItem.addActionListener(
+        e -> {
+          clip.setPlayDirection(org.chuck.deluge.model.ClipModel.PlayDirection.RANDOM);
+          if (bridge != null) bridge.setClipPlayDirection(trackIndex, clipIdx, 3);
+          fireProjectChanged();
+        });
+    playDirMenu.add(randomItem);
+
+    ButtonGroup playDirGroup = new ButtonGroup();
+    playDirGroup.add(forwardItem);
+    playDirGroup.add(reverseItem);
+    playDirGroup.add(pingPongItem);
+    playDirGroup.add(randomItem);
+
+    menu.add(playDirMenu);
+
     menu.show(src, x, y);
   }
 
