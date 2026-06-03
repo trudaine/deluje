@@ -3,20 +3,10 @@ package org.chuck.deluge;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.InputStream;
-import java.util.List;
-import org.chuck.core.ChuckArray;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.midi.MidiInputRouter;
 import org.chuck.deluge.midi.MidiService;
-import org.chuck.deluge.model.ClipModel;
-import org.chuck.deluge.model.Drum;
-import org.chuck.deluge.model.EnvelopeModel;
-import org.chuck.deluge.model.KitTrackModel;
 import org.chuck.deluge.model.ProjectModel;
-import org.chuck.deluge.model.SoundDrum;
-import org.chuck.deluge.model.StepData;
-import org.chuck.deluge.model.SynthTrackModel;
-import org.chuck.deluge.model.TrackModel;
 import org.chuck.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -113,7 +103,8 @@ public class DelugeE2ETest {
     InputStream is = getClass().getResourceAsStream("/SONGS/" + songFile);
     assertNotNull(is, songFile + " resource not found");
     ProjectModel project = DelugeXmlParser.parseSong(is, songName);
-    assertTrue(project.getTracks().size() > 0, "Song " + songName + " should have at least 1 track");
+    assertTrue(
+        project.getTracks().size() > 0, "Song " + songName + " should have at least 1 track");
 
     // 2. Build the firmware Song and drive the SUPPORTED pure engine offline (the JNI-free
     //    FirmwareAudioEngine + PlaybackHandler). The legacy DelugeEngineDSL ("--hifi") path is
@@ -132,7 +123,8 @@ public class DelugeE2ETest {
     playbackHandler.setSong(song);
     playbackHandler.start();
 
-    // 3. Render ~5s in 128-sample blocks, advancing the transport per BPM (as JavaAudioDriver does).
+    // 3. Render ~5s in 128-sample blocks, advancing the transport per BPM (as JavaAudioDriver
+    // does).
     float bpm = project.getBpm() > 0 ? project.getBpm() : 120f;
     double ticksPerSample = (bpm / 60.0) * 96.0 / 44100.0;
     double accumulatedTicks = 0.0;

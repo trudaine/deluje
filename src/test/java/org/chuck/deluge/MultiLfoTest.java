@@ -6,8 +6,8 @@ import org.chuck.core.ChuckArray;
 import org.chuck.core.ChuckVM;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 /**
  * Integration tests for the 4-LFO engine with all 7 waveform types (SINE, SAW, SQUARE, TRIANGLE,
@@ -17,7 +17,8 @@ import org.junit.jupiter.api.Disabled;
  * controls.
  */
 @org.junit.jupiter.api.Tag("slow")
-@Disabled("Legacy DelugeEngineDSL engine is unsupported; rebuild on the firmware pure engine. See docs/java-port-review-non-dx7-2026-06-03.md.")
+@Disabled(
+    "Legacy DelugeEngineDSL engine is unsupported; rebuild on the firmware pure engine. See docs/java-port-review-non-dx7-2026-06-03.md.")
 public class MultiLfoTest {
 
   private ChuckVM vm;

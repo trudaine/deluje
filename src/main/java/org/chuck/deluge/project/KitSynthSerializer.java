@@ -291,6 +291,7 @@ public class KitSynthSerializer {
   public static Element serializeSynth(Document doc, SynthTrackModel synth, boolean isSongSlot)
       throws Exception {
     Element root = doc.createElement("sound");
+    root.setAttribute("presetName", synth.getName());
     if (isSongSlot) {
       appendTextChild(doc, root, "presetSlot", synth.getName());
     }

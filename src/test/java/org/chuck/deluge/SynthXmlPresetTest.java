@@ -12,10 +12,10 @@ import org.chuck.deluge.model.EnvelopeModel;
 import org.chuck.deluge.model.SynthTrackModel;
 import org.chuck.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.junit.jupiter.api.Disabled;
 
 /**
  * Loads every SYNTHS/*.XML preset into the engine, pushes its parameters to the bridge, plays a
@@ -29,7 +29,8 @@ import org.junit.jupiter.api.Disabled;
  * identical to a real Deluge" (firmware compliance — separate work).
  */
 @Tag("slow")
-@Disabled("Legacy DelugeEngineDSL engine is unsupported; rebuild on the firmware pure engine. See docs/java-port-review-non-dx7-2026-06-03.md.")
+@Disabled(
+    "Legacy DelugeEngineDSL engine is unsupported; rebuild on the firmware pure engine. See docs/java-port-review-non-dx7-2026-06-03.md.")
 public class SynthXmlPresetTest {
 
   private ChuckVM vm;

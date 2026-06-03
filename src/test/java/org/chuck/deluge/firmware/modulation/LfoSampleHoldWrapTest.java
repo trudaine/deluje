@@ -14,7 +14,9 @@ public class LfoSampleHoldWrapTest {
 
   private static final int SENTINEL = 0x7ABCDEF1;
 
-  /** With phase in the upper half (MSB set) and an increment that wraps uint32, S&H must retrigger. */
+  /**
+   * With phase in the upper half (MSB set) and an increment that wraps uint32, S&H must retrigger.
+   */
   @Test
   public void sampleAndHoldRetriggersOnUpperHalfWrap() {
     LFO lfo = new LFO();
@@ -22,7 +24,8 @@ public class LfoSampleHoldWrapTest {
     lfo.holdValue = SENTINEL;
     // unsigned: 0xFF000000 + 0x02000000 = 0x101000000 > 0xFFFFFFFF -> wraps -> retrigger
     int value = lfo.render(1, LFO.LFOType.SAMPLE_AND_HOLD, 0x02000000);
-    assertNotEquals(SENTINEL, value, "S&H must sample a fresh value when phase wraps in the upper half");
+    assertNotEquals(
+        SENTINEL, value, "S&H must sample a fresh value when phase wraps in the upper half");
     assertNotEquals(SENTINEL, lfo.holdValue);
   }
 

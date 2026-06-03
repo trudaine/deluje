@@ -14,9 +14,9 @@ import org.chuck.deluge.model.StepData;
 import org.chuck.deluge.model.SynthTrackModel;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Disabled;
 
 /**
  * Headless audio comparison test covering ALL synth and kit sounds.
@@ -31,7 +31,8 @@ import org.junit.jupiter.api.Disabled;
  * type 1 = synth) within the same project.
  */
 @Tag("slow")
-@Disabled("Legacy DelugeEngineDSL engine is unsupported; rebuild on the firmware pure engine. See docs/java-port-review-non-dx7-2026-06-03.md.")
+@Disabled(
+    "Legacy DelugeEngineDSL engine is unsupported; rebuild on the firmware pure engine. See docs/java-port-review-non-dx7-2026-06-03.md.")
 public class AllSoundsComparisonTest {
 
   private static final int SAMPLE_RATE = 44100;

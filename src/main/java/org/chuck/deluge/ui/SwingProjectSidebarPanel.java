@@ -186,6 +186,20 @@ public class SwingProjectSidebarPanel extends JPanel {
                         }
                       }
                       vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+                    } else if ("SYNTHS".equals(category)) {
+                      org.chuck.deluge.model.SynthTrackModel synth =
+                          org.chuck.deluge.xml.DelugeXmlParser.parseSynth(is, name);
+                      if (onTrackAdded != null) {
+                        onTrackAdded.accept(synth);
+                      } else {
+                        org.chuck.deluge.model.ProjectModel mockProj =
+                            new org.chuck.deluge.model.ProjectModel();
+                        mockProj.addTrack(synth);
+                        if (onSongLoaded != null) {
+                          onSongLoaded.accept(mockProj);
+                        }
+                      }
+                      vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
                     } else if ("SONGS".equals(category)) {
                       org.chuck.deluge.model.ProjectModel loadedProject =
                           DelugeXmlParser.parseSong(is, name);

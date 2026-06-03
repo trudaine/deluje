@@ -252,45 +252,33 @@ public class DelugeXmlParser {
     NodeList instNodes = songNode.getElementsByTagName("instruments");
     if (instNodes.getLength() > 0) {
       Element instruments = (Element) instNodes.item(0);
-      // Parse Kits
-      NodeList kitNodes = instruments.getElementsByTagName("kit");
-      for (int i = 0; i < kitNodes.getLength(); i++) {
-        Element kitNode = (Element) kitNodes.item(i);
-        if (kitNode.getParentNode() == instruments) {
-          KitTrackModel kit = parseKitElement(kitNode);
-          project.addTrack(kit);
-          System.out.println("PARSER: Loaded kit track " + kit.getName());
-        }
-      }
-
-      NodeList soundNodes = instruments.getElementsByTagName("sound");
-      for (int i = 0; i < soundNodes.getLength(); i++) {
-        Element soundNode = (Element) soundNodes.item(i);
-        if (soundNode.getParentNode() == instruments) {
-          instrumentSoundNodes.add(soundNode);
-          boolean isMidi =
-              soundNode.getElementsByTagName("midiChannel").getLength() > 0
-                  || soundNode.getElementsByTagName("zone").getLength() > 0;
-          if (isMidi) {
-            MidiTrackModel midiTrack = parseMidiElement(soundNode);
-            project.addTrack(midiTrack);
-            System.out.println("PARSER: Loaded midi track " + midiTrack.getName());
-          } else {
-            SynthTrackModel synth = parseSynthElement(soundNode);
-            project.addTrack(synth);
-            System.out.println("PARSER: Loaded synth track " + synth.getName());
+      NodeList children = instruments.getChildNodes();
+      for (int i = 0; i < children.getLength(); i++) {
+        if (children.item(i) instanceof Element childNode) {
+          String tagName = childNode.getTagName();
+          if ("kit".equals(tagName)) {
+            KitTrackModel kit = parseKitElement(childNode);
+            project.addTrack(kit);
+            System.out.println("PARSER: Loaded kit track " + kit.getName());
+          } else if ("sound".equals(tagName)) {
+            instrumentSoundNodes.add(childNode);
+            boolean isMidi =
+                childNode.getElementsByTagName("midiChannel").getLength() > 0
+                    || childNode.getElementsByTagName("zone").getLength() > 0;
+            if (isMidi) {
+              MidiTrackModel midiTrack = parseMidiElement(childNode);
+              project.addTrack(midiTrack);
+              System.out.println("PARSER: Loaded midi track " + midiTrack.getName());
+            } else {
+              SynthTrackModel synth = parseSynthElement(childNode);
+              project.addTrack(synth);
+              System.out.println("PARSER: Loaded synth track " + synth.getName());
+            }
+          } else if ("audioTrack".equals(tagName)) {
+            AudioTrackModel audioTrack = parseAudioTrackElement(childNode);
+            project.addTrack(audioTrack);
+            System.out.println("PARSER: Loaded audio track " + audioTrack.getName());
           }
-        }
-      }
-
-      // Parse Audio Tracks
-      NodeList audioTrackNodes = instruments.getElementsByTagName("audioTrack");
-      for (int i = 0; i < audioTrackNodes.getLength(); i++) {
-        Element audioTrackNode = (Element) audioTrackNodes.item(i);
-        if (audioTrackNode.getParentNode() == instruments) {
-          AudioTrackModel audioTrack = parseAudioTrackElement(audioTrackNode);
-          project.addTrack(audioTrack);
-          System.out.println("PARSER: Loaded audio track " + audioTrack.getName());
         }
       }
     }
@@ -314,36 +302,46 @@ public class DelugeXmlParser {
           }
 
           NodeList noteRowsList = trackElem.getElementsByTagName("noteRows");
-
+          int rowCount = 0;
+          NodeList noteRowList = null;
           if (noteRowsList.getLength() > 0) {
             Element noteRowsElem = (Element) noteRowsList.item(0);
-            NodeList noteRowList = noteRowsElem.getElementsByTagName("noteRow");
-
-            int rowCount = noteRowList.getLength();
-            boolean tripletMode =
-                "1".equals(trackElem.getAttribute("triplet"))
-                    || "true".equalsIgnoreCase(trackElem.getAttribute("triplet"));
-            int stepTicks = tripletMode ? 32 : 24;
-            int stepCount = 16;
-            if (trackElem.hasAttribute("length")) {
-              try {
-                int lengthTicks = Integer.parseInt(trackElem.getAttribute("length"));
-                stepCount = lengthTicks / stepTicks;
-                if (stepCount < 1) stepCount = 16;
-              } catch (Exception ignored) {
-              }
+            noteRowList = noteRowsElem.getElementsByTagName("noteRow");
+            rowCount = noteRowList.getLength();
+          }
+          if (rowCount == 0) {
+            if (targetTrack instanceof KitTrackModel kit) {
+              rowCount = kit.getDrums().size();
+            } else {
+              rowCount = 8;
             }
+          }
 
-            ClipModel clip = new ClipModel("CLIP " + i, rowCount, stepCount);
-            clip.setTripletMode(tripletMode);
-            System.out.println(
-                "PARSER: Created clip "
-                    + clip.getName()
-                    + " for track "
-                    + targetTrack.getName()
-                    + " with rows "
-                    + rowCount);
+          boolean tripletMode =
+              "1".equals(trackElem.getAttribute("triplet"))
+                  || "true".equalsIgnoreCase(trackElem.getAttribute("triplet"));
+          int stepTicks = tripletMode ? 32 : 24;
+          int stepCount = 16;
+          if (trackElem.hasAttribute("length")) {
+            try {
+              int lengthTicks = Integer.parseInt(trackElem.getAttribute("length"));
+              stepCount = lengthTicks / stepTicks;
+              if (stepCount < 1) stepCount = 16;
+            } catch (Exception ignored) {
+            }
+          }
 
+          ClipModel clip = new ClipModel("CLIP " + i, rowCount, stepCount);
+          clip.setTripletMode(tripletMode);
+          System.out.println(
+              "PARSER: Created clip "
+                  + clip.getName()
+                  + " for track "
+                  + targetTrack.getName()
+                  + " with rows "
+                  + rowCount);
+
+          if (noteRowList != null) {
             for (int r = 0; r < rowCount; r++) {
               Element noteRowElem = (Element) noteRowList.item(r);
               String hexData = null;
@@ -419,24 +417,24 @@ public class DelugeXmlParser {
                 parseNoteRowSoundParams(sp, clip, r);
               }
             }
-            targetTrack.addClip(clip);
+          }
+          targetTrack.addClip(clip);
 
-            // ── Parse automation data for synth and midi tracks ──
-            if ((targetTrack instanceof SynthTrackModel || targetTrack instanceof MidiTrackModel)
-                && !instrumentSoundNodes.isEmpty()) {
-              // Count how many kit tracks came before this synth track to compute the
-              // correct index into instrumentSoundNodes (which only contains <sound> elements).
-              int kitCount = 0;
-              for (int k = 0; k < i; k++) {
-                if (k < projectTracks.size() && projectTracks.get(k) instanceof KitTrackModel) {
-                  kitCount++;
-                }
+          // ── Parse automation data for synth and midi tracks ──
+          if ((targetTrack instanceof SynthTrackModel || targetTrack instanceof MidiTrackModel)
+              && !instrumentSoundNodes.isEmpty()) {
+            // Count how many kit tracks came before this synth track to compute the
+            // correct index into instrumentSoundNodes (which only contains <sound> elements).
+            int kitCount = 0;
+            for (int k = 0; k < i; k++) {
+              if (k < projectTracks.size() && projectTracks.get(k) instanceof KitTrackModel) {
+                kitCount++;
               }
-              int soundIdx = i - kitCount;
-              if (soundIdx >= 0 && soundIdx < instrumentSoundNodes.size()) {
-                Element soundNode = instrumentSoundNodes.get(soundIdx);
-                parseAutomation(soundNode, clip);
-              }
+            }
+            int soundIdx = i - kitCount;
+            if (soundIdx >= 0 && soundIdx < instrumentSoundNodes.size()) {
+              Element soundNode = instrumentSoundNodes.get(soundIdx);
+              parseAutomation(soundNode, clip);
             }
           }
         } else {
@@ -533,26 +531,37 @@ public class DelugeXmlParser {
                 + ") isKitClip="
                 + isKitClip);
 
+        int rowCount = 0;
+        NodeList noteRowList = null;
         if (noteRowsList.getLength() > 0) {
           Element noteRowsElem = (Element) noteRowsList.item(0);
-          NodeList noteRowList = noteRowsElem.getElementsByTagName("noteRow");
-          int rowCount = noteRowList.getLength();
-
-          // Determine stepCount: use length attribute if present (1 step = 24/32 ticks of clip
-          // time)
-          // but also expand to cover the actual note positions in the hex data
-          boolean tripletMode =
-              "1".equals(clipElem.getAttribute("triplet"))
-                  || "true".equalsIgnoreCase(clipElem.getAttribute("triplet"));
-          int stepTicks = tripletMode ? 32 : 24;
-          int stepCount = 16;
-          if (clipElem.hasAttribute("length")) {
-            int lengthTicks = Integer.parseInt(clipElem.getAttribute("length"));
-            stepCount = lengthTicks / stepTicks;
-            if (stepCount < 1) stepCount = 16;
+          noteRowList = noteRowsElem.getElementsByTagName("noteRow");
+          rowCount = noteRowList.getLength();
+        }
+        if (rowCount == 0) {
+          if (targetTrack instanceof KitTrackModel kit) {
+            rowCount = kit.getDrums().size();
+          } else {
+            rowCount = 8;
           }
-          // Expand stepCount to cover max position found in noteData (pos in 12-tick units)
-          int maxPos = 0;
+        }
+
+        // Determine stepCount: use length attribute if present (1 step = 24/32 ticks of clip
+        // time)
+        // but also expand to cover the actual note positions in the hex data
+        boolean tripletMode =
+            "1".equals(clipElem.getAttribute("triplet"))
+                || "true".equalsIgnoreCase(clipElem.getAttribute("triplet"));
+        int stepTicks = tripletMode ? 32 : 24;
+        int stepCount = 16;
+        if (clipElem.hasAttribute("length")) {
+          int lengthTicks = Integer.parseInt(clipElem.getAttribute("length"));
+          stepCount = lengthTicks / stepTicks;
+          if (stepCount < 1) stepCount = 16;
+        }
+        // Expand stepCount to cover max position found in noteData (pos in 12-tick units)
+        int maxPos = 0;
+        if (noteRowList != null) {
           for (int r = 0; r < rowCount; r++) {
             Element nr = (Element) noteRowList.item(r);
             String hd = null;
@@ -585,21 +594,23 @@ public class DelugeXmlParser {
               }
             }
           }
-          int dataStepCount = (maxPos / stepTicks) + 1;
-          if (dataStepCount > stepCount) stepCount = dataStepCount;
+        }
+        int dataStepCount = (maxPos / stepTicks) + 1;
+        if (dataStepCount > stepCount) stepCount = dataStepCount;
 
-          ClipModel clip = new ClipModel("SESSION_CLIP " + i, rowCount, stepCount);
-          clip.setTripletMode(tripletMode);
-          System.out.println(
-              "PARSER: Created clip "
-                  + clip.getName()
-                  + " for track "
-                  + targetTrack.getName()
-                  + " rows="
-                  + rowCount
-                  + " steps="
-                  + stepCount);
+        ClipModel clip = new ClipModel("SESSION_CLIP " + i, rowCount, stepCount);
+        clip.setTripletMode(tripletMode);
+        System.out.println(
+            "PARSER: Created clip "
+                + clip.getName()
+                + " for track "
+                + targetTrack.getName()
+                + " rows="
+                + rowCount
+                + " steps="
+                + stepCount);
 
+        if (noteRowList != null) {
           for (int r = 0; r < rowCount; r++) {
             Element noteRowElem = (Element) noteRowList.item(r);
             String hexData = null;
@@ -698,28 +709,28 @@ public class DelugeXmlParser {
               parseNoteRowSoundParams(sp, clip, r);
             }
           }
-          targetTrack.addClip(clip);
+        }
+        targetTrack.addClip(clip);
 
-          // Parse automation from instrumentClip's <soundParams> child
-          if (targetTrack instanceof SynthTrackModel || targetTrack instanceof MidiTrackModel) {
-            NodeList soundParamsList = clipElem.getElementsByTagName("soundParams");
-            if (soundParamsList.getLength() > 0) {
-              parseAutomation((Element) soundParamsList.item(0), clip);
-            }
+        // Parse automation from instrumentClip's <soundParams> child
+        if (targetTrack instanceof SynthTrackModel || targetTrack instanceof MidiTrackModel) {
+          NodeList soundParamsList = clipElem.getElementsByTagName("soundParams");
+          if (soundParamsList.getLength() > 0) {
+            parseAutomation((Element) soundParamsList.item(0), clip);
           }
+        }
 
-          // Parse per-clip <kitParams> for kit tracks or <params> for synth clips
-          if (targetTrack instanceof KitTrackModel) {
-            Element kitParamsEl = getFirstChild(clipElem, "kitParams");
-            if (kitParamsEl != null) {
-              parseKitParamsElement(kitParamsEl, clip);
-            }
-          } else {
-            // Synth track: <params> child has same hex-attribute set as <kitParams>
-            NodeList paramsList2 = clipElem.getElementsByTagName("params");
-            if (paramsList2.getLength() > 0) {
-              parseParamsAsKitParams((Element) paramsList2.item(0), clip);
-            }
+        // Parse per-clip <kitParams> for kit tracks or <params> for synth clips
+        if (targetTrack instanceof KitTrackModel) {
+          Element kitParamsEl = getFirstChild(clipElem, "kitParams");
+          if (kitParamsEl != null) {
+            parseKitParamsElement(kitParamsEl, clip);
+          }
+        } else {
+          // Synth track: <params> child has same hex-attribute set as <kitParams>
+          NodeList paramsList2 = clipElem.getElementsByTagName("params");
+          if (paramsList2.getLength() > 0) {
+            parseParamsAsKitParams((Element) paramsList2.item(0), clip);
           }
         }
       }
@@ -1444,10 +1455,15 @@ public class DelugeXmlParser {
 
   private static KitTrackModel parseKitElement(Element kitNode) throws Exception {
     String name = "KIT";
-
-    NodeList slotNodes = kitNode.getElementsByTagName("presetSlot");
-    if (slotNodes.getLength() > 0) {
-      name = "KIT " + slotNodes.item(0).getTextContent();
+    if (kitNode.hasAttribute("name")) {
+      name = kitNode.getAttribute("name");
+    } else if (kitNode.hasAttribute("presetName")) {
+      name = kitNode.getAttribute("presetName");
+    } else {
+      NodeList slotNodes = kitNode.getElementsByTagName("presetSlot");
+      if (slotNodes.getLength() > 0) {
+        name = "KIT " + slotNodes.item(0).getTextContent();
+      }
     }
 
     NodeList soundNodes = kitNode.getElementsByTagName("sound");
@@ -1469,10 +1485,15 @@ public class DelugeXmlParser {
 
   private static SynthTrackModel parseSynthElement(Element soundNode) throws Exception {
     String name = "SYNTH";
-
-    NodeList slotNodes = soundNode.getElementsByTagName("presetSlot");
-    if (slotNodes.getLength() > 0) {
-      name = "SYNTH " + slotNodes.item(0).getTextContent();
+    if (soundNode.hasAttribute("presetName")) {
+      name = soundNode.getAttribute("presetName");
+    } else if (soundNode.hasAttribute("name")) {
+      name = soundNode.getAttribute("name");
+    } else {
+      NodeList slotNodes = soundNode.getElementsByTagName("presetSlot");
+      if (slotNodes.getLength() > 0) {
+        name = "SYNTH " + slotNodes.item(0).getTextContent();
+      }
     }
 
     SynthTrackModel synth = new SynthTrackModel(name);
@@ -1482,9 +1503,15 @@ public class DelugeXmlParser {
 
   private static MidiTrackModel parseMidiElement(Element soundNode) throws Exception {
     String name = "MIDI";
-    NodeList slotNodes = soundNode.getElementsByTagName("presetSlot");
-    if (slotNodes.getLength() > 0) {
-      name = "MIDI " + slotNodes.item(0).getTextContent();
+    if (soundNode.hasAttribute("presetName")) {
+      name = soundNode.getAttribute("presetName");
+    } else if (soundNode.hasAttribute("name")) {
+      name = soundNode.getAttribute("name");
+    } else {
+      NodeList slotNodes = soundNode.getElementsByTagName("presetSlot");
+      if (slotNodes.getLength() > 0) {
+        name = "MIDI " + slotNodes.item(0).getTextContent();
+      }
     }
 
     MidiTrackModel midiTrack = new MidiTrackModel(name);
