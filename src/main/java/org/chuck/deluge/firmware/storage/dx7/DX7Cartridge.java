@@ -46,23 +46,25 @@ public class DX7Cartridge {
       for (int i = 0; i < 10; i++) {
         unpackPgm[opUnpack + i] = (byte) (voiceData[opBulk + i] & 0x7F);
       }
+      // Packed bit-fields are stored low-bits-first (firmware unpackBits<a,b>): the first field
+      // occupies the least-significant bits. Reading from the high end corrupts every operator.
       byte b11 = voiceData[opBulk + 11];
-      unpackPgm[opUnpack + 11] = (byte) ((b11 >> 2) & 3);
-      unpackPgm[opUnpack + 12] = (byte) (b11 & 3);
+      unpackPgm[opUnpack + 11] = (byte) (b11 & 3); // left curve
+      unpackPgm[opUnpack + 12] = (byte) ((b11 >> 2) & 3); // right curve
 
       byte b12 = voiceData[opBulk + 12];
-      unpackPgm[opUnpack + 13] = (byte) ((b12 >> 4) & 7);
-      unpackPgm[opUnpack + 20] = (byte) (b12 & 0xF); // detune
+      unpackPgm[opUnpack + 13] = (byte) (b12 & 7); // rate scaling
+      unpackPgm[opUnpack + 20] = (byte) ((b12 >> 3) & 0xF); // detune
 
       byte b13 = voiceData[opBulk + 13];
-      unpackPgm[opUnpack + 14] = (byte) ((b13 >> 3) & 3);
-      unpackPgm[opUnpack + 15] = (byte) (b13 & 7);
+      unpackPgm[opUnpack + 14] = (byte) (b13 & 3); // amp mod sensitivity
+      unpackPgm[opUnpack + 15] = (byte) ((b13 >> 2) & 7); // key velocity sensitivity
 
-      unpackPgm[opUnpack + 16] = (byte) (voiceData[opBulk + 14] & 0x7F);
+      unpackPgm[opUnpack + 16] = (byte) (voiceData[opBulk + 14] & 0x7F); // output level
 
       byte b15 = voiceData[opBulk + 15];
-      unpackPgm[opUnpack + 17] = (byte) ((b15 >> 5) & 1);
-      unpackPgm[opUnpack + 18] = (byte) (b15 & 0x1F);
+      unpackPgm[opUnpack + 17] = (byte) (b15 & 1); // osc mode (ratio/fixed)
+      unpackPgm[opUnpack + 18] = (byte) ((b15 >> 1) & 0x1F); // freq coarse
 
       unpackPgm[opUnpack + 19] = (byte) (voiceData[opBulk + 16] & 0x7F);
     }
@@ -74,8 +76,8 @@ public class DX7Cartridge {
     unpackPgm[134] = (byte) (voiceData[bulkOffset + 110] & 0x1F); // algo
 
     byte b111 = voiceData[bulkOffset + 111];
-    unpackPgm[135] = (byte) ((b111 >> 1) & 7); // feedback
-    unpackPgm[136] = (byte) (b111 & 1); // oks
+    unpackPgm[135] = (byte) (b111 & 7); // feedback
+    unpackPgm[136] = (byte) ((b111 >> 3) & 1); // oks (osc key sync)
 
     unpackPgm[137] = (byte) (voiceData[bulkOffset + 112] & 0x7F);
     unpackPgm[138] = (byte) (voiceData[bulkOffset + 113] & 0x7F);
@@ -83,9 +85,9 @@ public class DX7Cartridge {
     unpackPgm[140] = (byte) (voiceData[bulkOffset + 115] & 0x7F);
 
     byte b116 = voiceData[bulkOffset + 116];
-    unpackPgm[141] = (byte) ((b116 >> 6) & 1);
-    unpackPgm[142] = (byte) ((b116 >> 2) & 0xF);
-    unpackPgm[143] = (byte) (b116 & 3);
+    unpackPgm[141] = (byte) (b116 & 1); // lfo key sync
+    unpackPgm[142] = (byte) ((b116 >> 1) & 0xF); // lfo waveform
+    unpackPgm[143] = (byte) ((b116 >> 5) & 3); // lfo pitch mod sensitivity
 
     unpackPgm[144] = (byte) (voiceData[bulkOffset + 117] & 0x7F);
     for (int i = 0; i < 10; i++) {
