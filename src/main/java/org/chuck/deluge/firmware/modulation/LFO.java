@@ -43,8 +43,10 @@ public class LFO {
         break;
 
       case SAMPLE_AND_HOLD:
-        // Check for phase overflow
-        if (phase == 0 || (long) phase + (long) phaseIncrement * numSamples > 0xFFFFFFFFL) {
+        // Retrigger on unsigned uint32 phase wrap (firmware: phase + inc*n < phase). Phase and
+        // phaseIncrement are conceptually uint32, so mask to avoid Java sign-extension.
+        if (phase == 0
+            || (phase & 0xFFFFFFFFL) + (phaseIncrement & 0xFFFFFFFFL) * numSamples > 0xFFFFFFFFL) {
           value = FirmwareUtils.getNoise();
           holdValue = value;
         } else {
@@ -57,7 +59,8 @@ public class LFO {
         if (phase == 0) {
           value = (range / 2) - (FirmwareUtils.getNoise() % range);
           holdValue = value;
-        } else if ((long) phase + (long) phaseIncrement * numSamples > 0xFFFFFFFFL) {
+        } else if ((phase & 0xFFFFFFFFL) + (phaseIncrement & 0xFFFFFFFFL) * numSamples
+            > 0xFFFFFFFFL) {
           int step = (holdValue / -16) + (range / 2) - (FirmwareUtils.getNoise() % range);
           holdValue = addSaturate(holdValue, step);
           value = holdValue;

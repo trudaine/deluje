@@ -28,12 +28,15 @@ public class AudioFileReader {
         return null;
       }
 
+      int audioFormat = 1; // 1 = PCM int, 3 = IEEE float (WAVE_FORMAT_IEEE_FLOAT)
+
       while (fis.available() >= 8) {
         int chunkId = dis.readInt(); // Big-endian read of little-endian data
         int chunkLen = Integer.reverseBytes(dis.readInt());
 
         if (chunkId == 0x666d7420) { // 'fmt ' (little-endian on disk, big-endian in int)
           short format = Short.reverseBytes(dis.readShort());
+          audioFormat = format & 0xFFFF;
           sample.numChannels = Short.reverseBytes(dis.readShort());
           sample.sampleRate = Integer.reverseBytes(dis.readInt());
           dis.readInt(); // byte rate
@@ -47,8 +50,20 @@ public class AudioFileReader {
           int numSamples = chunkLen / (sample.numChannels * sample.byteDepth);
           sample.data = new float[numSamples * sample.numChannels];
           for (int i = 0; i < sample.data.length; i++) {
-            if (sample.byteDepth == 2) sample.data[i] = bb.getShort() / 32768.0f;
-            else if (sample.byteDepth == 1) sample.data[i] = (bb.get() & 0xFF) / 128.0f - 1.0f;
+            if (sample.byteDepth == 2) {
+              sample.data[i] = bb.getShort() / 32768.0f;
+            } else if (sample.byteDepth == 3) {
+              // 24-bit little-endian, sign-extended to int32.
+              int b0 = bb.get() & 0xFF, b1 = bb.get() & 0xFF, b2 = bb.get() & 0xFF;
+              int v = b0 | (b1 << 8) | (b2 << 16);
+              if ((v & 0x800000) != 0) v |= 0xFF000000; // sign extend
+              sample.data[i] = v / 8388608.0f;
+            } else if (sample.byteDepth == 4) {
+              // 32-bit: IEEE float (format 3) or PCM int32 (format 1).
+              sample.data[i] = (audioFormat == 3) ? bb.getFloat() : bb.getInt() / 2147483648.0f;
+            } else if (sample.byteDepth == 1) {
+              sample.data[i] = (bb.get() & 0xFF) / 128.0f - 1.0f; // 8-bit WAV is unsigned
+            }
           }
         } else if (chunkId == 0x736d706c) { // 'smpl'
           dis.skipBytes(12);
