@@ -60,6 +60,18 @@ public class SynthTrackModel extends TrackModel {
    */
   private final int[] lfoRateKnobQ31 = {0, 0, 0, 0};
 
+  /**
+   * Raw stored envelope rate knobs (Q31) for the 4 envelopes, preserved for the firmware-faithful
+   * rate curves (attack: getExp; decay/release: releaseRateTable). {@code envKnobSet[i]} marks that
+   * a patch supplied raw knobs for envelope i; programmatic callers that only set times in seconds
+   * leave it false, so the factory falls back to the (also-faithful) increment = 190.2/time path.
+   */
+  private final int[] envAttackKnobQ31 = {0, 0, 0, 0};
+
+  private final int[] envDecayKnobQ31 = {0, 0, 0, 0};
+  private final int[] envReleaseKnobQ31 = {0, 0, 0, 0};
+  private final boolean[] envKnobSet = {false, false, false, false};
+
   private ArpModel arp = ArpModel.defaultConfig();
   private float portamento = 0.0f;
 
@@ -514,6 +526,30 @@ public class SynthTrackModel extends TrackModel {
 
   public void setLfoRateKnobQ31(int index, int v) {
     lfoRateKnobQ31[index] = v;
+  }
+
+  public boolean isEnvKnobSet(int index) {
+    return envKnobSet[index];
+  }
+
+  public int getEnvAttackKnobQ31(int index) {
+    return envAttackKnobQ31[index];
+  }
+
+  public int getEnvDecayKnobQ31(int index) {
+    return envDecayKnobQ31[index];
+  }
+
+  public int getEnvReleaseKnobQ31(int index) {
+    return envReleaseKnobQ31[index];
+  }
+
+  /** Set the raw envelope rate knobs (Q31) for envelope {@code index}, marking it knob-driven. */
+  public void setEnvRateKnobsQ31(int index, int attack, int decay, int release) {
+    envAttackKnobQ31[index] = attack;
+    envDecayKnobQ31[index] = decay;
+    envReleaseKnobQ31[index] = release;
+    envKnobSet[index] = true;
   }
 
   public ArpModel getArp() {

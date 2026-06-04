@@ -132,6 +132,41 @@ public class FirmwareUtils {
         paramNeutralValue, combineCablesLinearNoCable(storedValue, paramRange));
   }
 
+  /**
+   * Port of {@code lookupReleaseRate}: maps a patched decay/release value to a per-sample increment
+   * via the interpolated {@code releaseRateTable64}. Used (scaled by the param neutral) for the
+   * envelope decay and release stages — the firmware's getFinalParameterValueExpWithDumbEnvelopeHack
+   * uses this for those stages instead of plain getExp.
+   */
+  public static int lookupReleaseRate(int input) {
+    int magnitude = 24;
+    int whichValue = input >> magnitude;
+    int howMuchFurther = (input << (31 - magnitude)) & 2147483647;
+    whichValue += 32; // Put it in the range 0 to 64
+    if (whichValue < 0) {
+      return LookupTables.releaseRateTable64[0];
+    } else if (whichValue >= 64) {
+      return LookupTables.releaseRateTable64[64];
+    }
+    int value1 = LookupTables.releaseRateTable64[whichValue];
+    int value2 = LookupTables.releaseRateTable64[whichValue + 1];
+    return (multiply_32x32_rshift32(value2, howMuchFurther)
+            + multiply_32x32_rshift32(value1, 2147483647 - howMuchFurther))
+        << 1;
+  }
+
+  /**
+   * Port of {@code getFinalParameterValueExpWithDumbEnvelopeHack} for envelope rate params: attack
+   * uses getExp on the negated patched value; decay/release use the release-rate table scaled by the
+   * neutral. {@code stage}: 0=attack, 1=decay, 2=release.
+   */
+  public static int finalEnvRateParam(int paramNeutralValue, int patchedValue, int stage) {
+    if (stage == 0) { // attack
+      return getExp(paramNeutralValue, -patchedValue);
+    }
+    return multiply_32x32_rshift32(paramNeutralValue, lookupReleaseRate(patchedValue));
+  }
+
   public static int quickLog(int input) {
     int magnitude = 31 - Integer.numberOfLeadingZeros(input);
     int inputLSBs = increaseMagnitude(input, 26 - magnitude);

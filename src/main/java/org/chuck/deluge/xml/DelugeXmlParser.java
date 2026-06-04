@@ -1830,6 +1830,12 @@ public class DelugeXmlParser {
                 "NONE",
                 0.0f);
         synth.setEnv(i, env);
+        // Preserve the raw rate knobs for the firmware-faithful envelope rate curves.
+        synth.setEnvRateKnobsQ31(
+            i,
+            DelugeHexMapper.hexToQ31(envNode.getAttribute("attack")),
+            DelugeHexMapper.hexToQ31(envNode.getAttribute("decay")),
+            DelugeHexMapper.hexToQ31(envNode.getAttribute("release")));
       }
     }
     // Fallback: try child-element format from
@@ -1850,6 +1856,12 @@ public class DelugeXmlParser {
               || env.sustain() != 0.7f
               || env.release() != 0.2f) {
             synth.setEnv(i, env);
+            // Preserve the raw rate knobs for the firmware-faithful envelope rate curves.
+            synth.setEnvRateKnobsQ31(
+                i,
+                DelugeHexMapper.hexToQ31(getChildText(envEl, "attack")),
+                DelugeHexMapper.hexToQ31(getChildText(envEl, "decay")),
+                DelugeHexMapper.hexToQ31(getChildText(envEl, "release")));
           }
         }
       }

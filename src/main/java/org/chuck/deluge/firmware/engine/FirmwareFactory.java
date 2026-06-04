@@ -319,19 +319,43 @@ public class FirmwareFactory {
     // Envelopes
     for (int i = 0; i < 4; i++) {
       EnvelopeModel em = model.getEnv(i);
-      // Mathematically correct physical time-to-increment mapping: Inc = 190.2 / Time
-      float aTime = Math.max(0.0001f, em.attack());
-      float dTime = Math.max(0.0001f, em.decay());
-      float rTime = Math.max(0.0001f, em.release());
+      int attackInc;
+      int decayInc;
+      int releaseInc;
+      if (model.isEnvKnobSet(i)) {
+        // Faithful: the envelope rate increments follow the firmware's per-stage curves
+        // (getFinalParameterValueExpWithDumbEnvelopeHack): attack via getExp on the negated patched
+        // knob; decay/release via the release-rate table. Neutrals 4096 / 70<<9 / 140<<9; attack
+        // range 536870912*1.5, decay/release range 2^30.
+        attackInc =
+            FirmwareUtils.finalEnvRateParam(
+                4096, FirmwareUtils.patchCombineExpStep(0, model.getEnvAttackKnobQ31(i), 805306368), 0);
+        decayInc =
+            FirmwareUtils.finalEnvRateParam(
+                70 << 9,
+                FirmwareUtils.patchCombineExpStep(0, model.getEnvDecayKnobQ31(i), 1073741824),
+                1);
+        releaseInc =
+            FirmwareUtils.finalEnvRateParam(
+                140 << 9,
+                FirmwareUtils.patchCombineExpStep(0, model.getEnvReleaseKnobQ31(i), 1073741824),
+                2);
+      } else {
+        // Programmatic time-in-seconds: increment = 190.2 / time is the faithful time<->increment
+        // relationship (the render's pos overflows at 2^23).
+        float aTime = Math.max(0.0001f, em.attack());
+        float dTime = Math.max(0.0001f, em.decay());
+        float rTime = Math.max(0.0001f, em.release());
+        attackInc = (int) (190.2f / aTime);
+        decayInc = (int) (190.2f / dTime);
+        releaseInc = (int) (190.2f / rTime);
+      }
 
-      int attackInc = Math.max(1, Math.min(8388608, (int) (190.2f / aTime)));
-      int decayInc = Math.max(1, Math.min(8388608, (int) (190.2f / dTime)));
-      int releaseInc = Math.max(1, Math.min(8388608, (int) (190.2f / rTime)));
-
-      sound.paramNeutralValues[Param.LOCAL_ENV_0_ATTACK + i] = attackInc;
-      sound.paramNeutralValues[Param.LOCAL_ENV_0_DECAY + i] = decayInc;
+      sound.paramNeutralValues[Param.LOCAL_ENV_0_ATTACK + i] = Math.max(1, Math.min(8388608, attackInc));
+      sound.paramNeutralValues[Param.LOCAL_ENV_0_DECAY + i] = Math.max(1, Math.min(8388608, decayInc));
       sound.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN + i] = (int) (em.sustain() * 2147483647.0);
-      sound.paramNeutralValues[Param.LOCAL_ENV_0_RELEASE + i] = releaseInc;
+      sound.paramNeutralValues[Param.LOCAL_ENV_0_RELEASE + i] =
+          Math.max(1, Math.min(8388608, releaseInc));
     }
 
     sound.numUnison = model.getUnisonNum();
