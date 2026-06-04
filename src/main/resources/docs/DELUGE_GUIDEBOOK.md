@@ -6,7 +6,9 @@ Welcome to the **ChucK-Java Deluge Workstation**, a modern, high-fidelity softwa
 
 ## Table of Contents
 1. [The Step Sequencer & Clip View](#1-the-step-sequencer--clip-view)
+   * [1.6 The Euclidean Rhythm Generator](#16-the-euclidean-rhythm-generator)
 2. [Synthesizers & Sound Engines (Subtractive, FM, Wavetable, Legato, Multi-Sampler, Ring Mod)](#2-synthesizers--sound-engines-subtractive-fm-wavetable)
+   * [2.7 Chord Keyboard (CORK & CORL Layouts)](#27-chord-keyboard-cork--corl-layouts)
 3. [Drum Kits & Smart Keyword Auto-Mapper](#3-drum-kits--smart-keyword-auto-mapper)
 4. [DAW-Grade Visual Waveform Crop & Loop Markers Deck](#4-daw-grade-visual-waveform-crop--loop-markers-deck)
 5. [MPC-Style Automatic Loop Slicer & Kit Splitter](#5-mpc-style-automatic-loop-slicer--kit-splitter)
@@ -16,12 +18,16 @@ Welcome to the **ChucK-Java Deluge Workstation**, a modern, high-fidelity softwa
 9. [Delugeator Multi-Generator Dashboard Suite](#9-delugeator-multi-generator-dashboard-suite)
 10. [UI Panels & Shift Shortcuts System Behavior](#10-ui-panels-&-shift-shortcuts-system-behavior)
 11. [Audio Tracks, Time-Stretching & Pitch-Shifting](#11-audio-tracks-time-stretching--pitch-shifting)
-12. [Pedal Looper & Continuous Multi-Layer Overdubs](#12-pedal-looper--continuous-multi-layer-overdubs)
-13. [MIDI Clock Sync, Device Chains & Program Changes](#13-midi-clock-sync-device-chains--program-changes)
-14. [MPE & Multi-Dimensional Controller Expression](#14-mpe--multi-dimensional-controller-expression)
-15. [System Settings, Directories Preferences & Shortcuts Table](#15-system-settings-directories-preferences--shortcuts-table)
-16. [Appendix: Programmatic High-Fidelity JNI Registers Architecture](#16-appendix-programmatic-high-fidelity-jni-registers-architecture)
-17. [Appendix: Pending Work Items & Future Development Roadmap (TODO List)](#17-appendix-pending-work-items--future-development-roadmap-todo-list)
+12. [Advanced Wavetable Index Scan Editor](#12-advanced-wavetable-index-scan-editor)
+13. [Pedal Looper & Continuous Multi-Layer Overdubs](#13-pedal-looper--continuous-multi-layer-overdubs)
+14. [MIDI Hardware, Device Mappings & Pure SD File Explorer](#14-midi-hardware-device-mappings--pure-sd-file-explorer)
+    * [14.5 MIDI CC Parameter Takeover Algorithms](#145-midi-cc-parameter-takeover-algorithms)
+15. [Performance View & FX Touch-Pads Grid](#15-performance-view--fx-touch-pads-grid)
+16. [MPE & Multi-Dimensional Controller Expression](#16-mpe--multi-dimensional-controller-expression)
+17. [System Settings, Directories Preferences & Shortcuts Table](#17-system-settings-directories-preferences--shortcuts-table)
+    * [17.1 Hardware Character Emulations & Master Saturation Drive](#171-hardware-character-emulations--master-saturation-drive)
+18. [Appendix: Programmatic High-Fidelity JNI Registers Architecture](#18-appendix-programmatic-high-fidelity-jni-registers-architecture)
+19. [Appendix: Pending Work Items & Future Development Roadmap (TODO List)](#19-appendix-pending-work-items--future-development-roadmap-todo-list)
 
 ---
 
@@ -106,6 +112,20 @@ Step sequencing is no longer restricted to straight subdivisions (sixteenth note
   * **Sixteenth Straight beat divisions**: Emphasizes every **4 steps** (highlighted slate-gray columns on step 1, 5, 9, 13).
   * **Eighth Triplet beat divisions**: Emphasizes every **3 steps** (highlighted slate-gray columns on step 1, 4, 7, 10).
 * **Parity XML loop lengths saving**: When saving files, the song XML writer dynamically computes the physical track loop duration ($12\text{ steps} \times 32\text{ ticks} = 384\text{ ticks}$ total loop length per bar) and saves it alongside the raw JNI ticks array structures and the `triplet="1"` attribute, ensuring 100% loss-free load cycles in all standard environments!
+
+### 1.6 The Euclidean Rhythm Generator
+
+Drawing even trigger distributions across step grids is fully automated. By integrating a dedicated mathematical Euclidean pattern layout planner, the workstation lets you populate drum tracks or basslines with organic polyrhythms in seconds:
+
+* **The Interactive Euclidean Wheel JDialog**: Clicking the **`Euclidean`** button (located on the left-side control panel of the active matrix row) opens a modal JDialog. The window features an interactive **Euclidean Wheel** rendering active pulses as glowing amber outer pads and silent steps as dark charcoal segments.
+* **Parameters Deck**:
+  * **Steps (N)**: The total sequence length (up to 16 steps per bar).
+  * **Pulses (K)**: The number of active notes to distribute.
+  * **Rotation (Shift)**: Rotates the pulse offsets horizontally (e.g. shifts the downbeat triggers).
+* **The Mathematical Distribution Formula**: Follows the Bjorklund spacing algorithm which calculates a boolean array $B[s]$ of length $N$:
+  $$B[s] = \text{true if } (s \cdot K + \text{rotation}) \bmod N < K$$
+  This matches the community Deluge firmware's exact `editNumEuclideanEvents()` step spacing behavior.
+* **💾 Generate & Apply Button**: Click this button to overwrite the active row's sequence grid cells with the computed pattern. It triggers immediate JNI audio playback reload so you hear the polyrhythm play instantly!
 
 ---
 
@@ -233,6 +253,24 @@ $$V_{out}(t) = \text{Osc A}(t) \times \text{Osc B}(t)$$
 3. Go to the **`FILTER`** tab, set LPF Cutoff base to a dark **`700Hz`** and Resonance to a moderate **`45%`**.
 4. Go to the **`ENVELOPE`** tab (specifically Envelope 2 VCF). Set Attack to **`0ms`** (instant sharp strike), Decay to **`120ms`** (quick pluck decay), and Sustain to **`0%`**. Set the LPF Envelope Mod to a high **`+60%`** (plucky filter sweep!).
 5. *Result*: Sequence a steps phrase: you will hear a highly aggressive, sharp, metallic industrial ring-modulated sound pluck perfect for heavy dark techno or industrial music leads!
+
+### 2.7 Chord Keyboard (CORK & CORL Layouts)
+
+The Chord Keyboard turns the layout pads grid into a specialized harmonic controller, allowing you to trigger complex chord shapes, inversions, and scale-locked voicings instantly. Access this workspace by selecting **`CHORD_LIBRARY`** or **`CHORD`** from the **KB** dropdown JComboBox at the top toolbar (or via Tab view cycles):
+
+* **Mode 1: PIANO Layout**: Standard isomorphic chromatic keyboard mapping. Pads in the current scale are highlighted in dim blue/slate, and root notes glow in bright mint-green.
+* **Mode 2: CORK (Chord Keyboard)**:
+  * **COLUMN Mode**: Harmonically similar chords are stacked vertically. Clicking a grid pad triggers scale-degree chords (I, ii, iii, IV, V, vi, vii) matching the selected key.
+  * **ROW Mode**: Spreads scale intervals horizontally (Launchpad Pro style).
+* **Mode 3: CORL (Chord Library)**: A comprehensive chord catalog. Columns represent the 12 chromatic root notes ($C \dots B$), and rows represent chord qualities (Major, Minor, Dominant 7th, Major 7th, Minor 7th, Diminished, Suspended, etc.). Scale-aware highlighting makes finding in-key chords instant.
+* **Chords Voicings & Inversions**: Select the Voicing mode dropdown to instantly change the note spreads across the operators voice allocations:
+  1. *Close*: Standard tight stack.
+  2. *Drop 2*: Drops the second-highest note by an octave (classic jazz voicing).
+  3. *Open*: Spreads notes across wider octave intervals.
+  4. *Spread*: Spans multiple octaves.
+  5. *Rootless*: Plays only the 3rd, 5th, and extensions (7th, 9th) to leave room for bass tracks.
+  6. *Octave*: Standard root-plus-octaves voicing.
+* **Scroll Navigation**: Click the **`▲ / ▼`** buttons in the toolbar to shift the octave scale degree offset.
 
 ---
 
@@ -681,6 +719,15 @@ The Deluge Workstation features a professional-grade, modern workspace re-organi
 * **MIDI Program Change (PC) Messages**: Send PC commands (values 0–127) and bank select indices dynamically from target sequencer steps to automatically swap active presets/sounds on your hardware instruments live on stage!
 * **Multi-Device Chains (MIDI Thru)**: Daisy-chain multiple hardware synthesizers: set each sequencer lane to send data to a distinct MIDI Channel (Channels 1–16) to play polyphonic parts across separate physical keyboards from a single master track project!
 
+### 14.5 MIDI CC Parameter Takeover Algorithms
+
+To prevent sudden audio level spikes or filter jumps when wiggling physical knobs on MIDI controllers (whose physical position might differ from the virtual parameter value in memory), the JApp implements three distinct parameter takeover algorithms (configurable in Settings Preferences):
+
+1. **JUMP Mode (Default)**: The virtual parameter immediately jumps to match the incoming CC value. Quick and direct, but can cause audible glitches.
+2. **PICKUP Mode**: The virtual parameter value remains locked and ignores CC sweeps until the physical knob is swept past (or "picks up") the current virtual value. This ensures 100% glitch-free performance.
+3. **SCALE Mode (Runway-Delta Scaling)**: Proportional scaling based on the remaining distance between the current value and the parameter limits:
+  * If the physical knob is wiggled, the virtual parameter moves toward the target limits, scaling the travel speed dynamically so that both physical and virtual reach the bounds simultaneously.
+
 ---
 
 ## 15. Performance View & FX Touch-Pads Grid
@@ -751,6 +798,17 @@ The **`Settings ➔ Preferences...`** panel manages your paths and grid configur
 * **Microtonal Tuning (Scala)**: Load standard Scala scale (`.scl`) and optional keyboard mapping (`.kbm`) templates:
   * **Browse SCL:** Click the button to launch a file chooser, select your custom tuning scale file. The parser immediately compiles the cent/ratio intervals, updates the active JNI pitch-to-frequency engine, and saves your path to preferences.
   * **Clear / 12-TET:** Resets active tunings, restoring the standard 12-Tone Equal Temperament system instantly.
+
+### 17.1 Hardware Character Emulations & Master Saturation Drive
+
+To reproduce the exact, iconic lo-fi and physical audio character of the vintage Deluge hardware unit, the JApp incorporates four specialized DSP emulation configurations (accessible under the Preferences panel):
+
+* **Master Bus Saturation (Tanh)**: Emulates the warm analog headroom compression of the physical output op-amps using a state-space tanh lookup:
+  $$V_{out}(t) = \tanh(V_{in}(t) \cdot \text{drive})$$
+  Adjust the Master Saturation slider to inject rich, harmonic distortion into hot mixes.
+* **LPF Drive Saturation**: Mapped directly inside the transistor ladder filter algorithms (`SVFilter` and `LpLadderFilter`), mimicking the input stage clipping drive of analog synthesizers.
+* **14-bit DAC Converter Emulation**: Reproduces the vintage digital-to-analog converter grit of early Deluge batches. It truncates the 24-bit floating-point audio samples to a 14-bit integer space, injecting high-performance Triangular Probability Density Function (TPDF) dither to mask quantization noise with analog-sounding noise floor.
+* **JCRev / Freeverb Emulation**: Simulates the early digital spring-modeling reverberation algorithm using a high-density matrix of comb and allpass filters with room size and damping controls.
 
 ### Complete Keyboard Shortcuts Reference:
 | Shortcut Combination | Focused Panel / Action | Operational Description |

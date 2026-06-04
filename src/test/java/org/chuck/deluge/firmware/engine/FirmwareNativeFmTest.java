@@ -120,11 +120,14 @@ public class FirmwareNativeFmTest {
     double bSine = brightness(render(sine, 22050));
 
     assertTrue(rFm > 0.01, "native FM should produce audible output (rms=" + rFm + ")");
-    // Clean, periodic musical tone (not aliased/noisy). NB: for C4 the strongest period comes out at
+    // Clean, periodic musical tone (not aliased/noisy). NB: for C4 the strongest period comes out
+    // at
     // ~131 Hz (one octave below the played note) — possibly a native-FM octave offset or feedback
-    // period-doubling; needs a hardware A/B to confirm (see deluge-nondx7-port-bugs memory). Here we
+    // period-doubling; needs a hardware A/B to confirm (see deluge-nondx7-port-bugs memory). Here
+    // we
     // only assert it is a clean low-musical-range periodicity, not the exact octave.
-    assertTrue(f0 > 80 && f0 < 300, "native FM should be a clean periodic tone (got " + f0 + " Hz)");
+    assertTrue(
+        f0 > 80 && f0 < 300, "native FM should be a clean periodic tone (got " + f0 + " Hz)");
     // FM adds sidebands → richer than a pure subtractive sine.
     assertTrue(
         bFm > bSine * 2.0,
