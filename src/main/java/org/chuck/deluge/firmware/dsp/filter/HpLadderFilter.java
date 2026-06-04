@@ -33,7 +33,8 @@ public class HpLadderFilter extends FirmwareFilter {
   @Override
   public int setConfig(
       int hpfFrequency, int hpfResonance, FilterMode lpfMode, int lpfMorph, int filterGain) {
-    hpfFrequency = Math.max(0, Math.min(67108864, hpfFrequency));
+    // No frequency clamp (firmware passes the raw param to curveFrequency, which saturates
+    // internally); the old min(67108864) was a leftover from the Q26 cutoff scheme.
     int extraFeedback = 1200000000;
     this.morph_ = lpfMorph;
     curveFrequency(hpfFrequency);
