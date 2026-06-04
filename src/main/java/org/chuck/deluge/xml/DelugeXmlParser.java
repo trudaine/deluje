@@ -1912,13 +1912,15 @@ public class DelugeXmlParser {
     if (typeStr == null || typeStr.isBlank()) typeStr = getChildText(lfoEl, "type");
     if (typeStr != null) waveform = parseLfoType(typeStr);
 
-    // rate: hex Hz attribute or child text
+    // rate: hex Hz attribute or child text. Keep the Hz (for display/other uses) AND the raw Q31
+    // knob (the firmware-faithful rate path feeds the knob straight to getExp, avoiding the lossy
+    // hexToLfoHz round-trip).
+    int rateKnobQ31 = 0; // 0 = firmware neutral rate
     String rateStr = lfoEl.getAttribute("rate");
+    if (rateStr == null || rateStr.isBlank()) rateStr = getChildText(lfoEl, "rate");
     if (rateStr != null && !rateStr.isBlank()) {
       rateHz = DelugeHexMapper.hexToLfoHz(rateStr);
-    } else {
-      String rateChild = getChildText(lfoEl, "rate");
-      if (rateChild != null) rateHz = DelugeHexMapper.hexToLfoHz(rateChild);
+      rateKnobQ31 = DelugeHexMapper.hexToQ31(rateStr);
     }
 
     // depth: hex float attribute or child text
@@ -1972,6 +1974,7 @@ public class DelugeXmlParser {
     if (lfoIndex >= 0 && lfoIndex < 4) {
       synth.setLfo(
           lfoIndex, new LfoModel(rateHz, waveform, depth, "NONE", isLocal, syncLevel, syncType));
+      synth.setLfoRateKnobQ31(lfoIndex, rateKnobQ31);
     }
   }
 

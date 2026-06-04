@@ -370,13 +370,6 @@ public class FirmwareFactory {
       if (lm != null) {
         sound.lfoWaveforms[i] = mapLfoType(lm.waveform());
 
-        // Convert rateHz back to standard Q31 signed frequency parameter using inverse exponential
-        // function
-        float hz = lm.rateHz();
-        double exponent = Math.log(Math.max(0.01, Math.min(100.0, hz)) / 0.01) / Math.log(10000.0);
-        float norm = (float) (exponent * 2.0 - 1.0);
-        int q31Rate = (int) (norm * 2147483647.0);
-
         int paramId =
             switch (i) {
               case 0 -> Param.GLOBAL_LFO_FREQ_1;
@@ -386,7 +379,15 @@ public class FirmwareFactory {
               default -> -1;
             };
         if (paramId != -1) {
-          sound.paramNeutralValues[paramId] = q31Rate;
+          // Faithful: the unsynced LFO phase increment IS the exp-curved rate param
+          // (firmware getLocal/GlobalLFOPhaseIncrement returns paramFinalValues[LFO_FREQ] directly).
+          // Feed the RAW stored knob straight to getExp(neutral 121739, combineExp(knob, range 2^30))
+          // — the firmware curve — instead of the lossy Hz round-trip. Replaces the old
+          // `200 + pow(2,...)*500` formula in the voice/sound render.
+          int rateKnob = model.getLfoRateKnobQ31(i);
+          sound.paramNeutralValues[paramId] =
+              FirmwareUtils.getExp(
+                  121739, FirmwareUtils.patchCombineExpStep(0, rateKnob, 1073741824));
         }
       }
     }
