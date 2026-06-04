@@ -121,11 +121,13 @@ public class FirmwareSound extends GlobalEffectable {
     paramNeutralValues[Param.LOCAL_HPF_RESONANCE] = 0;
     paramNeutralValues[Param.LOCAL_HPF_MORPH] = 0;
 
-    // Default LFO rate mappings
-    paramNeutralValues[Param.GLOBAL_LFO_FREQ_1] = (int) (0.45 * 2147483647.0);
-    paramNeutralValues[Param.GLOBAL_LFO_FREQ_2] = (int) (0.40 * 2147483647.0);
-    paramNeutralValues[Param.LOCAL_LFO_LOCAL_FREQ_1] = (int) (0.45 * 2147483647.0);
-    paramNeutralValues[Param.LOCAL_LFO_LOCAL_FREQ_2] = (int) (0.40 * 2147483647.0);
+    // Default LFO rates: the param value is now the LFO phase increment directly (firmware scale),
+    // so default to the firmware neutral 121739 (~1.25 Hz). The factory overwrites this with
+    // getExp(121739, ...) of the patch's rate when an LFO is configured.
+    paramNeutralValues[Param.GLOBAL_LFO_FREQ_1] = 121739;
+    paramNeutralValues[Param.GLOBAL_LFO_FREQ_2] = 121739;
+    paramNeutralValues[Param.LOCAL_LFO_LOCAL_FREQ_1] = 121739;
+    paramNeutralValues[Param.LOCAL_LFO_LOCAL_FREQ_2] = 121739;
 
     // Default ADSR Envelopes configuration
     for (int i = 0; i < 4; i++) {
@@ -182,14 +184,13 @@ public class FirmwareSound extends GlobalEffectable {
       return;
     }
 
-    // 1. Update Global LFOs with dynamic logarithmic rates
-    int lfoRate1 = paramNeutralValues[Param.GLOBAL_LFO_FREQ_1];
-    int phaseInc1 = (int) (200 + Math.pow(2.0, (double) lfoRate1 / 2147483647.0 * 10.0) * 500.0);
+    // 1. Update Global LFOs. Faithful: the unsynced LFO phase increment is the exp-curved rate
+    // param directly (Sound::getGlobalLFOPhaseIncrement), not an ad-hoc formula.
+    int phaseInc1 = paramNeutralValues[Param.GLOBAL_LFO_FREQ_1];
     globalSourceValues[PatchSource.LFO_GLOBAL_1.ordinal()] =
         globalLfos[0].render(numSamples, lfoWaveforms[0], phaseInc1);
 
-    int lfoRate2 = paramNeutralValues[Param.GLOBAL_LFO_FREQ_2];
-    int phaseInc2 = (int) (200 + Math.pow(2.0, (double) lfoRate2 / 2147483647.0 * 10.0) * 500.0);
+    int phaseInc2 = paramNeutralValues[Param.GLOBAL_LFO_FREQ_2];
     globalSourceValues[PatchSource.LFO_GLOBAL_2.ordinal()] =
         globalLfos[1].render(numSamples, lfoWaveforms[2], phaseInc2);
 

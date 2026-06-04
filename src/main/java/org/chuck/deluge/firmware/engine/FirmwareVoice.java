@@ -342,14 +342,13 @@ public class FirmwareVoice {
       sourceValues[PatchSource.ENVELOPE_0.ordinal() + i] = envVal;
     }
 
-    // 2. Process Local LFOs with dynamic logarithmic rates
-    int lfoRate1 = paramFinalValues[Param.LOCAL_LFO_LOCAL_FREQ_1];
-    int phaseInc1 = (int) (200 + Math.pow(2.0, (double) lfoRate1 / 2147483647.0 * 10.0) * 500.0);
+    // 2. Process Local LFOs. Faithful: for an unsynced LFO the phase increment is the exp-curved
+    // rate param directly (Voice::getLocalLFOPhaseIncrement), not an ad-hoc formula.
+    int phaseInc1 = paramFinalValues[Param.LOCAL_LFO_LOCAL_FREQ_1];
     sourceValues[PatchSource.LFO_LOCAL_1.ordinal()] =
         lfos[1].render(numSamples, sound.lfoWaveforms[1], phaseInc1);
 
-    int lfoRate2 = paramFinalValues[Param.LOCAL_LFO_LOCAL_FREQ_2];
-    int phaseInc2 = (int) (200 + Math.pow(2.0, (double) lfoRate2 / 2147483647.0 * 10.0) * 500.0);
+    int phaseInc2 = paramFinalValues[Param.LOCAL_LFO_LOCAL_FREQ_2];
     sourceValues[PatchSource.LFO_LOCAL_2.ordinal()] =
         lfos[3].render(numSamples, sound.lfoWaveforms[3], phaseInc2);
 

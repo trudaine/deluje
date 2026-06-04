@@ -53,6 +53,13 @@ public class SynthTrackModel extends TrackModel {
   private final EnvelopeModel[] env = new EnvelopeModel[4];
   private final LfoModel[] lfo = new LfoModel[4];
 
+  /**
+   * Raw stored LFO-rate knob (Q31) for each of the 4 LFOs, preserved for the firmware-faithful rate
+   * mapping (knob -&gt; getExp). Avoids the lossy Hz round-trip through {@link
+   * org.chuck.deluge.xml.DelugeHexMapper#hexToLfoHz}. 0 = the firmware neutral rate (~1.25 Hz).
+   */
+  private final int[] lfoRateKnobQ31 = {0, 0, 0, 0};
+
   private ArpModel arp = ArpModel.defaultConfig();
   private float portamento = 0.0f;
 
@@ -499,6 +506,14 @@ public class SynthTrackModel extends TrackModel {
 
   public void setLfo(int index, LfoModel model) {
     lfo[index] = model;
+  }
+
+  public int getLfoRateKnobQ31(int index) {
+    return lfoRateKnobQ31[index];
+  }
+
+  public void setLfoRateKnobQ31(int index, int v) {
+    lfoRateKnobQ31[index] = v;
   }
 
   public ArpModel getArp() {
