@@ -39,7 +39,9 @@ public class LpLadderFilter extends FirmwareFilter {
   @Override
   public int setConfig(
       int lpfFrequency, int lpfResonance, FilterMode mode, int lpfMorph, int filterGain) {
-    lpfFrequency = Math.max(0, Math.min(67108864, lpfFrequency));
+    // No frequency clamp: the firmware passes the raw LPF_FREQ param to curveFrequency (which
+    // saturates internally via lshiftAndSaturate<5>). The previous `min(67108864)` clamp was a
+    // leftover from the old Q26 cutoff scheme and truncated high cutoffs.
     this.lpfMode = mode;
     this.morph = lpfMorph;
 

@@ -23,7 +23,8 @@ public class SVFilter extends FirmwareFilter {
 
   @Override
   public int setConfig(int freq, int res, FilterMode lpfMode, int lpfMorph, int filterGain) {
-    freq = Math.max(0, Math.min(67108864, freq));
+    // No frequency clamp (firmware passes the raw param to curveFrequency, which saturates
+    // internally); the old min(67108864) was a leftover from the Q26 cutoff scheme.
     curveFrequency(freq);
 
     // multiply by 1.25 to loosely correct for equivalency to ladders
