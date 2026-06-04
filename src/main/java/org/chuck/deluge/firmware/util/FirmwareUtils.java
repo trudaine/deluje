@@ -30,14 +30,14 @@ public class FirmwareUtils {
   }
 
   public static int increaseMagnitudeAndSaturate(int number, int magnitude) {
-    if (magnitude >= 0) {
-      int bits = 31 - magnitude;
-      int limit = 1 << bits;
-      if (number >= limit) return ONE;
-      if (number < -limit) return NEGATIVE_ONE;
-      return number << magnitude;
+    // Faithful port: firmware uses `magnitude > 0` for the saturating left shift and an ARITHMETIC
+    // right shift for magnitude <= 0. (The prior Java used `>= 0`, which sent magnitude==0 through a
+    // `1 << 31` that overflowed and forced saturation — breaking getExp for cutoff/LFO knobs that
+    // land at magnitudeIncrease==0 — and used an unsigned `>>>` that mangled negative inputs.)
+    if (magnitude > 0) {
+      return lshiftAndSaturate(number, magnitude);
     }
-    return number >>> (-magnitude);
+    return number >> (-magnitude);
   }
 
   public static int getExp(int presetValue, int adjustment) {
@@ -80,6 +80,16 @@ public class FirmwareUtils {
     return lshiftAndSaturate(preLimits, 3);
   }
 
+  /**
+   * One additive step of the exp cable combiner (port of cableToExpParamWithoutRangeAdjustment).
+   * Seed {@code runningTotal} with 0; first call folds the stored knob (strength = paramRange), then
+   * one call per cable (strength = cable amount). No final subtraction — pass the result straight to
+   * {@link #getFinalParameterValueExp}.
+   */
+  public static int patchCombineExpStep(int runningTotal, int source, int strength) {
+    return runningTotal + multiply_32x32_rshift32(source, strength);
+  }
+
   /** Port of {@code getFinalParameterValueVolume} — parabola curve for volume params. */
   public static int getFinalParameterValueVolume(int paramNeutralValue, int patchedValue) {
     int positivePatchedValue = patchedValue + 536870912;
@@ -91,6 +101,20 @@ public class FirmwareUtils {
   public static int getFinalParameterValueLinear(int paramNeutralValue, int patchedValue) {
     int positivePatchedValue = patchedValue + 536870912;
     return lshiftAndSaturate(multiply_32x32_rshift32(positivePatchedValue, paramNeutralValue), 3);
+  }
+
+  /**
+   * Port of {@code getFinalParameterValueHybrid} — additive curve for hybrid params (pan, phase
+   * width, wave index). Allows max output ±1073741824 (full pan range).
+   */
+  public static int getFinalParameterValueHybrid(int paramNeutralValue, int patchedValue) {
+    int preLimits = (paramNeutralValue >> 2) + (patchedValue >> 1);
+    return signedSaturate(preLimits, 32 - 3) << 2;
+  }
+
+  /** Port of {@code getFinalParameterValueExp} (= {@link #getExp}). */
+  public static int getFinalParameterValueExp(int paramNeutralValue, int patchedValue) {
+    return getExp(paramNeutralValue, patchedValue);
   }
 
   /**
