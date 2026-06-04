@@ -248,24 +248,19 @@ public class FirmwareVoice {
         tempMonoBuffer[i] = (int) (dxVoice.tick() * (2147483647.0 / 4.0));
       }
 
-      // Constant power panning calculation incorporating track panning and unison spread
-      int voicePan = paramFinalValues[Param.LOCAL_PAN]; // Q31
-      double uPan = (double) voicePan / 2147483648.0;
-      uPan += 0.6 * offset; // 0.6 spread
-      if (uPan < -1.0) uPan = -1.0;
-      if (uPan > 1.0) uPan = 1.0;
-
-      double angle = (uPan + 1.0) * (Math.PI / 4.0);
-      int gainL = (int) (Math.cos(angle) * 2147483647.0);
-      int gainR = (int) (Math.sin(angle) * 2147483647.0);
-
-      int scaledL = (int) (gainL * gainScale);
-      int scaledR = (int) (gainR * gainScale);
+      // Faithful linear panning (shouldDoPanning) incorporating track pan + unison spread, with the
+      // unison gain scale folded into the pan amplitude.
+      long panAmountDx = (long) paramFinalValues[Param.LOCAL_PAN] + (long) (0.6 * offset * 1073741824.0);
+      int panDx = (int) Math.max(-1073741824L, Math.min(1073741824L, panAmountDx));
+      int scaledL = (int) (FirmwareUtils.panAmplitudeL(panDx) * gainScale);
+      int scaledR = (int) (FirmwareUtils.panAmplitudeR(panDx) * gainScale);
 
       // Sum stereo-panned signals into voiceBuffer
       for (int i = 0; i < numSamples; i++) {
-        voiceBuffer[i].l = Q31.addSaturate(voiceBuffer[i].l, Q31.mult(tempMonoBuffer[i], scaledL));
-        voiceBuffer[i].r = Q31.addSaturate(voiceBuffer[i].r, Q31.mult(tempMonoBuffer[i], scaledR));
+        voiceBuffer[i].l =
+            Q31.addSaturate(voiceBuffer[i].l, multiply_32x32_rshift32(tempMonoBuffer[i], scaledL) << 2);
+        voiceBuffer[i].r =
+            Q31.addSaturate(voiceBuffer[i].r, multiply_32x32_rshift32(tempMonoBuffer[i], scaledR) << 2);
       }
     }
 
@@ -414,24 +409,22 @@ public class FirmwareVoice {
         renderUnisonPart(
             u, tempMonoBuffer, numSamples, phaseIncrementA, phaseIncrementB, overallPitchAdjust);
 
-        // Unison part constant-power panning calculation
+        // Faithful linear panning (shouldDoPanning): LOCAL_PAN is bipolar (0 = centre), plus a unison
+        // stereo-spread offset. Far channel drops linearly; centre is full both sides (no -3 dB dip).
         double offset = 0.0;
         if (sound.numUnison > 1) {
           offset = (double) (2 * u - (sound.numUnison - 1)) / (double) (sound.numUnison - 1);
         }
-        int voicePan = paramFinalValues[Param.LOCAL_PAN]; // Q31
-        double uPan = (double) voicePan / 2147483648.0;
-        uPan += 0.6 * offset; // 0.6 spread
-        if (uPan < -1.0) uPan = -1.0;
-        if (uPan > 1.0) uPan = 1.0;
-
-        double angle = (uPan + 1.0) * (Math.PI / 4.0);
-        int gainL = (int) (Math.cos(angle) * 2147483647.0);
-        int gainR = (int) (Math.sin(angle) * 2147483647.0);
+        long panAmount = (long) paramFinalValues[Param.LOCAL_PAN] + (long) (0.6 * offset * 1073741824.0);
+        int pan = (int) Math.max(-1073741824L, Math.min(1073741824L, panAmount));
+        int ampL = FirmwareUtils.panAmplitudeL(pan);
+        int ampR = FirmwareUtils.panAmplitudeR(pan);
 
         for (int i = 0; i < numSamples; i++) {
-          voiceBuffer[i].l = Q31.addSaturate(voiceBuffer[i].l, Q31.mult(tempMonoBuffer[i], gainL));
-          voiceBuffer[i].r = Q31.addSaturate(voiceBuffer[i].r, Q31.mult(tempMonoBuffer[i], gainR));
+          voiceBuffer[i].l =
+              Q31.addSaturate(voiceBuffer[i].l, multiply_32x32_rshift32(tempMonoBuffer[i], ampL) << 2);
+          voiceBuffer[i].r =
+              Q31.addSaturate(voiceBuffer[i].r, multiply_32x32_rshift32(tempMonoBuffer[i], ampR) << 2);
         }
       }
     }

@@ -24,7 +24,7 @@ public class FirmwarePolyphonyTest {
     m.setOsc2Type("NONE");
     m.setOscMix(1.0f);
     m.setLpfFreq(20000f);
-    m.setVolume(0.8f);
+    m.setVolume(0.3f);
     m.addClip(new ClipModel("c", 8, 16));
     ProjectModel p = new ProjectModel();
     p.addTrack(m);
