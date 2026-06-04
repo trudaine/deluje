@@ -28,6 +28,9 @@ Welcome to the **ChucK-Java Deluge Workstation**, a modern, high-fidelity softwa
     * [17.1 Hardware Character Emulations & Master Saturation Drive](#171-hardware-character-emulations--master-saturation-drive)
 18. [Appendix: Programmatic High-Fidelity JNI Registers Architecture](#18-appendix-programmatic-high-fidelity-jni-registers-architecture)
 19. [Appendix: Pending Work Items & Future Development Roadmap (TODO List)](#19-appendix-pending-work-items--future-development-roadmap-todo-list)
+20. [Hardware Popular Commands & Java UI Equivalents Table](#20-hardware-popular-commands--java-ui-equivalents-table)
+21. [Deluge Community Quick Reference & Java Adaptation Guide](#21-deluge-community-quick-reference--java-adaptation-guide)
+22. [Creative Workflow Tips & Best Practices (Understanding the Workflow)](#22-creative-workflow-tips--best-practices-understanding-the-workflow)
 
 ---
 
@@ -864,5 +867,104 @@ While the ChucK-Java Deluge Workstation provides a comprehensive operations plat
 
 ---
 
+## 20. Hardware Popular Commands & Java UI Equivalents Table
+
+The following table maps the standard Deluge hardware button combinations (from the official Synthstrom Popular Commands Guide) to the equivalent modern desktop mouse clicks and keyboard shortcuts inside the ChucK-Java Deluge Workstation:
+
+| Category | Hardware Command | Hardware Button Key Sequence | Java UI Desktop Equivalent Action |
+| :--- | :--- | :--- | :--- |
+| **All Views** | Adjust Brightness | `Shift` + `Learn` + turn `▼▲` knob | Adjust monitor brightness, or configure desktop layouts under **`Settings ➔ Preferences...`** |
+| | Current Zoom Level | Press `◄►` knob | Inspect bottom rate selection box, or use shortcut **`Ctrl + [`** / **`Ctrl + ]`** |
+| | Scroll grid horizontally | Turn `◄►` knob | Scroll mouse wheel horizontally, drag bottom scroll bar, or glide cursor near borders |
+| | Scroll grid vertically | Turn `▼▲` knob | Scroll mouse wheel vertically, or drag right-side scroll bar |
+| | Metronome toggle | `Shift` + `Tap Tempo` | Check **`[✓] Metronome`** in transport toolbar or hold `Shift` + `T` |
+| | Delete song | `Shift` + `Save/Delete` | Right-click Song XML file in Sidebar Explorer ➔ Delete |
+| | New song | `Shift` + `Load` ➔ `Load` | Select **`File ➔ New Project`** (`Ctrl + N`) |
+| | Undo / Redo | `Back` / `Shift` + `Back` | **`Ctrl + Z`** (Undo) / **`Ctrl + Y`** (Redo) or via **Edit** menu dropdown |
+| **Knobs Push** | Cutoff / HPF / EQ Toggle | Push Upper-Right Parameter Knob | Select **Cutoff**, **HPF**, or **EQ** tab in bottom dials deck, or turn gold dials directly |
+| | Delay Time Ping-Pong | Push Upper-Right delay knob | Toggle **`[Ping-Pong]`** checkbox in Delay deck |
+| | Delay style Digital/Analog | Push Lower-Left delay knob | Toggle **`[Analog Mode]`** checkbox in Delay deck |
+| | Compressor speed Fast/Slow | Push Upper-Right sidechain knob | Toggle **`[Fast Release]`** in Compressor tab |
+| | Reverb room Size | Push Lower-Left reverb knob | Select **Reverb Model** (JCRev vs Freeverb) or slide Room Size |
+| | Mod FX type cycle | Push Upper-Right ModFX knob | Select Chorus, Flanger, or Phaser from Mod FX combobox |
+| **Song View** | Adjust Track parameter | Hold track pad + turn dial | Adjust dials directly on the track row, or double-click header to open **Sound Editor** |
+| | Launch Song Section | Press Section pad | Click colored Section launch buttons in **SONG view** |
+| | Section repeat length | Push section pad + turn Select | Click loop countdown combobox on song row |
+| | Clone track | Hold track pad + tap another row | Right-click track row header ➔ **`Clone Track`** |
+| | Solo track | `Hold ◄►` + press launch | Click the **`[S]`** button next to track name |
+| | Delete track | Hold track pad + `Save/Delete` | Right-click track row header ➔ **`Delete Track`** |
+| **Track View** | Adjust track length | `Shift` + turn `◄►` knob | Press **`Ctrl + [`** (decrease) or **`Ctrl + ]`** (increase) |
+| | Duplicate/Double track | `Shift` + push `◄►` knob | Click **`[Double & Append]`** button next to loop length |
+| | Horizontal shift note | Push `▼▲` + turn `◄►` knob | Drag selected note block horizontally, or use Nudge slider |
+| | Note length/Tie | Hold start pad + tap end pad | Click a note pad and drag mouse horizontally along the row |
+| | Note velocity | Hold pad + turn `◄►` knob | Hover step to slide velocity wiggler, or double-click to set value |
+| | Per-step parameter lock | Hold pad + turn parameter dial | Hold **`Shift`** and click pad ➔ adjust slider |
+| | Clear track content | Push `◄►` knob + `Back` | Click **`[Clear Track]`** button or right-click track ➔ Clear |
+| | Load sample to track | `Audition` pad + `Load` | Drag WAV file from **Sidebar Explorer** straight onto row lane |
+| | Sound Editor | `Shift` + shortcut pad, or push Select | Double-click track name header to open **Synth Editor Dialog** |
+| **Sound Presets** | Save preset | `Save` button | Select **`File ➔ Save Project`** (`Ctrl + S`) or click Save icon |
+| | Load blank Synth/Kit | `Shift` + `Synth` / `Kit` | Right-click sidebar empty space ➔ **`Add Synth Track`** or **`Add Kit Track`** |
+
+---
+
+## 21. Deluge Community Quick Reference & Java Adaptation Guide
+
+This chapter adapts the core categories and reference numbers of the official **Deluge Community Quick Reference Guide v3.1** to the JApp desktop workflow, ensuring a smooth transition for hardware power-users:
+
+### 21.1 Global & Song Operations (GL)
+*   **GL01 Song Loading / Saving**: The mounted SD Card folder structure (`SONGS/`, `SAMPLES/`, `KITS/`, `SYNTHS/`) is resolved dynamically relative to the library root configured in **`Settings ➔ Preferences...`**. Load songs via Sidebar double-clicks or **`File ➔ Open Project...`** (`Ctrl + O`).
+*   **GL09 Collect All Samples**: Under the File menu, this function automatically scans the active song project, creates a folder with the song's name, and copies all referenced WAV samples under `/SONGS`, packaging the project for easy transport.
+*   **GL15 Open Sound Editor**: Double-click any track header name, or double-click any step sequencer pad to launch the twelve-tab Synth Configuration Dialog.
+
+### 21.2 Step Sequencing Parity (SQ)
+*   **SQ01 Making Ties / Long Notes**: Unlike hardware which requires pressing two pads simultaneously, in Java you simply click a note pad and drag your mouse horizontally to paint note ties.
+*   **SQ02 Note Velocity & micro-timing**: Hovering over a sequenced pad exposes the Step Properties slider deck to adjust velocity ($0\dots127$), repeats, fill probability, and micro-timing nudges dynamically.
+*   **SQ04 Copy / Paste Notes**: Select notes or rows and press **`Ctrl + C`** / **`Ctrl + V`** to copy/paste note blocks across tracks or time positions.
+*   **SQ09 Euclidean Rhythm Generator**: Press the **`Euclidean`** button next to any kit row or synth track grid lane to configure Bjorklund pulses and auto-populate rows instantly.
+
+### 21.3 Waveforms & Multi-Sampling (WF)
+*   **WF01 Loading Samples as Synths**: Drag and drop WAV samples from the Sidebar Project Explorer directly onto Synth oscillators to configure sample-based synthesis.
+*   **WF02 Multi-Sampling Keyzones**: When loading acoustic samples, double-click the track to open the **`Multi-Sample keyzones mapper`**. Click add zone, select files, and configure root pitches and zone bounds (`BOT-TOP` ranges).
+*   **WF06 Waveform Laboratory**: The visual crop panel features symmetric teal-to-magenta HSL envelopes representation. Drag markers to adjust Start (S), End (E), Loop Start (LS), and Loop End (LE) points.
+
+### 21.4 Arranger & Looper Workspaces (AV & LO)
+*   **AV01 Arranger Grid**: The grid editor transforms into an interactive multitrack arrangement timeline workspace. Drag blocks horizontally to shift start times, hold Shift and drag edges to resize block loop lengths.
+*   **AV12 Live Performance Capture**: Click the glowing **`[🔴 CAPTURE]`** button in Song/Session view to record clip launches, solos, mutes, and tempo adjustments straight into Arranger tracks in real-time.
+*   **LO01 Pedal Looper**: Spawns looper audio tracks. Mapped foot-pedals (via MIDI config) trigger overdub layering, loop closures, and layer undos/redos with automatic background BPM tempo estimation.
+
+### 21.5 FM Multipliers to Semitones & Cents Table
+Because the hardware Deluge and Yamaha DX7 FM operators specify frequency ratios as raw multipliers ($1\dots12$), while the internal DSP engine maps these to semitone offsets and fine cent tuning adjustments, use the following conversion table when designing FM synth presets manually:
+
+| Target FM Ratio | Semitone Pitch Offset | Cent Tuning Offset | Sonic Characteristics |
+| :--- | :--- | :--- | :--- |
+| **1:1** (Fundamental) | 0 semitones | 0.0 cents | Baseline carrier tone |
+| **1:2** (1st Octave) | 12 semitones | 0.0 cents | Hollow octave sound |
+| **1:3** (Fifth Overone) | 19 semitones | 2.0 cents | Warm, organ-like fifth |
+| **1:4** (2nd Octave) | 24 semitones | 0.0 cents | Bright fundamental clarity |
+| **1:5** (Major Third) | 27 semitones | 86.0 cents | Sweet harmonic third |
+| **1:6** (Fifth Octave) | 31 semitones | 2.0 cents | High harmonic organ |
+| **1:7** (Harmonic Seventh)| 33 semitones | 69.0 cents | Aggressive, metallic chime |
+| **1:8** (3rd Octave) | 36 semitones | 0.0 cents | Crystal chime pluck |
+| **1:9** (Major Second) | 38 semitones | 4.0 cents | Industrial detune friction |
+| **1:10** (Major Third) | 39 semitones | 86.0 cents | High harmonic bite |
+| **1:12** (Fifth Octave) | 43 semitones | 2.0 cents | Searing digital bells |
+
+---
+
+## 22. Creative Workflow Tips & Best Practices (Understanding the Workflow)
+
+The open-ended nature of the Deluge Workstation workflow allows you to compose, arrange, and design sounds in multiple directions. Incorporating the following creative guidelines and production methods (inspired by veteran Deluge users) will keep your session flows organized and efficient:
+
+*   **Sequencing as a Super Looper**: Look at individual clips as highly flexible loops (spanning 2, 4, 8, or unusual length like 7 or 11 bars) rather than drawing massive linear tracks in the beginning. Use the Arrangement view to puzzle these loops together into complete songs.
+*   **Keep Song Mode at 1/16th Resolution**: When navigating song structures in **SONG View**, stick to a standard 1/16th zoom level. At this zoom level, the backlit pads patterns form distinct visual identities (identifiable HSL color patterns) for each track, helping you locate and switch clips rapidly without visual clutter.
+*   **Protect the Source (Non-Destructive Editing)**: When experimenting, clone your active clip or section first before performing destructive actions (e.g. clearing steps, applying extreme randomizations, or recording live automation). This keeps a safe baseline copy of your original ideas, letting you iterate fearlessly.
+*   **Drums Kit Consolidation**: To keep your session responsive and conserve system memory, avoid filling drum kits with hundreds of unused samples. Group kit slots logically (e.g. Kick/Snare/Hats in one kit, ambient loops in another, and SFX in a third) across separate track lanes.
+*   **Resampling as a CPU Voice Saver**: The workstation offers massive voice polyphony, but heavy FM modulation feedback loops, multiple stereo voice stack detuning detunes, and global Master effects can strain CPU resources. Use the resampling feature (or export audio) to record complex, CPU-heavy multi-voice synth lanes down into a single clean audio WAV sample, saving voices for live performance parts.
+*   **Calibrate Tempo-Synced Delay**: To sync the master Delay to your tempo, ensure the Delay Time parameter is set to its default value (the golden dials indicators snap to middle ground). Adjust the Division selector (e.g. from 16th to a wider 8th or 4th note) to create spacious, tempo-locked delays.
+
+---
+
 > [!NOTE]
 > All resources and WAV samples are dynamically loaded from your preference SD Card Mounted Library path directory. Ensure your paths are configured inside **`Settings ➔ Preferences...`** to load library instruments stably.
+
+

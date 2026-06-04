@@ -450,9 +450,9 @@ public class FirmwareSound extends GlobalEffectable {
   public void setHpfMode(org.chuck.deluge.model.FilterMode modelMode) {
     if (modelMode == null) return;
     switch (modelMode) {
-        // The firmware HPF ladder is a single mode (HPLADDER) — every ladder-type setting maps to
-        // it. NOTE: the XML parser turns the default "HPLadder" into LADDER_12, so LADDER_12 must
-        // map to HPLADDER here, not OFF (otherwise the high-pass is silently disabled).
+      // The firmware HPF ladder is a single mode (HPLADDER) — every ladder-type setting maps to
+      // it. NOTE: the XML parser turns the default "HPLadder" into LADDER_12, so LADDER_12 must
+      // map to HPLADDER here, not OFF (otherwise the high-pass is silently disabled).
       case LADDER_12:
       case LADDER_24:
       case DRIVE:
