@@ -450,19 +450,31 @@ public class FirmwareVoice {
       voiceBuffer[i].r = Q31.mult(wetR, trackVol);
     }
 
-    // Configure and render dynamic polyphonic per-voice filter set in stereo!
-    filterSet.setConfig(
-        paramFinalValues[Param.LOCAL_LPF_FREQ],
-        paramFinalValues[Param.LOCAL_LPF_RESONANCE],
-        sound.lpfMode,
-        paramFinalValues[Param.LOCAL_LPF_MORPH],
-        paramFinalValues[Param.LOCAL_HPF_FREQ],
-        paramFinalValues[Param.LOCAL_HPF_RESONANCE],
-        sound.hpfMode,
-        paramFinalValues[Param.LOCAL_HPF_MORPH],
-        Q31.ONE,
-        sound.filterRoute);
+    // Configure and render dynamic polyphonic per-voice filter set in stereo. setConfig returns the
+    // filter makeup gain (filterGain / postFXVolume), which the firmware applies to the output to
+    // compensate the ladder/SVF passband gain. Applying it here (the prior code discarded the return)
+    // keeps a wide-open ladder at ~unity instead of ~2.4x hot.
+    int filterGain =
+        filterSet.setConfig(
+            paramFinalValues[Param.LOCAL_LPF_FREQ],
+            paramFinalValues[Param.LOCAL_LPF_RESONANCE],
+            sound.lpfMode,
+            paramFinalValues[Param.LOCAL_LPF_MORPH],
+            paramFinalValues[Param.LOCAL_HPF_FREQ],
+            paramFinalValues[Param.LOCAL_HPF_RESONANCE],
+            sound.hpfMode,
+            paramFinalValues[Param.LOCAL_HPF_MORPH],
+            Q31.ONE,
+            sound.filterRoute);
     filterSet.renderStereoInterleaved(voiceBuffer, numSamples);
+    // Apply the filter makeup gain (firmware applies postFXVolume to the output). filterGain is the
+    // firmware filterGain return (e.g. ~0.4*2^31 for a wide-open ladder at zero resonance).
+    if (filterGain != Q31.ONE) {
+      for (int i = 0; i < numSamples; i++) {
+        voiceBuffer[i].l = multiply_32x32_rshift32(voiceBuffer[i].l, filterGain) << 1;
+        voiceBuffer[i].r = multiply_32x32_rshift32(voiceBuffer[i].r, filterGain) << 1;
+      }
+    }
 
     for (int i = 0; i < numSamples; i++) {
       // Bit-accurate per-voice non-linear saturation summing (sum directly without left-shifting!)
