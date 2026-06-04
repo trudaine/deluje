@@ -909,30 +909,127 @@ The following table maps the standard Deluge hardware button combinations (from 
 
 ## 21. Deluge Community Quick Reference & Java Adaptation Guide
 
-This chapter adapts the core categories and reference numbers of the official **Deluge Community Quick Reference Guide v3.1** to the JApp desktop workflow, ensuring a smooth transition for hardware power-users:
+This chapter provides a direct, code-by-code mapping of every shortcut code from the official **Deluge Community Quick Reference Guide v3.1** to the equivalent mouse/keyboard actions in the Java desktop Workstation:
 
-### 21.1 Global & Song Operations (GL)
-*   **GL01 Song Loading / Saving**: The mounted SD Card folder structure (`SONGS/`, `SAMPLES/`, `KITS/`, `SYNTHS/`) is resolved dynamically relative to the library root configured in **`Settings ➔ Preferences...`**. Load songs via Sidebar double-clicks or **`File ➔ Open Project...`** (`Ctrl + O`).
-*   **GL09 Collect All Samples**: Under the File menu, this function automatically scans the active song project, creates a folder with the song's name, and copies all referenced WAV samples under `/SONGS`, packaging the project for easy transport.
-*   **GL15 Open Sound Editor**: Double-click any track header name, or double-click any step sequencer pad to launch the twelve-tab Synth Configuration Dialog.
+### 21.1 Global & Song Settings (GL)
+
+| Code | Hardware Function | Hardware Button Sequence | Java Workstation Equivalent Action |
+| :--- | :--- | :--- | :--- |
+| **GL01** | Zoom level view | Turn `◄►` knob | Use rate select box at bottom zoom toolbar, or **`Ctrl + [`** / **`Ctrl + ]`** |
+| **GL02** | Scroll grid | Turn `◄►` or `▼▲` knob | Drag grid scrollbars, use mouse scrollwheel, or hover border to auto-scroll |
+| **GL03** | Undo action | Press `Back` button | **`Ctrl + Z`** or select **`Edit ➔ Undo`** |
+| **GL04** | Redo action | Press `Shift` + `Back` | **`Ctrl + Y`** or select **`Edit ➔ Redo`** |
+| **GL05** | Load Song | Press `Load` button, select | Double-click Song XML in Sidebar Explorer, or **`File ➔ Open Project...`** |
+| **GL06** | Load Song (Keep Tempo) | Hold `Tempo` + press `Load` | Select Open Project, tempo magnitude matching adapts automatically |
+| **GL07** | Delay Song Change | Hold `Load` | Song transitions loop boundaries are armed and timed automatically |
+| **GL08** | Save Song | Press `Save` button | Select **`File ➔ Save Project`** (`Ctrl + S`) or click Save icon |
+| **GL09** | Save Song (Collect All) | Hold `Save` + select | Select **`File ➔ Save Project`** (packages and copies samples to `/SONGS`) |
+| **GL10** | Delete Song | Press `Shift` + `Save/Delete` | Right-click Song XML file in Sidebar Explorer ➔ Delete |
+| **GL11** | New Song | Press `Shift` + `Load` ➔ `Load` | Select **`File ➔ New Project`** (`Ctrl + N`) |
+| **GL12** | Settings Menu | Press `Shift` + push `Select` | Select **`Settings ➔ Preferences...`** |
+| **GL13** | Open Sound Editor | `Shift` + Grid Shortcut | Double-click track name header to open **Synth Configuration Dialog** |
+| **GL14** | Adjust Brightness | `Shift` + `Learn` + turn `▼▲` | Handled by OS settings, or layout colors in preferences |
+| **GL15** | Swing amount | `Shift` + turn `Tempo` knob | Drag Swing slider in top transport toolbar / `g_swing` |
+| **GL16** | QWERTY Keyboard Search | Automatic on name browse | Type directly in file browse filters or dialog text fields |
+| **GL17** | Pad Refresh Rate | Scroll menu ➔ refresh rate | Optimized dynamically in Java UI JViewport paint loops |
+| **GL18** | Firmware Update | Hold `Shift` + Power On | Managed by Maven compile and shade packages rebuilds |
+| **GL19** | File System Up/Back | Press `Back` button in menus | Click parent nodes in Sidebar JTree explorer, or parent folders |
+| **GL20** | Collect All Samples | Choose collect menu | Handled on Save Project serialization to SD card structure |
 
 ### 21.2 Step Sequencing Parity (SQ)
-*   **SQ01 Making Ties / Long Notes**: Unlike hardware which requires pressing two pads simultaneously, in Java you simply click a note pad and drag your mouse horizontally to paint note ties.
-*   **SQ02 Note Velocity & micro-timing**: Hovering over a sequenced pad exposes the Step Properties slider deck to adjust velocity ($0\dots127$), repeats, fill probability, and micro-timing nudges dynamically.
-*   **SQ04 Copy / Paste Notes**: Select notes or rows and press **`Ctrl + C`** / **`Ctrl + V`** to copy/paste note blocks across tracks or time positions.
-*   **SQ09 Euclidean Rhythm Generator**: Press the **`Euclidean`** button next to any kit row or synth track grid lane to configure Bjorklund pulses and auto-populate rows instantly.
 
-### 21.3 Waveforms & Multi-Sampling (WF)
-*   **WF01 Loading Samples as Synths**: Drag and drop WAV samples from the Sidebar Project Explorer directly onto Synth oscillators to configure sample-based synthesis.
-*   **WF02 Multi-Sampling Keyzones**: When loading acoustic samples, double-click the track to open the **`Multi-Sample keyzones mapper`**. Click add zone, select files, and configure root pitches and zone bounds (`BOT-TOP` ranges).
-*   **WF06 Waveform Laboratory**: The visual crop panel features symmetric teal-to-magenta HSL envelopes representation. Drag markers to adjust Start (S), End (E), Loop Start (LS), and Loop End (LE) points.
+| Code | Hardware Function | Hardware Button Sequence | Java Workstation Equivalent Action |
+| :--- | :--- | :--- | :--- |
+| **SQ01** | Make note | Tap grid pad | Click grid cell to place note event |
+| **SQ02** | Make long note (tie) | Hold start pad + tap end pad | Click a note pad and drag mouse horizontally along the row |
+| **SQ03** | Adjust note velocity | Hold pad + turn `◄►` knob | Hover sequenced pad to slide velocity wiggler, or double-click step |
+| **SQ04** | Note probability | Hold pad + turn `Select` left | Double-click step ➔ adjust Fill Probability % slider in properties |
+| **SQ05** | Note iteration | Hold pad + turn `Select` right | Double-click step ➔ adjust repeats/sub-divisions spinner |
+| **SQ06** | Copy notes | Hold `Learn` + push `◄►` | Select notes or columns + press **`Ctrl + C`** |
+| **SQ07** | Paste notes | Hold `Learn` + `Shift` + push `◄►`| Select target cell + press **`Ctrl + V`** |
+| **SQ08** | Euclidean Rhythm | Push `Select` in Euclidean menu | Click **`Euclidean`** button next to grid row to open wheel dialog |
+| **SQ09** | Shift all clip notes | Push `▼▲` + turn `◄►` knob | Drag notes, or use Nudge slider in Step properties |
+| **SQ10** | Clear clip | Press `Shift` + `Back` + push `◄►`| Click **`[Clear Track]`** button, or right-click track ➔ Clear |
+| **SQ11** | Change clip color | `Shift` + press `▼▲` knob | Click colored track swatch in track row header |
+| **SQ12** | Adjust clip length | `Shift` + turn `◄►` knob | Press **`Ctrl + [`** (decrease) or **`Ctrl + ]`** (increase) |
+| **SQ13** | Duplicate clip content | `Shift` + push `◄►` knob | Click **`[Double & Append]`** button next to loop length |
+| **SQ14** | Note repeat (stutter) | Hold pad + turn parameter knob | Adjust repeats count on step properties wiggler slider |
+| **SQ15** | Play direction | Track menu ➔ direction | Select Forward/Reverse/Ping-Pong/Random track modes dropdown |
 
-### 21.4 Arranger & Looper Workspaces (AV & LO)
-*   **AV01 Arranger Grid**: The grid editor transforms into an interactive multitrack arrangement timeline workspace. Drag blocks horizontally to shift start times, hold Shift and drag edges to resize block loop lengths.
-*   **AV12 Live Performance Capture**: Click the glowing **`[🔴 CAPTURE]`** button in Song/Session view to record clip launches, solos, mutes, and tempo adjustments straight into Arranger tracks in real-time.
-*   **LO01 Pedal Looper**: Spawns looper audio tracks. Mapped foot-pedals (via MIDI config) trigger overdub layering, loop closures, and layer undos/redos with automatic background BPM tempo estimation.
+### 21.3 Song View (SV)
 
-### 21.5 FM Multipliers to Semitones & Cents Table
+| Code | Hardware Function | Hardware Button Sequence | Java Workstation Equivalent Action |
+| :--- | :--- | :--- | :--- |
+| **SV01** | Stop/Launch clip | Tap colored launch pad | Click colored trigger pad on SONG view grid row |
+| **SV02** | Solo clip (arm) | Hold `◄►` + press launch pad | Click the **`[S]`** (Solo) button next to track name |
+| **SV03** | Solo clip (immediate) | Hold `◄►` + `Shift` + launch | Hold **`Shift`** + click **`[S]`** (Solo) button |
+| **SV04** | Mute/Launch immediately | Press launch pad | Click the **`[M]`** (Mute) button next to track name |
+| **SV05** | Delete clip | Press `Shift` + `Save/Delete` | Right-click track row header ➔ **`Delete Track`** |
+| **SV06** | Create new clip | Click empty row button | Click empty grid row pad, or select `Add Track` |
+| **SV07** | Move clip row | Hold pad + turn `▼▲` knob | Click and drag track row header up or down |
+| **SV08** | Clone clip | Hold pad + press blank row pad | Right-click track row header ➔ **`Clone Track`** |
+| **SV09** | Clip section color | `Shift` + press section pad | Click colored Section launch buttons in SONG view |
+| **SV10** | Launch section | Press section pad | Click colored Section launch buttons in SONG view |
+| **SV11** | Section repeat | Hold section pad + turn `Select` | Select repeat loop count dropdown on song row |
+| **SV12** | Clip Parameter Change | Hold clip pad + turn knob | Adjust dials directly on track row, or double-click to open Sound Editor |
+| **SV13** | Clip Type change | Hold row button + select type | Select track preset folder (Kits vs Synths vs MIDI) |
+
+### 21.4 Recording / Resampling (RS)
+
+| Code | Hardware Function | Hardware Button Sequence | Java Workstation Equivalent Action |
+| :--- | :--- | :--- | :--- |
+| **RS01** | Record sample | Press `Record` + `Play` | Click Looper **`[● REC]`** button |
+| **RS02** | Record sample into kit row| Hold kit pad + press `Record` | Click kit row config ➔ record input |
+| **RS03** | Synth Resample | Press `Shift` + `Record` | Select **MIX** or **OUTPut** as oscillator source in Sound Editor |
+| **RS04** | Slice sample | Press `Shift` + `Kit` (select SLIC)| Select **`Tools ➔ Audio Loop Slicer...`** (`Ctrl + L`) |
+| **RS05** | Rename sample | Name menu ➔ QWERTY search | Right-click sample in Sidebar Explorer ➔ Rename |
+
+### 21.5 Audio Clips (AC)
+
+| Code | Hardware Function | Hardware Button Sequence | Java Workstation Equivalent Action |
+| :--- | :--- | :--- | :--- |
+| **AC01** | Create audio clip | Click empty row + select Audio | Select **`File ➔ Load Audio Track...`** |
+| **AC02** | Input source | Click input source menu | Select LEFT, RIGHt, STEReo, BALAnced, MIX, or OUTPut in crop panel |
+| **AC03** | Loop length | Click endpoint column | Adjust loop start/end crop markers in visual WAV crop panel |
+| **AC04** | Clear audio clip | Press `Shift` + `Save/Delete` | Click crop panel `[Delete]` button, or clear track |
+
+### 21.6 Modifying Sounds (MS)
+
+| Code | Hardware Function | Hardware Button Sequence | Java Workstation Equivalent Action |
+| :--- | :--- | :--- | :--- |
+| **MS01** | New Synth/Kit | Press `Shift` + `Synth` / `Kit` | Right-click empty sidebar space ➔ **`Add Synth Track`** or **`Add Kit Track`** |
+| **MS02** | Save preset | Press `Save` button | Select **`File ➔ Save Project`** (`Ctrl + S`) or click Save icon |
+| **MS03** | Clear notes & automation | Hold `◄►` + press `Back` | Click **`[Clear Track]`** button |
+| **MS04** | Choke group | Kit menu ➔ select Choke | Check `Auto-Choke Hats` or set choke index in Kit slots configurations |
+| **MS05** | Cycle default scales | Press `Shift` + `Scale` | Click Scala Scale browse dialog under Preferences |
+| **MS06** | Change root note | Hold `Scale` + audition pad | Select root key dropdown on track header |
+| **MS07** | Transpose clip | Push + turn `▼▲` knob | Adjust Transpose spinner on track header |
+| **MS08** | Clone preset | Preset menu ➔ select Clone | Right-click preset ➔ Save As |
+
+### 21.7 Arranger View (AV)
+
+| Code | Hardware Function | Hardware Button Sequence | Java Workstation Equivalent Action |
+| :--- | :--- | :--- | :--- |
+| **AV01** | Add Clip | Press grid cell in arranger | Click empty arranger step cell |
+| **AV02** | Move Clip instances | Turn `◄►` knob | Click and drag arranger block horizontally |
+| **AV03** | Change instance length | Turn `◄►` + `Shift` | Hold Shift and drag arranger block edges |
+| **AV04** | Delete clip instance | Hold pad + press `Save/Delete` | Double-click or right-click arranger block |
+| **AV05** | Mute/Unmute | Press track launch button | Click `[M]` button on track row header |
+| **AV06** | Solo instrument | Hold `◄►` + press launch pad | Click `[S]` button on track row header |
+| **AV07** | Enter Clip | Press pad to view/edit | Double-click arranger block to zoom into Clip View |
+| **AV08** | Start Playback | Press `Play` | Playhead scheduler syncs play to visible viewport |
+| **AV09** | Live performance record | Press `Record` | Click glowing **`[🔴 CAPTURE]`** button |
+
+### 21.8 MIDI Commands (MC)
+
+| Code | Hardware Function | Hardware Button Sequence | Java Workstation Equivalent Action |
+| :--- | :--- | :--- | :--- |
+| **MC01** | MIDI Out setup | Hold row button ➔ select MIDI | Select MIDI Channel dropdown in MIDI track header |
+| **MC02** | CC learn | Hold param knob ➔ turn CC select| Select parameter and click **`[START LEARN]`** in MIDI Device settings |
+| **MC03** | MIDI Note Input | Play external keys | Mapped on active track input, plays virtual synth engine |
+| **MC04** | Takeover modes | Managed in menus | Configure JUMP, PICKUP, or SCALE in Preferences dialog |
+
+### 21.9 FM Multipliers to Semitones & Cents Table
 Because the hardware Deluge and Yamaha DX7 FM operators specify frequency ratios as raw multipliers ($1\dots12$), while the internal DSP engine maps these to semitone offsets and fine cent tuning adjustments, use the following conversion table when designing FM synth presets manually:
 
 | Target FM Ratio | Semitone Pitch Offset | Cent Tuning Offset | Sonic Characteristics |
