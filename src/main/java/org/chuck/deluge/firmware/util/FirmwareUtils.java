@@ -55,6 +55,24 @@ public class FirmwareUtils {
     return jcong;
   }
 
+  // ── Pan (port of shouldDoPanning) ──
+  // The firmware pan is LINEAR: at centre both channels are full (1073741823); panned, the near
+  // channel stays full and the far channel drops linearly to 0. panAmount is bipolar (0 = centre,
+  // ±1073741824 = hard L/R). The resulting amplitude is "1.0" at 1073741823 (2^30) — apply as
+  // multiply_32x32_rshift32(sample, amp) << 2. (The previous Java cos/sin constant-power law made
+  // centre 0.707/0.707 — 3 dB quiet — and a mis-encoded centre rendered off to one side.)
+  public static int panAmplitudeL(int panAmount) {
+    if (panAmount == 0) return 1073741823;
+    int panOffset = Math.max(-1073741824, Math.min(1073741824, panAmount));
+    return (panAmount <= 0) ? 1073741823 : (1073741824 - panOffset);
+  }
+
+  public static int panAmplitudeR(int panAmount) {
+    if (panAmount == 0) return 1073741823;
+    int panOffset = Math.max(-1073741824, Math.min(1073741824, panAmount));
+    return (panAmount >= 0) ? 1073741823 : (1073741824 + panOffset);
+  }
+
   // ── Deluge patched-param final-value curves (port of util/functions.cpp) ──
 
   /**

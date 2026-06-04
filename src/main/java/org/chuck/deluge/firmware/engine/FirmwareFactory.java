@@ -249,7 +249,9 @@ public class FirmwareFactory {
 
     // Volume/Pan
     sound.paramNeutralValues[Param.LOCAL_VOLUME] = (int) (model.getVolume() * 2147483647.0);
-    sound.paramNeutralValues[Param.LOCAL_PAN] = (int) ((model.getPan() + 1.0) * 1073741823.0);
+    // LOCAL_PAN is BIPOLAR (0 = centre, ±2^30 = hard L/R), matching the firmware shouldDoPanning input.
+    sound.paramNeutralValues[Param.LOCAL_PAN] =
+        (int) (Math.max(-1.0, Math.min(1.0, model.getPan())) * 1073741824.0);
 
     // Oscillator & Noise Volumes. In FM mode these are the carrier amplitudes (the modulator depth
     // is carried separately in sound.fmModulatorAmount, no longer smuggled through OSC_B_VOLUME).
