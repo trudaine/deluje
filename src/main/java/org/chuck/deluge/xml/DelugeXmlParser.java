@@ -1736,19 +1736,36 @@ public class DelugeXmlParser {
     }
   }
 
+  /** Frequency ratio for an FM modulator from its transpose (semitones) + cents. */
+  private static float modulatorRatio(int transpose, int cents) {
+    return (float) Math.pow(2.0, (transpose * 100 + cents) / 1200.0);
+  }
+
+  /** First child <tag> text as an int, or {@code def} if absent/unparseable. */
+  private static int childInt(Element parent, String tag, int def) {
+    NodeList n = parent.getElementsByTagName(tag);
+    if (n.getLength() == 0) return def;
+    try {
+      return Integer.parseInt(n.item(0).getTextContent().trim());
+    } catch (NumberFormatException e) {
+      return def;
+    }
+  }
+
+  /** First <tag> text under soundNode as a raw signed Q31, or {@code def} if absent. */
+  private static int soundQ31(Element soundNode, String tag, int def) {
+    NodeList n = soundNode.getElementsByTagName(tag);
+    if (n.getLength() == 0) return def;
+    return DelugeHexMapper.hexToQ31(n.item(0).getTextContent());
+  }
+
   private static void parseModulator1(Element soundNode, SynthTrackModel synth) {
     NodeList mod1Nodes = soundNode.getElementsByTagName("modulator1");
     if (mod1Nodes.getLength() > 0) {
       Element mod1 = (Element) mod1Nodes.item(0);
-      NodeList transpNodes = mod1.getElementsByTagName("transpose");
-      if (transpNodes.getLength() > 0) {
-        try {
-          int transpose = Integer.parseInt(transpNodes.item(0).getTextContent().trim());
-          synth.setFmRatio((float) Math.pow(2.0, transpose / 12.0));
-        } catch (NumberFormatException e) {
-          LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
-        }
-      }
+      int transpose = childInt(mod1, "transpose", 0);
+      int cents = childInt(mod1, "cents", 0);
+      synth.setFmRatio(modulatorRatio(transpose, cents));
       NodeList rpNodes = mod1.getElementsByTagName("retrigPhase");
       if (rpNodes.getLength() > 0) {
         try {
@@ -1760,8 +1777,18 @@ public class DelugeXmlParser {
     }
     NodeList mod1AmtNodes = soundNode.getElementsByTagName("modulator1Amount");
     if (mod1AmtNodes.getLength() > 0) {
-      float hexVal = DelugeHexMapper.hexToFloat(mod1AmtNodes.item(0).getTextContent());
-      synth.setFmAmount(toUnipolar(hexVal));
+      String txt = mod1AmtNodes.item(0).getTextContent();
+      synth.setFmAmount(toUnipolar(DelugeHexMapper.hexToFloat(txt)));
+      synth.setModulator1AmountQ31(DelugeHexMapper.hexToQ31(txt));
+    }
+    // Raw feedback values for the firmware-faithful FM engine (default off = 0x80000000).
+    synth.setModulator1FeedbackQ31(soundQ31(soundNode, "modulator1Feedback", Integer.MIN_VALUE));
+    synth.setCarrier1FeedbackQ31(soundQ31(soundNode, "carrier1Feedback", Integer.MIN_VALUE));
+    synth.setCarrier2FeedbackQ31(soundQ31(soundNode, "carrier2Feedback", Integer.MIN_VALUE));
+    NodeList m1m0 = soundNode.getElementsByTagName("modulator1ToModulator0");
+    if (m1m0.getLength() > 0) {
+      String v = m1m0.item(0).getTextContent().trim();
+      synth.setModulator1ToModulator0("1".equals(v) || "true".equalsIgnoreCase(v));
     }
   }
 
@@ -1769,6 +1796,9 @@ public class DelugeXmlParser {
     NodeList mod2Nodes = soundNode.getElementsByTagName("modulator2");
     if (mod2Nodes.getLength() > 0) {
       Element mod2 = (Element) mod2Nodes.item(0);
+      int transpose = childInt(mod2, "transpose", 0);
+      int cents = childInt(mod2, "cents", 0);
+      synth.setFmRatio2(modulatorRatio(transpose, cents));
       NodeList rpNodes = mod2.getElementsByTagName("retrigPhase");
       if (rpNodes.getLength() > 0) {
         try {
@@ -1778,6 +1808,11 @@ public class DelugeXmlParser {
         }
       }
     }
+    NodeList mod2AmtNodes = soundNode.getElementsByTagName("modulator2Amount");
+    if (mod2AmtNodes.getLength() > 0) {
+      synth.setModulator2AmountQ31(DelugeHexMapper.hexToQ31(mod2AmtNodes.item(0).getTextContent()));
+    }
+    synth.setModulator2FeedbackQ31(soundQ31(soundNode, "modulator2Feedback", Integer.MIN_VALUE));
   }
 
   private static void parseEnvelopes(Element soundNode, SynthTrackModel synth) {

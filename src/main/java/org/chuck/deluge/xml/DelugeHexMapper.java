@@ -18,6 +18,21 @@ public class DelugeHexMapper {
     }
   }
 
+  /**
+   * Converts a 32-bit hex string into the raw signed Q31 integer value as stored by the firmware
+   * (e.g. "0x80000000" -> Integer.MIN_VALUE "off", "0x32000000" -> 838860800). Unlike {@link
+   * #hexToFloat}, this preserves the exact bit pattern needed to reproduce the firmware's patched
+   * param math. Returns 0 ("centre") when absent/unparseable.
+   */
+  public static int hexToQ31(String hex) {
+    if (hex == null || hex.isEmpty()) return 0;
+    try {
+      return (int) (long) Long.decode(hex.trim());
+    } catch (NumberFormatException e) {
+      return 0;
+    }
+  }
+
   /** Converts a normalized float [-1.0, 1.0] back to Deluge hex format. */
   public static String floatToHex(float value) {
     value = Math.max(-1.0f, Math.min(1.0f, value));
