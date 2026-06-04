@@ -6,6 +6,7 @@ import org.chuck.deluge.firmware.dsp.dx.FmCore;
 import org.chuck.deluge.firmware.dsp.filter.FilterSet;
 import org.chuck.deluge.firmware.dsp.oscillators.OscType;
 import org.chuck.deluge.firmware.dsp.oscillators.Oscillator;
+import org.chuck.deluge.firmware.dsp.oscillators.SineOsc;
 import org.chuck.deluge.firmware.model.PolyphonyMode;
 import org.chuck.deluge.firmware.modulation.Arpeggiator;
 import org.chuck.deluge.firmware.modulation.Envelope;
@@ -36,6 +37,8 @@ public class FirmwareVoice {
 
   private final FmCore.FmOpParams[] fmParams = new FmCore.FmOpParams[6];
   private final int[] fmFeedbackBuffer = new int[2];
+  // Scratch modulation buffer for the native 2-op FM engine (summed modulator output).
+  private int[] fmModBuffer;
 
   // Internal state
   public int note;
@@ -482,43 +485,70 @@ public class FirmwareVoice {
       int u, int[] buffer, int numSamples, int pIncA, int pIncB, int pitchAdjust) {
     VoiceUnisonPart part = unisonParts[u];
 
-    // ── Bit-Accurate FM Engine ──
+    // ── Native 2-op FM Engine (faithful port of voice.cpp's SynthMode::FM path) ──
+    // Topology: up to two sine modulators (each with optional self-feedback) sum into one
+    // modulation buffer — or modulator 1 chains into modulator 0 — and the two carriers (osc A/B)
+    // are phase-modulated by that buffer via SineOsc.doFMNew. The carrier amplitude is the osc
+    // volume only; the overall envelope/track volume is applied downstream (see the env0Gain *
+    // trackVol pass), so timbre (modulation index) depends solely on the modulator amplitudes,
+    // exactly as on hardware. Replaces the former dexed-FmCore approximation.
     if (sound.getSynthMode() == FirmwareSound.SynthMode.FM) {
-      int env0Gain = envelopes[0].lastValue;
-      int voiceVolume = paramFinalValues[Param.LOCAL_VOLUME];
-      int finalCarrierLevel = (int) (((long) env0Gain * voiceVolume) >> 31);
+      int n = numSamples;
+      int carrierIncA = pIncA << 8; // 32-bit phase increment (subtractive uses the same <<8)
+      int carrierIncB = pIncB << 8;
+      long ciaU = carrierIncA & 0xFFFFFFFFL;
+      int modInc0 = (int) Math.round(ciaU * (double) sound.fmRatio1);
+      int modInc1 = (int) Math.round(ciaU * (double) sound.fmRatio2);
 
-      for (int i = 0; i < 6; i++) {
-        if (i == 5) {
-          fmParams[i].freq = pIncA;
-          fmParams[i].level_in = linearToDx7Level(finalCarrierLevel);
-        } else if (i == 4) {
-          fmParams[i].freq = (int) (pIncA * sound.fmRatio1);
-          fmParams[i].level_in = linearToDx7Level(paramFinalValues[Param.LOCAL_OSC_B_VOLUME]);
-        } else if (i == 3) {
-          fmParams[i].freq = pIncA;
-          fmParams[i].level_in = linearToDx7Level(finalCarrierLevel);
-        } else if (i == 2) {
-          fmParams[i].freq = (int) (pIncA * sound.fmRatio2);
-          fmParams[i].level_in = linearToDx7Level((int) (0.2 * 2147483647.0));
-        } else {
-          fmParams[i].freq = pIncA;
-          fmParams[i].level_in = 0;
+      int carrierAmp0 = paramFinalValues[Param.LOCAL_OSC_A_VOLUME];
+      int carrierAmp1 = paramFinalValues[Param.LOCAL_OSC_B_VOLUME];
+      // Live FM depth: base knob value combined with any patch cables (e.g. envelope2 / note ->
+      // modulator volume) through the Deluge volume curve, recomputed each block so the timbre
+      // tracks the envelope exactly as on hardware.
+      int modAmp0 = computeFmModulatorAmplitude(0);
+      int modAmp1 = computeFmModulatorAmplitude(1);
+      boolean mod0Active = modAmp0 != 0;
+      boolean mod1Active = modAmp1 != 0;
+
+      if (fmModBuffer == null || fmModBuffer.length < n) fmModBuffer = new int[n];
+      java.util.Arrays.fill(fmModBuffer, 0, n, 0);
+
+      boolean carriersAreSine = false;
+      if (mod1Active) {
+        renderSineWaveWithFeedback(
+            fmModBuffer, n, part.modulatorPhase, 1, modAmp1, modInc1,
+            sound.fmModulatorFeedback[1], part.modulatorFeedback, 1, false);
+        if (sound.fmModulator1ToModulator0) {
+          if (mod0Active) {
+            // Modulator 0 receives FM from modulator 1 and replaces the buffer.
+            renderFMWithFeedbackReplace(
+                fmModBuffer, n, part.modulatorPhase, 0, modAmp0, modInc0,
+                sound.fmModulatorFeedback[0], part.modulatorFeedback, 0);
+          } else {
+            // mod1 -> mod0 but mod0 off: no modulation reaches the carriers.
+            carriersAreSine = true;
+          }
+        } else if (mod0Active) {
+          // Both modulators sum into the modulation buffer.
+          renderSineWaveWithFeedback(
+              fmModBuffer, n, part.modulatorPhase, 0, modAmp0, modInc0,
+              sound.fmModulatorFeedback[0], part.modulatorFeedback, 0, true);
         }
-        int srcIdx = (i == 5) ? 0 : ((i == 4) ? 2 : ((i == 3) ? 1 : ((i == 2) ? 3 : 0)));
-        fmParams[i].phase = (int) part.sources[srcIdx].oscPos;
-      }
-      new FmCore().render(buffer, numSamples, fmParams, 0, fmFeedbackBuffer, 0);
-
-      // Shift raw 12-bit/14-bit DX7 operator outputs up to the Q31 Master signed range!
-      for (int i = 0; i < numSamples; i++) {
-        buffer[i] = buffer[i] << 19;
+      } else if (mod0Active) {
+        renderSineWaveWithFeedback(
+            fmModBuffer, n, part.modulatorPhase, 0, modAmp0, modInc0,
+            sound.fmModulatorFeedback[0], part.modulatorFeedback, 0, false);
+      } else {
+        carriersAreSine = true;
       }
 
-      part.sources[0].oscPos = fmParams[5].phase;
-      part.sources[1].oscPos = fmParams[3].phase;
-      part.sources[2].oscPos = fmParams[4].phase;
-      part.sources[3].oscPos = fmParams[2].phase;
+      if (carriersAreSine) {
+        renderCarrierSine(buffer, n, part.sources[0], carrierAmp0, carrierIncA, sound.fmCarrierFeedback[0]);
+        renderCarrierSine(buffer, n, part.sources[1], carrierAmp1, carrierIncB, sound.fmCarrierFeedback[1]);
+      } else {
+        renderCarrierFM(buffer, n, fmModBuffer, part.sources[0], carrierAmp0, carrierIncA, sound.fmCarrierFeedback[0]);
+        renderCarrierFM(buffer, n, fmModBuffer, part.sources[1], carrierAmp1, carrierIncB, sound.fmCarrierFeedback[1]);
+      }
       return;
     }
 
@@ -682,5 +712,174 @@ public class FirmwareVoice {
     double log2Val = Math.log(gainFloat) / Math.log(2.0);
     int level = (14 << 24) + (int) (log2Val * 16777216.0);
     return Math.max(0, Math.min(14 << 24, level));
+  }
+
+  // ── Native 2-op FM render primitives (ports of Voice::renderSineWaveWithFeedback /
+  // renderFMWithFeedback / renderFMWithFeedbackAdd). Phase and per-source feedback memory are
+  // passed by (array,index) so callers can hold them in the unison-part state.
+
+  /**
+   * Render a sine (optionally self-FM'd via feedback) into {@code buf}, either overwriting or
+   * accumulating. Used for the FM modulators and for carriers when no modulator is active.
+   */
+  private static void renderSineWaveWithFeedback(
+      int[] buf,
+      int n,
+      int[] phaseArr,
+      int pi,
+      int amplitude,
+      int phaseInc,
+      int feedbackAmount,
+      int[] fbArr,
+      int fi,
+      boolean add) {
+    int phaseNow = phaseArr[pi];
+    if (feedbackAmount != 0) {
+      int feedbackValue = fbArr[fi];
+      for (int i = 0; i < n; i++) {
+        int feedback =
+            Q31.signedSaturate(Q31.multiply_32x32_rshift32(feedbackValue, feedbackAmount), 22);
+        phaseNow += phaseInc;
+        feedbackValue = SineOsc.doFMNew(phaseNow, feedback);
+        if (add) {
+          buf[i] = Q31.multiply_accumulate_32x32_rshift32_rounded(buf[i], feedbackValue, amplitude);
+        } else {
+          buf[i] = Q31.multiply_32x32_rshift32(feedbackValue, amplitude);
+        }
+      }
+      fbArr[fi] = feedbackValue;
+    } else {
+      for (int i = 0; i < n; i++) {
+        phaseNow += phaseInc;
+        int sine = SineOsc.doFMNew(phaseNow, 0);
+        if (add) {
+          buf[i] = Q31.multiply_accumulate_32x32_rshift32_rounded(buf[i], sine, amplitude);
+        } else {
+          buf[i] = Q31.multiply_32x32_rshift32(sine, amplitude);
+        }
+      }
+    }
+    phaseArr[pi] = phaseNow;
+  }
+
+  /**
+   * Modulator 0 receiving FM from the contents of {@code buf} (modulator 1's output), replacing the
+   * buffer with its own output. Port of renderFMWithFeedback (fmBuffer == buffer in firmware).
+   */
+  private static void renderFMWithFeedbackReplace(
+      int[] buf,
+      int n,
+      int[] phaseArr,
+      int pi,
+      int amplitude,
+      int phaseInc,
+      int feedbackAmount,
+      int[] fbArr,
+      int fi) {
+    int phaseNow = phaseArr[pi];
+    if (feedbackAmount != 0) {
+      int feedbackValue = fbArr[fi];
+      for (int i = 0; i < n; i++) {
+        int feedback =
+            Q31.signedSaturate(Q31.multiply_32x32_rshift32(feedbackValue, feedbackAmount), 22);
+        int sum = buf[i] + feedback;
+        phaseNow += phaseInc;
+        feedbackValue = SineOsc.doFMNew(phaseNow, sum);
+        buf[i] = Q31.multiply_32x32_rshift32(feedbackValue, amplitude);
+      }
+      fbArr[fi] = feedbackValue;
+    } else {
+      for (int i = 0; i < n; i++) {
+        phaseNow += phaseInc;
+        int fmValue = SineOsc.doFMNew(phaseNow, buf[i]);
+        buf[i] = Q31.multiply_32x32_rshift32(fmValue, amplitude);
+      }
+    }
+    phaseArr[pi] = phaseNow;
+  }
+
+  /** Carrier phase-modulated by {@code fmBuffer}, accumulated into {@code buf}. */
+  private static void renderFMWithFeedbackAdd(
+      int[] buf,
+      int n,
+      int[] fmBuffer,
+      int[] phaseArr,
+      int pi,
+      int amplitude,
+      int phaseInc,
+      int feedbackAmount,
+      int[] fbArr,
+      int fi) {
+    int phaseNow = phaseArr[pi];
+    if (feedbackAmount != 0) {
+      int feedbackValue = fbArr[fi];
+      for (int i = 0; i < n; i++) {
+        int feedback =
+            Q31.signedSaturate(Q31.multiply_32x32_rshift32(feedbackValue, feedbackAmount), 22);
+        int sum = fmBuffer[i] + feedback;
+        phaseNow += phaseInc;
+        feedbackValue = SineOsc.doFMNew(phaseNow, sum);
+        buf[i] = Q31.multiply_accumulate_32x32_rshift32_rounded(buf[i], feedbackValue, amplitude);
+      }
+      fbArr[fi] = feedbackValue;
+    } else {
+      for (int i = 0; i < n; i++) {
+        phaseNow += phaseInc;
+        int sine = SineOsc.doFMNew(phaseNow, fmBuffer[i]);
+        buf[i] = Q31.multiply_accumulate_32x32_rshift32_rounded(buf[i], sine, amplitude);
+      }
+    }
+    phaseArr[pi] = phaseNow;
+  }
+
+  /**
+   * Live amplitude of FM modulator {@code m} (0 = modulator1, 1 = modulator2): the stored base knob
+   * value combined with any patch cables targeting its volume param, run through the Deluge
+   * patched-param volume curve. Faithful port of the firmware's combineCablesLinear +
+   * getFinalParameterValueVolume for LOCAL_MODULATOR_0/1_VOLUME (modulator neutral 2^25, range
+   * 2^30). Cables (e.g. envelope2 -> modulator1Volume) make the FM depth dynamic.
+   */
+  private int computeFmModulatorAmplitude(int m) {
+    int paramId = Param.LOCAL_MODULATOR_0_VOLUME + m;
+    int running =
+        FirmwareUtils.patchCombineLinearStep(536870912, sound.fmModulatorAmountBase[m], 1073741824);
+    for (var dest : sound.paramManager.getPatchCableSet().destinations) {
+      if (dest.paramId != paramId) continue;
+      for (var cable : dest.cables) {
+        running =
+            FirmwareUtils.patchCombineLinearStep(
+                running, sourceValues[cable.from.ordinal()], cable.getAmount());
+      }
+      break;
+    }
+    return FirmwareUtils.getFinalParameterValueVolume(33554432, running - 536870912);
+  }
+
+  /** Render one FM carrier (osc A/B) modulated by the modulation buffer, into the voice buffer. */
+  private void renderCarrierFM(
+      int[] buf,
+      int n,
+      int[] fmBuffer,
+      VoiceUnisonPartSource src,
+      int amplitude,
+      int phaseInc,
+      int feedbackAmount) {
+    if (amplitude == 0) return;
+    int[] ph = {(int) src.oscPos};
+    int[] fb = {src.carrierFeedback};
+    renderFMWithFeedbackAdd(buf, n, fmBuffer, ph, 0, amplitude, phaseInc, feedbackAmount, fb, 0);
+    src.oscPos = ph[0] & 0xFFFFFFFFL;
+    src.carrierFeedback = fb[0];
+  }
+
+  /** Render one FM carrier as a plain sine (no active modulators), into the voice buffer. */
+  private void renderCarrierSine(
+      int[] buf, int n, VoiceUnisonPartSource src, int amplitude, int phaseInc, int feedbackAmount) {
+    if (amplitude == 0) return;
+    int[] ph = {(int) src.oscPos};
+    int[] fb = {src.carrierFeedback};
+    renderSineWaveWithFeedback(buf, n, ph, 0, amplitude, phaseInc, feedbackAmount, fb, 0, true);
+    src.oscPos = ph[0] & 0xFFFFFFFFL;
+    src.carrierFeedback = fb[0];
   }
 }

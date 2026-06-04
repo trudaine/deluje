@@ -12,6 +12,7 @@ import org.chuck.deluge.firmware.model.note.Note;
 import org.chuck.deluge.firmware.model.note.NoteRow;
 import org.chuck.deluge.firmware.model.sample.Sample;
 import org.chuck.deluge.firmware.modulation.params.Param;
+import org.chuck.deluge.firmware.util.FirmwareUtils;
 import org.chuck.deluge.firmware.modulation.patch.PatchCable;
 import org.chuck.deluge.firmware.modulation.patch.PatchSource;
 import org.chuck.deluge.firmware.storage.audio.AudioFileReader;
@@ -222,36 +223,56 @@ public class FirmwareFactory {
       sound.synthMode = FirmwareSound.SynthMode.SUBTRACTIVE;
     }
 
-    // Map FM Ratios
+    // Map FM modulator-to-carrier frequency ratios (from each modulator's transpose + cents).
     sound.fmRatio1 = model.getFmRatio();
-    sound.fmRatio2 = model.getFmRatio() * 2.0f;
+    sound.fmRatio2 = model.getFmRatio2();
+
+    // Native 2-op FM engine: precompute modulator/carrier amplitudes and feedback through the
+    // Deluge patched-param curves (port of voice.cpp). The modulator amount sets FM depth (timbre);
+    // it is independent of the carrier oscillator volumes. Modulator volume: neutral 2^25, range
+    // 2^30, parabola volume curve. Feedback: neutral 5931642, linear curve. 0x80000000 -> 0 (off).
+    if (sound.synthMode == FirmwareSound.SynthMode.FM) {
+      // Store the raw knob values; the live amplitude (base + patch cables, e.g. envelope2 ->
+      // modulator volume) is computed each block in FirmwareVoice via the volume curve.
+      sound.fmModulatorAmountBase[0] = model.getModulator1AmountQ31();
+      sound.fmModulatorAmountBase[1] = model.getModulator2AmountQ31();
+      sound.fmModulatorFeedback[0] =
+          FirmwareUtils.finalLinearParam(model.getModulator1FeedbackQ31(), 5931642, 1073741824);
+      sound.fmModulatorFeedback[1] =
+          FirmwareUtils.finalLinearParam(model.getModulator2FeedbackQ31(), 5931642, 1073741824);
+      sound.fmCarrierFeedback[0] =
+          FirmwareUtils.finalLinearParam(model.getCarrier1FeedbackQ31(), 5931642, 1073741824);
+      sound.fmCarrierFeedback[1] =
+          FirmwareUtils.finalLinearParam(model.getCarrier2FeedbackQ31(), 5931642, 1073741824);
+      sound.fmModulator1ToModulator0 = model.isModulator1ToModulator0();
+    }
 
     // Volume/Pan
     sound.paramNeutralValues[Param.LOCAL_VOLUME] = (int) (model.getVolume() * 2147483647.0);
     sound.paramNeutralValues[Param.LOCAL_PAN] = (int) ((model.getPan() + 1.0) * 1073741823.0);
 
-    // Oscillator & Noise Volumes (derived from mix/noiseVol, with custom FM index amount mapping!)
-    if (sound.synthMode == FirmwareSound.SynthMode.FM) {
-      sound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = 2147483647;
-      sound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] =
-          (int) (model.getFmAmount() * 2147483647.0);
-    } else {
-      sound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] =
-          (int) (model.getOscAVolume() * 2147483647.0);
-      sound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] =
-          (int) (model.getOscBVolume() * 2147483647.0);
-    }
+    // Oscillator & Noise Volumes. In FM mode these are the carrier amplitudes (the modulator depth
+    // is carried separately in sound.fmModulatorAmount, no longer smuggled through OSC_B_VOLUME).
+    sound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] =
+        (int) (Math.max(0.0, Math.min(1.0, model.getOscAVolume())) * 2147483647.0);
+    sound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] =
+        (int) (Math.max(0.0, Math.min(1.0, model.getOscBVolume())) * 2147483647.0);
     sound.paramNeutralValues[Param.LOCAL_NOISE_VOLUME] = (int) (model.getNoiseVol() * 2147483647.0);
     sound.paramNeutralValues[Param.LOCAL_OSC_B_PITCH_ADJUST] =
         (model.getOsc2Transpose() * 100 + model.getOsc2Cents()) * 178956;
 
-    // Filter (scaled to Q26 format to match tangent log curver)
+    // Filter cutoff: the faithful filter (FirmwareFilter.curveFrequency: instantTan of the q31
+    // LPF_FREQ param) expects the firmware's exp-curved param value, NOT a Hz-derived number. The
+    // model carries Hz (the parser ran the cutoff knob through hexToHz); recover the original knob
+    // value by inverting hexToHz (bijective), then run the firmware param path:
+    // getFinalParameterValueExp(neutral, combineCablesExp(knob, paramRange)). LPF: neutral 2000000,
+    // range 536870912*1.4; HPF: neutral 2672947, range 1073741824.
     sound.paramNeutralValues[Param.LOCAL_LPF_FREQ] =
-        (int) (model.getLpfFreq() / 20000.0 * 67108864.0);
+        FirmwareUtils.getExp(2000000, cutoffComboFromHz(model.getLpfFreq(), 751619276));
     sound.paramNeutralValues[Param.LOCAL_LPF_RESONANCE] = (int) (model.getLpfRes() * 2147483647.0);
     sound.paramNeutralValues[Param.LOCAL_LPF_MORPH] = (int) (model.getLpfMorph() * 2147483647.0);
     sound.paramNeutralValues[Param.LOCAL_HPF_FREQ] =
-        (int) (model.getHpfFreq() / 20000.0 * 67108864.0);
+        FirmwareUtils.getExp(2672947, cutoffComboFromHz(model.getHpfFreq(), 1073741824));
     sound.paramNeutralValues[Param.LOCAL_HPF_RESONANCE] = (int) (model.getHpfRes() * 2147483647.0);
     sound.paramNeutralValues[Param.LOCAL_HPF_MORPH] = (int) (model.getHpfMorph() * 2147483647.0);
 
@@ -376,12 +397,30 @@ public class FirmwareFactory {
         String destStr = pcm.destination().toUpperCase();
         String srcStr = pcm.source().toUpperCase();
 
-        // Manual mapping from string to Param ID
+        // Manual mapping from string to Param ID. Order matters: the more specific modulator/osc
+        // volume names must be matched before the generic "VOLUME" catch-all, otherwise FM
+        // modulator-depth cables (e.g. envelope2 -> modulator1Volume) get misrouted to the master
+        // LOCAL_VOLUME and the FM depth never tracks the envelope.
         int paramId = -1;
         if (destStr.contains("LPFFREQUENCY") || destStr.contains("LPF_FREQ"))
           paramId = Param.LOCAL_LPF_FREQ;
         else if (destStr.contains("LPFRESONANCE") || destStr.contains("LPF_RES"))
           paramId = Param.LOCAL_LPF_RESONANCE;
+        else if (destStr.contains("HPFFREQUENCY") || destStr.contains("HPF_FREQ"))
+          paramId = Param.LOCAL_HPF_FREQ;
+        else if (destStr.contains("HPFRESONANCE") || destStr.contains("HPF_RES"))
+          paramId = Param.LOCAL_HPF_RESONANCE;
+        else if (destStr.contains("MODULATOR1VOLUME")) paramId = Param.LOCAL_MODULATOR_0_VOLUME;
+        else if (destStr.contains("MODULATOR2VOLUME")) paramId = Param.LOCAL_MODULATOR_1_VOLUME;
+        else if (destStr.contains("CARRIER1FEEDBACK")) paramId = Param.LOCAL_CARRIER_0_FEEDBACK;
+        else if (destStr.contains("CARRIER2FEEDBACK")) paramId = Param.LOCAL_CARRIER_1_FEEDBACK;
+        else if (destStr.contains("MODULATOR1FEEDBACK")) paramId = Param.LOCAL_MODULATOR_0_FEEDBACK;
+        else if (destStr.contains("MODULATOR2FEEDBACK")) paramId = Param.LOCAL_MODULATOR_1_FEEDBACK;
+        else if (destStr.contains("OSCAVOLUME") || destStr.contains("OSC1VOLUME"))
+          paramId = Param.LOCAL_OSC_A_VOLUME;
+        else if (destStr.contains("OSCBVOLUME") || destStr.contains("OSC2VOLUME"))
+          paramId = Param.LOCAL_OSC_B_VOLUME;
+        else if (destStr.contains("PITCH")) paramId = Param.LOCAL_PITCH_ADJUST;
         else if (destStr.contains("VOLUME")) paramId = Param.LOCAL_VOLUME;
 
         if (paramId != -1) {
@@ -396,6 +435,20 @@ public class FirmwareFactory {
         // Skip invalid cables
       }
     }
+  }
+
+  /**
+   * Recover the original cutoff knob value from the model's Hz (the parser ran the patch's hex knob
+   * through {@code DelugeHexMapper.hexToHz}: {@code Hz = 20·1000^((norm+1)/2)}; inverting it returns
+   * the exact knob), then form the firmware no-cable exp combine: {@code multiply_32x32_rshift32(knob,
+   * paramRange)}. Feed the result to {@code getExp(neutral, combo)} to get the q31 filter-frequency
+   * param the faithful filter expects.
+   */
+  private static int cutoffComboFromHz(double hz, int paramRange) {
+    double norm = 2.0 * Math.log(Math.max(20.0, hz) / 20.0) / Math.log(1000.0) - 1.0;
+    norm = Math.max(-1.0, Math.min(1.0, norm));
+    int knob = (int) Math.rint(norm * 2147483647.0);
+    return org.chuck.deluge.firmware.util.Q31.multiply_32x32_rshift32(knob, paramRange);
   }
 
   public static PatchSource stringToPatchSource(String str) {

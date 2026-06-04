@@ -5,23 +5,23 @@ import static org.junit.jupiter.api.Assertions.*;
 import org.chuck.deluge.firmware.dsp.StereoSample;
 import org.chuck.deluge.firmware.model.InstrumentClip;
 import org.chuck.deluge.firmware.model.Song;
-import org.chuck.deluge.firmware.modulation.automation.AutoParam;
-import org.chuck.deluge.firmware.modulation.params.Param;
 import org.chuck.deluge.model.ClipModel;
 import org.chuck.deluge.model.ProjectModel;
 import org.chuck.deluge.model.SynthTrackModel;
 import org.junit.jupiter.api.Test;
 
 /**
- * Native 2-op FM (FmCore) on the supported firmware pure engine: FM mode produces a harmonically
- * rich tone, and increasing the modulator level (OSC_B_VOLUME drives the op4 modulator depth) adds
- * sidebands (brighter). Replaces coverage from the disabled legacy SynthFmAccuracy DSL test.
+ * Native 2-op FM (faithful port of voice.cpp) on the supported firmware pure engine: FM mode
+ * produces a harmonically rich tone, and increasing the modulator amount (fmModulatorAmountBase
+ * drives the modulator depth via the Deluge volume curve) adds sidebands (brighter). Replaces
+ * coverage from the disabled legacy SynthFmAccuracy DSL test.
  */
 public class FirmwareNativeFmTest {
 
   private static final int ONE = 2147483647;
 
-  private static FirmwareSound buildFm(int oscBVolume) {
+  /** {@code modAmount} is a raw modulator-volume knob value (Q31); higher = deeper FM. */
+  private static FirmwareSound buildFm(int modAmount) {
     SynthTrackModel m = new SynthTrackModel("test");
     m.setOsc1Type("SINE");
     m.setOsc2Type("SINE");
@@ -34,11 +34,8 @@ public class FirmwareNativeFmTest {
     FirmwareSound sound = (FirmwareSound) ((InstrumentClip) s.clips.get(0)).sound;
 
     sound.synthMode = FirmwareSound.SynthMode.FM;
-    sound.fmRatio1 = 2.0f; // modulator one octave above the carrier
-    // OSC_B_VOLUME sets the op4 modulator depth; set neutral + any automated param.
-    sound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = oscBVolume;
-    AutoParam ap = sound.paramManager.getAutomatedParam(Param.LOCAL_OSC_B_VOLUME);
-    if (ap != null) ap.currentValue = oscBVolume;
+    sound.fmRatio1 = 2.0f; // modulator one octave above the carrier (harmonic ratio 2:1)
+    sound.fmModulatorAmountBase[0] = modAmount; // modulator 1 depth
     return sound;
   }
 
@@ -120,10 +117,9 @@ public class FirmwareNativeFmTest {
     double bSine = brightness(render(sine, 22050));
 
     assertTrue(rFm > 0.01, "native FM should produce audible output (rms=" + rFm + ")");
-    // Clean, periodic musical tone (not aliased/noisy). NB: for C4 the strongest period comes out at
-    // ~131 Hz (one octave below the played note) — possibly a native-FM octave offset or feedback
-    // period-doubling; needs a hardware A/B to confirm (see deluge-nondx7-port-bugs memory). Here we
-    // only assert it is a clean low-musical-range periodicity, not the exact octave.
+    // Clean, periodic musical tone (not aliased/noisy) in the played note's range. With a 2:1
+    // harmonic modulator ratio the spectrum is harmonic, so autocorrelation may lock onto the
+    // carrier (~262 Hz) or a strong lower sideband (~131 Hz); accept either.
     assertTrue(f0 > 80 && f0 < 300, "native FM should be a clean periodic tone (got " + f0 + " Hz)");
     // FM adds sidebands → richer than a pure subtractive sine.
     assertTrue(

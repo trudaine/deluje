@@ -123,6 +123,29 @@ public class SynthTrackModel extends TrackModel {
   /** Carrier 2 feedback amount (0-1). */
   private float carrier2Feedback = 0.0f;
 
+  /**
+   * Frequency ratio of FM modulator 2 to the carrier, derived from {@code <modulator2>} transpose +
+   * cents. {@link #fmRatio} is modulator 1's ratio. Default 1.0 (same pitch as carrier).
+   */
+  private float fmRatio2 = 1.0f;
+
+  /**
+   * Raw signed Q31 values exactly as stored in the patch XML, preserved for the firmware-faithful FM
+   * engine (which runs them through the Deluge patched-param volume/linear curves). {@code
+   * Integer.MIN_VALUE} (0x80000000) means "off". These supersede the lossy unipolar floats above for
+   * the native 2-op FM path.
+   */
+  private int modulator1AmountQ31 = Integer.MIN_VALUE;
+
+  private int modulator2AmountQ31 = Integer.MIN_VALUE;
+  private int modulator1FeedbackQ31 = Integer.MIN_VALUE;
+  private int modulator2FeedbackQ31 = Integer.MIN_VALUE;
+  private int carrier1FeedbackQ31 = Integer.MIN_VALUE;
+  private int carrier2FeedbackQ31 = Integer.MIN_VALUE;
+
+  /** When true, FM modulator 1 modulates modulator 0 (chained) rather than the carriers directly. */
+  private boolean modulator1ToModulator0 = false;
+
   public enum PolyphonyMode {
     POLY,
     MONO,
@@ -833,6 +856,70 @@ public class SynthTrackModel extends TrackModel {
 
   public void setCarrier2Feedback(float v) {
     this.carrier2Feedback = v;
+  }
+
+  public float getFmRatio2() {
+    return fmRatio2;
+  }
+
+  public void setFmRatio2(float v) {
+    this.fmRatio2 = v;
+  }
+
+  public int getModulator1AmountQ31() {
+    return modulator1AmountQ31;
+  }
+
+  public void setModulator1AmountQ31(int v) {
+    this.modulator1AmountQ31 = v;
+  }
+
+  public int getModulator2AmountQ31() {
+    return modulator2AmountQ31;
+  }
+
+  public void setModulator2AmountQ31(int v) {
+    this.modulator2AmountQ31 = v;
+  }
+
+  public int getModulator1FeedbackQ31() {
+    return modulator1FeedbackQ31;
+  }
+
+  public void setModulator1FeedbackQ31(int v) {
+    this.modulator1FeedbackQ31 = v;
+  }
+
+  public int getModulator2FeedbackQ31() {
+    return modulator2FeedbackQ31;
+  }
+
+  public void setModulator2FeedbackQ31(int v) {
+    this.modulator2FeedbackQ31 = v;
+  }
+
+  public int getCarrier1FeedbackQ31() {
+    return carrier1FeedbackQ31;
+  }
+
+  public void setCarrier1FeedbackQ31(int v) {
+    this.carrier1FeedbackQ31 = v;
+  }
+
+  public int getCarrier2FeedbackQ31() {
+    return carrier2FeedbackQ31;
+  }
+
+  public void setCarrier2FeedbackQ31(int v) {
+    this.carrier2FeedbackQ31 = v;
+  }
+
+  public boolean isModulator1ToModulator0() {
+    return modulator1ToModulator0;
+  }
+
+  public void setModulator1ToModulator0(boolean v) {
+    this.modulator1ToModulator0 = v;
   }
 
   // Stutter config (ModControllableAudio::stutterConfig)

@@ -55,6 +55,59 @@ public class FirmwareUtils {
     return jcong;
   }
 
+  // ── Deluge patched-param final-value curves (port of util/functions.cpp) ──
+
+  /**
+   * Combines the stored knob value of a parameter into the "patched value" domain (±2^29 ≈ "1"),
+   * with no patch cables — the firmware's {@code combineCablesLinear(nullptr, ...)}. {@code
+   * paramRange} is {@code getParamRange(p)} (2^30 for most volume/feedback params).
+   */
+  public static int combineCablesLinearNoCable(int storedValue, int paramRange) {
+    return patchCombineLinearStep(536870912, storedValue, paramRange) - 536870912;
+  }
+
+  /**
+   * One multiplicative step of the Deluge's linear cable combiner (port of
+   * cableToLinearParamWithoutRangeAdjustment): folds a source value, scaled by its strength, into
+   * the running combination. Seed {@code runningTotal} with 536870912 ("1"); the first call folds in
+   * the stored knob value (strength = paramRange), subsequent calls fold each patch cable (strength =
+   * cable amount). Subtract 536870912 from the final running total to get the patched combo.
+   */
+  public static int patchCombineLinearStep(int runningTotal, int source, int strength) {
+    int scaledSource = multiply_32x32_rshift32(source, strength);
+    int madePositive = scaledSource + 536870912;
+    int preLimits = multiply_32x32_rshift32(runningTotal, madePositive);
+    return lshiftAndSaturate(preLimits, 3);
+  }
+
+  /** Port of {@code getFinalParameterValueVolume} — parabola curve for volume params. */
+  public static int getFinalParameterValueVolume(int paramNeutralValue, int patchedValue) {
+    int positivePatchedValue = patchedValue + 536870912;
+    positivePatchedValue = (positivePatchedValue >> 16) * (positivePatchedValue >> 15);
+    return lshiftAndSaturate(multiply_32x32_rshift32(positivePatchedValue, paramNeutralValue), 5);
+  }
+
+  /** Port of {@code getFinalParameterValueLinear} — linear curve for non-volume params. */
+  public static int getFinalParameterValueLinear(int paramNeutralValue, int patchedValue) {
+    int positivePatchedValue = patchedValue + 536870912;
+    return lshiftAndSaturate(multiply_32x32_rshift32(positivePatchedValue, paramNeutralValue), 3);
+  }
+
+  /**
+   * Final amplitude of an uncabled volume param (e.g. FM modulator amount), from its raw stored Q31
+   * knob value, applying the firmware's no-cable combine then the volume parabola.
+   */
+  public static int finalVolumeParam(int storedValue, int paramNeutralValue, int paramRange) {
+    return getFinalParameterValueVolume(
+        paramNeutralValue, combineCablesLinearNoCable(storedValue, paramRange));
+  }
+
+  /** As {@link #finalVolumeParam} but for linear (non-volume) params like feedback. */
+  public static int finalLinearParam(int storedValue, int paramNeutralValue, int paramRange) {
+    return getFinalParameterValueLinear(
+        paramNeutralValue, combineCablesLinearNoCable(storedValue, paramRange));
+  }
+
   public static int quickLog(int input) {
     int magnitude = 31 - Integer.numberOfLeadingZeros(input);
     int inputLSBs = increaseMagnitude(input, 26 - magnitude);
