@@ -17,6 +17,28 @@ public class DelugePadButton extends JButton {
   private float intensity = 0.8f; // Velocity 0.0 - 1.0
   private String noteText = "";
   private boolean isSelected = false;
+  private boolean drawCenterCircle = true;
+  private Color textColorOverride = null;
+
+  public boolean isDrawCenterCircle() {
+    return drawCenterCircle;
+  }
+
+  public void setDrawCenterCircle(boolean drawCenterCircle) {
+    if (this.drawCenterCircle != drawCenterCircle) {
+      this.drawCenterCircle = drawCenterCircle;
+      repaint();
+    }
+  }
+
+  public Color getTextColorOverride() {
+    return textColorOverride;
+  }
+
+  public void setTextColorOverride(Color textColorOverride) {
+    this.textColorOverride = textColorOverride;
+    repaint();
+  }
 
   public boolean isSelected() {
     return isSelected;
@@ -274,7 +296,7 @@ public class DelugePadButton extends JButton {
       g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
 
       // Symmetrical physical center hotspot (white silicone glowing core)
-      if (noteText.isEmpty() && getText().isEmpty()) {
+      if (drawCenterCircle && noteText.isEmpty() && getText().isEmpty()) {
         g2.setColor(new Color(255, 255, 255, 160));
         int cw = Math.max(4, rw / 4);
         int ch = Math.max(4, rh / 4);
@@ -331,7 +353,9 @@ public class DelugePadButton extends JButton {
       }
       int totalH = fh * partsCount - (fh - fa);
 
-      if (active) {
+      if (textColorOverride != null) {
+        g2.setColor(textColorOverride);
+      } else if (active) {
         g2.setColor(new Color(0, 0, 0, 160));
         g2.fillRect((w - maxW) / 2 - 4, (h - totalH) / 2 - 2, maxW + 8, totalH + 4);
         g2.setColor(Color.WHITE);
