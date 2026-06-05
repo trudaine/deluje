@@ -179,16 +179,19 @@ public class DigitalReverb extends ReverbBase {
       dap2a.interpolate(c, 908.0f * kRatio, FxEngine.LFOIndex.LFO_1, maxExcursion, -kdd1);
       del2a.process(c);
 
-      // Damping lowpass stage 2
-      lpDecay[1] += kdamp * (c.get() - lpDecay[1]);
-      c.set(lpDecay[1]);
+      // Firmware digital.hpp currently reuses the first damping state on both lanes.
+      lpDecay[0] += kdamp * (c.get() - lpDecay[0]);
+      c.set(lpDecay[0]);
       c.multiply(kdecay);
 
       dap2b.process(c, kdd2);
       del2b.process(c);
       c.multiply(kdecay);
       c.add(apout);
-      dap1a.write(c, kdd2);
+      // The write scale is a no-op for audio output here, but keep the source-level constant
+      // aligned
+      // with firmware parity.
+      dap1a.write(c, kdd1);
 
       // Multi-tap intermediate delay reads summing for Left Output channel
       float leftSum = 0.0f;
@@ -216,11 +219,11 @@ public class DigitalReverb extends ReverbBase {
       rightSum -= 0.6f * dap2b.read((int) Math.round(335.0f * kRatio));
       rightSum -= 0.6f * del2b.read((int) Math.round(121.0f * kRatio));
 
-      // HP/LP filter stage for Right Channel (using right states!)
-      hpState[1] += hpCutoff * (rightSum - hpState[1]);
-      rightSum -= hpState[1];
-      lpState[1] += lpCutoff * (rightSum - lpState[1]);
-      rightSum = lpState[1];
+      // Firmware digital.hpp also reuses the left output filter states for the right channel.
+      hpState[0] += hpCutoff * (rightSum - hpState[0]);
+      rightSum -= hpState[0];
+      lpState[0] += lpCutoff * (rightSum - lpState[0]);
+      rightSum = lpState[0];
 
       int outputLeft = (int) (leftSum * 2147483647.0f * 15.0f);
       int outputRight = (int) (rightSum * 2147483647.0f * 15.0f);

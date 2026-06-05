@@ -32,7 +32,7 @@ public class Envelope {
     while (true) {
       switch (state) {
         case ATTACK:
-          pos += attack * numSamples;
+          pos += (int) ((attack & 0xFFFFFFFFL) * numSamples);
           if (pos >= 8388608) {
             pos = 0;
             lastValuePreCurrentStage = 2147483647;
@@ -53,7 +53,7 @@ public class Envelope {
                   smoothedSustain,
                   mult(FirmwareUtils.getDecay8(pos, 23), 2147483647 - smoothedSustain));
 
-          pos += decay * numSamples;
+          pos += (int) ((decay & 0xFFFFFFFFL) * numSamples);
           if (pos >= 8388608) {
             setState(EnvelopeStage.SUSTAIN);
           }
@@ -65,17 +65,19 @@ public class Envelope {
           lastValue = smoothedSustain;
           if (sustain == 0) {
             setState(EnvelopeStage.OFF);
+            lastValue = 0;
+            return -2147483648;
           } else if (ignoredNoteOff) {
             unconditionalRelease(EnvelopeStage.RELEASE, SOFT_CULL_INCREMENT);
           }
           break;
 
         case RELEASE:
-          pos += release * numSamples;
+          pos += (int) ((release & 0xFFFFFFFFL) * numSamples);
           if (pos >= 8388608) {
             setState(EnvelopeStage.OFF);
             lastValue = 0;
-            return 0;
+            return -2147483648;
           }
           lastValue =
               mult(
@@ -88,10 +90,11 @@ public class Envelope {
             release = 2 * release;
             fastReleaseIncrement = release;
           }
-          pos += fastReleaseIncrement * numSamples;
+          pos += (int) ((fastReleaseIncrement & 0xFFFFFFFFL) * numSamples);
           if (pos >= 8388608) {
             setState(EnvelopeStage.OFF);
-            return 0;
+            lastValue = 0;
+            return -2147483648;
           }
 
           lastValue =
@@ -101,12 +104,13 @@ public class Envelope {
           break;
 
         default: // OFF
-          return 0;
+          lastValue = 0;
+          return -2147483648;
       }
       break;
     }
 
-    return lastValue;
+    return (lastValue - 1073741824) << 1;
   }
 
   public int noteOn(boolean directlyToDecay) {
@@ -120,7 +124,7 @@ public class Envelope {
       lastValue = 2147483647;
     }
 
-    return lastValue;
+    return (lastValue - 1073741824) << 1;
   }
 
   public void setState(EnvelopeStage newState) {

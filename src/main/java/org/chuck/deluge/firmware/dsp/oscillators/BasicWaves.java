@@ -41,7 +41,9 @@ public class BasicWaves {
       // Interpolate in 32:32 domain
       long v1_32 = v1 << 16;
       long v2_32 = v2 << 16;
-      int val = (int) (v1_32 + ((v2_32 - v1_32) * frac >> 16));
+      long diff = v2_32 - v1_32;
+      long interpolatedDiff = (diff * frac) >> 16;
+      int val = (int) (v1_32 + interpolatedDiff);
 
       int wet = val;
       if (applyAmplitude) {
@@ -83,14 +85,18 @@ public class BasicWaves {
       long vA1 = (long) table[whichValueA] << 16;
       long vA2 = (long) table[whichValueA + 1] << 16;
       int fracA = (phaseA >>> (32 - 16 - tableSizeMagnitude)) & 0xFFFF;
-      int valA = (int) (vA1 + ((vA2 - vA1) * fracA >> 16));
+      long diffA = vA2 - vA1;
+      long interpolatedDiffA = (diffA * fracA) >> 16;
+      int valA = (int) (vA1 + interpolatedDiffA);
 
       // Sample B
       int whichValueB = phaseB >>> (32 - tableSizeMagnitude);
       long vB1 = (long) table[whichValueB] << 16;
       long vB2 = (long) table[whichValueB + 1] << 16;
       int fracB = (phaseB >>> (32 - 16 - tableSizeMagnitude)) & 0xFFFF;
-      int valB = (int) (vB1 + ((vB2 - vB1) * fracB >> 16));
+      long diffB = vB2 - vB1;
+      long interpolatedDiffB = (diffB * fracB) >> 16;
+      int valB = (int) (vB1 + interpolatedDiffB);
 
       // Ring mod
       int val = Q31.mult(valA, valB);

@@ -22,6 +22,7 @@ public class GranularParityTest {
     double wetEnergy = 0;
     double diffEnergy = 0;
     int n = 128;
+    int[] postFX = {2147483647};
     for (int blk = 0; blk < 40; blk++) {
       StereoSample[] buf = new StereoSample[n];
       int[] dry = new int[n];
@@ -30,7 +31,7 @@ public class GranularParityTest {
         buf[i] = new StereoSample(v, v);
         dry[i] = v;
       }
-      g.processGrainFX(buf, 16777216, grainMix, 0, 0, 120f);
+      g.processGrainFX(buf, 16777216, grainMix, 0, 0, postFX, 120f);
       if (blk >= 30) { // after the grain buffer has filled
         for (int i = 0; i < n; i++) {
           assertTrue(
@@ -43,5 +44,6 @@ public class GranularParityTest {
     }
     assertTrue(wetEnergy > 0, "granular should produce a non-silent grain texture");
     assertTrue(diffEnergy > 0, "granular output must differ from the dry signal (effect applied)");
+    assertTrue(postFX[0] < 2147483647, "granular should attenuate post-FX volume like firmware");
   }
 }

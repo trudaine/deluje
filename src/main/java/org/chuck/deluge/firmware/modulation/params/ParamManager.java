@@ -9,15 +9,15 @@ public class ParamManager {
   public List<AutoParam> automatedParams = new ArrayList<>();
   public int ticksTilNextEvent = Integer.MAX_VALUE;
   private PatchCableSet patchCableSet = new PatchCableSet();
-  private final int[] unpatchedValues = new int[Param.kNumParams];
+  private final int[] unpatchedValues = new int[Param.UNPATCHED_PITCH_ADJUST + 1];
 
   public int getUnpatchedValue(int paramId) {
-    if (paramId < 0 || paramId >= Param.kNumParams) return 0;
+    if (paramId < 0 || paramId >= unpatchedValues.length) return 0;
     return unpatchedValues[paramId];
   }
 
   public void setUnpatchedValue(int paramId, int value) {
-    if (paramId >= 0 && paramId < Param.kNumParams) {
+    if (paramId >= 0 && paramId < unpatchedValues.length) {
       unpatchedValues[paramId] = value;
     }
   }

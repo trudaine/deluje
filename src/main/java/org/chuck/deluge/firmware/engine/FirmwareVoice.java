@@ -24,6 +24,7 @@ import org.chuck.deluge.firmware.util.Q31;
  * path.
  */
 public class FirmwareVoice {
+  public static boolean debugPrint = false;
   public static int testStartPhaseOverrideOsc1 = -2;
   public static int testStartPhaseOverrideOsc2 = -2;
   public final FirmwareSound sound;
@@ -58,6 +59,9 @@ public class FirmwareVoice {
   private final boolean[] expressionSourcesCurrentlySmoothing = new boolean[3]; // X, Y, Z
   private int voiceRandomValue;
   public final FilterSet filterSet = new FilterSet();
+  private final boolean[] oscActive = new boolean[2];
+  private boolean noiseActive = false;
+  private int filterGain;
 
   // Zero-GC Stereo Voice buffers
   private org.chuck.deluge.firmware.dsp.StereoSample[] voiceBuffer = null;
@@ -178,14 +182,6 @@ public class FirmwareVoice {
   }
 
   public void noteOff(int velocity) {
-    int releaseParam = paramFinalValues[Param.LOCAL_ENV_0_RELEASE];
-    System.out.println(
-        "[DIAG voice] noteOff called for voice note="
-            + note
-            + " releaseParam="
-            + releaseParam
-            + " envelopes[0].state before="
-            + envelopes[0].state);
     for (int i = 0; i < 4; i++) {
       envelopes[i].unconditionalRelease(Envelope.EnvelopeStage.RELEASE, 1024);
     }
@@ -196,11 +192,6 @@ public class FirmwareVoice {
         }
       }
     }
-    System.out.println(
-        "[DIAG voice] noteOff completed for voice note="
-            + note
-            + " envelopes[0].state after="
-            + envelopes[0].state);
   }
 
   /**
@@ -212,7 +203,7 @@ public class FirmwareVoice {
       int numSamples,
       int overallPitchAdjust) {
     // Convert overallPitchAdjust scale factor in Q31 to Q24 log-frequency offset
-    double scale = (double) overallPitchAdjust / 2147483648.0;
+    double scale = (double) overallPitchAdjust / 16777216.0;
     int overallPitchBendOffset = 0;
     if (scale > 0.0) {
       overallPitchBendOffset = (int) (Math.log(scale) / Math.log(2.0) * (1 << 24));
@@ -351,8 +342,10 @@ public class FirmwareVoice {
         lfos[3].render(numSamples, sound.lfoWaveforms[3], phaseInc2);
 
     // 3. Update voice static sources (Velocity, Note, Random, Sidechain, MPE aftertouch/timbre)
-    sourceValues[PatchSource.VELOCITY.ordinal()] = velocity * 16909320;
-    sourceValues[PatchSource.NOTE.ordinal()] = (note - 60) * 17895697;
+    sourceValues[PatchSource.VELOCITY.ordinal()] =
+        (velocity == 128) ? 2147483647 : (velocity - 64) * 33554432;
+    sourceValues[PatchSource.NOTE.ordinal()] =
+        (note >= 128) ? 2147483647 : ((note <= 0) ? -2147483648 : (note - 64) * 33554432);
     sourceValues[PatchSource.RANDOM.ordinal()] = voiceRandomValue;
     sourceValues[PatchSource.AFTERTOUCH.ordinal()] = mpePressure * 16909320;
     sourceValues[PatchSource.Y.ordinal()] = mpeTimbre * 16909320;
@@ -373,9 +366,26 @@ public class FirmwareVoice {
       paramFinalValues[i] = val;
     }
 
+    oscActive[0] = (paramFinalValues[Param.LOCAL_OSC_A_VOLUME] != Integer.MIN_VALUE);
+    oscActive[1] = (paramFinalValues[Param.LOCAL_OSC_B_VOLUME] != Integer.MIN_VALUE);
+    noiseActive = (paramFinalValues[Param.LOCAL_NOISE_VOLUME] != Integer.MIN_VALUE);
+
     // Perform patching
     patcher.performPatching(
         sourcesChanged, sound, sound.paramManager, sourceValues, paramFinalValues);
+
+    filterGain =
+        filterSet.setConfig(
+            paramFinalValues[Param.LOCAL_LPF_FREQ],
+            paramFinalValues[Param.LOCAL_LPF_RESONANCE],
+            sound.lpfMode,
+            paramFinalValues[Param.LOCAL_LPF_MORPH],
+            paramFinalValues[Param.LOCAL_HPF_FREQ],
+            paramFinalValues[Param.LOCAL_HPF_RESONANCE],
+            sound.hpfMode,
+            paramFinalValues[Param.LOCAL_HPF_MORPH],
+            ((int) (134217728.0 / Math.sqrt(sound.numUnison))) << 1,
+            sound.filterRoute);
 
     // ── Pitch Calculation ──
     int overallPitchAdjust = paramFinalValues[Param.LOCAL_PITCH_ADJUST];
@@ -398,7 +408,7 @@ public class FirmwareVoice {
 
     // Dynamically calculate phaseIncrementB to support precise Oscillator 2 transposition & cents
     // detuning!
-    int osc2PitchOffset = paramFinalValues[Param.LOCAL_OSC_B_PITCH_ADJUST];
+    int osc2PitchOffset = paramFinalValues[Param.LOCAL_OSC_B_PITCH_ADJUST] - 16777216;
     double osc2PitchFactor = Math.pow(2.0, (double) osc2PitchOffset / (12.0 * 17895697.0));
     phaseIncrementB = (int) (phaseIncrementA * osc2PitchFactor);
 
@@ -437,52 +447,34 @@ public class FirmwareVoice {
       }
     }
 
-    // ── Final Gain & Saturation ──
-    int env0Gain = envelopes[0].lastValue;
-
-    if (noteCode == 72 && Math.random() < 0.005) {
-      System.out.printf(
-          "      [DSP VOICE STATE] Note=72 | LOCAL_VOLUME=%d | LOCAL_OSC_A_VOLUME=%d | Env0Gain=%d\n",
-          paramFinalValues[Param.LOCAL_VOLUME],
-          paramFinalValues[Param.LOCAL_OSC_A_VOLUME],
-          env0Gain);
-    }
-
-    // Apply envelope gain and track volume to stereo voice buffer before filtering
-    int trackVol = paramFinalValues[Param.LOCAL_VOLUME];
-    for (int i = 0; i < numSamples; i++) {
-      int wetL = Q31.mult(voiceBuffer[i].l, env0Gain);
-      voiceBuffer[i].l = Q31.mult(wetL, trackVol);
-
-      int wetR = Q31.mult(voiceBuffer[i].r, env0Gain);
-      voiceBuffer[i].r = Q31.mult(wetR, trackVol);
-    }
-
-    // Configure and render dynamic polyphonic per-voice filter set in stereo. setConfig returns the
-    // filter makeup gain (filterGain / postFXVolume), which the firmware applies to the output to
-    // compensate the ladder/SVF passband gain. Applying it here (the prior code discarded the
-    // return)
-    // keeps a wide-open ladder at ~unity instead of ~2.4x hot.
-    int filterGain =
-        filterSet.setConfig(
-            paramFinalValues[Param.LOCAL_LPF_FREQ],
-            paramFinalValues[Param.LOCAL_LPF_RESONANCE],
-            sound.lpfMode,
-            paramFinalValues[Param.LOCAL_LPF_MORPH],
-            paramFinalValues[Param.LOCAL_HPF_FREQ],
-            paramFinalValues[Param.LOCAL_HPF_RESONANCE],
-            sound.hpfMode,
-            paramFinalValues[Param.LOCAL_HPF_MORPH],
-            Q31.ONE,
-            sound.filterRoute);
     filterSet.renderStereoInterleaved(voiceBuffer, numSamples);
-    // Apply the filter makeup gain (firmware applies postFXVolume to the output). filterGain is the
-    // firmware filterGain return (e.g. ~0.4*2^31 for a wide-open ladder at zero resonance).
-    if (filterGain != Q31.ONE) {
+
+    if (debugPrint) {
+      int maxValFilter = 0;
       for (int i = 0; i < numSamples; i++) {
-        voiceBuffer[i].l = multiply_32x32_rshift32(voiceBuffer[i].l, filterGain) << 1;
-        voiceBuffer[i].r = multiply_32x32_rshift32(voiceBuffer[i].r, filterGain) << 1;
+        maxValFilter = Math.max(maxValFilter, Math.abs(voiceBuffer[i].l));
       }
+      System.out.printf("[VOICE DEBUG] After filter render: maxL=%d\n", maxValFilter);
+    }
+
+    if (sound.getSynthMode() != FirmwareSound.SynthMode.FM) {
+      int env0Gain = envelopes[0].lastValue;
+      int trackVol = paramFinalValues[Param.LOCAL_VOLUME];
+      int overallOscAmplitudeNow = Q31.lshiftAndSaturate(Q31.mult(env0Gain, trackVol), 1);
+      for (int i = 0; i < numSamples; i++) {
+        voiceBuffer[i].l =
+            multiply_32x32_rshift32_rounded(voiceBuffer[i].l, overallOscAmplitudeNow) << 1;
+        voiceBuffer[i].r =
+            multiply_32x32_rshift32_rounded(voiceBuffer[i].r, overallOscAmplitudeNow) << 1;
+      }
+    }
+
+    if (debugPrint) {
+      int maxValFinal = 0;
+      for (int i = 0; i < numSamples; i++) {
+        maxValFinal = Math.max(maxValFinal, Math.abs(voiceBuffer[i].l));
+      }
+      System.out.printf("[VOICE DEBUG] After overall amplitude scaling: maxL=%d\n", maxValFinal);
     }
 
     for (int i = 0; i < numSamples; i++) {
@@ -507,8 +499,12 @@ public class FirmwareVoice {
     // exactly as on hardware. Replaces the former dexed-FmCore approximation.
     if (sound.getSynthMode() == FirmwareSound.SynthMode.FM) {
       int n = numSamples;
-      int carrierIncA = pIncA << 8; // 32-bit phase increment (subtractive uses the same <<8)
-      int carrierIncB = pIncB << 8;
+      double pitchAdjustFactor = (double) pitchAdjust / 16777216.0;
+      int carrierIncA =
+          (int)
+              ((pIncA << 8)
+                  * pitchAdjustFactor); // 32-bit phase increment (subtractive uses the same <<8)
+      int carrierIncB = (int) ((pIncB << 8) * pitchAdjustFactor);
       long ciaU = carrierIncA & 0xFFFFFFFFL;
       int modInc0 = (int) Math.round(ciaU * (double) sound.fmRatio1);
       int modInc1 = (int) Math.round(ciaU * (double) sound.fmRatio2);
@@ -619,8 +615,9 @@ public class FirmwareVoice {
     }
     double cents = (double) sound.unisonDetune * offset;
     double pitchFactor = Math.pow(2.0, cents / 1200.0);
-    int detunedPIncA = (int) (pIncA * pitchFactor);
-    int detunedPIncB = (int) (pIncB * pitchFactor);
+    double pitchAdjustFactor = (double) pitchAdjust / 16777216.0;
+    int detunedPIncA = (int) (pIncA * pitchFactor * pitchAdjustFactor);
+    int detunedPIncB = (int) (pIncB * pitchFactor * pitchAdjustFactor);
 
     // ── Bit-Accurate Ring Modulation Engine ──
     // Port of voice.cpp's SynthMode::RINGMOD path: render osc A and osc B at fixed unit amplitude,
@@ -631,6 +628,11 @@ public class FirmwareVoice {
       int[] in0 = new int[numSamples];
       int[] in1 = new int[numSamples];
       int amplitudeForRingMod = 1 << 27;
+
+      if (sound.hasFilters()) {
+        amplitudeForRingMod =
+            Q31.multiply_32x32_rshift32_rounded(amplitudeForRingMod, filterGain) << 4;
+      }
 
       for (int s = 0; s < 2; s++) {
         OscType type = sound.oscTypes[s];
@@ -674,27 +676,27 @@ public class FirmwareVoice {
         }
       }
 
-      // Unison gain compensation (1/sqrt(numUnison)), consistent with the subtractive path; the
-      // mono port sums products across unison parts.
-      double gainScale = 1.0 / Math.sqrt(sound.numUnison);
       for (int i = 0; i < numSamples; i++) {
         int prod = (int) (((long) in0[i] * in1[i]) >> 32); // multiply_32x32_rshift32
         int out =
             (int) (((long) prod * amplitudeForRingMod + 0x80000000L) >> 32); // rounded rshift32
-        buffer[i] += (int) (out * gainScale);
+        buffer[i] += out;
       }
       return;
     }
 
     for (int s = 0; s < 2; s++) {
+      if (!oscActive[s]) {
+        continue;
+      }
       OscType type = sound.oscTypes[s];
       int vol =
           (s == 0)
               ? paramFinalValues[Param.LOCAL_OSC_A_VOLUME]
               : paramFinalValues[Param.LOCAL_OSC_B_VOLUME];
 
-      double gainScale = 1.0 / Math.sqrt(sound.numUnison);
-      int scaledVol = (int) (vol * gainScale);
+      int scaledVol =
+          sound.hasFilters() ? multiply_32x32_rshift32_rounded(vol, filterGain) : (vol >> 4);
       int pInc = (s == 0) ? detunedPIncA : detunedPIncB;
       if (type != OscType.SAMPLE) {
         pInc <<= 8;
@@ -737,14 +739,17 @@ public class FirmwareVoice {
     }
 
     // ── Render Noise Generator ──
-    int noiseVol = paramFinalValues[Param.LOCAL_NOISE_VOLUME];
-    if (noiseVol > 0) {
-      double gainScale = 1.0 / Math.sqrt(sound.numUnison);
-      int scaledNoiseVol = (int) (noiseVol * gainScale);
+    if (noiseActive) {
+      int noiseVol = paramFinalValues[Param.LOCAL_NOISE_VOLUME];
+      int n = noiseVol >> 1;
+      if (sound.hasFilters()) {
+        n = multiply_32x32_rshift32(n, filterGain) << 4;
+      }
+      int noiseAmplitude = Math.min(n, 268435455) >> 2;
       for (int i = 0; i < numSamples; i++) {
         int noiseSample =
             (int)
-                (((long) org.chuck.deluge.firmware.util.FirmwareUtils.getNoise() * scaledNoiseVol)
+                (((long) org.chuck.deluge.firmware.util.FirmwareUtils.getNoise() * noiseAmplitude)
                     >> 31);
         buffer[i] += noiseSample;
       }
@@ -906,13 +911,14 @@ public class FirmwareVoice {
     for (var dest : sound.paramManager.getPatchCableSet().destinations) {
       if (dest.paramId != paramId) continue;
       for (var cable : dest.cables) {
-        running =
-            FirmwareUtils.patchCombineLinearStep(
-                running, sourceValues[cable.from.ordinal()], cable.getAmount());
+        int srcVal = sourceValues[cable.from.ordinal()];
+        int polVal = cable.toPolarity(srcVal);
+        int amt = cable.getAmount();
+        running = FirmwareUtils.patchCombineLinearStep(running, polVal, amt);
       }
       break;
     }
-    return FirmwareUtils.getFinalParameterValueVolume(33554432, running - 536870912);
+    return FirmwareUtils.getFinalParameterValueVolume(33554432, running - 536870912) << 2;
   }
 
   /** Render one FM carrier (osc A/B) modulated by the modulation buffer, into the voice buffer. */

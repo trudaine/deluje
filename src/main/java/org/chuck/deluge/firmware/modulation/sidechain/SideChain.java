@@ -39,7 +39,7 @@ public class SideChain {
 
     switch (status) {
       case ATTACK:
-        pos += attack * numSamples;
+        pos += (int) ((attack & 0xFFFFFFFFL) * numSamples);
         if (pos >= 8388608) {
           pos = 0;
           status = Envelope.EnvelopeStage.RELEASE;
@@ -48,7 +48,7 @@ public class SideChain {
         break;
 
       case RELEASE:
-        pos += release * numSamples;
+        pos += (int) ((release & 0xFFFFFFFFL) * numSamples);
         if (pos >= 8388608) {
           status = Envelope.EnvelopeStage.OFF;
           lastValue = 2147483647;

@@ -24,7 +24,7 @@ public class FirmwareSynthVoiceTest {
     m.setOscMix(1.0f);
     m.setLpfFreq(lpfHz);
     m.setLpfRes(0.0f);
-    m.setVolume(0.3f);
+    m.setVolume(1.0f);
     m.addClip(new ClipModel("c", 8, 16));
     ProjectModel p = new ProjectModel();
     p.addTrack(m);

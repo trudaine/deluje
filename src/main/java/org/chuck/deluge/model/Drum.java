@@ -120,6 +120,9 @@ public abstract class Drum {
     for (int i = 0; i < 16; i++) {
       modKnobs.add(ModKnob.empty());
     }
+    this.oscAVolume = 0.0f;
+    this.oscBVolume = 0.0f;
+    this.noiseVolume = 0.0f;
   }
 
   public String getName() {

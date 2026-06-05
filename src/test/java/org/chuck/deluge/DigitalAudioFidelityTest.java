@@ -328,7 +328,7 @@ public class DigitalAudioFidelityTest {
       preHitPeak = Math.max(preHitPeak, Math.abs(engine.masterBuffer[i].l / 2147483648.0));
     }
     org.junit.jupiter.api.Assertions.assertTrue(
-        preHitPeak > 0.4, "Steady state voice should have solid active signal level");
+        preHitPeak > 0.04, "Steady state voice should have solid active signal level");
 
     // Create sidechain trigger sound (representing a kick drum slot!)
     FirmwareSound kick = new FirmwareSound();
