@@ -1658,11 +1658,39 @@ public class SwingDelugeApp extends JFrame {
               + " track slots for Hi-Fi Rendering. MasterVol: "
               + masterVol);
     }
-    if (topBar != null && topBar.getRetroLedDisplay() != null && !model.getTracks().isEmpty()) {
+    if (topBar != null && !model.getTracks().isEmpty()) {
       int activeTrk = clipPanel != null ? clipPanel.getEditedModelTrack() : 0;
       if (activeTrk >= 0 && activeTrk < model.getTracks().size()) {
-        String tName = model.getTracks().get(activeTrk).getName();
-        topBar.getRetroLedDisplay().scrollMessage(tName.toUpperCase());
+        org.chuck.deluge.model.TrackModel tm = model.getTracks().get(activeTrk);
+        String tName = tm.getName().toUpperCase();
+        String modeBanner =
+            "CLIP".equals(activeViewMode) || activeViewMode == null
+                ? "CLIP VIEW"
+                : (activeViewMode + " VIEW");
+        String middleText;
+        String bottomInfo;
+        if ("CLIP".equals(activeViewMode) || activeViewMode == null) {
+          if (tm instanceof org.chuck.deluge.model.SynthTrackModel) {
+            middleText = "SYNTH";
+            bottomInfo = "PRESET: 1 (POLY 8)";
+          } else if (tm instanceof org.chuck.deluge.model.KitTrackModel) {
+            middleText = "KIT";
+            bottomInfo = "DRUMS: 16 SLOTS";
+          } else {
+            middleText = "AUDIO";
+            bottomInfo = "STEREO STREAM";
+          }
+        } else if ("SONG".equals(activeViewMode)) {
+          middleText = "SONG: " + model.getTracks().size() + " TRKS";
+          bottomInfo = "BPM: " + ((int) model.getBpm());
+        } else {
+          middleText = tName;
+          bottomInfo = "STATUS: READY";
+        }
+
+        org.chuck.deluge.firmware.hid.FirmwareDisplay.get()
+            .getVirtualOLED()
+            .drawThreeLineDisplay(modeBanner, middleText, bottomInfo);
       }
     }
 
