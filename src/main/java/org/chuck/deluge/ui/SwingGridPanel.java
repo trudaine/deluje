@@ -4596,7 +4596,6 @@ public class SwingGridPanel extends JPanel {
                   clipBtn.setBackground(!isMuted ? Color.RED : new Color(0x33, 0x33, 0x33));
                 });
           } else if (colId == columnCount - 1) {
-            clipBtn.setText("SOLO");
             boolean isSynth = false;
             if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
               org.chuck.deluge.model.TrackModel tm = projectModel.getTracks().get(editedModelTrack);
@@ -4604,9 +4603,40 @@ public class SwingGridPanel extends JPanel {
             }
             boolean isOctaveC = isSynth && ((127 - (scrollOffset + trk)) % 12 == 0);
 
+            String nName;
+            if (isSynth) {
+              int midiPitch = (128 - 1) - (scrollOffset + trk);
+              String[] noteNames =
+                  new String[] {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+              nName = noteNames[Math.max(0, midiPitch) % 12] + ((midiPitch / 12) - 1);
+            } else if (projectModel != null
+                && editedModelTrack < projectModel.getTracks().size()
+                && projectModel.getTracks().get(editedModelTrack)
+                    instanceof org.chuck.deluge.model.KitTrackModel kit) {
+              nName =
+                  (trk < kit.getDrums().size())
+                      ? kit.getDrums().get(trk).getName()
+                      : ("PAD " + (trk + 1));
+              if (nName.toLowerCase().endsWith(".wav") || nName.toLowerCase().endsWith(".aif")) {
+                nName = nName.substring(0, nName.lastIndexOf('.'));
+              }
+            } else {
+              nName = "ROW " + (trk + 1);
+            }
+            clipBtn.setText(nName);
+            clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 11 : 9));
+
             if (soloRow == trk) {
               clipBtn.setBackground(Color.GREEN);
               clipBtn.setForeground(Color.BLACK);
+            } else if (trk == 0) {
+              clipBtn.setBackground(
+                  new Color(0xff, 0xb3, 0x00)); // Bright Amber Gold for first top cell
+              clipBtn.setForeground(Color.BLACK);
+            } else if (trk == 7 || trk == voiceRowCount - 1) {
+              clipBtn.setBackground(
+                  new Color(0x7b, 0x68, 0xee)); // Distinct Soft Purple for last bottom cell
+              clipBtn.setForeground(Color.WHITE);
             } else if (isOctaveC) {
               clipBtn.setBackground(new Color(0xb0, 0xe2, 0xff)); // Soft octave teal/blue
               clipBtn.setForeground(Color.BLACK);
