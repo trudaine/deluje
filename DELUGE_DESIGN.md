@@ -2487,3 +2487,84 @@ These six principles govern every UI decision in this emulator — they are what
 
 ---
 *Swing UX Advantages section added: April 19, 2026*
+
+---
+
+## 25. Consolidated Architecture Appendix: Unified Design & In-Memory Object Model
+
+> Consolidated from former `UNIFIED_DESIGN.md` and `deluge_object_model.md`.
+
+---
+
+### 25.1 The XML to Java State Machine Lifecycle
+
+```mermaid
+graph LR
+    XML[(song.xml)] -->|DelugeXmlParser| Java[ProjectModel Workspace]
+    Java -->|User Interaction| UI[Sequencer Pads Canvas]
+    UI -->|State Mutators| Java
+    Java -->|ProjectSerializer| XML
+```
+
+1. **DESERIALIZATION (Read Phase)**:
+   - Invoking `DelugeXmlParser.parseSong()` ingests absolute nested configuration scopes (e.g., BPM ratios, transport key scales).
+   - Traces child instruments elements parsing XML presets and sequence string lines encoded in contiguous hexadecimal matrix streams.
+2. **LIVE OPERATIONS (Mutation Phase)**:
+   - Grid timeline canvas renders pad timelines mapping node triggers corresponding back to the in-memory structure layer.
+3. **SERIALIZATION (Write Phase)**:
+   - `ProjectSerializer.save()` drives the structure conversion chain backwards assembling the XML DOM document tree from memory objects tree.
+
+---
+
+### 25.2 Memory Core Representation (Java Classes)
+
+| Java Class | Representation Role | Bound Parameters Telemetry Scopes |
+| :--- | :--- | :--- |
+| **ProjectModel** | Master root configuration file mapping node | Houses master compositions `BPM`, base scale `key` transposition bounds, and holds sequential pointer arrays to tracks. |
+| **TrackModel** | Abstract base instrument layer chassis | Serves foundational pointers inheritance for hardware modules specialization setups tracks (`KitTrackModel`, `SynthTrackModel`). *Holds track playback configuration properties (e.g. `isMuted`).* |
+| **ClipModel** | Isolated performance matrix sequence timeline lane | Houses 2D matrix grids table mapping individual trigger pads allocations map limits boundaries. |
+| **StepData** | Basic discrete grid cell payload packet | Maps timeline node active triggers payloads parameter constants (`active`, `velocity`, `pitch`, `gate duration`, `probability`). |
+
+---
+
+### 25.3 Model-View Synchronization (Observer Pattern)
+
+```mermaid
+sequenceDiagram
+    participant UI as UI Layer
+    participant Model as ProjectModel
+    UI->>Model: Registers Listener (addProjectListener)
+    Note over Model: Property changed (e.g. BPM Toggled)
+    Model->>UI: fires notifyProjectChanged()
+    Note over UI: Repaints visual triggers canvas
+```
+
+| Event Type | Broadcaster Node | Trigger Source Action | Subscribed UI Listener Panel |
+| :--- | :--- | :--- | :--- |
+| **`ClipSequenceEvent`** | `ClipModel` | Sequence Step Toggles (`setStep`), clearing whole notes (`clearNotes`). | **`SwingGridPanel`**: Repaints sequential trigger matrices visually. |
+| **`TrackStateEvent`** | `TrackModel` | Toggling mute states (`setMuted`), jumping active clip indexes. | **`SwingSongModePanel`**: Flips launch/mute color state representations. |
+| **`SongStructureEvent`** | `ProjectModel` | Adding/Removing tracks, re-ordering rows timelines. | **`SwingDelugeApp`**: re-constructs operational sidebar explorer folders list. |
+| **`GlobalMixerEvent`** | `ProjectModel` | Tempo updates (`setBpm`), volume variations slider pushes. | **Top Panel components**: Updates graphical indicators dials. |
+
+---
+
+### 25.4 Song Lifecycle & Library Architecture
+
+```
+<Library Root>/
+  SONGS/    ← song XML files (.xml)
+  KITS/     ← standalone kit preset XML files (.xml)
+  SYNTHS/   ← standalone synth preset XML files (.xml)
+  SAMPLES/  ← audio samples (WAV, AIFF, etc.)
+```
+
+On first run the default root is `~/Deluge/`. Set a different root via **Settings > Set Samples Directory…** pointing to the SAMPLES subfolder; the app derives the root from its parent.
+
+#### Save Kit / Save Synth as independent presets
+1. Right-click the row header of a Kit or Synth track.
+2. Choose **Save as Kit preset…** or **Save as Synth preset…**.
+3. File chooser opens directly in `KITS/` or `SYNTHS/`. The track name is pre-filled as the filename.
+4. The saved `.xml` file can be loaded back via the sidebar Library tree (double-click) or drag-and-dropped onto a track.
+
+Kit XML format: root element `<kit>`, children `<sound>` with `<name>`, `<sample fileName="…"/>`, optional `<pitch>`, `<muteGroup>`, `<reverse>`.
+Synth XML format: root element `<sound>` with `<osc1 type="…"/>`, `<osc2 type="…"/>`, `<lpf freq="…" res="…"/>`.
