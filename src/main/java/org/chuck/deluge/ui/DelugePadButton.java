@@ -141,6 +141,14 @@ public class DelugePadButton extends JButton {
     }
   }
 
+  @Override
+  public void setText(String text) {
+    super.setText(text);
+    if (text != null && !text.startsWith("<html>")) {
+      setNoteText(text);
+    }
+  }
+
   private boolean inLoop = true;
 
   public boolean isInLoop() {
