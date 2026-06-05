@@ -4488,17 +4488,22 @@ public class SwingGridPanel extends JPanel {
             } else
               switch (viewMode) {
                 case CLIP:
-                  double vel = bridge != null ? bridge.getVelocity(baseTrackId + trk, colId) : 0.8;
-                  double prob =
-                      bridge != null ? bridge.getStepProbability(baseTrackId + trk, colId) : 1.0;
-                  clipBtn.setText(
-                      "<html><font size='3'>Pi:"
-                          + (currentTrack)
-                          + "<br>Ve:"
-                          + String.format("%.1f", vel)
-                          + "<br>Pr:"
-                          + String.format("%.1f", prob)
-                          + "<br>Ga:1</font></html>");
+                  if (colId < 16) {
+                    double vel =
+                        bridge != null ? bridge.getVelocity(baseTrackId + trk, colId) : 0.8;
+                    double prob =
+                        bridge != null ? bridge.getStepProbability(baseTrackId + trk, colId) : 1.0;
+                    clipBtn.setText(
+                        "<html><font size='3'>Pi:"
+                            + (currentTrack)
+                            + "<br>Ve:"
+                            + String.format("%.1f", vel)
+                            + "<br>Pr:"
+                            + String.format("%.1f", prob)
+                            + "<br>Ga:1</font></html>");
+                  } else {
+                    clipBtn.setText("");
+                  }
                   break;
                 case ARRANGEMENT:
                   org.chuck.deluge.model.ArrangerClip placement =
@@ -4561,13 +4566,14 @@ public class SwingGridPanel extends JPanel {
             clipBtn.setBackground(
                 curMute
                     ? new Color(0xff, 0xd7, 0x00)
-                    : new Color(0xee, 0xee, 0xee)); // Yellow when muted, White when active
+                    : Color.WHITE); // Yellow when muted, Pure Snow White when active
             clipBtn.setForeground(Color.BLACK);
             clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 11 : 9));
             if (clipBtn instanceof DelugePadButton pad) {
               pad.setDrawCenterCircle(false);
               pad.setIntensity(1.0f);
               pad.setTextColorOverride(Color.BLACK);
+              pad.setNoteText("MUTE");
             }
             clearActionListeners(clipBtn);
             clipBtn.addActionListener(
@@ -4607,70 +4613,85 @@ public class SwingGridPanel extends JPanel {
                   boolean isMuted = bridge.getMute(engineRow);
                   boolean nextMute = !isMuted;
                   bridge.setMute(engineRow, nextMute);
-                  clipBtn.setBackground(
-                      nextMute ? new Color(0xff, 0xd7, 0x00) : new Color(0xee, 0xee, 0xee));
+                  clipBtn.setBackground(nextMute ? new Color(0xff, 0xd7, 0x00) : Color.WHITE);
                   if (clipBtn instanceof DelugePadButton pad) {
                     pad.setIntensity(1.0f);
                     pad.setTextColorOverride(Color.BLACK);
                   }
                 });
           } else if (colId == columnCount - 1) {
-            boolean isSynth = false;
-            if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
-              org.chuck.deluge.model.TrackModel tm = projectModel.getTracks().get(editedModelTrack);
-              isSynth = tm instanceof org.chuck.deluge.model.SynthTrackModel;
-            }
-            boolean isOctaveC = isSynth && ((127 - (scrollOffset + trk)) % 12 == 0);
-
-            String nName;
-            if (isSynth) {
-              int midiPitch = (128 - 1) - (scrollOffset + trk);
-              String[] noteNames =
-                  new String[] {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
-              nName = noteNames[Math.max(0, midiPitch) % 12] + ((midiPitch / 12) - 1);
-            } else if (projectModel != null
-                && editedModelTrack < projectModel.getTracks().size()
-                && projectModel.getTracks().get(editedModelTrack)
-                    instanceof org.chuck.deluge.model.KitTrackModel kit) {
-              nName =
-                  (trk < kit.getDrums().size())
-                      ? kit.getDrums().get(trk).getName()
-                      : ("PAD " + (trk + 1));
-              if (nName.toLowerCase().endsWith(".wav") || nName.toLowerCase().endsWith(".aif")) {
-                nName = nName.substring(0, nName.lastIndexOf('.'));
+            if (viewMode == GridViewMode.SONG) {
+              String sLaunch = (t < tracks.size()) ? tracks.get(t).getName() : ("TRACK " + (t + 1));
+              clipBtn.setText(sLaunch);
+              clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 11 : 9));
+              clipBtn.setBackground(trackColors[t % trackColors.length]);
+              clipBtn.setForeground(Color.BLACK);
+              if (clipBtn instanceof DelugePadButton pad) {
+                pad.setDrawCenterCircle(false);
+                pad.setIntensity(1.0f);
+                pad.setNoteText(sLaunch);
+                pad.setTextColorOverride(Color.BLACK);
               }
             } else {
-              nName = "ROW " + (trk + 1);
-            }
-            clipBtn.setText(nName);
-            clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 11 : 9));
+              boolean isSynth = false;
+              if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+                org.chuck.deluge.model.TrackModel tm =
+                    projectModel.getTracks().get(editedModelTrack);
+                isSynth = tm instanceof org.chuck.deluge.model.SynthTrackModel;
+              }
+              boolean isOctaveC = isSynth && ((127 - (scrollOffset + t)) % 12 == 0);
 
-            if (soloRow == trk) {
-              clipBtn.setBackground(Color.GREEN);
-              clipBtn.setForeground(Color.BLACK);
-              if (clipBtn instanceof DelugePadButton pad) pad.setTextColorOverride(Color.BLACK);
-            } else if (trk == 0) {
-              clipBtn.setBackground(
-                  new Color(0xff, 0xb3, 0x00)); // Bright Amber Gold for first top cell
-              clipBtn.setForeground(Color.BLACK);
-              if (clipBtn instanceof DelugePadButton pad) pad.setTextColorOverride(Color.BLACK);
-            } else if (trk == 7 || trk == voiceRowCount - 1) {
-              clipBtn.setBackground(
-                  new Color(0x7b, 0x68, 0xee)); // Distinct Soft Purple for last bottom cell
-              clipBtn.setForeground(Color.WHITE);
-              if (clipBtn instanceof DelugePadButton pad) pad.setTextColorOverride(Color.WHITE);
-            } else if (isOctaveC) {
-              clipBtn.setBackground(new Color(0xb0, 0xe2, 0xff)); // Soft octave teal/blue
-              clipBtn.setForeground(Color.BLACK);
-              if (clipBtn instanceof DelugePadButton pad) pad.setTextColorOverride(Color.BLACK);
-            } else {
-              clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
-              clipBtn.setForeground(Color.WHITE);
-              if (clipBtn instanceof DelugePadButton pad) pad.setTextColorOverride(Color.WHITE);
-            }
-            if (clipBtn instanceof DelugePadButton pad) {
-              pad.setDrawCenterCircle(false);
-              pad.setIntensity(1.0f);
+              String nName;
+              if (isSynth) {
+                int midiPitch = (128 - 1) - (scrollOffset + t);
+                String[] noteNames =
+                    new String[] {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+                nName = noteNames[Math.max(0, midiPitch) % 12] + ((midiPitch / 12) - 1);
+              } else if (projectModel != null
+                  && editedModelTrack < projectModel.getTracks().size()
+                  && projectModel.getTracks().get(editedModelTrack)
+                      instanceof org.chuck.deluge.model.KitTrackModel kit) {
+                nName =
+                    (t < kit.getDrums().size())
+                        ? kit.getDrums().get(t).getName()
+                        : ("PAD " + (t + 1));
+                if (nName.toLowerCase().endsWith(".wav") || nName.toLowerCase().endsWith(".aif")) {
+                  nName = nName.substring(0, nName.lastIndexOf('.'));
+                }
+              } else {
+                nName = "ROW " + (t + 1);
+              }
+              clipBtn.setText(nName);
+              clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 11 : 9));
+
+              if (soloRow == t) {
+                clipBtn.setBackground(Color.GREEN);
+                clipBtn.setForeground(Color.BLACK);
+                if (clipBtn instanceof DelugePadButton pad) pad.setTextColorOverride(Color.BLACK);
+              } else if (t == 0) {
+                clipBtn.setBackground(
+                    new Color(0xff, 0xb3, 0x00)); // Bright Amber Gold for first top cell
+                clipBtn.setForeground(Color.BLACK);
+                if (clipBtn instanceof DelugePadButton pad) pad.setTextColorOverride(Color.BLACK);
+              } else if (t == 7 || t == voiceRowCount - 1) {
+                clipBtn.setBackground(
+                    new Color(0x7b, 0x68, 0xee)); // Distinct Soft Purple for last bottom cell
+                clipBtn.setForeground(Color.WHITE);
+                if (clipBtn instanceof DelugePadButton pad) pad.setTextColorOverride(Color.WHITE);
+              } else if (isOctaveC) {
+                clipBtn.setBackground(new Color(0xb0, 0xe2, 0xff)); // Soft octave teal/blue
+                clipBtn.setForeground(Color.BLACK);
+                if (clipBtn instanceof DelugePadButton pad) pad.setTextColorOverride(Color.BLACK);
+              } else {
+                clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
+                clipBtn.setForeground(Color.WHITE);
+                if (clipBtn instanceof DelugePadButton pad) pad.setTextColorOverride(Color.WHITE);
+              }
+              if (clipBtn instanceof DelugePadButton pad) {
+                pad.setDrawCenterCircle(false);
+                pad.setIntensity(1.0f);
+                pad.setNoteText(nName);
+              }
             }
 
             clearActionListeners(clipBtn);
