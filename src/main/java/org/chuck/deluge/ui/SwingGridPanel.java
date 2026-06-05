@@ -4416,7 +4416,13 @@ public class SwingGridPanel extends JPanel {
                   == org.chuck.deluge.project.PreferencesManager.GridPanelType.ADVANCED;
           JButton clipBtn;
           int macR = songVoiceRows, keyR = songVoiceRows + 1;
-          if (trkId == macR && colId < 16) {
+          if (colId >= 16) {
+            DelugePadButton pad = new DelugePadButton();
+            pad.putClientProperty("row", t);
+            pad.putClientProperty("col", c);
+            pad.setDrawCenterCircle(false);
+            clipBtn = pad;
+          } else if (trkId == macR && colId < 16) {
             clipBtn = new MacroSliderButton(colId, allParams[colId]);
           } else if (trkId == keyR && colId < 18) {
             if (isAdvanced) {
@@ -4575,6 +4581,23 @@ public class SwingGridPanel extends JPanel {
               pad.setTextColorOverride(Color.BLACK);
               pad.setNoteText("MUTE");
             }
+            if (viewMode == null) {
+              clipBtn.setToolTipText("Row " + (t + 1) + " Mute Toggle");
+            } else
+              switch (viewMode) {
+                case CLIP ->
+                    clipBtn.setToolTipText(
+                        "Clip View: Row "
+                            + (t + 1)
+                            + " Mute / Unmute (Shift-Click to Clear Steps)");
+                case SONG ->
+                    clipBtn.setToolTipText("Song View: Track " + (t + 1) + " Full Track Mute");
+                case ARRANGEMENT ->
+                    clipBtn.setToolTipText("Arrangement View: Lane " + (t + 1) + " Mute");
+                case AUTOMATION ->
+                    clipBtn.setToolTipText("Automation View: Parameter Lane " + (t + 1) + " Mute");
+                default -> clipBtn.setToolTipText("Performance View: Live Stutter / Mute Punch");
+              }
             clearActionListeners(clipBtn);
             clipBtn.addActionListener(
                 e -> {
@@ -4693,6 +4716,27 @@ public class SwingGridPanel extends JPanel {
                 pad.setNoteText(nName);
               }
             }
+            if (viewMode == null) {
+              clipBtn.setToolTipText("Audition Row " + (t + 1));
+            } else
+              switch (viewMode) {
+                case CLIP ->
+                    clipBtn.setToolTipText(
+                        "Clip View: Audition / Preview Row "
+                            + (t + 1)
+                            + " Note ("
+                            + clipBtn.getText()
+                            + ")");
+                case SONG ->
+                    clipBtn.setToolTipText("Song View: Launch Track " + (t + 1) + " Primary Clip");
+                case ARRANGEMENT ->
+                    clipBtn.setToolTipText("Arrangement View: Cue Bar / Section Marker " + (t + 1));
+                case AUTOMATION ->
+                    clipBtn.setToolTipText(
+                        "Automation View: Cue Parameter " + (t + 1) + " Automation");
+                default ->
+                    clipBtn.setToolTipText("Performance View: Recall Macro Snapshot " + (t + 1));
+              }
 
             clearActionListeners(clipBtn);
             clipBtn.addActionListener(
