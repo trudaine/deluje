@@ -277,6 +277,13 @@ public class SwingProjectSidebarPanel extends JPanel {
     root.add(node);
     File[] kids = dir.listFiles();
     if (kids != null) {
+      java.util.Arrays.sort(
+          kids,
+          (a, b) -> {
+            if (a.isDirectory() && !b.isDirectory()) return -1;
+            if (!a.isDirectory() && b.isDirectory()) return 1;
+            return a.getName().compareToIgnoreCase(b.getName());
+          });
       for (File k : kids) {
         if (k.isDirectory()) {
           addDirsToTree(node, k.getName(), k);
