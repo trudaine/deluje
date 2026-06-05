@@ -37,8 +37,10 @@ public class FirmwareLfoModulationTest {
     Song s = org.chuck.deluge.firmware.engine.FirmwareFactory.createSong(p);
     FirmwareSound sound = (FirmwareSound) ((InstrumentClip) s.clips.get(0)).sound;
 
-    // Drive the local LFO at ~5 Hz. The LFO-rate param is now the phase increment directly (firmware
-    // scale: full 2^32 cycle per sample), so 5 Hz = 5 * 2^32 / 44100 ≈ 487018. The factory may install
+    // Drive the local LFO at ~5 Hz. The LFO-rate param is now the phase increment directly
+    // (firmware
+    // scale: full 2^32 cycle per sample), so 5 Hz = 5 * 2^32 / 44100 ≈ 487018. The factory may
+    // install
     // an automated param for the rate that overrides the neutral value, so set both.
     int fiveHz = (int) (5.0 * 4294967296.0 / 44100.0);
     sound.paramNeutralValues[Param.LOCAL_LFO_LOCAL_FREQ_1] = fiveHz;

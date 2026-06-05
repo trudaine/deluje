@@ -44,7 +44,8 @@ public class FirmwareParamCurvesTest {
     // "049 Basic FM" modulator1Amount = 0x32000000, no cables: knob -> volume parabola.
     // Traced through the firmware integer ops: combineCablesLinear -> 209715200, then
     // getFinalParameterValueVolume(neutral=2^25): positivePatched 746586112, parabola
-    // (>>16=11392)*(>>15=22784)=259555328, *2^25>>32=2027776, <<5 -> 64888832. (This also equals the
+    // (>>16=11392)*(>>15=22784)=259555328, *2^25>>32=2027776, <<5 -> 64888832. (This also equals
+    // the
     // value the FM engine computes for 049's modulator amount.)
     int neutral = ParamCurves.getParamNeutralValue(Param.LOCAL_MODULATOR_0_VOLUME);
     int range = ParamCurves.getParamRange(Param.LOCAL_MODULATOR_0_VOLUME);
@@ -59,7 +60,8 @@ public class FirmwareParamCurvesTest {
 
   @Test
   public void hybridCurveIsCentredAndScales() {
-    // Pan neutral 0: centre knob (0) -> 0; full right knob -> large positive, full left -> negative.
+    // Pan neutral 0: centre knob (0) -> 0; full right knob -> large positive, full left ->
+    // negative.
     int neutral = ParamCurves.getParamNeutralValue(Param.LOCAL_PAN);
     assertEquals(0, FirmwareUtils.getFinalParameterValueHybrid(neutral, 0));
     assertTrue(FirmwareUtils.getFinalParameterValueHybrid(neutral, 1073741824) > 0);
@@ -73,9 +75,17 @@ public class FirmwareParamCurvesTest {
     // mapping to ~331 Hz). Just assert strict monotonicity over the knob range.
     int neutral = ParamCurves.getParamNeutralValue(Param.LOCAL_LPF_FREQ);
     int range = ParamCurves.getParamRange(Param.LOCAL_LPF_FREQ);
-    int low = FirmwareUtils.getFinalParameterValueExp(neutral, FirmwareUtils.patchCombineExpStep(0, 0xC0000000, range));
-    int mid = FirmwareUtils.getFinalParameterValueExp(neutral, FirmwareUtils.patchCombineExpStep(0, 0xE8000000, range));
-    int high = FirmwareUtils.getFinalParameterValueExp(neutral, FirmwareUtils.patchCombineExpStep(0, 0x40000000, range));
-    assertTrue(low < mid && mid < high, "cutoff param must rise with the knob (low=" + low + " mid=" + mid + " high=" + high + ")");
+    int low =
+        FirmwareUtils.getFinalParameterValueExp(
+            neutral, FirmwareUtils.patchCombineExpStep(0, 0xC0000000, range));
+    int mid =
+        FirmwareUtils.getFinalParameterValueExp(
+            neutral, FirmwareUtils.patchCombineExpStep(0, 0xE8000000, range));
+    int high =
+        FirmwareUtils.getFinalParameterValueExp(
+            neutral, FirmwareUtils.patchCombineExpStep(0, 0x40000000, range));
+    assertTrue(
+        low < mid && mid < high,
+        "cutoff param must rise with the knob (low=" + low + " mid=" + mid + " high=" + high + ")");
   }
 }
