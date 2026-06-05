@@ -933,7 +933,7 @@ This chapter provides a direct, code-by-code mapping of every shortcut code from
 | **GL16** | QWERTY Keyboard Search | Automatic on name browse | Type directly in file browse filters or dialog text fields |
 | **GL17** | Pad Refresh Rate | Scroll menu ➔ refresh rate | Optimized dynamically in Java UI JViewport paint loops |
 | **GL18** | Firmware Update | Hold `Shift` + Power On | Managed by Maven compile and shade packages rebuilds |
-| **GL19** | File System Up/Back | Press `Back` button in menus | Click parent nodes in Sidebar JTree explorer, or parent folders |
+| **GL19** | File System Explorer | Press `Back` button in menus | Navigate Sidebar JTree explorer (`📁 SD CARD EXPLORER`). All subdirectories (grouped first) and candidate files (`.XML`, `.ck`) are automatically sorted alphabetically (`A–Z`)! |
 | **GL20** | Collect All Samples | Choose collect menu | Handled on Save Project serialization to SD card structure |
 
 ### 21.2 Step Sequencing Parity (SQ)
