@@ -108,7 +108,7 @@ public class FirmwareDisplay {
     }
   }
 
-  private void notifyOledListener() {
+  public void notifyOledListener() {
     if (oledListener != null) {
       oledListener.run();
     }

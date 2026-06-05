@@ -110,7 +110,7 @@ public class VirtualOLED {
 
     renderCurrentState();
 
-    if (staticLine2.length() > 11) {
+    if (staticLine2.length() > 6) {
       final String padded = "   " + staticLine2 + "   ";
       int[] idx = new int[] {0};
       oledScrollTimer =
@@ -118,8 +118,8 @@ public class VirtualOLED {
               250,
               e -> {
                 if (overrideLine2 == null) {
-                  if (idx[0] + 11 <= padded.length()) {
-                    renderDirect(staticLine1, padded.substring(idx[0], idx[0] + 11), staticLine3);
+                  if (idx[0] + 8 <= padded.length()) {
+                    renderDirect(staticLine1, padded.substring(idx[0], idx[0] + 8), staticLine3);
                     idx[0]++;
                   } else {
                     idx[0] = 0;
@@ -158,6 +158,7 @@ public class VirtualOLED {
 
     setLargeFont(false);
     drawString(l3 != null ? l3 : "", 4, 54);
+    FirmwareDisplay.get().notifyOledListener();
   }
 
   /** Renders the authentic 3-line layout: small top line, LARGE middle line, small bottom line. */
