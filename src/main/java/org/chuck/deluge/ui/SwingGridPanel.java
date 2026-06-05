@@ -4553,9 +4553,14 @@ public class SwingGridPanel extends JPanel {
 
           if (colId == 16) {
             final int engineRow = baseTrackId + trk;
+            boolean curMute = bridge.getMute(engineRow);
             clipBtn.setText("MUTE");
             clipBtn.setBackground(
-                bridge.getMute(engineRow) ? Color.RED : new Color(0x33, 0x33, 0x33));
+                curMute
+                    ? new Color(0xff, 0xd7, 0x00)
+                    : new Color(0xee, 0xee, 0xee)); // Yellow when muted, White when active
+            clipBtn.setForeground(Color.BLACK);
+            clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 11 : 9));
             clearActionListeners(clipBtn);
             clipBtn.addActionListener(
                 e -> {
@@ -4592,8 +4597,10 @@ public class SwingGridPanel extends JPanel {
                     return;
                   }
                   boolean isMuted = bridge.getMute(engineRow);
-                  bridge.setMute(engineRow, !isMuted);
-                  clipBtn.setBackground(!isMuted ? Color.RED : new Color(0x33, 0x33, 0x33));
+                  boolean nextMute = !isMuted;
+                  bridge.setMute(engineRow, nextMute);
+                  clipBtn.setBackground(
+                      nextMute ? new Color(0xff, 0xd7, 0x00) : new Color(0xee, 0xee, 0xee));
                 });
           } else if (colId == columnCount - 1) {
             boolean isSynth = false;
