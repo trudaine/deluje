@@ -373,8 +373,7 @@ public class SwingTopBarPanel extends JPanel {
     oledPanel.setBorder(BorderFactory.createLineBorder(Color.DARK_GRAY, 2));
     add(oledPanel);
 
-    // ── Retro Character LED Display (For shift rotary shortcuts!) ──
-    add(retroLedDisplay);
+    // (Combined into OLED screen!)
 
     FirmwareDisplay.get()
         .setListener(
@@ -547,6 +546,7 @@ public class SwingTopBarPanel extends JPanel {
       label.setFont(new Font("Monospaced", Font.BOLD, 13));
       label.setHorizontalAlignment(SwingConstants.CENTER);
       add(label, BorderLayout.CENTER);
+      setVisible(false); // Combined into OLED screen!
     }
 
     private void applyThemeBorder(Color lineColor) {
@@ -566,6 +566,10 @@ public class SwingTopBarPanel extends JPanel {
       label.setForeground(new Color(0xff, 0x88, 0x00)); // active amber glow!
       setBackground(new Color(0x24, 0x10, 0x00)); // active amber background
       applyThemeBorder(new Color(0xff, 0x88, 0x00));
+      try {
+        FirmwareDisplay.get().getVirtualOLED().drawThreeLineDisplay(code.toUpperCase(), val, "");
+      } catch (Throwable ignored) {
+      }
     }
 
     public void printTransient(String code, String val) {
@@ -584,6 +588,11 @@ public class SwingTopBarPanel extends JPanel {
       label.setForeground(new Color(0xff, 0x88, 0x00));
       setBackground(new Color(0x24, 0x10, 0x00));
       applyThemeBorder(new Color(0xff, 0x88, 0x00));
+
+      try {
+        FirmwareDisplay.get().getVirtualOLED().drawThreeLineDisplay("TRACK", message, "");
+      } catch (Throwable ignored) {
+      }
 
       int[] idx = new int[] {0};
       scrollTimer =
