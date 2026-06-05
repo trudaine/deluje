@@ -95,6 +95,19 @@ public class VirtualOLED {
     }
   }
 
+  /** Renders the authentic 3-line layout: small top line, LARGE middle line, small bottom line. */
+  public void drawThreeLineDisplay(String line1, String line2, String line3) {
+    clear();
+    setLargeFont(false);
+    drawString(line1, 4, 14);
+
+    setLargeFont(true);
+    drawString(line2, 4, 36);
+
+    setLargeFont(false);
+    drawString(line3, 4, 54);
+  }
+
   /**
    * Draws a bit-accurate waveform from the given data. Replicates the firmware's waveform drawing
    * routine.
