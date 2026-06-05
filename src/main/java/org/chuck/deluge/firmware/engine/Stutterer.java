@@ -115,14 +115,42 @@ public class Stutterer {
           audio[i].r = curr.r;
         } else {
           int strength2 =
-              buffer.advance(
-                  () -> {
-                    // loop around
-                  });
+              currentReverse
+                  ? buffer.retreat(
+                      () -> {
+                        buffer.moveBack();
+                      })
+                  : buffer.advance(
+                      () -> {
+                        buffer.moveOn();
+                      });
           int strength1 = 65536 - strength2;
-          StereoSample s = buffer.readResampled(strength1, strength2);
-          audio[i].l = s.l;
-          audio[i].r = s.r;
+
+          int currentOffset = buffer.getCurrentOffset();
+          int neighborOffset = currentReverse ? currentOffset - 1 : currentOffset + 1;
+          if (neighborOffset < 0) {
+            neighborOffset = buffer.sizeIncludingExtra - 1;
+          } else if (neighborOffset == buffer.sizeIncludingExtra) {
+            neighborOffset = 0;
+          }
+
+          StereoSample fromDelay1 = buffer.current();
+          StereoSample fromDelay2 = buffer.bufferAt(neighborOffset);
+          audio[i].l =
+              (multiply_32x32_rshift32(fromDelay1.l, strength1 << 14)
+                      + multiply_32x32_rshift32(fromDelay2.l, strength2 << 14))
+                  << 2;
+          audio[i].r =
+              (multiply_32x32_rshift32(fromDelay1.r, strength1 << 14)
+                      + multiply_32x32_rshift32(fromDelay2.r, strength2 << 14))
+                  << 2;
+        }
+
+        if (config.pingPong
+            && ((currentReverse && buffer.getCurrentOffset() == 0)
+                || (!currentReverse
+                    && buffer.getCurrentOffset() == buffer.sizeIncludingExtra - 1))) {
+          currentReverse = !currentReverse;
         }
       }
     }

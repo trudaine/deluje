@@ -217,6 +217,19 @@ public class DelayBuffer {
     return (longPos >>> 8) & 65535;
   }
 
+  public int retreat(Callback callback) {
+    longPos -= resampleConfig.actualSpinRate;
+    int newShortPos = (longPos >>> 24) & 0xFF;
+    int shortPosDiff = (lastShortPos - newShortPos) & 0xFF;
+    lastShortPos = newShortPos;
+
+    while (shortPosDiff > 0) {
+      callback.call();
+      shortPosDiff--;
+    }
+    return (longPos >>> 8) & 65535;
+  }
+
   public StereoSample readResampled(int strength1, int strength2) {
     StereoSample s1 = buffer[currentOffset];
     int nextOffset = currentOffset + 1;
