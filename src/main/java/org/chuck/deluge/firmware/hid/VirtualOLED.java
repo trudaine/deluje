@@ -148,13 +148,13 @@ public class VirtualOLED {
   private void renderDirect(String l1, String l2, String l3) {
     clear();
     setLargeFont(false);
-    drawString(l1 != null ? l1 : "", 4, 14);
+    drawString(l1 != null ? l1 : "", 4, 10);
 
     setLargeFont(true);
-    drawString(l2 != null ? l2 : "", 4, 36);
+    drawString(l2 != null ? l2 : "", 4, 28);
 
     setLargeFont(false);
-    drawString(l3 != null ? l3 : "", 4, 54);
+    drawString(l3 != null ? l3 : "", 4, 44);
     FirmwareDisplay.get().notifyOledListener();
   }
 
