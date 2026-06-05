@@ -4445,7 +4445,10 @@ public class SwingGridPanel extends JPanel {
 
           pads[t][c] = clipBtn;
 
-          if (t == macR) {
+          if (t >= voiceRowCount && (colId == 16 || colId == columnCount - 1)) {
+            clipBtn.setVisible(false);
+            clipBtn.setEnabled(false);
+          } else if (t == macR) {
             if (c < 16) {
               // Handled inside MacroSliderButton!
             } else {
