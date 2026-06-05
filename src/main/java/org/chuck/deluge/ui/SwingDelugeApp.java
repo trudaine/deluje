@@ -1862,6 +1862,9 @@ public class SwingDelugeApp extends JFrame {
       if (sidebarPanel != null) {
         sidebarPanel.reloadLibrary();
       }
+      if (topBar != null) {
+        topBar.setSaved(true);
+      }
     } catch (Exception ex) {
       JOptionPane.showMessageDialog(
           this, "Save failed:\n" + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);

@@ -75,6 +75,12 @@ public class SwingTopBarPanel extends JPanel {
   private final RetroLedDisplay retroLedDisplay;
   private final SwingOledPanel oledPanel;
 
+  private boolean isSaved = false;
+
+  public void setSaved(boolean saved) {
+    this.isSaved = saved;
+  }
+
   public RetroLedDisplay getRetroLedDisplay() {
     return retroLedDisplay;
   }
@@ -132,6 +138,21 @@ public class SwingTopBarPanel extends JPanel {
         e -> {
           updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
           listener.onViewModeChanged("SONG");
+          String saveStatus = isSaved ? "SONG" : "UNSAVED";
+          String keyStr = projectModel.getKey().toUpperCase();
+          if (keyStr.isEmpty() || keyStr.equals("NONE")) keyStr = "C";
+          retroLedDisplay.scrollMessage(
+              saveStatus + "   " + keyStr + "-2 MAJOR   " + ((int) projectModel.getBpm()) + " BPM");
+
+          try {
+            FirmwareDisplay.get()
+                .getVirtualOLED()
+                .drawThreeLineDisplay(
+                    saveStatus, keyStr + "-2 MAJOR", ((int) projectModel.getBpm()) + " BPM");
+            if (oledPanel != null) oledPanel.repaint();
+          } catch (Throwable t) {
+            // Shield for headless test environments
+          }
         });
     arrBtn.addActionListener(
         e -> {
@@ -536,9 +557,11 @@ public class SwingTopBarPanel extends JPanel {
     }
 
     private javax.swing.Timer resetTimer;
+    private javax.swing.Timer scrollTimer;
 
     public void print(String code, String val) {
       if (resetTimer != null) resetTimer.stop();
+      if (scrollTimer != null) scrollTimer.stop();
       label.setText(String.format("[ %-4s  %6s ]", code.toUpperCase(), val));
       label.setForeground(new Color(0xff, 0x88, 0x00)); // active amber glow!
       setBackground(new Color(0x24, 0x10, 0x00)); // active amber background
@@ -553,7 +576,34 @@ public class SwingTopBarPanel extends JPanel {
       resetTimer.start();
     }
 
+    public void scrollMessage(String message) {
+      if (resetTimer != null) resetTimer.stop();
+      if (scrollTimer != null) scrollTimer.stop();
+
+      final String padded = "      " + message + "      ";
+      label.setForeground(new Color(0xff, 0x88, 0x00));
+      setBackground(new Color(0x24, 0x10, 0x00));
+      applyThemeBorder(new Color(0xff, 0x88, 0x00));
+
+      int[] idx = new int[] {0};
+      scrollTimer =
+          new javax.swing.Timer(
+              250,
+              e -> {
+                if (idx[0] + 12 <= padded.length()) {
+                  label.setText("[ " + padded.substring(idx[0], idx[0] + 12) + " ]");
+                  idx[0]++;
+                } else {
+                  scrollTimer.stop();
+                  reset();
+                }
+              });
+      scrollTimer.start();
+    }
+
     public void reset() {
+      if (resetTimer != null) resetTimer.stop();
+      if (scrollTimer != null) scrollTimer.stop();
       label.setText("[  --    --  ]");
       label.setForeground(new Color(0xff, 0x33, 0x33)); // rest standard red
       setBackground(new Color(0x1a, 0x05, 0x05));
