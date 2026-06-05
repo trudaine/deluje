@@ -189,14 +189,17 @@ Switch to Song view: `F2` or click **[SONG]** tab.
 > **Song vs. Clip view**: Song view shows all clips as coloured blocks per track.
 > Clip view shows the step grid for one clip. `F1` / `F2` toggle between them.
 
-### Row Label Display Rules (CLIP View)
+### Hardware Parity & Row Label Display Rules (CLIP View)
 
-| Track Type | Row Label Behavior |
+| Track Type / Column | Hardware Parity & Visual Readout Behavior |
 | :--- | :--- |
-| **Kit** | Each grid row shows the individual `KitSound` name (KICK, SNARE, HI-HAT, CLAP, etc.) as defined in the track model. Falls back to the track name if the sound list is exhausted. |
-| **Synth** | Row 0 shows the track name (e.g., "SYNTH 17"). Rows 1–7 show a semitone-offset label (`-1st`, `-2st`, … `-7st`) to indicate the pitch lane. |
+| **Kit Track Rows** | Each matrix row displays the parsed sample name (e.g., `808 Kick`, `808 Snare`) with file extensions `.wav`/`.aif` cleanly trimmed. |
+| **Synth Track (Scale Mode)** | Matrix rows map strictly to diatonic scale degrees (**C, D, E, F, G, A, B**). At boot (`scrollOffset == 67`), Column 18 top row renders **`C4`** in vibrant **Purplish** (`#7B68EE`) and bottom row renders **`C3`** in solid **Red** (`Color.RED`). |
+| **Vertical Scrolling (Scale Mode)** | Turning the scroll wheel shifts the viewport purely *diatonically* up or down scale degrees, completely excluding non-scale sharps (`#`). |
+| **Columns 17 & 18 (Utility Pads)** | Renders 8 solid backlit physical rubber buttons across all track types. Inner rubber center circles are strictly blocked (`isUtilityCol`). |
+| **OLED Screen Readout** | Renders crisp 3-line layout (`Y = 10, 28, 44`) with zero horizontal or vertical truncation, displaying full context strings (`"CLIP VIEW"`, `"SYNTH"`). |
 
-In SONG and ARRANGER views all rows display the project track name (`tracks.get(t).getName()`).
+In SONG and ARRANGER views, all rows display the project track name (`tracks.get(t).getName()`).
 
 ### Track Type Bridge Sync
 
