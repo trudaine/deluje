@@ -95,17 +95,74 @@ public class VirtualOLED {
     }
   }
 
-  /** Renders the authentic 3-line layout: small top line, LARGE middle line, small bottom line. */
-  public void drawThreeLineDisplay(String line1, String line2, String line3) {
+  private javax.swing.Timer oledScrollTimer;
+  private String staticLine1 = "";
+  private String staticLine2 = "";
+  private String staticLine3 = "";
+  private String overrideLine2 = null;
+
+  public void drawTrackScreen(String banner, String mainTitle, String subText) {
+    if (oledScrollTimer != null) oledScrollTimer.stop();
+    this.staticLine1 = banner != null ? banner : "";
+    this.staticLine2 = mainTitle != null ? mainTitle : "";
+    this.staticLine3 = subText != null ? subText : "";
+    this.overrideLine2 = null;
+
+    renderCurrentState();
+
+    if (staticLine2.length() > 11) {
+      final String padded = "   " + staticLine2 + "   ";
+      int[] idx = new int[] {0};
+      oledScrollTimer =
+          new javax.swing.Timer(
+              250,
+              e -> {
+                if (overrideLine2 == null) {
+                  if (idx[0] + 11 <= padded.length()) {
+                    renderDirect(staticLine1, padded.substring(idx[0], idx[0] + 11), staticLine3);
+                    idx[0]++;
+                  } else {
+                    idx[0] = 0;
+                  }
+                }
+              });
+      oledScrollTimer.start();
+    }
+  }
+
+  public void setNoteOverride(String noteString) {
+    this.overrideLine2 = noteString;
+    renderCurrentState();
+  }
+
+  public void clearNoteOverride() {
+    this.overrideLine2 = null;
+    renderCurrentState();
+  }
+
+  private void renderCurrentState() {
+    String mLine = overrideLine2 != null ? overrideLine2 : staticLine2;
+    if (mLine.length() > 11 && overrideLine2 == null) {
+      mLine = mLine.substring(0, 11);
+    }
+    renderDirect(staticLine1, mLine, staticLine3);
+  }
+
+  private void renderDirect(String l1, String l2, String l3) {
     clear();
     setLargeFont(false);
-    drawString(line1, 4, 14);
+    drawString(l1 != null ? l1 : "", 4, 14);
 
     setLargeFont(true);
-    drawString(line2, 4, 36);
+    drawString(l2 != null ? l2 : "", 4, 36);
 
     setLargeFont(false);
-    drawString(line3, 4, 54);
+    drawString(l3 != null ? l3 : "", 4, 54);
+  }
+
+  /** Renders the authentic 3-line layout: small top line, LARGE middle line, small bottom line. */
+  public void drawThreeLineDisplay(String line1, String line2, String line3) {
+    drawTrackScreen(line1, line2, line3);
   }
 
   /**
