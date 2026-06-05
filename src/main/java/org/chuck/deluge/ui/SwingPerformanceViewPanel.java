@@ -27,19 +27,20 @@ import org.chuck.deluge.model.ProjectModel;
  */
 public class SwingPerformanceViewPanel extends JPanel {
 
-  private static final int COLS = 16;
+  private static final int COLS = 18;
   private static final int ROWS = 8;
 
   private final ChuckVM vm;
   private final BridgeContract bridge;
   private final ProjectModel projectModel;
 
-  // The 16 FX column names
+  // The 18 FX column names
   private static final String[] FX_NAMES = {
     "VOLUME", "PAN", "LPF FREQ", "LPF RES",
     "HPF FREQ", "HPF RES", "MOD FX RATE", "MOD FX DEPTH",
     "DELAY", "REVERB", "STUTTER", "BITCRUSH",
-    "SRR", "SIDECHAIN", "COMP", "NOISE VOL"
+    "SRR", "SIDECHAIN", "COMP", "NOISE VOL",
+    "PERF MUTE", "SNAPSHOT"
   };
 
   // The per-track bridge globals each column controls (via G_TRACK_LEVEL etc.)
@@ -63,7 +64,9 @@ public class SwingPerformanceViewPanel extends JPanel {
     null, // SRR
     null, // SIDECHAIN
     null, // COMP (threshold)
-    null // NOISE VOL
+    null, // NOISE VOL
+    null, // PERF MUTE
+    null // SNAPSHOT
   };
 
   // Row 0 = min value, row 7 = max value per column
@@ -498,6 +501,11 @@ public class SwingPerformanceViewPanel extends JPanel {
       case 13 -> writeChuckFloat(BridgeContract.G_SIDECHAIN_ATTACK, focusTrack, val);
       case 14 -> writeChuckFloat(BridgeContract.G_COMP_ATTACK, focusTrack, val);
       case 15 -> writeChuckFloat(BridgeContract.G_NOISE_VOL, focusTrack, val);
+      case 16 -> bridge.setMute(focusTrack, val > 0.5f);
+      case 17 -> {
+        vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) focusTrack);
+        vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
+      }
       default -> {}
     }
   }
