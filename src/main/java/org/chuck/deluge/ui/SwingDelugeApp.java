@@ -1824,21 +1824,20 @@ public class SwingDelugeApp extends JFrame {
   }
 
   private void saveProject(boolean forceChooser) {
-    java.io.File target = currentProjectFile;
-    if (target == null || forceChooser) {
-      java.io.File songsDir = org.chuck.deluge.project.PreferencesManager.getSongsDir();
-      java.io.File suggestedFile =
-          org.chuck.deluge.project.SaveNameSuggester.suggestNextSaveFile(
-              songsDir, currentProjectFile);
+    java.io.File songsDir = org.chuck.deluge.project.PreferencesManager.getSongsDir();
+    java.io.File suggestedFile =
+        org.chuck.deluge.project.SaveNameSuggester.suggestNextSaveFile(
+            songsDir, currentProjectFile);
 
+    java.io.File target = (suggestedFile != null) ? suggestedFile : currentProjectFile;
+
+    if (currentProjectFile == null || forceChooser) {
       JFileChooser chooser = new JFileChooser(songsDir);
       chooser.setFileFilter(
           new javax.swing.filechooser.FileNameExtensionFilter("Song XML", "xml", "XML"));
 
-      if (suggestedFile != null) {
-        chooser.setSelectedFile(suggestedFile);
-      } else if (currentProjectFile != null) {
-        chooser.setSelectedFile(currentProjectFile);
+      if (target != null) {
+        chooser.setSelectedFile(target);
       }
 
       if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
@@ -1860,6 +1859,9 @@ public class SwingDelugeApp extends JFrame {
       org.chuck.deluge.project.ProjectSerializer.save(currentProject, target);
       currentProjectFile = target;
       setTitle("DELUGE WORKSTATION — " + target.getName());
+      if (sidebarPanel != null) {
+        sidebarPanel.reloadLibrary();
+      }
     } catch (Exception ex) {
       JOptionPane.showMessageDialog(
           this, "Save failed:\n" + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
