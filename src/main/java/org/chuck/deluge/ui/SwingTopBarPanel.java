@@ -53,7 +53,7 @@ public class SwingTopBarPanel extends JPanel {
 
     void onViewModeChanged(String viewMode);
 
-    void onAddTrack(String type);
+    void onAddTrack(String type, boolean isShift);
 
     void onPlayToggle();
 
@@ -160,15 +160,33 @@ public class SwingTopBarPanel extends JPanel {
 
     JButton addKitBtn = new JButton("+ KIT");
     styleButton(addKitBtn, new Color(0x1e, 0x32, 0x32), new Color(0x00, 0xff, 0xcc));
-    addKitBtn.addActionListener(e -> listener.onAddTrack("KIT"));
+    addKitBtn.setToolTipText(
+        "Click to add Kit (prompts name) / Shift-Click to instantly create blank KIT");
+    addKitBtn.addActionListener(
+        e -> {
+          boolean isShift = (e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0;
+          listener.onAddTrack("KIT", isShift);
+        });
 
     JButton addSynthBtn = new JButton("+ SYNTH");
     styleButton(addSynthBtn, new Color(0x32, 0x1e, 0x32), new Color(0xff, 0x33, 0xcc));
-    addSynthBtn.addActionListener(e -> listener.onAddTrack("SYNTH"));
+    addSynthBtn.setToolTipText(
+        "Click to add Synth (prompts name) / Shift-Click to instantly create default SYNTH");
+    addSynthBtn.addActionListener(
+        e -> {
+          boolean isShift = (e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0;
+          listener.onAddTrack("SYNTH", isShift);
+        });
 
     JButton addAudioBtn = new JButton("+ AUDIO");
     styleButton(addAudioBtn, new Color(0x1e, 0x32, 0x22), new Color(0x33, 0xff, 0x33));
-    addAudioBtn.addActionListener(e -> listener.onAddTrack("AUDIO"));
+    addAudioBtn.setToolTipText(
+        "Click to add Audio track (prompts name) / Shift-Click to create instant AUDIO");
+    addAudioBtn.addActionListener(
+        e -> {
+          boolean isShift = (e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0;
+          listener.onAddTrack("AUDIO", isShift);
+        });
 
     add(addKitBtn);
     add(addSynthBtn);

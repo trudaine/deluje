@@ -3217,13 +3217,18 @@ public class SwingDelugeApp extends JFrame {
     }
 
     @Override
-    public void onAddTrack(String type) {
-      String name =
-          JOptionPane.showInputDialog(
-              SwingDelugeApp.this,
-              type + " track name:",
-              type + " " + (currentProject.getTracks().size() + 1));
-      if (name == null || name.isBlank()) return;
+    public void onAddTrack(String type, boolean isShift) {
+      String name;
+      if (isShift) {
+        name = type + " " + (currentProject.getTracks().size() + 1);
+      } else {
+        name =
+            JOptionPane.showInputDialog(
+                SwingDelugeApp.this,
+                type + " track name:",
+                type + " " + (currentProject.getTracks().size() + 1));
+        if (name == null || name.isBlank()) return;
+      }
       var stack = currentProject.getUndoRedoStack();
       int idx;
       switch (type) {
