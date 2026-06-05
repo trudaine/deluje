@@ -142,9 +142,6 @@ public class VirtualOLED {
 
   private void renderCurrentState() {
     String mLine = overrideLine2 != null ? overrideLine2 : staticLine2;
-    if (mLine.length() > 11 && overrideLine2 == null) {
-      mLine = mLine.substring(0, 11);
-    }
     renderDirect(staticLine1, mLine, staticLine3);
   }
 
