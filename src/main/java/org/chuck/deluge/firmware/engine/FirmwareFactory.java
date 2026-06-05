@@ -12,10 +12,10 @@ import org.chuck.deluge.firmware.model.note.Note;
 import org.chuck.deluge.firmware.model.note.NoteRow;
 import org.chuck.deluge.firmware.model.sample.Sample;
 import org.chuck.deluge.firmware.modulation.params.Param;
-import org.chuck.deluge.firmware.util.FirmwareUtils;
 import org.chuck.deluge.firmware.modulation.patch.PatchCable;
 import org.chuck.deluge.firmware.modulation.patch.PatchSource;
 import org.chuck.deluge.firmware.storage.audio.AudioFileReader;
+import org.chuck.deluge.firmware.util.FirmwareUtils;
 import org.chuck.deluge.model.ClipModel;
 import org.chuck.deluge.model.Drum;
 import org.chuck.deluge.model.EnvelopeModel;
@@ -249,7 +249,8 @@ public class FirmwareFactory {
 
     // Volume/Pan
     sound.paramNeutralValues[Param.LOCAL_VOLUME] = (int) (model.getVolume() * 2147483647.0);
-    // LOCAL_PAN is BIPOLAR (0 = centre, ±2^30 = hard L/R), matching the firmware shouldDoPanning input.
+    // LOCAL_PAN is BIPOLAR (0 = centre, ±2^30 = hard L/R), matching the firmware shouldDoPanning
+    // input.
     sound.paramNeutralValues[Param.LOCAL_PAN] =
         (int) (Math.max(-1.0, Math.min(1.0, model.getPan())) * 1073741824.0);
 
@@ -331,7 +332,9 @@ public class FirmwareFactory {
         // range 536870912*1.5, decay/release range 2^30.
         attackInc =
             FirmwareUtils.finalEnvRateParam(
-                4096, FirmwareUtils.patchCombineExpStep(0, model.getEnvAttackKnobQ31(i), 805306368), 0);
+                4096,
+                FirmwareUtils.patchCombineExpStep(0, model.getEnvAttackKnobQ31(i), 805306368),
+                0);
         decayInc =
             FirmwareUtils.finalEnvRateParam(
                 70 << 9,
@@ -353,8 +356,10 @@ public class FirmwareFactory {
         releaseInc = (int) (190.2f / rTime);
       }
 
-      sound.paramNeutralValues[Param.LOCAL_ENV_0_ATTACK + i] = Math.max(1, Math.min(8388608, attackInc));
-      sound.paramNeutralValues[Param.LOCAL_ENV_0_DECAY + i] = Math.max(1, Math.min(8388608, decayInc));
+      sound.paramNeutralValues[Param.LOCAL_ENV_0_ATTACK + i] =
+          Math.max(1, Math.min(8388608, attackInc));
+      sound.paramNeutralValues[Param.LOCAL_ENV_0_DECAY + i] =
+          Math.max(1, Math.min(8388608, decayInc));
       sound.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN + i] = (int) (em.sustain() * 2147483647.0);
       sound.paramNeutralValues[Param.LOCAL_ENV_0_RELEASE + i] =
           Math.max(1, Math.min(8388608, releaseInc));
@@ -406,8 +411,10 @@ public class FirmwareFactory {
             };
         if (paramId != -1) {
           // Faithful: the unsynced LFO phase increment IS the exp-curved rate param
-          // (firmware getLocal/GlobalLFOPhaseIncrement returns paramFinalValues[LFO_FREQ] directly).
-          // Feed the RAW stored knob straight to getExp(neutral 121739, combineExp(knob, range 2^30))
+          // (firmware getLocal/GlobalLFOPhaseIncrement returns paramFinalValues[LFO_FREQ]
+          // directly).
+          // Feed the RAW stored knob straight to getExp(neutral 121739, combineExp(knob, range
+          // 2^30))
           // — the firmware curve — instead of the lossy Hz round-trip. Replaces the old
           // `200 + pow(2,...)*500` formula in the voice/sound render.
           int rateKnob = model.getLfoRateKnobQ31(i);
@@ -466,10 +473,10 @@ public class FirmwareFactory {
 
   /**
    * Recover the original cutoff knob value from the model's Hz (the parser ran the patch's hex knob
-   * through {@code DelugeHexMapper.hexToHz}: {@code Hz = 20·1000^((norm+1)/2)}; inverting it returns
-   * the exact knob), then form the firmware no-cable exp combine: {@code multiply_32x32_rshift32(knob,
-   * paramRange)}. Feed the result to {@code getExp(neutral, combo)} to get the q31 filter-frequency
-   * param the faithful filter expects.
+   * through {@code DelugeHexMapper.hexToHz}: {@code Hz = 20·1000^((norm+1)/2)}; inverting it
+   * returns the exact knob), then form the firmware no-cable exp combine: {@code
+   * multiply_32x32_rshift32(knob, paramRange)}. Feed the result to {@code getExp(neutral, combo)}
+   * to get the q31 filter-frequency param the faithful filter expects.
    */
   private static int cutoffComboFromHz(double hz, int paramRange) {
     double norm = 2.0 * Math.log(Math.max(20.0, hz) / 20.0) / Math.log(1000.0) - 1.0;

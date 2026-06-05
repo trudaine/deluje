@@ -250,7 +250,8 @@ public class FirmwareVoice {
 
       // Faithful linear panning (shouldDoPanning) incorporating track pan + unison spread, with the
       // unison gain scale folded into the pan amplitude.
-      long panAmountDx = (long) paramFinalValues[Param.LOCAL_PAN] + (long) (0.6 * offset * 1073741824.0);
+      long panAmountDx =
+          (long) paramFinalValues[Param.LOCAL_PAN] + (long) (0.6 * offset * 1073741824.0);
       int panDx = (int) Math.max(-1073741824L, Math.min(1073741824L, panAmountDx));
       int scaledL = (int) (FirmwareUtils.panAmplitudeL(panDx) * gainScale);
       int scaledR = (int) (FirmwareUtils.panAmplitudeR(panDx) * gainScale);
@@ -258,9 +259,11 @@ public class FirmwareVoice {
       // Sum stereo-panned signals into voiceBuffer
       for (int i = 0; i < numSamples; i++) {
         voiceBuffer[i].l =
-            Q31.addSaturate(voiceBuffer[i].l, multiply_32x32_rshift32(tempMonoBuffer[i], scaledL) << 2);
+            Q31.addSaturate(
+                voiceBuffer[i].l, multiply_32x32_rshift32(tempMonoBuffer[i], scaledL) << 2);
         voiceBuffer[i].r =
-            Q31.addSaturate(voiceBuffer[i].r, multiply_32x32_rshift32(tempMonoBuffer[i], scaledR) << 2);
+            Q31.addSaturate(
+                voiceBuffer[i].r, multiply_32x32_rshift32(tempMonoBuffer[i], scaledR) << 2);
       }
     }
 
@@ -409,22 +412,27 @@ public class FirmwareVoice {
         renderUnisonPart(
             u, tempMonoBuffer, numSamples, phaseIncrementA, phaseIncrementB, overallPitchAdjust);
 
-        // Faithful linear panning (shouldDoPanning): LOCAL_PAN is bipolar (0 = centre), plus a unison
-        // stereo-spread offset. Far channel drops linearly; centre is full both sides (no -3 dB dip).
+        // Faithful linear panning (shouldDoPanning): LOCAL_PAN is bipolar (0 = centre), plus a
+        // unison
+        // stereo-spread offset. Far channel drops linearly; centre is full both sides (no -3 dB
+        // dip).
         double offset = 0.0;
         if (sound.numUnison > 1) {
           offset = (double) (2 * u - (sound.numUnison - 1)) / (double) (sound.numUnison - 1);
         }
-        long panAmount = (long) paramFinalValues[Param.LOCAL_PAN] + (long) (0.6 * offset * 1073741824.0);
+        long panAmount =
+            (long) paramFinalValues[Param.LOCAL_PAN] + (long) (0.6 * offset * 1073741824.0);
         int pan = (int) Math.max(-1073741824L, Math.min(1073741824L, panAmount));
         int ampL = FirmwareUtils.panAmplitudeL(pan);
         int ampR = FirmwareUtils.panAmplitudeR(pan);
 
         for (int i = 0; i < numSamples; i++) {
           voiceBuffer[i].l =
-              Q31.addSaturate(voiceBuffer[i].l, multiply_32x32_rshift32(tempMonoBuffer[i], ampL) << 2);
+              Q31.addSaturate(
+                  voiceBuffer[i].l, multiply_32x32_rshift32(tempMonoBuffer[i], ampL) << 2);
           voiceBuffer[i].r =
-              Q31.addSaturate(voiceBuffer[i].r, multiply_32x32_rshift32(tempMonoBuffer[i], ampR) << 2);
+              Q31.addSaturate(
+                  voiceBuffer[i].r, multiply_32x32_rshift32(tempMonoBuffer[i], ampR) << 2);
         }
       }
     }
@@ -452,7 +460,8 @@ public class FirmwareVoice {
 
     // Configure and render dynamic polyphonic per-voice filter set in stereo. setConfig returns the
     // filter makeup gain (filterGain / postFXVolume), which the firmware applies to the output to
-    // compensate the ladder/SVF passband gain. Applying it here (the prior code discarded the return)
+    // compensate the ladder/SVF passband gain. Applying it here (the prior code discarded the
+    // return)
     // keeps a wide-open ladder at ~unity instead of ~2.4x hot.
     int filterGain =
         filterSet.setConfig(
@@ -520,14 +529,29 @@ public class FirmwareVoice {
       boolean carriersAreSine = false;
       if (mod1Active) {
         renderSineWaveWithFeedback(
-            fmModBuffer, n, part.modulatorPhase, 1, modAmp1, modInc1,
-            sound.fmModulatorFeedback[1], part.modulatorFeedback, 1, false);
+            fmModBuffer,
+            n,
+            part.modulatorPhase,
+            1,
+            modAmp1,
+            modInc1,
+            sound.fmModulatorFeedback[1],
+            part.modulatorFeedback,
+            1,
+            false);
         if (sound.fmModulator1ToModulator0) {
           if (mod0Active) {
             // Modulator 0 receives FM from modulator 1 and replaces the buffer.
             renderFMWithFeedbackReplace(
-                fmModBuffer, n, part.modulatorPhase, 0, modAmp0, modInc0,
-                sound.fmModulatorFeedback[0], part.modulatorFeedback, 0);
+                fmModBuffer,
+                n,
+                part.modulatorPhase,
+                0,
+                modAmp0,
+                modInc0,
+                sound.fmModulatorFeedback[0],
+                part.modulatorFeedback,
+                0);
           } else {
             // mod1 -> mod0 but mod0 off: no modulation reaches the carriers.
             carriersAreSine = true;
@@ -535,23 +559,55 @@ public class FirmwareVoice {
         } else if (mod0Active) {
           // Both modulators sum into the modulation buffer.
           renderSineWaveWithFeedback(
-              fmModBuffer, n, part.modulatorPhase, 0, modAmp0, modInc0,
-              sound.fmModulatorFeedback[0], part.modulatorFeedback, 0, true);
+              fmModBuffer,
+              n,
+              part.modulatorPhase,
+              0,
+              modAmp0,
+              modInc0,
+              sound.fmModulatorFeedback[0],
+              part.modulatorFeedback,
+              0,
+              true);
         }
       } else if (mod0Active) {
         renderSineWaveWithFeedback(
-            fmModBuffer, n, part.modulatorPhase, 0, modAmp0, modInc0,
-            sound.fmModulatorFeedback[0], part.modulatorFeedback, 0, false);
+            fmModBuffer,
+            n,
+            part.modulatorPhase,
+            0,
+            modAmp0,
+            modInc0,
+            sound.fmModulatorFeedback[0],
+            part.modulatorFeedback,
+            0,
+            false);
       } else {
         carriersAreSine = true;
       }
 
       if (carriersAreSine) {
-        renderCarrierSine(buffer, n, part.sources[0], carrierAmp0, carrierIncA, sound.fmCarrierFeedback[0]);
-        renderCarrierSine(buffer, n, part.sources[1], carrierAmp1, carrierIncB, sound.fmCarrierFeedback[1]);
+        renderCarrierSine(
+            buffer, n, part.sources[0], carrierAmp0, carrierIncA, sound.fmCarrierFeedback[0]);
+        renderCarrierSine(
+            buffer, n, part.sources[1], carrierAmp1, carrierIncB, sound.fmCarrierFeedback[1]);
       } else {
-        renderCarrierFM(buffer, n, fmModBuffer, part.sources[0], carrierAmp0, carrierIncA, sound.fmCarrierFeedback[0]);
-        renderCarrierFM(buffer, n, fmModBuffer, part.sources[1], carrierAmp1, carrierIncB, sound.fmCarrierFeedback[1]);
+        renderCarrierFM(
+            buffer,
+            n,
+            fmModBuffer,
+            part.sources[0],
+            carrierAmp0,
+            carrierIncA,
+            sound.fmCarrierFeedback[0]);
+        renderCarrierFM(
+            buffer,
+            n,
+            fmModBuffer,
+            part.sources[1],
+            carrierAmp1,
+            carrierIncB,
+            sound.fmCarrierFeedback[1]);
       }
       return;
     }
@@ -878,7 +934,12 @@ public class FirmwareVoice {
 
   /** Render one FM carrier as a plain sine (no active modulators), into the voice buffer. */
   private void renderCarrierSine(
-      int[] buf, int n, VoiceUnisonPartSource src, int amplitude, int phaseInc, int feedbackAmount) {
+      int[] buf,
+      int n,
+      VoiceUnisonPartSource src,
+      int amplitude,
+      int phaseInc,
+      int feedbackAmount) {
     if (amplitude == 0) return;
     int[] ph = {(int) src.oscPos};
     int[] fb = {src.carrierFeedback};

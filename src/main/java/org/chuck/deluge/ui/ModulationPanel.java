@@ -279,7 +279,9 @@ public class ModulationPanel extends JPanel {
       c.gridx = 5;
       c.weightx = 1.0;
       int sliderMin = isBipolar ? -100 : 0;
-      JSlider amtSlider = new JSlider(sliderMin, 100, (int) (pc.amount() * 100));
+      int rawVal = (int) (pc.amount() * 100);
+      int clampedVal = Math.max(sliderMin, Math.min(100, rawVal));
+      JSlider amtSlider = new JSlider(sliderMin, 100, clampedVal);
       DarkSliderUI.styleSlider(amtSlider, Color.CYAN);
 
       JLabel amtVal = new JLabel(String.format("%+.0f%%", pc.amount() * 100));

@@ -31,7 +31,8 @@ public class FirmwareEnvRateTest {
 
   @Test
   public void knobDirections() {
-    // Attack: increment via getExp(4096, -combo). Higher combo -> smaller increment -> slower attack.
+    // Attack: increment via getExp(4096, -combo). Higher combo -> smaller increment -> slower
+    // attack.
     int aLow = FirmwareUtils.finalEnvRateParam(4096, -200000000, 0); // negated -> large -> fast
     int aHigh = FirmwareUtils.finalEnvRateParam(4096, 200000000, 0); // negated -> small -> slow
     assertTrue(aLow > aHigh, "attack: -combo faster than +combo (" + aLow + " vs " + aHigh + ")");

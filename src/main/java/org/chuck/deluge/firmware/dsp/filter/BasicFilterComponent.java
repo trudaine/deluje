@@ -5,7 +5,8 @@ import static org.chuck.deluge.firmware.util.Q31.*;
 public class BasicFilterComponent {
   public int memory = 0;
 
-  // Faithful port of ladder_components.h: moveability (= tan(f)/(1+tan(f))) is used directly with NO
+  // Faithful port of ladder_components.h: moveability (= tan(f)/(1+tan(f))) is used directly with
+  // NO
   // cap. The previous Java `Math.min(1073741823, moveability)` clamp halved the coefficient at high
   // cutoffs (forcing g<=0.5), capping the filter's open cutoff at ~6 kHz instead of ~20 kHz and
   // muffling every bright/open patch.

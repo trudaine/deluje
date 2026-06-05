@@ -31,7 +31,8 @@ public class FirmwareUtils {
 
   public static int increaseMagnitudeAndSaturate(int number, int magnitude) {
     // Faithful port: firmware uses `magnitude > 0` for the saturating left shift and an ARITHMETIC
-    // right shift for magnitude <= 0. (The prior Java used `>= 0`, which sent magnitude==0 through a
+    // right shift for magnitude <= 0. (The prior Java used `>= 0`, which sent magnitude==0 through
+    // a
     // `1 << 31` that overflowed and forced saturation — breaking getExp for cutoff/LFO knobs that
     // land at magnitudeIncrease==0 — and used an unsigned `>>>` that mangled negative inputs.)
     if (magnitude > 0) {
@@ -87,9 +88,10 @@ public class FirmwareUtils {
   /**
    * One multiplicative step of the Deluge's linear cable combiner (port of
    * cableToLinearParamWithoutRangeAdjustment): folds a source value, scaled by its strength, into
-   * the running combination. Seed {@code runningTotal} with 536870912 ("1"); the first call folds in
-   * the stored knob value (strength = paramRange), subsequent calls fold each patch cable (strength =
-   * cable amount). Subtract 536870912 from the final running total to get the patched combo.
+   * the running combination. Seed {@code runningTotal} with 536870912 ("1"); the first call folds
+   * in the stored knob value (strength = paramRange), subsequent calls fold each patch cable
+   * (strength = cable amount). Subtract 536870912 from the final running total to get the patched
+   * combo.
    */
   public static int patchCombineLinearStep(int runningTotal, int source, int strength) {
     int scaledSource = multiply_32x32_rshift32(source, strength);
@@ -100,9 +102,9 @@ public class FirmwareUtils {
 
   /**
    * One additive step of the exp cable combiner (port of cableToExpParamWithoutRangeAdjustment).
-   * Seed {@code runningTotal} with 0; first call folds the stored knob (strength = paramRange), then
-   * one call per cable (strength = cable amount). No final subtraction — pass the result straight to
-   * {@link #getFinalParameterValueExp}.
+   * Seed {@code runningTotal} with 0; first call folds the stored knob (strength = paramRange),
+   * then one call per cable (strength = cable amount). No final subtraction — pass the result
+   * straight to {@link #getFinalParameterValueExp}.
    */
   public static int patchCombineExpStep(int runningTotal, int source, int strength) {
     return runningTotal + multiply_32x32_rshift32(source, strength);
@@ -153,8 +155,9 @@ public class FirmwareUtils {
   /**
    * Port of {@code lookupReleaseRate}: maps a patched decay/release value to a per-sample increment
    * via the interpolated {@code releaseRateTable64}. Used (scaled by the param neutral) for the
-   * envelope decay and release stages — the firmware's getFinalParameterValueExpWithDumbEnvelopeHack
-   * uses this for those stages instead of plain getExp.
+   * envelope decay and release stages — the firmware's
+   * getFinalParameterValueExpWithDumbEnvelopeHack uses this for those stages instead of plain
+   * getExp.
    */
   public static int lookupReleaseRate(int input) {
     int magnitude = 24;
@@ -175,8 +178,8 @@ public class FirmwareUtils {
 
   /**
    * Port of {@code getFinalParameterValueExpWithDumbEnvelopeHack} for envelope rate params: attack
-   * uses getExp on the negated patched value; decay/release use the release-rate table scaled by the
-   * neutral. {@code stage}: 0=attack, 1=decay, 2=release.
+   * uses getExp on the negated patched value; decay/release use the release-rate table scaled by
+   * the neutral. {@code stage}: 0=attack, 1=decay, 2=release.
    */
   public static int finalEnvRateParam(int paramNeutralValue, int patchedValue, int stage) {
     if (stage == 0) { // attack

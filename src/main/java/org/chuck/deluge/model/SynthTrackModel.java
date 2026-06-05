@@ -149,10 +149,10 @@ public class SynthTrackModel extends TrackModel {
   private float fmRatio2 = 1.0f;
 
   /**
-   * Raw signed Q31 values exactly as stored in the patch XML, preserved for the firmware-faithful FM
-   * engine (which runs them through the Deluge patched-param volume/linear curves). {@code
-   * Integer.MIN_VALUE} (0x80000000) means "off". These supersede the lossy unipolar floats above for
-   * the native 2-op FM path.
+   * Raw signed Q31 values exactly as stored in the patch XML, preserved for the firmware-faithful
+   * FM engine (which runs them through the Deluge patched-param volume/linear curves). {@code
+   * Integer.MIN_VALUE} (0x80000000) means "off". These supersede the lossy unipolar floats above
+   * for the native 2-op FM path.
    */
   private int modulator1AmountQ31 = Integer.MIN_VALUE;
 
@@ -162,7 +162,9 @@ public class SynthTrackModel extends TrackModel {
   private int carrier1FeedbackQ31 = Integer.MIN_VALUE;
   private int carrier2FeedbackQ31 = Integer.MIN_VALUE;
 
-  /** When true, FM modulator 1 modulates modulator 0 (chained) rather than the carriers directly. */
+  /**
+   * When true, FM modulator 1 modulates modulator 0 (chained) rather than the carriers directly.
+   */
   private boolean modulator1ToModulator0 = false;
 
   public enum PolyphonyMode {
