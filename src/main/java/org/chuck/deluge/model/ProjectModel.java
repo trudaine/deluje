@@ -129,25 +129,6 @@ public class ProjectModel {
     }
     project.addTrack(synthTrack);
 
-    // 2. Load first available Kit Preset, or fallback to default empty Kit
-    KitTrackModel kitTrack = null;
-    try {
-      java.io.File firstKitFile = PresetFinder.findFirstPreset(kitsDir);
-      if (firstKitFile != null && firstKitFile.exists()) {
-        kitTrack = org.chuck.deluge.xml.DelugeXmlParser.parseKit(firstKitFile);
-      }
-    } catch (Exception e) {
-      System.err.println("[ProjectModel] Could not parse first Kit preset: " + e.getMessage());
-    }
-
-    if (kitTrack == null) {
-      kitTrack = new KitTrackModel("Kit 1");
-    }
-    if (kitTrack.getClips().isEmpty()) {
-      kitTrack.addClip(new ClipModel("CLIP 1", 8, 16));
-    }
-    project.addTrack(kitTrack);
-
     return project;
   }
 
