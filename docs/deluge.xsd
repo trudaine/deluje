@@ -1,0 +1,641 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Deluge XML Schema — developer documentation only.
+  Covers three standalone root formats: <song>, <kit>, and <sound>.
+  Also describes how <kit> and <sound> appear inside <song>'s <instruments>.
+
+  This XSD is NOT used for runtime validation (the XML comes from a trusted
+  source and hex-encoded floats require runtime conversion). Use it as a
+  reference for the element/attribute structure.
+
+  See also: deluge-xml-field-reference.md
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           elementFormDefault="qualified">
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       Shared simple types
+       ════════════════════════════════════════════════════════════════════ -->
+
+  <!-- HexFloat: 0x-prefixed 8-hex-digit signed 32-bit integer stored as a
+       string.  Real value = hexToFloat(signed32) → normalize to -1..1. -->
+  <xs:simpleType name="hexFloat">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="0x[0-9A-Fa-f]{8}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="hexInt">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="0x[0-9A-Fa-f]{8}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       Shared child-element groups
+       ════════════════════════════════════════════════════════════════════ -->
+
+  <xs:group name="songFxChildren">
+    <xs:sequence>
+      <xs:element ref="delay"      minOccurs="0" maxOccurs="1"/>
+      <xs:element ref="lpf"        minOccurs="0" maxOccurs="1"/>
+      <xs:element ref="hpf"        minOccurs="0" maxOccurs="1"/>
+      <xs:element ref="equalizer"  minOccurs="0" maxOccurs="1"/>
+    </xs:sequence>
+  </xs:group>
+
+  <!-- Simple leaf elements (shared across formats) -->
+  <xs:element name="fileName" type="xs:string"/>
+  <xs:element name="type"     type="xs:string"/>
+  <xs:element name="name"     type="xs:string"/>
+  <xs:element name="presetSlot" type="xs:string"/>
+  <xs:element name="retrigPhase" type="xs:int"/>
+
+  <xs:element name="source"      type="xs:string"/>
+  <xs:element name="destination" type="xs:string"/>
+  <xs:element name="amount"      type="xs:string"/>
+
+  <xs:element name="controlsParam"        type="xs:string"/>
+  <xs:element name="patchSource"          type="xs:string"/>
+  <xs:element name="patchAmountFromSource" type="xs:string"/>
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       ROOT 1: <song>
+       ════════════════════════════════════════════════════════════════════ -->
+  <xs:element name="song">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="songParams" minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="reverb"     minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="delay"      minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="sidechain"  minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="audioCompressor" minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="songCompressor"  minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="instruments"     minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="sessionClips"    minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="sections"        minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="scales"          minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="modeNotes"       minOccurs="0" maxOccurs="1"/>
+      </xs:sequence>
+      <xs:attribute name="key"   type="xs:string"/>
+      <xs:attribute name="scale" type="xs:string"/>
+      <xs:attribute name="bpm"   type="xs:string"/>
+      <xs:attribute name="swing" type="xs:string"/>
+      <xs:attribute name="timeSigNum"   type="xs:int"/>
+      <xs:attribute name="timeSigDenom" type="xs:int"/>
+      <xs:attribute name="humanize" type="xs:string"/>
+      <xs:attribute name="transpose" type="xs:int"/>
+      <xs:attribute name="masterVolume" type="xs:string"/>
+      <xs:attribute name="masterReverb" type="xs:string"/>
+      <xs:attribute name="masterDelay"  type="xs:string"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       ROOT 2: <kit> (standalone .XML file)
+       Also used embedded inside <instruments> within <song>.
+       ════════════════════════════════════════════════════════════════════ -->
+  <xs:element name="kit">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="presetSlot"   minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="lpfMode"      minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="modFXType"    minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="modFXCurrentParam" minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="currentFilterType" minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="defaultParams" minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="delay"        minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="lpf"          minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="hpf"          minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="soundSources" minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="selectedDrumIndex" minOccurs="0" maxOccurs="1"/>
+      </xs:sequence>
+      <xs:attribute name="isKitClip" type="xs:boolean"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="lpfMode"          type="xs:string"/>
+  <xs:element name="modFXType"        type="xs:string"/>
+  <xs:element name="modFXCurrentParam" type="xs:string"/>
+  <xs:element name="currentFilterType" type="xs:string"/>
+  <xs:element name="selectedDrumIndex" type="xs:int"/>
+
+  <xs:element name="soundSources">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="sound" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       ROOT 3: <sound> (standalone synth .XML file)
+       Also used as a drum sound inside <soundSources> (kit context).
+       ════════════════════════════════════════════════════════════════════ -->
+  <xs:element name="sound">
+    <xs:complexType>
+      <xs:sequence>
+        <!-- Synth / drum-sound params -->
+        <xs:element ref="presetSlot"  minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="name"        minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="defaultParams"  minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="osc1"    minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="osc2"    minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="lfo1"    minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="lfo2"    minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="envelope" minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="unison"   minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="delay"    minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="audioCompressor" minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="arpeggiator"     minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="modKnobs"    minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="patchCables" minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="modFX"       minOccurs="0" maxOccurs="1"/>
+        <!-- Kit-sound-specific (ignored for standalone synth) -->
+        <xs:element ref="sample"      minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="zone"        minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="reverse"     minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="muteGroup"   minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="polyphonic"  minOccurs="0" maxOccurs="1"/>
+      </xs:sequence>
+      <xs:attribute name="polyphonic"   type="xs:boolean"/>
+      <xs:attribute name="voicePriority" type="xs:int"/>
+      <xs:attribute name="sideChainSend" type="hexFloat"/>
+      <xs:attribute name="modFXType"     type="xs:string"/>
+      <xs:attribute name="lpfMode"       type="xs:string"/>
+      <xs:attribute name="hpfMode"       type="xs:string"/>
+      <xs:attribute name="mode"          type="xs:string"/>
+      <xs:attribute name="filterRoute"   type="xs:string"/>
+      <xs:attribute name="clippingAmount" type="hexFloat"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Kit-drum-sound child elements (simple text content) -->
+  <xs:element name="sample"    type="xs:string"/>
+  <xs:element name="reverse"   type="xs:int"/>
+  <xs:element name="muteGroup" type="xs:int"/>
+  <xs:element name="polyphonic" type="xs:int"/>
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       <instruments> — container inside <song>
+       ════════════════════════════════════════════════════════════════════ -->
+  <xs:element name="instruments">
+    <xs:complexType>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element ref="sound"/>
+        <xs:element ref="kit"/>
+        <xs:element ref="audioTrack"/>
+      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       Song-level FX
+       ════════════════════════════════════════════════════════════════════ -->
+
+  <xs:element name="songParams">
+    <xs:complexType>
+      <xs:group ref="songFxChildren"/>
+      <xs:attribute name="reverbAmount"             type="hexFloat"/>
+      <xs:attribute name="volume"                   type="hexFloat"/>
+      <xs:attribute name="pan"                      type="hexFloat"/>
+      <xs:attribute name="sidechainCompressorShape"  type="hexFloat"/>
+      <xs:attribute name="modFXRate"                type="hexFloat"/>
+      <xs:attribute name="modFXDepth"               type="hexFloat"/>
+      <xs:attribute name="modFXOffset"              type="hexFloat"/>
+      <xs:attribute name="modFXFeedback"            type="hexFloat"/>
+      <xs:attribute name="stutterRate"              type="hexFloat"/>
+      <xs:attribute name="sampleRateReduction"      type="hexFloat"/>
+      <xs:attribute name="bitCrush"                 type="hexFloat"/>
+      <xs:attribute name="compressorThreshold"      type="hexFloat"/>
+      <xs:attribute name="lpfMorph"                 type="hexFloat"/>
+      <xs:attribute name="hpfMorph"                 type="hexFloat"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="kitParams">
+    <xs:complexType>
+      <xs:group ref="songFxChildren"/>
+      <xs:attribute name="reverbAmount"             type="hexFloat"/>
+      <xs:attribute name="volume"                   type="hexFloat"/>
+      <xs:attribute name="pan"                      type="hexFloat"/>
+      <xs:attribute name="sidechainCompressorShape"  type="hexFloat"/>
+      <xs:attribute name="modFXRate"                type="hexFloat"/>
+      <xs:attribute name="modFXDepth"               type="hexFloat"/>
+      <xs:attribute name="modFXOffset"              type="hexFloat"/>
+      <xs:attribute name="modFXFeedback"            type="hexFloat"/>
+      <xs:attribute name="stutterRate"              type="hexFloat"/>
+      <xs:attribute name="sampleRateReduction"      type="hexFloat"/>
+      <xs:attribute name="bitCrush"                 type="hexFloat"/>
+      <xs:attribute name="compressorThreshold"      type="hexFloat"/>
+      <xs:attribute name="lpfMorph"                 type="hexFloat"/>
+      <xs:attribute name="hpfMorph"                 type="hexFloat"/>
+      <xs:attribute name="tempo"                    type="hexFloat"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="reverb">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="compressor" minOccurs="0" maxOccurs="1"/>
+      </xs:sequence>
+      <xs:attribute name="roomSize"  type="hexInt"/>
+      <xs:attribute name="dampening" type="hexInt"/>
+      <xs:attribute name="width"     type="hexFloat"/>
+      <xs:attribute name="hpf"       type="hexFloat"/>
+      <xs:attribute name="pan"       type="hexFloat"/>
+      <xs:attribute name="model"     type="xs:int"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="delay">
+    <xs:complexType>
+      <xs:attribute name="rate"      type="hexFloat"/>
+      <xs:attribute name="feedback"  type="hexFloat"/>
+      <xs:attribute name="pingPong"  type="xs:int"/>
+      <xs:attribute name="analog"    type="xs:int"/>
+      <xs:attribute name="syncLevel" type="xs:int"/>
+      <xs:attribute name="syncType"  type="xs:int"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="compressor">
+    <xs:complexType>
+      <xs:attribute name="attack"     type="hexFloat"/>
+      <xs:attribute name="release"    type="hexFloat"/>
+      <xs:attribute name="syncLevel"  type="xs:int"/>
+      <xs:attribute name="compHPF"    type="hexFloat"/>
+      <xs:attribute name="compBlend"  type="hexFloat"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="sidechain">
+    <xs:complexType>
+      <xs:attribute name="attack"     type="hexFloat"/>
+      <xs:attribute name="release"    type="hexFloat"/>
+      <xs:attribute name="syncLevel"  type="xs:int"/>
+      <xs:attribute name="syncType"   type="xs:int"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="audioCompressor">
+    <xs:complexType>
+      <xs:attribute name="attack"  type="hexFloat"/>
+      <xs:attribute name="release" type="hexFloat"/>
+      <xs:attribute name="thresh"  type="hexFloat"/>
+      <xs:attribute name="ratio"   type="hexFloat"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="songCompressor">
+    <xs:complexType>
+      <xs:attribute name="attack"  type="hexFloat"/>
+      <xs:attribute name="release" type="hexFloat"/>
+      <xs:attribute name="thresh"  type="hexFloat"/>
+      <xs:attribute name="ratio"   type="hexFloat"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="lpf">
+    <xs:complexType>
+      <xs:attribute name="frequency" type="hexFloat"/>
+      <xs:attribute name="resonance" type="hexFloat"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="hpf">
+    <xs:complexType>
+      <xs:attribute name="frequency" type="hexFloat"/>
+      <xs:attribute name="resonance" type="hexFloat"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="equalizer">
+    <xs:complexType>
+      <xs:attribute name="bass"           type="hexFloat"/>
+      <xs:attribute name="treble"         type="hexFloat"/>
+      <xs:attribute name="bassFrequency"  type="hexFloat"/>
+      <xs:attribute name="trebleFrequency" type="hexFloat"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       Oscillators
+       ════════════════════════════════════════════════════════════════════ -->
+
+  <xs:element name="osc1">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="fileName"    minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="zone"        minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="retrigPhase" minOccurs="0" maxOccurs="1"/>
+      </xs:sequence>
+      <xs:attribute name="fileName" type="xs:string"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="osc2">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="type"        minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="fileName"    minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="zone"        minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="retrigPhase" minOccurs="0" maxOccurs="1"/>
+      </xs:sequence>
+      <xs:attribute name="fileName" type="xs:string"/>
+      <xs:attribute name="type"     type="xs:string"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="zone">
+    <xs:complexType>
+      <xs:attribute name="startSamplePos" type="xs:int"/>
+      <xs:attribute name="endSamplePos"   type="xs:int"/>
+      <xs:attribute name="startPosMs"     type="xs:float"/>
+      <xs:attribute name="endPosMs"       type="xs:float"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       Sound shaping
+       ════════════════════════════════════════════════════════════════════ -->
+
+  <xs:element name="defaultParams">
+    <xs:complexType>
+      <xs:attribute name="lpfFrequency"       type="hexFloat"/>
+      <xs:attribute name="lpfResonance"       type="hexFloat"/>
+      <xs:attribute name="hpfFrequency"       type="hexFloat"/>
+      <xs:attribute name="hpfResonance"       type="hexFloat"/>
+      <xs:attribute name="modulator1Feedback" type="hexFloat"/>
+      <xs:attribute name="modulator2Amount"   type="hexFloat"/>
+      <xs:attribute name="modulator2Feedback" type="hexFloat"/>
+      <xs:attribute name="carrier1Feedback"   type="hexFloat"/>
+      <xs:attribute name="carrier2Feedback"   type="hexFloat"/>
+      <xs:attribute name="oscAVolume"         type="hexFloat"/>
+      <xs:attribute name="noiseVolume"        type="hexFloat"/>
+      <xs:attribute name="volume"             type="hexFloat"/>
+      <xs:attribute name="pan"                type="hexFloat"/>
+      <xs:attribute name="portamento"         type="hexFloat"/>
+      <xs:attribute name="modFXRate"          type="hexFloat"/>
+      <xs:attribute name="modFXDepth"         type="hexFloat"/>
+      <xs:attribute name="modFXFeedback"      type="hexFloat"/>
+      <xs:attribute name="reverbAmount"       type="hexFloat"/>
+      <xs:attribute name="stutterRate"        type="hexFloat"/>
+      <xs:attribute name="sampleRateReduction" type="hexFloat"/>
+      <xs:attribute name="bitCrush"           type="hexFloat"/>
+      <xs:attribute name="delayRate"          type="hexFloat"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="envelope">
+    <xs:complexType>
+      <xs:attribute name="attack"  type="hexFloat"/>
+      <xs:attribute name="decay"   type="hexFloat"/>
+      <xs:attribute name="sustain" type="hexFloat"/>
+      <xs:attribute name="release" type="hexFloat"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- LFOs -->
+  <xs:element name="lfo1">
+    <xs:complexType>
+      <xs:attribute name="type"      type="xs:string"/>
+      <xs:attribute name="rate"      type="hexFloat"/>
+      <xs:attribute name="syncLevel" type="xs:int"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="lfo2">
+    <xs:complexType>
+      <xs:attribute name="type"      type="xs:string"/>
+      <xs:attribute name="rate"      type="hexFloat"/>
+      <xs:attribute name="syncLevel" type="xs:int"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="unison">
+    <xs:complexType>
+      <xs:attribute name="num"    type="xs:int"/>
+      <xs:attribute name="detune" type="hexFloat"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="arpeggiator">
+    <xs:complexType>
+      <xs:attribute name="gate" type="hexFloat"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="modFX">
+    <xs:complexType>
+      <xs:attribute name="type"   type="xs:string"/>
+      <xs:attribute name="rate"   type="hexFloat"/>
+      <xs:attribute name="depth"  type="hexFloat"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       Modulation
+       ════════════════════════════════════════════════════════════════════ -->
+
+  <xs:element name="modKnobs">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="modKnob" minOccurs="0" maxOccurs="16"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="modKnob">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="controlsParam"        minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="patchSource"          minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="patchAmountFromSource" minOccurs="0" maxOccurs="1"/>
+      </xs:sequence>
+      <xs:attribute name="controlsParam" type="xs:string"/>
+      <xs:attribute name="patchSource"   type="xs:string"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="patchCables">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="patchCable" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="patchCable">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="source"      minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="destination" minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="amount"      minOccurs="0" maxOccurs="1"/>
+      </xs:sequence>
+      <xs:attribute name="source"      type="xs:string"/>
+      <xs:attribute name="destination" type="xs:string"/>
+      <xs:attribute name="amount"      type="hexFloat"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       <audioTrack>
+       ════════════════════════════════════════════════════════════════════ -->
+  <xs:element name="audioTrack">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="presetSlot"  minOccurs="0" maxOccurs="1"/>
+      </xs:sequence>
+      <xs:attribute name="isAudioTrack" type="xs:boolean"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       <sessionClips> / <instrumentClip> / <audioClip>
+       ════════════════════════════════════════════════════════════════════ -->
+  <xs:element name="sessionClips">
+    <xs:complexType>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element ref="instrumentClip"/>
+        <xs:element ref="audioClip"/>
+      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="instrumentClip">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="noteRow"   minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="soundParams" minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="kitParams"   minOccurs="0" maxOccurs="1"/>
+      </xs:sequence>
+      <xs:attribute name="slot"    type="xs:int"/>
+      <xs:attribute name="subSlot" type="xs:int"/>
+      <xs:attribute name="name"    type="xs:string"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="noteRow">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="soundParams" minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="noteData"    minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:attribute name="drumIndex" type="xs:int"/>
+      <xs:attribute name="y"         type="xs:int"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="noteData">
+    <xs:complexType>
+      <xs:attribute name="x"     type="xs:int"/>
+      <xs:attribute name="y"     type="xs:int"/>
+      <xs:attribute name="velocity" type="xs:int"/>
+      <xs:attribute name="duration" type="xs:string"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="soundParams">
+    <xs:complexType>
+      <xs:attribute name="volume"       type="hexFloat"/>
+      <xs:attribute name="pan"          type="hexFloat"/>
+      <xs:attribute name="transpose"    type="hexFloat"/>
+      <xs:attribute name="pitch"        type="hexFloat"/>
+      <!-- 30+ additional hex attrs omitted for brevity -->
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="audioClip">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="params" minOccurs="0" maxOccurs="1"/>
+      </xs:sequence>
+      <xs:attribute name="trackName"  type="xs:string"/>
+      <xs:attribute name="startSamplePos" type="xs:int"/>
+      <xs:attribute name="endSamplePos"   type="xs:int"/>
+      <xs:attribute name="attack"     type="hexFloat"/>
+      <xs:attribute name="priority"   type="xs:int"/>
+      <xs:attribute name="pitchSpeedIndependent" type="xs:boolean"/>
+      <xs:attribute name="isPlaying"  type="xs:boolean"/>
+      <xs:attribute name="isSoloing"  type="xs:boolean"/>
+      <xs:attribute name="isArmedForRecording" type="xs:boolean"/>
+      <xs:attribute name="length"     type="xs:int"/>
+      <xs:attribute name="colourOffset" type="xs:int"/>
+      <xs:attribute name="section"    type="xs:int"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="params">
+    <xs:complexType>
+      <xs:attribute name="volume"             type="hexFloat"/>
+      <xs:attribute name="pan"                type="hexFloat"/>
+      <xs:attribute name="reverbAmount"       type="hexFloat"/>
+      <xs:attribute name="sidechainShape"     type="hexFloat"/>
+      <xs:attribute name="modFXRate"          type="hexFloat"/>
+      <xs:attribute name="modFXDepth"         type="hexFloat"/>
+      <xs:attribute name="modFXOffset"        type="hexFloat"/>
+      <xs:attribute name="modFXFeedback"      type="hexFloat"/>
+      <xs:attribute name="stutterRate"        type="hexFloat"/>
+      <xs:attribute name="sampleRateReduction" type="hexFloat"/>
+      <xs:attribute name="bitCrush"           type="hexFloat"/>
+      <xs:attribute name="delayRate"          type="hexFloat"/>
+      <xs:attribute name="delayFeedback"      type="hexFloat"/>
+      <xs:attribute name="lpfFrequency"       type="hexFloat"/>
+      <xs:attribute name="lpfResonance"       type="hexFloat"/>
+      <xs:attribute name="hpfFrequency"       type="hexFloat"/>
+      <xs:attribute name="hpfResonance"       type="hexFloat"/>
+      <xs:attribute name="eqBass"             type="hexFloat"/>
+      <xs:attribute name="eqTreble"           type="hexFloat"/>
+      <xs:attribute name="eqBassFrequency"    type="hexFloat"/>
+      <xs:attribute name="eqTrebleFrequency"  type="hexFloat"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       <sections> / <section>
+       ════════════════════════════════════════════════════════════════════ -->
+  <xs:element name="sections">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="section" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="section">
+    <xs:complexType>
+      <xs:attribute name="id"         type="xs:int"/>
+      <xs:attribute name="numRepeats" type="xs:int"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       <scales>
+       ════════════════════════════════════════════════════════════════════ -->
+  <xs:element name="scales">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="userScale"           minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="disabledPresetScales" minOccurs="0" maxOccurs="1"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="userScale"           type="xs:int"/>
+  <xs:element name="disabledPresetScales" type="xs:int"/>
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       modeNotes / modeNote
+       ════════════════════════════════════════════════════════════════════ -->
+  <xs:element name="modeNotes">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="modeNote" minOccurs="0" maxOccurs="12"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="modeNote" type="xs:nonNegativeInteger"/>
+
+</xs:schema>
