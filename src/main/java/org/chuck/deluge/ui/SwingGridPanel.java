@@ -4561,6 +4561,11 @@ public class SwingGridPanel extends JPanel {
                     : new Color(0xee, 0xee, 0xee)); // Yellow when muted, White when active
             clipBtn.setForeground(Color.BLACK);
             clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 11 : 9));
+            if (clipBtn instanceof DelugePadButton pad) {
+              pad.setDrawCenterCircle(false);
+              pad.setIntensity(1.0f);
+              pad.setTextColorOverride(Color.BLACK);
+            }
             clearActionListeners(clipBtn);
             clipBtn.addActionListener(
                 e -> {
@@ -4601,6 +4606,10 @@ public class SwingGridPanel extends JPanel {
                   bridge.setMute(engineRow, nextMute);
                   clipBtn.setBackground(
                       nextMute ? new Color(0xff, 0xd7, 0x00) : new Color(0xee, 0xee, 0xee));
+                  if (clipBtn instanceof DelugePadButton pad) {
+                    pad.setIntensity(1.0f);
+                    pad.setTextColorOverride(Color.BLACK);
+                  }
                 });
           } else if (colId == columnCount - 1) {
             boolean isSynth = false;
@@ -4636,20 +4645,29 @@ public class SwingGridPanel extends JPanel {
             if (soloRow == trk) {
               clipBtn.setBackground(Color.GREEN);
               clipBtn.setForeground(Color.BLACK);
+              if (clipBtn instanceof DelugePadButton pad) pad.setTextColorOverride(Color.BLACK);
             } else if (trk == 0) {
               clipBtn.setBackground(
                   new Color(0xff, 0xb3, 0x00)); // Bright Amber Gold for first top cell
               clipBtn.setForeground(Color.BLACK);
+              if (clipBtn instanceof DelugePadButton pad) pad.setTextColorOverride(Color.BLACK);
             } else if (trk == 7 || trk == voiceRowCount - 1) {
               clipBtn.setBackground(
                   new Color(0x7b, 0x68, 0xee)); // Distinct Soft Purple for last bottom cell
               clipBtn.setForeground(Color.WHITE);
+              if (clipBtn instanceof DelugePadButton pad) pad.setTextColorOverride(Color.WHITE);
             } else if (isOctaveC) {
               clipBtn.setBackground(new Color(0xb0, 0xe2, 0xff)); // Soft octave teal/blue
               clipBtn.setForeground(Color.BLACK);
+              if (clipBtn instanceof DelugePadButton pad) pad.setTextColorOverride(Color.BLACK);
             } else {
               clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
               clipBtn.setForeground(Color.WHITE);
+              if (clipBtn instanceof DelugePadButton pad) pad.setTextColorOverride(Color.WHITE);
+            }
+            if (clipBtn instanceof DelugePadButton pad) {
+              pad.setDrawCenterCircle(false);
+              pad.setIntensity(1.0f);
             }
 
             clearActionListeners(clipBtn);
