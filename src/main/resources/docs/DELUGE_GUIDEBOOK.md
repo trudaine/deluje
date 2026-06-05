@@ -1075,4 +1075,280 @@ The open-ended nature of the Deluge Workstation workflow allows you to compose, 
 > [!NOTE]
 > All resources and WAV samples are dynamically loaded from your preference SD Card Mounted Library path directory. Ensure your paths are configured inside **`Settings ➔ Preferences...`** to load library instruments stably.
 
+---
+
+## 23. Appendix: Java Swing Desktop Quick Reference & Hardware Parity Matrix
+
+> Consolidated from former `SWING_QUICK_REFERENCE.md`. Hardware buttons → keyboard shortcuts and mouse gestures. Sections marked **⚠ NOT YET IMPLEMENTED** exist in the engine or model but have no UI yet.
+
+---
+
+### A. Symbol Key
+
+| Symbol | Meaning |
+| :--- | :--- |
+| `Click` | Left mouse button |
+| `Right-click` | Right mouse button |
+| `Hold` | Press and keep held |
+| `Drag` | Hold + move mouse |
+| `Ctrl+X` | Hold Ctrl, press X |
+| `Shift+X` | Hold Shift, press X |
+| `Alt+X` | Hold Alt, press X |
+| `Wheel` | Mouse scroll wheel |
+| **[▶]** | Play button in toolbar |
+| **[■]** | Stop button in toolbar |
+| **[○]** | Audition pad (row header) |
+| **[M]** | Mute button (row header) |
+| **[⚙]** | Config / Sound Editor button (row header) |
+| `Q` `W` | Gold Knob 1 / Gold Knob 2 (hold + wheel or drag) |
+| ⚠ | Feature not yet implemented in Swing UI |
+
+---
+
+### B. Window Layout
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ Menu: File | Settings | View                          [MIDI status] │
+├──────────────────┬──────────────────────────────────────────────────┤
+│                  │  Toolbar: [▶] [■] BPM──── SWING──── [VOL]       │
+│  Sidebar         ├──────────────────────────────────────────────────┤
+│  (Project        │  View tabs: [CLIP] [SONG] [ARRANGEMENT]          │
+│   Tree /         ├──────────────────────────────────────────────────┤
+│   Library)       │                                                  │
+│                  │         GRID (rows × 18 columns)                 │
+│  SONGS/          │  [○][M][⚙] track name │ step cells 1-16 │ctrl│  │
+│  KITS/           │  [○][M][⚙] track name │ step cells 1-16 │ctrl│  │
+│  SYNTHS/         │         …                                        │
+│  SAMPLES/        ├──────────────────────────────────────────────────┤
+│                  │  Velocity / visualiser strip                     │
+└──────────────────┴──────────────────────────────────────────────────┘
+```
+
+---
+
+### C. Song / Project Lifecycle `PL`
+
+#### PL-A: Song operations
+
+| # | Action | How | Notes |
+| :--- | :--- | :--- | :--- |
+| PL01 | **New Song** | `Ctrl+N` or File > New Project | Confirms before discarding unsaved changes; creates 1 Kit + 1 Synth track |
+| PL02 | **Open Song** | `Ctrl+O` or File > Open Project | File chooser → parses Song XML; engine reloads samples |
+| PL03 | **Save Song** | `Ctrl+S` or File > Save Project | Saves to current file; shows Save As dialog if not yet saved |
+| PL04 | **Save Song As** | `Ctrl+Shift+S` or File > Save Project As | New filename; window title updates |
+| PL05 | **Duplicate Song** | File > Save Project As, then `Ctrl+N` to start fresh | Saves current state as a new file; original is unaffected |
+| PL06 | **Open Synth editor standalone** | Sidebar → double-click a file in SYNTHS/ | Loads as a single-track CLIP-mode view |
+| PL07 | **Open Kit editor standalone** | Sidebar → double-click a file in KITS/ | Loads as a single-track CLIP-mode view |
+| PL08 | **Save Kit as preset** | Right-click Kit row header → Save as Kit preset… | File chooser opens in KITS/ with track name pre-filled |
+| PL09 | **Save Synth as preset** | Right-click Synth row header → Save as Synth preset… | File chooser opens in SYNTHS/ with track name pre-filled |
+
+> **Library directory:** Set once via Settings > Set Samples Directory… pointing to the SAMPLES folder. The app derives `SONGS/`, `KITS/`, `SYNTHS/` as siblings. Default: `~/Deluge/`.
+
+#### PL-B: Track management
+
+| # | Action | How | Notes |
+| :--- | :--- | :--- | :--- |
+| PL10 | **Add Kit track** | Toolbar "+ KIT" button | Prompts for name; adds a Kit row with one empty clip |
+| PL11 | **Add Synth track** | Toolbar "+ SYNTH" button | Prompts for name; adds a Synth row with one empty clip |
+| PL12 | **Rename track** | Right-click row header → Rename | In-place prompt |
+| PL13 | **Set track color** | Right-click row header → Set Color | Color chooser; saved to XML |
+| PL14 | **Move track up** | Right-click row header → Move Up | Disabled when track is already first |
+| PL15 | **Move track down** | Right-click row header → Move Down | Disabled when track is already last |
+| PL16 | **Delete track** | Right-click row header → Delete Track | Confirmation dialog; removes all clips |
+
+#### PL-C: Clip management (in Song View)
+
+| # | Action | How | Notes |
+| :--- | :--- | :--- | :--- |
+| PL20 | **Add clip to track** | In SONG view, left-click an empty pad slot in the track's row | Creates a new empty clip at that position |
+| PL21 | **Rename clip** | In SONG view, right-click a clip pad → Rename Clip | In-place prompt |
+| PL22 | **Duplicate clip** | In SONG view, right-click a clip pad → Duplicate Clip | Deep copy; appended after existing clips |
+| PL23 | **Delete clip** | In SONG view, right-click a clip pad → Delete Clip | Confirmation; a track must retain at least one clip |
+| PL24 | **Copy clip between songs** | Duplicate source song (PL05), then open target song and use LOAD XML to import | Full inter-song clipboard ⚠ not yet implemented |
+
+---
+
+### D. GLOBAL `GL`
+
+| # | Action | How |
+| :--- | :--- | :--- |
+| GL01 | Zoom grid (time) | `Ctrl+Wheel` |
+| GL02 | Scroll grid left/right | `Shift+Wheel` or drag scrollbar |
+| GL03 | Scroll grid up/down | `Wheel` on grid |
+| GL04 | Undo | `Ctrl+Z` |
+| GL05 | Redo | `Ctrl+Shift+Z` or `Ctrl+Y` |
+| GL06 | Load Song (XML) | `Ctrl+O` or File > Open Project, or Sidebar double-click |
+| GL07 | Save Song | `Ctrl+S` or File > Save Project |
+| GL07b | Save Song As | `Ctrl+Shift+S` or File > Save Project As |
+| GL08 | New Song | `Ctrl+N` or File > New Project |
+| GL09 | Save + Collect All Samples | ⚠ not yet implemented |
+| GL10 | Change Tempo | BPM slider (toolbar), or `Ctrl+Up/Down` |
+| GL11 | Tap Tempo | `T` (focus on main window) |
+| GL12 | Metronome On/Off | ⚠ not yet implemented |
+| GL13 | Swing | SWING slider (toolbar), default 50% = no swing |
+| GL14 | Settings / Preferences | **Settings > Preferences…** |
+| GL15 | Set Samples Directory | **Settings > Set Samples Directory…** |
+| GL16 | Reverb Model | **Settings > Preferences… → Reverb Model** (JCRev / FreeVerb / MVerb / ProceduralReverb) |
+| GL17 | MIDI Input Device | **Settings > Preferences… → MIDI Input** |
+| GL18 | Adjust UI Font Size | Controlled by `PreferencesManager` (`window.width/height`) |
+| GL19 | Firmware Update | N/A — update the JAR file |
+| GL20 | Show/Hide Visualisers | **Settings > Preferences… → Show Visualizers** |
+
+---
+
+### E. SEQUENCING `SQ`
+
+#### Step Grid
+
+| # | Action | How |
+| :--- | :--- | :--- |
+| SQ01 | Toggle step on/off | `Click` cell |
+| SQ02 | Make a long note (tie) | `Hold` first cell + `Click` end cell on same row |
+| SQ03 | Adjust note velocity | `Right-click` cell → **Step Editor** → velocity slider |
+| SQ04 | Set note probability | `Right-click` cell → **Step Editor** → probability slider |
+| SQ05 | Set per-step filter | `Right-click` cell → **Step Editor** → filter offset |
+| SQ06 | Set per-step pan | `Right-click` cell → **Step Editor** → pan offset |
+| SQ07 | Set sample start/end | `Right-click` cell → **Step Editor** → start / end |
+| SQ08 | Duplicate clip content | ⚠ not yet implemented (`Ctrl+D` planned) |
+| SQ09 | Cross-screen editing | ⚠ not yet implemented |
+| SQ10 | Add instrument / row | ⚠ rows loaded from XML only; drag-and-drop planned |
+| SQ11 | Record live notes | `R` (while focused on grid; triggers engine record mode) |
+| SQ12 | Resample | ⚠ not yet implemented |
+| SQ13 | Shift all clip notes | ⚠ not yet implemented |
+| SQ14 | Clear clip | ⚠ not yet implemented (`Ctrl+Delete` planned) |
+| SQ15 | Change clip / row colour | ⚠ not yet implemented |
+| SQ16 | Note nudge left/right | ⚠ not yet implemented |
+| SQ17 | Reduce clip length | `Ctrl+[` (decreases `G_TRACK_LENGTH` by 1) |
+| SQ18 | Increase clip length | `Ctrl+]` (increases `G_TRACK_LENGTH` by 1) |
+| SQ19 | Reset clip length to 16 | `Ctrl+Shift+L` |
+| SQ20 | Poly Rhythms | Set each row's length independently via `Ctrl+[` / `Ctrl+]` when that row is focused. Rows cycle at their own length against the master clock. |
+| SQ21 | Move kit clip row | ⚠ not yet implemented |
+| SQ22 | Note repeat | ⚠ not yet implemented |
+| SQ23 | Copy notes | `Ctrl+C` (⚠ planned) |
+| SQ24 | Paste notes | `Ctrl+V` (⚠ planned) |
+| SQ25 | Set note iteration group | ⚠ not yet implemented |
+
+---
+
+### F. SONG VIEW `SV`
+
+Switch to Song view: `F2` or click **[SONG]** tab.
+
+| # | Action | How |
+| :--- | :--- | :--- |
+| SV01 | Launch / stop clip | `Click` clip block in song grid |
+| SV02 | Launch clip immediately | `Click` (clips always launch immediately in software) |
+| SV03 | Enter clip (edit) | `Double-click` clip block → switches to CLIP view |
+| SV04 | Create new clip | `Right-click` empty row → **New Clip** |
+| SV05 | Move row up/down | ⚠ not yet implemented (drag-and-drop planned) |
+| SV06 | Clone clip | ⚠ not yet implemented |
+| SV07 | Delete clip | ⚠ not yet implemented (`Delete` key planned) |
+| SV08 | Solo track | `Click` **[S]** button on row header (dims all other rows) |
+| SV09 | Un-solo | `Click` **[S]** again |
+| SV10 | Mute / unmute track | `Click` **[M]** button on row header |
+| SV11 | Mute tracks 1–8 | `Alt+1` … `Alt+8` |
+| SV12 | Arm clip for recording | ⚠ not yet implemented |
+| SV13 | Clip section colour | ⚠ not yet implemented |
+| SV14 | Section repeat count | ⚠ not yet implemented |
+| SV15 | Share / clone clip status | ⚠ not yet implemented |
+| SV16 | Check clip / instrument name | Hover over row header — tooltip shows name |
+
+#### Hardware Parity & Row Label Display Rules (CLIP View)
+
+| Track Type / Column | Hardware Parity & Visual Readout Behavior |
+| :--- | :--- |
+| **Kit Track Rows** | Each matrix row displays the parsed sample name (e.g., `808 Kick`, `808 Snare`) with file extensions `.wav`/`.aif` cleanly trimmed. |
+| **Synth Track (Scale Mode)** | Matrix rows map strictly to diatonic scale degrees (**C, D, E, F, G, A, B**). At boot (`scrollOffset == 67`), Column 18 top row renders **`C4`** in vibrant **Purplish** (`#7B68EE`) and bottom row renders **`C3`** in solid **Red** (`Color.RED`). |
+| **Vertical Scrolling (Scale Mode)** | Turning the scroll wheel shifts the viewport purely *diatonically* up or down scale degrees, completely excluding non-scale sharps (`#`). |
+| **Columns 17 & 18 (Utility Pads)** | Renders 8 solid backlit physical rubber buttons across all track types. Inner rubber center circles are strictly blocked (`isUtilityCol`). |
+| **OLED Screen Readout** | Renders crisp 3-line layout (`Y = 10, 28, 44`) with zero horizontal or vertical truncation, displaying full context strings (`"CLIP VIEW"`, `"SYNTH"`). |
+
+In SONG and ARRANGER views, all rows display the project track name (`tracks.get(t).getName()`).
+
+---
+
+### G. RECORDING & SAMPLES `RS`
+
+| # | Action | How |
+| :--- | :--- | :--- |
+| RS01 | Record sample (live) | ⚠ not yet implemented |
+| RS02 | Resample synth output | ⚠ not yet implemented |
+| RS03 | Load sample into kit row | Row **[⚙]** → Sample section → **Browse…** |
+| RS04 | Load all samples to kit | ⚠ (auto-loaded from XML on song load) |
+| RS05 | Slice sample | ⚠ not yet implemented |
+| RS06 | Loop resample | ⚠ not yet implemented |
+| RS07 | Rename sample | ⚠ rename via OS file manager |
+| RS08 | Multi-sampling | ⚠ not yet implemented |
+
+---
+
+### H. MODIFYING SOUNDS `MS`
+
+#### Kit Track — open with row **[⚙]**
+
+| # | Action | How |
+| :--- | :--- | :--- |
+| MS01 | Load / change sample | **[⚙]** → Sample → **Browse…** |
+| MS02 | Pitch (semitones) | **[⚙]** → Pitch & Modulation → Pitch slider (−24 to +24) |
+| MS03 | Reverse playback | **[⚙]** → Reverse toggle |
+| MS04 | Per-sample ADSR | **[⚙]** → ADSR section |
+| MS05 | Mute group / choke | **[⚙]** → Mute Group picker |
+| MS06 | Sample start/end points | `Right-click` step → Step Editor |
+
+#### Synth Track — open with row **[⚙]**
+
+| # | Action | How |
+| :--- | :--- | :--- |
+| MS10 | Oscillator type | **[⚙]** → Oscillator section → Type combo (Sine/Saw/Square/Tri) |
+| MS11 | Filter mode / cutoff / res | **[⚙]** → Filter section |
+| MS12 | FM ratio / FM amount | **[⚙]** → FM Synthesis section |
+| MS13 | Arpeggiator on/rate/octave | **[⚙]** → Arpeggiator section |
+| MS14 | LFO 0–3 (rate/shape/depth/target) | **[⚙]** → LFO section |
+| MS21 | Save preset | **[⚙]** → **💾 SAVE PRESET** |
+
+---
+
+### I. PARAMETER CONTROLS `PD`
+
+| Row | Q-key (LR) controls | W-key (UR) controls |
+| :--- | :--- | :--- |
+| MASTER | Volume | Pan |
+| LPF | Cutoff frequency | Resonance |
+| HPF | Cutoff frequency | Resonance |
+| ENV 1 | Attack | Release |
+| DELAY | Feedback | Time |
+| REVERB | Room size | Damping |
+| MOD FX | Rate | Depth |
+| SIDECHAIN | Duck depth | Release time |
+
+---
+
+### J. LFO MODULATION `LF`
+
+| # | Action | How |
+| :--- | :--- | :--- |
+| LF01 | Open LFO editor (synth) | Row **[⚙]** → LFO section |
+| LF02 | Set LFO shape | LFO slot → Shape combo: Sine / Saw / Square / Triangle |
+| LF03 | Set LFO rate | LFO slot → Rate slider (0.01–20 Hz) |
+| LF04 | Set LFO depth | LFO slot → Depth slider |
+| LF05 | Set LFO target | LFO slot → Target combo: Filter / Res / Pan / Pitch / Vol / FM |
+
+---
+
+### K. COMPLETED DESKTOP WORKSTATION UI OVERHAUL
+
+| UI Module | What Was Built | Code Coordinates / Components |
+| :--- | :--- | :--- |
+| **LFO Modulation Editor** | 4 full LFO slots with rate, shape, depth, and target routing drop-downs. | `LfoPanel.java` tab panel in `SwingSynthConfigDialog.java`. |
+| **Kit Sound ADSR Envelope** | Individual Attack/Decay/Sustain/Release milliseconds sliders per drum sound. | `SwingKitConfigDialog.java` (ADSR Section). |
+| **Kit Sound Mute Groups** | Drop-down selections (None / Group 1-4) to dynamically cut off sounds. | `SwingKitConfigDialog.java` (Mute Group Combobox). |
+| **Kit Sound Sample Reverse** | Interactive JCheckBox toggles to reverse sample playback directions. | `SwingKitConfigDialog.java` (Reverse Checkbox). |
+| **Step Properties Dialog** | Right-click context actions on grid pads to modify step velocity, sub-trigger repeats (iterance), and fill probability. | `StepPropertiesDialog.java` and `showStepPropertiesDialog()` in `SwingGridPanel.java`. |
+| **Undo / Redo Stack** | Unified command Consequence stack mapping step additions, deletions, properties changes, and project parameters updates. | `UndoRedoStack.java` integrated across standard grid edits and sliders. |
+| **MIDI Learn Interface Grid** | Dedicated dark-themed setup grid allowing automatic CC learning, incoming MIDI parameter updates, reset keys, and clear functions. | `MidiLearnPanel.java` tab view in top panels. |
+| **Track Solo & Audition Play** | Dedicated Column 18 Solo triggers in Song/Arranger view, and real-time press-and-hold Audition Play (with transient LED display note text) in Clip view. | Columns 17/18 implementation inside `SwingGridPanel.java`. |
+
+
+
 
