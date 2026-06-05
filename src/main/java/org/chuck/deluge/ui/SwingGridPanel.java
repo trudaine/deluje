@@ -4568,17 +4568,20 @@ public class SwingGridPanel extends JPanel {
           if (colId == 16) {
             final int engineRow = baseTrackId + trk;
             boolean curMute = bridge.getMute(engineRow);
-            clipBtn.setText("MUTE");
-            clipBtn.setBackground(
+            Color muteBg =
                 curMute
                     ? new Color(0xff, 0xd7, 0x00)
-                    : Color.WHITE); // Yellow when muted, Pure Snow White when active
+                    : Color.WHITE; // Yellow when muted, Pure Snow White when active
+            clipBtn.setText("MUTE");
+            clipBtn.setBackground(muteBg);
             clipBtn.setForeground(Color.BLACK);
             clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 11 : 9));
             if (clipBtn instanceof DelugePadButton pad) {
+              pad.setBaseColor(muteBg);
+              pad.setTextColorOverride(Color.BLACK);
               pad.setDrawCenterCircle(false);
               pad.setIntensity(1.0f);
-              pad.setTextColorOverride(Color.BLACK);
+              pad.setActive(true);
               pad.setNoteText("MUTE");
             }
             if (viewMode == null) {
@@ -4598,6 +4601,8 @@ public class SwingGridPanel extends JPanel {
                     clipBtn.setToolTipText("Automation View: Parameter Lane " + (t + 1) + " Mute");
                 default -> clipBtn.setToolTipText("Performance View: Live Stutter / Mute Punch");
               }
+            javax.swing.ToolTipManager.sharedInstance().registerComponent(clipBtn);
+
             clearActionListeners(clipBtn);
             clipBtn.addActionListener(
                 e -> {
@@ -4636,9 +4641,12 @@ public class SwingGridPanel extends JPanel {
                   boolean isMuted = bridge.getMute(engineRow);
                   boolean nextMute = !isMuted;
                   bridge.setMute(engineRow, nextMute);
-                  clipBtn.setBackground(nextMute ? new Color(0xff, 0xd7, 0x00) : Color.WHITE);
+                  Color nextBg = nextMute ? new Color(0xff, 0xd7, 0x00) : Color.WHITE;
+                  clipBtn.setBackground(nextBg);
                   if (clipBtn instanceof DelugePadButton pad) {
+                    pad.setBaseColor(nextBg);
                     pad.setIntensity(1.0f);
+                    pad.setActive(true);
                     pad.setTextColorOverride(Color.BLACK);
                   }
                 });
@@ -4650,10 +4658,12 @@ public class SwingGridPanel extends JPanel {
               clipBtn.setBackground(trackColors[t % trackColors.length]);
               clipBtn.setForeground(Color.BLACK);
               if (clipBtn instanceof DelugePadButton pad) {
+                pad.setBaseColor(trackColors[t % trackColors.length]);
+                pad.setTextColorOverride(Color.BLACK);
                 pad.setDrawCenterCircle(false);
                 pad.setIntensity(1.0f);
+                pad.setActive(true);
                 pad.setNoteText(sLaunch);
-                pad.setTextColorOverride(Color.BLACK);
               }
             } else {
               boolean isSynth = false;
@@ -4687,32 +4697,33 @@ public class SwingGridPanel extends JPanel {
               clipBtn.setText(nName);
               clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 11 : 9));
 
+              Color cellBg;
+              Color cellFg;
               if (soloRow == t) {
-                clipBtn.setBackground(Color.GREEN);
-                clipBtn.setForeground(Color.BLACK);
-                if (clipBtn instanceof DelugePadButton pad) pad.setTextColorOverride(Color.BLACK);
+                cellBg = Color.GREEN;
+                cellFg = Color.BLACK;
               } else if (t == 0) {
-                clipBtn.setBackground(
-                    new Color(0xff, 0xb3, 0x00)); // Bright Amber Gold for first top cell
-                clipBtn.setForeground(Color.BLACK);
-                if (clipBtn instanceof DelugePadButton pad) pad.setTextColorOverride(Color.BLACK);
+                cellBg = new Color(0xff, 0xb3, 0x00); // Bright Amber Gold for first top cell
+                cellFg = Color.BLACK;
               } else if (t == 7 || t == voiceRowCount - 1) {
-                clipBtn.setBackground(
-                    new Color(0x7b, 0x68, 0xee)); // Distinct Soft Purple for last bottom cell
-                clipBtn.setForeground(Color.WHITE);
-                if (clipBtn instanceof DelugePadButton pad) pad.setTextColorOverride(Color.WHITE);
+                cellBg = new Color(0x7b, 0x68, 0xee); // Distinct Soft Purple for last bottom cell
+                cellFg = Color.WHITE;
               } else if (isOctaveC) {
-                clipBtn.setBackground(new Color(0xb0, 0xe2, 0xff)); // Soft octave teal/blue
-                clipBtn.setForeground(Color.BLACK);
-                if (clipBtn instanceof DelugePadButton pad) pad.setTextColorOverride(Color.BLACK);
+                cellBg = new Color(0xb0, 0xe2, 0xff); // Soft octave teal/blue
+                cellFg = Color.BLACK;
               } else {
-                clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
-                clipBtn.setForeground(Color.WHITE);
-                if (clipBtn instanceof DelugePadButton pad) pad.setTextColorOverride(Color.WHITE);
+                cellBg = new Color(0x55, 0x55, 0x5a); // Highly visible active Slate Grey
+                cellFg = Color.WHITE;
               }
+              clipBtn.setBackground(cellBg);
+              clipBtn.setForeground(cellFg);
+
               if (clipBtn instanceof DelugePadButton pad) {
+                pad.setBaseColor(cellBg);
+                pad.setTextColorOverride(cellFg);
                 pad.setDrawCenterCircle(false);
                 pad.setIntensity(1.0f);
+                pad.setActive(true);
                 pad.setNoteText(nName);
               }
             }
@@ -4737,6 +4748,7 @@ public class SwingGridPanel extends JPanel {
                 default ->
                     clipBtn.setToolTipText("Performance View: Recall Macro Snapshot " + (t + 1));
               }
+            javax.swing.ToolTipManager.sharedInstance().registerComponent(clipBtn);
 
             clearActionListeners(clipBtn);
             clipBtn.addActionListener(
