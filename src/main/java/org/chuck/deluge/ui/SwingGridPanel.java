@@ -3345,7 +3345,7 @@ public class SwingGridPanel extends JPanel {
     } else {
       this.stepCount = gridMode.columns;
     }
-    this.columnCount = this.stepCount + (viewMode == GridViewMode.CLIP ? 2 : 0);
+    this.columnCount = this.stepCount + 2;
 
     // Stop old VU timer and clear visual registers maps to prevent Swing leaks!
     voiceVuMeters.clear();
