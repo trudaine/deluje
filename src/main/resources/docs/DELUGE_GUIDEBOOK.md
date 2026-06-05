@@ -17,6 +17,7 @@ Welcome to the **ChucK-Java Deluge Workstation**, a modern, high-fidelity softwa
 8. [DSP FX Bounding Box Dials Deck](#8-dsp-fx-bounding-box-dials-deck)
 9. [Delugeator Multi-Generator Dashboard Suite](#9-delugeator-multi-generator-dashboard-suite)
 10. [UI Panels & Shift Shortcuts System Behavior](#10-ui-panels-&-shift-shortcuts-system-behavior)
+    * [10.3 Track Header & Top Toolbar Shift Shortcuts Map](#103-track-header--top-toolbar-shift-shortcuts-map)
 11. [Audio Tracks, Time-Stretching & Pitch-Shifting](#11-audio-tracks-time-stretching--pitch-shifting)
 12. [Advanced Wavetable Index Scan Editor](#12-advanced-wavetable-index-scan-editor)
 13. [Pedal Looper & Continuous Multi-Layer Overdubs](#13-pedal-looper--continuous-multi-layer-overdubs)
@@ -556,7 +557,17 @@ When Shift state is active, the standard step sequencing grid changes context, d
 
 ---
 
-### 10.2 Synth Configuration Dialog JTabbedPane Tabs
+### 10.3 Track Header & Top Toolbar Shift Shortcuts Map
+
+In addition to the main grid pads, holding **Shift** while clicking top toolbar buttons or row header labels activates hardware-accurate quick operations:
+* **`Shift` + Click `[+ KIT]`, `[+ SYNTH]`, `[+ AUDIO]`**: Bypasses the standard track naming modal prompt and instantly creates a new default track (`SYNTH 1`, `KIT 1`, `AUDIO 1`) with generic initial presets (and fully silent/unassigned drum slots for `KIT 1`).
+* **`Shift` + Click `[Track Name Label]`**: Toggles **One-Shot Playback Mode (`1SH`)** for sample-trigger track rows.
+* **`Shift` + Click `[MUTE]` Button**: Clears all active step note events on that specific lane (`Clear row`).
+* **Right-Click / Double-Click `[Track Name Label]`**: Spawns the multitrack Context Menu (`Clone Track`, `Delete Track`, `Change Swatch Color`).
+
+---
+
+### 10.4 Synth Configuration Dialog JTabbedPane Tabs
 
 Double-clicking a Synth track triggers our wide-screen, compact sound editor. It cycles programmatically through twelve dedicated parameter decks:
 
