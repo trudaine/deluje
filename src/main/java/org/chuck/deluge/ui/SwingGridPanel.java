@@ -3326,6 +3326,16 @@ public class SwingGridPanel extends JPanel {
         && projectModel != null
         && editedModelTrack < projectModel.getTracks().size()) {
       org.chuck.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
+      try {
+        String tBanner = t.getType().name();
+        String tTitle = t.getName();
+        String tMetric = "TRANSPOSE " + projectModel.getTranspose();
+        org.chuck.deluge.firmware.hid.FirmwareDisplay.get()
+            .getVirtualOLED()
+            .drawTrackScreen(tBanner, tTitle, tMetric);
+      } catch (Throwable th) {
+        // Shield
+      }
       if (activeClipId >= 0 && activeClipId < t.getClips().size()) {
         org.chuck.deluge.model.ClipModel activeClip = t.getClips().get(activeClipId);
         this.stepCount = activeClip.isTripletMode() ? 12 : gridMode.columns;
@@ -4825,10 +4835,23 @@ public class SwingGridPanel extends JPanel {
 
                           // Audition via engine preview (wrap to voice slot)
                           int slot = baseTrackId + (trk % 8);
-                          vm.setGlobalFloat(
-                              BridgeContract.G_PREVIEW_PITCH, (float) ((128 - 1) - trk));
+                          int midiPitch = (128 - 1) - trk;
+                          vm.setGlobalFloat(BridgeContract.G_PREVIEW_PITCH, (float) midiPitch);
                           vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) slot);
                           vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
+                          try {
+                            String[] noteNames =
+                                new String[] {
+                                  "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
+                                };
+                            String nName =
+                                noteNames[Math.max(0, midiPitch) % 12] + ((midiPitch / 12) - 1);
+                            org.chuck.deluge.firmware.hid.FirmwareDisplay.get()
+                                .getVirtualOLED()
+                                .setNoteOverride(nName);
+                          } catch (Throwable th) {
+                            // Shield
+                          }
 
                           // Write to model so changes survive view switches
                           if (projectModel != null
@@ -4878,6 +4901,13 @@ public class SwingGridPanel extends JPanel {
                       // Stop kit preview on release
                       vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, -1L);
                       vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
+                      try {
+                        org.chuck.deluge.firmware.hid.FirmwareDisplay.get()
+                            .getVirtualOLED()
+                            .clearNoteOverride();
+                      } catch (Throwable th) {
+                        // Shield
+                      }
                     }
                   });
 
