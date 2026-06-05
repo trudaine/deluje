@@ -388,6 +388,28 @@ public class PhysicalHardwareFidelityTest {
       int hwStartOverride,
       int swStartOverride,
       String testName) {
+    assertWaveShapeFidelity(
+        hw,
+        sw,
+        targetCorrelation,
+        searchOffset,
+        hwStartOverride,
+        swStartOverride,
+        400.0,
+        1000.0,
+        testName);
+  }
+
+  private void assertWaveShapeFidelity(
+      float[] hw,
+      float[] sw,
+      double targetCorrelation,
+      int searchOffset,
+      int hwStartOverride,
+      int swStartOverride,
+      double minPitchFreq,
+      double maxPitchFreq,
+      String testName) {
     float maxHw = 0.0f;
     float maxSw = 0.0f;
     for (float v : hw) maxHw = Math.max(maxHw, Math.abs(v));
@@ -469,9 +491,11 @@ public class PhysicalHardwareFidelityTest {
 
     double absCorrelation = Math.abs(finalSignCorrelation);
     double hwPitchVal =
-        org.chuck.deluge.AudioAnalyzer.estimateFrequency(hwWindow, 44100, 400.0, 1000.0);
+        org.chuck.deluge.AudioAnalyzer.estimateFrequency(
+            hwWindow, 44100, minPitchFreq, maxPitchFreq);
     double swPitchVal =
-        org.chuck.deluge.AudioAnalyzer.estimateFrequency(swWindow, 44100, 400.0, 1000.0);
+        org.chuck.deluge.AudioAnalyzer.estimateFrequency(
+            swWindow, 44100, minPitchFreq, maxPitchFreq);
     System.out.printf(
         "  [DIAG pitches] hwPitch=%.2f Hz | swPitch=%.2f Hz\n", hwPitchVal, swPitchVal);
     System.out.printf(
@@ -1114,6 +1138,101 @@ public class PhysicalHardwareFidelityTest {
     int hwStart = findPositiveZeroCrossing(hw, 10000);
     int swStart = findPositiveZeroCrossing(sw, 12800);
     assertWaveShapeFidelity(hw, sw, 0.01, 15000, hwStart, swStart, "FM Glide Ratio C5");
+  }
+
+  @Test
+  public void testBasicFmRecordingParity() throws Exception {
+    System.out.println("=== RUNNING HARDWARE REGRESSION: BASIC FM C3 ===");
+    String wavPath = "/fidelity/REC00010.WAV";
+    String xmlPath = "/fidelity/049 Basic FM.XML";
+    float[] hw = loadWavFromResource(wavPath);
+    int triggerBlock = 100;
+    int releaseBlock = triggerBlock + 413; // ~1.2 seconds of note-on
+    float[] sw = renderXmlTrackPreset(xmlPath, hw.length, triggerBlock, releaseBlock, 60);
+    System.out.println("=== SW FIRST 20 NON-ZERO SAMPLES ===");
+    int count = 0;
+    for (int i = 0; i < sw.length; i++) {
+      if (Math.abs(sw[i]) > 1e-4) {
+        System.out.printf("  sw[%d] = %.6f\n", i, sw[i]);
+        count++;
+        if (count >= 20) break;
+      }
+    }
+    System.out.println("=====================================");
+
+    try {
+      java.io.File outFile =
+          new java.io.File("/home/ludo/.gemini/antigravity-cli/scratch/sw_test_fm.wav");
+      byte[] outBytes = new byte[sw.length * 2];
+      for (int i = 0; i < sw.length; i++) {
+        short val = (short) Math.max(-32768, Math.min(32767, sw[i] * 32768.0f));
+        outBytes[i * 2] = (byte) (val & 0xFF);
+        outBytes[i * 2 + 1] = (byte) ((val >> 8) & 0xFF);
+      }
+      javax.sound.sampled.AudioFormat format =
+          new javax.sound.sampled.AudioFormat(44100.0f, 16, 1, true, false);
+      try (javax.sound.sampled.AudioInputStream ais =
+          new javax.sound.sampled.AudioInputStream(
+              new java.io.ByteArrayInputStream(outBytes), format, sw.length)) {
+        javax.sound.sampled.AudioSystem.write(
+            ais, javax.sound.sampled.AudioFileFormat.Type.WAVE, outFile);
+      }
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
+    float[] normHw = normalizePeak(hw, 0.5f);
+    int hwOnset = findActiveStart(normHw, 0.05f, 0);
+    int hwStart = findPositiveZeroCrossing(hw, hwOnset);
+
+    float[] normSw = normalizePeak(sw, 0.5f);
+    int swOnset = findActiveStart(normSw, 0.05f, 0);
+    int swStart = findPositiveZeroCrossing(sw, swOnset);
+
+    assertWaveShapeFidelity(hw, sw, 0.50, 15000, hwStart, swStart, 100.0, 200.0, "Basic FM C3");
+  }
+
+  @Test
+  public void testHooverBassRecordingParity() throws Exception {
+    System.out.println("=== RUNNING HARDWARE REGRESSION: HOOVER BASS C2 ===");
+    String wavPath = "/fidelity/REC00011.WAV";
+    String xmlPath = "/fidelity/009 Hoover Bass.XML";
+    float[] hw = loadWavFromResource(wavPath);
+    int triggerBlock = 100;
+    int releaseBlock = triggerBlock + 413; // ~1.2 seconds of note-on
+    float[] sw = renderXmlTrackPreset(xmlPath, hw.length, triggerBlock, releaseBlock, 36);
+
+    float[] normHw = normalizePeak(hw, 0.5f);
+    int hwOnset = findActiveStart(normHw, 0.05f, 0);
+    int hwStart = findPositiveZeroCrossing(hw, hwOnset);
+
+    float[] normSw = normalizePeak(sw, 0.5f);
+    int swOnset = findActiveStart(normSw, 0.05f, 0);
+    int swStart = findPositiveZeroCrossing(sw, swOnset);
+
+    assertWaveShapeFidelity(hw, sw, 0.50, 15000, hwStart, swStart, 50.0, 100.0, "Hoover Bass C2");
+  }
+
+  @Test
+  public void testSynthDualModRecordingParity() throws Exception {
+    System.out.println("=== RUNNING HARDWARE REGRESSION: SYNTH DUAL MOD REC12 C5 ===");
+    String wavPath = "/fidelity/REC00012.WAV";
+    String xmlPath = "/fidelity/128_SYNTH_DUAL_MOD_C5.XML";
+    float[] hw = loadWavFromResource(wavPath);
+    int triggerBlock = 100;
+    int releaseBlock = triggerBlock + 413; // ~1.2 seconds of note-on
+    float[] sw = renderXmlTrackPreset(xmlPath, hw.length, triggerBlock, releaseBlock, 72);
+
+    float[] normHw = normalizePeak(hw, 0.5f);
+    int hwOnset = findActiveStart(normHw, 0.05f, 0);
+    int hwStart = findPositiveZeroCrossing(hw, hwOnset);
+
+    float[] normSw = normalizePeak(sw, 0.5f);
+    int swOnset = findActiveStart(normSw, 0.05f, 0);
+    int swStart = findPositiveZeroCrossing(sw, swOnset);
+
+    assertWaveShapeFidelity(
+        hw, sw, 0.50, 15000, hwStart, swStart, 400.0, 1000.0, "Synth Dual Mod REC12 C5");
   }
 
   private float[] renderGlideXmlTrackPreset(

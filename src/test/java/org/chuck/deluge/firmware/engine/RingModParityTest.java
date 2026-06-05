@@ -3,20 +3,42 @@ package org.chuck.deluge.firmware.engine;
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.chuck.deluge.firmware.dsp.StereoSample;
+import org.chuck.deluge.firmware.model.InstrumentClip;
+import org.chuck.deluge.firmware.model.Song;
+import org.chuck.deluge.model.ClipModel;
+import org.chuck.deluge.model.ProjectModel;
+import org.chuck.deluge.model.SynthTrackModel;
 import org.junit.jupiter.api.Test;
 
 /**
  * Verifies that SynthMode.RINGMOD actually ring-modulates (osc A × osc B) rather than degrading to
- * a plain oscillator sum. With two sine oscillators at the same note, ring modulation produces DC +
- * 2f (sin·sin = ½ − ½cos(2·2πft)), so after removing the DC offset the signal oscillates at twice
- * the fundamental — i.e. roughly double the zero-crossing rate of the subtractive (single-sine)
- * render. Before the fix, RINGMOD summed the sources and stayed at the fundamental.
+ * a plain oscillator sum. The fixture is built through FirmwareFactory so osc2 pitch and volume
+ * take the same path as real synth models.
  */
 public class RingModParityTest {
 
+  private static FirmwareSound buildSound(FirmwareSound.SynthMode mode) {
+    SynthTrackModel model = new SynthTrackModel("ringmod");
+    model.setOsc1Type("SINE");
+    model.setOsc2Type("SINE");
+    model.setOscAVolume(1.0f);
+    model.setOscBVolume(1.0f);
+    model.setOsc2Transpose(0);
+    model.setOsc2Cents(0);
+    model.setVolume(1.0f);
+    model.setLpfFreq(20000f);
+    model.setLpfRes(0.0f);
+    model.setSynthMode(mode == FirmwareSound.SynthMode.RINGMOD ? 2 : 0);
+    model.addClip(new ClipModel("c", 8, 16));
+
+    ProjectModel project = new ProjectModel();
+    project.addTrack(model);
+    Song song = FirmwareFactory.createSong(project);
+    return (FirmwareSound) ((InstrumentClip) song.clips.get(0)).sound;
+  }
+
   private static double[] renderMono(FirmwareSound.SynthMode mode, int total) {
-    FirmwareSound sound = new FirmwareSound();
-    sound.synthMode = mode;
+    FirmwareSound sound = buildSound(mode);
     sound.triggerNote(60, 100);
     StereoSample[] buf = new StereoSample[total];
     for (int i = 0; i < total; i++) buf[i] = new StereoSample();

@@ -110,9 +110,13 @@ public class FirmwareSound extends GlobalEffectable {
 
   public FirmwareSound() {
     for (int i = 0; i < globalLfos.length; i++) globalLfos[i] = new LFO();
+    for (int i = 0; i < Param.kNumParams; i++) {
+      paramNeutralValues[i] =
+          org.chuck.deluge.firmware.modulation.params.ParamCurves.getParamNeutralValue(i);
+    }
     // Default neutral values as requested for LKG state
-    paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = Q31.ONE;
-    paramNeutralValues[Param.LOCAL_VOLUME] = Q31.ONE;
+    paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = 1073741824;
+    paramNeutralValues[Param.LOCAL_VOLUME] = 1073741824;
     // Default filter neutral settings
     paramNeutralValues[Param.LOCAL_LPF_FREQ] = Q31.ONE;
     paramNeutralValues[Param.LOCAL_LPF_RESONANCE] = 0;
@@ -120,6 +124,18 @@ public class FirmwareSound extends GlobalEffectable {
     paramNeutralValues[Param.LOCAL_HPF_FREQ] = 0;
     paramNeutralValues[Param.LOCAL_HPF_RESONANCE] = 0;
     paramNeutralValues[Param.LOCAL_HPF_MORPH] = 0;
+
+    // Pitch Adjust defaults to 0 (neutral) in C++
+    paramNeutralValues[Param.LOCAL_PITCH_ADJUST] = 0;
+    paramNeutralValues[Param.LOCAL_OSC_A_PITCH_ADJUST] = 0;
+    paramNeutralValues[Param.LOCAL_OSC_B_PITCH_ADJUST] = 0;
+    paramNeutralValues[Param.LOCAL_MODULATOR_0_PITCH_ADJUST] = 0;
+    paramNeutralValues[Param.LOCAL_MODULATOR_1_PITCH_ADJUST] = 0;
+
+    // Exponential rates defaulting to 0 in C++
+    paramNeutralValues[Param.GLOBAL_DELAY_RATE] = 0;
+    paramNeutralValues[Param.GLOBAL_ARP_RATE] = 0;
+    paramNeutralValues[Param.GLOBAL_MOD_FX_RATE] = 0;
 
     // Default LFO rates: the param value is now the LFO phase increment directly (firmware scale),
     // so default to the firmware neutral 121739 (~1.25 Hz). The factory overwrites this with
@@ -211,10 +227,8 @@ public class FirmwareSound extends GlobalEffectable {
     }
 
     // 3. Apply High-Fidelity FX Chain (firmware order: SRR/bitcrush → mod FX → stutter → ...)
-    int[] postFXVolume = {2147483647};
-
     // Sample-rate reduction + bitcrushing
-    srrBitcrush.process(buffer, numSamples, bitcrushParam, srrParam, postFXVolume);
+    srrBitcrush.process(buffer, numSamples, bitcrushParam, srrParam, postFXVolumeHolder);
 
     // Stutter
     stutterer.processStutter(buffer, paramManager);
@@ -224,14 +238,20 @@ public class FirmwareSound extends GlobalEffectable {
     // randomness), tempo — mirroring ModControllableAudio::processGrainFX's argument order.
     if (modFXType == ModFXType.GRAIN) {
       granular.processGrainFX(
-          buffer, modFXRateIncrement, modFXDepth << 1, modFXOffset, modFXFeedback, currentBpm);
+          buffer,
+          modFXRateIncrement,
+          modFXDepth << 1,
+          modFXOffset,
+          modFXFeedback,
+          postFXVolumeHolder,
+          currentBpm);
     } else {
       modFX.processModFX(
           buffer,
           modFXType,
           modFXRateIncrement,
           modFXDepth,
-          postFXVolume,
+          postFXVolumeHolder,
           modFXOffset,
           modFXFeedback);
     }
@@ -353,22 +373,8 @@ public class FirmwareSound extends GlobalEffectable {
 
   private void releaseVoice(int note, int midiChannel) {
     synchronized (voices) {
-      System.out.println(
-          "[DIAG release] releaseNote requested for pitch="
-              + note
-              + " voicesPoolSize="
-              + voices.size());
       for (FirmwareVoice v : voices) {
-        System.out.println(
-            "[DIAG release] Active voice candidate check: pitch="
-                + v.note
-                + " active="
-                + v.active
-                + " pitchMatch="
-                + (v.note == note));
         if (v.active && v.note == note && (midiChannel == -1 || v.midiChannel == midiChannel)) {
-          System.out.println(
-              "[DIAG release] MATCH SUCCESS: Calling noteOff for voice note=" + v.note);
           v.noteOff(0);
         }
       }
@@ -480,6 +486,11 @@ public class FirmwareSound extends GlobalEffectable {
     } else {
       this.filterRoute = org.chuck.deluge.firmware.dsp.filter.FilterRoute.HIGH_TO_LOW;
     }
+  }
+
+  public boolean hasFilters() {
+    return lpfMode != org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF
+        || hpfMode != org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF;
   }
 
   @Override

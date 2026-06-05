@@ -89,7 +89,15 @@ public class FirmwareTuningTest {
       for (int note : notes) {
         FirmwareSound s = build(osc);
         s.triggerNote(note, 110);
-        double f0 = fundamental(render(s, 22050));
+        float[] rendered = render(s, 22050);
+        double f0 = fundamental(rendered);
+        if ("SINE".equals(osc) && note == 60) {
+          System.out.println("DEBUG SINE 60 SAMPLES:");
+          for (int i = 6000; i < 6020; i++) {
+            System.out.printf("  %d: %.8f\n", i, rendered[i]);
+          }
+          System.out.println("Detected f0: " + f0);
+        }
         double expected = 440.0 * Math.pow(2.0, (note - 69) / 12.0);
         assertEquals(
             expected,

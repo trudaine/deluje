@@ -31,6 +31,7 @@ public class Stutterer {
   private boolean currentReverse;
   private Config config = new Config();
   private int sizeLeftUntilRecordFinished = 0;
+  private int valueBeforeStuttering = 0;
   private int lastQuantizedKnobDiff = 0;
   private Object stutterSource = null;
 
@@ -42,11 +43,27 @@ public class Stutterer {
     this.config = sc;
     this.currentReverse = config.reversed;
 
+    if (config.quantized) {
+      int paramValue = paramManager.getUnpatchedValue(Param.UNPATCHED_STUTTER_RATE);
+      int knobPos = paramValueToKnobPos(paramValue);
+      if (knobPos < -39) {
+        knobPos = -16; // 4ths
+      } else if (knobPos < -14) {
+        knobPos = -8; // 8ths
+      } else if (knobPos < 14) {
+        knobPos = 0; // 16ths
+      } else if (knobPos < 39) {
+        knobPos = 8; // 32nds
+      } else {
+        knobPos = 16; // 64ths
+      }
+      valueBeforeStuttering = paramValue;
+      lastQuantizedKnobDiff = knobPos;
+      paramManager.setUnpatchedValue(Param.UNPATCHED_STUTTER_RATE, 0);
+    }
+
     // ── Bit-Accurate Stutter Rate ──
-    int paramValue = paramManager.getUnpatchedValue(Param.UNPATCHED_STUTTER_RATE);
-    // Exponential mapping (base = 1)
-    int rate = FirmwareUtils.getExp(1, paramValue);
-    if (rate < 1000) rate = 1000;
+    int rate = getStutterRate(paramManager);
 
     if (buffer.init(rate) == DelayBuffer.Error.NONE) {
       status = Status.RECORDING;
@@ -57,6 +74,9 @@ public class Stutterer {
 
   public void processStutter(StereoSample[] audio, ParamManager paramManager) {
     if (status == Status.OFF) return;
+
+    int rate = getStutterRate(paramManager);
+    buffer.setupForRender(rate);
 
     if (status == Status.RECORDING) {
       for (StereoSample sample : audio) {
@@ -109,8 +129,50 @@ public class Stutterer {
   }
 
   public void endStutter() {
+    endStutter(null);
+  }
+
+  public void endStutter(ParamManager paramManager) {
     buffer.discard();
     status = Status.OFF;
+
+    if (paramManager != null) {
+      if (config.quantized) {
+        paramManager.setUnpatchedValue(Param.UNPATCHED_STUTTER_RATE, valueBeforeStuttering);
+      } else if (paramManager.getUnpatchedValue(Param.UNPATCHED_STUTTER_RATE) < 0) {
+        paramManager.setUnpatchedValue(Param.UNPATCHED_STUTTER_RATE, 0);
+      }
+    }
+
+    lastQuantizedKnobDiff = 0;
+    valueBeforeStuttering = 0;
     stutterSource = null;
+  }
+
+  private int getStutterRate(ParamManager paramManager) {
+    int paramValue = paramManager.getUnpatchedValue(Param.UNPATCHED_STUTTER_RATE);
+    int knobPos = paramValueToKnobPos(paramValue) + lastQuantizedKnobDiff;
+    if (knobPos < -64) {
+      knobPos = -64;
+    } else if (knobPos > 64) {
+      knobPos = 64;
+    }
+    int quantizedParamValue = knobPosToParamValue(knobPos);
+    int rate = FirmwareUtils.getExp(1, quantizedParamValue);
+    return Math.max(rate, 1000);
+  }
+
+  static int paramValueToKnobPos(int paramValue) {
+    if (paramValue >= 0x7F000000) {
+      return 64;
+    }
+    return (paramValue + (1 << 24)) >> 25;
+  }
+
+  static int knobPosToParamValue(int knobPos) {
+    if (knobPos < 64) {
+      return knobPos << 25;
+    }
+    return Integer.MAX_VALUE;
   }
 }

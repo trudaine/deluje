@@ -82,6 +82,14 @@ public class VoiceSample {
       int[] buffer, int numSamples, int phaseIncrement, Sample sample, int amplitude) {
     if (!active || sample == null || sample.data == null) return;
 
+    int amp = amplitude << 3;
+    if (phaseIncrement != 16777216) {
+      amp <<= 1;
+    }
+    if (timestretch) {
+      amp <<= 1;
+    }
+
     float[] data = sample.data;
     int numChannels = sample.numChannels;
     int totalSamples = sample.getNumSamples();
@@ -95,7 +103,7 @@ public class VoiceSample {
       if (tsScratch == null || tsScratch.length < numSamples) tsScratch = new int[numSamples];
       timeStretcher.process(tsScratch, numSamples, tsRatio, pitch, tsData);
       for (int i = 0; i < numSamples; i++) {
-        buffer[i] = Q31.addSaturate(buffer[i], Q31.mult(tsScratch[i], amplitude));
+        buffer[i] = Q31.addSaturate(buffer[i], Q31.mult(tsScratch[i], amp));
       }
       int pos = (int) (timeStretcher.samplePosBig >> 24);
       int end = (loopEndSamples != -1) ? loopEndSamples : endSample;
@@ -150,7 +158,7 @@ public class VoiceSample {
               data, numChannels, 0, intPos, frac, whichKernel);
 
       int valQ31 = (int) (out * 2147483647.0);
-      int wet = Q31.mult(valQ31, amplitude);
+      int wet = Q31.mult(valQ31, amp);
 
       buffer[i] = Q31.addSaturate(buffer[i], wet);
 

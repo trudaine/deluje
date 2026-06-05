@@ -1885,8 +1885,26 @@ public class DelugeXmlParser {
           && !dst.isEmpty()
           && amtStr != null
           && !amtStr.isEmpty()) {
+        String polarityStr = cableElem.getAttribute("polarity");
+        if (polarityStr == null || polarityStr.isEmpty()) {
+          polarityStr = getChildText(cableElem, "polarity");
+        }
+        PatchCable.Polarity polarityVal = PatchCable.Polarity.BIPOLAR;
+        if (polarityStr != null && !polarityStr.isEmpty()) {
+          if ("unipolar".equalsIgnoreCase(polarityStr.trim())) {
+            polarityVal = PatchCable.Polarity.UNIPOLAR;
+          } else if ("bipolar".equalsIgnoreCase(polarityStr.trim())) {
+            polarityVal = PatchCable.Polarity.BIPOLAR;
+          }
+        } else {
+          if ("aftertouch".equalsIgnoreCase(src.trim())) {
+            polarityVal = PatchCable.Polarity.UNIPOLAR;
+          } else {
+            polarityVal = PatchCable.Polarity.BIPOLAR;
+          }
+        }
         float amt = PatchCable.applyScaling(dst.trim(), DelugeHexMapper.hexToFloat(amtStr));
-        synth.addPatchCable(new PatchCable(src.trim(), dst.trim(), amt));
+        synth.addPatchCable(new PatchCable(src.trim(), dst.trim(), amt, polarityVal));
       }
     }
   }
@@ -2658,8 +2676,26 @@ public class DelugeXmlParser {
           String amtStr = cableElem.getAttribute("amount");
           if (amtStr == null || amtStr.isEmpty()) amtStr = getChildText(cableElem, "amount");
           if (src != null && dst != null && amtStr != null) {
+            String polarityStr = cableElem.getAttribute("polarity");
+            if (polarityStr == null || polarityStr.isEmpty()) {
+              polarityStr = getChildText(cableElem, "polarity");
+            }
+            PatchCable.Polarity polarityVal = PatchCable.Polarity.BIPOLAR;
+            if (polarityStr != null && !polarityStr.isEmpty()) {
+              if ("unipolar".equalsIgnoreCase(polarityStr.trim())) {
+                polarityVal = PatchCable.Polarity.UNIPOLAR;
+              } else if ("bipolar".equalsIgnoreCase(polarityStr.trim())) {
+                polarityVal = PatchCable.Polarity.BIPOLAR;
+              }
+            } else {
+              if ("aftertouch".equalsIgnoreCase(src.trim())) {
+                polarityVal = PatchCable.Polarity.UNIPOLAR;
+              } else {
+                polarityVal = PatchCable.Polarity.BIPOLAR;
+              }
+            }
             float amt = PatchCable.applyScaling(dst, DelugeHexMapper.hexToFloat(amtStr));
-            sound.addPatchCable(new PatchCable(src.trim(), dst.trim(), amt));
+            sound.addPatchCable(new PatchCable(src.trim(), dst.trim(), amt, polarityVal));
           }
         }
       }
@@ -2691,8 +2727,23 @@ public class DelugeXmlParser {
         String dst = getChildText(cableElem, "destination");
         String amtStr = getChildText(cableElem, "amount");
         if (src != null && dst != null && amtStr != null) {
+          String polarityStr = getChildText(cableElem, "polarity");
+          PatchCable.Polarity polarityVal = PatchCable.Polarity.BIPOLAR;
+          if (polarityStr != null && !polarityStr.isEmpty()) {
+            if ("unipolar".equalsIgnoreCase(polarityStr.trim())) {
+              polarityVal = PatchCable.Polarity.UNIPOLAR;
+            } else if ("bipolar".equalsIgnoreCase(polarityStr.trim())) {
+              polarityVal = PatchCable.Polarity.BIPOLAR;
+            }
+          } else {
+            if ("aftertouch".equalsIgnoreCase(src.trim())) {
+              polarityVal = PatchCable.Polarity.UNIPOLAR;
+            } else {
+              polarityVal = PatchCable.Polarity.BIPOLAR;
+            }
+          }
           float amt = PatchCable.applyScaling(dst, DelugeHexMapper.hexToFloat(amtStr));
-          sound.addPatchCable(new PatchCable(src, dst, amt));
+          sound.addPatchCable(new PatchCable(src, dst, amt, polarityVal));
         }
       }
     }

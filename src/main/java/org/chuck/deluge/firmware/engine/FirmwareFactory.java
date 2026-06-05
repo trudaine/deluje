@@ -248,7 +248,7 @@ public class FirmwareFactory {
     }
 
     // Volume/Pan
-    sound.paramNeutralValues[Param.LOCAL_VOLUME] = (int) (model.getVolume() * 2147483647.0);
+    sound.paramNeutralValues[Param.LOCAL_VOLUME] = normToBipolarParamVolume(model.getVolume());
     // LOCAL_PAN is BIPOLAR (0 = centre, ±2^30 = hard L/R), matching the firmware shouldDoPanning
     // input.
     sound.paramNeutralValues[Param.LOCAL_PAN] =
@@ -257,10 +257,11 @@ public class FirmwareFactory {
     // Oscillator & Noise Volumes. In FM mode these are the carrier amplitudes (the modulator depth
     // is carried separately in sound.fmModulatorAmount, no longer smuggled through OSC_B_VOLUME).
     sound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] =
-        (int) (Math.max(0.0, Math.min(1.0, model.getOscAVolume())) * 2147483647.0);
+        normToBipolarParamVolume(model.getOscAVolume());
     sound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] =
-        (int) (Math.max(0.0, Math.min(1.0, model.getOscBVolume())) * 2147483647.0);
-    sound.paramNeutralValues[Param.LOCAL_NOISE_VOLUME] = (int) (model.getNoiseVol() * 2147483647.0);
+        normToBipolarParamVolume(model.getOscBVolume());
+    sound.paramNeutralValues[Param.LOCAL_NOISE_VOLUME] =
+        normToBipolarParamVolume(model.getNoiseVol());
     sound.paramNeutralValues[Param.LOCAL_OSC_B_PITCH_ADJUST] =
         (model.getOsc2Transpose() * 100 + model.getOsc2Cents()) * 178956;
 
@@ -270,14 +271,12 @@ public class FirmwareFactory {
     // value by inverting hexToHz (bijective), then run the firmware param path:
     // getFinalParameterValueExp(neutral, combineCablesExp(knob, paramRange)). LPF: neutral 2000000,
     // range 536870912*1.4; HPF: neutral 2672947, range 1073741824.
-    sound.paramNeutralValues[Param.LOCAL_LPF_FREQ] =
-        FirmwareUtils.getExp(2000000, cutoffComboFromHz(model.getLpfFreq(), 751619276));
-    sound.paramNeutralValues[Param.LOCAL_LPF_RESONANCE] = (int) (model.getLpfRes() * 2147483647.0);
-    sound.paramNeutralValues[Param.LOCAL_LPF_MORPH] = (int) (model.getLpfMorph() * 2147483647.0);
-    sound.paramNeutralValues[Param.LOCAL_HPF_FREQ] =
-        FirmwareUtils.getExp(2672947, cutoffComboFromHz(model.getHpfFreq(), 1073741824));
-    sound.paramNeutralValues[Param.LOCAL_HPF_RESONANCE] = (int) (model.getHpfRes() * 2147483647.0);
-    sound.paramNeutralValues[Param.LOCAL_HPF_MORPH] = (int) (model.getHpfMorph() * 2147483647.0);
+    sound.paramNeutralValues[Param.LOCAL_LPF_FREQ] = cutoffKnobFromHz(model.getLpfFreq());
+    sound.paramNeutralValues[Param.LOCAL_LPF_RESONANCE] = normToBipolarParam(model.getLpfRes());
+    sound.paramNeutralValues[Param.LOCAL_LPF_MORPH] = normToBipolarParam(model.getLpfMorph());
+    sound.paramNeutralValues[Param.LOCAL_HPF_FREQ] = cutoffKnobFromHz(model.getHpfFreq());
+    sound.paramNeutralValues[Param.LOCAL_HPF_RESONANCE] = normToBipolarParam(model.getHpfRes());
+    sound.paramNeutralValues[Param.LOCAL_HPF_MORPH] = normToBipolarParam(model.getHpfMorph());
 
     sound.setLpfMode(model.getFilterMode());
     sound.setHpfMode(model.getHpfMode());
@@ -463,6 +462,13 @@ public class FirmwareFactory {
           PatchCable engineCable = new PatchCable();
           engineCable.from = source;
           engineCable.amount = amount;
+          if (pcm.polarity() == org.chuck.deluge.model.PatchCable.Polarity.UNIPOLAR) {
+            engineCable.polarity =
+                org.chuck.deluge.firmware.modulation.patch.PatchCable.Polarity.UNIPOLAR;
+          } else {
+            engineCable.polarity =
+                org.chuck.deluge.firmware.modulation.patch.PatchCable.Polarity.BIPOLAR;
+          }
           sound.paramManager.getPatchCableSet().addCable(paramId, engineCable);
         }
       } catch (Exception e) {
@@ -471,18 +477,10 @@ public class FirmwareFactory {
     }
   }
 
-  /**
-   * Recover the original cutoff knob value from the model's Hz (the parser ran the patch's hex knob
-   * through {@code DelugeHexMapper.hexToHz}: {@code Hz = 20·1000^((norm+1)/2)}; inverting it
-   * returns the exact knob), then form the firmware no-cable exp combine: {@code
-   * multiply_32x32_rshift32(knob, paramRange)}. Feed the result to {@code getExp(neutral, combo)}
-   * to get the q31 filter-frequency param the faithful filter expects.
-   */
-  private static int cutoffComboFromHz(double hz, int paramRange) {
+  private static int cutoffKnobFromHz(double hz) {
     double norm = 2.0 * Math.log(Math.max(20.0, hz) / 20.0) / Math.log(1000.0) - 1.0;
     norm = Math.max(-1.0, Math.min(1.0, norm));
-    int knob = (int) Math.rint(norm * 2147483647.0);
-    return org.chuck.deluge.firmware.util.Q31.multiply_32x32_rshift32(knob, paramRange);
+    return (int) Math.rint(norm * 2147483647.0);
   }
 
   public static PatchSource stringToPatchSource(String str) {
@@ -537,6 +535,12 @@ public class FirmwareFactory {
     if (norm <= 0f) return Integer.MIN_VALUE;
     double v = (double) clamp01(norm) * 4294967295.0 - 2147483648.0;
     return (int) Math.round(v);
+  }
+
+  /** Map a 0..1 knob to the firmware's volume param range; 0 -> MIN_VALUE ("off"). */
+  private static int normToBipolarParamVolume(float norm) {
+    if (norm <= 0f) return Integer.MIN_VALUE;
+    return (int) Math.round((double) clamp01(norm) * 2147483648.0 - 1073741824.0);
   }
 
   /** Parse a DX7 patch hex string (e.g. 312 chars = 156 bytes) to bytes; null/blank/odd → null. */

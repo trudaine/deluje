@@ -239,6 +239,8 @@ public class SynthTrackModel extends TrackModel {
 
   public void setOscMix(float oscMix) {
     this.oscMix = oscMix;
+    this.oscAVolume = oscMix;
+    this.oscBVolume = 1.0f - oscMix;
   }
 
   public float getOscAVolume() {

@@ -44,8 +44,9 @@ public class GranularProcessor {
       int grainMix,
       int grainDensity,
       int pitchRandomness,
+      int[] postFXVolume,
       float tempoBPM) {
-    setupGrainFX(grainRate, grainMix, grainDensity, pitchRandomness, tempoBPM);
+    setupGrainFX(grainRate, grainMix, grainDensity, pitchRandomness, postFXVolume, tempoBPM);
     for (int i = 0; i < buffer.length; i++) {
       StereoSample wet = processOneGrainSample(buffer[i]);
 
@@ -65,7 +66,13 @@ public class GranularProcessor {
   private int _rateKnobPos = -1;
 
   private void setupGrainFX(
-      int grainRate, int grainMix, int grainDensity, int pitchRandomness, float tempoBPM) {
+      int grainRate,
+      int grainMix,
+      int grainDensity,
+      int pitchRandomness,
+      int[] postFXVolume,
+      float tempoBPM) {
+    postFXVolume[0] = Q31.multiply_32x32_rshift32(postFXVolume[0], 1518500250) << 1;
     _grainShift = 44 * 300;
 
     // ── Bit-Accurate Rate & Size Math ──

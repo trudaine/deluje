@@ -155,7 +155,7 @@ public class Oscillator {
         BasicWaves.renderWave(
             SawLookupTables.sawWaveTables[tableNumber],
             tableSizeMagnitude,
-            amplitude,
+            amplitude << 1,
             buffer,
             offset,
             numSamples,
@@ -163,14 +163,14 @@ public class Oscillator {
             phase,
             applyAmplitude,
             phaseToAdd,
-            amplitudeIncrement);
+            amplitudeIncrement << 1);
       }
     } else if (type == OscType.SQUARE) {
       if (doPulseWave && !doOscSync) {
         BasicWaves.renderPulseWave(
             LookupTables.sineWaveSmall,
             8,
-            amplitude,
+            amplitude << 1,
             buffer,
             offset,
             numSamples,
@@ -178,12 +178,12 @@ public class Oscillator {
             phase,
             applyAmplitude,
             pulseWidth,
-            amplitudeIncrement);
+            amplitudeIncrement << 1);
       } else if (!doOscSync && tableNumber >= 6) {
         BasicWaves.renderWave(
             SquareLookupTables.squareWaveTables[tableNumber],
             tableSizeMagnitude,
-            amplitude,
+            amplitude << 1,
             buffer,
             offset,
             numSamples,
@@ -191,7 +191,7 @@ public class Oscillator {
             phase,
             applyAmplitude,
             phaseToAdd,
-            amplitudeIncrement);
+            amplitudeIncrement << 1);
       } else {
         renderCrudeSquare(
             buffer,
@@ -251,8 +251,8 @@ public class Oscillator {
             numSamples,
             phase,
             phaseIncrement,
-            amplitude,
-            amplitudeIncrement,
+            amplitude << 1,
+            amplitudeIncrement << 1,
             applyAmplitude,
             doOscSync,
             resetterPhase,
@@ -409,7 +409,8 @@ public class Oscillator {
                 resetterDivideByPhaseIncrement,
                 retriggerPhase);
       currentAmplitude += amplitudeIncrement;
-      int val = (currentPhase < pulseWidth) ? Q31.ONE : Q31.NEGATIVE_ONE;
+      int val =
+          (Integer.compareUnsigned(currentPhase, pulseWidth) < 0) ? Q31.ONE : Q31.NEGATIVE_ONE;
       if (applyAmplitude) {
         buffer[offset + i] += Q31.mult(currentAmplitude, val);
       } else {

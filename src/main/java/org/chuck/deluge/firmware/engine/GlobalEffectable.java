@@ -16,6 +16,12 @@ public abstract class GlobalEffectable {
   /** Per-sound reverb send amount (Q31). 0 = dry (no contribution to the master reverb bus). */
   public int reverbSendAmount = 0;
 
+  /**
+   * Firmware SRR/bitcrush and mod-FX can attenuate the post-FX gain before reverb-send / final
+   * volume. Kept as a mutable holder so renderInternal can update it for the current block.
+   */
+  protected final int[] postFXVolumeHolder = {Q31.ONE};
+
   // Pre-allocate to avoid GC jitter
   private final StereoSample[] trackBuffer = new StereoSample[128];
 
@@ -31,13 +37,14 @@ public abstract class GlobalEffectable {
     }
 
     // 2. Render actual voices/samples
+    postFXVolumeHolder[0] = Q31.ONE;
     renderInternal(trackBuffer, numSamples, paramManager);
 
     // 3. Process Filters
     processFilters(trackBuffer, numSamples);
 
     // 4. Process Global FX and Volume
-    int postFXVolume = Q31.ONE;
+    int postFXVolume = postFXVolumeHolder[0];
     int postReverbVolume = Q31.ONE;
     int pan = 0; // Center in Q31 is 0
 

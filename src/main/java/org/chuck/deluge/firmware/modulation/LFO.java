@@ -81,7 +81,7 @@ public class LFO {
   }
 
   private void warble(int numSamples, int phaseIncrement) {
-    if ((long) phase + (long) phaseIncrement * numSamples > 0xFFFFFFFFL) {
+    if ((phase & 0xFFFFFFFFL) + (phaseIncrement & 0xFFFFFFFFL) * numSamples > 0xFFFFFFFFL) {
       target = FirmwareUtils.getNoise();
       speed = 0;
     }

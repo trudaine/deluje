@@ -20,6 +20,7 @@ public class ModFXProcessorTest {
 
     // Just verify it doesn't crash and changes the signal
     assertNotEquals(1000000, buffer[buffer.length - 1].l);
+    assertNotEquals(1 << 30, postFXVolume[0], "chorus should also adjust post-FX volume");
   }
 
   @Test
@@ -32,5 +33,6 @@ public class ModFXProcessorTest {
     processor.processModFX(buffer, ModFXType.PHASER, 100, 1 << 30, postFXVolume, 0, 1 << 30);
 
     assertNotEquals(1000000, buffer[0].l);
+    assertNotEquals(1 << 30, postFXVolume[0], "phaser feedback should adjust post-FX volume");
   }
 }
