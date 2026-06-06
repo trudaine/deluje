@@ -511,4 +511,9 @@ public final class Functions {
   public static int getTanHUnknown(int input, int sat) {
     return signed_saturate(input, 32 - sat) << (sat + 1); // stub — full tanH table deferred
   }
+  /** getSine from waves.h:29 — interpolated sine lookup via sineWaveSmall table. */
+  public static int getSine(int phase, int numBitsInInput) {
+    return interpolateTableSigned(phase, numBitsInInput, LookupTables.sineWaveSmall, 8);
+  }
+
 }
