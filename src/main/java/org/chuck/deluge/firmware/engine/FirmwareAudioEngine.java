@@ -64,8 +64,8 @@ public class FirmwareAudioEngine {
     masterDelay.setupWorkingState(delayState, 1 << 20, true);
     masterDelay.process(masterBuffer, delayState);
 
-    // Hardware Master Compressor
-    // masterCompressor.renderVolNeutral(masterBuffer, Q31.ONE);
+    // Hardware Master Compressor (port of audio_engine.cpp:899)
+    masterCompressor.renderVolNeutral(masterBuffer, Q31.ONE);
 
     // ── Master Gain & Soft-Clip Limiter ──
     for (int i = 0; i < numSamples; i++) {
