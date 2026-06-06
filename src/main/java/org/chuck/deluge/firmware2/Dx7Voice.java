@@ -546,7 +546,7 @@ public class Dx7Voice {
     for (int op = 0; op < 6; op++) {
       phase[op] = params[op].phase;
       gainOut[op] = params[op].gain_out;
-      if (params[op].gain_out >= FmCore.K_GAIN_LEVEL_THRESH) anyActive = true;
+      if (Integer.compareUnsigned(params[op].gain_out, FmCore.K_GAIN_LEVEL_THRESH) >= 0) anyActive = true;
     }
     return pitchEnv.isDown() || anyActive;
   }
