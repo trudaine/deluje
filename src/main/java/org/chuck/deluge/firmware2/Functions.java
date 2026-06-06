@@ -516,4 +516,23 @@ public final class Functions {
     return interpolateTableSigned(phase, numBitsInInput, LookupTables.sineWaveSmall, 8);
   }
 
+  // ── getTriangle / getSquare (waves.h) ──
+
+  /** getTriangle from waves.h — 4-segment triangle wave. */
+  public static int getTriangle(int phase) {
+    int slope = 2;
+    int offset = -2147483648; // 0x80000000u as signed
+    if (Integer.compareUnsigned(phase, 0x80000000) >= 0) {
+      slope = -2;
+      offset = 2147483647; // 0x80000000u - 1
+    }
+    return slope * (phase + offset);
+  }
+
+  /** getSquare from waves.h — full-scale Q31 square. */
+  public static int getSquare(int phase) {
+    return (Integer.compareUnsigned(phase, 0x80000000) >= 0)
+        ? -2147483648 : 2147483647;
+  }
+
 }
