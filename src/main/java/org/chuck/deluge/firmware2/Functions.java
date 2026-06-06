@@ -400,14 +400,13 @@ public final class Functions {
   // ── quickLog (functions.cpp:567-573) ──
 
   /**
-   * quickLog.  Integer log2 approximation.
+   * quickLog.  Integer log2 approximation.  Does NOT use any table.
    * (functions.cpp:567-573)
    */
   public static int quickLog(int input) {
     int magnitude = 31 - Integer.numberOfLeadingZeros(input);
     int inputLSBs = increaseMagnitude(input, 26 - magnitude);
-    return (magnitude << 24)
-        + interpolateTable(inputLSBs, 26, LookupTables.logTableSmall, 8);
+    return (magnitude << 25) + (inputLSBs & ~(1 << 26));
   }
 
   /** increaseMagnitude (functions.h).  Left shift without saturation. */
@@ -475,20 +474,23 @@ public final class Functions {
 
       case Param.LOCAL_OSC_A_PHASE_WIDTH:
       case Param.LOCAL_OSC_B_PHASE_WIDTH:
-        return userValue * (85899345 >> 1);
+        // C: (uint32_t)userValue * (85899345 >> 1); Java: use unsigned-multiply then truncate
+        return (int) ((userValue & 0xFFFFFFFFL) * (85899345L >> 1));
 
       case Param.PATCH_CABLE:
       case Param.STATIC_SIDECHAIN_VOLUME:
-        return userValue * 21474836;
+        return (int) ((userValue & 0xFFFFFFFFL) * 21474836L);
 
       case Param.UNPATCHED_BASS:
       case Param.UNPATCHED_TREBLE:
         if (userValue == -50) return -2147483648;
         if (userValue == 0) return 0;
-        return userValue * 42949672;
+        return (int) ((userValue & 0xFFFFFFFFL) * 42949672L);
 
       default:
-        return userValue * 85899345 - 2147483648;
+        // C: (uint32_t)userValue * 85899345 - 2147483648
+        // 2147483648 = 0x80000000 = Integer.MIN_VALUE in Java
+        return (int) ((userValue & 0xFFFFFFFFL) * 85899345L) - 0x80000000;
     }
   }
 }
