@@ -162,7 +162,9 @@ public final class FmCore {
       int[] outptr = (outbus == 0) ? output : buf[outbus - 1];
       int[] inptr = (inbus == 0 || inbus > 2) ? null : buf[inbus - 1];
 
-      if (gain1 >= K_GAIN_LEVEL_THRESH || gain2 >= K_GAIN_LEVEL_THRESH) {
+      // Firmware uses unsigned comparison; Java int wraps MIN_VALUE to large unsigned
+      if (Integer.compareUnsigned(gain1, K_GAIN_LEVEL_THRESH) >= 0
+          || Integer.compareUnsigned(gain2, K_GAIN_LEVEL_THRESH) >= 0) {
         if (!hasContents[outbus]) add = false;
         if (inbus == 0 || inptr == null || !hasContents[inbus]) {
           if ((flags & 0xc0) == 0xc0 && feedbackShift < 16) {
