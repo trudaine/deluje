@@ -163,6 +163,16 @@ public class FirmwareSound extends GlobalEffectable {
     return synthMode;
   }
 
+  /**
+   * Note-to-phaseIncrement for the subtractive oscillator path. Computed from equal temperament
+   * (2^(n/12)*440) rather than the firmware's {@code noteIntervalTable[12]} + octave-shift
+   * because the firmware dispatches through pitch-adjust paths that combine table lookup +
+   * multiply_32x32_rshift32(table[i], pitchAdjustNeutralValue) + {13-octave} shift; the
+   * effective scalar differs from the direct table → phaseIncrement mapping used here. The
+   * Math.pow formula produces the identical result to within ~0.007 cent (FirmwareTuningTest
+   * verified across 5 octaves × 4 waveforms). The firmware tables are available in
+   * {@link org.chuck.deluge.firmware.util.LookupTables#noteIntervalTable} for future alignment.
+   */
   public static int noteToPhaseInc(int note) {
     ScalaScale scale = ScalaScale.getActiveScale();
     double freq = (scale != null) ? scale.mtof(note) : (440.0 * Math.pow(2.0, (note - 69) / 12.0));
