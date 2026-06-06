@@ -56,6 +56,10 @@ public class FirmwareUtils {
     return jcong;
   }
 
+  public static void resetNoise() {
+    jcong = 12345;
+  }
+
   // ── Pan (port of shouldDoPanning) ──
   // The firmware pan is LINEAR: at centre both channels are full (1073741823); panned, the near
   // channel stays full and the far channel drops linearly to 0. panAmount is bipolar (0 = centre,

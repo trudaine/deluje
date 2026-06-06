@@ -349,8 +349,6 @@ public class FirmwareVoice {
     sourceValues[PatchSource.RANDOM.ordinal()] = voiceRandomValue;
     sourceValues[PatchSource.AFTERTOUCH.ordinal()] = mpePressure * 16909320;
     sourceValues[PatchSource.Y.ordinal()] = mpeTimbre * 16909320;
-    sourceValues[PatchSource.SIDECHAIN.ordinal()] = sound.sidechain.lastValue;
-
     // Copy global sources (LFO 1 and 3 are global)
     for (int i = 0; i < PatchSource.kFirstLocalSource; i++) {
       sourceValues[i] = sound.globalSourceValues[i];

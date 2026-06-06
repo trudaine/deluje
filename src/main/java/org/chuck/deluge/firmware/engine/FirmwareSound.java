@@ -10,7 +10,10 @@ import org.chuck.deluge.firmware.model.PolyphonyMode;
 import org.chuck.deluge.firmware.modulation.LFO;
 import org.chuck.deluge.firmware.modulation.params.Param;
 import org.chuck.deluge.firmware.modulation.params.ParamManager;
+import org.chuck.deluge.firmware.modulation.patch.Destination;
+import org.chuck.deluge.firmware.modulation.patch.PatchCable;
 import org.chuck.deluge.firmware.modulation.patch.PatchSource;
+import org.chuck.deluge.firmware.modulation.patch.Patcher;
 import org.chuck.deluge.firmware.modulation.sidechain.SideChain;
 import org.chuck.deluge.firmware.util.Q31;
 import org.chuck.deluge.model.tuning.ScalaScale;
@@ -47,6 +50,8 @@ public class FirmwareSound extends GlobalEffectable {
   public boolean isDrum = false;
   public int[] paramNeutralValues = new int[200];
   public int[] globalSourceValues = new int[PatchSource.kNumPatchSources];
+  private final int[] globalParamFinalValues = new int[Param.kNumParams];
+  private final Patcher globalPatcher = new Patcher();
 
   // ── Ported High-Fidelity Logic ──
   public SynthMode synthMode = SynthMode.SUBTRACTIVE;
@@ -263,9 +268,10 @@ public class FirmwareSound extends GlobalEffectable {
     int shape = paramNeutralValues[Param.UNPATCHED_SIDECHAIN_SHAPE];
     int scAmount = sidechain.render(numSamples, shape);
     globalSourceValues[PatchSource.SIDECHAIN.ordinal()] = scAmount;
-    for (int i = 0; i < numSamples; i++) {
-      buffer[i].l = (int) (((long) buffer[i].l * scAmount) >> 31);
-      buffer[i].r = (int) (((long) buffer[i].r * scAmount) >> 31);
+    if (hasSidechainVolumePatch()) {
+      globalPatcher.performPatching(
+          0, this, paramManager, globalSourceValues, globalParamFinalValues);
+      postReverbVolumeHolder[0] = globalParamFinalValues[Param.GLOBAL_VOLUME_POST_REVERB_SEND];
     }
 
     // Update gate status
@@ -290,6 +296,20 @@ public class FirmwareSound extends GlobalEffectable {
   }
 
   private final int[] voiceMonoBuffer = new int[128];
+
+  private boolean hasSidechainVolumePatch() {
+    for (Destination destination : paramManager.getPatchCableSet().destinations) {
+      if (destination.paramId != Param.GLOBAL_VOLUME_POST_REVERB_SEND) {
+        continue;
+      }
+      for (PatchCable cable : destination.cables) {
+        if (cable.from == PatchSource.SIDECHAIN) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
 
   public void triggerNote(int note, int vel) {
     triggerNote(note, vel, -1);
