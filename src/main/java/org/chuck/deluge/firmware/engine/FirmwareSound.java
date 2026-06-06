@@ -212,6 +212,11 @@ public class FirmwareSound extends GlobalEffectable {
     synchronized (voices) {
       hasActiveVoices = !voices.isEmpty();
     }
+    if (!hasActiveVoices && useFirmware2) {
+      synchronized (fw2Voices) {
+        hasActiveVoices = !fw2Voices.isEmpty();
+      }
+    }
     boolean arpHolding = arpEnabled() && arpeggiator.hasInputNotes();
     if (!hasActiveVoices && !arpHolding && silentBlockCount > 100) {
       // Fast bypass: write silence and return
@@ -412,7 +417,8 @@ public class FirmwareSound extends GlobalEffectable {
         v.render(ib, numSamples, synthMode == SynthMode.FM ? 1 : synthMode == SynthMode.RINGMOD ? 2 : 0,
             new org.chuck.deluge.firmware2.Oscillator.OscType[]{
                 fw2OscType(oscTypes[0]), fw2OscType(oscTypes[1])},
-            fw2LpfMode(), org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF, 0, 134217728);
+            org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF,
+            org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF, 0, 134217728);
         for (int i = 0; i < numSamples; i++) {
           buffer[i].l = Q31.addSaturate(buffer[i].l, ib[i * 2]);
           buffer[i].r = Q31.addSaturate(buffer[i].r, ib[i * 2 + 1]);
