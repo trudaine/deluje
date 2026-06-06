@@ -424,6 +424,18 @@ public class FirmwareFactory {
       }
     }
 
+    // Populate firmware2 raw knobs: copy all paramNeutralValues (which are raw bipolar
+    // knobs for most params set by normToBipolarParam/Volume and cutoffKnobFromHz),
+    // then fix envelope params to use the raw knobs (paramNeutralValues stores curve outputs).
+    System.arraycopy(sound.paramNeutralValues, 0, sound.paramKnobs, 0, Param.kNumParams);
+    for (int i = 0; i < 4; i++) {
+      if (model.isEnvKnobSet(i)) {
+        sound.paramKnobs[Param.LOCAL_ENV_0_ATTACK + i] = model.getEnvAttackKnobQ31(i);
+        sound.paramKnobs[Param.LOCAL_ENV_0_DECAY + i] = model.getEnvDecayKnobQ31(i);
+        sound.paramKnobs[Param.LOCAL_ENV_0_RELEASE + i] = model.getEnvReleaseKnobQ31(i);
+      }
+    }
+
     // Patch Cables
     for (org.chuck.deluge.model.PatchCable pcm : model.getPatchCables()) {
       try {
