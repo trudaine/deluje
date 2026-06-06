@@ -518,7 +518,7 @@ public final class Functions {
 
   // ── getTriangle / getSquare (waves.h) ──
 
-  /** getTriangle from waves.h — 4-segment triangle wave. */
+  /** getTriangle from waves.h — 4-segment triangle wave. Unsigned phase arithmetic. */
   public static int getTriangle(int phase) {
     int slope = 2;
     int offset = -2147483648; // 0x80000000u as signed
@@ -526,13 +526,30 @@ public final class Functions {
       slope = -2;
       offset = 2147483647; // 0x80000000u - 1
     }
-    return slope * (phase + offset);
+    // firmware: (uint32_t)phase + (int32_t)offset as unsigned add → use long
+    long sum = (phase & 0xFFFFFFFFL) + (offset & 0xFFFFFFFFL);
+    return slope * (int) sum;
   }
 
   /** getSquare from waves.h — full-scale Q31 square. */
   public static int getSquare(int phase) {
     return (Integer.compareUnsigned(phase, 0x80000000) >= 0)
         ? -2147483648 : 2147483647;
+  }
+
+  // ── Cable combine helpers (patcher.cpp) ──
+
+  /** One multiplicative step of the linear cable combiner. */
+  public static int patchCombineLinearStep(int runningTotal, int source, int strength) {
+    int scaledSource = multiply_32x32_rshift32(source, strength);
+    int madePositive = scaledSource + 536870912;
+    int preLimits = multiply_32x32_rshift32(runningTotal, madePositive);
+    return lshiftAndSaturate(preLimits, 3);
+  }
+
+  /** One additive step of the exp cable combiner. */
+  public static int patchCombineExpStep(int runningTotal, int source, int strength) {
+    return runningTotal + multiply_32x32_rshift32(source, strength);
   }
 
 }
