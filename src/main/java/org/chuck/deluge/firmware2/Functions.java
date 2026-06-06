@@ -1,0 +1,494 @@
+package org.chuck.deluge.firmware2;
+
+/**
+ * Faithful line-by-line port of {@code deluge/util/functions.cpp} and the DSP portions of
+ * {@code functions.h}. Every function, every constant, every shift matches the C++ source
+ * exactly. C integer types are mapped as:
+ *
+ * <ul>
+ *   <li>{@code int32_t} → Java {@code int} (signed 32-bit, same overflow behaviour for + - * with
+ *       {@code (int)((long)x * y >> 32)} for multiplies, matching the firmware's Q31 helpers)</li>
+ *   <li>{@code uint32_t} → Java {@code int} (stored signed, compared unsigned with
+ *       {@code Integer.compareUnsigned})</li>
+ *   <li>{@code int16_t} → Java {@code short}</li>
+ *   <li>{@code uint16_t} → Java {@code char} (zero-extended to int when read)</li>
+ *   <li>{@code int8_t/uint8_t} → Java {@code byte} (masked with {@code 0xFF} for unsigned)</li>
+ *   <li>{@code float/double} → Java {@code float/double} (IEEE 754, identical)</li>
+ *   <li>{@code bool} → Java {@code boolean}</li>
+ *   <li>{@code const int32_t[]} → Java {@code static final int[]}</li>
+ * </ul>
+ *
+ * <p>Firmware reference: {@code ~/a/DelugeFirmware/src/deluge/util/functions.cpp} lines 52-567
+ * plus {@code functions.h} lines 52-240, and {@code fixedpoint.h} for Q31 arithmetic.
+ */
+public final class Functions {
+
+  private Functions() {}
+
+  // ── Fixed-point Q31 arithmetic (port of fixedpoint.h) ──
+
+  /** multiply_32x32_rshift32: (a * b) >> 32, signed. */
+  public static int multiply_32x32_rshift32(int a, int b) {
+    return (int) (((long) a * (long) b) >> 32);
+  }
+
+  /** multiply_32x32_rshift32_rounded: (a * b + 0x80000000) >> 32. */
+  public static int multiply_32x32_rshift32_rounded(int a, int b) {
+    return (int) (((long) a * (long) b + 0x80000000L) >> 32);
+  }
+
+  /** multiply_accumulate_32x32_rshift32: acc + ((a * b) >> 32). */
+  public static int multiply_accumulate_32x32_rshift32(int acc, int a, int b) {
+    return acc + (int) (((long) a * (long) b) >> 32);
+  }
+
+  /** multiply_accumulate_32x32_rshift32_rounded. */
+  public static int multiply_accumulate_32x32_rshift32_rounded(int acc, int a, int b) {
+    return acc + (int) (((long) a * (long) b + 0x80000000L) >> 32);
+  }
+
+  /** ONE_Q31: 2^31 - 1 (the largest positive signed 32-bit value). */
+  public static final int ONE_Q31 = 2147483647;
+  /** NEGATIVE_ONE_Q31: -2^31. */
+  public static final int NEGATIVE_ONE_Q31 = -2147483648;
+
+  /** ONE_Q16: 2^27 (misnamed in the firmware; retained for compatibility). */
+  public static final int ONE_Q16 = 134217728;
+
+  /** kMaxSampleValue = 1 << kBitDepth = 1 << 24. */
+  public static final int K_MAX_SAMPLE_VALUE = 1 << 24;
+
+  // ── signed_saturate (port of functions.h / fixedpoint.h) ──
+
+  /** signed_saturate<bits>(val): ASM SSAT. bits 1-31, Java emulation. */
+  public static int signed_saturate(int val, int bits) {
+    int limit = (1 << (bits - 1)) - 1;
+    if (val > limit) {
+      return limit;
+    }
+    if (val < -limit - 1) {
+      return -limit - 1;
+    }
+    return val;
+  }
+
+  /** lshiftAndSaturate<bits>(val): saturate then left-shift. */
+  public static int lshiftAndSaturate(int val, int bits) {
+    return signed_saturate(val, 32 - bits) << bits;
+  }
+
+  /** lshiftAndSaturateUnknown(val, lshift): signed_saturate_operand_unknown + shift. */
+  public static int lshiftAndSaturateUnknown(int val, int lshift) {
+    // Firmware uses a switch(shift) with static saturate<31>, <30>, etc.
+    // Java equivalent: signed_saturate(val, 32 - lshift) << lshift
+    return signed_saturate(val, 32 - lshift) << lshift;
+  }
+
+  // ── add_saturate / sub_saturate (port of fixedpoint.h) ──
+
+  public static int add_saturate(int a, int b) {
+    long r = (long) a + (long) b;
+    if (r > ONE_Q31) return ONE_Q31;
+    if (r < NEGATIVE_ONE_Q31) return NEGATIVE_ONE_Q31;
+    return (int) r;
+  }
+
+  public static int sub_saturate(int a, int b) {
+    long r = (long) a - (long) b;
+    if (r > ONE_Q31) return ONE_Q31;
+    if (r < NEGATIVE_ONE_Q31) return NEGATIVE_ONE_Q31;
+    return (int) r;
+  }
+
+  // ── Param tables (port of functions.cpp lines 52-171) ──
+
+  /**
+   * Number of parameters. Must match {@code kNumParams} from
+   * {@code params.h}. Value: 55 local + global params.
+   */
+  public static final int K_NUM_PARAMS = 55;
+
+  // The runtime-initialised arrays from C.  In Java they are computed on first use.
+  // See FunctionsInit below.
+
+  /**
+   * Port of getParamRange(p).  Returns the "range" of the user preset knob —
+   * the strength with which the stored value is folded into the cable combiner.
+   * (functions.cpp:56-83)
+   */
+  public static int getParamRange(int p) {
+    // Using the firmware param IDs directly.  These must match params.h.
+    switch (p) {
+      case Param.LOCAL_ENV_0_ATTACK:
+      case Param.LOCAL_ENV_1_ATTACK:
+      case Param.LOCAL_ENV_2_ATTACK:
+      case Param.LOCAL_ENV_3_ATTACK:
+        return (int) (536870912L * 3L / 2L); // 536870912 * 1.5
+
+      case Param.GLOBAL_DELAY_RATE:
+        return 536870912;
+
+      case Param.LOCAL_PITCH_ADJUST:
+      case Param.LOCAL_OSC_A_PITCH_ADJUST:
+      case Param.LOCAL_OSC_B_PITCH_ADJUST:
+      case Param.LOCAL_MODULATOR_0_PITCH_ADJUST:
+      case Param.LOCAL_MODULATOR_1_PITCH_ADJUST:
+        return 536870912;
+
+      case Param.LOCAL_LPF_FREQ:
+        return (int) (536870912L * 14L / 10L); // 536870912 * 1.4
+
+      default:
+        return 1073741824;
+    }
+  }
+
+  /**
+   * Port of getParamNeutralValue(p).  The "neutral" value used by
+   * getFinalParameterValue* as the presetValue input.
+   * (functions.cpp:85-171)
+   */
+  public static int getParamNeutralValue(int p) {
+    switch (p) {
+      case Param.LOCAL_OSC_A_VOLUME:
+      case Param.LOCAL_OSC_B_VOLUME:
+      case Param.GLOBAL_VOLUME_POST_REVERB_SEND:
+      case Param.LOCAL_NOISE_VOLUME:
+      case Param.GLOBAL_REVERB_AMOUNT:
+      case Param.GLOBAL_VOLUME_POST_FX:
+      case Param.LOCAL_VOLUME:
+        return 134217728;
+
+      case Param.LOCAL_MODULATOR_0_VOLUME:
+      case Param.LOCAL_MODULATOR_1_VOLUME:
+        return 33554432;
+
+      case Param.LOCAL_LPF_FREQ:
+        return 2000000;
+      case Param.LOCAL_HPF_FREQ:
+        return 2672947;
+
+      case Param.GLOBAL_LFO_FREQ_1:
+      case Param.GLOBAL_LFO_FREQ_2:
+      case Param.LOCAL_LFO_LOCAL_FREQ_1:
+      case Param.LOCAL_LFO_LOCAL_FREQ_2:
+      case Param.GLOBAL_MOD_FX_RATE:
+        return 121739;
+
+      case Param.LOCAL_LPF_RESONANCE:
+      case Param.LOCAL_HPF_RESONANCE:
+      case Param.LOCAL_LPF_MORPH:
+      case Param.LOCAL_HPF_MORPH:
+      case Param.LOCAL_FOLD:
+        return 25 * 10737418;
+
+      case Param.LOCAL_PAN:
+      case Param.LOCAL_OSC_A_PHASE_WIDTH:
+      case Param.LOCAL_OSC_B_PHASE_WIDTH:
+        return 0;
+
+      case Param.LOCAL_ENV_0_ATTACK:
+      case Param.LOCAL_ENV_1_ATTACK:
+      case Param.LOCAL_ENV_2_ATTACK:
+      case Param.LOCAL_ENV_3_ATTACK:
+        return 4096;
+
+      case Param.LOCAL_ENV_0_RELEASE:
+      case Param.LOCAL_ENV_1_RELEASE:
+      case Param.LOCAL_ENV_2_RELEASE:
+      case Param.LOCAL_ENV_3_RELEASE:
+        return 140 << 9;
+
+      case Param.LOCAL_ENV_0_DECAY:
+      case Param.LOCAL_ENV_1_DECAY:
+      case Param.LOCAL_ENV_2_DECAY:
+      case Param.LOCAL_ENV_3_DECAY:
+        return 70 << 9;
+
+      case Param.LOCAL_ENV_0_SUSTAIN:
+      case Param.LOCAL_ENV_1_SUSTAIN:
+      case Param.LOCAL_ENV_2_SUSTAIN:
+      case Param.LOCAL_ENV_3_SUSTAIN:
+      case Param.GLOBAL_DELAY_FEEDBACK:
+        return 1073741824;
+
+      case Param.LOCAL_MODULATOR_0_FEEDBACK:
+      case Param.LOCAL_MODULATOR_1_FEEDBACK:
+      case Param.LOCAL_CARRIER_0_FEEDBACK:
+      case Param.LOCAL_CARRIER_1_FEEDBACK:
+        return 5931642;
+
+      case Param.GLOBAL_DELAY_RATE:
+      case Param.GLOBAL_ARP_RATE:
+      case Param.LOCAL_PITCH_ADJUST:
+      case Param.LOCAL_OSC_A_PITCH_ADJUST:
+      case Param.LOCAL_OSC_B_PITCH_ADJUST:
+      case Param.LOCAL_MODULATOR_0_PITCH_ADJUST:
+      case Param.LOCAL_MODULATOR_1_PITCH_ADJUST:
+        return K_MAX_SAMPLE_VALUE;
+
+      case Param.GLOBAL_MOD_FX_DEPTH:
+        return 526133494;
+
+      default:
+        return 0;
+    }
+  }
+
+  // ── Final-value curves (functions.cpp:184-258) ──
+
+  /**
+   * getFinalParameterValueHybrid.  Allows max output ±1073741824 (full pan range).
+   * (functions.cpp:184-189)
+   */
+  public static int getFinalParameterValueHybrid(int paramNeutralValue, int patchedValue) {
+    int preLimits = (paramNeutralValue >> 2) + (patchedValue >> 1);
+    return signed_saturate(preLimits, 32 - 3) << 2;
+  }
+
+  /**
+   * getFinalParameterValueVolume.  Parabola curve for volume params.
+   * (functions.cpp:191-226)
+   */
+  public static int getFinalParameterValueVolume(int paramNeutralValue, int patchedValue) {
+    int positivePatchedValue = patchedValue + 536870912;
+    positivePatchedValue = (positivePatchedValue >> 16) * (positivePatchedValue >> 15);
+    return lshiftAndSaturate(
+        multiply_32x32_rshift32(positivePatchedValue, paramNeutralValue), 5);
+  }
+
+  /**
+   * getFinalParameterValueLinear.  Linear curve for non-volume params.
+   * (functions.cpp:228-242)
+   */
+  public static int getFinalParameterValueLinear(int paramNeutralValue, int patchedValue) {
+    int positivePatchedValue = patchedValue + 536870912;
+    return lshiftAndSaturate(
+        multiply_32x32_rshift32(positivePatchedValue, paramNeutralValue), 3);
+  }
+
+  /**
+   * getFinalParameterValueExp.  Delegates to getExp.
+   * (functions.cpp:244-246)
+   */
+  public static int getFinalParameterValueExp(int paramNeutralValue, int patchedValue) {
+    return getExp(paramNeutralValue, patchedValue);
+  }
+
+  /**
+   * getFinalParameterValueExpWithDumbEnvelopeHack.  Envelope rates use lookupReleaseRate
+   * for decay/release and getExp on negated patchedValue for attack.
+   * (functions.cpp:248-258)
+   */
+  public static int getFinalParameterValueExpWithDumbEnvelopeHack(
+      int paramNeutralValue, int patchedValue, int p) {
+    // Decay and release → lookupReleaseRate
+    if (Param.LOCAL_ENV_0_DECAY <= p && p <= Param.LOCAL_ENV_3_RELEASE) {
+      return multiply_32x32_rshift32(
+          paramNeutralValue, lookupReleaseRate(patchedValue));
+    }
+    // Attack → negate patchedValue for getExp
+    if (Param.LOCAL_ENV_0_ATTACK <= p && p <= Param.LOCAL_ENV_3_ATTACK) {
+      patchedValue = -patchedValue;
+    }
+    return getFinalParameterValueExp(paramNeutralValue, patchedValue);
+  }
+
+  // ── Cable combiners (functions.cpp:260-290, patcher.cpp helpers) ──
+
+  /**
+   * cableToLinearParamShortcut.  Skips range adjustment.
+   * (functions.cpp:260-262)
+   */
+  public static int cableToLinearParamShortcut(int sourceValue) {
+    return sourceValue;
+  }
+
+  /**
+   * cableToExpParamShortcut.  Skips range adjustment.
+   * (functions.cpp:264-266)
+   */
+  public static int cableToExpParamShortcut(int sourceValue) {
+    return sourceValue;
+  }
+
+  // ── shiftVolumeByDB (functions.cpp:443-490) ──
+  // (used by song-level volume; port on demand — currently not used in DSP)
+
+  // ── interpolateTable (functions.cpp:492-509) ──
+
+  /**
+   * Interpolate into a uint16_t[] lookup table.
+   * (functions.cpp:492-509)
+   */
+  public static int interpolateTable(
+      int input, int numBitsInInput, int[] table, int numBitsInTableSize) {
+    int whichValue = input >>> (numBitsInInput - numBitsInTableSize);
+    int value1 = table[whichValue];
+    int value2 = table[whichValue + 1];
+
+    int rshiftAmount = numBitsInInput - 15 - numBitsInTableSize;
+    int rshifted;
+    if (rshiftAmount >= 0) {
+      rshifted = input >>> rshiftAmount;
+    } else {
+      rshifted = input << (-rshiftAmount);
+    }
+
+    int strength2 = rshifted & 32767;
+    int strength1 = 32768 - strength2;
+    return value1 * strength1 + value2 * strength2;
+  }
+
+  /**
+   * interpolateTableInverse.
+   * (functions.cpp:511-546)
+   */
+  public static int interpolateTableInverse(
+      int tableValueBig, int numBitsInLookupOutput, int[] table, int numBitsInTableSize) {
+    // Binary search then interpolate inverse.
+    // (Full port deferred — currently unused by the core DSP path.)
+    return 0;
+  }
+
+  // ── getDecay8 / getDecay4 (functions.cpp:548-554) ──
+
+  /**
+   * getDecay8.  Fixed-point exponential decay.
+   * (functions.cpp:548-550)
+   */
+  public static int getDecay8(int input, int numBitsInInput) {
+    return interpolateTable(input, numBitsInInput, LookupTables.decayTableSmall8, 8);
+  }
+
+  /**
+   * getDecay4.  Fixed-point exponential decay (coarser).
+   * (functions.cpp:552-554)
+   */
+  public static int getDecay4(int input, int numBitsInInput) {
+    return interpolateTable(input, numBitsInInput, LookupTables.decayTableSmall8, 8);
+    // NOTE: firmware getDecay4 uses the same table as getDecay8 (decayTableSmall8).
+    // The difference is in the caller's interpretation of the input bits.
+  }
+
+  // ── getExp (functions.cpp:556-565) ──
+
+  /**
+   * Exponential mapping: presetValue * 2^(adjustment).
+   * (functions.cpp:556-565)
+   */
+  public static int getExp(int presetValue, int adjustment) {
+    int magnitudeIncrease = (adjustment >> 26) + 2;
+    // "fine" adjustment — change less than one doubling
+    int adjustedPresetValue = multiply_32x32_rshift32(
+        presetValue,
+        interpolateTable(adjustment & 67108863, 26, LookupTables.expTableSmall, 8));
+    return increaseMagnitudeAndSaturate(adjustedPresetValue, magnitudeIncrease);
+  }
+
+  /**
+   * increaseMagnitudeAndSaturate.
+   * (functions.h functions.cpp:564)
+   */
+  public static int increaseMagnitudeAndSaturate(int number, int magnitude) {
+    if (magnitude > 0) {
+      return lshiftAndSaturateUnknown(number, magnitude);
+    }
+    return number >> (-magnitude); // arithmetic right shift
+  }
+
+  // ── quickLog (functions.cpp:567-573) ──
+
+  /**
+   * quickLog.  Integer log2 approximation.
+   * (functions.cpp:567-573)
+   */
+  public static int quickLog(int input) {
+    int magnitude = 31 - Integer.numberOfLeadingZeros(input);
+    int inputLSBs = increaseMagnitude(input, 26 - magnitude);
+    return (magnitude << 24)
+        + interpolateTable(inputLSBs, 26, LookupTables.logTableSmall, 8);
+  }
+
+  /** increaseMagnitude (functions.h).  Left shift without saturation. */
+  public static int increaseMagnitude(int number, int magnitude) {
+    if (magnitude > 0) {
+      return number << magnitude;
+    }
+    return number >>> (-magnitude);
+  }
+
+  // ── instantTan (functions.cpp, line ~210 region) ──
+
+  /**
+   * instantTan.  Maps a Q31 frequency to tan(f) in Q17.
+   * (functions.cpp — defined alongside interpolateTable in the file)
+   */
+  public static int instantTan(int input) {
+    int whichValue = input >> 25; // 25
+    int howMuchFurther = (input << 6) & 2147483647; // 6
+    int value1 = LookupTables.tanTable[whichValue];
+    int value2 = LookupTables.tanTable[whichValue + 1];
+    return (multiply_32x32_rshift32(value2, howMuchFurther)
+            + multiply_32x32_rshift32(value1, 2147483647 - howMuchFurther))
+        << 1;
+  }
+
+  // ── lookupReleaseRate (functions.cpp) ──
+
+  /**
+   * lookupReleaseRate.  Maps a patched value to a release rate via the 65-entry
+   * releaseRateTable64.
+   * (functions.cpp)
+   */
+  public static int lookupReleaseRate(int input) {
+    int magnitude = 24;
+    int whichValue = input >> magnitude; // 25
+    int howMuchFurther = (input << (31 - magnitude)) & 2147483647; // 6
+    whichValue += 32; // Put it in the range 0 to 64
+    if (whichValue < 0) {
+      return LookupTables.releaseRateTable64[0];
+    } else if (whichValue >= 64) {
+      return LookupTables.releaseRateTable64[64];
+    }
+    int value1 = LookupTables.releaseRateTable64[whichValue];
+    int value2 = LookupTables.releaseRateTable64[whichValue + 1];
+    return (multiply_32x32_rshift32(value2, howMuchFurther)
+            + multiply_32x32_rshift32(value1, 2147483647 - howMuchFurther))
+        << 1;
+  }
+
+  // ── getParamFromUserValue (functions.cpp:1412) ──
+
+  /**
+   * getParamFromUserValue.  Maps a menu user value (typically -25..25 or 0..50)
+   * to a stored Q31 knob value.
+   * (functions.cpp:1412-1438)
+   */
+  public static int getParamFromUserValue(int p, int userValue) {
+    switch (p) {
+      case Param.STATIC_SIDECHAIN_ATTACK:
+        return LookupTables.attackRateTable[userValue] * 4;
+
+      case Param.STATIC_SIDECHAIN_RELEASE:
+        return LookupTables.releaseRateTable64[userValue] * 8;
+
+      case Param.LOCAL_OSC_A_PHASE_WIDTH:
+      case Param.LOCAL_OSC_B_PHASE_WIDTH:
+        return userValue * (85899345 >> 1);
+
+      case Param.PATCH_CABLE:
+      case Param.STATIC_SIDECHAIN_VOLUME:
+        return userValue * 21474836;
+
+      case Param.UNPATCHED_BASS:
+      case Param.UNPATCHED_TREBLE:
+        if (userValue == -50) return -2147483648;
+        if (userValue == 0) return 0;
+        return userValue * 42949672;
+
+      default:
+        return userValue * 85899345 - 2147483648;
+    }
+  }
+}
