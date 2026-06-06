@@ -493,4 +493,22 @@ public final class Functions {
         return (int) ((userValue & 0xFFFFFFFFL) * 85899345L) - 0x80000000;
     }
   }
+
+  // ── Noise / tanH / misc ──
+
+  private static int jcong = 12345;
+  public static int getNoise() { jcong = 69069 * jcong + 1234567; return jcong; }
+
+  public static int interpolateTableSigned(int input, int nb, int[] table, int nbs) {
+    int wv = input >>> (nb - nbs);
+    int v1 = (short) table[wv], v2 = (short) table[wv + 1];
+    int rsa = nb - 15 - nbs;
+    int rs = (rsa >= 0) ? (input >>> rsa) : (input << (-rsa));
+    int s2 = rs & 32767, s1 = 32768 - s2;
+    return v1 * s1 + v2 * s2;
+  }
+
+  public static int getTanHUnknown(int input, int sat) {
+    return signed_saturate(input, 32 - sat) << (sat + 1); // stub — full tanH table deferred
+  }
 }
