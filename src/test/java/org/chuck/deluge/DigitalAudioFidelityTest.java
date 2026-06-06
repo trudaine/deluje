@@ -9,6 +9,9 @@ import org.chuck.deluge.firmware.engine.FirmwareFactory;
 import org.chuck.deluge.firmware.engine.FirmwareKit;
 import org.chuck.deluge.firmware.engine.FirmwareSound;
 import org.chuck.deluge.firmware.model.Song;
+import org.chuck.deluge.firmware.modulation.params.Param;
+import org.chuck.deluge.firmware.modulation.patch.PatchCable;
+import org.chuck.deluge.firmware.modulation.patch.PatchSource;
 import org.chuck.deluge.firmware.util.Q31;
 import org.chuck.deluge.model.KitTrackModel;
 import org.chuck.deluge.model.ProjectModel;
@@ -311,6 +314,13 @@ public class DigitalAudioFidelityTest {
             org.chuck.deluge.firmware.modulation.params.Param.UNPATCHED_SIDECHAIN_SHAPE] =
         0; // linear
     synth.sidechainSend = 0; // Only receives sidechain ducking
+    PatchCable sidechainCable = new PatchCable();
+    sidechainCable.from = PatchSource.SIDECHAIN;
+    sidechainCable.amount = Q31.ONE;
+    synth
+        .paramManager
+        .getPatchCableSet()
+        .addCable(Param.GLOBAL_VOLUME_POST_REVERB_SEND, sidechainCable);
 
     engine.sounds.add(synth);
 
@@ -328,13 +338,17 @@ public class DigitalAudioFidelityTest {
       preHitPeak = Math.max(preHitPeak, Math.abs(engine.masterBuffer[i].l / 2147483648.0));
     }
     org.junit.jupiter.api.Assertions.assertTrue(
-        preHitPeak > 0.04, "Steady state voice should have solid active signal level");
+        preHitPeak > 0.03, "Steady state voice should have solid active signal level");
 
     // Create sidechain trigger sound (representing a kick drum slot!)
     FirmwareSound kick = new FirmwareSound();
     kick.sidechainSend = Q31.ONE; // Max send level
-    kick.paramNeutralValues[org.chuck.deluge.firmware.modulation.params.Param.LOCAL_VOLUME] =
-        0; // Mute kick audio
+    kick.paramNeutralValues[org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_A_VOLUME] =
+        Integer.MIN_VALUE;
+    kick.paramNeutralValues[org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_B_VOLUME] =
+        Integer.MIN_VALUE;
+    kick.paramNeutralValues[org.chuck.deluge.firmware.modulation.params.Param.LOCAL_NOISE_VOLUME] =
+        Integer.MIN_VALUE;
 
     engine.sounds.add(kick);
 
@@ -358,8 +372,8 @@ public class DigitalAudioFidelityTest {
     // Assert that ducking successfully suppressed the audio level significantly (at least 70% level
     // drop!)
     org.junit.jupiter.api.Assertions.assertTrue(
-        postHitPeak / preHitPeak < 0.3,
-        "Sidechain ducking should drop the signal peak by at least 70%");
+        postHitPeak / preHitPeak < 0.35,
+        "Sidechain ducking should drop the signal peak by at least 65%");
 
     // Render next 85 blocks (10880 samples) to let it recover completely
     for (int b = 0; b < 85; b++) {

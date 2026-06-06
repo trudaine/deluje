@@ -531,16 +531,19 @@ public class FirmwareFactory {
   }
 
   /** Map a 0..1 knob to the firmware's bipolar Q31 param range; 0 -> MIN_VALUE ("off"). */
+  /** Map a 0..1 knob to a bipolar Q31 knob for non-volume params. 0 -> MIN_VALUE, 1 -> MAX_VALUE. */
   private static int normToBipolarParam(float norm) {
     if (norm <= 0f) return Integer.MIN_VALUE;
-    double v = (double) clamp01(norm) * 4294967295.0 - 2147483648.0;
-    return (int) Math.round(v);
+    return (int) Math.round((double) clamp01(norm) * 4294967295.0 - 2147483648.0);
   }
 
-  /** Map a 0..1 knob to the firmware's volume param range; 0 -> MIN_VALUE ("off"). */
+  /** Map a 0..1 knob to the firmware's volume param range. 0 -> MIN_VALUE ("off"), 1 -> ~MAX_VALUE (full).
+   *  The firmware volume knob (getParamFromUserValue) spans from (uint32_t)0*FACTOR-2^30 = -2^30 (MIN user value 0,
+   *  off) up to (uint32_t)50*FACTOR-2^30 ≈ +2^31 (MAX user value 50, full). This scaling is the bipolar mapping
+   *  of a 0..50 menu item onto int32_t, so norm ∈ [0,1] maps linearly onto that full range. */
   private static int normToBipolarParamVolume(float norm) {
     if (norm <= 0f) return Integer.MIN_VALUE;
-    return (int) Math.round((double) clamp01(norm) * 2147483648.0 - 1073741824.0);
+    return (int) Math.round((double) clamp01(norm) * 4294967295.0 - 2147483648.0);
   }
 
   /** Parse a DX7 patch hex string (e.g. 312 chars = 156 bytes) to bytes; null/blank/odd → null. */

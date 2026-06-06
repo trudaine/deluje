@@ -22,6 +22,8 @@ public abstract class GlobalEffectable {
    */
   protected final int[] postFXVolumeHolder = {Q31.ONE};
 
+  protected final int[] postReverbVolumeHolder = {Q31.ONE};
+
   // Pre-allocate to avoid GC jitter
   private final StereoSample[] trackBuffer = new StereoSample[128];
 
@@ -38,6 +40,7 @@ public abstract class GlobalEffectable {
 
     // 2. Render actual voices/samples
     postFXVolumeHolder[0] = Q31.ONE;
+    postReverbVolumeHolder[0] = Q31.ONE;
     renderInternal(trackBuffer, numSamples, paramManager);
 
     // 3. Process Filters
@@ -45,7 +48,7 @@ public abstract class GlobalEffectable {
 
     // 4. Process Global FX and Volume
     int postFXVolume = postFXVolumeHolder[0];
-    int postReverbVolume = Q31.ONE;
+    int postReverbVolume = postReverbVolumeHolder[0];
     int pan = 0; // Center in Q31 is 0
 
     processReverbSendAndVolume(
