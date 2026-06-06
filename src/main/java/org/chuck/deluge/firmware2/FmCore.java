@@ -141,6 +141,8 @@ public final class FmCore {
 
     // Scratch buffers for operator interconnects (bus 1, bus 2)
     int[][] buf = new int[2][simdN];
+    java.util.Arrays.fill(buf[0], 0);
+    java.util.Arrays.fill(buf[1], 0);
     boolean[] hasContents = {true, false, false};
 
     for (int op = 0; op < 6; op++) {
@@ -154,25 +156,22 @@ public final class FmCore {
       // gain2 = Exp2::lookup(param.level_in - (14 * (1 << 24)));
       int gain2 = exp2Lookup(param.level_in - (14 << 24));
       param.gain_out = gain2;
-
-      // dgain = div_n(gain2 - gain1 + (n >> 1), inv_n);
-      // div_n(base, inv_n) = ((int64_t)base * (int64_t)inv_n) >> 30
       int dgain = (int) (((long) (gain2 - gain1 + (n >> 1)) * (long) invN) >> 30);
 
+      // Determine output destination: outbus 0 = output array, 1/2 = buf_[0]/buf_[1]
+      int[] outptr = (outbus == 0) ? output : buf[outbus - 1];
+      int[] inptr = (inbus == 0 || inbus > 2) ? null : buf[inbus - 1];
+
       if (gain1 >= K_GAIN_LEVEL_THRESH || gain2 >= K_GAIN_LEVEL_THRESH) {
-        if (!hasContents[outbus]) {
-          add = false;
-        }
-        if (inbus == 0 || !hasContents[inbus]) {
-          // feedback or pure (no input modulation)
+        if (!hasContents[outbus]) add = false;
+        if (inbus == 0 || inptr == null || !hasContents[inbus]) {
           if ((flags & 0xc0) == 0xc0 && feedbackShift < 16) {
-            computeFb(output, outbus, n, param, gain1, gain2, dgain, fbBuf, feedbackShift, add);
+            computeFb(outptr, simdN, param, gain1, gain2, dgain, fbBuf, feedbackShift, add);
           } else {
-            computePure(output, outbus, simdN, param, gain1, gain2, dgain, add);
+            computePure(outptr, simdN, param, gain1, gain2, dgain, add);
           }
         } else {
-          // normal: modulated by input bus
-          computeNormal(output, outbus, simdN, buf[inbus - 1], param, gain1, gain2, dgain, add);
+          computeNormal(outptr, simdN, inptr, param, gain1, gain2, dgain, add);
         }
         hasContents[outbus] = true;
       } else if (!add) {
@@ -184,12 +183,8 @@ public final class FmCore {
   }
 
   // ── computePure (scalar equivalent of FmOpKernel::compute_pure) ──
-  // Operator with no modulation input (just sine * gain)
-
-  private static void computePure(int[] output, int outbus, int n,
-      FmOpParams param, int gain1, int gain2, int dgain, boolean add) {
-    int[] out = (outbus == 0) ? output : null; // bus1/bus2 handled in render via buf_
-    // For outbus==0, write directly to output; otherwise buf_ is managed by render
+  private static void computePure(int[] out, int n, FmOpParams param,
+      int gain1, int gain2, int dgain, boolean add) {
     int phase = param.phase;
     int gain = gain1;
     for (int i = 0; i < n; i++) {
@@ -197,20 +192,14 @@ public final class FmCore {
       gain += dgain;
       int sample = SineOsc.doFMNew(phase, 0);
       sample = Functions.multiply_32x32_rshift32(sample, gain);
-      if (add && out != null) {
-        out[i] = Functions.add_saturate(out[i], sample);
-      } else if (out != null) {
-        out[i] = sample;
-      }
+      if (add) out[i] = Functions.add_saturate(out[i], sample);
+      else out[i] = sample;
     }
   }
 
   // ── computeNormal (scalar equivalent of FmOpKernel::compute) ──
-  // Operator with modulation from an input bus
-
-  private static void computeNormal(int[] output, int outbus, int n,
-      int[] inbuf, FmOpParams param, int gain1, int gain2, int dgain, boolean add) {
-    int[] out = (outbus == 0) ? output : null;
+  private static void computeNormal(int[] out, int n, int[] inbuf,
+      FmOpParams param, int gain1, int gain2, int dgain, boolean add) {
     int phase = param.phase;
     int gain = gain1;
     for (int i = 0; i < n; i++) {
@@ -218,25 +207,17 @@ public final class FmCore {
       gain += dgain;
       int sample = SineOsc.doFMNew(phase, inbuf[i]);
       sample = Functions.multiply_32x32_rshift32(sample, gain);
-      if (add && out != null) {
-        out[i] = Functions.add_saturate(out[i], sample);
-      } else if (out != null) {
-        out[i] = sample;
-      }
+      if (add) out[i] = Functions.add_saturate(out[i], sample);
+      else out[i] = sample;
     }
   }
 
   // ── computeFb (scalar equivalent of FmOpKernel::compute_fb) ──
-  // Operator with self-feedback
-
-  private static void computeFb(int[] output, int outbus, int n,
-      FmOpParams param, int gain1, int gain2, int dgain,
-      int[] fbBuf, int feedbackShift, boolean add) {
-    int[] out = (outbus == 0) ? output : null;
+  private static void computeFb(int[] out, int n, FmOpParams param,
+      int gain1, int gain2, int dgain, int[] fbBuf, int feedbackShift, boolean add) {
     int phase = param.phase;
     int gain = gain1;
-    int fb0 = fbBuf[0];
-    int fb1 = fbBuf[1];
+    int fb0 = fbBuf[0], fb1 = fbBuf[1];
     for (int i = 0; i < n; i++) {
       phase += param.freq;
       gain += dgain;
@@ -245,13 +226,9 @@ public final class FmCore {
       int sample = SineOsc.doFMNew(phase, fb << feedbackShift);
       fb1 = sample;
       sample = Functions.multiply_32x32_rshift32(sample, gain);
-      if (add && out != null) {
-        out[i] = Functions.add_saturate(out[i], sample);
-      } else if (out != null) {
-        out[i] = sample;
-      }
+      if (add) out[i] = Functions.add_saturate(out[i], sample);
+      else out[i] = sample;
     }
-    fbBuf[0] = fb0;
-    fbBuf[1] = fb1;
+    fbBuf[0] = fb0; fbBuf[1] = fb1;
   }
 }
