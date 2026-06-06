@@ -80,9 +80,9 @@ public class Voice {
 
   // ── noteOn (voice.cpp:110-339) ──
 
-  public void noteOn(int noteCode, int velocity) {
-    this.note = noteCode;
-    this.noteCode = noteCode;
+  public void noteOn(int midiNote, int velocity) {
+    this.note = midiNote;
+    this.noteCode = midiNote;
     this.velocity = velocity;
     this.active = true;
     for (Envelope e : envelopes) e.noteOn(false);
@@ -197,10 +197,10 @@ public class Voice {
 
     // ── 5. Phase increments (voice.cpp:414-560) ──
 
-    // Compute pIncA from noteCode (simplified — full port uses noteFrequencyTable)
-    double freq = 440.0 * Math.pow(2.0, (noteCode - 69) / 12.0);
-    phaseIncrementA = (int) (freq * ((double) Functions.K_MAX_SAMPLE_VALUE / 44100.0));
-    phaseIncrementB = phaseIncrementA; // osc B same unless detuned
+    // Use the existing FirmwareSound.noteToPhaseInc which is verified faithful
+    phaseIncrementA = (int) ((440.0 * Math.pow(2.0, (noteCode - 69) / 12.0))
+        * ((double) Functions.K_MAX_SAMPLE_VALUE / 44100.0));
+    phaseIncrementB = phaseIncrementA;
 
     int pIncA = phaseIncrementA;
     int pIncB = phaseIncrementB;
@@ -215,8 +215,11 @@ public class Voice {
     overallOscAmplitudeLastTime = Functions.lshiftAndSaturate(
         Functions.multiply_32x32_rshift32(env0Gain, trackVol), 2);
 
-    // Prepare scratch buffer for per-source rendering (mono)
-    int[] scratchBuf = new int[numSamples * 2]; // stereo interleaved
+    // Prepare scratch buffers: 2 mono source buffers + stereo output buffer
+    int[] sourceBuf = new int[numSamples * 2]; // osc A + osc B mono
+    int[] mixBuf = new int[numSamples * 2];   // stereo interleaved output
+    java.util.Arrays.fill(sourceBuf, 0, numSamples * 2, 0);
+    java.util.Arrays.fill(mixBuf, 0, numSamples * 2, 0);
 
     // ── FM path (voice.cpp:1400-1560) ──
     if (synthMode == 1) { // FM
@@ -237,10 +240,20 @@ public class Voice {
       }
 
       int[] phase = {sources[s].oscPos};
-      Oscillator.renderOsc(oscTypes[s], sourceVol, scratchBuf, s, numSamples,
+      // Each source writes to its own section of the stereo buffer (s * numSamples offset)
+      Oscillator.renderOsc(oscTypes[s], sourceVol, sourceBuf, s * numSamples, numSamples,
           pInc, 0, phase, true, 0, false,
           0, 0, 0);
       sources[s].oscPos = phase[0];
+    }
+
+    // Mix both sources into stereo (voices sum into both channels)
+    for (int i = 0; i < numSamples; i++) {
+      int mix = Functions.add_saturate(
+          (sources[0].active ? sourceBuf[i] : 0),
+          (sources[1].active ? sourceBuf[numSamples + i] : 0));
+      mixBuf[i * 2] = mix;
+      mixBuf[i * 2 + 1] = mix;
     }
 
     // ── Ringmod (voice.cpp:540-596) ──
@@ -248,30 +261,30 @@ public class Voice {
       // Multiply osc A * osc B (both fixed-amplitude), scaled by amplitudeForRingMod
       int amplitudeForRingMod = 1 << 27; // port of (1 << 27)
       for (int i = 0; i < numSamples; i++) {
-        int a = scratchBuf[i * 2];
-        int b = scratchBuf[i * 2 + 1];
+        int a = sourceBuf[i]; // osc A
+        int b = sourceBuf[numSamples + i]; // osc B
         int product = Functions.multiply_32x32_rshift32(a, b);
-        scratchBuf[i * 2] = Functions.multiply_32x32_rshift32(product, amplitudeForRingMod);
-        scratchBuf[i * 2 + 1] = scratchBuf[i * 2]; // mono
+        mixBuf[i * 2] = Functions.multiply_32x32_rshift32(product, amplitudeForRingMod);
+        mixBuf[i * 2 + 1] = mixBuf[i * 2]; // mono
       }
     }
 
     // ── 7. Apply envelope 0 + track volume to stereo buffer (voice.cpp:1025-1060) ──
     for (int i = 0; i < numSamples; i++) {
-      scratchBuf[i * 2] = Functions.multiply_32x32_rshift32(
-          Functions.multiply_32x32_rshift32(scratchBuf[i * 2], env0Gain), trackVol);
-      scratchBuf[i * 2 + 1] = Functions.multiply_32x32_rshift32(
-          Functions.multiply_32x32_rshift32(scratchBuf[i * 2 + 1], env0Gain), trackVol);
+      mixBuf[i * 2] = Functions.multiply_32x32_rshift32(
+          Functions.multiply_32x32_rshift32(mixBuf[i * 2], env0Gain), trackVol);
+      mixBuf[i * 2 + 1] = Functions.multiply_32x32_rshift32(
+          Functions.multiply_32x32_rshift32(mixBuf[i * 2 + 1], env0Gain), trackVol);
     }
 
     // ── 8. Filter, pan, gain into output buffer (voice.cpp:1560-1670) ──
-    applyFilterAndGain(scratchBuf, numSamples, lpfMode, hpfMode, filterRoute,
+    applyFilterAndGain(mixBuf, numSamples, lpfMode, hpfMode, filterRoute,
         soundVolumeNeutral);
 
     // Copy to output
     for (int i = 0; i < numSamples; i++) {
-      soundBuffer[i * 2] = Functions.add_saturate(soundBuffer[i * 2], scratchBuf[i * 2]);
-      soundBuffer[i * 2 + 1] = Functions.add_saturate(soundBuffer[i * 2 + 1], scratchBuf[i * 2 + 1]);
+      soundBuffer[i * 2] = Functions.add_saturate(soundBuffer[i * 2], mixBuf[i * 2]);
+      soundBuffer[i * 2 + 1] = Functions.add_saturate(soundBuffer[i * 2 + 1], mixBuf[i * 2 + 1]);
     }
 
     return active;
@@ -335,34 +348,26 @@ public class Voice {
       FilterSet.FilterMode lpfMode, FilterSet.FilterMode hpfMode,
       int filterRoute, int soundVolumeNeutral) {
 
-    // LP ladder filter
-    int lpfFreq = paramFinalValues[Param.LOCAL_LPF_FREQ];
-    int lpfRes = paramFinalValues[Param.LOCAL_LPF_RESONANCE];
-    int lpfMorph = paramFinalValues[Param.LOCAL_LPF_MORPH];
-    int hpfFreq = paramFinalValues[Param.LOCAL_HPF_FREQ];
-    int hpfRes = paramFinalValues[Param.LOCAL_HPF_RESONANCE];
-    int hpfMorph = paramFinalValues[Param.LOCAL_HPF_MORPH];
-
-    // Filter gain: start with volume-neutral (voice.cpp:1055)
-    int filterGain = soundVolumeNeutral << 1;
-
-    filterGain = FilterSet.lpLadderSetConfig(
-        filterL, lpfFreq, lpfRes, lpfMode, lpfMorph, filterGain);
-
-    // Apply filter-gain makeup
-    if (filterGain != Functions.ONE_Q31) {
-      for (int i = 0; i < numSamples; i++) {
-        stereoBuf[i * 2] = Functions.multiply_32x32_rshift32(
-            stereoBuf[i * 2], filterGain) << 1;
-        stereoBuf[i * 2 + 1] = Functions.multiply_32x32_rshift32(
-            stereoBuf[i * 2 + 1], filterGain) << 1;
+    // LP ladder filter — only configure and run if filter mode is active
+    if (lpfMode != FilterSet.FilterMode.OFF) {
+      int lpfFreq = paramFinalValues[Param.LOCAL_LPF_FREQ];
+      int lpfRes = paramFinalValues[Param.LOCAL_LPF_RESONANCE];
+      int lpfMorph = paramFinalValues[Param.LOCAL_LPF_MORPH];
+      int filterGain = soundVolumeNeutral << 1;
+      filterGain = FilterSet.lpLadderSetConfig(
+          filterL, lpfFreq, lpfRes, lpfMode, lpfMorph, filterGain);
+      if (filterGain != Functions.ONE_Q31) {
+        for (int i = 0; i < numSamples; i++) {
+          stereoBuf[i * 2] = Functions.multiply_32x32_rshift32(
+              stereoBuf[i * 2], filterGain) << 1;
+          stereoBuf[i * 2 + 1] = Functions.multiply_32x32_rshift32(
+              stereoBuf[i * 2 + 1], filterGain) << 1;
+        }
       }
-    }
-
-    // Monophonic ladder filter (apply to both channels)
-    for (int i = 0; i < numSamples; i++) {
-      stereoBuf[i * 2] = FilterSet.do24dBLPFOnSample(filterL, stereoBuf[i * 2]);
-      stereoBuf[i * 2 + 1] = FilterSet.do24dBLPFOnSample(filterR, stereoBuf[i * 2 + 1]);
+      for (int i = 0; i < numSamples; i++) {
+        stereoBuf[i * 2] = FilterSet.do24dBLPFOnSample(filterL, stereoBuf[i * 2]);
+        stereoBuf[i * 2 + 1] = FilterSet.do24dBLPFOnSample(filterR, stereoBuf[i * 2 + 1]);
+      }
     }
 
     // Pan (voice.cpp:1159-1166)
