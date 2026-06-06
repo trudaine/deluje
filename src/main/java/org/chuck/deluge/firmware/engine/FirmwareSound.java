@@ -30,6 +30,10 @@ public class FirmwareSound extends GlobalEffectable {
   }
 
   public final List<FirmwareVoice> voices = new ArrayList<>();
+  /** Set true to use the faithful firmware2/ DSP engine (opt-in). */
+  public boolean useFirmware2 = false;
+  public final java.util.List<org.chuck.deluge.firmware2.Voice> fw2Voices =
+      new java.util.ArrayList<>();
   public final LFO[] globalLfos = new LFO[2];
   public final LFO.LFOType[] lfoWaveforms = {
     LFO.LFOType.SINE, LFO.LFOType.TRIANGLE,
@@ -49,6 +53,8 @@ public class FirmwareSound extends GlobalEffectable {
   public PolyphonyMode polyphonic = PolyphonyMode.POLY;
   public boolean isDrum = false;
   public int[] paramNeutralValues = new int[200];
+  /** Raw bipolar Q31 knob values for firmware2 Patcher. */
+  public final int[] paramKnobs = new int[200];
   public int[] globalSourceValues = new int[PatchSource.kNumPatchSources];
   private final int[] globalParamFinalValues = new int[Param.kNumParams];
   private final Patcher globalPatcher = new Patcher();
@@ -118,6 +124,7 @@ public class FirmwareSound extends GlobalEffectable {
     for (int i = 0; i < Param.kNumParams; i++) {
       paramNeutralValues[i] =
           org.chuck.deluge.firmware.modulation.params.ParamCurves.getParamNeutralValue(i);
+      paramKnobs[i] = 0;
     }
     // Default neutral values as requested for LKG state
     paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = 1073741824;
@@ -226,7 +233,8 @@ public class FirmwareSound extends GlobalEffectable {
         globalLfos[1].render(numSamples, lfoWaveforms[2], phaseInc2);
 
     // 2. Sum Voices
-    synchronized (voices) {
+    if (useFirmware2) { renderVoicesFw2(buffer, numSamples); }
+    else synchronized (voices) {
       java.util.Iterator<FirmwareVoice> it = voices.iterator();
       while (it.hasNext()) {
         FirmwareVoice voice = it.next();
@@ -338,6 +346,7 @@ public class FirmwareSound extends GlobalEffectable {
     if (sidechainSend != 0) {
       GlobalSidechainBus.registerHit(sidechainSend);
     }
+    if (useFirmware2) { triggerVoiceFw2(note, vel); return; }
     synchronized (voices) {
       FirmwareVoice voiceToUse = null;
 
@@ -381,11 +390,67 @@ public class FirmwareSound extends GlobalEffectable {
     }
   }
 
+  private void triggerVoiceFw2(int note, int vel) {
+    synchronized (fw2Voices) {
+      if (polyphonic != PolyphonyMode.POLY)
+        for (var v : fw2Voices) if (v.active) { v.noteOn(note, vel); return; }
+      for (var v : fw2Voices) if (!v.active) { v.noteOn(note, vel); return; }
+      if (fw2Voices.size() < maxPolyphony) {
+        var v = new org.chuck.deluge.firmware2.Voice(); v.noteOn(note, vel); fw2Voices.add(v);
+      }
+    }
+  }
+  private void renderVoicesFw2(StereoSample[] buffer, int numSamples) {
+    synchronized (fw2Voices) {
+      var it = fw2Voices.iterator();
+      while (it.hasNext()) {
+        var v = it.next();
+        if (!v.active) { it.remove(); continue; }
+        org.chuck.deluge.firmware2.Patcher.performInitialPatching(
+            paramKnobs, v.sourceValues, v.paramFinalValues);
+        int[] ib = new int[numSamples * 2];
+        v.render(ib, numSamples, synthMode == SynthMode.FM ? 1 : synthMode == SynthMode.RINGMOD ? 2 : 0,
+            new org.chuck.deluge.firmware2.Oscillator.OscType[]{
+                fw2OscType(oscTypes[0]), fw2OscType(oscTypes[1])},
+            fw2LpfMode(), org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF, 0, 134217728);
+        for (int i = 0; i < numSamples; i++) {
+          buffer[i].l = Q31.addSaturate(buffer[i].l, ib[i * 2]);
+          buffer[i].r = Q31.addSaturate(buffer[i].r, ib[i * 2 + 1]);
+        }
+      }
+    }
+  }
+  private org.chuck.deluge.firmware2.Oscillator.OscType fw2OscType(
+      org.chuck.deluge.firmware.dsp.oscillators.OscType t) {
+    return switch (t) {
+      case SINE -> org.chuck.deluge.firmware2.Oscillator.OscType.SINE;
+      case SAW -> org.chuck.deluge.firmware2.Oscillator.OscType.SAW;
+      case SQUARE -> org.chuck.deluge.firmware2.Oscillator.OscType.SQUARE;
+      case TRIANGLE -> org.chuck.deluge.firmware2.Oscillator.OscType.TRIANGLE;
+      case ANALOG_SAW_2 -> org.chuck.deluge.firmware2.Oscillator.OscType.ANALOG_SAW_2;
+      case ANALOG_SQUARE -> org.chuck.deluge.firmware2.Oscillator.OscType.ANALOG_SQUARE;
+      case WAVETABLE -> org.chuck.deluge.firmware2.Oscillator.OscType.WAVETABLE;
+      default -> org.chuck.deluge.firmware2.Oscillator.OscType.SAMPLE;
+    };
+  }
+  private org.chuck.deluge.firmware2.FilterSet.FilterMode fw2LpfMode() {
+    return switch (lpfMode) {
+      case TRANSISTOR_12DB -> org.chuck.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_12DB;
+      case TRANSISTOR_24DB -> org.chuck.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_24DB;
+      case TRANSISTOR_24DB_DRIVE -> org.chuck.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_24DB_DRIVE;
+      case SVF_BAND -> org.chuck.deluge.firmware2.FilterSet.FilterMode.SVF_BAND;
+      case SVF_NOTCH -> org.chuck.deluge.firmware2.FilterSet.FilterMode.SVF_NOTCH;
+      case HPLADDER -> org.chuck.deluge.firmware2.FilterSet.FilterMode.HPLADDER;
+      default -> org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF;
+    };
+  }
+
   public void noteOffAll() {
     synchronized (voices) {
-      for (FirmwareVoice v : voices) {
-        if (v.active) v.noteOff(0);
-      }
+      for (FirmwareVoice v : voices) if (v.active) v.noteOff(0);
+    }
+    synchronized (fw2Voices) {
+      for (var v : fw2Voices) v.noteOff();
     }
   }
 

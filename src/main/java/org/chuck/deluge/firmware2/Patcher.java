@@ -189,6 +189,87 @@ public class Patcher {
     return Functions.signed_saturate(small, 32 - 5) << 3;
   }
 
+  // ── recalculateFinalValueForParamWithNoCables (patcher.cpp:30-62) ──
+
+  /**
+   * Port of recalculateFinalValueForParamWithNoCables.  Runs an uncabled param's
+   * stored knob through the correct firmware curve.
+   * (patcher.cpp:30-62)
+   */
+  public static void recalculateFinalValueForParamWithNoCables(
+      int p, int[] knobValues, int[] sourceValues, int[] paramFinalValues) {
+    // Uses which ever cable combine is appropriate for this param
+    int cableCombination;
+    if (p < Param.FIRST_LOCAL_HYBRID
+        || (p >= Param.FIRST_GLOBAL && p < Param.FIRST_GLOBAL_HYBRID)) {
+      // Linear family: fold knob through combineCablesLinear(nullptr)
+      int runningTotal = 536870912;
+      int range = Functions.getParamRange(p);
+      runningTotal = cableToLinearParamWithoutRangeAdjustment(runningTotal, knobValues[p], range);
+      cableCombination = runningTotal - 536870912;
+    } else {
+      // Exp family: fold knob through combineCablesExp(nullptr)
+      int range = Functions.getParamRange(p);
+      cableCombination = cableToExpParamWithoutRangeAdjustment(0, knobValues[p], range);
+    }
+
+    int neutralValue = Functions.getParamNeutralValue(p);
+    int finalValue;
+    if (p < Param.FIRST_LOCAL_HYBRID
+        || (p >= Param.FIRST_GLOBAL && p < Param.FIRST_GLOBAL_HYBRID)) {
+      if (p < Param.FIRST_LOCAL_NON_VOLUME
+          || (p >= Param.FIRST_GLOBAL && p < Param.FIRST_GLOBAL_NON_VOLUME)) {
+        finalValue = Functions.getFinalParameterValueVolume(neutralValue, cableCombination);
+      } else {
+        finalValue = Functions.getFinalParameterValueLinear(neutralValue, cableCombination);
+      }
+    } else {
+      if (p < Param.FIRST_LOCAL_EXP
+          || (p >= Param.FIRST_GLOBAL && p < Param.FIRST_GLOBAL_EXP)) {
+        finalValue = Functions.getFinalParameterValueHybrid(neutralValue, cableCombination);
+      } else {
+        finalValue = Functions.getFinalParameterValueExpWithDumbEnvelopeHack(
+            neutralValue, cableCombination, p);
+      }
+    }
+    paramFinalValues[p] = finalValue;
+  }
+
+  // ── combineCablesLinearForRangeParam (patcher.cpp:175-208) ──
+
+  /**
+   * Port of combineCablesLinearForRangeParam.  For range-type destinations that
+   * scale a source value rather than a param. (patcher.cpp:175-208)
+   */
+  public static int combineCablesLinearForRangeParam(
+      Destination destination, int[] sourceValues, ParamManager paramManager) {
+    int runningTotal = 536870912;
+    for (PatchCable cable : destination.cables) {
+      int srcVal = sourceValues[cable.source];
+      srcVal = cable.toPolarity(srcVal);
+      int strength = cable.amount; // getModifiedPatchCableAmount simplified
+      runningTotal = cableToLinearParam(runningTotal, srcVal, strength);
+    }
+    return Functions.getFinalParameterValueLinear(536870912,
+        runningTotal - 536870912);
+  }
+
+  /** Minimal ParamManager stub for combineCablesLinearForRangeParam. */
+  public static class ParamManager {}
+
+  // ── performInitialPatching (patcher.cpp:275) ──
+
+  /**
+   * Port of performInitialPatching.  Runs patching for all params during voice init.
+   * (patcher.cpp:275-290)
+   */
+  public static void performInitialPatching(
+      int[] knobValues, int[] sourceValues, int[] paramFinalValues) {
+    for (int p = 0; p < Param.kNumParams; p++) {
+      recalculateFinalValueForParamWithNoCables(p, knobValues, sourceValues, paramFinalValues);
+    }
+  }
+
   // ── getEnvStage (envelope rate dispatching) ──
 
   private static int getEnvStage(int p) {
