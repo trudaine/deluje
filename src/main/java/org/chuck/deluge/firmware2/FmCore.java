@@ -1,11 +1,11 @@
 package org.chuck.deluge.firmware2;
 
 /**
- * Faithful line-by-line port of the Deluge {@code fm_core.cpp/h} and {@code fm_op_kernel.h}
- * DX7 6-operator FM engine.  Renders one block through one of the 32 DX7 algorithms.
+ * Faithful line-by-line port of the Deluge {@code fm_core.cpp/h} and {@code fm_op_kernel.h} DX7
+ * 6-operator FM engine. Renders one block through one of the 32 DX7 algorithms.
  *
- * <p>The firmware uses ARM NEON SIMD ({@code FmOpKernel::compute/compute_pure/compute_fb});
- * this Java port uses scalar equivalents with 4-sample unrolling matching the SIMD width.
+ * <p>The firmware uses ARM NEON SIMD ({@code FmOpKernel::compute/compute_pure/compute_fb}); this
+ * Java port uses scalar equivalents with 4-sample unrolling matching the SIMD width.
  *
  * <p>Firmware reference: {@code dsp/dx/fm_core.cpp} (119 lines), {@code fm_core.h} (63 lines).
  */
@@ -22,21 +22,22 @@ public final class FmCore {
   static final int K_GAIN_LEVEL_THRESH = 1120;
 
   /** Operator flags (fm_core.h:37-45) */
-  static final int OUT_BUS_ONE  = 1 << 0;
-  static final int OUT_BUS_TWO  = 1 << 1;
-  static final int OUT_BUS_ADD  = 1 << 2;
-  static final int IN_BUS_ONE   = 1 << 4;
-  static final int IN_BUS_TWO   = 1 << 5;
-  static final int FB_IN        = 1 << 6;
-  static final int FB_OUT       = 1 << 7;
+  static final int OUT_BUS_ONE = 1 << 0;
+
+  static final int OUT_BUS_TWO = 1 << 1;
+  static final int OUT_BUS_ADD = 1 << 2;
+  static final int IN_BUS_ONE = 1 << 4;
+  static final int IN_BUS_TWO = 1 << 5;
+  static final int FB_IN = 1 << 6;
+  static final int FB_OUT = 1 << 7;
 
   // ── Operator params (fm_core.h FmOpParams) ──
 
   public static class FmOpParams {
-    public int phase;     // Q32 phase accumulator
-    public int freq;      // Q32 frequency (phase increment per sample)
-    public int gain_out;  // current gain (smoothed)
-    public int level_in;  // target level (DX7 format: 0-99 range, 14<<24 = max)
+    public int phase; // Q32 phase accumulator
+    public int freq; // Q32 frequency (phase increment per sample)
+    public int gain_out; // current gain (smoothed)
+    public int level_in; // target level (DX7 format: 0-99 range, 14<<24 = max)
   }
 
   // ── 32 DX7 algorithms (fm_core.cpp:21-54) ──
@@ -93,8 +94,8 @@ public final class FmCore {
   // This uses the same expTableSmall but with a different input domain.
 
   /**
-   * Port of Exp2::lookup.  Converts DX7 operator level (Q24) to linear gain (Q31).
-   * level_in = 0 → max, 14<<24 = 234881024 → silent (0 gain).
+   * Port of Exp2::lookup. Converts DX7 operator level (Q24) to linear gain (Q31). level_in = 0 →
+   * max, 14<<24 = 234881024 → silent (0 gain).
    */
   public static int exp2Lookup(int levelIn) {
     int x = levelIn - (14 << 24);
@@ -119,18 +120,17 @@ public final class FmCore {
   // ── render (fm_core.cpp:65-118) ──
 
   /**
-   * Port of FmCore::render.  Renders n samples of the 6-operator DX7 algorithm.
-   * (fm_core.cpp:65-118)
+   * Port of FmCore::render. Renders n samples of the 6-operator DX7 algorithm. (fm_core.cpp:65-118)
    *
-   * @param output         output buffer (samples accumulated)
-   * @param n              number of samples to render
-   * @param params         6 operator params (phase, freq, gain_out, level_in)
-   * @param algorithm      algorithm index 0-31
-   * @param fbBuf          feedback buffer (2 entries for stereo?) — firmware uses 2 ints
-   * @param feedbackShift  feedback amount (0-15)
+   * @param output output buffer (samples accumulated)
+   * @param n number of samples to render
+   * @param params 6 operator params (phase, freq, gain_out, level_in)
+   * @param algorithm algorithm index 0-31
+   * @param fbBuf feedback buffer (2 entries for stereo?) — firmware uses 2 ints
+   * @param feedbackShift feedback amount (0-15)
    */
-  public static void render(int[] output, int n, FmOpParams[] params, int algorithm,
-      int[] fbBuf, int feedbackShift) {
+  public static void render(
+      int[] output, int n, FmOpParams[] params, int algorithm, int[] fbBuf, int feedbackShift) {
     int[] alg = ALGORITHMS[algorithm];
 
     // simd_n: round up to multiple of 4 (replaces NEON alignment)
@@ -185,8 +185,8 @@ public final class FmCore {
   }
 
   // ── computePure (scalar equivalent of FmOpKernel::compute_pure) ──
-  private static void computePure(int[] out, int n, FmOpParams param,
-      int gain1, int gain2, int dgain, boolean add) {
+  private static void computePure(
+      int[] out, int n, FmOpParams param, int gain1, int gain2, int dgain, boolean add) {
     int phase = param.phase;
     int gain = gain1;
     for (int i = 0; i < n; i++) {
@@ -200,8 +200,15 @@ public final class FmCore {
   }
 
   // ── computeNormal (scalar equivalent of FmOpKernel::compute) ──
-  private static void computeNormal(int[] out, int n, int[] inbuf,
-      FmOpParams param, int gain1, int gain2, int dgain, boolean add) {
+  private static void computeNormal(
+      int[] out,
+      int n,
+      int[] inbuf,
+      FmOpParams param,
+      int gain1,
+      int gain2,
+      int dgain,
+      boolean add) {
     int phase = param.phase;
     int gain = gain1;
     for (int i = 0; i < n; i++) {
@@ -215,8 +222,16 @@ public final class FmCore {
   }
 
   // ── computeFb (scalar equivalent of FmOpKernel::compute_fb) ──
-  private static void computeFb(int[] out, int n, FmOpParams param,
-      int gain1, int gain2, int dgain, int[] fbBuf, int feedbackShift, boolean add) {
+  private static void computeFb(
+      int[] out,
+      int n,
+      FmOpParams param,
+      int gain1,
+      int gain2,
+      int dgain,
+      int[] fbBuf,
+      int feedbackShift,
+      boolean add) {
     int phase = param.phase;
     int gain = gain1;
     int fb0 = fbBuf[0], fb1 = fbBuf[1];
@@ -231,6 +246,7 @@ public final class FmCore {
       if (add) out[i] = Functions.add_saturate(out[i], sample);
       else out[i] = sample;
     }
-    fbBuf[0] = fb0; fbBuf[1] = fb1;
+    fbBuf[0] = fb0;
+    fbBuf[1] = fb1;
   }
 }

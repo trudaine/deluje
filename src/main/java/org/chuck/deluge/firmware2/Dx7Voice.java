@@ -1,13 +1,13 @@
 package org.chuck.deluge.firmware2;
 
 /**
- * Faithful line-by-line port of the Deluge DX7 engine:
- * {@code dx7note.cpp/h} (DxVoice, DxPatch), {@code env.cpp/h} (per-operator Env),
- * {@code pitchenv.cpp/h} (PitchEnv).  Also includes firmware constants and tables.
+ * Faithful line-by-line port of the Deluge DX7 engine: {@code dx7note.cpp/h} (DxVoice, DxPatch),
+ * {@code env.cpp/h} (per-operator Env), {@code pitchenv.cpp/h} (PitchEnv). Also includes firmware
+ * constants and tables.
  *
- * <p>External dependencies not yet ported to firmware2:
- * {@code Sin::lookup} → use {@link SineOsc#doFMNew}, {@code Freqlut::lookup} → stub,
- * {@code getNoise()} → use {@link Functions#getNoise}.
+ * <p>External dependencies not yet ported to firmware2: {@code Sin::lookup} → use {@link
+ * SineOsc#doFMNew}, {@code Freqlut::lookup} → stub, {@code getNoise()} → use {@link
+ * Functions#getNoise}.
  */
 public class Dx7Voice {
 
@@ -31,8 +31,8 @@ public class Dx7Voice {
   };
 
   static final int[] EXP_SCALE_DATA = {
-    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 14, 16, 19, 23, 27, 33,
-    39, 47, 56, 66, 80, 94, 110, 126, 142, 158, 174, 190, 206, 222, 238, 250,
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 14, 16, 19, 23, 27, 33, 39, 47, 56, 66, 80, 94, 110, 126, 142,
+    158, 174, 190, 206, 222, 238, 250,
   };
 
   // ── dxNoteToFreq (dx7note.cpp:50-54) ──
@@ -70,8 +70,8 @@ public class Dx7Voice {
   }
 
   // ── ScaleLevel (dx7note.cpp:210-218) ──
-  static int scaleLevel(int midinote, int breakPt, int leftDepth, int rightDepth,
-      int leftCurve, int rightCurve) {
+  static int scaleLevel(
+      int midinote, int breakPt, int leftDepth, int rightDepth, int leftCurve, int rightCurve) {
     int offset = midinote - breakPt - 17;
     if (offset >= 0) {
       return scaleCurve((offset + 1) / 3, rightDepth, rightCurve);
@@ -107,20 +107,20 @@ public class Dx7Voice {
 
   public static class DxPatch {
     static final int[] INIT_VOICE = {
-    99, 99, 99, 99, 99, 99, 99, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 1, 0, 7, 99, 99, 99,
-    99, 99, 99, 99, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 1, 0, 7, 99, 99, 99, 99, 99, 99,
-    99, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    1, 0, 7, 99, 99, 99, 99, 99, 99, 99, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 7,
-    99, 99, 99, 99, 99, 99, 99, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 1, 0, 7, 99, 99, 99,
-    99, 99, 99, 99, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 99, 0, 1, 0, 7, 99, 99, 99, 99, 50, 50,
-    50, 50, 0, 0, 1, 35, 0, 0, 0, 1, 0, 3,
-    24, 73, 78, 73, 84, 32, 86, 79, 73, 67, 69, 63
-  };
+      99, 99, 99, 99, 99, 99, 99, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 1, 0, 7, 99, 99, 99,
+      99, 99, 99, 99, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 1, 0, 7, 99, 99, 99, 99, 99, 99,
+      99, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      1, 0, 7, 99, 99, 99, 99, 99, 99, 99, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 7,
+      99, 99, 99, 99, 99, 99, 99, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 1, 0, 7, 99, 99, 99,
+      99, 99, 99, 99, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 99, 0, 1, 0, 7, 99, 99, 99, 99, 50, 50,
+      50, 50, 0, 0, 1, 35, 0, 0, 0, 1, 0, 3,
+      24, 73, 78, 73, 84, 32, 86, 79, 73, 67, 69, 63
+    };
 
     public final byte[] params = new byte[156];
     public FmCore core; // set by engine
@@ -128,7 +128,7 @@ public class Dx7Voice {
     public int randomDetune;
     public int pitchMod;
     public int egMod = 127;
-    public int lfoPhase;   // Q32
+    public int lfoPhase; // Q32
     public int lfoDelta;
     public int lfoValue;
 
@@ -176,7 +176,9 @@ public class Dx7Voice {
 
   public static class Dx7Env {
     static final int SR_MULTIPLIER = 1 << 24;
-    static final int[] LEVEL_LUT = {0, 5, 9, 13, 17, 20, 23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 42, 43, 45, 46};
+    static final int[] LEVEL_LUT = {
+      0, 5, 9, 13, 17, 20, 23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 42, 43, 45, 46
+    };
     static final int[] STATICS = {
       1764000, 1764000, 1411200, 1411200, 1190700, 1014300, 992250, 882000,
       705600, 705600, 584325, 507150, 502740, 441000, 418950, 352800,
@@ -190,7 +192,7 @@ public class Dx7Voice {
       573, 573, 529, 441, 441,
     };
 
-    int level;      // Q24
+    int level; // Q24
     int targetLevel;
     int ix;
     int inc;
@@ -273,8 +275,7 @@ public class Dx7Voice {
         if (targetLevel == level || (ix == 0 && newlevel == 0)) {
           int staticrate = (patch[opOff + 4 + ix] & 0xFF) + rateScaling + extraRate;
           if (staticrate > 99) staticrate = 99;
-          staticCount = staticrate < STATICS.length
-              ? STATICS[staticrate] : 20 * (99 - staticrate);
+          staticCount = staticrate < STATICS.length ? STATICS[staticrate] : 20 * (99 - staticrate);
           if (staticrate < STATICS.length && ix == 0 && newlevel == 0) {
             staticCount /= 20;
           }
@@ -301,9 +302,13 @@ public class Dx7Voice {
     }
 
     public void transfer(Dx7Env src) {
-      level = src.level; targetLevel = src.targetLevel;
-      rising = src.rising; ix = src.ix; down = src.down;
-      staticCount = src.staticCount; inc = src.inc;
+      level = src.level;
+      targetLevel = src.targetLevel;
+      rising = src.rising;
+      ix = src.ix;
+      down = src.down;
+      staticCount = src.staticCount;
+      inc = src.inc;
     }
   }
 
@@ -313,21 +318,18 @@ public class Dx7Voice {
 
   public static class PitchEnv {
     static final int[] RATE = {
-      1, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11,
-      12, 12, 13, 13, 14, 14, 15, 16, 16, 17, 18, 18, 19, 20, 21, 22, 23,
-      24, 25, 26, 27, 28, 30, 31, 33, 34, 36, 37, 38, 39, 41, 42, 44, 46,
-      47, 49, 51, 53, 54, 56, 58, 60, 62, 64, 66, 68, 70, 72, 74, 76, 79,
-      82, 85, 88, 91, 94, 98, 102, 106, 110, 115, 120, 125, 130, 135, 141,
-      147, 153, 159, 165, 171, 178, 185, 193, 202, 211, 232, 243, 254, 255,
+      1, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15,
+      16, 16, 17, 18, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 30, 31, 33, 34, 36, 37, 38, 39,
+      41, 42, 44, 46, 47, 49, 51, 53, 54, 56, 58, 60, 62, 64, 66, 68, 70, 72, 74, 76, 79, 82, 85,
+      88, 91, 94, 98, 102, 106, 110, 115, 120, 125, 130, 135, 141, 147, 153, 159, 165, 171, 178,
+      185, 193, 202, 211, 232, 243, 254, 255,
     };
     static final int[] TAB = {
-      -128, -116, -104, -95, -85, -76, -68, -61, -56, -52, -49, -46, -43, -41,
-      -39, -37, -35, -33, -32, -31, -30, -29, -28, -27, -26, -25, -24, -23,
-      -22, -21, -20, -19, -18, -17, -16, -15, -14, -13, -12, -11, -10, -9,
-      -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8,
-      9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
-      25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 38, 40, 43, 46, 49,
-      53, 58, 65, 73, 82, 92, 103, 115, 127,
+      -128, -116, -104, -95, -85, -76, -68, -61, -56, -52, -49, -46, -43, -41, -39, -37, -35, -33,
+      -32, -31, -30, -29, -28, -27, -26, -25, -24, -23, -22, -21, -20, -19, -18, -17, -16, -15, -14,
+      -13, -12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+      12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34,
+      35, 38, 40, 43, 46, 49, 53, 58, 65, 73, 82, 92, 103, 115, 127,
     };
     static int UNIT = (int) ((1 << 24) / (21.3 * 44100.0) + 0.5);
 
@@ -350,10 +352,16 @@ public class Dx7Voice {
       if (ix < 3 || ((ix < 4) && !down)) {
         if (rising) {
           level += n * inc;
-          if (level >= targetLevel) { level = targetLevel; advance(patch, off, ix + 1); }
+          if (level >= targetLevel) {
+            level = targetLevel;
+            advance(patch, off, ix + 1);
+          }
         } else {
           level -= n * inc;
-          if (level <= targetLevel) { level = targetLevel; advance(patch, off, ix + 1); }
+          if (level <= targetLevel) {
+            level = targetLevel;
+            advance(patch, off, ix + 1);
+          }
         }
       }
       return level;
@@ -361,7 +369,10 @@ public class Dx7Voice {
 
     /** keydown (pitchenv.cpp:65-70) */
     public void keydown(byte[] patch, int off, boolean d) {
-      if (down != d) { down = d; advance(patch, off, d ? 0 : 3); }
+      if (down != d) {
+        down = d;
+        advance(patch, off, d ? 0 : 3);
+      }
     }
 
     /** advance (pitchenv.cpp:72-80) */
@@ -375,7 +386,9 @@ public class Dx7Voice {
       }
     }
 
-    public boolean isDown() { return down; }
+    public boolean isDown() {
+      return down;
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -390,7 +403,7 @@ public class Dx7Voice {
   final int[] fbBuf = new int[2];
   int delayState, delayInc, delayInc2;
   final short[] detunePerVoice = new short[6];
-  byte[] patch;     // raw 156-byte patch
+  byte[] patch; // raw 156-byte patch
   int randomDetuneScale;
   int lastVelocity;
   public Dx7Voice nextUnassigned;
@@ -411,9 +424,14 @@ public class Dx7Voice {
       int off = op * 21;
       int outlevel = patch[off + 16] & 0xFF;
       outlevel = Dx7Env.scaleOutlevel(outlevel);
-      int levelScaling = scaleLevel(midinote, patch[off + 8] & 0xFF,
-          patch[off + 9] & 0xFF, patch[off + 10] & 0xFF,
-          patch[off + 11] & 0xFF, patch[off + 12] & 0xFF);
+      int levelScaling =
+          scaleLevel(
+              midinote,
+              patch[off + 8] & 0xFF,
+              patch[off + 9] & 0xFF,
+              patch[off + 10] & 0xFF,
+              patch[off + 11] & 0xFF,
+              patch[off + 12] & 0xFF);
       outlevel += levelScaling;
       if (outlevel > 127) outlevel = 127;
       outlevel = outlevel << 5;
@@ -435,11 +453,14 @@ public class Dx7Voice {
     if ((patch[141] & 0xFF) != 0) {
       newp.lfoPhase = -1; // (1U<<31)-1
     }
-    if ((patch[136] & 0xFF) != 0) oscSync(); else oscUnSync();
+    if ((patch[136] & 0xFF) != 0) oscSync();
+    else oscUnSync();
 
     int a = 99 - (patch[138] & 0xFF);
-    if (a == 99) { delayInc = -1; delayInc2 = -1; }
-    else {
+    if (a == 99) {
+      delayInc = -1;
+      delayInc2 = -1;
+    } else {
       a = (16 + (a & 15)) << (1 + (a >> 4));
       delayInc = DxPatch.LFO_UNIT * a;
       a &= 0xFF80;
@@ -479,7 +500,8 @@ public class Dx7Voice {
   }
 
   // compute (dx7note.cpp:308-394)
-  public boolean compute(int[] buf, int n, int basePitchIn, DxPatch ctrls, int ampMod, int velMod, int rateMod) {
+  public boolean compute(
+      int[] buf, int n, int basePitchIn, DxPatch ctrls, int ampMod, int velMod, int rateMod) {
     int lfoDelay = getDelay(n);
     int lfoVal = ctrls.lfoValue;
 
@@ -546,7 +568,8 @@ public class Dx7Voice {
     for (int op = 0; op < 6; op++) {
       phase[op] = params[op].phase;
       gainOut[op] = params[op].gain_out;
-      if (Integer.compareUnsigned(params[op].gain_out, FmCore.K_GAIN_LEVEL_THRESH) >= 0) anyActive = true;
+      if (Integer.compareUnsigned(params[op].gain_out, FmCore.K_GAIN_LEVEL_THRESH) >= 0)
+        anyActive = true;
     }
     return pitchEnv.isDown() || anyActive;
   }
@@ -571,9 +594,14 @@ public class Dx7Voice {
   public void updateBasePitches(int logFreqForDetune) {
     for (int op = 0; op < 6; op++) {
       int off = op * 21;
-      basePitch[op] = oscFreq(logFreqForDetune,
-          patch[off + 17] & 0xFF, patch[off + 18] & 0xFF, patch[off + 19] & 0xFF,
-          patch[off + 20] & 0xFF, detunePerVoice[op]);
+      basePitch[op] =
+          oscFreq(
+              logFreqForDetune,
+              patch[off + 17] & 0xFF,
+              patch[off + 18] & 0xFF,
+              patch[off + 19] & 0xFF,
+              patch[off + 20] & 0xFF,
+              detunePerVoice[op]);
     }
   }
 
@@ -585,14 +613,24 @@ public class Dx7Voice {
     int velocity = lastVelocity;
     for (int op = 0; op < 6; op++) {
       int off = op * 21;
-      basePitch[op] = oscFreq(logFreq, patch[off + 17] & 0xFF,
-          patch[off + 18] & 0xFF, patch[off + 19] & 0xFF,
-          patch[off + 20] & 0xFF, detunePerVoice[op]);
+      basePitch[op] =
+          oscFreq(
+              logFreq,
+              patch[off + 17] & 0xFF,
+              patch[off + 18] & 0xFF,
+              patch[off + 19] & 0xFF,
+              patch[off + 20] & 0xFF,
+              detunePerVoice[op]);
       int outlevel = patch[off + 16] & 0xFF;
       outlevel = Dx7Env.scaleOutlevel(outlevel);
-      int levelScaling = scaleLevel(midinote, patch[off + 8] & 0xFF,
-          patch[off + 9] & 0xFF, patch[off + 10] & 0xFF,
-          patch[off + 11] & 0xFF, patch[off + 12] & 0xFF);
+      int levelScaling =
+          scaleLevel(
+              midinote,
+              patch[off + 8] & 0xFF,
+              patch[off + 9] & 0xFF,
+              patch[off + 10] & 0xFF,
+              patch[off + 11] & 0xFF,
+              patch[off + 12] & 0xFF);
       outlevel += levelScaling;
       if (outlevel > 127) outlevel = 127;
       outlevel = outlevel << 5;
@@ -605,19 +643,30 @@ public class Dx7Voice {
 
   public void transferState(Dx7Voice src) {
     for (int i = 0; i < 6; i++) {
-      env[i].transfer(src.env[i]); gainOut[i] = src.gainOut[i]; phase[i] = src.phase[i];
+      env[i].transfer(src.env[i]);
+      gainOut[i] = src.gainOut[i];
+      phase[i] = src.phase[i];
     }
   }
 
   public void transferSignal(Dx7Voice src) {
-    for (int i = 0; i < 6; i++) { gainOut[i] = src.gainOut[i]; phase[i] = src.phase[i]; }
+    for (int i = 0; i < 6; i++) {
+      gainOut[i] = src.gainOut[i];
+      phase[i] = src.phase[i];
+    }
   }
 
   public void oscSync() {
-    for (int i = 0; i < 6; i++) { gainOut[i] = 0; phase[i] = 0; }
+    for (int i = 0; i < 6; i++) {
+      gainOut[i] = 0;
+      phase[i] = 0;
+    }
   }
 
   public void oscUnSync() {
-    for (int i = 0; i < 6; i++) { gainOut[i] = 0; phase[i] = Functions.getNoise(); }
+    for (int i = 0; i < 6; i++) {
+      gainOut[i] = 0;
+      phase[i] = Functions.getNoise();
+    }
   }
 }

@@ -35,8 +35,7 @@ public class Dx7VoiceTest {
     long sum = 0;
     for (int v : buf) sum += (long) v * v;
     double rms = Math.sqrt(sum / 128.0) / 2147483648.0;
-    assertTrue(sum > 0,
-        "FmCore should produce output with max-level params, RMS=" + rms);
+    assertTrue(sum > 0, "FmCore should produce output with max-level params, RMS=" + rms);
   }
 
   @Test
@@ -55,8 +54,8 @@ public class Dx7VoiceTest {
   public void dx7AlgorithmsTableHas32Entries() {
     assertEquals(32, FmCore.ALGORITHMS.length);
     for (int i = 0; i < 32; i++) {
-      assertEquals(6, FmCore.ALGORITHMS[i].length,
-          "algorithm " + (i + 1) + " should have 6 operators");
+      assertEquals(
+          6, FmCore.ALGORITHMS[i].length, "algorithm " + (i + 1) + " should have 6 operators");
     }
   }
 
@@ -64,7 +63,8 @@ public class Dx7VoiceTest {
   @Test
   public void dx7PatchProducesOutputDifferentFromSine() {
     // A real 156-byte DX7 voice (extracted from SONGS/Dx7C.xml).
-    String hex = "631E1E1E630000000000000000000003630001000763461E1E63000000000000000000000552000E000800000000000000000000000000000000000001000700000000000000000000000000000000000001000700000000000000000000000000000000000001000700000000000000000000000000000000000001000763636363323232320400012300000001000118464D2042454C4C20202003";
+    String hex =
+        "631E1E1E630000000000000000000003630001000763461E1E63000000000000000000000552000E000800000000000000000000000000000000000001000700000000000000000000000000000000000001000700000000000000000000000000000000000001000700000000000000000000000000000000000001000763636363323232320400012300000001000118464D2042454C4C20202003";
     byte[] patchBytes = new byte[156];
     for (int i = 0; i < 156; i++) {
       patchBytes[i] = (byte) Integer.parseInt(hex.substring(i * 2, i * 2 + 2), 16);
@@ -79,11 +79,15 @@ public class Dx7VoiceTest {
     int[] buf = new int[128];
     voice.compute(buf, 128, dxNoteToFreq(60), patch, 0, 0, 0);
 
-    long sum = 0; long peak = 0;
-    for (int v : buf) { sum += (long) v * v; long a = Math.abs((long) v); if (a > peak) peak = a; }
+    long sum = 0;
+    long peak = 0;
+    for (int v : buf) {
+      sum += (long) v * v;
+      long a = Math.abs((long) v);
+      if (a > peak) peak = a;
+    }
     double rms = Math.sqrt(sum / 128.0) / 2147483648.0;
-    assertTrue(sum > 0,
-        "DX7 patch should produce non-silent output, peak=" + peak + " rms=" + rms);
+    assertTrue(sum > 0, "DX7 patch should produce non-silent output, peak=" + peak + " rms=" + rms);
   }
 
   static int dxNoteToFreq(int note) {

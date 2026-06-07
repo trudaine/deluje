@@ -1,9 +1,9 @@
 package org.chuck.deluge.firmware2;
 
 /**
- * Faithful line-by-line port of {@code ladder_components.h} BasicFilterComponent.
- * A one-pole low-pass filter stage used as a building block in the ladder and SVF filters.
- * {@code moveability = tan(f)/(1+tan(f))} — the filter coefficient, range 0 to ~1.0.
+ * Faithful line-by-line port of {@code ladder_components.h} BasicFilterComponent. A one-pole
+ * low-pass filter stage used as a building block in the ladder and SVF filters. {@code moveability
+ * = tan(f)/(1+tan(f))} — the filter coefficient, range 0 to ~1.0.
  */
 public class BasicFilterComponent {
 
@@ -14,10 +14,7 @@ public class BasicFilterComponent {
     reset();
   }
 
-  /**
-   * doFilter — one-pole low-pass.
-   * (ladder_components.h:27-31)
-   */
+  /** doFilter — one-pole low-pass. (ladder_components.h:27-31) */
   public int doFilter(int input, int moveability) {
     // q31_t a = multiply_32x32_rshift32_rounded(input - memory, moveability) << 1;
     int a = Functions.multiply_32x32_rshift32_rounded(input - memory, moveability) << 1;
@@ -29,10 +26,7 @@ public class BasicFilterComponent {
     return b;
   }
 
-  /**
-   * doAPF — one-pole all-pass filter.
-   * (ladder_components.h:33-37)
-   */
+  /** doAPF — one-pole all-pass filter. (ladder_components.h:33-37) */
   public int doAPF(int input, int moveability) {
     // q31_t a = multiply_32x32_rshift32_rounded(input - memory, moveability) << 1;
     int a = Functions.multiply_32x32_rshift32_rounded(input - memory, moveability) << 1;
@@ -44,10 +38,7 @@ public class BasicFilterComponent {
     return b * 2 - input;
   }
 
-  /**
-   * affectFilter — feed a sample into the filter with no output.
-   * (ladder_components.h:39-40)
-   */
+  /** affectFilter — feed a sample into the filter with no output. (ladder_components.h:39-40) */
   public void affectFilter(int input, int moveability) {
     // memory += multiply_32x32_rshift32_rounded(input - memory, moveability) << 2;
     memory += Functions.multiply_32x32_rshift32_rounded(input - memory, moveability) << 2;
@@ -67,10 +58,7 @@ public class BasicFilterComponent {
     return Functions.multiply_32x32_rshift32_rounded(memory, feedbackAmount) << 2;
   }
 
-  /**
-   * getFeedbackOutputWithoutLshift — raw feedback.
-   * (ladder_components.h:46-47)
-   */
+  /** getFeedbackOutputWithoutLshift — raw feedback. (ladder_components.h:46-47) */
   public int getFeedbackOutputWithoutLshift(int feedbackAmount) {
     // return multiply_32x32_rshift32_rounded(memory, feedbackAmount);
     return Functions.multiply_32x32_rshift32_rounded(memory, feedbackAmount);

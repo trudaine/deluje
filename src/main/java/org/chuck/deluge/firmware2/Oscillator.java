@@ -1,10 +1,9 @@
 package org.chuck.deluge.firmware2;
 
 /**
- * Faithful line-by-line port of the Deluge {@code oscillator.cpp} Oscillator::renderOsc.
- * Covers all waveform types: SAW, SQUARE, SINE, TRIANGLE, ANALOG_SAW_2, ANALOG_SQUARE,
- * WAVETABLE, and SAMPLE.  SIMD operations (vld1q_s32 etc.) are replaced with equivalent
- * scalar loops.
+ * Faithful line-by-line port of the Deluge {@code oscillator.cpp} Oscillator::renderOsc. Covers all
+ * waveform types: SAW, SQUARE, SINE, TRIANGLE, ANALOG_SAW_2, ANALOG_SQUARE, WAVETABLE, and SAMPLE.
+ * SIMD operations (vld1q_s32 etc.) are replaced with equivalent scalar loops.
  *
  * <p>Firmware reference: {@code src/deluge/dsp/oscillators/oscillator.cpp} lines 28-509.
  */
@@ -14,15 +13,20 @@ public final class Oscillator {
 
   /** Waveform type, matching the firmware OscType enum. */
   public enum OscType {
-    SINE, TRIANGLE, SAW, SQUARE, ANALOG_SAW_2, ANALOG_SQUARE, WAVETABLE, SAMPLE
+    SINE,
+    TRIANGLE,
+    SAW,
+    SQUARE,
+    ANALOG_SAW_2,
+    ANALOG_SQUARE,
+    WAVETABLE,
+    SAMPLE
   }
 
   // ── Helper: getTableNumber (port of dsp::getTableNumber) ──
   // Maps a phase increment to a band-limited table index + size magnitude.
 
-  /**
-   * Port of dsp::getTableNumber. Returns [tableNumber, tableSizeMagnitude].
-   */
+  /** Port of dsp::getTableNumber. Returns [tableNumber, tableSizeMagnitude]. */
   public static int[] getTableNumber(int phaseIncrement) {
     int magnitude = 31 - Integer.numberOfLeadingZeros(phaseIncrement);
     // Table number 0-31; size 6-8 depending on increment
@@ -35,42 +39,35 @@ public final class Oscillator {
     } else {
       tableSizeMagnitude = 8; // large tables
     }
-    return new int[]{tableNumber, tableSizeMagnitude};
+    return new int[] {tableNumber, tableSizeMagnitude};
   }
 
-  /**
-   * Port of getSquare(phase, pulseWidth) — returns full-scale Q31 square wave.
-   */
+  /** Port of getSquare(phase, pulseWidth) — returns full-scale Q31 square wave. */
   public static int getSquare(int phase, int pulseWidth) {
-    return (int) (phase + (long) pulseWidth) < 0 ? Functions.ONE_Q31 : Functions.NEGATIVE_ONE_Q31;
+    return (Integer.compareUnsigned(phase, pulseWidth) >= 0)
+        ? Functions.NEGATIVE_ONE_Q31
+        : Functions.ONE_Q31;
   }
 
-  /**
-   * Port of getSquareSmall — returns half-scale for fixed-amplitude rendering.
-   */
+  /** Port of getSquareSmall — returns half-scale for fixed-amplitude rendering. */
   public static int getSquareSmall(int phase, int pulseWidth) {
-    return (int) (phase + (long) pulseWidth) < 0 ? Functions.ONE_Q31 >> 1 : Functions.NEGATIVE_ONE_Q31 >> 1;
+    return (Integer.compareUnsigned(phase, pulseWidth) >= 0) ? -1073741824 : 1073741823;
   }
 
-  /**
-   * Port of getTriangleSmall — 4-segment triangle wave from phase.
-   */
+  /** Port of getTriangleSmall — 4-segment triangle wave from phase. */
   public static int getTriangleSmall(int phase) {
     int p = phase;
     if (p < 0) {
-      return Functions.NEGATIVE_ONE_Q31 + (p << 1);
-    } else {
-      return Functions.ONE_Q31 - (p << 1);
+      p = -p;
     }
+    return p - 1073741824;
   }
 
   // ── Crude saw (no table) — port of renderCrudeSawWave* ──
 
-  /**
-   * Port of renderCrudeSawWaveWithAmplitude.  Crude aliasing saw, accumulating.
-   */
-  public static void renderCrudeSawWithAmp(int[] buf, int off, int n,
-      int[] phaseOut, int phaseInc, int amp, int ampInc) {
+  /** Port of renderCrudeSawWaveWithAmplitude. Crude aliasing saw, accumulating. */
+  public static void renderCrudeSawWithAmp(
+      int[] buf, int off, int n, int[] phaseOut, int phaseInc, int amp, int ampInc) {
     int p = phaseOut[0];
     int a = amp;
     for (int i = 0; i < n; i++) {
@@ -81,11 +78,8 @@ public final class Oscillator {
     phaseOut[0] = p;
   }
 
-  /**
-   * Port of renderCrudeSawWaveWithoutAmplitude.  Crude saw, overwriting.
-   */
-  public static void renderCrudeSawNoAmp(int[] buf, int off, int n,
-      int[] phaseOut, int phaseInc) {
+  /** Port of renderCrudeSawWaveWithoutAmplitude. Crude saw, overwriting. */
+  public static void renderCrudeSawNoAmp(int[] buf, int off, int n, int[] phaseOut, int phaseInc) {
     int p = phaseOut[0];
     for (int i = 0; i < n; i++) {
       p += phaseInc;
@@ -96,36 +90,100 @@ public final class Oscillator {
 
   // ── MaybeStorePhase (oscillator.cpp:530-534) ──
 
-  private static void maybeStorePhase(OscType type, int[] startPhase, int phase, boolean doPulseWave) {
+  private static void maybeStorePhase(
+      OscType type, int[] startPhase, int phase, boolean doPulseWave) {
     if (!(doPulseWave && type != OscType.SQUARE)) {
       startPhase[0] = phase;
     }
   }
 
+  /**
+   * Port of basic_waves.cpp renderWave + processing/vector_rendering_function.h
+   * waveRenderingFunctionGeneral (scalar). Band-limited wavetable oscillator with linear
+   * interpolation. Returns the updated 32-bit phase.
+   */
+  static int renderWave(
+      short[] table,
+      int tableSizeMagnitude,
+      int amplitude,
+      int[] outputBuffer,
+      int offset,
+      int numSamples,
+      int phaseIncrement,
+      int phase,
+      boolean applyAmplitude,
+      int phaseToAdd,
+      int amplitudeIncrement) {
+    int currentPhase = phase;
+    int currentAmplitude = amplitude;
+    for (int i = 0; i < numSamples; i++) {
+      currentPhase += phaseIncrement;
+      int p = currentPhase + phaseToAdd;
+
+      int whichValue = p >>> (32 - tableSizeMagnitude);
+      long v1 = table[whichValue]; // signed int16, sign-extended
+      long v2 = table[whichValue + 1];
+
+      // 16-bit interpolation fraction (waveRenderingFunctionGeneral: strength2)
+      long frac = (p >>> (32 - 16 - tableSizeMagnitude)) & 0xFFFF;
+      long v1_32 = v1 << 16;
+      long interpolatedDiff = (((v2 << 16) - v1_32) * frac) >> 16;
+      int val = (int) (v1_32 + interpolatedDiff);
+
+      int wet = val;
+      if (applyAmplitude) {
+        currentAmplitude += amplitudeIncrement;
+        // vqdmulhq_s32(amplitude, val) == saturating (amplitude*val) >> 31
+        wet = (int) (((long) currentAmplitude * val) >> 31);
+      }
+      outputBuffer[offset + i] = Functions.add_saturate(outputBuffer[offset + i], wet);
+    }
+    return currentPhase;
+  }
+
   // ── renderOsc main entry point (oscillator.cpp:28-509) ──
 
   /**
-   * Port of Oscillator::renderOsc.  Renders one waveform into a buffer.
+   * Port of Oscillator::renderOsc. Renders one waveform into a buffer.
    *
-   * @param type              waveform type
-   * @param amplitude         Q31 amplitude (applied per sample when applyAmplitude is true)
-   * @param buffer            output buffer (accumulated or overwritten)
-   * @param off               offset into buffer
-   * @param numSamples        number of samples to render
-   * @param phaseIncrement    per-sample phase advance (32-bit)
-   * @param pulseWidth        pulse width for square waves (0 = 50%)
-   * @param startPhase        [in/out] initial phase, updated in-place
-   * @param applyAmplitude    if true, multiply by amplitude and accumulate
+   * @param type waveform type
+   * @param amplitude Q31 amplitude (applied per sample when applyAmplitude is true)
+   * @param buffer output buffer (accumulated or overwritten)
+   * @param off offset into buffer
+   * @param numSamples number of samples to render
+   * @param phaseIncrement per-sample phase advance (32-bit)
+   * @param pulseWidth pulse width for square waves (0 = 50%)
+   * @param startPhase [in/out] initial phase, updated in-place
+   * @param applyAmplitude if true, multiply by amplitude and accumulate
    * @param amplitudeIncrement amplitude ramp per sample
-   * @param doOscSync         oscillator hard sync enabled
-   * @param resetterPhase     sync resetter phase
-   * @param resetterPhaseInc  sync resetter phase increment
-   * @param retriggerPhase    retrigger offset
+   * @param doOscSync oscillator hard sync enabled
+   * @param resetterPhase sync resetter phase
+   * @param resetterPhaseInc sync resetter phase increment
+   * @param retriggerPhase retrigger offset
    */
-  public static void renderOsc(OscType type, int amplitude, int[] buffer, int off, int numSamples,
-      int phaseIncrement, int pulseWidth, int[] startPhase, boolean applyAmplitude,
-      int amplitudeIncrement, boolean doOscSync, int resetterPhase, int resetterPhaseInc,
+  public static void renderOsc(
+      OscType type,
+      int amplitude,
+      int[] buffer,
+      int off,
+      int numSamples,
+      int phaseIncrement,
+      int pulseWidth,
+      int[] startPhase,
+      boolean applyAmplitude,
+      int amplitudeIncrement,
+      boolean doOscSync,
+      int resetterPhase,
+      int resetterPhaseInc,
       int retriggerPhase) {
+
+    // Fallback analog modeling types to standard band-limited digital types
+    // due to lack of analogSawTables/analogSquareTables binary data in resources.
+    if (type == OscType.ANALOG_SAW_2) {
+      type = OscType.SAW;
+    } else if (type == OscType.ANALOG_SQUARE) {
+      type = OscType.SQUARE;
+    }
 
     // uint32_t phase = *startPhase;  // line 36
     int phase = startPhase[0];
@@ -159,12 +217,7 @@ public final class Oscillator {
       tableNumber = tn[0];
       tableSizeMagnitude = tn[1];
 
-      // ANALOG_SAW_2 -> may fall back to SAW (lines 71-77)
-      if (type == OscType.ANALOG_SAW_2) {
-        if (tableNumber >= 8 && tableNumber < 6) { // cpuDireness + 6 where cpuDireness=0
-          type = OscType.SAW;
-        }
-      } else if (type == OscType.SAW) {
+      if (type == OscType.SAW) {
         retriggerPhase += -2147483648; // 2147483648u
       }
     }
@@ -184,18 +237,25 @@ public final class Oscillator {
             rtpDiv -= 1L << 62;
           }
           phase = (int) (rtpDiv / (((pwAbs & 0xFFFFFFFFL) + 0x80000000L) >>> 1));
-          phaseIncrement = (int) ((((long) phaseIncrement & 0xFFFFFFFFL) << 31)
-              / (((pwAbs & 0xFFFFFFFFL) + 0x80000000L) >>> 1));
+          phaseIncrement =
+              (int)
+                  ((((long) phaseIncrement & 0xFFFFFFFFL) << 31)
+                      / (((pwAbs & 0xFFFFFFFFL) + 0x80000000L) >>> 1));
         } else {
-          if (type == OscType.SAW) { resetterPhase += -2147483648; }
-          else if (type == OscType.SINE) { resetterPhase -= -1073741824; }
+          if (type == OscType.SAW) {
+            resetterPhase += -2147483648;
+          } else if (type == OscType.SINE) {
+            resetterPhase -= -1073741824;
+          }
           int rtpMul = resetterPhase >> 1;
           if (Integer.compareUnsigned(resetterPhase, -(resetterPhaseInc >>> 1)) >= 0) {
             rtpMul -= 1 << 31;
           }
           phase = Functions.multiply_32x32_rshift32_rounded((pwAbs >> 1) + 1073741824, rtpMul) << 3;
-          phaseIncrement = Functions.multiply_32x32_rshift32_rounded(
-              (pwAbs >> 1) + 1073741824, phaseIncrement >>> 1) << 3;
+          phaseIncrement =
+              Functions.multiply_32x32_rshift32_rounded(
+                      (pwAbs >> 1) + 1073741824, phaseIncrement >>> 1)
+                  << 3;
         }
         phase += retriggerPhase;
         doOscSync = true; // proceed to osc sync setup below
@@ -204,8 +264,8 @@ public final class Oscillator {
 
     // Osc sync setup (lines 136-144)
     if (doOscSync) {
-      resetterDivideByPhaseIncrement = (int) (0x80000000L
-          / (((resetterPhaseInc & 0xFFFF0000L) + 65536) >>> 16));
+      resetterDivideByPhaseIncrement =
+          (int) (0x80000000L / (((resetterPhaseInc & 0xFFFF0000L) + 65536) >>> 16));
     }
 
     // ── SINE (line 147-151) ──
@@ -218,8 +278,8 @@ public final class Oscillator {
         a += ampInc2;
         int sample = SineOsc.doFMNew(phase, 0);
         if (applyAmplitude) {
-          buffer[off + i] = Functions.multiply_accumulate_32x32_rshift32_rounded(
-              buffer[off + i], sample, a);
+          buffer[off + i] =
+              Functions.multiply_accumulate_32x32_rshift32_rounded(buffer[off + i], sample, a);
         } else {
           buffer[off + i] = sample << 1;
         }
@@ -239,8 +299,8 @@ public final class Oscillator {
           ampNow += ampInc2;
           int val = getTriangleSmall(phase);
           if (applyAmplitude) {
-            buffer[off + i] = Functions.multiply_accumulate_32x32_rshift32_rounded(
-                buffer[off + i], val, ampNow);
+            buffer[off + i] =
+                Functions.multiply_accumulate_32x32_rshift32_rounded(buffer[off + i], val, ampNow);
           } else {
             buffer[off + i] = val << 1;
           }
@@ -248,9 +308,40 @@ public final class Oscillator {
         maybeStorePhase(type, startPhase, phase, doPulseWave);
         return;
       }
-      // High freq: fall through to band-limited table rendering
-      tableSizeMagnitude = (Integer.compareUnsigned(phaseIncrement, 429496729) < 0) ? 7 : 6;
-      // Simplified: use basic triangle table. Full fidelity needs the anti-aliasing tables.
+      // High freq: anti-aliasing tables lookup (lines 235-263)
+      short[] table;
+      if (Integer.compareUnsigned(phaseIncrement, 429496729) <= 0) {
+        tableSizeMagnitude = 7;
+        if (Integer.compareUnsigned(phaseIncrement, 102261126) <= 0) {
+          table = TriangleLookupTables.triangleWaveAntiAliasing21;
+        } else if (Integer.compareUnsigned(phaseIncrement, 143165576) <= 0) {
+          table = TriangleLookupTables.triangleWaveAntiAliasing15;
+        } else if (Integer.compareUnsigned(phaseIncrement, 238609294) <= 0) {
+          table = TriangleLookupTables.triangleWaveAntiAliasing9;
+        } else {
+          table = TriangleLookupTables.triangleWaveAntiAliasing5;
+        }
+      } else {
+        tableSizeMagnitude = 6;
+        if (Integer.compareUnsigned(phaseIncrement, 715827882) <= 0) {
+          table = TriangleLookupTables.triangleWaveAntiAliasing3;
+        } else {
+          table = TriangleLookupTables.triangleWaveAntiAliasing1;
+        }
+      }
+      phase =
+          renderWave(
+              table,
+              tableSizeMagnitude,
+              amplitude,
+              buffer,
+              off,
+              numSamples,
+              phaseIncrement,
+              phase,
+              applyAmplitude,
+              0,
+              amplitudeIncrement);
       maybeStorePhase(type, startPhase, phase, doPulseWave);
       return;
     }
@@ -260,10 +351,16 @@ public final class Oscillator {
       if (tableNumber < 6) { // cpuDireness + 6 where cpuDireness=0
         if (!doOscSync) {
           if (applyAmplitude) {
-            renderCrudeSawWithAmp(buffer, off, numSamples, new int[]{phase}, phaseIncrement,
-                amplitude, amplitudeIncrement);
+            renderCrudeSawWithAmp(
+                buffer,
+                off,
+                numSamples,
+                new int[] {phase},
+                phaseIncrement,
+                amplitude,
+                amplitudeIncrement);
           } else {
-            renderCrudeSawNoAmp(buffer, off, numSamples, new int[]{phase}, phaseIncrement);
+            renderCrudeSawNoAmp(buffer, off, numSamples, new int[] {phase}, phaseIncrement);
           }
           return;
         }
@@ -274,14 +371,19 @@ public final class Oscillator {
           phase += phaseIncrement;
           rstPhase += resetterPhaseInc;
           if (Integer.compareUnsigned(rstPhase, resetterPhaseInc) < 0) {
-            phase = (Functions.multiply_32x32_rshift32(
-                Functions.multiply_32x32_rshift32(rstPhase, phaseIncrement),
-                resetterDivideByPhaseIncrement) << 17) + 1 + retriggerPhase;
+            phase =
+                (Functions.multiply_32x32_rshift32(
+                            Functions.multiply_32x32_rshift32(rstPhase, phaseIncrement),
+                            resetterDivideByPhaseIncrement)
+                        << 17)
+                    + 1
+                    + retriggerPhase;
           }
           ampNow += amplitudeIncrement;
           if (applyAmplitude) {
-            buffer[off + i] = Functions.multiply_accumulate_32x32_rshift32_rounded(
-                buffer[off + i], phase, ampNow);
+            buffer[off + i] =
+                Functions.multiply_accumulate_32x32_rshift32_rounded(
+                    buffer[off + i], phase, ampNow);
           } else {
             buffer[off + i] = phase >> 1;
           }
@@ -289,23 +391,24 @@ public final class Oscillator {
         maybeStorePhase(type, startPhase, phase, doPulseWave);
         return;
       }
-      // Band-limited saw rendering: call renderWave equivalent
-      int ampNow = amplitude << 1;
-      int ampInc2 = amplitudeIncrement << 1;
-      int a = ampNow;
-      for (int i = 0; i < numSamples; i++) {
-        phase += phaseIncrement;
-        a += ampInc2;
-        int sample = (phase >>> (32 - tableSizeMagnitude)) & ((1 << tableSizeMagnitude) - 1);
-        // Simplified band-limited saw — full port needs sawTables lookup
-        sample = (phase << 1); // fallback crude
-        if (applyAmplitude) {
-          buffer[off + i] = Functions.multiply_accumulate_32x32_rshift32_rounded(
-              buffer[off + i], sample, a);
-        } else {
-          buffer[off + i] = sample;
-        }
-      }
+      // Band-limited saw: firmware renderWave (waveRenderingFunctionGeneral) over the per-band saw
+      // wavetable. Self-contained firmware2 data + interpolation.
+      short[] sawTable =
+          SawLookupTables.sawWaveTables[
+              Math.min(tableNumber, SawLookupTables.sawWaveTables.length - 1)];
+      phase =
+          renderWave(
+              sawTable,
+              tableSizeMagnitude,
+              amplitude,
+              buffer,
+              off,
+              numSamples,
+              phaseIncrement,
+              phase,
+              applyAmplitude,
+              0,
+              amplitudeIncrement);
       maybeStorePhase(type, startPhase, phase, doPulseWave);
       return;
     }
@@ -320,8 +423,8 @@ public final class Oscillator {
           a += amplitudeIncrement;
           int val = getSquareSmall(phase, pulseWidth);
           if (applyAmplitude) {
-            buffer[off + i] = Functions.multiply_accumulate_32x32_rshift32_rounded(
-                buffer[off + i], val, a);
+            buffer[off + i] =
+                Functions.multiply_accumulate_32x32_rshift32_rounded(buffer[off + i], val, a);
           } else {
             buffer[off + i] = val;
           }
@@ -329,42 +432,27 @@ public final class Oscillator {
         maybeStorePhase(type, startPhase, phase, doPulseWave);
         return;
       }
-      // Band-limited square via table as above
-      int ampNow = amplitude << 1;
-      int ampInc2 = amplitudeIncrement << 1;
-      int a = ampNow;
-      for (int i = 0; i < numSamples; i++) {
-        phase += phaseIncrement;
-        a += ampInc2;
-        int sample = getSquareSmall(phase, pulseWidth);
-        if (applyAmplitude) {
-          buffer[off + i] = Functions.multiply_accumulate_32x32_rshift32_rounded(
-              buffer[off + i], sample, a);
-        } else {
-          buffer[off + i] = sample;
-        }
-      }
+      // Band-limited square: firmware renderWave over the per-band square wavetable.
+      short[] squareTable =
+          SquareLookupTables.squareWaveTables[
+              Math.min(tableNumber, SquareLookupTables.squareWaveTables.length - 1)];
+      phase =
+          renderWave(
+              squareTable,
+              tableSizeMagnitude,
+              amplitude,
+              buffer,
+              off,
+              numSamples,
+              phaseIncrement,
+              phase,
+              applyAmplitude,
+              0,
+              amplitudeIncrement);
       maybeStorePhase(type, startPhase, phase, doPulseWave);
       return;
     }
 
-    // ── ANALOG_SAW_2 / ANALOG_SQUARE fallback — use SAW path ──
-    // Full fidelity needs analogSawTables/analogSquareTables from the firmware.
-    // For now, delegate to SAW.
-    int ampNow = amplitude << 1;
-    int ampInc2 = amplitudeIncrement << 1;
-    int a = ampNow;
-    for (int i = 0; i < numSamples; i++) {
-      phase += phaseIncrement;
-      a += ampInc2;
-      int sample = (int) phase >> 1; // crude saw fallback
-      if (applyAmplitude) {
-        buffer[off + i] = Functions.multiply_accumulate_32x32_rshift32_rounded(
-            buffer[off + i], sample, a);
-      } else {
-        buffer[off + i] = sample;
-      }
-    }
     maybeStorePhase(type, startPhase, phase, doPulseWave);
   }
 }

@@ -13,8 +13,8 @@ import org.chuck.deluge.model.SynthTrackModel;
 import org.junit.jupiter.api.Test;
 
 /**
- * Integration test: verifies firmware2/ engine wired into FirmwareSound
- * produces audio when {@code useFirmware2 = true}.
+ * Integration test: verifies firmware2/ engine wired into FirmwareSound produces audio when {@code
+ * useFirmware2 = true}.
  */
 public class Firmware2IntegrationTest {
 
@@ -33,10 +33,13 @@ public class Firmware2IntegrationTest {
 
     // Enable firmware2
     sound.useFirmware2 = true;
-    System.out.println("paramKnobs[OSC_A]=" + sound.paramKnobs[
-        org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_A_VOLUME]
-        + " knob[VOL]=" + sound.paramKnobs[org.chuck.deluge.firmware.modulation.params.Param.LOCAL_VOLUME]
-        + " knob[LPF]=" + sound.paramKnobs[org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_FREQ]);
+    System.out.println(
+        "paramKnobs[OSC_A]="
+            + sound.paramKnobs[org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_A_VOLUME]
+            + " knob[VOL]="
+            + sound.paramKnobs[org.chuck.deluge.firmware.modulation.params.Param.LOCAL_VOLUME]
+            + " knob[LPF]="
+            + sound.paramKnobs[org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_FREQ]);
 
     // Render a few blocks
     sound.triggerNote(69, 100); // A4
@@ -44,13 +47,15 @@ public class Firmware2IntegrationTest {
     for (int i = 0; i < 128; i++) buf[i] = new StereoSample();
     double sum = 0;
     for (int block = 0; block < 8; block++) {
-      for (int i = 0; i < 128; i++) { buf[i].l = 0; buf[i].r = 0; }
+      for (int i = 0; i < 128; i++) {
+        buf[i].l = 0;
+        buf[i].r = 0;
+      }
       sound.renderOutput(buf, 128, null);
       for (int i = 0; i < 128; i++) sum += (double) buf[i].l * buf[i].l;
     }
     double rms = Math.sqrt(sum / (8 * 128)) / 2147483648.0;
-    assertTrue(rms > 0.0001,
-        "firmware2 should produce audible output (rms=" + rms + ")");
+    assertTrue(rms > 0.0001, "firmware2 should produce audible output (rms=" + rms + ")");
 
     // Verify firmware2 voice was created
     assertTrue(sound.fw2Voices.size() > 0, "firmware2 voice list should be populated");
@@ -78,7 +83,10 @@ public class Firmware2IntegrationTest {
     for (int i = 0; i < 128; i++) buf[i] = new StereoSample();
     double sum = 0;
     for (int block = 0; block < 8; block++) {
-      for (int i = 0; i < 128; i++) { buf[i].l = 0; buf[i].r = 0; }
+      for (int i = 0; i < 128; i++) {
+        buf[i].l = 0;
+        buf[i].r = 0;
+      }
       sound.renderOutput(buf, 128, null);
       for (int i = 0; i < 128; i++) sum += (double) buf[i].l * buf[i].l;
     }

@@ -3,13 +3,20 @@ package org.chuck.deluge.firmware2;
 /**
  * Faithful line-by-line port of the Deluge {@code envelope.cpp} / {@code envelope.h}.
  *
- * <p>The render function is a state machine (ATTACK→DECAY→SUSTAIN→RELEASE/FAST_RELEASE→OFF).
- * It returns {@code (lastValue - 1073741824) << 1} — a BIPOLAR (centred-around-0) value used
- * for modulation. The VCA uses {@code lastValue} directly (unipolar).
+ * <p>The render function is a state machine (ATTACK→DECAY→SUSTAIN→RELEASE/FAST_RELEASE→OFF). It
+ * returns {@code (lastValue - 1073741824) << 1} — a BIPOLAR (centred-around-0) value used for
+ * modulation. The VCA uses {@code lastValue} directly (unipolar).
  */
 public class Envelope {
 
-  public enum Stage { ATTACK, DECAY, SUSTAIN, RELEASE, FAST_RELEASE, OFF }
+  public enum Stage {
+    ATTACK,
+    DECAY,
+    SUSTAIN,
+    RELEASE,
+    FAST_RELEASE,
+    OFF
+  }
 
   public Stage state = Stage.OFF;
   public int lastValue;
@@ -24,22 +31,19 @@ public class Envelope {
 
   // ── render (envelope.cpp:29-118) ──
 
-  /**
-   * Render one block of envelope.  Returns centred modulation value.
-   * (envelope.cpp:29-118)
-   */
-  public int render(int numSamples, int attack, int decay, int sustain,
-      int release, int[] releaseTable) {
+  /** Render one block of envelope. Returns centred modulation value. (envelope.cpp:29-118) */
+  public int render(
+      int numSamples, int attack, int decay, int sustain, int release, int[] releaseTable) {
     // Loop using switch with fallthrough for state transitions
-    for (;;) {
+    for (; ; ) {
       switch (state) {
         case ATTACK:
           // pos += attack * numSamples;  // (line 35)
           pos += attack * numSamples;
-          if (pos >= 8388608) {  // unsigned comparison
+          if (pos >= 8388608) { // unsigned comparison
             pos = 0;
             setState(Stage.DECAY);
-            continue;  // goto considerEnvelopeStage
+            continue; // goto considerEnvelopeStage
           }
           // lastValue = 2147483647 - getDecay4(pos, 23);  // (line 43)
           lastValue = 2147483647 - Functions.getDecay4(pos, 23);
@@ -48,66 +52,79 @@ public class Envelope {
           break;
 
         case DECAY:
-          // smoothedSustain = add_saturate(smoothedSustain, numSamples * (((int32_t)sustain - smoothedSustain) >> 9));
+          // smoothedSustain = add_saturate(smoothedSustain, numSamples * (((int32_t)sustain -
+          // smoothedSustain) >> 9));
           // (lines 57-58)
-          smoothedSustain = Functions.add_saturate(
-              smoothedSustain, numSamples * ((sustain - smoothedSustain) >> 9));
-          lastValue = smoothedSustain
-              + Functions.multiply_32x32_rshift32(
-                  Functions.getDecay8(pos, 23), 2147483647 - smoothedSustain) * 2;
+          smoothedSustain =
+              Functions.add_saturate(
+                  smoothedSustain, numSamples * ((sustain - smoothedSustain) >> 9));
+          lastValue =
+              smoothedSustain
+                  + Functions.multiply_32x32_rshift32(
+                          Functions.getDecay8(pos, 23), 2147483647 - smoothedSustain)
+                      * 2;
           // pos += decay * numSamples;  // (line 60)
           pos += decay * numSamples;
-          if (pos >= 8388608) {  // unsigned comparison
+          if (pos >= 8388608) { // unsigned comparison
             setState(Stage.SUSTAIN);
           }
           break;
 
         case SUSTAIN:
-          // smoothedSustain = add_saturate(smoothedSustain, numSamples * (((int32_t)sustain - smoothedSustain) >> 9));
+          // smoothedSustain = add_saturate(smoothedSustain, numSamples * (((int32_t)sustain -
+          // smoothedSustain) >> 9));
           // (line 69)
-          smoothedSustain = Functions.add_saturate(
-              smoothedSustain, numSamples * ((sustain - smoothedSustain) >> 9));
+          smoothedSustain =
+              Functions.add_saturate(
+                  smoothedSustain, numSamples * ((sustain - smoothedSustain) >> 9));
           lastValue = smoothedSustain;
           if (sustain == 0) {
-            setState(Stage.OFF);  // (line 73)
+            setState(Stage.OFF); // (line 73)
           } else if (ignoredNoteOff) {
-            unconditionalRelease(Stage.RELEASE, 1024);  // (lines 75-76)
+            unconditionalRelease(Stage.RELEASE, 1024); // (lines 75-76)
           }
           break;
 
         case RELEASE:
-          pos += release * numSamples;  // (line 81)
+          pos += release * numSamples; // (line 81)
           if (pos >= 8388608) {
-            setState(Stage.OFF);  // (line 83)
+            setState(Stage.OFF); // (line 83)
             lastValue = 0;
-            return -2147483648;  // (line 85)
+            return -2147483648; // (line 85)
           }
-          // lastValue = multiply_32x32_rshift32(interpolateTable(pos, 23, releaseTable), lastValuePreCurrentStage) << 1;
+          // lastValue = multiply_32x32_rshift32(interpolateTable(pos, 23, releaseTable),
+          // lastValuePreCurrentStage) << 1;
           // (line 90)
-          lastValue = Functions.multiply_32x32_rshift32(
-              Functions.interpolateTable(pos, 23, releaseTable, 8), lastValuePreCurrentStage) << 1;
+          lastValue =
+              Functions.multiply_32x32_rshift32(
+                      Functions.interpolateTable(pos, 23, releaseTable, 8),
+                      lastValuePreCurrentStage)
+                  << 1;
           break;
 
         case FAST_RELEASE:
-          // if (fastReleaseIncrement < 2 * release) { release = 2 * release; fastReleaseIncrement = release; }
+          // if (fastReleaseIncrement < 2 * release) { release = 2 * release; fastReleaseIncrement =
+          // release; }
           // (lines 94-97)
           if (fastReleaseIncrement < 2 * release) {
             release = 2 * release;
             fastReleaseIncrement = release;
           }
-          pos += fastReleaseIncrement * numSamples;  // (line 98)
+          pos += fastReleaseIncrement * numSamples; // (line 98)
           if (pos >= 8388608) {
-            setState(Stage.OFF);  // (line 100)
-            return -2147483648;  // (line 101)
+            setState(Stage.OFF); // (line 100)
+            return -2147483648; // (line 101)
           }
           // Sine-shaped fast release (lines 109-111)
-          lastValue = Functions.multiply_32x32_rshift32(
-              (Functions.getSine((pos + (8388608 >> 1)) & 16777215, 24) >> 1) + 1073741824,
-              lastValuePreCurrentStage) << 1;
+          lastValue =
+              Functions.multiply_32x32_rshift32(
+                      (Functions.getSine((pos + (8388608 >> 1)) & 16777215, 24) >> 1) + 1073741824,
+                      lastValuePreCurrentStage)
+                  << 1;
           break;
 
         default: // OFF
-          return -2147483648;  // (line 114)
+          return -2147483648; // (line 114)
       }
 
       // return (lastValue - 1073741824) << 1; // Centre the range around 0  // (line 118)
@@ -127,7 +144,7 @@ public class Envelope {
       setState(Stage.DECAY);
       lastValue = 2147483647;
     }
-    return (lastValue - 1073741824) << 1;  // Centre
+    return (lastValue - 1073741824) << 1; // Centre
   }
 
   // ── unconditionalRelease (envelope.cpp:176-185) ──
@@ -145,7 +162,7 @@ public class Envelope {
 
   public void setState(Stage newState) {
     state = newState;
-    timeEnteredState++;  // AudioEngine::nextVoiceState++ simplification
+    timeEnteredState++; // AudioEngine::nextVoiceState++ simplification
   }
 
   // ── resumeAttack (envelope.cpp:187-190) ──

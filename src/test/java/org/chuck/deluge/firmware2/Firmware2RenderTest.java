@@ -6,9 +6,8 @@ import org.chuck.deluge.firmware2.Oscillator.OscType;
 import org.junit.jupiter.api.Test;
 
 /**
- * Proof-of-concept: render audio through the firmware2/ DSP pipeline and verify
- * it produces correct output.  Uses firmware2 classes directly — no dependency on
- * the existing engine infrastructure.
+ * Proof-of-concept: render audio through the firmware2/ DSP pipeline and verify it produces correct
+ * output. Uses firmware2 classes directly — no dependency on the existing engine infrastructure.
  */
 public class Firmware2RenderTest {
 
@@ -49,9 +48,15 @@ public class Firmware2RenderTest {
     int[] blockBuf = new int[BLOCK * 2];
     for (int off = 0; off < totalSamples; off += BLOCK) {
       java.util.Arrays.fill(blockBuf, 0);
-      voice.render(blockBuf, BLOCK, 0, oscTypes,
-          FilterSet.FilterMode.TRANSISTOR_24DB, FilterSet.FilterMode.OFF,
-          0, 134217728);
+      voice.render(
+          blockBuf,
+          BLOCK,
+          0,
+          oscTypes,
+          FilterSet.FilterMode.TRANSISTOR_24DB,
+          FilterSet.FilterMode.OFF,
+          0,
+          134217728);
       System.arraycopy(blockBuf, 0, buffer, off * 2, BLOCK * 2);
     }
 
@@ -69,8 +74,7 @@ public class Firmware2RenderTest {
       s0 = s2;
     }
     double mag440 = Math.hypot(s1 - s0 * Math.cos(o), s0 * Math.sin(o)) / Math.sqrt(win) * 2;
-    assertTrue(mag440 > 0.001,
-        "sine should have energy at 440 Hz (mag=" + mag440 + ")");
+    assertTrue(mag440 > 0.001, "sine should have energy at 440 Hz (mag=" + mag440 + ")");
 
     // Verify it's audible
     double sum = 0;
@@ -91,7 +95,7 @@ public class Firmware2RenderTest {
     voice.paramFinalValues[Param.LOCAL_OSC_B_VOLUME] = 0;
     voice.paramFinalValues[Param.LOCAL_VOLUME] = Functions.ONE_Q31;
     voice.paramFinalValues[Param.LOCAL_LPF_FREQ] = Functions.ONE_Q31;
-    voice.paramFinalValues[Param.LOCAL_ENV_0_ATTACK] = 200;  // slow attack
+    voice.paramFinalValues[Param.LOCAL_ENV_0_ATTACK] = 200; // slow attack
     voice.paramFinalValues[Param.LOCAL_ENV_0_DECAY] = 400;
     voice.paramFinalValues[Param.LOCAL_ENV_0_SUSTAIN] = Functions.ONE_Q31 >> 1;
     voice.paramFinalValues[Param.LOCAL_ENV_0_RELEASE] = 400;
@@ -106,17 +110,23 @@ public class Firmware2RenderTest {
     int[] blockBuf = new int[BLOCK * 2];
     for (int off = 0; off < totalSamples; off += BLOCK) {
       java.util.Arrays.fill(blockBuf, 0);
-      voice.render(blockBuf, BLOCK, 0, oscTypes,
-          FilterSet.FilterMode.TRANSISTOR_24DB, FilterSet.FilterMode.OFF,
-          0, 134217728);
+      voice.render(
+          blockBuf,
+          BLOCK,
+          0,
+          oscTypes,
+          FilterSet.FilterMode.TRANSISTOR_24DB,
+          FilterSet.FilterMode.OFF,
+          0,
+          134217728);
       System.arraycopy(blockBuf, 0, buffer, off * 2, BLOCK * 2);
     }
 
     // RMS of first 50ms (attack start) should be quieter than 200-250ms (attack peak)
     double earlyRMS = windowRMS(buffer, 0, SR / 20);
     double peakRMS = windowRMS(buffer, SR / 5, SR / 4);
-    assertTrue(peakRMS > earlyRMS * 1.5,
-        "attack should rise: early=" + earlyRMS + " peak=" + peakRMS);
+    assertTrue(
+        peakRMS > earlyRMS * 1.5, "attack should rise: early=" + earlyRMS + " peak=" + peakRMS);
   }
 
   @Test
@@ -124,7 +134,7 @@ public class Firmware2RenderTest {
     Voice bright = new Voice();
     Voice dark = new Voice();
 
-    for (Voice v : new Voice[]{bright, dark}) {
+    for (Voice v : new Voice[] {bright, dark}) {
       v.noteOn(60, 110);
       v.paramFinalValues[Param.LOCAL_OSC_A_VOLUME] = Functions.ONE_Q31 >> 1;
       v.paramFinalValues[Param.LOCAL_OSC_B_VOLUME] = 0;
@@ -148,20 +158,33 @@ public class Firmware2RenderTest {
     int[] blockBuf = new int[BLOCK * 2];
     for (int off = 0; off < totalSamples; off += BLOCK) {
       java.util.Arrays.fill(blockBuf, 0);
-      bright.render(blockBuf, BLOCK, 0, oscTypes,
-          FilterSet.FilterMode.TRANSISTOR_24DB, FilterSet.FilterMode.OFF,
-          0, 134217728);
+      bright.render(
+          blockBuf,
+          BLOCK,
+          0,
+          oscTypes,
+          FilterSet.FilterMode.TRANSISTOR_24DB,
+          FilterSet.FilterMode.OFF,
+          0,
+          134217728);
       System.arraycopy(blockBuf, 0, bufB, off * 2, BLOCK * 2);
       java.util.Arrays.fill(blockBuf, 0);
-      dark.render(blockBuf, BLOCK, 0, oscTypes,
-          FilterSet.FilterMode.TRANSISTOR_24DB, FilterSet.FilterMode.OFF,
-          0, 134217728);
+      dark.render(
+          blockBuf,
+          BLOCK,
+          0,
+          oscTypes,
+          FilterSet.FilterMode.TRANSISTOR_24DB,
+          FilterSet.FilterMode.OFF,
+          0,
+          134217728);
       System.arraycopy(blockBuf, 0, bufD, off * 2, BLOCK * 2);
     }
 
     double brightBri = brightness(bufB, SR / 4, totalSamples);
     double darkBri = brightness(bufD, SR / 4, totalSamples);
-    assertTrue(brightBri > darkBri * 1.2,
+    assertTrue(
+        brightBri > darkBri * 1.2,
         "LPF should reduce brightness: bright=" + brightBri + " dark=" + darkBri);
   }
 
@@ -190,9 +213,15 @@ public class Firmware2RenderTest {
     int[] blockBuf = new int[BLOCK * 2];
     for (int off = 0; off < totalSamples; off += BLOCK) {
       java.util.Arrays.fill(blockBuf, 0);
-      voice.render(blockBuf, BLOCK, 1, oscTypes, // FM mode
-          FilterSet.FilterMode.TRANSISTOR_24DB, FilterSet.FilterMode.OFF,
-          0, 134217728);
+      voice.render(
+          blockBuf,
+          BLOCK,
+          1,
+          oscTypes, // FM mode
+          FilterSet.FilterMode.TRANSISTOR_24DB,
+          FilterSet.FilterMode.OFF,
+          0,
+          134217728);
       System.arraycopy(blockBuf, 0, buffer, off * 2, BLOCK * 2);
     }
 
@@ -211,7 +240,8 @@ public class Firmware2RenderTest {
     int n = 0;
     for (int i = fromSamples; i < toSamples && i * 2 + 1 < stereoBuf.length; i++) {
       double v = stereoBuf[i * 2] / 2147483648.0;
-      sum += v * v; n++;
+      sum += v * v;
+      n++;
     }
     return Math.sqrt(sum / Math.max(1, n));
   }
@@ -224,8 +254,12 @@ public class Firmware2RenderTest {
     for (int i = fromSamples; i < toSamples && i * 2 + 1 < stereoBuf.length; i++) {
       double v = stereoBuf[i * 2] / 2147483648.0;
       rmsSum += v * v;
-      if (!first) { diffSum += (v - prev) * (v - prev); n++; }
-      prev = v; first = false;
+      if (!first) {
+        diffSum += (v - prev) * (v - prev);
+        n++;
+      }
+      prev = v;
+      first = false;
     }
     double rms = Math.sqrt(rmsSum / Math.max(1, toSamples - fromSamples));
     double diffRms = Math.sqrt(diffSum / Math.max(1, n));

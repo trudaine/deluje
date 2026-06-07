@@ -3,10 +3,10 @@ package org.chuck.deluge.firmware.util;
 public class LookupTables {
 
   /**
-   * Firmware note-to-note-interval table (12 semitones, each as a Q31 ratio relative to C).
-   * Used by the pitch-adjust oscillator path: multiply_32x32_rshift32(table[noteWithinOctave],
-   * pitchAdjustNeutralValue) then octave shift (13 - octave). Exists for future bit-exact
-   * alignment of {@link org.chuck.deluge.firmware.engine.FirmwareSound#noteToPhaseInc}.
+   * Firmware note-to-note-interval table (12 semitones, each as a Q31 ratio relative to C). Used by
+   * the pitch-adjust oscillator path: multiply_32x32_rshift32(table[noteWithinOctave],
+   * pitchAdjustNeutralValue) then octave shift (13 - octave). Exists for future bit-exact alignment
+   * of {@link org.chuck.deluge.firmware.engine.FirmwareSound#noteToPhaseInc}.
    */
   public static final int[] noteIntervalTable = {
     1073741824, 1137589835, 1205234447, 1276901417, 1352829926, 1433273380,
@@ -18,6 +18,7 @@ public class LookupTables {
     1027294024, 1088380105, 1153098554, 1221665363, 1294309365, 1371273005,
     1452813141, 1539201906, 1630727614, 1727695724, 1830429858, 1939272882,
   };
+
   public static final int[] tanTable = {
     0, 6040817, 12087756, 18146962, 24224633, 30327039, 36460554, 42631679,
     48847074, 55113581, 61438264, 67828436, 74291696, 80835969, 87469544, 94201124,

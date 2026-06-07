@@ -1,10 +1,9 @@
 package org.chuck.deluge.firmware2;
 
 /**
- * Faithful port of the firmware's DX7 lookup tables ({@code math_lut.cpp}).
- * The {@code exp2tab} is generated at class init time using the same formula
- * as {@code exp2_init()}: an interleaved delta+value table for fast linear
- * interpolation of 2^x on the range [0, 1).
+ * Faithful port of the firmware's DX7 lookup tables ({@code math_lut.cpp}). The {@code exp2tab} is
+ * generated at class init time using the same formula as {@code exp2_init()}: an interleaved
+ * delta+value table for fast linear interpolation of 2^x on the range [0, 1).
  *
  * <p>Also contains the DX7 operator gain table mapping level (0-99) to Q31 gain.
  */
@@ -14,12 +13,12 @@ public final class Dx7Tables {
 
   /** EXP2_LG_N_SAMPLES = 10 (engine.h:30). Table size = 1024, interleaved = 2048 ints. */
   static final int EXP2_LG_N_SAMPLES = 10;
+
   static final int EXP2_N_SAMPLES = 1 << EXP2_LG_N_SAMPLES;
 
   /**
-   * Interleaved delta+value table for Exp2::lookup.
-   * Index [i*2] = delta (slope), [i*2+1] = value at sample i.
-   * Generated at init time, matching exp2_init().
+   * Interleaved delta+value table for Exp2::lookup. Index [i*2] = delta (slope), [i*2+1] = value at
+   * sample i. Generated at init time, matching exp2_init().
    */
   public static final int[] EXP2_TAB = new int[EXP2_N_SAMPLES << 1];
 
@@ -39,8 +38,7 @@ public final class Dx7Tables {
       EXP2_TAB[i << 1] = EXP2_TAB[(i << 1) + 3] - EXP2_TAB[(i << 1) + 1];
     }
     // Last delta: extrapolate to 2^31
-    EXP2_TAB[(EXP2_N_SAMPLES << 1) - 2] =
-        (1 << 31) - EXP2_TAB[(EXP2_N_SAMPLES << 1) - 1];
+    EXP2_TAB[(EXP2_N_SAMPLES << 1) - 2] = (1 << 31) - EXP2_TAB[(EXP2_N_SAMPLES << 1) - 1];
 
     // Build DX7 operator gain table (0 = full, 99 = silent)
     for (int lvl = 0; lvl < 100; lvl++) {
@@ -53,10 +51,7 @@ public final class Dx7Tables {
     }
   }
 
-  /**
-   * Port of Exp2::lookup.  Q24 input → Q24 output (linear gain).
-   * (math_lut.h:17-26)
-   */
+  /** Port of Exp2::lookup. Q24 input → Q24 output (linear gain). (math_lut.h:17-26) */
   public static int exp2Lookup(int x) {
     final int SHIFT = 24 - EXP2_LG_N_SAMPLES;
     int lowbits = x & ((1 << SHIFT) - 1);
