@@ -1,8 +1,8 @@
 package org.chuck.deluge.firmware2;
 
 /**
- * Faithful port of the Deluge params enum ({@code modulation/params/param.h}).
- * Every constant ID matches the firmware exactly.
+ * Faithful port of the Deluge params enum ({@code modulation/params/param.h}). Every constant ID
+ * matches the firmware exactly.
  */
 public final class Param {
   private Param() {}

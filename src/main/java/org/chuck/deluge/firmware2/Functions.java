@@ -1,25 +1,25 @@
 package org.chuck.deluge.firmware2;
 
 /**
- * Faithful line-by-line port of {@code deluge/util/functions.cpp} and the DSP portions of
- * {@code functions.h}. Every function, every constant, every shift matches the C++ source
- * exactly. C integer types are mapped as:
+ * Faithful line-by-line port of {@code deluge/util/functions.cpp} and the DSP portions of {@code
+ * functions.h}. Every function, every constant, every shift matches the C++ source exactly. C
+ * integer types are mapped as:
  *
  * <ul>
  *   <li>{@code int32_t} → Java {@code int} (signed 32-bit, same overflow behaviour for + - * with
- *       {@code (int)((long)x * y >> 32)} for multiplies, matching the firmware's Q31 helpers)</li>
- *   <li>{@code uint32_t} → Java {@code int} (stored signed, compared unsigned with
- *       {@code Integer.compareUnsigned})</li>
- *   <li>{@code int16_t} → Java {@code short}</li>
- *   <li>{@code uint16_t} → Java {@code char} (zero-extended to int when read)</li>
- *   <li>{@code int8_t/uint8_t} → Java {@code byte} (masked with {@code 0xFF} for unsigned)</li>
- *   <li>{@code float/double} → Java {@code float/double} (IEEE 754, identical)</li>
- *   <li>{@code bool} → Java {@code boolean}</li>
- *   <li>{@code const int32_t[]} → Java {@code static final int[]}</li>
+ *       {@code (int)((long)x * y >> 32)} for multiplies, matching the firmware's Q31 helpers)
+ *   <li>{@code uint32_t} → Java {@code int} (stored signed, compared unsigned with {@code
+ *       Integer.compareUnsigned})
+ *   <li>{@code int16_t} → Java {@code short}
+ *   <li>{@code uint16_t} → Java {@code char} (zero-extended to int when read)
+ *   <li>{@code int8_t/uint8_t} → Java {@code byte} (masked with {@code 0xFF} for unsigned)
+ *   <li>{@code float/double} → Java {@code float/double} (IEEE 754, identical)
+ *   <li>{@code bool} → Java {@code boolean}
+ *   <li>{@code const int32_t[]} → Java {@code static final int[]}
  * </ul>
  *
- * <p>Firmware reference: {@code ~/a/DelugeFirmware/src/deluge/util/functions.cpp} lines 52-567
- * plus {@code functions.h} lines 52-240, and {@code fixedpoint.h} for Q31 arithmetic.
+ * <p>Firmware reference: {@code ~/a/DelugeFirmware/src/deluge/util/functions.cpp} lines 52-567 plus
+ * {@code functions.h} lines 52-240, and {@code fixedpoint.h} for Q31 arithmetic.
  */
 public final class Functions {
 
@@ -49,6 +49,7 @@ public final class Functions {
 
   /** ONE_Q31: 2^31 - 1 (the largest positive signed 32-bit value). */
   public static final int ONE_Q31 = 2147483647;
+
   /** NEGATIVE_ONE_Q31: -2^31. */
   public static final int NEGATIVE_ONE_Q31 = -2147483648;
 
@@ -103,8 +104,8 @@ public final class Functions {
   // ── Param tables (port of functions.cpp lines 52-171) ──
 
   /**
-   * Number of parameters. Must match {@code kNumParams} from
-   * {@code params.h}. Value: 55 local + global params.
+   * Number of parameters. Must match {@code kNumParams} from {@code params.h}. Value: 55 local +
+   * global params.
    */
   public static final int K_NUM_PARAMS = 55;
 
@@ -112,9 +113,8 @@ public final class Functions {
   // See FunctionsInit below.
 
   /**
-   * Port of getParamRange(p).  Returns the "range" of the user preset knob —
-   * the strength with which the stored value is folded into the cable combiner.
-   * (functions.cpp:56-83)
+   * Port of getParamRange(p). Returns the "range" of the user preset knob — the strength with which
+   * the stored value is folded into the cable combiner. (functions.cpp:56-83)
    */
   public static int getParamRange(int p) {
     // Using the firmware param IDs directly.  These must match params.h.
@@ -144,9 +144,8 @@ public final class Functions {
   }
 
   /**
-   * Port of getParamNeutralValue(p).  The "neutral" value used by
-   * getFinalParameterValue* as the presetValue input.
-   * (functions.cpp:85-171)
+   * Port of getParamNeutralValue(p). The "neutral" value used by getFinalParameterValue* as the
+   * presetValue input. (functions.cpp:85-171)
    */
   public static int getParamNeutralValue(int p) {
     switch (p) {
@@ -238,7 +237,7 @@ public final class Functions {
   // ── Final-value curves (functions.cpp:184-258) ──
 
   /**
-   * getFinalParameterValueHybrid.  Allows max output ±1073741824 (full pan range).
+   * getFinalParameterValueHybrid. Allows max output ±1073741824 (full pan range).
    * (functions.cpp:184-189)
    */
   public static int getFinalParameterValueHybrid(int paramNeutralValue, int patchedValue) {
@@ -246,46 +245,33 @@ public final class Functions {
     return signed_saturate(preLimits, 32 - 3) << 2;
   }
 
-  /**
-   * getFinalParameterValueVolume.  Parabola curve for volume params.
-   * (functions.cpp:191-226)
-   */
+  /** getFinalParameterValueVolume. Parabola curve for volume params. (functions.cpp:191-226) */
   public static int getFinalParameterValueVolume(int paramNeutralValue, int patchedValue) {
     int positivePatchedValue = patchedValue + 536870912;
     positivePatchedValue = (positivePatchedValue >> 16) * (positivePatchedValue >> 15);
-    return lshiftAndSaturate(
-        multiply_32x32_rshift32(positivePatchedValue, paramNeutralValue), 5);
+    return lshiftAndSaturate(multiply_32x32_rshift32(positivePatchedValue, paramNeutralValue), 5);
   }
 
-  /**
-   * getFinalParameterValueLinear.  Linear curve for non-volume params.
-   * (functions.cpp:228-242)
-   */
+  /** getFinalParameterValueLinear. Linear curve for non-volume params. (functions.cpp:228-242) */
   public static int getFinalParameterValueLinear(int paramNeutralValue, int patchedValue) {
     int positivePatchedValue = patchedValue + 536870912;
-    return lshiftAndSaturate(
-        multiply_32x32_rshift32(positivePatchedValue, paramNeutralValue), 3);
+    return lshiftAndSaturate(multiply_32x32_rshift32(positivePatchedValue, paramNeutralValue), 3);
   }
 
-  /**
-   * getFinalParameterValueExp.  Delegates to getExp.
-   * (functions.cpp:244-246)
-   */
+  /** getFinalParameterValueExp. Delegates to getExp. (functions.cpp:244-246) */
   public static int getFinalParameterValueExp(int paramNeutralValue, int patchedValue) {
     return getExp(paramNeutralValue, patchedValue);
   }
 
   /**
-   * getFinalParameterValueExpWithDumbEnvelopeHack.  Envelope rates use lookupReleaseRate
-   * for decay/release and getExp on negated patchedValue for attack.
-   * (functions.cpp:248-258)
+   * getFinalParameterValueExpWithDumbEnvelopeHack. Envelope rates use lookupReleaseRate for
+   * decay/release and getExp on negated patchedValue for attack. (functions.cpp:248-258)
    */
   public static int getFinalParameterValueExpWithDumbEnvelopeHack(
       int paramNeutralValue, int patchedValue, int p) {
     // Decay and release → lookupReleaseRate
     if (Param.LOCAL_ENV_0_DECAY <= p && p <= Param.LOCAL_ENV_3_RELEASE) {
-      return multiply_32x32_rshift32(
-          paramNeutralValue, lookupReleaseRate(patchedValue));
+      return multiply_32x32_rshift32(paramNeutralValue, lookupReleaseRate(patchedValue));
     }
     // Attack → negate patchedValue for getExp
     if (Param.LOCAL_ENV_0_ATTACK <= p && p <= Param.LOCAL_ENV_3_ATTACK) {
@@ -296,18 +282,12 @@ public final class Functions {
 
   // ── Cable combiners (functions.cpp:260-290, patcher.cpp helpers) ──
 
-  /**
-   * cableToLinearParamShortcut.  Skips range adjustment.
-   * (functions.cpp:260-262)
-   */
+  /** cableToLinearParamShortcut. Skips range adjustment. (functions.cpp:260-262) */
   public static int cableToLinearParamShortcut(int sourceValue) {
     return sourceValue;
   }
 
-  /**
-   * cableToExpParamShortcut.  Skips range adjustment.
-   * (functions.cpp:264-266)
-   */
+  /** cableToExpParamShortcut. Skips range adjustment. (functions.cpp:264-266) */
   public static int cableToExpParamShortcut(int sourceValue) {
     return sourceValue;
   }
@@ -317,10 +297,7 @@ public final class Functions {
 
   // ── interpolateTable (functions.cpp:492-509) ──
 
-  /**
-   * Interpolate into a uint16_t[] lookup table.
-   * (functions.cpp:492-509)
-   */
+  /** Interpolate into a uint16_t[] lookup table. (functions.cpp:492-509) */
   public static int interpolateTable(
       int input, int numBitsInInput, int[] table, int numBitsInTableSize) {
     int whichValue = input >>> (numBitsInInput - numBitsInTableSize);
@@ -340,10 +317,7 @@ public final class Functions {
     return value1 * strength1 + value2 * strength2;
   }
 
-  /**
-   * interpolateTableInverse.
-   * (functions.cpp:511-546)
-   */
+  /** interpolateTableInverse. (functions.cpp:511-546) */
   public static int interpolateTableInverse(
       int tableValueBig, int numBitsInLookupOutput, int[] table, int numBitsInTableSize) {
     // Binary search then interpolate inverse.
@@ -353,18 +327,12 @@ public final class Functions {
 
   // ── getDecay8 / getDecay4 (functions.cpp:548-554) ──
 
-  /**
-   * getDecay8.  Fixed-point exponential decay.
-   * (functions.cpp:548-550)
-   */
+  /** getDecay8. Fixed-point exponential decay. (functions.cpp:548-550) */
   public static int getDecay8(int input, int numBitsInInput) {
     return interpolateTable(input, numBitsInInput, LookupTables.decayTableSmall8, 8);
   }
 
-  /**
-   * getDecay4.  Fixed-point exponential decay (coarser).
-   * (functions.cpp:552-554)
-   */
+  /** getDecay4. Fixed-point exponential decay (coarser). (functions.cpp:552-554) */
   public static int getDecay4(int input, int numBitsInInput) {
     return interpolateTable(input, numBitsInInput, LookupTables.decayTableSmall8, 8);
     // NOTE: firmware getDecay4 uses the same table as getDecay8 (decayTableSmall8).
@@ -373,23 +341,18 @@ public final class Functions {
 
   // ── getExp (functions.cpp:556-565) ──
 
-  /**
-   * Exponential mapping: presetValue * 2^(adjustment).
-   * (functions.cpp:556-565)
-   */
+  /** Exponential mapping: presetValue * 2^(adjustment). (functions.cpp:556-565) */
   public static int getExp(int presetValue, int adjustment) {
     int magnitudeIncrease = (adjustment >> 26) + 2;
     // "fine" adjustment — change less than one doubling
-    int adjustedPresetValue = multiply_32x32_rshift32(
-        presetValue,
-        interpolateTable(adjustment & 67108863, 26, LookupTables.expTableSmall, 8));
+    int adjustedPresetValue =
+        multiply_32x32_rshift32(
+            presetValue,
+            interpolateTable(adjustment & 67108863, 26, LookupTables.expTableSmall, 8));
     return increaseMagnitudeAndSaturate(adjustedPresetValue, magnitudeIncrease);
   }
 
-  /**
-   * increaseMagnitudeAndSaturate.
-   * (functions.h functions.cpp:564)
-   */
+  /** increaseMagnitudeAndSaturate. (functions.h functions.cpp:564) */
   public static int increaseMagnitudeAndSaturate(int number, int magnitude) {
     if (magnitude > 0) {
       return lshiftAndSaturateUnknown(number, magnitude);
@@ -399,17 +362,14 @@ public final class Functions {
 
   // ── quickLog (functions.cpp:567-573) ──
 
-  /**
-   * quickLog.  Integer log2 approximation.  Does NOT use any table.
-   * (functions.cpp:567-573)
-   */
+  /** quickLog. Integer log2 approximation. Does NOT use any table. (functions.cpp:567-573) */
   public static int quickLog(int input) {
     int magnitude = 31 - Integer.numberOfLeadingZeros(input);
     int inputLSBs = increaseMagnitude(input, 26 - magnitude);
     return (magnitude << 25) + (inputLSBs & ~(1 << 26));
   }
 
-  /** increaseMagnitude (functions.h).  Left shift without saturation. */
+  /** increaseMagnitude (functions.h). Left shift without saturation. */
   public static int increaseMagnitude(int number, int magnitude) {
     if (magnitude > 0) {
       return number << magnitude;
@@ -420,8 +380,8 @@ public final class Functions {
   // ── instantTan (functions.cpp, line ~210 region) ──
 
   /**
-   * instantTan.  Maps a Q31 frequency to tan(f) in Q17.
-   * (functions.cpp — defined alongside interpolateTable in the file)
+   * instantTan. Maps a Q31 frequency to tan(f) in Q17. (functions.cpp — defined alongside
+   * interpolateTable in the file)
    */
   public static int instantTan(int input) {
     int whichValue = input >> 25; // 25
@@ -436,8 +396,7 @@ public final class Functions {
   // ── lookupReleaseRate (functions.cpp) ──
 
   /**
-   * lookupReleaseRate.  Maps a patched value to a release rate via the 65-entry
-   * releaseRateTable64.
+   * lookupReleaseRate. Maps a patched value to a release rate via the 65-entry releaseRateTable64.
    * (functions.cpp)
    */
   public static int lookupReleaseRate(int input) {
@@ -460,9 +419,8 @@ public final class Functions {
   // ── getParamFromUserValue (functions.cpp:1412) ──
 
   /**
-   * getParamFromUserValue.  Maps a menu user value (typically -25..25 or 0..50)
-   * to a stored Q31 knob value.
-   * (functions.cpp:1412-1438)
+   * getParamFromUserValue. Maps a menu user value (typically -25..25 or 0..50) to a stored Q31 knob
+   * value. (functions.cpp:1412-1438)
    */
   public static int getParamFromUserValue(int p, int userValue) {
     switch (p) {
@@ -496,21 +454,82 @@ public final class Functions {
 
   // ── Noise / tanH / misc ──
 
-  private static int jcong = 12345;
-  public static int getNoise() { jcong = 69069 * jcong + 1234567; return jcong; }
+  private static int jcong = 380116160;
 
-  public static int interpolateTableSigned(int input, int nb, int[] table, int nbs) {
-    int wv = input >>> (nb - nbs);
-    int v1 = (short) table[wv], v2 = (short) table[wv + 1];
-    int rsa = nb - 15 - nbs;
-    int rs = (rsa >= 0) ? (input >>> rsa) : (input << (-rsa));
-    int s2 = rs & 32767, s1 = 32768 - s2;
-    return v1 * s1 + v2 * s2;
+  public static int getNoise() {
+    jcong = 69069 * jcong + 1234567;
+    return jcong;
   }
 
-  public static int getTanHUnknown(int input, int sat) {
-    return signed_saturate(input, 32 - sat) << (sat + 1); // stub — full tanH table deferred
+  public static int interpolateTableSigned(
+      int input, int numBitsInInput, int[] table, int numBitsInTableSize) {
+    return interpolateTableSigned(input, numBitsInInput, table, 0, numBitsInTableSize);
   }
+
+  public static int interpolateTableSigned(
+      int input, int numBitsInInput, int[] table, int tableOffset, int numBitsInTableSize) {
+    int whichValue = tableOffset + (input >>> (numBitsInInput - numBitsInTableSize));
+    int rshiftAmount = numBitsInInput - 16 - numBitsInTableSize;
+    int rshifted;
+    if (rshiftAmount >= 0) {
+      rshifted = input >>> rshiftAmount;
+    } else {
+      rshifted = input << (-rshiftAmount);
+    }
+    int strength2 = rshifted & 65535;
+    int strength1 = 65536 - strength2;
+    return (short) table[whichValue] * strength1 + (short) table[whichValue + 1] * strength2;
+  }
+
+  public static int interpolateTableSigned2d(
+      int inputX,
+      int inputY,
+      int numBitsInInputX,
+      int numBitsInInputY,
+      int[] table,
+      int numBitsInTableSizeX,
+      int numBitsInTableSizeY) {
+    int whichValue = inputY >>> (numBitsInInputY - numBitsInTableSizeY);
+    int tableSizeOneRow = (1 << numBitsInTableSizeX) + 1;
+    int value1 =
+        interpolateTableSigned(
+            inputX, numBitsInInputX, table, whichValue * tableSizeOneRow, numBitsInTableSizeX);
+    int value2 =
+        interpolateTableSigned(
+            inputX,
+            numBitsInInputX,
+            table,
+            (whichValue + 1) * tableSizeOneRow,
+            numBitsInTableSizeX);
+    int lshiftAmount = 31 + numBitsInTableSizeY - numBitsInInputY;
+    int strength2;
+    if (lshiftAmount >= 0) {
+      strength2 = (inputY << lshiftAmount) & 2147483647;
+    } else {
+      strength2 = (inputY >>> (0 - lshiftAmount)) & 2147483647;
+    }
+    int strength1 = 2147483647 - strength2;
+    return multiply_32x32_rshift32(value1, strength1) + multiply_32x32_rshift32(value2, strength2);
+  }
+
+  public static int getTanHUnknown(int input, int saturationAmount) {
+    int workingValue;
+    if (saturationAmount != 0) {
+      workingValue = lshiftAndSaturateUnknown(input, saturationAmount) + 0x80000000;
+    } else {
+      workingValue = input + 0x80000000;
+    }
+    return interpolateTableSigned(workingValue, 32, LookupTables.tanHSmall, 8)
+        >> (saturationAmount + 2);
+  }
+
+  public static int getTanHAntialiased(int input, int lastWorkingValue, int saturationAmount) {
+    int workingValue = lshiftAndSaturateUnknown(input, saturationAmount) + 0x80000000;
+    return interpolateTableSigned2d(
+            workingValue, lastWorkingValue, 32, 32, LookupTables.tanH2d, 7, 6)
+        >> (saturationAmount + 1);
+  }
+
   /** getSine from waves.h:29 — interpolated sine lookup via sineWaveSmall table. */
   public static int getSine(int phase, int numBitsInInput) {
     return interpolateTableSigned(phase, numBitsInInput, LookupTables.sineWaveSmall, 8);
@@ -526,15 +545,16 @@ public final class Functions {
       slope = -2;
       offset = 2147483647; // 0x80000000u - 1
     }
-    // firmware: (uint32_t)phase + (int32_t)offset as unsigned add → use long
-    long sum = (phase & 0xFFFFFFFFL) + (offset & 0xFFFFFFFFL);
-    return slope * (int) sum;
+    return slope * phase + offset;
   }
 
   /** getSquare from waves.h — full-scale Q31 square. */
   public static int getSquare(int phase) {
-    return (Integer.compareUnsigned(phase, 0x80000000) >= 0)
-        ? -2147483648 : 2147483647;
+    return getSquare(phase, 0x80000000);
+  }
+
+  public static int getSquare(int phase, int phaseWidth) {
+    return (Integer.compareUnsigned(phase, phaseWidth) >= 0) ? -2147483648 : 2147483647;
   }
 
   // ── Cable combine helpers (patcher.cpp) ──
@@ -551,5 +571,4 @@ public final class Functions {
   public static int patchCombineExpStep(int runningTotal, int source, int strength) {
     return runningTotal + multiply_32x32_rshift32(source, strength);
   }
-
 }

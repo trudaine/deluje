@@ -22,8 +22,10 @@ public class RMSFeedbackCompressorTest {
     c.renderVolNeutral(buf, ONE);
     double after = rms(buf);
 
-    assertTrue(c.gainReduction >= 0, "gainReduction should be non-negative, got " + c.gainReduction);
-    assertTrue(after < before,
+    assertTrue(
+        c.gainReduction >= 0, "gainReduction should be non-negative, got " + c.gainReduction);
+    assertTrue(
+        after < before,
         "loud signal should be compressed (before=" + before + " after=" + after + ")");
   }
 
@@ -47,8 +49,13 @@ public class RMSFeedbackCompressorTest {
     c2.renderVolNeutral(quiet, ONE);
     int redQuiet = c2.gainReduction;
 
-    assertTrue(redQuiet <= redLoud,
-        "quiet signal should not exceed loud reduction (quiet=" + redQuiet + " loud=" + redLoud + ")");
+    assertTrue(
+        redQuiet <= redLoud,
+        "quiet signal should not exceed loud reduction (quiet="
+            + redQuiet
+            + " loud="
+            + redLoud
+            + ")");
   }
 
   @Test
@@ -67,8 +74,8 @@ public class RMSFeedbackCompressorTest {
     c2.render(buf2, 1 << 27, 1 << 27, ONE >> 3);
 
     for (int i = 0; i < buf1.length; i++) {
-      assertEquals(buf1[i].l, buf2[i].l, 1000,
-          "renderVolNeutral vs render mismatch at sample " + i);
+      assertEquals(
+          buf1[i].l, buf2[i].l, 1000, "renderVolNeutral vs render mismatch at sample " + i);
     }
   }
 
@@ -85,9 +92,15 @@ public class RMSFeedbackCompressorTest {
     double after = rms(buf);
 
     // High threshold on a quiet signal should yield minimal/no gain reduction
-    assertTrue(after > before * 0.2,
-        "highest threshold should largely pass signal (before=" + before + " after=" + after
-            + " reduction=" + c.gainReduction + ")");
+    assertTrue(
+        after > before * 0.2,
+        "highest threshold should largely pass signal (before="
+            + before
+            + " after="
+            + after
+            + " reduction="
+            + c.gainReduction
+            + ")");
   }
 
   private static StereoSample[] makeSine(int n, double hz, double amp) {

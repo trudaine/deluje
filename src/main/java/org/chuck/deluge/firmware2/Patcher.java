@@ -1,17 +1,17 @@
 package org.chuck.deluge.firmware2;
 
 /**
- * Faithful line-by-line port of the Deluge {@code patcher.cpp} / {@code patcher.h}
- * Patcher class. Combines patch cables (source→destination with strength) and runs
- * the stored param knob through the correct firmware curve to produce per-voice
- * {@code paramFinalValues}.
+ * Faithful line-by-line port of the Deluge {@code patcher.cpp} / {@code patcher.h} Patcher class.
+ * Combines patch cables (source→destination with strength) and runs the stored param knob through
+ * the correct firmware curve to produce per-voice {@code paramFinalValues}.
  *
  * <p>The firmware dispatching logic:
+ *
  * <ul>
- *   <li>Volume params ({@code p < FIRST_LOCAL_NON_VOLUME}) → getFinalParameterValueVolume</li>
- *   <li>Linear params → getFinalParameterValueLinear</li>
- *   <li>Hybrid params → getFinalParameterValueHybrid</li>
- *   <li>Exp params → getFinalParameterValueExp, with envelope-rate override</li>
+ *   <li>Volume params ({@code p < FIRST_LOCAL_NON_VOLUME}) → getFinalParameterValueVolume
+ *   <li>Linear params → getFinalParameterValueLinear
+ *   <li>Hybrid params → getFinalParameterValueHybrid
+ *   <li>Exp params → getFinalParameterValueExp, with envelope-rate override
  * </ul>
  *
  * <p>Firmware reference: {@code patcher.cpp} lines 20-220.
@@ -21,15 +21,18 @@ public class Patcher {
   /** Destination: a param with associated patch cables. */
   public static class Destination {
     public int paramId;
-    public int sourcesMask;  // bitmask of active source types
+    public int sourcesMask; // bitmask of active source types
     public final java.util.ArrayList<PatchCable> cables = new java.util.ArrayList<>();
-    public Destination(int paramId) { this.paramId = paramId; }
+
+    public Destination(int paramId) {
+      this.paramId = paramId;
+    }
   }
 
   /** Patch cable: a source→destination modulation connection. */
   public static class PatchCable {
-    public int source;       // PatchSource ordinal
-    public int amount;       // Q31 strength
+    public int source; // PatchSource ordinal
+    public int amount; // Q31 strength
     public int polarity = BIPOLAR;
     public static final int BIPOLAR = 0;
     public static final int UNIPOLAR = 1;
@@ -49,7 +52,10 @@ public class Patcher {
     public void addCable(int paramId, PatchCable cable) {
       Destination dest = null;
       for (Destination d : destinations) {
-        if (d.paramId == paramId) { dest = d; break; }
+        if (d.paramId == paramId) {
+          dest = d;
+          break;
+        }
       }
       if (dest == null) {
         dest = new Destination(paramId);
@@ -66,14 +72,15 @@ public class Patcher {
    * Combine stored knobs + patch cables for all params and produce final values.
    * (patcher.cpp:20-120, adapted for full-param pass)
    *
-   * @param knobValues        stored/automated knob values per param (Q31)
-   * @param sourceValues      current source values (envelope, LFO, velocity, etc.)
-   * @param patchCableSet     the cable set for this sound
-   * @param paramFinalValues  output: final param values after curve application
+   * @param knobValues stored/automated knob values per param (Q31)
+   * @param sourceValues current source values (envelope, LFO, velocity, etc.)
+   * @param patchCableSet the cable set for this sound
+   * @param paramFinalValues output: final param values after curve application
    */
-  public static void performPatching(int[] knobValues, int[] sourceValues,
-      PatchCableSet patchCableSet, int[] paramFinalValues) {
-    System.arraycopy(knobValues, 0, paramFinalValues, 0, Math.min(knobValues.length, paramFinalValues.length));
+  public static void performPatching(
+      int[] knobValues, int[] sourceValues, PatchCableSet patchCableSet, int[] paramFinalValues) {
+    System.arraycopy(
+        knobValues, 0, paramFinalValues, 0, Math.min(knobValues.length, paramFinalValues.length));
 
     for (Destination dest : patchCableSet.destinations) {
       int p = dest.paramId;
@@ -83,7 +90,8 @@ public class Patcher {
 
       if (dest.cables.isEmpty()) continue; // no cables → knob stays as-is
 
-      if (p < Param.FIRST_LOCAL_NON_VOLUME || (p >= Param.FIRST_GLOBAL && p < Param.FIRST_GLOBAL_NON_VOLUME)) {
+      if (p < Param.FIRST_LOCAL_NON_VOLUME
+          || (p >= Param.FIRST_GLOBAL && p < Param.FIRST_GLOBAL_NON_VOLUME)) {
         // VOLUME
         int combo = combineCablesLinear(dest, knobValues[p], sourceValues);
         finalValue = Functions.getFinalParameterValueVolume(staticNeutral, combo);
@@ -102,8 +110,8 @@ public class Patcher {
         int combo = combineCablesExp(dest, knobValues[p], sourceValues);
         int stage = getEnvStage(p);
         if (stage != -1) {
-          finalValue = Functions.getFinalParameterValueExpWithDumbEnvelopeHack(
-              staticNeutral, combo, p);
+          finalValue =
+              Functions.getFinalParameterValueExpWithDumbEnvelopeHack(staticNeutral, combo, p);
         } else {
           finalValue = Functions.getFinalParameterValueExp(staticNeutral, combo);
         }
@@ -116,8 +124,8 @@ public class Patcher {
   // ── combineCablesLinear (patcher.cpp:143-180) ──
 
   /**
-   * Fold the stored knob into a multiplicative cable combination.
-   * (patcher.cpp combineCablesLinear + cableToLinearParamWithoutRangeAdjustment)
+   * Fold the stored knob into a multiplicative cable combination. (patcher.cpp combineCablesLinear
+   * + cableToLinearParamWithoutRangeAdjustment)
    */
   private static int combineCablesLinear(Destination dest, int knobValue, int[] sourceValues) {
     int runningTotal = 536870912; // "1" in Q30
@@ -144,7 +152,8 @@ public class Patcher {
       runningTotal = cableToExpParam(runningTotal, srcVal, cable.amount);
     }
     // Wave index hack: stretch twice as far
-    if (dest.paramId == Param.LOCAL_OSC_A_WAVE_INDEX || dest.paramId == Param.LOCAL_OSC_B_WAVE_INDEX) {
+    if (dest.paramId == Param.LOCAL_OSC_A_WAVE_INDEX
+        || dest.paramId == Param.LOCAL_OSC_B_WAVE_INDEX) {
       runningTotal <<= 1;
     }
     // Fold the knob last
@@ -155,7 +164,8 @@ public class Patcher {
 
   // ── cableToLinearParam* (patcher.cpp:143-175) ──
 
-  private static int cableToLinearParamWithoutRangeAdjustment(int runningTotal, int source, int strength) {
+  private static int cableToLinearParamWithoutRangeAdjustment(
+      int runningTotal, int source, int strength) {
     int scaledSource = Functions.multiply_32x32_rshift32(source, strength);
     int madePositive = scaledSource + 536870912; // 0 to 2^30
     int preLimits = Functions.multiply_32x32_rshift32(runningTotal, madePositive);
@@ -172,7 +182,8 @@ public class Patcher {
 
   // ── cableToExpParam* (patcher.cpp:177-195) ──
 
-  private static int cableToExpParamWithoutRangeAdjustment(int runningTotal, int source, int strength) {
+  private static int cableToExpParamWithoutRangeAdjustment(
+      int runningTotal, int source, int strength) {
     return runningTotal + Functions.multiply_32x32_rshift32(source, strength);
   }
 
@@ -192,9 +203,8 @@ public class Patcher {
   // ── recalculateFinalValueForParamWithNoCables (patcher.cpp:30-62) ──
 
   /**
-   * Port of recalculateFinalValueForParamWithNoCables.  Runs an uncabled param's
-   * stored knob through the correct firmware curve.
-   * (patcher.cpp:30-62)
+   * Port of recalculateFinalValueForParamWithNoCables. Runs an uncabled param's stored knob through
+   * the correct firmware curve. (patcher.cpp:30-62)
    */
   public static void recalculateFinalValueForParamWithNoCables(
       int p, int[] knobValues, int[] sourceValues, int[] paramFinalValues) {
@@ -224,12 +234,12 @@ public class Patcher {
         finalValue = Functions.getFinalParameterValueLinear(neutralValue, cableCombination);
       }
     } else {
-      if (p < Param.FIRST_LOCAL_EXP
-          || (p >= Param.FIRST_GLOBAL && p < Param.FIRST_GLOBAL_EXP)) {
+      if (p < Param.FIRST_LOCAL_EXP || (p >= Param.FIRST_GLOBAL && p < Param.FIRST_GLOBAL_EXP)) {
         finalValue = Functions.getFinalParameterValueHybrid(neutralValue, cableCombination);
       } else {
-        finalValue = Functions.getFinalParameterValueExpWithDumbEnvelopeHack(
-            neutralValue, cableCombination, p);
+        finalValue =
+            Functions.getFinalParameterValueExpWithDumbEnvelopeHack(
+                neutralValue, cableCombination, p);
       }
     }
     paramFinalValues[p] = finalValue;
@@ -238,8 +248,8 @@ public class Patcher {
   // ── combineCablesLinearForRangeParam (patcher.cpp:175-208) ──
 
   /**
-   * Port of combineCablesLinearForRangeParam.  For range-type destinations that
-   * scale a source value rather than a param. (patcher.cpp:175-208)
+   * Port of combineCablesLinearForRangeParam. For range-type destinations that scale a source value
+   * rather than a param. (patcher.cpp:175-208)
    */
   public static int combineCablesLinearForRangeParam(
       Destination destination, int[] sourceValues, ParamManager paramManager) {
@@ -250,8 +260,7 @@ public class Patcher {
       int strength = cable.amount; // getModifiedPatchCableAmount simplified
       runningTotal = cableToLinearParam(runningTotal, srcVal, strength);
     }
-    return Functions.getFinalParameterValueLinear(536870912,
-        runningTotal - 536870912);
+    return Functions.getFinalParameterValueLinear(536870912, runningTotal - 536870912);
   }
 
   /** Minimal ParamManager stub for combineCablesLinearForRangeParam. */
@@ -260,7 +269,7 @@ public class Patcher {
   // ── performInitialPatching (patcher.cpp:275) ──
 
   /**
-   * Port of performInitialPatching.  Runs patching for all params during voice init.
+   * Port of performInitialPatching. Runs patching for all params during voice init.
    * (patcher.cpp:275-290)
    */
   public static void performInitialPatching(
@@ -274,7 +283,7 @@ public class Patcher {
 
   private static int getEnvStage(int p) {
     if (p >= Param.LOCAL_ENV_0_ATTACK && p <= Param.LOCAL_ENV_3_ATTACK) return 0; // attack
-    if (p >= Param.LOCAL_ENV_0_DECAY && p <= Param.LOCAL_ENV_3_DECAY) return 1;   // decay
+    if (p >= Param.LOCAL_ENV_0_DECAY && p <= Param.LOCAL_ENV_3_DECAY) return 1; // decay
     if (p >= Param.LOCAL_ENV_0_RELEASE && p <= Param.LOCAL_ENV_3_RELEASE) return 2; // release
     return -1;
   }

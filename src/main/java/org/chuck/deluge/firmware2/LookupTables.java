@@ -1,17 +1,17 @@
 package org.chuck.deluge.firmware2;
 
 /**
- * Faithful port of ALL lookup tables from the Deluge firmware.
- * Every entry matches {@code lookuptables.cpp} exactly.
+ * Faithful port of ALL lookup tables from the Deluge firmware. Every entry matches {@code
+ * lookuptables.cpp} exactly.
  *
  * <p>Table types:
- * <li>tanTable[65]</li>
- * <li>expTableSmall[257]</li>
- * <li>attackRateTable[51]</li>
- * <li>releaseRateTable64[65]</li>
- * <li>noteFrequencyTable[12]</li>
- * <li>noteIntervalTable[12]</li>
- * <li>decayTableSmall8[257]</li>
+ * <li>tanTable[65]
+ * <li>expTableSmall[257]
+ * <li>attackRateTable[51]
+ * <li>releaseRateTable64[65]
+ * <li>noteFrequencyTable[12]
+ * <li>noteIntervalTable[12]
+ * <li>decayTableSmall8[257]
  */
 public final class LookupTables {
   private LookupTables() {}
@@ -186,4 +186,24 @@ public final class LookupTables {
     -3212, -2410, -1608, -804,
   };
 
+  public static final int[] tanHSmall = new int[257];
+  public static final int[] tanH2d = new int[8385];
+
+  static {
+    try (java.io.InputStream is = LookupTables.class.getResourceAsStream("tanh.bin")) {
+      if (is == null) {
+        throw new RuntimeException("Could not find tanh.bin resource");
+      }
+      try (java.io.DataInputStream dis = new java.io.DataInputStream(is)) {
+        for (int i = 0; i < tanHSmall.length; i++) {
+          tanHSmall[i] = dis.readShort();
+        }
+        for (int i = 0; i < tanH2d.length; i++) {
+          tanH2d[i] = dis.readShort();
+        }
+      }
+    } catch (java.io.IOException e) {
+      throw new ExceptionInInitializerError(e);
+    }
+  }
 }
