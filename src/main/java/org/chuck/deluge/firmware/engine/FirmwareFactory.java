@@ -439,6 +439,7 @@ public class FirmwareFactory {
         sound.paramKnobs[Param.LOCAL_ENV_0_RELEASE + i] = model.getEnvReleaseKnobQ31(i);
       }
     }
+    sound.paramKnobsPopulated = true;
 
     // Patch Cables
     for (org.chuck.deluge.model.PatchCable pcm : model.getPatchCables()) {

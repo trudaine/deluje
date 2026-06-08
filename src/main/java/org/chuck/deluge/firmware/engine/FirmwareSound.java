@@ -61,6 +61,13 @@ public class FirmwareSound extends GlobalEffectable {
   /** Raw bipolar Q31 knob values for firmware2 Patcher. */
   public final int[] paramKnobs = new int[200];
 
+  /**
+   * True once the factory has populated {@link #paramKnobs} (paramNeutralValues base + env-rate
+   * knob overrides). Directly-constructed sounds (tests configuring only paramNeutralValues) leave
+   * this false, so the firmware2 bridge falls back to paramNeutralValues for them.
+   */
+  public boolean paramKnobsPopulated = false;
+
   public int[] globalSourceValues = new int[PatchSource.kNumPatchSources];
   private final int[] globalParamFinalValues = new int[Param.kNumParams];
   private final Patcher globalPatcher = new Patcher();
@@ -475,10 +482,15 @@ public class FirmwareSound extends GlobalEffectable {
     fw2Sound.lfoConfig[3].waveType = fw2LfoType(lfoWaveforms[3]);
 
     // Bridge the patch's param knobs + cables into the firmware2 Sound (its patched-param set
-    // mirrors the C ParamManager). paramKnobs holds the bipolar Q31 preset values.
+    // mirrors the C ParamManager). The factory builds paramKnobs (paramNeutralValues base + the
+    // envelope-RATE knobs, which paramNeutralValues stores as legacy curve-outputs in a different
+    // domain), so use it directly for factory-built sounds — byte-identical to before. A
+    // directly-constructed FirmwareSound (e.g. tests configuring only paramNeutralValues) leaves
+    // paramKnobs zero; fall back to paramNeutralValues there so its config is honoured.
+    int[] knobSource = paramKnobsPopulated ? paramKnobs : paramNeutralValues;
     System.arraycopy(
-        paramKnobs, 0, fw2Sound.patchedParamValues, 0,
-        Math.min(paramKnobs.length, fw2Sound.patchedParamValues.length));
+        knobSource, 0, fw2Sound.patchedParamValues, 0,
+        Math.min(knobSource.length, fw2Sound.patchedParamValues.length));
     fw2Sound.patchCableSet.destinations.clear();
     for (Destination d : paramManager.getPatchCableSet().destinations) {
       for (PatchCable c : d.cables) {
