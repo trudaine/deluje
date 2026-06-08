@@ -131,14 +131,17 @@ public class FirmwareSound extends GlobalEffectable {
 
   public FirmwareSound() {
     for (int i = 0; i < globalLfos.length; i++) globalLfos[i] = new LFO();
+    // C Sound::initParams (sound.cpp:131-187): paramNeutralValues hold knob positions (Q31, bipolar).
+    // Default = INT_MIN ("off/center") for every param, then override per C.
     for (int i = 0; i < Param.kNumParams; i++) {
-      paramNeutralValues[i] =
-          org.chuck.deluge.firmware.modulation.params.ParamCurves.getParamNeutralValue(i);
+      paramNeutralValues[i] = -2147483648; // C default (INT_MIN)
       paramKnobs[i] = 0;
     }
-    // Default neutral values as requested for LKG state
-    paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = 1073741824;
-    paramNeutralValues[Param.LOCAL_VOLUME] = 1073741824;
+    // C: patchedParams->params[LOCAL_VOLUME].setCurrentValueBasicForSetup(0)
+    paramNeutralValues[Param.LOCAL_VOLUME] = 0;
+    // C: patchedParams->params[LOCAL_OSC_A_VOLUME].setCurrentValueBasicForSetup(2147483647)
+    paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = 2147483647;
+    paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = 2147483647;
     // Default filter neutral settings
     paramNeutralValues[Param.LOCAL_LPF_FREQ] = Q31.ONE;
     paramNeutralValues[Param.LOCAL_LPF_RESONANCE] = 0;
@@ -147,33 +150,67 @@ public class FirmwareSound extends GlobalEffectable {
     paramNeutralValues[Param.LOCAL_HPF_RESONANCE] = 0;
     paramNeutralValues[Param.LOCAL_HPF_MORPH] = 0;
 
-    // Pitch Adjust defaults to 0 (neutral) in C++
-    paramNeutralValues[Param.LOCAL_PITCH_ADJUST] = 0;
-    paramNeutralValues[Param.LOCAL_OSC_A_PITCH_ADJUST] = 0;
-    paramNeutralValues[Param.LOCAL_OSC_B_PITCH_ADJUST] = 0;
-    paramNeutralValues[Param.LOCAL_MODULATOR_0_PITCH_ADJUST] = 0;
-    paramNeutralValues[Param.LOCAL_MODULATOR_1_PITCH_ADJUST] = 0;
+    // C: Pitch Adjust defaults. Knob=0 → final=0 (zeroes phase). The C-neutral
+    // (no adjustment) final value is K_MAX_SAMPLE_VALUE (16777216). Use knob=16777216
+    // which produces final=16777216 through getFinalParameterValueLinear.
+    paramNeutralValues[Param.LOCAL_PITCH_ADJUST] = 16777216; // K_MAX_SAMPLE_VALUE = no adjustment
+    paramNeutralValues[Param.LOCAL_OSC_A_PITCH_ADJUST] = 16777216;
+    paramNeutralValues[Param.LOCAL_OSC_B_PITCH_ADJUST] = 16777216;
+    paramNeutralValues[Param.LOCAL_MODULATOR_0_PITCH_ADJUST] = 16777216;
+    paramNeutralValues[Param.LOCAL_MODULATOR_1_PITCH_ADJUST] = 16777216;
 
     // Exponential rates defaulting to 0 in C++
     paramNeutralValues[Param.GLOBAL_DELAY_RATE] = 0;
     paramNeutralValues[Param.GLOBAL_ARP_RATE] = 0;
     paramNeutralValues[Param.GLOBAL_MOD_FX_RATE] = 0;
 
-    // Default LFO rates: the param value is now the LFO phase increment directly (firmware scale),
-    // so default to the firmware neutral 121739 (~1.25 Hz). The factory overwrites this with
-    // getExp(121739, ...) of the patch's rate when an LFO is configured.
-    paramNeutralValues[Param.GLOBAL_LFO_FREQ_1] = 121739;
-    paramNeutralValues[Param.GLOBAL_LFO_FREQ_2] = 121739;
-    paramNeutralValues[Param.LOCAL_LFO_LOCAL_FREQ_1] = 121739;
-    paramNeutralValues[Param.LOCAL_LFO_LOCAL_FREQ_2] = 121739;
+    // C Sound::initParams: LFO rates = getParamFromUserValue(param, 30)
+    paramNeutralValues[Param.GLOBAL_LFO_FREQ_1] =
+        org.chuck.deluge.firmware2.Functions.getParamFromUserValue(Param.GLOBAL_LFO_FREQ_1, 30);
+    paramNeutralValues[Param.GLOBAL_LFO_FREQ_2] =
+        org.chuck.deluge.firmware2.Functions.getParamFromUserValue(Param.GLOBAL_LFO_FREQ_2, 30);
+    // C: LOCAL_LFO_LOCAL_FREQ_1/2 = 0 (patch cables open them up)
+    paramNeutralValues[Param.LOCAL_LFO_LOCAL_FREQ_1] = 0;
+    paramNeutralValues[Param.LOCAL_LFO_LOCAL_FREQ_2] = 0;
 
-    // Default ADSR Envelopes configuration
-    for (int i = 0; i < 4; i++) {
-      paramNeutralValues[Param.LOCAL_ENV_0_ATTACK + i] = 20000;
-      paramNeutralValues[Param.LOCAL_ENV_0_DECAY + i] = 400;
-      paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN + i] = (i == 0) ? Q31.ONE : 0;
-      paramNeutralValues[Param.LOCAL_ENV_0_RELEASE + i] = 400;
-    }
+    // C Sound::initParams: envelope 1 defaults via getParamFromUserValue.
+    // Envelope 0: use C setupAsDefaultSynth (sustain=max, attack/decay/release=fast)
+    paramNeutralValues[Param.LOCAL_ENV_0_ATTACK] = -2147483648;
+    paramNeutralValues[Param.LOCAL_ENV_0_DECAY] =
+        org.chuck.deluge.firmware2.Functions.getParamFromUserValue(Param.LOCAL_ENV_0_DECAY, 20);
+    paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN] = 2147483647;
+    paramNeutralValues[Param.LOCAL_ENV_0_RELEASE] =
+        org.chuck.deluge.firmware2.Functions.getParamFromUserValue(Param.LOCAL_ENV_0_RELEASE, 20);
+
+    // C: LOCAL_ENV_1_* = getParamFromUserValue(param, 20/25)
+    paramNeutralValues[Param.LOCAL_ENV_1_ATTACK] =
+        org.chuck.deluge.firmware2.Functions.getParamFromUserValue(Param.LOCAL_ENV_1_ATTACK, 20);
+    paramNeutralValues[Param.LOCAL_ENV_1_DECAY] =
+        org.chuck.deluge.firmware2.Functions.getParamFromUserValue(Param.LOCAL_ENV_1_DECAY, 20);
+    paramNeutralValues[Param.LOCAL_ENV_1_SUSTAIN] =
+        org.chuck.deluge.firmware2.Functions.getParamFromUserValue(Param.LOCAL_ENV_1_SUSTAIN, 25);
+    paramNeutralValues[Param.LOCAL_ENV_1_RELEASE] =
+        org.chuck.deluge.firmware2.Functions.getParamFromUserValue(Param.LOCAL_ENV_1_RELEASE, 20);
+
+    // ENV_2, ENV_3: C doesn't set them in initParams, leave at INT_MIN
+
+    // C Sound::initParams: additional param defaults
+    paramNeutralValues[Param.GLOBAL_VOLUME_POST_FX] =
+        org.chuck.deluge.firmware2.Functions.getParamFromUserValue(Param.GLOBAL_VOLUME_POST_FX, 40);
+    paramNeutralValues[Param.GLOBAL_VOLUME_POST_REVERB_SEND] = 0;
+    paramNeutralValues[Param.GLOBAL_REVERB_AMOUNT] = -2147483648;
+    paramNeutralValues[Param.GLOBAL_DELAY_FEEDBACK] = -2147483648;
+    paramNeutralValues[Param.LOCAL_CARRIER_0_FEEDBACK] = -2147483648;
+    paramNeutralValues[Param.LOCAL_CARRIER_1_FEEDBACK] = -2147483648;
+    paramNeutralValues[Param.LOCAL_MODULATOR_0_FEEDBACK] = -2147483648;
+    paramNeutralValues[Param.LOCAL_MODULATOR_1_FEEDBACK] = -2147483648;
+    paramNeutralValues[Param.LOCAL_MODULATOR_0_VOLUME] = -2147483648;
+    paramNeutralValues[Param.LOCAL_MODULATOR_1_VOLUME] = -2147483648;
+    paramNeutralValues[Param.LOCAL_OSC_A_PHASE_WIDTH] = 0;
+    paramNeutralValues[Param.LOCAL_OSC_B_PHASE_WIDTH] = 0;
+    paramNeutralValues[Param.LOCAL_PAN] = 0;
+    paramNeutralValues[Param.LOCAL_NOISE_VOLUME] = -2147483648;
+    paramNeutralValues[Param.GLOBAL_MOD_FX_DEPTH] = 0;
   }
 
   public SynthMode getSynthMode() {
@@ -251,13 +288,15 @@ public class FirmwareSound extends GlobalEffectable {
       return;
     }
 
-    // 1. Update Global LFOs. Faithful: the unsynced LFO phase increment is the exp-curved rate
-    // param directly (Sound::getGlobalLFOPhaseIncrement), not an ad-hoc formula.
-    int phaseInc1 = paramNeutralValues[Param.GLOBAL_LFO_FREQ_1];
+    // 1. Update Global LFOs. C: Sound::getGlobalLFOPhaseIncrement uses paramFinalValues
+    // (patcher-curve-applied), not raw knob values.
+    int phaseInc1 = org.chuck.deluge.firmware2.Patcher.computeFinalValueForParam(
+        Param.GLOBAL_LFO_FREQ_1, paramNeutralValues[Param.GLOBAL_LFO_FREQ_1]);
     globalSourceValues[PatchSource.LFO_GLOBAL_1.ordinal()] =
         globalLfos[0].render(numSamples, lfoWaveforms[0], phaseInc1);
 
-    int phaseInc2 = paramNeutralValues[Param.GLOBAL_LFO_FREQ_2];
+    int phaseInc2 = org.chuck.deluge.firmware2.Patcher.computeFinalValueForParam(
+        Param.GLOBAL_LFO_FREQ_2, paramNeutralValues[Param.GLOBAL_LFO_FREQ_2]);
     globalSourceValues[PatchSource.LFO_GLOBAL_2.ordinal()] =
         globalLfos[1].render(numSamples, lfoWaveforms[2], phaseInc2);
 
@@ -501,16 +540,21 @@ public class FirmwareSound extends GlobalEffectable {
     fw2Sound.lfoConfig[2].waveType = fw2LfoType(lfoWaveforms[2]);
     fw2Sound.lfoConfig[3].waveType = fw2LfoType(lfoWaveforms[3]);
 
-    // Bridge the patch's param knobs + cables into the firmware2 Sound (its patched-param set
-    // mirrors the C ParamManager). The factory builds paramKnobs (paramNeutralValues base + the
-    // envelope-RATE knobs, which paramNeutralValues stores as legacy curve-outputs in a different
-    // domain), so use it directly for factory-built sounds — byte-identical to before. A
-    // directly-constructed FirmwareSound (e.g. tests configuring only paramNeutralValues) leaves
-    // paramKnobs zero; fall back to paramNeutralValues there so its config is honoured.
-    int[] knobSource = paramKnobsPopulated ? paramKnobs : paramNeutralValues;
+    // Bridge the patch's param knobs into the firmware2 Sound as C knob values.
+    // paramNeutralValues now holds C-compatible knob positions per Sound::initParams.
+    // For factory-built sounds, paramKnobs overrides specific envelope-rate params;
+    // all other params use the constructor's C defaults.
     System.arraycopy(
-        knobSource, 0, fw2Sound.patchedParamValues, 0,
-        Math.min(knobSource.length, fw2Sound.patchedParamValues.length));
+        paramNeutralValues, 0, fw2Sound.patchedParamValues, 0,
+        Math.min(paramNeutralValues.length, fw2Sound.patchedParamValues.length));
+    if (paramKnobsPopulated) {
+      // Factory-set envelope rate knobs override the C defaults for those params
+      for (int i = 0; i < Param.kNumParams; i++) {
+        if (paramKnobs[i] != 0) {
+          fw2Sound.patchedParamValues[i] = paramKnobs[i];
+        }
+      }
+    }
     fw2Sound.patchCableSet.destinations.clear();
     for (Destination d : paramManager.getPatchCableSet().destinations) {
       for (PatchCable c : d.cables) {
