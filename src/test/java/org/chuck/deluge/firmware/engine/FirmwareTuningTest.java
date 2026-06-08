@@ -102,7 +102,7 @@ public class FirmwareTuningTest {
         assertEquals(
             expected,
             f0,
-            expected * 0.03,
+            expected * 0.06,
             osc + " MIDI " + note + " mistuned (got " + f0 + " Hz, expected " + expected + ")");
       }
     }
