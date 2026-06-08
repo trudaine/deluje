@@ -138,6 +138,7 @@ public class Voice {
     for (int s = 0; s < 2; s++) {
       if (sound.oscTypes[s] == OscType.DX7 && sound.sourceDx7Patch[s] != null) {
         System.arraycopy(sound.sourceDx7Patch[s], 0, dxPatch[s].params, 0, 156);
+        dxPatch[s].updateEngineMode(); // select modern vs MkI from the loaded algo/feedback
         dxVoice[s].init(dxPatch[s], midiNote, velocity);
       }
     }
@@ -402,6 +403,7 @@ public class Voice {
           if (dxVoice[s].patch == null && sound.sourceDx7Patch[s] != null) {
             // chuckjava sets oscType=DX7 per render block (after noteOn), so init the DxVoice here.
             System.arraycopy(sound.sourceDx7Patch[s], 0, dxPatch[s].params, 0, 156);
+            dxPatch[s].updateEngineMode();
             dxVoice[s].init(dxPatch[s], note, velocity);
           }
           if (dxVoice[s].patch == null) continue; // no patch -> nothing to render
