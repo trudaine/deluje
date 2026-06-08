@@ -32,6 +32,9 @@ public class Sound {
     modulatorTransposers[m].setup(cents * 42949672);
   }
 
+  /** Per-source DX7 patch (156-byte). Mirrors C sources[s].ensureDxPatch(); null = source not DX7. */
+  public final byte[][] sourceDx7Patch = new byte[2][];
+
   public final int[] globalSourceValues = new int[3];
 
   /**

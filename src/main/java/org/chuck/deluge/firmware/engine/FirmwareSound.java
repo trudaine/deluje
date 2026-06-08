@@ -446,6 +446,13 @@ public class FirmwareSound extends GlobalEffectable {
     fw2Sound.synthMode = synthMode == SynthMode.FM ? 1 : synthMode == SynthMode.RINGMOD ? 2 : 0;
     fw2Sound.oscTypes[0] = fw2OscType(oscTypes[0]);
     fw2Sound.oscTypes[1] = fw2OscType(oscTypes[1]);
+    // DX7: a loaded patch makes source 0 an OscType::DX7 (the Deluge loads DX7 into an osc source).
+    if (dx7Patch != null) {
+      fw2Sound.oscTypes[0] = org.chuck.deluge.firmware2.Oscillator.OscType.DX7;
+      fw2Sound.sourceDx7Patch[0] = dx7Patch;
+    } else {
+      fw2Sound.sourceDx7Patch[0] = null;
+    }
     fw2Sound.lpfMode = fw2LpfMode();
     fw2Sound.hpfMode = fw2HpfMode();
     fw2Sound.filterRoute = filterRoute.ordinal();
