@@ -362,9 +362,9 @@ public final class Functions {
 
   // ── quickLog (functions.cpp:567-573) ──
 
-  /** quickLog. Integer log2 approximation. Does NOT use any table. (functions.cpp:567-573) */
+  /** quickLog (functions.cpp:567-573). magnitude = getMagnitudeOld = 32 - clz (functions.h:394). */
   public static int quickLog(int input) {
-    int magnitude = 31 - Integer.numberOfLeadingZeros(input);
+    int magnitude = 32 - Integer.numberOfLeadingZeros(input); // C getMagnitudeOld: 32 - clz, NOT 31 - clz
     int inputLSBs = increaseMagnitude(input, 26 - magnitude);
     return (magnitude << 25) + (inputLSBs & ~(1 << 26));
   }
