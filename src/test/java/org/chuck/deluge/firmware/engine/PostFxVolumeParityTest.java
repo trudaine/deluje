@@ -118,7 +118,11 @@ public class PostFxVolumeParityTest {
 
     double internalRms = rms(internalWave, 4096, 22050);
     double finalRms = rms(finalWave, 4096, 22050);
-    assertTrue(internalRms > 0.005, "internal granular signal should be audible");
+    // Faithful firmware level: a single SAW at 2^29-unity renders ~0.0039 rms dry, and the granular
+    // processor preserves that energy (granular internal ≈ dry ≈ 0.0040, deterministic). The old
+    // 0.005 bar reflected the louder legacy (2^31-unity) engine; re-baselined to the faithful level
+    // (choice A), well above true silence (~1e-5). See FIRMWARE2_PORT_ROADMAP.md bucket C.
+    assertTrue(internalRms > 0.003, "internal granular signal should be audible (rms=" + internalRms + ")");
     // Master compressor adds gentle makeup gain; the attenuation is still present but less
     // pronounced at the final output.
     assertTrue(

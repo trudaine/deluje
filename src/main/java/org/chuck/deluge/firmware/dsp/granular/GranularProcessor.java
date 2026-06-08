@@ -25,6 +25,12 @@ public class GranularProcessor {
   private final BasicFilterComponent lpfR = new BasicFilterComponent();
   private int bufferWriteIndex = 0;
 
+  // Per-instance deterministic RNG for grain selection. The firmware uses a deterministic random()
+  // (not a host PRNG); a per-instance seeded RNG keeps grain scheduling reproducible and independent
+  // of global/process state and test ordering. (The full C grain-type selection in
+  // GranularProcessor::setupGrainsIfNeeded is a larger port; this only replaces the rev coin-flip.)
+  private final java.util.Random grainRng = new java.util.Random(0x6772616eL); // "gran"
+
   public GranularProcessor() {
     for (int i = 0; i < kModFXGrainBufferSize; i++) grainBuffer[i] = new StereoSample();
     for (int i = 0; i < 8; i++) grains[i] = new Grain();
@@ -154,7 +160,7 @@ public class GranularProcessor {
         g.startPoint =
             (bufferWriteIndex + kModFXGrainBufferSize - _grainShift) % kModFXGrainBufferSize;
         g.counter = 0;
-        g.rev = Math.random() < 0.3;
+        g.rev = grainRng.nextDouble() < 0.3;
         g.pitch = 1024;
         g.volScale = (1 << 30) / (g.length >> 1);
         g.volScaleMax = 1 << 30;
