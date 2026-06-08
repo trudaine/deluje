@@ -104,6 +104,18 @@ public class Arpeggiator {
       Arrays.fill(noteCodeOnPostArp, ARP_NOTE_NONE);
       Arrays.fill(noteStatus, ArpNoteStatus.OFF);
     }
+
+    /** C: struct copy — active_note = *arpNote (value copy, not pointer). */
+    public void copyFrom(ArpNote src) {
+      this.inputCharacteristics[0] = src.inputCharacteristics[0];
+      this.inputCharacteristics[1] = src.inputCharacteristics[1];
+      System.arraycopy(src.mpeValues, 0, this.mpeValues, 0, 3);
+      this.velocity = src.velocity;
+      this.baseVelocity = src.baseVelocity;
+      System.arraycopy(src.noteStatus, 0, this.noteStatus, 0, ARP_MAX_INSTRUCTION_NOTES);
+      System.arraycopy(src.outputMemberChannel, 0, this.outputMemberChannel, 0, ARP_MAX_INSTRUCTION_NOTES);
+      System.arraycopy(src.noteCodeOnPostArp, 0, this.noteCodeOnPostArp, 0, ARP_MAX_INSTRUCTION_NOTES);
+    }
   }
 
   // ── ArpJustNoteCode (arpeggiator.h:181-183) ──
@@ -1367,7 +1379,7 @@ public class Arpeggiator {
         arpNote.noteStatus[0] = ArpNoteStatus.PENDING;
 
         instruction.invertReversed = out.shouldPlayReverseNote; // C:1417
-        active_note = arpNote; // C:1418
+        active_note.copyFrom(arpNote); // C:1418 — struct copy, not pointer
         instruction.arpNoteOn = active_note; // C:1419
 
         // C:1422-1424 — glide

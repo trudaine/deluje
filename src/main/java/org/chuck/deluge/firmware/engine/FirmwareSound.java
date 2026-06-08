@@ -205,13 +205,11 @@ public class FirmwareSound extends GlobalEffectable {
     // 0. Arpeggiator clock (C: arpeggiator.cpp render): advance the arp and action
     // any note-on/off it emits this block.
     if (arpEnabled() && arpPhaseIncrement > 0) {
-      // C: gate threshold — settings.gate is bipolar Q31. Convert to unsigned 0..(1<<24) range.
-      // gate=0 means neutral (~50%), gate=INT_MAX means full (1<<24).
-      int gateThreshold = (1 << 24);
-      if (arpSettings.gate != 0) {
-        long gateL = (arpSettings.gate & 0xFFFFFFFFL); // unsigned
-        gateThreshold = (int)(gateL >> 7); // scale Q31 to 24-bit range
-      }
+      // C: gateThreshold = (uint32_t)((int64_t)gate + 2147483648) >> 8
+      // Converts bipolar Q31 gate → unsigned 0..(1<<24) range.
+      long gateU = (arpSettings.gate & 0xFFFFFFFFL);   // treat gate as unsigned 32-bit
+      long gateBiased = gateU + (1L << 31);             // +2^31 bias
+      int gateThreshold = (int)(gateBiased >> 8);       // scale to 24-bit
       arpeggiator.render(arpSettings, arpInstr, numSamples, gateThreshold, arpPhaseIncrement);
 
       // C: handle note-offs (arpInstr.noteCodeOffPostArp[])
@@ -228,6 +226,9 @@ public class FirmwareSound extends GlobalEffectable {
         int vel = arpInstr.arpNoteOn.velocity;
         if (vel <= 0) vel = 64; // safety default
         triggerVoice(noteOn, vel, -1);
+        // C: mark as PLAYING so handlePendingNotes won't re-fire the same note
+        arpInstr.arpNoteOn.noteStatus[0] = org.chuck.deluge.firmware2.Arpeggiator.ArpNoteStatus.PLAYING;
+        arpInstr.arpNoteOn = null;
       }
     }
 
@@ -373,6 +374,7 @@ public class FirmwareSound extends GlobalEffectable {
         int v = arpInstr.arpNoteOn.velocity;
         if (v <= 0) v = 64;
         triggerVoice(noteOn, v, midiChannel);
+        arpInstr.arpNoteOn.noteStatus[0] = org.chuck.deluge.firmware2.Arpeggiator.ArpNoteStatus.PLAYING;
         arpInstr.arpNoteOn = null;
       }
       return;
