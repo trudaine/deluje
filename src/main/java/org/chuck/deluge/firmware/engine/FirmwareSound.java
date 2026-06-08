@@ -173,26 +173,21 @@ public class FirmwareSound extends GlobalEffectable {
     paramNeutralValues[Param.LOCAL_LFO_LOCAL_FREQ_1] = 0;
     paramNeutralValues[Param.LOCAL_LFO_LOCAL_FREQ_2] = 0;
 
-    // C Sound::initParams: envelope 1 defaults via getParamFromUserValue.
-    // Envelope 0: use C setupAsDefaultSynth (sustain=max, attack/decay/release=fast)
-    paramNeutralValues[Param.LOCAL_ENV_0_ATTACK] = -2147483648;
-    paramNeutralValues[Param.LOCAL_ENV_0_DECAY] =
-        org.chuck.deluge.firmware2.Functions.getParamFromUserValue(Param.LOCAL_ENV_0_DECAY, 20);
-    paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN] = 2147483647;
-    paramNeutralValues[Param.LOCAL_ENV_0_RELEASE] =
-        org.chuck.deluge.firmware2.Functions.getParamFromUserValue(Param.LOCAL_ENV_0_RELEASE, 20);
+    // C setupAsDefaultSynth envelope defaults (sound.cpp:223-259).
+    // Unlike initParams (which are broken INT_MIN), these produce usable rates through
+    // the signed Patcher curve. Env 0 is amplitude; env 1-3 are modulation.
+    paramNeutralValues[Param.LOCAL_ENV_0_ATTACK] = -2147483648; // C: 0x80000000 instant attack
+    paramNeutralValues[Param.LOCAL_ENV_0_DECAY] = 0x147AE14; // fast decay
+    paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN] = 2147483647; // max sustain
+    paramNeutralValues[Param.LOCAL_ENV_0_RELEASE] = 0x147AE14; // fast release
 
-    // C: LOCAL_ENV_1_* = getParamFromUserValue(param, 20/25)
-    paramNeutralValues[Param.LOCAL_ENV_1_ATTACK] =
-        org.chuck.deluge.firmware2.Functions.getParamFromUserValue(Param.LOCAL_ENV_1_ATTACK, 20);
-    paramNeutralValues[Param.LOCAL_ENV_1_DECAY] =
-        org.chuck.deluge.firmware2.Functions.getParamFromUserValue(Param.LOCAL_ENV_1_DECAY, 20);
-    paramNeutralValues[Param.LOCAL_ENV_1_SUSTAIN] =
-        org.chuck.deluge.firmware2.Functions.getParamFromUserValue(Param.LOCAL_ENV_1_SUSTAIN, 25);
-    paramNeutralValues[Param.LOCAL_ENV_1_RELEASE] =
-        org.chuck.deluge.firmware2.Functions.getParamFromUserValue(Param.LOCAL_ENV_1_RELEASE, 20);
+    // C: ENV_1 from setupAsDefaultSynth
+    paramNeutralValues[Param.LOCAL_ENV_1_ATTACK] = 0x51EB851; // user-value ~25 equivalent
+    paramNeutralValues[Param.LOCAL_ENV_1_DECAY] = 0x51EB851;
+    paramNeutralValues[Param.LOCAL_ENV_1_SUSTAIN] = -23; // getParamFromUserValue(p, 25)
+    paramNeutralValues[Param.LOCAL_ENV_1_RELEASE] = -429496748; // getParamFromUserValue(p, 20)
 
-    // ENV_2, ENV_3: C doesn't set them in initParams, leave at INT_MIN
+    // ENV_2, ENV_3: leave at INT_MIN (unused by default)
 
     // C Sound::initParams: additional param defaults
     paramNeutralValues[Param.GLOBAL_VOLUME_POST_FX] =
