@@ -58,8 +58,8 @@ public class Firmware2IntegrationTest {
     assertTrue(rms > 0.0001, "firmware2 should produce audible output (rms=" + rms + ")");
 
     // Verify firmware2 voice was created
-    assertTrue(sound.fw2Voices.size() > 0, "firmware2 voice list should be populated");
-    assertTrue(sound.fw2Voices.get(0).active, "firmware2 voice should be active");
+    assertTrue(sound.fw2Sound.voices.size() > 0, "firmware2 voice list should be populated");
+    assertTrue(sound.fw2Sound.voices.get(0).active, "firmware2 voice should be active");
 
     sound.releaseNote(69, -1);
   }
@@ -94,7 +94,7 @@ public class Firmware2IntegrationTest {
     }
     double rms = Math.sqrt(sum / (8 * 128)) / 2147483648.0;
     assertTrue(rms > 0.001, "old engine should produce audio (rms=" + rms + ")");
-    assertTrue(sound.fw2Voices.isEmpty(), "fw2Voices should be empty when flag is off");
+    assertTrue(sound.fw2Sound.voices.isEmpty(), "fw2Voices should be empty when flag is off");
     assertTrue(sound.voices.size() > 0, "old voices list should be populated");
 
     sound.releaseNote(69, -1);

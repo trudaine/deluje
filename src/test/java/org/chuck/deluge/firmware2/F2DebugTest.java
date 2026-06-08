@@ -22,7 +22,7 @@ public class F2DebugTest {
         (FirmwareSound) ((InstrumentClip) FirmwareFactory.createSong(p).clips.get(0)).sound;
     s.useFirmware2 = true;
     s.triggerNote(69, 100);
-    System.out.println("fw2Voices=" + s.fw2Voices.size() + " voices=" + s.voices.size());
-    assertTrue(s.fw2Voices.size() > 0, "fw2 voice should be created");
+    System.out.println("fw2Voices=" + s.fw2Sound.voices.size() + " voices=" + s.voices.size());
+    assertTrue(s.fw2Sound.voices.size() > 0, "fw2 voice should be created");
   }
 }
