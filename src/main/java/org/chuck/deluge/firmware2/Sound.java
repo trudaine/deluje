@@ -60,6 +60,12 @@ public class Sound {
   /** C: sound.h:358 — {@code deluge::fast_vector<ActiveVoice> voices_;} */
   public final ArrayList<Voice> voices = new ArrayList<>();
 
+  /** C: sound.h:154 — {@code std::array<int32_t, kNumExpressionDimensions> monophonicExpressionValues{}}; */
+  public final int[] monophonicExpressionValues = new int[3];
+
+  /** C: sound.h:149 — {@code std::bitset<kNumExpressionDimensions> expressionSourcesChangedAtSynthLevel{0}}; */
+  public int expressionSourcesChangedAtSynthLevel;
+
   public Sound() {
     for (int i = 0; i < 4; i++) {
       lfoConfig[i] = new LfoConfig();

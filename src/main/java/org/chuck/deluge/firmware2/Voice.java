@@ -24,6 +24,9 @@ public class Voice {
   public int velocity;
   public boolean active;
 
+  /** C: voice.h:70 — {@code inputCharacteristics[2]} (NOTE, CHANNEL). */
+  public final int[] inputCharacteristics = {60, -1};
+
   // Phase increments per source
   public int phaseIncrementA;
   public int phaseIncrementB;
@@ -39,6 +42,17 @@ public class Voice {
 
   // Source values for patcher
   public final int[] sourceValues = new int[32]; // PatchSource count
+
+  // ── MPE / expression (voice.h:59-61) ──
+
+  /** C: voice.h:59 — {@code std::bitset<kNumExpressionDimensions> expressionSourcesCurrentlySmoothing;}. */
+  public int expressionSourcesCurrentlySmoothing;
+
+  /** C: voice.h:60 — {@code std::bitset<kNumExpressionDimensions> expressionSourcesFinalValueChanged;}. */
+  public int expressionSourcesFinalValueChanged;
+
+  /** C: voice.h:61 — {@code std::array<int32_t, kNumExpressionDimensions> localExpressionSourceValuesBeforeSmoothing;}. */
+  public final int[] localExpressionSourceValuesBeforeSmoothing = new int[3];
 
   // FM modulator state
   public final int[] modulatorPhase = {0, 0};
@@ -92,9 +106,52 @@ public class Voice {
     public boolean active;
   }
 
+  // ── combineExpressionValues (voice.cpp:78-83) ──
+
+  /**
+   * C: voice.cpp:78-83 — combines synth-level and voice-level expression values.
+   * <pre>
+   * int32_t synthLevelValue = sound.monophonicExpressionValues[expressionDimension];
+   * int32_t voiceLevelValue = this->localExpressionSourceValuesBeforeSmoothing[expressionDimension];
+   * int32_t combinedValue = (synthLevelValue >> 1) + (voiceLevelValue >> 1);
+   * return lshiftAndSaturate&lt;1&gt;(combinedValue);
+   * </pre>
+   */
+  public int combineExpressionValues(Sound sound, int expressionDimension) {
+    int synthLevelValue = sound.monophonicExpressionValues[expressionDimension];
+    int voiceLevelValue = localExpressionSourceValuesBeforeSmoothing[expressionDimension];
+    int combinedValue = (synthLevelValue >> 1) + (voiceLevelValue >> 1);
+    return Functions.lshiftAndSaturate(combinedValue, 1);
+  }
+
+  // ── expressionEventImmediate (voice.cpp:340-346) ──
+
+  /** C: voice.cpp:340-346 — immediate expression update (no smoothing). */
+  public void expressionEventImmediate(Sound sound, int voiceLevelValue, int s) {
+    int expressionDimension = s - PatchSource.X.ordinal();
+    localExpressionSourceValuesBeforeSmoothing[expressionDimension] = voiceLevelValue;
+    expressionSourcesFinalValueChanged |= (1 << expressionDimension);
+    sourceValues[s] = combineExpressionValues(sound, expressionDimension);
+  }
+
+  // ── expressionEventSmooth (voice.cpp:348-352) ──
+
+  /** C: voice.cpp:348-352 — smooth expression update. */
+  public void expressionEventSmooth(int newValue, int s) {
+    int expressionDimension = s - PatchSource.X.ordinal();
+    localExpressionSourceValuesBeforeSmoothing[expressionDimension] = newValue;
+    expressionSourcesCurrentlySmoothing |= (1 << expressionDimension);
+  }
+
   // ── noteOn (voice.cpp:110-339) ──
 
-  public void noteOn(int midiNote, int velocity) {
+  /** C: voice.cpp:110-339. Simplified signature — full C signature has more params. */
+  public void noteOn(int midiNote, int velocity, int fromMidiChannel, int[] mpeValues) {
+    // C: voice.cpp:117 — inputCharacteristics[NOTE] = newNoteCodeBeforeArpeggiation
+    inputCharacteristics[0] = midiNote;
+    // C: voice.cpp:118 — inputCharacteristics[CHANNEL] = newFromMIDIChannel
+    inputCharacteristics[1] = fromMidiChannel;
+
     filterSet.reset();
     this.note = midiNote;
     this.noteCode = midiNote;
@@ -134,6 +191,19 @@ public class Voice {
     lfo4.setLocalInitialPhase(sound.lfoConfig[3]); // LFO4_ID = 3
     sourceValues[PatchSource.LFO_LOCAL_2.ordinal()] = lfo4.render(0, sound.lfoConfig[3], 0);
 
+    // C: voice.cpp:165-168 — MPE expression sources
+    if (mpeValues != null) {
+      for (int m = 0; m < 3; m++) {
+        localExpressionSourceValuesBeforeSmoothing[m] = mpeValues[m] << 16;
+        sourceValues[PatchSource.X.ordinal() + m] = combineExpressionValues(sound, m);
+      }
+    } else {
+      for (int m = 0; m < 3; m++) {
+        localExpressionSourceValuesBeforeSmoothing[m] = 0;
+        sourceValues[PatchSource.X.ordinal() + m] = combineExpressionValues(sound, m);
+      }
+    }
+
     // Per-source DX7 init (sources[s].oscType == OscType::DX7 -> set up dxVoice).
     for (int s = 0; s < 2; s++) {
       if (sound.oscTypes[s] == OscType.DX7 && sound.sourceDx7Patch[s] != null) {
@@ -142,6 +212,11 @@ public class Voice {
         dxVoice[s].init(dxPatch[s], midiNote, velocity);
       }
     }
+  }
+
+  /** Backward-compat overload. */
+  public void noteOn(int midiNote, int velocity) {
+    noteOn(midiNote, velocity, -1, null);
   }
 
   // ── noteOff (voice.cpp:570-634) ──
@@ -258,6 +333,25 @@ public class Voice {
     int phaseInc2 = getLocalLFOPhaseIncrement(3, Param.LOCAL_LFO_LOCAL_FREQ_2);
     sourceValues[PatchSource.LFO_LOCAL_2.ordinal()] =
         lfo4.render(numSamples, sound.lfoConfig[3], phaseInc2);
+
+    // ── 2.5 MPE expression smoothing (voice.cpp:779-804) ──
+    expressionSourcesCurrentlySmoothing |= sound.expressionSourcesChangedAtSynthLevel;
+    if (expressionSourcesCurrentlySmoothing != 0) {
+      expressionSourcesFinalValueChanged |= expressionSourcesCurrentlySmoothing;
+      for (int i = 0; i < 3; i++) {
+        if ((expressionSourcesCurrentlySmoothing & (1 << i)) != 0) {
+          int targetValue = combineExpressionValues(sound, i);
+          int diff = (targetValue >> 8) - (sourceValues[PatchSource.X.ordinal() + i] >> 8);
+          if (diff == 0) {
+            expressionSourcesCurrentlySmoothing &= ~(1 << i);
+          } else {
+            int amountToAdd = diff * numSamples / 4;
+            sourceValues[PatchSource.X.ordinal() + i] += amountToAdd;
+          }
+        }
+      }
+    }
+    // C: voice.cpp:804 — expressionSourcesFinalValueChanged.reset() (done after patching would use it)
 
     // ── 3. Source values (velocity, note, random, sidechain) (voice.cpp:800-820) ──
     // (Note: velocity, note, random are already initialized in noteOn faithfully)
