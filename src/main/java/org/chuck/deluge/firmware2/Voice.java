@@ -449,7 +449,14 @@ public class Voice {
       soundBuffer[i * 2 + 1] = Functions.add_saturate(soundBuffer[i * 2 + 1], mixBuf[i * 2 + 1]);
     }
 
-    return active;
+    // Port of voice.cpp:1664 — return false if voice should be unassigned
+    // unassignVoiceAfter = envelope OFF OR (past DECAY AND env source == MIN)
+    boolean unassignVoiceAfter =
+        (envelopes[0].state == Envelope.Stage.OFF)
+            || (envelopes[0].state.compareTo(Envelope.Stage.DECAY) > 0
+                && sourceValues[PatchSource.ENVELOPE_0.ordinal()] == Integer.MIN_VALUE);
+    if (unassignVoiceAfter) active = false;
+    return !unassignVoiceAfter;
   }
 
   // ── FM render path ──
