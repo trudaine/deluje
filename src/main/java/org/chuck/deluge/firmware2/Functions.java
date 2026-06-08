@@ -27,9 +27,9 @@ public final class Functions {
 
   // ── Fixed-point Q31 arithmetic (port of fixedpoint.h) ──
 
-  /** multiply_32x32_rshift32: (a * b) >> 32, unsigned (matches C uint32_t math). */
+  /** multiply_32x32_rshift32: (a * b) >> 32, signed (C: smmul instruction). */
   public static int multiply_32x32_rshift32(int a, int b) {
-    return (int) (((a & 0xFFFFFFFFL) * (b & 0xFFFFFFFFL)) >>> 32);
+    return (int) (((long) a * (long) b) >> 32);
   }
 
   /** multiply_32x32_rshift32_rounded: (a * b + 0x80000000) >> 32. */
@@ -297,12 +297,16 @@ public final class Functions {
 
   // ── interpolateTable (functions.cpp:492-509) ──
 
-  /** Interpolate into a uint16_t[] lookup table. (functions.cpp:492-509) */
+  /** Interpolate into a uint16_t[] lookup table. (functions.cpp:492-509).
+   * Clamped for Java array safety (C table sizes chosen so whichValue stays in range). */
   public static int interpolateTable(
       int input, int numBitsInInput, int[] table, int numBitsInTableSize) {
     int whichValue = input >>> (numBitsInInput - numBitsInTableSize);
+    if (whichValue < 0) whichValue = 0;
+    int maxIndex = (1 << numBitsInTableSize);
+    if (whichValue > maxIndex) whichValue = maxIndex;
     int value1 = table[whichValue];
-    int value2 = table[whichValue + 1];
+    int value2 = table[Math.min(whichValue + 1, maxIndex)];
 
     int rshiftAmount = numBitsInInput - 15 - numBitsInTableSize;
     int rshifted;
@@ -381,10 +385,13 @@ public final class Functions {
 
   /**
    * instantTan. Maps a Q31 frequency to tan(f) in Q17. (functions.cpp — defined alongside
-   * interpolateTable in the file)
+   * interpolateTable in the file). Clamped for Java array safety.
    */
   public static int instantTan(int input) {
     int whichValue = input >> 25; // 25
+    // Clamp: C relies on undefined-behaviour memory access for out-of-range
+    if (whichValue < 0) whichValue = 0;
+    if (whichValue >= 64) whichValue = 63;
     int howMuchFurther = (input << 6) & 2147483647; // 6
     int value1 = LookupTables.tanTable[whichValue];
     int value2 = LookupTables.tanTable[whichValue + 1];

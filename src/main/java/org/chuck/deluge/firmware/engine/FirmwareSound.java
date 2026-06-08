@@ -142,11 +142,11 @@ public class FirmwareSound extends GlobalEffectable {
     // C: patchedParams->params[LOCAL_OSC_A_VOLUME].setCurrentValueBasicForSetup(2147483647)
     paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = 2147483647;
     paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = 2147483647;
-    // Default filter neutral settings
-    paramNeutralValues[Param.LOCAL_LPF_FREQ] = Q31.ONE;
-    paramNeutralValues[Param.LOCAL_LPF_RESONANCE] = 0;
+    // C setupAsDefaultSynth (sound.cpp:223-259): filter defaults
+    paramNeutralValues[Param.LOCAL_LPF_FREQ] = 0x10000000; // C: 268435456
+    paramNeutralValues[Param.LOCAL_LPF_RESONANCE] = 0xA2000000; // C: -1577058304
     paramNeutralValues[Param.LOCAL_LPF_MORPH] = 0;
-    paramNeutralValues[Param.LOCAL_HPF_FREQ] = 0;
+    paramNeutralValues[Param.LOCAL_HPF_FREQ] = 0; // HPF off by default
     paramNeutralValues[Param.LOCAL_HPF_RESONANCE] = 0;
     paramNeutralValues[Param.LOCAL_HPF_MORPH] = 0;
 
