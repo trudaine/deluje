@@ -365,7 +365,7 @@ public class FirmwareSound extends GlobalEffectable {
       GlobalSidechainBus.registerHit(sidechainSend);
     }
     if (useFirmware2) {
-      triggerVoiceFw2(note, vel);
+      triggerVoiceFw2(note, vel, midiChannel, null);
       return;
     }
     synchronized (voices) {
@@ -425,22 +425,22 @@ public class FirmwareSound extends GlobalEffectable {
     return n;
   }
 
-  private void triggerVoiceFw2(int note, int vel) {
+  private void triggerVoiceFw2(int note, int vel, int midiChannel, int[] mpeValues) {
     synchronized (fw2Sound.voices) {
       if (polyphonic != PolyphonyMode.POLY)
         for (var v : fw2Sound.voices)
           if (v.active) {
-            v.noteOn(note, vel);
+            v.noteOn(note, vel, midiChannel, mpeValues);
             return;
           }
       for (var v : fw2Sound.voices)
         if (!v.active) {
-          v.noteOn(note, vel);
+          v.noteOn(note, vel, midiChannel, mpeValues);
           return;
         }
       if (fw2Sound.voices.size() < maxPolyphony) {
         var v = new org.chuck.deluge.firmware2.Voice(fw2Sound);
-        v.noteOn(note, vel);
+        v.noteOn(note, vel, midiChannel, mpeValues);
         fw2Sound.voices.add(v);
       }
     }
@@ -643,31 +643,65 @@ public class FirmwareSound extends GlobalEffectable {
     }
   }
 
-  public void mpePitchBend(int midiChannel, int value) {
+  /** C: polyphonicExpressionEventOnChannelOrNote — pitch bend (X), immediate. */
+  public void mpePitchBend(int midiChannel, int newValue) {
+    int s = PatchSource.X.ordinal();
+    // C: voiceLevelValue = newValue << 16 (mpeValues are int16_t)
+    int voiceLevelValue = newValue << 16;
+    synchronized (fw2Sound.voices) {
+      for (var v : fw2Sound.voices) {
+        if (v.active && v.inputCharacteristics[1] == midiChannel) {
+          v.expressionEventImmediate(fw2Sound, voiceLevelValue, s);
+        }
+      }
+    }
+    // Legacy path
     synchronized (voices) {
       for (FirmwareVoice v : voices) {
         if (v.active && v.midiChannel == midiChannel) {
-          v.mpePitchBend = value;
+          v.mpePitchBend = newValue;
         }
       }
     }
   }
 
-  public void mpePressure(int midiChannel, int value) {
+  /** C: polyphonicExpressionEventOnChannelOrNote — pressure/aftertouch (Z), immediate. */
+  public void mpePressure(int midiChannel, int newValue) {
+    int s = PatchSource.AFTERTOUCH.ordinal();
+    int voiceLevelValue = newValue << 16;
+    synchronized (fw2Sound.voices) {
+      for (var v : fw2Sound.voices) {
+        if (v.active && v.inputCharacteristics[1] == midiChannel) {
+          v.expressionEventImmediate(fw2Sound, voiceLevelValue, s);
+        }
+      }
+    }
+    // Legacy path
     synchronized (voices) {
       for (FirmwareVoice v : voices) {
         if (v.active && v.midiChannel == midiChannel) {
-          v.mpePressure = value;
+          v.mpePressure = newValue;
         }
       }
     }
   }
 
-  public void mpeTimbre(int midiChannel, int value) {
+  /** C: polyphonicExpressionEventOnChannelOrNote — timbre (Y), immediate. */
+  public void mpeTimbre(int midiChannel, int newValue) {
+    int s = PatchSource.Y.ordinal();
+    int voiceLevelValue = newValue << 16;
+    synchronized (fw2Sound.voices) {
+      for (var v : fw2Sound.voices) {
+        if (v.active && v.inputCharacteristics[1] == midiChannel) {
+          v.expressionEventImmediate(fw2Sound, voiceLevelValue, s);
+        }
+      }
+    }
+    // Legacy path
     synchronized (voices) {
       for (FirmwareVoice v : voices) {
         if (v.active && v.midiChannel == midiChannel) {
-          v.mpeTimbre = value;
+          v.mpeTimbre = newValue;
         }
       }
     }
