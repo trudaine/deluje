@@ -25,9 +25,9 @@ public class F2QuickDiag {
     s.triggerNote(69, 100);
 
     // Check what came back
-    System.out.println("fw2Voices=" + s.fw2Voices.size());
-    if (!s.fw2Voices.isEmpty()) {
-      var v = s.fw2Voices.get(0);
+    System.out.println("fw2Voices=" + s.fw2Sound.voices.size());
+    if (!s.fw2Sound.voices.isEmpty()) {
+      var v = s.fw2Sound.voices.get(0);
       System.out.println("active=" + v.active + " note=" + v.note);
       // Manually set params like the working test
       v.paramFinalValues[0] = Functions.ONE_Q31 >> 1; // OSC_A

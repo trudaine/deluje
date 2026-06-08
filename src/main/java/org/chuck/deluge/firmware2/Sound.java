@@ -1,5 +1,7 @@
 package org.chuck.deluge.firmware2;
 
+import java.util.ArrayList;
+
 import org.chuck.deluge.firmware2.FilterSet.FilterMode;
 import org.chuck.deluge.firmware2.Lfo.LfoConfig;
 import org.chuck.deluge.firmware2.Oscillator.OscType;
@@ -54,6 +56,9 @@ public class Sound {
 
   public final LfoConfig[] lfoConfig = new LfoConfig[4];
   public int timePerInternalTickInverse = 1 << 20;
+
+  /** C: sound.h:358 — {@code deluge::fast_vector<ActiveVoice> voices_;} */
+  public final ArrayList<Voice> voices = new ArrayList<>();
 
   public Sound() {
     for (int i = 0; i < 4; i++) {

@@ -16,7 +16,7 @@ public class FirmwareSoundTest {
     sound.triggerNote(62, 100);
 
     int activeCount = 0;
-    for (FirmwareVoice v : sound.voices) if (v.active) activeCount++;
+    for (org.chuck.deluge.firmware2.Voice v : sound.fw2Sound.voices) if (v.active) activeCount++;
     assertEquals(2, activeCount);
   }
 
@@ -34,7 +34,7 @@ public class FirmwareSoundTest {
     sound.renderInternal(buf, 16384, null);
 
     int activeCount = 0;
-    for (FirmwareVoice v : sound.voices) if (v.active) activeCount++;
+    for (org.chuck.deluge.firmware2.Voice v : sound.fw2Sound.voices) if (v.active) activeCount++;
     assertEquals(1, activeCount);
   }
 }

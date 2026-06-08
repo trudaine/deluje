@@ -22,7 +22,7 @@ public class F2Diag2 {
         (FirmwareSound) ((InstrumentClip) FirmwareFactory.createSong(p).clips.get(0)).sound;
     s.useFirmware2 = true;
     s.triggerNote(69, 100);
-    var v = s.fw2Voices.get(0);
+    var v = s.fw2Sound.voices.get(0);
     v.paramFinalValues[0] = Functions.ONE_Q31 >> 1;
     v.paramFinalValues[2] = Functions.ONE_Q31 >> 1;
     v.paramFinalValues[24] = Functions.ONE_Q31;

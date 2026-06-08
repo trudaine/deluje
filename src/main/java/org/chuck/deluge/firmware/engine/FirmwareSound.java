@@ -34,8 +34,6 @@ public class FirmwareSound extends GlobalEffectable {
   /** Set true to use the faithful firmware2/ DSP engine (opt-in). */
   public boolean useFirmware2 = true;
 
-  public final java.util.List<org.chuck.deluge.firmware2.Voice> fw2Voices =
-      new java.util.ArrayList<>();
   public final org.chuck.deluge.firmware2.Sound fw2Sound = new org.chuck.deluge.firmware2.Sound();
   private int[] fw2ScratchBuffer = null;
   public final LFO[] globalLfos = new LFO[2];
@@ -226,8 +224,8 @@ public class FirmwareSound extends GlobalEffectable {
       hasActiveVoices = !voices.isEmpty();
     }
     if (!hasActiveVoices && useFirmware2) {
-      synchronized (fw2Voices) {
-        hasActiveVoices = !fw2Voices.isEmpty();
+      synchronized (fw2Sound.voices) {
+        hasActiveVoices = !fw2Sound.voices.isEmpty();
       }
     }
     boolean arpHolding = arpEnabled() && arpeggiator.hasInputNotes();
@@ -416,9 +414,9 @@ public class FirmwareSound extends GlobalEffectable {
   /** Active voice count for the engine currently in use (firmware2 vs legacy). */
   public int getActiveVoiceCount() {
     if (useFirmware2) {
-      synchronized (fw2Voices) {
+      synchronized (fw2Sound.voices) {
         int n = 0;
-        for (var v : fw2Voices) if (v.active) n++;
+        for (var v : fw2Sound.voices) if (v.active) n++;
         return n;
       }
     }
@@ -428,38 +426,23 @@ public class FirmwareSound extends GlobalEffectable {
   }
 
   private void triggerVoiceFw2(int note, int vel) {
-    synchronized (fw2Voices) {
+    synchronized (fw2Sound.voices) {
       if (polyphonic != PolyphonyMode.POLY)
-        for (var v : fw2Voices)
+        for (var v : fw2Sound.voices)
           if (v.active) {
             v.noteOn(note, vel);
-            // Mirror to legacy voices list so tests inspecting .voices work
-            syncLegacyVoicesFromFw2();
             return;
           }
-      for (var v : fw2Voices)
+      for (var v : fw2Sound.voices)
         if (!v.active) {
           v.noteOn(note, vel);
-          syncLegacyVoicesFromFw2();
           return;
         }
-      if (fw2Voices.size() < maxPolyphony) {
+      if (fw2Sound.voices.size() < maxPolyphony) {
         var v = new org.chuck.deluge.firmware2.Voice(fw2Sound);
         v.noteOn(note, vel);
-        fw2Voices.add(v);
-        syncLegacyVoicesFromFw2();
+        fw2Sound.voices.add(v);
       }
-    }
-  }
-
-  /** Keep the legacy {@code voices} list in sync with firmware2 voices so existing tests work. */
-  private void syncLegacyVoicesFromFw2() {
-    voices.clear();
-    for (var fv : fw2Voices) {
-      FirmwareVoice lv = new FirmwareVoice(this);
-      lv.active = fv.active;
-      lv.note = fv.note;
-      voices.add(lv);
     }
   }
 
@@ -526,8 +509,8 @@ public class FirmwareSound extends GlobalEffectable {
       fw2ScratchBuffer = new int[requiredLength];
     }
 
-    synchronized (fw2Voices) {
-      var it = fw2Voices.iterator();
+    synchronized (fw2Sound.voices) {
+      var it = fw2Sound.voices.iterator();
       while (it.hasNext()) {
         var v = it.next();
         if (!v.active) {
@@ -554,7 +537,6 @@ public class FirmwareSound extends GlobalEffectable {
         }
       }
     }
-    syncLegacyVoicesFromFw2();
   }
 
   private org.chuck.deluge.firmware2.Oscillator.OscType fw2OscType(
@@ -614,8 +596,8 @@ public class FirmwareSound extends GlobalEffectable {
     synchronized (voices) {
       for (FirmwareVoice v : voices) if (v.active) v.noteOff(0);
     }
-    synchronized (fw2Voices) {
-      for (var v : fw2Voices) v.noteOff();
+    synchronized (fw2Sound.voices) {
+      for (var v : fw2Sound.voices) v.noteOff();
     }
   }
 
@@ -633,8 +615,8 @@ public class FirmwareSound extends GlobalEffectable {
 
   private void releaseVoice(int note, int midiChannel) {
     if (useFirmware2) {
-      synchronized (fw2Voices) {
-        for (var v : fw2Voices) {
+      synchronized (fw2Sound.voices) {
+        for (var v : fw2Sound.voices) {
           if (v.active && v.note == note) {
             v.noteOff(); // triggers the envelope release (envelope.cpp noteOff/unconditionalRelease)
           }
