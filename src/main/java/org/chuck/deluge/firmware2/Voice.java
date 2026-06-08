@@ -249,9 +249,11 @@ public class Voice {
     // ── 3. Source values (velocity, note, random, sidechain) (voice.cpp:800-820) ──
     // (Note: velocity, note, random are already initialized in noteOn faithfully)
 
-    // ── 4. Patcher: run cables, produce paramFinalValues ──
-    // For now, paramFinalValues = static neutral values or updated externally
-    System.arraycopy(paramFinalValues, 0, paramFinalValues, 0, Param.kNumParams);
+    // ── 4. Patcher: apply cable modulation on top of the curve-applied base
+    //       (the base is set by performInitialPatching in the driver each block).
+    //       (patcher.cpp performPatching) ──
+    Patcher.performPatching(
+        sound.patchedParamValues, sourceValues, sound.patchCableSet, paramFinalValues);
 
     // ── 5. Phase increments (voice.cpp:414-560) ──
     int carrierIncA = calculateBasePhaseIncrement(noteCode);
@@ -296,6 +298,26 @@ public class Voice {
     overallOscAmplitudeLastTime =
         Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(env0Gain, trackVol), 2);
 
+    // Prepare the filters and the makeup gain (voice.cpp:991-997). Configure ONCE here; filterGain is
+    // folded into the per-source amplitudes below (subtractive), and overallOscAmplitude is applied
+    // AFTER the filter in applyFilterAndGain. "Level adjustment for unison happens *before* the filter."
+    FilterSet.FilterMode lpfModeVal = doLPF ? sound.lpfMode : FilterSet.FilterMode.OFF;
+    FilterSet.FilterMode hpfModeVal = doHPF ? sound.hpfMode : FilterSet.FilterMode.OFF;
+    int filterGain =
+        filterSet.setConfig(
+            paramFinalValues[Param.LOCAL_LPF_FREQ],
+            paramFinalValues[Param.LOCAL_LPF_RESONANCE],
+            lpfModeVal,
+            paramFinalValues[Param.LOCAL_LPF_MORPH],
+            paramFinalValues[Param.LOCAL_HPF_FREQ],
+            paramFinalValues[Param.LOCAL_HPF_RESONANCE],
+            hpfModeVal,
+            paramFinalValues[Param.LOCAL_HPF_MORPH],
+            sound.volumeNeutralValueForUnison << 1,
+            FilterRoute.values()[sound.filterRoute]);
+    boolean hasFilters =
+        (lpfModeVal != FilterSet.FilterMode.OFF) || (hpfModeVal != FilterSet.FilterMode.OFF);
+
     // Prepare scratch buffers: 2 mono source buffers + stereo output buffer
     int[] sourceBuf = new int[numSamples * 2]; // osc A + osc B mono
     int[] mixBuf = new int[numSamples * 2]; // stereo interleaved output
@@ -315,66 +337,74 @@ public class Voice {
       return active;
     }
 
-    // ── Subtractive / Ringmod path (voice.cpp:950-1400) ──
-    for (int s = 0; s < 2; s++) {
-      int sourceVol = paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s];
-      if (sourceVol <= 0) continue;
-      int pInc = (s == 0) ? pIncA : pIncB;
-
-      int[] phase = {sources[s].oscPos};
-      // Each source writes to its own section of the stereo buffer (s * numSamples offset)
-      Oscillator.renderOsc(
-          sound.oscTypes[s],
-          sourceVol,
-          sourceBuf,
-          s * numSamples,
-          numSamples,
-          pInc,
-          0,
-          phase,
-          true,
-          0,
-          false,
-          0,
-          0,
-          0);
-      sources[s].oscPos = phase[0];
-    }
-
-    // Mix both sources into stereo (voices sum into both channels)
-    for (int i = 0; i < numSamples; i++) {
-      int mix =
-          Functions.add_saturate(
-              (sources[0].active ? sourceBuf[i] : 0),
-              (sources[1].active ? sourceBuf[numSamples + i] : 0));
-      mixBuf[i * 2] = mix;
-      mixBuf[i * 2 + 1] = mix;
-    }
-
-    // ── Ringmod (voice.cpp:540-596) ──
-    if (sound.synthMode == 2) { // RINGMOD
-      // Multiply osc A * osc B (both fixed-amplitude), scaled by amplitudeForRingMod
-      int amplitudeForRingMod = 1 << 27; // port of (1 << 27)
+    // ── Source rendering + mix (voice.cpp:1039-1052, 1260-1370) ──
+    if (sound.synthMode == 2) {
+      // RINGMOD (voice.cpp:1309-1370): render BOTH oscs at FIXED amplitude (applyAmplitude=false),
+      // then ring-modulate, scaled by amplitudeForRingMod. overallOscAmplitude is applied AFTER the
+      // filter (in applyFilterAndGain), same as subtractive.
+      int amplitudeForRingMod = 1 << 27;
+      if (hasFilters) {
+        amplitudeForRingMod =
+            Functions.multiply_32x32_rshift32_rounded(amplitudeForRingMod, filterGain) << 4;
+      }
+      for (int s = 0; s < 2; s++) {
+        int pInc = (s == 0) ? pIncA : pIncB;
+        int pulseWidth =
+            Functions.lshiftAndSaturate(paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH + s], 1);
+        int[] phase = {sources[s].oscPos};
+        Oscillator.renderOsc(
+            sound.oscTypes[s], 0, sourceBuf, s * numSamples, numSamples, pInc, pulseWidth, phase,
+            false, 0, false, 0, 0, 0);
+        sources[s].oscPos = phase[0];
+        // Sine/triangle come out bigger in fixed-amplitude rendering; compensate for the others.
+        OscType ot = sound.oscTypes[s];
+        if (ot == OscType.SAW || ot == OscType.ANALOG_SAW_2) {
+          amplitudeForRingMod <<= 1;
+        } else if (ot == OscType.WAVETABLE) {
+          amplitudeForRingMod <<= 2;
+        }
+      }
       for (int i = 0; i < numSamples; i++) {
-        int a = sourceBuf[i]; // osc A
-        int b = sourceBuf[numSamples + i]; // osc B
-        int product = Functions.multiply_32x32_rshift32(a, b);
-        mixBuf[i * 2] = Functions.multiply_32x32_rshift32(product, amplitudeForRingMod);
-        mixBuf[i * 2 + 1] = mixBuf[i * 2]; // mono
+        int out =
+            Functions.multiply_32x32_rshift32_rounded(
+                Functions.multiply_32x32_rshift32(sourceBuf[i], sourceBuf[numSamples + i]),
+                amplitudeForRingMod);
+        mixBuf[i * 2] = out;
+        mixBuf[i * 2 + 1] = out;
+      }
+    } else {
+      // SUBTRACTIVE (voice.cpp:1042-1049): source-volume scaling applied during osc render
+      // (>>4 no-filter, or *filterGain with filter); overallOscAmplitude applied AFTER the filter.
+      for (int s = 0; s < 2; s++) {
+        int srcAmp =
+            hasFilters
+                ? Functions.multiply_32x32_rshift32_rounded(
+                    paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s], filterGain)
+                : paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s] >> 4;
+        if (srcAmp <= 0) continue;
+        int pInc = (s == 0) ? pIncA : pIncB;
+        int[] phase = {sources[s].oscPos};
+        Oscillator.renderOsc(
+            sound.oscTypes[s], srcAmp, sourceBuf, s * numSamples, numSamples, pInc, 0, phase, true,
+            0, false, 0, 0, 0);
+        sources[s].oscPos = phase[0];
+      }
+      // Mix both sources into stereo (voices sum into both channels)
+      for (int i = 0; i < numSamples; i++) {
+        int mix =
+            Functions.add_saturate(
+                (sources[0].active ? sourceBuf[i] : 0),
+                (sources[1].active ? sourceBuf[numSamples + i] : 0));
+        mixBuf[i * 2] = mix;
+        mixBuf[i * 2 + 1] = mix;
       }
     }
 
-    // ── 7. Apply envelope 0 + track volume to stereo buffer (voice.cpp:1025-1060) ──
-    for (int i = 0; i < numSamples; i++) {
-      mixBuf[i * 2] =
-          Functions.multiply_32x32_rshift32(
-              Functions.multiply_32x32_rshift32(mixBuf[i * 2], env0Gain), trackVol);
-      mixBuf[i * 2 + 1] =
-          Functions.multiply_32x32_rshift32(
-              Functions.multiply_32x32_rshift32(mixBuf[i * 2 + 1], env0Gain), trackVol);
-    }
-
-    // ── 8. Filter, pan, gain into output buffer (voice.cpp:1560-1670) ──
+    // ── 7+8. Filter, pan, overall amplitude into output buffer (voice.cpp:1560-1670) ──
+    // NOTE: the overall oscillator amplitude (env0 * LOCAL_VOLUME) is applied ONCE, inside
+    // applyFilterAndGain (overallOscAmplitudeLastTime). The C folds it into sourceAmplitude and
+    // applies it during osc render; here it is applied to the summed mix instead — same single
+    // application. (A previous separate env0*trackVol step here double-applied volume → silence.)
     applyFilterAndGain(mixBuf, numSamples, doLPF, doHPF);
 
     // Copy to output
@@ -388,12 +418,16 @@ public class Voice {
 
   // ── FM render path ──
 
-  private int getModulatorInc(
-      int carrierInc, float fmRatio, int overallPitchAdjust, int modPitchAdjustParam) {
-    int modInc = (int) Math.round(carrierInc * (double) fmRatio);
+  private int getModulatorInc(int m, int overallPitchAdjust) {
+    // voice.cpp:533-553 — modulator phase increment from the note frequency table + the modulator's
+    // semitone transpose, then a cents detune. NOT carrierInc*ratio (that was a float reconstruction).
+    int modInc = calculateBasePhaseIncrement(noteCode + sound.modulatorTranspose[m]);
+    if (modInc <= 0) return 0; // shiftRightAmount < 0 → too high; C marks it inactive
+    modInc = sound.modulatorTransposers[m].detune(modInc); // cents
+    // voice.cpp:1387-1401 — overall pitch adjust (incl. bend) + per-modulator pitch adjust param.
     modInc = adjustPitch(modInc, overallPitchAdjust);
     if (modInc < 0) return 0;
-    modInc = adjustPitch(modInc, paramFinalValues[modPitchAdjustParam]);
+    modInc = adjustPitch(modInc, paramFinalValues[Param.LOCAL_MODULATOR_0_PITCH_ADJUST + m]);
     if (modInc < 0) return 0;
     return modInc;
   }
@@ -408,12 +442,8 @@ public class Voice {
     boolean carriersAreSine = false;
 
     int overallPitchAdjust = paramFinalValues[Param.LOCAL_PITCH_ADJUST];
-    int modInc0 =
-        getModulatorInc(
-            carrierIncA, sound.fmRatio1, overallPitchAdjust, Param.LOCAL_MODULATOR_0_PITCH_ADJUST);
-    int modInc1 =
-        getModulatorInc(
-            carrierIncA, sound.fmRatio2, overallPitchAdjust, Param.LOCAL_MODULATOR_1_PITCH_ADJUST);
+    int modInc0 = getModulatorInc(0, overallPitchAdjust);
+    int modInc1 = getModulatorInc(1, overallPitchAdjust);
 
     if (mod1Active) {
       renderSineWaveWithFeedback(
@@ -467,8 +497,23 @@ public class Voice {
       carriersAreSine = true;
     }
 
-    int carrierAmp0 = paramFinalValues[Param.LOCAL_OSC_A_VOLUME];
-    int carrierAmp1 = paramFinalValues[Param.LOCAL_OSC_B_VOLUME];
+    // FM (voice.cpp:1024-1037): fold overallOscAmplitude (env0 * LOCAL_VOLUME) into the carrier
+    // amplitudes with the unison level adjustment, capped at 134217727. For FM the overall amp is
+    // applied HERE (applyFilterAndGain skips the post-filter overall-amp for synthMode==FM).
+    int overallForCarriers =
+        Functions.multiply_32x32_rshift32_rounded(
+                overallOscAmplitudeLastTime, sound.volumeNeutralValueForUnison)
+            << 3;
+    int carrierAmp0 =
+        Math.min(
+            Functions.multiply_32x32_rshift32(
+                paramFinalValues[Param.LOCAL_OSC_A_VOLUME], overallForCarriers),
+            134217727);
+    int carrierAmp1 =
+        Math.min(
+            Functions.multiply_32x32_rshift32(
+                paramFinalValues[Param.LOCAL_OSC_B_VOLUME], overallForCarriers),
+            134217727);
 
     if (carriersAreSine) {
       renderCarrierSine(
@@ -508,32 +553,9 @@ public class Voice {
   // ── Filter + gain application ──
 
   private void applyFilterAndGain(int[] stereoBuf, int numSamples, boolean doLPF, boolean doHPF) {
-    FilterSet.FilterMode lpfModeVal = doLPF ? sound.lpfMode : FilterSet.FilterMode.OFF;
-    FilterSet.FilterMode hpfModeVal = doHPF ? sound.hpfMode : FilterSet.FilterMode.OFF;
-
-    int filterGain = sound.volumeNeutralValueForUnison << 1;
-    FilterRoute route = FilterRoute.values()[sound.filterRoute];
-    filterGain =
-        filterSet.setConfig(
-            paramFinalValues[Param.LOCAL_LPF_FREQ],
-            paramFinalValues[Param.LOCAL_LPF_RESONANCE],
-            lpfModeVal,
-            paramFinalValues[Param.LOCAL_LPF_MORPH],
-            paramFinalValues[Param.LOCAL_HPF_FREQ],
-            paramFinalValues[Param.LOCAL_HPF_RESONANCE],
-            hpfModeVal,
-            paramFinalValues[Param.LOCAL_HPF_MORPH],
-            filterGain,
-            route);
-
-    if (filterGain != Functions.ONE_Q31) {
-      for (int i = 0; i < numSamples; i++) {
-        stereoBuf[i * 2] = Functions.multiply_32x32_rshift32(stereoBuf[i * 2], filterGain) << 1;
-        stereoBuf[i * 2 + 1] =
-            Functions.multiply_32x32_rshift32(stereoBuf[i * 2 + 1], filterGain) << 1;
-      }
-    }
-
+    // The filter is already configured and its makeup gain (filterGain) already folded into the source
+    // amplitudes in render() (voice.cpp folds it into sourceAmplitudes, not the buffer). Here we just
+    // run the filter, then apply overallOscAmplitude AFTER the filter (non-FM) and pan.
     if (filterSet.isOn()) {
       filterSet.renderLongStereo(stereoBuf, numSamples);
     }

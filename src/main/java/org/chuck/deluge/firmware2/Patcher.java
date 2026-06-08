@@ -79,9 +79,9 @@ public class Patcher {
    */
   public static void performPatching(
       int[] knobValues, int[] sourceValues, PatchCableSet patchCableSet, int[] paramFinalValues) {
-    System.arraycopy(
-        knobValues, 0, paramFinalValues, 0, Math.min(knobValues.length, paramFinalValues.length));
-
+    // paramFinalValues must already hold the curve-applied knob values for ALL params (call
+    // performInitialPatching first). This applies cable modulation on top, overwriting only the
+    // cabled (destination) params and leaving non-cabled params at their curve-applied base.
     for (Destination dest : patchCableSet.destinations) {
       int p = dest.paramId;
       // Determine curve type from param index

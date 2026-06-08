@@ -574,14 +574,9 @@ public class Dx7Voice {
     return pitchEnv.isDown() || anyActive;
   }
 
-  /** Stub: Freqlut::lookup — log-freq to phase increment. Full port needs the Freqlut table. */
+  /** Freqlut::lookup — log-freq to phase increment (faithful, math_lut.cpp:107-116). */
   static int freqLookup(int logFreq) {
-    // Simplified: extract octave+semitone, map to phase increment
-    // Full fidelity needs the firmware's Freqlut lookup table.
-    int octave = (logFreq >> 24) + 5;
-    int note = ((logFreq & 0xFFFFFF) * 12) >> 24;
-    double freq = 440.0 * Math.pow(2.0, (octave * 12 + note - 69) / 12.0);
-    return (int) (freq * ((double) Functions.K_MAX_SAMPLE_VALUE / 44100.0));
+    return Dx7Tables.freqLookup(logFreq);
   }
 
   // keyup (dx7note.cpp:396-401)

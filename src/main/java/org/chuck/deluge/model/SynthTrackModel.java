@@ -865,6 +865,46 @@ public class SynthTrackModel extends TrackModel {
     this.fmRatio = fmRatio;
   }
 
+  // Raw modulator transpose (semitones) + cents, preserved for the firmware-faithful FM engine,
+  // which computes the modulator phase increment from the note table + cents detune (voice.cpp),
+  // instead of the lossy 2^(transpose/12) float ratio.
+  private int modulator1Transpose = 0;
+  private int modulator1Cents = 0;
+  private int modulator2Transpose = 0;
+  private int modulator2Cents = 0;
+
+  public int getModulator1Transpose() {
+    return modulator1Transpose;
+  }
+
+  public void setModulator1Transpose(int v) {
+    this.modulator1Transpose = v;
+  }
+
+  public int getModulator1Cents() {
+    return modulator1Cents;
+  }
+
+  public void setModulator1Cents(int v) {
+    this.modulator1Cents = v;
+  }
+
+  public int getModulator2Transpose() {
+    return modulator2Transpose;
+  }
+
+  public void setModulator2Transpose(int v) {
+    this.modulator2Transpose = v;
+  }
+
+  public int getModulator2Cents() {
+    return modulator2Cents;
+  }
+
+  public void setModulator2Cents(int v) {
+    this.modulator2Cents = v;
+  }
+
   public float getFmAmount() {
     return fmAmount;
   }

@@ -76,7 +76,11 @@ public class FirmwareSynthVoiceTest {
       float[] w = render(synth, 22050); // 0.5 s
       double r = rms(w, 0, w.length);
       double m = mean(w);
-      assertTrue(r > 0.01, osc + " should be audible (rms=" + r + ")");
+      // Threshold reflects the FAITHFUL firmware level: a single osc at max volume sits ~2^29
+      // ("unity" with headroom to 2^31), so a lone voice renders very low on the internal scale
+      // (~-50 dB). Triangle is ~half (getTriangleSmall peaks at 2^30, per the C). The old 0.01 bar
+      // was the non-faithful legacy engine (2^31 unity). True silence here is ~1e-4 or below.
+      assertTrue(r > 0.0015, osc + " should be audible (rms=" + r + ")");
       assertEquals(0.0, m, 0.05, osc + " should be ~symmetric (DC offset " + m + ")");
       assertTrue(brightness(w) > 1e-4, osc + " should oscillate (flat output)");
     }
@@ -88,7 +92,7 @@ public class FirmwareSynthVoiceTest {
     synth.triggerNote(60, 110);
     float[] sustain = render(synth, 11025); // 0.25 s held
     double sustainRms = rms(sustain, 0, sustain.length);
-    assertTrue(sustainRms > 0.01, "sustain should be audible (rms=" + sustainRms + ")");
+    assertTrue(sustainRms > 0.0015, "sustain should be audible (rms=" + sustainRms + ")");
 
     synth.releaseNote(60);
     float[] tail = render(synth, 44100); // 1 s of release

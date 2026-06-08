@@ -18,7 +18,36 @@ public class Sound {
   public boolean modulator1ToModulator0 = false;
   public float fmRatio1 = 1.0f;
   public float fmRatio2 = 1.0f;
+
+  /** FM modulator transpose in semitones (voice.cpp modulatorTranspose[m]). */
+  public final int[] modulatorTranspose = new int[2];
+
+  /** FM modulator cents fine-tuners (voice.cpp modulatorTransposers[m]). */
+  public final PhaseIncrementFineTuner[] modulatorTransposers = {
+    new PhaseIncrementFineTuner(), new PhaseIncrementFineTuner()
+  };
+
+  /** C: modulatorTransposers[m].setup((int32_t)modulatorCents[m] * 42949672) (sound.cpp:3077). */
+  public void setModulatorCents(int m, int cents) {
+    modulatorTransposers[m].setup(cents * 42949672);
+  }
+
   public final int[] globalSourceValues = new int[3];
+
+  /**
+   * The patch's per-param "knob"/preset values (bipolar Q31), mirroring the C
+   * {@code ParamManager}'s patched-param set. The patcher reads these via
+   * {@link #getSmoothedPatchedParamValue} and runs them through the firmware curves.
+   */
+  public final int[] patchedParamValues = new int[Param.kNumParams];
+
+  /** The patch's modulation cables (mirrors the C {@code ParamManager}'s PatchCableSet). */
+  public final Patcher.PatchCableSet patchCableSet = new Patcher.PatchCableSet();
+
+  /** C: {@code Sound::getSmoothedPatchedParamValue}. No automation smoothing yet (static value). */
+  public int getSmoothedPatchedParamValue(int p) {
+    return patchedParamValues[p];
+  }
 
   public final LfoConfig[] lfoConfig = new LfoConfig[4];
   public int timePerInternalTickInverse = 1 << 20;

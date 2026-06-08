@@ -226,6 +226,10 @@ public class FirmwareFactory {
     // Map FM modulator-to-carrier frequency ratios (from each modulator's transpose + cents).
     sound.fmRatio1 = model.getFmRatio();
     sound.fmRatio2 = model.getFmRatio2();
+    sound.fmModulator1Transpose = model.getModulator1Transpose();
+    sound.fmModulator1Cents = model.getModulator1Cents();
+    sound.fmModulator2Transpose = model.getModulator2Transpose();
+    sound.fmModulator2Cents = model.getModulator2Cents();
 
     // Native 2-op FM engine: precompute modulator/carrier amplitudes and feedback through the
     // Deluge patched-param curves (port of voice.cpp). The modulator amount sets FM depth (timbre);
