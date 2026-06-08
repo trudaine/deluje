@@ -27,9 +27,9 @@ public final class Functions {
 
   // ── Fixed-point Q31 arithmetic (port of fixedpoint.h) ──
 
-  /** multiply_32x32_rshift32: (a * b) >> 32, signed. */
+  /** multiply_32x32_rshift32: (a * b) >> 32, unsigned (matches C uint32_t math). */
   public static int multiply_32x32_rshift32(int a, int b) {
-    return (int) (((long) a * (long) b) >> 32);
+    return (int) (((a & 0xFFFFFFFFL) * (b & 0xFFFFFFFFL)) >>> 32);
   }
 
   /** multiply_32x32_rshift32_rounded: (a * b + 0x80000000) >> 32. */

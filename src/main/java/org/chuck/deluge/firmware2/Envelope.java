@@ -40,7 +40,7 @@ public class Envelope {
         case ATTACK:
           // pos += attack * numSamples;  // (line 35)
           pos += attack * numSamples;
-          if (pos >= 8388608) { // unsigned comparison
+          if (Integer.compareUnsigned(pos, 8388608) >= 0) { // C unsigned comparison
             pos = 0;
             setState(Stage.DECAY);
             continue; // goto considerEnvelopeStage
@@ -65,7 +65,7 @@ public class Envelope {
                       * 2;
           // pos += decay * numSamples;  // (line 60)
           pos += decay * numSamples;
-          if (pos >= 8388608) { // unsigned comparison
+          if (Integer.compareUnsigned(pos, 8388608) >= 0) { // C unsigned comparison
             setState(Stage.SUSTAIN);
           }
           break;

@@ -84,8 +84,9 @@ public class Patcher {
     // cabled (destination) params and leaving non-cabled params at their curve-applied base.
     for (Destination dest : patchCableSet.destinations) {
       int p = dest.paramId;
-      // Determine curve type from param index
-      int staticNeutral = Functions.getParamNeutralValue(p); // curve neutral
+      // C (patcher.cpp:115-140): paramNeutralValues[param] is the stored knob value,
+      // used as the curve neutral reference.
+      int staticNeutral = knobValues[p]; // C: paramNeutralValues[param]
       int finalValue;
 
       if (dest.cables.isEmpty()) continue; // no cables → knob stays as-is
@@ -223,7 +224,7 @@ public class Patcher {
       cableCombination = cableToExpParamWithoutRangeAdjustment(0, knobValues[p], range);
     }
 
-    int neutralValue = Functions.getParamNeutralValue(p);
+    int neutralValue = knobValues[p]; // C (patcher.cpp:37): param_neutral_value = paramNeutralValues[p]
     int finalValue;
     if (p < Param.FIRST_LOCAL_HYBRID
         || (p >= Param.FIRST_GLOBAL && p < Param.FIRST_GLOBAL_HYBRID)) {
@@ -280,6 +281,42 @@ public class Patcher {
   }
 
   // ── getEnvStage (envelope rate dispatching) ──
+
+  /**
+   * Convenience: curve-apply a single param's knob value (no cables), returning the final param
+   * value. C: {@code recalculateFinalValueForParamWithNoCables} with no destination.
+   * (patcher.cpp:30-57)
+   */
+  public static int computeFinalValueForParam(int p, int knobValue) {
+    int cableCombination;
+    if (p < Param.FIRST_LOCAL_HYBRID
+        || (p >= Param.FIRST_GLOBAL && p < Param.FIRST_GLOBAL_HYBRID)) {
+      int runningTotal = 536870912;
+      int range = Functions.getParamRange(p);
+      runningTotal = cableToLinearParamWithoutRangeAdjustment(runningTotal, knobValue, range);
+      cableCombination = runningTotal - 536870912;
+    } else {
+      int range = Functions.getParamRange(p);
+      cableCombination = cableToExpParamWithoutRangeAdjustment(0, knobValue, range);
+    }
+
+    if (p < Param.FIRST_LOCAL_HYBRID
+        || (p >= Param.FIRST_GLOBAL && p < Param.FIRST_GLOBAL_HYBRID)) {
+      if (p < Param.FIRST_LOCAL_NON_VOLUME
+          || (p >= Param.FIRST_GLOBAL && p < Param.FIRST_GLOBAL_NON_VOLUME)) {
+        return Functions.getFinalParameterValueVolume(knobValue, cableCombination);
+      } else {
+        return Functions.getFinalParameterValueLinear(knobValue, cableCombination);
+      }
+    } else {
+      if (p < Param.FIRST_LOCAL_EXP || (p >= Param.FIRST_GLOBAL && p < Param.FIRST_GLOBAL_EXP)) {
+        return Functions.getFinalParameterValueHybrid(knobValue, cableCombination);
+      } else {
+        return Functions.getFinalParameterValueExpWithDumbEnvelopeHack(
+            knobValue, cableCombination, p);
+      }
+    }
+  }
 
   private static int getEnvStage(int p) {
     if (p >= Param.LOCAL_ENV_0_ATTACK && p <= Param.LOCAL_ENV_3_ATTACK) return 0; // attack

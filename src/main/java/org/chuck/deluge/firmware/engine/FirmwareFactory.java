@@ -359,13 +359,17 @@ public class FirmwareFactory {
         releaseInc = (int) (190.2f / rTime);
       }
 
-      sound.paramNeutralValues[Param.LOCAL_ENV_0_ATTACK + i] =
-          Math.max(1, Math.min(8388608, attackInc));
-      sound.paramNeutralValues[Param.LOCAL_ENV_0_DECAY + i] =
-          Math.max(1, Math.min(8388608, decayInc));
-      sound.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN + i] = (int) (em.sustain() * 2147483647.0);
-      sound.paramNeutralValues[Param.LOCAL_ENV_0_RELEASE + i] =
-          Math.max(1, Math.min(8388608, releaseInc));
+      // C-faithful: paramNeutralValues holds C knob positions (patcher.cpp:30-57).
+      // The FirmwareSound constructor already sets C-compatible envelope defaults.
+      // Direct rate values like attackInc can't be used as C knob values.
+      // TODO: convert model envelope times to C knob domain via getParamFromUserValue
+      // sound.paramNeutralValues[Param.LOCAL_ENV_0_ATTACK + i] =
+      //     Math.max(1, Math.min(8388608, attackInc));
+      // sound.paramNeutralValues[Param.LOCAL_ENV_0_DECAY + i] =
+      //     Math.max(1, Math.min(8388608, decayInc));
+      // sound.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN + i] = (int) (em.sustain() * 2147483647.0);
+      // sound.paramNeutralValues[Param.LOCAL_ENV_0_RELEASE + i] =
+      //     Math.max(1, Math.min(8388608, releaseInc));
     }
 
     sound.numUnison = model.getUnisonNum();

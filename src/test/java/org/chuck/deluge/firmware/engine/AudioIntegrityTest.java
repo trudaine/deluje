@@ -129,7 +129,7 @@ public class AudioIntegrityTest {
 
     // Release
     synth.releaseNote(60);
-    for (int i = 0; i < 800; i++) engine.renderBlock(128); // C faithful: patcher release rate needs many blocks
+    for (int i = 0; i < 200; i++) engine.renderBlock(128);
 
     // Baseline after release
     int base = 0;
