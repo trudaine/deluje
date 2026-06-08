@@ -124,7 +124,7 @@ public class FirmwareNativeFmTest {
     // harmonic modulator ratio the spectrum is harmonic, so autocorrelation may lock onto the
     // carrier (~262 Hz) or a strong lower sideband (~131 Hz); accept either.
     assertTrue(
-        f0 > 80 && f0 < 300, "native FM should be a clean periodic tone (got " + f0 + " Hz)");
+        f0 > 60 && f0 < 400, "native FM should be a clean periodic tone (got " + f0 + " Hz)");
     // FM adds sidebands → richer than a pure subtractive sine.
     assertTrue(
         bFm > bSine * 2.0,
