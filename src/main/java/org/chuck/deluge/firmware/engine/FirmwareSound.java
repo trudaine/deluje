@@ -32,7 +32,7 @@ public class FirmwareSound extends GlobalEffectable {
   public final List<FirmwareVoice> voices = new ArrayList<>();
 
   /** Set true to use the faithful firmware2/ DSP engine (opt-in). */
-  public boolean useFirmware2 = false;
+  public boolean useFirmware2 = true;
 
   public final java.util.List<org.chuck.deluge.firmware2.Voice> fw2Voices =
       new java.util.ArrayList<>();
@@ -406,6 +406,20 @@ public class FirmwareSound extends GlobalEffectable {
     }
   }
 
+  /** Active voice count for the engine currently in use (firmware2 vs legacy). */
+  public int getActiveVoiceCount() {
+    if (useFirmware2) {
+      synchronized (fw2Voices) {
+        int n = 0;
+        for (var v : fw2Voices) if (v.active) n++;
+        return n;
+      }
+    }
+    int n = 0;
+    for (FirmwareVoice v : voices) if (v.active) n++;
+    return n;
+  }
+
   private void triggerVoiceFw2(int note, int vel) {
     synchronized (fw2Voices) {
       if (polyphonic != PolyphonyMode.POLY)
@@ -439,6 +453,10 @@ public class FirmwareSound extends GlobalEffectable {
     fw2Sound.modulator1ToModulator0 = fmModulator1ToModulator0;
     fw2Sound.fmRatio1 = fmRatio1;
     fw2Sound.fmRatio2 = fmRatio2;
+    fw2Sound.modulatorTranspose[0] = fmModulator1Transpose;
+    fw2Sound.modulatorTranspose[1] = fmModulator2Transpose;
+    fw2Sound.setModulatorCents(0, fmModulator1Cents);
+    fw2Sound.setModulatorCents(1, fmModulator2Cents);
 
     // Propagate globalSourceValues (first 3 values)
     System.arraycopy(globalSourceValues, 0, fw2Sound.globalSourceValues, 0, 3);
@@ -448,6 +466,25 @@ public class FirmwareSound extends GlobalEffectable {
     fw2Sound.lfoConfig[1].waveType = fw2LfoType(lfoWaveforms[1]);
     fw2Sound.lfoConfig[2].waveType = fw2LfoType(lfoWaveforms[2]);
     fw2Sound.lfoConfig[3].waveType = fw2LfoType(lfoWaveforms[3]);
+
+    // Bridge the patch's param knobs + cables into the firmware2 Sound (its patched-param set
+    // mirrors the C ParamManager). paramKnobs holds the bipolar Q31 preset values.
+    System.arraycopy(
+        paramKnobs, 0, fw2Sound.patchedParamValues, 0,
+        Math.min(paramKnobs.length, fw2Sound.patchedParamValues.length));
+    fw2Sound.patchCableSet.destinations.clear();
+    for (Destination d : paramManager.getPatchCableSet().destinations) {
+      for (PatchCable c : d.cables) {
+        var fc = new org.chuck.deluge.firmware2.Patcher.PatchCable();
+        fc.source = c.from.ordinal(); // PatchSource ordinals match the C across both engines
+        fc.amount = c.getAmount();
+        fc.polarity =
+            (c.polarity == PatchCable.Polarity.UNIPOLAR)
+                ? org.chuck.deluge.firmware2.Patcher.PatchCable.UNIPOLAR
+                : org.chuck.deluge.firmware2.Patcher.PatchCable.BIPOLAR;
+        fw2Sound.patchCableSet.addCable(d.paramId, fc);
+      }
+    }
 
     // 2. Render voices reusing the scratch buffer
     int requiredLength = numSamples * 2;
@@ -463,8 +500,10 @@ public class FirmwareSound extends GlobalEffectable {
           it.remove();
           continue;
         }
+        // Base: curve-apply all patched-param knobs (no cables). Voice.render then applies
+        // cable modulation on top via performPatching.
         org.chuck.deluge.firmware2.Patcher.performInitialPatching(
-            paramKnobs, v.sourceValues, v.paramFinalValues);
+            fw2Sound.patchedParamValues, v.sourceValues, v.paramFinalValues);
 
         java.util.Arrays.fill(fw2ScratchBuffer, 0, requiredLength, 0);
 
@@ -558,6 +597,16 @@ public class FirmwareSound extends GlobalEffectable {
   }
 
   private void releaseVoice(int note, int midiChannel) {
+    if (useFirmware2) {
+      synchronized (fw2Voices) {
+        for (var v : fw2Voices) {
+          if (v.active && v.note == note) {
+            v.noteOff(); // triggers the envelope release (envelope.cpp noteOff/unconditionalRelease)
+          }
+        }
+      }
+      return;
+    }
     synchronized (voices) {
       for (FirmwareVoice v : voices) {
         if (v.active && v.note == note && (midiChannel == -1 || v.midiChannel == midiChannel)) {
@@ -737,6 +786,11 @@ public class FirmwareSound extends GlobalEffectable {
   public int mod2RetrigPhase = -1;
   public float fmRatio1 = 1.0f;
   public float fmRatio2 = 1.0f;
+  // Raw FM modulator transpose (semitones) + cents for the firmware2 faithful FM increment.
+  public int fmModulator1Transpose = 0;
+  public int fmModulator1Cents = 0;
+  public int fmModulator2Transpose = 0;
+  public int fmModulator2Cents = 0;
 
   // ── Native 2-op FM engine (port of voice.cpp) ──
   // Raw stored knob Q31 values for the two FM modulator amounts (index 0 = <modulator1>, 1 =

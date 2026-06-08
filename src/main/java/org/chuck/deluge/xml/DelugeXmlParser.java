@@ -1766,6 +1766,8 @@ public class DelugeXmlParser {
       int transpose = childInt(mod1, "transpose", 0);
       int cents = childInt(mod1, "cents", 0);
       synth.setFmRatio(modulatorRatio(transpose, cents));
+      synth.setModulator1Transpose(transpose);
+      synth.setModulator1Cents(cents);
       NodeList rpNodes = mod1.getElementsByTagName("retrigPhase");
       if (rpNodes.getLength() > 0) {
         try {
@@ -1799,6 +1801,8 @@ public class DelugeXmlParser {
       int transpose = childInt(mod2, "transpose", 0);
       int cents = childInt(mod2, "cents", 0);
       synth.setFmRatio2(modulatorRatio(transpose, cents));
+      synth.setModulator2Transpose(transpose);
+      synth.setModulator2Cents(cents);
       NodeList rpNodes = mod2.getElementsByTagName("retrigPhase");
       if (rpNodes.getLength() > 0) {
         try {

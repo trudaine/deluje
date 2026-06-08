@@ -26,20 +26,33 @@ public final class Oscillator {
   // ── Helper: getTableNumber (port of dsp::getTableNumber) ──
   // Maps a phase increment to a band-limited table index + size magnitude.
 
-  /** Port of dsp::getTableNumber. Returns [tableNumber, tableSizeMagnitude]. */
+  /**
+   * Verbatim port of dsp::getTableNumber (basic_waves.cpp:175-236). Returns
+   * [tableNumber, tableSizeMagnitude]. {@code phaseIncrement} is uint32_t in C, so
+   * compare unsigned. Size-magnitude is 13/12/11/10/9 by band (table size = 2^mag + 1).
+   */
   public static int[] getTableNumber(int phaseIncrement) {
-    int magnitude = 31 - Integer.numberOfLeadingZeros(phaseIncrement);
-    // Table number 0-31; size 6-8 depending on increment
-    int tableNumber = Math.max(0, magnitude - 18);
-    int tableSizeMagnitude;
-    if (tableNumber < 6) {
-      tableSizeMagnitude = 8;
-    } else if (tableNumber < 8) {
-      tableSizeMagnitude = 7;
-    } else {
-      tableSizeMagnitude = 8; // large tables
-    }
-    return new int[] {tableNumber, tableSizeMagnitude};
+    long pi = phaseIncrement & 0xFFFFFFFFL;
+    if (pi <= 1247086L) return new int[] {0, 13};
+    else if (pi <= 1764571L) return new int[] {1, 12};
+    else if (pi <= 2494173L) return new int[] {2, 12};
+    else if (pi <= 3526245L) return new int[] {3, 11};
+    else if (pi <= 4982560L) return new int[] {4, 11};
+    else if (pi <= 7040929L) return new int[] {5, 11};
+    else if (pi <= 9988296L) return new int[] {6, 11};
+    else if (pi <= 14035840L) return new int[] {7, 11};
+    else if (pi <= 19701684L) return new int[] {8, 11};
+    else if (pi <= 28256363L) return new int[] {9, 11};
+    else if (pi <= 40518559L) return new int[] {10, 11};
+    else if (pi <= 55063683L) return new int[] {11, 11};
+    else if (pi <= 79536431L) return new int[] {12, 11};
+    else if (pi <= 113025455L) return new int[] {13, 11};
+    else if (pi <= 165191049L) return new int[] {14, 10};
+    else if (pi <= 238609294L) return new int[] {15, 10};
+    else if (pi <= 306783378L) return new int[] {16, 10};
+    else if (pi <= 429496729L) return new int[] {17, 10};
+    else if (pi <= 715827882L) return new int[] {18, 9};
+    else return new int[] {19, 9};
   }
 
   /** Port of getSquare(phase, pulseWidth) — returns full-scale Q31 square wave. */
@@ -134,6 +147,47 @@ public final class Oscillator {
       if (applyAmplitude) {
         currentAmplitude += amplitudeIncrement;
         // vqdmulhq_s32(amplitude, val) == saturating (amplitude*val) >> 31
+        wet = (int) (((long) currentAmplitude * val) >> 31);
+      }
+      outputBuffer[offset + i] = Functions.add_saturate(outputBuffer[offset + i], wet);
+    }
+    return currentPhase;
+  }
+
+  /**
+   * {@code int[]} overload of {@link #renderWave} for tables stored as {@code int[]} holding int16
+   * values (e.g. {@code sineWaveSmall}). Body identical to the {@code short[]} version.
+   */
+  static int renderWave(
+      int[] table,
+      int tableSizeMagnitude,
+      int amplitude,
+      int[] outputBuffer,
+      int offset,
+      int numSamples,
+      int phaseIncrement,
+      int phase,
+      boolean applyAmplitude,
+      int phaseToAdd,
+      int amplitudeIncrement) {
+    int currentPhase = phase;
+    int currentAmplitude = amplitude;
+    for (int i = 0; i < numSamples; i++) {
+      currentPhase += phaseIncrement;
+      int p = currentPhase + phaseToAdd;
+
+      int whichValue = p >>> (32 - tableSizeMagnitude);
+      long v1 = table[whichValue];
+      long v2 = table[whichValue + 1];
+
+      long frac = (p >>> (32 - 16 - tableSizeMagnitude)) & 0xFFFF;
+      long v1_32 = v1 << 16;
+      long interpolatedDiff = (((v2 << 16) - v1_32) * frac) >> 16;
+      int val = (int) (v1_32 + interpolatedDiff);
+
+      int wet = val;
+      if (applyAmplitude) {
+        currentAmplitude += amplitudeIncrement;
         wet = (int) (((long) currentAmplitude * val) >> 31);
       }
       outputBuffer[offset + i] = Functions.add_saturate(outputBuffer[offset + i], wet);
@@ -270,20 +324,22 @@ public final class Oscillator {
 
     // ── SINE (line 147-151) ──
     if (type == OscType.SINE) {
-      int ampNow = amplitude << 1;
-      int ampInc2 = amplitudeIncrement << 1;
-      int a = ampNow;
-      for (int i = 0; i < numSamples; i++) {
-        phase += phaseIncrement;
-        a += ampInc2;
-        int sample = SineOsc.doFMNew(phase, 0);
-        if (applyAmplitude) {
-          buffer[off + i] =
-              Functions.multiply_accumulate_32x32_rshift32_rounded(buffer[off + i], sample, a);
-        } else {
-          buffer[off + i] = sample << 1;
-        }
-      }
+      // C: table = sineWaveSmall; tableSizeMagnitude = 8; goto callRenderWave (which does
+      // amplitude<<=1; amplitudeIncrement<<=1). (oscillator.cpp:147-151). Same renderWave path as
+      // saw/square — replaces the doFMNew reconstruction (doFMNew is for FM feedback, not the osc).
+      phase =
+          renderWave(
+              LookupTables.sineWaveSmall,
+              8,
+              amplitude << 1,
+              buffer,
+              off,
+              numSamples,
+              phaseIncrement,
+              phase,
+              applyAmplitude,
+              0,
+              amplitudeIncrement << 1);
       maybeStorePhase(type, startPhase, phase, doPulseWave);
       return;
     }
@@ -396,11 +452,12 @@ public final class Oscillator {
       short[] sawTable =
           SawLookupTables.sawWaveTables[
               Math.min(tableNumber, SawLookupTables.sawWaveTables.length - 1)];
+      // C: amplitude <<= 1; amplitudeIncrement <<= 1; before callRenderWave (oscillator.cpp:470-471)
       phase =
           renderWave(
               sawTable,
               tableSizeMagnitude,
-              amplitude,
+              amplitude << 1,
               buffer,
               off,
               numSamples,
@@ -408,7 +465,7 @@ public final class Oscillator {
               phase,
               applyAmplitude,
               0,
-              amplitudeIncrement);
+              amplitudeIncrement << 1);
       maybeStorePhase(type, startPhase, phase, doPulseWave);
       return;
     }
@@ -436,11 +493,12 @@ public final class Oscillator {
       short[] squareTable =
           SquareLookupTables.squareWaveTables[
               Math.min(tableNumber, SquareLookupTables.squareWaveTables.length - 1)];
+      // C: amplitude <<= 1; amplitudeIncrement <<= 1; before callRenderWave (oscillator.cpp:470-471)
       phase =
           renderWave(
               squareTable,
               tableSizeMagnitude,
-              amplitude,
+              amplitude << 1,
               buffer,
               off,
               numSamples,
@@ -448,7 +506,53 @@ public final class Oscillator {
               phase,
               applyAmplitude,
               0,
-              amplitudeIncrement);
+              amplitudeIncrement << 1);
+      maybeStorePhase(type, startPhase, phase, doPulseWave);
+      return;
+    }
+
+    // ── ANALOG_SAW_2 (oscillator.cpp:459-461) ──
+    // analogSawTables are non-null for all 20 bands (no crude fallback at cpuDireness 0).
+    if (type == OscType.ANALOG_SAW_2) {
+      short[] table =
+          AnalogSawLookupTables.analogSawTables[
+              Math.min(tableNumber, AnalogSawLookupTables.analogSawTables.length - 1)];
+      // C: amplitude <<= 1; amplitudeIncrement <<= 1; before callRenderWave (oscillator.cpp:470-471)
+      phase =
+          renderWave(
+              table,
+              tableSizeMagnitude,
+              amplitude << 1,
+              buffer,
+              off,
+              numSamples,
+              phaseIncrement,
+              phase,
+              applyAmplitude,
+              phaseToAdd,
+              amplitudeIncrement << 1);
+      maybeStorePhase(type, startPhase, phase, doPulseWave);
+      return;
+    }
+
+    // ── ANALOG_SQUARE (oscillator.cpp:463-466) ──
+    if (type == OscType.ANALOG_SQUARE) {
+      short[] table =
+          AnalogSquareLookupTables.analogSquareTables[
+              Math.min(tableNumber, AnalogSquareLookupTables.analogSquareTables.length - 1)];
+      phase =
+          renderWave(
+              table,
+              tableSizeMagnitude,
+              amplitude << 1,
+              buffer,
+              off,
+              numSamples,
+              phaseIncrement,
+              phase,
+              applyAmplitude,
+              phaseToAdd,
+              amplitudeIncrement << 1);
       maybeStorePhase(type, startPhase, phase, doPulseWave);
       return;
     }
