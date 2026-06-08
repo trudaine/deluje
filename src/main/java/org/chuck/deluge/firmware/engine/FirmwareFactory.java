@@ -593,9 +593,9 @@ public class FirmwareFactory {
   /** Map an ArpModel onto a sound's per-sound arpeggiator settings. */
   private static void configureArp(
       org.chuck.deluge.firmware.engine.FirmwareSound sound, org.chuck.deluge.model.ArpModel arp) {
-    var s = sound.arpeggiator.settings;
+    var s = sound.arpSettings;
     if (arp == null || !arp.active()) {
-      s.mode = org.chuck.deluge.firmware.modulation.Arpeggiator.ArpMode.OFF;
+      s.mode = org.chuck.deluge.firmware2.Arpeggiator.ArpMode.OFF;
       return;
     }
     s.mode = stringToArpMode(arp.mode());
@@ -607,28 +607,23 @@ public class FirmwareFactory {
     sound.arpDivision = (arp.syncLevel() > 0) ? arp.syncLevel() : 16;
   }
 
-  private static org.chuck.deluge.firmware.modulation.Arpeggiator.ArpMode stringToArpMode(
+  private static org.chuck.deluge.firmware2.Arpeggiator.ArpMode stringToArpMode(
       String m) {
-    if (m == null) return org.chuck.deluge.firmware.modulation.Arpeggiator.ArpMode.UP;
-    return switch (m.trim().toUpperCase()) {
-      case "DOWN" -> org.chuck.deluge.firmware.modulation.Arpeggiator.ArpMode.DOWN;
-      case "UP_DOWN", "UPDN", "UPDOWN" ->
-          org.chuck.deluge.firmware.modulation.Arpeggiator.ArpMode.UPDOWN;
-      case "RANDOM", "RAND", "WALK", "WLK1", "WLK2", "WLK3" ->
-          org.chuck.deluge.firmware.modulation.Arpeggiator.ArpMode.RANDOM;
-      case "OFF" -> org.chuck.deluge.firmware.modulation.Arpeggiator.ArpMode.OFF;
-      default -> org.chuck.deluge.firmware.modulation.Arpeggiator.ArpMode.UP;
-    };
+    if (m == null) return org.chuck.deluge.firmware2.Arpeggiator.ArpMode.ARP;
+    var t = m.trim().toUpperCase();
+    return "OFF".equals(t)
+        ? org.chuck.deluge.firmware2.Arpeggiator.ArpMode.OFF
+        : org.chuck.deluge.firmware2.Arpeggiator.ArpMode.ARP;
   }
 
-  private static org.chuck.deluge.firmware.modulation.Arpeggiator.ArpOctaveMode
+  private static org.chuck.deluge.firmware2.Arpeggiator.ArpOctaveMode
       stringToArpOctaveMode(String m) {
-    if (m == null) return org.chuck.deluge.firmware.modulation.Arpeggiator.ArpOctaveMode.UP;
+    if (m == null) return org.chuck.deluge.firmware2.Arpeggiator.ArpOctaveMode.UP;
     return switch (m.trim().toUpperCase()) {
-      case "DOWN" -> org.chuck.deluge.firmware.modulation.Arpeggiator.ArpOctaveMode.DOWN;
-      case "UPDN", "UPDOWN", "ALT" ->
-          org.chuck.deluge.firmware.modulation.Arpeggiator.ArpOctaveMode.UPDOWN;
-      default -> org.chuck.deluge.firmware.modulation.Arpeggiator.ArpOctaveMode.UP;
+      case "DOWN" -> org.chuck.deluge.firmware2.Arpeggiator.ArpOctaveMode.DOWN;
+      case "UP_DOWN", "UPDN", "UPDOWN", "ALT" ->
+          org.chuck.deluge.firmware2.Arpeggiator.ArpOctaveMode.UP_DOWN;
+      default -> org.chuck.deluge.firmware2.Arpeggiator.ArpOctaveMode.UP;
     };
   }
 
