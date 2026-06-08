@@ -77,7 +77,9 @@ public class Firmware2IntegrationTest {
     Song s = FirmwareFactory.createSong(p);
     FirmwareSound sound = (FirmwareSound) ((InstrumentClip) s.clips.get(0)).sound;
 
-    // Default: firmware2 OFF
+    // firmware2 OFF — exercise the legacy engine path (useFirmware2 now defaults on, so this test,
+    // which asserts the old engine is used, must opt out explicitly — mirroring the flag-on test).
+    sound.useFirmware2 = false;
     sound.triggerNote(69, 100);
     StereoSample[] buf = new StereoSample[128];
     for (int i = 0; i < 128; i++) buf[i] = new StereoSample();
