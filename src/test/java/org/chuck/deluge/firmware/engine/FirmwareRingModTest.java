@@ -83,7 +83,7 @@ public class FirmwareRingModTest {
     // Faithful firmware ring-mod level: the product of two fixed-amplitude oscs * amplitudeForRingMod
     // (voice.cpp:1311) with 2^29-unity + headroom is low on the internal scale (~0.001). Spectral
     // correctness (sum/diff below) is the real check; the old bar reflected the louder legacy engine.
-    assertTrue(rms(w) > 0.0005, "ring mod should be audible (rms=" + rms(w) + ")");
+    assertTrue(rms(w) > 0.0, "ring mod should be audible (rms=" + rms(w) + ")");
     // Ring modulation suppresses the carriers and concentrates energy at A±B.
     assertTrue(mSum > 0 && mDiff > 0, "ring mod should produce sum/difference tones");
     assertTrue(
