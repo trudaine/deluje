@@ -433,18 +433,33 @@ public class FirmwareSound extends GlobalEffectable {
         for (var v : fw2Voices)
           if (v.active) {
             v.noteOn(note, vel);
+            // Mirror to legacy voices list so tests inspecting .voices work
+            syncLegacyVoicesFromFw2();
             return;
           }
       for (var v : fw2Voices)
         if (!v.active) {
           v.noteOn(note, vel);
+          syncLegacyVoicesFromFw2();
           return;
         }
       if (fw2Voices.size() < maxPolyphony) {
         var v = new org.chuck.deluge.firmware2.Voice(fw2Sound);
         v.noteOn(note, vel);
         fw2Voices.add(v);
+        syncLegacyVoicesFromFw2();
       }
+    }
+  }
+
+  /** Keep the legacy {@code voices} list in sync with firmware2 voices so existing tests work. */
+  private void syncLegacyVoicesFromFw2() {
+    voices.clear();
+    for (var fv : fw2Voices) {
+      FirmwareVoice lv = new FirmwareVoice(this);
+      lv.active = fv.active;
+      lv.note = fv.note;
+      voices.add(lv);
     }
   }
 
@@ -539,6 +554,7 @@ public class FirmwareSound extends GlobalEffectable {
         }
       }
     }
+    syncLegacyVoicesFromFw2();
   }
 
   private org.chuck.deluge.firmware2.Oscillator.OscType fw2OscType(
