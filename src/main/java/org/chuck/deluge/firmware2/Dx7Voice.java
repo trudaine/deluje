@@ -125,6 +125,7 @@ public class Dx7Voice {
     public final byte[] params = new byte[156];
     public FmCore core; // set by engine
     public int engineMode;
+    public boolean useMkI; // updateEngineMode result: true -> EngineMkI, false -> modern FmCore
     public int randomDetune;
     public int pitchMod;
     public int egMod = 127;
@@ -141,9 +142,19 @@ public class Dx7Voice {
       return ((params[155] >> op) & 1) != 0;
     }
 
-    // updateEngineMode (dx7note.cpp:66-79)
+    // updateEngineMode (dx7note.cpp:66-79). core = modern; MkI if engineMode==2, or (engineMode==0
+    // auto && feedback>0 && algo is 3 or 5 — only EngineMkI implements algo 4/6 feedback loops).
     void updateEngineMode() {
-      // stub: engine switching via Dx7Engine lookup
+      useMkI = false;
+      if (engineMode == 2) {
+        useMkI = true;
+      } else if (engineMode == 0) {
+        int algo = params[134] & 0xFF;
+        int feedback = params[135] & 0xFF;
+        if (feedback > 0 && (algo == 3 || algo == 5)) {
+          useMkI = true;
+        }
+      }
     }
 
     // setEngineMode (dx7note.cpp:81-88)
@@ -561,8 +572,12 @@ public class Dx7Voice {
     int algorithm = patch[134] & 0xFF;
     int feedback = patch[135] & 0xFF;
     int fbShift = feedback != 0 ? FEEDBACK_BITDEPTH - feedback : 16;
-    // FIXME: use ctrls.core
-    FmCore.render(buf, n, params, algorithm, fbBuf, fbShift);
+    // ctrls->core->render (dx7note.cpp:382). Static dispatch: MkI vs the modern FmCore.
+    if (ctrls.useMkI) {
+      EngineMkI.render(buf, n, params, algorithm, fbBuf, fbShift);
+    } else {
+      FmCore.render(buf, n, params, algorithm, fbBuf, fbShift);
+    }
 
     boolean anyActive = false;
     for (int op = 0; op < 6; op++) {
