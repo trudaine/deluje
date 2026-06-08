@@ -94,16 +94,16 @@ public class FirmwareSound extends GlobalEffectable {
   public int eqBassParam = 0; // bipolar Q31; 0 = flat
   public int eqTrebleParam = 0; // bipolar Q31; 0 = flat
 
-  // Per-sound arpeggiator: held notes feed the arp, which triggers individual voices on its clock.
-  public final org.chuck.deluge.firmware.modulation.Arpeggiator arpeggiator =
-      new org.chuck.deluge.firmware.modulation.Arpeggiator(
-          new org.chuck.deluge.firmware.modulation.Arpeggiator.Settings());
-  private final org.chuck.deluge.firmware.modulation.Arpeggiator.ReturnInstruction arpInstr =
-      new org.chuck.deluge.firmware.modulation.Arpeggiator.ReturnInstruction();
+  // C: firmware2 Arpeggiator — faithful port of modulation/arpeggiator.cpp.
+  public final org.chuck.deluge.firmware2.Arpeggiator.Synth arpeggiator =
+      new org.chuck.deluge.firmware2.Arpeggiator.Synth();
+  public final org.chuck.deluge.firmware2.Arpeggiator.Settings arpSettings =
+      new org.chuck.deluge.firmware2.Arpeggiator.Settings();
+  private final org.chuck.deluge.firmware2.Arpeggiator.ArpReturnInstruction arpInstr =
+      new org.chuck.deluge.firmware2.Arpeggiator.ArpReturnInstruction();
   public int arpPhaseIncrement = 0; // arp clock (Q-units; one step == 1<<24 of gatePos)
   public int arpDivision =
       16; // step note division (16 = 16th note); used to derive arpPhaseIncrement
-  private int lastArpNote = -1;
 
   // Granular mod-FX (ModFXType.GRAIN routes here instead of the LFO-based ModFXProcessor).
   public float currentBpm = 120.0f;
@@ -120,8 +120,7 @@ public class FirmwareSound extends GlobalEffectable {
   }
 
   public boolean arpEnabled() {
-    return arpeggiator.settings.mode
-        != org.chuck.deluge.firmware.modulation.Arpeggiator.ArpMode.OFF;
+    return arpSettings.mode != org.chuck.deluge.firmware2.Arpeggiator.ArpMode.OFF;
   }
 
   public final GranularProcessor granular = new GranularProcessor();
@@ -203,19 +202,32 @@ public class FirmwareSound extends GlobalEffectable {
     if (scHit != 0) {
       sidechain.registerHit(scHit);
     }
-    // 0. Arpeggiator clock: advance the arp and action any note on/off it emits this block. Runs
-    // before the silent-bypass so it keeps stepping between sounding notes.
+    // 0. Arpeggiator clock (C: arpeggiator.cpp render): advance the arp and action
+    // any note-on/off it emits this block.
     if (arpEnabled() && arpPhaseIncrement > 0) {
-      arpInstr.noteOn = false;
-      arpInstr.noteOff = false;
-      arpeggiator.render(arpInstr, numSamples, arpPhaseIncrement);
-      if (arpInstr.noteOff && lastArpNote >= 0) {
-        releaseVoice(lastArpNote, -1);
-        lastArpNote = -1;
+      // C: gate threshold — settings.gate is bipolar Q31. Convert to unsigned 0..(1<<24) range.
+      // gate=0 means neutral (~50%), gate=INT_MAX means full (1<<24).
+      int gateThreshold = (1 << 24);
+      if (arpSettings.gate != 0) {
+        long gateL = (arpSettings.gate & 0xFFFFFFFFL); // unsigned
+        gateThreshold = (int)(gateL >> 7); // scale Q31 to 24-bit range
       }
-      if (arpInstr.noteOn) {
-        triggerVoice(arpInstr.noteCode, arpInstr.velocity, -1);
-        lastArpNote = arpInstr.noteCode;
+      arpeggiator.render(arpSettings, arpInstr, numSamples, gateThreshold, arpPhaseIncrement);
+
+      // C: handle note-offs (arpInstr.noteCodeOffPostArp[])
+      for (int n = 0; n < 4; n++) {
+        int noteOff = arpInstr.noteCodeOffPostArp[n];
+        if (noteOff != org.chuck.deluge.firmware2.Arpeggiator.ARP_NOTE_NONE) {
+          releaseVoice(noteOff, -1);
+        }
+      }
+
+      // C: handle note-on (arpInstr.arpNoteOn)
+      if (arpInstr.arpNoteOn != null) {
+        int noteOn = arpInstr.arpNoteOn.noteCodeOnPostArp[0];
+        int vel = arpInstr.arpNoteOn.velocity;
+        if (vel <= 0) vel = 64; // safety default
+        triggerVoice(noteOn, vel, -1);
       }
     }
 
@@ -228,7 +240,7 @@ public class FirmwareSound extends GlobalEffectable {
         hasActiveVoices = !fw2Sound.voices.isEmpty();
       }
     }
-    boolean arpHolding = arpEnabled() && arpeggiator.hasInputNotes();
+    boolean arpHolding = arpEnabled() && arpeggiator.hasAnyInputNotesActive();
     if (!hasActiveVoices && !arpHolding && silentBlockCount > 100) {
       // Fast bypass: write silence and return
       for (int i = 0; i < numSamples; i++) {
@@ -354,7 +366,15 @@ public class FirmwareSound extends GlobalEffectable {
   public void triggerNote(int note, int vel, int midiChannel) {
     // When the arpeggiator is on, held notes go to it; it triggers voices on its own clock.
     if (arpEnabled()) {
-      arpeggiator.noteOn(note, vel);
+      arpeggiator.noteOn(arpSettings, note, vel, arpInstr, midiChannel, null);
+      // If the arp immediately returns a note-on (first note, no sync), handle it now
+      if (arpInstr.arpNoteOn != null) {
+        int noteOn = arpInstr.arpNoteOn.noteCodeOnPostArp[0];
+        int v = arpInstr.arpNoteOn.velocity;
+        if (v <= 0) v = 64;
+        triggerVoice(noteOn, v, midiChannel);
+        arpInstr.arpNoteOn = null;
+      }
       return;
     }
     triggerVoice(note, vel, midiChannel);
@@ -607,7 +627,20 @@ public class FirmwareSound extends GlobalEffectable {
 
   public void releaseNote(int note, int midiChannel) {
     if (arpEnabled()) {
-      arpeggiator.noteOff(note);
+      arpeggiator.noteOff(arpSettings, note, arpInstr);
+      // Handle any note-off instructions the arp emitted
+      for (int n = 0; n < 4; n++) {
+        int noteOff = arpInstr.noteCodeOffPostArp[n];
+        if (noteOff != org.chuck.deluge.firmware2.Arpeggiator.ARP_NOTE_NONE) {
+          releaseVoice(noteOff, -1);
+        }
+      }
+      // Handle snap-back note-on (mono behavior)
+      if (arpInstr.arpNoteOn != null) {
+        int noteOn = arpInstr.arpNoteOn.noteCodeOnPostArp[0];
+        int v = arpInstr.arpNoteOn.velocity;
+        if (v > 0) triggerVoice(noteOn, v, -1);
+      }
       return;
     }
     releaseVoice(note, midiChannel);

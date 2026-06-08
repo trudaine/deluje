@@ -5,24 +5,21 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.util.HashSet;
 import java.util.Set;
 import org.chuck.deluge.firmware.dsp.StereoSample;
-import org.chuck.deluge.firmware.modulation.Arpeggiator;
 import org.junit.jupiter.api.Test;
 
 /**
- * Verifies the arpeggiator is now driven (GAP-12). Previously an Arpeggiator was instantiated but
- * never ticked, so arp patches produced no arpeggiation. With the arp ON, a held chord should be
- * stepped through one note at a time on the arp clock — so a single held chord triggers a sequence
- * of single-note voices rather than a sustained chord.
+ * Verifies the faithful firmware2 arpeggiator (port of arpeggiator.cpp). With arp ON, a held
+ * chord should be stepped through one note at a time on the arp clock.
  */
 public class ArpParityTest {
 
   @Test
   public void heldChordArpeggiates() {
     FirmwareSound sound = new FirmwareSound();
-    sound.polyphonic = org.chuck.deluge.firmware.model.PolyphonyMode.MONO; // one voice, retriggered
-    sound.arpeggiator.settings.mode = Arpeggiator.ArpMode.UP;
-    sound.arpeggiator.settings.numOctaves = 1;
-    sound.arpeggiator.settings.gate = Integer.MAX_VALUE; // longest gate
+    sound.polyphonic = org.chuck.deluge.firmware.model.PolyphonyMode.MONO;
+    sound.arpSettings.mode = org.chuck.deluge.firmware2.Arpeggiator.ArpMode.ARP;
+    sound.arpSettings.numOctaves = 1;
+    sound.arpSettings.gate = 1 << 23; // ~50% duty cycle
     sound.arpPhaseIncrement = 16777216; // 2^24 → one arp step every ~256 samples
 
     // Hold a 3-note chord; with arp on these go to the arpeggiator, not straight to voices.
