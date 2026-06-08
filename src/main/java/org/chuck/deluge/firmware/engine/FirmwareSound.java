@@ -251,7 +251,7 @@ public class FirmwareSound extends GlobalEffectable {
         globalLfos[1].render(numSamples, lfoWaveforms[2], phaseInc2);
 
     // 2. Sum Voices
-    if (useFirmware2) {
+    if (useFirmware2 && !isDrum) {
       renderVoicesFw2(buffer, numSamples);
     } else
       synchronized (voices) {
@@ -366,7 +366,7 @@ public class FirmwareSound extends GlobalEffectable {
     if (sidechainSend != 0) {
       GlobalSidechainBus.registerHit(sidechainSend);
     }
-    if (useFirmware2) {
+    if (useFirmware2 && !isDrum) {
       triggerVoiceFw2(note, vel);
       return;
     }
