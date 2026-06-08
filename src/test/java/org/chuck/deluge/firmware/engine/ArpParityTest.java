@@ -45,7 +45,7 @@ public class ArpParityTest {
       }
       sound.renderInternal(buf, block, null);
       int concurrent = 0;
-      for (FirmwareVoice v : sound.voices) {
+      for (org.chuck.deluge.firmware2.Voice v : sound.fw2Sound.voices) {
         if (v.active) {
           concurrent++;
           notesHeard.add(v.note);
