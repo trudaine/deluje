@@ -141,9 +141,7 @@ public class SincInterpolator {
       {-6, 24, -70, 168, -363, 754, -1784, 32548, 2056, -831, 400, -188, 80, -28, 7, -2},
       {0, 0, 0, 0, 0, 0, -1, 32767, -1, 0, 0, 0, 0, 0, 0, 0},
     },
-    // Kernels 1-6 (from interpolate.cpp:104-217)
-    // Each is 17 rows × 16 columns of int16 kernel coefficients
-    // Kernel 1
+    // Kernel 1 (interpolate.cpp:104-122) — 17 phases × 16 taps
     {
       {-4, 5, 91, -378, 469, 726, -3908, 7797, 23170, 7797, -3908, 726, 468, -378, 91, 1},
       {-5, 11, 82, -403, 601, 491, -3903, 9183, 23090, 6444, -3837, 928, 338, -347, 95, -3},
@@ -163,10 +161,7 @@ public class SincInterpolator {
       {-3, 95, -347, 338, 928, -3837, 6444, 23090, 9183, -3903, 491, 601, -403, 82, 11, -5},
       {5, 91, -378, 469, 726, -3908, 7797, 23170, 7797, -3908, 726, 468, -378, 91, 1, -4},
     },
-    // Kernels 2-6: included as truncated tables — see interpolate.cpp lines 123-217
-    // Full 7-kernel, 17-phase, 16-tap windowed sinc tables
-    // For brevity, the remaining 5 kernels reference the C data
-    // (identical bit patterns, verified against firmware)
+    // Kernel 2 (interpolate.cpp:123-141) — 17 phases × 16 taps
     {
       {0, -33, 0, 380, 0, -1955, 0, 9800, 16381, 9800, 0, -1955, 0, 380, 0, -33},
       {-1, -36, 14, 401, -94, -2036, 417, 10481, 16351, 9106, -379, -1858, 85, 356, -12, -30},
@@ -186,11 +181,7 @@ public class SincInterpolator {
       {-30, -12, 356, 85, -1858, -379, 9106, 16351, 10481, 417, -2036, -94, 401, 14, -36, -1},
       {-33, 0, 380, 0, -1955, 0, 9800, 16381, 9800, 0, -1955, 0, 380, 0, -33, 0},
     },
-    // Kernels 3-6: from interpolate.cpp lines 142-217
-    // (complete 7-kernel set — all 17x16 tables identical to C firmware)
-    // Placeholder for remaining 4 kernel tables
-    // In production, all 7 kernels must be present for correct operation
-    // Kernel 3 placeholder
+    // Kernel 3 (interpolate.cpp:142-160) — 17 phases × 16 taps
     {
       {2, 33, 49, -252, -880, -369, 3226, 8782, 11583, 8782, 3226, -369, -880, -253, 49, 36},
       {3, 36, 43, -289, -904, -247, 3553, 9092, 11572, 8462, 2909, -480, -850, -220, 53, 32},
@@ -210,7 +201,7 @@ public class SincInterpolator {
       {32, 53, -220, -850, -480, 2909, 8462, 11572, 9092, 3553, -247, -904, -289, 43, 36, 3},
       {33, 49, -252, -880, -369, 3226, 8782, 11583, 8782, 3226, -369, -880, -253, 49, 36, 2},
     },
-    // Kernel 4
+    // Kernel 4 (interpolate.cpp:161-179) — 17 phases × 16 taps
     {
       {0, -24, -134, -275, 0, 1412, 4142, 7078, 8367, 7078, 4142, 1412, 0, -275, -134, -24},
       {0, -28, -144, -277, 48, 1548, 4338, 7225, 8361, 6925, 3947, 1281, -43, -271, -124, -21},
@@ -230,7 +221,7 @@ public class SincInterpolator {
       {-21, -124, -271, -43, 1281, 3947, 6925, 8361, 7225, 4338, 1548, 48, -277, -144, -28, 0},
       {-24, -134, -275, 0, 1412, 4142, 7078, 8367, 7078, 4142, 1412, 0, -275, -134, -24, 0},
     },
-    // Kernel 5
+    // Kernel 5 (interpolate.cpp:180-198) — 17 phases × 16 taps
     {
       {-5, -25, -28, 155, 821, 2207, 4118, 5858, 6564, 5858, 4118, 2207, 821, 154, -28, -30},
       {-5, -27, -26, 179, 886, 2316, 4241, 5940, 6562, 5772, 3994, 2100, 760, 133, -31, -29},
