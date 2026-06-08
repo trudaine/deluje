@@ -65,6 +65,10 @@ public class Voice {
   public final Lfo lfo2 = new Lfo();
   public final Lfo lfo4 = new Lfo();
 
+  // Per-source DX7 voices (mirror voice.cpp unisonParts[u].sources[s].dxVoice; OscType::DX7).
+  public final Dx7Voice[] dxVoice = {new Dx7Voice(), new Dx7Voice()};
+  public final Dx7Voice.DxPatch[] dxPatch = {new Dx7Voice.DxPatch(), new Dx7Voice.DxPatch()};
+
   public Voice(Sound sound) {
     this.sound = sound;
     for (int i = 0; i < envelopes.length; i++) envelopes[i] = new Envelope();
@@ -129,6 +133,14 @@ public class Voice {
     sourceValues[PatchSource.LFO_LOCAL_1.ordinal()] = lfo2.render(0, sound.lfoConfig[1], 0);
     lfo4.setLocalInitialPhase(sound.lfoConfig[3]); // LFO4_ID = 3
     sourceValues[PatchSource.LFO_LOCAL_2.ordinal()] = lfo4.render(0, sound.lfoConfig[3], 0);
+
+    // Per-source DX7 init (sources[s].oscType == OscType::DX7 -> set up dxVoice).
+    for (int s = 0; s < 2; s++) {
+      if (sound.oscTypes[s] == OscType.DX7 && sound.sourceDx7Patch[s] != null) {
+        System.arraycopy(sound.sourceDx7Patch[s], 0, dxPatch[s].params, 0, 156);
+        dxVoice[s].init(dxPatch[s], midiNote, velocity);
+      }
+    }
   }
 
   // ── noteOff (voice.cpp:570-634) ──
@@ -383,6 +395,28 @@ public class Voice {
                 : paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s] >> 4;
         if (srcAmp <= 0) continue;
         int pInc = (s == 0) ? pIncA : pIncB;
+        if (sound.oscTypes[s] == OscType.DX7) {
+          // voice.cpp:2360-2387 — per-source DX7. adjpitch = (int)(log2f(phaseIncrement)*(1<<24)) -
+          // 278023814; ctrl.ampmod = LOCAL_OSC_A_PHASE_WIDTH[s] >> 13; dxVoice->compute(uniBuf,...);
+          // then oscBuffer += multiply_32x32_rshift32(uniBuf[i], sourceAmplitude) << 6.
+          if (dxVoice[s].patch == null && sound.sourceDx7Patch[s] != null) {
+            // chuckjava sets oscType=DX7 per render block (after noteOn), so init the DxVoice here.
+            System.arraycopy(sound.sourceDx7Patch[s], 0, dxPatch[s].params, 0, 156);
+            dxVoice[s].init(dxPatch[s], note, velocity);
+          }
+          if (dxVoice[s].patch == null) continue; // no patch -> nothing to render
+          int logpitch = (int) (Math.log(pInc & 0xFFFFFFFFL) / Math.log(2.0) * (1 << 24));
+          int adjpitch = logpitch - 278023814;
+          int ampMod = paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH + s] >> 13;
+          dxPatch[s].computeLfo(numSamples);
+          int[] uniBuf = new int[numSamples];
+          dxVoice[s].compute(uniBuf, numSamples, adjpitch, dxPatch[s], ampMod, 0, 0);
+          for (int i = 0; i < numSamples; i++) {
+            sourceBuf[s * numSamples + i] =
+                Functions.multiply_32x32_rshift32(uniBuf[i], srcAmp) << 6;
+          }
+          continue;
+        }
         int[] phase = {sources[s].oscPos};
         Oscillator.renderOsc(
             sound.oscTypes[s], srcAmp, sourceBuf, s * numSamples, numSamples, pInc, 0, phase, true,

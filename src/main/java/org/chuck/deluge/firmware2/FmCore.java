@@ -153,8 +153,8 @@ public final class FmCore {
       int outbus = flags & 3;
 
       int gain1 = param.gain_out;
-      // gain2 = Exp2::lookup(param.level_in - (14 * (1 << 24)));
-      int gain2 = exp2Lookup(param.level_in - (14 << 24));
+      // fm_core.cpp:87 — gain2 = Exp2::lookup(param.level_in - (14 * (1 << 24))). Real Exp2, Q24.
+      int gain2 = Dx7Tables.exp2Lookup(param.level_in - (14 << 24));
       param.gain_out = gain2;
       int dgain = (int) (((long) (gain2 - gain1 + (n >> 1)) * (long) invN) >> 30);
 
@@ -184,22 +184,23 @@ public final class FmCore {
     }
   }
 
-  // ── computePure (scalar equivalent of FmOpKernel::compute_pure) ──
+  // ── FmOpKernel::compute_pure (fm_op_kernel.cpp:69-99) ──
+  // y = Sin::lookup(phase); y1 = (y*gain)>>24; output += y1 (plain, int wraparound); phase += freq.
   private static void computePure(
       int[] out, int n, FmOpParams param, int gain1, int gain2, int dgain, boolean add) {
     int phase = param.phase;
     int gain = gain1;
     for (int i = 0; i < n; i++) {
-      phase += param.freq;
       gain += dgain;
-      int sample = SineOsc.doFMNew(phase, 0);
-      sample = Functions.multiply_32x32_rshift32(sample, gain);
-      if (add) out[i] = Functions.add_saturate(out[i], sample);
-      else out[i] = sample;
+      int y = Dx7Tables.sinLookup(phase);
+      int y1 = (int) (((long) y * (long) gain) >> 24);
+      if (add) out[i] += y1;
+      else out[i] = y1;
+      phase += param.freq;
     }
   }
 
-  // ── computeNormal (scalar equivalent of FmOpKernel::compute) ──
+  // ── FmOpKernel::compute (fm_op_kernel.cpp:38-67) ──
   private static void computeNormal(
       int[] out,
       int n,
@@ -212,16 +213,18 @@ public final class FmCore {
     int phase = param.phase;
     int gain = gain1;
     for (int i = 0; i < n; i++) {
-      phase += param.freq;
       gain += dgain;
-      int sample = SineOsc.doFMNew(phase, inbuf[i]);
-      sample = Functions.multiply_32x32_rshift32(sample, gain);
-      if (add) out[i] = Functions.add_saturate(out[i], sample);
-      else out[i] = sample;
+      int y = Dx7Tables.sinLookup(phase + inbuf[i]);
+      int y1 = (int) (((long) y * (long) gain) >> 24);
+      if (add) out[i] += y1;
+      else out[i] = y1;
+      phase += param.freq;
     }
   }
 
-  // ── computeFb (scalar equivalent of FmOpKernel::compute_fb) ──
+  // ── FmOpKernel::compute_fb (fm_op_kernel.cpp:104-133) ──
+  // scaled_fb = (y0+y) >> (fb_shift+1); y = Sin::lookup(phase+scaled_fb); y = (y*gain)>>24;
+  // output += y; fb_buf = {y0(prev), y(gained)}.
   private static void computeFb(
       int[] out,
       int n,
@@ -234,19 +237,19 @@ public final class FmCore {
       boolean add) {
     int phase = param.phase;
     int gain = gain1;
-    int fb0 = fbBuf[0], fb1 = fbBuf[1];
+    int y0 = fbBuf[0];
+    int y = fbBuf[1];
     for (int i = 0; i < n; i++) {
-      phase += param.freq;
       gain += dgain;
-      int fb = (fb0 + fb1) >> 1;
-      fb0 = fb1;
-      int sample = SineOsc.doFMNew(phase, fb << feedbackShift);
-      fb1 = sample;
-      sample = Functions.multiply_32x32_rshift32(sample, gain);
-      if (add) out[i] = Functions.add_saturate(out[i], sample);
-      else out[i] = sample;
+      int scaledFb = (y0 + y) >> (feedbackShift + 1);
+      y0 = y;
+      y = Dx7Tables.sinLookup(phase + scaledFb);
+      y = (int) (((long) y * (long) gain) >> 24);
+      if (add) out[i] += y;
+      else out[i] = y;
+      phase += param.freq;
     }
-    fbBuf[0] = fb0;
-    fbBuf[1] = fb1;
+    fbBuf[0] = y0;
+    fbBuf[1] = y;
   }
 }

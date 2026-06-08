@@ -20,7 +20,9 @@ public final class Oscillator {
     ANALOG_SAW_2,
     ANALOG_SQUARE,
     WAVETABLE,
-    SAMPLE
+    SAMPLE,
+    // C definitions_cxx.hpp:367 has DX7 after SAMPLE (index 8); rendered per-source in voice.cpp:2371.
+    DX7
   }
 
   // ── Helper: getTableNumber (port of dsp::getTableNumber) ──
