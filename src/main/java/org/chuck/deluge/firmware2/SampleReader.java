@@ -36,6 +36,17 @@ public class SampleReader {
     return sample.data.length / sample.numChannels;
   }
 
+  /** Capture another reader's full play state (C: SampleLowLevelReader copy — used to fork the older head). */
+  public void copyStateFrom(SampleReader other) {
+    this.sample = other.sample;
+    this.playDirection = other.playDirection;
+    this.oscPos = other.oscPos;
+    this.playPos = other.playPos;
+    this.doneAnySamplesYet = other.doneAnySamplesYet;
+    System.arraycopy(other.bufL, 0, bufL, 0, K_TAPS);
+    System.arraycopy(other.bufR, 0, bufR, 0, K_TAPS);
+  }
+
   /** Read the frame at {@link #playPos} (0 outside the sample), shift it into the history, advance. */
   private void pushFrame() {
     for (int i = K_TAPS - 1; i >= 1; i--) {

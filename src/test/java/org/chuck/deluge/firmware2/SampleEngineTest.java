@@ -412,6 +412,63 @@ class SampleEngineTest {
     }
   }
 
+  private static Sample bigSample(int nc, int frames, long seed) {
+    Sample s = new Sample();
+    s.numChannels = nc;
+    s.byteDepth = 3;
+    s.sampleRate = 44100;
+    s.audioDataStartPosBytes = 44;
+    s.audioDataLengthBytes = (long) frames * s.byteDepth * nc;
+    s.lengthInSamples = frames;
+    s.data = new int[frames * nc];
+    Random r = new Random(seed);
+    for (int i = 0; i < s.data.length; i++) s.data[i] = r.nextInt() >> 1;
+    return s;
+  }
+
+  /** Time-stretched render runs end-to-end and is audible (non-silent) for a real signal. */
+  @Test
+  void renderTimeStretchedIsAudible() {
+    Sample s = bigSample(2, 60000, 1);
+    VoiceSample v = new VoiceSample();
+    v.setupTimeStretch(s, 20000, 1);
+    int n = 512;
+    int[] osc = new int[n * 2];
+    // ~0.8x speed, slight pitch up.
+    v.renderTimeStretched(osc, n, 2, 17000000, 13000000, new int[] {1 << 27}, 0);
+    long energy = 0;
+    for (int x : osc) energy += Math.abs((long) x);
+    org.junit.jupiter.api.Assertions.assertTrue(energy > 0, "time-stretched output is silent");
+  }
+
+  /**
+   * At exactly 1x stretch the hop's randomElement is 0 (randomFine[8]=0), so getNoise() has no effect
+   * and the render is deterministic — two identical setups must produce identical output.
+   */
+  @Test
+  void renderTimeStretchedUnityIsDeterministic() {
+    Sample s = bigSample(1, 50000, 2);
+    int unity = 16777216;
+
+    VoiceSample a = new VoiceSample();
+    a.setupTimeStretch(s, 10000, 1);
+    int[] oscA = new int[400];
+    a.renderTimeStretched(oscA, 400, 1, unity, unity, new int[] {1 << 27}, 0);
+
+    // Consume some noise in between to prove the result doesn't depend on the RNG at 1x.
+    for (int i = 0; i < 37; i++) Functions.getNoise();
+
+    VoiceSample b = new VoiceSample();
+    b.setupTimeStretch(s, 10000, 1);
+    int[] oscB = new int[400];
+    b.renderTimeStretched(oscB, 400, 1, unity, unity, new int[] {1 << 27}, 0);
+
+    org.junit.jupiter.api.Assertions.assertArrayEquals(oscA, oscB, "1x time-stretch deterministic");
+    long energy = 0;
+    for (int x : oscA) energy += Math.abs((long) x);
+    org.junit.jupiter.api.Assertions.assertTrue(energy > 0, "1x output silent");
+  }
+
   /** A forward window too close to the start returns false (C:753-756). */
   @Test
   void getAveragesForCrossfadeOutOfBoundsFalse() {
