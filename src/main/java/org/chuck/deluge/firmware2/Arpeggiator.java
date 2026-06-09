@@ -702,19 +702,118 @@ public class Arpeggiator {
     // ── calculateRandomizerAmounts (arpeggiator.cpp:892-1011) ──
 
     void calculateRandomizerAmounts(Settings settings) {
-      // C: 893-995 — randomizer lock path (simplified: always live mode for now)
-      // C: 997-1008 — live path
-      isPlayNoteForCurrentStep = getRandomProbabilityResult(settings.noteProbability);
-      isPlayBassForCurrentStep = getRandomProbabilityResult(settings.bassProbability);
-      isPlayRandomStepForCurrentStep = getRandomProbabilityResult(settings.swapProbability);
-      isPlayGlideForCurrentStep = getRandomProbabilityResult(settings.glideProbability);
-      isPlayReverseForCurrentStep = getRandomProbabilityResult(settings.reverseProbability);
-      isPlayChordForCurrentStep = getRandomProbabilityResult(settings.chordProbability);
-      isPlayRatchetForCurrentStep = getRandomProbabilityResult(settings.ratchetProbability);
-      spreadVelocityForCurrentStep = getRandomBipolarProbabilityAmount(settings.spreadVelocity);
-      spreadGateForCurrentStep = getRandomBipolarProbabilityAmount(settings.spreadGate);
-      spreadOctaveForCurrentStep = getRandomWeighted2BitsAmount(settings.spreadOctave);
-      resetLockedRandomizerValuesNextTime = true;
+      if (settings.randomizerLock) {
+        // C:894-963 — store generated values in arrays so the sequence can repeat. Regenerate a
+        // block whenever a reset is pending or that probability param changed. (int8_t = byte.)
+        int N = RANDOMIZER_LOCK_MAX_SAVED_VALUES;
+        if (resetLockedRandomizerValuesNextTime
+            || settings.lastLockedNoteProbabilityParameterValue != settings.noteProbability) {
+          for (int i = 0; i < N; i++) {
+            settings.lockedNoteProbabilityValues[i] =
+                (byte) (getRandomProbabilityResult(settings.noteProbability) ? 1 : 0);
+          }
+          settings.lastLockedNoteProbabilityParameterValue = settings.noteProbability;
+        }
+        if (resetLockedRandomizerValuesNextTime
+            || settings.lastLockedBassProbabilityParameterValue != settings.bassProbability) {
+          for (int i = 0; i < N; i++) {
+            settings.lockedBassProbabilityValues[i] =
+                (byte) (getRandomProbabilityResult(settings.bassProbability) ? 1 : 0);
+          }
+          settings.lastLockedBassProbabilityParameterValue = settings.bassProbability;
+        }
+        if (resetLockedRandomizerValuesNextTime
+            || settings.lastLockedSwapProbabilityParameterValue != settings.swapProbability) {
+          for (int i = 0; i < N; i++) {
+            settings.lockedSwapProbabilityValues[i] =
+                (byte) (getRandomProbabilityResult(settings.swapProbability) ? 1 : 0);
+          }
+          settings.lastLockedSwapProbabilityParameterValue = settings.swapProbability;
+        }
+        if (resetLockedRandomizerValuesNextTime
+            || settings.lastLockedGlideProbabilityParameterValue != settings.glideProbability) {
+          for (int i = 0; i < N; i++) {
+            settings.lockedGlideProbabilityValues[i] =
+                (byte) (getRandomProbabilityResult(settings.glideProbability) ? 1 : 0);
+          }
+          settings.lastLockedGlideProbabilityParameterValue = settings.glideProbability;
+        }
+        if (resetLockedRandomizerValuesNextTime
+            || settings.lastLockedReverseProbabilityParameterValue != settings.reverseProbability) {
+          for (int i = 0; i < N; i++) {
+            settings.lockedReverseProbabilityValues[i] =
+                (byte) (getRandomProbabilityResult(settings.reverseProbability) ? 1 : 0);
+          }
+          settings.lastLockedReverseProbabilityParameterValue = settings.reverseProbability;
+        }
+        if (resetLockedRandomizerValuesNextTime
+            || settings.lastLockedChordProbabilityParameterValue != settings.chordProbability) {
+          for (int i = 0; i < N; i++) {
+            settings.lockedChordProbabilityValues[i] =
+                (byte) (getRandomProbabilityResult(settings.chordProbability) ? 1 : 0);
+          }
+          settings.lastLockedChordProbabilityParameterValue = settings.chordProbability;
+        }
+        if (resetLockedRandomizerValuesNextTime
+            || settings.lastLockedRatchetProbabilityParameterValue != settings.ratchetProbability) {
+          for (int i = 0; i < N; i++) {
+            settings.lockedRatchetProbabilityValues[i] =
+                (byte) (getRandomProbabilityResult(settings.ratchetProbability) ? 1 : 0);
+          }
+          settings.lastLockedRatchetProbabilityParameterValue = settings.ratchetProbability;
+        }
+        if (resetLockedRandomizerValuesNextTime
+            || settings.lastLockedSpreadVelocityParameterValue != settings.spreadVelocity) {
+          for (int i = 0; i < N; i++) {
+            settings.lockedSpreadVelocityValues[i] =
+                (byte) getRandomBipolarProbabilityAmount(settings.spreadVelocity);
+          }
+          settings.lastLockedSpreadVelocityParameterValue = settings.spreadVelocity;
+        }
+        if (resetLockedRandomizerValuesNextTime
+            || settings.lastLockedSpreadGateParameterValue != settings.spreadGate) {
+          for (int i = 0; i < N; i++) {
+            settings.lockedSpreadGateValues[i] =
+                (byte) getRandomBipolarProbabilityAmount(settings.spreadGate);
+          }
+          settings.lastLockedSpreadGateParameterValue = settings.spreadGate;
+        }
+        if (resetLockedRandomizerValuesNextTime
+            || settings.lastLockedSpreadOctaveParameterValue != settings.spreadOctave) {
+          for (int i = 0; i < N; i++) {
+            settings.lockedSpreadOctaveValues[i] =
+                (byte) getRandomWeighted2BitsAmount(settings.spreadOctave);
+          }
+          settings.lastLockedSpreadOctaveParameterValue = settings.spreadOctave;
+        }
+        resetLockedRandomizerValuesNextTime = false;
+
+        // C:967-994 — read back the locked value for this step (int8_t widens with sign).
+        int idx = notesPlayedFromLockedRandomizer % N;
+        isPlayNoteForCurrentStep = settings.lockedNoteProbabilityValues[idx] != 0;
+        isPlayBassForCurrentStep = settings.lockedBassProbabilityValues[idx] != 0;
+        isPlayRandomStepForCurrentStep = settings.lockedSwapProbabilityValues[idx] != 0;
+        isPlayGlideForCurrentStep = settings.lockedGlideProbabilityValues[idx] != 0;
+        isPlayReverseForCurrentStep = settings.lockedReverseProbabilityValues[idx] != 0;
+        isPlayChordForCurrentStep = settings.lockedChordProbabilityValues[idx] != 0;
+        isPlayRatchetForCurrentStep = settings.lockedRatchetProbabilityValues[idx] != 0;
+        spreadVelocityForCurrentStep = settings.lockedSpreadVelocityValues[idx];
+        spreadGateForCurrentStep = settings.lockedSpreadGateValues[idx];
+        spreadOctaveForCurrentStep = settings.lockedSpreadOctaveValues[idx];
+      } else {
+        // C:996-1009 — live: generate new randomized values each note. Reset locked values.
+        isPlayNoteForCurrentStep = getRandomProbabilityResult(settings.noteProbability);
+        isPlayBassForCurrentStep = getRandomProbabilityResult(settings.bassProbability);
+        isPlayRandomStepForCurrentStep = getRandomProbabilityResult(settings.swapProbability);
+        isPlayGlideForCurrentStep = getRandomProbabilityResult(settings.glideProbability);
+        isPlayReverseForCurrentStep = getRandomProbabilityResult(settings.reverseProbability);
+        isPlayChordForCurrentStep = getRandomProbabilityResult(settings.chordProbability);
+        isPlayRatchetForCurrentStep = getRandomProbabilityResult(settings.ratchetProbability);
+        spreadVelocityForCurrentStep = getRandomBipolarProbabilityAmount(settings.spreadVelocity);
+        spreadGateForCurrentStep = getRandomBipolarProbabilityAmount(settings.spreadGate);
+        spreadOctaveForCurrentStep = getRandomWeighted2BitsAmount(settings.spreadOctave);
+        resetLockedRandomizerValuesNextTime = true;
+      }
     }
 
     // ── calculateNextNoteAndOrOctave (arpeggiator.cpp:1013-1188) ──
