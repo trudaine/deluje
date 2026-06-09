@@ -65,16 +65,19 @@ public class SincInterpolator {
     // C:25 — which phase in the kernel table (0..16)
     int progressSmall = oscPos >> (24 + K_INTERPOLATION_MAX_NUM_SAMPLES_MAGNITUDE - NUM_BITS_IN_TABLE_SIZE);
 
-    // C:27-35 — interpolate kernel between two adjacent phases
-    int[] kernel = new int[K_INTERPOLATION_MAX_NUM_SAMPLES]; // scalarized from Argon<int16_t>[2]
+    // C:27-35 — interpolate kernel between two adjacent phases. kernelVector is Argon<int16_t>, so the
+    // lerp is stored as a SATURATED int16 (scalarized here).
+    short[] kernel = new short[K_INTERPOLATION_MAX_NUM_SAMPLES];
     short[] k1 = WINDOWED_SINC_KERNEL[whichKernel][progressSmall];
     short[] k2 = WINDOWED_SINC_KERNEL[whichKernel][progressSmall + 1];
 
-    // C:34 — value1.MultiplyAddFixedPoint((value2 - value1), strength2)
-    // i.e. linear interpolate: k[i] = k1[i] + ((k2[i] - k1[i]) * strength2 >> 15)
+    // C:34 — value1.MultiplyAddFixedPoint((value2 - value1), strength2). MultiplyAddFixedPoint is the
+    // non-rounding Argon op (vqdmlah): acc + vqdmulh(b, c), where vqdmulh(b, c) = sat16((2*b*c) >> 16)
+    // = sat16((b*c) >> 15). Both the product and the accumulate saturate to int16 (no rounding term).
     for (int i = 0; i < K_INTERPOLATION_MAX_NUM_SAMPLES; i++) {
       int diff = k2[i] - k1[i];
-      kernel[i] = k1[i] + ((diff * strength2) >> 15);
+      int prod = sat16((diff * strength2) >> 15); // vqdmulh
+      kernel[i] = (short) sat16(k1[i] + prod);     // vqdmlah accumulate, stored int16
     }
 
     // C:37-47 — convolve kernel with sample history (left channel)
@@ -95,6 +98,13 @@ public class SincInterpolator {
     }
 
     return new int[]{sumL, 0};
+  }
+
+  /** Saturate to the signed 16-bit range (NEON int16 ops saturate). */
+  static int sat16(int v) {
+    if (v > 32767) return 32767;
+    if (v < -32768) return -32768;
+    return v;
   }
 
   // ── interpolateLinear (interpolate.cpp:70-80) ──

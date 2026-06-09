@@ -367,6 +367,83 @@ class Firmware2FxParityTest {
     return flat;
   }
 
+  /**
+   * SincInterpolator.interpolate must match the C interpolate.cpp algorithm: kernel lerp via the
+   * non-rounding Argon vqdmulh ((diff*strength2)>>15, saturated int16) then an int16×int16→int32
+   * convolution with the sample history. firmware/ is a float adaptation, so this re-derives the C
+   * integer algorithm directly and compares (also catches any table-transcription/index/shift bug).
+   */
+  @Test
+  void sincInterpolatorMatchesCAlgorithm() {
+    SincInterpolator si = new SincInterpolator();
+    Random r = new Random(11);
+    for (int n = 0; n < 40; n++) {
+      si.pushL((short) r.nextInt());
+      si.pushR((short) r.nextInt());
+    }
+    final int K = SincInterpolator.K_INTERPOLATION_MAX_NUM_SAMPLES;
+    for (int kern = 0; kern < 7; kern++) {
+      for (int t = 0; t < 500; t++) {
+        int oscPos = r.nextInt(1 << 24); // 0..2^24 → progressSmall = oscPos>>>20 in 0..15
+        int strength2 = (oscPos >>> 5) & 0x7FFF; // C:11,17,23 (rshiftAmount=5)
+        int progressSmall = oscPos >>> 20;       // C:25
+        short[] k1 = SincInterpolator.WINDOWED_SINC_KERNEL[kern][progressSmall];
+        short[] k2 = SincInterpolator.WINDOWED_SINC_KERNEL[kern][progressSmall + 1];
+        int sumL = 0;
+        int sumR = 0;
+        for (int i = 0; i < K; i++) {
+          int prod = SincInterpolator.sat16(((k2[i] - k1[i]) * strength2) >> 15);
+          short kc = (short) SincInterpolator.sat16(k1[i] + prod);
+          sumL += kc * si.bufferL[i];
+          sumR += kc * si.bufferR[i];
+        }
+        int[] got = si.interpolate(2, kern, oscPos);
+        assertEquals(sumL, got[0], "interpolate L kern=" + kern + " oscPos=" + oscPos);
+        assertEquals(sumR, got[1], "interpolate R kern=" + kern + " oscPos=" + oscPos);
+      }
+    }
+  }
+
+  /** The kernel lerp never saturates for the real sinc tables, so the int16 storage is lossless. */
+  @Test
+  void sincKernelLerpStaysInInt16() {
+    final int K = SincInterpolator.K_INTERPOLATION_MAX_NUM_SAMPLES;
+    for (int kern = 0; kern < 7; kern++) {
+      for (int p = 0; p < 16; p++) { // progressSmall 0..15, so p+1 valid
+        short[] k1 = SincInterpolator.WINDOWED_SINC_KERNEL[kern][p];
+        short[] k2 = SincInterpolator.WINDOWED_SINC_KERNEL[kern][p + 1];
+        for (int s = 0; s <= 32767; s += 257) { // sample strength2 across [0,32767]
+          for (int i = 0; i < K; i++) {
+            int raw = k1[i] + (((k2[i] - k1[i]) * s) >> 15);
+            org.junit.jupiter.api.Assertions.assertTrue(
+                raw >= -32768 && raw <= 32767, "kernel lerp out of int16: " + raw);
+          }
+        }
+      }
+    }
+  }
+
+  /** interpolateLinear (C interpolate.cpp:70-80): strength2 = phase>>9 (Q15), 2-tap lerp. */
+  @Test
+  void sincInterpolateLinearMatchesC() {
+    SincInterpolator si = new SincInterpolator();
+    Random r = new Random(31);
+    for (int n = 0; n < 40; n++) {
+      si.pushL((short) r.nextInt());
+      si.pushR((short) r.nextInt());
+    }
+    for (int t = 0; t < 2000; t++) {
+      int phase = r.nextInt(1 << 24);
+      short strength2 = (short) (phase >> 9);
+      short strength1 = (short) (0x7FFF - strength2);
+      int el = (si.bufferL[1] * strength1) + (si.bufferL[0] * strength2);
+      int er = (si.bufferR[1] * strength1) + (si.bufferR[0] * strength2);
+      int[] got = si.interpolateLinear(2, phase);
+      assertEquals(el, got[0], "interpolateLinear L phase=" + phase);
+      assertEquals(er, got[1], "interpolateLinear R phase=" + phase);
+    }
+  }
+
   private static StereoSample[] newBuf() {
     StereoSample[] a = new StereoSample[N];
     for (int i = 0; i < N; i++) a[i] = new StereoSample();
