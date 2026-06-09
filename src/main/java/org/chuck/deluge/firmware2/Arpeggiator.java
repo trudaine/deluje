@@ -381,6 +381,14 @@ public class Arpeggiator {
     int notesPlayedFromRhythm;
     int lastNormalNotePlayedFromRhythm;
     int notesPlayedFromLockedRandomizer;
+
+    /**
+     * C: currentSong->key — the song's musical key, used for the chord path. Defaults to a single
+     * mode note (count 1 < 5 → chord path skipped), matching the C when no scale is set. Wire this
+     * from the song to enable arp chords.
+     */
+    public MusicalKey currentKey = new MusicalKey();
+
     boolean lastNormalNotePlayedFromNoteProbability = true;
     boolean lastNormalNotePlayedFromBassProbability;
     boolean lastNormalNotePlayedFromSwapProbability;
@@ -1552,9 +1560,48 @@ public class Arpeggiator {
 
         arpNote.resetPostArpArrays(); // C:1368
 
-        // C:1371-1415 — set note(s) (simplified: no chord polyphony)
-        arpNote.noteCodeOnPostArp[0] = note;
+        // C:1371-1415 — set note(s), incl. the optional chord.
+        arpNote.noteCodeOnPostArp[0] = note; // the main note, whether we play a chord or not
         arpNote.noteStatus[0] = ArpNoteStatus.PENDING;
+        // Now get additional notes to be played (chord). Only for in-scale notes when the scale has
+        // at least 5 notes (degreeOf returns -1 for out-of-scale; default key count 1 → skipped).
+        int degree = currentKey.degreeOf(note);
+        if (out.shouldPlayChordNote && degree >= 0 && currentKey.modeNotes.count() >= 5) {
+          int baseOffset = currentKey.modeNotes.get(degree % currentKey.modeNotes.count());
+          int numAdditionalNotesInChord =
+              Math.min(3, getRandomWeighted2BitsAmount(settings.chordPolyphony));
+          if (numAdditionalNotesInChord > 0) {
+            int[] degreeOffsets = {0, 0, 0};
+            switch (numAdditionalNotesInChord) {
+              case 1:
+                degreeOffsets[0] = 4;
+                break;
+              case 2:
+                degreeOffsets[0] = 2;
+                degreeOffsets[1] = 4;
+                break;
+              case 3:
+                degreeOffsets[0] = 2;
+                degreeOffsets[1] = 4;
+                degreeOffsets[2] = 6;
+                break;
+              default:
+                break;
+            }
+            for (int n = 1; n < ARP_MAX_INSTRUCTION_NOTES; n++) {
+              if (n <= numAdditionalNotesInChord) {
+                int targetOffset =
+                    currentKey.modeNotes.get(
+                        (degree + degreeOffsets[n - 1]) % currentKey.modeNotes.count());
+                if (targetOffset <= baseOffset) {
+                  targetOffset += 12; // lower than the base note → add an octave
+                }
+                arpNote.noteCodeOnPostArp[n] = note + targetOffset - baseOffset;
+                arpNote.noteStatus[n] = ArpNoteStatus.PENDING;
+              }
+            }
+          }
+        }
 
         instruction.invertReversed = out.shouldPlayReverseNote; // C:1417
         active_note.copyFrom(arpNote); // C:1418 — struct copy, not pointer
