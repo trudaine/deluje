@@ -273,5 +273,59 @@ class SampleEngineTest {
 
     org.junit.jupiter.api.Assertions.assertArrayEquals(oscR, oscV);
   }
+
+  /** One-shot native playback: reproduces input up to endFrame, silent after, and goes inactive. */
+  @Test
+  void voiceSampleOneShotStopsAtEnd() {
+    int frames = 100;
+    Sample s = new Sample();
+    s.numChannels = 1;
+    s.byteDepth = 3;
+    s.lengthInSamples = frames;
+    s.data = new int[frames];
+    Random r = new Random(88);
+    for (int i = 0; i < frames; i++) s.data[i] = r.nextInt() >> 1;
+
+    VoiceSample v = new VoiceSample();
+    v.setup(s, 0, 1); // one-shot, end = 100
+    int amp = 1 << 27;
+    int[] osc = new int[200];
+    v.render(osc, 200, 1, 16777216, new int[] {amp}, 0);
+
+    for (int i = 0; i < 100; i++) {
+      int exp = Functions.multiply_accumulate_32x32_rshift32_rounded(0, s.data[i], amp);
+      assertEquals(exp, osc[i], "one-shot played idx=" + i);
+    }
+    for (int i = 100; i < 200; i++) {
+      assertEquals(0, osc[i], "one-shot silent after end idx=" + i);
+    }
+    org.junit.jupiter.api.Assertions.assertFalse(v.active, "one-shot voice should be inactive at end");
+  }
+
+  /** Looping native playback wraps to the loop start and keeps playing. */
+  @Test
+  void voiceSampleLoopWraps() {
+    int loopLen = 10;
+    Sample s = new Sample();
+    s.numChannels = 1;
+    s.byteDepth = 3;
+    s.lengthInSamples = loopLen;
+    s.data = new int[loopLen];
+    Random r = new Random(99);
+    for (int i = 0; i < loopLen; i++) s.data[i] = r.nextInt() >> 1;
+
+    VoiceSample v = new VoiceSample();
+    v.setup(s, 0, loopLen, 1, true, 0); // loop frames 0..9
+    int amp = 1 << 27;
+    int n = 25;
+    int[] osc = new int[n];
+    v.render(osc, n, 1, 16777216, new int[] {amp}, 0);
+
+    for (int i = 0; i < n; i++) {
+      int exp = Functions.multiply_accumulate_32x32_rshift32_rounded(0, s.data[i % loopLen], amp);
+      assertEquals(exp, osc[i], "loop idx=" + i);
+    }
+    org.junit.jupiter.api.Assertions.assertTrue(v.active, "looping voice stays active");
+  }
 }
 
