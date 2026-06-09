@@ -146,11 +146,12 @@ public class Patcher {
 
   private static int combineCablesExp(Destination dest, int knobValue, int[] sourceValues) {
     int runningTotal = 0;
-    // Cables first
+    // Cables first. Exp cables take the *modified* (per-param squared) strength (patcher.cpp:253).
     for (PatchCable cable : dest.cables) {
       int srcVal = sourceValues[cable.source];
       srcVal = cable.toPolarity(srcVal);
-      runningTotal = cableToExpParam(runningTotal, srcVal, cable.amount);
+      runningTotal =
+          cableToExpParam(runningTotal, srcVal, getModifiedPatchCableAmount(cable, dest.paramId));
     }
     // Wave index hack: stretch twice as far
     if (dest.paramId == Param.LOCAL_OSC_A_WAVE_INDEX
@@ -258,10 +259,46 @@ public class Patcher {
     for (PatchCable cable : destination.cables) {
       int srcVal = sourceValues[cable.source];
       srcVal = cable.toPolarity(srcVal);
-      int strength = cable.amount; // getModifiedPatchCableAmount simplified
+      // C (patcher.cpp:198): cable_strength = patch_cable.param.getCurrentValue() (the RAW current
+      // value, NOT getModifiedPatchCableAmount — that's only for exp cables). cable.amount is the
+      // fw2 stand-in for getCurrentValue (automation smoothing is the separate documented gap).
+      int strength = cable.amount;
       runningTotal = cableToLinearParam(runningTotal, srcVal, strength);
     }
     return Functions.getFinalParameterValueLinear(536870912, runningTotal - 536870912);
+  }
+
+  /**
+   * getModifiedPatchCableAmount (patch_cable_set.cpp:500-534). For pitch-adjust + delay-rate params,
+   * square the cable strength so it slopes up slowly (small effects accessible). Used only by exp
+   * cables (combineCablesExp). {@code amount} is cable.amount (the fw2 stand-in for the C
+   * {@code patch_cable.param.getCurrentValue()}; automation smoothing is a separate gap).
+   */
+  static int getModifiedPatchCableAmount(PatchCable cable, int p) {
+    int amount = cable.amount;
+    switch (p) {
+      case Param.LOCAL_PITCH_ADJUST:
+      case Param.LOCAL_OSC_A_PITCH_ADJUST:
+      case Param.LOCAL_OSC_B_PITCH_ADJUST:
+      case Param.LOCAL_MODULATOR_0_PITCH_ADJUST:
+      case Param.LOCAL_MODULATOR_1_PITCH_ADJUST:
+      case Param.GLOBAL_DELAY_RATE:
+        int output = (amount >> 15) * (amount >> 16);
+        if (amount < 0) {
+          output = -output;
+        }
+        if (p == Param.LOCAL_PITCH_ADJUST) {
+          if (cable.source == PatchSource.VELOCITY.ordinal()) {
+            output = Functions.multiply_32x32_rshift32_rounded(output, 1431655765) << 1; // /3*2
+          } else {
+            // Divides by sqrt(2): 3 octaves of shifting rather than 4.
+            output = Functions.multiply_32x32_rshift32_rounded(output, 1518500250) << 1;
+          }
+        }
+        return output;
+      default:
+        return amount;
+    }
   }
 
   /** Minimal ParamManager stub for combineCablesLinearForRangeParam. */
