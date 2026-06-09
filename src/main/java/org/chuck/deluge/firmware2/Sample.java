@@ -29,4 +29,56 @@ public class Sample {
 
   /** Phase-A adapter: decoded interleaved PCM ({@code [frame*numChannels + ch]}); replaces clusters. */
   public int[] data;
+
+  /**
+   * Faithful port of {@code Sample::getAveragesForCrossfade} (sample.cpp:727-833): the moving-average
+   * similarity metric the time-stretch hop search compares. Computes {@code kNumMovingAverages} totals,
+   * each the sum (over {@code lengthToAverageEach} frames, all channels) of the samples' top 16 bits
+   * ({@code >> 16}). The metric stays int16 even under option (b) full-precision audio, so the
+   * crossfade-point SELECTION matches the C. The C cluster walk is flattened to direct in-RAM indexing.
+   *
+   * @return false if the window would fall outside the audio data (C's early-out cases)
+   */
+  public boolean getAveragesForCrossfade(int[] totals, int startBytePos, int crossfadeLengthSamples,
+                                         int playDirection, int lengthToAverageEach) {
+    int bytesPerSample = byteDepth * numChannels;
+    int len = (int) audioDataLengthBytes;
+
+    int startSamplePos = Integer.divideUnsigned(startBytePos - audioDataStartPosBytes, bytesPerSample); // C:740
+    int halfCrossfadeLengthSamples = crossfadeLengthSamples >> 1; // C:742
+    int samplePosMidCrossfade = startSamplePos + halfCrossfadeLengthSamples * playDirection; // C:744
+    int readSample =
+        samplePosMidCrossfade
+            - ((lengthToAverageEach * TimeStretcher.K_NUM_MOVING_AVERAGES) >> 1) * playDirection; // C:746
+    int halfCrossfadeLengthBytes = halfCrossfadeLengthSamples * bytesPerSample; // C:749
+    int readByte = readSample * bytesPerSample + audioDataStartPosBytes; // C:751
+
+    if (playDirection == 1) { // C:753-760
+      if (readByte < audioDataStartPosBytes + halfCrossfadeLengthBytes) {
+        return false;
+      } else if (readByte >= audioDataStartPosBytes + len - halfCrossfadeLengthBytes) {
+        return false;
+      }
+    }
+
+    int endReadByte =
+        readByte + lengthToAverageEach * TimeStretcher.K_NUM_MOVING_AVERAGES * bytesPerSample * playDirection; // C:762
+    if (endReadByte < audioDataStartPosBytes - 1 || endReadByte > audioDataStartPosBytes + len) { // C:765
+      return false;
+    }
+
+    for (int i = 0; i < TimeStretcher.K_NUM_MOVING_AVERAGES; i++) { // C:770
+      totals[i] = 0;
+      for (int j = 0; j < lengthToAverageEach; j++) { // C:780-829 (cluster walk flattened)
+        int frame = (readByte - audioDataStartPosBytes) / bytesPerSample;
+        int base = frame * numChannels;
+        totals[i] += data[base] >> 16; // C:816
+        if (numChannels == 2) {
+          totals[i] += data[base + 1] >> 16; // C:818
+        }
+        readByte += bytesPerSample * playDirection; // C:821
+      }
+    }
+    return true;
+  }
 }
