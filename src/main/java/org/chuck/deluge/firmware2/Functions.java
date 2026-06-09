@@ -373,12 +373,16 @@ public final class Functions {
     return (magnitude << 25) + (inputLSBs & ~(1 << 26));
   }
 
-  /** increaseMagnitude (functions.h). Left shift without saturation. */
+  /**
+   * increaseMagnitude (functions.h:361-366). C uses {@code int32_t} with {@code magnitude >= 0} and
+   * an arithmetic right shift ({@code number >> -magnitude}); match it exactly (was {@code > 0} and a
+   * logical {@code >>>}, which diverged for negative {@code number}).
+   */
   public static int increaseMagnitude(int number, int magnitude) {
-    if (magnitude > 0) {
+    if (magnitude >= 0) {
       return number << magnitude;
     }
-    return number >>> (-magnitude);
+    return number >> (-magnitude);
   }
 
   // ── instantTan (functions.cpp, line ~210 region) ──
