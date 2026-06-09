@@ -56,9 +56,22 @@ public class Sidechain {
     release = Functions.getParamFromUserValue(Param.STATIC_SIDECHAIN_RELEASE, 28);
 
     pendingHitStrength = 0; // C:31
-    syncLevel = 0; // simplified — wasn't reading song/FlashStorage
-    syncType = 0;  // SYNC_TYPE_EVEN
+    // C: sidechain.cpp:41-46 — with a song: 7 - (insideWorldTickMagnitude + offsetFromBPM); with no
+    // song: 7 - FlashStorage::defaultMagnitude. The song default insideWorldTickMagnitude is itself
+    // defaultMagnitude (=2, flash_storage.cpp:328, offset 0), so the faithful default is 7 - 2 = 5.
+    syncLevel = 7 - DEFAULT_MAGNITUDE;
+    syncType = 0; // SYNC_TYPE_EVEN
   }
+
+  /** C: FlashStorage::defaultMagnitude (flash_storage.cpp:328). */
+  static final int DEFAULT_MAGNITUDE = 2;
+
+  /**
+   * C: playbackHandler.getTimePerInternalTickInverse() — tempo-derived tick rate used by the synced
+   * attack/release. No faithful fixed value exists without a transport; this proxy stands in until a
+   * tempo clock is wired (set it to the real inverse-tick to get faithful synced timing).
+   */
+  public int timePerInternalTickInverse = 1 << 20;
 
   // ── cloneFrom (sidechain.cpp:50-55) ──
 
@@ -92,7 +105,7 @@ public class Sidechain {
     } else {
       // C:101-109
       int rshiftAmount = (9 - syncLevel) - 2;
-      alteredAttack = Functions.multiply_32x32_rshift32(attack << 11, 1 << 20); // proxy: timePerInternalTickInverse
+      alteredAttack = Functions.multiply_32x32_rshift32(attack << 11, timePerInternalTickInverse);
 
       if (rshiftAmount >= 0) {
         alteredAttack >>= rshiftAmount;
@@ -113,7 +126,7 @@ public class Sidechain {
     } else {
       // C:119-121
       alteredRelease =
-          Functions.multiply_32x32_rshift32(release << 13, 1 << 20) >> (9 - syncLevel); // proxy: timePerInternalTickInverse
+          Functions.multiply_32x32_rshift32(release << 13, timePerInternalTickInverse) >> (9 - syncLevel);
     }
     return alteredRelease;
   }
