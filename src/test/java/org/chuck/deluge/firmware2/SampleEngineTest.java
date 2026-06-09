@@ -494,6 +494,42 @@ class SampleEngineTest {
     assertEquals(44 + (5000 + 8) * bps, rd.getPlayByteLowLevel(true));
   }
 
+  /** getSyncedNumSamplesIn: faithful C formula with the transport clock injected (re-derived). */
+  @Test
+  void getSyncedNumSamplesInMatchesC() {
+    Random r = new Random(321);
+    for (int t = 0; t < 100_000; t++) {
+      Sample s = new Sample();
+      s.numChannels = 2;
+      s.byteDepth = 3;
+      s.lengthInSamples = 1 + r.nextInt(2_000_000);
+      SampleHolder h = new SampleHolder();
+      h.audioFile = s;
+      h.startPos = r.nextInt(500_000);
+      h.endPos = h.startPos + 1 + r.nextInt(1_000_000);
+
+      SamplePlaybackGuide g = new SamplePlaybackGuide();
+      g.audioFileHolder = h;
+      g.sequenceSyncStartedAtTick = r.nextInt();
+      g.sequenceSyncLengthTicks = 1 + r.nextInt(100_000); // nonzero
+      int curTick = r.nextInt();
+      int timeSince = r.nextInt(50_000);
+      int timePer = 1 + r.nextInt(50_000);
+
+      // Re-derive (forTimeStretching=true ⇒ getEndPos = endPos).
+      long lengthInSamples = h.endPos - h.startPos;
+      int curWithin = curTick - g.sequenceSyncStartedAtTick;
+      int ts = timeSince;
+      if (Integer.compareUnsigned(ts, timePer) >= 0) ts = timePer - 1;
+      long expected = (long) ((((double) (lengthInSamples * (curWithin & 0xFFFFFFFFL)))
+              + (double) (ts & 0xFFFFFFFFL) * (double) lengthInSamples / (double) (timePer & 0xFFFFFFFFL)
+              + (double) (g.sequenceSyncLengthTicks >>> 1))
+          / (double) (g.sequenceSyncLengthTicks & 0xFFFFFFFFL));
+
+      assertEquals(expected, g.getSyncedNumSamplesIn(curTick, timeSince, timePer), "t=" + t);
+    }
+  }
+
   /** A forward window too close to the start returns false (C:753-756). */
   @Test
   void getAveragesForCrossfadeOutOfBoundsFalse() {

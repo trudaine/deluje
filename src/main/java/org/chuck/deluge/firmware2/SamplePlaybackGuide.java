@@ -44,6 +44,31 @@ public class SamplePlaybackGuide {
     return endPlaybackAtByte;
   }
 
+  /**
+   * C: getSyncedNumSamplesIn (sample_playback_guide.cpp:88-108) — how many samples into the sample we
+   * should be for clip-synced playback. The C reads the tempo clock via {@code playbackHandler}; fw2 has
+   * no transport, so those three reads are injected here as a SEAM (a future transport integration
+   * passes them). The arithmetic is the faithful C (uint32 ticks → double).
+   *
+   * @param currentInternalTickCount C: playbackHandler.getCurrentInternalTickCount() (uint32)
+   * @param timeSinceLastInternalTick C: its out-param (uint32)
+   * @param timePerInternalTick C: playbackHandler.getTimePerInternalTick() (uint32)
+   */
+  public long getSyncedNumSamplesIn(int currentInternalTickCount, int timeSinceLastInternalTick,
+      int timePerInternalTick) {
+    long lengthInSamples = audioFileHolder.getDurationInSamples(true); // C:90
+    int currentTickWithinSample = currentInternalTickCount - sequenceSyncStartedAtTick; // C:94-95 (uint32)
+    if (Integer.compareUnsigned(timeSinceLastInternalTick, timePerInternalTick) >= 0) { // C:99
+      timeSinceLastInternalTick = timePerInternalTick - 1; // C:100
+    }
+    // C:104-107 — note the uint32→double conversions.
+    return (long) ((((double) (lengthInSamples * (currentTickWithinSample & 0xFFFFFFFFL)))
+            + (double) (timeSinceLastInternalTick & 0xFFFFFFFFL) * (double) lengthInSamples
+                / (double) (timePerInternalTick & 0xFFFFFFFFL)
+            + (double) (sequenceSyncLengthTicks >>> 1))
+        / (double) (sequenceSyncLengthTicks & 0xFFFFFFFFL));
+  }
+
   /** C: sample_playback_guide.cpp:62-85 — compute start/end bytes from the holder's sample markers. */
   public void setupPlaybackBounds(boolean reversed) {
     playDirection = reversed ? -1 : 1;
