@@ -248,8 +248,11 @@ public class Reverb {
     float reverbTime = 0.665f, diffusion = 0.625f, lp = 0.7f;
     float lpDecay1, lpDecay2;
     float hpCutoffVal, hpCutoff = 0.00045f, lpCutoff;
-    // state: [hpL, hpR, lpL, lpR]
+    // Six distinct persistent states (mutable.hpp): output HP hp_r_/hp_l_ (hpSt[0]/[1]), output LP
+    // lp_r_/lp_l_ (lpSt[0]/[1]), and the decay-loop damping lp_decay_1_/lp_decay_2_ (lpDecay[0]/[1]).
+    // The decay damping MUST NOT share state with the output LP (the C keeps them separate).
     float[] hpSt = {0, 0}, lpSt = {0, 0};
+    float[] lpDecay = {0, 0};
 
     /** C:118 */
     public void clear() { engine.clear(); }
@@ -313,7 +316,7 @@ public class Reverb {
         // C:80-92 — right channel loop
         c.set(apout);
         del2.interpRead(c, 6261, 1/*LFO_2*/, 50, krt);
-        c.lp(lpSt, 0, klp); // lp_1 actually stored differently — simplified
+        c.lp(lpDecay, 0, klp); // C:82 — c.Lp(lp_1, klp), decay damping (separate from output LP lp_r_)
         dap1a.process(c, -kap);
         dap1b.process(c, kap);
         del1.write(c, 0, 2.0f);
@@ -325,7 +328,7 @@ public class Reverb {
         // C:94-107 — left channel loop
         c.set(apout);
         del1.interpRead(c, 4460, 0/*LFO_1*/, 40, krt);
-        c.lp(lpSt, 1, klp); // lp_2
+        c.lp(lpDecay, 1, klp); // C:96 — c.Lp(lp_2, klp), decay damping (separate from output LP lp_l_)
         dap2a.process(c, -kap);
         dap2b.process(c, kap);
         del2.write(c, 0, 2.0f);
