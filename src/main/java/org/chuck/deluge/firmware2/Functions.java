@@ -370,6 +370,17 @@ public final class Functions {
     return interpolateTable(input, numBitsInInput, LookupTables.decayTableSmall4, 8);
   }
 
+  /** kMaxMenuValue (definitions_cxx.hpp:330). */
+  public static final int K_MAX_MENU_VALUE = 50;
+
+  /**
+   * computeCurrentValueForUnsignedMenuItem (value_scaling.cpp:18). Scales a uint32 stored menu value
+   * to [0, kMaxMenuValue]. {@code value} is uint32 → use 64-bit unsigned.
+   */
+  public static int computeCurrentValueForUnsignedMenuItem(int value) {
+    return (int) (((value & 0xFFFFFFFFL) * K_MAX_MENU_VALUE + 2147483648L) >> 32);
+  }
+
   // ── getExp (functions.cpp:556-565) ──
 
   /** Exponential mapping: presetValue * 2^(adjustment). (functions.cpp:556-565) */
