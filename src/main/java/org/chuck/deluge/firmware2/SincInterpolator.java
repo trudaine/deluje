@@ -100,6 +100,18 @@ public class SincInterpolator {
     return new int[]{sumL, 0};
   }
 
+  /**
+   * Shift the history buffers forward by {@code n} (drop the {@code n} newest-side slots), leaving
+   * {@code [0..n-1]} to be overwritten by the caller. Matches the Argon Interpolator::jumpForward used
+   * by the live pitch shifter. {@code n} is in {@code [1, K_INTERPOLATION_MAX_NUM_SAMPLES]}.
+   */
+  public void jumpForward(int n) {
+    for (int i = K_INTERPOLATION_MAX_NUM_SAMPLES - 1; i >= n; i--) {
+      bufferL[i] = bufferL[i - n];
+      bufferR[i] = bufferR[i - n];
+    }
+  }
+
   /** Saturate to the signed 16-bit range (NEON int16 ops saturate). */
   static int sat16(int v) {
     if (v > 32767) return 32767;
