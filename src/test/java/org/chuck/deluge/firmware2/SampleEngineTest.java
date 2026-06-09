@@ -327,5 +327,102 @@ class SampleEngineTest {
     }
     org.junit.jupiter.api.Assertions.assertTrue(v.active, "looping voice stays active");
   }
+
+  private static Sample crossfadeSample(int numChannels, int frames, int[] fill) {
+    Sample s = new Sample();
+    s.numChannels = numChannels;
+    s.byteDepth = 3;
+    int bps = s.byteDepth * numChannels;
+    s.audioDataStartPosBytes = 44;
+    s.audioDataLengthBytes = (long) frames * bps;
+    s.lengthInSamples = frames;
+    s.data = fill;
+    return s;
+  }
+
+  /** Constant input → all 3 crossfade averages equal lengthToAverageEach * numChannels * (V>>16). */
+  @Test
+  void getAveragesForCrossfadeConstant() {
+    int numChannels = 2;
+    int frames = 4000;
+    int V = 0x12340000; // top 16 bits = 0x1234
+    int[] data = new int[frames * numChannels];
+    java.util.Arrays.fill(data, V);
+    Sample s = crossfadeSample(numChannels, frames, data);
+
+    int len = 35;
+    int[] totals = new int[3];
+    int startByte = 44 + 1500 * (s.byteDepth * numChannels);
+    boolean ok = s.getAveragesForCrossfade(totals, startByte, 200, 1, len);
+    org.junit.jupiter.api.Assertions.assertTrue(ok);
+    int expected = len * numChannels * (V >> 16);
+    for (int i = 0; i < 3; i++) assertEquals(expected, totals[i], "avg " + i);
+  }
+
+  /** Re-derive getAveragesForCrossfade independently and compare (forward + reverse). */
+  @Test
+  void getAveragesForCrossfadeMatchesReDerivation() {
+    int numChannels = 2;
+    int frames = 6000;
+    int[] data = new int[frames * numChannels];
+    Random r = new Random(202);
+    for (int i = 0; i < data.length; i++) data[i] = r.nextInt();
+    Sample s = crossfadeSample(numChannels, frames, data);
+    int bps = s.byteDepth * numChannels;
+
+    for (int t = 0; t < 5000; t++) {
+      int dir = (t % 2 == 0) ? 1 : -1;
+      int startFrame = 1000 + r.nextInt(4000);
+      int startByte = 44 + startFrame * bps;
+      int cf = 50 + r.nextInt(300);
+      int len = 1 + r.nextInt(70);
+
+      int[] got = new int[3];
+      boolean okGot = s.getAveragesForCrossfade(got, startByte, cf, dir, len);
+
+      // Independent re-derivation.
+      int startSamplePos = Integer.divideUnsigned(startByte - 44, bps);
+      int half = cf >> 1;
+      int mid = startSamplePos + half * dir;
+      int readSample = mid - ((len * 3) >> 1) * dir;
+      int halfBytes = half * bps;
+      int readByte = readSample * bps + 44;
+      int lenBytes = (int) s.audioDataLengthBytes;
+      boolean okExp = true;
+      int[] exp = new int[3];
+      if (dir == 1) {
+        if (readByte < 44 + halfBytes || readByte >= 44 + lenBytes - halfBytes) okExp = false;
+      }
+      int endReadByte = readByte + len * 3 * bps * dir;
+      if (endReadByte < 44 - 1 || endReadByte > 44 + lenBytes) okExp = false;
+      if (okExp) {
+        for (int i = 0; i < 3; i++) {
+          for (int j = 0; j < len; j++) {
+            int frame = (readByte - 44) / bps;
+            exp[i] += data[frame * numChannels] >> 16;
+            exp[i] += data[frame * numChannels + 1] >> 16;
+            readByte += bps * dir;
+          }
+        }
+      }
+      assertEquals(okExp, okGot, "ok t=" + t);
+      if (okExp) {
+        org.junit.jupiter.api.Assertions.assertArrayEquals(exp, got, "totals t=" + t);
+      }
+    }
+  }
+
+  /** A forward window too close to the start returns false (C:753-756). */
+  @Test
+  void getAveragesForCrossfadeOutOfBoundsFalse() {
+    int numChannels = 1;
+    int frames = 2000;
+    int[] data = new int[frames];
+    Sample s = crossfadeSample(numChannels, frames, data);
+    int[] totals = new int[3];
+    // startFrame 0, big crossfade ⇒ readByte < audioDataStart + halfCrossfadeBytes.
+    org.junit.jupiter.api.Assertions.assertFalse(
+        s.getAveragesForCrossfade(totals, 44, 400, 1, 35));
+  }
 }
 
