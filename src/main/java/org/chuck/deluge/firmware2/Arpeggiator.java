@@ -1077,8 +1077,8 @@ public class Arpeggiator {
 
     @Override
     protected void switchNoteOn(Settings settings, ArpReturnInstruction instruction, boolean isRatchet) {
-      int maxSequenceLength = settings.sequenceLength; // C:761 — simplified computeCurrentValue
-      int rhythm = settings.rhythm; // C:762
+      int maxSequenceLength = Functions.computeCurrentValueForUnsignedMenuItem(settings.sequenceLength); // C:761
+      int rhythm = Functions.computeCurrentValueForUnsignedMenuItem(settings.rhythm); // C:762
       int numActiveNotes = 1; // simplified: chordTypeNoteCount[chordTypeIndex]
 
       StepResult out = new StepResult();
@@ -1380,8 +1380,8 @@ public class Arpeggiator {
 
     @Override
     protected void switchNoteOn(Settings settings, ArpReturnInstruction instruction, boolean isRatchet) {
-      int maxSequenceLength = settings.sequenceLength; // C:1250
-      int rhythm = settings.rhythm; // C:1251
+      int maxSequenceLength = Functions.computeCurrentValueForUnsignedMenuItem(settings.sequenceLength); // C:1250
+      int rhythm = Functions.computeCurrentValueForUnsignedMenuItem(settings.rhythm); // C:1251
       int numActiveNotes = notes.size(); // C:1262
 
       StepResult out = new StepResult();
