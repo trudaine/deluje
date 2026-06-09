@@ -291,6 +291,74 @@ public class Arpeggiator {
     }
   }
 
+  // ── Arp rhythm patterns (arpeggiator_rhythms.h:8-11, 82-134) ──
+  // Faithful transcription of the C arpRhythmPatterns[kMaxPresetArpRhythm+1] table (51 entries,
+  // index 0 = "None"/play-all). steps[] = whether each step plays a note (true) or is silent.
+  static final class ArpRhythm {
+    final int length; // number of steps to use (1..6)
+    final boolean[] steps; // 6 steps: play a note (true) or a silence (false)
+
+    ArpRhythm(int length, boolean[] steps) {
+      this.length = length;
+      this.steps = steps;
+    }
+  }
+
+  static final ArpRhythm[] arpRhythmPatterns =
+      new ArpRhythm[] {
+        new ArpRhythm(1, new boolean[] {true, true, true, true, true, true}),
+        new ArpRhythm(3, new boolean[] {true, false, false, true, true, true}),
+        new ArpRhythm(3, new boolean[] {true, true, false, true, true, true}),
+        new ArpRhythm(3, new boolean[] {true, false, true, true, true, true}),
+        new ArpRhythm(4, new boolean[] {true, false, true, true, true, true}),
+        new ArpRhythm(4, new boolean[] {true, true, false, false, true, true}),
+        new ArpRhythm(4, new boolean[] {true, true, true, false, true, true}),
+        new ArpRhythm(4, new boolean[] {true, false, false, true, true, true}),
+        new ArpRhythm(4, new boolean[] {true, true, false, true, true, true}),
+        new ArpRhythm(5, new boolean[] {true, false, false, false, false, true}),
+        new ArpRhythm(5, new boolean[] {true, false, true, true, true, true}),
+        new ArpRhythm(5, new boolean[] {true, true, false, false, false, true}),
+        new ArpRhythm(5, new boolean[] {true, true, true, true, false, true}),
+        new ArpRhythm(5, new boolean[] {true, false, false, false, true, true}),
+        new ArpRhythm(5, new boolean[] {true, true, false, true, true, true}),
+        new ArpRhythm(5, new boolean[] {true, false, true, false, false, true}),
+        new ArpRhythm(5, new boolean[] {true, true, true, false, true, true}),
+        new ArpRhythm(5, new boolean[] {true, false, false, true, false, true}),
+        new ArpRhythm(5, new boolean[] {true, false, false, true, true, true}),
+        new ArpRhythm(5, new boolean[] {true, true, true, false, false, true}),
+        new ArpRhythm(5, new boolean[] {true, true, false, false, true, true}),
+        new ArpRhythm(5, new boolean[] {true, false, true, true, false, true}),
+        new ArpRhythm(5, new boolean[] {true, true, false, true, false, true}),
+        new ArpRhythm(5, new boolean[] {true, false, true, false, true, true}),
+        new ArpRhythm(6, new boolean[] {true, false, false, false, false, false}),
+        new ArpRhythm(6, new boolean[] {true, false, true, true, true, true}),
+        new ArpRhythm(6, new boolean[] {true, true, false, false, false, false}),
+        new ArpRhythm(6, new boolean[] {true, true, true, true, true, false}),
+        new ArpRhythm(6, new boolean[] {true, false, false, false, false, true}),
+        new ArpRhythm(6, new boolean[] {true, true, false, true, true, true}),
+        new ArpRhythm(6, new boolean[] {true, false, true, false, false, false}),
+        new ArpRhythm(6, new boolean[] {true, true, true, true, false, true}),
+        new ArpRhythm(6, new boolean[] {true, false, false, false, true, false}),
+        new ArpRhythm(6, new boolean[] {true, true, true, false, true, true}),
+        new ArpRhythm(6, new boolean[] {true, false, false, true, true, true}),
+        new ArpRhythm(6, new boolean[] {true, true, true, false, false, false}),
+        new ArpRhythm(6, new boolean[] {true, true, true, true, false, false}),
+        new ArpRhythm(6, new boolean[] {true, false, false, false, true, true}),
+        new ArpRhythm(6, new boolean[] {true, true, false, false, true, true}),
+        new ArpRhythm(6, new boolean[] {true, false, true, true, false, false}),
+        new ArpRhythm(6, new boolean[] {true, true, true, false, false, true}),
+        new ArpRhythm(6, new boolean[] {true, false, false, true, true, false}),
+        new ArpRhythm(6, new boolean[] {true, false, true, false, true, true}),
+        new ArpRhythm(6, new boolean[] {true, true, false, true, false, false}),
+        new ArpRhythm(6, new boolean[] {true, true, true, false, true, false}),
+        new ArpRhythm(6, new boolean[] {true, false, false, true, false, true}),
+        new ArpRhythm(6, new boolean[] {true, false, true, true, true, false}),
+        new ArpRhythm(6, new boolean[] {true, true, false, false, false, true}),
+        new ArpRhythm(6, new boolean[] {true, true, false, false, true, false}),
+        new ArpRhythm(6, new boolean[] {true, false, true, false, false, true}),
+        new ArpRhythm(6, new boolean[] {true, true, false, true, false, true}),
+      };
+
   // ── ArpeggiatorBase (arpeggiator.h:215-330) ──
 
   public abstract static class Base {
@@ -463,9 +531,16 @@ public class Arpeggiator {
     // ── evaluateRhythm (arpeggiator.cpp:604-610) ──
 
     boolean evaluateRhythm(int rhythm, boolean isRatchet) {
-      int rhythmPatternIndex = isRatchet ? lastNormalNotePlayedFromRhythm : notesPlayedFromRhythm; // C:606
-      // C: simplified — default rhythm has all steps active
-      return true;
+      // arpeggiator.cpp:604-610. (The C maps settings.rhythm via computeCurrentValueForUnsignedMenuItem
+      // to [0, kMaxPresetArpRhythm]; fw2 uses settings.rhythm raw, so guard out-of-range → play-all.)
+      if (rhythm < 0 || rhythm >= arpRhythmPatterns.length) {
+        return true;
+      }
+      // If a ratchet, use the last normal-note index; otherwise the new rhythm index. (C:606)
+      int rhythmPatternIndex = isRatchet ? lastNormalNotePlayedFromRhythm : notesPlayedFromRhythm;
+      int numberOfRhythmSteps = arpRhythmPatterns[rhythm].length; // C:607
+      rhythmPatternIndex = rhythmPatternIndex % numberOfRhythmSteps; // C:608 — normalize
+      return arpRhythmPatterns[rhythm].steps[rhythmPatternIndex]; // C:609
     }
 
     // ── evaluateNoteProbability (arpeggiator.cpp:613-616) ──
@@ -579,10 +654,14 @@ public class Arpeggiator {
     // ── increaseSequenceIndexes (arpeggiator.cpp:749-756) ──
 
     void increaseSequenceIndexes(int maxSequenceLength, int rhythm) {
+      // arpeggiator.cpp:749-756
       if (maxSequenceLength > 0) {
         notesPlayedFromSequence++;
       }
-      notesPlayedFromRhythm = (notesPlayedFromRhythm + 1) % 16; // simplified rhythm pattern length
+      // C:755 — wrap by the pattern length (guard out-of-range as in evaluateRhythm: len 1).
+      int len =
+          (rhythm >= 0 && rhythm < arpRhythmPatterns.length) ? arpRhythmPatterns[rhythm].length : 1;
+      notesPlayedFromRhythm = (notesPlayedFromRhythm + 1) % len;
     }
 
     // ── getRandomProbabilityResult (arpeggiator.cpp:861-870) ──
