@@ -164,17 +164,9 @@ public class Compressor {
 
   // ── renderVolNeutral (rms_feedback.cpp:52-57) ──
 
-  /** C: rms_feedback.cpp:52-57 */
+  /** C: rms_feedback.cpp:52-57 — render in place on the actual buffer. */
   public void renderVolNeutral(int[][] buffer, int finalVolume) {
-    int numSamples = buffer.length;
-    float[][] fb = new float[numSamples][2];
-    // Convert int[][2] to the format expected by render
-    render(fb, numSamples, 1 << 27, 1 << 27, finalVolume >> 3);
-    // Write back
-    for (int i = 0; i < numSamples; i++) {
-      buffer[i][0] = (int)fb[i][0];
-      buffer[i][1] = (int)fb[i][1];
-    }
+    render(buffer, buffer.length, 1 << 27, 1 << 27, finalVolume >> 3);
   }
 
   // ── render (rms_feedback.cpp:59-128) ──
@@ -186,11 +178,12 @@ public class Compressor {
    * @param volAdjustR right gain
    * @param finalVolume peak-to-peak volume scale as 3.29 signed fixed
    */
-  public void render(float[][] buffer, int numSamples, int volAdjustL, int volAdjustR, int finalVolume) {
-    // C:62-64 — dry buffer for wet/dry blend
-    float[][] dryBuffer = null;
+  public void render(int[][] buffer, int numSamples, int volAdjustL, int volAdjustR, int finalVolume) {
+    // C:62-64 — dry buffer for wet/dry blend (int32 StereoSample, not float — float loses precision
+    // for samples above 2^24).
+    int[][] dryBuffer = null;
     if (wet != ONE_Q31) {
-      dryBuffer = new float[numSamples][2];
+      dryBuffer = new int[numSamples][2];
       for (int i = 0; i < numSamples; i++) {
         dryBuffer[i][0] = buffer[i][0];
         dryBuffer[i][1] = buffer[i][1];
@@ -200,9 +193,9 @@ public class Compressor {
     // C:66-73 — init saturation working values on first call
     if (!onLastTime) {
       lastSaturationTanHWorkingValue[0] =
-          (Functions.lshiftAndSaturateUnknown((int)buffer[0][0], SATURATION_AMOUNT) & 0xFFFFFFFF) + 0x80000000;
+          Functions.lshiftAndSaturateUnknown(buffer[0][0], SATURATION_AMOUNT) + 0x80000000;
       lastSaturationTanHWorkingValue[1] =
-          (Functions.lshiftAndSaturateUnknown((int)buffer[0][1], SATURATION_AMOUNT) & 0xFFFFFFFF) + 0x80000000;
+          Functions.lshiftAndSaturateUnknown(buffer[0][1], SATURATION_AMOUNT) + 0x80000000;
       onLastTime = true;
     }
 
@@ -231,26 +224,34 @@ public class Compressor {
       currentVolumeL += amplitudeIncrementL; // C:101
       currentVolumeR += amplitudeIncrementR; // C:102
 
-      int sampleL = (int)buffer[i][0];
-      int sampleR = (int)buffer[i][1];
+      int sampleL = buffer[i][0];
+      int sampleR = buffer[i][1];
 
-      // C:105-106 — apply gain + saturation
+      // C:105-109 — apply gain + getTanHAntialiased (functions.h:286-295). The anti-alias 2D
+      // interpolation reads the PREVIOUS working value and stores the current (inlined to keep the
+      // persistent lastSaturationTanHWorkingValue, which the by-value Functions overload can't update).
       sampleL = Functions.multiply_32x32_rshift32(sampleL, currentVolumeL) << 4;
       int workingL = Functions.lshiftAndSaturateUnknown(sampleL, SATURATION_AMOUNT) + 0x80000000;
-      sampleL = Functions.getTanHAntialiased(sampleL, workingL, SATURATION_AMOUNT);
+      sampleL =
+          Functions.interpolateTableSigned2d(
+                  workingL, lastSaturationTanHWorkingValue[0], 32, 32, LookupTables.tanH2d, 7, 6)
+              >> (SATURATION_AMOUNT + 1);
+      lastSaturationTanHWorkingValue[0] = workingL;
 
       sampleR = Functions.multiply_32x32_rshift32(sampleR, currentVolumeR) << 4;
       int workingR = Functions.lshiftAndSaturateUnknown(sampleR, SATURATION_AMOUNT) + 0x80000000;
-      sampleR = Functions.getTanHAntialiased(sampleR, workingR, SATURATION_AMOUNT);
+      sampleR =
+          Functions.interpolateTableSigned2d(
+                  workingR, lastSaturationTanHWorkingValue[1], 32, 32, LookupTables.tanH2d, 7, 6)
+              >> (SATURATION_AMOUNT + 1);
+      lastSaturationTanHWorkingValue[1] = workingR;
 
       // C:111-119 — wet/dry blend
       if (wet != ONE_Q31) {
         sampleL = Functions.multiply_32x32_rshift32(sampleL, wet);
-        sampleL = Functions.multiply_accumulate_32x32_rshift32_rounded(
-            sampleL, (int)dryBuffer[i][0], dry) << 1;
+        sampleL = Functions.multiply_accumulate_32x32_rshift32_rounded(sampleL, dryBuffer[i][0], dry) << 1;
         sampleR = Functions.multiply_32x32_rshift32(sampleR, wet);
-        sampleR = Functions.multiply_accumulate_32x32_rshift32_rounded(
-            sampleR, (int)dryBuffer[i][1], dry) << 1;
+        sampleR = Functions.multiply_accumulate_32x32_rshift32_rounded(sampleR, dryBuffer[i][1], dry) << 1;
       }
 
       buffer[i][0] = sampleL;
@@ -282,13 +283,13 @@ public class Compressor {
   // ── calcRMS (rms_feedback.cpp:143-167) ──
 
   /** C: rms_feedback.cpp:143-167 — RMS with DC-blocking HPF. */
-  float calcRMS(float[][] buffer, int numSamples) {
+  float calcRMS(int[][] buffer, int numSamples) {
     int sum = 0; // C:144
     float lastMean = mean; // C:146
 
     for (int i = 0; i < numSamples; i++) {
-      int l = (int)buffer[i][0] - hpfL.doFilter((int)buffer[i][0], hpfA_); // C:149
-      int r = (int)buffer[i][1] - hpfR.doFilter((int)buffer[i][1], hpfA_); // C:150
+      int l = buffer[i][0] - hpfL.doFilter(buffer[i][0], hpfA_); // C:149
+      int r = buffer[i][1] - hpfR.doFilter(buffer[i][1], hpfA_); // C:150
       int s = Math.max(Math.abs(l), Math.abs(r)); // C:151
       sum += Functions.multiply_32x32_rshift32(s, s); // C:152
     }
