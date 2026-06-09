@@ -275,6 +275,70 @@ class TimeStretcherTest {
     return new int[] {bestOffset, additionalOscPos};
   }
 
+  /** Full re-derivation of hopEnd (placement + search) + invariants. */
+  @Test
+  void hopEndMatchesReDerivation() {
+    int nc = 2;
+    int frames = 200000;
+    int[] data = new int[frames * nc];
+    Random r = new Random(606);
+    for (int i = 0; i < data.length; i++) data[i] = r.nextInt();
+    Sample s = stretchSample(nc, frames, data);
+    int bps = s.byteDepth * nc;
+    final int UNITY = 16777216;
+
+    for (int t = 0; t < 300; t++) {
+      int dir = (t % 2 == 0) ? 1 : -1;
+      int samplePos = 50000 + r.nextInt(100000);
+      int oldHead = 44 + samplePos * bps;
+      int phase = (1 << 23) + r.nextInt(1 << 24);
+      int ratio = (1 << 23) + r.nextInt(1 << 25); // around / below / above unity
+      int noise = r.nextInt();
+      int olderOscPos = r.nextInt(UNITY);
+
+      TimeStretcher ts = new TimeStretcher();
+      ts.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER] = true;
+      int[] got = ts.hopEnd(s, oldHead, samplePos, phase, ratio, dir, noise, olderOscPos);
+
+      // Re-derive.
+      int[] hp = TimeStretcher.computeHopParameters(ratio, noise);
+      int minBW = (int) (((hp[0] & 0xFFFFFFFFL) * (phase & 0xFFFFFFFFL)) >>> 24);
+      int maxBW = (int) (((hp[1] & 0xFFFFFFFFL) * (phase & 0xFFFFFFFFL)) >>> 24);
+      int bestBW = (minBW + maxBW) >> 1;
+      int beamBackEdge = samplePos + (int) (((long) bestBW * (ratio - UNITY)) >> 25) * dir;
+      int wStart = (dir == 1) ? 0 : frames - 1;
+      int wEnd = (dir == 1) ? frames : -1;
+      if ((beamBackEdge - wStart) * dir < 0) beamBackEdge = wStart;
+      int sth = (int) Long.divideUnsigned((long) bestBW << 24, phase & 0xFFFFFFFFL);
+      if (sth < 1) sth = 1;
+      int cfl = Functions.multiply_32x32_rshift32_rounded(sth, hp[2]) + hp[3] * 4;
+      if (cfl >= (sth >> 1)) cfl = sth >> 1;
+      sth -= cfl;
+      cfl = Math.min(sth, cfl);
+      if (cfl < 1) cfl = 1;
+      int cfInc = (int) Integer.toUnsignedLong(UNITY) / cfl;
+      boolean newerActive = true;
+      int[] expRes;
+      if ((beamBackEdge - wEnd) * dir >= 0) {
+        newerActive = false;
+        expRes = new int[] {0, 0};
+      } else {
+        int newHead = 44 + beamBackEdge * bps;
+        int[] sr = TimeStretcher.searchForCrossfadeOffset(s, oldHead, newHead, cfl, phase, dir, sth, olderOscPos);
+        newHead += sr[0];
+        int wStartByte = 44 + ((dir != 1) ? ((int) s.audioDataLengthBytes - bps) : 0);
+        if ((newHead - wStartByte) * dir < 0) newHead = wStartByte;
+        expRes = new int[] {newHead, sr[1]};
+      }
+
+      org.junit.jupiter.api.Assertions.assertArrayEquals(expRes, got, "hopEnd t=" + t);
+      assertEquals(newerActive, ts.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER], "newerActive t=" + t);
+      assertEquals(sth, ts.samplesTilHopEnd, "samplesTilHopEnd t=" + t);
+      assertEquals(cfInc, ts.crossfadeIncrement, "crossfadeIncrement t=" + t);
+      org.junit.jupiter.api.Assertions.assertTrue(ts.samplesTilHopEnd >= 1, "hop >= 1");
+    }
+  }
+
   private static int readVal(Sample s, int readByte, int bps) {
     int frame = (readByte - s.audioDataStartPosBytes) / bps;
     int base = frame * s.numChannels;
