@@ -28,6 +28,9 @@ public class SampleReader {
   /** C: *doneAnySamplesYet — the first output uses the primed history without advancing. */
   boolean doneAnySamplesYet;
 
+  /** C: interpolationBufferSizeLastTime — sinc taps engaged on the last read (0 = native/none). */
+  int interpolationBufferSizeLastTime;
+
   // Full-precision interpolation history; [0] is the newest frame (matches SincInterpolator order).
   final int[] bufL = new int[K_TAPS];
   final int[] bufR = new int[K_TAPS];
@@ -43,8 +46,25 @@ public class SampleReader {
     this.oscPos = other.oscPos;
     this.playPos = other.playPos;
     this.doneAnySamplesYet = other.doneAnySamplesYet;
+    this.interpolationBufferSizeLastTime = other.interpolationBufferSizeLastTime;
     System.arraycopy(other.bufL, 0, bufL, 0, K_TAPS);
     System.arraycopy(other.bufR, 0, bufR, 0, K_TAPS);
+  }
+
+  /**
+   * C: getPlayByteLowLevel (sample_low_level_reader.cpp:42-58) — the reader's byte position within the
+   * audio file, optionally compensated for the interpolation buffer (shift back by half the engaged
+   * taps, in the play direction). In-RAM: the play byte is {@code audioDataStart + playPos*bytesPerSample}
+   * (no cluster misalignment).
+   */
+  public int getPlayByteLowLevel(boolean compensateForInterpolationBuffer) {
+    int bytesPerSample = sample.byteDepth * sample.numChannels;
+    int withinAudioData = playPos * bytesPerSample;
+    if (compensateForInterpolationBuffer && interpolationBufferSizeLastTime != 0) {
+      int extraSamples = -(interpolationBufferSizeLastTime >> 1); // C:49
+      withinAudioData += extraSamples * bytesPerSample * playDirection; // C:52
+    }
+    return sample.audioDataStartPosBytes + withinAudioData;
   }
 
   /** Read the frame at {@link #playPos} (0 outside the sample), shift it into the history, advance. */
@@ -78,6 +98,7 @@ public class SampleReader {
     // playPos is now startFrame; buf[0] = the frame just before it.
     oscPos = 0;
     doneAnySamplesYet = false;
+    interpolationBufferSizeLastTime = 0; // C: setupNewPlayHead (time_stretcher.cpp:997)
   }
 
   /**
@@ -113,6 +134,7 @@ public class SampleReader {
       readResampledTail(oscBuffer, numChannels, amplitude, amplitudeIncrement, sampleRead, o);
       o += numChannels;
     }
+    interpolationBufferSizeLastTime = K_TAPS; // C:568/672 — windowed-sinc taps engaged
   }
 
   // shared C:1048-1052 tail (amplitude ramp + MAC), so readNative/readResampled stay identical there
@@ -157,6 +179,7 @@ public class SampleReader {
         o++;
       }
     }
+    interpolationBufferSizeLastTime = 0; // C:832 — native read, no interpolation buffer
   }
 
 }
