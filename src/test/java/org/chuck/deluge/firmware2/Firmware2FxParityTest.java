@@ -316,6 +316,57 @@ class Firmware2FxParityTest {
     assertEquals(0, GranularProcessor.toPositive(-2147483648));
   }
 
+  /**
+   * The DIGITAL reverb (digital.hpp Lexicon-224 topology) used to silently alias the MUTABLE model in
+   * fw2. Now that it's its own port, prove it (a) produces a non-silent tail and (b) is distinct from
+   * MUTABLE for the same input/params. Self-contained — no firmware/ oracle (firmware/ reverb differs
+   * from the C, see Freeverb note).
+   */
+  @Test
+  void digitalReverbIsDistinctFromMutable() {
+    int[] outDigital = runReverb(Reverb.Model.DIGITAL);
+    int[] outMutable = runReverb(Reverb.Model.MUTABLE);
+
+    long energyDigital = 0;
+    boolean differs = false;
+    for (int i = 0; i < outDigital.length; i++) {
+      energyDigital += Math.abs((long) outDigital[i]);
+      if (outDigital[i] != outMutable[i]) differs = true;
+    }
+    org.junit.jupiter.api.Assertions.assertTrue(energyDigital > 0, "DIGITAL reverb produced silence");
+    org.junit.jupiter.api.Assertions.assertTrue(
+        differs, "DIGITAL output identical to MUTABLE — DIGITAL is still aliased");
+  }
+
+  private static int[] runReverb(Reverb.Model model) {
+    Reverb.Container rev = new Reverb.Container();
+    rev.setModel(model);
+    rev.setRoomSize(0.7f);
+    rev.setDamping(0.5f);
+    rev.setWidth(0.6f);
+    rev.setHPF(0.1f);
+    rev.setLPF(0.8f);
+    rev.setPanLevels(Integer.MAX_VALUE, Integer.MAX_VALUE);
+
+    Random r = new Random(2025);
+    int[] flat = new int[N * BLOCKS * 2];
+    int idx = 0;
+    for (int blk = 0; blk < BLOCKS; blk++) {
+      int[] in = new int[N];
+      int[][] out = new int[N][2];
+      for (int i = 0; i < N; i++) {
+        // An initial impulse then noise, to build a tail.
+        in[i] = (blk == 0 && i == 0) ? (Integer.MAX_VALUE >> 1) : (r.nextInt() >> 4);
+      }
+      rev.process(in, out);
+      for (int i = 0; i < N; i++) {
+        flat[idx++] = out[i][0];
+        flat[idx++] = out[i][1];
+      }
+    }
+    return flat;
+  }
+
   private static StereoSample[] newBuf() {
     StereoSample[] a = new StereoSample[N];
     for (int i = 0; i < N; i++) a[i] = new StereoSample();
