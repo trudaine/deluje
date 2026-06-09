@@ -49,8 +49,8 @@ public class VoiceSample {
    * each head reads at {@code phaseIncrement} (pitch). At each hop the newer head is forked into the
    * older head, repositioned by {@code hopEnd}, and the two are linearly crossfaded.
    *
-   * <p>NOTE: {@code oldHeadBytePos} uses the reader's frame position directly (the C
-   * getPlayByteLowLevel interpolation-buffer compensation is not modelled — adapter approximation).
+   * <p>{@code oldHeadBytePos} comes from {@link SampleReader#getPlayByteLowLevel} (with the
+   * interpolation-buffer compensation), matching the C.
    *
    * @param amplitude single-element voice amplitude ramp accumulator
    */
@@ -70,7 +70,7 @@ public class VoiceSample {
       // C:1162-1173 — time to hop?
       if (timeStretcher.samplesTilHopEnd <= 0) {
         int samplePos = timeStretcher.getSamplePos(reader.playDirection);
-        int oldHeadBytePos = sample.audioDataStartPosBytes + reader.playPos * bps;
+        int oldHeadBytePos = reader.getPlayByteLowLevel(true); // C:284 (compensates for the interp buffer)
         olderReader.copyStateFrom(reader); // fork the older head before repositioning the newer one
         int[] hop = timeStretcher.hopEnd(
             sample, oldHeadBytePos, samplePos, phaseIncrement, timeStretchRatio, reader.playDirection,

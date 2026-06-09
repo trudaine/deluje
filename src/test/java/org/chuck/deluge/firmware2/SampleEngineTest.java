@@ -469,6 +469,31 @@ class SampleEngineTest {
     org.junit.jupiter.api.Assertions.assertTrue(energy > 0, "1x output silent");
   }
 
+  /** getPlayByteLowLevel: raw frame byte position, with optional interp-buffer compensation. */
+  @Test
+  void getPlayByteLowLevelCompensation() {
+    Sample s = bigSample(2, 10000, 3);
+    int bps = s.byteDepth * s.numChannels;
+    SampleReader rd = new SampleReader();
+    rd.sample = s;
+    rd.playDirection = 1;
+    rd.playPos = 5000;
+
+    // No interpolation engaged (native/just set up) → no compensation.
+    rd.interpolationBufferSizeLastTime = 0;
+    assertEquals(44 + 5000 * bps, rd.getPlayByteLowLevel(true));
+    assertEquals(44 + 5000 * bps, rd.getPlayByteLowLevel(false));
+
+    // Windowed-sinc engaged → shift back by half the taps (8 frames) in the play direction.
+    rd.interpolationBufferSizeLastTime = 16;
+    assertEquals(44 + (5000 - 8) * bps, rd.getPlayByteLowLevel(true));
+    assertEquals(44 + 5000 * bps, rd.getPlayByteLowLevel(false), "no-compensate ignores buffer");
+
+    // Reverse: shift the other way.
+    rd.playDirection = -1;
+    assertEquals(44 + (5000 + 8) * bps, rd.getPlayByteLowLevel(true));
+  }
+
   /** A forward window too close to the start returns false (C:753-756). */
   @Test
   void getAveragesForCrossfadeOutOfBoundsFalse() {
