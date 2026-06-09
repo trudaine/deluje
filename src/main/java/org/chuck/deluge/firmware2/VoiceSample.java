@@ -23,6 +23,131 @@ public class VoiceSample {
   public boolean looping;
   public int loopStartFrame;
 
+  // ── Time-stretch state (the two-play-head crossfade) ──
+  public final TimeStretcher timeStretcher = new TimeStretcher();
+  public final SampleReader olderReader = new SampleReader();
+
+  /** Begin time-stretched playback from {@code startFrame}; the first render hops immediately. */
+  public void setupTimeStretch(Sample sample, int startFrame, int playDirection) {
+    reader.sample = sample;
+    reader.playDirection = playDirection;
+    reader.init(startFrame);
+    timeStretcher.samplePosBig = (long) startFrame << 24;
+    timeStretcher.samplesTilHopEnd = 0; // ⇒ hop on the first render
+    timeStretcher.crossfadeProgress = K_MAX_SAMPLE_VALUE;
+    timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER] = false;
+    timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER] = false;
+    active = true;
+  }
+
+  /**
+   * Time-stretched render (pitch decoupled from speed): the two-play-head crossfade assembly that ties
+   * {@link TimeStretcher#hopEnd} together with the older/newer {@link SampleReader}s
+   * (voice_sample.cpp:1160-1432, the in-RAM / no-cache / TIME_STRETCH_ENABLE_BUFFER=0 path).
+   *
+   * <p>{@code samplePosBig} advances at the combined (pitch × stretch) rate and drives hop placement;
+   * each head reads at {@code phaseIncrement} (pitch). At each hop the newer head is forked into the
+   * older head, repositioned by {@code hopEnd}, and the two are linearly crossfaded.
+   *
+   * <p>NOTE: {@code oldHeadBytePos} uses the reader's frame position directly (the C
+   * getPlayByteLowLevel interpolation-buffer compensation is not modelled — adapter approximation).
+   *
+   * @param amplitude single-element voice amplitude ramp accumulator
+   */
+  public void renderTimeStretched(int[] osc, int numSamples, int numChannels, int phaseIncrement,
+      int timeStretchRatio, int[] amplitude, int amplitudeIncrement) {
+    if (!active) {
+      return;
+    }
+    Sample sample = reader.sample;
+    int bps = sample.byteDepth * sample.numChannels;
+    boolean native_ = (phaseIncrement == K_MAX_SAMPLE_VALUE);
+    int whichKernel = native_ ? 0 : Functions.getWhichKernel(phaseIncrement);
+    long combinedIncrement = ((phaseIncrement & 0xFFFFFFFFL) * (timeStretchRatio & 0xFFFFFFFFL)) >>> 24; // C:614
+
+    int produced = 0;
+    while (produced < numSamples) {
+      // C:1162-1173 — time to hop?
+      if (timeStretcher.samplesTilHopEnd <= 0) {
+        int samplePos = timeStretcher.getSamplePos(reader.playDirection);
+        int oldHeadBytePos = sample.audioDataStartPosBytes + reader.playPos * bps;
+        olderReader.copyStateFrom(reader); // fork the older head before repositioning the newer one
+        int[] hop = timeStretcher.hopEnd(
+            sample, oldHeadBytePos, samplePos, phaseIncrement, timeStretchRatio, reader.playDirection,
+            Functions.getNoise(), olderReader.oscPos);
+        if (timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER]) {
+          int newFrame = (hop[0] - sample.audioDataStartPosBytes) / bps; // setupNewPlayHead (in-RAM)
+          reader.init(newFrame);
+          reader.oscPos = hop[1]; // C:998
+        }
+      }
+
+      int numThis = Math.min(numSamples - produced, timeStretcher.samplesTilHopEnd);
+      if (numThis <= 0) {
+        break;
+      }
+
+      // C:1206-1285 — crossfade amplitude envelopes for the two heads.
+      boolean olderAudible = timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER]
+          && timeStretcher.crossfadeProgress < K_MAX_SAMPLE_VALUE;
+      int preCacheAmplitude = amplitude[0] >> 1;
+      int preCacheAmplitudeIncrement = amplitudeIncrement >> 1;
+      int newerSourceAmplitudeNow;
+      int newerAmplitudeIncrementNow;
+      int olderSourceAmplitudeNow = 0;
+      int olderAmplitudeIncrementNow = 0;
+      if (olderAudible) {
+        int newerHopAmplitudeNow = timeStretcher.crossfadeProgress << 7;
+        int olderHopAmplitudeNow = 2147483647 - newerHopAmplitudeNow;
+        timeStretcher.crossfadeProgress += timeStretcher.crossfadeIncrement * numThis;
+        int newerHopAmplitudeAfter = Functions.lshiftAndSaturateUnknown(timeStretcher.crossfadeProgress, 7);
+        int newerHopAmplitudeIncrement = (newerHopAmplitudeAfter - newerHopAmplitudeNow) / numThis;
+        int hopAmplitudeChange = Functions.multiply_32x32_rshift32(preCacheAmplitude, newerHopAmplitudeIncrement) << 1;
+        newerAmplitudeIncrementNow = preCacheAmplitudeIncrement + hopAmplitudeChange;
+        newerSourceAmplitudeNow = Functions.multiply_32x32_rshift32(preCacheAmplitude, newerHopAmplitudeNow) << 1;
+        olderAmplitudeIncrementNow = preCacheAmplitudeIncrement - hopAmplitudeChange;
+        olderSourceAmplitudeNow = Functions.multiply_32x32_rshift32(preCacheAmplitude, olderHopAmplitudeNow) << 1;
+      } else {
+        newerSourceAmplitudeNow = preCacheAmplitude;
+        newerAmplitudeIncrementNow = preCacheAmplitudeIncrement;
+      }
+
+      int[] tmp = new int[numThis * numChannels];
+      // C:1300-1332 — newer head
+      if (timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER]) {
+        readHead(reader, tmp, numThis, numChannels, native_, whichKernel, phaseIncrement,
+            newerSourceAmplitudeNow, newerAmplitudeIncrementNow);
+      }
+      // C:1337-1367 — older head
+      if (olderAudible) {
+        readHead(olderReader, tmp, numThis, numChannels, native_, whichKernel, phaseIncrement,
+            olderSourceAmplitudeNow, olderAmplitudeIncrementNow);
+        if (timeStretcher.crossfadeProgress >= K_MAX_SAMPLE_VALUE) { // C:1370 — older finished
+          timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER] = false;
+        }
+      }
+
+      int base = produced * numChannels;
+      for (int i = 0; i < tmp.length; i++) {
+        osc[base + i] += tmp[i];
+      }
+
+      timeStretcher.samplePosBig += combinedIncrement * numThis * reader.playDirection; // C:1396
+      timeStretcher.samplesTilHopEnd -= numThis; // C:1432
+      produced += numThis;
+    }
+  }
+
+  private static void readHead(SampleReader head, int[] tmp, int numThis, int numChannels, boolean native_,
+      int whichKernel, int phaseIncrement, int sourceAmplitude, int amplitudeIncrement) {
+    int[] amp = {sourceAmplitude};
+    if (native_) {
+      head.readNative(tmp, numThis, numChannels, amp, amplitudeIncrement);
+    } else {
+      head.readResampled(tmp, numThis, numChannels, whichKernel, phaseIncrement, amp, amplitudeIncrement);
+    }
+  }
+
   /** One-shot, no loop — plays {@code sample} from {@code startFrame} to the sample end. */
   public void setup(Sample sample, int startFrame, int playDirection) {
     int end = (playDirection == 1) ? (int) sample.lengthInSamples : -1;
