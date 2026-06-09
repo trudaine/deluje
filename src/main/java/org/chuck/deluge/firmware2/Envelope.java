@@ -27,6 +27,11 @@ public class Envelope {
   public boolean ignoredNoteOff;
   public int timeEnteredState; // for voice-stealing priority
 
+  // C: AudioEngine::nextVoiceState (audio_engine.cpp:165, starts at 1). A single global monotonic
+  // counter shared across all envelopes/voices — each state entry gets a unique increasing stamp so
+  // voice-stealing can order voices chronologically. (Java static mirrors the C global.)
+  static int nextVoiceState = 1;
+
   public Envelope() {}
 
   // ── render (envelope.cpp:29-118) ──
@@ -162,7 +167,7 @@ public class Envelope {
 
   public void setState(Stage newState) {
     state = newState;
-    timeEnteredState++; // AudioEngine::nextVoiceState++ simplification
+    timeEnteredState = nextVoiceState++; // envelope.cpp:163 — global monotonic stamp
   }
 
   // ── resumeAttack (envelope.cpp:187-190) ──
