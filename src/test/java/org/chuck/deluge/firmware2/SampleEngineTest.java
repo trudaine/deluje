@@ -530,6 +530,47 @@ class SampleEngineTest {
     }
   }
 
+  /** getNumSamplesLaggingBehindSync + adjustPitchToCorrectDriftFromSync, re-derived (forward + reverse). */
+  @Test
+  void syncDriftCorrectionMatchesC() {
+    Random r = new Random(654);
+    for (int t = 0; t < 100_000; t++) {
+      Sample s = new Sample();
+      s.numChannels = 2;
+      s.byteDepth = 3;
+      s.lengthInSamples = 1 + r.nextInt(2_000_000);
+      SampleHolder h = new SampleHolder();
+      h.audioFile = s;
+      h.startPos = r.nextInt(500_000);
+      h.endPos = h.startPos + 1 + r.nextInt(1_000_000);
+
+      SamplePlaybackGuide g = new SamplePlaybackGuide();
+      g.audioFileHolder = h;
+      g.playDirection = (t % 2 == 0) ? 1 : -1;
+      g.sequenceSyncStartedAtTick = r.nextInt();
+      g.sequenceSyncLengthTicks = 1 + r.nextInt(100_000);
+      int curTick = r.nextInt();
+      int timeSince = r.nextInt(50_000);
+      int timePer = 1 + r.nextInt(50_000);
+      long actual = r.nextInt(1_500_000);
+      int phase = (1 << 20) + r.nextInt(1 << 24);
+
+      long idealNum = g.getSyncedNumSamplesIn(curTick, timeSince, timePer);
+      long idealPos = (g.playDirection == 1) ? (h.startPos + idealNum) : (h.getEndPos(true) - 1 - idealNum);
+      int expLag = (int) (idealPos - actual) * g.playDirection;
+      assertEquals(expLag, g.getNumSamplesLaggingBehindSync(actual, curTick, timeSince, timePer), "lag t=" + t);
+
+      // adjust: not external clock or no clusters → unchanged.
+      assertEquals(phase, g.adjustPitchToCorrectDriftFromSync(phase, false, true, actual, curTick, timeSince, timePer));
+      assertEquals(phase, g.adjustPitchToCorrectDriftFromSync(phase, true, false, actual, curTick, timeSince, timePer));
+      long newPhase = phase + ((long) expLag << 9);
+      if (newPhase < 1) newPhase = 1;
+      else if (newPhase > 2147483647) newPhase = 2147483647;
+      assertEquals((int) newPhase,
+          g.adjustPitchToCorrectDriftFromSync(phase, true, true, actual, curTick, timeSince, timePer), "adjust t=" + t);
+    }
+  }
+
   /** A forward window too close to the start returns false (C:753-756). */
   @Test
   void getAveragesForCrossfadeOutOfBoundsFalse() {

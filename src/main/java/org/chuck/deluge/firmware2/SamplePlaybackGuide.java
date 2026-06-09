@@ -69,6 +69,47 @@ public class SamplePlaybackGuide {
         / (double) (sequenceSyncLengthTicks & 0xFFFFFFFFL));
   }
 
+  /**
+   * C: getNumSamplesLaggingBehindSync (sample_playback_guide.cpp:110-124) — how far the actual play
+   * position has drifted from where the clip-sync says it should be. {@code actualSamplePos} (C:
+   * voiceSample->getPlaySample) and the clock reads are seams.
+   */
+  public int getNumSamplesLaggingBehindSync(long actualSamplePos, int currentInternalTickCount,
+      int timeSinceLastInternalTick, int timePerInternalTick) {
+    long idealNumSamplesIn =
+        getSyncedNumSamplesIn(currentInternalTickCount, timeSinceLastInternalTick, timePerInternalTick); // C:112
+    long idealSamplePos; // C:114-119
+    if (playDirection == 1) {
+      idealSamplePos = audioFileHolder.startPos + idealNumSamplesIn;
+    } else {
+      idealSamplePos = audioFileHolder.getEndPos(true) - 1 - idealNumSamplesIn;
+    }
+    return (int) (idealSamplePos - actualSamplePos) * playDirection; // C:123
+  }
+
+  /**
+   * C: adjustPitchToCorrectDriftFromSync (sample_playback_guide.cpp:126-144) — nudge the phase
+   * increment to pull a clip back onto the external clock. {@code externalClockActive} (C:
+   * playbackHandler.isExternalClockActive) and {@code voiceHasClusters} (C: voiceSample->clusters[0])
+   * are seams; the clamp/shift is the verbatim C.
+   */
+  public int adjustPitchToCorrectDriftFromSync(int phaseIncrement, boolean externalClockActive,
+      boolean voiceHasClusters, long actualSamplePos, int currentInternalTickCount,
+      int timeSinceLastInternalTick, int timePerInternalTick) {
+    if (!externalClockActive || !voiceHasClusters) { // C:130-132
+      return phaseIncrement;
+    }
+    int numSamplesLaggingBehindSync = getNumSamplesLaggingBehindSync(
+        actualSamplePos, currentInternalTickCount, timeSinceLastInternalTick, timePerInternalTick); // C:134
+    long newPhaseIncrement = phaseIncrement + ((long) numSamplesLaggingBehindSync << 9); // C:136
+    if (newPhaseIncrement < 1) {
+      newPhaseIncrement = 1; // C:137-139
+    } else if (newPhaseIncrement > 2147483647) {
+      newPhaseIncrement = 2147483647; // C:140-142
+    }
+    return (int) newPhaseIncrement; // C:143
+  }
+
   /** C: sample_playback_guide.cpp:62-85 — compute start/end bytes from the holder's sample markers. */
   public void setupPlaybackBounds(boolean reversed) {
     playDirection = reversed ? -1 : 1;
