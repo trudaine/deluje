@@ -20,8 +20,8 @@ public class Arpeggiator {
   public static final int ARP_NOTE_NONE = 32767;
   public static final int MIN_MPE_MODULATED_VELOCITY = 10;
   public static final int MIDI_CHANNEL_NONE = 255;
-  static final int MAX_CHORD_NOTES = 4;
-  static final int MAX_CHORD_TYPES = 8;
+  static final int MAX_CHORD_NOTES = 4; // lookuptables.h:140
+  static final int MAX_CHORD_TYPES = 9; // lookuptables.h:139 (NO_CHORD + 8 types)
 
   /** C: getRandom255() = CONG >> 24 — returns random value in range 0-255. */
   static int getRandom255() {
@@ -303,6 +303,24 @@ public class Arpeggiator {
       this.steps = steps;
     }
   }
+
+  // ── Chord-type tables (lookuptables.cpp:518-541) ──
+
+  /** chordTypeSemitoneOffsets[MAX_CHORD_TYPES][MAX_CHORD_NOTES] (lookuptables.cpp:518). */
+  static final int[][] chordTypeSemitoneOffsets = {
+    {0, 0, 0, 0}, // NO_CHORD
+    {0, 7, 0, 0}, // FIFTH
+    {0, 2, 7, 0}, // SUS2
+    {0, 3, 7, 0}, // MINOR
+    {0, 4, 7, 0}, // MAJOR
+    {0, 5, 7, 0}, // SUS4
+    {0, 3, 7, 10}, // MINOR7
+    {0, 4, 7, 10}, // DOMINANT7
+    {0, 4, 7, 11}, // MAJOR7
+  };
+
+  /** chordTypeNoteCount[MAX_CHORD_TYPES] (lookuptables.cpp:531). */
+  static final int[] chordTypeNoteCount = {1, 2, 3, 3, 3, 3, 4, 4, 4};
 
   static final ArpRhythm[] arpRhythmPatterns =
       new ArpRhythm[] {
@@ -1194,7 +1212,7 @@ public class Arpeggiator {
     protected void switchNoteOn(Settings settings, ArpReturnInstruction instruction, boolean isRatchet) {
       int maxSequenceLength = Functions.computeCurrentValueForUnsignedMenuItem(settings.sequenceLength); // C:761
       int rhythm = Functions.computeCurrentValueForUnsignedMenuItem(settings.rhythm); // C:762
-      int numActiveNotes = 1; // simplified: chordTypeNoteCount[chordTypeIndex]
+      int numActiveNotes = chordTypeNoteCount[settings.chordTypeIndex]; // C:773
 
       StepResult out = new StepResult();
       executeArpStep(settings, numActiveNotes, isRatchet, maxSequenceLength, rhythm, out);
@@ -1224,15 +1242,25 @@ public class Arpeggiator {
         // C:812-841 — note calculation
         int note;
         if (out.shouldPlayBassNote) {
-          note = noteForDrum;
+          note = noteForDrum; // C:814-816
         } else if (out.shouldPlayRandomStep) {
-          note = noteForDrum + (getRandom255() % numActiveNotes) + (getRandom255() % settings.numOctaves) * 12;
+          // C:818-823 — random chord note
+          note =
+              noteForDrum
+                  + chordTypeSemitoneOffsets[settings.chordTypeIndex][
+                      (getRandom255() % numActiveNotes) % MAX_CHORD_NOTES]
+                  + (getRandom255() % settings.numOctaves) * 12;
         } else {
+          // C:825-834 — normal pattern step
           int diff = currentOctave * 12;
           if (spreadOctaveForCurrentStep != 0) {
             diff = diff + spreadOctaveForCurrentStep * 12;
           }
-          note = noteForDrum + diff;
+          note =
+              noteForDrum
+                  + chordTypeSemitoneOffsets[settings.chordTypeIndex][
+                      whichNoteCurrentlyOnPostArp % MAX_CHORD_NOTES]
+                  + diff;
         }
         if (note < 0) note = 0;
         else if (note > 127) note = 127;
