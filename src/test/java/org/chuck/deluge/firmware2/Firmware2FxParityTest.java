@@ -212,6 +212,92 @@ class Firmware2FxParityTest {
     }
   }
 
+  /**
+   * Sidechain envelope (integer). Exercises registerHit (incl. combineHitStrengths — fw2 previously
+   * approximated it as max(a,b); C and firmware/ do (maxOne>>1)+(sum>>1)) then the attack/release
+   * curve. syncLevel 0 (NONE) so getActualAttackRate/Release return attack/release directly, matching
+   * firmware/'s raw-rate render.
+   *
+   * <p>shapeValue is kept STRICTLY NEGATIVE: the C (sidechain.cpp:181) computes
+   * {@code uint32_t positiveShapeValue = (uint32_t)shapeValue + 2147483648} then an unsigned
+   * {@code >> 15}. firmware/ does this with a signed int and so is only faithful for shapeValue < 0
+   * (for shapeValue >= 0 the +2^31 overflows int negative — a firmware/ bug). fw2 previously had the
+   * opposite bug (long without the uint32 wrap, wrong for shapeValue < 0); now fixed to
+   * {@code (shapeValue + 0x80000000) >>> 15}, faithful for ALL shapeValues. With a negative shapeValue
+   * all three (fw2, firmware/, C) agree, so this is a genuine 3-way parity check of the render path.
+   */
+  @Test
+  void sidechainMatchesFirmware() {
+    org.chuck.deluge.firmware.modulation.sidechain.SideChain oldS =
+        new org.chuck.deluge.firmware.modulation.sidechain.SideChain();
+    Sidechain newS = new Sidechain();
+    int attack = 327244;
+    int release = 936;
+    oldS.attack = attack;
+    oldS.release = release;
+    oldS.syncLevel = org.chuck.deluge.firmware.model.SyncLevel.SYNC_LEVEL_NONE;
+    newS.attack = attack;
+    newS.release = release;
+    newS.syncLevel = 0;
+
+    int shapeValue = -300000000; // strictly negative — see Javadoc (firmware/ faithful only here)
+    Random r = new Random(13);
+    for (int blk = 0; blk < 40; blk++) {
+      // Occasionally register one or two hits in the same block → combineHitStrengths runs.
+      if (blk % 5 == 0) {
+        int h1 = r.nextInt(Integer.MAX_VALUE);
+        oldS.registerHit(h1);
+        newS.registerHit(h1);
+        if (blk % 10 == 0) {
+          int h2 = r.nextInt(Integer.MAX_VALUE);
+          oldS.registerHit(h2);
+          newS.registerHit(h2);
+        }
+      }
+      int outOld = oldS.render(N, shapeValue);
+      int outNew = newS.render(N, shapeValue);
+      assertEquals(outOld, outNew, "Sidechain render mismatch block " + blk);
+      assertEquals(oldS.lastValue, newS.lastValue, "Sidechain lastValue mismatch block " + blk);
+    }
+  }
+
+  /** combineHitStrengths is exact vs the C formula across the strength range (fw2 had max(a,b)). */
+  @Test
+  void combineHitStrengthsMatchesC() {
+    Random r = new Random(8);
+    for (int n = 0; n < 100_000; n++) {
+      int s1 = r.nextInt(Integer.MAX_VALUE);
+      int s2 = r.nextInt(Integer.MAX_VALUE);
+      long sum = Math.min((long) s1 + s2, 2147483647L); // C: uint32 sum capped at ONE_Q31
+      int expected = (Math.max(s1, s2) >> 1) + (int) (sum >>> 1);
+      assertEquals(expected, Sidechain.combineHitStrengths(s1, s2), "combineHitStrengths(" + s1 + "," + s2 + ")");
+    }
+  }
+
+  /**
+   * AbsValueFollower (float). Uses double-precision exp/log on both sides, so compare with a small
+   * relative epsilon rather than bit-exact.
+   */
+  @Test
+  void absValueFollowerMatchesFirmware() {
+    org.chuck.deluge.firmware.dsp.envelope_follower.AbsValueFollower oldF =
+        new org.chuck.deluge.firmware.dsp.envelope_follower.AbsValueFollower();
+    AbsValueFollower newF = new AbsValueFollower();
+    oldF.setup(5 << 24, 5 << 24);
+    newF.setup(5 << 24, 5 << 24);
+
+    Random r = new Random(321);
+    StereoSample[] a = newBuf();
+    int[][] b = new int[N][2];
+    for (int blk = 0; blk < BLOCKS; blk++) {
+      fill(r, a, b);
+      org.chuck.deluge.firmware.dsp.StereoFloatSample outOld = oldF.calcApproxRMS(a);
+      float[] outNew = newF.calcApproxRMS(b);
+      org.junit.jupiter.api.Assertions.assertEquals(outOld.l, outNew[0], 1e-3f, "AbsRMS L block " + blk);
+      org.junit.jupiter.api.Assertions.assertEquals(outOld.r, outNew[1], 1e-3f, "AbsRMS R block " + blk);
+    }
+  }
+
   private static StereoSample[] newBuf() {
     StereoSample[] a = new StereoSample[N];
     for (int i = 0; i < N; i++) a[i] = new StereoSample();

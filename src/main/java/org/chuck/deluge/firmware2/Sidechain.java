@@ -89,10 +89,17 @@ public class Sidechain {
     pendingHitStrength = combineHitStrengths(pendingHitStrength, strength);
   }
 
-  /** C: combines two hit strengths — takes the larger (deeper duck). */
-  static int combineHitStrengths(int a, int b) {
-    // The sidechain uses the maximum depth (whichever hit is stronger)
-    return Math.max(a, b);
+  /**
+   * C: util/functions.cpp:1472-1479. Rather than true pythagoras, go halfway between the biggest one
+   * and the (uint32-capped) sum. {@code sum} is uint32_t; cap and {@code >> 1} are unsigned.
+   */
+  static int combineHitStrengths(int strength1, int strength2) {
+    long sum = (strength1 & 0xFFFFFFFFL) + (strength2 & 0xFFFFFFFFL); // (uint32_t)s1 + (uint32_t)s2
+    if (Long.compareUnsigned(sum, 2147483647L) > 0) {
+      sum = 2147483647L; // std::min(sum, (uint32_t)2147483647)
+    }
+    int maxOne = Math.max(strength1, strength2);
+    return (maxOne >> 1) + (int) (sum >>> 1);
   }
 
   // ── getActualAttackRate (sidechain.cpp:95-112) ──
@@ -193,13 +200,14 @@ public class Sidechain {
         status = Envelope.Stage.OFF; // C:177
         // goto doOff
       } else {
-        // C:181 — positive shape value (unsigned conversion)
-        long positiveShapeValue = ((long)shapeValue & 0xFFFFFFFFL) + 2147483648L;
+        // C:181 — uint32_t positiveShapeValue = (uint32_t)shapeValue + 2147483648. Adding 0x80000000
+        // wraps mod 2^32 exactly like the C uint32_t; the >> 15 below must be UNSIGNED (>>>).
+        int positiveShapeValue = shapeValue + 0x80000000;
 
         int preValue;
 
         // C:189-199 — complex curve
-        int curvedness16 = (int)(positiveShapeValue >> 15) - (pos >> 7);
+        int curvedness16 = (positiveShapeValue >>> 15) - (pos >> 7);
         if (curvedness16 < 0) {
           preValue = pos << 8; // C:191
         } else {
