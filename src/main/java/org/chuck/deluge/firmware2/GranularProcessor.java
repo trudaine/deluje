@@ -129,13 +129,14 @@ public class GranularProcessor {
     if (densityKnobPos != density || rateKnobPos != rate) {
       densityKnobPos = density;
       int densityQ31 = (density / 2) + 1073741824; // convert to 0..2^31
-      grainSize = 1760 + Functions.multiply_32x32_rshift32(grainRate << 3, densityQ31);
+      // C:103 — q31_mult(_grainRate << 3, density). q31_mult is smmul*2, i.e. multiply_..._rshift32 << 1.
+      grainSize = 1760 + (Functions.multiply_32x32_rshift32(grainRate << 3, densityQ31) << 1);
     }
 
     // C:106-113 — grain rate
     if (rateKnobPos != rate) {
       rateKnobPos = rate;
-      int raw = Math.max(0, Math.min(256, (quickLog(rate) - 364249088) >> 21));
+      int raw = Math.max(0, Math.min(256, (Functions.quickLog(rate) - 364249088) >> 21));
       grainRate = ((360 * raw >> 8) * raw >> 8);
       grainRate = Math.max(1, grainRate);
       grainRate = (K_SAMPLE_RATE << 1) / grainRate;
@@ -156,15 +157,9 @@ public class GranularProcessor {
     }
   }
 
-  /** C: toPositive — convert bipolar Q31 to unsigned */
+  /** C: fixedpoint.h:37-39 — (a / 2) + 2^30. Signed truncating division, NOT {@code >> 1}. */
   static int toPositive(int val) {
-    return (int)((val & 0xFFFFFFFFL) >> 1);
-  }
-
-  /** C: quickLog — fast approximate log2 */
-  static int quickLog(int val) {
-    if (val <= 0) return 0;
-    return 31 - Integer.numberOfLeadingZeros(val);
+    return (val / 2) + 1073741824;
   }
 
   // ── processOneGrainSample (GranularProcessor.cpp:128-174) ──
@@ -238,10 +233,10 @@ public class GranularProcessor {
         grains[i].counter = 0;
         grains[i].rev = (getRandom255() < 76);
 
-        // C:186-218 — random pitch/reverse type
-        int typeRand = Functions.multiply_32x32_rshift32(
-            Functions.multiply_32x32_rshift32(sampleTriangleDistribution(), pitchRandomness), 7);
-        typeRand = Math.max(-3, Math.min(3, typeRand)); // clamp
+        // C:186 — int8_t typeRand = multiply_32x32_rshift32(q31_mult(STD, pitchRandomness), 7).
+        // q31_mult is smmul*2 (<<1); the int8_t cast (NOT a clamp) is what lets the default case fire.
+        byte typeRand = (byte) Functions.multiply_32x32_rshift32(
+            Functions.multiply_32x32_rshift32(sampleTriangleDistribution(), pitchRandomness) << 1, 7);
 
         switch (typeRand) {
           case -3: grains[i].pitch = 512; grains[i].rev = true; break;   // octave down reverse
@@ -324,10 +319,11 @@ public class GranularProcessor {
     return ((Functions.getNoise() >> 16) & 0xFFFF) % (upperLimit + 1);
   }
 
+  /** C: functions.h:313-319 — Irwin-Hall triangle: add_saturate of two full getNoise() values. */
   static int sampleTriangleDistribution() {
-    int r1 = getRandom255() & 0xFF;
-    int r2 = getRandom255() & 0xFF;
-    return (r1 - r2) << 23;
+    int u1 = Functions.getNoise();
+    int u2 = Functions.getNoise();
+    return Functions.add_saturate(u1, u2);
   }
 
   static boolean unsignedLT(int a, int b) { return Integer.compareUnsigned(a, b) < 0; }

@@ -298,6 +298,24 @@ class Firmware2FxParityTest {
     }
   }
 
+  /**
+   * GranularProcessor.toPositive must be the C {@code (a / 2) + 2^30} (fixedpoint.h:37) — signed
+   * truncating division, not {@code >> 1}. fw2 previously did {@code (val & 0xFFFFFFFFL) >> 1}, which
+   * is wrong for every negative input. Check the C formula across the full int range incl. negatives.
+   */
+  @Test
+  void granularToPositiveMatchesC() {
+    Random r = new Random(77);
+    for (int n = 0; n < 100_000; n++) {
+      int v = r.nextInt();
+      int expected = (v / 2) + 1073741824; // C: fixedpoint.h:37-39
+      assertEquals(expected, GranularProcessor.toPositive(v), "toPositive(" + v + ")");
+    }
+    // Spot-check the cases the old unsigned >>1 got wrong.
+    assertEquals(1073741822, GranularProcessor.toPositive(-4));
+    assertEquals(0, GranularProcessor.toPositive(-2147483648));
+  }
+
   private static StereoSample[] newBuf() {
     StereoSample[] a = new StereoSample[N];
     for (int i = 0; i < N; i++) a[i] = new StereoSample();
