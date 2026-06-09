@@ -44,6 +44,17 @@ public class TimeStretcher {
   public int crossfadeProgress;       // C: time_stretcher.h:72 (out of kMaxSampleValue)
   public int crossfadeIncrement;      // C: time_stretcher.h:73
   public final boolean[] playHeadStillActive = new boolean[2]; // C: time_stretcher.h:82
+  public boolean hasLoopedBackIntoPreMargin; // C: time_stretcher.h:81
+
+  /** C: kAntiClickCrossfadeLength (definitions_cxx.hpp:834). */
+  public static final int K_ANTI_CLICK_CROSSFADE_LENGTH = 100;
+
+  /** C: definitions_cxx.hpp:858-862 LoopType. */
+  public enum LoopType {
+    NONE,
+    LOW_LEVEL,
+    TIMESTRETCHER_LEVEL_IF_ACTIVE
+  }
 
   // ── getSamplePos (time_stretcher.cpp:1227-1234) ──
 
@@ -365,28 +376,33 @@ public class TimeStretcher {
   }
 
   /**
-   * C: hopEnd (time_stretcher.cpp:242-972) — the desktop/in-RAM path with no perc-cache, no loop
-   * pre-margin, and {@code TIME_STRETCH_ENABLE_BUFFER == 0}. Decides where the NEW play-head should hop
-   * to: beam-width placement from {@link #computeHopParameters} (repitched, averaged — the perc-cache
-   * refinement is skipped), then {@link #searchForCrossfadeOffset} to phase-align the crossfade. Sets
-   * {@link #samplesTilHopEnd}, {@link #crossfadeIncrement}, {@link #crossfadeProgress},
-   * {@link #playHeadStillActive}, and rolls the OLDER head from the previous NEWER head.
+   * C: hopEnd (time_stretcher.cpp:242-972) — the desktop/in-RAM path with no perc-cache and
+   * {@code TIME_STRETCH_ENABLE_BUFFER == 0} (the perc-cache beam refinement is skipped). Decides where
+   * the NEW play-head should hop to: the loop pre-margin special case (looping AudioClips near the loop
+   * end) OR beam-width placement from {@link #computeHopParameters}, then {@link #searchForCrossfadeOffset}
+   * to phase-align. Sets {@link #samplesTilHopEnd}, {@link #crossfadeIncrement}, {@link #crossfadeProgress},
+   * {@link #playHeadStillActive}, {@link #hasLoopedBackIntoPreMargin}, and rolls the OLDER head.
    *
+   * @param guide playback bounds (only read when {@code loopingType == TIMESTRETCHER_LEVEL_IF_ACTIVE};
+   *     may be null otherwise)
+   * @param combinedIncrement {@code (phaseIncrement*timeStretchRatio)>>24} — the output→source rate
    * @param samplePos the current (old) head sample position (C: getSamplePos)
    * @param oldHeadBytePos the old head byte position (C: getPlayByteLowLevel)
-   * @return {@code {newHeadBytePos, additionalOscPos}} for setting up the new head (newer head inactive
-   *     ⇒ both 0; check {@code playHeadStillActive[PLAY_HEAD_NEWER]})
+   * @return {@code {newHeadBytePos, additionalOscPos}} (newer head inactive ⇒ both 0; check
+   *     {@code playHeadStillActive[PLAY_HEAD_NEWER]})
    */
-  public int[] hopEnd(Sample sample, int oldHeadBytePos, int samplePos, int phaseIncrement,
-      int timeStretchRatio, int playDirection, int noise, int olderOscPos) {
+  public int[] hopEnd(Sample sample, SamplePlaybackGuide guide, LoopType loopingType, int oldHeadBytePos,
+      int samplePos, int phaseIncrement, int timeStretchRatio, long combinedIncrement, int playDirection,
+      int noise, int olderOscPos) {
 
     int bytesPerSample = sample.byteDepth * sample.numChannels;
 
-    // C:286-287 — the previous newer head becomes the older head.
+    // C:286-288 — the previous newer head becomes the older head.
     playHeadStillActive[PLAY_HEAD_OLDER] = playHeadStillActive[PLAY_HEAD_NEWER];
     playHeadStillActive[PLAY_HEAD_NEWER] = true;
+    hasLoopedBackIntoPreMargin = false;
 
-    int maxHopLength = 2147483647; // C:290 (no loop pre-margin path)
+    int maxHopLength = 2147483647; // C:290
 
     int[] hp = computeHopParameters(timeStretchRatio, noise);
     int minBeamWidth = hp[HP_MIN_BEAM_WIDTH];
@@ -394,47 +410,93 @@ public class TimeStretcher {
     int crossfadeProportional = hp[HP_CROSSFADE_PROPORTIONAL];
     int crossfadeAbsolute = hp[HP_CROSSFADE_ABSOLUTE];
 
-    // C:473-476 — apply repitching, take the mid beam width (perc-cache search skipped: no perc cache).
-    minBeamWidth = (int) (((minBeamWidth & 0xFFFFFFFFL) * (phaseIncrement & 0xFFFFFFFFL)) >>> 24);
-    maxBeamWidth = (int) (((maxBeamWidth & 0xFFFFFFFFL) * (phaseIncrement & 0xFFFFFFFFL)) >>> 24);
-    int bestBeamWidth = (minBeamWidth + maxBeamWidth) >> 1;
-
-    // C:546-560 — beamBackEdge, clamped to the waveform start.
-    int beamBackEdge =
-        samplePos
-            + (int) (((long) bestBeamWidth * (timeStretchRatio - K_MAX_SAMPLE_VALUE)) >> 25) * playDirection;
-    int waveformStartSample = (playDirection == 1) ? 0 : (int) sample.lengthInSamples - 1;
-    int waveformEndSample = (playDirection == 1) ? (int) sample.lengthInSamples : -1;
-    if ((beamBackEdge - waveformStartSample) * playDirection < 0) {
-      beamBackEdge = waveformStartSample;
+    // C:381-386 — waveform start byte (left of the elected start when reversed).
+    int waveformStartByte = sample.audioDataStartPosBytes;
+    if (playDirection != 1) {
+      waveformStartByte += (int) sample.audioDataLengthBytes - bytesPerSample;
     }
 
-    // C:567-585 — hop length + crossfade.
-    samplesTilHopEnd = (int) Long.divideUnsigned((long) bestBeamWidth << 24, phaseIncrement & 0xFFFFFFFFL);
-    if (samplesTilHopEnd < 1) {
-      samplesTilHopEnd = 1;
-    }
-    int crossfadeLengthSamples =
-        Functions.multiply_32x32_rshift32_rounded(samplesTilHopEnd, crossfadeProportional) + crossfadeAbsolute * 4;
-    if (crossfadeLengthSamples >= (samplesTilHopEnd >> 1)) {
-      crossfadeLengthSamples = (samplesTilHopEnd >> 1);
-    }
-    samplesTilHopEnd -= crossfadeLengthSamples;
-    samplesTilHopEnd = Math.min(samplesTilHopEnd, maxHopLength);
-    crossfadeLengthSamples = Math.min(samplesTilHopEnd, crossfadeLengthSamples);
-    if (crossfadeLengthSamples < 1) {
-      crossfadeLengthSamples = 1; // avoid the C's divide-by-zero UB for degenerate tiny hops
-    }
-    crossfadeIncrement = (int) Integer.toUnsignedLong(K_MAX_SAMPLE_VALUE) / crossfadeLengthSamples;
-    crossfadeProgress = 0;
+    int newHeadBytePos = 0;
+    int crossfadeLengthSamples = 0;
+    boolean placedInPreMargin = false;
 
-    // C:588-591 — shot past the waveform end ⇒ new head silent (but don't kill the voice).
-    if ((beamBackEdge - waveformEndSample) * playDirection >= 0) {
-      playHeadStillActive[PLAY_HEAD_NEWER] = false;
-      return new int[] {0, 0};
+    // ── Loop pre-margin (C:392-465) — for a looping AudioClip near the loop end, hop into the
+    // pre-margin (the audio just before the loop start) and do an anti-click crossfade back. ──
+    if (loopingType == LoopType.TIMESTRETCHER_LEVEL_IF_ACTIVE) {
+      int numBytesOfPreMarginAvailable =
+          (guide.getBytePosToStartPlayback(true) - waveformStartByte) * playDirection; // C:396-397
+      if (numBytesOfPreMarginAvailable > 0) {
+        int loopEndSample =
+            Integer.divideUnsigned(guide.getBytePosToEndOrLoopPlayback() - sample.audioDataStartPosBytes, bytesPerSample); // C:402-403
+        int sourceSamplesTilLoop = (loopEndSample - samplePos) * playDirection; // C:405
+        if (sourceSamplesTilLoop >= 0) {
+          int outputSamplesTilLoop =
+              (int) ((((long) sourceSamplesTilLoop << 24) + (combinedIncrement >> 1)) / combinedIncrement); // C:409-410
+          if (outputSamplesTilLoop < K_ANTI_CLICK_CROSSFADE_LENGTH) { // C:413
+            int numSamplesIntoPreMarginToStartSource = outputSamplesTilLoop; // C:415
+            if (phaseIncrement != K_MAX_SAMPLE_VALUE) { // C:416-420
+              numSamplesIntoPreMarginToStartSource =
+                  (int) ((((long) sourceSamplesTilLoop << 24) + (timeStretchRatio >> 1)) / (timeStretchRatio & 0xFFFFFFFFL));
+            }
+            int candidate =
+                guide.getBytePosToStartPlayback(true)
+                    - numSamplesIntoPreMarginToStartSource * bytesPerSample * playDirection; // C:422-423
+            if ((candidate - waveformStartByte) * playDirection >= 0) { // C:426
+              crossfadeLengthSamples = Math.max(outputSamplesTilLoop, 10); // C:431
+              samplesTilHopEnd = minBeamWidth >> 2;                        // C:435
+              samplesTilHopEnd = Math.max(samplesTilHopEnd, crossfadeLengthSamples); // C:436
+              crossfadeIncrement = Integer.divideUnsigned(16777215 + crossfadeLengthSamples, crossfadeLengthSamples); // C:438-439
+              crossfadeProgress = 0;             // C:440
+              hasLoopedBackIntoPreMargin = true; // C:442
+              newHeadBytePos = candidate;
+              placedInPreMargin = true; // C: goto skipPercStuff (do the search, skip beam placement)
+            }
+          } else {
+            maxHopLength = outputSamplesTilLoop - K_ANTI_CLICK_CROSSFADE_LENGTH + 32; // C:462
+          }
+        }
+      }
     }
 
-    int newHeadBytePos = sample.audioDataStartPosBytes + beamBackEdge * bytesPerSample; // C:593
+    if (!placedInPreMargin) {
+      // ── Beam-width placement (C:471-594) ──
+      minBeamWidth = (int) (((minBeamWidth & 0xFFFFFFFFL) * (phaseIncrement & 0xFFFFFFFFL)) >>> 24); // C:473
+      maxBeamWidth = (int) (((maxBeamWidth & 0xFFFFFFFFL) * (phaseIncrement & 0xFFFFFFFFL)) >>> 24); // C:474
+      int bestBeamWidth = (minBeamWidth + maxBeamWidth) >> 1; // C:476
+
+      int beamBackEdge =
+          samplePos
+              + (int) (((long) bestBeamWidth * (timeStretchRatio - K_MAX_SAMPLE_VALUE)) >> 25) * playDirection; // C:546-548
+      int waveformStartSample = (playDirection == 1) ? 0 : (int) sample.lengthInSamples - 1; // C:551
+      int waveformEndSample = (playDirection == 1) ? (int) sample.lengthInSamples : -1;      // C:554
+      if ((beamBackEdge - waveformStartSample) * playDirection < 0) { // C:558-560
+        beamBackEdge = waveformStartSample;
+      }
+
+      samplesTilHopEnd = (int) Long.divideUnsigned((long) bestBeamWidth << 24, phaseIncrement & 0xFFFFFFFFL); // C:567
+      if (samplesTilHopEnd < 1) {
+        samplesTilHopEnd = 1;
+      }
+      crossfadeLengthSamples =
+          Functions.multiply_32x32_rshift32_rounded(samplesTilHopEnd, crossfadeProportional) + crossfadeAbsolute * 4; // C:572-573
+      if (crossfadeLengthSamples >= (samplesTilHopEnd >> 1)) {
+        crossfadeLengthSamples = (samplesTilHopEnd >> 1);
+      }
+      samplesTilHopEnd -= crossfadeLengthSamples;                       // C:578
+      samplesTilHopEnd = Math.min(samplesTilHopEnd, maxHopLength);      // C:581
+      crossfadeLengthSamples = Math.min(samplesTilHopEnd, crossfadeLengthSamples); // C:582
+      if (crossfadeLengthSamples < 1) {
+        crossfadeLengthSamples = 1; // avoid the C's divide-by-zero UB for degenerate tiny hops
+      }
+      crossfadeIncrement = (int) Integer.toUnsignedLong(K_MAX_SAMPLE_VALUE) / crossfadeLengthSamples; // C:584
+      crossfadeProgress = 0;
+
+      if ((beamBackEdge - waveformEndSample) * playDirection >= 0) { // C:588-591
+        playHeadStillActive[PLAY_HEAD_NEWER] = false;
+        return new int[] {0, 0};
+      }
+      newHeadBytePos = sample.audioDataStartPosBytes + beamBackEdge * bytesPerSample; // C:593
+    }
 
     // C:600-862 — phase-align the crossfade.
     int[] search = searchForCrossfadeOffset(
@@ -444,10 +506,6 @@ public class TimeStretcher {
     int additionalOscPos = search[1];
 
     // C:858-861 — keep within the waveform.
-    int waveformStartByte = sample.audioDataStartPosBytes;
-    if (playDirection != 1) {
-      waveformStartByte += (int) sample.audioDataLengthBytes - bytesPerSample; // C:381-385
-    }
     if ((newHeadBytePos - waveformStartByte) * playDirection < 0) {
       newHeadBytePos = waveformStartByte;
     }

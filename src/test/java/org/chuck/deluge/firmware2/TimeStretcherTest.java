@@ -296,9 +296,11 @@ class TimeStretcherTest {
       int noise = r.nextInt();
       int olderOscPos = r.nextInt(UNITY);
 
+      long combinedIncrement = ((phase & 0xFFFFFFFFL) * (ratio & 0xFFFFFFFFL)) >>> 24;
       TimeStretcher ts = new TimeStretcher();
       ts.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER] = true;
-      int[] got = ts.hopEnd(s, oldHead, samplePos, phase, ratio, dir, noise, olderOscPos);
+      int[] got = ts.hopEnd(s, null, TimeStretcher.LoopType.NONE, oldHead, samplePos, phase, ratio,
+          combinedIncrement, dir, noise, olderOscPos);
 
       // Re-derive.
       int[] hp = TimeStretcher.computeHopParameters(ratio, noise);
@@ -337,6 +339,52 @@ class TimeStretcherTest {
       assertEquals(cfInc, ts.crossfadeIncrement, "crossfadeIncrement t=" + t);
       org.junit.jupiter.api.Assertions.assertTrue(ts.samplesTilHopEnd >= 1, "hop >= 1");
     }
+  }
+
+  /** Loop pre-margin: near the loop end of a looping clip, the hop lands in the pre-margin. */
+  @Test
+  void hopEndLoopPreMargin() {
+    int nc = 2;
+    int frames = 100000;
+    int[] data = new int[frames * nc];
+    Random r = new Random(707);
+    for (int i = 0; i < data.length; i++) data[i] = r.nextInt();
+    Sample s = stretchSample(nc, frames, data);
+    int bps = s.byteDepth * nc;
+    int unity = 16777216;
+
+    SamplePlaybackGuide g = new SamplePlaybackGuide();
+    g.startPlaybackAtByte = 44 + 5000 * bps; // loop start frame 5000 → pre-margin = frames 0..4999
+    g.endPlaybackAtByte = 44 + 50000 * bps; // loop end frame 50000
+
+    int samplePos = 49990; // 10 frames until the loop end
+    int oldHead = 44 + samplePos * bps;
+    int noise = 12345;
+    long combinedIncrement = ((unity & 0xFFFFFFFFL) * (unity & 0xFFFFFFFFL)) >>> 24; // = unity
+
+    TimeStretcher ts = new TimeStretcher();
+    ts.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER] = true;
+    int[] got = ts.hopEnd(s, g, TimeStretcher.LoopType.TIMESTRETCHER_LEVEL_IF_ACTIVE, oldHead, samplePos,
+        unity, unity, combinedIncrement, 1, noise, 0);
+
+    org.junit.jupiter.api.Assertions.assertTrue(ts.hasLoopedBackIntoPreMargin, "should have looped into pre-margin");
+
+    // Re-derive (ratio=unity ⇒ randomElement 0 ⇒ deterministic).
+    int[] hp = TimeStretcher.computeHopParameters(unity, noise);
+    int minBW = hp[0];
+    int sourceSamplesTilLoop = (50000 - samplePos);
+    int outputSamplesTilLoop = (int) ((((long) sourceSamplesTilLoop << 24) + (combinedIncrement >> 1)) / combinedIncrement);
+    org.junit.jupiter.api.Assertions.assertTrue(outputSamplesTilLoop < 100);
+    int candidate = g.startPlaybackAtByte - outputSamplesTilLoop * bps; // phase==unity branch
+    int cfl = Math.max(outputSamplesTilLoop, 10);
+    int sth = Math.max(minBW >> 2, cfl);
+    assertEquals(sth, ts.samplesTilHopEnd, "samplesTilHopEnd");
+    assertEquals(Integer.divideUnsigned(16777215 + cfl, cfl), ts.crossfadeIncrement, "crossfadeIncrement");
+
+    int[] sr = TimeStretcher.searchForCrossfadeOffset(s, oldHead, candidate, cfl, unity, 1, sth, 0);
+    int newHead = candidate + sr[0];
+    if ((newHead - 44) < 0) newHead = 44;
+    org.junit.jupiter.api.Assertions.assertArrayEquals(new int[] {newHead, sr[1]}, got, "hop result");
   }
 
   private static int readVal(Sample s, int readByte, int bps) {
