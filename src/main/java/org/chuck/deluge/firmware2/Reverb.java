@@ -20,6 +20,8 @@ public class Reverb {
 
   static final float ONE_Q31_F = 2147483647.0f;
   static final int ONE_Q31 = 2147483647;
+  /** C: std::numeric_limits<uint32_t>::max() — the MutableModel output scale (mutable.hpp:92,107). */
+  static final float UINT32_MAX_F = 4294967295.0f;
 
   // ── OnePole + Interpolate (fx_engine.hpp:13-21) ──
 
@@ -323,7 +325,7 @@ public class Reverb {
         float wetR = c.get();
         wetR -= onePole(hpSt, 0, wetR, hpCutoff);  // HP right
         wetR = onePole(lpSt, 0, wetR, lpCutoff);    // LP right
-        outputLR[frame][1] += (int)(wetR * ONE_Q31_F * 0xF); // C:91-92
+        outputLR[frame][1] += (int)(wetR * UINT32_MAX_F * 0xF); // C:91-92 (uint32 max, NOT int32)
 
         // C:94-107 — left channel loop
         c.set(apout);
@@ -335,7 +337,7 @@ public class Reverb {
         float wetL = c.get();
         wetL -= onePole(hpSt, 1, wetL, hpCutoff);  // HP left
         wetL = onePole(lpSt, 1, wetL, lpCutoff);    // LP left
-        outputLR[frame][0] += (int)(wetL * ONE_Q31_F * 0xF); // C:106-107
+        outputLR[frame][0] += (int)(wetL * UINT32_MAX_F * 0xF); // C:106-107 (uint32 max, NOT int32)
       }
     }
   }
