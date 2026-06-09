@@ -107,6 +107,38 @@ public class SincInterpolator {
     return v;
   }
 
+  /**
+   * Full-precision (Phase-A option (b)) variant of {@link #interpolate}: identical kernel lerp (int16,
+   * faithful), but the convolution takes a FULL-PRECISION int sample history and accumulates in int64,
+   * so the low 16 bits the C discards (it feeds the interpolator the top-16-bits only) are kept. The
+   * {@code >> 16} restores the C's output scale, so this is drop-in for the downstream amplitude MAC.
+   *
+   * <p>This is a deliberate, sanctioned deviation from the int16 C path; the faithful {@link #interpolate}
+   * is left untouched.
+   *
+   * @param histL full-precision left history, {@code histL[0]} newest (16 taps)
+   * @param histR full-precision right history (used only when channels == 2)
+   * @return {@code {l, r}} at the C output scale
+   */
+  public static int[] interpolateWide(int[] histL, int[] histR, int channels, int whichKernel, int oscPos) {
+    int strength2 = (oscPos >>> 5) & 0x7FFF;     // C interpolate.cpp:17,23 (rshiftAmount=5)
+    int progressSmall = oscPos >>> 20;           // C:25
+    short[] k1 = WINDOWED_SINC_KERNEL[whichKernel][progressSmall];
+    short[] k2 = WINDOWED_SINC_KERNEL[whichKernel][progressSmall + 1];
+    long sumL = 0;
+    long sumR = 0;
+    for (int i = 0; i < K_INTERPOLATION_MAX_NUM_SAMPLES; i++) {
+      int prod = sat16(((k2[i] - k1[i]) * strength2) >> 15); // vqdmulh (faithful kernel lerp)
+      int kc = sat16(k1[i] + prod);
+      sumL += (long) kc * histL[i];
+      if (channels == 2) {
+        sumR += (long) kc * histR[i];
+      }
+    }
+    // Full-precision samples are ~Q31 vs the C's int16 (top 16 bits); >> 16 matches the C output scale.
+    return new int[] {(int) (sumL >> 16), (int) (sumR >> 16)};
+  }
+
   // ── interpolateLinear (interpolate.cpp:70-80) ──
 
   /**
