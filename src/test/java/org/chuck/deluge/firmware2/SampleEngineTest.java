@@ -148,7 +148,7 @@ class SampleEngineTest {
     // Independent re-derivation with the same model.
     int[] bufL = new int[16];
     int[] bufR = new int[16];
-    int playPos = 1000 - 15;
+    int playPos = 1000 - 16; // init primes the 16 frames before startFrame, leaving playPos = startFrame
     for (int i = 0; i < 16; i++) {
       for (int j = 15; j >= 1; j--) { bufL[j] = bufL[j - 1]; bufR[j] = bufR[j - 1]; }
       int base = playPos * numChannels;
@@ -187,6 +187,91 @@ class SampleEngineTest {
       o++;
     }
     org.junit.jupiter.api.Assertions.assertArrayEquals(expOsc, osc);
+  }
+
+  /** C: getWhichKernel (functions.cpp:2017-2037) — re-derived over the phaseIncrement range. */
+  @Test
+  void getWhichKernelMatchesC() {
+    Random r = new Random(55);
+    for (int n = 0; n < 200_000; n++) {
+      int phaseIncrement = 1 + (n < 100_000 ? r.nextInt(40_000_000) : r.nextInt(Integer.MAX_VALUE));
+      int expected;
+      if (phaseIncrement < 17268826) {
+        expected = 0;
+      } else {
+        int p = phaseIncrement;
+        int wk = 1;
+        while (p >= 32599202) {
+          p >>= 1;
+          wk += 2;
+          if (wk == 5) break;
+        }
+        if (p >= 23051117) wk++;
+        expected = wk;
+      }
+      assertEquals(expected, Functions.getWhichKernel(phaseIncrement), "phaseInc=" + phaseIncrement);
+    }
+  }
+
+  /**
+   * Native (1:1) playback must reproduce the input scaled by amplitude: with a flat amplitude and unity
+   * pitch, osc[i] == MAC(0, sample[i], amp). The strongest end-to-end check of the native read path.
+   */
+  @Test
+  void readNativeReproducesInput() {
+    int numChannels = 2;
+    int frames = 1000;
+    Sample s = new Sample();
+    s.numChannels = numChannels;
+    s.byteDepth = 3;
+    s.lengthInSamples = frames;
+    s.data = new int[frames * numChannels];
+    Random r = new Random(66);
+    for (int i = 0; i < s.data.length; i++) s.data[i] = r.nextInt() >> 1;
+
+    int startFrame = 100;
+    SampleReader rd = new SampleReader();
+    rd.sample = s;
+    rd.playPos = startFrame; // native doesn't use the interpolation history
+    int amp = 1 << 27;
+    int n = 300;
+    int[] osc = new int[n * numChannels];
+    rd.readNative(osc, n, numChannels, new int[] {amp}, 0);
+
+    for (int i = 0; i < n; i++) {
+      int frame = startFrame + i;
+      int expL = Functions.multiply_accumulate_32x32_rshift32_rounded(0, s.data[frame * numChannels], amp);
+      int expR = Functions.multiply_accumulate_32x32_rshift32_rounded(0, s.data[frame * numChannels + 1], amp);
+      assertEquals(expL, osc[i * 2], "native L idx=" + i);
+      assertEquals(expR, osc[i * 2 + 1], "native R idx=" + i);
+    }
+  }
+
+  /** VoiceSample picks the native path at unity pitch (matches a direct readNative). */
+  @Test
+  void voiceSampleNativeMatchesReader() {
+    int numChannels = 1;
+    int frames = 2000;
+    Sample s = new Sample();
+    s.numChannels = numChannels;
+    s.byteDepth = 3;
+    s.lengthInSamples = frames;
+    s.data = new int[frames];
+    Random r = new Random(77);
+    for (int i = 0; i < frames; i++) s.data[i] = r.nextInt() >> 1;
+
+    VoiceSample v = new VoiceSample();
+    v.setup(s, 500, 1);
+    int[] oscV = new int[256];
+    v.render(oscV, 256, 1, 16777216 /*unity*/, new int[] {1 << 26}, 0);
+
+    SampleReader rd = new SampleReader();
+    rd.sample = s;
+    rd.playPos = 500;
+    int[] oscR = new int[256];
+    rd.readNative(oscR, 256, 1, new int[] {1 << 26}, 0);
+
+    org.junit.jupiter.api.Assertions.assertArrayEquals(oscR, oscV);
   }
 }
 

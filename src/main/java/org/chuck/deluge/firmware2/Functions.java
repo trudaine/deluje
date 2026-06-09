@@ -402,6 +402,28 @@ public final class Functions {
     return number >> (-magnitude); // arithmetic right shift
   }
 
+  // ── getWhichKernel (functions.cpp:2017-2037) ──
+
+  /** C: functions.cpp:2017-2037 — pick the windowed-sinc kernel for a pitch (phaseIncrement). */
+  public static int getWhichKernel(int phaseIncrement) {
+    if (phaseIncrement < 17268826) {
+      return 0; // half a semitone up
+    } else {
+      int whichKernel = 1;
+      while (phaseIncrement >= 32599202) { // 11.5 semitones up
+        phaseIncrement >>= 1;
+        whichKernel += 2;
+        if (whichKernel == 5) {
+          break;
+        }
+      }
+      if (phaseIncrement >= 23051117) { // 5.5 semitones up
+        whichKernel++;
+      }
+      return whichKernel;
+    }
+  }
+
   // ── quickLog (functions.cpp:567-573) ──
 
   /** quickLog (functions.cpp:567-573). magnitude = getMagnitudeOld = 32 - clz (functions.h:394). */
