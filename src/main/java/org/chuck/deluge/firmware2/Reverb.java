@@ -342,6 +342,112 @@ public class Reverb {
     }
   }
 
+  // ── Digital model (digital.hpp:24-145) ──
+
+  /**
+   * C: digital.hpp:24-145 — the Griesinger topology from Dattorro's "Effect Design" Part 1, modelled on
+   * the Lexicon 224. Extends {@link MutableModel}; only {@code process()} differs (the param setters are
+   * identical and inherited). Reuses the inherited persistent states: {@code lpDecay[0]} = lp_decay_1_,
+   * {@code hpSt[1]}/{@code lpSt[1]} = hp_l_/lp_l_; adds {@code lpBandSt} = lp_band_.
+   */
+  public static class DigitalModel extends MutableModel {
+    static final float K_RATIO = 29761.0f / 44100.0f; // C:25 — Lexicon→Deluge sample-rate ratio
+    static final int MAX_EXCURSION = (int) (16.0f * K_RATIO); // C:27
+    final float[] lpBandSt = {0}; // C: lp_band_ (digital.hpp:144)
+
+    @Override
+    public void process(int[] input, int[][] outputLR, int numSamples) {
+      Context c = new Context();
+
+      // C:33-46 — delay-line network (dap* are AllPass; del* are plain DelayLine)
+      AllPass ap1 = new AllPass((int) (142 * K_RATIO)), ap2 = new AllPass((int) (107 * K_RATIO));
+      AllPass ap3 = new AllPass((int) (379 * K_RATIO)), ap4 = new AllPass((int) (277 * K_RATIO));
+      AllPass dap1a = new AllPass((int) (672 * K_RATIO) + MAX_EXCURSION);
+      DelayLine del1a = new DelayLine((int) (4453 * K_RATIO));
+      AllPass dap1b = new AllPass((int) (1800 * K_RATIO));
+      DelayLine del1b = new DelayLine((int) (3720 * K_RATIO));
+      AllPass dap2a = new AllPass((int) (908 * K_RATIO) + MAX_EXCURSION);
+      DelayLine del2a = new DelayLine((int) (4217 * K_RATIO));
+      AllPass dap2b = new AllPass((int) (2656 * K_RATIO));
+      DelayLine del2b = new DelayLine((int) (3163 * K_RATIO));
+
+      constructTopology(engine, new DelayLine[] {ap1, ap2, ap3, ap4,
+        dap1a, del1a, dap1b, del1b, dap2a, del2a, dap2b, del2b});
+
+      float kdecay = reverbTime;          // C:52
+      float kid1 = 0.750f, kid2 = 0.625f; // C:53-54 — input diffusion
+      float kdd1 = 0.70f;                 // C:55 — decay diffusion 1
+      float kdd2 = Math.max(0.25f, Math.min(0.5f, kdecay + 0.15f)); // C:56
+      float kdamp = lp;                   // C:58
+      float kbandwidth = 0.9995f;         // C:59
+
+      for (int frame = 0; frame < numSamples; frame++) {
+        engine.advance(); // C:68
+
+        float inSample = input[frame] / ONE_Q31_F; // C:70
+        c.set(inSample);                            // C:71
+        c.lp(lpBandSt, 0, kbandwidth);              // C:73 — bandwidth limit
+
+        // C:76-79 — 4 input diffusers
+        ap1.process(c, kid1); ap2.process(c, kid1);
+        ap3.process(c, kid2); ap4.process(c, kid2);
+        float apout = c.get(); // C:80
+
+        // C:83-92 — first half of the figure-8 loop
+        c.set(apout);
+        dap1a.interpRead(c, 672f * K_RATIO, 1 /*LFO_2*/, MAX_EXCURSION, -kdd1); // C:84
+        del1a.process(c, 0);          // C:85
+        c.lp(lpDecay, 0, kdamp);      // C:86 — lp_1 damping
+        c.multiply(kdecay);           // C:87
+        dap1b.process(c, kdd2);       // C:88
+        del1b.process(c, 0);          // C:89
+        c.multiply(kdecay);           // C:90
+        c.add(apout);                 // C:91
+        dap2a.write(c, 0, kdd2);      // C:92
+
+        // C:94-103 — second half
+        c.set(apout);
+        dap2a.interpRead(c, 908f * K_RATIO, 0 /*LFO_1*/, MAX_EXCURSION, -kdd1); // C:95
+        del2a.process(c, 0);          // C:96
+        c.lp(lpDecay, 0, kdamp);      // C:97 — lp_1 again (C reuses the same state)
+        c.multiply(kdecay);           // C:98
+        dap2b.process(c, kdd2);       // C:99
+        del2b.process(c, 0);          // C:100
+        c.multiply(kdecay);           // C:101
+        c.add(apout);                 // C:102
+        dap1a.write(c, 0, kdd1);      // C:103
+
+        // C:105-114 — left output taps (C uses hp_l_/lp_l_ = index 1)
+        float leftSum = 0;
+        leftSum += 0.6f * del2a.at((int) (266 * K_RATIO));
+        leftSum += 0.6f * del2a.at((int) (2974 * K_RATIO));
+        leftSum -= 0.6f * dap2b.at((int) (1913 * K_RATIO));
+        leftSum += 0.6f * del2b.at((int) (1996 * K_RATIO));
+        leftSum -= 0.6f * del1a.at((int) (1990 * K_RATIO));
+        leftSum -= 0.6f * dap1b.at((int) (187 * K_RATIO));
+        leftSum -= 0.6f * del1b.at((int) (1066 * K_RATIO));
+        leftSum -= onePole(hpSt, 1, leftSum, hpCutoff); // C:113
+        leftSum = onePole(lpSt, 1, leftSum, lpCutoff);  // C:114
+
+        // C:116-125 — right output taps (the C also uses hp_l_/lp_l_ here, sic — kept faithful)
+        float rightSum = 0;
+        rightSum += 0.6f * del1a.at((int) (353 * K_RATIO));
+        rightSum += 0.6f * del1a.at((int) (3627 * K_RATIO));
+        rightSum -= 0.6f * dap1b.at((int) (1228 * K_RATIO));
+        rightSum += 0.6f * del1b.at((int) (2673 * K_RATIO));
+        rightSum -= 0.6f * del2a.at((int) (2111 * K_RATIO));
+        rightSum -= 0.6f * dap2b.at((int) (335 * K_RATIO));
+        rightSum -= 0.6f * del2b.at((int) (121 * K_RATIO));
+        rightSum -= onePole(hpSt, 1, rightSum, hpCutoff); // C:124 (hp_l_, sic)
+        rightSum = onePole(lpSt, 1, rightSum, lpCutoff);  // C:125 (lp_l_, sic)
+
+        // C:127-135 — output (uint32 max scale, as the Mutable model)
+        outputLR[frame][0] += (int) (leftSum * UINT32_MAX_F * 0xF);
+        outputLR[frame][1] += (int) (rightSum * UINT32_MAX_F * 0xF);
+      }
+    }
+  }
+
   // ── Reverb Container (reverb.hpp:13-126) ──
 
   public static class Container {
@@ -351,8 +457,13 @@ public class Reverb {
     float roomSize, damping, width, hpf, lpf;
 
     public void setModel(Model m) {
-      if ((m == Model.MUTABLE || m == Model.DIGITAL) && mutableModel == null)
+      // DIGITAL needs the Digital subclass; MUTABLE needs the base class. Re-create if the type
+      // doesn't match the requested model (so switching models picks the right process()).
+      if (m == Model.MUTABLE && (mutableModel == null || mutableModel instanceof DigitalModel)) {
         mutableModel = new MutableModel();
+      } else if (m == Model.DIGITAL && !(mutableModel instanceof DigitalModel)) {
+        mutableModel = new DigitalModel();
+      }
       model = m;
       applyParams();
     }
