@@ -157,4 +157,201 @@ public class TimeStretcher {
 
     return new int[] {minBeamWidth, maxBeamWidth, crossfadeProportional, crossfadeAbsolute, randomElement};
   }
+
+  static final int K_MAX_SAMPLE_VALUE = 16777216; // 1 << 24
+
+  /** Read one frame's summed top-16-bits (all channels) at a byte position (search metric). */
+  private static int readSearchValue(Sample sample, int readByte, int bytesPerSample) {
+    int frame = (readByte - sample.audioDataStartPosBytes) / bytesPerSample;
+    int base = frame * sample.numChannels;
+    int v = sample.data[base] >> 16;
+    if (sample.numChannels == 2) {
+      v += sample.data[base + 1] >> 16;
+    }
+    return v;
+  }
+
+  /**
+   * C: hopEnd (time_stretcher.cpp:604-862) — "Search for minimum phase disruption on crossfade". The
+   * bidirectional sliding-window search that finds the {@code bestOffset} (and sub-sample
+   * {@code additionalOscPos}) at which the new play-head's moving averages best match the old head's, so
+   * the crossfade is least audible. Cluster walk flattened to in-RAM reads; the metric stays int16
+   * (>>16) like the C, so the SELECTED offset matches.
+   *
+   * @param olderOscPos the older reader's oscPos (C: olderPartReader.oscPos), folded into additionalOscPos
+   * @return {@code {bestOffset, additionalOscPos}} (both 0 if the search is skipped — out of bounds)
+   */
+  public static int[] searchForCrossfadeOffset(Sample sample, int oldHeadBytePos, int newHeadBytePos,
+      int crossfadeLengthSamples, int phaseIncrement, int playDirection, int samplesTilHopEnd, int olderOscPos) {
+
+    int bytesPerSample = sample.byteDepth * sample.numChannels;
+    int audioDataStart = sample.audioDataStartPosBytes;
+    int len = (int) sample.audioDataLengthBytes;
+
+    // C:604-608
+    int lengthToAverageEach = (int) (((long) phaseIncrement * K_MOVING_AVERAGE_LENGTH) >> 24);
+    lengthToAverageEach = Math.max(1, Math.min(K_MOVING_AVERAGE_LENGTH * 2, lengthToAverageEach));
+    int crossfadeLengthSamplesSource = (int) (((long) crossfadeLengthSamples * phaseIncrement) >> 24);
+
+    // C:612-631 — averages for both heads (skip on failure / out of bounds)
+    if (oldHeadBytePos < audioDataStart) {
+      return new int[] {0, 0}; // C:613-615 skipSearch
+    }
+    int[] oldHeadTotals = new int[K_NUM_MOVING_AVERAGES];
+    if (!sample.getAveragesForCrossfade(
+        oldHeadTotals, oldHeadBytePos, crossfadeLengthSamplesSource, playDirection, lengthToAverageEach)) {
+      return new int[] {0, 0};
+    }
+    int[] newHeadTotals = new int[K_NUM_MOVING_AVERAGES];
+    if (!sample.getAveragesForCrossfade(
+        newHeadTotals, newHeadBytePos, crossfadeLengthSamplesSource, playDirection, lengthToAverageEach)) {
+      return new int[] {0, 0};
+    }
+
+    int bestDifferenceAbs = getTotalDifferenceAbs(oldHeadTotals, newHeadTotals); // C:633
+    int bestOffset = 0;                                                          // C:634
+    int initialTotalChange = getTotalChange(oldHeadTotals, newHeadTotals);       // C:636
+    int additionalOscPos = 0;                                                    // C:379
+
+    // C:642-650 — where the search window starts (mid-crossfade, centred over the averages)
+    int samplePos = Integer.divideUnsigned(newHeadBytePos - audioDataStart, bytesPerSample);
+    int samplePosMidCrossfade = samplePos + (crossfadeLengthSamplesSource >> 1) * playDirection;
+    int readSample = samplePosMidCrossfade - ((lengthToAverageEach * K_NUM_MOVING_AVERAGES) >> 1) * playDirection;
+    int firstReadByte = readSample * bytesPerSample + audioDataStart;
+
+    // C:652-662
+    int maxSearchSize = (samplesTilHopEnd * 40) >> 8;
+    maxSearchSize = (int) (((long) maxSearchSize * phaseIncrement) >> 24);
+    int limit = (sample.sampleRate / 45) >> 1;
+    maxSearchSize = Math.min(maxSearchSize, limit);
+
+    int searchDirection = playDirection; // C:638
+    int numFullDirectionsSearched = 0;    // C:665
+    int timesSignFlipped = 0;             // C:666
+    boolean stop = false;
+
+    // The C uses gotos (startSearch / restartSearchWithOtherDirection / searchNextDirection / stopSearch).
+    // Modelled as a direction loop: bestOffset/bestDifferenceAbs/additionalOscPos/timesSignFlipped persist
+    // across directions; the per-direction state (readByte[], running totals) resets at startSearch.
+    directionLoop:
+    while (true) {
+      // ── startSearch (C:676-696) ──
+      int step = bytesPerSample * searchDirection;
+      int lastTotalChange = initialTotalChange;
+      int[] readByte = new int[K_NUM_MOVING_AVERAGES + 1];
+      readByte[0] = firstReadByte;
+      int sdrpd = searchDirection * playDirection; // searchDirectionRelativeToPlayDirection
+      if (sdrpd == -1) {
+        readByte[0] -= playDirection * bytesPerSample;
+      }
+      int[] running = new int[K_NUM_MOVING_AVERAGES];
+      for (int i = 0; i < K_NUM_MOVING_AVERAGES; i++) {
+        running[i] = newHeadTotals[i];
+        readByte[i + 1] = readByte[i] + lengthToAverageEach * bytesPerSample * playDirection;
+      }
+      int offsetNow = 0;
+      int numLeft = maxSearchSize;
+      boolean restartOther = false;
+
+      // ── slide loop (C:698-835, cluster chunking flattened to per-sample) ──
+      while (numLeft > 0) {
+        // C:706-737 — if any boundary point reached the waveform end, search the other direction.
+        boolean outOfBounds = false;
+        for (int i = 0; i < K_NUM_MOVING_AVERAGES + 1; i++) {
+          int bytesTilWaveformEnd =
+              (searchDirection == 1) ? (audioDataStart + len - readByte[i]) : (readByte[i] - (audioDataStart - bytesPerSample));
+          if (bytesTilWaveformEnd <= 0) {
+            outOfBounds = true;
+            break;
+          }
+        }
+        if (outOfBounds) {
+          break;
+        }
+
+        // C:745-772 — slide each of the 3 windows by one sample (circular subtract/add).
+        int readValueHere = readSearchValue(sample, readByte[0], bytesPerSample);
+        readByte[0] += step;
+        int readValueRelativeToBothDirections = readValueHere * sdrpd;
+        for (int i = 1; i < K_NUM_MOVING_AVERAGES + 1; i++) {
+          int thisRunningTotal = running[i - 1] - readValueRelativeToBothDirections;
+          int rv = readSearchValue(sample, readByte[i], bytesPerSample);
+          readByte[i] += step;
+          readValueRelativeToBothDirections = rv * sdrpd;
+          thisRunningTotal += readValueRelativeToBothDirections;
+          running[i - 1] = thisRunningTotal;
+        }
+
+        int differenceAbs = getTotalDifferenceAbs(oldHeadTotals, running); // C:774
+
+        // C:777-780 — if the very first read is worse, flip direction now.
+        if (offsetNow == 0 && sdrpd == 1 && numFullDirectionsSearched == 0 && differenceAbs > bestDifferenceAbs) {
+          restartOther = true;
+          break;
+        }
+
+        offsetNow += step; // C:782
+
+        boolean thisOffsetIsBestMatch = (differenceAbs < bestDifferenceAbs); // C:785
+        if (thisOffsetIsBestMatch) {
+          bestDifferenceAbs = differenceAbs;
+          bestOffset = offsetNow;
+        }
+
+        int thisTotalChange = getTotalChange(oldHeadTotals, running); // C:791
+
+        // C:794 — sign just flipped?
+        if ((thisTotalChange >>> 31) != (lastTotalChange >>> 31)) {
+          // C:801-813 — sub-sample positioning between the two samples.
+          if (phaseIncrement != K_MAX_SAMPLE_VALUE
+              && (thisOffsetIsBestMatch || bestOffset == offsetNow - step)) {
+            long thisTotalDifferenceAbs = Math.abs((long) thisTotalChange);
+            long lastTotalDifferenceAbs = Math.abs((long) lastTotalChange);
+            additionalOscPos =
+                (int) ((lastTotalDifferenceAbs << 24) / (lastTotalDifferenceAbs + thisTotalDifferenceAbs));
+            if (sdrpd == -1) {
+              additionalOscPos = K_MAX_SAMPLE_VALUE - additionalOscPos;
+            }
+            if (thisOffsetIsBestMatch != (sdrpd == -1)) {
+              bestOffset -= bytesPerSample * playDirection;
+            }
+          }
+          timesSignFlipped++; // C:818
+          if (timesSignFlipped >= 4) { // C:820
+            stop = true;
+            break;
+          }
+        }
+
+        lastTotalChange = thisTotalChange; // C:826
+        numLeft--;
+      }
+
+      if (stop) {
+        break; // C: goto stopSearch
+      }
+      if (restartOther) {
+        searchDirection = -searchDirection; // C:672-673
+        continue directionLoop;             // → startSearch (does NOT count as a full direction)
+      }
+      // ── searchNextDirection (C:837-842) ──
+      numFullDirectionsSearched++;
+      if (numFullDirectionsSearched < 2) {
+        searchDirection = -searchDirection;
+        continue directionLoop;
+      }
+      break; // C: fall through to stopSearch
+    }
+
+    // ── stopSearch (C:844-852) ──
+    if (phaseIncrement != K_MAX_SAMPLE_VALUE) {
+      additionalOscPos += olderOscPos;
+      if (additionalOscPos >= K_MAX_SAMPLE_VALUE) {
+        additionalOscPos -= K_MAX_SAMPLE_VALUE;
+        bestOffset += bytesPerSample * playDirection;
+      }
+    }
+
+    return new int[] {bestOffset, additionalOscPos};
+  }
 }

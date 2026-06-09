@@ -85,6 +85,204 @@ class TimeStretcherTest {
     }
   }
 
+  private static Sample stretchSample(int numChannels, int frames, int[] data) {
+    Sample s = new Sample();
+    s.numChannels = numChannels;
+    s.byteDepth = 3;
+    s.sampleRate = 44100;
+    s.audioDataStartPosBytes = 44;
+    s.audioDataLengthBytes = (long) frames * s.byteDepth * numChannels;
+    s.lengthInSamples = frames;
+    s.data = data;
+    return s;
+  }
+
+  /** Constant input → no better crossfade alignment exists, so bestOffset 0 (and no sub-sample shift). */
+  @Test
+  void searchForCrossfadeOffsetConstant() {
+    int nc = 2;
+    int frames = 20000;
+    int[] data = new int[frames * nc];
+    java.util.Arrays.fill(data, 0x09990000);
+    Sample s = stretchSample(nc, frames, data);
+    int bps = s.byteDepth * nc;
+    int oldHead = 44 + 8000 * bps;
+    int newHead = 44 + 9000 * bps;
+    int[] res = TimeStretcher.searchForCrossfadeOffset(s, oldHead, newHead, 200, 16777216, 1, 1000, 0);
+    assertEquals(0, res[0], "constant bestOffset");
+    assertEquals(0, res[1], "constant additionalOscPos");
+  }
+
+  /** Deterministic + bestOffset stays within the searched byte range. */
+  @Test
+  void searchForCrossfadeOffsetDeterministicAndBounded() {
+    int nc = 1;
+    int frames = 30000;
+    int[] data = new int[frames];
+    Random r = new Random(404);
+    for (int i = 0; i < frames; i++) data[i] = r.nextInt();
+    Sample s = stretchSample(nc, frames, data);
+    int bps = s.byteDepth * nc;
+    int oldHead = 44 + 10000 * bps;
+    int newHead = 44 + 15000 * bps;
+    int phase = 16777216;
+    int samplesTilHopEnd = 2000;
+
+    int[] a = TimeStretcher.searchForCrossfadeOffset(s, oldHead, newHead, 300, phase, 1, samplesTilHopEnd, 0);
+    int[] b = TimeStretcher.searchForCrossfadeOffset(s, oldHead, newHead, 300, phase, 1, samplesTilHopEnd, 0);
+    org.junit.jupiter.api.Assertions.assertArrayEquals(a, b, "deterministic");
+
+    int maxSearchSize = Math.min((samplesTilHopEnd * 40) >> 8, (s.sampleRate / 45) >> 1);
+    org.junit.jupiter.api.Assertions.assertTrue(
+        Math.abs(a[0]) <= (maxSearchSize + 1) * bps, "bestOffset within search range: " + a[0]);
+  }
+
+  /** Full re-derivation of the search (catches any transcription bug). Forward + reverse, resampled. */
+  @Test
+  void searchForCrossfadeOffsetMatchesReDerivation() {
+    int nc = 2;
+    int frames = 40000;
+    int[] data = new int[frames * nc];
+    Random r = new Random(505);
+    for (int i = 0; i < data.length; i++) data[i] = r.nextInt();
+    Sample s = stretchSample(nc, frames, data);
+    int bps = s.byteDepth * nc;
+
+    for (int t = 0; t < 400; t++) {
+      int dir = (t % 2 == 0) ? 1 : -1;
+      int oldFrame = 8000 + r.nextInt(20000);
+      int newFrame = 8000 + r.nextInt(20000);
+      int oldHead = 44 + oldFrame * bps;
+      int newHead = 44 + newFrame * bps;
+      int crossfade = 50 + r.nextInt(300);
+      int phase = (1 << 23) + r.nextInt(1 << 24); // resampled (≠ unity) so the sub-sample path runs
+      int sth = 500 + r.nextInt(3000);
+      int olderOscPos = r.nextInt(16777216);
+
+      int[] got = TimeStretcher.searchForCrossfadeOffset(s, oldHead, newHead, crossfade, phase, dir, sth, olderOscPos);
+      int[] exp = reDeriveSearch(s, oldHead, newHead, crossfade, phase, dir, sth, olderOscPos);
+      org.junit.jupiter.api.Assertions.assertArrayEquals(exp, got, "t=" + t + " dir=" + dir);
+    }
+  }
+
+  // Independent transcription of TimeStretcher.searchForCrossfadeOffset for the re-derivation test.
+  private static int[] reDeriveSearch(Sample s, int oldHeadBytePos, int newHeadBytePos, int crossfadeLengthSamples,
+      int phaseIncrement, int playDirection, int samplesTilHopEnd, int olderOscPos) {
+    final int KMA = TimeStretcher.K_NUM_MOVING_AVERAGES;
+    final int KMAL = TimeStretcher.K_MOVING_AVERAGE_LENGTH;
+    final int UNITY = 16777216;
+    int bps = s.byteDepth * s.numChannels;
+    int start = s.audioDataStartPosBytes;
+    int len = (int) s.audioDataLengthBytes;
+
+    int lengthToAverageEach = (int) (((long) phaseIncrement * KMAL) >> 24);
+    lengthToAverageEach = Math.max(1, Math.min(KMAL * 2, lengthToAverageEach));
+    int cfSrc = (int) (((long) crossfadeLengthSamples * phaseIncrement) >> 24);
+
+    if (oldHeadBytePos < start) return new int[] {0, 0};
+    int[] oldT = new int[KMA];
+    if (!s.getAveragesForCrossfade(oldT, oldHeadBytePos, cfSrc, playDirection, lengthToAverageEach)) return new int[] {0, 0};
+    int[] newT = new int[KMA];
+    if (!s.getAveragesForCrossfade(newT, newHeadBytePos, cfSrc, playDirection, lengthToAverageEach)) return new int[] {0, 0};
+
+    int bestDifferenceAbs = TimeStretcher.getTotalDifferenceAbs(oldT, newT);
+    int bestOffset = 0;
+    int initialTotalChange = TimeStretcher.getTotalChange(oldT, newT);
+    int additionalOscPos = 0;
+    int samplePos = Integer.divideUnsigned(newHeadBytePos - start, bps);
+    int mid = samplePos + (cfSrc >> 1) * playDirection;
+    int readSample = mid - ((lengthToAverageEach * KMA) >> 1) * playDirection;
+    int firstReadByte = readSample * bps + start;
+    int maxSearchSize = (samplesTilHopEnd * 40) >> 8;
+    maxSearchSize = (int) (((long) maxSearchSize * phaseIncrement) >> 24);
+    maxSearchSize = Math.min(maxSearchSize, (s.sampleRate / 45) >> 1);
+
+    int searchDirection = playDirection;
+    int numFullDirectionsSearched = 0;
+    int timesSignFlipped = 0;
+    boolean stop = false;
+
+    while (true) {
+      int step = bps * searchDirection;
+      int lastTotalChange = initialTotalChange;
+      int[] readByte = new int[KMA + 1];
+      readByte[0] = firstReadByte;
+      int sdrpd = searchDirection * playDirection;
+      if (sdrpd == -1) readByte[0] -= playDirection * bps;
+      int[] running = new int[KMA];
+      for (int i = 0; i < KMA; i++) {
+        running[i] = newT[i];
+        readByte[i + 1] = readByte[i] + lengthToAverageEach * bps * playDirection;
+      }
+      int offsetNow = 0;
+      int numLeft = maxSearchSize;
+      boolean restartOther = false;
+
+      while (numLeft > 0) {
+        boolean oob = false;
+        for (int i = 0; i < KMA + 1; i++) {
+          int btwe = (searchDirection == 1) ? (start + len - readByte[i]) : (readByte[i] - (start - bps));
+          if (btwe <= 0) { oob = true; break; }
+        }
+        if (oob) break;
+
+        int rv0 = readVal(s, readByte[0], bps);
+        readByte[0] += step;
+        int rvb = rv0 * sdrpd;
+        for (int i = 1; i < KMA + 1; i++) {
+          int trt = running[i - 1] - rvb;
+          int rv = readVal(s, readByte[i], bps);
+          readByte[i] += step;
+          rvb = rv * sdrpd;
+          trt += rvb;
+          running[i - 1] = trt;
+        }
+        int differenceAbs = TimeStretcher.getTotalDifferenceAbs(oldT, running);
+        if (offsetNow == 0 && sdrpd == 1 && numFullDirectionsSearched == 0 && differenceAbs > bestDifferenceAbs) {
+          restartOther = true;
+          break;
+        }
+        offsetNow += step;
+        boolean best = (differenceAbs < bestDifferenceAbs);
+        if (best) { bestDifferenceAbs = differenceAbs; bestOffset = offsetNow; }
+        int thisTotalChange = TimeStretcher.getTotalChange(oldT, running);
+        if ((thisTotalChange >>> 31) != (lastTotalChange >>> 31)) {
+          if (phaseIncrement != UNITY && (best || bestOffset == offsetNow - step)) {
+            long ta = Math.abs((long) thisTotalChange);
+            long la = Math.abs((long) lastTotalChange);
+            additionalOscPos = (int) ((la << 24) / (la + ta));
+            if (sdrpd == -1) additionalOscPos = UNITY - additionalOscPos;
+            if (best != (sdrpd == -1)) bestOffset -= bps * playDirection;
+          }
+          timesSignFlipped++;
+          if (timesSignFlipped >= 4) { stop = true; break; }
+        }
+        lastTotalChange = thisTotalChange;
+        numLeft--;
+      }
+
+      if (stop) break;
+      if (restartOther) { searchDirection = -searchDirection; continue; }
+      numFullDirectionsSearched++;
+      if (numFullDirectionsSearched < 2) { searchDirection = -searchDirection; continue; }
+      break;
+    }
+
+    if (phaseIncrement != UNITY) {
+      additionalOscPos += olderOscPos;
+      if (additionalOscPos >= UNITY) { additionalOscPos -= UNITY; bestOffset += bps * playDirection; }
+    }
+    return new int[] {bestOffset, additionalOscPos};
+  }
+
+  private static int readVal(Sample s, int readByte, int bps) {
+    int frame = (readByte - s.audioDataStartPosBytes) / bps;
+    int base = frame * s.numChannels;
+    int v = s.data[base] >> 16;
+    if (s.numChannels == 2) v += s.data[base + 1] >> 16;
+    return v;
+  }
+
   @Test
   void getTotalChangeMatchesC() {
     Random r = new Random(7);
