@@ -166,11 +166,11 @@ public class Envelope {
   }
 
   // ── resumeAttack (envelope.cpp:187-190) ──
-  // (Uses interpolateTableInverse with decayTableSmall4 — deferred)
   public void resumeAttack(int oldLastValue) {
     if (state == Stage.ATTACK) {
-      // pos = interpolateTableInverse(2147483647 - oldLastValue, 23, decayTableSmall4);
-      pos = 0; // simplified — full port needs decayTableSmall4
+      pos =
+          Functions.interpolateTableInverse(
+              2147483647 - oldLastValue, 23, LookupTables.decayTableSmall4, 8);
     }
   }
 

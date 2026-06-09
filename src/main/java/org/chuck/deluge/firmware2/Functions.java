@@ -321,12 +321,41 @@ public final class Functions {
     return value1 * strength1 + value2 * strength2;
   }
 
-  /** interpolateTableInverse. (functions.cpp:511-546) */
+  /** interpolateTableInverse. Verbatim port (functions.cpp:511-546). Table values are uint16. */
   public static int interpolateTableInverse(
       int tableValueBig, int numBitsInLookupOutput, int[] table, int numBitsInTableSize) {
-    // Binary search then interpolate inverse.
-    // (Full port deferred — currently unused by the core DSP path.)
-    return 0;
+    int tableValue = tableValueBig >> 15;
+    int tableSize = 1 << numBitsInTableSize;
+
+    int tableDirection = (table[0] < table[tableSize]) ? 1 : -1;
+
+    // Check we're not off either end of the table
+    if ((tableValue - table[0]) * tableDirection <= 0) {
+      return 0;
+    }
+    if ((tableValue - table[tableSize]) * tableDirection >= 0) {
+      return (1 << numBitsInLookupOutput) - 1;
+    }
+
+    int rangeStart = 0;
+    int rangeEnd = tableSize;
+
+    while (rangeStart + 1 < rangeEnd) {
+      int examinePos = (rangeStart + rangeEnd) >> 1;
+      if ((tableValue - table[examinePos]) * tableDirection >= 0) {
+        rangeStart = examinePos;
+      } else {
+        rangeEnd = examinePos;
+      }
+    }
+
+    int output = rangeStart << (numBitsInLookupOutput - numBitsInTableSize);
+    output +=
+        (int)
+            ((long) (tableValueBig - ((table[rangeStart] & 0xFFFF) << 15))
+                * (1 << (numBitsInLookupOutput - numBitsInTableSize))
+                / (long) (((table[rangeStart + 1] & 0xFFFF) - (table[rangeStart] & 0xFFFF)) << 15));
+    return output;
   }
 
   // ── getDecay8 / getDecay4 (functions.cpp:548-554) ──
@@ -338,9 +367,7 @@ public final class Functions {
 
   /** getDecay4. Fixed-point exponential decay (coarser). (functions.cpp:552-554) */
   public static int getDecay4(int input, int numBitsInInput) {
-    return interpolateTable(input, numBitsInInput, LookupTables.decayTableSmall8, 8);
-    // NOTE: firmware getDecay4 uses the same table as getDecay8 (decayTableSmall8).
-    // The difference is in the caller's interpretation of the input bits.
+    return interpolateTable(input, numBitsInInput, LookupTables.decayTableSmall4, 8);
   }
 
   // ── getExp (functions.cpp:556-565) ──
