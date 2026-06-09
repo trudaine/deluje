@@ -5,9 +5,9 @@ package org.chuck.deluge.firmware2;
  * {@code env.cpp/h} (per-operator Env), {@code pitchenv.cpp/h} (PitchEnv). Also includes firmware
  * constants and tables.
  *
- * <p>External dependencies not yet ported to firmware2: {@code Sin::lookup} → use {@link
- * SineOsc#doFMNew}, {@code Freqlut::lookup} → stub, {@code getNoise()} → use {@link
- * Functions#getNoise}.
+ * <p>Rendering goes through the faithful {@link FmCore} (modern) / {@link EngineMkI} engines;
+ * {@code Sin::lookup} → {@link Dx7Tables#sinLookup}, {@code Freqlut::lookup} → {@link
+ * Dx7Tables#freqLookup} (both verbatim from math_lut), {@code getNoise()} → {@link Functions#getNoise}.
  */
 public class Dx7Voice {
 
@@ -94,8 +94,8 @@ public class Dx7Voice {
         return (phase ^ (1 << 31)) >>> 8;
       case 3: // square
         return ((~phase) >>> 7) & (1 << 24);
-      case 4: // sine
-        return (1 << 23) + (SineOsc.doFMNew(phase >>> 8, 0) >> 1);
+      case 4: // sine — C: (1 << 23) + (Sin::lookup(phase_ >> 8) >> 1)
+        return (1 << 23) + (Dx7Tables.sinLookup(phase >> 8) >> 1);
       default:
         return 1 << 23;
     }
