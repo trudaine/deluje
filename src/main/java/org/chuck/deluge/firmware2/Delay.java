@@ -40,7 +40,8 @@ public class Delay {
 
   final DelayBuffer primaryBuffer = new DelayBuffer();
   final DelayBuffer secondaryBuffer = new DelayBuffer();
-  // C: delay.h:61 — impulse response processor (not ported yet)
+  /** C: delay.h:61 — impulse response processor (analog-mode convolution). */
+  final ImpulseResponseProcessor irProcessor = new ImpulseResponseProcessor();
   int countCyclesWithoutChange;
   int userRateLastTime;
   /** C: delay.h:65 */
@@ -340,13 +341,22 @@ public class Delay {
 
     // C:329-356 — apply feedback + saturation
     if (analog) {
-      // C:330-345 — analog path (uses impulse response processor, simplified)
+      // C:331-334 — first pass the whole buffer through the impulse-response convolution.
       for (int i = 0; i < numSamples; i++) {
-        workingBuf[i][0] = Functions.multiply_32x32_rshift32(workingBuf[i][0], delayWorkingState.delayFeedbackAmount);
-        workingBuf[i][1] = Functions.multiply_32x32_rshift32(workingBuf[i][1], delayWorkingState.delayFeedbackAmount);
-        // C:339-344 — tanH saturation (simplified without convolution)
-        workingBuf[i][0] = Functions.getTanHUnknown(workingBuf[i][0], delayWorkingState.analog_saturation) << 2;
-        workingBuf[i][1] = Functions.getTanHUnknown(workingBuf[i][1], delayWorkingState.analog_saturation) << 2;
+        irProcessor.process(workingBuf[i], workingBuf[i]);
+      }
+      // C:336-345 — then reduce headroom + tanH saturation (sounds ok with the analog sim).
+      for (int i = 0; i < numSamples; i++) {
+        workingBuf[i][0] =
+            Functions.getTanHUnknown(
+                    Functions.multiply_32x32_rshift32(workingBuf[i][0], delayWorkingState.delayFeedbackAmount),
+                    delayWorkingState.analog_saturation)
+                << 2;
+        workingBuf[i][1] =
+            Functions.getTanHUnknown(
+                    Functions.multiply_32x32_rshift32(workingBuf[i][1], delayWorkingState.delayFeedbackAmount),
+                    delayWorkingState.analog_saturation)
+                << 2;
       }
     } else {
       // C:348-355 — digital path
@@ -448,6 +458,42 @@ public class Delay {
     // C:461-463
     if (wrapped) {
       hasWrapped();
+    }
+  }
+
+  // ── ImpulseResponseProcessor (dsp/convolution/impulse_response_processor.h) ──
+
+  /**
+   * Verbatim port of ImpulseResponseProcessor: a 26-tap stereo FIR in transposed form (state is the
+   * running 25-sample accumulator buffer). Used by the analog delay path.
+   */
+  static final class ImpulseResponseProcessor {
+    static final int IR_SIZE = 26;
+    static final int IR_BUFFER_SIZE = IR_SIZE - 1; // 25
+
+    static final int[] ir = {
+      -3203916, 8857848, 24813136, 41537808, 35217472, 15195632, -27538592, -61984128, 1944654848,
+      1813580928, 438462784, 101125088, 6042048, -22429488, -46218864, -56638560, -64785312,
+      -52108528, -37256992, -11863856, 1390352, 14663296, 12784464, 14254800, 5690912, 4490736,
+    };
+
+    private final int[] bufL = new int[IR_BUFFER_SIZE];
+    private final int[] bufR = new int[IR_BUFFER_SIZE];
+
+    /** C: process(input, output). in/out may alias (in-place), so capture the input first. */
+    void process(int[] in, int[] out) {
+      int inL = in[0];
+      int inR = in[1];
+      out[0] = bufL[0] + Functions.multiply_32x32_rshift32_rounded(inL, ir[0]);
+      out[1] = bufR[0] + Functions.multiply_32x32_rshift32_rounded(inR, ir[0]);
+
+      for (int i = 1; i < IR_BUFFER_SIZE; i++) {
+        bufL[i - 1] = bufL[i] + Functions.multiply_32x32_rshift32_rounded(inL, ir[i]);
+        bufR[i - 1] = bufR[i] + Functions.multiply_32x32_rshift32_rounded(inR, ir[i]);
+      }
+
+      bufL[IR_BUFFER_SIZE - 1] = Functions.multiply_32x32_rshift32_rounded(inL, ir[IR_BUFFER_SIZE]);
+      bufR[IR_BUFFER_SIZE - 1] = Functions.multiply_32x32_rshift32_rounded(inR, ir[IR_BUFFER_SIZE]);
     }
   }
 
