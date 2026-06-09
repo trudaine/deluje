@@ -73,8 +73,9 @@ public class VoiceSample {
         int oldHeadBytePos = reader.getPlayByteLowLevel(true); // C:284 (compensates for the interp buffer)
         olderReader.copyStateFrom(reader); // fork the older head before repositioning the newer one
         int[] hop = timeStretcher.hopEnd(
-            sample, oldHeadBytePos, samplePos, phaseIncrement, timeStretchRatio, reader.playDirection,
-            Functions.getNoise(), olderReader.oscPos);
+            sample, null, TimeStretcher.LoopType.NONE, oldHeadBytePos, samplePos, phaseIncrement,
+            timeStretchRatio, combinedIncrement, reader.playDirection, Functions.getNoise(),
+            olderReader.oscPos);
         if (timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER]) {
           int newFrame = (hop[0] - sample.audioDataStartPosBytes) / bps; // setupNewPlayHead (in-RAM)
           reader.init(newFrame);
