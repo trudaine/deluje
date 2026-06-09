@@ -42,6 +42,50 @@ class TimeStretcherTest {
   }
 
   @Test
+  void computeHopParametersMatchesC() {
+    Random r = new Random(123);
+    for (int n = 0; n < 200_000; n++) {
+      int timeStretchRatio = 1 + (r.nextInt(Integer.MAX_VALUE)); // covers <1x, 1x, >1x
+      int noise = r.nextInt();
+
+      // Re-derive the C (time_stretcher.cpp:317-373) independently.
+      int speedLog = Functions.quickLog(timeStretchRatio);
+      int minBW;
+      int maxBW;
+      int cfProp;
+      int cfAbs;
+      int rand;
+      if (speedLog >= (800 << 20) && speedLog < (864 << 20)) {
+        int position = speedLog - (800 << 20);
+        minBW = Functions.interpolateTableSigned(position, 26, TimeStretcher.minHopSizeFine, 4) >> 16;
+        maxBW = Functions.interpolateTableSigned(position, 26, TimeStretcher.maxHopSizeFine, 4) >> 16;
+        cfProp = Functions.interpolateTableSigned(position, 26, TimeStretcher.crossfadeProportionalFine, 4) << 8;
+        cfAbs = Functions.interpolateTableSigned(position, 26, TimeStretcher.crossfadeAbsoluteFine, 4) >> 16;
+        rand = Functions.interpolateTableSigned(position, 26, TimeStretcher.randomFine, 4);
+      } else {
+        int sl = speedLog;
+        if (sl > (896 << 20)) sl = (896 << 20);
+        else if (sl < (768 << 20)) sl = (768 << 20);
+        int position = sl - (768 << 20);
+        minBW = Functions.interpolateTableSigned(position, 27, TimeStretcher.minHopSizeCoarse, 2) >> 16;
+        maxBW = Functions.interpolateTableSigned(position, 27, TimeStretcher.maxHopSizeCoarse, 2) >> 16;
+        cfProp = Functions.interpolateTableSigned(position, 27, TimeStretcher.crossfadeProportionalCoarse, 2) << 8;
+        cfAbs = Functions.interpolateTableSigned(position, 27, TimeStretcher.crossfadeAbsoluteCoarse, 2) >> 16;
+        rand = Functions.interpolateTableSigned(position, 27, TimeStretcher.randomCoarse, 2);
+      }
+      minBW += Functions.multiply_32x32_rshift32(
+              minBW, Functions.multiply_32x32_rshift32(noise, rand << 8)) << 2;
+
+      int[] got = TimeStretcher.computeHopParameters(timeStretchRatio, noise);
+      assertEquals(minBW, got[TimeStretcher.HP_MIN_BEAM_WIDTH], "minBeamWidth ratio=" + timeStretchRatio);
+      assertEquals(maxBW, got[TimeStretcher.HP_MAX_BEAM_WIDTH], "maxBeamWidth");
+      assertEquals(cfProp, got[TimeStretcher.HP_CROSSFADE_PROPORTIONAL], "crossfadeProportional");
+      assertEquals(cfAbs, got[TimeStretcher.HP_CROSSFADE_ABSOLUTE], "crossfadeAbsolute");
+      assertEquals(rand, got[TimeStretcher.HP_RANDOM_ELEMENT], "randomElement");
+    }
+  }
+
+  @Test
   void getTotalChangeMatchesC() {
     Random r = new Random(7);
     for (int n = 0; n < 100_000; n++) {
