@@ -54,14 +54,17 @@ public class SampleReader {
   }
 
   /**
-   * Prime the interpolation history so {@code buf[0]} is {@code startFrame} and the read position sits
-   * just after it. Adapter-level start (the C primes via the cluster fill path).
+   * Prime the interpolation history with the {@value #K_TAPS} frames BEFORE {@code startFrame}, leaving
+   * {@link #playPos} at {@code startFrame} — so the native and resampled paths start consistently
+   * (native reads {@code startFrame} first; resampled has real context, no zero transient). Adapter-level
+   * start; the C does a cluster-based retrospective fill.
    */
   public void init(int startFrame) {
-    playPos = startFrame - (K_TAPS - 1) * playDirection;
+    playPos = startFrame - K_TAPS * playDirection;
     for (int i = 0; i < K_TAPS; i++) {
       pushFrame();
     }
+    // playPos is now startFrame; buf[0] = the frame just before it.
     oscPos = 0;
     doneAnySamplesYet = false;
   }
@@ -96,15 +99,53 @@ public class SampleReader {
       }
 
       int[] sampleRead = SincInterpolator.interpolateWide(bufL, bufR, numChannels, whichKernel, oscPos); // C:1024
+      readResampledTail(oscBuffer, numChannels, amplitude, amplitudeIncrement, sampleRead, o);
+      o += numChannels;
+    }
+  }
 
-      amplitude[0] += amplitudeIncrement; // C:1048
-      oscBuffer[o] = Functions.multiply_accumulate_32x32_rshift32_rounded(oscBuffer[o], sampleRead[0], amplitude[0]); // C:1051
+  // shared C:1048-1052 tail (amplitude ramp + MAC), so readNative/readResampled stay identical there
+  private static void readResampledTail(
+      int[] oscBuffer, int numChannels, int[] amplitude, int amplitudeIncrement, int[] sampleRead, int o) {
+    amplitude[0] += amplitudeIncrement; // C:1048
+    oscBuffer[o] = Functions.multiply_accumulate_32x32_rshift32_rounded(oscBuffer[o], sampleRead[0], amplitude[0]); // C:1051
+    if (numChannels == 2) {
+      oscBuffer[o + 1] =
+          Functions.multiply_accumulate_32x32_rshift32_rounded(oscBuffer[o + 1], sampleRead[1], amplitude[0]);
+    }
+  }
+
+  /**
+   * C: readSamplesNative (sample_low_level_reader.cpp:1111-1159) — 1:1 native-rate read (no resampling),
+   * used when {@code phaseIncrement == kMaxSampleValue}. Reads consecutive frames directly (full
+   * precision; the C {@code & bitMask} is a no-op on clean decoded data), amplitude-ramped.
+   */
+  public void readNative(int[] oscBuffer, int numSamples, int numChannels, int[] amplitude, int amplitudeIncrement) {
+    int o = 0;
+    int n = numFrames();
+    for (int s = 0; s < numSamples; s++) {
+      int sampleReadL;
+      int sampleReadR = 0;
+      if (playPos >= 0 && playPos < n) {
+        int base = playPos * numChannels;
+        sampleReadL = sample.data[base];                                   // C:1125
+        if (numChannels == 2) {
+          sampleReadR = sample.data[base + 1];                             // C:1133
+        }
+      } else {
+        sampleReadL = 0;
+      }
+      playPos += playDirection; // C:1141 (jumpAmount = bytesPerSample * playDirection ⇒ ±1 frame)
+
+      amplitude[0] += amplitudeIncrement; // C:1128
+      oscBuffer[o] = Functions.multiply_accumulate_32x32_rshift32_rounded(oscBuffer[o], sampleReadL, amplitude[0]); // C:1144
       o++;
       if (numChannels == 2) {
         oscBuffer[o] =
-            Functions.multiply_accumulate_32x32_rshift32_rounded(oscBuffer[o], sampleRead[1], amplitude[0]);
+            Functions.multiply_accumulate_32x32_rshift32_rounded(oscBuffer[o], sampleReadR, amplitude[0]); // C:1152
         o++;
       }
     }
   }
+
 }
