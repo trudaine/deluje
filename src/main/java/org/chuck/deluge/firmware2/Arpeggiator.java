@@ -389,6 +389,13 @@ public class Arpeggiator {
      */
     public MusicalKey currentKey = new MusicalKey();
 
+    /**
+     * C: playbackHandler.isEitherClockActive() — whether a transport/sequencer clock is running.
+     * Defaults to false (no transport): the C with no clock is non-synced, which is the standalone
+     * arp's behavior. Set true (with a syncLevel) to drive tempo-synced arp from a running clock.
+     */
+    public boolean playbackClockActive = false;
+
     boolean lastNormalNotePlayedFromNoteProbability = true;
     boolean lastNormalNotePlayedFromBassProbability;
     boolean lastNormalNotePlayedFromSwapProbability;
@@ -1023,7 +1030,8 @@ public class Arpeggiator {
       }
       int maxGateForRatchet = maxGate >> ratchetNotesMultiplier; // C:1487
 
-      boolean syncedNow = settings.syncLevel != SyncLevel.SYNC_LEVEL_NONE && false; // simplified: not synced
+      // C:1489 — syncedNow = (settings->syncLevel && playbackHandler.isEitherClockActive())
+      boolean syncedNow = settings.syncLevel != SyncLevel.SYNC_LEVEL_NONE && playbackClockActive;
 
       // C:1492-1505 — gatePos check
       if (gatePos >= ratchetNotesIndex * maxGateForRatchet + gateThresholdSmall) {
@@ -1129,7 +1137,7 @@ public class Arpeggiator {
         if (!wasActiveBefore) { // C:176
           playedFirstArpeggiatedNoteYet = false;
           gateCurrentlyActive = false;
-          if (true) { // C:180 — simplified: not checking playbackHandler
+          if (!playbackClockActive || settings.syncLevel == SyncLevel.SYNC_LEVEL_NONE) { // C:180
             switchNoteOn(settings, instruction, false);
           }
         }
@@ -1346,7 +1354,7 @@ public class Arpeggiator {
         if (notes.size() == 1) { // C:334
           playedFirstArpeggiatedNoteYet = false;
           gateCurrentlyActive = false;
-          if (true) { // simplified: not checking playbackHandler sync
+          if (!playbackClockActive || settings.syncLevel == SyncLevel.SYNC_LEVEL_NONE) { // C:338
             switchNoteOn(settings, instruction, false);
           }
         } else {
@@ -1444,7 +1452,7 @@ public class Arpeggiator {
           }
 
           // C:461-465
-          if (isRatcheting && (ratchetNotesIndex >= ratchetNotesCount || true)) {
+          if (isRatcheting && (ratchetNotesIndex >= ratchetNotesCount || !playbackClockActive)) {
             resetRatchet();
           }
         }
