@@ -7,7 +7,7 @@ import java.util.Arrays;
  * Faithful line-by-line port of {@code modulation/arpeggiator.cpp} + {@code arpeggiator.h}.
  *
  * <p>Covers ArpeggiatorSettings, ArpNote, ArpReturnInstruction, ArpeggiatorBase, Arpeggiator
- * (synth), and ArpeggiatorForDrum. Kit arp (ArpeggiatorForKit) is deferred.
+ * (synth, {@link Synth}), ArpeggiatorForDrum ({@link ForDrum}) and ArpeggiatorForKit ({@link Kit}).
  *
  * <p>C references: arpeggiator.cpp:1-1990, arpeggiator.h:1-381.
  */
@@ -1325,7 +1325,7 @@ public class Arpeggiator {
     // ── findNote / insertNote (helpers to replace OrderedResizeableArray::search/insertAtIndex) ──
 
     /** C: notes.search(noteCode, GREATER_OR_EQUAL) — returns insertion index */
-    private int findNoteIndex(int noteCode) {
+    int findNoteIndex(int noteCode) { // package-private so the Kit subclass can reuse it
       for (int i = 0; i < notes.size(); i++) {
         if (notes.get(i).inputCharacteristics[0] >= noteCode) return i;
       }
@@ -1647,6 +1647,43 @@ public class Arpeggiator {
         if (isPlayGlideForCurrentStep && !isRatcheting) {
           glideOnNextNoteOff = true;
         }
+      }
+    }
+  }
+
+  // ── ArpeggiatorForKit (arpeggiator.h:376-382, arpeggiator.cpp:84-116) ──
+
+  /** Kit arp: the synth note-list arp with KIT type + drum-index maintenance. */
+  public static class Kit extends Synth {
+    @Override
+    public ArpType getArpType() {
+      return ArpType.KIT;
+    }
+
+    /** C: ArpeggiatorForKit::removeDrumIndex (arpeggiator.cpp:84-116). */
+    public void removeDrumIndex(Settings arpSettings, int drumIndex) {
+      int n = findNoteIndex(drumIndex); // notes.search(drumIndex, GREATER_OR_EQUAL)
+      int numNotes = notes.size();
+      if (n < numNotes) {
+        // Delete drumIndex from the notes array.
+        notes.remove(n);
+        for (int i = 0; i < notesAsPlayed.size(); i++) {
+          if (notesAsPlayed.get(i).noteCode == drumIndex) {
+            notesAsPlayed.remove(i);
+            break;
+          }
+        }
+        // Now shift all the arpeggiator drumIndexes at/after n down by one.
+        numNotes = notes.size();
+        for (int i = n; i < numNotes; i++) {
+          notes.get(i).inputCharacteristics[0] = notes.get(i).inputCharacteristics[0] - 1;
+        }
+        for (int i = 0; i < notesAsPlayed.size(); i++) {
+          if (notesAsPlayed.get(i).noteCode > drumIndex) {
+            notesAsPlayed.get(i).noteCode = notesAsPlayed.get(i).noteCode - 1;
+          }
+        }
+        rearrangePatternArpNotes(arpSettings);
       }
     }
   }
