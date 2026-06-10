@@ -108,14 +108,17 @@ public class Voice {
     // Sample playback (when oscType == SAMPLE or source is sample-based).
     public final VoiceSample voiceSample = new VoiceSample();
     public Sample sampleRef; // the fw2 Sample backing this source
+    public int timeStretchRatio = 16777216; // 1 << 24 ≡ 1.0 (no time-stretch)
 
     public void setupSample(Sample fw2Sample, int startFrame, int playDirection) {
       sampleRef = fw2Sample;
+      voiceSample.active = false; // reset any prior time-stretch state
       voiceSample.setup(fw2Sample, startFrame, playDirection);
     }
 
-    public void setupSampleTimeStretch(Sample fw2Sample, int startFrame, int playDirection) {
+    public void setupSampleTimeStretch(Sample fw2Sample, int startFrame, int playDirection, int tsRatio) {
       sampleRef = fw2Sample;
+      timeStretchRatio = tsRatio;
       voiceSample.setupTimeStretch(fw2Sample, startFrame, playDirection);
     }
   }
@@ -506,15 +509,31 @@ public class Voice {
         int pInc = (s == 0) ? pIncA : pIncB;
 
         // Sample playback path (bypasses oscillator when a Sample is attached to this source).
-        if (sources[s].sampleRef != null && sources[s].voiceSample.active) {
-          int[] sampBuf = new int[numSamples]; // mono
-          int[] ampArr = {0};
-          sources[s].voiceSample.render(sampBuf, numSamples, 1, pInc, ampArr, 0);
+        if (sources[s].sampleRef != null) {
+          VoiceSample vs = sources[s].voiceSample;
           int sampAmp = (srcAmp > 0) ? srcAmp : (paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s] >> 4);
-          for (int i = 0; i < numSamples; i++) {
-            sourceBuf[s * numSamples + i] = Functions.multiply_32x32_rshift32(sampBuf[i], sampAmp) << 2;
+          if (vs.timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER]
+              || vs.timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER]) {
+            // ── Time-stretch path (two-head crossfade, pitch decoupled from speed) ──
+            int[] tsBuf = new int[numSamples * 2]; // stereo
+            int[] ampArr = {0};
+            vs.renderTimeStretched(tsBuf, numSamples, 2, pInc,
+                /*timeStretchRatio*/ sources[s].timeStretchRatio, ampArr, 0);
+            for (int i = 0; i < numSamples; i++) {
+              int mono = (tsBuf[i * 2] + tsBuf[i * 2 + 1]) >> 1; // downmix to mono
+              sourceBuf[s * numSamples + i] = Functions.multiply_32x32_rshift32(mono, sampAmp) << 2;
+            }
+            if (!vs.active) sources[s].active = false;
+          } else if (vs.active) {
+            // ── Pitched path (full-precision windowed-sinc, no time-stretch) ──
+            int[] sampBuf = new int[numSamples];
+            int[] ampArr = {0};
+            vs.render(sampBuf, numSamples, 1, pInc, ampArr, 0);
+            for (int i = 0; i < numSamples; i++) {
+              sourceBuf[s * numSamples + i] = Functions.multiply_32x32_rshift32(sampBuf[i], sampAmp) << 2;
+            }
+            if (!vs.active) sources[s].active = false;
           }
-          if (!sources[s].voiceSample.active) sources[s].active = false;
           continue;
         }
 

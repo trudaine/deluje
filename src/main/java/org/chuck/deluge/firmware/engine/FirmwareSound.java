@@ -458,7 +458,14 @@ public class FirmwareSound extends GlobalEffectable {
         // Attach loaded samples to the new voice's sources.
         for (int s = 0; s < 2; s++) {
           if (fw2SampleCache[s] != null) {
-            v.sources[s].setupSample(fw2SampleCache[s], 0, 1);
+            boolean ts = sampleSettings[s].timestretch && !sampleSettings[s].reverse;
+            int playDir = sampleSettings[s].reverse ? -1 : 1;
+            if (ts) {
+              int tsRatio = (int) Math.max(1, 16777216.0 * (samples[s].sampleRate / 44100.0));
+              v.sources[s].setupSampleTimeStretch(fw2SampleCache[s], 0, playDir, tsRatio);
+            } else {
+              v.sources[s].setupSample(fw2SampleCache[s], 0, playDir);
+            }
           }
         }
         v.noteOn(note, vel, midiChannel, mpeValues);
@@ -492,16 +499,22 @@ public class FirmwareSound extends GlobalEffectable {
     fw2Sound.setModulatorCents(1, fmModulator2Cents);
 
     // Attach samples to voice sources when the sound is sample-based.
-    // C Sound::noteOn → source oscillator != sample → bypass, else set up per-source sample reader.
     for (int s = 0; s < 2; s++) {
       if (fw2Sound.oscTypes[s] == org.chuck.deluge.firmware2.Oscillator.OscType.SAMPLE
           && samples[s] != null && samples[s].data != null) {
         fw2SampleCache[s] = org.chuck.deluge.firmware2.Sample.fromFirmwareSample(samples[s]);
+        boolean ts = sampleSettings[s].timestretch && !sampleSettings[s].reverse;
+        int playDir = sampleSettings[s].reverse ? -1 : 1;
         // Attach to all active voices
         synchronized (fw2Sound.voices) {
           for (var v : fw2Sound.voices) {
             if (v.active && v.sources[s].sampleRef == null) {
-              v.sources[s].setupSample(fw2SampleCache[s], 0, 1);
+              if (ts) {
+                int tsRatio = (int) Math.max(1, 16777216.0 * (samples[s].sampleRate / 44100.0));
+                v.sources[s].setupSampleTimeStretch(fw2SampleCache[s], 0, playDir, tsRatio);
+              } else {
+                v.sources[s].setupSample(fw2SampleCache[s], 0, playDir);
+              }
             }
           }
         }
