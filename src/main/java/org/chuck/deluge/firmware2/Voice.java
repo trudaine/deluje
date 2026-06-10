@@ -553,36 +553,25 @@ public class Voice {
           // own baseline amplitude. The sample reader applies its own per-sample scaling; this
           // is the "source gain" before the voice's overall amplitude chain, equivalent to the
           // per-source volume for oscillators. Minimum = 1 << 26 (unity through the >> 4 path).
-          int sampAmp = (srcAmp > 0)
-              ? srcAmp
-              : Math.max(paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s] >> 4, 1 << 26);
+          int sampAmp =
+              (srcAmp > 0)
+                  ? srcAmp
+                  : Math.max(paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s] >> 4, 1 << 26);
           if (vs.timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER]
               || vs.timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER]) {
-            // ── Time-stretch path (two-head crossfade, pitch decoupled from speed) ──
-            int[] tsBuf = new int[numSamples * 2]; // stereo
-            int[] ampArr = {0};
+            int[] tsBuf = new int[numSamples * 2];
+            int[] ampArr = {sampAmp};
             vs.renderTimeStretched(
-                tsBuf,
-                numSamples,
-                2,
-                pInc,
-                /*timeStretchRatio*/ sources[s].timeStretchRatio,
-                ampArr,
-                0);
+                tsBuf, numSamples, 2, pInc, sources[s].timeStretchRatio, ampArr, 0);
             for (int i = 0; i < numSamples; i++) {
-              int mono = (tsBuf[i * 2] + tsBuf[i * 2 + 1]) >> 1; // downmix to mono
-              sourceBuf[s * numSamples + i] = Functions.multiply_32x32_rshift32(mono, sampAmp) << 2;
+              sourceBuf[s * numSamples + i] = (tsBuf[i * 2] + tsBuf[i * 2 + 1]) >> 1;
             }
             if (!vs.active) sources[s].active = false;
           } else if (vs.active) {
-            // ── Pitched path (full-precision windowed-sinc, no time-stretch) ──
             int[] sampBuf = new int[numSamples];
-            int[] ampArr = {0};
+            int[] ampArr = {sampAmp};
             vs.render(sampBuf, numSamples, 1, pInc, ampArr, 0);
-            for (int i = 0; i < numSamples; i++) {
-              sourceBuf[s * numSamples + i] =
-                  Functions.multiply_32x32_rshift32(sampBuf[i], sampAmp) << 2;
-            }
+            System.arraycopy(sampBuf, 0, sourceBuf, s * numSamples, numSamples);
             if (!vs.active) sources[s].active = false;
           }
           continue;
