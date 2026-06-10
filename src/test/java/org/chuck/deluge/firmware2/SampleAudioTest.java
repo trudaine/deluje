@@ -52,4 +52,42 @@ class SampleAudioTest {
 
     assertTrue(energy > 0, "Sample-based voice should produce audio output (energy=" + energy + ")");
   }
+
+  /** Time-stretch sample playback: pitched read rate decoupled from duration advance. */
+  @Test
+  void timeStretchedSampleProducesAudio() {
+    int nFrames = 2048;
+    org.chuck.deluge.firmware.model.sample.Sample modelSample =
+        new org.chuck.deluge.firmware.model.sample.Sample();
+    modelSample.numChannels = 1;
+    modelSample.byteDepth = 3;
+    modelSample.sampleRate = 44100;
+    modelSample.data = new float[nFrames];
+    for (int i = 0; i < nFrames; i++) {
+      modelSample.data[i] = (float) Math.sin(2.0 * Math.PI * 220.0 * i / 44100.0) * 0.4f;
+    }
+
+    FirmwareSound sound = new FirmwareSound();
+    sound.oscTypes[0] = org.chuck.deluge.firmware.dsp.oscillators.OscType.SAMPLE;
+    sound.samples[0] = modelSample;
+    sound.sampleSettings[0].timestretch = true; // enable time-stretch
+    sound.useFirmware2 = true;
+
+    sound.triggerNote(60, 100);
+
+    int N = 128;
+    StereoSample[] buf = new StereoSample[N];
+    for (int i = 0; i < N; i++) buf[i] = new StereoSample();
+    long energy = 0;
+    for (int blk = 0; blk < 16; blk++) {
+      sound.renderOutput(buf, N, null);
+      for (int i = 0; i < N; i++) {
+        energy += Math.abs((long) buf[i].l) + Math.abs((long) buf[i].r);
+        buf[i].l = buf[i].r = 0;
+      }
+    }
+
+    assertTrue(energy > 0, "Time-stretched sample should produce audio output (energy=" + energy + ")");
+  }
 }
+
