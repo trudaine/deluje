@@ -102,8 +102,13 @@ public class Voice {
     this.sound = sound;
     for (int i = 0; i < envelopes.length; i++) envelopes[i] = new Envelope();
     for (int i = 0; i < sources.length; i++) sources[i] = new VoiceSource();
+    // Seed paramFinalValues with the static per-param neutral (C: paramNeutralValues[p] =
+    // getParamNeutralValue(p), functions.cpp:175-181). This is only a placeholder:
+    // performInitialPatching (FirmwareSound:520) recomputes EVERY param before the first render
+    // (C: voice.cpp:201), so the seed never reaches audio. (fw2 Sound has no paramNeutralValues
+    // field — the knobs live in the bridge as patchedParamValues.)
     for (int i = 0; i < Param.kNumParams; i++) {
-      paramFinalValues[i] = sound.paramNeutralValues[i];
+      paramFinalValues[i] = Functions.getParamNeutralValue(i);
     }
   }
 
