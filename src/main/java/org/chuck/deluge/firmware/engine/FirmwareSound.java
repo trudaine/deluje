@@ -763,7 +763,7 @@ public class FirmwareSound extends GlobalEffectable {
 
   // ── Native 2-op FM engine (port of voice.cpp) ──
   // Raw stored knob Q31 values for the two FM modulator amounts (index 0 = <modulator1>, 1 =
-  // <modulator2>); 0x80000000 == off. The live amplitude is computed per block by FirmwareVoice
+  // <modulator2>); 0x80000000 == off. The live amplitude is computed per block by fw2 Voice
   // through the Deluge patched-param volume curve (so patch cables such as envelope2 ->
   // modulator1Volume dynamically drive the FM depth, exactly as on hardware).
   public final int[] fmModulatorAmountBase = {Integer.MIN_VALUE, Integer.MIN_VALUE};

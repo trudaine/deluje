@@ -11,7 +11,9 @@ import org.chuck.deluge.firmware.modulation.Envelope;
  */
 public class AudioClip extends Clip {
   public Sample sample;
-  // TimeStretcher field removed — simple pitched read in place
+  private org.chuck.deluge.firmware2.Sample fw2SampleCache;
+  private final org.chuck.deluge.firmware2.VoiceSample voiceSample =
+      new org.chuck.deluge.firmware2.VoiceSample();
   public final Envelope outputEnvelope = new Envelope();
   public int timeStretchRatio = 1 << 24; // 1.0
   public boolean doingLateStart = false;
@@ -83,20 +85,15 @@ public class AudioClip extends Clip {
 
     if (outputEnvelope.state == Envelope.EnvelopeStage.OFF) return;
 
-    // In Java, we convert float data to int for the high-fidelity processors
-    int[] monoData = new int[sample.data.length];
-    for (int i = 0; i < sample.data.length; i++) {
-      monoData[i] = (int) (sample.data[i] * 2147483647.0f);
+    // Convert to fw2 Sample and render through the faithful VoiceSample engine.
+    if (fw2SampleCache == null) {
+      fw2SampleCache = org.chuck.deluge.firmware2.Sample.fromFirmwareSample(sample);
+      voiceSample.setup(fw2SampleCache, 0, 1);
     }
-
     int[] output = new int[numSamples];
-    // Simple pitched read (old TimeStretcher deleted; proper fw2 VoiceSample path TBD).
-    long pos = (lastProcessedPos << 24);
-    for (int i = 0; i < numSamples; i++) {
-      int idx = (int) ((pos >> 24) & 0x7FFFFFFFL) % monoData.length;
-      output[i] = monoData[idx];
-      pos += ((long) phaseIncrement << 8);
-    }
+    int[] amp = {0};
+    voiceSample.render(output, numSamples, 1, phaseIncrement, amp, 0);
+    lastProcessedPos = (int) (voiceSample.reader.playPos);
 
     // Process Envelope (dummy values for now)
     int env = outputEnvelope.render(numSamples, 1000, 1000, 1 << 30, 1000, null);
