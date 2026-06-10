@@ -152,16 +152,12 @@ public class DelugeE2ETest {
 
     assertTrue(maxTick > 0, "Song " + songName + " transport should advance");
 
-    // song1 is a sample-based KIT. Sample playback is still on the un-migrated firmware/ sample
-    // engine and produces no audio in this pure-engine path yet, so it is genuinely silent. (The old
-    // peak>0 pass here was a FALSE POSITIVE on ~1e-9 firmware/-FX rounding noise; the faithful fw2
-    // master FX correctly outputs exactly 0.) Assert transport only until the fw2 sample engine is
-    // wired into FirmwareSound. TODO: re-enable the audio assertion after the sample-engine migration.
+    // song1 is a sample-based KIT — the fw2 sample engine is wired, but the test doesn't ship
+    // the .wav files the XML references. Until sample WAVs are added to test resources, it stays
+    // silent. Transport-only assertion for now.
     if (songName.equals("song1")) {
       return;
     }
-    // Synth / DX7 songs are now genuinely audible after the C-faithful volume-curve-neutral fix, so
-    // gate on a real audible threshold rather than the old >0 (which only caught rounding noise).
     assertTrue(
         peak > 0.001, "Song " + songName + " should produce audible output (peak=" + peak + ")");
   }
