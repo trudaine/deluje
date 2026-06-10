@@ -1,22 +1,21 @@
 package org.chuck.deluge.firmware2;
 
 /**
- * Faithful port of {@code dsp/timestretch/time_stretcher.cpp} + {@code .h} — IN PROGRESS (Phase B of
- * docs/FIRMWARE2_SAMPLE_ENGINE_PLAN.md).
- *
- * <p><b>Scope note.</b> The C TimeStretcher's main methods ({@code hopEnd}, {@code readFromBuffer},
- * {@code init}/{@code reInit}/{@code setupNewPlayHead}) are NOT separable DSP — they are interleaved
- * throughout with the sample-streaming engine ({@code SamplePlaybackGuide}, {@code SampleLowLevelReader},
- * {@code Cluster}, {@code SampleCache}). Porting them faithfully requires those classes first (revised
- * plan §3). What IS self-contained and ported here, faithfully and tested:
+ * Faithful port of {@code dsp/timestretch/time_stretcher.cpp} + {@code .h} — the in-RAM /
+ * {@code TIME_STRETCH_ENABLE_BUFFER == 0} path (no perc-cache / SD clusters; see
+ * docs/FIRMWARE2_SAMPLE_ENGINE_PLAN.md). The two-head crossfade RENDER lives in {@link VoiceSample};
+ * this class is the hop decision + search:
  * <ul>
- *   <li>the crossfade match metrics {@code getTotalDifferenceAbs} / {@code getTotalChange}
- *       (time_stretcher.h:106-127), pure functions over the moving-average totals;</li>
- *   <li>{@code getSamplePos} (time_stretcher.cpp:1227-1234);</li>
- *   <li>the {@code TimeStretch} constants (definitions_cxx.hpp:780-795).</li>
+ *   <li>{@link #getTotalDifferenceAbs} / {@link #getTotalChange} (time_stretcher.h:106-127) — the
+ *       crossfade match metrics;</li>
+ *   <li>{@link #computeHopParameters} (cpp:317-374) — beam-width / crossfade params from the ratio;</li>
+ *   <li>{@link #searchForCrossfadeOffset} (cpp:604-862) — the bidirectional sliding-window
+ *       crossfade-point search;</li>
+ *   <li>{@link #hopEnd} (cpp:242-972) — beam placement + loop pre-margin + the search + crossfade setup;</li>
+ *   <li>{@link #getSamplePos} (cpp:1227-1234) and the {@code TimeStretch} constants
+ *       (definitions_cxx.hpp:780-795).</li>
  * </ul>
- * Everything else is deferred until the reader/guide position-and-loop math is ported. Every method
- * here cites the C file:line it ports.
+ * Every method cites the C file:line it ports; all re-derivation-verified (see {@code TimeStretcherTest}).
  */
 public class TimeStretcher {
 
