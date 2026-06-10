@@ -40,11 +40,12 @@ public class Delay {
   static final int KB_NEUTRAL_SIZE = 16384;
 
   /**
-   * C: kMaxSampleValue = 1 &lt;&lt; kBitDepth = 1 &lt;&lt; 24 (definitions_cxx.hpp:992-995). This is the
-   * delay-buffer rate unit ("1 is represented as 16777216"), NOT Q31 unity (2147483647). It scales the
-   * buffer-size formula (getIdealBufferSizeFromRate / makeNativeRatePrecise) and the resample
-   * spin-rate thresholds. Using Q31 max here clamped every buffer to KB_MAX_SIZE and made the spin
-   * rate 128× too slow, so the secondary→primary swap never fired and the delay produced no echo.
+   * C: kMaxSampleValue = 1 &lt;&lt; kBitDepth = 1 &lt;&lt; 24 (definitions_cxx.hpp:992-995). This
+   * is the delay-buffer rate unit ("1 is represented as 16777216"), NOT Q31 unity (2147483647). It
+   * scales the buffer-size formula (getIdealBufferSizeFromRate / makeNativeRatePrecise) and the
+   * resample spin-rate thresholds. Using Q31 max here clamped every buffer to KB_MAX_SIZE and made
+   * the spin rate 128× too slow, so the secondary→primary swap never fired and the delay produced
+   * no echo.
    */
   static final int K_MAX_SAMPLE_VALUE = 1 << 24; // 16777216
 
@@ -758,8 +759,8 @@ public class Delay {
     /**
      * C: delay_buffer.h:50-61 — advance with a callback run once per "move on" boundary. The C's
      * resampling secondary-buffer write needs the callback to do clearAndMoveOn + side effects
-     * (wrapped tracking, sizeLeftUntilBufferSwap--), which the simplified {@link #advanceRead} can't
-     * express. Faithful to the lambda form.
+     * (wrapped tracking, sizeLeftUntilBufferSwap--), which the simplified {@link #advanceRead}
+     * can't express. Faithful to the lambda form.
      */
     int advance(Runnable callback) {
       longPos += actualSpinRate;

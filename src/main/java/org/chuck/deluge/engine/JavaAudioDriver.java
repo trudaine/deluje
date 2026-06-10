@@ -138,8 +138,14 @@ public class JavaAudioDriver implements Runnable {
             int absL = Math.abs(s.l);
             if (absL > peak) peak = absL;
 
-            int leftVal = s.l >> 16;
-            int rightVal = s.r >> 16;
+            // ── Monitor gain (NOT part of the faithful firmware port) ──
+            // A single max-velocity note peaks at ~0.03 Q31 (~-30 dBFS) — this is the Deluge's
+            // intentional headroom (loudness comes from many summed notes/tracks). Apply a 2×
+            // post-engine gain at the driver level for desktop monitoring. This is before the
+            // 16-bit clamp, so it can reach full 16-bit scale for mixed content.
+            final int monitorGainMul = 2;
+            int leftVal = (s.l * monitorGainMul) >> 16;
+            int rightVal = (s.r * monitorGainMul) >> 16;
             short left = (short) Math.max(-32768, Math.min(32767, leftVal));
             short right = (short) Math.max(-32768, Math.min(32767, rightVal));
 

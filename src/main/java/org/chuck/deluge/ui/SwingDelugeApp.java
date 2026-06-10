@@ -1620,7 +1620,8 @@ public class SwingDelugeApp extends JFrame {
    */
   public void applyKitDrumSampleLive(
       org.chuck.deluge.model.KitTrackModel kit, int drumIdx, String absPath) {
-    if (currentProject == null || pureEngine == null || absPath == null || absPath.isBlank()) return;
+    if (currentProject == null || pureEngine == null || absPath == null || absPath.isBlank())
+      return;
     int trackIdx = currentProject.getTracks().indexOf(kit);
     if (trackIdx < 0) return;
     org.chuck.deluge.firmware.engine.FirmwareAudioEngine eng = pureEngine.getAudioEngine();

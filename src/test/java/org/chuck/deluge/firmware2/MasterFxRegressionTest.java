@@ -10,13 +10,13 @@ import org.junit.jupiter.api.Test;
  * Regression coverage for the fw2 master-FX units (Delay, Compressor) after the firmware/ parity
  * oracles and their tests were deleted (commit 6fa73408). firmware/ was a non-faithful oracle (see
  * the {@code firmware-nonfaithful-reference-spots} memory), so — like the rest of the fw2 port —
- * these are re-derivation / property + golden-signature tests against fw2's own behavior, locking it
- * in so future edits can't silently change the DSP.
+ * these are re-derivation / property + golden-signature tests against fw2's own behavior, locking
+ * it in so future edits can't silently change the DSP.
  *
- * <p>Writing these surfaced a real P1 (now fixed): the fw2 master Delay produced no echo because the
- * inner DelayBuffer used Q31 max (2147483647) where the C uses kMaxSampleValue = 1&lt;&lt;24 in the
- * buffer-size / spin-rate math — 128× off, so the secondary→primary swap never fired. The delay-echo
- * test below guards against a regression.
+ * <p>Writing these surfaced a real P1 (now fixed): the fw2 master Delay produced no echo because
+ * the inner DelayBuffer used Q31 max (2147483647) where the C uses kMaxSampleValue = 1&lt;&lt;24 in
+ * the buffer-size / spin-rate math — 128× off, so the secondary→primary swap never fired. The
+ * delay-echo test below guards against a regression.
  */
 class MasterFxRegressionTest {
 
@@ -72,7 +72,9 @@ class MasterFxRegressionTest {
     Compressor c = new Compressor();
     c.renderVolNeutral(buf, ONE);
     assertEquals(
-        COMPRESSOR_GOLDEN, signature(buf, 128), "compressor output drifted — re-baseline only if intended");
+        COMPRESSOR_GOLDEN,
+        signature(buf, 128),
+        "compressor output drifted — re-baseline only if intended");
   }
 
   // ── Delay ─────────────────────────────────────────────────────────────────
@@ -130,7 +132,8 @@ class MasterFxRegressionTest {
         for (int i = 0; i < 128; i++) echoEnergy += Math.abs((long) buf[i][0]);
       }
     }
-    assertTrue(echoEnergy > 0, "an impulse must produce a delayed echo (energy=" + echoEnergy + ")");
+    assertTrue(
+        echoEnergy > 0, "an impulse must produce a delayed echo (energy=" + echoEnergy + ")");
   }
 
   @Test
@@ -223,7 +226,8 @@ class MasterFxRegressionTest {
 
   @Test
   void reverbProducesWetTail() {
-    // Feed a tone for a few blocks, then silence; the reverb must keep ringing (wet tail). Regression
+    // Feed a tone for a few blocks, then silence; the reverb must keep ringing (wet tail).
+    // Regression
     // guard for the missing setPanLevels — with pan 0 every model emitted silence.
     Reverb.Container c = freshReverb(Reverb.Model.FREEVERB);
     long tail = 0;
@@ -235,10 +239,12 @@ class MasterFxRegressionTest {
       int[][] out = new int[128][2];
       c.process(in, out);
       if (blk >= 12) { // after the dry tone ends — pure reverb tail
-        for (int i = 0; i < 128; i++) tail += Math.abs((long) out[i][0]) + Math.abs((long) out[i][1]);
+        for (int i = 0; i < 128; i++)
+          tail += Math.abs((long) out[i][0]) + Math.abs((long) out[i][1]);
       }
     }
-    assertTrue(tail > 0, "reverb must produce a wet tail after the input stops (tail=" + tail + ")");
+    assertTrue(
+        tail > 0, "reverb must produce a wet tail after the input stops (tail=" + tail + ")");
   }
 
   @Test
@@ -248,7 +254,8 @@ class MasterFxRegressionTest {
     long ha = 0;
     long hb = 0;
     for (int blk = 0; blk < 20; blk++) {
-      // process() mutates the input array in place (the reverb input HPF), so give each its own copy.
+      // process() mutates the input array in place (the reverb input HPF), so give each its own
+      // copy.
       int[] inA = new int[128];
       int[] inB = new int[128];
       for (int i = 0; i < 128; i++) {
@@ -273,7 +280,8 @@ class MasterFxRegressionTest {
     for (int blk = 0; blk < 20; blk++) {
       int[][] nb = noiseBlock(128, 500 + blk);
       int[] in = new int[128];
-      for (int i = 0; i < 128; i++) in[i] = (nb[i][0] >> 1) + (nb[i][1] >> 1); // mono sum, as the engine feeds it
+      for (int i = 0; i < 128; i++)
+        in[i] = (nb[i][0] >> 1) + (nb[i][1] >> 1); // mono sum, as the engine feeds it
       int[][] out = new int[128][2];
       c.process(in, out);
       h ^= signature(out, 128);
