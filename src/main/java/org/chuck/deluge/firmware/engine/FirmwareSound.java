@@ -147,13 +147,18 @@ public class FirmwareSound extends GlobalEffectable {
     paramNeutralValues[Param.LOCAL_HPF_RESONANCE] = 0;
     paramNeutralValues[Param.LOCAL_HPF_MORPH] = 0;
 
-    // C: Pitch Adjust. initParams sets 0 (C:152); for default-synth we want K_MAX_SAMPLE_VALUE = no
-    // offset.
-    paramNeutralValues[Param.LOCAL_PITCH_ADJUST] = 16777216;
-    paramNeutralValues[Param.LOCAL_OSC_A_PITCH_ADJUST] = 16777216;
-    paramNeutralValues[Param.LOCAL_OSC_B_PITCH_ADJUST] = 16777216;
-    paramNeutralValues[Param.LOCAL_MODULATOR_0_PITCH_ADJUST] = 16777216;
-    paramNeutralValues[Param.LOCAL_MODULATOR_1_PITCH_ADJUST] = 16777216;
+    // Pitch-adjust KNOBS must be 0 (centre = no offset), as initParams and the C set them
+    // (sound.cpp:152,183-186 setCurrentValueBasicForSetup(0)). The previous code set them to
+    // 16777216 (= kMaxSampleValue), confusing the param's OUTPUT neutral with its knob value: a
+    // non-zero knob is fed through combineCablesExp + getExp, which shifted every note ~+37 cents per
+    // param (LOCAL_PITCH_ADJUST + LOCAL_OSC_A_PITCH_ADJUST compounded to ~+74 cents sharp — the cause
+    // of the synth fidelity mismatch). getParamNeutralValue(p)=16777216 is the curve neutral applied
+    // by the Patcher; the knob stays 0.
+    paramNeutralValues[Param.LOCAL_PITCH_ADJUST] = 0;
+    paramNeutralValues[Param.LOCAL_OSC_A_PITCH_ADJUST] = 0;
+    paramNeutralValues[Param.LOCAL_OSC_B_PITCH_ADJUST] = 0;
+    paramNeutralValues[Param.LOCAL_MODULATOR_0_PITCH_ADJUST] = 0;
+    paramNeutralValues[Param.LOCAL_MODULATOR_1_PITCH_ADJUST] = 0;
 
     // Exponential rates defaulting to 0 (already set by initParams, re-stated for clarity):
     paramNeutralValues[Param.GLOBAL_DELAY_RATE] = 0;
