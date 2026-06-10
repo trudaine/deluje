@@ -56,8 +56,10 @@ public abstract class GlobalEffectable {
     int pan = 0; // Center in Q31 is 0
 
     // C: global_effectable_for_clip.cpp:84-86 — the reverb send amount is a volume curve of the
-    // per-sound send knob, scaled by the clip's post-FX volume (reverbAmountAdjust = volumePostFX>>1,
-    // song.cpp:2470). INT_MIN knob → patched -536870912 → curve returns 0, so an off/unset send stays
+    // per-sound send knob, scaled by the clip's post-FX volume (reverbAmountAdjust =
+    // volumePostFX>>1,
+    // song.cpp:2470). INT_MIN knob → patched -536870912 → curve returns 0, so an off/unset send
+    // stays
     // dry. cableToLinearParamShortcut is >>2 (functions.cpp:260).
     int reverbAmountAdjust = postFXVolume >> 1;
     int reverbSendAmount =

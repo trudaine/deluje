@@ -39,7 +39,8 @@ class KitDrumSampleTest {
     long h = 1469598103934665603L;
     for (int b = 0; b < 30; b++) {
       eng.renderBlock(128);
-      for (int i = 0; i < 128; i++) h = (h ^ (eng.masterBuffer[i].l & 0xFFFFFFFFL)) * 1099511628211L;
+      for (int i = 0; i < 128; i++)
+        h = (h ^ (eng.masterBuffer[i].l & 0xFFFFFFFFL)) * 1099511628211L;
     }
     return h;
   }
@@ -88,7 +89,8 @@ class KitDrumSampleTest {
     e2.sounds.add(noSample);
     long without = renderDrum(noSample, e2, 0);
 
-    assertNotEquals(withS, without, "a drum with a sample must differ from a sample-less default drum");
+    assertNotEquals(
+        withS, without, "a drum with a sample must differ from a sample-less default drum");
     // and the sample drum must actually make sound
     FirmwareKit again = new FirmwareKit();
     FirmwareAudioEngine e3 = new FirmwareAudioEngine();

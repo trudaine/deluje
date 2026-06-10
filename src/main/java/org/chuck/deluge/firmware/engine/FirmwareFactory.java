@@ -297,8 +297,10 @@ public class FirmwareFactory {
     sound.modFXFeedback = (int) (clamp01(model.getModFxFeedback()) * 2147483647.0);
 
     // Per-track reverb send KNOB (raw Q31 UNPATCHED_REVERB_SEND_AMOUNT). The actual send amount is
-    // derived per block via the C volume curve in GlobalEffectable. normToBipolarParamVolume maps the
-    // model's 0..1 send to the Deluge's INT_MIN..INT_MAX knob range, so off/unset (norm <= 0) → INT_MIN
+    // derived per block via the C volume curve in GlobalEffectable. normToBipolarParamVolume maps
+    // the
+    // model's 0..1 send to the Deluge's INT_MIN..INT_MAX knob range, so off/unset (norm <= 0) →
+    // INT_MIN
     // → no reverb (dry songs stay dry).
     sound.reverbSendKnob = normToBipolarParamVolume(model.getReverbSend());
 
