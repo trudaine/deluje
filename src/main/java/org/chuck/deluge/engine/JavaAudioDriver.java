@@ -143,7 +143,7 @@ public class JavaAudioDriver implements Runnable {
             // intentional headroom (loudness comes from many summed notes/tracks). Apply a 2×
             // post-engine gain at the driver level for desktop monitoring. This is before the
             // 16-bit clamp, so it can reach full 16-bit scale for mixed content.
-            final int monitorGainMul = 8;
+            final int monitorGainMul = 16;
             int leftVal = (s.l * monitorGainMul) >> 16;
             int rightVal = (s.r * monitorGainMul) >> 16;
             short left = (short) Math.max(-32768, Math.min(32767, leftVal));

@@ -635,6 +635,14 @@ public class FirmwareFactory {
     };
   }
 
+  
+  private static org.chuck.deluge.firmware.model.PolyphonyMode toPolyphonyMode(
+      SynthTrackModel.PolyphonyMode m) {
+    if (m == null) return org.chuck.deluge.firmware.model.PolyphonyMode.POLY;
+    try { return org.chuck.deluge.firmware.model.PolyphonyMode.valueOf(m.name()); }
+    catch (IllegalArgumentException e) { return org.chuck.deluge.firmware.model.PolyphonyMode.POLY; }
+  }
+
   public static InstrumentClip createKitClip(KitTrackModel model) {
     InstrumentClip clip = new InstrumentClip();
     FirmwareKit kit = new FirmwareKit();
@@ -690,6 +698,63 @@ public class FirmwareFactory {
         drumSound.srrParam = normToBipolarParam(sd.getSampleRateReduction());
         drumSound.eqBassParam = dbToBipolarParam(sd.getEqBass());
         drumSound.eqTrebleParam = dbToBipolarParam(sd.getEqTreble());
+
+        // ── Sample playback settings (source 0) ──
+        drumSound.sampleSettings[0].reverse = sd.isReverse();
+        if (sd.getStartSamplePos() >= 0)
+          drumSound.sampleSettings[0].startPoint = sd.getStartSamplePos();
+        if (sd.getEndSamplePos() >= 0)
+          drumSound.sampleSettings[0].endPoint = sd.getEndSamplePos();
+        if (sd.getStartLoopPos() >= 0)
+          drumSound.sampleSettings[0].loopStart = sd.getStartLoopPos();
+        if (sd.getEndLoopPos() >= 0)
+          drumSound.sampleSettings[0].loopEnd = sd.getEndLoopPos();
+        drumSound.sampleSettings[0].transpose = (int) sd.getPitchSemitones();
+
+        // ── Second source (osc B / sample) ──
+        if (sd.getOsc2Type() != null && !sd.getOsc2Type().equalsIgnoreCase("NONE")) {
+          drumSound.paramNeutralValues[
+              org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_B_VOLUME] =
+              org.chuck.deluge.firmware.util.Q31.ONE; // enable second source
+          drumSound.oscTypes[1] = stringToOscType(sd.getOsc2Type());
+        }
+
+        // ── Envelope (amp envelope 0) ──
+        var env = sd.getAdsr();
+        drumSound.paramNeutralValues[
+                org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_ATTACK] =
+            org.chuck.deluge.firmware2.Functions.getParamFromUserValue(
+                org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_ATTACK,
+                (int) (env.attack() * 50));
+        drumSound.paramNeutralValues[
+                org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_DECAY] =
+            org.chuck.deluge.firmware2.Functions.getParamFromUserValue(
+                org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_DECAY,
+                (int) (env.decay() * 50));
+        drumSound.paramNeutralValues[
+                org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_SUSTAIN] =
+            org.chuck.deluge.firmware2.Functions.getParamFromUserValue(
+                org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_SUSTAIN,
+                (int) (env.sustain() * 50));
+        drumSound.paramNeutralValues[
+                org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_RELEASE] =
+            org.chuck.deluge.firmware2.Functions.getParamFromUserValue(
+                org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_RELEASE,
+                (int) (env.release() * 50));
+
+        // ── Filter ──
+        drumSound.paramNeutralValues[
+                org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_FREQ] =
+            (int) (sd.getLpfFreq() / 22050.0f * 2147483647.0f);
+        drumSound.paramNeutralValues[
+                org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_RESONANCE] =
+            (int) (sd.getLpfRes() * 2147483647.0f);
+
+        // ── Polyphony / priority / clipping ──
+        drumSound.polyphonic = toPolyphonyMode(sd.getPolyphony());
+        drumSound.numUnison = sd.getUnisonNum();
+        drumSound.unisonDetune = (int) sd.getUnisonDetune();
+        drumSound.unisonStereoSpread = (int) sd.getUnisonStereoSpread();
 
         // Map per-lane step automation from the ClipModel to the drum sound's ParamManager
         if (!model.getClips().isEmpty()) {
