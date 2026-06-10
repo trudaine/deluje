@@ -658,6 +658,11 @@ public class FirmwareFactory {
                 .paramNeutralValues[
                 org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_A_VOLUME] =
             org.chuck.deluge.firmware.util.Q31.ONE;
+        // LOCAL_VOLUME at max so the overall amplitude envelope is as loud as possible
+        // for a single drum hit (C initParams sets 0 = center, but drums want full volume).
+        drumSound.paramNeutralValues[
+                org.chuck.deluge.firmware.modulation.params.Param.LOCAL_VOLUME] =
+            org.chuck.deluge.firmware.util.Q31.ONE;
         // C: source B and noise are off for drums — only source 0 (the sample) renders.
         // INT_MIN (off) produces 0 through the patcher volume curve; 0 produces 268435456
         // (≈0.125×), so EVERY drum had a sine osc B audible, masking the sample.

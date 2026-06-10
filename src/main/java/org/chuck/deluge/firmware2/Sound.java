@@ -188,6 +188,27 @@ public class Sound {
     }
   }
 
+  // ── isSourceActiveCurrently (sound.cpp:2088-2092) ──
+
+  /**
+   * C: sound.cpp:2088-2092. A source is ACTIVE right now if:
+   * 1. Ringmod mode, or the smoothed patched-param value for OSC_A_VOLUME+s != MIN_VALUE (off)
+   * 2. AND (FM mode, or source type != SAMPLE, or a sample IS loaded for this source)
+   *
+   * @param hasSample true if a sample audio file is loaded for this source (C:
+   *     sources[s].hasAtLeastOneAudioFileLoaded())
+   */
+  public boolean isSourceActiveCurrently(int s, boolean hasSample) {
+    boolean ampActive =
+        (synthMode == 2) // RINGMOD
+            || patchedParamValues[Param.LOCAL_OSC_A_VOLUME + s] != Integer.MIN_VALUE;
+    boolean typeActive =
+        (synthMode == 1) // FM
+            || oscTypes[s] != OscType.SAMPLE
+            || hasSample;
+    return ampActive && typeActive;
+  }
+
   private static void addCable(Sound cfg, PatchSource source, int paramId, int amount) {
     Patcher.PatchCable cable = new Patcher.PatchCable();
     cable.source = source.ordinal();

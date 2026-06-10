@@ -538,6 +538,11 @@ public class Voice {
       // SUBTRACTIVE (voice.cpp:1042-1049): source-volume scaling applied during osc render
       // (>>4 no-filter, or *filterGain with filter); overallOscAmplitude applied AFTER the filter.
       for (int s = 0; s < 2; s++) {
+        // C: voice.cpp:1189 — isSourceActiveCurrently(s): skip sample sources that have no
+        // audio file loaded. Without this, a sample-less drum renders silence through the osc
+        // path (or worse, falls through to osc B which IS active).
+        if (!sound.isSourceActiveCurrently(s, sources[s].sampleRef != null)) continue;
+
         int srcAmp =
             hasFilters
                 ? Functions.multiply_32x32_rshift32_rounded(
