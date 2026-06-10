@@ -28,7 +28,8 @@ public final class Dx7Tables {
   // ── sin / tanh / freq tables (engine.h:34-51; SIN_DELTA defined) ──
   static final int SIN_LG_N_SAMPLES = 10;
   static final int SIN_N_SAMPLES = 1 << SIN_LG_N_SAMPLES;
-  public static final int[] SIN_TAB = new int[SIN_N_SAMPLES << 1]; // SIN_DELTA: interleaved delta+value
+  public static final int[] SIN_TAB =
+      new int[SIN_N_SAMPLES << 1]; // SIN_DELTA: interleaved delta+value
 
   static final int TANH_LG_N_SAMPLES = 10;
   static final int TANH_N_SAMPLES = 1 << TANH_LG_N_SAMPLES;
@@ -42,7 +43,8 @@ public final class Dx7Tables {
   static final int MAX_LOGFREQ_INT = 20; // math_lut.cpp:95
 
   static {
-    // Port of exp2_init(): build 2^x table for x in [0, 1). C: double y = 1 << 30; (math_lut.cpp:28)
+    // Port of exp2_init(): build 2^x table for x in [0, 1). C: double y = 1 << 30;
+    // (math_lut.cpp:28)
     // exp2Lookup then does `y >> (6 - (x>>24))`, bringing the 2^30-scale table to Q24 output.
     double inc = Math.pow(2.0, 1.0 / EXP2_N_SAMPLES);
     double y = 1 << 30;

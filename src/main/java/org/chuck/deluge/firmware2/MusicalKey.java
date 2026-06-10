@@ -1,9 +1,9 @@
 package org.chuck.deluge.firmware2;
 
 /**
- * Faithful port of {@code model/scale/musical_key.h}/{@code .cpp} plus the subset of
- * {@code model/scale/note_set} the arpeggiator chord path uses. A {@link NoteSet} is a 12-bit
- * semitone set; {@link MusicalKey} is that set plus a root note.
+ * Faithful port of {@code model/scale/musical_key.h}/{@code .cpp} plus the subset of {@code
+ * model/scale/note_set} the arpeggiator chord path uses. A {@link NoteSet} is a 12-bit semitone
+ * set; {@link MusicalKey} is that set plus a root note.
  */
 public class MusicalKey {
 

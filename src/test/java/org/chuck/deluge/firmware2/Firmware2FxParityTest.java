@@ -81,7 +81,8 @@ class Firmware2FxParityTest {
   @Test
   void modFxMatchesFirmware() {
     // Only the SINE-LFO types (CHORUS, PHASER) can be parity-checked against firmware/. FLANGER and
-    // DIMENSION use the TRIANGLE LFO, where firmware/'s LFO uses a non-faithful inline approximation
+    // DIMENSION use the TRIANGLE LFO, where firmware/'s LFO uses a non-faithful inline
+    // approximation
     // ((abs(phase)-2^30)<<1) instead of the C getTriangle (waves.h:53, slope*phase+offset) that fw2
     // ports — so fw2 is the faithful one there and intentionally differs from firmware/. WARBLE +
     // the stereo path are likewise more faithful in fw2 (see ModFx).
@@ -111,25 +112,25 @@ class Firmware2FxParityTest {
   }
 
   /**
-   * The compressor CANNOT be parity-checked against firmware/, because firmware/ is the non-faithful
-   * side here (like the modFX triangle LFO above). Its {@code getTanHAntialiased} — used per output
-   * sample by RMSFeedbackCompressor::render — diverges from the C in TWO ways:
+   * The compressor CANNOT be parity-checked against firmware/, because firmware/ is the
+   * non-faithful side here (like the modFX triangle LFO above). Its {@code getTanHAntialiased} —
+   * used per output sample by RMSFeedbackCompressor::render — diverges from the C in TWO ways:
    *
    * <ol>
-   *   <li><b>interpolateTableSigned2d scaling.</b> The C (util/functions.h:235) documents "Output of
-   *       this function (unlike the regular 1d one) is only +- 1073741824": it blends with 31-bit
-   *       strengths and {@code multiply_32x32_rshift32} (half-scale). firmware/ blends with 16-bit
-   *       strengths and {@code >> 16}, giving exactly 2× the C value (full-scale, ±2^31). fw2 ports
-   *       the C verbatim. This test PROVES it: fw2 stays within the documented ±1073741824 bound,
-   *       firmware/ runs to ~2^31.
-   *   <li><b>working-value init.</b> C (rms_feedback.cpp:68-69) seeds
-   *       {@code lshiftAndSaturateUnknown(buffer[0], 3) + 2147483648u}; firmware/ uses
-   *       {@code lshiftAndSaturate(...) + 2147483647} (off by one), which for a saturating sample
-   *       wraps 0 → -1, selecting tanH2d row 63 instead of row 0 — a sign flip on sample 0.
+   *   <li><b>interpolateTableSigned2d scaling.</b> The C (util/functions.h:235) documents "Output
+   *       of this function (unlike the regular 1d one) is only +- 1073741824": it blends with
+   *       31-bit strengths and {@code multiply_32x32_rshift32} (half-scale). firmware/ blends with
+   *       16-bit strengths and {@code >> 16}, giving exactly 2× the C value (full-scale, ±2^31).
+   *       fw2 ports the C verbatim. This test PROVES it: fw2 stays within the documented
+   *       ±1073741824 bound, firmware/ runs to ~2^31.
+   *   <li><b>working-value init.</b> C (rms_feedback.cpp:68-69) seeds {@code
+   *       lshiftAndSaturateUnknown(buffer[0], 3) + 2147483648u}; firmware/ uses {@code
+   *       lshiftAndSaturate(...) + 2147483647} (off by one), which for a saturating sample wraps 0
+   *       → -1, selecting tanH2d row 63 instead of row 0 — a sign flip on sample 0.
    * </ol>
    *
-   * fw2's Compressor matches the C on both. So instead of comparing to the buggy firmware/, we assert
-   * the C contract that fw2 must honor and firmware/ breaks.
+   * fw2's Compressor matches the C on both. So instead of comparing to the buggy firmware/, we
+   * assert the C contract that fw2 must honor and firmware/ breaks.
    */
   @Test
   void compressorInterp2dHonorsCContract() {
@@ -155,25 +156,25 @@ class Firmware2FxParityTest {
   }
 
   /**
-   * Digital + analog + synced delay parity was verified sample-for-sample against firmware/ before the
-   * firmware/dsp/delay package was deleted (commits f28f845d..f328eafa, 3 tests). The fw2 Delay is proven
-   * faithful; the now-deleted firmware/ delay was the oracle. No replacement test is needed — the Delay
-   * self-tests cover the full path.
+   * Digital + analog + synced delay parity was verified sample-for-sample against firmware/ before
+   * the firmware/dsp/delay package was deleted (commits f28f845d..f328eafa, 3 tests). The fw2 Delay
+   * is proven faithful; the now-deleted firmware/ delay was the oracle. No replacement test is
+   * needed — the Delay self-tests cover the full path.
    */
 
   /**
    * Sidechain envelope (integer). Exercises registerHit (incl. combineHitStrengths — fw2 previously
    * approximated it as max(a,b); C and firmware/ do (maxOne>>1)+(sum>>1)) then the attack/release
-   * curve. syncLevel 0 (NONE) so getActualAttackRate/Release return attack/release directly, matching
-   * firmware/'s raw-rate render.
+   * curve. syncLevel 0 (NONE) so getActualAttackRate/Release return attack/release directly,
+   * matching firmware/'s raw-rate render.
    *
-   * <p>shapeValue is kept STRICTLY NEGATIVE: the C (sidechain.cpp:181) computes
-   * {@code uint32_t positiveShapeValue = (uint32_t)shapeValue + 2147483648} then an unsigned
-   * {@code >> 15}. firmware/ does this with a signed int and so is only faithful for shapeValue < 0
-   * (for shapeValue >= 0 the +2^31 overflows int negative — a firmware/ bug). fw2 previously had the
-   * opposite bug (long without the uint32 wrap, wrong for shapeValue < 0); now fixed to
-   * {@code (shapeValue + 0x80000000) >>> 15}, faithful for ALL shapeValues. With a negative shapeValue
-   * all three (fw2, firmware/, C) agree, so this is a genuine 3-way parity check of the render path.
+   * <p>shapeValue is kept STRICTLY NEGATIVE: the C (sidechain.cpp:181) computes {@code uint32_t
+   * positiveShapeValue = (uint32_t)shapeValue + 2147483648} then an unsigned {@code >> 15}.
+   * firmware/ does this with a signed int and so is only faithful for shapeValue < 0 (for
+   * shapeValue >= 0 the +2^31 overflows int negative — a firmware/ bug). fw2 previously had the
+   * opposite bug (long without the uint32 wrap, wrong for shapeValue < 0); now fixed to {@code
+   * (shapeValue + 0x80000000) >>> 15}, faithful for ALL shapeValues. With a negative shapeValue all
+   * three (fw2, firmware/, C) agree, so this is a genuine 3-way parity check of the render path.
    */
   @Test
   void sidechainMatchesFirmware() {
@@ -219,7 +220,10 @@ class Firmware2FxParityTest {
       int s2 = r.nextInt(Integer.MAX_VALUE);
       long sum = Math.min((long) s1 + s2, 2147483647L); // C: uint32 sum capped at ONE_Q31
       int expected = (Math.max(s1, s2) >> 1) + (int) (sum >>> 1);
-      assertEquals(expected, Sidechain.combineHitStrengths(s1, s2), "combineHitStrengths(" + s1 + "," + s2 + ")");
+      assertEquals(
+          expected,
+          Sidechain.combineHitStrengths(s1, s2),
+          "combineHitStrengths(" + s1 + "," + s2 + ")");
     }
   }
 
@@ -242,15 +246,18 @@ class Firmware2FxParityTest {
       fill(r, a, b);
       org.chuck.deluge.firmware.dsp.StereoFloatSample outOld = oldF.calcApproxRMS(a);
       float[] outNew = newF.calcApproxRMS(b);
-      org.junit.jupiter.api.Assertions.assertEquals(outOld.l, outNew[0], 1e-3f, "AbsRMS L block " + blk);
-      org.junit.jupiter.api.Assertions.assertEquals(outOld.r, outNew[1], 1e-3f, "AbsRMS R block " + blk);
+      org.junit.jupiter.api.Assertions.assertEquals(
+          outOld.l, outNew[0], 1e-3f, "AbsRMS L block " + blk);
+      org.junit.jupiter.api.Assertions.assertEquals(
+          outOld.r, outNew[1], 1e-3f, "AbsRMS R block " + blk);
     }
   }
 
   /**
    * GranularProcessor.toPositive must be the C {@code (a / 2) + 2^30} (fixedpoint.h:37) — signed
-   * truncating division, not {@code >> 1}. fw2 previously did {@code (val & 0xFFFFFFFFL) >> 1}, which
-   * is wrong for every negative input. Check the C formula across the full int range incl. negatives.
+   * truncating division, not {@code >> 1}. fw2 previously did {@code (val & 0xFFFFFFFFL) >> 1},
+   * which is wrong for every negative input. Check the C formula across the full int range incl.
+   * negatives.
    */
   @Test
   void granularToPositiveMatchesC() {
@@ -266,10 +273,10 @@ class Firmware2FxParityTest {
   }
 
   /**
-   * The DIGITAL reverb (digital.hpp Lexicon-224 topology) used to silently alias the MUTABLE model in
-   * fw2. Now that it's its own port, prove it (a) produces a non-silent tail and (b) is distinct from
-   * MUTABLE for the same input/params. Self-contained — no firmware/ oracle (firmware/ reverb differs
-   * from the C, see Freeverb note).
+   * The DIGITAL reverb (digital.hpp Lexicon-224 topology) used to silently alias the MUTABLE model
+   * in fw2. Now that it's its own port, prove it (a) produces a non-silent tail and (b) is distinct
+   * from MUTABLE for the same input/params. Self-contained — no firmware/ oracle (firmware/ reverb
+   * differs from the C, see Freeverb note).
    */
   @Test
   void digitalReverbIsDistinctFromMutable() {
@@ -282,7 +289,8 @@ class Firmware2FxParityTest {
       energyDigital += Math.abs((long) outDigital[i]);
       if (outDigital[i] != outMutable[i]) differs = true;
     }
-    org.junit.jupiter.api.Assertions.assertTrue(energyDigital > 0, "DIGITAL reverb produced silence");
+    org.junit.jupiter.api.Assertions.assertTrue(
+        energyDigital > 0, "DIGITAL reverb produced silence");
     org.junit.jupiter.api.Assertions.assertTrue(
         differs, "DIGITAL output identical to MUTABLE — DIGITAL is still aliased");
   }
@@ -335,7 +343,7 @@ class Firmware2FxParityTest {
       for (int t = 0; t < 500; t++) {
         int oscPos = r.nextInt(1 << 24); // 0..2^24 → progressSmall = oscPos>>>20 in 0..15
         int strength2 = (oscPos >>> 5) & 0x7FFF; // C:11,17,23 (rshiftAmount=5)
-        int progressSmall = oscPos >>> 20;       // C:25
+        int progressSmall = oscPos >>> 20; // C:25
         short[] k1 = SincInterpolator.WINDOWED_SINC_KERNEL[kern][progressSmall];
         short[] k2 = SincInterpolator.WINDOWED_SINC_KERNEL[kern][progressSmall + 1];
         int sumL = 0;

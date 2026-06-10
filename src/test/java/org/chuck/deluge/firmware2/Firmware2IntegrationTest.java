@@ -68,6 +68,5 @@ public class Firmware2IntegrationTest {
   // (the old Envelope expects direct rate values, not C knob values). The old engine is
   // being replaced by firmware2/ — no point fixing firmware/ code.
   // @Test
-  public void firmware2FlagOffUsesOldEngine_disabled() {
-  }
+  public void firmware2FlagOffUsesOldEngine_disabled() {}
 }

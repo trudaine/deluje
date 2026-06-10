@@ -1,16 +1,19 @@
 package org.chuck.deluge.firmware2;
 
 /**
- * Verbatim port of the Deluge DX7 "Mark I" engine ({@code dsp/dx/EngineMkI.cpp} / {@code EngineMkI.h}).
+ * Verbatim port of the Deluge DX7 "Mark I" engine ({@code dsp/dx/EngineMkI.cpp} / {@code
+ * EngineMkI.h}).
  *
- * <p>An alternate FM engine to the modern MSFA core ({@link FmCore}). The fundamental difference: the
- * operator gain is the ENV (Q14, {@code ENV_MAX = 1<<14}) applied in the LOG domain via {@link #mkiSin}
- * (a Yamaha-style log/exp sine), not the linear Q24 gain that {@code FmCore}/MSFA uses. {@code mkiSin}
- * adds the ENV to the log-sine then exponentiates. Used for vintage mode and the algo-4/6 feedback loops.
+ * <p>An alternate FM engine to the modern MSFA core ({@link FmCore}). The fundamental difference:
+ * the operator gain is the ENV (Q14, {@code ENV_MAX = 1<<14}) applied in the LOG domain via {@link
+ * #mkiSin} (a Yamaha-style log/exp sine), not the linear Q24 gain that {@code FmCore}/MSFA uses.
+ * {@code mkiSin} adds the ENV to the log-sine then exponentiates. Used for vintage mode and the
+ * algo-4/6 feedback loops.
  *
- * <p>In C, {@code EngineMkI : FmCore} overrides {@code render()} (virtual dispatch via {@code DxPatch.core}).
- * Here it is a static class; {@code Dx7Voice} selects {@code EngineMkI.render} vs {@code FmCore.render}.
- * Shares {@code FmCore.ALGORITHMS}, {@code FmOpParams}, {@code OUT_BUS_ADD}, {@code DX_MAX_N}.
+ * <p>In C, {@code EngineMkI : FmCore} overrides {@code render()} (virtual dispatch via {@code
+ * DxPatch.core}). Here it is a static class; {@code Dx7Voice} selects {@code EngineMkI.render} vs
+ * {@code FmCore.render}. Shares {@code FmCore.ALGORITHMS}, {@code FmOpParams}, {@code OUT_BUS_ADD},
+ * {@code DX_MAX_N}.
  */
 public final class EngineMkI {
   private EngineMkI() {}
@@ -60,8 +63,7 @@ public final class EngineMkI {
 
   // mkiSin (EngineMkI.cpp:80-97). phase Q?, env = uint16 (gain in log domain).
   static int mkiSin(int phase, int env) {
-    int expVal =
-        (sinLog((phase >> (22 - SINLOG_BITDEPTH)) & 0xFFFF) + (env & 0xFFFF)) & 0xFFFF;
+    int expVal = (sinLog((phase >> (22 - SINLOG_BITDEPTH)) & 0xFFFF) + (env & 0xFFFF)) & 0xFFFF;
     boolean isSigned = (expVal & NEGATIVE_BIT) != 0;
     expVal &= ~NEGATIVE_BIT;
     int result = 4096 + sinExpTable[(expVal & 0x3FF) ^ 0x3FF];
@@ -74,8 +76,17 @@ public final class EngineMkI {
 
   // EngineMkI::compute (EngineMkI.cpp:99-111)
   private static void compute(
-      int[] output, int off, int n, int[] input, int inOff, int phase0, int freq, int gain1,
-      int gain2, int dgain, boolean add) {
+      int[] output,
+      int off,
+      int n,
+      int[] input,
+      int inOff,
+      int phase0,
+      int freq,
+      int gain1,
+      int gain2,
+      int dgain,
+      boolean add) {
     int gain = gain1;
     int phase = phase0;
     for (int i = 0; i < n; i++) {
@@ -88,7 +99,14 @@ public final class EngineMkI {
 
   // EngineMkI::compute_pure (EngineMkI.cpp:113-125)
   private static void computePure(
-      int[] output, int off, int n, int phase0, int freq, int gain1, int gain2, int dgain,
+      int[] output,
+      int off,
+      int n,
+      int phase0,
+      int freq,
+      int gain1,
+      int gain2,
+      int dgain,
       boolean add) {
     int gain = gain1;
     int phase = phase0;
@@ -102,8 +120,17 @@ public final class EngineMkI {
 
   // EngineMkI::compute_fb (EngineMkI.cpp:127-147)
   private static void computeFb(
-      int[] output, int off, int n, int phase0, int freq, int gain1, int gain2, int dgain,
-      int[] fbBuf, int fbShift, boolean add) {
+      int[] output,
+      int off,
+      int n,
+      int phase0,
+      int freq,
+      int gain1,
+      int gain2,
+      int dgain,
+      int[] fbBuf,
+      int fbShift,
+      boolean add) {
     int gain = gain1;
     int phase = phase0;
     int y0 = fbBuf[0];
@@ -122,8 +149,15 @@ public final class EngineMkI {
 
   // EngineMkI::compute_fb2 — ALGO 6, two-operator feedback (EngineMkI.cpp:149-186)
   private static void computeFb2(
-      int[] output, int off, int n, FmCore.FmOpParams[] parms, int gain01, int gain02, int dgain0,
-      int[] fbBuf, int fbShift) {
+      int[] output,
+      int off,
+      int n,
+      FmCore.FmOpParams[] parms,
+      int gain01,
+      int gain02,
+      int dgain0,
+      int[] fbBuf,
+      int fbShift) {
     int[] dgain = new int[2];
     int[] gain = new int[2];
     int[] phase = new int[2];
@@ -163,8 +197,15 @@ public final class EngineMkI {
 
   // EngineMkI::compute_fb3 — ALGO 4, three-operator feedback (EngineMkI.cpp:188-235)
   private static void computeFb3(
-      int[] output, int off, int n, FmCore.FmOpParams[] parms, int gain01, int gain02, int dgain0,
-      int[] fbBuf, int fbShift) {
+      int[] output,
+      int off,
+      int n,
+      FmCore.FmOpParams[] parms,
+      int gain01,
+      int gain02,
+      int dgain0,
+      int[] fbBuf,
+      int fbShift) {
     int[] dgain = new int[3];
     int[] gain = new int[3];
     int[] phase = new int[3];
@@ -213,7 +254,11 @@ public final class EngineMkI {
 
   // EngineMkI::render (EngineMkI.cpp:237-316)
   public static void render(
-      int[] output, int n, FmCore.FmOpParams[] params, int algorithm, int[] fbBuf,
+      int[] output,
+      int n,
+      FmCore.FmOpParams[] params,
+      int algorithm,
+      int[] fbBuf,
       int feedbackShift) {
     final int kLevelThresh = ENV_MAX - 100;
     int[] alg = FmCore.ALGORITHMS[algorithm].clone(); // FmAlgorithm copy (we may mutate ops[0])
@@ -259,7 +304,14 @@ public final class EngineMkI {
             switch (algorithm) {
               case 3: // three-operator feedback, ALGO 4
                 computeFb3(
-                    outptr, outOff, n, params, gain1, gain2, dgain, fbBuf,
+                    outptr,
+                    outOff,
+                    n,
+                    params,
+                    gain1,
+                    gain2,
+                    dgain,
+                    fbBuf,
                     Math.min(feedbackShift + 2, 16));
                 params[1].phase += params[1].freq * n; // already processed op-5 - op-4
                 params[2].phase += params[2].freq * n;
@@ -267,20 +319,45 @@ public final class EngineMkI {
                 break;
               case 5: // two-operator feedback, ALGO 6
                 computeFb2(
-                    outptr, outOff, n, params, gain1, gain2, dgain, fbBuf,
+                    outptr,
+                    outOff,
+                    n,
+                    params,
+                    gain1,
+                    gain2,
+                    dgain,
+                    fbBuf,
                     Math.min(feedbackShift + 2, 16));
                 params[1].phase += params[1].freq * n;
                 op++; // ignore next operator
                 break;
               case 31: // one-operator feedback, ALGO 32
                 computeFb(
-                    outptr, outOff, n, param.phase, param.freq, gain1, gain2, dgain, fbBuf,
-                    Math.min(feedbackShift + 2, 16), add);
+                    outptr,
+                    outOff,
+                    n,
+                    param.phase,
+                    param.freq,
+                    gain1,
+                    gain2,
+                    dgain,
+                    fbBuf,
+                    Math.min(feedbackShift + 2, 16),
+                    add);
                 break;
               default: // one-operator feedback, normal
                 computeFb(
-                    outptr, outOff, n, param.phase, param.freq, gain1, gain2, dgain, fbBuf,
-                    feedbackShift, add);
+                    outptr,
+                    outOff,
+                    n,
+                    param.phase,
+                    param.freq,
+                    gain1,
+                    gain2,
+                    dgain,
+                    fbBuf,
+                    feedbackShift,
+                    add);
                 break;
             }
           } else {
@@ -288,7 +365,16 @@ public final class EngineMkI {
           }
         } else {
           compute(
-              outptr, outOff, n, buf[inbus - 1], 0, param.phase, param.freq, gain1, gain2, dgain,
+              outptr,
+              outOff,
+              n,
+              buf[inbus - 1],
+              0,
+              param.phase,
+              param.freq,
+              gain1,
+              gain2,
+              dgain,
               add);
         }
 

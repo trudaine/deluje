@@ -1,27 +1,28 @@
 package org.chuck.deluge.firmware2;
 
 /**
- * Faithful standalone port of {@code dsp/delay/delay_buffer.{cpp,h}} (191 + 309 lines): the resampling
- * ring buffer used by the delay engine AND the stutterer. The C uses {@code StereoSample*} pointers;
- * fw2 uses {@code int[][]} ({@code [l, r]} per frame), matching the fw2 DSP convention.
+ * Faithful standalone port of {@code dsp/delay/delay_buffer.{cpp,h}} (191 + 309 lines): the
+ * resampling ring buffer used by the delay engine AND the stutterer. The C uses {@code
+ * StereoSample*} pointers; fw2 uses {@code int[][]} ({@code [l, r]} per frame), matching the fw2
+ * DSP convention.
  *
- * <p>Extracted from the Delay inner class so Stutterer can also import it without depending on the full
- * delay engine — the last blocker to deleting {@code firmware/dsp/delay/}.
+ * <p>Extracted from the Delay inner class so Stutterer can also import it without depending on the
+ * full delay engine — the last blocker to deleting {@code firmware/dsp/delay/}.
  */
 public class DelayBuffer {
 
-  public static final int K_MAX_SIZE = 88200;         // C: delay_buffer.h:32
-  public static final int K_MIN_SIZE = 1;              // C:33
-  public static final int K_NEUTRAL_SIZE = 16384;      // C:34
+  public static final int K_MAX_SIZE = 88200; // C: delay_buffer.h:32
+  public static final int K_MIN_SIZE = 1; // C:33
+  public static final int K_NEUTRAL_SIZE = 16384; // C:34
   public static final int DELAY_SPACE_BETWEEN_READ_AND_WRITE = 20; // C:28
   public static final int K_MAX_SAMPLE_VALUE = 16777216; // 1 << 24
 
   // ── ResampleConfig (delay_buffer.h:289-295) ──
 
   static class ResampleConfig {
-    int actualSpinRate;           // 1 is represented as 16777216
+    int actualSpinRate; // 1 is represented as 16777216
     int spinRateForSpedUpWriting; // subject to some limits for safety
-    int divideByRate;             // 1 is represented as 65536
+    int divideByRate; // 1 is represented as 65536
     int rateMultiple;
     int writeSizeAdjustment;
   }
@@ -29,18 +30,22 @@ public class DelayBuffer {
   // ── State (delay_buffer.h:283-308) ──
 
   private int nativeRate;
-  private int[][] buffer;         // [l, r] per frame (C: StereoSample* start_)
-  private int endOffset;          // C: end_
-  private int currentOffset;      // C: current_
-  public int sizeIncludingExtra;         // C:286 (public in C for the stutterer)
-  private int bufferSize;         // C: size_
+  private int[][] buffer; // [l, r] per frame (C: StereoSample* start_)
+  private int endOffset; // C: end_
+  private int currentOffset; // C: current_
+  public int sizeIncludingExtra; // C:286 (public in C for the stutterer)
+  private int bufferSize; // C: size_
 
-  public int longPos;             // C:283 (uint32)
-  public int lastShortPos;        // C:284 (uint8)
+  public int longPos; // C:283 (uint32)
+  public int lastShortPos; // C:284 (uint8)
 
   public ResampleConfig resampleConfig;
 
-  public enum Error { NONE, UNSPECIFIED, INSUFFICIENT_RAM }
+  public enum Error {
+    NONE,
+    UNSPECIFIED,
+    INSUFFICIENT_RAM
+  }
 
   // ── init (delay_buffer.cpp:26-56) ──
 
@@ -61,7 +66,8 @@ public class DelayBuffer {
       makeNativeRatePrecise(); // C:41-43
     }
 
-    this.sizeIncludingExtra = this.bufferSize + (includeExtraSpace ? DELAY_SPACE_BETWEEN_READ_AND_WRITE : 0); // C:45
+    this.sizeIncludingExtra =
+        this.bufferSize + (includeExtraSpace ? DELAY_SPACE_BETWEEN_READ_AND_WRITE : 0); // C:45
 
     try {
       this.buffer = new int[this.sizeIncludingExtra][2]; // C:47 — allocLowSpeed
@@ -82,7 +88,9 @@ public class DelayBuffer {
 
   /** C: delay_buffer.cpp:58-62 */
   public void clear() {
-    for (int i = 0; i < DELAY_SPACE_BETWEEN_READ_AND_WRITE + 2; i++) { // C:59 — memset first N slots
+    for (int i = 0;
+        i < DELAY_SPACE_BETWEEN_READ_AND_WRITE + 2;
+        i++) { // C:59 — memset first N slots
       buffer[i][0] = 0;
       buffer[i][1] = 0;
     }
@@ -113,17 +121,24 @@ public class DelayBuffer {
   /** C: delay_buffer.cpp:82-84 */
   public void makeNativeRatePrecise() {
     this.nativeRate =
-        (int) Math.round((double) K_NEUTRAL_SIZE * (double) K_MAX_SAMPLE_VALUE / (double) this.bufferSize);
+        (int)
+            Math.round(
+                (double) K_NEUTRAL_SIZE * (double) K_MAX_SAMPLE_VALUE / (double) this.bufferSize);
   }
 
   /** C: delay_buffer.cpp:86-90 */
   public void makeNativeRatePreciseRelativeToOtherBuffer(DelayBuffer otherBuffer) {
     double otherBufferAmountTooFast =
-        (double) otherBuffer.nativeRate * (double) otherBuffer.bufferSize
+        (double) otherBuffer.nativeRate
+            * (double) otherBuffer.bufferSize
             / ((double) K_NEUTRAL_SIZE * (double) K_MAX_SAMPLE_VALUE);
     this.nativeRate =
-        (int) Math.round((double) K_NEUTRAL_SIZE * (double) K_MAX_SAMPLE_VALUE * otherBufferAmountTooFast
-            / (double) this.bufferSize);
+        (int)
+            Math.round(
+                (double) K_NEUTRAL_SIZE
+                    * (double) K_MAX_SAMPLE_VALUE
+                    * otherBufferAmountTooFast
+                    / (double) this.bufferSize);
   }
 
   // ── discard / invalidate / isActive (delay_buffer.cpp:92-97, h:42,80) ──
@@ -227,28 +242,30 @@ public class DelayBuffer {
 
   // ── advance / retreat (delay_buffer.h:50-74) ──
 
-  /** C: delay_buffer.h:50-61 — advance by actualSpinRate, invoke callback at each 256-step boundary. */
+  /**
+   * C: delay_buffer.h:50-61 — advance by actualSpinRate, invoke callback at each 256-step boundary.
+   */
   public int advance(Runnable callback) {
     longPos += resampleConfig.actualSpinRate; // C:51
-    int newShortPos = longPos >>> 24;          // C:52 (uint8)
+    int newShortPos = longPos >>> 24; // C:52 (uint8)
     int shortPosDiff = (newShortPos - lastShortPos) & 0xFF; // C:53
-    lastShortPos = (byte) newShortPos;        // C:54
-    while (shortPosDiff-- > 0) {              // C:56-59
+    lastShortPos = (byte) newShortPos; // C:54
+    while (shortPosDiff-- > 0) { // C:56-59
       callback.run();
     }
-    return (longPos >>> 8) & 65535;           // C:60
+    return (longPos >>> 8) & 65535; // C:60
   }
 
   /** C: delay_buffer.h:63-74 — retreat by actualSpinRate. */
   public int retreat(Runnable callback) {
     longPos -= resampleConfig.actualSpinRate; // C:64
-    int newShortPos = longPos >>> 24;          // C:65
+    int newShortPos = longPos >>> 24; // C:65
     int shortPosDiff = (lastShortPos - newShortPos) & 0xFF; // C:66
-    lastShortPos = (byte) newShortPos;        // C:67
-    while (shortPosDiff-- > 0) {              // C:69-71
+    lastShortPos = (byte) newShortPos; // C:67
+    while (shortPosDiff-- > 0) { // C:69-71
       callback.run();
     }
-    return (longPos >>> 8) & 65535;           // C:73
+    return (longPos >>> 8) & 65535; // C:73
   }
 
   // ── writeResampled (delay_buffer.h:142-265) ──
@@ -262,19 +279,25 @@ public class DelayBuffer {
       return;
     }
     if (resampleConfig.actualSpinRate >= K_MAX_SAMPLE_VALUE) { // C:147 — spinning fast
-      int howFarRightToStart = (strength2 + (resampleConfig.spinRateForSpedUpWriting >>> 8)) >>> 16; // C:158
+      int howFarRightToStart =
+          (strength2 + (resampleConfig.spinRateForSpedUpWriting >>> 8)) >>> 16; // C:158
       int distanceFromMainWrite = howFarRightToStart << 16; // C:162
 
-      int writePos = currentOffset - DELAY_SPACE_BETWEEN_READ_AND_WRITE + howFarRightToStart; // C:165
-      while (writePos < 0) writePos += sizeIncludingExtra;   // C:166-168
+      int writePos =
+          currentOffset - DELAY_SPACE_BETWEEN_READ_AND_WRITE + howFarRightToStart; // C:165
+      while (writePos < 0) writePos += sizeIncludingExtra; // C:166-168
       while (writePos >= endOffset) writePos -= sizeIncludingExtra;
 
       // Right of the main write pos (C:174-187)
       while (distanceFromMainWrite != 0) {
         int strengthThisWrite =
-            (0xFFFFFFFF >>> 4) - (((distanceFromMainWrite - strength2) >>> 4) * resampleConfig.divideByRate); // C:176-177
-        buffer[writePos][0] += Functions.multiply_32x32_rshift32(sampleL, strengthThisWrite) << 3; // C:179
-        buffer[writePos][1] += Functions.multiply_32x32_rshift32(sampleR, strengthThisWrite) << 3; // C:180
+            (0xFFFFFFFF >>> 4)
+                - (((distanceFromMainWrite - strength2) >>> 4)
+                    * resampleConfig.divideByRate); // C:176-177
+        buffer[writePos][0] +=
+            Functions.multiply_32x32_rshift32(sampleL, strengthThisWrite) << 3; // C:179
+        buffer[writePos][1] +=
+            Functions.multiply_32x32_rshift32(sampleR, strengthThisWrite) << 3; // C:180
         writePos--;
         if (writePos < 0) writePos = endOffset - 1; // C:182-184
         distanceFromMainWrite -= 65536; // C:186
@@ -283,10 +306,14 @@ public class DelayBuffer {
       // Left of (and including) the main write pos (C:190-207)
       while (true) {
         int strengthThisWrite =
-            (0xFFFFFFFF >>> 4) - (((distanceFromMainWrite + strength2) >>> 4) * resampleConfig.divideByRate); // C:191-192
+            (0xFFFFFFFF >>> 4)
+                - (((distanceFromMainWrite + strength2) >>> 4)
+                    * resampleConfig.divideByRate); // C:191-192
         if (strengthThisWrite <= 0) break; // C:193-195
-        buffer[writePos][0] += Functions.multiply_32x32_rshift32(sampleL, strengthThisWrite) << 3; // C:197
-        buffer[writePos][1] += Functions.multiply_32x32_rshift32(sampleR, strengthThisWrite) << 3; // C:198
+        buffer[writePos][0] +=
+            Functions.multiply_32x32_rshift32(sampleL, strengthThisWrite) << 3; // C:197
+        buffer[writePos][1] +=
+            Functions.multiply_32x32_rshift32(sampleR, strengthThisWrite) << 3; // C:198
         writePos--;
         if (writePos < 0) writePos = endOffset - 1; // C:203-205
         distanceFromMainWrite += 65536; // C:206
@@ -305,11 +332,13 @@ public class DelayBuffer {
       while (true) { // C:244
         if (strength[i] > 0) { // C:245
           buffer[writePos][0] +=
-              Functions.multiply_32x32_rshift32(sampleL,
-                  (strength[i] >>> 2) * resampleConfig.writeSizeAdjustment) << 2; // C:246-248
+              Functions.multiply_32x32_rshift32(
+                      sampleL, (strength[i] >>> 2) * resampleConfig.writeSizeAdjustment)
+                  << 2; // C:246-248
           buffer[writePos][1] +=
-              Functions.multiply_32x32_rshift32(sampleR,
-                  (strength[i] >>> 2) * resampleConfig.writeSizeAdjustment) << 2; // C:249-251
+              Functions.multiply_32x32_rshift32(
+                      sampleR, (strength[i] >>> 2) * resampleConfig.writeSizeAdjustment)
+                  << 2; // C:249-251
         }
         if (--i < 0) break; // C:253-255
         writePos--;
@@ -350,9 +379,10 @@ public class DelayBuffer {
     }
 
     int actualSpinRate =
-        (int) ((((rate & 0xFFFFFFFFL) << 24) / (nativeRate & 0xFFFFFFFFL))); // C:143 (uint64 division)
-    int divideByRate =
-        (int) ((double) 0xFFFFFFFFL / (double) (actualSpinRate >>> 8)); // C:144
+        (int)
+            ((((rate & 0xFFFFFFFFL) << 24)
+                / (nativeRate & 0xFFFFFFFFL))); // C:143 (uint64 division)
+    int divideByRate = (int) ((double) 0xFFFFFFFFL / (double) (actualSpinRate >>> 8)); // C:144
 
     int spinRateForSpedUpWriting = 0;
     int rateMultiple = 0;
@@ -362,7 +392,9 @@ public class DelayBuffer {
       int timesSlowerRead = divideByRate >>> 16; // C:149
       rateMultiple = (actualSpinRate >>> 8) * (timesSlowerRead + 1); // C:154
       writeSizeAdjustment =
-          (int) ((double) 0xFFFFFFFFL / (double) ((long) rateMultiple * (timesSlowerRead + 1))); // C:163
+          (int)
+              ((double) 0xFFFFFFFFL
+                  / (double) ((long) rateMultiple * (timesSlowerRead + 1))); // C:163
     } else { // C:166 — spinning fast
       spinRateForSpedUpWriting = Math.min(actualSpinRate, K_MAX_SAMPLE_VALUE * 8); // C:171
       spinRateForSpedUpWriting <<= 1; // C:180

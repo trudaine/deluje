@@ -1,9 +1,9 @@
 package org.chuck.deluge.firmware2;
 
 /**
- * Verbatim port of the Deluge {@code PhaseIncrementFineTuner}
- * ({@code util/phase_increment_fine_tuner.cpp/.h}). Applies a cents-detune to a phase increment via
- * the {@code centAdjustTableSmall} lookup. {@code detuneScaled} is {@code cents * 42949672}.
+ * Verbatim port of the Deluge {@code PhaseIncrementFineTuner} ({@code
+ * util/phase_increment_fine_tuner.cpp/.h}). Applies a cents-detune to a phase increment via the
+ * {@code centAdjustTableSmall} lookup. {@code detuneScaled} is {@code cents * 42949672}.
  */
 public class PhaseIncrementFineTuner {
   private int multiplier;

@@ -36,6 +36,7 @@ public class Voice {
 
   /** Test seam: override osc1 initial phase. -2 = use random (default). */
   public static int testStartPhaseOverrideOsc1 = -2;
+
   /** Test seam: override osc2 initial phase. -2 = use random (default). */
   public static int testStartPhaseOverrideOsc2 = -2;
 
@@ -50,13 +51,22 @@ public class Voice {
 
   // ── MPE / expression (voice.h:59-61) ──
 
-  /** C: voice.h:59 — {@code std::bitset<kNumExpressionDimensions> expressionSourcesCurrentlySmoothing;}. */
+  /**
+   * C: voice.h:59 — {@code std::bitset<kNumExpressionDimensions>
+   * expressionSourcesCurrentlySmoothing;}.
+   */
   public int expressionSourcesCurrentlySmoothing;
 
-  /** C: voice.h:60 — {@code std::bitset<kNumExpressionDimensions> expressionSourcesFinalValueChanged;}. */
+  /**
+   * C: voice.h:60 — {@code std::bitset<kNumExpressionDimensions>
+   * expressionSourcesFinalValueChanged;}.
+   */
   public int expressionSourcesFinalValueChanged;
 
-  /** C: voice.h:61 — {@code std::array<int32_t, kNumExpressionDimensions> localExpressionSourceValuesBeforeSmoothing;}. */
+  /**
+   * C: voice.h:61 — {@code std::array<int32_t, kNumExpressionDimensions>
+   * localExpressionSourceValuesBeforeSmoothing;}.
+   */
   public final int[] localExpressionSourceValuesBeforeSmoothing = new int[3];
 
   // FM modulator state
@@ -121,7 +131,8 @@ public class Voice {
       voiceSample.setup(fw2Sample, startFrame, playDirection);
     }
 
-    public void setupSampleTimeStretch(Sample fw2Sample, int startFrame, int playDirection, int tsRatio) {
+    public void setupSampleTimeStretch(
+        Sample fw2Sample, int startFrame, int playDirection, int tsRatio) {
       sampleRef = fw2Sample;
       timeStretchRatio = tsRatio;
       voiceSample.setupTimeStretch(fw2Sample, startFrame, playDirection);
@@ -132,6 +143,7 @@ public class Voice {
 
   /**
    * C: voice.cpp:78-83 — combines synth-level and voice-level expression values.
+   *
    * <pre>
    * int32_t synthLevelValue = sound.monophonicExpressionValues[expressionDimension];
    * int32_t voiceLevelValue = this->localExpressionSourceValuesBeforeSmoothing[expressionDimension];
@@ -374,7 +386,8 @@ public class Voice {
         }
       }
     }
-    // C: voice.cpp:804 — expressionSourcesFinalValueChanged.reset() (done after patching would use it)
+    // C: voice.cpp:804 — expressionSourcesFinalValueChanged.reset() (done after patching would use
+    // it)
 
     // ── 3. Source values (velocity, note, random, sidechain) (voice.cpp:800-820) ──
     // (Note: velocity, note, random are already initialized in noteOn faithfully)
@@ -428,9 +441,11 @@ public class Voice {
     overallOscAmplitudeLastTime =
         Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(env0Gain, trackVol), 2);
 
-    // Prepare the filters and the makeup gain (voice.cpp:991-997). Configure ONCE here; filterGain is
+    // Prepare the filters and the makeup gain (voice.cpp:991-997). Configure ONCE here; filterGain
+    // is
     // folded into the per-source amplitudes below (subtractive), and overallOscAmplitude is applied
-    // AFTER the filter in applyFilterAndGain. "Level adjustment for unison happens *before* the filter."
+    // AFTER the filter in applyFilterAndGain. "Level adjustment for unison happens *before* the
+    // filter."
     FilterSet.FilterMode lpfModeVal = doLPF ? sound.lpfMode : FilterSet.FilterMode.OFF;
     FilterSet.FilterMode hpfModeVal = doHPF ? sound.hpfMode : FilterSet.FilterMode.OFF;
     int filterGain =
@@ -483,8 +498,20 @@ public class Voice {
             Functions.lshiftAndSaturate(paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH + s], 1);
         int[] phase = {sources[s].oscPos};
         Oscillator.renderOsc(
-            sound.oscTypes[s], 0, sourceBuf, s * numSamples, numSamples, pInc, pulseWidth, phase,
-            false, 0, false, 0, 0, 0);
+            sound.oscTypes[s],
+            0,
+            sourceBuf,
+            s * numSamples,
+            numSamples,
+            pInc,
+            pulseWidth,
+            phase,
+            false,
+            0,
+            false,
+            0,
+            0,
+            0);
         sources[s].oscPos = phase[0];
         // Sine/triangle come out bigger in fixed-amplitude rendering; compensate for the others.
         OscType ot = sound.oscTypes[s];
@@ -517,14 +544,21 @@ public class Voice {
         // Sample playback path (bypasses oscillator when a Sample is attached to this source).
         if (sources[s].sampleRef != null) {
           VoiceSample vs = sources[s].voiceSample;
-          int sampAmp = (srcAmp > 0) ? srcAmp : (paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s] >> 4);
+          int sampAmp =
+              (srcAmp > 0) ? srcAmp : (paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s] >> 4);
           if (vs.timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER]
               || vs.timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER]) {
             // ── Time-stretch path (two-head crossfade, pitch decoupled from speed) ──
             int[] tsBuf = new int[numSamples * 2]; // stereo
             int[] ampArr = {0};
-            vs.renderTimeStretched(tsBuf, numSamples, 2, pInc,
-                /*timeStretchRatio*/ sources[s].timeStretchRatio, ampArr, 0);
+            vs.renderTimeStretched(
+                tsBuf,
+                numSamples,
+                2,
+                pInc,
+                /*timeStretchRatio*/ sources[s].timeStretchRatio,
+                ampArr,
+                0);
             for (int i = 0; i < numSamples; i++) {
               int mono = (tsBuf[i * 2] + tsBuf[i * 2 + 1]) >> 1; // downmix to mono
               sourceBuf[s * numSamples + i] = Functions.multiply_32x32_rshift32(mono, sampAmp) << 2;
@@ -536,7 +570,8 @@ public class Voice {
             int[] ampArr = {0};
             vs.render(sampBuf, numSamples, 1, pInc, ampArr, 0);
             for (int i = 0; i < numSamples; i++) {
-              sourceBuf[s * numSamples + i] = Functions.multiply_32x32_rshift32(sampBuf[i], sampAmp) << 2;
+              sourceBuf[s * numSamples + i] =
+                  Functions.multiply_32x32_rshift32(sampBuf[i], sampAmp) << 2;
             }
             if (!vs.active) sources[s].active = false;
           }
@@ -546,7 +581,8 @@ public class Voice {
         if (srcAmp <= 0) continue;
         if (sound.oscTypes[s] == OscType.DX7) {
           // voice.cpp:2360-2387 — per-source DX7. adjpitch = (int)(log2f(phaseIncrement)*(1<<24)) -
-          // 278023814; ctrl.ampmod = LOCAL_OSC_A_PHASE_WIDTH[s] >> 13; dxVoice->compute(uniBuf,...);
+          // 278023814; ctrl.ampmod = LOCAL_OSC_A_PHASE_WIDTH[s] >> 13;
+          // dxVoice->compute(uniBuf,...);
           // then oscBuffer += multiply_32x32_rshift32(uniBuf[i], sourceAmplitude) << 6.
           if (dxVoice[s].patch == null && sound.sourceDx7Patch[s] != null) {
             // chuckjava sets oscType=DX7 per render block (after noteOn), so init the DxVoice here.
@@ -569,8 +605,20 @@ public class Voice {
         }
         int[] phase = {sources[s].oscPos};
         Oscillator.renderOsc(
-            sound.oscTypes[s], srcAmp, sourceBuf, s * numSamples, numSamples, pInc, 0, phase, true,
-            0, false, 0, 0, 0);
+            sound.oscTypes[s],
+            srcAmp,
+            sourceBuf,
+            s * numSamples,
+            numSamples,
+            pInc,
+            0,
+            phase,
+            true,
+            0,
+            false,
+            0,
+            0,
+            0);
         sources[s].oscPos = phase[0];
       }
       // Mix both sources into stereo (voices sum into both channels)
@@ -611,7 +659,8 @@ public class Voice {
 
   private int getModulatorInc(int m, int overallPitchAdjust) {
     // voice.cpp:533-553 — modulator phase increment from the note frequency table + the modulator's
-    // semitone transpose, then a cents detune. NOT carrierInc*ratio (that was a float reconstruction).
+    // semitone transpose, then a cents detune. NOT carrierInc*ratio (that was a float
+    // reconstruction).
     int modInc = calculateBasePhaseIncrement(noteCode + sound.modulatorTranspose[m]);
     if (modInc <= 0) return 0; // shiftRightAmount < 0 → too high; C marks it inactive
     modInc = sound.modulatorTransposers[m].detune(modInc); // cents
@@ -744,8 +793,10 @@ public class Voice {
   // ── Filter + gain application ──
 
   private void applyFilterAndGain(int[] stereoBuf, int numSamples, boolean doLPF, boolean doHPF) {
-    // The filter is already configured and its makeup gain (filterGain) already folded into the source
-    // amplitudes in render() (voice.cpp folds it into sourceAmplitudes, not the buffer). Here we just
+    // The filter is already configured and its makeup gain (filterGain) already folded into the
+    // source
+    // amplitudes in render() (voice.cpp folds it into sourceAmplitudes, not the buffer). Here we
+    // just
     // run the filter, then apply overallOscAmplitude AFTER the filter (non-FM) and pan.
     if (filterSet.isOn()) {
       filterSet.renderLongStereo(stereoBuf, numSamples);

@@ -1,21 +1,23 @@
 package org.chuck.deluge.firmware2;
 
 /**
- * Faithful port of the position/loop part of {@code model/sample/sample_playback_guide.{h,cpp}}: the
- * playback bounds (start/end byte) the time-stretcher uses. The transport-sync methods
- * ({@code getSyncedNumSamplesIn}, {@code getNumSamplesLaggingBehindSync},
- * {@code adjustPitchToCorrectDriftFromSync}) depend on {@code playbackHandler} and are deferred to a
- * seam to be added when {@code hopEnd} is ported (Phase B). {@code getFinalClusterIndex} is omitted
+ * Faithful port of the position/loop part of {@code model/sample/sample_playback_guide.{h,cpp}}:
+ * the playback bounds (start/end byte) the time-stretcher uses. The transport-sync methods ({@code
+ * getSyncedNumSamplesIn}, {@code getNumSamplesLaggingBehindSync}, {@code
+ * adjustPitchToCorrectDriftFromSync}) depend on {@code playbackHandler} and are deferred to a seam
+ * to be added when {@code hopEnd} is ported (Phase B). {@code getFinalClusterIndex} is omitted
  * (cluster-only, desktop is in-RAM).
  */
 public class SamplePlaybackGuide {
 
   /** C: sample_playback_guide.h:43 — +1 forwards, -1 reversed. */
   public int playDirection;
+
   /** C: sample_playback_guide.h:44 — null ⇒ this source isn't currently playing. */
   public SampleHolder audioFileHolder;
 
-  // C: sample_playback_guide.h:52-53 — byte offsets relative to the audio-file start (uint32). End is
+  // C: sample_playback_guide.h:52-53 — byte offsets relative to the audio-file start (uint32). End
+  // is
   // left of start when reversed.
   public int startPlaybackAtByte;
   public int endPlaybackAtByte;
@@ -45,28 +47,31 @@ public class SamplePlaybackGuide {
   }
 
   /**
-   * C: getSyncedNumSamplesIn (sample_playback_guide.cpp:88-108) — how many samples into the sample we
-   * should be for clip-synced playback. The C reads the tempo clock via {@code playbackHandler}; fw2 has
-   * no transport, so those three reads are injected here as a SEAM (a future transport integration
-   * passes them). The arithmetic is the faithful C (uint32 ticks → double).
+   * C: getSyncedNumSamplesIn (sample_playback_guide.cpp:88-108) — how many samples into the sample
+   * we should be for clip-synced playback. The C reads the tempo clock via {@code playbackHandler};
+   * fw2 has no transport, so those three reads are injected here as a SEAM (a future transport
+   * integration passes them). The arithmetic is the faithful C (uint32 ticks → double).
    *
    * @param currentInternalTickCount C: playbackHandler.getCurrentInternalTickCount() (uint32)
    * @param timeSinceLastInternalTick C: its out-param (uint32)
    * @param timePerInternalTick C: playbackHandler.getTimePerInternalTick() (uint32)
    */
-  public long getSyncedNumSamplesIn(int currentInternalTickCount, int timeSinceLastInternalTick,
-      int timePerInternalTick) {
+  public long getSyncedNumSamplesIn(
+      int currentInternalTickCount, int timeSinceLastInternalTick, int timePerInternalTick) {
     long lengthInSamples = audioFileHolder.getDurationInSamples(true); // C:90
-    int currentTickWithinSample = currentInternalTickCount - sequenceSyncStartedAtTick; // C:94-95 (uint32)
+    int currentTickWithinSample =
+        currentInternalTickCount - sequenceSyncStartedAtTick; // C:94-95 (uint32)
     if (Integer.compareUnsigned(timeSinceLastInternalTick, timePerInternalTick) >= 0) { // C:99
       timeSinceLastInternalTick = timePerInternalTick - 1; // C:100
     }
     // C:104-107 — note the uint32→double conversions.
-    return (long) ((((double) (lengthInSamples * (currentTickWithinSample & 0xFFFFFFFFL)))
-            + (double) (timeSinceLastInternalTick & 0xFFFFFFFFL) * (double) lengthInSamples
-                / (double) (timePerInternalTick & 0xFFFFFFFFL)
-            + (double) (sequenceSyncLengthTicks >>> 1))
-        / (double) (sequenceSyncLengthTicks & 0xFFFFFFFFL));
+    return (long)
+        ((((double) (lengthInSamples * (currentTickWithinSample & 0xFFFFFFFFL)))
+                + (double) (timeSinceLastInternalTick & 0xFFFFFFFFL)
+                    * (double) lengthInSamples
+                    / (double) (timePerInternalTick & 0xFFFFFFFFL)
+                + (double) (sequenceSyncLengthTicks >>> 1))
+            / (double) (sequenceSyncLengthTicks & 0xFFFFFFFFL));
   }
 
   /**
@@ -74,10 +79,14 @@ public class SamplePlaybackGuide {
    * position has drifted from where the clip-sync says it should be. {@code actualSamplePos} (C:
    * voiceSample->getPlaySample) and the clock reads are seams.
    */
-  public int getNumSamplesLaggingBehindSync(long actualSamplePos, int currentInternalTickCount,
-      int timeSinceLastInternalTick, int timePerInternalTick) {
+  public int getNumSamplesLaggingBehindSync(
+      long actualSamplePos,
+      int currentInternalTickCount,
+      int timeSinceLastInternalTick,
+      int timePerInternalTick) {
     long idealNumSamplesIn =
-        getSyncedNumSamplesIn(currentInternalTickCount, timeSinceLastInternalTick, timePerInternalTick); // C:112
+        getSyncedNumSamplesIn(
+            currentInternalTickCount, timeSinceLastInternalTick, timePerInternalTick); // C:112
     long idealSamplePos; // C:114-119
     if (playDirection == 1) {
       idealSamplePos = audioFileHolder.startPos + idealNumSamplesIn;
@@ -90,17 +99,26 @@ public class SamplePlaybackGuide {
   /**
    * C: adjustPitchToCorrectDriftFromSync (sample_playback_guide.cpp:126-144) — nudge the phase
    * increment to pull a clip back onto the external clock. {@code externalClockActive} (C:
-   * playbackHandler.isExternalClockActive) and {@code voiceHasClusters} (C: voiceSample->clusters[0])
-   * are seams; the clamp/shift is the verbatim C.
+   * playbackHandler.isExternalClockActive) and {@code voiceHasClusters} (C:
+   * voiceSample->clusters[0]) are seams; the clamp/shift is the verbatim C.
    */
-  public int adjustPitchToCorrectDriftFromSync(int phaseIncrement, boolean externalClockActive,
-      boolean voiceHasClusters, long actualSamplePos, int currentInternalTickCount,
-      int timeSinceLastInternalTick, int timePerInternalTick) {
+  public int adjustPitchToCorrectDriftFromSync(
+      int phaseIncrement,
+      boolean externalClockActive,
+      boolean voiceHasClusters,
+      long actualSamplePos,
+      int currentInternalTickCount,
+      int timeSinceLastInternalTick,
+      int timePerInternalTick) {
     if (!externalClockActive || !voiceHasClusters) { // C:130-132
       return phaseIncrement;
     }
-    int numSamplesLaggingBehindSync = getNumSamplesLaggingBehindSync(
-        actualSamplePos, currentInternalTickCount, timeSinceLastInternalTick, timePerInternalTick); // C:134
+    int numSamplesLaggingBehindSync =
+        getNumSamplesLaggingBehindSync(
+            actualSamplePos,
+            currentInternalTickCount,
+            timeSinceLastInternalTick,
+            timePerInternalTick); // C:134
     long newPhaseIncrement = phaseIncrement + ((long) numSamplesLaggingBehindSync << 9); // C:136
     if (newPhaseIncrement < 1) {
       newPhaseIncrement = 1; // C:137-139
@@ -110,7 +128,9 @@ public class SamplePlaybackGuide {
     return (int) newPhaseIncrement; // C:143
   }
 
-  /** C: sample_playback_guide.cpp:62-85 — compute start/end bytes from the holder's sample markers. */
+  /**
+   * C: sample_playback_guide.cpp:62-85 — compute start/end bytes from the holder's sample markers.
+   */
   public void setupPlaybackBounds(boolean reversed) {
     playDirection = reversed ? -1 : 1;
 

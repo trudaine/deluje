@@ -3,10 +3,11 @@ package org.chuck.deluge.firmware2;
 import org.chuck.deluge.firmware2.Lfo.LfoType;
 
 /**
- * Faithful port of {@code ModFXProcessor} (model/mod_controllable/ModFXProcessor.cpp): the comb-filter
- * based mod FX (chorus / chorus-stereo / dimension / flanger / warble / phaser). NOT grain. The C is
- * templated on {@code ModFXType} and a {@code stereo} flag; this de-templates into runtime branches but
- * keeps the {@code stereo} path (the firmware/ port dropped it). Buffers are {@code int[][]} {l, r}.
+ * Faithful port of {@code ModFXProcessor} (model/mod_controllable/ModFXProcessor.cpp): the
+ * comb-filter based mod FX (chorus / chorus-stereo / dimension / flanger / warble / phaser). NOT
+ * grain. The C is templated on {@code ModFXType} and a {@code stereo} flag; this de-templates into
+ * runtime branches but keeps the {@code stereo} path (the firmware/ port dropped it). Buffers are
+ * {@code int[][]} {l, r}.
  */
 public final class ModFx {
 
@@ -51,8 +52,9 @@ public final class ModFx {
   }
 
   /**
-   * processModFX (ModFXProcessor.cpp:17-74). modFXOffset/modFXFeedback are the UNPATCHED_MOD_FX_OFFSET
-   * / UNPATCHED_MOD_FX_FEEDBACK param values; {@code stereo} is AudioEngine::renderInStereo.
+   * processModFX (ModFXProcessor.cpp:17-74). modFXOffset/modFXFeedback are the
+   * UNPATCHED_MOD_FX_OFFSET / UNPATCHED_MOD_FX_FEEDBACK param values; {@code stereo} is
+   * AudioEngine::renderInStereo.
    */
   public void processModFX(
       int[][] buffer,
@@ -101,7 +103,8 @@ public final class ModFx {
         modFXLFOWaveType = LfoType.TRIANGLE;
       } else if (modFXType == ModFXType.WARBLE) {
         postFXVolume[0] <<= 1;
-        modFXDelayOffset = kFlangerOffset + Functions.multiply_32x32_rshift32(kFlangerOffset, modFXOffset);
+        modFXDelayOffset =
+            kFlangerOffset + Functions.multiply_32x32_rshift32(kFlangerOffset, modFXOffset);
         thisModFXDelayDepth = Functions.multiply_32x32_rshift32(modFXDelayOffset, modFXDepth) << 1;
         modFXLFOWaveType = LfoType.WARBLER;
       } else { // Phaser
@@ -111,10 +114,12 @@ public final class ModFx {
         || modFXType == ModFXType.CHORUS_STEREO
         || modFXType == ModFXType.DIMENSION) {
       // setupChorus (C:75-91)
-      modFXDelayOffset = Functions.multiply_32x32_rshift32(kModFXMaxDelay, (modFXOffset >> 1) + 1073741824);
+      modFXDelayOffset =
+          Functions.multiply_32x32_rshift32(kModFXMaxDelay, (modFXOffset >> 1) + 1073741824);
       thisModFXDelayDepth = Functions.multiply_32x32_rshift32(modFXDelayOffset, modFXDepth) << 2;
       modFXLFOWaveType = (modFXType == ModFXType.DIMENSION) ? LfoType.TRIANGLE : LfoType.SINE;
-      postFXVolume[0] = Functions.multiply_32x32_rshift32(postFXVolume[0], 1518500250) << 1; // /sqrt(2)
+      postFXVolume[0] =
+          Functions.multiply_32x32_rshift32(postFXVolume[0], 1518500250) << 1; // /sqrt(2)
     }
 
     // processModFXBuffer (C:141-160)
@@ -132,14 +137,32 @@ public final class ModFx {
       int lfo1 = modFXLFO.render(1, modFXLFOWaveType, modFXRate);
       int lfo2;
       if (modFXType == ModFXType.WARBLE) {
-        lfo2 = modFXLFOStereo.render(1, modFXLFOWaveType, Functions.multiply_32x32_rshift32(modFXRate, width) << 1);
+        lfo2 =
+            modFXLFOStereo.render(
+                1, modFXLFOWaveType, Functions.multiply_32x32_rshift32(modFXRate, width) << 1);
       } else {
         lfo2 = -lfo1;
       }
       if (stereo) {
-        processOneModFXSample(buffer[i], modFXDelayOffset, thisModFXDelayDepth, feedback, lfo1, lfo2, modFXType, true);
+        processOneModFXSample(
+            buffer[i],
+            modFXDelayOffset,
+            thisModFXDelayDepth,
+            feedback,
+            lfo1,
+            lfo2,
+            modFXType,
+            true);
       } else {
-        processOneModFXSample(buffer[i], modFXDelayOffset, thisModFXDelayDepth, feedback, lfo1, -lfo1, modFXType, false);
+        processOneModFXSample(
+            buffer[i],
+            modFXDelayOffset,
+            thisModFXDelayDepth,
+            feedback,
+            lfo1,
+            -lfo1,
+            modFXType,
+            false);
       }
     }
   }
@@ -154,25 +177,29 @@ public final class ModFx {
       int lfo2Output,
       ModFXType modFXType,
       boolean stereo) {
-    int delayTime = Functions.multiply_32x32_rshift32(lfoOutput, thisModFXDelayDepth) + modFXDelayOffset;
+    int delayTime =
+        Functions.multiply_32x32_rshift32(lfoOutput, thisModFXDelayDepth) + modFXDelayOffset;
     int strength2 = (delayTime & 65535) << 15;
     int strength1 = (65535 << 15) - strength2;
     int sample1Pos = modFXBufferWriteIndex - (delayTime >> 16);
 
     int modFXOutputL =
-        Functions.multiply_32x32_rshift32_rounded(modFXBuffer[sample1Pos & kModFXBufferIndexMask][0], strength1)
+        Functions.multiply_32x32_rshift32_rounded(
+                modFXBuffer[sample1Pos & kModFXBufferIndexMask][0], strength1)
             + Functions.multiply_32x32_rshift32_rounded(
                 modFXBuffer[(sample1Pos - 1) & kModFXBufferIndexMask][0], strength2);
 
     if (stereo || modFXType == ModFXType.DIMENSION || modFXType == ModFXType.WARBLE) {
-      delayTime = Functions.multiply_32x32_rshift32(lfo2Output, thisModFXDelayDepth) + modFXDelayOffset;
+      delayTime =
+          Functions.multiply_32x32_rshift32(lfo2Output, thisModFXDelayDepth) + modFXDelayOffset;
       strength2 = (delayTime & 65535) << 15;
       strength1 = (65535 << 15) - strength2;
       sample1Pos = modFXBufferWriteIndex - (delayTime >> 16);
     }
 
     int modFXOutputR =
-        Functions.multiply_32x32_rshift32_rounded(modFXBuffer[sample1Pos & kModFXBufferIndexMask][1], strength1)
+        Functions.multiply_32x32_rshift32_rounded(
+                modFXBuffer[sample1Pos & kModFXBufferIndexMask][1], strength1)
             + Functions.multiply_32x32_rshift32_rounded(
                 modFXBuffer[(sample1Pos - 1) & kModFXBufferIndexMask][1], strength2);
 
@@ -213,17 +240,21 @@ public final class ModFx {
             - Functions.multiply_32x32_rshift32_rounded(
                 (int) ((((long) lfoOutput) + 2147483648L) >> 1), modFXDepth);
 
-    phaserMemory[0] = sample[0] + (Functions.multiply_32x32_rshift32_rounded(phaserMemory[0], feedback) << 1);
-    phaserMemory[1] = sample[1] + (Functions.multiply_32x32_rshift32_rounded(phaserMemory[1], feedback) << 1);
+    phaserMemory[0] =
+        sample[0] + (Functions.multiply_32x32_rshift32_rounded(phaserMemory[0], feedback) << 1);
+    phaserMemory[1] =
+        sample[1] + (Functions.multiply_32x32_rshift32_rounded(phaserMemory[1], feedback) << 1);
 
     // Do the allpass filters.
     for (int[] ap : allpassMemory) {
       int whatWasInputL = phaserMemory[0];
-      phaserMemory[0] = (Functions.multiply_32x32_rshift32_rounded(phaserMemory[0], -a1) << 2) + ap[0];
+      phaserMemory[0] =
+          (Functions.multiply_32x32_rshift32_rounded(phaserMemory[0], -a1) << 2) + ap[0];
       ap[0] = (Functions.multiply_32x32_rshift32_rounded(phaserMemory[0], a1) << 2) + whatWasInputL;
 
       int whatWasInputR = phaserMemory[1];
-      phaserMemory[1] = (Functions.multiply_32x32_rshift32_rounded(phaserMemory[1], -a1) << 2) + ap[1];
+      phaserMemory[1] =
+          (Functions.multiply_32x32_rshift32_rounded(phaserMemory[1], -a1) << 2) + ap[1];
       ap[1] = (Functions.multiply_32x32_rshift32_rounded(phaserMemory[1], a1) << 2) + whatWasInputR;
     }
 

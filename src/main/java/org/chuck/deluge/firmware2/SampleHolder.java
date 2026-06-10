@@ -12,6 +12,7 @@ public class SampleHolder {
 
   /** C: sample_holder.h:47 — in samples. */
   public long startPos;
+
   /** C: sample_holder.h:48 — in samples; may be beyond the sample end (call {@link #getEndPos}). */
   public long endPos;
 

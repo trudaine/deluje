@@ -1,15 +1,16 @@
 package org.chuck.deluge.firmware2;
 
 /**
- * In-RAM resampling reader — the desktop replacement for the cluster-streaming
- * {@code SampleLowLevelReader} (Phase A/B of docs/FIRMWARE2_SAMPLE_ENGINE_PLAN.md).
+ * In-RAM resampling reader — the desktop replacement for the cluster-streaming {@code
+ * SampleLowLevelReader} (Phase A/B of docs/FIRMWARE2_SAMPLE_ENGINE_PLAN.md).
  *
- * <p>The C walks a {@code char* currentPlayPos} through SD {@code Cluster}s and feeds the interpolator
- * the top-16-bits of each sample. Here {@code currentPlayPos} becomes a frame index into
- * {@link Sample#data} and the interpolation runs at FULL precision (Phase-A option (b), a sanctioned
- * deviation): the {@code oscPos}/jump-forward structure and the amplitude ramp are ported faithfully
- * from {@code readSamplesResampled} (sample_low_level_reader.cpp:943-1110); only the sample word fed to
- * the interpolator is full-precision int instead of int16 (see {@link SincInterpolator#interpolateWide}).
+ * <p>The C walks a {@code char* currentPlayPos} through SD {@code Cluster}s and feeds the
+ * interpolator the top-16-bits of each sample. Here {@code currentPlayPos} becomes a frame index
+ * into {@link Sample#data} and the interpolation runs at FULL precision (Phase-A option (b), a
+ * sanctioned deviation): the {@code oscPos}/jump-forward structure and the amplitude ramp are
+ * ported faithfully from {@code readSamplesResampled} (sample_low_level_reader.cpp:943-1110); only
+ * the sample word fed to the interpolator is full-precision int instead of int16 (see {@link
+ * SincInterpolator#interpolateWide}).
  *
  * <p>Scope: forward + reverse resampled playback of an in-RAM sample, no cluster boundaries, no
  * cache/condensing. Loop/jump-back/boundary handling is deferred to later increments.
@@ -23,8 +24,10 @@ public class SampleReader {
 
   /** C: oscPos — sub-sample phase, 24-bit fractional (0..2^24). */
   public int oscPos;
+
   /** Frame index into {@link Sample#data} (replaces the C {@code currentPlayPos} byte pointer). */
   public int playPos;
+
   /** C: *doneAnySamplesYet — the first output uses the primed history without advancing. */
   boolean doneAnySamplesYet;
 
@@ -39,7 +42,10 @@ public class SampleReader {
     return sample.data.length / sample.numChannels;
   }
 
-  /** Capture another reader's full play state (C: SampleLowLevelReader copy — used to fork the older head). */
+  /**
+   * Capture another reader's full play state (C: SampleLowLevelReader copy — used to fork the older
+   * head).
+   */
   public void copyStateFrom(SampleReader other) {
     this.sample = other.sample;
     this.playDirection = other.playDirection;
@@ -52,10 +58,10 @@ public class SampleReader {
   }
 
   /**
-   * C: getPlayByteLowLevel (sample_low_level_reader.cpp:42-58) — the reader's byte position within the
-   * audio file, optionally compensated for the interpolation buffer (shift back by half the engaged
-   * taps, in the play direction). In-RAM: the play byte is {@code audioDataStart + playPos*bytesPerSample}
-   * (no cluster misalignment).
+   * C: getPlayByteLowLevel (sample_low_level_reader.cpp:42-58) — the reader's byte position within
+   * the audio file, optionally compensated for the interpolation buffer (shift back by half the
+   * engaged taps, in the play direction). In-RAM: the play byte is {@code audioDataStart +
+   * playPos*bytesPerSample} (no cluster misalignment).
    */
   public int getPlayByteLowLevel(boolean compensateForInterpolationBuffer) {
     int bytesPerSample = sample.byteDepth * sample.numChannels;
@@ -67,7 +73,9 @@ public class SampleReader {
     return sample.audioDataStartPosBytes + withinAudioData;
   }
 
-  /** Read the frame at {@link #playPos} (0 outside the sample), shift it into the history, advance. */
+  /**
+   * Read the frame at {@link #playPos} (0 outside the sample), shift it into the history, advance.
+   */
   private void pushFrame() {
     for (int i = K_TAPS - 1; i >= 1; i--) {
       bufL[i] = bufL[i - 1];
@@ -85,10 +93,10 @@ public class SampleReader {
   }
 
   /**
-   * Prime the interpolation history with the {@value #K_TAPS} frames BEFORE {@code startFrame}, leaving
-   * {@link #playPos} at {@code startFrame} — so the native and resampled paths start consistently
-   * (native reads {@code startFrame} first; resampled has real context, no zero transient). Adapter-level
-   * start; the C does a cluster-based retrospective fill.
+   * Prime the interpolation history with the {@value #K_TAPS} frames BEFORE {@code startFrame},
+   * leaving {@link #playPos} at {@code startFrame} — so the native and resampled paths start
+   * consistently (native reads {@code startFrame} first; resampled has real context, no zero
+   * transient). Adapter-level start; the C does a cluster-based retrospective fill.
    */
   public void init(int startFrame) {
     playPos = startFrame - K_TAPS * playDirection;
@@ -102,20 +110,26 @@ public class SampleReader {
   }
 
   /**
-   * C: readSamplesResampled (sample_low_level_reader.cpp:943-1110), forward/reverse, full-precision (b).
-   * Accumulates {@code numSamples} interpolated, amplitude-ramped samples into {@code oscBuffer}
-   * (interleaved when {@code numChannels == 2}).
+   * C: readSamplesResampled (sample_low_level_reader.cpp:943-1110), forward/reverse, full-precision
+   * (b). Accumulates {@code numSamples} interpolated, amplitude-ramped samples into {@code
+   * oscBuffer} (interleaved when {@code numChannels == 2}).
    *
    * @param amplitude single-element {l} ramp accumulator (C: {@code *amplitude})
    */
-  public void readResampled(int[] oscBuffer, int numSamples, int numChannels, int whichKernel,
-                            int phaseIncrement, int[] amplitude, int amplitudeIncrement) {
+  public void readResampled(
+      int[] oscBuffer,
+      int numSamples,
+      int numChannels,
+      int whichKernel,
+      int phaseIncrement,
+      int[] amplitude,
+      int amplitudeIncrement) {
     int o = 0;
     for (int s = 0; s < numSamples; s++) {
       if (!doneAnySamplesYet) {
         doneAnySamplesYet = true; // C: goto skipFirstSmooth — no advance on the first sample
       } else {
-        oscPos += phaseIncrement;            // C:975
+        oscPos += phaseIncrement; // C:975
         int numSamplesToJumpForward = oscPos >>> 24; // C:976
         if (numSamplesToJumpForward != 0) {
           oscPos &= 16777215; // C:978
@@ -130,30 +144,42 @@ public class SampleReader {
         }
       }
 
-      int[] sampleRead = SincInterpolator.interpolateWide(bufL, bufR, numChannels, whichKernel, oscPos); // C:1024
+      int[] sampleRead =
+          SincInterpolator.interpolateWide(bufL, bufR, numChannels, whichKernel, oscPos); // C:1024
       readResampledTail(oscBuffer, numChannels, amplitude, amplitudeIncrement, sampleRead, o);
       o += numChannels;
     }
     interpolationBufferSizeLastTime = K_TAPS; // C:568/672 — windowed-sinc taps engaged
   }
 
-  // shared C:1048-1052 tail (amplitude ramp + MAC), so readNative/readResampled stay identical there
+  // shared C:1048-1052 tail (amplitude ramp + MAC), so readNative/readResampled stay identical
+  // there
   private static void readResampledTail(
-      int[] oscBuffer, int numChannels, int[] amplitude, int amplitudeIncrement, int[] sampleRead, int o) {
+      int[] oscBuffer,
+      int numChannels,
+      int[] amplitude,
+      int amplitudeIncrement,
+      int[] sampleRead,
+      int o) {
     amplitude[0] += amplitudeIncrement; // C:1048
-    oscBuffer[o] = Functions.multiply_accumulate_32x32_rshift32_rounded(oscBuffer[o], sampleRead[0], amplitude[0]); // C:1051
+    oscBuffer[o] =
+        Functions.multiply_accumulate_32x32_rshift32_rounded(
+            oscBuffer[o], sampleRead[0], amplitude[0]); // C:1051
     if (numChannels == 2) {
       oscBuffer[o + 1] =
-          Functions.multiply_accumulate_32x32_rshift32_rounded(oscBuffer[o + 1], sampleRead[1], amplitude[0]);
+          Functions.multiply_accumulate_32x32_rshift32_rounded(
+              oscBuffer[o + 1], sampleRead[1], amplitude[0]);
     }
   }
 
   /**
-   * C: readSamplesNative (sample_low_level_reader.cpp:1111-1159) — 1:1 native-rate read (no resampling),
-   * used when {@code phaseIncrement == kMaxSampleValue}. Reads consecutive frames directly (full
-   * precision; the C {@code & bitMask} is a no-op on clean decoded data), amplitude-ramped.
+   * C: readSamplesNative (sample_low_level_reader.cpp:1111-1159) — 1:1 native-rate read (no
+   * resampling), used when {@code phaseIncrement == kMaxSampleValue}. Reads consecutive frames
+   * directly (full precision; the C {@code & bitMask} is a no-op on clean decoded data),
+   * amplitude-ramped.
    */
-  public void readNative(int[] oscBuffer, int numSamples, int numChannels, int[] amplitude, int amplitudeIncrement) {
+  public void readNative(
+      int[] oscBuffer, int numSamples, int numChannels, int[] amplitude, int amplitudeIncrement) {
     int o = 0;
     int n = numFrames();
     for (int s = 0; s < numSamples; s++) {
@@ -161,9 +187,9 @@ public class SampleReader {
       int sampleReadR = 0;
       if (playPos >= 0 && playPos < n) {
         int base = playPos * numChannels;
-        sampleReadL = sample.data[base];                                   // C:1125
+        sampleReadL = sample.data[base]; // C:1125
         if (numChannels == 2) {
-          sampleReadR = sample.data[base + 1];                             // C:1133
+          sampleReadR = sample.data[base + 1]; // C:1133
         }
       } else {
         sampleReadL = 0;
@@ -171,15 +197,17 @@ public class SampleReader {
       playPos += playDirection; // C:1141 (jumpAmount = bytesPerSample * playDirection ⇒ ±1 frame)
 
       amplitude[0] += amplitudeIncrement; // C:1128
-      oscBuffer[o] = Functions.multiply_accumulate_32x32_rshift32_rounded(oscBuffer[o], sampleReadL, amplitude[0]); // C:1144
+      oscBuffer[o] =
+          Functions.multiply_accumulate_32x32_rshift32_rounded(
+              oscBuffer[o], sampleReadL, amplitude[0]); // C:1144
       o++;
       if (numChannels == 2) {
         oscBuffer[o] =
-            Functions.multiply_accumulate_32x32_rshift32_rounded(oscBuffer[o], sampleReadR, amplitude[0]); // C:1152
+            Functions.multiply_accumulate_32x32_rshift32_rounded(
+                oscBuffer[o], sampleReadR, amplitude[0]); // C:1152
         o++;
       }
     }
     interpolationBufferSizeLastTime = 0; // C:832 — native read, no interpolation buffer
   }
-
 }

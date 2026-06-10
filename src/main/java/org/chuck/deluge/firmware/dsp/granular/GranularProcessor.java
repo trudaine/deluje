@@ -26,7 +26,8 @@ public class GranularProcessor {
   private int bufferWriteIndex = 0;
 
   // Per-instance deterministic RNG for grain selection. The firmware uses a deterministic random()
-  // (not a host PRNG); a per-instance seeded RNG keeps grain scheduling reproducible and independent
+  // (not a host PRNG); a per-instance seeded RNG keeps grain scheduling reproducible and
+  // independent
   // of global/process state and test ordering. (The full C grain-type selection in
   // GranularProcessor::setupGrainsIfNeeded is a larger port; this only replaces the rev coin-flip.)
   private final java.util.Random grainRng = new java.util.Random(0x6772616eL); // "gran"

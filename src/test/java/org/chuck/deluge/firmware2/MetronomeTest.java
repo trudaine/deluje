@@ -13,7 +13,8 @@ class MetronomeTest {
   void setVolumeMatchesC() {
     Metronome m = new Metronome();
     for (int lp = 0; lp <= 50; lp++) {
-      int expected = (int) ((Math.exp((double) ((float) lp / 200.0f)) - 1.0) * (double) (float) (1 << 27));
+      int expected =
+          (int) ((Math.exp((double) ((float) lp / 200.0f)) - 1.0) * (double) (float) (1 << 27));
       m.setVolume(lp);
       assertEquals(expected, m.metronomeVolume, "setVolume(" + lp + ")");
     }

@@ -11,10 +11,11 @@ import org.chuck.deluge.firmware2.Reverb;
  * Port of the Deluge's AudioEngine class. Performs master summing and global FX.
  *
  * <p>The master FX bus (reverb / delay / compressor) is the faithful firmware2 port. The fw2 FX
- * operate on {@code int[][]} stereo frames, so the chain runs on an {@code int[][]} scratch
- * ({@link #fxBuffer}) while the public {@link #masterBuffer} stays {@code StereoSample[]} for the
+ * operate on {@code int[][]} stereo frames, so the chain runs on an {@code int[][]} scratch ({@link
+ * #fxBuffer}) while the public {@link #masterBuffer} stays {@code StereoSample[]} for the
  * sound-render and driver sides. fw2 corrects real bugs the old firmware/ FX had (reverb cross-feed
- * / 2x scale, compressor float-buffer precision), so the master tone changes — that's faithful-to-C.
+ * / 2x scale, compressor float-buffer precision), so the master tone changes — that's
+ * faithful-to-C.
  */
 public class FirmwareAudioEngine {
   public final List<GlobalEffectable> sounds = new java.util.concurrent.CopyOnWriteArrayList<>();

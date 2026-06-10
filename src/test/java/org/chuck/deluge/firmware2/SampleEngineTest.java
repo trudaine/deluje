@@ -6,13 +6,14 @@ import java.util.Random;
 import org.junit.jupiter.api.Test;
 
 /**
- * Faithful-port checks for the firmware2 sample-engine foundation (Phase A/B): SampleHolder duration
- * helpers and SamplePlaybackGuide.setupPlaybackBounds. Pure position math re-derived from the C
- * (sample_holder.cpp, sample_playback_guide.cpp) — no firmware/ oracle.
+ * Faithful-port checks for the firmware2 sample-engine foundation (Phase A/B): SampleHolder
+ * duration helpers and SamplePlaybackGuide.setupPlaybackBounds. Pure position math re-derived from
+ * the C (sample_holder.cpp, sample_playback_guide.cpp) — no firmware/ oracle.
  */
 class SampleEngineTest {
 
-  private static Sample sample(int numChannels, int byteDepth, int startPosBytes, long lengthInSamples) {
+  private static Sample sample(
+      int numChannels, int byteDepth, int startPosBytes, long lengthInSamples) {
     Sample s = new Sample();
     s.numChannels = numChannels;
     s.byteDepth = byteDepth;
@@ -92,9 +93,10 @@ class SampleEngineTest {
   }
 
   /**
-   * A constant input must produce a constant resampled output: at unity rate the phase stays 0, so the
-   * interpolator returns kernelSum(phase0)*value, and a flat amplitude ramp gives the same MAC each
-   * sample. Verifies the full-precision interpolation + amplitude path end-to-end (mono + stereo).
+   * A constant input must produce a constant resampled output: at unity rate the phase stays 0, so
+   * the interpolator returns kernelSum(phase0)*value, and a flat amplitude ramp gives the same MAC
+   * each sample. Verifies the full-precision interpolation + amplitude path end-to-end (mono +
+   * stereo).
    */
   @Test
   void readResampledConstantSignalIsConstant() {
@@ -121,7 +123,9 @@ class SampleEngineTest {
     }
   }
 
-  /** Re-derive the readResampled loop independently and compare (catches loop-transcription bugs). */
+  /**
+   * Re-derive the readResampled loop independently and compare (catches loop-transcription bugs).
+   */
   @Test
   void readResampledMatchesReDerivation() {
     Random r = new Random(44);
@@ -148,9 +152,13 @@ class SampleEngineTest {
     // Independent re-derivation with the same model.
     int[] bufL = new int[16];
     int[] bufR = new int[16];
-    int playPos = 1000 - 16; // init primes the 16 frames before startFrame, leaving playPos = startFrame
+    int playPos =
+        1000 - 16; // init primes the 16 frames before startFrame, leaving playPos = startFrame
     for (int i = 0; i < 16; i++) {
-      for (int j = 15; j >= 1; j--) { bufL[j] = bufL[j - 1]; bufR[j] = bufR[j - 1]; }
+      for (int j = 15; j >= 1; j--) {
+        bufL[j] = bufL[j - 1];
+        bufR[j] = bufR[j - 1];
+      }
       int base = playPos * numChannels;
       bufL[0] = (playPos >= 0 && playPos < frames) ? s.data[base] : 0;
       bufR[0] = (playPos >= 0 && playPos < frames) ? s.data[base + 1] : 0;
@@ -169,9 +177,15 @@ class SampleEngineTest {
         int jump = oscPos >>> 24;
         if (jump != 0) {
           oscPos &= 16777215;
-          if (jump > 16) { playPos += (jump - 16); jump = 16; }
+          if (jump > 16) {
+            playPos += (jump - 16);
+            jump = 16;
+          }
           for (int k = 0; k < jump; k++) {
-            for (int j = 15; j >= 1; j--) { bufL[j] = bufL[j - 1]; bufR[j] = bufR[j - 1]; }
+            for (int j = 15; j >= 1; j--) {
+              bufL[j] = bufL[j - 1];
+              bufR[j] = bufR[j - 1];
+            }
             int base = playPos * numChannels;
             bufL[0] = (playPos >= 0 && playPos < frames) ? s.data[base] : 0;
             bufR[0] = (playPos >= 0 && playPos < frames) ? s.data[base + 1] : 0;
@@ -209,13 +223,15 @@ class SampleEngineTest {
         if (p >= 23051117) wk++;
         expected = wk;
       }
-      assertEquals(expected, Functions.getWhichKernel(phaseIncrement), "phaseInc=" + phaseIncrement);
+      assertEquals(
+          expected, Functions.getWhichKernel(phaseIncrement), "phaseInc=" + phaseIncrement);
     }
   }
 
   /**
-   * Native (1:1) playback must reproduce the input scaled by amplitude: with a flat amplitude and unity
-   * pitch, osc[i] == MAC(0, sample[i], amp). The strongest end-to-end check of the native read path.
+   * Native (1:1) playback must reproduce the input scaled by amplitude: with a flat amplitude and
+   * unity pitch, osc[i] == MAC(0, sample[i], amp). The strongest end-to-end check of the native
+   * read path.
    */
   @Test
   void readNativeReproducesInput() {
@@ -240,8 +256,11 @@ class SampleEngineTest {
 
     for (int i = 0; i < n; i++) {
       int frame = startFrame + i;
-      int expL = Functions.multiply_accumulate_32x32_rshift32_rounded(0, s.data[frame * numChannels], amp);
-      int expR = Functions.multiply_accumulate_32x32_rshift32_rounded(0, s.data[frame * numChannels + 1], amp);
+      int expL =
+          Functions.multiply_accumulate_32x32_rshift32_rounded(0, s.data[frame * numChannels], amp);
+      int expR =
+          Functions.multiply_accumulate_32x32_rshift32_rounded(
+              0, s.data[frame * numChannels + 1], amp);
       assertEquals(expL, osc[i * 2], "native L idx=" + i);
       assertEquals(expR, osc[i * 2 + 1], "native R idx=" + i);
     }
@@ -299,7 +318,8 @@ class SampleEngineTest {
     for (int i = 100; i < 200; i++) {
       assertEquals(0, osc[i], "one-shot silent after end idx=" + i);
     }
-    org.junit.jupiter.api.Assertions.assertFalse(v.active, "one-shot voice should be inactive at end");
+    org.junit.jupiter.api.Assertions.assertFalse(
+        v.active, "one-shot voice should be inactive at end");
   }
 
   /** Looping native playback wraps to the loop start and keeps playing. */
@@ -340,7 +360,9 @@ class SampleEngineTest {
     return s;
   }
 
-  /** Constant input → all 3 crossfade averages equal lengthToAverageEach * numChannels * (V>>16). */
+  /**
+   * Constant input → all 3 crossfade averages equal lengthToAverageEach * numChannels * (V>>16).
+   */
   @Test
   void getAveragesForCrossfadeConstant() {
     int numChannels = 2;
@@ -442,8 +464,8 @@ class SampleEngineTest {
   }
 
   /**
-   * At exactly 1x stretch the hop's randomElement is 0 (randomFine[8]=0), so getNoise() has no effect
-   * and the render is deterministic — two identical setups must produce identical output.
+   * At exactly 1x stretch the hop's randomElement is 0 (randomFine[8]=0), so getNoise() has no
+   * effect and the render is deterministic — two identical setups must produce identical output.
    */
   @Test
   void renderTimeStretchedUnityIsDeterministic() {
@@ -521,16 +543,23 @@ class SampleEngineTest {
       int curWithin = curTick - g.sequenceSyncStartedAtTick;
       int ts = timeSince;
       if (Integer.compareUnsigned(ts, timePer) >= 0) ts = timePer - 1;
-      long expected = (long) ((((double) (lengthInSamples * (curWithin & 0xFFFFFFFFL)))
-              + (double) (ts & 0xFFFFFFFFL) * (double) lengthInSamples / (double) (timePer & 0xFFFFFFFFL)
-              + (double) (g.sequenceSyncLengthTicks >>> 1))
-          / (double) (g.sequenceSyncLengthTicks & 0xFFFFFFFFL));
+      long expected =
+          (long)
+              ((((double) (lengthInSamples * (curWithin & 0xFFFFFFFFL)))
+                      + (double) (ts & 0xFFFFFFFFL)
+                          * (double) lengthInSamples
+                          / (double) (timePer & 0xFFFFFFFFL)
+                      + (double) (g.sequenceSyncLengthTicks >>> 1))
+                  / (double) (g.sequenceSyncLengthTicks & 0xFFFFFFFFL));
 
       assertEquals(expected, g.getSyncedNumSamplesIn(curTick, timeSince, timePer), "t=" + t);
     }
   }
 
-  /** getNumSamplesLaggingBehindSync + adjustPitchToCorrectDriftFromSync, re-derived (forward + reverse). */
+  /**
+   * getNumSamplesLaggingBehindSync + adjustPitchToCorrectDriftFromSync, re-derived (forward +
+   * reverse).
+   */
   @Test
   void syncDriftCorrectionMatchesC() {
     Random r = new Random(654);
@@ -556,18 +585,31 @@ class SampleEngineTest {
       int phase = (1 << 20) + r.nextInt(1 << 24);
 
       long idealNum = g.getSyncedNumSamplesIn(curTick, timeSince, timePer);
-      long idealPos = (g.playDirection == 1) ? (h.startPos + idealNum) : (h.getEndPos(true) - 1 - idealNum);
+      long idealPos =
+          (g.playDirection == 1) ? (h.startPos + idealNum) : (h.getEndPos(true) - 1 - idealNum);
       int expLag = (int) (idealPos - actual) * g.playDirection;
-      assertEquals(expLag, g.getNumSamplesLaggingBehindSync(actual, curTick, timeSince, timePer), "lag t=" + t);
+      assertEquals(
+          expLag,
+          g.getNumSamplesLaggingBehindSync(actual, curTick, timeSince, timePer),
+          "lag t=" + t);
 
       // adjust: not external clock or no clusters → unchanged.
-      assertEquals(phase, g.adjustPitchToCorrectDriftFromSync(phase, false, true, actual, curTick, timeSince, timePer));
-      assertEquals(phase, g.adjustPitchToCorrectDriftFromSync(phase, true, false, actual, curTick, timeSince, timePer));
+      assertEquals(
+          phase,
+          g.adjustPitchToCorrectDriftFromSync(
+              phase, false, true, actual, curTick, timeSince, timePer));
+      assertEquals(
+          phase,
+          g.adjustPitchToCorrectDriftFromSync(
+              phase, true, false, actual, curTick, timeSince, timePer));
       long newPhase = phase + ((long) expLag << 9);
       if (newPhase < 1) newPhase = 1;
       else if (newPhase > 2147483647) newPhase = 2147483647;
-      assertEquals((int) newPhase,
-          g.adjustPitchToCorrectDriftFromSync(phase, true, true, actual, curTick, timeSince, timePer), "adjust t=" + t);
+      assertEquals(
+          (int) newPhase,
+          g.adjustPitchToCorrectDriftFromSync(
+              phase, true, true, actual, curTick, timeSince, timePer),
+          "adjust t=" + t);
     }
   }
 
@@ -580,8 +622,6 @@ class SampleEngineTest {
     Sample s = crossfadeSample(numChannels, frames, data);
     int[] totals = new int[3];
     // startFrame 0, big crossfade ⇒ readByte < audioDataStart + halfCrossfadeBytes.
-    org.junit.jupiter.api.Assertions.assertFalse(
-        s.getAveragesForCrossfade(totals, 44, 400, 1, 35));
+    org.junit.jupiter.api.Assertions.assertFalse(s.getAveragesForCrossfade(totals, 44, 400, 1, 35));
   }
 }
-

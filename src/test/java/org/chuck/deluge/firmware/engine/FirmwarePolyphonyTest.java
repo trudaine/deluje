@@ -60,8 +60,7 @@ public class FirmwarePolyphonyTest {
     poly.triggerNote(60, 110);
     poly.triggerNote(64, 110);
     poly.triggerNote(67, 110); // C major triad
-    assertEquals(
-        3, poly.getActiveVoiceCount(), "POLY should allocate one voice per distinct note");
+    assertEquals(3, poly.getActiveVoiceCount(), "POLY should allocate one voice per distinct note");
   }
 
   @Test

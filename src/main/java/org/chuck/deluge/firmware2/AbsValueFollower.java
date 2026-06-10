@@ -7,7 +7,7 @@ package org.chuck.deluge.firmware2;
 public class AbsValueFollower {
 
   static final int ONE_Q31 = 2147483647;
-  static final float ONE_Q31f = (float)ONE_Q31;
+  static final float ONE_Q31f = (float) ONE_Q31;
   static final int K_SAMPLE_RATE = 44100;
 
   // C: absolute_value.h:63-80 — state
@@ -19,32 +19,34 @@ public class AbsValueFollower {
 
   /** C: absolute_value.h:30-35 — reset */
   public void reset() {
-    meanL = 0; lastMeanL = 0;
-    meanR = 0; lastMeanR = 0;
+    meanL = 0;
+    lastMeanL = 0;
+    meanR = 0;
+    lastMeanR = 0;
   }
 
   /** C: absolute_value.h:40-46 — setAttack (exp map) */
   public int setAttack(int attack) {
-    attackMS = 0.5f + (float)(Math.exp(2.0 * attack / ONE_Q31f) - 1.0) * 10.0f;
-    a_ = (float)((-1000.0 / K_SAMPLE_RATE) / attackMS);
+    attackMS = 0.5f + (float) (Math.exp(2.0 * attack / ONE_Q31f) - 1.0) * 10.0f;
+    a_ = (float) ((-1000.0 / K_SAMPLE_RATE) / attackMS);
     attackKnobPos = attack;
-    return (int)attackMS;
+    return (int) attackMS;
   }
 
   /** C: absolute_value.h:50-56 — setRelease */
   public int setRelease(int release) {
-    releaseMS = 50.0f + (float)(Math.exp(2.0 * release / ONE_Q31f) - 1.0) * 50.0f;
-    r_ = (float)((-1000.0 / K_SAMPLE_RATE) / releaseMS);
+    releaseMS = 50.0f + (float) (Math.exp(2.0 * release / ONE_Q31f) - 1.0) * 50.0f;
+    r_ = (float) ((-1000.0 / K_SAMPLE_RATE) / releaseMS);
     releaseKnobPos = release;
-    return (int)releaseMS;
+    return (int) releaseMS;
   }
 
   /** C: absolute_value.cpp:21-30 — IIR envelope */
   float runEnvelope(float current, float desired, float numSamples) {
     if (desired > current) {
-      return (float)(desired + Math.exp(a_ * numSamples) * (current - desired));
+      return (float) (desired + Math.exp(a_ * numSamples) * (current - desired));
     } else {
-      return (float)(desired + Math.exp(r_ * numSamples) * (current - desired));
+      return (float) (desired + Math.exp(r_ * numSamples) * (current - desired));
     }
   }
 
@@ -55,8 +57,8 @@ public class AbsValueFollower {
   }
 
   /**
-   * C: absolute_value.cpp:34-61 — calcApproxRMS.
-   * Returns log-mean of absolute values for L/R channels.
+   * C: absolute_value.cpp:34-61 — calcApproxRMS. Returns log-mean of absolute values for L/R
+   * channels.
    */
   public float[] calcApproxRMS(int[][] buffer) {
     long l = 0, r = 0;
@@ -65,16 +67,13 @@ public class AbsValueFollower {
       r += Math.abs(sample[1]);
     }
     float ns = buffer.length;
-    meanL = (float)l / ns;
-    meanR = (float)r / ns;
+    meanL = (float) l / ns;
+    meanR = (float) r / ns;
     // C:51-52 — weighted average with previous
     meanL = (meanL * ns + lastMeanL) / (1.0f + ns);
     meanR = (meanR * ns + lastMeanR) / (1.0f + ns);
     lastMeanL = runEnvelope(lastMeanL, meanL, ns);
     lastMeanR = runEnvelope(lastMeanR, meanR, ns);
-    return new float[]{
-      (float)Math.log(lastMeanL + 1e-24f),
-      (float)Math.log(lastMeanR + 1e-24f)
-    };
+    return new float[] {(float) Math.log(lastMeanL + 1e-24f), (float) Math.log(lastMeanR + 1e-24f)};
   }
 }

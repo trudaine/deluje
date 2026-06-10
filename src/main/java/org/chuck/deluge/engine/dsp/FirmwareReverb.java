@@ -5,9 +5,9 @@ import org.chuck.deluge.firmware.util.Q31;
 import org.chuck.deluge.firmware2.Reverb;
 
 /**
- * Wrapper for the faithful firmware2 Reverb (Freeverb/Mutable/Digital). Note: firmware2 corrects real
- * bugs the old firmware/ reverb had (Freeverb wet2/cross-feed, the Mutable 2x output scale), so the
- * reverb tone changes — that's the faithful-to-C behaviour.
+ * Wrapper for the faithful firmware2 Reverb (Freeverb/Mutable/Digital). Note: firmware2 corrects
+ * real bugs the old firmware/ reverb had (Freeverb wet2/cross-feed, the Mutable 2x output scale),
+ * so the reverb tone changes — that's the faithful-to-C behaviour.
  */
 public class FirmwareReverb extends StereoUGen {
   private final Reverb.Container firmware = new Reverb.Container();

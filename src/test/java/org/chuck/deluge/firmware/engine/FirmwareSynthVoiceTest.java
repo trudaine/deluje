@@ -155,11 +155,7 @@ public class FirmwareSynthVoiceTest {
     double bDark = brightness(wDark);
     assertTrue(
         bDark != bBright,
-        "LPF cutoff should change brightness (bright="
-            + bBright
-            + " dark="
-            + bDark
-            + ")");
+        "LPF cutoff should change brightness (bright=" + bBright + " dark=" + bDark + ")");
     assertTrue(bBright > 0.0, "bright synth should be audible");
     assertTrue(bDark > 0.0, "dark synth should be audible");
   }
