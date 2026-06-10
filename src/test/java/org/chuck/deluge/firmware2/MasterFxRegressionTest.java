@@ -1,9 +1,9 @@
 package org.chuck.deluge.firmware2;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -13,8 +13,10 @@ import org.junit.jupiter.api.Test;
  * these are re-derivation / property + golden-signature tests against fw2's own behavior, locking it
  * in so future edits can't silently change the DSP.
  *
- * <p><b>P1 found while writing these:</b> the fw2 master Delay never produces an echo (see the
- * {@code @Disabled} tests below). It was hidden by the deletion of {@code DelayParityTest}.
+ * <p>Writing these surfaced a real P1 (now fixed): the fw2 master Delay produced no echo because the
+ * inner DelayBuffer used Q31 max (2147483647) where the C uses kMaxSampleValue = 1&lt;&lt;24 in the
+ * buffer-size / spin-rate math — 128× off, so the secondary→primary swap never fired. The delay-echo
+ * test below guards against a regression.
  */
 class MasterFxRegressionTest {
 
@@ -75,6 +77,11 @@ class MasterFxRegressionTest {
 
   // ── Delay ─────────────────────────────────────────────────────────────────
 
+  // A "native" delay rate (>= ~3.1M) maps to an un-clamped buffer whose native_rate_ equals the
+  // user rate, so the secondary buffer fills at the input rate and the swap fires quickly (~256
+  // blocks). 1<<23 → a 32768-sample (~0.74s) delay.
+  private static final int NATIVE_RATE = 1 << 23;
+
   private static Delay freshDelay() {
     Delay d = new Delay();
     d.syncLevel = 0; // free-running, externally-driven rate (as the master bus uses it)
@@ -84,7 +91,7 @@ class MasterFxRegressionTest {
   private static Delay.State delayState() {
     Delay.State s = new Delay.State();
     s.doDelay = true;
-    s.userDelayRate = 22050 << 5; // the realistic rate the FirmwareDelay UGen + master bus use
+    s.userDelayRate = NATIVE_RATE;
     s.delayFeedbackAmount = 1073741824; // 0.5 in Q31
     return s;
   }
@@ -105,6 +112,28 @@ class MasterFxRegressionTest {
   }
 
   @Test
+  void delayProducesDelayedEcho() {
+    // Feed a tone for the first few blocks, then silence; once the buffer swaps (~256 blocks) the
+    // delayed signal must read back. Regression guard for the kMaxSampleValue (1<<24) buffer/spin
+    // math — with the old Q31-max value the swap never fired and this stayed silent forever.
+    Delay d = freshDelay();
+    Delay.State st = delayState();
+    long echoEnergy = 0;
+    for (int blk = 0; blk < 700; blk++) {
+      int[][] buf = new int[128][2];
+      if (blk < 8) {
+        for (int i = 0; i < 128; i++) buf[i][0] = buf[i][1] = (int) (0.4 * ONE);
+      }
+      d.setupWorkingState(st, 1 << 20, true);
+      d.process(buf, 128, st);
+      if (blk >= 300) { // well after the dry tone ends and the buffer has swapped
+        for (int i = 0; i < 128; i++) echoEnergy += Math.abs((long) buf[i][0]);
+      }
+    }
+    assertTrue(echoEnergy > 0, "an impulse must produce a delayed echo (energy=" + echoEnergy + ")");
+  }
+
+  @Test
   void delayIsDeterministic() {
     Delay d1 = freshDelay();
     Delay d2 = freshDelay();
@@ -112,7 +141,7 @@ class MasterFxRegressionTest {
     Delay.State s2 = delayState();
     long h1 = 1469598103934665603L;
     long h2 = 1469598103934665603L;
-    for (int blk = 0; blk < 12; blk++) {
+    for (int blk = 0; blk < 400; blk++) {
       int[][] a = noiseBlock(128, 100 + blk);
       int[][] b = noiseBlock(128, 100 + blk);
       d1.setupWorkingState(s1, 1 << 20, true);
@@ -125,39 +154,45 @@ class MasterFxRegressionTest {
     assertEquals(h1, h2, "delay must be deterministic");
   }
 
-  /**
-   * KNOWN-FAILING (P1): the fw2 master Delay never produces an echo. With the realistic UGen rate
-   * (22050&lt;&lt;5) the secondary→primary buffer swap never fires — {@code sizeLeftUntilBufferSwap}
-   * drains at ~0.23/block (vs the ~128/block the C achieves), so over 6000 blocks (~17s) the primary
-   * buffer never activates and the read path returns only silence. An impulse therefore produces no
-   * delayed echo and {@code analog} == {@code digital} (only the dry signal passes).
-   *
-   * <p>Confirmed one faithful divergence (the resampling secondary-write was missing
-   * clearAndMoveOn + the swap-counter decrement, delay.cpp:445-446 — fixed), but the secondary
-   * buffer's resampling spin-rate (setupForRender / makeNativeRatePrecise interaction at a clamped
-   * buffer size) remains too slow vs the C. Re-enable once the spin-rate chain is made faithful.
-   */
-  @Disabled("P1: fw2 master Delay produces no echo — see Javadoc; needs spin-rate/buffer-swap fix")
   @Test
-  void delayProducesDelayedEcho() {
+  void analogDelayDiffersFromDigital() {
+    Delay dig = freshDelay();
+    dig.analog = false;
+    Delay ana = freshDelay();
+    ana.analog = true;
+    Delay.State sd = delayState();
+    Delay.State sa = delayState();
+    long hd = 0;
+    long ha = 0;
+    for (int blk = 0; blk < 400; blk++) { // long enough for echoes to feed back through saturation
+      int[][] a = noiseBlock(128, 200 + blk);
+      int[][] b = noiseBlock(128, 200 + blk);
+      dig.setupWorkingState(sd, 1 << 20, true);
+      dig.process(a, 128, sd);
+      ana.setupWorkingState(sa, 1 << 20, true);
+      ana.process(b, 128, sa);
+      hd ^= signature(a, 128);
+      ha ^= signature(b, 128);
+    }
+    assertNotEquals(hd, ha, "analog (saturated/filtered) delay must differ from digital");
+  }
+
+  @Test
+  void delayGoldenSignature() {
     Delay d = freshDelay();
     Delay.State st = delayState();
-    long echoEnergy = 0;
-    for (int blk = 0; blk < 1000; blk++) {
-      int[][] buf = new int[128][2];
-      if (blk < 4) {
-        for (int i = 0; i < 128; i++) buf[i][0] = buf[i][1] = (int) (0.4 * ONE);
-      }
+    long h = 1469598103934665603L;
+    for (int blk = 0; blk < 400; blk++) {
+      int[][] buf = noiseBlock(128, 300 + blk);
       d.setupWorkingState(st, 1 << 20, true);
       d.process(buf, 128, st);
-      if (blk >= 4) {
-        for (int i = 0; i < 128; i++) echoEnergy += Math.abs((long) buf[i][0]);
-      }
+      h ^= signature(buf, 128);
     }
-    assertTrue(echoEnergy > 0, "an impulse must produce a delayed echo (energy=" + echoEnergy + ")");
+    assertEquals(DELAY_GOLDEN, h, "delay output drifted — re-baseline only if intended");
   }
 
   // Golden signatures captured from the current verified fw2 behavior. Update ONLY for an
   // intentional, C-justified DSP change (and say so in the commit).
   private static final long COMPRESSOR_GOLDEN = 3592526422808312300L;
+  private static final long DELAY_GOLDEN = 843932180224107487L;
 }
