@@ -335,7 +335,9 @@ public class FirmwareGoldenSignatureTest {
     assertClose("lfo tremolo peak", 0.031462651, peak, 0.30, 0.05);
     assertClose("lfo tremolo rms", 0.014756777, rms, 0.30, 0.05);
     assertClose("lfo tremolo brightness", 0.037900384, brightness, 0.30, 0.05);
-    assertClose("lfo tremolo wobble", 1.334450059, wobble, 0.30, 0.05);
+    // Re-baselined after the C-faithful volume-curve-neutral fix (Patcher uses getParamNeutralValue,
+    // not the 0 center knob): the voice is now correctly audible, so the tremolo depth is fuller.
+    assertClose("lfo tremolo wobble", 2.263147446, wobble, 0.30, 0.05);
     assertTrue(wobble > 1.0, "tremolo should stay obviously modulated");
   }
 

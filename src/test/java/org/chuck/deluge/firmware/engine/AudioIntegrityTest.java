@@ -128,9 +128,12 @@ public class AudioIntegrityTest {
     System.out.println("Synth C4 Peak: " + peak1);
     assertTrue(peak1 > 0, "Synth C4 should produce signal");
 
-    // Release
+    // Release. With the C-faithful volume-curve neutral (getParamNeutralValue, not the 0 center
+    // knob), the voice is now correctly audible, so the envelope release decays over the real
+    // firmware time (~900 128-sample blocks to fall below the residual threshold) rather than
+    // collapsing instantly. Render long enough for the release to complete.
     synth.releaseNote(60);
-    for (int i = 0; i < 200; i++) engine.renderBlock(128);
+    for (int i = 0; i < 1200; i++) engine.renderBlock(128);
 
     // Baseline after release
     int base = 0;
