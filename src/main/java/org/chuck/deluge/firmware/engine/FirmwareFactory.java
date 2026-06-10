@@ -709,6 +709,8 @@ public class FirmwareFactory {
               Sample s = AudioFileReader.readSample(f.getAbsolutePath());
               if (s != null) {
                 drumSound.samples[0] = s;
+                drumSound.fw2SampleCache[0] =
+                    org.chuck.deluge.firmware2.Sample.fromFirmwareSample(s);
                 System.out.println(
                     "[DIAG] Sample: "
                         + s.fileName

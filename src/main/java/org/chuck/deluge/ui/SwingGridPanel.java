@@ -4771,9 +4771,33 @@ public class SwingGridPanel extends JPanel {
             clipBtn.addActionListener(
                 e -> {
                   if (viewMode == GridViewMode.CLIP) {
-                    // Audition the row sound immediately
-                    vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) trk);
-                    vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
+                    // Audition the row sound immediately in Hi-Fi/Pure mode
+                    if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
+                      try {
+                        Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+                        if (fwEngineObj
+                            instanceof
+                            org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
+                          if (editedModelTrack < fwEngine.sounds.size()) {
+                            org.chuck.deluge.firmware.engine.GlobalEffectable sound =
+                                fwEngine.sounds.get(editedModelTrack);
+                            if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
+                              if (trk < kit.drumSounds.size()) kit.triggerDrum(trk, 127);
+                            } else if (sound
+                                instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
+                              boolean isSynthModeLocal =
+                                  bridge != null && bridge.getTrackType(baseTrackId) == 1;
+                              int pitchMidi = isSynthModeLocal ? (((128 - 1) - trk) + 0) : 60;
+                              synth.triggerNote(pitchMidi, 127);
+                            }
+                          }
+                        }
+                      } catch (Exception ignored) {
+                      }
+                    } else {
+                      vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) trk);
+                      vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
+                    }
 
                     // Toggle solo: solo this row or clear solo
                     if (soloRow == trk) {
@@ -5039,11 +5063,37 @@ public class SwingGridPanel extends JPanel {
                             }
                           }
                         } else {
-                          // Audition on press — no step toggle (use double-click or Edit button to
-                          // toggle steps)
-                          vm.setGlobalInt(
-                              BridgeContract.G_PREVIEW_TRACK, (long) (baseTrackId + trk));
-                          vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
+                          // Audition on press — no step toggle in Hi-Fi/Pure mode
+                          if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
+                            try {
+                              Object fwEngineObj =
+                                  vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+                              if (fwEngineObj
+                                  instanceof
+                                  org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
+                                if (editedModelTrack < fwEngine.sounds.size()) {
+                                  org.chuck.deluge.firmware.engine.GlobalEffectable sound =
+                                      fwEngine.sounds.get(editedModelTrack);
+                                  if (sound
+                                      instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
+                                    if (trk < kit.drumSounds.size()) kit.triggerDrum(trk, 127);
+                                  } else if (sound
+                                      instanceof
+                                      org.chuck.deluge.firmware.engine.FirmwareSound synth) {
+                                    boolean isSynthModeLocal =
+                                        bridge != null && bridge.getTrackType(baseTrackId) == 1;
+                                    int pitchMidi = isSynthModeLocal ? (((128 - 1) - trk) + 0) : 60;
+                                    synth.triggerNote(pitchMidi, 127);
+                                  }
+                                }
+                              }
+                            } catch (Exception ignored) {
+                            }
+                          } else {
+                            vm.setGlobalInt(
+                                BridgeContract.G_PREVIEW_TRACK, (long) (baseTrackId + trk));
+                            vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
+                          }
                         }
                       }
                     }
