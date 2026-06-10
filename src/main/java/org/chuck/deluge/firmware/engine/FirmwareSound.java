@@ -131,81 +131,38 @@ public class FirmwareSound extends GlobalEffectable {
 
   public FirmwareSound() {
     for (int i = 0; i < globalLfos.length; i++) globalLfos[i] = new LFO();
-    // C Sound::initParams (sound.cpp:131-187): paramNeutralValues hold knob positions (Q31, bipolar).
-    // Default = INT_MIN ("off/center") for every param, then override per C.
-    for (int i = 0; i < Param.kNumParams; i++) {
-      paramNeutralValues[i] = -2147483648; // C default (INT_MIN)
-      paramKnobs[i] = 0;
-    }
-    // C: patchedParams->params[LOCAL_VOLUME].setCurrentValueBasicForSetup(0)
-    paramNeutralValues[Param.LOCAL_VOLUME] = 0;
-    // C: patchedParams->params[LOCAL_OSC_A_VOLUME].setCurrentValueBasicForSetup(2147483647)
-    paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = 2147483647;
-    paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = 2147483647;
-    // C setupAsDefaultSynth (sound.cpp:223-259): filter defaults
-    paramNeutralValues[Param.LOCAL_LPF_FREQ] = 0x10000000; // C: 268435456
-    paramNeutralValues[Param.LOCAL_LPF_RESONANCE] = 0xA2000000; // C: -1577058304
+    // C Sound::initParams (sound.cpp:131-187, faithfully ported to fw2 Sound.initParams).
+    org.chuck.deluge.firmware2.Sound.initParams(paramNeutralValues);
+
+    // C Sound::setupAsDefaultSynth (sound.cpp:223-259): filter overrides on top of initParams.
+    paramNeutralValues[Param.LOCAL_LPF_FREQ] = 0x10000000;      // C:228
+    paramNeutralValues[Param.LOCAL_LPF_RESONANCE] = 0xA2000000;  // C:227
     paramNeutralValues[Param.LOCAL_LPF_MORPH] = 0;
-    paramNeutralValues[Param.LOCAL_HPF_FREQ] = 0; // HPF off by default
+    paramNeutralValues[Param.LOCAL_HPF_FREQ] = 0;
     paramNeutralValues[Param.LOCAL_HPF_RESONANCE] = 0;
     paramNeutralValues[Param.LOCAL_HPF_MORPH] = 0;
 
-    // C: Pitch Adjust defaults. Knob=0 → final=0 (zeroes phase). The C-neutral
-    // (no adjustment) final value is K_MAX_SAMPLE_VALUE (16777216). Use knob=16777216
-    // which produces final=16777216 through getFinalParameterValueLinear.
-    paramNeutralValues[Param.LOCAL_PITCH_ADJUST] = 16777216; // K_MAX_SAMPLE_VALUE = no adjustment
+    // C: Pitch Adjust. initParams sets 0 (C:152); for default-synth we want K_MAX_SAMPLE_VALUE = no offset.
+    paramNeutralValues[Param.LOCAL_PITCH_ADJUST] = 16777216;
     paramNeutralValues[Param.LOCAL_OSC_A_PITCH_ADJUST] = 16777216;
     paramNeutralValues[Param.LOCAL_OSC_B_PITCH_ADJUST] = 16777216;
     paramNeutralValues[Param.LOCAL_MODULATOR_0_PITCH_ADJUST] = 16777216;
     paramNeutralValues[Param.LOCAL_MODULATOR_1_PITCH_ADJUST] = 16777216;
 
-    // Exponential rates defaulting to 0 in C++
+    // Exponential rates defaulting to 0 (already set by initParams, re-stated for clarity):
     paramNeutralValues[Param.GLOBAL_DELAY_RATE] = 0;
     paramNeutralValues[Param.GLOBAL_ARP_RATE] = 0;
     paramNeutralValues[Param.GLOBAL_MOD_FX_RATE] = 0;
 
-    // C Sound::initParams: LFO rates = getParamFromUserValue(param, 30)
-    paramNeutralValues[Param.GLOBAL_LFO_FREQ_1] =
-        org.chuck.deluge.firmware2.Functions.getParamFromUserValue(Param.GLOBAL_LFO_FREQ_1, 30);
-    paramNeutralValues[Param.GLOBAL_LFO_FREQ_2] =
-        org.chuck.deluge.firmware2.Functions.getParamFromUserValue(Param.GLOBAL_LFO_FREQ_2, 30);
-    // C: LOCAL_LFO_LOCAL_FREQ_1/2 = 0 (patch cables open them up)
-    paramNeutralValues[Param.LOCAL_LFO_LOCAL_FREQ_1] = 0;
-    paramNeutralValues[Param.LOCAL_LFO_LOCAL_FREQ_2] = 0;
-
-    // C setupAsDefaultSynth envelope defaults (sound.cpp:223-259).
-    // Unlike initParams (which are broken INT_MIN), these produce usable rates through
-    // the signed Patcher curve. Env 0 is amplitude; env 1-3 are modulation.
-    paramNeutralValues[Param.LOCAL_ENV_0_ATTACK] = -2147483648; // C: 0x80000000 instant attack
-    paramNeutralValues[Param.LOCAL_ENV_0_DECAY] = 0x147AE14; // fast decay
-    paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN] = 2147483647; // max sustain
-    paramNeutralValues[Param.LOCAL_ENV_0_RELEASE] = 0x147AE14; // fast release
-
-    // C: ENV_1 from setupAsDefaultSynth
-    paramNeutralValues[Param.LOCAL_ENV_1_ATTACK] = 0x51EB851; // user-value ~25 equivalent
-    paramNeutralValues[Param.LOCAL_ENV_1_DECAY] = 0x51EB851;
-    paramNeutralValues[Param.LOCAL_ENV_1_SUSTAIN] = -23; // getParamFromUserValue(p, 25)
-    paramNeutralValues[Param.LOCAL_ENV_1_RELEASE] = -429496748; // getParamFromUserValue(p, 20)
-
-    // ENV_2, ENV_3: leave at INT_MIN (unused by default)
-
-    // C Sound::initParams: additional param defaults
-    paramNeutralValues[Param.GLOBAL_VOLUME_POST_FX] =
-        org.chuck.deluge.firmware2.Functions.getParamFromUserValue(Param.GLOBAL_VOLUME_POST_FX, 40);
-    paramNeutralValues[Param.GLOBAL_VOLUME_POST_REVERB_SEND] = 0;
-    paramNeutralValues[Param.GLOBAL_REVERB_AMOUNT] = -2147483648;
-    paramNeutralValues[Param.GLOBAL_DELAY_FEEDBACK] = -2147483648;
-    paramNeutralValues[Param.LOCAL_CARRIER_0_FEEDBACK] = -2147483648;
-    paramNeutralValues[Param.LOCAL_CARRIER_1_FEEDBACK] = -2147483648;
-    paramNeutralValues[Param.LOCAL_MODULATOR_0_FEEDBACK] = -2147483648;
-    paramNeutralValues[Param.LOCAL_MODULATOR_1_FEEDBACK] = -2147483648;
-    paramNeutralValues[Param.LOCAL_MODULATOR_0_VOLUME] = -2147483648;
-    paramNeutralValues[Param.LOCAL_MODULATOR_1_VOLUME] = -2147483648;
-    paramNeutralValues[Param.LOCAL_OSC_A_PHASE_WIDTH] = 0;
-    paramNeutralValues[Param.LOCAL_OSC_B_PHASE_WIDTH] = 0;
-    paramNeutralValues[Param.LOCAL_PAN] = 0;
-    paramNeutralValues[Param.LOCAL_NOISE_VOLUME] = -2147483648;
-    paramNeutralValues[Param.GLOBAL_MOD_FX_DEPTH] = 0;
+    // C setupAsDefaultSynth envelope defaults (sound.cpp:229-236).
+    paramNeutralValues[Param.LOCAL_ENV_0_ATTACK] = 0x80000000;   // C:229 — instant attack
+    paramNeutralValues[Param.LOCAL_ENV_0_DECAY] = 0xE6666654;    // C:230
+    paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN] = 0x7FFFFFFF;   // C:231 — max
+    paramNeutralValues[Param.LOCAL_ENV_0_RELEASE] = 0x851EB851;   // C:232
+    paramNeutralValues[Param.LOCAL_ENV_1_ATTACK] = 0xA3D70A37;    // C:233
+    paramNeutralValues[Param.LOCAL_ENV_1_DECAY] = 0xA3D70A37;     // C:234
+    paramNeutralValues[Param.LOCAL_ENV_1_SUSTAIN] = 0xFFFFFFE9;   // C:235
+    paramNeutralValues[Param.LOCAL_ENV_1_RELEASE] = 0xE6666654;   // C:236
   }
 
   public SynthMode getSynthMode() {
