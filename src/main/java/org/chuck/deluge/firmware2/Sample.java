@@ -31,6 +31,30 @@ public class Sample {
   public int[] data;
 
   /**
+   * Convert from the firmware model {@code Sample} (float[] PCM) to a fw2 Sample (int[] PCM, Q31).
+   * This is the bridge adapter — not in the C (the C reads clusters, not floats).
+   */
+  public static Sample fromFirmwareSample(org.chuck.deluge.firmware.model.sample.Sample modelSample) {
+    if (modelSample == null || modelSample.data == null) return null;
+    Sample s = new Sample();
+    s.numChannels = modelSample.numChannels;
+    s.byteDepth = modelSample.byteDepth;
+    s.sampleRate = (int) modelSample.sampleRate;
+    s.audioDataStartPosBytes = 0;
+    s.lengthInSamples = modelSample.getNumSamples();
+    s.audioDataLengthBytes = s.lengthInSamples * s.numChannels * s.byteDepth;
+    s.fileLoopStartSamples = modelSample.fileLoopStartSamples;
+    s.fileLoopEndSamples = modelSample.fileLoopEndSamples;
+
+    int n = modelSample.data.length;
+    s.data = new int[n];
+    for (int i = 0; i < n; i++) {
+      s.data[i] = (int) (modelSample.data[i] * 2147483647.0f);
+    }
+    return s;
+  }
+
+  /**
    * Faithful port of {@code Sample::getAveragesForCrossfade} (sample.cpp:727-833): the moving-average
    * similarity metric the time-stretch hop search compares. Computes {@code kNumMovingAverages} totals,
    * each the sum (over {@code lengthToAverageEach} frames, all channels) of the samples' top 16 bits
