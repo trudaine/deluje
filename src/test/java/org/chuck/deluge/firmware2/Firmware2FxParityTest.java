@@ -155,72 +155,11 @@ class Firmware2FxParityTest {
   }
 
   /**
-   * Digital (non-analog) delay: feedback + HPF + delay-buffer resample + write/read, NO tanH. This
-   * isolates the core delay DSP from the tanH-antialias path (where firmware/ is non-faithful — see
-   * compressor note). syncLevel 0 skips the sync-rate adjustment, so userDelayRate is used directly.
+   * Digital + analog + synced delay parity was verified sample-for-sample against firmware/ before the
+   * firmware/dsp/delay package was deleted (commits f28f845d..f328eafa, 3 tests). The fw2 Delay is proven
+   * faithful; the now-deleted firmware/ delay was the oracle. No replacement test is needed — the Delay
+   * self-tests cover the full path.
    */
-  @Test
-  void digitalDelayMatchesFirmware() {
-    runDelayParity(false, org.chuck.deluge.firmware.model.SyncLevel.SYNC_LEVEL_NONE, 0);
-  }
-
-  /**
-   * Analog delay: as digital, plus the 26-tap impulse-response FIR + headroom reduction + 1D
-   * {@code getTanHUnknown} saturation (NOT the 2D anti-alias path — that one firmware/ gets wrong).
-   */
-  @Test
-  void analogDelayMatchesFirmware() {
-    runDelayParity(true, org.chuck.deluge.firmware.model.SyncLevel.SYNC_LEVEL_NONE, 0);
-  }
-
-  /**
-   * Synced delay (syncLevel 16TH = 5): exercises setupWorkingState's sync-rate adjustment path
-   * (userDelayRate *= timePerInternalTickInverse, clamp, shift). This is the default the engine's
-   * FirmwareDelay wrapper uses, so it must be parity-clean before migrating that wrapper to firmware2.
-   */
-  @Test
-  void syncedDelayMatchesFirmware() {
-    runDelayParity(false, org.chuck.deluge.firmware.model.SyncLevel.SYNC_LEVEL_16TH, 5);
-  }
-
-  private void runDelayParity(boolean analog, org.chuck.deluge.firmware.model.SyncLevel syncOld, int syncNew) {
-    org.chuck.deluge.firmware.dsp.delay.Delay oldD = new org.chuck.deluge.firmware.dsp.delay.Delay();
-    Delay newD = new Delay();
-    oldD.analog = analog;
-    oldD.pingPong = false;
-    oldD.syncLevel = syncOld;
-    newD.analog = analog;
-    newD.pingPong = false;
-    newD.syncLevel = syncNew;
-
-    int userDelayRate = 1 << 23; // moderate rate → a few-hundred-sample buffer
-    int feedback = 0x40000000; // well above the 256 threshold
-    String tag = analog ? "analogDelay" : "digitalDelay";
-
-    Random r = new Random(555);
-    StereoSample[] a = newBuf();
-    int[][] b = new int[N][2];
-    for (int blk = 0; blk < BLOCKS; blk++) {
-      fill(r, a, b);
-
-      org.chuck.deluge.firmware.dsp.delay.Delay.State sOld =
-          new org.chuck.deluge.firmware.dsp.delay.Delay.State();
-      sOld.userDelayRate = userDelayRate;
-      sOld.delayFeedbackAmount = feedback;
-      Delay.State sNew = new Delay.State();
-      sNew.userDelayRate = userDelayRate;
-      sNew.delayFeedbackAmount = feedback;
-
-      oldD.setupWorkingState(sOld, 1 << 20, true);
-      newD.setupWorkingState(sNew, 1 << 20, true);
-      assertEquals(sOld.doDelay, sNew.doDelay, "doDelay mismatch block " + blk);
-      assertEquals(sOld.userDelayRate, sNew.userDelayRate, "userDelayRate mismatch block " + blk);
-
-      oldD.process(a, sOld);
-      newD.process(b, N, sNew);
-      assertSame(tag, blk, a, b);
-    }
-  }
 
   /**
    * Sidechain envelope (integer). Exercises registerHit (incl. combineHitStrengths — fw2 previously
