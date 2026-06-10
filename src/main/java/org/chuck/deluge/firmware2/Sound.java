@@ -72,6 +72,119 @@ public class Sound {
     }
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // Faithful param-default methods (sound.cpp:131-325). Each takes an int[] that the
+  // bridge (FirmwareSound) holds as paramNeutralValues[], matching the C PatchedParamSet.
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  /** C: sound.cpp:131-187 + ModControllableAudio::initParams. */
+  public static void initParams(int[] params) {
+    for (int i = 0; i < params.length; i++) {
+      params[i] = Integer.MIN_VALUE; // C setCurrentValueBasicForSetup(INT_MIN) for most
+    }
+
+    params[Param.LOCAL_VOLUME] = 0;                           // C:141
+    params[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;     // C:142 — 2147483647
+    params[Param.LOCAL_OSC_B_VOLUME] = Integer.MAX_VALUE;     // C:143
+    params[Param.GLOBAL_VOLUME_POST_FX] =                     // C:144-145
+        Functions.getParamFromUserValue(Param.GLOBAL_VOLUME_POST_FX, 40);
+    params[Param.GLOBAL_VOLUME_POST_REVERB_SEND] = 0;         // C:146
+    params[Param.LOCAL_FOLD] = Integer.MIN_VALUE;             // C:147
+    params[Param.LOCAL_HPF_RESONANCE] = Integer.MIN_VALUE;    // C:148
+    params[Param.LOCAL_HPF_FREQ] = Integer.MIN_VALUE;         // C:149
+    params[Param.LOCAL_HPF_MORPH] = Integer.MIN_VALUE;        // C:150
+    params[Param.LOCAL_LPF_MORPH] = Integer.MIN_VALUE;        // C:151
+    params[Param.LOCAL_PITCH_ADJUST] = 0;                     // C:152
+    params[Param.GLOBAL_REVERB_AMOUNT] = Integer.MIN_VALUE;   // C:153
+    params[Param.GLOBAL_DELAY_RATE] = 0;                      // C:154
+    params[Param.GLOBAL_ARP_RATE] = 0;                        // C:155
+    params[Param.GLOBAL_DELAY_FEEDBACK] = Integer.MIN_VALUE;  // C:156
+    params[Param.LOCAL_CARRIER_0_FEEDBACK] = Integer.MIN_VALUE;   // C:157
+    params[Param.LOCAL_CARRIER_1_FEEDBACK] = Integer.MIN_VALUE;   // C:158
+    params[Param.LOCAL_MODULATOR_0_FEEDBACK] = Integer.MIN_VALUE; // C:159
+    params[Param.LOCAL_MODULATOR_1_FEEDBACK] = Integer.MIN_VALUE; // C:160
+    params[Param.LOCAL_MODULATOR_0_VOLUME] = Integer.MIN_VALUE;   // C:161
+    params[Param.LOCAL_MODULATOR_1_VOLUME] = Integer.MIN_VALUE;   // C:162
+    params[Param.LOCAL_OSC_A_PHASE_WIDTH] = 0;                // C:163
+    params[Param.LOCAL_OSC_B_PHASE_WIDTH] = 0;                // C:164
+    params[Param.LOCAL_ENV_1_ATTACK] =                        // C:165-166
+        Functions.getParamFromUserValue(Param.LOCAL_ENV_1_ATTACK, 20);
+    params[Param.LOCAL_ENV_1_DECAY] =                         // C:167-168
+        Functions.getParamFromUserValue(Param.LOCAL_ENV_1_DECAY, 20);
+    params[Param.LOCAL_ENV_1_SUSTAIN] =                       // C:169-170
+        Functions.getParamFromUserValue(Param.LOCAL_ENV_1_SUSTAIN, 25);
+    params[Param.LOCAL_ENV_1_RELEASE] =                       // C:171-172
+        Functions.getParamFromUserValue(Param.LOCAL_ENV_1_RELEASE, 20);
+    params[Param.LOCAL_LFO_LOCAL_FREQ_1] = 0;                 // C:173
+    params[Param.GLOBAL_LFO_FREQ_1] =                         // C:174-175
+        Functions.getParamFromUserValue(Param.GLOBAL_LFO_FREQ_1, 30);
+    params[Param.LOCAL_LFO_LOCAL_FREQ_2] = 0;                 // C:176
+    params[Param.GLOBAL_LFO_FREQ_2] =                         // C:177-178
+        Functions.getParamFromUserValue(Param.GLOBAL_LFO_FREQ_2, 30);
+    params[Param.LOCAL_PAN] = 0;                              // C:179
+    params[Param.LOCAL_NOISE_VOLUME] = Integer.MIN_VALUE;     // C:180
+    params[Param.GLOBAL_MOD_FX_DEPTH] = 0;                    // C:181
+    params[Param.GLOBAL_MOD_FX_RATE] = 0;                     // C:182
+    params[Param.LOCAL_OSC_A_PITCH_ADJUST] = 0;               // C:183
+    params[Param.LOCAL_OSC_B_PITCH_ADJUST] = 0;               // C:184
+    params[Param.LOCAL_MODULATOR_0_PITCH_ADJUST] = 0;         // C:185
+    params[Param.LOCAL_MODULATOR_1_PITCH_ADJUST] = 0;         // C:186
+    // C:138 — PORTAMENTO = INT_MIN (internal param, not exposed)
+  }
+
+  /** C: sound.cpp:223-259 — preset that ships with new synths. */
+  public static void setupAsDefaultSynth(int[] params, Sound cfg) {
+    params[Param.LOCAL_OSC_B_VOLUME] = 0x47AE1457;               // C:226 — ~half
+    params[Param.LOCAL_LPF_RESONANCE] = 0xA2000000;              // C:227
+    params[Param.LOCAL_LPF_FREQ] = 0x10000000;                   // C:228
+    params[Param.LOCAL_ENV_0_ATTACK] = 0x80000000;               // C:229
+    params[Param.LOCAL_ENV_0_DECAY] = 0xE6666654;                // C:230
+    params[Param.LOCAL_ENV_0_SUSTAIN] = 0x7FFFFFFF;              // C:231
+    params[Param.LOCAL_ENV_0_RELEASE] = 0x851EB851;              // C:232
+    params[Param.LOCAL_ENV_1_ATTACK] = 0xA3D70A37;               // C:233
+    params[Param.LOCAL_ENV_1_DECAY] = 0xA3D70A37;                // C:234
+    params[Param.LOCAL_ENV_1_SUSTAIN] = 0xFFFFFFE9;              // C:235
+    params[Param.LOCAL_ENV_1_RELEASE] = 0xE6666654;              // C:236
+    params[Param.GLOBAL_VOLUME_POST_FX] = 0x50000000;            // C:237
+
+    // C:239-243 — default patch cables (4 cables)
+    addCable(cfg, PatchSource.NOTE, Param.LOCAL_LPF_FREQ, 0x08F5C28C);           // C:239
+    addCable(cfg, PatchSource.ENVELOPE_1, Param.LOCAL_LPF_FREQ, 0x1C28F5B8);     // C:240
+    addCable(cfg, PatchSource.VELOCITY, Param.LOCAL_LPF_FREQ, 0x0F5C28F0);       // C:241
+    addCable(cfg, PatchSource.VELOCITY, Param.LOCAL_VOLUME, 0x3FFFFFE8);          // C:242
+
+    cfg.lpfMode = FilterMode.TRANSISTOR_24DB; // C:248
+    cfg.oscTypes[0] = OscType.SAW;            // C:250
+  }
+
+  /** C: sound.cpp:297-325 — blank init (no patch, no shaping). */
+  public static void setupAsBlankSynth(int[] params, Sound cfg, boolean isDx) {
+    params[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;               // C:300
+    params[Param.LOCAL_LPF_FREQ] = Integer.MAX_VALUE;                   // C:301
+    params[Param.LOCAL_LPF_RESONANCE] = Integer.MIN_VALUE;              // C:302
+    params[Param.LOCAL_ENV_0_ATTACK] = Integer.MIN_VALUE;               // C:303
+    params[Param.LOCAL_ENV_0_DECAY] =                                   // C:304-305
+        Functions.getParamFromUserValue(Param.LOCAL_ENV_0_DECAY, 20);
+    params[Param.LOCAL_ENV_0_SUSTAIN] = Integer.MAX_VALUE;              // C:306
+    if (isDx) {
+      cfg.oscTypes[0] = OscType.DX7;                                    // C:308
+      cfg.patchCableSet.destinations.clear();                           // C:311
+      params[Param.LOCAL_ENV_0_RELEASE] = Integer.MAX_VALUE;            // C:312
+    } else {
+      params[Param.LOCAL_ENV_0_RELEASE] = Integer.MIN_VALUE;            // C:315
+      cfg.patchCableSet.destinations.clear();                           // C:317 (numPatchCables=1)
+      addCable(cfg, PatchSource.VELOCITY, Param.LOCAL_VOLUME,                                // C:318-319
+          Functions.getParamFromUserValue(Param.PATCH_CABLE, 50));
+    }
+  }
+
+  private static void addCable(Sound cfg, PatchSource source, int paramId, int amount) {
+    Patcher.PatchCable cable = new Patcher.PatchCable();
+    cable.source = source.ordinal();
+    cable.amount = amount;
+    cfg.patchCableSet.addCable(paramId, cable);
+  }
+
   public int getSyncedLFOPhaseIncrement(LfoConfig config) {
     int shift = Lfo.SyncLevel.L_256TH.ordinal() - config.syncLevel.ordinal();
     int phaseIncrement = timePerInternalTickInverse >> shift;
