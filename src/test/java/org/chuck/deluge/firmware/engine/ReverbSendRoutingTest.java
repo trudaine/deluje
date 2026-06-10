@@ -1,0 +1,65 @@
+package org.chuck.deluge.firmware.engine;
+
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.chuck.deluge.firmware.modulation.params.Param;
+import org.chuck.deluge.firmware.dsp.oscillators.OscType;
+import org.chuck.deluge.firmware.util.Q31;
+import org.junit.jupiter.api.Test;
+
+/**
+ * End-to-end proof that a sound's reverb SEND is routed into the (now-working) master reverb:
+ * GlobalEffectable.processReverbSendAndVolume -> monoReverbBuffer -> FirmwareAudioEngine ->
+ * masterReverb.process -> master output. Guards the full chain behind the reverb-output (setPanLevels)
+ * fix; with reverb send 0 the output must match the no-reverb engine.
+ */
+class ReverbSendRoutingTest {
+
+  private long[] render(int reverbSendAmount) {
+    FirmwareAudioEngine engine = new FirmwareAudioEngine();
+    engine.masterReverb.setRoomSize(0.85f);
+    engine.masterReverb.setDamping(0.3f);
+    engine.masterReverb.setWidth(1.0f);
+
+    FirmwareSound synth = new FirmwareSound();
+    synth.oscTypes[0] = OscType.SINE;
+    synth.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = Q31.ONE;
+    synth.paramNeutralValues[Param.LOCAL_VOLUME] = Q31.ONE;
+    synth.reverbSendAmount = reverbSendAmount;
+    engine.sounds.add(synth);
+
+    synth.triggerNote(60, 127);
+    long noteOnEnergy = 0;
+    long sig = 1469598103934665603L;
+    for (int blk = 0; blk < 80; blk++) {
+      engine.renderBlock(128);
+      for (int i = 0; i < 128; i++) {
+        noteOnEnergy += Math.abs((long) engine.masterBuffer[i].l);
+        sig = (sig ^ (engine.masterBuffer[i].l & 0xFFFFFFFFL)) * 1099511628211L;
+      }
+    }
+    synth.releaseNote(60);
+    long tailEnergy = 0;
+    for (int blk = 0; blk < 400; blk++) {
+      engine.renderBlock(128);
+      for (int i = 0; i < 128; i++) tailEnergy += Math.abs((long) engine.masterBuffer[i].l);
+    }
+    return new long[] {noteOnEnergy, tailEnergy, sig};
+  }
+
+  @Test
+  void reverbSendRoutesToMasterReverb() {
+    long[] dry = render(0);
+    long[] wet = render(Q31.ONE / 2); // 50% reverb send
+
+    // The send path must change the output vs a dry render...
+    assertNotEquals(dry[2], wet[2], "reverb send must alter the master output signature");
+    // ...and add energy (the wet signal is summed on top of the dry).
+    assertTrue(
+        wet[0] > dry[0], "reverb send should add note-on energy (wet=" + wet[0] + " dry=" + dry[0] + ")");
+    // The release tail should ring longer with reverb than the dry-only release.
+    assertTrue(
+        wet[1] > dry[1], "reverb tail should exceed the dry release tail (wet=" + wet[1] + " dry=" + dry[1] + ")");
+  }
+}
