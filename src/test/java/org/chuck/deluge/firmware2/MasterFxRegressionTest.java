@@ -191,8 +191,99 @@ class MasterFxRegressionTest {
     assertEquals(DELAY_GOLDEN, h, "delay output drifted — re-baseline only if intended");
   }
 
+  // ── Reverb ────────────────────────────────────────────────────────────────
+
+  // The master engine sets the reverb output level as the reverb pan levels before process()
+  // (C audio_engine.cpp:836). Without it every model multiplies its wet by a 0 amplitude → silence.
+  private static final int REVERB_OUTPUT_VOLUME = 0x20000000; // C:823 with no sidechain
+
+  private static Reverb.Container freshReverb(Reverb.Model m) {
+    Reverb.Container c = new Reverb.Container();
+    c.setModel(m);
+    c.setRoomSize(0.8f);
+    c.setDamping(0.4f);
+    c.setWidth(1.0f);
+    c.setPanLevels(REVERB_OUTPUT_VOLUME, REVERB_OUTPUT_VOLUME);
+    return c;
+  }
+
+  @Test
+  void reverbSilenceStaysSilent() {
+    Reverb.Container c = freshReverb(Reverb.Model.FREEVERB);
+    for (int blk = 0; blk < 8; blk++) {
+      int[] in = new int[128]; // silence
+      int[][] out = new int[128][2];
+      c.process(in, out);
+      for (int i = 0; i < 128; i++) {
+        assertEquals(0, out[i][0], "silent L blk" + blk + " @" + i);
+        assertEquals(0, out[i][1], "silent R blk" + blk + " @" + i);
+      }
+    }
+  }
+
+  @Test
+  void reverbProducesWetTail() {
+    // Feed a tone for a few blocks, then silence; the reverb must keep ringing (wet tail). Regression
+    // guard for the missing setPanLevels — with pan 0 every model emitted silence.
+    Reverb.Container c = freshReverb(Reverb.Model.FREEVERB);
+    long tail = 0;
+    for (int blk = 0; blk < 30; blk++) {
+      int[] in = new int[128];
+      if (blk < 8) {
+        for (int i = 0; i < 128; i++) in[i] = (int) (Math.sin((blk * 128 + i) * 0.2) * 0.5 * ONE);
+      }
+      int[][] out = new int[128][2];
+      c.process(in, out);
+      if (blk >= 12) { // after the dry tone ends — pure reverb tail
+        for (int i = 0; i < 128; i++) tail += Math.abs((long) out[i][0]) + Math.abs((long) out[i][1]);
+      }
+    }
+    assertTrue(tail > 0, "reverb must produce a wet tail after the input stops (tail=" + tail + ")");
+  }
+
+  @Test
+  void reverbIsDeterministic() {
+    Reverb.Container a = freshReverb(Reverb.Model.FREEVERB);
+    Reverb.Container b = freshReverb(Reverb.Model.FREEVERB);
+    long ha = 0;
+    long hb = 0;
+    for (int blk = 0; blk < 20; blk++) {
+      // process() mutates the input array in place (the reverb input HPF), so give each its own copy.
+      int[] inA = new int[128];
+      int[] inB = new int[128];
+      for (int i = 0; i < 128; i++) {
+        int s = (int) (Math.sin((blk * 128 + i) * 0.17) * 0.4 * ONE);
+        inA[i] = s;
+        inB[i] = s;
+      }
+      int[][] oa = new int[128][2];
+      int[][] ob = new int[128][2];
+      a.process(inA, oa);
+      b.process(inB, ob);
+      ha ^= signature(oa, 128);
+      hb ^= signature(ob, 128);
+    }
+    assertEquals(ha, hb, "reverb must be deterministic");
+  }
+
+  @Test
+  void reverbGoldenSignature() {
+    Reverb.Container c = freshReverb(Reverb.Model.FREEVERB);
+    long h = 1469598103934665603L;
+    for (int blk = 0; blk < 20; blk++) {
+      int[][] nb = noiseBlock(128, 500 + blk);
+      int[] in = new int[128];
+      for (int i = 0; i < 128; i++) in[i] = (nb[i][0] >> 1) + (nb[i][1] >> 1); // mono sum, as the engine feeds it
+      int[][] out = new int[128][2];
+      c.process(in, out);
+      h ^= signature(out, 128);
+    }
+    assertEquals(REVERB_GOLDEN, h, "reverb output drifted — re-baseline only if intended");
+  }
+
   // Golden signatures captured from the current verified fw2 behavior. Update ONLY for an
   // intentional, C-justified DSP change (and say so in the commit).
   private static final long COMPRESSOR_GOLDEN = 3592526422808312300L;
   private static final long DELAY_GOLDEN = 843932180224107487L;
+  private static final long REVERB_GOLDEN = 4308429854311107464L;
 }
