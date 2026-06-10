@@ -13,9 +13,9 @@ import org.junit.jupiter.api.Test;
  */
 public class ReverbSendParityTest {
 
-  private static long reverbBusEnergy(int sendAmount) {
+  private static long reverbBusEnergy(int sendKnob) {
     FirmwareSound sound = new FirmwareSound();
-    sound.reverbSendAmount = sendAmount;
+    sound.reverbSendKnob = sendKnob;
     sound.triggerNote(60, 100);
 
     int n = 128; // GlobalEffectable's internal trackBuffer is sized 128
@@ -30,14 +30,12 @@ public class ReverbSendParityTest {
     return energy;
   }
 
-  @org.junit.jupiter.api.Disabled(
-      "Reverb bus routing uses old FirmwareAudioEngine — needs firmware2 port")
   @Test
   public void reverbSendFeedsTheBus() {
-    long dry = reverbBusEnergy(0);
-    long wet = reverbBusEnergy(Q31.ONE);
+    long dry = reverbBusEnergy(Integer.MIN_VALUE); // INT_MIN knob = off
+    long wet = reverbBusEnergy(Integer.MAX_VALUE); // max reverb-send knob
 
-    assertEquals(0, dry, "With send=0 the reverb bus must stay silent");
+    assertEquals(0, dry, "With the send knob off (INT_MIN) the reverb bus must stay silent");
     assertTrue(
         wet > 0, "With send>0 the sound must feed the reverb bus (regression: was always 0)");
   }

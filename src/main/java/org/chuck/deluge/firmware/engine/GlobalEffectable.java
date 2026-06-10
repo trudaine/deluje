@@ -13,8 +13,12 @@ public abstract class GlobalEffectable {
   public final Stutterer stutterer = new Stutterer();
   public final ParamManager paramManager = new ParamManager();
 
-  /** Per-sound reverb send amount (Q31). 0 = dry (no contribution to the master reverb bus). */
-  public int reverbSendAmount = 0;
+  /**
+   * Per-sound reverb send KNOB (raw Q31 UNPATCHED_REVERB_SEND_AMOUNT). INT_MIN = off (the Deluge
+   * default). The actual send amount is derived per block from this knob and the post-FX volume via
+   * the C volume curve (see renderOutput), so center-volume coupling and the parabola are faithful.
+   */
+  public int reverbSendKnob = Integer.MIN_VALUE;
 
   /**
    * Firmware SRR/bitcrush and mod-FX can attenuate the post-FX gain before reverb-send / final
@@ -50,6 +54,16 @@ public abstract class GlobalEffectable {
     int postFXVolume = postFXVolumeHolder[0];
     int postReverbVolume = postReverbVolumeHolder[0];
     int pan = 0; // Center in Q31 is 0
+
+    // C: global_effectable_for_clip.cpp:84-86 — the reverb send amount is a volume curve of the
+    // per-sound send knob, scaled by the clip's post-FX volume (reverbAmountAdjust = volumePostFX>>1,
+    // song.cpp:2470). INT_MIN knob → patched -536870912 → curve returns 0, so an off/unset send stays
+    // dry. cableToLinearParamShortcut is >>2 (functions.cpp:260).
+    int reverbAmountAdjust = postFXVolume >> 1;
+    int reverbSendAmount =
+        org.chuck.deluge.firmware2.Functions.getFinalParameterValueVolume(
+            reverbAmountAdjust,
+            org.chuck.deluge.firmware2.Functions.cableToLinearParamShortcut(reverbSendKnob));
 
     processReverbSendAndVolume(
         trackBuffer, reverbBuffer, postFXVolume, postReverbVolume, reverbSendAmount, pan);
