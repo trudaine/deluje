@@ -84,9 +84,10 @@ public class Patcher {
     // cabled (destination) params and leaving non-cabled params at their curve-applied base.
     for (Destination dest : patchCableSet.destinations) {
       int p = dest.paramId;
-      // C (patcher.cpp:115-140): paramNeutralValues[param] is the stored knob value,
-      // used as the curve neutral reference.
-      int staticNeutral = knobValues[p]; // C: paramNeutralValues[param]
+      // C (patcher.cpp:118): the curve neutral is paramNeutralValues[param], which the C populates as
+      // getParamNeutralValue(param) (functions.cpp:180) — a STATIC per-param constant, NOT the knob.
+      // The knob (getSmoothedPatchedParamValue) is folded into the cable combination below instead.
+      int staticNeutral = Functions.getParamNeutralValue(p);
       int finalValue;
 
       if (dest.cables.isEmpty()) continue; // no cables → knob stays as-is
@@ -225,7 +226,9 @@ public class Patcher {
       cableCombination = cableToExpParamWithoutRangeAdjustment(0, knobValues[p], range);
     }
 
-    int neutralValue = knobValues[p]; // C (patcher.cpp:37): param_neutral_value = paramNeutralValues[p]
+    // C (patcher.cpp:37): param_neutral_value = paramNeutralValues[p] = getParamNeutralValue(p)
+    // (static per-param constant). The knob is already folded into cableCombination above.
+    int neutralValue = Functions.getParamNeutralValue(p);
     int finalValue;
     if (p < Param.FIRST_LOCAL_HYBRID
         || (p >= Param.FIRST_GLOBAL && p < Param.FIRST_GLOBAL_HYBRID)) {
@@ -337,20 +340,21 @@ public class Patcher {
       cableCombination = cableToExpParamWithoutRangeAdjustment(0, knobValue, range);
     }
 
+    int neutral = Functions.getParamNeutralValue(p); // C: paramNeutralValues[p]; knob is in cableCombination
     if (p < Param.FIRST_LOCAL_HYBRID
         || (p >= Param.FIRST_GLOBAL && p < Param.FIRST_GLOBAL_HYBRID)) {
       if (p < Param.FIRST_LOCAL_NON_VOLUME
           || (p >= Param.FIRST_GLOBAL && p < Param.FIRST_GLOBAL_NON_VOLUME)) {
-        return Functions.getFinalParameterValueVolume(knobValue, cableCombination);
+        return Functions.getFinalParameterValueVolume(neutral, cableCombination);
       } else {
-        return Functions.getFinalParameterValueLinear(knobValue, cableCombination);
+        return Functions.getFinalParameterValueLinear(neutral, cableCombination);
       }
     } else {
       if (p < Param.FIRST_LOCAL_EXP || (p >= Param.FIRST_GLOBAL && p < Param.FIRST_GLOBAL_EXP)) {
-        return Functions.getFinalParameterValueHybrid(knobValue, cableCombination);
+        return Functions.getFinalParameterValueHybrid(neutral, cableCombination);
       } else {
         return Functions.getFinalParameterValueExpWithDumbEnvelopeHack(
-            knobValue, cableCombination, p);
+            neutral, cableCombination, p);
       }
     }
   }
