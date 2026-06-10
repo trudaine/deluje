@@ -476,13 +476,24 @@ public class Delay {
           secondaryBuffer.data[writeIdx][1] = workingBuf[i][1];
         }
       } else {
-        // C:441-453 — resampling write
+        // C:441-453 — resampling write. The advance callback runs once per buffer move-on (C's
+        // lambda at delay.cpp:444-447): it does clearAndMoveOn (updating `wrapped`) AND decrements
+        // sizeLeftUntilBufferSwap. The simplified advanceRead can't express these side effects, so
+        // omitting them meant the swap counter never reached < 0 → copySecondaryToPrimary never ran
+        // → the delay produced no echo. Use advance(callback) to mirror the C exactly.
+        final boolean[] w = {wrapped};
         for (int i = 0; i < numSamples; i++) {
-          int secondaryStrength2 = secondaryBuffer.advanceRead(true);
+          int secondaryStrength2 =
+              secondaryBuffer.advance(
+                  () -> {
+                    w[0] = secondaryBuffer.clearAndMoveOn() || w[0]; // C:445
+                    sizeLeftUntilBufferSwap--; // C:446
+                  });
           int secondaryStrength1 = 65536 - secondaryStrength2;
           secondaryBuffer.writeResampled(
               workingBuf[i][0], workingBuf[i][1], secondaryStrength1, secondaryStrength2);
         }
+        wrapped = w[0];
       }
 
       // C:456-458
@@ -732,6 +743,25 @@ public class Delay {
       while (shortPosDiff > 0) {
         if (clearOnWrap) clearAndMoveOn();
         else moveOn();
+        shortPosDiff--;
+      }
+      return (int) ((longPos >> 8) & 0xFFFF);
+    }
+
+    /**
+     * C: delay_buffer.h:50-61 — advance with a callback run once per "move on" boundary. The C's
+     * resampling secondary-buffer write needs the callback to do clearAndMoveOn + side effects
+     * (wrapped tracking, sizeLeftUntilBufferSwap--), which the simplified {@link #advanceRead} can't
+     * express. Faithful to the lambda form.
+     */
+    int advance(Runnable callback) {
+      longPos += actualSpinRate;
+      int newShortPos = (int) ((longPos & 0xFFFFFFFFFFFFFFFFL) >> 24) & 0xFF;
+      int shortPosDiff = (newShortPos - lastShortPos) & 0xFF;
+      lastShortPos = (byte) newShortPos;
+
+      while (shortPosDiff > 0) {
+        callback.run();
         shortPosDiff--;
       }
       return (int) ((longPos >> 8) & 0xFFFF);
