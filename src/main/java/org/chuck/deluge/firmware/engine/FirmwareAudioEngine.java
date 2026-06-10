@@ -5,6 +5,8 @@ import org.chuck.deluge.firmware.dsp.StereoSample;
 import org.chuck.deluge.firmware.util.Q31;
 import org.chuck.deluge.firmware2.Compressor;
 import org.chuck.deluge.firmware2.Delay;
+import org.chuck.deluge.firmware2.LiveInputBuffer;
+import org.chuck.deluge.firmware2.LivePitchShifter;
 import org.chuck.deluge.firmware2.Reverb;
 
 /**
@@ -29,6 +31,12 @@ public class FirmwareAudioEngine {
 
   /** int[][] stereo scratch for the fw2 FX chain (fw2 FX read/write [l, r] per sample). */
   private final int[][] fxBuffer = new int[128][2];
+
+  // Live input pitch shifter (monitoring). inputBuffer holds the ring; pitchShifter renders it.
+  public final LiveInputBuffer liveInputBuffer = new LiveInputBuffer();
+  public final LivePitchShifter livePitchShifter =
+      new LivePitchShifter(LiveInputBuffer.InputType.STEREO, 16777216);
+  private int liveAudioSampleTimer;
 
   // ── High-Fidelity Gain Constants ──
   public int masterVolumeAdjustmentL = Q31.ONE;
@@ -90,6 +98,24 @@ public class FirmwareAudioEngine {
       masterBuffer[i].l = org.chuck.deluge.firmware.util.FirmwareUtils.getTanHUnknown(l, 0) << 1;
       masterBuffer[i].r = org.chuck.deluge.firmware.util.FirmwareUtils.getTanHUnknown(r, 0) << 1;
     }
+  }
+
+  /**
+   * Feed a block of live audio input through the pitch shifter and mix into the master output. Call
+   * this from a desktop audio input callback. {@code inputBlock} is interleaved stereo int
+   * (LRLR...), matching the fw2 DSP convention.
+   */
+  public void renderLiveInput(int[] inputBlock, int numSamples, int phaseIncrement) {
+    livePitchShifter.render(
+        new int[numSamples * 2],
+        numSamples,
+        phaseIncrement,
+        1 << 27,
+        0,
+        16,
+        liveInputBuffer,
+        liveAudioSampleTimer += numSamples,
+        inputBlock);
   }
 
   public void panic() {
