@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import org.chuck.deluge.firmware.dsp.StereoSample;
 import org.chuck.deluge.firmware.dsp.oscillators.OscType;
 import org.chuck.deluge.firmware.engine.FirmwareSound;
-import org.chuck.deluge.firmware.engine.FirmwareVoice;
+
 import org.chuck.deluge.firmware.modulation.params.Param;
 import org.chuck.deluge.firmware.util.Q31;
 import org.chuck.deluge.model.FilterMode;
@@ -179,8 +179,8 @@ public class AutodispWorkstationDiagnostic {
       }
       sound.renderOutput(buffer, 128, null);
 
-      if (b == 0 && !sound.voices.isEmpty()) {
-        FirmwareVoice voice = sound.voices.iterator().next();
+      if (b == 0 && !sound.fw2Sound.voices.isEmpty()) {
+        org.chuck.deluge.firmware2.Voice voice = sound.fw2Sound.voices.iterator().next();
         System.out.println(
             "  [DIAG] Sound Neutral Attack: " + sound.paramNeutralValues[Param.LOCAL_ENV_0_ATTACK]);
         System.out.println(

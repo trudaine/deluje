@@ -29,7 +29,7 @@ public class FirmwareKit extends GlobalEffectable {
   @Override
   protected void renderInternal(StereoSample[] buffer, int numSamples, ParamManager paramManager) {
     for (FirmwareSound drum : drumSounds) {
-      if (!drum.voices.isEmpty()) {
+      if (!drum.fw2Sound.voices.isEmpty()) {
         // Clear temp buffer
         for (int i = 0; i < numSamples; i++) {
           isolatedBuffer[i].l = 0;

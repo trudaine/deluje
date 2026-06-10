@@ -95,11 +95,11 @@ public class FirmwareAudioEngine {
     for (GlobalEffectable sound : sounds) {
       if (sound instanceof FirmwareSound synth) {
         synth.releaseAllNotes();
-        synth.voices.clear();
+        // voice list removed (fw2 manages its own)
       } else if (sound instanceof FirmwareKit kit) {
         for (FirmwareSound drum : kit.drumSounds) {
           drum.releaseAllNotes();
-          drum.voices.clear();
+          // voice list removed (fw2 manages its own)
         }
       }
     }

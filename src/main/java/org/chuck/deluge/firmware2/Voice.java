@@ -34,6 +34,11 @@ public class Voice {
   // Envelope array (4 per voice: amp + 3 modulation)
   public final Envelope[] envelopes = new Envelope[4];
 
+  /** Test seam: override osc1 initial phase. -2 = use random (default). */
+  public static int testStartPhaseOverrideOsc1 = -2;
+  /** Test seam: override osc2 initial phase. -2 = use random (default). */
+  public static int testStartPhaseOverrideOsc2 = -2;
+
   // Per-source oscillators (2 sources: osc A, osc B)
   public final VoiceSource[] sources = new VoiceSource[2];
 
@@ -177,7 +182,8 @@ public class Voice {
     for (Envelope e : envelopes) e.noteOn(false);
     for (VoiceSource s : sources) {
       s.active = true;
-      s.oscPos = Functions.getNoise() & 0x7FFFFFFF; // random initial phase
+      int ovr = (s == sources[0]) ? testStartPhaseOverrideOsc1 : testStartPhaseOverrideOsc2;
+      s.oscPos = (ovr != -2) ? ovr : (Functions.getNoise() & 0x7FFFFFFF); // random initial phase
       s.carrierFeedback = 0;
     }
     modulatorPhase[0] = 0;

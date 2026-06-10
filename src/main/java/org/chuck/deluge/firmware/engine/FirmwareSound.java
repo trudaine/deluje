@@ -29,10 +29,7 @@ public class FirmwareSound extends GlobalEffectable {
     RINGMOD
   }
 
-  public final List<FirmwareVoice> voices = new ArrayList<>();
-
-  /** Set true to use the faithful firmware2/ DSP engine (opt-in). */
-  public boolean useFirmware2 = true;
+  // Legacy FirmwareVoice path retired — always routes through firmware2.
 
   public final org.chuck.deluge.firmware2.Sound fw2Sound = new org.chuck.deluge.firmware2.Sound();
   private int[] fw2ScratchBuffer = null;
@@ -224,13 +221,8 @@ public class FirmwareSound extends GlobalEffectable {
     }
 
     boolean hasActiveVoices;
-    synchronized (voices) {
-      hasActiveVoices = !voices.isEmpty();
-    }
-    if (!hasActiveVoices && useFirmware2) {
-      synchronized (fw2Sound.voices) {
-        hasActiveVoices = !fw2Sound.voices.isEmpty();
-      }
+    synchronized (fw2Sound.voices) {
+      hasActiveVoices = !fw2Sound.voices.isEmpty();
     }
     boolean arpHolding = arpEnabled() && arpeggiator.hasAnyInputNotesActive();
     if (!hasActiveVoices && !arpHolding && silentBlockCount > 100) {
@@ -255,23 +247,7 @@ public class FirmwareSound extends GlobalEffectable {
         globalLfos[1].render(numSamples, lfoWaveforms[2], phaseInc2);
 
     // 2. Sum Voices
-    if (useFirmware2) {
-      renderVoicesFw2(buffer, numSamples);
-    } else
-      synchronized (voices) {
-        java.util.Iterator<FirmwareVoice> it = voices.iterator();
-        while (it.hasNext()) {
-          FirmwareVoice voice = it.next();
-          if (!voice.active) {
-            it.remove();
-            continue;
-          }
-
-          int pIncA = noteToPhaseInc(voice.note);
-          int pIncB = noteToPhaseInc(voice.note + 12);
-          voice.render(buffer, numSamples, pIncA, pIncB);
-        }
-      }
+    renderVoicesFw2(buffer, numSamples);
 
     // 3. Apply High-Fidelity FX Chain (firmware order: SRR/bitcrush → mod FX → stutter → ...)
     // Sample-rate reduction + bitcrushing
@@ -379,65 +355,16 @@ public class FirmwareSound extends GlobalEffectable {
     if (sidechainSend != 0) {
       GlobalSidechainBus.registerHit(sidechainSend);
     }
-    if (useFirmware2) {
-      triggerVoiceFw2(note, vel, midiChannel, null);
-      return;
-    }
-    synchronized (voices) {
-      FirmwareVoice voiceToUse = null;
-
-      if (polyphonic != PolyphonyMode.POLY) {
-        for (FirmwareVoice v : voices) {
-          if (v.active) {
-            voiceToUse = v;
-            break;
-          }
-        }
-      }
-
-      if (voiceToUse != null) {
-        voiceToUse.midiChannel = midiChannel;
-        voiceToUse.mpePitchBend = 8192;
-        voiceToUse.mpePressure = 0;
-        voiceToUse.mpeTimbre = 64;
-        voiceToUse.noteOn(note, vel);
-        return;
-      }
-
-      for (FirmwareVoice v : voices) {
-        if (!v.active) {
-          v.midiChannel = midiChannel;
-          v.mpePitchBend = 8192;
-          v.mpePressure = 0;
-          v.mpeTimbre = 64;
-          v.noteOn(note, vel);
-          return;
-        }
-      }
-      if (voices.size() < maxPolyphony) {
-        FirmwareVoice v = new FirmwareVoice(this);
-        v.midiChannel = midiChannel;
-        v.mpePitchBend = 8192;
-        v.mpePressure = 0;
-        v.mpeTimbre = 64;
-        v.noteOn(note, vel);
-        voices.add(v);
-      }
-    }
+    triggerVoiceFw2(note, vel, midiChannel, null);
   }
 
-  /** Active voice count for the engine currently in use (firmware2 vs legacy). */
+  /** Active voice count. */
   public int getActiveVoiceCount() {
-    if (useFirmware2) {
-      synchronized (fw2Sound.voices) {
-        int n = 0;
-        for (var v : fw2Sound.voices) if (v.active) n++;
-        return n;
-      }
+    synchronized (fw2Sound.voices) {
+      int n = 0;
+      for (var v : fw2Sound.voices) if (v.active) n++;
+      return n;
     }
-    int n = 0;
-    for (FirmwareVoice v : voices) if (v.active) n++;
-    return n;
   }
 
   private void triggerVoiceFw2(int note, int vel, int midiChannel, int[] mpeValues) {
@@ -649,9 +576,6 @@ public class FirmwareSound extends GlobalEffectable {
   }
 
   public void noteOffAll() {
-    synchronized (voices) {
-      for (FirmwareVoice v : voices) if (v.active) v.noteOff(0);
-    }
     synchronized (fw2Sound.voices) {
       for (var v : fw2Sound.voices) v.noteOff();
     }
@@ -683,31 +607,19 @@ public class FirmwareSound extends GlobalEffectable {
   }
 
   private void releaseVoice(int note, int midiChannel) {
-    if (useFirmware2) {
-      synchronized (fw2Sound.voices) {
-        for (var v : fw2Sound.voices) {
-          if (v.active && v.note == note) {
-            v.noteOff(); // triggers the envelope release (envelope.cpp noteOff/unconditionalRelease)
-          }
-        }
-      }
-      return;
-    }
-    synchronized (voices) {
-      for (FirmwareVoice v : voices) {
-        if (v.active && v.note == note && (midiChannel == -1 || v.midiChannel == midiChannel)) {
-          v.noteOff(0);
+    synchronized (fw2Sound.voices) {
+      for (var v : fw2Sound.voices) {
+        if (v.active && v.note == note) {
+          v.noteOff(); // triggers the envelope release (envelope.cpp noteOff/unconditionalRelease)
         }
       }
     }
   }
 
   public void releaseAllNotes() {
-    synchronized (voices) {
-      for (FirmwareVoice v : voices) {
-        if (v.active) {
-          v.noteOff(0);
-        }
+    synchronized (fw2Sound.voices) {
+      for (var v : fw2Sound.voices) {
+        if (v.active) v.noteOff();
       }
     }
   }
@@ -715,20 +627,11 @@ public class FirmwareSound extends GlobalEffectable {
   /** C: polyphonicExpressionEventOnChannelOrNote — pitch bend (X), immediate. */
   public void mpePitchBend(int midiChannel, int newValue) {
     int s = PatchSource.X.ordinal();
-    // C: voiceLevelValue = newValue << 16 (mpeValues are int16_t)
     int voiceLevelValue = newValue << 16;
     synchronized (fw2Sound.voices) {
       for (var v : fw2Sound.voices) {
         if (v.active && v.inputCharacteristics[1] == midiChannel) {
           v.expressionEventImmediate(fw2Sound, voiceLevelValue, s);
-        }
-      }
-    }
-    // Legacy path
-    synchronized (voices) {
-      for (FirmwareVoice v : voices) {
-        if (v.active && v.midiChannel == midiChannel) {
-          v.mpePitchBend = newValue;
         }
       }
     }
@@ -745,14 +648,6 @@ public class FirmwareSound extends GlobalEffectable {
         }
       }
     }
-    // Legacy path
-    synchronized (voices) {
-      for (FirmwareVoice v : voices) {
-        if (v.active && v.midiChannel == midiChannel) {
-          v.mpePressure = newValue;
-        }
-      }
-    }
   }
 
   /** C: polyphonicExpressionEventOnChannelOrNote — timbre (Y), immediate. */
@@ -763,14 +658,6 @@ public class FirmwareSound extends GlobalEffectable {
       for (var v : fw2Sound.voices) {
         if (v.active && v.inputCharacteristics[1] == midiChannel) {
           v.expressionEventImmediate(fw2Sound, voiceLevelValue, s);
-        }
-      }
-    }
-    // Legacy path
-    synchronized (voices) {
-      for (FirmwareVoice v : voices) {
-        if (v.active && v.midiChannel == midiChannel) {
-          v.mpeTimbre = newValue;
         }
       }
     }
@@ -850,53 +737,8 @@ public class FirmwareSound extends GlobalEffectable {
 
   @Override
   public void processFilters(StereoSample[] buffer, int numSamples) {
-    if (voices.isEmpty()) {
-      filterSet.reset();
-      return;
-    }
-
-    int lpfFrequency, lpfResonance, lpfMorph;
-    int hpfFrequency, hpfResonance, hpfMorph;
-
-    FirmwareVoice primaryVoice = null;
-    synchronized (voices) {
-      if (!voices.isEmpty()) {
-        primaryVoice = voices.iterator().next();
-      }
-    }
-
-    if (primaryVoice != null) {
-      lpfFrequency = primaryVoice.paramFinalValues[Param.LOCAL_LPF_FREQ];
-      lpfResonance = primaryVoice.paramFinalValues[Param.LOCAL_LPF_RESONANCE];
-      lpfMorph = primaryVoice.paramFinalValues[Param.LOCAL_LPF_MORPH];
-
-      hpfFrequency = primaryVoice.paramFinalValues[Param.LOCAL_HPF_FREQ];
-      hpfResonance = primaryVoice.paramFinalValues[Param.LOCAL_HPF_RESONANCE];
-      hpfMorph = primaryVoice.paramFinalValues[Param.LOCAL_HPF_MORPH];
-    } else {
-      lpfFrequency = paramNeutralValues[Param.LOCAL_LPF_FREQ];
-      lpfResonance = paramNeutralValues[Param.LOCAL_LPF_RESONANCE];
-      lpfMorph = paramNeutralValues[Param.LOCAL_LPF_MORPH];
-
-      hpfFrequency = paramNeutralValues[Param.LOCAL_HPF_FREQ];
-      hpfResonance = paramNeutralValues[Param.LOCAL_HPF_RESONANCE];
-      hpfMorph = paramNeutralValues[Param.LOCAL_HPF_MORPH];
-    }
-
-    // Bypassed: Migrated to polyphonic per-voice FilterSet rendering stage in FirmwareVoice.java!
-    // Keep global filter inactive to avoid double-filtering.
-    // filterSet.setConfig(
-    //     lpfFrequency,
-    //     lpfResonance,
-    //     lpfMode,
-    //     lpfMorph,
-    //     hpfFrequency,
-    //     hpfResonance,
-    //     hpfMode,
-    //     hpfMorph,
-    //     Q31.ONE,
-    //     filterRoute);
-    // filterSet.renderStereoInterleaved(buffer, numSamples);
+    // Filtering is handled per-voice in fw2 Voice.render (applyFilterAndGain).
+    // This global pass is intentionally a no-op to avoid double-filtering.
   }
 
   // ── Subtractive Oscillator Retrigger Starting Phases ──
