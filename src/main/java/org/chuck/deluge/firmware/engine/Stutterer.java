@@ -3,10 +3,10 @@ package org.chuck.deluge.firmware.engine;
 import static org.chuck.deluge.firmware.util.Q31.*;
 
 import org.chuck.deluge.firmware.dsp.StereoSample;
-import org.chuck.deluge.firmware.dsp.delay.DelayBuffer;
 import org.chuck.deluge.firmware.modulation.params.Param;
 import org.chuck.deluge.firmware.modulation.params.ParamManager;
 import org.chuck.deluge.firmware.util.FirmwareUtils;
+import org.chuck.deluge.firmware2.DelayBuffer;
 
 /**
  * Port of the Deluge's Stutterer class. Implements real-time buffer-based stutter with bit-accurate
@@ -83,7 +83,7 @@ public class Stutterer {
         if (buffer.isNative()) {
           buffer.clearAndMoveOn();
           sizeLeftUntilRecordFinished--;
-          buffer.writeNative(sample);
+          buffer.writeNative(sample.l, sample.r);
         } else {
           int strength2 =
               buffer.advance(
@@ -92,7 +92,7 @@ public class Stutterer {
                     sizeLeftUntilRecordFinished--;
                   });
           int strength1 = 65536 - strength2;
-          buffer.writeResampled(sample, strength1, strength2);
+          buffer.writeResampled(sample.l, sample.r, strength1, strength2);
         }
       }
 
@@ -110,9 +110,9 @@ public class Stutterer {
           if (currentReverse) buffer.moveBack();
           else buffer.moveOn();
 
-          StereoSample curr = buffer.current();
-          audio[i].l = curr.l;
-          audio[i].r = curr.r;
+          int[] curr = buffer.current();
+          audio[i].l = curr[0];
+          audio[i].r = curr[1];
         } else {
           int strength2 =
               currentReverse
@@ -134,15 +134,15 @@ public class Stutterer {
             neighborOffset = 0;
           }
 
-          StereoSample fromDelay1 = buffer.current();
-          StereoSample fromDelay2 = buffer.bufferAt(neighborOffset);
+          int[] fromDelay1 = buffer.current();
+          int[] fromDelay2 = buffer.at(neighborOffset);
           audio[i].l =
-              (multiply_32x32_rshift32(fromDelay1.l, strength1 << 14)
-                      + multiply_32x32_rshift32(fromDelay2.l, strength2 << 14))
+              (multiply_32x32_rshift32(fromDelay1[0], strength1 << 14)
+                      + multiply_32x32_rshift32(fromDelay2[0], strength2 << 14))
                   << 2;
           audio[i].r =
-              (multiply_32x32_rshift32(fromDelay1.r, strength1 << 14)
-                      + multiply_32x32_rshift32(fromDelay2.r, strength2 << 14))
+              (multiply_32x32_rshift32(fromDelay1[1], strength1 << 14)
+                      + multiply_32x32_rshift32(fromDelay2[1], strength2 << 14))
                   << 2;
         }
 
