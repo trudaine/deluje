@@ -104,6 +104,20 @@ public class Voice {
     public int carrierFeedback; // FM carrier feedback memory
     public int phaseIncrementStoredValue;
     public boolean active;
+
+    // Sample playback (when oscType == SAMPLE or source is sample-based).
+    public final VoiceSample voiceSample = new VoiceSample();
+    public Sample sampleRef; // the fw2 Sample backing this source
+
+    public void setupSample(Sample fw2Sample, int startFrame, int playDirection) {
+      sampleRef = fw2Sample;
+      voiceSample.setup(fw2Sample, startFrame, playDirection);
+    }
+
+    public void setupSampleTimeStretch(Sample fw2Sample, int startFrame, int playDirection) {
+      sampleRef = fw2Sample;
+      voiceSample.setupTimeStretch(fw2Sample, startFrame, playDirection);
+    }
   }
 
   // ── combineExpressionValues (voice.cpp:78-83) ──
@@ -488,8 +502,23 @@ public class Voice {
                 ? Functions.multiply_32x32_rshift32_rounded(
                     paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s], filterGain)
                 : paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s] >> 4;
-        if (srcAmp <= 0) continue;
+        if (srcAmp <= 0 && sources[s].sampleRef == null) continue;
         int pInc = (s == 0) ? pIncA : pIncB;
+
+        // Sample playback path (bypasses oscillator when a Sample is attached to this source).
+        if (sources[s].sampleRef != null && sources[s].voiceSample.active) {
+          int[] sampBuf = new int[numSamples]; // mono
+          int[] ampArr = {0};
+          sources[s].voiceSample.render(sampBuf, numSamples, 1, pInc, ampArr, 0);
+          int sampAmp = (srcAmp > 0) ? srcAmp : (paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s] >> 4);
+          for (int i = 0; i < numSamples; i++) {
+            sourceBuf[s * numSamples + i] = Functions.multiply_32x32_rshift32(sampBuf[i], sampAmp) << 2;
+          }
+          if (!sources[s].voiceSample.active) sources[s].active = false;
+          continue;
+        }
+
+        if (srcAmp <= 0) continue;
         if (sound.oscTypes[s] == OscType.DX7) {
           // voice.cpp:2360-2387 — per-source DX7. adjpitch = (int)(log2f(phaseIncrement)*(1<<24)) -
           // 278023814; ctrl.ampmod = LOCAL_OSC_A_PHASE_WIDTH[s] >> 13; dxVoice->compute(uniBuf,...);

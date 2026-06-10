@@ -43,6 +43,8 @@ public class FirmwareSound extends GlobalEffectable {
   };
   public final org.chuck.deluge.firmware.model.sample.Sample[] samples =
       new org.chuck.deluge.firmware.model.sample.Sample[2];
+  private final org.chuck.deluge.firmware2.Sample[] fw2SampleCache =
+      new org.chuck.deluge.firmware2.Sample[2];
   public final org.chuck.deluge.firmware.model.sample.SampleVoiceSettings[] sampleSettings = {
     new org.chuck.deluge.firmware.model.sample.SampleVoiceSettings(),
     new org.chuck.deluge.firmware.model.sample.SampleVoiceSettings()
@@ -453,6 +455,12 @@ public class FirmwareSound extends GlobalEffectable {
         }
       if (fw2Sound.voices.size() < maxPolyphony) {
         var v = new org.chuck.deluge.firmware2.Voice(fw2Sound);
+        // Attach loaded samples to the new voice's sources.
+        for (int s = 0; s < 2; s++) {
+          if (fw2SampleCache[s] != null) {
+            v.sources[s].setupSample(fw2SampleCache[s], 0, 1);
+          }
+        }
         v.noteOn(note, vel, midiChannel, mpeValues);
         fw2Sound.voices.add(v);
       }
@@ -482,6 +490,23 @@ public class FirmwareSound extends GlobalEffectable {
     fw2Sound.modulatorTranspose[1] = fmModulator2Transpose;
     fw2Sound.setModulatorCents(0, fmModulator1Cents);
     fw2Sound.setModulatorCents(1, fmModulator2Cents);
+
+    // Attach samples to voice sources when the sound is sample-based.
+    // C Sound::noteOn → source oscillator != sample → bypass, else set up per-source sample reader.
+    for (int s = 0; s < 2; s++) {
+      if (fw2Sound.oscTypes[s] == org.chuck.deluge.firmware2.Oscillator.OscType.SAMPLE
+          && samples[s] != null && samples[s].data != null) {
+        fw2SampleCache[s] = org.chuck.deluge.firmware2.Sample.fromFirmwareSample(samples[s]);
+        // Attach to all active voices
+        synchronized (fw2Sound.voices) {
+          for (var v : fw2Sound.voices) {
+            if (v.active && v.sources[s].sampleRef == null) {
+              v.sources[s].setupSample(fw2SampleCache[s], 0, 1);
+            }
+          }
+        }
+      }
+    }
 
     // Propagate globalSourceValues (first 3 values)
     System.arraycopy(globalSourceValues, 0, fw2Sound.globalSourceValues, 0, 3);
