@@ -1,11 +1,11 @@
 package org.chuck.deluge.firmware2;
 
 /**
- * Faithful port of {@code ModControllableAudio::processSRRAndBitcrushing} (mod_controllable_audio.cpp:
- * 269-371): bit-depth reduction (bitcrush) and sample-rate reduction (decimation with linear down/up
- * conversion). Both controls are bipolar Q31 params (UNPATCHED_BITCRUSHING /
- * UNPATCHED_SAMPLE_RATE_REDUCTION). The two SRR positions are uint32 fixed-point (4194304 == "1"),
- * handled here with unsigned ops.
+ * Faithful port of {@code ModControllableAudio::processSRRAndBitcrushing}
+ * (mod_controllable_audio.cpp: 269-371): bit-depth reduction (bitcrush) and sample-rate reduction
+ * (decimation with linear down/up conversion). Both controls are bipolar Q31 params
+ * (UNPATCHED_BITCRUSHING / UNPATCHED_SAMPLE_RATE_REDUCTION). The two SRR positions are uint32
+ * fixed-point (4194304 == "1"), handled here with unsigned ops.
  */
 public final class SrrBitcrush {
   private boolean sampleRateReductionOnLastTime;
@@ -32,7 +32,8 @@ public final class SrrBitcrush {
    * @param buffer {@code [numSamples][2]} — {l, r}, modified in place
    * @param postFXVolume single-element array, reduced for heavy bitcrushing (as in the firmware)
    */
-  public void process(int[][] buffer, int numSamples, int bitcrushParam, int srrParam, int[] postFXVolume) {
+  public void process(
+      int[][] buffer, int numSamples, int bitcrushParam, int srrParam, int[] postFXVolume) {
     int bitCrushMaskForSRR = 0xFFFFFFFF;
     boolean srrEnabled = isSRREnabled(srrParam);
 
@@ -65,7 +66,8 @@ public final class SrrBitcrush {
       // 22 bits represent "1" (4194304). positivePreset = param + 2^31 as uint32.
       int positivePreset = srrParam + Integer.MIN_VALUE;
       int lowSampleRateIncrement = Functions.getExp(4194304, positivePreset >>> 3);
-      int highSampleRateIncrement = Integer.divideUnsigned(0xFFFFFFFF, lowSampleRateIncrement >> 6) << 6;
+      int highSampleRateIncrement =
+          Integer.divideUnsigned(0xFFFFFFFF, lowSampleRateIncrement >> 6) << 6;
 
       for (int i = 0; i < numSamples; i++) {
         // Convert down — if it's time to "grab" another sample for down-conversion.

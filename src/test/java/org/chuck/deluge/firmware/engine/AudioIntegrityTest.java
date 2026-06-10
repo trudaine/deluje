@@ -30,7 +30,8 @@ public class AudioIntegrityTest {
     return null;
   }
 
-  @org.junit.jupiter.api.Disabled("FirmwareKit needs firmware2 port (old engine can't handle C knob values)")
+  @org.junit.jupiter.api.Disabled(
+      "FirmwareKit needs firmware2 port (old engine can't handle C knob values)")
   @Test
   public void testKitPlaybackAndGating() throws Exception {
     FirmwareAudioEngine engine = new FirmwareAudioEngine();
@@ -139,7 +140,9 @@ public class AudioIntegrityTest {
     int base = 0;
     engine.renderBlock(128);
     for (int i = 0; i < 128; i++) base = Math.max(base, Math.abs(engine.masterBuffer[i].l));
-    assertTrue(base < 500000, "Should be silent after release, got " + base); // C faithful: tiny residual OK
+    assertTrue(
+        base < 500000,
+        "Should be silent after release, got " + base); // C faithful: tiny residual OK
 
     // Trigger Note C5 (72)
     synth.triggerNote(72, 127);

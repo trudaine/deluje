@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.chuck.deluge.firmware.dsp.StereoSample;
 import org.chuck.deluge.firmware.engine.FirmwareSound;
-import org.chuck.deluge.firmware.modulation.params.Param;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -50,7 +49,8 @@ class SampleAudioTest {
       }
     }
 
-    assertTrue(energy > 0, "Sample-based voice should produce audio output (energy=" + energy + ")");
+    assertTrue(
+        energy > 0, "Sample-based voice should produce audio output (energy=" + energy + ")");
   }
 
   /** Time-stretch sample playback: pitched read rate decoupled from duration advance. */
@@ -87,7 +87,7 @@ class SampleAudioTest {
       }
     }
 
-    assertTrue(energy > 0, "Time-stretched sample should produce audio output (energy=" + energy + ")");
+    assertTrue(
+        energy > 0, "Time-stretched sample should produce audio output (energy=" + energy + ")");
   }
 }
-

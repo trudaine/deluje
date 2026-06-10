@@ -367,7 +367,8 @@ public class FirmwareFactory {
       //     Math.max(1, Math.min(8388608, attackInc));
       // sound.paramNeutralValues[Param.LOCAL_ENV_0_DECAY + i] =
       //     Math.max(1, Math.min(8388608, decayInc));
-      // sound.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN + i] = (int) (em.sustain() * 2147483647.0);
+      // sound.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN + i] = (int) (em.sustain() *
+      // 2147483647.0);
       // sound.paramNeutralValues[Param.LOCAL_ENV_0_RELEASE + i] =
       //     Math.max(1, Math.min(8388608, releaseInc));
     }
@@ -611,8 +612,7 @@ public class FirmwareFactory {
     sound.arpDivision = (arp.syncLevel() > 0) ? arp.syncLevel() : 16;
   }
 
-  private static org.chuck.deluge.firmware2.Arpeggiator.ArpMode stringToArpMode(
-      String m) {
+  private static org.chuck.deluge.firmware2.Arpeggiator.ArpMode stringToArpMode(String m) {
     if (m == null) return org.chuck.deluge.firmware2.Arpeggiator.ArpMode.ARP;
     var t = m.trim().toUpperCase();
     return "OFF".equals(t)
@@ -620,8 +620,8 @@ public class FirmwareFactory {
         : org.chuck.deluge.firmware2.Arpeggiator.ArpMode.ARP;
   }
 
-  private static org.chuck.deluge.firmware2.Arpeggiator.ArpOctaveMode
-      stringToArpOctaveMode(String m) {
+  private static org.chuck.deluge.firmware2.Arpeggiator.ArpOctaveMode stringToArpOctaveMode(
+      String m) {
     if (m == null) return org.chuck.deluge.firmware2.Arpeggiator.ArpOctaveMode.UP;
     return switch (m.trim().toUpperCase()) {
       case "DOWN" -> org.chuck.deluge.firmware2.Arpeggiator.ArpOctaveMode.DOWN;

@@ -1,18 +1,19 @@
 package org.chuck.deluge.firmware2;
 
 /**
- * Faithful line-by-line port of {@code dsp/compressor/rms_feedback.cpp} (167 lines)
- * + {@code rms_feedback.h} (234 lines).
+ * Faithful line-by-line port of {@code dsp/compressor/rms_feedback.cpp} (167 lines) + {@code
+ * rms_feedback.h} (234 lines).
  *
- * <p>RMS-based feedback compressor with attack/release envelope, sidechain HPF,
- * wet/dry blend, and optional tanH saturation on output. Uses float math
- * (log/exp/sqrt) — faithful to the C which also uses floats for these.</p>
+ * <p>RMS-based feedback compressor with attack/release envelope, sidechain HPF, wet/dry blend, and
+ * optional tanH saturation on output. Uses float math (log/exp/sqrt) — faithful to the C which also
+ * uses floats for these.
  */
 public class Compressor {
 
   /** C: rms_feedback.h:28 */
   public static final int ONE_Q31 = 2147483647;
-  static final float ONE_Q31f = (float)ONE_Q31;
+
+  static final float ONE_Q31f = (float) ONE_Q31;
   static final int ONE_Q15 = ONE_Q31 >> 16;
   static final int K_SAMPLE_RATE = 44100;
   static final int SATURATION_AMOUNT = 3; // C: rms_feedback.cpp:58
@@ -86,20 +87,20 @@ public class Compressor {
 
   /** C: rms_feedback.h:80-84 — exp map 0..2^31 to 0.5..70ms */
   public int setAttack(int attack) {
-    attackMS = (float)(0.5 + (Math.exp(2.0 * (double)attack / ONE_Q31f) - 1.0) * 10.0);
-    a_ = (float)((-1000.0 / K_SAMPLE_RATE) / attackMS);
+    attackMS = (float) (0.5 + (Math.exp(2.0 * (double) attack / ONE_Q31f) - 1.0) * 10.0);
+    a_ = (float) ((-1000.0 / K_SAMPLE_RATE) / attackMS);
     attackKnobPos = attack;
-    return (int)attackMS;
+    return (int) attackMS;
   }
 
   // ── setRelease (rms_feedback.h:95-101) ──
 
   /** C: rms_feedback.h:95-101 — exp map 0..2^31 to 50..400ms */
   public int setRelease(int release) {
-    releaseMS = (float)(50.0 + (Math.exp(2.0 * (double)release / ONE_Q31f) - 1.0) * 50.0);
-    r_ = (float)((-1000.0 / K_SAMPLE_RATE) / releaseMS);
+    releaseMS = (float) (50.0 + (Math.exp(2.0 * (double) release / ONE_Q31f) - 1.0) * 50.0);
+    r_ = (float) ((-1000.0 / K_SAMPLE_RATE) / releaseMS);
     releaseKnobPos = release;
-    return (int)releaseMS;
+    return (int) releaseMS;
   }
 
   // ── setThreshold (rms_feedback.h:108-111) ──
@@ -107,7 +108,7 @@ public class Compressor {
   /** C: rms_feedback.h:108-111 — 0→0.2, 2^31→1.0 */
   public void setThreshold(int t) {
     thresholdKnobPos = t;
-    threshold = (float)(1.0 - 0.8 * ((double)t / ONE_Q31f));
+    threshold = (float) (1.0 - 0.8 * ((double) t / ONE_Q31f));
   }
 
   // ── setRatio (rms_feedback.h:122-127) ──
@@ -115,9 +116,9 @@ public class Compressor {
   /** C: rms_feedback.h:122-127 — inverse mapping, 0→2:1, max→256:1 */
   public int setRatio(int rat) {
     ratioKnobPos = rat;
-    fraction = (float)(0.5 + ((double)rat / ONE_Q31f) / 2.0);
-    ratio = (float)(1.0 / (1.0 - fraction));
-    return (int)ratio;
+    fraction = (float) (0.5 + ((double) rat / ONE_Q31f) / 2.0);
+    ratio = (float) (1.0 / (1.0 - fraction));
+    return (int) ratio;
   }
 
   // ── setSidechain (rms_feedback.h:138-147) ──
@@ -125,11 +126,11 @@ public class Compressor {
   /** C: rms_feedback.h:138-147 — exp map 0..2^31 to 0..100Hz */
   int setSidechain(int f) {
     sideChainKnobPos = f;
-    fc_hz = (float)((Math.exp(1.5 * (double)f / ONE_Q31f) - 1.0) * 30.0);
-    float fc = fc_hz / (float)K_SAMPLE_RATE;
+    fc_hz = (float) ((Math.exp(1.5 * (double) f / ONE_Q31f) - 1.0) * 30.0);
+    float fc = fc_hz / (float) K_SAMPLE_RATE;
     float wc = fc / (1.0f + fc);
-    hpfA_ = (int)(wc * ONE_Q31);
-    return (int)fc_hz;
+    hpfA_ = (int) (wc * ONE_Q31);
+    return (int) fc_hz;
   }
 
   // ── setBlend (rms_feedback.h:156-161) ──
@@ -190,7 +191,7 @@ public class Compressor {
 
   /** C: rms_feedback.cpp:34-50 */
   void updateER(float numSamples, int finalVolume) {
-    float songVolumedB = (float)Math.log(finalVolume + 1e-10); // C:41
+    float songVolumedB = (float) Math.log(finalVolume + 1e-10); // C:41
     threshdb = songVolumedB * threshold; // C:43
     float lastER = er; // C:46
     er = Math.max((songVolumedB - threshdb - 1) * fraction, 0); // C:47
@@ -208,12 +209,14 @@ public class Compressor {
 
   /**
    * C: rms_feedback.cpp:59-128. Renders the compressor in-place.
+   *
    * @param buffer stereo samples (modified in-place)
    * @param volAdjustL left gain as 4.27 signed fixed
    * @param volAdjustR right gain
    * @param finalVolume peak-to-peak volume scale as 3.29 signed fixed
    */
-  public void render(int[][] buffer, int numSamples, int volAdjustL, int volAdjustR, int finalVolume) {
+  public void render(
+      int[][] buffer, int numSamples, int volAdjustL, int volAdjustR, int finalVolume) {
     // C:62-64 — dry buffer for wet/dry blend (int32 StereoSample, not float — float loses precision
     // for samples above 2^24).
     int[][] dryBuffer = null;
@@ -244,15 +247,17 @@ public class Compressor {
 
     // C:84-88
     float dbGain = baseGain_ + er + reduction;
-    float gain = (float)Math.exp(dbGain);
+    float gain = (float) Math.exp(dbGain);
     gain = Math.min(gain, 31);
 
     // C:92-97
-    float finalVolumeL = gain * (float)(volAdjustL >> 9);
-    float finalVolumeR = gain * (float)(volAdjustR >> 9);
+    float finalVolumeL = gain * (float) (volAdjustL >> 9);
+    float finalVolumeR = gain * (float) (volAdjustR >> 9);
 
-    int amplitudeIncrementL = (int)((finalVolumeL - (currentVolumeL >> 8)) / (float)numSamples) << 8;
-    int amplitudeIncrementR = (int)((finalVolumeR - (currentVolumeR >> 8)) / (float)numSamples) << 8;
+    int amplitudeIncrementL =
+        (int) ((finalVolumeL - (currentVolumeL >> 8)) / (float) numSamples) << 8;
+    int amplitudeIncrementR =
+        (int) ((finalVolumeR - (currentVolumeR >> 8)) / (float) numSamples) << 8;
 
     // C:99-121 — process samples
     for (int i = 0; i < numSamples; i++) {
@@ -264,7 +269,8 @@ public class Compressor {
 
       // C:105-109 — apply gain + getTanHAntialiased (functions.h:286-295). The anti-alias 2D
       // interpolation reads the PREVIOUS working value and stores the current (inlined to keep the
-      // persistent lastSaturationTanHWorkingValue, which the by-value Functions overload can't update).
+      // persistent lastSaturationTanHWorkingValue, which the by-value Functions overload can't
+      // update).
       sampleL = Functions.multiply_32x32_rshift32(sampleL, currentVolumeL) << 4;
       int workingL = Functions.lshiftAndSaturateUnknown(sampleL, SATURATION_AMOUNT) + 0x80000000;
       sampleL =
@@ -284,9 +290,13 @@ public class Compressor {
       // C:111-119 — wet/dry blend
       if (wet != ONE_Q31) {
         sampleL = Functions.multiply_32x32_rshift32(sampleL, wet);
-        sampleL = Functions.multiply_accumulate_32x32_rshift32_rounded(sampleL, dryBuffer[i][0], dry) << 1;
+        sampleL =
+            Functions.multiply_accumulate_32x32_rshift32_rounded(sampleL, dryBuffer[i][0], dry)
+                << 1;
         sampleR = Functions.multiply_32x32_rshift32(sampleR, wet);
-        sampleR = Functions.multiply_accumulate_32x32_rshift32_rounded(sampleR, dryBuffer[i][1], dry) << 1;
+        sampleR =
+            Functions.multiply_accumulate_32x32_rshift32_rounded(sampleR, dryBuffer[i][1], dry)
+                << 1;
       }
 
       buffer[i][0] = sampleL;
@@ -294,7 +304,7 @@ public class Compressor {
     }
 
     // C:125 — gain reduction for display
-    gainReduction = (int)Math.max(0, Math.min(127, -reduction * 4 * 4));
+    gainReduction = (int) Math.max(0, Math.min(127, -reduction * 4 * 4));
 
     // C:127 — feedback RMS calculation
     rms = calcRMS(buffer, numSamples);
@@ -307,10 +317,10 @@ public class Compressor {
     float s;
     if (desired > current) {
       // C:133 — attack: desired + exp(a*samples) * (current - desired)
-      s = (float)(desired + Math.exp(a_ * numSamples) * (current - desired));
+      s = (float) (desired + Math.exp(a_ * numSamples) * (current - desired));
     } else {
       // C:136 — release
-      s = (float)(desired + Math.exp(r_ * numSamples) * (current - desired));
+      s = (float) (desired + Math.exp(r_ * numSamples) * (current - desired));
     }
     return s;
   }
@@ -329,11 +339,11 @@ public class Compressor {
       sum += Functions.multiply_32x32_rshift32(s, s); // C:152
     }
 
-    float ns = (float)(numSamples * 2); // C:155
-    mean = (float)((double)sum / ONE_Q31f) / ns; // C:156
-    mean = (float)((mean * ns + lastMean) / (1.0 + ns)); // C:161
-    float rmsVal = (float)(ONE_Q31 * Math.sqrt(mean)); // C:162
-    float logmean = (float)Math.log(Math.max(rmsVal, 1.0f)); // C:164
+    float ns = (float) (numSamples * 2); // C:155
+    mean = (float) ((double) sum / ONE_Q31f) / ns; // C:156
+    mean = (float) ((mean * ns + lastMean) / (1.0 + ns)); // C:161
+    float rmsVal = (float) (ONE_Q31 * Math.sqrt(mean)); // C:162
+    float logmean = (float) Math.log(Math.max(rmsVal, 1.0f)); // C:164
 
     return logmean;
   }

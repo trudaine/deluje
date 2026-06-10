@@ -1,7 +1,5 @@
 package org.chuck.deluge.firmware.engine;
 
-import java.util.ArrayList;
-import java.util.List;
 import org.chuck.deluge.firmware.dsp.StereoSample;
 import org.chuck.deluge.firmware.dsp.fx.ModFXProcessor;
 import org.chuck.deluge.firmware.dsp.fx.ModFXType;
@@ -134,14 +132,15 @@ public class FirmwareSound extends GlobalEffectable {
     org.chuck.deluge.firmware2.Sound.initParams(paramNeutralValues);
 
     // C Sound::setupAsDefaultSynth (sound.cpp:223-259): filter overrides on top of initParams.
-    paramNeutralValues[Param.LOCAL_LPF_FREQ] = 0x10000000;      // C:228
-    paramNeutralValues[Param.LOCAL_LPF_RESONANCE] = 0xA2000000;  // C:227
+    paramNeutralValues[Param.LOCAL_LPF_FREQ] = 0x10000000; // C:228
+    paramNeutralValues[Param.LOCAL_LPF_RESONANCE] = 0xA2000000; // C:227
     paramNeutralValues[Param.LOCAL_LPF_MORPH] = 0;
     paramNeutralValues[Param.LOCAL_HPF_FREQ] = 0;
     paramNeutralValues[Param.LOCAL_HPF_RESONANCE] = 0;
     paramNeutralValues[Param.LOCAL_HPF_MORPH] = 0;
 
-    // C: Pitch Adjust. initParams sets 0 (C:152); for default-synth we want K_MAX_SAMPLE_VALUE = no offset.
+    // C: Pitch Adjust. initParams sets 0 (C:152); for default-synth we want K_MAX_SAMPLE_VALUE = no
+    // offset.
     paramNeutralValues[Param.LOCAL_PITCH_ADJUST] = 16777216;
     paramNeutralValues[Param.LOCAL_OSC_A_PITCH_ADJUST] = 16777216;
     paramNeutralValues[Param.LOCAL_OSC_B_PITCH_ADJUST] = 16777216;
@@ -154,14 +153,14 @@ public class FirmwareSound extends GlobalEffectable {
     paramNeutralValues[Param.GLOBAL_MOD_FX_RATE] = 0;
 
     // C setupAsDefaultSynth envelope defaults (sound.cpp:229-236).
-    paramNeutralValues[Param.LOCAL_ENV_0_ATTACK] = 0x80000000;   // C:229 — instant attack
-    paramNeutralValues[Param.LOCAL_ENV_0_DECAY] = 0xE6666654;    // C:230
-    paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN] = 0x7FFFFFFF;   // C:231 — max
-    paramNeutralValues[Param.LOCAL_ENV_0_RELEASE] = 0x851EB851;   // C:232
-    paramNeutralValues[Param.LOCAL_ENV_1_ATTACK] = 0xA3D70A37;    // C:233
-    paramNeutralValues[Param.LOCAL_ENV_1_DECAY] = 0xA3D70A37;     // C:234
-    paramNeutralValues[Param.LOCAL_ENV_1_SUSTAIN] = 0xFFFFFFE9;   // C:235
-    paramNeutralValues[Param.LOCAL_ENV_1_RELEASE] = 0xE6666654;   // C:236
+    paramNeutralValues[Param.LOCAL_ENV_0_ATTACK] = 0x80000000; // C:229 — instant attack
+    paramNeutralValues[Param.LOCAL_ENV_0_DECAY] = 0xE6666654; // C:230
+    paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN] = 0x7FFFFFFF; // C:231 — max
+    paramNeutralValues[Param.LOCAL_ENV_0_RELEASE] = 0x851EB851; // C:232
+    paramNeutralValues[Param.LOCAL_ENV_1_ATTACK] = 0xA3D70A37; // C:233
+    paramNeutralValues[Param.LOCAL_ENV_1_DECAY] = 0xA3D70A37; // C:234
+    paramNeutralValues[Param.LOCAL_ENV_1_SUSTAIN] = 0xFFFFFFE9; // C:235
+    paramNeutralValues[Param.LOCAL_ENV_1_RELEASE] = 0xE6666654; // C:236
   }
 
   public SynthMode getSynthMode() {
@@ -195,9 +194,9 @@ public class FirmwareSound extends GlobalEffectable {
     if (arpEnabled() && arpPhaseIncrement > 0) {
       // C: gateThreshold = (uint32_t)((int64_t)gate + 2147483648) >> 8
       // Converts bipolar Q31 gate → unsigned 0..(1<<24) range.
-      long gateU = (arpSettings.gate & 0xFFFFFFFFL);   // treat gate as unsigned 32-bit
-      long gateBiased = gateU + (1L << 31);             // +2^31 bias
-      int gateThreshold = (int)(gateBiased >> 8);       // scale to 24-bit
+      long gateU = (arpSettings.gate & 0xFFFFFFFFL); // treat gate as unsigned 32-bit
+      long gateBiased = gateU + (1L << 31); // +2^31 bias
+      int gateThreshold = (int) (gateBiased >> 8); // scale to 24-bit
       arpeggiator.render(arpSettings, arpInstr, numSamples, gateThreshold, arpPhaseIncrement);
 
       // C: handle note-offs (arpInstr.noteCodeOffPostArp[])
@@ -215,7 +214,8 @@ public class FirmwareSound extends GlobalEffectable {
         if (vel <= 0) vel = 64; // safety default
         triggerVoice(noteOn, vel, -1);
         // C: mark as PLAYING so handlePendingNotes won't re-fire the same note
-        arpInstr.arpNoteOn.noteStatus[0] = org.chuck.deluge.firmware2.Arpeggiator.ArpNoteStatus.PLAYING;
+        arpInstr.arpNoteOn.noteStatus[0] =
+            org.chuck.deluge.firmware2.Arpeggiator.ArpNoteStatus.PLAYING;
         arpInstr.arpNoteOn = null;
       }
     }
@@ -236,13 +236,15 @@ public class FirmwareSound extends GlobalEffectable {
 
     // 1. Update Global LFOs. C: Sound::getGlobalLFOPhaseIncrement uses paramFinalValues
     // (patcher-curve-applied), not raw knob values.
-    int phaseInc1 = org.chuck.deluge.firmware2.Patcher.computeFinalValueForParam(
-        Param.GLOBAL_LFO_FREQ_1, paramNeutralValues[Param.GLOBAL_LFO_FREQ_1]);
+    int phaseInc1 =
+        org.chuck.deluge.firmware2.Patcher.computeFinalValueForParam(
+            Param.GLOBAL_LFO_FREQ_1, paramNeutralValues[Param.GLOBAL_LFO_FREQ_1]);
     globalSourceValues[PatchSource.LFO_GLOBAL_1.ordinal()] =
         globalLfos[0].render(numSamples, lfoWaveforms[0], phaseInc1);
 
-    int phaseInc2 = org.chuck.deluge.firmware2.Patcher.computeFinalValueForParam(
-        Param.GLOBAL_LFO_FREQ_2, paramNeutralValues[Param.GLOBAL_LFO_FREQ_2]);
+    int phaseInc2 =
+        org.chuck.deluge.firmware2.Patcher.computeFinalValueForParam(
+            Param.GLOBAL_LFO_FREQ_2, paramNeutralValues[Param.GLOBAL_LFO_FREQ_2]);
     globalSourceValues[PatchSource.LFO_GLOBAL_2.ordinal()] =
         globalLfos[1].render(numSamples, lfoWaveforms[2], phaseInc2);
 
@@ -343,7 +345,8 @@ public class FirmwareSound extends GlobalEffectable {
         int v = arpInstr.arpNoteOn.velocity;
         if (v <= 0) v = 64;
         triggerVoice(noteOn, v, midiChannel);
-        arpInstr.arpNoteOn.noteStatus[0] = org.chuck.deluge.firmware2.Arpeggiator.ArpNoteStatus.PLAYING;
+        arpInstr.arpNoteOn.noteStatus[0] =
+            org.chuck.deluge.firmware2.Arpeggiator.ArpNoteStatus.PLAYING;
         arpInstr.arpNoteOn = null;
       }
       return;
@@ -428,7 +431,8 @@ public class FirmwareSound extends GlobalEffectable {
     // Attach samples to voice sources when the sound is sample-based.
     for (int s = 0; s < 2; s++) {
       if (fw2Sound.oscTypes[s] == org.chuck.deluge.firmware2.Oscillator.OscType.SAMPLE
-          && samples[s] != null && samples[s].data != null) {
+          && samples[s] != null
+          && samples[s].data != null) {
         fw2SampleCache[s] = org.chuck.deluge.firmware2.Sample.fromFirmwareSample(samples[s]);
         boolean ts = sampleSettings[s].timestretch && !sampleSettings[s].reverse;
         int playDir = sampleSettings[s].reverse ? -1 : 1;
@@ -462,7 +466,10 @@ public class FirmwareSound extends GlobalEffectable {
     // For factory-built sounds, paramKnobs overrides specific envelope-rate params;
     // all other params use the constructor's C defaults.
     System.arraycopy(
-        paramNeutralValues, 0, fw2Sound.patchedParamValues, 0,
+        paramNeutralValues,
+        0,
+        fw2Sound.patchedParamValues,
+        0,
         Math.min(paramNeutralValues.length, fw2Sound.patchedParamValues.length));
     if (paramKnobsPopulated) {
       // Factory-set envelope rate knobs override the C defaults for those params

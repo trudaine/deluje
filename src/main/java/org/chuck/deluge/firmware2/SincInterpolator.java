@@ -3,12 +3,12 @@ package org.chuck.deluge.firmware2;
 /**
  * Faithful scalar port of {@code dsp/interpolate/interpolate.cpp} (81 lines) + header (44 lines).
  *
- * <p>Windowed-sinc interpolator for high-quality sample playback. Uses 7 pre-computed
- * kernel tables (windowedSincKernel[7][17][16]) for different oversampling ratios.
- * The C code uses ARM NEON 8-lane SIMD; this Java port unrolls scalar per-lane.</p>
+ * <p>Windowed-sinc interpolator for high-quality sample playback. Uses 7 pre-computed kernel tables
+ * (windowedSincKernel[7][17][16]) for different oversampling ratios. The C code uses ARM NEON
+ * 8-lane SIMD; this Java port unrolls scalar per-lane.
  *
- * <p>C: {@code kInterpolationMaxNumSamplesMagnitude = 4}, so max samples = 16.
- * Each kernel table has 17 phase positions × 16 taps.</p>
+ * <p>C: {@code kInterpolationMaxNumSamplesMagnitude = 4}, so max samples = 16. Each kernel table
+ * has 17 phase positions × 16 taps.
  */
 public class SincInterpolator {
 
@@ -51,7 +51,8 @@ public class SincInterpolator {
    */
   public int[] interpolate(int channels, int whichKernel, int oscPos) {
     // C:10-11 — constants
-    int rshiftAmount = ((24 + K_INTERPOLATION_MAX_NUM_SAMPLES_MAGNITUDE) - 16 - NUM_BITS_IN_TABLE_SIZE + 1);
+    int rshiftAmount =
+        ((24 + K_INTERPOLATION_MAX_NUM_SAMPLES_MAGNITUDE) - 16 - NUM_BITS_IN_TABLE_SIZE + 1);
 
     // C:15-21 — compute strength2 (fractional part for interpolation)
     int rshifted;
@@ -60,24 +61,29 @@ public class SincInterpolator {
     } else {
       rshifted = oscPos << (-rshiftAmount);
     }
-    short strength2 = (short)(rshifted & 0x7FFF); // int16_t max = 32767
+    short strength2 = (short) (rshifted & 0x7FFF); // int16_t max = 32767
 
     // C:25 — which phase in the kernel table (0..16)
-    int progressSmall = oscPos >> (24 + K_INTERPOLATION_MAX_NUM_SAMPLES_MAGNITUDE - NUM_BITS_IN_TABLE_SIZE);
+    int progressSmall =
+        oscPos >> (24 + K_INTERPOLATION_MAX_NUM_SAMPLES_MAGNITUDE - NUM_BITS_IN_TABLE_SIZE);
 
-    // C:27-35 — interpolate kernel between two adjacent phases. kernelVector is Argon<int16_t>, so the
+    // C:27-35 — interpolate kernel between two adjacent phases. kernelVector is Argon<int16_t>, so
+    // the
     // lerp is stored as a SATURATED int16 (scalarized here).
     short[] kernel = new short[K_INTERPOLATION_MAX_NUM_SAMPLES];
     short[] k1 = WINDOWED_SINC_KERNEL[whichKernel][progressSmall];
     short[] k2 = WINDOWED_SINC_KERNEL[whichKernel][progressSmall + 1];
 
-    // C:34 — value1.MultiplyAddFixedPoint((value2 - value1), strength2). MultiplyAddFixedPoint is the
-    // non-rounding Argon op (vqdmlah): acc + vqdmulh(b, c), where vqdmulh(b, c) = sat16((2*b*c) >> 16)
-    // = sat16((b*c) >> 15). Both the product and the accumulate saturate to int16 (no rounding term).
+    // C:34 — value1.MultiplyAddFixedPoint((value2 - value1), strength2). MultiplyAddFixedPoint is
+    // the
+    // non-rounding Argon op (vqdmlah): acc + vqdmulh(b, c), where vqdmulh(b, c) = sat16((2*b*c) >>
+    // 16)
+    // = sat16((b*c) >> 15). Both the product and the accumulate saturate to int16 (no rounding
+    // term).
     for (int i = 0; i < K_INTERPOLATION_MAX_NUM_SAMPLES; i++) {
       int diff = k2[i] - k1[i];
       int prod = sat16((diff * strength2) >> 15); // vqdmulh
-      kernel[i] = (short) sat16(k1[i] + prod);     // vqdmlah accumulate, stored int16
+      kernel[i] = (short) sat16(k1[i] + prod); // vqdmlah accumulate, stored int16
     }
 
     // C:37-47 — convolve kernel with sample history (left channel)
@@ -94,16 +100,16 @@ public class SincInterpolator {
       for (int i = 0; i < K_INTERPOLATION_MAX_NUM_SAMPLES; i++) {
         sumR += kernel[i] * bufferR[i];
       }
-      return new int[]{sumL, sumR};
+      return new int[] {sumL, sumR};
     }
 
-    return new int[]{sumL, 0};
+    return new int[] {sumL, 0};
   }
 
   /**
    * Shift the history buffers forward by {@code n} (drop the {@code n} newest-side slots), leaving
-   * {@code [0..n-1]} to be overwritten by the caller. Matches the Argon Interpolator::jumpForward used
-   * by the live pitch shifter. {@code n} is in {@code [1, K_INTERPOLATION_MAX_NUM_SAMPLES]}.
+   * {@code [0..n-1]} to be overwritten by the caller. Matches the Argon Interpolator::jumpForward
+   * used by the live pitch shifter. {@code n} is in {@code [1, K_INTERPOLATION_MAX_NUM_SAMPLES]}.
    */
   public void jumpForward(int n) {
     for (int i = K_INTERPOLATION_MAX_NUM_SAMPLES - 1; i >= n; i--) {
@@ -120,21 +126,23 @@ public class SincInterpolator {
   }
 
   /**
-   * Full-precision (Phase-A option (b)) variant of {@link #interpolate}: identical kernel lerp (int16,
-   * faithful), but the convolution takes a FULL-PRECISION int sample history and accumulates in int64,
-   * so the low 16 bits the C discards (it feeds the interpolator the top-16-bits only) are kept. The
-   * {@code >> 16} restores the C's output scale, so this is drop-in for the downstream amplitude MAC.
+   * Full-precision (Phase-A option (b)) variant of {@link #interpolate}: identical kernel lerp
+   * (int16, faithful), but the convolution takes a FULL-PRECISION int sample history and
+   * accumulates in int64, so the low 16 bits the C discards (it feeds the interpolator the
+   * top-16-bits only) are kept. The {@code >> 16} restores the C's output scale, so this is drop-in
+   * for the downstream amplitude MAC.
    *
-   * <p>This is a deliberate, sanctioned deviation from the int16 C path; the faithful {@link #interpolate}
-   * is left untouched.
+   * <p>This is a deliberate, sanctioned deviation from the int16 C path; the faithful {@link
+   * #interpolate} is left untouched.
    *
    * @param histL full-precision left history, {@code histL[0]} newest (16 taps)
    * @param histR full-precision right history (used only when channels == 2)
    * @return {@code {l, r}} at the C output scale
    */
-  public static int[] interpolateWide(int[] histL, int[] histR, int channels, int whichKernel, int oscPos) {
-    int strength2 = (oscPos >>> 5) & 0x7FFF;     // C interpolate.cpp:17,23 (rshiftAmount=5)
-    int progressSmall = oscPos >>> 20;           // C:25
+  public static int[] interpolateWide(
+      int[] histL, int[] histR, int channels, int whichKernel, int oscPos) {
+    int strength2 = (oscPos >>> 5) & 0x7FFF; // C interpolate.cpp:17,23 (rshiftAmount=5)
+    int progressSmall = oscPos >>> 20; // C:25
     short[] k1 = WINDOWED_SINC_KERNEL[whichKernel][progressSmall];
     short[] k2 = WINDOWED_SINC_KERNEL[whichKernel][progressSmall + 1];
     long sumL = 0;
@@ -147,33 +155,31 @@ public class SincInterpolator {
         sumR += (long) kc * histR[i];
       }
     }
-    // Full-precision samples are ~Q31 vs the C's int16 (top 16 bits); >> 16 matches the C output scale.
+    // Full-precision samples are ~Q31 vs the C's int16 (top 16 bits); >> 16 matches the C output
+    // scale.
     return new int[] {(int) (sumL >> 16), (int) (sumR >> 16)};
   }
 
   // ── interpolateLinear (interpolate.cpp:70-80) ──
 
-  /**
-   * C: interpolate.cpp:70-80 — cheap linear interpolation using most recent 2 samples.
-   */
+  /** C: interpolate.cpp:70-80 — cheap linear interpolation using most recent 2 samples. */
   public int[] interpolateLinear(int channels, int phase) {
-    short strength2 = (short)(phase >> 9);       // C:72
-    short strength1 = (short)(0x7FFF - strength2); // C:73 — inverse
+    short strength2 = (short) (phase >> 9); // C:72
+    short strength1 = (short) (0x7FFF - strength2); // C:73 — inverse
 
     int l = (bufferL[1] * strength1) + (bufferL[0] * strength2); // C:75
     if (channels == 2) {
       int r = (bufferR[1] * strength1) + (bufferR[0] * strength2); // C:77
-      return new int[]{l, r};
+      return new int[] {l, r};
     }
-    return new int[]{l, 0};
+    return new int[] {l, 0};
   }
 
   // ── Windowed sinc kernel tables (interpolate.cpp:84-218) ──
 
   /**
-   * C: interpolate.cpp:84-218 — pre-computed windowed sinc kernels.
-   * windowedSincKernel[7 kernels][17 phases][16 taps].
-   * Each kernel corresponds to a different oversampling ratio.
+   * C: interpolate.cpp:84-218 — pre-computed windowed sinc kernels. windowedSincKernel[7
+   * kernels][17 phases][16 taps]. Each kernel corresponds to a different oversampling ratio.
    */
   static final short[][][] WINDOWED_SINC_KERNEL = {
     { // Kernel 0 — 1x (no oversampling)
@@ -183,11 +189,21 @@ public class SincInterpolator {
       {-6, 25, -91, 252, -588, 1245, -2602, 6847, 30837, -4470, 1959, -947, 435, -176, 58, -13},
       {-7, 34, -124, 339, -787, 1658, -3480, 9498, 29388, -5352, 2381, -1150, 525, -210, 68, -16},
       {-9, 44, -156, 422, -971, 2039, -4300, 12249, 27586, -5935, 2676, -1291, 586, -232, 74, -17},
-      {-11, 54, -186, 496, -1132, 2369, -5026, 15048, 25476, -6230, 2842, -1369, 617, -242, 76, -17},
-      {-13, 62, -211, 557, -1261, 2632, -5621, 17835, 23107, -6255, 2882, -1387, 621, -241, 74, -16},
-      {-15, 69, -230, 600, -1348, 2808, -6042, 20540, 20541, -6042, 2808, -1348, 600, -230, 69, -15},
-      {-16, 74, -241, 621, -1387, 2882, -6255, 23107, 17835, -5621, 2632, -1261, 557, -211, 62, -13},
-      {-17, 76, -242, 617, -1369, 2842, -6230, 25476, 15048, -5026, 2369, -1132, 496, -186, 54, -11},
+      {
+        -11, 54, -186, 496, -1132, 2369, -5026, 15048, 25476, -6230, 2842, -1369, 617, -242, 76, -17
+      },
+      {
+        -13, 62, -211, 557, -1261, 2632, -5621, 17835, 23107, -6255, 2882, -1387, 621, -241, 74, -16
+      },
+      {
+        -15, 69, -230, 600, -1348, 2808, -6042, 20540, 20541, -6042, 2808, -1348, 600, -230, 69, -15
+      },
+      {
+        -16, 74, -241, 621, -1387, 2882, -6255, 23107, 17835, -5621, 2632, -1261, 557, -211, 62, -13
+      },
+      {
+        -17, 76, -242, 617, -1369, 2842, -6230, 25476, 15048, -5026, 2369, -1132, 496, -186, 54, -11
+      },
       {-17, 74, -232, 586, -1291, 2676, -5935, 27586, 12249, -4300, 2039, -971, 422, -156, 44, -9},
       {-16, 68, -210, 525, -1150, 2381, -5352, 29388, 9498, -3480, 1658, -787, 339, -124, 34, -7},
       {-13, 58, -176, 435, -947, 1959, -4470, 30837, 6847, -2602, 1245, -588, 252, -91, 25, -6},
@@ -204,9 +220,15 @@ public class SincInterpolator {
       {-9, 32, 36, -433, 988, -406, -3339, 13369, 21911, 2701, -3232, 1310, -12, -234, 93, -10},
       {-10, 40, 13, -424, 1102, -755, -2951, 14719, 21223, 1600, -2932, 1366, -109, -194, 88, -11},
       {-11, 49, -14, -403, 1200, -1119, -2457, 16019, 20402, 588, -2600, 1389, -194, -154, 82, -12},
-      {-12, 57, -45, -369, 1282, -1494, -1854, 17253, 19458, -328, -2244, 1381, -267, -115, 74, -12},
-      {-12, 66, -79, -324, 1344, -1872, -1144, 18403, 18404, -1144, -1872, 1344, -324, -79, 66, -12},
-      {-12, 74, -115, -267, 1381, -2244, -328, 19458, 17253, -1854, -1494, 1282, -369, -45, 57, -12},
+      {
+        -12, 57, -45, -369, 1282, -1494, -1854, 17253, 19458, -328, -2244, 1381, -267, -115, 74, -12
+      },
+      {
+        -12, 66, -79, -324, 1344, -1872, -1144, 18403, 18404, -1144, -1872, 1344, -324, -79, 66, -12
+      },
+      {
+        -12, 74, -115, -267, 1381, -2244, -328, 19458, 17253, -1854, -1494, 1282, -369, -45, 57, -12
+      },
       {-12, 82, -154, -194, 1389, -2600, 588, 20402, 16019, -2457, -1119, 1200, -403, -14, 49, -11},
       {-11, 88, -194, -109, 1366, -2932, 1600, 21223, 14719, -2951, -755, 1102, -424, 13, 40, -10},
       {-10, 93, -234, -12, 1310, -3232, 2701, 21911, 13369, -3339, -406, 988, -433, 36, 32, -9},

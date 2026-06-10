@@ -88,7 +88,8 @@ public class DigitalAudioFidelityTest {
         "Zero crossings count (" + zeroCrossings + ") indicates inactive or flat wave output!");
   }
 
-  @org.junit.jupiter.api.Disabled("FirmwareKit needs firmware2 port (old engine can't handle C knob values)")
+  @org.junit.jupiter.api.Disabled(
+      "FirmwareKit needs firmware2 port (old engine can't handle C knob values)")
   @Test
   void testKitDrumFidelityAndDecay() throws Exception {
     File kitFile = new File("src/main/resources/KITS/000 TR-808.XML");
@@ -292,7 +293,8 @@ public class DigitalAudioFidelityTest {
     }
   }
 
-  @org.junit.jupiter.api.Disabled("Sidechain routing uses old FirmwareAudioEngine — needs firmware2 port")
+  @org.junit.jupiter.api.Disabled(
+      "Sidechain routing uses old FirmwareAudioEngine — needs firmware2 port")
   @Test
   void testSidechainDuckingFidelity() {
     org.chuck.deluge.firmware.engine.GlobalSidechainBus.reset();

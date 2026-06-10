@@ -1,10 +1,11 @@
 package org.chuck.deluge.firmware2;
 
 /**
- * Faithful port of {@code processing/live/live_input_buffer.{cpp,h}}: the ring buffer + percussiveness
- * detector that feeds the live (input-monitoring) pitch shifter. The C reads the hardware I2S RX buffer
- * ({@code AudioEngine::i2sRXBufferPos}); here the input block is injected as a seam (interleaved L/R).
- * The angle / LPF / percussiveness DSP and {@link #getAveragesForCrossfade} are verbatim.
+ * Faithful port of {@code processing/live/live_input_buffer.{cpp,h}}: the ring buffer +
+ * percussiveness detector that feeds the live (input-monitoring) pitch shifter. The C reads the
+ * hardware I2S RX buffer ({@code AudioEngine::i2sRXBufferPos}); here the input block is injected as
+ * a seam (interleaved L/R). The angle / LPF / percussiveness DSP and {@link
+ * #getAveragesForCrossfade} are verbatim.
  */
 public class LiveInputBuffer {
 
@@ -12,13 +13,18 @@ public class LiveInputBuffer {
   static final int K_INPUT_RAW_BUFFER_SIZE = 8192;
   static final int K_PERC_BUFFER_REDUCTION_MAGNITUDE = 7;
   static final int K_PERC_BUFFER_REDUCTION_SIZE = 1 << K_PERC_BUFFER_REDUCTION_MAGNITUDE; // 128
-  static final int K_INPUT_PERC_BUFFER_SIZE = K_INPUT_RAW_BUFFER_SIZE >> K_PERC_BUFFER_REDUCTION_MAGNITUDE; // 64
+  static final int K_INPUT_PERC_BUFFER_SIZE =
+      K_INPUT_RAW_BUFFER_SIZE >> K_PERC_BUFFER_REDUCTION_MAGNITUDE; // 64
   static final int K_DIFFERENCE_LPF_POLES = 2;
 
   /** C: OscType INPUT_L / INPUT_R / IN_STEREO. */
-  public enum InputType { INPUT_L, INPUT_R, STEREO }
+  public enum InputType {
+    INPUT_L,
+    INPUT_R,
+    STEREO
+  }
 
-  public int upToTime;              // uint32
+  public int upToTime; // uint32
   public int numRawSamplesProcessed; // uint32
   public int lastSampleRead;
   public int lastAngle;
@@ -88,7 +94,9 @@ public class LiveInputBuffer {
         // C:90 — angle can be 0 for silence (the C divides by it: UB); guard to 0.
         int percussiveness = (angle != 0) ? (int) ((((long) difference * 262144) / angle) >> 1) : 0;
         percussiveness = Functions.getTanHUnknown(percussiveness, 23); // C:92 getTanH<23>
-        percBuffer[(numRawSamplesProcessed >>> K_PERC_BUFFER_REDUCTION_MAGNITUDE) & (K_INPUT_PERC_BUFFER_SIZE - 1)] =
+        percBuffer[
+                (numRawSamplesProcessed >>> K_PERC_BUFFER_REDUCTION_MAGNITUDE)
+                    & (K_INPUT_PERC_BUFFER_SIZE - 1)] =
             (byte) percussiveness;
       }
       lastAngle = angle; // C:96
@@ -101,10 +109,12 @@ public class LiveInputBuffer {
   }
 
   /**
-   * C: getAveragesForCrossfade (live_input_buffer.cpp:112-130) — moving-average similarity metric over
-   * the ring buffer (summed top-16-bits, all channels), as the live pitch shifter's hop search uses.
+   * C: getAveragesForCrossfade (live_input_buffer.cpp:112-130) — moving-average similarity metric
+   * over the ring buffer (summed top-16-bits, all channels), as the live pitch shifter's hop search
+   * uses.
    */
-  public boolean getAveragesForCrossfade(int[] totals, int startPos, int lengthToAverageEach, int numChannels) {
+  public boolean getAveragesForCrossfade(
+      int[] totals, int startPos, int lengthToAverageEach, int numChannels) {
     int currentPos = startPos;
     for (int i = 0; i < TimeStretcher.K_NUM_MOVING_AVERAGES; i++) {
       totals[i] = 0;

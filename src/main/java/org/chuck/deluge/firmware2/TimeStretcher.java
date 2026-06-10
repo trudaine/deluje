@@ -1,21 +1,25 @@
 package org.chuck.deluge.firmware2;
 
 /**
- * Faithful port of {@code dsp/timestretch/time_stretcher.cpp} + {@code .h} — the in-RAM /
- * {@code TIME_STRETCH_ENABLE_BUFFER == 0} path (no perc-cache / SD clusters; see
- * docs/FIRMWARE2_SAMPLE_ENGINE_PLAN.md). The two-head crossfade RENDER lives in {@link VoiceSample};
- * this class is the hop decision + search:
+ * Faithful port of {@code dsp/timestretch/time_stretcher.cpp} + {@code .h} — the in-RAM / {@code
+ * TIME_STRETCH_ENABLE_BUFFER == 0} path (no perc-cache / SD clusters; see
+ * docs/FIRMWARE2_SAMPLE_ENGINE_PLAN.md). The two-head crossfade RENDER lives in {@link
+ * VoiceSample}; this class is the hop decision + search:
+ *
  * <ul>
  *   <li>{@link #getTotalDifferenceAbs} / {@link #getTotalChange} (time_stretcher.h:106-127) — the
- *       crossfade match metrics;</li>
- *   <li>{@link #computeHopParameters} (cpp:317-374) — beam-width / crossfade params from the ratio;</li>
+ *       crossfade match metrics;
+ *   <li>{@link #computeHopParameters} (cpp:317-374) — beam-width / crossfade params from the ratio;
  *   <li>{@link #searchForCrossfadeOffset} (cpp:604-862) — the bidirectional sliding-window
- *       crossfade-point search;</li>
- *   <li>{@link #hopEnd} (cpp:242-972) — beam placement + loop pre-margin + the search + crossfade setup;</li>
+ *       crossfade-point search;
+ *   <li>{@link #hopEnd} (cpp:242-972) — beam placement + loop pre-margin + the search + crossfade
+ *       setup;
  *   <li>{@link #getSamplePos} (cpp:1227-1234) and the {@code TimeStretch} constants
- *       (definitions_cxx.hpp:780-795).</li>
+ *       (definitions_cxx.hpp:780-795).
  * </ul>
- * Every method cites the C file:line it ports; all re-derivation-verified (see {@code TimeStretcherTest}).
+ *
+ * Every method cites the C file:line it ports; all re-derivation-verified (see {@code
+ * TimeStretcherTest}).
  */
 public class TimeStretcher {
 
@@ -23,10 +27,13 @@ public class TimeStretcher {
 
   /** C: definitions_cxx.hpp:781 */
   public static final int K_DEFAULT_FIRST_HOP_LENGTH = 200;
+
   /** C: definitions_cxx.hpp:786 — 3 sounds way better than 2. */
   public static final int K_NUM_MOVING_AVERAGES = 3;
+
   /** C: definitions_cxx.hpp:790 — 30..40 ideal; higher screws up high notes. */
   public static final int K_MOVING_AVERAGE_LENGTH = 35;
+
   /** C: definitions_cxx.hpp:794 — TIME_STRETCH_ENABLE_BUFFER is 0, so 256. */
   public static final int K_BUFFER_SIZE = 256;
 
@@ -37,11 +44,12 @@ public class TimeStretcher {
 
   /** C: definitions_cxx.hpp PlayHead enum. */
   public static final int PLAY_HEAD_OLDER = 0;
+
   public static final int PLAY_HEAD_NEWER = 1;
 
-  public int samplesTilHopEnd;        // C: time_stretcher.h:75
-  public int crossfadeProgress;       // C: time_stretcher.h:72 (out of kMaxSampleValue)
-  public int crossfadeIncrement;      // C: time_stretcher.h:73
+  public int samplesTilHopEnd; // C: time_stretcher.h:75
+  public int crossfadeProgress; // C: time_stretcher.h:72 (out of kMaxSampleValue)
+  public int crossfadeIncrement; // C: time_stretcher.h:73
   public final boolean[] playHeadStillActive = new boolean[2]; // C: time_stretcher.h:82
   public boolean hasLoopedBackIntoPreMargin; // C: time_stretcher.h:81
 
@@ -98,7 +106,8 @@ public class TimeStretcher {
 
   // The C arrays are 5 (Coarse) / 17 (Fine). At the clamped upper bound (speedLog == 896<<20) the C
   // interpolateTableSigned reads table[5] of a Coarse array — out of bounds, but harmless because
-  // strength2 == 0 there. Java throws on OOB, so the Coarse arrays get one trailing duplicate; ×0 keeps
+  // strength2 == 0 there. Java throws on OOB, so the Coarse arrays get one trailing duplicate; ×0
+  // keeps
   // the result bit-identical to the C.
   static final int[] minHopSizeCoarse = {2500, 3000, 3000, 600, 300, 300};
   static final int[] minHopSizeFine = {
@@ -106,8 +115,8 @@ public class TimeStretcher {
   };
   static final int[] maxHopSizeCoarse = {5000, 6500, 11000, 4000, 2500, 2500};
   static final int[] maxHopSizeFine = {
-    6500, 7000, 8000, 9000, 9500, 9750, 10000, 11000, 11000, 7500, 8000, 6500, 5000, 4750, 4500, 4250,
-    4000
+    6500, 7000, 8000, 9000, 9500, 9750, 10000, 11000, 11000, 7500, 8000, 6500, 5000, 4750, 4500,
+    4250, 4000
   };
   static final int[] crossfadeProportionalCoarse = {200, 160, 0, 9, 9, 9};
   static final int[] crossfadeProportionalFine = {
@@ -118,24 +127,25 @@ public class TimeStretcher {
     10, 10, 10, 10, 10, 10, 10, 170, 60, 90, 20, 30, 40, 40, 40, 40, 40
   };
   static final int[] randomCoarse = {85, 120, 0, 0, 0, 0};
-  static final int[] randomFine = {
-    120, 95, 70, 45, 20, 15, 10, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0
-  };
+  static final int[] randomFine = {120, 95, 70, 45, 20, 15, 10, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
   /** Indices into the {@link #computeHopParameters} result. */
   public static final int HP_MIN_BEAM_WIDTH = 0;
+
   public static final int HP_MAX_BEAM_WIDTH = 1;
   public static final int HP_CROSSFADE_PROPORTIONAL = 2;
   public static final int HP_CROSSFADE_ABSOLUTE = 3;
   public static final int HP_RANDOM_ELEMENT = 4;
 
   /**
-   * C: hopEnd (time_stretcher.cpp:317-374) — the self-contained head of the hop: turn the time-stretch
-   * ratio into the beam-width / crossfade parameters via {@code quickLog} + table interpolation, then
-   * apply the random element to {@code minBeamWidth}. Pure (the C reads {@code getNoise()} for the
-   * random element; passed in here as {@code noise} so this is deterministic and testable).
+   * C: hopEnd (time_stretcher.cpp:317-374) — the self-contained head of the hop: turn the
+   * time-stretch ratio into the beam-width / crossfade parameters via {@code quickLog} + table
+   * interpolation, then apply the random element to {@code minBeamWidth}. Pure (the C reads {@code
+   * getNoise()} for the random element; passed in here as {@code noise} so this is deterministic
+   * and testable).
    *
-   * @return {@code {minBeamWidth, maxBeamWidth, crossfadeProportional, crossfadeAbsolute, randomElement}}
+   * @return {@code {minBeamWidth, maxBeamWidth, crossfadeProportional, crossfadeAbsolute,
+   *     randomElement}}
    */
   public static int[] computeHopParameters(int timeStretchRatio, int noise) {
     int speedLog = Functions.quickLog(timeStretchRatio); // C:317
@@ -146,13 +156,16 @@ public class TimeStretcher {
     int crossfadeAbsolute;
     int randomElement;
 
-    // Neutral is (832 << 20); each octave is (32 << 20). Within ±1 octave use the Fine tables. (C:330)
+    // Neutral is (832 << 20); each octave is (32 << 20). Within ±1 octave use the Fine tables.
+    // (C:330)
     if (speedLog >= (800 << 20) && speedLog < (864 << 20)) {
       int position = speedLog - (800 << 20);
       minBeamWidth = Functions.interpolateTableSigned(position, 26, minHopSizeFine, 4) >> 16;
       maxBeamWidth = Functions.interpolateTableSigned(position, 26, maxHopSizeFine, 4) >> 16;
-      crossfadeProportional = Functions.interpolateTableSigned(position, 26, crossfadeProportionalFine, 4) << 8;
-      crossfadeAbsolute = Functions.interpolateTableSigned(position, 26, crossfadeAbsoluteFine, 4) >> 16;
+      crossfadeProportional =
+          Functions.interpolateTableSigned(position, 26, crossfadeProportionalFine, 4) << 8;
+      crossfadeAbsolute =
+          Functions.interpolateTableSigned(position, 26, crossfadeAbsoluteFine, 4) >> 16;
       randomElement = Functions.interpolateTableSigned(position, 26, randomFine, 4);
     } else { // C:342-358
       if (speedLog > (896 << 20)) {
@@ -163,8 +176,10 @@ public class TimeStretcher {
       int position = speedLog - (768 << 20);
       minBeamWidth = Functions.interpolateTableSigned(position, 27, minHopSizeCoarse, 2) >> 16;
       maxBeamWidth = Functions.interpolateTableSigned(position, 27, maxHopSizeCoarse, 2) >> 16;
-      crossfadeProportional = Functions.interpolateTableSigned(position, 27, crossfadeProportionalCoarse, 2) << 8;
-      crossfadeAbsolute = Functions.interpolateTableSigned(position, 27, crossfadeAbsoluteCoarse, 2) >> 16;
+      crossfadeProportional =
+          Functions.interpolateTableSigned(position, 27, crossfadeProportionalCoarse, 2) << 8;
+      crossfadeAbsolute =
+          Functions.interpolateTableSigned(position, 27, crossfadeAbsoluteCoarse, 2) >> 16;
       randomElement = Functions.interpolateTableSigned(position, 27, randomCoarse, 2);
     }
 
@@ -174,7 +189,9 @@ public class TimeStretcher {
                 minBeamWidth, Functions.multiply_32x32_rshift32(noise, randomElement << 8))
             << 2;
 
-    return new int[] {minBeamWidth, maxBeamWidth, crossfadeProportional, crossfadeAbsolute, randomElement};
+    return new int[] {
+      minBeamWidth, maxBeamWidth, crossfadeProportional, crossfadeAbsolute, randomElement
+    };
   }
 
   static final int K_MAX_SAMPLE_VALUE = 16777216; // 1 << 24
@@ -191,17 +208,26 @@ public class TimeStretcher {
   }
 
   /**
-   * C: hopEnd (time_stretcher.cpp:604-862) — "Search for minimum phase disruption on crossfade". The
-   * bidirectional sliding-window search that finds the {@code bestOffset} (and sub-sample
-   * {@code additionalOscPos}) at which the new play-head's moving averages best match the old head's, so
-   * the crossfade is least audible. Cluster walk flattened to in-RAM reads; the metric stays int16
-   * (>>16) like the C, so the SELECTED offset matches.
+   * C: hopEnd (time_stretcher.cpp:604-862) — "Search for minimum phase disruption on crossfade".
+   * The bidirectional sliding-window search that finds the {@code bestOffset} (and sub-sample
+   * {@code additionalOscPos}) at which the new play-head's moving averages best match the old
+   * head's, so the crossfade is least audible. Cluster walk flattened to in-RAM reads; the metric
+   * stays int16 (>>16) like the C, so the SELECTED offset matches.
    *
-   * @param olderOscPos the older reader's oscPos (C: olderPartReader.oscPos), folded into additionalOscPos
-   * @return {@code {bestOffset, additionalOscPos}} (both 0 if the search is skipped — out of bounds)
+   * @param olderOscPos the older reader's oscPos (C: olderPartReader.oscPos), folded into
+   *     additionalOscPos
+   * @return {@code {bestOffset, additionalOscPos}} (both 0 if the search is skipped — out of
+   *     bounds)
    */
-  public static int[] searchForCrossfadeOffset(Sample sample, int oldHeadBytePos, int newHeadBytePos,
-      int crossfadeLengthSamples, int phaseIncrement, int playDirection, int samplesTilHopEnd, int olderOscPos) {
+  public static int[] searchForCrossfadeOffset(
+      Sample sample,
+      int oldHeadBytePos,
+      int newHeadBytePos,
+      int crossfadeLengthSamples,
+      int phaseIncrement,
+      int playDirection,
+      int samplesTilHopEnd,
+      int olderOscPos) {
 
     int bytesPerSample = sample.byteDepth * sample.numChannels;
     int audioDataStart = sample.audioDataStartPosBytes;
@@ -210,7 +236,8 @@ public class TimeStretcher {
     // C:604-608
     int lengthToAverageEach = (int) (((long) phaseIncrement * K_MOVING_AVERAGE_LENGTH) >> 24);
     lengthToAverageEach = Math.max(1, Math.min(K_MOVING_AVERAGE_LENGTH * 2, lengthToAverageEach));
-    int crossfadeLengthSamplesSource = (int) (((long) crossfadeLengthSamples * phaseIncrement) >> 24);
+    int crossfadeLengthSamplesSource =
+        (int) (((long) crossfadeLengthSamples * phaseIncrement) >> 24);
 
     // C:612-631 — averages for both heads (skip on failure / out of bounds)
     if (oldHeadBytePos < audioDataStart) {
@@ -218,24 +245,34 @@ public class TimeStretcher {
     }
     int[] oldHeadTotals = new int[K_NUM_MOVING_AVERAGES];
     if (!sample.getAveragesForCrossfade(
-        oldHeadTotals, oldHeadBytePos, crossfadeLengthSamplesSource, playDirection, lengthToAverageEach)) {
+        oldHeadTotals,
+        oldHeadBytePos,
+        crossfadeLengthSamplesSource,
+        playDirection,
+        lengthToAverageEach)) {
       return new int[] {0, 0};
     }
     int[] newHeadTotals = new int[K_NUM_MOVING_AVERAGES];
     if (!sample.getAveragesForCrossfade(
-        newHeadTotals, newHeadBytePos, crossfadeLengthSamplesSource, playDirection, lengthToAverageEach)) {
+        newHeadTotals,
+        newHeadBytePos,
+        crossfadeLengthSamplesSource,
+        playDirection,
+        lengthToAverageEach)) {
       return new int[] {0, 0};
     }
 
     int bestDifferenceAbs = getTotalDifferenceAbs(oldHeadTotals, newHeadTotals); // C:633
-    int bestOffset = 0;                                                          // C:634
-    int initialTotalChange = getTotalChange(oldHeadTotals, newHeadTotals);       // C:636
-    int additionalOscPos = 0;                                                    // C:379
+    int bestOffset = 0; // C:634
+    int initialTotalChange = getTotalChange(oldHeadTotals, newHeadTotals); // C:636
+    int additionalOscPos = 0; // C:379
 
     // C:642-650 — where the search window starts (mid-crossfade, centred over the averages)
     int samplePos = Integer.divideUnsigned(newHeadBytePos - audioDataStart, bytesPerSample);
     int samplePosMidCrossfade = samplePos + (crossfadeLengthSamplesSource >> 1) * playDirection;
-    int readSample = samplePosMidCrossfade - ((lengthToAverageEach * K_NUM_MOVING_AVERAGES) >> 1) * playDirection;
+    int readSample =
+        samplePosMidCrossfade
+            - ((lengthToAverageEach * K_NUM_MOVING_AVERAGES) >> 1) * playDirection;
     int firstReadByte = readSample * bytesPerSample + audioDataStart;
 
     // C:652-662
@@ -245,13 +282,16 @@ public class TimeStretcher {
     maxSearchSize = Math.min(maxSearchSize, limit);
 
     int searchDirection = playDirection; // C:638
-    int numFullDirectionsSearched = 0;    // C:665
-    int timesSignFlipped = 0;             // C:666
+    int numFullDirectionsSearched = 0; // C:665
+    int timesSignFlipped = 0; // C:666
     boolean stop = false;
 
-    // The C uses gotos (startSearch / restartSearchWithOtherDirection / searchNextDirection / stopSearch).
-    // Modelled as a direction loop: bestOffset/bestDifferenceAbs/additionalOscPos/timesSignFlipped persist
-    // across directions; the per-direction state (readByte[], running totals) resets at startSearch.
+    // The C uses gotos (startSearch / restartSearchWithOtherDirection / searchNextDirection /
+    // stopSearch).
+    // Modelled as a direction loop: bestOffset/bestDifferenceAbs/additionalOscPos/timesSignFlipped
+    // persist
+    // across directions; the per-direction state (readByte[], running totals) resets at
+    // startSearch.
     directionLoop:
     while (true) {
       // ── startSearch (C:676-696) ──
@@ -278,7 +318,9 @@ public class TimeStretcher {
         boolean outOfBounds = false;
         for (int i = 0; i < K_NUM_MOVING_AVERAGES + 1; i++) {
           int bytesTilWaveformEnd =
-              (searchDirection == 1) ? (audioDataStart + len - readByte[i]) : (readByte[i] - (audioDataStart - bytesPerSample));
+              (searchDirection == 1)
+                  ? (audioDataStart + len - readByte[i])
+                  : (readByte[i] - (audioDataStart - bytesPerSample));
           if (bytesTilWaveformEnd <= 0) {
             outOfBounds = true;
             break;
@@ -304,7 +346,10 @@ public class TimeStretcher {
         int differenceAbs = getTotalDifferenceAbs(oldHeadTotals, running); // C:774
 
         // C:777-780 — if the very first read is worse, flip direction now.
-        if (offsetNow == 0 && sdrpd == 1 && numFullDirectionsSearched == 0 && differenceAbs > bestDifferenceAbs) {
+        if (offsetNow == 0
+            && sdrpd == 1
+            && numFullDirectionsSearched == 0
+            && differenceAbs > bestDifferenceAbs) {
           restartOther = true;
           break;
         }
@@ -327,7 +372,9 @@ public class TimeStretcher {
             long thisTotalDifferenceAbs = Math.abs((long) thisTotalChange);
             long lastTotalDifferenceAbs = Math.abs((long) lastTotalChange);
             additionalOscPos =
-                (int) ((lastTotalDifferenceAbs << 24) / (lastTotalDifferenceAbs + thisTotalDifferenceAbs));
+                (int)
+                    ((lastTotalDifferenceAbs << 24)
+                        / (lastTotalDifferenceAbs + thisTotalDifferenceAbs));
             if (sdrpd == -1) {
               additionalOscPos = K_MAX_SAMPLE_VALUE - additionalOscPos;
             }
@@ -351,7 +398,7 @@ public class TimeStretcher {
       }
       if (restartOther) {
         searchDirection = -searchDirection; // C:672-673
-        continue directionLoop;             // → startSearch (does NOT count as a full direction)
+        continue directionLoop; // → startSearch (does NOT count as a full direction)
       }
       // ── searchNextDirection (C:837-842) ──
       numFullDirectionsSearched++;
@@ -375,24 +422,34 @@ public class TimeStretcher {
   }
 
   /**
-   * C: hopEnd (time_stretcher.cpp:242-972) — the desktop/in-RAM path with no perc-cache and
-   * {@code TIME_STRETCH_ENABLE_BUFFER == 0} (the perc-cache beam refinement is skipped). Decides where
-   * the NEW play-head should hop to: the loop pre-margin special case (looping AudioClips near the loop
-   * end) OR beam-width placement from {@link #computeHopParameters}, then {@link #searchForCrossfadeOffset}
-   * to phase-align. Sets {@link #samplesTilHopEnd}, {@link #crossfadeIncrement}, {@link #crossfadeProgress},
-   * {@link #playHeadStillActive}, {@link #hasLoopedBackIntoPreMargin}, and rolls the OLDER head.
+   * C: hopEnd (time_stretcher.cpp:242-972) — the desktop/in-RAM path with no perc-cache and {@code
+   * TIME_STRETCH_ENABLE_BUFFER == 0} (the perc-cache beam refinement is skipped). Decides where the
+   * NEW play-head should hop to: the loop pre-margin special case (looping AudioClips near the loop
+   * end) OR beam-width placement from {@link #computeHopParameters}, then {@link
+   * #searchForCrossfadeOffset} to phase-align. Sets {@link #samplesTilHopEnd}, {@link
+   * #crossfadeIncrement}, {@link #crossfadeProgress}, {@link #playHeadStillActive}, {@link
+   * #hasLoopedBackIntoPreMargin}, and rolls the OLDER head.
    *
-   * @param guide playback bounds (only read when {@code loopingType == TIMESTRETCHER_LEVEL_IF_ACTIVE};
-   *     may be null otherwise)
+   * @param guide playback bounds (only read when {@code loopingType ==
+   *     TIMESTRETCHER_LEVEL_IF_ACTIVE}; may be null otherwise)
    * @param combinedIncrement {@code (phaseIncrement*timeStretchRatio)>>24} — the output→source rate
    * @param samplePos the current (old) head sample position (C: getSamplePos)
    * @param oldHeadBytePos the old head byte position (C: getPlayByteLowLevel)
-   * @return {@code {newHeadBytePos, additionalOscPos}} (newer head inactive ⇒ both 0; check
-   *     {@code playHeadStillActive[PLAY_HEAD_NEWER]})
+   * @return {@code {newHeadBytePos, additionalOscPos}} (newer head inactive ⇒ both 0; check {@code
+   *     playHeadStillActive[PLAY_HEAD_NEWER]})
    */
-  public int[] hopEnd(Sample sample, SamplePlaybackGuide guide, LoopType loopingType, int oldHeadBytePos,
-      int samplePos, int phaseIncrement, int timeStretchRatio, long combinedIncrement, int playDirection,
-      int noise, int olderOscPos) {
+  public int[] hopEnd(
+      Sample sample,
+      SamplePlaybackGuide guide,
+      LoopType loopingType,
+      int oldHeadBytePos,
+      int samplePos,
+      int phaseIncrement,
+      int timeStretchRatio,
+      long combinedIncrement,
+      int playDirection,
+      int noise,
+      int olderOscPos) {
 
     int bytesPerSample = sample.byteDepth * sample.numChannels;
 
@@ -426,29 +483,40 @@ public class TimeStretcher {
           (guide.getBytePosToStartPlayback(true) - waveformStartByte) * playDirection; // C:396-397
       if (numBytesOfPreMarginAvailable > 0) {
         int loopEndSample =
-            Integer.divideUnsigned(guide.getBytePosToEndOrLoopPlayback() - sample.audioDataStartPosBytes, bytesPerSample); // C:402-403
+            Integer.divideUnsigned(
+                guide.getBytePosToEndOrLoopPlayback() - sample.audioDataStartPosBytes,
+                bytesPerSample); // C:402-403
         int sourceSamplesTilLoop = (loopEndSample - samplePos) * playDirection; // C:405
         if (sourceSamplesTilLoop >= 0) {
           int outputSamplesTilLoop =
-              (int) ((((long) sourceSamplesTilLoop << 24) + (combinedIncrement >> 1)) / combinedIncrement); // C:409-410
+              (int)
+                  ((((long) sourceSamplesTilLoop << 24) + (combinedIncrement >> 1))
+                      / combinedIncrement); // C:409-410
           if (outputSamplesTilLoop < K_ANTI_CLICK_CROSSFADE_LENGTH) { // C:413
             int numSamplesIntoPreMarginToStartSource = outputSamplesTilLoop; // C:415
             if (phaseIncrement != K_MAX_SAMPLE_VALUE) { // C:416-420
               numSamplesIntoPreMarginToStartSource =
-                  (int) ((((long) sourceSamplesTilLoop << 24) + (timeStretchRatio >> 1)) / (timeStretchRatio & 0xFFFFFFFFL));
+                  (int)
+                      ((((long) sourceSamplesTilLoop << 24) + (timeStretchRatio >> 1))
+                          / (timeStretchRatio & 0xFFFFFFFFL));
             }
             int candidate =
                 guide.getBytePosToStartPlayback(true)
-                    - numSamplesIntoPreMarginToStartSource * bytesPerSample * playDirection; // C:422-423
+                    - numSamplesIntoPreMarginToStartSource
+                        * bytesPerSample
+                        * playDirection; // C:422-423
             if ((candidate - waveformStartByte) * playDirection >= 0) { // C:426
               crossfadeLengthSamples = Math.max(outputSamplesTilLoop, 10); // C:431
-              samplesTilHopEnd = minBeamWidth >> 2;                        // C:435
+              samplesTilHopEnd = minBeamWidth >> 2; // C:435
               samplesTilHopEnd = Math.max(samplesTilHopEnd, crossfadeLengthSamples); // C:436
-              crossfadeIncrement = Integer.divideUnsigned(16777215 + crossfadeLengthSamples, crossfadeLengthSamples); // C:438-439
-              crossfadeProgress = 0;             // C:440
+              crossfadeIncrement =
+                  Integer.divideUnsigned(
+                      16777215 + crossfadeLengthSamples, crossfadeLengthSamples); // C:438-439
+              crossfadeProgress = 0; // C:440
               hasLoopedBackIntoPreMargin = true; // C:442
               newHeadBytePos = candidate;
-              placedInPreMargin = true; // C: goto skipPercStuff (do the search, skip beam placement)
+              placedInPreMargin =
+                  true; // C: goto skipPercStuff (do the search, skip beam placement)
             }
           } else {
             maxHopLength = outputSamplesTilLoop - K_ANTI_CLICK_CROSSFADE_LENGTH + 32; // C:462
@@ -459,35 +527,44 @@ public class TimeStretcher {
 
     if (!placedInPreMargin) {
       // ── Beam-width placement (C:471-594) ──
-      minBeamWidth = (int) (((minBeamWidth & 0xFFFFFFFFL) * (phaseIncrement & 0xFFFFFFFFL)) >>> 24); // C:473
-      maxBeamWidth = (int) (((maxBeamWidth & 0xFFFFFFFFL) * (phaseIncrement & 0xFFFFFFFFL)) >>> 24); // C:474
+      minBeamWidth =
+          (int) (((minBeamWidth & 0xFFFFFFFFL) * (phaseIncrement & 0xFFFFFFFFL)) >>> 24); // C:473
+      maxBeamWidth =
+          (int) (((maxBeamWidth & 0xFFFFFFFFL) * (phaseIncrement & 0xFFFFFFFFL)) >>> 24); // C:474
       int bestBeamWidth = (minBeamWidth + maxBeamWidth) >> 1; // C:476
 
       int beamBackEdge =
           samplePos
-              + (int) (((long) bestBeamWidth * (timeStretchRatio - K_MAX_SAMPLE_VALUE)) >> 25) * playDirection; // C:546-548
-      int waveformStartSample = (playDirection == 1) ? 0 : (int) sample.lengthInSamples - 1; // C:551
-      int waveformEndSample = (playDirection == 1) ? (int) sample.lengthInSamples : -1;      // C:554
+              + (int) (((long) bestBeamWidth * (timeStretchRatio - K_MAX_SAMPLE_VALUE)) >> 25)
+                  * playDirection; // C:546-548
+      int waveformStartSample =
+          (playDirection == 1) ? 0 : (int) sample.lengthInSamples - 1; // C:551
+      int waveformEndSample = (playDirection == 1) ? (int) sample.lengthInSamples : -1; // C:554
       if ((beamBackEdge - waveformStartSample) * playDirection < 0) { // C:558-560
         beamBackEdge = waveformStartSample;
       }
 
-      samplesTilHopEnd = (int) Long.divideUnsigned((long) bestBeamWidth << 24, phaseIncrement & 0xFFFFFFFFL); // C:567
+      samplesTilHopEnd =
+          (int)
+              Long.divideUnsigned(
+                  (long) bestBeamWidth << 24, phaseIncrement & 0xFFFFFFFFL); // C:567
       if (samplesTilHopEnd < 1) {
         samplesTilHopEnd = 1;
       }
       crossfadeLengthSamples =
-          Functions.multiply_32x32_rshift32_rounded(samplesTilHopEnd, crossfadeProportional) + crossfadeAbsolute * 4; // C:572-573
+          Functions.multiply_32x32_rshift32_rounded(samplesTilHopEnd, crossfadeProportional)
+              + crossfadeAbsolute * 4; // C:572-573
       if (crossfadeLengthSamples >= (samplesTilHopEnd >> 1)) {
         crossfadeLengthSamples = (samplesTilHopEnd >> 1);
       }
-      samplesTilHopEnd -= crossfadeLengthSamples;                       // C:578
-      samplesTilHopEnd = Math.min(samplesTilHopEnd, maxHopLength);      // C:581
+      samplesTilHopEnd -= crossfadeLengthSamples; // C:578
+      samplesTilHopEnd = Math.min(samplesTilHopEnd, maxHopLength); // C:581
       crossfadeLengthSamples = Math.min(samplesTilHopEnd, crossfadeLengthSamples); // C:582
       if (crossfadeLengthSamples < 1) {
         crossfadeLengthSamples = 1; // avoid the C's divide-by-zero UB for degenerate tiny hops
       }
-      crossfadeIncrement = (int) Integer.toUnsignedLong(K_MAX_SAMPLE_VALUE) / crossfadeLengthSamples; // C:584
+      crossfadeIncrement =
+          (int) Integer.toUnsignedLong(K_MAX_SAMPLE_VALUE) / crossfadeLengthSamples; // C:584
       crossfadeProgress = 0;
 
       if ((beamBackEdge - waveformEndSample) * playDirection >= 0) { // C:588-591
@@ -498,9 +575,16 @@ public class TimeStretcher {
     }
 
     // C:600-862 — phase-align the crossfade.
-    int[] search = searchForCrossfadeOffset(
-        sample, oldHeadBytePos, newHeadBytePos, crossfadeLengthSamples, phaseIncrement, playDirection,
-        samplesTilHopEnd, olderOscPos);
+    int[] search =
+        searchForCrossfadeOffset(
+            sample,
+            oldHeadBytePos,
+            newHeadBytePos,
+            crossfadeLengthSamples,
+            phaseIncrement,
+            playDirection,
+            samplesTilHopEnd,
+            olderOscPos);
     newHeadBytePos += search[0]; // C:854
     int additionalOscPos = search[1];
 

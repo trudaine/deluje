@@ -31,56 +31,104 @@ public class Arpeggiator {
   // ── Enums (arpeggiator.h:42-46, 149-153) ──
 
   /** C: arpeggiator.h:42-46 */
-  public enum ArpType { SYNTH, DRUM, KIT }
+  public enum ArpType {
+    SYNTH,
+    DRUM,
+    KIT
+  }
 
   /** C: ArpPreset (arpeggiator.h:73) */
-  public enum ArpPreset { OFF, UP, DOWN, BOTH, RANDOM, WALK, CUSTOM }
+  public enum ArpPreset {
+    OFF,
+    UP,
+    DOWN,
+    BOTH,
+    RANDOM,
+    WALK,
+    CUSTOM
+  }
 
   /** C: ArpMode */
-  public enum ArpMode { OFF, ARP }
+  public enum ArpMode {
+    OFF,
+    ARP
+  }
 
   /** C: ArpOctaveMode */
-  public enum ArpOctaveMode { UP, DOWN, UP_DOWN, ALTERNATE, RANDOM }
+  public enum ArpOctaveMode {
+    UP,
+    DOWN,
+    UP_DOWN,
+    ALTERNATE,
+    RANDOM
+  }
 
   /** C: ArpNoteMode */
-  public enum ArpNoteMode { UP, DOWN, UP_DOWN, AS_PLAYED, RANDOM, WALK1, WALK2, WALK3, PATTERN }
+  public enum ArpNoteMode {
+    UP,
+    DOWN,
+    UP_DOWN,
+    AS_PLAYED,
+    RANDOM,
+    WALK1,
+    WALK2,
+    WALK3,
+    PATTERN
+  }
 
   /** C: SyncLevel — ordinal values match C enum (0=none, 1=whole... 9=256th). */
   public enum SyncLevel {
-    SYNC_LEVEL_NONE,    // 0 — no sync
-    SYNC_LEVEL_WHOLE,   // 1
-    SYNC_LEVEL_2ND,     // 2
-    SYNC_LEVEL_4TH,     // 3
-    SYNC_LEVEL_8TH,     // 4
-    SYNC_LEVEL_16TH,    // 5
-    SYNC_LEVEL_32ND,    // 6
-    SYNC_LEVEL_64TH,    // 7
-    SYNC_LEVEL_128TH,   // 8
-    SYNC_LEVEL_256TH    // 9
+    SYNC_LEVEL_NONE, // 0 — no sync
+    SYNC_LEVEL_WHOLE, // 1
+    SYNC_LEVEL_2ND, // 2
+    SYNC_LEVEL_4TH, // 3
+    SYNC_LEVEL_8TH, // 4
+    SYNC_LEVEL_16TH, // 5
+    SYNC_LEVEL_32ND, // 6
+    SYNC_LEVEL_64TH, // 7
+    SYNC_LEVEL_128TH, // 8
+    SYNC_LEVEL_256TH // 9
   }
 
   /** C: SyncType */
-  public enum SyncType { EVEN, TRIPLET, DOTTED }
+  public enum SyncType {
+    EVEN,
+    TRIPLET,
+    DOTTED
+  }
 
   /** C: ArpMpeModSource */
-  public enum ArpMpeModSource { OFF, AFTERTOUCH, MPE_Y }
+  public enum ArpMpeModSource {
+    OFF,
+    AFTERTOUCH,
+    MPE_Y
+  }
 
   /** C: ArpNoteStatus (arpeggiator.h:149-153) */
-  public enum ArpNoteStatus { OFF, PENDING, PLAYING }
+  public enum ArpNoteStatus {
+    OFF,
+    PENDING,
+    PLAYING
+  }
 
   // ── ArpNote (arpeggiator.h:155-179) ──
 
   public static class ArpNote {
     /** C: inputCharacteristics[2] — [NOTE, CHANNEL] */
     public final int[] inputCharacteristics = {0, MIDI_CHANNEL_NONE};
+
     /** C: mpeValues[kNumExpressionDimensions=3] */
     public final int[] mpeValues = new int[3];
+
     public int velocity;
     public int baseVelocity;
+
     /** C: noteStatus[ARP_MAX_INSTRUCTION_NOTES] */
     public final ArpNoteStatus[] noteStatus = new ArpNoteStatus[ARP_MAX_INSTRUCTION_NOTES];
+
     /** C: outputMemberChannel[ARP_MAX_INSTRUCTION_NOTES] */
     public final int[] outputMemberChannel = new int[ARP_MAX_INSTRUCTION_NOTES];
+
     /** C: noteCodeOnPostArp[ARP_MAX_INSTRUCTION_NOTES] */
     public final int[] noteCodeOnPostArp = new int[ARP_MAX_INSTRUCTION_NOTES];
 
@@ -113,8 +161,10 @@ public class Arpeggiator {
       this.velocity = src.velocity;
       this.baseVelocity = src.baseVelocity;
       System.arraycopy(src.noteStatus, 0, this.noteStatus, 0, ARP_MAX_INSTRUCTION_NOTES);
-      System.arraycopy(src.outputMemberChannel, 0, this.outputMemberChannel, 0, ARP_MAX_INSTRUCTION_NOTES);
-      System.arraycopy(src.noteCodeOnPostArp, 0, this.noteCodeOnPostArp, 0, ARP_MAX_INSTRUCTION_NOTES);
+      System.arraycopy(
+          src.outputMemberChannel, 0, this.outputMemberChannel, 0, ARP_MAX_INSTRUCTION_NOTES);
+      System.arraycopy(
+          src.noteCodeOnPostArp, 0, this.noteCodeOnPostArp, 0, ARP_MAX_INSTRUCTION_NOTES);
     }
   }
 
@@ -122,7 +172,10 @@ public class Arpeggiator {
 
   public static class ArpJustNoteCode {
     public int noteCode;
-    public ArpJustNoteCode(int noteCode) { this.noteCode = noteCode; }
+
+    public ArpJustNoteCode(int noteCode) {
+      this.noteCode = noteCode;
+    }
   }
 
   // ── ArpReturnInstruction (arpeggiator.h:185-213) ──
@@ -244,10 +297,14 @@ public class Arpeggiator {
     public void updatePresetFromCurrentSettings() {
       if (mode == ArpMode.OFF) preset = ArpPreset.OFF;
       else if (octaveMode == ArpOctaveMode.UP && noteMode == ArpNoteMode.UP) preset = ArpPreset.UP;
-      else if (octaveMode == ArpOctaveMode.DOWN && noteMode == ArpNoteMode.DOWN) preset = ArpPreset.DOWN;
-      else if (octaveMode == ArpOctaveMode.ALTERNATE && noteMode == ArpNoteMode.UP) preset = ArpPreset.BOTH;
-      else if (octaveMode == ArpOctaveMode.RANDOM && noteMode == ArpNoteMode.RANDOM) preset = ArpPreset.RANDOM;
-      else if (octaveMode == ArpOctaveMode.ALTERNATE && noteMode == ArpNoteMode.WALK2) preset = ArpPreset.WALK;
+      else if (octaveMode == ArpOctaveMode.DOWN && noteMode == ArpNoteMode.DOWN)
+        preset = ArpPreset.DOWN;
+      else if (octaveMode == ArpOctaveMode.ALTERNATE && noteMode == ArpNoteMode.UP)
+        preset = ArpPreset.BOTH;
+      else if (octaveMode == ArpOctaveMode.RANDOM && noteMode == ArpNoteMode.RANDOM)
+        preset = ArpPreset.RANDOM;
+      else if (octaveMode == ArpOctaveMode.ALTERNATE && noteMode == ArpNoteMode.WALK2)
+        preset = ArpPreset.WALK;
       else preset = ArpPreset.CUSTOM;
     }
 
@@ -383,7 +440,8 @@ public class Arpeggiator {
     // C: arpeggiator.h:237, 239-241
     public ArpNote active_note = new ArpNote();
     public final int[] glideNoteCodeCurrentlyOnPostArp = new int[ARP_MAX_INSTRUCTION_NOTES];
-    public final int[] outputMIDIChannelForGlideNoteCurrentlyOnPostArp = new int[ARP_MAX_INSTRUCTION_NOTES];
+    public final int[] outputMIDIChannelForGlideNoteCurrentlyOnPostArp =
+        new int[ARP_MAX_INSTRUCTION_NOTES];
     public int gatePos;
     public int lastVelocity;
 
@@ -454,7 +512,8 @@ public class Arpeggiator {
     public abstract ArpType getArpType();
 
     /** C: arpeggiator.h:264 — switchNoteOn */
-    protected abstract void switchNoteOn(Settings settings, ArpReturnInstruction instruction, boolean isRatchet);
+    protected abstract void switchNoteOn(
+        Settings settings, ArpReturnInstruction instruction, boolean isRatchet);
 
     // ── resetRatchet (arpeggiator.cpp:130-136) ──
 
@@ -484,7 +543,8 @@ public class Arpeggiator {
         // C: 508-515 — schedule glide notes
         for (int n = 0; n < ARP_MAX_INSTRUCTION_NOTES; n++) {
           instruction.glideNoteCodeOffPostArp[n] = glideNoteCodeCurrentlyOnPostArp[n];
-          instruction.glideOutputMIDIChannelOff[n] = outputMIDIChannelForGlideNoteCurrentlyOnPostArp[n];
+          instruction.glideOutputMIDIChannelOff[n] =
+              outputMIDIChannelForGlideNoteCurrentlyOnPostArp[n];
           glideNoteCodeCurrentlyOnPostArp[n] = ARP_NOTE_NONE;
           outputMIDIChannelForGlideNoteCurrentlyOnPostArp[n] = MIDI_CHANNEL_NONE;
         }
@@ -514,9 +574,11 @@ public class Arpeggiator {
 
     void maybeSetupNewRatchet(Settings settings) {
       // C: 546-549
-      isRatcheting = isPlayRatchetForCurrentStep
-          && settings.ratchetAmount > 0
-          && !(settings.syncType == SyncType.EVEN && settings.syncLevel == SyncLevel.SYNC_LEVEL_256TH);
+      isRatcheting =
+          isPlayRatchetForCurrentStep
+              && settings.ratchetAmount > 0
+              && !(settings.syncType == SyncType.EVEN
+                  && settings.syncLevel == SyncLevel.SYNC_LEVEL_256TH);
       if (isRatcheting) {
         // C: 551
         ratchetNotesMultiplier = getRandomWeighted2BitsAmount(settings.ratchetAmount);
@@ -551,9 +613,15 @@ public class Arpeggiator {
       int diff;
       // C:583-589
       if (spreadVelocityForCurrentStep < 0) {
-        diff = -(Functions.multiply_32x32_rshift32((-spreadVelocityForCurrentStep) << 24, signedVelocity - 1) << 1);
+        diff =
+            -(Functions.multiply_32x32_rshift32(
+                    (-spreadVelocityForCurrentStep) << 24, signedVelocity - 1)
+                << 1);
       } else {
-        diff = Functions.multiply_32x32_rshift32(spreadVelocityForCurrentStep << 24, 127 - signedVelocity) << 1;
+        diff =
+            Functions.multiply_32x32_rshift32(
+                    spreadVelocityForCurrentStep << 24, 127 - signedVelocity)
+                << 1;
       }
       signedVelocity = signedVelocity + diff; // C:591
       if (signedVelocity < 1) signedVelocity = 1; // C:593-594
@@ -564,8 +632,10 @@ public class Arpeggiator {
     // ── evaluateRhythm (arpeggiator.cpp:604-610) ──
 
     boolean evaluateRhythm(int rhythm, boolean isRatchet) {
-      // arpeggiator.cpp:604-610. (The C maps settings.rhythm via computeCurrentValueForUnsignedMenuItem
-      // to [0, kMaxPresetArpRhythm]; fw2 uses settings.rhythm raw, so guard out-of-range → play-all.)
+      // arpeggiator.cpp:604-610. (The C maps settings.rhythm via
+      // computeCurrentValueForUnsignedMenuItem
+      // to [0, kMaxPresetArpRhythm]; fw2 uses settings.rhythm raw, so guard out-of-range →
+      // play-all.)
       if (rhythm < 0 || rhythm >= arpRhythmPatterns.length) {
         return true;
       }
@@ -617,8 +687,13 @@ public class Arpeggiator {
       boolean shouldPlayChordNote;
     }
 
-    void executeArpStep(Settings settings, int numActiveNotes, boolean isRatchet,
-                        int maxSequenceLength, int rhythm, StepResult out) {
+    void executeArpStep(
+        Settings settings,
+        int numActiveNotes,
+        boolean isRatchet,
+        int maxSequenceLength,
+        int rhythm,
+        StepResult out) {
       // C: 648-667 — restart logic
       if (settings.flagForceArpRestart) {
         playedFirstArpeggiatedNoteYet = false;
@@ -677,7 +752,8 @@ public class Arpeggiator {
 
     void increasePatternIndexes(int numStepRepeats) {
       randomNotesPlayedFromOctave++;
-      notesPlayedFromLockedRandomizer = (notesPlayedFromLockedRandomizer + 1) % RANDOMIZER_LOCK_MAX_SAVED_VALUES;
+      notesPlayedFromLockedRandomizer =
+          (notesPlayedFromLockedRandomizer + 1) % RANDOMIZER_LOCK_MAX_SAVED_VALUES;
       stepRepeatIndex++;
       if (stepRepeatIndex >= numStepRepeats) {
         stepRepeatIndex = 0;
@@ -710,8 +786,9 @@ public class Arpeggiator {
 
     byte getRandomBipolarProbabilityAmount(int value) {
       if (value == 0) return 0;
-      int randValue = Functions.multiply_32x32_rshift32(
-          Functions.multiply_32x32_rshift32(sampleTriangleDistribution(), value >> 1), 255);
+      int randValue =
+          Functions.multiply_32x32_rshift32(
+              Functions.multiply_32x32_rshift32(sampleTriangleDistribution(), value >> 1), 255);
       if (randValue < -127) return -127;
       if (randValue > 127) return 127;
       return (byte) randValue;
@@ -721,8 +798,9 @@ public class Arpeggiator {
 
     int getRandomWeighted2BitsAmount(int value) {
       if (value == 0) return 0;
-      return Math.abs(Functions.multiply_32x32_rshift32(
-          Functions.multiply_32x32_rshift32(sampleTriangleDistribution(), value >> 1), 5));
+      return Math.abs(
+          Functions.multiply_32x32_rshift32(
+              Functions.multiply_32x32_rshift32(sampleTriangleDistribution(), value >> 1), 5));
     }
 
     /** C: sampleTriangleDistribution — produce a triangle-distributed random Q31 value. */
@@ -882,12 +960,16 @@ public class Arpeggiator {
         }
       } else {
         // C:1051 — WALK modes
-        if (noteMode == ArpNoteMode.WALK1 || noteMode == ArpNoteMode.WALK2 || noteMode == ArpNoteMode.WALK3) {
+        if (noteMode == ArpNoteMode.WALK1
+            || noteMode == ArpNoteMode.WALK2
+            || noteMode == ArpNoteMode.WALK3) {
           int backwardsLimit = 64, stayLimit = 128;
           if (noteMode == ArpNoteMode.WALK3) {
-            backwardsLimit = 51; stayLimit = 102;
+            backwardsLimit = 51;
+            stayLimit = 102;
           } else if (noteMode == ArpNoteMode.WALK1) {
-            backwardsLimit = 77; stayLimit = 154;
+            backwardsLimit = 77;
+            stayLimit = 154;
           }
           int dice = getRandom255();
           if (dice < backwardsLimit) {
@@ -907,8 +989,11 @@ public class Arpeggiator {
 
         // C:1092-1130
         if (whichNoteCurrentlyOnPostArp >= numActiveNotes) {
-          changingOctaveDirection = (currentOctave >= numOctaves - 1 && noteMode != ArpNoteMode.UP_DOWN
-              && noteMode != ArpNoteMode.RANDOM && octaveMode == ArpOctaveMode.ALTERNATE);
+          changingOctaveDirection =
+              (currentOctave >= numOctaves - 1
+                  && noteMode != ArpNoteMode.UP_DOWN
+                  && noteMode != ArpNoteMode.RANDOM
+                  && octaveMode == ArpOctaveMode.ALTERNATE);
           if (changingOctaveDirection) {
             currentDirection = -1;
             whichNoteCurrentlyOnPostArp = numActiveNotes - 2;
@@ -920,8 +1005,11 @@ public class Arpeggiator {
             changeOctave = true;
           }
         } else if (whichNoteCurrentlyOnPostArp < 0) {
-          changingOctaveDirection = (currentOctave <= 0 && noteMode != ArpNoteMode.UP_DOWN
-              && noteMode != ArpNoteMode.RANDOM && octaveMode == ArpOctaveMode.ALTERNATE);
+          changingOctaveDirection =
+              (currentOctave <= 0
+                  && noteMode != ArpNoteMode.UP_DOWN
+                  && noteMode != ArpNoteMode.RANDOM
+                  && octaveMode == ArpOctaveMode.ALTERNATE);
           if (changingOctaveDirection) {
             currentDirection = 1;
             whichNoteCurrentlyOnPostArp = 1;
@@ -992,7 +1080,8 @@ public class Arpeggiator {
         currentOctave = getRandom255() % settings.numOctaves;
         currentOctaveDirection = 1;
       } else if (settings.octaveMode == ArpOctaveMode.DOWN
-          || (settings.octaveMode == ArpOctaveMode.ALTERNATE && settings.noteMode == ArpNoteMode.DOWN)) {
+          || (settings.octaveMode == ArpOctaveMode.ALTERNATE
+              && settings.noteMode == ArpNoteMode.DOWN)) {
         currentOctave = settings.numOctaves - 1;
         currentOctaveDirection = -1;
       } else {
@@ -1015,11 +1104,15 @@ public class Arpeggiator {
     // ── render (arpeggiator.cpp:1446-1512) ──
 
     /**
-     * C: arpeggiator.cpp:1446-1512 — main render method. Advances the gate counter, switches
-     * notes on/off based on gate threshold and phase increment.
+     * C: arpeggiator.cpp:1446-1512 — main render method. Advances the gate counter, switches notes
+     * on/off based on gate threshold and phase increment.
      */
-    public void render(Settings settings, ArpReturnInstruction instruction,
-                       int numSamples, int gateThreshold, int phaseIncrement) {
+    public void render(
+        Settings settings,
+        ArpReturnInstruction instruction,
+        int numSamples,
+        int gateThreshold,
+        int phaseIncrement) {
       // C:1448-1453
       if (handlePendingNotes(settings, instruction)) return;
       if (settings.mode == ArpMode.OFF || !hasAnyInputNotesActive()) return;
@@ -1032,9 +1125,15 @@ public class Arpeggiator {
         int signedGateThreshold = gateThresholdSmall;
         int diff;
         if (spreadGateForCurrentStep < 0) {
-          diff = -(Functions.multiply_32x32_rshift32((-spreadGateForCurrentStep) << 24, signedGateThreshold) << 1);
+          diff =
+              -(Functions.multiply_32x32_rshift32(
+                      (-spreadGateForCurrentStep) << 24, signedGateThreshold)
+                  << 1);
         } else {
-          diff = Functions.multiply_32x32_rshift32(spreadGateForCurrentStep << 24, maxGate - signedGateThreshold) << 1;
+          diff =
+              Functions.multiply_32x32_rshift32(
+                      spreadGateForCurrentStep << 24, maxGate - signedGateThreshold)
+                  << 1;
         }
         signedGateThreshold = signedGateThreshold + diff;
         if (signedGateThreshold < 0) signedGateThreshold = 0;
@@ -1054,7 +1153,8 @@ public class Arpeggiator {
       // C:1492-1505 — gatePos check
       if (gatePos >= ratchetNotesIndex * maxGateForRatchet + gateThresholdSmall) {
         switchAnyNoteOff(instruction);
-        if (isRatcheting && ratchetNotesIndex < ratchetNotesCount - 1
+        if (isRatcheting
+            && ratchetNotesIndex < ratchetNotesCount - 1
             && gatePos >= (ratchetNotesIndex + 1) * maxGateForRatchet) {
           switchNoteOn(settings, instruction, true);
         } else if (!syncedNow && gatePos >= maxGate) {
@@ -1072,8 +1172,11 @@ public class Arpeggiator {
     // ── doTickForward (arpeggiator.cpp:1516-1557) ──
 
     /** C: arpeggiator.cpp:1516-1557. Returns num ticks til next arp event. */
-    public int doTickForward(Settings settings, ArpReturnInstruction instruction,
-                             int clipCurrentPos, boolean currentlyPlayingReversed) {
+    public int doTickForward(
+        Settings settings,
+        ArpReturnInstruction instruction,
+        int clipCurrentPos,
+        boolean currentlyPlayingReversed) {
       if (clipCurrentPos == 0) {
         notesPlayedFromLockedRandomizer = 0; // C:1519
       }
@@ -1118,19 +1221,29 @@ public class Arpeggiator {
       active_note.velocity = 0; // C:73
     }
 
-    @Override public void reset() {
+    @Override
+    public void reset() {
       active_note.velocity = 0; // C:126-128
     }
 
-    @Override public ArpType getArpType() { return ArpType.DRUM; }
+    @Override
+    public ArpType getArpType() {
+      return ArpType.DRUM;
+    }
 
-    @Override public boolean hasAnyInputNotesActive() {
+    @Override
+    public boolean hasAnyInputNotesActive() {
       return active_note.velocity != 0; // C:1432-1434
     }
 
     /** C: arpeggiator.cpp:150-216 — noteOn */
-    public void noteOn(Settings settings, int noteCode, int originalVelocity,
-                       ArpReturnInstruction instruction, int fromMIDIChannel, int[] mpeValues) {
+    public void noteOn(
+        Settings settings,
+        int noteCode,
+        int originalVelocity,
+        ArpReturnInstruction instruction,
+        int fromMIDIChannel,
+        int[] mpeValues) {
       lastVelocity = originalVelocity; // C:152
       noteForDrum = noteCode; // C:153
       boolean wasActiveBefore = active_note.velocity != 0; // C:155
@@ -1162,7 +1275,8 @@ public class Arpeggiator {
       } else {
         // C:189-215 — no arp, just trigger note
         calculateRandomizerAmounts(settings);
-        notesPlayedFromLockedRandomizer = (notesPlayedFromLockedRandomizer + 1) % RANDOMIZER_LOCK_MAX_SAVED_VALUES;
+        notesPlayedFromLockedRandomizer =
+            (notesPlayedFromLockedRandomizer + 1) % RANDOMIZER_LOCK_MAX_SAVED_VALUES;
         if (isPlayNoteForCurrentStep) {
           active_note.baseVelocity = originalVelocity;
           int velocity = calculateSpreadVelocity(originalVelocity, spreadVelocityForCurrentStep);
@@ -1174,7 +1288,8 @@ public class Arpeggiator {
             active_note.outputMemberChannel[n] = MIDI_CHANNEL_NONE;
             active_note.noteStatus[n] = ArpNoteStatus.OFF;
           }
-          instruction.invertReversed = invertReversedFromKitArp ? !isPlayReverseForCurrentStep : isPlayReverseForCurrentStep;
+          instruction.invertReversed =
+              invertReversedFromKitArp ? !isPlayReverseForCurrentStep : isPlayReverseForCurrentStep;
           instruction.arpNoteOn = active_note;
         }
       }
@@ -1195,7 +1310,8 @@ public class Arpeggiator {
       } else {
         for (int n = 0; n < ARP_MAX_INSTRUCTION_NOTES; n++) {
           instruction.glideNoteCodeOffPostArp[n] = glideNoteCodeCurrentlyOnPostArp[n];
-          instruction.glideOutputMIDIChannelOff[n] = outputMIDIChannelForGlideNoteCurrentlyOnPostArp[n];
+          instruction.glideOutputMIDIChannelOff[n] =
+              outputMIDIChannelForGlideNoteCurrentlyOnPostArp[n];
           glideNoteCodeCurrentlyOnPostArp[n] = ARP_NOTE_NONE;
           outputMIDIChannelForGlideNoteCurrentlyOnPostArp[n] = MIDI_CHANNEL_NONE;
           instruction.noteCodeOffPostArp[n] = active_note.noteCodeOnPostArp[n];
@@ -1209,8 +1325,10 @@ public class Arpeggiator {
     // ── switchNoteOn (arpeggiator.cpp:758-859) ──
 
     @Override
-    protected void switchNoteOn(Settings settings, ArpReturnInstruction instruction, boolean isRatchet) {
-      int maxSequenceLength = Functions.computeCurrentValueForUnsignedMenuItem(settings.sequenceLength); // C:761
+    protected void switchNoteOn(
+        Settings settings, ArpReturnInstruction instruction, boolean isRatchet) {
+      int maxSequenceLength =
+          Functions.computeCurrentValueForUnsignedMenuItem(settings.sequenceLength); // C:761
       int rhythm = Functions.computeCurrentValueForUnsignedMenuItem(settings.rhythm); // C:762
       int numActiveNotes = chordTypeNoteCount[settings.chordTypeIndex]; // C:773
 
@@ -1272,7 +1390,8 @@ public class Arpeggiator {
           active_note.noteStatus[n] = ArpNoteStatus.OFF;
           active_note.noteCodeOnPostArp[n] = ARP_NOTE_NONE;
         }
-        instruction.invertReversed = invertReversedFromKitArp ? !out.shouldPlayReverseNote : out.shouldPlayReverseNote;
+        instruction.invertReversed =
+            invertReversedFromKitArp ? !out.shouldPlayReverseNote : out.shouldPlayReverseNote;
         instruction.arpNoteOn = active_note;
 
         // C:855-857
@@ -1288,25 +1407,33 @@ public class Arpeggiator {
   public static class Synth extends Base {
     /** C: OrderedResizeableArray — sorted by note code */
     public final ArrayList<ArpNote> notes = new ArrayList<>();
+
     /** C: ResizeableArray — as-played order */
     public final ArrayList<ArpJustNoteCode> notesAsPlayed = new ArrayList<>();
+
     /** C: ResizeableArray — by-pattern order */
     public final ArrayList<ArpJustNoteCode> notesByPattern = new ArrayList<>();
+
     boolean anyPending;
 
     public Synth() {
       // C:76-82 — constructor (no need for ResizeableArray sizing in Java)
     }
 
-    @Override public void reset() {
+    @Override
+    public void reset() {
       notes.clear();
       notesAsPlayed.clear();
       notesByPattern.clear(); // C:119-123
     }
 
-    @Override public ArpType getArpType() { return ArpType.SYNTH; }
+    @Override
+    public ArpType getArpType() {
+      return ArpType.SYNTH;
+    }
 
-    @Override public boolean hasAnyInputNotesActive() {
+    @Override
+    public boolean hasAnyInputNotesActive() {
       return !notes.isEmpty(); // C:1428-1430
     }
 
@@ -1315,7 +1442,8 @@ public class Arpeggiator {
       notesByPattern.clear();
       int numNotes = notes.size();
       for (int i = 0; i < numNotes; i++) {
-        int notesByPatternIndex = Math.min(settings.notePattern[Math.min(i, PATTERN_MAX_BUFFER_SIZE - 1)] & 0xFF, i);
+        int notesByPatternIndex =
+            Math.min(settings.notePattern[Math.min(i, PATTERN_MAX_BUFFER_SIZE - 1)] & 0xFF, i);
         notesByPatternIndex = Math.min(notesByPatternIndex, notesByPattern.size());
         ArpJustNoteCode entry = new ArpJustNoteCode(notes.get(i).inputCharacteristics[0]);
         notesByPattern.add(notesByPatternIndex, entry);
@@ -1334,8 +1462,13 @@ public class Arpeggiator {
 
     // ── noteOn (arpeggiator.cpp:257-376) ──
 
-    public void noteOn(Settings settings, int noteCode, int originalVelocity,
-                       ArpReturnInstruction instruction, int fromMIDIChannel, int[] mpeValues) {
+    public void noteOn(
+        Settings settings,
+        int noteCode,
+        int originalVelocity,
+        ArpReturnInstruction instruction,
+        int fromMIDIChannel,
+        int[] mpeValues) {
       lastVelocity = originalVelocity; // C:259
       anyPending = true; // C:262
 
@@ -1394,7 +1527,8 @@ public class Arpeggiator {
       } else {
         // C:352-375 — no arp
         calculateRandomizerAmounts(settings);
-        notesPlayedFromLockedRandomizer = (notesPlayedFromLockedRandomizer + 1) % RANDOMIZER_LOCK_MAX_SAVED_VALUES;
+        notesPlayedFromLockedRandomizer =
+            (notesPlayedFromLockedRandomizer + 1) % RANDOMIZER_LOCK_MAX_SAVED_VALUES;
         if (isPlayNoteForCurrentStep) {
           arpNote.baseVelocity = originalVelocity;
           int velocity = calculateSpreadVelocity(originalVelocity, spreadVelocityForCurrentStep);
@@ -1435,7 +1569,8 @@ public class Arpeggiator {
             if (whichNoteCurrentlyOnPostArp == notesKey) { // C:402
               for (int n = 0; n < ARP_MAX_INSTRUCTION_NOTES; n++) {
                 instruction.glideNoteCodeOffPostArp[n] = glideNoteCodeCurrentlyOnPostArp[n];
-                instruction.glideOutputMIDIChannelOff[n] = outputMIDIChannelForGlideNoteCurrentlyOnPostArp[n];
+                instruction.glideOutputMIDIChannelOff[n] =
+                    outputMIDIChannelForGlideNoteCurrentlyOnPostArp[n];
                 glideNoteCodeCurrentlyOnPostArp[n] = ARP_NOTE_NONE;
                 outputMIDIChannelForGlideNoteCurrentlyOnPostArp[n] = MIDI_CHANNEL_NONE;
                 instruction.noteCodeOffPostArp[n] = arpNote.noteCodeOnPostArp[n];
@@ -1522,8 +1657,10 @@ public class Arpeggiator {
     // ── switchNoteOn (arpeggiator.cpp:1248-1426) ──
 
     @Override
-    protected void switchNoteOn(Settings settings, ArpReturnInstruction instruction, boolean isRatchet) {
-      int maxSequenceLength = Functions.computeCurrentValueForUnsignedMenuItem(settings.sequenceLength); // C:1250
+    protected void switchNoteOn(
+        Settings settings, ArpReturnInstruction instruction, boolean isRatchet) {
+      int maxSequenceLength =
+          Functions.computeCurrentValueForUnsignedMenuItem(settings.sequenceLength); // C:1250
       int rhythm = Functions.computeCurrentValueForUnsignedMenuItem(settings.rhythm); // C:1251
       int numActiveNotes = notes.size(); // C:1262
 
@@ -1531,7 +1668,8 @@ public class Arpeggiator {
       executeArpStep(settings, numActiveNotes, isRatchet, maxSequenceLength, rhythm, out);
 
       // C:1268 — clamp
-      whichNoteCurrentlyOnPostArp = Math.max(0, Math.min(whichNoteCurrentlyOnPostArp, notes.size() - 1));
+      whichNoteCurrentlyOnPostArp =
+          Math.max(0, Math.min(whichNoteCurrentlyOnPostArp, notes.size() - 1));
 
       // C:1270-1308 — select arpNote
       ArpNote arpNote;
@@ -1541,16 +1679,22 @@ public class Arpeggiator {
         arpNote = notes.get(getRandom255() % numActiveNotes); // C:1277
       } else if (settings.noteMode == ArpNoteMode.AS_PLAYED) {
         // C:1279-1291
-        ArpJustNoteCode asPlayed = notesAsPlayed.get(whichNoteCurrentlyOnPostArp % notesAsPlayed.size());
+        ArpJustNoteCode asPlayed =
+            notesAsPlayed.get(whichNoteCurrentlyOnPostArp % notesAsPlayed.size());
         int key = findNoteIndex(asPlayed.noteCode);
-        arpNote = (key < notes.size() && notes.get(key).inputCharacteristics[0] == asPlayed.noteCode)
-            ? notes.get(key) : notes.get(0);
+        arpNote =
+            (key < notes.size() && notes.get(key).inputCharacteristics[0] == asPlayed.noteCode)
+                ? notes.get(key)
+                : notes.get(0);
       } else if (settings.noteMode == ArpNoteMode.PATTERN) {
         // C:1292-1304
-        ArpJustNoteCode byPattern = notesByPattern.get(whichNoteCurrentlyOnPostArp % notesByPattern.size());
+        ArpJustNoteCode byPattern =
+            notesByPattern.get(whichNoteCurrentlyOnPostArp % notesByPattern.size());
         int key = findNoteIndex(byPattern.noteCode);
-        arpNote = (key < notes.size() && notes.get(key).inputCharacteristics[0] == byPattern.noteCode)
-            ? notes.get(key) : notes.get(0);
+        arpNote =
+            (key < notes.size() && notes.get(key).inputCharacteristics[0] == byPattern.noteCode)
+                ? notes.get(key)
+                : notes.get(0);
       } else {
         arpNote = notes.get(whichNoteCurrentlyOnPostArp); // C:1307
       }

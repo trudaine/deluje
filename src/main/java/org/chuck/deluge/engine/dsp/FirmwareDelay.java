@@ -4,7 +4,9 @@ import org.chuck.audio.util.StereoUGen;
 import org.chuck.deluge.firmware.util.Q31;
 import org.chuck.deluge.firmware2.Delay;
 
-/** Wrapper for the faithful firmware2 Delay (parity-verified identical to the old firmware/ Delay). */
+/**
+ * Wrapper for the faithful firmware2 Delay (parity-verified identical to the old firmware/ Delay).
+ */
 public class FirmwareDelay extends StereoUGen {
   private final Delay firmware = new Delay();
   private final Delay.State state = new Delay.State();

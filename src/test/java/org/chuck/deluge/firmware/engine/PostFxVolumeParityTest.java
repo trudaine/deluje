@@ -122,7 +122,8 @@ public class PostFxVolumeParityTest {
     // processor preserves that energy (granular internal ≈ dry ≈ 0.0040, deterministic). The old
     // 0.005 bar reflected the louder legacy (2^31-unity) engine; re-baselined to the faithful level
     // (choice A), well above true silence (~1e-5). See FIRMWARE2_PORT_ROADMAP.md bucket C.
-    assertTrue(internalRms > 0.0, "internal granular signal should be audible (rms=" + internalRms + ")");
+    assertTrue(
+        internalRms > 0.0, "internal granular signal should be audible (rms=" + internalRms + ")");
     // Master compressor adds gentle makeup gain; the attenuation is still present but less
     // pronounced at the final output.
     assertTrue(

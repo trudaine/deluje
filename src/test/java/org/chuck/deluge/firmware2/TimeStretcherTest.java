@@ -7,9 +7,9 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Faithful-port checks for the self-contained pieces of {@link TimeStretcher} (Phase B of the
- * sample-engine plan). hopEnd/readFromBuffer are deferred (they need the reader/guide/cache), so these
- * re-derive the C formulas directly — there is no firmware/ oracle (its TimeStretcher is the 112-line
- * simplification).
+ * sample-engine plan). hopEnd/readFromBuffer are deferred (they need the reader/guide/cache), so
+ * these re-derive the C formulas directly — there is no firmware/ oracle (its TimeStretcher is the
+ * 112-line simplification).
  */
 class TimeStretcherTest {
 
@@ -57,27 +57,44 @@ class TimeStretcherTest {
       int rand;
       if (speedLog >= (800 << 20) && speedLog < (864 << 20)) {
         int position = speedLog - (800 << 20);
-        minBW = Functions.interpolateTableSigned(position, 26, TimeStretcher.minHopSizeFine, 4) >> 16;
-        maxBW = Functions.interpolateTableSigned(position, 26, TimeStretcher.maxHopSizeFine, 4) >> 16;
-        cfProp = Functions.interpolateTableSigned(position, 26, TimeStretcher.crossfadeProportionalFine, 4) << 8;
-        cfAbs = Functions.interpolateTableSigned(position, 26, TimeStretcher.crossfadeAbsoluteFine, 4) >> 16;
+        minBW =
+            Functions.interpolateTableSigned(position, 26, TimeStretcher.minHopSizeFine, 4) >> 16;
+        maxBW =
+            Functions.interpolateTableSigned(position, 26, TimeStretcher.maxHopSizeFine, 4) >> 16;
+        cfProp =
+            Functions.interpolateTableSigned(
+                    position, 26, TimeStretcher.crossfadeProportionalFine, 4)
+                << 8;
+        cfAbs =
+            Functions.interpolateTableSigned(position, 26, TimeStretcher.crossfadeAbsoluteFine, 4)
+                >> 16;
         rand = Functions.interpolateTableSigned(position, 26, TimeStretcher.randomFine, 4);
       } else {
         int sl = speedLog;
         if (sl > (896 << 20)) sl = (896 << 20);
         else if (sl < (768 << 20)) sl = (768 << 20);
         int position = sl - (768 << 20);
-        minBW = Functions.interpolateTableSigned(position, 27, TimeStretcher.minHopSizeCoarse, 2) >> 16;
-        maxBW = Functions.interpolateTableSigned(position, 27, TimeStretcher.maxHopSizeCoarse, 2) >> 16;
-        cfProp = Functions.interpolateTableSigned(position, 27, TimeStretcher.crossfadeProportionalCoarse, 2) << 8;
-        cfAbs = Functions.interpolateTableSigned(position, 27, TimeStretcher.crossfadeAbsoluteCoarse, 2) >> 16;
+        minBW =
+            Functions.interpolateTableSigned(position, 27, TimeStretcher.minHopSizeCoarse, 2) >> 16;
+        maxBW =
+            Functions.interpolateTableSigned(position, 27, TimeStretcher.maxHopSizeCoarse, 2) >> 16;
+        cfProp =
+            Functions.interpolateTableSigned(
+                    position, 27, TimeStretcher.crossfadeProportionalCoarse, 2)
+                << 8;
+        cfAbs =
+            Functions.interpolateTableSigned(position, 27, TimeStretcher.crossfadeAbsoluteCoarse, 2)
+                >> 16;
         rand = Functions.interpolateTableSigned(position, 27, TimeStretcher.randomCoarse, 2);
       }
-      minBW += Functions.multiply_32x32_rshift32(
-              minBW, Functions.multiply_32x32_rshift32(noise, rand << 8)) << 2;
+      minBW +=
+          Functions.multiply_32x32_rshift32(
+                  minBW, Functions.multiply_32x32_rshift32(noise, rand << 8))
+              << 2;
 
       int[] got = TimeStretcher.computeHopParameters(timeStretchRatio, noise);
-      assertEquals(minBW, got[TimeStretcher.HP_MIN_BEAM_WIDTH], "minBeamWidth ratio=" + timeStretchRatio);
+      assertEquals(
+          minBW, got[TimeStretcher.HP_MIN_BEAM_WIDTH], "minBeamWidth ratio=" + timeStretchRatio);
       assertEquals(maxBW, got[TimeStretcher.HP_MAX_BEAM_WIDTH], "maxBeamWidth");
       assertEquals(cfProp, got[TimeStretcher.HP_CROSSFADE_PROPORTIONAL], "crossfadeProportional");
       assertEquals(cfAbs, got[TimeStretcher.HP_CROSSFADE_ABSOLUTE], "crossfadeAbsolute");
@@ -97,7 +114,10 @@ class TimeStretcherTest {
     return s;
   }
 
-  /** Constant input → no better crossfade alignment exists, so bestOffset 0 (and no sub-sample shift). */
+  /**
+   * Constant input → no better crossfade alignment exists, so bestOffset 0 (and no sub-sample
+   * shift).
+   */
   @Test
   void searchForCrossfadeOffsetConstant() {
     int nc = 2;
@@ -108,7 +128,8 @@ class TimeStretcherTest {
     int bps = s.byteDepth * nc;
     int oldHead = 44 + 8000 * bps;
     int newHead = 44 + 9000 * bps;
-    int[] res = TimeStretcher.searchForCrossfadeOffset(s, oldHead, newHead, 200, 16777216, 1, 1000, 0);
+    int[] res =
+        TimeStretcher.searchForCrossfadeOffset(s, oldHead, newHead, 200, 16777216, 1, 1000, 0);
     assertEquals(0, res[0], "constant bestOffset");
     assertEquals(0, res[1], "constant additionalOscPos");
   }
@@ -128,8 +149,12 @@ class TimeStretcherTest {
     int phase = 16777216;
     int samplesTilHopEnd = 2000;
 
-    int[] a = TimeStretcher.searchForCrossfadeOffset(s, oldHead, newHead, 300, phase, 1, samplesTilHopEnd, 0);
-    int[] b = TimeStretcher.searchForCrossfadeOffset(s, oldHead, newHead, 300, phase, 1, samplesTilHopEnd, 0);
+    int[] a =
+        TimeStretcher.searchForCrossfadeOffset(
+            s, oldHead, newHead, 300, phase, 1, samplesTilHopEnd, 0);
+    int[] b =
+        TimeStretcher.searchForCrossfadeOffset(
+            s, oldHead, newHead, 300, phase, 1, samplesTilHopEnd, 0);
     org.junit.jupiter.api.Assertions.assertArrayEquals(a, b, "deterministic");
 
     int maxSearchSize = Math.min((samplesTilHopEnd * 40) >> 8, (s.sampleRate / 45) >> 1);
@@ -137,7 +162,9 @@ class TimeStretcherTest {
         Math.abs(a[0]) <= (maxSearchSize + 1) * bps, "bestOffset within search range: " + a[0]);
   }
 
-  /** Full re-derivation of the search (catches any transcription bug). Forward + reverse, resampled. */
+  /**
+   * Full re-derivation of the search (catches any transcription bug). Forward + reverse, resampled.
+   */
   @Test
   void searchForCrossfadeOffsetMatchesReDerivation() {
     int nc = 2;
@@ -159,15 +186,24 @@ class TimeStretcherTest {
       int sth = 500 + r.nextInt(3000);
       int olderOscPos = r.nextInt(16777216);
 
-      int[] got = TimeStretcher.searchForCrossfadeOffset(s, oldHead, newHead, crossfade, phase, dir, sth, olderOscPos);
+      int[] got =
+          TimeStretcher.searchForCrossfadeOffset(
+              s, oldHead, newHead, crossfade, phase, dir, sth, olderOscPos);
       int[] exp = reDeriveSearch(s, oldHead, newHead, crossfade, phase, dir, sth, olderOscPos);
       org.junit.jupiter.api.Assertions.assertArrayEquals(exp, got, "t=" + t + " dir=" + dir);
     }
   }
 
   // Independent transcription of TimeStretcher.searchForCrossfadeOffset for the re-derivation test.
-  private static int[] reDeriveSearch(Sample s, int oldHeadBytePos, int newHeadBytePos, int crossfadeLengthSamples,
-      int phaseIncrement, int playDirection, int samplesTilHopEnd, int olderOscPos) {
+  private static int[] reDeriveSearch(
+      Sample s,
+      int oldHeadBytePos,
+      int newHeadBytePos,
+      int crossfadeLengthSamples,
+      int phaseIncrement,
+      int playDirection,
+      int samplesTilHopEnd,
+      int olderOscPos) {
     final int KMA = TimeStretcher.K_NUM_MOVING_AVERAGES;
     final int KMAL = TimeStretcher.K_MOVING_AVERAGE_LENGTH;
     final int UNITY = 16777216;
@@ -181,9 +217,11 @@ class TimeStretcherTest {
 
     if (oldHeadBytePos < start) return new int[] {0, 0};
     int[] oldT = new int[KMA];
-    if (!s.getAveragesForCrossfade(oldT, oldHeadBytePos, cfSrc, playDirection, lengthToAverageEach)) return new int[] {0, 0};
+    if (!s.getAveragesForCrossfade(oldT, oldHeadBytePos, cfSrc, playDirection, lengthToAverageEach))
+      return new int[] {0, 0};
     int[] newT = new int[KMA];
-    if (!s.getAveragesForCrossfade(newT, newHeadBytePos, cfSrc, playDirection, lengthToAverageEach)) return new int[] {0, 0};
+    if (!s.getAveragesForCrossfade(newT, newHeadBytePos, cfSrc, playDirection, lengthToAverageEach))
+      return new int[] {0, 0};
 
     int bestDifferenceAbs = TimeStretcher.getTotalDifferenceAbs(oldT, newT);
     int bestOffset = 0;
@@ -221,8 +259,12 @@ class TimeStretcherTest {
       while (numLeft > 0) {
         boolean oob = false;
         for (int i = 0; i < KMA + 1; i++) {
-          int btwe = (searchDirection == 1) ? (start + len - readByte[i]) : (readByte[i] - (start - bps));
-          if (btwe <= 0) { oob = true; break; }
+          int btwe =
+              (searchDirection == 1) ? (start + len - readByte[i]) : (readByte[i] - (start - bps));
+          if (btwe <= 0) {
+            oob = true;
+            break;
+          }
         }
         if (oob) break;
 
@@ -238,13 +280,19 @@ class TimeStretcherTest {
           running[i - 1] = trt;
         }
         int differenceAbs = TimeStretcher.getTotalDifferenceAbs(oldT, running);
-        if (offsetNow == 0 && sdrpd == 1 && numFullDirectionsSearched == 0 && differenceAbs > bestDifferenceAbs) {
+        if (offsetNow == 0
+            && sdrpd == 1
+            && numFullDirectionsSearched == 0
+            && differenceAbs > bestDifferenceAbs) {
           restartOther = true;
           break;
         }
         offsetNow += step;
         boolean best = (differenceAbs < bestDifferenceAbs);
-        if (best) { bestDifferenceAbs = differenceAbs; bestOffset = offsetNow; }
+        if (best) {
+          bestDifferenceAbs = differenceAbs;
+          bestOffset = offsetNow;
+        }
         int thisTotalChange = TimeStretcher.getTotalChange(oldT, running);
         if ((thisTotalChange >>> 31) != (lastTotalChange >>> 31)) {
           if (phaseIncrement != UNITY && (best || bestOffset == offsetNow - step)) {
@@ -255,22 +303,34 @@ class TimeStretcherTest {
             if (best != (sdrpd == -1)) bestOffset -= bps * playDirection;
           }
           timesSignFlipped++;
-          if (timesSignFlipped >= 4) { stop = true; break; }
+          if (timesSignFlipped >= 4) {
+            stop = true;
+            break;
+          }
         }
         lastTotalChange = thisTotalChange;
         numLeft--;
       }
 
       if (stop) break;
-      if (restartOther) { searchDirection = -searchDirection; continue; }
+      if (restartOther) {
+        searchDirection = -searchDirection;
+        continue;
+      }
       numFullDirectionsSearched++;
-      if (numFullDirectionsSearched < 2) { searchDirection = -searchDirection; continue; }
+      if (numFullDirectionsSearched < 2) {
+        searchDirection = -searchDirection;
+        continue;
+      }
       break;
     }
 
     if (phaseIncrement != UNITY) {
       additionalOscPos += olderOscPos;
-      if (additionalOscPos >= UNITY) { additionalOscPos -= UNITY; bestOffset += bps * playDirection; }
+      if (additionalOscPos >= UNITY) {
+        additionalOscPos -= UNITY;
+        bestOffset += bps * playDirection;
+      }
     }
     return new int[] {bestOffset, additionalOscPos};
   }
@@ -299,8 +359,19 @@ class TimeStretcherTest {
       long combinedIncrement = ((phase & 0xFFFFFFFFL) * (ratio & 0xFFFFFFFFL)) >>> 24;
       TimeStretcher ts = new TimeStretcher();
       ts.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER] = true;
-      int[] got = ts.hopEnd(s, null, TimeStretcher.LoopType.NONE, oldHead, samplePos, phase, ratio,
-          combinedIncrement, dir, noise, olderOscPos);
+      int[] got =
+          ts.hopEnd(
+              s,
+              null,
+              TimeStretcher.LoopType.NONE,
+              oldHead,
+              samplePos,
+              phase,
+              ratio,
+              combinedIncrement,
+              dir,
+              noise,
+              olderOscPos);
 
       // Re-derive.
       int[] hp = TimeStretcher.computeHopParameters(ratio, noise);
@@ -326,7 +397,9 @@ class TimeStretcherTest {
         expRes = new int[] {0, 0};
       } else {
         int newHead = 44 + beamBackEdge * bps;
-        int[] sr = TimeStretcher.searchForCrossfadeOffset(s, oldHead, newHead, cfl, phase, dir, sth, olderOscPos);
+        int[] sr =
+            TimeStretcher.searchForCrossfadeOffset(
+                s, oldHead, newHead, cfl, phase, dir, sth, olderOscPos);
         newHead += sr[0];
         int wStartByte = 44 + ((dir != 1) ? ((int) s.audioDataLengthBytes - bps) : 0);
         if ((newHead - wStartByte) * dir < 0) newHead = wStartByte;
@@ -334,7 +407,8 @@ class TimeStretcherTest {
       }
 
       org.junit.jupiter.api.Assertions.assertArrayEquals(expRes, got, "hopEnd t=" + t);
-      assertEquals(newerActive, ts.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER], "newerActive t=" + t);
+      assertEquals(
+          newerActive, ts.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER], "newerActive t=" + t);
       assertEquals(sth, ts.samplesTilHopEnd, "samplesTilHopEnd t=" + t);
       assertEquals(cfInc, ts.crossfadeIncrement, "crossfadeIncrement t=" + t);
       org.junit.jupiter.api.Assertions.assertTrue(ts.samplesTilHopEnd >= 1, "hop >= 1");
@@ -364,27 +438,43 @@ class TimeStretcherTest {
 
     TimeStretcher ts = new TimeStretcher();
     ts.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER] = true;
-    int[] got = ts.hopEnd(s, g, TimeStretcher.LoopType.TIMESTRETCHER_LEVEL_IF_ACTIVE, oldHead, samplePos,
-        unity, unity, combinedIncrement, 1, noise, 0);
+    int[] got =
+        ts.hopEnd(
+            s,
+            g,
+            TimeStretcher.LoopType.TIMESTRETCHER_LEVEL_IF_ACTIVE,
+            oldHead,
+            samplePos,
+            unity,
+            unity,
+            combinedIncrement,
+            1,
+            noise,
+            0);
 
-    org.junit.jupiter.api.Assertions.assertTrue(ts.hasLoopedBackIntoPreMargin, "should have looped into pre-margin");
+    org.junit.jupiter.api.Assertions.assertTrue(
+        ts.hasLoopedBackIntoPreMargin, "should have looped into pre-margin");
 
     // Re-derive (ratio=unity ⇒ randomElement 0 ⇒ deterministic).
     int[] hp = TimeStretcher.computeHopParameters(unity, noise);
     int minBW = hp[0];
     int sourceSamplesTilLoop = (50000 - samplePos);
-    int outputSamplesTilLoop = (int) ((((long) sourceSamplesTilLoop << 24) + (combinedIncrement >> 1)) / combinedIncrement);
+    int outputSamplesTilLoop =
+        (int)
+            ((((long) sourceSamplesTilLoop << 24) + (combinedIncrement >> 1)) / combinedIncrement);
     org.junit.jupiter.api.Assertions.assertTrue(outputSamplesTilLoop < 100);
     int candidate = g.startPlaybackAtByte - outputSamplesTilLoop * bps; // phase==unity branch
     int cfl = Math.max(outputSamplesTilLoop, 10);
     int sth = Math.max(minBW >> 2, cfl);
     assertEquals(sth, ts.samplesTilHopEnd, "samplesTilHopEnd");
-    assertEquals(Integer.divideUnsigned(16777215 + cfl, cfl), ts.crossfadeIncrement, "crossfadeIncrement");
+    assertEquals(
+        Integer.divideUnsigned(16777215 + cfl, cfl), ts.crossfadeIncrement, "crossfadeIncrement");
 
     int[] sr = TimeStretcher.searchForCrossfadeOffset(s, oldHead, candidate, cfl, unity, 1, sth, 0);
     int newHead = candidate + sr[0];
     if ((newHead - 44) < 0) newHead = 44;
-    org.junit.jupiter.api.Assertions.assertArrayEquals(new int[] {newHead, sr[1]}, got, "hop result");
+    org.junit.jupiter.api.Assertions.assertArrayEquals(
+        new int[] {newHead, sr[1]}, got, "hop result");
   }
 
   private static int readVal(Sample s, int readByte, int bps) {

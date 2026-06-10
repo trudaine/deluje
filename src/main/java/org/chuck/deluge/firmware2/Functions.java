@@ -297,8 +297,10 @@ public final class Functions {
 
   // ── interpolateTable (functions.cpp:492-509) ──
 
-  /** Interpolate into a uint16_t[] lookup table. (functions.cpp:492-509).
-   * Clamped for Java array safety (C table sizes chosen so whichValue stays in range). */
+  /**
+   * Interpolate into a uint16_t[] lookup table. (functions.cpp:492-509). Clamped for Java array
+   * safety (C table sizes chosen so whichValue stays in range).
+   */
   public static int interpolateTable(
       int input, int numBitsInInput, int[] table, int numBitsInTableSize) {
     int whichValue = input >>> (numBitsInInput - numBitsInTableSize);
@@ -374,8 +376,8 @@ public final class Functions {
   public static final int K_MAX_MENU_VALUE = 50;
 
   /**
-   * computeCurrentValueForUnsignedMenuItem (value_scaling.cpp:18). Scales a uint32 stored menu value
-   * to [0, kMaxMenuValue]. {@code value} is uint32 → use 64-bit unsigned.
+   * computeCurrentValueForUnsignedMenuItem (value_scaling.cpp:18). Scales a uint32 stored menu
+   * value to [0, kMaxMenuValue]. {@code value} is uint32 → use 64-bit unsigned.
    */
   public static int computeCurrentValueForUnsignedMenuItem(int value) {
     return (int) (((value & 0xFFFFFFFFL) * K_MAX_MENU_VALUE + 2147483648L) >> 32);
@@ -428,15 +430,16 @@ public final class Functions {
 
   /** quickLog (functions.cpp:567-573). magnitude = getMagnitudeOld = 32 - clz (functions.h:394). */
   public static int quickLog(int input) {
-    int magnitude = 32 - Integer.numberOfLeadingZeros(input); // C getMagnitudeOld: 32 - clz, NOT 31 - clz
+    int magnitude =
+        32 - Integer.numberOfLeadingZeros(input); // C getMagnitudeOld: 32 - clz, NOT 31 - clz
     int inputLSBs = increaseMagnitude(input, 26 - magnitude);
     return (magnitude << 25) + (inputLSBs & ~(1 << 26));
   }
 
   /**
    * increaseMagnitude (functions.h:361-366). C uses {@code int32_t} with {@code magnitude >= 0} and
-   * an arithmetic right shift ({@code number >> -magnitude}); match it exactly (was {@code > 0} and a
-   * logical {@code >>>}, which diverged for negative {@code number}).
+   * an arithmetic right shift ({@code number >> -magnitude}); match it exactly (was {@code > 0} and
+   * a logical {@code >>>}, which diverged for negative {@code number}).
    */
   public static int increaseMagnitude(int number, int magnitude) {
     if (magnitude >= 0) {

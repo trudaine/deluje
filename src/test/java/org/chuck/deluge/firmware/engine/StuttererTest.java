@@ -8,9 +8,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Field;
 import org.chuck.deluge.firmware.dsp.StereoSample;
-import org.chuck.deluge.firmware2.DelayBuffer;
 import org.chuck.deluge.firmware.modulation.params.Param;
 import org.chuck.deluge.firmware.modulation.params.ParamManager;
+import org.chuck.deluge.firmware2.DelayBuffer;
 import org.junit.jupiter.api.Test;
 
 class StuttererTest {

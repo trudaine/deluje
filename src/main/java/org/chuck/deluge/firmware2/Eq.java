@@ -1,10 +1,10 @@
 package org.chuck.deluge.firmware2;
 
 /**
- * Faithful port of {@code ModControllableAudio::doEQ} and its setup (mod_controllable_audio.cpp:142-192,
- * 373-403): a stereo bass/treble shelving EQ built from two one-pole splits with persistent state. The
- * bass/treble amounts are bipolar Q31 params (0 = flat), and the corner frequencies are selected from
- * the freq params via {@link Functions#getExp}.
+ * Faithful port of {@code ModControllableAudio::doEQ} and its setup
+ * (mod_controllable_audio.cpp:142-192, 373-403): a stereo bass/treble shelving EQ built from two
+ * one-pole splits with persistent state. The bass/treble amounts are bipolar Q31 params (0 = flat),
+ * and the corner frequencies are selected from the freq params via {@link Functions#getExp}.
  */
 public final class Eq {
   // Persistent filter state (C members).
@@ -36,7 +36,8 @@ public final class Eq {
 
     // Bass: no-change at 0, off completely at -536870912. (C:171-173)
     int positive = (bassParam >> 1) + 1073741824;
-    int bassAmount = (Functions.multiply_32x32_rshift32_rounded(positive, positive) << 1) - 536870912;
+    int bassAmount =
+        (Functions.multiply_32x32_rshift32_rounded(positive, positive) << 1) - 536870912;
 
     // Treble: no-change at 536870912. (C:175-177)
     positive = (trebleParam >> 1) + 1073741824;
@@ -56,7 +57,8 @@ public final class Eq {
   }
 
   /** C: doEQ (mod_controllable_audio.cpp:373-403). sample = {l, r}, modified in place. */
-  private void doEQ(boolean doBass, boolean doTreble, int[] sample, int bassAmount, int trebleAmount) {
+  private void doEQ(
+      boolean doBass, boolean doTreble, int[] sample, int bassAmount, int trebleAmount) {
     int inL = sample[0];
     int inR = sample[1];
     int trebleOnlyL = 0;

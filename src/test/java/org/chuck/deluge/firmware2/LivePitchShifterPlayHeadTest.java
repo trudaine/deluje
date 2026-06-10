@@ -86,8 +86,16 @@ class LivePitchShifterPlayHeadTest {
     int mask = LiveInputBuffer.K_INPUT_RAW_BUFFER_SIZE - 1;
     for (int i = 1; i <= 16; i++) {
       int pos = (1500 - i) & mask;
-      short eL = (short) (Integer.compareUnsigned(pos, lib.numRawSamplesProcessed) < 0 ? lib.rawBuffer[pos * nc] >> 16 : 0);
-      short eR = (short) (Integer.compareUnsigned(pos, lib.numRawSamplesProcessed) < 0 ? lib.rawBuffer[pos * nc + 1] >> 16 : 0);
+      short eL =
+          (short)
+              (Integer.compareUnsigned(pos, lib.numRawSamplesProcessed) < 0
+                  ? lib.rawBuffer[pos * nc] >> 16
+                  : 0);
+      short eR =
+          (short)
+              (Integer.compareUnsigned(pos, lib.numRawSamplesProcessed) < 0
+                  ? lib.rawBuffer[pos * nc + 1] >> 16
+                  : 0);
       assertEquals(eL, ph.interpolator.bufferL[i - 1], "L tap " + i);
       assertEquals(eR, ph.interpolator.bufferR[i - 1], "R tap " + i);
     }

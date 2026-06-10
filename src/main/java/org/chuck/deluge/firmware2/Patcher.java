@@ -84,8 +84,10 @@ public class Patcher {
     // cabled (destination) params and leaving non-cabled params at their curve-applied base.
     for (Destination dest : patchCableSet.destinations) {
       int p = dest.paramId;
-      // C (patcher.cpp:118): the curve neutral is paramNeutralValues[param], which the C populates as
-      // getParamNeutralValue(param) (functions.cpp:180) — a STATIC per-param constant, NOT the knob.
+      // C (patcher.cpp:118): the curve neutral is paramNeutralValues[param], which the C populates
+      // as
+      // getParamNeutralValue(param) (functions.cpp:180) — a STATIC per-param constant, NOT the
+      // knob.
       // The knob (getSmoothedPatchedParamValue) is folded into the cable combination below instead.
       int staticNeutral = Functions.getParamNeutralValue(p);
       int finalValue;
@@ -272,9 +274,9 @@ public class Patcher {
   }
 
   /**
-   * getModifiedPatchCableAmount (patch_cable_set.cpp:500-534). For pitch-adjust + delay-rate params,
-   * square the cable strength so it slopes up slowly (small effects accessible). Used only by exp
-   * cables (combineCablesExp). {@code amount} is cable.amount (the fw2 stand-in for the C
+   * getModifiedPatchCableAmount (patch_cable_set.cpp:500-534). For pitch-adjust + delay-rate
+   * params, square the cable strength so it slopes up slowly (small effects accessible). Used only
+   * by exp cables (combineCablesExp). {@code amount} is cable.amount (the fw2 stand-in for the C
    * {@code patch_cable.param.getCurrentValue()}; automation smoothing is a separate gap).
    */
   static int getModifiedPatchCableAmount(PatchCable cable, int p) {
@@ -340,7 +342,8 @@ public class Patcher {
       cableCombination = cableToExpParamWithoutRangeAdjustment(0, knobValue, range);
     }
 
-    int neutral = Functions.getParamNeutralValue(p); // C: paramNeutralValues[p]; knob is in cableCombination
+    int neutral =
+        Functions.getParamNeutralValue(p); // C: paramNeutralValues[p]; knob is in cableCombination
     if (p < Param.FIRST_LOCAL_HYBRID
         || (p >= Param.FIRST_GLOBAL && p < Param.FIRST_GLOBAL_HYBRID)) {
       if (p < Param.FIRST_LOCAL_NON_VOLUME

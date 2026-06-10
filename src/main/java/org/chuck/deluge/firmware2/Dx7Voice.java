@@ -7,7 +7,8 @@ package org.chuck.deluge.firmware2;
  *
  * <p>Rendering goes through the faithful {@link FmCore} (modern) / {@link EngineMkI} engines;
  * {@code Sin::lookup} → {@link Dx7Tables#sinLookup}, {@code Freqlut::lookup} → {@link
- * Dx7Tables#freqLookup} (both verbatim from math_lut), {@code getNoise()} → {@link Functions#getNoise}.
+ * Dx7Tables#freqLookup} (both verbatim from math_lut), {@code getNoise()} → {@link
+ * Functions#getNoise}.
  */
 public class Dx7Voice {
 

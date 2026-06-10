@@ -21,7 +21,8 @@ public final class Oscillator {
     ANALOG_SQUARE,
     WAVETABLE,
     SAMPLE,
-    // C definitions_cxx.hpp:367 has DX7 after SAMPLE (index 8); rendered per-source in voice.cpp:2371.
+    // C definitions_cxx.hpp:367 has DX7 after SAMPLE (index 8); rendered per-source in
+    // voice.cpp:2371.
     DX7
   }
 
@@ -29,9 +30,9 @@ public final class Oscillator {
   // Maps a phase increment to a band-limited table index + size magnitude.
 
   /**
-   * Verbatim port of dsp::getTableNumber (basic_waves.cpp:175-236). Returns
-   * [tableNumber, tableSizeMagnitude]. {@code phaseIncrement} is uint32_t in C, so
-   * compare unsigned. Size-magnitude is 13/12/11/10/9 by band (table size = 2^mag + 1).
+   * Verbatim port of dsp::getTableNumber (basic_waves.cpp:175-236). Returns [tableNumber,
+   * tableSizeMagnitude]. {@code phaseIncrement} is uint32_t in C, so compare unsigned.
+   * Size-magnitude is 13/12/11/10/9 by band (table size = 2^mag + 1).
    */
   public static int[] getTableNumber(int phaseIncrement) {
     long pi = phaseIncrement & 0xFFFFFFFFL;
@@ -454,7 +455,8 @@ public final class Oscillator {
       short[] sawTable =
           SawLookupTables.sawWaveTables[
               Math.min(tableNumber, SawLookupTables.sawWaveTables.length - 1)];
-      // C: amplitude <<= 1; amplitudeIncrement <<= 1; before callRenderWave (oscillator.cpp:470-471)
+      // C: amplitude <<= 1; amplitudeIncrement <<= 1; before callRenderWave
+      // (oscillator.cpp:470-471)
       phase =
           renderWave(
               sawTable,
@@ -495,7 +497,8 @@ public final class Oscillator {
       short[] squareTable =
           SquareLookupTables.squareWaveTables[
               Math.min(tableNumber, SquareLookupTables.squareWaveTables.length - 1)];
-      // C: amplitude <<= 1; amplitudeIncrement <<= 1; before callRenderWave (oscillator.cpp:470-471)
+      // C: amplitude <<= 1; amplitudeIncrement <<= 1; before callRenderWave
+      // (oscillator.cpp:470-471)
       phase =
           renderWave(
               squareTable,
@@ -519,7 +522,8 @@ public final class Oscillator {
       short[] table =
           AnalogSawLookupTables.analogSawTables[
               Math.min(tableNumber, AnalogSawLookupTables.analogSawTables.length - 1)];
-      // C: amplitude <<= 1; amplitudeIncrement <<= 1; before callRenderWave (oscillator.cpp:470-471)
+      // C: amplitude <<= 1; amplitudeIncrement <<= 1; before callRenderWave
+      // (oscillator.cpp:470-471)
       phase =
           renderWave(
               table,

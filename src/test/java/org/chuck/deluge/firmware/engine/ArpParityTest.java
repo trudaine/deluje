@@ -8,8 +8,8 @@ import org.chuck.deluge.firmware.dsp.StereoSample;
 import org.junit.jupiter.api.Test;
 
 /**
- * Verifies the faithful firmware2 arpeggiator (port of arpeggiator.cpp). With arp ON, a held
- * chord should be stepped through one note at a time on the arp clock.
+ * Verifies the faithful firmware2 arpeggiator (port of arpeggiator.cpp). With arp ON, a held chord
+ * should be stepped through one note at a time on the arp clock.
  */
 public class ArpParityTest {
 

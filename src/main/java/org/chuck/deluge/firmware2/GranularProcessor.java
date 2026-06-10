@@ -3,9 +3,9 @@ package org.chuck.deluge.firmware2;
 /**
  * Faithful port of {@code dsp/granular/GranularProcessor.cpp} (347 lines) + header (120 lines).
  *
- * <p>Granular post-FX processor: records into a circular buffer, generates up to 8
- * overlapping grains with randomized pitch/reverse/pan, mixes wet/dry with feedback.
- * Used for the Deluge's grain/stutter/glitch effect.</p>
+ * <p>Granular post-FX processor: records into a circular buffer, generates up to 8 overlapping
+ * grains with randomized pitch/reverse/pan, mixes wet/dry with feedback. Used for the Deluge's
+ * grain/stutter/glitch effect.
  */
 public class GranularProcessor {
 
@@ -19,15 +19,15 @@ public class GranularProcessor {
   // ── Grain struct (GranularProcessor.h:31-41) ──
 
   static class Grain {
-    int length;     // C:32 — 0=OFF
+    int length; // C:32 — 0=OFF
     int startPoint; // C:33 — in samples
-    int counter;    // C:34 — relative pos
+    int counter; // C:34 — relative pos
     int pitch = 1024; // C:35 — 1024=1.0 (10.6 fixed point)
-    int volScale;   // C:36
+    int volScale; // C:36
     int volScaleMax; // C:37
-    boolean rev;    // C:38
-    int panVolL;    // C:39
-    int panVolR;    // C:40
+    boolean rev; // C:38
+    int panVolL; // C:39
+    int panVolR; // C:40
   }
 
   // ── State (GranularProcessor.h:72-94) ──
@@ -35,12 +35,12 @@ public class GranularProcessor {
   final int[][] grainBuffer = new int[K_MOD_FX_GRAIN_BUFFER_SIZE][2]; // StereoSample[]
   final Grain[] grains = new Grain[8];
   int bufferWriteIndex;
-  int grainSize = 13230;        // C:291 — 300ms
-  int grainRate = 1260;         // C:292 — 35Hz
-  int grainShift = 13230;       // C:290 — 300ms
+  int grainSize = 13230; // C:291 — 300ms
+  int grainRate = 1260; // C:292 — 35Hz
+  int grainShift = 13230; // C:290 — 300ms
   int grainFeedbackVol = 161061273; // C:293
   int grainVol;
-  int grainDryVol = ONE_Q31;    // C:298
+  int grainDryVol = ONE_Q31; // C:298
   int pitchRandomness;
   boolean grainInitialized;
   int wrapsToShutdown;
@@ -81,9 +81,16 @@ public class GranularProcessor {
 
   // ── processGrainFX (GranularProcessor.cpp:47-87) ──
 
-  public void processGrainFX(int[][] buffer, int numSamples, int rate, int mix,
-                              int density, int pitchRand, int[] postFXVolume,
-                              boolean anySoundComingIn, float tempoBPM) {
+  public void processGrainFX(
+      int[][] buffer,
+      int numSamples,
+      int rate,
+      int mix,
+      int density,
+      int pitchRand,
+      int[] postFXVolume,
+      boolean anySoundComingIn,
+      float tempoBPM) {
     if (anySoundComingIn || wrapsToShutdown > 0) {
       if (anySoundComingIn) setWrapsToShutdown();
 
@@ -101,10 +108,12 @@ public class GranularProcessor {
         wetR = lpfR.doFilter(wetR, 1 << 29);
 
         // C:72-73 — wet/dry mix
-        buffer[i][0] = Functions.add_saturate(
-            Functions.multiply_32x32_rshift32(buffer[i][0], grainDryVol), wetL);
-        buffer[i][1] = Functions.add_saturate(
-            Functions.multiply_32x32_rshift32(buffer[i][1], grainDryVol), wetR);
+        buffer[i][0] =
+            Functions.add_saturate(
+                Functions.multiply_32x32_rshift32(buffer[i][0], grainDryVol), wetL);
+        buffer[i][1] =
+            Functions.add_saturate(
+                Functions.multiply_32x32_rshift32(buffer[i][1], grainDryVol), wetR);
         // C:76 — reverb backdoor feed (skipped — needs AudioEngine integration)
       }
     }
@@ -129,7 +138,8 @@ public class GranularProcessor {
     if (densityKnobPos != density || rateKnobPos != rate) {
       densityKnobPos = density;
       int densityQ31 = (density / 2) + 1073741824; // convert to 0..2^31
-      // C:103 — q31_mult(_grainRate << 3, density). q31_mult is smmul*2, i.e. multiply_..._rshift32 << 1.
+      // C:103 — q31_mult(_grainRate << 3, density). q31_mult is smmul*2, i.e. multiply_..._rshift32
+      // << 1.
       grainSize = 1760 + (Functions.multiply_32x32_rshift32(grainRate << 3, densityQ31) << 1);
     }
 
@@ -149,10 +159,13 @@ public class GranularProcessor {
     if (mixKnobPos != mix) {
       mixKnobPos = mix;
       grainVol = mix - 0x80000000; // bias from unsigned
-      grainVol = (Functions.multiply_32x32_rshift32_rounded(
-          Functions.multiply_32x32_rshift32_rounded(grainVol, grainVol), grainVol) << 2) + 0x80000000;
+      grainVol =
+          (Functions.multiply_32x32_rshift32_rounded(
+                      Functions.multiply_32x32_rshift32_rounded(grainVol, grainVol), grainVol)
+                  << 2)
+              + 0x80000000;
       grainVol = Math.max(0, Math.min(ONE_Q31, grainVol));
-      grainDryVol = (int)Math.max(0, Math.min(ONE_Q31, ((long)(0x80000000L - grainVol) << 3)));
+      grainDryVol = (int) Math.max(0, Math.min(ONE_Q31, ((long) (0x80000000L - grainVol) << 3)));
       grainFeedbackVol = grainVol >> 1;
     }
   }
@@ -181,9 +194,11 @@ public class GranularProcessor {
     for (int i = 0; i < 8; i++) {
       if (grains[i].length > 0) {
         // C:143-146 — triangle window
-        int vol = (grains[i].counter <= (grains[i].length >> 1))
-            ? grains[i].counter * grains[i].volScale
-            : grains[i].volScaleMax - (grains[i].counter - (grains[i].length >> 1)) * grains[i].volScale;
+        int vol =
+            (grains[i].counter <= (grains[i].length >> 1))
+                ? grains[i].counter * grains[i].volScale
+                : grains[i].volScaleMax
+                    - (grains[i].counter - (grains[i].length >> 1)) * grains[i].volScale;
 
         // C:147-150 — pitch shift
         int delta = grains[i].counter * (grains[i].rev ? -1 : 1);
@@ -195,10 +210,16 @@ public class GranularProcessor {
         int pos = (grains[i].startPoint + delta + K_MOD_FX_GRAIN_BUFFER_SIZE) & K_MASK;
 
         // C:152-155 — accumulate with pan
-        grainsL = Functions.multiply_accumulate_32x32_rshift32_rounded(
-            grainsL, Functions.multiply_32x32_rshift32(grainBuffer[pos][0], vol), grains[i].panVolL);
-        grainsR = Functions.multiply_accumulate_32x32_rshift32_rounded(
-            grainsR, Functions.multiply_32x32_rshift32(grainBuffer[pos][1], vol), grains[i].panVolR);
+        grainsL =
+            Functions.multiply_accumulate_32x32_rshift32_rounded(
+                grainsL,
+                Functions.multiply_32x32_rshift32(grainBuffer[pos][0], vol),
+                grains[i].panVolL);
+        grainsR =
+            Functions.multiply_accumulate_32x32_rshift32_rounded(
+                grainsR,
+                Functions.multiply_32x32_rshift32(grainBuffer[pos][1], vol),
+                grains[i].panVolR);
 
         // C:157-159
         grains[i].counter++;
@@ -212,13 +233,15 @@ public class GranularProcessor {
     grainsR <<= 3; // C:165
 
     // C:167-170 — write feedback to buffer
-    grainBuffer[writeIdx][0] = Functions.multiply_accumulate_32x32_rshift32_rounded(
-        currentSample[0], grainsL, grainFeedbackVol);
-    grainBuffer[writeIdx][1] = Functions.multiply_accumulate_32x32_rshift32_rounded(
-        currentSample[1], grainsR, grainFeedbackVol);
+    grainBuffer[writeIdx][0] =
+        Functions.multiply_accumulate_32x32_rshift32_rounded(
+            currentSample[0], grainsL, grainFeedbackVol);
+    grainBuffer[writeIdx][1] =
+        Functions.multiply_accumulate_32x32_rshift32_rounded(
+            currentSample[1], grainsR, grainFeedbackVol);
 
     bufferWriteIndex++; // C:172
-    return new int[]{grainsL, grainsR};
+    return new int[] {grainsL, grainsR};
   }
 
   // ── setupGrainsIfNeeded (GranularProcessor.cpp:175-277) ──
@@ -229,43 +252,81 @@ public class GranularProcessor {
         grains[i].length = grainSize;
         // C:179-181 — random spray in buffer
         int spray = random(K_MOD_FX_GRAIN_BUFFER_SIZE >> 1) - (K_MOD_FX_GRAIN_BUFFER_SIZE >> 2);
-        grains[i].startPoint = (bufferWriteIndex + K_MOD_FX_GRAIN_BUFFER_SIZE - grainShift + spray) & K_MASK;
+        grains[i].startPoint =
+            (bufferWriteIndex + K_MOD_FX_GRAIN_BUFFER_SIZE - grainShift + spray) & K_MASK;
         grains[i].counter = 0;
         grains[i].rev = (getRandom255() < 76);
 
         // C:186 — int8_t typeRand = multiply_32x32_rshift32(q31_mult(STD, pitchRandomness), 7).
-        // q31_mult is smmul*2 (<<1); the int8_t cast (NOT a clamp) is what lets the default case fire.
-        byte typeRand = (byte) Functions.multiply_32x32_rshift32(
-            Functions.multiply_32x32_rshift32(sampleTriangleDistribution(), pitchRandomness) << 1, 7);
+        // q31_mult is smmul*2 (<<1); the int8_t cast (NOT a clamp) is what lets the default case
+        // fire.
+        byte typeRand =
+            (byte)
+                Functions.multiply_32x32_rshift32(
+                    Functions.multiply_32x32_rshift32(sampleTriangleDistribution(), pitchRandomness)
+                        << 1,
+                    7);
 
         switch (typeRand) {
-          case -3: grains[i].pitch = 512; grains[i].rev = true; break;   // octave down reverse
-          case -2: grains[i].pitch = 767; grains[i].rev = true; break;   // 4th down reverse
-          case -1: grains[i].pitch = 1024; grains[i].rev = true; break;  // unison reverse
-          case 0:  grains[i].pitch = 1024; break;                        // unison
-          case 1:  grains[i].pitch = 2048; break;                        // octave up
-          case 2:  grains[i].pitch = 1534; break;                        // 5th up
-          case 3:  grains[i].pitch = 2048; grains[i].rev = true; break;  // octave up reverse
-          default: grains[i].pitch = 3072; grains[i].rev = true; break;  // octave+5th reverse
+          case -3:
+            grains[i].pitch = 512;
+            grains[i].rev = true;
+            break; // octave down reverse
+          case -2:
+            grains[i].pitch = 767;
+            grains[i].rev = true;
+            break; // 4th down reverse
+          case -1:
+            grains[i].pitch = 1024;
+            grains[i].rev = true;
+            break; // unison reverse
+          case 0:
+            grains[i].pitch = 1024;
+            break; // unison
+          case 1:
+            grains[i].pitch = 2048;
+            break; // octave up
+          case 2:
+            grains[i].pitch = 1534;
+            break; // 5th up
+          case 3:
+            grains[i].pitch = 2048;
+            grains[i].rev = true;
+            break; // octave up reverse
+          default:
+            grains[i].pitch = 3072;
+            grains[i].rev = true;
+            break; // octave+5th reverse
         }
 
         // C:220-267 — adjust start point and length for reverse/forward
         if (grains[i].rev) {
           grains[i].startPoint = (writeIdx + K_MOD_FX_GRAIN_BUFFER_SIZE - 1) & K_MASK;
-          grains[i].length = (grains[i].pitch > 1024)
-              ? Math.min(grains[i].length, 21659)
-              : Math.min(grains[i].length, 30251);
+          grains[i].length =
+              (grains[i].pitch > 1024)
+                  ? Math.min(grains[i].length, 21659)
+                  : Math.min(grains[i].length, 30251);
         } else {
           if (grains[i].pitch > 1024) {
-            int startMax = (writeIdx + grains[i].length
-                - ((grains[i].length * grains[i].pitch) >> 10) + K_MOD_FX_GRAIN_BUFFER_SIZE) & K_MASK;
-            if (!(unsignedLT(grains[i].startPoint, startMax) && unsignedGT(grains[i].startPoint, writeIdx))) {
+            int startMax =
+                (writeIdx
+                        + grains[i].length
+                        - ((grains[i].length * grains[i].pitch) >> 10)
+                        + K_MOD_FX_GRAIN_BUFFER_SIZE)
+                    & K_MASK;
+            if (!(unsignedLT(grains[i].startPoint, startMax)
+                && unsignedGT(grains[i].startPoint, writeIdx))) {
               grains[i].startPoint = (startMax + K_MOD_FX_GRAIN_BUFFER_SIZE - 1) & K_MASK;
             }
           } else if (grains[i].pitch < 1024) {
-            int startMax = (writeIdx + grains[i].length
-                - ((grains[i].length * grains[i].pitch) >> 10) + K_MOD_FX_GRAIN_BUFFER_SIZE) & K_MASK;
-            if (!(unsignedGT(grains[i].startPoint, startMax) && unsignedLT(grains[i].startPoint, writeIdx))) {
+            int startMax =
+                (writeIdx
+                        + grains[i].length
+                        - ((grains[i].length * grains[i].pitch) >> 10)
+                        + K_MOD_FX_GRAIN_BUFFER_SIZE)
+                    & K_MASK;
+            if (!(unsignedGT(grains[i].startPoint, startMax)
+                && unsignedLT(grains[i].startPoint, writeIdx))) {
               grains[i].startPoint = (writeIdx + K_MOD_FX_GRAIN_BUFFER_SIZE - 1) & K_MASK;
             }
           }
@@ -313,7 +374,9 @@ public class GranularProcessor {
 
   // ── Helpers ──
 
-  static int getRandom255() { return Functions.getNoise() >>> 24; }
+  static int getRandom255() {
+    return Functions.getNoise() >>> 24;
+  }
 
   static int random(int upperLimit) {
     return ((Functions.getNoise() >> 16) & 0xFFFF) % (upperLimit + 1);
@@ -326,6 +389,11 @@ public class GranularProcessor {
     return Functions.add_saturate(u1, u2);
   }
 
-  static boolean unsignedLT(int a, int b) { return Integer.compareUnsigned(a, b) < 0; }
-  static boolean unsignedGT(int a, int b) { return Integer.compareUnsigned(a, b) > 0; }
+  static boolean unsignedLT(int a, int b) {
+    return Integer.compareUnsigned(a, b) < 0;
+  }
+
+  static boolean unsignedGT(int a, int b) {
+    return Integer.compareUnsigned(a, b) > 0;
+  }
 }

@@ -1,10 +1,10 @@
 package org.chuck.deluge.firmware2;
 
 /**
- * Faithful port of {@code processing/live/live_pitch_shifter_play_head.{cpp,h}}: one play head of the
- * live pitch shifter. Reads the {@link LiveInputBuffer} ring either repitched (windowed-sinc via the
- * int16 {@link SincInterpolator}) or directly (1:1). {@code INPUT_ENABLE_REPITCHED_BUFFER == 0}, so the
- * REPITCHED_BUFFER mode is omitted.
+ * Faithful port of {@code processing/live/live_pitch_shifter_play_head.{cpp,h}}: one play head of
+ * the live pitch shifter. Reads the {@link LiveInputBuffer} ring either repitched (windowed-sinc
+ * via the int16 {@link SincInterpolator}) or directly (1:1). {@code INPUT_ENABLE_REPITCHED_BUFFER
+ * == 0}, so the REPITCHED_BUFFER mode is omitted.
  */
 public class LivePitchShifterPlayHead {
 
@@ -12,7 +12,11 @@ public class LivePitchShifterPlayHead {
   static final int RAW_MASK = LiveInputBuffer.K_INPUT_RAW_BUFFER_SIZE - 1;
   static final int K_MAX_SAMPLE_VALUE = 16777216;
 
-  public enum PlayHeadMode { REPITCHED_BUFFER, RAW_REPITCHING, RAW_DIRECT }
+  public enum PlayHeadMode {
+    REPITCHED_BUFFER,
+    RAW_REPITCHING,
+    RAW_DIRECT
+  }
 
   public PlayHeadMode mode;
   public int rawBufferReadPos;
@@ -24,8 +28,16 @@ public class LivePitchShifterPlayHead {
    * C: render (live_pitch_shifter_play_head.cpp:31-120) — accumulate into {@code outputBuffer}
    * (interleaved), reading the live {@code rawBuffer} repitched or direct.
    */
-  public void render(int[] outputBuffer, int numSamples, int numChannels, int phaseIncrement,
-      int amplitude, int amplitudeIncrement, int[] rawBuffer, int whichKernel, int interpolationBufferSize) {
+  public void render(
+      int[] outputBuffer,
+      int numSamples,
+      int numChannels,
+      int phaseIncrement,
+      int amplitude,
+      int amplitudeIncrement,
+      int[] rawBuffer,
+      int whichKernel,
+      int interpolationBufferSize) {
     int o = 0;
     int end = numSamples * numChannels;
 
@@ -41,31 +53,40 @@ public class LivePitchShifterPlayHead {
           }
           interpolator.jumpForward(numSamplesToJumpForward); // C:78
           while (numSamplesToJumpForward-- > 0) { // C:80-87
-            interpolator.bufferL[numSamplesToJumpForward] = (short) (rawBuffer[rawBufferReadPos * numChannels] >> 16);
+            interpolator.bufferL[numSamplesToJumpForward] =
+                (short) (rawBuffer[rawBufferReadPos * numChannels] >> 16);
             if (numChannels == 2) {
-              interpolator.bufferR[numSamplesToJumpForward] = (short) (rawBuffer[rawBufferReadPos * 2 + 1] >> 16);
+              interpolator.bufferR[numSamplesToJumpForward] =
+                  (short) (rawBuffer[rawBufferReadPos * 2 + 1] >> 16);
             }
             rawBufferReadPos = (rawBufferReadPos + 1) & RAW_MASK;
           }
         }
 
         amplitude += amplitudeIncrement; // C:90
-        int[] sampleRead = (interpolationBufferSize > 2)
-            ? interpolator.interpolate(numChannels, whichKernel, oscPos)
-            : interpolator.interpolateLinear(numChannels, oscPos); // C:92-94
-        outputBuffer[o++] += Functions.multiply_32x32_rshift32_rounded(sampleRead[0], amplitude) << 5; // C:96
+        int[] sampleRead =
+            (interpolationBufferSize > 2)
+                ? interpolator.interpolate(numChannels, whichKernel, oscPos)
+                : interpolator.interpolateLinear(numChannels, oscPos); // C:92-94
+        outputBuffer[o++] +=
+            Functions.multiply_32x32_rshift32_rounded(sampleRead[0], amplitude) << 5; // C:96
         if (numChannels == 2) {
-          outputBuffer[o++] += Functions.multiply_32x32_rshift32_rounded(sampleRead[1], amplitude) << 5;
+          outputBuffer[o++] +=
+              Functions.multiply_32x32_rshift32_rounded(sampleRead[1], amplitude) << 5;
         }
       } while (o != end);
     } else { // RAW_DIRECT (C:106-119)
       do {
         amplitude += amplitudeIncrement;
         outputBuffer[o++] +=
-            Functions.multiply_32x32_rshift32_rounded(rawBuffer[rawBufferReadPos * numChannels], amplitude) << 4;
+            Functions.multiply_32x32_rshift32_rounded(
+                    rawBuffer[rawBufferReadPos * numChannels], amplitude)
+                << 4;
         if (numChannels == 2) {
           outputBuffer[o++] +=
-              Functions.multiply_32x32_rshift32_rounded(rawBuffer[rawBufferReadPos * 2 + 1], amplitude) << 4;
+              Functions.multiply_32x32_rshift32_rounded(
+                      rawBuffer[rawBufferReadPos * 2 + 1], amplitude)
+                  << 4;
         }
         rawBufferReadPos = (rawBufferReadPos + 1) & RAW_MASK;
       } while (o != end);
@@ -96,20 +117,27 @@ public class LivePitchShifterPlayHead {
     return 0; // DIRECT
   }
 
-  /** C: fillInterpolationBuffer (cpp:173-192) — prime the interpolator history from the ring, looking back. */
+  /**
+   * C: fillInterpolationBuffer (cpp:173-192) — prime the interpolator history from the ring,
+   * looking back.
+   */
   public void fillInterpolationBuffer(LiveInputBuffer liveInputBuffer, int numChannels) {
     for (int i = 1; i <= K_TAPS; i++) {
       int pos = (rawBufferReadPos - i) & RAW_MASK;
-      interpolator.bufferL[i - 1] = (short)
-          (Integer.compareUnsigned(pos, liveInputBuffer.numRawSamplesProcessed) < 0
-              ? liveInputBuffer.rawBuffer[pos * numChannels] >> 16 : 0);
+      interpolator.bufferL[i - 1] =
+          (short)
+              (Integer.compareUnsigned(pos, liveInputBuffer.numRawSamplesProcessed) < 0
+                  ? liveInputBuffer.rawBuffer[pos * numChannels] >> 16
+                  : 0);
     }
     if (numChannels > 1) {
       for (int i = 1; i <= K_TAPS; i++) {
         int pos = (rawBufferReadPos - i) & RAW_MASK;
-        interpolator.bufferR[i - 1] = (short)
-            (Integer.compareUnsigned(pos, liveInputBuffer.numRawSamplesProcessed) < 0
-                ? liveInputBuffer.rawBuffer[pos * numChannels + 1] >> 16 : 0);
+        interpolator.bufferR[i - 1] =
+            (short)
+                (Integer.compareUnsigned(pos, liveInputBuffer.numRawSamplesProcessed) < 0
+                    ? liveInputBuffer.rawBuffer[pos * numChannels + 1] >> 16
+                    : 0);
       }
     }
   }

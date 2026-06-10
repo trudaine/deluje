@@ -3,8 +3,8 @@ package org.chuck.deluge.firmware2;
 /**
  * Faithful line-by-line port of {@code modulation/sidechain/sidechain.cpp} (214 lines).
  *
- * <p>A self-contained envelope follower that computes the sidechain ducking amount
- * with attack/release stages and exponential curves.</p>
+ * <p>A self-contained envelope follower that computes the sidechain ducking amount with
+ * attack/release stages and exponential curves.
  */
 public class Sidechain {
 
@@ -68,8 +68,8 @@ public class Sidechain {
 
   /**
    * C: playbackHandler.getTimePerInternalTickInverse() — tempo-derived tick rate used by the synced
-   * attack/release. No faithful fixed value exists without a transport; this proxy stands in until a
-   * tempo clock is wired (set it to the real inverse-tick to get faithful synced timing).
+   * attack/release. No faithful fixed value exists without a transport; this proxy stands in until
+   * a tempo clock is wired (set it to the real inverse-tick to get faithful synced timing).
    */
   public int timePerInternalTickInverse = 1 << 20;
 
@@ -90,8 +90,8 @@ public class Sidechain {
   }
 
   /**
-   * C: util/functions.cpp:1472-1479. Rather than true pythagoras, go halfway between the biggest one
-   * and the (uint32-capped) sum. {@code sum} is uint32_t; cap and {@code >> 1} are unsigned.
+   * C: util/functions.cpp:1472-1479. Rather than true pythagoras, go halfway between the biggest
+   * one and the (uint32-capped) sum. {@code sum} is uint32_t; cap and {@code >> 1} are unsigned.
    */
   static int combineHitStrengths(int strength1, int strength2) {
     long sum = (strength1 & 0xFFFFFFFFL) + (strength2 & 0xFFFFFFFFL); // (uint32_t)s1 + (uint32_t)s2
@@ -133,7 +133,8 @@ public class Sidechain {
     } else {
       // C:119-121
       alteredRelease =
-          Functions.multiply_32x32_rshift32(release << 13, timePerInternalTickInverse) >> (9 - syncLevel);
+          Functions.multiply_32x32_rshift32(release << 13, timePerInternalTickInverse)
+              >> (9 - syncLevel);
     }
     return alteredRelease;
   }
@@ -141,8 +142,8 @@ public class Sidechain {
   // ── render (sidechain.cpp:126-214) ──
 
   /**
-   * C: sidechain.cpp:126-214. Advances the envelope by numSamples and
-   * returns the current value (bipolar, negative = ducked).
+   * C: sidechain.cpp:126-214. Advances the envelope by numSamples and returns the current value
+   * (bipolar, negative = ducked).
    */
   public int render(int numSamples, int shapeValue) {
 
@@ -185,8 +186,9 @@ public class Sidechain {
         // C:163-164 — exp attack curve
         int decayInput = 8388608 - pos;
         int decayVal = Functions.getDecay4(decayInput, 23);
-        lastValue = (Functions.multiply_32x32_rshift32(envelopeHeight, (ONE_Q31 - decayVal)) << 1)
-                    + envelopeOffset;
+        lastValue =
+            (Functions.multiply_32x32_rshift32(envelopeHeight, (ONE_Q31 - decayVal)) << 1)
+                + envelopeOffset;
         return lastValue - ONE_Q31;
       }
     }
@@ -200,7 +202,8 @@ public class Sidechain {
         status = Envelope.Stage.OFF; // C:177
         // goto doOff
       } else {
-        // C:181 — uint32_t positiveShapeValue = (uint32_t)shapeValue + 2147483648. Adding 0x80000000
+        // C:181 — uint32_t positiveShapeValue = (uint32_t)shapeValue + 2147483648. Adding
+        // 0x80000000
         // wraps mod 2^32 exactly like the C uint32_t; the >> 15 below must be UNSIGNED (>>>).
         int positiveShapeValue = shapeValue + 0x80000000;
 
@@ -222,8 +225,10 @@ public class Sidechain {
         }
 
         // C:201
-        lastValue = ONE_Q31 - envelopeHeight
-                    + (Functions.multiply_32x32_rshift32(preValue, envelopeHeight) << 1);
+        lastValue =
+            ONE_Q31
+                - envelopeHeight
+                + (Functions.multiply_32x32_rshift32(preValue, envelopeHeight) << 1);
 
         return lastValue - ONE_Q31;
       }

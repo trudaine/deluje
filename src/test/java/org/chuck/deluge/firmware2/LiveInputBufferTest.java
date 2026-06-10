@@ -44,7 +44,9 @@ class LiveInputBufferTest {
         if (diff < 0) diff = -diff;
         int perc = (angle != 0) ? (int) ((((long) diff * 262144) / angle) >> 1) : 0;
         perc = Functions.getTanHUnknown(perc, 23);
-        expPerc[(n >>> LiveInputBuffer.K_PERC_BUFFER_REDUCTION_MAGNITUDE) & (LiveInputBuffer.K_INPUT_PERC_BUFFER_SIZE - 1)] =
+        expPerc[
+                (n >>> LiveInputBuffer.K_PERC_BUFFER_REDUCTION_MAGNITUDE)
+                    & (LiveInputBuffer.K_INPUT_PERC_BUFFER_SIZE - 1)] =
             (byte) perc;
       }
       lastAngle = angle;
