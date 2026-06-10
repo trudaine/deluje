@@ -125,9 +125,9 @@ public class PureFirmwareEngine {
     int reverbModel = (int) vm.getGlobalInt(BridgeContract.G_REVERB_MODEL);
     audioEngine.masterReverb.setModel(
         switch (reverbModel) {
-          case 1 -> org.chuck.deluge.firmware.dsp.reverb.ReverbContainer.Model.DIGITAL;
-          case 2 -> org.chuck.deluge.firmware.dsp.reverb.ReverbContainer.Model.MUTABLE;
-          default -> org.chuck.deluge.firmware.dsp.reverb.ReverbContainer.Model.FREEVERB;
+          case 1 -> org.chuck.deluge.firmware2.Reverb.Model.DIGITAL;
+          case 2 -> org.chuck.deluge.firmware2.Reverb.Model.MUTABLE;
+          default -> org.chuck.deluge.firmware2.Reverb.Model.FREEVERB;
         });
     audioEngine.masterReverb.setRoomSize((float) vm.getGlobalFloat(BridgeContract.G_REVERB_ROOM));
     audioEngine.masterReverb.setDamping((float) vm.getGlobalFloat(BridgeContract.G_REVERB_DAMP));
