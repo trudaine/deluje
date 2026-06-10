@@ -3,7 +3,7 @@ package org.chuck.deluge;
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.chuck.deluge.firmware.engine.FirmwareSound;
-import org.chuck.deluge.firmware.engine.FirmwareVoice;
+
 import org.chuck.deluge.firmware.modulation.Arpeggiator;
 import org.chuck.deluge.firmware.modulation.params.Param;
 import org.chuck.deluge.firmware.modulation.patch.PatchSource;

@@ -344,8 +344,8 @@ public class PhysicalHardwareFidelityTest {
 
       engine.renderBlock(128);
 
-      if (b % 50 == 0 && !synth.voices.isEmpty()) {
-        var v = synth.voices.get(0);
+      if (b % 50 == 0 && !synth.fw2Sound.voices.isEmpty()) {
+        var v = synth.fw2Sound.voices.get(0);
         System.out.printf(
             "  [DIAG block %d] Cutoff final: %d (neutral: %d, envVal: %d)\n",
             b,
@@ -524,8 +524,8 @@ public class PhysicalHardwareFidelityTest {
       overrides.put(Param.LOCAL_OSC_B_PITCH_ADJUST, cents * 178956);
 
       for (int k = 0; k < 16; k++) {
-        org.chuck.deluge.firmware.engine.FirmwareVoice.testStartPhaseOverrideOsc1 = 0;
-        org.chuck.deluge.firmware.engine.FirmwareVoice.testStartPhaseOverrideOsc2 =
+        org.chuck.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = 0;
+        org.chuck.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 =
             (int) (k * (2147483647.0 / 16.0));
 
         float[] candidateSw =
@@ -551,8 +551,8 @@ public class PhysicalHardwareFidelityTest {
     }
 
     // Reset overrides to prevent state bleed!
-    org.chuck.deluge.firmware.engine.FirmwareVoice.testStartPhaseOverrideOsc1 = -2;
-    org.chuck.deluge.firmware.engine.FirmwareVoice.testStartPhaseOverrideOsc2 = -2;
+    org.chuck.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = -2;
+    org.chuck.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = -2;
 
     System.out.printf(
         "  [DETUNED SEARCH] Best cents: %d | Best phase: %d | Best offset: %d (corr: %.6f)\n",
@@ -561,8 +561,8 @@ public class PhysicalHardwareFidelityTest {
     // Build best sw overrides map to enforce it for the final wave shapes assertion!
     java.util.Map<Integer, Integer> finalOverrides = new java.util.HashMap<>();
     finalOverrides.put(Param.LOCAL_OSC_B_PITCH_ADJUST, bestCents * 178956);
-    org.chuck.deluge.firmware.engine.FirmwareVoice.testStartPhaseOverrideOsc1 = 0;
-    org.chuck.deluge.firmware.engine.FirmwareVoice.testStartPhaseOverrideOsc2 =
+    org.chuck.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = 0;
+    org.chuck.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 =
         (int) (bestK * (2147483647.0 / 16.0));
 
     float[] sw =
@@ -574,8 +574,8 @@ public class PhysicalHardwareFidelityTest {
             72,
             finalOverrides);
 
-    org.chuck.deluge.firmware.engine.FirmwareVoice.testStartPhaseOverrideOsc1 = -2;
-    org.chuck.deluge.firmware.engine.FirmwareVoice.testStartPhaseOverrideOsc2 = -2;
+    org.chuck.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = -2;
+    org.chuck.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = -2;
 
     assertWaveShapeFidelity(hw, sw, 0.30, bestOffset, 59530, 59520, "Detuned Sawtooth C5");
   }

@@ -32,7 +32,7 @@ public class Firmware2IntegrationTest {
     FirmwareSound sound = (FirmwareSound) ((InstrumentClip) s.clips.get(0)).sound;
 
     // Enable firmware2
-    sound.useFirmware2 = true;
+    // useFirmware2 removed - always true
     System.out.println(
         "paramKnobs[OSC_A]="
             + sound.paramKnobs[org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_A_VOLUME]

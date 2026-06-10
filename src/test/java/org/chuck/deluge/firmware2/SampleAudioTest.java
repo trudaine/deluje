@@ -32,7 +32,7 @@ class SampleAudioTest {
     FirmwareSound sound = new FirmwareSound();
     sound.oscTypes[0] = org.chuck.deluge.firmware.dsp.oscillators.OscType.SAMPLE;
     sound.samples[0] = modelSample;
-    sound.useFirmware2 = true;
+    // useFirmware2 removed - always true
 
     // 3. Trigger a voice
     sound.triggerNote(60, 100);
@@ -71,7 +71,7 @@ class SampleAudioTest {
     sound.oscTypes[0] = org.chuck.deluge.firmware.dsp.oscillators.OscType.SAMPLE;
     sound.samples[0] = modelSample;
     sound.sampleSettings[0].timestretch = true; // enable time-stretch
-    sound.useFirmware2 = true;
+    // useFirmware2 removed - always true
 
     sound.triggerNote(60, 100);
 

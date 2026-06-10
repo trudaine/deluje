@@ -1,7 +1,7 @@
 package org.chuck.deluge.firmware.model;
 
 import org.chuck.deluge.firmware.dsp.StereoSample;
-import org.chuck.deluge.firmware.dsp.timestretch.TimeStretcher;
+// timeStretcher removed — replaced with simple pitched read
 import org.chuck.deluge.firmware.model.sample.Sample;
 import org.chuck.deluge.firmware.modulation.Envelope;
 
@@ -11,7 +11,7 @@ import org.chuck.deluge.firmware.modulation.Envelope;
  */
 public class AudioClip extends Clip {
   public Sample sample;
-  public final TimeStretcher timeStretcher = new TimeStretcher();
+  // TimeStretcher field removed — simple pitched read in place
   public final Envelope outputEnvelope = new Envelope();
   public int timeStretchRatio = 1 << 24; // 1.0
   public boolean doingLateStart = false;
@@ -31,7 +31,7 @@ public class AudioClip extends Clip {
 
     // ── Bit-Accurate Time-Stretch Sync ──
     // Resync time-stretcher position to lastProcessedPos (24-bit fractional)
-    timeStretcher.samplePosBig = (long) lastProcessedPos << 24;
+    // timeStretcher.samplePosBig removed
 
     if (!mayMakeSound) {
       return;
@@ -90,7 +90,13 @@ public class AudioClip extends Clip {
     }
 
     int[] output = new int[numSamples];
-    timeStretcher.process(output, numSamples, timeStretchRatio, phaseIncrement, monoData);
+    // Simple pitched read (old TimeStretcher deleted; proper fw2 VoiceSample path TBD).
+    long pos = (lastProcessedPos << 24);
+    for (int i = 0; i < numSamples; i++) {
+      int idx = (int) ((pos >> 24) & 0x7FFFFFFFL) % monoData.length;
+      output[i] = monoData[idx];
+      pos += ((long) phaseIncrement << 8);
+    }
 
     // Process Envelope (dummy values for now)
     int env = outputEnvelope.render(numSamples, 1000, 1000, 1 << 30, 1000, null);
