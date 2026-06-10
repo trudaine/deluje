@@ -60,7 +60,8 @@ class KitDrumSampleTest {
     engA.sounds.add(drumA);
     drumA.triggerNote(60, 127);
     engA.renderBlock(128);
-    long ha = 0; for (int i = 0; i < 128; i++) ha += Math.abs((long) engA.masterBuffer[i].l);
+    long ha = 0;
+    for (int i = 0; i < 128; i++) ha += Math.abs((long) engA.masterBuffer[i].l);
 
     FirmwareSound drumB = new FirmwareSound();
     giveSample(drumB, waveB);
@@ -68,7 +69,8 @@ class KitDrumSampleTest {
     engB.sounds.add(drumB);
     drumB.triggerNote(60, 127);
     engB.renderBlock(128);
-    long hb = 0; for (int i = 0; i < 128; i++) hb += Math.abs((long) engB.masterBuffer[i].l);
+    long hb = 0;
+    for (int i = 0; i < 128; i++) hb += Math.abs((long) engB.masterBuffer[i].l);
 
     assertNotEquals(ha, hb, "sample A and sample B must produce different output");
     assertTrue(ha > 0 && hb > 0, "both samples must produce audio");
