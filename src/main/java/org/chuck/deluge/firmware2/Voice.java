@@ -636,6 +636,22 @@ public class Voice {
       }
     }
 
+    // Noise (voice.cpp:1131-1149): add the noise source into the mono mix before the filter +
+    // overall amplitude (non-FM only). Scaled like the osc sources: >>1, then *filterGain<<4 when
+    // filtered, limited to 268435455, then >>2. fw2 was missing this entirely → noise patches silent.
+    if (sound.synthMode != 1 && paramFinalValues[Param.LOCAL_NOISE_VOLUME] != 0) {
+      int n = paramFinalValues[Param.LOCAL_NOISE_VOLUME] >> 1;
+      if (hasFilters) {
+        n = Functions.multiply_32x32_rshift32(n, filterGain) << 4;
+      }
+      int noiseAmplitude = Math.min(n, 268435455) >> 2;
+      for (int i = 0; i < numSamples; i++) {
+        int ns = Functions.multiply_32x32_rshift32(Functions.getNoise(), noiseAmplitude);
+        mixBuf[i * 2] = Functions.add_saturate(mixBuf[i * 2], ns);
+        mixBuf[i * 2 + 1] = Functions.add_saturate(mixBuf[i * 2 + 1], ns);
+      }
+    }
+
     // ── 7+8. Filter, pan, overall amplitude into output buffer (voice.cpp:1560-1670) ──
     // NOTE: the overall oscillator amplitude (env0 * LOCAL_VOLUME) is applied ONCE, inside
     // applyFilterAndGain (overallOscAmplitudeLastTime). The C folds it into sourceAmplitude and
