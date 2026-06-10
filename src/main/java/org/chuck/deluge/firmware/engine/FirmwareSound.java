@@ -46,7 +46,7 @@ public class FirmwareSound extends GlobalEffectable {
   };
   public final org.chuck.deluge.firmware.model.sample.Sample[] samples =
       new org.chuck.deluge.firmware.model.sample.Sample[2];
-  private final org.chuck.deluge.firmware2.Sample[] fw2SampleCache =
+  public final org.chuck.deluge.firmware2.Sample[] fw2SampleCache =
       new org.chuck.deluge.firmware2.Sample[2];
   public final org.chuck.deluge.firmware.model.sample.SampleVoiceSettings[] sampleSettings = {
     new org.chuck.deluge.firmware.model.sample.SampleVoiceSettings(),

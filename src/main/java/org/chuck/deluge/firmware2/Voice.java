@@ -103,7 +103,7 @@ public class Voice {
     for (int i = 0; i < envelopes.length; i++) envelopes[i] = new Envelope();
     for (int i = 0; i < sources.length; i++) sources[i] = new VoiceSource();
     for (int i = 0; i < Param.kNumParams; i++) {
-      paramFinalValues[i] = Functions.getParamNeutralValue(i);
+      paramFinalValues[i] = sound.paramNeutralValues[i];
     }
   }
 
