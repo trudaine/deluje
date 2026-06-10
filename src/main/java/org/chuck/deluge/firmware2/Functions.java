@@ -282,14 +282,14 @@ public final class Functions {
 
   // ── Cable combiners (functions.cpp:260-290, patcher.cpp helpers) ──
 
-  /** cableToLinearParamShortcut. Skips range adjustment. (functions.cpp:260-262) */
+  /** cableToLinearParamShortcut. Skips range adjustment. (functions.cpp:260-262: {@code >> 2}) */
   public static int cableToLinearParamShortcut(int sourceValue) {
-    return sourceValue;
+    return sourceValue >> 2;
   }
 
-  /** cableToExpParamShortcut. Skips range adjustment. (functions.cpp:264-266) */
+  /** cableToExpParamShortcut. Skips range adjustment. (functions.cpp:264-266: {@code >> 2}) */
   public static int cableToExpParamShortcut(int sourceValue) {
-    return sourceValue;
+    return sourceValue >> 2;
   }
 
   // ── shiftVolumeByDB (functions.cpp:443-490) ──

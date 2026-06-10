@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
  */
 class ReverbSendRoutingTest {
 
-  private long[] render(int reverbSendAmount) {
+  private long[] render(int reverbSendKnob) {
     FirmwareAudioEngine engine = new FirmwareAudioEngine();
     engine.masterReverb.setRoomSize(0.85f);
     engine.masterReverb.setDamping(0.3f);
@@ -26,7 +26,7 @@ class ReverbSendRoutingTest {
     synth.oscTypes[0] = OscType.SINE;
     synth.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = Q31.ONE;
     synth.paramNeutralValues[Param.LOCAL_VOLUME] = Q31.ONE;
-    synth.reverbSendAmount = reverbSendAmount;
+    synth.reverbSendKnob = reverbSendKnob;
     engine.sounds.add(synth);
 
     synth.triggerNote(60, 127);
@@ -50,8 +50,8 @@ class ReverbSendRoutingTest {
 
   @Test
   void reverbSendRoutesToMasterReverb() {
-    long[] dry = render(0);
-    long[] wet = render(Q31.ONE / 2); // 50% reverb send
+    long[] dry = render(Integer.MIN_VALUE); // INT_MIN knob = off (dry)
+    long[] wet = render(Integer.MAX_VALUE); // max reverb-send knob
 
     // The send path must change the output vs a dry render...
     assertNotEquals(dry[2], wet[2], "reverb send must alter the master output signature");
