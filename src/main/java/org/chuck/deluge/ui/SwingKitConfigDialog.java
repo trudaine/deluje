@@ -42,7 +42,7 @@ public class SwingKitConfigDialog extends JDialog {
 
     for (int i = 0; i < sounds.size(); i++) {
       tabs.addTab(
-          sounds.get(i).getName(), buildSoundPanel((SoundDrum) sounds.get(i), i, vm, bridge));
+          sounds.get(i).getName(), buildSoundPanel((SoundDrum) sounds.get(i), i, kit, vm, bridge));
     }
 
     add(tabs, BorderLayout.CENTER);
@@ -101,7 +101,8 @@ public class SwingKitConfigDialog extends JDialog {
         });
   }
 
-  private JPanel buildSoundPanel(SoundDrum sound, int idx, ChuckVM vm, BridgeContract bridge) {
+  private JPanel buildSoundPanel(
+      SoundDrum sound, int idx, KitTrackModel kit, ChuckVM vm, BridgeContract bridge) {
     JPanel panel = new JPanel(new GridBagLayout());
     panel.setBackground(SwingSynthConfigDialog.BG_CARD);
 
@@ -169,6 +170,11 @@ public class SwingKitConfigDialog extends JDialog {
             pathField.setText(path);
             wavePanel.setSamplePath(path);
             bridge.setSamplePath(idx, path);
+            // Apply to the LIVE pure-engine kit drum so auditioning plays this sample (the bridge
+            // path + G_LOAD_TRIGGER only feed the legacy DSL engine, not the pure engine).
+            if (SwingDelugeApp.mainInstance != null) {
+              SwingDelugeApp.mainInstance.applyKitDrumSampleLive(kit, idx, path);
+            }
             if (vm != null) {
               try {
                 vm.setGlobalString("g_sample_" + idx, path);

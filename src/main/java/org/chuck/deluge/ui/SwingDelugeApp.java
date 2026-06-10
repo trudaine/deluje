@@ -1609,6 +1609,40 @@ public class SwingDelugeApp extends JFrame {
             + (currentProjectFile != null ? currentProjectFile.getName() : "Untitled"));
   }
 
+  /**
+   * Load a WAV and apply it to a LIVE FirmwareKit drum voice so grid auditioning immediately plays
+   * the chosen sample. The kit-config dialog otherwise only updated the model + a no-op
+   * BridgeContract.setSamplePath (whose g_sample_/G_LOAD_TRIGGER consumers live in the legacy
+   * DelugeEngineDSL, not the pure engine the Swing UI uses), so every drum fell back to its default
+   * oscillator — all cells sounded identical. Mirrors the per-drum sample setup in
+   * FirmwareFactory.createKitClip (oscType=SAMPLE + samples[0] + fw2SampleCache[0]). drumIdx is the
+   * model drum order, which matches FirmwareKit.drumSounds order.
+   */
+  public void applyKitDrumSampleLive(
+      org.chuck.deluge.model.KitTrackModel kit, int drumIdx, String absPath) {
+    if (currentProject == null || pureEngine == null || absPath == null || absPath.isBlank()) return;
+    int trackIdx = currentProject.getTracks().indexOf(kit);
+    if (trackIdx < 0) return;
+    org.chuck.deluge.firmware.engine.FirmwareAudioEngine eng = pureEngine.getAudioEngine();
+    if (eng == null || trackIdx >= eng.sounds.size()) return;
+    if (!(eng.sounds.get(trackIdx) instanceof org.chuck.deluge.firmware.engine.FirmwareKit fkit)) {
+      return;
+    }
+    if (drumIdx < 0 || drumIdx >= fkit.drumSounds.size()) return;
+    org.chuck.deluge.firmware.engine.FirmwareSound drum = fkit.drumSounds.get(drumIdx);
+    try {
+      org.chuck.deluge.firmware.model.sample.Sample s =
+          org.chuck.deluge.firmware.storage.audio.AudioFileReader.readSample(absPath);
+      if (s != null && s.data != null) {
+        drum.oscTypes[0] = org.chuck.deluge.firmware.dsp.oscillators.OscType.SAMPLE;
+        drum.samples[0] = s;
+        drum.fw2SampleCache[0] = org.chuck.deluge.firmware2.Sample.fromFirmwareSample(s);
+      }
+    } catch (Exception ex) {
+      System.err.println("[KitConfig] live drum sample apply failed: " + ex.getMessage());
+    }
+  }
+
   public void syncHighFidelityEngine(org.chuck.deluge.model.ProjectModel model) {
     org.chuck.deluge.firmware.model.Song fwSong = FirmwareFactory.createSong(model);
     MatrixDriver.get().popUI();
