@@ -106,8 +106,9 @@ public class FirmwareAudioEngine {
    * (LRLR...), matching the fw2 DSP convention.
    */
   public void renderLiveInput(int[] inputBlock, int numSamples, int phaseIncrement) {
+    int[] out = new int[numSamples * 2];
     livePitchShifter.render(
-        new int[numSamples * 2],
+        out,
         numSamples,
         phaseIncrement,
         1 << 27,
@@ -116,6 +117,10 @@ public class FirmwareAudioEngine {
         liveInputBuffer,
         liveAudioSampleTimer += numSamples,
         inputBlock);
+    for (int i = 0; i < numSamples; i++) {
+      fxBuffer[i][0] += out[i * 2];
+      fxBuffer[i][1] += out[i * 2 + 1];
+    }
   }
 
   public void panic() {
