@@ -83,4 +83,71 @@ class LivePitchShifterTest {
       assertEquals(rand, got[LivePitchShifter.LHP_RANDOM], "random");
     }
   }
+
+  /**
+   * At unity pitch (kMaxSampleValue), the live pitch shifter sets RAW_DIRECT mode and passes input
+   * through. Render a block with a known input and verify the output is non-zero (the input reaches
+   * the output). Also checks that the hop-search paths are traversed without crashing.
+   */
+  @Test
+  void renderAtUnityPitchProducesOutput() {
+    LivePitchShifter ls = new LivePitchShifter(LiveInputBuffer.InputType.STEREO, LivePitchShifter.K_MAX_SAMPLE_VALUE);
+    LiveInputBuffer lib = new LiveInputBuffer();
+
+    int n = 128;
+    int[] input = new int[n * 2];
+    Random r = new Random(42);
+    for (int i = 0; i < input.length; i++) {
+      input[i] = r.nextInt() >> 2;
+    }
+    lib.giveInput(input, n, 0, LiveInputBuffer.InputType.STEREO);
+
+    int[] out = new int[n * 2];
+    ls.render(out, n, LivePitchShifter.K_MAX_SAMPLE_VALUE, 1 << 27, 0, 16, lib, n, input);
+
+    // Output should be non-zero — the unity-pitch path passes input through.
+    long energy = 0;
+    for (int v : out) {
+      energy += Math.abs((long) v);
+    }
+    assertTrue(energy > 0, "LivePitchShifter render should produce output at unity pitch");
+  }
+
+  /** At 1.5x pitch, verify the render loop runs (RAW_REPITCHING mode, hopEnd paths exercised). */
+  @Test
+  void renderAtPitchUpProducesOutput() {
+    int phaseIncrement = LivePitchShifter.K_MAX_SAMPLE_VALUE + (1 << 23); // ~1.5x
+    LivePitchShifter ls = new LivePitchShifter(LiveInputBuffer.InputType.INPUT_L, phaseIncrement);
+    LiveInputBuffer lib = new LiveInputBuffer();
+
+    int n = 128;
+    // giveInput expects interleaved-stereo even for mono types (reads input[inIdx*2]).
+    int[] input = new int[n * 2];
+    for (int i = 0; i < n; i++) {
+      input[i * 2] = (i % 10 == 0) ? (Integer.MAX_VALUE >> 1) : 0; // sparse pulses in L channel
+    }
+    lib.giveInput(input, n, 0, LiveInputBuffer.InputType.INPUT_L);
+
+    int[] out = new int[n];
+    // Need enough input in the buffer for the hop search. Prime with more data.
+    int[] more = new int[n * 2];
+    for (int i = 0; i < n; i++) {
+      more[i * 2] = (i % 7 == 0) ? (Integer.MAX_VALUE >> 2) : 0;
+    }
+    lib.giveInput(more, n, n, LiveInputBuffer.InputType.INPUT_L);
+
+    // Render a small block — the hop will fire (samplesTilHopEnd starts at 32 for this pitch).
+    int[] newInput = new int[32 * 2];
+    for (int i = 0; i < 32; i++) {
+      newInput[i * 2] = (i % 5 == 0) ? (Integer.MAX_VALUE >> 3) : 0;
+    }
+    ls.render(out, 32, phaseIncrement, 1 << 27, 0, 16, lib, n * 2 + 32, newInput);
+
+    long energy = 0;
+    for (int v : out) {
+      energy += Math.abs((long) v);
+    }
+    assertTrue(energy > 0, "LivePitchShifter render at pitch-up should produce output");
+  }
 }
+
