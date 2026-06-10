@@ -18,9 +18,11 @@ public class FirmwareKit extends GlobalEffectable {
       FirmwareSound drumSound = new FirmwareSound();
       drumSound.isDrum = true;
       drumSound.oscTypes[0] = OscType.SAMPLE;
-      drumSound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = 0;
-      drumSound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = 0;
-      drumSound.paramNeutralValues[Param.LOCAL_NOISE_VOLUME] = 0;
+      // C Sound::initParams sets LOCAL_OSC_A_VOLUME = MAX for source 0 → the sample plays
+      // at full amplitude through the same sourceAmplitude path as an oscillator. Only silence
+      // the second oscillator + noise (a drum uses source 0 — the sample — exclusively).
+      drumSound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
+      drumSound.paramNeutralValues[Param.LOCAL_NOISE_VOLUME] = Integer.MIN_VALUE;
       drumSounds.add(drumSound);
     }
     for (int i = 0; i < 128; i++) isolatedBuffer[i] = new StereoSample();
