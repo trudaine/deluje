@@ -76,6 +76,15 @@ public class FirmwareAudioEngine {
       fxBuffer[i][1] = masterBuffer[i].r;
     }
 
+    // C: audio_engine.cpp:819-837 — the reverb output level must be set as the reverb's pan levels
+    // BEFORE process(), or every model multiplies its wet by a 0 pan amplitude and emits silence.
+    // No reverb sidechain is wired in the bridge yet (a seam), so sidechainOutput = 0; with center
+    // pan, reverbAmplitudeL == reverbAmplitudeR == reverbOutputVolume.
+    int sidechainOutput = 0; // seam: reverbSidechainVolumeInEffect == 0 in the bridge
+    int positivePatchedValue = sidechainOutput + 0x20000000; // C:820-822 (sidechain term is 0)
+    int reverbOutputVolume = (positivePatchedValue >> 15) * (positivePatchedValue >> 14); // C:823
+    masterReverb.setPanLevels(reverbOutputVolume, reverbOutputVolume); // C:836
+
     // fw2 reverb ACCUMULATES the wet signal onto the [l, r] frames, so it adds reverb on top of the
     // dry already in fxBuffer (matching the old firmware/ reverb's += into masterBuffer).
     masterReverb.process(monoReverbBuffer, fxBuffer);

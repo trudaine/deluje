@@ -14,6 +14,13 @@ public class FirmwareReverb extends StereoUGen {
   private final int[] inputBuffer = new int[1];
   private final int[][] outputLR = new int[1][2];
 
+  public FirmwareReverb() {
+    // C: audio_engine.cpp:836 — the reverb's output level is applied as its pan levels before
+    // process(). Without this every model multiplies its wet by a 0 amplitude and emits silence.
+    // Use the no-sidechain, centre-pan output volume (C:823, positivePatchedValue = 0x20000000).
+    firmware.setPanLevels(0x20000000, 0x20000000);
+  }
+
   @Override
   protected void computeStereo(float left, float right, long systemTime) {
     // ── Bit-Accurate Mono Summing ──
