@@ -31,6 +31,14 @@ public class FirmwareSound extends GlobalEffectable {
 
   public final org.chuck.deluge.firmware2.Sound fw2Sound = new org.chuck.deluge.firmware2.Sound();
   private int[] fw2ScratchBuffer = null;
+  // Transport clock seams: updated each render block by the PlaybackHandler so the
+  // SamplePlaybackGuide sync methods (getSyncedNumSamplesIn, adjustPitchToCorrectDriftFromSync)
+  // can correct clip-synced drift. Set before each render block.
+  public int transportTickCount;
+  public int transportTimePerTick = 44100 / 96; // default: 96 PPQN @ 44.1kHz
+  public boolean transportExternalClockActive;
+  public int transportTimeSinceLastTick;
+
   public final LFO[] globalLfos = new LFO[2];
   public final LFO.LFOType[] lfoWaveforms = {
     LFO.LFOType.SINE, LFO.LFOType.TRIANGLE,
