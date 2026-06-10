@@ -1,21 +1,20 @@
 package org.chuck.deluge.engine.dsp;
 
 import org.chuck.audio.util.StereoUGen;
-import org.chuck.deluge.firmware.dsp.StereoSample;
-import org.chuck.deluge.firmware.dsp.delay.Delay;
 import org.chuck.deluge.firmware.util.Q31;
+import org.chuck.deluge.firmware2.Delay;
 
-/** Wrapper for the high-fidelity ported Delay. */
+/** Wrapper for the faithful firmware2 Delay (parity-verified identical to the old firmware/ Delay). */
 public class FirmwareDelay extends StereoUGen {
-  private final Delay firmware;
-  private final Delay.State state;
-  private final StereoSample[] buffer;
+  private final Delay firmware = new Delay();
+  private final Delay.State state = new Delay.State();
+  private final int[][] buffer = new int[1][2];
 
   public FirmwareDelay() {
-    this.firmware = new Delay();
-    this.state = new Delay.State();
-    this.buffer = new StereoSample[1];
-    this.buffer[0] = new StereoSample();
+    // Match the old firmware/ Delay defaults the previous wrapper relied on: SYNC_LEVEL_16TH (5),
+    // pingPong on, EVEN sync, digital. (firmware2 defaults syncLevel to 0, so set it explicitly;
+    // the synced-delay path is parity-verified in Firmware2FxParityTest.)
+    firmware.syncLevel = 5;
 
     // ── Hardware Initial State ──
     state.doDelay = true;
@@ -35,16 +34,16 @@ public class FirmwareDelay extends StereoUGen {
 
   @Override
   protected void computeStereo(float left, float right, long systemTime) {
-    buffer[0].l = Q31.fromFloat(left);
-    buffer[0].r = Q31.fromFloat(right);
+    buffer[0][0] = Q31.fromFloat(left);
+    buffer[0][1] = Q31.fromFloat(right);
 
     // ── Bit-Accurate Hardware Processing ──
     // Hardware uses 1 << 20 as neutral tick inverse for timing sync
     firmware.setupWorkingState(state, 1 << 20, true);
-    firmware.process(buffer, state);
+    firmware.process(buffer, 1, state);
 
-    lastOutChannels[0] = Q31.toFloat(buffer[0].l);
-    lastOutChannels[1] = Q31.toFloat(buffer[0].r);
+    lastOutChannels[0] = Q31.toFloat(buffer[0][0]);
+    lastOutChannels[1] = Q31.toFloat(buffer[0][1]);
   }
 
   @Override

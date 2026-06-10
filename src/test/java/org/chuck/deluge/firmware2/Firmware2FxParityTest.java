@@ -161,7 +161,7 @@ class Firmware2FxParityTest {
    */
   @Test
   void digitalDelayMatchesFirmware() {
-    runDelayParity(false);
+    runDelayParity(false, org.chuck.deluge.firmware.model.SyncLevel.SYNC_LEVEL_NONE, 0);
   }
 
   /**
@@ -170,18 +170,28 @@ class Firmware2FxParityTest {
    */
   @Test
   void analogDelayMatchesFirmware() {
-    runDelayParity(true);
+    runDelayParity(true, org.chuck.deluge.firmware.model.SyncLevel.SYNC_LEVEL_NONE, 0);
   }
 
-  private void runDelayParity(boolean analog) {
+  /**
+   * Synced delay (syncLevel 16TH = 5): exercises setupWorkingState's sync-rate adjustment path
+   * (userDelayRate *= timePerInternalTickInverse, clamp, shift). This is the default the engine's
+   * FirmwareDelay wrapper uses, so it must be parity-clean before migrating that wrapper to firmware2.
+   */
+  @Test
+  void syncedDelayMatchesFirmware() {
+    runDelayParity(false, org.chuck.deluge.firmware.model.SyncLevel.SYNC_LEVEL_16TH, 5);
+  }
+
+  private void runDelayParity(boolean analog, org.chuck.deluge.firmware.model.SyncLevel syncOld, int syncNew) {
     org.chuck.deluge.firmware.dsp.delay.Delay oldD = new org.chuck.deluge.firmware.dsp.delay.Delay();
     Delay newD = new Delay();
     oldD.analog = analog;
     oldD.pingPong = false;
-    oldD.syncLevel = org.chuck.deluge.firmware.model.SyncLevel.SYNC_LEVEL_NONE;
+    oldD.syncLevel = syncOld;
     newD.analog = analog;
     newD.pingPong = false;
-    newD.syncLevel = 0;
+    newD.syncLevel = syncNew;
 
     int userDelayRate = 1 << 23; // moderate rate → a few-hundred-sample buffer
     int feedback = 0x40000000; // well above the 256 threshold

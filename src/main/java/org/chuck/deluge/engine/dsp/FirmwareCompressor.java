@@ -1,23 +1,17 @@
 package org.chuck.deluge.engine.dsp;
 
 import org.chuck.audio.ChuckUGen;
-import org.chuck.deluge.firmware.dsp.StereoSample;
-import org.chuck.deluge.firmware.dsp.compressor.RMSFeedbackCompressor;
 import org.chuck.deluge.firmware.util.Q31;
+import org.chuck.deluge.firmware2.Compressor;
 
 /**
- * Wrapper for the high-fidelity ported RMSFeedbackCompressor. Mono version for integration into
- * existing DSL.
+ * Wrapper for the faithful firmware2 Compressor (RMS feedback). Mono version for the DSL. firmware2
+ * corrects real bugs the old firmware/ compressor had (float-buffer precision, the 2x tanH/interp2d
+ * scale, the persistent anti-alias state), so the response changes — faithful-to-C.
  */
 public class FirmwareCompressor extends ChuckUGen {
-  private final RMSFeedbackCompressor firmware;
-  private final StereoSample[] buffer;
-
-  public FirmwareCompressor() {
-    this.firmware = new RMSFeedbackCompressor();
-    this.buffer = new StereoSample[1];
-    this.buffer[0] = new StereoSample();
-  }
+  private final Compressor firmware = new Compressor();
+  private final int[][] buffer = new int[1][2];
 
   public void setThreshold(float t) {
     // Map 0-1 float to Q31 for firmware
@@ -39,8 +33,6 @@ public class FirmwareCompressor extends ChuckUGen {
   /** Set attack time in milliseconds, mapping back to firmware-parity knob position. */
   public void setAttackMS(float ms) {
     // Inverse of: attackMS = 0.5 + (exp(2*knob) - 1) * 10
-    // (ms - 0.5) / 10 + 1 = exp(2*knob)
-    // ln((ms - 0.5) / 10 + 1) / 2 = knob
     double knob = Math.log(Math.max(1e-5, (ms - 0.5) / 10.0 + 1.0)) / 2.0;
     firmware.setAttack(Q31.fromFloat((float) knob));
   }
@@ -55,14 +47,13 @@ public class FirmwareCompressor extends ChuckUGen {
   @Override
   protected float compute(float input, long systemTime) {
     // Bit-accurate conversion with clamping
-    buffer[0].l = Q31.fromFloat(input);
-    buffer[0].r = buffer[0].l;
+    buffer[0][0] = Q31.fromFloat(input);
+    buffer[0][1] = buffer[0][0];
 
     // ── Bit-Accurate Hardware Constants ──
-    // Hardware unity gain for volAdjust is 1 << 27 (0.125 in Q31)
-    // Hardware neutral finalVolume is approx 1 << 25
-    firmware.render(buffer, 1 << 27, 1 << 27, 1 << 25);
+    // Hardware unity gain for volAdjust is 1 << 27; neutral finalVolume approx 1 << 25.
+    firmware.render(buffer, 1, 1 << 27, 1 << 27, 1 << 25);
 
-    return Q31.toFloat(buffer[0].l);
+    return Q31.toFloat(buffer[0][0]);
   }
 }

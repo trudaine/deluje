@@ -85,7 +85,7 @@ public class Compressor {
   // ── setAttack (rms_feedback.h:80-84) ──
 
   /** C: rms_feedback.h:80-84 — exp map 0..2^31 to 0.5..70ms */
-  int setAttack(int attack) {
+  public int setAttack(int attack) {
     attackMS = (float)(0.5 + (Math.exp(2.0 * (double)attack / ONE_Q31f) - 1.0) * 10.0);
     a_ = (float)((-1000.0 / K_SAMPLE_RATE) / attackMS);
     attackKnobPos = attack;
@@ -95,7 +95,7 @@ public class Compressor {
   // ── setRelease (rms_feedback.h:95-101) ──
 
   /** C: rms_feedback.h:95-101 — exp map 0..2^31 to 50..400ms */
-  int setRelease(int release) {
+  public int setRelease(int release) {
     releaseMS = (float)(50.0 + (Math.exp(2.0 * (double)release / ONE_Q31f) - 1.0) * 50.0);
     r_ = (float)((-1000.0 / K_SAMPLE_RATE) / releaseMS);
     releaseKnobPos = release;
@@ -105,7 +105,7 @@ public class Compressor {
   // ── setThreshold (rms_feedback.h:108-111) ──
 
   /** C: rms_feedback.h:108-111 — 0→0.2, 2^31→1.0 */
-  void setThreshold(int t) {
+  public void setThreshold(int t) {
     thresholdKnobPos = t;
     threshold = (float)(1.0 - 0.8 * ((double)t / ONE_Q31f));
   }
@@ -113,7 +113,7 @@ public class Compressor {
   // ── setRatio (rms_feedback.h:122-127) ──
 
   /** C: rms_feedback.h:122-127 — inverse mapping, 0→2:1, max→256:1 */
-  int setRatio(int rat) {
+  public int setRatio(int rat) {
     ratioKnobPos = rat;
     fraction = (float)(0.5 + ((double)rat / ONE_Q31f) / 2.0);
     ratio = (float)(1.0 / (1.0 - fraction));
@@ -139,6 +139,41 @@ public class Compressor {
     dry = ONE_Q31 - blend;
     wet = blend;
     return (wet > (127 << 24)) ? 100 : 100 * (wet >> 24) >> 7;
+  }
+
+  // ── Float convenience setters (engine-facing; map a 0..1 float to the knob math) ──
+
+  public void setBaseGain(float baseGain) {
+    baseGain_ = baseGain;
+  }
+
+  public void setAttackFloat(float attack) {
+    attackMS = (float) (0.5 + (Math.exp(2.0 * attack) - 1.0) * 10.0);
+    a_ = (float) ((-1000.0 / K_SAMPLE_RATE) / attackMS);
+    attackKnobPos = (int) (attack * ONE_Q31);
+  }
+
+  public void setReleaseFloat(float release) {
+    releaseMS = (float) (50.0 + (Math.exp(2.0 * release) - 1.0) * 50.0);
+    r_ = (float) ((-1000.0 / K_SAMPLE_RATE) / releaseMS);
+    releaseKnobPos = (int) (release * ONE_Q31);
+  }
+
+  public void setThresholdFloat(float t) {
+    thresholdKnobPos = (int) (t * ONE_Q31);
+    threshold = 1.0f - 0.8f * t;
+  }
+
+  public void setRatioFloat(float rat) {
+    ratioKnobPos = (int) (rat * ONE_Q31);
+    fraction = 0.5f + rat / 2.0f;
+    ratio = 1.0f / (1.0f - fraction);
+  }
+
+  public void setBlendFloat(float blend) {
+    int blendInt = (int) (blend * ONE_Q31);
+    dry = ONE_Q31 - blendInt;
+    wet = blendInt;
   }
 
   // ── reset (rms_feedback.h:42-47) ──
