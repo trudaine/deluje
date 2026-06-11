@@ -246,6 +246,10 @@ public class MidiService {
       for (org.chuck.deluge.firmware.engine.FirmwareSound drum : kit.drumSounds) {
         drum.mpePitchBend(msg.channel(), bend);
       }
+    } else if (sound instanceof org.chuck.deluge.firmware2.Sound s) {
+      int newValue = (bend - 8192) << 18;
+      s.polyphonicExpressionEventOnChannelOrNote(
+          newValue, 0, msg.channel(), 1); // 0 = X_PITCH_BEND, 1 = CHANNEL
     }
 
     if (vm.getLogLevel() >= 2) {
@@ -266,6 +270,10 @@ public class MidiService {
       for (org.chuck.deluge.firmware.engine.FirmwareSound drum : kit.drumSounds) {
         drum.mpePressure(msg.channel(), pressure);
       }
+    } else if (sound instanceof org.chuck.deluge.firmware2.Sound s) {
+      int newValue = pressure << 24;
+      s.polyphonicExpressionEventOnChannelOrNote(
+          newValue, 2, msg.channel(), 1); // 2 = Z_PRESSURE, 1 = CHANNEL
     }
 
     if (vm.getLogLevel() >= 2) {
