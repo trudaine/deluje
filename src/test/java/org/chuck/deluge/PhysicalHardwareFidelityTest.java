@@ -784,22 +784,32 @@ public class PhysicalHardwareFidelityTest {
   @Test
   public void testFmSimpleParity() throws Exception {
     System.out.println("=== RUNNING HARDWARE REGRESSION: FM SIMPLE C5 ===");
-    float[] hw = loadWavFromResource("/fidelity/reference_fm_simple_c5.wav");
-    int triggerBlock = 1318;
-    // Safe non-overdriven operator amplitude overrides to match JNI calibration!
-    java.util.Map<Integer, Integer> overrides = new java.util.HashMap<>();
-    overrides.put(Param.LOCAL_VOLUME, 53687091);
-    overrides.put(Param.LOCAL_OSC_A_VOLUME, 53687091);
+    // Pin the carrier start phases: with deep FM the brightness (hysteresis zcr) of the rendered
+    // waveform varies with the random carrier phase relative to the modulator's 0 — running after
+    // other tests changes the noise-generator sequence and the measured zcr (test-order flake).
+    org.chuck.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = 0;
+    org.chuck.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = 0;
+    try {
+      float[] hw = loadWavFromResource("/fidelity/reference_fm_simple_c5.wav");
+      int triggerBlock = 1318;
+      // Safe non-overdriven operator amplitude overrides to match JNI calibration!
+      java.util.Map<Integer, Integer> overrides = new java.util.HashMap<>();
+      overrides.put(Param.LOCAL_VOLUME, 53687091);
+      overrides.put(Param.LOCAL_OSC_A_VOLUME, 53687091);
 
-    float[] sw =
-        renderXmlTrackPreset(
-            "/fidelity/103_FM_SIMPLE_C5.XML",
-            hw.length,
-            triggerBlock,
-            triggerBlock + 1000,
-            72,
-            overrides);
-    assertFmBrightness(hw, sw, 523.25, "FM Simple C5");
+      float[] sw =
+          renderXmlTrackPreset(
+              "/fidelity/103_FM_SIMPLE_C5.XML",
+              hw.length,
+              triggerBlock,
+              triggerBlock + 1000,
+              72,
+              overrides);
+      assertFmBrightness(hw, sw, 523.25, "FM Simple C5");
+    } finally {
+      org.chuck.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = -2;
+      org.chuck.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = -2;
+    }
   }
 
   @Test
@@ -1020,20 +1030,30 @@ public class PhysicalHardwareFidelityTest {
   @Test
   public void testFmFeedbackParity() throws Exception {
     System.out.println("=== RUNNING HARDWARE REGRESSION: FM FEEDBACK C5 ===");
-    float[] hw = loadWavFromResource("/fidelity/reference_fm_feedback_c5.wav");
-    int triggerBlock = 100;
-    java.util.Map<Integer, Integer> overrides = new java.util.HashMap<>();
-    overrides.put(Param.LOCAL_VOLUME, 53687091);
-    overrides.put(Param.LOCAL_OSC_A_VOLUME, 53687091);
-    float[] sw =
-        renderXmlTrackPreset(
-            "/fidelity/117_FM_FEEDBACK_C5.XML",
-            hw.length,
-            triggerBlock,
-            triggerBlock + 1000,
-            72,
-            overrides);
-    assertFmBrightness(hw, sw, 523.25, "FM Feedback C5");
+    // Pin the carrier start phases: feedback FM brightness varies strongly with the random
+    // carrier phase (measured 2730/s in isolation vs 583/s after other tests consumed the static
+    // noise sequence) — pinning makes the render deterministic.
+    org.chuck.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = 0;
+    org.chuck.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = 0;
+    try {
+      float[] hw = loadWavFromResource("/fidelity/reference_fm_feedback_c5.wav");
+      int triggerBlock = 100;
+      java.util.Map<Integer, Integer> overrides = new java.util.HashMap<>();
+      overrides.put(Param.LOCAL_VOLUME, 53687091);
+      overrides.put(Param.LOCAL_OSC_A_VOLUME, 53687091);
+      float[] sw =
+          renderXmlTrackPreset(
+              "/fidelity/117_FM_FEEDBACK_C5.XML",
+              hw.length,
+              triggerBlock,
+              triggerBlock + 1000,
+              72,
+              overrides);
+      assertFmBrightness(hw, sw, 523.25, "FM Feedback C5");
+    } finally {
+      org.chuck.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = -2;
+      org.chuck.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = -2;
+    }
   }
 
   @Test
