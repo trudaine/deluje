@@ -6,7 +6,6 @@ import org.chuck.deluge.firmware.engine.FirmwareAudioEngine;
 import org.chuck.deluge.firmware.engine.FirmwareFactory;
 import org.chuck.deluge.firmware.engine.FirmwareSound;
 import org.chuck.deluge.firmware.model.Song;
-import org.chuck.deluge.firmware.modulation.params.Param;
 import org.chuck.deluge.model.ProjectModel;
 import org.chuck.deluge.model.SynthTrackModel;
 
@@ -198,8 +197,6 @@ public class CompareAudioParity {
 
     // Apply exact same safe output level limits as standard hardware test runs to avoid digital
     // clipping
-    sound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = 53687091; // Q31.ONE / 40
-    sound.paramNeutralValues[Param.LOCAL_VOLUME] = 53687091;
 
     FirmwareAudioEngine engine = new FirmwareAudioEngine();
     engine.sounds.add(sound);
@@ -215,10 +212,10 @@ public class CompareAudioParity {
 
     for (int b = 0; b < blockCount; b++) {
       if (b == triggerBlock) {
-        sound.triggerNote(72, 100); // C5 pitch (matches actual physical C5 resample file!)
+        sound.triggerNote(60, 100); // C4 pitch (matches actual physical C4 resample file!)
       }
       if (b == releaseBlock) {
-        sound.releaseNote(72);
+        sound.releaseNote(60);
       }
 
       engine.renderBlock(128);

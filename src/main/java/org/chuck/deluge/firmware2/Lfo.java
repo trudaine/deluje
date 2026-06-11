@@ -187,7 +187,8 @@ public class Lfo {
     }
 
     // phase += phaseIncrement * numSamples;  // (line 108)
-    phase += phaseIncrement * numSamples;
+    phase =
+        (int) (((phase & 0xFFFFFFFFL) + (phaseIncrement & 0xFFFFFFFFL) * numSamples) & 0xFFFFFFFFL);
     return value;
   }
 

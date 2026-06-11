@@ -507,7 +507,7 @@ public class Voice {
     if (sound.synthMode == 1) { // FM
       int overallPitchAdjust = paramFinalValues[Param.LOCAL_PITCH_ADJUST];
       for (int m = 0; m < 2; m++) {
-        if (paramFinalValues[Param.LOCAL_MODULATOR_0_VOLUME + m] == Integer.MIN_VALUE) {
+        if (sound.patchedParamValues[Param.LOCAL_MODULATOR_0_VOLUME + m] == Integer.MIN_VALUE) {
           for (int u = 0; u < sound.numUnison; u++) {
             unisonParts[u].modulatorPhaseIncrement[m] = 0xFFFFFFFF; // inactive
           }
@@ -570,6 +570,16 @@ public class Voice {
             paramFinalValues[Param.LOCAL_HPF_MORPH],
             sound.volumeNeutralValueForUnison << 1,
             FilterRoute.values()[sound.filterRoute]);
+    if (!doneFirstRender) {
+      filterSet.lpLadder.dryFade = 0.0f;
+      filterSet.lpLadder.wetLevel = Functions.ONE_Q31;
+      filterSet.hpLadder.dryFade = 0.0f;
+      filterSet.hpLadder.wetLevel = Functions.ONE_Q31;
+      filterSet.lpSvf.dryFade = 0.0f;
+      filterSet.lpSvf.wetLevel = Functions.ONE_Q31;
+      filterSet.hpSvf.dryFade = 0.0f;
+      filterSet.hpSvf.wetLevel = Functions.ONE_Q31;
+    }
     boolean hasFilters =
         (lpfModeVal != FilterSet.FilterMode.OFF) || (hpfModeVal != FilterSet.FilterMode.OFF);
 
