@@ -132,6 +132,7 @@ public class Voice {
     public OscType oscType = OscType.SINE;
     public int carrierFeedback; // FM carrier feedback memory
     public int phaseIncrementStoredValue;
+    public int waveIndexLastTime;
     public boolean active;
 
     // Sample playback (when oscType == SAMPLE or source is sample-based).
@@ -143,8 +144,12 @@ public class Voice {
     public final Dx7Voice.DxPatch dxPatch = new Dx7Voice.DxPatch();
 
     public void setupSample(Sample fw2Sample, int startFrame, int playDirection) {
+      setupSample(fw2Sample, startFrame, playDirection, 0);
+    }
+
+    public void setupSample(Sample fw2Sample, int startFrame, int playDirection, int samplesLate) {
       int end = (playDirection == 1) ? (int) fw2Sample.lengthInSamples : -1;
-      setupSample(fw2Sample, startFrame, end, playDirection, false, startFrame);
+      setupSample(fw2Sample, startFrame, end, playDirection, false, startFrame, samplesLate);
     }
 
     public void setupSample(
@@ -154,18 +159,46 @@ public class Voice {
         int playDirection,
         boolean looping,
         int loopStartFrame) {
+      setupSample(fw2Sample, startFrame, endFrame, playDirection, looping, loopStartFrame, 0);
+    }
+
+    public void setupSample(
+        Sample fw2Sample,
+        int startFrame,
+        int endFrame,
+        int playDirection,
+        boolean looping,
+        int loopStartFrame,
+        int samplesLate) {
       if (voiceRef != null) {
         for (int u = 0; u < voiceRef.sound.numUnison; u++) {
           VoiceSource vs = voiceRef.unisonParts[u].sources[sourceIdx];
           vs.sampleRef = fw2Sample;
           vs.voiceSample.active = false; // reset any prior time-stretch state
-          vs.voiceSample.setup(
-              fw2Sample, startFrame, endFrame, playDirection, looping, loopStartFrame);
+          if (samplesLate == 0) {
+            vs.voiceSample.setup(
+                fw2Sample, startFrame, endFrame, playDirection, looping, loopStartFrame);
+          } else {
+            vs.voiceSample.setupLate(
+                fw2Sample,
+                startFrame,
+                endFrame,
+                playDirection,
+                looping,
+                loopStartFrame,
+                samplesLate);
+          }
         }
       } else {
         sampleRef = fw2Sample;
         voiceSample.active = false;
-        voiceSample.setup(fw2Sample, startFrame, endFrame, playDirection, looping, loopStartFrame);
+        if (samplesLate == 0) {
+          voiceSample.setup(
+              fw2Sample, startFrame, endFrame, playDirection, looping, loopStartFrame);
+        } else {
+          voiceSample.setupLate(
+              fw2Sample, startFrame, endFrame, playDirection, looping, loopStartFrame, samplesLate);
+        }
       }
     }
 
@@ -739,50 +772,103 @@ public class Voice {
         // C voice.cpp:1317-1340 — osc A can never osc-sync (cantBeDoingOscSyncForFirstOsc); osc B
         // syncs to osc A's captured phase + this part's osc-A increment. Both pass the source's
         // retrigger phase (used by the pulse-width reset path even without sync).
-        int pulseWidthA =
-            Functions.lshiftAndSaturate(paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH], 1);
-        int[] phaseA = {vsA.oscPos};
-        Oscillator.renderOsc(
-            sound.oscTypes[0],
-            0,
-            tempBufA,
-            0,
-            numSamples,
-            pIncA,
-            pulseWidthA,
-            phaseA,
-            false,
-            0,
-            false,
-            0,
-            0,
-            sound.oscRetriggerPhase[0]);
-        vsA.oscPos = phaseA[0];
+        if (sound.oscTypes[0] == OscType.WAVETABLE && sound.waveTables[0] != null) {
+          int waveIndexA = paramFinalValues[Param.LOCAL_OSC_A_WAVE_INDEX];
+          if (!doneFirstRender) {
+            vsA.waveIndexLastTime = waveIndexA;
+          }
+          int waveIndexIncrementA = (waveIndexA - vsA.waveIndexLastTime) / numSamples;
+          vsA.oscPos =
+              sound.waveTables[0].render(
+                  tempBufA,
+                  0,
+                  numSamples,
+                  pIncA,
+                  vsA.oscPos,
+                  false,
+                  0,
+                  0,
+                  0,
+                  sound.oscRetriggerPhase[0],
+                  vsA.waveIndexLastTime,
+                  waveIndexIncrementA);
+          vsA.waveIndexLastTime = waveIndexA;
+        } else {
+          int pulseWidthA =
+              Functions.lshiftAndSaturate(paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH], 1);
+          int[] phaseA = {vsA.oscPos};
+          Oscillator.renderOsc(
+              sound.oscTypes[0],
+              0,
+              tempBufA,
+              0,
+              numSamples,
+              pIncA,
+              pulseWidthA,
+              phaseA,
+              false,
+              0,
+              false,
+              0,
+              0,
+              sound.oscRetriggerPhase[0]);
+          vsA.oscPos = phaseA[0];
+        }
         if (sound.oscTypes[0] == OscType.SAW || sound.oscTypes[0] == OscType.ANALOG_SAW_2) {
           amplitudeForRingMod <<= 1;
         } else if (sound.oscTypes[0] == OscType.WAVETABLE) {
           amplitudeForRingMod <<= 2;
         }
 
-        int pulseWidthB =
-            Functions.lshiftAndSaturate(paramFinalValues[Param.LOCAL_OSC_B_PHASE_WIDTH], 1);
-        int[] phaseB = {vsB.oscPos};
-        Oscillator.renderOsc(
-            sound.oscTypes[1],
-            0,
-            tempBufB,
-            0,
-            numSamples,
-            pIncB,
-            pulseWidthB,
-            phaseB,
-            false,
-            0,
-            doingOscSync,
-            oscSyncPos[u],
-            pIncA,
-            sound.oscRetriggerPhase[1]);
-        vsB.oscPos = phaseB[0];
+        if (sound.oscTypes[1] == OscType.WAVETABLE && sound.waveTables[1] != null) {
+          int waveIndexB = paramFinalValues[Param.LOCAL_OSC_B_WAVE_INDEX];
+          if (!doneFirstRender) {
+            vsB.waveIndexLastTime = waveIndexB;
+          }
+          int waveIndexIncrementB = (waveIndexB - vsB.waveIndexLastTime) / numSamples;
+
+          int resetterDivideByPhaseIncrement = 0;
+          if (doingOscSync) {
+            resetterDivideByPhaseIncrement =
+                (int) (0x80000000L / (((pIncA & 0xFFFF0000L) + 65536) >>> 16));
+          }
+
+          vsB.oscPos =
+              sound.waveTables[1].render(
+                  tempBufB,
+                  0,
+                  numSamples,
+                  pIncB,
+                  vsB.oscPos,
+                  doingOscSync,
+                  oscSyncPos[u],
+                  pIncA,
+                  resetterDivideByPhaseIncrement,
+                  sound.oscRetriggerPhase[1],
+                  vsB.waveIndexLastTime,
+                  waveIndexIncrementB);
+          vsB.waveIndexLastTime = waveIndexB;
+        } else {
+          int pulseWidthB =
+              Functions.lshiftAndSaturate(paramFinalValues[Param.LOCAL_OSC_B_PHASE_WIDTH], 1);
+          int[] phaseB = {vsB.oscPos};
+          Oscillator.renderOsc(
+              sound.oscTypes[1],
+              0,
+              tempBufB,
+              0,
+              numSamples,
+              pIncB,
+              pulseWidthB,
+              phaseB,
+              false,
+              0,
+              doingOscSync,
+              oscSyncPos[u],
+              pIncA,
+              sound.oscRetriggerPhase[1]);
+          vsB.oscPos = phaseB[0];
+        }
         if (sound.oscTypes[1] == OscType.SAW || sound.oscTypes[1] == OscType.ANALOG_SAW_2) {
           amplitudeForRingMod <<= 1;
         } else if (sound.oscTypes[1] == OscType.WAVETABLE) {
@@ -865,6 +951,17 @@ public class Voice {
 
           // Sample playback path (bypasses oscillator when a Sample is attached to this source).
           if (vs.sampleRef != null) {
+            if (vs.voiceSample.pendingSamplesLate > 0) {
+              long rawSamplesLate =
+                  ((((long) vs.voiceSample.pendingSamplesLate * vs.phaseIncrementStoredValue) >> 24)
+                          * vs.timeStretchRatio)
+                      >> 24;
+              boolean success = vs.voiceSample.attemptLateSampleStart((int) rawSamplesLate);
+              if (!success) {
+                vs.active = false;
+                continue;
+              }
+            }
             int sampAmp =
                 (srcAmp > 0)
                     ? srcAmp
@@ -933,6 +1030,41 @@ public class Voice {
             vs.dxVoice.compute(uniBuf, numSamples, adjpitch, vs.dxPatch, ampMod, 0, 0);
             for (int i = 0; i < numSamples; i++) {
               tempBuf[i] = Functions.multiply_32x32_rshift32(uniBuf[i], srcAmp) << 6;
+            }
+          } else if (sound.oscTypes[s] == OscType.WAVETABLE && sound.waveTables[s] != null) {
+            int waveIndex = paramFinalValues[Param.LOCAL_OSC_A_WAVE_INDEX + s];
+            if (!doneFirstRender) {
+              vs.waveIndexLastTime = waveIndex;
+            }
+            int waveIndexIncrement = (waveIndex - vs.waveIndexLastTime) / numSamples;
+
+            int resetterDivideByPhaseIncrement = 0;
+            if (doOscSyncThisSource) {
+              resetterDivideByPhaseIncrement =
+                  (int) (0x80000000L / (((oscSyncPhaseIncrement[u] & 0xFFFF0000L) + 65536) >>> 16));
+            }
+
+            vs.oscPos =
+                sound.waveTables[s].render(
+                    tempBuf,
+                    0,
+                    numSamples,
+                    pInc,
+                    vs.oscPos,
+                    doOscSyncThisSource,
+                    oscSyncPos[u],
+                    oscSyncPhaseIncrement[u],
+                    resetterDivideByPhaseIncrement,
+                    sound.oscRetriggerPhase[s],
+                    vs.waveIndexLastTime,
+                    waveIndexIncrement);
+            vs.waveIndexLastTime = waveIndex;
+
+            // Apply amplitude srcAmp to the rendered wavetable values
+            for (int i = 0; i < numSamples; i++) {
+              tempBuf[i] =
+                  Functions.lshiftAndSaturate(
+                      Functions.multiply_32x32_rshift32(tempBuf[i], srcAmp), 1);
             }
           } else {
             // C voice.cpp:2421-2430 — pulse width from LOCAL_OSC_A_PHASE_WIDTH+s, hard sync from

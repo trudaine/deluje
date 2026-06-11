@@ -24,6 +24,14 @@ public class VoiceSample {
   public boolean looping;
   public int loopStartFrame;
 
+  public int pendingSamplesLate;
+  public Sample pendingSample;
+  public int pendingStartFrame;
+  public int pendingEndFrame;
+  public int pendingPlayDirection;
+  public boolean pendingLooping;
+  public int pendingLoopStartFrame;
+
   // ── Time-stretch state (the two-play-head crossfade) ──
   public final TimeStretcher timeStretcher = new TimeStretcher();
   public final SampleReader olderReader = new SampleReader();
@@ -220,6 +228,45 @@ public class VoiceSample {
     this.looping = looping;
     this.loopStartFrame = loopStartFrame;
     active = true;
+  }
+
+  public void setupLate(
+      Sample sample,
+      int startFrame,
+      int endFrame,
+      int playDirection,
+      boolean looping,
+      int loopStartFrame,
+      int samplesLate) {
+    this.pendingSample = sample;
+    this.pendingStartFrame = startFrame;
+    this.pendingEndFrame = endFrame;
+    this.pendingPlayDirection = playDirection;
+    this.pendingLooping = looping;
+    this.pendingLoopStartFrame = loopStartFrame;
+    this.pendingSamplesLate = samplesLate;
+    this.active = true;
+  }
+
+  public boolean attemptLateSampleStart(int rawSamplesSinceStart) {
+    int startAtFrame = rawSamplesSinceStart * pendingPlayDirection + pendingStartFrame;
+
+    // Check if we've already passed the end frame
+    if ((startAtFrame - pendingEndFrame) * pendingPlayDirection >= 0) {
+      active = false;
+      pendingSamplesLate = 0;
+      return false; // failure
+    }
+
+    setup(
+        pendingSample,
+        startAtFrame,
+        pendingEndFrame,
+        pendingPlayDirection,
+        pendingLooping,
+        pendingLoopStartFrame);
+    pendingSamplesLate = 0;
+    return true; // success
   }
 
   /** Input frames remaining before the end, in the play direction. */

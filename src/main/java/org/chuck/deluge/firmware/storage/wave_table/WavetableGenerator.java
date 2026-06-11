@@ -7,55 +7,63 @@ package org.chuck.deluge.firmware.storage.wave_table;
 public class WavetableGenerator {
 
   /**
-   * Generates bands for a wavetable based on a single source cycle. Uses a simple Cooley-Tukey FFT
+   * Generates bands for a wavetable based on the source cycles. Uses a simple Cooley-Tukey FFT
    * implementation.
    */
   public static void generateBands(WaveTable waveTable, float[] sourceCycle) {
-    int n = sourceCycle.length;
-    if ((n & (n - 1)) != 0) {
-      throw new IllegalArgumentException("Source cycle must be power of two");
+    int numCycles = waveTable.numCycles;
+    if (numCycles <= 0) return;
+    int cycleSize = sourceCycle.length / numCycles;
+    if ((cycleSize & (cycleSize - 1)) != 0) {
+      throw new IllegalArgumentException("Wavetable cycle size must be power of two");
     }
 
-    // 1. FFT to frequency domain
-    double[] re = new double[n];
-    double[] im = new double[n];
-    for (int i = 0; i < n; i++) re[i] = sourceCycle[i];
-    fft(re, im, false);
-
-    // 2. Generate bands
     int numBands = waveTable.bands.size();
-    for (int b = 0; b < numBands; b++) {
-      WaveTableBand band = waveTable.bands.get(b);
-      int bandSize = band.cycleSizeNoDuplicates;
 
-      double[] bandRe = new double[bandSize];
-      double[] bandIm = new double[bandSize];
+    // Process cycle-by-cycle to support multi-cycle wavetables
+    for (int c = 0; c < numCycles; c++) {
+      // 1. FFT single cycle to frequency domain
+      double[] re = new double[cycleSize];
+      double[] im = new double[cycleSize];
+      for (int i = 0; i < cycleSize; i++) {
+        re[i] = sourceCycle[c * cycleSize + i];
+      }
+      fft(re, im, false);
 
-      // Map harmonics, zeroing those above band's Nyquist
-      int harmonics = bandSize / 2;
-      for (int i = 0; i < harmonics; i++) {
-        bandRe[i] = re[i];
-        bandIm[i] = im[i];
-        // Hermitian symmetry for real signals
-        if (i > 0) {
-          bandRe[bandSize - i] = re[n - i];
-          bandIm[bandSize - i] = im[n - i];
+      // 2. Generate band-limited versions
+      for (int b = 0; b < numBands; b++) {
+        WaveTableBand band = waveTable.bands.get(b);
+        int bandSize = band.cycleSizeNoDuplicates;
+
+        double[] bandRe = new double[bandSize];
+        double[] bandIm = new double[bandSize];
+
+        // Map harmonics, zeroing those above band's Nyquist
+        int harmonics = bandSize / 2;
+        for (int i = 0; i < harmonics; i++) {
+          bandRe[i] = re[i];
+          bandIm[i] = im[i];
+          // Hermitian symmetry for real signals
+          if (i > 0) {
+            bandRe[bandSize - i] = re[cycleSize - i];
+            bandIm[bandSize - i] = im[cycleSize - i];
+          }
         }
-      }
 
-      // 3. IFFT back to time domain
-      fft(bandRe, bandIm, true);
+        // 3. IFFT back to time domain
+        fft(bandRe, bandIm, true);
 
-      // 4. Store as 16-bit PCM
-      int totalWithDupes = bandSize + WaveTable.WAVETABLE_NUM_DUPLICATE_SAMPLES_AT_END_OF_CYCLE;
-      band.data = new short[totalWithDupes];
-      for (int i = 0; i < bandSize; i++) {
-        band.data[i] =
-            (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, bandRe[i] * 32767.0));
-      }
-      // Fill duplicates
-      for (int i = 0; i < WaveTable.WAVETABLE_NUM_DUPLICATE_SAMPLES_AT_END_OF_CYCLE; i++) {
-        band.data[bandSize + i] = band.data[i];
+        // 4. Store as 16-bit PCM at the correct cycle offset in the pre-allocated band array
+        int cycleOffset =
+            c * (bandSize + WaveTable.WAVETABLE_NUM_DUPLICATE_SAMPLES_AT_END_OF_CYCLE);
+        for (int i = 0; i < bandSize; i++) {
+          band.data[cycleOffset + i] =
+              (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, bandRe[i] * 32767.0));
+        }
+        // Fill duplicates at the end of this cycle
+        for (int i = 0; i < WaveTable.WAVETABLE_NUM_DUPLICATE_SAMPLES_AT_END_OF_CYCLE; i++) {
+          band.data[cycleOffset + bandSize + i] = band.data[cycleOffset + i];
+        }
       }
     }
   }

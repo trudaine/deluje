@@ -15,6 +15,8 @@ import org.chuck.deluge.firmware.modulation.params.Param;
 import org.chuck.deluge.firmware.modulation.patch.PatchCable;
 import org.chuck.deluge.firmware.modulation.patch.PatchSource;
 import org.chuck.deluge.firmware.storage.audio.AudioFileReader;
+import org.chuck.deluge.firmware.storage.wave_table.WaveTable;
+import org.chuck.deluge.firmware.storage.wave_table.WaveTableReader;
 import org.chuck.deluge.firmware.util.FirmwareUtils;
 import org.chuck.deluge.model.ClipModel;
 import org.chuck.deluge.model.Drum;
@@ -133,6 +135,40 @@ public class FirmwareFactory {
             }
           } catch (IOException e) {
             System.err.println("[FirmwareFactory] Failed to load synth sample 1: " + path);
+          }
+        }
+      }
+    }
+
+    // ── Load wavetables if the oscillators are WAVETABLE type ──
+    if (sound.oscTypes[0] == OscType.WAVETABLE) {
+      String path = model.getOsc1SamplePath();
+      if (path != null && !path.isEmpty()) {
+        File f = resolveSample(path, sdRoot);
+        if (f != null && f.exists()) {
+          try {
+            WaveTable wt = new WaveTable();
+            WaveTableReader.readWavetable(wt, f.getAbsolutePath());
+            sound.fw2Sound.waveTables[0] = wt;
+            System.out.println("[FirmwareFactory] Loaded synth wavetable 0: " + f.getName());
+          } catch (IOException e) {
+            System.err.println("[FirmwareFactory] Failed to load synth wavetable 0: " + path);
+          }
+        }
+      }
+    }
+    if (sound.oscTypes[1] == OscType.WAVETABLE) {
+      String path = model.getOsc2SamplePath();
+      if (path != null && !path.isEmpty()) {
+        File f = resolveSample(path, sdRoot);
+        if (f != null && f.exists()) {
+          try {
+            WaveTable wt = new WaveTable();
+            WaveTableReader.readWavetable(wt, f.getAbsolutePath());
+            sound.fw2Sound.waveTables[1] = wt;
+            System.out.println("[FirmwareFactory] Loaded synth wavetable 1: " + f.getName());
+          } catch (IOException e) {
+            System.err.println("[FirmwareFactory] Failed to load synth wavetable 1: " + path);
           }
         }
       }
@@ -376,6 +412,11 @@ public class FirmwareFactory {
     sound.mod1RetrigPhase = model.getMod1RetrigPhase();
     sound.mod2RetrigPhase = model.getMod2RetrigPhase();
     sound.oscillatorSync = model.isOscillatorSync();
+
+    // Wave Index parameters (mapped to unipolar Q31)
+    int waveIndexQ31 = (int) Math.round((double) clamp01(model.getWaveIndex()) * 2147483647.0);
+    sound.paramNeutralValues[Param.LOCAL_OSC_A_WAVE_INDEX] = waveIndexQ31;
+    sound.paramNeutralValues[Param.LOCAL_OSC_B_WAVE_INDEX] = waveIndexQ31;
 
     // Wavefolder knob (raw Q31 like the C readParam of "waveFold" → LOCAL_FOLD; INT_MIN = off).
     sound.paramNeutralValues[Param.LOCAL_FOLD] = model.getWaveFoldQ31();
