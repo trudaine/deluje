@@ -5,9 +5,9 @@ import java.util.List;
 import org.chuck.deluge.firmware.engine.FirmwareKit;
 import org.chuck.deluge.firmware.engine.FirmwareMidiInstrument;
 import org.chuck.deluge.firmware.engine.FirmwareSound;
-import org.chuck.deluge.firmware.engine.GlobalEffectable;
 import org.chuck.deluge.firmware.model.note.NoteRow;
 import org.chuck.deluge.firmware.model.note.PendingNoteOn;
+import org.chuck.deluge.firmware2.GlobalEffectable;
 
 /**
  * Port of the Deluge's InstrumentClip class. Handles sequencing for a specific instrument (Synth or

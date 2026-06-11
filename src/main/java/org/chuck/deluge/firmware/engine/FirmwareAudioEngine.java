@@ -5,6 +5,7 @@ import org.chuck.deluge.firmware.dsp.StereoSample;
 import org.chuck.deluge.firmware.util.Q31;
 import org.chuck.deluge.firmware2.Compressor;
 import org.chuck.deluge.firmware2.Delay;
+import org.chuck.deluge.firmware2.GlobalEffectable;
 import org.chuck.deluge.firmware2.LiveInputBuffer;
 import org.chuck.deluge.firmware2.LivePitchShifter;
 import org.chuck.deluge.firmware2.Reverb;
@@ -22,6 +23,7 @@ import org.chuck.deluge.firmware2.Reverb;
 public class FirmwareAudioEngine {
   public final List<GlobalEffectable> sounds = new java.util.concurrent.CopyOnWriteArrayList<>();
   public final StereoSample[] masterBuffer = new StereoSample[128];
+  private int[] summedFlatBuffer = new int[256];
 
   // Global FX — faithful firmware2 ports.
   public final Compressor masterCompressor = new Compressor();
@@ -64,16 +66,22 @@ public class FirmwareAudioEngine {
       monoReverbBuffer[i] = 0;
     }
 
+    int requiredLen = numSamples * 2;
+    if (summedFlatBuffer.length < requiredLen) {
+      summedFlatBuffer = new int[requiredLen];
+    }
+    java.util.Arrays.fill(summedFlatBuffer, 0, requiredLen, 0);
+
     for (GlobalEffectable sound : sounds) {
       if (sound != null) {
-        sound.renderOutput(masterBuffer, numSamples, monoReverbBuffer);
+        sound.renderOutput(summedFlatBuffer, numSamples, monoReverbBuffer);
       }
     }
 
     // Move the summed dry signal into the int[][] scratch for the fw2 FX chain.
     for (int i = 0; i < numSamples; i++) {
-      fxBuffer[i][0] = masterBuffer[i].l;
-      fxBuffer[i][1] = masterBuffer[i].r;
+      fxBuffer[i][0] = summedFlatBuffer[i * 2];
+      fxBuffer[i][1] = summedFlatBuffer[i * 2 + 1];
     }
 
     // C: audio_engine.cpp:819-837 — the reverb output level must be set as the reverb's pan levels

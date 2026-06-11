@@ -2007,7 +2007,7 @@ public class SwingGridPanel extends JPanel {
                     if (fwEngineObj
                         instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
                       if (editedModelTrack < fwEngine.sounds.size()) {
-                        org.chuck.deluge.firmware.engine.GlobalEffectable sound =
+                        org.chuck.deluge.firmware2.GlobalEffectable sound =
                             fwEngine.sounds.get(editedModelTrack);
                         if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
                           if (modelRow < kit.drumSounds.size()) {
@@ -2041,7 +2041,7 @@ public class SwingGridPanel extends JPanel {
                     if (fwEngineObj
                         instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
                       if (editedModelTrack < fwEngine.sounds.size()) {
-                        org.chuck.deluge.firmware.engine.GlobalEffectable sound =
+                        org.chuck.deluge.firmware2.GlobalEffectable sound =
                             fwEngine.sounds.get(editedModelTrack);
                         if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
                           if (modelRow < kit.drumSounds.size()) {
@@ -2610,7 +2610,7 @@ public class SwingGridPanel extends JPanel {
                                   instanceof
                                   org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
                                 if (editedModelTrack < fwEngine.sounds.size()) {
-                                  org.chuck.deluge.firmware.engine.GlobalEffectable sound =
+                                  org.chuck.deluge.firmware2.GlobalEffectable sound =
                                       fwEngine.sounds.get(editedModelTrack);
                                   if (sound
                                       instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
@@ -2737,7 +2737,7 @@ public class SwingGridPanel extends JPanel {
                                     instanceof
                                     org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
                                   if (editedModelTrack < fwEngine.sounds.size()) {
-                                    org.chuck.deluge.firmware.engine.GlobalEffectable sound =
+                                    org.chuck.deluge.firmware2.GlobalEffectable sound =
                                         fwEngine.sounds.get(editedModelTrack);
                                     if (sound
                                         instanceof
@@ -2779,7 +2779,7 @@ public class SwingGridPanel extends JPanel {
                               instanceof
                               org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
                             if (editedModelTrack < fwEngine.sounds.size()) {
-                              org.chuck.deluge.firmware.engine.GlobalEffectable sound =
+                              org.chuck.deluge.firmware2.GlobalEffectable sound =
                                   fwEngine.sounds.get(editedModelTrack);
                               if (sound
                                   instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
@@ -2810,7 +2810,7 @@ public class SwingGridPanel extends JPanel {
                               instanceof
                               org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
                             if (editedModelTrack < fwEngine.sounds.size()) {
-                              org.chuck.deluge.firmware.engine.GlobalEffectable sound =
+                              org.chuck.deluge.firmware2.GlobalEffectable sound =
                                   fwEngine.sounds.get(editedModelTrack);
                               if (sound
                                   instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
@@ -2970,7 +2970,7 @@ public class SwingGridPanel extends JPanel {
         Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
         if (fwEngineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
           if (editedModelTrack < fwEngine.sounds.size()) {
-            org.chuck.deluge.firmware.engine.GlobalEffectable sound =
+            org.chuck.deluge.firmware2.GlobalEffectable sound =
                 fwEngine.sounds.get(editedModelTrack);
             if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
               synth.triggerNote(note, 127);
@@ -3011,7 +3011,7 @@ public class SwingGridPanel extends JPanel {
         Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
         if (fwEngineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
           if (editedModelTrack < fwEngine.sounds.size()) {
-            org.chuck.deluge.firmware.engine.GlobalEffectable sound =
+            org.chuck.deluge.firmware2.GlobalEffectable sound =
                 fwEngine.sounds.get(editedModelTrack);
             if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
               synth.releaseNote(note);
@@ -4779,7 +4779,7 @@ public class SwingGridPanel extends JPanel {
                             instanceof
                             org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
                           if (editedModelTrack < fwEngine.sounds.size()) {
-                            org.chuck.deluge.firmware.engine.GlobalEffectable sound =
+                            org.chuck.deluge.firmware2.GlobalEffectable sound =
                                 fwEngine.sounds.get(editedModelTrack);
                             if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
                               if (trk < kit.drumSounds.size()) kit.triggerDrum(trk, 127);
@@ -5072,7 +5072,7 @@ public class SwingGridPanel extends JPanel {
                                   instanceof
                                   org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
                                 if (editedModelTrack < fwEngine.sounds.size()) {
-                                  org.chuck.deluge.firmware.engine.GlobalEffectable sound =
+                                  org.chuck.deluge.firmware2.GlobalEffectable sound =
                                       fwEngine.sounds.get(editedModelTrack);
                                   if (sound
                                       instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
@@ -6233,7 +6233,7 @@ public class SwingGridPanel extends JPanel {
         Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
         if (fwEngineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
           if (editedModelTrack < fwEngine.sounds.size()) {
-            org.chuck.deluge.firmware.engine.GlobalEffectable sound =
+            org.chuck.deluge.firmware2.GlobalEffectable sound =
                 fwEngine.sounds.get(editedModelTrack);
             if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
               synth.triggerNote(pitchMidi, 127);
@@ -6251,7 +6251,7 @@ public class SwingGridPanel extends JPanel {
         Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
         if (fwEngineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
           if (editedModelTrack < fwEngine.sounds.size()) {
-            org.chuck.deluge.firmware.engine.GlobalEffectable sound =
+            org.chuck.deluge.firmware2.GlobalEffectable sound =
                 fwEngine.sounds.get(editedModelTrack);
             if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
               kit.triggerDrum(modelRow, 127);
@@ -6272,8 +6272,7 @@ public class SwingGridPanel extends JPanel {
       Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
       if (fwEngineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
         if (editedModelTrack < fwEngine.sounds.size()) {
-          org.chuck.deluge.firmware.engine.GlobalEffectable sound =
-              fwEngine.sounds.get(editedModelTrack);
+          org.chuck.deluge.firmware2.GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
           if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
             if (modelRow < kit.drumSounds.size()) {
               kit.drumSounds.get(modelRow).releaseNote(60);

@@ -443,12 +443,53 @@ public class Voice {
         sound.patchedParamValues, sourceValues, sound.patchCableSet, paramFinalValues);
 
     // ── 5. Phase increments (voice.cpp:414-560) ──
-    int carrierIncA = calculateBasePhaseIncrement(noteCode);
+    int carrierIncA;
+    if (sound.synthMode != 1 && sound.oscTypes[0] == Oscillator.OscType.SAMPLE) {
+      int pitchAdjustNeutralValue = 16777216; // default
+      if (unisonParts[0].sources[0].sampleRef != null) {
+        pitchAdjustNeutralValue =
+            (int) (((unisonParts[0].sources[0].sampleRef.sampleRate) * 16777216L) / 44100);
+      }
+      int noteWithinOctave = (noteCode + 240) % 12;
+      int octave = (noteCode + 120) / 12;
+      int shiftRightAmount = 13 - octave;
+      long rawInc =
+          ((long) LookupTables.noteIntervalTable[noteWithinOctave] * pitchAdjustNeutralValue) >> 32;
+      carrierIncA = (int) rawInc;
+      if (shiftRightAmount >= 0) {
+        carrierIncA >>>= shiftRightAmount;
+      } else {
+        carrierIncA <<= (-shiftRightAmount);
+      }
+    } else {
+      carrierIncA = calculateBasePhaseIncrement(noteCode);
+    }
     if (carrierIncA <= 0) {
       active = false;
       return false;
     }
-    int carrierIncB = carrierIncA;
+
+    int carrierIncB;
+    if (sound.synthMode != 1 && sound.oscTypes[1] == Oscillator.OscType.SAMPLE) {
+      int pitchAdjustNeutralValue = 16777216; // default
+      if (unisonParts[0].sources[1].sampleRef != null) {
+        pitchAdjustNeutralValue =
+            (int) (((unisonParts[0].sources[1].sampleRef.sampleRate) * 16777216L) / 44100);
+      }
+      int noteWithinOctave = (noteCode + 240) % 12;
+      int octave = (noteCode + 120) / 12;
+      int shiftRightAmount = 13 - octave;
+      long rawInc =
+          ((long) LookupTables.noteIntervalTable[noteWithinOctave] * pitchAdjustNeutralValue) >> 32;
+      carrierIncB = (int) rawInc;
+      if (shiftRightAmount >= 0) {
+        carrierIncB >>>= shiftRightAmount;
+      } else {
+        carrierIncB <<= (-shiftRightAmount);
+      }
+    } else {
+      carrierIncB = carrierIncA;
+    }
 
     // Apply unison detune
     for (int u = 0; u < sound.numUnison; u++) {

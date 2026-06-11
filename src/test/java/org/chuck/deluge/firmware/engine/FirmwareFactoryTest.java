@@ -42,7 +42,7 @@ public class FirmwareFactoryTest {
 
     // Check patch cable mapping
     assertNotNull(fwClip.sound);
-    var destinations = fwClip.sound.paramManager.getPatchCableSet().destinations;
+    var destinations = ((FirmwareSound) fwClip.sound).paramManager.getPatchCableSet().destinations;
     assertFalse(destinations.isEmpty());
     assertEquals(Param.LOCAL_LPF_FREQ, destinations.get(0).paramId);
     assertEquals(PatchSource.LFO_LOCAL_1, destinations.get(0).cables.get(0).from);

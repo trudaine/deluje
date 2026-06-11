@@ -452,7 +452,7 @@ public class DelugeEngineDSL implements Shred, Runnable {
         outputBridge.updateBpm(bpm);
 
         // ── Real-Time Parameter Sync ──
-        for (org.chuck.deluge.firmware.engine.GlobalEffectable sound : fwEngine.sounds) {
+        for (org.chuck.deluge.firmware2.GlobalEffectable sound : fwEngine.sounds) {
           // 1. Synth-specific params
           if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound fs) {
             fs.paramNeutralValues[org.chuck.deluge.firmware.modulation.params.Param.LOCAL_VOLUME] =
@@ -480,14 +480,14 @@ public class DelugeEngineDSL implements Shred, Runnable {
           sound.filterSet.setConfig(
               (int) (vm.getGlobalFloat(BridgeContract.G_SP_LPF_FREQ) / 20000.0f * 2147483647.0),
               (int) (vm.getGlobalFloat(BridgeContract.G_SP_LPF_RES) * 536870896.0),
-              org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.TRANSISTOR_12DB,
+              org.chuck.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_12DB,
               0, // morph
               (int) (vm.getGlobalFloat(BridgeContract.G_SP_HPF_FREQ) / 20000.0f * 2147483647.0),
               (int) (vm.getGlobalFloat(BridgeContract.G_SP_HPF_RES) * 536870896.0),
-              org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF,
+              org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF,
               0, // morph
               1 << 28, // gain
-              org.chuck.deluge.firmware.dsp.filter.FilterRoute.HIGH_TO_LOW);
+              org.chuck.deluge.firmware2.FilterRoute.HIGH_TO_LOW);
         }
 
         advance(second(0.05));
