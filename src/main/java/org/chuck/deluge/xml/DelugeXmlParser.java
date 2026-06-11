@@ -2130,7 +2130,9 @@ public class DelugeXmlParser {
     String rhythmStr = getChildText(arpEl, "rhythm");
     if (rhythmStr != null) {
       try {
-        rhythmIndex = Integer.parseInt(rhythmStr);
+        // The C may serialize the raw uint32 menu value (arpeggiator.cpp:1899) — parse as long
+        // (raw values exceed int) and keep the bits; the factory normalizes raw vs 0..50 index.
+        rhythmIndex = (int) Long.parseLong(rhythmStr.trim());
       } catch (NumberFormatException e) {
         LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
       }

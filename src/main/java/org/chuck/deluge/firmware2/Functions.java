@@ -393,6 +393,14 @@ public final class Functions {
     return (int) (((value & 0xFFFFFFFFL) * K_MAX_MENU_VALUE + 2147483648L) >> 32);
   }
 
+  /**
+   * computeFinalValueForUnsignedMenuItem (value_scaling.cpp:60-62) — the inverse: scales a menu
+   * index [0, kMaxMenuValue] to the stored uint32 ({@code value * 85899345}).
+   */
+  public static int computeFinalValueForUnsignedMenuItem(int value) {
+    return value * 85899345;
+  }
+
   // ── getExp (functions.cpp:556-565) ──
 
   /** Exponential mapping: presetValue * 2^(adjustment). (functions.cpp:556-565) */
