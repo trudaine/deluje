@@ -25,8 +25,16 @@ public class SwingProjectSidebarPanel extends JPanel {
   private java.util.function.Consumer<java.io.File> onPatternLoad;
   private Runnable onPatternSave;
 
+  /**
+   * Invoked after the SD-card root has been changed from this panel's header button, so the app can
+   * refresh every view that mirrors the library (e.g. both sidebar instances). When unset, the
+   * panel just reloads its own tree.
+   */
+  private Runnable onLibraryDirChanged;
+
   private DefaultMutableTreeNode libraryRoot;
   private JTree libraryTree;
+  private JButton changeDirButton;
 
   public SwingProjectSidebarPanel(
       ChuckVM vm, BridgeContract bridge, org.chuck.deluge.midi.MidiService midiService) {
@@ -37,7 +45,8 @@ public class SwingProjectSidebarPanel extends JPanel {
     setBackground(new Color(0x12, 0x12, 0x14));
     setLayout(new BorderLayout());
 
-    // Header segment Title
+    // Header segment Title + fast access to the SD-card root directory changer (same setting as
+    // Preferences → "SD Card Root Directory" / File → "Set SD Card Root...").
     JPanel header = new JPanel(new BorderLayout());
     header.setBackground(new Color(0x18, 0x18, 0x1c));
     header.setBorder(BorderFactory.createEmptyBorder(6, 12, 6, 12));
@@ -45,6 +54,20 @@ public class SwingProjectSidebarPanel extends JPanel {
     titleLabel.setForeground(new Color(0x00, 0xff, 0xcc));
     titleLabel.setFont(new Font("SansSerif", Font.BOLD, 10));
     header.add(titleLabel, BorderLayout.CENTER);
+
+    changeDirButton = new JButton("📂");
+    changeDirButton.setFont(new Font("SansSerif", Font.PLAIN, 11));
+    changeDirButton.setMargin(new Insets(0, 4, 0, 4));
+    changeDirButton.setBackground(new Color(0x2a, 0x2a, 0x30));
+    changeDirButton.setForeground(Color.LIGHT_GRAY);
+    changeDirButton.setFocusPainted(false);
+    changeDirButton.setBorder(
+        BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(0x3a, 0x3a, 0x42), 1),
+            BorderFactory.createEmptyBorder(2, 6, 2, 6)));
+    updateChangeDirTooltip();
+    changeDirButton.addActionListener(e -> chooseLibraryDir());
+    header.add(changeDirButton, BorderLayout.EAST);
     add(header, BorderLayout.NORTH);
 
     // Direct scrollable Library Tree JComponent
@@ -52,7 +75,38 @@ public class SwingProjectSidebarPanel extends JPanel {
     add(libraryPane, BorderLayout.CENTER);
   }
 
+  /** Opens a directory chooser and applies the new SD-card root (PreferencesManager library). */
+  private void chooseLibraryDir() {
+    JFileChooser chooser = new JFileChooser(PreferencesManager.getLibraryDir());
+    chooser.setDialogTitle("Set SD Card Root Directory");
+    chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+    if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+      PreferencesManager.setLibraryDir(chooser.getSelectedFile().getAbsolutePath());
+      updateChangeDirTooltip();
+      if (onLibraryDirChanged != null) {
+        onLibraryDirChanged.run();
+      } else {
+        reloadLibrary();
+      }
+    }
+  }
+
+  private void updateChangeDirTooltip() {
+    if (changeDirButton != null) {
+      File dir = PreferencesManager.getLibraryDir();
+      changeDirButton.setToolTipText(
+          "Change SD card root directory (current: "
+              + (dir != null ? dir.getAbsolutePath() : "(not set)")
+              + ")");
+    }
+  }
+
+  public void setOnLibraryDirChanged(Runnable r) {
+    this.onLibraryDirChanged = r;
+  }
+
   public void reloadLibrary() {
+    updateChangeDirTooltip();
     if (libraryRoot == null || libraryTree == null) return;
     libraryRoot.removeAllChildren();
 
