@@ -321,6 +321,19 @@ public class Sound extends GlobalEffectable {
     return phaseIncrement;
   }
 
+  public void polyphonicExpressionEventOnChannelOrNote(
+      int newValue, int expressionDimension, int channelOrNoteNumber, int whichCharacteristic) {
+    synchronized (voices) {
+      int s = expressionDimension + PatchSource.X.ordinal();
+      for (Voice voice : voices) {
+        if (voice.active
+            && voice.inputCharacteristics[whichCharacteristic] == channelOrNoteNumber) {
+          voice.expressionEventImmediate(this, newValue, s);
+        }
+      }
+    }
+  }
+
   @Override
   protected void renderInternal(int[] buffer, int numSamples, int[] reverbBuffer) {
     synchronized (voices) {
