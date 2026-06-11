@@ -2753,6 +2753,15 @@ public class SwingDelugeApp extends JFrame {
     sidebarPanel = new SwingProjectSidebarPanel(vm, bridge, midiService);
     sidebarPanel.reloadLibrary();
     floatingSidebar = new SwingProjectSidebarPanel(vm, bridge, midiService);
+    // The explorer header's 📂 button changes the SD-card root; refresh BOTH sidebar instances
+    // (same effect as File → "Set SD Card Root..." and Preferences → SD Card Root Directory).
+    Runnable reloadBothSidebars =
+        () -> {
+          sidebarPanel.reloadLibrary();
+          floatingSidebar.reloadLibrary();
+        };
+    sidebarPanel.setOnLibraryDirChanged(reloadBothSidebars);
+    floatingSidebar.setOnLibraryDirChanged(reloadBothSidebars);
     sidebarPanel.setOnSongLoaded(
         model -> {
           // Load shared project state (clears pattern, updates all panels, fires engine reload)

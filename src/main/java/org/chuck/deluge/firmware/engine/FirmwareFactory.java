@@ -436,9 +436,12 @@ public class FirmwareFactory {
       sound.paramNeutralValues[Param.LOCAL_ENV_0_RELEASE + i] = releaseKnob;
     }
 
-    sound.numUnison = model.getUnisonNum();
-    sound.unisonDetune = (int) model.getUnisonDetune();
-    sound.unisonStereoSpread = (int) (model.getUnisonStereoSpread() * 2147483647.0);
+    // C sound.cpp:616-626: numUnison clamped 0..kMaxNumVoicesUnison(8), detune 0..50, spread
+    // 0..50 — all USER units (fw2 setupUnisonStereoSpread scales by 42949672 itself; the previous
+    // *2^31 here overflowed and fed garbage spread values into the unison pan setup).
+    sound.numUnison = Math.max(0, Math.min(8, model.getUnisonNum()));
+    sound.unisonDetune = Math.max(0, Math.min(50, (int) model.getUnisonDetune()));
+    sound.unisonStereoSpread = Math.max(0, Math.min(50, (int) model.getUnisonStereoSpread()));
 
     // Sidechain settings
     int sidechainAttackVal =
