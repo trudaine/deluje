@@ -249,6 +249,17 @@ public class FirmwareFactory {
       sound.fmCarrierFeedback[1] =
           FirmwareUtils.finalLinearParam(model.getCarrier2FeedbackQ31(), 5931642, 1073741824);
       sound.fmModulator1ToModulator0 = model.isModulator1ToModulator0();
+
+      // The C reads these XML values straight into the patched-param KNOBS (sound.cpp:520-548
+      // readParam of modulator1Amount/modulator2Amount/feedbacks; default INT_MIN = off from
+      // initParams, sound.cpp:159-162). Without this the fw2 modulator volume stays INT_MIN →
+      // paramFinal 0 → no modulation → FM patches play a plain sine.
+      sound.paramNeutralValues[Param.LOCAL_MODULATOR_0_VOLUME] = model.getModulator1AmountQ31();
+      sound.paramNeutralValues[Param.LOCAL_MODULATOR_1_VOLUME] = model.getModulator2AmountQ31();
+      sound.paramNeutralValues[Param.LOCAL_MODULATOR_0_FEEDBACK] = model.getModulator1FeedbackQ31();
+      sound.paramNeutralValues[Param.LOCAL_MODULATOR_1_FEEDBACK] = model.getModulator2FeedbackQ31();
+      sound.paramNeutralValues[Param.LOCAL_CARRIER_0_FEEDBACK] = model.getCarrier1FeedbackQ31();
+      sound.paramNeutralValues[Param.LOCAL_CARRIER_1_FEEDBACK] = model.getCarrier2FeedbackQ31();
     }
 
     // Volume/Pan
@@ -635,12 +646,14 @@ public class FirmwareFactory {
     };
   }
 
-  
   private static org.chuck.deluge.firmware.model.PolyphonyMode toPolyphonyMode(
       SynthTrackModel.PolyphonyMode m) {
     if (m == null) return org.chuck.deluge.firmware.model.PolyphonyMode.POLY;
-    try { return org.chuck.deluge.firmware.model.PolyphonyMode.valueOf(m.name()); }
-    catch (IllegalArgumentException e) { return org.chuck.deluge.firmware.model.PolyphonyMode.POLY; }
+    try {
+      return org.chuck.deluge.firmware.model.PolyphonyMode.valueOf(m.name());
+    } catch (IllegalArgumentException e) {
+      return org.chuck.deluge.firmware.model.PolyphonyMode.POLY;
+    }
   }
 
   public static InstrumentClip createKitClip(KitTrackModel model) {
@@ -668,7 +681,8 @@ public class FirmwareFactory {
             org.chuck.deluge.firmware.util.Q31.ONE;
         // LOCAL_VOLUME at max so the overall amplitude envelope is as loud as possible
         // for a single drum hit (C initParams sets 0 = center, but drums want full volume).
-        drumSound.paramNeutralValues[
+        drumSound
+                .paramNeutralValues[
                 org.chuck.deluge.firmware.modulation.params.Param.LOCAL_VOLUME] =
             org.chuck.deluge.firmware.util.Q31.ONE;
         // C: source B and noise are off for drums — only source 0 (the sample) renders.
@@ -703,50 +717,54 @@ public class FirmwareFactory {
         drumSound.sampleSettings[0].reverse = sd.isReverse();
         if (sd.getStartSamplePos() >= 0)
           drumSound.sampleSettings[0].startPoint = sd.getStartSamplePos();
-        if (sd.getEndSamplePos() >= 0)
-          drumSound.sampleSettings[0].endPoint = sd.getEndSamplePos();
-        if (sd.getStartLoopPos() >= 0)
-          drumSound.sampleSettings[0].loopStart = sd.getStartLoopPos();
-        if (sd.getEndLoopPos() >= 0)
-          drumSound.sampleSettings[0].loopEnd = sd.getEndLoopPos();
+        if (sd.getEndSamplePos() >= 0) drumSound.sampleSettings[0].endPoint = sd.getEndSamplePos();
+        if (sd.getStartLoopPos() >= 0) drumSound.sampleSettings[0].loopStart = sd.getStartLoopPos();
+        if (sd.getEndLoopPos() >= 0) drumSound.sampleSettings[0].loopEnd = sd.getEndLoopPos();
         drumSound.sampleSettings[0].transpose = (int) sd.getPitchSemitones();
 
         // ── Second source (osc B / sample) ──
         if (sd.getOsc2Type() != null && !sd.getOsc2Type().equalsIgnoreCase("NONE")) {
-          drumSound.paramNeutralValues[
-              org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_B_VOLUME] =
+          drumSound
+                  .paramNeutralValues[
+                  org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_B_VOLUME] =
               org.chuck.deluge.firmware.util.Q31.ONE; // enable second source
           drumSound.oscTypes[1] = stringToOscType(sd.getOsc2Type());
         }
 
         // ── Envelope (amp envelope 0) ──
         var env = sd.getAdsr();
-        drumSound.paramNeutralValues[
+        drumSound
+                .paramNeutralValues[
                 org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_ATTACK] =
             org.chuck.deluge.firmware2.Functions.getParamFromUserValue(
                 org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_ATTACK,
                 (int) (env.attack() * 50));
-        drumSound.paramNeutralValues[
+        drumSound
+                .paramNeutralValues[
                 org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_DECAY] =
             org.chuck.deluge.firmware2.Functions.getParamFromUserValue(
                 org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_DECAY,
                 (int) (env.decay() * 50));
-        drumSound.paramNeutralValues[
+        drumSound
+                .paramNeutralValues[
                 org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_SUSTAIN] =
             org.chuck.deluge.firmware2.Functions.getParamFromUserValue(
                 org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_SUSTAIN,
                 (int) (env.sustain() * 50));
-        drumSound.paramNeutralValues[
+        drumSound
+                .paramNeutralValues[
                 org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_RELEASE] =
             org.chuck.deluge.firmware2.Functions.getParamFromUserValue(
                 org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_RELEASE,
                 (int) (env.release() * 50));
 
         // ── Filter ──
-        drumSound.paramNeutralValues[
+        drumSound
+                .paramNeutralValues[
                 org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_FREQ] =
             (int) (sd.getLpfFreq() / 22050.0f * 2147483647.0f);
-        drumSound.paramNeutralValues[
+        drumSound
+                .paramNeutralValues[
                 org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_RESONANCE] =
             (int) (sd.getLpfRes() * 2147483647.0f);
 

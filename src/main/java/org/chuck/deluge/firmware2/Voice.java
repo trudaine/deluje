@@ -638,7 +638,8 @@ public class Voice {
 
     // Noise (voice.cpp:1131-1149): add the noise source into the mono mix before the filter +
     // overall amplitude (non-FM only). Scaled like the osc sources: >>1, then *filterGain<<4 when
-    // filtered, limited to 268435455, then >>2. fw2 was missing this entirely → noise patches silent.
+    // filtered, limited to 268435455, then >>2. fw2 was missing this entirely → noise patches
+    // silent.
     if (sound.synthMode != 1 && paramFinalValues[Param.LOCAL_NOISE_VOLUME] != 0) {
       int n = paramFinalValues[Param.LOCAL_NOISE_VOLUME] >> 1;
       if (hasFilters) {
