@@ -946,6 +946,7 @@ public class Voice {
         carrierIncB = adjustPitch(carrierIncB, paramFinalValues[Param.LOCAL_OSC_B_PITCH_ADJUST]);
       }
 
+      // C voice.cpp:1026-1028 — unison compensation folded into the CURRENT overall amplitude.
       int overallForCarriers =
           Functions.multiply_32x32_rshift32_rounded(
                   overallOscAmplitude, sound.volumeNeutralValueForUnison)
