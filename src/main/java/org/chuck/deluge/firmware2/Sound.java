@@ -29,6 +29,29 @@ public class Sound extends GlobalEffectable {
   public float fmRatio1 = 1.0f;
   public float fmRatio2 = 1.0f;
 
+  /** C: sound.h:143 — osc B hard-syncs to osc A when true. */
+  public boolean oscillatorSync = false;
+
+  /** C: sound.h:156 — per-source retrigger phase; 0xFFFFFFFF means "off" (sound.cpp:88). */
+  public final int[] oscRetriggerPhase = {0xFFFFFFFF, 0xFFFFFFFF};
+
+  /** C: sound.h:157 — per-modulator retrigger phase; 0xFFFFFFFF means "off". */
+  public final int[] modulatorRetriggerPhase = {0xFFFFFFFF, 0xFFFFFFFF};
+
+  /**
+   * C: sound.cpp:2112-2121 — osc sync renders only when enabled, not FM, and osc B is audible (its
+   * volume KNOB isn't off) or we're in ringmod.
+   */
+  public boolean renderingOscillatorSyncCurrently() {
+    if (!oscillatorSync) {
+      return false;
+    }
+    if (synthMode == 1) { // FM
+      return false;
+    }
+    return patchedParamValues[Param.LOCAL_OSC_B_VOLUME] != Integer.MIN_VALUE || synthMode == 2;
+  }
+
   /** FM modulator transpose in semitones (voice.cpp modulatorTranspose[m]). */
   public final int[] modulatorTranspose = new int[2];
 

@@ -113,6 +113,185 @@ public final class Oscillator {
     }
   }
 
+  // ── Oscillator hard sync (render_wave.h:25-90 renderOscSync + oscillator.cpp:475-498) ──
+
+  /**
+   * Raw table-wave segment: same interpolation as {@link #renderWave} but writes the RAW values (no
+   * amplitude, overwrite) — the scalar equivalent of the C's storeVectorWaveForOneSync lambda
+   * (oscillator.cpp:479-487 storing waveRenderingFunctionGeneral vectors).
+   */
+  private static void renderWaveRawSegment(
+      short[] table,
+      int tableSizeMagnitude,
+      int[] buf,
+      int from,
+      int toExclusive,
+      int phaseIncrement,
+      int phase,
+      int phaseToAdd) {
+    int currentPhase = phase;
+    for (int i = from; i < toExclusive; i++) {
+      currentPhase += phaseIncrement;
+      int p = currentPhase + phaseToAdd;
+      int whichValue = p >>> (32 - tableSizeMagnitude);
+      long v1 = table[whichValue];
+      long v2 = table[whichValue + 1];
+      long frac = (p >>> (32 - 16 - tableSizeMagnitude)) & 0xFFFF;
+      long v1_32 = v1 << 16;
+      long interpolatedDiff = (((v2 << 16) - v1_32) * frac) >> 16;
+      buf[i] = (int) (v1_32 + interpolatedDiff);
+    }
+  }
+
+  /** {@code int[]}-table overload of {@link #renderWaveRawSegment} (e.g. sineWaveSmall). */
+  private static void renderWaveRawSegment(
+      int[] table,
+      int tableSizeMagnitude,
+      int[] buf,
+      int from,
+      int toExclusive,
+      int phaseIncrement,
+      int phase,
+      int phaseToAdd) {
+    int currentPhase = phase;
+    for (int i = from; i < toExclusive; i++) {
+      currentPhase += phaseIncrement;
+      int p = currentPhase + phaseToAdd;
+      int whichValue = p >>> (32 - tableSizeMagnitude);
+      long v1 = table[whichValue];
+      long v2 = table[whichValue + 1];
+      long frac = (p >>> (32 - 16 - tableSizeMagnitude)) & 0xFFFF;
+      long v1_32 = v1 << 16;
+      long interpolatedDiff = (((v2 << 16) - v1_32) * frac) >> 16;
+      buf[i] = (int) (v1_32 + interpolatedDiff);
+    }
+  }
+
+  /**
+   * C: Oscillator::applyAmplitudeVectorToBuffer (oscillator.cpp:510-529) — applies the (already
+   * doubled, per callRenderWave) amplitude ramp to the raw synced wave and accumulates into the
+   * output. Scalar equivalent using this port's renderWave amplitude convention ({@code
+   * (amp*val)>>31} with saturating accumulate).
+   */
+  private static void applyAmplitudeVectorToBuffer(
+      int amplitude, int numSamples, int amplitudeIncrement, int[] out, int outOff, int[] raw) {
+    int ampNow = amplitude;
+    for (int i = 0; i < numSamples; i++) {
+      ampNow += amplitudeIncrement;
+      int withAmp = (int) (((long) ampNow * raw[i]) >> 31);
+      out[outOff + i] = Functions.add_saturate(out[outOff + i], withAmp);
+    }
+  }
+
+  /**
+   * Port of render_wave.h:25-90 {@code renderOscSync} for table waves: renders raw wave segments
+   * between hard-sync resets, blending the crossover sample with a half-sine fade, then applies the
+   * amplitude ramp (or writes raw when {@code !applyAmplitude}, matching the C's direct bufferStart
+   * use). Returns the updated 32-bit phase.
+   */
+  private static int renderWaveSync(
+      Object table, // short[] or int[]
+      int tableSizeMagnitude,
+      int amplitude,
+      int[] outputBuffer,
+      int offset,
+      int numSamples,
+      int phaseIncrement,
+      int phase,
+      boolean applyAmplitude,
+      int phaseToAdd,
+      int amplitudeIncrement,
+      int resetterPhase,
+      int resetterPhaseIncrement,
+      int resetterDivideByPhaseIncrement,
+      int retriggerPhase) {
+    // C: bufferStartThisSync = applyAmplitude ? oscSyncRenderingBuffer : bufferStart
+    int[] raw = new int[numSamples];
+    int bufPos = 0; // index into raw[]
+    boolean renderedASyncFromItsStartYet = false;
+    int crossoverSampleBeforeSync = 0;
+    int fadeBetweenSyncs = 0;
+    long numSamplesThisOscSyncSession = numSamples;
+    long samplesIncludingNextCrossoverSample = 1; // includes the crossover sample at the end
+
+    while (true) {
+      // C render_wave.h:41-46 (all uint32 arithmetic)
+      long distanceTilNextCrossoverSample =
+          (-(resetterPhase & 0xFFFFFFFFL) - ((resetterPhaseIncrement & 0xFFFFFFFFL) >>> 1))
+              & 0xFFFFFFFFL;
+      samplesIncludingNextCrossoverSample +=
+          ((distanceTilNextCrossoverSample - 1) & 0xFFFFFFFFL)
+              / (resetterPhaseIncrement & 0xFFFFFFFFL);
+      boolean shouldBeginNextSyncAfter =
+          numSamplesThisOscSyncSession >= samplesIncludingNextCrossoverSample;
+      int numSamplesThisSyncRender =
+          (int)
+              (shouldBeginNextSyncAfter
+                  ? samplesIncludingNextCrossoverSample
+                  : numSamplesThisOscSyncSession);
+
+      if (table instanceof short[] st) {
+        renderWaveRawSegment(
+            st,
+            tableSizeMagnitude,
+            raw,
+            bufPos,
+            bufPos + numSamplesThisSyncRender,
+            phaseIncrement,
+            phase,
+            phaseToAdd);
+      } else {
+        renderWaveRawSegment(
+            (int[]) table,
+            tableSizeMagnitude,
+            raw,
+            bufPos,
+            bufPos + numSamplesThisSyncRender,
+            phaseIncrement,
+            phase,
+            phaseToAdd);
+      }
+
+      // C render_wave.h:55-61 — half-sine crossfade of the crossover sample at this window's start
+      if (renderedASyncFromItsStartYet) {
+        int average = (raw[bufPos] >> 1) + (crossoverSampleBeforeSync >> 1);
+        int halfDifference = (raw[bufPos] >> 1) - (crossoverSampleBeforeSync >> 1);
+        int sineValue = Functions.getSine(fadeBetweenSyncs >> 1, 32);
+        raw[bufPos] = average + (Functions.multiply_32x32_rshift32(halfDifference, sineValue) << 1);
+      }
+
+      if (shouldBeginNextSyncAfter) {
+        // C render_wave.h:63-84
+        bufPos += (int) samplesIncludingNextCrossoverSample - 1;
+        crossoverSampleBeforeSync = raw[bufPos];
+        numSamplesThisOscSyncSession -= samplesIncludingNextCrossoverSample - 1;
+        resetterPhase +=
+            resetterPhaseIncrement
+                * (int)
+                    (samplesIncludingNextCrossoverSample - (renderedASyncFromItsStartYet ? 1 : 0));
+        fadeBetweenSyncs =
+            Functions.multiply_32x32_rshift32(resetterPhase, resetterDivideByPhaseIncrement) << 17;
+        phase =
+            Functions.multiply_32x32_rshift32(fadeBetweenSyncs, phaseIncrement) + retriggerPhase;
+        phase -= phaseIncrement; // we're going back and redoing the last sample
+        renderedASyncFromItsStartYet = true;
+        samplesIncludingNextCrossoverSample = 2;
+        continue;
+      }
+
+      phase += phaseIncrement * numSamplesThisSyncRender;
+      break;
+    }
+
+    if (applyAmplitude) {
+      applyAmplitudeVectorToBuffer(
+          amplitude, numSamples, amplitudeIncrement, outputBuffer, offset, raw);
+    } else {
+      System.arraycopy(raw, 0, outputBuffer, offset, numSamples);
+    }
+    return phase;
+  }
+
   /**
    * Port of basic_waves.cpp renderWave + processing/vector_rendering_function.h
    * waveRenderingFunctionGeneral (scalar). Band-limited wavetable oscillator with linear
@@ -330,6 +509,27 @@ public final class Oscillator {
       // C: table = sineWaveSmall; tableSizeMagnitude = 8; goto callRenderWave (which does
       // amplitude<<=1; amplitudeIncrement<<=1). (oscillator.cpp:147-151). Same renderWave path as
       // saw/square — replaces the doFMNew reconstruction (doFMNew is for FM feedback, not the osc).
+      if (doOscSync) { // C callRenderWave sync branch (oscillator.cpp:476-498)
+        phase =
+            renderWaveSync(
+                LookupTables.sineWaveSmall,
+                8,
+                amplitude << 1,
+                buffer,
+                off,
+                numSamples,
+                phaseIncrement,
+                phase,
+                applyAmplitude,
+                0,
+                amplitudeIncrement << 1,
+                resetterPhase,
+                resetterPhaseInc,
+                resetterDivideByPhaseIncrement,
+                retriggerPhase);
+        maybeStorePhase(type, startPhase, phase, doPulseWave);
+        return;
+      }
       phase =
           renderWave(
               LookupTables.sineWaveSmall,
@@ -353,8 +553,22 @@ public final class Oscillator {
         // Low freq: use getTriangleSmall (crude but adequate)
         int ampNow = amplitude << 1;
         int ampInc2 = amplitudeIncrement << 1;
+        int rstPhase = resetterPhase;
         for (int i = 0; i < numSamples; i++) {
           phase += phaseIncrement;
+          // C oscillator.cpp:177-196 — per-sample hard-sync reset for the crude triangle.
+          if (doOscSync) {
+            rstPhase += resetterPhaseInc;
+            if (Integer.compareUnsigned(rstPhase, resetterPhaseInc) < 0) {
+              phase =
+                  (Functions.multiply_32x32_rshift32(
+                              Functions.multiply_32x32_rshift32(rstPhase, phaseIncrement),
+                              resetterDivideByPhaseIncrement)
+                          << 17)
+                      + 1
+                      + retriggerPhase;
+            }
+          }
           ampNow += ampInc2;
           int val = getTriangleSmall(phase);
           if (applyAmplitude) {
@@ -387,6 +601,27 @@ public final class Oscillator {
         } else {
           table = TriangleLookupTables.triangleWaveAntiAliasing1;
         }
+      }
+      if (doOscSync) { // C callRenderWave sync branch (oscillator.cpp:476-498)
+        phase =
+            renderWaveSync(
+                table,
+                tableSizeMagnitude,
+                amplitude,
+                buffer,
+                off,
+                numSamples,
+                phaseIncrement,
+                phase,
+                applyAmplitude,
+                0,
+                amplitudeIncrement,
+                resetterPhase,
+                resetterPhaseInc,
+                resetterDivideByPhaseIncrement,
+                retriggerPhase);
+        maybeStorePhase(type, startPhase, phase, doPulseWave);
+        return;
       }
       phase =
           renderWave(
@@ -457,6 +692,27 @@ public final class Oscillator {
               Math.min(tableNumber, SawLookupTables.sawWaveTables.length - 1)];
       // C: amplitude <<= 1; amplitudeIncrement <<= 1; before callRenderWave
       // (oscillator.cpp:470-471)
+      if (doOscSync) { // C callRenderWave sync branch (oscillator.cpp:476-498)
+        phase =
+            renderWaveSync(
+                sawTable,
+                tableSizeMagnitude,
+                amplitude << 1,
+                buffer,
+                off,
+                numSamples,
+                phaseIncrement,
+                phase,
+                applyAmplitude,
+                0,
+                amplitudeIncrement << 1,
+                resetterPhase,
+                resetterPhaseInc,
+                resetterDivideByPhaseIncrement,
+                retriggerPhase);
+        maybeStorePhase(type, startPhase, phase, doPulseWave);
+        return;
+      }
       phase =
           renderWave(
               sawTable,
@@ -499,6 +755,27 @@ public final class Oscillator {
               Math.min(tableNumber, SquareLookupTables.squareWaveTables.length - 1)];
       // C: amplitude <<= 1; amplitudeIncrement <<= 1; before callRenderWave
       // (oscillator.cpp:470-471)
+      if (doOscSync) { // C callRenderWave sync branch (oscillator.cpp:476-498)
+        phase =
+            renderWaveSync(
+                squareTable,
+                tableSizeMagnitude,
+                amplitude << 1,
+                buffer,
+                off,
+                numSamples,
+                phaseIncrement,
+                phase,
+                applyAmplitude,
+                0,
+                amplitudeIncrement << 1,
+                resetterPhase,
+                resetterPhaseInc,
+                resetterDivideByPhaseIncrement,
+                retriggerPhase);
+        maybeStorePhase(type, startPhase, phase, doPulseWave);
+        return;
+      }
       phase =
           renderWave(
               squareTable,

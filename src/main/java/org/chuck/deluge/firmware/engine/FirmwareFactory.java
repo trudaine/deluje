@@ -370,11 +370,12 @@ public class FirmwareFactory {
     sound.dx7EngineType = model.getEngineType();
     sound.dx7RandomDetune = model.getDx7RandomDetune();
 
-    // Retrigger Phases
+    // Retrigger Phases + oscillator hard sync
     sound.osc1RetriggerPhase = model.getOsc1RetrigPhase();
     sound.osc2RetriggerPhase = model.getOsc2RetrigPhase();
     sound.mod1RetrigPhase = model.getMod1RetrigPhase();
     sound.mod2RetrigPhase = model.getMod2RetrigPhase();
+    sound.oscillatorSync = model.isOscillatorSync();
 
     // Envelopes
     for (int i = 0; i < 4; i++) {
