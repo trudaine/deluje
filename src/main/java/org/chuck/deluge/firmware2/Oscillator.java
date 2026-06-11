@@ -23,7 +23,11 @@ public final class Oscillator {
     SAMPLE,
     // C definitions_cxx.hpp:367 has DX7 after SAMPLE (index 8); rendered per-source in
     // voice.cpp:2371.
-    DX7
+    DX7,
+    // Live-input sources (C OscType::INPUT_L/R/STEREO; rendered in voice.cpp:2232-2360).
+    INPUT_L,
+    INPUT_R,
+    INPUT_STEREO
   }
 
   // ── Helper: getTableNumber (port of dsp::getTableNumber) ──
