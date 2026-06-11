@@ -99,6 +99,49 @@ public class FirmwareFactory {
     // ── Copy all parameters and patch cables ──
     mapModelToSound(model, sound);
 
+    // ── Load samples if the oscillators are SAMPLE type ──
+    File sdRoot = PreferencesManager.getLibraryDir();
+    File devSamples = new File("deluge/src/main/resources");
+    if (!devSamples.exists()) {
+      devSamples = new File("src/main/resources");
+    }
+    if (sound.oscTypes[0] == OscType.SAMPLE) {
+      String path = model.getOsc1SamplePath();
+      if (path != null && !path.isEmpty()) {
+        File f = resolveSample(path, sdRoot, devSamples);
+        if (f != null && f.exists()) {
+          try {
+            Sample s = AudioFileReader.readSample(f.getAbsolutePath());
+            if (s != null) {
+              sound.samples[0] = s;
+              sound.fw2SampleCache[0] = org.chuck.deluge.firmware2.Sample.fromFirmwareSample(s);
+              System.out.println("[FirmwareFactory] Loaded synth sample 0: " + f.getName());
+            }
+          } catch (IOException e) {
+            System.err.println("[FirmwareFactory] Failed to load synth sample 0: " + path);
+          }
+        }
+      }
+    }
+    if (sound.oscTypes[1] == OscType.SAMPLE) {
+      String path = model.getOsc2SamplePath();
+      if (path != null && !path.isEmpty()) {
+        File f = resolveSample(path, sdRoot, devSamples);
+        if (f != null && f.exists()) {
+          try {
+            Sample s = AudioFileReader.readSample(f.getAbsolutePath());
+            if (s != null) {
+              sound.samples[1] = s;
+              sound.fw2SampleCache[1] = org.chuck.deluge.firmware2.Sample.fromFirmwareSample(s);
+              System.out.println("[FirmwareFactory] Loaded synth sample 1: " + f.getName());
+            }
+          } catch (IOException e) {
+            System.err.println("[FirmwareFactory] Failed to load synth sample 1: " + path);
+          }
+        }
+      }
+    }
+
     // ── Note rendering logic remains ──
     if (!model.getClips().isEmpty()) {
       ClipModel clipModel = model.getClips().get(0);

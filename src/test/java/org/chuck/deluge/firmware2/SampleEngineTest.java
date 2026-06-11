@@ -624,4 +624,54 @@ class SampleEngineTest {
     // startFrame 0, big crossfade ⇒ readByte < audioDataStart + halfCrossfadeBytes.
     org.junit.jupiter.api.Assertions.assertFalse(s.getAveragesForCrossfade(totals, 44, 400, 1, 35));
   }
+
+  @Test
+  void voiceSampleLoopAndOneShotBoundaries() {
+    int frames = 200;
+    Sample s = new Sample();
+    s.numChannels = 1;
+    s.byteDepth = 3;
+    s.lengthInSamples = frames;
+    s.data = new int[frames];
+    for (int i = 0; i < frames; i++) {
+      s.data[i] = i + 1000; // distinct value per frame
+    }
+
+    // 1. One-shot with custom bounds: start=10, end=90
+    VoiceSample v1 = new VoiceSample();
+    v1.setup(s, 10, 90, 1, false, 10);
+    int[] osc1 = new int[100];
+    int amp = 1 << 27;
+    v1.render(osc1, 100, 1, 16777216 /*unity*/, new int[] {amp}, 0);
+
+    // Should play from frame 10 to 89 (80 samples)
+    for (int i = 0; i < 80; i++) {
+      int exp = Functions.multiply_accumulate_32x32_rshift32_rounded(0, s.data[10 + i], amp);
+      assertEquals(exp, osc1[i], "custom one-shot play idx=" + i);
+    }
+    // Remaining 20 samples should be silence, and voice sample becomes inactive
+    for (int i = 80; i < 100; i++) {
+      assertEquals(0, osc1[i], "custom one-shot silence idx=" + i);
+    }
+    org.junit.jupiter.api.Assertions.assertFalse(v1.active, "one-shot goes inactive");
+
+    // 2. Looping with custom bounds: start=0, end=100, loopStart=20
+    VoiceSample v2 = new VoiceSample();
+    v2.setup(s, 0, 100, 1, true, 20);
+    int[] osc2 = new int[150];
+    v2.render(osc2, 150, 1, 16777216, new int[] {amp}, 0);
+
+    // Should play 0 to 99 (first 100 samples)
+    for (int i = 0; i < 100; i++) {
+      int exp = Functions.multiply_accumulate_32x32_rshift32_rounded(0, s.data[i], amp);
+      assertEquals(exp, osc2[i], "loop first pass idx=" + i);
+    }
+    // Then wrap to loopStart=20, so next 50 samples should play frame 20 to 69
+    for (int i = 100; i < 150; i++) {
+      int exp =
+          Functions.multiply_accumulate_32x32_rshift32_rounded(0, s.data[20 + (i - 100)], amp);
+      assertEquals(exp, osc2[i], "loop wrapped pass idx=" + i);
+    }
+    org.junit.jupiter.api.Assertions.assertTrue(v2.active, "looping stays active");
+  }
 }

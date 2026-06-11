@@ -1165,6 +1165,14 @@ public class DelugeXmlParser {
           LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
         }
       }
+      // Osc1 sample fileName (attribute or child element)
+      String osc1fn = osc1.getAttribute("fileName");
+      if (osc1fn == null || osc1fn.isBlank()) {
+        osc1fn = getChildText(osc1, "fileName");
+      }
+      if (osc1fn != null && !osc1fn.isBlank()) {
+        synth.setOsc1SamplePath(osc1fn);
+      }
     }
 
     // ── Oscillator retrigger phase for osc2 ──
@@ -1212,6 +1220,14 @@ public class DelugeXmlParser {
       readAttrBool(osc2, "timeStretchEnable", synth::setOsc2TimeStretch);
       readAttrFloatHex(osc2, "timeStretchAmount", synth::setOsc2TimeStretchAmount, true);
       readAttrBool(osc2, "linearInterpolation", synth::setOsc2LinearInterpolation);
+      // Osc2 sample fileName (attribute or child element)
+      String osc2fn = osc2.getAttribute("fileName");
+      if (osc2fn == null || osc2fn.isBlank()) {
+        osc2fn = getChildText(osc2, "fileName");
+      }
+      if (osc2fn != null && !osc2fn.isBlank()) {
+        synth.setOsc2SamplePath(osc2fn);
+      }
     }
 
     // ── Unison ──

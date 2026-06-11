@@ -23,6 +23,7 @@ public class SynthTrackModel extends TrackModel {
   private float osc1TimeStretchAmount = 0.0f;
   private int osc1Cents = 0; // fine detune in cents (-50 to 50)
   private boolean osc1LinearInterpolation = false;
+  private String osc1SamplePath = null;
 
   // Oscillator 2 sample-playback params (maps to firmware SampleRecorder/playback)
   private int osc2LoopMode = 0; // 0=off, 1=loop, 2=oneshot
@@ -30,6 +31,7 @@ public class SynthTrackModel extends TrackModel {
   private boolean osc2TimeStretch = false;
   private float osc2TimeStretchAmount = 0.0f;
   private boolean osc2LinearInterpolation = false;
+  private String osc2SamplePath = null;
 
   // Oscillator 2 transpose/detune
   private int osc2Transpose = 0; // semitones
@@ -298,6 +300,22 @@ public class SynthTrackModel extends TrackModel {
 
   public void setWaveIndex(float v) {
     this.waveIndex = v;
+  }
+
+  public String getOsc1SamplePath() {
+    return osc1SamplePath;
+  }
+
+  public void setOsc1SamplePath(String p) {
+    this.osc1SamplePath = p;
+  }
+
+  public String getOsc2SamplePath() {
+    return osc2SamplePath;
+  }
+
+  public void setOsc2SamplePath(String p) {
+    this.osc2SamplePath = p;
   }
 
   public int getOsc1LoopMode() {

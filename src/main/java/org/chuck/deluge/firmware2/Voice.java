@@ -27,10 +27,6 @@ public class Voice {
   /** C: voice.h:70 — {@code inputCharacteristics[2]} (NOTE, CHANNEL). */
   public final int[] inputCharacteristics = {60, -1};
 
-  // Phase increments per source
-  public int phaseIncrementA;
-  public int phaseIncrementB;
-
   // Envelope array (4 per voice: amp + 3 modulation)
   public final Envelope[] envelopes = new Envelope[4];
 
@@ -40,8 +36,9 @@ public class Voice {
   /** Test seam: override osc2 initial phase. -2 = use random (default). */
   public static int testStartPhaseOverrideOsc2 = -2;
 
-  // Per-source oscillators (2 sources: osc A, osc B)
-  public final VoiceSource[] sources = new VoiceSource[2];
+  // Unison parts and per-source oscillators
+  public final VoiceUnisonPart[] unisonParts = new VoiceUnisonPart[Sound.kMaxNumVoicesUnison];
+  public final VoiceSource[] sources;
 
   // Param final values (output of patcher)
   public final int[] paramFinalValues = new int[Param.kNumParams];
@@ -69,10 +66,7 @@ public class Voice {
    */
   public final int[] localExpressionSourceValuesBeforeSmoothing = new int[3];
 
-  // FM modulator state
-  public final int[] modulatorPhase = {0, 0};
-  public final int[] modulatorPhaseIncrement = new int[2];
-  public final int[] modulatorFeedback = {0, 0};
+  // FM modulator state (increments and phase are now in unisonParts)
   public int[] modulatorAmplitudeLastTime = {0, 0};
   public int[] modulatorAmplitudeIncrements = new int[2];
 
@@ -94,19 +88,19 @@ public class Voice {
   public final Lfo lfo2 = new Lfo();
   public final Lfo lfo4 = new Lfo();
 
-  // Per-source DX7 voices (mirror voice.cpp unisonParts[u].sources[s].dxVoice; OscType::DX7).
-  public final Dx7Voice[] dxVoice = {new Dx7Voice(), new Dx7Voice()};
-  public final Dx7Voice.DxPatch[] dxPatch = {new Dx7Voice.DxPatch(), new Dx7Voice.DxPatch()};
-
   public Voice(Sound sound) {
     this.sound = sound;
     for (int i = 0; i < envelopes.length; i++) envelopes[i] = new Envelope();
-    for (int i = 0; i < sources.length; i++) sources[i] = new VoiceSource();
-    // Seed paramFinalValues with the static per-param neutral (C: paramNeutralValues[p] =
-    // getParamNeutralValue(p), functions.cpp:175-181). This is only a placeholder:
-    // performInitialPatching (FirmwareSound:520) recomputes EVERY param before the first render
-    // (C: voice.cpp:201), so the seed never reaches audio. (fw2 Sound has no paramNeutralValues
-    // field — the knobs live in the bridge as patchedParamValues.)
+    for (int i = 0; i < unisonParts.length; i++) {
+      unisonParts[i] = new VoiceUnisonPart();
+      for (int s = 0; s < 2; s++) {
+        unisonParts[i].sources[s].voiceRef = this;
+        unisonParts[i].sources[s].sourceIdx = s;
+      }
+    }
+    this.sources = unisonParts[0].sources;
+
+    // Seed paramFinalValues with the static per-param neutral
     for (int i = 0; i < Param.kNumParams; i++) {
       paramFinalValues[i] = Functions.getParamNeutralValue(i);
     }
@@ -119,6 +113,9 @@ public class Voice {
   // ── VoiceSource (port of VoiceUnisonPartSource) ──
 
   public static class VoiceSource {
+    public Voice voiceRef;
+    public int sourceIdx;
+
     public int oscPos; // 32-bit phase accumulator
     public OscType oscType = OscType.SINE;
     public int carrierFeedback; // FM carrier feedback memory
@@ -130,17 +127,50 @@ public class Voice {
     public Sample sampleRef; // the fw2 Sample backing this source
     public int timeStretchRatio = 16777216; // 1 << 24 ≡ 1.0 (no time-stretch)
 
+    public final Dx7Voice dxVoice = new Dx7Voice();
+    public final Dx7Voice.DxPatch dxPatch = new Dx7Voice.DxPatch();
+
     public void setupSample(Sample fw2Sample, int startFrame, int playDirection) {
-      sampleRef = fw2Sample;
-      voiceSample.active = false; // reset any prior time-stretch state
-      voiceSample.setup(fw2Sample, startFrame, playDirection);
+      int end = (playDirection == 1) ? (int) fw2Sample.lengthInSamples : -1;
+      setupSample(fw2Sample, startFrame, end, playDirection, false, startFrame);
+    }
+
+    public void setupSample(
+        Sample fw2Sample,
+        int startFrame,
+        int endFrame,
+        int playDirection,
+        boolean looping,
+        int loopStartFrame) {
+      if (voiceRef != null) {
+        for (int u = 0; u < voiceRef.sound.numUnison; u++) {
+          VoiceSource vs = voiceRef.unisonParts[u].sources[sourceIdx];
+          vs.sampleRef = fw2Sample;
+          vs.voiceSample.active = false; // reset any prior time-stretch state
+          vs.voiceSample.setup(
+              fw2Sample, startFrame, endFrame, playDirection, looping, loopStartFrame);
+        }
+      } else {
+        sampleRef = fw2Sample;
+        voiceSample.active = false;
+        voiceSample.setup(fw2Sample, startFrame, endFrame, playDirection, looping, loopStartFrame);
+      }
     }
 
     public void setupSampleTimeStretch(
         Sample fw2Sample, int startFrame, int playDirection, int tsRatio) {
-      sampleRef = fw2Sample;
-      timeStretchRatio = tsRatio;
-      voiceSample.setupTimeStretch(fw2Sample, startFrame, playDirection);
+      if (voiceRef != null) {
+        for (int u = 0; u < voiceRef.sound.numUnison; u++) {
+          VoiceSource vs = voiceRef.unisonParts[u].sources[sourceIdx];
+          vs.sampleRef = fw2Sample;
+          vs.timeStretchRatio = tsRatio;
+          vs.voiceSample.setupTimeStretch(fw2Sample, startFrame, playDirection);
+        }
+      } else {
+        sampleRef = fw2Sample;
+        timeStretchRatio = tsRatio;
+        voiceSample.setupTimeStretch(fw2Sample, startFrame, playDirection);
+      }
     }
   }
 
@@ -197,16 +227,20 @@ public class Voice {
     this.velocity = velocity;
     this.active = true;
     for (Envelope e : envelopes) e.noteOn(false);
-    for (VoiceSource s : sources) {
-      s.active = true;
-      int ovr = (s == sources[0]) ? testStartPhaseOverrideOsc1 : testStartPhaseOverrideOsc2;
-      s.oscPos = (ovr != -2) ? ovr : (Functions.getNoise() & 0x7FFFFFFF); // random initial phase
-      s.carrierFeedback = 0;
+
+    for (int u = 0; u < sound.numUnison; u++) {
+      for (int s = 0; s < 2; s++) {
+        VoiceSource vs = unisonParts[u].sources[s];
+        vs.active = true;
+        int ovr = (s == 0) ? testStartPhaseOverrideOsc1 : testStartPhaseOverrideOsc2;
+        vs.oscPos = (ovr != -2) ? ovr : (Functions.getNoise() & 0x7FFFFFFF); // random initial phase
+        vs.carrierFeedback = 0;
+      }
+      unisonParts[u].modulatorPhase[0] = 0;
+      unisonParts[u].modulatorPhase[1] = 0;
+      unisonParts[u].modulatorFeedback[0] = 0;
+      unisonParts[u].modulatorFeedback[1] = 0;
     }
-    modulatorPhase[0] = 0;
-    modulatorPhase[1] = 0;
-    modulatorFeedback[0] = 0;
-    modulatorFeedback[1] = 0;
     overallOscAmplitudeLastTime = 0;
 
     // Line-for-line note setting
@@ -244,12 +278,15 @@ public class Voice {
       }
     }
 
-    // Per-source DX7 init (sources[s].oscType == OscType::DX7 -> set up dxVoice).
-    for (int s = 0; s < 2; s++) {
-      if (sound.oscTypes[s] == OscType.DX7 && sound.sourceDx7Patch[s] != null) {
-        System.arraycopy(sound.sourceDx7Patch[s], 0, dxPatch[s].params, 0, 156);
-        dxPatch[s].updateEngineMode(); // select modern vs MkI from the loaded algo/feedback
-        dxVoice[s].init(dxPatch[s], midiNote, velocity);
+    // Per-source DX7 init
+    for (int u = 0; u < sound.numUnison; u++) {
+      for (int s = 0; s < 2; s++) {
+        VoiceSource vs = unisonParts[u].sources[s];
+        if (sound.oscTypes[s] == OscType.DX7 && sound.sourceDx7Patch[s] != null) {
+          System.arraycopy(sound.sourceDx7Patch[s], 0, vs.dxPatch.params, 0, 156);
+          vs.dxPatch.updateEngineMode(); // select modern vs MkI from the loaded algo/feedback
+          vs.dxVoice.init(vs.dxPatch, midiNote, velocity);
+        }
       }
     }
   }
@@ -411,32 +448,50 @@ public class Voice {
     }
     int carrierIncB = carrierIncA;
 
+    // Apply unison detune
+    for (int u = 0; u < sound.numUnison; u++) {
+      int pIncA = carrierIncA;
+      int pIncB = carrierIncB;
+      if (sound.numUnison > 1) {
+        pIncA = sound.unisonDetuners[u].detune(pIncA);
+        pIncB = sound.unisonDetuners[u].detune(pIncB);
+      }
+      unisonParts[u].sources[0].phaseIncrementStoredValue = pIncA;
+      unisonParts[u].sources[1].phaseIncrementStoredValue = pIncB;
+    }
+
+    // FM modulators
+    if (sound.synthMode == 1) { // FM
+      int overallPitchAdjust = paramFinalValues[Param.LOCAL_PITCH_ADJUST];
+      for (int m = 0; m < 2; m++) {
+        if (paramFinalValues[Param.LOCAL_MODULATOR_0_VOLUME + m] == Integer.MIN_VALUE) {
+          for (int u = 0; u < sound.numUnison; u++) {
+            unisonParts[u].modulatorPhaseIncrement[m] = 0xFFFFFFFF; // inactive
+          }
+          continue;
+        }
+
+        int modInc = calculateBasePhaseIncrement(noteCode + sound.modulatorTranspose[m]);
+        if (modInc <= 0) {
+          for (int u = 0; u < sound.numUnison; u++) {
+            unisonParts[u].modulatorPhaseIncrement[m] = 0xFFFFFFFF; // inactive
+          }
+          continue;
+        }
+
+        modInc = sound.modulatorTransposers[m].detune(modInc);
+
+        for (int u = 0; u < sound.numUnison; u++) {
+          if (sound.numUnison == 1) {
+            unisonParts[u].modulatorPhaseIncrement[m] = modInc;
+          } else {
+            unisonParts[u].modulatorPhaseIncrement[m] = sound.unisonDetuners[u].detune(modInc);
+          }
+        }
+      }
+    }
+
     int overallPitchAdjust = paramFinalValues[Param.LOCAL_PITCH_ADJUST];
-
-    int pIncA = adjustPitch(carrierIncA, overallPitchAdjust);
-    if (pIncA < 0) {
-      active = false;
-      return false;
-    }
-    pIncA = adjustPitch(pIncA, paramFinalValues[Param.LOCAL_OSC_A_PITCH_ADJUST]);
-    if (pIncA < 0) {
-      active = false;
-      return false;
-    }
-
-    int pIncB = adjustPitch(carrierIncB, overallPitchAdjust);
-    if (pIncB < 0) {
-      active = false;
-      return false;
-    }
-    pIncB = adjustPitch(pIncB, paramFinalValues[Param.LOCAL_OSC_B_PITCH_ADJUST]);
-    if (pIncB < 0) {
-      active = false;
-      return false;
-    }
-
-    phaseIncrementA = pIncA;
-    phaseIncrementB = pIncB;
 
     // ── 6. Per-source rendering (lines 950-1400) ──
     // Overall osc amplitude: envelope 0 (unipolar lastValue) * LOCAL_VOLUME
@@ -447,8 +502,8 @@ public class Voice {
         Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(env0Gain, trackVol), 2);
 
     // Prepare the filters and the makeup gain (voice.cpp:991-997). Configure ONCE here; filterGain
-    // is
-    // folded into the per-source amplitudes below (subtractive), and overallOscAmplitude is applied
+    // is folded into the per-source amplitudes below (subtractive), and overallOscAmplitude is
+    // applied
     // AFTER the filter in applyFilterAndGain. "Level adjustment for unison happens *before* the
     // filter."
     FilterSet.FilterMode lpfModeVal = doLPF ? sound.lpfMode : FilterSet.FilterMode.OFF;
@@ -468,15 +523,13 @@ public class Voice {
     boolean hasFilters =
         (lpfModeVal != FilterSet.FilterMode.OFF) || (hpfModeVal != FilterSet.FilterMode.OFF);
 
-    // Prepare scratch buffers: 2 mono source buffers + stereo output buffer
-    int[] sourceBuf = new int[numSamples * 2]; // osc A + osc B mono
+    // Prepare scratch buffers: stereo output buffer
     int[] mixBuf = new int[numSamples * 2]; // stereo interleaved output
-    java.util.Arrays.fill(sourceBuf, 0, numSamples * 2, 0);
     java.util.Arrays.fill(mixBuf, 0, numSamples * 2, 0);
 
     // ── FM path (voice.cpp:1400-1560) ──
     if (sound.synthMode == 1) { // FM
-      renderFmPath(mixBuf, numSamples, pIncA, pIncB);
+      renderFmPath(mixBuf, numSamples);
       // Apply filter + pan + gain after FM
       applyFilterAndGain(mixBuf, numSamples, doLPF, doHPF);
       // Copy to output
@@ -489,58 +542,111 @@ public class Voice {
 
     // ── Source rendering + mix (voice.cpp:1039-1052, 1260-1370) ──
     if (sound.synthMode == 2) {
-      // RINGMOD (voice.cpp:1309-1370): render BOTH oscs at FIXED amplitude (applyAmplitude=false),
-      // then ring-modulate, scaled by amplitudeForRingMod. overallOscAmplitude is applied AFTER the
-      // filter (in applyFilterAndGain), same as subtractive.
-      int amplitudeForRingMod = 1 << 27;
-      if (hasFilters) {
-        amplitudeForRingMod =
-            Functions.multiply_32x32_rshift32_rounded(amplitudeForRingMod, filterGain) << 4;
-      }
-      for (int s = 0; s < 2; s++) {
-        int pInc = (s == 0) ? pIncA : pIncB;
-        int pulseWidth =
-            Functions.lshiftAndSaturate(paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH + s], 1);
-        int[] phase = {sources[s].oscPos};
+      // RINGMOD (voice.cpp:1309-1370)
+      int[] tempBufA = new int[numSamples];
+      int[] tempBufB = new int[numSamples];
+      boolean stereoUnison = sound.unisonStereoSpread != 0 && sound.numUnison > 1;
+
+      for (int u = 0; u < sound.numUnison; u++) {
+        int[] ampLR = new int[2];
+        boolean doPanning = shouldDoPanning(stereoUnison ? sound.unisonPan[u] : 0, ampLR);
+
+        VoiceSource vsA = unisonParts[u].sources[0];
+        VoiceSource vsB = unisonParts[u].sources[1];
+
+        int pIncA = vsA.phaseIncrementStoredValue;
+        int pIncB = vsB.phaseIncrementStoredValue;
+
+        pIncA = adjustPitch(pIncA, overallPitchAdjust);
+        if (pIncA < 0) continue;
+        pIncA = adjustPitch(pIncA, paramFinalValues[Param.LOCAL_OSC_A_PITCH_ADJUST]);
+        if (pIncA < 0) continue;
+
+        pIncB = adjustPitch(pIncB, overallPitchAdjust);
+        if (pIncB < 0) continue;
+        pIncB = adjustPitch(pIncB, paramFinalValues[Param.LOCAL_OSC_B_PITCH_ADJUST]);
+        if (pIncB < 0) continue;
+
+        java.util.Arrays.fill(tempBufA, 0);
+        java.util.Arrays.fill(tempBufB, 0);
+
+        int amplitudeForRingMod = 1 << 27;
+        if (hasFilters) {
+          amplitudeForRingMod =
+              Functions.multiply_32x32_rshift32_rounded(amplitudeForRingMod, filterGain) << 4;
+        }
+
+        int pulseWidthA =
+            Functions.lshiftAndSaturate(paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH], 1);
+        int[] phaseA = {vsA.oscPos};
         Oscillator.renderOsc(
-            sound.oscTypes[s],
+            sound.oscTypes[0],
             0,
-            sourceBuf,
-            s * numSamples,
+            tempBufA,
+            0,
             numSamples,
-            pInc,
-            pulseWidth,
-            phase,
+            pIncA,
+            pulseWidthA,
+            phaseA,
             false,
             0,
             false,
             0,
             0,
             0);
-        sources[s].oscPos = phase[0];
-        // Sine/triangle come out bigger in fixed-amplitude rendering; compensate for the others.
-        OscType ot = sound.oscTypes[s];
-        if (ot == OscType.SAW || ot == OscType.ANALOG_SAW_2) {
+        vsA.oscPos = phaseA[0];
+        if (sound.oscTypes[0] == OscType.SAW || sound.oscTypes[0] == OscType.ANALOG_SAW_2) {
           amplitudeForRingMod <<= 1;
-        } else if (ot == OscType.WAVETABLE) {
+        } else if (sound.oscTypes[0] == OscType.WAVETABLE) {
           amplitudeForRingMod <<= 2;
         }
-      }
-      for (int i = 0; i < numSamples; i++) {
-        int out =
-            Functions.multiply_32x32_rshift32_rounded(
-                Functions.multiply_32x32_rshift32(sourceBuf[i], sourceBuf[numSamples + i]),
-                amplitudeForRingMod);
-        mixBuf[i * 2] = out;
-        mixBuf[i * 2 + 1] = out;
+
+        int pulseWidthB =
+            Functions.lshiftAndSaturate(paramFinalValues[Param.LOCAL_OSC_B_PHASE_WIDTH], 1);
+        int[] phaseB = {vsB.oscPos};
+        Oscillator.renderOsc(
+            sound.oscTypes[1],
+            0,
+            tempBufB,
+            0,
+            numSamples,
+            pIncB,
+            pulseWidthB,
+            phaseB,
+            false,
+            0,
+            false,
+            0,
+            0,
+            0);
+        vsB.oscPos = phaseB[0];
+        if (sound.oscTypes[1] == OscType.SAW || sound.oscTypes[1] == OscType.ANALOG_SAW_2) {
+          amplitudeForRingMod <<= 1;
+        } else if (sound.oscTypes[1] == OscType.WAVETABLE) {
+          amplitudeForRingMod <<= 2;
+        }
+
+        for (int i = 0; i < numSamples; i++) {
+          int out =
+              Functions.multiply_32x32_rshift32_rounded(
+                  Functions.multiply_32x32_rshift32(tempBufA[i], tempBufB[i]), amplitudeForRingMod);
+          if (stereoUnison) {
+            int l = Functions.multiply_32x32_rshift32(out, ampLR[0]) << 2;
+            int r = Functions.multiply_32x32_rshift32(out, ampLR[1]) << 2;
+            mixBuf[i * 2] = Functions.add_saturate(mixBuf[i * 2], l);
+            mixBuf[i * 2 + 1] = Functions.add_saturate(mixBuf[i * 2 + 1], r);
+          } else {
+            mixBuf[i * 2] = Functions.add_saturate(mixBuf[i * 2], out);
+            mixBuf[i * 2 + 1] = Functions.add_saturate(mixBuf[i * 2 + 1], out);
+          }
+        }
       }
     } else {
       // SUBTRACTIVE (voice.cpp:1042-1049): source-volume scaling applied during osc render
-      // (>>4 no-filter, or *filterGain with filter); overallOscAmplitude applied AFTER the filter.
+      int[] tempBuf = new int[numSamples];
+      boolean stereoUnison = sound.unisonStereoSpread != 0 && sound.numUnison > 1;
+
       for (int s = 0; s < 2; s++) {
-        // C: voice.cpp:1189 — isSourceActiveCurrently(s): skip sample sources that have no
-        // audio file loaded. Without this, a sample-less drum renders silence through the osc
-        // path (or worse, falls through to osc B which IS active).
         if (!sound.isSourceActiveCurrently(s, sources[s].sampleRef != null)) continue;
 
         int srcAmp =
@@ -548,91 +654,98 @@ public class Voice {
                 ? Functions.multiply_32x32_rshift32_rounded(
                     paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s], filterGain)
                 : paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s] >> 4;
-        if (srcAmp <= 0 && sources[s].sampleRef == null) continue;
-        int pInc = (s == 0) ? pIncA : pIncB;
 
-        // Sample playback path (bypasses oscillator when a Sample is attached to this source).
-        if (sources[s].sampleRef != null) {
-          VoiceSample vs = sources[s].voiceSample;
-          // Kit drums zero LOCAL_OSC_A_VOLUME to silence the oscillator — samples need their
-          // own baseline amplitude. The sample reader applies its own per-sample scaling; this
-          // is the "source gain" before the voice's overall amplitude chain, equivalent to the
-          // per-source volume for oscillators. Minimum = 1 << 26 (unity through the >> 4 path).
-          int sampAmp =
-              (srcAmp > 0)
-                  ? srcAmp
-                  : Math.max(paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s] >> 4, 1 << 26);
-          if (vs.timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER]
-              || vs.timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER]) {
-            int[] tsBuf = new int[numSamples * 2];
-            int[] ampArr = {sampAmp};
-            vs.renderTimeStretched(
-                tsBuf, numSamples, 2, pInc, sources[s].timeStretchRatio, ampArr, 0);
-            for (int i = 0; i < numSamples; i++) {
-              sourceBuf[s * numSamples + i] = (tsBuf[i * 2] + tsBuf[i * 2 + 1]) >> 1;
+        for (int u = 0; u < sound.numUnison; u++) {
+          VoiceSource vs = unisonParts[u].sources[s];
+          if (!vs.active) continue;
+
+          int pInc = vs.phaseIncrementStoredValue;
+          pInc = adjustPitch(pInc, overallPitchAdjust);
+          if (pInc < 0) continue;
+          pInc = adjustPitch(pInc, paramFinalValues[Param.LOCAL_OSC_A_PITCH_ADJUST + s]);
+          if (pInc < 0) continue;
+
+          int[] ampLR = new int[2];
+          shouldDoPanning(stereoUnison ? sound.unisonPan[u] : 0, ampLR);
+
+          java.util.Arrays.fill(tempBuf, 0);
+
+          // Sample playback path (bypasses oscillator when a Sample is attached to this source).
+          if (vs.sampleRef != null) {
+            int sampAmp =
+                (srcAmp > 0)
+                    ? srcAmp
+                    : Math.max(paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s] >> 4, 1 << 26);
+            if (vs.voiceSample.timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER]
+                || vs.voiceSample
+                    .timeStretcher
+                    .playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER]) {
+              int[] tsBuf = new int[numSamples * 2];
+              int[] ampArr = {sampAmp};
+              vs.voiceSample.renderTimeStretched(
+                  tsBuf, numSamples, 2, pInc, vs.timeStretchRatio, ampArr, 0);
+              for (int i = 0; i < numSamples; i++) {
+                tempBuf[i] = (tsBuf[i * 2] + tsBuf[i * 2 + 1]) >> 1;
+              }
+              if (!vs.voiceSample.active) vs.active = false;
+            } else if (vs.voiceSample.active) {
+              int[] ampArr = {sampAmp};
+              vs.voiceSample.render(tempBuf, numSamples, 1, pInc, ampArr, 0);
+              if (!vs.voiceSample.active) vs.active = false;
             }
-            if (!vs.active) sources[s].active = false;
-          } else if (vs.active) {
-            int[] sampBuf = new int[numSamples];
-            int[] ampArr = {sampAmp};
-            vs.render(sampBuf, numSamples, 1, pInc, ampArr, 0);
-            System.arraycopy(sampBuf, 0, sourceBuf, s * numSamples, numSamples);
-            if (!vs.active) sources[s].active = false;
-          }
-          continue;
-        }
+          } else if (sound.oscTypes[s] == OscType.DX7) {
+            if (vs.dxVoice.patch == null && sound.sourceDx7Patch[s] != null) {
+              System.arraycopy(sound.sourceDx7Patch[s], 0, vs.dxPatch.params, 0, 156);
+              vs.dxPatch.updateEngineMode();
+              vs.dxVoice.init(vs.dxPatch, note, velocity);
+            }
+            if (vs.dxVoice.patch == null) continue;
 
-        if (srcAmp <= 0) continue;
-        if (sound.oscTypes[s] == OscType.DX7) {
-          // voice.cpp:2360-2387 — per-source DX7. adjpitch = (int)(log2f(phaseIncrement)*(1<<24)) -
-          // 278023814; ctrl.ampmod = LOCAL_OSC_A_PHASE_WIDTH[s] >> 13;
-          // dxVoice->compute(uniBuf,...);
-          // then oscBuffer += multiply_32x32_rshift32(uniBuf[i], sourceAmplitude) << 6.
-          if (dxVoice[s].patch == null && sound.sourceDx7Patch[s] != null) {
-            // chuckjava sets oscType=DX7 per render block (after noteOn), so init the DxVoice here.
-            System.arraycopy(sound.sourceDx7Patch[s], 0, dxPatch[s].params, 0, 156);
-            dxPatch[s].updateEngineMode();
-            dxVoice[s].init(dxPatch[s], note, velocity);
+            int logpitch = (int) (Math.log(pInc & 0xFFFFFFFFL) / Math.log(2.0) * (1 << 24));
+            int adjpitch = logpitch - 278023814;
+            int ampMod = paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH + s] >> 13;
+            vs.dxPatch.computeLfo(numSamples);
+            int[] uniBuf = new int[numSamples];
+            vs.dxVoice.compute(uniBuf, numSamples, adjpitch, vs.dxPatch, ampMod, 0, 0);
+            for (int i = 0; i < numSamples; i++) {
+              tempBuf[i] = Functions.multiply_32x32_rshift32(uniBuf[i], srcAmp) << 6;
+            }
+          } else {
+            int[] phase = {vs.oscPos};
+            Oscillator.renderOsc(
+                sound.oscTypes[s],
+                srcAmp,
+                tempBuf,
+                0,
+                numSamples,
+                pInc,
+                0,
+                phase,
+                true,
+                0,
+                false,
+                0,
+                0,
+                0);
+            vs.oscPos = phase[0];
           }
-          if (dxVoice[s].patch == null) continue; // no patch -> nothing to render
-          int logpitch = (int) (Math.log(pInc & 0xFFFFFFFFL) / Math.log(2.0) * (1 << 24));
-          int adjpitch = logpitch - 278023814;
-          int ampMod = paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH + s] >> 13;
-          dxPatch[s].computeLfo(numSamples);
-          int[] uniBuf = new int[numSamples];
-          dxVoice[s].compute(uniBuf, numSamples, adjpitch, dxPatch[s], ampMod, 0, 0);
-          for (int i = 0; i < numSamples; i++) {
-            sourceBuf[s * numSamples + i] =
-                Functions.multiply_32x32_rshift32(uniBuf[i], srcAmp) << 6;
+
+          if (stereoUnison) {
+            for (int i = 0; i < numSamples; i++) {
+              int out = tempBuf[i];
+              int l = Functions.multiply_32x32_rshift32(out, ampLR[0]) << 2;
+              int r = Functions.multiply_32x32_rshift32(out, ampLR[1]) << 2;
+              mixBuf[i * 2] = Functions.add_saturate(mixBuf[i * 2], l);
+              mixBuf[i * 2 + 1] = Functions.add_saturate(mixBuf[i * 2 + 1], r);
+            }
+          } else {
+            for (int i = 0; i < numSamples; i++) {
+              int out = tempBuf[i];
+              mixBuf[i * 2] = Functions.add_saturate(mixBuf[i * 2], out);
+              mixBuf[i * 2 + 1] = Functions.add_saturate(mixBuf[i * 2 + 1], out);
+            }
           }
-          continue;
         }
-        int[] phase = {sources[s].oscPos};
-        Oscillator.renderOsc(
-            sound.oscTypes[s],
-            srcAmp,
-            sourceBuf,
-            s * numSamples,
-            numSamples,
-            pInc,
-            0,
-            phase,
-            true,
-            0,
-            false,
-            0,
-            0,
-            0);
-        sources[s].oscPos = phase[0];
-      }
-      // Mix both sources into stereo (voices sum into both channels)
-      for (int i = 0; i < numSamples; i++) {
-        int mix =
-            Functions.add_saturate(
-                (sources[0].active ? sourceBuf[i] : 0),
-                (sources[1].active ? sourceBuf[numSamples + i] : 0));
-        mixBuf[i * 2] = mix;
-        mixBuf[i * 2 + 1] = mix;
       }
     }
 
@@ -678,13 +791,12 @@ public class Voice {
 
   // ── FM render path ──
 
-  private int getModulatorInc(int m, int overallPitchAdjust) {
+  private int getModulatorInc(int m, int overallPitchAdjust, int u) {
     // voice.cpp:533-553 — modulator phase increment from the note frequency table + the modulator's
-    // semitone transpose, then a cents detune. NOT carrierInc*ratio (that was a float
-    // reconstruction).
-    int modInc = calculateBasePhaseIncrement(noteCode + sound.modulatorTranspose[m]);
-    if (modInc <= 0) return 0; // shiftRightAmount < 0 → too high; C marks it inactive
-    modInc = sound.modulatorTransposers[m].detune(modInc); // cents
+    // semitone transpose, then a cents detune.
+    int modInc = unisonParts[u].modulatorPhaseIncrement[m];
+    if (modInc <= 0 || modInc == 0xFFFFFFFF)
+      return 0; // shiftRightAmount < 0 → too high; C marks it inactive
     // voice.cpp:1387-1401 — overall pitch adjust (incl. bend) + per-modulator pitch adjust param.
     modInc = adjustPitch(modInc, overallPitchAdjust);
     if (modInc < 0) return 0;
@@ -693,121 +805,166 @@ public class Voice {
     return modInc;
   }
 
-  private void renderFmPath(int[] buffer, int numSamples, int carrierIncA, int carrierIncB) {
+  private void renderFmPath(int[] mixBuf, int numSamples) {
     int modAmp0 = paramFinalValues[Param.LOCAL_MODULATOR_0_VOLUME];
     int modAmp1 = paramFinalValues[Param.LOCAL_MODULATOR_1_VOLUME];
     boolean mod0Active = modAmp0 != 0;
     boolean mod1Active = modAmp1 != 0;
 
     int[] fmBuf = new int[numSamples]; // modulation buffer
-    boolean carriersAreSine = false;
+    int[] fmOscBuffer = new int[numSamples]; // mono temp buffer for carriers
 
     int overallPitchAdjust = paramFinalValues[Param.LOCAL_PITCH_ADJUST];
-    int modInc0 = getModulatorInc(0, overallPitchAdjust);
-    int modInc1 = getModulatorInc(1, overallPitchAdjust);
+    boolean stereoUnison = sound.unisonStereoSpread != 0 && sound.numUnison > 1;
 
-    if (mod1Active) {
-      renderSineWaveWithFeedback(
-          fmBuf,
-          numSamples,
-          modulatorPhase,
-          1,
-          modAmp1,
-          modInc1,
-          paramFinalValues[Param.LOCAL_MODULATOR_1_FEEDBACK],
-          modulatorFeedback,
-          1,
-          false);
-      if (sound.modulator1ToModulator0 && mod0Active) {
-        renderFMWithFeedback(
-            fmBuf,
-            numSamples,
-            modulatorPhase,
-            0,
-            modAmp0,
-            modInc0,
-            paramFinalValues[Param.LOCAL_MODULATOR_0_FEEDBACK],
-            modulatorFeedback,
-            0);
-      } else if (!sound.modulator1ToModulator0 && mod0Active) {
+    for (int u = 0; u < sound.numUnison; u++) {
+      boolean carriersAreSine = false;
+      int modInc0 = getModulatorInc(0, overallPitchAdjust, u);
+      int modInc1 = getModulatorInc(1, overallPitchAdjust, u);
+
+      boolean mod0ActiveThisUnison = mod0Active && modInc0 > 0;
+      boolean mod1ActiveThisUnison = mod1Active && modInc1 > 0;
+
+      java.util.Arrays.fill(fmBuf, 0);
+      java.util.Arrays.fill(fmOscBuffer, 0);
+
+      if (mod1ActiveThisUnison) {
         renderSineWaveWithFeedback(
             fmBuf,
             numSamples,
-            modulatorPhase,
+            unisonParts[u].modulatorPhase,
+            1,
+            modAmp1,
+            modInc1,
+            paramFinalValues[Param.LOCAL_MODULATOR_1_FEEDBACK],
+            unisonParts[u].modulatorFeedback,
+            1,
+            false);
+        if (sound.modulator1ToModulator0 && mod0ActiveThisUnison) {
+          renderFMWithFeedback(
+              fmBuf,
+              numSamples,
+              unisonParts[u].modulatorPhase,
+              0,
+              modAmp0,
+              modInc0,
+              paramFinalValues[Param.LOCAL_MODULATOR_0_FEEDBACK],
+              unisonParts[u].modulatorFeedback,
+              0);
+        } else if (!sound.modulator1ToModulator0 && mod0ActiveThisUnison) {
+          renderSineWaveWithFeedback(
+              fmBuf,
+              numSamples,
+              unisonParts[u].modulatorPhase,
+              0,
+              modAmp0,
+              modInc0,
+              paramFinalValues[Param.LOCAL_MODULATOR_0_FEEDBACK],
+              unisonParts[u].modulatorFeedback,
+              0,
+              true);
+        }
+      } else if (mod0ActiveThisUnison) {
+        renderSineWaveWithFeedback(
+            fmBuf,
+            numSamples,
+            unisonParts[u].modulatorPhase,
             0,
             modAmp0,
             modInc0,
             paramFinalValues[Param.LOCAL_MODULATOR_0_FEEDBACK],
-            modulatorFeedback,
+            unisonParts[u].modulatorFeedback,
             0,
-            true);
+            false);
+      } else {
+        carriersAreSine = true;
       }
-    } else if (mod0Active) {
-      renderSineWaveWithFeedback(
-          fmBuf,
-          numSamples,
-          modulatorPhase,
-          0,
-          modAmp0,
-          modInc0,
-          paramFinalValues[Param.LOCAL_MODULATOR_0_FEEDBACK],
-          modulatorFeedback,
-          0,
-          false);
-    } else {
-      carriersAreSine = true;
-    }
 
-    // FM (voice.cpp:1024-1037): fold overallOscAmplitude (env0 * LOCAL_VOLUME) into the carrier
-    // amplitudes with the unison level adjustment, capped at 134217727. For FM the overall amp is
-    // applied HERE (applyFilterAndGain skips the post-filter overall-amp for synthMode==FM).
-    int overallForCarriers =
-        Functions.multiply_32x32_rshift32_rounded(
-                overallOscAmplitudeLastTime, sound.volumeNeutralValueForUnison)
-            << 3;
-    int carrierAmp0 =
-        Math.min(
-            Functions.multiply_32x32_rshift32(
-                paramFinalValues[Param.LOCAL_OSC_A_VOLUME], overallForCarriers),
-            134217727);
-    int carrierAmp1 =
-        Math.min(
-            Functions.multiply_32x32_rshift32(
-                paramFinalValues[Param.LOCAL_OSC_B_VOLUME], overallForCarriers),
-            134217727);
+      // Carriers
+      int carrierIncA = unisonParts[u].sources[0].phaseIncrementStoredValue;
+      int carrierIncB = unisonParts[u].sources[1].phaseIncrementStoredValue;
 
-    if (carriersAreSine) {
-      renderCarrierSine(
-          buffer,
-          numSamples,
-          sources[0],
-          carrierAmp0,
-          carrierIncA,
-          paramFinalValues[Param.LOCAL_CARRIER_0_FEEDBACK]);
-      renderCarrierSine(
-          buffer,
-          numSamples,
-          sources[1],
-          carrierAmp1,
-          carrierIncB,
-          paramFinalValues[Param.LOCAL_CARRIER_1_FEEDBACK]);
-    } else {
-      renderCarrierFM(
-          buffer,
-          numSamples,
-          fmBuf,
-          sources[0],
-          carrierAmp0,
-          carrierIncA,
-          paramFinalValues[Param.LOCAL_CARRIER_0_FEEDBACK]);
-      renderCarrierFM(
-          buffer,
-          numSamples,
-          fmBuf,
-          sources[1],
-          carrierAmp1,
-          carrierIncB,
-          paramFinalValues[Param.LOCAL_CARRIER_1_FEEDBACK]);
+      carrierIncA = adjustPitch(carrierIncA, overallPitchAdjust);
+      if (carrierIncA >= 0) {
+        carrierIncA = adjustPitch(carrierIncA, paramFinalValues[Param.LOCAL_OSC_A_PITCH_ADJUST]);
+      }
+      carrierIncB = adjustPitch(carrierIncB, overallPitchAdjust);
+      if (carrierIncB >= 0) {
+        carrierIncB = adjustPitch(carrierIncB, paramFinalValues[Param.LOCAL_OSC_B_PITCH_ADJUST]);
+      }
+
+      int overallForCarriers =
+          Functions.multiply_32x32_rshift32_rounded(
+                  overallOscAmplitudeLastTime, sound.volumeNeutralValueForUnison)
+              << 3;
+      int carrierAmp0 =
+          Math.min(
+              Functions.multiply_32x32_rshift32(
+                  paramFinalValues[Param.LOCAL_OSC_A_VOLUME], overallForCarriers),
+              134217727);
+      int carrierAmp1 =
+          Math.min(
+              Functions.multiply_32x32_rshift32(
+                  paramFinalValues[Param.LOCAL_OSC_B_VOLUME], overallForCarriers),
+              134217727);
+
+      if (carrierIncA < 0) carrierAmp0 = 0;
+      if (carrierIncB < 0) carrierAmp1 = 0;
+
+      if (carriersAreSine) {
+        renderCarrierSine(
+            fmOscBuffer,
+            numSamples,
+            unisonParts[u].sources[0],
+            carrierAmp0,
+            carrierIncA,
+            paramFinalValues[Param.LOCAL_CARRIER_0_FEEDBACK]);
+        renderCarrierSine(
+            fmOscBuffer,
+            numSamples,
+            unisonParts[u].sources[1],
+            carrierAmp1,
+            carrierIncB,
+            paramFinalValues[Param.LOCAL_CARRIER_1_FEEDBACK]);
+      } else {
+        renderCarrierFM(
+            fmOscBuffer,
+            numSamples,
+            fmBuf,
+            unisonParts[u].sources[0],
+            carrierAmp0,
+            carrierIncA,
+            paramFinalValues[Param.LOCAL_CARRIER_0_FEEDBACK]);
+        renderCarrierFM(
+            fmOscBuffer,
+            numSamples,
+            fmBuf,
+            unisonParts[u].sources[1],
+            carrierAmp1,
+            carrierIncB,
+            paramFinalValues[Param.LOCAL_CARRIER_1_FEEDBACK]);
+      }
+
+      int[] ampLR = new int[2];
+      shouldDoPanning(stereoUnison ? sound.unisonPan[u] : 0, ampLR);
+
+      if (stereoUnison) {
+        for (int i = 0; i < numSamples; i++) {
+          int out = fmOscBuffer[i];
+          mixBuf[i * 2] =
+              Functions.add_saturate(
+                  mixBuf[i * 2], Functions.multiply_32x32_rshift32(out, ampLR[0]) << 2);
+          mixBuf[i * 2 + 1] =
+              Functions.add_saturate(
+                  mixBuf[i * 2 + 1], Functions.multiply_32x32_rshift32(out, ampLR[1]) << 2);
+        }
+      } else {
+        for (int i = 0; i < numSamples; i++) {
+          int out = fmOscBuffer[i];
+          mixBuf[i * 2] = Functions.add_saturate(mixBuf[i * 2], out);
+          mixBuf[i * 2 + 1] = Functions.add_saturate(mixBuf[i * 2 + 1], out);
+        }
+      }
     }
   }
 
