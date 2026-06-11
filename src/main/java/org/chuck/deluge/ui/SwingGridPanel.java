@@ -22,6 +22,8 @@ public class SwingGridPanel extends JPanel {
   private org.rtmidijava.RtMidiOut finalMidiOut;
   private double[] vuLevels = new double[MAX_GRID_ROWS];
   private Timer activeStutterTimer;
+  private int auditionMidiNote = -1;
+  private org.chuck.deluge.firmware.engine.FirmwareSound auditionSynth = null;
   public static volatile boolean isLiveRecordModeActive = false;
   private int currentPlayheadStep = -1;
   private boolean[] isOneShotTrack = new boolean[MAX_GRID_ROWS];
@@ -2015,6 +2017,9 @@ public class SwingGridPanel extends JPanel {
                           }
                         } else if (sound
                             instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
+                          stopAuditionIfNeeded();
+                          auditionMidiNote = pitchMidi;
+                          auditionSynth = synth;
                           synth.triggerNote(pitchMidi, 127);
                         }
                       }
@@ -2618,6 +2623,9 @@ public class SwingGridPanel extends JPanel {
                                   } else if (sound
                                       instanceof
                                       org.chuck.deluge.firmware.engine.FirmwareSound synth) {
+                                    stopAuditionIfNeeded();
+                                    auditionMidiNote = pitchMidi;
+                                    auditionSynth = synth;
                                     synth.triggerNote(pitchMidi, 127);
                                   }
                                 }
@@ -2747,6 +2755,9 @@ public class SwingGridPanel extends JPanel {
                                         instanceof
                                         org.chuck.deluge.firmware.engine.FirmwareSound synth) {
                                       int pitchMidi = ((128 - 1) - modelRow) + 0;
+                                      stopAuditionIfNeeded();
+                                      auditionMidiNote = pitchMidi;
+                                      auditionSynth = synth;
                                       synth.triggerNote(pitchMidi, 127);
                                     }
                                   }
@@ -3317,7 +3328,19 @@ public class SwingGridPanel extends JPanel {
     }
   }
 
+  private void stopAuditionIfNeeded() {
+    if (auditionMidiNote != -1 && auditionSynth != null) {
+      try {
+        auditionSynth.releaseNote(auditionMidiNote);
+      } catch (Exception ignored) {
+      }
+      auditionMidiNote = -1;
+      auditionSynth = null;
+    }
+  }
+
   public void refresh() {
+    stopAuditionIfNeeded();
     refreshInProgress = true;
     removeAll();
     java.util.List<org.chuck.deluge.model.TrackModel> tracks = projectModel.getTracks();
@@ -4788,6 +4811,9 @@ public class SwingGridPanel extends JPanel {
                               boolean isSynthModeLocal =
                                   bridge != null && bridge.getTrackType(baseTrackId) == 1;
                               int pitchMidi = isSynthModeLocal ? (((128 - 1) - trk) + 0) : 60;
+                              stopAuditionIfNeeded();
+                              auditionMidiNote = pitchMidi;
+                              auditionSynth = synth;
                               synth.triggerNote(pitchMidi, 127);
                             }
                           }
@@ -5083,6 +5109,9 @@ public class SwingGridPanel extends JPanel {
                                     boolean isSynthModeLocal =
                                         bridge != null && bridge.getTrackType(baseTrackId) == 1;
                                     int pitchMidi = isSynthModeLocal ? (((128 - 1) - trk) + 0) : 60;
+                                    stopAuditionIfNeeded();
+                                    auditionMidiNote = pitchMidi;
+                                    auditionSynth = synth;
                                     synth.triggerNote(pitchMidi, 127);
                                   }
                                 }
@@ -5103,6 +5132,34 @@ public class SwingGridPanel extends JPanel {
                       // Stop kit preview on release
                       vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, -1L);
                       vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
+
+                      if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
+                        try {
+                          Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+                          if (fwEngineObj
+                              instanceof
+                              org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
+                            if (editedModelTrack < fwEngine.sounds.size()) {
+                              org.chuck.deluge.firmware2.GlobalEffectable sound =
+                                  fwEngine.sounds.get(editedModelTrack);
+                              if (sound
+                                  instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
+                                if (trk < kit.drumSounds.size()) {
+                                  kit.drumSounds.get(trk).releaseNote(60);
+                                }
+                              } else if (sound
+                                  instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
+                                boolean isSynthModeLocal =
+                                    bridge != null && bridge.getTrackType(baseTrackId) == 1;
+                                int pitchMidi = isSynthModeLocal ? (((128 - 1) - trk) + 0) : 60;
+                                synth.releaseNote(pitchMidi);
+                              }
+                            }
+                          }
+                        } catch (Exception ignored) {
+                        }
+                      }
+
                       try {
                         org.chuck.deluge.firmware.hid.FirmwareDisplay.get()
                             .getVirtualOLED()

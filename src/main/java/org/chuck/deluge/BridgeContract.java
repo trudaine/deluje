@@ -1528,6 +1528,9 @@ public final class BridgeContract {
   }
 
   public boolean getStep(int track, int sidx) {
+    if (track < 0 || track >= TRACKS || sidx < 0 || sidx >= STEPS) {
+      return false;
+    }
     return step.pattern[track * STEPS + sidx] > 0;
   }
 
