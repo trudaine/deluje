@@ -388,34 +388,55 @@ public class FirmwareSound extends GlobalEffectable {
 
   private void triggerVoiceFw2(int note, int vel, int midiChannel, int[] mpeValues) {
     synchronized (fw2Sound.voices) {
-      if (polyphonic != PolyphonyMode.POLY)
-        for (var v : fw2Sound.voices)
+      org.chuck.deluge.firmware2.Voice targetVoice = null;
+      if (polyphonic != PolyphonyMode.POLY) {
+        for (var v : fw2Sound.voices) {
           if (v.active) {
-            v.noteOn(note, vel, midiChannel, mpeValues);
-            return;
+            targetVoice = v;
+            break;
           }
-      for (var v : fw2Sound.voices)
-        if (!v.active) {
-          v.noteOn(note, vel, midiChannel, mpeValues);
-          return;
         }
-      if (fw2Sound.voices.size() < maxPolyphony) {
-        var v = new org.chuck.deluge.firmware2.Voice(fw2Sound);
-        // Attach loaded samples to the new voice's sources.
+      }
+      if (targetVoice == null) {
+        for (var v : fw2Sound.voices) {
+          if (!v.active) {
+            targetVoice = v;
+            break;
+          }
+        }
+      }
+      if (targetVoice == null && fw2Sound.voices.size() < maxPolyphony) {
+        targetVoice = new org.chuck.deluge.firmware2.Voice(fw2Sound);
+        fw2Sound.voices.add(targetVoice);
+      }
+      if (targetVoice != null) {
+        // Setup/Update samples on targetVoice's sources before triggering
         for (int s = 0; s < 2; s++) {
           if (fw2SampleCache[s] != null) {
             boolean ts = sampleSettings[s].timestretch && !sampleSettings[s].reverse;
             int playDir = sampleSettings[s].reverse ? -1 : 1;
+            int len = (int) fw2SampleCache[s].lengthInSamples;
+            int startFrame = sampleSettings[s].startPoint;
+            int endFrame =
+                sampleSettings[s].endPoint == 65535
+                    ? len
+                    : Math.min(sampleSettings[s].endPoint, len);
+            boolean looping = sampleSettings[s].loopMode == 1;
+            int loopStartFrame = sampleSettings[s].loopStart;
             if (ts) {
               int tsRatio = (int) Math.max(1, 16777216.0 * (samples[s].sampleRate / 44100.0));
-              v.sources[s].setupSampleTimeStretch(fw2SampleCache[s], 0, playDir, tsRatio);
+              targetVoice.sources[s].setupSampleTimeStretch(
+                  fw2SampleCache[s], startFrame, playDir, tsRatio);
             } else {
-              v.sources[s].setupSample(fw2SampleCache[s], 0, playDir);
+              targetVoice.sources[s].setupSample(
+                  fw2SampleCache[s], startFrame, endFrame, playDir, looping, loopStartFrame);
             }
+          } else {
+            targetVoice.sources[s].sampleRef = null;
+            targetVoice.sources[s].voiceSample.active = false;
           }
         }
-        v.noteOn(note, vel, midiChannel, mpeValues);
-        fw2Sound.voices.add(v);
+        targetVoice.noteOn(note, vel, midiChannel, mpeValues);
       }
     }
   }
@@ -435,14 +456,34 @@ public class FirmwareSound extends GlobalEffectable {
     fw2Sound.lpfMode = fw2LpfMode();
     fw2Sound.hpfMode = fw2HpfMode();
     fw2Sound.filterRoute = filterRoute.ordinal();
-    fw2Sound.volumeNeutralValueForUnison = 134217728; // neutral
+    fw2Sound.numUnison = numUnison;
+    fw2Sound.unisonDetune = unisonDetune;
+    fw2Sound.unisonStereoSpread = unisonStereoSpread;
+    fw2Sound.setupUnisonDetuners();
+    fw2Sound.setupUnisonStereoSpread();
+    fw2Sound.calculateEffectiveVolume();
     fw2Sound.modulator1ToModulator0 = fmModulator1ToModulator0;
     fw2Sound.fmRatio1 = fmRatio1;
     fw2Sound.fmRatio2 = fmRatio2;
-    fw2Sound.modulatorTranspose[0] = fmModulator1Transpose;
-    fw2Sound.modulatorTranspose[1] = fmModulator2Transpose;
-    fw2Sound.setModulatorCents(0, fmModulator1Cents);
-    fw2Sound.setModulatorCents(1, fmModulator2Cents);
+    int m1Transpose = fmModulator1Transpose;
+    int m1Cents = fmModulator1Cents;
+    if (m1Transpose == 0 && m1Cents == 0 && fmRatio1 > 0.0f) {
+      int totalCents = Math.round(1200f * (float) (Math.log(fmRatio1) / Math.log(2)));
+      m1Transpose = Math.round(totalCents / 100f);
+      m1Cents = totalCents - m1Transpose * 100;
+    }
+    fw2Sound.modulatorTranspose[0] = m1Transpose;
+    fw2Sound.setModulatorCents(0, m1Cents);
+
+    int m2Transpose = fmModulator2Transpose;
+    int m2Cents = fmModulator2Cents;
+    if (m2Transpose == 0 && m2Cents == 0 && fmRatio2 > 0.0f) {
+      int totalCents = Math.round(1200f * (float) (Math.log(fmRatio2) / Math.log(2)));
+      m2Transpose = Math.round(totalCents / 100f);
+      m2Cents = totalCents - m2Transpose * 100;
+    }
+    fw2Sound.modulatorTranspose[1] = m2Transpose;
+    fw2Sound.setModulatorCents(1, m2Cents);
 
     // Attach samples to voice sources when the sound is sample-based.
     for (int s = 0; s < 2; s++) {
@@ -452,15 +493,23 @@ public class FirmwareSound extends GlobalEffectable {
         fw2SampleCache[s] = org.chuck.deluge.firmware2.Sample.fromFirmwareSample(samples[s]);
         boolean ts = sampleSettings[s].timestretch && !sampleSettings[s].reverse;
         int playDir = sampleSettings[s].reverse ? -1 : 1;
+        int len = (int) fw2SampleCache[s].lengthInSamples;
+        int startFrame = sampleSettings[s].startPoint;
+        int endFrame =
+            sampleSettings[s].endPoint == 65535 ? len : Math.min(sampleSettings[s].endPoint, len);
+        boolean looping = sampleSettings[s].loopMode == 1;
+        int loopStartFrame = sampleSettings[s].loopStart;
         // Attach to all active voices
         synchronized (fw2Sound.voices) {
           for (var v : fw2Sound.voices) {
             if (v.active && v.sources[s].sampleRef == null) {
               if (ts) {
                 int tsRatio = (int) Math.max(1, 16777216.0 * (samples[s].sampleRate / 44100.0));
-                v.sources[s].setupSampleTimeStretch(fw2SampleCache[s], 0, playDir, tsRatio);
+                v.sources[s].setupSampleTimeStretch(
+                    fw2SampleCache[s], startFrame, playDir, tsRatio);
               } else {
-                v.sources[s].setupSample(fw2SampleCache[s], 0, playDir);
+                v.sources[s].setupSample(
+                    fw2SampleCache[s], startFrame, endFrame, playDir, looping, loopStartFrame);
               }
             }
           }
@@ -494,6 +543,14 @@ public class FirmwareSound extends GlobalEffectable {
           fw2Sound.patchedParamValues[i] = paramKnobs[i];
         }
       }
+    }
+    if (fmModulatorAmountBase[0] != Integer.MIN_VALUE) {
+      fw2Sound.patchedParamValues[org.chuck.deluge.firmware2.Param.LOCAL_MODULATOR_0_VOLUME] =
+          fmModulatorAmountBase[0];
+    }
+    if (fmModulatorAmountBase[1] != Integer.MIN_VALUE) {
+      fw2Sound.patchedParamValues[org.chuck.deluge.firmware2.Param.LOCAL_MODULATOR_1_VOLUME] =
+          fmModulatorAmountBase[1];
     }
     fw2Sound.patchCableSet.destinations.clear();
     for (Destination d : paramManager.getPatchCableSet().destinations) {

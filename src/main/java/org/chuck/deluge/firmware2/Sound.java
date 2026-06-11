@@ -10,11 +10,19 @@ import org.chuck.deluge.firmware2.Oscillator.OscType;
  * zero dependencies on legacy firmware.
  */
 public class Sound {
+  public static final int kMaxNumVoicesUnison = 8;
+
   public int synthMode = 0; // 0=subtractive, 1=FM, 2=ringmod
   public final OscType[] oscTypes = {OscType.SINE, OscType.SINE};
   public FilterMode lpfMode = FilterMode.OFF;
   public FilterMode hpfMode = FilterMode.OFF;
   public int filterRoute = 0;
+  public int numUnison = 1;
+  public int unisonDetune = 8;
+  public int unisonStereoSpread = 0;
+  public final PhaseIncrementFineTuner[] unisonDetuners =
+      new PhaseIncrementFineTuner[kMaxNumVoicesUnison];
+  public final int[] unisonPan = new int[kMaxNumVoicesUnison];
   public int volumeNeutralValueForUnison = 134217728;
   public boolean modulator1ToModulator0 = false;
   public float fmRatio1 = 1.0f;
@@ -77,6 +85,47 @@ public class Sound {
     for (int i = 0; i < 4; i++) {
       lfoConfig[i] = new LfoConfig();
     }
+    for (int i = 0; i < kMaxNumVoicesUnison; i++) {
+      unisonDetuners[i] = new PhaseIncrementFineTuner();
+    }
+  }
+
+  public void setupUnisonDetuners() {
+    if (numUnison != 1) {
+      int detuneScaled = unisonDetune * 42949672;
+      int lowestVoice = -(detuneScaled >> 1);
+      int voiceSpacing = detuneScaled / (numUnison - 1);
+
+      for (int u = 0; u < numUnison; u++) {
+        // Middle unison part gets no detune
+        if ((numUnison & 1) != 0 && u == ((numUnison - 1) >> 1)) {
+          unisonDetuners[u].setNoDetune();
+        } else {
+          unisonDetuners[u].setup(lowestVoice + voiceSpacing * u);
+        }
+      }
+    }
+  }
+
+  public void setupUnisonStereoSpread() {
+    if (numUnison != 1) {
+      int spreadScaled = unisonStereoSpread * 42949672;
+      int lowestVoice = -(spreadScaled >> 1);
+      int voiceSpacing = spreadScaled / (numUnison - 1);
+
+      for (int u = 0; u < numUnison; u++) {
+        // alternate the voices like -2 +1 0 -1 +2 for more balanced
+        // interaction with detune
+        boolean isOdd = (Math.min(u, numUnison - 1 - u) & 1) != 0;
+        int sign = isOdd ? -1 : 1;
+
+        unisonPan[u] = sign * (lowestVoice + voiceSpacing * u);
+      }
+    }
+  }
+
+  public void calculateEffectiveVolume() {
+    volumeNeutralValueForUnison = (int) (134217728.0 / Math.sqrt(numUnison));
   }
 
   // ═══════════════════════════════════════════════════════════════════════════════
