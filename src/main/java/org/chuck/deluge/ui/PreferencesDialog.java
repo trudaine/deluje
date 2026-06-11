@@ -33,6 +33,7 @@ public class PreferencesDialog extends JDialog {
 
   // Retain identical field references for perfect caller compatibility
   private JComboBox<String> reverbCombo;
+  private JComboBox<String> monitorGainCombo;
   private JCheckBox masterSatCheck;
   private JCheckBox filterDriveCheck;
   private JCheckBox bitCrunchCheck;
@@ -175,6 +176,20 @@ public class PreferencesDialog extends JDialog {
         c,
         3);
 
+    monitorGainCombo =
+        new JComboBox<>(
+            new String[] {
+              "1x (Quiet)", "6x", "12x", "18x", "24x (Default)", "32x", "48x (Loud)", "64x (Max)"
+            });
+    styleComboBox(monitorGainCombo);
+    addField(
+        panel,
+        "Desktop Volume Boost",
+        monitorGainCombo,
+        "Applies post-engine scaling for desktop output.",
+        c,
+        4);
+
     debugCheck = new JCheckBox("Enable Raw Engine Audio Debug Logging");
     styleCheckBox(debugCheck);
     addField(
@@ -183,7 +198,7 @@ public class PreferencesDialog extends JDialog {
         debugCheck,
         "Spits continuous sample rate buffer events stdout.",
         c,
-        4);
+        5);
 
     return panel;
   }
@@ -523,6 +538,18 @@ public class PreferencesDialog extends JDialog {
     bitCrunchCheck.setSelected(PreferencesManager.isBitCrunchEnabled());
     visCheck.setSelected(Boolean.parseBoolean(PreferencesManager.get("show.visualizers", "true")));
     debugCheck.setSelected(Boolean.parseBoolean(PreferencesManager.get("debug.audio", "false")));
+
+    int gainVal = PreferencesManager.getMonitorGainBoost();
+    int gainIdx = 4; // default is 24
+    if (gainVal == 1) gainIdx = 0;
+    else if (gainVal == 6) gainIdx = 1;
+    else if (gainVal == 12) gainIdx = 2;
+    else if (gainVal == 18) gainIdx = 3;
+    else if (gainVal == 24) gainIdx = 4;
+    else if (gainVal == 32) gainIdx = 5;
+    else if (gainVal == 48) gainIdx = 6;
+    else if (gainVal == 64) gainIdx = 7;
+    monitorGainCombo.setSelectedIndex(gainIdx);
     gridModeCheck.setSelected(
         Boolean.parseBoolean(PreferencesManager.get("midi.grid.mode", "false")));
     tooltipCheck.setSelected(Boolean.parseBoolean(PreferencesManager.get("show.tooltips", "true")));
@@ -648,6 +675,19 @@ public class PreferencesDialog extends JDialog {
     PreferencesManager.set("midi.input", (String) midiCombo.getSelectedItem());
     PreferencesManager.set("show.visualizers", String.valueOf(visCheck.isSelected()));
     PreferencesManager.set("debug.audio", String.valueOf(debugCheck.isSelected()));
+
+    int selIdx = monitorGainCombo.getSelectedIndex();
+    int gainVal = 24;
+    if (selIdx == 0) gainVal = 1;
+    else if (selIdx == 1) gainVal = 6;
+    else if (selIdx == 2) gainVal = 12;
+    else if (selIdx == 3) gainVal = 18;
+    else if (selIdx == 4) gainVal = 24;
+    else if (selIdx == 5) gainVal = 32;
+    else if (selIdx == 6) gainVal = 48;
+    else if (selIdx == 7) gainVal = 64;
+    PreferencesManager.setMonitorGainBoost(gainVal);
+    org.chuck.deluge.engine.JavaAudioDriver.monitorGainMul = gainVal;
     PreferencesManager.set("midi.grid.mode", String.valueOf(gridModeCheck.isSelected()));
     PreferencesManager.set("show.tooltips", String.valueOf(tooltipCheck.isSelected()));
     PreferencesManager.set("screen.resolution", newRes);
