@@ -547,6 +547,7 @@ public class Voice {
     if (!doneFirstRender && paramFinalValues[Param.LOCAL_ENV_0_ATTACK] > 245632) {
       overallOscAmplitudeLastTime = overallOscAmplitude;
     }
+
     overallOscillatorAmplitudeIncrement =
         (overallOscAmplitude - overallOscAmplitudeLastTime) / numSamples;
 
@@ -578,19 +579,8 @@ public class Voice {
 
     // ── FM path (voice.cpp:1400-1560) ──
     if (sound.synthMode == 1) { // FM
-      renderFmPath(mixBuf, numSamples);
-      // Apply filter + pan + gain after FM
-      applyFilterAndGain(mixBuf, numSamples, doLPF, doHPF);
-      // Copy to output
-      for (int i = 0; i < numSamples; i++) {
-        soundBuffer[i * 2] = Functions.add_saturate(soundBuffer[i * 2], mixBuf[i * 2]);
-        soundBuffer[i * 2 + 1] = Functions.add_saturate(soundBuffer[i * 2 + 1], mixBuf[i * 2 + 1]);
-      }
-      return active;
-    }
-
-    // ── Source rendering + mix (voice.cpp:1039-1052, 1260-1370) ──
-    if (sound.synthMode == 2) {
+      renderFmPath(mixBuf, numSamples, overallOscAmplitude);
+    } else if (sound.synthMode == 2) {
       // RINGMOD (voice.cpp:1309-1370)
       int[] tempBufA = new int[numSamples];
       int[] tempBufB = new int[numSamples];
@@ -858,7 +848,7 @@ public class Voice {
     return modInc;
   }
 
-  private void renderFmPath(int[] mixBuf, int numSamples) {
+  private void renderFmPath(int[] mixBuf, int numSamples, int overallOscAmplitude) {
     int modAmp0 = paramFinalValues[Param.LOCAL_MODULATOR_0_VOLUME];
     int modAmp1 = paramFinalValues[Param.LOCAL_MODULATOR_1_VOLUME];
     boolean mod0Active = modAmp0 != 0;
@@ -948,7 +938,7 @@ public class Voice {
 
       int overallForCarriers =
           Functions.multiply_32x32_rshift32_rounded(
-                  overallOscAmplitudeLastTime, sound.volumeNeutralValueForUnison)
+                  overallOscAmplitude, sound.volumeNeutralValueForUnison)
               << 3;
       int carrierAmp0 =
           Math.min(

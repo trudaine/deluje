@@ -101,14 +101,10 @@ public class FirmwareFactory {
 
     // ── Load samples if the oscillators are SAMPLE type ──
     File sdRoot = PreferencesManager.getLibraryDir();
-    File devSamples = new File("deluge/src/main/resources");
-    if (!devSamples.exists()) {
-      devSamples = new File("src/main/resources");
-    }
     if (sound.oscTypes[0] == OscType.SAMPLE) {
       String path = model.getOsc1SamplePath();
       if (path != null && !path.isEmpty()) {
-        File f = resolveSample(path, sdRoot, devSamples);
+        File f = resolveSample(path, sdRoot);
         if (f != null && f.exists()) {
           try {
             Sample s = AudioFileReader.readSample(f.getAbsolutePath());
@@ -126,7 +122,7 @@ public class FirmwareFactory {
     if (sound.oscTypes[1] == OscType.SAMPLE) {
       String path = model.getOsc2SamplePath();
       if (path != null && !path.isEmpty()) {
-        File f = resolveSample(path, sdRoot, devSamples);
+        File f = resolveSample(path, sdRoot);
         if (f != null && f.exists()) {
           try {
             Sample s = AudioFileReader.readSample(f.getAbsolutePath());
@@ -330,11 +326,11 @@ public class FirmwareFactory {
     // getFinalParameterValueExp(neutral, combineCablesExp(knob, paramRange)). LPF: neutral 2000000,
     // range 536870912*1.4; HPF: neutral 2672947, range 1073741824.
     sound.paramNeutralValues[Param.LOCAL_LPF_FREQ] = cutoffKnobFromHz(model.getLpfFreq());
-    sound.paramNeutralValues[Param.LOCAL_LPF_RESONANCE] = normToBipolarParam(model.getLpfRes());
-    sound.paramNeutralValues[Param.LOCAL_LPF_MORPH] = normToBipolarParam(model.getLpfMorph());
+    sound.paramNeutralValues[Param.LOCAL_LPF_RESONANCE] = normToLinearParamKnob(model.getLpfRes());
+    sound.paramNeutralValues[Param.LOCAL_LPF_MORPH] = normToLinearParamKnob(model.getLpfMorph());
     sound.paramNeutralValues[Param.LOCAL_HPF_FREQ] = cutoffKnobFromHz(model.getHpfFreq());
-    sound.paramNeutralValues[Param.LOCAL_HPF_RESONANCE] = normToBipolarParam(model.getHpfRes());
-    sound.paramNeutralValues[Param.LOCAL_HPF_MORPH] = normToBipolarParam(model.getHpfMorph());
+    sound.paramNeutralValues[Param.LOCAL_HPF_RESONANCE] = normToLinearParamKnob(model.getHpfRes());
+    sound.paramNeutralValues[Param.LOCAL_HPF_MORPH] = normToLinearParamKnob(model.getHpfMorph());
 
     sound.setLpfMode(model.getFilterMode());
     sound.setHpfMode(model.getHpfMode());
@@ -417,18 +413,27 @@ public class FirmwareFactory {
         releaseInc = (int) (190.2f / rTime);
       }
 
-      // C-faithful: paramNeutralValues holds C knob positions (patcher.cpp:30-57).
-      // The FirmwareSound constructor already sets C-compatible envelope defaults.
-      // Direct rate values like attackInc can't be used as C knob values.
-      // TODO: convert model envelope times to C knob domain via getParamFromUserValue
-      // sound.paramNeutralValues[Param.LOCAL_ENV_0_ATTACK + i] =
-      //     Math.max(1, Math.min(8388608, attackInc));
-      // sound.paramNeutralValues[Param.LOCAL_ENV_0_DECAY + i] =
-      //     Math.max(1, Math.min(8388608, decayInc));
-      // sound.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN + i] = (int) (em.sustain() *
-      // 2147483647.0);
-      // sound.paramNeutralValues[Param.LOCAL_ENV_0_RELEASE + i] =
-      //     Math.max(1, Math.min(8388608, releaseInc));
+      int attackKnob;
+      int decayKnob;
+      int sustainKnob = normToLinearParamKnob(em.sustain());
+      int releaseKnob;
+      if (model.isEnvKnobSet(i)) {
+        attackKnob = model.getEnvAttackKnobQ31(i);
+        decayKnob = model.getEnvDecayKnobQ31(i);
+        releaseKnob = model.getEnvReleaseKnobQ31(i);
+      } else {
+        float normAttack = org.chuck.deluge.xml.DelugeHexMapper.normFromEnvTime(em.attack());
+        attackKnob = (int) Math.rint(normAttack * 2147483647.0);
+        float normDecay = org.chuck.deluge.xml.DelugeHexMapper.normFromEnvTime(em.decay());
+        decayKnob = (int) Math.rint(normDecay * 2147483647.0);
+        float normRelease = org.chuck.deluge.xml.DelugeHexMapper.normFromEnvTime(em.release());
+        releaseKnob = (int) Math.rint(normRelease * 2147483647.0);
+      }
+
+      sound.paramNeutralValues[Param.LOCAL_ENV_0_ATTACK + i] = attackKnob;
+      sound.paramNeutralValues[Param.LOCAL_ENV_0_DECAY + i] = decayKnob;
+      sound.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN + i] = sustainKnob;
+      sound.paramNeutralValues[Param.LOCAL_ENV_0_RELEASE + i] = releaseKnob;
     }
 
     sound.numUnison = model.getUnisonNum();
@@ -619,6 +624,11 @@ public class FirmwareFactory {
     return (int) Math.round((double) clamp01(norm) * 4294967295.0 - 2147483648.0);
   }
 
+  private static int normToLinearParamKnob(float norm) {
+    if (norm <= 0f) return -536870912;
+    return (int) Math.round((double) clamp01(norm) * 1073741824.0 - 536870912.0);
+  }
+
   /**
    * Map a 0..1 knob to the firmware's volume param range. 0 -> MIN_VALUE ("off"), 1 -> ~MAX_VALUE
    * (full). The firmware volume knob (getParamFromUserValue) spans from (uint32_t)0*FACTOR-2^30 =
@@ -706,10 +716,6 @@ public class FirmwareFactory {
     clip.loopLength = 16 * 24;
 
     File sdRoot = PreferencesManager.getLibraryDir();
-    File devSamples = new File("deluge/src/main/resources");
-    if (!devSamples.exists()) {
-      devSamples = new File("src/main/resources");
-    }
 
     int drumIdx = 0;
     for (Drum d : model.getDrums()) {
@@ -841,7 +847,7 @@ public class FirmwareFactory {
 
         String path = sd.getSamplePath();
         if (path != null && !path.isEmpty()) {
-          File f = resolveSample(path, sdRoot, devSamples);
+          File f = resolveSample(path, sdRoot);
           if (f != null && f.exists()) {
             try {
               Sample s = AudioFileReader.readSample(f.getAbsolutePath());
@@ -914,14 +920,13 @@ public class FirmwareFactory {
     return clip;
   }
 
-  private static File resolveSample(String path, File sdRoot, File devSamples) {
+  private static File resolveSample(String path, File sdRoot) {
     File f = new File(path);
     if (f.exists()) return f;
     if (sdRoot != null) {
       f = new File(sdRoot, path);
       if (f.exists()) return f;
     }
-    f = new File(devSamples, path);
     return f;
   }
 

@@ -31,6 +31,7 @@ public class FirmwareLfoModulationTest {
     m.setOscMix(1.0f);
     m.setLpfFreq(20000f);
     m.setVolume(0.8f);
+    m.setEnv(0, new org.chuck.deluge.model.EnvelopeModel(0.0f, 30.0f, 0.7f, 0.2f, "NONE", 0.0f));
     m.addClip(new ClipModel("c", 8, 16));
     ProjectModel p = new ProjectModel();
     p.addTrack(m);
