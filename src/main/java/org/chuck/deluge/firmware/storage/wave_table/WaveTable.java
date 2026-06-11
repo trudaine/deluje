@@ -103,9 +103,11 @@ public class WaveTable {
     if (bandHere == null) return phase;
 
     if (numCycles > 1) {
-      int waveIndexScaled = Q31.multiply_32x32_rshift32_rounded(waveIndexMultiplier, waveIndex);
-      int waveIndexIncrementScaled =
-          Q31.multiply_32x32_rshift32_rounded(waveIndexMultiplier, waveIndexIncrement);
+      long prod = (waveIndexMultiplier & 0xFFFFFFFFL) * (waveIndex & 0xFFFFFFFFL);
+      int waveIndexScaled = (int) ((prod + 0x80000000L) >> 32);
+
+      long prodInc = (waveIndexMultiplier & 0xFFFFFFFFL) * waveIndexIncrement;
+      int waveIndexIncrementScaled = (int) ((prodInc + 0x80000000L) >> 32);
 
       int lshiftAmountToGetCrossCycleStrength = 32 + numCycleTransitionsNextPowerOf2Magnitude - 31;
       int crossCycleStrength2Increment =

@@ -1,6 +1,7 @@
 package org.chuck.deluge.firmware2;
 
 import java.util.ArrayList;
+import org.chuck.deluge.firmware.storage.wave_table.WaveTable;
 import org.chuck.deluge.firmware2.FilterSet.FilterMode;
 import org.chuck.deluge.firmware2.Lfo.LfoConfig;
 import org.chuck.deluge.firmware2.Oscillator.OscType;
@@ -15,6 +16,7 @@ public class Sound extends GlobalEffectable {
   public int synthMode = 0; // 0=subtractive, 1=FM, 2=ringmod
   public int voicePriority = 1; // 0=low, 1=medium, 2=high
   public final OscType[] oscTypes = {OscType.SINE, OscType.SINE};
+  public final WaveTable[] waveTables = new WaveTable[2];
   public FilterMode lpfMode = FilterMode.OFF;
   public FilterMode hpfMode = FilterMode.OFF;
   public int filterRoute = 0;

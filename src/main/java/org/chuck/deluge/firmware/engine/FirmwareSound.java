@@ -421,7 +421,19 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     }
   }
 
+  public void triggerNoteLate(int note, int vel, int samplesLate) {
+    if (sidechainSend != 0) {
+      GlobalSidechainBus.registerHit(sidechainSend);
+    }
+    triggerVoiceFw2(note, vel, -1, null, samplesLate);
+  }
+
   private void triggerVoiceFw2(int note, int vel, int midiChannel, int[] mpeValues) {
+    triggerVoiceFw2(note, vel, midiChannel, mpeValues, 0);
+  }
+
+  private void triggerVoiceFw2(
+      int note, int vel, int midiChannel, int[] mpeValues, int samplesLate) {
     synchronized (fw2Sound.voices) {
       // noteOn-applied state must be on fw2Sound BEFORE noteOn runs (renderVoicesFw2 propagates
       // too late for it): retrigger phases (vups:79-82, voice.cpp:319-327) need the configured
@@ -486,7 +498,13 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
                   fw2SampleCache[s], startFrame, playDir, tsRatio);
             } else {
               targetVoice.sources[s].setupSample(
-                  fw2SampleCache[s], startFrame, endFrame, playDir, looping, loopStartFrame);
+                  fw2SampleCache[s],
+                  startFrame,
+                  endFrame,
+                  playDir,
+                  looping,
+                  loopStartFrame,
+                  samplesLate);
             }
           } else {
             targetVoice.sources[s].sampleRef = null;
