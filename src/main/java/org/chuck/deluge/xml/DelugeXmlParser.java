@@ -1828,6 +1828,20 @@ public class DelugeXmlParser {
     synth.setCarrier2FeedbackQ31(soundQ31(soundNode, "carrier2Feedback", Integer.MIN_VALUE));
     // Wavefolder knob (C reads "waveFold" into LOCAL_FOLD, sound.cpp:1273-1276).
     synth.setWaveFoldQ31(soundQ31(soundNode, "waveFold", Integer.MIN_VALUE));
+    // Saturation amount (C "clippingAmount" tag-or-attribute, plain small int;
+    // mod_controllable_audio.cpp:736-737).
+    String clipStr = soundNode.getAttribute("clippingAmount");
+    if (clipStr == null || clipStr.isEmpty()) {
+      NodeList clipNodes = soundNode.getElementsByTagName("clippingAmount");
+      if (clipNodes.getLength() > 0) clipStr = clipNodes.item(0).getTextContent().trim();
+    }
+    if (clipStr != null && !clipStr.isEmpty()) {
+      try {
+        synth.setClippingAmount(Integer.parseInt(clipStr));
+      } catch (NumberFormatException e) {
+        LOG.log(Level.FINE, "Error parsing clippingAmount", e);
+      }
+    }
     NodeList m1m0 = soundNode.getElementsByTagName("modulator1ToModulator0");
     if (m1m0.getLength() > 0) {
       String v = m1m0.item(0).getTextContent().trim();

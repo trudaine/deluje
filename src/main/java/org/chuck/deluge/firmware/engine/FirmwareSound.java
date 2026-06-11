@@ -519,6 +519,7 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     fw2Sound.setupUnisonStereoSpread();
     fw2Sound.calculateEffectiveVolume();
     fw2Sound.oscillatorSync = oscillatorSync;
+    fw2Sound.clippingAmount = clippingAmount;
     fw2Sound.oscRetriggerPhase[0] = osc1RetriggerPhase;
     fw2Sound.oscRetriggerPhase[1] = osc2RetriggerPhase;
     fw2Sound.modulatorRetriggerPhase[0] = mod1RetrigPhase;
@@ -867,6 +868,9 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
 
   /** C: sound.h:143 — osc B hard-syncs to osc A. */
   public boolean oscillatorSync = false;
+
+  /** C: mod_controllable_audio.h:107 — saturation/clipping amount; 0 = off. */
+  public int clippingAmount = 0;
 
   public float fmRatio1 = 1.0f;
   public float fmRatio2 = 1.0f;
