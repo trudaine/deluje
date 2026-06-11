@@ -1,6 +1,9 @@
 package org.chuck.deluge.firmware2;
 
 import java.util.ArrayList;
+import org.chuck.deluge.firmware.dsp.StereoSample;
+import org.chuck.deluge.firmware.engine.GlobalSidechainBus;
+import org.chuck.deluge.firmware.engine.Stutterer;
 import org.chuck.deluge.firmware.storage.wave_table.WaveTable;
 import org.chuck.deluge.firmware2.FilterSet.FilterMode;
 import org.chuck.deluge.firmware2.Lfo.LfoConfig;
@@ -93,7 +96,7 @@ public class Sound extends GlobalEffectable {
    * ParamManager}'s patched-param set. The patcher reads these via {@link
    * #getSmoothedPatchedParamValue} and runs them through the firmware curves.
    */
-  public final int[] patchedParamValues = new int[Param.kNumParams];
+  public final int[] patchedParamValues = new int[200];
 
   /** The patch's modulation cables (mirrors the C {@code ParamManager}'s PatchCableSet). */
   public final Patcher.PatchCableSet patchCableSet = new Patcher.PatchCableSet();
@@ -109,6 +112,37 @@ public class Sound extends GlobalEffectable {
   /** C: sound.h:358 — {@code deluge::fast_vector<ActiveVoice> voices_;} */
   public final ArrayList<Voice> voices = new ArrayList<>();
 
+  public enum PolyphonyMode {
+    POLY,
+    MONO,
+    LEGATO
+  }
+
+  public PolyphonyMode polyphonic = PolyphonyMode.POLY;
+  public int maxPolyphony = 64;
+
+  public final Sample[] samples = new Sample[2];
+  public final int[] sampleStartPoint = {0, 0};
+  public final int[] sampleEndPoint = {65535, 65535};
+  public final int[] sampleLoopMode = {0, 0}; // 0 = off, 1 = loop
+  public final int[] sampleLoopStart = {0, 0};
+  public final boolean[] sampleReverse = {false, false};
+  public final boolean[] sampleTimestretch = {false, false};
+
+  public final Arpeggiator.Synth arpeggiator = new Arpeggiator.Synth();
+  public final Arpeggiator.Settings arpSettings = new Arpeggiator.Settings();
+  public final Arpeggiator.ArpReturnInstruction arpInstr = new Arpeggiator.ArpReturnInstruction();
+  public int arpPhaseIncrement = 0;
+
+  public final Lfo[] globalLfos = {new Lfo(), new Lfo()};
+  public final Lfo.LfoType[] lfoWaveforms = {
+    Lfo.LfoType.SINE, Lfo.LfoType.TRIANGLE,
+    Lfo.LfoType.SINE, Lfo.LfoType.TRIANGLE
+  };
+
+  public final Sidechain sidechain = new Sidechain();
+  public int sidechainSend = 0;
+
   /**
    * C: sound.h:154 — {@code std::array<int32_t, kNumExpressionDimensions>
    * monophonicExpressionValues{}};
@@ -121,12 +155,38 @@ public class Sound extends GlobalEffectable {
    */
   public int expressionSourcesChangedAtSynthLevel;
 
+  public final SrrBitcrush srrBitcrush = new SrrBitcrush();
+  public final ModFx modFX = new ModFx();
+  public final GranularProcessor granular = new GranularProcessor();
+  public final Eq eq = new Eq();
+  public final Stutterer stutterer = new Stutterer();
+
+  public ModFx.ModFXType modFXType = ModFx.ModFXType.NONE;
+  public int modFXRateIncrement = 0;
+  public int modFXDepth = 0;
+  public int modFXOffset = 0;
+  public int modFXFeedback = 0;
+  public int bitcrushParam = 0;
+  public int srrParam = 0;
+  public int eqBassParam = 0;
+  public int eqTrebleParam = 0;
+  public int currentBpm = 120;
+
+  private StereoSample[] fxStereoBuffer = new StereoSample[256];
+  private int[][] fxIntBuffer = new int[256][2];
+
   public Sound() {
     for (int i = 0; i < 4; i++) {
       lfoConfig[i] = new LfoConfig();
     }
     for (int i = 0; i < kMaxNumVoicesUnison; i++) {
       unisonDetuners[i] = new PhaseIncrementFineTuner();
+    }
+    for (int i = 0; i < 256; i++) {
+      fxStereoBuffer[i] = new StereoSample();
+    }
+    for (int i = 0; i < 256; i++) {
+      fxIntBuffer[i] = new int[2];
     }
   }
 
@@ -336,6 +396,54 @@ public class Sound extends GlobalEffectable {
 
   @Override
   protected void renderInternal(int[] buffer, int numSamples, int[] reverbBuffer) {
+    // 1. Sidechain hit registration & render
+    int scHit = GlobalSidechainBus.getActiveFrameHit();
+    if (scHit > 0) {
+      sidechain.registerHit(scHit);
+    }
+    int shape = patchedParamValues[Param.UNPATCHED_SIDECHAIN_SHAPE];
+    int scAmount = sidechain.render(numSamples, shape);
+    globalSourceValues[PatchSource.SIDECHAIN.ordinal()] = scAmount;
+
+    // 2. Global LFO rendering
+    int phaseInc1 =
+        Patcher.computeFinalValueForParam(
+            Param.GLOBAL_LFO_FREQ_1, patchedParamValues[Param.GLOBAL_LFO_FREQ_1]);
+    globalSourceValues[PatchSource.LFO_GLOBAL_1.ordinal()] =
+        globalLfos[0].render(numSamples, lfoWaveforms[0], phaseInc1);
+
+    int phaseInc2 =
+        Patcher.computeFinalValueForParam(
+            Param.GLOBAL_LFO_FREQ_2, patchedParamValues[Param.GLOBAL_LFO_FREQ_2]);
+    globalSourceValues[PatchSource.LFO_GLOBAL_2.ordinal()] =
+        globalLfos[1].render(numSamples, lfoWaveforms[2], phaseInc2);
+
+    // 3. Arpeggiator clock & processing
+    if (arpEnabled() && arpPhaseIncrement > 0) {
+      long gateU = (arpSettings.gate & 0xFFFFFFFFL);
+      long gateBiased = gateU + (1L << 31);
+      int gateThreshold = (int) (gateBiased >> 8);
+      arpeggiator.render(arpSettings, arpInstr, numSamples, gateThreshold, arpPhaseIncrement);
+
+      for (int n = 0; n < 4; n++) {
+        int noteOff = arpInstr.noteCodeOffPostArp[n];
+        if (noteOff != Arpeggiator.ARP_NOTE_NONE) {
+          releaseVoice(noteOff, -1);
+        }
+      }
+
+      if (arpInstr.arpNoteOn != null) {
+        int noteOn = arpInstr.arpNoteOn.noteCodeOnPostArp[0];
+        int vel = arpInstr.arpNoteOn.velocity;
+        if (vel <= 0) vel = 64;
+        triggerVoice(noteOn, vel, -1);
+        arpInstr.arpNoteOn.noteStatus[0] = Arpeggiator.ArpNoteStatus.PLAYING;
+        arpInstr.arpNoteOn = null;
+      }
+    }
+
+    // 4. Sum active voices
+    boolean hasActiveVoices = false;
     synchronized (voices) {
       var it = voices.iterator();
       while (it.hasNext()) {
@@ -344,7 +452,253 @@ public class Sound extends GlobalEffectable {
           it.remove();
           continue;
         }
+        hasActiveVoices = true;
+        Patcher.performInitialPatching(patchedParamValues, v.sourceValues, v.paramFinalValues);
         v.render(buffer, numSamples, lpfMode != FilterMode.OFF, hpfMode != FilterMode.OFF);
+      }
+    }
+
+    boolean arpHolding = arpEnabled() && arpeggiator.hasAnyInputNotesActive();
+    if (!hasActiveVoices && !arpHolding) {
+      return;
+    }
+
+    // 5. Apply Track FX (SRR/bitcrush, ModFX/granular, EQ)
+    if (numSamples > fxIntBuffer.length) {
+      int oldLen = fxIntBuffer.length;
+      fxIntBuffer = java.util.Arrays.copyOf(fxIntBuffer, numSamples);
+      for (int i = oldLen; i < numSamples; i++) {
+        fxIntBuffer[i] = new int[2];
+      }
+    }
+    if (numSamples > fxStereoBuffer.length) {
+      int oldLen = fxStereoBuffer.length;
+      fxStereoBuffer = java.util.Arrays.copyOf(fxStereoBuffer, numSamples);
+      for (int i = oldLen; i < numSamples; i++) {
+        fxStereoBuffer[i] = new StereoSample();
+      }
+    }
+
+    for (int i = 0; i < numSamples; i++) {
+      fxIntBuffer[i][0] = buffer[i * 2];
+      fxIntBuffer[i][1] = buffer[i * 2 + 1];
+    }
+
+    int[] postFXVolumeHolder = {2147483647};
+    int[] postReverbVolumeHolder = {2147483647};
+
+    srrBitcrush.process(fxIntBuffer, numSamples, bitcrushParam, srrParam, postFXVolumeHolder);
+
+    // Stutterer still uses StereoSample[]
+    for (int i = 0; i < numSamples; i++) {
+      fxStereoBuffer[i].l = fxIntBuffer[i][0];
+      fxStereoBuffer[i].r = fxIntBuffer[i][1];
+    }
+    stutterer.processStutter(fxStereoBuffer, null);
+    for (int i = 0; i < numSamples; i++) {
+      fxIntBuffer[i][0] = fxStereoBuffer[i].l;
+      fxIntBuffer[i][1] = fxStereoBuffer[i].r;
+    }
+
+    if (modFXType == ModFx.ModFXType.GRAIN) {
+      granular.processGrainFX(
+          fxIntBuffer,
+          numSamples,
+          modFXRateIncrement,
+          modFXDepth << 1,
+          modFXOffset,
+          modFXFeedback,
+          postFXVolumeHolder,
+          true,
+          (float) currentBpm);
+    } else {
+      modFX.processModFX(
+          fxIntBuffer,
+          numSamples,
+          modFXType,
+          modFXRateIncrement,
+          modFXDepth,
+          postFXVolumeHolder,
+          modFXOffset,
+          modFXFeedback,
+          true,
+          true);
+    }
+
+    eq.process(
+        fxIntBuffer,
+        numSamples,
+        eqBassParam,
+        eqTrebleParam,
+        patchedParamValues[Param.UNPATCHED_BASS_FREQ],
+        patchedParamValues[Param.UNPATCHED_TREBLE_FREQ]);
+
+    int postReverb = patchedParamValues[Param.GLOBAL_VOLUME_POST_REVERB_SEND];
+    Patcher.Destination d = null;
+    for (var dest : patchCableSet.destinations) {
+      if (dest.paramId == Param.GLOBAL_VOLUME_POST_REVERB_SEND) {
+        d = dest;
+        break;
+      }
+    }
+    if (d != null) {
+      postReverb = Patcher.combineCablesLinear(d, postReverb, globalSourceValues);
+    }
+    postReverbVolumeHolder[0] = postReverb;
+
+    super.postFXVolume = postFXVolumeHolder[0];
+    super.postReverbVolume = postReverbVolumeHolder[0];
+
+    for (int i = 0; i < numSamples; i++) {
+      buffer[i * 2] = fxIntBuffer[i][0];
+      buffer[i * 2 + 1] = fxIntBuffer[i][1];
+    }
+  }
+
+  public boolean arpEnabled() {
+    return arpSettings.mode != Arpeggiator.ArpMode.OFF;
+  }
+
+  public void triggerNote(int note, int vel) {
+    triggerNote(note, vel, -1);
+  }
+
+  public void triggerNote(int note, int vel, int midiChannel) {
+    if (arpEnabled()) {
+      arpeggiator.noteOn(arpSettings, note, vel, arpInstr, midiChannel, null);
+      if (arpInstr.arpNoteOn != null) {
+        int noteOn = arpInstr.arpNoteOn.noteCodeOnPostArp[0];
+        int v = arpInstr.arpNoteOn.velocity;
+        if (v <= 0) v = 64;
+        triggerVoice(noteOn, v, midiChannel);
+        arpInstr.arpNoteOn.noteStatus[0] = Arpeggiator.ArpNoteStatus.PLAYING;
+        arpInstr.arpNoteOn = null;
+      }
+      return;
+    }
+    triggerVoice(note, vel, midiChannel);
+  }
+
+  public void triggerNoteLate(int note, int vel, int samplesLate) {
+    if (sidechainSend != 0) {
+      GlobalSidechainBus.registerHit(sidechainSend);
+    }
+    triggerVoiceInternal(note, vel, -1, null, samplesLate);
+  }
+
+  public void triggerVoice(int note, int vel, int midiChannel) {
+    if (sidechainSend != 0) {
+      GlobalSidechainBus.registerHit(sidechainSend);
+    }
+    triggerVoiceInternal(note, vel, midiChannel, null, 0);
+  }
+
+  private void triggerVoiceInternal(
+      int note, int vel, int midiChannel, int[] mpeValues, int samplesLate) {
+    synchronized (voices) {
+      setupUnisonDetuners();
+      setupUnisonStereoSpread();
+      calculateEffectiveVolume();
+
+      Voice targetVoice = null;
+      if (polyphonic != PolyphonyMode.POLY) {
+        for (var v : voices) {
+          if (v.active) {
+            targetVoice = v;
+            break;
+          }
+        }
+      }
+      if (targetVoice == null) {
+        for (var v : voices) {
+          if (!v.active) {
+            targetVoice = v;
+            break;
+          }
+        }
+      }
+      if (targetVoice == null && voices.size() < maxPolyphony) {
+        targetVoice = new Voice(this);
+        voices.add(targetVoice);
+      }
+      if (targetVoice == null) {
+        int highestRating = Integer.MIN_VALUE;
+        for (var v : voices) {
+          int rating = v.getPriorityRating();
+          if (rating > highestRating) {
+            highestRating = rating;
+            targetVoice = v;
+          }
+        }
+      }
+      if (targetVoice != null) {
+        // Setup/Update samples on targetVoice's sources before triggering
+        for (int s = 0; s < 2; s++) {
+          if (samples[s] != null) {
+            boolean ts = sampleTimestretch[s] && !sampleReverse[s];
+            int playDir = sampleReverse[s] ? -1 : 1;
+            int len = (int) samples[s].lengthInSamples;
+            int startFrame = sampleStartPoint[s];
+            int endFrame = sampleEndPoint[s] == 65535 ? len : Math.min(sampleEndPoint[s], len);
+            boolean looping = sampleLoopMode[s] == 1;
+            int loopStartFrame = sampleLoopStart[s];
+            if (ts) {
+              int tsRatio = (int) Math.max(1, 16777216.0 * (samples[s].sampleRate / 44100.0));
+              targetVoice.sources[s].setupSampleTimeStretch(
+                  samples[s], startFrame, playDir, tsRatio);
+            } else {
+              targetVoice.sources[s].setupSample(
+                  samples[s], startFrame, endFrame, playDir, looping, loopStartFrame, samplesLate);
+            }
+          } else {
+            targetVoice.sources[s].sampleRef = null;
+            targetVoice.sources[s].voiceSample.active = false;
+          }
+        }
+        targetVoice.noteOn(note, vel, midiChannel, mpeValues);
+      }
+    }
+  }
+
+  public void releaseNote(int note) {
+    releaseNote(note, -1);
+  }
+
+  public void releaseNote(int note, int midiChannel) {
+    if (arpEnabled()) {
+      arpeggiator.noteOff(arpSettings, note, arpInstr);
+      for (int n = 0; n < 4; n++) {
+        int noteOff = arpInstr.noteCodeOffPostArp[n];
+        if (noteOff != Arpeggiator.ARP_NOTE_NONE) {
+          releaseVoice(noteOff, -1);
+        }
+      }
+      if (arpInstr.arpNoteOn != null) {
+        int noteOn = arpInstr.arpNoteOn.noteCodeOnPostArp[0];
+        int v = arpInstr.arpNoteOn.velocity;
+        if (v > 0) triggerVoice(noteOn, v, -1);
+      }
+      return;
+    }
+    releaseVoice(note, midiChannel);
+  }
+
+  public void releaseVoice(int note, int midiChannel) {
+    synchronized (voices) {
+      for (var v : voices) {
+        if (v.active && v.note == note) {
+          v.noteOff();
+        }
+      }
+    }
+  }
+
+  public void releaseAllNotes() {
+    synchronized (voices) {
+      for (var v : voices) {
+        if (v.active) {
+          v.noteOff();
+        }
       }
     }
   }

@@ -131,7 +131,7 @@ public class Patcher {
    * Fold the stored knob into a multiplicative cable combination. (patcher.cpp combineCablesLinear
    * + cableToLinearParamWithoutRangeAdjustment)
    */
-  private static int combineCablesLinear(Destination dest, int knobValue, int[] sourceValues) {
+  public static int combineCablesLinear(Destination dest, int knobValue, int[] sourceValues) {
     int runningTotal = 536870912; // "1" in Q30
     int range = Functions.getParamRange(dest.paramId);
     // First fold: the stored knob value (treated as a cable)

@@ -82,6 +82,15 @@ public class VoiceSample {
     long combinedIncrement =
         ((phaseIncrement & 0xFFFFFFFFL) * (timeStretchRatio & 0xFFFFFFFFL)) >>> 24; // C:614
 
+    int ampVal = Functions.lshiftAndSaturate(amplitude[0], 3);
+    int ampInc = Functions.lshiftAndSaturate(amplitudeIncrement, 3);
+    if (!native_) {
+      ampVal = Functions.lshiftAndSaturate(ampVal, 1);
+      ampInc = Functions.lshiftAndSaturate(ampInc, 1);
+    }
+    ampVal = Functions.lshiftAndSaturate(ampVal, 1);
+    ampInc = Functions.lshiftAndSaturate(ampInc, 1);
+
     int produced = 0;
     while (produced < numSamples) {
       // C:1162-1173 — time to hop?
@@ -120,8 +129,8 @@ public class VoiceSample {
       boolean olderAudible =
           timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER]
               && timeStretcher.crossfadeProgress < K_MAX_SAMPLE_VALUE;
-      int preCacheAmplitude = amplitude[0] >> 1;
-      int preCacheAmplitudeIncrement = amplitudeIncrement >> 1;
+      int preCacheAmplitude = ampVal >> 1;
+      int preCacheAmplitudeIncrement = ampInc >> 1;
       int newerSourceAmplitudeNow;
       int newerAmplitudeIncrementNow;
       int olderSourceAmplitudeNow = 0;
@@ -185,7 +194,9 @@ public class VoiceSample {
       timeStretcher.samplePosBig += combinedIncrement * numThis * reader.playDirection; // C:1396
       timeStretcher.samplesTilHopEnd -= numThis; // C:1432
       produced += numThis;
+      ampVal += ampInc * numThis;
     }
+    amplitude[0] = native_ ? (ampVal >> 3) : (ampVal >> 5);
   }
 
   private static void readHead(
@@ -292,6 +303,14 @@ public class VoiceSample {
       return;
     }
     boolean native_ = (phaseIncrement == K_MAX_SAMPLE_VALUE);
+    int ampVal = Functions.lshiftAndSaturate(amplitude[0], 3);
+    int ampInc = Functions.lshiftAndSaturate(amplitudeIncrement, 3);
+    if (!native_) {
+      ampVal = Functions.lshiftAndSaturate(ampVal, 1);
+      ampInc = Functions.lshiftAndSaturate(ampInc, 1);
+    }
+    int[] ampArr = {ampVal};
+
     int produced = 0;
     while (produced < numSamples) {
       long left = framesUntilEnd();
@@ -312,7 +331,7 @@ public class VoiceSample {
 
       int[] tmp = new int[chunk * numChannels];
       if (native_) {
-        reader.readNative(tmp, chunk, numChannels, amplitude, amplitudeIncrement);
+        reader.readNative(tmp, chunk, numChannels, ampArr, ampInc);
       } else {
         reader.readResampled(
             tmp,
@@ -320,8 +339,8 @@ public class VoiceSample {
             numChannels,
             Functions.getWhichKernel(phaseIncrement),
             phaseIncrement,
-            amplitude,
-            amplitudeIncrement);
+            ampArr,
+            ampInc);
       }
       int base = produced * numChannels;
       for (int i = 0; i < tmp.length; i++) {
@@ -329,5 +348,6 @@ public class VoiceSample {
       }
       produced += chunk;
     }
+    amplitude[0] = native_ ? (ampArr[0] >> 3) : (ampArr[0] >> 4);
   }
 }

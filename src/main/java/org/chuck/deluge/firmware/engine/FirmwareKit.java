@@ -4,13 +4,13 @@ import java.util.ArrayList;
 import java.util.List;
 import org.chuck.deluge.firmware.dsp.oscillators.OscType;
 import org.chuck.deluge.firmware.modulation.params.Param;
-import org.chuck.deluge.firmware2.GlobalEffectable;
 
 /** Port of the Deluge's Kit class. */
-public class FirmwareKit extends GlobalEffectable {
+public class FirmwareKit extends org.chuck.deluge.firmware2.Kit {
   public final List<FirmwareSound> drumSounds = new ArrayList<>();
 
   public FirmwareKit() {
+    super.drums.clear();
     for (int i = 0; i < 16; i++) {
       FirmwareSound drumSound = new FirmwareSound();
       drumSound.isDrum = true;
@@ -21,6 +21,7 @@ public class FirmwareKit extends GlobalEffectable {
       drumSound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
       drumSound.paramNeutralValues[Param.LOCAL_NOISE_VOLUME] = Integer.MIN_VALUE;
       drumSounds.add(drumSound);
+      super.drums.add(drumSound.fw2Sound);
     }
   }
 

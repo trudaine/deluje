@@ -98,12 +98,10 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
   public int eqTrebleParam = 0; // bipolar Q31; 0 = flat
 
   // C: firmware2 Arpeggiator — faithful port of modulation/arpeggiator.cpp.
-  public final org.chuck.deluge.firmware2.Arpeggiator.Synth arpeggiator =
-      new org.chuck.deluge.firmware2.Arpeggiator.Synth();
-  public final org.chuck.deluge.firmware2.Arpeggiator.Settings arpSettings =
-      new org.chuck.deluge.firmware2.Arpeggiator.Settings();
+  public final org.chuck.deluge.firmware2.Arpeggiator.Synth arpeggiator = fw2Sound.arpeggiator;
+  public final org.chuck.deluge.firmware2.Arpeggiator.Settings arpSettings = fw2Sound.arpSettings;
   private final org.chuck.deluge.firmware2.Arpeggiator.ArpReturnInstruction arpInstr =
-      new org.chuck.deluge.firmware2.Arpeggiator.ArpReturnInstruction();
+      fw2Sound.arpInstr;
   public int arpPhaseIncrement = 0; // arp clock (Q-units; one step == 1<<24 of gatePos)
   public int arpDivision =
       16; // step note division (16 = 16th note); used to derive arpPhaseIncrement
@@ -228,7 +226,7 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
       for (int n = 0; n < 4; n++) {
         int noteOff = arpInstr.noteCodeOffPostArp[n];
         if (noteOff != org.chuck.deluge.firmware2.Arpeggiator.ARP_NOTE_NONE) {
-          releaseVoice(noteOff, -1);
+          fw2Sound.releaseVoice(noteOff, -1);
         }
       }
 
@@ -237,7 +235,7 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
         int noteOn = arpInstr.arpNoteOn.noteCodeOnPostArp[0];
         int vel = arpInstr.arpNoteOn.velocity;
         if (vel <= 0) vel = 64; // safety default
-        triggerVoice(noteOn, vel, -1);
+        fw2Sound.triggerVoice(noteOn, vel, -1);
         // C: mark as PLAYING so handlePendingNotes won't re-fire the same note
         arpInstr.arpNoteOn.noteStatus[0] =
             org.chuck.deluge.firmware2.Arpeggiator.ArpNoteStatus.PLAYING;
@@ -383,33 +381,18 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
   }
 
   public void triggerNote(int note, int vel) {
-    triggerNote(note, vel, -1);
+    syncParamsToFw2();
+    fw2Sound.triggerNote(note, vel);
   }
 
   public void triggerNote(int note, int vel, int midiChannel) {
-    // When the arpeggiator is on, held notes go to it; it triggers voices on its own clock.
-    if (arpEnabled()) {
-      arpeggiator.noteOn(arpSettings, note, vel, arpInstr, midiChannel, null);
-      // If the arp immediately returns a note-on (first note, no sync), handle it now
-      if (arpInstr.arpNoteOn != null) {
-        int noteOn = arpInstr.arpNoteOn.noteCodeOnPostArp[0];
-        int v = arpInstr.arpNoteOn.velocity;
-        if (v <= 0) v = 64;
-        triggerVoice(noteOn, v, midiChannel);
-        arpInstr.arpNoteOn.noteStatus[0] =
-            org.chuck.deluge.firmware2.Arpeggiator.ArpNoteStatus.PLAYING;
-        arpInstr.arpNoteOn = null;
-      }
-      return;
-    }
-    triggerVoice(note, vel, midiChannel);
+    syncParamsToFw2();
+    fw2Sound.triggerNote(note, vel, midiChannel);
   }
 
-  private void triggerVoice(int note, int vel, int midiChannel) {
-    if (sidechainSend != 0) {
-      GlobalSidechainBus.registerHit(sidechainSend);
-    }
-    triggerVoiceFw2(note, vel, midiChannel, null);
+  public void triggerNoteLate(int note, int vel, int samplesLate) {
+    syncParamsToFw2();
+    fw2Sound.triggerNoteLate(note, vel, samplesLate);
   }
 
   /** Active voice count. */
@@ -421,107 +404,33 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     }
   }
 
-  public void triggerNoteLate(int note, int vel, int samplesLate) {
-    if (sidechainSend != 0) {
-      GlobalSidechainBus.registerHit(sidechainSend);
-    }
-    triggerVoiceFw2(note, vel, -1, null, samplesLate);
-  }
-
-  private void triggerVoiceFw2(int note, int vel, int midiChannel, int[] mpeValues) {
-    triggerVoiceFw2(note, vel, midiChannel, mpeValues, 0);
-  }
-
-  private void triggerVoiceFw2(
-      int note, int vel, int midiChannel, int[] mpeValues, int samplesLate) {
-    synchronized (fw2Sound.voices) {
-      // noteOn-applied state must be on fw2Sound BEFORE noteOn runs (renderVoicesFw2 propagates
-      // too late for it): retrigger phases (vups:79-82, voice.cpp:319-327) need the configured
-      // values, and the phase init loops over numUnison parts.
-      fw2Sound.synthMode = synthMode == SynthMode.FM ? 1 : synthMode == SynthMode.RINGMOD ? 2 : 0;
-      fw2Sound.oscTypes[0] = fw2OscType(oscTypes[0]);
-      fw2Sound.oscTypes[1] = fw2OscType(oscTypes[1]);
-      fw2Sound.numUnison = numUnison;
-      fw2Sound.oscRetriggerPhase[0] = osc1RetriggerPhase;
-      fw2Sound.oscRetriggerPhase[1] = osc2RetriggerPhase;
-      fw2Sound.modulatorRetriggerPhase[0] = mod1RetrigPhase;
-      fw2Sound.modulatorRetriggerPhase[1] = mod2RetrigPhase;
-      fw2Sound.portamentoKnob = portamentoKnob;
-      org.chuck.deluge.firmware2.Voice targetVoice = null;
-      if (polyphonic != PolyphonyMode.POLY) {
-        for (var v : fw2Sound.voices) {
-          if (v.active) {
-            targetVoice = v;
-            break;
-          }
-        }
-      }
-      if (targetVoice == null) {
-        for (var v : fw2Sound.voices) {
-          if (!v.active) {
-            targetVoice = v;
-            break;
-          }
-        }
-      }
-      if (targetVoice == null && fw2Sound.voices.size() < maxPolyphony) {
-        targetVoice = new org.chuck.deluge.firmware2.Voice(fw2Sound);
-        fw2Sound.voices.add(targetVoice);
-      }
-      if (targetVoice == null) {
-        int highestRating = Integer.MIN_VALUE;
-        for (var v : fw2Sound.voices) {
-          int rating = v.getPriorityRating();
-          if (rating > highestRating) {
-            highestRating = rating;
-            targetVoice = v;
-          }
-        }
-      }
-      if (targetVoice != null) {
-        // Setup/Update samples on targetVoice's sources before triggering
-        for (int s = 0; s < 2; s++) {
-          if (fw2SampleCache[s] != null) {
-            boolean ts = sampleSettings[s].timestretch && !sampleSettings[s].reverse;
-            int playDir = sampleSettings[s].reverse ? -1 : 1;
-            int len = (int) fw2SampleCache[s].lengthInSamples;
-            int startFrame = sampleSettings[s].startPoint;
-            int endFrame =
-                sampleSettings[s].endPoint == 65535
-                    ? len
-                    : Math.min(sampleSettings[s].endPoint, len);
-            boolean looping = sampleSettings[s].loopMode == 1;
-            int loopStartFrame = sampleSettings[s].loopStart;
-            if (ts) {
-              int tsRatio = (int) Math.max(1, 16777216.0 * (samples[s].sampleRate / 44100.0));
-              targetVoice.sources[s].setupSampleTimeStretch(
-                  fw2SampleCache[s], startFrame, playDir, tsRatio);
-            } else {
-              targetVoice.sources[s].setupSample(
-                  fw2SampleCache[s],
-                  startFrame,
-                  endFrame,
-                  playDir,
-                  looping,
-                  loopStartFrame,
-                  samplesLate);
-            }
-          } else {
-            targetVoice.sources[s].sampleRef = null;
-            targetVoice.sources[s].voiceSample.active = false;
-          }
-        }
-        targetVoice.noteOn(note, vel, midiChannel, mpeValues);
-      }
-    }
-  }
-
   private void renderVoicesFw2(int[] buffer, int numSamples) {
-    // 1. Map current settings from FirmwareSound to fw2Sound
+    syncParamsToFw2();
+    synchronized (fw2Sound.voices) {
+      var it = fw2Sound.voices.iterator();
+      while (it.hasNext()) {
+        var v = it.next();
+        if (!v.active) {
+          it.remove();
+          continue;
+        }
+        org.chuck.deluge.firmware2.Patcher.performInitialPatching(
+            fw2Sound.patchedParamValues, v.sourceValues, v.paramFinalValues);
+
+        boolean doLPF =
+            (lpfMode != org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF);
+        boolean doHPF =
+            (hpfMode != org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF);
+
+        v.render(buffer, numSamples, doLPF, doHPF);
+      }
+    }
+  }
+
+  public void syncParamsToFw2() {
     fw2Sound.synthMode = synthMode == SynthMode.FM ? 1 : synthMode == SynthMode.RINGMOD ? 2 : 0;
     fw2Sound.oscTypes[0] = fw2OscType(oscTypes[0]);
     fw2Sound.oscTypes[1] = fw2OscType(oscTypes[1]);
-    // DX7: a loaded patch makes source 0 an OscType::DX7 (the Deluge loads DX7 into an osc source).
     if (dx7Patch != null) {
       fw2Sound.oscTypes[0] = org.chuck.deluge.firmware2.Oscillator.OscType.DX7;
       fw2Sound.sourceDx7Patch[0] = dx7Patch;
@@ -550,8 +459,8 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     int m1Transpose = fmModulator1Transpose;
     int m1Cents = fmModulator1Cents;
     if (m1Transpose == 0 && m1Cents == 0 && fmRatio1 > 0.0f) {
-      int totalCents = Math.round(1200f * (float) (Math.log(fmRatio1) / Math.log(2)));
-      m1Transpose = Math.round(totalCents / 100f);
+      int totalCents = (int) Math.round(1200f * (float) (Math.log(fmRatio1) / Math.log(2)));
+      m1Transpose = (int) Math.round(totalCents / 100f);
       m1Cents = totalCents - m1Transpose * 100;
     }
     fw2Sound.modulatorTranspose[0] = m1Transpose;
@@ -560,55 +469,40 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     int m2Transpose = fmModulator2Transpose;
     int m2Cents = fmModulator2Cents;
     if (m2Transpose == 0 && m2Cents == 0 && fmRatio2 > 0.0f) {
-      int totalCents = Math.round(1200f * (float) (Math.log(fmRatio2) / Math.log(2)));
-      m2Transpose = Math.round(totalCents / 100f);
+      int totalCents = (int) Math.round(1200f * (float) (Math.log(fmRatio2) / Math.log(2)));
+      m2Transpose = (int) Math.round(totalCents / 100f);
       m2Cents = totalCents - m2Transpose * 100;
     }
     fw2Sound.modulatorTranspose[1] = m2Transpose;
     fw2Sound.setModulatorCents(1, m2Cents);
 
-    // Attach samples to voice sources when the sound is sample-based.
     for (int s = 0; s < 2; s++) {
       if (fw2Sound.oscTypes[s] == org.chuck.deluge.firmware2.Oscillator.OscType.SAMPLE
           && samples[s] != null
           && samples[s].data != null) {
         fw2SampleCache[s] = org.chuck.deluge.firmware2.Sample.fromFirmwareSample(samples[s]);
-        boolean ts = sampleSettings[s].timestretch && !sampleSettings[s].reverse;
-        int playDir = sampleSettings[s].reverse ? -1 : 1;
-        int len = (int) fw2SampleCache[s].lengthInSamples;
-        int startFrame = sampleSettings[s].startPoint;
-        int endFrame =
-            sampleSettings[s].endPoint == 65535 ? len : Math.min(sampleSettings[s].endPoint, len);
-        boolean looping = sampleSettings[s].loopMode == 1;
-        int loopStartFrame = sampleSettings[s].loopStart;
-        // Attach to all active voices
-        synchronized (fw2Sound.voices) {
-          for (var v : fw2Sound.voices) {
-            if (v.active && v.sources[s].sampleRef == null) {
-              if (ts) {
-                int tsRatio = (int) Math.max(1, 16777216.0 * (samples[s].sampleRate / 44100.0));
-                v.sources[s].setupSampleTimeStretch(
-                    fw2SampleCache[s], startFrame, playDir, tsRatio);
-              } else {
-                v.sources[s].setupSample(
-                    fw2SampleCache[s], startFrame, endFrame, playDir, looping, loopStartFrame);
-              }
-            }
-          }
-        }
+        fw2Sound.samples[s] = fw2SampleCache[s];
+        fw2Sound.sampleReverse[s] = sampleSettings[s].reverse;
+        fw2Sound.sampleStartPoint[s] = sampleSettings[s].startPoint;
+        fw2Sound.sampleEndPoint[s] = sampleSettings[s].endPoint;
+        fw2Sound.sampleLoopMode[s] = sampleSettings[s].loopMode;
+        fw2Sound.sampleLoopStart[s] = sampleSettings[s].loopStart;
+        fw2Sound.sampleTimestretch[s] = sampleSettings[s].timestretch;
+      } else {
+        fw2Sound.samples[s] = null;
       }
     }
 
-    // Propagate globalSourceValues (first 3 values)
+    fw2Sound.polyphonic = org.chuck.deluge.firmware2.Sound.PolyphonyMode.valueOf(polyphonic.name());
+    fw2Sound.maxPolyphony = maxPolyphony;
+
     System.arraycopy(globalSourceValues, 0, fw2Sound.globalSourceValues, 0, 3);
 
-    // Propagate LFO config waveforms
     fw2Sound.lfoConfig[0].waveType = fw2LfoType(lfoWaveforms[0]);
     fw2Sound.lfoConfig[1].waveType = fw2LfoType(lfoWaveforms[1]);
     fw2Sound.lfoConfig[2].waveType = fw2LfoType(lfoWaveforms[2]);
     fw2Sound.lfoConfig[3].waveType = fw2LfoType(lfoWaveforms[3]);
 
-    // Bridge the patch's param knobs into the firmware2 Sound as C knob values.
     System.arraycopy(
         paramNeutralValues,
         0,
@@ -634,7 +528,7 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     for (Destination d : paramManager.getPatchCableSet().destinations) {
       for (PatchCable c : d.cables) {
         var fc = new org.chuck.deluge.firmware2.Patcher.PatchCable();
-        fc.source = c.from.ordinal(); // PatchSource ordinals match the C across both engines
+        fc.source = c.from.ordinal();
         fc.amount = c.getAmount();
         fc.polarity =
             (c.polarity == PatchCable.Polarity.UNIPOLAR)
@@ -644,25 +538,24 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
       }
     }
 
-    synchronized (fw2Sound.voices) {
-      var it = fw2Sound.voices.iterator();
-      while (it.hasNext()) {
-        var v = it.next();
-        if (!v.active) {
-          it.remove();
-          continue;
-        }
-        org.chuck.deluge.firmware2.Patcher.performInitialPatching(
-            fw2Sound.patchedParamValues, v.sourceValues, v.paramFinalValues);
+    fw2Sound.sidechainSend = sidechainSend;
+    fw2Sound.modFXType = fw2ModFXType(modFXType);
+    fw2Sound.modFXRateIncrement = modFXRateIncrement;
+    fw2Sound.modFXDepth = modFXDepth;
+    fw2Sound.modFXOffset = modFXOffset;
+    fw2Sound.modFXFeedback = modFXFeedback;
+    fw2Sound.bitcrushParam = bitcrushParam;
+    fw2Sound.srrParam = srrParam;
+    fw2Sound.eqBassParam = eqBassParam;
+    fw2Sound.eqTrebleParam = eqTrebleParam;
+    fw2Sound.currentBpm = (int) currentBpm;
+    fw2Sound.arpPhaseIncrement = arpPhaseIncrement;
 
-        boolean doLPF =
-            (lpfMode != org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF);
-        boolean doHPF =
-            (hpfMode != org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF);
+    // arpSettings are already shared between FirmwareSound and fw2Sound.
+  }
 
-        v.render(buffer, numSamples, doLPF, doHPF);
-      }
-    }
+  private org.chuck.deluge.firmware2.ModFx.ModFXType fw2ModFXType(ModFXType t) {
+    return org.chuck.deluge.firmware2.ModFx.ModFXType.values()[t.ordinal()];
   }
 
   private org.chuck.deluge.firmware2.Oscillator.OscType fw2OscType(
@@ -728,46 +621,18 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
   }
 
   public void releaseNote(int note) {
-    releaseNote(note, -1);
+    syncParamsToFw2();
+    fw2Sound.releaseNote(note);
   }
 
   public void releaseNote(int note, int midiChannel) {
-    if (arpEnabled()) {
-      arpeggiator.noteOff(arpSettings, note, arpInstr);
-      // Handle any note-off instructions the arp emitted
-      for (int n = 0; n < 4; n++) {
-        int noteOff = arpInstr.noteCodeOffPostArp[n];
-        if (noteOff != org.chuck.deluge.firmware2.Arpeggiator.ARP_NOTE_NONE) {
-          releaseVoice(noteOff, -1);
-        }
-      }
-      // Handle snap-back note-on (mono behavior)
-      if (arpInstr.arpNoteOn != null) {
-        int noteOn = arpInstr.arpNoteOn.noteCodeOnPostArp[0];
-        int v = arpInstr.arpNoteOn.velocity;
-        if (v > 0) triggerVoice(noteOn, v, -1);
-      }
-      return;
-    }
-    releaseVoice(note, midiChannel);
-  }
-
-  private void releaseVoice(int note, int midiChannel) {
-    synchronized (fw2Sound.voices) {
-      for (var v : fw2Sound.voices) {
-        if (v.active && v.note == note) {
-          v.noteOff(); // triggers the envelope release (envelope.cpp noteOff/unconditionalRelease)
-        }
-      }
-    }
+    syncParamsToFw2();
+    fw2Sound.releaseNote(note, midiChannel);
   }
 
   public void releaseAllNotes() {
-    synchronized (fw2Sound.voices) {
-      for (var v : fw2Sound.voices) {
-        if (v.active) v.noteOff();
-      }
-    }
+    syncParamsToFw2();
+    fw2Sound.releaseAllNotes();
   }
 
   /** C: polyphonicExpressionEventOnChannelOrNote — pitch bend (X), immediate. */

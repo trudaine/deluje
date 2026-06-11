@@ -155,9 +155,9 @@ public class SincInterpolator {
         sumR += (long) kc * histR[i];
       }
     }
-    // Full-precision samples are ~Q31 vs the C's int16 (top 16 bits); >> 16 matches the C output
-    // scale.
-    return new int[] {(int) (sumL >> 16), (int) (sumR >> 16)};
+    int outL = (int) (sumL >> 16);
+    int outR = (int) (sumR >> 16);
+    return new int[] {outL, outR};
   }
 
   // ── interpolateLinear (interpolate.cpp:70-80) ──

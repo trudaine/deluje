@@ -349,7 +349,8 @@ public class FirmwareUtils {
       workingValue = (int) (input + 2147483648L);
     }
     int result = interpolateTableSigned(workingValue, 32, LookupTables.tanHSmall, 8);
-    return result >> (saturationAmount + 2);
+    int out = result >> (saturationAmount + 2);
+    return out;
   }
 
   public static int lshiftAndSaturateUnknown(int val, int lshift) {
