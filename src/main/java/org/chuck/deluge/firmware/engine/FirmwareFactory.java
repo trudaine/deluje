@@ -694,6 +694,18 @@ public class FirmwareFactory {
     s.numOctaves = Math.max(1, arp.octaves());
     s.numStepRepeats = Math.max(1, arp.stepRepeat());
     s.gate = (int) (Math.max(0f, Math.min(1f, arp.gate())) * 2147483647.0);
+    // Rhythm pattern: fw2 settings.rhythm is the raw uint32 menu value (the C reads it back with
+    // computeCurrentValueForUnsignedMenuItem, arpeggiator.cpp:762). XML may carry either the small
+    // 0..50 index or the raw stored value — normalize to an index, then scale
+    // (value_scaling.cpp:60-62).
+    int rhythmIdx = arp.rhythmIndex();
+    if (rhythmIdx > org.chuck.deluge.firmware2.Functions.K_MAX_MENU_VALUE || rhythmIdx < 0) {
+      rhythmIdx =
+          org.chuck.deluge.firmware2.Functions.computeCurrentValueForUnsignedMenuItem(rhythmIdx);
+    }
+    rhythmIdx =
+        Math.max(0, Math.min(org.chuck.deluge.firmware2.Functions.K_MAX_MENU_VALUE, rhythmIdx));
+    s.rhythm = org.chuck.deluge.firmware2.Functions.computeFinalValueForUnsignedMenuItem(rhythmIdx);
     // syncLevel here is a note-division denominator (1=whole, 4=quarter, 16=16th); default 16th.
     sound.arpDivision = (arp.syncLevel() > 0) ? arp.syncLevel() : 16;
   }
