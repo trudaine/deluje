@@ -578,7 +578,10 @@ public class Voice {
 
     // ── FM path (voice.cpp:1400-1560) ──
     if (sound.synthMode == 1) { // FM
-      renderFmPath(mixBuf, numSamples);
+      // C voice.cpp:1024-1031: FM folds the CURRENT block's overallOscAmplitude into the carrier
+      // amplitudes (not lastTime — lastTime is 0 on the first render, and this early-return path
+      // must also advance the ramp state or FM stays silent forever).
+      renderFmPath(mixBuf, numSamples, overallOscAmplitude);
       // Apply filter + pan + gain after FM
       applyFilterAndGain(mixBuf, numSamples, doLPF, doHPF);
       // Copy to output
@@ -586,6 +589,8 @@ public class Voice {
         soundBuffer[i * 2] = Functions.add_saturate(soundBuffer[i * 2], mixBuf[i * 2]);
         soundBuffer[i * 2 + 1] = Functions.add_saturate(soundBuffer[i * 2 + 1], mixBuf[i * 2 + 1]);
       }
+      overallOscAmplitudeLastTime = overallOscAmplitude;
+      doneFirstRender = true;
       return active;
     }
 
@@ -858,7 +863,7 @@ public class Voice {
     return modInc;
   }
 
-  private void renderFmPath(int[] mixBuf, int numSamples) {
+  private void renderFmPath(int[] mixBuf, int numSamples, int overallOscAmplitude) {
     int modAmp0 = paramFinalValues[Param.LOCAL_MODULATOR_0_VOLUME];
     int modAmp1 = paramFinalValues[Param.LOCAL_MODULATOR_1_VOLUME];
     boolean mod0Active = modAmp0 != 0;
@@ -946,9 +951,10 @@ public class Voice {
         carrierIncB = adjustPitch(carrierIncB, paramFinalValues[Param.LOCAL_OSC_B_PITCH_ADJUST]);
       }
 
+      // C voice.cpp:1026-1028 — unison compensation folded into the CURRENT overall amplitude.
       int overallForCarriers =
           Functions.multiply_32x32_rshift32_rounded(
-                  overallOscAmplitudeLastTime, sound.volumeNeutralValueForUnison)
+                  overallOscAmplitude, sound.volumeNeutralValueForUnison)
               << 3;
       int carrierAmp0 =
           Math.min(

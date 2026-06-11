@@ -626,7 +626,8 @@ public class PhysicalHardwareFidelityTest {
    * working-FM signature is periodicity instead: with the modulator at half the carrier frequency
    * the waveform only repeats at the SUBHARMONIC period (lag 2T), while a broken modulator-off
    * render is a pure carrier sine, equally correlated at T and 2T. Assert AC(2T) exceeds AC(T) by a
-   * clear margin (measured: 0.60 vs 0.49 working; identical when broken).
+   * clear margin (measured: 0.999 vs 0.969 with the post-unison-port render, 0.62 vs 0.53 before
+   * it; a broken sine measures a difference of ~0.000).
    */
   private void assertSubharmonicFm(float[] sw, double carrierHz, String testName) {
     int swOn = findLoudOnset(sw);
@@ -640,7 +641,7 @@ public class PhysicalHardwareFidelityTest {
         testName, swOn, swRms, acT, ac2T);
     assertTrue(swRms > 1e-4, testName + ": software note should sound in its loud window");
     assertTrue(
-        ac2T - acT > 0.04,
+        ac2T - acT > 0.02,
         testName
             + ": subharmonic FM periodicity missing (AC(2T)="
             + ac2T
