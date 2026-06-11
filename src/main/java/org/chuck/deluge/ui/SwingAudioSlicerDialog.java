@@ -77,11 +77,10 @@ public class SwingAudioSlicerDialog extends JDialog {
 
     cTop.gridx = 2;
     cTop.weightx = 0.0;
-    JButton browseBtn = new JButton("📁 Select WAV");
+    JButton browseBtn = new JButton("📁 Select WAV  ");
     browseBtn.setFont(new Font("SansSerif", Font.BOLD, 11));
-    browseBtn.setBackground(new Color(0x3a, 0x3a, 0x3e));
-    browseBtn.setForeground(Color.WHITE);
-    browseBtn.setFocusable(false);
+    styleButton(browseBtn, new Color(0x3a, 0x3a, 0x3e), Color.WHITE);
+    browseBtn.setPreferredSize(new Dimension(140, 26));
     browseBtn.addActionListener(e -> selectWavLoopFile());
     topPanel.add(browseBtn, cTop);
 
@@ -167,12 +166,10 @@ public class SwingAudioSlicerDialog extends JDialog {
     // Row 2: Slice Action button
     cSouth.gridy = 2;
     cSouth.insets = new Insets(8, 0, 0, 0);
-    JButton sliceActionBtn = new JButton("✂️ Slice & Load Across Kit Rows live");
+    JButton sliceActionBtn = new JButton("✂️ Slice & Load Across Kit Rows live  ");
     sliceActionBtn.setFont(new Font("SansSerif", Font.BOLD, 14));
     sliceActionBtn.setPreferredSize(new Dimension(750, 44));
-    sliceActionBtn.setBackground(new Color(0x0c, 0x38, 0x1f));
-    sliceActionBtn.setForeground(Color.GREEN);
-    sliceActionBtn.setFocusable(false);
+    styleButton(sliceActionBtn, new Color(0x0c, 0x38, 0x1f), Color.GREEN);
     sliceActionBtn.addActionListener(e -> generateAndSplitKitTrack());
     southPanel.add(sliceActionBtn, cSouth);
 
@@ -338,15 +335,11 @@ public class SwingAudioSlicerDialog extends JDialog {
   }
 
   private void styleButton(AbstractButton btn, Color bg, Color fg) {
+    btn.setContentAreaFilled(false);
     btn.setOpaque(true);
-    btn.setBorderPainted(true);
-    btn.setContentAreaFilled(true);
+    btn.setFocusPainted(false);
     btn.setBackground(bg);
     btn.setForeground(fg);
-    btn.setFocusable(false);
-    btn.setBorder(
-        BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(bg.brighter(), 1),
-            BorderFactory.createEmptyBorder(4, 12, 4, 12)));
+    btn.setBorder(BorderFactory.createLineBorder(fg, 1));
   }
 }

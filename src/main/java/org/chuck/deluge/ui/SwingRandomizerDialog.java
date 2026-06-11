@@ -225,23 +225,19 @@ public class SwingRandomizerDialog extends JDialog {
     cs.weightx = 0.5;
     cs.insets = new Insets(8, 0, 0, 8);
 
-    JButton randOptionsBtn = new JButton("🎲 Randomize Mappings");
+    JButton randOptionsBtn = new JButton("🎲 Randomize Mappings  ");
     randOptionsBtn.setFont(new Font("SansSerif", Font.BOLD, 13));
     randOptionsBtn.setPreferredSize(new Dimension(350, 42));
-    randOptionsBtn.setBackground(new Color(0x32, 0x2d, 0x4d));
-    randOptionsBtn.setForeground(Color.WHITE);
-    randOptionsBtn.setFocusable(false);
+    styleButton(randOptionsBtn, new Color(0x32, 0x2d, 0x4d), Color.WHITE);
     randOptionsBtn.addActionListener(e -> triggerRandomizeOptions());
     southPanel.add(randOptionsBtn, cs);
 
     cs.gridx = 1;
     cs.insets = new Insets(8, 8, 0, 0);
-    JButton createSynthBtn = new JButton("⚡ Create & Load Random Synth");
+    JButton createSynthBtn = new JButton("⚡ Create & Load Random Synth  ");
     createSynthBtn.setFont(new Font("SansSerif", Font.BOLD, 13));
     createSynthBtn.setPreferredSize(new Dimension(350, 42));
-    createSynthBtn.setBackground(new Color(0x0c, 0x38, 0x1f));
-    createSynthBtn.setForeground(Color.GREEN);
-    createSynthBtn.setFocusable(false);
+    styleButton(createSynthBtn, new Color(0x0c, 0x38, 0x1f), Color.GREEN);
     createSynthBtn.addActionListener(e -> generateAndLoadSynth());
     southPanel.add(createSynthBtn, cs);
 
@@ -283,11 +279,10 @@ public class SwingRandomizerDialog extends JDialog {
 
     cTop.gridx = 2;
     cTop.weightx = 0.0;
-    JButton browseFolderBtn = new JButton("📁 Select Folder");
+    JButton browseFolderBtn = new JButton("📁 Select Folder  ");
     browseFolderBtn.setFont(new Font("SansSerif", Font.BOLD, 11));
-    browseFolderBtn.setBackground(new Color(0x3a, 0x3a, 0x3e));
-    browseFolderBtn.setForeground(Color.WHITE);
-    browseFolderBtn.setFocusable(false);
+    styleButton(browseFolderBtn, new Color(0x3a, 0x3a, 0x3e), Color.WHITE);
+    browseFolderBtn.setPreferredSize(new Dimension(140, 26));
     browseFolderBtn.addActionListener(e -> selectSamplesDirectory());
     topPanel.add(browseFolderBtn, cTop);
 
@@ -407,12 +402,10 @@ public class SwingRandomizerDialog extends JDialog {
     csKit.weightx = 1.0;
     csKit.insets = new Insets(10, 0, 0, 0);
 
-    JButton generateKitBtn = new JButton("⚡ Generate & Load Drum Kit live");
+    JButton generateKitBtn = new JButton("⚡ Generate & Load Drum Kit live  ");
     generateKitBtn.setFont(new Font("SansSerif", Font.BOLD, 14));
     generateKitBtn.setPreferredSize(new Dimension(750, 45));
-    generateKitBtn.setBackground(new Color(0x0c, 0x38, 0x1f));
-    generateKitBtn.setForeground(Color.GREEN);
-    generateKitBtn.setFocusable(false);
+    styleButton(generateKitBtn, new Color(0x0c, 0x38, 0x1f), Color.GREEN);
     generateKitBtn.addActionListener(e -> generateAndLoadKitTrack());
     southPanel.add(generateKitBtn, csKit);
 
@@ -1140,11 +1133,10 @@ public class SwingRandomizerDialog extends JDialog {
     gbc.gridwidth = 2;
     gbc.fill = GridBagConstraints.NONE;
     gbc.anchor = GridBagConstraints.CENTER;
-    JButton generateBtn = new JButton("🎹 GENERATE DIATONIC PROGRESSION");
+    JButton generateBtn = new JButton("🎹 GENERATE DIATONIC PROGRESSION  ");
     generateBtn.setFont(new Font("SansSerif", Font.BOLD, 12));
-    generateBtn.setBackground(new Color(0x00, 0x4d, 0x3d));
-    generateBtn.setForeground(Color.WHITE);
-    generateBtn.setFocusable(false);
+    styleButton(generateBtn, new Color(0x00, 0x4d, 0x3d), Color.WHITE);
+    generateBtn.setPreferredSize(new Dimension(300, 30));
     generateBtn.addActionListener(
         e -> {
           if (synthTrackIndices.isEmpty()) {
@@ -1348,5 +1340,14 @@ public class SwingRandomizerDialog extends JDialog {
     panel.add(generateBtn, gbc);
 
     return panel;
+  }
+
+  private void styleButton(JButton btn, Color bg, Color fg) {
+    btn.setContentAreaFilled(false);
+    btn.setOpaque(true);
+    btn.setFocusPainted(false);
+    btn.setBackground(bg);
+    btn.setForeground(fg);
+    btn.setBorder(BorderFactory.createLineBorder(fg, 1));
   }
 }

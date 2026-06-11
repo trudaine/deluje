@@ -34,7 +34,7 @@ public class SwingMidiConfigDialog extends JDialog {
     this.bridge = bridge;
     this.midiService = midiService;
 
-    setSize(520, 640);
+    setSize(580, 640);
     setLocationRelativeTo(owner);
     setResizable(true);
     getContentPane().setBackground(new Color(0x12, 0x12, 0x14));
@@ -44,7 +44,7 @@ public class SwingMidiConfigDialog extends JDialog {
     JPanel headerPanel = new JPanel(new BorderLayout());
     headerPanel.setBackground(new Color(0x18, 0x18, 0x1c));
     headerPanel.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
-    JLabel titleLabel = new JLabel("🎹 MIDI HARDWARE SETTINGS");
+    JLabel titleLabel = new JLabel("🎹 MIDI HARDWARE SETTINGS  ");
     titleLabel.setFont(new Font("SansSerif", Font.BOLD, 11));
     titleLabel.setForeground(new Color(0x00, 0xff, 0xcc));
     headerPanel.add(titleLabel, BorderLayout.WEST);
@@ -250,7 +250,7 @@ public class SwingMidiConfigDialog extends JDialog {
           Integer.parseInt(PreferencesManager.get("midi.follow.track" + fLabel, String.valueOf(i)));
       trCombo.setSelectedIndex(Math.min(savedTr, 15));
       styleCombo(trCombo);
-      trCombo.setPreferredSize(new Dimension(90, 20));
+      trCombo.setPreferredSize(new Dimension(110, 20));
       trCombo.addActionListener(
           e -> {
             PreferencesManager.set(

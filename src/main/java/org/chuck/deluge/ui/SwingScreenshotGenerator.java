@@ -292,7 +292,7 @@ public class SwingScreenshotGenerator {
                     () -> {
                       midiBox[0] = new SwingMidiConfigDialog(app, vm, bridge, app.getMidiService());
                       midiBox[0].setModal(false); // Modality off for screenshots!
-                      midiBox[0].setSize(520, 640);
+                      midiBox[0].setSize(580, 640);
                       midiBox[0].setVisible(true);
                     });
                 Thread.sleep(2000);
