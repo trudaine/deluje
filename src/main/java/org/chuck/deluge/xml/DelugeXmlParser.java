@@ -1828,6 +1828,8 @@ public class DelugeXmlParser {
     synth.setCarrier2FeedbackQ31(soundQ31(soundNode, "carrier2Feedback", Integer.MIN_VALUE));
     // Wavefolder knob (C reads "waveFold" into LOCAL_FOLD, sound.cpp:1273-1276).
     synth.setWaveFoldQ31(soundQ31(soundNode, "waveFold", Integer.MIN_VALUE));
+    // Portamento knob (C UNPATCHED_PORTAMENTO, written as "portamento"; INT_MIN = off).
+    synth.setPortamentoQ31(soundQ31(soundNode, "portamento", Integer.MIN_VALUE));
     // Saturation amount (C "clippingAmount" tag-or-attribute, plain small int;
     // mod_controllable_audio.cpp:736-737).
     String clipStr = soundNode.getAttribute("clippingAmount");

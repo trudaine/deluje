@@ -186,6 +186,17 @@ public class SynthTrackModel extends TrackModel {
     this.clippingAmount = v;
   }
 
+  /** Portamento knob (raw Q31, C UNPATCHED_PORTAMENTO / XML "portamento"); INT_MIN = off. */
+  private int portamentoQ31 = Integer.MIN_VALUE;
+
+  public int getPortamentoQ31() {
+    return portamentoQ31;
+  }
+
+  public void setPortamentoQ31(int v) {
+    this.portamentoQ31 = v;
+  }
+
   /**
    * When true, FM modulator 1 modulates modulator 0 (chained) rather than the carriers directly.
    */

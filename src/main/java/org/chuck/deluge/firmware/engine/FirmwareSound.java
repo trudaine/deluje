@@ -434,6 +434,7 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
       fw2Sound.oscRetriggerPhase[1] = osc2RetriggerPhase;
       fw2Sound.modulatorRetriggerPhase[0] = mod1RetrigPhase;
       fw2Sound.modulatorRetriggerPhase[1] = mod2RetrigPhase;
+      fw2Sound.portamentoKnob = portamentoKnob;
       org.chuck.deluge.firmware2.Voice targetVoice = null;
       if (polyphonic != PolyphonyMode.POLY) {
         for (var v : fw2Sound.voices) {
@@ -524,6 +525,7 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     fw2Sound.oscRetriggerPhase[1] = osc2RetriggerPhase;
     fw2Sound.modulatorRetriggerPhase[0] = mod1RetrigPhase;
     fw2Sound.modulatorRetriggerPhase[1] = mod2RetrigPhase;
+    fw2Sound.portamentoKnob = portamentoKnob;
     fw2Sound.modulator1ToModulator0 = fmModulator1ToModulator0;
     fw2Sound.fmRatio1 = fmRatio1;
     fw2Sound.fmRatio2 = fmRatio2;
@@ -871,6 +873,9 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
 
   /** C: mod_controllable_audio.h:107 — saturation/clipping amount; 0 = off. */
   public int clippingAmount = 0;
+
+  /** C: UNPATCHED_PORTAMENTO knob (raw Q31); INT_MIN = off. */
+  public int portamentoKnob = Integer.MIN_VALUE;
 
   public float fmRatio1 = 1.0f;
   public float fmRatio2 = 1.0f;

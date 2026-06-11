@@ -35,6 +35,12 @@ public class Sound extends GlobalEffectable {
   /** C: mod_controllable_audio.h:107 — per-sound saturation/clipping amount; 0 = off. */
   public int clippingAmount = 0;
 
+  /** C: UNPATCHED_PORTAMENTO knob (raw Q31); INT_MIN = off. */
+  public int portamentoKnob = Integer.MIN_VALUE;
+
+  /** C: sound.h:141 — previous note code, stored for portamento; INT_MIN = none yet. */
+  public int lastNoteCode = Integer.MIN_VALUE;
+
   /** C: sound.h:286 — saturation output left-shift derived from clippingAmount. */
   public int getShiftAmountForSaturation() {
     return (clippingAmount >= 2) ? (clippingAmount - 2) : 0;
