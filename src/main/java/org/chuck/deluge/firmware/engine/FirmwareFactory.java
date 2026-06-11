@@ -605,8 +605,13 @@ public class FirmwareFactory {
 
   private static OscType stringToOscType(String s) {
     if (s == null) return OscType.SINE;
+    // The Deluge XML names (C stringToOscType, functions.cpp:760-790) don't match the enum
+    // constants for the analog models — map them explicitly (they silently became SINE before).
+    String t = s.trim();
+    if (t.equalsIgnoreCase("analogSaw")) return OscType.ANALOG_SAW_2;
+    if (t.equalsIgnoreCase("analogSquare")) return OscType.ANALOG_SQUARE;
     try {
-      return OscType.valueOf(s.toUpperCase());
+      return OscType.valueOf(t.toUpperCase());
     } catch (Exception e) {
       return OscType.SINE;
     }

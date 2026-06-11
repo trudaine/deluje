@@ -1387,39 +1387,45 @@ public class PhysicalHardwareFidelityTest {
   @Test
   public void testHooverBassRecordingParity() throws Exception {
     System.out.println("=== RUNNING HARDWARE REGRESSION: HOOVER BASS C2 ===");
-    String wavPath = "/fidelity/REC00011.WAV";
-    String xmlPath = "/fidelity/009 Hoover Bass.XML";
-    float[] hw = loadWavFromResource(wavPath);
-    int triggerBlock = 100;
-    int releaseBlock = triggerBlock + 413; // ~1.2 seconds of note-on
-    float[] sw = renderXmlTrackPreset(xmlPath, hw.length, triggerBlock, releaseBlock, 36);
+    // Pin the oscillator start phases: the patch is 2 saws × unison 2 (detune 13) with random
+    // start phases (retrigPhase -1), and the 50-100 Hz AC pitch estimate on the smeared detuned
+    // stack is realization-dependent (any change in the noise-draw order shifts which harmonic
+    // wins). Pinning makes the render — and therefore the assertion — deterministic.
+    org.chuck.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = 0;
+    org.chuck.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = 0;
+    try {
+      String wavPath = "/fidelity/REC00011.WAV";
+      String xmlPath = "/fidelity/009 Hoover Bass.XML";
+      float[] hw = loadWavFromResource(wavPath);
+      int triggerBlock = 100;
+      int releaseBlock = triggerBlock + 413; // ~1.2 seconds of note-on
+      float[] sw = renderXmlTrackPreset(xmlPath, hw.length, triggerBlock, releaseBlock, 36);
 
-    // The Hoover patch is 2 saws × unison 2 (detune 13) with random start phases (retrigPhase -1)
-    // on hardware and software alike, so a waveform cross-correlation against one particular
-    // hardware take is realization-dependent (measured ~0.38 for a faithful render) and cannot
-    // meet a 0.5 threshold reliably. The phase-insensitive amplitude envelope doesn't match yet
-    // either (hw beats 0.287→0.340→0.265 and slowly declines; sw is flat ±6%): the beating
-    // requires UNISON, which firmware2 has not ported yet (the C renders numUnison detuned parts
-    // per voice — voice.cpp unisonParts[u] — fw2 Voice renders one). Until the unison port lands
-    // (see docs/FIRMWARE2_PORT_ROADMAP.md), assert what is verifiably correct: the note sounds at
-    // the right pitch and sustains for the full note length per envelope1 (sustain = max).
-    int hwOn = findLoudOnset(hw);
-    int swOn = findLoudOnset(sw);
-    double swRms = windowRms(sw, swOn + 2000, 22050);
-    double swRmsLate = windowRms(sw, swOn + 33075, 11025); // 0.75–1.0 s into the note
-    float[] swWin = new float[8820];
-    System.arraycopy(sw, swOn + 2000, swWin, 0, 8820);
-    double swPitch = org.chuck.deluge.AudioAnalyzer.estimateFrequency(swWin, 44100, 50.0, 100.0);
-    System.out.printf(
-        "  [HOOVER] hwOnset=%d swOnset=%d swRms=%.6f swRmsLate=%.6f swPitch=%.2f Hz\n",
-        hwOn, swOn, swRms, swRmsLate, swPitch);
-    assertTrue(swRms > 1e-4, "Hoover Bass C2: software note should sound in its loud window");
-    assertTrue(
-        swRmsLate > swRms * 0.3,
-        "Hoover Bass C2: note should sustain (envelope1 sustain is max in the patch)");
-    assertTrue(
-        Math.abs(swPitch - 65.41) < 2.0,
-        "Hoover Bass C2 pitch should be ~C2 65.4 Hz (got " + swPitch + ")");
+      // A waveform cross-correlation against one particular hardware take is
+      // realization-dependent (measured ~0.38 for a faithful render) and cannot meet a 0.5
+      // threshold reliably, so assert what is verifiably correct: the note sounds at the right
+      // pitch and sustains for the full note length per envelope1 (sustain = max).
+      int hwOn = findLoudOnset(hw);
+      int swOn = findLoudOnset(sw);
+      double swRms = windowRms(sw, swOn + 2000, 22050);
+      double swRmsLate = windowRms(sw, swOn + 33075, 11025); // 0.75–1.0 s into the note
+      float[] swWin = new float[8820];
+      System.arraycopy(sw, swOn + 2000, swWin, 0, 8820);
+      double swPitch = org.chuck.deluge.AudioAnalyzer.estimateFrequency(swWin, 44100, 50.0, 100.0);
+      System.out.printf(
+          "  [HOOVER] hwOnset=%d swOnset=%d swRms=%.6f swRmsLate=%.6f swPitch=%.2f Hz\n",
+          hwOn, swOn, swRms, swRmsLate, swPitch);
+      assertTrue(swRms > 1e-4, "Hoover Bass C2: software note should sound in its loud window");
+      assertTrue(
+          swRmsLate > swRms * 0.3,
+          "Hoover Bass C2: note should sustain (envelope1 sustain is max in the patch)");
+      assertTrue(
+          Math.abs(swPitch - 65.41) < 2.0,
+          "Hoover Bass C2 pitch should be ~C2 65.4 Hz (got " + swPitch + ")");
+    } finally {
+      org.chuck.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = -2;
+      org.chuck.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = -2;
+    }
   }
 
   @Test

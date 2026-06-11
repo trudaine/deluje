@@ -413,14 +413,6 @@ public final class Oscillator {
       int resetterPhaseInc,
       int retriggerPhase) {
 
-    // Fallback analog modeling types to standard band-limited digital types
-    // due to lack of analogSawTables/analogSquareTables binary data in resources.
-    if (type == OscType.ANALOG_SAW_2) {
-      type = OscType.SAW;
-    } else if (type == OscType.ANALOG_SQUARE) {
-      type = OscType.SQUARE;
-    }
-
     // uint32_t phase = *startPhase;  // line 36
     int phase = startPhase[0];
     // *startPhase += phaseIncrement * numSamples;  // line 37
@@ -453,7 +445,14 @@ public final class Oscillator {
       tableNumber = tn[0];
       tableSizeMagnitude = tn[1];
 
-      if (type == OscType.SAW) {
+      if (type == OscType.ANALOG_SAW_2) {
+        // C oscillator.cpp:70-77 — at high CPU direness, saw-shaped analog bands (>=8) fall back
+        // to the crude digital saw. cpuDireness is 0 on desktop: tableNumber < 0 + 6 never holds
+        // for tableNumber >= 8, so no fallback here (kept for fidelity of the condition).
+        if (tableNumber >= 8 && tableNumber < 6) {
+          type = OscType.SAW;
+        }
+      } else if (type == OscType.SAW) {
         retriggerPhase += -2147483648; // 2147483648u
       }
     }
@@ -795,6 +794,27 @@ public final class Oscillator {
               Math.min(tableNumber, AnalogSawLookupTables.analogSawTables.length - 1)];
       // C: amplitude <<= 1; amplitudeIncrement <<= 1; before callRenderWave
       // (oscillator.cpp:470-471)
+      if (doOscSync) { // C callRenderWave sync branch (oscillator.cpp:476-498)
+        phase =
+            renderWaveSync(
+                table,
+                tableSizeMagnitude,
+                amplitude << 1,
+                buffer,
+                off,
+                numSamples,
+                phaseIncrement,
+                phase,
+                applyAmplitude,
+                phaseToAdd,
+                amplitudeIncrement << 1,
+                resetterPhase,
+                resetterPhaseInc,
+                resetterDivideByPhaseIncrement,
+                retriggerPhase);
+        maybeStorePhase(type, startPhase, phase, doPulseWave);
+        return;
+      }
       phase =
           renderWave(
               table,
@@ -817,6 +837,27 @@ public final class Oscillator {
       short[] table =
           AnalogSquareLookupTables.analogSquareTables[
               Math.min(tableNumber, AnalogSquareLookupTables.analogSquareTables.length - 1)];
+      if (doOscSync) { // C callRenderWave sync branch (oscillator.cpp:476-498)
+        phase =
+            renderWaveSync(
+                table,
+                tableSizeMagnitude,
+                amplitude << 1,
+                buffer,
+                off,
+                numSamples,
+                phaseIncrement,
+                phase,
+                applyAmplitude,
+                phaseToAdd,
+                amplitudeIncrement << 1,
+                resetterPhase,
+                resetterPhaseInc,
+                resetterDivideByPhaseIncrement,
+                retriggerPhase);
+        maybeStorePhase(type, startPhase, phase, doPulseWave);
+        return;
+      }
       phase =
           renderWave(
               table,
