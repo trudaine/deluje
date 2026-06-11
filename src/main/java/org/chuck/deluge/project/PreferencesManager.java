@@ -104,6 +104,20 @@ public class PreferencesManager {
     prefs.put(KEY_REVERB_MODEL, model);
   }
 
+  private static final String KEY_MONITOR_GAIN_BOOST = "audio.monitorGainBoost";
+
+  public static int getMonitorGainBoost() {
+    return prefs.getInt(KEY_MONITOR_GAIN_BOOST, 24);
+  }
+
+  public static void setMonitorGainBoost(int value) {
+    prefs.putInt(KEY_MONITOR_GAIN_BOOST, value);
+    try {
+      prefs.flush();
+    } catch (Exception ignored) {
+    }
+  }
+
   private static final String KEY_GRID_MODE = "grid.mode";
   private static final String KEY_SEQUENCER_ENGINE = "sequencer.engine";
 

@@ -52,6 +52,9 @@ public class JavaAudioDriver implements Runnable {
   private static final int BLOCK_SIZE = 128;
   private final byte[] byteBuffer = new byte[BLOCK_SIZE * 4];
 
+  public static volatile int monitorGainMul =
+      org.chuck.deluge.project.PreferencesManager.getMonitorGainBoost();
+
   private double ticksPerSample = 0.005; // 120BPM default
   private double accumulatedTicks = 0;
 
@@ -143,7 +146,6 @@ public class JavaAudioDriver implements Runnable {
             // firmware port). MUST use long arithmetic: s.l is Q31 and `s.l * gain` overflows int32
             // for s.l > ~0.02 Q31 (e.g. a normal synth note at ~0.03 Q31 × 48 = 3.1e9 > INT_MAX),
             // which wrapped to garbage → harsh distortion. Compute in long, then clamp to 16-bit.
-            final int monitorGainMul = 12;
             long leftVal = ((long) s.l * monitorGainMul) >> 16;
             long rightVal = ((long) s.r * monitorGainMul) >> 16;
             short left = (short) Math.max(-32768, Math.min(32767, leftVal));
