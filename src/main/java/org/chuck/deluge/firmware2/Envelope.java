@@ -140,7 +140,12 @@ public class Envelope {
     }
   }
 
-  // ── noteOn (envelope.cpp:121-133) ──
+  public int noteOn(int envelopeIndex, Sound sound, Voice voice) {
+    int attack = voice.paramFinalValues[Param.LOCAL_ENV_0_ATTACK + envelopeIndex];
+    smoothedSustain = voice.paramFinalValues[Param.LOCAL_ENV_0_SUSTAIN + envelopeIndex];
+    boolean directlyToDecay = (attack > 245632);
+    return noteOn(directlyToDecay);
+  }
 
   public int noteOn(boolean directlyToDecay) {
     ignoredNoteOff = false;

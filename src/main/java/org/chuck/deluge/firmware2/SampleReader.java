@@ -124,6 +124,12 @@ public class SampleReader {
       int phaseIncrement,
       int[] amplitude,
       int amplitudeIncrement) {
+    if (interpolationBufferSizeLastTime == 0) {
+      for (int i = 0; i < 9; i++) {
+        pushFrame();
+      }
+      interpolationBufferSizeLastTime = K_TAPS;
+    }
     int o = 0;
     for (int s = 0; s < numSamples; s++) {
       if (!doneAnySamplesYet) {

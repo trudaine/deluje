@@ -271,7 +271,11 @@ public class Voice {
     this.noteCode = midiNote;
     this.velocity = velocity;
     this.active = true;
-    for (Envelope e : envelopes) e.noteOn(false);
+
+    Patcher.performInitialPatching(sound.patchedParamValues, sourceValues, paramFinalValues);
+    for (int e = 0; e < envelopes.length; e++) {
+      sourceValues[PatchSource.ENVELOPE_0.ordinal() + e] = envelopes[e].noteOn(e, sound, this);
+    }
 
     // C: a freshly acquired voice randomizes all part phases (Voice::randomizeOscPhases,
     // voice.cpp:399-411, called from sound.cpp:1654); noteOn then pins any source/modulator with a

@@ -97,6 +97,9 @@ public final class Param {
 
   // ── Unpatched params ──
 
+  public static final int UNPATCHED_BASS_FREQ = 93;
+  public static final int UNPATCHED_TREBLE_FREQ = 94;
+  public static final int UNPATCHED_SIDECHAIN_SHAPE = 99;
   public static final int UNPATCHED_BASS = 128 + 0;
   public static final int UNPATCHED_TREBLE = 128 + 1;
 

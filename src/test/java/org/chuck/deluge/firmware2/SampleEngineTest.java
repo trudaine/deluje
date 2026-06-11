@@ -145,6 +145,7 @@ class SampleEngineTest {
     SampleReader rd = new SampleReader();
     rd.sample = s;
     rd.init(1000);
+    rd.interpolationBufferSizeLastTime = SampleReader.K_TAPS;
     int[] osc = new int[n * numChannels];
     int[] amp = {1 << 26};
     rd.readResampled(osc, n, numChannels, whichKernel, phaseIncrement, amp, 1 << 10);
@@ -288,7 +289,7 @@ class SampleEngineTest {
     rd.sample = s;
     rd.playPos = 500;
     int[] oscR = new int[256];
-    rd.readNative(oscR, 256, 1, new int[] {1 << 26}, 0);
+    rd.readNative(oscR, 256, 1, new int[] {(1 << 26) << 3}, 0);
 
     org.junit.jupiter.api.Assertions.assertArrayEquals(oscR, oscV);
   }
@@ -312,7 +313,7 @@ class SampleEngineTest {
     v.render(osc, 200, 1, 16777216, new int[] {amp}, 0);
 
     for (int i = 0; i < 100; i++) {
-      int exp = Functions.multiply_accumulate_32x32_rshift32_rounded(0, s.data[i], amp);
+      int exp = Functions.multiply_accumulate_32x32_rshift32_rounded(0, s.data[i], amp << 3);
       assertEquals(exp, osc[i], "one-shot played idx=" + i);
     }
     for (int i = 100; i < 200; i++) {
@@ -342,7 +343,8 @@ class SampleEngineTest {
     v.render(osc, n, 1, 16777216, new int[] {amp}, 0);
 
     for (int i = 0; i < n; i++) {
-      int exp = Functions.multiply_accumulate_32x32_rshift32_rounded(0, s.data[i % loopLen], amp);
+      int exp =
+          Functions.multiply_accumulate_32x32_rshift32_rounded(0, s.data[i % loopLen], amp << 3);
       assertEquals(exp, osc[i], "loop idx=" + i);
     }
     org.junit.jupiter.api.Assertions.assertTrue(v.active, "looping voice stays active");
@@ -646,7 +648,7 @@ class SampleEngineTest {
 
     // Should play from frame 10 to 89 (80 samples)
     for (int i = 0; i < 80; i++) {
-      int exp = Functions.multiply_accumulate_32x32_rshift32_rounded(0, s.data[10 + i], amp);
+      int exp = Functions.multiply_accumulate_32x32_rshift32_rounded(0, s.data[10 + i], amp << 3);
       assertEquals(exp, osc1[i], "custom one-shot play idx=" + i);
     }
     // Remaining 20 samples should be silence, and voice sample becomes inactive
@@ -663,13 +665,13 @@ class SampleEngineTest {
 
     // Should play 0 to 99 (first 100 samples)
     for (int i = 0; i < 100; i++) {
-      int exp = Functions.multiply_accumulate_32x32_rshift32_rounded(0, s.data[i], amp);
+      int exp = Functions.multiply_accumulate_32x32_rshift32_rounded(0, s.data[i], amp << 3);
       assertEquals(exp, osc2[i], "loop first pass idx=" + i);
     }
     // Then wrap to loopStart=20, so next 50 samples should play frame 20 to 69
     for (int i = 100; i < 150; i++) {
       int exp =
-          Functions.multiply_accumulate_32x32_rshift32_rounded(0, s.data[20 + (i - 100)], amp);
+          Functions.multiply_accumulate_32x32_rshift32_rounded(0, s.data[20 + (i - 100)], amp << 3);
       assertEquals(exp, osc2[i], "loop wrapped pass idx=" + i);
     }
     org.junit.jupiter.api.Assertions.assertTrue(v2.active, "looping stays active");

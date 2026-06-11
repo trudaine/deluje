@@ -261,6 +261,7 @@ public class Compressor {
 
     // C:99-121 — process samples
     for (int i = 0; i < numSamples; i++) {
+      int prevVolL = currentVolumeL;
       currentVolumeL += amplitudeIncrementL; // C:101
       currentVolumeR += amplitudeIncrementR; // C:102
 
