@@ -6,14 +6,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 /**
- * Full-stack reproduction of the "all 808 cells sound the same" bug. Mirrors exactly what the
- * Swing UI does: FirmwareKit → per-drum sample assignment via {@code
+ * Full-stack reproduction of the "all 808 cells sound the same" bug. Mirrors exactly what the Swing
+ * UI does: FirmwareKit → per-drum sample assignment via {@code
  * FirmwareSound.samples[0]/fw2SampleCache[0]} → trigger + render through FirmwareAudioEngine →
  * compare audio output.
  *
  * <p>If this test passes but the UI still sounds broken, the bug is in {@code
- * SwingDelugeApp.applyKitDrumSampleLive}'s engine reference or timing vs {@code syncHighFidelityEngine}
- * rebuilds. If this test FAILS, the bug is in the DSP chain itself.
+ * SwingDelugeApp.applyKitDrumSampleLive}'s engine reference or timing vs {@code
+ * syncHighFidelityEngine} rebuilds. If this test FAILS, the bug is in the DSP chain itself.
  */
 class Kit808E2ETest {
 
@@ -102,7 +102,14 @@ class Kit808E2ETest {
         assertNotEquals(
             hashes[i],
             hashes[j],
-            "drum " + i + " (" + freqs[i] + "Hz) and drum " + j + " (" + freqs[j]
+            "drum "
+                + i
+                + " ("
+                + freqs[i]
+                + "Hz) and drum "
+                + j
+                + " ("
+                + freqs[j]
                 + "Hz) must sound different");
       }
     }

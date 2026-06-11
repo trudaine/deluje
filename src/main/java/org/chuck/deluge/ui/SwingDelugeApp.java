@@ -1620,7 +1620,11 @@ public class SwingDelugeApp extends JFrame {
    */
   public void applyKitDrumSampleLive(
       org.chuck.deluge.model.KitTrackModel kit, int drumIdx, String absPath) {
-    System.err.println("[applyKitDrumSampleLive] ENTER drumIdx=" + drumIdx + " path=" + (absPath != null ? absPath.substring(Math.max(0, absPath.length() - 40)) : "null"));
+    System.err.println(
+        "[applyKitDrumSampleLive] ENTER drumIdx="
+            + drumIdx
+            + " path="
+            + (absPath != null ? absPath.substring(Math.max(0, absPath.length() - 40)) : "null"));
     if (currentProject == null || pureEngine == null || absPath == null || absPath.isBlank()) {
       System.err.println("[applyKitDrumSampleLive] EARLY EXIT null");
       return;
@@ -1628,17 +1632,28 @@ public class SwingDelugeApp extends JFrame {
     int trackIdx = -1;
     var tracks = currentProject.getTracks();
     for (int i = 0; i < tracks.size(); i++) {
-      if (tracks.get(i) == kit) { trackIdx = i; break; }
+      if (tracks.get(i) == kit) {
+        trackIdx = i;
+        break;
+      }
     }
-    System.err.println("[applyKitDrumSampleLive] trackIdx=" + trackIdx + " tracks=" + tracks.size());
-    if (trackIdx < 0) { System.err.println("[applyKitDrumSampleLive] EARLY EXIT trackIdx"); return; }
+    System.err.println(
+        "[applyKitDrumSampleLive] trackIdx=" + trackIdx + " tracks=" + tracks.size());
+    if (trackIdx < 0) {
+      System.err.println("[applyKitDrumSampleLive] EARLY EXIT trackIdx");
+      return;
+    }
     org.chuck.deluge.firmware.engine.FirmwareAudioEngine eng = pureEngine.getAudioEngine();
     if (eng == null || trackIdx >= eng.sounds.size()) {
       System.err.println("[applyKitDrumSampleLive] EARLY EXIT eng");
       return;
     }
     var sound = eng.sounds.get(trackIdx);
-    System.err.println("[applyKitDrumSampleLive] sound@" + trackIdx + " = " + (sound != null ? sound.getClass().getSimpleName() : "null"));
+    System.err.println(
+        "[applyKitDrumSampleLive] sound@"
+            + trackIdx
+            + " = "
+            + (sound != null ? sound.getClass().getSimpleName() : "null"));
     if (!(sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit fkit)) {
       System.err.println("[applyKitDrumSampleLive] EARLY EXIT not kit");
       return;
@@ -1657,7 +1672,9 @@ public class SwingDelugeApp extends JFrame {
         drum.fw2SampleCache[0] = org.chuck.deluge.firmware2.Sample.fromFirmwareSample(s);
         System.err.println("[applyKitDrumSampleLive] OK loaded " + s.getNumSamples() + " samples");
       } else {
-        System.err.println("[applyKitDrumSampleLive] FAIL readSample returned " + (s != null ? "null data" : "null"));
+        System.err.println(
+            "[applyKitDrumSampleLive] FAIL readSample returned "
+                + (s != null ? "null data" : "null"));
       }
     } catch (Exception ex) {
       System.err.println("[KitConfig] live drum sample apply failed: " + ex.getMessage());

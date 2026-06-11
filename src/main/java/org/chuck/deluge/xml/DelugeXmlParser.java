@@ -1316,16 +1316,34 @@ public class DelugeXmlParser {
     }
 
     // ── FM ratio/amount (from ProjectSerializer track attributes) ──
+    // These attributes are our serializer's shorthand, not real Deluge XML. The Deluge format (and
+    // the C firmware) carries the modulator pitch as <modulator1><transpose>/<cents> and the depth
+    // as the <modulator1Amount> knob — so convert here into those same model fields. A
+    // <modulator1>/<modulator1Amount> element later in the file overrides (real format wins).
     if (soundNode.hasAttribute("fmRatio")) {
       try {
-        synth.setFmRatio(Float.parseFloat(soundNode.getAttribute("fmRatio")));
+        float ratio = Float.parseFloat(soundNode.getAttribute("fmRatio"));
+        synth.setFmRatio(ratio);
+        if (ratio > 0) {
+          int totalCents = Math.round(1200f * (float) (Math.log(ratio) / Math.log(2)));
+          int transpose = Math.round(totalCents / 100f);
+          synth.setModulator1Transpose(transpose);
+          synth.setModulator1Cents(totalCents - transpose * 100);
+        }
       } catch (NumberFormatException e) {
         LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
       }
     }
     if (soundNode.hasAttribute("fmAmount")) {
       try {
-        synth.setFmAmount(Float.parseFloat(soundNode.getAttribute("fmAmount")));
+        float amount = Float.parseFloat(soundNode.getAttribute("fmAmount"));
+        synth.setFmAmount(amount);
+        // Serializer round-trip: unipolar amount → bipolar knob (appendHexChildUnipolar).
+        synth.setModulator1AmountQ31(
+            (int)
+                Math.max(
+                    Integer.MIN_VALUE,
+                    Math.min(Integer.MAX_VALUE, (amount * 2.0 - 1.0) * 2147483647.0)));
       } catch (NumberFormatException e) {
         LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
       }
@@ -1752,11 +1770,16 @@ public class DelugeXmlParser {
     }
   }
 
-  /** First <tag> text under soundNode as a raw signed Q31, or {@code def} if absent. */
+  /**
+   * First <tag> text under soundNode as a raw signed Q31, falling back to a same-named attribute on
+   * <sound> (our serializer's shorthand form), or {@code def} if absent in both.
+   */
   private static int soundQ31(Element soundNode, String tag, int def) {
     NodeList n = soundNode.getElementsByTagName(tag);
-    if (n.getLength() == 0) return def;
-    return DelugeHexMapper.hexToQ31(n.item(0).getTextContent());
+    if (n.getLength() > 0) return DelugeHexMapper.hexToQ31(n.item(0).getTextContent());
+    String attr = soundNode.getAttribute(tag);
+    if (attr != null && !attr.isEmpty()) return DelugeHexMapper.hexToQ31(attr);
+    return def;
   }
 
   private static void parseModulator1(Element soundNode, SynthTrackModel synth) {
