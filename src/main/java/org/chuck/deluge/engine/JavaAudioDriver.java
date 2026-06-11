@@ -141,15 +141,18 @@ public class JavaAudioDriver implements Runnable {
             int absL = Math.abs(s.l);
             if (absL > peak) peak = absL;
 
-            // ── Monitor gain (NOT part of the faithful firmware port) ──
-            // Post-engine monitor gain for desktop listening (app I/O, NOT part of the faithful
-            // firmware port). MUST use long arithmetic: s.l is Q31 and `s.l * gain` overflows int32
-            // for s.l > ~0.02 Q31 (e.g. a normal synth note at ~0.03 Q31 × 48 = 3.1e9 > INT_MAX),
-            // which wrapped to garbage → harsh distortion. Compute in long, then clamp to 16-bit.
-            long leftVal = ((long) s.l * monitorGainMul) >> 16;
-            long rightVal = ((long) s.r * monitorGainMul) >> 16;
-            short left = (short) Math.max(-32768, Math.min(32767, leftVal));
-            short right = (short) Math.max(-32768, Math.min(32767, rightVal));
+            long boostedL = (long) s.l * monitorGainMul;
+            int saturatedL = (int) Math.max(-2147483648L, Math.min(2147483647L, boostedL));
+            int limitedL =
+                org.chuck.deluge.firmware.util.FirmwareUtils.getTanHUnknown(saturatedL, 0) << 2;
+
+            long boostedR = (long) s.r * monitorGainMul;
+            int saturatedR = (int) Math.max(-2147483648L, Math.min(2147483647L, boostedR));
+            int limitedR =
+                org.chuck.deluge.firmware.util.FirmwareUtils.getTanHUnknown(saturatedR, 0) << 2;
+
+            short left = (short) Math.max(-32768, Math.min(32767, limitedL >> 16));
+            short right = (short) Math.max(-32768, Math.min(32767, limitedR >> 16));
 
             byteBuffer[i * 4] = (byte) (left & 0xFF);
             byteBuffer[i * 4 + 1] = (byte) ((left >> 8) & 0xFF);

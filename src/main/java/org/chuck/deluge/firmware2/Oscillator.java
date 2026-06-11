@@ -646,15 +646,9 @@ public final class Oscillator {
         if (!doOscSync) {
           if (applyAmplitude) {
             renderCrudeSawWithAmp(
-                buffer,
-                off,
-                numSamples,
-                new int[] {phase},
-                phaseIncrement,
-                amplitude,
-                amplitudeIncrement);
+                buffer, off, numSamples, startPhase, phaseIncrement, amplitude, amplitudeIncrement);
           } else {
-            renderCrudeSawNoAmp(buffer, off, numSamples, new int[] {phase}, phaseIncrement);
+            renderCrudeSawNoAmp(buffer, off, numSamples, startPhase, phaseIncrement);
           }
           return;
         }

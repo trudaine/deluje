@@ -179,7 +179,18 @@ public class PreferencesDialog extends JDialog {
     monitorGainCombo =
         new JComboBox<>(
             new String[] {
-              "1x (Quiet)", "6x", "12x", "18x", "24x (Default)", "32x", "48x (Loud)", "64x (Max)"
+              "1x (Quiet)",
+              "6x",
+              "12x",
+              "18x",
+              "24x (Default)",
+              "32x",
+              "48x (Loud)",
+              "64x (Extra Loud)",
+              "96x",
+              "128x (Mega Boost)",
+              "192x",
+              "256x (Extreme)"
             });
     styleComboBox(monitorGainCombo);
     addField(
@@ -549,6 +560,10 @@ public class PreferencesDialog extends JDialog {
     else if (gainVal == 32) gainIdx = 5;
     else if (gainVal == 48) gainIdx = 6;
     else if (gainVal == 64) gainIdx = 7;
+    else if (gainVal == 96) gainIdx = 8;
+    else if (gainVal == 128) gainIdx = 9;
+    else if (gainVal == 192) gainIdx = 10;
+    else if (gainVal == 256) gainIdx = 11;
     monitorGainCombo.setSelectedIndex(gainIdx);
     gridModeCheck.setSelected(
         Boolean.parseBoolean(PreferencesManager.get("midi.grid.mode", "false")));
@@ -686,6 +701,10 @@ public class PreferencesDialog extends JDialog {
     else if (selIdx == 5) gainVal = 32;
     else if (selIdx == 6) gainVal = 48;
     else if (selIdx == 7) gainVal = 64;
+    else if (selIdx == 8) gainVal = 96;
+    else if (selIdx == 9) gainVal = 128;
+    else if (selIdx == 10) gainVal = 192;
+    else if (selIdx == 11) gainVal = 256;
     PreferencesManager.setMonitorGainBoost(gainVal);
     org.chuck.deluge.engine.JavaAudioDriver.monitorGainMul = gainVal;
     PreferencesManager.set("midi.grid.mode", String.valueOf(gridModeCheck.isSelected()));
