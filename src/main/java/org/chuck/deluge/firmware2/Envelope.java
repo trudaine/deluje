@@ -44,7 +44,7 @@ public class Envelope {
       switch (state) {
         case ATTACK:
           // pos += attack * numSamples;  // (line 35)
-          pos += attack * numSamples;
+          pos = (int) (((pos & 0xFFFFFFFFL) + (attack & 0xFFFFFFFFL) * numSamples) & 0xFFFFFFFFL);
           if (Integer.compareUnsigned(pos, 8388608) >= 0) { // C unsigned comparison
             pos = 0;
             setState(Stage.DECAY);
@@ -69,7 +69,7 @@ public class Envelope {
                           Functions.getDecay8(pos, 23), 2147483647 - smoothedSustain)
                       * 2;
           // pos += decay * numSamples;  // (line 60)
-          pos += decay * numSamples;
+          pos = (int) (((pos & 0xFFFFFFFFL) + (decay & 0xFFFFFFFFL) * numSamples) & 0xFFFFFFFFL);
           if (Integer.compareUnsigned(pos, 8388608) >= 0) { // C unsigned comparison
             setState(Stage.SUSTAIN);
           }
@@ -91,7 +91,7 @@ public class Envelope {
           break;
 
         case RELEASE:
-          pos += release * numSamples; // (line 81)
+          pos = (int) (((pos & 0xFFFFFFFFL) + (release & 0xFFFFFFFFL) * numSamples) & 0xFFFFFFFFL);
           if (pos >= 8388608) {
             setState(Stage.OFF); // (line 83)
             lastValue = 0;
@@ -115,7 +115,10 @@ public class Envelope {
             release = 2 * release;
             fastReleaseIncrement = release;
           }
-          pos += fastReleaseIncrement * numSamples; // (line 98)
+          pos =
+              (int)
+                  (((pos & 0xFFFFFFFFL) + (fastReleaseIncrement & 0xFFFFFFFFL) * numSamples)
+                      & 0xFFFFFFFFL);
           if (pos >= 8388608) {
             setState(Stage.OFF); // (line 100)
             return -2147483648; // (line 101)

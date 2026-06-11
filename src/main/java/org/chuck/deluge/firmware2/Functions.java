@@ -247,15 +247,25 @@ public final class Functions {
 
   /** getFinalParameterValueVolume. Parabola curve for volume params. (functions.cpp:191-226) */
   public static int getFinalParameterValueVolume(int paramNeutralValue, int patchedValue) {
-    int positivePatchedValue = patchedValue + 536870912;
-    positivePatchedValue = (positivePatchedValue >> 16) * (positivePatchedValue >> 15);
+    long temp = (long) patchedValue + 536870912L;
+    if (temp < 0L) {
+      temp = 0L;
+    } else if (temp > 1073741824L) {
+      temp = 1073741824L;
+    }
+    int positivePatchedValue = (int) ((temp >> 16) * (temp >> 15));
     return lshiftAndSaturate(multiply_32x32_rshift32(positivePatchedValue, paramNeutralValue), 5);
   }
 
   /** getFinalParameterValueLinear. Linear curve for non-volume params. (functions.cpp:228-242) */
   public static int getFinalParameterValueLinear(int paramNeutralValue, int patchedValue) {
-    int positivePatchedValue = patchedValue + 536870912;
-    return lshiftAndSaturate(multiply_32x32_rshift32(positivePatchedValue, paramNeutralValue), 3);
+    long temp = (long) patchedValue + 536870912L;
+    if (temp < 0L) {
+      temp = 0L;
+    } else if (temp > 1073741824L) {
+      temp = 1073741824L;
+    }
+    return lshiftAndSaturate(multiply_32x32_rshift32((int) temp, paramNeutralValue), 3);
   }
 
   /** getFinalParameterValueExp. Delegates to getExp. (functions.cpp:244-246) */
@@ -275,7 +285,7 @@ public final class Functions {
     }
     // Attack → negate patchedValue for getExp
     if (Param.LOCAL_ENV_0_ATTACK <= p && p <= Param.LOCAL_ENV_3_ATTACK) {
-      patchedValue = -patchedValue;
+      patchedValue = (patchedValue == Integer.MIN_VALUE) ? Integer.MAX_VALUE : -patchedValue;
     }
     return getFinalParameterValueExp(paramNeutralValue, patchedValue);
   }

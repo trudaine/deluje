@@ -6,7 +6,7 @@ package org.chuck.deluge.firmware2;
  */
 public abstract class Filter {
   public int fc;
-  public float dryFade = 1.0f;
+  public float dryFade = 0.0f;
   public int wetLevel = Functions.ONE_Q31;
   public int tannedFrequency;
   public int divideBy1PlusTannedFrequency;
