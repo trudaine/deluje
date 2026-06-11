@@ -1826,6 +1826,8 @@ public class DelugeXmlParser {
     synth.setModulator1FeedbackQ31(soundQ31(soundNode, "modulator1Feedback", Integer.MIN_VALUE));
     synth.setCarrier1FeedbackQ31(soundQ31(soundNode, "carrier1Feedback", Integer.MIN_VALUE));
     synth.setCarrier2FeedbackQ31(soundQ31(soundNode, "carrier2Feedback", Integer.MIN_VALUE));
+    // Wavefolder knob (C reads "waveFold" into LOCAL_FOLD, sound.cpp:1273-1276).
+    synth.setWaveFoldQ31(soundQ31(soundNode, "waveFold", Integer.MIN_VALUE));
     NodeList m1m0 = soundNode.getElementsByTagName("modulator1ToModulator0");
     if (m1m0.getLength() > 0) {
       String v = m1m0.item(0).getTextContent().trim();

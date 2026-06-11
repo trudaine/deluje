@@ -545,6 +545,43 @@ public final class Functions {
     return jcong;
   }
 
+  // ── Wavefolder (dsp/util.hpp:23-80) ──
+
+  /** C: dsp/util.hpp:27 — FOLD_MIN = 0.1 * ONE_Q31. */
+  private static final int FOLD_MIN = (int) (0.1 * 2147483647.0);
+
+  /** C: dsp/util.hpp:28 — THREE_FOURTHS = 0.75 * ONE_Q31. */
+  private static final int THREE_FOURTHS = (int) (0.75 * 2147483647.0);
+
+  /**
+   * C: dsp/util.hpp:50-64 polynomialOscillatorApproximation — approximates wavefolding by flipping
+   * the input around zero several times (the 4(3x/4 - x^3) polynomial applied twice).
+   */
+  private static int polynomialOscillatorApproximation(int x) {
+    int x2 = 2 * multiply_32x32_rshift32(x, x);
+    int x3 = 2 * multiply_32x32_rshift32(x2, x);
+    int r1 = 8 * (multiply_32x32_rshift32(THREE_FOURTHS, x) - x3);
+
+    int r2 = 2 * multiply_32x32_rshift32(r1, r1);
+    int r3 = 2 * multiply_32x32_rshift32(r2, r1);
+    return 8 * (multiply_32x32_rshift32(THREE_FOURTHS, r1) - r3);
+  }
+
+  /**
+   * C: dsp/util.hpp:66-80 foldBufferPolyApproximation — the LOCAL_FOLD wavefolder applied to the
+   * osc buffer before the filters (voice.cpp:1499/1585). Works on any contiguous sample range (mono
+   * or interleaved stereo).
+   */
+  public static void foldBufferPolyApproximation(int[] buf, int from, int toExclusive, int level) {
+    int foldLevel = add_saturate(level, FOLD_MIN);
+    for (int i = from; i < toExclusive; i++) {
+      int c = buf[i];
+      int x = lshiftAndSaturate(multiply_32x32_rshift32(foldLevel, c), 8);
+      // volume compensation
+      buf[i] = polynomialOscillatorApproximation(x) >> 7;
+    }
+  }
+
   /**
    * C: functions.cpp:1500-1507 — the phase at which the given wave type crosses zero (used as the
    * base when a retrigger phase is applied).
