@@ -13,6 +13,7 @@ public class Sound {
   public static final int kMaxNumVoicesUnison = 8;
 
   public int synthMode = 0; // 0=subtractive, 1=FM, 2=ringmod
+  public int voicePriority = 1; // 0=low, 1=medium, 2=high
   public final OscType[] oscTypes = {OscType.SINE, OscType.SINE};
   public FilterMode lpfMode = FilterMode.OFF;
   public FilterMode hpfMode = FilterMode.OFF;

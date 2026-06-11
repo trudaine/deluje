@@ -64,6 +64,41 @@ public class Firmware2IntegrationTest {
     sound.releaseNote(69, -1);
   }
 
+  @Test
+  public void voiceStealingWhenLimitReached() {
+    SynthTrackModel m = new SynthTrackModel("test");
+    m.setOsc1Type("SINE");
+    m.setOsc2Type("NONE");
+    m.setLpfFreq(20000f);
+    m.setVolume(1.0f);
+    m.addClip(new ClipModel("c", 8, 16));
+    ProjectModel p = new ProjectModel();
+    p.addTrack(m);
+    Song s = FirmwareFactory.createSong(p);
+    FirmwareSound sound = (FirmwareSound) ((InstrumentClip) s.clips.get(0)).sound;
+
+    sound.maxPolyphony = 2; // set maximum polyphony limit to 2
+
+    // Trigger 3 notes sequentially
+    sound.triggerNote(60, 100); // C4
+    sound.triggerNote(64, 100); // E4
+
+    assertEquals(2, sound.fw2Sound.voices.size());
+    assertTrue(sound.fw2Sound.voices.stream().allMatch(v -> v.active));
+
+    // Remember the voice objects
+    var v0 = sound.fw2Sound.voices.get(0);
+    var v1 = sound.fw2Sound.voices.get(1);
+
+    // Trigger 3rd note (should steal one of the two voices)
+    sound.triggerNote(67, 100); // G4
+
+    // Still 2 voices total
+    assertEquals(2, sound.fw2Sound.voices.size());
+    // One of v0 or v1 must now be playing note 67!
+    assertTrue(v0.note == 67 || v1.note == 67);
+  }
+
   // Disabled: C-knob defaults in paramNeutralValues break the old firmware/ engine path
   // (the old Envelope expects direct rate values, not C knob values). The old engine is
   // being replaced by firmware2/ — no point fixing firmware/ code.

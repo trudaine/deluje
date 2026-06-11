@@ -80,6 +80,7 @@ public class Voice {
   // Overall oscillator amplitude (envelope 0 * volume)
   public int overallOscAmplitudeLastTime;
   public int overallOscillatorAmplitudeIncrement;
+  public boolean doneFirstRender;
 
   // For the envelope center (return value)
   public int env0LastValue;
@@ -242,6 +243,7 @@ public class Voice {
       unisonParts[u].modulatorFeedback[1] = 0;
     }
     overallOscAmplitudeLastTime = 0;
+    doneFirstRender = false;
 
     // Line-for-line note setting
     if (noteCode >= 128) {
@@ -498,8 +500,14 @@ public class Voice {
     int env0Gain = (sourceValues[PatchSource.ENVELOPE_0.ordinal()] >> 1) + 1073741824;
     int trackVol = paramFinalValues[Param.LOCAL_VOLUME];
 
-    overallOscAmplitudeLastTime =
+    int overallOscAmplitude =
         Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(env0Gain, trackVol), 2);
+
+    if (!doneFirstRender && paramFinalValues[Param.LOCAL_ENV_0_ATTACK] > 245632) {
+      overallOscAmplitudeLastTime = overallOscAmplitude;
+    }
+    overallOscillatorAmplitudeIncrement =
+        (overallOscAmplitude - overallOscAmplitudeLastTime) / numSamples;
 
     // Prepare the filters and the makeup gain (voice.cpp:991-997). Configure ONCE here; filterGain
     // is folded into the per-source amplitudes below (subtractive), and overallOscAmplitude is
@@ -786,6 +794,10 @@ public class Voice {
             || (envelopes[0].state.compareTo(Envelope.Stage.DECAY) > 0
                 && sourceValues[PatchSource.ENVELOPE_0.ordinal()] == Integer.MIN_VALUE);
     if (unassignVoiceAfter) active = false;
+
+    overallOscAmplitudeLastTime = overallOscAmplitude;
+    doneFirstRender = true;
+
     return !unassignVoiceAfter;
   }
 
@@ -986,13 +998,14 @@ public class Voice {
     boolean doPanning = shouldDoPanning(panAmount, ampLR);
 
     if (sound.synthMode != 1) { // Not FM: apply overall oscillator amplitude
+      int overallOscAmplitudeNow = overallOscAmplitudeLastTime;
       for (int i = 0; i < numSamples; i++) {
+        overallOscAmplitudeNow += overallOscillatorAmplitudeIncrement;
         stereoBuf[i * 2] =
-            Functions.multiply_32x32_rshift32_rounded(stereoBuf[i * 2], overallOscAmplitudeLastTime)
+            Functions.multiply_32x32_rshift32_rounded(stereoBuf[i * 2], overallOscAmplitudeNow)
                 << 1;
         stereoBuf[i * 2 + 1] =
-            Functions.multiply_32x32_rshift32_rounded(
-                    stereoBuf[i * 2 + 1], overallOscAmplitudeLastTime)
+            Functions.multiply_32x32_rshift32_rounded(stereoBuf[i * 2 + 1], overallOscAmplitudeNow)
                 << 1;
       }
     }
@@ -1144,5 +1157,25 @@ public class Voice {
       return output << 8;
     }
     return phaseIncrement;
+  }
+
+  public int getPriorityRating() {
+    int activeVoicesCount = 0;
+    synchronized (sound.voices) {
+      for (Voice v : sound.voices) {
+        if (v.active) {
+          activeVoicesCount++;
+        }
+      }
+    }
+    return
+    // Bits 30-31 - manual priority setting
+    ((3 - sound.voicePriority) << 30)
+        // Bits 27-29 - how many voices that Sound has
+        + (Math.min(activeVoicesCount, 7) << 27)
+        // Bits 24-26 - envelope state
+        + (envelopes[0].state.ordinal() << 24)
+        // Bits 0-23 - time entered
+        + ((-envelopes[0].timeEnteredState) & (0xFFFFFFFF >>> 8));
   }
 }
