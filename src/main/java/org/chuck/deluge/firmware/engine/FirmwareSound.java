@@ -279,8 +279,10 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     }
 
     // 4. Apply High-Fidelity FX Chain (firmware order: SRR/bitcrush → mod FX → stutter → ...)
-    int[] postFXVolumeHolder = {1073741824};
-    int[] postReverbVolumeHolder = {1073741824};
+    // Holders start at Q31 unity (the legacy FX processors' convention; the flat-buffer rewrite
+    // briefly used 1<<30, which halved each volume → 4× track attenuation at neutral).
+    int[] postFXVolumeHolder = {2147483647};
+    int[] postReverbVolumeHolder = {2147483647};
 
     // Sample-rate reduction + bitcrushing
     srrBitcrush.process(fxStereoBuffer, numSamples, bitcrushParam, srrParam, postFXVolumeHolder);
