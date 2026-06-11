@@ -1,7 +1,6 @@
 package org.chuck.deluge.firmware.engine;
 
-import org.chuck.deluge.firmware.dsp.StereoSample;
-import org.chuck.deluge.firmware.modulation.params.ParamManager;
+import org.chuck.deluge.firmware2.GlobalEffectable;
 import org.chuck.deluge.midi.MidiEngine;
 
 /**
@@ -60,7 +59,7 @@ public class FirmwareMidiInstrument extends GlobalEffectable {
   }
 
   @Override
-  protected void renderInternal(StereoSample[] buffer, int numSamples, ParamManager paramManager) {
+  protected void renderInternal(int[] buffer, int numSamples, int[] reverbBuffer) {
     // MIDI instruments do not render raw digital audio signals.
   }
 }

@@ -2,16 +2,13 @@ package org.chuck.deluge.firmware.engine;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.chuck.deluge.firmware.dsp.StereoSample;
 import org.chuck.deluge.firmware.dsp.oscillators.OscType;
 import org.chuck.deluge.firmware.modulation.params.Param;
-import org.chuck.deluge.firmware.modulation.params.ParamManager;
-import org.chuck.deluge.firmware.util.Q31;
+import org.chuck.deluge.firmware2.GlobalEffectable;
 
 /** Port of the Deluge's Kit class. */
 public class FirmwareKit extends GlobalEffectable {
   public final List<FirmwareSound> drumSounds = new ArrayList<>();
-  private final StereoSample[] isolatedBuffer = new StereoSample[128];
 
   public FirmwareKit() {
     for (int i = 0; i < 16; i++) {
@@ -25,26 +22,14 @@ public class FirmwareKit extends GlobalEffectable {
       drumSound.paramNeutralValues[Param.LOCAL_NOISE_VOLUME] = Integer.MIN_VALUE;
       drumSounds.add(drumSound);
     }
-    for (int i = 0; i < 128; i++) isolatedBuffer[i] = new StereoSample();
   }
 
   @Override
-  protected void renderInternal(StereoSample[] buffer, int numSamples, ParamManager paramManager) {
+  protected void renderInternal(int[] buffer, int numSamples, int[] reverbBuffer) {
     for (FirmwareSound drum : drumSounds) {
       if (!drum.fw2Sound.voices.isEmpty()) {
-        // Clear temp buffer
-        for (int i = 0; i < numSamples; i++) {
-          isolatedBuffer[i].l = 0;
-          isolatedBuffer[i].r = 0;
-        }
-        // Render drum track with its own FX chain
-        drum.renderOutput(isolatedBuffer, numSamples, null);
-
-        // Sum to Kit buffer
-        for (int i = 0; i < numSamples; i++) {
-          buffer[i].l = Q31.addSaturate(buffer[i].l, isolatedBuffer[i].l);
-          buffer[i].r = Q31.addSaturate(buffer[i].r, isolatedBuffer[i].r);
-        }
+        // Render drum track with its own FX chain, summing directly to the Kit buffer
+        drum.renderOutput(buffer, numSamples, reverbBuffer);
       }
     }
   }

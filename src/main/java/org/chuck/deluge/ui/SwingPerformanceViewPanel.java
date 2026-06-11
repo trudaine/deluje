@@ -473,7 +473,7 @@ public class SwingPerformanceViewPanel extends JPanel {
     Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
     if (fwEngineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
       if (focusTrack < fwEngine.sounds.size()) {
-        org.chuck.deluge.firmware.engine.GlobalEffectable sound = fwEngine.sounds.get(focusTrack);
+        org.chuck.deluge.firmware2.GlobalEffectable sound = fwEngine.sounds.get(focusTrack);
         if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound fs) {
           // Map performance column to firmware param
           int paramId = mapPerfColToParam(col);

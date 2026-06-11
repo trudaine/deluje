@@ -7,20 +7,18 @@ import org.chuck.deluge.firmware.dsp.granular.GranularProcessor;
 import org.chuck.deluge.firmware.model.PolyphonyMode;
 import org.chuck.deluge.firmware.modulation.LFO;
 import org.chuck.deluge.firmware.modulation.params.Param;
-import org.chuck.deluge.firmware.modulation.params.ParamManager;
 import org.chuck.deluge.firmware.modulation.patch.Destination;
 import org.chuck.deluge.firmware.modulation.patch.PatchCable;
 import org.chuck.deluge.firmware.modulation.patch.PatchSource;
 import org.chuck.deluge.firmware.modulation.patch.Patcher;
 import org.chuck.deluge.firmware.modulation.sidechain.SideChain;
-import org.chuck.deluge.firmware.util.Q31;
 import org.chuck.deluge.model.tuning.ScalaScale;
 
 /**
  * Port of the Deluge's Sound class. This is the central high-fidelity synthesis engine for a single
  * instrument or kit.
  */
-public class FirmwareSound extends GlobalEffectable {
+public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
   public enum SynthMode {
     SUBTRACTIVE,
     FM,
@@ -132,9 +130,13 @@ public class FirmwareSound extends GlobalEffectable {
   public final SideChain sidechain = new SideChain();
   public int sidechainSend = 0;
   public final Stutterer stutterer = new Stutterer();
+  public final org.chuck.deluge.firmware.modulation.params.ParamManager paramManager =
+      new org.chuck.deluge.firmware.modulation.params.ParamManager();
   private int silentBlockCount = 200; // Starts gated on boot
+  private StereoSample[] fxStereoBuffer = new StereoSample[256];
 
   public FirmwareSound() {
+    for (int i = 0; i < 256; i++) fxStereoBuffer[i] = new StereoSample();
     for (int i = 0; i < globalLfos.length; i++) globalLfos[i] = new LFO();
     // C Sound::initParams (sound.cpp:131-187, faithfully ported to fw2 Sound.initParams).
     org.chuck.deluge.firmware2.Sound.initParams(paramNeutralValues);
@@ -200,7 +202,14 @@ public class FirmwareSound extends GlobalEffectable {
   }
 
   @Override
-  protected void renderInternal(StereoSample[] buffer, int numSamples, ParamManager unused) {
+  protected void renderInternal(int[] buffer, int numSamples, int[] reverbBuffer) {
+    if (numSamples > fxStereoBuffer.length) {
+      int oldLen = fxStereoBuffer.length;
+      fxStereoBuffer = java.util.Arrays.copyOf(fxStereoBuffer, numSamples);
+      for (int i = oldLen; i < numSamples; i++) {
+        fxStereoBuffer[i] = new StereoSample();
+      }
+    }
     int scHit = GlobalSidechainBus.getActiveFrameHit();
     if (scHit != 0) {
       sidechain.registerHit(scHit);
@@ -242,11 +251,7 @@ public class FirmwareSound extends GlobalEffectable {
     }
     boolean arpHolding = arpEnabled() && arpeggiator.hasAnyInputNotesActive();
     if (!hasActiveVoices && !arpHolding && silentBlockCount > 100) {
-      // Fast bypass: write silence and return
-      for (int i = 0; i < numSamples; i++) {
-        buffer[i].l = 0;
-        buffer[i].r = 0;
-      }
+      // Fast bypass: flat buffer is already silent
       return;
     }
 
@@ -264,22 +269,31 @@ public class FirmwareSound extends GlobalEffectable {
     globalSourceValues[PatchSource.LFO_GLOBAL_2.ordinal()] =
         globalLfos[1].render(numSamples, lfoWaveforms[2], phaseInc2);
 
-    // 2. Sum Voices
+    // 2. Sum Voices directly to flat buffer
     renderVoicesFw2(buffer, numSamples);
 
-    // 3. Apply High-Fidelity FX Chain (firmware order: SRR/bitcrush → mod FX → stutter → ...)
+    // 3. Convert flat buffer to StereoSample[] fxStereoBuffer for legacy FX
+    for (int i = 0; i < numSamples; i++) {
+      fxStereoBuffer[i].l = buffer[i * 2];
+      fxStereoBuffer[i].r = buffer[i * 2 + 1];
+    }
+
+    // 4. Apply High-Fidelity FX Chain (firmware order: SRR/bitcrush → mod FX → stutter → ...)
+    int[] postFXVolumeHolder = {1073741824};
+    int[] postReverbVolumeHolder = {1073741824};
+
     // Sample-rate reduction + bitcrushing
-    srrBitcrush.process(buffer, numSamples, bitcrushParam, srrParam, postFXVolumeHolder);
+    srrBitcrush.process(fxStereoBuffer, numSamples, bitcrushParam, srrParam, postFXVolumeHolder);
 
     // Stutter
-    stutterer.processStutter(buffer, paramManager);
+    stutterer.processStutter(fxStereoBuffer, paramManager);
 
     // Modulation FX. GRAIN is a granular processor (different from the LFO-based mod FX); the
     // firmware routes it separately. Mapping: rate, depth (mix), offset (density), feedback (pitch
     // randomness), tempo — mirroring ModControllableAudio::processGrainFX's argument order.
     if (modFXType == ModFXType.GRAIN) {
       granular.processGrainFX(
-          buffer,
+          fxStereoBuffer,
           modFXRateIncrement,
           modFXDepth << 1,
           modFXOffset,
@@ -288,7 +302,7 @@ public class FirmwareSound extends GlobalEffectable {
           currentBpm);
     } else {
       modFX.processModFX(
-          buffer,
+          fxStereoBuffer,
           modFXType,
           modFXRateIncrement,
           modFXDepth,
@@ -298,7 +312,7 @@ public class FirmwareSound extends GlobalEffectable {
     }
 
     // Bass/treble EQ
-    eq.process(buffer, numSamples, eqBassParam, eqTrebleParam);
+    eq.process(fxStereoBuffer, numSamples, eqBassParam, eqTrebleParam);
 
     // Sidechain
     int shape = paramNeutralValues[Param.UNPATCHED_SIDECHAIN_SHAPE];
@@ -310,13 +324,22 @@ public class FirmwareSound extends GlobalEffectable {
       postReverbVolumeHolder[0] = globalParamFinalValues[Param.GLOBAL_VOLUME_POST_REVERB_SEND];
     }
 
+    super.postFXVolume = postFXVolumeHolder[0];
+    super.postReverbVolume = postReverbVolumeHolder[0];
+
+    // 5. Convert fxStereoBuffer back to flat buffer
+    for (int i = 0; i < numSamples; i++) {
+      buffer[i * 2] = fxStereoBuffer[i].l;
+      buffer[i * 2 + 1] = fxStereoBuffer[i].r;
+    }
+
     // Update gate status
     if (hasActiveVoices) {
       silentBlockCount = 0;
     } else {
       boolean isSilent = true;
-      for (int i = 0; i < numSamples; i++) {
-        if (buffer[i].l != 0 || buffer[i].r != 0) {
+      for (int i = 0; i < numSamples * 2; i++) {
+        if (buffer[i] != 0) {
           isSilent = false;
           break;
         }
@@ -328,6 +351,16 @@ public class FirmwareSound extends GlobalEffectable {
       } else {
         silentBlockCount = 0;
       }
+    }
+  }
+
+  // Legacy test support:
+  public void renderInternal(StereoSample[] buffer, int numSamples, Object unused) {
+    int[] flat = new int[numSamples * 2];
+    renderInternal(flat, numSamples, (int[]) null);
+    for (int i = 0; i < numSamples; i++) {
+      buffer[i].l = flat[i * 2];
+      buffer[i].r = flat[i * 2 + 1];
     }
   }
 
@@ -451,7 +484,7 @@ public class FirmwareSound extends GlobalEffectable {
     }
   }
 
-  private void renderVoicesFw2(StereoSample[] buffer, int numSamples) {
+  private void renderVoicesFw2(int[] buffer, int numSamples) {
     // 1. Map current settings from FirmwareSound to fw2Sound
     fw2Sound.synthMode = synthMode == SynthMode.FM ? 1 : synthMode == SynthMode.RINGMOD ? 2 : 0;
     fw2Sound.oscTypes[0] = fw2OscType(oscTypes[0]);
@@ -537,9 +570,6 @@ public class FirmwareSound extends GlobalEffectable {
     fw2Sound.lfoConfig[3].waveType = fw2LfoType(lfoWaveforms[3]);
 
     // Bridge the patch's param knobs into the firmware2 Sound as C knob values.
-    // paramNeutralValues now holds C-compatible knob positions per Sound::initParams.
-    // For factory-built sounds, paramKnobs overrides specific envelope-rate params;
-    // all other params use the constructor's C defaults.
     System.arraycopy(
         paramNeutralValues,
         0,
@@ -547,7 +577,6 @@ public class FirmwareSound extends GlobalEffectable {
         0,
         Math.min(paramNeutralValues.length, fw2Sound.patchedParamValues.length));
     if (paramKnobsPopulated) {
-      // Factory-set envelope rate knobs override the C defaults for those params
       for (int i = 0; i < Param.kNumParams; i++) {
         if (paramKnobs[i] != 0) {
           fw2Sound.patchedParamValues[i] = paramKnobs[i];
@@ -576,12 +605,6 @@ public class FirmwareSound extends GlobalEffectable {
       }
     }
 
-    // 2. Render voices reusing the scratch buffer
-    int requiredLength = numSamples * 2;
-    if (fw2ScratchBuffer == null || fw2ScratchBuffer.length < requiredLength) {
-      fw2ScratchBuffer = new int[requiredLength];
-    }
-
     synchronized (fw2Sound.voices) {
       var it = fw2Sound.voices.iterator();
       while (it.hasNext()) {
@@ -590,24 +613,15 @@ public class FirmwareSound extends GlobalEffectable {
           it.remove();
           continue;
         }
-        // Base: curve-apply all patched-param knobs (no cables). Voice.render then applies
-        // cable modulation on top via performPatching.
         org.chuck.deluge.firmware2.Patcher.performInitialPatching(
             fw2Sound.patchedParamValues, v.sourceValues, v.paramFinalValues);
-
-        java.util.Arrays.fill(fw2ScratchBuffer, 0, requiredLength, 0);
 
         boolean doLPF =
             (lpfMode != org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF);
         boolean doHPF =
             (hpfMode != org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF);
 
-        v.render(fw2ScratchBuffer, numSamples, doLPF, doHPF);
-
-        for (int i = 0; i < numSamples; i++) {
-          buffer[i].l = Q31.addSaturate(buffer[i].l, fw2ScratchBuffer[i * 2]);
-          buffer[i].r = Q31.addSaturate(buffer[i].r, fw2ScratchBuffer[i * 2 + 1]);
-        }
+        v.render(buffer, numSamples, doLPF, doHPF);
       }
     }
   }
@@ -823,12 +837,6 @@ public class FirmwareSound extends GlobalEffectable {
   public boolean hasFilters() {
     return lpfMode != org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF
         || hpfMode != org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF;
-  }
-
-  @Override
-  public void processFilters(StereoSample[] buffer, int numSamples) {
-    // Filtering is handled per-voice in fw2 Voice.render (applyFilterAndGain).
-    // This global pass is intentionally a no-op to avoid double-filtering.
   }
 
   // ── Subtractive Oscillator Retrigger Starting Phases ──

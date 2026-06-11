@@ -9,7 +9,7 @@ import org.chuck.deluge.firmware2.Oscillator.OscType;
  * Replica of the Deluge C++ Sound class configuration. Self-contained in firmware2 package with
  * zero dependencies on legacy firmware.
  */
-public class Sound {
+public class Sound extends GlobalEffectable {
   public static final int kMaxNumVoicesUnison = 8;
 
   public int synthMode = 0; // 0=subtractive, 1=FM, 2=ringmod
@@ -280,5 +280,20 @@ public class Sound {
         break;
     }
     return phaseIncrement;
+  }
+
+  @Override
+  protected void renderInternal(int[] buffer, int numSamples, int[] reverbBuffer) {
+    synchronized (voices) {
+      var it = voices.iterator();
+      while (it.hasNext()) {
+        Voice v = it.next();
+        if (!v.active) {
+          it.remove();
+          continue;
+        }
+        v.render(buffer, numSamples, lpfMode != FilterMode.OFF, hpfMode != FilterMode.OFF);
+      }
+    }
   }
 }
