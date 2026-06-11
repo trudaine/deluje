@@ -409,6 +409,16 @@ public class FirmwareSound extends GlobalEffectable {
         targetVoice = new org.chuck.deluge.firmware2.Voice(fw2Sound);
         fw2Sound.voices.add(targetVoice);
       }
+      if (targetVoice == null) {
+        int highestRating = Integer.MIN_VALUE;
+        for (var v : fw2Sound.voices) {
+          int rating = v.getPriorityRating();
+          if (rating > highestRating) {
+            highestRating = rating;
+            targetVoice = v;
+          }
+        }
+      }
       if (targetVoice != null) {
         // Setup/Update samples on targetVoice's sources before triggering
         for (int s = 0; s < 2; s++) {
