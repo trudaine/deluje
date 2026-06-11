@@ -3162,6 +3162,9 @@ public class SwingDelugeApp extends JFrame {
 
   public void switchToTrackEdit(int trackId, int clipId) {
     sidebarPanel.updateFocusTrack(trackId);
+    if (midiService != null) {
+      midiService.setActiveTrack(trackId);
+    }
 
     if (clipPanel != null && trackId < trackEngineStart.length) {
       int engineBase = trackEngineStart[trackId];

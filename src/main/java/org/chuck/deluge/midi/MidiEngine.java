@@ -65,9 +65,6 @@ public class MidiEngine {
   // --- MIDI Follow ---
   private MidiFollow midiFollow;
 
-  // --- MIDI Takeover ---
-  private MidiTakeover midiTakeover;
-
   // --- Transport ---
   private final List<MidiTransport> outputTransports = new ArrayList<>();
 
@@ -302,9 +299,6 @@ public class MidiEngine {
   }
 
   private void handleControlChange(MIDIMessage msg) {
-    if (midiTakeover != null) {
-      // TODO: midiTakeover.process(msg) when implemented
-    }
     if (midiFollow != null) midiFollow.handleCC(msg);
     if (onControlChange != null) onControlChange.accept(msg);
   }
@@ -353,14 +347,6 @@ public class MidiEngine {
 
   public MidiFollow getMidiFollow() {
     return midiFollow;
-  }
-
-  public void setMidiTakeover(MidiTakeover takeover) {
-    this.midiTakeover = takeover;
-  }
-
-  public MidiTakeover getMidiTakeover() {
-    return midiTakeover;
   }
 
   // ===================== Logging =====================

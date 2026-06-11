@@ -21,6 +21,7 @@ public class MidiService {
   private boolean learning = false;
   private String learnTargetParam;
   private MidiDeviceDefinition currentDevice;
+  private int activeTrack = 4; // Default to first synth track
 
   public MidiService(ChuckVM vm, BridgeContract bridge, MidiInputRouter router) {
     this.vm = vm;
@@ -84,6 +85,27 @@ public class MidiService {
   /** Returns the MidiEngine instance for direct access. */
   public MidiEngine getEngine() {
     return engine;
+  }
+
+  public void setActiveTrack(int track) {
+    this.activeTrack = track;
+    if (router != null) {
+      router.setActiveTrack(track);
+    }
+  }
+
+  private org.chuck.deluge.firmware2.GlobalEffectable getActiveTrackSound(int track) {
+    Object ph = vm.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
+    if (ph instanceof org.chuck.deluge.firmware.playback.PlaybackHandler playbackHandler) {
+      org.chuck.deluge.firmware.model.Song song = playbackHandler.getSong();
+      if (song != null && track >= 0 && track < song.clips.size()) {
+        org.chuck.deluge.firmware.model.Clip clip = song.clips.get(track);
+        if (clip instanceof org.chuck.deluge.firmware.model.InstrumentClip instrumentClip) {
+          return instrumentClip.sound;
+        }
+      }
+    }
+    return null;
   }
 
   public void start() {
@@ -209,15 +231,47 @@ public class MidiService {
 
   /** Called by engine when a Pitch Bend is received. */
   private void handlePitchBend(MIDIMessage msg) {
-    // TODO: Route pitch bend to MPE zone or Sound parameter
+    int track = activeTrack;
+    int bend = msg.pitchBendValue(); // 0 - 16383
+
+    // 1. Update the bridge's step pitch for visual step grid representation
+    double pitchOffset = (bend - 8192.0) / 8192.0 * 2.0; // +/- 2 semitones
+    bridge.setStepPitch(track, 0, pitchOffset / 24.0);
+
+    // 2. Route pitch bend directly to the active track's audio engine voices
+    org.chuck.deluge.firmware2.GlobalEffectable sound = getActiveTrackSound(track);
+    if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound fs) {
+      fs.mpePitchBend(msg.channel(), bend);
+    } else if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
+      for (org.chuck.deluge.firmware.engine.FirmwareSound drum : kit.drumSounds) {
+        drum.mpePitchBend(msg.channel(), bend);
+      }
+    }
+
     if (vm.getLogLevel() >= 2) {
-      System.out.println("MIDI: Pitch Bend ch=" + msg.channel() + " value=" + msg.pitchBendValue());
+      System.out.println(
+          "MIDI: Pitch Bend track=" + track + " ch=" + msg.channel() + " value=" + bend);
     }
   }
 
   /** Called by engine when a Channel Aftertouch is received. */
   private void handleChannelAftertouch(MIDIMessage msg) {
-    // TODO: Route aftertouch to Sound parameter
+    int track = activeTrack;
+    int pressure = msg.aftertouchValue(); // 0 - 127
+
+    org.chuck.deluge.firmware2.GlobalEffectable sound = getActiveTrackSound(track);
+    if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound fs) {
+      fs.mpePressure(msg.channel(), pressure);
+    } else if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
+      for (org.chuck.deluge.firmware.engine.FirmwareSound drum : kit.drumSounds) {
+        drum.mpePressure(msg.channel(), pressure);
+      }
+    }
+
+    if (vm.getLogLevel() >= 2) {
+      System.out.println(
+          "MIDI: Aftertouch track=" + track + " ch=" + msg.channel() + " value=" + pressure);
+    }
   }
 
   /** Called by engine for System Real-Time messages (clock, start, stop). */
