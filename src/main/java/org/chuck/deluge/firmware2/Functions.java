@@ -545,6 +545,19 @@ public final class Functions {
     return jcong;
   }
 
+  /**
+   * C: functions.cpp:1500-1507 — the phase at which the given wave type crosses zero (used as the
+   * base when a retrigger phase is applied).
+   */
+  public static int getOscInitialPhaseForZero(Oscillator.OscType waveType) {
+    switch (waveType) {
+      case TRIANGLE:
+        return 1073741824;
+      default:
+        return 0;
+    }
+  }
+
   public static int interpolateTableSigned(
       int input, int numBitsInInput, int[] table, int numBitsInTableSize) {
     return interpolateTableSigned(input, numBitsInInput, table, 0, numBitsInTableSize);

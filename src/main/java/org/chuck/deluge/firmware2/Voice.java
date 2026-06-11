@@ -229,18 +229,35 @@ public class Voice {
     this.active = true;
     for (Envelope e : envelopes) e.noteOn(false);
 
+    // C: a freshly acquired voice randomizes all part phases (Voice::randomizeOscPhases,
+    // voice.cpp:399-411, called from sound.cpp:1654); noteOn then pins any source/modulator with a
+    // retrigger phase set (voice_unison_part_source.cpp:79-82, voice.cpp:319-327). The test
+    // override pins everything to a fixed phase for deterministic renders.
     for (int u = 0; u < sound.numUnison; u++) {
       for (int s = 0; s < 2; s++) {
         VoiceSource vs = unisonParts[u].sources[s];
         vs.active = true;
         int ovr = (s == 0) ? testStartPhaseOverrideOsc1 : testStartPhaseOverrideOsc2;
         vs.oscPos = (ovr != -2) ? ovr : (Functions.getNoise() & 0x7FFFFFFF); // random initial phase
+        // C vups:79-82 — retrigger overrides the random phase: zero-phase base for the wave type
+        // plus the configured offset. 0xFFFFFFFF (-1) = off.
+        if (sound.oscRetriggerPhase[s] != 0xFFFFFFFF) {
+          vs.oscPos =
+              Functions.getOscInitialPhaseForZero(sound.oscTypes[s]) + sound.oscRetriggerPhase[s];
+        }
         vs.carrierFeedback = 0;
       }
-      unisonParts[u].modulatorPhase[0] = 0;
-      unisonParts[u].modulatorPhase[1] = 0;
-      unisonParts[u].modulatorFeedback[0] = 0;
-      unisonParts[u].modulatorFeedback[1] = 0;
+      for (int m = 0; m < 2; m++) {
+        // C voice.cpp:405-407 — FM modulator phases are random on a fresh voice; pinned to 0 under
+        // the test override (so FM fidelity tests stay deterministic).
+        unisonParts[u].modulatorPhase[m] =
+            (testStartPhaseOverrideOsc1 != -2) ? 0 : Functions.getNoise();
+        // C voice.cpp:321-324 — modulator retrigger: getOscInitialPhaseForZero(SINE)=0 + offset.
+        if (sound.synthMode == 1 && sound.modulatorRetriggerPhase[m] != 0xFFFFFFFF) {
+          unisonParts[u].modulatorPhase[m] = sound.modulatorRetriggerPhase[m];
+        }
+        unisonParts[u].modulatorFeedback[m] = 0;
+      }
     }
     overallOscAmplitudeLastTime = 0;
     doneFirstRender = false;
@@ -587,6 +604,16 @@ public class Voice {
     int[] mixBuf = new int[numSamples * 2]; // stereo interleaved output
     java.util.Arrays.fill(mixBuf, 0, numSamples * 2, 0);
 
+    // ── Oscillator sync (voice.cpp:1100-1106): capture osc A's per-part phases BEFORE any
+    // rendering advances them; osc B then hard-syncs to them. ──
+    boolean doingOscSync = sound.renderingOscillatorSyncCurrently();
+    int[] oscSyncPos = new int[Sound.kMaxNumVoicesUnison];
+    if (doingOscSync) {
+      for (int u = 0; u < sound.numUnison; u++) {
+        oscSyncPos[u] = unisonParts[u].sources[0].oscPos;
+      }
+    }
+
     // ── FM path (voice.cpp:1400-1560) ──
     if (sound.synthMode == 1) { // FM
       renderFmPath(mixBuf, numSamples, overallOscAmplitude);
@@ -625,6 +652,9 @@ public class Voice {
               Functions.multiply_32x32_rshift32_rounded(amplitudeForRingMod, filterGain) << 4;
         }
 
+        // C voice.cpp:1317-1340 — osc A can never osc-sync (cantBeDoingOscSyncForFirstOsc); osc B
+        // syncs to osc A's captured phase + this part's osc-A increment. Both pass the source's
+        // retrigger phase (used by the pulse-width reset path even without sync).
         int pulseWidthA =
             Functions.lshiftAndSaturate(paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH], 1);
         int[] phaseA = {vsA.oscPos};
@@ -642,7 +672,7 @@ public class Voice {
             false,
             0,
             0,
-            0);
+            sound.oscRetriggerPhase[0]);
         vsA.oscPos = phaseA[0];
         if (sound.oscTypes[0] == OscType.SAW || sound.oscTypes[0] == OscType.ANALOG_SAW_2) {
           amplitudeForRingMod <<= 1;
@@ -664,10 +694,10 @@ public class Voice {
             phaseB,
             false,
             0,
-            false,
-            0,
-            0,
-            0);
+            doingOscSync,
+            oscSyncPos[u],
+            pIncA,
+            sound.oscRetriggerPhase[1]);
         vsB.oscPos = phaseB[0];
         if (sound.oscTypes[1] == OscType.SAW || sound.oscTypes[1] == OscType.ANALOG_SAW_2) {
           amplitudeForRingMod <<= 1;
@@ -695,8 +725,23 @@ public class Voice {
       int[] tempBuf = new int[numSamples];
       boolean stereoUnison = sound.unisonStereoSpread != 0 && sound.numUnison > 1;
 
+      // C voice.cpp:1175 — osc A's per-part FINAL phase increments, collected during its render
+      // pass so osc B can hard-sync to them. 0 = "this part's pitch was too high; skip syncing".
+      int[] oscSyncPhaseIncrement = new int[Sound.kMaxNumVoicesUnison];
+
       for (int s = 0; s < 2; s++) {
-        if (!sound.isSourceActiveCurrently(s, sources[s].sampleRef != null)) continue;
+        // C voice.cpp:1180-1199 — when osc-syncing, an INACTIVE source 0 still walks its parts to
+        // collect phase increments (and advance its phases), then gets out without rendering.
+        boolean getPhaseIncrements = (s == 0) && doingOscSync;
+        boolean getOutAfterGettingPhaseIncrements = false;
+        if (!sound.isSourceActiveCurrently(s, sources[s].sampleRef != null)) {
+          if (getPhaseIncrements) {
+            getOutAfterGettingPhaseIncrements = true;
+          } else {
+            continue;
+          }
+        }
+        boolean doOscSyncThisSource = (s == 1) && doingOscSync;
 
         int srcAmp =
             hasFilters
@@ -710,9 +755,24 @@ public class Voice {
 
           int pInc = vs.phaseIncrementStoredValue;
           pInc = adjustPitch(pInc, overallPitchAdjust);
-          if (pInc < 0) continue;
-          pInc = adjustPitch(pInc, paramFinalValues[Param.LOCAL_OSC_A_PITCH_ADJUST + s]);
-          if (pInc < 0) continue;
+          if (pInc >= 0) {
+            pInc = adjustPitch(pInc, paramFinalValues[Param.LOCAL_OSC_A_PITCH_ADJUST + s]);
+          }
+          if (pInc < 0) {
+            // C renderBasicSource pitchTooHigh (voice.cpp:1977-1982): mark the sync increment 0.
+            if (getPhaseIncrements) oscSyncPhaseIncrement[u] = 0;
+            continue;
+          }
+          if (getPhaseIncrements) {
+            oscSyncPhaseIncrement[u] = pInc;
+            if (getOutAfterGettingPhaseIncrements) {
+              // C voice.cpp:1993-1996 — advance the silent source's phase and move on.
+              vs.oscPos += pInc * numSamples;
+              continue;
+            }
+          }
+          // C voice.cpp:2403-2406 — osc B skips parts whose osc-A pitch was too high.
+          if (doOscSyncThisSource && oscSyncPhaseIncrement[u] == 0) continue;
 
           int[] ampLR = new int[2];
           shouldDoPanning(stereoUnison ? sound.unisonPan[u] : 0, ampLR);
@@ -760,6 +820,11 @@ public class Voice {
               tempBuf[i] = Functions.multiply_32x32_rshift32(uniBuf[i], srcAmp) << 6;
             }
           } else {
+            // C voice.cpp:2421-2430 — pulse width from LOCAL_OSC_A_PHASE_WIDTH+s, hard sync from
+            // osc A's captured phase/increment (osc B only), and the source's retrigger phase
+            // (needed by the pulse-width reset path even without sync).
+            int pulseWidth =
+                Functions.lshiftAndSaturate(paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH + s], 1);
             int[] phase = {vs.oscPos};
             Oscillator.renderOsc(
                 sound.oscTypes[s],
@@ -768,14 +833,14 @@ public class Voice {
                 0,
                 numSamples,
                 pInc,
-                0,
+                pulseWidth,
                 phase,
                 true,
                 0,
-                false,
-                0,
-                0,
-                0);
+                doOscSyncThisSource,
+                oscSyncPos[u],
+                oscSyncPhaseIncrement[u],
+                sound.oscRetriggerPhase[s]);
             vs.oscPos = phase[0];
           }
 

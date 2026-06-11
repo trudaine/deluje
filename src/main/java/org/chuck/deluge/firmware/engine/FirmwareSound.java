@@ -423,6 +423,17 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
 
   private void triggerVoiceFw2(int note, int vel, int midiChannel, int[] mpeValues) {
     synchronized (fw2Sound.voices) {
+      // noteOn-applied state must be on fw2Sound BEFORE noteOn runs (renderVoicesFw2 propagates
+      // too late for it): retrigger phases (vups:79-82, voice.cpp:319-327) need the configured
+      // values, and the phase init loops over numUnison parts.
+      fw2Sound.synthMode = synthMode == SynthMode.FM ? 1 : synthMode == SynthMode.RINGMOD ? 2 : 0;
+      fw2Sound.oscTypes[0] = fw2OscType(oscTypes[0]);
+      fw2Sound.oscTypes[1] = fw2OscType(oscTypes[1]);
+      fw2Sound.numUnison = numUnison;
+      fw2Sound.oscRetriggerPhase[0] = osc1RetriggerPhase;
+      fw2Sound.oscRetriggerPhase[1] = osc2RetriggerPhase;
+      fw2Sound.modulatorRetriggerPhase[0] = mod1RetrigPhase;
+      fw2Sound.modulatorRetriggerPhase[1] = mod2RetrigPhase;
       org.chuck.deluge.firmware2.Voice targetVoice = null;
       if (polyphonic != PolyphonyMode.POLY) {
         for (var v : fw2Sound.voices) {
@@ -507,6 +518,11 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     fw2Sound.setupUnisonDetuners();
     fw2Sound.setupUnisonStereoSpread();
     fw2Sound.calculateEffectiveVolume();
+    fw2Sound.oscillatorSync = oscillatorSync;
+    fw2Sound.oscRetriggerPhase[0] = osc1RetriggerPhase;
+    fw2Sound.oscRetriggerPhase[1] = osc2RetriggerPhase;
+    fw2Sound.modulatorRetriggerPhase[0] = mod1RetrigPhase;
+    fw2Sound.modulatorRetriggerPhase[1] = mod2RetrigPhase;
     fw2Sound.modulator1ToModulator0 = fmModulator1ToModulator0;
     fw2Sound.fmRatio1 = fmRatio1;
     fw2Sound.fmRatio2 = fmRatio2;
@@ -842,10 +858,16 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
   }
 
   // ── Subtractive Oscillator Retrigger Starting Phases ──
-  public int osc1RetriggerPhase = 0;
-  public int osc2RetriggerPhase = 0;
+  // Raw uint32 phase as the C stores/serializes it (degrees * 11930464, retrigger_phase.h:49-58);
+  // -1 (0xFFFFFFFF) = off/free-running (C sound.cpp:88 default).
+  public int osc1RetriggerPhase = -1;
+  public int osc2RetriggerPhase = -1;
   public int mod1RetrigPhase = -1;
   public int mod2RetrigPhase = -1;
+
+  /** C: sound.h:143 — osc B hard-syncs to osc A. */
+  public boolean oscillatorSync = false;
+
   public float fmRatio1 = 1.0f;
   public float fmRatio2 = 1.0f;
   // Raw FM modulator transpose (semitones) + cents for the firmware2 faithful FM increment.

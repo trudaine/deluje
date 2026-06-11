@@ -1134,7 +1134,7 @@ public class DelugeXmlParser {
       NodeList rpNodes = osc1.getElementsByTagName("retrigPhase");
       if (rpNodes.getLength() > 0) {
         try {
-          synth.setOsc1RetrigPhase(Integer.parseInt(rpNodes.item(0).getTextContent().trim()));
+          synth.setOsc1RetrigPhase((int) Long.parseLong(rpNodes.item(0).getTextContent().trim()));
         } catch (NumberFormatException e) {
           LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
         }
@@ -1182,7 +1182,7 @@ public class DelugeXmlParser {
       NodeList rpNodes2 = osc2.getElementsByTagName("retrigPhase");
       if (rpNodes2.getLength() > 0) {
         try {
-          synth.setOsc2RetrigPhase(Integer.parseInt(rpNodes2.item(0).getTextContent().trim()));
+          synth.setOsc2RetrigPhase((int) Long.parseLong(rpNodes2.item(0).getTextContent().trim()));
         } catch (NumberFormatException e) {
           LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
         }
@@ -1810,7 +1810,7 @@ public class DelugeXmlParser {
       NodeList rpNodes = mod1.getElementsByTagName("retrigPhase");
       if (rpNodes.getLength() > 0) {
         try {
-          synth.setMod1RetrigPhase(Integer.parseInt(rpNodes.item(0).getTextContent().trim()));
+          synth.setMod1RetrigPhase((int) Long.parseLong(rpNodes.item(0).getTextContent().trim()));
         } catch (NumberFormatException e) {
           LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
         }
@@ -1845,7 +1845,7 @@ public class DelugeXmlParser {
       NodeList rpNodes = mod2.getElementsByTagName("retrigPhase");
       if (rpNodes.getLength() > 0) {
         try {
-          synth.setMod2RetrigPhase(Integer.parseInt(rpNodes.item(0).getTextContent().trim()));
+          synth.setMod2RetrigPhase((int) Long.parseLong(rpNodes.item(0).getTextContent().trim()));
         } catch (NumberFormatException e) {
           LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
         }
@@ -2358,7 +2358,7 @@ public class DelugeXmlParser {
       NodeList rpNodes = osc1El.getElementsByTagName("retrigPhase");
       if (rpNodes.getLength() > 0) {
         try {
-          sound.setOsc1RetrigPhase(Integer.parseInt(rpNodes.item(0).getTextContent().trim()));
+          sound.setOsc1RetrigPhase((int) Long.parseLong(rpNodes.item(0).getTextContent().trim()));
         } catch (NumberFormatException e) {
           LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
         }
@@ -2416,7 +2416,7 @@ public class DelugeXmlParser {
       NodeList rpNodes2 = osc2.getElementsByTagName("retrigPhase");
       if (rpNodes2.getLength() > 0) {
         try {
-          sound.setOsc2RetrigPhase(Integer.parseInt(rpNodes2.item(0).getTextContent().trim()));
+          sound.setOsc2RetrigPhase((int) Long.parseLong(rpNodes2.item(0).getTextContent().trim()));
         } catch (NumberFormatException e) {
           LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
         }

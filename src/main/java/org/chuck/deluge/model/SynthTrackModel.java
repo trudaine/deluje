@@ -1041,11 +1041,12 @@ public class SynthTrackModel extends TrackModel {
   private boolean stutterPingPong = false;
 
   /**
-   * Oscillator retrigger phases. -1=FREE (free running), 0=RESET, positive=phase offset in degrees.
+   * Oscillator retrigger phases — the RAW uint32 the Deluge stores/serializes (degrees * 11930464,
+   * C retrigger_phase.h:49-58); -1 (0xFFFFFFFF) = off/free-running, the C default (sound.cpp:88).
    */
-  private int osc1RetrigPhase = 0;
+  private int osc1RetrigPhase = -1;
 
-  private int osc2RetrigPhase = 0;
+  private int osc2RetrigPhase = -1;
   private int mod1RetrigPhase = -1;
   private int mod2RetrigPhase = -1;
 
