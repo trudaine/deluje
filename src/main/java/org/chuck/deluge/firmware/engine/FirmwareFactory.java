@@ -613,6 +613,9 @@ public class FirmwareFactory {
     String t = s.trim();
     if (t.equalsIgnoreCase("analogSaw")) return OscType.ANALOG_SAW_2;
     if (t.equalsIgnoreCase("analogSquare")) return OscType.ANALOG_SQUARE;
+    if (t.equalsIgnoreCase("inLeft")) return OscType.INPUT_L;
+    if (t.equalsIgnoreCase("inRight")) return OscType.INPUT_R;
+    if (t.equalsIgnoreCase("inStereo")) return OscType.INPUT_STEREO;
     try {
       return OscType.valueOf(t.toUpperCase());
     } catch (Exception e) {

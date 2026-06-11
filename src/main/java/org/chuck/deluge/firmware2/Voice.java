@@ -886,6 +886,37 @@ public class Voice {
               vs.voiceSample.render(tempBuf, numSamples, 1, pInc, ampArr, 0);
               if (!vs.voiceSample.active) vs.active = false;
             }
+          } else if (sound.oscTypes[s] == OscType.INPUT_L
+              || sound.oscTypes[s] == OscType.INPUT_R
+              || sound.oscTypes[s] == OscType.INPUT_STEREO) {
+            // Live input echo (voice.cpp:2232-2360, no-pitch-shift path): read the current
+            // block's captured input and apply the source amplitude (<< 4 like the C). The
+            // pitch-shifting sub-path (LivePitchShifter when phaseIncrement != kMaxSampleValue,
+            // voice.cpp:2243-2274) is a documented follow-up. The mono osc pipeline condenses
+            // INPUT_STEREO to mono like the C's mono-oscBuffer path (voice.cpp:2337-2340).
+            int[] input = LiveInput.currentBlock;
+            if (input != null) {
+              OscType inputTypeNow = sound.oscTypes[s];
+              boolean anyInputDevice = LiveInput.lineInPluggedIn || LiveInput.micPluggedIn;
+              if (inputTypeNow == OscType.INPUT_STEREO && !anyInputDevice) {
+                inputTypeNow = OscType.INPUT_L; // C voice.cpp:2240-2243
+              }
+              int n = Math.min(numSamples, input.length / 2);
+              if (inputTypeNow != OscType.INPUT_STEREO) {
+                // C voice.cpp:2294-2305 — left, or right only when a real input device exists.
+                int channelOffset = (inputTypeNow == OscType.INPUT_R && anyInputDevice) ? 1 : 0;
+                for (int i = 0; i < n; i++) {
+                  tempBuf[i] =
+                      Functions.multiply_32x32_rshift32(input[i * 2 + channelOffset], srcAmp) << 4;
+                }
+              } else {
+                // C voice.cpp:2325-2345 — stereo condensed to mono for the mono osc buffer.
+                for (int i = 0; i < n; i++) {
+                  int mono = (input[i * 2] >> 1) + (input[i * 2 + 1] >> 1);
+                  tempBuf[i] = Functions.multiply_32x32_rshift32(mono, srcAmp) << 4;
+                }
+              }
+            }
           } else if (sound.oscTypes[s] == OscType.DX7) {
             if (vs.dxVoice.patch == null && sound.sourceDx7Patch[s] != null) {
               System.arraycopy(sound.sourceDx7Patch[s], 0, vs.dxPatch.params, 0, 156);

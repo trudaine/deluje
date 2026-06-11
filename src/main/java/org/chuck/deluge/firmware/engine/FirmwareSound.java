@@ -657,6 +657,9 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
       case ANALOG_SAW_2 -> org.chuck.deluge.firmware2.Oscillator.OscType.ANALOG_SAW_2;
       case ANALOG_SQUARE -> org.chuck.deluge.firmware2.Oscillator.OscType.ANALOG_SQUARE;
       case WAVETABLE -> org.chuck.deluge.firmware2.Oscillator.OscType.WAVETABLE;
+      case INPUT_L -> org.chuck.deluge.firmware2.Oscillator.OscType.INPUT_L;
+      case INPUT_R -> org.chuck.deluge.firmware2.Oscillator.OscType.INPUT_R;
+      case INPUT_STEREO -> org.chuck.deluge.firmware2.Oscillator.OscType.INPUT_STEREO;
       default -> org.chuck.deluge.firmware2.Oscillator.OscType.SAMPLE;
     };
   }
