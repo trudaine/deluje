@@ -85,6 +85,14 @@ public class Voice {
   /** C: voice.h:76 — per-channel anti-aliased tanh state for the saturation/clipping stage. */
   public final int[] lastSaturationTanHWorkingValue = new int[2];
 
+  /** C: voice.h:73 — portamento envelope position; 0xFFFFFFFF = no porta (voice.cpp:190). */
+  public int portaEnvelopePos = 0xFFFFFFFF;
+
+  /**
+   * C: voice.h:74 — pitch span of the porta glide (previous note's increment − kMaxSampleValue).
+   */
+  public int portaEnvelopeMaxAmplitude;
+
   // For the envelope center (return value)
   public int env0LastValue;
 
@@ -268,6 +276,14 @@ public class Voice {
     lastSaturationTanHWorkingValue[0] = 0x80000000;
     lastSaturationTanHWorkingValue[1] = 0x80000000;
 
+    // Portamento (voice.cpp:190, 372-374): off unless the UNPATCHED_PORTAMENTO knob is set and
+    // there is a previous note to glide from.
+    portaEnvelopePos = 0xFFFFFFFF;
+    if (sound.portamentoKnob != Integer.MIN_VALUE && sound.lastNoteCode != Integer.MIN_VALUE) {
+      setupPorta();
+    }
+    sound.lastNoteCode = midiNote; // C sound.cpp:1681 — stored for the NEXT note's porta
+
     // Line-for-line note setting
     if (noteCode >= 128) {
       sourceValues[PatchSource.NOTE.ordinal()] = 2147483647;
@@ -319,6 +335,63 @@ public class Voice {
   /** Backward-compat overload. */
   public void noteOn(int midiNote, int velocity) {
     noteOn(midiNote, velocity, -1, null);
+  }
+
+  // ── Portamento pitch adjust (voice.cpp:840-856) ──
+
+  /**
+   * C: voice.cpp:840-856 — while the porta envelope runs (pos &lt; 8388608 unsigned), multiply the
+   * overall pitch adjust by the decaying glide ratio and advance the envelope (speed from the
+   * release-rate table of the UNPATCHED_PORTAMENTO knob). Must run exactly once per block.
+   */
+  private int computeOverallPitchAdjust(int numSamples) {
+    int overallPitchAdjust = paramFinalValues[Param.LOCAL_PITCH_ADJUST];
+    if (Integer.compareUnsigned(portaEnvelopePos, 8388608) < 0) {
+      int envValue = Functions.getDecay4(portaEnvelopePos, 23);
+      int pitchAdjustmentHere =
+          Functions.K_MAX_SAMPLE_VALUE
+              + (Functions.multiply_32x32_rshift32_rounded(envValue, portaEnvelopeMaxAmplitude)
+                  << 1);
+
+      int a = Functions.multiply_32x32_rshift32_rounded(overallPitchAdjust, pitchAdjustmentHere);
+      if (a > 8388607) {
+        a = 8388607; // C: "Prevent overflow! Happened to Matt Bates"
+      }
+      overallPitchAdjust = a << 8;
+
+      int envelopeSpeed =
+          Functions.lookupReleaseRate(Functions.cableToExpParamShortcut(sound.portamentoKnob))
+              >> 13;
+      portaEnvelopePos += envelopeSpeed * numSamples;
+    }
+    return overallPitchAdjust;
+  }
+
+  // ── setupPorta (voice.cpp:379-397) ──
+
+  /**
+   * C: voice.cpp:379-397 — primes the porta glide from the sound's previous note: the envelope
+   * starts at the OLD note's relative pitch (noteIntervalTable ratio of the semitone distance) and
+   * decays to neutral (kMaxSampleValue).
+   */
+  private void setupPorta() {
+    portaEnvelopePos = 0;
+    int semitoneAdjustment = sound.lastNoteCode - noteCode;
+
+    int noteWithinOctave = ((semitoneAdjustment + 120) % 12 + 12) % 12;
+    int octave = (semitoneAdjustment + 120) / 12;
+
+    int phaseIncrement = LookupTables.noteIntervalTable[noteWithinOctave];
+
+    int shiftRightAmount = 16 - octave;
+    if (shiftRightAmount >= 0) {
+      // Java masks shifts to 5 bits; the C's >> of >=32 yields 0 on a positive value — match that.
+      phaseIncrement = (shiftRightAmount >= 32) ? 0 : (phaseIncrement >> shiftRightAmount);
+    } else {
+      phaseIncrement = 2147483647;
+    }
+
+    portaEnvelopeMaxAmplitude = phaseIncrement - Functions.K_MAX_SAMPLE_VALUE;
   }
 
   // ── noteOff (voice.cpp:570-634) ──
@@ -526,9 +599,14 @@ public class Voice {
       unisonParts[u].sources[1].phaseIncrementStoredValue = pIncB;
     }
 
+    // Portamento (voice.cpp:840-856): while the porta envelope runs, the overall pitch adjust is
+    // multiplied by the decaying glide ratio. Computed ONCE per block (the envelope advances
+    // here) and used by every pitch consumer below.
+    int overallPitchAdjustPorta = computeOverallPitchAdjust(numSamples);
+
     // FM modulators
     if (sound.synthMode == 1) { // FM
-      int overallPitchAdjust = paramFinalValues[Param.LOCAL_PITCH_ADJUST];
+      int overallPitchAdjust = overallPitchAdjustPorta;
       for (int m = 0; m < 2; m++) {
         if (sound.patchedParamValues[Param.LOCAL_MODULATOR_0_VOLUME + m] == Integer.MIN_VALUE) {
           for (int u = 0; u < sound.numUnison; u++) {
@@ -557,7 +635,7 @@ public class Voice {
       }
     }
 
-    int overallPitchAdjust = paramFinalValues[Param.LOCAL_PITCH_ADJUST];
+    int overallPitchAdjust = overallPitchAdjustPorta;
 
     // ── 6. Per-source rendering (lines 950-1400) ──
     // Overall osc amplitude: envelope 0 (unipolar lastValue) * LOCAL_VOLUME
@@ -622,7 +700,7 @@ public class Voice {
 
     // ── FM path (voice.cpp:1400-1560) ──
     if (sound.synthMode == 1) { // FM
-      renderFmPath(mixBuf, numSamples, overallOscAmplitude);
+      renderFmPath(mixBuf, numSamples, overallOscAmplitude, overallPitchAdjustPorta);
     } else if (sound.synthMode == 2) {
       // RINGMOD (voice.cpp:1309-1370)
       int[] tempBufA = new int[numSamples];
@@ -929,7 +1007,8 @@ public class Voice {
     return modInc;
   }
 
-  private void renderFmPath(int[] mixBuf, int numSamples, int overallOscAmplitude) {
+  private void renderFmPath(
+      int[] mixBuf, int numSamples, int overallOscAmplitude, int overallPitchAdjust) {
     int modAmp0 = paramFinalValues[Param.LOCAL_MODULATOR_0_VOLUME];
     int modAmp1 = paramFinalValues[Param.LOCAL_MODULATOR_1_VOLUME];
     boolean mod0Active = modAmp0 != 0;
@@ -938,7 +1017,6 @@ public class Voice {
     int[] fmBuf = new int[numSamples]; // modulation buffer
     int[] fmOscBuffer = new int[numSamples]; // mono temp buffer for carriers
 
-    int overallPitchAdjust = paramFinalValues[Param.LOCAL_PITCH_ADJUST];
     boolean stereoUnison = sound.unisonStereoSpread != 0 && sound.numUnison > 1;
 
     for (int u = 0; u < sound.numUnison; u++) {

@@ -383,6 +383,9 @@ public class FirmwareFactory {
     // Saturation/clipping amount (C clippingAmount; 0 = off).
     sound.clippingAmount = model.getClippingAmount();
 
+    // Portamento knob (C UNPATCHED_PORTAMENTO, raw Q31; INT_MIN = off).
+    sound.portamentoKnob = model.getPortamentoQ31();
+
     // Envelopes
     for (int i = 0; i < 4; i++) {
       EnvelopeModel em = model.getEnv(i);
