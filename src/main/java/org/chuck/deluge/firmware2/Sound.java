@@ -32,6 +32,14 @@ public class Sound extends GlobalEffectable {
   /** C: sound.h:143 — osc B hard-syncs to osc A when true. */
   public boolean oscillatorSync = false;
 
+  /** C: mod_controllable_audio.h:107 — per-sound saturation/clipping amount; 0 = off. */
+  public int clippingAmount = 0;
+
+  /** C: sound.h:286 — saturation output left-shift derived from clippingAmount. */
+  public int getShiftAmountForSaturation() {
+    return (clippingAmount >= 2) ? (clippingAmount - 2) : 0;
+  }
+
   /** C: sound.h:156 — per-source retrigger phase; 0xFFFFFFFF means "off" (sound.cpp:88). */
   public final int[] oscRetriggerPhase = {0xFFFFFFFF, 0xFFFFFFFF};
 

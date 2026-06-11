@@ -175,6 +175,17 @@ public class SynthTrackModel extends TrackModel {
     this.waveFoldQ31 = v;
   }
 
+  /** Saturation/clipping amount (C clippingAmount, mod_controllable_audio.h:107); 0 = off. */
+  private int clippingAmount = 0;
+
+  public int getClippingAmount() {
+    return clippingAmount;
+  }
+
+  public void setClippingAmount(int v) {
+    this.clippingAmount = v;
+  }
+
   /**
    * When true, FM modulator 1 modulates modulator 0 (chained) rather than the carriers directly.
    */

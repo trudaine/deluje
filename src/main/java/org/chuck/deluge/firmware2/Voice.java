@@ -82,6 +82,9 @@ public class Voice {
   public int overallOscillatorAmplitudeIncrement;
   public boolean doneFirstRender;
 
+  /** C: voice.h:76 — per-channel anti-aliased tanh state for the saturation/clipping stage. */
+  public final int[] lastSaturationTanHWorkingValue = new int[2];
+
   // For the envelope center (return value)
   public int env0LastValue;
 
@@ -261,6 +264,9 @@ public class Voice {
     }
     overallOscAmplitudeLastTime = 0;
     doneFirstRender = false;
+    // C voice.cpp:178-179 — tanh saturation state starts at the table's zero point (2147483648u).
+    lastSaturationTanHWorkingValue[0] = 0x80000000;
+    lastSaturationTanHWorkingValue[1] = 0x80000000;
 
     // Line-for-line note setting
     if (noteCode >= 128) {
@@ -1122,6 +1128,26 @@ public class Voice {
         stereoBuf[i * 2 + 1] =
             Functions.multiply_32x32_rshift32_rounded(stereoBuf[i * 2 + 1], overallOscAmplitudeNow)
                 << 1;
+      }
+    }
+
+    // Saturation/clipping (voice.cpp:1535-1565 "Yes clipping" branch): after the overall
+    // amplitude, before pan — Sound::saturate (sound.h:290-294) = anti-aliased tanh at
+    // 5 + clippingAmount with per-channel working-value state, output << shiftAmount.
+    if (sound.clippingAmount > 0) {
+      int shiftAmount = sound.getShiftAmountForSaturation();
+      int saturationAmount = 5 + sound.clippingAmount;
+      for (int i = 0; i < numSamples; i++) {
+        for (int ch = 0; ch < 2; ch++) {
+          int data = stereoBuf[i * 2 + ch];
+          int newWorkingValue =
+              Functions.lshiftAndSaturateUnknown(data, saturationAmount) + 0x80000000;
+          stereoBuf[i * 2 + ch] =
+              Functions.getTanHAntialiased(
+                      data, lastSaturationTanHWorkingValue[ch], saturationAmount)
+                  << shiftAmount;
+          lastSaturationTanHWorkingValue[ch] = newWorkingValue;
+        }
       }
     }
 
