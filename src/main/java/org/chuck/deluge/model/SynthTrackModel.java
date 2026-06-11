@@ -164,6 +164,17 @@ public class SynthTrackModel extends TrackModel {
   private int carrier1FeedbackQ31 = Integer.MIN_VALUE;
   private int carrier2FeedbackQ31 = Integer.MIN_VALUE;
 
+  /** Wavefolder knob (raw Q31, C LOCAL_FOLD / XML "waveFold"); INT_MIN = off (sound.cpp:147). */
+  private int waveFoldQ31 = Integer.MIN_VALUE;
+
+  public int getWaveFoldQ31() {
+    return waveFoldQ31;
+  }
+
+  public void setWaveFoldQ31(int v) {
+    this.waveFoldQ31 = v;
+  }
+
   /**
    * When true, FM modulator 1 modulates modulator 0 (chained) rather than the carriers directly.
    */

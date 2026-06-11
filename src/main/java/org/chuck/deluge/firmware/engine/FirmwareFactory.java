@@ -377,6 +377,9 @@ public class FirmwareFactory {
     sound.mod2RetrigPhase = model.getMod2RetrigPhase();
     sound.oscillatorSync = model.isOscillatorSync();
 
+    // Wavefolder knob (raw Q31 like the C readParam of "waveFold" → LOCAL_FOLD; INT_MIN = off).
+    sound.paramNeutralValues[Param.LOCAL_FOLD] = model.getWaveFoldQ31();
+
     // Envelopes
     for (int i = 0; i < 4; i++) {
       EnvelopeModel em = model.getEnv(i);

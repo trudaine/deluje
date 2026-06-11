@@ -1095,6 +1095,14 @@ public class Voice {
     // amplitudes in render() (voice.cpp folds it into sourceAmplitudes, not the buffer). Here we
     // just
     // run the filter, then apply overallOscAmplitude AFTER the filter (non-FM) and pan.
+
+    // Wavefolder (voice.cpp:1499-1501/1583-1587): fold the osc buffer BEFORE the filters when
+    // LOCAL_FOLD's final value is positive (knob off = INT_MIN → final 0 → no fold).
+    if (paramFinalValues[Param.LOCAL_FOLD] > 0) {
+      Functions.foldBufferPolyApproximation(
+          stereoBuf, 0, numSamples * 2, paramFinalValues[Param.LOCAL_FOLD]);
+    }
+
     if (filterSet.isOn()) {
       filterSet.renderLongStereo(stereoBuf, numSamples);
     }
