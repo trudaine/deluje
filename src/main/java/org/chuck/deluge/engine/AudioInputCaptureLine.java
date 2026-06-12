@@ -94,12 +94,40 @@ public class AudioInputCaptureLine {
     this.onTriggerCallback = onTrigger;
     this.onFinishedCallback = onFinished;
 
+    this.monitorOnly.set(false);
     this.isArmed.set(true);
     this.isRecording.set(false);
     this.capturedStream.reset();
     this.currentLivePeak = 0f;
 
     startCaptureThread();
+  }
+
+  // ── Monitor-only mode ──
+  // Opens the microphone and feeds the live-monitor ring WITHOUT the threshold-recording logic,
+  // so INPUT_L/R/STEREO patches can monitor the input continuously (Settings → Monitor Audio
+  // Input). Recording arm() takes over the same line if invoked while monitoring.
+  private final AtomicBoolean monitorOnly = new AtomicBoolean(false);
+
+  public boolean isMonitoring() {
+    return isArmed.get() && monitorOnly.get();
+  }
+
+  public void startMonitoring() {
+    if (isArmed.get()) {
+      return; // already capturing (recording arm or a previous monitor start)
+    }
+    this.monitorOnly.set(true);
+    this.isArmed.set(true);
+    this.isRecording.set(false);
+    this.currentLivePeak = 0f;
+    startCaptureThread();
+  }
+
+  public void stopMonitoring() {
+    if (monitorOnly.getAndSet(false)) {
+      stop();
+    }
   }
 
   public void stop() {
@@ -159,6 +187,10 @@ public class AudioInputCaptureLine {
                     if (amp > maxPeak) maxPeak = amp;
                   }
                   currentLivePeak = maxPeak;
+
+                  if (monitorOnly.get()) {
+                    continue; // monitor-only: no threshold-recording logic
+                  }
 
                   if (!isRecording.get()) {
                     if (maxPeak >= threshold) {
