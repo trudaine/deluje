@@ -10,7 +10,7 @@ import org.chuck.deluge.BridgeContract;
  * spin-wait loop that delivers step ticks with swing-aware timing, stutter support, and
  * bar-boundary clip queue processing.
  *
- * <p>Matching the behavior of {@code DelugeEngineDSL.clock_shred()}:
+ * <p>Matching the behavior of the retired legacy DSL engine's {@code clock_shred()}:
  *
  * <ul>
  *   <li>Swing per even/odd step (same formula: {@code 1.0 ± (swing - 0.5) * 0.4})

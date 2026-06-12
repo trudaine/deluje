@@ -3,7 +3,6 @@ package org.chuck.deluge.ui;
 import java.awt.*;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-import org.chuck.deluge.engine.DelugeEngineDSL;
 import org.chuck.deluge.model.tuning.ScalaScale;
 import org.chuck.deluge.model.tuning.ScalaScaleParser;
 import org.chuck.deluge.project.PreferencesManager;
@@ -331,7 +330,6 @@ public class PreferencesDialog extends JDialog {
         e -> {
           scalaPathField.setText("(no custom scale - 12-TET active)");
           PreferencesManager.set("scala.scale.path", "");
-          DelugeEngineDSL.setScalaScale(null);
           ScalaScale.setActiveScale(null);
         });
 
@@ -610,7 +608,6 @@ public class PreferencesDialog extends JDialog {
         scalaPathField.setText(file.getName());
         try (java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
           ScalaScale scale = ScalaScaleParser.parse(fis, file.getName());
-          DelugeEngineDSL.setScalaScale(scale);
           ScalaScale.setActiveScale(scale);
         } catch (Exception ignored) {
         }
@@ -655,7 +652,6 @@ public class PreferencesDialog extends JDialog {
         String path = file.getAbsolutePath();
         scalaPathField.setText(file.getName());
         PreferencesManager.set("scala.scale.path", path);
-        DelugeEngineDSL.setScalaScale(scale);
         ScalaScale.setActiveScale(scale);
 
         JOptionPane.showMessageDialog(

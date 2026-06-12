@@ -2004,33 +2004,24 @@ public class SwingGridPanel extends JPanel {
                         "AUD ", finalNoteName);
                   }
 
-                  if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
-                    Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-                    if (fwEngineObj
-                        instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
-                      if (editedModelTrack < fwEngine.sounds.size()) {
-                        org.chuck.deluge.firmware2.GlobalEffectable sound =
-                            fwEngine.sounds.get(editedModelTrack);
-                        if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
-                          if (modelRow < kit.drumSounds.size()) {
-                            kit.triggerDrum(modelRow, 127);
-                          }
-                        } else if (sound
-                            instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
-                          stopAuditionIfNeeded();
-                          auditionMidiNote = pitchMidi;
-                          auditionSynth = synth;
-                          synth.triggerNote(pitchMidi, 127);
+                  Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+                  if (fwEngineObj
+                      instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
+                    if (editedModelTrack < fwEngine.sounds.size()) {
+                      org.chuck.deluge.firmware2.GlobalEffectable sound =
+                          fwEngine.sounds.get(editedModelTrack);
+                      if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
+                        if (modelRow < kit.drumSounds.size()) {
+                          kit.triggerDrum(modelRow, 127);
                         }
+                      } else if (sound
+                          instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
+                        stopAuditionIfNeeded();
+                        auditionMidiNote = pitchMidi;
+                        auditionSynth = synth;
+                        synth.triggerNote(pitchMidi, 127);
                       }
                     }
-                  } else {
-                    vm.setGlobalInt(
-                        BridgeContract.G_PREVIEW_TRACK, (long) (baseTrackId + modelRow));
-                    if (isSynthMode) {
-                      vm.setGlobalFloat(BridgeContract.G_PREVIEW_PITCH, (float) (pitchMidi - 60));
-                    }
-                    vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
                   }
                 }
 
@@ -2041,21 +2032,19 @@ public class SwingGridPanel extends JPanel {
                   boolean isSynthMode = bridge != null && bridge.getTrackType(baseTrackId) == 1;
                   int pitchMidi = isSynthMode ? (((128 - 1) - modelRow) + 0) : 60;
 
-                  if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
-                    Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-                    if (fwEngineObj
-                        instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
-                      if (editedModelTrack < fwEngine.sounds.size()) {
-                        org.chuck.deluge.firmware2.GlobalEffectable sound =
-                            fwEngine.sounds.get(editedModelTrack);
-                        if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
-                          if (modelRow < kit.drumSounds.size()) {
-                            kit.drumSounds.get(modelRow).releaseNote(60);
-                          }
-                        } else if (sound
-                            instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
-                          synth.releaseNote(pitchMidi);
+                  Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+                  if (fwEngineObj
+                      instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
+                    if (editedModelTrack < fwEngine.sounds.size()) {
+                      org.chuck.deluge.firmware2.GlobalEffectable sound =
+                          fwEngine.sounds.get(editedModelTrack);
+                      if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
+                        if (modelRow < kit.drumSounds.size()) {
+                          kit.drumSounds.get(modelRow).releaseNote(60);
                         }
+                      } else if (sound
+                          instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
+                        synth.releaseNote(pitchMidi);
                       }
                     }
                   }
@@ -2608,37 +2597,28 @@ public class SwingGridPanel extends JPanel {
                                         trackColors[modelRow % trackColors.length], velS)
                                     : getPadDefaultBg(activeCol));
 
-                            if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
-                              Object fwEngineObj =
-                                  vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-                              if (fwEngineObj
-                                  instanceof
-                                  org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
-                                if (editedModelTrack < fwEngine.sounds.size()) {
-                                  org.chuck.deluge.firmware2.GlobalEffectable sound =
-                                      fwEngine.sounds.get(editedModelTrack);
-                                  if (sound
-                                      instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
-                                    kit.triggerDrum(modelRow, 127);
-                                  } else if (sound
-                                      instanceof
-                                      org.chuck.deluge.firmware.engine.FirmwareSound synth) {
-                                    stopAuditionIfNeeded();
-                                    auditionMidiNote = pitchMidi;
-                                    auditionSynth = synth;
-                                    synth.triggerNote(pitchMidi, 127);
-                                  }
+                            Object fwEngineObj =
+                                vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+                            if (fwEngineObj
+                                instanceof
+                                org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
+                              if (editedModelTrack < fwEngine.sounds.size()) {
+                                org.chuck.deluge.firmware2.GlobalEffectable sound =
+                                    fwEngine.sounds.get(editedModelTrack);
+                                if (sound
+                                    instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
+                                  kit.triggerDrum(modelRow, 127);
+                                } else if (sound
+                                    instanceof
+                                    org.chuck.deluge.firmware.engine.FirmwareSound synth) {
+                                  stopAuditionIfNeeded();
+                                  auditionMidiNote = pitchMidi;
+                                  auditionSynth = synth;
+                                  synth.triggerNote(pitchMidi, 127);
                                 }
                               }
-                            } else {
-                              // Preview voice: wrap to first POW (8) engine rows since
-                              // synth_preview_shred checks r < car.length (8 UGen voices)
-                              int voiceSlot = baseTrackId + (modelRow % 8);
-                              vm.setGlobalFloat(
-                                  BridgeContract.G_PREVIEW_PITCH, (float) (pitchMidi - 60));
-                              vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) voiceSlot);
-                              vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
                             }
+
                             if (projectModel != null
                                 && editedModelTrack < projectModel.getTracks().size()) {
                               org.chuck.deluge.model.TrackModel tModel =
@@ -2737,38 +2717,29 @@ public class SwingGridPanel extends JPanel {
                               activeStutterTimer = null;
                             }
                             if (!stepState) {
-                              if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
-                                // ── High-Fidelity Audition ──
-                                Object fwEngineObj =
-                                    vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-                                if (fwEngineObj
-                                    instanceof
-                                    org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
-                                  if (editedModelTrack < fwEngine.sounds.size()) {
-                                    org.chuck.deluge.firmware2.GlobalEffectable sound =
-                                        fwEngine.sounds.get(editedModelTrack);
-                                    if (sound
-                                        instanceof
-                                        org.chuck.deluge.firmware.engine.FirmwareKit kit) {
-                                      kit.triggerDrum(modelRow, 127);
-                                    } else if (sound
-                                        instanceof
-                                        org.chuck.deluge.firmware.engine.FirmwareSound synth) {
-                                      int pitchMidi = ((128 - 1) - modelRow) + 0;
-                                      stopAuditionIfNeeded();
-                                      auditionMidiNote = pitchMidi;
-                                      auditionSynth = synth;
-                                      synth.triggerNote(pitchMidi, 127);
-                                    }
+
+                              // ── High-Fidelity Audition ──
+                              Object fwEngineObj =
+                                  vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+                              if (fwEngineObj
+                                  instanceof
+                                  org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
+                                if (editedModelTrack < fwEngine.sounds.size()) {
+                                  org.chuck.deluge.firmware2.GlobalEffectable sound =
+                                      fwEngine.sounds.get(editedModelTrack);
+                                  if (sound
+                                      instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
+                                    kit.triggerDrum(modelRow, 127);
+                                  } else if (sound
+                                      instanceof
+                                      org.chuck.deluge.firmware.engine.FirmwareSound synth) {
+                                    int pitchMidi = ((128 - 1) - modelRow) + 0;
+                                    stopAuditionIfNeeded();
+                                    auditionMidiNote = pitchMidi;
+                                    auditionSynth = synth;
+                                    synth.triggerNote(pitchMidi, 127);
                                   }
                                 }
-                              } else {
-                                // Single preview trigger — click a cell, play the sound once.
-                                // The engine reads G_PREVIEW_TRACK on wake and re-triggers.
-                                vm.setGlobalInt(
-                                    BridgeContract.G_PREVIEW_TRACK,
-                                    (long) (baseTrackId + modelRow));
-                                vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
                               }
                             }
                             fireProjectChanged();
@@ -2784,24 +2755,22 @@ public class SwingGridPanel extends JPanel {
                         }
 
                         // ── High-Fidelity Note Off ──
-                        if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
-                          Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-                          if (fwEngineObj
-                              instanceof
-                              org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
-                            if (editedModelTrack < fwEngine.sounds.size()) {
-                              org.chuck.deluge.firmware2.GlobalEffectable sound =
-                                  fwEngine.sounds.get(editedModelTrack);
-                              if (sound
-                                  instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
-                                if (modelRow < kit.drumSounds.size()) {
-                                  kit.drumSounds.get(modelRow).releaseNote(60);
-                                }
-                              } else if (sound
-                                  instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
-                                int pitchMidi = ((128 - 1) - modelRow) + 0;
-                                synth.releaseNote(pitchMidi);
+
+                        Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+                        if (fwEngineObj
+                            instanceof
+                            org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
+                          if (editedModelTrack < fwEngine.sounds.size()) {
+                            org.chuck.deluge.firmware2.GlobalEffectable sound =
+                                fwEngine.sounds.get(editedModelTrack);
+                            if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
+                              if (modelRow < kit.drumSounds.size()) {
+                                kit.drumSounds.get(modelRow).releaseNote(60);
                               }
+                            } else if (sound
+                                instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
+                              int pitchMidi = ((128 - 1) - modelRow) + 0;
+                              synth.releaseNote(pitchMidi);
                             }
                           }
                         }
@@ -2815,24 +2784,22 @@ public class SwingGridPanel extends JPanel {
                         }
 
                         // ── High-Fidelity Note Off ──
-                        if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
-                          Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-                          if (fwEngineObj
-                              instanceof
-                              org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
-                            if (editedModelTrack < fwEngine.sounds.size()) {
-                              org.chuck.deluge.firmware2.GlobalEffectable sound =
-                                  fwEngine.sounds.get(editedModelTrack);
-                              if (sound
-                                  instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
-                                if (modelRow < kit.drumSounds.size()) {
-                                  kit.drumSounds.get(modelRow).releaseNote(60);
-                                }
-                              } else if (sound
-                                  instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
-                                int pitchMidi = ((128 - 1) - modelRow) + 0;
-                                synth.releaseNote(pitchMidi);
+
+                        Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+                        if (fwEngineObj
+                            instanceof
+                            org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
+                          if (editedModelTrack < fwEngine.sounds.size()) {
+                            org.chuck.deluge.firmware2.GlobalEffectable sound =
+                                fwEngine.sounds.get(editedModelTrack);
+                            if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
+                              if (modelRow < kit.drumSounds.size()) {
+                                kit.drumSounds.get(modelRow).releaseNote(60);
                               }
+                            } else if (sound
+                                instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
+                              int pitchMidi = ((128 - 1) - modelRow) + 0;
+                              synth.releaseNote(pitchMidi);
                             }
                           }
                         }
@@ -2976,28 +2943,25 @@ public class SwingGridPanel extends JPanel {
       }
     }
 
-    if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
-      try {
-        Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-        if (fwEngineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
-          if (editedModelTrack < fwEngine.sounds.size()) {
-            org.chuck.deluge.firmware2.GlobalEffectable sound =
-                fwEngine.sounds.get(editedModelTrack);
-            if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
-              synth.triggerNote(note, 127);
-              return;
-            } else if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
-              if (!kit.drumSounds.isEmpty()) {
-                int drumIdx = note % kit.drumSounds.size();
-                kit.triggerDrum(drumIdx, 127);
-              }
-              return;
+    try {
+      Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+      if (fwEngineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
+        if (editedModelTrack < fwEngine.sounds.size()) {
+          org.chuck.deluge.firmware2.GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
+          if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
+            synth.triggerNote(note, 127);
+            return;
+          } else if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
+            if (!kit.drumSounds.isEmpty()) {
+              int drumIdx = note % kit.drumSounds.size();
+              kit.triggerDrum(drumIdx, 127);
             }
+            return;
           }
         }
-      } catch (Exception ex) {
-        LOG.warning("Hi-Fi keyboard trigger failed: " + ex.getMessage());
       }
+    } catch (Exception ex) {
+      LOG.warning("Hi-Fi keyboard trigger failed: " + ex.getMessage());
     }
 
     try {
@@ -3017,28 +2981,26 @@ public class SwingGridPanel extends JPanel {
   }
 
   void triggerKeyboardNoteRelease(int note) {
-    if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
-      try {
-        Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-        if (fwEngineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
-          if (editedModelTrack < fwEngine.sounds.size()) {
-            org.chuck.deluge.firmware2.GlobalEffectable sound =
-                fwEngine.sounds.get(editedModelTrack);
-            if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
-              synth.releaseNote(note);
-              return;
-            } else if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
-              if (!kit.drumSounds.isEmpty()) {
-                int drumIdx = note % kit.drumSounds.size();
-                kit.drumSounds.get(drumIdx).releaseNote(60);
-              }
-              return;
+
+    try {
+      Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+      if (fwEngineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
+        if (editedModelTrack < fwEngine.sounds.size()) {
+          org.chuck.deluge.firmware2.GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
+          if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
+            synth.releaseNote(note);
+            return;
+          } else if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
+            if (!kit.drumSounds.isEmpty()) {
+              int drumIdx = note % kit.drumSounds.size();
+              kit.drumSounds.get(drumIdx).releaseNote(60);
             }
+            return;
           }
         }
-      } catch (Exception ex) {
-        LOG.warning("Hi-Fi keyboard release failed: " + ex.getMessage());
       }
+    } catch (Exception ex) {
+      LOG.warning("Hi-Fi keyboard release failed: " + ex.getMessage());
     }
   }
 
@@ -4795,34 +4757,30 @@ public class SwingGridPanel extends JPanel {
                 e -> {
                   if (viewMode == GridViewMode.CLIP) {
                     // Audition the row sound immediately in Hi-Fi/Pure mode
-                    if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
-                      try {
-                        Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-                        if (fwEngineObj
-                            instanceof
-                            org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
-                          if (editedModelTrack < fwEngine.sounds.size()) {
-                            org.chuck.deluge.firmware2.GlobalEffectable sound =
-                                fwEngine.sounds.get(editedModelTrack);
-                            if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
-                              if (trk < kit.drumSounds.size()) kit.triggerDrum(trk, 127);
-                            } else if (sound
-                                instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
-                              boolean isSynthModeLocal =
-                                  bridge != null && bridge.getTrackType(baseTrackId) == 1;
-                              int pitchMidi = isSynthModeLocal ? (((128 - 1) - trk) + 0) : 60;
-                              stopAuditionIfNeeded();
-                              auditionMidiNote = pitchMidi;
-                              auditionSynth = synth;
-                              synth.triggerNote(pitchMidi, 127);
-                            }
+
+                    try {
+                      Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+                      if (fwEngineObj
+                          instanceof
+                          org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
+                        if (editedModelTrack < fwEngine.sounds.size()) {
+                          org.chuck.deluge.firmware2.GlobalEffectable sound =
+                              fwEngine.sounds.get(editedModelTrack);
+                          if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
+                            if (trk < kit.drumSounds.size()) kit.triggerDrum(trk, 127);
+                          } else if (sound
+                              instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
+                            boolean isSynthModeLocal =
+                                bridge != null && bridge.getTrackType(baseTrackId) == 1;
+                            int pitchMidi = isSynthModeLocal ? (((128 - 1) - trk) + 0) : 60;
+                            stopAuditionIfNeeded();
+                            auditionMidiNote = pitchMidi;
+                            auditionSynth = synth;
+                            synth.triggerNote(pitchMidi, 127);
                           }
                         }
-                      } catch (Exception ignored) {
                       }
-                    } else {
-                      vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) trk);
-                      vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
+                    } catch (Exception ignored) {
                     }
 
                     // Toggle solo: solo this row or clear solo
@@ -5090,38 +5048,33 @@ public class SwingGridPanel extends JPanel {
                           }
                         } else {
                           // Audition on press — no step toggle in Hi-Fi/Pure mode
-                          if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
-                            try {
-                              Object fwEngineObj =
-                                  vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-                              if (fwEngineObj
-                                  instanceof
-                                  org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
-                                if (editedModelTrack < fwEngine.sounds.size()) {
-                                  org.chuck.deluge.firmware2.GlobalEffectable sound =
-                                      fwEngine.sounds.get(editedModelTrack);
-                                  if (sound
-                                      instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
-                                    if (trk < kit.drumSounds.size()) kit.triggerDrum(trk, 127);
-                                  } else if (sound
-                                      instanceof
-                                      org.chuck.deluge.firmware.engine.FirmwareSound synth) {
-                                    boolean isSynthModeLocal =
-                                        bridge != null && bridge.getTrackType(baseTrackId) == 1;
-                                    int pitchMidi = isSynthModeLocal ? (((128 - 1) - trk) + 0) : 60;
-                                    stopAuditionIfNeeded();
-                                    auditionMidiNote = pitchMidi;
-                                    auditionSynth = synth;
-                                    synth.triggerNote(pitchMidi, 127);
-                                  }
+
+                          try {
+                            Object fwEngineObj =
+                                vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+                            if (fwEngineObj
+                                instanceof
+                                org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
+                              if (editedModelTrack < fwEngine.sounds.size()) {
+                                org.chuck.deluge.firmware2.GlobalEffectable sound =
+                                    fwEngine.sounds.get(editedModelTrack);
+                                if (sound
+                                    instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
+                                  if (trk < kit.drumSounds.size()) kit.triggerDrum(trk, 127);
+                                } else if (sound
+                                    instanceof
+                                    org.chuck.deluge.firmware.engine.FirmwareSound synth) {
+                                  boolean isSynthModeLocal =
+                                      bridge != null && bridge.getTrackType(baseTrackId) == 1;
+                                  int pitchMidi = isSynthModeLocal ? (((128 - 1) - trk) + 0) : 60;
+                                  stopAuditionIfNeeded();
+                                  auditionMidiNote = pitchMidi;
+                                  auditionSynth = synth;
+                                  synth.triggerNote(pitchMidi, 127);
                                 }
                               }
-                            } catch (Exception ignored) {
                             }
-                          } else {
-                            vm.setGlobalInt(
-                                BridgeContract.G_PREVIEW_TRACK, (long) (baseTrackId + trk));
-                            vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
+                          } catch (Exception ignored) {
                           }
                         }
                       }
@@ -5133,31 +5086,28 @@ public class SwingGridPanel extends JPanel {
                       vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, -1L);
                       vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
 
-                      if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
-                        try {
-                          Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-                          if (fwEngineObj
-                              instanceof
-                              org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
-                            if (editedModelTrack < fwEngine.sounds.size()) {
-                              org.chuck.deluge.firmware2.GlobalEffectable sound =
-                                  fwEngine.sounds.get(editedModelTrack);
-                              if (sound
-                                  instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
-                                if (trk < kit.drumSounds.size()) {
-                                  kit.drumSounds.get(trk).releaseNote(60);
-                                }
-                              } else if (sound
-                                  instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
-                                boolean isSynthModeLocal =
-                                    bridge != null && bridge.getTrackType(baseTrackId) == 1;
-                                int pitchMidi = isSynthModeLocal ? (((128 - 1) - trk) + 0) : 60;
-                                synth.releaseNote(pitchMidi);
+                      try {
+                        Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+                        if (fwEngineObj
+                            instanceof
+                            org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
+                          if (editedModelTrack < fwEngine.sounds.size()) {
+                            org.chuck.deluge.firmware2.GlobalEffectable sound =
+                                fwEngine.sounds.get(editedModelTrack);
+                            if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
+                              if (trk < kit.drumSounds.size()) {
+                                kit.drumSounds.get(trk).releaseNote(60);
                               }
+                            } else if (sound
+                                instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
+                              boolean isSynthModeLocal =
+                                  bridge != null && bridge.getTrackType(baseTrackId) == 1;
+                              int pitchMidi = isSynthModeLocal ? (((128 - 1) - trk) + 0) : 60;
+                              synth.releaseNote(pitchMidi);
                             }
                           }
-                        } catch (Exception ignored) {
                         }
+                      } catch (Exception ignored) {
                       }
 
                       try {
@@ -6286,38 +6236,27 @@ public class SwingGridPanel extends JPanel {
       }
     } else if (isSynthMode) {
       int pitchMidi = ((128 - 1) - modelRow) + 0;
-      if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
-        Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-        if (fwEngineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
-          if (editedModelTrack < fwEngine.sounds.size()) {
-            org.chuck.deluge.firmware2.GlobalEffectable sound =
-                fwEngine.sounds.get(editedModelTrack);
-            if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
-              synth.triggerNote(pitchMidi, 127);
-            }
+
+      Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+      if (fwEngineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
+        if (editedModelTrack < fwEngine.sounds.size()) {
+          org.chuck.deluge.firmware2.GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
+          if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
+            synth.triggerNote(pitchMidi, 127);
           }
         }
-      } else {
-        int voiceSlot = baseTrackId + (modelRow % 8);
-        vm.setGlobalFloat(BridgeContract.G_PREVIEW_PITCH, (float) (pitchMidi - 60));
-        vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) voiceSlot);
-        vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
       }
+
     } else {
-      if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
-        Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-        if (fwEngineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
-          if (editedModelTrack < fwEngine.sounds.size()) {
-            org.chuck.deluge.firmware2.GlobalEffectable sound =
-                fwEngine.sounds.get(editedModelTrack);
-            if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
-              kit.triggerDrum(modelRow, 127);
-            }
+
+      Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+      if (fwEngineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
+        if (editedModelTrack < fwEngine.sounds.size()) {
+          org.chuck.deluge.firmware2.GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
+          if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
+            kit.triggerDrum(modelRow, 127);
           }
         }
-      } else {
-        vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) (baseTrackId + modelRow));
-        vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
       }
     }
   }
@@ -6325,19 +6264,18 @@ public class SwingGridPanel extends JPanel {
   private void handleStepReleased(int row, int col) {
     if (bridge == null) return;
     int modelRow = getModelRow(row);
-    if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
-      Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-      if (fwEngineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
-        if (editedModelTrack < fwEngine.sounds.size()) {
-          org.chuck.deluge.firmware2.GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
-          if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
-            if (modelRow < kit.drumSounds.size()) {
-              kit.drumSounds.get(modelRow).releaseNote(60);
-            }
-          } else if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
-            int pitchMidi = ((128 - 1) - modelRow) + 0;
-            synth.releaseNote(pitchMidi);
+
+    Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+    if (fwEngineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
+      if (editedModelTrack < fwEngine.sounds.size()) {
+        org.chuck.deluge.firmware2.GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
+        if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
+          if (modelRow < kit.drumSounds.size()) {
+            kit.drumSounds.get(modelRow).releaseNote(60);
           }
+        } else if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
+          int pitchMidi = ((128 - 1) - modelRow) + 0;
+          synth.releaseNote(pitchMidi);
         }
       }
     }

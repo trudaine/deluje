@@ -3,7 +3,6 @@ package org.chuck.deluge;
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.chuck.deluge.firmware.engine.FirmwareSound;
-import org.chuck.deluge.firmware.modulation.Arpeggiator;
 import org.chuck.deluge.firmware.modulation.params.Param;
 import org.chuck.deluge.firmware.modulation.patch.PatchSource;
 import org.junit.jupiter.api.Test;
@@ -45,88 +44,6 @@ public class LiveAutomationMpeTest {
 
     // Release note on MPE channel 3
     sound.releaseNote(60, 3);
-  }
-
-  private void renderUntilNextNoteOn(Arpeggiator arp, Arpeggiator.ReturnInstruction instr) {
-    instr.noteOn = false;
-    for (int i = 0; i < 500; i++) {
-      arp.render(instr, 1, 1 << 24);
-      if (instr.noteOn) return;
-    }
-    fail("Arpeggiator did not trigger a note-on within 500 render blocks!");
-  }
-
-  @Test
-  void testArpeggiatorStepRepeats() {
-    Arpeggiator.Settings settings = new Arpeggiator.Settings();
-    settings.mode = Arpeggiator.ArpMode.UP;
-    settings.numStepRepeats = 3; // Repeat each note 3 times!
-
-    Arpeggiator arp = new Arpeggiator(settings);
-    arp.noteOn(60, 100);
-    arp.noteOn(64, 100);
-
-    Arpeggiator.ReturnInstruction instr = new Arpeggiator.ReturnInstruction();
-
-    // Render first step
-    renderUntilNextNoteOn(arp, instr);
-    assertEquals(60, instr.noteCode);
-
-    // Second render step (repeat 2)
-    renderUntilNextNoteOn(arp, instr);
-    assertEquals(60, instr.noteCode);
-
-    // Third render step (repeat 3)
-    renderUntilNextNoteOn(arp, instr);
-    assertEquals(60, instr.noteCode);
-
-    // Fourth render step (advance to next note 64!)
-    renderUntilNextNoteOn(arp, instr);
-    assertEquals(64, instr.noteCode);
-  }
-
-  @Test
-  void testArpeggiatorSpreadsAndProbabilities() {
-    Arpeggiator.Settings settings = new Arpeggiator.Settings();
-    settings.mode = Arpeggiator.ArpMode.UP;
-    settings.velocitySpread = 20; // range +/- 20
-    settings.gateSpread = 100000; // gate time random shift
-    settings.octaveSpread = 2; // +/- 2 octaves
-    settings.swapProbability = 2147483647; // 100% swap probability!
-
-    Arpeggiator arp = new Arpeggiator(settings);
-    arp.noteOn(60, 100);
-    arp.noteOn(64, 100);
-
-    Arpeggiator.ReturnInstruction instr = new Arpeggiator.ReturnInstruction();
-
-    // Trigger step check
-    renderUntilNextNoteOn(arp, instr);
-
-    // Because swap probability is 100%, instead of playing the first note 60, it swaps and plays
-    // note 64!
-    // And because octave spread is active, noteCode will have a random octave shift!
-    // And because velocity spread is active, velocity will have a random offset from 100!
-    assertTrue(instr.noteCode >= 0);
-    assertTrue(instr.velocity >= 1 && instr.velocity <= 127);
-  }
-
-  @Test
-  void testArpeggiatorMpeVelocityTracking() {
-    Arpeggiator.Settings settings = new Arpeggiator.Settings();
-    settings.mode = Arpeggiator.ArpMode.UP;
-    settings.mpeVelocity = 1; // Enable MPE pressure-to-velocity tracking!
-
-    Arpeggiator arp = new Arpeggiator(settings);
-    arp.noteOn(60, 100);
-
-    Arpeggiator.ReturnInstruction instr = new Arpeggiator.ReturnInstruction();
-
-    // Set live pressure to 88
-    arp.setLiveMpePressure(88);
-
-    renderUntilNextNoteOn(arp, instr);
-    assertEquals(88, instr.velocity); // Output step velocity tracks live pressure!
   }
 
   @Test

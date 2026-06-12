@@ -99,145 +99,10 @@ public class SwingMatrixPanel extends JPanel {
     int c = (e.getX() - gridX) / cellW;
     int r = (e.getY() - gridY) / cellH;
 
-    if (vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0) {
-      MatrixDriver.get().padAction(c, r, 127);
-      repaint();
-      return;
-    }
-
-    int offset = (currentStep >= 0) ? (currentStep / stepCount) * stepCount : 0;
-    if (e.getX() - gridX >= stepCount * cellW + 20) {
-      c = (e.getX() - gridX - 20) / cellW;
-    }
-    r = (e.getY() - gridY) / cellH;
-
-    if (c >= 0 && c < cols && r >= 0 && r < rows) {
-      if (bridge != null) {
-        boolean active = bridge.getStep(baseTrack + r, offset + c);
-        if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
-          if (active) {
-            JDialog dialog =
-                new JDialog(
-                    (Frame) javax.swing.SwingUtilities.getWindowAncestor(this),
-                    "Step Properties",
-                    true);
-            dialog.setSize(1600, 450);
-            dialog.setLocationRelativeTo(this);
-            dialog.setLayout(new GridBagLayout());
-
-            GridBagConstraints gc = new GridBagConstraints();
-            gc.fill = GridBagConstraints.HORIZONTAL;
-            gc.insets = new Insets(10, 15, 10, 15);
-            gc.anchor = GridBagConstraints.WEST;
-
-            Font labelFont = new Font("SansSerif", Font.BOLD, 18);
-            Dimension sliderDim = new Dimension(1200, 50);
-            Dimension spinDim = new Dimension(80, 40);
-
-            // 1. Velocity
-            gc.gridx = 0;
-            gc.gridy = 0;
-            JLabel l1 = new JLabel("Velocity:");
-            l1.setFont(labelFont);
-            dialog.add(l1, gc);
-
-            gc.gridx = 1;
-            JSlider velSlider = new JSlider(0, 100, 80);
-            velSlider.setPreferredSize(sliderDim);
-            dialog.add(velSlider, gc);
-
-            gc.gridx = 2;
-            JSpinner velSpin = new JSpinner(new SpinnerNumberModel(80, 0, 100, 1));
-            velSpin.setPreferredSize(spinDim);
-            velSpin.addChangeListener(ev -> velSlider.setValue((int) velSpin.getValue()));
-            velSlider.addChangeListener(ev -> velSpin.setValue(velSlider.getValue()));
-            dialog.add(velSpin, gc);
-
-            // 2. Probability
-            gc.gridx = 0;
-            gc.gridy = 1;
-            JLabel l2 = new JLabel("Probability:");
-            l2.setFont(labelFont);
-            dialog.add(l2, gc);
-
-            gc.gridx = 1;
-            JSlider probSlider = new JSlider(0, 100, 100);
-            probSlider.setPreferredSize(sliderDim);
-            dialog.add(probSlider, gc);
-
-            gc.gridx = 2;
-            JSpinner probSpin = new JSpinner(new SpinnerNumberModel(100, 0, 100, 1));
-            probSpin.setPreferredSize(spinDim);
-            probSpin.addChangeListener(ev -> probSlider.setValue((int) probSpin.getValue()));
-            probSlider.addChangeListener(ev -> probSpin.setValue(probSlider.getValue()));
-            dialog.add(probSpin, gc);
-
-            // 3. Gate Length
-            gc.gridx = 0;
-            gc.gridy = 2;
-            JLabel l3 = new JLabel("Gate Length:");
-            l3.setFont(labelFont);
-            dialog.add(l3, gc);
-
-            gc.gridx = 1;
-            JSlider gateSlider = new JSlider(1, 16, 1);
-            gateSlider.setPreferredSize(sliderDim);
-            dialog.add(gateSlider, gc);
-
-            gc.gridx = 2;
-            JSpinner gateSpin = new JSpinner(new SpinnerNumberModel(1, 1, 16, 1));
-            gateSpin.setPreferredSize(spinDim);
-            gateSpin.addChangeListener(ev -> gateSlider.setValue((int) gateSpin.getValue()));
-            gateSlider.addChangeListener(ev -> gateSpin.setValue(gateSlider.getValue()));
-            dialog.add(gateSpin, gc);
-
-            // 4. Pitch Offset
-            gc.gridx = 0;
-            gc.gridy = 3;
-            JLabel l4 = new JLabel("Pitch Offset:");
-            l4.setFont(labelFont);
-            dialog.add(l4, gc);
-
-            gc.gridx = 1;
-            JSlider pitchSlider = new JSlider(-24, 24, 0);
-            pitchSlider.setPreferredSize(sliderDim);
-            dialog.add(pitchSlider, gc);
-
-            gc.gridx = 2;
-            JSpinner pitchSpin = new JSpinner(new SpinnerNumberModel(0, -24, 24, 1));
-            pitchSpin.setPreferredSize(spinDim);
-            pitchSpin.addChangeListener(ev -> pitchSlider.setValue((int) pitchSpin.getValue()));
-            pitchSlider.addChangeListener(ev -> pitchSpin.setValue(pitchSlider.getValue()));
-            dialog.add(pitchSpin, gc);
-
-            dialog.setVisible(true);
-          }
-          return;
-        }
-        if (c == 16) {
-          bridge.setMute(baseTrack + r, !bridge.getMute(baseTrack + r));
-          repaint();
-          return;
-        } else if (c == 17) {
-          // Mock Solo action
-          repaint();
-          return;
-        }
-        bridge.setStep(baseTrack + r, offset + c, !active);
-        repaint();
-      }
-
-    } else if (e.getY() >= (gridY + rows * cellH + 10)
-        && e.getY() <= (gridY + rows * cellH + 130)) {
-      // Piano key click
-      int keyX = e.getX() - gridX;
-      int whiteKeyIndex = keyX / 68;
-      if (whiteKeyIndex >= 0 && whiteKeyIndex < 28) {
-
-        System.out.println("Piano note clicked: " + whiteKeyIndex);
-        // Trigger note through bridge or vm
-      }
-    }
+    // The pad grid is always driven by the firmware MatrixDriver (the legacy bridge
+    // step-grid branch only ran under the deleted ChucK DSL engine).
+    MatrixDriver.get().padAction(c, r, 127);
+    repaint();
   }
 
   @Override
@@ -246,12 +111,9 @@ public class SwingMatrixPanel extends JPanel {
     Graphics2D g2 = (Graphics2D) g;
     g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-    boolean hiFi = vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0;
-    if (hiFi) {
-      FirmwareUI currentUI = MatrixDriver.get().getCurrentUI();
-      if (currentUI != null) {
-        currentUI.setLedStates();
-      }
+    FirmwareUI currentUI = MatrixDriver.get().getCurrentUI();
+    if (currentUI != null) {
+      currentUI.setLedStates();
     }
 
     int cellW = 120;
@@ -302,7 +164,7 @@ public class SwingMatrixPanel extends JPanel {
           g2.drawLine(padX - 10, gridY, padX - 10, gridY + rows * cellH);
         }
 
-        if (hiFi && c < 18) {
+        if (c < 18) {
           RGB led = PadLEDs.image[r][c];
           boolean ledActive = (led.r > 0 || led.g > 0 || led.b > 0);
           if (ledActive) {
