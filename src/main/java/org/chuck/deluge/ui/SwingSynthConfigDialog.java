@@ -108,10 +108,37 @@ public class SwingSynthConfigDialog extends JDialog {
 
     add(southStack, BorderLayout.SOUTH);
     DarkComboBoxRenderer.styleComponentTree(this);
+
+    // ── Live-apply ──
+    // While the dialog is open, periodically re-map the (continuously edited) model onto the
+    // running engine sound, so every knob/combo edit is audible immediately instead of waiting
+    // for the next project rebuild. Polling the whole model (cheap: pure math, file loads are
+    // path-guarded) covers every control on every tab without per-listener wiring.
+    liveApplyTimer = new Timer(200, e -> liveApplyToEngine(vm, model));
+    liveApplyTimer.start();
+  }
+
+  private final Timer liveApplyTimer;
+
+  private void liveApplyToEngine(ChuckVM vm, SynthTrackModel model) {
+    try {
+      Object engineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+      if (engineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine engine
+          && trackIndex < engine.sounds.size()
+          && engine.sounds.get(trackIndex)
+              instanceof org.chuck.deluge.firmware.engine.FirmwareSound fs) {
+        org.chuck.deluge.firmware.engine.FirmwareFactory.applyModelToLiveSound(model, fs);
+      }
+    } catch (Exception ex) {
+      // Never let a live-apply hiccup break the dialog (e.g. engine not running in tests).
+    }
   }
 
   @Override
   public void dispose() {
+    if (liveApplyTimer != null) {
+      liveApplyTimer.stop();
+    }
     if (midiLearnPanel != null) {
       midiLearnPanel.stopTimer();
     }

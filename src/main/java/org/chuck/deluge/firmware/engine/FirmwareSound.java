@@ -46,6 +46,12 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
       new org.chuck.deluge.firmware.model.sample.Sample[2];
   public final org.chuck.deluge.firmware2.Sample[] fw2SampleCache =
       new org.chuck.deluge.firmware2.Sample[2];
+
+  /**
+   * "type:path" key of the sample/wavetable currently loaded per oscillator source. Lets the
+   * live-apply path (FirmwareFactory.loadOscResources) skip re-reading an unchanged file.
+   */
+  public final String[] loadedOscPath = new String[2];
   public final org.chuck.deluge.firmware.model.sample.SampleVoiceSettings[] sampleSettings = {
     new org.chuck.deluge.firmware.model.sample.SampleVoiceSettings(),
     new org.chuck.deluge.firmware.model.sample.SampleVoiceSettings()
@@ -427,7 +433,10 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     }
   }
 
-  public void syncParamsToFw2() {
+  // Synchronized against FirmwareFactory.applyModelToLiveSound (the UI live-apply path), which
+  // rebuilds the patch-cable set and rewrites params under the same lock — without it the audio
+  // thread could iterate a half-rebuilt cable list here.
+  public synchronized void syncParamsToFw2() {
     fw2Sound.synthMode = synthMode == SynthMode.FM ? 1 : synthMode == SynthMode.RINGMOD ? 2 : 0;
     fw2Sound.oscTypes[0] = fw2OscType(oscTypes[0]);
     fw2Sound.oscTypes[1] = fw2OscType(oscTypes[1]);

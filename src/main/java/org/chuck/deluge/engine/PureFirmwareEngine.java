@@ -21,6 +21,15 @@ public class PureFirmwareEngine {
 
   private float currentBpm = 120.0f;
 
+  // Last-seen song-param globals (NaN = never synced, so the first pass always applies them).
+  private float lastSpVol = Float.NaN;
+  private float lastSpLpfFreq = Float.NaN;
+  private float lastSpLpfRes = Float.NaN;
+  private float lastSpLpfMorph = Float.NaN;
+  private float lastSpHpfFreq = Float.NaN;
+  private float lastSpHpfRes = Float.NaN;
+  private float lastSpHpfMorph = Float.NaN;
+
   public PureFirmwareEngine() {
     this.audioDriver = new JavaAudioDriver(audioEngine, playbackHandler);
   }
@@ -182,21 +191,43 @@ public class PureFirmwareEngine {
       }
     }
 
-    for (org.chuck.deluge.firmware2.GlobalEffectable sound : audioEngine.sounds) {
-      if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound fs) {
-        fs.paramNeutralValues[Param.LOCAL_VOLUME] = (int) (spVol * 2147483647.0);
-        fs.paramNeutralValues[Param.LOCAL_LPF_FREQ] =
-            (int) (vm.getGlobalFloat(BridgeContract.G_SP_LPF_FREQ) / 20000.0f * 2147483647.0);
-        fs.paramNeutralValues[Param.LOCAL_LPF_RESONANCE] =
-            (int) (vm.getGlobalFloat(BridgeContract.G_SP_LPF_RES) * 2147483647.0);
-        fs.paramNeutralValues[Param.LOCAL_LPF_MORPH] =
-            (int) (vm.getGlobalFloat(BridgeContract.G_SP_LPF_MORPH) * 2147483647.0);
-        fs.paramNeutralValues[Param.LOCAL_HPF_FREQ] =
-            (int) (vm.getGlobalFloat(BridgeContract.G_SP_HPF_FREQ) / 20000.0f * 2147483647.0);
-        fs.paramNeutralValues[Param.LOCAL_HPF_RESONANCE] =
-            (int) (vm.getGlobalFloat(BridgeContract.G_SP_HPF_RES) * 2147483647.0);
-        fs.paramNeutralValues[Param.LOCAL_HPF_MORPH] =
-            (int) (vm.getGlobalFloat(BridgeContract.G_SP_HPF_MORPH) * 2147483647.0);
+    // Song-param overrides (performance sliders). Only pushed into the sounds when a global
+    // actually CHANGES: the previous unconditional write (every 20ms, every sound) clobbered the
+    // per-track knobs from the patch — and would instantly undo the dialogs' live-apply edits.
+    float spLpfFreq = (float) vm.getGlobalFloat(BridgeContract.G_SP_LPF_FREQ);
+    float spLpfRes = (float) vm.getGlobalFloat(BridgeContract.G_SP_LPF_RES);
+    float spLpfMorph = (float) vm.getGlobalFloat(BridgeContract.G_SP_LPF_MORPH);
+    float spHpfFreq = (float) vm.getGlobalFloat(BridgeContract.G_SP_HPF_FREQ);
+    float spHpfRes = (float) vm.getGlobalFloat(BridgeContract.G_SP_HPF_RES);
+    float spHpfMorph = (float) vm.getGlobalFloat(BridgeContract.G_SP_HPF_MORPH);
+    boolean spChanged =
+        spVol != lastSpVol
+            || spLpfFreq != lastSpLpfFreq
+            || spLpfRes != lastSpLpfRes
+            || spLpfMorph != lastSpLpfMorph
+            || spHpfFreq != lastSpHpfFreq
+            || spHpfRes != lastSpHpfRes
+            || spHpfMorph != lastSpHpfMorph;
+    if (spChanged) {
+      lastSpVol = spVol;
+      lastSpLpfFreq = spLpfFreq;
+      lastSpLpfRes = spLpfRes;
+      lastSpLpfMorph = spLpfMorph;
+      lastSpHpfFreq = spHpfFreq;
+      lastSpHpfRes = spHpfRes;
+      lastSpHpfMorph = spHpfMorph;
+      for (org.chuck.deluge.firmware2.GlobalEffectable sound : audioEngine.sounds) {
+        if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound fs) {
+          fs.paramNeutralValues[Param.LOCAL_VOLUME] = (int) (spVol * 2147483647.0);
+          fs.paramNeutralValues[Param.LOCAL_LPF_FREQ] =
+              (int) (spLpfFreq / 20000.0f * 2147483647.0);
+          fs.paramNeutralValues[Param.LOCAL_LPF_RESONANCE] = (int) (spLpfRes * 2147483647.0);
+          fs.paramNeutralValues[Param.LOCAL_LPF_MORPH] = (int) (spLpfMorph * 2147483647.0);
+          fs.paramNeutralValues[Param.LOCAL_HPF_FREQ] =
+              (int) (spHpfFreq / 20000.0f * 2147483647.0);
+          fs.paramNeutralValues[Param.LOCAL_HPF_RESONANCE] = (int) (spHpfRes * 2147483647.0);
+          fs.paramNeutralValues[Param.LOCAL_HPF_MORPH] = (int) (spHpfMorph * 2147483647.0);
+        }
       }
     }
   }
