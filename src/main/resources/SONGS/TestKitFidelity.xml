@@ -1,27 +1,374 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<song swing="0x40000000" tempo="120.0">
-  <instruments>
-    <kit>
-      <sound>
-        <name>KICK</name>
-        <sample fileName="SAMPLES/DRUMS/Kick/808 Kick.wav"/>
-      </sound>
-      <sound>
-        <name>SNARE</name>
-        <sample fileName="SAMPLES/DRUMS/Snare/808 Snare.wav"/>
-      </sound>
-    </kit>
-  </instruments>
-  <tracks>
-    <track>
-      <noteRows>
-        <noteRow drumIndex="0">
-          <noteData>0x000000000000000c4014</noteData>
-        </noteRow>
-        <noteRow drumIndex="1">
-          <noteData>0x000000600000000c4014</noteData>
-        </noteRow>
-      </noteRows>
-    </track>
-  </tracks>
+<?xml version="1.0" encoding="UTF-8"?>
+<song
+	firmwareVersion="c1.2.0"
+	earliestCompatibleFirmware="4.1.0-alpha"
+	previewNumPads="144"
+	preview="00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000FF0600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000FF0600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000FF0600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000FF0600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000FF0600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000FF0600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000FF0680008000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000FF06000000"
+	arrangementAutoScrollOn="0"
+	xScroll="0"
+	xZoom="24"
+	yScrollSongView="-6"
+	yScrollArrangementView="-6"
+	xScrollArrangementView="0"
+	xZoomArrangementView="192"
+	timePerTimerTick="229"
+	timerTickFraction="-1342177280"
+	rootNote="0"
+	inputTickMagnitude="2"
+	swingAmount="0"
+	swingInterval="7"
+	affectEntire="0"
+	activeModFunction="1"
+	modFXCurrentParam="feedback"
+	currentFilterType="lpf"
+	modFXType="none"
+	lpfMode="24dB"
+	hpfMode="HPLadder"
+	filterRoute="H2L"
+	songGridScrollX="0"
+	songGridScrollY="0"
+	sessionLayout="0">
+	<modeNotes>
+		<modeNote>0</modeNote>
+		<modeNote>2</modeNote>
+		<modeNote>4</modeNote>
+		<modeNote>5</modeNote>
+		<modeNote>7</modeNote>
+		<modeNote>9</modeNote>
+		<modeNote>11</modeNote>
+	</modeNotes>
+	<reverb
+		roomSize="1288490112"
+		dampening="1546188288"
+		width="2147483647"
+		hpf="0"
+		pan="0"
+		model="1">
+		<compressor
+			attack="0"
+			release="0"
+			volume="-21474836"
+			shape="-601295438"
+			syncLevel="4" />
+	</reverb>
+	<delay
+		pingPong="1"
+		analog="0"
+		syncLevel="7"
+		syncType="0" />
+	<sidechain
+		attack="327244"
+		release="936"
+		syncLevel="6"
+		syncType="0" />
+	<audioCompressor
+		attack="83886080"
+		release="83886080"
+		thresh="0"
+		ratio="1073741824"
+		compHPF="0"
+		compBlend="2147483647" />
+	<songParams
+		reverbAmount="0x80000000"
+		volume="0x3504F334"
+		pan="0x00000000"
+		sidechainCompressorShape="0xDC28F5B2"
+		modFXDepth="0x00000000"
+		modFXRate="0xE0000000"
+		stutterRate="0x00000000"
+		sampleRateReduction="0x80000000"
+		bitCrush="0x80000000"
+		modFXOffset="0x00000000"
+		modFXFeedback="0x80000000"
+		compressorThreshold="0x00000000"
+		lpfMorph="0x80000000"
+		hpfMorph="0x80000000"
+		tempo="0x00002EE0">
+		<delay
+			rate="0x00000000"
+			feedback="0x80000000" />
+		<lpf
+			frequency="0x7FFFFFFF"
+			resonance="0x80000000" />
+		<hpf
+			frequency="0x80000000"
+			resonance="0x80000000" />
+		<equalizer
+			bass="0x00000000"
+			treble="0x00000000"
+			bassFrequency="0x00000000"
+			trebleFrequency="0x00000000" />
+	</songParams>
+	<instruments>
+		<kit
+			presetName="TESTKIT"
+			presetFolder="KITS"
+			defaultVelocity="64"
+			isArmedForRecording="0"
+			activeModFunction="1"
+			colour="0"
+			lpfMode="24dB"
+			modFXType="none"
+			modFXCurrentParam="feedback"
+			currentFilterType="lpf">
+			<soundSources>
+			<sound
+				name="KICK"
+				polyphonic="auto"
+				voicePriority="1"
+				mode="subtractive"
+				lpfMode="24dB"
+				hpfMode="HPLadder"
+				modFXType="none"
+				sideChainSend="0">
+				<osc1
+					type="sample"
+					loopMode="1"
+					reversed="0"
+					timeStretchEnable="0"
+					timeStretchAmount="0"
+					fileName="SAMPLES/DRUMS/Kick/808 Kick.wav">
+					<zone
+						startSamplePos="0"
+						endSamplePos="22051" />
+				</osc1>
+				<osc2
+					type="square"
+					transpose="0"
+					cents="0"
+					retrigPhase="-1" />
+				<lfo1 type="sine" syncLevel="0" syncType="0" />
+				<lfo2 type="sine" syncLevel="0" syncType="0" />
+				<unison num="1" detune="8" spread="0" />
+				<delay
+					pingPong="1"
+					analog="0"
+					syncLevel="7"
+					syncType="0" />
+				<sidechain
+					attack="327244"
+					release="936"
+					syncLevel="6"
+					syncType="0" />
+			</sound>
+			<sound
+				name="SNARE"
+				polyphonic="auto"
+				voicePriority="1"
+				mode="subtractive"
+				lpfMode="24dB"
+				hpfMode="HPLadder"
+				modFXType="none"
+				sideChainSend="0">
+				<osc1
+					type="sample"
+					loopMode="1"
+					reversed="0"
+					timeStretchEnable="0"
+					timeStretchAmount="0"
+					fileName="SAMPLES/DRUMS/Snare/808 Snare.wav">
+					<zone
+						startSamplePos="0"
+						endSamplePos="22051" />
+				</osc1>
+				<osc2
+					type="square"
+					transpose="0"
+					cents="0"
+					retrigPhase="-1" />
+				<lfo1 type="sine" syncLevel="0" syncType="0" />
+				<lfo2 type="sine" syncLevel="0" syncType="0" />
+				<unison num="1" detune="8" spread="0" />
+				<delay
+					pingPong="1"
+					analog="0"
+					syncLevel="7"
+					syncType="0" />
+				<sidechain
+					attack="327244"
+					release="936"
+					syncLevel="6"
+					syncType="0" />
+			</sound>
+			</soundSources>
+			<selectedDrumIndex>0</selectedDrumIndex>
+		</kit>
+	</instruments>
+	<sections>
+		<section id="0" numRepeats="0" />
+		<section id="1" numRepeats="0" />
+		<section id="2" numRepeats="0" />
+		<section id="3" numRepeats="0" />
+		<section id="4" numRepeats="0" />
+		<section id="5" numRepeats="0" />
+		<section id="6" numRepeats="0" />
+		<section id="7" numRepeats="0" />
+		<section id="8" numRepeats="0" />
+		<section id="9" numRepeats="0" />
+		<section id="10" numRepeats="0" />
+		<section id="11" numRepeats="0" />
+	</sections>
+	<sessionClips>
+		<instrumentClip
+			clipName=""
+			yScroll="0"
+			instrumentPresetName="TESTKIT"
+			instrumentPresetFolder="KITS"
+			isPlaying="1"
+			isSoloing="0"
+			isArmedForRecording="0"
+			length="384"
+			colourOffset="0"
+			section="0"
+			drumsScrollOffset="0"
+			drumsEdgeSize="4"
+			affectEntire="0">
+			<kitParams
+				reverbAmount="0x80000000"
+				volume="0x3504F334"
+				pan="0x00000000"
+				sidechainCompressorShape="0xDC28F5B2"
+				modFXDepth="0x00000000"
+				modFXRate="0xE0000000"
+				stutterRate="0x00000000"
+				sampleRateReduction="0x80000000"
+				bitCrush="0x80000000"
+				modFXOffset="0x00000000"
+				modFXFeedback="0x80000000"
+				compressorThreshold="0x00000000"
+				lpfMorph="0x80000000"
+				hpfMorph="0x80000000">
+				<delay
+					rate="0x00000000"
+					feedback="0x80000000" />
+				<lpf
+					frequency="0x7FFFFFFF"
+					resonance="0x80000000" />
+				<hpf
+					frequency="0x80000000"
+					resonance="0x80000000" />
+				<equalizer
+					bass="0x00000000"
+					treble="0x00000000"
+					bassFrequency="0x00000000"
+					trebleFrequency="0x00000000" />
+			</kitParams>
+			<noteRows>
+				<noteRow
+					colourOffset="0"
+					drumIndex="0"
+					noteDataWithLift="0x0000000000000018404014000000C000000018404014">
+					<soundParams
+						arpeggiatorGate="0x00000000"
+						portamento="0x80000000"
+						compressorShape="0xDC28F5B2"
+						oscAVolume="0x7FFFFFFF"
+						oscAPulseWidth="0x00000000"
+						oscBVolume="0x80000000"
+						oscBPulseWidth="0x00000000"
+						noiseVolume="0x80000000"
+						volume="0x7FFFFFFF"
+						pan="0x00000000"
+						lpfFrequency="0x7FFFFFFF"
+						lpfResonance="0x80000000"
+						hpfFrequency="0x80000000"
+						hpfResonance="0x80000000"
+						lfo1Rate="0x1999997E"
+						lfo2Rate="0x00000000"
+						modFXRate="0x00000000"
+						modFXDepth="0x00000000"
+						delayRate="0x00000000"
+						delayFeedback="0x80000000"
+						reverbAmount="0x80000000"
+						arpeggiatorRate="0x00000000"
+						stutterRate="0x00000000"
+						sampleRateReduction="0x80000000"
+						bitCrush="0x80000000"
+						modFXOffset="0x00000000"
+						modFXFeedback="0x00000000">
+						<envelope1
+							attack="0x80000000"
+							decay="0xE6666654"
+							sustain="0x7FFFFFFF"
+							release="0x80000000" />
+						<envelope2
+							attack="0xA3D70A37"
+							decay="0xA3D70A37"
+							sustain="0xFFFFFFE9"
+							release="0xE6666654" />
+						<patchCables>
+							<patchCable
+								source="velocity"
+								destination="volume"
+								amount="0x3FFFFFE8" />
+						</patchCables>
+						<equalizer
+							bass="0x00000000"
+							treble="0x00000000"
+							bassFrequency="0x00000000"
+							trebleFrequency="0x00000000" />
+					</soundParams>
+				</noteRow>
+				<noteRow
+					colourOffset="0"
+					drumIndex="1"
+					noteDataWithLift="0x00000060000000184040140000012000000018404014">
+					<soundParams
+						arpeggiatorGate="0x00000000"
+						portamento="0x80000000"
+						compressorShape="0xDC28F5B2"
+						oscAVolume="0x7FFFFFFF"
+						oscAPulseWidth="0x00000000"
+						oscBVolume="0x80000000"
+						oscBPulseWidth="0x00000000"
+						noiseVolume="0x80000000"
+						volume="0x7FFFFFFF"
+						pan="0x00000000"
+						lpfFrequency="0x7FFFFFFF"
+						lpfResonance="0x80000000"
+						hpfFrequency="0x80000000"
+						hpfResonance="0x80000000"
+						lfo1Rate="0x1999997E"
+						lfo2Rate="0x00000000"
+						modFXRate="0x00000000"
+						modFXDepth="0x00000000"
+						delayRate="0x00000000"
+						delayFeedback="0x80000000"
+						reverbAmount="0x80000000"
+						arpeggiatorRate="0x00000000"
+						stutterRate="0x00000000"
+						sampleRateReduction="0x80000000"
+						bitCrush="0x80000000"
+						modFXOffset="0x00000000"
+						modFXFeedback="0x00000000">
+						<envelope1
+							attack="0x80000000"
+							decay="0xE6666654"
+							sustain="0x7FFFFFFF"
+							release="0x80000000" />
+						<envelope2
+							attack="0xA3D70A37"
+							decay="0xA3D70A37"
+							sustain="0xFFFFFFE9"
+							release="0xE6666654" />
+						<patchCables>
+							<patchCable
+								source="velocity"
+								destination="volume"
+								amount="0x3FFFFFE8" />
+						</patchCables>
+						<equalizer
+							bass="0x00000000"
+							treble="0x00000000"
+							bassFrequency="0x00000000"
+							trebleFrequency="0x00000000" />
+					</soundParams>
+				</noteRow>
+			</noteRows>
+		</instrumentClip>
+	</sessionClips>
+	<scales>
+		<userScale>0</userScale>
+		<disabledPresetScales>0</disabledPresetScales>
+	</scales>
 </song>
