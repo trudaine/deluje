@@ -34,6 +34,8 @@ public class FirmwareAudioEngine {
   /** int[][] stereo scratch for the fw2 FX chain (fw2 FX read/write [l, r] per sample). */
   private final int[][] fxBuffer = new int[128][2];
 
+  private int[] monoReverbBuffer = new int[128];
+
   // Live input pitch shifter (monitoring). inputBuffer holds the ring; pitchShifter renders it.
   public final LiveInputBuffer liveInputBuffer = new LiveInputBuffer();
   public final LivePitchShifter livePitchShifter =
@@ -59,7 +61,9 @@ public class FirmwareAudioEngine {
 
   public void renderBlock(int numSamples) {
     GlobalSidechainBus.beginAudioFrame();
-    int[] monoReverbBuffer = new int[numSamples];
+    if (monoReverbBuffer.length < numSamples) {
+      monoReverbBuffer = new int[numSamples];
+    }
     for (int i = 0; i < numSamples; i++) {
       masterBuffer[i].l = 0;
       masterBuffer[i].r = 0;

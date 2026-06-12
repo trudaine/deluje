@@ -61,10 +61,13 @@ public class JavaAudioDriver implements Runnable {
   private static final float[] visBufferL = new float[2048];
   private static final float[] visBufferR = new float[2048];
   private static int visWriteIdx = 0;
+  private static final Object VIS_LOCK = new Object();
+  private final float[] tempVisL = new float[BLOCK_SIZE];
+  private final float[] tempVisR = new float[BLOCK_SIZE];
 
   public static float[] getLiveVisBufferL() {
     float[] copy = new float[2048];
-    synchronized (visBufferL) {
+    synchronized (VIS_LOCK) {
       int len = 2048;
       System.arraycopy(visBufferL, visWriteIdx, copy, 0, len - visWriteIdx);
       System.arraycopy(visBufferL, 0, copy, len - visWriteIdx, visWriteIdx);
@@ -74,7 +77,7 @@ public class JavaAudioDriver implements Runnable {
 
   public static float[] getLiveVisBufferR() {
     float[] copy = new float[2048];
-    synchronized (visBufferR) {
+    synchronized (VIS_LOCK) {
       int len = 2048;
       System.arraycopy(visBufferR, visWriteIdx, copy, 0, len - visWriteIdx);
       System.arraycopy(visBufferR, 0, copy, len - visWriteIdx, visWriteIdx);
@@ -147,35 +150,38 @@ public class JavaAudioDriver implements Runnable {
               "[WARN] Audio block render took too long: " + (duration / 1000000.0) + " ms");
         }
 
-        synchronized (visBufferL) {
+        for (int i = 0; i < BLOCK_SIZE; i++) {
+          StereoSample s = engine.masterBuffer[i];
+          int absL = Math.abs(s.l);
+          if (absL > peak) peak = absL;
+
+          long boostedL = (long) s.l * monitorGainMul;
+          int saturatedL = (int) Math.max(-2147483648L, Math.min(2147483647L, boostedL));
+          int limitedL =
+              org.chuck.deluge.firmware.util.FirmwareUtils.getTanHUnknown(saturatedL, 0) << 2;
+
+          long boostedR = (long) s.r * monitorGainMul;
+          int saturatedR = (int) Math.max(-2147483648L, Math.min(2147483647L, boostedR));
+          int limitedR =
+              org.chuck.deluge.firmware.util.FirmwareUtils.getTanHUnknown(saturatedR, 0) << 2;
+
+          short left = (short) Math.max(-32768, Math.min(32767, limitedL >> 16));
+          short right = (short) Math.max(-32768, Math.min(32767, limitedR >> 16));
+
+          byteBuffer[i * 4] = (byte) (left & 0xFF);
+          byteBuffer[i * 4 + 1] = (byte) ((left >> 8) & 0xFF);
+          byteBuffer[i * 4 + 2] = (byte) (right & 0xFF);
+          byteBuffer[i * 4 + 3] = (byte) ((right >> 8) & 0xFF);
+
+          // Write to visualizer buffer: s.l is 32-bit fixed point: divide by 2^31 to float
+          tempVisL[i] = (float) s.l / 2147483648.0f;
+          tempVisR[i] = (float) s.r / 2147483648.0f;
+        }
+
+        synchronized (VIS_LOCK) {
           for (int i = 0; i < BLOCK_SIZE; i++) {
-            StereoSample s = engine.masterBuffer[i];
-            int absL = Math.abs(s.l);
-            if (absL > peak) peak = absL;
-
-            long boostedL = (long) s.l * monitorGainMul;
-            int saturatedL = (int) Math.max(-2147483648L, Math.min(2147483647L, boostedL));
-            int limitedL =
-                org.chuck.deluge.firmware.util.FirmwareUtils.getTanHUnknown(saturatedL, 0) << 2;
-
-            long boostedR = (long) s.r * monitorGainMul;
-            int saturatedR = (int) Math.max(-2147483648L, Math.min(2147483647L, boostedR));
-            int limitedR =
-                org.chuck.deluge.firmware.util.FirmwareUtils.getTanHUnknown(saturatedR, 0) << 2;
-
-            short left = (short) Math.max(-32768, Math.min(32767, limitedL >> 16));
-            short right = (short) Math.max(-32768, Math.min(32767, limitedR >> 16));
-
-            byteBuffer[i * 4] = (byte) (left & 0xFF);
-            byteBuffer[i * 4 + 1] = (byte) ((left >> 8) & 0xFF);
-            byteBuffer[i * 4 + 2] = (byte) (right & 0xFF);
-            byteBuffer[i * 4 + 3] = (byte) ((right >> 8) & 0xFF);
-
-            // Write to visualizer buffer: s.l is 32-bit fixed point: divide by 2^31 to float
-            float leftFloat = (float) s.l / 2147483648.0f;
-            float rightFloat = (float) s.r / 2147483648.0f;
-            visBufferL[visWriteIdx] = leftFloat;
-            visBufferR[visWriteIdx] = rightFloat;
+            visBufferL[visWriteIdx] = tempVisL[i];
+            visBufferR[visWriteIdx] = tempVisR[i];
             visWriteIdx = (visWriteIdx + 1) % 2048;
           }
         }

@@ -85,6 +85,18 @@ public class Voice {
   /** C: voice.h:76 — per-channel anti-aliased tanh state for the saturation/clipping stage. */
   public final int[] lastSaturationTanHWorkingValue = new int[2];
 
+  // Scratch buffers for audio rendering (pre-allocated to prevent GC churn)
+  private int[] mixBuf = new int[256];
+  private int[] tempBufA = new int[128];
+  private int[] tempBufB = new int[128];
+  private int[] tempBuf = new int[128];
+  private int[] uniBuf = new int[128];
+  private int[] fmBuf = new int[128];
+  private int[] fmOscBuffer = new int[128];
+  private final int[] tempAmpLR = new int[2];
+  private final int[] oscSyncPos = new int[Sound.kMaxNumVoicesUnison];
+  private final int[] oscSyncPhaseIncrement = new int[Sound.kMaxNumVoicesUnison];
+
   /** C: voice.h:73 — portamento envelope position; 0xFFFFFFFF = no porta (voice.cpp:190). */
   public int portaEnvelopePos = 0xFFFFFFFF;
 
@@ -735,13 +747,15 @@ public class Voice {
         (lpfModeVal != FilterSet.FilterMode.OFF) || (hpfModeVal != FilterSet.FilterMode.OFF);
 
     // Prepare scratch buffers: stereo output buffer
-    int[] mixBuf = new int[numSamples * 2]; // stereo interleaved output
-    java.util.Arrays.fill(mixBuf, 0, numSamples * 2, 0);
+    int requiredLen = numSamples * 2;
+    if (mixBuf.length < requiredLen) {
+      mixBuf = new int[requiredLen];
+    }
+    java.util.Arrays.fill(mixBuf, 0, requiredLen, 0);
 
     // ── Oscillator sync (voice.cpp:1100-1106): capture osc A's per-part phases BEFORE any
     // rendering advances them; osc B then hard-syncs to them. ──
     boolean doingOscSync = sound.renderingOscillatorSyncCurrently();
-    int[] oscSyncPos = new int[Sound.kMaxNumVoicesUnison];
     if (doingOscSync) {
       for (int u = 0; u < sound.numUnison; u++) {
         oscSyncPos[u] = unisonParts[u].sources[0].oscPos;
@@ -753,12 +767,16 @@ public class Voice {
       renderFmPath(mixBuf, numSamples, overallOscAmplitude, overallPitchAdjustPorta);
     } else if (sound.synthMode == 2) {
       // RINGMOD (voice.cpp:1309-1370)
-      int[] tempBufA = new int[numSamples];
-      int[] tempBufB = new int[numSamples];
+      if (tempBufA.length < numSamples) {
+        tempBufA = new int[numSamples];
+      }
+      if (tempBufB.length < numSamples) {
+        tempBufB = new int[numSamples];
+      }
       boolean stereoUnison = sound.unisonStereoSpread != 0 && sound.numUnison > 1;
 
       for (int u = 0; u < sound.numUnison; u++) {
-        int[] ampLR = new int[2];
+        int[] ampLR = tempAmpLR;
         boolean doPanning = shouldDoPanning(stereoUnison ? sound.unisonPan[u] : 0, ampLR);
 
         VoiceSource vsA = unisonParts[u].sources[0];
@@ -777,8 +795,8 @@ public class Voice {
         pIncB = adjustPitch(pIncB, paramFinalValues[Param.LOCAL_OSC_B_PITCH_ADJUST]);
         if (pIncB < 0) continue;
 
-        java.util.Arrays.fill(tempBufA, 0);
-        java.util.Arrays.fill(tempBufB, 0);
+        java.util.Arrays.fill(tempBufA, 0, numSamples, 0);
+        java.util.Arrays.fill(tempBufB, 0, numSamples, 0);
 
         int amplitudeForRingMod = 1 << 27;
         if (hasFilters) {
@@ -909,12 +927,13 @@ public class Voice {
       }
     } else {
       // SUBTRACTIVE (voice.cpp:1042-1049): source-volume scaling applied during osc render
-      int[] tempBuf = new int[numSamples];
+      if (tempBuf.length < numSamples) {
+        tempBuf = new int[numSamples];
+      }
       boolean stereoUnison = sound.unisonStereoSpread != 0 && sound.numUnison > 1;
 
       // C voice.cpp:1175 — osc A's per-part FINAL phase increments, collected during its render
       // pass so osc B can hard-sync to them. 0 = "this part's pitch was too high; skip syncing".
-      int[] oscSyncPhaseIncrement = new int[Sound.kMaxNumVoicesUnison];
 
       for (int s = 0; s < 2; s++) {
         // C voice.cpp:1180-1199 — when osc-syncing, an INACTIVE source 0 still walks its parts to
@@ -961,10 +980,10 @@ public class Voice {
           // C voice.cpp:2403-2406 — osc B skips parts whose osc-A pitch was too high.
           if (doOscSyncThisSource && oscSyncPhaseIncrement[u] == 0) continue;
 
-          int[] ampLR = new int[2];
+          int[] ampLR = tempAmpLR;
           shouldDoPanning(stereoUnison ? sound.unisonPan[u] : 0, ampLR);
 
-          java.util.Arrays.fill(tempBuf, 0);
+          java.util.Arrays.fill(tempBuf, 0, numSamples, 0);
 
           // Sample playback path (bypasses oscillator when a Sample is attached to this source).
           if (vs.sampleRef != null) {
@@ -1083,7 +1102,9 @@ public class Voice {
             int adjpitch = logpitch - 278023814;
             int ampMod = paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH + s] >> 13;
             vs.dxPatch.computeLfo(numSamples);
-            int[] uniBuf = new int[numSamples];
+            if (uniBuf.length < numSamples) {
+              uniBuf = new int[numSamples];
+            }
             vs.dxVoice.compute(uniBuf, numSamples, adjpitch, vs.dxPatch, ampMod, 0, 0);
             for (int i = 0; i < numSamples; i++) {
               tempBuf[i] = Functions.multiply_32x32_rshift32(uniBuf[i], srcAmp) << 6;
@@ -1234,8 +1255,12 @@ public class Voice {
     boolean mod0Active = modAmp0 != 0;
     boolean mod1Active = modAmp1 != 0;
 
-    int[] fmBuf = new int[numSamples]; // modulation buffer
-    int[] fmOscBuffer = new int[numSamples]; // mono temp buffer for carriers
+    if (fmBuf.length < numSamples) {
+      fmBuf = new int[numSamples];
+    }
+    if (fmOscBuffer.length < numSamples) {
+      fmOscBuffer = new int[numSamples];
+    }
 
     boolean stereoUnison = sound.unisonStereoSpread != 0 && sound.numUnison > 1;
 
@@ -1368,7 +1393,7 @@ public class Voice {
             paramFinalValues[Param.LOCAL_CARRIER_1_FEEDBACK]);
       }
 
-      int[] ampLR = new int[2];
+      int[] ampLR = tempAmpLR;
       shouldDoPanning(stereoUnison ? sound.unisonPan[u] : 0, ampLR);
 
       if (stereoUnison) {
@@ -1412,7 +1437,7 @@ public class Voice {
     }
 
     // Pan (voice.cpp:1159-1166)
-    int[] ampLR = new int[2];
+    int[] ampLR = tempAmpLR;
     int panAmount = paramFinalValues[Param.LOCAL_PAN];
     boolean doPanning = shouldDoPanning(panAmount, ampLR);
 
