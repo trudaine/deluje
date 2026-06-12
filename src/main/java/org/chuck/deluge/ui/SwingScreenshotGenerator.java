@@ -152,7 +152,8 @@ public class SwingScreenshotGenerator {
                     final SwingKitConfigDialog[] kitBox = new SwingKitConfigDialog[1];
                     SwingUtilities.invokeAndWait(
                         () -> {
-                          kitBox[0] = new SwingKitConfigDialog(app, kt, vm, bridge);
+                          kitBox[0] =
+                              new SwingKitConfigDialog(app, kt, vm, bridge, tracks.indexOf(kt));
                           kitBox[0].pack();
                           kitBox[0].setSize(950, 720);
                           kitBox[0].setVisible(true);

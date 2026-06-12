@@ -18,6 +18,8 @@ public class SwingKitConfigDialog extends JDialog {
 
   private JLabel helpLabel;
   private JTabbedPane tabs;
+  private final int trackIndex;
+  private final Timer liveApplyTimer;
 
   public void setSelectedTab(int index) {
     if (tabs != null && index >= 0 && index < tabs.getTabCount()) {
@@ -28,15 +30,17 @@ public class SwingKitConfigDialog extends JDialog {
   private final String DEFAULT_HELP_TEXT =
       "<html>💡 <b>QUICK HELP:</b> Hover over any drum sample control or FX slider to see its details and hardware mappings here!</html>";
 
-  public SwingKitConfigDialog(Frame owner, KitTrackModel kit, ChuckVM vm, BridgeContract bridge) {
+  public SwingKitConfigDialog(
+      Frame owner, KitTrackModel kit, ChuckVM vm, BridgeContract bridge, int trackIndex) {
     super(owner, "Kit Sound Editor: " + kit.getName(), false);
+    this.trackIndex = trackIndex;
     setSize(1280, 800);
     setLocationRelativeTo(owner);
     setLayout(new BorderLayout());
     getContentPane().setBackground(new Color(0x1a, 0x1a, 0x1a));
 
     List<Drum> sounds = kit.getDrums();
-    JTabbedPane tabs = new JTabbedPane();
+    tabs = new JTabbedPane();
     tabs.setBackground(new Color(0x25, 0x25, 0x25));
     tabs.setForeground(Color.WHITE);
 
@@ -79,6 +83,32 @@ public class SwingKitConfigDialog extends JDialog {
     add(southStack, BorderLayout.SOUTH);
 
     DarkComboBoxRenderer.styleComponentTree(this);
+
+    // ── Live-apply ──
+    liveApplyTimer = new Timer(200, e -> liveApplyToEngine(vm, kit));
+    liveApplyTimer.start();
+  }
+
+  private void liveApplyToEngine(ChuckVM vm, KitTrackModel model) {
+    try {
+      Object engineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+      if (engineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine engine
+          && trackIndex < engine.sounds.size()
+          && engine.sounds.get(trackIndex)
+              instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
+        org.chuck.deluge.firmware.engine.FirmwareFactory.applyModelToLiveSound(model, kit);
+      }
+    } catch (Exception ex) {
+      // Never let a live-apply hiccup break the dialog (e.g. engine not running in tests).
+    }
+  }
+
+  @Override
+  public void dispose() {
+    if (liveApplyTimer != null) {
+      liveApplyTimer.stop();
+    }
+    super.dispose();
   }
 
   public void attachHoverHelp(JComponent comp, String helpText) {

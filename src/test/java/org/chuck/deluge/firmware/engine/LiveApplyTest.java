@@ -6,8 +6,10 @@ import org.chuck.deluge.firmware.model.InstrumentClip;
 import org.chuck.deluge.firmware.model.Song;
 import org.chuck.deluge.firmware.modulation.params.Param;
 import org.chuck.deluge.model.ClipModel;
+import org.chuck.deluge.model.KitTrackModel;
 import org.chuck.deluge.model.PatchCable;
 import org.chuck.deluge.model.ProjectModel;
+import org.chuck.deluge.model.SoundDrum;
 import org.chuck.deluge.model.SynthTrackModel;
 import org.junit.jupiter.api.Test;
 
@@ -159,5 +161,43 @@ public class LiveApplyTest {
       n += d.cables.size();
     }
     return n;
+  }
+
+  private static KitTrackModel kitModel() {
+    KitTrackModel m = new KitTrackModel("live-kit");
+    org.chuck.deluge.model.SoundDrum sd = new org.chuck.deluge.model.SoundDrum("drum0");
+    sd.setLpfFreq(20000f);
+    sd.setLpfRes(0.5f);
+    sd.setSamplePath("808 Kick.wav");
+    m.addDrum(sd);
+    m.addClip(new ClipModel("c", 8, 16));
+    return m;
+  }
+
+  private static FirmwareKit buildKit(KitTrackModel m) {
+    ProjectModel p = new ProjectModel();
+    p.addTrack(m);
+    Song s = FirmwareFactory.createSong(p);
+    return (FirmwareKit) ((InstrumentClip) s.clips.get(0)).sound;
+  }
+
+  @Test
+  void kitEditedParamsReachTheLiveSound() {
+    KitTrackModel m = kitModel();
+    FirmwareKit kit = buildKit(m);
+    FirmwareSound drumSound = kit.drumSounds.get(0);
+    int lpfBefore = drumSound.paramNeutralValues[Param.LOCAL_LPF_FREQ];
+
+    ((SoundDrum) m.getDrums().get(0)).setLpfFreq(400f); // dialog edit: close the filter
+    FirmwareFactory.applyModelToLiveSound(m, kit);
+
+    assertTrue(
+        drumSound.paramNeutralValues[Param.LOCAL_LPF_FREQ] < lpfBefore,
+        "LPF knob should drop after closing the cutoff");
+    // And the per-block fw2 sync forwards it
+    drumSound.syncParamsToFw2();
+    assertEquals(
+        drumSound.paramNeutralValues[Param.LOCAL_LPF_FREQ],
+        drumSound.fw2Sound.patchedParamValues[org.chuck.deluge.firmware2.Param.LOCAL_LPF_FREQ]);
   }
 }
