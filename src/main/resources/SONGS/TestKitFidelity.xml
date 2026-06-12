@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<song swing="0x40000000" tempo="120.0">
+  <instruments>
+    <kit>
+      <sound>
+        <name>KICK</name>
+        <sample fileName="SAMPLES/DRUMS/Kick/808 Kick.wav"/>
+      </sound>
+      <sound>
+        <name>SNARE</name>
+        <sample fileName="SAMPLES/DRUMS/Snare/808 Snare.wav"/>
+      </sound>
+    </kit>
+  </instruments>
+  <tracks>
+    <track>
+      <noteRows>
+        <noteRow drumIndex="0">
+          <noteData>0x000000000000000c4014</noteData>
+        </noteRow>
+        <noteRow drumIndex="1">
+          <noteData>0x000000600000000c4014</noteData>
+        </noteRow>
+      </noteRows>
+    </track>
+  </tracks>
+</song>
