@@ -40,6 +40,52 @@ public class AudioInputCaptureLine {
 
   private float currentLivePeak = 0f;
 
+  // ── Live-monitor ring ──
+  // The capture thread publishes Q31 stereo frames here; JavaAudioDriver drains one block per
+  // render into firmware2.LiveInput.currentBlock so the INPUT_L/R/STEREO oscillator sources can
+  // monitor the microphone while the line is armed. Single-writer (capture thread) /
+  // single-reader (audio thread) ring; frame counters increase monotonically.
+  private static final int MONITOR_RING_FRAMES = 8192;
+  private final int[] monitorRing = new int[MONITOR_RING_FRAMES * 2];
+  private volatile long monitorFramesWritten = 0;
+  private long monitorFramesRead = 0;
+
+  private void publishToMonitorRing(byte[] pcm16Stereo, int bytesRead) {
+    long w = monitorFramesWritten;
+    for (int i = 0; i + 3 < bytesRead; i += 4) {
+      int l = (short) ((pcm16Stereo[i + 1] << 8) | (pcm16Stereo[i] & 0xff)) << 16;
+      int r = (short) ((pcm16Stereo[i + 3] << 8) | (pcm16Stereo[i + 2] & 0xff)) << 16;
+      int pos = (int) (w % MONITOR_RING_FRAMES);
+      monitorRing[pos * 2] = l;
+      monitorRing[pos * 2 + 1] = r;
+      w++;
+    }
+    monitorFramesWritten = w;
+  }
+
+  /**
+   * Drains up to {@code numFrames} stereo Q31 frames into {@code stereoOut} (interleaved). Returns
+   * true when a full block was available; false on underrun (the caller should publish no input for
+   * this block). Call only from the audio thread.
+   */
+  public boolean fillMonitorBlock(int[] stereoOut, int numFrames) {
+    long available = monitorFramesWritten - monitorFramesRead;
+    if (available < numFrames) {
+      return false;
+    }
+    if (available > MONITOR_RING_FRAMES) {
+      // Overrun (audio thread stalled): skip ahead to the freshest data.
+      monitorFramesRead = monitorFramesWritten - numFrames;
+    }
+    for (int i = 0; i < numFrames; i++) {
+      int pos = (int) (monitorFramesRead % MONITOR_RING_FRAMES);
+      stereoOut[i * 2] = monitorRing[pos * 2];
+      stereoOut[i * 2 + 1] = monitorRing[pos * 2 + 1];
+      monitorFramesRead++;
+    }
+    return true;
+  }
+
   public void arm(
       float thresholdDb, int trackIndex, int slotIndex, Runnable onTrigger, Runnable onFinished) {
     this.threshold = (float) Math.pow(10.0, thresholdDb / 20.0);
@@ -101,6 +147,9 @@ public class AudioInputCaptureLine {
                 while (isArmed.get()) {
                   int read = inputLine.read(buffer, 0, buffer.length);
                   if (read <= 0) continue;
+
+                  // Feed the live-monitor ring (INPUT_* oscillator sources).
+                  publishToMonitorRing(buffer, read);
 
                   // Read peak amplitude block levels
                   float maxPeak = 0f;

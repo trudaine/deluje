@@ -588,8 +588,12 @@ public class LivePitchShifter {
             searchSizeBoundary = searchSize;
           }
         } else {
+          // C live_pitch_shifter.cpp:661 indexes readPos[kNumMovingAverages + 1], one PAST the
+          // 4-element stack array (C UB — on hardware it reads adjacent stack memory). The
+          // semantically intended value is the END of the averages window, i.e. the last filled
+          // element readPos[kNumMovingAverages]; Java uses that defined behaviour.
           searchSizeBoundary =
-              (numRawSamplesProcessedLatest - readPos[TimeStretcher.K_NUM_MOVING_AVERAGES + 1])
+              (numRawSamplesProcessedLatest - readPos[TimeStretcher.K_NUM_MOVING_AVERAGES])
                   & (LiveInputBuffer.K_INPUT_RAW_BUFFER_SIZE - 1);
         }
 

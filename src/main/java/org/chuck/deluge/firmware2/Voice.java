@@ -140,6 +140,13 @@ public class Voice {
     public Sample sampleRef; // the fw2 Sample backing this source
     public int timeStretchRatio = 16777216; // 1 << 24 ≡ 1.0 (no time-stretch)
 
+    // Live-input pitch shifting (C VoiceUnisonPartSource::livePitchShifter, voice.cpp:2236-2274).
+    // Desktop seam: the per-source LiveInputBuffer + timer feed the shifter (the C uses shared
+    // AudioEngine buffers; the fw2 shifter's render feeds its buffer itself).
+    public LivePitchShifter livePitchShifter;
+    public LiveInputBuffer liveInputBuffer;
+    public int liveInputTimer;
+
     public final Dx7Voice dxVoice = new Dx7Voice();
     public final Dx7Voice.DxPatch dxPatch = new Dx7Voice.DxPatch();
 
@@ -576,10 +583,14 @@ public class Voice {
         sound.patchedParamValues, sourceValues, sound.patchCableSet, paramFinalValues);
 
     // ── 5. Phase increments (voice.cpp:414-560) ──
+    // C voice.cpp:447-458 — SAMPLE and INPUT_* sources use ratio-style increments (2^24 = unity);
+    // for INPUT the neutral is kMaxSampleValue (live input has no file sample rate).
     int carrierIncA;
-    if (sound.synthMode != 1 && sound.oscTypes[0] == Oscillator.OscType.SAMPLE) {
-      int pitchAdjustNeutralValue = 16777216; // default
-      if (unisonParts[0].sources[0].sampleRef != null) {
+    if (sound.synthMode != 1
+        && (sound.oscTypes[0] == Oscillator.OscType.SAMPLE || isInputType(sound.oscTypes[0]))) {
+      int pitchAdjustNeutralValue = 16777216; // default (and the INPUT_* neutral, C:457)
+      if (sound.oscTypes[0] == Oscillator.OscType.SAMPLE
+          && unisonParts[0].sources[0].sampleRef != null) {
         pitchAdjustNeutralValue =
             (int) (((unisonParts[0].sources[0].sampleRef.sampleRate) * 16777216L) / 44100);
       }
@@ -603,9 +614,11 @@ public class Voice {
     }
 
     int carrierIncB;
-    if (sound.synthMode != 1 && sound.oscTypes[1] == Oscillator.OscType.SAMPLE) {
-      int pitchAdjustNeutralValue = 16777216; // default
-      if (unisonParts[0].sources[1].sampleRef != null) {
+    if (sound.synthMode != 1
+        && (sound.oscTypes[1] == Oscillator.OscType.SAMPLE || isInputType(sound.oscTypes[1]))) {
+      int pitchAdjustNeutralValue = 16777216; // default (and the INPUT_* neutral, C:457)
+      if (sound.oscTypes[1] == Oscillator.OscType.SAMPLE
+          && unisonParts[0].sources[1].sampleRef != null) {
         pitchAdjustNeutralValue =
             (int) (((unisonParts[0].sources[1].sampleRef.sampleRate) * 16777216L) / 44100);
       }
@@ -987,14 +1000,8 @@ public class Voice {
               vs.voiceSample.render(tempBuf, numSamples, 1, pInc, ampArr, 0);
               if (!vs.voiceSample.active) vs.active = false;
             }
-          } else if (sound.oscTypes[s] == OscType.INPUT_L
-              || sound.oscTypes[s] == OscType.INPUT_R
-              || sound.oscTypes[s] == OscType.INPUT_STEREO) {
-            // Live input echo (voice.cpp:2232-2360, no-pitch-shift path): read the current
-            // block's captured input and apply the source amplitude (<< 4 like the C). The
-            // pitch-shifting sub-path (LivePitchShifter when phaseIncrement != kMaxSampleValue,
-            // voice.cpp:2243-2274) is a documented follow-up. The mono osc pipeline condenses
-            // INPUT_STEREO to mono like the C's mono-oscBuffer path (voice.cpp:2337-2340).
+          } else if (isInputType(sound.oscTypes[s])) {
+            // Live input echo (voice.cpp:2232-2360): read the current block's captured input.
             int[] input = LiveInput.currentBlock;
             if (input != null) {
               OscType inputTypeNow = sound.oscTypes[s];
@@ -1003,7 +1010,53 @@ public class Voice {
                 inputTypeNow = OscType.INPUT_L; // C voice.cpp:2240-2243
               }
               int n = Math.min(numSamples, input.length / 2);
-              if (inputTypeNow != OscType.INPUT_STEREO) {
+
+              // Pitch-shifting lifecycle (voice.cpp:2236-2274): create the per-source shifter
+              // while the ratio increment isn't unity (kMaxSampleValue), remove it click-free
+              // once back at unity. Desktop seam: each source owns its LiveInputBuffer (the C
+              // shares AudioEngine buffers, but the fw2 shifter feeds its buffer in render).
+              if (pInc != Functions.K_MAX_SAMPLE_VALUE) {
+                if (vs.livePitchShifter == null) {
+                  LiveInputBuffer.InputType t =
+                      switch (inputTypeNow) {
+                        case INPUT_R -> LiveInputBuffer.InputType.INPUT_R;
+                        case INPUT_STEREO -> LiveInputBuffer.InputType.STEREO;
+                        default -> LiveInputBuffer.InputType.INPUT_L;
+                      };
+                  vs.livePitchShifter = new LivePitchShifter(t, pInc);
+                  vs.liveInputBuffer = new LiveInputBuffer();
+                  vs.liveInputTimer = 0;
+                }
+              } else if (vs.livePitchShifter != null
+                  && vs.livePitchShifter.mayBeRemovedWithoutClick()) {
+                vs.livePitchShifter = null; // C voice.cpp:2261-2266
+                vs.liveInputBuffer = null;
+              }
+
+              if (vs.livePitchShifter != null) {
+                // C voice.cpp:2255-2260 — shifted path. The shifter applies the amplitude itself
+                // and ACCUMULATES; render into a zeroed scratch, condense stereo to mono.
+                int ch = vs.livePitchShifter.numChannels;
+                int[] shifted = new int[n * ch];
+                vs.liveInputTimer += n;
+                vs.livePitchShifter.render(
+                    shifted,
+                    n,
+                    pInc,
+                    srcAmp << 4,
+                    0,
+                    16,
+                    vs.liveInputBuffer,
+                    vs.liveInputTimer,
+                    input);
+                if (ch == 2) {
+                  for (int i = 0; i < n; i++) {
+                    tempBuf[i] = (shifted[i * 2] >> 1) + (shifted[i * 2 + 1] >> 1);
+                  }
+                } else {
+                  System.arraycopy(shifted, 0, tempBuf, 0, n);
+                }
+              } else if (inputTypeNow != OscType.INPUT_STEREO) {
                 // C voice.cpp:2294-2305 — left, or right only when a real input device exists.
                 int channelOffset = (inputTypeNow == OscType.INPUT_R && anyInputDevice) ? 1 : 0;
                 for (int i = 0; i < n; i++) {
@@ -1521,6 +1574,11 @@ public class Voice {
     renderFMWithFeedbackAdd(buf, n, fmBuf, ph, 0, amp, pInc, fbAmt, fb, 0);
     src.oscPos = ph[0];
     src.carrierFeedback = fb[0];
+  }
+
+  /** True for the live-input oscillator source types (C OscType::INPUT_L/R/STEREO). */
+  static boolean isInputType(OscType t) {
+    return t == OscType.INPUT_L || t == OscType.INPUT_R || t == OscType.INPUT_STEREO;
   }
 
   public static int calculateBasePhaseIncrement(int noteCode) {
