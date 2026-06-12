@@ -445,11 +445,10 @@ public class Sound extends GlobalEffectable {
     // 4. Sum active voices
     boolean hasActiveVoices = false;
     synchronized (voices) {
-      var it = voices.iterator();
-      while (it.hasNext()) {
-        Voice v = it.next();
+      for (int i = voices.size() - 1; i >= 0; i--) {
+        Voice v = voices.get(i);
         if (!v.active) {
-          it.remove();
+          voices.remove(i);
           continue;
         }
         hasActiveVoices = true;
