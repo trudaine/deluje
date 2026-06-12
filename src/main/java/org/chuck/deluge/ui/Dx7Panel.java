@@ -130,7 +130,6 @@ public class Dx7Panel extends JPanel {
       activateBtn.addActionListener(
           e -> {
             model.setSynthMode(1);
-            bridge.setSynthMode(trackIndex, 1);
 
             // Load initial default DX7 voice patch!
             byte[] defaultRaw = new byte[156];
@@ -246,7 +245,6 @@ public class Dx7Panel extends JPanel {
         ev -> {
           int val = algoSlider.getValue();
           model.setSynthAlgorithm(val);
-          bridge.setSynthAlgo(trackIndex, val);
           writeGlobalField(Dx7Patch.OFF_ALGORITHM, val);
         });
     panel.add(algoSlider, c);
@@ -1053,8 +1051,6 @@ public class Dx7Panel extends JPanel {
     model.setDx7Patch(hex);
     model.setSynthMode(1);
     model.setSynthAlgorithm(patch.algorithm());
-    bridge.setSynthMode(trackIndex, 1);
-    bridge.setSynthAlgo(trackIndex, patch.algorithm());
     String globalName = "g_dx7_patch_" + trackIndex;
     vm.setGlobalString(globalName, hex);
     vm.setGlobalInt("g_dx7_opSwitch_" + trackIndex, patch.opSwitch());

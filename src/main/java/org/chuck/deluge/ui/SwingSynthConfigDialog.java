@@ -62,7 +62,7 @@ public class SwingSynthConfigDialog extends JDialog {
     tabs.insertTab("DX7", null, dx7Panel, "DX7 6-operator FM editing", 1);
     tabs.addTab("ALGORITHM", new AlgorithmPanel(model, bridge, trackIndex));
     tabs.addTab("OSC", new OscPanel(model, bridge, trackIndex, projectModel));
-    tabs.addTab("LFO", new LfoPanel(vm, bridge, trackIndex));
+    tabs.addTab("LFO", new LfoPanel(model, trackIndex));
     tabs.addTab("ARP", new ArpPanel(model, bridge, trackIndex, projectModel));
     tabs.addTab("ENVELOPE", new EnvelopePanel(model, bridge, trackIndex, projectModel));
     tabs.addTab("MODULATION", new ModulationPanel(model, bridge, trackIndex));
@@ -200,7 +200,6 @@ public class SwingSynthConfigDialog extends JDialog {
                 case "NOISE" -> 4;
                 default -> 0;
               };
-          bridge.setVelocity(trackIndex, 0, typeIdx);
         });
     leftPanel.add(osc1Combo, lc);
     leftRow++;
@@ -277,7 +276,6 @@ public class SwingSynthConfigDialog extends JDialog {
             (int) (model.getWaveIndex() * 1000),
             val -> {
               model.setWaveIndex(val / 1000.0f);
-              bridge.setWaveIndex(trackIndex, val / 1000.0f);
             },
             "",
             "waveIndex",
@@ -308,7 +306,6 @@ public class SwingSynthConfigDialog extends JDialog {
         e -> {
           int mode = modeCombo.getSelectedIndex();
           model.setSynthMode(mode);
-          bridge.setSynthMode(trackIndex, mode);
           tabs.setEnabledAt(1, mode == 1);
         });
     leftPanel.add(modeCombo, lc);
@@ -339,7 +336,6 @@ public class SwingSynthConfigDialog extends JDialog {
           SynthTrackModel.PolyphonyMode pm =
               SynthTrackModel.PolyphonyMode.valueOf((String) polyCombo.getSelectedItem());
           model.setPolyphony(pm);
-          bridge.setPolyphony(trackIndex, pm.ordinal());
         });
     leftPanel.add(polyCombo, lc);
     leftRow++;
@@ -392,7 +388,6 @@ public class SwingSynthConfigDialog extends JDialog {
         e -> {
           int v = (Integer) unisonNumCombo.getSelectedItem();
           model.setUnisonNum(v);
-          bridge.setUnisonNum(trackIndex, v);
         });
     leftPanel.add(unisonNumCombo, lc);
     leftRow++;
@@ -409,7 +404,6 @@ public class SwingSynthConfigDialog extends JDialog {
             (int) (model.getUnisonDetune() * 100),
             val -> {
               model.setUnisonDetune(val / 100.0f);
-              bridge.setUnisonDetune(trackIndex, val / 100.0f);
             },
             "cts",
             "unisonDetune",
@@ -428,7 +422,6 @@ public class SwingSynthConfigDialog extends JDialog {
             (int) (model.getUnisonStereoSpread() * 100),
             val -> {
               model.setUnisonStereoSpread(val / 100.0f);
-              bridge.setUnisonSpread(trackIndex, val / 100.0f);
             },
             "",
             "unisonSpread",
@@ -583,8 +576,8 @@ public class SwingSynthConfigDialog extends JDialog {
             "Frequency ratio of the modulator oscillator relative to the carrier (0.25–4.00)",
             25,
             400,
-            (int) (bridge.getFmRatio(trackIndex) * 100),
-            val -> bridge.setFmRatio(trackIndex, val / 100.0),
+            (int) (model.getFmRatio() * 100),
+            val -> model.setFmRatio((float) (val / 100.0)),
             "×0.01",
             "fmRatio",
             projectModel,
@@ -599,8 +592,8 @@ public class SwingSynthConfigDialog extends JDialog {
             "Depth of FM modulation — how strongly the modulator affects the carrier (0–100%)",
             0,
             100,
-            (int) (bridge.getFmAmount(trackIndex) * 100),
-            val -> bridge.setFmAmount(trackIndex, val / 100.0),
+            (int) (model.getFmAmount() * 100),
+            val -> model.setFmAmount((float) (val / 100.0)),
             "%",
             "fmAmount",
             projectModel,
@@ -615,8 +608,8 @@ public class SwingSynthConfigDialog extends JDialog {
             "Carrier 1 self-feedback amount (0–100%). Creates characteristic FM feedback timbre.",
             0,
             100,
-            (int) (bridge.getCarrier1Fb(trackIndex) * 100),
-            val -> bridge.setCarrier1Fb(trackIndex, val / 100.0f),
+            (int) (model.getCarrier1Feedback() * 100),
+            val -> model.setCarrier1Feedback(val / 100.0f),
             "%",
             "carrier1Fb",
             projectModel,
@@ -631,8 +624,8 @@ public class SwingSynthConfigDialog extends JDialog {
             "Modulator 1 self-feedback amount (0–100%). Adds complexity to FM timbre.",
             0,
             100,
-            (int) (bridge.getMod1Fb(trackIndex) * 100),
-            val -> bridge.setMod1Fb(trackIndex, val / 100.0f),
+            (int) (model.getModulator1Feedback() * 100),
+            val -> model.setModulator1Feedback(val / 100.0f),
             "%",
             "mod1Fb",
             projectModel,
@@ -647,8 +640,8 @@ public class SwingSynthConfigDialog extends JDialog {
             "Modulator 2 output amount / gain (0–100%). Controls how strongly Mod 2 affects the carrier.",
             0,
             100,
-            (int) (bridge.getMod2Amt(trackIndex) * 100),
-            val -> bridge.setMod2Amt(trackIndex, val / 100.0f),
+            (int) (model.getModulator2Amount() * 100),
+            val -> model.setModulator2Amount(val / 100.0f),
             "%",
             "mod2Amt",
             projectModel,
@@ -663,8 +656,8 @@ public class SwingSynthConfigDialog extends JDialog {
             "Modulator 2 self-feedback amount (0–100%). Increases FM harmonic complexity.",
             0,
             100,
-            (int) (bridge.getMod2Fb(trackIndex) * 100),
-            val -> bridge.setMod2Fb(trackIndex, val / 100.0f),
+            (int) (model.getModulator2Feedback() * 100),
+            val -> model.setModulator2Feedback(val / 100.0f),
             "%",
             "mod2Fb",
             projectModel,
@@ -679,8 +672,8 @@ public class SwingSynthConfigDialog extends JDialog {
             "Carrier 2 self-feedback amount (0–100%). Second carrier feedback for 2-op FM configurations.",
             0,
             100,
-            (int) (bridge.getCarrier2Fb(trackIndex) * 100),
-            val -> bridge.setCarrier2Fb(trackIndex, val / 100.0f),
+            (int) (model.getCarrier2Feedback() * 100),
+            val -> model.setCarrier2Feedback(val / 100.0f),
             "%",
             "carrier2Fb",
             projectModel,

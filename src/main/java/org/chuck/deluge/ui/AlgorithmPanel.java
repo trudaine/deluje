@@ -37,7 +37,6 @@ public class AlgorithmPanel extends JPanel {
           int ei = engineCombo.getSelectedIndex();
           int algoVal = stkValues[ei];
           model.setSynthAlgorithm(algoVal);
-          bridge.setSynthAlgo(trackIndex, algoVal);
         });
     topPanel.add(engineCombo);
 
@@ -57,7 +56,6 @@ public class AlgorithmPanel extends JPanel {
           int idx = engineTypeCombo.getSelectedIndex();
           int typeVal = idx - 1;
           model.setEngineType(typeVal);
-          bridge.setEngineType(trackIndex, typeVal);
         });
     topPanel.add(engineTypeCombo);
     add(topPanel, BorderLayout.NORTH);
@@ -100,7 +98,6 @@ public class AlgorithmPanel extends JPanel {
       selectBtn.addActionListener(
           ev -> {
             model.setSynthAlgorithm(a);
-            bridge.setSynthAlgo(trackIndex, a);
             for (Component comp : gridPanel.getComponents()) {
               if (comp instanceof JPanel card) {
                 card.setBackground(

@@ -6,13 +6,33 @@ import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.model.ProjectModel;
 import org.chuck.deluge.model.SynthTrackModel;
 
-/** ARP tab: arpeggiator toggle, mode, rate, gate, sync, octaves, etc. */
+/** ARP tab: arpeggiator toggle, mode, rate, gate, sync, octaves, etc. (model-backed). */
 public class ArpPanel extends JPanel {
+
+  // Combo order: OFF, 1/1, 1/2, 1/2T, 1/4, 1/4T, 1/8, 1/8T, 1/16, 1/16T, 1/32, 1/32T, 1/64.
+  // ArpModel.syncLevel is a note-division denominator; triplets map to syncType=1.
+  private static final int[] SYNC_DIVISIONS = {0, 1, 2, 2, 4, 4, 8, 8, 16, 16, 32, 32, 64};
+  private static final boolean[] SYNC_TRIPLET = {
+    false, false, false, true, false, true, false, true, false, true, false, true, false
+  };
+
+  private static int syncComboIndexFor(int division, int syncType) {
+    for (int i = 0; i < SYNC_DIVISIONS.length; i++) {
+      if (SYNC_DIVISIONS[i] == division && SYNC_TRIPLET[i] == (syncType == 1)) {
+        return i;
+      }
+    }
+    return 0;
+  }
 
   public ArpPanel(
       SynthTrackModel model, BridgeContract bridge, int trackIndex, ProjectModel projectModel) {
     super(new GridBagLayout());
     setBackground(SwingSynthConfigDialog.BG_CARD);
+    if (model.getArp() == null) {
+      model.setArp(org.chuck.deluge.model.ArpModel.defaultConfig());
+    }
+    org.chuck.deluge.model.ArpModel arp = model.getArp();
 
     JPanel leftPanel = new JPanel(new GridBagLayout());
     leftPanel.setBackground(SwingSynthConfigDialog.BG_CARD);
@@ -49,11 +69,12 @@ public class ArpPanel extends JPanel {
     lc.gridx = 1;
     lc.gridwidth = 2;
     JCheckBox arpBox = new JCheckBox();
-    arpBox.setSelected(bridge.getArpOn(trackIndex));
+    arpBox.setSelected(arp.active());
     arpBox.setBackground(SwingSynthConfigDialog.BG_CARD);
     arpBox.setForeground(Color.WHITE);
     arpBox.setToolTipText("Enable the arpeggiator");
-    arpBox.addActionListener(e -> bridge.setArpOn(trackIndex, arpBox.isSelected()));
+    arpBox.addActionListener(
+        e -> model.setArp(model.getArp().toBuilder().active(arpBox.isSelected()).build()));
     leftPanel.add(arpBox, lc);
     leftRow++;
 
@@ -66,11 +87,14 @@ public class ArpPanel extends JPanel {
     lc.gridwidth = 2;
     String[] arpModes = {"UP", "DOWN", "UP_DOWN", "RANDOM", "WALK"};
     JComboBox<String> arpModeBox = new JComboBox<>(arpModes);
-    arpModeBox.setSelectedIndex(bridge.getArpMode(trackIndex));
+    arpModeBox.setSelectedIndex(Math.max(0, java.util.Arrays.asList(arpModes).indexOf(arp.mode())));
     arpModeBox.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     arpModeBox.setForeground(Color.WHITE);
     arpModeBox.setToolTipText("Arpeggiator note sequence direction");
-    arpModeBox.addActionListener(e -> bridge.setArpMode(idx, arpModeBox.getSelectedIndex()));
+    arpModeBox.addActionListener(
+        e ->
+            model.setArp(
+                model.getArp().toBuilder().mode((String) arpModeBox.getSelectedItem()).build()));
     leftPanel.add(arpModeBox, lc);
     leftRow++;
 
@@ -83,8 +107,8 @@ public class ArpPanel extends JPanel {
             "Arpeggiator speed multiplier (0.25× to 4.00×)",
             25,
             400,
-            (int) (bridge.getArpRate(trackIndex) * 100),
-            val -> bridge.setArpRate(idx, val / 100.0),
+            (int) (arp.rate() * 100),
+            val -> model.setArp(model.getArp().toBuilder().rate((float) (val / 100.0)).build()),
             "×0.01",
             "arpRate",
             projectModel,
@@ -99,8 +123,8 @@ public class ArpPanel extends JPanel {
             "Note-on duration as percentage of step (10%-100%)",
             10,
             100,
-            (int) (bridge.getArpGate(trackIndex) * 100),
-            val -> bridge.setArpGate(idx, val / 100.0),
+            (int) (arp.gate() * 100),
+            val -> model.setArp(model.getArp().toBuilder().gate((float) (val / 100.0)).build()),
             "%",
             "arpGate",
             projectModel,
@@ -118,11 +142,19 @@ public class ArpPanel extends JPanel {
       "1/64"
     };
     JComboBox<String> syncCombo = new JComboBox<>(syncRates);
-    syncCombo.setSelectedIndex(bridge.getArpSyncLevel(trackIndex));
+    syncCombo.setSelectedIndex(syncComboIndexFor(arp.syncLevel(), arp.syncType()));
     syncCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     syncCombo.setForeground(Color.WHITE);
     syncCombo.setToolTipText("Sync arpeggiator rate to note division (overrides Rate slider)");
-    syncCombo.addActionListener(e -> bridge.setArpSyncLevel(idx, syncCombo.getSelectedIndex()));
+    syncCombo.addActionListener(
+        e -> {
+          int sel = syncCombo.getSelectedIndex();
+          model.setArp(
+              model.getArp().toBuilder()
+                  .syncLevel(SYNC_DIVISIONS[sel])
+                  .syncType(SYNC_TRIPLET[sel] ? 1 : 0)
+                  .build());
+        });
     leftPanel.add(syncCombo, lc);
     leftRow++;
 
@@ -134,11 +166,14 @@ public class ArpPanel extends JPanel {
     lc.gridx = 1;
     lc.gridwidth = 2;
     JComboBox<Integer> octCombo = new JComboBox<>(new Integer[] {1, 2, 3, 4});
-    octCombo.setSelectedItem(bridge.getArpOctave(trackIndex));
+    octCombo.setSelectedItem(Math.max(1, Math.min(4, arp.octaves())));
     octCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     octCombo.setForeground(Color.WHITE);
     octCombo.setToolTipText("Number of octaves the arpeggiator spans");
-    octCombo.addActionListener(e -> bridge.setArpOctave(idx, (Integer) octCombo.getSelectedItem()));
+    octCombo.addActionListener(
+        e ->
+            model.setArp(
+                model.getArp().toBuilder().octaves((Integer) octCombo.getSelectedItem()).build()));
     leftPanel.add(octCombo, lc);
     leftRow++;
 
@@ -151,12 +186,17 @@ public class ArpPanel extends JPanel {
     lc.gridwidth = 2;
     String[] noteModes = {"UP", "DOWN", "UPDN", "RAND", "WLK1", "WLK2", "WLK3", "PLAY", "PATT"};
     JComboBox<String> noteModeCombo = new JComboBox<>(noteModes);
-    noteModeCombo.setSelectedIndex(bridge.getArpNoteMode(trackIndex));
+    noteModeCombo.setSelectedIndex(
+        Math.max(0, java.util.Arrays.asList(noteModes).indexOf(arp.noteMode())));
     noteModeCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     noteModeCombo.setForeground(Color.WHITE);
     noteModeCombo.setToolTipText("Note selection pattern within the arpeggiated chord");
     noteModeCombo.addActionListener(
-        e -> bridge.setArpNoteMode(idx, noteModeCombo.getSelectedIndex()));
+        e ->
+            model.setArp(
+                model.getArp().toBuilder()
+                    .noteMode((String) noteModeCombo.getSelectedItem())
+                    .build()));
     leftPanel.add(noteModeCombo, lc);
     leftRow++;
 
@@ -169,12 +209,17 @@ public class ArpPanel extends JPanel {
     lc.gridwidth = 2;
     String[] octModes = {"UP", "DOWN", "UPDN", "ALT", "RAND"};
     JComboBox<String> octModeCombo = new JComboBox<>(octModes);
-    octModeCombo.setSelectedIndex(bridge.getArpOctaveMode(trackIndex));
+    octModeCombo.setSelectedIndex(
+        Math.max(0, java.util.Arrays.asList(octModes).indexOf(arp.octaveMode())));
     octModeCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     octModeCombo.setForeground(Color.WHITE);
     octModeCombo.setToolTipText("Octave progression pattern");
     octModeCombo.addActionListener(
-        e -> bridge.setArpOctaveMode(idx, octModeCombo.getSelectedIndex()));
+        e ->
+            model.setArp(
+                model.getArp().toBuilder()
+                    .octaveMode((String) octModeCombo.getSelectedItem())
+                    .build()));
     leftPanel.add(octModeCombo, lc);
     leftRow++;
 
@@ -195,8 +240,8 @@ public class ArpPanel extends JPanel {
             "Repeat each step N times (1-8)",
             1,
             8,
-            bridge.getArpStepRepeat(trackIndex),
-            val -> bridge.setArpStepRepeat(idx, val),
+            Math.max(1, arp.stepRepeat()),
+            val -> model.setArp(model.getArp().toBuilder().stepRepeat(val).build()),
             "×",
             "arpStepRepeat",
             projectModel,
@@ -211,8 +256,8 @@ public class ArpPanel extends JPanel {
             "Rhythm silence pattern index (0-49). 0 = all play, 1-50 = firmware patterns.",
             0,
             49,
-            bridge.getArpRhythm(trackIndex),
-            val -> bridge.setArpRhythm(idx, val),
+            arp.rhythmIndex(),
+            val -> model.setArp(model.getArp().toBuilder().rhythmIndex(val).build()),
             "",
             "arpRhythm",
             projectModel,
@@ -227,8 +272,8 @@ public class ArpPanel extends JPanel {
             "Number of active steps in the arpeggiator sequence (1-16)",
             1,
             16,
-            bridge.getArpSeqLength(trackIndex),
-            val -> bridge.setArpSeqLength(idx, val),
+            Math.max(1, arp.seqLength()),
+            val -> model.setArp(model.getArp().toBuilder().seqLength(val).build()),
             "",
             "arpSeqLength",
             projectModel,
@@ -243,8 +288,10 @@ public class ArpPanel extends JPanel {
             "Randomize octave offset per note (0-100%). Higher = wilder octave jumps.",
             0,
             100,
-            (int) (bridge.getArpOctaveSpread(trackIndex) * 100),
-            val -> bridge.setArpOctaveSpread(idx, val / 100.0),
+            (int) (arp.octaveSpread() * 100),
+            val ->
+                model.setArp(
+                    model.getArp().toBuilder().octaveSpread((float) (val / 100.0)).build()),
             "%",
             "arpOctaveSpread",
             projectModel,
@@ -259,8 +306,9 @@ public class ArpPanel extends JPanel {
             "Randomize note gate duration per step (0-100%). Higher = more timing variation.",
             0,
             100,
-            (int) (bridge.getArpGateSpread(trackIndex) * 100),
-            val -> bridge.setArpGateSpread(idx, val / 100.0),
+            (int) (arp.gateSpread() * 100),
+            val ->
+                model.setArp(model.getArp().toBuilder().gateSpread((float) (val / 100.0)).build()),
             "%",
             "arpGateSpread",
             projectModel,
@@ -275,8 +323,9 @@ public class ArpPanel extends JPanel {
             "Randomize note velocity per step (0-100%). Higher = more dynamic contrast.",
             0,
             100,
-            (int) (bridge.getArpVelSpread(trackIndex) * 100),
-            val -> bridge.setArpVelSpread(idx, val / 100.0),
+            (int) (arp.velSpread() * 100),
+            val ->
+                model.setArp(model.getArp().toBuilder().velSpread((float) (val / 100.0)).build()),
             "%",
             "arpVelSpread",
             projectModel,
@@ -291,8 +340,8 @@ public class ArpPanel extends JPanel {
             "Sub-divide each step into N+1 mini-notes (0-4). 1 = double-trigger, 4 = machine-gun.",
             0,
             4,
-            bridge.getArpRatchet(trackIndex),
-            val -> bridge.setArpRatchet(idx, val),
+            arp.ratchetAmount(),
+            val -> model.setArp(model.getArp().toBuilder().ratchetAmount(val).build()),
             "x",
             "arpRatchet",
             projectModel,
@@ -307,8 +356,10 @@ public class ArpPanel extends JPanel {
             "Probability that each step plays a note (0-100%). 100% = always play. Applied after rhythm silences.",
             0,
             100,
-            (int) (bridge.getArpNoteProbability(trackIndex) * 100),
-            val -> bridge.setArpNoteProbability(idx, val / 100.0),
+            (int) ((arp.noteProbability() <= 0f ? 1f : arp.noteProbability()) * 100),
+            val ->
+                model.setArp(
+                    model.getArp().toBuilder().noteProbability((float) (val / 100.0)).build()),
             "%",
             "arpNoteProb",
             projectModel,
@@ -323,8 +374,8 @@ public class ArpPanel extends JPanel {
             "Maximum number of notes in a chord (1-8). 1 = single note. Only effective with Chord Probability > 0%.",
             1,
             8,
-            bridge.getArpChordPoly(trackIndex),
-            val -> bridge.setArpChordPoly(idx, val),
+            Math.max(1, arp.chordPolyphony()),
+            val -> model.setArp(model.getArp().toBuilder().chordPolyphony(val).build()),
             "x",
             "arpChordPoly",
             projectModel,
@@ -339,8 +390,10 @@ public class ArpPanel extends JPanel {
             "Probability that a step plays a chord instead of a single note (0-100%). Chord size determined by Chord Poly.",
             0,
             100,
-            (int) (bridge.getArpChordProb(trackIndex) * 100),
-            val -> bridge.setArpChordProb(idx, val / 100.0),
+            (int) (arp.chordProbability() * 100),
+            val ->
+                model.setArp(
+                    model.getArp().toBuilder().chordProbability((float) (val / 100.0)).build()),
             "%",
             "arpChordProb",
             projectModel,

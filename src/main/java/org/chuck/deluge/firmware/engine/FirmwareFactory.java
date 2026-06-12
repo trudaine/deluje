@@ -616,6 +616,41 @@ public class FirmwareFactory {
         // Skip invalid cables
       }
     }
+
+    // ── LFO depth/target → synthesized patch cables ──
+    // The LfoModel carries a depth + target (the UI's LFO tab) but only the rate/waveform were
+    // mapped, so the depth/target controls were dead. An LFO modulating a destination IS a patch
+    // cable on the Deluge — synthesize one per configured LFO slot (0=global1, 1=local1,
+    // 2=global2, 3=local2, matching the rate mapping above).
+    for (int i = 0; i < 4; i++) {
+      LfoModel lm = model.getLfo(i);
+      if (lm == null || lm.target() == null || lm.depth() == 0f) {
+        continue;
+      }
+      int paramId =
+          switch (lm.target().trim().toUpperCase()) {
+            case "FILTER", "LPF", "LPFFREQUENCY" -> Param.LOCAL_LPF_FREQ;
+            case "RES", "RESONANCE" -> Param.LOCAL_LPF_RESONANCE;
+            case "PAN" -> Param.LOCAL_PAN;
+            case "PITCH" -> Param.LOCAL_PITCH_ADJUST;
+            case "VOL", "VOLUME" -> Param.LOCAL_VOLUME;
+            case "FM" -> Param.LOCAL_MODULATOR_0_VOLUME;
+            default -> -1;
+          };
+      if (paramId == -1) {
+        continue;
+      }
+      PatchCable cable = new PatchCable();
+      cable.from =
+          switch (i) {
+            case 0 -> PatchSource.LFO_GLOBAL_1;
+            case 1 -> PatchSource.LFO_LOCAL_1;
+            case 2 -> PatchSource.LFO_GLOBAL_2;
+            default -> PatchSource.LFO_LOCAL_2;
+          };
+      cable.amount = (int) (Math.max(-1f, Math.min(1f, lm.depth())) * 2147483647.0);
+      sound.paramManager.getPatchCableSet().addCable(paramId, cable);
+    }
   }
 
   private static int cutoffKnobFromHz(double hz) {
@@ -754,6 +789,83 @@ public class FirmwareFactory {
     s.rhythm = org.chuck.deluge.firmware2.Functions.computeFinalValueForUnsignedMenuItem(rhythmIdx);
     // syncLevel here is a note-division denominator (1=whole, 4=quarter, 16=16th); default 16th.
     sound.arpDivision = (arp.syncLevel() > 0) ? arp.syncLevel() : 16;
+    // Free-rate multiplier on the BPM-derived arp clock (PureFirmwareEngine divides the step
+    // length by it). 1.0 = nominal.
+    sound.arpRateMultiplier = (arp.rate() > 0.01f) ? arp.rate() : 1.0f;
+
+    // ── Full Settings mapping (previously only mode/octaves/repeat/gate/rhythm were wired, so
+    // the ARP tab's note-mode/seq-length/spread/probability/ratchet/chord controls were dead) ──
+    s.noteMode = stringToArpNoteMode(arp.noteMode());
+    s.sequenceLength = Math.max(0, arp.seqLength());
+    s.syncType =
+        org.chuck.deluge.firmware2.Arpeggiator.SyncType.values()[
+            Math.max(0, arp.syncType())
+                % org.chuck.deluge.firmware2.Arpeggiator.SyncType.values().length];
+    s.mpeVelocity =
+        (arp.mpeVelocity() == 1)
+            ? org.chuck.deluge.firmware2.Arpeggiator.ArpMpeModSource.AFTERTOUCH
+            : org.chuck.deluge.firmware2.Arpeggiator.ArpMpeModSource.OFF;
+    // Probabilities + spreads + ratchet are raw uint32 menu values in fw2 (value_scaling.cpp:18 —
+    // user 0..50 × 85899345); the model carries them as 0..1 floats.
+    s.noteProbability =
+        normToRawMenuValue(arp.noteProbability() <= 0f ? 1f : arp.noteProbability());
+    s.bassProbability = normToRawMenuValue(arp.bassProbability());
+    s.swapProbability = normToRawMenuValue(arp.swapProbability());
+    s.glideProbability = normToRawMenuValue(arp.glideProbability());
+    s.reverseProbability = normToRawMenuValue(arp.reverseProbability());
+    s.chordProbability = normToRawMenuValue(arp.chordProbability());
+    s.ratchetProbability = normToRawMenuValue(arp.ratchetProbability());
+    s.spreadOctave = normToRawMenuValue(arp.octaveSpread());
+    s.spreadGate = normToRawMenuValue(arp.gateSpread());
+    s.spreadVelocity = normToRawMenuValue(arp.velSpread());
+    s.ratchetAmount = normToRawMenuValue(arp.ratchetAmount() / 4.0f); // panel range 0-4
+    s.chordPolyphony = Math.max(0, Math.min(8, arp.chordPolyphony()));
+  }
+
+  /**
+   * Inverse of the firmware LFO-rate curve: finds the raw knob whose exp-curved phase increment
+   * (getExp(121739, combineExp(knob, 2^30)) — see the LFO mapping in mapModelToSound) matches the
+   * requested rate in Hz. Monotone in the knob, so a plain binary search converges exactly; used by
+   * the LFO tab so rate edits in Hz drive the same knob path the XML parser feeds.
+   */
+  public static int lfoRateKnobFromHz(double hz) {
+    long targetInc = (long) (Math.max(0.01, Math.min(40.0, hz)) * 4294967296.0 / 44100.0);
+    long lo = Integer.MIN_VALUE;
+    long hi = Integer.MAX_VALUE;
+    while (lo < hi) {
+      long mid = (lo + hi) >> 1;
+      long inc =
+          FirmwareUtils.getExp(121739, FirmwareUtils.patchCombineExpStep(0, (int) mid, 1073741824))
+              & 0xFFFFFFFFL;
+      if (inc < targetInc) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
+      }
+    }
+    return (int) lo;
+  }
+
+  /** 0..1 float → raw uint32 unpatched-menu value (user 0..50 × 85899345, value_scaling.cpp:18). */
+  private static int normToRawMenuValue(float norm) {
+    int user = Math.round(Math.max(0f, Math.min(1f, norm)) * 50f);
+    return org.chuck.deluge.firmware2.Functions.computeFinalValueForUnsignedMenuItem(user);
+  }
+
+  private static org.chuck.deluge.firmware2.Arpeggiator.ArpNoteMode stringToArpNoteMode(String m) {
+    if (m == null) return org.chuck.deluge.firmware2.Arpeggiator.ArpNoteMode.UP;
+    return switch (m.trim().toUpperCase()) {
+      case "DOWN" -> org.chuck.deluge.firmware2.Arpeggiator.ArpNoteMode.DOWN;
+      case "UPDN", "UP_DOWN", "UPDOWN" ->
+          org.chuck.deluge.firmware2.Arpeggiator.ArpNoteMode.UP_DOWN;
+      case "RAND", "RANDOM" -> org.chuck.deluge.firmware2.Arpeggiator.ArpNoteMode.RANDOM;
+      case "WLK1", "WALK1" -> org.chuck.deluge.firmware2.Arpeggiator.ArpNoteMode.WALK1;
+      case "WLK2", "WALK2" -> org.chuck.deluge.firmware2.Arpeggiator.ArpNoteMode.WALK2;
+      case "WLK3", "WALK3" -> org.chuck.deluge.firmware2.Arpeggiator.ArpNoteMode.WALK3;
+      case "PLAY", "AS_PLAYED" -> org.chuck.deluge.firmware2.Arpeggiator.ArpNoteMode.AS_PLAYED;
+      case "PATT", "PATTERN" -> org.chuck.deluge.firmware2.Arpeggiator.ArpNoteMode.PATTERN;
+      default -> org.chuck.deluge.firmware2.Arpeggiator.ArpNoteMode.UP;
+    };
   }
 
   private static org.chuck.deluge.firmware2.Arpeggiator.ArpMode stringToArpMode(String m) {

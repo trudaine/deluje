@@ -177,11 +177,8 @@ public class ModulationPanel extends JPanel {
   }
 
   private void syncModulationsLive() {
-    try {
-      bridge.setSynthPatchCables(trackIndex, model.getPatchCables());
-    } catch (Exception ex) {
-      System.err.println("[ModulationPanel] Live sync patch cables failed: " + ex.getMessage());
-    }
+    // Model patch cables are the source of truth; the dialog's live-apply timer re-maps them
+    // onto the running sound (FirmwareFactory.applyModelToLiveSound), so nothing else to do.
   }
 
   /** Rebuilds the custom visual cable rows in place. */
