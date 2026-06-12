@@ -222,50 +222,66 @@ public class FirmwareFactory {
    */
   public static void loadOscResources(SynthTrackModel model, FirmwareSound sound) {
     File sdRoot = PreferencesManager.getLibraryDir();
-    for (int s = 0; s < 2; s++) {
-      String path = (s == 0) ? model.getOsc1SamplePath() : model.getOsc2SamplePath();
-      OscType type = sound.oscTypes[s];
-      boolean wantsFile =
-          (type == OscType.SAMPLE || type == OscType.WAVETABLE) && path != null && !path.isEmpty();
-      if (!wantsFile) {
-        sound.loadedOscPath[s] = null;
-        continue;
-      }
-      String key = type + ":" + path;
-      if (key.equals(sound.loadedOscPath[s])) {
-        continue; // already loaded
-      }
-      File f = resolveSample(path, sdRoot);
-      if (f == null || !f.exists()) {
-        continue;
-      }
-      if (type == OscType.SAMPLE) {
-        try {
-          Sample smp = AudioFileReader.readSample(f.getAbsolutePath());
-          if (smp != null) {
-            var fw2Smp = org.chuck.deluge.firmware2.Sample.fromFirmwareSample(smp);
-            synchronized (sound) {
-              sound.samples[s] = smp;
-              sound.fw2SampleCache[s] = fw2Smp;
-            }
-            sound.loadedOscPath[s] = key;
-            System.out.println("[FirmwareFactory] Loaded synth sample " + s + ": " + f.getName());
-          }
-        } catch (IOException e) {
-          System.err.println("[FirmwareFactory] Failed to load synth sample " + s + ": " + path);
-        }
-      } else {
-        try {
-          WaveTable wt = new WaveTable();
-          WaveTableReader.readWavetable(wt, f.getAbsolutePath());
-          synchronized (sound) {
-            sound.fw2Sound.waveTables[s] = wt;
-          }
-          sound.loadedOscPath[s] = key;
-          System.out.println("[FirmwareFactory] Loaded synth wavetable " + s + ": " + f.getName());
-        } catch (IOException e) {
-          System.err.println("[FirmwareFactory] Failed to load synth wavetable " + s + ": " + path);
-        }
+    try (var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+      for (int s = 0; s < 2; s++) {
+        final int finalS = s;
+        executor.submit(
+            () -> {
+              String path = (finalS == 0) ? model.getOsc1SamplePath() : model.getOsc2SamplePath();
+              OscType type = sound.oscTypes[finalS];
+              boolean wantsFile =
+                  (type == OscType.SAMPLE || type == OscType.WAVETABLE)
+                      && path != null
+                      && !path.isEmpty();
+              if (!wantsFile) {
+                synchronized (sound) {
+                  sound.loadedOscPath[finalS] = null;
+                }
+                return;
+              }
+              String key = type + ":" + path;
+              synchronized (sound) {
+                if (key.equals(sound.loadedOscPath[finalS])) {
+                  return; // already loaded
+                }
+              }
+              File f = resolveSample(path, sdRoot);
+              if (f == null || !f.exists()) {
+                return;
+              }
+              if (type == OscType.SAMPLE) {
+                try {
+                  Sample smp = AudioFileReader.readSample(f.getAbsolutePath());
+                  if (smp != null) {
+                    var fw2Smp = org.chuck.deluge.firmware2.Sample.fromFirmwareSample(smp);
+                    synchronized (sound) {
+                      sound.samples[finalS] = smp;
+                      sound.fw2SampleCache[finalS] = fw2Smp;
+                      sound.loadedOscPath[finalS] = key;
+                    }
+                    System.out.println(
+                        "[FirmwareFactory] Loaded synth sample " + finalS + ": " + f.getName());
+                  }
+                } catch (IOException e) {
+                  System.err.println(
+                      "[FirmwareFactory] Failed to load synth sample " + finalS + ": " + path);
+                }
+              } else {
+                try {
+                  WaveTable wt = new WaveTable();
+                  WaveTableReader.readWavetable(wt, f.getAbsolutePath());
+                  synchronized (sound) {
+                    sound.fw2Sound.waveTables[finalS] = wt;
+                    sound.loadedOscPath[finalS] = key;
+                  }
+                  System.out.println(
+                      "[FirmwareFactory] Loaded synth wavetable " + finalS + ": " + f.getName());
+                } catch (IOException e) {
+                  System.err.println(
+                      "[FirmwareFactory] Failed to load synth wavetable " + finalS + ": " + path);
+                }
+              }
+            });
       }
     }
   }
@@ -904,15 +920,18 @@ public class FirmwareFactory {
     clip.loopLength = 16 * 24;
 
     File sdRoot = PreferencesManager.getLibraryDir();
-    int drumIdx = 0;
-    for (Drum d : model.getDrums()) {
-      if (drumIdx >= kit.drumSounds.size()) break;
-      if (d instanceof SoundDrum sd) {
-        FirmwareSound drumSound = kit.drumSounds.get(drumIdx);
-        mapDrumToSound(sd, drumSound, drumIdx, model);
-        loadDrumResources(sd, drumSound);
+    try (var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+      int drumIdx = 0;
+      for (Drum d : model.getDrums()) {
+        if (drumIdx >= kit.drumSounds.size()) break;
+        if (d instanceof SoundDrum sd) {
+          final FirmwareSound drumSound = kit.drumSounds.get(drumIdx);
+          mapDrumToSound(sd, drumSound, drumIdx, model);
+          final SoundDrum finalSd = sd;
+          executor.submit(() -> loadDrumResources(finalSd, drumSound));
+        }
+        drumIdx++;
       }
-      drumIdx++;
     }
 
     if (!model.getClips().isEmpty()) {
@@ -1087,17 +1106,20 @@ public class FirmwareFactory {
   }
 
   public static void applyModelToLiveSound(KitTrackModel model, FirmwareKit kit) {
-    int drumIdx = 0;
-    for (Drum d : model.getDrums()) {
-      if (drumIdx >= kit.drumSounds.size()) break;
-      if (d instanceof SoundDrum sd) {
-        FirmwareSound drumSound = kit.drumSounds.get(drumIdx);
-        synchronized (drumSound) {
-          mapDrumToSound(sd, drumSound, drumIdx, model);
+    try (var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+      int drumIdx = 0;
+      for (Drum d : model.getDrums()) {
+        if (drumIdx >= kit.drumSounds.size()) break;
+        if (d instanceof SoundDrum sd) {
+          final FirmwareSound drumSound = kit.drumSounds.get(drumIdx);
+          synchronized (drumSound) {
+            mapDrumToSound(sd, drumSound, drumIdx, model);
+          }
+          final SoundDrum finalSd = sd;
+          executor.submit(() -> loadDrumResources(finalSd, drumSound));
         }
-        loadDrumResources(sd, drumSound);
+        drumIdx++;
       }
-      drumIdx++;
     }
   }
 
@@ -1210,12 +1232,16 @@ public class FirmwareFactory {
     String path = sd.getSamplePath();
     boolean wantsFile = path != null && !path.isEmpty();
     if (!wantsFile) {
-      drumSound.loadedOscPath[0] = null;
+      synchronized (drumSound) {
+        drumSound.loadedOscPath[0] = null;
+      }
       return;
     }
     String key = "SAMPLE:" + path;
-    if (key.equals(drumSound.loadedOscPath[0])) {
-      return; // already loaded
+    synchronized (drumSound) {
+      if (key.equals(drumSound.loadedOscPath[0])) {
+        return; // already loaded
+      }
     }
     File f = resolveSample(path, sdRoot);
     if (f == null || !f.exists()) {
@@ -1228,8 +1254,8 @@ public class FirmwareFactory {
         synchronized (drumSound) {
           drumSound.samples[0] = smp;
           drumSound.fw2SampleCache[0] = fw2Smp;
+          drumSound.loadedOscPath[0] = key;
         }
-        drumSound.loadedOscPath[0] = key;
         System.out.println("[FirmwareFactory] Loaded drum sample: " + f.getName());
       }
     } catch (IOException e) {
