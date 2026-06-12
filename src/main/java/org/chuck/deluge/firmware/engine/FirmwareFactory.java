@@ -101,78 +101,8 @@ public class FirmwareFactory {
     // ── Copy all parameters and patch cables ──
     mapModelToSound(model, sound);
 
-    // ── Load samples if the oscillators are SAMPLE type ──
-    File sdRoot = PreferencesManager.getLibraryDir();
-    if (sound.oscTypes[0] == OscType.SAMPLE) {
-      String path = model.getOsc1SamplePath();
-      if (path != null && !path.isEmpty()) {
-        File f = resolveSample(path, sdRoot);
-        if (f != null && f.exists()) {
-          try {
-            Sample s = AudioFileReader.readSample(f.getAbsolutePath());
-            if (s != null) {
-              sound.samples[0] = s;
-              sound.fw2SampleCache[0] = org.chuck.deluge.firmware2.Sample.fromFirmwareSample(s);
-              System.out.println("[FirmwareFactory] Loaded synth sample 0: " + f.getName());
-            }
-          } catch (IOException e) {
-            System.err.println("[FirmwareFactory] Failed to load synth sample 0: " + path);
-          }
-        }
-      }
-    }
-    if (sound.oscTypes[1] == OscType.SAMPLE) {
-      String path = model.getOsc2SamplePath();
-      if (path != null && !path.isEmpty()) {
-        File f = resolveSample(path, sdRoot);
-        if (f != null && f.exists()) {
-          try {
-            Sample s = AudioFileReader.readSample(f.getAbsolutePath());
-            if (s != null) {
-              sound.samples[1] = s;
-              sound.fw2SampleCache[1] = org.chuck.deluge.firmware2.Sample.fromFirmwareSample(s);
-              System.out.println("[FirmwareFactory] Loaded synth sample 1: " + f.getName());
-            }
-          } catch (IOException e) {
-            System.err.println("[FirmwareFactory] Failed to load synth sample 1: " + path);
-          }
-        }
-      }
-    }
-
-    // ── Load wavetables if the oscillators are WAVETABLE type ──
-    if (sound.oscTypes[0] == OscType.WAVETABLE) {
-      String path = model.getOsc1SamplePath();
-      if (path != null && !path.isEmpty()) {
-        File f = resolveSample(path, sdRoot);
-        if (f != null && f.exists()) {
-          try {
-            WaveTable wt = new WaveTable();
-            WaveTableReader.readWavetable(wt, f.getAbsolutePath());
-            sound.fw2Sound.waveTables[0] = wt;
-            System.out.println("[FirmwareFactory] Loaded synth wavetable 0: " + f.getName());
-          } catch (IOException e) {
-            System.err.println("[FirmwareFactory] Failed to load synth wavetable 0: " + path);
-          }
-        }
-      }
-    }
-    if (sound.oscTypes[1] == OscType.WAVETABLE) {
-      String path = model.getOsc2SamplePath();
-      if (path != null && !path.isEmpty()) {
-        File f = resolveSample(path, sdRoot);
-        if (f != null && f.exists()) {
-          try {
-            WaveTable wt = new WaveTable();
-            WaveTableReader.readWavetable(wt, f.getAbsolutePath());
-            sound.fw2Sound.waveTables[1] = wt;
-            System.out.println("[FirmwareFactory] Loaded synth wavetable 1: " + f.getName());
-          } catch (IOException e) {
-            System.err.println("[FirmwareFactory] Failed to load synth wavetable 1: " + path);
-          }
-        }
-      }
-    }
+    // ── Load samples/wavetables for SAMPLE/WAVETABLE oscillators ──
+    loadOscResources(model, sound);
 
     // ── Note rendering logic remains ──
     if (!model.getClips().isEmpty()) {
@@ -284,7 +214,79 @@ public class FirmwareFactory {
     return clip;
   }
 
+  /**
+   * Loads sample/wavetable files for SAMPLE/WAVETABLE oscillator sources. Idempotent: skips the
+   * file read when the same path is already loaded for that source (tracked in {@code
+   * sound.loadedOscPath}), so live re-applies don't re-read files. The loaded data is assigned
+   * under the sound's lock so the audio thread never sees a half-updated source.
+   */
+  public static void loadOscResources(SynthTrackModel model, FirmwareSound sound) {
+    File sdRoot = PreferencesManager.getLibraryDir();
+    for (int s = 0; s < 2; s++) {
+      String path = (s == 0) ? model.getOsc1SamplePath() : model.getOsc2SamplePath();
+      OscType type = sound.oscTypes[s];
+      boolean wantsFile =
+          (type == OscType.SAMPLE || type == OscType.WAVETABLE) && path != null && !path.isEmpty();
+      if (!wantsFile) {
+        sound.loadedOscPath[s] = null;
+        continue;
+      }
+      String key = type + ":" + path;
+      if (key.equals(sound.loadedOscPath[s])) {
+        continue; // already loaded
+      }
+      File f = resolveSample(path, sdRoot);
+      if (f == null || !f.exists()) {
+        continue;
+      }
+      if (type == OscType.SAMPLE) {
+        try {
+          Sample smp = AudioFileReader.readSample(f.getAbsolutePath());
+          if (smp != null) {
+            var fw2Smp = org.chuck.deluge.firmware2.Sample.fromFirmwareSample(smp);
+            synchronized (sound) {
+              sound.samples[s] = smp;
+              sound.fw2SampleCache[s] = fw2Smp;
+            }
+            sound.loadedOscPath[s] = key;
+            System.out.println("[FirmwareFactory] Loaded synth sample " + s + ": " + f.getName());
+          }
+        } catch (IOException e) {
+          System.err.println("[FirmwareFactory] Failed to load synth sample " + s + ": " + path);
+        }
+      } else {
+        try {
+          WaveTable wt = new WaveTable();
+          WaveTableReader.readWavetable(wt, f.getAbsolutePath());
+          synchronized (sound) {
+            sound.fw2Sound.waveTables[s] = wt;
+          }
+          sound.loadedOscPath[s] = key;
+          System.out.println("[FirmwareFactory] Loaded synth wavetable " + s + ": " + f.getName());
+        } catch (IOException e) {
+          System.err.println("[FirmwareFactory] Failed to load synth wavetable " + s + ": " + path);
+        }
+      }
+    }
+  }
+
+  /**
+   * Live-apply: re-maps the model onto an already-playing bridge sound so dialog edits are heard
+   * immediately (the per-block {@code syncParamsToFw2} forwards everything to the fw2 engine).
+   * Param/cable writes happen under the sound's lock — {@code syncParamsToFw2} takes the same lock
+   * — so the audio thread never iterates a half-rebuilt cable set. File loads happen outside it.
+   */
+  public static void applyModelToLiveSound(SynthTrackModel model, FirmwareSound sound) {
+    synchronized (sound) {
+      mapModelToSound(model, sound);
+    }
+    loadOscResources(model, sound);
+  }
+
   private static void mapModelToSound(SynthTrackModel model, FirmwareSound sound) {
+    // Idempotent: clear the cable set so live re-applies don't duplicate cables (they are
+    // re-added from the model at the end of this method).
+    sound.paramManager.getPatchCableSet().destinations.clear();
     sound.oscTypes[0] = stringToOscType(model.getOsc1Type());
     sound.oscTypes[1] = stringToOscType(model.getOsc2Type());
 
