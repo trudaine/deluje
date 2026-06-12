@@ -12,7 +12,8 @@ real hardware-saved song — `SONGS/Dx7A.xml`). The firmware's loader binds each
 `<instrumentClip>` to its instrument **by name** (`instrumentPresetName` ↔ the instrument's
 `presetName`, plus matching `presetFolder`); a song without that linkage fails in
 `InstrumentClip::claimOutput` with `FILE_CORRUPTED` and the Deluge refuses to load it (verified
-against `DelugeFirmware` @ `22314a61`, model/clip/instrument_clip.cpp:3867). Other essentials:
+against the `DelugeFirmware` NIGHTLY @ `9a74e162` / nightly-4, model/clip/instrument_clip.cpp:3867
+— so this applies to both c1.2.0 stable and current nightlies; there is no fallback path). Other essentials:
 
 * Song-level settings are **attributes** on `<song>`; tempo is `timePerTimerTick="229"` +
   `timerTickFraction="-1342177280"` (= 229.6875 samples/tick × 96 PPQN → 120 BPM), not a
