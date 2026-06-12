@@ -87,4 +87,22 @@ public class FidelitySongSmokeTest {
     double rms = renderRms("TestKitFidelity.xml", 1.0);
     assertTrue(rms > 1e-4, "TestKitFidelity should produce sound; rms=" + rms);
   }
+
+  @Test
+  void calibrationSongsParseAndSound() throws Exception {
+    // Batch 2 (2026-06-12): isolated-subsystem calibration songs for hardware comparison.
+    String[] songs = {
+      "TestEnvFidelity.xml",
+      "TestFilterFidelity.xml",
+      "TestLfoFidelity.xml",
+      "TestFmFidelity.xml",
+      "TestTuningFidelity.xml",
+      "TestNoiseFidelity.xml",
+      "TestDelayFidelity.xml",
+    };
+    for (String song : songs) {
+      double rms = renderRms(song, 2.0); // 2s: the env song has a slow attack
+      assertTrue(rms > 1e-4, song + " should produce sound; rms=" + rms);
+    }
+  }
 }

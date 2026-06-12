@@ -204,3 +204,29 @@ the recordings include the device's master-volume staging (hardware RMS ~0.41 vs
 so quantization differs), the device output chain adds its own phase response, and sample-exact
 saw alignment decorrelates with any sub-cent drift over seconds. Next steps for the metric:
 level-normalize + compare band-limited spectra/envelopes instead of raw waveforms.
+
+---
+
+## Batch 2: isolated-subsystem calibration songs (2026-06-12)
+
+Seven more songs, each isolating ONE subsystem with documented knob values, so hardware
+recordings calibrate specific engine paths. Record each like before (load song → record ~the
+listed duration) and put the WAVs in folders named after the song (e.g.
+`TestEnvFidelity/output_000.wav`):
+
+| Song | What it measures | Patch (documented knobs) | Record |
+|---|---|---|---|
+| `TestEnvFidelity` | env1 attack/release times | saw C4, attack knob `0x00000000` (center), release `0x20000000`; note 1 bar + 1 bar tail | 4.5 s |
+| `TestFilterFidelity` | LPF cutoff curve + resonance | saw C3, lpfFrequency `0x00000000` (center), resonance `0x20000000` | 3 s |
+| `TestLfoFidelity` | LFO1 rate + vibrato depth | sine C5, lfo1Rate `0x1999997E`, cable lfo1→pitch `0x0CCCCCCC` | 3 s |
+| `TestFmFidelity` | FM depth/brightness | FM sine, modulator1 1:1, amount `0x20000000` | 3 s |
+| `TestTuningFidelity` | tuning across the range | pure sine C2,C3,C4,C5,C6 — one per beat | 3.5 s |
+| `TestNoiseFidelity` | noise generator level/spectrum | noise only (osc A off), noiseVolume max | 3 s |
+| `TestDelayFidelity` | delay time (sync 4) + feedback decay | saw 1/16 hit, feedback `0x20000000`, no pingpong | 4.5 s |
+
+The comparison harness picks up whatever has been recorded (missing folders are skipped):
+
+```
+mvn -pl deluge test -Dtest=HardwareFidelityComparisonTest \
+    -Dhardware.recordings.dir=/path/to/recordings
+```
