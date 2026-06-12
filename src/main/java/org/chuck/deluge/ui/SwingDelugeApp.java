@@ -2455,6 +2455,26 @@ public class SwingDelugeApp extends JFrame {
                   + " output driver.");
         });
 
+    // Always-on input monitor: opens the microphone and feeds the engine's live-input bus so
+    // patches with inLeft/inRight/inStereo oscillator sources monitor the input continuously
+    // (without arming the threshold sampler).
+    final JCheckBoxMenuItem monitorInputItem = new JCheckBoxMenuItem("Monitor Audio Input");
+    monitorInputItem.setSelected(
+        org.chuck.deluge.engine.AudioInputCaptureLine.getInstance().isMonitoring());
+    monitorInputItem.addActionListener(
+        e -> {
+          var capture = org.chuck.deluge.engine.AudioInputCaptureLine.getInstance();
+          if (monitorInputItem.isSelected()) {
+            capture.startMonitoring();
+            if (!capture.isMonitoring()) {
+              // The line was already in use (sampler armed) or failed to open.
+              monitorInputItem.setSelected(false);
+            }
+          } else {
+            capture.stopMonitoring();
+          }
+        });
+
     JMenuItem clearMidiItem = new JMenuItem("Reset MIDI Mappings");
     clearMidiItem.addActionListener(
         e -> {
@@ -2531,6 +2551,7 @@ public class SwingDelugeApp extends JFrame {
     settingsMenu.add(sampleItem);
     settingsMenu.addSeparator();
     settingsMenu.add(hifiModeItem);
+    settingsMenu.add(monitorInputItem);
     settingsMenu.add(midiConfigItem);
     settingsMenu.add(clearMidiItem);
     settingsMenu.addSeparator();

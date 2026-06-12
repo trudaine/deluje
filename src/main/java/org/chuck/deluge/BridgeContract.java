@@ -760,6 +760,16 @@ public final class BridgeContract {
   //  SynthData — 41 arrays
   // ───────────────────────────────────────────────────────────────────────
 
+  /**
+   * ⚠️ ORPHANED STATE (UI-audit 2026-06-11/12): these arrays were the parameter store for the
+   * retired legacy {@code DelugeEngineDSL} path. The pure engine ({@code PureFirmwareEngine}) reads
+   * NONE of them — it is built from the track MODELS via {@code FirmwareFactory} (knob changes
+   * apply on the next {@code loadProject} rebuild) plus the live sync thread for transport/master
+   * FX. UI dialogs still write here in parallel with the model; only the model write matters. Do
+   * NOT add new state here — extend the model + factory instead. Physical removal (deleting these
+   * arrays, their bridge accessors and the UI write calls) is a pending mechanical refactor; the
+   * only remaining reader is {@code DelugeEngineTest}.
+   */
   static final class SynthData {
     final float[] env = new float[ENV_STRIDE];
     final float[] lfoRate = new float[LFO_COUNT];
