@@ -4,6 +4,32 @@ This plan outlines how to test and verify the audio fidelity of the ChucK-Java `
 
 ---
 
+## 0. Test-song XML format (IMPORTANT for anyone regenerating them)
+
+The three test songs (`TestSynthFidelity.xml`, `TestUnisonFidelity.xml`, `TestKitFidelity.xml`)
+are written in the **exact format the community firmware c1.2.0 writes** (modeled verbatim on a
+real hardware-saved song — `SONGS/Dx7A.xml`). The firmware's loader binds each
+`<instrumentClip>` to its instrument **by name** (`instrumentPresetName` ↔ the instrument's
+`presetName`, plus matching `presetFolder`); a song without that linkage fails in
+`InstrumentClip::claimOutput` with `FILE_CORRUPTED` and the Deluge refuses to load it (verified
+against `DelugeFirmware` @ `22314a61`, model/clip/instrument_clip.cpp:3867). Other essentials:
+
+* Song-level settings are **attributes** on `<song>`; tempo is `timePerTimerTick="229"` +
+  `timerTickFraction="-1342177280"` (= 229.6875 samples/tick × 96 PPQN → 120 BPM), not a
+  `tempo` attribute.
+* Synth params live in the **clip's** `<soundParams>` (kit: `<kitParams>` + per-noteRow
+  `<soundParams>`), not in the instrument's `defaultParams` (that's the preset-file format).
+* Notes are `noteDataWithLift` blobs: per note 11 bytes = pos(8) + length(8) + velocity(2) +
+  lift(2) + probability(2) hex chars; `14` = 100% probability.
+* Kit drums are full `<sound>` elements inside `<soundSources>` with
+  `<osc1 type="sample" loopMode="1" fileName="SAMPLES/..."><zone startSamplePos endSamplePos/>`.
+* `osc1 retrigPhase="0"` in the synth tests pins the start phase so hardware recordings are
+  phase-deterministic and comparable.
+
+`FidelitySongSmokeTest` guards that our own parser + engine also load and sound these files.
+
+---
+
 ## 1. Setup of physical Deluge SD Card
 
 To ensure the hardware uses the exact same sample and preset configurations:
