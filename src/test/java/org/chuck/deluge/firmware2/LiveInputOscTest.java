@@ -26,20 +26,22 @@ class LiveInputOscTest {
     return s;
   }
 
-  /** Render with a synthetic input: left = 400 Hz sine, right = silence. */
-  private double[] renderWithInput(OscType type, boolean deviceConnected) {
+  /** Render with a synthetic input: left = 400 Hz sine, right = silence. Returns {rms, zcrHz}. */
+  private double[] renderWithInput(OscType type, boolean deviceConnected, int note) {
     try {
       LiveInput.lineInPluggedIn = deviceConnected;
       LiveInput.micPluggedIn = false;
       FirmwareSound s = makeInputSound(type);
       FirmwareAudioEngine eng = new FirmwareAudioEngine();
       eng.sounds.add(s);
-      s.triggerNote(60, 100);
+      s.triggerNote(note, 100);
       int[] inputBlock = new int[128 * 2];
       double rms = 0;
       int n = 0;
+      int zc = 0;
+      double prev = 0;
       double phase = 0;
-      for (int b = 0; b < 20; b++) {
+      for (int b = 0; b < 40; b++) {
         for (int i = 0; i < 128; i++) {
           phase += 2 * Math.PI * 400.0 / 44100.0;
           inputBlock[i * 2] = (int) (Math.sin(phase) * 1.0e9); // left
@@ -47,19 +49,27 @@ class LiveInputOscTest {
         }
         LiveInput.currentBlock = inputBlock;
         eng.renderBlock(128);
-        if (b >= 5) {
+        // Measure well past the pitch-shifter's warm-up (it needs to fill its input ring and
+        // settle its hop scheduling before the output is steady).
+        if (b >= 25) {
           for (int i = 0; i < 128; i++) {
             double v = eng.masterBuffer[i].l / 2147483648.0;
             rms += v * v;
+            if (prev <= 0 && v > 0) zc++;
+            prev = v;
             n++;
           }
         }
       }
-      return new double[] {Math.sqrt(rms / n)};
+      return new double[] {Math.sqrt(rms / n), zc * 44100.0 / n};
     } finally {
       LiveInput.currentBlock = null;
       LiveInput.lineInPluggedIn = false;
     }
+  }
+
+  private double[] renderWithInput(OscType type, boolean deviceConnected) {
+    return renderWithInput(type, deviceConnected, 60);
   }
 
   @Test
@@ -78,6 +88,21 @@ class LiveInputOscTest {
     // Stereo condensed to mono: left-only signal halves (l/2 + r/2 with r = 0).
     double stereo = renderWithInput(OscType.INPUT_STEREO, true)[0];
     assertEquals(left / 2, stereo, left * 0.1, "INPUT_STEREO condenses to (l+r)/2");
+
+    // Pitch-shift sub-path (voice.cpp:2236-2274): note 72 = ratio 2.0 — the per-source
+    // LivePitchShifter engages and the 400 Hz input comes out pitched well up. The hop-based
+    // granular shifter's zero-cross average reads below the nominal 2× (hop crossfades cut
+    // cycles; measures ~666 Hz steady), so assert "clearly shifted", not exact.
+    double[] shifted = renderWithInput(OscType.INPUT_L, true, 72);
+    System.out.printf("pitch-shift: rms=%.5f zcr=%.1f Hz (input 400)%n", shifted[0], shifted[1]);
+    assertTrue(shifted[0] > 1e-4, "pitch-shifted input should be audible (rms " + shifted[0] + ")");
+    assertTrue(
+        shifted[1] > 550.0 && shifted[1] < 900.0,
+        "note 72 should clearly shift the 400 Hz input up (got " + shifted[1] + " Hz)");
+
+    // And at the unity note the shifter must NOT engage — output stays at the input pitch.
+    double[] unity = renderWithInput(OscType.INPUT_L, true, 60);
+    assertEquals(400.0, unity[1], 30.0, "unity note must pass the input through unshifted");
 
     // No input published → silence.
     LiveInput.currentBlock = null;

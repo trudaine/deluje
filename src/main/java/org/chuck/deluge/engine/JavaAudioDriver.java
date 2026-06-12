@@ -117,6 +117,7 @@ public class JavaAudioDriver implements Runnable {
       int peak = 0;
       int blockCounter = 0;
 
+      int[] liveInputBlock = new int[BLOCK_SIZE * 2];
       while (running) {
         if (playbackHandler != null) {
           accumulatedTicks += ticksPerSample * BLOCK_SIZE;
@@ -125,6 +126,17 @@ public class JavaAudioDriver implements Runnable {
             playbackHandler.advanceTicks(toAdvance);
             accumulatedTicks -= toAdvance;
           }
+        }
+
+        // Publish the microphone block to the engine's live-input bus (INPUT_* osc sources).
+        // Available whenever the capture line is armed (threshold sampler / live monitor).
+        AudioInputCaptureLine capture = AudioInputCaptureLine.getInstance();
+        if (capture.isArmed() && capture.fillMonitorBlock(liveInputBlock, BLOCK_SIZE)) {
+          org.chuck.deluge.firmware2.LiveInput.micPluggedIn = true;
+          org.chuck.deluge.firmware2.LiveInput.currentBlock = liveInputBlock;
+        } else {
+          org.chuck.deluge.firmware2.LiveInput.currentBlock = null;
+          org.chuck.deluge.firmware2.LiveInput.micPluggedIn = false;
         }
 
         long start = System.nanoTime();
