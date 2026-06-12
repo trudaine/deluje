@@ -5,13 +5,11 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import javax.swing.BorderFactory;
-import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSlider;
 import org.chuck.core.ChuckVM;
-import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.model.ProjectModel;
 
 /**
@@ -75,23 +73,6 @@ public class SwingMasterFxPanel extends JPanel {
     scaleCombo.setFocusable(false);
     add(scaleLabel);
     add(scaleCombo);
-
-    // ── High Fidelity Mode Checkbox ──
-    JCheckBox hiFiCheck = new JCheckBox("HI-FI");
-    hiFiCheck.setForeground(Color.LIGHT_GRAY);
-    hiFiCheck.setFont(new Font("SansSerif", Font.BOLD, 10));
-    hiFiCheck.setOpaque(false);
-    hiFiCheck.setFocusable(false);
-    hiFiCheck.setSelected(vm.getGlobalInt(BridgeContract.G_HI_FI_MODE) != 0);
-    hiFiCheck.addActionListener(
-        e -> {
-          boolean selected = hiFiCheck.isSelected();
-          vm.setGlobalInt(BridgeContract.G_HI_FI_MODE, selected ? 1L : 0L);
-          System.out.println("[UI] High Fidelity Mode: " + selected);
-          org.chuck.deluge.firmware.hid.FirmwareDisplay.get()
-              .displayPopup(selected ? "HI-FI ON" : "HI-FI OFF");
-        });
-    add(hiFiCheck);
 
     // ── Master Compressor Sub-Panel ──
     JPanel compPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 2));

@@ -13,7 +13,7 @@ import org.chuck.deluge.model.SoundDrum;
  *
  * This class serves as the single source of truth for all shared state. The UI writes step data,
  * track parameters, and transport controls into primitive Java arrays and scalar globals; the
- * engine's shreds (sporked by {@code DelugeEngineDSL}) read them every tick via {@link ChuckArray}
+ * engine's shreds (the retired legacy DSL engine) read them every tick via {@link ChuckArray}
  * wrappers that point to these same primitive arrays. No locks are needed because the UI writes
  * between ticks and the engine reads at tick boundaries.
  *
@@ -83,7 +83,6 @@ import org.chuck.deluge.model.SoundDrum;
  * SwingDelugeApp} synchronises the full ProjectModel. 5. The engine's shreds read these arrays on
  * every tick event.
  *
- * @see org.chuck.deluge.engine.DelugeEngineDSL
  * @see org.chuck.deluge.ui.SwingDelugeApp
  */
 public final class BridgeContract {
@@ -113,7 +112,6 @@ public final class BridgeContract {
   public static final String G_LAUNCH_QUEUE = "g_launch_queue";
   public static final String G_CLIP_PLAY_MODE = "g_clip_play_mode";
   public static final String G_QUEUE_STEP = "g_queue_step";
-  public static final String G_HI_FI_MODE = "g_hi_fi_mode";
   public static final String G_CLIP_PLAY_DIRECTION = "g_clip_play_direction";
   public static final String G_TRACK_ID = "g_track_id";
   // ── Transport & Master ─────────────────────────────────────────────────
@@ -762,13 +760,13 @@ public final class BridgeContract {
 
   /**
    * ⚠️ ORPHANED STATE (UI-audit 2026-06-11/12): these arrays were the parameter store for the
-   * retired legacy {@code DelugeEngineDSL} path. The pure engine ({@code PureFirmwareEngine}) reads
-   * NONE of them — it is built from the track MODELS via {@code FirmwareFactory} (knob changes
-   * apply on the next {@code loadProject} rebuild) plus the live sync thread for transport/master
-   * FX. UI dialogs still write here in parallel with the model; only the model write matters. Do
-   * NOT add new state here — extend the model + factory instead. Physical removal (deleting these
-   * arrays, their bridge accessors and the UI write calls) is a pending mechanical refactor; the
-   * only remaining reader is {@code DelugeEngineTest}.
+   * retired legacy DSL engine path. The pure engine ({@code PureFirmwareEngine}) reads NONE of them
+   * — it is built from the track MODELS via {@code FirmwareFactory} (knob changes apply on the next
+   * {@code loadProject} rebuild) plus the live sync thread for transport/master FX. UI dialogs
+   * still write here in parallel with the model; only the model write matters. Do NOT add new state
+   * here — extend the model + factory instead. Physical removal (deleting these arrays, their
+   * bridge accessors and the UI write calls) is a pending mechanical refactor; the only remaining
+   * reader is {@code DelugeEngineTest}.
    */
   static final class SynthData {
     final float[] env = new float[ENV_STRIDE];
@@ -1361,7 +1359,6 @@ public final class BridgeContract {
   private double bpm = 120.0;
   private double stepResolution = 0.25;
   private double swing = 0.5;
-  private int hiFiMode = 0; // 0 = legacy, 1 = high fidelity firmware port
   // ── MIDI Follow Mode scalars ──
   private int followEnabled = 0;
   private int followChA = 0, followChB = 1, followChC = 2;
@@ -1394,7 +1391,6 @@ public final class BridgeContract {
     this.vm = vm;
     vm.setGlobalFloat(G_BPM, bpm);
     vm.setGlobalFloat(G_SWING, swing);
-    vm.setGlobalInt(G_HI_FI_MODE, (long) hiFiMode);
     vm.setGlobalInt(G_PLAY, 0L);
     vm.setGlobalFloat(G_STEP_RESOLUTION, stepResolution);
     vm.setGlobalInt(G_CURRENT_STEP, -1L);
@@ -2552,15 +2548,6 @@ public final class BridgeContract {
     if (t >= 0 && t < TRACKS) {
       trackActivity[t] = val;
     }
-  }
-
-  public void setHiFiMode(int mode) {
-    this.hiFiMode = mode;
-    if (vm != null) vm.setGlobalInt(G_HI_FI_MODE, (long) mode);
-  }
-
-  public int getHiFiMode() {
-    return hiFiMode;
   }
 
   // ── MIDI Follow Mode accessors ──

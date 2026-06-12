@@ -1112,7 +1112,6 @@ public class SwingDelugeApp extends JFrame {
           try (java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
             org.chuck.deluge.model.tuning.ScalaScale scale =
                 org.chuck.deluge.model.tuning.ScalaScaleParser.parse(fis, file.getName());
-            org.chuck.deluge.engine.DelugeEngineDSL.setScalaScale(scale);
             org.chuck.deluge.model.tuning.ScalaScale.setActiveScale(scale);
             System.out.println(
                 "[Preferences] Successfully cabled tuning scale: " + scale.getName());
@@ -2442,19 +2441,6 @@ public class SwingDelugeApp extends JFrame {
           }
         });
 
-    final JCheckBoxMenuItem hifiModeItem = new JCheckBoxMenuItem("High Fidelity Audio");
-    hifiModeItem.setSelected(bridge.getHiFiMode() == 0);
-    hifiModeItem.addActionListener(
-        e -> {
-          int newMode = hifiModeItem.isSelected() ? 0 : 1;
-          bridge.setHiFiMode(newMode);
-          JOptionPane.showMessageDialog(
-              SwingDelugeApp.this,
-              "Audio render engine updated! Please restart workstation to engage the "
-                  + (newMode == 0 ? "ChucK VM High Fidelity" : "Direct Low-Latency JVM")
-                  + " output driver.");
-        });
-
     // Always-on input monitor: opens the microphone and feeds the engine's live-input bus so
     // patches with inLeft/inRight/inStereo oscillator sources monitor the input continuously
     // (without arming the threshold sampler).
@@ -2550,7 +2536,6 @@ public class SwingDelugeApp extends JFrame {
 
     settingsMenu.add(sampleItem);
     settingsMenu.addSeparator();
-    settingsMenu.add(hifiModeItem);
     settingsMenu.add(monitorInputItem);
     settingsMenu.add(midiConfigItem);
     settingsMenu.add(clearMidiItem);
@@ -3002,24 +2987,13 @@ public class SwingDelugeApp extends JFrame {
     org.chuck.core.ChuckVM vm = new org.chuck.core.ChuckVM(44100, 2);
     org.chuck.deluge.BridgeContract bridge = new org.chuck.deluge.BridgeContract();
 
-    // Default to Pure Java (Pure Firmware) direct soundcard output mode by default!
-    boolean pureModeLocal = true;
-    bridge.setHiFiMode(1);
+    // The pure Java firmware engine (PureFirmwareEngine) is the only audio path; the legacy
+    // ChucK DSL engine (--hifi) was deleted.
     System.out.println(
         "[main] Pure Java (Pure Firmware) direct soundcard output ENABLED by default");
 
     boolean runScreenshots = false;
     for (String arg : args) {
-      if ("--hifi".equalsIgnoreCase(arg)) {
-        pureModeLocal = false;
-        bridge.setHiFiMode(1);
-        System.out.println("[main] High Fidelity Mode ENABLED (using ChucK DSL output bridge)");
-      }
-      if ("--pure".equalsIgnoreCase(arg)) {
-        pureModeLocal = true;
-        bridge.setHiFiMode(1);
-        System.out.println("[main] Pure Java Mode ENABLED (Bypassing ChucK DSL)");
-      }
       if ("--screenshot".equalsIgnoreCase(arg)) {
         runScreenshots = true;
       }
@@ -3027,19 +3001,6 @@ public class SwingDelugeApp extends JFrame {
     final boolean finalRunScreenshots = runScreenshots;
 
     bridge.register(vm);
-
-    if (!pureModeLocal) {
-      org.chuck.audio.ChuckAudio audio = new org.chuck.audio.ChuckAudio(vm, 1024, 2, 44100);
-      vm.setAudio(audio);
-      System.out.println("[main] audio.outputLine=" + (audio.isOutputLineReady() ? "OK" : "NULL"));
-      audio.start();
-      System.out.println("[main] audio started, activeShreds=" + vm.getActiveShredCount());
-
-      vm.spork(new org.chuck.deluge.engine.DelugeEngineDSL());
-      System.out.println("[main] engine sporked, activeShreds=" + vm.getActiveShredCount());
-    } else {
-      System.out.println("[main] Pure Mode: Skipping ChucK Audio & DSL.");
-    }
 
     // Give engine time to initialize before UI loads
     try {
@@ -3054,7 +3015,7 @@ public class SwingDelugeApp extends JFrame {
         new org.chuck.deluge.midi.MidiService(vm, bridge, router);
     midiService.start();
 
-    final boolean finalPureMode = pureModeLocal;
+    final boolean finalPureMode = true;
     java.awt.EventQueue.invokeLater(
         () -> {
           javax.swing.UIManager.put(

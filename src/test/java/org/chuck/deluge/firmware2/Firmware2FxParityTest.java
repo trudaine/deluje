@@ -129,30 +129,23 @@ class Firmware2FxParityTest {
    *       → -1, selecting tanH2d row 63 instead of row 0 — a sign flip on sample 0.
    * </ol>
    *
-   * fw2's Compressor matches the C on both. So instead of comparing to the buggy firmware/, we
-   * assert the C contract that fw2 must honor and firmware/ breaks.
+   * fw2's Compressor matches the C on both. So instead of comparing to the buggy firmware/ (whose
+   * 2× interp2d + TanHLookupTable were deleted in the legacy sweep — the divergence was proven here
+   * before deletion), we assert the C contract that fw2 must honor.
    */
   @Test
   void compressorInterp2dHonorsCContract() {
     Random r = new Random(99);
     long maxFw2 = 0;
-    long maxFw = 0;
     for (int n = 0; n < 200_000; n++) {
       int x = r.nextInt();
       int y = r.nextInt();
       int c = Functions.interpolateTableSigned2d(x, y, 32, 32, LookupTables.tanH2d, 7, 6);
-      int f =
-          org.chuck.deluge.firmware.util.FirmwareUtils.interpolateTableSigned2d(
-              x, y, 32, 32, org.chuck.deluge.firmware.util.TanHLookupTable.tanH2d, 7, 6);
       maxFw2 = Math.max(maxFw2, Math.abs((long) c));
-      maxFw = Math.max(maxFw, Math.abs((long) f));
     }
     // C: util/functions.h:235 — interpolateTableSigned2d output is only ±1073741824 (half-scale).
     org.junit.jupiter.api.Assertions.assertTrue(
         maxFw2 <= 1073741824L, "fw2 interp2d must honor the C ±2^30 contract; was " + maxFw2);
-    // firmware/ violates it (runs to ~2^31) — confirming it is the non-faithful side.
-    org.junit.jupiter.api.Assertions.assertTrue(
-        maxFw > 1073741824L, "firmware/ interp2d is expected to exceed the C bound; was " + maxFw);
   }
 
   /**
@@ -227,31 +220,12 @@ class Firmware2FxParityTest {
     }
   }
 
-  /**
-   * AbsValueFollower (float). Uses double-precision exp/log on both sides, so compare with a small
-   * relative epsilon rather than bit-exact.
+  /*
+   * AbsValueFollower parity was verified block-for-block (1e-3 relative epsilon on the
+   * double-precision exp/log path) against firmware/dsp/envelope_follower before that package was
+   * deleted in the legacy sweep (verification landed in d7489594). The fw2 AbsValueFollower is the
+   * proven-faithful side; no replacement test is needed.
    */
-  @Test
-  void absValueFollowerMatchesFirmware() {
-    org.chuck.deluge.firmware.dsp.envelope_follower.AbsValueFollower oldF =
-        new org.chuck.deluge.firmware.dsp.envelope_follower.AbsValueFollower();
-    AbsValueFollower newF = new AbsValueFollower();
-    oldF.setup(5 << 24, 5 << 24);
-    newF.setup(5 << 24, 5 << 24);
-
-    Random r = new Random(321);
-    StereoSample[] a = newBuf();
-    int[][] b = new int[N][2];
-    for (int blk = 0; blk < BLOCKS; blk++) {
-      fill(r, a, b);
-      org.chuck.deluge.firmware.dsp.StereoFloatSample outOld = oldF.calcApproxRMS(a);
-      float[] outNew = newF.calcApproxRMS(b);
-      org.junit.jupiter.api.Assertions.assertEquals(
-          outOld.l, outNew[0], 1e-3f, "AbsRMS L block " + blk);
-      org.junit.jupiter.api.Assertions.assertEquals(
-          outOld.r, outNew[1], 1e-3f, "AbsRMS R block " + blk);
-    }
-  }
 
   /**
    * GranularProcessor.toPositive must be the C {@code (a / 2) + 2^30} (fixedpoint.h:37) — signed

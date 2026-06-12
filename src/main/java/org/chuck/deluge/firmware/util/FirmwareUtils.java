@@ -301,16 +301,6 @@ public class FirmwareUtils {
     return sum << 1;
   }
 
-  public static int getTanHAntialiased(int input, int[] lastWorkingValue, int saturationAmount) {
-    int workingValue = (int) (lshiftAndSaturateUnknown(input, saturationAmount) + 2147483648L);
-    int toReturn =
-        interpolateTableSigned2d(
-                workingValue, lastWorkingValue[0], 32, 32, TanHLookupTable.tanH2d, 7, 6)
-            >> (saturationAmount + 1);
-    lastWorkingValue[0] = workingValue;
-    return toReturn;
-  }
-
   public static int interpolateTableSigned2d(
       int inputX,
       int inputY,
