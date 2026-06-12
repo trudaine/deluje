@@ -571,6 +571,7 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
 
   private org.chuck.deluge.firmware2.Oscillator.OscType fw2OscType(
       org.chuck.deluge.firmware.dsp.oscillators.OscType t) {
+    if (t == null) return null;
     return switch (t) {
       case SINE -> org.chuck.deluge.firmware2.Oscillator.OscType.SINE;
       case SAW -> org.chuck.deluge.firmware2.Oscillator.OscType.SAW;

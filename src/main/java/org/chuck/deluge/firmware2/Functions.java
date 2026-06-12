@@ -595,6 +595,7 @@ public final class Functions {
    * base when a retrigger phase is applied).
    */
   public static int getOscInitialPhaseForZero(Oscillator.OscType waveType) {
+    if (waveType == null) return 0;
     switch (waveType) {
       case TRIANGLE:
         return 1073741824;

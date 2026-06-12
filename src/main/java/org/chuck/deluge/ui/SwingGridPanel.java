@@ -1693,7 +1693,7 @@ public class SwingGridPanel extends JPanel {
               e -> {
                 Window owner = SwingUtilities.getWindowAncestor(rowPanel);
                 SwingKitConfigDialog dialog =
-                    new SwingKitConfigDialog((Frame) owner, kitTrack, vm, bridge);
+                    new SwingKitConfigDialog((Frame) owner, kitTrack, vm, bridge, editedModelTrack);
                 dialog.setSelectedTab(soundIndex);
                 dialog.setVisible(true);
               });
@@ -1720,7 +1720,7 @@ public class SwingGridPanel extends JPanel {
           e -> {
             Frame owner = (Frame) javax.swing.SwingUtilities.getWindowAncestor(SwingGridPanel.this);
             if (track instanceof org.chuck.deluge.model.KitTrackModel kitTrack) {
-              new SwingKitConfigDialog(owner, kitTrack, vm, bridge).setVisible(true);
+              new SwingKitConfigDialog(owner, kitTrack, vm, bridge, modelRow).setVisible(true);
             } else if (track instanceof org.chuck.deluge.model.SynthTrackModel synthTrack) {
               new SwingSynthConfigDialog(owner, synthTrack, vm, bridge, modelRow, projectModel)
                   .setVisible(true);
@@ -4347,7 +4347,7 @@ public class SwingGridPanel extends JPanel {
                 Frame owner =
                     (Frame) javax.swing.SwingUtilities.getWindowAncestor(SwingGridPanel.this);
                 if (track instanceof org.chuck.deluge.model.KitTrackModel kitTrack) {
-                  new SwingKitConfigDialog(owner, kitTrack, vm, bridge).setVisible(true);
+                  new SwingKitConfigDialog(owner, kitTrack, vm, bridge, trk).setVisible(true);
                 } else if (track instanceof org.chuck.deluge.model.SynthTrackModel synthTrack) {
                   new SwingSynthConfigDialog(owner, synthTrack, vm, bridge, trk, projectModel)
                       .setVisible(true);

@@ -904,167 +904,13 @@ public class FirmwareFactory {
     clip.loopLength = 16 * 24;
 
     File sdRoot = PreferencesManager.getLibraryDir();
-
     int drumIdx = 0;
     for (Drum d : model.getDrums()) {
       if (drumIdx >= kit.drumSounds.size()) break;
       if (d instanceof SoundDrum sd) {
         FirmwareSound drumSound = kit.drumSounds.get(drumIdx);
-        drumSound.isDrum = true;
-        drumSound.oscTypes[0] = OscType.SAMPLE;
-        drumSound
-                .paramNeutralValues[
-                org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_A_VOLUME] =
-            org.chuck.deluge.firmware.util.Q31.ONE;
-        // LOCAL_VOLUME at max so the overall amplitude envelope is as loud as possible
-        // for a single drum hit (C initParams sets 0 = center, but drums want full volume).
-        drumSound
-                .paramNeutralValues[
-                org.chuck.deluge.firmware.modulation.params.Param.LOCAL_VOLUME] =
-            org.chuck.deluge.firmware.util.Q31.ONE;
-        // C: source B and noise are off for drums — only source 0 (the sample) renders.
-        // INT_MIN (off) produces 0 through the patcher volume curve; 0 produces 268435456
-        // (≈0.125×), so EVERY drum had a sine osc B audible, masking the sample.
-        drumSound
-                .paramNeutralValues[
-                org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_B_VOLUME] =
-            Integer.MIN_VALUE;
-        drumSound
-                .paramNeutralValues[
-                org.chuck.deluge.firmware.modulation.params.Param.LOCAL_NOISE_VOLUME] =
-            Integer.MIN_VALUE;
-        drumSound.osc1RetriggerPhase = sd.getOsc1RetrigPhase();
-        drumSound.osc2RetriggerPhase = sd.getOsc2RetrigPhase();
-        drumSound.mod1RetrigPhase = sd.getMod1RetrigPhase();
-        drumSound.mod2RetrigPhase = sd.getMod2RetrigPhase();
-        drumSound.sidechainSend = (int) (sd.getSidechainSend() * 2147483647.0);
-
-        // Per-drum modulation FX (same mapping as synth sounds).
-        drumSound.modFXType = stringToModFXType(sd.getModFxType());
-        drumSound.modFXRateIncrement = (int) ((double) sd.getModFxRate() * 4294967296.0 / 44100.0);
-        drumSound.modFXDepth = (int) (clamp01(sd.getModFxDepth()) * 2147483647.0);
-        drumSound.modFXOffset = (int) (clamp01(sd.getModFxOffset()) * 2147483647.0);
-        drumSound.modFXFeedback = (int) (clamp01(sd.getModFxFeedback()) * 2147483647.0);
-        drumSound.bitcrushParam = normToBipolarParam(sd.getBitCrush());
-        drumSound.srrParam = normToBipolarParam(sd.getSampleRateReduction());
-        drumSound.eqBassParam = dbToBipolarParam(sd.getEqBass());
-        drumSound.eqTrebleParam = dbToBipolarParam(sd.getEqTreble());
-
-        // ── Sample playback settings (source 0) ──
-        drumSound.sampleSettings[0].reverse = sd.isReverse();
-        if (sd.getStartSamplePos() >= 0)
-          drumSound.sampleSettings[0].startPoint = sd.getStartSamplePos();
-        if (sd.getEndSamplePos() >= 0) drumSound.sampleSettings[0].endPoint = sd.getEndSamplePos();
-        if (sd.getStartLoopPos() >= 0) drumSound.sampleSettings[0].loopStart = sd.getStartLoopPos();
-        if (sd.getEndLoopPos() >= 0) drumSound.sampleSettings[0].loopEnd = sd.getEndLoopPos();
-        drumSound.sampleSettings[0].transpose = (int) sd.getPitchSemitones();
-
-        // ── Second source (osc B / sample) ──
-        if (sd.getOsc2Type() != null && !sd.getOsc2Type().equalsIgnoreCase("NONE")) {
-          drumSound
-                  .paramNeutralValues[
-                  org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_B_VOLUME] =
-              org.chuck.deluge.firmware.util.Q31.ONE; // enable second source
-          drumSound.oscTypes[1] = stringToOscType(sd.getOsc2Type());
-        }
-
-        // ── Envelope (amp envelope 0) ──
-        var env = sd.getAdsr();
-        drumSound
-                .paramNeutralValues[
-                org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_ATTACK] =
-            org.chuck.deluge.firmware2.Functions.getParamFromUserValue(
-                org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_ATTACK,
-                (int) (env.attack() * 50));
-        drumSound
-                .paramNeutralValues[
-                org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_DECAY] =
-            org.chuck.deluge.firmware2.Functions.getParamFromUserValue(
-                org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_DECAY,
-                (int) (env.decay() * 50));
-        drumSound
-                .paramNeutralValues[
-                org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_SUSTAIN] =
-            org.chuck.deluge.firmware2.Functions.getParamFromUserValue(
-                org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_SUSTAIN,
-                (int) (env.sustain() * 50));
-        drumSound
-                .paramNeutralValues[
-                org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_RELEASE] =
-            org.chuck.deluge.firmware2.Functions.getParamFromUserValue(
-                org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_RELEASE,
-                (int) (env.release() * 50));
-
-        // ── Filter ──
-        drumSound
-                .paramNeutralValues[
-                org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_FREQ] =
-            (int) (sd.getLpfFreq() / 22050.0f * 2147483647.0f);
-        drumSound
-                .paramNeutralValues[
-                org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_RESONANCE] =
-            (int) (sd.getLpfRes() * 2147483647.0f);
-
-        // ── Polyphony / priority / clipping ──
-        drumSound.polyphonic = toPolyphonyMode(sd.getPolyphony());
-        drumSound.numUnison = sd.getUnisonNum();
-        drumSound.unisonDetune = (int) sd.getUnisonDetune();
-        drumSound.unisonStereoSpread = (int) sd.getUnisonStereoSpread();
-
-        // Map per-lane step automation from the ClipModel to the drum sound's ParamManager
-        if (!model.getClips().isEmpty()) {
-          org.chuck.deluge.model.ClipModel clipModel = model.getClips().get(0);
-          int stepTicks = clipModel.isTripletMode() ? 32 : 24;
-          java.util.Map<String, float[]> rowAutos = clipModel.getRowAutomationData().get(drumIdx);
-          if (rowAutos != null) {
-            for (java.util.Map.Entry<String, float[]> entry : rowAutos.entrySet()) {
-              int paramId = getParamIdFromName(entry.getKey());
-              if (paramId != -1) {
-                float[] array = entry.getValue();
-                for (int s = 0; s < array.length; s++) {
-                  if (array[s] > 0.0f) {
-                    int q31Val = (int) (array[s] * 2147483647.0);
-                    int pos = s * stepTicks;
-                    drumSound.paramManager.recordParamValue(paramId, q31Val, pos);
-                  }
-                }
-              }
-            }
-          }
-        }
-
-        String path = sd.getSamplePath();
-        if (path != null && !path.isEmpty()) {
-          File f = resolveSample(path, sdRoot);
-          if (f != null && f.exists()) {
-            try {
-              Sample s = AudioFileReader.readSample(f.getAbsolutePath());
-              if (s != null) {
-                drumSound.samples[0] = s;
-                drumSound.fw2SampleCache[0] =
-                    org.chuck.deluge.firmware2.Sample.fromFirmwareSample(s);
-                System.out.println(
-                    "[DIAG] Sample: "
-                        + s.fileName
-                        + " size="
-                        + s.data.length
-                        + " first10="
-                        + java.util.Arrays.toString(
-                            java.util.Arrays.copyOfRange(s.data, 0, Math.min(s.data.length, 10))));
-                System.out.println(
-                    "[FirmwareFactory] Loaded sample: "
-                        + f.getName()
-                        + " (size: "
-                        + s.getNumSamples()
-                        + ")");
-              }
-            } catch (IOException e) {
-              System.err.println("[FirmwareFactory] Failed to load kit sample: " + path);
-            }
-          } else {
-            System.err.println("[FirmwareFactory] Sample NOT FOUND: " + path);
-          }
-        }
+        mapDrumToSound(sd, drumSound, drumIdx, model);
+        loadDrumResources(sd, drumSound);
       }
       drumIdx++;
     }
@@ -1237,6 +1083,157 @@ public class FirmwareFactory {
       if (clip.sequenceDirectionMode == org.chuck.deluge.firmware.model.SequenceDirection.REVERSE) {
         clip.currentlyPlayingReversed = true;
       }
+    }
+  }
+
+  public static void applyModelToLiveSound(KitTrackModel model, FirmwareKit kit) {
+    int drumIdx = 0;
+    for (Drum d : model.getDrums()) {
+      if (drumIdx >= kit.drumSounds.size()) break;
+      if (d instanceof SoundDrum sd) {
+        FirmwareSound drumSound = kit.drumSounds.get(drumIdx);
+        synchronized (drumSound) {
+          mapDrumToSound(sd, drumSound, drumIdx, model);
+        }
+        loadDrumResources(sd, drumSound);
+      }
+      drumIdx++;
+    }
+  }
+
+  public static void mapDrumToSound(
+      SoundDrum sd, FirmwareSound drumSound, int drumIdx, KitTrackModel model) {
+    drumSound.paramManager.automatedParams.clear();
+    drumSound.paramManager.getPatchCableSet().destinations.clear();
+
+    drumSound.isDrum = true;
+    drumSound.oscTypes[0] = OscType.SAMPLE;
+    drumSound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = org.chuck.deluge.firmware.util.Q31.ONE;
+    drumSound.paramNeutralValues[Param.LOCAL_VOLUME] = org.chuck.deluge.firmware.util.Q31.ONE;
+    drumSound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
+    drumSound.paramNeutralValues[Param.LOCAL_NOISE_VOLUME] = Integer.MIN_VALUE;
+    drumSound.osc1RetriggerPhase = sd.getOsc1RetrigPhase();
+    drumSound.osc2RetriggerPhase = sd.getOsc2RetrigPhase();
+    drumSound.mod1RetrigPhase = sd.getMod1RetrigPhase();
+    drumSound.mod2RetrigPhase = sd.getMod2RetrigPhase();
+    drumSound.sidechainSend = (int) (sd.getSidechainSend() * 2147483647.0);
+
+    // Per-drum modulation FX
+    drumSound.modFXType = stringToModFXType(sd.getModFxType());
+    drumSound.modFXRateIncrement = (int) ((double) sd.getModFxRate() * 4294967296.0 / 44100.0);
+    drumSound.modFXDepth = (int) (clamp01(sd.getModFxDepth()) * 2147483647.0);
+    drumSound.modFXOffset = (int) (clamp01(sd.getModFxOffset()) * 2147483647.0);
+    drumSound.modFXFeedback = (int) (clamp01(sd.getModFxFeedback()) * 2147483647.0);
+    drumSound.bitcrushParam = normToBipolarParam(sd.getBitCrush());
+    drumSound.srrParam = normToBipolarParam(sd.getSampleRateReduction());
+    drumSound.eqBassParam = dbToBipolarParam(sd.getEqBass());
+    drumSound.eqTrebleParam = dbToBipolarParam(sd.getEqTreble());
+
+    // Sample playback settings
+    drumSound.sampleSettings[0].reverse = sd.isReverse();
+    if (sd.getStartSamplePos() >= 0) {
+      drumSound.sampleSettings[0].startPoint = sd.getStartSamplePos();
+    }
+    if (sd.getEndSamplePos() >= 0) {
+      drumSound.sampleSettings[0].endPoint = sd.getEndSamplePos();
+    }
+    if (sd.getStartLoopPos() >= 0) {
+      drumSound.sampleSettings[0].loopStart = sd.getStartLoopPos();
+    }
+    if (sd.getEndLoopPos() >= 0) {
+      drumSound.sampleSettings[0].loopEnd = sd.getEndLoopPos();
+    }
+    drumSound.sampleSettings[0].transpose = (int) sd.getPitchSemitones();
+
+    // Second source
+    if (sd.getOsc2Type() != null && !sd.getOsc2Type().equalsIgnoreCase("NONE")) {
+      drumSound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] =
+          org.chuck.deluge.firmware.util.Q31.ONE;
+      drumSound.oscTypes[1] = stringToOscType(sd.getOsc2Type());
+    } else {
+      drumSound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
+      drumSound.oscTypes[1] = null;
+    }
+
+    // Envelope
+    var env = sd.getAdsr();
+    drumSound.paramNeutralValues[Param.LOCAL_ENV_0_ATTACK] =
+        org.chuck.deluge.firmware2.Functions.getParamFromUserValue(
+            Param.LOCAL_ENV_0_ATTACK, (int) (env.attack() * 50));
+    drumSound.paramNeutralValues[Param.LOCAL_ENV_0_DECAY] =
+        org.chuck.deluge.firmware2.Functions.getParamFromUserValue(
+            Param.LOCAL_ENV_0_DECAY, (int) (env.decay() * 50));
+    drumSound.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN] =
+        org.chuck.deluge.firmware2.Functions.getParamFromUserValue(
+            Param.LOCAL_ENV_0_SUSTAIN, (int) (env.sustain() * 50));
+    drumSound.paramNeutralValues[Param.LOCAL_ENV_0_RELEASE] =
+        org.chuck.deluge.firmware2.Functions.getParamFromUserValue(
+            Param.LOCAL_ENV_0_RELEASE, (int) (env.release() * 50));
+
+    // Filter
+    drumSound.paramNeutralValues[Param.LOCAL_LPF_FREQ] =
+        (int) (sd.getLpfFreq() / 22050.0f * 2147483647.0f);
+    drumSound.paramNeutralValues[Param.LOCAL_LPF_RESONANCE] =
+        (int) (sd.getLpfRes() * 2147483647.0f);
+
+    // Polyphony / unison
+    drumSound.polyphonic = toPolyphonyMode(sd.getPolyphony());
+    drumSound.numUnison = sd.getUnisonNum();
+    drumSound.unisonDetune = (int) sd.getUnisonDetune();
+    drumSound.unisonStereoSpread = (int) sd.getUnisonStereoSpread();
+
+    // Map step automation
+    if (model != null && !model.getClips().isEmpty()) {
+      org.chuck.deluge.model.ClipModel clipModel = model.getClips().get(0);
+      int stepTicks = clipModel.isTripletMode() ? 32 : 24;
+      java.util.Map<String, float[]> rowAutos = clipModel.getRowAutomationData().get(drumIdx);
+      if (rowAutos != null) {
+        for (java.util.Map.Entry<String, float[]> entry : rowAutos.entrySet()) {
+          int paramId = getParamIdFromName(entry.getKey());
+          if (paramId != -1) {
+            float[] array = entry.getValue();
+            for (int s = 0; s < array.length; s++) {
+              if (array[s] > 0.0f) {
+                int q31Val = (int) (array[s] * 2147483647.0);
+                int pos = s * stepTicks;
+                drumSound.paramManager.recordParamValue(paramId, q31Val, pos);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  public static void loadDrumResources(SoundDrum sd, FirmwareSound drumSound) {
+    File sdRoot = PreferencesManager.getLibraryDir();
+    String path = sd.getSamplePath();
+    boolean wantsFile = path != null && !path.isEmpty();
+    if (!wantsFile) {
+      drumSound.loadedOscPath[0] = null;
+      return;
+    }
+    String key = "SAMPLE:" + path;
+    if (key.equals(drumSound.loadedOscPath[0])) {
+      return; // already loaded
+    }
+    File f = resolveSample(path, sdRoot);
+    if (f == null || !f.exists()) {
+      return;
+    }
+    try {
+      Sample smp = AudioFileReader.readSample(f.getAbsolutePath());
+      if (smp != null) {
+        var fw2Smp = org.chuck.deluge.firmware2.Sample.fromFirmwareSample(smp);
+        synchronized (drumSound) {
+          drumSound.samples[0] = smp;
+          drumSound.fw2SampleCache[0] = fw2Smp;
+        }
+        drumSound.loadedOscPath[0] = key;
+        System.out.println("[FirmwareFactory] Loaded drum sample: " + f.getName());
+      }
+    } catch (IOException e) {
+      System.err.println("[FirmwareFactory] Failed to load drum sample: " + path);
     }
   }
 }
