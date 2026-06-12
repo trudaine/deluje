@@ -185,7 +185,8 @@ public class PureFirmwareEngine {
     for (org.chuck.deluge.firmware2.GlobalEffectable sound : audioEngine.sounds) {
       if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound fsArp) {
         int div = fsArp.arpDivision > 0 ? fsArp.arpDivision : 16;
-        double stepSamples = (4.0 / div) * beatSec * 44100.0;
+        double rateMul = (fsArp.arpRateMultiplier > 0.01f) ? fsArp.arpRateMultiplier : 1.0;
+        double stepSamples = (4.0 / div) * beatSec * 44100.0 / rateMul;
         fsArp.arpPhaseIncrement = (stepSamples > 1) ? (int) (4294967296.0 / stepSamples) : 0;
         fsArp.currentBpm = currentBpm; // for granular grain timing
       }
@@ -219,12 +220,10 @@ public class PureFirmwareEngine {
       for (org.chuck.deluge.firmware2.GlobalEffectable sound : audioEngine.sounds) {
         if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound fs) {
           fs.paramNeutralValues[Param.LOCAL_VOLUME] = (int) (spVol * 2147483647.0);
-          fs.paramNeutralValues[Param.LOCAL_LPF_FREQ] =
-              (int) (spLpfFreq / 20000.0f * 2147483647.0);
+          fs.paramNeutralValues[Param.LOCAL_LPF_FREQ] = (int) (spLpfFreq / 20000.0f * 2147483647.0);
           fs.paramNeutralValues[Param.LOCAL_LPF_RESONANCE] = (int) (spLpfRes * 2147483647.0);
           fs.paramNeutralValues[Param.LOCAL_LPF_MORPH] = (int) (spLpfMorph * 2147483647.0);
-          fs.paramNeutralValues[Param.LOCAL_HPF_FREQ] =
-              (int) (spHpfFreq / 20000.0f * 2147483647.0);
+          fs.paramNeutralValues[Param.LOCAL_HPF_FREQ] = (int) (spHpfFreq / 20000.0f * 2147483647.0);
           fs.paramNeutralValues[Param.LOCAL_HPF_RESONANCE] = (int) (spHpfRes * 2147483647.0);
           fs.paramNeutralValues[Param.LOCAL_HPF_MORPH] = (int) (spHpfMorph * 2147483647.0);
         }

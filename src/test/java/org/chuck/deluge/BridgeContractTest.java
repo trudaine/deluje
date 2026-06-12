@@ -83,32 +83,6 @@ class BridgeContractTest {
   }
 
   @Test
-  void testEnvArraySize() {
-    ChuckArray envArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_ENV);
-    assertNotNull(envArr);
-    // 4 envelopes × 4 params = 16 slots
-    for (int e = 0; e < BridgeContract.ENV_COUNT; e++) {
-      int base = e * BridgeContract.ENV_PARAMS;
-      assertEquals(0.01, envArr.getFloat(base + 0), 0.001, "env" + e + " attack");
-      assertEquals(0.1, envArr.getFloat(base + 1), 0.001, "env" + e + " decay");
-      assertEquals(0.7, envArr.getFloat(base + 2), 0.001, "env" + e + " sustain");
-      assertEquals(0.2, envArr.getFloat(base + 3), 0.001, "env" + e + " release");
-    }
-  }
-
-  @Test
-  void testLfoArraySize() {
-    ChuckArray rateArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_RATE);
-    ChuckArray typeArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_TYPE);
-    assertNotNull(rateArr);
-    assertNotNull(typeArr);
-    for (int l = 0; l < BridgeContract.LFO_COUNT; l++) {
-      assertEquals(1.0, rateArr.getFloat(l), 0.001, "lfo" + l + " default rate");
-      assertEquals(0L, typeArr.getInt(l), "lfo" + l + " default type = SINE");
-    }
-  }
-
-  @Test
   void testSetStepAndSnapshot() {
     bridge.setStep(0, 0, true);
     bridge.setStep(0, 4, true);

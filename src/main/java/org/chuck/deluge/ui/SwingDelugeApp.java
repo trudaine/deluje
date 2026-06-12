@@ -19,7 +19,6 @@ import org.chuck.deluge.model.ClipModel;
 import org.chuck.deluge.model.Consequence;
 import org.chuck.deluge.model.EnvelopeModel;
 import org.chuck.deluge.model.KitTrackModel;
-import org.chuck.deluge.model.LfoModel;
 import org.chuck.deluge.model.PatternModel;
 import org.chuck.deluge.model.SynthTrackModel;
 
@@ -572,26 +571,6 @@ public class SwingDelugeApp extends JFrame {
               pushKitEnv(engineRow, 2, snd.getEnv3());
               pushKitEnv(engineRow, 3, snd.getEnv4());
 
-              // ── Kit LFOs: distribute per-sound LFO1/2 across global LFO slots ──
-              int lfoBase = Math.min(v * 2, BridgeContract.LFO_COUNT - 2);
-              LfoModel lfo1 = snd.getLfo1();
-              if (lfo1 != null && lfoBase < BridgeContract.LFO_COUNT) {
-                bridge.setLfo(
-                    lfoBase,
-                    lfo1.rateHz(),
-                    lfo1.waveform().ordinal(),
-                    lfo1.depth(),
-                    lfo1.syncLevel());
-              }
-              LfoModel lfo2 = snd.getLfo2();
-              if (lfo2 != null && lfoBase + 1 < BridgeContract.LFO_COUNT) {
-                bridge.setLfo(
-                    lfoBase + 1,
-                    lfo2.rateHz(),
-                    lfo2.waveform().ordinal(),
-                    lfo2.depth(),
-                    lfo2.syncLevel());
-              }
             } catch (Exception ex) {
               System.err.println(
                   "[pushModel] kit param error at row " + engineRow + ": " + ex.getMessage());
@@ -678,174 +657,14 @@ public class SwingDelugeApp extends JFrame {
           bridge.setMaxVoices(startRow + v, synth.getMaxVoiceCount());
         }
 
-        // Push ADSR envelopes (4 envs) to ALL rows of this track
-        for (int e = 0; e < 4; e++) {
-          org.chuck.deluge.model.EnvelopeModel adsr = synth.getEnv(e);
-          if (adsr != null) {
-            for (int v = 0; v < totalSynthRows; v++) {
-              bridge.setEnv(
-                  startRow + v, e, adsr.attack(), adsr.decay(), adsr.sustain(), adsr.release());
-            }
-          }
-        }
-
-        // Push LFO params (4 LFOs) — global per track, shared by all rows
-        org.chuck.core.ChuckArray lfoRateArr =
-            (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_RATE);
-        org.chuck.core.ChuckArray lfoTypeArr =
-            (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_TYPE);
-        org.chuck.core.ChuckArray lfoDepthArr =
-            (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_DEPTH);
-        org.chuck.core.ChuckArray lfoSyncArr =
-            (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_LFO_SYNC_LEVEL);
-        for (int l = 0; l < 4; l++) {
-          org.chuck.deluge.model.LfoModel lfo = synth.getLfo(l);
-          if (lfo != null) {
-            if (lfoRateArr != null) lfoRateArr.setFloat(l, lfo.rateHz());
-            if (lfoTypeArr != null) lfoTypeArr.setInt(l, (long) lfo.waveform().ordinal());
-            if (lfoDepthArr != null) lfoDepthArr.setFloat(l, lfo.depth());
-            if (lfoSyncArr != null) lfoSyncArr.setInt(l, (long) lfo.syncLevel());
-          }
-        }
-
-        // Push arp params to ALL rows
-        org.chuck.deluge.model.ArpModel arp = synth.getArp();
-        if (arp != null) {
-          int arpMode =
-              switch (arp.mode()) {
-                case "DOWN" -> 1;
-                case "UP_DOWN" -> 2;
-                case "RANDOM" -> 3;
-                case "WALK" -> 4;
-                default -> 0; // UP
-              };
-          int arpNoteMode =
-              switch (arp.noteMode()) {
-                case "DOWN" -> 1;
-                case "UPDN" -> 2;
-                case "RAND" -> 3;
-                case "WLK1" -> 4;
-                case "WLK2" -> 5;
-                case "WLK3" -> 6;
-                case "PLAY" -> 7;
-                case "PATT" -> 8;
-                default -> 0; // UP
-              };
-          int arpOctaveMode =
-              switch (arp.octaveMode()) {
-                case "DOWN" -> 1;
-                case "UPDN" -> 2;
-                case "ALT" -> 3;
-                case "RAND" -> 4;
-                default -> 0; // UP
-              };
-          for (int v = 0; v < totalSynthRows; v++) {
-            bridge.setArpOn(startRow + v, arp.active());
-            bridge.setArpRate(startRow + v, arp.rate());
-            bridge.setArpOctave(startRow + v, arp.octaves());
-            bridge.setArpMode(startRow + v, arpMode);
-            bridge.setArpGate(startRow + v, arp.gate());
-            bridge.setArpSyncLevel(startRow + v, arp.syncLevel());
-            bridge.setArpNoteMode(startRow + v, arpNoteMode);
-            bridge.setArpOctaveMode(startRow + v, arpOctaveMode);
-            bridge.setArpStepRepeat(startRow + v, arp.stepRepeat());
-            bridge.setArpRhythm(startRow + v, arp.rhythmIndex());
-            bridge.setArpSeqLength(startRow + v, arp.seqLength());
-            bridge.setArpOctaveSpread(startRow + v, arp.octaveSpread());
-            bridge.setArpGateSpread(startRow + v, arp.gateSpread());
-            bridge.setArpVelSpread(startRow + v, arp.velSpread());
-            bridge.setArpRatchet(startRow + v, arp.ratchetAmount());
-            bridge.setArpNoteProbability(startRow + v, arp.noteProbability());
-            bridge.setArpChordPoly(startRow + v, arp.chordPolyphony());
-            bridge.setArpChordProb(startRow + v, arp.chordProbability());
-          }
-        }
-
-        // Push synth algorithm to ALL rows
-        for (int v = 0; v < totalSynthRows; v++) {
-          bridge.setSynthAlgo(startRow + v, synth.getSynthAlgorithm());
-        }
-
-        // Push synth mode, FM params, HPF, polyphony to ALL rows
-        for (int v = 0; v < totalSynthRows; v++) {
-          bridge.setSynthMode(startRow + v, synth.getSynthMode());
-          bridge.setFmRatio(startRow + v, synth.getFmRatio());
-          bridge.setFmAmount(startRow + v, synth.getFmAmount());
-          bridge.setMod1Fb(startRow + v, synth.getModulator1Feedback());
-          bridge.setMod2Amt(startRow + v, synth.getModulator2Amount());
-          bridge.setMod2Fb(startRow + v, synth.getModulator2Feedback());
-          bridge.setCarrier1Fb(startRow + v, synth.getCarrier1Feedback());
-          bridge.setCarrier2Fb(startRow + v, synth.getCarrier2Feedback());
-          bridge.setHpfFreq(startRow + v, synth.getHpfFreq());
-          bridge.setHpfRes(startRow + v, synth.getHpfRes());
-          bridge.setHpfMorph(startRow + v, synth.getHpfMorph());
-          bridge.setHpfMode(startRow + v, synth.getHpfMode().ordinal());
-          bridge.setHpfFm(startRow + v, synth.getHpfFm());
-          bridge.setPolyphony(startRow + v, synth.getPolyphony().ordinal());
-        }
-
         // ── Push new synth fields (volume, pan, oscMix, noise, unison, modFX, etc.) ──
         for (int v = 0; v < totalSynthRows; v++) {
           bridge.setTrackLevel(startRow + v, synth.getVolume());
         }
         for (int v = 0; v < totalSynthRows; v++) {
-          bridge.setTrackPan(startRow + v, synth.getPan());
-        }
-        for (int v = 0; v < totalSynthRows; v++) {
-          bridge.setOscMix(startRow + v, synth.getOscMix());
-        }
-        for (int v = 0; v < totalSynthRows; v++) {
-          bridge.setNoiseVol(startRow + v, synth.getNoiseVol());
-        }
-        for (int v = 0; v < totalSynthRows; v++) {
-          bridge.setUnisonNum(startRow + v, synth.getUnisonNum());
-          bridge.setUnisonDetune(startRow + v, synth.getUnisonDetune());
-          bridge.setUnisonSpread(startRow + v, synth.getUnisonStereoSpread());
-        }
-        for (int v = 0; v < totalSynthRows; v++) {
-          bridge.setModFxType(startRow + v, modFxTypeOrdinal(synth.getModFxType()));
-          bridge.setModFxRate(startRow + v, synth.getModFxRate());
-          bridge.setModFxDepth(startRow + v, synth.getModFxDepth());
-          bridge.setModFxFeedback(startRow + v, synth.getModFxFeedback());
-          bridge.setModFxOffset(startRow + v, synth.getModFxOffset());
-        }
-        for (int v = 0; v < totalSynthRows; v++) {
-          bridge.setPortamento(startRow + v, synth.getPortamento());
-        }
-        for (int v = 0; v < totalSynthRows; v++) {
-          bridge.setEqBass(startRow + v, synth.getEqBass());
-          bridge.setEqTreble(startRow + v, synth.getEqTreble());
-        }
-        for (int v = 0; v < totalSynthRows; v++) {
-          bridge.setStutterRate(startRow + v, synth.getStutterRate());
-          bridge.setSampleRateReduction(startRow + v, synth.getSampleRateReduction());
-          bridge.setBitCrush(startRow + v, synth.getBitCrush());
-        }
-        for (int v = 0; v < totalSynthRows; v++) {
-          bridge.setCompAttack(startRow + v, synth.getCompressorAttack());
-          bridge.setCompRelease(startRow + v, synth.getCompressorRelease());
-          bridge.setCompBlend(startRow + v, synth.getCompressorBlend());
-          bridge.setCompSidechainHpf(startRow + v, synth.getCompressorSidechainHpf());
-        }
-        for (int v = 0; v < totalSynthRows; v++) {
-          bridge.setOsc2Type(startRow + v, oscTypeOrdinal(synth.getOsc2Type()));
-        }
-        for (int v = 0; v < totalSynthRows; v++) {
-          bridge.setRetrigPhase(startRow + v, synth.getRetrigPhase());
-        }
-        for (int v = 0; v < totalSynthRows; v++) {
-          bridge.setWaveIndex(startRow + v, synth.getWaveIndex());
-        }
-        for (int v = 0; v < totalSynthRows; v++) {
           bridge.setDelaySend(startRow + v, synth.getDelaySend());
           bridge.setReverbSend(startRow + v, synth.getReverbSend());
         }
-
-        // ── Push patch cables ──
-        bridge.setSynthPatchCables(startRow, synth.getPatchCables());
-
-        // ── DX7 engine type (−1=AUTO, 0=MODERN, 1=VINTAGE) ──
-        bridge.setEngineType(startRow, synth.getEngineType());
 
         // ── DX7 patch (per-row string global, read by engine) ──
         String dx7patch = synth.getDx7Patch();
@@ -3559,7 +3378,6 @@ public class SwingDelugeApp extends JFrame {
 
   private void pushKitEnv(int engineRow, int envIndex, EnvelopeModel env) {
     if (env == null) return;
-    bridge.setEnv(engineRow, envIndex, env.attack(), env.decay(), env.sustain(), env.release());
   }
 
   private static int lpfModeOrdinal(org.chuck.deluge.model.FilterMode mode) {

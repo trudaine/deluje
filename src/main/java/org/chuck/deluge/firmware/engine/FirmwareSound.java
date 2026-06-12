@@ -52,6 +52,7 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
    * live-apply path (FirmwareFactory.loadOscResources) skip re-reading an unchanged file.
    */
   public final String[] loadedOscPath = new String[2];
+
   public final org.chuck.deluge.firmware.model.sample.SampleVoiceSettings[] sampleSettings = {
     new org.chuck.deluge.firmware.model.sample.SampleVoiceSettings(),
     new org.chuck.deluge.firmware.model.sample.SampleVoiceSettings()
@@ -111,6 +112,7 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
   public int arpPhaseIncrement = 0; // arp clock (Q-units; one step == 1<<24 of gatePos)
   public int arpDivision =
       16; // step note division (16 = 16th note); used to derive arpPhaseIncrement
+  public float arpRateMultiplier = 1.0f; // free-rate multiplier on the BPM-derived arp step
 
   // Granular mod-FX (ModFXType.GRAIN routes here instead of the LFO-based ModFXProcessor).
   public float currentBpm = 120.0f;

@@ -59,23 +59,25 @@ public class DelugeXmlExporter {
 
     // Arp (Custom attributes for our emulator, or mapping to official ones)
     Element arp = doc.createElement("arpeggiator");
-    arp.setAttribute("active", bridge.getArpOn(trackIndex) ? "1" : "0");
-    arp.setAttribute("rate", String.valueOf(bridge.getArpRate(trackIndex)));
-    arp.setAttribute("octaves", String.valueOf(bridge.getArpOctave(trackIndex)));
-    arp.setAttribute("gate", String.valueOf(bridge.getArpGate(trackIndex)));
-    arp.setAttribute("syncLevel", String.valueOf(bridge.getArpSyncLevel(trackIndex)));
-    arp.setAttribute("noteMode", String.valueOf(bridge.getArpNoteMode(trackIndex)));
-    arp.setAttribute("octaveMode", String.valueOf(bridge.getArpOctaveMode(trackIndex)));
-    arp.setAttribute("stepRepeat", String.valueOf(bridge.getArpStepRepeat(trackIndex)));
-    arp.setAttribute("rhythmIndex", String.valueOf(bridge.getArpRhythm(trackIndex)));
-    arp.setAttribute("seqLength", String.valueOf(bridge.getArpSeqLength(trackIndex)));
-    arp.setAttribute("octaveSpread", String.valueOf(bridge.getArpOctaveSpread(trackIndex)));
-    arp.setAttribute("gateSpread", String.valueOf(bridge.getArpGateSpread(trackIndex)));
-    arp.setAttribute("velSpread", String.valueOf(bridge.getArpVelSpread(trackIndex)));
-    arp.setAttribute("ratchetAmount", String.valueOf(bridge.getArpRatchet(trackIndex)));
-    arp.setAttribute("noteProbability", String.valueOf(bridge.getArpNoteProbability(trackIndex)));
-    arp.setAttribute("chordPolyphony", String.valueOf(bridge.getArpChordPoly(trackIndex)));
-    arp.setAttribute("chordProbability", String.valueOf(bridge.getArpChordProb(trackIndex)));
+    org.chuck.deluge.model.ArpModel arpModel =
+        model.getArp() != null ? model.getArp() : org.chuck.deluge.model.ArpModel.defaultConfig();
+    arp.setAttribute("active", arpModel.active() ? "1" : "0");
+    arp.setAttribute("rate", String.valueOf(arpModel.rate()));
+    arp.setAttribute("octaves", String.valueOf(arpModel.octaves()));
+    arp.setAttribute("gate", String.valueOf(arpModel.gate()));
+    arp.setAttribute("syncLevel", String.valueOf(arpModel.syncLevel()));
+    arp.setAttribute("noteMode", arpModel.noteMode());
+    arp.setAttribute("octaveMode", arpModel.octaveMode());
+    arp.setAttribute("stepRepeat", String.valueOf(arpModel.stepRepeat()));
+    arp.setAttribute("rhythmIndex", String.valueOf(arpModel.rhythmIndex()));
+    arp.setAttribute("seqLength", String.valueOf(arpModel.seqLength()));
+    arp.setAttribute("octaveSpread", String.valueOf(arpModel.octaveSpread()));
+    arp.setAttribute("gateSpread", String.valueOf(arpModel.gateSpread()));
+    arp.setAttribute("velSpread", String.valueOf(arpModel.velSpread()));
+    arp.setAttribute("ratchetAmount", String.valueOf(arpModel.ratchetAmount()));
+    arp.setAttribute("noteProbability", String.valueOf(arpModel.noteProbability()));
+    arp.setAttribute("chordPolyphony", String.valueOf(arpModel.chordPolyphony()));
+    arp.setAttribute("chordProbability", String.valueOf(arpModel.chordProbability()));
     rootElement.appendChild(arp);
 
     // Write the content into xml file

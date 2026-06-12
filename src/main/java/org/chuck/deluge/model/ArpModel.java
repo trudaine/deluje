@@ -37,4 +37,194 @@ public record ArpModel(
         false, "UP", 1.0f, 1, 0.5f, 0, "UP", "UP", 1, 0, 8, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0.0f, 0.0f,
         0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
   }
+
+  /** Copy-with builder (records have no withers) — used by the model-backed ARP panel. */
+  public Builder toBuilder() {
+    return new Builder(this);
+  }
+
+  public static final class Builder {
+    private boolean active;
+    private String mode;
+    private float rate;
+    private int octaves;
+    private float gate;
+    private int syncLevel;
+    private String noteMode;
+    private String octaveMode;
+    private int stepRepeat;
+    private int rhythmIndex;
+    private int seqLength;
+    private float octaveSpread;
+    private float gateSpread;
+    private float velSpread;
+    private int ratchetAmount;
+    private int mpeVelocity;
+    private int syncType;
+    private float noteProbability;
+    private float bassProbability;
+    private float swapProbability;
+    private float glideProbability;
+    private float reverseProbability;
+    private float chordProbability;
+    private float ratchetProbability;
+    private int chordPolyphony;
+
+    private Builder(ArpModel m) {
+      active = m.active;
+      mode = m.mode;
+      rate = m.rate;
+      octaves = m.octaves;
+      gate = m.gate;
+      syncLevel = m.syncLevel;
+      noteMode = m.noteMode;
+      octaveMode = m.octaveMode;
+      stepRepeat = m.stepRepeat;
+      rhythmIndex = m.rhythmIndex;
+      seqLength = m.seqLength;
+      octaveSpread = m.octaveSpread;
+      gateSpread = m.gateSpread;
+      velSpread = m.velSpread;
+      ratchetAmount = m.ratchetAmount;
+      mpeVelocity = m.mpeVelocity;
+      syncType = m.syncType;
+      noteProbability = m.noteProbability;
+      bassProbability = m.bassProbability;
+      swapProbability = m.swapProbability;
+      glideProbability = m.glideProbability;
+      reverseProbability = m.reverseProbability;
+      chordProbability = m.chordProbability;
+      ratchetProbability = m.ratchetProbability;
+      chordPolyphony = m.chordPolyphony;
+    }
+
+    public Builder active(boolean v) {
+      active = v;
+      return this;
+    }
+
+    public Builder mode(String v) {
+      mode = v;
+      return this;
+    }
+
+    public Builder rate(float v) {
+      rate = v;
+      return this;
+    }
+
+    public Builder octaves(int v) {
+      octaves = v;
+      return this;
+    }
+
+    public Builder gate(float v) {
+      gate = v;
+      return this;
+    }
+
+    public Builder syncLevel(int v) {
+      syncLevel = v;
+      return this;
+    }
+
+    public Builder noteMode(String v) {
+      noteMode = v;
+      return this;
+    }
+
+    public Builder octaveMode(String v) {
+      octaveMode = v;
+      return this;
+    }
+
+    public Builder stepRepeat(int v) {
+      stepRepeat = v;
+      return this;
+    }
+
+    public Builder rhythmIndex(int v) {
+      rhythmIndex = v;
+      return this;
+    }
+
+    public Builder seqLength(int v) {
+      seqLength = v;
+      return this;
+    }
+
+    public Builder octaveSpread(float v) {
+      octaveSpread = v;
+      return this;
+    }
+
+    public Builder gateSpread(float v) {
+      gateSpread = v;
+      return this;
+    }
+
+    public Builder velSpread(float v) {
+      velSpread = v;
+      return this;
+    }
+
+    public Builder ratchetAmount(int v) {
+      ratchetAmount = v;
+      return this;
+    }
+
+    public Builder mpeVelocity(int v) {
+      mpeVelocity = v;
+      return this;
+    }
+
+    public Builder syncType(int v) {
+      syncType = v;
+      return this;
+    }
+
+    public Builder noteProbability(float v) {
+      noteProbability = v;
+      return this;
+    }
+
+    public Builder chordProbability(float v) {
+      chordProbability = v;
+      return this;
+    }
+
+    public Builder chordPolyphony(int v) {
+      chordPolyphony = v;
+      return this;
+    }
+
+    public ArpModel build() {
+      return new ArpModel(
+          active,
+          mode,
+          rate,
+          octaves,
+          gate,
+          syncLevel,
+          noteMode,
+          octaveMode,
+          stepRepeat,
+          rhythmIndex,
+          seqLength,
+          octaveSpread,
+          gateSpread,
+          velSpread,
+          ratchetAmount,
+          mpeVelocity,
+          syncType,
+          noteProbability,
+          bassProbability,
+          swapProbability,
+          glideProbability,
+          reverseProbability,
+          chordProbability,
+          ratchetProbability,
+          chordPolyphony);
+    }
+  }
 }

@@ -36,8 +36,8 @@ public class HpfPanel extends JPanel {
             "HPF cutoff frequency (0–20000 Hz). Higher = more low-end removed.",
             0,
             100,
-            (int) (bridge.getHpfFreq(trackIndex) / 200.0f),
-            val -> bridge.setHpfFreq(trackIndex, val / 100.0f * 200.0f),
+            (int) (model.getHpfFreq() / 200.0f),
+            val -> model.setHpfFreq(val * 200.0f),
             "Hz",
             "hpfCutoff",
             projectModel,
@@ -53,8 +53,8 @@ public class HpfPanel extends JPanel {
             "HPF resonance/emphasis (0–100%). Higher = more pronounced peak at cutoff.",
             0,
             100,
-            (int) (bridge.getHpfRes(trackIndex) * 100),
-            val -> bridge.setHpfRes(trackIndex, val / 100.0f),
+            (int) (model.getHpfRes() * 100),
+            val -> model.setHpfRes(val / 100.0f),
             "%",
             "hpfResonance",
             projectModel,
@@ -70,8 +70,8 @@ public class HpfPanel extends JPanel {
             "HPF morph/contour (0–100%). Changes filter character.",
             0,
             50,
-            (int) (bridge.getHpfMorph(trackIndex) * 50),
-            val -> bridge.setHpfMorph(trackIndex, val / 50.0f),
+            (int) (model.getHpfMorph() * 50),
+            val -> model.setHpfMorph(val / 50.0f),
             "",
             "hpfMorph",
             projectModel,
@@ -89,13 +89,13 @@ public class HpfPanel extends JPanel {
             .map(Enum::name)
             .toArray(String[]::new);
     JComboBox<String> hpfModeCombo = new JComboBox<>(modeNames);
-    hpfModeCombo.setSelectedIndex(bridge.getHpfMode(trackIndex));
+    hpfModeCombo.setSelectedIndex(model.getHpfMode().ordinal());
     hpfModeCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     hpfModeCombo.setForeground(Color.WHITE);
     hpfModeCombo.addActionListener(
         ev -> {
           int idx = hpfModeCombo.getSelectedIndex();
-          bridge.setHpfMode(trackIndex, idx);
+          model.setHpfMode(org.chuck.deluge.model.FilterMode.values()[idx]);
         });
     add(hpfModeCombo, c);
     row++;
@@ -110,8 +110,8 @@ public class HpfPanel extends JPanel {
             "HPF FM amount (0–100%). Modulates HPF cutoff with the filter envelope.",
             0,
             100,
-            (int) (bridge.getHpfFm(trackIndex) * 100),
-            val -> bridge.setHpfFm(trackIndex, val / 100.0f),
+            (int) (model.getHpfFm() * 100),
+            val -> model.setHpfFm(val / 100.0f),
             "%",
             "hpfFm",
             projectModel,

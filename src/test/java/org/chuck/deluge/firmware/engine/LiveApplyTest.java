@@ -88,6 +88,71 @@ public class LiveApplyTest {
     assertEquals(1, sound.getActiveVoiceCount(), "live-apply must not kill playing voices");
   }
 
+  @Test
+  void arpModelFieldsReachFw2Settings() {
+    SynthTrackModel m = model();
+    m.setArp(
+        org.chuck.deluge.model.ArpModel.defaultConfig().toBuilder()
+            .active(true)
+            .noteMode("RAND")
+            .seqLength(12)
+            .velSpread(0.5f)
+            .chordPolyphony(3)
+            .rate(2.0f)
+            .build());
+    FirmwareSound sound = build(m);
+
+    assertEquals(
+        org.chuck.deluge.firmware2.Arpeggiator.ArpMode.ARP, sound.arpSettings.mode, "arp on");
+    assertEquals(
+        org.chuck.deluge.firmware2.Arpeggiator.ArpNoteMode.RANDOM, sound.arpSettings.noteMode);
+    assertEquals(12, sound.arpSettings.sequenceLength);
+    assertEquals(3, sound.arpSettings.chordPolyphony);
+    // velSpread 0.5 → user 25 → raw 25 × 85899345 (value_scaling.cpp:18)
+    assertEquals(25 * 85899345, sound.arpSettings.spreadVelocity);
+    // noteProbability unset (0) must mean "always play", not "never"
+    assertEquals(50 * 85899345, sound.arpSettings.noteProbability);
+    assertEquals(2.0f, sound.arpRateMultiplier, 1e-6f);
+  }
+
+  @Test
+  void lfoDepthAndTargetSynthesizeAPatchCable() {
+    SynthTrackModel m = model();
+    m.setLfo(
+        0,
+        new org.chuck.deluge.model.LfoModel(
+            2.0f, org.chuck.deluge.model.LfoType.SINE, 0.5f, "Filter", false, 0, 0));
+    FirmwareSound sound = build(m);
+
+    boolean found = false;
+    for (var d : sound.paramManager.getPatchCableSet().destinations) {
+      if (d.paramId == org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_FREQ) {
+        for (var cable : d.cables) {
+          if (cable.from == org.chuck.deluge.firmware.modulation.patch.PatchSource.LFO_GLOBAL_1) {
+            found = true;
+            assertEquals((int) (0.5f * 2147483647.0), cable.getAmount());
+          }
+        }
+      }
+    }
+    assertTrue(found, "LFO1 depth/target should synthesize an LFO_GLOBAL_1 → LPF_FREQ cable");
+  }
+
+  @Test
+  void lfoRateKnobInversionMatchesCurve() {
+    for (double hz : new double[] {0.1, 0.5, 1.0, 2.0, 8.0, 20.0}) {
+      int knob = FirmwareFactory.lfoRateKnobFromHz(hz);
+      long inc =
+          org.chuck.deluge.firmware.util.FirmwareUtils.getExp(
+                  121739,
+                  org.chuck.deluge.firmware.util.FirmwareUtils.patchCombineExpStep(
+                      0, knob, 1073741824))
+              & 0xFFFFFFFFL;
+      double gotHz = inc * 44100.0 / 4294967296.0;
+      assertEquals(hz, gotHz, hz * 0.02, "knob inversion should reproduce the rate within 2%");
+    }
+  }
+
   private static int countCables(FirmwareSound sound) {
     int n = 0;
     for (var d : sound.paramManager.getPatchCableSet().destinations) {

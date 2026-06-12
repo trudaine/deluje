@@ -51,7 +51,6 @@ public class OscPanel extends JPanel {
         e -> {
           int idx = osc1LoopCombo.getSelectedIndex();
           model.setOsc1LoopMode(idx);
-          bridge.setOsc1LoopMode(trackIndex, idx);
         });
 
     JCheckBox osc1RevBox = new JCheckBox("Play sample in reverse");
@@ -66,7 +65,6 @@ public class OscPanel extends JPanel {
         e -> {
           boolean sel = osc1RevBox.isSelected();
           model.setOsc1Reversed(sel);
-          bridge.setOsc1Reversed(trackIndex, sel ? 1 : 0);
         });
 
     JCheckBox osc1TsBox = new JCheckBox("Enable time stretching");
@@ -81,7 +79,6 @@ public class OscPanel extends JPanel {
         e -> {
           boolean sel = osc1TsBox.isSelected();
           model.setOsc1TimeStretch(sel);
-          bridge.setOsc1TimeStretch(trackIndex, sel ? 1 : 0);
         });
 
     JCheckBox osc1LinBox = new JCheckBox("Linear (smoother, less aliasing)");
@@ -97,7 +94,6 @@ public class OscPanel extends JPanel {
         e -> {
           boolean sel = osc1LinBox.isSelected();
           model.setOsc1LinearInterpolation(sel);
-          bridge.setOsc1LinearInterpolation(trackIndex, sel ? 1 : 0);
         });
 
     JComboBox<String> osc2LoopCombo = new JComboBox<>(loopModes);
@@ -113,7 +109,6 @@ public class OscPanel extends JPanel {
         e -> {
           int idx = osc2LoopCombo.getSelectedIndex();
           model.setOsc2LoopMode(idx);
-          bridge.setOsc2LoopMode(trackIndex, idx);
         });
 
     JCheckBox osc2RevBox = new JCheckBox("Play sample in reverse");
@@ -128,7 +123,6 @@ public class OscPanel extends JPanel {
         e -> {
           boolean sel = osc2RevBox.isSelected();
           model.setOsc2Reversed(sel);
-          bridge.setOsc2Reversed(trackIndex, sel ? 1 : 0);
         });
 
     JCheckBox osc2TsBox = new JCheckBox("Enable time stretching");
@@ -143,7 +137,6 @@ public class OscPanel extends JPanel {
         e -> {
           boolean sel = osc2TsBox.isSelected();
           model.setOsc2TimeStretch(sel);
-          bridge.setOsc2TimeStretch(trackIndex, sel ? 1 : 0);
         });
 
     JCheckBox osc2LinBox = new JCheckBox("Linear (smoother, less aliasing)");
@@ -159,7 +152,6 @@ public class OscPanel extends JPanel {
         e -> {
           boolean sel = osc2LinBox.isSelected();
           model.setOsc2LinearInterpolation(sel);
-          bridge.setOsc2LinearInterpolation(trackIndex, sel ? 1 : 0);
         });
 
     JCheckBox syncBox = new JCheckBox("Reset osc 2 phase from osc 1 (hard sync)");
@@ -173,9 +165,7 @@ public class OscPanel extends JPanel {
         "<b>OSCILLATOR SYNC:</b> Hard sync oscillator 2 phase frequency bounds to oscillator 1. — <i>Physical Deluge:</i> Hold shift + click OSC SYNC button.");
     syncBox.addActionListener(
         e -> {
-          boolean sel = syncBox.isSelected();
-          model.setOscillatorSync(sel);
-          bridge.setOscillatorSync(trackIndex, sel ? 1 : 0);
+          model.setOscillatorSync(syncBox.isSelected());
         });
 
     // ── BUILD LEFT PANEL (MIX & OSCILLATOR 1) ──
@@ -194,11 +184,8 @@ public class OscPanel extends JPanel {
             "Balance between oscillator 1 and 2 (0% = only osc1, 100% = only osc2)",
             0,
             100,
-            (int) (bridge.getOscMix(trackIndex) * 100),
-            val -> {
-              model.setOscMix(val / 100f);
-              bridge.setOscMix(trackIndex, val / 100f);
-            },
+            (int) (model.getOscMix() * 100),
+            val -> model.setOscMix(val / 100f),
             "%",
             "oscMix",
             projectModel,
@@ -213,11 +200,8 @@ public class OscPanel extends JPanel {
             "Noise generator volume (0-100%). Adds white noise to the signal.",
             0,
             100,
-            (int) (bridge.getNoiseVol(trackIndex) * 100),
-            val -> {
-              model.setNoiseVol(val / 100f);
-              bridge.setNoiseVol(trackIndex, val / 100f);
-            },
+            (int) (model.getNoiseVol() * 100),
+            val -> model.setNoiseVol(val / 100f),
             "%",
             "noiseVol",
             projectModel,
@@ -232,11 +216,8 @@ public class OscPanel extends JPanel {
             "Portamento / glide time (0-100%). Higher = slower pitch slides between notes.",
             0,
             100,
-            (int) (bridge.getPortamento(trackIndex) * 100),
-            val -> {
-              model.setPortamento(val / 100f);
-              bridge.setPortamento(trackIndex, val / 100f);
-            },
+            (int) (model.getPortamento() * 100),
+            val -> model.setPortamento(val / 100f),
             "%",
             "portamento",
             projectModel,
@@ -303,7 +284,6 @@ public class OscPanel extends JPanel {
             (int) (model.getOsc1TimeStretchAmount() * 100),
             val -> {
               model.setOsc1TimeStretchAmount(val / 100f);
-              bridge.setOsc1TimeStretchAmount(trackIndex, val / 100f);
             },
             "%",
             "osc1TsAmt",
@@ -322,7 +302,6 @@ public class OscPanel extends JPanel {
             model.getOsc1Cents(),
             val -> {
               model.setOsc1Cents(val);
-              bridge.setOsc1Cents(trackIndex, val);
             },
             "",
             "osc1Cents",
@@ -405,7 +384,6 @@ public class OscPanel extends JPanel {
             (int) (model.getOsc2TimeStretchAmount() * 100),
             val -> {
               model.setOsc2TimeStretchAmount(val / 100f);
-              bridge.setOsc2TimeStretchAmount(trackIndex, val / 100f);
             },
             "%",
             "osc2TsAmt",
@@ -424,7 +402,6 @@ public class OscPanel extends JPanel {
             model.getOsc2Cents(),
             val -> {
               model.setOsc2Cents(val);
-              bridge.setOsc2Cents(trackIndex, val);
             },
             "",
             "osc2Cents",
@@ -443,7 +420,6 @@ public class OscPanel extends JPanel {
             model.getOsc2Transpose(),
             val -> {
               model.setOsc2Transpose(val);
-              bridge.setOsc2Transpose(trackIndex, val);
             },
             "st",
             "osc2Transpose",
