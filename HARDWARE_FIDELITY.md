@@ -177,3 +177,30 @@ This tool automatically:
 1. Performs normalized cross-correlation across a 2-second range to locate the exact time alignment lag.
 2. Computes the Root Mean Square Error (RMSE), Mean Absolute Error (MAE), and peak cross-correlation percentage.
 3. Generates a detailed audio parity report.
+
+---
+
+## First hardware verification results (2026-06-12, Deluge on c1.2.0 "Chopin")
+
+All four songs loaded and were resampled on-device (Option B). Comparison harness:
+
+```
+mvn -pl deluge test -Dtest=HardwareFidelityComparisonTest \
+    -Dhardware.recordings.dir=/path/to/recordings   # one folder per song, output_000.wav inside
+```
+
+**Headline result — tuning parity: +0.1 cents.** TestSynthFidelity's C5 measured 523.26 Hz on
+hardware vs 523.28 Hz in our render (C5 = 523.25). The engine's pitch path is verified against
+the physical device.
+
+**Bug found by this comparison** (fixed): `FirmwareFactory.createInstrumentClip` derived note
+pitch from the ROW INDEX (`(rowCount-1)-r`, the UI's 128-row grid convention), which is wrong for
+real-format songs whose noteRow list is sparse — the hardware played the documented C5, our
+render played ~E6. Real-format rows now carry their absolute `y` through
+`ClipModel.rowYNote` (parser → factory).
+
+Raw correlation numbers are not yet meaningful as a fidelity metric (synth ~10%, kit ~32%):
+the recordings include the device's master-volume staging (hardware RMS ~0.41 vs render ~0.011,
+so quantization differs), the device output chain adds its own phase response, and sample-exact
+saw alignment decorrelates with any sub-cent drift over seconds. Next steps for the metric:
+level-normalize + compare band-limited spectra/envelopes instead of raw waveforms.

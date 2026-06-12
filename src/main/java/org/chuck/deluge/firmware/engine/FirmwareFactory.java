@@ -112,7 +112,12 @@ public class FirmwareFactory {
       clip.loopLength = clipModel.getStepCount() * stepTicks;
       mapPlayDirection(clipModel, clip);
       for (int r = 0; r < clipModel.getRowCount(); r++) {
-        int pitch = (clipModel.getRowCount() - 1) - r;
+        // Real-format Deluge songs have SPARSE noteRows carrying an absolute yNote (MIDI note);
+        // the row-index mapping ((rowCount-1)-r, the UI's 128-row grid convention) played wrong
+        // pitches for them — found via hardware comparison: the Deluge played the documented C5,
+        // our render of the same file didn't.
+        int yNote = clipModel.getRowYNote(r);
+        int pitch = (yNote >= 0) ? yNote : (clipModel.getRowCount() - 1) - r;
         NoteRow row = new NoteRow(pitch);
         java.util.List<org.chuck.deluge.model.HighResNote> rawNotes = clipModel.getRawNoteEvents(r);
         if (rawNotes != null && !rawNotes.isEmpty()) {
@@ -171,7 +176,12 @@ public class FirmwareFactory {
       clip.loopLength = clipModel.getStepCount() * stepTicks;
       mapPlayDirection(clipModel, clip);
       for (int r = 0; r < clipModel.getRowCount(); r++) {
-        int pitch = (clipModel.getRowCount() - 1) - r;
+        // Real-format Deluge songs have SPARSE noteRows carrying an absolute yNote (MIDI note);
+        // the row-index mapping ((rowCount-1)-r, the UI's 128-row grid convention) played wrong
+        // pitches for them — found via hardware comparison: the Deluge played the documented C5,
+        // our render of the same file didn't.
+        int yNote = clipModel.getRowYNote(r);
+        int pitch = (yNote >= 0) ? yNote : (clipModel.getRowCount() - 1) - r;
         NoteRow row = new NoteRow(pitch);
         java.util.List<org.chuck.deluge.model.HighResNote> rawNotes = clipModel.getRawNoteEvents(r);
         if (rawNotes != null && !rawNotes.isEmpty()) {

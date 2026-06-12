@@ -60,6 +60,22 @@ public class ClipModel {
    */
   private final Map<Integer, Map<String, float[]>> rowAutomationData = new HashMap<>();
 
+  /**
+   * Per-row ABSOLUTE note code (the Deluge noteRow "y" attribute, MIDI note number), set by the XML
+   * parser for real-format songs whose noteRow list is sparse (one row per used pitch). -1 = unset
+   * → the factory falls back to the UI's 128-row grid convention (pitch = rowCount-1-r).
+   */
+  private final Map<Integer, Integer> rowYNote = new HashMap<>();
+
+  public void setRowYNote(int rowIndex, int yNote) {
+    rowYNote.put(rowIndex, yNote);
+  }
+
+  /** Absolute MIDI note for this row, or -1 when the row follows the grid convention. */
+  public int getRowYNote(int rowIndex) {
+    return rowYNote.getOrDefault(rowIndex, -1);
+  }
+
   public void setRowAutomation(int rowIndex, String paramName, int stepIndex, float value) {
     Map<String, float[]> rowAutos =
         rowAutomationData.computeIfAbsent(rowIndex, k -> new HashMap<>());
@@ -136,6 +152,7 @@ public class ClipModel {
     }
     // Deep-copy kit params
     copy.kitParams.putAll(this.kitParams);
+    copy.rowYNote.putAll(this.rowYNote);
     // Deep-copy raw high-resolution note events
     for (Map.Entry<Integer, List<HighResNote>> e : this.rawNoteEvents.entrySet()) {
       copy.rawNoteEvents.put(e.getKey(), new ArrayList<>(e.getValue()));

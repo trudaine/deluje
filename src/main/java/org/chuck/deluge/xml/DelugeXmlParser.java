@@ -397,6 +397,7 @@ public class DelugeXmlParser {
               // Apply per-row pitch from y attribute to all steps in this row
               // (the hex note data encodes on/off/gate but not pitch)
               if (notePitch > 0) {
+                clip.setRowYNote(r, notePitch);
                 for (int s = 0; s < stepCount; s++) {
                   StepData existing = clip.getStep(r, s);
                   clip.setStep(
@@ -690,6 +691,7 @@ public class DelugeXmlParser {
 
             // Apply per-row pitch from y attribute to all steps in this row
             if (notePitch > 0) {
+              clip.setRowYNote(r, notePitch);
               for (int s = 0; s < stepCount; s++) {
                 StepData existing = clip.getStep(r, s);
                 clip.setStep(
