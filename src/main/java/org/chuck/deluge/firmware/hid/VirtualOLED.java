@@ -17,8 +17,8 @@ public class VirtualOLED {
   private final Graphics2D g2d;
   private boolean dirty = true;
 
-  public static final Font LARGE_FONT = new Font("Monospaced", Font.BOLD, 14);
-  public static final Font SMALL_FONT = new Font("Monospaced", Font.BOLD, 9);
+  public static final Font LARGE_FONT = new Font("Monospaced", Font.BOLD, 16);
+  public static final Font SMALL_FONT = new Font("Monospaced", Font.BOLD, 10);
 
   public void setLargeFont(boolean large) {
     try {
@@ -110,7 +110,7 @@ public class VirtualOLED {
 
     renderCurrentState();
 
-    if (staticLine2.length() > 6) {
+    if (staticLine2.length() > 12) {
       final String padded = "   " + staticLine2 + "   ";
       int[] idx = new int[] {0};
       oledScrollTimer =
@@ -118,8 +118,8 @@ public class VirtualOLED {
               250,
               e -> {
                 if (overrideLine2 == null) {
-                  if (idx[0] + 8 <= padded.length()) {
-                    renderDirect(staticLine1, padded.substring(idx[0], idx[0] + 8), staticLine3);
+                  if (idx[0] + 12 <= padded.length()) {
+                    renderDirect(staticLine1, padded.substring(idx[0], idx[0] + 12), staticLine3);
                     idx[0]++;
                   } else {
                     idx[0] = 0;
@@ -148,13 +148,13 @@ public class VirtualOLED {
   private void renderDirect(String l1, String l2, String l3) {
     clear();
     setLargeFont(false);
-    drawString(l1 != null ? l1 : "", 4, 10);
+    drawString(l1 != null ? l1 : "", 4, 14);
 
     setLargeFont(true);
-    drawString(l2 != null ? l2 : "", 4, 28);
+    drawString(l2 != null ? l2 : "", 4, 35);
 
     setLargeFont(false);
-    drawString(l3 != null ? l3 : "", 4, 44);
+    drawString(l3 != null ? l3 : "", 4, 56);
     FirmwareDisplay.get().notifyOledListener();
   }
 
