@@ -126,7 +126,14 @@ public class SwingTopBarPanel extends JPanel {
     modeGroup.add(autoBtn);
     modeGroup.add(perfBtn);
 
-    // Initial styling
+    // Initial static styling
+    initTabStyles(clipBtn);
+    initTabStyles(songBtn);
+    initTabStyles(arrBtn);
+    initTabStyles(autoBtn);
+    initTabStyles(perfBtn);
+
+    // Initial dynamic styling
     updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
 
     clipBtn.addActionListener(
@@ -473,22 +480,24 @@ public class SwingTopBarPanel extends JPanel {
     return masterVolSlider.getValue();
   }
 
+  private void initTabStyles(JToggleButton b) {
+    b.setContentAreaFilled(false);
+    b.setOpaque(true);
+    b.setFocusPainted(false);
+    b.setBorder(BorderFactory.createLineBorder(new Color(0x44, 0x44, 0x4f), 1));
+    b.setFont(new Font("SansSerif", Font.BOLD, 12));
+    b.setMargin(new Insets(2, 6, 2, 6));
+
+    // Dynamic pixel-perfect 28px clamp heights!
+    Dimension pref = b.getPreferredSize();
+    int targetW = Math.max(65, pref.width + 12);
+    b.setPreferredSize(new Dimension(targetW, 28));
+    b.setMinimumSize(new Dimension(targetW, 28));
+    b.setMaximumSize(new Dimension(targetW, 28));
+  }
+
   private void updateTabStyles(JToggleButton... buttons) {
     for (JToggleButton b : buttons) {
-      b.setContentAreaFilled(false);
-      b.setOpaque(true);
-      b.setFocusPainted(false);
-      b.setBorder(BorderFactory.createLineBorder(new Color(0x44, 0x44, 0x4f), 1));
-      b.setFont(new Font("SansSerif", Font.BOLD, 12));
-      b.setMargin(new Insets(2, 6, 2, 6));
-
-      // Dynamic pixel-perfect 28px clamp heights!
-      Dimension pref = b.getPreferredSize();
-      int targetW = Math.max(65, pref.width + 12);
-      b.setPreferredSize(new Dimension(targetW, 28));
-      b.setMinimumSize(new Dimension(targetW, 28));
-      b.setMaximumSize(new Dimension(targetW, 28));
-
       if (b.isSelected()) {
         b.setBackground(Color.WHITE);
         b.setForeground(Color.BLACK);
