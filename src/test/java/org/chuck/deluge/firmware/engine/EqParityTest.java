@@ -2,8 +2,6 @@ package org.chuck.deluge.firmware.engine;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import org.chuck.deluge.firmware2.StereoSample;
-import org.chuck.deluge.firmware.dsp.fx.EqProcessor;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -17,45 +15,49 @@ public class EqParityTest {
   private static final int A = 400_000_000;
 
   /** Alternating ±A (maximum high-frequency content). */
-  private static StereoSample[] nyquist(int n) {
-    StereoSample[] b = new StereoSample[n];
+  private static int[][] nyquist(int n) {
+    int[][] b = new int[n][2];
     for (int i = 0; i < n; i++) {
       int v = (i % 2 == 0) ? A : -A;
-      b[i] = new StereoSample(v, v);
+      b[i][0] = v;
+      b[i][1] = v;
     }
     return b;
   }
 
   /** Constant DC level (pure low-frequency content). */
-  private static StereoSample[] dc(int n) {
-    StereoSample[] b = new StereoSample[n];
-    for (int i = 0; i < n; i++) b[i] = new StereoSample(A, A);
+  private static int[][] dc(int n) {
+    int[][] b = new int[n][2];
+    for (int i = 0; i < n; i++) {
+      b[i][0] = A;
+      b[i][1] = A;
+    }
     return b;
   }
 
-  private static double tailRms(StereoSample[] b, int from) {
+  private static double tailRms(int[][] b, int from) {
     double s = 0;
-    for (int i = from; i < b.length; i++) s += (double) b[i].l * b[i].l;
+    for (int i = from; i < b.length; i++) s += (double) b[i][0] * b[i][0];
     return Math.sqrt(s / (b.length - from));
   }
 
   @Test
   public void flatIsTransparent() {
     int n = 64;
-    StereoSample[] in = nyquist(n);
+    int[][] in = nyquist(n);
     int[] orig = new int[n];
-    for (int i = 0; i < n; i++) orig[i] = in[i].l;
-    new EqProcessor().process(in, n, 0, 0);
+    for (int i = 0; i < n; i++) orig[i] = in[i][0];
+    new org.chuck.deluge.firmware2.Eq().process(in, n, 0, 0, 0, 0);
     for (int i = 0; i < n; i++)
-      assertEquals(orig[i], in[i].l, "EQ flat must be transparent at " + i);
+      assertEquals(orig[i], in[i][0], "EQ flat must be transparent at " + i);
   }
 
   @Test
   public void trebleBoostRaisesHighFrequencies() {
     int n = 2000;
-    StereoSample[] flat = nyquist(n);
-    StereoSample[] boost = nyquist(n);
-    new EqProcessor().process(boost, n, 0, MAX); // +full treble
+    int[][] flat = nyquist(n);
+    int[][] boost = nyquist(n);
+    new org.chuck.deluge.firmware2.Eq().process(boost, n, 0, MAX, 0, 0); // +full treble
 
     double flatRms = tailRms(flat, 1000);
     double boostRms = tailRms(boost, 1000);
@@ -67,9 +69,9 @@ public class EqParityTest {
   @Test
   public void bassBoostRaisesLowFrequencies() {
     int n = 4000;
-    StereoSample[] flat = dc(n);
-    StereoSample[] boost = dc(n);
-    new EqProcessor().process(boost, n, MAX, 0); // +full bass
+    int[][] flat = dc(n);
+    int[][] boost = dc(n);
+    new org.chuck.deluge.firmware2.Eq().process(boost, n, MAX, 0, 0, 0); // +full bass
 
     double flatRms = tailRms(flat, 3000);
     double boostRms = tailRms(boost, 3000);
