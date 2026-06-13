@@ -1,4 +1,4 @@
-package org.chuck.deluge.firmware.storage.wave_table;
+package org.chuck.deluge.firmware2;
 
 /**
  * Utility to generate band-limited versions of a wavetable cycle. Prevents aliasing by zeroing out

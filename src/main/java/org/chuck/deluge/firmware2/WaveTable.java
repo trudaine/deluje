@@ -1,12 +1,7 @@
-package org.chuck.deluge.firmware.storage.wave_table;
-
-import static org.chuck.deluge.firmware.util.Q31.*;
+package org.chuck.deluge.firmware2;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.chuck.deluge.firmware.util.FirmwareUtils;
-import org.chuck.deluge.firmware.util.LookupTables;
-import org.chuck.deluge.firmware.util.Q31;
 
 /**
  * Port of the Deluge's WaveTable class. Implements high-fidelity wavetable synthesis with
@@ -28,7 +23,7 @@ public class WaveTable {
   public void setup(int rawFileCycleSize, int totalSamples) {
     if (rawFileCycleSize < kWavetableMinCycleSize) return;
 
-    int initialBandCycleMagnitude = FirmwareUtils.getMagnitude(rawFileCycleSize);
+    int initialBandCycleMagnitude = getMagnitude(rawFileCycleSize);
     boolean rawFileCycleSizeIsAPowerOfTwo = (rawFileCycleSize == (1 << initialBandCycleMagnitude));
 
     // ── Bit-Accurate Cycle Size Logic ──
@@ -45,7 +40,7 @@ public class WaveTable {
 
     int initialBandCycleSizeNoDuplicates = 1 << initialBandCycleMagnitude;
     numCycles = totalSamples / rawFileCycleSize; // Hardware uses rawFileCycleSize for division
-    numCyclesMagnitude = FirmwareUtils.getMagnitude(numCycles);
+    numCyclesMagnitude = getMagnitude(numCycles);
 
     int numBands = initialBandCycleMagnitude - 2;
 
@@ -67,11 +62,21 @@ public class WaveTable {
 
     if (numCycles > 1) {
       int numCycleTransitions = numCycles - 1;
-      numCycleTransitionsNextPowerOf2Magnitude = FirmwareUtils.getMagnitude(numCycleTransitions);
+      numCycleTransitionsNextPowerOf2Magnitude = getMagnitude(numCycleTransitions);
       numCycleTransitionsNextPowerOf2 = 1 << numCycleTransitionsNextPowerOf2Magnitude;
       waveIndexMultiplier =
           (int) (((long) numCycleTransitions << 31) >> numCycleTransitionsNextPowerOf2Magnitude);
     }
+  }
+
+  private int getMagnitude(int val) {
+    int magnitude = 0;
+    int temp = val;
+    while (temp > 1) {
+      temp >>>= 1;
+      magnitude++;
+    }
+    return magnitude;
   }
 
   public int render(
@@ -157,7 +162,7 @@ public class WaveTable {
         }
 
         int whichKernel = getKernelIndex(phaseIncrement, bandHere.maxPhaseIncrement);
-        short[][] kernel = LookupTables.windowedSincKernel[whichKernel];
+        short[][] kernel = SincKernel.windowedSincKernel[whichKernel];
 
         doRenderingLoop(
             outputBuffer,
@@ -179,7 +184,7 @@ public class WaveTable {
       return currentPhase;
     } else {
       // Single cycle rendering
-      short[][][] kernels = LookupTables.windowedSincKernel;
+      short[][][] kernels = SincKernel.windowedSincKernel;
       int whichKernel = getKernelIndex(phaseIncrement, bandHere.maxPhaseIncrement);
       short[][] kernel = kernels[whichKernel];
 
@@ -309,7 +314,7 @@ public class WaveTable {
 
       int diff = vals[1] - vals[0];
       outputBuffer[offset + i] =
-          Q31.multiply_accumulate_32x32_rshift32_rounded(
+          Functions.multiply_accumulate_32x32_rshift32_rounded(
               vals[0] >> 1, diff, currentCrossCycleStrength2 >> 1);
 
       currentCrossCycleStrength2 += crossCycleStrength2Increment;

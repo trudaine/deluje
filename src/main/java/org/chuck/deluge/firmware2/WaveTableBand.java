@@ -1,4 +1,4 @@
-package org.chuck.deluge.firmware.storage.wave_table;
+package org.chuck.deluge.firmware2;
 
 public class WaveTableBand {
   public int maxPhaseIncrement;

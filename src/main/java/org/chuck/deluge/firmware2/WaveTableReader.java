@@ -1,4 +1,4 @@
-package org.chuck.deluge.firmware.storage.wave_table;
+package org.chuck.deluge.firmware2;
 
 import java.io.File;
 import java.io.FileInputStream;
