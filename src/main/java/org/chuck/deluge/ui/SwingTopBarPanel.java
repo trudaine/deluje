@@ -75,6 +75,7 @@ public class SwingTopBarPanel extends JPanel {
   private final RetroLedDisplay retroLedDisplay;
   private final SwingOledPanel oledPanel;
 
+  private String currentViewMode = "CLIP";
   private boolean isSaved = false;
 
   public void setSaved(boolean saved) {
@@ -138,41 +139,79 @@ public class SwingTopBarPanel extends JPanel {
 
     clipBtn.addActionListener(
         e -> {
-          updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
-          listener.onViewModeChanged("CLIP");
+          if ("CLIP".equals(currentViewMode)) {
+            autoBtn.setSelected(true);
+            currentViewMode = "AUTO";
+            updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
+            listener.onViewModeChanged("AUTO");
+          } else {
+            currentViewMode = "CLIP";
+            updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
+            listener.onViewModeChanged("CLIP");
+          }
         });
     songBtn.addActionListener(
         e -> {
-          updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
-          listener.onViewModeChanged("SONG");
-          String saveStatus = isSaved ? "SONG" : "UNSAVED";
-          String keyStr = projectModel.getKey().toUpperCase();
-          if (keyStr.isEmpty() || keyStr.equals("NONE")) keyStr = "C";
-          retroLedDisplay.scrollMessage(
-              saveStatus + "   " + keyStr + "-2 MAJOR   " + ((int) projectModel.getBpm()) + " BPM");
+          if ("SONG".equals(currentViewMode)) {
+            arrBtn.setSelected(true);
+            currentViewMode = "ARR";
+            updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
+            listener.onViewModeChanged("ARR");
+          } else {
+            currentViewMode = "SONG";
+            updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
+            listener.onViewModeChanged("SONG");
+            String saveStatus = isSaved ? "SONG" : "UNSAVED";
+            String keyStr = projectModel.getKey().toUpperCase();
+            if (keyStr.isEmpty() || keyStr.equals("NONE")) keyStr = "C";
+            retroLedDisplay.scrollMessage(
+                saveStatus
+                    + "   "
+                    + keyStr
+                    + "-2 MAJOR   "
+                    + ((int) projectModel.getBpm())
+                    + " BPM");
 
-          try {
-            FirmwareDisplay.get()
-                .getVirtualOLED()
-                .drawThreeLineDisplay(
-                    saveStatus, keyStr + "-2 MAJOR", ((int) projectModel.getBpm()) + " BPM");
-            if (oledPanel != null) oledPanel.repaint();
-          } catch (Throwable t) {
-            // Shield for headless test environments
+            try {
+              FirmwareDisplay.get()
+                  .getVirtualOLED()
+                  .drawThreeLineDisplay(
+                      saveStatus, keyStr + "-2 MAJOR", ((int) projectModel.getBpm()) + " BPM");
+              if (oledPanel != null) oledPanel.repaint();
+            } catch (Throwable t) {
+              // Shield for headless test environments
+            }
           }
         });
     arrBtn.addActionListener(
         e -> {
-          updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
-          listener.onViewModeChanged("ARR");
+          if ("ARR".equals(currentViewMode)) {
+            songBtn.setSelected(true);
+            currentViewMode = "SONG";
+            updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
+            listener.onViewModeChanged("SONG");
+          } else {
+            currentViewMode = "ARR";
+            updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
+            listener.onViewModeChanged("ARR");
+          }
         });
     autoBtn.addActionListener(
         e -> {
-          updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
-          listener.onViewModeChanged("AUTO");
+          if ("AUTO".equals(currentViewMode)) {
+            clipBtn.setSelected(true);
+            currentViewMode = "CLIP";
+            updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
+            listener.onViewModeChanged("CLIP");
+          } else {
+            currentViewMode = "AUTO";
+            updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
+            listener.onViewModeChanged("AUTO");
+          }
         });
     perfBtn.addActionListener(
         e -> {
+          currentViewMode = "PERF";
           updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
           listener.onViewModeChanged("PERF");
         });
@@ -448,6 +487,7 @@ public class SwingTopBarPanel extends JPanel {
     else if ("AUTO".equals(mode)) autoBtn.setSelected(true);
     else if ("PERF".equals(mode)) perfBtn.setSelected(true);
 
+    this.currentViewMode = mode;
     updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
   }
 
