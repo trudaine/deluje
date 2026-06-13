@@ -529,7 +529,9 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
       if (fw2Sound.oscTypes[s] == org.chuck.deluge.firmware2.Oscillator.OscType.SAMPLE
           && samples[s] != null
           && samples[s].data != null) {
-        fw2SampleCache[s] = org.chuck.deluge.firmware2.Sample.fromFirmwareSample(samples[s]);
+        if (fw2SampleCache[s] == null) {
+          fw2SampleCache[s] = org.chuck.deluge.firmware2.Sample.fromFirmwareSample(samples[s]);
+        }
         fw2Sound.samples[s] = fw2SampleCache[s];
         fw2Sound.sampleReverse[s] = sampleSettings[s].reverse;
         fw2Sound.sampleStartPoint[s] = sampleSettings[s].startPoint;
