@@ -2301,22 +2301,17 @@ public class SwingDelugeApp extends JFrame {
           }
         });
 
-    JMenuItem midiConfigItem = new JMenuItem("MIDI Device Settings...");
+    JMenuItem midiConfigItem = new JMenuItem("MIDI Settings...");
     midiConfigItem.setAccelerator(
         KeyStroke.getKeyStroke(
             java.awt.event.KeyEvent.VK_M,
             java.awt.event.InputEvent.CTRL_DOWN_MASK | java.awt.event.InputEvent.SHIFT_DOWN_MASK));
     midiConfigItem.addActionListener(
         e -> {
-          new SwingMidiConfigDialog(this, vm, bridge, midiService).setVisible(true);
-        });
-
-    JMenuItem prefItem = new JMenuItem("Preferences...");
-    prefItem.addActionListener(
-        e -> {
           PreferencesDialog dialog =
               new PreferencesDialog(
                   SwingDelugeApp.this,
+                  midiService,
                   () -> {
                     org.chuck.deluge.project.PreferencesManager.GridMode mode =
                         org.chuck.deluge.project.PreferencesManager.getGridMode();
@@ -2338,7 +2333,38 @@ public class SwingDelugeApp extends JFrame {
                     sidebarPanel.reloadLibrary();
                     floatingSidebar.reloadLibrary();
                   });
-          if (midiService != null) dialog.setMappings(midiService.getMappings());
+          dialog.selectMidiTab();
+          dialog.setVisible(true);
+        });
+
+    JMenuItem prefItem = new JMenuItem("Preferences...");
+    prefItem.addActionListener(
+        e -> {
+          PreferencesDialog dialog =
+              new PreferencesDialog(
+                  SwingDelugeApp.this,
+                  midiService,
+                  () -> {
+                    org.chuck.deluge.project.PreferencesManager.GridMode mode =
+                        org.chuck.deluge.project.PreferencesManager.getGridMode();
+                    if (clipPanel != null) {
+                      clipPanel.setGridMode(mode);
+                      clipPanel.refresh();
+                    }
+                    if (songPanel != null) {
+                      songPanel.setGridMode(mode);
+                      songPanel.refresh();
+                    }
+                    if (arrGridPanel != null) {
+                      arrGridPanel.setGridMode(mode);
+                      arrGridPanel.refresh();
+                    }
+                    recalcWrapperSize();
+                  },
+                  () -> {
+                    sidebarPanel.reloadLibrary();
+                    floatingSidebar.reloadLibrary();
+                  });
           dialog.setVisible(true);
         });
 

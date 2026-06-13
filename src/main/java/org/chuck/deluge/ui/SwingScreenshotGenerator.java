@@ -237,7 +237,8 @@ public class SwingScreenshotGenerator {
                 final PreferencesDialog[] prefBox = new PreferencesDialog[1];
                 SwingUtilities.invokeAndWait(
                     () -> {
-                      prefBox[0] = new PreferencesDialog(app, () -> {}, () -> {});
+                      prefBox[0] =
+                          new PreferencesDialog(app, app.getMidiService(), () -> {}, () -> {});
                       prefBox[0].setModal(
                           false); // Disable modality for programmatic screenshot capture!
                       prefBox[0].pack();
@@ -288,12 +289,15 @@ public class SwingScreenshotGenerator {
                 // 10. Open and capture the new Dedicated MIDI Settings Dialog!
                 System.out.println(
                     "[Screenshot] Spawning and capturing the new Dedicated MIDI Settings JDialog...");
-                final SwingMidiConfigDialog[] midiBox = new SwingMidiConfigDialog[1];
+                final PreferencesDialog[] midiBox = new PreferencesDialog[1];
                 SwingUtilities.invokeAndWait(
                     () -> {
-                      midiBox[0] = new SwingMidiConfigDialog(app, vm, bridge, app.getMidiService());
+                      midiBox[0] =
+                          new PreferencesDialog(app, app.getMidiService(), () -> {}, () -> {});
                       midiBox[0].setModal(false); // Modality off for screenshots!
-                      midiBox[0].setSize(580, 640);
+                      midiBox[0].pack();
+                      midiBox[0].setSize(660, 600);
+                      midiBox[0].selectMidiTab();
                       midiBox[0].setVisible(true);
                     });
                 Thread.sleep(2000);
