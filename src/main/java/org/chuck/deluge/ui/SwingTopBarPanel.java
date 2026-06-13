@@ -19,6 +19,7 @@ import javax.swing.SwingConstants;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.firmware.hid.FirmwareDisplay;
 import org.chuck.deluge.model.ProjectModel;
+import org.chuck.deluge.ui.controls.DelugeEncoderKnob;
 import org.chuck.deluge.ui.controls.DelugeParamReadout;
 
 /**
@@ -443,6 +444,15 @@ public class SwingTopBarPanel extends JPanel {
         });
     add(bpmSlider);
 
+    // TEMPO encoder: turn nudges BPM via the slider (whose listener updates model + readout);
+    // press shows the current tempo (mirrors the hardware tempo-encoder press, buttons.cpp:252).
+    DelugeEncoderKnob tempoKnob = new DelugeEncoderKnob("TEMPO", new Color(0x00, 0xff, 0xcc));
+    tempoKnob.setToolTipText("Tempo encoder: drag to change BPM, click to show tempo");
+    tempoKnob.onTurn(d -> bpmSlider.setValue(bpmSlider.getValue() + d));
+    tempoKnob.onPress(
+        () -> paramReadout.printTransient("TEM ", String.valueOf(bpmSlider.getValue())));
+    add(tempoKnob);
+
     JLabel masterLabel = new JLabel("MASTER:");
     masterLabel.setForeground(Color.WHITE);
     masterLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
@@ -493,6 +503,12 @@ public class SwingTopBarPanel extends JPanel {
           paramReadout.printTransient("VOL ", val + "%");
         });
     add(masterVolSlider);
+
+    // Gold master-volume encoder (a Deluge gold mod-knob): turn nudges the master volume slider.
+    DelugeEncoderKnob volKnob = new DelugeEncoderKnob("VOL", new Color(0xff, 0xb3, 0x00));
+    volKnob.setToolTipText("Master volume encoder: drag to change level");
+    volKnob.onTurn(d -> masterVolSlider.setValue(masterVolSlider.getValue() + d));
+    add(volKnob);
 
     // ── Firmware LED Display (OLED) ──
     oledPanel.setBorder(BorderFactory.createLineBorder(Color.DARK_GRAY, 2));
