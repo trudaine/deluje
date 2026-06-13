@@ -561,9 +561,7 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
         Math.min(paramNeutralValues.length, fw2Sound.patchedParamValues.length));
     if (paramKnobsPopulated) {
       for (int i = 0; i < Param.kNumParams; i++) {
-        if (paramKnobs[i] != 0) {
-          fw2Sound.patchedParamValues[i] = paramKnobs[i];
-        }
+        fw2Sound.patchedParamValues[i] = paramKnobs[i];
       }
     }
     if (fmModulatorAmountBase[0] != Integer.MIN_VALUE) {
