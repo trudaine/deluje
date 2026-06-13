@@ -1,6 +1,6 @@
 package org.chuck.deluge.firmware.gui.menu;
 
-import org.chuck.deluge.firmware.dsp.oscillators.OscType;
+import org.chuck.deluge.firmware2.Oscillator.OscType;
 import org.chuck.deluge.firmware.engine.FirmwareSound;
 import org.chuck.deluge.firmware.hid.FirmwareDisplay;
 

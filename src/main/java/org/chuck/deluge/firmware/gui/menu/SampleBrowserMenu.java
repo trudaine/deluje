@@ -71,7 +71,7 @@ public class SampleBrowserMenu extends Submenu {
         Sample s = AudioFileReader.readSample(file.getAbsolutePath());
         if (s != null) {
           sound.samples[oscSlot] = s;
-          sound.oscTypes[oscSlot] = org.chuck.deluge.firmware.dsp.oscillators.OscType.SAMPLE;
+          sound.oscTypes[oscSlot] = org.chuck.deluge.firmware2.Oscillator.OscType.SAMPLE;
           // Trigger audition
           sound.triggerNote(60, 100);
           FirmwareDisplay.get().setText("LOADED: " + name);

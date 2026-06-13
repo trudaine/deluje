@@ -79,7 +79,7 @@ class SidechainRoutingParityTest {
 
   private static FirmwareSound createReceivingSynth(boolean patchSidechain) {
     FirmwareSound synth = new FirmwareSound();
-    synth.oscTypes[0] = org.chuck.deluge.firmware.dsp.oscillators.OscType.SAW;
+    synth.oscTypes[0] = org.chuck.deluge.firmware2.Oscillator.OscType.SAW;
     synth.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN] = ONE;
     synth.paramNeutralValues[Param.LOCAL_ENV_0_RELEASE] = 100000000;
     synth.paramNeutralValues[Param.UNPATCHED_SIDECHAIN_SHAPE] = 0;

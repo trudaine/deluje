@@ -29,7 +29,7 @@ class SampleAudioTest {
 
     // 2. Set up a FirmwareSound with the sample as source 0
     FirmwareSound sound = new FirmwareSound();
-    sound.oscTypes[0] = org.chuck.deluge.firmware.dsp.oscillators.OscType.SAMPLE;
+    sound.oscTypes[0] = org.chuck.deluge.firmware2.Oscillator.OscType.SAMPLE;
     sound.samples[0] = modelSample;
     // useFirmware2 removed - always true
 
@@ -68,7 +68,7 @@ class SampleAudioTest {
     }
 
     FirmwareSound sound = new FirmwareSound();
-    sound.oscTypes[0] = org.chuck.deluge.firmware.dsp.oscillators.OscType.SAMPLE;
+    sound.oscTypes[0] = org.chuck.deluge.firmware2.Oscillator.OscType.SAMPLE;
     sound.samples[0] = modelSample;
     sound.sampleSettings[0].timestretch = true; // enable time-stretch
     // useFirmware2 removed - always true
