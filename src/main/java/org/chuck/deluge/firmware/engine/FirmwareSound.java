@@ -544,10 +544,10 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
   }
 
   // ── High-Fidelity Filter States & Modulations ──
-  public org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode lpfMode =
-      org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF;
-  public org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode hpfMode =
-      org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF;
+  public org.chuck.deluge.firmware2.FilterSet.FilterMode lpfMode =
+      org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF;
+  public org.chuck.deluge.firmware2.FilterSet.FilterMode hpfMode =
+      org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF;
   public org.chuck.deluge.firmware.dsp.filter.FilterRoute filterRoute =
       org.chuck.deluge.firmware.dsp.filter.FilterRoute.HIGH_TO_LOW;
 
@@ -556,22 +556,22 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     switch (modelMode) {
       case LADDER_12:
         this.lpfMode =
-            org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.TRANSISTOR_12DB;
+            org.chuck.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_12DB;
         break;
       case LADDER_24:
         this.lpfMode =
-            org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.TRANSISTOR_24DB;
+            org.chuck.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_24DB;
         break;
       case DRIVE:
         this.lpfMode =
-            org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.TRANSISTOR_24DB_DRIVE;
+            org.chuck.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_24DB_DRIVE;
         break;
       case SVF:
       case SVF_NOTCH:
-        this.lpfMode = org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.SVF_NOTCH;
+        this.lpfMode = org.chuck.deluge.firmware2.FilterSet.FilterMode.SVF_NOTCH;
         break;
       case SVF_BAND:
-        this.lpfMode = org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.SVF_BAND;
+        this.lpfMode = org.chuck.deluge.firmware2.FilterSet.FilterMode.SVF_BAND;
         break;
     }
   }
@@ -585,17 +585,17 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
       case LADDER_12:
       case LADDER_24:
       case DRIVE:
-        this.hpfMode = org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.HPLADDER;
+        this.hpfMode = org.chuck.deluge.firmware2.FilterSet.FilterMode.HPLADDER;
         break;
       case SVF:
       case SVF_BAND:
-        this.hpfMode = org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.SVF_BAND;
+        this.hpfMode = org.chuck.deluge.firmware2.FilterSet.FilterMode.SVF_BAND;
         break;
       case SVF_NOTCH:
-        this.hpfMode = org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.SVF_NOTCH;
+        this.hpfMode = org.chuck.deluge.firmware2.FilterSet.FilterMode.SVF_NOTCH;
         break;
       default:
-        this.hpfMode = org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF;
+        this.hpfMode = org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF;
         break;
     }
   }
@@ -611,8 +611,8 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
   }
 
   public boolean hasFilters() {
-    return lpfMode != org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF
-        || hpfMode != org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF;
+    return lpfMode != org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF
+        || hpfMode != org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF;
   }
 
   // ── Subtractive Oscillator Retrigger Starting Phases ──

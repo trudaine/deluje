@@ -35,8 +35,8 @@ public class SampleLateStartTest {
     s.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
 
     // Turn off filters
-    s.lpfMode = org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF;
-    s.hpfMode = org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF;
+    s.lpfMode = org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF;
+    s.hpfMode = org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF;
 
     // 3. Set up the engine and trigger the note late by 100 samples!
     FirmwareAudioEngine eng = new FirmwareAudioEngine();

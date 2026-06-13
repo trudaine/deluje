@@ -17,8 +17,8 @@ class LiveInputOscTest {
 
   private FirmwareSound makeInputSound(OscType type) {
     FirmwareSound s = new FirmwareSound();
-    s.lpfMode = org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF;
-    s.hpfMode = org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF;
+    s.lpfMode = org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF;
+    s.hpfMode = org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF;
     s.oscTypes[0] = type;
     s.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
     s.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;

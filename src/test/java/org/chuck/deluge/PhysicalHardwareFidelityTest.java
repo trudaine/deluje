@@ -48,8 +48,8 @@ public class PhysicalHardwareFidelityTest {
         (org.chuck.deluge.firmware.model.InstrumentClip) fwSong.clips.get(0);
     FirmwareSound synth = (FirmwareSound) clip.sound;
 
-    synth.lpfMode = org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF;
-    synth.hpfMode = org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF;
+    synth.lpfMode = org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF;
+    synth.hpfMode = org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF;
 
     // Apply safe 2.5% volume overrides directly inside the sound engine to prevent filter clipping!
     synth.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = 53687091;
@@ -249,8 +249,8 @@ public class PhysicalHardwareFidelityTest {
     FirmwareSound synth = (FirmwareSound) clip.sound;
 
     // Keep native filters and parameter modulations active!
-    synth.lpfMode = org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.TRANSISTOR_24DB;
-    synth.hpfMode = org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF;
+    synth.lpfMode = org.chuck.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_24DB;
+    synth.hpfMode = org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF;
 
     FirmwareAudioEngine engine = new FirmwareAudioEngine();
     engine.sounds.add(synth);
