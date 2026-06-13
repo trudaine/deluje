@@ -716,11 +716,16 @@ public class DelugeXmlParser {
         }
         targetTrack.addClip(clip);
 
-        // Parse automation from instrumentClip's <soundParams> child
+        // Parse the clip's <soundParams>: STATIC values into the track model (the song format
+        // keeps all sound params here), then automation.
         if (targetTrack instanceof SynthTrackModel || targetTrack instanceof MidiTrackModel) {
           NodeList soundParamsList = clipElem.getElementsByTagName("soundParams");
           if (soundParamsList.getLength() > 0) {
-            parseAutomation((Element) soundParamsList.item(0), clip);
+            Element spEl = (Element) soundParamsList.item(0);
+            if (targetTrack instanceof SynthTrackModel stm) {
+              parseClipSoundParamsStatics(spEl, stm);
+            }
+            parseAutomation(spEl, clip);
           }
         }
 
@@ -1714,6 +1719,106 @@ public class DelugeXmlParser {
       readAttrFloatHex(eqChild, "bassFrequency", clip::setEqBassFrequency, true);
       readAttrFloatHex(eqChild, "trebleFrequency", clip::setEqTrebleFrequency, true);
     }
+  }
+
+  /**
+   * Static sound-parameter values from a CLIP's {@code <soundParams>} — where the firmware's song
+   * format keeps ALL the sound's param values (the instrument element carries structure only; the C
+   * runs the same {@code Sound::readParamsFromFile} on preset {@code defaultParams} and song {@code
+   * soundParams} alike). Until 2026-06-12 these were fed only to automation parsing, so real-format
+   * songs played instrument defaults — found via hardware comparison (filter wide open, instant
+   * attack, no vibrato, default FM depth, noise patch playing a saw).
+   */
+  private static void parseClipSoundParamsStatics(Element sp, SynthTrackModel synth) {
+    // The shared param table (same names as the preset defaultParams).
+    for (FieldBinding<?> b : DEFAULT_PARAMS_BINDINGS) {
+      b.applyTo(sp, synth);
+    }
+
+    // Raw Q31 knobs the factory prefers over the float views.
+    String v;
+    if (!(v = sp.getAttribute("modulator1Amount")).isEmpty()) {
+      synth.setModulator1AmountQ31(DelugeHexMapper.hexToQ31(v));
+    }
+    if (!(v = sp.getAttribute("modulator2Amount")).isEmpty()) {
+      synth.setModulator2AmountQ31(DelugeHexMapper.hexToQ31(v));
+    }
+    if (!(v = sp.getAttribute("modulator1Feedback")).isEmpty()) {
+      synth.setModulator1FeedbackQ31(DelugeHexMapper.hexToQ31(v));
+    }
+    if (!(v = sp.getAttribute("modulator2Feedback")).isEmpty()) {
+      synth.setModulator2FeedbackQ31(DelugeHexMapper.hexToQ31(v));
+    }
+    if (!(v = sp.getAttribute("carrier1Feedback")).isEmpty()) {
+      synth.setCarrier1FeedbackQ31(DelugeHexMapper.hexToQ31(v));
+    }
+    if (!(v = sp.getAttribute("carrier2Feedback")).isEmpty()) {
+      synth.setCarrier2FeedbackQ31(DelugeHexMapper.hexToQ31(v));
+    }
+    if (!(v = sp.getAttribute("portamento")).isEmpty()) {
+      synth.setPortamentoQ31(DelugeHexMapper.hexToQ31(v));
+    }
+    if (!(v = sp.getAttribute("waveFold")).isEmpty()) {
+      synth.setWaveFoldQ31(DelugeHexMapper.hexToQ31(v));
+    }
+    // LFO rate knobs: firmware lfo1 = global (slot 0), lfo2 = local (slot 1).
+    if (!(v = sp.getAttribute("lfo1Rate")).isEmpty()) {
+      synth.setLfoRateKnobQ31(0, DelugeHexMapper.hexToQ31(v));
+    }
+    if (!(v = sp.getAttribute("lfo2Rate")).isEmpty()) {
+      synth.setLfoRateKnobQ31(1, DelugeHexMapper.hexToQ31(v));
+    }
+
+    // Envelopes: <envelope1..4 attack="0x..." .../> children (attribute style).
+    String[] envTags = {"envelope1", "envelope2", "envelope3", "envelope4"};
+    for (int i = 0; i < 4; i++) {
+      NodeList envs = sp.getElementsByTagName(envTags[i]);
+      if (envs.getLength() == 0) {
+        continue;
+      }
+      Element envEl = (Element) envs.item(0);
+      String attack = attrOrChildText(envEl, "attack");
+      String decay = attrOrChildText(envEl, "decay");
+      String sustain = attrOrChildText(envEl, "sustain");
+      String release = attrOrChildText(envEl, "release");
+      if (attack == null || decay == null || sustain == null || release == null) {
+        continue;
+      }
+      synth.setEnv(
+          i,
+          new EnvelopeModel(
+              DelugeHexMapper.hexToEnvTime(attack),
+              DelugeHexMapper.hexToEnvTime(decay),
+              DelugeHexMapper.hexToSustain(sustain),
+              DelugeHexMapper.hexToEnvTime(release),
+              "NONE",
+              0.0f));
+      // Raw knobs win in the factory (firmware-faithful envelope rate curves).
+      synth.setEnvRateKnobsQ31(
+          i,
+          DelugeHexMapper.hexToQ31(attack),
+          DelugeHexMapper.hexToQ31(decay),
+          DelugeHexMapper.hexToQ31(release));
+    }
+
+    // Patch cables (the clip's set is authoritative in the song format).
+    NodeList cables = sp.getElementsByTagName("patchCable");
+    if (cables.getLength() > 0) {
+      synth.getPatchCables().clear();
+      parsePatchCables(sp, synth);
+    }
+  }
+
+  private static String attrOrChildText(Element el, String name) {
+    String v = el.getAttribute(name);
+    if (v != null && !v.isBlank()) {
+      return v;
+    }
+    NodeList nodes = el.getElementsByTagName(name);
+    if (nodes.getLength() > 0) {
+      return nodes.item(0).getTextContent();
+    }
+    return null;
   }
 
   // ── Complex sub-parsers (don't fit simple tag→value bindings) ──
