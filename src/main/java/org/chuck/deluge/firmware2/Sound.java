@@ -161,6 +161,17 @@ public class Sound extends GlobalEffectable {
   public final Eq eq = new Eq();
   public final Stutterer stutterer = new Stutterer();
 
+  // Per-sound delay (C: ModControllableAudio::delay, applied in processFX after modFX). The
+  // firmware's delay is PER-SOUND; the FirmwareAudioEngine master delay covers the song-level
+  // GlobalEffectable delay. Sync is driven externally (syncLevel 0 + userDelayRate), the same
+  // scheme the master delay uses. delayUserRate <= 0 or delayFeedbackAmount < 256 → inert.
+  public final Delay delay = new Delay();
+  public final Delay.State delayState = new Delay.State();
+  public int delayUserRate = 0; // 0 = no per-sound delay
+  public int delayFeedbackAmount = 0;
+  public boolean delayPingPong = false;
+  public boolean delayAnalog = false;
+
   public ModFx.ModFXType modFXType = ModFx.ModFXType.NONE;
   public int modFXRateIncrement = 0;
   public int modFXDepth = 0;
@@ -458,7 +469,10 @@ public class Sound extends GlobalEffectable {
     }
 
     boolean arpHolding = arpEnabled() && arpeggiator.hasAnyInputNotesActive();
-    if (!hasActiveVoices && !arpHolding) {
+    // C sound.cpp:2165 — keep rendering the FX tail while the per-sound delay still has repeats
+    // pending, so the delay tail isn't cut when the note's voices end.
+    boolean delayTailActive = delay.repeatsUntilAbandon != 0;
+    if (!hasActiveVoices && !arpHolding && !delayTailActive) {
       return;
     }
 
@@ -531,6 +545,19 @@ public class Sound extends GlobalEffectable {
         eqTrebleParam,
         patchedParamValues[Param.UNPATCHED_BASS_FREQ],
         patchedParamValues[Param.UNPATCHED_TREBLE_FREQ]);
+
+    // Per-sound delay (C: processFX delay.process, after EQ). Rate is driven externally with the
+    // delay's own sync disabled (syncLevel 0), matching the master-delay scheme; FirmwareSound
+    // computes delayUserRate from the per-sound delay sync + BPM.
+    if (delayUserRate > 0 && delayFeedbackAmount >= 256) {
+      delay.syncLevel = 0;
+      delay.pingPong = delayPingPong;
+      delay.analog = delayAnalog;
+      delayState.userDelayRate = delayUserRate;
+      delayState.delayFeedbackAmount = delayFeedbackAmount;
+      delay.setupWorkingState(delayState, 1 << 20, hasActiveVoices);
+      delay.process(fxIntBuffer, numSamples, delayState);
+    }
 
     int postReverb = patchedParamValues[Param.GLOBAL_VOLUME_POST_REVERB_SEND];
     Patcher.Destination d = null;

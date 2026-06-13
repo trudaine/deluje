@@ -715,6 +715,54 @@ public class SynthTrackModel extends TrackModel {
     this.reverbSend = reverbSend;
   }
 
+  // Per-sound delay (the instrument's own <delay> element + soundParams delayFeedback). The
+  // firmware delay is per-sound; these drive FirmwareSound's per-sound delay (BPM-synced).
+  private int delaySyncLevel = 0;
+  private int delaySyncType = 0;
+  private int delayFeedbackQ31 = 0;
+  private boolean delayPingPong = false;
+  private boolean delayAnalog = false;
+
+  public int getDelaySyncLevel() {
+    return delaySyncLevel;
+  }
+
+  public void setDelaySyncLevel(int v) {
+    this.delaySyncLevel = v;
+  }
+
+  public int getDelaySyncType() {
+    return delaySyncType;
+  }
+
+  public void setDelaySyncType(int v) {
+    this.delaySyncType = v;
+  }
+
+  public int getDelayFeedbackQ31() {
+    return delayFeedbackQ31;
+  }
+
+  public void setDelayFeedbackQ31(int v) {
+    this.delayFeedbackQ31 = v;
+  }
+
+  public boolean isDelayPingPong() {
+    return delayPingPong;
+  }
+
+  public void setDelayPingPong(boolean v) {
+    this.delayPingPong = v;
+  }
+
+  public boolean isDelayAnalog() {
+    return delayAnalog;
+  }
+
+  public void setDelayAnalog(boolean v) {
+    this.delayAnalog = v;
+  }
+
   public float getEqBass() {
     return eqBass;
   }

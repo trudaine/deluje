@@ -1463,6 +1463,9 @@ public class DelugeXmlParser {
     // ── Mod Knobs ──
     parseModKnobs(soundNode, synth);
 
+    // ── Per-sound delay (the instrument's own <delay> element) ──
+    parseSynthDelay(soundNode, synth);
+
     // ── Equalizer inside defaultParams ──
     Element dpEl = getFirstChild(soundNode, "defaultParams");
     if (dpEl != null) {
@@ -1761,6 +1764,9 @@ public class DelugeXmlParser {
     if (!(v = sp.getAttribute("waveFold")).isEmpty()) {
       synth.setWaveFoldQ31(DelugeHexMapper.hexToQ31(v));
     }
+    if (!(v = sp.getAttribute("delayFeedback")).isEmpty()) {
+      synth.setDelayFeedbackQ31(DelugeHexMapper.hexToQ31(v));
+    }
     // LFO rate knobs: firmware lfo1 = global (slot 0), lfo2 = local (slot 1).
     if (!(v = sp.getAttribute("lfo1Rate")).isEmpty()) {
       synth.setLfoRateKnobQ31(0, DelugeHexMapper.hexToQ31(v));
@@ -1835,6 +1841,37 @@ public class DelugeXmlParser {
     if (cables.getLength() > 0) {
       synth.getPatchCables().clear();
       parsePatchCables(sp, synth);
+    }
+  }
+
+  /**
+   * Parse the synth instrument's own {@code <delay>} (sync/pingPong/analog) into the model — this
+   * drives FirmwareSound's per-sound delay. The feedback comes from the clip soundParams
+   * (delayFeedback), wired in parseClipSoundParamsStatics. The direct child of {@code <sound>} is
+   * used (not a clip's), matching the firmware's per-sound delay element.
+   */
+  private static void parseSynthDelay(Element soundNode, SynthTrackModel synth) {
+    Element del = getFirstChild(soundNode, "delay");
+    if (del == null) {
+      return;
+    }
+    if (del.hasAttribute("syncLevel")) {
+      try {
+        synth.setDelaySyncLevel(Integer.parseInt(del.getAttribute("syncLevel").trim()));
+      } catch (NumberFormatException ignored) {
+      }
+    }
+    if (del.hasAttribute("syncType")) {
+      try {
+        synth.setDelaySyncType(Integer.parseInt(del.getAttribute("syncType").trim()));
+      } catch (NumberFormatException ignored) {
+      }
+    }
+    if (del.hasAttribute("pingPong")) {
+      synth.setDelayPingPong(!"0".equals(del.getAttribute("pingPong").trim()));
+    }
+    if (del.hasAttribute("analog")) {
+      synth.setDelayAnalog(!"0".equals(del.getAttribute("analog").trim()));
     }
   }
 

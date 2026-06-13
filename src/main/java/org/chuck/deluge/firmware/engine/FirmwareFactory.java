@@ -410,6 +410,16 @@ public class FirmwareFactory {
     sound.modFXOffset = (int) (clamp01(model.getModFxOffset()) * 2147483647.0);
     sound.modFXFeedback = (int) (clamp01(model.getModFxFeedback()) * 2147483647.0);
 
+    // Per-sound delay (the instrument's own <delay> + soundParams delayFeedback). syncParamsToFw2
+    // converts delaySyncLevel to the BPM-synced buffer rate. delayFeedback is the raw Q31 knob;
+    // INT_MIN/0 (or syncLevel 0) leaves it inert.
+    sound.delaySyncLevel = model.getDelaySyncLevel();
+    sound.delaySyncType = model.getDelaySyncType();
+    sound.delayPingPong = model.isDelayPingPong();
+    sound.delayAnalog = model.isDelayAnalog();
+    int dfb = model.getDelayFeedbackQ31();
+    sound.delayFeedbackAmount = (dfb == Integer.MIN_VALUE) ? 0 : Math.max(0, dfb);
+
     // Per-track reverb send KNOB (raw Q31 UNPATCHED_REVERB_SEND_AMOUNT). The actual send amount is
     // derived per block via the C volume curve in GlobalEffectable. normToBipolarParamVolume maps
     // the
