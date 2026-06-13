@@ -308,44 +308,44 @@ public class SoundEditor {
   }
 
   private static int lpfModeToIndex(
-      org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode mode) {
-    if (mode == org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.TRANSISTOR_12DB)
+      org.chuck.deluge.firmware2.FilterSet.FilterMode mode) {
+    if (mode == org.chuck.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_12DB)
       return 0;
-    if (mode == org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.TRANSISTOR_24DB)
+    if (mode == org.chuck.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_24DB)
       return 1;
     if (mode
-        == org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.TRANSISTOR_24DB_DRIVE)
+        == org.chuck.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_24DB_DRIVE)
       return 2;
-    if (mode == org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.SVF_BAND) return 3;
+    if (mode == org.chuck.deluge.firmware2.FilterSet.FilterMode.SVF_BAND) return 3;
     return 4;
   }
 
-  private static org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode indexToLpfMode(
+  private static org.chuck.deluge.firmware2.FilterSet.FilterMode indexToLpfMode(
       int index) {
     if (index == 0)
-      return org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.TRANSISTOR_12DB;
+      return org.chuck.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_12DB;
     if (index == 1)
-      return org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.TRANSISTOR_24DB;
+      return org.chuck.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_24DB;
     if (index == 2)
-      return org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.TRANSISTOR_24DB_DRIVE;
-    if (index == 3) return org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.SVF_BAND;
-    return org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.SVF_NOTCH;
+      return org.chuck.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_24DB_DRIVE;
+    if (index == 3) return org.chuck.deluge.firmware2.FilterSet.FilterMode.SVF_BAND;
+    return org.chuck.deluge.firmware2.FilterSet.FilterMode.SVF_NOTCH;
   }
 
   private static int hpfModeToIndex(
-      org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode mode) {
-    if (mode == org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF) return 0;
-    if (mode == org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.HPLADDER) return 1;
-    if (mode == org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.SVF_BAND) return 2;
+      org.chuck.deluge.firmware2.FilterSet.FilterMode mode) {
+    if (mode == org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF) return 0;
+    if (mode == org.chuck.deluge.firmware2.FilterSet.FilterMode.HPLADDER) return 1;
+    if (mode == org.chuck.deluge.firmware2.FilterSet.FilterMode.SVF_BAND) return 2;
     return 3;
   }
 
-  private static org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode indexToHpfMode(
+  private static org.chuck.deluge.firmware2.FilterSet.FilterMode indexToHpfMode(
       int index) {
-    if (index == 0) return org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF;
-    if (index == 1) return org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.HPLADDER;
-    if (index == 2) return org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.SVF_BAND;
-    return org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.SVF_NOTCH;
+    if (index == 0) return org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF;
+    if (index == 1) return org.chuck.deluge.firmware2.FilterSet.FilterMode.HPLADDER;
+    if (index == 2) return org.chuck.deluge.firmware2.FilterSet.FilterMode.SVF_BAND;
+    return org.chuck.deluge.firmware2.FilterSet.FilterMode.SVF_NOTCH;
   }
 
   private static int routeToCode(org.chuck.deluge.firmware.dsp.filter.FilterRoute route) {
