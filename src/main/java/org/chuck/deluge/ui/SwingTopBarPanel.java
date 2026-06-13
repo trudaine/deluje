@@ -355,6 +355,11 @@ public class SwingTopBarPanel extends JPanel {
     tapBtn.addActionListener(
         e -> {
           long now = System.currentTimeMillis();
+          // Start a fresh tap sequence if it's been too long since the last tap, so a stale
+          // tap from minutes ago can't drag the average down (mirrors hardware tap-tempo reset).
+          if (!tapTimes.isEmpty() && (now - tapTimes.get(tapTimes.size() - 1)) > 2000) {
+            tapTimes.clear();
+          }
           tapTimes.add(now);
           if (tapTimes.size() > 4) {
             tapTimes.remove(0);
