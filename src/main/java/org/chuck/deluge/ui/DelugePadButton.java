@@ -2,6 +2,7 @@ package org.chuck.deluge.ui;
 
 import java.awt.*;
 import javax.swing.JButton;
+import org.chuck.deluge.ui.controls.UiAnimator;
 
 /**
  * A custom high-fidelity pad button emulating the physical Synthstrom Deluge backlit rubber
@@ -120,6 +121,38 @@ public class DelugePadButton extends JButton {
     }
   }
 
+  // Shared-clock blink for the playhead ring. Registration is leak-safe: the grid recreates pad
+  // buttons on refresh, so we always unregister in removeNotify(), and the tick self-unregisters
+  // if the pad stops being a playhead.
+  private final UiAnimator.Tick tick = this::onTick;
+  private boolean tickRegistered = false;
+
+  private void onTick(long frame) {
+    if (isPlayhead && isShowing()) {
+      repaint();
+    } else {
+      setTickRegistered(false);
+    }
+  }
+
+  private void setTickRegistered(boolean on) {
+    if (on == tickRegistered) {
+      return;
+    }
+    tickRegistered = on;
+    if (on) {
+      UiAnimator.get().add(tick);
+    } else {
+      UiAnimator.get().remove(tick);
+    }
+  }
+
+  @Override
+  public void removeNotify() {
+    setTickRegistered(false);
+    super.removeNotify();
+  }
+
   public boolean isPlayhead() {
     return isPlayhead;
   }
@@ -127,6 +160,7 @@ public class DelugePadButton extends JButton {
   public void setPlayhead(boolean playhead) {
     if (this.isPlayhead != playhead) {
       this.isPlayhead = playhead;
+      setTickRegistered(playhead);
       repaint();
     }
   }
@@ -315,9 +349,11 @@ public class DelugePadButton extends JButton {
       g2.drawLine(xPad + 2, h / 2, w - xPad - 2, h / 2);
     }
 
-    // 5. Playhead Highlight Ring (glowing neon-white)
+    // 5. Playhead Highlight Ring (glowing neon-white), pulsing on the shared blink clock
+    //    at the firmware cursor-flash rate (kFlashTime ~110ms).
     if (isPlayhead) {
-      g2.setColor(new Color(255, 255, 255, 220));
+      int alpha = UiAnimator.blinkOn(UiAnimator.FLASH_SLOW_MS) ? 235 : 120;
+      g2.setColor(new Color(255, 255, 255, alpha));
       g2.setStroke(new BasicStroke(2.0f));
       g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
     }
