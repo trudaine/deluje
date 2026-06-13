@@ -160,6 +160,7 @@ public class Sound extends GlobalEffectable {
   public final GranularProcessor granular = new GranularProcessor();
   public final Eq eq = new Eq();
   public final Stutterer stutterer = new Stutterer();
+  public final Compressor compressor = new Compressor();
 
   // Per-sound delay (C: ModControllableAudio::delay, applied in processFX after modFX). The
   // firmware's delay is PER-SOUND; the FirmwareAudioEngine master delay covers the song-level
@@ -575,6 +576,14 @@ public class Sound extends GlobalEffectable {
       delayState.delayFeedbackAmount = delayFeedbackAmount;
       delay.setupWorkingState(delayState, 1 << 20, hasActiveVoices);
       delay.process(fxIntBuffer, numSamples, delayState);
+    }
+
+    int compThreshold = patchedParamValues[Param.UNPATCHED_COMPRESSOR_THRESHOLD];
+    compressor.setThreshold(compThreshold);
+    if (compThreshold > 0) {
+      compressor.renderVolNeutral(fxIntBuffer, postFXVolumeHolder[0]);
+    } else {
+      compressor.reset();
     }
 
     int postReverbKnob = patchedParamValues[Param.GLOBAL_VOLUME_POST_REVERB_SEND];

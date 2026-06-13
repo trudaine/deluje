@@ -435,6 +435,16 @@ public class FirmwareFactory {
     // Mod FX static configuration
     sound.modFXType = stringToModFXType(model.getModFxType());
 
+    // Compressor static configuration
+    sound.fw2Sound.compressor.setup(
+        (int) (model.getCompressorAttack() * 2147483647.0),
+        (int) (model.getCompressorRelease() * 2147483647.0),
+        (int) (model.getCompressorThreshold() * 2147483647.0),
+        (int) (model.getCompressorRatio() * 2147483647.0),
+        (int) (model.getCompressorSidechainHpf() * 2147483647.0),
+        (int) (model.getCompressorBlend() * 2147483647.0),
+        1.35f);
+
     // Arpeggiator
     configureArp(sound, model.getArp());
 
