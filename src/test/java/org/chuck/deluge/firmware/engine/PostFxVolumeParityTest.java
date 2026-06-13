@@ -3,10 +3,10 @@ package org.chuck.deluge.firmware.engine;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.chuck.deluge.firmware.dsp.StereoSample;
-import org.chuck.deluge.firmware.dsp.fx.ModFXType;
 import org.chuck.deluge.firmware.model.InstrumentClip;
 import org.chuck.deluge.firmware.model.Song;
 import org.chuck.deluge.firmware.modulation.params.Param;
+import org.chuck.deluge.firmware2.ModFx.ModFXType;
 import org.chuck.deluge.model.ClipModel;
 import org.chuck.deluge.model.ProjectModel;
 import org.chuck.deluge.model.SynthTrackModel;
@@ -83,6 +83,10 @@ public class PostFxVolumeParityTest {
     FirmwareSound finalOutput = buildSynth();
     internal.paramNeutralValues[Param.UNPATCHED_BITCRUSHING] = Integer.MAX_VALUE;
     finalOutput.paramNeutralValues[Param.UNPATCHED_BITCRUSHING] = Integer.MAX_VALUE;
+    internal.paramNeutralValues[Param.GLOBAL_VOLUME_POST_FX] = 0;
+    finalOutput.paramNeutralValues[Param.GLOBAL_VOLUME_POST_FX] = 0;
+    internal.paramKnobsPopulated = false;
+    finalOutput.paramKnobsPopulated = false;
 
     float[] internalWave = renderInternalBlocks(internal, 60, 110, 22050);
     float[] finalWave = renderOutputBlocks(finalOutput, 60, 110, 22050);
@@ -113,6 +117,10 @@ public class PostFxVolumeParityTest {
     finalOutput.modFXOffset = 0;
     internal.modFXFeedback = 0;
     finalOutput.modFXFeedback = 0;
+    internal.paramNeutralValues[Param.GLOBAL_VOLUME_POST_FX] = 0;
+    finalOutput.paramNeutralValues[Param.GLOBAL_VOLUME_POST_FX] = 0;
+    internal.paramKnobsPopulated = false;
+    finalOutput.paramKnobsPopulated = false;
 
     float[] internalWave = renderInternalBlocks(internal, 60, 110, 22050);
     float[] finalWave = renderOutputBlocks(finalOutput, 60, 110, 22050);

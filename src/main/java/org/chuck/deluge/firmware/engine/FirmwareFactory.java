@@ -511,7 +511,7 @@ public class FirmwareFactory {
         sustainKnob = model.getEnvSustainKnobQ31(i);
         releaseKnob = model.getEnvReleaseKnobQ31(i);
       } else {
-        sustainKnob = normToLinearParamKnob(em.sustain());
+        sustainKnob = normToBipolarParam(em.sustain());
         float normAttack = org.chuck.deluge.xml.DelugeHexMapper.normFromEnvTime(em.attack());
         attackKnob = (int) Math.rint(normAttack * 2147483647.0);
         float normDecay = org.chuck.deluge.xml.DelugeHexMapper.normFromEnvTime(em.decay());
@@ -540,14 +540,8 @@ public class FirmwareFactory {
         (int) (50 + Math.pow(2.0, (1.0 - model.getSidechainRelease()) * 12.0) * 1.5);
     sound.sidechain.attack = sidechainAttackVal;
     sound.sidechain.release = sidechainReleaseVal;
-    sound.sidechain.syncLevel =
-        org.chuck.deluge.firmware.model.SyncLevel.values()[
-            model.getSidechainSyncLevel()
-                % org.chuck.deluge.firmware.model.SyncLevel.values().length];
-    sound.sidechain.syncType =
-        org.chuck.deluge.firmware.model.SyncType.values()[
-            model.getSidechainSyncType()
-                % org.chuck.deluge.firmware.model.SyncType.values().length];
+    sound.sidechain.syncLevel = Math.max(0, Math.min(model.getSidechainSyncLevel(), 8));
+    sound.sidechain.syncType = Math.max(0, Math.min(model.getSidechainSyncType(), 2));
     sound
             .paramNeutralValues[
             org.chuck.deluge.firmware.modulation.params.Param.UNPATCHED_SIDECHAIN_SHAPE] =
@@ -786,12 +780,12 @@ public class FirmwareFactory {
     }
   }
 
-  private static org.chuck.deluge.firmware.dsp.fx.ModFXType stringToModFXType(String s) {
-    if (s == null) return org.chuck.deluge.firmware.dsp.fx.ModFXType.NONE;
+  private static org.chuck.deluge.firmware2.ModFx.ModFXType stringToModFXType(String s) {
+    if (s == null) return org.chuck.deluge.firmware2.ModFx.ModFXType.NONE;
     try {
-      return org.chuck.deluge.firmware.dsp.fx.ModFXType.valueOf(s.trim().toUpperCase());
+      return org.chuck.deluge.firmware2.ModFx.ModFXType.valueOf(s.trim().toUpperCase());
     } catch (Exception e) {
-      return org.chuck.deluge.firmware.dsp.fx.ModFXType.NONE;
+      return org.chuck.deluge.firmware2.ModFx.ModFXType.NONE;
     }
   }
 

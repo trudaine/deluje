@@ -410,11 +410,8 @@ public final class Functions {
   /** Exponential mapping: presetValue * 2^(adjustment). (functions.cpp:556-565) */
   public static int getExp(int presetValue, int adjustment) {
     int magnitudeIncrease = (adjustment >> 26) + 2;
-    // "fine" adjustment — change less than one doubling
-    int adjustedPresetValue =
-        multiply_32x32_rshift32(
-            presetValue,
-            interpolateTable(adjustment & 67108863, 26, LookupTables.expTableSmall, 8));
+    int interp = interpolateTable(adjustment & 67108863, 26, LookupTables.expTableSmall, 8);
+    int adjustedPresetValue = multiply_32x32_rshift32(presetValue, interp);
     return increaseMagnitudeAndSaturate(adjustedPresetValue, magnitudeIncrease);
   }
 
@@ -529,7 +526,7 @@ public final class Functions {
         return LookupTables.attackRateTable[userValue] * 4;
 
       case Param.STATIC_SIDECHAIN_RELEASE:
-        return LookupTables.releaseRateTable64[userValue] * 8;
+        return LookupTables.releaseRateTable[userValue] * 8;
 
       case Param.LOCAL_OSC_A_PHASE_WIDTH:
       case Param.LOCAL_OSC_B_PHASE_WIDTH:
@@ -556,6 +553,10 @@ public final class Functions {
   // ── Noise / tanH / misc ──
 
   private static int jcong = 380116160;
+
+  public static void resetNoiseSeed() {
+    jcong = 380116160;
+  }
 
   public static int getNoise() {
     jcong = 69069 * jcong + 1234567;

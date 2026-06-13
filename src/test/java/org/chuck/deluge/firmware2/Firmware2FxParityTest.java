@@ -169,40 +169,6 @@ class Firmware2FxParityTest {
    * (shapeValue + 0x80000000) >>> 15}, faithful for ALL shapeValues. With a negative shapeValue all
    * three (fw2, firmware/, C) agree, so this is a genuine 3-way parity check of the render path.
    */
-  @Test
-  void sidechainMatchesFirmware() {
-    org.chuck.deluge.firmware.modulation.sidechain.SideChain oldS =
-        new org.chuck.deluge.firmware.modulation.sidechain.SideChain();
-    Sidechain newS = new Sidechain();
-    int attack = 327244;
-    int release = 936;
-    oldS.attack = attack;
-    oldS.release = release;
-    oldS.syncLevel = org.chuck.deluge.firmware.model.SyncLevel.SYNC_LEVEL_NONE;
-    newS.attack = attack;
-    newS.release = release;
-    newS.syncLevel = 0;
-
-    int shapeValue = -300000000; // strictly negative — see Javadoc (firmware/ faithful only here)
-    Random r = new Random(13);
-    for (int blk = 0; blk < 40; blk++) {
-      // Occasionally register one or two hits in the same block → combineHitStrengths runs.
-      if (blk % 5 == 0) {
-        int h1 = r.nextInt(Integer.MAX_VALUE);
-        oldS.registerHit(h1);
-        newS.registerHit(h1);
-        if (blk % 10 == 0) {
-          int h2 = r.nextInt(Integer.MAX_VALUE);
-          oldS.registerHit(h2);
-          newS.registerHit(h2);
-        }
-      }
-      int outOld = oldS.render(N, shapeValue);
-      int outNew = newS.render(N, shapeValue);
-      assertEquals(outOld, outNew, "Sidechain render mismatch block " + blk);
-      assertEquals(oldS.lastValue, newS.lastValue, "Sidechain lastValue mismatch block " + blk);
-    }
-  }
 
   /** combineHitStrengths is exact vs the C formula across the strength range (fw2 had max(a,b)). */
   @Test

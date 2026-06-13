@@ -1946,6 +1946,43 @@ public class DelugeXmlParser {
       for (var e : SOUNDPARAMS_RAW_PATCHED.entrySet()) {
         rawKnob(dpEl, e.getKey(), synth, e.getValue());
       }
+      String v;
+      if ((v = attrOrChildText(dpEl, "modulator1Amount")) != null && !v.isBlank()) {
+        synth.setModulator1AmountQ31(DelugeHexMapper.hexToQ31(v));
+      }
+      if ((v = attrOrChildText(dpEl, "modulator2Amount")) != null && !v.isBlank()) {
+        synth.setModulator2AmountQ31(DelugeHexMapper.hexToQ31(v));
+      }
+      if ((v = attrOrChildText(dpEl, "modulator1Feedback")) != null && !v.isBlank()) {
+        synth.setModulator1FeedbackQ31(DelugeHexMapper.hexToQ31(v));
+      }
+      if ((v = attrOrChildText(dpEl, "modulator2Feedback")) != null && !v.isBlank()) {
+        synth.setModulator2FeedbackQ31(DelugeHexMapper.hexToQ31(v));
+      }
+      if ((v = attrOrChildText(dpEl, "carrier1Feedback")) != null && !v.isBlank()) {
+        synth.setCarrier1FeedbackQ31(DelugeHexMapper.hexToQ31(v));
+      }
+      if ((v = attrOrChildText(dpEl, "carrier2Feedback")) != null && !v.isBlank()) {
+        synth.setCarrier2FeedbackQ31(DelugeHexMapper.hexToQ31(v));
+      }
+      if ((v = attrOrChildText(dpEl, "portamento")) != null && !v.isBlank()) {
+        synth.setPortamentoQ31(DelugeHexMapper.hexToQ31(v));
+      }
+      if ((v = attrOrChildText(dpEl, "waveFold")) != null && !v.isBlank()) {
+        synth.setWaveFoldQ31(DelugeHexMapper.hexToQ31(v));
+      }
+      if ((v = attrOrChildText(dpEl, "lfo1Rate")) != null && !v.isBlank()) {
+        synth.setLfoRateKnobQ31(0, DelugeHexMapper.hexToQ31(v));
+      }
+      if ((v = attrOrChildText(dpEl, "lfo2Rate")) != null && !v.isBlank()) {
+        synth.setLfoRateKnobQ31(1, DelugeHexMapper.hexToQ31(v));
+      }
+      if ((v = attrOrChildText(dpEl, "lfo3Rate")) != null && !v.isBlank()) {
+        synth.setLfoRateKnobQ31(2, DelugeHexMapper.hexToQ31(v));
+      }
+      if ((v = attrOrChildText(dpEl, "lfo4Rate")) != null && !v.isBlank()) {
+        synth.setLfoRateKnobQ31(3, DelugeHexMapper.hexToQ31(v));
+      }
     }
   }
 

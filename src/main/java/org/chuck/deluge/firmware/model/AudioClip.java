@@ -3,7 +3,7 @@ package org.chuck.deluge.firmware.model;
 import org.chuck.deluge.firmware.dsp.StereoSample;
 // timeStretcher removed — replaced with simple pitched read
 import org.chuck.deluge.firmware.model.sample.Sample;
-import org.chuck.deluge.firmware.modulation.Envelope;
+import org.chuck.deluge.firmware2.Envelope;
 
 /**
  * Port of the Deluge's AudioClip class. Handles bit-accurate sample playback with real-time
@@ -42,7 +42,7 @@ public class AudioClip extends Clip {
     // ── Late Start Logic ──
     // If already playing, we let the stretcher handle it.
     // Otherwise, we flag a late start which will trigger note-on in the next render.
-    if (outputEnvelope.state == Envelope.EnvelopeStage.OFF) {
+    if (outputEnvelope.state == Envelope.Stage.OFF) {
       doingLateStart = true;
     }
   }
@@ -52,7 +52,7 @@ public class AudioClip extends Clip {
     if (actuallySoundChange) {
       // ── Bit-Accurate Release ──
       if (doingLateStart) {
-        if (outputEnvelope.state.ordinal() < Envelope.EnvelopeStage.FAST_RELEASE.ordinal()) {
+        if (outputEnvelope.state.ordinal() < Envelope.Stage.FAST_RELEASE.ordinal()) {
           doingLateStart = false;
           outputEnvelope.unconditionalOff();
         } else {
@@ -60,7 +60,7 @@ public class AudioClip extends Clip {
         }
       } else {
         // Fade out when stopping
-        outputEnvelope.unconditionalRelease(Envelope.EnvelopeStage.FAST_RELEASE, 1024);
+        outputEnvelope.unconditionalRelease(Envelope.Stage.FAST_RELEASE, 1024);
       }
     }
   }
@@ -83,7 +83,7 @@ public class AudioClip extends Clip {
       doingLateStart = false;
     }
 
-    if (outputEnvelope.state == Envelope.EnvelopeStage.OFF) return;
+    if (outputEnvelope.state == Envelope.Stage.OFF) return;
 
     // Convert to fw2 Sample and render through the faithful VoiceSample engine.
     if (fw2SampleCache == null) {

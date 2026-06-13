@@ -17,6 +17,7 @@ import org.chuck.deluge.model.KitTrackModel;
 import org.chuck.deluge.model.ProjectModel;
 import org.chuck.deluge.model.SynthTrackModel;
 import org.chuck.deluge.xml.DelugeXmlParser;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -25,6 +26,11 @@ import org.junit.jupiter.api.Test;
  * decay envelopes).
  */
 public class DigitalAudioFidelityTest {
+
+  @BeforeEach
+  void setUp() {
+    org.chuck.deluge.firmware2.Functions.resetNoiseSeed();
+  }
 
   private static final int SAMPLE_RATE = 44100;
 
@@ -314,6 +320,7 @@ public class DigitalAudioFidelityTest {
             org.chuck.deluge.firmware.modulation.params.Param.UNPATCHED_SIDECHAIN_SHAPE] =
         0; // linear
     synth.sidechainSend = 0; // Only receives sidechain ducking
+    synth.sidechain.syncLevel = 0; // Sync off for test recovery timing
     PatchCable sidechainCable = new PatchCable();
     sidechainCable.from = PatchSource.SIDECHAIN;
     sidechainCable.amount = Q31.ONE;

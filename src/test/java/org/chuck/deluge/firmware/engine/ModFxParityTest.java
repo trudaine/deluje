@@ -3,7 +3,7 @@ package org.chuck.deluge.firmware.engine;
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.chuck.deluge.firmware.dsp.StereoSample;
-import org.chuck.deluge.firmware.dsp.fx.ModFXType;
+import org.chuck.deluge.firmware2.ModFx.ModFXType;
 import org.junit.jupiter.api.Test;
 
 /**
