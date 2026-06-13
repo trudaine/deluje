@@ -1,12 +1,12 @@
 package org.chuck.deluge.firmware.engine;
 
-import org.chuck.deluge.firmware2.StereoSample;
 import org.chuck.deluge.firmware.model.PolyphonyMode;
 import org.chuck.deluge.firmware.modulation.params.Param;
 import org.chuck.deluge.firmware.modulation.patch.Destination;
 import org.chuck.deluge.firmware.modulation.patch.PatchCable;
 import org.chuck.deluge.firmware.modulation.patch.PatchSource;
 import org.chuck.deluge.firmware2.Sidechain;
+import org.chuck.deluge.firmware2.StereoSample;
 import org.chuck.deluge.model.tuning.ScalaScale;
 
 /**
@@ -438,13 +438,13 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
       double delaySec = Math.max(0.001, Math.min(2.0, syncFactor * stepSec));
       long rate = (long) (16384L * 16777216L / (delaySec * 44100.0));
       fw2Sound.delayUserRate = (int) Math.min(rate, Integer.MAX_VALUE);
-      fw2Sound.delayFeedbackAmount = Math.min(dfb, (1 << 30) - (1 << 26)); // C feedback clamp
+      fw2Sound.delayFeedbackAmount = dfb;
       fw2Sound.delayPingPong = delayPingPong;
       fw2Sound.delayAnalog = delayAnalog;
     } else if (delaySyncLevel == 0 && dfb >= 256) {
       fw2Sound.delayUserRate =
           fw2Sound.patchedParamValues[org.chuck.deluge.firmware2.Param.GLOBAL_DELAY_RATE];
-      fw2Sound.delayFeedbackAmount = Math.min(dfb, (1 << 30) - (1 << 26)); // C feedback clamp
+      fw2Sound.delayFeedbackAmount = dfb;
       fw2Sound.delayPingPong = delayPingPong;
       fw2Sound.delayAnalog = delayAnalog;
     } else {
@@ -454,8 +454,6 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
 
     // arpSettings are already shared between FirmwareSound and fw2Sound.
   }
-
-
 
   private org.chuck.deluge.firmware2.FilterSet.FilterMode fw2LpfMode() {
     return switch (lpfMode) {
@@ -555,16 +553,13 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     if (modelMode == null) return;
     switch (modelMode) {
       case LADDER_12:
-        this.lpfMode =
-            org.chuck.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_12DB;
+        this.lpfMode = org.chuck.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_12DB;
         break;
       case LADDER_24:
-        this.lpfMode =
-            org.chuck.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_24DB;
+        this.lpfMode = org.chuck.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_24DB;
         break;
       case DRIVE:
-        this.lpfMode =
-            org.chuck.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_24DB_DRIVE;
+        this.lpfMode = org.chuck.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_24DB_DRIVE;
         break;
       case SVF:
       case SVF_NOTCH:

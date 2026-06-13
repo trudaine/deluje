@@ -2,11 +2,11 @@ package org.chuck.deluge.firmware.engine;
 
 import static org.chuck.deluge.firmware.util.Q31.*;
 
-import org.chuck.deluge.firmware2.StereoSample;
 import org.chuck.deluge.firmware.modulation.params.Param;
 import org.chuck.deluge.firmware.modulation.params.ParamManager;
 import org.chuck.deluge.firmware.util.FirmwareUtils;
 import org.chuck.deluge.firmware2.DelayBuffer;
+import org.chuck.deluge.firmware2.StereoSample;
 
 /**
  * Port of the Deluge's Stutterer class. Implements real-time buffer-based stutter with bit-accurate

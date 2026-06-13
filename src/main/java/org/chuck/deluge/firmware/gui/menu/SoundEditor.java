@@ -307,41 +307,30 @@ public class SoundEditor {
     return menu;
   }
 
-  private static int lpfModeToIndex(
-      org.chuck.deluge.firmware2.FilterSet.FilterMode mode) {
-    if (mode == org.chuck.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_12DB)
-      return 0;
-    if (mode == org.chuck.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_24DB)
-      return 1;
-    if (mode
-        == org.chuck.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_24DB_DRIVE)
-      return 2;
+  private static int lpfModeToIndex(org.chuck.deluge.firmware2.FilterSet.FilterMode mode) {
+    if (mode == org.chuck.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_12DB) return 0;
+    if (mode == org.chuck.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_24DB) return 1;
+    if (mode == org.chuck.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_24DB_DRIVE) return 2;
     if (mode == org.chuck.deluge.firmware2.FilterSet.FilterMode.SVF_BAND) return 3;
     return 4;
   }
 
-  private static org.chuck.deluge.firmware2.FilterSet.FilterMode indexToLpfMode(
-      int index) {
-    if (index == 0)
-      return org.chuck.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_12DB;
-    if (index == 1)
-      return org.chuck.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_24DB;
-    if (index == 2)
-      return org.chuck.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_24DB_DRIVE;
+  private static org.chuck.deluge.firmware2.FilterSet.FilterMode indexToLpfMode(int index) {
+    if (index == 0) return org.chuck.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_12DB;
+    if (index == 1) return org.chuck.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_24DB;
+    if (index == 2) return org.chuck.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_24DB_DRIVE;
     if (index == 3) return org.chuck.deluge.firmware2.FilterSet.FilterMode.SVF_BAND;
     return org.chuck.deluge.firmware2.FilterSet.FilterMode.SVF_NOTCH;
   }
 
-  private static int hpfModeToIndex(
-      org.chuck.deluge.firmware2.FilterSet.FilterMode mode) {
+  private static int hpfModeToIndex(org.chuck.deluge.firmware2.FilterSet.FilterMode mode) {
     if (mode == org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF) return 0;
     if (mode == org.chuck.deluge.firmware2.FilterSet.FilterMode.HPLADDER) return 1;
     if (mode == org.chuck.deluge.firmware2.FilterSet.FilterMode.SVF_BAND) return 2;
     return 3;
   }
 
-  private static org.chuck.deluge.firmware2.FilterSet.FilterMode indexToHpfMode(
-      int index) {
+  private static org.chuck.deluge.firmware2.FilterSet.FilterMode indexToHpfMode(int index) {
     if (index == 0) return org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF;
     if (index == 1) return org.chuck.deluge.firmware2.FilterSet.FilterMode.HPLADDER;
     if (index == 2) return org.chuck.deluge.firmware2.FilterSet.FilterMode.SVF_BAND;

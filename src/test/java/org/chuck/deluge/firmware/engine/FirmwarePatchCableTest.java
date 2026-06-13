@@ -2,12 +2,12 @@ package org.chuck.deluge.firmware.engine;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import org.chuck.deluge.firmware2.StereoSample;
 import org.chuck.deluge.firmware.model.InstrumentClip;
 import org.chuck.deluge.firmware.model.Song;
 import org.chuck.deluge.firmware.modulation.params.Param;
 import org.chuck.deluge.firmware.modulation.patch.PatchCable;
 import org.chuck.deluge.firmware.modulation.patch.PatchSource;
+import org.chuck.deluge.firmware2.StereoSample;
 import org.chuck.deluge.model.ClipModel;
 import org.chuck.deluge.model.EnvelopeModel;
 import org.chuck.deluge.model.ProjectModel;

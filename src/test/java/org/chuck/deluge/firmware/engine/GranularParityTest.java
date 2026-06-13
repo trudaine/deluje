@@ -14,7 +14,8 @@ public class GranularParityTest {
 
   @Test
   public void granularProducesBoundedGrainTexture() {
-    org.chuck.deluge.firmware2.GranularProcessor g = new org.chuck.deluge.firmware2.GranularProcessor();
+    org.chuck.deluge.firmware2.GranularProcessor g =
+        new org.chuck.deluge.firmware2.GranularProcessor();
     int grainMix = 0x60000000;
 
     double wetEnergy = 0;

@@ -3,12 +3,12 @@ package org.chuck.deluge;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.InputStream;
-import org.chuck.deluge.firmware2.StereoSample;
 import org.chuck.deluge.firmware.engine.FirmwareAudioEngine;
 import org.chuck.deluge.firmware.engine.FirmwareFactory;
 import org.chuck.deluge.firmware.engine.FirmwareSound;
 import org.chuck.deluge.firmware.model.Song;
 import org.chuck.deluge.firmware.modulation.params.Param;
+import org.chuck.deluge.firmware2.StereoSample;
 import org.chuck.deluge.model.ProjectModel;
 import org.chuck.deluge.model.SynthTrackModel;
 import org.chuck.deluge.xml.DelugeXmlParser;

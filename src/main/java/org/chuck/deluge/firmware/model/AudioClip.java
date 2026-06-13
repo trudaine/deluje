@@ -1,9 +1,10 @@
 package org.chuck.deluge.firmware.model;
 
-import org.chuck.deluge.firmware2.StereoSample;
-// timeStretcher removed — replaced with simple pitched read
 import org.chuck.deluge.firmware.model.sample.Sample;
 import org.chuck.deluge.firmware2.Envelope;
+import org.chuck.deluge.firmware2.StereoSample;
+
+// timeStretcher removed — replaced with simple pitched read
 
 /**
  * Port of the Deluge's AudioClip class. Handles bit-accurate sample playback with real-time

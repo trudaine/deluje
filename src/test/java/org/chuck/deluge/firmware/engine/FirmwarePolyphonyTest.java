@@ -2,10 +2,10 @@ package org.chuck.deluge.firmware.engine;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import org.chuck.deluge.firmware2.StereoSample;
 import org.chuck.deluge.firmware.model.InstrumentClip;
 import org.chuck.deluge.firmware.model.PolyphonyMode;
 import org.chuck.deluge.firmware.model.Song;
+import org.chuck.deluge.firmware2.StereoSample;
 import org.chuck.deluge.model.ClipModel;
 import org.chuck.deluge.model.ProjectModel;
 import org.chuck.deluge.model.SynthTrackModel;

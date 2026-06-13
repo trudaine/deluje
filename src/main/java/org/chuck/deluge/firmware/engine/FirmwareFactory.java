@@ -4,7 +4,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import org.chuck.deluge.firmware2.Oscillator.OscType;
 import org.chuck.deluge.firmware.model.Clip;
 import org.chuck.deluge.firmware.model.InstrumentClip;
 import org.chuck.deluge.firmware.model.Song;
@@ -16,6 +15,7 @@ import org.chuck.deluge.firmware.modulation.patch.PatchCable;
 import org.chuck.deluge.firmware.modulation.patch.PatchSource;
 import org.chuck.deluge.firmware.storage.audio.AudioFileReader;
 import org.chuck.deluge.firmware.util.FirmwareUtils;
+import org.chuck.deluge.firmware2.Oscillator.OscType;
 import org.chuck.deluge.firmware2.WaveTable;
 import org.chuck.deluge.firmware2.WaveTableReader;
 import org.chuck.deluge.model.ClipModel;
@@ -637,12 +637,12 @@ public class FirmwareFactory {
       double delaySec = Math.max(0.001, Math.min(2.0, syncFactor * stepSec));
       long rate = (long) (16384L * 16777216L / (delaySec * 44100.0));
       sound.fw2Sound.delayUserRate = (int) Math.min(rate, Integer.MAX_VALUE);
-      sound.delayFeedbackAmount = Math.min(dfb, (1 << 30) - (1 << 26));
+      sound.delayFeedbackAmount = dfb;
     } else if (sound.delaySyncLevel == 0 && dfb >= 256) {
       sound.fw2Sound.delayUserRate =
           org.chuck.deluge.firmware2.Patcher.computeFinalValueForParam(
               Param.GLOBAL_DELAY_RATE, sound.paramKnobs[Param.GLOBAL_DELAY_RATE]);
-      sound.delayFeedbackAmount = Math.min(dfb, (1 << 30) - (1 << 26));
+      sound.delayFeedbackAmount = dfb;
     } else {
       sound.fw2Sound.delayUserRate = 0;
       sound.delayFeedbackAmount = 0;

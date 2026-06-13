@@ -1,11 +1,11 @@
 package org.chuck.deluge.reproduce;
 
 import org.chuck.deluge.AudioAnalyzer;
-import org.chuck.deluge.firmware2.StereoSample;
 import org.chuck.deluge.firmware.engine.FirmwareAudioEngine;
 import org.chuck.deluge.firmware.engine.FirmwareFactory;
 import org.chuck.deluge.firmware.engine.FirmwareSound;
 import org.chuck.deluge.firmware.model.Song;
+import org.chuck.deluge.firmware2.StereoSample;
 import org.chuck.deluge.model.ProjectModel;
 import org.chuck.deluge.model.SynthTrackModel;
 

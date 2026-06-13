@@ -2,11 +2,11 @@ package org.chuck.deluge;
 
 import java.io.File;
 import org.chuck.deluge.engine.JavaAudioDriver;
-import org.chuck.deluge.firmware2.StereoSample;
 import org.chuck.deluge.firmware.engine.FirmwareAudioEngine;
 import org.chuck.deluge.firmware.engine.FirmwareFactory;
 import org.chuck.deluge.firmware.model.Song;
 import org.chuck.deluge.firmware.playback.PlaybackHandler;
+import org.chuck.deluge.firmware2.StereoSample;
 import org.chuck.deluge.model.ProjectModel;
 import org.chuck.deluge.xml.DelugeXmlParser;
 

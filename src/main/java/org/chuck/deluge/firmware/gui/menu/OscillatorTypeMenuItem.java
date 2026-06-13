@@ -1,8 +1,8 @@
 package org.chuck.deluge.firmware.gui.menu;
 
-import org.chuck.deluge.firmware2.Oscillator.OscType;
 import org.chuck.deluge.firmware.engine.FirmwareSound;
 import org.chuck.deluge.firmware.hid.FirmwareDisplay;
+import org.chuck.deluge.firmware2.Oscillator.OscType;
 
 /** A menu item for selecting the oscillator type. */
 public class OscillatorTypeMenuItem extends MenuItem {
