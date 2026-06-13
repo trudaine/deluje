@@ -3040,7 +3040,10 @@ public class SwingGridPanel extends JPanel {
         && vm.getGlobalInt(BridgeContract.G_PLAY) == 1L) {
       int modelRow = 127 - note;
       int col = currentPlayheadStep % stepCount;
-      if (modelRow >= 0 && modelRow < voiceRowCount && col >= 0 && col < stepCount) {
+      // A synth clip is a 128-row piano roll (row = 127 - pitch, see buildVoiceRow pitchMidi),
+      // so gate on the full pitch range — NOT voiceRowCount, which is the number of rows visible
+      // in the current view (8 in KEYPLAY) and would reject every isomorphic note.
+      if (modelRow >= 0 && modelRow < 128 && col >= 0 && col < stepCount) {
         if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
           org.chuck.deluge.model.TrackModel track = projectModel.getTracks().get(editedModelTrack);
           if (track instanceof org.chuck.deluge.model.SynthTrackModel synthTrack) {
