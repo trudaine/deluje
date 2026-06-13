@@ -962,16 +962,13 @@ public class SwingKitConfigDialog extends JDialog {
                   org.chuck.deluge.model.Drum curDrum = curKit.getDrums().get(drumIdx);
                   Object curVal = getProperty(curDrum, paramName);
                   if (curVal != null) {
-                    for (int t = 0; t < projectModel.getTracks().size(); t++) {
-                      if (t != trackIndex) {
-                        org.chuck.deluge.model.TrackModel tm = projectModel.getTracks().get(t);
-                        if (tm instanceof org.chuck.deluge.model.KitTrackModel targetKit) {
-                          if (drumIdx < targetKit.getDrums().size()) {
-                            org.chuck.deluge.model.Drum targetDrum =
-                                targetKit.getDrums().get(drumIdx);
-                            setProperty(targetDrum, paramName, curVal);
-                          }
-                        }
+                    // Faithful hardware AFFECT ENTIRE: apply the edit to every drum of THIS kit
+                    // (all rows of the current kit), not to other tracks. See DelugeFirmware
+                    // affect-entire semantics (kit edits broadcast across the kit's own rows).
+                    java.util.List<org.chuck.deluge.model.Drum> drums = curKit.getDrums();
+                    for (int d = 0; d < drums.size(); d++) {
+                      if (d != drumIdx) {
+                        setProperty(drums.get(d), paramName, curVal);
                       }
                     }
                     SwingDelugeApp.mainInstance.fireProjectChanged();

@@ -32,6 +32,46 @@ public class SwingGridPanel extends JPanel {
   private int editedModelTrack = 0; // model track index currently being edited in CLIP mode
   public static int lockArmedTrack = -1;
   public static int lockArmedStep = -1;
+
+  // Isomorphic keyboard (KEYPLAY) layout, mirroring DelugeFirmware defaults:
+  //   noteFromCoords(x, y) = scrollOffset + x + y * rowInterval   (isomorphic.h:44)
+  // with rowInterval = kDefaultIsometricRowInterval = 5 and the default
+  //   scrollOffset = 60 - (kDisplayHeight >> 2) * 5 = 60 - (8>>2)*5 = 50  (state_data.h:26-29).
+  // So the bottom-left pad is MIDI 50 (D), each column +1 semitone, each row up +5.
+  private static final int KEYPLAY_BASE_NOTE = 50;
+  private static final int KEYPLAY_ROW_INTERVAL = 5;
+
+  /** Isomorphic note for a grid pad: trk is the row from the top (0..7), colId the column. */
+  private static int keyplayNote(int trk, int colId) {
+    return KEYPLAY_BASE_NOTE + colId + (7 - trk) * KEYPLAY_ROW_INTERVAL;
+  }
+
+  /**
+   * Drum index for a KEYPLAY pad on a kit track. Mirrors DelugeFirmware's velocity-drums layout at
+   * the default zoom (edge_size 1×1): note = x + y*pads_per_row + offset, with y measured from the
+   * bottom and pads_per_row = kDisplayWidth = 16 (velocity_drums.cpp:50). The isomorphic layout is
+   * instrument-only on hardware (isomorphic.h:39 supportsKit()==false), so kits use this grid.
+   */
+  private static int keyplayDrumIndex(int trk, int colId) {
+    return colId + (7 - trk) * 16;
+  }
+
+  /** True when the track currently being edited is a Kit (KEYPLAY uses the drum grid for kits). */
+  private boolean isEditedTrackKit() {
+    return projectModel != null
+        && editedModelTrack < projectModel.getTracks().size()
+        && projectModel.getTracks().get(editedModelTrack)
+            instanceof org.chuck.deluge.model.KitTrackModel;
+  }
+
+  /** Number of drums in the edited kit track, or 0 if not a kit. */
+  private int editedKitDrumCount() {
+    if (!isEditedTrackKit()) return 0;
+    return ((org.chuck.deluge.model.KitTrackModel)
+            projectModel.getTracks().get(editedModelTrack))
+        .getDrums()
+        .size();
+  }
   private int soloRow = -1; // -1 = no solo
   private Timer playheadTimer; // single timer for playhead updates, avoids leaks
   private final java.util.Map<Integer, VUMeterPanel> voiceVuMeters =
@@ -3082,6 +3122,42 @@ public class SwingGridPanel extends JPanel {
     }
   }
 
+  /**
+   * Trigger a specific drum by its kit index (used by KEYPLAY on kit tracks, which follow the
+   * velocity-drums grid layout rather than the instrument-only isomorphic note layout).
+   */
+  void triggerKeyboardDrum(int drumIdx) {
+    try {
+      Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+      if (fwEngineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine
+          && editedModelTrack < fwEngine.sounds.size()
+          && fwEngine.sounds.get(editedModelTrack)
+              instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
+        if (drumIdx >= 0 && drumIdx < kit.drumSounds.size()) {
+          kit.triggerDrum(drumIdx, 127);
+        }
+      }
+    } catch (Exception ex) {
+      LOG.warning("Hi-Fi drum trigger failed: " + ex.getMessage());
+    }
+  }
+
+  void releaseKeyboardDrum(int drumIdx) {
+    try {
+      Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+      if (fwEngineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine
+          && editedModelTrack < fwEngine.sounds.size()
+          && fwEngine.sounds.get(editedModelTrack)
+              instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
+        if (drumIdx >= 0 && drumIdx < kit.drumSounds.size()) {
+          kit.drumSounds.get(drumIdx).releaseNote(60);
+        }
+      }
+    } catch (Exception ex) {
+      LOG.warning("Hi-Fi drum release failed: " + ex.getMessage());
+    }
+  }
+
   /** Build a fixed row (MACROS, SLIDERS, KEYBOARD) for the CLIP grid. */
   private JPanel buildFixedRow(int rowIdx, int padSz, int rowHeight) {
     JPanel rowPanel = new JPanel();
@@ -4645,8 +4721,12 @@ public class SwingGridPanel extends JPanel {
               switch (viewMode) {
                 case KEYPLAY:
                   if (colId < 16) {
-                    int note = 48 + colId + (7 - trk) * 5;
-                    clipBtn.setText(getNoteName(note));
+                    if (isEditedTrackKit()) {
+                      int drumIdx = keyplayDrumIndex(trk, colId);
+                      clipBtn.setText(drumIdx < editedKitDrumCount() ? ("D" + (drumIdx + 1)) : "");
+                    } else {
+                      clipBtn.setText(getNoteName(keyplayNote(trk, colId)));
+                    }
                   } else {
                     clipBtn.setText("");
                   }
@@ -5031,23 +5111,39 @@ public class SwingGridPanel extends JPanel {
                 });
           } else {
             if (viewMode == GridViewMode.KEYPLAY) {
-              int note = 48 + colId + (7 - trk) * 5;
-              boolean isRoot = isRootNote(note);
-              boolean inScale = isNoteInScale(note);
+              if (isEditedTrackKit()) {
+                // Kit: velocity-drums grid. Pads backing a real drum are lit in the track colour;
+                // pads beyond the last drum are dark (hardware: note > highestClipNote -> black).
+                int drumIdx = keyplayDrumIndex(trk, colId);
+                boolean hasDrum = drumIdx < editedKitDrumCount();
+                Color padColor =
+                    hasDrum ? trackColors[t % trackColors.length].darker() : new Color(0x16, 0x16, 0x16);
+                clipBtn.setBackground(padColor);
+                if (clipBtn instanceof DelugePadButton pad) {
+                  pad.setBaseColor(padColor);
+                  pad.setIntensity(hasDrum ? 0.6f : 0.15f);
+                  pad.setActive(hasDrum);
+                  pad.setNoteText(hasDrum ? ("D" + (drumIdx + 1)) : "");
+                }
+              } else {
+                int note = keyplayNote(trk, colId);
+                boolean isRoot = isRootNote(note);
+                boolean inScale = isNoteInScale(note);
 
-              Color padColor = new Color(0x22, 0x22, 0x22);
-              if (isRoot) {
-                padColor = new Color(0x00, 0xbb, 0xff);
-              } else if (inScale) {
-                padColor = trackColors[t % trackColors.length].darker();
-              }
+                Color padColor = new Color(0x22, 0x22, 0x22);
+                if (isRoot) {
+                  padColor = new Color(0x00, 0xbb, 0xff);
+                } else if (inScale) {
+                  padColor = trackColors[t % trackColors.length].darker();
+                }
 
-              clipBtn.setBackground(padColor);
-              if (clipBtn instanceof DelugePadButton pad) {
-                pad.setBaseColor(padColor);
-                pad.setIntensity(inScale ? (isRoot ? 1.0f : 0.6f) : 0.2f);
-                pad.setActive(inScale);
-                pad.setNoteText(getNoteName(note));
+                clipBtn.setBackground(padColor);
+                if (clipBtn instanceof DelugePadButton pad) {
+                  pad.setBaseColor(padColor);
+                  pad.setIntensity(inScale ? (isRoot ? 1.0f : 0.6f) : 0.2f);
+                  pad.setActive(inScale);
+                  pad.setNoteText(getNoteName(note));
+                }
               }
             } else if (viewMode == GridViewMode.CLIP) {
               boolean stepState = bridge.getStep(baseTrackId + trk, c);
@@ -5119,14 +5215,22 @@ public class SwingGridPanel extends JPanel {
             }
 
             if (viewMode == GridViewMode.KEYPLAY && colId < 16) {
-              int note = 48 + colId + (7 - trk) * 5;
+              boolean kitTrack = isEditedTrackKit();
+              int note = keyplayNote(trk, colId);
+              int drumIdx = keyplayDrumIndex(trk, colId);
+              boolean drumPlayable = kitTrack && drumIdx < editedKitDrumCount();
               clearActionListeners(clipBtn);
               clearKeyboardMouseListeners(clipBtn);
               clipBtn.addMouseListener(
                   new java.awt.event.MouseAdapter() {
                     @Override
                     public void mousePressed(java.awt.event.MouseEvent e) {
-                      triggerKeyboardNote(note);
+                      if (kitTrack) {
+                        if (!drumPlayable) return; // empty drum slot: inert pad
+                        triggerKeyboardDrum(drumIdx);
+                      } else {
+                        triggerKeyboardNote(note);
+                      }
                       clipBtn.setBackground(new Color(0x00, 0xff, 0x66));
                       if (clipBtn instanceof DelugePadButton pad) {
                         pad.setBaseColor(new Color(0x00, 0xff, 0x66));
@@ -5136,7 +5240,11 @@ public class SwingGridPanel extends JPanel {
 
                     @Override
                     public void mouseReleased(java.awt.event.MouseEvent e) {
-                      triggerKeyboardNoteRelease(note);
+                      if (kitTrack) {
+                        if (drumPlayable) releaseKeyboardDrum(drumIdx);
+                      } else {
+                        triggerKeyboardNoteRelease(note);
+                      }
                       refresh();
                     }
                   });
