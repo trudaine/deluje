@@ -272,9 +272,4 @@ class Firmware2FxParityTest {
     }
   }
 
-  private static StereoSample[] newBuf() {
-    StereoSample[] a = new StereoSample[N];
-    for (int i = 0; i < N; i++) a[i] = new StereoSample();
-    return a;
-  }
 }
