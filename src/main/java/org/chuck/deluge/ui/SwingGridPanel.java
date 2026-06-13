@@ -4567,22 +4567,35 @@ public class SwingGridPanel extends JPanel {
 
           if (colId == 16) {
             final int engineRow = baseTrackId + trk;
-            boolean curMute = bridge.getMute(engineRow);
-            Color muteBg =
-                curMute
-                    ? new Color(0xff, 0xd7, 0x00)
-                    : Color.WHITE; // Yellow when muted, Pure Snow White when active
-            clipBtn.setText("MUTE");
-            clipBtn.setBackground(muteBg);
-            clipBtn.setForeground(Color.BLACK);
-            clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 11 : 9));
-            if (clipBtn instanceof DelugePadButton pad) {
-              pad.setBaseColor(muteBg);
-              pad.setTextColorOverride(Color.BLACK);
-              pad.setDrawCenterCircle(false);
-              pad.setIntensity(1.0f);
-              pad.setActive(true);
-              pad.setNoteText("MUTE");
+            if (viewMode == GridViewMode.SONG && t >= tracks.size()) {
+              clipBtn.setText("");
+              clipBtn.setBackground(new Color(0x1a, 0x1a, 0x1a));
+              clipBtn.setEnabled(false);
+              if (clipBtn instanceof DelugePadButton pad) {
+                pad.setBaseColor(new Color(0x1a, 0x1a, 0x1a));
+                pad.setActive(false);
+                pad.setNoteText("");
+                pad.setIntensity(0.2f);
+              }
+            } else {
+              clipBtn.setEnabled(true);
+              boolean curMute = bridge.getMute(engineRow);
+              Color muteBg =
+                  curMute
+                      ? new Color(0xff, 0xd7, 0x00)
+                      : Color.WHITE; // Yellow when muted, Pure Snow White when active
+              clipBtn.setText("MUTE");
+              clipBtn.setBackground(muteBg);
+              clipBtn.setForeground(Color.BLACK);
+              clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 11 : 9));
+              if (clipBtn instanceof DelugePadButton pad) {
+                pad.setBaseColor(muteBg);
+                pad.setTextColorOverride(Color.BLACK);
+                pad.setDrawCenterCircle(false);
+                pad.setIntensity(1.0f);
+                pad.setActive(true);
+                pad.setNoteText("MUTE");
+              }
             }
             if (viewMode == null) {
               clipBtn.setToolTipText("Row " + (t + 1) + " Mute Toggle");
@@ -4652,18 +4665,33 @@ public class SwingGridPanel extends JPanel {
                 });
           } else if (colId == columnCount - 1) {
             if (viewMode == GridViewMode.SONG) {
-              String sLaunch = (t < tracks.size()) ? tracks.get(t).getName() : ("TRACK " + (t + 1));
-              clipBtn.setText(sLaunch);
-              clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 11 : 9));
-              clipBtn.setBackground(trackColors[t % trackColors.length]);
-              clipBtn.setForeground(Color.BLACK);
-              if (clipBtn instanceof DelugePadButton pad) {
-                pad.setBaseColor(trackColors[t % trackColors.length]);
-                pad.setTextColorOverride(Color.BLACK);
-                pad.setDrawCenterCircle(false);
-                pad.setIntensity(1.0f);
-                pad.setActive(true);
-                pad.setNoteText(sLaunch);
+              if (t < tracks.size()) {
+                String sLaunch = tracks.get(t).getName();
+                clipBtn.setText(sLaunch);
+                clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 11 : 9));
+                clipBtn.setBackground(trackColors[t % trackColors.length]);
+                clipBtn.setForeground(Color.BLACK);
+                if (clipBtn instanceof DelugePadButton pad) {
+                  pad.setBaseColor(trackColors[t % trackColors.length]);
+                  pad.setTextColorOverride(Color.BLACK);
+                  pad.setDrawCenterCircle(false);
+                  pad.setIntensity(1.0f);
+                  pad.setActive(true);
+                  pad.setNoteText(sLaunch);
+                }
+              } else {
+                clipBtn.setText("+");
+                clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 14 : 11));
+                clipBtn.setBackground(new Color(0x1a, 0x1a, 0x1a));
+                clipBtn.setForeground(Color.DARK_GRAY);
+                if (clipBtn instanceof DelugePadButton pad) {
+                  pad.setBaseColor(new Color(0x1a, 0x1a, 0x1a));
+                  pad.setTextColorOverride(Color.DARK_GRAY);
+                  pad.setDrawCenterCircle(false);
+                  pad.setIntensity(0.2f);
+                  pad.setActive(false);
+                  pad.setNoteText("+");
+                }
               }
             } else {
               boolean isSynth = false;
@@ -4815,22 +4843,58 @@ public class SwingGridPanel extends JPanel {
               long currentClip = bridge != null ? bridge.getCurrentClip(t) : 0L;
               if (launchQ == colId) {
                 clipBtn.setBackground(new Color(0xff, 0xaa, 0x00)); // amber = queued
+                if (clipBtn instanceof DelugePadButton pad) {
+                  pad.setBaseColor(new Color(0xff, 0xaa, 0x00));
+                  pad.setIntensity(1.0f);
+                  pad.setActive(true);
+                }
               } else if (currentClip == colId
                   && bridge != null
                   && bridge.getClipPlayMode(t, colId) == 1) {
                 clipBtn.setBackground(new Color(0x00, 0xcc, 0x00)); // green = LOOP mode
+                if (clipBtn instanceof DelugePadButton pad) {
+                  pad.setBaseColor(new Color(0x00, 0xcc, 0x00));
+                  pad.setIntensity(1.0f);
+                  pad.setActive(true);
+                }
               } else if (currentClip == colId) {
                 clipBtn.setBackground(trackColors[t % trackColors.length]); // playing
+                if (clipBtn instanceof DelugePadButton pad) {
+                  pad.setBaseColor(trackColors[t % trackColors.length]);
+                  pad.setIntensity(1.0f);
+                  pad.setActive(true);
+                }
               } else if (hasClip) {
                 clipBtn.setBackground(new Color(0x33, 0x44, 0x55)); // stopped
+                if (clipBtn instanceof DelugePadButton pad) {
+                  pad.setBaseColor(new Color(0x33, 0x44, 0x55));
+                  pad.setIntensity(0.5f);
+                  pad.setActive(true);
+                }
               } else {
-                clipBtn.setBackground(new Color(0x1a, 0x1a, 0x1a)); // empty
+                clipBtn.setBackground(new Color(0x1a, 0x1a, 0x1a)); // empty slot
+                if (clipBtn instanceof DelugePadButton pad) {
+                  pad.setBaseColor(new Color(0x1a, 0x1a, 0x1a));
+                  pad.setIntensity(0.2f);
+                  pad.setActive(false);
+                }
               }
             } else {
               if (hasClip) {
                 clipBtn.setBackground(trackColors[currentTrack]);
+                if (clipBtn instanceof DelugePadButton pad) {
+                  pad.setBaseColor(trackColors[currentTrack]);
+                  pad.setIntensity(0.8f);
+                  pad.setActive(true);
+                }
               } else {
-                clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
+                clipBtn.setBackground(new Color(0x1a, 0x1a, 0x1a));
+                if (clipBtn instanceof DelugePadButton pad) {
+                  pad.setBaseColor(new Color(0x1a, 0x1a, 0x1a));
+                  pad.setIntensity(0.2f);
+                  pad.setActive(false);
+                  pad.setNoteText("");
+                }
               }
             }
 
@@ -5228,31 +5292,59 @@ public class SwingGridPanel extends JPanel {
                   });
             }
 
-            if (viewMode == GridViewMode.SONG && t < tracks.size() && colId < 16) {
-              final int clipCol = colId;
-              final int trkIdx = currentTrack;
-              final org.chuck.deluge.model.TrackModel songTrack = tracks.get(t);
+            if (viewMode == GridViewMode.SONG && colId < 16) {
+              if (t < tracks.size()) {
+                final int clipCol = colId;
+                final int trkIdx = currentTrack;
+                final org.chuck.deluge.model.TrackModel songTrack = tracks.get(t);
+                clipBtn.addMouseListener(
+                    new java.awt.event.MouseAdapter() {
+                      @Override
+                      public void mousePressed(java.awt.event.MouseEvent e) {
+                        if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
+                          if (clipCol < songTrack.getClips().size()) {
+                            showClipContextMenu(
+                                clipBtn, e.getX(), e.getY(), songTrack, clipCol, trkIdx);
+                          }
+                        } else {
+                          if (clipCol >= songTrack.getClips().size()) {
+                            String name = "CLIP " + (clipCol + 1);
+                            songTrack.addClip(
+                                new org.chuck.deluge.model.ClipModel(
+                                    name,
+                                    songTrack.getClips().isEmpty()
+                                        ? 8
+                                        : songTrack.getClips().get(0).getRowCount(),
+                                    16));
+                            fireProjectChanged();
+                          }
+                        }
+                      }
+                    });
+              } else {
+                final int clickRow = t;
+                final int clickCol = colId;
+                clipBtn.addMouseListener(
+                    new java.awt.event.MouseAdapter() {
+                      @Override
+                      public void mousePressed(java.awt.event.MouseEvent e) {
+                        if (javax.swing.SwingUtilities.isLeftMouseButton(e)) {
+                          showCreateTrackMenu(clipBtn, e.getX(), e.getY(), clickRow, clickCol);
+                        }
+                      }
+                    });
+              }
+            } else if (viewMode == GridViewMode.SONG
+                && colId == columnCount - 1
+                && t >= tracks.size()) {
+              final int clickRow = t;
+              final int clickCol = 0;
               clipBtn.addMouseListener(
                   new java.awt.event.MouseAdapter() {
                     @Override
                     public void mousePressed(java.awt.event.MouseEvent e) {
-                      if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
-                        if (clipCol < songTrack.getClips().size()) {
-                          showClipContextMenu(
-                              clipBtn, e.getX(), e.getY(), songTrack, clipCol, trkIdx);
-                        }
-                      } else {
-                        if (clipCol >= songTrack.getClips().size()) {
-                          String name = "CLIP " + (clipCol + 1);
-                          songTrack.addClip(
-                              new org.chuck.deluge.model.ClipModel(
-                                  name,
-                                  songTrack.getClips().isEmpty()
-                                      ? 8
-                                      : songTrack.getClips().get(0).getRowCount(),
-                                  16));
-                          fireProjectChanged();
-                        }
+                      if (javax.swing.SwingUtilities.isLeftMouseButton(e)) {
+                        showCreateTrackMenu(clipBtn, e.getX(), e.getY(), clickRow, clickCol);
                       }
                     }
                   });
@@ -8290,5 +8382,97 @@ public class SwingGridPanel extends JPanel {
     }
 
     menu.show(invoker, 0, invoker.getHeight());
+  }
+
+  private void showCreateTrackMenu(
+      java.awt.Component src, int x, int y, final int row, final int col) {
+    JPopupMenu menu = new JPopupMenu();
+    menu.setBackground(new Color(0x1e, 0x1e, 0x22));
+    menu.setBorder(BorderFactory.createLineBorder(new Color(0x3e, 0x3e, 0x42), 1));
+
+    JMenuItem createSynth = new JMenuItem("Create SYNTH Track");
+    createSynth.setForeground(Color.WHITE);
+    createSynth.setBackground(new Color(0x1e, 0x1e, 0x22));
+    createSynth.addActionListener(
+        ev -> {
+          createTrackAndNavigate(row, col, "SYNTH");
+        });
+
+    JMenuItem createKit = new JMenuItem("Create KIT Track");
+    createKit.setForeground(Color.WHITE);
+    createKit.setBackground(new Color(0x1e, 0x1e, 0x22));
+    createKit.addActionListener(
+        ev -> {
+          createTrackAndNavigate(row, col, "KIT");
+        });
+
+    JMenuItem createAudio = new JMenuItem("Create AUDIO Track");
+    createAudio.setForeground(Color.WHITE);
+    createAudio.setBackground(new Color(0x1e, 0x1e, 0x22));
+    createAudio.addActionListener(
+        ev -> {
+          createTrackAndNavigate(row, col, "AUDIO");
+        });
+
+    menu.add(createSynth);
+    menu.add(createKit);
+    menu.add(createAudio);
+    menu.show(src, x, y);
+  }
+
+  private void createTrackAndNavigate(int row, int col, String type) {
+    if (projectModel == null) return;
+    String name =
+        JOptionPane.showInputDialog(
+            this, type + " track name:", type + " " + (projectModel.getTracks().size() + 1));
+    if (name == null || name.isBlank()) return;
+
+    org.chuck.deluge.model.TrackModel newTrack = null;
+    org.chuck.deluge.model.ClipModel newClip =
+        new org.chuck.deluge.model.ClipModel("CLIP " + (col + 1), 8, 16);
+
+    switch (type) {
+      case "SYNTH" -> {
+        org.chuck.deluge.model.SynthTrackModel synth =
+            new org.chuck.deluge.model.SynthTrackModel(name);
+        synth.addClip(newClip);
+        newTrack = synth;
+      }
+      case "KIT" -> {
+        org.chuck.deluge.model.KitTrackModel kit = new org.chuck.deluge.model.KitTrackModel(name);
+        kit.addClip(newClip);
+        newTrack = kit;
+      }
+      case "AUDIO" -> {
+        org.chuck.deluge.model.AudioTrackModel audio =
+            new org.chuck.deluge.model.AudioTrackModel(name);
+        newClip = new org.chuck.deluge.model.ClipModel("CLIP " + (col + 1), 1, 16);
+        audio.addClip(newClip);
+        newTrack = audio;
+      }
+    }
+
+    if (newTrack != null) {
+      projectModel.addTrack(newTrack);
+      int trackIdx = projectModel.getTracks().size() - 1;
+
+      if (projectModel.getUndoRedoStack() != null) {
+        projectModel
+            .getUndoRedoStack()
+            .push(
+                new Consequence.TrackStructureConsequence(
+                    Consequence.TrackStructureConsequence.ADD,
+                    trackIdx,
+                    newTrack,
+                    "Add " + type.toLowerCase() + " track"));
+      }
+
+      fireProjectChanged();
+      refresh();
+
+      if (onEditRequest != null) {
+        onEditRequest.accept(trackIdx, 0);
+      }
+    }
   }
 }
