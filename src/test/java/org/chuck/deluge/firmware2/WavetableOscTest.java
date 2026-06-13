@@ -7,8 +7,6 @@ import org.chuck.deluge.firmware.dsp.oscillators.OscType;
 import org.chuck.deluge.firmware.engine.FirmwareAudioEngine;
 import org.chuck.deluge.firmware.engine.FirmwareSound;
 import org.chuck.deluge.firmware.modulation.params.Param;
-import org.chuck.deluge.firmware.storage.wave_table.WaveTable;
-import org.chuck.deluge.firmware.storage.wave_table.WavetableGenerator;
 import org.junit.jupiter.api.Test;
 
 class WavetableOscTest {

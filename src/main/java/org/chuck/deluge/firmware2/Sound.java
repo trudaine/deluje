@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import org.chuck.deluge.firmware.dsp.StereoSample;
 import org.chuck.deluge.firmware.engine.GlobalSidechainBus;
 import org.chuck.deluge.firmware.engine.Stutterer;
-import org.chuck.deluge.firmware.storage.wave_table.WaveTable;
 import org.chuck.deluge.firmware2.FilterSet.FilterMode;
 import org.chuck.deluge.firmware2.Lfo.LfoConfig;
 import org.chuck.deluge.firmware2.Oscillator.OscType;
