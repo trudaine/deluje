@@ -6017,15 +6017,22 @@ public class SwingGridPanel extends JPanel {
 
       int pw = Math.max(60, Math.min(140, getWidth() / 12));
       scrollBar.add(Box.createRigidArea(new Dimension(pw + 17, 24)));
-      scrollBar.add(Box.createHorizontalGlue());
 
       for (int i = 0; i < totalParams; i += maxVisible) {
         int pageStart = i;
         boolean isActivePage = (i <= paramOffset && paramOffset < i + maxVisible);
-        JButton dot = new JButton(isActivePage ? "\u25C9" : "\u25CB");
-        dot.setPreferredSize(new Dimension(22, 22));
-        dot.setMinimumSize(new Dimension(22, 22));
-        dot.setMaximumSize(new Dimension(22, 22));
+
+        String firstParamName = allParams[i];
+        String lastParamName = allParams[Math.min(totalParams - 1, i + maxVisible - 1)];
+        String pageLabel =
+            org.chuck.deluge.model.AutomationParam.labelFor(firstParamName)
+                + "-"
+                + org.chuck.deluge.model.AutomationParam.labelFor(lastParamName);
+
+        JButton dot = new JButton(pageLabel);
+        dot.setPreferredSize(new Dimension(90, 22));
+        dot.setMinimumSize(new Dimension(90, 22));
+        dot.setMaximumSize(new Dimension(90, 22));
         dot.setMargin(new Insets(0, 0, 0, 0));
 
         Color dotBg = isActivePage ? new Color(0x00, 0x99, 0x66) : new Color(0x2d, 0x2d, 0x32);
@@ -6034,10 +6041,8 @@ public class SwingGridPanel extends JPanel {
         dot.setToolTipText(
             "Go to parameter page "
                 + (i / maxVisible + 1)
-                + " (params "
-                + (i + 1)
-                + " to "
-                + Math.min(totalParams, i + maxVisible)
+                + " (params: "
+                + pageLabel.replace("-", " to ")
                 + ")");
 
         int fPage = pageStart;
@@ -6049,7 +6054,6 @@ public class SwingGridPanel extends JPanel {
         scrollBar.add(dot);
         scrollBar.add(Box.createHorizontalStrut(6));
       }
-      scrollBar.add(Box.createHorizontalGlue());
       add(scrollBar);
     }
   }
