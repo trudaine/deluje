@@ -47,7 +47,7 @@ public class FirmwareLfoModulationTest {
     sound.paramNeutralValues[Param.LOCAL_LFO_LOCAL_FREQ_1] = fiveHz;
     AutoParam rateAp = sound.paramManager.getAutomatedParam(Param.LOCAL_LFO_LOCAL_FREQ_1);
     if (rateAp != null) rateAp.currentValue = fiveHz;
-    sound.lfoWaveforms[1] = LFO.LFOType.SINE; // LFO_LOCAL_1 uses waveform index 1
+    sound.lfoWaveforms[1] = org.chuck.deluge.firmware2.Lfo.LfoType.SINE; // LFO_LOCAL_1 uses waveform index 1
 
     if (addLfoToVolume) {
       PatchCable c = new PatchCable();
