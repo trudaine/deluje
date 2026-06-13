@@ -10,6 +10,7 @@ import java.util.Arrays;
 public abstract class GlobalEffectable {
   public final FilterSet filterSet = new FilterSet();
   public int reverbSendKnob = Integer.MIN_VALUE;
+  public boolean muted = false;
 
   // Track level output gains. Q31 convention: 2147483647 = unity (the verified pre-flat-buffer
   // behavior — the old firmware/engine/GlobalEffectable used Q31.ONE holders with (a*b)>>31
@@ -37,6 +38,10 @@ public abstract class GlobalEffectable {
     // Apply FilterSet
     if (filterSet.isOn()) {
       filterSet.renderLongStereo(trackBuffer, numSamples);
+    }
+
+    if (muted) {
+      postFXVolume = 0;
     }
 
     // C: global_effectable_for_clip.cpp:84-86 — the reverb send amount is a volume curve of the

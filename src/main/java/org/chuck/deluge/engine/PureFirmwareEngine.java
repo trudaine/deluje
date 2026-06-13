@@ -178,6 +178,18 @@ public class PureFirmwareEngine {
       System.out.println("[PureFirmwareEngine] WARNING: G_SP_VOLUME is very low: " + spVol);
     }
 
+    // Sync track mute states from the bridge globals to Java engine sounds
+    Song song = playbackHandler.getSong();
+    if (song != null) {
+      for (int t = 0; t < song.clips.size(); t++) {
+        org.chuck.deluge.firmware.model.Clip clip = song.clips.get(t);
+        if (clip instanceof org.chuck.deluge.firmware.model.InstrumentClip ic && ic.sound != null) {
+          boolean isMuted = vm.getGlobalInt("g_mute_" + t) > 0;
+          ic.sound.muted = isMuted;
+        }
+      }
+    }
+
     // Arpeggiator clock: one step = arpDivision note (16 = 16th). gatePos accumulates a full step
     // (1<<24) over stepSamples, advancing by (phaseIncrement>>8) per sample → phaseInc =
     // 2^32/steps.
