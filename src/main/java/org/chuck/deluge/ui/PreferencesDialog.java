@@ -57,16 +57,31 @@ public class PreferencesDialog extends JDialog {
   private JButton scalaBrowseBtn;
   private JButton scalaClearBtn;
 
+  private JTabbedPane tabPane;
+  private final org.chuck.deluge.midi.MidiService midiService;
+  private JTable mappingTable;
+  private JTextField learnParamField;
+  private JButton learnBtn;
+  private JLabel learnStatus;
+  private JComboBox<org.chuck.deluge.midi.MidiDeviceDefinition> deviceCombo;
+  private JCheckBox followEnable;
+  private JComboBox<String>[] chCombos;
+  private JComboBox<String>[] trCombos;
+
   public PreferencesDialog(
-      java.awt.Frame owner, Runnable onGridModeChanged, Runnable onLibraryChanged) {
+      java.awt.Frame owner,
+      org.chuck.deluge.midi.MidiService midiService,
+      Runnable onGridModeChanged,
+      Runnable onLibraryChanged) {
     super(owner, "Preferences", true);
+    this.midiService = midiService;
     this.onGridModeChanged = onGridModeChanged;
     this.onLibraryChanged = onLibraryChanged;
 
     initComponentsProgrammatic();
     loadCurrentPreferences();
 
-    setSize(640, 560);
+    setSize(660, 600);
     setMinimumSize(new Dimension(580, 500));
     setLocationRelativeTo(owner);
   }
@@ -101,17 +116,17 @@ public class PreferencesDialog extends JDialog {
     mainContainer.add(headerPanel, BorderLayout.NORTH);
 
     // 3. Tabbed Pane setup
-    JTabbedPane tabPane = new JTabbedPane();
+    tabPane = new JTabbedPane();
     tabPane.setBackground(BG_DARK);
     tabPane.setForeground(TEXT_LIGHT);
     tabPane.setFont(new Font("SansSerif", Font.BOLD, 11));
     tabPane.setBorder(BorderFactory.createEmptyBorder());
 
     // Tab panels setup
-    tabPane.addTab("AUDIO / DSP", buildAudioPanel());
-    tabPane.addTab("MIDI SETTINGS", buildMidiPanel());
-    tabPane.addTab("SEQUENCER", buildSequencerPanel());
-    tabPane.addTab("SYSTEM / INTERFACE", buildSystemPanel());
+    tabPane.addTab("AUDIO / DSP", wrapInScrollPane(buildAudioPanel()));
+    tabPane.addTab("MIDI SETTINGS", wrapInScrollPane(buildMidiPanel()));
+    tabPane.addTab("SEQUENCER", wrapInScrollPane(buildSequencerPanel()));
+    tabPane.addTab("SYSTEM / INTERFACE", wrapInScrollPane(buildSystemPanel()));
 
     mainContainer.add(tabPane, BorderLayout.CENTER);
 
@@ -227,6 +242,45 @@ public class PreferencesDialog extends JDialog {
         c,
         0);
 
+    java.util.List<org.chuck.deluge.midi.MidiDeviceDefinition> devices =
+        org.chuck.deluge.midi.MidiDeviceDefinitionLoader.loadAll();
+    deviceCombo = new JComboBox<>();
+    deviceCombo.addItem(null); // None
+    for (var d : devices) {
+      deviceCombo.addItem(d);
+    }
+    styleComboBox(deviceCombo);
+    deviceCombo.setRenderer(
+        new DefaultListCellRenderer() {
+          @Override
+          public Component getListCellRendererComponent(
+              JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+            super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+            if (value == null) {
+              setText("— None —");
+            } else if (value instanceof org.chuck.deluge.midi.MidiDeviceDefinition d) {
+              setText(d.getName() != null ? d.getName() : d.getId());
+            }
+            return this;
+          }
+        });
+    deviceCombo.addActionListener(
+        e -> {
+          if (midiService != null) {
+            org.chuck.deluge.midi.MidiDeviceDefinition selected =
+                (org.chuck.deluge.midi.MidiDeviceDefinition) deviceCombo.getSelectedItem();
+            midiService.setDeviceDefinition(selected);
+            rebuildTableContent();
+          }
+        });
+    addField(
+        panel,
+        "Device Profile Map",
+        deviceCombo,
+        "Load standard parameter mappings definition for specific keyboards.",
+        c,
+        1);
+
     gridModeCheck = new JCheckBox("Enable MIDI Pad Controller Mode");
     styleCheckBox(gridModeCheck);
     addField(
@@ -235,26 +289,185 @@ public class PreferencesDialog extends JDialog {
         gridModeCheck,
         "Incoming note numbers map to grid matrix step coordinates.",
         c,
-        1);
-
-    mappingList = new JList<>(listModel);
-    mappingList.setBackground(BG_DARK);
-    mappingList.setForeground(TEXT_LIGHT);
-    mappingList.setFont(new Font("Monospaced", Font.PLAIN, 11));
-    mappingList.setBorder(BorderFactory.createLineBorder(BORDER_COLOR, 1));
-
-    JScrollPane scroll = new JScrollPane(mappingList);
-    scroll.setPreferredSize(new Dimension(100, 130));
-    scroll.setBorder(BorderFactory.createLineBorder(BORDER_COLOR, 1));
-    addField(
-        panel,
-        "Active MIDI CC Mappings",
-        scroll,
-        "Current dynamically learned control bindings.",
-        c,
         2);
 
+    // CC Mappings Table Section
+    mappingTable = new JTable();
+    styleTable(mappingTable);
+    rebuildTableContent();
+
+    JScrollPane tableScroll = new JScrollPane(mappingTable);
+    tableScroll.setPreferredSize(new Dimension(100, 150));
+    tableScroll.setBorder(BorderFactory.createLineBorder(BORDER_COLOR, 1));
+    tableScroll.setBackground(BG_DARK);
+    tableScroll.getViewport().setBackground(BG_DARK);
+    addField(
+        panel,
+        "Active CC Mappings",
+        tableScroll,
+        "Table showing JNI parameter variable and mapped MIDI CC.",
+        c,
+        3);
+
+    // Learn Controls
+    JPanel learnSection = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 2));
+    learnSection.setOpaque(false);
+
+    learnParamField = new JTextField(15);
+    learnParamField.setBackground(BG_DARK);
+    learnParamField.setForeground(TEXT_LIGHT);
+    learnParamField.setCaretColor(Color.WHITE);
+    learnParamField.setFont(new Font("SansSerif", Font.PLAIN, 11));
+    learnParamField.setBorder(
+        BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(BORDER_COLOR, 1),
+            BorderFactory.createEmptyBorder(2, 4, 2, 4)));
+    learnParamField.setToolTipText("Enter target parameter name (e.g. g_master_vol)");
+    learnSection.add(learnParamField);
+
+    learnBtn = new JButton("START LEARN");
+    styleOutlineButton(learnBtn, new Color(0x1a, 0x24, 0x22), ACCENT_GREEN);
+    learnSection.add(learnBtn);
+
+    learnStatus = new JLabel("");
+    learnStatus.setForeground(new Color(0xff, 0xcc, 0x00));
+    learnStatus.setFont(new Font("SansSerif", Font.PLAIN, 10));
+    learnSection.add(learnStatus);
+
+    learnBtn.addActionListener(
+        e -> {
+          if (midiService == null) return;
+          String param = learnParamField.getText().trim();
+          if (param.isEmpty()) {
+            learnStatus.setText("Enter target parameter name");
+            return;
+          }
+          midiService.startLearn(param);
+          learnStatus.setText("Sweeping CC knobs...");
+          learnBtn.setEnabled(false);
+
+          Timer timer =
+              new Timer(
+                  10000,
+                  ev -> {
+                    learnBtn.setEnabled(true);
+                    if (midiService.isLearning()) {
+                      midiService.cancelLearn();
+                      learnStatus.setText("Learn timed out");
+                    } else {
+                      learnStatus.setText("Learned successfully!");
+                      rebuildTableContent();
+                    }
+                  });
+          timer.setRepeats(false);
+          timer.start();
+        });
+
+    addField(
+        panel,
+        "MIDI CC Learn Controller",
+        learnSection,
+        "Sweep dynamic CC control values to automatically learn mappings.",
+        c,
+        4);
+
+    // Follow Mode Config
+    JPanel followPanel = buildFollowPanel();
+    addField(
+        panel,
+        "MIDI Follow Mode",
+        followPanel,
+        "Assign MIDI channels to target playback track lines.",
+        c,
+        5);
+
     return panel;
+  }
+
+  private JPanel buildFollowPanel() {
+    JPanel followPanel = new JPanel();
+    followPanel.setLayout(new BoxLayout(followPanel, BoxLayout.Y_AXIS));
+    followPanel.setOpaque(false);
+    followPanel.setBorder(
+        BorderFactory.createTitledBorder(
+            BorderFactory.createLineBorder(BORDER_COLOR),
+            "MIDI Follow Mode Configuration",
+            javax.swing.border.TitledBorder.LEFT,
+            javax.swing.border.TitledBorder.TOP,
+            new Font("SansSerif", Font.BOLD, 10),
+            TEXT_LIGHT));
+
+    followEnable = new JCheckBox("Enable Track Follow Modes");
+    styleCheckBox(followEnable);
+    followEnable.setSelected(PreferencesManager.get("midi.follow.enabled", "true").equals("true"));
+    followEnable.addActionListener(
+        e -> {
+          PreferencesManager.set("midi.follow.enabled", String.valueOf(followEnable.isSelected()));
+        });
+    followPanel.add(followEnable);
+    followPanel.add(Box.createVerticalStrut(6));
+
+    String[] midiChannels = {
+      "1", "2", "3", "4", "5", "6", "7", "8",
+      "9", "10", "11", "12", "13", "14", "15", "16"
+    };
+    String[] trackLabels = {
+      "Track 1", "Track 2", "Track 3", "Track 4", "Track 5", "Track 6", "Track 7", "Track 8",
+      "Track 9", "Track 10", "Track 11", "Track 12", "Track 13", "Track 14", "Track 15", "Track 16"
+    };
+    char[] followLabels = {'A', 'B', 'C'};
+
+    chCombos = new JComboBox[3];
+    trCombos = new JComboBox[3];
+
+    for (int i = 0; i < 3; i++) {
+      final char fLabel = followLabels[i];
+      JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 2));
+      row.setOpaque(false);
+      JLabel fl = new JLabel("Channel " + fLabel + ":");
+      fl.setForeground(TEXT_LIGHT);
+      fl.setFont(new Font("SansSerif", Font.BOLD, 10));
+
+      JComboBox<String> chCombo = new JComboBox<>(midiChannels);
+      int savedCh = Integer.parseInt(PreferencesManager.get("midi.follow.ch" + fLabel, "1"));
+      chCombo.setSelectedIndex(savedCh - 1);
+      styleComboBox(chCombo);
+      chCombo.setPreferredSize(new Dimension(60, 22));
+      chCombo.addActionListener(
+          e -> {
+            PreferencesManager.set(
+                "midi.follow.ch" + fLabel, String.valueOf(chCombo.getSelectedIndex() + 1));
+          });
+      chCombos[i] = chCombo;
+
+      JComboBox<String> trCombo = new JComboBox<>(trackLabels);
+      int savedTr =
+          Integer.parseInt(PreferencesManager.get("midi.follow.track" + fLabel, String.valueOf(i)));
+      trCombo.setSelectedIndex(Math.min(savedTr, 15));
+      styleComboBox(trCombo);
+      trCombo.setPreferredSize(new Dimension(110, 22));
+      trCombo.addActionListener(
+          e -> {
+            PreferencesManager.set(
+                "midi.follow.track" + fLabel, String.valueOf(trCombo.getSelectedIndex()));
+          });
+      trCombos[i] = trCombo;
+
+      JLabel midiChLbl = new JLabel("MIDI Ch:");
+      midiChLbl.setForeground(TEXT_DIM);
+      midiChLbl.setFont(new Font("SansSerif", Font.PLAIN, 10));
+      JLabel trLbl = new JLabel("→ Track:");
+      trLbl.setForeground(TEXT_DIM);
+      trLbl.setFont(new Font("SansSerif", Font.PLAIN, 10));
+
+      row.add(fl);
+      row.add(midiChLbl);
+      row.add(chCombo);
+      row.add(trLbl);
+      row.add(trCombo);
+      followPanel.add(row);
+    }
+    return followPanel;
   }
 
   private JPanel buildSequencerPanel() {
@@ -538,6 +751,84 @@ public class PreferencesDialog extends JDialog {
         });
   }
 
+  private JScrollPane wrapInScrollPane(JPanel panel) {
+    JScrollPane scroll = new JScrollPane(panel);
+    scroll.setBorder(BorderFactory.createEmptyBorder());
+    scroll.setBackground(BG_DARK);
+    scroll.getViewport().setBackground(BG_DARK);
+    scroll.getVerticalScrollBar().setUnitIncrement(12);
+    return scroll;
+  }
+
+  private void styleOutlineButton(JButton btn, Color bg, Color fg) {
+    btn.setContentAreaFilled(false);
+    btn.setOpaque(true);
+    btn.setFocusPainted(false);
+    btn.setBackground(bg);
+    btn.setForeground(fg);
+    btn.setFont(new Font("SansSerif", Font.BOLD, 11));
+    btn.setBorder(BorderFactory.createLineBorder(fg, 1));
+    btn.setMargin(new Insets(3, 8, 3, 8));
+  }
+
+  private void styleTable(JTable table) {
+    table.setBackground(BG_DARK);
+    table.setForeground(TEXT_LIGHT);
+    table.setFont(new Font("SansSerif", Font.PLAIN, 11));
+    table.setRowHeight(20);
+    table.setGridColor(BORDER_COLOR);
+    table.getTableHeader().setBackground(BORDER_COLOR);
+    table.getTableHeader().setForeground(TEXT_LIGHT);
+    table.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 11));
+    table.setSelectionBackground(new Color(0x00, 0xff, 0xcc, 0x33));
+    table.setSelectionForeground(Color.WHITE);
+    table.setShowGrid(true);
+
+    table.setDefaultRenderer(
+        Object.class,
+        new javax.swing.table.DefaultTableCellRenderer() {
+          @Override
+          public Component getTableCellRendererComponent(
+              JTable t, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+            Component c =
+                super.getTableCellRendererComponent(t, value, isSelected, hasFocus, row, column);
+            c.setBackground(BG_DARK);
+            c.setForeground(TEXT_LIGHT);
+            if (isSelected) {
+              c.setBackground(t.getSelectionBackground());
+              c.setForeground(t.getSelectionForeground());
+            }
+            return c;
+          }
+        });
+  }
+
+  private void rebuildTableContent() {
+    if (midiService == null) return;
+    java.util.Map<String, Integer> mappings = midiService.getMappings();
+    String[][] tableData = new String[mappings.size()][3];
+    int rowIdx = 0;
+    for (var entry : mappings.entrySet()) {
+      tableData[rowIdx][0] = entry.getKey();
+      tableData[rowIdx][1] = "CC #" + entry.getValue();
+      tableData[rowIdx][2] = "ACTIVE";
+      rowIdx++;
+    }
+    if (tableData.length == 0) {
+      tableData = new String[][] {{"— No midi mappings cabled —", "", ""}};
+    }
+    String[] cols = {"JNI Parameter Variable", "MIDI CC Signal", "Connection Status"};
+
+    javax.swing.table.DefaultTableModel model =
+        new javax.swing.table.DefaultTableModel(tableData, cols) {
+          @Override
+          public boolean isCellEditable(int row, int column) {
+            return false;
+          }
+        };
+    mappingTable.setModel(model);
+  }
+
   // --- ACTIONS & BUSINESS LOGIC PARSERS ---
 
   private void loadCurrentPreferences() {
@@ -617,14 +908,59 @@ public class PreferencesDialog extends JDialog {
     } else {
       scalaPathField.setText("(no custom scale - 12-TET active)");
     }
+
+    // Initialize deviceCombo selection based on loaded preference
+    if (midiService != null) {
+      org.chuck.deluge.midi.MidiDeviceDefinition currentDef = midiService.getDeviceDefinition();
+      if (currentDef != null) {
+        for (int i = 0; i < deviceCombo.getItemCount(); i++) {
+          var item = deviceCombo.getItemAt(i);
+          if (item != null && item.getId().equals(currentDef.getId())) {
+            deviceCombo.setSelectedIndex(i);
+            break;
+          }
+        }
+      }
+      rebuildTableContent();
+    }
+
+    // Now safely add the action listeners after loading is complete!
+    midiCombo.addActionListener(
+        e -> {
+          if (midiService != null) {
+            String selectedPort = (String) midiCombo.getSelectedItem();
+            PreferencesManager.set("midi.input", selectedPort);
+
+            // Restart MIDI connection
+            midiService.stop();
+            midiService.start();
+
+            // Refresh device mapping based on the newly selected port
+            org.chuck.deluge.midi.MidiDeviceDefinition currentDef =
+                midiService.getDeviceDefinition();
+            if (currentDef != null) {
+              for (int i = 0; i < deviceCombo.getItemCount(); i++) {
+                var item = deviceCombo.getItemAt(i);
+                if (item != null && item.getId().equals(currentDef.getId())) {
+                  deviceCombo.setSelectedIndex(i);
+                  break;
+                }
+              }
+            } else {
+              deviceCombo.setSelectedIndex(0); // None
+            }
+            rebuildTableContent();
+          }
+        });
   }
 
   public void setMappings(java.util.Map<String, Integer> mappings) {
-    listModel.clear();
-    if (mappings != null) {
-      for (java.util.Map.Entry<String, Integer> entry : mappings.entrySet()) {
-        listModel.addElement(entry.getKey() + " -> CC " + entry.getValue());
-      }
+    rebuildTableContent();
+  }
+
+  public void selectMidiTab() {
+    if (tabPane != null) {
+      tabPane.setSelectedIndex(1);
     }
   }
 

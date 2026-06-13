@@ -125,6 +125,18 @@ public class MidiService {
       }
     }
 
+    // Load MIDI Follow settings
+    boolean followEnabled = PreferencesManager.get("midi.follow.enabled", "true").equals("true");
+    router.setFollowModeEnabled(followEnabled);
+    char[] followLabels = {'A', 'B', 'C'};
+    for (int i = 0; i < 3; i++) {
+      char fLabel = followLabels[i];
+      int savedCh = Integer.parseInt(PreferencesManager.get("midi.follow.ch" + fLabel, "1"));
+      int savedTr =
+          Integer.parseInt(PreferencesManager.get("midi.follow.track" + fLabel, String.valueOf(i)));
+      router.setFollowChannel(i, savedCh - 1, savedTr);
+    }
+
     try {
       midiIn = new MidiIn(vm);
       String[] ports = MidiIn.list();
