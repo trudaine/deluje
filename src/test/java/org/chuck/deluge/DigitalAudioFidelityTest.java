@@ -291,8 +291,6 @@ public class DigitalAudioFidelityTest {
     }
   }
 
-  @org.junit.jupiter.api.Disabled(
-      "Sidechain routing uses old FirmwareAudioEngine — needs firmware2 port")
   @Test
   void testSidechainDuckingFidelity() {
     org.chuck.deluge.firmware.engine.GlobalSidechainBus.reset();
