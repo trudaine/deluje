@@ -411,7 +411,7 @@ public class Sound extends GlobalEffectable {
   }
 
   @Override
-  protected void renderInternal(int[] buffer, int numSamples, int[] reverbBuffer) {
+  public void renderInternal(int[] buffer, int numSamples, int[] reverbBuffer) {
     // 1. Sidechain hit registration & render
     int scHit = GlobalSidechainBus.getActiveFrameHit();
     if (scHit > 0) {
@@ -502,7 +502,20 @@ public class Sound extends GlobalEffectable {
       fxIntBuffer[i][1] = buffer[i * 2 + 1];
     }
 
-    int[] postFXVolumeHolder = {2147483647};
+    int postFXKnob = patchedParamValues[Param.GLOBAL_VOLUME_POST_FX];
+    Patcher.Destination dFx = null;
+    for (var dest : patchCableSet.destinations) {
+      if (dest.paramId == Param.GLOBAL_VOLUME_POST_FX) {
+        dFx = dest;
+        break;
+      }
+    }
+    int postFXVal =
+        (dFx != null)
+            ? Patcher.combineCablesLinear(dFx, postFXKnob, globalSourceValues)
+            : postFXKnob;
+    int neutralFX = Functions.getParamNeutralValue(Param.GLOBAL_VOLUME_POST_FX);
+    int[] postFXVolumeHolder = {Functions.getFinalParameterValueVolume(neutralFX, postFXVal)};
     int[] postReverbVolumeHolder = {2147483647};
 
     srrBitcrush.process(fxIntBuffer, numSamples, bitcrushParam, srrParam, postFXVolumeHolder);
@@ -564,18 +577,21 @@ public class Sound extends GlobalEffectable {
       delay.process(fxIntBuffer, numSamples, delayState);
     }
 
-    int postReverb = patchedParamValues[Param.GLOBAL_VOLUME_POST_REVERB_SEND];
-    Patcher.Destination d = null;
+    int postReverbKnob = patchedParamValues[Param.GLOBAL_VOLUME_POST_REVERB_SEND];
+    Patcher.Destination dReverb = null;
     for (var dest : patchCableSet.destinations) {
       if (dest.paramId == Param.GLOBAL_VOLUME_POST_REVERB_SEND) {
-        d = dest;
+        dReverb = dest;
         break;
       }
     }
-    if (d != null) {
-      postReverb = Patcher.combineCablesLinear(d, postReverb, globalSourceValues);
-    }
-    postReverbVolumeHolder[0] = postReverb;
+    int postReverbVal =
+        (dReverb != null)
+            ? Patcher.combineCablesLinear(dReverb, postReverbKnob, globalSourceValues)
+            : postReverbKnob;
+    int neutralReverb = Functions.getParamNeutralValue(Param.GLOBAL_VOLUME_POST_REVERB_SEND);
+    postReverbVolumeHolder[0] =
+        Functions.getFinalParameterValueVolume(neutralReverb, postReverbVal);
 
     super.postFXVolume = postFXVolumeHolder[0];
     super.postReverbVolume = postReverbVolumeHolder[0];

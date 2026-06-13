@@ -1,15 +1,12 @@
 package org.chuck.deluge.firmware.engine;
 
 import org.chuck.deluge.firmware.dsp.StereoSample;
-import org.chuck.deluge.firmware.dsp.fx.ModFXProcessor;
-import org.chuck.deluge.firmware.dsp.fx.ModFXType;
-import org.chuck.deluge.firmware.dsp.granular.GranularProcessor;
 import org.chuck.deluge.firmware.model.PolyphonyMode;
 import org.chuck.deluge.firmware.modulation.params.Param;
 import org.chuck.deluge.firmware.modulation.patch.Destination;
 import org.chuck.deluge.firmware.modulation.patch.PatchCable;
 import org.chuck.deluge.firmware.modulation.patch.PatchSource;
-import org.chuck.deluge.firmware.modulation.sidechain.SideChain;
+import org.chuck.deluge.firmware2.Sidechain;
 import org.chuck.deluge.model.tuning.ScalaScale;
 
 /**
@@ -84,20 +81,16 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
   public int unisonStereoSpread = 0;
   public final int[] monophonicExpressionValues = new int[3]; // X, Y, Z
 
-  public final ModFXProcessor modFX = new ModFXProcessor();
-  public ModFXType modFXType = ModFXType.NONE;
+  public org.chuck.deluge.firmware2.ModFx.ModFXType modFXType =
+      org.chuck.deluge.firmware2.ModFx.ModFXType.NONE;
   public int modFXRateIncrement = 0; // Q32 LFO phase increment per sample
   public int modFXDepth = 0; // Q31
   public int modFXOffset = 0; // Q31
   public int modFXFeedback = 0; // Q31
 
-  public final org.chuck.deluge.firmware.dsp.fx.SrrBitcrushProcessor srrBitcrush =
-      new org.chuck.deluge.firmware.dsp.fx.SrrBitcrushProcessor();
   public int bitcrushParam = Integer.MIN_VALUE; // bipolar Q31; MIN_VALUE = off
   public int srrParam = Integer.MIN_VALUE; // bipolar Q31; MIN_VALUE = off
 
-  public final org.chuck.deluge.firmware.dsp.fx.EqProcessor eq =
-      new org.chuck.deluge.firmware.dsp.fx.EqProcessor();
   public int eqBassParam = 0; // bipolar Q31; 0 = flat
   public int eqTrebleParam = 0; // bipolar Q31; 0 = flat
 
@@ -129,14 +122,11 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     return arpSettings.mode != org.chuck.deluge.firmware2.Arpeggiator.ArpMode.OFF;
   }
 
-  public final GranularProcessor granular = new GranularProcessor();
-  public final SideChain sidechain = new SideChain();
+  public final Sidechain sidechain = fw2Sound.sidechain;
   public int sidechainSend = 0;
-  public final Stutterer stutterer = new Stutterer();
   public final org.chuck.deluge.firmware.modulation.params.ParamManager paramManager =
       new org.chuck.deluge.firmware.modulation.params.ParamManager();
   private int silentBlockCount = 200; // Starts gated on boot
-  private int[][] delayIntBuffer = new int[256][2]; // scratch for the per-sound delay
 
   // Per-sound delay config from the song's instrument <delay> + soundParams delayFeedback. The
   // delay time is BPM-synced: delaySyncLevel is a note-division exponent (firmware syncLevel), and
@@ -219,165 +209,17 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
 
   @Override
   protected void renderInternal(int[] buffer, int numSamples, int[] reverbBuffer) {
-    if (numSamples > fxStereoBuffer.length) {
-      int oldLen = fxStereoBuffer.length;
-      fxStereoBuffer = java.util.Arrays.copyOf(fxStereoBuffer, numSamples);
-      for (int i = oldLen; i < numSamples; i++) {
-        fxStereoBuffer[i] = new StereoSample();
-      }
-    }
-    int scHit = GlobalSidechainBus.getActiveFrameHit();
-    if (scHit != 0) {
-      sidechain.registerHit(scHit);
-    }
-    // 0. Arpeggiator clock (C: arpeggiator.cpp render): advance the arp and action
-    // any note-on/off it emits this block.
-    if (arpEnabled() && arpPhaseIncrement > 0) {
-      // C: gateThreshold = (uint32_t)((int64_t)gate + 2147483648) >> 8
-      // Converts bipolar Q31 gate → unsigned 0..(1<<24) range.
-      long gateU = (arpSettings.gate & 0xFFFFFFFFL); // treat gate as unsigned 32-bit
-      long gateBiased = gateU + (1L << 31); // +2^31 bias
-      int gateThreshold = (int) (gateBiased >> 8); // scale to 24-bit
-      arpeggiator.render(arpSettings, arpInstr, numSamples, gateThreshold, arpPhaseIncrement);
+    syncParamsToFw2();
+    fw2Sound.renderInternal(buffer, numSamples, reverbBuffer);
 
-      // C: handle note-offs (arpInstr.noteCodeOffPostArp[])
-      for (int n = 0; n < 4; n++) {
-        int noteOff = arpInstr.noteCodeOffPostArp[n];
-        if (noteOff != org.chuck.deluge.firmware2.Arpeggiator.ARP_NOTE_NONE) {
-          fw2Sound.releaseVoice(noteOff, -1);
-        }
-      }
+    super.postFXVolume = fw2Sound.postFXVolume;
+    super.postReverbVolume = fw2Sound.postReverbVolume;
 
-      // C: handle note-on (arpInstr.arpNoteOn)
-      if (arpInstr.arpNoteOn != null) {
-        int noteOn = arpInstr.arpNoteOn.noteCodeOnPostArp[0];
-        int vel = arpInstr.arpNoteOn.velocity;
-        if (vel <= 0) vel = 64; // safety default
-        fw2Sound.triggerVoice(noteOn, vel, -1);
-        // C: mark as PLAYING so handlePendingNotes won't re-fire the same note
-        arpInstr.arpNoteOn.noteStatus[0] =
-            org.chuck.deluge.firmware2.Arpeggiator.ArpNoteStatus.PLAYING;
-        arpInstr.arpNoteOn = null;
-      }
-    }
-
+    // Update gate status
     boolean hasActiveVoices;
     synchronized (fw2Sound.voices) {
       hasActiveVoices = !fw2Sound.voices.isEmpty();
     }
-    boolean arpHolding = arpEnabled() && arpeggiator.hasAnyInputNotesActive();
-    // Keep rendering while the per-sound delay still has repeats pending (C sound.cpp:2165), so its
-    // tail isn't cut by the silence bypass.
-    boolean delayTailActive = fw2Sound.delay.repeatsUntilAbandon != 0;
-    if (!hasActiveVoices && !arpHolding && !delayTailActive && silentBlockCount > 100) {
-      // Fast bypass: flat buffer is already silent
-      return;
-    }
-
-    // 1. Update Global LFOs. C: Sound::getGlobalLFOPhaseIncrement uses paramFinalValues
-    // (patcher-curve-applied), not raw knob values.
-    int phaseInc1 =
-        org.chuck.deluge.firmware2.Patcher.computeFinalValueForParam(
-            Param.GLOBAL_LFO_FREQ_1, paramNeutralValues[Param.GLOBAL_LFO_FREQ_1]);
-    globalSourceValues[PatchSource.LFO_GLOBAL_1.ordinal()] =
-        globalLfos[0].render(numSamples, lfoWaveforms[0], phaseInc1);
-
-    int phaseInc2 =
-        org.chuck.deluge.firmware2.Patcher.computeFinalValueForParam(
-            Param.GLOBAL_LFO_FREQ_2, paramNeutralValues[Param.GLOBAL_LFO_FREQ_2]);
-    globalSourceValues[PatchSource.LFO_GLOBAL_2.ordinal()] =
-        globalLfos[1].render(numSamples, lfoWaveforms[2], phaseInc2);
-
-    // 2. Sum Voices directly to flat buffer
-    renderVoicesFw2(buffer, numSamples);
-
-    // 3. Convert flat buffer to StereoSample[] fxStereoBuffer for legacy FX
-    for (int i = 0; i < numSamples; i++) {
-      fxStereoBuffer[i].l = buffer[i * 2];
-      fxStereoBuffer[i].r = buffer[i * 2 + 1];
-    }
-
-    // 4. Apply High-Fidelity FX Chain (firmware order: SRR/bitcrush → mod FX → stutter → ...)
-    // Holders start at Q31 unity (the legacy FX processors' convention; the flat-buffer rewrite
-    // briefly used 1<<30, which halved each volume → 4× track attenuation at neutral).
-    int[] postFXVolumeHolder = {2147483647};
-    int[] postReverbVolumeHolder = {2147483647};
-
-    // Sample-rate reduction + bitcrushing
-    srrBitcrush.process(fxStereoBuffer, numSamples, bitcrushParam, srrParam, postFXVolumeHolder);
-
-    // Stutter
-    stutterer.processStutter(fxStereoBuffer, paramManager);
-
-    // Modulation FX. GRAIN is a granular processor (different from the LFO-based mod FX); the
-    // firmware routes it separately. Mapping: rate, depth (mix), offset (density), feedback (pitch
-    // randomness), tempo — mirroring ModControllableAudio::processGrainFX's argument order.
-    if (modFXType == ModFXType.GRAIN) {
-      granular.processGrainFX(
-          fxStereoBuffer,
-          modFXRateIncrement,
-          modFXDepth << 1,
-          modFXOffset,
-          modFXFeedback,
-          postFXVolumeHolder,
-          currentBpm);
-    } else {
-      modFX.processModFX(
-          fxStereoBuffer,
-          modFXType,
-          modFXRateIncrement,
-          modFXDepth,
-          postFXVolumeHolder,
-          modFXOffset,
-          modFXFeedback);
-    }
-    // Bass/treble EQ
-    eq.process(fxStereoBuffer, numSamples, eqBassParam, eqTrebleParam);
-
-    // Per-sound delay (C: processFX delay.process, after EQ). The firmware's delay is per-sound;
-    // rate is driven externally (syncLevel 0 + userDelayRate) like the master delay. Inert unless
-    // the song configured a per-sound delay (rate > 0 and feedback >= 256).
-    if (fw2Sound.delayUserRate > 0 && fw2Sound.delayFeedbackAmount >= 256) {
-      if (delayIntBuffer.length < numSamples) {
-        delayIntBuffer = new int[numSamples][2];
-      }
-      for (int i = 0; i < numSamples; i++) {
-        delayIntBuffer[i][0] = fxStereoBuffer[i].l;
-        delayIntBuffer[i][1] = fxStereoBuffer[i].r;
-      }
-      fw2Sound.delay.syncLevel = 0;
-      fw2Sound.delay.pingPong = fw2Sound.delayPingPong;
-      fw2Sound.delay.analog = fw2Sound.delayAnalog;
-      fw2Sound.delayState.userDelayRate = fw2Sound.delayUserRate;
-      fw2Sound.delayState.delayFeedbackAmount = fw2Sound.delayFeedbackAmount;
-      fw2Sound.delay.setupWorkingState(fw2Sound.delayState, 1 << 20, hasActiveVoices);
-      fw2Sound.delay.process(delayIntBuffer, numSamples, fw2Sound.delayState);
-      for (int i = 0; i < numSamples; i++) {
-        fxStereoBuffer[i].l = delayIntBuffer[i][0];
-        fxStereoBuffer[i].r = delayIntBuffer[i][1];
-      }
-    }
-
-    // Sidechain
-    int shape = paramNeutralValues[Param.UNPATCHED_SIDECHAIN_SHAPE];
-    int scAmount = sidechain.render(numSamples, shape);
-    globalSourceValues[PatchSource.SIDECHAIN.ordinal()] = scAmount;
-    if (hasSidechainVolumePatch()) {
-      org.chuck.deluge.firmware2.Patcher.performPatching(
-          paramNeutralValues, globalSourceValues, fw2Sound.patchCableSet, globalParamFinalValues);
-      postReverbVolumeHolder[0] = globalParamFinalValues[Param.GLOBAL_VOLUME_POST_REVERB_SEND];
-    }
-
-    super.postFXVolume = postFXVolumeHolder[0];
-    super.postReverbVolume = postReverbVolumeHolder[0];
-
-    // 5. Convert fxStereoBuffer back to flat buffer
-    for (int i = 0; i < numSamples; i++) {
-      buffer[i * 2] = fxStereoBuffer[i].l;
-      buffer[i * 2 + 1] = fxStereoBuffer[i].r;
-    }
-
-    // Update gate status
     if (hasActiveVoices) {
       silentBlockCount = 0;
     } else {
@@ -410,20 +252,6 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
 
   private final int[] voiceMonoBuffer = new int[128];
 
-  private boolean hasSidechainVolumePatch() {
-    for (Destination destination : paramManager.getPatchCableSet().destinations) {
-      if (destination.paramId != Param.GLOBAL_VOLUME_POST_REVERB_SEND) {
-        continue;
-      }
-      for (PatchCable cable : destination.cables) {
-        if (cable.from == PatchSource.SIDECHAIN) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-
   public void triggerNote(int note, int vel) {
     syncParamsToFw2();
     fw2Sound.triggerNote(note, vel);
@@ -445,29 +273,6 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
       int n = 0;
       for (var v : fw2Sound.voices) if (v.active) n++;
       return n;
-    }
-  }
-
-  private void renderVoicesFw2(int[] buffer, int numSamples) {
-    syncParamsToFw2();
-    synchronized (fw2Sound.voices) {
-      var it = fw2Sound.voices.iterator();
-      while (it.hasNext()) {
-        var v = it.next();
-        if (!v.active) {
-          it.remove();
-          continue;
-        }
-        org.chuck.deluge.firmware2.Patcher.performInitialPatching(
-            fw2Sound.patchedParamValues, v.sourceValues, v.paramFinalValues);
-
-        boolean doLPF =
-            (lpfMode != org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF);
-        boolean doHPF =
-            (hpfMode != org.chuck.deluge.firmware.dsp.filter.FirmwareFilter.FilterMode.OFF);
-
-        v.render(buffer, numSamples, doLPF, doHPF);
-      }
     }
   }
 
@@ -586,7 +391,7 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     }
 
     fw2Sound.sidechainSend = sidechainSend;
-    fw2Sound.modFXType = fw2ModFXType(modFXType);
+    fw2Sound.modFXType = modFXType;
 
     // Sync modulated FX parameters from patchedParamValues
     modFXRateIncrement =
@@ -645,10 +450,6 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     }
 
     // arpSettings are already shared between FirmwareSound and fw2Sound.
-  }
-
-  private org.chuck.deluge.firmware2.ModFx.ModFXType fw2ModFXType(ModFXType t) {
-    return org.chuck.deluge.firmware2.ModFx.ModFXType.values()[t.ordinal()];
   }
 
   private org.chuck.deluge.firmware2.Oscillator.OscType fw2OscType(

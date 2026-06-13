@@ -18,8 +18,8 @@ public abstract class GlobalEffectable {
   // briefly used 1<<30 defaults with <<1 staging, which attenuated every track by 4× at neutral
   // (the C combines its 2^27-neutral volumes with <<5 staging, mod_controllable_audio.cpp:222/258
   // — unity at neutral; Q31.ONE with >>31 is the same unity in this bridge's convention).
-  protected int postFXVolume = 2147483647;
-  protected int postReverbVolume = 2147483647;
+  public int postFXVolume = 134217728;
+  public int postReverbVolume = 134217728;
 
   private int[] trackBuffer = new int[256];
 
@@ -31,8 +31,8 @@ public abstract class GlobalEffectable {
     Arrays.fill(trackBuffer, 0, requiredLen, 0);
 
     // Render actual voices or child elements into trackBuffer
-    postFXVolume = 2147483647;
-    postReverbVolume = 2147483647;
+    postFXVolume = 134217728;
+    postReverbVolume = 134217728;
     renderInternal(trackBuffer, numSamples, reverbBuffer);
 
     // Apply FilterSet
@@ -48,7 +48,10 @@ public abstract class GlobalEffectable {
         Functions.getFinalParameterValueVolume(
             reverbAmountAdjust, Functions.cableToLinearParamShortcut(reverbSendKnob));
 
-    int finalGain = (int) (((long) postFXVolume * postReverbVolume) >> 31);
+    int reverbSendAmountAndPostFXVolume =
+        Functions.multiply_32x32_rshift32(postFXVolume, reverbSendAmount) << 5;
+    int postFXAndReverbVolumeL =
+        Functions.multiply_32x32_rshift32(postReverbVolume, postFXVolume) << 5;
 
     for (int i = 0; i < numSamples; i++) {
       int l = trackBuffer[i * 2];
@@ -56,13 +59,13 @@ public abstract class GlobalEffectable {
 
       if (reverbSendAmount != 0 && reverbBuffer != null) {
         int mono = Functions.add_saturate(l, r);
-        reverbBuffer[i] =
-            Functions.add_saturate(reverbBuffer[i], (int) (((long) mono * reverbSendAmount) >> 31));
+        int revSend = Functions.multiply_32x32_rshift32(mono, reverbSendAmountAndPostFXVolume) << 1;
+        reverbBuffer[i] = Functions.add_saturate(reverbBuffer[i], revSend);
       }
 
       // Apply track final gain and sum to main output
-      int outL = (int) (((long) l * finalGain) >> 31);
-      int outR = (int) (((long) r * finalGain) >> 31);
+      int outL = Functions.multiply_32x32_rshift32(l, postFXAndReverbVolumeL) << 5;
+      int outR = Functions.multiply_32x32_rshift32(r, postFXAndReverbVolumeL) << 5;
 
       output[i * 2] = Functions.add_saturate(output[i * 2], outL);
       output[i * 2 + 1] = Functions.add_saturate(output[i * 2 + 1], outR);

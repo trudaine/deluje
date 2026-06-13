@@ -157,13 +157,11 @@ public class JavaAudioDriver implements Runnable {
 
           long boostedL = (long) s.l * monitorGainMul;
           int saturatedL = (int) Math.max(-2147483648L, Math.min(2147483647L, boostedL));
-          int limitedL =
-              org.chuck.deluge.firmware.util.FirmwareUtils.getTanHUnknown(saturatedL, 0) << 2;
+          int limitedL = org.chuck.deluge.firmware2.Functions.getTanHUnknown(saturatedL, 0) << 2;
 
           long boostedR = (long) s.r * monitorGainMul;
           int saturatedR = (int) Math.max(-2147483648L, Math.min(2147483647L, boostedR));
-          int limitedR =
-              org.chuck.deluge.firmware.util.FirmwareUtils.getTanHUnknown(saturatedR, 0) << 2;
+          int limitedR = org.chuck.deluge.firmware2.Functions.getTanHUnknown(saturatedR, 0) << 2;
 
           short left = (short) Math.max(-32768, Math.min(32767, limitedL >> 16));
           short right = (short) Math.max(-32768, Math.min(32767, limitedR >> 16));
