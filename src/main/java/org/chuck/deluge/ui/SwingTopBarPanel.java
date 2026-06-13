@@ -19,6 +19,7 @@ import javax.swing.SwingConstants;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.firmware.hid.FirmwareDisplay;
 import org.chuck.deluge.model.ProjectModel;
+import org.chuck.deluge.ui.controls.DelugeParamReadout;
 
 /**
  * Top toolbar panel with view mode toggles, track add buttons, transport controls, and master
@@ -74,7 +75,7 @@ public class SwingTopBarPanel extends JPanel {
   private final JToggleButton keyplayBtn;
   private final JSlider masterVolSlider;
   private final TopBarListener listener;
-  private final RetroLedDisplay retroLedDisplay;
+  private final DelugeParamReadout paramReadout;
   private final SwingOledPanel oledPanel;
 
   private String currentViewMode = "CLIP";
@@ -85,8 +86,8 @@ public class SwingTopBarPanel extends JPanel {
     this.isSaved = saved;
   }
 
-  public RetroLedDisplay getRetroLedDisplay() {
-    return retroLedDisplay;
+  public DelugeParamReadout getParamReadout() {
+    return paramReadout;
   }
 
   public SwingOledPanel getOledPanel() {
@@ -110,7 +111,7 @@ public class SwingTopBarPanel extends JPanel {
     this.bridge = bridge;
     this.vm = vm;
     this.listener = listener;
-    this.retroLedDisplay = new RetroLedDisplay();
+    this.paramReadout = new DelugeParamReadout();
     this.oledPanel = new SwingOledPanel();
 
     setLayout(new WrapLayout());
@@ -183,7 +184,7 @@ public class SwingTopBarPanel extends JPanel {
             String saveStatus = isSaved ? "SONG" : "UNSAVED";
             String keyStr = projectModel.getKey().toUpperCase();
             if (keyStr.isEmpty() || keyStr.equals("NONE")) keyStr = "C";
-            retroLedDisplay.scrollMessage(
+            paramReadout.scrollMessage(
                 saveStatus
                     + "   "
                     + keyStr
@@ -302,7 +303,7 @@ public class SwingTopBarPanel extends JPanel {
     playBtn.addActionListener(
         e -> {
           listener.onPlayToggle();
-          retroLedDisplay.printTransient("PLAY", "ON");
+          paramReadout.printTransient("PLAY", "ON");
         });
     add(playBtn);
 
@@ -311,7 +312,7 @@ public class SwingTopBarPanel extends JPanel {
     stopBtn.addActionListener(
         e -> {
           listener.onStop();
-          retroLedDisplay.printTransient("STOP", "OFF");
+          paramReadout.printTransient("STOP", "OFF");
         });
     add(stopBtn);
 
@@ -331,7 +332,7 @@ public class SwingTopBarPanel extends JPanel {
         e -> {
           boolean active = captureBtn.isSelected();
           listener.onArrangerCaptureToggle(active);
-          retroLedDisplay.printTransient("CAP ", active ? "ON" : "OFF");
+          paramReadout.printTransient("CAP ", active ? "ON" : "OFF");
         });
     add(captureBtn);
 
@@ -375,7 +376,7 @@ public class SwingTopBarPanel extends JPanel {
               if (bpm >= 60 && bpm <= 200) {
                 projectModel.setBpm(bpm);
                 bpmSlider.setValue(bpm);
-                retroLedDisplay.printTransient("TEM ", String.valueOf(bpm));
+                paramReadout.printTransient("TEM ", String.valueOf(bpm));
               }
             }
           }
@@ -394,7 +395,7 @@ public class SwingTopBarPanel extends JPanel {
     affectEntireBtn.addActionListener(
         e -> {
           isAffectEntireActive = affectEntireBtn.isSelected();
-          retroLedDisplay.printTransient("ALL ", isAffectEntireActive ? "ON" : "OFF");
+          paramReadout.printTransient("ALL ", isAffectEntireActive ? "ON" : "OFF");
         });
     add(affectEntireBtn);
     bpmSlider.setBackground(new Color(0x12, 0x12, 0x14));
@@ -438,7 +439,7 @@ public class SwingTopBarPanel extends JPanel {
         e -> {
           int val = bpmSlider.getValue();
           projectModel.setBpm(val);
-          retroLedDisplay.printTransient("TEM ", String.valueOf(val));
+          paramReadout.printTransient("TEM ", String.valueOf(val));
         });
     add(bpmSlider);
 
@@ -489,7 +490,7 @@ public class SwingTopBarPanel extends JPanel {
         e -> {
           int val = masterVolSlider.getValue();
           projectModel.setMasterVolume(val / 100.0f);
-          retroLedDisplay.printTransient("VOL ", val + "%");
+          paramReadout.printTransient("VOL ", val + "%");
         });
     add(masterVolSlider);
 
@@ -497,7 +498,8 @@ public class SwingTopBarPanel extends JPanel {
     oledPanel.setBorder(BorderFactory.createLineBorder(Color.DARK_GRAY, 2));
     add(oledPanel);
 
-    // (Combined into OLED screen!)
+    // Modern transient parameter readout (replaces the legacy 4-char retro LED).
+    add(paramReadout);
 
     FirmwareDisplay.get()
         .setListener(
@@ -581,8 +583,8 @@ public class SwingTopBarPanel extends JPanel {
           dt == org.chuck.deluge.project.PreferencesManager.DisplayType.BOTH
               || dt == org.chuck.deluge.project.PreferencesManager.DisplayType.OLED_ONLY);
     }
-    if (retroLedDisplay != null) {
-      retroLedDisplay.setVisible(
+    if (paramReadout != null) {
+      paramReadout.setVisible(
           dt == org.chuck.deluge.project.PreferencesManager.DisplayType.BOTH
               || dt == org.chuck.deluge.project.PreferencesManager.DisplayType.LED_ONLY);
     }
@@ -655,96 +657,6 @@ public class SwingTopBarPanel extends JPanel {
             btn.setBackground(bg);
           }
         });
-  }
-
-  public static class RetroLedDisplay extends JPanel {
-    private final JLabel label;
-
-    public RetroLedDisplay() {
-      setLayout(new BorderLayout());
-      setBackground(new Color(0x1a, 0x05, 0x05)); // dark red background
-      setPreferredSize(new java.awt.Dimension(170, 48));
-      setMinimumSize(new java.awt.Dimension(170, 48));
-      setMaximumSize(new java.awt.Dimension(170, 48));
-      applyThemeBorder(new Color(0xaa, 0x33, 0x33));
-
-      label = new JLabel("[  --    --  ]");
-      label.setForeground(new Color(0xff, 0x33, 0x33)); // bright LED red
-      label.setFont(new Font("Monospaced", Font.BOLD, 13));
-      label.setHorizontalAlignment(SwingConstants.CENTER);
-      add(label, BorderLayout.CENTER);
-      setVisible(false); // Combined into OLED screen!
-    }
-
-    private void applyThemeBorder(Color lineColor) {
-      setBorder(
-          BorderFactory.createCompoundBorder(
-              BorderFactory.createLineBorder(lineColor, 2),
-              BorderFactory.createEmptyBorder(2, 6, 2, 6)));
-    }
-
-    private javax.swing.Timer resetTimer;
-    private javax.swing.Timer scrollTimer;
-
-    public void print(String code, String val) {
-      if (resetTimer != null) resetTimer.stop();
-      if (scrollTimer != null) scrollTimer.stop();
-      label.setText(String.format("[ %-4s  %6s ]", code.toUpperCase(), val));
-      label.setForeground(new Color(0xff, 0x88, 0x00)); // active amber glow!
-      setBackground(new Color(0x24, 0x10, 0x00)); // active amber background
-      applyThemeBorder(new Color(0xff, 0x88, 0x00));
-      try {
-        FirmwareDisplay.get().getVirtualOLED().drawThreeLineDisplay(code.toUpperCase(), val, "");
-      } catch (Throwable ignored) {
-      }
-    }
-
-    public void printTransient(String code, String val) {
-      print(code, val);
-      if (resetTimer != null) resetTimer.stop();
-      resetTimer = new javax.swing.Timer(1500, e -> reset());
-      resetTimer.setRepeats(false);
-      resetTimer.start();
-    }
-
-    public void scrollMessage(String message) {
-      if (resetTimer != null) resetTimer.stop();
-      if (scrollTimer != null) scrollTimer.stop();
-
-      final String padded = "      " + message + "      ";
-      label.setForeground(new Color(0xff, 0x88, 0x00));
-      setBackground(new Color(0x24, 0x10, 0x00));
-      applyThemeBorder(new Color(0xff, 0x88, 0x00));
-
-      try {
-        FirmwareDisplay.get().getVirtualOLED().drawThreeLineDisplay("TRACK", message, "");
-      } catch (Throwable ignored) {
-      }
-
-      int[] idx = new int[] {0};
-      scrollTimer =
-          new javax.swing.Timer(
-              250,
-              e -> {
-                if (idx[0] + 12 <= padded.length()) {
-                  label.setText("[ " + padded.substring(idx[0], idx[0] + 12) + " ]");
-                  idx[0]++;
-                } else {
-                  scrollTimer.stop();
-                  reset();
-                }
-              });
-      scrollTimer.start();
-    }
-
-    public void reset() {
-      if (resetTimer != null) resetTimer.stop();
-      if (scrollTimer != null) scrollTimer.stop();
-      label.setText("[  --    --  ]");
-      label.setForeground(new Color(0xff, 0x33, 0x33)); // rest standard red
-      setBackground(new Color(0x1a, 0x05, 0x05));
-      applyThemeBorder(new Color(0xaa, 0x33, 0x33));
-    }
   }
 
   /**

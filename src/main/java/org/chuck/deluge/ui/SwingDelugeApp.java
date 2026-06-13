@@ -1299,14 +1299,14 @@ public class SwingDelugeApp extends JFrame {
     loadProject(currentProject);
 
     // Trigger a high-fidelity retro rolling welcome message on boot!
-    if (topBar != null && topBar.getRetroLedDisplay() != null) {
-      topBar.getRetroLedDisplay().print("HELO", "    ");
+    if (topBar != null && topBar.getParamReadout() != null) {
+      topBar.getParamReadout().print("HELO", "    ");
       javax.swing.Timer timer1 =
           new javax.swing.Timer(
               800,
               e -> {
-                if (topBar != null && topBar.getRetroLedDisplay() != null) {
-                  topBar.getRetroLedDisplay().print("DELU", "V1.0");
+                if (topBar != null && topBar.getParamReadout() != null) {
+                  topBar.getParamReadout().print("DELU", "V1.0");
                 }
               });
       timer1.setRepeats(false);
@@ -1316,8 +1316,8 @@ public class SwingDelugeApp extends JFrame {
           new javax.swing.Timer(
               1600,
               e -> {
-                if (topBar != null && topBar.getRetroLedDisplay() != null) {
-                  topBar.getRetroLedDisplay().reset();
+                if (topBar != null && topBar.getParamReadout() != null) {
+                  topBar.getParamReadout().reset();
                 }
               });
       timer2.setRepeats(false);
@@ -1847,18 +1847,18 @@ public class SwingDelugeApp extends JFrame {
   }
 
   public void updateHardwareLedDisplay(String paramCode, String valueString) {
-    if (topBar != null && topBar.getRetroLedDisplay() != null) {
+    if (topBar != null && topBar.getParamReadout() != null) {
       if (paramCode == null || valueString == null) {
-        topBar.getRetroLedDisplay().reset();
+        topBar.getParamReadout().reset();
       } else {
-        topBar.getRetroLedDisplay().print(paramCode, valueString);
+        topBar.getParamReadout().print(paramCode, valueString);
       }
     }
   }
 
   public void updateHardwareLedDisplayTransient(String paramCode, String valueString) {
-    if (topBar != null && topBar.getRetroLedDisplay() != null) {
-      topBar.getRetroLedDisplay().printTransient(paramCode, valueString);
+    if (topBar != null && topBar.getParamReadout() != null) {
+      topBar.getParamReadout().printTransient(paramCode, valueString);
     }
   }
 
@@ -3074,15 +3074,15 @@ public class SwingDelugeApp extends JFrame {
         btn.setBackground(new Color(0xd3, 0x2f, 0x2f));
         btn.setForeground(Color.WHITE);
         btn.setText("\u25CF RECORDING");
-        if (topBar != null && topBar.getRetroLedDisplay() != null) {
-          topBar.getRetroLedDisplay().printTransient("REC", "ON");
+        if (topBar != null && topBar.getParamReadout() != null) {
+          topBar.getParamReadout().printTransient("REC", "ON");
         }
       } else {
         btn.setBackground(new Color(0x3a, 0x0c, 0x0c));
         btn.setForeground(new Color(0xff, 0x33, 0x33));
         btn.setText("\u25CF REC");
-        if (topBar != null && topBar.getRetroLedDisplay() != null) {
-          topBar.getRetroLedDisplay().printTransient("REC", "OFF");
+        if (topBar != null && topBar.getParamReadout() != null) {
+          topBar.getParamReadout().printTransient("REC", "OFF");
         }
       }
     }
@@ -3098,8 +3098,8 @@ public class SwingDelugeApp extends JFrame {
         btn.setBackground(new Color(0xff, 0xaa, 0x00));
         btn.setForeground(Color.WHITE);
         btn.setText("\u25CF SAMPLING");
-        if (topBar != null && topBar.getRetroLedDisplay() != null) {
-          topBar.getRetroLedDisplay().printTransient("LOOP", "REC");
+        if (topBar != null && topBar.getParamReadout() != null) {
+          topBar.getParamReadout().printTransient("LOOP", "REC");
         }
       } else {
         // Stop resample: build looper KitTrack dynamically with a 4-on-the-floor trigger step
@@ -3108,8 +3108,8 @@ public class SwingDelugeApp extends JFrame {
         btn.setBackground(new Color(0x3e, 0x27, 0x0c));
         btn.setForeground(new Color(0xff, 0xb3, 0x00));
         btn.setText("\u25CF RESAMPLE");
-        if (topBar != null && topBar.getRetroLedDisplay() != null) {
-          topBar.getRetroLedDisplay().printTransient("LOOP", "DONE");
+        if (topBar != null && topBar.getParamReadout() != null) {
+          topBar.getParamReadout().printTransient("LOOP", "DONE");
         }
 
         if (pcmData == null || pcmData.length < 100) return;
