@@ -7,6 +7,7 @@ import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.model.Consequence;
 import org.chuck.deluge.model.ProjectModel;
 import org.chuck.deluge.model.SynthTrackModel;
+import org.chuck.deluge.ui.controls.SegmentedToggle;
 
 /** Swing dialog for editing a Synth track: Arp, Filter, FM, and 4-slot LFO. */
 public class SwingSynthConfigDialog extends JDialog {
@@ -495,12 +496,13 @@ public class SwingSynthConfigDialog extends JDialog {
     rightPanel.add(label("Mode:"), rc);
     rc.gridx = 1;
     rc.gridwidth = 2;
-    JComboBox<String> filterModeCombo =
-        new JComboBox<>(new String[] {"LADDER_12", "LADDER_24", "SVF"});
-    filterModeCombo.setSelectedItem(model.getFilterMode().name());
-    filterModeCombo.setBackground(BG_CONTROL);
-    filterModeCombo.setForeground(Color.WHITE);
-    rightPanel.add(filterModeCombo, rc);
+    // Self-drawn segmented toggle for the filter slope/type (modern replacement for the combo).
+    int fmInit = Math.min(2, model.getFilterMode().ordinal());
+    SegmentedToggle filterModeToggle =
+        new SegmentedToggle(
+            new String[] {"12dB", "24dB", "SVF"}, fmInit, new Color(0xff, 0xb3, 0x00));
+    filterModeToggle.setPreferredSize(new Dimension(180, 26));
+    rightPanel.add(filterModeToggle, rc);
     rightRow++;
 
     // SVF NOTCH checkbox
@@ -520,17 +522,21 @@ public class SwingSynthConfigDialog extends JDialog {
           model.setFilterNotch(notchBox.isSelected());
           bridge.setFilterNotch(trackIndex, notchBox.isSelected() ? 1 : 0);
         });
-    filterModeCombo.addActionListener(
-        e -> {
-          String sel = (String) filterModeCombo.getSelectedItem();
-          boolean isSvf = "SVF".equals(sel);
+    filterModeToggle.onChange(
+        idx -> {
+          org.chuck.deluge.model.FilterMode fm =
+              idx == 0
+                  ? org.chuck.deluge.model.FilterMode.LADDER_12
+                  : idx == 1
+                      ? org.chuck.deluge.model.FilterMode.LADDER_24
+                      : org.chuck.deluge.model.FilterMode.SVF;
+          boolean isSvf = fm == org.chuck.deluge.model.FilterMode.SVF;
           notchBox.setEnabled(isSvf);
           if (!isSvf) {
             notchBox.setSelected(false);
             model.setFilterNotch(false);
             bridge.setFilterNotch(trackIndex, 0);
           }
-          org.chuck.deluge.model.FilterMode fm = org.chuck.deluge.model.FilterMode.valueOf(sel);
           model.setFilterMode(fm);
           bridge.setFilterMode(trackIndex, fm.ordinal());
         });
