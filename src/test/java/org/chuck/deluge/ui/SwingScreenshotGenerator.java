@@ -95,6 +95,68 @@ public class SwingScreenshotGenerator {
     SwingUtilities.invokeLater(() -> app.dispose());
   }
 
+  @Test
+  public void testGenerateAutoViewScreenshot() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+
+    CountDownLatch startupLatch = new CountDownLatch(1);
+
+    SwingUtilities.invokeLater(
+        () -> {
+          try {
+            vm = new ChuckVM(44100, 2);
+            bridge = new BridgeContract();
+            bridge.register(vm);
+
+            MidiInputRouter router = new MidiInputRouter(vm, bridge);
+            midiService = new MidiService(vm, bridge, router);
+
+            app = new SwingDelugeApp(vm, bridge, midiService);
+            app.addNotify();
+            app.validate();
+            app.doLayout();
+            app.setVisible(true);
+            startupLatch.countDown();
+          } catch (Exception e) {
+            e.printStackTrace();
+          }
+        });
+
+    startupLatch.await();
+
+    // Load Song 3 first so there are tracks and active clips
+    SwingUtilities.invokeAndWait(
+        () -> {
+          try (java.io.InputStream is = getClass().getResourceAsStream("/SONGS/song3.xml")) {
+            if (is != null) {
+              org.chuck.deluge.model.ProjectModel model =
+                  org.chuck.deluge.xml.DelugeXmlParser.parseSong(is, "song3");
+              app.loadProject(model);
+            }
+          } catch (Exception ex) {
+            ex.printStackTrace();
+          }
+        });
+
+    // Select AUTO view mode
+    SwingUtilities.invokeAndWait(
+        () -> {
+          app.setWorkspaceView("AUTO");
+        });
+
+    // Wait a bit for layout to settle
+    Thread.sleep(500);
+
+    BufferedImage img = captureComponent(app);
+    saveSnapshot(
+        img,
+        "/Users/ludo/.gemini/jetski/brain/a3569f91-4e06-4b92-bad2-e0e1f46551cb/auto_view.png",
+        "Auto View",
+        "Automation view of the Swing Deluge");
+
+    SwingUtilities.invokeLater(() -> app.dispose());
+  }
+
   private BufferedImage captureComponent(java.awt.Component c) {
     int w = c.getWidth();
     int h = c.getHeight();

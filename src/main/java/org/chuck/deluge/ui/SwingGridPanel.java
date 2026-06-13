@@ -5626,11 +5626,12 @@ public class SwingGridPanel extends JPanel {
 
       for (int c = 0; c < stepCount; c++) {
         final int colIdx = c;
-        JButton cell = new JButton();
+        DelugePadButton cell = new DelugePadButton();
         cell.setPreferredSize(new Dimension(padSz, padSz));
         cell.setMinimumSize(new Dimension(padSz, padSz));
         cell.setMaximumSize(new Dimension(padSz, padSz));
         cell.setMargin(new Insets(0, 0, 0, 0));
+        cell.setDrawCenterCircle(false);
 
         pads[r][c] = cell;
 
@@ -5647,18 +5648,19 @@ public class SwingGridPanel extends JPanel {
 
         if (lit) {
           int precise = (int) (autoVal * 127f) % 16;
-          int bright = 0x44 + precise * 8;
-          cell.setBackground(new Color(0x00, bright, Math.min(0xcc, bright / 2 + 0x44)));
-          cell.setForeground(Color.WHITE);
-          cell.setText("\u25CF");
+          int bright = 0x55 + precise * 8;
+          cell.setBaseColor(new Color(0x00, bright, Math.min(0xcc, bright / 2 + 0x44)));
+          cell.setIntensity(1.0f);
+          cell.setActive(true);
+          cell.setNoteText("\u25CF");
         } else {
-          cell.setBackground(new Color(0x33, 0x33, 0x33));
-          cell.setForeground(new Color(0x55, 0x55, 0x55));
+          cell.setBaseColor(new Color(0x1d, 0x1d, 0x22));
+          cell.setIntensity(0.15f);
+          cell.setActive(false);
           if (autoVal >= 0f) {
-            // This param has automation but value band doesn't match this row
-            cell.setText(".");
+            cell.setNoteText(".");
           } else {
-            cell.setText("");
+            cell.setNoteText("");
           }
         }
 
@@ -5813,14 +5815,14 @@ public class SwingGridPanel extends JPanel {
       paramBtn.setPreferredSize(new Dimension(pw, 30));
       paramBtn.setMinimumSize(new Dimension(pw, 30));
       paramBtn.setMaximumSize(new Dimension(pw, 30));
-      paramBtn.setFont(new Font("Monospaced", Font.BOLD, 11));
-      paramBtn.setFocusPainted(false);
       paramBtn.setMargin(new Insets(0, 2, 0, 2));
 
       boolean hasAnyAuto = autoClip != null && autoClip.hasAutomation(paramName);
-      paramBtn.setBackground(
-          hasAnyAuto ? new Color(0x33, 0x66, 0x33) : new Color(0x44, 0x44, 0x44));
-      paramBtn.setForeground(hasAnyAuto ? new Color(0x88, 0xff, 0x88) : Color.LIGHT_GRAY);
+      Color paramBg = hasAnyAuto ? new Color(0x1a, 0x4d, 0x1a) : new Color(0x2d, 0x2d, 0x32);
+      Color paramFg = hasAnyAuto ? new Color(0x88, 0xff, 0x88) : Color.LIGHT_GRAY;
+      styleSystemButton(paramBtn, paramBg, paramFg, 10);
+      paramBtn.setToolTipText(
+          "Parameter: Click to edit automation steps / Shift-Click to clear parameter automation");
 
       final String fParam = paramName;
       paramBtn.addActionListener(
@@ -5836,10 +5838,11 @@ public class SwingGridPanel extends JPanel {
       scrollCol.setLayout(new BoxLayout(scrollCol, BoxLayout.Y_AXIS));
       scrollCol.setBackground(new Color(0x22, 0x22, 0x22));
       JButton upBtn = new JButton("\u25B2");
-      upBtn.setFont(new Font("SansSerif", Font.PLAIN, 8));
       upBtn.setMargin(new Insets(0, 0, 0, 0));
       upBtn.setPreferredSize(new Dimension(14, padSz / 2));
       upBtn.setEnabled(paramOffset > 0);
+      styleSystemButton(upBtn, new Color(0x2d, 0x2d, 0x32), Color.LIGHT_GRAY, 7);
+      upBtn.setToolTipText("Scroll parameter list up");
       upBtn.addActionListener(
           e -> {
             autoColScroll = Math.max(0, autoColScroll - 1);
@@ -5848,10 +5851,11 @@ public class SwingGridPanel extends JPanel {
       scrollCol.add(upBtn);
 
       JButton downBtn = new JButton("\u25BC");
-      downBtn.setFont(new Font("SansSerif", Font.PLAIN, 8));
       downBtn.setMargin(new Insets(0, 0, 0, 0));
       downBtn.setPreferredSize(new Dimension(14, padSz / 2));
       downBtn.setEnabled(paramOffset + maxVisible < totalParams);
+      styleSystemButton(downBtn, new Color(0x2d, 0x2d, 0x32), Color.LIGHT_GRAY, 7);
+      downBtn.setToolTipText("Scroll parameter list down");
       downBtn.addActionListener(
           e -> {
             autoColScroll = Math.min(totalParams - maxVisible, autoColScroll + 1);
@@ -5864,11 +5868,12 @@ public class SwingGridPanel extends JPanel {
 
       for (int c = 0; c < stepCount; c++) {
         final int colIdx = c;
-        JButton cell = new JButton();
+        DelugePadButton cell = new DelugePadButton();
         cell.setPreferredSize(new Dimension(padSz, padSz));
         cell.setMinimumSize(new Dimension(padSz, padSz));
         cell.setMaximumSize(new Dimension(padSz, padSz));
         cell.setMargin(new Insets(0, 0, 0, 0));
+        cell.setDrawCenterCircle(false);
 
         pads[r][c] = cell;
 
@@ -5876,14 +5881,16 @@ public class SwingGridPanel extends JPanel {
 
         if (hasAuto) {
           float val = autoClip.getAutomation(paramName, c);
-          int bright = 0x44 + (int) (val * 0x88);
-          cell.setBackground(new Color(0x00, bright, 0x33));
-          cell.setForeground(Color.WHITE);
-          cell.setText("\u25CF");
+          int bright = 0x55 + (int) (val * 0xaa);
+          cell.setBaseColor(new Color(0x00, bright, 0x66));
+          cell.setIntensity(1.0f);
+          cell.setActive(true);
+          cell.setNoteText("\u25CF");
         } else {
-          cell.setBackground(new Color(0x33, 0x33, 0x33));
-          cell.setForeground(new Color(0x55, 0x55, 0x55));
-          cell.setText("");
+          cell.setBaseColor(new Color(0x1d, 0x1d, 0x22));
+          cell.setIntensity(0.15f);
+          cell.setActive(false);
+          cell.setNoteText("");
         }
 
         cell.addMouseListener(
@@ -6003,16 +6010,36 @@ public class SwingGridPanel extends JPanel {
 
     // Scroll indicator
     if (totalParams > maxVisible) {
-      JPanel scrollBar = new JPanel(new FlowLayout(FlowLayout.CENTER, 4, 2));
+      JPanel scrollBar = new JPanel();
+      scrollBar.setLayout(new BoxLayout(scrollBar, BoxLayout.X_AXIS));
       scrollBar.setBackground(new Color(0x1a, 0x1a, 0x1a));
+      scrollBar.setMaximumSize(new Dimension(3000, 24));
+
+      int pw = Math.max(60, Math.min(140, getWidth() / 12));
+      scrollBar.add(Box.createRigidArea(new Dimension(pw + 17, 24)));
+      scrollBar.add(Box.createHorizontalGlue());
+
       for (int i = 0; i < totalParams; i += maxVisible) {
         int pageStart = i;
-        JButton dot =
-            new JButton((i <= paramOffset && paramOffset < i + maxVisible) ? "\u25C9" : "\u25CB");
-        dot.setFont(new Font("SansSerif", Font.PLAIN, 9));
-        dot.setMargin(new Insets(0, 2, 0, 2));
-        dot.setBackground(new Color(0x33, 0x33, 0x33));
-        dot.setForeground(Color.LIGHT_GRAY);
+        boolean isActivePage = (i <= paramOffset && paramOffset < i + maxVisible);
+        JButton dot = new JButton(isActivePage ? "\u25C9" : "\u25CB");
+        dot.setPreferredSize(new Dimension(22, 22));
+        dot.setMinimumSize(new Dimension(22, 22));
+        dot.setMaximumSize(new Dimension(22, 22));
+        dot.setMargin(new Insets(0, 0, 0, 0));
+
+        Color dotBg = isActivePage ? new Color(0x00, 0x99, 0x66) : new Color(0x2d, 0x2d, 0x32);
+        Color dotFg = isActivePage ? Color.WHITE : Color.LIGHT_GRAY;
+        styleSystemButton(dot, dotBg, dotFg, 9);
+        dot.setToolTipText(
+            "Go to parameter page "
+                + (i / maxVisible + 1)
+                + " (params "
+                + (i + 1)
+                + " to "
+                + Math.min(totalParams, i + maxVisible)
+                + ")");
+
         int fPage = pageStart;
         dot.addActionListener(
             e -> {
@@ -6020,7 +6047,9 @@ public class SwingGridPanel extends JPanel {
               refresh();
             });
         scrollBar.add(dot);
+        scrollBar.add(Box.createHorizontalStrut(6));
       }
+      scrollBar.add(Box.createHorizontalGlue());
       add(scrollBar);
     }
   }
@@ -8474,5 +8503,15 @@ public class SwingGridPanel extends JPanel {
         onEditRequest.accept(trackIdx, 0);
       }
     }
+  }
+
+  private void styleSystemButton(JButton btn, Color bg, Color fg, int fontSize) {
+    btn.setContentAreaFilled(false);
+    btn.setOpaque(true);
+    btn.setFocusPainted(false);
+    btn.setBackground(bg);
+    btn.setForeground(fg);
+    btn.setFont(new Font("SansSerif", Font.BOLD, fontSize));
+    btn.setBorder(BorderFactory.createLineBorder(bg.brighter(), 1));
   }
 }
