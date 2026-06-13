@@ -384,7 +384,8 @@ public class SwingTopBarPanel extends JPanel {
     affectEntireBtn.setFont(new Font("SansSerif", Font.BOLD, 10));
     affectEntireBtn.setFocusable(false);
     affectEntireBtn.setToolTipText(
-        "Affect Entire: Toggles global broadcast of parameter tweaks across all tracks of same type");
+        "Affect Entire: on a Kit, a parameter tweak applies to every drum in the kit (hardware"
+            + " behaviour); on a Synth, it broadcasts the tweak to other synth tracks");
     affectEntireBtn.addActionListener(
         e -> {
           isAffectEntireActive = affectEntireBtn.isSelected();

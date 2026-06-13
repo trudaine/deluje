@@ -55,14 +55,16 @@ public class SwingGridPanelKeyboardModeTest {
     panel.setViewMode(SwingGridPanel.GridViewMode.KEYPLAY);
     panel.refresh();
 
-    // Bottom-left pad is col 0, row 7 (index 7 if 8 voice rows)
-    int expectedNote = 48; // C3
+    // Bottom-left pad is col 0, row 7 (index 7 if 8 voice rows).
+    // Mirrors DelugeFirmware isomorphic default: noteFromCoords(0,0) = scrollOffset(50) = D3.
+    int expectedNote = 50; // D3 (hardware default isomorphic bottom-left)
     // Simulate press on bottom-left pad
     javax.swing.JButton botLeft = panel.getPads()[7][0];
     assertNotNull(botLeft, "Pads should be populated");
 
-    // Check action adapter/note
-    assertTrue(panel.isRootNote(expectedNote));
+    // Bottom-left is D3 in C Major: in-scale but not the root.
+    assertTrue(panel.isNoteInScale(expectedNote), "D3 is in C Major");
+    assertFalse(panel.isRootNote(expectedNote), "D3 is not the root of C Major");
 
     vm.shutdown();
   }
