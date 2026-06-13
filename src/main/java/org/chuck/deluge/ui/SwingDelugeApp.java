@@ -2613,6 +2613,13 @@ public class SwingDelugeApp extends JFrame {
               if (a != null) {
                 a.scrollVertically(-d); // drag up shows higher rows
               }
+            },
+            d -> {
+              // Gold mod-encoder: adjust whichever param is selected via the Shift overlay.
+              SwingGridPanel a = activeGridPanel();
+              if (a != null && a.getActiveShiftParam() != null) {
+                a.adjustRotaryParameter(d);
+              }
             });
     encoderStrip.setBackground(topBar.getBackground());
     encoderStrip.setOpaque(true);
