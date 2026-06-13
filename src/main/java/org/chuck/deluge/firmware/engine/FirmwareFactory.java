@@ -566,14 +566,11 @@ public class FirmwareFactory {
           // Faithful: the unsynced LFO phase increment IS the exp-curved rate param
           // (firmware getLocal/GlobalLFOPhaseIncrement returns paramFinalValues[LFO_FREQ]
           // directly).
-          // Feed the RAW stored knob straight to getExp(neutral 121739, combineExp(knob, range
-          // 2^30))
-          // — the firmware curve — instead of the lossy Hz round-trip. Replaces the old
-          // `200 + pow(2,...)*500` formula in the voice/sound render.
-          int rateKnob = model.getLfoRateKnobQ31(i);
-          sound.paramNeutralValues[paramId] =
-              FirmwareUtils.getExp(
-                  121739, FirmwareUtils.patchCombineExpStep(0, rateKnob, 1073741824));
+          // Store the RAW knob: the fw2 Patcher applies the single faithful curve
+          // (getExp(121739, combineExp(knob, 2^30))) per block. Pre-curving here DOUBLE-curved
+          // the rate (found via hardware comparison: knob 0x1999997E → hardware 3.79 Hz, our
+          // render ~1 Hz because the curved phase increment was curved again).
+          sound.paramNeutralValues[paramId] = model.getLfoRateKnobQ31(i);
         }
       }
     }

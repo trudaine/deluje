@@ -1494,9 +1494,14 @@ public class PhysicalHardwareFidelityTest {
     System.arraycopy(sw, swOn + 2000, swWin, 0, 4410);
     double hwPitch = org.chuck.deluge.AudioAnalyzer.estimateFrequency(hwWin, 44100, 400.0, 1000.0);
     double swPitch = org.chuck.deluge.AudioAnalyzer.estimateFrequency(swWin, 44100, 400.0, 1000.0);
+    // The dual LFOs run at 5 Hz (lfo1, 200 ms) and 20 Hz (lfo2, 50 ms) — the firmware-faithful
+    // rates for these knobs (verified via Patcher.computeFinalValueForParam). Use short ~23 ms
+    // windows so the 5 Hz primary sweep is resolved; coarse 125 ms windows averaged the sweep
+    // away (a stale calibration from when a double-curve bug made the LFOs run far too slowly).
     double hfMin = Double.MAX_VALUE, hfMax = 0;
-    for (int w = 0; w < 8; w++) {
-      double h = hfRatio(sw, swOn + 2000 + w * 5512, 5512);
+    int win = 1024; // ~23 ms
+    for (int w = 0; w < 40; w++) {
+      double h = hfRatio(sw, swOn + 2000 + w * win, win);
       hfMin = Math.min(hfMin, h);
       hfMax = Math.max(hfMax, h);
     }

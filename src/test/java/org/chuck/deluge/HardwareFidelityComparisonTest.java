@@ -4,23 +4,23 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.File;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
 /**
  * Compares our offline renders of the hardware-fidelity test songs against REAL Deluge recordings
- * (resampled on-device, HARDWARE_FIDELITY.md Option B). Runs only when the recordings directory is
- * supplied: {@code mvn -pl deluge test -Dtest=HardwareFidelityComparisonTest
- * -Dhardware.recordings.dir=/path/to/dir} — the dir must contain one folder per song (e.g. {@code
- * TestSynthFidelity/output_000.wav}).
+ * (resampled on-device, HARDWARE_FIDELITY.md Option B). The reference recordings are committed
+ * under {@code src/test/resources/fidelity/hardware-recordings/<Song>/output_000.wav}, so this runs
+ * by default; point it elsewhere with {@code -Dhardware.recordings.dir=/path/to/dir}.
  *
- * <p>This test only ASSERTS the basics (recording found, both sides non-silent, alignment found);
- * the printed ComparisonReport is the actual deliverable for fidelity calibration.
+ * <p>It ASSERTS only the basics (recording present, both sides non-silent); the printed
+ * ComparisonReport is the deliverable for fidelity calibration. Per-song recordings that are absent
+ * are skipped (assumption), so partial sets work.
  */
-@EnabledIfSystemProperty(named = "hardware.recordings.dir", matches = ".+")
 public class HardwareFidelityComparisonTest {
 
+  private static final String DEFAULT_DIR = "src/test/resources/fidelity/hardware-recordings";
+
   private void renderAndCompare(String songName, double seconds) throws Exception {
-    File recordingsDir = new File(System.getProperty("hardware.recordings.dir"));
+    File recordingsDir = new File(System.getProperty("hardware.recordings.dir", DEFAULT_DIR));
     File recorded = new File(recordingsDir, songName + "/output_000.wav");
     // Partial recording sets are fine — only compare what has been recorded.
     org.junit.jupiter.api.Assumptions.assumeTrue(

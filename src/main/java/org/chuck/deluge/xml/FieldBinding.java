@@ -65,6 +65,32 @@ public class FieldBinding<T> {
     }
   }
 
+  /**
+   * Apply this binding directly against a given container element (e.g. a clip's {@code
+   * <soundParams>}), reading the value from an ATTRIBUTE named {@code tag} first (the firmware's
+   * modern attribute style), falling back to a child element's text (the old element style). The
+   * firmware's own XML reader treats attributes and child tags interchangeably — this mirrors that,
+   * so the same param table serves preset {@code defaultParams} and song {@code soundParams}.
+   */
+  @SuppressWarnings("unchecked")
+  public void applyTo(Element container, SynthTrackModel synth) {
+    if (strategy != null) {
+      return; // strategy bindings are instrument-structure bindings, not param-table entries
+    }
+    String raw = container.getAttribute(tag);
+    if (raw == null || raw.isBlank()) {
+      NodeList nodes = container.getElementsByTagName(tag);
+      if (nodes.getLength() == 0) return;
+      raw = nodes.item(0).getTextContent();
+    }
+    if (raw == null || raw.isBlank()) return;
+    T value = converter.apply(raw.trim());
+    if (value instanceof Float f && unipolar) {
+      value = (T) Float.valueOf((f + 1.0f) / 2.0f);
+    }
+    setter.accept(synth, value);
+  }
+
   // ── Accessors needed by custom strategies ──
 
   String tag() {
