@@ -91,6 +91,15 @@ public class SwingTopBarPanel extends JPanel {
     return paramReadout;
   }
 
+  /** Toggle the engine metronome (SHIFT+TAP), reflecting state on the readout. */
+  private void toggleMetronome() {
+    Object eng = vm.getGlobalObject(org.chuck.deluge.BridgeContract.G_FIRMWARE_ENGINE);
+    if (eng instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine engine) {
+      engine.metronomeEnabled = !engine.metronomeEnabled;
+      paramReadout.printTransient("METRO", engine.metronomeEnabled ? "ON" : "OFF");
+    }
+  }
+
   public SwingOledPanel getOledPanel() {
     return oledPanel;
   }
@@ -354,8 +363,13 @@ public class SwingTopBarPanel extends JPanel {
     tapBtn.setMargin(new Insets(0, 0, 0, 0));
     tapBtn.setFont(new Font("SansSerif", Font.BOLD, 10));
     tapBtn.setFocusable(false);
+    tapBtn.setToolTipText("TAP tempo. Shift+click toggles the metronome.");
     tapBtn.addActionListener(
         e -> {
+          if ((e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0) {
+            toggleMetronome();
+            return;
+          }
           long now = System.currentTimeMillis();
           // Start a fresh tap sequence if it's been too long since the last tap, so a stale
           // tap from minutes ago can't drag the average down (mirrors hardware tap-tempo reset).

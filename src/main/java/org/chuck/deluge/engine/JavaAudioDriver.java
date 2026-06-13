@@ -58,6 +58,12 @@ public class JavaAudioDriver implements Runnable {
   private double ticksPerSample = 0.005; // 120BPM default
   private double accumulatedTicks = 0;
 
+  // Metronome beat tracking: 96 ticks per quarter note. -1 means "not yet clicked since stopped".
+  private static final int TICKS_PER_QUARTER = 96;
+  private static final int METRONOME_PHASE_DOWNBEAT = 128411753; // C: playback_handler.cpp:1024
+  private static final int METRONOME_PHASE_BEAT = 50960238;
+  private long lastMetronomeBeat = -1;
+
   private static final float[] visBufferL = new float[2048];
   private static final float[] visBufferR = new float[2048];
   private static int visWriteIdx = 0;
@@ -128,6 +134,19 @@ public class JavaAudioDriver implements Runnable {
           if (toAdvance > 0) {
             playbackHandler.advanceTicks(toAdvance);
             accumulatedTicks -= toAdvance;
+          }
+
+          // Metronome: click on each quarter-note boundary while playing (high pitch on the bar
+          // downbeat, lower on other beats — faithful to playback_handler.cpp:1019-1025).
+          if (engine.metronomeEnabled && playbackHandler.isPlaying()) {
+            long beat = (long) playbackHandler.lastSwungTickActioned / TICKS_PER_QUARTER;
+            if (beat != lastMetronomeBeat) {
+              engine.triggerMetronome(
+                  (beat % 4 == 0) ? METRONOME_PHASE_DOWNBEAT : METRONOME_PHASE_BEAT);
+              lastMetronomeBeat = beat;
+            }
+          } else if (!playbackHandler.isPlaying()) {
+            lastMetronomeBeat = -1; // re-arm so the downbeat clicks on next start
           }
         }
 
