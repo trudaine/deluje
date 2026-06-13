@@ -588,6 +588,15 @@ public class FirmwareFactory {
     }
     sound.paramKnobsPopulated = true;
 
+    // Raw Q31 param-knob overrides from a song clip's <soundParams> (firmware reads these verbatim;
+    // applied after the float-based mapping so they win for params the float round-trip mis-ranges,
+    // e.g. filter resonance/morph/cutoff). See SynthTrackModel.rawParamKnobs.
+    for (var e : model.getRawParamKnobs().entrySet()) {
+      int pid = e.getKey();
+      sound.paramNeutralValues[pid] = e.getValue();
+      sound.paramKnobs[pid] = e.getValue();
+    }
+
     // Patch Cables
     for (org.chuck.deluge.model.PatchCable pcm : model.getPatchCables()) {
       try {

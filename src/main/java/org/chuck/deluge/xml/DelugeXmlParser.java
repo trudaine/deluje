@@ -1769,6 +1769,35 @@ public class DelugeXmlParser {
       synth.setLfoRateKnobQ31(1, DelugeHexMapper.hexToQ31(v));
     }
 
+    // Filter cutoff/resonance/morph: store RAW Q31 knobs (the firmware reads them verbatim). The
+    // preset float round-trip floors a linear param's minimum at -2^29 instead of INT_MIN, so a
+    // song's minimum resonance became a moderate one — pushing the ladder's processedResonance
+    // past its tanh threshold and grossly distorting clean tones (found via hardware comparison).
+    rawKnob(
+        sp,
+        "lpfFrequency",
+        synth,
+        org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_FREQ);
+    rawKnob(
+        sp,
+        "lpfResonance",
+        synth,
+        org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_RESONANCE);
+    rawKnob(
+        sp, "lpfMorph", synth, org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_MORPH);
+    rawKnob(
+        sp,
+        "hpfFrequency",
+        synth,
+        org.chuck.deluge.firmware.modulation.params.Param.LOCAL_HPF_FREQ);
+    rawKnob(
+        sp,
+        "hpfResonance",
+        synth,
+        org.chuck.deluge.firmware.modulation.params.Param.LOCAL_HPF_RESONANCE);
+    rawKnob(
+        sp, "hpfMorph", synth, org.chuck.deluge.firmware.modulation.params.Param.LOCAL_HPF_MORPH);
+
     // Envelopes: <envelope1..4 attack="0x..." .../> children (attribute style).
     String[] envTags = {"envelope1", "envelope2", "envelope3", "envelope4"};
     for (int i = 0; i < 4; i++) {
@@ -1806,6 +1835,14 @@ public class DelugeXmlParser {
     if (cables.getLength() > 0) {
       synth.getPatchCables().clear();
       parsePatchCables(sp, synth);
+    }
+  }
+
+  /** Record a soundParams attribute as a raw Q31 param-knob override (attribute or child text). */
+  private static void rawKnob(Element sp, String attr, SynthTrackModel synth, int paramId) {
+    String v = attrOrChildText(sp, attr);
+    if (v != null && !v.isBlank()) {
+      synth.setRawParamKnob(paramId, DelugeHexMapper.hexToQ31(v));
     }
   }
 

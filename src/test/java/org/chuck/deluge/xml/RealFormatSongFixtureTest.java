@@ -57,6 +57,23 @@ public class RealFormatSongFixtureTest {
   }
 
   @Test
+  void filterKnobsStoredAsRawQ31() throws Exception {
+    // soundParams filter values are raw Q31 knobs; the firmware reads them verbatim. The minimum
+    // (0x80000000 = INT_MIN) must survive intact — the preset float round-trip floored it at -2^29,
+    // turning min resonance into a moderate one that distorted clean tones.
+    SynthTrackModel s = firstSynth("TestTuningFidelity.xml");
+    java.util.Map<Integer, Integer> raw = s.getRawParamKnobs();
+    assertEquals(
+        Integer.MIN_VALUE,
+        (int) raw.get(org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_RESONANCE),
+        "min resonance must stay INT_MIN (raw knob), not the float path's -2^29");
+    assertEquals(
+        Integer.MIN_VALUE,
+        (int) raw.get(org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_MORPH),
+        "min morph must stay INT_MIN");
+  }
+
+  @Test
   void lfoFidelitySongCableReachesTheModel() throws Exception {
     SynthTrackModel s = firstSynth("TestLfoFidelity.xml");
     boolean found =
