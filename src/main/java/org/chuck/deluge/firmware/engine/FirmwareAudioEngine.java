@@ -1,7 +1,7 @@
 package org.chuck.deluge.firmware.engine;
 
 import java.util.List;
-import org.chuck.deluge.firmware.dsp.StereoSample;
+import org.chuck.deluge.firmware2.StereoSample;
 import org.chuck.deluge.firmware.util.Q31;
 import org.chuck.deluge.firmware2.Compressor;
 import org.chuck.deluge.firmware2.Delay;

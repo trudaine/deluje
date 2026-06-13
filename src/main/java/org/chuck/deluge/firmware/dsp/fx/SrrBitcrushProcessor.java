@@ -1,6 +1,6 @@
 package org.chuck.deluge.firmware.dsp.fx;
 
-import org.chuck.deluge.firmware.dsp.StereoSample;
+import org.chuck.deluge.firmware2.StereoSample;
 import org.chuck.deluge.firmware.util.FirmwareUtils;
 import org.chuck.deluge.firmware.util.Q31;
 

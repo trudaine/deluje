@@ -4,7 +4,7 @@ import static org.chuck.deluge.firmware.util.Q31.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.File;
-import org.chuck.deluge.firmware.dsp.StereoSample;
+import org.chuck.deluge.firmware2.StereoSample;
 import org.chuck.deluge.firmware.engine.FirmwareFactory;
 import org.chuck.deluge.firmware.engine.FirmwareKit;
 import org.chuck.deluge.firmware.engine.FirmwareSound;

@@ -1,7 +1,7 @@
 package org.chuck.deluge.firmware2;
 
 import java.util.ArrayList;
-import org.chuck.deluge.firmware.dsp.StereoSample;
+import org.chuck.deluge.firmware2.StereoSample;
 import org.chuck.deluge.firmware.engine.GlobalSidechainBus;
 import org.chuck.deluge.firmware.engine.Stutterer;
 import org.chuck.deluge.firmware2.FilterSet.FilterMode;

@@ -1,6 +1,6 @@
 package org.chuck.deluge.firmware.dsp.granular;
 
-import org.chuck.deluge.firmware.dsp.StereoSample;
+import org.chuck.deluge.firmware2.StereoSample;
 import org.chuck.deluge.firmware.dsp.filter.BasicFilterComponent;
 import org.chuck.deluge.firmware.util.Q31;
 
