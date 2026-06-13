@@ -1,6 +1,6 @@
 package org.chuck.deluge.firmware.model;
 
-import org.chuck.deluge.firmware.dsp.StereoSample;
+import org.chuck.deluge.firmware2.StereoSample;
 // timeStretcher removed — replaced with simple pitched read
 import org.chuck.deluge.firmware.model.sample.Sample;
 import org.chuck.deluge.firmware2.Envelope;

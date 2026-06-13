@@ -3,7 +3,7 @@ package org.chuck.deluge.firmware2;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Random;
-import org.chuck.deluge.firmware.dsp.StereoSample;
+import org.chuck.deluge.firmware2.StereoSample;
 import org.chuck.deluge.firmware.dsp.fx.EqProcessor;
 import org.chuck.deluge.firmware.dsp.fx.ModFXProcessor;
 import org.chuck.deluge.firmware.dsp.fx.SrrBitcrushProcessor;

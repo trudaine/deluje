@@ -1,4 +1,4 @@
-package org.chuck.deluge.firmware.dsp;
+package org.chuck.deluge.firmware2;
 
 public class StereoSample {
   public int l;

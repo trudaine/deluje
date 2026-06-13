@@ -2,7 +2,7 @@ package org.chuck.deluge.firmware.dsp.fx;
 
 import static org.chuck.deluge.firmware.util.Q31.*;
 
-import org.chuck.deluge.firmware.dsp.StereoSample;
+import org.chuck.deluge.firmware2.StereoSample;
 import org.chuck.deluge.firmware.modulation.LFO;
 
 public class ModFXProcessor {

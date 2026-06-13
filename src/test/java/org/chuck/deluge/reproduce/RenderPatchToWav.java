@@ -5,7 +5,7 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import org.chuck.deluge.firmware.dsp.StereoSample;
+import org.chuck.deluge.firmware2.StereoSample;
 import org.chuck.deluge.firmware.engine.FirmwareFactory;
 import org.chuck.deluge.firmware.engine.FirmwareSound;
 import org.chuck.deluge.firmware.model.InstrumentClip;
