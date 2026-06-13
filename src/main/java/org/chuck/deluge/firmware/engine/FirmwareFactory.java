@@ -1148,14 +1148,14 @@ public class FirmwareFactory {
     };
   }
 
-  private static org.chuck.deluge.firmware.modulation.LFO.LFOType mapLfoType(
+  private static org.chuck.deluge.firmware2.Lfo.LfoType mapLfoType(
       org.chuck.deluge.model.LfoType type) {
-    if (type == null) return org.chuck.deluge.firmware.modulation.LFO.LFOType.SINE;
+    if (type == null) return org.chuck.deluge.firmware2.Lfo.LfoType.SINE;
     switch (type) {
       case S_AND_H:
-        return org.chuck.deluge.firmware.modulation.LFO.LFOType.SAMPLE_AND_HOLD;
+        return org.chuck.deluge.firmware2.Lfo.LfoType.SAMPLE_AND_HOLD;
       default:
-        return org.chuck.deluge.firmware.modulation.LFO.LFOType.valueOf(type.name());
+        return org.chuck.deluge.firmware2.Lfo.LfoType.valueOf(type.name());
     }
   }
 

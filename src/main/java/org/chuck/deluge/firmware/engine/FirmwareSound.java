@@ -5,12 +5,10 @@ import org.chuck.deluge.firmware.dsp.fx.ModFXProcessor;
 import org.chuck.deluge.firmware.dsp.fx.ModFXType;
 import org.chuck.deluge.firmware.dsp.granular.GranularProcessor;
 import org.chuck.deluge.firmware.model.PolyphonyMode;
-import org.chuck.deluge.firmware.modulation.LFO;
 import org.chuck.deluge.firmware.modulation.params.Param;
 import org.chuck.deluge.firmware.modulation.patch.Destination;
 import org.chuck.deluge.firmware.modulation.patch.PatchCable;
 import org.chuck.deluge.firmware.modulation.patch.PatchSource;
-import org.chuck.deluge.firmware.modulation.patch.Patcher;
 import org.chuck.deluge.firmware.modulation.sidechain.SideChain;
 import org.chuck.deluge.model.tuning.ScalaScale;
 
@@ -37,10 +35,10 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
   public boolean transportExternalClockActive;
   public int transportTimeSinceLastTick;
 
-  public final LFO[] globalLfos = new LFO[2];
-  public final LFO.LFOType[] lfoWaveforms = {
-    LFO.LFOType.SINE, LFO.LFOType.TRIANGLE,
-    LFO.LFOType.SINE, LFO.LFOType.TRIANGLE
+  public final org.chuck.deluge.firmware2.Lfo[] globalLfos = new org.chuck.deluge.firmware2.Lfo[2];
+  public final org.chuck.deluge.firmware2.Lfo.LfoType[] lfoWaveforms = {
+    org.chuck.deluge.firmware2.Lfo.LfoType.SINE, org.chuck.deluge.firmware2.Lfo.LfoType.TRIANGLE,
+    org.chuck.deluge.firmware2.Lfo.LfoType.SINE, org.chuck.deluge.firmware2.Lfo.LfoType.TRIANGLE
   };
   public final org.chuck.deluge.firmware.model.sample.Sample[] samples =
       new org.chuck.deluge.firmware.model.sample.Sample[2];
@@ -78,7 +76,6 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
 
   public int[] globalSourceValues = new int[PatchSource.kNumPatchSources];
   private final int[] globalParamFinalValues = new int[Param.kNumParams];
-  private final Patcher globalPatcher = new Patcher();
 
   // ── Ported High-Fidelity Logic ──
   public SynthMode synthMode = SynthMode.SUBTRACTIVE;
@@ -155,7 +152,7 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
 
   public FirmwareSound() {
     for (int i = 0; i < 256; i++) fxStereoBuffer[i] = new StereoSample();
-    for (int i = 0; i < globalLfos.length; i++) globalLfos[i] = new LFO();
+    for (int i = 0; i < globalLfos.length; i++) globalLfos[i] = new org.chuck.deluge.firmware2.Lfo();
     // C Sound::initParams (sound.cpp:131-187, faithfully ported to fw2 Sound.initParams).
     org.chuck.deluge.firmware2.Sound.initParams(paramNeutralValues);
 
@@ -365,8 +362,8 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     int scAmount = sidechain.render(numSamples, shape);
     globalSourceValues[PatchSource.SIDECHAIN.ordinal()] = scAmount;
     if (hasSidechainVolumePatch()) {
-      globalPatcher.performPatching(
-          0, this, paramManager, globalSourceValues, globalParamFinalValues);
+      org.chuck.deluge.firmware2.Patcher.performPatching(
+          paramNeutralValues, globalSourceValues, fw2Sound.patchCableSet, globalParamFinalValues);
       postReverbVolumeHolder[0] = globalParamFinalValues[Param.GLOBAL_VOLUME_POST_REVERB_SEND];
     }
 
@@ -549,10 +546,10 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
 
     System.arraycopy(globalSourceValues, 0, fw2Sound.globalSourceValues, 0, 3);
 
-    fw2Sound.lfoConfig[0].waveType = fw2LfoType(lfoWaveforms[0]);
-    fw2Sound.lfoConfig[1].waveType = fw2LfoType(lfoWaveforms[1]);
-    fw2Sound.lfoConfig[2].waveType = fw2LfoType(lfoWaveforms[2]);
-    fw2Sound.lfoConfig[3].waveType = fw2LfoType(lfoWaveforms[3]);
+    fw2Sound.lfoConfig[0].waveType = lfoWaveforms[0];
+    fw2Sound.lfoConfig[1].waveType = lfoWaveforms[1];
+    fw2Sound.lfoConfig[2].waveType = lfoWaveforms[2];
+    fw2Sound.lfoConfig[3].waveType = lfoWaveforms[3];
 
     System.arraycopy(
         paramNeutralValues,
@@ -697,18 +694,6 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     };
   }
 
-  private org.chuck.deluge.firmware2.Lfo.LfoType fw2LfoType(
-      org.chuck.deluge.firmware.modulation.LFO.LFOType t) {
-    return switch (t) {
-      case SINE -> org.chuck.deluge.firmware2.Lfo.LfoType.SINE;
-      case TRIANGLE -> org.chuck.deluge.firmware2.Lfo.LfoType.TRIANGLE;
-      case SQUARE -> org.chuck.deluge.firmware2.Lfo.LfoType.SQUARE;
-      case SAW -> org.chuck.deluge.firmware2.Lfo.LfoType.SAW;
-      case SAMPLE_AND_HOLD -> org.chuck.deluge.firmware2.Lfo.LfoType.SAMPLE_AND_HOLD;
-      case RANDOM_WALK -> org.chuck.deluge.firmware2.Lfo.LfoType.RANDOM_WALK;
-      case WARBLER -> org.chuck.deluge.firmware2.Lfo.LfoType.WARBLER;
-    };
-  }
 
   public void noteOffAll() {
     synchronized (fw2Sound.voices) {

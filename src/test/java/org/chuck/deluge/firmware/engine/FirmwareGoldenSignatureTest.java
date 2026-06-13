@@ -82,7 +82,7 @@ public class FirmwareGoldenSignatureTest {
     if (rateAp != null) {
       rateAp.currentValue = fiveHz;
     }
-    sound.lfoWaveforms[1] = LFO.LFOType.SINE;
+    sound.lfoWaveforms[1] = org.chuck.deluge.firmware2.Lfo.LfoType.SINE;
     PatchCable cable = new PatchCable();
     cable.from = PatchSource.LFO_LOCAL_1;
     cable.amount = ONE / 2;
