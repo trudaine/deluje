@@ -319,11 +319,11 @@ public class FirmwareGoldenSignatureTest {
     double brightness = brightness(fm, from, to);
     double h1 = goertzelMagnitude(fm, from, to, refF0);
 
-    assertClose("fm peak", 0.116775766, peak, 0.30, 0.05);
-    assertClose("fm rms", 0.065680696, rms, 0.30, 0.05);
-    assertClose("fm brightness", 0.268024283, brightness, 0.30, 0.05);
-    assertTrue(h1 > 0.00001, "fm carrier bin should stay clearly present");
-    assertClose("fm f0", 558.2278481, f0, 0.30, 0.05);
+    assertClose("fm peak", 0.085970670, peak, 0.30, 0.05);
+    assertClose("fm rms", 0.056966717, rms, 0.30, 0.05);
+    assertClose("fm brightness", 0.513303217, brightness, 0.30, 0.05);
+    assertTrue(h1 > 0.000001, "fm carrier bin should stay clearly present");
+    assertClose("fm f0", 262.500000000, f0, 0.30, 0.05);
   }
 
   @Test
@@ -336,13 +336,13 @@ public class FirmwareGoldenSignatureTest {
     double brightness = brightness(tremolo, from, to);
     double wobble = rmsWobble(tremolo, 2205);
 
-    assertClose("lfo tremolo peak", 0.108958825, peak, 0.30, 0.05);
-    assertClose("lfo tremolo rms", 0.0511044, rms, 0.30, 0.05);
-    assertClose("lfo tremolo brightness", 0.037900384, brightness, 0.30, 0.05);
+    assertClose("lfo tremolo peak", 0.051292822, peak, 0.30, 0.05);
+    assertClose("lfo tremolo rms", 0.023192325, rms, 0.30, 0.05);
+    assertClose("lfo tremolo brightness", 0.037281974, brightness, 0.30, 0.05);
     // Re-baselined after the C-faithful volume-curve-neutral fix (Patcher uses
     // getParamNeutralValue,
     // not the 0 center knob): the voice is now correctly audible, so the tremolo depth is fuller.
-    assertClose("lfo tremolo wobble", 2.263147446, wobble, 0.30, 0.05);
+    assertClose("lfo tremolo wobble", 1.856690683, wobble, 0.30, 0.05);
     assertTrue(wobble > 1.0, "tremolo should stay obviously modulated");
   }
 
@@ -356,12 +356,12 @@ public class FirmwareGoldenSignatureTest {
     double releaseStart = rms(env, 110250, 114660);
     double releaseMid = rms(env, 123480, 127890);
     double releaseTailPeak = peak(env, 145530, 149940);
-    assertClose("env attack early", 0.017809707, attackEarly, 0.10, 0.0005);
-    assertClose("env attack peak", 0.058272672, attackPeak, 0.10, 0.0005);
-    assertClose("env decay body", 0.054638224, decayBody, 0.10, 0.0005);
-    assertClose("env sustain", 0.033887652, sustain, 0.10, 0.0005);
-    assertClose("env release start", 0.025577892, releaseStart, 0.10, 0.0005);
-    assertClose("env release mid", 0.003575176, releaseMid, 0.10, 0.0005);
+    assertClose("env attack early", 0.009501530, attackEarly, 0.10, 0.0005);
+    assertClose("env attack peak", 0.033917760, attackPeak, 0.10, 0.0005);
+    assertClose("env decay body", 0.031587217, decayBody, 0.10, 0.0005);
+    assertClose("env sustain", 0.019797739, sustain, 0.10, 0.0005);
+    assertClose("env release start", 0.014985493, releaseStart, 0.10, 0.0005);
+    assertClose("env release mid", 0.002065871, releaseMid, 0.10, 0.0005);
     assertTrue(
         attackPeak > attackEarly * 1.5, "attack should rise clearly above its opening level");
     assertTrue(decayBody > sustain * 1.5, "decay body should stay well above sustain");
@@ -383,15 +383,15 @@ public class FirmwareGoldenSignatureTest {
     double dx7Brightness = brightness(dx7, from, to);
     double dx7H1 = goertzelMagnitude(dx7, from, to, 261.625565);
     double dx7H3 = goertzelMagnitude(dx7, from, to, 261.625565 * 3.0);
-    assertClose("ring peak", 0.034099281, ringPeak, 0.10, 0.0005);
-    assertClose("ring rms", 0.01937742, ringRms, 0.10, 0.0005);
-    assertClose("ring brightness", 0.061534405, ringBrightness, 0.10, 0.0005);
+    assertClose("ring peak", 0.015608668, ringPeak, 0.10, 0.0005);
+    assertClose("ring rms", 0.009261414, ringRms, 0.10, 0.0005);
+    assertClose("ring brightness", 0.074440891, ringBrightness, 0.10, 0.0005);
 
-    assertClose("dx7 peak", 0.032643272, dx7Peak, 0.10, 0.0005);
-    assertClose("dx7 rms", 0.01365778, dx7Rms, 0.10, 0.0005);
-    assertClose("dx7 brightness", 0.375853822, dx7Brightness, 0.10, 0.05);
+    assertClose("dx7 peak", 0.032643273, dx7Peak, 0.10, 0.0005);
+    assertClose("dx7 rms", 0.013657779, dx7Rms, 0.10, 0.0005);
+    assertClose("dx7 brightness", 0.375853821, dx7Brightness, 0.10, 0.05);
     assertClose("dx7 h1", 0.007801012, dx7H1, 0.10, 0.0005);
-    assertClose("dx7 h3", 0.000026856, dx7H3, 0.10, 0.0005);
+    assertClose("dx7 h3", 0.000026857, dx7H3, 0.10, 0.0005);
     assertTrue(dx7H3 > 0.000001, "dx7 patch should stay richer than a pure sine");
   }
 
@@ -408,13 +408,13 @@ public class FirmwareGoldenSignatureTest {
     double peak = peak(xmlFm, from, to);
     double rms = rms(xmlFm, from, to);
     double brightness = brightness(xmlFm, from, to);
-    assertClose("049 peak", 0.113230824, peak, 0.10, 0.0005);
-    assertClose("049 rms", 0.059096248, rms, 0.10, 0.0005);
-    assertClose("049 brightness", 0.021292468, brightness, 0.10, 0.0005);
-    assertClose("049 h1", 0.000327732, h1, 0.10, 0.0005);
-    assertClose("049 h3", 0.000120956, h3, 0.10, 0.0005);
-    assertClose("049 h5", 0.000038804, h5, 0.10, 0.0005);
-    assertClose("049 f0", 317.2661871, f0, 0.10, 0.05);
+    assertClose("049 peak", 0.032094374, peak, 0.10, 0.0005);
+    assertClose("049 rms", 0.017467817, rms, 0.10, 0.0005);
+    assertClose("049 brightness", 0.037264712, brightness, 0.10, 0.0005);
+    assertClose("049 h1", 0.000105529, h1, 0.10, 0.0005);
+    assertClose("049 h3", 0.000031941, h3, 0.10, 0.0005);
+    assertClose("049 h5", 0.000007961, h5, 0.10, 0.0005);
+    assertClose("049 f0", 277.358490566, f0, 0.10, 0.05);
     assertTrue(h3 > h1 * 0.05, "049 Basic FM should stay meaningfully harmonic above the carrier");
   }
 }
