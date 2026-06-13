@@ -33,6 +33,27 @@ public class TrackInspectorDialog extends JDialog {
     cb.setFont(new Font("SansSerif", Font.PLAIN, 18));
     cb.setPreferredSize(new Dimension(400, 45));
     cb.setToolTipText("Select synth or kit patch preset to hot-swap track sound");
+
+    org.chuck.deluge.model.TrackModel currentTrack =
+        (trackIndex < tracks.size()) ? tracks.get(trackIndex) : null;
+    boolean isSynth = currentTrack instanceof org.chuck.deluge.model.SynthTrackModel;
+    boolean isKit = currentTrack instanceof org.chuck.deluge.model.KitTrackModel;
+    java.io.File dir =
+        isSynth
+            ? org.chuck.deluge.project.PreferencesManager.getSynthsDir()
+            : org.chuck.deluge.project.PreferencesManager.getKitsDir();
+
+    cb.addItem("<Select Preset>");
+    if (dir != null && dir.exists() && dir.isDirectory()) {
+      java.io.File[] files = dir.listFiles((d, name) -> name.toLowerCase().endsWith(".xml"));
+      if (files != null) {
+        for (java.io.File f : files) {
+          String presetName = f.getName().substring(0, f.getName().length() - 4);
+          cb.addItem(presetName);
+        }
+      }
+    }
+
     p1.add(lP);
     p1.add(cb);
     tabs.addTab("PRESETS", p1);
@@ -118,8 +139,33 @@ public class TrackInspectorDialog extends JDialog {
 
     cb.addActionListener(
         ev -> {
-          if (trackIndex < tracks.size()) {
-            tracks.get(trackIndex).setName((String) cb.getSelectedItem());
+          String selected = (String) cb.getSelectedItem();
+          if (selected == null || selected.equals("<Select Preset>")) return;
+          try {
+            java.io.File file = new java.io.File(dir, selected + ".xml");
+            if (file.exists() && trackIndex < tracks.size()) {
+              org.chuck.deluge.model.TrackModel oldTrack = tracks.get(trackIndex);
+              org.chuck.deluge.model.TrackModel newTrack = null;
+              if (isSynth) {
+                newTrack = org.chuck.deluge.xml.DelugeXmlParser.parseSynth(file);
+              } else if (isKit) {
+                newTrack = org.chuck.deluge.xml.DelugeXmlParser.parseKit(file);
+              }
+              if (newTrack != null) {
+                newTrack.getClips().clear();
+                for (org.chuck.deluge.model.ClipModel cm : oldTrack.getClips()) {
+                  newTrack.addClip(cm);
+                }
+                newTrack.setColourHex(oldTrack.getColourHex());
+                tracks.set(trackIndex, newTrack);
+              }
+            }
+          } catch (Exception ex) {
+            JOptionPane.showMessageDialog(
+                this,
+                "Failed to load preset:\n" + ex.getMessage(),
+                "Error",
+                JOptionPane.ERROR_MESSAGE);
           }
           dispose();
           onRefresh.run();

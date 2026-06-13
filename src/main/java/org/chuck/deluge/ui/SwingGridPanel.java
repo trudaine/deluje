@@ -716,7 +716,10 @@ public class SwingGridPanel extends JPanel {
                   (Frame) javax.swing.SwingUtilities.getWindowAncestor(this),
                   trackIdx,
                   tracks,
-                  this::refresh)
+                  () -> {
+                    fireProjectChanged();
+                    refresh();
+                  })
               .setVisible(true);
         });
     menu.add(inspectItem);
