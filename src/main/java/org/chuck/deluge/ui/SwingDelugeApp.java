@@ -3519,6 +3519,35 @@ public class SwingDelugeApp extends JFrame {
     };
   }
 
+  /** Canonical scale cycle order — names understood by both parseScaleIndex and the grid colouring. */
+  private static final String[] SCALE_CYCLE = {
+    "Major", "Minor", "Harmonic Minor", "Melodic Minor", "Dorian", "Phrygian", "Lydian",
+    "Mixolydian", "Locrian", "Whole Tone", "Whole Half Dim", "Half Whole Dim",
+    "Pentatonic Major", "Pentatonic Minor", "Chromatic"
+  };
+
+  /** Advance to the next scale (Deluge SCALE / SHIFT+SCALE): updates model, engine, and grid. */
+  public void cycleScale() {
+    if (currentProject == null) {
+      return;
+    }
+    String cur = currentProject.getScale();
+    int idx = 0;
+    for (int i = 0; i < SCALE_CYCLE.length; i++) {
+      if (SCALE_CYCLE[i].equalsIgnoreCase(cur)) {
+        idx = i;
+        break;
+      }
+    }
+    String next = SCALE_CYCLE[(idx + 1) % SCALE_CYCLE.length];
+    currentProject.setScale(next);
+    vm.setGlobalInt(BridgeContract.G_SCALE, parseScaleIndex(next));
+    if (topBar != null && topBar.getParamReadout() != null) {
+      topBar.getParamReadout().printTransient("SCALE", next);
+    }
+    fireProjectChanged();
+  }
+
   /** Convert a scale name to an integer index for the bridge G_SCALE global. */
   static int parseScaleIndex(String scale) {
     if (scale == null) return 0;

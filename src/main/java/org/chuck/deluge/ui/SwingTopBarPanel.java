@@ -413,6 +413,22 @@ public class SwingTopBarPanel extends JPanel {
           paramReadout.printTransient("ALL ", isAffectEntireActive ? "ON" : "OFF");
         });
     add(affectEntireBtn);
+
+    // SCALE button: cycle the song scale (Deluge SCALE / SHIFT+SCALE), updating grid colouring.
+    JButton scaleBtn = new JButton("SCALE");
+    styleButton(scaleBtn, new Color(0x23, 0x2d, 0x3d), new Color(0x66, 0xcc, 0xff));
+    scaleBtn.setPreferredSize(new Dimension(52, 22));
+    scaleBtn.setMargin(new Insets(0, 0, 0, 0));
+    scaleBtn.setFont(new Font("SansSerif", Font.BOLD, 10));
+    scaleBtn.setFocusable(false);
+    scaleBtn.setToolTipText("Cycle the song scale");
+    scaleBtn.addActionListener(
+        e -> {
+          if (SwingDelugeApp.mainInstance != null) {
+            SwingDelugeApp.mainInstance.cycleScale();
+          }
+        });
+    add(scaleBtn);
     bpmSlider.setBackground(new Color(0x12, 0x12, 0x14));
     bpmSlider.setForeground(new Color(0x00, 0xff, 0xcc));
     bpmSlider.setOpaque(false);
