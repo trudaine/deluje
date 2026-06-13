@@ -348,9 +348,9 @@ public class SoundEditor {
     return org.chuck.deluge.firmware2.FilterSet.FilterMode.SVF_NOTCH;
   }
 
-  private static int routeToCode(org.chuck.deluge.firmware.dsp.filter.FilterRoute route) {
-    if (route == org.chuck.deluge.firmware.dsp.filter.FilterRoute.LOW_TO_HIGH) return 1;
-    if (route == org.chuck.deluge.firmware.dsp.filter.FilterRoute.PARALLEL) return 2;
+  private static int routeToCode(org.chuck.deluge.firmware2.FilterRoute route) {
+    if (route == org.chuck.deluge.firmware2.FilterRoute.LOW_TO_HIGH) return 1;
+    if (route == org.chuck.deluge.firmware2.FilterRoute.PARALLEL) return 2;
     return 0;
   }
 }

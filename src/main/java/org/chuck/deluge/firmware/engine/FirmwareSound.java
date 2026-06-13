@@ -548,8 +548,8 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
       org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF;
   public org.chuck.deluge.firmware2.FilterSet.FilterMode hpfMode =
       org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF;
-  public org.chuck.deluge.firmware.dsp.filter.FilterRoute filterRoute =
-      org.chuck.deluge.firmware.dsp.filter.FilterRoute.HIGH_TO_LOW;
+  public org.chuck.deluge.firmware2.FilterRoute filterRoute =
+      org.chuck.deluge.firmware2.FilterRoute.HIGH_TO_LOW;
 
   public void setLpfMode(org.chuck.deluge.model.FilterMode modelMode) {
     if (modelMode == null) return;
@@ -602,11 +602,11 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
 
   public void setFilterRoute(int routeCode) {
     if (routeCode == 1) {
-      this.filterRoute = org.chuck.deluge.firmware.dsp.filter.FilterRoute.LOW_TO_HIGH;
+      this.filterRoute = org.chuck.deluge.firmware2.FilterRoute.LOW_TO_HIGH;
     } else if (routeCode == 2) {
-      this.filterRoute = org.chuck.deluge.firmware.dsp.filter.FilterRoute.PARALLEL;
+      this.filterRoute = org.chuck.deluge.firmware2.FilterRoute.PARALLEL;
     } else {
-      this.filterRoute = org.chuck.deluge.firmware.dsp.filter.FilterRoute.HIGH_TO_LOW;
+      this.filterRoute = org.chuck.deluge.firmware2.FilterRoute.HIGH_TO_LOW;
     }
   }
 
