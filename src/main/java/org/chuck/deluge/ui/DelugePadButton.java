@@ -342,11 +342,14 @@ public class DelugePadButton extends JButton {
       }
     }
 
-    // 4. Horizontal Tie-Drag Connector
+    // 4. Held-note tail: a dim wash + a full-width centre connector so a sustained note reads as a
+    //    continuous bar across the cells its gate spans (the firmware note-tail look).
     if (isTied) {
-      g2.setColor(new Color(0xff, 0xff, 0xff, 120));
-      g2.setStroke(new BasicStroke(2.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-      g2.drawLine(xPad + 2, h / 2, w - xPad - 2, h / 2);
+      g2.setColor(new Color(0xff, 0xff, 0xff, 38));
+      g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
+      g2.setColor(new Color(0xff, 0xff, 0xff, 130));
+      g2.setStroke(new BasicStroke(2.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+      g2.drawLine(xPad, h / 2, w - xPad, h / 2);
     }
 
     // 5. Playhead Highlight Ring (glowing neon-white), pulsing on the shared blink clock

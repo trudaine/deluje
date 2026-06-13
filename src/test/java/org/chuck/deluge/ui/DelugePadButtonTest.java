@@ -36,6 +36,19 @@ public class DelugePadButtonTest {
   }
 
   @Test
+  public void tiedTailPadPaintsWithoutThrowing() {
+    DelugePadButton pad = new DelugePadButton();
+    pad.setSize(40, 40);
+    pad.setActive(true);
+    pad.setBaseColor(new Color(0x33, 0xcc, 0xff));
+    pad.setTied(true);
+    BufferedImage img = new BufferedImage(40, 40, BufferedImage.TYPE_INT_ARGB);
+    Graphics2D g = img.createGraphics();
+    pad.paint(g);
+    g.dispose();
+  }
+
+  @Test
   public void playheadPadPaintsWithoutThrowing() {
     DelugePadButton pad = new DelugePadButton();
     pad.setSize(40, 40);
