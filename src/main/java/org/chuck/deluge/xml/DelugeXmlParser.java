@@ -8,11 +8,11 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+import org.chuck.deluge.firmware2.Param;
 import org.chuck.deluge.model.*;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
-import org.chuck.deluge.firmware2.Param;
 
 public class DelugeXmlParser {
 
@@ -1821,8 +1821,7 @@ public class DelugeXmlParser {
           DelugeHexMapper.hexToQ31(decay),
           sustainKnob,
           DelugeHexMapper.hexToQ31(release));
-      synth.setRawParamKnob(
-          Param.LOCAL_ENV_0_SUSTAIN + i, sustainKnob);
+      synth.setRawParamKnob(Param.LOCAL_ENV_0_SUSTAIN + i, sustainKnob);
     }
 
     // Patch cables (the clip's set is authoritative in the song format).
@@ -1873,86 +1872,41 @@ public class DelugeXmlParser {
       new java.util.LinkedHashMap<>();
 
   static {
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "lpfFrequency", Param.LOCAL_LPF_FREQ);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "lpfResonance", Param.LOCAL_LPF_RESONANCE);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "lpfMorph", Param.LOCAL_LPF_MORPH);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "hpfFrequency", Param.LOCAL_HPF_FREQ);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "hpfResonance", Param.LOCAL_HPF_RESONANCE);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "hpfMorph", Param.LOCAL_HPF_MORPH);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "volume", Param.LOCAL_VOLUME);
+    SOUNDPARAMS_RAW_PATCHED.put("lpfFrequency", Param.LOCAL_LPF_FREQ);
+    SOUNDPARAMS_RAW_PATCHED.put("lpfResonance", Param.LOCAL_LPF_RESONANCE);
+    SOUNDPARAMS_RAW_PATCHED.put("lpfMorph", Param.LOCAL_LPF_MORPH);
+    SOUNDPARAMS_RAW_PATCHED.put("hpfFrequency", Param.LOCAL_HPF_FREQ);
+    SOUNDPARAMS_RAW_PATCHED.put("hpfResonance", Param.LOCAL_HPF_RESONANCE);
+    SOUNDPARAMS_RAW_PATCHED.put("hpfMorph", Param.LOCAL_HPF_MORPH);
+    SOUNDPARAMS_RAW_PATCHED.put("volume", Param.LOCAL_VOLUME);
     SOUNDPARAMS_RAW_PATCHED.put("pan", Param.LOCAL_PAN);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "oscAVolume", Param.LOCAL_OSC_A_VOLUME);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "oscBVolume", Param.LOCAL_OSC_B_VOLUME);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "noiseVolume", Param.LOCAL_NOISE_VOLUME);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "oscAPhaseWidth",
-        Param.LOCAL_OSC_A_PHASE_WIDTH);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "oscBPhaseWidth",
-        Param.LOCAL_OSC_B_PHASE_WIDTH);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "oscAWavetablePosition",
-        Param.LOCAL_OSC_A_WAVE_INDEX);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "oscBWavetablePosition",
-        Param.LOCAL_OSC_B_WAVE_INDEX);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "oscAPitch", Param.LOCAL_OSC_A_PITCH_ADJUST);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "oscBPitch", Param.LOCAL_OSC_B_PITCH_ADJUST);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "modulator1Pitch",
-        Param.LOCAL_MODULATOR_0_PITCH_ADJUST);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "modulator2Pitch",
-        Param.LOCAL_MODULATOR_1_PITCH_ADJUST);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "modFXRate", Param.GLOBAL_MOD_FX_RATE);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "modFXDepth", Param.GLOBAL_MOD_FX_DEPTH);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "modFXOffset", Param.UNPATCHED_MOD_FX_OFFSET);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "modFXFeedback",
-        Param.UNPATCHED_MOD_FX_FEEDBACK);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "delayRate", Param.GLOBAL_DELAY_RATE);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "delayFeedback", Param.GLOBAL_DELAY_FEEDBACK);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "reverbAmount", Param.GLOBAL_REVERB_AMOUNT);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "stutterRate", Param.UNPATCHED_STUTTER_RATE);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "sampleRateReduction",
-        Param.UNPATCHED_SAMPLE_RATE_REDUCTION);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "bitCrush", Param.UNPATCHED_BITCRUSHING);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "eqBass", Param.UNPATCHED_BASS);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "eqTreble", Param.UNPATCHED_TREBLE);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "eqBassFrequency", Param.UNPATCHED_BASS_FREQ);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "eqTrebleFrequency",
-        Param.UNPATCHED_TREBLE_FREQ);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "sidechainCompressorShape",
-        Param.UNPATCHED_SIDECHAIN_SHAPE);
-    SOUNDPARAMS_RAW_PATCHED.put(
-        "sidechainCompressorVolume",
-        Param.UNPATCHED_SIDECHAIN_VOLUME);
+    SOUNDPARAMS_RAW_PATCHED.put("oscAVolume", Param.LOCAL_OSC_A_VOLUME);
+    SOUNDPARAMS_RAW_PATCHED.put("oscBVolume", Param.LOCAL_OSC_B_VOLUME);
+    SOUNDPARAMS_RAW_PATCHED.put("noiseVolume", Param.LOCAL_NOISE_VOLUME);
+    SOUNDPARAMS_RAW_PATCHED.put("oscAPhaseWidth", Param.LOCAL_OSC_A_PHASE_WIDTH);
+    SOUNDPARAMS_RAW_PATCHED.put("oscBPhaseWidth", Param.LOCAL_OSC_B_PHASE_WIDTH);
+    SOUNDPARAMS_RAW_PATCHED.put("oscAWavetablePosition", Param.LOCAL_OSC_A_WAVE_INDEX);
+    SOUNDPARAMS_RAW_PATCHED.put("oscBWavetablePosition", Param.LOCAL_OSC_B_WAVE_INDEX);
+    SOUNDPARAMS_RAW_PATCHED.put("oscAPitch", Param.LOCAL_OSC_A_PITCH_ADJUST);
+    SOUNDPARAMS_RAW_PATCHED.put("oscBPitch", Param.LOCAL_OSC_B_PITCH_ADJUST);
+    SOUNDPARAMS_RAW_PATCHED.put("modulator1Pitch", Param.LOCAL_MODULATOR_0_PITCH_ADJUST);
+    SOUNDPARAMS_RAW_PATCHED.put("modulator2Pitch", Param.LOCAL_MODULATOR_1_PITCH_ADJUST);
+    SOUNDPARAMS_RAW_PATCHED.put("modFXRate", Param.GLOBAL_MOD_FX_RATE);
+    SOUNDPARAMS_RAW_PATCHED.put("modFXDepth", Param.GLOBAL_MOD_FX_DEPTH);
+    SOUNDPARAMS_RAW_PATCHED.put("modFXOffset", Param.UNPATCHED_MOD_FX_OFFSET);
+    SOUNDPARAMS_RAW_PATCHED.put("modFXFeedback", Param.UNPATCHED_MOD_FX_FEEDBACK);
+    SOUNDPARAMS_RAW_PATCHED.put("delayRate", Param.GLOBAL_DELAY_RATE);
+    SOUNDPARAMS_RAW_PATCHED.put("delayFeedback", Param.GLOBAL_DELAY_FEEDBACK);
+    SOUNDPARAMS_RAW_PATCHED.put("reverbAmount", Param.GLOBAL_REVERB_AMOUNT);
+    SOUNDPARAMS_RAW_PATCHED.put("stutterRate", Param.UNPATCHED_STUTTER_RATE);
+    SOUNDPARAMS_RAW_PATCHED.put("sampleRateReduction", Param.UNPATCHED_SAMPLE_RATE_REDUCTION);
+    SOUNDPARAMS_RAW_PATCHED.put("bitCrush", Param.UNPATCHED_BITCRUSHING);
+    SOUNDPARAMS_RAW_PATCHED.put("eqBass", Param.UNPATCHED_BASS);
+    SOUNDPARAMS_RAW_PATCHED.put("eqTreble", Param.UNPATCHED_TREBLE);
+    SOUNDPARAMS_RAW_PATCHED.put("eqBassFrequency", Param.UNPATCHED_BASS_FREQ);
+    SOUNDPARAMS_RAW_PATCHED.put("eqTrebleFrequency", Param.UNPATCHED_TREBLE_FREQ);
+    SOUNDPARAMS_RAW_PATCHED.put("sidechainCompressorShape", Param.UNPATCHED_SIDECHAIN_SHAPE);
+    SOUNDPARAMS_RAW_PATCHED.put("sidechainCompressorVolume", Param.UNPATCHED_SIDECHAIN_VOLUME);
   }
 
   /** Record a soundParams attribute as a raw Q31 param-knob override (attribute or child text). */
@@ -2215,9 +2169,7 @@ public class DelugeXmlParser {
             sustainKnob,
             DelugeHexMapper.hexToQ31(envNode.getAttribute("release")));
         if (sustainAttr != null && !sustainAttr.isEmpty()) {
-          synth.setRawParamKnob(
-              Param.LOCAL_ENV_0_SUSTAIN + i,
-              sustainKnob);
+          synth.setRawParamKnob(Param.LOCAL_ENV_0_SUSTAIN + i, sustainKnob);
         }
       }
     }
@@ -2253,9 +2205,7 @@ public class DelugeXmlParser {
                 sustainKnob,
                 DelugeHexMapper.hexToQ31(getChildText(envEl, "release")));
             if (sustainText != null && !sustainText.isEmpty()) {
-              synth.setRawParamKnob(
-                  Param.LOCAL_ENV_0_SUSTAIN + i,
-                  sustainKnob);
+              synth.setRawParamKnob(Param.LOCAL_ENV_0_SUSTAIN + i, sustainKnob);
             }
           }
         }

@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import org.chuck.deluge.firmware.dsp.StereoSample;
 import org.chuck.deluge.firmware.model.InstrumentClip;
 import org.chuck.deluge.firmware.model.Song;
-import org.chuck.deluge.firmware.modulation.LFO;
 import org.chuck.deluge.firmware.modulation.automation.AutoParam;
 import org.chuck.deluge.firmware.modulation.params.Param;
 import org.chuck.deluge.firmware.modulation.patch.PatchCable;
@@ -47,7 +46,8 @@ public class FirmwareLfoModulationTest {
     sound.paramNeutralValues[Param.LOCAL_LFO_LOCAL_FREQ_1] = fiveHz;
     AutoParam rateAp = sound.paramManager.getAutomatedParam(Param.LOCAL_LFO_LOCAL_FREQ_1);
     if (rateAp != null) rateAp.currentValue = fiveHz;
-    sound.lfoWaveforms[1] = org.chuck.deluge.firmware2.Lfo.LfoType.SINE; // LFO_LOCAL_1 uses waveform index 1
+    sound.lfoWaveforms[1] =
+        org.chuck.deluge.firmware2.Lfo.LfoType.SINE; // LFO_LOCAL_1 uses waveform index 1
 
     if (addLfoToVolume) {
       PatchCable c = new PatchCable();

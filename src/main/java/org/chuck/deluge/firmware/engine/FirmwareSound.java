@@ -152,7 +152,8 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
 
   public FirmwareSound() {
     for (int i = 0; i < 256; i++) fxStereoBuffer[i] = new StereoSample();
-    for (int i = 0; i < globalLfos.length; i++) globalLfos[i] = new org.chuck.deluge.firmware2.Lfo();
+    for (int i = 0; i < globalLfos.length; i++)
+      globalLfos[i] = new org.chuck.deluge.firmware2.Lfo();
     // C Sound::initParams (sound.cpp:131-187, faithfully ported to fw2 Sound.initParams).
     org.chuck.deluge.firmware2.Sound.initParams(paramNeutralValues);
 
@@ -693,7 +694,6 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
       default -> org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF;
     };
   }
-
 
   public void noteOffAll() {
     synchronized (fw2Sound.voices) {
