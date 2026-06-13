@@ -8222,29 +8222,32 @@ public class SwingGridPanel extends JPanel {
     }
   }
 
+  /** Resolve the project's scale name to a {@link Scales.ScaleType}, defaulting to Major. */
+  private static org.chuck.deluge.model.Scales.ScaleType scaleTypeFromName(String scale) {
+    if (scale == null) return org.chuck.deluge.model.Scales.ScaleType.MAJOR;
+    String s = scale.trim();
+    // Accept the model's canonical names plus a few common aliases.
+    if (s.equalsIgnoreCase("Pentatonic") || s.equalsIgnoreCase("Pentatonic Major")) {
+      return org.chuck.deluge.model.Scales.ScaleType.MAJOR_PENTATONIC;
+    }
+    if (s.equalsIgnoreCase("Pentatonic Minor")) {
+      return org.chuck.deluge.model.Scales.ScaleType.MINOR_PENTATONIC;
+    }
+    for (org.chuck.deluge.model.Scales.ScaleType t :
+        org.chuck.deluge.model.Scales.ScaleType.values()) {
+      if (t.getName().equalsIgnoreCase(s)) {
+        return t;
+      }
+    }
+    return org.chuck.deluge.model.Scales.ScaleType.MAJOR;
+  }
+
   public boolean isNoteInScale(int note) {
     if (projectModel == null) return true;
     String scale = projectModel.getScale();
-    String key = projectModel.getKey();
-    if ("Chromatic".equalsIgnoreCase(scale) || scale == null) return true;
-
-    int rootOffset = getKeyMidiOffset(key);
-    int semitone = (note - rootOffset) % 12;
-    if (semitone < 0) semitone += 12;
-
-    int[] mask = {0, 2, 4, 5, 7, 9, 11}; // default Major
-    if ("Minor".equalsIgnoreCase(scale)) {
-      mask = new int[] {0, 2, 3, 5, 7, 8, 10};
-    } else if ("Pentatonic".equalsIgnoreCase(scale) || "Pentatonic Major".equalsIgnoreCase(scale)) {
-      mask = new int[] {0, 2, 4, 7, 9};
-    } else if ("Pentatonic Minor".equalsIgnoreCase(scale)) {
-      mask = new int[] {0, 3, 5, 7, 10};
-    }
-
-    for (int m : mask) {
-      if (semitone == m) return true;
-    }
-    return false;
+    if (scale == null) return true;
+    return org.chuck.deluge.model.Scales.isNoteInScale(
+        note, getKeyMidiOffset(projectModel.getKey()), scaleTypeFromName(scale));
   }
 
   public boolean isRootNote(int note) {
