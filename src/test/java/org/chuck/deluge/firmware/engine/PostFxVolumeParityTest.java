@@ -9,6 +9,7 @@ import org.chuck.deluge.firmware.model.Song;
 import org.chuck.deluge.model.ClipModel;
 import org.chuck.deluge.model.ProjectModel;
 import org.chuck.deluge.model.SynthTrackModel;
+import org.chuck.deluge.firmware.modulation.params.Param;
 import org.junit.jupiter.api.Test;
 
 /** Ensures post-FX makeup gain from SRR/bitcrush reaches the final output stage. */
@@ -80,8 +81,8 @@ public class PostFxVolumeParityTest {
   public void heavyBitcrushReducesFinalOutputViaPostFxVolume() {
     FirmwareSound internal = buildSynth();
     FirmwareSound finalOutput = buildSynth();
-    internal.bitcrushParam = Integer.MAX_VALUE;
-    finalOutput.bitcrushParam = Integer.MAX_VALUE;
+    internal.paramNeutralValues[Param.UNPATCHED_BITCRUSHING] = Integer.MAX_VALUE;
+    finalOutput.paramNeutralValues[Param.UNPATCHED_BITCRUSHING] = Integer.MAX_VALUE;
 
     float[] internalWave = renderInternalBlocks(internal, 60, 110, 22050);
     float[] finalWave = renderOutputBlocks(finalOutput, 60, 110, 22050);

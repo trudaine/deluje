@@ -27,6 +27,7 @@ class SaturationTest {
     s.osc2RetriggerPhase = 0;
     FirmwareAudioEngine eng = new FirmwareAudioEngine();
     eng.sounds.add(s);
+    eng.masterCompressor.setBlendFloat(0.0f);
     s.triggerNote(60, 100);
     float[] out = new float[30 * 128];
     for (int b = 0; b < 30; b++) {

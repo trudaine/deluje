@@ -484,9 +484,14 @@ public final class Functions {
     int howMuchFurther = (input << 6) & 2147483647; // 6
     int value1 = LookupTables.tanTable[whichValue];
     int value2 = LookupTables.tanTable[whichValue + 1];
-    return (multiply_32x32_rshift32(value2, howMuchFurther)
-            + multiply_32x32_rshift32(value1, 2147483647 - howMuchFurther))
-        << 1;
+    long sum =
+        (long) multiply_32x32_rshift32(value2, howMuchFurther)
+            + multiply_32x32_rshift32(value1, 2147483647 - howMuchFurther);
+    long shifted = sum << 1;
+    if (shifted > 2147483647L) {
+      return 2147483647;
+    }
+    return (int) shifted;
   }
 
   // ── lookupReleaseRate (functions.cpp) ──

@@ -14,15 +14,10 @@ public class BasicFilterComponent {
     reset();
   }
 
-  /** doFilter — one-pole low-pass. (ladder_components.h:27-31) */
   public int doFilter(int input, int moveability) {
-    // q31_t a = multiply_32x32_rshift32_rounded(input - memory, moveability) << 1;
     int a = Functions.multiply_32x32_rshift32_rounded(input - memory, moveability) << 1;
-    // q31_t b = a + memory;
     int b = a + memory;
-    // memory = b + a;
     memory = b + a;
-    // return b;
     return b;
   }
 

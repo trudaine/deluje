@@ -333,7 +333,6 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
           modFXOffset,
           modFXFeedback);
     }
-
     // Bass/treble EQ
     eq.process(fxStereoBuffer, numSamples, eqBassParam, eqTrebleParam);
 
@@ -588,6 +587,23 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
 
     fw2Sound.sidechainSend = sidechainSend;
     fw2Sound.modFXType = fw2ModFXType(modFXType);
+
+    // Sync modulated FX parameters from patchedParamValues
+    modFXRateIncrement =
+        fw2Sound.patchedParamValues[org.chuck.deluge.firmware2.Param.GLOBAL_MOD_FX_RATE];
+    modFXDepth = fw2Sound.patchedParamValues[org.chuck.deluge.firmware2.Param.GLOBAL_MOD_FX_DEPTH];
+    modFXOffset =
+        fw2Sound.patchedParamValues[org.chuck.deluge.firmware2.Param.UNPATCHED_MOD_FX_OFFSET];
+    modFXFeedback =
+        fw2Sound.patchedParamValues[org.chuck.deluge.firmware2.Param.UNPATCHED_MOD_FX_FEEDBACK];
+    bitcrushParam =
+        fw2Sound.patchedParamValues[org.chuck.deluge.firmware2.Param.UNPATCHED_BITCRUSHING];
+    srrParam =
+        fw2Sound
+            .patchedParamValues[org.chuck.deluge.firmware2.Param.UNPATCHED_SAMPLE_RATE_REDUCTION];
+    eqBassParam = fw2Sound.patchedParamValues[org.chuck.deluge.firmware2.Param.UNPATCHED_BASS];
+    eqTrebleParam = fw2Sound.patchedParamValues[org.chuck.deluge.firmware2.Param.UNPATCHED_TREBLE];
+
     fw2Sound.modFXRateIncrement = modFXRateIncrement;
     fw2Sound.modFXDepth = modFXDepth;
     fw2Sound.modFXOffset = modFXOffset;
@@ -596,6 +612,7 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     fw2Sound.srrParam = srrParam;
     fw2Sound.eqBassParam = eqBassParam;
     fw2Sound.eqTrebleParam = eqTrebleParam;
+
     fw2Sound.currentBpm = (int) currentBpm;
     fw2Sound.arpPhaseIncrement = arpPhaseIncrement;
 
@@ -603,7 +620,8 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     // (same scheme as PureFirmwareEngine's master-delay sync). syncLevel exponent → multiples of a
     // 16th-note step; rate = 16384 * 2^24 / (delaySec * 44100), the inverse of
     // DelayBuffer.getIdealBufferSizeFromRate.
-    if (delaySyncLevel > 0 && delayFeedbackAmount >= 256) {
+    int dfb = fw2Sound.patchedParamValues[org.chuck.deluge.firmware2.Param.GLOBAL_DELAY_FEEDBACK];
+    if (delaySyncLevel > 0 && dfb >= 256) {
       double bpm = currentBpm > 0 ? currentBpm : 120.0;
       double stepSec = (60.0 / bpm) / 4.0; // 16th-note
       double syncFactor = Math.pow(2.0, delaySyncLevel - 1);
@@ -612,12 +630,18 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
       double delaySec = Math.max(0.001, Math.min(2.0, syncFactor * stepSec));
       long rate = (long) (16384L * 16777216L / (delaySec * 44100.0));
       fw2Sound.delayUserRate = (int) Math.min(rate, Integer.MAX_VALUE);
-      fw2Sound.delayFeedbackAmount =
-          Math.min(delayFeedbackAmount, (1 << 30) - (1 << 26)); // C feedback clamp
+      fw2Sound.delayFeedbackAmount = Math.min(dfb, (1 << 30) - (1 << 26)); // C feedback clamp
+      fw2Sound.delayPingPong = delayPingPong;
+      fw2Sound.delayAnalog = delayAnalog;
+    } else if (delaySyncLevel == 0 && dfb >= 256) {
+      fw2Sound.delayUserRate =
+          fw2Sound.patchedParamValues[org.chuck.deluge.firmware2.Param.GLOBAL_DELAY_RATE];
+      fw2Sound.delayFeedbackAmount = Math.min(dfb, (1 << 30) - (1 << 26)); // C feedback clamp
       fw2Sound.delayPingPong = delayPingPong;
       fw2Sound.delayAnalog = delayAnalog;
     } else {
       fw2Sound.delayUserRate = 0;
+      fw2Sound.delayFeedbackAmount = 0;
     }
 
     // arpSettings are already shared between FirmwareSound and fw2Sound.

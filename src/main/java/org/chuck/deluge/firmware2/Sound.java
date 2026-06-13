@@ -297,6 +297,11 @@ public class Sound extends GlobalEffectable {
     params[Param.LOCAL_MODULATOR_0_PITCH_ADJUST] = 0; // C:185
     params[Param.LOCAL_MODULATOR_1_PITCH_ADJUST] = 0; // C:186
     // C:138 — PORTAMENTO = INT_MIN (internal param, not exposed)
+    params[Param.UNPATCHED_BASS] = 0;
+    params[Param.UNPATCHED_TREBLE] = 0;
+    params[Param.UNPATCHED_BASS_FREQ] = 0;
+    params[Param.UNPATCHED_TREBLE_FREQ] = 0;
+    params[Param.UNPATCHED_STUTTER_RATE] = 0;
   }
 
   /** C: sound.cpp:223-259 — preset that ships with new synths. */
