@@ -299,17 +299,18 @@ public class SwingSynthConfigDialog extends JDialog {
     leftPanel.add(modeLbl, lc);
     lc.gridx = 1;
     lc.gridwidth = 2;
-    JComboBox<String> modeCombo = new JComboBox<>(SYNTH_MODES);
-    modeCombo.setSelectedIndex(Math.max(0, Math.min(2, model.getSynthMode())));
-    modeCombo.setBackground(BG_CONTROL);
-    modeCombo.setForeground(Color.WHITE);
-    modeCombo.addActionListener(
-        e -> {
-          int mode = modeCombo.getSelectedIndex();
+    SegmentedToggle modeToggle =
+        new SegmentedToggle(
+            SYNTH_MODES,
+            Math.max(0, Math.min(2, model.getSynthMode())),
+            new Color(0x00, 0xbb, 0xff));
+    modeToggle.setPreferredSize(new Dimension(200, 26));
+    modeToggle.onChange(
+        mode -> {
           model.setSynthMode(mode);
           tabs.setEnabledAt(1, mode == 1);
         });
-    leftPanel.add(modeCombo, lc);
+    leftPanel.add(modeToggle, lc);
     leftRow++;
 
     // ── Polyphony ──
