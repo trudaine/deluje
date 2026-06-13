@@ -139,6 +139,18 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
   public final org.chuck.deluge.firmware.modulation.params.ParamManager paramManager =
       new org.chuck.deluge.firmware.modulation.params.ParamManager();
   private int silentBlockCount = 200; // Starts gated on boot
+  private int[][] delayIntBuffer = new int[256][2]; // scratch for the per-sound delay
+
+  // Per-sound delay config from the song's instrument <delay> + soundParams delayFeedback. The
+  // delay time is BPM-synced: delaySyncLevel is a note-division exponent (firmware syncLevel), and
+  // syncParamsToFw2 converts it to fw2Sound.delayUserRate using currentBpm. delayFeedbackAmount <
+  // 256
+  // (or syncLevel 0) leaves the per-sound delay inert.
+  public int delaySyncLevel = 0;
+  public int delaySyncType = 0; // 0=even, 1=triplet, 2=dotted
+  public int delayFeedbackAmount = 0;
+  public boolean delayPingPong = false;
+  public boolean delayAnalog = false;
   private StereoSample[] fxStereoBuffer = new StereoSample[256];
 
   public FirmwareSound() {
@@ -256,7 +268,10 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
       hasActiveVoices = !fw2Sound.voices.isEmpty();
     }
     boolean arpHolding = arpEnabled() && arpeggiator.hasAnyInputNotesActive();
-    if (!hasActiveVoices && !arpHolding && silentBlockCount > 100) {
+    // Keep rendering while the per-sound delay still has repeats pending (C sound.cpp:2165), so its
+    // tail isn't cut by the silence bypass.
+    boolean delayTailActive = fw2Sound.delay.repeatsUntilAbandon != 0;
+    if (!hasActiveVoices && !arpHolding && !delayTailActive && silentBlockCount > 100) {
       // Fast bypass: flat buffer is already silent
       return;
     }
@@ -321,6 +336,30 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
 
     // Bass/treble EQ
     eq.process(fxStereoBuffer, numSamples, eqBassParam, eqTrebleParam);
+
+    // Per-sound delay (C: processFX delay.process, after EQ). The firmware's delay is per-sound;
+    // rate is driven externally (syncLevel 0 + userDelayRate) like the master delay. Inert unless
+    // the song configured a per-sound delay (rate > 0 and feedback >= 256).
+    if (fw2Sound.delayUserRate > 0 && fw2Sound.delayFeedbackAmount >= 256) {
+      if (delayIntBuffer.length < numSamples) {
+        delayIntBuffer = new int[numSamples][2];
+      }
+      for (int i = 0; i < numSamples; i++) {
+        delayIntBuffer[i][0] = fxStereoBuffer[i].l;
+        delayIntBuffer[i][1] = fxStereoBuffer[i].r;
+      }
+      fw2Sound.delay.syncLevel = 0;
+      fw2Sound.delay.pingPong = fw2Sound.delayPingPong;
+      fw2Sound.delay.analog = fw2Sound.delayAnalog;
+      fw2Sound.delayState.userDelayRate = fw2Sound.delayUserRate;
+      fw2Sound.delayState.delayFeedbackAmount = fw2Sound.delayFeedbackAmount;
+      fw2Sound.delay.setupWorkingState(fw2Sound.delayState, 1 << 20, hasActiveVoices);
+      fw2Sound.delay.process(delayIntBuffer, numSamples, fw2Sound.delayState);
+      for (int i = 0; i < numSamples; i++) {
+        fxStereoBuffer[i].l = delayIntBuffer[i][0];
+        fxStereoBuffer[i].r = delayIntBuffer[i][1];
+      }
+    }
 
     // Sidechain
     int shape = paramNeutralValues[Param.UNPATCHED_SIDECHAIN_SHAPE];
@@ -561,6 +600,27 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     fw2Sound.eqTrebleParam = eqTrebleParam;
     fw2Sound.currentBpm = (int) currentBpm;
     fw2Sound.arpPhaseIncrement = arpPhaseIncrement;
+
+    // Per-sound delay: convert the note-division syncLevel to a buffer rate using the live BPM
+    // (same scheme as PureFirmwareEngine's master-delay sync). syncLevel exponent → multiples of a
+    // 16th-note step; rate = 16384 * 2^24 / (delaySec * 44100), the inverse of
+    // DelayBuffer.getIdealBufferSizeFromRate.
+    if (delaySyncLevel > 0 && delayFeedbackAmount >= 256) {
+      double bpm = currentBpm > 0 ? currentBpm : 120.0;
+      double stepSec = (60.0 / bpm) / 4.0; // 16th-note
+      double syncFactor = Math.pow(2.0, delaySyncLevel - 1);
+      if (delaySyncType == 1) syncFactor *= 1.5; // triplet
+      else if (delaySyncType == 2) syncFactor *= 2.0 / 3.0; // dotted
+      double delaySec = Math.max(0.001, Math.min(2.0, syncFactor * stepSec));
+      long rate = (long) (16384L * 16777216L / (delaySec * 44100.0));
+      fw2Sound.delayUserRate = (int) Math.min(rate, Integer.MAX_VALUE);
+      fw2Sound.delayFeedbackAmount =
+          Math.min(delayFeedbackAmount, (1 << 30) - (1 << 26)); // C feedback clamp
+      fw2Sound.delayPingPong = delayPingPong;
+      fw2Sound.delayAnalog = delayAnalog;
+    } else {
+      fw2Sound.delayUserRate = 0;
+    }
 
     // arpSettings are already shared between FirmwareSound and fw2Sound.
   }

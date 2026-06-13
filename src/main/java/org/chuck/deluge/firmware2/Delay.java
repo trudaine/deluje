@@ -83,8 +83,11 @@ public class Delay {
   /** C: delay.h:78 */
   int prevFeedback;
 
-  /** C: delay.h:80 — 0 means never abandon */
-  int repeatsUntilAbandon;
+  /**
+   * C: delay.h:80 — 0 means never abandon. Public so the per-sound delay host can keep rendering
+   * the FX tail while repeats are pending (FirmwareSound silence-bypass).
+   */
+  public int repeatsUntilAbandon;
 
   // ── isActive (delay.h:48) ──
 
