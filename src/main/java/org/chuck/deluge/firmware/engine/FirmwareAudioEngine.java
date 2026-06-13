@@ -7,6 +7,7 @@ import org.chuck.deluge.firmware2.Delay;
 import org.chuck.deluge.firmware2.GlobalEffectable;
 import org.chuck.deluge.firmware2.LiveInputBuffer;
 import org.chuck.deluge.firmware2.LivePitchShifter;
+import org.chuck.deluge.firmware2.Metronome;
 import org.chuck.deluge.firmware2.Reverb;
 import org.chuck.deluge.firmware2.StereoSample;
 
@@ -45,6 +46,18 @@ public class FirmwareAudioEngine {
   // ── High-Fidelity Gain Constants ──
   public int masterVolumeAdjustmentL = Q31.ONE;
   public int masterVolumeAdjustmentR = Q31.ONE;
+
+  // Metronome (faithful fw2 port). Off by default; the transport triggers a click each beat when
+  // enabled (see JavaAudioDriver). C: audio_engine.cpp:626 renders it into the master buffer.
+  public final Metronome metronome = new Metronome();
+  public volatile boolean metronomeEnabled = false;
+
+  /** Trigger a metronome click. {@code phaseIncrement} sets the click pitch (downbeat vs beat). */
+  public void triggerMetronome(int phaseIncrement) {
+    if (metronomeEnabled) {
+      metronome.trigger(phaseIncrement);
+    }
+  }
 
   public FirmwareAudioEngine() {
     for (int i = 0; i < masterBuffer.length; i++) {
@@ -109,6 +122,11 @@ public class FirmwareAudioEngine {
 
     // Hardware Master Compressor (port of audio_engine.cpp:899).
     masterCompressor.renderVolNeutral(fxBuffer, Q31.ONE);
+
+    // Metronome click — added dry, after FX, before the master gain/limiter (C: audio_engine.cpp:626).
+    if (metronomeEnabled) {
+      metronome.render(fxBuffer, numSamples, Q31.ONE);
+    }
 
     // ── Master Gain & Soft-Clip Limiter ──
     for (int i = 0; i < numSamples; i++) {
