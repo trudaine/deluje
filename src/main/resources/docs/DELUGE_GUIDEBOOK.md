@@ -1242,7 +1242,7 @@ Switch to Song view: `F2` or click **[SONG]** tab.
 | :--- | :--- | :--- |
 | SV01 | Launch / stop clip | `Click` clip block in song grid |
 | SV02 | Launch clip immediately | `Click` (clips always launch immediately in software) |
-| SV03 | Enter clip (edit) | `Double-click` clip block → switches to CLIP view |
+| SV03 | Enter clip (edit) | `Click` clip block or track name button → switches to CLIP view (matches physical hardware) |
 | SV04 | Create new clip | `Right-click` empty row → **New Clip** |
 | SV05 | Move row up/down | ⚠ not yet implemented (drag-and-drop planned) |
 | SV06 | Clone clip | ⚠ not yet implemented |
