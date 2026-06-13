@@ -1812,15 +1812,19 @@ public class DelugeXmlParser {
               DelugeHexMapper.hexToEnvTime(release),
               "NONE",
               0.0f));
-      // Raw knobs win in the factory (firmware-faithful envelope rate curves).
-      synth.setEnvRateKnobsQ31(
+      // Raw knobs win in the factory (firmware-faithful envelope rate + sustain level curves).
+      int sustainKnob =
+          (sustain != null && !sustain.isEmpty())
+              ? DelugeHexMapper.hexToQ31(sustain)
+              : 858993459; // default 0.7 sustain Q31
+      synth.setEnvKnobsQ31(
           i,
           DelugeHexMapper.hexToQ31(attack),
           DelugeHexMapper.hexToQ31(decay),
+          sustainKnob,
           DelugeHexMapper.hexToQ31(release));
       synth.setRawParamKnob(
-          org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_SUSTAIN + i,
-          DelugeHexMapper.hexToQ31(sustain));
+          org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_SUSTAIN + i, sustainKnob);
     }
 
     // Patch cables (the clip's set is authoritative in the song format).
@@ -1947,6 +1951,12 @@ public class DelugeXmlParser {
   private static void applyDefaultParamsBindings(Element soundNode, SynthTrackModel synth) {
     for (FieldBinding<?> b : DEFAULT_PARAMS_BINDINGS) {
       b.apply(soundNode, synth);
+    }
+    Element dpEl = getFirstChild(soundNode, "defaultParams");
+    if (dpEl != null) {
+      for (var e : SOUNDPARAMS_RAW_PATCHED.entrySet()) {
+        rawKnob(dpEl, e.getKey(), synth, e.getValue());
+      }
     }
   }
 
@@ -2156,17 +2166,23 @@ public class DelugeXmlParser {
                 "NONE",
                 0.0f);
         synth.setEnv(i, env);
-        // Preserve the raw rate knobs for the firmware-faithful envelope rate curves.
-        synth.setEnvRateKnobsQ31(
+        String sustainAttr = envNode.getAttribute("sustain");
+        int sustainKnob =
+            (sustainAttr != null && !sustainAttr.isEmpty())
+                ? DelugeHexMapper.hexToQ31(sustainAttr)
+                : 858993459; // default 0.7 sustain Q31
+        // Preserve the raw rate + level knobs for the firmware-faithful envelope rate/sustain
+        // curves.
+        synth.setEnvKnobsQ31(
             i,
             DelugeHexMapper.hexToQ31(envNode.getAttribute("attack")),
             DelugeHexMapper.hexToQ31(envNode.getAttribute("decay")),
+            sustainKnob,
             DelugeHexMapper.hexToQ31(envNode.getAttribute("release")));
-        String sustainAttr = envNode.getAttribute("sustain");
         if (sustainAttr != null && !sustainAttr.isEmpty()) {
           synth.setRawParamKnob(
               org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_SUSTAIN + i,
-              DelugeHexMapper.hexToQ31(sustainAttr));
+              sustainKnob);
         }
       }
     }
@@ -2188,17 +2204,23 @@ public class DelugeXmlParser {
               || env.sustain() != 0.7f
               || env.release() != 0.2f) {
             synth.setEnv(i, env);
-            // Preserve the raw rate knobs for the firmware-faithful envelope rate curves.
-            synth.setEnvRateKnobsQ31(
+            String sustainText = getChildText(envEl, "sustain");
+            int sustainKnob =
+                (sustainText != null && !sustainText.isEmpty())
+                    ? DelugeHexMapper.hexToQ31(sustainText)
+                    : 858993459; // default 0.7 sustain Q31
+            // Preserve the raw rate + level knobs for the firmware-faithful envelope rate/sustain
+            // curves.
+            synth.setEnvKnobsQ31(
                 i,
                 DelugeHexMapper.hexToQ31(getChildText(envEl, "attack")),
                 DelugeHexMapper.hexToQ31(getChildText(envEl, "decay")),
+                sustainKnob,
                 DelugeHexMapper.hexToQ31(getChildText(envEl, "release")));
-            String sustainText = getChildText(envEl, "sustain");
             if (sustainText != null && !sustainText.isEmpty()) {
               synth.setRawParamKnob(
                   org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_SUSTAIN + i,
-                  DelugeHexMapper.hexToQ31(sustainText));
+                  sustainKnob);
             }
           }
         }

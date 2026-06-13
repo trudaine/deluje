@@ -78,11 +78,15 @@ public final class Functions {
     return signed_saturate(val, 32 - bits) << bits;
   }
 
-  /** lshiftAndSaturateUnknown(val, lshift): signed_saturate_operand_unknown + shift. */
   public static int lshiftAndSaturateUnknown(int val, int lshift) {
-    // Firmware uses a switch(shift) with static saturate<31>, <30>, etc.
-    // Java equivalent: signed_saturate(val, 32 - lshift) << lshift
-    return signed_saturate(val, 32 - lshift) << lshift;
+    int bits = 32 - lshift;
+    int saturated;
+    if (bits >= 12 && bits <= 31) {
+      saturated = signed_saturate(val, bits);
+    } else {
+      saturated = signed_saturate(val, 12);
+    }
+    return saturated << (lshift & 31);
   }
 
   // ── add_saturate / sub_saturate (port of fixedpoint.h) ──

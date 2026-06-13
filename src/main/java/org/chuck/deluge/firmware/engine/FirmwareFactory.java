@@ -504,13 +504,15 @@ public class FirmwareFactory {
 
       int attackKnob;
       int decayKnob;
-      int sustainKnob = normToLinearParamKnob(em.sustain());
+      int sustainKnob;
       int releaseKnob;
       if (model.isEnvKnobSet(i)) {
         attackKnob = model.getEnvAttackKnobQ31(i);
         decayKnob = model.getEnvDecayKnobQ31(i);
+        sustainKnob = model.getEnvSustainKnobQ31(i);
         releaseKnob = model.getEnvReleaseKnobQ31(i);
       } else {
+        sustainKnob = normToLinearParamKnob(em.sustain());
         float normAttack = org.chuck.deluge.xml.DelugeHexMapper.normFromEnvTime(em.attack());
         attackKnob = (int) Math.rint(normAttack * 2147483647.0);
         float normDecay = org.chuck.deluge.xml.DelugeHexMapper.normFromEnvTime(em.decay());
