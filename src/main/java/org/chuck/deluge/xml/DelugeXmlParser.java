@@ -12,6 +12,7 @@ import org.chuck.deluge.model.*;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
+import org.chuck.deluge.firmware2.Param;
 
 public class DelugeXmlParser {
 
@@ -1821,7 +1822,7 @@ public class DelugeXmlParser {
           sustainKnob,
           DelugeHexMapper.hexToQ31(release));
       synth.setRawParamKnob(
-          org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_SUSTAIN + i, sustainKnob);
+          Param.LOCAL_ENV_0_SUSTAIN + i, sustainKnob);
     }
 
     // Patch cables (the clip's set is authoritative in the song format).
@@ -1873,85 +1874,85 @@ public class DelugeXmlParser {
 
   static {
     SOUNDPARAMS_RAW_PATCHED.put(
-        "lpfFrequency", org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_FREQ);
+        "lpfFrequency", Param.LOCAL_LPF_FREQ);
     SOUNDPARAMS_RAW_PATCHED.put(
-        "lpfResonance", org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_RESONANCE);
+        "lpfResonance", Param.LOCAL_LPF_RESONANCE);
     SOUNDPARAMS_RAW_PATCHED.put(
-        "lpfMorph", org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_MORPH);
+        "lpfMorph", Param.LOCAL_LPF_MORPH);
     SOUNDPARAMS_RAW_PATCHED.put(
-        "hpfFrequency", org.chuck.deluge.firmware.modulation.params.Param.LOCAL_HPF_FREQ);
+        "hpfFrequency", Param.LOCAL_HPF_FREQ);
     SOUNDPARAMS_RAW_PATCHED.put(
-        "hpfResonance", org.chuck.deluge.firmware.modulation.params.Param.LOCAL_HPF_RESONANCE);
+        "hpfResonance", Param.LOCAL_HPF_RESONANCE);
     SOUNDPARAMS_RAW_PATCHED.put(
-        "hpfMorph", org.chuck.deluge.firmware.modulation.params.Param.LOCAL_HPF_MORPH);
+        "hpfMorph", Param.LOCAL_HPF_MORPH);
     SOUNDPARAMS_RAW_PATCHED.put(
-        "volume", org.chuck.deluge.firmware.modulation.params.Param.LOCAL_VOLUME);
-    SOUNDPARAMS_RAW_PATCHED.put("pan", org.chuck.deluge.firmware.modulation.params.Param.LOCAL_PAN);
+        "volume", Param.LOCAL_VOLUME);
+    SOUNDPARAMS_RAW_PATCHED.put("pan", Param.LOCAL_PAN);
     SOUNDPARAMS_RAW_PATCHED.put(
-        "oscAVolume", org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_A_VOLUME);
+        "oscAVolume", Param.LOCAL_OSC_A_VOLUME);
     SOUNDPARAMS_RAW_PATCHED.put(
-        "oscBVolume", org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_B_VOLUME);
+        "oscBVolume", Param.LOCAL_OSC_B_VOLUME);
     SOUNDPARAMS_RAW_PATCHED.put(
-        "noiseVolume", org.chuck.deluge.firmware.modulation.params.Param.LOCAL_NOISE_VOLUME);
+        "noiseVolume", Param.LOCAL_NOISE_VOLUME);
     SOUNDPARAMS_RAW_PATCHED.put(
         "oscAPhaseWidth",
-        org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_A_PHASE_WIDTH);
+        Param.LOCAL_OSC_A_PHASE_WIDTH);
     SOUNDPARAMS_RAW_PATCHED.put(
         "oscBPhaseWidth",
-        org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_B_PHASE_WIDTH);
+        Param.LOCAL_OSC_B_PHASE_WIDTH);
     SOUNDPARAMS_RAW_PATCHED.put(
         "oscAWavetablePosition",
-        org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_A_WAVE_INDEX);
+        Param.LOCAL_OSC_A_WAVE_INDEX);
     SOUNDPARAMS_RAW_PATCHED.put(
         "oscBWavetablePosition",
-        org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_B_WAVE_INDEX);
+        Param.LOCAL_OSC_B_WAVE_INDEX);
     SOUNDPARAMS_RAW_PATCHED.put(
-        "oscAPitch", org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_A_PITCH_ADJUST);
+        "oscAPitch", Param.LOCAL_OSC_A_PITCH_ADJUST);
     SOUNDPARAMS_RAW_PATCHED.put(
-        "oscBPitch", org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_B_PITCH_ADJUST);
+        "oscBPitch", Param.LOCAL_OSC_B_PITCH_ADJUST);
     SOUNDPARAMS_RAW_PATCHED.put(
         "modulator1Pitch",
-        org.chuck.deluge.firmware.modulation.params.Param.LOCAL_MODULATOR_0_PITCH_ADJUST);
+        Param.LOCAL_MODULATOR_0_PITCH_ADJUST);
     SOUNDPARAMS_RAW_PATCHED.put(
         "modulator2Pitch",
-        org.chuck.deluge.firmware.modulation.params.Param.LOCAL_MODULATOR_1_PITCH_ADJUST);
+        Param.LOCAL_MODULATOR_1_PITCH_ADJUST);
     SOUNDPARAMS_RAW_PATCHED.put(
-        "modFXRate", org.chuck.deluge.firmware.modulation.params.Param.GLOBAL_MOD_FX_RATE);
+        "modFXRate", Param.GLOBAL_MOD_FX_RATE);
     SOUNDPARAMS_RAW_PATCHED.put(
-        "modFXDepth", org.chuck.deluge.firmware.modulation.params.Param.GLOBAL_MOD_FX_DEPTH);
+        "modFXDepth", Param.GLOBAL_MOD_FX_DEPTH);
     SOUNDPARAMS_RAW_PATCHED.put(
-        "modFXOffset", org.chuck.deluge.firmware.modulation.params.Param.UNPATCHED_MOD_FX_OFFSET);
+        "modFXOffset", Param.UNPATCHED_MOD_FX_OFFSET);
     SOUNDPARAMS_RAW_PATCHED.put(
         "modFXFeedback",
-        org.chuck.deluge.firmware.modulation.params.Param.UNPATCHED_MOD_FX_FEEDBACK);
+        Param.UNPATCHED_MOD_FX_FEEDBACK);
     SOUNDPARAMS_RAW_PATCHED.put(
-        "delayRate", org.chuck.deluge.firmware.modulation.params.Param.GLOBAL_DELAY_RATE);
+        "delayRate", Param.GLOBAL_DELAY_RATE);
     SOUNDPARAMS_RAW_PATCHED.put(
-        "delayFeedback", org.chuck.deluge.firmware.modulation.params.Param.GLOBAL_DELAY_FEEDBACK);
+        "delayFeedback", Param.GLOBAL_DELAY_FEEDBACK);
     SOUNDPARAMS_RAW_PATCHED.put(
-        "reverbAmount", org.chuck.deluge.firmware.modulation.params.Param.GLOBAL_REVERB_AMOUNT);
+        "reverbAmount", Param.GLOBAL_REVERB_AMOUNT);
     SOUNDPARAMS_RAW_PATCHED.put(
-        "stutterRate", org.chuck.deluge.firmware.modulation.params.Param.UNPATCHED_STUTTER_RATE);
+        "stutterRate", Param.UNPATCHED_STUTTER_RATE);
     SOUNDPARAMS_RAW_PATCHED.put(
         "sampleRateReduction",
-        org.chuck.deluge.firmware.modulation.params.Param.UNPATCHED_SAMPLE_RATE_REDUCTION);
+        Param.UNPATCHED_SAMPLE_RATE_REDUCTION);
     SOUNDPARAMS_RAW_PATCHED.put(
-        "bitCrush", org.chuck.deluge.firmware.modulation.params.Param.UNPATCHED_BITCRUSHING);
+        "bitCrush", Param.UNPATCHED_BITCRUSHING);
     SOUNDPARAMS_RAW_PATCHED.put(
-        "eqBass", org.chuck.deluge.firmware.modulation.params.Param.UNPATCHED_BASS);
+        "eqBass", Param.UNPATCHED_BASS);
     SOUNDPARAMS_RAW_PATCHED.put(
-        "eqTreble", org.chuck.deluge.firmware.modulation.params.Param.UNPATCHED_TREBLE);
+        "eqTreble", Param.UNPATCHED_TREBLE);
     SOUNDPARAMS_RAW_PATCHED.put(
-        "eqBassFrequency", org.chuck.deluge.firmware.modulation.params.Param.UNPATCHED_BASS_FREQ);
+        "eqBassFrequency", Param.UNPATCHED_BASS_FREQ);
     SOUNDPARAMS_RAW_PATCHED.put(
         "eqTrebleFrequency",
-        org.chuck.deluge.firmware.modulation.params.Param.UNPATCHED_TREBLE_FREQ);
+        Param.UNPATCHED_TREBLE_FREQ);
     SOUNDPARAMS_RAW_PATCHED.put(
         "sidechainCompressorShape",
-        org.chuck.deluge.firmware.modulation.params.Param.UNPATCHED_SIDECHAIN_SHAPE);
+        Param.UNPATCHED_SIDECHAIN_SHAPE);
     SOUNDPARAMS_RAW_PATCHED.put(
         "sidechainCompressorVolume",
-        org.chuck.deluge.firmware.modulation.params.Param.UNPATCHED_SIDECHAIN_VOLUME);
+        Param.UNPATCHED_SIDECHAIN_VOLUME);
   }
 
   /** Record a soundParams attribute as a raw Q31 param-knob override (attribute or child text). */
@@ -2215,7 +2216,7 @@ public class DelugeXmlParser {
             DelugeHexMapper.hexToQ31(envNode.getAttribute("release")));
         if (sustainAttr != null && !sustainAttr.isEmpty()) {
           synth.setRawParamKnob(
-              org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_SUSTAIN + i,
+              Param.LOCAL_ENV_0_SUSTAIN + i,
               sustainKnob);
         }
       }
@@ -2253,7 +2254,7 @@ public class DelugeXmlParser {
                 DelugeHexMapper.hexToQ31(getChildText(envEl, "release")));
             if (sustainText != null && !sustainText.isEmpty()) {
               synth.setRawParamKnob(
-                  org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_SUSTAIN + i,
+                  Param.LOCAL_ENV_0_SUSTAIN + i,
                   sustainKnob);
             }
           }
