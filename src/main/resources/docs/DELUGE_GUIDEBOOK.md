@@ -986,7 +986,7 @@ This chapter provides a direct, code-by-code mapping of every shortcut code from
 | **SV10** | Launch section | Press section pad | Click colored Section launch buttons in SONG view |
 | **SV11** | Section repeat | Hold section pad + turn `Select` | Select repeat loop count dropdown on song row |
 | **SV12** | Clip Parameter Change | Hold clip pad + turn knob | Adjust dials directly on track row, or double-click to open Sound Editor |
-| **SV13** | Clip Type change | Hold row button + select type | Select track preset folder (Kits vs Synths vs MIDI) |
+| **SV13** | Clip Type change | Hold row button + select type | Right-click track header ➔ Convert to MIDI Track / Convert to Synth Track |
 
 ### 21.4 Recording / Resampling (RS)
 
@@ -1207,14 +1207,14 @@ The open-ended nature of the Deluge Workstation workflow allows you to compose, 
 | # | Action | How |
 | :--- | :--- | :--- |
 | SQ01 | Toggle step on/off | `Click` cell |
-| SQ02 | Make a long note (tie) | `Hold` first cell + `Click` end cell on same row |
+| SQ02 | Make a long note (tie) | Click and drag note tail horizontally (supports cross-screen scrolling) |
 | SQ03 | Adjust note velocity | `Right-click` cell → **Step Editor** → velocity slider |
 | SQ04 | Set note probability | `Right-click` cell → **Step Editor** → probability slider |
 | SQ05 | Set per-step filter | `Right-click` cell → **Step Editor** → filter offset |
 | SQ06 | Set per-step pan | `Right-click` cell → **Step Editor** → pan offset |
 | SQ07 | Set sample start/end | `Right-click` cell → **Step Editor** → start / end |
 | SQ08 | Duplicate clip content | ⚠ not yet implemented (`Ctrl+D` planned) |
-| SQ09 | Cross-screen editing | ⚠ not yet implemented |
+| SQ09 | Cross-screen editing | Drag note tail near screen border to auto-scroll and extend notes across pages |
 | SQ10 | Add instrument / row | ⚠ rows loaded from XML only; drag-and-drop planned |
 | SQ11 | Record live notes | `R` (while focused on grid; triggers engine record mode) |
 | SQ12 | Resample | ⚠ not yet implemented |
