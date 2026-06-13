@@ -759,6 +759,36 @@ public class SwingGridPanel extends JPanel {
       JMenuItem saveSynthItem = new JMenuItem("Save as Synth preset...");
       saveSynthItem.addActionListener(e -> saveTrackPreset(synthTrack, true));
       menu.add(saveSynthItem);
+
+      JMenuItem toMidiItem = new JMenuItem("Convert to MIDI Track");
+      toMidiItem.addActionListener(
+          e -> {
+            org.chuck.deluge.model.MidiTrackModel midiTrk =
+                new org.chuck.deluge.model.MidiTrackModel(synthTrack.getName());
+            midiTrk.setColourHex("0x0000FF");
+            for (org.chuck.deluge.model.ClipModel cm : synthTrack.getClips()) {
+              midiTrk.addClip(cm);
+            }
+            projectModel.getTracks().set(trackIdx, midiTrk);
+            trackColors[trackIdx] = new Color(0x33, 0x33, 0xff);
+            fireProjectChanged();
+          });
+      menu.add(toMidiItem);
+    } else if (track instanceof org.chuck.deluge.model.MidiTrackModel midiTrack) {
+      JMenuItem toSynthItem = new JMenuItem("Convert to Synth Track");
+      toSynthItem.addActionListener(
+          e -> {
+            org.chuck.deluge.model.SynthTrackModel synthTrk =
+                new org.chuck.deluge.model.SynthTrackModel(midiTrack.getName());
+            synthTrk.setColourHex("0x00FF00");
+            for (org.chuck.deluge.model.ClipModel cm : midiTrack.getClips()) {
+              synthTrk.addClip(cm);
+            }
+            projectModel.getTracks().set(trackIdx, synthTrk);
+            trackColors[trackIdx] = new Color(0x33, 0xff, 0x33);
+            fireProjectChanged();
+          });
+      menu.add(toSynthItem);
     }
 
     menu.addSeparator();
@@ -3850,6 +3880,65 @@ public class SwingGridPanel extends JPanel {
       }
 
       add(voiceWrapper);
+
+      // Page Selection Bar in CLIP mode
+      if (viewMode == GridViewMode.CLIP) {
+        int trackLen = (bridge != null) ? bridge.getTrackLength(baseTrackId) : stepCount;
+        int numPages = Math.max(1, (trackLen + 15) / 16);
+        if (numPages > 1) {
+          JPanel pageBar = new JPanel();
+          pageBar.setLayout(new BoxLayout(pageBar, BoxLayout.X_AXIS));
+          pageBar.setBackground(new Color(0x15, 0x15, 0x15));
+          pageBar.setPreferredSize(new Dimension(rowW, 20));
+          pageBar.setMinimumSize(new Dimension(100, 20));
+          pageBar.setMaximumSize(new Dimension(rowW, 20));
+          pageBar.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+          lw = Math.max(60, Math.min(140, getWidth() / 12));
+          int leftSpacing = lw + 69;
+          pageBar.add(Box.createRigidArea(new Dimension(leftSpacing, 10)));
+
+          JLabel pageLabel = new JLabel("PAGE ");
+          pageLabel.setFont(new Font("Monospaced", Font.BOLD, 10));
+          pageLabel.setForeground(Color.GRAY);
+          pageBar.add(pageLabel);
+
+          int currentPageIndex = scrollOffsetX / 16;
+          for (int i = 0; i < numPages; i++) {
+            final int pageIdx = i;
+            JButton pageBtn = new JButton(String.valueOf(i + 1));
+            pageBtn.setPreferredSize(new Dimension(22, 18));
+            pageBtn.setMinimumSize(new Dimension(22, 18));
+            pageBtn.setMaximumSize(new Dimension(22, 18));
+            pageBtn.setFocusable(false);
+            pageBtn.setFont(new Font("Monospaced", Font.BOLD, 9));
+            pageBtn.setMargin(new Insets(0, 0, 0, 0));
+            pageBtn.setOpaque(false);
+            pageBtn.setContentAreaFilled(false);
+            pageBtn.setFocusPainted(false);
+
+            if (i == currentPageIndex) {
+              pageBtn.setForeground(new Color(0x00, 0xff, 0xcc));
+              pageBtn.setBorder(BorderFactory.createLineBorder(new Color(0x00, 0xff, 0xcc), 1));
+            } else {
+              pageBtn.setForeground(Color.GRAY);
+              pageBtn.setBorder(BorderFactory.createLineBorder(Color.GRAY, 1));
+            }
+
+            pageBtn.addActionListener(
+                e -> {
+                  scrollOffsetX = pageIdx * 16;
+                  if (horizScrollBar != null) {
+                    horizScrollBar.setValue(scrollOffsetX);
+                  }
+                  refresh();
+                });
+            pageBar.add(pageBtn);
+            pageBar.add(Box.createRigidArea(new Dimension(4, 10)));
+          }
+          add(pageBar);
+        }
+      }
 
       // ── Interactive Horizontal Scrollbar aligned under step columns ──
       if (viewMode == GridViewMode.CLIP || viewMode == GridViewMode.AUTOMATION) {
