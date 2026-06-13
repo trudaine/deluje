@@ -813,8 +813,7 @@ public class FirmwareFactory {
   }
 
   private static int normToLinearParamKnob(float norm) {
-    if (norm <= 0f) return -536870912;
-    return (int) Math.round((double) clamp01(norm) * 1073741824.0 - 536870912.0);
+    return normToBipolarParam(norm);
   }
 
   /**
