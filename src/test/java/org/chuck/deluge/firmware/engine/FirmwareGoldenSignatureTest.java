@@ -9,7 +9,6 @@ import java.net.URISyntaxException;
 import org.chuck.deluge.firmware.dsp.StereoSample;
 import org.chuck.deluge.firmware.model.InstrumentClip;
 import org.chuck.deluge.firmware.model.Song;
-import org.chuck.deluge.firmware.modulation.LFO;
 import org.chuck.deluge.firmware.modulation.automation.AutoParam;
 import org.chuck.deluge.firmware.modulation.params.Param;
 import org.chuck.deluge.firmware.modulation.patch.PatchCable;

@@ -282,7 +282,6 @@ public class PhysicalHardwareFidelityTest {
 
     int hwStart = findPositiveZeroCrossing(hw, 79380);
     int swStart = findPositiveZeroCrossing(sw, 79380);
-    System.out.printf("  [DEBUG] LPF hwStart=%d | swStart=%d\n", hwStart, swStart);
 
     int windowSize = 4410;
     float[] hwWindow = new float[windowSize];
@@ -337,12 +336,6 @@ public class PhysicalHardwareFidelityTest {
 
     // Keep XML-parsed active volumes to preserve numerical resolution and fixed-point precision!
     // Safety headroom is already set by synthModel.setVolume(0.5f) above!
-    System.out.printf(
-        "  [PRESET DEBUG] volume=%d lpfFreq=%d lpfRes=%d env0Sustain=%d\n",
-        synth.paramNeutralValues[Param.LOCAL_VOLUME],
-        synth.paramNeutralValues[Param.LOCAL_LPF_FREQ],
-        synth.paramNeutralValues[Param.LOCAL_LPF_RESONANCE],
-        synth.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN]);
 
     if (paramOverrides != null) {
       for (java.util.Map.Entry<Integer, Integer> entry : paramOverrides.entrySet()) {
@@ -385,13 +378,6 @@ public class PhysicalHardwareFidelityTest {
 
       if (b % 50 == 0 && !synth.fw2Sound.voices.isEmpty()) {
         var v = synth.fw2Sound.voices.get(0);
-        System.out.printf(
-            "  [DIAG block %d] Cutoff final: %d (neutral: %d, envVal: %d)\n",
-            b,
-            v.paramFinalValues[Param.LOCAL_LPF_FREQ],
-            synth.paramNeutralValues[Param.LOCAL_LPF_FREQ],
-            v.sourceValues[
-                org.chuck.deluge.firmware.modulation.patch.PatchSource.ENVELOPE_1.ordinal()]);
       }
 
       for (int i = 0; i < 128; i++) {
@@ -460,10 +446,6 @@ public class PhysicalHardwareFidelityTest {
     int hwStart = hwStartOverride != 0 ? hwStartOverride : findActiveStart(normHw, 0.40f, 65000);
     int swStart = swStartOverride != 0 ? swStartOverride : findActiveStart(normSw, 0.40f, 0);
     int bestLag = hwStart - swStart;
-
-    System.out.printf(
-        "  [DIAG] %s | hwPeak=%.6f | swPeak=%.6f | hwStart=%d | swStart=%d | lag=%d\n",
-        testName, maxHw, maxSw, hwStart, swStart, bestLag);
 
     int startHw = Math.max(0, bestLag);
     int startSw = Math.max(0, -bestLag);
@@ -536,14 +518,11 @@ public class PhysicalHardwareFidelityTest {
         org.chuck.deluge.AudioAnalyzer.estimateFrequency(
             swWindow, 44100, minPitchFreq, maxPitchFreq);
     if (true) {
-      System.out.println("=== DEBUG swWindow ===");
       for (int i = 0; i < 50; i++) {
         System.out.printf("  swWindow[%d] = %.6f\n", i, swWindow[i]);
       }
       System.out.println("======================");
     }
-    System.out.printf(
-        "  [DIAG pitches] hwPitch=%.2f Hz | swPitch=%.2f Hz\n", hwPitchVal, swPitchVal);
     System.out.printf(
         "  [RESULT] %s Shape Correlation: %.6f (abs: %.6f) | bestLagOffset=%d\n",
         testName, finalSignCorrelation, absCorrelation, bestLagOffset);
@@ -600,7 +579,6 @@ public class PhysicalHardwareFidelityTest {
     float pk = 0;
     for (int i = start; i < end; i++) pk = Math.max(pk, Math.abs(x[i]));
     float thr = pk * 0.1f;
-    System.out.printf("  [DIAG ZCR] start=%d end=%d pk=%.9f thr=%.9f\n", start, end, pk, thr);
     int printLen = Math.min(end, start + 20);
     for (int i = start; i < printLen; i++) {
       System.out.printf("    [%d] = %.9f\n", i, x[i]);
@@ -1333,10 +1311,6 @@ public class PhysicalHardwareFidelityTest {
                   org.chuck.deluge.firmware.modulation.params.Param.LOCAL_VOLUME, 134217728));
       int hwStart = findPositiveZeroCrossing(hw, 10000);
       int swStart = findPositiveZeroCrossing(sw, 12800);
-      System.out.println("=== DEBUG RENDERED SW SAMPLES ===");
-      for (int i = 0; i < 50; i++) {
-        System.out.printf("  sw[%d] = %.6f\n", swStart + i, sw[swStart + i]);
-      }
       System.out.println("=================================");
 
       int silenceStart = -1;
@@ -1351,16 +1325,11 @@ public class PhysicalHardwareFidelityTest {
           consecutiveZeros = 0;
         }
       }
-      System.out.println("=== SILENCE DIAG ===");
       System.out.println(
           "  Silence started at: " + silenceStart + " (block " + (silenceStart / 128) + ")");
       System.out.println("====================");
 
       int swWindowStart = swStart + 15000 + -350; // targetOffset + bestLagOffset
-      System.out.println("=== DEBUG RENDERED SW WINDOW SAMPLES ===");
-      for (int i = 0; i < 50; i++) {
-        System.out.printf("  sw[%d] = %.6f\n", swWindowStart + i, sw[swWindowStart + i]);
-      }
       System.out.println("========================================");
 
       assertWaveShapeFidelity(hw, sw, 0.01, 15000, hwStart, swStart, "Arpeggiator Gate Spread C5");
@@ -1471,7 +1440,6 @@ public class PhysicalHardwareFidelityTest {
     int count = 0;
     for (int i = 0; i < sw.length; i++) {
       if (Math.abs(sw[i]) > 1e-4) {
-        System.out.printf("  sw[%d] = %.6f\n", i, sw[i]);
         count++;
         if (count >= 20) break;
       }

@@ -651,7 +651,6 @@ public class Sound extends GlobalEffectable {
       if (targetVoice == null && voices.size() < maxPolyphony) {
         targetVoice = new Voice(this);
         voices.add(targetVoice);
-        System.out.println("[DIAG VOICE] Created new voice. Total voices: " + voices.size());
       }
       if (targetVoice == null) {
         int highestRating = Integer.MIN_VALUE;
@@ -687,11 +686,6 @@ public class Sound extends GlobalEffectable {
             targetVoice.sources[s].voiceSample.active = false;
           }
         }
-        System.out.println(
-            "[DIAG VOICE] Triggered note "
-                + note
-                + " on voice index "
-                + voices.indexOf(targetVoice));
         targetVoice.noteOn(note, vel, midiChannel, mpeValues);
       }
     }
