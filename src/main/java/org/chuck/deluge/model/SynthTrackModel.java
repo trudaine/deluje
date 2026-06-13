@@ -1,7 +1,9 @@
 package org.chuck.deluge.model;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /** Represents a synthesizer track containing full synthesis and modulation parameters. */
 public class SynthTrackModel extends TrackModel {
@@ -61,6 +63,24 @@ public class SynthTrackModel extends TrackModel {
    * org.chuck.deluge.xml.DelugeHexMapper#hexToLfoHz}. 0 = the firmware neutral rate (~1.25 Hz).
    */
   private final int[] lfoRateKnobQ31 = {0, 0, 0, 0};
+
+  /**
+   * Raw Q31 param-knob overrides parsed from a song clip's {@code <soundParams>} (firmware2 Param
+   * id -&gt; raw value). The Deluge song format stores every sound param as a raw Q31 knob; for
+   * params where the float round-trip (hex-&gt;float-&gt;normToKnob) loses the firmware range —
+   * notably the filter resonance/morph/cutoff, whose minimum must be INT_MIN not the float-path's
+   * -2^29 — the factory applies these verbatim, mirroring the firmware's readParamsFromFile. Empty
+   * for preset-built tracks (those keep the float path).
+   */
+  private final Map<Integer, Integer> rawParamKnobs = new HashMap<>();
+
+  public void setRawParamKnob(int paramId, int q31) {
+    rawParamKnobs.put(paramId, q31);
+  }
+
+  public Map<Integer, Integer> getRawParamKnobs() {
+    return rawParamKnobs;
+  }
 
   /**
    * Raw stored envelope rate knobs (Q31) for the 4 envelopes, preserved for the firmware-faithful
