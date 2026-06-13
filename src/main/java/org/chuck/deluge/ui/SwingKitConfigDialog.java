@@ -913,8 +913,82 @@ public class SwingKitConfigDialog extends JDialog {
 
     slider.addChangeListener(
         e -> {
-          onChange.accept(slider.getValue());
-          valLabel.setText(String.valueOf(slider.getValue()));
+          int newVal = slider.getValue();
+
+          String paramName = null;
+          String lblLower = labelText.toLowerCase();
+          if (lblLower.contains("pitch")) paramName = "pitch";
+          else if (lblLower.contains("attack")) paramName = "attack";
+          else if (lblLower.contains("decay")) paramName = "decay";
+          else if (lblLower.contains("sustain")) paramName = "sustain";
+          else if (lblLower.contains("release")) paramName = "release";
+          else if (lblLower.contains("volume") || lblLower.contains("level")) paramName = "volume";
+          else if (lblLower.contains("pan")) paramName = "pan";
+
+          if (SwingGridPanel.lockArmedTrack == trackIndex
+              && SwingGridPanel.lockArmedStep != -1
+              && paramName != null) {
+            org.chuck.deluge.model.ProjectModel projectModel =
+                SwingDelugeApp.mainInstance != null
+                    ? SwingDelugeApp.mainInstance.getCurrentProject()
+                    : null;
+            if (projectModel != null) {
+              org.chuck.deluge.model.TrackModel track = projectModel.getTracks().get(trackIndex);
+              int activeClipIdx = track.getActiveClipIndex();
+              if (activeClipIdx >= 0 && activeClipIdx < track.getClips().size()) {
+                org.chuck.deluge.model.ClipModel clip = track.getClips().get(activeClipIdx);
+                float normalized = (float) (newVal - min) / (max - min);
+                int drumIdx = tabs.getSelectedIndex();
+                if (drumIdx >= 0) {
+                  clip.setRowAutomation(
+                      drumIdx, paramName, SwingGridPanel.lockArmedStep, normalized);
+                  SwingDelugeApp.mainInstance.fireProjectChanged();
+                }
+              }
+            }
+          } else {
+            onChange.accept(newVal);
+            if (SwingTopBarPanel.isAffectEntireActive && paramName != null) {
+              org.chuck.deluge.model.ProjectModel projectModel =
+                  SwingDelugeApp.mainInstance != null
+                      ? SwingDelugeApp.mainInstance.getCurrentProject()
+                      : null;
+              if (projectModel != null) {
+                org.chuck.deluge.model.TrackModel curTrack =
+                    projectModel.getTracks().get(trackIndex);
+                int drumIdx = tabs.getSelectedIndex();
+                if (drumIdx >= 0
+                    && curTrack instanceof org.chuck.deluge.model.KitTrackModel curKit) {
+                  org.chuck.deluge.model.Drum curDrum = curKit.getDrums().get(drumIdx);
+                  Object curVal = getProperty(curDrum, paramName);
+                  if (curVal != null) {
+                    for (int t = 0; t < projectModel.getTracks().size(); t++) {
+                      if (t != trackIndex) {
+                        org.chuck.deluge.model.TrackModel tm = projectModel.getTracks().get(t);
+                        if (tm instanceof org.chuck.deluge.model.KitTrackModel targetKit) {
+                          if (drumIdx < targetKit.getDrums().size()) {
+                            org.chuck.deluge.model.Drum targetDrum =
+                                targetKit.getDrums().get(drumIdx);
+                            setProperty(targetDrum, paramName, curVal);
+                          }
+                        }
+                      }
+                    }
+                    SwingDelugeApp.mainInstance.fireProjectChanged();
+                  }
+                }
+              }
+            }
+          }
+
+          valLabel.setText(String.valueOf(newVal));
+
+          if (SwingDelugeApp.mainInstance != null) {
+            String code = (paramName != null) ? paramName : labelText.replace(":", "").trim();
+            if (code.length() > 4) code = code.substring(0, 4);
+            SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient(
+                code.toUpperCase(), String.valueOf(newVal));
+          }
         });
 
     c.gridx = 1;
@@ -959,5 +1033,50 @@ public class SwingKitConfigDialog extends JDialog {
         BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(bg.brighter(), 1),
             BorderFactory.createEmptyBorder(4, 12, 4, 12)));
+  }
+
+  private static Object getProperty(Object obj, String propertyName) {
+    if (obj == null || propertyName == null) return null;
+    String getterName =
+        "get" + Character.toUpperCase(propertyName.charAt(0)) + propertyName.substring(1);
+    try {
+      java.lang.reflect.Method m = obj.getClass().getMethod(getterName);
+      return m.invoke(obj);
+    } catch (Exception e) {
+      String isName =
+          "is" + Character.toUpperCase(propertyName.charAt(0)) + propertyName.substring(1);
+      try {
+        java.lang.reflect.Method m = obj.getClass().getMethod(isName);
+        return m.invoke(obj);
+      } catch (Exception ignored) {
+      }
+    }
+    return null;
+  }
+
+  private static void setProperty(Object obj, String propertyName, Object value) {
+    if (obj == null || propertyName == null) return;
+    String setterName =
+        "set" + Character.toUpperCase(propertyName.charAt(0)) + propertyName.substring(1);
+    for (java.lang.reflect.Method m : obj.getClass().getMethods()) {
+      if (m.getName().equals(setterName) && m.getParameterCount() == 1) {
+        try {
+          Class<?> paramType = m.getParameterTypes()[0];
+          if (paramType == float.class && value instanceof Number) {
+            m.invoke(obj, ((Number) value).floatValue());
+          } else if (paramType == double.class && value instanceof Number) {
+            m.invoke(obj, ((Number) value).doubleValue());
+          } else if (paramType == int.class && value instanceof Number) {
+            m.invoke(obj, ((Number) value).intValue());
+          } else if (paramType == boolean.class && value instanceof Boolean) {
+            m.invoke(obj, value);
+          } else if (paramType.isAssignableFrom(value.getClass())) {
+            m.invoke(obj, value);
+          }
+          return;
+        } catch (Exception ignored) {
+        }
+      }
+    }
   }
 }
