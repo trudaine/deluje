@@ -3,7 +3,7 @@ package org.chuck.deluge.firmware.engine;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.chuck.deluge.firmware.dsp.oscillators.OscType;
+import org.chuck.deluge.firmware2.Oscillator.OscType;
 import org.chuck.deluge.firmware.modulation.params.Param;
 import org.chuck.deluge.firmware.util.Q31;
 import org.junit.jupiter.api.Test;

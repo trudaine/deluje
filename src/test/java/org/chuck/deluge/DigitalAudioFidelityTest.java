@@ -306,7 +306,7 @@ public class DigitalAudioFidelityTest {
 
     // Create a steady-state voice with maximum infinite sustain
     FirmwareSound synth = new FirmwareSound();
-    synth.oscTypes[0] = org.chuck.deluge.firmware.dsp.oscillators.OscType.SAW;
+    synth.oscTypes[0] = org.chuck.deluge.firmware2.Oscillator.OscType.SAW;
     synth
             .paramNeutralValues[
             org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_SUSTAIN] =

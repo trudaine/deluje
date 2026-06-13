@@ -36,7 +36,7 @@ class Kit808E2ETest {
   private static void applySampleToDrum(
       FirmwareKit kit, int drumIdx, org.chuck.deluge.firmware.model.sample.Sample ms) {
     FirmwareSound drum = kit.drumSounds.get(drumIdx);
-    drum.oscTypes[0] = org.chuck.deluge.firmware.dsp.oscillators.OscType.SAMPLE;
+    drum.oscTypes[0] = org.chuck.deluge.firmware2.Oscillator.OscType.SAMPLE;
     drum.samples[0] = ms;
     drum.fw2SampleCache[0] = org.chuck.deluge.firmware2.Sample.fromFirmwareSample(ms);
   }
@@ -129,7 +129,7 @@ class Kit808E2ETest {
 
     // Simulate applyKitDrumSampleLive
     FirmwareSound drum = kit.drumSounds.get(3); // drum 3
-    drum.oscTypes[0] = org.chuck.deluge.firmware.dsp.oscillators.OscType.SAMPLE;
+    drum.oscTypes[0] = org.chuck.deluge.firmware2.Oscillator.OscType.SAMPLE;
     drum.samples[0] = ms;
     drum.fw2SampleCache[0] = org.chuck.deluge.firmware2.Sample.fromFirmwareSample(ms);
 
@@ -157,7 +157,7 @@ class Kit808E2ETest {
 
     // applyKitDrumSampleLive on the ORIGINAL kit (before rebuild)
     FirmwareSound originalDrum = kit.drumSounds.get(2);
-    originalDrum.oscTypes[0] = org.chuck.deluge.firmware.dsp.oscillators.OscType.SAMPLE;
+    originalDrum.oscTypes[0] = org.chuck.deluge.firmware2.Oscillator.OscType.SAMPLE;
     originalDrum.samples[0] = ms;
     originalDrum.fw2SampleCache[0] = org.chuck.deluge.firmware2.Sample.fromFirmwareSample(ms);
 

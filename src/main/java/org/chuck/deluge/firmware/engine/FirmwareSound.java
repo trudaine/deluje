@@ -52,9 +52,9 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     new org.chuck.deluge.firmware.model.sample.SampleVoiceSettings(),
     new org.chuck.deluge.firmware.model.sample.SampleVoiceSettings()
   };
-  public final org.chuck.deluge.firmware.dsp.oscillators.OscType[] oscTypes = {
-    org.chuck.deluge.firmware.dsp.oscillators.OscType.SINE,
-    org.chuck.deluge.firmware.dsp.oscillators.OscType.SINE
+  public final org.chuck.deluge.firmware2.Oscillator.OscType[] oscTypes = {
+    org.chuck.deluge.firmware2.Oscillator.OscType.SINE,
+    org.chuck.deluge.firmware2.Oscillator.OscType.SINE
   };
   public int maxPolyphony = 64;
   public PolyphonyMode polyphonic = PolyphonyMode.POLY;
@@ -281,8 +281,8 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
   // thread could iterate a half-rebuilt cable list here.
   public synchronized void syncParamsToFw2() {
     fw2Sound.synthMode = synthMode == SynthMode.FM ? 1 : synthMode == SynthMode.RINGMOD ? 2 : 0;
-    fw2Sound.oscTypes[0] = fw2OscType(oscTypes[0]);
-    fw2Sound.oscTypes[1] = fw2OscType(oscTypes[1]);
+    fw2Sound.oscTypes[0] = oscTypes[0];
+    fw2Sound.oscTypes[1] = oscTypes[1];
     if (dx7Patch != null) {
       fw2Sound.oscTypes[0] = org.chuck.deluge.firmware2.Oscillator.OscType.DX7;
       fw2Sound.sourceDx7Patch[0] = dx7Patch;
@@ -455,23 +455,7 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     // arpSettings are already shared between FirmwareSound and fw2Sound.
   }
 
-  private org.chuck.deluge.firmware2.Oscillator.OscType fw2OscType(
-      org.chuck.deluge.firmware.dsp.oscillators.OscType t) {
-    if (t == null) return null;
-    return switch (t) {
-      case SINE -> org.chuck.deluge.firmware2.Oscillator.OscType.SINE;
-      case SAW -> org.chuck.deluge.firmware2.Oscillator.OscType.SAW;
-      case SQUARE -> org.chuck.deluge.firmware2.Oscillator.OscType.SQUARE;
-      case TRIANGLE -> org.chuck.deluge.firmware2.Oscillator.OscType.TRIANGLE;
-      case ANALOG_SAW_2 -> org.chuck.deluge.firmware2.Oscillator.OscType.ANALOG_SAW_2;
-      case ANALOG_SQUARE -> org.chuck.deluge.firmware2.Oscillator.OscType.ANALOG_SQUARE;
-      case WAVETABLE -> org.chuck.deluge.firmware2.Oscillator.OscType.WAVETABLE;
-      case INPUT_L -> org.chuck.deluge.firmware2.Oscillator.OscType.INPUT_L;
-      case INPUT_R -> org.chuck.deluge.firmware2.Oscillator.OscType.INPUT_R;
-      case INPUT_STEREO -> org.chuck.deluge.firmware2.Oscillator.OscType.INPUT_STEREO;
-      default -> org.chuck.deluge.firmware2.Oscillator.OscType.SAMPLE;
-    };
-  }
+
 
   private org.chuck.deluge.firmware2.FilterSet.FilterMode fw2LpfMode() {
     return switch (lpfMode) {

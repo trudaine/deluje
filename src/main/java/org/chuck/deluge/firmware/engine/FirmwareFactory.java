@@ -4,7 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import org.chuck.deluge.firmware.dsp.oscillators.OscType;
+import org.chuck.deluge.firmware2.Oscillator.OscType;
 import org.chuck.deluge.firmware.model.Clip;
 import org.chuck.deluge.firmware.model.InstrumentClip;
 import org.chuck.deluge.firmware.model.Song;

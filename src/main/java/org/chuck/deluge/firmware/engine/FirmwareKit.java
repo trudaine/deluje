@@ -2,7 +2,7 @@ package org.chuck.deluge.firmware.engine;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.chuck.deluge.firmware.dsp.oscillators.OscType;
+import org.chuck.deluge.firmware2.Oscillator.OscType;
 import org.chuck.deluge.firmware.modulation.params.Param;
 
 /** Port of the Deluge's Kit class. */

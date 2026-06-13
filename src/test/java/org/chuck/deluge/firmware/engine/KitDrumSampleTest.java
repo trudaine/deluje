@@ -27,7 +27,7 @@ class KitDrumSampleTest {
   }
 
   private static void giveSample(FirmwareSound drum, float[] wave) {
-    drum.oscTypes[0] = org.chuck.deluge.firmware.dsp.oscillators.OscType.SAMPLE;
+    drum.oscTypes[0] = org.chuck.deluge.firmware2.Oscillator.OscType.SAMPLE;
     drum.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = Q31.ONE; // audible
     var s = sample(wave);
     drum.samples[0] = s;
@@ -98,7 +98,7 @@ class KitDrumSampleTest {
 
     // Direct sound WITHOUT sample
     var noSample = new FirmwareSound();
-    noSample.oscTypes[0] = org.chuck.deluge.firmware.dsp.oscillators.OscType.SAMPLE;
+    noSample.oscTypes[0] = org.chuck.deluge.firmware2.Oscillator.OscType.SAMPLE;
     var eng2 = new FirmwareAudioEngine();
     eng2.sounds.add(noSample);
     noSample.triggerNote(60, 127);

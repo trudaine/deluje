@@ -1485,7 +1485,7 @@ public class SwingDelugeApp extends JFrame {
       org.chuck.deluge.firmware.model.sample.Sample s =
           org.chuck.deluge.firmware.storage.audio.AudioFileReader.readSample(absPath);
       if (s != null && s.data != null) {
-        drum.oscTypes[0] = org.chuck.deluge.firmware.dsp.oscillators.OscType.SAMPLE;
+        drum.oscTypes[0] = org.chuck.deluge.firmware2.Oscillator.OscType.SAMPLE;
         drum.samples[0] = s;
         drum.fw2SampleCache[0] = org.chuck.deluge.firmware2.Sample.fromFirmwareSample(s);
         System.err.println("[applyKitDrumSampleLive] OK loaded " + s.getNumSamples() + " samples");
