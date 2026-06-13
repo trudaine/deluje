@@ -6,10 +6,10 @@ import org.chuck.deluge.firmware.dsp.StereoSample;
 import org.chuck.deluge.firmware.dsp.fx.ModFXType;
 import org.chuck.deluge.firmware.model.InstrumentClip;
 import org.chuck.deluge.firmware.model.Song;
+import org.chuck.deluge.firmware.modulation.params.Param;
 import org.chuck.deluge.model.ClipModel;
 import org.chuck.deluge.model.ProjectModel;
 import org.chuck.deluge.model.SynthTrackModel;
-import org.chuck.deluge.firmware.modulation.params.Param;
 import org.junit.jupiter.api.Test;
 
 /** Ensures post-FX makeup gain from SRR/bitcrush reaches the final output stage. */
