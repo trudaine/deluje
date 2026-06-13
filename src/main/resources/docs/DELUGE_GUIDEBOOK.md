@@ -918,6 +918,7 @@ The following table maps the standard Deluge hardware button combinations (from 
 | | Sound Editor | `Shift` + shortcut pad, or push Select | Double-click track name header to open **Synth Editor Dialog** |
 | **Sound Presets** | Save preset | `Save` button | Select **`File ➔ Save Project`** (`Ctrl + S`) or click Save icon |
 | | Load blank Synth/Kit | `Shift` + `Synth` / `Kit` | Right-click sidebar empty space ➔ **`Add Synth Track`** or **`Add Kit Track`** |
+| | Load / Hot-Swap Preset | Turn `SELECT` encoder | Right-click track header ➔ Track Inspector ➔ Select Preset to swap sound (retains notes) |
 
 ---
 
