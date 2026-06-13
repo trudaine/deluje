@@ -707,6 +707,20 @@ public class SwingGridPanel extends JPanel {
         });
     menu.add(colorItem);
 
+    JMenuItem inspectItem = new JMenuItem("Track Inspector...");
+    inspectItem.setToolTipText(
+        "Open advanced preset switching, mixer channel controls, and FM operator mappings");
+    inspectItem.addActionListener(
+        e -> {
+          new TrackInspectorDialog(
+                  (Frame) javax.swing.SwingUtilities.getWindowAncestor(this),
+                  trackIdx,
+                  tracks,
+                  this::refresh)
+              .setVisible(true);
+        });
+    menu.add(inspectItem);
+
     menu.addSeparator();
 
     JMenuItem upItem = new JMenuItem("Move Up");
@@ -2808,22 +2822,6 @@ public class SwingGridPanel extends JPanel {
               }
               break;
             case SONG:
-              clipBtn.addMouseListener(
-                  new java.awt.event.MouseAdapter() {
-                    @Override
-                    public void mousePressed(java.awt.event.MouseEvent e) {
-                      if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
-                        new TrackInspectorDialog(
-                                (Frame)
-                                    javax.swing.SwingUtilities.getWindowAncestor(
-                                        SwingGridPanel.this),
-                                modelRow,
-                                tracks,
-                                SwingGridPanel.this::refresh)
-                            .setVisible(true);
-                      }
-                    }
-                  });
               break;
             case ARRANGEMENT:
               clipBtn.addMouseListener(
