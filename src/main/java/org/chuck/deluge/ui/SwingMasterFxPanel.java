@@ -52,6 +52,8 @@ public class SwingMasterFxPanel extends JPanel {
     JSlider transSlider = new JSlider(-24, 24, projectModel.getTranspose());
     styleSlider(transSlider, 70);
     transSlider.setSnapToTicks(true);
+    transSlider.setToolTipText(
+        "Transpose: Click and drag to shift project-wide playback pitch (-24 to +24 semitones)");
     transSlider.addChangeListener(
         e -> {
           if (!transSlider.getValueIsAdjusting()) {
@@ -71,6 +73,7 @@ public class SwingMasterFxPanel extends JPanel {
     scaleCombo.setForeground(Color.WHITE);
     scaleCombo.setPreferredSize(new Dimension(80, 20));
     scaleCombo.setFocusable(false);
+    scaleCombo.setToolTipText("Scale Mode: Quantize isomorphic pads notes to selected scale");
     add(scaleLabel);
     add(scaleCombo);
 
@@ -90,6 +93,8 @@ public class SwingMasterFxPanel extends JPanel {
     styleLabel(threshLabel, false);
     threshSlider = new JSlider(0, 100, (int) (projectModel.getCompressorThreshold() * 100));
     styleSlider(threshSlider, 70);
+    threshSlider.setToolTipText(
+        "Master Compressor Threshold: Click and drag to adjust dynamic range reduction threshold");
     threshSlider.addChangeListener(
         e -> projectModel.setCompressorThreshold(threshSlider.getValue() / 100.0f));
     compPanel.add(threshLabel);
@@ -99,6 +104,8 @@ public class SwingMasterFxPanel extends JPanel {
     styleLabel(attackLabel, false);
     attackSlider = new JSlider(0, 100, (int) (projectModel.getCompressorAttack() * 100));
     styleSlider(attackSlider, 70);
+    attackSlider.setToolTipText(
+        "Master Compressor Attack: Click and drag to adjust compression attack time (0.0 to 1.0)");
     attackSlider.addChangeListener(
         e -> projectModel.setCompressorAttack(attackSlider.getValue() / 100.0f));
     compPanel.add(attackLabel);
@@ -108,6 +115,8 @@ public class SwingMasterFxPanel extends JPanel {
     styleLabel(releaseLabel, false);
     releaseSlider = new JSlider(0, 100, (int) (projectModel.getCompressorRelease() * 100));
     styleSlider(releaseSlider, 70);
+    releaseSlider.setToolTipText(
+        "Master Compressor Release: Click and drag to adjust compression release time (0.0 to 1.0)");
     releaseSlider.addChangeListener(
         e -> projectModel.setCompressorRelease(releaseSlider.getValue() / 100.0f));
     compPanel.add(releaseLabel);
@@ -117,6 +126,8 @@ public class SwingMasterFxPanel extends JPanel {
     styleLabel(ratioLabel, false);
     ratioSlider = new JSlider(0, 100, (int) (projectModel.getCompressorRatio() * 100));
     styleSlider(ratioSlider, 70);
+    ratioSlider.setToolTipText(
+        "Master Compressor Ratio: Click and drag to adjust compression ratio (1:1 to limit)");
     ratioSlider.addChangeListener(
         e -> projectModel.setCompressorRatio(ratioSlider.getValue() / 100.0f));
     compPanel.add(ratioLabel);
@@ -126,6 +137,8 @@ public class SwingMasterFxPanel extends JPanel {
     styleLabel(blendLabel, false);
     blendSlider = new JSlider(0, 100, (int) (projectModel.getCompressorBlend() * 100));
     styleSlider(blendSlider, 70);
+    blendSlider.setToolTipText(
+        "Master Compressor Blend: Click and drag to adjust dry/wet parallel compression mix (0% to 100%)");
     blendSlider.addChangeListener(
         e -> projectModel.setCompressorBlend(blendSlider.getValue() / 100.0f));
     compPanel.add(blendLabel);
@@ -138,6 +151,8 @@ public class SwingMasterFxPanel extends JPanel {
     styleLabel(bVolLabel, true);
     masterVolSlider = new JSlider(0, 100, (int) (projectModel.getMasterVolume() * 100));
     styleSlider(masterVolSlider, 80);
+    masterVolSlider.setToolTipText(
+        "Master Volume: Click and drag to adjust overall audio engine output level (0% to 100%)");
     masterVolSlider.addChangeListener(
         e -> {
           double v = masterVolSlider.getValue() / 100.0;

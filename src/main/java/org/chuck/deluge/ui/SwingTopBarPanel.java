@@ -134,6 +134,17 @@ public class SwingTopBarPanel extends JPanel {
     initTabStyles(autoBtn);
     initTabStyles(perfBtn);
 
+    clipBtn.setToolTipText(
+        "CLIP View: Click 1 time for Sequence Grid / Click 2 times for Automation View");
+    songBtn.setToolTipText(
+        "SONG View: Click 1 time for Clip Launch / Click 2 times for Arrangement View");
+    arrBtn.setToolTipText(
+        "ARRANGEMENT View: Click 1 time for Linear Timeline / Click 2 times for Song View");
+    autoBtn.setToolTipText(
+        "AUTOMATION View: Click 1 time for Step Automation / Click 2 times for Clip View");
+    perfBtn.setToolTipText(
+        "PERFORMANCE View: Click 1 time for Live Stutter and Mute Punch effects");
+
     // Initial dynamic styling
     updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
 
