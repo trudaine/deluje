@@ -71,6 +71,11 @@ public final class UiAnimator {
     return timer.isRunning();
   }
 
+  /** Number of currently registered tick listeners (used to assert leak-safety in tests). */
+  public int listenerCount() {
+    return listeners.size();
+  }
+
   /**
    * Returns true during the "on" half of a blink cycle of the given half-period, based on wall
    * clock time so all widgets blink in unison regardless of when they were created.
