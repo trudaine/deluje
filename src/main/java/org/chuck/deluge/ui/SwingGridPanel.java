@@ -5119,22 +5119,7 @@ public class SwingGridPanel extends JPanel {
                   });
 
             } else if (viewMode == GridViewMode.SONG) {
-              clipBtn.addMouseListener(
-                  new java.awt.event.MouseAdapter() {
-                    @Override
-                    public void mousePressed(java.awt.event.MouseEvent e) {
-                      if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
-                        new TrackInspectorDialog(
-                                (Frame)
-                                    javax.swing.SwingUtilities.getWindowAncestor(
-                                        SwingGridPanel.this),
-                                currentTrack,
-                                tracks,
-                                SwingGridPanel.this::refresh)
-                            .setVisible(true);
-                      }
-                    }
-                  });
+              // Handled by showClipContextMenu in cell mouse listener setup
             } else if (viewMode == GridViewMode.ARRANGEMENT) {
               clipBtn.addMouseListener(
                   new java.awt.event.MouseAdapter() {
