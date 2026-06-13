@@ -20,6 +20,7 @@ import org.chuck.deluge.model.Consequence;
 import org.chuck.deluge.model.EnvelopeModel;
 import org.chuck.deluge.model.KitTrackModel;
 import org.chuck.deluge.model.PatternModel;
+import org.chuck.deluge.model.SoundDrum;
 import org.chuck.deluge.model.SynthTrackModel;
 
 /** Alternative lightweight UI running purely on Java Swing (no native libs). */
@@ -1836,6 +1837,15 @@ public class SwingDelugeApp extends JFrame {
     if (autoPanel != null) autoPanel.setProjectModel(currentProject);
   }
 
+  public void fireProjectChanged() {
+    propagateCurrentModel();
+    syncHighFidelityEngine(currentProject);
+    if (clipPanel != null) clipPanel.refresh();
+    if (songPanel != null) songPanel.refresh();
+    if (arrGridPanel != null) arrGridPanel.refresh();
+    if (autoPanel != null) autoPanel.refresh();
+  }
+
   public void updateHardwareLedDisplay(String paramCode, String valueString) {
     if (topBar != null && topBar.getRetroLedDisplay() != null) {
       if (paramCode == null || valueString == null) {
@@ -1854,6 +1864,10 @@ public class SwingDelugeApp extends JFrame {
 
   public SwingGridPanel getClipPanel() {
     return clipPanel;
+  }
+
+  public SwingTopBarPanel.TopBarListener getTopBarListener() {
+    return appTopBarListener;
   }
 
   public SwingGridPanel getAutoPanel() {
@@ -3146,10 +3160,24 @@ public class SwingDelugeApp extends JFrame {
     @Override
     public void onViewModeChanged(String viewMode) {
       activeViewMode = viewMode;
-      cardLayout.show(centerCardPanel, viewMode);
+      if ("KEYPLAY".equals(viewMode)) {
+        if (clipPanel != null) {
+          clipPanel.setViewMode(org.chuck.deluge.ui.SwingGridPanel.GridViewMode.KEYPLAY);
+          clipPanel.refresh();
+        }
+        cardLayout.show(centerCardPanel, "CLIP");
+      } else if ("CLIP".equals(viewMode)) {
+        if (clipPanel != null) {
+          clipPanel.setViewMode(org.chuck.deluge.ui.SwingGridPanel.GridViewMode.CLIP);
+          clipPanel.refresh();
+        }
+        cardLayout.show(centerCardPanel, "CLIP");
+      } else {
+        cardLayout.show(centerCardPanel, viewMode);
+      }
 
       // Update High-Fidelity UI Stack
-      if ("CLIP".equals(viewMode) || "SONG".equals(viewMode)) {
+      if ("CLIP".equals(viewMode) || "SONG".equals(viewMode) || "KEYPLAY".equals(viewMode)) {
         syncHighFidelityEngine(currentProject);
       }
 
@@ -3184,6 +3212,14 @@ public class SwingDelugeApp extends JFrame {
       switch (type) {
         case "KIT" -> {
           KitTrackModel kit = new KitTrackModel(name);
+          kit.addDrum(new SoundDrum("Kick", ""));
+          kit.addDrum(new SoundDrum("Snare", ""));
+          kit.addDrum(new SoundDrum("Closed Hat", ""));
+          kit.addDrum(new SoundDrum("Open Hat", ""));
+          kit.addDrum(new SoundDrum("Clap", ""));
+          kit.addDrum(new SoundDrum("Tom 1", ""));
+          kit.addDrum(new SoundDrum("Tom 2", ""));
+          kit.addDrum(new SoundDrum("Percussion", ""));
           kit.addClip(new ClipModel("CLIP 1", 8, 16));
           idx = currentProject.getTracks().size();
           currentProject.addTrack(kit);
@@ -3218,6 +3254,9 @@ public class SwingDelugeApp extends JFrame {
       long nextPlay = vm.getGlobalInt(BridgeContract.G_PLAY) == 1L ? 0L : 1L;
       if (nextPlay == 1L) {
         syncHighFidelityEngine(currentProject);
+        if (clipPanel != null) {
+          clipPanel.setPlayheadFollowMode(true);
+        }
       }
       vm.setGlobalInt(BridgeContract.G_PLAY, nextPlay);
       if (bridge != null) bridge.setPlayState((int) nextPlay);

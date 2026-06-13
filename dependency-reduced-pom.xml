@@ -21,7 +21,7 @@
             <configuration>
               <transformers>
                 <transformer>
-                  <mainClass>org.chuck.deluge.SequencerLauncher</mainClass>
+                  <mainClass>org.chuck.deluge.ui.SwingDelugeApp</mainClass>
                 </transformer>
                 <transformer />
               </transformers>

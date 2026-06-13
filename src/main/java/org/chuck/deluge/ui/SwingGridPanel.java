@@ -30,6 +30,8 @@ public class SwingGridPanel extends JPanel {
   private int activeClipId = 0;
   private int baseTrackId = 0;
   private int editedModelTrack = 0; // model track index currently being edited in CLIP mode
+  public static int lockArmedTrack = -1;
+  public static int lockArmedStep = -1;
   private int soloRow = -1; // -1 = no solo
   private Timer playheadTimer; // single timer for playhead updates, avoids leaks
   private final java.util.Map<Integer, VUMeterPanel> voiceVuMeters =
@@ -41,6 +43,8 @@ public class SwingGridPanel extends JPanel {
   private JScrollBar vertScrollBar;
   private JScrollBar horizScrollBar;
   private int scrollOffsetX = 0; // horizontal scroll offset for step columns in CLIP mode
+  private boolean playheadFollowMode = true;
+  private boolean isScrollingProgrammatically = false;
   private double preciseScrollAccumulatorX = 0.0;
   private double preciseScrollAccumulatorY = 0.0;
   private int voiceRowCount = 8; // total number of voice rows for current track
@@ -53,7 +57,8 @@ public class SwingGridPanel extends JPanel {
     CLIP,
     SONG,
     ARRANGEMENT,
-    AUTOMATION
+    AUTOMATION,
+    KEYPLAY
   }
 
   private GridViewMode viewMode = GridViewMode.SONG;
@@ -128,6 +133,14 @@ public class SwingGridPanel extends JPanel {
 
   public boolean isShiftHeld() {
     return shiftHeld;
+  }
+
+  public boolean isPlayheadFollowMode() {
+    return playheadFollowMode;
+  }
+
+  public void setPlayheadFollowMode(boolean v) {
+    this.playheadFollowMode = v;
   }
 
   // ── Shift hardware colors layout ──
@@ -1143,6 +1156,27 @@ public class SwingGridPanel extends JPanel {
 
     @Override
     public void mousePressed(java.awt.event.MouseEvent e) {
+      if (lockArmedTrack == panel.editedModelTrack
+          && lockArmedStep != -1
+          && panel.projectModel != null) {
+        int trkIndex = panel.scrollOffset - note;
+        if (trkIndex >= 0 && trkIndex < panel.voiceRowCount) {
+          int engineRow = panel.baseTrackId + trkIndex;
+          boolean st = panel.bridge.getStep(engineRow, lockArmedStep);
+          panel.bridge.setStep(engineRow, lockArmedStep, !st);
+
+          org.chuck.deluge.model.TrackModel tModel =
+              panel.projectModel.getTracks().get(lockArmedTrack);
+          if (panel.activeClipId < tModel.getClips().size()) {
+            org.chuck.deluge.model.ClipModel cModel = tModel.getClips().get(panel.activeClipId);
+            cModel.setStep(
+                trkIndex,
+                lockArmedStep,
+                new org.chuck.deluge.model.StepData(!st, 0.8f, 0.5f, 1.0f, 0, 1, 1.0f));
+          }
+          panel.fireProjectChanged();
+        }
+      }
       panel.triggerKeyboardNote(note);
     }
 
@@ -1228,6 +1262,19 @@ public class SwingGridPanel extends JPanel {
       int targetTrackId, int row, int col, java.awt.event.MouseEvent e) {
     final int engineRow = targetTrackId + row;
     final int activeCol = (viewMode == GridViewMode.CLIP) ? getActiveStepCol(row, col) : col;
+
+    // 0. Shift + Click ➔ Parameter Lock Arming Toggle!
+    if (e.isShiftDown() && viewMode == GridViewMode.CLIP) {
+      if (lockArmedTrack == editedModelTrack && lockArmedStep == activeCol) {
+        lockArmedTrack = -1;
+        lockArmedStep = -1;
+      } else {
+        lockArmedTrack = editedModelTrack;
+        lockArmedStep = activeCol;
+      }
+      refresh();
+      return true;
+    }
 
     // 1. Alt + Click ➔ Directly open Step Properties Dialog!
     if (e.isAltDown()) {
@@ -4065,6 +4112,9 @@ public class SwingGridPanel extends JPanel {
                 int val = e.getValue();
                 if (val != scrollOffsetX) {
                   scrollOffsetX = val;
+                  if (!isScrollingProgrammatically) {
+                    playheadFollowMode = false;
+                  }
                   System.out.println(
                       "[TRACE grid] horizScrollBar adjust scrollOffsetX=" + scrollOffsetX);
                   refresh();
@@ -4543,6 +4593,14 @@ public class SwingGridPanel extends JPanel {
 
           pads[t][c] = clipBtn;
 
+          if (viewMode == GridViewMode.CLIP
+              && lockArmedTrack == editedModelTrack
+              && lockArmedStep == (c + scrollOffsetX)) {
+            clipBtn.setBorder(BorderFactory.createLineBorder(Color.RED, 2));
+          } else {
+            clipBtn.setBorder(UIManager.getBorder("Button.border"));
+          }
+
           if (t >= voiceRowCount && (colId == 16 || colId == columnCount - 1)) {
             clipBtn.setVisible(false);
             clipBtn.setEnabled(false);
@@ -4585,6 +4643,14 @@ public class SwingGridPanel extends JPanel {
               }
             } else
               switch (viewMode) {
+                case KEYPLAY:
+                  if (colId < 16) {
+                    int note = 48 + colId + (7 - trk) * 5;
+                    clipBtn.setText(getNoteName(note));
+                  } else {
+                    clipBtn.setText("");
+                  }
+                  break;
                 case CLIP:
                   if (colId < 16) {
                     double vel =
@@ -4711,6 +4777,49 @@ public class SwingGridPanel extends JPanel {
             clearActionListeners(clipBtn);
             clipBtn.addActionListener(
                 e -> {
+                  if (viewMode == GridViewMode.SONG) {
+                    if ((e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0) {
+                      // Shift+Click in SONG mode: Toggle Mute
+                      boolean isMuted = bridge.getMute(engineRow);
+                      bridge.setMute(engineRow, !isMuted);
+                      Color nextBg = (!isMuted) ? new Color(0xff, 0xd7, 0x00) : Color.WHITE;
+                      clipBtn.setBackground(nextBg);
+                      if (clipBtn instanceof DelugePadButton pad) {
+                        pad.setBaseColor(nextBg);
+                      }
+                    } else {
+                      // Left-Click in SONG mode: Toggle Launch of active clip!
+                      if (trkId < tracks.size()) {
+                        org.chuck.deluge.model.TrackModel track = tracks.get(trkId);
+                        int activeClipIdx = track.getActiveClipIndex();
+                        if (activeClipIdx >= 0 && activeClipIdx < track.getClips().size()) {
+                          long currentClip = bridge.getCurrentClip(trkId);
+                          boolean isPlaying =
+                              (currentClip == activeClipIdx) && (!bridge.getMute(trkId));
+                          if (isPlaying) {
+                            bridge.setLaunchQueue(trkId, -1);
+                            if (SwingDelugeApp.mainInstance != null
+                                && SwingDelugeApp.mainInstance.getArrangerScheduler() != null) {
+                              SwingDelugeApp.mainInstance
+                                  .getArrangerScheduler()
+                                  .notifyClipStopped(trkId);
+                            }
+                          } else {
+                            bridge.setLaunchQueue(trkId, activeClipIdx);
+                            if (SwingDelugeApp.mainInstance != null
+                                && SwingDelugeApp.mainInstance.getArrangerScheduler() != null) {
+                              SwingDelugeApp.mainInstance
+                                  .getArrangerScheduler()
+                                  .notifyClipLaunched(trkId, track.getClips().get(activeClipIdx));
+                            }
+                          }
+                        }
+                      }
+                    }
+                    refresh();
+                    return;
+                  }
+
                   if ((e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0) {
                     // Clear Sequence row
                     java.util.ArrayList<Consequence> steps = new java.util.ArrayList<>();
@@ -4921,7 +5030,26 @@ public class SwingGridPanel extends JPanel {
                   }
                 });
           } else {
-            if (viewMode == GridViewMode.CLIP) {
+            if (viewMode == GridViewMode.KEYPLAY) {
+              int note = 48 + colId + (7 - trk) * 5;
+              boolean isRoot = isRootNote(note);
+              boolean inScale = isNoteInScale(note);
+
+              Color padColor = new Color(0x22, 0x22, 0x22);
+              if (isRoot) {
+                padColor = new Color(0x00, 0xbb, 0xff);
+              } else if (inScale) {
+                padColor = trackColors[t % trackColors.length].darker();
+              }
+
+              clipBtn.setBackground(padColor);
+              if (clipBtn instanceof DelugePadButton pad) {
+                pad.setBaseColor(padColor);
+                pad.setIntensity(inScale ? (isRoot ? 1.0f : 0.6f) : 0.2f);
+                pad.setActive(inScale);
+                pad.setNoteText(getNoteName(note));
+              }
+            } else if (viewMode == GridViewMode.CLIP) {
               boolean stepState = bridge.getStep(baseTrackId + trk, c);
               double vel = bridge.getVelocity(baseTrackId + trk, c);
               clipBtn.setBackground(
@@ -4990,7 +5118,29 @@ public class SwingGridPanel extends JPanel {
               }
             }
 
-            if (viewMode == GridViewMode.CLIP) {
+            if (viewMode == GridViewMode.KEYPLAY && colId < 16) {
+              int note = 48 + colId + (7 - trk) * 5;
+              clearActionListeners(clipBtn);
+              clearKeyboardMouseListeners(clipBtn);
+              clipBtn.addMouseListener(
+                  new java.awt.event.MouseAdapter() {
+                    @Override
+                    public void mousePressed(java.awt.event.MouseEvent e) {
+                      triggerKeyboardNote(note);
+                      clipBtn.setBackground(new Color(0x00, 0xff, 0x66));
+                      if (clipBtn instanceof DelugePadButton pad) {
+                        pad.setBaseColor(new Color(0x00, 0xff, 0x66));
+                        pad.setIntensity(1.0f);
+                      }
+                    }
+
+                    @Override
+                    public void mouseReleased(java.awt.event.MouseEvent e) {
+                      triggerKeyboardNoteRelease(note);
+                      refresh();
+                    }
+                  });
+            } else if (viewMode == GridViewMode.CLIP) {
               if (isAdvanced && colId < columnCount - 2) {
                 if (gestureCoordinator == null) {
                   gestureCoordinator =
@@ -5573,6 +5723,20 @@ public class SwingGridPanel extends JPanel {
                 if (trackLenTimer > stepCount) {
                   int rawCol = currentStep % trackLenTimer;
                   engineActiveCol = rawCol;
+                  if (playheadFollowMode
+                      && vm != null
+                      && vm.getGlobalInt(BridgeContract.G_PLAY) == 1L) {
+                    int playheadPage = (rawCol / stepCount) * stepCount;
+                    if (scrollOffsetX != playheadPage) {
+                      scrollOffsetX = playheadPage;
+                      if (horizScrollBar != null && horizScrollBar.isEnabled()) {
+                        isScrollingProgrammatically = true;
+                        horizScrollBar.setValue(scrollOffsetX);
+                        isScrollingProgrammatically = false;
+                      }
+                      refresh();
+                    }
+                  }
                   int visualCol = rawCol - scrollOffsetX;
                   if (visualCol >= 0 && visualCol < stepCount) {
                     activeCol = visualCol;
@@ -7911,6 +8075,75 @@ public class SwingGridPanel extends JPanel {
     int noteIdx = pitchMidi % 12;
     int octave = (pitchMidi / 12) - 1;
     return names[noteIdx] + octave;
+  }
+
+  private static int getKeyMidiOffset(String key) {
+    if (key == null) return 0;
+    switch (key.toUpperCase().trim()) {
+      case "C":
+        return 0;
+      case "C#":
+      case "DF":
+        return 1;
+      case "D":
+        return 2;
+      case "D#":
+      case "EF":
+        return 3;
+      case "E":
+        return 4;
+      case "F":
+        return 5;
+      case "F#":
+      case "GF":
+        return 6;
+      case "G":
+        return 7;
+      case "G#":
+      case "AF":
+        return 8;
+      case "A":
+        return 9;
+      case "A#":
+      case "BF":
+        return 10;
+      case "B":
+        return 11;
+      default:
+        return 0;
+    }
+  }
+
+  public boolean isNoteInScale(int note) {
+    if (projectModel == null) return true;
+    String scale = projectModel.getScale();
+    String key = projectModel.getKey();
+    if ("Chromatic".equalsIgnoreCase(scale) || scale == null) return true;
+
+    int rootOffset = getKeyMidiOffset(key);
+    int semitone = (note - rootOffset) % 12;
+    if (semitone < 0) semitone += 12;
+
+    int[] mask = {0, 2, 4, 5, 7, 9, 11}; // default Major
+    if ("Minor".equalsIgnoreCase(scale)) {
+      mask = new int[] {0, 2, 3, 5, 7, 8, 10};
+    } else if ("Pentatonic".equalsIgnoreCase(scale) || "Pentatonic Major".equalsIgnoreCase(scale)) {
+      mask = new int[] {0, 2, 4, 7, 9};
+    } else if ("Pentatonic Minor".equalsIgnoreCase(scale)) {
+      mask = new int[] {0, 3, 5, 7, 10};
+    }
+
+    for (int m : mask) {
+      if (semitone == m) return true;
+    }
+    return false;
+  }
+
+  public boolean isRootNote(int note) {
+    if (projectModel == null) return false;
+    int rootOffset = getKeyMidiOffset(projectModel.getKey());
+    int diff = note - rootOffset;
+    return (diff % 12) == 0;
   }
 
   private double getMacroValue(int col, org.chuck.deluge.model.TrackModel track) {

@@ -30,6 +30,7 @@ public class SwingTopBarPanel extends JPanel {
   private JButton recBtn;
   private JButton resampleBtn;
   private JToggleButton captureBtn;
+  public static boolean isAffectEntireActive = false;
 
   public void stopRecordingIfActive() {
     if (org.chuck.deluge.engine.JavaAudioDriver.isResamplingActive) {
@@ -70,6 +71,7 @@ public class SwingTopBarPanel extends JPanel {
   private final JToggleButton arrBtn;
   private final JToggleButton autoBtn;
   private final JToggleButton perfBtn;
+  private final JToggleButton keyplayBtn;
   private final JSlider masterVolSlider;
   private final TopBarListener listener;
   private final RetroLedDisplay retroLedDisplay;
@@ -77,6 +79,7 @@ public class SwingTopBarPanel extends JPanel {
 
   private String currentViewMode = "CLIP";
   private boolean isSaved = false;
+  private final java.util.List<Long> tapTimes = new java.util.ArrayList<>();
 
   public void setSaved(boolean saved) {
     this.isSaved = saved;
@@ -120,12 +123,14 @@ public class SwingTopBarPanel extends JPanel {
     arrBtn = new JToggleButton("ARR");
     autoBtn = new JToggleButton("AUTO");
     perfBtn = new JToggleButton("PERF");
+    keyplayBtn = new JToggleButton("KEYPLAY");
     ButtonGroup modeGroup = new ButtonGroup();
     modeGroup.add(clipBtn);
     modeGroup.add(songBtn);
     modeGroup.add(arrBtn);
     modeGroup.add(autoBtn);
     modeGroup.add(perfBtn);
+    modeGroup.add(keyplayBtn);
 
     // Initial static styling
     initTabStyles(clipBtn);
@@ -133,6 +138,7 @@ public class SwingTopBarPanel extends JPanel {
     initTabStyles(arrBtn);
     initTabStyles(autoBtn);
     initTabStyles(perfBtn);
+    initTabStyles(keyplayBtn);
 
     clipBtn.setToolTipText(
         "CLIP View: Click 1 time for Sequence Grid / Click 2 times for Automation View");
@@ -144,20 +150,22 @@ public class SwingTopBarPanel extends JPanel {
         "AUTOMATION View: Click 1 time for Step Automation / Click 2 times for Clip View");
     perfBtn.setToolTipText(
         "PERFORMANCE View: Click 1 time for Live Stutter and Mute Punch effects");
+    keyplayBtn.setToolTipText(
+        "KEYBOARD Play Mode: Play the track synthesizer instrument live using an isomorphic grid layout");
 
     // Initial dynamic styling
-    updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
+    updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn, keyplayBtn);
 
     clipBtn.addActionListener(
         e -> {
           if ("CLIP".equals(currentViewMode)) {
             autoBtn.setSelected(true);
             currentViewMode = "AUTO";
-            updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
+            updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn, keyplayBtn);
             listener.onViewModeChanged("AUTO");
           } else {
             currentViewMode = "CLIP";
-            updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
+            updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn, keyplayBtn);
             listener.onViewModeChanged("CLIP");
           }
         });
@@ -166,11 +174,11 @@ public class SwingTopBarPanel extends JPanel {
           if ("SONG".equals(currentViewMode)) {
             arrBtn.setSelected(true);
             currentViewMode = "ARR";
-            updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
+            updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn, keyplayBtn);
             listener.onViewModeChanged("ARR");
           } else {
             currentViewMode = "SONG";
-            updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
+            updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn, keyplayBtn);
             listener.onViewModeChanged("SONG");
             String saveStatus = isSaved ? "SONG" : "UNSAVED";
             String keyStr = projectModel.getKey().toUpperCase();
@@ -199,11 +207,11 @@ public class SwingTopBarPanel extends JPanel {
           if ("ARR".equals(currentViewMode)) {
             songBtn.setSelected(true);
             currentViewMode = "SONG";
-            updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
+            updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn, keyplayBtn);
             listener.onViewModeChanged("SONG");
           } else {
             currentViewMode = "ARR";
-            updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
+            updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn, keyplayBtn);
             listener.onViewModeChanged("ARR");
           }
         });
@@ -212,19 +220,25 @@ public class SwingTopBarPanel extends JPanel {
           if ("AUTO".equals(currentViewMode)) {
             clipBtn.setSelected(true);
             currentViewMode = "CLIP";
-            updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
+            updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn, keyplayBtn);
             listener.onViewModeChanged("CLIP");
           } else {
             currentViewMode = "AUTO";
-            updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
+            updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn, keyplayBtn);
             listener.onViewModeChanged("AUTO");
           }
         });
     perfBtn.addActionListener(
         e -> {
           currentViewMode = "PERF";
-          updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn);
+          updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn, keyplayBtn);
           listener.onViewModeChanged("PERF");
+        });
+    keyplayBtn.addActionListener(
+        e -> {
+          currentViewMode = "KEYPLAY";
+          updateTabStyles(clipBtn, songBtn, arrBtn, autoBtn, perfBtn, keyplayBtn);
+          listener.onViewModeChanged("KEYPLAY");
         });
 
     add(clipBtn);
@@ -232,6 +246,7 @@ public class SwingTopBarPanel extends JPanel {
     add(arrBtn);
     add(autoBtn);
     add(perfBtn);
+    add(keyplayBtn);
     add(new JSeparator(JSeparator.VERTICAL));
 
     // ── Track add buttons with high contrast and custom themes ──
@@ -330,6 +345,52 @@ public class SwingTopBarPanel extends JPanel {
     add(bpmLabel);
 
     JSlider bpmSlider = new JSlider(60, 200, (int) projectModel.getBpm());
+
+    JButton tapBtn = new JButton("TAP");
+    styleButton(tapBtn, new Color(0x2d, 0x2d, 0x3d), Color.WHITE);
+    tapBtn.setPreferredSize(new Dimension(42, 22));
+    tapBtn.setMargin(new Insets(0, 0, 0, 0));
+    tapBtn.setFont(new Font("SansSerif", Font.BOLD, 10));
+    tapBtn.setFocusable(false);
+    tapBtn.addActionListener(
+        e -> {
+          long now = System.currentTimeMillis();
+          tapTimes.add(now);
+          if (tapTimes.size() > 4) {
+            tapTimes.remove(0);
+          }
+          if (tapTimes.size() >= 2) {
+            long sum = 0;
+            for (int i = 1; i < tapTimes.size(); i++) {
+              sum += (tapTimes.get(i) - tapTimes.get(i - 1));
+            }
+            long avgMs = sum / (tapTimes.size() - 1);
+            if (avgMs > 0) {
+              int bpm = (int) (60000.0 / avgMs);
+              if (bpm >= 60 && bpm <= 200) {
+                projectModel.setBpm(bpm);
+                bpmSlider.setValue(bpm);
+                retroLedDisplay.printTransient("TEM ", String.valueOf(bpm));
+              }
+            }
+          }
+        });
+    add(tapBtn);
+
+    JToggleButton affectEntireBtn = new JToggleButton("ALL");
+    styleButton(affectEntireBtn, new Color(0x3d, 0x23, 0x23), new Color(0xff, 0x55, 0x55));
+    affectEntireBtn.setPreferredSize(new Dimension(42, 22));
+    affectEntireBtn.setMargin(new Insets(0, 0, 0, 0));
+    affectEntireBtn.setFont(new Font("SansSerif", Font.BOLD, 10));
+    affectEntireBtn.setFocusable(false);
+    affectEntireBtn.setToolTipText(
+        "Affect Entire: Toggles global broadcast of parameter tweaks across all tracks of same type");
+    affectEntireBtn.addActionListener(
+        e -> {
+          isAffectEntireActive = affectEntireBtn.isSelected();
+          retroLedDisplay.printTransient("ALL ", isAffectEntireActive ? "ON" : "OFF");
+        });
+    add(affectEntireBtn);
     bpmSlider.setBackground(new Color(0x12, 0x12, 0x14));
     bpmSlider.setForeground(new Color(0x00, 0xff, 0xcc));
     bpmSlider.setOpaque(false);

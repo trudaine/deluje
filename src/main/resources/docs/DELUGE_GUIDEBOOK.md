@@ -970,6 +970,7 @@ This chapter provides a direct, code-by-code mapping of every shortcut code from
 | **SQ13** | Duplicate clip content | `Shift` + push `◄►` knob | Click **`[Double & Append]`** button next to loop length |
 | **SQ14** | Note repeat (stutter) | Hold pad + turn parameter knob | Adjust repeats count on step properties wiggler slider |
 | **SQ15** | Play direction | Track menu ➔ direction | Select Forward/Reverse/Ping-Pong/Random track modes dropdown |
+| **SQ16** | Step Parameter Lock | Hold note pad + turn parameter knob | Hold **`Shift`** + click step pad to arm, then adjust any configuration slider |
 
 ### 21.3 Song View (SV)
 
@@ -978,7 +979,7 @@ This chapter provides a direct, code-by-code mapping of every shortcut code from
 | **SV01** | Stop/Launch clip | Tap colored launch pad | Click colored trigger pad on SONG view grid row |
 | **SV02** | Solo clip (arm) | Hold `◄►` + press launch pad | Click the **`[S]`** (Solo) button next to track name |
 | **SV03** | Solo clip (immediate) | Hold `◄►` + `Shift` + launch | Hold **`Shift`** + click **`[S]`** (Solo) button |
-| **SV04** | Mute/Launch immediately | Press launch pad | Click the **`[M]`** (Mute) button next to track name |
+| **SV04** | Mute/Launch immediately | Press launch pad | Click Column 16 launcher pad (Launch Active Clip) / Hold **`Shift`** + click Column 16 launcher pad to mute |
 | **SV05** | Delete clip | Press `Shift` + `Save/Delete` | Right-click track row header ➔ **`Delete Track`** |
 | **SV06** | Create new clip | Click empty row button | Click empty grid row pad, or select `Add Track` |
 | **SV07** | Move clip row | Hold pad + turn `▼▲` knob | Click and drag track row header up or down |
@@ -1020,6 +1021,8 @@ This chapter provides a direct, code-by-code mapping of every shortcut code from
 | **MS06** | Change root note | Hold `Scale` + audition pad | Select root key dropdown on track header |
 | **MS07** | Transpose clip | Push + turn `▼▲` knob | Adjust Transpose spinner on track header |
 | **MS08** | Clone preset | Preset menu ➔ select Clone | Right-click preset ➔ Save As |
+| **MS09** | Affect Entire | Hold `Affect Entire` + turn parameter knob | Toggle **`ALL`** button on top toolbar to edit all tracks globally |
+| **MS10** | Tap tempo | Tap the tempo encoder | Click **`TAP`** button next to BPM slider to set tempo by tapping |
 
 ### 21.7 Arranger View (AV)
 
