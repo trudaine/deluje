@@ -402,6 +402,13 @@ public class Voice {
    */
   private int computeOverallPitchAdjust(int numSamples) {
     int overallPitchAdjust = paramFinalValues[Param.LOCAL_PITCH_ADJUST];
+    System.out.println(
+        "[DIAG PITCH] overallPitchAdjust="
+            + overallPitchAdjust
+            + " LOCAL_PITCH_ADJUST="
+            + Param.LOCAL_PITCH_ADJUST
+            + " neutral="
+            + Functions.getParamNeutralValue(Param.LOCAL_PITCH_ADJUST));
     if (Integer.compareUnsigned(portaEnvelopePos, 8388608) < 0) {
       int envValue = Functions.getDecay4(portaEnvelopePos, 23);
       int pitchAdjustmentHere =
@@ -520,7 +527,6 @@ public class Voice {
    * @return true if voice is still active
    */
   public boolean render(int[] soundBuffer, int numSamples, boolean doLPF, boolean doHPF) {
-
     // Copy global sources from sound
     System.arraycopy(sound.globalSourceValues, 0, sourceValues, 0, 3);
 
@@ -1484,10 +1490,10 @@ public class Voice {
           int data = stereoBuf[i * 2 + ch];
           int newWorkingValue =
               Functions.lshiftAndSaturateUnknown(data, saturationAmount) + 0x80000000;
-          stereoBuf[i * 2 + ch] =
+          int outputVal =
               Functions.getTanHAntialiased(
-                      data, lastSaturationTanHWorkingValue[ch], saturationAmount)
-                  << shiftAmount;
+                  data, lastSaturationTanHWorkingValue[ch], saturationAmount);
+          stereoBuf[i * 2 + ch] = outputVal << shiftAmount;
           lastSaturationTanHWorkingValue[ch] = newWorkingValue;
         }
       }

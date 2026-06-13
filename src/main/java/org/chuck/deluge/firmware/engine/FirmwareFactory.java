@@ -400,41 +400,40 @@ public class FirmwareFactory {
     sound.setHpfMode(model.getHpfMode());
     sound.setFilterRoute(model.getFilterRoute());
 
-    // Modulation FX (chorus/flanger/phaser/...). The model carries rate in Hz and
-    // depth/offset/feedback as 0..1; convert rate to a Q32 LFO phase increment and the rest to Q31,
-    // matching what ModFXProcessor expects. (Previously these were never set on the pure engine, so
-    // mod FX was inert regardless of the patch.)
-    sound.modFXType = stringToModFXType(model.getModFxType());
-    sound.modFXRateIncrement = (int) ((double) model.getModFxRate() * 4294967296.0 / 44100.0);
-    sound.modFXDepth = (int) (clamp01(model.getModFxDepth()) * 2147483647.0);
-    sound.modFXOffset = (int) (clamp01(model.getModFxOffset()) * 2147483647.0);
-    sound.modFXFeedback = (int) (clamp01(model.getModFxFeedback()) * 2147483647.0);
+    // Populating unpatched FX parameter defaults/neutrals in paramNeutralValues.
+    // These will be copied to paramKnobs and overlaid with rawParamKnobs overrides
+    // (from XML) later in this method.
+    sound.paramNeutralValues[Param.GLOBAL_MOD_FX_RATE] = lfoRateKnobFromHz(model.getModFxRate());
+    sound.paramNeutralValues[Param.GLOBAL_MOD_FX_DEPTH] =
+        normToLinearParamKnob(model.getModFxDepth());
+    sound.paramNeutralValues[Param.UNPATCHED_MOD_FX_OFFSET] =
+        normToLinearParamKnob(model.getModFxOffset());
+    sound.paramNeutralValues[Param.UNPATCHED_MOD_FX_FEEDBACK] =
+        normToLinearParamKnob(model.getModFxFeedback());
+    sound.paramNeutralValues[Param.GLOBAL_DELAY_RATE] = lfoRateKnobFromHz(model.getDelaySend());
+    sound.paramNeutralValues[Param.GLOBAL_DELAY_FEEDBACK] = model.getDelayFeedbackQ31();
+    sound.paramNeutralValues[Param.GLOBAL_REVERB_AMOUNT] =
+        normToBipolarParamVolume(model.getReverbSend());
+    sound.paramNeutralValues[Param.UNPATCHED_STUTTER_RATE] =
+        normToLinearParamKnob(model.getStutterRate());
+    sound.paramNeutralValues[Param.UNPATCHED_SAMPLE_RATE_REDUCTION] =
+        normToBipolarParam(model.getSampleRateReduction());
+    sound.paramNeutralValues[Param.UNPATCHED_BITCRUSHING] = normToBipolarParam(model.getBitCrush());
+    sound.paramNeutralValues[Param.UNPATCHED_BASS] = dbToBipolarParam(model.getEqBass());
+    sound.paramNeutralValues[Param.UNPATCHED_TREBLE] = dbToBipolarParam(model.getEqTreble());
+    sound.paramNeutralValues[Param.UNPATCHED_BASS_FREQ] = 0; // default/flat
+    sound.paramNeutralValues[Param.UNPATCHED_TREBLE_FREQ] = 0; // default/flat
+    sound.paramNeutralValues[Param.UNPATCHED_SIDECHAIN_SHAPE] = 0; // default/flat
+    sound.paramNeutralValues[Param.UNPATCHED_SIDECHAIN_VOLUME] = 0; // default/flat
 
-    // Per-sound delay (the instrument's own <delay> + soundParams delayFeedback). syncParamsToFw2
-    // converts delaySyncLevel to the BPM-synced buffer rate. delayFeedback is the raw Q31 knob;
-    // INT_MIN/0 (or syncLevel 0) leaves it inert.
+    // Delay static configuration
     sound.delaySyncLevel = model.getDelaySyncLevel();
     sound.delaySyncType = model.getDelaySyncType();
     sound.delayPingPong = model.isDelayPingPong();
     sound.delayAnalog = model.isDelayAnalog();
-    int dfb = model.getDelayFeedbackQ31();
-    sound.delayFeedbackAmount = (dfb == Integer.MIN_VALUE) ? 0 : Math.max(0, dfb);
 
-    // Per-track reverb send KNOB (raw Q31 UNPATCHED_REVERB_SEND_AMOUNT). The actual send amount is
-    // derived per block via the C volume curve in GlobalEffectable. normToBipolarParamVolume maps
-    // the
-    // model's 0..1 send to the Deluge's INT_MIN..INT_MAX knob range, so off/unset (norm <= 0) →
-    // INT_MIN
-    // → no reverb (dry songs stay dry).
-    sound.reverbSendKnob = normToBipolarParamVolume(model.getReverbSend());
-
-    // Bitcrush + sample-rate reduction (0..1 -> bipolar Q31; MIN_VALUE = off).
-    sound.bitcrushParam = normToBipolarParam(model.getBitCrush());
-    sound.srrParam = normToBipolarParam(model.getSampleRateReduction());
-
-    // Bass/treble EQ (model stores dB in [-12, 12]; 0 dB = flat).
-    sound.eqBassParam = dbToBipolarParam(model.getEqBass());
-    sound.eqTrebleParam = dbToBipolarParam(model.getEqTreble());
+    // Mod FX static configuration
+    sound.modFXType = stringToModFXType(model.getModFxType());
 
     // Arpeggiator
     configureArp(sound, model.getArp());
@@ -608,6 +607,48 @@ public class FirmwareFactory {
       sound.paramNeutralValues[pid] = e.getValue();
       sound.paramKnobs[pid] = e.getValue();
     }
+
+    // Compute final FX values from the fully-populated and overridden paramKnobs array.
+    sound.modFXRateIncrement =
+        org.chuck.deluge.firmware2.Patcher.computeFinalValueForParam(
+            Param.GLOBAL_MOD_FX_RATE, sound.paramKnobs[Param.GLOBAL_MOD_FX_RATE]);
+    sound.modFXDepth =
+        org.chuck.deluge.firmware2.Patcher.computeFinalValueForParam(
+            Param.GLOBAL_MOD_FX_DEPTH, sound.paramKnobs[Param.GLOBAL_MOD_FX_DEPTH]);
+    sound.modFXOffset =
+        org.chuck.deluge.firmware2.Patcher.computeFinalValueForParam(
+            Param.UNPATCHED_MOD_FX_OFFSET, sound.paramKnobs[Param.UNPATCHED_MOD_FX_OFFSET]);
+    sound.modFXFeedback =
+        org.chuck.deluge.firmware2.Patcher.computeFinalValueForParam(
+            Param.UNPATCHED_MOD_FX_FEEDBACK, sound.paramKnobs[Param.UNPATCHED_MOD_FX_FEEDBACK]);
+
+    int dfb =
+        org.chuck.deluge.firmware2.Patcher.computeFinalValueForParam(
+            Param.GLOBAL_DELAY_FEEDBACK, sound.paramKnobs[Param.GLOBAL_DELAY_FEEDBACK]);
+    if (sound.delaySyncLevel > 0 && dfb >= 256) {
+      double stepSec = 60.0 / (sound.currentBpm * 4.0);
+      double syncFactor = Math.pow(2.0, sound.delaySyncLevel - 1);
+      if (sound.delaySyncType == 1) syncFactor *= 1.5;
+      else if (sound.delaySyncType == 2) syncFactor *= 2.0 / 3.0;
+      double delaySec = Math.max(0.001, Math.min(2.0, syncFactor * stepSec));
+      long rate = (long) (16384L * 16777216L / (delaySec * 44100.0));
+      sound.fw2Sound.delayUserRate = (int) Math.min(rate, Integer.MAX_VALUE);
+      sound.delayFeedbackAmount = Math.min(dfb, (1 << 30) - (1 << 26));
+    } else if (sound.delaySyncLevel == 0 && dfb >= 256) {
+      sound.fw2Sound.delayUserRate =
+          org.chuck.deluge.firmware2.Patcher.computeFinalValueForParam(
+              Param.GLOBAL_DELAY_RATE, sound.paramKnobs[Param.GLOBAL_DELAY_RATE]);
+      sound.delayFeedbackAmount = Math.min(dfb, (1 << 30) - (1 << 26));
+    } else {
+      sound.fw2Sound.delayUserRate = 0;
+      sound.delayFeedbackAmount = 0;
+    }
+
+    sound.reverbSendKnob = sound.paramKnobs[Param.GLOBAL_REVERB_AMOUNT];
+    sound.bitcrushParam = sound.paramKnobs[Param.UNPATCHED_BITCRUSHING];
+    sound.srrParam = sound.paramKnobs[Param.UNPATCHED_SAMPLE_RATE_REDUCTION];
+    sound.eqBassParam = sound.paramKnobs[Param.UNPATCHED_BASS];
+    sound.eqTrebleParam = sound.paramKnobs[Param.UNPATCHED_TREBLE];
 
     // Patch Cables
     for (org.chuck.deluge.model.PatchCable pcm : model.getPatchCables()) {
