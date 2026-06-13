@@ -1775,34 +1775,18 @@ public class DelugeXmlParser {
       synth.setLfoRateKnobQ31(1, DelugeHexMapper.hexToQ31(v));
     }
 
-    // Filter cutoff/resonance/morph: store RAW Q31 knobs (the firmware reads them verbatim). The
-    // preset float round-trip floors a linear param's minimum at -2^29 instead of INT_MIN, so a
-    // song's minimum resonance became a moderate one — pushing the ladder's processedResonance
-    // past its tanh threshold and grossly distorting clean tones (found via hardware comparison).
-    rawKnob(
-        sp,
-        "lpfFrequency",
-        synth,
-        org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_FREQ);
-    rawKnob(
-        sp,
-        "lpfResonance",
-        synth,
-        org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_RESONANCE);
-    rawKnob(
-        sp, "lpfMorph", synth, org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_MORPH);
-    rawKnob(
-        sp,
-        "hpfFrequency",
-        synth,
-        org.chuck.deluge.firmware.modulation.params.Param.LOCAL_HPF_FREQ);
-    rawKnob(
-        sp,
-        "hpfResonance",
-        synth,
-        org.chuck.deluge.firmware.modulation.params.Param.LOCAL_HPF_RESONANCE);
-    rawKnob(
-        sp, "hpfMorph", synth, org.chuck.deluge.firmware.modulation.params.Param.LOCAL_HPF_MORPH);
+    // Patched params the firmware reads as RAW Q31 from <soundParams> (readParamsFromFile copies
+    // every param's 0x.. value verbatim into params[p].currentValue — no float, no curve). Our
+    // float round-trip (hex→model float→normToKnob) mis-ranges several — e.g. normToLinearParamKnob
+    // floored a linear minimum at -2^29 not INT_MIN, so a song's minimum resonance became moderate
+    // and pushed the ladder past its tanh threshold (gross distortion, found via hardware
+    // comparison). Reading raw matches the firmware; the factory overlays these over the float
+    // mapping. (Envelopes, LFO rates, FM modulator volumes/feedbacks, portamento, waveFold are read
+    // raw elsewhere in this method; the unpatched FX params — bitcrush/srr/stutter/modFX-offset/eq/
+    // sidechain/reverb-send — use dedicated scalar fields and are out of scope here.)
+    for (var e : SOUNDPARAMS_RAW_PATCHED.entrySet()) {
+      rawKnob(sp, e.getKey(), synth, e.getValue());
+    }
 
     // Envelopes: <envelope1..4 attack="0x..." .../> children (attribute style).
     String[] envTags = {"envelope1", "envelope2", "envelope3", "envelope4"};
@@ -1873,6 +1857,60 @@ public class DelugeXmlParser {
     if (del.hasAttribute("analog")) {
       synth.setDelayAnalog(!"0".equals(del.getAttribute("analog").trim()));
     }
+  }
+
+  /**
+   * Song {@code <soundParams>} param-name → fw2 Param id, for the patched params the firmware reads
+   * as raw Q31. Excludes params handled raw elsewhere (envelopes, LFO rates, FM modulator
+   * volumes/feedbacks, portamento, waveFold) and the unpatched FX params (separate scalar fields).
+   */
+  private static final java.util.Map<String, Integer> SOUNDPARAMS_RAW_PATCHED =
+      new java.util.LinkedHashMap<>();
+
+  static {
+    SOUNDPARAMS_RAW_PATCHED.put(
+        "lpfFrequency", org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_FREQ);
+    SOUNDPARAMS_RAW_PATCHED.put(
+        "lpfResonance", org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_RESONANCE);
+    SOUNDPARAMS_RAW_PATCHED.put(
+        "lpfMorph", org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_MORPH);
+    SOUNDPARAMS_RAW_PATCHED.put(
+        "hpfFrequency", org.chuck.deluge.firmware.modulation.params.Param.LOCAL_HPF_FREQ);
+    SOUNDPARAMS_RAW_PATCHED.put(
+        "hpfResonance", org.chuck.deluge.firmware.modulation.params.Param.LOCAL_HPF_RESONANCE);
+    SOUNDPARAMS_RAW_PATCHED.put(
+        "hpfMorph", org.chuck.deluge.firmware.modulation.params.Param.LOCAL_HPF_MORPH);
+    SOUNDPARAMS_RAW_PATCHED.put(
+        "volume", org.chuck.deluge.firmware.modulation.params.Param.LOCAL_VOLUME);
+    SOUNDPARAMS_RAW_PATCHED.put("pan", org.chuck.deluge.firmware.modulation.params.Param.LOCAL_PAN);
+    SOUNDPARAMS_RAW_PATCHED.put(
+        "oscAVolume", org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_A_VOLUME);
+    SOUNDPARAMS_RAW_PATCHED.put(
+        "oscBVolume", org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_B_VOLUME);
+    SOUNDPARAMS_RAW_PATCHED.put(
+        "noiseVolume", org.chuck.deluge.firmware.modulation.params.Param.LOCAL_NOISE_VOLUME);
+    SOUNDPARAMS_RAW_PATCHED.put(
+        "oscAPhaseWidth",
+        org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_A_PHASE_WIDTH);
+    SOUNDPARAMS_RAW_PATCHED.put(
+        "oscBPhaseWidth",
+        org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_B_PHASE_WIDTH);
+    SOUNDPARAMS_RAW_PATCHED.put(
+        "oscAWavetablePosition",
+        org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_A_WAVE_INDEX);
+    SOUNDPARAMS_RAW_PATCHED.put(
+        "oscBWavetablePosition",
+        org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_B_WAVE_INDEX);
+    SOUNDPARAMS_RAW_PATCHED.put(
+        "oscAPitch", org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_A_PITCH_ADJUST);
+    SOUNDPARAMS_RAW_PATCHED.put(
+        "oscBPitch", org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_B_PITCH_ADJUST);
+    SOUNDPARAMS_RAW_PATCHED.put(
+        "modulator1Pitch",
+        org.chuck.deluge.firmware.modulation.params.Param.LOCAL_MODULATOR_0_PITCH_ADJUST);
+    SOUNDPARAMS_RAW_PATCHED.put(
+        "modulator2Pitch",
+        org.chuck.deluge.firmware.modulation.params.Param.LOCAL_MODULATOR_1_PITCH_ADJUST);
   }
 
   /** Record a soundParams attribute as a raw Q31 param-knob override (attribute or child text). */
