@@ -2598,6 +2598,25 @@ public class SwingDelugeApp extends JFrame {
 
     JPanel topBarWrapper = new JPanel(new BorderLayout());
     topBarWrapper.add(topBar, BorderLayout.CENTER);
+
+    // Scroll encoders (X timeline / Y note rows) routed to whichever grid panel is showing.
+    org.chuck.deluge.ui.controls.DelugeEncoderStrip encoderStrip =
+        new org.chuck.deluge.ui.controls.DelugeEncoderStrip(
+            d -> {
+              SwingGridPanel a = activeGridPanel();
+              if (a != null) {
+                a.scrollHorizontally(d);
+              }
+            },
+            d -> {
+              SwingGridPanel a = activeGridPanel();
+              if (a != null) {
+                a.scrollVertically(-d); // drag up shows higher rows
+              }
+            });
+    encoderStrip.setBackground(topBar.getBackground());
+    encoderStrip.setOpaque(true);
+    topBarWrapper.add(encoderStrip, BorderLayout.EAST);
     add(topBarWrapper, BorderLayout.NORTH);
 
     JScrollPane centerScroll =
