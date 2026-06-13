@@ -32,6 +32,7 @@ public class TrackInspectorDialog extends JDialog {
     cb = new JComboBox<>();
     cb.setFont(new Font("SansSerif", Font.PLAIN, 18));
     cb.setPreferredSize(new Dimension(400, 45));
+    cb.setToolTipText("Select synth or kit patch preset to hot-swap track sound");
     p1.add(lP);
     p1.add(cb);
     tabs.addTab("PRESETS", p1);
@@ -42,9 +43,11 @@ public class TrackInspectorDialog extends JDialog {
     JButton cloneBtn = new JButton("Clone Clip Variant");
     cloneBtn.setFont(new Font("SansSerif", Font.BOLD, 24));
     cloneBtn.setPreferredSize(new Dimension(300, 80));
+    cloneBtn.setToolTipText("Create duplicate pattern clip variant in next free slot");
     JButton clearBtn = new JButton("Export MIDI Sequence");
     clearBtn.setFont(new Font("SansSerif", Font.BOLD, 24));
     clearBtn.setPreferredSize(new Dimension(300, 80));
+    clearBtn.setToolTipText("Export active sequence steps to standard MIDI file");
     p2.add(cloneBtn);
     p2.add(clearBtn);
     tabs.addTab("CLIPBOARD", p2);
@@ -65,6 +68,7 @@ public class TrackInspectorDialog extends JDialog {
     gcm.gridx = 1;
     volumeSlider = new JSlider(0, 100, 80);
     volumeSlider.setPreferredSize(new Dimension(400, 50));
+    volumeSlider.setToolTipText("Adjust master channel volume level (0-100%)");
     volumeSlider.addChangeListener(
         ev -> System.out.println("Track " + trackIndex + " Vol: " + volumeSlider.getValue()));
     p3.add(volumeSlider, gcm);
@@ -79,13 +83,14 @@ public class TrackInspectorDialog extends JDialog {
     gcm.gridx = 1;
     panSlider = new JSlider(0, 100, 50);
     panSlider.setPreferredSize(new Dimension(400, 50));
+    panSlider.setToolTipText("Adjust stereo pan position (Left-Right)");
     p3.add(panSlider, gcm);
     tabs.addTab("MIXER", p3);
 
     // Tab 4: FM Operators
     JPanel p4 = new JPanel(new FlowLayout(FlowLayout.LEFT, 30, 30));
     p4.setBackground(new Color(0x2b, 0x2b, 0x2b));
-    JLabel lAlgo = new JLabel("Algorithm Map: [Op 4] \u279e [Op 3] \u279e [Op 2] \u279e Output");
+    JLabel lAlgo = new JLabel("Algorithm Map: [Op 4] ➔ [Op 3] ➔ [Op 2] ➔ Output");
     lAlgo.setFont(new Font("SansSerif", Font.BOLD, 20));
     lAlgo.setForeground(Color.ORANGE);
     JLabel lRatio = new JLabel("Modulator Ratio (Harmonics):");
@@ -93,6 +98,7 @@ public class TrackInspectorDialog extends JDialog {
     lRatio.setForeground(Color.WHITE);
     ratioSlider = new JSlider(1, 10, 1);
     ratioSlider.setPreferredSize(new Dimension(300, 50));
+    ratioSlider.setToolTipText("Adjust FM modulator carrier harmonic ratio");
     p4.add(lAlgo);
     p4.add(lRatio);
     p4.add(ratioSlider);
