@@ -40,7 +40,7 @@ public class SynthTrackModel extends TrackModel {
   private int osc2Cents = 0; // cents
 
   // Filter
-  private FilterMode filterMode = FilterMode.LADDER_12;
+  private FilterMode filterMode = FilterMode.LADDER_24;
   private float lpfFreq = 20000.0f;
   private float lpfRes = 0.0f;
   private float lpfMorph = 0.0f;
@@ -91,6 +91,7 @@ public class SynthTrackModel extends TrackModel {
   private final int[] envAttackKnobQ31 = {0, 0, 0, 0};
 
   private final int[] envDecayKnobQ31 = {0, 0, 0, 0};
+  private final int[] envSustainKnobQ31 = {0, 0, 0, 0};
   private final int[] envReleaseKnobQ31 = {0, 0, 0, 0};
   private final boolean[] envKnobSet = {false, false, false, false};
 
@@ -615,6 +616,10 @@ public class SynthTrackModel extends TrackModel {
     return envDecayKnobQ31[index];
   }
 
+  public int getEnvSustainKnobQ31(int index) {
+    return envSustainKnobQ31[index];
+  }
+
   public int getEnvReleaseKnobQ31(int index) {
     return envReleaseKnobQ31[index];
   }
@@ -623,6 +628,15 @@ public class SynthTrackModel extends TrackModel {
   public void setEnvRateKnobsQ31(int index, int attack, int decay, int release) {
     envAttackKnobQ31[index] = attack;
     envDecayKnobQ31[index] = decay;
+    envSustainKnobQ31[index] = 0; // default/neutral sustain if not provided in this legacy path
+    envReleaseKnobQ31[index] = release;
+    envKnobSet[index] = true;
+  }
+
+  public void setEnvKnobsQ31(int index, int attack, int decay, int sustain, int release) {
+    envAttackKnobQ31[index] = attack;
+    envDecayKnobQ31[index] = decay;
+    envSustainKnobQ31[index] = sustain;
     envReleaseKnobQ31[index] = release;
     envKnobSet[index] = true;
   }

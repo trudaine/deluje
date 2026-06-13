@@ -104,105 +104,112 @@ public class PhysicalHardwareFidelityTest {
   public void testDrySawtoothParityREC07() throws Exception {
     System.out.println("=== RUNNING HARDWARE REGRESSION: DRY SAWTOOTH REC07 C5 ===");
 
-    float[] hw = loadWavFromResource("/fidelity/reference_rec07.wav");
+    org.chuck.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = 0;
+    org.chuck.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = 0;
+    try {
+      float[] hw = loadWavFromResource("/fidelity/reference_rec07.wav");
 
-    java.io.File xmlFile =
-        new java.io.File(getClass().getResource("/fidelity/098_DRY_SAW_C5.XML").toURI());
-    SynthTrackModel synthModel = DelugeXmlParser.parseSynth(xmlFile);
+      java.io.File xmlFile =
+          new java.io.File(getClass().getResource("/fidelity/098_DRY_SAW_C5.XML").toURI());
+      SynthTrackModel synthModel = DelugeXmlParser.parseSynth(xmlFile);
 
-    ProjectModel project = new ProjectModel();
-    project.addTrack(synthModel);
-    Song fwSong = FirmwareFactory.createSong(project);
-    org.chuck.deluge.firmware.model.InstrumentClip clip =
-        (org.chuck.deluge.firmware.model.InstrumentClip) fwSong.clips.get(0);
-    FirmwareSound synth = (FirmwareSound) clip.sound;
+      ProjectModel project = new ProjectModel();
+      project.addTrack(synthModel);
+      Song fwSong = FirmwareFactory.createSong(project);
+      org.chuck.deluge.firmware.model.InstrumentClip clip =
+          (org.chuck.deluge.firmware.model.InstrumentClip) fwSong.clips.get(0);
+      FirmwareSound synth = (FirmwareSound) clip.sound;
 
-    // Apply standard safe output levels
-    synth.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = 53687091; // Q31.ONE / 40
-    synth.paramNeutralValues[Param.LOCAL_VOLUME] = 53687091;
+      // Apply standard safe output levels
+      synth.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = 53687091; // Q31.ONE / 40
+      synth.paramNeutralValues[Param.LOCAL_VOLUME] = 53687091;
 
-    FirmwareAudioEngine engine = new FirmwareAudioEngine();
-    engine.sounds.add(synth);
+      FirmwareAudioEngine engine = new FirmwareAudioEngine();
+      engine.sounds.add(synth);
 
-    float[] sw = new float[hw.length];
-    byte[] byteBuffer = new byte[hw.length * 4];
-    int totalBlocks = hw.length / 128;
-    int triggerBlock = 87628 / 128; // block 684
-    int releaseBlock = triggerBlock + 1000;
+      float[] sw = new float[hw.length];
+      byte[] byteBuffer = new byte[hw.length * 4];
+      int totalBlocks = hw.length / 128;
+      int triggerBlock = 87628 / 128; // block 684
+      int releaseBlock = triggerBlock + 1000;
 
-    for (int b = 0; b < totalBlocks; b++) {
-      if (b == triggerBlock) {
-        synth.triggerNote(72, 100);
-      }
-      if (b == releaseBlock) {
-        synth.releaseNote(72);
-      }
+      for (int b = 0; b < totalBlocks; b++) {
+        if (b == triggerBlock) {
+          synth.triggerNote(72, 100);
+        }
+        if (b == releaseBlock) {
+          synth.releaseNote(72);
+        }
 
-      engine.renderBlock(128);
+        engine.renderBlock(128);
 
-      for (int i = 0; i < 128; i++) {
-        StereoSample s = engine.masterBuffer[i];
-        int leftVal = s.l >> 16;
-        int rightVal = s.r >> 16;
-        short left = (short) Math.max(-32768, Math.min(32767, leftVal));
-        short right = (short) Math.max(-32768, Math.min(32767, rightVal));
+        for (int i = 0; i < 128; i++) {
+          StereoSample s = engine.masterBuffer[i];
+          int leftVal = s.l >> 16;
+          int rightVal = s.r >> 16;
+          short left = (short) Math.max(-32768, Math.min(32767, leftVal));
+          short right = (short) Math.max(-32768, Math.min(32767, rightVal));
 
-        int idx = (b * 128 + i) * 4;
-        byteBuffer[idx] = (byte) (left & 0xFF);
-        byteBuffer[idx + 1] = (byte) ((left >> 8) & 0xFF);
-        byteBuffer[idx + 2] = (byte) (right & 0xFF);
-        byteBuffer[idx + 3] = (byte) ((right >> 8) & 0xFF);
-      }
-    }
-
-    for (int i = 0; i < sw.length; i++) {
-      int idx = i * 4;
-      int b0 = byteBuffer[idx] & 0xFF;
-      int b1 = byteBuffer[idx + 1];
-      short val = (short) (b0 | (b1 << 8));
-      sw[i] = val / 32768.0f;
-    }
-
-    float[] normHw = normalizePeak(hw, 0.5f);
-    float[] normSw = normalizePeak(sw, 0.5f);
-
-    int hwStart = findActiveStart(normHw, 0.05f, 0);
-    int swStart = findActiveStart(normSw, 0.05f, 0);
-    int bestLag = hwStart - swStart;
-
-    int startHw = Math.max(0, bestLag);
-    int startSw = Math.max(0, -bestLag);
-    int len = Math.min(hw.length - startHw, sw.length - startSw);
-
-    float[] alignedHw = new float[len];
-    System.arraycopy(hw, startHw, alignedHw, 0, len);
-    float[] alignedSw = new float[len];
-    System.arraycopy(sw, startSw, alignedSw, 0, len);
-
-    int activeOffset = swStart - startSw;
-    float[] noDcHw = removeActiveDcOffset(alignedHw, activeOffset);
-    float[] noDcSw = removeActiveDcOffset(alignedSw, activeOffset);
-
-    int windowSize = 4410;
-    int hwZeroIdx = findRawPositiveZeroCrossing(noDcHw, activeOffset + 2000);
-    int swZeroIdx = findRawPositiveZeroCrossing(noDcSw, activeOffset + 2000);
-
-    double correlation = -1.0;
-    for (int lag = -5; lag <= 5; lag++) {
-      if (swZeroIdx + lag >= 0 && swZeroIdx + lag + windowSize <= noDcSw.length) {
-        float[] hwWindow = new float[windowSize];
-        System.arraycopy(noDcHw, hwZeroIdx, hwWindow, 0, windowSize);
-        float[] swWindow = new float[windowSize];
-        System.arraycopy(noDcSw, swZeroIdx + lag, swWindow, 0, windowSize);
-        double c = org.chuck.deluge.AudioAnalyzer.correlation(hwWindow, swWindow);
-        if (c > correlation) {
-          correlation = c;
+          int idx = (b * 128 + i) * 4;
+          byteBuffer[idx] = (byte) (left & 0xFF);
+          byteBuffer[idx + 1] = (byte) ((left >> 8) & 0xFF);
+          byteBuffer[idx + 2] = (byte) (right & 0xFF);
+          byteBuffer[idx + 3] = (byte) ((right >> 8) & 0xFF);
         }
       }
-    }
 
-    System.out.printf("  [RESULT] Dry Sawtooth REC07 Correlation: %.6f\n", correlation);
-    assertTrue(correlation >= 0.90, "Dry Sawtooth REC07 correlation should be >= 90%!");
+      for (int i = 0; i < sw.length; i++) {
+        int idx = i * 4;
+        int b0 = byteBuffer[idx] & 0xFF;
+        int b1 = byteBuffer[idx + 1];
+        short val = (short) (b0 | (b1 << 8));
+        sw[i] = val / 32768.0f;
+      }
+
+      float[] normHw = normalizePeak(hw, 0.5f);
+      float[] normSw = normalizePeak(sw, 0.5f);
+
+      int hwStart = findActiveStart(normHw, 0.05f, 0);
+      int swStart = findActiveStart(normSw, 0.05f, 0);
+      int bestLag = hwStart - swStart;
+
+      int startHw = Math.max(0, bestLag);
+      int startSw = Math.max(0, -bestLag);
+      int len = Math.min(hw.length - startHw, sw.length - startSw);
+
+      float[] alignedHw = new float[len];
+      System.arraycopy(hw, startHw, alignedHw, 0, len);
+      float[] alignedSw = new float[len];
+      System.arraycopy(sw, startSw, alignedSw, 0, len);
+
+      int activeOffset = swStart - startSw;
+      float[] noDcHw = removeActiveDcOffset(alignedHw, activeOffset);
+      float[] noDcSw = removeActiveDcOffset(alignedSw, activeOffset);
+
+      int windowSize = 4410;
+      int hwZeroIdx = findRawPositiveZeroCrossing(noDcHw, activeOffset + 2000);
+      int swZeroIdx = findRawPositiveZeroCrossing(noDcSw, activeOffset + 2000);
+
+      double correlation = -1.0;
+      for (int lag = -5; lag <= 5; lag++) {
+        if (swZeroIdx + lag >= 0 && swZeroIdx + lag + windowSize <= noDcSw.length) {
+          float[] hwWindow = new float[windowSize];
+          System.arraycopy(noDcHw, hwZeroIdx, hwWindow, 0, windowSize);
+          float[] swWindow = new float[windowSize];
+          System.arraycopy(noDcSw, swZeroIdx + lag, swWindow, 0, windowSize);
+          double c = org.chuck.deluge.AudioAnalyzer.correlation(hwWindow, swWindow);
+          if (c > correlation) {
+            correlation = c;
+          }
+        }
+      }
+
+      System.out.printf("  [RESULT] Dry Sawtooth REC07 Correlation: %.6f\n", correlation);
+      assertTrue(correlation >= 0.90, "Dry Sawtooth REC07 correlation should be >= 90%!");
+    } finally {
+      org.chuck.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = -2;
+      org.chuck.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = -2;
+    }
   }
 
   @Test
@@ -329,11 +336,18 @@ public class PhysicalHardwareFidelityTest {
     FirmwareSound synth = (FirmwareSound) clip.sound;
 
     // Keep XML-parsed active volumes to preserve numerical resolution and fixed-point precision!
-    // (Safety headroom is already set by synthModel.setVolume(0.5f) above!)
+    // Safety headroom is already set by synthModel.setVolume(0.5f) above!
+    System.out.printf(
+        "  [PRESET DEBUG] volume=%d lpfFreq=%d lpfRes=%d env0Sustain=%d\n",
+        synth.paramNeutralValues[Param.LOCAL_VOLUME],
+        synth.paramNeutralValues[Param.LOCAL_LPF_FREQ],
+        synth.paramNeutralValues[Param.LOCAL_LPF_RESONANCE],
+        synth.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN]);
 
     if (paramOverrides != null) {
       for (java.util.Map.Entry<Integer, Integer> entry : paramOverrides.entrySet()) {
         synth.paramNeutralValues[entry.getKey()] = entry.getValue();
+        synth.paramKnobs[entry.getKey()] = entry.getValue();
       }
     }
 
@@ -357,6 +371,17 @@ public class PhysicalHardwareFidelityTest {
       }
 
       engine.renderBlock(128);
+
+      if (b == 100 && !synth.fw2Sound.voices.isEmpty()) {
+        var v = synth.fw2Sound.voices.get(0);
+        System.out.println("=== PARAM DUMP ===");
+        for (int i = 0; i < v.paramFinalValues.length; i++) {
+          if (v.paramFinalValues[i] != 0 && v.paramFinalValues[i] != Integer.MIN_VALUE) {
+            System.out.printf("  Param[%d] = %d\n", i, v.paramFinalValues[i]);
+          }
+        }
+        System.out.println("==================");
+      }
 
       if (b % 50 == 0 && !synth.fw2Sound.voices.isEmpty()) {
         var v = synth.fw2Sound.voices.get(0);
@@ -510,6 +535,13 @@ public class PhysicalHardwareFidelityTest {
     double swPitchVal =
         org.chuck.deluge.AudioAnalyzer.estimateFrequency(
             swWindow, 44100, minPitchFreq, maxPitchFreq);
+    if (true) {
+      System.out.println("=== DEBUG swWindow ===");
+      for (int i = 0; i < 50; i++) {
+        System.out.printf("  swWindow[%d] = %.6f\n", i, swWindow[i]);
+      }
+      System.out.println("======================");
+    }
     System.out.printf(
         "  [DIAG pitches] hwPitch=%.2f Hz | swPitch=%.2f Hz\n", hwPitchVal, swPitchVal);
     System.out.printf(
@@ -1035,15 +1067,28 @@ public class PhysicalHardwareFidelityTest {
       assertTrue(swRms > 1e-4, "LFO Saw Vibrato: note should sound (rms " + swRms + ")");
       // The patch's lfo1 is a SAW pitch sweep (deep — the C starts local LFOs at their negative
       // extreme, audible since syncParamsToFw2 ran at trigger time, `65f5d2a2`). The swept saw's
-      // waveform is strongly asymmetric (pokes only slightly above zero), so use PLAIN positive
-      // zero crossings per window to track its fundamental — hysteresis arming never fires.
+      // waveform is strongly asymmetric (pokes only slightly above zero), so subtract the local
+      // window mean (DC offset removal) to track its fundamental zero crossings reliably.
       double min = Double.MAX_VALUE, max = 0;
       int valid = 0;
       for (int w = 0; w < 24; w++) {
         int from = swOn + 2000 + w * 2205;
+        double mean = 0.0;
+        int limit = Math.min(from + 2205, sw.length);
+        int count = limit - from;
+        if (count <= 0) continue;
+        for (int i = from; i < limit; i++) {
+          mean += sw[i];
+        }
+        mean /= count;
+
         int zc = 0;
-        for (int i = from + 1; i < from + 2205 && i < sw.length; i++) {
-          if (sw[i - 1] <= 0 && sw[i] > 0) zc++;
+        for (int i = from + 1; i < limit; i++) {
+          double prev = sw[i - 1] - mean;
+          double curr = sw[i] - mean;
+          if (prev <= 0.0 && curr > 0.0) {
+            zc++;
+          }
         }
         double p = zc * 44100.0 / 2205.0;
         if (p > 0) {
@@ -1272,18 +1317,57 @@ public class PhysicalHardwareFidelityTest {
       org.junit.jupiter.api.Assertions.assertTrue(calculateRms(sw) > 0.01f);
       return;
     }
-    float[] hw = loadWavFromResource(wavPath);
-    int triggerBlock = 100;
-    float[] sw =
-        renderXmlTrackPreset(
-            "/fidelity/126_ARPEGGIATOR_GATE_SPREAD_C5.XML",
-            hw.length,
-            triggerBlock,
-            triggerBlock + 1000,
-            72);
-    int hwStart = findPositiveZeroCrossing(hw, 10000);
-    int swStart = findPositiveZeroCrossing(sw, 12800);
-    assertWaveShapeFidelity(hw, sw, 0.01, 15000, hwStart, swStart, "Arpeggiator Gate Spread C5");
+    org.chuck.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = 0;
+    org.chuck.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = 0;
+    try {
+      float[] hw = loadWavFromResource(wavPath);
+      int triggerBlock = 100;
+      float[] sw =
+          renderXmlTrackPreset(
+              "/fidelity/126_ARPEGGIATOR_GATE_SPREAD_C5.XML",
+              hw.length,
+              triggerBlock,
+              triggerBlock + 1000,
+              72,
+              java.util.Map.of(
+                  org.chuck.deluge.firmware.modulation.params.Param.LOCAL_VOLUME, 134217728));
+      int hwStart = findPositiveZeroCrossing(hw, 10000);
+      int swStart = findPositiveZeroCrossing(sw, 12800);
+      System.out.println("=== DEBUG RENDERED SW SAMPLES ===");
+      for (int i = 0; i < 50; i++) {
+        System.out.printf("  sw[%d] = %.6f\n", swStart + i, sw[swStart + i]);
+      }
+      System.out.println("=================================");
+
+      int silenceStart = -1;
+      int consecutiveZeros = 0;
+      for (int i = swStart; i < sw.length; i++) {
+        if (Math.abs(sw[i]) < 1e-15) {
+          consecutiveZeros++;
+          if (consecutiveZeros >= 100 && silenceStart == -1) {
+            silenceStart = i - 99;
+          }
+        } else {
+          consecutiveZeros = 0;
+        }
+      }
+      System.out.println("=== SILENCE DIAG ===");
+      System.out.println(
+          "  Silence started at: " + silenceStart + " (block " + (silenceStart / 128) + ")");
+      System.out.println("====================");
+
+      int swWindowStart = swStart + 15000 + -350; // targetOffset + bestLagOffset
+      System.out.println("=== DEBUG RENDERED SW WINDOW SAMPLES ===");
+      for (int i = 0; i < 50; i++) {
+        System.out.printf("  sw[%d] = %.6f\n", swWindowStart + i, sw[swWindowStart + i]);
+      }
+      System.out.println("========================================");
+
+      assertWaveShapeFidelity(hw, sw, 0.01, 15000, hwStart, swStart, "Arpeggiator Gate Spread C5");
+    } finally {
+      org.chuck.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = -2;
+      org.chuck.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = -2;
+    }
   }
 
   @Test

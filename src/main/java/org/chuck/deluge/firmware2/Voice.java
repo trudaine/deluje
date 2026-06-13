@@ -707,6 +707,18 @@ public class Voice {
     int overallOscAmplitude =
         Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(env0Gain, trackVol), 2);
 
+    if (sound.voices.indexOf(this) == 0) {
+      System.out.printf(
+          "  [ENV0 DIAG] state=%s lastValue=%d bipolar=%d env0Gain=%d trackVol=%d overallOscAmp=%d release=%d\n",
+          envelopes[0].state,
+          envelopes[0].lastValue,
+          sourceValues[PatchSource.ENVELOPE_0.ordinal()],
+          env0Gain,
+          trackVol,
+          overallOscAmplitude,
+          paramFinalValues[Param.LOCAL_ENV_0_RELEASE]);
+    }
+
     if (!doneFirstRender && paramFinalValues[Param.LOCAL_ENV_0_ATTACK] > 245632) {
       overallOscAmplitudeLastTime = overallOscAmplitude;
     }
@@ -1224,7 +1236,14 @@ public class Voice {
         (envelopes[0].state == Envelope.Stage.OFF)
             || (envelopes[0].state.compareTo(Envelope.Stage.DECAY) > 0
                 && sourceValues[PatchSource.ENVELOPE_0.ordinal()] == Integer.MIN_VALUE);
-    if (unassignVoiceAfter) active = false;
+    if (unassignVoiceAfter) {
+      active = false;
+      System.out.println(
+          "[DIAG VOICE] Unassigned voice for note "
+              + note
+              + " on voice index "
+              + sound.voices.indexOf(this));
+    }
 
     overallOscAmplitudeLastTime = overallOscAmplitude;
     doneFirstRender = true;
