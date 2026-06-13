@@ -12,10 +12,24 @@ import org.chuck.deluge.firmware.modulation.params.Param;
 import org.chuck.deluge.model.ProjectModel;
 import org.chuck.deluge.model.SynthTrackModel;
 import org.chuck.deluge.xml.DelugeXmlParser;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 @org.junit.jupiter.api.Tag("slow")
 public class PhysicalHardwareFidelityTest {
+
+  @BeforeEach
+  public void setUp() {
+    org.chuck.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = -2;
+    org.chuck.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = -2;
+  }
+
+  @AfterEach
+  public void tearDown() {
+    org.chuck.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = -2;
+    org.chuck.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = -2;
+  }
 
   @Test
   public void testDrySawtoothParity() throws Exception {

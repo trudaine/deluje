@@ -425,7 +425,10 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     // (same scheme as PureFirmwareEngine's master-delay sync). syncLevel exponent → multiples of a
     // 16th-note step; rate = 16384 * 2^24 / (delaySec * 44100), the inverse of
     // DelayBuffer.getIdealBufferSizeFromRate.
-    int dfb = fw2Sound.patchedParamValues[org.chuck.deluge.firmware2.Param.GLOBAL_DELAY_FEEDBACK];
+    int dfb =
+        org.chuck.deluge.firmware2.Patcher.computeFinalValueForParam(
+            org.chuck.deluge.firmware2.Param.GLOBAL_DELAY_FEEDBACK,
+            fw2Sound.patchedParamValues[org.chuck.deluge.firmware2.Param.GLOBAL_DELAY_FEEDBACK]);
     if (delaySyncLevel > 0 && dfb >= 256) {
       double bpm = currentBpm > 0 ? currentBpm : 120.0;
       double stepSec = (60.0 / bpm) / 4.0; // 16th-note
