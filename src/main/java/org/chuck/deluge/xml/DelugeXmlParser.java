@@ -1818,6 +1818,9 @@ public class DelugeXmlParser {
           DelugeHexMapper.hexToQ31(attack),
           DelugeHexMapper.hexToQ31(decay),
           DelugeHexMapper.hexToQ31(release));
+      synth.setRawParamKnob(
+          org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_SUSTAIN + i,
+          DelugeHexMapper.hexToQ31(sustain));
     }
 
     // Patch cables (the clip's set is authoritative in the song format).
@@ -1977,16 +1980,59 @@ public class DelugeXmlParser {
   }
 
   private static void parseFilterMode(Element soundNode, SynthTrackModel synth) {
-    NodeList modeNodes = soundNode.getElementsByTagName("lpfMode");
-    if (modeNodes.getLength() == 0) return;
-    String lpfMode = modeNodes.item(0).getTextContent().trim();
-    if ("24dB".equals(lpfMode)) {
-      synth.setFilterMode(FilterMode.LADDER_24);
-    } else if ("SVF".equals(lpfMode) || "svf".equalsIgnoreCase(lpfMode)) {
-      synth.setFilterMode(FilterMode.SVF);
-    } else {
-      synth.setFilterMode(FilterMode.LADDER_12);
-    }
+    // ── LPF Mode ──
+    readAttrOrChildString(
+        soundNode,
+        "lpfMode",
+        v -> {
+          if ("24dB".equalsIgnoreCase(v)) {
+            synth.setFilterMode(FilterMode.LADDER_24);
+          } else if ("SVF".equalsIgnoreCase(v)) {
+            synth.setFilterMode(FilterMode.SVF);
+          } else if ("DRIVE".equalsIgnoreCase(v)) {
+            synth.setFilterMode(FilterMode.DRIVE);
+          } else if ("SVF_BAND".equalsIgnoreCase(v) || "SVF Band".equalsIgnoreCase(v)) {
+            synth.setFilterMode(FilterMode.SVF_BAND);
+          } else if ("SVF_NOTCH".equalsIgnoreCase(v) || "SVF Notch".equalsIgnoreCase(v)) {
+            synth.setFilterMode(FilterMode.SVF_NOTCH);
+          } else {
+            synth.setFilterMode(FilterMode.LADDER_12);
+          }
+        });
+
+    // ── HPF Mode ──
+    readAttrOrChildString(
+        soundNode,
+        "hpfMode",
+        v -> {
+          if ("24dB".equalsIgnoreCase(v)) {
+            synth.setHpfMode(FilterMode.LADDER_24);
+          } else if ("SVF".equalsIgnoreCase(v)) {
+            synth.setHpfMode(FilterMode.SVF);
+          } else if ("DRIVE".equalsIgnoreCase(v)) {
+            synth.setHpfMode(FilterMode.DRIVE);
+          } else if ("SVF_BAND".equalsIgnoreCase(v) || "SVF Band".equalsIgnoreCase(v)) {
+            synth.setHpfMode(FilterMode.SVF_BAND);
+          } else if ("SVF_NOTCH".equalsIgnoreCase(v) || "SVF Notch".equalsIgnoreCase(v)) {
+            synth.setHpfMode(FilterMode.SVF_NOTCH);
+          } else {
+            synth.setHpfMode(FilterMode.LADDER_12);
+          }
+        });
+
+    // ── Filter Route ──
+    readAttrOrChildString(
+        soundNode,
+        "filterRoute",
+        v -> {
+          if ("L2H".equalsIgnoreCase(v) || "LPF_TO_HPF".equalsIgnoreCase(v)) {
+            synth.setFilterRoute(1); // LOW_TO_HIGH
+          } else if ("PARALLEL".equalsIgnoreCase(v)) {
+            synth.setFilterRoute(2); // PARALLEL
+          } else {
+            synth.setFilterRoute(0); // HIGH_TO_LOW / H2L
+          }
+        });
   }
 
   /** Frequency ratio for an FM modulator from its transpose (semitones) + cents. */
@@ -2116,6 +2162,12 @@ public class DelugeXmlParser {
             DelugeHexMapper.hexToQ31(envNode.getAttribute("attack")),
             DelugeHexMapper.hexToQ31(envNode.getAttribute("decay")),
             DelugeHexMapper.hexToQ31(envNode.getAttribute("release")));
+        String sustainAttr = envNode.getAttribute("sustain");
+        if (sustainAttr != null && !sustainAttr.isEmpty()) {
+          synth.setRawParamKnob(
+              org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_SUSTAIN + i,
+              DelugeHexMapper.hexToQ31(sustainAttr));
+        }
       }
     }
     // Fallback: try child-element format from
@@ -2142,6 +2194,12 @@ public class DelugeXmlParser {
                 DelugeHexMapper.hexToQ31(getChildText(envEl, "attack")),
                 DelugeHexMapper.hexToQ31(getChildText(envEl, "decay")),
                 DelugeHexMapper.hexToQ31(getChildText(envEl, "release")));
+            String sustainText = getChildText(envEl, "sustain");
+            if (sustainText != null && !sustainText.isEmpty()) {
+              synth.setRawParamKnob(
+                  org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_SUSTAIN + i,
+                  DelugeHexMapper.hexToQ31(sustainText));
+            }
           }
         }
       }
