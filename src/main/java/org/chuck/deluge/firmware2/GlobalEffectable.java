@@ -1,7 +1,6 @@
 package org.chuck.deluge.firmware2;
 
 import java.util.Arrays;
-import org.chuck.deluge.firmware2.StereoSample;
 
 /**
  * Faithful port of the Deluge C++ GlobalEffectable / GlobalEffectableForClip logic. Handles the

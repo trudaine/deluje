@@ -3,7 +3,6 @@ package org.chuck.deluge.firmware2;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Random;
-import org.chuck.deluge.firmware2.StereoSample;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -271,5 +270,4 @@ class Firmware2FxParityTest {
       assertEquals(er, got[1], "interpolateLinear R phase=" + phase);
     }
   }
-
 }

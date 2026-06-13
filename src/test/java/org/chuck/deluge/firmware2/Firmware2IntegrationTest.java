@@ -2,7 +2,6 @@ package org.chuck.deluge.firmware2;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import org.chuck.deluge.firmware2.StereoSample;
 import org.chuck.deluge.firmware.engine.FirmwareFactory;
 import org.chuck.deluge.firmware.engine.FirmwareSound;
 import org.chuck.deluge.firmware.model.InstrumentClip;

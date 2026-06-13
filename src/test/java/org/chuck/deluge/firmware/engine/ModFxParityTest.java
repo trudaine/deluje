@@ -2,8 +2,8 @@ package org.chuck.deluge.firmware.engine;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import org.chuck.deluge.firmware2.StereoSample;
 import org.chuck.deluge.firmware2.ModFx.ModFXType;
+import org.chuck.deluge.firmware2.StereoSample;
 import org.junit.jupiter.api.Test;
 
 /**

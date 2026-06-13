@@ -2,10 +2,10 @@ package org.chuck.deluge.firmware2;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.chuck.deluge.firmware2.Oscillator.OscType;
 import org.chuck.deluge.firmware.engine.FirmwareAudioEngine;
 import org.chuck.deluge.firmware.engine.FirmwareSound;
 import org.chuck.deluge.firmware.modulation.params.Param;
+import org.chuck.deluge.firmware2.Oscillator.OscType;
 import org.junit.jupiter.api.Test;
 
 /** Regression test for the LOCAL_FOLD wavefolder port (dsp/util.hpp:66-80, voice.cpp:1499/1585). */

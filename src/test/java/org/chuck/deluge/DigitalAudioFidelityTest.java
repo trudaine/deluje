@@ -4,7 +4,6 @@ import static org.chuck.deluge.firmware.util.Q31.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.File;
-import org.chuck.deluge.firmware2.StereoSample;
 import org.chuck.deluge.firmware.engine.FirmwareFactory;
 import org.chuck.deluge.firmware.engine.FirmwareKit;
 import org.chuck.deluge.firmware.engine.FirmwareSound;
@@ -13,6 +12,7 @@ import org.chuck.deluge.firmware.modulation.params.Param;
 import org.chuck.deluge.firmware.modulation.patch.PatchCable;
 import org.chuck.deluge.firmware.modulation.patch.PatchSource;
 import org.chuck.deluge.firmware.util.Q31;
+import org.chuck.deluge.firmware2.StereoSample;
 import org.chuck.deluge.model.KitTrackModel;
 import org.chuck.deluge.model.ProjectModel;
 import org.chuck.deluge.model.SynthTrackModel;

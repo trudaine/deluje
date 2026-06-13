@@ -1,7 +1,6 @@
 package org.chuck.deluge.firmware2;
 
 import java.util.ArrayList;
-import org.chuck.deluge.firmware2.StereoSample;
 import org.chuck.deluge.firmware.engine.GlobalSidechainBus;
 import org.chuck.deluge.firmware.engine.Stutterer;
 import org.chuck.deluge.firmware2.FilterSet.FilterMode;
@@ -171,6 +170,7 @@ public class Sound extends GlobalEffectable {
   public int delayFeedbackAmount = 0;
   public boolean delayPingPong = false;
   public boolean delayAnalog = false;
+  public boolean shouldLimitDelayFeedback = true;
 
   public ModFx.ModFXType modFXType = ModFx.ModFXType.NONE;
   public int modFXRateIncrement = 0;
@@ -572,7 +572,10 @@ public class Sound extends GlobalEffectable {
       delay.pingPong = delayPingPong;
       delay.analog = delayAnalog;
       delayState.userDelayRate = delayUserRate;
-      delayState.delayFeedbackAmount = delayFeedbackAmount;
+      delayState.delayFeedbackAmount =
+          shouldLimitDelayFeedback
+              ? Math.min(delayFeedbackAmount, (1 << 30) - (1 << 26))
+              : delayFeedbackAmount;
       delay.setupWorkingState(delayState, 1 << 20, hasActiveVoices);
       delay.process(fxIntBuffer, numSamples, delayState);
     }
