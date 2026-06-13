@@ -5328,6 +5328,10 @@ public class SwingGridPanel extends JPanel {
                                         : songTrack.getClips().get(0).getRowCount(),
                                     16));
                             fireProjectChanged();
+                          } else {
+                            if (SwingDelugeApp.mainInstance != null) {
+                              SwingDelugeApp.mainInstance.switchToTrackEdit(trkIdx, clipCol);
+                            }
                           }
                         }
                       }
@@ -5356,6 +5360,21 @@ public class SwingGridPanel extends JPanel {
                     public void mousePressed(java.awt.event.MouseEvent e) {
                       if (javax.swing.SwingUtilities.isLeftMouseButton(e)) {
                         showCreateTrackMenu(clipBtn, e.getX(), e.getY(), clickRow, clickCol);
+                      }
+                    }
+                  });
+            } else if (viewMode == GridViewMode.SONG
+                && colId == columnCount - 1
+                && t < tracks.size()) {
+              final int clickRow = t;
+              clipBtn.addMouseListener(
+                  new java.awt.event.MouseAdapter() {
+                    @Override
+                    public void mousePressed(java.awt.event.MouseEvent e) {
+                      if (javax.swing.SwingUtilities.isLeftMouseButton(e)) {
+                        if (SwingDelugeApp.mainInstance != null) {
+                          SwingDelugeApp.mainInstance.switchToTrackEdit(clickRow, 0);
+                        }
                       }
                     }
                   });
