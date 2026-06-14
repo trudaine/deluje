@@ -40,6 +40,8 @@ public class SwingDelugeApp extends JFrame {
   private SwingTopBarPanel topBar;
   private AppTopBarListener appTopBarListener;
   private SwingMasterFxPanel masterFxPanel;
+  private SynthParamRack synthParamRack;
+  private javax.swing.JScrollPane rackScroll;
 
   private JPanel centerCardPanel;
 
@@ -1862,6 +1864,23 @@ public class SwingDelugeApp extends JFrame {
     if (songPanel != null) songPanel.refresh();
     if (arrGridPanel != null) arrGridPanel.refresh();
     if (autoPanel != null) autoPanel.refresh();
+    if (synthParamRack != null) synthParamRack.refresh();
+  }
+
+  /** Show/hide the EAST synth param rack; the grid reflows to reclaim the width. */
+  public void toggleParamRack() {
+    if (rackScroll != null) {
+      rackScroll.setVisible(!rackScroll.isVisible());
+      revalidate();
+      repaint();
+    }
+  }
+
+  /** Re-read the edited track into the param rack (called on track/view changes). */
+  public void refreshParamRack() {
+    if (synthParamRack != null) {
+      synthParamRack.refresh();
+    }
   }
 
   public void updateHardwareLedDisplay(String paramCode, String valueString) {
@@ -2655,6 +2674,39 @@ public class SwingDelugeApp extends JFrame {
     centerScroll.getViewport().setBackground(Color.BLUE);*/
 
     add(centerScroll, BorderLayout.CENTER);
+
+    // Always-visible synth param rack docked EAST (collapsible via the RACK button). It costs only
+    // horizontal space (abundant) so the grid keeps its full height; scrollable for short screens.
+    synthParamRack =
+        new SynthParamRack(
+            vm,
+            () -> {
+              SwingGridPanel a = activeGridPanel();
+              if (a == null || a.getProjectModel() == null) {
+                return null;
+              }
+              int idx = a.getEditedModelTrack();
+              if (idx < 0 || idx >= a.getProjectModel().getTracks().size()) {
+                return null;
+              }
+              return (a.getProjectModel().getTracks().get(idx)
+                      instanceof org.chuck.deluge.model.SynthTrackModel st)
+                  ? st
+                  : null;
+            },
+            () -> {
+              SwingGridPanel a = activeGridPanel();
+              return a == null ? -1 : a.getEditedModelTrack();
+            });
+    rackScroll =
+        new JScrollPane(
+            synthParamRack,
+            ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
+            ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+    rackScroll.setBorder(BorderFactory.createMatteBorder(0, 1, 0, 0, new Color(0x2d, 0x2d, 0x34)));
+    rackScroll.getVerticalScrollBar().setUnitIncrement(16);
+    rackScroll.setPreferredSize(new Dimension(312, 100));
+    add(rackScroll, BorderLayout.EAST);
 
     javax.swing.SwingUtilities.invokeLater(() -> centerScroll.getVerticalScrollBar().setValue(0));
 
