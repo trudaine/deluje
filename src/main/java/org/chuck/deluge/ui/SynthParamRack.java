@@ -53,20 +53,21 @@ public class SynthParamRack extends JPanel {
     add(title);
     add(javax.swing.Box.createVerticalStrut(8));
 
-    // Two-column grid of relative encoder knobs.
+    // Two-column grid of relative encoder knobs. Drag a knob to change the value (Deluge encoder).
     JPanel knobs = new JPanel(new GridLayout(0, 2, 6, 6));
     knobs.setOpaque(false);
-    knobs.add(knob("CUTOFF", ACCENT, d -> editCutoff(d)));
-    knobs.add(knob("RES", ACCENT, d -> editRes(d)));
-    knobs.add(knob("HPF", ACCENT, d -> editHpf(d)));
-    knobs.add(knob("OSC MIX", ACCENT, d -> editOscMix(d)));
-    knobs.add(knob("LEVEL", GOLD, d -> editLevel(d)));
+    knobs.add(knob("CUTOFF", "Low-pass filter cutoff frequency — drag to sweep", ACCENT, this::editCutoff));
+    knobs.add(knob("RES", "Low-pass filter resonance", ACCENT, this::editRes));
+    knobs.add(knob("HPF", "High-pass filter cutoff frequency", ACCENT, this::editHpf));
+    knobs.add(knob("OSC MIX", "Balance between oscillator 1 and 2", ACCENT, this::editOscMix));
+    knobs.add(knob("LEVEL", "Track output level", GOLD, this::editLevel));
     add(knobs);
 
     add(javax.swing.Box.createVerticalStrut(10));
     add(rowLabel("FILTER"));
     filterToggle =
         new SegmentedToggle(new String[] {"12dB", "24dB", "SVF"}, 0, ACCENT).onChange(this::setFilter);
+    filterToggle.setToolTipText("Filter type / slope: 12dB or 24dB ladder, or state-variable filter");
     filterToggle.setMaximumSize(new Dimension(280, 28));
     filterToggle.setAlignmentX(CENTER_ALIGNMENT);
     add(filterToggle);
@@ -75,6 +76,7 @@ public class SynthParamRack extends JPanel {
     add(rowLabel("MODE"));
     modeToggle =
         new SegmentedToggle(new String[] {"SUB", "FM", "RING"}, 0, ACCENT).onChange(this::setMode);
+    modeToggle.setToolTipText("Synth engine: Subtractive, FM, or Ring-mod");
     modeToggle.setMaximumSize(new Dimension(280, 28));
     modeToggle.setAlignmentX(CENTER_ALIGNMENT);
     add(modeToggle);
@@ -83,9 +85,11 @@ public class SynthParamRack extends JPanel {
     refresh();
   }
 
-  private DelugeEncoderKnob knob(String label, Color c, java.util.function.IntConsumer onTurn) {
+  private DelugeEncoderKnob knob(
+      String label, String tooltip, Color c, java.util.function.IntConsumer onTurn) {
     DelugeEncoderKnob k = new DelugeEncoderKnob(label, c);
     k.setPreferredSize(new Dimension(120, 64));
+    k.setToolTipText(tooltip);
     k.onTurn(onTurn);
     return k;
   }
