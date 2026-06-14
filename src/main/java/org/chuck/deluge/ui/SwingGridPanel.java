@@ -3563,11 +3563,63 @@ public class SwingGridPanel extends JPanel {
                       }
                     }
                   }
-
                   if (!noteRow.notes.isEmpty()) {
                     nextRows.add(noteRow);
                   }
                 }
+
+                // Release notes deleted or altered mid-playback to prevent hung voices
+                if (isSequencerPlaying()) {
+                  java.util.List<org.chuck.deluge.firmware.model.note.NoteRow> oldRows =
+                      instClip.noteRows;
+                  if (oldRows != null) {
+                    for (org.chuck.deluge.firmware.model.note.NoteRow oldRow : oldRows) {
+                      for (org.chuck.deluge.firmware.model.note.Note oldNote : oldRow.notes) {
+                        int curPos = instClip.lastProcessedPos;
+                        int loopLen = instClip.loopLength;
+                        if (loopLen > 0) {
+                          int start = oldNote.pos;
+                          int end = (oldNote.pos + oldNote.length) % loopLen;
+                          boolean isActive;
+                          if (start <= end) {
+                            isActive = (curPos >= start && curPos < end);
+                          } else {
+                            isActive = (curPos >= start || curPos < end);
+                          }
+
+                          if (isActive) {
+                            boolean stillExists = false;
+                            for (org.chuck.deluge.firmware.model.note.NoteRow newRow : nextRows) {
+                              if (newRow.getNoteCode() == oldRow.getNoteCode()) {
+                                for (org.chuck.deluge.firmware.model.note.Note newNote :
+                                    newRow.notes) {
+                                  if (newNote.pos == oldNote.pos
+                                      && newNote.length == oldNote.length) {
+                                    stillExists = true;
+                                    break;
+                                  }
+                                }
+                              }
+                            }
+                            if (!stillExists) {
+                              if (instClip.sound
+                                  instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
+                                if (oldRow.getNoteCode() >= 0
+                                    && oldRow.getNoteCode() < kit.drumSounds.size()) {
+                                  kit.drumSounds.get(oldRow.getNoteCode()).releaseNote(60);
+                                }
+                              } else if (instClip.sound
+                                  instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
+                                synth.releaseNote(oldRow.getNoteCode());
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+
                 instClip.noteRows = nextRows;
               }
             }
