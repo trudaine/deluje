@@ -1521,36 +1521,6 @@ public class SwingDelugeApp extends JFrame {
     }
   }
 
-  /** True when there is no firmware playback song installed yet (forces a consistent full rebuild). */
-  private boolean playbackSongMissing() {
-    Object h = vm.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
-    return !(h instanceof org.chuck.deluge.firmware.playback.PlaybackHandler ph) || ph.getSong() == null;
-  }
-
-  /** True if the live sound's type still matches the track's type (so no rebuild is needed). */
-  static boolean soundMatchesTrack(
-      org.chuck.deluge.model.TrackModel tm, org.chuck.deluge.firmware2.GlobalEffectable snd) {
-    if (tm instanceof org.chuck.deluge.model.SynthTrackModel) {
-      return snd instanceof org.chuck.deluge.firmware.engine.FirmwareSound;
-    }
-    if (tm instanceof org.chuck.deluge.model.KitTrackModel) {
-      return snd instanceof org.chuck.deluge.firmware.engine.FirmwareKit;
-    }
-    return snd == null; // MIDI / Audio tracks have no engine sound
-  }
-
-  /** Apply a track's model params to its live sound without rebuilding it (preserves voices). */
-  private static void applyTrackToLiveSound(
-      org.chuck.deluge.model.TrackModel tm, org.chuck.deluge.firmware2.GlobalEffectable snd) {
-    if (tm instanceof org.chuck.deluge.model.SynthTrackModel st
-        && snd instanceof org.chuck.deluge.firmware.engine.FirmwareSound fs) {
-      org.chuck.deluge.firmware.engine.FirmwareFactory.applyModelToLiveSound(st, fs);
-    } else if (tm instanceof org.chuck.deluge.model.KitTrackModel kt
-        && snd instanceof org.chuck.deluge.firmware.engine.FirmwareKit fk) {
-      org.chuck.deluge.firmware.engine.FirmwareFactory.applyModelToLiveSound(kt, fk);
-    }
-  }
-
   public void syncHighFidelityEngine(org.chuck.deluge.model.ProjectModel model) {
     org.chuck.deluge.firmware.model.Song fwSong = FirmwareFactory.createSong(model);
     MatrixDriver.get().popUI();
@@ -1572,46 +1542,20 @@ public class SwingDelugeApp extends JFrame {
     }
 
     // ── Sync Audio Registry ──
-    // ONE flag, `fullRebuild`, gates BOTH the sound re-registration here AND the setSong below, so
-    // the song the sequencer triggers (currentSong.clips[i].sound) and the sounds renderBlock
-    // renders (engine.sounds[i]) can NEVER diverge — a divergence makes triggered notes go to
-    // unrendered objects, i.e. silence. We do the full destructive rebuild only on a structural
-    // change (track count/type) OR when there is no playing song yet to stay consistent with. For a
-    // plain content edit we keep the live voices (no garbage) and the grid's live-sync in refresh()
-    // updates the existing song's notes in place.
-    boolean songMissing = playbackSongMissing();
-    boolean fullRebuild = true;
     Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
     if (fwEngineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
-      boolean structureChanged = fwEngine.sounds.size() != model.getTracks().size();
-      if (!structureChanged) {
-        for (int i = 0; i < model.getTracks().size(); i++) {
-          if (!soundMatchesTrack(model.getTracks().get(i), fwEngine.sounds.get(i))) {
-            structureChanged = true;
-            break;
-          }
-        }
+      fwEngine.sounds.clear();
+      // Ensure sounds list matches track count for direct indexing
+      for (int i = 0; i < model.getTracks().size(); i++) {
+        fwEngine.sounds.add(null);
       }
-      fullRebuild = structureChanged || songMissing;
 
-      if (fullRebuild) {
-        fwEngine.sounds.clear();
-        // Ensure sounds list matches track count for direct indexing
-        for (int i = 0; i < model.getTracks().size(); i++) {
-          fwEngine.sounds.add(null);
-        }
-        for (int i = 0; i < fwSong.clips.size() && i < model.getTracks().size(); i++) {
-          org.chuck.deluge.firmware.model.Clip c = fwSong.clips.get(i);
-          if (c instanceof org.chuck.deluge.firmware.model.InstrumentClip ic && ic.sound != null) {
-            fwEngine.sounds.set(i, ic.sound);
-            System.out.println(
-                "[UI] Registered track " + i + " sound: " + ic.sound.getClass().getSimpleName());
-          }
-        }
-      } else {
-        // Content edit: keep the live voices, just apply any param changes in place.
-        for (int i = 0; i < model.getTracks().size(); i++) {
-          applyTrackToLiveSound(model.getTracks().get(i), fwEngine.sounds.get(i));
+      for (int i = 0; i < fwSong.clips.size() && i < model.getTracks().size(); i++) {
+        org.chuck.deluge.firmware.model.Clip c = fwSong.clips.get(i);
+        if (c instanceof org.chuck.deluge.firmware.model.InstrumentClip ic && ic.sound != null) {
+          fwEngine.sounds.set(i, ic.sound);
+          System.out.println(
+              "[UI] Registered track " + i + " sound: " + ic.sound.getClass().getSimpleName());
         }
       }
 
@@ -1671,13 +1615,7 @@ public class SwingDelugeApp extends JFrame {
             + " fwSongClips="
             + (fwSong != null ? fwSong.clips.size() : "null"));
     if (fwHandlerObj instanceof org.chuck.deluge.firmware.playback.PlaybackHandler fwHandler) {
-      // Gated by the SAME fullRebuild flag as the sound re-registration above: setSong installs the
-      // fresh fwSong (whose clips point at the freshly-registered sounds) only when we actually
-      // rebuilt those sounds. On a content edit we leave the running song untouched; its notes are
-      // updated in place by the grid's live-sync in refresh().
-      if (fullRebuild) {
-        fwHandler.setSong(fwSong);
-      }
+      fwHandler.setSong(fwSong);
       System.out.println(
           "[DIAG sync] Successfully set fwSong inside PlaybackHandler! Current active play state="
               + fwHandler.isPlaying()
