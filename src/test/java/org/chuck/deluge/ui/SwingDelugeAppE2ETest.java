@@ -183,12 +183,26 @@ public class SwingDelugeAppE2ETest {
 
     java.io.ByteArrayOutputStream pcmBuffer = new java.io.ByteArrayOutputStream();
 
+    final org.chuck.deluge.firmware.playback.PlaybackHandler playbackHandler =
+        (org.chuck.deluge.firmware.playback.PlaybackHandler)
+            vm.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
+
     Thread audioThread =
         new Thread(
             () -> {
               int blockCount = 0;
+              double ticksPerSample = 0.005; // 120BPM default
+              double accumulatedTicks = 0;
               while (running.get()) {
                 blockCount++;
+                if (playbackHandler != null) {
+                  accumulatedTicks += ticksPerSample * 128;
+                  int toAdvance = (int) accumulatedTicks;
+                  if (toAdvance > 0) {
+                    playbackHandler.advanceTicks(toAdvance);
+                    accumulatedTicks -= toAdvance;
+                  }
+                }
                 long start = System.nanoTime();
                 finalEngine.renderBlock(128);
                 long duration = System.nanoTime() - start;
@@ -280,6 +294,168 @@ public class SwingDelugeAppE2ETest {
     assertTrue(
         latencySpikes.isEmpty(),
         "Audio thread anomaly detected during grid edits (spikes/blowouts): " + latencySpikes);
+  }
+
+  @Test
+  public void testResamplingBlowoutReproduction() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+
+    ChuckVM vm = new ChuckVM(44100, 2);
+    BridgeContract bridge = new BridgeContract();
+    bridge.register(vm);
+
+    SwingDelugeApp app = new SwingDelugeApp(vm, bridge, null, true);
+    SwingGridPanel grid = app.getClipPanel();
+
+    // Load rich synth preset
+    java.io.File presetFile = new java.io.File("src/main/resources/SYNTHS/000 Rich Saw Bass.XML");
+    if (!presetFile.exists()) {
+      presetFile = new java.io.File("deluge/src/main/resources/SYNTHS/000 Rich Saw Bass.XML");
+    }
+    org.chuck.deluge.model.SynthTrackModel synthTrack =
+        org.chuck.deluge.xml.DelugeXmlParser.parseSynth(presetFile);
+    synthTrack.setName("SYNTH_PRESET");
+    if (synthTrack.getClips().isEmpty()) {
+      synthTrack.addClip(new org.chuck.deluge.model.ClipModel("CLIP 1", 72, 16));
+    }
+    synthTrack.getClips().get(0).setPlayMode(org.chuck.deluge.model.ClipModel.PlayMode.LOOP);
+    app.getCurrentProject().getTracks().clear();
+    app.getCurrentProject().addTrack(synthTrack);
+    app.propagateCurrentModel();
+    app.syncHighFidelityEngine(app.getCurrentProject());
+
+    grid.setEditedModelTrack(0);
+    grid.refresh();
+
+    // 1. Click 0,0 1,1 and 2,2
+    int[][] toClick = {{0, 0}, {1, 1}, {2, 2}};
+    for (int[] cell : toClick) {
+      int row = cell[0];
+      int col = cell[1];
+      javax.swing.JButton pad = grid.getPads()[row][col];
+      assertNotNull(pad);
+      javax.swing.SwingUtilities.invokeAndWait(
+          () -> {
+            for (java.awt.event.MouseListener ml : pad.getMouseListeners()) {
+              ml.mousePressed(
+                  new java.awt.event.MouseEvent(
+                      pad,
+                      java.awt.event.MouseEvent.MOUSE_PRESSED,
+                      System.currentTimeMillis(),
+                      0,
+                      10,
+                      10,
+                      1,
+                      false,
+                      java.awt.event.MouseEvent.BUTTON1));
+              ml.mouseReleased(
+                  new java.awt.event.MouseEvent(
+                      pad,
+                      java.awt.event.MouseEvent.MOUSE_RELEASED,
+                      System.currentTimeMillis(),
+                      0,
+                      10,
+                      10,
+                      1,
+                      false,
+                      java.awt.event.MouseEvent.BUTTON1));
+            }
+          });
+    }
+
+    // 2. Play the sequence
+    app.getTopBarListener().onPlayToggle();
+
+    // Start resampling (records from background audio driver thread)
+    org.chuck.deluge.engine.JavaAudioDriver.startResampling();
+
+    // Playback active
+    Thread.sleep(1000);
+
+    // 3. Click cell 3,3
+    javax.swing.JButton pad3 = grid.getPads()[3][3];
+    assertNotNull(pad3);
+    javax.swing.SwingUtilities.invokeAndWait(
+        () -> {
+          for (java.awt.event.MouseListener ml : pad3.getMouseListeners()) {
+            ml.mousePressed(
+                new java.awt.event.MouseEvent(
+                    pad3,
+                    java.awt.event.MouseEvent.MOUSE_PRESSED,
+                    System.currentTimeMillis(),
+                    0,
+                    10,
+                    10,
+                    1,
+                    false,
+                    java.awt.event.MouseEvent.BUTTON1));
+            ml.mouseReleased(
+                new java.awt.event.MouseEvent(
+                    pad3,
+                    java.awt.event.MouseEvent.MOUSE_RELEASED,
+                    System.currentTimeMillis(),
+                    0,
+                    10,
+                    10,
+                    1,
+                    false,
+                    java.awt.event.MouseEvent.BUTTON1));
+          }
+        });
+
+    // Render for another 2500ms to allow sequencer loop to complete and repeat
+    Thread.sleep(2500);
+
+    byte[] pcmData = org.chuck.deluge.engine.JavaAudioDriver.stopResampling();
+
+    // Save initial resample WAV file
+    java.io.File destFile =
+        new java.io.File(
+            "/Users/ludo/.gemini/jetski/brain/a3569f91-4e06-4b92-bad2-e0e1f46551cb/reproduction_test.wav");
+    writeWavFile(destFile, pcmData, 44100, 2);
+    System.out.println(
+        "[ReproductionTest] Saved reproduction test recording to: " + destFile.getAbsolutePath());
+
+    // 4. Create and add a new Kit track with our recorded loop sample loaded
+    org.chuck.deluge.model.KitTrackModel kitTrack =
+        new org.chuck.deluge.model.KitTrackModel("Resample Track");
+    org.chuck.deluge.model.Drum drum =
+        new org.chuck.deluge.model.SoundDrum("reproduction_test.wav", destFile.getAbsolutePath());
+    kitTrack.addDrum(drum);
+
+    // Program 4-on-the-floor loop triggers (Col 0, 4, 8, 12)
+    org.chuck.deluge.model.ClipModel clip = new org.chuck.deluge.model.ClipModel("CLIP 1", 1, 16);
+    clip.setPlayMode(org.chuck.deluge.model.ClipModel.PlayMode.LOOP);
+    clip.setStep(0, 0, org.chuck.deluge.model.StepData.of(true, 1.0f, 1.0f, 1.0f, 0));
+    clip.setStep(0, 4, org.chuck.deluge.model.StepData.of(true, 1.0f, 1.0f, 1.0f, 0));
+    clip.setStep(0, 8, org.chuck.deluge.model.StepData.of(true, 1.0f, 1.0f, 1.0f, 0));
+    clip.setStep(0, 12, org.chuck.deluge.model.StepData.of(true, 1.0f, 1.0f, 1.0f, 0));
+    kitTrack.addClip(clip);
+
+    app.getCurrentProject().addTrack(kitTrack);
+
+    // Sync changes to engine (triggers full structural sync while playing)
+    app.propagateCurrentModel();
+    app.syncHighFidelityEngine(app.getCurrentProject());
+
+    // Start resampling again to capture the combined output of Synth + resampled Kit
+    org.chuck.deluge.engine.JavaAudioDriver.startResampling();
+
+    // Sleep 1500ms to record playback of both tracks
+    Thread.sleep(1500);
+
+    byte[] combinedPcm = org.chuck.deluge.engine.JavaAudioDriver.stopResampling();
+
+    app.dispose();
+    vm.shutdown();
+
+    java.io.File combinedFile =
+        new java.io.File(
+            "/Users/ludo/.gemini/jetski/brain/a3569f91-4e06-4b92-bad2-e0e1f46551cb/combined_reproduction_test.wav");
+    writeWavFile(combinedFile, combinedPcm, 44100, 2);
+    System.out.println(
+        "[ReproductionTest] Saved combined reproduction recording to: "
+            + combinedFile.getAbsolutePath());
   }
 
   private void writeWavFile(java.io.File file, byte[] pcmData, int sampleRate, int channels)
