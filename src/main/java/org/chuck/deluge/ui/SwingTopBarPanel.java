@@ -91,6 +91,20 @@ public class SwingTopBarPanel extends JPanel {
     return paramReadout;
   }
 
+  /** Convert the edited track of the active grid to Synth (true) or MIDI (false). */
+  private void convertEditedTrack(boolean toSynth) {
+    if (SwingDelugeApp.mainInstance == null) {
+      return;
+    }
+    SwingGridPanel active = SwingDelugeApp.mainInstance.getActiveGridPanel();
+    if (active == null) {
+      return;
+    }
+    int trk = active.getEditedModelTrack();
+    boolean done = toSynth ? active.convertTrackToSynth(trk) : active.convertTrackToMidi(trk);
+    paramReadout.printTransient("TYPE", done ? (toSynth ? "SYNTH" : "MIDI") : "—");
+  }
+
   /** Toggle the engine metronome (SHIFT+TAP), reflecting state on the readout. */
   private void toggleMetronome() {
     Object eng = vm.getGlobalObject(org.chuck.deluge.BridgeContract.G_FIRMWARE_ENGINE);
@@ -429,6 +443,27 @@ public class SwingTopBarPanel extends JPanel {
           }
         });
     add(scaleBtn);
+
+    // Track type convert (Deluge SYNTH / MIDI buttons) — converts the edited track, keeping clips.
+    JButton toSynthBtn = new JButton("→SYN");
+    styleButton(toSynthBtn, new Color(0x23, 0x3d, 0x23), new Color(0x66, 0xff, 0x88));
+    toSynthBtn.setPreferredSize(new Dimension(50, 22));
+    toSynthBtn.setMargin(new Insets(0, 0, 0, 0));
+    toSynthBtn.setFont(new Font("SansSerif", Font.BOLD, 10));
+    toSynthBtn.setFocusable(false);
+    toSynthBtn.setToolTipText("Convert the edited track to a Synth track");
+    toSynthBtn.addActionListener(e -> convertEditedTrack(true));
+    add(toSynthBtn);
+
+    JButton toMidiBtn = new JButton("→MIDI");
+    styleButton(toMidiBtn, new Color(0x23, 0x23, 0x3d), new Color(0x88, 0x88, 0xff));
+    toMidiBtn.setPreferredSize(new Dimension(50, 22));
+    toMidiBtn.setMargin(new Insets(0, 0, 0, 0));
+    toMidiBtn.setFont(new Font("SansSerif", Font.BOLD, 10));
+    toMidiBtn.setFocusable(false);
+    toMidiBtn.setToolTipText("Convert the edited track to a MIDI track");
+    toMidiBtn.addActionListener(e -> convertEditedTrack(false));
+    add(toMidiBtn);
     bpmSlider.setBackground(new Color(0x12, 0x12, 0x14));
     bpmSlider.setForeground(new Color(0x00, 0xff, 0xcc));
     bpmSlider.setOpaque(false);

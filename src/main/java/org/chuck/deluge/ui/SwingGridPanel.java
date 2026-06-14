@@ -817,33 +817,11 @@ public class SwingGridPanel extends JPanel {
       menu.add(saveSynthItem);
 
       JMenuItem toMidiItem = new JMenuItem("Convert to MIDI Track");
-      toMidiItem.addActionListener(
-          e -> {
-            org.chuck.deluge.model.MidiTrackModel midiTrk =
-                new org.chuck.deluge.model.MidiTrackModel(synthTrack.getName());
-            midiTrk.setColourHex("0x0000FF");
-            for (org.chuck.deluge.model.ClipModel cm : synthTrack.getClips()) {
-              midiTrk.addClip(cm);
-            }
-            projectModel.getTracks().set(trackIdx, midiTrk);
-            trackColors[trackIdx] = new Color(0x33, 0x33, 0xff);
-            fireProjectChanged();
-          });
+      toMidiItem.addActionListener(e -> convertTrackToMidi(trackIdx));
       menu.add(toMidiItem);
-    } else if (track instanceof org.chuck.deluge.model.MidiTrackModel midiTrack) {
+    } else if (track instanceof org.chuck.deluge.model.MidiTrackModel) {
       JMenuItem toSynthItem = new JMenuItem("Convert to Synth Track");
-      toSynthItem.addActionListener(
-          e -> {
-            org.chuck.deluge.model.SynthTrackModel synthTrk =
-                new org.chuck.deluge.model.SynthTrackModel(midiTrack.getName());
-            synthTrk.setColourHex("0x00FF00");
-            for (org.chuck.deluge.model.ClipModel cm : midiTrack.getClips()) {
-              synthTrk.addClip(cm);
-            }
-            projectModel.getTracks().set(trackIdx, synthTrk);
-            trackColors[trackIdx] = new Color(0x33, 0xff, 0x33);
-            fireProjectChanged();
-          });
+      toSynthItem.addActionListener(e -> convertTrackToSynth(trackIdx));
       menu.add(toSynthItem);
     }
 
@@ -8793,6 +8771,54 @@ public class SwingGridPanel extends JPanel {
     }
     fireProjectChanged();
     refresh();
+    return true;
+  }
+
+  /**
+   * Convert the track at {@code trackIdx} to a MIDI track (Deluge MIDI button), preserving its
+   * clips. No-op if it is not currently a Synth track. Returns true if a conversion happened.
+   */
+  public boolean convertTrackToMidi(int trackIdx) {
+    if (projectModel == null || trackIdx < 0 || trackIdx >= projectModel.getTracks().size()) {
+      return false;
+    }
+    if (!(projectModel.getTracks().get(trackIdx)
+        instanceof org.chuck.deluge.model.SynthTrackModel synthTrack)) {
+      return false;
+    }
+    org.chuck.deluge.model.MidiTrackModel midiTrk =
+        new org.chuck.deluge.model.MidiTrackModel(synthTrack.getName());
+    midiTrk.setColourHex("0x0000FF");
+    for (org.chuck.deluge.model.ClipModel cm : synthTrack.getClips()) {
+      midiTrk.addClip(cm);
+    }
+    projectModel.getTracks().set(trackIdx, midiTrk);
+    trackColors[trackIdx % trackColors.length] = new Color(0x33, 0x33, 0xff);
+    fireProjectChanged();
+    return true;
+  }
+
+  /**
+   * Convert the track at {@code trackIdx} to a Synth track (Deluge SYNTH button), preserving its
+   * clips. No-op if it is not currently a MIDI track. Returns true if a conversion happened.
+   */
+  public boolean convertTrackToSynth(int trackIdx) {
+    if (projectModel == null || trackIdx < 0 || trackIdx >= projectModel.getTracks().size()) {
+      return false;
+    }
+    if (!(projectModel.getTracks().get(trackIdx)
+        instanceof org.chuck.deluge.model.MidiTrackModel midiTrack)) {
+      return false;
+    }
+    org.chuck.deluge.model.SynthTrackModel synthTrk =
+        new org.chuck.deluge.model.SynthTrackModel(midiTrack.getName());
+    synthTrk.setColourHex("0x00FF00");
+    for (org.chuck.deluge.model.ClipModel cm : midiTrack.getClips()) {
+      synthTrk.addClip(cm);
+    }
+    projectModel.getTracks().set(trackIdx, synthTrk);
+    trackColors[trackIdx % trackColors.length] = new Color(0x33, 0xff, 0x33);
+    fireProjectChanged();
     return true;
   }
 
