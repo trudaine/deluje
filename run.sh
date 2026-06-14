@@ -47,5 +47,5 @@ JAR_NAME="deluge-swing.jar"
 
 
 echo "Launching Deluge ($JAR_NAME)..."
-"$JAVA_EXEC" --enable-preview --add-modules jdk.incubator.vector -jar "$JAR_NAME" --swing
+"$JAVA_EXEC" --add-modules jdk.incubator.vector -jar "$JAR_NAME" --swing
 
