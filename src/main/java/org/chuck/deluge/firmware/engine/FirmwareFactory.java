@@ -112,52 +112,61 @@ public class FirmwareFactory {
       clip.loopLength = clipModel.getStepCount() * stepTicks;
       mapPlayDirection(clipModel, clip);
       for (int r = 0; r < clipModel.getRowCount(); r++) {
-        // Real-format Deluge songs have SPARSE noteRows carrying an absolute yNote (MIDI note);
-        // the row-index mapping ((rowCount-1)-r, the UI's 128-row grid convention) played wrong
-        // pitches for them — found via hardware comparison: the Deluge played the documented C5,
-        // our render of the same file didn't.
-        int yNote = clipModel.getRowYNote(r);
-        int pitch = (yNote >= 0) ? yNote : (clipModel.getRowCount() - 1) - r;
-        NoteRow row = new NoteRow(pitch);
-        java.util.List<org.chuck.deluge.model.HighResNote> rawNotes = clipModel.getRawNoteEvents(r);
-        if (rawNotes != null && !rawNotes.isEmpty()) {
-          for (org.chuck.deluge.model.HighResNote note : rawNotes) {
-            row.attemptNoteAdd(
-                note.getTickPos(),
-                note.getTickLen(),
-                (int) (note.getVelocity() * 127),
-                (int) (note.getProbability() * 100),
-                null,
-                0);
-          }
-        } else {
-          // If the step cell has a custom explicit pitch parameter (e.g. from tests/custom XMLs!),
-          // use it to override the row's pitch!
-          for (int s = 0; s < clipModel.getStepCount(); s++) {
-            StepData step = clipModel.getStep(r, s);
-            if (step.active() && step.pitch() > 0) {
-              pitch = step.pitch();
-              row = new NoteRow(pitch);
-              break;
-            }
-          }
-          for (int s = 0; s < clipModel.getStepCount(); s++) {
-            StepData step = clipModel.getStep(r, s);
-            if (step.active()) {
-              row.attemptNoteAdd(
-                  s * stepTicks,
-                  (int) (step.gate() * stepTicks),
-                  (int) (step.velocity() * 127.0f),
-                  100,
-                  null,
-                  0);
-            }
-          }
-        }
-        clip.noteRows.add(row);
+        clip.noteRows.add(buildNoteRow(clipModel, r, false, stepTicks));
       }
     }
     return clip;
+  }
+
+  /**
+   * Builds one {@link NoteRow} from a {@link ClipModel} row. This is the SINGLE authoritative
+   * model-row -> NoteRow mapping, shared by song-load (here) and the live grid rebuild in
+   * SwingGridPanel. They MUST NOT diverge: a past divergence assigned grid row indices (0..n) as
+   * the synth pitch, so every note played as ~8-12Hz sub-bass ("garbage when adding a cell while
+   * playing"). For synths the pitch is the row's absolute yNote (real-format songs) or, failing
+   * that, an explicit per-step pitch, else the (rowCount-1)-r grid fallback; for kits it is the
+   * drum-row index r.
+   */
+  public static NoteRow buildNoteRow(ClipModel clipModel, int r, boolean isKit, int stepTicks) {
+    int yNote = clipModel.getRowYNote(r);
+    int pitch = isKit ? r : ((yNote >= 0) ? yNote : (clipModel.getRowCount() - 1) - r);
+    NoteRow row = new NoteRow(pitch);
+    java.util.List<org.chuck.deluge.model.HighResNote> rawNotes = clipModel.getRawNoteEvents(r);
+    if (rawNotes != null && !rawNotes.isEmpty()) {
+      for (org.chuck.deluge.model.HighResNote note : rawNotes) {
+        row.attemptNoteAdd(
+            note.getTickPos(),
+            note.getTickLen(),
+            (int) (note.getVelocity() * 127),
+            (int) (note.getProbability() * 100),
+            null,
+            0);
+      }
+      return row;
+    }
+    // Step-grid path. Synth rows may carry an explicit per-step pitch (custom XMLs/tests).
+    if (!isKit) {
+      for (int s = 0; s < clipModel.getStepCount(); s++) {
+        StepData step = clipModel.getStep(r, s);
+        if (step.active() && step.pitch() > 0) {
+          row = new NoteRow(step.pitch());
+          break;
+        }
+      }
+    }
+    for (int s = 0; s < clipModel.getStepCount(); s++) {
+      StepData step = clipModel.getStep(r, s);
+      if (step.active()) {
+        row.attemptNoteAdd(
+            s * stepTicks,
+            (int) (step.gate() * stepTicks),
+            (int) (step.velocity() * 127.0f),
+            100,
+            null,
+            0);
+      }
+    }
+    return row;
   }
 
   private static InstrumentClip createMidiClip(MidiTrackModel model) {
@@ -176,49 +185,7 @@ public class FirmwareFactory {
       clip.loopLength = clipModel.getStepCount() * stepTicks;
       mapPlayDirection(clipModel, clip);
       for (int r = 0; r < clipModel.getRowCount(); r++) {
-        // Real-format Deluge songs have SPARSE noteRows carrying an absolute yNote (MIDI note);
-        // the row-index mapping ((rowCount-1)-r, the UI's 128-row grid convention) played wrong
-        // pitches for them — found via hardware comparison: the Deluge played the documented C5,
-        // our render of the same file didn't.
-        int yNote = clipModel.getRowYNote(r);
-        int pitch = (yNote >= 0) ? yNote : (clipModel.getRowCount() - 1) - r;
-        NoteRow row = new NoteRow(pitch);
-        java.util.List<org.chuck.deluge.model.HighResNote> rawNotes = clipModel.getRawNoteEvents(r);
-        if (rawNotes != null && !rawNotes.isEmpty()) {
-          for (org.chuck.deluge.model.HighResNote note : rawNotes) {
-            row.attemptNoteAdd(
-                note.getTickPos(),
-                note.getTickLen(),
-                (int) (note.getVelocity() * 127),
-                (int) (note.getProbability() * 100),
-                null,
-                0);
-          }
-        } else {
-          // If the step cell has a custom explicit pitch parameter, use it to override the row's
-          // pitch!
-          for (int s = 0; s < clipModel.getStepCount(); s++) {
-            StepData step = clipModel.getStep(r, s);
-            if (step.active() && step.pitch() > 0) {
-              pitch = step.pitch();
-              row = new NoteRow(pitch);
-              break;
-            }
-          }
-          for (int s = 0; s < clipModel.getStepCount(); s++) {
-            StepData step = clipModel.getStep(r, s);
-            if (step.active()) {
-              row.attemptNoteAdd(
-                  s * stepTicks,
-                  (int) (step.gate() * stepTicks),
-                  (int) (step.velocity() * 127.0f),
-                  100,
-                  null,
-                  0);
-            }
-          }
-        }
-        clip.noteRows.add(row);
+        clip.noteRows.add(buildNoteRow(clipModel, r, false, stepTicks));
       }
     }
     return clip;
@@ -1013,33 +980,7 @@ public class FirmwareFactory {
       clip.loopLength = clipModel.getStepCount() * stepTicks;
       mapPlayDirection(clipModel, clip);
       for (int r = 0; r < clipModel.getRowCount(); r++) {
-        NoteRow row = new NoteRow(r);
-        java.util.List<org.chuck.deluge.model.HighResNote> rawNotes = clipModel.getRawNoteEvents(r);
-        if (rawNotes != null && !rawNotes.isEmpty()) {
-          for (org.chuck.deluge.model.HighResNote note : rawNotes) {
-            row.attemptNoteAdd(
-                note.getTickPos(),
-                note.getTickLen(),
-                (int) (note.getVelocity() * 127),
-                (int) (note.getProbability() * 100),
-                null,
-                0);
-          }
-        } else {
-          for (int s = 0; s < clipModel.getStepCount(); s++) {
-            StepData step = clipModel.getStep(r, s);
-            if (step.active()) {
-              row.attemptNoteAdd(
-                  s * stepTicks,
-                  (int) (step.gate() * stepTicks),
-                  (int) (step.velocity() * 127.0f),
-                  100,
-                  null,
-                  0);
-            }
-          }
-        }
-        clip.noteRows.add(row);
+        clip.noteRows.add(buildNoteRow(clipModel, r, true, stepTicks));
       }
     }
     return clip;
