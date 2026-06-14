@@ -36,14 +36,24 @@ class TriggerRenderConsistencyTest {
   }
 
   private static long renderEnergy(FirmwareAudioEngine eng) {
-    long energy = 0;
-    for (int b = 0; b < 30; b++) {
+    return energy(eng, 30);
+  }
+
+  private static long energy(FirmwareAudioEngine eng, int blocks) {
+    long e = 0;
+    for (int b = 0; b < blocks; b++) {
       eng.renderBlock(128);
       for (int i = 0; i < 128; i++) {
-        energy += Math.abs((long) eng.masterBuffer[i].l) + Math.abs((long) eng.masterBuffer[i].r);
+        e += Math.abs((long) eng.masterBuffer[i].l) + Math.abs((long) eng.masterBuffer[i].r);
       }
     }
-    return energy;
+    return e;
+  }
+
+  private static FirmwareKit kitWithTone(float freq) {
+    FirmwareKit kit = new FirmwareKit();
+    loadDrum(kit, 0, freq);
+    return kit;
   }
 
   @Test
@@ -72,5 +82,36 @@ class TriggerRenderConsistencyTest {
 
     orphan.triggerDrum(0, 127); // triggered, but not in engine.sounds
     assertEquals(0L, renderEnergy(eng), "triggering an unrendered sound yields silence");
+  }
+
+  // ── Live-edit continuity: the "garbage/dropout when editing during playback" bug ──
+
+  @Test
+  void keepingTheSoundPreservesTheRingingVoiceAcrossAnEdit() {
+    FirmwareKit kit = kitWithTone(440);
+    FirmwareAudioEngine eng = new FirmwareAudioEngine();
+    eng.sounds.add(kit);
+
+    kit.triggerDrum(0, 127);
+    assertTrue(energy(eng, 5) > 0, "voice is ringing");
+    // A content edit that does NOT replace the sound (what the live-sync does): voice keeps ringing.
+    assertTrue(
+        energy(eng, 5) > 0, "audio continues across an edit when the sound instance is preserved");
+  }
+
+  @Test
+  void swappingTheSoundMidVoiceDropsTheAudioOut() {
+    FirmwareKit kit = kitWithTone(440);
+    FirmwareAudioEngine eng = new FirmwareAudioEngine();
+    eng.sounds.add(kit);
+
+    kit.triggerDrum(0, 127);
+    long before = energy(eng, 5);
+    assertTrue(before > 0, "voice is ringing");
+    // The bug: a content edit rebuilds the engine, swapping in a fresh sound with no active voice
+    // (the old ringing voice is abandoned) -> the output drops out / glitches.
+    eng.sounds.set(0, kitWithTone(440));
+    assertTrue(
+        energy(eng, 5) * 10 < before, "swapping the live sound mid-voice collapses the audio (bug)");
   }
 }

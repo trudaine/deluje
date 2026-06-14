@@ -1521,7 +1521,28 @@ public class SwingDelugeApp extends JFrame {
     }
   }
 
+  /** True if the firmware playback handler is currently playing. */
+  private boolean isFirmwarePlaying() {
+    Object h = vm.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
+    return h instanceof org.chuck.deluge.firmware.playback.PlaybackHandler ph && ph.isPlaying();
+  }
+
+  /** True if the engine's registered sound count no longer matches the track count. */
+  private boolean engineStructureChanged(org.chuck.deluge.model.ProjectModel model) {
+    Object e = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+    return !(e instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine eng)
+        || eng.sounds.size() != model.getTracks().size();
+  }
+
   public void syncHighFidelityEngine(org.chuck.deluge.model.ProjectModel model) {
+    // While playing, a CONTENT edit (step/param) must not rebuild the engine: createSong + the
+    // sounds.clear()/setSong below swap the live voices out mid-render, which is the "garbage when
+    // editing during playback" bug. The grid's refresh() live-sync (atomic noteRows swap on the
+    // running song) already applies new notes in place on the SAME sound instances. We only need a
+    // full rebuild for a STRUCTURAL change (track added/removed) or when stopped (known-good path).
+    if (isFirmwarePlaying() && !engineStructureChanged(model)) {
+      return;
+    }
     org.chuck.deluge.firmware.model.Song fwSong = FirmwareFactory.createSong(model);
     MatrixDriver.get().popUI();
 
@@ -3589,11 +3610,25 @@ public class SwingDelugeApp extends JFrame {
     };
   }
 
-  /** Canonical scale cycle order — names understood by both parseScaleIndex and the grid colouring. */
+  /**
+   * Canonical scale cycle order — names understood by both parseScaleIndex and the grid colouring.
+   */
   private static final String[] SCALE_CYCLE = {
-    "Major", "Minor", "Harmonic Minor", "Melodic Minor", "Dorian", "Phrygian", "Lydian",
-    "Mixolydian", "Locrian", "Whole Tone", "Whole Half Dim", "Half Whole Dim",
-    "Pentatonic Major", "Pentatonic Minor", "Chromatic"
+    "Major",
+    "Minor",
+    "Harmonic Minor",
+    "Melodic Minor",
+    "Dorian",
+    "Phrygian",
+    "Lydian",
+    "Mixolydian",
+    "Locrian",
+    "Whole Tone",
+    "Whole Half Dim",
+    "Half Whole Dim",
+    "Pentatonic Major",
+    "Pentatonic Minor",
+    "Chromatic"
   };
 
   /** Advance to the next scale (Deluge SCALE / SHIFT+SCALE): updates model, engine, and grid. */
@@ -3633,9 +3668,10 @@ public class SwingDelugeApp extends JFrame {
   }
 
   /**
-   * Window size from the Screen Resolution preference, clamped to the physical screen (minus margins
-   * for the title bar / taskbar) and floored to {@link #MIN_WINDOW_W}x{@link #MIN_WINDOW_H}. This is
-   * what makes us actually comply with the preference while still fitting low-res laptops.
+   * Window size from the Screen Resolution preference, clamped to the physical screen (minus
+   * margins for the title bar / taskbar) and floored to {@link #MIN_WINDOW_W}x{@link
+   * #MIN_WINDOW_H}. This is what makes us actually comply with the preference while still fitting
+   * low-res laptops.
    */
   /**
    * Pure window-size policy: a resolution profile clamped to the given screen (minus title/taskbar
@@ -3659,7 +3695,9 @@ public class SwingDelugeApp extends JFrame {
         screen.height);
   }
 
-  /** Re-apply the Screen Resolution preference to the live window (called when the pref changes). */
+  /**
+   * Re-apply the Screen Resolution preference to the live window (called when the pref changes).
+   */
   public void applyWindowResolution() {
     Dimension win = computeWindowSize();
     setSize(win.width, win.height);
