@@ -3535,34 +3535,12 @@ public class SwingGridPanel extends JPanel {
                 java.util.List<org.chuck.deluge.firmware.model.note.NoteRow> nextRows =
                     new java.util.ArrayList<>();
                 for (int r = 0; r < clipModel.getRowCount(); r++) {
-                  int pitch = isKit ? r : (clipModel.getRowCount() - 1) - r;
+                  // SINGLE authoritative model-row -> NoteRow mapping, shared with song-load. This
+                  // pitch logic previously diverged here (used the grid row index as the synth
+                  // pitch), so live-added notes played as ~8-12Hz sub-bass garbage until stop/play.
                   org.chuck.deluge.firmware.model.note.NoteRow noteRow =
-                      new org.chuck.deluge.firmware.model.note.NoteRow(pitch);
-
-                  java.util.List<org.chuck.deluge.model.HighResNote> rawNotes =
-                      clipModel.getRawNoteEvents(r);
-                  if (rawNotes != null && !rawNotes.isEmpty()) {
-                    for (org.chuck.deluge.model.HighResNote hrn : rawNotes) {
-                      noteRow.attemptNoteAdd(
-                          hrn.getTickPos(),
-                          hrn.getTickLen(),
-                          (int) (hrn.getVelocity() * 127),
-                          (int) (hrn.getProbability() * 100),
-                          null,
-                          0);
-                    }
-                  } else {
-                    for (int s = 0; s < clipModel.getStepCount(); s++) {
-                      org.chuck.deluge.model.StepData stepData = clipModel.getStep(r, s);
-                      if (stepData.active()) {
-                        int pos = s * stepTicks;
-                        int len = (int) (stepData.gate() * stepTicks);
-                        int vel = (int) (stepData.velocity() * 127);
-                        int prob = (int) (stepData.probability() * 100);
-                        noteRow.attemptNoteAdd(pos, len, vel, prob, null, 0);
-                      }
-                    }
-                  }
+                      org.chuck.deluge.firmware.engine.FirmwareFactory.buildNoteRow(
+                          clipModel, r, isKit, stepTicks);
                   if (!noteRow.notes.isEmpty()) {
                     nextRows.add(noteRow);
                   }
@@ -3874,35 +3852,11 @@ public class SwingGridPanel extends JPanel {
                 java.util.List<org.chuck.deluge.firmware.model.note.NoteRow> nextRows =
                     new java.util.ArrayList<>();
                 for (int r = 0; r < clipModel.getRowCount(); r++) {
-                  int pitch = isKit ? r : (clipModel.getRowCount() - 1) - r;
+                  // SINGLE authoritative model-row -> NoteRow mapping, shared with song-load (see
+                  // the matching call in the live-sync path above and FirmwareFactory.buildNoteRow).
                   org.chuck.deluge.firmware.model.note.NoteRow noteRow =
-                      new org.chuck.deluge.firmware.model.note.NoteRow(pitch);
-
-                  java.util.List<org.chuck.deluge.model.HighResNote> rawNotes =
-                      clipModel.getRawNoteEvents(r);
-                  if (rawNotes != null && !rawNotes.isEmpty()) {
-                    for (org.chuck.deluge.model.HighResNote hrn : rawNotes) {
-                      noteRow.attemptNoteAdd(
-                          hrn.getTickPos(),
-                          hrn.getTickLen(),
-                          (int) (hrn.getVelocity() * 127),
-                          (int) (hrn.getProbability() * 100),
-                          null,
-                          0);
-                    }
-                  } else {
-                    for (int s = 0; s < clipModel.getStepCount(); s++) {
-                      org.chuck.deluge.model.StepData stepData = clipModel.getStep(r, s);
-                      if (stepData.active()) {
-                        int pos = s * stepTicks;
-                        int len = (int) (stepData.gate() * stepTicks);
-                        int vel = (int) (stepData.velocity() * 127);
-                        int prob = (int) (stepData.probability() * 100);
-                        noteRow.attemptNoteAdd(pos, len, vel, prob, null, 0);
-                      }
-                    }
-                  }
-
+                      org.chuck.deluge.firmware.engine.FirmwareFactory.buildNoteRow(
+                          clipModel, r, isKit, stepTicks);
                   if (!noteRow.notes.isEmpty()) {
                     nextRows.add(noteRow);
                   }

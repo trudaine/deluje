@@ -285,8 +285,7 @@ public class SwingDelugeAppE2ETest {
 
     // 4. Save the recorded audio to a WAV file in the artifact directory
     java.io.File destFile =
-        new java.io.File(
-            "/Users/ludo/.gemini/jetski/brain/a3569f91-4e06-4b92-bad2-e0e1f46551cb/captured_test_audio.wav");
+        new java.io.File(System.getProperty("java.io.tmpdir"), "captured_test_audio.wav");
     writeWavFile(destFile, pcmBuffer.toByteArray(), 44100, 2);
     System.out.println("[E2E] Saved E2E test recording to: " + destFile.getAbsolutePath());
 
@@ -410,8 +409,7 @@ public class SwingDelugeAppE2ETest {
 
     // Save initial resample WAV file
     java.io.File destFile =
-        new java.io.File(
-            "/Users/ludo/.gemini/jetski/brain/a3569f91-4e06-4b92-bad2-e0e1f46551cb/reproduction_test.wav");
+        new java.io.File(System.getProperty("java.io.tmpdir"), "reproduction_test.wav");
     writeWavFile(destFile, pcmData, 44100, 2);
     System.out.println(
         "[ReproductionTest] Saved reproduction test recording to: " + destFile.getAbsolutePath());
@@ -450,8 +448,7 @@ public class SwingDelugeAppE2ETest {
     vm.shutdown();
 
     java.io.File combinedFile =
-        new java.io.File(
-            "/Users/ludo/.gemini/jetski/brain/a3569f91-4e06-4b92-bad2-e0e1f46551cb/combined_reproduction_test.wav");
+        new java.io.File(System.getProperty("java.io.tmpdir"), "combined_reproduction_test.wav");
     writeWavFile(combinedFile, combinedPcm, 44100, 2);
     System.out.println(
         "[ReproductionTest] Saved combined reproduction recording to: "
