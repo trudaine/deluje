@@ -20,8 +20,8 @@ import org.chuck.deluge.ui.controls.SegmentedToggle;
  * Always-visible synth parameter rack — a compact vertical panel of the new self-drawn controls
  * (encoder knobs + segmented toggles) that edits the currently-edited synth track live. Designed to
  * dock EAST of the grid: it costs horizontal space (abundant) and no height. Knobs are relative
- * (turn = delta); changes update the model and are pushed to the running engine via
- * {@link org.chuck.deluge.firmware.engine.FirmwareFactory#applyModelToLiveSound}.
+ * (turn = delta); changes update the model and are pushed to the running engine via {@link
+ * org.chuck.deluge.firmware.engine.FirmwareFactory#applyModelToLiveSound}.
  */
 public class SynthParamRack extends JPanel {
 
@@ -56,7 +56,12 @@ public class SynthParamRack extends JPanel {
     // Two-column grid of relative encoder knobs. Drag a knob to change the value (Deluge encoder).
     JPanel knobs = new JPanel(new GridLayout(0, 2, 6, 6));
     knobs.setOpaque(false);
-    knobs.add(knob("CUTOFF", "Low-pass filter cutoff frequency — drag to sweep", ACCENT, this::editCutoff));
+    knobs.add(
+        knob(
+            "CUTOFF",
+            "Low-pass filter cutoff frequency — drag to sweep",
+            ACCENT,
+            this::editCutoff));
     knobs.add(knob("RES", "Low-pass filter resonance", ACCENT, this::editRes));
     knobs.add(knob("HPF", "High-pass filter cutoff frequency", ACCENT, this::editHpf));
     knobs.add(knob("OSC MIX", "Balance between oscillator 1 and 2", ACCENT, this::editOscMix));
@@ -66,8 +71,10 @@ public class SynthParamRack extends JPanel {
     add(javax.swing.Box.createVerticalStrut(10));
     add(rowLabel("FILTER"));
     filterToggle =
-        new SegmentedToggle(new String[] {"12dB", "24dB", "SVF"}, 0, ACCENT).onChange(this::setFilter);
-    filterToggle.setToolTipText("Filter type / slope: 12dB or 24dB ladder, or state-variable filter");
+        new SegmentedToggle(new String[] {"12dB", "24dB", "SVF"}, 0, ACCENT)
+            .onChange(this::setFilter);
+    filterToggle.setToolTipText(
+        "Filter type / slope: 12dB or 24dB ladder, or state-variable filter");
     filterToggle.setMaximumSize(new Dimension(280, 28));
     filterToggle.setAlignmentX(CENTER_ALIGNMENT);
     add(filterToggle);
@@ -176,9 +183,13 @@ public class SynthParamRack extends JPanel {
   private void setFilter(int idx) {
     SynthTrackModel t = trackSupplier.get();
     if (t == null) return;
-    FilterMode fm = idx == 0 ? FilterMode.LADDER_12 : idx == 1 ? FilterMode.LADDER_24 : FilterMode.SVF;
+    FilterMode fm =
+        idx == 0 ? FilterMode.LADDER_12 : idx == 1 ? FilterMode.LADDER_24 : FilterMode.SVF;
     t.setFilterMode(fm);
-    apply(t, "FILT", fm == FilterMode.LADDER_12 ? "12dB" : fm == FilterMode.LADDER_24 ? "24dB" : "SVF");
+    apply(
+        t,
+        "FILT",
+        fm == FilterMode.LADDER_12 ? "12dB" : fm == FilterMode.LADDER_24 ? "24dB" : "SVF");
   }
 
   private void setMode(int idx) {
@@ -200,8 +211,7 @@ public class SynthParamRack extends JPanel {
       if (eng instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine engine
           && idx >= 0
           && idx < engine.sounds.size()
-          && engine.sounds.get(idx)
-              instanceof org.chuck.deluge.firmware.engine.FirmwareSound fs) {
+          && engine.sounds.get(idx) instanceof org.chuck.deluge.firmware.engine.FirmwareSound fs) {
         org.chuck.deluge.firmware.engine.FirmwareFactory.applyModelToLiveSound(t, fs);
       }
     } catch (Exception ignored) {

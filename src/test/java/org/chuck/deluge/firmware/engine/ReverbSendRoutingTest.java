@@ -23,7 +23,7 @@ class ReverbSendRoutingTest {
     engine.masterReverb.setWidth(1.0f);
 
     FirmwareSound synth = new FirmwareSound();
-    synth.oscTypes[0] = OscType.SAW;
+    synth.oscTypes[0] = OscType.SINE;
     synth.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = Q31.ONE;
     synth.paramNeutralValues[Param.LOCAL_VOLUME] = Q31.ONE;
     synth.reverbSendKnob = reverbSendKnob;
@@ -40,6 +40,7 @@ class ReverbSendRoutingTest {
       }
     }
     synth.releaseNote(60);
+    synth.muted = true;
     long tailEnergy = 0;
     for (int blk = 0; blk < 400; blk++) {
       engine.renderBlock(128);

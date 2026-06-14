@@ -123,7 +123,8 @@ public class FirmwareAudioEngine {
     // Hardware Master Compressor (port of audio_engine.cpp:899).
     masterCompressor.renderVolNeutral(fxBuffer, Q31.ONE);
 
-    // Metronome click — added dry, after FX, before the master gain/limiter (C: audio_engine.cpp:626).
+    // Metronome click — added dry, after FX, before the master gain/limiter (C:
+    // audio_engine.cpp:626).
     if (metronomeEnabled) {
       metronome.render(fxBuffer, numSamples, Q31.ONE);
     }

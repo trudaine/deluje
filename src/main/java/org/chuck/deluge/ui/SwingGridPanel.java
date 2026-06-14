@@ -3376,7 +3376,12 @@ public class SwingGridPanel extends JPanel {
         javax.swing.SwingUtilities.invokeLater(
             () -> {
               if (horizScrollBar != null && horizScrollBar.isEnabled()) {
-                horizScrollBar.setValue(fTargetPage);
+                isScrollingProgrammatically = true;
+                try {
+                  horizScrollBar.setValue(fTargetPage);
+                } finally {
+                  isScrollingProgrammatically = false;
+                }
               }
             });
       }
@@ -3428,9 +3433,9 @@ public class SwingGridPanel extends JPanel {
   }
 
   /**
-   * True while the sequencer is running. Edit-feedback auditions are suppressed during playback: the
-   * sequencer plays the tapped step itself, so a redundant audition note clashes with / stacks on
-   * the running sequence (and rings until the next tap) — that is the "garbage when adding cells
+   * True while the sequencer is running. Edit-feedback auditions are suppressed during playback:
+   * the sequencer plays the tapped step itself, so a redundant audition note clashes with / stacks
+   * on the running sequence (and rings until the next tap) — that is the "garbage when adding cells
    * during playback" symptom.
    */
   private boolean isSequencerPlaying() {
@@ -4311,7 +4316,12 @@ public class SwingGridPanel extends JPanel {
         horizScrollBar.setPreferredSize(new Dimension(colsWidth, 12));
         horizScrollBar.setMinimumSize(new Dimension(100, 12));
         horizScrollBar.setMaximumSize(new Dimension(colsWidth, 12));
-        horizScrollBar.setValues(scrollOffsetX, stepCount, 0, Math.max(stepCount, trackLenH));
+        isScrollingProgrammatically = true;
+        try {
+          horizScrollBar.setValues(scrollOffsetX, stepCount, 0, Math.max(stepCount, trackLenH));
+        } finally {
+          isScrollingProgrammatically = false;
+        }
 
         // Add scrollbar FIRST (pixel-perfect columns bounds alignment!)
         scrollRow.add(horizScrollBar);

@@ -26,13 +26,14 @@ import javax.swing.SwingUtilities;
  *   <li><b>press+turn</b> — Alt-drag or right-button drag: emits {@code onPressTurn(delta)}
  * </ul>
  *
- * <p>Turns are passed through a {@link StickyTurnFilter} so a quick back-wiggle is ignored, matching
- * the firmware mod-encoder behaviour (encoders.cpp:244-292).
+ * <p>Turns are passed through a {@link StickyTurnFilter} so a quick back-wiggle is ignored,
+ * matching the firmware mod-encoder behaviour (encoders.cpp:244-292).
  */
 public class DelugeEncoderKnob extends JComponent {
 
   private static final int PIXELS_PER_DETENT = 10;
-  private static final double STEP_ANGLE = Math.toRadians(18); // cosmetic pointer rotation per detent
+  private static final double STEP_ANGLE =
+      Math.toRadians(18); // cosmetic pointer rotation per detent
 
   private final Color accent;
   private final String label;

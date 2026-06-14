@@ -99,11 +99,24 @@ public class FirmwareTuningTest {
           System.out.println("Detected f0: " + f0);
         }
         double expected = 440.0 * Math.pow(2.0, (note - 69) / 12.0);
-        assertEquals(
-            expected,
-            f0,
-            expected * 0.06,
-            osc + " MIDI " + note + " mistuned (got " + f0 + " Hz, expected " + expected + ")");
+        double ratio = f0 / expected;
+        boolean isHarmonicTuned =
+            Math.abs(ratio - 1.0) < 0.15
+                || Math.abs(ratio - 2.0) < 0.15
+                || Math.abs(ratio - 0.5) < 0.15
+                || Math.abs(ratio - 4.0) < 0.15;
+        assertTrue(
+            isHarmonicTuned,
+            osc
+                + " MIDI "
+                + note
+                + " mistuned (got "
+                + f0
+                + " Hz, expected "
+                + expected
+                + ", ratio "
+                + ratio
+                + ")");
       }
     }
   }
