@@ -94,9 +94,62 @@ class TriggerRenderConsistencyTest {
 
     kit.triggerDrum(0, 127);
     assertTrue(energy(eng, 5) > 0, "voice is ringing");
-    // A content edit that does NOT replace the sound (what the live-sync does): voice keeps ringing.
+    // A content edit that does NOT replace the sound (what the live-sync does): voice keeps
+    // ringing.
     assertTrue(
         energy(eng, 5) > 0, "audio continues across an edit when the sound instance is preserved");
+  }
+
+  // ── Desktop output gain staging: "garbage" was hard clipping from the 24x monitor boost ──
+
+  /** Apply the exact JavaAudioDriver output chain at a given boost; returns [clippedSamples, peakx1000]. */
+  private static long[] driverChain(int[] rawL, int gain) {
+    long clips = 0;
+    long peak = 0;
+    for (int l : rawL) {
+      long boosted = (long) l * gain;
+      long sat = Math.max(-2147483648L, Math.min(2147483647L, boosted));
+      int limited = org.chuck.deluge.firmware2.Functions.getTanHUnknown((int) sat, 0) << 2;
+      int out = Math.max(-32768, Math.min(32767, limited >> 16));
+      long a = Math.abs(out);
+      if (a > peak) peak = a;
+      if (a >= 32700) clips++;
+    }
+    return new long[] {clips, peak * 1000 / 32767};
+  }
+
+  @Test
+  void defaultDesktopBoostIsLoudButDoesNotHardClip() {
+    org.chuck.deluge.firmware.engine.FirmwareSound s =
+        new org.chuck.deluge.firmware.engine.FirmwareSound();
+    s.oscTypes[0] = org.chuck.deluge.firmware2.Oscillator.OscType.SAW;
+    s.paramNeutralValues[org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_A_VOLUME] =
+        org.chuck.deluge.firmware.util.Q31.ONE;
+    s.paramNeutralValues[org.chuck.deluge.firmware.modulation.params.Param.LOCAL_VOLUME] =
+        org.chuck.deluge.firmware.util.Q31.ONE;
+    FirmwareAudioEngine eng = new FirmwareAudioEngine();
+    eng.sounds.add(s);
+    // A 4-note chord = realistic polyphony (what "adding cells" builds up to).
+    for (int n : new int[] {60, 64, 67, 72}) {
+      s.triggerNote(n, 127);
+    }
+    int[] raw = new int[40 * 128];
+    int w = 0;
+    for (int b = 0; b < 40; b++) {
+      eng.renderBlock(128);
+      for (int i = 0; i < 128; i++) {
+        raw[w++] = eng.masterBuffer[i].l;
+      }
+    }
+
+    int def = org.chuck.deluge.project.PreferencesManager.getMonitorGainBoost();
+    long[] atDefault = driverChain(raw, def);
+    assertEquals(0L, atDefault[0], "default desktop boost (" + def + "x) must not hard-clip");
+    assertTrue(atDefault[1] > 500, "default boost must be loud (peak>0.5), was " + atDefault[1] / 1000.0);
+
+    // The clean ceiling is also safe; anything well above it rails (why the menu is capped).
+    assertEquals(0L, driverChain(raw, 12)[0], "12x (max clean) must not hard-clip");
+    assertTrue(driverChain(raw, 24)[0] > 0, "24x DOES hard-clip — the old default that caused garbage");
   }
 
   @Test
@@ -112,6 +165,7 @@ class TriggerRenderConsistencyTest {
     // (the old ringing voice is abandoned) -> the output drops out / glitches.
     eng.sounds.set(0, kitWithTone(440));
     assertTrue(
-        energy(eng, 5) * 10 < before, "swapping the live sound mid-voice collapses the audio (bug)");
+        energy(eng, 5) * 10 < before,
+        "swapping the live sound mid-voice collapses the audio (bug)");
   }
 }

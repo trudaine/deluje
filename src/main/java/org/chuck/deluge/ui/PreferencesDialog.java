@@ -190,21 +190,12 @@ public class PreferencesDialog extends JDialog {
         c,
         3);
 
+    // Only clean values are offered: the output limiter starts hard-clipping above ~12x (a single
+    // full-volume note already railed at the old 24x default — that was the "garbage" distortion).
     monitorGainCombo =
         new JComboBox<>(
             new String[] {
-              "1x (Quiet)",
-              "6x",
-              "12x",
-              "18x",
-              "24x (Default)",
-              "32x",
-              "48x (Loud)",
-              "64x (Extra Loud)",
-              "96x",
-              "128x (Mega Boost)",
-              "192x",
-              "256x (Extreme)"
+              "1x (Quiet)", "4x", "6x", "8x (Default)", "10x", "12x (Max)"
             });
     styleComboBox(monitorGainCombo);
     addField(
@@ -839,20 +830,14 @@ public class PreferencesDialog extends JDialog {
     visCheck.setSelected(Boolean.parseBoolean(PreferencesManager.get("show.visualizers", "true")));
     debugCheck.setSelected(Boolean.parseBoolean(PreferencesManager.get("debug.audio", "false")));
 
-    int gainVal = PreferencesManager.getMonitorGainBoost();
-    int gainIdx = 4; // default is 24
-    if (gainVal == 1) gainIdx = 0;
-    else if (gainVal == 6) gainIdx = 1;
-    else if (gainVal == 12) gainIdx = 2;
-    else if (gainVal == 18) gainIdx = 3;
-    else if (gainVal == 24) gainIdx = 4;
-    else if (gainVal == 32) gainIdx = 5;
-    else if (gainVal == 48) gainIdx = 6;
-    else if (gainVal == 64) gainIdx = 7;
-    else if (gainVal == 96) gainIdx = 8;
-    else if (gainVal == 128) gainIdx = 9;
-    else if (gainVal == 192) gainIdx = 10;
-    else if (gainVal == 256) gainIdx = 11;
+    int gainVal = PreferencesManager.getMonitorGainBoost(); // already clamped to [1,12]
+    int gainIdx = 3; // default is 8x
+    if (gainVal <= 1) gainIdx = 0;
+    else if (gainVal <= 4) gainIdx = 1;
+    else if (gainVal <= 6) gainIdx = 2;
+    else if (gainVal <= 8) gainIdx = 3;
+    else if (gainVal <= 10) gainIdx = 4;
+    else gainIdx = 5; // 12
     monitorGainCombo.setSelectedIndex(gainIdx);
     gridModeCheck.setSelected(
         Boolean.parseBoolean(PreferencesManager.get("midi.grid.mode", "false")));
@@ -1024,19 +1009,13 @@ public class PreferencesDialog extends JDialog {
     PreferencesManager.set("debug.audio", String.valueOf(debugCheck.isSelected()));
 
     int selIdx = monitorGainCombo.getSelectedIndex();
-    int gainVal = 24;
+    int gainVal = 8;
     if (selIdx == 0) gainVal = 1;
-    else if (selIdx == 1) gainVal = 6;
-    else if (selIdx == 2) gainVal = 12;
-    else if (selIdx == 3) gainVal = 18;
-    else if (selIdx == 4) gainVal = 24;
-    else if (selIdx == 5) gainVal = 32;
-    else if (selIdx == 6) gainVal = 48;
-    else if (selIdx == 7) gainVal = 64;
-    else if (selIdx == 8) gainVal = 96;
-    else if (selIdx == 9) gainVal = 128;
-    else if (selIdx == 10) gainVal = 192;
-    else if (selIdx == 11) gainVal = 256;
+    else if (selIdx == 1) gainVal = 4;
+    else if (selIdx == 2) gainVal = 6;
+    else if (selIdx == 3) gainVal = 8;
+    else if (selIdx == 4) gainVal = 10;
+    else if (selIdx == 5) gainVal = 12;
     PreferencesManager.setMonitorGainBoost(gainVal);
     org.chuck.deluge.engine.JavaAudioDriver.monitorGainMul = gainVal;
     PreferencesManager.set("midi.grid.mode", String.valueOf(gridModeCheck.isSelected()));
