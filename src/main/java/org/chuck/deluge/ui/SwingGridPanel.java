@@ -8722,6 +8722,80 @@ public class SwingGridPanel extends JPanel {
     return editedModelTrack;
   }
 
+  // ── Clip note copy/paste (Deluge X_ENC+LEARN copy / SHIFT paste) ──
+  // Static so notes copied in one view/track can be pasted into another. StepData is an immutable
+  // record, so snapshotting references is a safe deep copy.
+  private static org.chuck.deluge.model.StepData[][] noteClipboard;
+
+  /** The clip currently being edited (edited track + active clip index), or null. */
+  private org.chuck.deluge.model.ClipModel getEditedActiveClip() {
+    if (projectModel == null || editedModelTrack >= projectModel.getTracks().size()) {
+      return null;
+    }
+    org.chuck.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
+    if (activeClipId < 0 || activeClipId >= t.getClips().size()) {
+      return null;
+    }
+    return t.getClips().get(activeClipId);
+  }
+
+  /** Snapshot the edited clip's note grid into the shared clipboard. */
+  public boolean copyClipNotes() {
+    org.chuck.deluge.model.ClipModel clip = getEditedActiveClip();
+    if (clip == null) {
+      return false;
+    }
+    int rows = clip.getRowCount();
+    int cols = clip.getStepCount();
+    org.chuck.deluge.model.StepData[][] snap = new org.chuck.deluge.model.StepData[rows][cols];
+    for (int r = 0; r < rows; r++) {
+      for (int c = 0; c < cols; c++) {
+        snap[r][c] = clip.getStep(r, c);
+      }
+    }
+    noteClipboard = snap;
+    if (SwingDelugeApp.mainInstance != null) {
+      SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient("COPY", rows + "x" + cols);
+    }
+    return true;
+  }
+
+  /** Paste the clipboard into the edited clip (model + per-cell engine sync), then refresh. */
+  public boolean pasteClipNotes() {
+    org.chuck.deluge.model.StepData[][] clip = noteClipboard;
+    org.chuck.deluge.model.ClipModel target = getEditedActiveClip();
+    if (clip == null || target == null) {
+      return false;
+    }
+    for (int r = 0; r < clip.length; r++) {
+      org.chuck.deluge.model.StepData[] rowArr = clip[r];
+      if (rowArr == null) {
+        continue;
+      }
+      for (int c = 0; c < rowArr.length; c++) {
+        org.chuck.deluge.model.StepData sd = rowArr[c];
+        if (sd == null) {
+          continue;
+        }
+        target.setStep(r, c, sd);
+        if (bridge != null) {
+          int engineRow = baseTrackId + r;
+          bridge.setStep(engineRow, c, sd.active());
+          bridge.setVelocity(engineRow, c, sd.velocity());
+          bridge.setGate(engineRow, c, sd.gate());
+          bridge.setStepProbability(engineRow, c, sd.probability());
+          bridge.setStepFill(engineRow, c, sd.fill());
+        }
+      }
+    }
+    if (SwingDelugeApp.mainInstance != null) {
+      SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient("PASTE", "OK");
+    }
+    fireProjectChanged();
+    refresh();
+    return true;
+  }
+
   public void scrollHorizontally(int cellsOffset) {
     System.out.println(
         "[TRACE grid] scrollHorizontally called: offset=" + cellsOffset + " viewMode=" + viewMode);

@@ -1333,6 +1333,24 @@ public class SwingDelugeApp extends JFrame {
           public void keyPressed(java.awt.event.KeyEvent e) {
             int kc = e.getKeyCode();
             boolean ctrl = (e.getModifiersEx() & java.awt.event.InputEvent.CTRL_DOWN_MASK) != 0;
+            boolean shift = (e.getModifiersEx() & java.awt.event.InputEvent.SHIFT_DOWN_MASK) != 0;
+
+            // Ctrl+Shift+C / Ctrl+Shift+V — copy / paste the active clip's notes (Deluge
+            // X_ENC+LEARN copy / paste). Shift-qualified to avoid clashing with system copy/paste.
+            if (ctrl && shift && kc == java.awt.event.KeyEvent.VK_C) {
+              SwingGridPanel active = activeGridPanel();
+              if (active != null) {
+                active.copyClipNotes();
+              }
+              return;
+            }
+            if (ctrl && shift && kc == java.awt.event.KeyEvent.VK_V) {
+              SwingGridPanel active = activeGridPanel();
+              if (active != null) {
+                active.pasteClipNotes();
+              }
+              return;
+            }
 
             // Ctrl+[ / Ctrl+] — adjust focused track length
             if (ctrl && kc == java.awt.event.KeyEvent.VK_OPEN_BRACKET) {
