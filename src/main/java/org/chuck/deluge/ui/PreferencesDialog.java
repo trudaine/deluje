@@ -1075,10 +1075,9 @@ public class PreferencesDialog extends JDialog {
     if (onLibraryChanged != null) onLibraryChanged.run();
 
     dispose();
-    if (!newRes.equals(oldRes)) {
-      JOptionPane.showMessageDialog(
-          this,
-          "Screen proportions applied! Please restart application to fully engage desktop scaling docks.");
+    if (!newRes.equals(oldRes) && SwingDelugeApp.mainInstance != null) {
+      // Apply the new resolution profile to the live window (clamped to the physical screen).
+      SwingDelugeApp.mainInstance.applyWindowResolution();
     }
   }
 }

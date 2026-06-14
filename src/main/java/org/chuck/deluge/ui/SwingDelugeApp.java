@@ -1271,11 +1271,11 @@ public class SwingDelugeApp extends JFrame {
               }
             });
 
-    int w =
-        Integer.parseInt(org.chuck.deluge.project.PreferencesManager.get("window.width", "2800"));
-    int h =
-        Integer.parseInt(org.chuck.deluge.project.PreferencesManager.get("window.height", "1600"));
-    setSize(w, h);
+    // The window size is driven by the Screen Resolution preference, then clamped to the physical
+    // screen so it always fits the actual laptop (down to ~1366x768) and never exceeds it.
+    setMinimumSize(new Dimension(MIN_WINDOW_W, MIN_WINDOW_H));
+    Dimension win = computeWindowSize();
+    setSize(win.width, win.height);
 
     addWindowListener(
         new java.awt.event.WindowAdapter() {
@@ -3564,6 +3564,56 @@ public class SwingDelugeApp extends JFrame {
       topBar.getParamReadout().printTransient("SCALE", next);
     }
     fireProjectChanged();
+  }
+
+  // Smallest window we still lay out correctly — fits a 1366x768 laptop after screen margins.
+  private static final int MIN_WINDOW_W = 1180;
+  private static final int MIN_WINDOW_H = 680;
+
+  /** Target window size for a Screen Resolution profile (before screen clamping). */
+  private static java.awt.Dimension resolutionTarget(String res) {
+    return switch (res == null ? "QHD" : res) {
+      case "FHD" -> new java.awt.Dimension(1760, 980); // fits a 1920x1080 panel
+      case "Retina" -> new java.awt.Dimension(2560, 1500);
+      case "Default" -> null; // fit the current screen
+      default -> new java.awt.Dimension(2360, 1340); // "QHD" — fits a 2560x1440 panel
+    };
+  }
+
+  /**
+   * Window size from the Screen Resolution preference, clamped to the physical screen (minus margins
+   * for the title bar / taskbar) and floored to {@link #MIN_WINDOW_W}x{@link #MIN_WINDOW_H}. This is
+   * what makes us actually comply with the preference while still fitting low-res laptops.
+   */
+  /**
+   * Pure window-size policy: a resolution profile clamped to the given screen (minus title/taskbar
+   * margins) and floored to the minimum. Package-private + screen-size-injected so it is testable
+   * headlessly.
+   */
+  static Dimension windowSizeFor(String res, int screenW, int screenH) {
+    Dimension target = resolutionTarget(res);
+    int maxW = Math.max(MIN_WINDOW_W, screenW - 16);
+    int maxH = Math.max(MIN_WINDOW_H, screenH - 48);
+    int w = (target == null) ? maxW : Math.min(target.width, maxW);
+    int h = (target == null) ? maxH : Math.min(target.height, maxH);
+    return new Dimension(Math.max(w, MIN_WINDOW_W), Math.max(h, MIN_WINDOW_H));
+  }
+
+  private static Dimension computeWindowSize() {
+    Dimension screen = java.awt.Toolkit.getDefaultToolkit().getScreenSize();
+    return windowSizeFor(
+        org.chuck.deluge.project.PreferencesManager.get("screen.resolution", "QHD"),
+        screen.width,
+        screen.height);
+  }
+
+  /** Re-apply the Screen Resolution preference to the live window (called when the pref changes). */
+  public void applyWindowResolution() {
+    Dimension win = computeWindowSize();
+    setSize(win.width, win.height);
+    setLocationRelativeTo(null);
+    revalidate();
+    repaint();
   }
 
   /** Convert a scale name to an integer index for the bridge G_SCALE global. */
