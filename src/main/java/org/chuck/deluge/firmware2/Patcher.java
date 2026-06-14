@@ -45,9 +45,8 @@ public class Patcher {
     }
   }
 
-  /** Patch cable set: a collection of destinations. */
   public static class PatchCableSet {
-    public final java.util.ArrayList<Destination> destinations = new java.util.ArrayList<>();
+    public volatile java.util.List<Destination> destinations = new java.util.ArrayList<>();
 
     public void addCable(int paramId, PatchCable cable) {
       Destination dest = null;

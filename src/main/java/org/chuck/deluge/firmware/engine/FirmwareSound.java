@@ -376,8 +376,11 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
       fw2Sound.patchedParamValues[org.chuck.deluge.firmware2.Param.LOCAL_MODULATOR_1_VOLUME] =
           fmModulatorAmountBase[1];
     }
-    fw2Sound.patchCableSet.destinations.clear();
+    java.util.List<org.chuck.deluge.firmware2.Patcher.Destination> nextDestinations =
+        new java.util.ArrayList<>();
     for (Destination d : paramManager.getPatchCableSet().destinations) {
+      org.chuck.deluge.firmware2.Patcher.Destination dest =
+          new org.chuck.deluge.firmware2.Patcher.Destination(d.paramId);
       for (PatchCable c : d.cables) {
         var fc = new org.chuck.deluge.firmware2.Patcher.PatchCable();
         fc.source = c.from.ordinal();
@@ -386,9 +389,12 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
             (c.polarity == PatchCable.Polarity.UNIPOLAR)
                 ? org.chuck.deluge.firmware2.Patcher.PatchCable.UNIPOLAR
                 : org.chuck.deluge.firmware2.Patcher.PatchCable.BIPOLAR;
-        fw2Sound.patchCableSet.addCable(d.paramId, fc);
+        dest.cables.add(fc);
+        dest.sourcesMask |= (1 << fc.source);
       }
+      nextDestinations.add(dest);
     }
+    fw2Sound.patchCableSet.destinations = nextDestinations;
 
     fw2Sound.sidechainSend = sidechainSend;
     fw2Sound.modFXType = modFXType;

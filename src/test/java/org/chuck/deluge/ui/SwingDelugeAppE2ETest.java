@@ -119,4 +119,117 @@ public class SwingDelugeAppE2ETest {
     app.dispose();
     vm.shutdown();
   }
+
+  @Test
+  public void testAudioThreadLatencyDuringGridEdits() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+
+    // 1. Setup VM, Bridge and App
+    ChuckVM vm = new ChuckVM(44100, 2);
+    BridgeContract bridge = new BridgeContract();
+    bridge.register(vm);
+
+    SwingDelugeApp app = new SwingDelugeApp(vm, bridge, null, true);
+    SwingGridPanel grid = app.getClipPanel();
+
+    // Add a synth track
+    app.getTopBarListener().onAddTrack("SYNTH", true);
+    grid.setEditedModelTrack(0);
+    grid.refresh();
+
+    // Toggle play state ON to simulate active sequencer playback
+    app.getTopBarListener().onPlayToggle();
+
+    // 2. Start a mock audio thread that calls renderBlock() and measures latency
+    org.chuck.deluge.firmware.engine.FirmwareAudioEngine engine = null;
+    Object engObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+    if (engObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine) {
+      engine = (org.chuck.deluge.firmware.engine.FirmwareAudioEngine) engObj;
+    }
+    assertNotNull(engine, "Audio engine must be initialized");
+
+    final org.chuck.deluge.firmware.engine.FirmwareAudioEngine finalEngine = engine;
+    java.util.List<Double> latencySpikes = new java.util.concurrent.CopyOnWriteArrayList<>();
+    java.util.concurrent.atomic.AtomicBoolean running =
+        new java.util.concurrent.atomic.AtomicBoolean(true);
+
+    Thread audioThread =
+        new Thread(
+            () -> {
+              while (running.get()) {
+                long start = System.nanoTime();
+                finalEngine.renderBlock(128);
+                long duration = System.nanoTime() - start;
+                double durationMs = duration / 1000000.0;
+                if (durationMs > 2.9) {
+                  latencySpikes.add(durationMs);
+                }
+                // Check for DSP blowups (NaN, infinity, or extreme overflow values in Q31)
+                for (int i = 0; i < 128; i++) {
+                  int valL = finalEngine.masterBuffer[i].l;
+                  int valR = finalEngine.masterBuffer[i].r;
+                  if (Math.abs(valL) > 0x7fffffff || Math.abs(valR) > 0x7fffffff) {
+                    latencySpikes.add(-1.0); // marker for DSP overflow blowout
+                  }
+                }
+                // sleep a bit to match playback pacing
+                try {
+                  Thread.sleep(2);
+                } catch (InterruptedException e) {
+                  break;
+                }
+              }
+            });
+    audioThread.start();
+
+    // 3. Simulate UI rapid note edits via mouse click events on pads
+    try {
+      for (int i = 0; i < 20; i++) {
+        final int row = 4 + (i % 3);
+        final int col = i % 16;
+        javax.swing.JButton pad = grid.getPads()[row][col];
+        if (pad != null) {
+          // Trigger mouse click on EDT to simulate user click
+          javax.swing.SwingUtilities.invokeAndWait(
+              () -> {
+                for (java.awt.event.MouseListener ml : pad.getMouseListeners()) {
+                  ml.mousePressed(
+                      new java.awt.event.MouseEvent(
+                          pad,
+                          java.awt.event.MouseEvent.MOUSE_PRESSED,
+                          System.currentTimeMillis(),
+                          0,
+                          10,
+                          10,
+                          1,
+                          false,
+                          java.awt.event.MouseEvent.BUTTON1));
+                  ml.mouseReleased(
+                      new java.awt.event.MouseEvent(
+                          pad,
+                          java.awt.event.MouseEvent.MOUSE_RELEASED,
+                          System.currentTimeMillis(),
+                          0,
+                          10,
+                          10,
+                          1,
+                          false,
+                          java.awt.event.MouseEvent.BUTTON1));
+                }
+              });
+        }
+        Thread.sleep(40);
+      }
+    } finally {
+      running.set(false);
+      audioThread.join();
+      app.dispose();
+      vm.shutdown();
+    }
+
+    // 4. Assert that no audio block exceeded the 2.9ms budget or blew up during edits
+    assertTrue(
+        latencySpikes.isEmpty(),
+        "Audio thread anomaly detected during grid edits (spikes/blowouts): " + latencySpikes);
+  }
 }
