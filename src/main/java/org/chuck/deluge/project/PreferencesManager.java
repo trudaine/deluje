@@ -106,8 +106,18 @@ public class PreferencesManager {
 
   private static final String KEY_MONITOR_GAIN_BOOST = "audio.monitorGainBoost";
 
+  /** Loudest desktop output boost that stays clean (no hard clipping) — measured. */
+  public static final int MAX_CLEAN_GAIN_BOOST = 12;
+
+  /**
+   * Post-engine desktop output boost. Defaults to 8x (loud — a note peaks ~0.96 — yet clean) and is
+   * clamped to {@link #MAX_CLEAN_GAIN_BOOST}: the output limiter starts hard-clipping above ~12x,
+   * and the old 24x default railed even a single note (the "garbage" distortion). Clamping on read
+   * also fixes stored 24x prefs without the user changing anything.
+   */
   public static int getMonitorGainBoost() {
-    return prefs.getInt(KEY_MONITOR_GAIN_BOOST, 24);
+    int v = prefs.getInt(KEY_MONITOR_GAIN_BOOST, 8);
+    return Math.max(1, Math.min(MAX_CLEAN_GAIN_BOOST, v));
   }
 
   public static void setMonitorGainBoost(int value) {
