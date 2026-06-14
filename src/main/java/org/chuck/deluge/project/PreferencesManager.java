@@ -110,13 +110,14 @@ public class PreferencesManager {
   public static final int MAX_CLEAN_GAIN_BOOST = 12;
 
   /**
-   * Post-engine desktop output boost. Defaults to 8x (loud — a note peaks ~0.96 — yet clean) and is
-   * clamped to {@link #MAX_CLEAN_GAIN_BOOST}: the output limiter starts hard-clipping above ~12x,
-   * and the old 24x default railed even a single note (the "garbage" distortion). Clamping on read
-   * also fixes stored 24x prefs without the user changing anything.
+   * Post-engine desktop output boost. Defaults to 6x — loud for single notes yet leaving headroom
+   * so dense chords don't slam the output soft-limiter (8x pushed polyphony to ~full-scale). Clamped
+   * to {@link #MAX_CLEAN_GAIN_BOOST}: the limiter starts hard-clipping above ~12x, and the old 24x
+   * default railed even a single note (the "garbage" distortion). Clamping on read also fixes stored
+   * 24x prefs without the user changing anything.
    */
   public static int getMonitorGainBoost() {
-    int v = prefs.getInt(KEY_MONITOR_GAIN_BOOST, 8);
+    int v = prefs.getInt(KEY_MONITOR_GAIN_BOOST, 6);
     return Math.max(1, Math.min(MAX_CLEAN_GAIN_BOOST, v));
   }
 
