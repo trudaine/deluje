@@ -6719,7 +6719,7 @@ public class SwingGridPanel extends JPanel {
     }
   }
 
-  private void handleStepPressed(int row, int col) {
+  void handleStepPressed(int row, int col) {
     if (bridge == null) return;
     int modelRow = getModelRow(row);
     boolean isSynthMode = bridge.getTrackType(baseTrackId) == 1;
