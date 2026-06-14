@@ -6,7 +6,7 @@ package org.chuck.deluge.firmware2;
  * {@code centAdjustTableSmall} lookup. {@code detuneScaled} is {@code cents * 42949672}.
  */
 public class PhaseIncrementFineTuner {
-  private int multiplier;
+  private volatile int multiplier;
 
   public PhaseIncrementFineTuner() {
     setNoDetune();

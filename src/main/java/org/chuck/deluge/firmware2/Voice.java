@@ -700,7 +700,7 @@ public class Voice {
 
     // ── 6. Per-source rendering (lines 950-1400) ──
     // Overall osc amplitude: envelope 0 (unipolar lastValue) * LOCAL_VOLUME
-    int env0Gain = (sourceValues[PatchSource.ENVELOPE_0.ordinal()] >> 1) + 1073741824;
+    int env0Gain = envelopes[0].lastValue;
     int trackVol = paramFinalValues[Param.LOCAL_VOLUME];
 
     int overallOscAmplitude =

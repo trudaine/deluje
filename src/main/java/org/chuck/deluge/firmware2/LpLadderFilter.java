@@ -221,21 +221,23 @@ public class LpLadderFilter extends Filter {
     if (morph > 0 || processedResonance > 510000000) {
       temp =
           Functions.multiply_32x32_rshift32_rounded(
-                  input
-                      - (Functions.multiply_32x32_rshift32_rounded(feedbacksSum, processedResonance)
-                          << 3),
-                  divideByTotalMoveabilityAndProcessedResonance)
-              << 2;
+              input
+                  - Functions.lshiftAndSaturate(
+                      Functions.multiply_32x32_rshift32_rounded(feedbacksSum, processedResonance),
+                      3),
+              divideByTotalMoveabilityAndProcessedResonance);
+      temp = Functions.lshiftAndSaturate(temp, 2);
       int extra = 2 * Functions.multiply_32x32_rshift32(input, morph);
       temp = Functions.getTanHUnknown(temp + extra, 2);
     } else {
       temp =
           Functions.multiply_32x32_rshift32_rounded(
-                  input
-                      - (Functions.multiply_32x32_rshift32_rounded(feedbacksSum, processedResonance)
-                          << 3),
-                  divideByTotalMoveabilityAndProcessedResonance)
-              << 2;
+              input
+                  - Functions.lshiftAndSaturate(
+                      Functions.multiply_32x32_rshift32_rounded(feedbacksSum, processedResonance),
+                      3),
+              divideByTotalMoveabilityAndProcessedResonance);
+      temp = Functions.lshiftAndSaturate(temp, 2);
     }
     return temp;
   }
@@ -253,9 +255,10 @@ public class LpLadderFilter extends Filter {
             + state.lpfLPF3.getFeedbackOutput(divideBy1PlusTannedFrequency);
     int x = scaleInput(input, feedbacksSum);
 
-    return state.lpfLPF3.doAPF(
-            state.lpfLPF2.doFilter(state.lpfLPF1.doFilter(x, noisy_m), noisy_m), noisy_m)
-        << 1;
+    return Functions.lshiftAndSaturate(
+        state.lpfLPF3.doAPF(
+            state.lpfLPF2.doFilter(state.lpfLPF1.doFilter(x, noisy_m), noisy_m), noisy_m),
+        1);
   }
 
   private int do24dBLPFOnSample(int input, LpLadderState state) {
@@ -267,17 +270,18 @@ public class LpLadderFilter extends Filter {
 
     int feedbacksSum =
         (state.lpfLPF1.getFeedbackOutputWithoutLshift(lpf1Feedback)
-                + state.lpfLPF2.getFeedbackOutputWithoutLshift(lpf2Feedback)
-                + state.lpfLPF3.getFeedbackOutputWithoutLshift(lpf3Feedback)
-                + state.lpfLPF4.getFeedbackOutputWithoutLshift(divideBy1PlusTannedFrequency))
-            << 2;
+            + state.lpfLPF2.getFeedbackOutputWithoutLshift(lpf2Feedback)
+            + state.lpfLPF3.getFeedbackOutputWithoutLshift(lpf3Feedback)
+            + state.lpfLPF4.getFeedbackOutputWithoutLshift(divideBy1PlusTannedFrequency));
+    feedbacksSum = Functions.lshiftAndSaturate(feedbacksSum, 2);
 
     int x = scaleInput(input, feedbacksSum);
-    return state.lpfLPF4.doFilter(
+    return Functions.lshiftAndSaturate(
+        state.lpfLPF4.doFilter(
             state.lpfLPF3.doFilter(
                 state.lpfLPF2.doFilter(state.lpfLPF1.doFilter(x, noisy_m), noisy_m), noisy_m),
-            noisy_m)
-        << 1;
+            noisy_m),
+        1);
   }
 
   private int doDriveLPFOnSample(int input, LpLadderState state) {
@@ -289,10 +293,10 @@ public class LpLadderFilter extends Filter {
 
     int feedbacksSum =
         (state.lpfLPF1.getFeedbackOutputWithoutLshift(lpf1Feedback)
-                + state.lpfLPF2.getFeedbackOutputWithoutLshift(lpf2Feedback)
-                + state.lpfLPF3.getFeedbackOutputWithoutLshift(lpf3Feedback)
-                + state.lpfLPF4.getFeedbackOutputWithoutLshift(divideBy1PlusTannedFrequency))
-            << 2;
+            + state.lpfLPF2.getFeedbackOutputWithoutLshift(lpf2Feedback)
+            + state.lpfLPF3.getFeedbackOutputWithoutLshift(lpf3Feedback)
+            + state.lpfLPF4.getFeedbackOutputWithoutLshift(divideBy1PlusTannedFrequency));
+    feedbacksSum = Functions.lshiftAndSaturate(feedbacksSum, 2);
 
     feedbacksSum = Functions.getTanHUnknown(feedbacksSum, 7);
     int x = scaleInput(input, feedbacksSum);
@@ -300,7 +304,7 @@ public class LpLadderFilter extends Filter {
     int a = state.lpfLPF1.doFilter(x, noisy_m);
     int b = state.lpfLPF2.doFilter(a, noisy_m);
     int c = state.lpfLPF3.doFilter(b, noisy_m);
-    int d = state.lpfLPF4.doFilter(c, noisy_m) << 1;
+    int d = Functions.lshiftAndSaturate(state.lpfLPF4.doFilter(c, noisy_m), 1);
     return d;
   }
 }
