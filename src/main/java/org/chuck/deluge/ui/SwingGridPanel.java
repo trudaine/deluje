@@ -74,6 +74,7 @@ public class SwingGridPanel extends JPanel {
 
   private int soloRow = -1; // -1 = no solo
   private Timer playheadTimer; // single timer for playhead updates, avoids leaks
+  private boolean wasSequencerPlaying; // edge-detect stop to flush MIDI notes
   private final java.util.Map<Integer, VUMeterPanel> voiceVuMeters =
       new java.util.concurrent.ConcurrentHashMap<>();
   private final java.util.Map<Integer, VUMeterPanel> trackVuMeters =
@@ -2643,12 +2644,7 @@ public class SwingGridPanel extends JPanel {
                             bridge.setStep(baseTrackId + modelRow, activeCol, !st);
                             if (!st) {
                               if (finalMidiOut != null) {
-                                try {
-                                  finalMidiOut.sendMessage(
-                                      new byte[] {(byte) 0x90, (byte) (60 + modelRow), (byte) 100});
-                                } catch (Exception ex) {
-                                  LOG.warning("MIDI send failed (synth grid): " + ex.getMessage());
-                                }
+                                sendMidiNote(60 + modelRow, 100, 250); // preview
                               }
                             }
                             if (projectModel != null
@@ -3446,6 +3442,49 @@ public class SwingGridPanel extends JPanel {
    */
   private boolean isSequencerPlaying() {
     return vm != null && vm.getGlobalInt(BridgeContract.G_PLAY) == 1L;
+  }
+
+  /**
+   * Sends a MIDI note-on (channel 1) and schedules the matching note-off after {@code gateMs}. The
+   * grid previews and the playhead used to emit note-ons with no note-offs, so any connected MIDI
+   * device accumulated stuck notes. Pairing every on with a guaranteed off prevents that.
+   */
+  private void sendMidiNote(int note, int velocity, int gateMs) {
+    org.rtmidijava.RtMidiOut out = finalMidiOut;
+    if (out == null || note < 0 || note > 127) return;
+    try {
+      out.sendMessage(new byte[] {(byte) 0x90, (byte) note, (byte) velocity});
+    } catch (Exception ex) {
+      LOG.warning("MIDI note-on failed: " + ex.getMessage());
+      return;
+    }
+    javax.swing.Timer off =
+        new javax.swing.Timer(
+            Math.max(1, gateMs),
+            e -> {
+              org.rtmidijava.RtMidiOut o = finalMidiOut;
+              if (o == null) return;
+              try {
+                o.sendMessage(new byte[] {(byte) 0x80, (byte) note, (byte) 0});
+              } catch (Exception ex) {
+                LOG.warning("MIDI note-off failed: " + ex.getMessage());
+              }
+            });
+    off.setRepeats(false);
+    off.start();
+  }
+
+  /** Panic release: All-Notes-Off (CC123) on every channel — sent on stop / device change. */
+  void allMidiNotesOff() {
+    org.rtmidijava.RtMidiOut out = finalMidiOut;
+    if (out == null) return;
+    try {
+      for (int ch = 0; ch < 16; ch++) {
+        out.sendMessage(new byte[] {(byte) (0xB0 | ch), (byte) 123, (byte) 0});
+      }
+    } catch (Exception ex) {
+      LOG.warning("MIDI all-notes-off failed: " + ex.getMessage());
+    }
   }
 
   private void stopAuditionIfNeeded() {
@@ -5627,12 +5666,7 @@ public class SwingGridPanel extends JPanel {
                             bridge.setStep(baseTrackId + trk, colId, !st);
                             if (!st) {
                               if (finalMidiOut != null) {
-                                try {
-                                  finalMidiOut.sendMessage(
-                                      new byte[] {(byte) 0x90, (byte) (60 + trk), (byte) 100});
-                                } catch (Exception ex) {
-                                  LOG.warning("MIDI send failed (kit grid): " + ex.getMessage());
-                                }
+                                sendMidiNote(60 + trk, 100, 250); // preview
                               }
                             }
                             clipBtn.setBackground(
@@ -6093,6 +6127,12 @@ public class SwingGridPanel extends JPanel {
         new Timer(
             100,
             e -> {
+              // On the playing->stopped edge, release any MIDI notes left hanging on the device.
+              boolean playingNow = isSequencerPlaying();
+              if (wasSequencerPlaying && !playingNow) {
+                allMidiNotesOff();
+              }
+              wasSequencerPlaying = playingNow;
               int currentStep = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
               if (currentStep >= 0) {
                 int activeCol = (currentStep % stepCount);
@@ -6157,12 +6197,8 @@ public class SwingGridPanel extends JPanel {
                     if (bridge.getStep(engineRow, engineActiveCol)) {
                       vuLevels[engineRow] = 1.0; // Spike VU Meter!
                       if (finalMidiOut != null) {
-                        try {
-                          finalMidiOut.sendMessage(
-                              new byte[] {(byte) 0x90, (byte) (36 + t * 2), (byte) 100});
-                        } catch (Exception ex) {
-                          LOG.warning("MIDI send failed (playhead): " + ex.getMessage());
-                        }
+                        // Playhead step out: short gate so the note releases before the next step.
+                        sendMidiNote(36 + t * 2, 100, 120);
                       }
                     }
                   }
@@ -7007,11 +7043,7 @@ public class SwingGridPanel extends JPanel {
     int trackType = bridge.getTrackType(modelRow);
     if (trackType == 2) {
       if (finalMidiOut != null) {
-        try {
-          finalMidiOut.sendMessage(new byte[] {(byte) 0x90, (byte) (60 + modelRow), (byte) 100});
-        } catch (Exception ex) {
-          LOG.warning("MIDI send failed: " + ex.getMessage());
-        }
+        sendMidiNote(60 + modelRow, 100, 250); // preview
       }
     } else if (isSynthMode) {
       int pitchMidi = ((128 - 1) - modelRow) + 0;
