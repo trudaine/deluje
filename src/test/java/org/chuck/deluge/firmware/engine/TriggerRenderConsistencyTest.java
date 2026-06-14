@@ -102,7 +102,10 @@ class TriggerRenderConsistencyTest {
 
   // ── Desktop output gain staging: "garbage" was hard clipping from the 24x monitor boost ──
 
-  /** Apply the exact JavaAudioDriver output chain at a given boost; returns [clippedSamples, peakx1000]. */
+  /**
+   * Apply the exact JavaAudioDriver output chain at a given boost; returns [clippedSamples,
+   * peakx1000].
+   */
   private static long[] driverChain(int[] rawL, int gain) {
     long clips = 0;
     long peak = 0;
@@ -145,11 +148,13 @@ class TriggerRenderConsistencyTest {
     int def = org.chuck.deluge.project.PreferencesManager.getMonitorGainBoost();
     long[] atDefault = driverChain(raw, def);
     assertEquals(0L, atDefault[0], "default desktop boost (" + def + "x) must not hard-clip");
-    assertTrue(atDefault[1] > 500, "default boost must be loud (peak>0.5), was " + atDefault[1] / 1000.0);
+    assertTrue(
+        atDefault[1] > 500, "default boost must be loud (peak>0.5), was " + atDefault[1] / 1000.0);
 
     // The clean ceiling is also safe; anything well above it rails (why the menu is capped).
     assertEquals(0L, driverChain(raw, 12)[0], "12x (max clean) must not hard-clip");
-    assertTrue(driverChain(raw, 24)[0] > 0, "24x DOES hard-clip — the old default that caused garbage");
+    assertTrue(
+        driverChain(raw, 24)[0] > 0, "24x DOES hard-clip — the old default that caused garbage");
   }
 
   @Test

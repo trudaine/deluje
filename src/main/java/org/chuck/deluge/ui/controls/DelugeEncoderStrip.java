@@ -7,9 +7,9 @@ import javax.swing.JPanel;
 
 /**
  * A compact strip of the Deluge scroll encoders (horizontal X and vertical Y). Turning a knob emits
- * a signed cell delta to the supplied callback, mirroring the hardware data encoders that scroll the
- * grid timeline (X) and note rows (Y). The callbacks are wired by the app to the currently active
- * grid panel's {@code scrollHorizontally} / {@code scrollVertically}.
+ * a signed cell delta to the supplied callback, mirroring the hardware data encoders that scroll
+ * the grid timeline (X) and note rows (Y). The callbacks are wired by the app to the currently
+ * active grid panel's {@code scrollHorizontally} / {@code scrollVertically}.
  */
 public class DelugeEncoderStrip extends JPanel {
 

@@ -85,6 +85,13 @@ public class SwingDelugeAppE2ETest {
     // Verify follow mode starts as active
     assertTrue(grid.isPlayheadFollowMode(), "Follow mode should be active by default");
 
+    // Call layout refresh and confirm follow mode is NOT disabled by programmatic setValues
+    // triggers
+    grid.refresh();
+    assertTrue(
+        grid.isPlayheadFollowMode(),
+        "Follow mode must stay active after refresh/setValues layout calls");
+
     // Manually trigger play toggle to simulate active play state
     app.getTopBarListener().onPlayToggle();
     assertTrue(grid.isPlayheadFollowMode(), "Follow mode must stay active on play toggle start");

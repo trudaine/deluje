@@ -69,9 +69,15 @@ public class DelugeEncoderKnobTest {
     k.onTurn(turn::addAndGet);
     k.onPressTurn(pressTurn::addAndGet);
 
-    k.dispatchEvent(ev(k, MouseEvent.MOUSE_PRESSED, InputEvent.ALT_DOWN_MASK, 30, MouseEvent.BUTTON1));
     k.dispatchEvent(
-        ev(k, MouseEvent.MOUSE_DRAGGED, InputEvent.BUTTON1_DOWN_MASK | InputEvent.ALT_DOWN_MASK, 18, 0));
+        ev(k, MouseEvent.MOUSE_PRESSED, InputEvent.ALT_DOWN_MASK, 30, MouseEvent.BUTTON1));
+    k.dispatchEvent(
+        ev(
+            k,
+            MouseEvent.MOUSE_DRAGGED,
+            InputEvent.BUTTON1_DOWN_MASK | InputEvent.ALT_DOWN_MASK,
+            18,
+            0));
     k.dispatchEvent(ev(k, MouseEvent.MOUSE_RELEASED, 0, 18, MouseEvent.BUTTON1));
 
     assertEquals(0, turn.get(), "alt-drag is press+turn, not plain turn");

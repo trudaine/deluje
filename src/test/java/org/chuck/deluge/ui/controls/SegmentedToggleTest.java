@@ -12,7 +12,8 @@ import org.junit.jupiter.api.Test;
 public class SegmentedToggleTest {
 
   private static SegmentedToggle make(int initial, AtomicInteger sink) {
-    SegmentedToggle t = new SegmentedToggle(new String[] {"12dB", "24dB", "DRIVE"}, initial, Color.ORANGE);
+    SegmentedToggle t =
+        new SegmentedToggle(new String[] {"12dB", "24dB", "DRIVE"}, initial, Color.ORANGE);
     t.setSize(120, 28); // 3 segments => 40px each
     t.onChange(sink::set);
     return t;

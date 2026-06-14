@@ -194,9 +194,7 @@ public class PreferencesDialog extends JDialog {
     // full-volume note already railed at the old 24x default — that was the "garbage" distortion).
     monitorGainCombo =
         new JComboBox<>(
-            new String[] {
-              "1x (Quiet)", "4x", "6x", "8x (Default)", "10x", "12x (Max)"
-            });
+            new String[] {"1x (Quiet)", "4x", "6x", "8x (Default)", "10x", "12x (Max)"});
     styleComboBox(monitorGainCombo);
     addField(
         panel,

@@ -13,14 +13,14 @@ import javax.swing.Timer;
 import org.chuck.deluge.firmware.hid.FirmwareDisplay;
 
 /**
- * Modern, self-drawn transient parameter readout that replaces the legacy 4-character
- * {@code RetroLedDisplay}. Shows a dim param name and a bright value on a dark rounded chip; new
- * values glow in the accent colour and fade back to idle after a short hold (the firmware's
+ * Modern, self-drawn transient parameter readout that replaces the legacy 4-character {@code
+ * RetroLedDisplay}. Shows a dim param name and a bright value on a dark rounded chip; new values
+ * glow in the accent colour and fade back to idle after a short hold (the firmware's
  * transient-popup behaviour, oled.cpp:723). All updates are mirrored to the faithful OLED, which
  * remains the primary text surface.
  *
- * <p>Drop-in API-compatible with the old display: {@code print}, {@code printTransient},
- * {@code scrollMessage}, {@code reset}.
+ * <p>Drop-in API-compatible with the old display: {@code print}, {@code printTransient}, {@code
+ * scrollMessage}, {@code reset}.
  */
 public class DelugeParamReadout extends JComponent {
 
