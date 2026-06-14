@@ -93,6 +93,12 @@ public class SwingGridPanel extends JPanel {
   private int stepCount = 16; // steps per row, derived from gridMode
   int columnCount = 18; // stepCount + 2 (MUTE + SOLO), derived from gridMode
 
+  private int lastColumnCount = -1;
+  private int lastVoiceRowCount = -1;
+  private GridViewMode lastViewMode = null;
+  private int lastScrollOffset = -1;
+  private int lastScrollOffsetX = -1;
+
   public enum GridViewMode {
     CLIP,
     SONG,
@@ -3454,6 +3460,265 @@ public class SwingGridPanel extends JPanel {
   }
 
   public void refresh() {
+    stopAuditionIfNeeded();
+    refreshInProgress = true;
+
+    // 1. Initial metrics setup to check if structural parameters changed
+    voiceRowCount = computeVoiceRowCount();
+    if ((viewMode == GridViewMode.CLIP || viewMode == GridViewMode.AUTOMATION)
+        && projectModel != null
+        && editedModelTrack < projectModel.getTracks().size()) {
+      org.chuck.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
+      if (activeClipId >= 0 && activeClipId < t.getClips().size()) {
+        org.chuck.deluge.model.ClipModel activeClip = t.getClips().get(activeClipId);
+        this.stepCount = activeClip.isTripletMode() ? 12 : gridMode.columns;
+      } else {
+        this.stepCount = gridMode.columns;
+      }
+    } else {
+      this.stepCount = gridMode.columns;
+    }
+    this.columnCount = this.stepCount + 2;
+
+    boolean structureChanged =
+        (columnCount != lastColumnCount
+            || voiceRowCount != lastVoiceRowCount
+            || viewMode != lastViewMode
+            || scrollOffset != lastScrollOffset
+            || scrollOffsetX != lastScrollOffsetX
+            || getComponentCount() == 0);
+
+    if (structureChanged) {
+      lastColumnCount = columnCount;
+      lastVoiceRowCount = voiceRowCount;
+      lastViewMode = viewMode;
+      lastScrollOffset = scrollOffset;
+      lastScrollOffsetX = scrollOffsetX;
+
+      rebuildUIComponents();
+    } else {
+      refreshInPlace();
+    }
+
+    refreshInProgress = false;
+  }
+
+  private void refreshInPlace() {
+    if (projectModel == null) return;
+    java.util.List<org.chuck.deluge.model.TrackModel> tracks = projectModel.getTracks();
+
+    // 1. Sync song note rows in low latency direct JMem sync
+    if (vm != null) {
+      try {
+        Object fwHandlerObj =
+            vm.getGlobalObject(org.chuck.deluge.BridgeContract.G_PLAYBACK_HANDLER);
+        if (fwHandlerObj instanceof org.chuck.deluge.firmware.playback.PlaybackHandler fwHandler) {
+          org.chuck.deluge.firmware.model.Song currentSong = fwHandler.getSong();
+          if (currentSong != null) {
+            for (int i = 0;
+                i < projectModel.getTracks().size() && i < currentSong.clips.size();
+                i++) {
+              org.chuck.deluge.model.TrackModel trackModel = projectModel.getTracks().get(i);
+              org.chuck.deluge.firmware.model.Clip clip = currentSong.clips.get(i);
+              if (clip instanceof org.chuck.deluge.firmware.model.InstrumentClip
+                  && !trackModel.getClips().isEmpty()) {
+                org.chuck.deluge.firmware.model.InstrumentClip instClip =
+                    (org.chuck.deluge.firmware.model.InstrumentClip) clip;
+                org.chuck.deluge.model.ClipModel clipModel = trackModel.getClips().get(0);
+
+                int stepTicks = clipModel.isTripletMode() ? 32 : 24;
+                instClip.loopLength = clipModel.getStepCount() * stepTicks;
+                instClip.tripletMode = clipModel.isTripletMode();
+
+                boolean isKit = trackModel instanceof org.chuck.deluge.model.KitTrackModel;
+
+                java.util.List<org.chuck.deluge.firmware.model.note.NoteRow> nextRows =
+                    new java.util.ArrayList<>();
+                for (int r = 0; r < clipModel.getRowCount(); r++) {
+                  int pitch = isKit ? r : (clipModel.getRowCount() - 1) - r;
+                  org.chuck.deluge.firmware.model.note.NoteRow noteRow =
+                      new org.chuck.deluge.firmware.model.note.NoteRow(pitch);
+
+                  java.util.List<org.chuck.deluge.model.HighResNote> rawNotes =
+                      clipModel.getRawNoteEvents(r);
+                  if (rawNotes != null && !rawNotes.isEmpty()) {
+                    for (org.chuck.deluge.model.HighResNote hrn : rawNotes) {
+                      noteRow.attemptNoteAdd(
+                          hrn.getTickPos(),
+                          hrn.getTickLen(),
+                          (int) (hrn.getVelocity() * 127),
+                          (int) (hrn.getProbability() * 100),
+                          null,
+                          0);
+                    }
+                  } else {
+                    for (int s = 0; s < clipModel.getStepCount(); s++) {
+                      org.chuck.deluge.model.StepData stepData = clipModel.getStep(r, s);
+                      if (stepData.active()) {
+                        int pos = s * stepTicks;
+                        int len = (int) (stepData.gate() * stepTicks);
+                        int vel = (int) (stepData.velocity() * 127);
+                        int prob = (int) (stepData.probability() * 100);
+                        noteRow.attemptNoteAdd(pos, len, vel, prob, null, 0);
+                      }
+                    }
+                  }
+
+                  if (!noteRow.notes.isEmpty()) {
+                    nextRows.add(noteRow);
+                  }
+                }
+                instClip.noteRows = nextRows;
+              }
+            }
+          }
+        }
+      } catch (Exception ex) {
+        LOG.warning(
+            "Real-time audio engine low-latency notes sync failed in-place: " + ex.getMessage());
+      }
+    }
+
+    // 2. Update visual button properties in place
+    if (viewMode == GridViewMode.CLIP) {
+      int curTrackLen = bridge != null ? bridge.getTrackLength(baseTrackId) : stepCount;
+      boolean isSynthMode = bridge != null && bridge.getTrackType(baseTrackId) == 1;
+
+      for (int v = 0; v < gridMode.rows; v++) {
+        int modelRow = scrollOffset + v;
+        if (modelRow >= 0 && modelRow < voiceRowCount) {
+          int engineR = baseTrackId + modelRow;
+          boolean isMuted = bridge != null && bridge.getMute(engineR);
+
+          for (int c = 0; c < columnCount; c++) {
+            JButton clipBtn = pads[v][c];
+            if (clipBtn == null) continue;
+
+            if (c == columnCount - 2) {
+              // Mute button
+              Color muteBg = isMuted ? new Color(0xff, 0xd7, 0x00) : Color.WHITE;
+              clipBtn.setBackground(muteBg);
+              if (clipBtn instanceof DelugePadButton pad) {
+                pad.setBaseColor(muteBg);
+                pad.setMuted(isMuted);
+              }
+            } else if (c == columnCount - 1) {
+              // Audition / Row Label button
+            } else {
+              // Normal step pads
+              int activeCol;
+              if (curTrackLen > 0 && curTrackLen < stepCount) {
+                activeCol = c % curTrackLen;
+              } else if (curTrackLen > stepCount) {
+                activeCol = Math.min(c + scrollOffsetX, curTrackLen - 1);
+              } else {
+                activeCol = c;
+              }
+
+              double[] outVelProb = {0.8, 1.0};
+              boolean stepState = isStepActiveOrSpanned(modelRow, activeCol, outVelProb);
+              double vel = outVelProb[0];
+              double prob = outVelProb[1];
+              boolean inLoop = activeCol < curTrackLen;
+
+              if (clipBtn instanceof DelugePadButton pad) {
+                pad.setMuted(isMuted);
+                pad.setInLoop(inLoop);
+                pad.setActive(stepState);
+                pad.setIntensity((float) (vel * (0.2f + 0.8f * prob)));
+                pad.setTied(isStepTied(modelRow, activeCol));
+                if (stepState) {
+                  if (isSynthMode) {
+                    int pitchMidi = (((128 - 1) - modelRow) + 0);
+                    pad.setNoteText(getNoteName(pitchMidi));
+                  } else {
+                    pad.setNoteText(String.format("v%d", (int) (vel * 100)));
+                  }
+                } else {
+                  pad.setNoteText("");
+                }
+              } else {
+                clipBtn.setBackground(
+                    stepState
+                        ? velocityBlend(trackColors[modelRow % trackColors.length], vel)
+                        : getPadDefaultBg(activeCol));
+              }
+            }
+          }
+        }
+      }
+    } else if (viewMode == GridViewMode.SONG || viewMode == GridViewMode.ARRANGEMENT) {
+      for (int v = 0; v < gridMode.rows; v++) {
+        int modelRow = v;
+        if (modelRow < voiceRowCount) {
+          int engineRow = baseTrackId + modelRow;
+          boolean isMuted = bridge != null && bridge.getMute(engineRow);
+          boolean isSoloed = (soloRow == modelRow);
+
+          for (int c = 0; c < columnCount; c++) {
+            JButton clipBtn = pads[v][c];
+            if (clipBtn == null) continue;
+
+            if (c == columnCount - 2) {
+              Color muteBg = isMuted ? new Color(0xff, 0xd7, 0x00) : Color.WHITE;
+              clipBtn.setBackground(muteBg);
+              if (clipBtn instanceof DelugePadButton pad) {
+                pad.setBaseColor(muteBg);
+                pad.setIntensity(1.0f);
+                pad.setActive(true);
+              }
+            } else if (c == columnCount - 1) {
+              Color labelBg;
+              Color labelFg;
+              if (soloRow == modelRow) {
+                labelBg = Color.GREEN;
+                labelFg = Color.BLACK;
+              } else if (modelRow == 0) {
+                labelBg = new Color(0xff, 0xb3, 0x00);
+                labelFg = Color.BLACK;
+              } else if (modelRow == voiceRowCount - 1) {
+                labelBg = new Color(0x7b, 0x68, 0xee);
+                labelFg = Color.WHITE;
+              } else {
+                labelBg = new Color(0x55, 0x55, 0x5a);
+                labelFg = Color.WHITE;
+              }
+              clipBtn.setBackground(labelBg);
+              clipBtn.setForeground(labelFg);
+              if (clipBtn instanceof DelugePadButton pad) {
+                pad.setBaseColor(labelBg);
+                pad.setTextColorOverride(labelFg);
+                pad.setIntensity(1.0f);
+                pad.setActive(true);
+              }
+            } else {
+              boolean hasClip = false;
+              if (modelRow < tracks.size()) {
+                org.chuck.deluge.model.TrackModel track = tracks.get(modelRow);
+                if (c < track.getClips().size()) {
+                  hasClip = true;
+                }
+              }
+              if (clipBtn instanceof DelugePadButton pad) {
+                pad.setActive(hasClip);
+                pad.setMuted(isMuted);
+              } else {
+                if (hasClip) {
+                  clipBtn.setBackground(trackColors[modelRow % trackColors.length]);
+                } else {
+                  clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    repaint();
+  }
+
+  private void rebuildUIComponents() {
     stopAuditionIfNeeded();
     refreshInProgress = true;
     removeAll();
