@@ -350,32 +350,36 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     fw2Sound.polyphonic = org.chuck.deluge.firmware2.Sound.PolyphonyMode.valueOf(polyphonic.name());
     fw2Sound.maxPolyphony = maxPolyphony;
 
-    System.arraycopy(globalSourceValues, 0, fw2Sound.globalSourceValues, 0, 3);
+    int[] nextGlobalSourceValues = new int[3];
+    System.arraycopy(globalSourceValues, 0, nextGlobalSourceValues, 0, 3);
+    fw2Sound.globalSourceValues = nextGlobalSourceValues;
 
     fw2Sound.lfoConfig[0].waveType = lfoWaveforms[0];
     fw2Sound.lfoConfig[1].waveType = lfoWaveforms[1];
     fw2Sound.lfoConfig[2].waveType = lfoWaveforms[2];
     fw2Sound.lfoConfig[3].waveType = lfoWaveforms[3];
 
+    int[] nextPatchedParamValues = new int[200];
     System.arraycopy(
         paramNeutralValues,
         0,
-        fw2Sound.patchedParamValues,
+        nextPatchedParamValues,
         0,
-        Math.min(paramNeutralValues.length, fw2Sound.patchedParamValues.length));
+        Math.min(paramNeutralValues.length, nextPatchedParamValues.length));
     if (paramKnobsPopulated) {
       for (int i = 0; i < Param.kNumParams; i++) {
-        fw2Sound.patchedParamValues[i] = paramKnobs[i];
+        nextPatchedParamValues[i] = paramKnobs[i];
       }
     }
     if (fmModulatorAmountBase[0] != Integer.MIN_VALUE) {
-      fw2Sound.patchedParamValues[org.chuck.deluge.firmware2.Param.LOCAL_MODULATOR_0_VOLUME] =
+      nextPatchedParamValues[org.chuck.deluge.firmware2.Param.LOCAL_MODULATOR_0_VOLUME] =
           fmModulatorAmountBase[0];
     }
     if (fmModulatorAmountBase[1] != Integer.MIN_VALUE) {
-      fw2Sound.patchedParamValues[org.chuck.deluge.firmware2.Param.LOCAL_MODULATOR_1_VOLUME] =
+      nextPatchedParamValues[org.chuck.deluge.firmware2.Param.LOCAL_MODULATOR_1_VOLUME] =
           fmModulatorAmountBase[1];
     }
+    fw2Sound.patchedParamValues = nextPatchedParamValues;
     java.util.List<org.chuck.deluge.firmware2.Patcher.Destination> nextDestinations =
         new java.util.ArrayList<>();
     for (Destination d : paramManager.getPatchCableSet().destinations) {

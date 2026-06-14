@@ -153,6 +153,8 @@ public class SwingDelugeAppE2ETest {
     java.util.concurrent.atomic.AtomicBoolean running =
         new java.util.concurrent.atomic.AtomicBoolean(true);
 
+    java.io.ByteArrayOutputStream pcmBuffer = new java.io.ByteArrayOutputStream();
+
     Thread audioThread =
         new Thread(
             () -> {
@@ -171,6 +173,15 @@ public class SwingDelugeAppE2ETest {
                   if (Math.abs(valL) > 0x7fffffff || Math.abs(valR) > 0x7fffffff) {
                     latencySpikes.add(-1.0); // marker for DSP overflow blowout
                   }
+
+                  // 16-bit PCM conversion
+                  short left = (short) Math.max(-32768, Math.min(32767, valL >> 16));
+                  short right = (short) Math.max(-32768, Math.min(32767, valR >> 16));
+
+                  pcmBuffer.write((byte) (left & 0xFF));
+                  pcmBuffer.write((byte) ((left >> 8) & 0xFF));
+                  pcmBuffer.write((byte) (right & 0xFF));
+                  pcmBuffer.write((byte) ((right >> 8) & 0xFF));
                 }
                 // sleep a bit to match playback pacing
                 try {
@@ -227,9 +238,53 @@ public class SwingDelugeAppE2ETest {
       vm.shutdown();
     }
 
-    // 4. Assert that no audio block exceeded the 2.9ms budget or blew up during edits
+    // 4. Save the recorded audio to a WAV file in the artifact directory
+    java.io.File destFile =
+        new java.io.File(
+            "/Users/ludo/.gemini/jetski/brain/a3569f91-4e06-4b92-bad2-e0e1f46551cb/captured_test_audio.wav");
+    writeWavFile(destFile, pcmBuffer.toByteArray(), 44100, 2);
+    System.out.println("[E2E] Saved E2E test recording to: " + destFile.getAbsolutePath());
+
+    // 5. Assert that no audio block exceeded the 2.9ms budget or blew up during edits
     assertTrue(
         latencySpikes.isEmpty(),
         "Audio thread anomaly detected during grid edits (spikes/blowouts): " + latencySpikes);
+  }
+
+  private void writeWavFile(java.io.File file, byte[] pcmData, int sampleRate, int channels)
+      throws java.io.IOException {
+    try (java.io.FileOutputStream fos = new java.io.FileOutputStream(file)) {
+      int totalDataLen = pcmData.length + 36;
+      int byteRate = sampleRate * channels * 2;
+
+      // RIFF header
+      fos.write(new byte[] {'R', 'I', 'F', 'F'});
+      fos.write(intToBytes(totalDataLen));
+      fos.write(new byte[] {'W', 'A', 'V', 'E'});
+
+      // fmt subchunk
+      fos.write(new byte[] {'f', 'm', 't', ' '});
+      fos.write(intToBytes(16)); // Subchunk1Size
+      fos.write(new byte[] {1, 0}); // AudioFormat (1 = PCM)
+      fos.write(new byte[] {(byte) channels, 0});
+      fos.write(intToBytes(sampleRate));
+      fos.write(intToBytes(byteRate));
+      fos.write(new byte[] {(byte) (channels * 2), 0}); // BlockAlign
+      fos.write(new byte[] {16, 0}); // BitsPerSample
+
+      // data subchunk
+      fos.write(new byte[] {'d', 'a', 't', 'a'});
+      fos.write(intToBytes(pcmData.length));
+      fos.write(pcmData);
+    }
+  }
+
+  private static byte[] intToBytes(int val) {
+    return new byte[] {
+      (byte) (val & 0xFF),
+      (byte) ((val >> 8) & 0xFF),
+      (byte) ((val >> 16) & 0xFF),
+      (byte) ((val >> 24) & 0xFF)
+    };
   }
 }

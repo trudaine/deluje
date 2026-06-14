@@ -87,14 +87,14 @@ public class Sound extends GlobalEffectable {
    */
   public final byte[][] sourceDx7Patch = new byte[2][];
 
-  public final int[] globalSourceValues = new int[3];
+  public volatile int[] globalSourceValues = new int[3];
 
   /**
    * The patch's per-param "knob"/preset values (bipolar Q31), mirroring the C {@code
    * ParamManager}'s patched-param set. The patcher reads these via {@link
    * #getSmoothedPatchedParamValue} and runs them through the firmware curves.
    */
-  public final int[] patchedParamValues = new int[200];
+  public volatile int[] patchedParamValues = new int[200];
 
   /** The patch's modulation cables (mirrors the C {@code ParamManager}'s PatchCableSet). */
   public final Patcher.PatchCableSet patchCableSet = new Patcher.PatchCableSet();
