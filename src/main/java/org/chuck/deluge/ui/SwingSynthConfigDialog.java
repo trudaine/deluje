@@ -304,6 +304,8 @@ public class SwingSynthConfigDialog extends JDialog {
             SYNTH_MODES,
             Math.max(0, Math.min(2, model.getSynthMode())),
             new Color(0x00, 0xbb, 0xff));
+    modeToggle.setToolTipText(
+        "Synth engine: SUBTRACTIVE (osc→filter), FM (mod→carrier), or RINGMOD (carrier×mod)");
     modeToggle.setPreferredSize(new Dimension(200, 26));
     modeToggle.onChange(
         mode -> {
@@ -502,6 +504,8 @@ public class SwingSynthConfigDialog extends JDialog {
     SegmentedToggle filterModeToggle =
         new SegmentedToggle(
             new String[] {"12dB", "24dB", "SVF"}, fmInit, new Color(0xff, 0xb3, 0x00));
+    filterModeToggle.setToolTipText(
+        "Filter type / slope: 12dB or 24dB ladder low-pass, or state-variable filter (SVF)");
     filterModeToggle.setPreferredSize(new Dimension(180, 26));
     rightPanel.add(filterModeToggle, rc);
     rightRow++;

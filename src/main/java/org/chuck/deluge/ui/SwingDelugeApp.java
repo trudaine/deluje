@@ -1521,6 +1521,30 @@ public class SwingDelugeApp extends JFrame {
     }
   }
 
+  /** True if the live sound's type still matches the track's type (so no rebuild is needed). */
+  static boolean soundMatchesTrack(
+      org.chuck.deluge.model.TrackModel tm, org.chuck.deluge.firmware2.GlobalEffectable snd) {
+    if (tm instanceof org.chuck.deluge.model.SynthTrackModel) {
+      return snd instanceof org.chuck.deluge.firmware.engine.FirmwareSound;
+    }
+    if (tm instanceof org.chuck.deluge.model.KitTrackModel) {
+      return snd instanceof org.chuck.deluge.firmware.engine.FirmwareKit;
+    }
+    return snd == null; // MIDI / Audio tracks have no engine sound
+  }
+
+  /** Apply a track's model params to its live sound without rebuilding it (preserves voices). */
+  private static void applyTrackToLiveSound(
+      org.chuck.deluge.model.TrackModel tm, org.chuck.deluge.firmware2.GlobalEffectable snd) {
+    if (tm instanceof org.chuck.deluge.model.SynthTrackModel st
+        && snd instanceof org.chuck.deluge.firmware.engine.FirmwareSound fs) {
+      org.chuck.deluge.firmware.engine.FirmwareFactory.applyModelToLiveSound(st, fs);
+    } else if (tm instanceof org.chuck.deluge.model.KitTrackModel kt
+        && snd instanceof org.chuck.deluge.firmware.engine.FirmwareKit fk) {
+      org.chuck.deluge.firmware.engine.FirmwareFactory.applyModelToLiveSound(kt, fk);
+    }
+  }
+
   public void syncHighFidelityEngine(org.chuck.deluge.model.ProjectModel model) {
     org.chuck.deluge.firmware.model.Song fwSong = FirmwareFactory.createSong(model);
     MatrixDriver.get().popUI();
@@ -1542,20 +1566,42 @@ public class SwingDelugeApp extends JFrame {
     }
 
     // ── Sync Audio Registry ──
+    // Only tear down and rebuild the live voices when the track STRUCTURE changed (count or type).
+    // For step/parameter edits during playback, rebuilding would swap live voices mid-render (and
+    // reset the transport via setSong) — producing garbage audio. In that case we instead update
+    // the existing sounds IN PLACE (the non-destructive path the dialogs use), and the playing
+    // song's note data is refreshed separately by the grid's low-latency live-sync in refresh().
+    boolean structureChanged = true;
     Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
     if (fwEngineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
-      fwEngine.sounds.clear();
-      // Ensure sounds list matches track count for direct indexing
-      for (int i = 0; i < model.getTracks().size(); i++) {
-        fwEngine.sounds.add(null);
+      structureChanged = fwEngine.sounds.size() != model.getTracks().size();
+      if (!structureChanged) {
+        for (int i = 0; i < model.getTracks().size(); i++) {
+          if (!soundMatchesTrack(model.getTracks().get(i), fwEngine.sounds.get(i))) {
+            structureChanged = true;
+            break;
+          }
+        }
       }
 
-      for (int i = 0; i < fwSong.clips.size() && i < model.getTracks().size(); i++) {
-        org.chuck.deluge.firmware.model.Clip c = fwSong.clips.get(i);
-        if (c instanceof org.chuck.deluge.firmware.model.InstrumentClip ic && ic.sound != null) {
-          fwEngine.sounds.set(i, ic.sound);
-          System.out.println(
-              "[UI] Registered track " + i + " sound: " + ic.sound.getClass().getSimpleName());
+      if (structureChanged) {
+        fwEngine.sounds.clear();
+        // Ensure sounds list matches track count for direct indexing
+        for (int i = 0; i < model.getTracks().size(); i++) {
+          fwEngine.sounds.add(null);
+        }
+        for (int i = 0; i < fwSong.clips.size() && i < model.getTracks().size(); i++) {
+          org.chuck.deluge.firmware.model.Clip c = fwSong.clips.get(i);
+          if (c instanceof org.chuck.deluge.firmware.model.InstrumentClip ic && ic.sound != null) {
+            fwEngine.sounds.set(i, ic.sound);
+            System.out.println(
+                "[UI] Registered track " + i + " sound: " + ic.sound.getClass().getSimpleName());
+          }
+        }
+      } else {
+        // Content edit: keep the live voices, just apply any param changes in place.
+        for (int i = 0; i < model.getTracks().size(); i++) {
+          applyTrackToLiveSound(model.getTracks().get(i), fwEngine.sounds.get(i));
         }
       }
 
@@ -1615,7 +1661,12 @@ public class SwingDelugeApp extends JFrame {
             + " fwSongClips="
             + (fwSong != null ? fwSong.clips.size() : "null"));
     if (fwHandlerObj instanceof org.chuck.deluge.firmware.playback.PlaybackHandler fwHandler) {
-      fwHandler.setSong(fwSong);
+      // Never swap the song out from under a running playhead for a mere content edit — that resets
+      // clip positions and produces an audible glitch. The grid's live-sync already updates the
+      // playing song's notes in place. Only replace the song on a structural change or while stopped.
+      if (structureChanged || !fwHandler.isPlaying()) {
+        fwHandler.setSong(fwSong);
+      }
       System.out.println(
           "[DIAG sync] Successfully set fwSong inside PlaybackHandler! Current active play state="
               + fwHandler.isPlaying()
