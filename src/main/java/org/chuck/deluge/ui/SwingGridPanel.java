@@ -67,11 +67,11 @@ public class SwingGridPanel extends JPanel {
   /** Number of drums in the edited kit track, or 0 if not a kit. */
   private int editedKitDrumCount() {
     if (!isEditedTrackKit()) return 0;
-    return ((org.chuck.deluge.model.KitTrackModel)
-            projectModel.getTracks().get(editedModelTrack))
+    return ((org.chuck.deluge.model.KitTrackModel) projectModel.getTracks().get(editedModelTrack))
         .getDrums()
         .size();
   }
+
   private int soloRow = -1; // -1 = no solo
   private Timer playheadTimer; // single timer for playhead updates, avoids leaks
   private final java.util.Map<Integer, VUMeterPanel> voiceVuMeters =
@@ -2119,7 +2119,7 @@ public class SwingGridPanel extends JPanel {
                   Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
                   if (fwEngineObj
                       instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
-                    if (editedModelTrack < fwEngine.sounds.size()) {
+                    if (editedModelTrack < fwEngine.sounds.size() && !isSequencerPlaying()) {
                       org.chuck.deluge.firmware2.GlobalEffectable sound =
                           fwEngine.sounds.get(editedModelTrack);
                       if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
@@ -2714,7 +2714,8 @@ public class SwingGridPanel extends JPanel {
                             if (fwEngineObj
                                 instanceof
                                 org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
-                              if (editedModelTrack < fwEngine.sounds.size()) {
+                              if (editedModelTrack < fwEngine.sounds.size()
+                                  && !isSequencerPlaying()) {
                                 org.chuck.deluge.firmware2.GlobalEffectable sound =
                                     fwEngine.sounds.get(editedModelTrack);
                                 if (sound
@@ -2836,7 +2837,8 @@ public class SwingGridPanel extends JPanel {
                               if (fwEngineObj
                                   instanceof
                                   org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
-                                if (editedModelTrack < fwEngine.sounds.size()) {
+                                if (editedModelTrack < fwEngine.sounds.size()
+                                    && !isSequencerPlaying()) {
                                   org.chuck.deluge.firmware2.GlobalEffectable sound =
                                       fwEngine.sounds.get(editedModelTrack);
                                   if (sound
@@ -3423,6 +3425,16 @@ public class SwingGridPanel extends JPanel {
         }
       }
     }
+  }
+
+  /**
+   * True while the sequencer is running. Edit-feedback auditions are suppressed during playback: the
+   * sequencer plays the tapped step itself, so a redundant audition note clashes with / stacks on
+   * the running sequence (and rings until the next tap) — that is the "garbage when adding cells
+   * during playback" symptom.
+   */
+  private boolean isSequencerPlaying() {
+    return vm != null && vm.getGlobalInt(BridgeContract.G_PLAY) == 1L;
   }
 
   private void stopAuditionIfNeeded() {
@@ -5051,7 +5063,7 @@ public class SwingGridPanel extends JPanel {
                       if (fwEngineObj
                           instanceof
                           org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
-                        if (editedModelTrack < fwEngine.sounds.size()) {
+                        if (editedModelTrack < fwEngine.sounds.size() && !isSequencerPlaying()) {
                           org.chuck.deluge.firmware2.GlobalEffectable sound =
                               fwEngine.sounds.get(editedModelTrack);
                           if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
@@ -5098,7 +5110,9 @@ public class SwingGridPanel extends JPanel {
                 int drumIdx = keyplayDrumIndex(trk, colId);
                 boolean hasDrum = drumIdx < editedKitDrumCount();
                 Color padColor =
-                    hasDrum ? trackColors[t % trackColors.length].darker() : new Color(0x16, 0x16, 0x16);
+                    hasDrum
+                        ? trackColors[t % trackColors.length].darker()
+                        : new Color(0x16, 0x16, 0x16);
                 clipBtn.setBackground(padColor);
                 if (clipBtn instanceof DelugePadButton pad) {
                   pad.setBaseColor(padColor);
@@ -5458,7 +5472,8 @@ public class SwingGridPanel extends JPanel {
                               if (fwEngineObj
                                   instanceof
                                   org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
-                                if (editedModelTrack < fwEngine.sounds.size()) {
+                                if (editedModelTrack < fwEngine.sounds.size()
+                                    && !isSequencerPlaying()) {
                                   org.chuck.deluge.firmware2.GlobalEffectable sound =
                                       fwEngine.sounds.get(editedModelTrack);
                                   if (sound
@@ -6722,7 +6737,7 @@ public class SwingGridPanel extends JPanel {
 
       Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
       if (fwEngineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
-        if (editedModelTrack < fwEngine.sounds.size()) {
+        if (editedModelTrack < fwEngine.sounds.size() && !isSequencerPlaying()) {
           org.chuck.deluge.firmware2.GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
           if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound synth) {
             synth.triggerNote(pitchMidi, 127);
@@ -6734,7 +6749,7 @@ public class SwingGridPanel extends JPanel {
 
       Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
       if (fwEngineObj instanceof org.chuck.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
-        if (editedModelTrack < fwEngine.sounds.size()) {
+        if (editedModelTrack < fwEngine.sounds.size() && !isSequencerPlaying()) {
           org.chuck.deluge.firmware2.GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
           if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareKit kit) {
             kit.triggerDrum(modelRow, 127);
