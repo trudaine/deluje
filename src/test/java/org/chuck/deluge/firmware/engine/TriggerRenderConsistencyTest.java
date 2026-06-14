@@ -1,0 +1,76 @@
+package org.chuck.deluge.firmware.engine;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.Test;
+
+/**
+ * Regression guard for the "edit cells then play = no sound" bug. The engine renders the sounds in
+ * {@code engine.sounds}, but playback triggers notes on the clip's own {@code sound} object
+ * (InstrumentClip.triggerNote). If a sync ever leaves those as different instances, triggered notes
+ * go to an object that is never rendered → silence. This test pins that invariant: a note is only
+ * audible when the triggered sound is the same instance the engine renders.
+ */
+class TriggerRenderConsistencyTest {
+
+  private static org.chuck.deluge.firmware.model.sample.Sample tone(float freqHz) {
+    int sr = 44100;
+    int n = sr / 10;
+    float[] data = new float[n];
+    for (int i = 0; i < n; i++) {
+      data[i] = (float) Math.sin(2.0 * Math.PI * freqHz * i / sr) * 0.8f;
+    }
+    var s = new org.chuck.deluge.firmware.model.sample.Sample();
+    s.data = data;
+    s.numChannels = 1;
+    s.sampleRate = sr;
+    return s;
+  }
+
+  private static void loadDrum(FirmwareKit kit, int drumIdx, float freq) {
+    FirmwareSound drum = kit.drumSounds.get(drumIdx);
+    drum.oscTypes[0] = org.chuck.deluge.firmware2.Oscillator.OscType.SAMPLE;
+    drum.samples[0] = tone(freq);
+    drum.fw2SampleCache[0] = org.chuck.deluge.firmware2.Sample.fromFirmwareSample(drum.samples[0]);
+  }
+
+  private static long renderEnergy(FirmwareAudioEngine eng) {
+    long energy = 0;
+    for (int b = 0; b < 30; b++) {
+      eng.renderBlock(128);
+      for (int i = 0; i < 128; i++) {
+        energy += Math.abs((long) eng.masterBuffer[i].l) + Math.abs((long) eng.masterBuffer[i].r);
+      }
+    }
+    return energy;
+  }
+
+  @Test
+  void triggeringTheRenderedSoundProducesAudio() {
+    FirmwareKit kit = new FirmwareKit();
+    loadDrum(kit, 0, 440);
+    FirmwareAudioEngine eng = new FirmwareAudioEngine();
+    eng.sounds.add(kit); // the SAME instance is both triggered and rendered
+
+    kit.triggerDrum(0, 127);
+    assertTrue(renderEnergy(eng) > 0, "a note on the rendered sound must be audible");
+  }
+
+  @Test
+  void triggeringAnUnrenderedSoundIsSilent() {
+    // Reproduces the regression: engine renders 'rendered', but the note is triggered on a
+    // different instance 'orphan' (as happened when setSong installed a fresh song whose clips
+    // pointed at new sounds while engine.sounds kept the old ones).
+    FirmwareKit rendered = new FirmwareKit();
+    loadDrum(rendered, 0, 440);
+    FirmwareKit orphan = new FirmwareKit();
+    loadDrum(orphan, 0, 440);
+
+    FirmwareAudioEngine eng = new FirmwareAudioEngine();
+    eng.sounds.add(rendered);
+
+    orphan.triggerDrum(0, 127); // triggered, but not in engine.sounds
+    assertEquals(0L, renderEnergy(eng), "triggering an unrendered sound yields silence");
+  }
+}
