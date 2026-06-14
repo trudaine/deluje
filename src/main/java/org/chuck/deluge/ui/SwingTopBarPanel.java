@@ -464,6 +464,22 @@ public class SwingTopBarPanel extends JPanel {
     toMidiBtn.setToolTipText("Convert the edited track to a MIDI track");
     toMidiBtn.addActionListener(e -> convertEditedTrack(false));
     add(toMidiBtn);
+
+    // RACK: show/hide the EAST synth param rack (collapse to give the grid more width).
+    JButton rackBtn = new JButton("RACK");
+    styleButton(rackBtn, new Color(0x2d, 0x2d, 0x3d), new Color(0x00, 0xbb, 0xff));
+    rackBtn.setPreferredSize(new Dimension(50, 22));
+    rackBtn.setMargin(new Insets(0, 0, 0, 0));
+    rackBtn.setFont(new Font("SansSerif", Font.BOLD, 10));
+    rackBtn.setFocusable(false);
+    rackBtn.setToolTipText("Show/hide the synth parameter rack on the right");
+    rackBtn.addActionListener(
+        e -> {
+          if (SwingDelugeApp.mainInstance != null) {
+            SwingDelugeApp.mainInstance.toggleParamRack();
+          }
+        });
+    add(rackBtn);
     bpmSlider.setBackground(new Color(0x12, 0x12, 0x14));
     bpmSlider.setForeground(new Color(0x00, 0xff, 0xcc));
     bpmSlider.setOpaque(false);
