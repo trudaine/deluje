@@ -110,14 +110,14 @@ public class PreferencesManager {
   public static final int MAX_CLEAN_GAIN_BOOST = 12;
 
   /**
-   * Post-engine desktop output boost. Defaults to 6x — loud for single notes yet leaving headroom
-   * so dense chords don't slam the output soft-limiter (8x pushed polyphony to ~full-scale). Clamped
-   * to {@link #MAX_CLEAN_GAIN_BOOST}: the limiter starts hard-clipping above ~12x, and the old 24x
-   * default railed even a single note (the "garbage" distortion). Clamping on read also fixes stored
-   * 24x prefs without the user changing anything.
+   * Post-engine desktop output boost. Defaults to 12x: the engine now outputs at the real Deluge's
+   * (lower) internal level through the faithful master compressor, so more desktop makeup is needed
+   * for laptop loudness — at 12x a single note peaks ~0.5 and dense polyphony ~0.87 (the master
+   * compressor caps the source, so there is headroom and no hard clip). Clamped to
+   * {@link #MAX_CLEAN_GAIN_BOOST}.
    */
   public static int getMonitorGainBoost() {
-    int v = prefs.getInt(KEY_MONITOR_GAIN_BOOST, 6);
+    int v = prefs.getInt(KEY_MONITOR_GAIN_BOOST, 12);
     return Math.max(1, Math.min(MAX_CLEAN_GAIN_BOOST, v));
   }
 
