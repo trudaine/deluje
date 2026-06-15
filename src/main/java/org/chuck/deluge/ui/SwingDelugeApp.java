@@ -1876,6 +1876,143 @@ public class SwingDelugeApp extends JFrame {
     if (songPanel != null) songPanel.setProjectModel(currentProject);
     if (arrGridPanel != null) arrGridPanel.setProjectModel(currentProject);
     if (autoPanel != null) autoPanel.setProjectModel(currentProject);
+    refreshTrackInspector();
+  }
+
+  // ── Fixed track-inspector strip (above the grid, outside the scroll) ──
+  private javax.swing.JLabel trackInspectorLabel;
+  private javax.swing.JButton trackInspectorPresetBtn;
+
+  private javax.swing.JComponent buildTrackInspectorStrip() {
+    JPanel strip = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 8, 4));
+    strip.setBackground(new Color(0x1a, 0x1a, 0x20));
+    strip.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(0x2d, 0x2d, 0x34)));
+    javax.swing.JLabel tag = new javax.swing.JLabel("ACTIVE TRACK");
+    tag.setForeground(new Color(0x66, 0x88, 0x99));
+    tag.setFont(new Font("SansSerif", Font.BOLD, 10));
+    strip.add(tag);
+    trackInspectorLabel = new javax.swing.JLabel("—");
+    trackInspectorLabel.setForeground(new Color(0x00, 0xcc, 0xff));
+    trackInspectorLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
+    strip.add(trackInspectorLabel);
+    javax.swing.JButton cfg = stripButton("⚙ Configure", "Open the full config dialog for the active track");
+    cfg.addActionListener(e -> openEditedTrackConfig());
+    strip.add(cfg);
+    trackInspectorPresetBtn =
+        stripButton("▾ Preset…", "Replace the active track's sound or load a new track");
+    trackInspectorPresetBtn.addActionListener(e -> openEditedTrackPresetPicker(trackInspectorPresetBtn));
+    strip.add(trackInspectorPresetBtn);
+    return strip;
+  }
+
+  private javax.swing.JButton stripButton(String text, String tip) {
+    javax.swing.JButton b = new javax.swing.JButton(text);
+    b.setBackground(new Color(0x2a, 0x2a, 0x30));
+    b.setForeground(new Color(0x00, 0xcc, 0xff));
+    b.setFocusPainted(false);
+    b.setFont(new Font("SansSerif", Font.PLAIN, 11));
+    b.setToolTipText(tip);
+    return b;
+  }
+
+  /** Update the strip label to reflect the active (edited) track. */
+  public void refreshTrackInspector() {
+    if (trackInspectorLabel == null) return;
+    SwingGridPanel a = activeGridPanel();
+    if (a == null || a.getProjectModel() == null) {
+      trackInspectorLabel.setText("—");
+      return;
+    }
+    int idx = a.getEditedModelTrack();
+    java.util.List<org.chuck.deluge.model.TrackModel> tl = a.getProjectModel().getTracks();
+    if (idx < 0 || idx >= tl.size()) {
+      trackInspectorLabel.setText("—");
+      return;
+    }
+    org.chuck.deluge.model.TrackModel t = tl.get(idx);
+    String type =
+        (t instanceof org.chuck.deluge.model.KitTrackModel)
+            ? "KIT"
+            : (t instanceof org.chuck.deluge.model.SynthTrackModel) ? "SYNTH" : "TRK";
+    boolean hasPreset =
+        (t instanceof org.chuck.deluge.model.KitTrackModel)
+            || (t instanceof org.chuck.deluge.model.SynthTrackModel);
+    trackInspectorLabel.setText("T" + (idx + 1) + " · " + t.getName() + "  [" + type + "]");
+    if (trackInspectorPresetBtn != null) trackInspectorPresetBtn.setEnabled(hasPreset);
+  }
+
+  private void openEditedTrackConfig() {
+    SwingGridPanel a = activeGridPanel();
+    if (a == null || a.getProjectModel() == null) return;
+    int idx = a.getEditedModelTrack();
+    java.util.List<org.chuck.deluge.model.TrackModel> tl = a.getProjectModel().getTracks();
+    if (idx < 0 || idx >= tl.size()) return;
+    org.chuck.deluge.model.TrackModel t = tl.get(idx);
+    if (t instanceof org.chuck.deluge.model.KitTrackModel kt) {
+      new SwingKitConfigDialog(this, kt, vm, bridge, idx).setVisible(true);
+    } else if (t instanceof org.chuck.deluge.model.SynthTrackModel st) {
+      new SwingSynthConfigDialog(this, st, vm, bridge, idx, currentProject).setVisible(true);
+    }
+  }
+
+  private void openEditedTrackPresetPicker(java.awt.Component anchor) {
+    SwingGridPanel a = activeGridPanel();
+    if (a == null || a.getProjectModel() == null) return;
+    int idx = a.getEditedModelTrack();
+    java.util.List<org.chuck.deluge.model.TrackModel> tl = a.getProjectModel().getTracks();
+    if (idx < 0 || idx >= tl.size()) return;
+    boolean isKit = tl.get(idx) instanceof org.chuck.deluge.model.KitTrackModel;
+    boolean isSynth = tl.get(idx) instanceof org.chuck.deluge.model.SynthTrackModel;
+    if (!isKit && !isSynth) return;
+    LibraryPicker.show(
+        anchor,
+        isKit ? LibraryPicker.Scope.KITS : LibraryPicker.Scope.SYNTHS,
+        null,
+        java.util.List.of(
+            new LibraryPicker.Action(
+                "Replace track", new Color(0x00, 0x88, 0x66), f -> replaceEditedTrackPreset(f, isKit)),
+            new LibraryPicker.Action(
+                "Load as NEW", new Color(0x33, 0x55, 0x88), f -> loadPresetAsNewTrack(f, isKit))));
+  }
+
+  private void replaceEditedTrackPreset(java.io.File f, boolean isKit) {
+    try {
+      SwingGridPanel a = activeGridPanel();
+      if (a == null || a.getProjectModel() == null) return;
+      int idx = a.getEditedModelTrack();
+      java.util.List<org.chuck.deluge.model.TrackModel> tl = a.getProjectModel().getTracks();
+      if (idx < 0 || idx >= tl.size()) return;
+      org.chuck.deluge.model.TrackModel old = tl.get(idx);
+      org.chuck.deluge.model.TrackModel nt =
+          isKit
+              ? org.chuck.deluge.xml.DelugeXmlParser.parseKit(f)
+              : org.chuck.deluge.xml.DelugeXmlParser.parseSynth(f);
+      nt.getClips().clear();
+      for (org.chuck.deluge.model.ClipModel cm : old.getClips()) nt.addClip(cm);
+      nt.setColourHex(old.getColourHex());
+      tl.set(idx, nt);
+      propagateCurrentModel();
+      syncHighFidelityEngine(currentProject);
+      if (clipPanel != null) clipPanel.refresh();
+      if (synthParamRack != null) synthParamRack.refresh();
+    } catch (Exception ex) {
+      System.err.println("[Inspector] preset replace failed: " + ex.getMessage());
+    }
+  }
+
+  private void loadPresetAsNewTrack(java.io.File f, boolean isKit) {
+    try {
+      org.chuck.deluge.model.TrackModel nt =
+          isKit
+              ? org.chuck.deluge.xml.DelugeXmlParser.parseKit(f)
+              : org.chuck.deluge.xml.DelugeXmlParser.parseSynth(f);
+      currentProject.addTrack(nt);
+      propagateCurrentModel();
+      syncHighFidelityEngine(currentProject);
+      if (clipPanel != null) clipPanel.refresh();
+    } catch (Exception ex) {
+      System.err.println("[Inspector] preset load-new failed: " + ex.getMessage());
+    }
   }
 
   public void fireProjectChanged() {
@@ -1886,6 +2023,7 @@ public class SwingDelugeApp extends JFrame {
     if (arrGridPanel != null) arrGridPanel.refresh();
     if (autoPanel != null) autoPanel.refresh();
     if (synthParamRack != null) synthParamRack.refresh();
+    refreshTrackInspector();
   }
 
   /** Show/hide the EAST synth param rack; the grid reflows to reclaim the width. */
@@ -1899,6 +2037,7 @@ public class SwingDelugeApp extends JFrame {
 
   /** Re-read the edited track into the param rack (called on track/view changes). */
   public void refreshParamRack() {
+    refreshTrackInspector();
     if (synthParamRack != null) {
       synthParamRack.refresh();
     }
@@ -2694,7 +2833,13 @@ public class SwingDelugeApp extends JFrame {
     /*centerScroll.getViewport().setOpaque(true);
     centerScroll.getViewport().setBackground(Color.BLUE);*/
 
-    add(centerScroll, BorderLayout.CENTER);
+    // Fixed track-inspector strip ABOVE the scrolling grid: per-track controls (configure + preset)
+    // belong outside the scroll area so you never have to scroll up to reach them.
+    JPanel centerWrap = new JPanel(new BorderLayout());
+    centerWrap.setOpaque(false);
+    centerWrap.add(buildTrackInspectorStrip(), BorderLayout.NORTH);
+    centerWrap.add(centerScroll, BorderLayout.CENTER);
+    add(centerWrap, BorderLayout.CENTER);
 
     // Always-visible synth param rack docked EAST (collapsible via the RACK button). It costs only
     // horizontal space (abundant) so the grid keeps its full height; scrollable for short screens.
