@@ -12,6 +12,9 @@ import org.chuck.deluge.firmware2.StereoSample;
 /** Pure Java audio driver using javax.sound.sampled. */
 public class JavaAudioDriver implements Runnable {
   public static volatile boolean isResamplingActive = false;
+  /** Capture-only: render + resample without opening/writing the soundcard. Tests set this true so
+   *  the suite is silent. Defaults from the {@code deluge.audio.silent} system property. */
+  public static volatile boolean silentMode = Boolean.getBoolean("deluge.audio.silent");
   private static final ByteArrayOutputStream recordedBytes = new ByteArrayOutputStream();
 
   public static void startResampling() {
@@ -109,19 +112,25 @@ public class JavaAudioDriver implements Runnable {
   public void run() {
     try {
       Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
-      System.out.println("[JavaAudioDriver] Searching for audio line...");
-      AudioFormat format = new AudioFormat(44100, 16, 2, true, false);
-      DataLine.Info info = new DataLine.Info(SourceDataLine.class, format);
-      line = (SourceDataLine) AudioSystem.getLine(info);
-      line.open(format, 65536);
-      line.start();
+      // Capture-only mode: render + resample still run, but never open/write the soundcard. Used by
+      // tests (SwingDelugeAppE2ETest) so the suite is silent instead of blasting the speakers.
+      if (!silentMode) {
+        System.out.println("[JavaAudioDriver] Searching for audio line...");
+        AudioFormat format = new AudioFormat(44100, 16, 2, true, false);
+        DataLine.Info info = new DataLine.Info(SourceDataLine.class, format);
+        line = (SourceDataLine) AudioSystem.getLine(info);
+        line.open(format, 65536);
+        line.start();
 
-      // Prime the line buffer with a 16-block silence cushion to protect against initial JIT
-      // compilation latency spikes!
-      byte[] priming = new byte[BLOCK_SIZE * 16 * 4];
-      line.write(priming, 0, priming.length);
+        // Prime the line buffer with a 16-block silence cushion to protect against initial JIT
+        // compilation latency spikes!
+        byte[] priming = new byte[BLOCK_SIZE * 16 * 4];
+        line.write(priming, 0, priming.length);
 
-      System.out.println("[JavaAudioDriver] Opened SUCCESS: " + line.getLineInfo());
+        System.out.println("[JavaAudioDriver] Opened SUCCESS: " + line.getLineInfo());
+      } else {
+        System.out.println("[JavaAudioDriver] silentMode — capture only, no soundcard output.");
+      }
 
       int peak = 0;
       int blockCounter = 0;
@@ -214,11 +223,22 @@ public class JavaAudioDriver implements Runnable {
             recordedBytes.write(byteBuffer, 0, byteBuffer.length);
           }
         }
-        line.write(byteBuffer, 0, byteBuffer.length);
+        if (silentMode) {
+          // No soundcard — pace roughly real-time so resample length stays sane and the CPU idles.
+          try {
+            Thread.sleep(2);
+          } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
+          }
+        } else {
+          line.write(byteBuffer, 0, byteBuffer.length);
+        }
       }
 
-      line.drain();
-      line.close();
+      if (line != null) {
+        line.drain();
+        line.close();
+      }
     } catch (Exception e) {
       System.err.println("[JavaAudioDriver] Error: " + e.getMessage());
       e.printStackTrace();
