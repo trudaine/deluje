@@ -16,6 +16,30 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+/**
+ * A/B parity tests vs real-Deluge recordings. Metric trustworthiness (from the 2026-06 gain/audio
+ * audit) — READ before reacting to a "weak" number:
+ *
+ * <ul>
+ *   <li><b>Trustworthy:</b> waveform shape-correlation on STEADY tones (saw/PWM/triangle/DX7/sine).
+ *       The comparison peak-normalizes both signals and sweeps a ±350-sample lag, so it is
+ *       level- and onset-independent. These read ~0.9+ and are real parity guards.
+ *   <li><b>Confounded — do NOT treat low values as engine defects:</b>
+ *       <ul>
+ *         <li>Absolute-RMS comparisons: the engine's {@code masterBuffer} is the Deluge's low
+ *             INTERNAL level; the hardware WAVs are full-scale OUTPUT. Off by ~50-100x by design
+ *             (the desktop monitor boost compensates). Verified equal across sources (noise == saw).
+ *         <li>Shape-correlation on MODULATED signals (LFO vibrato/tremolo/rate, pitch-env): the
+ *             ±350-sample (8 ms) lag cannot align an LFO cycle (100+ ms), so correlation is
+ *             meaningless here. Use a modulation-invariant metric (spectrum/centroid) instead.
+ *         <li>Hardware-recording coloration: e.g. the "sine" WAV carries analog harmonics, so our
+ *             mathematically-pure sine correlates low — ours is the MORE correct signal.
+ *       </ul>
+ *   <li><b>Unresolved reference:</b> the FM-Simple hardware WAV reads zero-cross ≈ carrier (≈ a pure
+ *       carrier), which is suspect for an FM patch; {@code assertFmBrightness} therefore only sanity-
+ *       bounds brightness rather than asserting exact parity, pending a re-recorded reference.
+ * </ul>
+ */
 @org.junit.jupiter.api.Tag("slow")
 public class PhysicalHardwareFidelityTest {
 
@@ -531,12 +555,6 @@ public class PhysicalHardwareFidelityTest {
     double swPitchVal =
         org.chuck.deluge.AudioAnalyzer.estimateFrequency(
             swWindow, 44100, minPitchFreq, maxPitchFreq);
-    if (true) {
-      for (int i = 0; i < 50; i++) {
-        System.out.printf("  swWindow[%d] = %.6f\n", i, swWindow[i]);
-      }
-      System.out.println("======================");
-    }
     System.out.printf(
         "  [RESULT] %s Shape Correlation: %.6f (abs: %.6f) | bestLagOffset=%d\n",
         testName, finalSignCorrelation, absCorrelation, bestLagOffset);
@@ -657,6 +675,19 @@ public class PhysicalHardwareFidelityTest {
             + "/s vs carrier "
             + (int) carrierHz
             + " Hz) — a carrier-rate value means the modulator volume was dropped");
+    // Upper sanity bound: catch a runaway modulation index (a regression that makes FM absurdly
+    // bright). NOT a tight parity check — the hardware FM-Simple reference reads hwZcr≈carrier
+    // (≈ a pure carrier), which is suspicious for an FM patch and needs re-recording/verification
+    // before we can assert exact brightness parity. fw2's FM render math + modulator-amplitude path
+    // are verified faithful to voice.cpp; the patch parses with a moderate modulator volume.
+    assertTrue(
+        swZcr < carrierHz * 12.0,
+        testName
+            + ": FM brightness runaway (zcr "
+            + (int) swZcr
+            + "/s >> carrier "
+            + (int) carrierHz
+            + " Hz) — modulation index too high");
   }
 
   /**
