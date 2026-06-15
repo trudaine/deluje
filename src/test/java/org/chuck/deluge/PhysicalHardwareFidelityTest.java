@@ -7,7 +7,7 @@ import org.chuck.deluge.firmware.engine.FirmwareAudioEngine;
 import org.chuck.deluge.firmware.engine.FirmwareFactory;
 import org.chuck.deluge.firmware.engine.FirmwareSound;
 import org.chuck.deluge.firmware.model.Song;
-import org.chuck.deluge.firmware.modulation.params.Param;
+import org.chuck.deluge.firmware2.Param;
 import org.chuck.deluge.firmware2.StereoSample;
 import org.chuck.deluge.model.ProjectModel;
 import org.chuck.deluge.model.SynthTrackModel;
@@ -1322,7 +1322,7 @@ public class PhysicalHardwareFidelityTest {
               triggerBlock + 1000,
               72,
               java.util.Map.of(
-                  org.chuck.deluge.firmware.modulation.params.Param.LOCAL_VOLUME, 134217728));
+                  org.chuck.deluge.firmware2.Param.LOCAL_VOLUME, 134217728));
       int hwStart = findPositiveZeroCrossing(hw, 10000);
       int swStart = findPositiveZeroCrossing(sw, 12800);
       System.out.println("=================================");

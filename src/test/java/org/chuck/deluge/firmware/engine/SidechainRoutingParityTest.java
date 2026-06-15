@@ -3,7 +3,7 @@ package org.chuck.deluge.firmware.engine;
 import static org.chuck.deluge.firmware.util.Q31.ONE;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.chuck.deluge.firmware.modulation.params.Param;
+import org.chuck.deluge.firmware2.Param;
 import org.chuck.deluge.firmware.modulation.patch.PatchCable;
 import org.chuck.deluge.firmware.modulation.patch.PatchSource;
 import org.chuck.deluge.firmware.util.FirmwareUtils;

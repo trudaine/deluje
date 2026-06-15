@@ -34,11 +34,11 @@ public class Firmware2IntegrationTest {
     // useFirmware2 removed - always true
     System.out.println(
         "paramKnobs[OSC_A]="
-            + sound.paramKnobs[org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_A_VOLUME]
+            + sound.paramKnobs[org.chuck.deluge.firmware2.Param.LOCAL_OSC_A_VOLUME]
             + " knob[VOL]="
-            + sound.paramKnobs[org.chuck.deluge.firmware.modulation.params.Param.LOCAL_VOLUME]
+            + sound.paramKnobs[org.chuck.deluge.firmware2.Param.LOCAL_VOLUME]
             + " knob[LPF]="
-            + sound.paramKnobs[org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_FREQ]);
+            + sound.paramKnobs[org.chuck.deluge.firmware2.Param.LOCAL_LPF_FREQ]);
 
     // Render a few blocks
     sound.triggerNote(69, 100); // A4

@@ -1,5 +1,7 @@
 package org.chuck.deluge.firmware.modulation.params;
 
+import org.chuck.deluge.firmware2.Param;
+
 /**
  * Faithful port of the Deluge's per-parameter constant tables from {@code util/functions.cpp}:
  * {@code getParamNeutralValue} (the curve "neutral"/centre used by the final-value functions) and

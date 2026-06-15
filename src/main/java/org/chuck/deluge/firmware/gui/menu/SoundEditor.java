@@ -1,7 +1,7 @@
 package org.chuck.deluge.firmware.gui.menu;
 
 import org.chuck.deluge.firmware.engine.FirmwareSound;
-import org.chuck.deluge.firmware.modulation.params.Param;
+import org.chuck.deluge.firmware2.Param;
 
 /** Utility to build the bit-accurate Sound Editor menu structure. */
 public class SoundEditor {

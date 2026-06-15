@@ -4,7 +4,7 @@ import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.firmware.engine.FirmwareAudioEngine;
 import org.chuck.deluge.firmware.model.Song;
-import org.chuck.deluge.firmware.modulation.params.Param;
+import org.chuck.deluge.firmware2.Param;
 import org.chuck.deluge.firmware.playback.PlaybackHandler;
 
 /**

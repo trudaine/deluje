@@ -3,7 +3,7 @@ package org.chuck.deluge;
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.chuck.deluge.firmware.engine.FirmwareSound;
-import org.chuck.deluge.firmware.modulation.params.Param;
+import org.chuck.deluge.firmware2.Param;
 import org.chuck.deluge.firmware.util.Q31;
 import org.chuck.deluge.firmware2.Oscillator.OscType;
 import org.chuck.deluge.firmware2.StereoSample;

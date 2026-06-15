@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import org.chuck.deluge.firmware.model.InstrumentClip;
 import org.chuck.deluge.firmware.model.Song;
-import org.chuck.deluge.firmware.modulation.params.Param;
+import org.chuck.deluge.firmware2.Param;
 import org.chuck.deluge.model.ClipModel;
 import org.chuck.deluge.model.KitTrackModel;
 import org.chuck.deluge.model.PatchCable;
@@ -128,7 +128,7 @@ public class LiveApplyTest {
 
     boolean found = false;
     for (var d : sound.paramManager.getPatchCableSet().destinations) {
-      if (d.paramId == org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_FREQ) {
+      if (d.paramId == org.chuck.deluge.firmware2.Param.LOCAL_LPF_FREQ) {
         for (var cable : d.cables) {
           if (cable.from == org.chuck.deluge.firmware.modulation.patch.PatchSource.LFO_GLOBAL_1) {
             found = true;

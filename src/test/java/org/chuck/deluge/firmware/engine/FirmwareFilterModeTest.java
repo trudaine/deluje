@@ -34,11 +34,11 @@ public class FirmwareFilterModeTest {
     // it.
     org.chuck.deluge.firmware.modulation.automation.AutoParam ap =
         sound.paramManager.getAutomatedParam(
-            org.chuck.deluge.firmware.modulation.params.Param.LOCAL_HPF_FREQ);
+            org.chuck.deluge.firmware2.Param.LOCAL_HPF_FREQ);
     if (ap != null) {
       ap.currentValue =
           sound
-              .paramNeutralValues[org.chuck.deluge.firmware.modulation.params.Param.LOCAL_HPF_FREQ];
+              .paramNeutralValues[org.chuck.deluge.firmware2.Param.LOCAL_HPF_FREQ];
     }
     return sound;
   }
@@ -62,8 +62,8 @@ public class FirmwareFilterModeTest {
     p.addTrack(m);
     Song s = org.chuck.deluge.firmware.engine.FirmwareFactory.createSong(p);
     FirmwareSound sound = (FirmwareSound) ((InstrumentClip) s.clips.get(0)).sound;
-    syncAuto(sound, org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_FREQ);
-    syncAuto(sound, org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_RESONANCE);
+    syncAuto(sound, org.chuck.deluge.firmware2.Param.LOCAL_LPF_FREQ);
+    syncAuto(sound, org.chuck.deluge.firmware2.Param.LOCAL_LPF_RESONANCE);
     return sound;
   }
 
