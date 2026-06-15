@@ -718,6 +718,27 @@ The Deluge Workstation features a professional-grade, modern workspace re-organi
 
 ---
 
+### 14.1.1 Contextual Library Picker & Track Inspector (Scoped Preset / Sample Swapping)
+
+The global JTree explorer above is the "browse everything" view. For the common *"change **this** sound"* case, the Workstation adds **contextual pickers** that open next to the thing they change, **scoped** to only the relevant assets — so you never scroll a giant tree to swap one sound.
+
+* **Fixed Track-Inspector Strip**: An always-visible strip sits **above the grid** (outside the scroll area), showing the **active track** as `ACTIVE TRACK · T<n> · <name> [TYPE]` with two controls:
+  * **`⚙ Configure`** — opens the full synth/kit config dialog for the active track.
+  * **`▾ Preset…`** — opens the contextual Library Picker scoped to **SYNTHS** (synth track) or **KITS** (kit track).
+  Being outside the grid, these controls never scroll away and never shift the grid rows.
+
+* **The Library Picker** (a modal, anchored popover) is **scoped** to one category — it lists only the relevant files (e.g. SAMPLES, or SYNTHS) with a **search filter**, a **waveform / wavetable preview**, and a **▶ Audition** button. Every picker presents **explicit action verbs** instead of an ambiguous double-click:
+  * **`Replace track`** — hot-swaps the active track's sound *in place*, preserving its clips, notes and colour. Faithful to the hardware LOAD-onto-track behaviour; works even **while the sequencer is playing** (the engine rebuilds on the swap).
+  * **`Load as NEW`** — adds a brand-new track from the chosen preset.
+
+* **Drum Sample Chip**: In the Kit config dialog, each drum slot's **`Change…`** button opens the picker scoped to **SAMPLES** (with waveform preview + audition) to swap that drum's WAV.
+
+* **Synth Oscillator Source Chip**: In the Synth config dialog, setting an oscillator type to **`SAMPLE`** or **`WAVETABLE`** reveals a **source chip** that opens the picker scoped to **SAMPLES** / **WAVETABLES** to choose the file for that oscillator.
+
+> **Design principle**: scope to the target, anchor to the widget, name the verb (Replace vs Load-as-new), and preview/audition before committing — the global tree (14.1) remains for free-form browsing.
+
+---
+
 ### 14.2 Dedicated MIDI Settings & CC Learn Laboratory (`deluge_midi_device_settings.png`)
 * **The Interface**: Press **`Command/Ctrl + Shift + M`** (or select **`Settings ➔ MIDI Device Settings...`**) to open the central dark-neon MIDI Configuration JDialog (`deluge_midi_device_settings.png`). This panel acts as the master hub for external keyboard controllers, physical knobs mappings, and real-time controller assignments:
   * **Device Port Selector**: A dropdown JComboBox list of all active physical MIDI input interfaces mounted on the host OS.
