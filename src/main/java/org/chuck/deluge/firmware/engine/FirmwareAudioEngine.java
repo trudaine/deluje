@@ -146,6 +146,7 @@ public class FirmwareAudioEngine {
         masterVolumeAdjustmentL >> 1,
         masterVolumeAdjustmentR >> 1,
         songVolume >> 3);
+
     masterVolumeAdjustmentL = MASTER_VOLUME_NEUTRAL; // C:901 resets to ONE_Q31; we keep our neutral
     masterVolumeAdjustmentR = MASTER_VOLUME_NEUTRAL;
 

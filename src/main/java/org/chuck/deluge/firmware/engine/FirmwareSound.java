@@ -1,10 +1,10 @@
 package org.chuck.deluge.firmware.engine;
 
 import org.chuck.deluge.firmware.model.PolyphonyMode;
-import org.chuck.deluge.firmware2.Param;
 import org.chuck.deluge.firmware.modulation.patch.Destination;
 import org.chuck.deluge.firmware.modulation.patch.PatchCable;
 import org.chuck.deluge.firmware.modulation.patch.PatchSource;
+import org.chuck.deluge.firmware2.Param;
 import org.chuck.deluge.firmware2.Sidechain;
 import org.chuck.deluge.firmware2.StereoSample;
 import org.chuck.deluge.model.tuning.ScalaScale;
@@ -291,6 +291,8 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     }
     fw2Sound.lpfMode = fw2LpfMode();
     fw2Sound.hpfMode = fw2HpfMode();
+    // System.out.printf("DEBUG SYNC: hash=%d, fw1LpfMode=%s, fw2LpfMode=%s%n", this.hashCode(),
+    // this.lpfMode, fw2Sound.lpfMode);
     fw2Sound.filterRoute = filterRoute.ordinal();
     fw2Sound.numUnison = numUnison;
     fw2Sound.unisonDetune = unisonDetune;
@@ -358,6 +360,7 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     fw2Sound.lfoConfig[1].waveType = lfoWaveforms[1];
     fw2Sound.lfoConfig[2].waveType = lfoWaveforms[2];
     fw2Sound.lfoConfig[3].waveType = lfoWaveforms[3];
+    System.arraycopy(lfoWaveforms, 0, fw2Sound.lfoWaveforms, 0, 4);
 
     int[] nextPatchedParamValues = new int[200];
     System.arraycopy(

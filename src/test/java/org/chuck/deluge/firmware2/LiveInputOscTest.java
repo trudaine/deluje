@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.chuck.deluge.firmware.engine.FirmwareAudioEngine;
 import org.chuck.deluge.firmware.engine.FirmwareSound;
-import org.chuck.deluge.firmware2.Param;
 import org.chuck.deluge.firmware2.Oscillator.OscType;
 import org.junit.jupiter.api.Test;
 
@@ -86,7 +85,8 @@ class LiveInputOscTest {
     assertEquals(left, rightNoDevice, left * 0.05, "INPUT_R without a device reads the left/mono");
 
     // (l+r)/2 with r=0 routes to ~l/2 pre-master; the engaged master compressor's makeup boosts the
-    // quieter condensed signal, so it lands above l/2 yet stays clearly condensed (below full left).
+    // quieter condensed signal, so it lands above l/2 yet stays clearly condensed (below full
+    // left).
     double stereo = renderWithInput(OscType.INPUT_STEREO, true)[0];
     assertTrue(
         stereo < left && stereo > left * 0.3,

@@ -153,7 +153,8 @@ class TriggerRenderConsistencyTest {
     assertEquals(0L, driverChain(raw, 12)[0], "12x (max clean) must not hard-clip");
     // With the faithful master compressor now limiting the engine output (audio_engine.cpp:899),
     // the desktop boost has far more headroom: 24x no longer hard-clips (it did before the fix).
-    assertEquals(0L, driverChain(raw, 24)[0], "24x stays clean now (master compressor caps source)");
+    assertEquals(
+        0L, driverChain(raw, 24)[0], "24x stays clean now (master compressor caps source)");
   }
 
   @Test
