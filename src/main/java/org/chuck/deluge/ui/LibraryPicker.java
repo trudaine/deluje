@@ -76,7 +76,10 @@ public class LibraryPicker extends JDialog {
   private SwingWaveformPanel preview;
 
   private LibraryPicker(Component anchor, Scope scope, String currentPath, List<Action> actions) {
-    super(SwingUtilities.getWindowAncestor(anchor), ModalityType.MODELESS);
+    // Modal: a modeless popover parented to a config DIALOG renders behind it (z-order) and the
+    // list is never seen. Modal reliably appears on top, blocks the parent, and closes on
+    // pick/cancel/Esc.
+    super(SwingUtilities.getWindowAncestor(anchor), ModalityType.APPLICATION_MODAL);
     setUndecorated(true);
     this.root = scope.root();
 
@@ -177,23 +180,7 @@ public class LibraryPicker extends JDialog {
           if (!e.getValueIsAdjusting()) updatePreview();
         });
 
-    // Dismiss when clicking away or pressing Esc — but only AFTER the popover has actually been
-    // focused once. Undecorated modeless dialogs briefly gain then lose focus to the parent during
-    // the show transition; disposing on that first loss would make the popover vanish instantly.
-    addWindowFocusListener(
-        new java.awt.event.WindowAdapter() {
-          private boolean armed = false;
-
-          @Override
-          public void windowGainedFocus(java.awt.event.WindowEvent e) {
-            armed = true;
-          }
-
-          @Override
-          public void windowLostFocus(java.awt.event.WindowEvent e) {
-            if (armed) dispose();
-          }
-        });
+    // Esc closes (Cancel button + action handlers also dispose).
     getRootPane()
         .registerKeyboardAction(
             e -> dispose(),
@@ -204,13 +191,10 @@ public class LibraryPicker extends JDialog {
     positionNear(anchor);
   }
 
-  /** Opens the picker anchored just below {@code anchor}. */
+  /** Opens the picker anchored just below {@code anchor} (modal — blocks until pick/cancel). */
   public static void show(
       Component anchor, Scope scope, String currentPath, List<Action> actions) {
-    LibraryPicker p = new LibraryPicker(anchor, scope, currentPath, actions);
-    p.setVisible(true);
-    p.toFront();
-    p.list.requestFocusInWindow();
+    new LibraryPicker(anchor, scope, currentPath, actions).setVisible(true);
   }
 
   private void scanFiles(Scope scope) {

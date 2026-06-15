@@ -706,41 +706,6 @@ public class SwingGridPanel extends JPanel {
     refresh();
   }
 
-  /**
-   * Hot-swap a track's sound from a preset file, preserving its clips/colour (the same mechanism as
-   * TrackInspectorDialog). Used by the track-header preset chip's "Replace track" action.
-   */
-  private void replaceTrackPreset(
-      org.chuck.deluge.model.TrackModel oldTrack, int idx, boolean isKit, java.io.File f) {
-    try {
-      org.chuck.deluge.model.TrackModel nt =
-          isKit
-              ? org.chuck.deluge.xml.DelugeXmlParser.parseKit(f)
-              : org.chuck.deluge.xml.DelugeXmlParser.parseSynth(f);
-      nt.getClips().clear();
-      for (org.chuck.deluge.model.ClipModel cm : oldTrack.getClips()) nt.addClip(cm);
-      nt.setColourHex(oldTrack.getColourHex());
-      java.util.List<org.chuck.deluge.model.TrackModel> tl = projectModel.getTracks();
-      if (idx >= 0 && idx < tl.size()) tl.set(idx, nt);
-      fireProjectChanged();
-    } catch (Exception ex) {
-      LOG.warning("Preset replace failed: " + ex.getMessage());
-    }
-  }
-
-  /** Load a preset file as a brand-new track (the chip's "Load as NEW" action). */
-  private void loadPresetAsNewTrack(boolean isKit, java.io.File f) {
-    try {
-      org.chuck.deluge.model.TrackModel nt =
-          isKit
-              ? org.chuck.deluge.xml.DelugeXmlParser.parseKit(f)
-              : org.chuck.deluge.xml.DelugeXmlParser.parseSynth(f);
-      projectModel.addTrack(nt);
-      fireProjectChanged();
-    } catch (Exception ex) {
-      LOG.warning("Preset load-as-new failed: " + ex.getMessage());
-    }
-  }
 
   /** Blend a base color with black proportionally to velocity (0.0 = black, 1.0 = full color). */
   private static Color velocityBlend(Color base, double velocity) {
@@ -1883,48 +1848,6 @@ public class SwingGridPanel extends JPanel {
           });
       rowPanel.add(Box.createHorizontalStrut(3));
       rowPanel.add(cfgBtn);
-
-      // ── Preset chip: replace this track's sound (hot-swap) or load it as a new track. The
-      // discoverable, on-grid entry point for the contextual library picker (synth/kit scoped). ──
-      if (track instanceof org.chuck.deluge.model.SynthTrackModel
-          || track instanceof org.chuck.deluge.model.KitTrackModel) {
-        final boolean isKitTrack = track instanceof org.chuck.deluge.model.KitTrackModel;
-        final org.chuck.deluge.model.TrackModel presetTrack = track;
-        final int presetIdx = modelRow;
-        String presetLabel = track.getName();
-        if (presetLabel.length() > 8) presetLabel = presetLabel.substring(0, 8);
-        JButton presetChip = new JButton("▾ " + presetLabel);
-        presetChip.setPreferredSize(new Dimension(78, 26));
-        presetChip.setMinimumSize(new Dimension(78, 26));
-        presetChip.setMaximumSize(new Dimension(78, 26));
-        presetChip.setMargin(new Insets(0, 2, 0, 2));
-        presetChip.setFont(new Font("SansSerif", Font.PLAIN, 10));
-        presetChip.setBackground(new Color(0x2a, 0x2a, 0x30));
-        presetChip.setForeground(new Color(0x00, 0xcc, 0xff));
-        presetChip.setToolTipText(
-            "Preset: "
-                + track.getName()
-                + " — click to replace this track's sound or load a new track");
-        final LibraryPicker.Scope scope =
-            isKitTrack ? LibraryPicker.Scope.KITS : LibraryPicker.Scope.SYNTHS;
-        presetChip.addActionListener(
-            e ->
-                LibraryPicker.show(
-                    presetChip,
-                    scope,
-                    null,
-                    java.util.List.of(
-                        new LibraryPicker.Action(
-                            "Replace track",
-                            new Color(0x00, 0x88, 0x66),
-                            f -> replaceTrackPreset(presetTrack, presetIdx, isKitTrack, f)),
-                        new LibraryPicker.Action(
-                            "Load as NEW",
-                            new Color(0x33, 0x55, 0x88),
-                            f -> loadPresetAsNewTrack(isKitTrack, f)))));
-        rowPanel.add(Box.createHorizontalStrut(2));
-        rowPanel.add(presetChip);
-      }
 
       int stepLen = (bridge != null) ? bridge.getTrackLength(modelRow) : 16;
       JLabel lenBadge = new JLabel("[" + stepLen + "]");

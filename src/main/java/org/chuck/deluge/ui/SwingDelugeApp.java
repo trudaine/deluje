@@ -2719,6 +2719,42 @@ public class SwingDelugeApp extends JFrame {
               SwingGridPanel a = activeGridPanel();
               return a == null ? -1 : a.getEditedModelTrack();
             });
+    synthParamRack.setPresetActions(
+        f -> { // Replace the edited synth track's preset in place (preserve clips + colour).
+          try {
+            SwingGridPanel a = activeGridPanel();
+            if (a == null || a.getProjectModel() == null) return;
+            int idx = a.getEditedModelTrack();
+            java.util.List<org.chuck.deluge.model.TrackModel> tl = a.getProjectModel().getTracks();
+            if (idx < 0 || idx >= tl.size()) return;
+            org.chuck.deluge.model.TrackModel old = tl.get(idx);
+            org.chuck.deluge.model.SynthTrackModel nt =
+                org.chuck.deluge.xml.DelugeXmlParser.parseSynth(f);
+            nt.getClips().clear();
+            for (org.chuck.deluge.model.ClipModel cm : old.getClips()) nt.addClip(cm);
+            nt.setColourHex(old.getColourHex());
+            tl.set(idx, nt);
+            propagateCurrentModel();
+            syncHighFidelityEngine(currentProject);
+            if (clipPanel != null) clipPanel.refresh();
+            synthParamRack.refresh();
+          } catch (Exception ex) {
+            System.err.println("[PresetChip] replace failed: " + ex.getMessage());
+          }
+        },
+        f -> { // Load the preset as a brand-new synth track.
+          try {
+            org.chuck.deluge.model.SynthTrackModel nt =
+                org.chuck.deluge.xml.DelugeXmlParser.parseSynth(f);
+            currentProject.addTrack(nt);
+            propagateCurrentModel();
+            syncHighFidelityEngine(currentProject);
+            if (clipPanel != null) clipPanel.refresh();
+            synthParamRack.refresh();
+          } catch (Exception ex) {
+            System.err.println("[PresetChip] load-new failed: " + ex.getMessage());
+          }
+        });
     rackScroll =
         new JScrollPane(
             synthParamRack,

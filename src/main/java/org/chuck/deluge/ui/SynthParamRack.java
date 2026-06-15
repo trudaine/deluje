@@ -31,6 +31,19 @@ public class SynthParamRack extends JPanel {
   private final ChuckVM vm;
   private final Supplier<SynthTrackModel> trackSupplier;
   private final IntSupplier indexSupplier;
+  private java.util.function.Consumer<java.io.File> onReplacePreset;
+  private java.util.function.Consumer<java.io.File> onLoadNewPreset;
+
+  /**
+   * Wire the preset chip's Replace / Load-as-new actions (the app provides project access + refresh).
+   * Lets the synth preset be swapped from this fixed side rack — outside the scrolling grid.
+   */
+  public void setPresetActions(
+      java.util.function.Consumer<java.io.File> replace,
+      java.util.function.Consumer<java.io.File> loadNew) {
+    this.onReplacePreset = replace;
+    this.onLoadNewPreset = loadNew;
+  }
 
   private final JLabel title = new JLabel("SYNTH", JLabel.CENTER);
   private final SegmentedToggle filterToggle;
@@ -50,6 +63,34 @@ public class SynthParamRack extends JPanel {
     title.setForeground(ACCENT);
     title.setFont(new java.awt.Font("SansSerif", java.awt.Font.BOLD, 13));
     title.setAlignmentX(CENTER_ALIGNMENT);
+    // The title doubles as a preset chip: click to replace this synth's preset or load a new track,
+    // via the contextual LibraryPicker. Fixed in this side rack — outside the scrolling grid.
+    title.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+    title.setToolTipText("Click to replace this track's synth preset or load a new synth");
+    title.addMouseListener(
+        new java.awt.event.MouseAdapter() {
+          @Override
+          public void mouseClicked(java.awt.event.MouseEvent e) {
+            if (trackSupplier.get() == null) return;
+            LibraryPicker.show(
+                title,
+                LibraryPicker.Scope.SYNTHS,
+                null,
+                java.util.List.of(
+                    new LibraryPicker.Action(
+                        "Replace track",
+                        new java.awt.Color(0x00, 0x88, 0x66),
+                        f -> {
+                          if (onReplacePreset != null) onReplacePreset.accept(f);
+                        }),
+                    new LibraryPicker.Action(
+                        "Load as NEW",
+                        new java.awt.Color(0x33, 0x55, 0x88),
+                        f -> {
+                          if (onLoadNewPreset != null) onLoadNewPreset.accept(f);
+                        })));
+          }
+        });
     add(title);
     add(javax.swing.Box.createVerticalStrut(8));
 
@@ -118,7 +159,7 @@ public class SynthParamRack extends JPanel {
       title.setText("— no synth —");
       return;
     }
-    title.setText("SYNTH");
+    title.setText("▾ " + t.getName());
     int fm = Math.min(2, t.getFilterMode().ordinal());
     filterToggle.setSelectedIndexSilently(fm);
     modeToggle.setSelectedIndexSilently(Math.max(0, Math.min(2, t.getSynthMode())));
