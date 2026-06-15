@@ -291,6 +291,9 @@ public class Voice {
     this.velocity = velocity;
     this.active = true;
 
+    for (int s = 0; s < PatchSource.kFirstLocalSource; s++) {
+      sourceValues[s] = sound.globalSourceValues[s];
+    }
     Patcher.performInitialPatching(sound.patchedParamValues, sourceValues, paramFinalValues);
     for (int e = 0; e < envelopes.length; e++) {
       sourceValues[PatchSource.ENVELOPE_0.ordinal() + e] = envelopes[e].noteOn(e, sound, this);
@@ -590,6 +593,9 @@ public class Voice {
     // ── 4. Patcher: apply cable modulation on top of the curve-applied base
     //       (the base is set by performInitialPatching in the driver each block).
     //       (patcher.cpp performPatching) ──
+    for (int s = 0; s < PatchSource.kFirstLocalSource; s++) {
+      sourceValues[s] = sound.globalSourceValues[s];
+    }
     Patcher.performPatching(
         sound.patchedParamValues, sourceValues, sound.patchCableSet, paramFinalValues);
 
@@ -705,6 +711,10 @@ public class Voice {
 
     int overallOscAmplitude =
         Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(env0Gain, trackVol), 2);
+    // if (this.sound.voices.indexOf(this) == 0) {
+    //   System.out.printf("DEBUG VOICE AMPLITUDE: env0Gain=%d, trackVol=%d, overallOscAmp=%d%n",
+    //       env0Gain, trackVol, overallOscAmplitude);
+    // }
 
     if (!doneFirstRender && paramFinalValues[Param.LOCAL_ENV_0_ATTACK] > 245632) {
       overallOscAmplitudeLastTime = overallOscAmplitude;
@@ -953,6 +963,11 @@ public class Voice {
                 ? Functions.multiply_32x32_rshift32_rounded(
                     paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s], filterGain)
                 : paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s] >> 4;
+        // if (this.sound.voices.indexOf(this) == 0) {
+        //   System.out.printf("DEBUG VOICE SRC_AMP: s=%d, oscVol=%d, filterGain=%d, srcAmp=%d,
+        // hasFilters=%b%n",
+        //       s, paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s], filterGain, srcAmp, hasFilters);
+        // }
 
         for (int u = 0; u < sound.numUnison; u++) {
           VoiceSource vs = unisonParts[u].sources[s];

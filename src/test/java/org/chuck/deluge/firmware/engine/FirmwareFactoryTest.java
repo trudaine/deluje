@@ -4,8 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import org.chuck.deluge.firmware.model.InstrumentClip;
 import org.chuck.deluge.firmware.model.Song;
-import org.chuck.deluge.firmware2.Param;
 import org.chuck.deluge.firmware.modulation.patch.PatchSource;
+import org.chuck.deluge.firmware2.Param;
 import org.chuck.deluge.model.ClipModel;
 import org.chuck.deluge.model.ProjectModel;
 import org.chuck.deluge.model.StepData;
@@ -45,6 +45,6 @@ public class FirmwareFactoryTest {
     var destinations = ((FirmwareSound) fwClip.sound).paramManager.getPatchCableSet().destinations;
     assertFalse(destinations.isEmpty());
     assertEquals(Param.LOCAL_LPF_FREQ, destinations.get(0).paramId);
-    assertEquals(PatchSource.LFO_LOCAL_1, destinations.get(0).cables.get(0).from);
+    assertEquals(PatchSource.LFO_GLOBAL_1, destinations.get(0).cables.get(0).from);
   }
 }

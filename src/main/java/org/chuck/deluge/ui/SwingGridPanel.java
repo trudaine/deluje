@@ -3893,7 +3893,8 @@ public class SwingGridPanel extends JPanel {
                     new java.util.ArrayList<>();
                 for (int r = 0; r < clipModel.getRowCount(); r++) {
                   // SINGLE authoritative model-row -> NoteRow mapping, shared with song-load (see
-                  // the matching call in the live-sync path above and FirmwareFactory.buildNoteRow).
+                  // the matching call in the live-sync path above and
+                  // FirmwareFactory.buildNoteRow).
                   org.chuck.deluge.firmware.model.note.NoteRow noteRow =
                       org.chuck.deluge.firmware.engine.FirmwareFactory.buildNoteRow(
                           clipModel, r, isKit, stepTicks);
