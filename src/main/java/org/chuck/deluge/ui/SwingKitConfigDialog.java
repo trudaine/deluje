@@ -175,46 +175,40 @@ public class SwingKitConfigDialog extends JDialog {
     pathField.setToolTipText(sampleHelp);
     attachHoverHelp(pathField, sampleHelp);
 
-    JButton browseBtn = new JButton("Browse...");
+    JButton browseBtn = new JButton("Change…");
     styleButton(browseBtn, new Color(0x33, 0x44, 0x55), Color.WHITE);
-    browseBtn.setToolTipText("Open file chooser rooted at your Samples library directory");
+    browseBtn.setToolTipText("Pick a sample for this drum — scoped, previewed and auditioned in place");
+    // Commit logic, shared by the picker's "Replace" action.
+    java.util.function.Consumer<java.io.File> replaceSample =
+        f -> {
+          String path = f.getAbsolutePath().replace('\\', '/');
+          sound.setSamplePath(path);
+          pathField.setText(path);
+          wavePanel.setSamplePath(path);
+          bridge.setSamplePath(idx, path);
+          // Apply to the LIVE pure-engine kit drum so auditioning plays this sample (the bridge
+          // path + G_LOAD_TRIGGER only feed the legacy DSL engine, not the pure engine).
+          if (SwingDelugeApp.mainInstance != null) {
+            SwingDelugeApp.mainInstance.applyKitDrumSampleLive(kit, idx, path);
+          }
+          if (vm != null) {
+            try {
+              vm.setGlobalString("g_sample_" + idx, path);
+              vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+            } catch (Exception ex) {
+              System.err.println("[KitConfig] sample load error: " + ex.getMessage());
+            }
+          }
+        };
     browseBtn.addActionListener(
-        e -> {
-          java.io.File startDir =
-              new java.io.File(org.chuck.deluge.project.PreferencesManager.getSamplesDir());
-          String cur = sound.getSamplePath();
-          if (cur != null && !cur.isBlank()) {
-            java.io.File curFile = new java.io.File(cur);
-            if (curFile.getParentFile() != null && curFile.getParentFile().exists())
-              startDir = curFile.getParentFile();
-          }
-          JFileChooser chooser = new JFileChooser(startDir);
-          chooser.setPreferredSize(new Dimension(900, 600));
-          chooser.setFileFilter(
-              new javax.swing.filechooser.FileNameExtensionFilter(
-                  "Audio files", "wav", "aif", "aiff", "flac", "WAV", "AIF", "AIFF", "FLAC"));
-          chooser.setAcceptAllFileFilterUsed(true);
-          if (chooser.showOpenDialog(panel) == JFileChooser.APPROVE_OPTION) {
-            String path = chooser.getSelectedFile().getAbsolutePath().replace('\\', '/');
-            sound.setSamplePath(path);
-            pathField.setText(path);
-            wavePanel.setSamplePath(path);
-            bridge.setSamplePath(idx, path);
-            // Apply to the LIVE pure-engine kit drum so auditioning plays this sample (the bridge
-            // path + G_LOAD_TRIGGER only feed the legacy DSL engine, not the pure engine).
-            if (SwingDelugeApp.mainInstance != null) {
-              SwingDelugeApp.mainInstance.applyKitDrumSampleLive(kit, idx, path);
-            }
-            if (vm != null) {
-              try {
-                vm.setGlobalString("g_sample_" + idx, path);
-                vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
-              } catch (Exception ex) {
-                System.err.println("[KitConfig] sample load error: " + ex.getMessage());
-              }
-            }
-          }
-        });
+        e ->
+            LibraryPicker.show(
+                browseBtn,
+                LibraryPicker.Scope.SAMPLES,
+                sound.getSamplePath(),
+                java.util.List.of(
+                    new LibraryPicker.Action(
+                        "Replace sample", new Color(0x00, 0x88, 0x66), replaceSample))));
 
     JPanel sampleRow = new JPanel(new BorderLayout(6, 0));
     sampleRow.setBackground(SwingSynthConfigDialog.BG_CARD);
