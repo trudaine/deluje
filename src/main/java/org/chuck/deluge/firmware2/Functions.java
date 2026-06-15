@@ -254,8 +254,6 @@ public final class Functions {
     long temp = (long) patchedValue + 536870912L;
     if (temp < 0L) {
       temp = 0L;
-    } else if (temp > 1073741824L) {
-      temp = 1073741824L;
     }
     int positivePatchedValue = (int) ((temp >> 16) * (temp >> 15));
     return lshiftAndSaturate(multiply_32x32_rshift32(positivePatchedValue, paramNeutralValue), 5);
@@ -266,8 +264,6 @@ public final class Functions {
     long temp = (long) patchedValue + 536870912L;
     if (temp < 0L) {
       temp = 0L;
-    } else if (temp > 1073741824L) {
-      temp = 1073741824L;
     }
     return lshiftAndSaturate(multiply_32x32_rshift32((int) temp, paramNeutralValue), 3);
   }

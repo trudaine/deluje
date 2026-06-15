@@ -148,7 +148,11 @@ public class LpLadderFilter extends Filter {
       a = Functions.multiply_32x32_rshift32(a, a) << 3;
       a = 536870912 - a;
       int gainModifier = 268435456 + a;
+      // System.out.printf("DEBUG LADDER CONFIG: lpfRes=%d, processedRes=%d, a=%d, gainModifier=%d,
+      // filterGainBefore=%d%n",
+      //     lpfResonance, processedResonance, a, gainModifier, filterGain);
       filterGain = Functions.multiply_32x32_rshift32(filterGain, gainModifier) << 3;
+      // System.out.printf("DEBUG LADDER CONFIG: filterGainAfter=%d%n", filterGain);
     } else {
       filterGain = (int) (filterGain * 0.8f);
     }
