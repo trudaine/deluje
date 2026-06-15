@@ -117,8 +117,7 @@ public class Sound extends GlobalEffectable {
   }
 
   public PolyphonyMode polyphonic = PolyphonyMode.POLY;
-  public int maxPolyphony =
-      8; // C: sound.h:116 maxVoiceCount = 8 (per-sound voice cap; steals above)
+  public int maxPolyphony = 8; // C: sound.h:116 maxVoiceCount = 8 (per-sound voice cap; steals above)
 
   public final Sample[] samples = new Sample[2];
   public final int[] sampleStartPoint = {0, 0};
@@ -428,8 +427,6 @@ public class Sound extends GlobalEffectable {
             Param.GLOBAL_LFO_FREQ_1, patchedParamValues[Param.GLOBAL_LFO_FREQ_1]);
     globalSourceValues[PatchSource.LFO_GLOBAL_1.ordinal()] =
         globalLfos[0].render(numSamples, lfoWaveforms[0], phaseInc1);
-    // System.out.println("DEBUG LFO1 VALUE: " +
-    // globalSourceValues[PatchSource.LFO_GLOBAL_1.ordinal()]);
 
     int phaseInc2 =
         Patcher.computeFinalValueForParam(

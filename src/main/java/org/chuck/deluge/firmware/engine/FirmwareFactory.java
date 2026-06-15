@@ -10,12 +10,12 @@ import org.chuck.deluge.firmware.model.Song;
 import org.chuck.deluge.firmware.model.note.Note;
 import org.chuck.deluge.firmware.model.note.NoteRow;
 import org.chuck.deluge.firmware.model.sample.Sample;
+import org.chuck.deluge.firmware2.Param;
 import org.chuck.deluge.firmware.modulation.patch.PatchCable;
 import org.chuck.deluge.firmware.modulation.patch.PatchSource;
 import org.chuck.deluge.firmware.storage.audio.AudioFileReader;
 import org.chuck.deluge.firmware.util.FirmwareUtils;
 import org.chuck.deluge.firmware2.Oscillator.OscType;
-import org.chuck.deluge.firmware2.Param;
 import org.chuck.deluge.firmware2.WaveTable;
 import org.chuck.deluge.firmware2.WaveTableReader;
 import org.chuck.deluge.model.ClipModel;
@@ -278,8 +278,7 @@ public class FirmwareFactory {
 
   private static void mapModelToSound(SynthTrackModel model, FirmwareSound sound) {
     // Per-sound voice cap (C: sound.h:116, default 8). The model clamps to [1,16] and reads the
-    // XML "maxVoices" attribute; propagate it so dense playing steals voices instead of stacking
-    // 64.
+    // XML "maxVoices" attribute; propagate it so dense playing steals voices instead of stacking 64.
     sound.maxPolyphony = model.getMaxVoiceCount();
     // Idempotent: clear the cable set so live re-applies don't duplicate cables (they are
     // re-added from the model at the end of this method).
@@ -523,7 +522,9 @@ public class FirmwareFactory {
     sound.sidechain.release = sidechainReleaseVal;
     sound.sidechain.syncLevel = Math.max(0, Math.min(model.getSidechainSyncLevel(), 8));
     sound.sidechain.syncType = Math.max(0, Math.min(model.getSidechainSyncType(), 2));
-    sound.paramNeutralValues[org.chuck.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_SHAPE] =
+    sound
+            .paramNeutralValues[
+            org.chuck.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_SHAPE] =
         0; // default shape
     try {
       sound.polyphonic =
@@ -720,10 +721,10 @@ public class FirmwareFactory {
   public static PatchSource stringToPatchSource(String str) {
     if (str == null) return PatchSource.NONE;
     String clean = str.trim().toUpperCase().replace("_", "").replace(" ", "");
-    if (clean.equals("LFO1") || clean.equals("LFOGLOBAL1")) return PatchSource.LFO_GLOBAL_1;
-    if (clean.equals("LFO2") || clean.equals("LFOLOCAL1")) return PatchSource.LFO_LOCAL_1;
-    if (clean.equals("LFO3") || clean.equals("LFOGLOBAL2")) return PatchSource.LFO_GLOBAL_2;
-    if (clean.equals("LFO4") || clean.equals("LFOLOCAL2")) return PatchSource.LFO_LOCAL_2;
+    if (clean.equals("LFO1") || clean.equals("LFOLOCAL1")) return PatchSource.LFO_LOCAL_1;
+    if (clean.equals("LFO2") || clean.equals("LFOLOCAL2")) return PatchSource.LFO_LOCAL_2;
+    if (clean.equals("LFOGLOBAL1")) return PatchSource.LFO_GLOBAL_1;
+    if (clean.equals("LFOGLOBAL2")) return PatchSource.LFO_GLOBAL_2;
     if (clean.equals("ENVELOPE1") || clean.equals("ENV1")) return PatchSource.ENVELOPE_0;
     if (clean.equals("ENVELOPE2") || clean.equals("ENV2")) return PatchSource.ENVELOPE_1;
     if (clean.equals("ENVELOPE3") || clean.equals("ENV3")) return PatchSource.ENVELOPE_2;
@@ -1143,8 +1144,7 @@ public class FirmwareFactory {
     drumSound.paramManager.automatedParams.clear();
     drumSound.paramManager.getPatchCableSet().destinations.clear();
 
-    drumSound.maxPolyphony =
-        sd.getMaxVoiceCount(); // C: sound.h:116 (per-drum voice cap, default 8)
+    drumSound.maxPolyphony = sd.getMaxVoiceCount(); // C: sound.h:116 (per-drum voice cap, default 8)
     drumSound.isDrum = true;
     drumSound.oscTypes[0] = OscType.SAMPLE;
     drumSound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = org.chuck.deluge.firmware.util.Q31.ONE;

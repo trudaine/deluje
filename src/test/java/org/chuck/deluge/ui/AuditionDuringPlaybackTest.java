@@ -7,9 +7,9 @@ import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.firmware.engine.FirmwareAudioEngine;
 import org.chuck.deluge.firmware.engine.FirmwareSound;
+import org.chuck.deluge.firmware2.Param;
 import org.chuck.deluge.firmware.util.Q31;
 import org.chuck.deluge.firmware2.Oscillator.OscType;
-import org.chuck.deluge.firmware2.Param;
 import org.chuck.deluge.model.ProjectModel;
 import org.junit.jupiter.api.Test;
 

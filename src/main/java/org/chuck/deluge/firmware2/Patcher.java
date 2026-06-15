@@ -120,10 +120,6 @@ public class Patcher {
         }
       }
 
-      // if (p == Param.LOCAL_VOLUME) {
-      //   System.out.printf("DEBUG PATCHED VOLUME: final=%d, LFO1_sourceVal=%d%n", finalValue,
-      // sourceValues[PatchSource.LFO_GLOBAL_1.ordinal()]);
-      // }
       paramFinalValues[p] = finalValue;
     }
   }
@@ -145,7 +141,7 @@ public class Patcher {
       srcVal = cable.toPolarity(srcVal);
       runningTotal = cableToLinearParam(runningTotal, srcVal, cable.amount);
     }
-    return runningTotal - 536870912;
+    return runningTotal - 536870912; // return in [-2^29, 3*2^29]
   }
 
   // ── combineCablesExp (patcher.cpp:220-245) ──
@@ -252,11 +248,6 @@ public class Patcher {
                 neutralValue, cableCombination, p);
       }
     }
-    // if (p == 52 || p == Param.LOCAL_VOLUME || p == Param.LOCAL_ENV_0_SUSTAIN) {
-    //   System.out.println("DEBUG recalculate " + p + ": knobValue=" + knobValues[p] + ", range=" +
-    // Functions.getParamRange(p) + ", combo=" + cableCombination + ", neutral=" + neutralValue + ",
-    // final=" + finalValue);
-    // }
     paramFinalValues[p] = finalValue;
   }
 
