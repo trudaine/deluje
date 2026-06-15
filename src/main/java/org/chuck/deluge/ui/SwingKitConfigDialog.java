@@ -177,8 +177,7 @@ public class SwingKitConfigDialog extends JDialog {
 
     JButton browseBtn = new JButton("Change…");
     styleButton(browseBtn, new Color(0x33, 0x44, 0x55), Color.WHITE);
-    browseBtn.setToolTipText(
-        "Pick a sample for this drum — scoped, previewed and auditioned in place");
+    browseBtn.setToolTipText("Pick a sample for this drum — scoped, previewed and auditioned in place");
     // Commit logic, shared by the picker's "Replace" action.
     java.util.function.Consumer<java.io.File> replaceSample =
         f -> {

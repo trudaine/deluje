@@ -2,10 +2,10 @@ package org.chuck.deluge.firmware.engine;
 
 import static org.chuck.deluge.firmware.util.Q31.*;
 
+import org.chuck.deluge.firmware2.Param;
 import org.chuck.deluge.firmware.modulation.params.ParamManager;
 import org.chuck.deluge.firmware.util.FirmwareUtils;
 import org.chuck.deluge.firmware2.DelayBuffer;
-import org.chuck.deluge.firmware2.Param;
 import org.chuck.deluge.firmware2.StereoSample;
 
 /**

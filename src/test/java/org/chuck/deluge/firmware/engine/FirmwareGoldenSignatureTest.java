@@ -9,9 +9,9 @@ import java.net.URISyntaxException;
 import org.chuck.deluge.firmware.model.InstrumentClip;
 import org.chuck.deluge.firmware.model.Song;
 import org.chuck.deluge.firmware.modulation.automation.AutoParam;
+import org.chuck.deluge.firmware2.Param;
 import org.chuck.deluge.firmware.modulation.patch.PatchCable;
 import org.chuck.deluge.firmware.modulation.patch.PatchSource;
-import org.chuck.deluge.firmware2.Param;
 import org.chuck.deluge.firmware2.StereoSample;
 import org.chuck.deluge.model.ClipModel;
 import org.chuck.deluge.model.ProjectModel;
@@ -26,11 +26,6 @@ public class FirmwareGoldenSignatureTest {
   public void setUp() {
     GlobalSidechainBus.reset();
     org.chuck.deluge.firmware2.Functions.resetNoiseSeed();
-    var scale = org.chuck.deluge.model.tuning.ScalaScale.getActiveScale();
-    if (scale != null) {
-      System.err.println("[WARNING] ScalaScale was NOT null: " + scale.getName() + "!");
-    }
-    org.chuck.deluge.model.tuning.ScalaScale.setActiveScale(null);
   }
 
   private static final int ONE = 2147483647;
@@ -151,14 +146,6 @@ public class FirmwareGoldenSignatureTest {
   private static FirmwareSound buildXmlBasicFm() throws Exception {
     File file = resourceFile("/fidelity/049 Basic FM.XML");
     SynthTrackModel model = DelugeXmlParser.parseSynth(file);
-    System.out.printf(
-        "  [DEBUG MODEL] osc1 = %s, osc2 = %s, vol = %.6f, oscAVol = %.6f, oscBVol = %.6f, noiseVol = %.6f%n",
-        model.getOsc1Type(),
-        model.getOsc2Type(),
-        model.getVolume(),
-        model.getOscAVolume(),
-        model.getOscBVolume(),
-        model.getNoiseVol());
     model.addClip(new ClipModel("c", 8, 16));
     ProjectModel project = new ProjectModel();
     project.addTrack(model);
