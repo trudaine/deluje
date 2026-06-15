@@ -6,6 +6,7 @@ import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.model.KitTrackModel;
 import org.chuck.deluge.model.ProjectModel;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -13,6 +14,15 @@ import org.junit.jupiter.api.Test;
  * transitions.
  */
 public class SwingDelugeAppE2ETest {
+
+  /**
+   * Run the embedded audio driver in capture-only mode so the test suite never opens the soundcard
+   * — otherwise these E2E tests blast (often garbage) audio through the speakers during a build.
+   */
+  @BeforeAll
+  static void silenceAudio() {
+    org.chuck.deluge.engine.JavaAudioDriver.silentMode = true;
+  }
 
   @Test
   public void testInteractiveAddTrackAndModeSwitchingWorkflow() throws Exception {
