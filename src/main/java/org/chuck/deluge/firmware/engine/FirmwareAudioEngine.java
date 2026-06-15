@@ -65,6 +65,7 @@ public class FirmwareAudioEngine {
   }
 
   public FirmwareAudioEngine() {
+    GlobalSidechainBus.reset();
     for (int i = 0; i < masterBuffer.length; i++) {
       masterBuffer[i] = new StereoSample();
     }
