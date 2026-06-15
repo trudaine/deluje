@@ -1535,12 +1535,22 @@ public class SwingDelugeApp extends JFrame {
   }
 
   public void syncHighFidelityEngine(org.chuck.deluge.model.ProjectModel model) {
+    syncHighFidelityEngine(model, false);
+  }
+
+  /**
+   * @param forceRebuild rebuild the engine even while playing. Needed for a preset SWAP, which
+   *     changes a track's actual sound (not just notes) — the live noteRows-sync can't carry a new
+   *     sound, so skipping the rebuild leaves the engine on the stale sound (all notes garbage).
+   */
+  public void syncHighFidelityEngine(
+      org.chuck.deluge.model.ProjectModel model, boolean forceRebuild) {
     // While playing, a CONTENT edit (step/param) must not rebuild the engine: createSong + the
     // sounds.clear()/setSong below swap the live voices out mid-render, which is the "garbage when
     // editing during playback" bug. The grid's refresh() live-sync (atomic noteRows swap on the
     // running song) already applies new notes in place on the SAME sound instances. We only need a
-    // full rebuild for a STRUCTURAL change (track added/removed) or when stopped (known-good path).
-    if (isFirmwarePlaying() && !engineStructureChanged(model)) {
+    // full rebuild for a STRUCTURAL change (track added/removed), a forced preset swap, or stopped.
+    if (!forceRebuild && isFirmwarePlaying() && !engineStructureChanged(model)) {
       return;
     }
     org.chuck.deluge.firmware.model.Song fwSong = FirmwareFactory.createSong(model);
@@ -1992,7 +2002,7 @@ public class SwingDelugeApp extends JFrame {
       nt.setColourHex(old.getColourHex());
       tl.set(idx, nt);
       propagateCurrentModel();
-      syncHighFidelityEngine(currentProject);
+      syncHighFidelityEngine(currentProject, true); // preset swap: rebuild even while playing
       a.forceRebuild(); // structure unchanged on a swap → force header/name rebuild
       if (synthParamRack != null) synthParamRack.refresh();
     } catch (Exception ex) {
@@ -2880,7 +2890,7 @@ public class SwingDelugeApp extends JFrame {
             nt.setColourHex(old.getColourHex());
             tl.set(idx, nt);
             propagateCurrentModel();
-            syncHighFidelityEngine(currentProject);
+            syncHighFidelityEngine(currentProject, true); // preset swap: rebuild even while playing
             a.forceRebuild(); // structure unchanged on a swap → force header/name rebuild
             synthParamRack.refresh();
           } catch (Exception ex) {
