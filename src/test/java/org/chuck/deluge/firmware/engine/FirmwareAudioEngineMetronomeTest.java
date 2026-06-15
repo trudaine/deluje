@@ -43,11 +43,12 @@ public class FirmwareAudioEngineMetronomeTest {
     FirmwareAudioEngine e = new FirmwareAudioEngine();
     e.metronomeEnabled = true;
     e.triggerMetronome(DOWNBEAT_PHASE);
-    // 8 blocks = 1024 samples > 1000 -> metronome stops sounding by then.
-    for (int b = 0; b < 8; b++) {
+    // The one-shot click reaches true silence by ~block 9. The engaged master compressor sustains
+    // the decaying tail a touch, but once the click envelope hits zero the silent input renders
+    // silent output again — so render well past block 9 and assert true silence.
+    for (int b = 0; b < 13; b++) {
       e.renderBlock(N);
     }
-    e.renderBlock(N);
     assertFalse(anyNonZero(e.masterBuffer), "click is a one-shot that decays to silence");
   }
 }

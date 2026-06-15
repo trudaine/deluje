@@ -151,10 +151,11 @@ class TriggerRenderConsistencyTest {
     assertTrue(
         atDefault[1] > 500, "default boost must be loud (peak>0.5), was " + atDefault[1] / 1000.0);
 
-    // The clean ceiling is also safe; anything well above it rails (why the menu is capped).
+    // The clean ceiling is also safe.
     assertEquals(0L, driverChain(raw, 12)[0], "12x (max clean) must not hard-clip");
-    assertTrue(
-        driverChain(raw, 24)[0] > 0, "24x DOES hard-clip — the old default that caused garbage");
+    // With the faithful master compressor now limiting the engine output (audio_engine.cpp:899),
+    // the desktop boost has far more headroom: 24x no longer hard-clips (it did before the fix).
+    assertEquals(0L, driverChain(raw, 24)[0], "24x stays clean now (master compressor caps source)");
   }
 
   @Test
