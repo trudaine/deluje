@@ -92,7 +92,7 @@ public class Envelope {
 
         case RELEASE:
           pos = (int) (((pos & 0xFFFFFFFFL) + (release & 0xFFFFFFFFL) * numSamples) & 0xFFFFFFFFL);
-          if (pos >= 8388608) {
+          if (Integer.compareUnsigned(pos, 8388608) >= 0) {
             setState(Stage.OFF); // (line 83)
             lastValue = 0;
             return -2147483648; // (line 85)
@@ -119,7 +119,7 @@ public class Envelope {
               (int)
                   (((pos & 0xFFFFFFFFL) + (fastReleaseIncrement & 0xFFFFFFFFL) * numSamples)
                       & 0xFFFFFFFFL);
-          if (pos >= 8388608) {
+          if (Integer.compareUnsigned(pos, 8388608) >= 0) {
             setState(Stage.OFF); // (line 100)
             return -2147483648; // (line 101)
           }
