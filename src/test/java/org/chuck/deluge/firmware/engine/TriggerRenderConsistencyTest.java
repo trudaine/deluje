@@ -110,10 +110,8 @@ class TriggerRenderConsistencyTest {
     long clips = 0;
     long peak = 0;
     for (int l : rawL) {
-      long boosted = (long) l * gain;
-      long sat = Math.max(-2147483648L, Math.min(2147483647L, boosted));
-      int limited = org.chuck.deluge.firmware2.Functions.getTanHUnknown((int) sat, 0) << 2;
-      int out = Math.max(-32768, Math.min(32767, limited >> 16));
+      // Clean linear desktop chain (matches JavaAudioDriver): makeup gain + brickwall clamp.
+      long out = Math.max(-32768, Math.min(32767, ((long) l * gain) >> 16));
       long a = Math.abs(out);
       if (a > peak) peak = a;
       if (a >= 32700) clips++;

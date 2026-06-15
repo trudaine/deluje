@@ -106,18 +106,21 @@ public class PreferencesManager {
 
   private static final String KEY_MONITOR_GAIN_BOOST = "audio.monitorGainBoost";
 
-  /** Loudest desktop output boost that stays clean (no hard clipping) — measured. */
-  public static final int MAX_CLEAN_GAIN_BOOST = 12;
+  /**
+   * Loudest desktop boost that stays clean with the linear output chain. The engine's master
+   * compressor bounds its output, so ~32x dense polyphony peaks ~0.84 with headroom; above that the
+   * brickwall can catch extremes.
+   */
+  public static final int MAX_CLEAN_GAIN_BOOST = 32;
 
   /**
-   * Post-engine desktop output boost. Defaults to 12x: the engine now outputs at the real Deluge's
-   * (lower) internal level through the faithful master compressor, so more desktop makeup is needed
-   * for laptop loudness — at 12x a single note peaks ~0.5 and dense polyphony ~0.87 (the master
-   * compressor caps the source, so there is headroom and no hard clip). Clamped to
+   * Post-engine desktop output boost (LINEAR — the driver no longer soft-clips; the engine's master
+   * compressor already did the mastering). Defaults to 24x: a single note peaks ~0.31 and dense
+   * polyphony ~0.63, preserving the engine's dynamics (the faithful, "punchy" option B). Clamped to
    * {@link #MAX_CLEAN_GAIN_BOOST}.
    */
   public static int getMonitorGainBoost() {
-    int v = prefs.getInt(KEY_MONITOR_GAIN_BOOST, 12);
+    int v = prefs.getInt(KEY_MONITOR_GAIN_BOOST, 24);
     return Math.max(1, Math.min(MAX_CLEAN_GAIN_BOOST, v));
   }
 

@@ -183,16 +183,16 @@ public class JavaAudioDriver implements Runnable {
           int absL = Math.abs(s.l);
           if (absL > peak) peak = absL;
 
-          long boostedL = (long) s.l * monitorGainMul;
-          int saturatedL = (int) Math.max(-2147483648L, Math.min(2147483647L, boostedL));
-          int limitedL = org.chuck.deluge.firmware2.Functions.getTanHUnknown(saturatedL, 0) << 2;
+          // Clean desktop monitor: linear makeup gain to 16-bit + brickwall safety clamp. The engine
+          // masterBuffer is already the fully-mastered Deluge output (faithful master compressor +
+          // its own saturation), so we must NOT add a second soft-clip here — the old
+          // getTanHUnknown<<2 was an invented stage that flattened dynamics. The master compressor
+          // bounds the signal, so the brickwall only ever catches rare extremes.
+          long boostedL = ((long) s.l * monitorGainMul) >> 16;
+          long boostedR = ((long) s.r * monitorGainMul) >> 16;
 
-          long boostedR = (long) s.r * monitorGainMul;
-          int saturatedR = (int) Math.max(-2147483648L, Math.min(2147483647L, boostedR));
-          int limitedR = org.chuck.deluge.firmware2.Functions.getTanHUnknown(saturatedR, 0) << 2;
-
-          short left = (short) Math.max(-32768, Math.min(32767, limitedL >> 16));
-          short right = (short) Math.max(-32768, Math.min(32767, limitedR >> 16));
+          short left = (short) Math.max(-32768, Math.min(32767, boostedL));
+          short right = (short) Math.max(-32768, Math.min(32767, boostedR));
 
           byteBuffer[i * 4] = (byte) (left & 0xFF);
           byteBuffer[i * 4 + 1] = (byte) ((left >> 8) & 0xFF);
