@@ -56,7 +56,7 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     org.chuck.deluge.firmware2.Oscillator.OscType.SINE,
     org.chuck.deluge.firmware2.Oscillator.OscType.SINE
   };
-  public int maxPolyphony = 64;
+  public int maxPolyphony = 8; // C: sound.h:116 maxVoiceCount = 8 (overridden from the model)
   public PolyphonyMode polyphonic = PolyphonyMode.POLY;
   public boolean isDrum = false;
   public int[] paramNeutralValues = new int[200];
