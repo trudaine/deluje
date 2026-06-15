@@ -3499,6 +3499,16 @@ public class SwingGridPanel extends JPanel {
     }
   }
 
+  /**
+   * Force a full UI rebuild even when the grid structure is unchanged. refresh() skips rebuilding
+   * track headers when column/row count is the same, so a preset swap (which changes only a track's
+   * name/sound, not the structure) would otherwise leave the old name displayed.
+   */
+  public void forceRebuild() {
+    lastColumnCount = -1; // invalidate the structural cache so refresh() rebuilds headers + names
+    refresh();
+  }
+
   public void refresh() {
     stopAuditionIfNeeded();
     refreshInProgress = true;

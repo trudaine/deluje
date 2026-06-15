@@ -1993,7 +1993,7 @@ public class SwingDelugeApp extends JFrame {
       tl.set(idx, nt);
       propagateCurrentModel();
       syncHighFidelityEngine(currentProject);
-      if (clipPanel != null) clipPanel.refresh();
+      a.forceRebuild(); // structure unchanged on a swap → force header/name rebuild
       if (synthParamRack != null) synthParamRack.refresh();
     } catch (Exception ex) {
       System.err.println("[Inspector] preset replace failed: " + ex.getMessage());
@@ -2881,7 +2881,7 @@ public class SwingDelugeApp extends JFrame {
             tl.set(idx, nt);
             propagateCurrentModel();
             syncHighFidelityEngine(currentProject);
-            if (clipPanel != null) clipPanel.refresh();
+            a.forceRebuild(); // structure unchanged on a swap → force header/name rebuild
             synthParamRack.refresh();
           } catch (Exception ex) {
             System.err.println("[PresetChip] replace failed: " + ex.getMessage());
