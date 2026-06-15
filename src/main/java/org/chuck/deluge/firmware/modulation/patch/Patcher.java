@@ -3,7 +3,7 @@ package org.chuck.deluge.firmware.modulation.patch;
 import static org.chuck.deluge.firmware.util.Q31.*;
 
 import org.chuck.deluge.firmware.engine.FirmwareSound;
-import org.chuck.deluge.firmware.modulation.params.Param;
+import org.chuck.deluge.firmware2.Param;
 import org.chuck.deluge.firmware.modulation.params.ParamCurves;
 import org.chuck.deluge.firmware.modulation.params.ParamManager;
 import org.chuck.deluge.firmware.util.FirmwareUtils;

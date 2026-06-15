@@ -10,7 +10,7 @@ import org.chuck.deluge.firmware.model.Song;
 import org.chuck.deluge.firmware.model.note.Note;
 import org.chuck.deluge.firmware.model.note.NoteRow;
 import org.chuck.deluge.firmware.model.sample.Sample;
-import org.chuck.deluge.firmware.modulation.params.Param;
+import org.chuck.deluge.firmware2.Param;
 import org.chuck.deluge.firmware.modulation.patch.PatchCable;
 import org.chuck.deluge.firmware.modulation.patch.PatchSource;
 import org.chuck.deluge.firmware.storage.audio.AudioFileReader;
@@ -521,7 +521,7 @@ public class FirmwareFactory {
     sound.sidechain.syncType = Math.max(0, Math.min(model.getSidechainSyncType(), 2));
     sound
             .paramNeutralValues[
-            org.chuck.deluge.firmware.modulation.params.Param.UNPATCHED_SIDECHAIN_SHAPE] =
+            org.chuck.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_SHAPE] =
         0; // default shape
     try {
       sound.polyphonic =

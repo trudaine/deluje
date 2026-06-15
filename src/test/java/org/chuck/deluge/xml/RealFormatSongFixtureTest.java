@@ -65,11 +65,11 @@ public class RealFormatSongFixtureTest {
     java.util.Map<Integer, Integer> raw = s.getRawParamKnobs();
     assertEquals(
         Integer.MIN_VALUE,
-        (int) raw.get(org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_RESONANCE),
+        (int) raw.get(org.chuck.deluge.firmware2.Param.LOCAL_LPF_RESONANCE),
         "min resonance must stay INT_MIN (raw knob), not the float path's -2^29");
     assertEquals(
         Integer.MIN_VALUE,
-        (int) raw.get(org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_MORPH),
+        (int) raw.get(org.chuck.deluge.firmware2.Param.LOCAL_LPF_MORPH),
         "min morph must stay INT_MIN");
   }
 

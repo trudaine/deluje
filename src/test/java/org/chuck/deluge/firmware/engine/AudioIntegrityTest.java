@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.File;
 import java.io.FileInputStream;
-import org.chuck.deluge.firmware.modulation.params.Param;
+import org.chuck.deluge.firmware2.Param;
 import org.chuck.deluge.firmware.util.Q31;
 import org.chuck.deluge.firmware2.Oscillator.OscType;
 import org.chuck.deluge.model.KitTrackModel;

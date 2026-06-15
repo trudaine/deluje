@@ -512,13 +512,13 @@ public class SwingPerformanceViewPanel extends JPanel {
 
   private int mapPerfColToParam(int col) {
     return switch (col) {
-      case 0 -> org.chuck.deluge.firmware.modulation.params.Param.LOCAL_VOLUME;
-      case 1 -> org.chuck.deluge.firmware.modulation.params.Param.LOCAL_PAN;
-      case 2 -> org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_FREQ;
-      case 3 -> org.chuck.deluge.firmware.modulation.params.Param.LOCAL_LPF_RESONANCE;
-      case 8 -> org.chuck.deluge.firmware.modulation.params.Param.GLOBAL_DELAY_RATE;
-      case 9 -> org.chuck.deluge.firmware.modulation.params.Param.GLOBAL_REVERB_AMOUNT;
-      case 10 -> org.chuck.deluge.firmware.modulation.params.Param.UNPATCHED_STUTTER_RATE;
+      case 0 -> org.chuck.deluge.firmware2.Param.LOCAL_VOLUME;
+      case 1 -> org.chuck.deluge.firmware2.Param.LOCAL_PAN;
+      case 2 -> org.chuck.deluge.firmware2.Param.LOCAL_LPF_FREQ;
+      case 3 -> org.chuck.deluge.firmware2.Param.LOCAL_LPF_RESONANCE;
+      case 8 -> org.chuck.deluge.firmware2.Param.GLOBAL_DELAY_RATE;
+      case 9 -> org.chuck.deluge.firmware2.Param.GLOBAL_REVERB_AMOUNT;
+      case 10 -> org.chuck.deluge.firmware2.Param.UNPATCHED_STUTTER_RATE;
       default -> -1;
     };
   }

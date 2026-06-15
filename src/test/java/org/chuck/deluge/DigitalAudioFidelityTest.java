@@ -8,7 +8,7 @@ import org.chuck.deluge.firmware.engine.FirmwareFactory;
 import org.chuck.deluge.firmware.engine.FirmwareKit;
 import org.chuck.deluge.firmware.engine.FirmwareSound;
 import org.chuck.deluge.firmware.model.Song;
-import org.chuck.deluge.firmware.modulation.params.Param;
+import org.chuck.deluge.firmware2.Param;
 import org.chuck.deluge.firmware.modulation.patch.PatchCable;
 import org.chuck.deluge.firmware.modulation.patch.PatchSource;
 import org.chuck.deluge.firmware.util.Q31;
@@ -309,15 +309,15 @@ public class DigitalAudioFidelityTest {
     synth.oscTypes[0] = org.chuck.deluge.firmware2.Oscillator.OscType.SAW;
     synth
             .paramNeutralValues[
-            org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_SUSTAIN] =
+            org.chuck.deluge.firmware2.Param.LOCAL_ENV_0_SUSTAIN] =
         Q31.ONE;
     synth
             .paramNeutralValues[
-            org.chuck.deluge.firmware.modulation.params.Param.LOCAL_ENV_0_RELEASE] =
+            org.chuck.deluge.firmware2.Param.LOCAL_ENV_0_RELEASE] =
         100000000;
     synth
             .paramNeutralValues[
-            org.chuck.deluge.firmware.modulation.params.Param.UNPATCHED_SIDECHAIN_SHAPE] =
+            org.chuck.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_SHAPE] =
         0; // linear
     synth.sidechainSend = 0; // Only receives sidechain ducking
     synth.sidechain.syncLevel = 0; // Sync off for test recovery timing
@@ -350,11 +350,11 @@ public class DigitalAudioFidelityTest {
     // Create sidechain trigger sound (representing a kick drum slot!)
     FirmwareSound kick = new FirmwareSound();
     kick.sidechainSend = Q31.ONE; // Max send level
-    kick.paramNeutralValues[org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_A_VOLUME] =
+    kick.paramNeutralValues[org.chuck.deluge.firmware2.Param.LOCAL_OSC_A_VOLUME] =
         Integer.MIN_VALUE;
-    kick.paramNeutralValues[org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_B_VOLUME] =
+    kick.paramNeutralValues[org.chuck.deluge.firmware2.Param.LOCAL_OSC_B_VOLUME] =
         Integer.MIN_VALUE;
-    kick.paramNeutralValues[org.chuck.deluge.firmware.modulation.params.Param.LOCAL_NOISE_VOLUME] =
+    kick.paramNeutralValues[org.chuck.deluge.firmware2.Param.LOCAL_NOISE_VOLUME] =
         Integer.MIN_VALUE;
 
     engine.sounds.add(kick);

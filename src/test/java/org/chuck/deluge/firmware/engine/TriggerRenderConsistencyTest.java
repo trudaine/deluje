@@ -126,9 +126,9 @@ class TriggerRenderConsistencyTest {
     org.chuck.deluge.firmware.engine.FirmwareSound s =
         new org.chuck.deluge.firmware.engine.FirmwareSound();
     s.oscTypes[0] = org.chuck.deluge.firmware2.Oscillator.OscType.SAW;
-    s.paramNeutralValues[org.chuck.deluge.firmware.modulation.params.Param.LOCAL_OSC_A_VOLUME] =
+    s.paramNeutralValues[org.chuck.deluge.firmware2.Param.LOCAL_OSC_A_VOLUME] =
         org.chuck.deluge.firmware.util.Q31.ONE;
-    s.paramNeutralValues[org.chuck.deluge.firmware.modulation.params.Param.LOCAL_VOLUME] =
+    s.paramNeutralValues[org.chuck.deluge.firmware2.Param.LOCAL_VOLUME] =
         org.chuck.deluge.firmware.util.Q31.ONE;
     FirmwareAudioEngine eng = new FirmwareAudioEngine();
     eng.sounds.add(s);
