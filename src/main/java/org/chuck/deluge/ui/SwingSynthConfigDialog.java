@@ -17,7 +17,9 @@ public class SwingSynthConfigDialog extends JDialog {
   public static final Color ACCENT_BLUE = new Color(0x00, 0xcc, 0xff);
   public static final Color ACCENT_MINT = new Color(0x00, 0xff, 0xcc);
 
-  private static final String[] OSC_TYPES = {"SINE", "SAW", "SQUARE", "TRIANGLE", "NOISE"};
+  private static final String[] OSC_TYPES = {
+    "SINE", "SAW", "SQUARE", "TRIANGLE", "NOISE", "SAMPLE", "WAVETABLE"
+  };
   private static final String[] SYNTH_MODES = {"SUBTRACTIVE", "FM", "RINGMOD"};
   private static final String[] POLY_MODES = {"POLY", "MONO", "LEGATO", "AUTO", "CHOKE"};
 
@@ -205,6 +207,13 @@ public class SwingSynthConfigDialog extends JDialog {
     leftPanel.add(osc1Combo, lc);
     leftRow++;
 
+    // Osc1 source chip — visible only for SAMPLE/WAVETABLE; opens the scoped LibraryPicker.
+    lc.gridx = 1;
+    lc.gridy = leftRow;
+    lc.gridwidth = 2;
+    leftPanel.add(oscSourceChip(model, 0, osc1Combo), lc);
+    leftRow++;
+
     // Osc2 type
     lc.gridx = 0;
     lc.gridy = leftRow;
@@ -222,6 +231,13 @@ public class SwingSynthConfigDialog extends JDialog {
     osc2Combo.setForeground(Color.WHITE);
     osc2Combo.addActionListener(e -> model.setOsc2Type((String) osc2Combo.getSelectedItem()));
     leftPanel.add(osc2Combo, lc);
+    leftRow++;
+
+    // Osc2 source chip — visible only for SAMPLE/WAVETABLE; opens the scoped LibraryPicker.
+    lc.gridx = 1;
+    lc.gridy = leftRow;
+    lc.gridwidth = 2;
+    leftPanel.add(oscSourceChip(model, 1, osc2Combo), lc);
     leftRow++;
 
     // Retrigger Phase
@@ -856,6 +872,57 @@ public class SwingSynthConfigDialog extends JDialog {
     JLabel l = new JLabel(text);
     l.setForeground(Color.LIGHT_GRAY);
     return l;
+  }
+
+  private static String oscSourceLabel(String path) {
+    if (path == null || path.isBlank()) return "▾ pick file…";
+    String n = new java.io.File(path).getName();
+    return "▾ " + (n.length() > 16 ? n.substring(0, 16) : n);
+  }
+
+  /**
+   * A source chip for a SAMPLE/WAVETABLE oscillator: shows the current file, opens the scoped
+   * LibraryPicker (SAMPLES or WAVETABLES) on click, and is only visible when the osc type needs a
+   * file. {@code oscIdx} 0 = osc A, 1 = osc B.
+   */
+  private JButton oscSourceChip(
+      org.chuck.deluge.model.SynthTrackModel model, int oscIdx, JComboBox<String> combo) {
+    String cur = (oscIdx == 0) ? model.getOsc1SamplePath() : model.getOsc2SamplePath();
+    JButton chip = new JButton(oscSourceLabel(cur));
+    chip.setBackground(BG_CONTROL);
+    chip.setForeground(ACCENT_BLUE);
+    chip.setFont(new Font("SansSerif", Font.PLAIN, 11));
+    chip.setToolTipText("Pick the sample / wavetable file for this oscillator");
+    Runnable sync =
+        () -> {
+          String t = (String) combo.getSelectedItem();
+          boolean on = "SAMPLE".equals(t) || "WAVETABLE".equals(t);
+          chip.setVisible(on);
+        };
+    combo.addActionListener(e -> sync.run());
+    sync.run();
+    chip.addActionListener(
+        e -> {
+          String t = (String) combo.getSelectedItem();
+          LibraryPicker.Scope scope =
+              "WAVETABLE".equals(t) ? LibraryPicker.Scope.WAVETABLES : LibraryPicker.Scope.SAMPLES;
+          String curPath = (oscIdx == 0) ? model.getOsc1SamplePath() : model.getOsc2SamplePath();
+          LibraryPicker.show(
+              chip,
+              scope,
+              curPath,
+              java.util.List.of(
+                  new LibraryPicker.Action(
+                      "Use file",
+                      new Color(0x00, 0x88, 0x66),
+                      f -> {
+                        String p = f.getAbsolutePath().replace('\\', '/');
+                        if (oscIdx == 0) model.setOsc1SamplePath(p);
+                        else model.setOsc2SamplePath(p);
+                        chip.setText(oscSourceLabel(p));
+                      })));
+        });
+    return chip;
   }
 
   static JLabel headerLabel(String text) {
