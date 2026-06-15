@@ -44,8 +44,13 @@ public class FirmwareAudioEngine {
   private int liveAudioSampleTimer;
 
   // ── High-Fidelity Gain Constants ──
-  public int masterVolumeAdjustmentL = Q31.ONE;
-  public int masterVolumeAdjustmentR = Q31.ONE;
+  // C: audio_engine.cpp:861 — masterVolumeAdjustment starts at getParamNeutralValue(GLOBAL_VOLUME_
+  // POST_FX) = 167763968 (~1.25·2^27), NOT full-scale. This is the master-volume the compressor
+  // applies (render volAdjust); using Q31.ONE here drove the compressor ~13× too hot into its
+  // saturation and broke hardware shape parity.
+  public static final int MASTER_VOLUME_NEUTRAL = 167763968;
+  public int masterVolumeAdjustmentL = MASTER_VOLUME_NEUTRAL;
+  public int masterVolumeAdjustmentR = MASTER_VOLUME_NEUTRAL;
 
   // Metronome (faithful fw2 port). Off by default; the transport triggers a click each beat when
   // enabled (see JavaAudioDriver). C: audio_engine.cpp:626 renders it into the master buffer.
@@ -68,8 +73,8 @@ public class FirmwareAudioEngine {
     // would otherwise rewrite userDelayRate using a tick-inverse the pure engine doesn't feed it).
     // fw2 Delay.syncLevel is an int; SYNC_LEVEL_NONE == 0.
     masterDelay.syncLevel = 0;
-    masterVolumeAdjustmentL = Q31.ONE;
-    masterVolumeAdjustmentR = Q31.ONE;
+    masterVolumeAdjustmentL = MASTER_VOLUME_NEUTRAL;
+    masterVolumeAdjustmentR = MASTER_VOLUME_NEUTRAL;
   }
 
   public void renderBlock(int numSamples) {
@@ -120,23 +125,33 @@ public class FirmwareAudioEngine {
     masterDelay.setupWorkingState(delayState, 1 << 20, true);
     masterDelay.process(fxBuffer, numSamples, delayState);
 
-    // Hardware Master Compressor (port of audio_engine.cpp:899).
-    masterCompressor.renderVolNeutral(fxBuffer, Q31.ONE);
-
-    // Metronome click — added dry, after FX, before the master gain/limiter (C:
-    // audio_engine.cpp:626).
+    // Metronome click — added dry, before the master compressor (C: audio_engine.cpp:626).
     if (metronomeEnabled) {
       metronome.render(fxBuffer, numSamples, Q31.ONE);
     }
 
-    // ── Master Gain & Soft-Clip Limiter ──
-    for (int i = 0; i < numSamples; i++) {
-      int l = Q31.mult(fxBuffer[i][0], masterVolumeAdjustmentL);
-      int r = Q31.mult(fxBuffer[i][1], masterVolumeAdjustmentR);
+    // ── Master output stage — faithful port of audio_engine.cpp:891-901. ──
+    // The compressor applies the master volume (masterVolumeAdjustment >> 1), the RMS compression,
+    // AND the output saturation (rms_feedback.cpp:106 getTanHAntialiased). songVolume sets the
+    // compressor's makeup/threshold. The C has NO separate engine tanh here — the previous
+    // renderVolNeutral(2^31) + getTanHUnknown was invented (compressor never engaged, then hard
+    // tanh walled dense content). songMasterVolume = 0 (neutral UNPATCHED_VOLUME).
+    int songVolume =
+        org.chuck.deluge.firmware2.Functions.getFinalParameterValueVolume(
+                134217728, org.chuck.deluge.firmware2.Functions.cableToLinearParamShortcut(0))
+            >> 1;
+    masterCompressor.render(
+        fxBuffer,
+        numSamples,
+        masterVolumeAdjustmentL >> 1,
+        masterVolumeAdjustmentR >> 1,
+        songVolume >> 3);
+    masterVolumeAdjustmentL = MASTER_VOLUME_NEUTRAL; // C:901 resets to ONE_Q31; we keep our neutral
+    masterVolumeAdjustmentR = MASTER_VOLUME_NEUTRAL;
 
-      // Bit-accurate soft clipping via tanH lookup
-      masterBuffer[i].l = org.chuck.deluge.firmware.util.FirmwareUtils.getTanHUnknown(l, 0) << 1;
-      masterBuffer[i].r = org.chuck.deluge.firmware.util.FirmwareUtils.getTanHUnknown(r, 0) << 1;
+    for (int i = 0; i < numSamples; i++) {
+      masterBuffer[i].l = fxBuffer[i][0];
+      masterBuffer[i].r = fxBuffer[i][1];
     }
   }
 
