@@ -1020,6 +1020,7 @@ public class Voice {
             }
           } else if (isInputType(sound.oscTypes[s])) {
             // Live input echo (voice.cpp:2232-2360): read the current block's captured input.
+            pInc = vs.phaseIncrementStoredValue;
             int[] input = LiveInput.currentBlock;
             if (input != null) {
               OscType inputTypeNow = sound.oscTypes[s];
@@ -1028,12 +1029,11 @@ public class Voice {
                 inputTypeNow = OscType.INPUT_L; // C voice.cpp:2240-2243
               }
               int n = Math.min(numSamples, input.length / 2);
-
               // Pitch-shifting lifecycle (voice.cpp:2236-2274): create the per-source shifter
               // while the ratio increment isn't unity (kMaxSampleValue), remove it click-free
               // once back at unity. Desktop seam: each source owns its LiveInputBuffer (the C
               // shares AudioEngine buffers, but the fw2 shifter feeds its buffer in render).
-              if (pInc != Functions.K_MAX_SAMPLE_VALUE) {
+              if (pInc != Functions.K_MAX_SAMPLE_VALUE && anyInputDevice) {
                 if (vs.livePitchShifter == null) {
                   LiveInputBuffer.InputType t =
                       switch (inputTypeNow) {

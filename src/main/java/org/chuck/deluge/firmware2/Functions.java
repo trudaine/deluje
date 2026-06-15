@@ -552,15 +552,17 @@ public final class Functions {
 
   // ── Noise / tanH / misc ──
 
-  private static int jcong = 380116160;
+  private static final ThreadLocal<Integer> jcong =
+      ThreadLocal.withInitial(() -> 380116160);
 
   public static void resetNoiseSeed() {
-    jcong = 380116160;
+    jcong.set(380116160);
   }
 
   public static int getNoise() {
-    jcong = 69069 * jcong + 1234567;
-    return jcong;
+    int val = 69069 * jcong.get() + 1234567;
+    jcong.set(val);
+    return val;
   }
 
   // ── Wavefolder (dsp/util.hpp:23-80) ──
