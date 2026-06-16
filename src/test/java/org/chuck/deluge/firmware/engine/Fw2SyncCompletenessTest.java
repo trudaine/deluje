@@ -38,6 +38,7 @@ class Fw2SyncCompletenessTest {
   private static final Set<String> BRIDGE_SYNCED =
       Set.of(
           "synthMode",
+          "customLfoWave",
           "oscTypes",
           "lpfMode",
           "hpfMode",

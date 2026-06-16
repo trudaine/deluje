@@ -16,7 +16,18 @@ public class Lfo {
     TRIANGLE,
     SAMPLE_AND_HOLD,
     RANDOM_WALK,
-    WARBLER
+    WARBLER,
+    CUSTOM
+  }
+
+  public int[] customWave = new int[256];
+
+  public Lfo() {
+    // Fill with default triangle wave initially
+    for (int i = 0; i < 256; i++) {
+      customWave[i] =
+          (i < 128) ? (-1073741824 + i * 16777216) : (1073741824 - (i - 128) * 16777216);
+    }
   }
 
   public enum SyncType {
@@ -178,6 +189,13 @@ public class Lfo {
           int pi2 = phaseIncrement * 2;
           warble(numSamples, pi2);
           value = holdValue;
+          break;
+        }
+
+      case CUSTOM:
+        {
+          int idx = (phase >>> 24) & 0xFF; // 256 steps
+          value = customWave[idx];
           break;
         }
 

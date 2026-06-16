@@ -37,6 +37,7 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     org.chuck.deluge.firmware2.Lfo.LfoType.SINE, org.chuck.deluge.firmware2.Lfo.LfoType.TRIANGLE,
     org.chuck.deluge.firmware2.Lfo.LfoType.SINE, org.chuck.deluge.firmware2.Lfo.LfoType.TRIANGLE
   };
+  public final int[] customLfoWave = new int[256];
   public final org.chuck.deluge.firmware.model.sample.Sample[] samples =
       new org.chuck.deluge.firmware.model.sample.Sample[2];
   public final org.chuck.deluge.firmware2.Sample[] fw2SampleCache =
@@ -463,6 +464,9 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
       fw2Sound.delayUserRate = 0;
       fw2Sound.delayFeedbackAmount = 0;
     }
+
+    // Copy Custom LFO Waveform
+    System.arraycopy(customLfoWave, 0, fw2Sound.customLfoWave, 0, 256);
 
     // arpSettings are already shared between FirmwareSound and fw2Sound.
   }

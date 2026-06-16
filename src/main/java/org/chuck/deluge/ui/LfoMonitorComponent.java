@@ -183,6 +183,12 @@ public class LfoMonitorComponent extends JComponent {
       case WARBLER:
         // Complex warble modulation (dual sine combination)
         return (float) (Math.sin(phi * 2.0 * Math.PI) * 0.7 + Math.sin(phi * 6.0 * Math.PI) * 0.3);
+      case CUSTOM:
+        {
+          int idx = (int) (phi * 255.0f);
+          idx = Math.max(0, Math.min(255, idx));
+          return (float) model.getCustomLfoWave()[idx] / 1073741824.0f;
+        }
       case SINE:
       default:
         // Standard Sine wave

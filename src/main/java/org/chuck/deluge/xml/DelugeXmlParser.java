@@ -1435,6 +1435,20 @@ public class DelugeXmlParser {
     parseSynthLfo(soundNode, "lfo3", synth, false);
     parseSynthLfo(soundNode, "lfo4", synth, false);
 
+    // ── Custom LFO Waveform ──
+    String waveStr = attrOrChildText(soundNode, "customLfoWave");
+    if (waveStr != null && !waveStr.isBlank()) {
+      String[] tokens = waveStr.trim().split(",");
+      int[] wave = synth.getCustomLfoWave();
+      for (int i = 0; i < Math.min(256, tokens.length); i++) {
+        try {
+          wave[i] = Integer.parseInt(tokens[i].trim());
+        } catch (NumberFormatException e) {
+          // Keep default on parse error
+        }
+      }
+    }
+
     // ── Arpeggiator ──
     parseSynthArp(soundNode, synth);
 
@@ -3203,6 +3217,7 @@ public class DelugeXmlParser {
       case "S_AND_H", "SAMPLEANDHOLD", "S&H" -> LfoType.S_AND_H;
       case "RANDOM_WALK", "RANDOMWALK", "RANDOM" -> LfoType.RANDOM_WALK;
       case "WARBLER" -> LfoType.WARBLER;
+      case "CUSTOM" -> LfoType.CUSTOM;
       default -> LfoType.SINE;
     };
   }

@@ -17,6 +17,15 @@ public class SynthTrackModel extends TrackModel {
   private float unisonDetune = 0.0f;
   private float unisonStereoSpread = 0.0f;
   private float waveIndex = 0.0f;
+  private final int[] customLfoWave = new int[256];
+
+  {
+    // Default triangle wave
+    for (int i = 0; i < 256; i++) {
+      customLfoWave[i] =
+          (i < 128) ? (-1073741824 + i * 16777216) : (1073741824 - (i - 128) * 16777216);
+    }
+  }
 
   // Oscillator 1 sample-playback params (maps to firmware SampleRecorder/playback)
   private int osc1LoopMode = 0; // 0=off, 1=loop, 2=oneshot
@@ -1366,5 +1375,10 @@ public class SynthTrackModel extends TrackModel {
     this.delayFeedbackQ31 = other.getDelayFeedbackQ31();
     this.delayPingPong = other.isDelayPingPong();
     this.delayAnalog = other.isDelayAnalog();
+    System.arraycopy(other.getCustomLfoWave(), 0, this.customLfoWave, 0, 256);
+  }
+
+  public int[] getCustomLfoWave() {
+    return customLfoWave;
   }
 }
