@@ -3,7 +3,7 @@ package org.chuck.deluge.firmware.engine;
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.chuck.deluge.firmware.model.InstrumentClip;
-import org.chuck.deluge.firmware.model.PolyphonyMode;
+import org.chuck.deluge.firmware2.Sound.PolyphonyMode;
 import org.chuck.deluge.firmware.model.Song;
 import org.chuck.deluge.firmware2.StereoSample;
 import org.chuck.deluge.model.ClipModel;
@@ -30,7 +30,7 @@ public class FirmwarePolyphonyTest {
     p.addTrack(m);
     Song s = org.chuck.deluge.firmware.engine.FirmwareFactory.createSong(p);
     FirmwareSound sound = (FirmwareSound) ((InstrumentClip) s.clips.get(0)).sound;
-    sound.polyphonic = mode;
+    sound.fw2Sound.polyphonic = mode;
     return sound;
   }
 

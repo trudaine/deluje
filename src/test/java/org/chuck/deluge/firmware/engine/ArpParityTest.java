@@ -16,7 +16,7 @@ public class ArpParityTest {
   @Test
   public void heldChordArpeggiates() {
     FirmwareSound sound = new FirmwareSound();
-    sound.polyphonic = org.chuck.deluge.firmware.model.PolyphonyMode.MONO;
+    sound.fw2Sound.polyphonic = org.chuck.deluge.firmware2.Sound.PolyphonyMode.MONO;
     sound.arpSettings.mode = org.chuck.deluge.firmware2.Arpeggiator.ArpMode.ARP;
     sound.arpSettings.numOctaves = 1;
     sound.arpSettings.gate = 1 << 23; // ~50% duty cycle
