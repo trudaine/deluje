@@ -233,6 +233,8 @@ public class SynthTrackModel extends TrackModel {
 
   private PolyphonyMode polyphony = PolyphonyMode.POLY;
   private int maxVoiceCount = 8;
+  // C sound.h: voice-stealing priority (0=low, 1=medium, 2=high). XML "voicePriority".
+  private int voicePriority = 1;
   private float oscAVolume = 1.0f;
   private float oscBVolume = 1.0f;
 
@@ -578,6 +580,14 @@ public class SynthTrackModel extends TrackModel {
 
   public void setMaxVoiceCount(int maxVoiceCount) {
     this.maxVoiceCount = Math.max(1, Math.min(16, maxVoiceCount));
+  }
+
+  public int getVoicePriority() {
+    return voicePriority;
+  }
+
+  public void setVoicePriority(int voicePriority) {
+    this.voicePriority = Math.max(0, Math.min(2, voicePriority));
   }
 
   public EnvelopeModel getEnv(int index) {

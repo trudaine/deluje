@@ -1296,6 +1296,17 @@ public class DelugeXmlParser {
     // ── Polyphonic mode ──
     parsePolyphony(soundNode, synth);
 
+    // ── Voice-stealing priority (attribute or child element) ──
+    String vpStr = soundNode.getAttribute("voicePriority");
+    if (vpStr == null || vpStr.isBlank()) vpStr = getChildText(soundNode, "voicePriority");
+    if (vpStr != null && !vpStr.isBlank()) {
+      try {
+        synth.setVoicePriority(Integer.parseInt(vpStr.trim()));
+      } catch (NumberFormatException e) {
+        LOG.log(Level.FINE, "NumberFormatException parsing voicePriority", e);
+      }
+    }
+
     // ── LPF Mode ──
     parseFilterMode(soundNode, synth);
 
