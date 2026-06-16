@@ -3,6 +3,7 @@ package org.chuck.deluge.midi;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.project.PreferencesManager;
+import org.chuck.deluge.ui.SwingDelugeApp;
 import org.chuck.midi.MidiIn;
 import org.chuck.midi.MidiMsg;
 
@@ -20,10 +21,12 @@ public class MidiService {
   private MidiIn midiIn;
   private org.chuck.midi.MidiOut midiOut;
   private final DelugeSysExManager sysExManager = new DelugeSysExManager();
+  private final DelugeFileSyncService fileSyncService = new DelugeFileSyncService(sysExManager);
   private boolean learning = false;
   private String learnTargetParam;
   private MidiDeviceDefinition currentDevice;
   private int activeTrack = 4; // Default to first synth track
+  private boolean disableHwSync = false;
 
   public MidiService(ChuckVM vm, BridgeContract bridge, MidiInputRouter router) {
     this.vm = vm;
@@ -41,6 +44,14 @@ public class MidiService {
 
     // Wire MidiFollow into the engine's CC path
     engine.setMidiFollow(createMidiFollow());
+
+    // Bi-directional parameter synchronization listener
+    this.bridge.setParameterChangeListener(
+        (paramName, trackIndex, val) -> {
+          if (trackIndex == activeTrack) {
+            sendParameterChangeToHardware(paramName, val);
+          }
+        });
   }
 
   public MidiInputRouter getRouter() {
@@ -49,6 +60,10 @@ public class MidiService {
 
   public DelugeSysExManager getSysExManager() {
     return sysExManager;
+  }
+
+  public DelugeFileSyncService getFileSyncService() {
+    return fileSyncService;
   }
 
   /** Create and configure the MidiFollow instance for this service. */
@@ -250,9 +265,74 @@ public class MidiService {
       return;
     }
 
+    // Intercept physical Deluge knob turns for Cutoff / Resonance
+    if (cc == 74) { // Cutoff
+      int val = msg.data2();
+      double normalized = val / 127.0;
+      disableHwSync = true;
+      bridge.setFilterFreq(activeTrack, normalized);
+      disableHwSync = false;
+
+      javax.swing.SwingUtilities.invokeLater(
+          () -> {
+            if (SwingDelugeApp.mainInstance != null) {
+              SwingDelugeApp.mainInstance.refreshTrackInspector();
+            }
+          });
+      return;
+    } else if (cc == 71) { // Resonance
+      int val = msg.data2();
+      double normalized = val / 127.0;
+      disableHwSync = true;
+      bridge.setFilterRes(activeTrack, normalized);
+      disableHwSync = false;
+
+      javax.swing.SwingUtilities.invokeLater(
+          () -> {
+            if (SwingDelugeApp.mainInstance != null) {
+              SwingDelugeApp.mainInstance.refreshTrackInspector();
+            }
+          });
+      return;
+    }
+
     // Delegate to MidiFollow for all CC routing
     if (engine.getMidiFollow() != null) {
       engine.getMidiFollow().handleCC(msg);
+    }
+  }
+
+  /**
+   * Sends a MIDI CC message back to the physical Deluge over USB MIDI when a mapped parameter is
+   * updated in the desktop UI.
+   *
+   * @param paramName The parameter name (e.g. "cutoff" or "resonance")
+   * @param value Normalized float value (0.0 to 1.0)
+   */
+  public void sendParameterChangeToHardware(String paramName, double value) {
+    if (midiOut == null || disableHwSync) return;
+
+    int cc = -1;
+    if ("cutoff".equals(paramName)) {
+      cc = 74; // Filter Cutoff
+    } else if ("resonance".equals(paramName)) {
+      cc = 71; // Filter Resonance
+    }
+
+    if (cc != -1) {
+      int val = (int) Math.round(value * 127.0);
+      val = Math.max(0, Math.min(127, val));
+
+      // Control Change: 0xB0 (Channel 1 CC), cc, val
+      byte[] data = {(byte) 0xB0, (byte) cc, (byte) val};
+
+      org.chuck.midi.MidiMsg msg = new org.chuck.midi.MidiMsg();
+      msg.setData(data);
+      try {
+        midiOut.send(msg);
+      } catch (Exception e) {
+        // Shield
+      }
     }
   }
 

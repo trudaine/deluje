@@ -18,6 +18,7 @@ import javax.swing.JToggleButton;
 import javax.swing.SwingConstants;
 import org.chuck.core.ChuckVM;
 import org.chuck.deluge.firmware.hid.FirmwareDisplay;
+import org.chuck.deluge.midi.DelugeSysExManager;
 import org.chuck.deluge.model.ProjectModel;
 import org.chuck.deluge.ui.controls.DelugeEncoderKnob;
 import org.chuck.deluge.ui.controls.DelugeParamReadout;
@@ -137,6 +138,26 @@ public class SwingTopBarPanel extends JPanel {
     this.listener = listener;
     this.paramReadout = new DelugeParamReadout();
     this.oledPanel = new SwingOledPanel();
+
+    // Wire physical hardware OLED stream directly into our virtual OLED panel
+    if (SwingDelugeApp.mainInstance != null
+        && SwingDelugeApp.mainInstance.getMidiService() != null) {
+      SwingDelugeApp.mainInstance
+          .getMidiService()
+          .getSysExManager()
+          .setDisplayListener(
+              new DelugeSysExManager.DisplayListener() {
+                @Override
+                public void onOledFrame(byte[] frameBuffer) {
+                  oledPanel.drawRawFrameBuffer(frameBuffer);
+                }
+
+                @Override
+                public void onSevenSegment(String text) {
+                  paramReadout.printTransient("7SEG", text);
+                }
+              });
+    }
 
     setLayout(new WrapLayout());
     setBackground(new Color(0x12, 0x12, 0x14));
@@ -359,6 +380,14 @@ public class SwingTopBarPanel extends JPanel {
           paramReadout.printTransient("CAP ", active ? "ON" : "OFF");
         });
     add(captureBtn);
+
+    // Physical Deluge Hardware Status Panel
+    if (SwingDelugeApp.mainInstance != null
+        && SwingDelugeApp.mainInstance.getMidiService() != null) {
+      DelugeHwStatusPanel hwStatus =
+          new DelugeHwStatusPanel(SwingDelugeApp.mainInstance.getMidiService());
+      add(hwStatus);
+    }
 
     add(new JSeparator(JSeparator.VERTICAL));
 

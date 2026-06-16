@@ -108,6 +108,34 @@ public class DelugeSysExManager {
   }
 
   /**
+   * Sends a SysEx request to the physical Deluge to start real-time streaming of the OLED display
+   * frame buffer.
+   */
+  public void startOledStreaming() {
+    if (activeMidiOut == null) return;
+    byte[] packet = {
+      SYSEX_START,
+      DELUGE_HEADER[0],
+      DELUGE_HEADER[1],
+      DELUGE_HEADER[2],
+      DELUGE_HEADER[3],
+      CMD_HID,
+      0x00, // OLED Request subtype
+      0x03, // Mode 3 (Start stream + force repaint)
+      SYSEX_END
+    };
+    org.chuck.midi.MidiMsg msg = new org.chuck.midi.MidiMsg();
+    msg.setData(packet);
+    try {
+      activeMidiOut.send(msg);
+      System.out.println(
+          "[SysExManager] Sent OLED Real-Time Streaming Request to physical Deluge.");
+    } catch (Exception e) {
+      System.err.println("[SysExManager] Failed to send OLED stream request: " + e.getMessage());
+    }
+  }
+
+  /**
    * Intercepts and processes raw incoming SysEx messages from the MIDI input thread.
    *
    * @param data Raw SysEx byte array starting with 0xF0 and ending with 0xF7

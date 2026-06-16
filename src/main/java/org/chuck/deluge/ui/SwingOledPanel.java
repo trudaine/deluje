@@ -25,6 +25,10 @@ public class SwingOledPanel extends JPanel {
     FirmwareDisplay.get().setOledListener(this::repaint);
   }
 
+  public void drawRawFrameBuffer(byte[] frameBuffer) {
+    virtualOLED.drawRawFrameBuffer(frameBuffer);
+  }
+
   @Override
   protected void paintComponent(Graphics g) {
     super.paintComponent(g);
