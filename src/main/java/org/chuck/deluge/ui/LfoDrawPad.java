@@ -163,8 +163,11 @@ public class LfoDrawPad extends JPanel {
     g2.setStroke(oldStroke);
 
     // ── 2. Draw Waveform Steps/Curves ──
-    Color neonCyan = new Color(0x00, 0xff, 0xcc);
-    Color neonFill = new Color(0x00, 0xff, 0xcc, 40);
+    Color primaryAccent = ThemeManager.getPrimaryAccent();
+    Color secondaryAccent = ThemeManager.getSecondaryAccent();
+    Color neonFill =
+        new Color(
+            secondaryAccent.getRed(), secondaryAccent.getGreen(), secondaryAccent.getBlue(), 40);
 
     if (smoothMode) {
       // Draw smooth interpolated vector path
@@ -202,23 +205,23 @@ public class LfoDrawPad extends JPanel {
               new Color(0, 0, 0, 0)));
       g2.fill(fillPath);
 
-      // Draw the main smooth line
-      g2.setColor(neonCyan);
+      // Draw the main smooth line in primary accent
+      g2.setColor(primaryAccent);
       g2.setStroke(new BasicStroke(2.0f));
       g2.draw(path);
       g2.setStroke(oldStroke);
 
-      // Draw step node points
+      // Draw step node points in secondary accent
       for (int i = 0; i < 16; i++) {
         float x = paddingX + i * stepW + stepW / 2.0f;
         float y = centerY - steps[i] * (drawH / 2.0f);
         g2.setColor(Color.WHITE);
         g2.fillOval((int) x - 3, (int) y - 3, 6, 6);
-        g2.setColor(neonCyan);
+        g2.setColor(secondaryAccent);
         g2.drawOval((int) x - 3, (int) y - 3, 6, 6);
       }
     } else {
-      // Draw step columns (sequencer style)
+      // Draw step columns (sequencer style) in secondary accent
       for (int i = 0; i < 16; i++) {
         float val = steps[i];
         int x = (int) (paddingX + i * stepW + 2);
@@ -237,8 +240,8 @@ public class LfoDrawPad extends JPanel {
         g2.setColor(neonFill);
         g2.fillRect(x, y, stepWInt, hBar);
 
-        // Draw top/bottom border cap in bold neon cyan
-        g2.setColor(neonCyan);
+        // Draw top/bottom border cap in bold secondary accent
+        g2.setColor(secondaryAccent);
         g2.setStroke(new BasicStroke(1.5f));
         if (val >= 0) {
           g2.drawLine(x, y, x + stepWInt, y);

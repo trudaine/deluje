@@ -231,24 +231,26 @@ public class FilterGraphComponent extends JComponent {
       }
     }
 
-    // 1. Draw glowing transparent amber gradient fill under the curve
-    Color amberColor = new Color(0xff, 0xb3, 0x00);
+    // 1. Draw glowing transparent gradient fill under the curve
+    Color primaryAccent = ThemeManager.getPrimaryAccent();
     g2.setPaint(
         new GradientPaint(
             0,
             startY,
-            new Color(amberColor.getRed(), amberColor.getGreen(), amberColor.getBlue(), 50),
+            new Color(
+                primaryAccent.getRed(), primaryAccent.getGreen(), primaryAccent.getBlue(), 50),
             0,
             baseY,
-            new Color(amberColor.getRed(), amberColor.getGreen(), amberColor.getBlue(), 0)));
+            new Color(
+                primaryAccent.getRed(), primaryAccent.getGreen(), primaryAccent.getBlue(), 0)));
     GeneralPath fillPath = (GeneralPath) path.clone();
     fillPath.lineTo(startX + drawW, baseY);
     fillPath.lineTo(startX, baseY);
     fillPath.closePath();
     g2.fill(fillPath);
 
-    // 2. Draw the main response line in glowing amber
-    g2.setColor(amberColor);
+    // 2. Draw the main response line in glowing primary accent
+    g2.setColor(primaryAccent);
     g2.setStroke(new BasicStroke(2.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
     g2.draw(path);
     g2.setStroke(oldStroke);
@@ -258,7 +260,7 @@ public class FilterGraphComponent extends JComponent {
     float cutoffY = baseY - (1.0f / (1.0f + resonance * 2.5f)) * drawH;
     cutoffY = Math.max(startY - 4, Math.min(cutoffY, baseY));
 
-    g2.setColor(new Color(0xff, 0xcc, 0x00));
+    g2.setColor(ThemeManager.getSecondaryAccent());
     g2.fillOval((int) cutoffX - 4, (int) cutoffY - 4, 8, 8);
     g2.setColor(new Color(0x14, 0x14, 0x18));
     g2.drawOval((int) cutoffX - 4, (int) cutoffY - 4, 8, 8);
