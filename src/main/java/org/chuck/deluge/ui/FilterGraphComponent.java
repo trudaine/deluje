@@ -9,13 +9,14 @@ import org.chuck.deluge.model.SynthTrackModel;
 
 /**
  * Custom Swing component that draws the real-time frequency response curve of the synthesizer's
- * Low-Pass Filter. Supports 12dB/oct, 24dB/oct, SVF Low-Pass, and SVF Notch modes with dynamic
- * resonance (Q) peaks.
+ * Low-Pass Filter, and supports interactive 2D drag-to-sweep cutoff and resonance editing.
  */
 public class FilterGraphComponent extends JComponent {
   private final SynthTrackModel model;
   private final BridgeContract bridge;
   private final int trackIndex;
+
+  private boolean isDragging = false;
 
   public FilterGraphComponent(SynthTrackModel model, BridgeContract bridge, int trackIndex) {
     this.model = model;
@@ -23,6 +24,114 @@ public class FilterGraphComponent extends JComponent {
     this.trackIndex = trackIndex;
     setPreferredSize(new Dimension(300, 110));
     setMinimumSize(new Dimension(200, 80));
+
+    // ── Mouse Listeners for Interactive Drag-to-Sweep ──
+    addMouseListener(
+        new java.awt.event.MouseAdapter() {
+          @Override
+          public void mousePressed(java.awt.event.MouseEvent e) {
+            if (isOverNode(e.getX(), e.getY())) {
+              isDragging = true;
+              setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            }
+          }
+
+          @Override
+          public void mouseReleased(java.awt.event.MouseEvent e) {
+            isDragging = false;
+            if (isOverNode(e.getX(), e.getY())) {
+              setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            } else {
+              setCursor(Cursor.getDefaultCursor());
+            }
+          }
+        });
+
+    addMouseMotionListener(
+        new java.awt.event.MouseMotionAdapter() {
+          @Override
+          public void mouseMoved(java.awt.event.MouseEvent e) {
+            if (isOverNode(e.getX(), e.getY())) {
+              setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            } else {
+              setCursor(Cursor.getDefaultCursor());
+            }
+          }
+
+          @Override
+          public void mouseDragged(java.awt.event.MouseEvent e) {
+            if (!isDragging) return;
+
+            int w = getWidth();
+            int h = getHeight();
+            int paddingX = 12;
+            int paddingY = 12;
+            int drawW = w - 2 * paddingX;
+            int drawH = h - 2 * paddingY;
+            float startX = paddingX;
+            float baseY = paddingY + drawH;
+
+            // 1. Map mouse X back to cutoff parameter (0.0 to 1.0)
+            float u = (float) (e.getX() - startX) / drawW;
+            u = Math.max(0.0f, Math.min(1.0f, u));
+
+            // fc = 0.01 + 3.99 * u * u
+            // fc = 0.01 + 0.99 * cutoff * cutoff => cutoff = sqrt(3.99 / 0.99) * u
+            float cutoffVal = (float) (Math.sqrt(3.99 / 0.99) * u);
+            cutoffVal = Math.max(0.0f, Math.min(1.0f, cutoffVal));
+
+            // 2. Map mouse Y back to resonance parameter (0.0 to 1.0)
+            float hRatio = (float) (baseY - e.getY()) / drawH;
+            hRatio = Math.max(0.01f, Math.min(1.2f, hRatio)); // clamp to prevent division by zero
+
+            // hRatio = 1.0 / (1.0 + resonance * 2.5)
+            // resonance = ((1.0 / hRatio) - 1.0) / 2.5
+            float resonanceVal = (float) (((1.0f / hRatio) - 1.0f) / 2.5f);
+            resonanceVal = Math.max(0.0f, Math.min(1.0f, resonanceVal));
+
+            // 3. Find and update parent sliders to trigger the centralized updates & audio sync
+            Window win = SwingUtilities.getWindowAncestor(FilterGraphComponent.this);
+            if (win instanceof Container container) {
+              JSlider cutoffSlider =
+                  SwingSynthConfigDialog.findSliderByName(container, "lpfCutoff");
+              JSlider resSlider =
+                  SwingSynthConfigDialog.findSliderByName(container, "lpfResonance");
+
+              if (cutoffSlider != null) {
+                cutoffSlider.setValue((int) (cutoffVal * 100));
+              }
+              if (resSlider != null) {
+                resSlider.setValue((int) (resonanceVal * 100));
+              }
+            }
+
+            repaint();
+          }
+        });
+  }
+
+  private boolean isOverNode(int mx, int my) {
+    float cutoff = (float) bridge.getTrackFilterFreq(trackIndex);
+    float resonance = (float) bridge.getTrackFilterRes(trackIndex);
+
+    int w = getWidth();
+    int h = getHeight();
+    int paddingX = 12;
+    int paddingY = 12;
+    int drawW = w - 2 * paddingX;
+    int drawH = h - 2 * paddingY;
+    float startX = paddingX;
+    float baseY = paddingY + drawH;
+    float startY = paddingY;
+
+    float fc = 0.01f + 0.99f * cutoff * cutoff;
+    float cutoffX = startX + (float) Math.sqrt((fc - 0.01f) / 3.99f) * drawW;
+    float cutoffY = baseY - (1.0f / (1.0f + resonance * 2.5f)) * drawH;
+    cutoffY = Math.max(startY - 4, Math.min(cutoffY, baseY));
+
+    double dx = mx - cutoffX;
+    double dy = my - cutoffY;
+    return (dx * dx + dy * dy <= 225); // 15-pixel active radius
   }
 
   @Override
