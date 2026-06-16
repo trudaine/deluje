@@ -77,16 +77,8 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
   // ── Ported High-Fidelity Logic ──
   public final int[] monophonicExpressionValues = new int[3]; // X, Y, Z
 
-  public int modFXRateIncrement = 0; // Q32 LFO phase increment per sample
-  public int modFXDepth = 0; // Q31
-  public int modFXOffset = 0; // Q31
-  public int modFXFeedback = 0; // Q31
 
-  public int bitcrushParam = Integer.MIN_VALUE; // bipolar Q31; MIN_VALUE = off
-  public int srrParam = Integer.MIN_VALUE; // bipolar Q31; MIN_VALUE = off
 
-  public int eqBassParam = 0; // bipolar Q31; 0 = flat
-  public int eqTrebleParam = 0; // bipolar Q31; 0 = flat
 
   // C: firmware2 Arpeggiator — faithful port of modulation/arpeggiator.cpp.
   public final org.chuck.deluge.firmware2.Arpeggiator.Synth arpeggiator = fw2Sound.arpeggiator;
@@ -390,30 +382,15 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     }
     fw2Sound.patchCableSet.destinations = nextDestinations;
 
-    // Sync modulated FX parameters from patchedParamValues
-    modFXRateIncrement =
-        fw2Sound.patchedParamValues[org.chuck.deluge.firmware2.Param.GLOBAL_MOD_FX_RATE];
-    modFXDepth = fw2Sound.patchedParamValues[org.chuck.deluge.firmware2.Param.GLOBAL_MOD_FX_DEPTH];
-    modFXOffset =
-        fw2Sound.patchedParamValues[org.chuck.deluge.firmware2.Param.UNPATCHED_MOD_FX_OFFSET];
-    modFXFeedback =
-        fw2Sound.patchedParamValues[org.chuck.deluge.firmware2.Param.UNPATCHED_MOD_FX_FEEDBACK];
-    bitcrushParam =
-        fw2Sound.patchedParamValues[org.chuck.deluge.firmware2.Param.UNPATCHED_BITCRUSHING];
-    srrParam =
-        fw2Sound
-            .patchedParamValues[org.chuck.deluge.firmware2.Param.UNPATCHED_SAMPLE_RATE_REDUCTION];
-    eqBassParam = fw2Sound.patchedParamValues[org.chuck.deluge.firmware2.Param.UNPATCHED_BASS];
-    eqTrebleParam = fw2Sound.patchedParamValues[org.chuck.deluge.firmware2.Param.UNPATCHED_TREBLE];
-
-    fw2Sound.modFXRateIncrement = modFXRateIncrement;
-    fw2Sound.modFXDepth = modFXDepth;
-    fw2Sound.modFXOffset = modFXOffset;
-    fw2Sound.modFXFeedback = modFXFeedback;
-    fw2Sound.bitcrushParam = bitcrushParam;
-    fw2Sound.srrParam = srrParam;
-    fw2Sound.eqBassParam = eqBassParam;
-    fw2Sound.eqTrebleParam = eqTrebleParam;
+    // Modulated FX params: compute directly into fw2Sound from its patched-param knobs (no shadow).
+    fw2Sound.modFXRateIncrement = fw2Sound.patchedParamValues[Param.GLOBAL_MOD_FX_RATE];
+    fw2Sound.modFXDepth = fw2Sound.patchedParamValues[Param.GLOBAL_MOD_FX_DEPTH];
+    fw2Sound.modFXOffset = fw2Sound.patchedParamValues[Param.UNPATCHED_MOD_FX_OFFSET];
+    fw2Sound.modFXFeedback = fw2Sound.patchedParamValues[Param.UNPATCHED_MOD_FX_FEEDBACK];
+    fw2Sound.bitcrushParam = fw2Sound.patchedParamValues[Param.UNPATCHED_BITCRUSHING];
+    fw2Sound.srrParam = fw2Sound.patchedParamValues[Param.UNPATCHED_SAMPLE_RATE_REDUCTION];
+    fw2Sound.eqBassParam = fw2Sound.patchedParamValues[Param.UNPATCHED_BASS];
+    fw2Sound.eqTrebleParam = fw2Sound.patchedParamValues[Param.UNPATCHED_TREBLE];
 
     fw2Sound.currentBpm = (int) currentBpm;
 

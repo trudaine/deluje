@@ -18,10 +18,10 @@ public class ModFxParityTest {
     FirmwareSound sound = new FirmwareSound();
     sound.fw2Sound.modFXType = type;
     if (type != ModFXType.NONE) {
-      sound.modFXRateIncrement = (int) (2.0 * 4294967296.0 / 44100.0); // 2 Hz LFO
-      sound.modFXDepth = (int) (0.8 * 2147483647.0);
-      sound.modFXOffset = (int) (0.5 * 2147483647.0);
-      sound.modFXFeedback = 0;
+      sound.fw2Sound.modFXRateIncrement = (int) (2.0 * 4294967296.0 / 44100.0); // 2 Hz LFO
+      sound.fw2Sound.modFXDepth = (int) (0.8 * 2147483647.0);
+      sound.fw2Sound.modFXOffset = (int) (0.5 * 2147483647.0);
+      sound.fw2Sound.modFXFeedback = 0;
     }
     sound.triggerNote(60, 100);
     StereoSample[] buf = new StereoSample[total];
