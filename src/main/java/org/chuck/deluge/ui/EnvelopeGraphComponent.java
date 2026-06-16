@@ -282,26 +282,36 @@ public class EnvelopeGraphComponent extends JComponent {
     path.lineTo(startX + drawW, baseY);
 
     // 1. Draw transparent glowing fill area under the curve
+    Color primaryAccent = ThemeManager.getPrimaryAccent();
+    Color secondaryAccent = ThemeManager.getSecondaryAccent();
+
     g2.setPaint(
         new GradientPaint(
-            0, startY, new Color(0x00, 0xcc, 0xff, 60), 0, baseY, new Color(0x00, 0xcc, 0xff, 0)));
+            0,
+            startY,
+            new Color(
+                primaryAccent.getRed(), primaryAccent.getGreen(), primaryAccent.getBlue(), 60),
+            0,
+            baseY,
+            new Color(
+                primaryAccent.getRed(), primaryAccent.getGreen(), primaryAccent.getBlue(), 0)));
     GeneralPath fillPath = (GeneralPath) path.clone();
     fillPath.lineTo(startX + drawW, baseY);
     fillPath.closePath();
     g2.fill(fillPath);
 
-    // 2. Draw thick neon cyan main curve line
-    g2.setColor(new Color(0x00, 0xcc, 0xff));
+    // 2. Draw thick neon main curve line
+    g2.setColor(primaryAccent);
     g2.setStroke(new BasicStroke(3.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
     g2.draw(path);
     g2.setStroke(oldStroke);
 
     // 3. Draw glowing vertex highlight circles (OLED style transition anchors)
-    g2.setColor(new Color(0x00, 0xff, 0xcc));
-    drawVertex(g2, attackX, startY);
-    drawVertex(g2, decayX, sustainY);
-    drawVertex(g2, sustainX, sustainY);
-    drawVertex(g2, releaseX, baseY);
+    g2.setColor(secondaryAccent);
+    drawVertex(g2, attackX, startY, secondaryAccent);
+    drawVertex(g2, decayX, sustainY, secondaryAccent);
+    drawVertex(g2, sustainX, sustainY, secondaryAccent);
+    drawVertex(g2, releaseX, baseY, secondaryAccent);
 
     // 4. Draw stage text labels (A, D, S, R) centered below the stages
     g2.setFont(new Font("SansSerif", Font.BOLD, 10));
@@ -312,11 +322,11 @@ public class EnvelopeGraphComponent extends JComponent {
     g2.drawString("R", sustainX + (releaseX - sustainX) / 2 - 3, baseY + 14);
   }
 
-  private void drawVertex(Graphics2D g2, float cx, float cy) {
+  private void drawVertex(Graphics2D g2, float cx, float cy, Color color) {
     int r = 4;
+    g2.setColor(color);
     g2.fillOval((int) cx - r, (int) cy - r, r * 2, r * 2);
     g2.setColor(new Color(0x14, 0x14, 0x18));
     g2.drawOval((int) cx - r, (int) cy - r, r * 2, r * 2);
-    g2.setColor(new Color(0x00, 0xff, 0xcc));
   }
 }

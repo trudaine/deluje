@@ -60,6 +60,50 @@ public class SwingSynthConfigDialog extends JDialog {
     setLayout(new BorderLayout());
     getContentPane().setBackground(BG_DARK);
 
+    // ── Global Theme Accent Listener ──
+    ThemeManager.addThemeListener(this::repaint);
+
+    // ── Top Header Toolbar (Branding + Theme Picker) ──
+    JPanel headerPanel = new JPanel(new BorderLayout(16, 0));
+    headerPanel.setBackground(new Color(0x15, 0x15, 0x18));
+    headerPanel.setBorder(
+        BorderFactory.createCompoundBorder(
+            BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(0x2d, 0x2d, 0x32)),
+            BorderFactory.createEmptyBorder(8, 16, 8, 16)));
+
+    JLabel brandLabel = new JLabel("DELUGE WORKSTATION");
+    brandLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
+    brandLabel.setForeground(Color.LIGHT_GRAY);
+
+    JPanel brandContainer = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+    brandContainer.setBackground(new Color(0x15, 0x15, 0x18));
+    brandContainer.add(brandLabel);
+    headerPanel.add(brandContainer, BorderLayout.WEST);
+
+    JPanel pickerContainer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+    pickerContainer.setBackground(new Color(0x15, 0x15, 0x18));
+
+    JLabel themeLabel = new JLabel("ACCENT THEME:");
+    themeLabel.setFont(new Font("SansSerif", Font.BOLD, 10));
+    themeLabel.setForeground(Color.GRAY);
+    pickerContainer.add(themeLabel);
+
+    JComboBox<ThemeManager.Theme> themeCombo = new JComboBox<>(ThemeManager.Theme.values());
+    themeCombo.setBackground(BG_CONTROL);
+    themeCombo.setForeground(Color.WHITE);
+    themeCombo.setFont(new Font("SansSerif", Font.PLAIN, 11));
+    themeCombo.setPreferredSize(new Dimension(140, 22));
+    themeCombo.setSelectedItem(ThemeManager.getActiveTheme());
+    themeCombo.addActionListener(
+        ev -> {
+          ThemeManager.Theme sel = (ThemeManager.Theme) themeCombo.getSelectedItem();
+          ThemeManager.setActiveTheme(sel);
+        });
+    pickerContainer.add(themeCombo);
+    headerPanel.add(pickerContainer, BorderLayout.EAST);
+
+    add(headerPanel, BorderLayout.NORTH);
+
     tabs.setBackground(BG_CARD);
     tabs.setForeground(Color.WHITE);
 

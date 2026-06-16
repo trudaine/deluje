@@ -190,10 +190,13 @@ public class Wavetable3DVisualizer extends JPanel {
         g2.setColor(Color.WHITE);
         g2.setStroke(new BasicStroke(2.0f));
       } else {
-        // Neon color gradient: Cyan at front, fading to Indigo/Purple at back
-        int r = (int) (120 * depthNorm + 0 * (1 - depthNorm));
-        int gr = (int) (0 * depthNorm + 255 * (1 - depthNorm));
-        int b = (int) (220 * depthNorm + 204 * (1 - depthNorm));
+        // Neon color gradient: Theme secondary accent at front, fading to deep Indigo at back
+        Color frontColor = ThemeManager.getSecondaryAccent();
+        Color backColor = new Color(100, 0, 180); // deep cyberpunk indigo
+
+        int r = (int) (backColor.getRed() * depthNorm + frontColor.getRed() * (1 - depthNorm));
+        int gr = (int) (backColor.getGreen() * depthNorm + frontColor.getGreen() * (1 - depthNorm));
+        int b = (int) (backColor.getBlue() * depthNorm + frontColor.getBlue() * (1 - depthNorm));
         int alpha = (int) (60 + 155 * (1 - depthNorm)); // fade transparency in distance
 
         g2.setColor(new Color(r, gr, b, alpha));
@@ -213,18 +216,24 @@ public class Wavetable3DVisualizer extends JPanel {
     double rightX = centerX + 1.05 * (w * 0.35) * pScale;
     double planeY = centerY + (playheadDepthNorm - 0.5) * depthSpread;
 
-    // Draw a semi-transparent orange neon plane cutting through the stack
-    g2.setColor(new Color(0xff, 0x66, 0x00, 20)); // ultra-subtle fill
+    // Draw a semi-transparent neon plane cutting through the stack
+    Color primaryAccent = ThemeManager.getPrimaryAccent();
+    Color fillClr =
+        new Color(primaryAccent.getRed(), primaryAccent.getGreen(), primaryAccent.getBlue(), 20);
+    Color borderClr =
+        new Color(primaryAccent.getRed(), primaryAccent.getGreen(), primaryAccent.getBlue(), 160);
+
+    g2.setColor(fillClr); // ultra-subtle fill
     g2.fillRect((int) leftX, (int) (planeY - 20), (int) (rightX - leftX), 40);
 
-    g2.setColor(new Color(0xff, 0x66, 0x00, 160)); // glowing orange border line
+    g2.setColor(borderClr); // glowing border line
     g2.setStroke(
         new BasicStroke(
             1.5f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_ROUND, 1.0f, new float[] {4, 4}, 0.0f));
     g2.drawLine((int) leftX, (int) planeY, (int) rightX, (int) planeY);
 
-    // Draw label index text in orange next to the plane
-    g2.setColor(new Color(0xff, 0x88, 0x00));
+    // Draw label index text in primary accent next to the plane
+    g2.setColor(primaryAccent);
     g2.setFont(new Font("Monospaced", Font.BOLD, 9));
     g2.drawString(
         String.format("IDX: %.2f (CYC %d/%d)", waveIndex, playheadCycleIdx + 1, numCycles),
