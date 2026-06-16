@@ -1905,12 +1905,14 @@ public class SwingDelugeApp extends JFrame {
     trackInspectorLabel.setForeground(new Color(0x00, 0xcc, 0xff));
     trackInspectorLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
     strip.add(trackInspectorLabel);
-    javax.swing.JButton cfg = stripButton("⚙ Configure", "Open the full config dialog for the active track");
+    javax.swing.JButton cfg =
+        stripButton("⚙ Configure", "Open the full config dialog for the active track");
     cfg.addActionListener(e -> openEditedTrackConfig());
     strip.add(cfg);
     trackInspectorPresetBtn =
         stripButton("▾ Preset…", "Replace the active track's sound or load a new track");
-    trackInspectorPresetBtn.addActionListener(e -> openEditedTrackPresetPicker(trackInspectorPresetBtn));
+    trackInspectorPresetBtn.addActionListener(
+        e -> openEditedTrackPresetPicker(trackInspectorPresetBtn));
     strip.add(trackInspectorPresetBtn);
     return strip;
   }
@@ -1980,7 +1982,9 @@ public class SwingDelugeApp extends JFrame {
         null,
         java.util.List.of(
             new LibraryPicker.Action(
-                "Replace track", new Color(0x00, 0x88, 0x66), f -> replaceEditedTrackPreset(f, isKit)),
+                "Replace track",
+                new Color(0x00, 0x88, 0x66),
+                f -> replaceEditedTrackPreset(f, isKit)),
             new LibraryPicker.Action(
                 "Load as NEW", new Color(0x33, 0x55, 0x88), f -> loadPresetAsNewTrack(f, isKit))));
   }

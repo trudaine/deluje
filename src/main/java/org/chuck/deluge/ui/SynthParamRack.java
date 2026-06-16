@@ -35,8 +35,9 @@ public class SynthParamRack extends JPanel {
   private java.util.function.Consumer<java.io.File> onLoadNewPreset;
 
   /**
-   * Wire the preset chip's Replace / Load-as-new actions (the app provides project access + refresh).
-   * Lets the synth preset be swapped from this fixed side rack — outside the scrolling grid.
+   * Wire the preset chip's Replace / Load-as-new actions (the app provides project access +
+   * refresh). Lets the synth preset be swapped from this fixed side rack — outside the scrolling
+   * grid.
    */
   public void setPresetActions(
       java.util.function.Consumer<java.io.File> replace,

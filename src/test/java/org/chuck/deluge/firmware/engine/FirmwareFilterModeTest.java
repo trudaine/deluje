@@ -33,12 +33,9 @@ public class FirmwareFilterModeTest {
     // The factory may install an automated HPF-freq param that overrides the neutral value; sync
     // it.
     org.chuck.deluge.firmware.modulation.automation.AutoParam ap =
-        sound.paramManager.getAutomatedParam(
-            org.chuck.deluge.firmware2.Param.LOCAL_HPF_FREQ);
+        sound.paramManager.getAutomatedParam(org.chuck.deluge.firmware2.Param.LOCAL_HPF_FREQ);
     if (ap != null) {
-      ap.currentValue =
-          sound
-              .paramNeutralValues[org.chuck.deluge.firmware2.Param.LOCAL_HPF_FREQ];
+      ap.currentValue = sound.paramNeutralValues[org.chuck.deluge.firmware2.Param.LOCAL_HPF_FREQ];
     }
     return sound;
   }

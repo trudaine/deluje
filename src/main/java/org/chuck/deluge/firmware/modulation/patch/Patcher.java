@@ -3,11 +3,11 @@ package org.chuck.deluge.firmware.modulation.patch;
 import static org.chuck.deluge.firmware.util.Q31.*;
 
 import org.chuck.deluge.firmware.engine.FirmwareSound;
-import org.chuck.deluge.firmware2.Param;
 import org.chuck.deluge.firmware.modulation.params.ParamCurves;
 import org.chuck.deluge.firmware.modulation.params.ParamManager;
 import org.chuck.deluge.firmware.util.FirmwareUtils;
 import org.chuck.deluge.firmware.util.Q31;
+import org.chuck.deluge.firmware2.Param;
 
 /**
  * Port of the Deluge's Patcher class. Implements 1:N modulation routing with bit-accurate linear,

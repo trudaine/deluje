@@ -16,9 +16,9 @@ import org.junit.jupiter.api.Test;
 /**
  * Stopgap guard for the bridge's fragile seam (pending the full {@code FirmwareSound}-façade
  * refactor): {@code FirmwareSound.syncParamsToFw2} manually copies model state into {@code
- * fw2Sound}, with no compiler check that every render-read field is covered. Three bugs this session
- * came from exactly that — most directly {@code voicePriority}, a {@code fw2Sound} scalar the bridge
- * simply never wrote, leaving it stuck at its default.
+ * fw2Sound}, with no compiler check that every render-read field is covered. Three bugs this
+ * session came from exactly that — most directly {@code voicePriority}, a {@code fw2Sound} scalar
+ * the bridge simply never wrote, leaving it stuck at its default.
  *
  * <p>This does two things:
  *
@@ -37,15 +37,50 @@ class Fw2SyncCompletenessTest {
   /** Scalar/enum fw2Sound fields the bridge is responsible for driving from the model. */
   private static final Set<String> BRIDGE_SYNCED =
       Set.of(
-          "synthMode", "oscTypes", "lpfMode", "hpfMode", "filterRoute", "numUnison", "unisonDetune",
-          "unisonStereoSpread", "volumeNeutralValueForUnison", "modulator1ToModulator0", "fmRatio1",
-          "fmRatio2", "oscillatorSync", "clippingAmount", "portamentoKnob", "oscRetriggerPhase",
-          "modulatorRetriggerPhase", "modulatorTranspose", "polyphonic", "maxPolyphony",
-          "voicePriority", "sampleStartPoint", "sampleEndPoint", "sampleLoopMode", "sampleLoopStart",
-          "sampleReverse", "sampleTimestretch", "arpPhaseIncrement", "sidechainSend", "delayUserRate",
-          "delayFeedbackAmount", "delayPingPong", "delayAnalog", "modFXRateIncrement", "modFXDepth",
-          "modFXOffset", "modFXFeedback", "modFXType", "bitcrushParam", "srrParam", "eqBassParam",
-          "eqTrebleParam", "currentBpm", "patchedParamValues");
+          "synthMode",
+          "oscTypes",
+          "lpfMode",
+          "hpfMode",
+          "filterRoute",
+          "numUnison",
+          "unisonDetune",
+          "unisonStereoSpread",
+          "volumeNeutralValueForUnison",
+          "modulator1ToModulator0",
+          "fmRatio1",
+          "fmRatio2",
+          "oscillatorSync",
+          "clippingAmount",
+          "portamentoKnob",
+          "oscRetriggerPhase",
+          "modulatorRetriggerPhase",
+          "modulatorTranspose",
+          "polyphonic",
+          "maxPolyphony",
+          "voicePriority",
+          "sampleStartPoint",
+          "sampleEndPoint",
+          "sampleLoopMode",
+          "sampleLoopStart",
+          "sampleReverse",
+          "sampleTimestretch",
+          "arpPhaseIncrement",
+          "sidechainSend",
+          "delayUserRate",
+          "delayFeedbackAmount",
+          "delayPingPong",
+          "delayAnalog",
+          "modFXRateIncrement",
+          "modFXDepth",
+          "modFXOffset",
+          "modFXFeedback",
+          "modFXType",
+          "bitcrushParam",
+          "srrParam",
+          "eqBassParam",
+          "eqTrebleParam",
+          "currentBpm",
+          "patchedParamValues");
 
   /** fw2Sound fields that are NOT directly model-driven (runtime, transport, or derived). */
   private static final Set<String> RUNTIME_OR_DERIVED =

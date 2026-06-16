@@ -120,7 +120,8 @@ public class Sound extends GlobalEffectable {
   }
 
   public PolyphonyMode polyphonic = PolyphonyMode.POLY;
-  public int maxPolyphony = 8; // C: sound.h:116 maxVoiceCount = 8 (per-sound voice cap; steals above)
+  public int maxPolyphony =
+      8; // C: sound.h:116 maxVoiceCount = 8 (per-sound voice cap; steals above)
 
   public final Sample[] samples = new Sample[2];
   public final int[] sampleStartPoint = {0, 0};
@@ -136,7 +137,8 @@ public class Sound extends GlobalEffectable {
   public int arpPhaseIncrement = 0;
 
   public final Lfo[] globalLfos = {new Lfo(), new Lfo()};
-  // LFO waveforms live on lfoConfig[].waveType (as in the C); there is no separate array. The global
+  // LFO waveforms live on lfoConfig[].waveType (as in the C); there is no separate array. The
+  // global
   // LFO render reads lfoConfig[0]/lfoConfig[2] directly (sound.cpp:2382/2395).
 
   public final Sidechain sidechain = new Sidechain();
@@ -411,7 +413,8 @@ public class Sound extends GlobalEffectable {
    * guard — so the no-arg overload (the only state reachable today) is a faithful no-op.
    *
    * @param clockActive {@code playbackHandler.isEitherClockActive()}
-   * @param lastInternalTickDone {@code playbackHandler.getCurrentInternalTickCount(&timeSinceLastTick)}
+   * @param lastInternalTickDone {@code
+   *     playbackHandler.getCurrentInternalTickCount(&timeSinceLastTick)}
    * @param timeSinceLastTick the out-param of {@code getCurrentInternalTickCount} (uint32)
    * @param timePerInternalTick {@code playbackHandler.getTimePerInternalTick()} (uint32)
    * @param audioSampleTimer {@code AudioEngine::audioSampleTimer} (uint32)
@@ -425,7 +428,8 @@ public class Sound extends GlobalEffectable {
     if (!clockActive) {
       return; // sound.cpp:2724 — no clock, no sync
     }
-    // LFO1_ID → globalLfos[0]/lfoConfig[0]; LFO3_ID → globalLfos[1]/lfoConfig[2] (sound.cpp:2727,2766)
+    // LFO1_ID → globalLfos[0]/lfoConfig[0]; LFO3_ID → globalLfos[1]/lfoConfig[2]
+    // (sound.cpp:2727,2766)
     if (lfoConfig[0].syncLevel != Lfo.SyncLevel.NONE) {
       resyncOneGlobalLFO(
           globalLfos[0],

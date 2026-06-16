@@ -3,8 +3,8 @@ package org.chuck.deluge.firmware.engine;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.chuck.deluge.firmware2.Param;
 import org.chuck.deluge.firmware.util.Q31;
+import org.chuck.deluge.firmware2.Param;
 import org.junit.jupiter.api.Test;
 
 /**

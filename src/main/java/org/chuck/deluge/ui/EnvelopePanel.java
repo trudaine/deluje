@@ -24,18 +24,24 @@ public class EnvelopePanel extends JPanel {
     for (int e = 0; e < 4; e++) {
       final int envIdx = e;
       EnvelopeModel env = model.getEnv(e);
-      JPanel panel = new JPanel(new GridBagLayout());
-      panel.setBackground(SwingSynthConfigDialog.BG_CARD);
+
+      // We wrap the sliders and other controls in a slidersPanel
+      JPanel slidersPanel = new JPanel(new GridBagLayout());
+      slidersPanel.setBackground(SwingSynthConfigDialog.BG_CARD);
       GridBagConstraints c = new GridBagConstraints();
       c.fill = GridBagConstraints.HORIZONTAL;
-      c.insets = new Insets(6, 10, 6, 10);
+      c.insets = new Insets(4, 8, 4, 8);
       c.anchor = GridBagConstraints.WEST;
       int row = 0;
 
-      // ADSR sliders
+      // Create the graph component
+      EnvelopeGraphComponent graph = new EnvelopeGraphComponent(model, envIdx);
+
+      // ADSR sliders (dynamically fetching latest state from model to avoid captured-state
+      // overwrite bugs)
       row =
           SwingSynthConfigDialog.addSlider(
-              panel,
+              slidersPanel,
               c,
               row,
               "Attack:",
@@ -44,23 +50,26 @@ public class EnvelopePanel extends JPanel {
               2000,
               (int) (env.attack() * 1000),
               val -> {
+                EnvelopeModel currentEnv = model.getEnv(envIdx);
                 model.setEnv(
                     envIdx,
                     new EnvelopeModel(
                         val / 1000f,
-                        env.decay(),
-                        env.sustain(),
-                        env.release(),
-                        env.target(),
-                        env.amount()));
+                        currentEnv.decay(),
+                        currentEnv.sustain(),
+                        currentEnv.release(),
+                        currentEnv.target(),
+                        currentEnv.amount()));
+                graph.repaint();
               },
               "ms",
               "env" + envIdx + "Attack",
               projectModel,
               trackIndex);
+
       row =
           SwingSynthConfigDialog.addSlider(
-              panel,
+              slidersPanel,
               c,
               row,
               "Decay:",
@@ -69,23 +78,26 @@ public class EnvelopePanel extends JPanel {
               5000,
               (int) (env.decay() * 1000),
               val -> {
+                EnvelopeModel currentEnv = model.getEnv(envIdx);
                 model.setEnv(
                     envIdx,
                     new EnvelopeModel(
-                        env.attack(),
+                        currentEnv.attack(),
                         val / 1000f,
-                        env.sustain(),
-                        env.release(),
-                        env.target(),
-                        env.amount()));
+                        currentEnv.sustain(),
+                        currentEnv.release(),
+                        currentEnv.target(),
+                        currentEnv.amount()));
+                graph.repaint();
               },
               "ms",
               "env" + envIdx + "Decay",
               projectModel,
               trackIndex);
+
       row =
           SwingSynthConfigDialog.addSlider(
-              panel,
+              slidersPanel,
               c,
               row,
               "Sustain:",
@@ -94,23 +106,26 @@ public class EnvelopePanel extends JPanel {
               100,
               (int) (env.sustain() * 100),
               val -> {
+                EnvelopeModel currentEnv = model.getEnv(envIdx);
                 model.setEnv(
                     envIdx,
                     new EnvelopeModel(
-                        env.attack(),
-                        env.decay(),
+                        currentEnv.attack(),
+                        currentEnv.decay(),
                         val / 100f,
-                        env.release(),
-                        env.target(),
-                        env.amount()));
+                        currentEnv.release(),
+                        currentEnv.target(),
+                        currentEnv.amount()));
+                graph.repaint();
               },
               "%",
               "env" + envIdx + "Sustain",
               projectModel,
               trackIndex);
+
       row =
           SwingSynthConfigDialog.addSlider(
-              panel,
+              slidersPanel,
               c,
               row,
               "Release:",
@@ -119,26 +134,28 @@ public class EnvelopePanel extends JPanel {
               5000,
               (int) (env.release() * 1000),
               val -> {
+                EnvelopeModel currentEnv = model.getEnv(envIdx);
                 model.setEnv(
                     envIdx,
                     new EnvelopeModel(
-                        env.attack(),
-                        env.decay(),
-                        env.sustain(),
+                        currentEnv.attack(),
+                        currentEnv.decay(),
+                        currentEnv.sustain(),
                         val / 1000f,
-                        env.target(),
-                        env.amount()));
+                        currentEnv.target(),
+                        currentEnv.amount()));
+                graph.repaint();
               },
               "ms",
               "env" + envIdx + "Release",
               projectModel,
               trackIndex);
 
-      // Target
+      // Target Combo
       c.gridx = 0;
       c.gridy = row;
       c.gridwidth = 1;
-      panel.add(SwingSynthConfigDialog.label("Target:"), c);
+      slidersPanel.add(SwingSynthConfigDialog.label("Target:"), c);
       c.gridx = 1;
       c.gridwidth = 2;
       JComboBox<String> targetCombo = new JComboBox<>(ENV_TARGETS);
@@ -148,18 +165,25 @@ public class EnvelopePanel extends JPanel {
       targetCombo.addActionListener(
           ev -> {
             String sel = (String) targetCombo.getSelectedItem();
+            EnvelopeModel currentEnv = model.getEnv(envIdx);
             model.setEnv(
                 envIdx,
                 new EnvelopeModel(
-                    env.attack(), env.decay(), env.sustain(), env.release(), sel, env.amount()));
+                    currentEnv.attack(),
+                    currentEnv.decay(),
+                    currentEnv.sustain(),
+                    currentEnv.release(),
+                    sel,
+                    currentEnv.amount()));
+            graph.repaint();
           });
-      panel.add(targetCombo, c);
+      slidersPanel.add(targetCombo, c);
       row++;
 
       // Amount
       row =
           SwingSynthConfigDialog.addSlider(
-              panel,
+              slidersPanel,
               c,
               row,
               "Amount:",
@@ -168,23 +192,46 @@ public class EnvelopePanel extends JPanel {
               100,
               (int) (env.amount() * 100),
               val -> {
-                float amt = val / 100f;
+                EnvelopeModel currentEnv = model.getEnv(envIdx);
                 model.setEnv(
                     envIdx,
                     new EnvelopeModel(
-                        env.attack(),
-                        env.decay(),
-                        env.sustain(),
-                        env.release(),
-                        env.target(),
-                        amt));
+                        currentEnv.attack(),
+                        currentEnv.decay(),
+                        currentEnv.sustain(),
+                        currentEnv.release(),
+                        currentEnv.target(),
+                        val / 100f));
+                graph.repaint();
               },
               "%",
               "env" + envIdx + "Amount",
               projectModel,
               trackIndex);
 
-      envTabs.addTab("ENV " + e, panel);
+      // Combine sliders and graph in a modern split layout
+      JPanel tabContentPanel = new JPanel(new BorderLayout(16, 16));
+      tabContentPanel.setBackground(SwingSynthConfigDialog.BG_CARD);
+      tabContentPanel.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+
+      // Sliders on the left
+      tabContentPanel.add(slidersPanel, BorderLayout.CENTER);
+
+      // Beautiful glassmorphic titled wrapper for the visualizer on the right
+      JPanel graphWrapper = new JPanel(new BorderLayout());
+      graphWrapper.setBackground(SwingSynthConfigDialog.BG_CARD);
+      graphWrapper.setBorder(
+          BorderFactory.createTitledBorder(
+              BorderFactory.createLineBorder(new Color(0x2d, 0x2d, 0x32), 1, true),
+              "Envelope Curve",
+              javax.swing.border.TitledBorder.LEFT,
+              javax.swing.border.TitledBorder.TOP,
+              new Font("SansSerif", Font.BOLD, 11),
+              Color.LIGHT_GRAY));
+      graphWrapper.add(graph, BorderLayout.CENTER);
+      tabContentPanel.add(graphWrapper, BorderLayout.EAST);
+
+      envTabs.addTab("ENV " + e, tabContentPanel);
     }
 
     add(envTabs, BorderLayout.CENTER);

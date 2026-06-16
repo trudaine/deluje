@@ -4,8 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import org.chuck.deluge.firmware.model.InstrumentClip;
 import org.chuck.deluge.firmware.model.Song;
-import org.chuck.deluge.firmware2.Param;
 import org.chuck.deluge.firmware.modulation.patch.PatchSource;
+import org.chuck.deluge.firmware2.Param;
 import org.chuck.deluge.model.ClipModel;
 import org.chuck.deluge.model.ProjectModel;
 import org.chuck.deluge.model.StepData;

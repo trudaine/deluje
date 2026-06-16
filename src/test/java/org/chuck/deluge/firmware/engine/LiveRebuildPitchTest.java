@@ -13,9 +13,9 @@ import org.junit.jupiter.api.Test;
  * Regression guard for the "garbage when adding a cell while playing" bug. The live grid rebuild in
  * SwingGridPanel rebuilds the playing clip's {@code noteRows} on every edit. It used to compute the
  * synth pitch inline as the grid row index ({@code (rowCount-1)-r}), ignoring the row's absolute
- * {@code yNote}. For a real song (rows carry their MIDI note) that turned every live-added note into
- * a ~8-12Hz sub-bass note (pitch 0..7) — clean-but-wrong audio that measured fine yet sounded like
- * garbage, fixed only by stop/play (which rebuilds via the factory). Both paths now share
+ * {@code yNote}. For a real song (rows carry their MIDI note) that turned every live-added note
+ * into a ~8-12Hz sub-bass note (pitch 0..7) — clean-but-wrong audio that measured fine yet sounded
+ * like garbage, fixed only by stop/play (which rebuilds via the factory). Both paths now share
  * {@link FirmwareFactory#buildNoteRow} so they cannot diverge again.
  */
 class LiveRebuildPitchTest {

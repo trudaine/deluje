@@ -28,11 +28,12 @@ import javax.swing.event.DocumentListener;
 import org.chuck.deluge.project.PreferencesManager;
 
 /**
- * Contextual, anchored-popover library picker. Replaces the global SD-card tree and the raw
- * {@link javax.swing.JFileChooser} for the common "change <i>this</i> thing" case: it opens next to
- * the widget it affects, is pre-scoped to the relevant category (so it only shows relevant choices),
+ * Contextual, anchored-popover library picker. Replaces the global SD-card tree and the raw {@link
+ * javax.swing.JFileChooser} for the common "change <i>this</i> thing" case: it opens next to the
+ * widget it affects, is pre-scoped to the relevant category (so it only shows relevant choices),
  * previews/auditions the selection, and commits through explicit, named action verbs ("Replace
- * this…", "Load as new…") supplied by the caller. See docs design proposal (anchored-popover model).
+ * this…", "Load as new…") supplied by the caller. See docs design proposal (anchored-popover
+ * model).
  */
 public class LibraryPicker extends JDialog {
 
@@ -192,8 +193,7 @@ public class LibraryPicker extends JDialog {
   }
 
   /** Opens the picker anchored just below {@code anchor} (modal — blocks until pick/cancel). */
-  public static void show(
-      Component anchor, Scope scope, String currentPath, List<Action> actions) {
+  public static void show(Component anchor, Scope scope, String currentPath, List<Action> actions) {
     new LibraryPicker(anchor, scope, currentPath, actions).setVisible(true);
   }
 
@@ -230,7 +230,8 @@ public class LibraryPicker extends JDialog {
       String r = rel(f);
       if (q.isEmpty() || r.toLowerCase().contains(q)) {
         listModel.addElement(r);
-        if (selectPath != null && f.getAbsolutePath().replace('\\', '/').endsWith(r)
+        if (selectPath != null
+            && f.getAbsolutePath().replace('\\', '/').endsWith(r)
             && selectPath.replace('\\', '/').endsWith(r)) {
           selectIdx = listModel.size() - 1;
         }

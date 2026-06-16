@@ -23,22 +23,24 @@ import org.junit.jupiter.api.Test;
  *
  * <ul>
  *   <li><b>Trustworthy:</b> waveform shape-correlation on STEADY tones (saw/PWM/triangle/DX7/sine).
- *       The comparison peak-normalizes both signals and sweeps a ±350-sample lag, so it is
- *       level- and onset-independent. These read ~0.9+ and are real parity guards.
+ *       The comparison peak-normalizes both signals and sweeps a ±350-sample lag, so it is level-
+ *       and onset-independent. These read ~0.9+ and are real parity guards.
  *   <li><b>Confounded — do NOT treat low values as engine defects:</b>
  *       <ul>
  *         <li>Absolute-RMS comparisons: the engine's {@code masterBuffer} is the Deluge's low
  *             INTERNAL level; the hardware WAVs are full-scale OUTPUT. Off by ~50-100x by design
- *             (the desktop monitor boost compensates). Verified equal across sources (noise == saw).
+ *             (the desktop monitor boost compensates). Verified equal across sources (noise ==
+ *             saw).
  *         <li>Shape-correlation on MODULATED signals (LFO vibrato/tremolo/rate, pitch-env): the
  *             ±350-sample (8 ms) lag cannot align an LFO cycle (100+ ms), so correlation is
  *             meaningless here. Use a modulation-invariant metric (spectrum/centroid) instead.
  *         <li>Hardware-recording coloration: e.g. the "sine" WAV carries analog harmonics, so our
  *             mathematically-pure sine correlates low — ours is the MORE correct signal.
  *       </ul>
- *   <li><b>Unresolved reference:</b> the FM-Simple hardware WAV reads zero-cross ≈ carrier (≈ a pure
- *       carrier), which is suspect for an FM patch; {@code assertFmBrightness} therefore only sanity-
- *       bounds brightness rather than asserting exact parity, pending a re-recorded reference.
+ *   <li><b>Unresolved reference:</b> the FM-Simple hardware WAV reads zero-cross ≈ carrier (≈ a
+ *       pure carrier), which is suspect for an FM patch; {@code assertFmBrightness} therefore only
+ *       sanity- bounds brightness rather than asserting exact parity, pending a re-recorded
+ *       reference.
  * </ul>
  */
 @org.junit.jupiter.api.Tag("slow")
@@ -680,14 +682,17 @@ public class PhysicalHardwareFidelityTest {
       b[i] = (float) eSw[i];
     }
     double corr = org.chuck.deluge.AudioAnalyzer.correlation(a, b);
-    System.out.printf("  [ENVELOPE] %s envelope correlation: %.4f (floor %.2f)%n", testName, corr, minCorr);
+    System.out.printf(
+        "  [ENVELOPE] %s envelope correlation: %.4f (floor %.2f)%n", testName, corr, minCorr);
     assertTrue(
         corr >= minCorr,
         testName + " envelope correlation should be >= " + minCorr + " (was " + corr + ")");
     return corr;
   }
 
-  /** Loads a hardware WAV resource, or returns {@code null} if it isn't bundled yet (for A/B stubs). */
+  /**
+   * Loads a hardware WAV resource, or returns {@code null} if it isn't bundled yet (for A/B stubs).
+   */
   private float[] loadWavIfPresent(String path) throws Exception {
     if (getClass().getResourceAsStream(path) == null) {
       return null;
@@ -1143,8 +1148,7 @@ public class PhysicalHardwareFidelityTest {
             triggerBlock,
             triggerBlock + 1000,
             72);
-    assertSpectralFidelity(
-        hw, sw, findLoudOnset(hw), findLoudOnset(sw), 0.0, "Pitch Env Sweep C5");
+    assertSpectralFidelity(hw, sw, findLoudOnset(hw), findLoudOnset(sw), 0.0, "Pitch Env Sweep C5");
   }
 
   @Test
@@ -1200,7 +1204,8 @@ public class PhysicalHardwareFidelityTest {
     int swStart = findPositiveZeroCrossing(sw, 12800);
     // NOTE 84 = Deluge "C5" (the patch's note; Deluge octave = noteCode/12 - 2). This raw-spectrum
     // metric is confounded for modulated tones (the narrow LFO sidebands must line up bin-for-bin),
-    // so it reads low even when faithful — the spectral-ENVELOPE test (testAbLfoVibratoEnvelope, ~0.97
+    // so it reads low even when faithful — the spectral-ENVELOPE test (testAbLfoVibratoEnvelope,
+    // ~0.97
     // at note 84) is the trustworthy guard for this case. Floor is a non-regression guard only.
     assertSpectralFidelity(hw, sw, hwStart, swStart, 0.10, "LFO Square Vibrato C5");
   }
@@ -1222,7 +1227,8 @@ public class PhysicalHardwareFidelityTest {
   //
   // RESULTS (2026-06-16): baseline saw 0.97; tremolo 0.99 (FAITHFUL — rate 1.3 Hz + depth match);
   // vibrato ~0.73. VIBRATO is a real, smaller pitch-LFO divergence still to investigate; floor is a
-  // KNOWN-GAP non-regression guard. (Verified post-fix that the pitch-mod chain is faithful to the C,
+  // KNOWN-GAP non-regression guard. (Verified post-fix that the pitch-mod chain is faithful to the
+  // C,
   // so the residual is most likely the suspect vibrato reference recording, not the engine.)
   //
   // RECORDING RECIPE (if re-recording: real Deluge, line-out, 44.1 kHz, mono, ≥3 s sustained):
@@ -1257,7 +1263,8 @@ public class PhysicalHardwareFidelityTest {
     // NOTE 84 = Deluge "C5" (Deluge octave = noteCode/12 - 2, so C5 = MIDI 84 = ~1046 Hz, NOT the
     // scientific C5 = 523 Hz). ab_lfo_tremolo_c5.wav measures 1046 Hz, i.e. a genuine Deluge-C5, so
     // we render at the matching note 84 → envelope correlation ~0.99. The volume-LFO path (rate
-    // 1.3 Hz and depth both match hardware) is FAITHFUL. (An earlier note here wrongly called this a
+    // 1.3 Hz and depth both match hardware) is FAITHFUL. (An earlier note here wrongly called this
+    // a
     // "C6 octave-high mis-recording" — that was a scientific-vs-Deluge octave-naming confusion.)
     float[] sw =
         renderXmlTrackPreset(
@@ -1266,7 +1273,8 @@ public class PhysicalHardwareFidelityTest {
             triggerBlock,
             triggerBlock + 1000,
             84);
-    assertSpectralEnvelopeFidelity(hw, sw, 0.85, "LFO Volume Tremolo (A/B envelope, Deluge-C5/note84)");
+    assertSpectralEnvelopeFidelity(
+        hw, sw, 0.85, "LFO Volume Tremolo (A/B envelope, Deluge-C5/note84)");
   }
 
   @Test
@@ -1278,10 +1286,12 @@ public class PhysicalHardwareFidelityTest {
         "Record ab_lfo_vibrato_c5.wav into src/test/resources/fidelity/ — see recipe in this test.");
     int triggerBlock = 100;
     // NOTE 84 = Deluge "C5" (= MIDI 84 ≈ 1046 Hz; Deluge octave = noteCode/12 - 2), matching the
-    // patch name and the recording. A note-sweep (2026-06-16) showed a razor-sharp envelope-corr peak
+    // patch name and the recording. A note-sweep (2026-06-16) showed a razor-sharp envelope-corr
+    // peak
     // of 0.97 at note 84 vs 0.52-0.77 at every other note — so the square pitch-LFO vibrato is
     // FAITHFUL. The earlier ~0.73 "gap" was purely from rendering at the wrong note (71/B4, a
-    // mislabeled recipe); with the global-LFO-waveform fix in place AND the right note it matches the
+    // mislabeled recipe); with the global-LFO-waveform fix in place AND the right note it matches
+    // the
     // dry-saw baseline. (Noisy pitch-track swing numbers earlier were ACF octave-error artifacts.)
     float[] sw =
         renderXmlTrackPreset(
@@ -1290,7 +1300,8 @@ public class PhysicalHardwareFidelityTest {
             triggerBlock,
             triggerBlock + 1000,
             84);
-    assertSpectralEnvelopeFidelity(hw, sw, 0.90, "LFO Square Vibrato (A/B envelope, Deluge-C5/note84)");
+    assertSpectralEnvelopeFidelity(
+        hw, sw, 0.90, "LFO Square Vibrato (A/B envelope, Deluge-C5/note84)");
   }
 
   @Test
@@ -1580,8 +1591,7 @@ public class PhysicalHardwareFidelityTest {
               triggerBlock,
               triggerBlock + 1000,
               72,
-              java.util.Map.of(
-                  org.chuck.deluge.firmware2.Param.LOCAL_VOLUME, 134217728));
+              java.util.Map.of(org.chuck.deluge.firmware2.Param.LOCAL_VOLUME, 134217728));
       int hwStart = findPositiveZeroCrossing(hw, 10000);
       int swStart = findPositiveZeroCrossing(sw, 12800);
       System.out.println("=================================");
