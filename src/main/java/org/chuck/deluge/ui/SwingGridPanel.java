@@ -1827,27 +1827,8 @@ public class SwingGridPanel extends JPanel {
     if (modelRow < tracks.size() && modelRow < 8) {
       org.chuck.deluge.model.TrackModel track = tracks.get(modelRow);
 
-      JButton cfgBtn = new JButton("\u2699");
-      cfgBtn.setPreferredSize(new Dimension(28, 26));
-      cfgBtn.setMinimumSize(new Dimension(28, 26));
-      cfgBtn.setMaximumSize(new Dimension(28, 26));
-      cfgBtn.setMargin(new Insets(0, 0, 0, 0));
-      cfgBtn.setFont(new Font("SansSerif", Font.PLAIN, 12));
-      cfgBtn.setBackground(new Color(0x33, 0x33, 0x33));
-      cfgBtn.setForeground(new Color(0x00, 0xff, 0xcc));
-      cfgBtn.setToolTipText("Configure track");
-      cfgBtn.addActionListener(
-          e -> {
-            Frame owner = (Frame) javax.swing.SwingUtilities.getWindowAncestor(SwingGridPanel.this);
-            if (track instanceof org.chuck.deluge.model.KitTrackModel kitTrack) {
-              new SwingKitConfigDialog(owner, kitTrack, vm, bridge, modelRow).setVisible(true);
-            } else if (track instanceof org.chuck.deluge.model.SynthTrackModel synthTrack) {
-              new SwingSynthConfigDialog(owner, synthTrack, vm, bridge, modelRow, projectModel)
-                  .setVisible(true);
-            }
-          });
-      rowPanel.add(Box.createHorizontalStrut(3));
-      rowPanel.add(cfgBtn);
+      // Per-track \u2699 Configure now lives in the fixed inspector strip above the grid
+      // (SwingDelugeApp.buildTrackInspectorStrip); the in-grid duplicate was removed.
 
       int stepLen = (bridge != null) ? bridge.getTrackLength(modelRow) : 16;
       JLabel lenBadge = new JLabel("[" + stepLen + "]");
@@ -1879,7 +1860,8 @@ public class SwingGridPanel extends JPanel {
               }
             }
           });
-      rowPanel.add(Box.createHorizontalStrut(2));
+      // 33 + 36(lenBadge) = 69px to match the fixed-row spacer (removed in-grid ⚙ filled this).
+      rowPanel.add(Box.createHorizontalStrut(33));
       rowPanel.add(lenBadge);
     } else {
       rowPanel.add(Box.createRigidArea(new Dimension(69, 1)));
@@ -4705,8 +4687,10 @@ public class SwingGridPanel extends JPanel {
         add(scrollRow);
       }
 
-      // Section 3: Fixed rows — MACROS, KEYBOARD (Combined)
-      add(buildFixedRow(8, padSz, 28));
+      // Section 3: Fixed rows — MACROS, KEYBOARD (Combined).
+      // Macro vertical sliders need height to be usable, so give that row more room;
+      // the keyboard keys are fine at the compact height.
+      add(buildFixedRow(8, padSz, 52));
       add(buildFixedRow(10, padSz, 28));
 
     } else {
@@ -4874,28 +4858,9 @@ public class SwingGridPanel extends JPanel {
         if (t < tracks.size() && t < songVoiceRows) {
           org.chuck.deluge.model.TrackModel track = tracks.get(t);
 
-          JButton cfgBtn = new JButton("⚙");
-          cfgBtn.setPreferredSize(new Dimension(28, 26));
-          cfgBtn.setMinimumSize(new Dimension(28, 26));
-          cfgBtn.setMaximumSize(new Dimension(28, 26));
-          cfgBtn.setMargin(new Insets(0, 0, 0, 0));
-          cfgBtn.setFont(new Font("SansSerif", Font.PLAIN, 12));
-          cfgBtn.setBackground(new Color(0x33, 0x33, 0x33));
-          cfgBtn.setForeground(new Color(0x00, 0xff, 0xcc));
-          cfgBtn.setToolTipText("Configure track");
-          cfgBtn.addActionListener(
-              e -> {
-                Frame owner =
-                    (Frame) javax.swing.SwingUtilities.getWindowAncestor(SwingGridPanel.this);
-                if (track instanceof org.chuck.deluge.model.KitTrackModel kitTrack) {
-                  new SwingKitConfigDialog(owner, kitTrack, vm, bridge, trk).setVisible(true);
-                } else if (track instanceof org.chuck.deluge.model.SynthTrackModel synthTrack) {
-                  new SwingSynthConfigDialog(owner, synthTrack, vm, bridge, trk, projectModel)
-                      .setVisible(true);
-                }
-              });
-          rowPanel.add(Box.createHorizontalStrut(3));
-          rowPanel.add(cfgBtn);
+          // Per-track ⚙ Configure now lives in the fixed inspector strip above the grid
+          // (SwingDelugeApp.buildTrackInspectorStrip) so controls stay out of the scrolling
+          // grid; the in-grid duplicate was removed.
 
           int stepLen = (bridge != null) ? bridge.getTrackLength(trk) : 16;
           JLabel lenBadge = new JLabel("[" + stepLen + "]");
@@ -4927,10 +4892,12 @@ public class SwingGridPanel extends JPanel {
                   }
                 }
               });
-          rowPanel.add(Box.createHorizontalStrut(2));
+          // 33 + 36(lenBadge) = 69px to match the MACROS/KEYBOARD fixed-row spacer below
+          // (the removed in-grid ⚙ Configure used to fill this; alignment must stay at 69).
+          rowPanel.add(Box.createHorizontalStrut(33));
           rowPanel.add(lenBadge);
         } else {
-          // 3 + 28 + 2 + 36 = 69px spacer to keep columns aligned
+          // 69px spacer to keep columns aligned with the real-track header above
           rowPanel.add(Box.createRigidArea(new Dimension(69, 1)));
         }
 
