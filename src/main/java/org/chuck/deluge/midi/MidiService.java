@@ -18,6 +18,8 @@ public class MidiService {
   private final MidiInputRouter router;
   private final MidiEngine engine;
   private MidiIn midiIn;
+  private org.chuck.midi.MidiOut midiOut;
+  private final DelugeSysExManager sysExManager = new DelugeSysExManager();
   private boolean learning = false;
   private String learnTargetParam;
   private MidiDeviceDefinition currentDevice;
@@ -43,6 +45,10 @@ public class MidiService {
 
   public MidiInputRouter getRouter() {
     return router;
+  }
+
+  public DelugeSysExManager getSysExManager() {
+    return sysExManager;
   }
 
   /** Create and configure the MidiFollow instance for this service. */
@@ -152,6 +158,31 @@ public class MidiService {
         midiIn.open(portIdx);
         System.out.println("MIDI: Opened input port: " + portName);
 
+        // Try to open matching output port for SysEx
+        try {
+          midiOut = new org.chuck.midi.MidiOut();
+          String[] outPorts = org.chuck.midi.MidiOut.list();
+          int outPortIdx = -1;
+          for (int i = 0; i < outPorts.length; i++) {
+            if (outPorts[i].equals(portName)) {
+              outPortIdx = i;
+              break;
+            }
+          }
+          if (outPortIdx >= 0) {
+            midiOut.open(outPortIdx);
+            sysExManager.setMidiOut(midiOut);
+            System.out.println(
+                "MIDI: Automatically opened matching output port for SysEx: " + portName);
+          }
+        } catch (Exception e) {
+          System.err.println(
+              "MIDI: Failed to auto-open output port for SysEx: "
+                  + portName
+                  + " - "
+                  + e.getMessage());
+        }
+
         // Start a virtual thread to poll the MIDI queue and route through engine
         Thread.ofVirtual()
             .name("DelugeMidiReader")
@@ -160,6 +191,13 @@ public class MidiService {
                   MidiMsg m = new MidiMsg();
                   while (midiIn != null) {
                     if (midiIn.recv(m)) {
+                      // SysEx intercept hook
+                      if ((m.data1 & 0xFF) == 0xF0) {
+                        byte[] sysexBytes = m.getData();
+                        if (sysExManager.handleIncomingSysEx(sysexBytes)) {
+                          continue;
+                        }
+                      }
                       engine.midiMessageReceived(MIDIMessage.fromMidiMsg(m), midiIn);
                     } else {
                       try {
@@ -333,6 +371,14 @@ public class MidiService {
     if (midiIn != null) {
       midiIn.close();
       midiIn = null;
+    }
+    if (midiOut != null) {
+      try {
+        sysExManager.setMidiOut(null);
+        midiOut.close();
+      } catch (Exception ignored) {
+      }
+      midiOut = null;
     }
     engine.close();
   }
