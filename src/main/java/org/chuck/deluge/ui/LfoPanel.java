@@ -105,9 +105,19 @@ public class LfoPanel extends JPanel {
 
       // Rate
       int rateInit = (int) (init.rateHz() * 100);
-      JLabel rateValLabel = new JLabel(String.format("%.2f", init.rateHz()));
-      rateValLabel.setForeground(Color.CYAN);
-      rateValLabel.setPreferredSize(new Dimension(45, 20));
+      JTextField rateField = new JTextField(String.format("%.2f", init.rateHz()));
+      rateField.setFont(new Font("SansSerif", Font.PLAIN, 11));
+      rateField.setForeground(Color.CYAN);
+      rateField.setBackground(SwingSynthConfigDialog.BG_CONTROL);
+      rateField.setCaretColor(Color.CYAN);
+      rateField.setBorder(
+          BorderFactory.createCompoundBorder(
+              BorderFactory.createLineBorder(new Color(0x3d, 0x3d, 0x42), 1, true),
+              BorderFactory.createEmptyBorder(1, 4, 1, 4)));
+      rateField.setPreferredSize(new Dimension(45, 20));
+      rateField.setHorizontalAlignment(JTextField.RIGHT);
+      rateField.setToolTipText("Click to type a precise frequency in Hz manually");
+
       JSlider rateSlider = new JSlider(1, 2000, Math.max(1, Math.min(2000, rateInit)));
       rateSlider.setBackground(SwingSynthConfigDialog.BG_CARD);
       String rateTooltip =
@@ -135,20 +145,68 @@ public class LfoPanel extends JPanel {
             // The factory feeds the RAW knob to the firmware exp curve — keep it in step.
             model.setLfoRateKnobQ31(
                 lfoIdx, org.chuck.deluge.firmware.engine.FirmwareFactory.lfoRateKnobFromHz(hz));
-            rateValLabel.setText(String.format("%.2f", hz));
+            rateField.setText(String.format("%.2f", hz));
           });
-      JPanel ratePanel = new JPanel(new BorderLayout(3, 0));
+
+      // Bi-directional typed rate listener
+      java.lang.Runnable applyTypedRate =
+          () -> {
+            try {
+              String text = rateField.getText().trim();
+              text = text.replaceAll("[^0-9\\.-]", "");
+              if (text.isEmpty()) return;
+              double hz = Double.parseDouble(text);
+              hz = Math.max(0.01, Math.min(20.0, hz));
+              rateSlider.setValue((int) (hz * 100));
+              rateField.setText(String.format("%.2f", hz));
+            } catch (NumberFormatException ex) {
+              rateField.setText(String.format("%.2f", rateSlider.getValue() / 100.0));
+            }
+          };
+      rateField.addActionListener(ev -> applyTypedRate.run());
+      rateField.addFocusListener(
+          new java.awt.event.FocusAdapter() {
+            @Override
+            public void focusLost(java.awt.event.FocusEvent ev) {
+              applyTypedRate.run();
+            }
+          });
+
+      JPanel ratePanel = new JPanel(new BorderLayout(4, 0));
       ratePanel.setBackground(SwingSynthConfigDialog.BG_CARD);
       ratePanel.add(rateSlider, BorderLayout.CENTER);
-      ratePanel.add(rateValLabel, BorderLayout.EAST);
+      ratePanel.add(rateField, BorderLayout.EAST);
       c.gridx = col++;
       add(ratePanel, c);
 
       // Depth
       int depthInit = (int) (init.depth() * 100);
-      JLabel depthValLabel = new JLabel(depthInit + "%");
-      depthValLabel.setForeground(Color.CYAN);
-      depthValLabel.setPreferredSize(new Dimension(40, 20));
+
+      // Depth input wrapped with a static % sign label
+      JPanel depthContainer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 2, 0));
+      depthContainer.setBackground(SwingSynthConfigDialog.BG_CARD);
+      depthContainer.setPreferredSize(new Dimension(54, 22));
+
+      JTextField depthField = new JTextField(String.valueOf(depthInit));
+      depthField.setFont(new Font("SansSerif", Font.PLAIN, 11));
+      depthField.setForeground(Color.CYAN);
+      depthField.setBackground(SwingSynthConfigDialog.BG_CONTROL);
+      depthField.setCaretColor(Color.CYAN);
+      depthField.setBorder(
+          BorderFactory.createCompoundBorder(
+              BorderFactory.createLineBorder(new Color(0x3d, 0x3d, 0x42), 1, true),
+              BorderFactory.createEmptyBorder(1, 4, 1, 4)));
+      depthField.setPreferredSize(new Dimension(30, 20));
+      depthField.setHorizontalAlignment(JTextField.RIGHT);
+      depthField.setToolTipText("Click to type a precise depth percentage manually");
+
+      JLabel depthUnit = new JLabel("%");
+      depthUnit.setFont(new Font("SansSerif", Font.PLAIN, 11));
+      depthUnit.setForeground(Color.GRAY);
+
+      depthContainer.add(depthField);
+      depthContainer.add(depthUnit);
+
       JSlider depthSlider = new JSlider(0, 100, Math.max(0, Math.min(100, depthInit)));
       depthSlider.setBackground(SwingSynthConfigDialog.BG_CARD);
       String depthTooltip = "LFO " + lfoIdx + " Depth (%): Modulator amplitude amount.";
@@ -172,12 +230,37 @@ public class LfoPanel extends JPanel {
                     lm.isLocal(),
                     lm.syncLevel(),
                     lm.syncType()));
-            depthValLabel.setText(depthSlider.getValue() + "%");
+            depthField.setText(String.valueOf(depthSlider.getValue()));
           });
-      JPanel depthPanel = new JPanel(new BorderLayout(3, 0));
+
+      // Bi-directional typed depth listener
+      java.lang.Runnable applyTypedDepth =
+          () -> {
+            try {
+              String text = depthField.getText().trim();
+              text = text.replaceAll("[^0-9\\.-]", "");
+              if (text.isEmpty()) return;
+              int val = (int) Double.parseDouble(text);
+              int clamped = Math.max(0, Math.min(100, val));
+              depthSlider.setValue(clamped);
+              depthField.setText(String.valueOf(clamped));
+            } catch (NumberFormatException ex) {
+              depthField.setText(String.valueOf(depthSlider.getValue()));
+            }
+          };
+      depthField.addActionListener(ev -> applyTypedDepth.run());
+      depthField.addFocusListener(
+          new java.awt.event.FocusAdapter() {
+            @Override
+            public void focusLost(java.awt.event.FocusEvent ev) {
+              applyTypedDepth.run();
+            }
+          });
+
+      JPanel depthPanel = new JPanel(new BorderLayout(4, 0));
       depthPanel.setBackground(SwingSynthConfigDialog.BG_CARD);
       depthPanel.add(depthSlider, BorderLayout.CENTER);
-      depthPanel.add(depthValLabel, BorderLayout.EAST);
+      depthPanel.add(depthContainer, BorderLayout.EAST);
       c.gridx = col++;
       add(depthPanel, c);
 
