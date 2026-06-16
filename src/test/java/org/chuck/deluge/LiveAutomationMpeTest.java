@@ -90,7 +90,7 @@ public class LiveAutomationMpeTest {
   @Test
   void testFmModulatorsRetriggerPhases() {
     FirmwareSound sound = new FirmwareSound();
-    sound.synthMode = org.chuck.deluge.firmware.engine.FirmwareSound.SynthMode.FM;
+    sound.setSynthMode(org.chuck.deluge.firmware.engine.FirmwareSound.SynthMode.FM);
     sound.mod1RetrigPhase = 90; // 90 degrees
     sound.mod2RetrigPhase = 180; // 180 degrees
 
@@ -190,7 +190,7 @@ public class LiveAutomationMpeTest {
   @Test
   void testSynthGridRowChromaticPitchScaling() {
     FirmwareSound sound = new FirmwareSound();
-    sound.synthMode = org.chuck.deluge.firmware.engine.FirmwareSound.SynthMode.SUBTRACTIVE;
+    sound.setSynthMode(org.chuck.deluge.firmware.engine.FirmwareSound.SynthMode.SUBTRACTIVE);
 
     // Simulate clicking a grid pad row vertically in CLIP view mode:
     // Bottom row is index 23 (e.g. C3/MIDI 60)
