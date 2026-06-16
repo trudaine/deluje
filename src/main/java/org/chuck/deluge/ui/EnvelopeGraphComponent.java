@@ -8,18 +8,185 @@ import org.chuck.deluge.model.SynthTrackModel;
 
 /**
  * Custom Swing component that draws a high-fidelity graphical representation of a synthesizer ADSR
- * envelope. Replicates the layout and sigmoid-curve styling of the community firmware's OLED
- * screen.
+ * envelope, and supports interactive drag-and-drop vector curve shaping.
  */
 public class EnvelopeGraphComponent extends JComponent {
   private final SynthTrackModel model;
   private final int envIdx;
+
+  private enum ActiveHandle {
+    NONE,
+    ATTACK,
+    DECAY_SUSTAIN,
+    SUSTAIN_END,
+    RELEASE
+  }
+
+  private ActiveHandle activeHandle = ActiveHandle.NONE;
 
   public EnvelopeGraphComponent(SynthTrackModel model, int envIdx) {
     this.model = model;
     this.envIdx = envIdx;
     setPreferredSize(new Dimension(360, 180));
     setMinimumSize(new Dimension(240, 120));
+
+    // ── Mouse Listeners for Curve Sculpting ──
+    addMouseListener(
+        new java.awt.event.MouseAdapter() {
+          @Override
+          public void mousePressed(java.awt.event.MouseEvent e) {
+            ActiveHandle hit = hitTest(e.getX(), e.getY());
+            if (hit != ActiveHandle.NONE) {
+              activeHandle = hit;
+              setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            }
+          }
+
+          @Override
+          public void mouseReleased(java.awt.event.MouseEvent e) {
+            activeHandle = ActiveHandle.NONE;
+            ActiveHandle hover = hitTest(e.getX(), e.getY());
+            if (hover != ActiveHandle.NONE) {
+              setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            } else {
+              setCursor(Cursor.getDefaultCursor());
+            }
+          }
+        });
+
+    addMouseMotionListener(
+        new java.awt.event.MouseMotionAdapter() {
+          @Override
+          public void mouseMoved(java.awt.event.MouseEvent e) {
+            ActiveHandle hover = hitTest(e.getX(), e.getY());
+            if (hover != ActiveHandle.NONE) {
+              setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            } else {
+              setCursor(Cursor.getDefaultCursor());
+            }
+          }
+
+          @Override
+          public void mouseDragged(java.awt.event.MouseEvent e) {
+            if (activeHandle == ActiveHandle.NONE) return;
+
+            int w = getWidth();
+            int h = getHeight();
+            int paddingX = 20;
+            int paddingY = 20;
+            int drawW = w - 2 * paddingX;
+            int drawH = h - 2 * paddingY;
+
+            float maxSegW = drawW / 4.0f;
+            float startX = paddingX;
+            float baseY = paddingY + drawH;
+            float sustainX = startX + maxSegW * 3.0f;
+
+            EnvelopeModel env = model.getEnv(envIdx);
+            if (env == null) return;
+
+            switch (activeHandle) {
+              case ATTACK -> {
+                // Drag horizontally to shape Attack time
+                float attackW = e.getX() - startX;
+                float attackNorm = attackW / maxSegW;
+                attackNorm = Math.max(0.0005f, Math.min(1.0f, attackNorm));
+                float attackVal = attackNorm * 2.0f; // range 0 to 2.0s
+                updateSlider("env" + envIdx + "Attack", (int) (attackVal * 1000.0f));
+              }
+              case DECAY_SUSTAIN -> {
+                // Drag horizontally to shape Decay, vertically to shape Sustain
+                float attackNorm = env.attack() / 2.0f;
+                float attackX = startX + attackNorm * maxSegW;
+
+                float decayW = e.getX() - attackX;
+                float decayNorm = decayW / maxSegW;
+                decayNorm = Math.max(0.0f, Math.min(1.0f, decayNorm));
+                float decayVal = decayNorm * 5.0f; // range 0 to 5.0s
+                updateSlider("env" + envIdx + "Decay", (int) (decayVal * 1000.0f));
+
+                float sustainNorm = (baseY - e.getY()) / drawH;
+                sustainNorm = Math.max(0.0f, Math.min(1.0f, sustainNorm));
+                updateSlider("env" + envIdx + "Sustain", (int) (sustainNorm * 100.0f));
+              }
+              case SUSTAIN_END -> {
+                // Drag vertically to shape Sustain
+                float sustainNorm = (baseY - e.getY()) / drawH;
+                sustainNorm = Math.max(0.0f, Math.min(1.0f, sustainNorm));
+                updateSlider("env" + envIdx + "Sustain", (int) (sustainNorm * 100.0f));
+              }
+              case RELEASE -> {
+                // Drag horizontally to shape Release time
+                float releaseW = e.getX() - sustainX;
+                float releaseNorm = releaseW / (startX + drawW - sustainX);
+                releaseNorm = Math.max(0.0f, Math.min(1.0f, releaseNorm));
+                float releaseVal = releaseNorm * 5.0f; // range 0 to 5.0s
+                updateSlider("env" + envIdx + "Release", (int) (releaseVal * 1000.0f));
+              }
+              default -> {}
+            }
+            repaint();
+          }
+        });
+  }
+
+  private void updateSlider(String name, int val) {
+    Window win = SwingUtilities.getWindowAncestor(this);
+    if (win instanceof Container container) {
+      JSlider slider = SwingSynthConfigDialog.findSliderByName(container, name);
+      if (slider != null) {
+        slider.setValue(val);
+      }
+    }
+  }
+
+  private ActiveHandle hitTest(int mx, int my) {
+    EnvelopeModel env = model.getEnv(envIdx);
+    if (env == null) return ActiveHandle.NONE;
+
+    int w = getWidth();
+    int h = getHeight();
+    int paddingX = 20;
+    int paddingY = 20;
+    int drawW = w - 2 * paddingX;
+    int drawH = h - 2 * paddingY;
+
+    float maxSegW = drawW / 4.0f;
+    float startX = paddingX;
+    float baseY = paddingY + drawH;
+    float startY = paddingY;
+
+    float attackNorm = env.attack() / 2.0f;
+    float decayNorm = env.decay() / 5.0f;
+    float sustainNorm = env.sustain();
+    float releaseNorm = env.release() / 5.0f;
+
+    float attackX = startX + attackNorm * maxSegW;
+    float decayX = attackX + decayNorm * maxSegW;
+    float sustainX = startX + maxSegW * 3.0f;
+
+    if (decayX > sustainX) {
+      decayX = sustainX;
+    }
+
+    float releaseW = releaseNorm * (startX + drawW - sustainX);
+    float releaseX = sustainX + releaseW;
+
+    float sustainY = baseY - sustainNorm * drawH;
+
+    // Test coordinates within 12-pixel hit-box
+    if (isNear(mx, my, attackX, startY)) return ActiveHandle.ATTACK;
+    if (isNear(mx, my, decayX, sustainY)) return ActiveHandle.DECAY_SUSTAIN;
+    if (isNear(mx, my, sustainX, sustainY)) return ActiveHandle.SUSTAIN_END;
+    if (isNear(mx, my, releaseX, baseY)) return ActiveHandle.RELEASE;
+
+    return ActiveHandle.NONE;
+  }
+
+  private boolean isNear(int mx, int my, float cx, float cy) {
+    double dx = mx - cx;
+    double dy = my - cy;
+    return (dx * dx + dy * dy <= 144); // 12-pixel radius
   }
 
   @Override
