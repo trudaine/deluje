@@ -1195,18 +1195,13 @@ public class PhysicalHardwareFidelityTest {
             hw.length,
             triggerBlock,
             triggerBlock + 1000,
-            71);
+            84);
     int hwStart = findPositiveZeroCrossing(hw, 10000);
     int swStart = findPositiveZeroCrossing(sw, 12800);
-    // KNOWN GAP (2026-06-16): dropped from ~0.45 to ~0.14 after fixing TWO real bugs — the global
-    // LFO waveform (was hardcoded SINE; Sound.java) and the "lfo1" patch-source mapping (was
-    // LFO_LOCAL_1; FirmwareFactory). The vibrato now correctly toggles as a hard SQUARE (verified
-    // by pitch-tracking the render) instead of the previous smooth sine glide. That exposed a
-    // remaining DEPTH gap: our pitch swing is ~17 st vs the hardware reference's ~4.6 st (the
-    // reference may also be a mis-recording, like the tremolo octave error). This raw-spectrum
-    // metric is confounded for modulated tones anyway (see assertSpectralEnvelopeFidelity); floor
-    // pinned below the measured value as a non-regression guard until the depth/reference is
-    // resolved. The envelope-metric test (testAbLfoVibratoEnvelope) is the better guard.
+    // NOTE 84 = Deluge "C5" (the patch's note; Deluge octave = noteCode/12 - 2). This raw-spectrum
+    // metric is confounded for modulated tones (the narrow LFO sidebands must line up bin-for-bin),
+    // so it reads low even when faithful — the spectral-ENVELOPE test (testAbLfoVibratoEnvelope, ~0.97
+    // at note 84) is the trustworthy guard for this case. Floor is a non-regression guard only.
     assertSpectralFidelity(hw, sw, hwStart, swStart, 0.10, "LFO Square Vibrato C5");
   }
 
@@ -1282,18 +1277,20 @@ public class PhysicalHardwareFidelityTest {
         hw != null,
         "Record ab_lfo_vibrato_c5.wav into src/test/resources/fidelity/ — see recipe in this test.");
     int triggerBlock = 100;
+    // NOTE 84 = Deluge "C5" (= MIDI 84 ≈ 1046 Hz; Deluge octave = noteCode/12 - 2), matching the
+    // patch name and the recording. A note-sweep (2026-06-16) showed a razor-sharp envelope-corr peak
+    // of 0.97 at note 84 vs 0.52-0.77 at every other note — so the square pitch-LFO vibrato is
+    // FAITHFUL. The earlier ~0.73 "gap" was purely from rendering at the wrong note (71/B4, a
+    // mislabeled recipe); with the global-LFO-waveform fix in place AND the right note it matches the
+    // dry-saw baseline. (Noisy pitch-track swing numbers earlier were ACF octave-error artifacts.)
     float[] sw =
         renderXmlTrackPreset(
             "/fidelity/115_LFO_SQUARE_VIBRATO_C5.XML",
             hw.length,
             triggerBlock,
             triggerBlock + 1000,
-            71);
-    // KNOWN GAP (2026-06-16): measured ~0.73-0.78 vs the 0.97 faithful-baseline. Note IS correct
-    // here (render@71 = 0.73 beats @83 = 0.57, so the reference is NOT octave-shifted like the
-    // tremolo was) — this is a genuine, smaller pitch-LFO divergence still to be investigated. Floor
-    // pinned below measured (±0.05 run jitter) as a non-regression guard; RAISE toward 0.97 as fixed.
-    assertSpectralEnvelopeFidelity(hw, sw, 0.65, "LFO Square Vibrato C5 (A/B envelope)");
+            84);
+    assertSpectralEnvelopeFidelity(hw, sw, 0.90, "LFO Square Vibrato (A/B envelope, Deluge-C5/note84)");
   }
 
   @Test
