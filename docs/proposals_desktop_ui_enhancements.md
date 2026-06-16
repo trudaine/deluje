@@ -31,7 +31,7 @@ This document outlines the high-fidelity desktop UI/UX feature roadmap. Each pro
 
 ---
 
-## Phase 2: Active & Planned Upgrades
+## Phase 2: Completed Upgrades
 
 ### Proposal 5: Interactive 2D Filter Response Graph (Visual Node Editor)
 *   **💡 Concept**: Make the existing Low-Pass/High-Pass Filter Graph fully interactive.
