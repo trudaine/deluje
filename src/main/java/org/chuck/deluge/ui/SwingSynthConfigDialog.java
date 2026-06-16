@@ -828,11 +828,32 @@ public class SwingSynthConfigDialog extends JDialog {
     slider.setBackground(BG_CARD);
     slider.setToolTipText(tooltip);
     attachHoverHelp(slider, tooltip);
-    c.gridx = 2;
-    c.gridwidth = 1;
-    JLabel valLabel = new JLabel(initial + unit);
-    valLabel.setForeground(Color.CYAN);
-    valLabel.setPreferredSize(new Dimension(60, 20));
+    // Clickable / typeable value container panel
+    JPanel valContainer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 2, 0));
+    valContainer.setBackground(BG_CARD);
+    valContainer.setPreferredSize(new Dimension(80, 22));
+
+    JTextField valField = new JTextField(String.valueOf(initial));
+    valField.setFont(new Font("SansSerif", Font.PLAIN, 11));
+    valField.setForeground(Color.CYAN);
+    valField.setBackground(BG_CONTROL);
+    valField.setCaretColor(Color.CYAN);
+    valField.setBorder(
+        BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(0x3d, 0x3d, 0x42), 1, true),
+            BorderFactory.createEmptyBorder(1, 4, 1, 4)));
+    valField.setPreferredSize(new Dimension(42, 20));
+    valField.setHorizontalAlignment(JTextField.RIGHT);
+    valField.setToolTipText("Click to type a precise value manually");
+
+    JLabel unitLbl = new JLabel(unit);
+    unitLbl.setFont(new Font("SansSerif", Font.PLAIN, 11));
+    unitLbl.setForeground(Color.GRAY);
+    unitLbl.setPreferredSize(new Dimension(28, 20));
+
+    valContainer.add(valField);
+    valContainer.add(unitLbl);
+
     final long[] lastChangeTime = {0L};
     final boolean[] hasCapturedOld = {false};
     slider.addChangeListener(
@@ -864,7 +885,8 @@ public class SwingSynthConfigDialog extends JDialog {
             // hardware). The kit dialog handles the real AFFECT ENTIRE behaviour.
           }
 
-          valLabel.setText(newVal + unit);
+          // Update text field on slider drag
+          valField.setText(String.valueOf(newVal));
 
           if (SwingDelugeApp.mainInstance != null) {
             String code = (paramName != null) ? paramName : labelText.replace(":", "").trim();
@@ -873,6 +895,32 @@ public class SwingSynthConfigDialog extends JDialog {
                 code.toUpperCase(), String.valueOf(newVal));
           }
         });
+
+    // Bi-directional text field listener for manual precise typing
+    java.lang.Runnable applyTypedValue =
+        () -> {
+          try {
+            String text = valField.getText().trim();
+            text = text.replaceAll("[^0-9\\.-]", "");
+            if (text.isEmpty()) return;
+            int typedVal = (int) Double.parseDouble(text);
+            int clampedVal = Math.max(min, Math.min(max, typedVal));
+            slider.setValue(clampedVal);
+            valField.setText(String.valueOf(clampedVal));
+          } catch (NumberFormatException ex) {
+            valField.setText(String.valueOf(slider.getValue()));
+          }
+        };
+
+    valField.addActionListener(e -> applyTypedValue.run());
+    valField.addFocusListener(
+        new java.awt.event.FocusAdapter() {
+          @Override
+          public void focusLost(java.awt.event.FocusEvent e) {
+            applyTypedValue.run();
+          }
+        });
+
     slider.addMouseListener(
         new java.awt.event.MouseAdapter() {
           private float oldValue;
@@ -896,10 +944,11 @@ public class SwingSynthConfigDialog extends JDialog {
             hasCapturedOld[0] = false;
           }
         });
+
     c.gridx = 1;
     panel.add(slider, c);
     c.gridx = 2;
-    panel.add(valLabel, c);
+    panel.add(valContainer, c);
     return row + 1;
   }
 
