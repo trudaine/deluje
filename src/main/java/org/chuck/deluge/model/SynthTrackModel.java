@@ -1247,4 +1247,124 @@ public class SynthTrackModel extends TrackModel {
   public void setStutterPingPong(boolean v) {
     this.stutterPingPong = v;
   }
+
+  /**
+   * Copies all synthesis, oscillator, filter, LFO, envelope, and FX parameters from another model.
+   */
+  public void copyParametersFrom(SynthTrackModel other) {
+    this.osc1Type = other.getOsc1Type();
+    this.osc2Type = other.getOsc2Type();
+    this.oscMix = other.getOscMix();
+    this.noiseVol = other.getNoiseVol();
+    this.unisonNum = other.getUnisonNum();
+    this.unisonDetune = other.getUnisonDetune();
+    this.unisonStereoSpread = other.getUnisonStereoSpread();
+    this.waveIndex = other.getWaveIndex();
+    this.osc1LoopMode = other.getOsc1LoopMode();
+    this.osc1Reversed = other.isOsc1Reversed();
+    this.osc1TimeStretch = other.isOsc1TimeStretch();
+    this.osc1TimeStretchAmount = other.getOsc1TimeStretchAmount();
+    this.osc1Cents = other.getOsc1Cents();
+    this.osc1LinearInterpolation = other.isOsc1LinearInterpolation();
+    this.osc1SamplePath = other.getOsc1SamplePath();
+    this.osc2LoopMode = other.getOsc2LoopMode();
+    this.osc2Reversed = other.isOsc2Reversed();
+    this.osc2TimeStretch = other.isOsc2TimeStretch();
+    this.osc2TimeStretchAmount = other.getOsc2TimeStretchAmount();
+    this.osc2LinearInterpolation = other.isOsc2LinearInterpolation();
+    this.osc2SamplePath = other.getOsc2SamplePath();
+    this.osc2Transpose = other.getOsc2Transpose();
+    this.osc2Cents = other.getOsc2Cents();
+    this.filterMode = other.getFilterMode();
+    this.lpfFreq = other.getLpfFreq();
+    this.lpfRes = other.getLpfRes();
+    this.lpfMorph = other.getLpfMorph();
+    this.hpfFreq = other.getHpfFreq();
+    this.hpfRes = other.getHpfRes();
+    this.hpfMorph = other.getHpfMorph();
+    this.hpfMode = other.getHpfMode();
+    this.hpfFm = other.getHpfFm();
+    this.filterDrive = other.getFilterDrive();
+    this.filterNotch = other.isFilterNotch();
+    this.filterRoute = other.getFilterRoute();
+
+    // Arrays
+    for (int i = 0; i < 4; i++) {
+      this.env[i] = other.getEnv(i);
+      this.lfo[i] = other.getLfo(i);
+      this.lfoRateKnobQ31[i] = other.getLfoRateKnobQ31(i);
+    }
+
+    // FM
+    this.synthMode = other.getSynthMode();
+    this.fmRatio = other.getFmRatio();
+    this.fmAmount = other.getFmAmount();
+    this.modulator1Feedback = other.getModulator1Feedback();
+    this.modulator2Amount = other.getModulator2Amount();
+    this.modulator2Feedback = other.getModulator2Feedback();
+    this.carrier1Feedback = other.getCarrier1Feedback();
+    this.carrier2Feedback = other.getCarrier2Feedback();
+    this.fmRatio2 = other.getFmRatio2();
+    this.modulator1AmountQ31 = other.modulator1AmountQ31;
+    this.modulator2AmountQ31 = other.modulator2AmountQ31;
+    this.modulator1FeedbackQ31 = other.modulator1FeedbackQ31;
+    this.modulator2FeedbackQ31 = other.modulator2FeedbackQ31;
+    this.carrier1FeedbackQ31 = other.carrier1FeedbackQ31;
+    this.carrier2FeedbackQ31 = other.carrier2FeedbackQ31;
+    this.waveFoldQ31 = other.getWaveFoldQ31();
+    this.clippingAmount = other.getClippingAmount();
+    this.portamentoQ31 = other.getPortamentoQ31();
+    this.modulator1ToModulator0 = other.modulator1ToModulator0;
+    this.polyphony = other.getPolyphony();
+    this.maxVoiceCount = other.getMaxVoiceCount();
+    this.voicePriority = other.getVoicePriority();
+    this.oscAVolume = other.getOscAVolume();
+    this.oscBVolume = other.getOscBVolume();
+    this.transpose = other.getTranspose();
+    this.dx7patch = other.dx7patch;
+    this.dx7RandomDetune = other.dx7RandomDetune;
+    this.engineType = other.engineType;
+    this.synthAlgorithm = other.getSynthAlgorithm();
+    this.oscillatorSync = other.oscillatorSync;
+
+    // Patch cables & Mod knobs
+    this.patchCables.clear();
+    this.patchCables.addAll(other.getPatchCables());
+    for (int i = 0; i < 16; i++) {
+      this.modKnobs.set(i, other.getModKnobs().get(i));
+    }
+
+    // FX
+    this.volume = other.getVolume();
+    this.pan = other.getPan();
+    this.stutterRate = other.getStutterRate();
+    this.sampleRateReduction = other.getSampleRateReduction();
+    this.bitCrush = other.getBitCrush();
+    this.compressorAttack = other.getCompressorAttack();
+    this.compressorRelease = other.getCompressorRelease();
+    this.compressorSyncLevel = other.getCompressorSyncLevel();
+    this.compressorBlend = other.getCompressorBlend();
+    this.compressorSidechainHpf = other.getCompressorSidechainHpf();
+    this.compressorSyncType = other.getCompressorSyncType();
+    this.sidechainSyncLevel = other.getSidechainSyncLevel();
+    this.sidechainSyncType = other.getSidechainSyncType();
+    this.sidechainAttack = other.getSidechainAttack();
+    this.sidechainRelease = other.getSidechainRelease();
+    this.compressorThreshold = other.getCompressorThreshold();
+    this.compressorRatio = other.getCompressorRatio();
+    this.modFxType = other.getModFxType();
+    this.modFxRate = other.getModFxRate();
+    this.modFxDepth = other.getModFxDepth();
+    this.modFxFeedback = other.getModFxFeedback();
+    this.modFxOffset = other.getModFxOffset();
+    this.delaySend = other.getDelaySend();
+    this.reverbSend = other.getReverbSend();
+    this.eqBass = other.getEqBass();
+    this.eqTreble = other.getEqTreble();
+    this.delaySyncLevel = other.getDelaySyncLevel();
+    this.delaySyncType = other.getDelaySyncType();
+    this.delayFeedbackQ31 = other.getDelayFeedbackQ31();
+    this.delayPingPong = other.isDelayPingPong();
+    this.delayAnalog = other.isDelayAnalog();
+  }
 }
