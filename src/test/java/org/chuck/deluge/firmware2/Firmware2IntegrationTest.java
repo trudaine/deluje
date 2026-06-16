@@ -76,7 +76,7 @@ public class Firmware2IntegrationTest {
     Song s = FirmwareFactory.createSong(p);
     FirmwareSound sound = (FirmwareSound) ((InstrumentClip) s.clips.get(0)).sound;
 
-    sound.maxPolyphony = 2; // set maximum polyphony limit to 2
+    sound.fw2Sound.maxPolyphony = 2; // set maximum polyphony limit to 2
 
     // Trigger 3 notes sequentially
     sound.triggerNote(60, 100); // C4

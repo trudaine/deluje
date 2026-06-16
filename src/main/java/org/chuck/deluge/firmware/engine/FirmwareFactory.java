@@ -284,8 +284,8 @@ public class FirmwareFactory {
     // Per-sound voice cap (C: sound.h:116, default 8). The model clamps to [1,16] and reads the
     // XML "maxVoices" attribute; propagate it so dense playing steals voices instead of stacking
     // 64.
-    sound.maxPolyphony = model.getMaxVoiceCount();
-    sound.voicePriority =
+    sound.fw2Sound.maxPolyphony = model.getMaxVoiceCount();
+    sound.fw2Sound.voicePriority =
         model.getVoicePriority(); // voice-stealing priority (was stuck at default)
     // Idempotent: clear the cable set so live re-applies don't duplicate cables (they are
     // re-added from the model at the end of this method).
@@ -1155,9 +1155,9 @@ public class FirmwareFactory {
     drumSound.paramManager.automatedParams.clear();
     drumSound.paramManager.getPatchCableSet().destinations.clear();
 
-    drumSound.maxPolyphony =
+    drumSound.fw2Sound.maxPolyphony =
         sd.getMaxVoiceCount(); // C: sound.h:116 (per-drum voice cap, default 8)
-    drumSound.voicePriority =
+    drumSound.fw2Sound.voicePriority =
         sd.getVoicePriority(); // voice-stealing priority (was stuck at default)
     drumSound.isDrum = true;
     drumSound.oscTypes[0] = OscType.SAMPLE;

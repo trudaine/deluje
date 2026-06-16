@@ -57,8 +57,8 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     org.chuck.deluge.firmware2.Oscillator.OscType.SINE,
     org.chuck.deluge.firmware2.Oscillator.OscType.SINE
   };
-  public int maxPolyphony = 8; // C: sound.h:116 maxVoiceCount = 8 (overridden from the model)
-  public int voicePriority = 1; // C sound.h: voice-stealing priority 0=low/1=medium/2=high
+  // maxPolyphony / voicePriority now live solely on fw2Sound (single source of truth — facade
+  // refactor Phase 1). The factory writes fw2Sound directly; no shadow field, no sync copy.
   public PolyphonyMode polyphonic = PolyphonyMode.POLY;
   public boolean isDrum = false;
   public int[] paramNeutralValues = new int[200];
@@ -350,8 +350,6 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     }
 
     fw2Sound.polyphonic = org.chuck.deluge.firmware2.Sound.PolyphonyMode.valueOf(polyphonic.name());
-    fw2Sound.maxPolyphony = maxPolyphony;
-    fw2Sound.voicePriority = voicePriority;
 
     int[] nextGlobalSourceValues = new int[3];
     System.arraycopy(globalSourceValues, 0, nextGlobalSourceValues, 0, 3);
