@@ -296,11 +296,11 @@ public class FirmwareFactory {
     // Map Synth Mode (0=Subtractive, 1=FM, 2=RingMod)
     int modeVal = model.getSynthMode();
     if (modeVal == 1) {
-      sound.synthMode = FirmwareSound.SynthMode.FM;
+      sound.setSynthMode(FirmwareSound.SynthMode.FM);
     } else if (modeVal == 2) {
-      sound.synthMode = FirmwareSound.SynthMode.RINGMOD;
+      sound.setSynthMode(FirmwareSound.SynthMode.RINGMOD);
     } else {
-      sound.synthMode = FirmwareSound.SynthMode.SUBTRACTIVE;
+      sound.setSynthMode(FirmwareSound.SynthMode.SUBTRACTIVE);
     }
 
     // Map FM modulator-to-carrier frequency ratios (from each modulator's transpose + cents).
@@ -315,7 +315,7 @@ public class FirmwareFactory {
     // Deluge patched-param curves (port of voice.cpp). The modulator amount sets FM depth (timbre);
     // it is independent of the carrier oscillator volumes. Modulator volume: neutral 2^25, range
     // 2^30, parabola volume curve. Feedback: neutral 5931642, linear curve. 0x80000000 -> 0 (off).
-    if (sound.synthMode == FirmwareSound.SynthMode.FM) {
+    if (sound.getSynthMode() == FirmwareSound.SynthMode.FM) {
       // Store the raw knob values; the live amplitude (base + patch cables, e.g. envelope2 ->
       // modulator volume) is computed each block in FirmwareVoice via the volume curve.
       sound.fmModulatorAmountBase[0] = model.getModulator1AmountQ31();

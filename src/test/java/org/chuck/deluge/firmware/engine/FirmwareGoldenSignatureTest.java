@@ -73,7 +73,7 @@ public class FirmwareGoldenSignatureTest {
     p.addTrack(m);
     Song s = FirmwareFactory.createSong(p);
     FirmwareSound sound = (FirmwareSound) ((InstrumentClip) s.clips.get(0)).sound;
-    sound.synthMode = FirmwareSound.SynthMode.FM;
+    sound.setSynthMode(FirmwareSound.SynthMode.FM);
     sound.fmRatio1 = 2.0f;
     sound.fmModulatorAmountBase[0] = ONE / 4;
     return sound;

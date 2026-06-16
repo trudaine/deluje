@@ -34,7 +34,7 @@ public class FirmwareNativeFmTest {
     Song s = org.chuck.deluge.firmware.engine.FirmwareFactory.createSong(p);
     FirmwareSound sound = (FirmwareSound) ((InstrumentClip) s.clips.get(0)).sound;
 
-    sound.synthMode = FirmwareSound.SynthMode.FM;
+    sound.setSynthMode(FirmwareSound.SynthMode.FM);
     sound.fmRatio1 = 2.0f; // modulator one octave above the carrier (harmonic ratio 2:1)
     sound.fmModulatorAmountBase[0] = modAmount; // modulator 1 depth
     return sound;

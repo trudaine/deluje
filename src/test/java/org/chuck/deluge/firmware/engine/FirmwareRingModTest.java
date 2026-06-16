@@ -29,7 +29,7 @@ public class FirmwareRingModTest {
     p.addTrack(m);
     Song s = org.chuck.deluge.firmware.engine.FirmwareFactory.createSong(p);
     FirmwareSound sound = (FirmwareSound) ((InstrumentClip) s.clips.get(0)).sound;
-    sound.synthMode = FirmwareSound.SynthMode.RINGMOD;
+    sound.setSynthMode(FirmwareSound.SynthMode.RINGMOD);
     return sound;
   }
 

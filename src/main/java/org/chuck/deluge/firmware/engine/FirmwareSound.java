@@ -1,6 +1,5 @@
 package org.chuck.deluge.firmware.engine;
 
-import org.chuck.deluge.firmware.model.PolyphonyMode;
 import org.chuck.deluge.firmware.modulation.patch.Destination;
 import org.chuck.deluge.firmware.modulation.patch.PatchCable;
 import org.chuck.deluge.firmware.modulation.patch.PatchSource;
@@ -76,7 +75,6 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
   private final int[] globalParamFinalValues = new int[Param.kNumParams];
 
   // ── Ported High-Fidelity Logic ──
-  public SynthMode synthMode = SynthMode.SUBTRACTIVE;
   public final int[] monophonicExpressionValues = new int[3]; // X, Y, Z
 
   public int modFXRateIncrement = 0; // Q32 LFO phase increment per sample
@@ -181,8 +179,15 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     paramNeutralValues[Param.LOCAL_ENV_1_RELEASE] = 0xE6666654; // C:236
   }
 
+  /** synthMode lives solely on fw2Sound (int); these accessors keep the enum API. */
   public SynthMode getSynthMode() {
-    return synthMode;
+    return fw2Sound.synthMode == 1
+        ? SynthMode.FM
+        : fw2Sound.synthMode == 2 ? SynthMode.RINGMOD : SynthMode.SUBTRACTIVE;
+  }
+
+  public void setSynthMode(SynthMode m) {
+    fw2Sound.synthMode = (m == SynthMode.FM) ? 1 : (m == SynthMode.RINGMOD) ? 2 : 0;
   }
 
   /**
@@ -274,7 +279,6 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
   // rebuilds the patch-cable set and rewrites params under the same lock — without it the audio
   // thread could iterate a half-rebuilt cable list here.
   public synchronized void syncParamsToFw2() {
-    fw2Sound.synthMode = synthMode == SynthMode.FM ? 1 : synthMode == SynthMode.RINGMOD ? 2 : 0;
     fw2Sound.oscTypes[0] = oscTypes[0];
     fw2Sound.oscTypes[1] = oscTypes[1];
     if (dx7Patch != null) {
