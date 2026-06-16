@@ -186,6 +186,10 @@ public class SwingGridPanel extends JPanel {
     return playheadFollowMode;
   }
 
+  public int getCurrentPlayheadStep() {
+    return currentPlayheadStep;
+  }
+
   public void setPlayheadFollowMode(boolean v) {
     this.playheadFollowMode = v;
   }
@@ -701,7 +705,7 @@ public class SwingGridPanel extends JPanel {
     this.onClipChanged = r;
   }
 
-  private void fireProjectChanged() {
+  void fireProjectChanged() {
     if (onProjectChanged != null) onProjectChanged.run();
     refresh();
   }
@@ -7127,6 +7131,7 @@ public class SwingGridPanel extends JPanel {
     int modelRow = getModelRow(row);
     int activeCol = getActiveCol(row, col);
     int engineRow = baseTrackId + modelRow;
+    boolean synthModeActive = bridge.getTrackType(baseTrackId) == 1;
     JPopupMenu popup = new JPopupMenu();
 
     JMenuItem editProps = new JMenuItem("Edit Step Properties...");
@@ -7136,6 +7141,23 @@ public class SwingGridPanel extends JPanel {
     JMenuItem toggleStep = new JMenuItem("Toggle Step");
     toggleStep.addActionListener(e -> handleStepToggled(row, col));
     popup.add(toggleStep);
+
+    if (synthModeActive) {
+      JMenuItem pianoRollItem = new JMenuItem("Open Piano Roll Editor...");
+      pianoRollItem.addActionListener(
+          ev -> {
+            SwingPianoRollDialog dlg =
+                new SwingPianoRollDialog(
+                    (Frame) javax.swing.SwingUtilities.getWindowAncestor(SwingGridPanel.this),
+                    SwingGridPanel.this,
+                    editedModelTrack,
+                    activeClipId,
+                    projectModel,
+                    bridge);
+            dlg.setVisible(true);
+          });
+      popup.add(pianoRollItem);
+    }
 
     JMenuItem clearStep = new JMenuItem("Clear Step");
     clearStep.addActionListener(
