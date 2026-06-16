@@ -205,23 +205,55 @@ public class MidiService {
             .start(
                 () -> {
                   MidiMsg m = new MidiMsg();
+                  java.io.ByteArrayOutputStream sysexAccumulator =
+                      new java.io.ByteArrayOutputStream();
+                  boolean accumulatingSysex = false;
+
                   while (midiIn != null) {
                     if (midiIn.recv(m)) {
-                      // SysEx intercept hook
-                      if ((m.data1 & 0xFF) == 0xF0) {
-                        byte[] sysexBytes = m.getData();
-                        System.out.println(
-                            "[MidiService] Received raw SysEx message, length="
-                                + sysexBytes.length
-                                + (sysexBytes.length > 4
-                                    ? String.format(
-                                        ", header=0x%02X 0x%02X 0x%02X 0x%02X",
-                                        sysexBytes[1], sysexBytes[2], sysexBytes[3], sysexBytes[4])
-                                    : ""));
-                        if (sysExManager.handleIncomingSysEx(sysexBytes)) {
+                      int firstByte = m.data1 & 0xFF;
+                      byte[] chunk = m.getData();
+
+                      if (firstByte == 0xF0) {
+                        sysexAccumulator.reset();
+                        accumulatingSysex = true;
+                        if (chunk != null) {
+                          sysexAccumulator.write(chunk, 0, chunk.length);
+                        }
+                      } else if (accumulatingSysex) {
+                        if (chunk != null) {
+                          sysexAccumulator.write(chunk, 0, chunk.length);
+                        }
+                      }
+
+                      if (accumulatingSysex) {
+                        byte[] currentAccumulated = sysexAccumulator.toByteArray();
+                        boolean isEnd =
+                            (currentAccumulated.length > 0
+                                && currentAccumulated[currentAccumulated.length - 1]
+                                    == (byte) 0xF7);
+                        if (isEnd) {
+                          accumulatingSysex = false;
+                          System.out.println(
+                              "[MidiService] Reassembled complete SysEx message, length="
+                                  + currentAccumulated.length
+                                  + (currentAccumulated.length > 4
+                                      ? String.format(
+                                          ", header=0x%02X 0x%02X 0x%02X 0x%02X",
+                                          currentAccumulated[1],
+                                          currentAccumulated[2],
+                                          currentAccumulated[3],
+                                          currentAccumulated[4])
+                                      : ""));
+                          if (sysExManager.handleIncomingSysEx(currentAccumulated)) {
+                            continue;
+                          }
+                        } else {
+                          // Wait for more chunks of this SysEx message
                           continue;
                         }
                       }
+
                       engine.midiMessageReceived(MIDIMessage.fromMidiMsg(m), midiIn);
                     } else {
                       try {

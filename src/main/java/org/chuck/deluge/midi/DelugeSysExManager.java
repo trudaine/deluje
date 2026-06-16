@@ -186,6 +186,7 @@ public class DelugeSysExManager {
         // No binary payload spacer found, the entire content is the JSON string (excluding 0xF7)
         jsonStr = new String(data, 7, data.length - 8, StandardCharsets.US_ASCII);
       }
+      System.out.println("[SysExManager] Decoded JSON String: '" + jsonStr + "'");
 
       SysExCallback callback = pendingCallbacks.remove(seq);
       if (callback != null) {
