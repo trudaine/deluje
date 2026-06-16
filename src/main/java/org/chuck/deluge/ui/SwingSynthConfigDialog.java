@@ -1058,13 +1058,17 @@ public class SwingSynthConfigDialog extends JDialog {
   /**
    * Builds the full tab set in logical groups — the single source of truth for both the constructor
    * and {@link #refreshAllControls} (the two previously held duplicate tab lists that could drift).
-   * Order: sound sources → filter → modulation → FX → setup. The three global-FX/dynamics editors
-   * (MOD FX, EQ, COMPRESSOR) are grouped under one "FX" tab to cut top-level tab overload.
+   *
+   * <p>Top-level (9): OSC/FILTER/FM · SOURCES · HPF · ENVELOPE · LFO · MODULATION · ARP · FX · SETUP.
+   * The most-used / premium-visualizer editors (ENVELOPE, LFO, MODULATION) stay top-level; the
+   * secondary source-detail (OSC/ALGORITHM/DX7), global FX (MOD FX/EQ/COMPRESSOR), and utilities
+   * (AUTOMATION/MIDI LEARN) are grouped under one sub-tabbed tab each, cutting the old 14-tab
+   * overload without burying the showcase editors or merging "main + detail" content.
    */
   private void populateTabs() {
     tabs.addTab("OSC / FILTER / FM", buildMainPanel(model, vm, bridge, trackIndex));
 
-    // DX7 6-op FM editor, inserted right after the main tab; reloading rebuilds the dialog.
+    // ── Sound sources / FM detail (grouped) ──
     Runnable reloadDialog =
         () -> {
           dispose();
@@ -1072,20 +1076,16 @@ public class SwingSynthConfigDialog extends JDialog {
                   (Frame) getOwner(), model, vm, bridge, trackIndex, projectModel)
               .setVisible(true);
         };
-    tabs.insertTab(
-        "DX7",
-        null,
-        new Dx7Panel(model, vm, bridge, trackIndex, this, reloadDialog),
-        "DX7 6-operator FM editing",
-        1);
+    JTabbedPane sourceTabs = styledSubTabs();
+    sourceTabs.addTab("OSC", new OscPanel(model, bridge, trackIndex, projectModel));
+    sourceTabs.addTab("ALGORITHM", new AlgorithmPanel(model, bridge, trackIndex));
+    sourceTabs.addTab("DX7", new Dx7Panel(model, vm, bridge, trackIndex, this, reloadDialog));
+    tabs.addTab("SOURCES", sourceTabs);
 
-    // ── Sound sources ──
-    tabs.addTab("OSC", new OscPanel(model, bridge, trackIndex, projectModel));
-    tabs.addTab("ALGORITHM", new AlgorithmPanel(model, bridge, trackIndex));
-    // Filter: LPF lives in the main tab; HPF here, kept adjacent to the sources/filter group.
+    // Filter: LPF lives in the main tab; HPF here.
     tabs.addTab("HPF", new HpfPanel(model, bridge, trackIndex, projectModel));
 
-    // ── Modulation ──
+    // ── Modulation (kept top-level to showcase the interactive visualizers) ──
     tabs.addTab("ENVELOPE", new EnvelopePanel(model, bridge, trackIndex, projectModel));
     lfoPanel = new LfoPanel(model, trackIndex);
     tabs.addTab("LFO", lfoPanel);
@@ -1093,21 +1093,29 @@ public class SwingSynthConfigDialog extends JDialog {
     tabs.addTab("MODULATION", new ModulationPanel(model, bridge, trackIndex));
     tabs.addTab("ARP", new ArpPanel(model, bridge, trackIndex, projectModel));
 
-    // ── FX & dynamics (grouped: was three separate top-level tabs) ──
-    JTabbedPane fxTabs = new JTabbedPane();
-    fxTabs.setBackground(BG_CARD);
-    fxTabs.setForeground(Color.WHITE);
+    // ── FX & dynamics (grouped) ──
+    JTabbedPane fxTabs = styledSubTabs();
     fxTabs.addTab("MOD FX", new ModFxPanel(model, bridge, trackIndex, projectModel));
     fxTabs.addTab("EQ", new EqPanel(model, bridge, trackIndex, projectModel));
     fxTabs.addTab("COMPRESSOR", new CompressorPanel(model, bridge, trackIndex, projectModel));
     tabs.addTab("FX", fxTabs);
 
-    // ── Setup ──
-    tabs.addTab("AUTOMATION", new AutomationPanel(model, bridge, trackIndex));
+    // ── Setup utilities (grouped) ──
+    JTabbedPane setupTabs = styledSubTabs();
+    setupTabs.addTab("AUTOMATION", new AutomationPanel(model, bridge, trackIndex));
     if (midiLearnPanel == null) {
       midiLearnPanel = new MidiLearnPanel();
     }
-    tabs.addTab("MIDI LEARN", midiLearnPanel);
+    setupTabs.addTab("MIDI LEARN", midiLearnPanel);
+    tabs.addTab("SETUP", setupTabs);
+  }
+
+  /** A dark-styled inner JTabbedPane for grouping related sub-editors. */
+  private JTabbedPane styledSubTabs() {
+    JTabbedPane t = new JTabbedPane();
+    t.setBackground(BG_CARD);
+    t.setForeground(Color.WHITE);
+    return t;
   }
 
   public void refreshAllControls() {
