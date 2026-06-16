@@ -24,8 +24,11 @@ public class SwingSynthConfigDialog extends JDialog {
   private static final String[] POLY_MODES = {"POLY", "MONO", "LEGATO", "AUTO", "CHOKE"};
 
   private final JTabbedPane tabs = new JTabbedPane();
+  private final SynthTrackModel model;
   private final ProjectModel projectModel;
   private final int trackIndex;
+  private final ChuckVM vm;
+  private final BridgeContract bridge;
   private MidiLearnPanel midiLearnPanel;
   private LfoPanel lfoPanel;
   private static JLabel globalHelpLabel;
@@ -47,8 +50,11 @@ public class SwingSynthConfigDialog extends JDialog {
         owner,
         "Synth Track Editor: " + model.getName() + " (Track " + (trackIndex + 1) + ")",
         false);
+    this.model = model;
     this.projectModel = projectModel;
     this.trackIndex = trackIndex;
+    this.vm = vm;
+    this.bridge = bridge;
     setSize(1300, 750);
     setLocationRelativeTo(owner);
     setLayout(new BorderLayout());
@@ -84,8 +90,24 @@ public class SwingSynthConfigDialog extends JDialog {
     midiLearnPanel = new MidiLearnPanel();
     tabs.addTab("MIDI LEARN", midiLearnPanel);
 
-    // Enable/disable DX7 tab when synth mode changes
-    add(tabs, BorderLayout.CENTER);
+    // ── Collaborative Collapsible Preset Browser Sidebar ──
+    SynthPresetBrowserPanel presetBrowser =
+        new SynthPresetBrowserPanel(
+            model,
+            () -> {
+              // Refresh all UI tab sliders and curves
+              refreshAllControls();
+              // Instantly update the engine's active voice for real-time auditioning!
+              liveApplyAction();
+            });
+
+    JSplitPane browserSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, presetBrowser, tabs);
+    browserSplit.setDividerLocation(220);
+    browserSplit.setBackground(new Color(0x15, 0x15, 0x18));
+    browserSplit.setBorder(null);
+    browserSplit.setOneTouchExpandable(true); // Double arrow toggle button!
+
+    add(browserSplit, BorderLayout.CENTER);
 
     // ── Composite South Panel Stack (Help Bar + Close button) ──
     JPanel southStack = new JPanel();
@@ -1005,6 +1027,68 @@ public class SwingSynthConfigDialog extends JDialog {
     c.gridx = 2;
     panel.add(valContainer, c);
     return row + 1;
+  }
+
+  private void liveApplyAction() {
+    liveApplyToEngine(vm, model);
+  }
+
+  public void refreshAllControls() {
+    // Re-instantiate the panels and replace the tabs to update all sliders and visualizers
+    // instantly
+    int selectedIdx = tabs.getSelectedIndex();
+
+    // Stop the LFO animation before removing to prevent thread leaks
+    if (lfoPanel != null) {
+      lfoPanel.stopAnimation();
+    }
+
+    tabs.removeAll();
+
+    tabs.addTab("OSC / FILTER / FM", buildMainPanel(model, vm, bridge, trackIndex));
+
+    // Re-insert DX7 tab
+    Runnable reloadDialog =
+        () -> {
+          dispose();
+          new SwingSynthConfigDialog(
+                  (Frame) getOwner(), model, vm, bridge, trackIndex, projectModel)
+              .setVisible(true);
+        };
+    JPanel dx7Panel = new Dx7Panel(model, vm, bridge, trackIndex, this, reloadDialog);
+    tabs.insertTab("DX7", null, dx7Panel, "DX7 6-operator FM editing", 1);
+
+    tabs.addTab("ALGORITHM", new AlgorithmPanel(model, bridge, trackIndex));
+    tabs.addTab("OSC", new OscPanel(model, bridge, trackIndex, projectModel));
+
+    lfoPanel = new LfoPanel(model, trackIndex);
+    tabs.addTab("LFO", lfoPanel);
+    lfoPanel.startAnimation();
+
+    tabs.addTab("ARP", new ArpPanel(model, bridge, trackIndex, projectModel));
+    tabs.addTab("ENVELOPE", new EnvelopePanel(model, bridge, trackIndex, projectModel));
+    tabs.addTab("MODULATION", new ModulationPanel(model, bridge, trackIndex));
+    tabs.addTab("COMPRESSOR", new CompressorPanel(model, bridge, trackIndex, projectModel));
+    tabs.addTab("EQ", new EqPanel(model, bridge, trackIndex, projectModel));
+    tabs.addTab("MOD FX", new ModFxPanel(model, bridge, trackIndex, projectModel));
+    tabs.addTab("HPF", new HpfPanel(model, bridge, trackIndex, projectModel));
+    tabs.addTab("AUTOMATION", new AutomationPanel(model, bridge, trackIndex));
+
+    if (midiLearnPanel == null) {
+      midiLearnPanel = new MidiLearnPanel();
+    }
+    tabs.addTab("MIDI LEARN", midiLearnPanel);
+
+    // Restore selection
+    if (selectedIdx >= 0 && selectedIdx < tabs.getTabCount()) {
+      tabs.setSelectedIndex(selectedIdx);
+    }
+
+    // Apply dark theme formatting
+    DarkComboBoxRenderer.styleComponentTree(this);
+
+    revalidate();
+    repaint();
   }
 
   static JLabel label(String text) {
