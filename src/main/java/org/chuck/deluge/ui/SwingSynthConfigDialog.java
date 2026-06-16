@@ -27,6 +27,7 @@ public class SwingSynthConfigDialog extends JDialog {
   private final ProjectModel projectModel;
   private final int trackIndex;
   private MidiLearnPanel midiLearnPanel;
+  private LfoPanel lfoPanel;
   private static JLabel globalHelpLabel;
   private static final String DEFAULT_HELP_TEXT =
       "<html>\uD83D\uDCA1 <b>QUICK HELP:</b> Hover over any control knob or slider to see its details and hardware mappings here!</html>";
@@ -42,7 +43,10 @@ public class SwingSynthConfigDialog extends JDialog {
       BridgeContract bridge,
       int trackIndex,
       ProjectModel projectModel) {
-    super(owner, "Synth Config: " + model.getName(), false);
+    super(
+        owner,
+        "Synth Track Editor: " + model.getName() + " (Track " + (trackIndex + 1) + ")",
+        false);
     this.projectModel = projectModel;
     this.trackIndex = trackIndex;
     setSize(1300, 750);
@@ -65,7 +69,9 @@ public class SwingSynthConfigDialog extends JDialog {
     tabs.insertTab("DX7", null, dx7Panel, "DX7 6-operator FM editing", 1);
     tabs.addTab("ALGORITHM", new AlgorithmPanel(model, bridge, trackIndex));
     tabs.addTab("OSC", new OscPanel(model, bridge, trackIndex, projectModel));
-    tabs.addTab("LFO", new LfoPanel(model, trackIndex));
+    lfoPanel = new LfoPanel(model, trackIndex);
+    tabs.addTab("LFO", lfoPanel);
+    lfoPanel.startAnimation();
     tabs.addTab("ARP", new ArpPanel(model, bridge, trackIndex, projectModel));
     tabs.addTab("ENVELOPE", new EnvelopePanel(model, bridge, trackIndex, projectModel));
     tabs.addTab("MODULATION", new ModulationPanel(model, bridge, trackIndex));
@@ -139,6 +145,9 @@ public class SwingSynthConfigDialog extends JDialog {
 
   @Override
   public void dispose() {
+    if (lfoPanel != null) {
+      lfoPanel.stopAnimation();
+    }
     if (liveApplyTimer != null) {
       liveApplyTimer.stop();
     }
@@ -191,6 +200,11 @@ public class SwingSynthConfigDialog extends JDialog {
     osc1Combo.setSelectedItem(model.getOsc1Type());
     osc1Combo.setBackground(BG_CONTROL);
     osc1Combo.setForeground(Color.WHITE);
+    String osc1Tooltip = "Waveform shape of the first carrier oscillator";
+    String osc1Help =
+        "<b>OSC 1 TYPE:</b> Sets the waveform shape of the first oscillator (SINE, SAW, SQUARE, TRIANGLE, NOISE, SAMPLE, or WAVETABLE). — <i>Physical Deluge:</i> Turn OSC1 TYPE gold shortcut dial knob.";
+    osc1Combo.setToolTipText(osc1Tooltip);
+    attachHoverHelp(osc1Combo, osc1Help);
     osc1Combo.addActionListener(
         e -> {
           String sel = (String) osc1Combo.getSelectedItem();
@@ -229,6 +243,11 @@ public class SwingSynthConfigDialog extends JDialog {
     else osc2Combo.setSelectedItem(osc2Current);
     osc2Combo.setBackground(BG_CONTROL);
     osc2Combo.setForeground(Color.WHITE);
+    String osc2Tooltip = "Waveform shape of the second oscillator (modulator in FM mode)";
+    String osc2Help =
+        "<b>OSC 2 TYPE:</b> Sets the waveform shape of the second oscillator. In FM mode, this acts as the modulator. Select NONE to disable. — <i>Physical Deluge:</i> Turn OSC2 TYPE gold shortcut dial knob.";
+    osc2Combo.setToolTipText(osc2Tooltip);
+    attachHoverHelp(osc2Combo, osc2Help);
     osc2Combo.addActionListener(e -> model.setOsc2Type((String) osc2Combo.getSelectedItem()));
     leftPanel.add(osc2Combo, lc);
     leftRow++;
@@ -264,6 +283,11 @@ public class SwingSynthConfigDialog extends JDialog {
     retrigCombo.setSelectedIndex(retrigIdx);
     retrigCombo.setBackground(BG_CONTROL);
     retrigCombo.setForeground(Color.WHITE);
+    String retrigTooltip = "Oscillator phase retriggering behavior on note-on";
+    String retrigHelp =
+        "<b>OSCILLATOR RETRIGGER:</b> Sets the phase behavior when a note is pressed. FREE: oscillators run continuously. RESET/90°/180°/270°: oscillator phase resets to this angle on every note-on. — <i>Physical Deluge:</i> Set retrigger option inside synth menu.";
+    retrigCombo.setToolTipText(retrigTooltip);
+    attachHoverHelp(retrigCombo, retrigHelp);
     retrigCombo.addActionListener(
         e -> {
           int val =
@@ -322,6 +346,9 @@ public class SwingSynthConfigDialog extends JDialog {
             new Color(0x00, 0xbb, 0xff));
     modeToggle.setToolTipText(
         "Synth engine: SUBTRACTIVE (osc→filter), FM (mod→carrier), or RINGMOD (carrier×mod)");
+    String modeHelp =
+        "<b>SYNTH MODE:</b> Sets the sound synthesis engine. SUBTRACTIVE: oscillator runs through filter. FM: frequency modulation (modulator modulates carrier). RINGMOD: ring modulator (carrier multiplied by modulator). — <i>Physical Deluge:</i> Press synth mode button combinations.";
+    attachHoverHelp(modeToggle, modeHelp);
     modeToggle.setPreferredSize(new Dimension(200, 26));
     modeToggle.onChange(
         mode -> {
@@ -351,6 +378,11 @@ public class SwingSynthConfigDialog extends JDialog {
     polyCombo.setSelectedItem(model.getPolyphony().name());
     polyCombo.setBackground(BG_CONTROL);
     polyCombo.setForeground(Color.WHITE);
+    String polyTooltip = "Voice playback mode: POLY, MONO, LEGATO, AUTO, or CHOKE";
+    String polyHelp =
+        "<b>POLYPHONY MODE:</b> Sets how voices are triggered. POLY: multiple simultaneous notes. MONO: single voice, retriggered. LEGATO: single voice, slides pitches smoothly between overlapping notes without retrig. CHOKE: cuts off previous note. — <i>Physical Deluge:</i> Hold shift + press keyboard shortcut keys.";
+    polyCombo.setToolTipText(polyTooltip);
+    attachHoverHelp(polyCombo, polyHelp);
     polyCombo.addActionListener(
         e -> {
           SynthTrackModel.PolyphonyMode pm =
@@ -376,6 +408,11 @@ public class SwingSynthConfigDialog extends JDialog {
     JSpinner.NumberEditor vcntEditor = (JSpinner.NumberEditor) vcntSpinner.getEditor();
     vcntEditor.getTextField().setBackground(BG_CONTROL);
     vcntEditor.getTextField().setForeground(Color.WHITE);
+    String vcntTooltip = "Maximum voice limit for this track (1-16)";
+    String vcntHelp =
+        "<b>VCNT (VOICE COUNT):</b> Caps the maximum number of concurrent virtual voices this track can trigger. Lower values optimize CPU and manage voice stealing. — <i>Physical Deluge:</i> Set voice limit in synth settings.";
+    vcntSpinner.setToolTipText(vcntTooltip);
+    attachHoverHelp(vcntSpinner, vcntHelp);
     vcntSpinner.addChangeListener(
         e -> {
           int vc = (int) vcntSpinner.getValue();
@@ -404,6 +441,11 @@ public class SwingSynthConfigDialog extends JDialog {
     unisonNumCombo.setSelectedItem(model.getUnisonNum());
     unisonNumCombo.setBackground(BG_CONTROL);
     unisonNumCombo.setForeground(Color.WHITE);
+    String unisonNumTooltip = "Number of layered unison voices (1-8)";
+    String unisonNumHelp =
+        "<b>UNISON VOICES:</b> Multiplies and layers multiple copies of the oscillators (1 to 8) per note for a thick, wide, or chorused sound. — <i>Physical Deluge:</i> Set unison voice count inside sound editor.";
+    unisonNumCombo.setToolTipText(unisonNumTooltip);
+    attachHoverHelp(unisonNumCombo, unisonNumHelp);
     unisonNumCombo.addActionListener(
         e -> {
           int v = (Integer) unisonNumCombo.getSelectedItem();
@@ -532,6 +574,9 @@ public class SwingSynthConfigDialog extends JDialog {
             new String[] {"12dB", "24dB", "SVF"}, fmInit, new Color(0xff, 0xb3, 0x00));
     filterModeToggle.setToolTipText(
         "Filter type / slope: 12dB or 24dB ladder low-pass, or state-variable filter (SVF)");
+    String filterModeHelp =
+        "<b>FILTER MODE:</b> Sets the low-pass filter type and slope. 12dB/oct: 2-pole ladder filter. 24dB/oct: 4-pole ladder filter (sharper cutoff). SVF: State-Variable Filter (flexible, clean, supports notch). — <i>Physical Deluge:</i> Turn LP TYPE gold shortcut dial knob.";
+    attachHoverHelp(filterModeToggle, filterModeHelp);
     filterModeToggle.setPreferredSize(new Dimension(180, 26));
     rightPanel.add(filterModeToggle, rc);
     rightRow++;
@@ -548,6 +593,11 @@ public class SwingSynthConfigDialog extends JDialog {
     notchBox.setEnabled(model.getFilterMode() == org.chuck.deluge.model.FilterMode.SVF);
     notchBox.setBackground(BG_CARD);
     notchBox.setForeground(Color.WHITE);
+    String notchTooltip = "Enable band-rejection notch mode (SVF filter type only)";
+    String notchHelp =
+        "<b>SVF NOTCH:</b> Converts the State-Variable Filter (SVF) into a band-rejection notch filter, creating a deep frequency dip at the cutoff point. — <i>Physical Deluge:</i> Press LP TYPE gold dial knob.";
+    notchBox.setToolTipText(notchTooltip);
+    attachHoverHelp(notchBox, notchHelp);
     notchBox.addActionListener(
         e -> {
           model.setFilterNotch(notchBox.isSelected());
@@ -590,6 +640,11 @@ public class SwingSynthConfigDialog extends JDialog {
     routeCombo.setSelectedIndex(model.getFilterRoute());
     routeCombo.setBackground(BG_CONTROL);
     routeCombo.setForeground(Color.WHITE);
+    String routeTooltip = "Routing configuration of Low-Pass (LPF) and High-Pass (HPF) filters";
+    String routeHelp =
+        "<b>FILTER ROUTING:</b> Sets how the LPF and HPF are chained. SERIES LPF→HPF: LPF then HPF. HPF→LPF: HPF then LPF. PARALLEL: both filters are fed independently in parallel. — <i>Physical Deluge:</i> Set route option in synth menu.";
+    routeCombo.setToolTipText(routeTooltip);
+    attachHoverHelp(routeCombo, routeHelp);
     routeCombo.addActionListener(
         e -> {
           int route = routeCombo.getSelectedIndex();
