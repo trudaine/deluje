@@ -41,6 +41,11 @@ public class DelugeFileSyncService {
   private record WriteResponse(int bytes, int err) {}
 
   private final DelugeSysExManager sysExManager;
+  private volatile boolean transferActive = false;
+
+  public boolean isTransferActive() {
+    return transferActive;
+  }
 
   public DelugeFileSyncService(DelugeSysExManager sysExManager) {
     this.sysExManager = sysExManager;
@@ -120,136 +125,198 @@ public class DelugeFileSyncService {
             });
   }
 
-  /** Core sequential block downloader (blocks the calling Virtual Thread). */
   public byte[] downloadFileBlocking(String remotePath) throws Exception {
-    // 1. Open remote file
-    CompletableFuture<OpenResponse> openFuture = new CompletableFuture<>();
-    String openRequest = String.format("{\"open\": {\"path\": \"%s\", \"write\": 0}}", remotePath);
+    transferActive = true;
+    sysExManager.setOledStreamingEnabled(false);
+    try {
+      // Sleep 1.0 seconds to let the Deluge settle after pausing the OLED stream
+      Thread.sleep(1000);
 
-    sysExManager.sendRequest(
-        openRequest,
-        (json, bin) -> {
-          int fid = getIntAttr(json, "fid");
-          int size = getIntAttr(json, "size");
-          int err = getIntAttr(json, "err");
-          openFuture.complete(new OpenResponse(fid, size, err));
-        });
-
-    OpenResponse openRes = openFuture.get(8, TimeUnit.SECONDS);
-    if (openRes.err != 0 || openRes.fid == 0) {
-      throw new IOException("Failed to open remote file: " + remotePath + ", err=" + openRes.err);
-    }
-
-    int fid = openRes.fid;
-    int size = openRes.size;
-    byte[] fileData = new byte[size];
-    int bytesRead = 0;
-    int chunkSize = 512; // Deluge maximum cluster read block size is 1024, 512 is safe and fast
-
-    // 2. Loop block reads
-    while (bytesRead < size) {
-      int toRead = Math.min(chunkSize, size - bytesRead);
-      CompletableFuture<ReadResponse> readFuture = new CompletableFuture<>();
-      String readRequest =
-          String.format(
-              "{\"read\": {\"fid\": %d, \"addr\": %d, \"size\": %d}}", fid, bytesRead, toRead);
-
-      final int currentOffset = bytesRead;
-      sysExManager.sendRequest(
-          readRequest,
-          (json, bin) -> {
-            int err = getIntAttr(json, "err");
-            readFuture.complete(new ReadResponse(bin, err));
-          });
-
-      ReadResponse readRes = readFuture.get(8, TimeUnit.SECONDS);
-      if (readRes.err != 0 || readRes.binData == null || readRes.binData.length == 0) {
-        throw new IOException(
-            "Failed to read remote block at offset " + currentOffset + ", err=" + readRes.err);
+      // 1. Open remote file (with 1 retry on TimeoutException)
+      OpenResponse openRes = null;
+      int attempts = 0;
+      while (attempts < 2) {
+        CompletableFuture<OpenResponse> openFuture = new CompletableFuture<>();
+        String openRequest =
+            String.format("{\"open\": {\"path\": \"%s\", \"write\": 0}}", remotePath);
+        sysExManager.sendRequest(
+            openRequest,
+            (json, bin) -> {
+              int fid = getIntAttr(json, "fid");
+              int size = getIntAttr(json, "size");
+              int err = getIntAttr(json, "err");
+              openFuture.complete(new OpenResponse(fid, size, err));
+            });
+        try {
+          openRes = openFuture.get(10, TimeUnit.SECONDS);
+          break; // Success!
+        } catch (java.util.concurrent.TimeoutException te) {
+          attempts++;
+          if (attempts >= 2) {
+            throw new IOException("Timeout opening remote file after retries: " + remotePath, te);
+          }
+          System.err.println(
+              "[FileSync] Open timeout during active stream, retrying quiet channel...");
+        }
       }
 
-      System.arraycopy(readRes.binData, 0, fileData, currentOffset, readRes.binData.length);
-      bytesRead += readRes.binData.length;
+      if (openRes.err != 0 || openRes.fid == 0) {
+        throw new IOException("Failed to open remote file: " + remotePath + ", err=" + openRes.err);
+      }
+
+      int fid = openRes.fid;
+      int size = openRes.size;
+      byte[] fileData = new byte[size];
+      int bytesRead = 0;
+      int chunkSize = 512; // Deluge maximum cluster read block size is 1024, 512 is safe and fast
+
+      // 2. Loop block reads
+      while (bytesRead < size) {
+        // Sleep 50ms to let the microcontroller yield and clear USB endpoints and SD card locks
+        Thread.sleep(50);
+
+        int toRead = Math.min(chunkSize, size - bytesRead);
+        CompletableFuture<ReadResponse> readFuture = new CompletableFuture<>();
+        String readRequest =
+            String.format(
+                "{\"read\": {\"fid\": %d, \"addr\": %d, \"size\": %d}}", fid, bytesRead, toRead);
+
+        final int currentOffset = bytesRead;
+        sysExManager.sendRequest(
+            readRequest,
+            (json, bin) -> {
+              int err = getIntAttr(json, "err");
+              readFuture.complete(new ReadResponse(bin, err));
+            });
+
+        ReadResponse readRes = readFuture.get(15, TimeUnit.SECONDS);
+        if (readRes.err != 0 || readRes.binData == null || readRes.binData.length == 0) {
+          throw new IOException(
+              "Failed to read remote block at offset " + currentOffset + ", err=" + readRes.err);
+        }
+
+        System.arraycopy(readRes.binData, 0, fileData, currentOffset, readRes.binData.length);
+        bytesRead += readRes.binData.length;
+      }
+
+      // Sleep 50ms before closing
+      Thread.sleep(50);
+
+      // 3. Close remote file
+      CompletableFuture<Integer> closeFuture = new CompletableFuture<>();
+      String closeRequest = String.format("{\"close\": {\"fid\": %d}}", fid);
+      sysExManager.sendRequest(
+          closeRequest,
+          (json, bin) -> {
+            int err = getIntAttr(json, "err");
+            closeFuture.complete(err);
+          });
+      closeFuture.get(10, TimeUnit.SECONDS);
+
+      return fileData;
+    } finally {
+      sysExManager.setOledStreamingEnabled(true);
+      sysExManager.startOledStreaming();
+      transferActive = false;
     }
-
-    // 3. Close remote file
-    CompletableFuture<Integer> closeFuture = new CompletableFuture<>();
-    String closeRequest = String.format("{\"close\": {\"fid\": %d}}", fid);
-    sysExManager.sendRequest(
-        closeRequest,
-        (json, bin) -> {
-          int err = getIntAttr(json, "err");
-          closeFuture.complete(err);
-        });
-    closeFuture.get(5, TimeUnit.SECONDS);
-
-    return fileData;
   }
 
-  /** Core sequential block uploader (blocks the calling Virtual Thread). */
   public void uploadFileBlocking(String remotePath, byte[] content) throws Exception {
-    // 1. Open remote file for writing (write: 1 creates/overwrites)
-    CompletableFuture<OpenResponse> openFuture = new CompletableFuture<>();
-    String openRequest = String.format("{\"open\": {\"path\": \"%s\", \"write\": 1}}", remotePath);
+    transferActive = true;
+    sysExManager.setOledStreamingEnabled(false);
+    try {
+      // Sleep 1.0 seconds to let the Deluge settle after pausing the OLED stream
+      Thread.sleep(1000);
 
-    sysExManager.sendRequest(
-        openRequest,
-        (json, bin) -> {
-          int fid = getIntAttr(json, "fid");
-          int err = getIntAttr(json, "err");
-          openFuture.complete(new OpenResponse(fid, 0, err));
-        });
-
-    OpenResponse openRes = openFuture.get(8, TimeUnit.SECONDS);
-    if (openRes.err != 0 || openRes.fid == 0) {
-      throw new IOException(
-          "Failed to open remote file for writing: " + remotePath + ", err=" + openRes.err);
-    }
-
-    int fid = openRes.fid;
-    int bytesWritten = 0;
-    int size = content.length;
-    int chunkSize = 512;
-
-    // 2. Loop block writes
-    while (bytesWritten < size) {
-      int toWrite = Math.min(chunkSize, size - bytesWritten);
-      byte[] chunk = new byte[toWrite];
-      System.arraycopy(content, bytesWritten, chunk, 0, toWrite);
-      byte[] packedChunk = DelugeMidiPacker.pack8to7(chunk);
-
-      CompletableFuture<WriteResponse> writeFuture = new CompletableFuture<>();
-      String writeRequest = String.format("{\"write\": {\"fid\": %d, \"size\": %d}}", fid, toWrite);
-
-      final int currentOffset = bytesWritten;
-      sysExManager.sendRequest(
-          writeRequest,
-          packedChunk,
-          (json, bin) -> {
-            int err = getIntAttr(json, "err");
-            int written = getIntAttr(json, "bytes");
-            writeFuture.complete(new WriteResponse(written, err));
-          });
-
-      WriteResponse writeRes = writeFuture.get(8, TimeUnit.SECONDS);
-      if (writeRes.err != 0 || writeRes.bytes == 0) {
-        throw new IOException(
-            "Failed to write remote block at offset " + currentOffset + ", err=" + writeRes.err);
+      // 1. Open remote file for writing (with 1 retry on TimeoutException)
+      OpenResponse openRes = null;
+      int attempts = 0;
+      while (attempts < 2) {
+        CompletableFuture<OpenResponse> openFuture = new CompletableFuture<>();
+        String openRequest =
+            String.format("{\"open\": {\"path\": \"%s\", \"write\": 1}}", remotePath);
+        sysExManager.sendRequest(
+            openRequest,
+            (json, bin) -> {
+              int fid = getIntAttr(json, "fid");
+              int err = getIntAttr(json, "err");
+              openFuture.complete(new OpenResponse(fid, 0, err));
+            });
+        try {
+          openRes = openFuture.get(10, TimeUnit.SECONDS);
+          break; // Success!
+        } catch (java.util.concurrent.TimeoutException te) {
+          attempts++;
+          if (attempts >= 2) {
+            throw new IOException(
+                "Timeout opening remote file for writing after retries: " + remotePath, te);
+          }
+          System.err.println(
+              "[FileSync] Open for write timeout during active stream, retrying quiet channel...");
+        }
       }
 
-      bytesWritten += toWrite;
-    }
+      if (openRes.err != 0 || openRes.fid == 0) {
+        throw new IOException(
+            "Failed to open remote file for writing: " + remotePath + ", err=" + openRes.err);
+      }
 
-    // 3. Close remote file
-    CompletableFuture<Integer> closeFuture = new CompletableFuture<>();
-    String closeRequest = String.format("{\"close\": {\"fid\": %d}}", fid);
-    sysExManager.sendRequest(
-        closeRequest,
-        (json, bin) -> {
-          int err = getIntAttr(json, "err");
-          closeFuture.complete(err);
-        });
-    closeFuture.get(5, TimeUnit.SECONDS);
+      int fid = openRes.fid;
+      int bytesWritten = 0;
+      int size = content.length;
+      int chunkSize = 512;
+
+      // 2. Loop block writes
+      while (bytesWritten < size) {
+        // Sleep 50ms to let the microcontroller yield and clear USB endpoints and SD card locks
+        Thread.sleep(50);
+
+        int toWrite = Math.min(chunkSize, size - bytesWritten);
+        byte[] chunk = new byte[toWrite];
+        System.arraycopy(content, bytesWritten, chunk, 0, toWrite);
+        byte[] packedChunk = DelugeMidiPacker.pack8to7(chunk);
+
+        CompletableFuture<WriteResponse> writeFuture = new CompletableFuture<>();
+        String writeRequest =
+            String.format("{\"write\": {\"fid\": %d, \"size\": %d}}", fid, toWrite);
+
+        final int currentOffset = bytesWritten;
+        sysExManager.sendRequest(
+            writeRequest,
+            packedChunk,
+            (json, bin) -> {
+              int err = getIntAttr(json, "err");
+              int written = getIntAttr(json, "bytes");
+              writeFuture.complete(new WriteResponse(written, err));
+            });
+
+        WriteResponse writeRes = writeFuture.get(15, TimeUnit.SECONDS);
+        if (writeRes.err != 0 || writeRes.bytes == 0) {
+          throw new IOException(
+              "Failed to write remote block at offset " + currentOffset + ", err=" + writeRes.err);
+        }
+
+        bytesWritten += toWrite;
+      }
+
+      // Sleep 50ms before closing
+      Thread.sleep(50);
+
+      // 3. Close remote file
+      CompletableFuture<Integer> closeFuture = new CompletableFuture<>();
+      String closeRequest = String.format("{\"close\": {\"fid\": %d}}", fid);
+      sysExManager.sendRequest(
+          closeRequest,
+          (json, bin) -> {
+            int err = getIntAttr(json, "err");
+            closeFuture.complete(err);
+          });
+      closeFuture.get(10, TimeUnit.SECONDS);
+    } finally {
+      sysExManager.setOledStreamingEnabled(true);
+      sysExManager.startOledStreaming();
+      transferActive = false;
+    }
   }
 
   // ── Tiny, Bulletproof JSON Parsing Utilities ──

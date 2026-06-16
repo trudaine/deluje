@@ -38,6 +38,15 @@ public class DelugeSysExManager {
   private final Map<Integer, SysExCallback> pendingCallbacks = new ConcurrentHashMap<>();
   private org.chuck.midi.MidiOut activeMidiOut;
   private DisplayListener displayListener;
+  private volatile boolean oledStreamingEnabled = true;
+
+  public boolean isOledStreamingEnabled() {
+    return oledStreamingEnabled;
+  }
+
+  public void setOledStreamingEnabled(boolean enabled) {
+    this.oledStreamingEnabled = enabled;
+  }
 
   // Local OLED frame buffer to apply deltas onto (768 bytes, 128x64 pixels)
   private final byte[] oledFrameBuffer = new byte[768];
@@ -194,6 +203,10 @@ public class DelugeSysExManager {
       }
       return true;
     } else if (cmd == CMD_HID) {
+      if (!oledStreamingEnabled) {
+        // Discard instantly during active file transfers to prevent head-of-line blocking
+        return true;
+      }
       if (displayListener == null) return true;
 
       int subType = data[6] & 0xFF;
