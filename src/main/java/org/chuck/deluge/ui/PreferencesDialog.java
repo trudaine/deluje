@@ -46,6 +46,8 @@ public class PreferencesDialog extends JDialog {
   private JComboBox<String> midiCombo;
   private javax.swing.Timer portScanTimer;
   private boolean isRebuildingCombo = false;
+  private final java.util.Map<String, String> friendlyToRawMidi = new java.util.HashMap<>();
+  private final java.util.Map<String, String> rawToFriendlyMidi = new java.util.HashMap<>();
   private JCheckBox advancedGridStyleCheck;
   private JComboBox<String> interactionModeCombo;
   private JComboBox<String> displayTypeCombo;
@@ -240,22 +242,6 @@ public class PreferencesDialog extends JDialog {
 
     midiCombo = new JComboBox<>();
     styleComboBox(midiCombo);
-    midiCombo.setRenderer(
-        new javax.swing.DefaultListCellRenderer() {
-          @Override
-          public java.awt.Component getListCellRendererComponent(
-              javax.swing.JList<?> list,
-              Object value,
-              int index,
-              boolean isSelected,
-              boolean cellHasFocus) {
-            super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-            if (value instanceof String) {
-              setText(getFriendlyMidiPortName((String) value, true));
-            }
-            return this;
-          }
-        });
     addField(
         panel,
         "MIDI Input Device",
@@ -899,9 +885,18 @@ public class PreferencesDialog extends JDialog {
     // MIDI input ports
     String[] ports = org.chuck.midi.MidiIn.list();
     midiCombo.removeAllItems();
+    friendlyToRawMidi.clear();
+    rawToFriendlyMidi.clear();
     midiCombo.addItem("None");
-    for (String p : ports) midiCombo.addItem(p);
-    midiCombo.setSelectedItem(PreferencesManager.get("midi.input", "None"));
+    friendlyToRawMidi.put("None", "None");
+    rawToFriendlyMidi.put("None", "None");
+    for (String p : ports) {
+      String friendly = getFriendlyMidiPortName(p, true);
+      friendlyToRawMidi.put(friendly, p);
+      rawToFriendlyMidi.put(p, friendly);
+      midiCombo.addItem(friendly);
+    }
+    midiCombo.setSelectedItem(getFriendlyPortName(PreferencesManager.get("midi.input", "None")));
 
     // SD Card root directory
     String libDir = PreferencesManager.getLibraryDir().getAbsolutePath();
@@ -945,7 +940,7 @@ public class PreferencesDialog extends JDialog {
         e -> {
           if (isRebuildingCombo) return;
           if (midiService != null) {
-            String selectedPort = (String) midiCombo.getSelectedItem();
+            String selectedPort = getRawPortName((String) midiCombo.getSelectedItem());
             PreferencesManager.set("midi.input", selectedPort);
 
             // Restart MIDI connection
@@ -1036,7 +1031,7 @@ public class PreferencesDialog extends JDialog {
     PreferencesManager.setMasterSaturationEnabled(masterSatCheck.isSelected());
     PreferencesManager.setFilterDriveEnabled(filterDriveCheck.isSelected());
     PreferencesManager.setBitCrunchEnabled(bitCrunchCheck.isSelected());
-    PreferencesManager.set("midi.input", (String) midiCombo.getSelectedItem());
+    PreferencesManager.set("midi.input", getRawPortName((String) midiCombo.getSelectedItem()));
     PreferencesManager.set("show.visualizers", String.valueOf(visCheck.isSelected()));
     PreferencesManager.set("debug.audio", String.valueOf(debugCheck.isSelected()));
 
@@ -1114,21 +1109,30 @@ public class PreferencesDialog extends JDialog {
     if (changed) {
       isRebuildingCombo = true;
 
-      String selected = (String) midiCombo.getSelectedItem();
+      String selectedFriendly = (String) midiCombo.getSelectedItem();
+      String selectedRaw = getRawPortName(selectedFriendly);
+
       midiCombo.removeAllItems();
+      friendlyToRawMidi.clear();
+      rawToFriendlyMidi.clear();
+
       midiCombo.addItem("None");
+      friendlyToRawMidi.put("None", "None");
+      rawToFriendlyMidi.put("None", "None");
+
       for (String p : currentPorts) {
-        midiCombo.addItem(p);
+        String friendly = getFriendlyMidiPortName(p, true);
+        friendlyToRawMidi.put(friendly, p);
+        rawToFriendlyMidi.put(p, friendly);
+        midiCombo.addItem(friendly);
       }
 
       boolean found = false;
-      if (selected != null) {
-        for (String p : currentPorts) {
-          if (p.equals(selected)) {
-            midiCombo.setSelectedItem(selected);
-            found = true;
-            break;
-          }
+      if (selectedRaw != null) {
+        String friendlyToSelect = rawToFriendlyMidi.get(selectedRaw);
+        if (friendlyToSelect != null) {
+          midiCombo.setSelectedItem(friendlyToSelect);
+          found = true;
         }
       }
       if (!found) {
@@ -1183,5 +1187,15 @@ public class PreferencesDialog extends JDialog {
       System.err.println("[DIAG friendly] Error matching port: " + t.getMessage());
     }
     return portName;
+  }
+
+  private String getFriendlyPortName(String rawName) {
+    if (rawName == null || rawName.equals("None")) return "None";
+    return rawToFriendlyMidi.getOrDefault(rawName, getFriendlyMidiPortName(rawName, true));
+  }
+
+  private String getRawPortName(String friendlyName) {
+    if (friendlyName == null || friendlyName.equals("None")) return "None";
+    return friendlyToRawMidi.getOrDefault(friendlyName, friendlyName);
   }
 }

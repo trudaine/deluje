@@ -27,6 +27,7 @@ public class SwingOledPanel extends JPanel {
 
   public void drawRawFrameBuffer(byte[] frameBuffer) {
     virtualOLED.drawRawFrameBuffer(frameBuffer);
+    repaint();
   }
 
   @Override

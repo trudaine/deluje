@@ -63,7 +63,7 @@ public class DelugeHwStatusPanel extends JPanel {
         new Timer(
             1500,
             e -> {
-              if (connected) {
+              if (connected && midiService.getSysExManager().isOledStreamingEnabled()) {
                 midiService.getSysExManager().startOledStreaming();
               }
             });
@@ -75,6 +75,10 @@ public class DelugeHwStatusPanel extends JPanel {
 
   /** Run a live ping test to the physical Deluge. */
   public void triggerPingTest() {
+    if (!midiService.getSysExManager().isOledStreamingEnabled()) {
+      // Skip heartbeat pings during active file transfers to keep the MIDI channel 100% quiet
+      return;
+    }
     DelugeSysExManager mgr = midiService.getSysExManager();
     long now = System.currentTimeMillis();
     lastPingTime = now;
@@ -106,7 +110,7 @@ public class DelugeHwStatusPanel extends JPanel {
     if (state) {
       label.setText("DELUGE ON");
       label.setForeground(new Color(0x33, 0xFF, 0x33)); // Glowing green
-      if (transitioned) {
+      if (transitioned && midiService.getSysExManager().isOledStreamingEnabled()) {
         midiService.getSysExManager().startOledStreaming();
       }
     } else {

@@ -43,6 +43,7 @@ public class SwingProjectSidebarPanel extends JPanel {
   private DefaultMutableTreeNode kitsNode;
   private JTree hardwareTree;
   private JTabbedPane tabbedPane;
+  private boolean hardwareRefreshedOnce = false;
 
   public SwingProjectSidebarPanel(
       ChuckVM vm, BridgeContract bridge, org.chuck.deluge.midi.MidiService midiService) {
@@ -89,6 +90,14 @@ public class SwingProjectSidebarPanel extends JPanel {
 
     JComponent hardwarePane = createHardwareTab();
     tabbedPane.addTab("📡 HARDWARE", hardwarePane);
+
+    tabbedPane.addChangeListener(
+        e -> {
+          if (tabbedPane.getSelectedIndex() == 1 && !hardwareRefreshedOnce) {
+            hardwareRefreshedOnce = true;
+            refreshHardwareTree();
+          }
+        });
 
     add(tabbedPane, BorderLayout.CENTER);
   }
@@ -468,6 +477,10 @@ public class SwingProjectSidebarPanel extends JPanel {
   private void refreshHardwareTree() {
     if (SwingDelugeApp.mainInstance == null) return;
     var fileSync = SwingDelugeApp.mainInstance.getMidiService().getFileSyncService();
+    if (fileSync.isTransferActive()) {
+      System.out.println("[Sidebar] Skipping hardware refresh: active file transfer in progress.");
+      return;
+    }
 
     songsNode.removeAllChildren();
     synthsNode.removeAllChildren();
@@ -494,45 +507,65 @@ public class SwingProjectSidebarPanel extends JPanel {
           }
         });
 
-    fileSync.listSongs(
-        "/SYNTHS",
-        new org.chuck.deluge.midi.DelugeFileSyncService.FileListCallback() {
-          @Override
-          public void onSuccess(java.util.List<String> files) {
-            SwingUtilities.invokeLater(
-                () -> {
-                  for (String f : files) {
-                    synthsNode.add(new DefaultMutableTreeNode(f));
-                  }
-                  ((javax.swing.tree.DefaultTreeModel) hardwareTree.getModel()).reload(synthsNode);
-                });
-          }
+    Timer t1 =
+        new Timer(
+            250,
+            ev -> {
+              if (fileSync.isTransferActive()) return;
+              fileSync.listSongs(
+                  "/SYNTHS",
+                  new org.chuck.deluge.midi.DelugeFileSyncService.FileListCallback() {
+                    @Override
+                    public void onSuccess(java.util.List<String> files) {
+                      SwingUtilities.invokeLater(
+                          () -> {
+                            for (String f : files) {
+                              synthsNode.add(new DefaultMutableTreeNode(f));
+                            }
+                            ((javax.swing.tree.DefaultTreeModel) hardwareTree.getModel())
+                                .reload(synthsNode);
+                          });
+                    }
 
-          @Override
-          public void onFailure(Throwable t) {
-            System.err.println("[Sidebar] Failed to fetch remote synths: " + t.getMessage());
-          }
-        });
+                    @Override
+                    public void onFailure(Throwable t) {
+                      System.err.println(
+                          "[Sidebar] Failed to fetch remote synths: " + t.getMessage());
+                    }
+                  });
+            });
+    t1.setRepeats(false);
+    t1.start();
 
-    fileSync.listSongs(
-        "/KITS",
-        new org.chuck.deluge.midi.DelugeFileSyncService.FileListCallback() {
-          @Override
-          public void onSuccess(java.util.List<String> files) {
-            SwingUtilities.invokeLater(
-                () -> {
-                  for (String f : files) {
-                    kitsNode.add(new DefaultMutableTreeNode(f));
-                  }
-                  ((javax.swing.tree.DefaultTreeModel) hardwareTree.getModel()).reload(kitsNode);
-                });
-          }
+    Timer t2 =
+        new Timer(
+            500,
+            ev -> {
+              if (fileSync.isTransferActive()) return;
+              fileSync.listSongs(
+                  "/KITS",
+                  new org.chuck.deluge.midi.DelugeFileSyncService.FileListCallback() {
+                    @Override
+                    public void onSuccess(java.util.List<String> files) {
+                      SwingUtilities.invokeLater(
+                          () -> {
+                            for (String f : files) {
+                              kitsNode.add(new DefaultMutableTreeNode(f));
+                            }
+                            ((javax.swing.tree.DefaultTreeModel) hardwareTree.getModel())
+                                .reload(kitsNode);
+                          });
+                    }
 
-          @Override
-          public void onFailure(Throwable t) {
-            System.err.println("[Sidebar] Failed to fetch remote kits: " + t.getMessage());
-          }
-        });
+                    @Override
+                    public void onFailure(Throwable t) {
+                      System.err.println(
+                          "[Sidebar] Failed to fetch remote kits: " + t.getMessage());
+                    }
+                  });
+            });
+    t2.setRepeats(false);
+    t2.start();
   }
 
   private void downloadAndLoadRemoteFile(String category, String name) {
@@ -630,6 +663,7 @@ public class SwingProjectSidebarPanel extends JPanel {
                       vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
                     }
                   } catch (Exception ex) {
+                    ex.printStackTrace();
                     JOptionPane.showMessageDialog(
                         SwingDelugeApp.mainInstance,
                         "Failed to load/parse remote file:\n" + ex.getMessage(),
@@ -641,6 +675,7 @@ public class SwingProjectSidebarPanel extends JPanel {
 
           @Override
           public void onFailure(Throwable t) {
+            t.printStackTrace();
             SwingUtilities.invokeLater(
                 () -> {
                   progress.dispose();
