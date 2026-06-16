@@ -556,11 +556,13 @@ public class Voice {
     // ── 2. Local LFOs (voice.cpp:760-780) ──
     // LFO 1 (local, uses lfoConfig[1])
     int phaseInc1 = getLocalLFOPhaseIncrement(1, Param.LOCAL_LFO_LOCAL_FREQ_1);
+    lfo2.customWave = sound.customLfoWave;
     sourceValues[PatchSource.LFO_LOCAL_1.ordinal()] =
         lfo2.render(numSamples, sound.lfoConfig[1], phaseInc1);
 
     // LFO 2 (local, uses lfoConfig[3])
     int phaseInc2 = getLocalLFOPhaseIncrement(3, Param.LOCAL_LFO_LOCAL_FREQ_2);
+    lfo4.customWave = sound.customLfoWave;
     sourceValues[PatchSource.LFO_LOCAL_2.ordinal()] =
         lfo4.render(numSamples, sound.lfoConfig[3], phaseInc2);
 
