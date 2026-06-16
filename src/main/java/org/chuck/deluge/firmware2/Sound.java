@@ -107,6 +107,9 @@ public class Sound extends GlobalEffectable {
   public final LfoConfig[] lfoConfig = new LfoConfig[4];
   public int timePerInternalTickInverse = 1 << 20;
 
+  /** C: sound.h:160 — reset by resyncGlobalLFOs / startSkippingRendering. */
+  public int timeStartedSkippingRenderingLFO = 0;
+
   /** C: sound.h:358 — {@code deluge::fast_vector<ActiveVoice> voices_;} */
   public final ArrayList<Voice> voices = new ArrayList<>();
 
@@ -133,10 +136,8 @@ public class Sound extends GlobalEffectable {
   public int arpPhaseIncrement = 0;
 
   public final Lfo[] globalLfos = {new Lfo(), new Lfo()};
-  public final Lfo.LfoType[] lfoWaveforms = {
-    Lfo.LfoType.SINE, Lfo.LfoType.TRIANGLE,
-    Lfo.LfoType.SINE, Lfo.LfoType.TRIANGLE
-  };
+  // LFO waveforms live on lfoConfig[].waveType (as in the C); there is no separate array. The global
+  // LFO render reads lfoConfig[0]/lfoConfig[2] directly (sound.cpp:2382/2395).
 
   public final Sidechain sidechain = new Sidechain();
   public int sidechainSend = 0;
@@ -397,6 +398,106 @@ public class Sound extends GlobalEffectable {
     return phaseIncrement;
   }
 
+  // ── resyncGlobalLFOs (sound.cpp:2723-2802) ──
+
+  /**
+   * Re-aligns the phase of the clock-synced global LFOs (LFO1, LFO3) to the song clock. Port of
+   * {@code Sound::resyncGlobalLFOs} (sound.cpp:2723).
+   *
+   * <p>The C reads the global {@code playbackHandler} and {@code AudioEngine::audioSampleTimer};
+   * firmware2 has no transport/clock port (see docs/FIRMWARE2_DSP_PORT_STATUS.md — transport is
+   * non-port), so the Java transport layer passes those exact values in. When the clock is stopped
+   * ({@code !clockActive}) this early-returns — identical to the C {@code isEitherClockActive()}
+   * guard — so the no-arg overload (the only state reachable today) is a faithful no-op.
+   *
+   * @param clockActive {@code playbackHandler.isEitherClockActive()}
+   * @param lastInternalTickDone {@code playbackHandler.getCurrentInternalTickCount(&timeSinceLastTick)}
+   * @param timeSinceLastTick the out-param of {@code getCurrentInternalTickCount} (uint32)
+   * @param timePerInternalTick {@code playbackHandler.getTimePerInternalTick()} (uint32)
+   * @param audioSampleTimer {@code AudioEngine::audioSampleTimer} (uint32)
+   */
+  public void resyncGlobalLFOs(
+      boolean clockActive,
+      long lastInternalTickDone,
+      int timeSinceLastTick,
+      int timePerInternalTick,
+      int audioSampleTimer) {
+    if (!clockActive) {
+      return; // sound.cpp:2724 — no clock, no sync
+    }
+    // LFO1_ID → globalLfos[0]/lfoConfig[0]; LFO3_ID → globalLfos[1]/lfoConfig[2] (sound.cpp:2727,2766)
+    if (lfoConfig[0].syncLevel != Lfo.SyncLevel.NONE) {
+      resyncOneGlobalLFO(
+          globalLfos[0],
+          lfoConfig[0],
+          lastInternalTickDone,
+          timeSinceLastTick,
+          timePerInternalTick,
+          audioSampleTimer);
+    }
+    if (lfoConfig[2].syncLevel != Lfo.SyncLevel.NONE) {
+      resyncOneGlobalLFO(
+          globalLfos[1],
+          lfoConfig[2],
+          lastInternalTickDone,
+          timeSinceLastTick,
+          timePerInternalTick,
+          audioSampleTimer);
+    }
+  }
+
+  /** Stopped-clock / no-transport overload — faithful no-op, matching the C early-return. */
+  public void resyncGlobalLFOs() {
+    resyncGlobalLFOs(false, 0, 0, 0, 0);
+  }
+
+  /**
+   * The per-LFO body the C duplicates verbatim for LFO1 (sound.cpp:2727-2761) and LFO3
+   * (sound.cpp:2766-2801). Factored to one helper to keep the two paths identical.
+   */
+  private void resyncOneGlobalLFO(
+      Lfo lfo,
+      LfoConfig config,
+      long lastInternalTickDone,
+      int timeSinceLastTick,
+      int timePerInternalTick,
+      int audioSampleTimer) {
+    // Resets the thing where skipped samples are later converted into LFO phase increment.
+    timeStartedSkippingRenderingLFO = audioSampleTimer; // sound.cpp:2730
+
+    lfo.setGlobalInitialPhase(config); // sound.cpp:2734
+
+    // If we're right at the first tick, no need to do anything else! (sound.cpp:2741)
+    if (lastInternalTickDone != 0 || timeSinceLastTick != 0) {
+      int shift = Lfo.SyncLevel.L_256TH.ordinal() - config.syncLevel.ordinal();
+      int numInternalTicksPerPeriod = 3 << shift; // sound.cpp:2742
+      switch (config.syncType) {
+        case EVEN:
+          break; // Nothing to do
+        case TRIPLET:
+          numInternalTicksPerPeriod = numInternalTicksPerPeriod * 2 / 3; // sound.cpp:2750
+          break;
+        case DOTTED:
+          numInternalTicksPerPeriod = numInternalTicksPerPeriod * 3 / 2; // sound.cpp:2753
+          break;
+      }
+      // (uint64_t)lastInternalTickDone % (uint16_t)numInternalTicksPerPeriod (sound.cpp:2756)
+      long modulus = numInternalTicksPerPeriod & 0xFFFFL; // (uint16_t) truncation
+      long offsetTicks = Long.remainderUnsigned(lastInternalTickDone, modulus);
+
+      // If we're right at a bar (or something), no need to do anything else (sound.cpp:2759)
+      if (timeSinceLastTick != 0 || offsetTicks != 0) {
+        // All of the following are uint32 in C — replicate the 32-bit wrap, then read as unsigned.
+        int timePerPeriod = numInternalTicksPerPeriod * timePerInternalTick; // sound.cpp:2761
+        int offsetTime =
+            (int) (offsetTicks * (timePerInternalTick & 0xFFFFFFFFL)) + timeSinceLastTick; // :2762
+        // globalLFO.phase += (uint32_t)((float)offsetTime / timePerPeriod * 4294967296) (:2763)
+        float ratio = (float) (offsetTime & 0xFFFFFFFFL) / (float) (timePerPeriod & 0xFFFFFFFFL);
+        lfo.phase += (int) (long) (ratio * 4294967296.0f);
+      }
+    }
+  }
+
   public void polyphonicExpressionEventOnChannelOrNote(
       int newValue, int expressionDimension, int channelOrNoteNumber, int whichCharacteristic) {
     synchronized (voices) {
@@ -421,18 +522,20 @@ public class Sound extends GlobalEffectable {
     int scAmount = sidechain.render(numSamples, shape);
     globalSourceValues[PatchSource.SIDECHAIN.ordinal()] = scAmount;
 
-    // 2. Global LFO rendering
+    // 2. Global LFO rendering. C (sound.cpp:2382/2395) renders globalLFO1/3 from lfoConfig[LFO1_ID]
+    // / lfoConfig[LFO3_ID] — the config carries the waveType, so the waveform must come from there,
+    // NOT a separate array. (LFO1_ID → lfoConfig[0], LFO3_ID → lfoConfig[2].)
     int phaseInc1 =
         Patcher.computeFinalValueForParam(
             Param.GLOBAL_LFO_FREQ_1, patchedParamValues[Param.GLOBAL_LFO_FREQ_1]);
     globalSourceValues[PatchSource.LFO_GLOBAL_1.ordinal()] =
-        globalLfos[0].render(numSamples, lfoWaveforms[0], phaseInc1);
+        globalLfos[0].render(numSamples, lfoConfig[0], phaseInc1);
 
     int phaseInc2 =
         Patcher.computeFinalValueForParam(
             Param.GLOBAL_LFO_FREQ_2, patchedParamValues[Param.GLOBAL_LFO_FREQ_2]);
     globalSourceValues[PatchSource.LFO_GLOBAL_2.ordinal()] =
-        globalLfos[1].render(numSamples, lfoWaveforms[2], phaseInc2);
+        globalLfos[1].render(numSamples, lfoConfig[2], phaseInc2);
 
     // 3. Arpeggiator clock & processing
     if (arpEnabled() && arpPhaseIncrement > 0) {

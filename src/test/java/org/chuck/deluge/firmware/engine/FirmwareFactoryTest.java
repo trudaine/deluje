@@ -45,6 +45,8 @@ public class FirmwareFactoryTest {
     var destinations = ((FirmwareSound) fwClip.sound).paramManager.getPatchCableSet().destinations;
     assertFalse(destinations.isEmpty());
     assertEquals(Param.LOCAL_LPF_FREQ, destinations.get(0).paramId);
-    assertEquals(PatchSource.LFO_LOCAL_1, destinations.get(0).cables.get(0).from);
+    // C sourceToString (functions.cpp:270-271): the patch-source "lfo1" is LFO_GLOBAL_1, not local
+    // (this assertion previously encoded the source-mapping bug fixed in FirmwareFactory).
+    assertEquals(PatchSource.LFO_GLOBAL_1, destinations.get(0).cables.get(0).from);
   }
 }
