@@ -591,16 +591,16 @@ public class FirmwareFactory {
     }
 
     // Compute final FX values from the fully-populated and overridden paramKnobs array.
-    sound.modFXRateIncrement =
+    sound.fw2Sound.modFXRateIncrement =
         org.chuck.deluge.firmware2.Patcher.computeFinalValueForParam(
             Param.GLOBAL_MOD_FX_RATE, sound.paramKnobs[Param.GLOBAL_MOD_FX_RATE]);
-    sound.modFXDepth =
+    sound.fw2Sound.modFXDepth =
         org.chuck.deluge.firmware2.Patcher.computeFinalValueForParam(
             Param.GLOBAL_MOD_FX_DEPTH, sound.paramKnobs[Param.GLOBAL_MOD_FX_DEPTH]);
-    sound.modFXOffset =
+    sound.fw2Sound.modFXOffset =
         org.chuck.deluge.firmware2.Patcher.computeFinalValueForParam(
             Param.UNPATCHED_MOD_FX_OFFSET, sound.paramKnobs[Param.UNPATCHED_MOD_FX_OFFSET]);
-    sound.modFXFeedback =
+    sound.fw2Sound.modFXFeedback =
         org.chuck.deluge.firmware2.Patcher.computeFinalValueForParam(
             Param.UNPATCHED_MOD_FX_FEEDBACK, sound.paramKnobs[Param.UNPATCHED_MOD_FX_FEEDBACK]);
 
@@ -627,10 +627,10 @@ public class FirmwareFactory {
     }
 
     sound.reverbSendKnob = sound.paramKnobs[Param.GLOBAL_REVERB_AMOUNT];
-    sound.bitcrushParam = sound.paramKnobs[Param.UNPATCHED_BITCRUSHING];
-    sound.srrParam = sound.paramKnobs[Param.UNPATCHED_SAMPLE_RATE_REDUCTION];
-    sound.eqBassParam = sound.paramKnobs[Param.UNPATCHED_BASS];
-    sound.eqTrebleParam = sound.paramKnobs[Param.UNPATCHED_TREBLE];
+    sound.fw2Sound.bitcrushParam = sound.paramKnobs[Param.UNPATCHED_BITCRUSHING];
+    sound.fw2Sound.srrParam = sound.paramKnobs[Param.UNPATCHED_SAMPLE_RATE_REDUCTION];
+    sound.fw2Sound.eqBassParam = sound.paramKnobs[Param.UNPATCHED_BASS];
+    sound.fw2Sound.eqTrebleParam = sound.paramKnobs[Param.UNPATCHED_TREBLE];
 
     // Patch Cables
     for (org.chuck.deluge.model.PatchCable pcm : model.getPatchCables()) {
@@ -1173,14 +1173,14 @@ public class FirmwareFactory {
 
     // Per-drum modulation FX
     drumSound.fw2Sound.modFXType = stringToModFXType(sd.getModFxType());
-    drumSound.modFXRateIncrement = (int) ((double) sd.getModFxRate() * 4294967296.0 / 44100.0);
-    drumSound.modFXDepth = (int) (clamp01(sd.getModFxDepth()) * 2147483647.0);
-    drumSound.modFXOffset = (int) (clamp01(sd.getModFxOffset()) * 2147483647.0);
-    drumSound.modFXFeedback = (int) (clamp01(sd.getModFxFeedback()) * 2147483647.0);
-    drumSound.bitcrushParam = normToBipolarParam(sd.getBitCrush());
-    drumSound.srrParam = normToBipolarParam(sd.getSampleRateReduction());
-    drumSound.eqBassParam = dbToBipolarParam(sd.getEqBass());
-    drumSound.eqTrebleParam = dbToBipolarParam(sd.getEqTreble());
+    drumSound.fw2Sound.modFXRateIncrement = (int) ((double) sd.getModFxRate() * 4294967296.0 / 44100.0);
+    drumSound.fw2Sound.modFXDepth = (int) (clamp01(sd.getModFxDepth()) * 2147483647.0);
+    drumSound.fw2Sound.modFXOffset = (int) (clamp01(sd.getModFxOffset()) * 2147483647.0);
+    drumSound.fw2Sound.modFXFeedback = (int) (clamp01(sd.getModFxFeedback()) * 2147483647.0);
+    drumSound.fw2Sound.bitcrushParam = normToBipolarParam(sd.getBitCrush());
+    drumSound.fw2Sound.srrParam = normToBipolarParam(sd.getSampleRateReduction());
+    drumSound.fw2Sound.eqBassParam = dbToBipolarParam(sd.getEqBass());
+    drumSound.fw2Sound.eqTrebleParam = dbToBipolarParam(sd.getEqTreble());
 
     // Sample playback settings
     drumSound.sampleSettings[0].reverse = sd.isReverse();
