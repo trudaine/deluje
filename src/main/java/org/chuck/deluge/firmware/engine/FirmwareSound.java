@@ -78,13 +78,8 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
 
   // ── Ported High-Fidelity Logic ──
   public SynthMode synthMode = SynthMode.SUBTRACTIVE;
-  public int numUnison = 1;
-  public int unisonDetune = 8;
-  public int unisonStereoSpread = 0;
   public final int[] monophonicExpressionValues = new int[3]; // X, Y, Z
 
-  public org.chuck.deluge.firmware2.ModFx.ModFXType modFXType =
-      org.chuck.deluge.firmware2.ModFx.ModFXType.NONE;
   public int modFXRateIncrement = 0; // Q32 LFO phase increment per sample
   public int modFXDepth = 0; // Q31
   public int modFXOffset = 0; // Q31
@@ -101,7 +96,6 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
   public final org.chuck.deluge.firmware2.Arpeggiator.Settings arpSettings = fw2Sound.arpSettings;
   private final org.chuck.deluge.firmware2.Arpeggiator.ArpReturnInstruction arpInstr =
       fw2Sound.arpInstr;
-  public int arpPhaseIncrement = 0; // arp clock (Q-units; one step == 1<<24 of gatePos)
   public int arpDivision =
       16; // step note division (16 = 16th note); used to derive arpPhaseIncrement
   public float arpRateMultiplier = 1.0f; // free-rate multiplier on the BPM-derived arp step
@@ -125,7 +119,6 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
   }
 
   public final Sidechain sidechain = fw2Sound.sidechain;
-  public int sidechainSend = 0;
   public final org.chuck.deluge.firmware.modulation.params.ParamManager paramManager =
       new org.chuck.deluge.firmware.modulation.params.ParamManager();
   private int silentBlockCount = 200; // Starts gated on boot
@@ -294,19 +287,16 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     fw2Sound.lpfMode = fw2LpfMode();
     fw2Sound.hpfMode = fw2HpfMode();
     fw2Sound.filterRoute = filterRoute.ordinal();
-    fw2Sound.numUnison = numUnison;
-    fw2Sound.unisonDetune = unisonDetune;
-    fw2Sound.unisonStereoSpread = unisonStereoSpread;
+    // numUnison/unisonDetune/unisonStereoSpread/oscillatorSync/clippingAmount/portamentoKnob now
+    // written directly to fw2Sound by the factory (single source of truth); the setup* derivations
+    // below recompute from fw2Sound's own (factory-set) values.
     fw2Sound.setupUnisonDetuners();
     fw2Sound.setupUnisonStereoSpread();
     fw2Sound.calculateEffectiveVolume();
-    fw2Sound.oscillatorSync = oscillatorSync;
-    fw2Sound.clippingAmount = clippingAmount;
     fw2Sound.oscRetriggerPhase[0] = osc1RetriggerPhase;
     fw2Sound.oscRetriggerPhase[1] = osc2RetriggerPhase;
     fw2Sound.modulatorRetriggerPhase[0] = mod1RetrigPhase;
     fw2Sound.modulatorRetriggerPhase[1] = mod2RetrigPhase;
-    fw2Sound.portamentoKnob = portamentoKnob;
     fw2Sound.modulator1ToModulator0 = fmModulator1ToModulator0;
     fw2Sound.fmRatio1 = fmRatio1;
     fw2Sound.fmRatio2 = fmRatio2;
@@ -401,9 +391,6 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     }
     fw2Sound.patchCableSet.destinations = nextDestinations;
 
-    fw2Sound.sidechainSend = sidechainSend;
-    fw2Sound.modFXType = modFXType;
-
     // Sync modulated FX parameters from patchedParamValues
     modFXRateIncrement =
         fw2Sound.patchedParamValues[org.chuck.deluge.firmware2.Param.GLOBAL_MOD_FX_RATE];
@@ -430,7 +417,6 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
     fw2Sound.eqTrebleParam = eqTrebleParam;
 
     fw2Sound.currentBpm = (int) currentBpm;
-    fw2Sound.arpPhaseIncrement = arpPhaseIncrement;
 
     // Per-sound delay: convert the note-division syncLevel to a buffer rate using the live BPM
     // (same scheme as PureFirmwareEngine's master-delay sync). syncLevel exponent → multiples of a
@@ -632,14 +618,8 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
   public int mod1RetrigPhase = -1;
   public int mod2RetrigPhase = -1;
 
-  /** C: sound.h:143 — osc B hard-syncs to osc A. */
-  public boolean oscillatorSync = false;
 
-  /** C: mod_controllable_audio.h:107 — saturation/clipping amount; 0 = off. */
-  public int clippingAmount = 0;
 
-  /** C: UNPATCHED_PORTAMENTO knob (raw Q31); INT_MIN = off. */
-  public int portamentoKnob = Integer.MIN_VALUE;
 
   public float fmRatio1 = 1.0f;
   public float fmRatio2 = 1.0f;

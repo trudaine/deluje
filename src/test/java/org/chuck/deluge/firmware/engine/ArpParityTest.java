@@ -20,7 +20,7 @@ public class ArpParityTest {
     sound.arpSettings.mode = org.chuck.deluge.firmware2.Arpeggiator.ArpMode.ARP;
     sound.arpSettings.numOctaves = 1;
     sound.arpSettings.gate = 1 << 23; // ~50% duty cycle
-    sound.arpPhaseIncrement = 16777216; // 2^24 → one arp step every ~256 samples
+    sound.fw2Sound.arpPhaseIncrement = 16777216; // 2^24 → one arp step every ~256 samples
 
     // Hold a 3-note chord; with arp on these go to the arpeggiator, not straight to voices.
     sound.triggerNote(60, 100);

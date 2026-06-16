@@ -27,7 +27,7 @@ public class AutodispWorkstationDiagnostic {
       FirmwareSound sound = new FirmwareSound();
       sound.oscTypes[0] = OscType.SINE;
       sound.oscTypes[1] = OscType.SINE; // Solo single oscillator
-      sound.numUnison = 1;
+      sound.fw2Sound.numUnison = 1;
       sound.setLpfMode(null); // Bypass filter set
       sound.osc1RetriggerPhase = 0; // Force exact phase alignment at sample 0!
 
@@ -103,7 +103,7 @@ public class AutodispWorkstationDiagnostic {
     FirmwareSound sound = new FirmwareSound();
     sound.oscTypes[0] = OscType.SAW;
     sound.oscTypes[1] = OscType.SINE;
-    sound.numUnison = 1;
+    sound.fw2Sound.numUnison = 1;
     sound.setLpfMode(null);
 
     sound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = Q31.ONE;
@@ -150,7 +150,7 @@ public class AutodispWorkstationDiagnostic {
     FirmwareSound sound = new FirmwareSound();
     sound.oscTypes[0] = OscType.SINE;
     sound.oscTypes[1] = OscType.SINE;
-    sound.numUnison = 1;
+    sound.fw2Sound.numUnison = 1;
     sound.setLpfMode(null);
 
     sound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = Q31.ONE;
@@ -225,7 +225,7 @@ public class AutodispWorkstationDiagnostic {
     FirmwareSound sound = new FirmwareSound();
     sound.oscTypes[0] = OscType.SINE;
     sound.oscTypes[1] = OscType.SINE;
-    sound.numUnison = 1;
+    sound.fw2Sound.numUnison = 1;
 
     // Set SVF Low-pass Filter mode
     sound.setLpfMode(FilterMode.SVF);

@@ -45,7 +45,7 @@ public class FidelityTestRunner {
         int div = fsArp.arpDivision > 0 ? fsArp.arpDivision : 16;
         double rateMul = (fsArp.arpRateMultiplier > 0.01f) ? fsArp.arpRateMultiplier : 1.0;
         double stepSamples = (4.0 / div) * (60.0 / bpm) * 44100.0 / rateMul;
-        fsArp.arpPhaseIncrement = (stepSamples > 1) ? (int) (4294967296.0 / stepSamples) : 0;
+        fsArp.fw2Sound.arpPhaseIncrement = (stepSamples > 1) ? (int) (4294967296.0 / stepSamples) : 0;
         fsArp.currentBpm = bpm;
       }
     }

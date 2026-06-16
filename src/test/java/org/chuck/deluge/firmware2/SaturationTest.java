@@ -21,7 +21,7 @@ class SaturationTest {
     s.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
     s.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
     s.paramNeutralValues[Param.LOCAL_VOLUME] = 134217728;
-    s.clippingAmount = clippingAmount;
+    s.fw2Sound.clippingAmount = clippingAmount;
     s.osc1RetriggerPhase = 0; // deterministic
     s.osc2RetriggerPhase = 0;
     FirmwareAudioEngine eng = new FirmwareAudioEngine();

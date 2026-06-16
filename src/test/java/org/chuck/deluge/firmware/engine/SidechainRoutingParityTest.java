@@ -83,7 +83,7 @@ class SidechainRoutingParityTest {
     synth.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN] = ONE;
     synth.paramNeutralValues[Param.LOCAL_ENV_0_RELEASE] = 100000000;
     synth.paramNeutralValues[Param.UNPATCHED_SIDECHAIN_SHAPE] = 0;
-    synth.sidechainSend = 0;
+    synth.fw2Sound.sidechainSend = 0;
     if (patchSidechain) {
       PatchCable cable = new PatchCable();
       cable.from = PatchSource.SIDECHAIN;
@@ -95,7 +95,7 @@ class SidechainRoutingParityTest {
 
   private static FirmwareSound createKick() {
     FirmwareSound kick = new FirmwareSound();
-    kick.sidechainSend = ONE;
+    kick.fw2Sound.sidechainSend = ONE;
     kick.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MIN_VALUE;
     kick.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
     kick.paramNeutralValues[Param.LOCAL_NOISE_VOLUME] = Integer.MIN_VALUE;

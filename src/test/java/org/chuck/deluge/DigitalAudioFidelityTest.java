@@ -311,7 +311,7 @@ public class DigitalAudioFidelityTest {
     synth.paramNeutralValues[org.chuck.deluge.firmware2.Param.LOCAL_ENV_0_RELEASE] = 100000000;
     synth.paramNeutralValues[org.chuck.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_SHAPE] =
         0; // linear
-    synth.sidechainSend = 0; // Only receives sidechain ducking
+    synth.fw2Sound.sidechainSend = 0; // Only receives sidechain ducking
     synth.sidechain.syncLevel = 0; // Sync off for test recovery timing
     PatchCable sidechainCable = new PatchCable();
     sidechainCable.from = PatchSource.SIDECHAIN;
@@ -341,7 +341,7 @@ public class DigitalAudioFidelityTest {
 
     // Create sidechain trigger sound (representing a kick drum slot!)
     FirmwareSound kick = new FirmwareSound();
-    kick.sidechainSend = Q31.ONE; // Max send level
+    kick.fw2Sound.sidechainSend = Q31.ONE; // Max send level
     kick.paramNeutralValues[org.chuck.deluge.firmware2.Param.LOCAL_OSC_A_VOLUME] =
         Integer.MIN_VALUE;
     kick.paramNeutralValues[org.chuck.deluge.firmware2.Param.LOCAL_OSC_B_VOLUME] =
