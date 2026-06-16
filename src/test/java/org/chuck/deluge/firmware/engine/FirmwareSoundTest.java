@@ -2,7 +2,7 @@ package org.chuck.deluge.firmware.engine;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import org.chuck.deluge.firmware.model.PolyphonyMode;
+import org.chuck.deluge.firmware2.Sound.PolyphonyMode;
 import org.chuck.deluge.firmware2.StereoSample;
 import org.junit.jupiter.api.Test;
 
@@ -10,7 +10,7 @@ public class FirmwareSoundTest {
   @Test
   public void testPolyphony() {
     FirmwareSound sound = new FirmwareSound();
-    sound.polyphonic = PolyphonyMode.POLY;
+    sound.fw2Sound.polyphonic = PolyphonyMode.POLY;
 
     sound.triggerNote(60, 100);
     sound.triggerNote(62, 100);
@@ -23,7 +23,7 @@ public class FirmwareSoundTest {
   @Test
   public void testMono() {
     FirmwareSound sound = new FirmwareSound();
-    sound.polyphonic = PolyphonyMode.MONO;
+    sound.fw2Sound.polyphonic = PolyphonyMode.MONO;
 
     sound.triggerNote(60, 100);
     sound.triggerNote(62, 100);

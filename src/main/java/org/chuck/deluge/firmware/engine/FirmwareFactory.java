@@ -535,10 +535,10 @@ public class FirmwareFactory {
     sound.paramNeutralValues[org.chuck.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_SHAPE] =
         0; // default shape
     try {
-      sound.polyphonic =
-          org.chuck.deluge.firmware.model.PolyphonyMode.valueOf(model.getPolyphony().name());
+      sound.fw2Sound.polyphonic =
+          org.chuck.deluge.firmware2.Sound.PolyphonyMode.valueOf(model.getPolyphony().name());
     } catch (Exception e) {
-      sound.polyphonic = org.chuck.deluge.firmware.model.PolyphonyMode.POLY;
+      sound.fw2Sound.polyphonic = org.chuck.deluge.firmware2.Sound.PolyphonyMode.POLY;
     }
 
     // Map LFO waveforms and dynamic rates
@@ -1230,7 +1230,8 @@ public class FirmwareFactory {
         (int) (sd.getLpfRes() * 2147483647.0f);
 
     // Polyphony / unison
-    drumSound.polyphonic = toPolyphonyMode(sd.getPolyphony());
+    drumSound.fw2Sound.polyphonic =
+        org.chuck.deluge.firmware2.Sound.PolyphonyMode.valueOf(toPolyphonyMode(sd.getPolyphony()).name());
     drumSound.fw2Sound.numUnison = sd.getUnisonNum();
     drumSound.fw2Sound.unisonDetune = (int) sd.getUnisonDetune();
     drumSound.fw2Sound.unisonStereoSpread = (int) sd.getUnisonStereoSpread();
