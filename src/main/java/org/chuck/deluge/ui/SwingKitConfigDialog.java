@@ -32,7 +32,7 @@ public class SwingKitConfigDialog extends JDialog {
 
   public SwingKitConfigDialog(
       Frame owner, KitTrackModel kit, ChuckVM vm, BridgeContract bridge, int trackIndex) {
-    super(owner, "Kit Sound Editor: " + kit.getName(), false);
+    super(owner, "Kit Track Editor: " + kit.getName() + " (Track " + (trackIndex + 1) + ")", false);
     this.trackIndex = trackIndex;
     setSize(1280, 800);
     setLocationRelativeTo(owner);

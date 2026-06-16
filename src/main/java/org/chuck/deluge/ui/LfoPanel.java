@@ -34,10 +34,17 @@ public class LfoPanel extends JPanel {
     return (lm != null) ? lm : LfoModel.defaultConfig(l % 2 == 1);
   }
 
+  private final LfoMonitorComponent monitor;
+
   public LfoPanel(SynthTrackModel model, int trackIndex) {
-    super(new GridBagLayout());
+    super(new BorderLayout(16, 16));
     this.model = model;
     setBackground(SwingSynthConfigDialog.BG_CARD);
+    setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+
+    // Controls grid panel (the original GridBag content)
+    JPanel controlsPanel = new JPanel(new GridBagLayout());
+    controlsPanel.setBackground(SwingSynthConfigDialog.BG_CARD);
     GridBagConstraints c = new GridBagConstraints();
     c.fill = GridBagConstraints.HORIZONTAL;
     c.insets = new Insets(4, 8, 4, 8);
@@ -47,19 +54,19 @@ public class LfoPanel extends JPanel {
     int col = 0;
     c.gridx = col++;
     c.gridy = 0;
-    add(SwingSynthConfigDialog.label(""), c);
+    controlsPanel.add(SwingSynthConfigDialog.label(""), c);
     c.gridx = col++;
-    add(SwingSynthConfigDialog.headerLabel("SHAPE"), c);
+    controlsPanel.add(SwingSynthConfigDialog.headerLabel("SHAPE"), c);
     c.gridx = col++;
-    add(SwingSynthConfigDialog.headerLabel("RATE"), c);
+    controlsPanel.add(SwingSynthConfigDialog.headerLabel("RATE"), c);
     c.gridx = col++;
-    add(SwingSynthConfigDialog.headerLabel("DEPTH"), c);
+    controlsPanel.add(SwingSynthConfigDialog.headerLabel("DEPTH"), c);
     c.gridx = col++;
-    add(SwingSynthConfigDialog.headerLabel("TARGET"), c);
+    controlsPanel.add(SwingSynthConfigDialog.headerLabel("TARGET"), c);
     c.gridx = col++;
-    add(SwingSynthConfigDialog.headerLabel("SYNC"), c);
+    controlsPanel.add(SwingSynthConfigDialog.headerLabel("SYNC"), c);
     c.gridx = col;
-    add(SwingSynthConfigDialog.headerLabel("SCOPE"), c);
+    controlsPanel.add(SwingSynthConfigDialog.headerLabel("SCOPE"), c);
 
     for (int l = 0; l < BridgeContract.LFO_COUNT; l++) {
       final int lfoIdx = l;
@@ -68,7 +75,7 @@ public class LfoPanel extends JPanel {
 
       c.gridx = col++;
       c.gridy = row;
-      add(SwingSynthConfigDialog.label("LFO " + l + ":"), c);
+      controlsPanel.add(SwingSynthConfigDialog.label("LFO " + l + ":"), c);
 
       LfoModel init = lfo(l);
 
@@ -101,7 +108,7 @@ public class LfoPanel extends JPanel {
                     lm.syncType()));
           });
       c.gridx = col++;
-      add(shapeCombo, c);
+      controlsPanel.add(shapeCombo, c);
 
       // Rate
       int rateInit = (int) (init.rateHz() * 100);
@@ -177,7 +184,7 @@ public class LfoPanel extends JPanel {
       ratePanel.add(rateSlider, BorderLayout.CENTER);
       ratePanel.add(rateField, BorderLayout.EAST);
       c.gridx = col++;
-      add(ratePanel, c);
+      controlsPanel.add(ratePanel, c);
 
       // Depth
       int depthInit = (int) (init.depth() * 100);
@@ -262,7 +269,7 @@ public class LfoPanel extends JPanel {
       depthPanel.add(depthSlider, BorderLayout.CENTER);
       depthPanel.add(depthContainer, BorderLayout.EAST);
       c.gridx = col++;
-      add(depthPanel, c);
+      controlsPanel.add(depthPanel, c);
 
       // Target
       JComboBox<String> targetCombo = new JComboBox<>(LFO_TARGETS);
@@ -298,7 +305,7 @@ public class LfoPanel extends JPanel {
                     lm.syncType()));
           });
       c.gridx = col++;
-      add(targetCombo, c);
+      controlsPanel.add(targetCombo, c);
 
       // Sync
       JComboBox<String> syncCombo = new JComboBox<>(SYNC_VALS);
@@ -327,7 +334,7 @@ public class LfoPanel extends JPanel {
                     lm.syncType()));
           });
       c.gridx = col++;
-      add(syncCombo, c);
+      controlsPanel.add(syncCombo, c);
 
       // Scope
       JComboBox<String> scopeCombo = new JComboBox<>(new String[] {"All tracks", "This track"});
@@ -349,7 +356,7 @@ public class LfoPanel extends JPanel {
                     lm.syncType()));
           });
       c.gridx = col;
-      add(scopeCombo, c);
+      controlsPanel.add(scopeCombo, c);
     }
 
     // Depth note
@@ -360,6 +367,35 @@ public class LfoPanel extends JPanel {
         new JLabel(
             "<html><i>Depth 100% = Filter ±5kHz, Res ±3Q, Pan ±1.0, Pitch ±1 oct, Vol ±50%, FM ±50%</i></html>");
     note.setForeground(Color.GRAY);
-    add(note, c);
+    controlsPanel.add(note, c);
+
+    add(controlsPanel, BorderLayout.CENTER);
+
+    // Create and wrap the LFO monitor
+    monitor = new LfoMonitorComponent(model);
+    JPanel monitorWrapper = new JPanel(new BorderLayout());
+    monitorWrapper.setBackground(SwingSynthConfigDialog.BG_CARD);
+    monitorWrapper.setBorder(
+        BorderFactory.createTitledBorder(
+            BorderFactory.createLineBorder(new Color(0x2d, 0x2d, 0x32), 1, true),
+            "Modulation Monitor",
+            javax.swing.border.TitledBorder.LEFT,
+            javax.swing.border.TitledBorder.TOP,
+            new Font("SansSerif", Font.BOLD, 11),
+            Color.LIGHT_GRAY));
+    monitorWrapper.add(monitor, BorderLayout.CENTER);
+    add(monitorWrapper, BorderLayout.EAST);
+  }
+
+  public void startAnimation() {
+    if (monitor != null) {
+      monitor.startAnimation();
+    }
+  }
+
+  public void stopAnimation() {
+    if (monitor != null) {
+      monitor.stopAnimation();
+    }
   }
 }
