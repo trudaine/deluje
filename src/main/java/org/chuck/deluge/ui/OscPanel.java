@@ -12,10 +12,14 @@ import org.chuck.deluge.model.SynthTrackModel;
  * tooltips and hover quick help mapping details globally.
  */
 public class OscPanel extends JPanel {
+  private final Wavetable3DVisualizer vis1;
+  private final Wavetable3DVisualizer vis2;
 
   public OscPanel(
       SynthTrackModel model, BridgeContract bridge, int trackIndex, ProjectModel projectModel) {
     super(new GridBagLayout());
+    vis1 = new Wavetable3DVisualizer(model, 0);
+    vis2 = new Wavetable3DVisualizer(model, 1);
     setBackground(SwingSynthConfigDialog.BG_CARD);
 
     // Create left and right sub-panels
@@ -460,20 +464,67 @@ public class OscPanel extends JPanel {
     rightPanel.add(syncBox, cRight);
     rightRow++;
 
-    // ── Main side-by-side assembly ──
+    // ── BUILD RIGHT-MOST VISUALIZER PANEL (COLUMN 3) ──
+    JPanel visualizerPanel = new JPanel(new GridBagLayout());
+    visualizerPanel.setBackground(SwingSynthConfigDialog.BG_CARD);
+    GridBagConstraints cVis = new GridBagConstraints();
+    cVis.fill = GridBagConstraints.BOTH;
+    cVis.weightx = 1.0;
+    cVis.insets = new Insets(6, 10, 6, 10);
+    cVis.gridx = 0;
+
+    cVis.gridy = 0;
+    cVis.weighty = 0.0;
+    visualizerPanel.add(SwingSynthConfigDialog.sectionLabel("OSC 1 WAVETABLE VISUALIZER"), cVis);
+
+    cVis.gridy = 1;
+    cVis.weighty = 0.5;
+    visualizerPanel.add(vis1, cVis);
+
+    cVis.gridy = 2;
+    cVis.weighty = 0.0;
+    cVis.insets = new Insets(15, 10, 6, 10);
+    visualizerPanel.add(SwingSynthConfigDialog.sectionLabel("OSC 2 WAVETABLE VISUALIZER"), cVis);
+
+    cVis.gridy = 3;
+    cVis.weighty = 0.5;
+    cVis.insets = new Insets(6, 10, 6, 10);
+    visualizerPanel.add(vis2, cVis);
+
+    // ── Main 3-column side-by-side assembly ──
     setLayout(new GridBagLayout());
     GridBagConstraints cMain = new GridBagConstraints();
     cMain.fill = GridBagConstraints.BOTH;
-    cMain.weightx = 0.5;
     cMain.weighty = 1.0;
     cMain.gridy = 0;
 
     cMain.gridx = 0;
-    cMain.insets = new Insets(0, 0, 0, 15);
+    cMain.weightx = 0.3;
+    cMain.insets = new Insets(0, 0, 0, 10);
     add(leftPanel, cMain);
 
     cMain.gridx = 1;
-    cMain.insets = new Insets(0, 15, 0, 0);
+    cMain.weightx = 0.3;
+    cMain.insets = new Insets(0, 10, 0, 10);
     add(rightPanel, cMain);
+
+    cMain.gridx = 2;
+    cMain.weightx = 0.4;
+    cMain.insets = new Insets(0, 10, 0, 0);
+    add(visualizerPanel, cMain);
+  }
+
+  @Override
+  public void addNotify() {
+    super.addNotify();
+    vis1.startAnimation();
+    vis2.startAnimation();
+  }
+
+  @Override
+  public void removeNotify() {
+    super.removeNotify();
+    vis1.stopAnimation();
+    vis2.stopAnimation();
   }
 }
