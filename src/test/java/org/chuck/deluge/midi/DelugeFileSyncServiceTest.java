@@ -130,6 +130,9 @@ public class DelugeFileSyncServiceTest {
               callback.onResponse("{\"^open\": {\"fid\": 6, \"err\": 0}}", null);
             } else if (jsonPayload.contains("\"close\"")) {
               callback.onResponse("{\"^close\": {\"fid\": 6, \"err\": 0}}", null);
+            } else if (jsonPayload.contains("\"utime\"")) {
+              assertTrue(jsonPayload.contains("\"path\": \"/SONGS/NEW.XML\""));
+              callback.onResponse("{\"^utime\": {\"err\": 0}}", null);
             } else {
               fail("Unexpected JSON-only request: " + jsonPayload);
             }

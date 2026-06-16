@@ -222,11 +222,23 @@ public class DelugeFileSyncService {
   }
 
   public void uploadFileBlocking(String remotePath, byte[] content) throws Exception {
+    uploadFileBlocking(remotePath, content, System.currentTimeMillis());
+  }
+
+  public void uploadFileBlocking(String remotePath, byte[] content, long lastModifiedMillis)
+      throws Exception {
     transferActive = true;
     sysExManager.setOledStreamingEnabled(false);
     try {
       // Sleep 1.0 seconds to let the Deluge settle after pausing the OLED stream
       Thread.sleep(1000);
+
+      // Convert local epoch millisecond to FAT date/time format
+      java.time.Instant instant = java.time.Instant.ofEpochMilli(lastModifiedMillis);
+      java.time.LocalDateTime dt =
+          java.time.LocalDateTime.ofInstant(instant, java.time.ZoneId.systemDefault());
+      int fatDate = ((dt.getYear() - 1980) << 9) | (dt.getMonthValue() << 5) | dt.getDayOfMonth();
+      int fatTime = (dt.getHour() << 11) | (dt.getMinute() << 5) | (dt.getSecond() / 2);
 
       // 1. Open remote file for writing (with 1 retry on TimeoutException)
       OpenResponse openRes = null;
@@ -234,7 +246,9 @@ public class DelugeFileSyncService {
       while (attempts < 2) {
         CompletableFuture<OpenResponse> openFuture = new CompletableFuture<>();
         String openRequest =
-            String.format("{\"open\": {\"path\": \"%s\", \"write\": 1}}", remotePath);
+            String.format(
+                "{\"open\": {\"path\": \"%s\", \"write\": 1, \"date\": %d, \"time\": %d}}",
+                remotePath, fatDate, fatTime);
         sysExManager.sendRequest(
             openRequest,
             (json, bin) -> {
@@ -312,6 +326,29 @@ public class DelugeFileSyncService {
             closeFuture.complete(err);
           });
       closeFuture.get(10, TimeUnit.SECONDS);
+
+      // 4. Preserve timestamp via utime
+      try {
+        Thread.sleep(50);
+        CompletableFuture<Integer> utimeFuture = new CompletableFuture<>();
+        String utimeRequest =
+            String.format(
+                "{\"utime\": {\"path\": \"%s\", \"date\": %d, \"time\": %d}}",
+                remotePath, fatDate, fatTime);
+        sysExManager.sendRequest(
+            utimeRequest,
+            (json, bin) -> {
+              int err = getIntAttr(json, "err");
+              utimeFuture.complete(err);
+            });
+        int utimeErr = utimeFuture.get(10, TimeUnit.SECONDS);
+        if (utimeErr != 0) {
+          System.err.println("[FileSync] Warning: Failed to set file timestamp, err=" + utimeErr);
+        }
+      } catch (Exception e) {
+        System.err.println("[FileSync] Warning: Error setting file timestamp: " + e.getMessage());
+      }
+
     } finally {
       sysExManager.setOledStreamingEnabled(true);
       sysExManager.startOledStreaming();
