@@ -1059,11 +1059,11 @@ public class SwingSynthConfigDialog extends JDialog {
    * Builds the full tab set in logical groups — the single source of truth for both the constructor
    * and {@link #refreshAllControls} (the two previously held duplicate tab lists that could drift).
    *
-   * <p>Top-level (9): OSC/FILTER/FM · SOURCES · HPF · ENVELOPE · LFO · MODULATION · ARP · FX · SETUP.
-   * The most-used / premium-visualizer editors (ENVELOPE, LFO, MODULATION) stay top-level; the
-   * secondary source-detail (OSC/ALGORITHM/DX7), global FX (MOD FX/EQ/COMPRESSOR), and utilities
-   * (AUTOMATION/MIDI LEARN) are grouped under one sub-tabbed tab each, cutting the old 14-tab
-   * overload without burying the showcase editors or merging "main + detail" content.
+   * <p>Top-level (9): OSC/FILTER/FM · SOURCES · HPF · ENVELOPE · LFO · MODULATION · ARP · FX ·
+   * SETUP. The most-used / premium-visualizer editors (ENVELOPE, LFO, MODULATION) stay top-level;
+   * the secondary source-detail (OSC/ALGORITHM/DX7), global FX (MOD FX/EQ/COMPRESSOR), and
+   * utilities (AUTOMATION/MIDI LEARN) are grouped under one sub-tabbed tab each, cutting the old
+   * 14-tab overload without burying the showcase editors or merging "main + detail" content.
    */
   private void populateTabs() {
     tabs.addTab("OSC / FILTER / FM", buildMainPanel(model, vm, bridge, trackIndex));

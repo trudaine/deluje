@@ -1081,6 +1081,17 @@ public final class BridgeContract {
   private final String[] dx7Patch = new String[TRACKS];
   private final float[] trackActivity = new float[TRACKS];
 
+  // ── Bi-Directional parameter change listener for MIDI sync ──
+  public interface ParameterChangeListener {
+    void onParameterChanged(String paramName, int trackIndex, double value);
+  }
+
+  private ParameterChangeListener paramListener;
+
+  public void setParameterChangeListener(ParameterChangeListener l) {
+    this.paramListener = l;
+  }
+
   // ── Constructor ────────────────────────────────────────────────────────
 
   public BridgeContract() {
@@ -2112,6 +2123,9 @@ public final class BridgeContract {
 
   public void setFilterFreq(int t, double val) {
     track.filter[t * 2] = (float) val;
+    if (paramListener != null) {
+      paramListener.onParameterChanged("cutoff", t, val);
+    }
   }
 
   public double getTrackFilterFreq(int t) {
@@ -2120,6 +2134,9 @@ public final class BridgeContract {
 
   public void setFilterRes(int t, double val) {
     track.filter[t * 2 + 1] = (float) val;
+    if (paramListener != null) {
+      paramListener.onParameterChanged("resonance", t, val);
+    }
   }
 
   public double getTrackFilterRes(int t) {

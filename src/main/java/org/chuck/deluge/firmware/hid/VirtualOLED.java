@@ -184,6 +184,26 @@ public class VirtualOLED {
     }
   }
 
+  /**
+   * Decodes a raw 768-byte SSD1306 page-addressed frame buffer (128x48 pixels, 6 pages) and draws
+   * it pixel-by-pixel onto the virtual display image.
+   */
+  public void drawRawFrameBuffer(byte[] frameBuffer) {
+    if (frameBuffer == null || frameBuffer.length < 768) return;
+    clear();
+    for (int page = 0; page < 6; page++) {
+      for (int col = 0; col < 128; col++) {
+        int b = frameBuffer[page * 128 + col] & 0xFF;
+        for (int bit = 0; bit < 8; bit++) {
+          boolean active = (b & (1 << bit)) != 0;
+          drawPixel(col, page * 8 + bit, active);
+        }
+      }
+    }
+    dirty = true;
+    FirmwareDisplay.get().notifyOledListener();
+  }
+
   public BufferedImage getImage() {
     return image;
   }

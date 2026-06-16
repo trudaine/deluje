@@ -36,6 +36,14 @@ public class SwingProjectSidebarPanel extends JPanel {
   private JTree libraryTree;
   private JButton changeDirButton;
 
+  // Remote Hardware SD Card Tree components
+  private DefaultMutableTreeNode hardwareRoot;
+  private DefaultMutableTreeNode songsNode;
+  private DefaultMutableTreeNode synthsNode;
+  private DefaultMutableTreeNode kitsNode;
+  private JTree hardwareTree;
+  private JTabbedPane tabbedPane;
+
   public SwingProjectSidebarPanel(
       ChuckVM vm, BridgeContract bridge, org.chuck.deluge.midi.MidiService midiService) {
     this.vm = vm;
@@ -70,9 +78,19 @@ public class SwingProjectSidebarPanel extends JPanel {
     header.add(changeDirButton, BorderLayout.EAST);
     add(header, BorderLayout.NORTH);
 
-    // Direct scrollable Library Tree JComponent
+    // Tabbed panel for Local vs Physical Hardware SD Card explorer
+    tabbedPane = new JTabbedPane();
+    tabbedPane.setBackground(new Color(0x18, 0x18, 0x1c));
+    tabbedPane.setForeground(Color.LIGHT_GRAY);
+    tabbedPane.setFont(new Font("SansSerif", Font.BOLD, 10));
+
     JComponent libraryPane = createLibraryTab();
-    add(libraryPane, BorderLayout.CENTER);
+    tabbedPane.addTab("📁 LOCAL", libraryPane);
+
+    JComponent hardwarePane = createHardwareTab();
+    tabbedPane.addTab("📡 HARDWARE", hardwarePane);
+
+    add(tabbedPane, BorderLayout.CENTER);
   }
 
   /** Opens a directory chooser and applies the new SD-card root (PreferencesManager library). */
@@ -374,5 +392,267 @@ public class SwingProjectSidebarPanel extends JPanel {
 
   public void updateFocusTrack(int trackId) {
     // Shield
+  }
+
+  // ── Remote Hardware SD Card Explorer ──
+
+  private JComponent createHardwareTab() {
+    JPanel panel = new JPanel(new BorderLayout());
+    panel.setBackground(new Color(0x12, 0x12, 0x14));
+
+    JPanel head = new JPanel(new BorderLayout());
+    head.setBackground(new Color(0x15, 0x15, 0x18));
+    head.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
+
+    JLabel title = new JLabel("PHYSICAL SD CARD");
+    title.setForeground(Color.LIGHT_GRAY);
+    title.setFont(new Font("SansSerif", Font.BOLD, 9));
+    head.add(title, BorderLayout.WEST);
+
+    JButton refreshBtn = new JButton("🔄 REFRESH");
+    refreshBtn.setFont(new Font("SansSerif", Font.BOLD, 9));
+    refreshBtn.setBackground(new Color(0x2a, 0x2a, 0x30));
+    refreshBtn.setForeground(new Color(0x00, 0xff, 0xcc));
+    refreshBtn.setFocusPainted(false);
+    refreshBtn.addActionListener(e -> refreshHardwareTree());
+    head.add(refreshBtn, BorderLayout.EAST);
+    panel.add(head, BorderLayout.NORTH);
+
+    hardwareRoot = new DefaultMutableTreeNode("DELUGE HW");
+    songsNode = new DefaultMutableTreeNode("SONGS");
+    synthsNode = new DefaultMutableTreeNode("SYNTHS");
+    kitsNode = new DefaultMutableTreeNode("KITS");
+    hardwareRoot.add(songsNode);
+    hardwareRoot.add(synthsNode);
+    hardwareRoot.add(kitsNode);
+
+    hardwareTree = new JTree(hardwareRoot);
+    hardwareTree.setBackground(new Color(0x12, 0x12, 0x14));
+    hardwareTree.setFont(new Font("SansSerif", Font.PLAIN, 10));
+    hardwareTree.setRowHeight(20);
+
+    DefaultTreeCellRenderer renderer = new DefaultTreeCellRenderer();
+    renderer.setFont(new Font("SansSerif", Font.PLAIN, 10));
+    renderer.setBackgroundNonSelectionColor(new Color(0x12, 0x12, 0x14));
+    renderer.setTextNonSelectionColor(Color.LIGHT_GRAY);
+    renderer.setTextSelectionColor(Color.WHITE);
+    renderer.setBackgroundSelectionColor(new Color(0x00, 0xff, 0xcc, 0x33));
+    hardwareTree.setCellRenderer(renderer);
+
+    hardwareTree.addMouseListener(
+        new java.awt.event.MouseAdapter() {
+          @Override
+          public void mousePressed(java.awt.event.MouseEvent e) {
+            if (e.getClickCount() == 2) {
+              javax.swing.tree.TreePath path = hardwareTree.getSelectionPath();
+              if (path != null) {
+                javax.swing.tree.DefaultMutableTreeNode node =
+                    (javax.swing.tree.DefaultMutableTreeNode) path.getLastPathComponent();
+                if (node.isLeaf()) {
+                  String name = node.getUserObject().toString();
+                  String category = path.getPathComponent(1).toString();
+                  downloadAndLoadRemoteFile(category, name);
+                }
+              }
+            }
+          }
+        });
+
+    JScrollPane scroll = new JScrollPane(hardwareTree);
+    scroll.setBorder(BorderFactory.createEmptyBorder());
+    panel.add(scroll, BorderLayout.CENTER);
+
+    return panel;
+  }
+
+  private void refreshHardwareTree() {
+    if (SwingDelugeApp.mainInstance == null) return;
+    var fileSync = SwingDelugeApp.mainInstance.getMidiService().getFileSyncService();
+
+    songsNode.removeAllChildren();
+    synthsNode.removeAllChildren();
+    kitsNode.removeAllChildren();
+    ((javax.swing.tree.DefaultTreeModel) hardwareTree.getModel()).reload();
+
+    fileSync.listSongs(
+        "/SONGS",
+        new org.chuck.deluge.midi.DelugeFileSyncService.FileListCallback() {
+          @Override
+          public void onSuccess(java.util.List<String> files) {
+            SwingUtilities.invokeLater(
+                () -> {
+                  for (String f : files) {
+                    songsNode.add(new DefaultMutableTreeNode(f));
+                  }
+                  ((javax.swing.tree.DefaultTreeModel) hardwareTree.getModel()).reload(songsNode);
+                });
+          }
+
+          @Override
+          public void onFailure(Throwable t) {
+            System.err.println("[Sidebar] Failed to fetch remote songs: " + t.getMessage());
+          }
+        });
+
+    fileSync.listSongs(
+        "/SYNTHS",
+        new org.chuck.deluge.midi.DelugeFileSyncService.FileListCallback() {
+          @Override
+          public void onSuccess(java.util.List<String> files) {
+            SwingUtilities.invokeLater(
+                () -> {
+                  for (String f : files) {
+                    synthsNode.add(new DefaultMutableTreeNode(f));
+                  }
+                  ((javax.swing.tree.DefaultTreeModel) hardwareTree.getModel()).reload(synthsNode);
+                });
+          }
+
+          @Override
+          public void onFailure(Throwable t) {
+            System.err.println("[Sidebar] Failed to fetch remote synths: " + t.getMessage());
+          }
+        });
+
+    fileSync.listSongs(
+        "/KITS",
+        new org.chuck.deluge.midi.DelugeFileSyncService.FileListCallback() {
+          @Override
+          public void onSuccess(java.util.List<String> files) {
+            SwingUtilities.invokeLater(
+                () -> {
+                  for (String f : files) {
+                    kitsNode.add(new DefaultMutableTreeNode(f));
+                  }
+                  ((javax.swing.tree.DefaultTreeModel) hardwareTree.getModel()).reload(kitsNode);
+                });
+          }
+
+          @Override
+          public void onFailure(Throwable t) {
+            System.err.println("[Sidebar] Failed to fetch remote kits: " + t.getMessage());
+          }
+        });
+  }
+
+  private void downloadAndLoadRemoteFile(String category, String name) {
+    if (SwingDelugeApp.mainInstance == null) return;
+    var fileSync = SwingDelugeApp.mainInstance.getMidiService().getFileSyncService();
+    String remotePath = "/" + category + "/" + name;
+
+    JDialog progress = new JDialog(SwingDelugeApp.mainInstance, "Downloading", true);
+    progress.setLayout(new BorderLayout());
+    JLabel statusLbl = new JLabel("Downloading " + name + " from Deluge...", SwingConstants.CENTER);
+    statusLbl.setBorder(BorderFactory.createEmptyBorder(16, 24, 16, 24));
+    statusLbl.setFont(new Font("SansSerif", Font.PLAIN, 11));
+    progress.add(statusLbl, BorderLayout.CENTER);
+    progress.setSize(300, 100);
+    progress.setLocationRelativeTo(SwingDelugeApp.mainInstance);
+
+    fileSync.downloadFileAsync(
+        remotePath,
+        new org.chuck.deluge.midi.DelugeFileSyncService.FileDownloadCallback() {
+          @Override
+          public void onSuccess(byte[] content) {
+            SwingUtilities.invokeLater(
+                () -> {
+                  progress.dispose();
+                  try (java.io.ByteArrayInputStream bis =
+                      new java.io.ByteArrayInputStream(content)) {
+                    if ("SONGS".equals(category)) {
+                      org.chuck.deluge.model.ProjectModel loadedProject =
+                          DelugeXmlParser.parseSong(bis, name);
+                      java.io.File libraryDir = PreferencesManager.getLibraryDir();
+                      java.util.ArrayList<String> missingFiles = new java.util.ArrayList<>();
+                      int engineRow = 0;
+                      for (org.chuck.deluge.model.TrackModel track : loadedProject.getTracks()) {
+                        if (engineRow >= BridgeContract.TRACKS) break;
+                        if (track instanceof org.chuck.deluge.model.KitTrackModel kit) {
+                          java.util.List<org.chuck.deluge.model.Drum> sounds = kit.getDrums();
+                          for (int i = 0; i < sounds.size(); i++) {
+                            String sp =
+                                ((org.chuck.deluge.model.SoundDrum) sounds.get(i)).getSamplePath();
+                            if (sp != null && !sp.isEmpty()) {
+                              java.io.File sf = new java.io.File(sp);
+                              if (!sf.exists() && libraryDir != null) {
+                                sf = new java.io.File(libraryDir, sp);
+                              }
+                              if (!sf.exists()) {
+                                missingFiles.add(sp);
+                              }
+                            }
+                            vm.setGlobalString("g_sample_" + (engineRow + i), sp != null ? sp : "");
+                            bridge.setMute(engineRow + i, false);
+                            bridge.setTrackType(engineRow + i, 0);
+                          }
+                        }
+                        engineRow++;
+                      }
+                      if (onSongLoaded != null) {
+                        onSongLoaded.accept(loadedProject);
+                      }
+                    } else if ("SYNTHS".equals(category)) {
+                      org.chuck.deluge.model.SynthTrackModel synth =
+                          DelugeXmlParser.parseSynth(bis, name);
+                      if (onTrackAdded != null) {
+                        onTrackAdded.accept(synth);
+                      } else {
+                        org.chuck.deluge.model.ProjectModel mockProj =
+                            new org.chuck.deluge.model.ProjectModel();
+                        mockProj.addTrack(synth);
+                        if (onSongLoaded != null) {
+                          onSongLoaded.accept(mockProj);
+                        }
+                      }
+                      vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+                    } else if ("KITS".equals(category)) {
+                      org.chuck.deluge.model.KitTrackModel kit =
+                          DelugeXmlParser.parseKit(bis, name);
+                      int baseTrack = 0;
+                      java.util.List<org.chuck.deluge.model.Drum> sounds = kit.getDrums();
+                      for (int i = 0; i < sounds.size(); i++) {
+                        String sp =
+                            ((org.chuck.deluge.model.SoundDrum) sounds.get(i)).getSamplePath();
+                        vm.setGlobalString("g_sample_" + (baseTrack + i), sp != null ? sp : "");
+                        bridge.setSamplePath(baseTrack + i, sp != null ? sp : "");
+                        bridge.setMute(baseTrack + i, false);
+                      }
+                      if (onTrackAdded != null) {
+                        onTrackAdded.accept(kit);
+                      } else {
+                        org.chuck.deluge.model.ProjectModel mockProj =
+                            new org.chuck.deluge.model.ProjectModel();
+                        mockProj.addTrack(kit);
+                        if (onSongLoaded != null) {
+                          onSongLoaded.accept(mockProj);
+                        }
+                      }
+                      vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+                    }
+                  } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(
+                        SwingDelugeApp.mainInstance,
+                        "Failed to load/parse remote file:\n" + ex.getMessage(),
+                        "Error",
+                        JOptionPane.ERROR_MESSAGE);
+                  }
+                });
+          }
+
+          @Override
+          public void onFailure(Throwable t) {
+            SwingUtilities.invokeLater(
+                () -> {
+                  progress.dispose();
+                  JOptionPane.showMessageDialog(
+                      SwingDelugeApp.mainInstance,
+                      "Failed to download remote file:\n" + t.getMessage(),
+                      "Error",
+                      JOptionPane.ERROR_MESSAGE);
+                });
+          }
+        });
+
+    progress.setVisible(true);
   }
 }
