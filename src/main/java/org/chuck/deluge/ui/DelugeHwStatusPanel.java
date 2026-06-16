@@ -58,6 +58,17 @@ public class DelugeHwStatusPanel extends JPanel {
     Timer heartbeatTimer = new Timer(4000, e -> triggerPingTest());
     heartbeatTimer.start();
 
+    // Start a recurring background OLED keep-alive timer (every 1.5 seconds)
+    Timer oledKeepAliveTimer =
+        new Timer(
+            1500,
+            e -> {
+              if (connected) {
+                midiService.getSysExManager().startOledStreaming();
+              }
+            });
+    oledKeepAliveTimer.start();
+
     // Trigger initial check immediately
     triggerPingTest();
   }
