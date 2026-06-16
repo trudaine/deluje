@@ -57,6 +57,17 @@ public class DelugeSysExManager {
    * @param callback Optional callback invoked when the reply is received
    */
   public void sendRequest(String jsonPayload, SysExCallback callback) {
+    sendRequest(jsonPayload, null, callback);
+  }
+
+  /**
+   * Sends a JSON request to the physical Deluge with an optional binary payload.
+   *
+   * @param jsonPayload The JSON request string
+   * @param binaryPayload Optional packed 7-bit binary payload (e.g. for write blocks)
+   * @param callback Optional callback invoked when the reply is received
+   */
+  public void sendRequest(String jsonPayload, byte[] binaryPayload, SysExCallback callback) {
     if (activeMidiOut == null) {
       System.err.println("[SysExManager] Cannot send request: No MidiOut configured.");
       return;
@@ -68,13 +79,22 @@ public class DelugeSysExManager {
     }
 
     byte[] jsonBytes = jsonPayload.getBytes(StandardCharsets.US_ASCII);
-    byte[] packet = new byte[5 + 1 + 1 + jsonBytes.length + 1];
+    int binLen = binaryPayload != null ? binaryPayload.length : 0;
+    int totalLen = 5 + 1 + 1 + jsonBytes.length + (binLen > 0 ? (1 + binLen) : 0) + 1;
+    byte[] packet = new byte[totalLen];
 
     packet[0] = SYSEX_START;
     System.arraycopy(DELUGE_HEADER, 0, packet, 1, 4);
     packet[5] = CMD_JSON_REQUEST;
     packet[6] = (byte) seq;
     System.arraycopy(jsonBytes, 0, packet, 7, jsonBytes.length);
+
+    if (binLen > 0) {
+      int spacerIdx = 7 + jsonBytes.length;
+      packet[spacerIdx] = 0; // spacer
+      System.arraycopy(binaryPayload, 0, packet, spacerIdx + 1, binLen);
+    }
+
     packet[packet.length - 1] = SYSEX_END;
 
     org.chuck.midi.MidiMsg msg = new org.chuck.midi.MidiMsg();
