@@ -77,9 +77,6 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
   // ── Ported High-Fidelity Logic ──
   public final int[] monophonicExpressionValues = new int[3]; // X, Y, Z
 
-
-
-
   // C: firmware2 Arpeggiator — faithful port of modulation/arpeggiator.cpp.
   public final org.chuck.deluge.firmware2.Arpeggiator.Synth arpeggiator = fw2Sound.arpeggiator;
   public final org.chuck.deluge.firmware2.Arpeggiator.Settings arpSettings = fw2Sound.arpSettings;
@@ -331,7 +328,6 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
       }
     }
 
-
     int[] nextGlobalSourceValues = new int[3];
     System.arraycopy(globalSourceValues, 0, nextGlobalSourceValues, 0, 3);
     fw2Sound.globalSourceValues = nextGlobalSourceValues;
@@ -566,9 +562,6 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
   public int osc2RetriggerPhase = -1;
   public int mod1RetrigPhase = -1;
   public int mod2RetrigPhase = -1;
-
-
-
 
   public float fmRatio1 = 1.0f;
   public float fmRatio2 = 1.0f;

@@ -521,7 +521,8 @@ public class FirmwareFactory {
     // *2^31 here overflowed and fed garbage spread values into the unison pan setup).
     sound.fw2Sound.numUnison = Math.max(0, Math.min(8, model.getUnisonNum()));
     sound.fw2Sound.unisonDetune = Math.max(0, Math.min(50, (int) model.getUnisonDetune()));
-    sound.fw2Sound.unisonStereoSpread = Math.max(0, Math.min(50, (int) model.getUnisonStereoSpread()));
+    sound.fw2Sound.unisonStereoSpread =
+        Math.max(0, Math.min(50, (int) model.getUnisonStereoSpread()));
 
     // Sidechain settings
     int sidechainAttackVal =
@@ -1173,7 +1174,8 @@ public class FirmwareFactory {
 
     // Per-drum modulation FX
     drumSound.fw2Sound.modFXType = stringToModFXType(sd.getModFxType());
-    drumSound.fw2Sound.modFXRateIncrement = (int) ((double) sd.getModFxRate() * 4294967296.0 / 44100.0);
+    drumSound.fw2Sound.modFXRateIncrement =
+        (int) ((double) sd.getModFxRate() * 4294967296.0 / 44100.0);
     drumSound.fw2Sound.modFXDepth = (int) (clamp01(sd.getModFxDepth()) * 2147483647.0);
     drumSound.fw2Sound.modFXOffset = (int) (clamp01(sd.getModFxOffset()) * 2147483647.0);
     drumSound.fw2Sound.modFXFeedback = (int) (clamp01(sd.getModFxFeedback()) * 2147483647.0);
@@ -1231,7 +1233,8 @@ public class FirmwareFactory {
 
     // Polyphony / unison
     drumSound.fw2Sound.polyphonic =
-        org.chuck.deluge.firmware2.Sound.PolyphonyMode.valueOf(toPolyphonyMode(sd.getPolyphony()).name());
+        org.chuck.deluge.firmware2.Sound.PolyphonyMode.valueOf(
+            toPolyphonyMode(sd.getPolyphony()).name());
     drumSound.fw2Sound.numUnison = sd.getUnisonNum();
     drumSound.fw2Sound.unisonDetune = (int) sd.getUnisonDetune();
     drumSound.fw2Sound.unisonStereoSpread = (int) sd.getUnisonStereoSpread();
