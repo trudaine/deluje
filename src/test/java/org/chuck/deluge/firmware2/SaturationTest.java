@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.chuck.deluge.firmware.engine.FirmwareAudioEngine;
 import org.chuck.deluge.firmware.engine.FirmwareSound;
-import org.chuck.deluge.firmware2.Param;
 import org.chuck.deluge.firmware2.Oscillator.OscType;
 import org.junit.jupiter.api.Test;
 

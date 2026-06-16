@@ -457,6 +457,9 @@ public class SwingSynthConfigDialog extends JDialog {
     rightPanel.add(sectionLabel("FILTER (LPF)"), rc);
     rightRow++;
 
+    // Create the filter graph component first so it can be referenced in control callbacks
+    FilterGraphComponent filterGraph = new FilterGraphComponent(model, bridge, trackIndex);
+
     rightRow =
         addSlider(
             rightPanel,
@@ -467,7 +470,10 @@ public class SwingSynthConfigDialog extends JDialog {
             0,
             100,
             (int) (bridge.getTrackFilterFreq(trackIndex) * 100),
-            val -> bridge.setFilterFreq(trackIndex, val / 100.0),
+            val -> {
+              bridge.setFilterFreq(trackIndex, val / 100.0);
+              filterGraph.repaint();
+            },
             "%",
             "lpfCutoff",
             projectModel,
@@ -483,7 +489,10 @@ public class SwingSynthConfigDialog extends JDialog {
             0,
             100,
             (int) (bridge.getTrackFilterRes(trackIndex) * 100),
-            val -> bridge.setFilterRes(trackIndex, val / 100.0),
+            val -> {
+              bridge.setFilterRes(trackIndex, val / 100.0);
+              filterGraph.repaint();
+            },
             "%",
             "lpfResonance",
             projectModel,
@@ -502,6 +511,7 @@ public class SwingSynthConfigDialog extends JDialog {
             val -> {
               model.setFilterDrive(val / 100.0f);
               bridge.setFilterDrive(trackIndex, val / 100.0f);
+              filterGraph.repaint();
             },
             "%",
             "filterDrive",
@@ -542,6 +552,7 @@ public class SwingSynthConfigDialog extends JDialog {
         e -> {
           model.setFilterNotch(notchBox.isSelected());
           bridge.setFilterNotch(trackIndex, notchBox.isSelected() ? 1 : 0);
+          filterGraph.repaint();
         });
     filterModeToggle.onChange(
         idx -> {
@@ -560,6 +571,7 @@ public class SwingSynthConfigDialog extends JDialog {
           }
           model.setFilterMode(fm);
           bridge.setFilterMode(trackIndex, fm.ordinal());
+          filterGraph.repaint();
         });
     rightPanel.add(notchBox, rc);
     rightRow++;
@@ -583,9 +595,32 @@ public class SwingSynthConfigDialog extends JDialog {
           int route = routeCombo.getSelectedIndex();
           model.setFilterRoute(route);
           bridge.setFilterRoute(trackIndex, route);
+          filterGraph.repaint();
         });
     rightPanel.add(routeCombo, rc);
     rightRow++;
+
+    // Beautiful titled wrapper for the LPF Filter visualizer
+    JPanel filterGraphWrapper = new JPanel(new BorderLayout());
+    filterGraphWrapper.setBackground(BG_CARD);
+    filterGraphWrapper.setBorder(
+        BorderFactory.createTitledBorder(
+            BorderFactory.createLineBorder(new Color(0x2d, 0x2d, 0x32), 1, true),
+            "Filter Curve",
+            javax.swing.border.TitledBorder.LEFT,
+            javax.swing.border.TitledBorder.TOP,
+            new Font("SansSerif", Font.BOLD, 11),
+            Color.LIGHT_GRAY));
+    filterGraphWrapper.add(filterGraph, BorderLayout.CENTER);
+
+    rc.gridx = 0;
+    rc.gridy = rightRow;
+    rc.gridwidth = 3;
+    rc.insets = new Insets(8, 10, 12, 10);
+    rightPanel.add(filterGraphWrapper, rc);
+    rightRow++;
+    // Restore default gridbag insets
+    rc.insets = new Insets(6, 10, 6, 10);
 
     // ── FM ──
     rc.gridx = 0;

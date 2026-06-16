@@ -1,11 +1,10 @@
 package org.chuck.deluge.firmware.modulation.params;
 
-import org.chuck.deluge.firmware2.Param;
-
 import java.util.ArrayList;
 import java.util.List;
 import org.chuck.deluge.firmware.modulation.automation.AutoParam;
 import org.chuck.deluge.firmware.modulation.patch.PatchCableSet;
+import org.chuck.deluge.firmware2.Param;
 
 public class ParamManager {
   public List<AutoParam> automatedParams = new ArrayList<>();

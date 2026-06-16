@@ -12,9 +12,13 @@ import org.chuck.deluge.firmware2.StereoSample;
 /** Pure Java audio driver using javax.sound.sampled. */
 public class JavaAudioDriver implements Runnable {
   public static volatile boolean isResamplingActive = false;
-  /** Capture-only: render + resample without opening/writing the soundcard. Tests set this true so
-   *  the suite is silent. Defaults from the {@code deluge.audio.silent} system property. */
+
+  /**
+   * Capture-only: render + resample without opening/writing the soundcard. Tests set this true so
+   * the suite is silent. Defaults from the {@code deluge.audio.silent} system property.
+   */
   public static volatile boolean silentMode = Boolean.getBoolean("deluge.audio.silent");
+
   private static final ByteArrayOutputStream recordedBytes = new ByteArrayOutputStream();
 
   public static void startResampling() {
@@ -183,7 +187,8 @@ public class JavaAudioDriver implements Runnable {
           int absL = Math.abs(s.l);
           if (absL > peak) peak = absL;
 
-          // Clean desktop monitor: linear makeup gain to 16-bit + brickwall safety clamp. The engine
+          // Clean desktop monitor: linear makeup gain to 16-bit + brickwall safety clamp. The
+          // engine
           // masterBuffer is already the fully-mastered Deluge output (faithful master compressor +
           // its own saturation), so we must NOT add a second soft-clip here — the old
           // getTanHUnknown<<2 was an invented stage that flattened dynamics. The master compressor

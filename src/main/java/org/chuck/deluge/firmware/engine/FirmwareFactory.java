@@ -10,12 +10,12 @@ import org.chuck.deluge.firmware.model.Song;
 import org.chuck.deluge.firmware.model.note.Note;
 import org.chuck.deluge.firmware.model.note.NoteRow;
 import org.chuck.deluge.firmware.model.sample.Sample;
-import org.chuck.deluge.firmware2.Param;
 import org.chuck.deluge.firmware.modulation.patch.PatchCable;
 import org.chuck.deluge.firmware.modulation.patch.PatchSource;
 import org.chuck.deluge.firmware.storage.audio.AudioFileReader;
 import org.chuck.deluge.firmware.util.FirmwareUtils;
 import org.chuck.deluge.firmware2.Oscillator.OscType;
+import org.chuck.deluge.firmware2.Param;
 import org.chuck.deluge.firmware2.WaveTable;
 import org.chuck.deluge.firmware2.WaveTableReader;
 import org.chuck.deluge.model.ClipModel;
@@ -282,9 +282,11 @@ public class FirmwareFactory {
 
   private static void mapModelToSound(SynthTrackModel model, FirmwareSound sound) {
     // Per-sound voice cap (C: sound.h:116, default 8). The model clamps to [1,16] and reads the
-    // XML "maxVoices" attribute; propagate it so dense playing steals voices instead of stacking 64.
+    // XML "maxVoices" attribute; propagate it so dense playing steals voices instead of stacking
+    // 64.
     sound.maxPolyphony = model.getMaxVoiceCount();
-    sound.voicePriority = model.getVoicePriority(); // voice-stealing priority (was stuck at default)
+    sound.voicePriority =
+        model.getVoicePriority(); // voice-stealing priority (was stuck at default)
     // Idempotent: clear the cable set so live re-applies don't duplicate cables (they are
     // re-added from the model at the end of this method).
     sound.paramManager.getPatchCableSet().destinations.clear();
@@ -527,9 +529,7 @@ public class FirmwareFactory {
     sound.sidechain.release = sidechainReleaseVal;
     sound.sidechain.syncLevel = Math.max(0, Math.min(model.getSidechainSyncLevel(), 8));
     sound.sidechain.syncType = Math.max(0, Math.min(model.getSidechainSyncType(), 2));
-    sound
-            .paramNeutralValues[
-            org.chuck.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_SHAPE] =
+    sound.paramNeutralValues[org.chuck.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_SHAPE] =
         0; // default shape
     try {
       sound.polyphonic =
@@ -1152,8 +1152,10 @@ public class FirmwareFactory {
     drumSound.paramManager.automatedParams.clear();
     drumSound.paramManager.getPatchCableSet().destinations.clear();
 
-    drumSound.maxPolyphony = sd.getMaxVoiceCount(); // C: sound.h:116 (per-drum voice cap, default 8)
-    drumSound.voicePriority = sd.getVoicePriority(); // voice-stealing priority (was stuck at default)
+    drumSound.maxPolyphony =
+        sd.getMaxVoiceCount(); // C: sound.h:116 (per-drum voice cap, default 8)
+    drumSound.voicePriority =
+        sd.getVoicePriority(); // voice-stealing priority (was stuck at default)
     drumSound.isDrum = true;
     drumSound.oscTypes[0] = OscType.SAMPLE;
     drumSound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = org.chuck.deluge.firmware.util.Q31.ONE;

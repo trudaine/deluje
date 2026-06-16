@@ -706,7 +706,6 @@ public class SwingGridPanel extends JPanel {
     refresh();
   }
 
-
   /** Blend a base color with black proportionally to velocity (0.0 = black, 1.0 = full color). */
   private static Color velocityBlend(Color base, double velocity) {
     if (velocity >= 1.0) return base;

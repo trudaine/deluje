@@ -552,8 +552,7 @@ public final class Functions {
 
   // ── Noise / tanH / misc ──
 
-  private static final ThreadLocal<Integer> jcong =
-      ThreadLocal.withInitial(() -> 380116160);
+  private static final ThreadLocal<Integer> jcong = ThreadLocal.withInitial(() -> 380116160);
 
   public static void resetNoiseSeed() {
     jcong.set(380116160);

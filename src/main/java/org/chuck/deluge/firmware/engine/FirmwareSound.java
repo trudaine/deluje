@@ -1,10 +1,10 @@
 package org.chuck.deluge.firmware.engine;
 
 import org.chuck.deluge.firmware.model.PolyphonyMode;
-import org.chuck.deluge.firmware2.Param;
 import org.chuck.deluge.firmware.modulation.patch.Destination;
 import org.chuck.deluge.firmware.modulation.patch.PatchCable;
 import org.chuck.deluge.firmware.modulation.patch.PatchSource;
+import org.chuck.deluge.firmware2.Param;
 import org.chuck.deluge.firmware2.Sidechain;
 import org.chuck.deluge.firmware2.StereoSample;
 import org.chuck.deluge.model.tuning.ScalaScale;
