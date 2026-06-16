@@ -32,8 +32,8 @@ class WavetableOscTest {
 
   private FirmwareSound makeWavetableSound(WaveTable wt, float waveIndex) {
     FirmwareSound s = new FirmwareSound();
-    s.lpfMode = org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF;
-    s.hpfMode = org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF;
+    s.fw2Sound.lpfMode = org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF;
+    s.fw2Sound.hpfMode = org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF;
     s.oscTypes[0] = OscType.WAVETABLE;
     s.oscTypes[1] = OscType.SINE; // Osc B is quiet
     s.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;

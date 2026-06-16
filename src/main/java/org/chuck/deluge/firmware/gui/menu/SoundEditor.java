@@ -76,7 +76,7 @@ public class SoundEditor {
     lpf.addItem(
         new IntegerRangeMenuItem(
             "LPF MODE",
-            lpfModeToIndex(sound.lpfMode),
+            lpfModeToIndex(sound.fw2Sound.lpfMode),
             0,
             4,
             (v) -> {
@@ -87,7 +87,7 @@ public class SoundEditor {
               return "SVF NOTCH";
             },
             (v) -> {
-              sound.lpfMode = indexToLpfMode(v);
+              sound.fw2Sound.lpfMode = indexToLpfMode(v);
             }));
     filter.addItem(lpf);
 
@@ -123,7 +123,7 @@ public class SoundEditor {
     hpf.addItem(
         new IntegerRangeMenuItem(
             "HPF MODE",
-            hpfModeToIndex(sound.hpfMode),
+            hpfModeToIndex(sound.fw2Sound.hpfMode),
             0,
             3,
             (v) -> {
@@ -133,7 +133,7 @@ public class SoundEditor {
               return "SVF NOTCH";
             },
             (v) -> {
-              sound.hpfMode = indexToHpfMode(v);
+              sound.fw2Sound.hpfMode = indexToHpfMode(v);
             }));
     filter.addItem(hpf);
 
@@ -141,7 +141,7 @@ public class SoundEditor {
     filter.addItem(
         new IntegerRangeMenuItem(
             "ROUTING",
-            routeToCode(sound.filterRoute),
+            routeToCode(sound.getFilterRoute()),
             0,
             2,
             (v) -> {

@@ -18,8 +18,8 @@ class OscSyncRetrigPhaseTest {
     FirmwareSound s = new FirmwareSound();
     // Filters OFF: the 24dB ladder adds per-sample cutoff noise (lpladder.cpp:348), which breaks
     // sample-exact determinism and dulls the saws this test measures.
-    s.lpfMode = org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF;
-    s.hpfMode = org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF;
+    s.fw2Sound.lpfMode = org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF;
+    s.fw2Sound.hpfMode = org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF;
     s.oscTypes[0] = OscType.SAW;
     s.oscTypes[1] = OscType.SAW;
     s.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
