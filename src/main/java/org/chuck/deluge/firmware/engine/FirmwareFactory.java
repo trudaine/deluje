@@ -43,8 +43,12 @@ public class FirmwareFactory {
 
   static {
     // Sources (model → firmware PatchSource)
-    SOURCE_MAP.put("LFO1", PatchSource.LFO_LOCAL_1);
-    SOURCE_MAP.put("LFO2", PatchSource.LFO_LOCAL_2);
+    // C sourceToString (functions.cpp:268-280): lfo1=GLOBAL_1, lfo2=LOCAL_1, lfo3=GLOBAL_2,
+    // lfo4=LOCAL_2.
+    SOURCE_MAP.put("LFO1", PatchSource.LFO_GLOBAL_1);
+    SOURCE_MAP.put("LFO2", PatchSource.LFO_LOCAL_1);
+    SOURCE_MAP.put("LFO3", PatchSource.LFO_GLOBAL_2);
+    SOURCE_MAP.put("LFO4", PatchSource.LFO_LOCAL_2);
     SOURCE_MAP.put("LFO_GLOBAL_1", PatchSource.LFO_GLOBAL_1);
     SOURCE_MAP.put("LFO_GLOBAL_2", PatchSource.LFO_GLOBAL_2);
     SOURCE_MAP.put("ENVELOPE_0", PatchSource.ENVELOPE_0);
@@ -721,10 +725,13 @@ public class FirmwareFactory {
   public static PatchSource stringToPatchSource(String str) {
     if (str == null) return PatchSource.NONE;
     String clean = str.trim().toUpperCase().replace("_", "").replace(" ", "");
-    if (clean.equals("LFO1") || clean.equals("LFOLOCAL1")) return PatchSource.LFO_LOCAL_1;
-    if (clean.equals("LFO2") || clean.equals("LFOLOCAL2")) return PatchSource.LFO_LOCAL_2;
-    if (clean.equals("LFOGLOBAL1")) return PatchSource.LFO_GLOBAL_1;
-    if (clean.equals("LFOGLOBAL2")) return PatchSource.LFO_GLOBAL_2;
+    // C (functions.cpp:268-280 sourceToString): lfo1=GLOBAL_1, lfo2=LOCAL_1, lfo3=GLOBAL_2,
+    // lfo4=LOCAL_2. (Was mapping lfo1/lfo2 to the LOCAL sources, which sent e.g. an lfo1→pitch
+    // vibrato through the wrong, default-SINE local LFO instead of the configured global one.)
+    if (clean.equals("LFO1") || clean.equals("LFOGLOBAL1")) return PatchSource.LFO_GLOBAL_1;
+    if (clean.equals("LFO2") || clean.equals("LFOLOCAL1")) return PatchSource.LFO_LOCAL_1;
+    if (clean.equals("LFO3") || clean.equals("LFOGLOBAL2")) return PatchSource.LFO_GLOBAL_2;
+    if (clean.equals("LFO4") || clean.equals("LFOLOCAL2")) return PatchSource.LFO_LOCAL_2;
     if (clean.equals("ENVELOPE1") || clean.equals("ENV1")) return PatchSource.ENVELOPE_0;
     if (clean.equals("ENVELOPE2") || clean.equals("ENV2")) return PatchSource.ENVELOPE_1;
     if (clean.equals("ENVELOPE3") || clean.equals("ENV3")) return PatchSource.ENVELOPE_2;
