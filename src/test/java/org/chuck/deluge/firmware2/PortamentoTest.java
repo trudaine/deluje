@@ -22,7 +22,7 @@ class PortamentoTest {
     s.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
     s.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
     s.paramNeutralValues[Param.LOCAL_VOLUME] = 134217728;
-    s.portamentoKnob = portaKnob;
+    s.fw2Sound.portamentoKnob = portaKnob;
     s.osc1RetriggerPhase = 0;
     s.osc2RetriggerPhase = 0;
     return s;

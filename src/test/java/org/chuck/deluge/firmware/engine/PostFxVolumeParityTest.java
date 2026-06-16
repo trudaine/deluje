@@ -107,8 +107,8 @@ public class PostFxVolumeParityTest {
   public void granularReducesFinalOutputViaPostFxVolume() {
     FirmwareSound internal = buildSynth();
     FirmwareSound finalOutput = buildSynth();
-    internal.modFXType = ModFXType.GRAIN;
-    finalOutput.modFXType = ModFXType.GRAIN;
+    internal.fw2Sound.modFXType = ModFXType.GRAIN;
+    finalOutput.fw2Sound.modFXType = ModFXType.GRAIN;
     internal.modFXRateIncrement = 16777216;
     finalOutput.modFXRateIncrement = 16777216;
     internal.modFXDepth = 0x30000000;

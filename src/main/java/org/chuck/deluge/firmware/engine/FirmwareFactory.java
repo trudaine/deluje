@@ -413,7 +413,7 @@ public class FirmwareFactory {
     sound.delayAnalog = model.isDelayAnalog();
 
     // Mod FX static configuration
-    sound.modFXType = stringToModFXType(model.getModFxType());
+    sound.fw2Sound.modFXType = stringToModFXType(model.getModFxType());
 
     // Compressor static configuration
     sound.fw2Sound.compressor.setup(
@@ -438,7 +438,7 @@ public class FirmwareFactory {
     sound.osc2RetriggerPhase = model.getOsc2RetrigPhase();
     sound.mod1RetrigPhase = model.getMod1RetrigPhase();
     sound.mod2RetrigPhase = model.getMod2RetrigPhase();
-    sound.oscillatorSync = model.isOscillatorSync();
+    sound.fw2Sound.oscillatorSync = model.isOscillatorSync();
 
     // Wave Index parameters (mapped to unipolar Q31)
     int waveIndexQ31 = (int) Math.round((double) clamp01(model.getWaveIndex()) * 2147483647.0);
@@ -449,10 +449,10 @@ public class FirmwareFactory {
     sound.paramNeutralValues[Param.LOCAL_FOLD] = model.getWaveFoldQ31();
 
     // Saturation/clipping amount (C clippingAmount; 0 = off).
-    sound.clippingAmount = model.getClippingAmount();
+    sound.fw2Sound.clippingAmount = model.getClippingAmount();
 
     // Portamento knob (C UNPATCHED_PORTAMENTO, raw Q31; INT_MIN = off).
-    sound.portamentoKnob = model.getPortamentoQ31();
+    sound.fw2Sound.portamentoKnob = model.getPortamentoQ31();
 
     // Envelopes
     for (int i = 0; i < 4; i++) {
@@ -519,9 +519,9 @@ public class FirmwareFactory {
     // C sound.cpp:616-626: numUnison clamped 0..kMaxNumVoicesUnison(8), detune 0..50, spread
     // 0..50 — all USER units (fw2 setupUnisonStereoSpread scales by 42949672 itself; the previous
     // *2^31 here overflowed and fed garbage spread values into the unison pan setup).
-    sound.numUnison = Math.max(0, Math.min(8, model.getUnisonNum()));
-    sound.unisonDetune = Math.max(0, Math.min(50, (int) model.getUnisonDetune()));
-    sound.unisonStereoSpread = Math.max(0, Math.min(50, (int) model.getUnisonStereoSpread()));
+    sound.fw2Sound.numUnison = Math.max(0, Math.min(8, model.getUnisonNum()));
+    sound.fw2Sound.unisonDetune = Math.max(0, Math.min(50, (int) model.getUnisonDetune()));
+    sound.fw2Sound.unisonStereoSpread = Math.max(0, Math.min(50, (int) model.getUnisonStereoSpread()));
 
     // Sidechain settings
     int sidechainAttackVal =
@@ -1169,10 +1169,10 @@ public class FirmwareFactory {
     drumSound.osc2RetriggerPhase = sd.getOsc2RetrigPhase();
     drumSound.mod1RetrigPhase = sd.getMod1RetrigPhase();
     drumSound.mod2RetrigPhase = sd.getMod2RetrigPhase();
-    drumSound.sidechainSend = (int) (sd.getSidechainSend() * 2147483647.0);
+    drumSound.fw2Sound.sidechainSend = (int) (sd.getSidechainSend() * 2147483647.0);
 
     // Per-drum modulation FX
-    drumSound.modFXType = stringToModFXType(sd.getModFxType());
+    drumSound.fw2Sound.modFXType = stringToModFXType(sd.getModFxType());
     drumSound.modFXRateIncrement = (int) ((double) sd.getModFxRate() * 4294967296.0 / 44100.0);
     drumSound.modFXDepth = (int) (clamp01(sd.getModFxDepth()) * 2147483647.0);
     drumSound.modFXOffset = (int) (clamp01(sd.getModFxOffset()) * 2147483647.0);
@@ -1231,9 +1231,9 @@ public class FirmwareFactory {
 
     // Polyphony / unison
     drumSound.polyphonic = toPolyphonyMode(sd.getPolyphony());
-    drumSound.numUnison = sd.getUnisonNum();
-    drumSound.unisonDetune = (int) sd.getUnisonDetune();
-    drumSound.unisonStereoSpread = (int) sd.getUnisonStereoSpread();
+    drumSound.fw2Sound.numUnison = sd.getUnisonNum();
+    drumSound.fw2Sound.unisonDetune = (int) sd.getUnisonDetune();
+    drumSound.fw2Sound.unisonStereoSpread = (int) sd.getUnisonStereoSpread();
 
     // Map step automation
     if (model != null && !model.getClips().isEmpty()) {

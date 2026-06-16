@@ -26,7 +26,7 @@ class OscSyncRetrigPhaseTest {
     s.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MAX_VALUE;
     s.paramNeutralValues[Param.LOCAL_VOLUME] = 134217728;
     s.paramNeutralValues[Param.LOCAL_OSC_B_PITCH_ADJUST] = oscBTransposeUp * 100 * 178956;
-    s.oscillatorSync = sync;
+    s.fw2Sound.oscillatorSync = sync;
     s.osc1RetriggerPhase = retrigA;
     s.osc2RetriggerPhase = retrigB;
     return s;

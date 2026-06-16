@@ -16,7 +16,7 @@ public class ModFxParityTest {
 
   private static double[] render(ModFXType type, int total) {
     FirmwareSound sound = new FirmwareSound();
-    sound.modFXType = type;
+    sound.fw2Sound.modFXType = type;
     if (type != ModFXType.NONE) {
       sound.modFXRateIncrement = (int) (2.0 * 4294967296.0 / 44100.0); // 2 Hz LFO
       sound.modFXDepth = (int) (0.8 * 2147483647.0);
