@@ -78,4 +78,87 @@ public class DelugeMidiPacker {
     }
     return dst;
   }
+
+  /**
+   * Unpack a Run-Length Encoded (RLE) 7-bit SysEx-safe byte array back into a standard 8-bit byte
+   * array. Translated directly from the native Deluge C++ firmware's unpack_7to8_rle.
+   */
+  public static byte[] unpack7to8Rle(byte[] src, int expectedDstSize) {
+    if (src == null) return new byte[0];
+    byte[] dst = new byte[expectedDstSize];
+    int d = 0;
+    int s = 0;
+    int srcLen = src.length;
+
+    while (s < srcLen) {
+      if (s + 1 > srcLen) {
+        break;
+      }
+      int first = src[s++] & 0xFF;
+      if (first < 64) {
+        int size = 0;
+        int off = 0;
+        if (first < 4) {
+          size = 2;
+          off = 0;
+        } else if (first < 12) {
+          size = 3;
+          off = 4;
+        } else if (first < 28) {
+          size = 4;
+          off = 12;
+        } else if (first < 60) {
+          size = 5;
+          off = 28;
+        } else {
+          break;
+        }
+
+        if (size > srcLen - s) {
+          break;
+        }
+        if (size > expectedDstSize - d) {
+          break;
+        }
+        int highbits = first - off;
+        for (int j = 0; j < size; j++) {
+          dst[d + j] = (byte) (src[s + j] & 0x7F);
+          if ((highbits & (1 << j)) != 0) {
+            dst[d + j] |= (byte) 0x80;
+          }
+        }
+        d += size;
+        s += size;
+      } else {
+        // RLE run
+        first = first - 64;
+        int high = first & 1;
+        int runlen = first >> 1;
+        if (runlen == 31) {
+          if (s >= srcLen) {
+            break;
+          }
+          runlen = 31 + (src[s++] & 0xFF);
+        }
+        if (s >= srcLen) {
+          break;
+        }
+        int val = (src[s++] & 0xFF) + 128 * high;
+        if (runlen > expectedDstSize - d) {
+          break;
+        }
+        for (int j = 0; j < runlen; j++) {
+          dst[d + j] = (byte) val;
+        }
+        d += runlen;
+      }
+    }
+
+    if (d < expectedDstSize) {
+      byte[] trimmed = new byte[d];
+      System.arraycopy(dst, 0, trimmed, 0, d);
+      return trimmed;
+    }
+    return dst;
+  }
 }

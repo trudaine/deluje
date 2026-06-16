@@ -204,21 +204,29 @@ public class DelugeSysExManager {
           if (packedLen > 0) {
             byte[] packed = new byte[packedLen];
             System.arraycopy(data, 9, packed, 0, packedLen);
-            byte[] unpacked = DelugeMidiPacker.unpack7to8(packed);
+            byte[] unpacked;
+            if (rleType == 0x01) {
+              unpacked = DelugeMidiPacker.unpack7to8Rle(packed, 768);
+            } else {
+              unpacked = DelugeMidiPacker.unpack7to8(packed);
+            }
 
             // Draw into local oled frame buffer
             System.arraycopy(unpacked, 0, oledFrameBuffer, 0, Math.min(unpacked.length, 768));
             displayListener.onOledFrame(oledFrameBuffer.clone());
           }
         } else if (rleType == 0x02) {
-          // Delta OLED Frame
+          // Delta OLED Frame (always RLE-packed in firmware, fallback to raw for tests)
           int startWord = data[8] & 0xFF;
           int lenWords = data[9] & 0xFF;
           int packedLen = (data.length - 1) - 10;
           if (packedLen > 0) {
             byte[] packed = new byte[packedLen];
             System.arraycopy(data, 10, packed, 0, packedLen);
-            byte[] unpacked = DelugeMidiPacker.unpack7to8(packed);
+            byte[] unpacked = DelugeMidiPacker.unpack7to8Rle(packed, 8 * lenWords);
+            if (unpacked.length < 8 * lenWords) {
+              unpacked = DelugeMidiPacker.unpack7to8(packed);
+            }
 
             // Apply delta blocks (each word block represents 8 bytes of OLED screen space)
             int startOffset = 8 * startWord;
