@@ -1162,7 +1162,8 @@ public class PreferencesDialog extends JDialog {
     try {
       javax.sound.midi.MidiDevice.Info[] infos = javax.sound.midi.MidiSystem.getMidiDeviceInfo();
       for (javax.sound.midi.MidiDevice.Info info : infos) {
-        if (info.getName().equals(portName)) {
+        String name = info.getName();
+        if (name != null && name.trim().equalsIgnoreCase(portName.trim())) {
           javax.sound.midi.MidiDevice dev = javax.sound.midi.MidiSystem.getMidiDevice(info);
           boolean matchDirection =
               isInput ? (dev.getMaxTransmitters() != 0) : (dev.getMaxReceivers() != 0);
@@ -1178,7 +1179,8 @@ public class PreferencesDialog extends JDialog {
           }
         }
       }
-    } catch (Throwable ignored) {
+    } catch (Throwable t) {
+      System.err.println("[DIAG friendly] Error matching port: " + t.getMessage());
     }
     return portName;
   }
