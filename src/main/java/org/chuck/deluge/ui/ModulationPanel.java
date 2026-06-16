@@ -56,6 +56,7 @@ public class ModulationPanel extends JPanel {
   private final BridgeContract bridge;
   private final int trackIndex;
 
+  private final ModulationMatrixComponent matrix;
   private final JPanel cableRows;
   private final JScrollPane cableScroll;
   private final JButton addCableBtn;
@@ -164,12 +165,44 @@ public class ModulationPanel extends JPanel {
     SwingRandomizerDialog.styleScrollBar(knobScroll.getVerticalScrollBar());
     knobPanel.add(knobScroll, BorderLayout.CENTER);
 
-    // ── Split Pane ──
-    JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, cablePanel, knobPanel);
-    split.setDividerLocation(340);
-    split.setBackground(SwingSynthConfigDialog.BG_CARD);
-    split.setBorder(null);
-    add(split, BorderLayout.CENTER);
+    // Create the interactive Modulation Matrix Grid
+    matrix =
+        new ModulationMatrixComponent(
+            model,
+            () -> {
+              syncModulationsLive();
+              rebuildCableRows();
+              if (SwingDelugeApp.mainInstance != null) {
+                SwingDelugeApp.mainInstance.fireProjectChanged();
+              }
+            });
+
+    JPanel matrixWrapper = new JPanel(new BorderLayout());
+    matrixWrapper.setBackground(SwingSynthConfigDialog.BG_CARD);
+    matrixWrapper.setBorder(
+        BorderFactory.createCompoundBorder(
+            BorderFactory.createEmptyBorder(0, 0, 0, 8),
+            BorderFactory.createTitledBorder(
+                BorderFactory.createLineBorder(new Color(0x2d, 0x2d, 0x32), 1, true),
+                "Interactive Modulation Matrix",
+                javax.swing.border.TitledBorder.LEFT,
+                javax.swing.border.TitledBorder.TOP,
+                new Font("SansSerif", Font.BOLD, 11),
+                Color.LIGHT_GRAY)));
+    matrixWrapper.add(matrix, BorderLayout.CENTER);
+
+    // Right-side detailed view
+    JSplitPane rightSplit = new JSplitPane(JSplitPane.VERTICAL_SPLIT, cablePanel, knobPanel);
+    rightSplit.setDividerLocation(320);
+    rightSplit.setBackground(SwingSynthConfigDialog.BG_CARD);
+    rightSplit.setBorder(null);
+
+    // Main horizontal split
+    JSplitPane mainSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, matrixWrapper, rightSplit);
+    mainSplit.setDividerLocation(385);
+    mainSplit.setBackground(SwingSynthConfigDialog.BG_CARD);
+    mainSplit.setBorder(null);
+    add(mainSplit, BorderLayout.CENTER);
 
     // Build the visual rows initially on boot!
     rebuildCableRows();
@@ -347,6 +380,9 @@ public class ModulationPanel extends JPanel {
 
     cableRows.revalidate();
     cableRows.repaint();
+    if (matrix != null) {
+      matrix.repaint();
+    }
   }
 
   private void styleButton(AbstractButton btn, Color bg, Color fg) {
