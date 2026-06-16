@@ -20,7 +20,7 @@ class VoicePolyphonyCapTest {
   @Test
   void defaultVoiceCapMatchesHardware() {
     assertEquals(8, new org.chuck.deluge.firmware2.Sound().maxPolyphony, "fw2 Sound default");
-    assertEquals(8, new FirmwareSound().maxPolyphony, "bridge FirmwareSound default");
+    assertEquals(8, new FirmwareSound().fw2Sound.maxPolyphony, "bridge FirmwareSound default");
   }
 
   @Test
@@ -40,12 +40,12 @@ class VoicePolyphonyCapTest {
     eng.renderBlock(128); // let allocation/stealing settle
 
     assertTrue(
-        s.getActiveVoiceCount() <= s.maxPolyphony,
+        s.getActiveVoiceCount() <= s.fw2Sound.maxPolyphony,
         "active voices ("
             + s.getActiveVoiceCount()
             + ") must not exceed the cap ("
-            + s.maxPolyphony
+            + s.fw2Sound.maxPolyphony
             + ") — unbounded stacking is the 'garbage wall'");
-    assertEquals(8, s.maxPolyphony, "cap stays at the hardware default");
+    assertEquals(8, s.fw2Sound.maxPolyphony, "cap stays at the hardware default");
   }
 }

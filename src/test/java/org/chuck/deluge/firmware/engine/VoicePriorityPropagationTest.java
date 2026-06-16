@@ -30,7 +30,7 @@ class VoicePriorityPropagationTest {
       FirmwareSound sound = (FirmwareSound) ((InstrumentClip) song.clips.get(0)).sound;
       sound.syncParamsToFw2();
 
-      assertEquals(vp, sound.voicePriority, "bridge voicePriority");
+      assertEquals(vp, sound.fw2Sound.voicePriority, "bridge voicePriority");
       assertEquals(vp, sound.fw2Sound.voicePriority, "fw2 voicePriority (read by voice stealing)");
     }
   }
