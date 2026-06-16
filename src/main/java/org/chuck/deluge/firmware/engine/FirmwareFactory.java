@@ -377,6 +377,9 @@ public class FirmwareFactory {
     sound.setHpfMode(model.getHpfMode());
     sound.setFilterRoute(model.getFilterRoute());
 
+    // Copy Custom LFO Waveform
+    System.arraycopy(model.getCustomLfoWave(), 0, sound.fw2Sound.customLfoWave, 0, 256);
+
     // Populating unpatched FX parameter defaults/neutrals in paramNeutralValues.
     // These will be copied to paramKnobs and overlaid with rawParamKnobs overrides
     // (from XML) later in this method.

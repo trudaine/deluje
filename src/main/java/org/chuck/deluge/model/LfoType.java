@@ -8,5 +8,6 @@ public enum LfoType {
   TRIANGLE,
   S_AND_H,
   RANDOM_WALK,
-  WARBLER
+  WARBLER,
+  CUSTOM
 }

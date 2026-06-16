@@ -38,6 +38,8 @@ public class Sound extends GlobalEffectable {
   /** C: mod_controllable_audio.h:107 — per-sound saturation/clipping amount; 0 = off. */
   public int clippingAmount = 0;
 
+  public final int[] customLfoWave = new int[256];
+
   /** C: UNPATCHED_PORTAMENTO knob (raw Q31); INT_MIN = off. */
   public int portamentoKnob = Integer.MIN_VALUE;
 

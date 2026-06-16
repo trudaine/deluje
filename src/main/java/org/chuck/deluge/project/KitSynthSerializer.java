@@ -336,6 +336,15 @@ public class KitSynthSerializer {
     appendSynthLfo(doc, root, "lfo3", synth.getLfo(2));
     appendSynthLfo(doc, root, "lfo4", synth.getLfo(3));
 
+    // ── customLfoWave ──
+    StringBuilder sb = new StringBuilder();
+    int[] wave = synth.getCustomLfoWave();
+    for (int i = 0; i < 256; i++) {
+      sb.append(wave[i]);
+      if (i < 255) sb.append(",");
+    }
+    appendTextChild(doc, root, "customLfoWave", sb.toString());
+
     // ── synth mode ──
     String mode =
         switch (synth.getSynthMode()) {
@@ -562,6 +571,7 @@ public class KitSynthSerializer {
       case S_AND_H -> "s&h";
       case RANDOM_WALK -> "randomWalk";
       case WARBLER -> "warbler";
+      case CUSTOM -> "custom";
     };
   }
 

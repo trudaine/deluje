@@ -16,7 +16,7 @@ import org.chuck.deluge.model.SynthTrackModel;
 public class LfoPanel extends JPanel {
 
   private static final String[] LFO_SHAPES = {
-    "SINE", "SAW", "SQUARE", "TRI", "S&H", "RANDOM WALK", "WARBLER"
+    "SINE", "SAW", "SQUARE", "TRI", "S&H", "RANDOM WALK", "WARBLER", "CUSTOM"
   };
   private static final String[] LFO_TARGETS = {
     "NONE", "Filter", "Res", "Pan", "Pitch", "Vol", "FM"
@@ -28,6 +28,7 @@ public class LfoPanel extends JPanel {
   };
 
   private final SynthTrackModel model;
+  private JPanel drawPadWrapper;
 
   private LfoModel lfo(int l) {
     LfoModel lm = model.getLfo(l);
@@ -106,6 +107,7 @@ public class LfoPanel extends JPanel {
                     lm.isLocal(),
                     lm.syncLevel(),
                     lm.syncType()));
+            updateDrawPadVisibility();
           });
       c.gridx = col++;
       controlsPanel.add(shapeCombo, c);
@@ -385,6 +387,50 @@ public class LfoPanel extends JPanel {
             Color.LIGHT_GRAY));
     monitorWrapper.add(monitor, BorderLayout.CENTER);
     add(monitorWrapper, BorderLayout.EAST);
+
+    // ── 3. Custom LFO Draw Pad & Step Sequencer (Docked at Bottom) ──
+    LfoDrawPad drawPad = new LfoDrawPad(model, this::repaint);
+
+    drawPadWrapper = new JPanel(new BorderLayout(8, 8));
+    drawPadWrapper.setBackground(SwingSynthConfigDialog.BG_CARD);
+    drawPadWrapper.setBorder(
+        BorderFactory.createTitledBorder(
+            BorderFactory.createLineBorder(new Color(0x2d, 0x2d, 0x32), 1, true),
+            "Custom LFO Waveform Draw Pad & Step Sequencer",
+            javax.swing.border.TitledBorder.LEFT,
+            javax.swing.border.TitledBorder.TOP,
+            new Font("SansSerif", Font.BOLD, 11),
+            Color.LIGHT_GRAY));
+
+    JPanel topBar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+    topBar.setBackground(SwingSynthConfigDialog.BG_CARD);
+    JCheckBox smoothCheck = new JCheckBox("Smooth Interpolation");
+    smoothCheck.setBackground(SwingSynthConfigDialog.BG_CARD);
+    smoothCheck.setForeground(Color.LIGHT_GRAY);
+    smoothCheck.setFocusPainted(false);
+    smoothCheck.addActionListener(
+        ev -> {
+          drawPad.setSmoothMode(smoothCheck.isSelected());
+        });
+    topBar.add(smoothCheck);
+    drawPadWrapper.add(topBar, BorderLayout.NORTH);
+    drawPadWrapper.add(drawPad, BorderLayout.CENTER);
+
+    add(drawPadWrapper, BorderLayout.SOUTH);
+    updateDrawPadVisibility();
+  }
+
+  private void updateDrawPadVisibility() {
+    boolean anyCustom = false;
+    for (int i = 0; i < BridgeContract.LFO_COUNT; i++) {
+      if (lfo(i).waveform() == LfoType.CUSTOM) {
+        anyCustom = true;
+        break;
+      }
+    }
+    drawPadWrapper.setVisible(anyCustom);
+    revalidate();
+    repaint();
   }
 
   public void startAnimation() {
