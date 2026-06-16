@@ -29,6 +29,15 @@ This document outlines the high-fidelity desktop UI/UX feature roadmap. Each pro
     *   *Wide-Screen Layout*: Integrated side-by-side inside the `OSC` panel tab.
 *   **⚙️ Deluge Model Parity**: Loads the `.wav` files referenced by the Deluge track XML and displays real-time morphing positions.
 
+### Proposal 4: Precision Sequencer Piano Roll with Velocity Stalks
+*   **💡 Concept**: The Deluge pad grid is a legendary sequencer interface. However, viewing long note gates, precise micro-timing nudges, or editing note velocities step-by-step is difficult to do without tactile dials. We built a **Pop-out Piano Roll Sequencer Overlay** that acts as a precise graphical companion to the main grid.
+*   **🎨 Desktop UX Advantage**:
+    *   *Visual Note Lengths*: Notes are drawn as horizontal bars on a piano key grid, showing exact gate lengths. Drag the right edge of any note bar to adjust its duration.
+    *   *Micro-timing Dragging*: Hold `Alt` and drag note bars left/right to nudge note start times off-grid (micro-timing), allowing organic swing or humanized grooves with sub-step precision.
+    *   *Velocity Stalk Editor*: A dedicated panel at the bottom of the piano roll displaying vertical bars ("stalks") representing the velocity of each note. Simply drag the top of a stalk up or down to set precise velocity.
+    *   *MIDI Clip Import/Export*: Drag-and-drop standard MIDI files directly onto the piano roll to convert them into Deluge track clips, capturing performance dynamics and sub-step timing.
+*   **⚙️ Deluge Model Parity**: Directly updates the `ClipModel`'s note array, mapping properties directly to XML attributes (`pos`, `length`, `velocity`, `microtiming`), retaining 100% parity with the hardware step sequencer playback engine.
+
 ---
 
 ## Phase 2: Completed Upgrades
@@ -60,21 +69,3 @@ This document outlines the high-fidelity desktop UI/UX feature roadmap. Each pro
     *   *Accent Themes*: Pick from **Neon Cyan (Default)**, **Solar Orange**, **Matrix Green**, or **Acid Pink**.
     *   *Global Repaint*: Instantly updates the visualizer curves, playhead planes, grid selections, and highlight borders.
 *   **⚙️ Deluge Model Parity**: Purely visual desktop styling layer; does not affect project XML portability.
-
----
-
-## Future Roadmap: Planned Upgrades
-
-### Proposal 4: Precision Sequencer Piano Roll with Velocity Stalks
-*   **💡 Concept**: The Deluge pad grid is a legendary sequencer interface. However, viewing long note gates, precise micro-timing nudges, or editing note velocities step-by-step is difficult to do without tactile dials. We propose a **Pop-out Piano Roll Sequencer Overlay** that acts as a precise graphical companion to the main grid.
-*   **🎨 Desktop UX Advantage**:
-    *   *Visual Note Lengths*: Notes are drawn as horizontal bars on a piano key grid, showing exact gate lengths. Drag the right edge of any note bar to adjust its duration.
-    *   *Micro-timing Dragging*: Hold `Alt` and drag note bars left/right to nudge note start times off-grid (micro-timing), allowing organic swing or humanized grooves.
-    *   *Velocity Stalk Editor*: A dedicated panel at the bottom of the piano roll displaying vertical bars ("stalks") representing the velocity of each note. Simply drag the top of a stalk up or down to set precise velocity.
-    *   *MIDI Clip Import/Export*: Drag-and-drop standard MIDI files directly onto the piano roll to convert them into Deluge track clips.
-*   **⚙️ Deluge Model Parity**: Directly updates the `ClipModel`'s note array, mapping properties directly to XML attributes:
-    *   Note start step -> `pos`
-    *   Note duration -> `length`
-    *   Note velocity -> `velocity`
-    *   Note micro-timing -> `microtiming`
-    *   Retains 100% parity with the hardware step sequencer playback engine.
