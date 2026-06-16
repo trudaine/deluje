@@ -1218,16 +1218,22 @@ public class PhysicalHardwareFidelityTest {
   // modulated tones. testAbDrySawEnvelopeBaseline anchors the metric: a faithful steady tone scores
   // ~0.97, so that (not 1.0) is the realistic ceiling and the LFO numbers must be read against it.
   //
-  // RESULTS + investigation (2026-06-16): baseline saw 0.97; vibrato ~0.73; tremolo ~0.60→0.90.
-  //   • TREMOLO: the apparent gap was a RECORDING error — ab_lfo_tremolo_c5.wav is C6 (1046 Hz), an
-  //     octave above the C5 dry-saw/our render. Rendering at the matched octave (note 84) gives
-  //     ~0.90, at the faithful baseline; rate (1.3 Hz) and depth both match. Volume-LFO path = FAITHFUL.
-  //   • VIBRATO: note is correct (render@71 beats @83); ~0.73 is a real, smaller pitch-LFO
-  //     divergence still to investigate. Floor is a KNOWN-GAP non-regression guard.
+  // OCTAVE NAMING: the Deluge numbers octaves one LOWER than scientific pitch notation. Firmware
+  // noteCodeToString (functions.cpp): octave = noteCode/12 - 2, so Deluge "C5" = MIDI 84 = 1046 Hz
+  // (what scientific notation calls C6). So the dry-saw "C5" reference and these "C5" patches all
+  // correspond to MIDI 84, and we render them at note 84. (Earlier notes mislabeled the tremolo ref
+  // as a "C6 octave-high mis-recording" — that was a scientific-vs-Deluge naming confusion; the
+  // recording was a correct Deluge-C5 and the Deluge is faithful.)
+  //
+  // RESULTS (2026-06-16): baseline saw 0.97; tremolo 0.99 (FAITHFUL — rate 1.3 Hz + depth match);
+  // vibrato ~0.73. VIBRATO is a real, smaller pitch-LFO divergence still to investigate; floor is a
+  // KNOWN-GAP non-regression guard. (Verified post-fix that the pitch-mod chain is faithful to the C,
+  // so the residual is most likely the suspect vibrato reference recording, not the engine.)
   //
   // RECORDING RECIPE (if re-recording: real Deluge, line-out, 44.1 kHz, mono, ≥3 s sustained):
-  //   • Tremolo → preset 113_LFO_VOLUME_TREMOLO_C5, hold C5 (MIDI 72) → ab_lfo_tremolo_c5.wav
-  //   • Vibrato → preset 115_LFO_SQUARE_VIBRATO_C5, hold B4 (MIDI 71) → ab_lfo_vibrato_c5.wav
+  //   • Tremolo → preset 113_LFO_VOLUME_TREMOLO_C5, hold Deluge-"C5" (MIDI 84, ~1046 Hz) →
+  //     ab_lfo_tremolo_c5.wav  (verify the OLED note AND that it plays ~1046 Hz, not 523)
+  //   • Vibrato → preset 115_LFO_SQUARE_VIBRATO_C5 → ab_lfo_vibrato_c5.wav (render note must match)
   //   in src/test/resources/fidelity/, patch UNCHANGED from the bundled XML. Tests skip if absent.
   // ===========================================================================================
 
@@ -1253,11 +1259,11 @@ public class PhysicalHardwareFidelityTest {
         hw != null,
         "Record ab_lfo_tremolo_c5.wav into src/test/resources/fidelity/ — see recipe in this test.");
     int triggerBlock = 100;
-    // NOTE 84, not 72: investigation (2026-06-16) found ab_lfo_tremolo_c5.wav was recorded an OCTAVE
-    // HIGH — its fundamental is 1046 Hz (C6), while the dry-saw reference and our render are C5
-    // (524 Hz). Matching the octave lifts the envelope correlation from ~0.60 to ~0.90, i.e. up at
-    // the faithful baseline: the volume-LFO path (rate 1.3 Hz and depth both match hardware) is
-    // FAITHFUL — the apparent gap was purely the reference octave. Re-record at C5 to restore note 72.
+    // NOTE 84 = Deluge "C5" (Deluge octave = noteCode/12 - 2, so C5 = MIDI 84 = ~1046 Hz, NOT the
+    // scientific C5 = 523 Hz). ab_lfo_tremolo_c5.wav measures 1046 Hz, i.e. a genuine Deluge-C5, so
+    // we render at the matching note 84 → envelope correlation ~0.99. The volume-LFO path (rate
+    // 1.3 Hz and depth both match hardware) is FAITHFUL. (An earlier note here wrongly called this a
+    // "C6 octave-high mis-recording" — that was a scientific-vs-Deluge octave-naming confusion.)
     float[] sw =
         renderXmlTrackPreset(
             "/fidelity/113_LFO_VOLUME_TREMOLO_C5.XML",
@@ -1265,7 +1271,7 @@ public class PhysicalHardwareFidelityTest {
             triggerBlock,
             triggerBlock + 1000,
             84);
-    assertSpectralEnvelopeFidelity(hw, sw, 0.85, "LFO Volume Tremolo (A/B envelope, ref @C6)");
+    assertSpectralEnvelopeFidelity(hw, sw, 0.85, "LFO Volume Tremolo (A/B envelope, Deluge-C5/note84)");
   }
 
   @Test
