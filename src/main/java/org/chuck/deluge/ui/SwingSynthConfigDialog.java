@@ -107,32 +107,7 @@ public class SwingSynthConfigDialog extends JDialog {
     tabs.setBackground(BG_CARD);
     tabs.setForeground(Color.WHITE);
 
-    tabs.addTab("OSC / FILTER / FM", buildMainPanel(model, vm, bridge, trackIndex));
-    // DX7 tab inserted at index 1 — visible only when synthMode==1 or dx7patch loaded
-    Runnable reloadDialog =
-        () -> {
-          dispose();
-          new SwingSynthConfigDialog(owner, model, vm, bridge, trackIndex, projectModel)
-              .setVisible(true);
-        };
-    JPanel dx7Panel = new Dx7Panel(model, vm, bridge, trackIndex, this, reloadDialog);
-    tabs.insertTab("DX7", null, dx7Panel, "DX7 6-operator FM editing", 1);
-    tabs.addTab("ALGORITHM", new AlgorithmPanel(model, bridge, trackIndex));
-    tabs.addTab("OSC", new OscPanel(model, bridge, trackIndex, projectModel));
-    lfoPanel = new LfoPanel(model, trackIndex);
-    tabs.addTab("LFO", lfoPanel);
-    lfoPanel.startAnimation();
-    tabs.addTab("ARP", new ArpPanel(model, bridge, trackIndex, projectModel));
-    tabs.addTab("ENVELOPE", new EnvelopePanel(model, bridge, trackIndex, projectModel));
-    tabs.addTab("MODULATION", new ModulationPanel(model, bridge, trackIndex));
-    tabs.addTab("COMPRESSOR", new CompressorPanel(model, bridge, trackIndex, projectModel));
-    tabs.addTab("EQ", new EqPanel(model, bridge, trackIndex, projectModel));
-    tabs.addTab("MOD FX", new ModFxPanel(model, bridge, trackIndex, projectModel));
-    tabs.addTab("HPF", new HpfPanel(model, bridge, trackIndex, projectModel));
-    tabs.addTab("AUTOMATION", new AutomationPanel(model, bridge, trackIndex));
-
-    midiLearnPanel = new MidiLearnPanel();
-    tabs.addTab("MIDI LEARN", midiLearnPanel);
+    populateTabs();
 
     // ── Collaborative Collapsible Preset Browser Sidebar ──
     SynthPresetBrowserPanel presetBrowser =
@@ -1080,6 +1055,61 @@ public class SwingSynthConfigDialog extends JDialog {
     liveApplyToEngine(vm, model);
   }
 
+  /**
+   * Builds the full tab set in logical groups — the single source of truth for both the constructor
+   * and {@link #refreshAllControls} (the two previously held duplicate tab lists that could drift).
+   * Order: sound sources → filter → modulation → FX → setup. The three global-FX/dynamics editors
+   * (MOD FX, EQ, COMPRESSOR) are grouped under one "FX" tab to cut top-level tab overload.
+   */
+  private void populateTabs() {
+    tabs.addTab("OSC / FILTER / FM", buildMainPanel(model, vm, bridge, trackIndex));
+
+    // DX7 6-op FM editor, inserted right after the main tab; reloading rebuilds the dialog.
+    Runnable reloadDialog =
+        () -> {
+          dispose();
+          new SwingSynthConfigDialog(
+                  (Frame) getOwner(), model, vm, bridge, trackIndex, projectModel)
+              .setVisible(true);
+        };
+    tabs.insertTab(
+        "DX7",
+        null,
+        new Dx7Panel(model, vm, bridge, trackIndex, this, reloadDialog),
+        "DX7 6-operator FM editing",
+        1);
+
+    // ── Sound sources ──
+    tabs.addTab("OSC", new OscPanel(model, bridge, trackIndex, projectModel));
+    tabs.addTab("ALGORITHM", new AlgorithmPanel(model, bridge, trackIndex));
+    // Filter: LPF lives in the main tab; HPF here, kept adjacent to the sources/filter group.
+    tabs.addTab("HPF", new HpfPanel(model, bridge, trackIndex, projectModel));
+
+    // ── Modulation ──
+    tabs.addTab("ENVELOPE", new EnvelopePanel(model, bridge, trackIndex, projectModel));
+    lfoPanel = new LfoPanel(model, trackIndex);
+    tabs.addTab("LFO", lfoPanel);
+    lfoPanel.startAnimation();
+    tabs.addTab("MODULATION", new ModulationPanel(model, bridge, trackIndex));
+    tabs.addTab("ARP", new ArpPanel(model, bridge, trackIndex, projectModel));
+
+    // ── FX & dynamics (grouped: was three separate top-level tabs) ──
+    JTabbedPane fxTabs = new JTabbedPane();
+    fxTabs.setBackground(BG_CARD);
+    fxTabs.setForeground(Color.WHITE);
+    fxTabs.addTab("MOD FX", new ModFxPanel(model, bridge, trackIndex, projectModel));
+    fxTabs.addTab("EQ", new EqPanel(model, bridge, trackIndex, projectModel));
+    fxTabs.addTab("COMPRESSOR", new CompressorPanel(model, bridge, trackIndex, projectModel));
+    tabs.addTab("FX", fxTabs);
+
+    // ── Setup ──
+    tabs.addTab("AUTOMATION", new AutomationPanel(model, bridge, trackIndex));
+    if (midiLearnPanel == null) {
+      midiLearnPanel = new MidiLearnPanel();
+    }
+    tabs.addTab("MIDI LEARN", midiLearnPanel);
+  }
+
   public void refreshAllControls() {
     // Re-instantiate the panels and replace the tabs to update all sliders and visualizers
     // instantly
@@ -1092,39 +1122,7 @@ public class SwingSynthConfigDialog extends JDialog {
 
     tabs.removeAll();
 
-    tabs.addTab("OSC / FILTER / FM", buildMainPanel(model, vm, bridge, trackIndex));
-
-    // Re-insert DX7 tab
-    Runnable reloadDialog =
-        () -> {
-          dispose();
-          new SwingSynthConfigDialog(
-                  (Frame) getOwner(), model, vm, bridge, trackIndex, projectModel)
-              .setVisible(true);
-        };
-    JPanel dx7Panel = new Dx7Panel(model, vm, bridge, trackIndex, this, reloadDialog);
-    tabs.insertTab("DX7", null, dx7Panel, "DX7 6-operator FM editing", 1);
-
-    tabs.addTab("ALGORITHM", new AlgorithmPanel(model, bridge, trackIndex));
-    tabs.addTab("OSC", new OscPanel(model, bridge, trackIndex, projectModel));
-
-    lfoPanel = new LfoPanel(model, trackIndex);
-    tabs.addTab("LFO", lfoPanel);
-    lfoPanel.startAnimation();
-
-    tabs.addTab("ARP", new ArpPanel(model, bridge, trackIndex, projectModel));
-    tabs.addTab("ENVELOPE", new EnvelopePanel(model, bridge, trackIndex, projectModel));
-    tabs.addTab("MODULATION", new ModulationPanel(model, bridge, trackIndex));
-    tabs.addTab("COMPRESSOR", new CompressorPanel(model, bridge, trackIndex, projectModel));
-    tabs.addTab("EQ", new EqPanel(model, bridge, trackIndex, projectModel));
-    tabs.addTab("MOD FX", new ModFxPanel(model, bridge, trackIndex, projectModel));
-    tabs.addTab("HPF", new HpfPanel(model, bridge, trackIndex, projectModel));
-    tabs.addTab("AUTOMATION", new AutomationPanel(model, bridge, trackIndex));
-
-    if (midiLearnPanel == null) {
-      midiLearnPanel = new MidiLearnPanel();
-    }
-    tabs.addTab("MIDI LEARN", midiLearnPanel);
+    populateTabs();
 
     // Restore selection
     if (selectedIdx >= 0 && selectedIdx < tabs.getTabCount()) {
