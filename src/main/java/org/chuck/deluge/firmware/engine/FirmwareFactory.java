@@ -284,6 +284,7 @@ public class FirmwareFactory {
     // Per-sound voice cap (C: sound.h:116, default 8). The model clamps to [1,16] and reads the
     // XML "maxVoices" attribute; propagate it so dense playing steals voices instead of stacking 64.
     sound.maxPolyphony = model.getMaxVoiceCount();
+    sound.voicePriority = model.getVoicePriority(); // voice-stealing priority (was stuck at default)
     // Idempotent: clear the cable set so live re-applies don't duplicate cables (they are
     // re-added from the model at the end of this method).
     sound.paramManager.getPatchCableSet().destinations.clear();
@@ -1152,6 +1153,7 @@ public class FirmwareFactory {
     drumSound.paramManager.getPatchCableSet().destinations.clear();
 
     drumSound.maxPolyphony = sd.getMaxVoiceCount(); // C: sound.h:116 (per-drum voice cap, default 8)
+    drumSound.voicePriority = sd.getVoicePriority(); // voice-stealing priority (was stuck at default)
     drumSound.isDrum = true;
     drumSound.oscTypes[0] = OscType.SAMPLE;
     drumSound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = org.chuck.deluge.firmware.util.Q31.ONE;
