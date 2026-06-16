@@ -153,6 +153,11 @@ public class DelugeSysExManager {
     }
 
     byte cmd = data[5];
+    System.out.println(
+        "[SysExManager] Received Deluge SysEx command: cmd="
+            + String.format("0x%02X", cmd)
+            + ", len="
+            + data.length);
 
     if (cmd == CMD_JSON_REPLY) {
       int seq = data[6] & 0xFF;

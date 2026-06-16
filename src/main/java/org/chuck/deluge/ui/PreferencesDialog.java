@@ -44,6 +44,8 @@ public class PreferencesDialog extends JDialog {
   private JComboBox<String> gridModeCombo;
   private JComboBox<String> engineCombo;
   private JComboBox<String> midiCombo;
+  private javax.swing.Timer portScanTimer;
+  private boolean isRebuildingCombo = false;
   private JCheckBox advancedGridStyleCheck;
   private JComboBox<String> interactionModeCombo;
   private JComboBox<String> displayTypeCombo;
@@ -84,6 +86,21 @@ public class PreferencesDialog extends JDialog {
     setSize(660, 600);
     setMinimumSize(new Dimension(580, 500));
     setLocationRelativeTo(owner);
+
+    // Start background port-scanning timer for dynamic hot-plug support
+    portScanTimer = new javax.swing.Timer(2000, e -> updateMidiPortsListDynamic());
+    portScanTimer.start();
+
+    // Clean up timer when dialog is closed
+    addWindowListener(
+        new java.awt.event.WindowAdapter() {
+          @Override
+          public void windowClosed(java.awt.event.WindowEvent e) {
+            if (portScanTimer != null) {
+              portScanTimer.stop();
+            }
+          }
+        });
   }
 
   private void initComponentsProgrammatic() {
@@ -223,6 +240,22 @@ public class PreferencesDialog extends JDialog {
 
     midiCombo = new JComboBox<>();
     styleComboBox(midiCombo);
+    midiCombo.setRenderer(
+        new javax.swing.DefaultListCellRenderer() {
+          @Override
+          public java.awt.Component getListCellRendererComponent(
+              javax.swing.JList<?> list,
+              Object value,
+              int index,
+              boolean isSelected,
+              boolean cellHasFocus) {
+            super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+            if (value instanceof String) {
+              setText(getFriendlyMidiPortName((String) value, true));
+            }
+            return this;
+          }
+        });
     addField(
         panel,
         "MIDI Input Device",
@@ -910,6 +943,7 @@ public class PreferencesDialog extends JDialog {
     // Now safely add the action listeners after loading is complete!
     midiCombo.addActionListener(
         e -> {
+          if (isRebuildingCombo) return;
           if (midiService != null) {
             String selectedPort = (String) midiCombo.getSelectedItem();
             PreferencesManager.set("midi.input", selectedPort);
@@ -1056,5 +1090,96 @@ public class PreferencesDialog extends JDialog {
       // Apply the new resolution profile to the live window (clamped to the physical screen).
       SwingDelugeApp.mainInstance.applyWindowResolution();
     }
+  }
+
+  // ── Dynamic MIDI Port Hot-Plug Scanners ──
+
+  private void updateMidiPortsListDynamic() {
+    String[] currentPorts = org.chuck.midi.MidiIn.list();
+
+    int comboItemCount = midiCombo.getItemCount();
+    boolean changed = false;
+    if (comboItemCount - 1 != currentPorts.length) {
+      changed = true;
+    } else {
+      for (int i = 0; i < currentPorts.length; i++) {
+        String item = midiCombo.getItemAt(i + 1);
+        if (!currentPorts[i].equals(item)) {
+          changed = true;
+          break;
+        }
+      }
+    }
+
+    if (changed) {
+      isRebuildingCombo = true;
+
+      String selected = (String) midiCombo.getSelectedItem();
+      midiCombo.removeAllItems();
+      midiCombo.addItem("None");
+      for (String p : currentPorts) {
+        midiCombo.addItem(p);
+      }
+
+      boolean found = false;
+      if (selected != null) {
+        for (String p : currentPorts) {
+          if (p.equals(selected)) {
+            midiCombo.setSelectedItem(selected);
+            found = true;
+            break;
+          }
+        }
+      }
+      if (!found) {
+        midiCombo.setSelectedIndex(0); // None
+      }
+
+      isRebuildingCombo = false;
+      updateDeviceComboForSelectedPort();
+    }
+  }
+
+  private void updateDeviceComboForSelectedPort() {
+    if (midiService == null) return;
+    org.chuck.deluge.midi.MidiDeviceDefinition currentDef = midiService.getDeviceDefinition();
+    if (currentDef != null) {
+      for (int i = 0; i < deviceCombo.getItemCount(); i++) {
+        var item = deviceCombo.getItemAt(i);
+        if (item != null && item.getId().equals(currentDef.getId())) {
+          deviceCombo.setSelectedIndex(i);
+          break;
+        }
+      }
+    } else {
+      deviceCombo.setSelectedIndex(0); // None
+    }
+    rebuildTableContent();
+  }
+
+  public static String getFriendlyMidiPortName(String portName, boolean isInput) {
+    if (portName == null || portName.equals("None")) return "None";
+    try {
+      javax.sound.midi.MidiDevice.Info[] infos = javax.sound.midi.MidiSystem.getMidiDeviceInfo();
+      for (javax.sound.midi.MidiDevice.Info info : infos) {
+        if (info.getName().equals(portName)) {
+          javax.sound.midi.MidiDevice dev = javax.sound.midi.MidiSystem.getMidiDevice(info);
+          boolean matchDirection =
+              isInput ? (dev.getMaxTransmitters() != 0) : (dev.getMaxReceivers() != 0);
+          if (matchDirection) {
+            String desc = info.getDescription();
+            String vendor = info.getVendor();
+            if (desc != null && !desc.isEmpty()) {
+              return desc;
+            }
+            if (vendor != null && !vendor.isEmpty()) {
+              return vendor + " - " + portName;
+            }
+          }
+        }
+      }
+    } catch (Throwable ignored) {
+    }
+    return portName;
   }
 }

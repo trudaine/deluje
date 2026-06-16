@@ -171,7 +171,8 @@ public class MidiService {
 
       if (portIdx >= 0) {
         midiIn.open(portIdx);
-        System.out.println("MIDI: Opened input port: " + portName);
+        midiIn.ignoreTypes(false, false, false);
+        System.out.println("MIDI: Opened input port and allowed SysEx: " + portName);
 
         // Try to open matching output port for SysEx
         try {
@@ -209,6 +210,14 @@ public class MidiService {
                       // SysEx intercept hook
                       if ((m.data1 & 0xFF) == 0xF0) {
                         byte[] sysexBytes = m.getData();
+                        System.out.println(
+                            "[MidiService] Received raw SysEx message, length="
+                                + sysexBytes.length
+                                + (sysexBytes.length > 4
+                                    ? String.format(
+                                        ", header=0x%02X 0x%02X 0x%02X 0x%02X",
+                                        sysexBytes[1], sysexBytes[2], sysexBytes[3], sysexBytes[4])
+                                    : ""));
                         if (sysExManager.handleIncomingSysEx(sysexBytes)) {
                           continue;
                         }
