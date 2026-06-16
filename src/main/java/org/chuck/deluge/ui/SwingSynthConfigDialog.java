@@ -536,6 +536,7 @@ public class SwingSynthConfigDialog extends JDialog {
             (int) (bridge.getTrackFilterFreq(trackIndex) * 100),
             val -> {
               bridge.setFilterFreq(trackIndex, val / 100.0);
+              model.setLpfFreq((val / 100.0f) * 20000.0f);
               filterGraph.repaint();
             },
             "%",
@@ -555,6 +556,7 @@ public class SwingSynthConfigDialog extends JDialog {
             (int) (bridge.getTrackFilterRes(trackIndex) * 100),
             val -> {
               bridge.setFilterRes(trackIndex, val / 100.0);
+              model.setLpfRes(val / 100.0f * 100.0f);
               filterGraph.repaint();
             },
             "%",
@@ -902,6 +904,7 @@ public class SwingSynthConfigDialog extends JDialog {
     c.gridx = 1;
     c.gridwidth = 1;
     JSlider slider = new JSlider(min, max, Math.max(min, Math.min(max, initial)));
+    slider.setName(paramName);
     slider.setBackground(BG_CARD);
     slider.setToolTipText(tooltip);
     attachHoverHelp(slider, tooltip);
@@ -1089,6 +1092,19 @@ public class SwingSynthConfigDialog extends JDialog {
 
     revalidate();
     repaint();
+  }
+
+  public static JSlider findSliderByName(Container container, String name) {
+    for (Component c : container.getComponents()) {
+      if (name.equals(c.getName()) && c instanceof JSlider) {
+        return (JSlider) c;
+      }
+      if (c instanceof Container) {
+        JSlider s = findSliderByName((Container) c, name);
+        if (s != null) return s;
+      }
+    }
+    return null;
   }
 
   static JLabel label(String text) {
