@@ -62,7 +62,17 @@ public class DelugeFileSyncService {
             callback.onFailure(new IOException("Remote dir list failed, err=" + err));
             return;
           }
-          List<String> files = getStringListAttr(json, "files");
+          List<String> files = getFileNamesFromList(json);
+          if (files.isEmpty()) {
+            files = getStringListAttr(json, "files");
+          }
+          System.out.println(
+              "[FileSyncService] listSongs success for path: "
+                  + remotePath
+                  + ", parsed files count: "
+                  + files.size()
+                  + ", files: "
+                  + files);
           callback.onSuccess(files);
         });
   }
@@ -264,6 +274,16 @@ public class DelugeFileSyncService {
       while (stringMatcher.find()) {
         result.add(stringMatcher.group(1));
       }
+    }
+    return result;
+  }
+
+  private static List<String> getFileNamesFromList(String json) {
+    List<String> result = new ArrayList<>();
+    Pattern pattern = Pattern.compile("\"name\"\\s*:\\s*\"([^\"]+)\"");
+    Matcher matcher = pattern.matcher(json);
+    while (matcher.find()) {
+      result.add(matcher.group(1));
     }
     return result;
   }
