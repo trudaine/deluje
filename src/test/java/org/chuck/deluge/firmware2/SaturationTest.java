@@ -15,8 +15,8 @@ class SaturationTest {
 
   private float[] renderSine(int clippingAmount) {
     FirmwareSound s = new FirmwareSound();
-    s.lpfMode = org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF;
-    s.hpfMode = org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF;
+    s.fw2Sound.lpfMode = org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF;
+    s.fw2Sound.hpfMode = org.chuck.deluge.firmware2.FilterSet.FilterMode.OFF;
     s.oscTypes[0] = OscType.SINE;
     s.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
     s.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
