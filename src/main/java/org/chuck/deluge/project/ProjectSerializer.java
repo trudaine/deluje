@@ -108,6 +108,8 @@ public class ProjectSerializer {
     rootElement.setAttribute(
         "swing", org.chuck.deluge.xml.DelugeHexMapper.floatToHex(model.getSwing()));
 
+    serializeMicrotuning(doc, rootElement, model);
+
     // Tracks (Clips)
     Element instruments = doc.createElement("instruments");
     rootElement.appendChild(instruments);
@@ -157,6 +159,8 @@ public class ProjectSerializer {
     rootElement.setAttribute("tempo", String.valueOf(model.getBpm()));
     rootElement.setAttribute(
         "swing", org.chuck.deluge.xml.DelugeHexMapper.floatToHex(model.getSwing()));
+
+    serializeMicrotuning(doc, rootElement, model);
 
     // Tracks (Clips)
     Element instruments = doc.createElement("instruments");
@@ -223,5 +227,48 @@ public class ProjectSerializer {
     DOMSource source = new DOMSource(doc);
     StreamResult result = new StreamResult(file);
     transformer.transform(source, result);
+  }
+
+  private static void serializeMicrotuning(Document doc, Element rootElement, ProjectModel model) {
+    boolean hasNonZeroCents = false;
+    int[] centAdjust = model.getCentAdjustForNotesInTemperament();
+    for (int i = 0; i < model.getOctaveNumMicrotonalNotes(); i++) {
+      if (centAdjust[i] != 0) {
+        hasNonZeroCents = true;
+        break;
+      }
+    }
+
+    if (model.getOctaveNumMicrotonalNotes() != 12
+        || !model.isEqualTemperament()
+        || model.getBaseFrequencyHz() != 440.0
+        || hasNonZeroCents) {
+      Element microtuningEl = doc.createElement("microtuning");
+      microtuningEl.setAttribute("notes", String.valueOf(model.getOctaveNumMicrotonalNotes()));
+      microtuningEl.setAttribute("isEqual", String.valueOf(model.isEqualTemperament()));
+      microtuningEl.setAttribute("baseFrequency", String.valueOf(model.getBaseFrequencyHz()));
+
+      if (model.isEqualTemperament()) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < model.getOctaveNumMicrotonalNotes(); i++) {
+          if (i > 0) sb.append(",");
+          sb.append(centAdjust[i]);
+        }
+        Element centsEl = doc.createElement("cents");
+        centsEl.setTextContent(sb.toString());
+        microtuningEl.appendChild(centsEl);
+      } else {
+        double[] customRatios = model.getCustomRatios();
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < model.getOctaveNumMicrotonalNotes(); i++) {
+          if (i > 0) sb.append(",");
+          sb.append(customRatios[i]);
+        }
+        Element ratiosEl = doc.createElement("ratios");
+        ratiosEl.setTextContent(sb.toString());
+        microtuningEl.appendChild(ratiosEl);
+      }
+      rootElement.appendChild(microtuningEl);
+    }
   }
 }

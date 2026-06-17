@@ -97,6 +97,13 @@ public class ProjectModel {
   // ── Mode notes (scale note mask, 12 semitones) ──
   private boolean[] modeNotes = null;
 
+  // ── Microtuning & Custom Temperaments ──
+  private int octaveNumMicrotonalNotes = 12;
+  private boolean isEqualTemperament = true;
+  private double baseFrequencyHz = 440.0;
+  private final int[] centAdjustForNotesInTemperament = new int[64];
+  private final double[] customRatios = new double[64];
+
   public static ProjectModel createDefaultProject() {
     ProjectModel project = new ProjectModel();
     project.setBpm(120.0f);
@@ -1126,5 +1133,51 @@ public class ProjectModel {
       undoRedoStack.push(new Consequence.ProjectParamConsequence("scale", 0, 0));
     }
     notifyScaleChanged(scale);
+  }
+
+  // ── Microtuning getters/setters ──
+
+  public int getOctaveNumMicrotonalNotes() {
+    return octaveNumMicrotonalNotes;
+  }
+
+  public void setOctaveNumMicrotonalNotes(int v) {
+    this.octaveNumMicrotonalNotes = v;
+  }
+
+  public boolean isEqualTemperament() {
+    return isEqualTemperament;
+  }
+
+  public void setIsEqualTemperament(boolean v) {
+    this.isEqualTemperament = v;
+  }
+
+  public double getBaseFrequencyHz() {
+    return baseFrequencyHz;
+  }
+
+  public void setBaseFrequencyHz(double v) {
+    this.baseFrequencyHz = v;
+  }
+
+  public int[] getCentAdjustForNotesInTemperament() {
+    return centAdjustForNotesInTemperament;
+  }
+
+  public double[] getCustomRatios() {
+    return customRatios;
+  }
+
+  /** Imports a parsed Scala scale tuning into this project model. */
+  public void importScalaScale(org.chuck.deluge.model.tuning.ScalaScale scale) {
+    this.octaveNumMicrotonalNotes = scale.getStepsCount();
+    this.isEqualTemperament = false;
+    this.baseFrequencyHz = scale.getReferenceFrequency();
+
+    // Clear and copy ratios
+    java.util.Arrays.fill(this.customRatios, 0.0);
+    double[] scaleRatios = scale.getStepRatios();
+    System.arraycopy(scaleRatios, 0, this.customRatios, 0, Math.min(scaleRatios.length, 64));
   }
 }

@@ -451,7 +451,7 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
   /** C: polyphonicExpressionEventOnChannelOrNote — pitch bend (X), immediate. */
   public void mpePitchBend(int midiChannel, int newValue) {
     int s = PatchSource.X.ordinal();
-    int voiceLevelValue = newValue << 16;
+    int voiceLevelValue = (newValue - 8192) << 18;
     synchronized (fw2Sound.voices) {
       for (var v : fw2Sound.voices) {
         if (v.active && v.inputCharacteristics[1] == midiChannel) {
@@ -464,7 +464,7 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
   /** C: polyphonicExpressionEventOnChannelOrNote — pressure/aftertouch (Z), immediate. */
   public void mpePressure(int midiChannel, int newValue) {
     int s = PatchSource.AFTERTOUCH.ordinal();
-    int voiceLevelValue = newValue << 16;
+    int voiceLevelValue = newValue << 24;
     synchronized (fw2Sound.voices) {
       for (var v : fw2Sound.voices) {
         if (v.active && v.inputCharacteristics[1] == midiChannel) {
@@ -477,7 +477,7 @@ public class FirmwareSound extends org.chuck.deluge.firmware2.GlobalEffectable {
   /** C: polyphonicExpressionEventOnChannelOrNote — timbre (Y), immediate. */
   public void mpeTimbre(int midiChannel, int newValue) {
     int s = PatchSource.Y.ordinal();
-    int voiceLevelValue = newValue << 16;
+    int voiceLevelValue = (newValue - 64) << 25;
     synchronized (fw2Sound.voices) {
       for (var v : fw2Sound.voices) {
         if (v.active && v.inputCharacteristics[1] == midiChannel) {

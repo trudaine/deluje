@@ -30,17 +30,17 @@ public class LiveAutomationMpeTest {
     sound.mpePressure(3, 80); // Timbre pressure
     sound.mpeTimbre(3, 110); // Filter slide
 
-    // C: expressionEventImmediate sets localExpressionSourceValuesBeforeSmoothing = newValue<<16
-    assertEquals(10000 << 16, voice.localExpressionSourceValuesBeforeSmoothing[0]);
-    assertEquals(80 << 16, voice.localExpressionSourceValuesBeforeSmoothing[2]);
-    assertEquals(110 << 16, voice.localExpressionSourceValuesBeforeSmoothing[1]);
+    // C: expressionEventImmediate sets localExpressionSourceValuesBeforeSmoothing with correct C++
+    // scaling
+    assertEquals((10000 - 8192) << 18, voice.localExpressionSourceValuesBeforeSmoothing[0]);
+    assertEquals(80 << 24, voice.localExpressionSourceValuesBeforeSmoothing[2]);
+    assertEquals((110 - 64) << 25, voice.localExpressionSourceValuesBeforeSmoothing[1]);
 
     // C: combineExpressionValues: (mono>>1 + voice>>1) << 1
-    // mono=0, voice=80<<16=5242880 → result=5242880
     int pressureSource = PatchSource.AFTERTOUCH.ordinal();
     int timbreSource = PatchSource.Y.ordinal();
-    assertEquals(80 << 16, voice.sourceValues[pressureSource]);
-    assertEquals(110 << 16, voice.sourceValues[timbreSource]);
+    assertEquals(80 << 24, voice.sourceValues[pressureSource]);
+    assertEquals((110 - 64) << 25, voice.sourceValues[timbreSource]);
 
     // Release note on MPE channel 3
     sound.releaseNote(60, 3);
@@ -149,13 +149,13 @@ public class LiveAutomationMpeTest {
     // Virtual level is 80
     int virtual = 80;
 
-    // First hardware move at 20 (no previous history) -> registers history and returns virtual
+    // First hardware move at 20 (no previous history) -> registers history and returns -1 (blocked)
     int first = takeover.process(1, 20, virtual);
-    assertEquals(virtual, first);
+    assertEquals(-1, first);
 
-    // Hardware moves to 50 (still below 80) -> returns virtual (ignored)
+    // Hardware moves to 50 (still below 80) -> returns -1 (blocked)
     int second = takeover.process(1, 50, virtual);
-    assertEquals(virtual, second);
+    assertEquals(-1, second);
 
     // Hardware moves to 85 (crosses 80!) -> PICKED UP! Returns hardware value 85!
     int third = takeover.process(1, 85, virtual);
@@ -174,11 +174,12 @@ public class LiveAutomationMpeTest {
     // Virtual level is 100
     int virtual = 100;
 
-    // First hardware move at 20 -> registers history and returns virtual
+    // First hardware move at 20 -> registers history and returns -1 (blocked)
     int first = takeover.process(1, 20, virtual);
-    assertEquals(virtual, first);
+    assertEquals(-1, first);
 
     // Hardware moves to 30 (+10 increase) -> scales value up smoothly!
+    // Since previous was registered at 20, hardwareChange = 10.
     int second = takeover.process(1, 30, virtual);
     assertTrue(second > 100 && second < 127);
 

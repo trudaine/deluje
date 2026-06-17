@@ -243,6 +243,52 @@ public class DelugeXmlParser {
       project.setModeNotes(mask);
     }
 
+    // ── Microtuning & Custom Temperaments ──
+    Element microtuningEl = getFirstChild(songNode, "microtuning");
+    if (microtuningEl != null) {
+      if (microtuningEl.hasAttribute("notes")) {
+        project.setOctaveNumMicrotonalNotes(Integer.parseInt(microtuningEl.getAttribute("notes")));
+      }
+      if (microtuningEl.hasAttribute("isEqual")) {
+        project.setIsEqualTemperament(Boolean.parseBoolean(microtuningEl.getAttribute("isEqual")));
+      }
+      if (microtuningEl.hasAttribute("baseFrequency")) {
+        project.setBaseFrequencyHz(Double.parseDouble(microtuningEl.getAttribute("baseFrequency")));
+      }
+
+      Element centsEl = getFirstChild(microtuningEl, "cents");
+      if (centsEl != null) {
+        String centsText = centsEl.getTextContent().trim();
+        if (!centsText.isEmpty()) {
+          String[] parts = centsText.split(",");
+          int[] centAdjust = project.getCentAdjustForNotesInTemperament();
+          for (int i = 0; i < Math.min(parts.length, centAdjust.length); i++) {
+            try {
+              centAdjust[i] = Integer.parseInt(parts[i].trim());
+            } catch (Exception e) {
+              /* ignore malformed item */
+            }
+          }
+        }
+      }
+
+      Element ratiosEl = getFirstChild(microtuningEl, "ratios");
+      if (ratiosEl != null) {
+        String ratiosText = ratiosEl.getTextContent().trim();
+        if (!ratiosText.isEmpty()) {
+          String[] parts = ratiosText.split(",");
+          double[] customRatios = project.getCustomRatios();
+          for (int i = 0; i < Math.min(parts.length, customRatios.length); i++) {
+            try {
+              customRatios[i] = Double.parseDouble(parts[i].trim());
+            } catch (Exception e) {
+              /* ignore malformed item */
+            }
+          }
+        }
+      }
+    }
+
     // ── Song-level FX (reverb, delay, sidechain, compressor, songParams) ──
     parseSongFx(songNode, project);
 

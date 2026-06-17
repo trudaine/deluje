@@ -2606,9 +2606,24 @@ public class SwingDelugeApp extends JFrame {
 
     settingsMenu.add(sampleItem);
     settingsMenu.addSeparator();
+    JMenuItem tuningItem = new JMenuItem("Tuning & Temperaments...");
+    tuningItem.addActionListener(
+        e -> {
+          SwingTuningDialog dialog =
+              new SwingTuningDialog(
+                  this,
+                  currentProject,
+                  () -> {
+                    syncHighFidelityEngine(currentProject, true);
+                  });
+          dialog.setVisible(true);
+        });
+
     settingsMenu.add(monitorInputItem);
     settingsMenu.add(midiConfigItem);
     settingsMenu.add(clearMidiItem);
+    settingsMenu.addSeparator();
+    settingsMenu.add(tuningItem);
     settingsMenu.addSeparator();
     settingsMenu.add(prefItem);
     settingsMenu.add(showMonitorItem);
