@@ -113,7 +113,8 @@ public class NoteRow {
       List<Integer> pendingNoteOffs,
       int clipLastProcessedPos,
       int clipLoopLength,
-      boolean clipCurrentlyPlayingReversed) {
+      boolean clipCurrentlyPlayingReversed,
+      Object sound) {
 
     int effectiveLength = (loopLengthIfIndependent > 0) ? loopLengthIfIndependent : clipLoopLength;
     boolean playingReversedNow =
@@ -163,15 +164,21 @@ public class NoteRow {
       if (isTickReached(startTick, ticksSinceLast, note.pos, effectiveLength)) {
         if (currentPos >= ignoreNoteOnsBefore_) {
           // Legato check: if there's a note already playing at this pitch
-          boolean legato = false; // Ported check: sound.hasActiveVoice(this)
+          boolean legato = false;
+          if (sound instanceof org.chuck.deluge.firmware.engine.FirmwareSound) {
+            legato =
+                ((org.chuck.deluge.firmware.engine.FirmwareSound) sound).fw2Sound.noteIsOn(y, true);
+          }
 
-          pendingNoteOns.add(
-              new PendingNoteOn(
-                  this,
-                  note.getVelocity(),
-                  note.getProbability(),
-                  note.getIterance(),
-                  note.getFill()));
+          if (!legato) {
+            pendingNoteOns.add(
+                new PendingNoteOn(
+                    this,
+                    note.getVelocity(),
+                    note.getProbability(),
+                    note.getIterance(),
+                    note.getFill()));
+          }
         }
       }
 
