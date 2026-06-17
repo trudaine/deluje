@@ -1,5 +1,6 @@
 package org.chuck.deluge.firmware2;
 
+import org.chuck.deluge.firmware.model.Song;
 import org.chuck.deluge.firmware2.Oscillator.OscType;
 
 /**
@@ -434,20 +435,40 @@ public class Voice {
     portaEnvelopePos = 0;
     int semitoneAdjustment = sound.lastNoteCode - noteCode;
 
-    int noteWithinOctave = ((semitoneAdjustment + 120) % 12 + 12) % 12;
-    int octave = (semitoneAdjustment + 120) / 12;
+    int noteWithinOctave;
+    int octave;
+    int noteIntervalRatio;
+    if (sound.song != null) {
+      Song song = sound.song;
+      Song.NoteWithinOctave octaveAndNote = song.getOctaveAndNoteWithin(semitoneAdjustment);
+      noteWithinOctave = octaveAndNote.noteWithin;
+      octave = octaveAndNote.octave;
+      noteIntervalRatio = song.noteIntervalTable[noteWithinOctave];
 
-    int phaseIncrement = LookupTables.noteIntervalTable[noteWithinOctave];
-
-    int shiftRightAmount = 16 - octave;
-    if (shiftRightAmount >= 0) {
-      // Java masks shifts to 5 bits; the C's >> of >=32 yields 0 on a positive value — match that.
-      phaseIncrement = (shiftRightAmount >= 32) ? 0 : (phaseIncrement >> shiftRightAmount);
+      int phaseIncrement = noteIntervalRatio;
+      int shiftRightAmount = 6 - octave;
+      if (shiftRightAmount >= 0) {
+        phaseIncrement = (shiftRightAmount >= 32) ? 0 : (phaseIncrement >> shiftRightAmount);
+      } else {
+        phaseIncrement = 2147483647;
+      }
+      portaEnvelopeMaxAmplitude = phaseIncrement - Functions.K_MAX_SAMPLE_VALUE;
     } else {
-      phaseIncrement = 2147483647;
-    }
+      noteWithinOctave = ((semitoneAdjustment + 120) % 12 + 12) % 12;
+      octave = (semitoneAdjustment + 120) / 12;
+      noteIntervalRatio = LookupTables.noteIntervalTable[noteWithinOctave];
 
-    portaEnvelopeMaxAmplitude = phaseIncrement - Functions.K_MAX_SAMPLE_VALUE;
+      int phaseIncrement = noteIntervalRatio;
+      int shiftRightAmount = 16 - octave;
+      if (shiftRightAmount >= 0) {
+        // Java masks shifts to 5 bits; the C's >> of >=32 yields 0 on a positive value — match
+        // that.
+        phaseIncrement = (shiftRightAmount >= 32) ? 0 : (phaseIncrement >> shiftRightAmount);
+      } else {
+        phaseIncrement = 2147483647;
+      }
+      portaEnvelopeMaxAmplitude = phaseIncrement - Functions.K_MAX_SAMPLE_VALUE;
+    }
   }
 
   // ── noteOff (voice.cpp:570-634) ──
@@ -607,16 +628,37 @@ public class Voice {
         pitchAdjustNeutralValue =
             (int) (((unisonParts[0].sources[0].sampleRef.sampleRate) * 16777216L) / 44100);
       }
-      int noteWithinOctave = (noteCode + 240) % 12;
-      int octave = (noteCode + 120) / 12;
-      int shiftRightAmount = 13 - octave;
-      long rawInc =
-          ((long) LookupTables.noteIntervalTable[noteWithinOctave] * pitchAdjustNeutralValue) >> 32;
-      carrierIncA = (int) rawInc;
-      if (shiftRightAmount >= 0) {
-        carrierIncA >>>= shiftRightAmount;
+      int noteWithinOctave;
+      int octave;
+      int noteIntervalRatio;
+      if (sound.song != null) {
+        Song song = sound.song;
+        Song.NoteWithinOctave octaveAndNote = song.getOctaveAndNoteWithin(noteCode);
+        noteWithinOctave = octaveAndNote.noteWithin;
+        octave = octaveAndNote.octave;
+        noteIntervalRatio = song.noteIntervalTable[noteWithinOctave];
+
+        int shiftRightAmount = 3 - octave;
+        long rawInc = ((long) noteIntervalRatio * pitchAdjustNeutralValue) >> 32;
+        carrierIncA = (int) rawInc;
+        if (shiftRightAmount >= 0) {
+          carrierIncA >>>= shiftRightAmount;
+        } else {
+          carrierIncA <<= (-shiftRightAmount);
+        }
       } else {
-        carrierIncA <<= (-shiftRightAmount);
+        noteWithinOctave = (noteCode + 240) % 12;
+        octave = (noteCode + 120) / 12;
+        noteIntervalRatio = LookupTables.noteIntervalTable[noteWithinOctave];
+
+        int shiftRightAmount = 13 - octave;
+        long rawInc = ((long) noteIntervalRatio * pitchAdjustNeutralValue) >> 32;
+        carrierIncA = (int) rawInc;
+        if (shiftRightAmount >= 0) {
+          carrierIncA >>>= shiftRightAmount;
+        } else {
+          carrierIncA <<= (-shiftRightAmount);
+        }
       }
     } else {
       carrierIncA = calculateBasePhaseIncrement(noteCode);
@@ -635,16 +677,37 @@ public class Voice {
         pitchAdjustNeutralValue =
             (int) (((unisonParts[0].sources[1].sampleRef.sampleRate) * 16777216L) / 44100);
       }
-      int noteWithinOctave = (noteCode + 240) % 12;
-      int octave = (noteCode + 120) / 12;
-      int shiftRightAmount = 13 - octave;
-      long rawInc =
-          ((long) LookupTables.noteIntervalTable[noteWithinOctave] * pitchAdjustNeutralValue) >> 32;
-      carrierIncB = (int) rawInc;
-      if (shiftRightAmount >= 0) {
-        carrierIncB >>>= shiftRightAmount;
+      int noteWithinOctave;
+      int octave;
+      int noteIntervalRatio;
+      if (sound.song != null) {
+        Song song = sound.song;
+        Song.NoteWithinOctave octaveAndNote = song.getOctaveAndNoteWithin(noteCode);
+        noteWithinOctave = octaveAndNote.noteWithin;
+        octave = octaveAndNote.octave;
+        noteIntervalRatio = song.noteIntervalTable[noteWithinOctave];
+
+        int shiftRightAmount = 3 - octave;
+        long rawInc = ((long) noteIntervalRatio * pitchAdjustNeutralValue) >> 32;
+        carrierIncB = (int) rawInc;
+        if (shiftRightAmount >= 0) {
+          carrierIncB >>>= shiftRightAmount;
+        } else {
+          carrierIncB <<= (-shiftRightAmount);
+        }
       } else {
-        carrierIncB <<= (-shiftRightAmount);
+        noteWithinOctave = (noteCode + 240) % 12;
+        octave = (noteCode + 120) / 12;
+        noteIntervalRatio = LookupTables.noteIntervalTable[noteWithinOctave];
+
+        int shiftRightAmount = 13 - octave;
+        long rawInc = ((long) noteIntervalRatio * pitchAdjustNeutralValue) >> 32;
+        carrierIncB = (int) rawInc;
+        if (shiftRightAmount >= 0) {
+          carrierIncB >>>= shiftRightAmount;
+        } else {
+          carrierIncB <<= (-shiftRightAmount);
+        }
       }
     } else {
       carrierIncB = carrierIncA;
@@ -1609,15 +1672,29 @@ public class Voice {
     return t == OscType.INPUT_L || t == OscType.INPUT_R || t == OscType.INPUT_STEREO;
   }
 
-  public static int calculateBasePhaseIncrement(int noteCode) {
-    int noteWithinOctave = (noteCode + 240 - 4) % 12;
-    int octave = (noteCode + 120 - 4) / 12;
-
-    int shiftRightAmount = 20 - octave;
-    if (shiftRightAmount >= 0) {
-      return LookupTables.noteFrequencyTable[noteWithinOctave] >>> shiftRightAmount;
+  public int calculateBasePhaseIncrement(int noteCode) {
+    if (sound.song != null) {
+      Song song = sound.song;
+      // Pass noteCode - 4 to align synth octave indexing!
+      Song.NoteWithinOctave octaveAndNote = song.getOctaveAndNoteWithin(noteCode - 4);
+      int shiftRightAmount = 10 - octaveAndNote.octave;
+      if (shiftRightAmount >= 0) {
+        return (shiftRightAmount >= 32)
+            ? 0
+            : (song.noteFrequencyTable[octaveAndNote.noteWithin] >>> shiftRightAmount);
+      }
+      return 0; // inactive / too high
+    } else {
+      int noteWithinOctave = (noteCode + 240 - 4) % 12;
+      int octave = (noteCode + 120 - 4) / 12;
+      int shiftRightAmount = 20 - octave;
+      if (shiftRightAmount >= 0) {
+        return (shiftRightAmount >= 32)
+            ? 0
+            : (LookupTables.noteFrequencyTable[noteWithinOctave] >>> shiftRightAmount);
+      }
+      return 0; // inactive / too high
     }
-    return 0; // inactive / too high
   }
 
   public static int adjustPitch(int phaseIncrement, int adjustment) {

@@ -27,6 +27,7 @@ Welcome to the **ChucK-Java Deluge Workstation**, a modern, high-fidelity softwa
 16. [MPE & Multi-Dimensional Controller Expression](#16-mpe--multi-dimensional-controller-expression)
 17. [System Settings, Directories Preferences & Shortcuts Table](#17-system-settings-directories-preferences--shortcuts-table)
     * [17.1 Hardware Character Emulations & Master Saturation Drive](#171-hardware-character-emulations--master-saturation-drive)
+    * [17.2 Microtuning, Custom Temperaments & Scala (.scl) Imports](#172-microtuning-custom-temperaments--scala-scl-imports)
 18. [Appendix: Programmatic High-Fidelity JNI Registers Architecture](#18-appendix-programmatic-high-fidelity-jni-registers-architecture)
 19. [Appendix: Pending Work Items & Future Development Roadmap (TODO List)](#19-appendix-pending-work-items--future-development-roadmap-todo-list)
 20. [Hardware Popular Commands & Java UI Equivalents Table](#20-hardware-popular-commands--java-ui-equivalents-table)
@@ -914,9 +915,31 @@ graph TD
 The **`Settings ➔ Preferences...`** panel manages your paths and grid configurations without JNI hooks:
 * **SD Card Mounted Library Directory**: Set the root parent directory folder path representing your physical SD card library. All subdirectories (`SAMPLES/`, `KITS/`, `SYNTHS/`, `SONGS/`) are resolved relative to this parent root dynamically.
 * **Grid Layout Profiles**: Standardize your interface to **`Grid 8x16`** or extended **`Grid 16x16`** formats.
-* **Microtonal Tuning (Scala)**: Load standard Scala scale (`.scl`) and optional keyboard mapping (`.kbm`) templates:
-  * **Browse SCL:** Click the button to launch a file chooser, select your custom tuning scale file. The parser immediately compiles the cent/ratio intervals, updates the active JNI pitch-to-frequency engine, and saves your path to preferences.
-  * **Clear / 12-TET:** Resets active tunings, restoring the standard 12-Tone Equal Temperament system instantly.
+* **Microtuning & Custom Temperaments**: Fully integrated at the song-level, allowing you to break free from standard 12-TET tuning and explore dynamic, alternative temperaments, historical scales, and custom EDO microtonality (described in detail in [Section 17.2](#172-microtuning-custom-temperaments--scala-scl-imports) below).
+
+### 17.2 Microtuning, Custom Temperaments & Scala (.scl) Imports
+
+The ChucK-Java Deluge Workstation features a professional-grade microtuning engine that is fully integrated into the song structure and sound synthesis pipelines. You can configure custom temperaments, detune individual note classes, calibrate the base reference pitch, and import standard Scala `.scl` files.
+
+Access the interface by selecting **`Settings ➔ Tuning & Temperaments...`** from the global menu bar:
+
+#### 1. Temperament Core Settings
+*   **Tuning Type Selector**: Choose between **Equal Temperament** (which detunes notes relative to equal subdivisions of the octave) and **Custom Ratios** (which builds scales from custom harmonic multipliers, such as Just Intonation).
+*   **Notes / Octave Spinner**: Adjust the number of microtonal notes within the octave from **1 to 64 notes**. If you change this value, the note adjustment grid below immediately rebuilds itself to match! This makes it effortless to explore dynamic EDO systems like 19-TET, 31-TET, or 53-TET.
+*   **Reference Pitch Calibration**: Calibrate the base reference frequency of Note 0 (defaults to A = 440.0 Hz) to alternative reference pitches (such as A = 432 Hz for organic resonances, A = 415 Hz for baroque temperaments, or A = 444 Hz) with perfect, linear fixed-point frequency scaling across the entire synthesizer engine.
+*   **Scala (.scl) File Import**: Click the **`Import Scala (.scl) File...`** button to open a file browser, select any standard `.scl` file on your disk, and import it. The parser will immediately read the file, extract its step count and custom ratios, update the active project, and populate all sliders and text fields dynamically!
+
+#### 2. Note-by-Note Scaling Map
+*   **Cents Adjustments (Equal Temperament Mode)**: Displays a vertical list of rows for notes `00` to `N-1`. Each row has a **JSlider** and a **JSpinner** bound bidirectionally to detune that note class by up to **$\pm 100$ cents**.
+*   **Fractional Ratios (Custom Ratios Mode)**: Displays text fields to type custom ratios. Note 0 is locked to `1.0` (unison). Subsequent text fields intelligently support **both decimal entries (e.g. `1.125`) and fractional ratios (e.g. `9/8`)!** The evaluated decimal value is displayed next to each text field in real-time.
+
+#### 3. ⚡ Real-Time Live Auditioning
+All microtuning adjustments are cabled directly to the active JNI synthesizer voices. **Dragging a cents slider or typing a new ratio instantly recalculates the DSP frequency tables and warps the pitch of active playing voices in real-time during playback!** This allows you to audit, play, and tune scales dynamically while the sequencer is running.
+
+#### 4. 💾 Song-Level XML Persistence
+Microtuning configurations are serialized directly inside the song's `.XML` file under the `<microtuning>` element:
+*   Standard 12-TET songs are untouched, keeping files 100% clean and backward-compatible.
+*   Custom tunings store their notes count, temperament type, reference pitch, and cents/ratios arrays seamlessly, ensuring loss-free load cycles.
 
 ### 17.1 Hardware Character Emulations & Master Saturation Drive
 

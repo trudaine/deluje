@@ -89,8 +89,8 @@ public class MidiTakeover {
     }
 
     previousHardwareValues[cc] = hardwareValue;
-    // Return the current virtual value (meaning state is ignored/unchanged)
-    return currentVirtualValue;
+    // Return -1 to indicate the value is blocked/unchanged
+    return -1;
   }
 
   private int processScale(int cc, int hardwareValue, int currentVirtualValue) {
@@ -98,10 +98,10 @@ public class MidiTakeover {
     if (previous < 0) {
       previous = hardwareValue;
       previousHardwareValues[cc] = previous;
-      return currentVirtualValue;
+      return -1;
     }
 
-    // Check pick-up first: if we cross the virtual value, switch back to absolute absolute values!
+    // Check pick-up first: if we cross the virtual value, switch back to absolute values!
     if ((previous <= currentVirtualValue && hardwareValue >= currentVirtualValue)
         || (previous >= currentVirtualValue && hardwareValue <= currentVirtualValue)) {
       previousHardwareValues[cc] = hardwareValue;
@@ -112,7 +112,7 @@ public class MidiTakeover {
     int hardwareChange = hardwareValue - previous;
     if (hardwareChange == 0) {
       previousHardwareValues[cc] = hardwareValue;
-      return currentVirtualValue;
+      return -1;
     }
 
     double newVirtual = currentVirtualValue;
@@ -148,6 +148,11 @@ public class MidiTakeover {
 
     int finalValue = (int) Math.round(newVirtual);
     finalValue = Math.clamp(finalValue, 0, 127);
+
+    if (finalValue == currentVirtualValue) {
+      previousHardwareValues[cc] = hardwareValue;
+      return -1;
+    }
 
     previousHardwareValues[cc] = hardwareValue;
     trackedValues[cc] = finalValue;

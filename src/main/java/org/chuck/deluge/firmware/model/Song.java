@@ -17,8 +17,70 @@ public class Song extends TimelineCounter {
   public int swingAmount = 0; // -49 to 49
   public int swingInterval = 3; // SyncLevel (e.g. 1/16)
 
+  // ── Microtuning & Custom Temperaments ──
+  public static final int OCTAVE_MAX_NUM_MICROTONAL_NOTES = 64;
+
+  public int octaveNumMicrotonalNotes = 12;
+  public boolean isEqualTemperament = true;
+  public int baseFrequency = 1027294024; // Java standard C-2 base frequency
+  public final byte[] centAdjustForNotesInTemperament = new byte[OCTAVE_MAX_NUM_MICROTONAL_NOTES];
+  public final int[] noteFrequencyTable = new int[OCTAVE_MAX_NUM_MICROTONAL_NOTES];
+  public final int[] noteIntervalTable = new int[OCTAVE_MAX_NUM_MICROTONAL_NOTES];
+
+  // Custom ratio-based temperament (e.g. from Scala .scl files)
+  public final double[] customRatios = new double[OCTAVE_MAX_NUM_MICROTONAL_NOTES];
+
   public Song() {
     tempoBPM = 120.0f;
+    calculateNoteFrequencies();
+  }
+
+  public void calculateNoteFrequencies() {
+    if (isEqualTemperament) {
+      noteFrequencyTable[0] = baseFrequency;
+      noteIntervalTable[0] = 1073741824; // Q30.ONE
+      int numNotesTimes100 = octaveNumMicrotonalNotes * 100;
+      for (int i = 1; i < octaveNumMicrotonalNotes; i++) {
+        int withCents = i * 100 + centAdjustForNotesInTemperament[i];
+        noteFrequencyTable[i] =
+            (int) Math.round(Math.pow(2.0, (double) withCents / numNotesTimes100) * baseFrequency);
+        noteIntervalTable[i] =
+            (int) Math.round(Math.pow(2.0, (double) withCents / numNotesTimes100) * 1073741824.0);
+      }
+    } else {
+      // Ratio-based temperament (e.g., Just Intonation or Scala scale)
+      noteFrequencyTable[0] = baseFrequency;
+      noteIntervalTable[0] = 1073741824; // Q30.ONE
+      for (int i = 1; i < octaveNumMicrotonalNotes; i++) {
+        double ratio =
+            customRatios[i] > 0.0
+                ? customRatios[i]
+                : Math.pow(2.0, (double) i / octaveNumMicrotonalNotes);
+        noteFrequencyTable[i] = (int) Math.round(ratio * baseFrequency);
+        noteIntervalTable[i] = (int) Math.round(ratio * 1073741824.0);
+      }
+    }
+  }
+
+  public static class NoteWithinOctave {
+    public int octave;
+    public int noteWithin;
+
+    public NoteWithinOctave(int octave, int noteWithin) {
+      this.octave = octave;
+      this.noteWithin = noteWithin;
+    }
+  }
+
+  public NoteWithinOctave getOctaveAndNoteWithin(int noteCode) {
+    // Math.floorDiv and Math.floorMod perfectly implement divide_round_negative
+    int octave = Math.floorDiv(noteCode, octaveNumMicrotonalNotes);
+    int noteWithin = Math.floorMod(noteCode, octaveNumMicrotonalNotes);
+    return new NoteWithinOctave(octave, noteWithin);
+  }
+
+  public int getRootNoteWithinOctave() {
+    return getOctaveAndNoteWithin(rootNote).noteWithin;
   }
 
   public void addClip(Clip clip) {

@@ -78,28 +78,41 @@ public class FirmwareFactory {
     Song song = new Song();
     song.tempoBPM = model.getBpm();
 
+    // ── Propagate Microtuning & Custom Temperaments ──
+    song.octaveNumMicrotonalNotes = model.getOctaveNumMicrotonalNotes();
+    song.isEqualTemperament = model.isEqualTemperament();
+    song.baseFrequency = (int) Math.round((model.getBaseFrequencyHz() / 440.0) * 1027294024.0);
+    byte[] songCents = song.centAdjustForNotesInTemperament;
+    int[] modelCents = model.getCentAdjustForNotesInTemperament();
+    for (int i = 0; i < 64; i++) {
+      songCents[i] = (byte) modelCents[i];
+    }
+    System.arraycopy(model.getCustomRatios(), 0, song.customRatios, 0, 64);
+    song.calculateNoteFrequencies();
+
     System.out.println(
         "[FirmwareFactory] Creating FW Song. Tracks in model: " + model.getTracks().size());
     for (TrackModel track : model.getTracks()) {
       if (track instanceof SynthTrackModel synthTrack) {
-        InstrumentClip clip = createInstrumentClip(synthTrack);
+        InstrumentClip clip = createInstrumentClip(synthTrack, song);
         song.addClip(clip);
       } else if (track instanceof KitTrackModel kitTrack) {
-        InstrumentClip clip = createKitClip(kitTrack);
+        InstrumentClip clip = createKitClip(kitTrack, song);
         song.addClip(clip);
       } else if (track instanceof MidiTrackModel midiTrack) {
-        InstrumentClip clip = createMidiClip(midiTrack);
+        InstrumentClip clip = createMidiClip(midiTrack, song);
         song.addClip(clip);
       }
     }
     return song;
   }
 
-  private static InstrumentClip createInstrumentClip(SynthTrackModel model) {
+  private static InstrumentClip createInstrumentClip(SynthTrackModel model, Song song) {
     InstrumentClip clip = new InstrumentClip();
     clip.loopLength = 16 * 24;
 
     FirmwareSound sound = new FirmwareSound();
+    sound.fw2Sound.song = song;
     clip.sound = sound;
 
     // ── Copy all parameters and patch cables ──
@@ -173,7 +186,7 @@ public class FirmwareFactory {
     return row;
   }
 
-  private static InstrumentClip createMidiClip(MidiTrackModel model) {
+  private static InstrumentClip createMidiClip(MidiTrackModel model, Song song) {
     InstrumentClip clip = new InstrumentClip();
     clip.loopLength = 16 * 24;
 
@@ -968,10 +981,18 @@ public class FirmwareFactory {
   }
 
   public static InstrumentClip createKitClip(KitTrackModel model) {
+    return createKitClip(model, null);
+  }
+
+  public static InstrumentClip createKitClip(KitTrackModel model, Song song) {
     InstrumentClip clip = new InstrumentClip();
     FirmwareKit kit = new FirmwareKit();
     clip.sound = kit;
     clip.loopLength = 16 * 24;
+
+    for (FirmwareSound drumSound : kit.drumSounds) {
+      drumSound.fw2Sound.song = song;
+    }
 
     File sdRoot = PreferencesManager.getLibraryDir();
     try (var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
