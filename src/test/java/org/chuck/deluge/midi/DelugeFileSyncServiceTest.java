@@ -190,4 +190,132 @@ public class DelugeFileSyncServiceTest {
       throw new RuntimeException(e);
     }
   }
+
+  @Test
+  public void testFatDateTime() {
+    // 1. Test encoding/decoding parity (FAT time has 2-second resolution)
+    long epochMillis = 1781222400000L; // some specific future epoch
+    int[] fat = DelugeFileSyncService.encodeFatDateTime(epochMillis);
+    assertTrue(fat[0] > 0);
+    assertTrue(fat[1] >= 0);
+
+    long decoded = DelugeFileSyncService.decodeFatDateTime(fat[0], fat[1]);
+    // The difference must be <= 2000ms due to FAT's 2-second resolution
+    assertTrue(Math.abs(epochMillis - decoded) <= 2000);
+  }
+
+  @Test
+  public void testParseDirectoryEntries() {
+    String json =
+        "{\"^dir\": {\"list\": ["
+            + "{\"name\":\"SONGS\",\"size\":0,\"date\":23685,\"time\":14336,\"attr\":16}," // 0x10
+            // is
+            // directory
+            + "{\"name\":\"TRACK1.XML\",\"size\":45210,\"date\":23685,\"time\":14352,\"attr\":32}" // 0x20 is archive/file
+            + "], \"err\": 0}}";
+    List<RemoteFileEntry> entries = DelugeFileSyncService.parseDirectoryEntries(json);
+    assertEquals(2, entries.size());
+
+    RemoteFileEntry e1 = entries.get(0);
+    assertEquals("SONGS", e1.name());
+    assertEquals(0, e1.size());
+    assertTrue(e1.isDirectory());
+    assertFalse(e1.isReadOnly());
+
+    RemoteFileEntry e2 = entries.get(1);
+    assertEquals("TRACK1.XML", e2.name());
+    assertEquals(45210, e2.size());
+    assertFalse(e2.isDirectory());
+    assertFalse(e2.isReadOnly());
+    assertTrue(e2.lastModifiedMillis() > 0);
+  }
+
+  @Test
+  public void testNewFileSystemOperations() throws Exception {
+    DelugeSysExManager mockManager =
+        new DelugeSysExManager() {
+          @Override
+          public void sendRequest(String jsonPayload, SysExCallback callback) {
+            if (jsonPayload.contains("\"mkdir\"")) {
+              assertTrue(jsonPayload.contains("\"path\": \"/SONGS/NEWDIR\""));
+              callback.onResponse("{\"^mkdir\": {\"err\": 0}}", null);
+            } else if (jsonPayload.contains("\"delete\"")) {
+              assertTrue(jsonPayload.contains("\"path\": \"/SONGS/OLD.XML\""));
+              callback.onResponse("{\"^delete\": {\"err\": 0}}", null);
+            } else if (jsonPayload.contains("\"rename\"")) {
+              assertTrue(jsonPayload.contains("\"from\": \"/SONGS/A.XML\""));
+              assertTrue(jsonPayload.contains("\"to\": \"/SONGS/B.XML\""));
+              callback.onResponse("{\"^rename\": {\"err\": 0}}", null);
+            } else if (jsonPayload.contains("\"copy\"")) {
+              assertTrue(jsonPayload.contains("\"from\": \"/SONGS/A.XML\""));
+              assertTrue(jsonPayload.contains("\"to\": \"/SONGS/C.XML\""));
+              callback.onResponse("{\"^copy\": {\"err\": 0}}", null);
+            } else if (jsonPayload.contains("\"move\"")) {
+              assertTrue(jsonPayload.contains("\"from\": \"/SONGS/A.XML\""));
+              assertTrue(jsonPayload.contains("\"to\": \"/SONGS/D.XML\""));
+              callback.onResponse("{\"^move\": {\"err\": 0}}", null);
+            } else if (jsonPayload.contains("\"utime\"")) {
+              assertTrue(jsonPayload.contains("\"path\": \"/SONGS/A.XML\""));
+              callback.onResponse("{\"^utime\": {\"err\": 0}}", null);
+            } else if (jsonPayload.contains("\"dir\"")) {
+              assertTrue(jsonPayload.contains("\"path\": \"/SONGS\""));
+              callback.onResponse(
+                  "{\"^dir\": {\"list\": [{\"name\":\"S1.XML\",\"size\":123,\"date\":100,\"time\":100,\"attr\":32}], \"err\": 0}}",
+                  null);
+            } else {
+              fail("Unexpected request: " + jsonPayload);
+            }
+          }
+        };
+
+    DelugeFileSyncService service = new DelugeFileSyncService(mockManager);
+
+    // Test listDirectory
+    CompletableFuture<List<RemoteFileEntry>> dirFuture = new CompletableFuture<>();
+    service.listDirectory(
+        "/SONGS",
+        new DelugeFileSyncService.DirectoryListCallback() {
+          @Override
+          public void onSuccess(List<RemoteFileEntry> entries) {
+            dirFuture.complete(entries);
+          }
+
+          @Override
+          public void onFailure(Throwable t) {
+            dirFuture.completeExceptionally(t);
+          }
+        });
+    List<RemoteFileEntry> dirResult = dirFuture.get();
+    assertEquals(1, dirResult.size());
+    assertEquals("S1.XML", dirResult.get(0).name());
+
+    // Run blocking calls on virtual thread
+    CompletableFuture<Void> opsFuture = new CompletableFuture<>();
+    Thread.ofVirtual()
+        .start(
+            () -> {
+              try {
+                assertEquals(
+                    0,
+                    service.createDirectoryBlocking("/SONGS/NEWDIR", System.currentTimeMillis()));
+                assertEquals(0, service.deleteBlocking("/SONGS/OLD.XML"));
+                assertEquals(0, service.renameBlocking("/SONGS/A.XML", "/SONGS/B.XML"));
+                assertEquals(
+                    0,
+                    service.copyBlocking(
+                        "/SONGS/A.XML", "/SONGS/C.XML", System.currentTimeMillis()));
+                assertEquals(
+                    0,
+                    service.moveBlocking(
+                        "/SONGS/A.XML", "/SONGS/D.XML", System.currentTimeMillis()));
+                assertEquals(
+                    0, service.setTimestampBlocking("/SONGS/A.XML", System.currentTimeMillis()));
+                opsFuture.complete(null);
+              } catch (Exception e) {
+                opsFuture.completeExceptionally(e);
+              }
+            });
+
+    opsFuture.get(); // block and verify no exceptions
+  }
 }

@@ -33,6 +33,18 @@ public class DelugeFileSyncService {
     void onFailure(Throwable t);
   }
 
+  public interface DirectoryListCallback {
+    void onSuccess(List<RemoteFileEntry> entries);
+
+    void onFailure(Throwable t);
+  }
+
+  public interface FileOpCallback {
+    void onSuccess();
+
+    void onFailure(Throwable t);
+  }
+
   /** Reports transfer progress; {@code total} is the file size in bytes (0 if unknown yet). */
   public interface ProgressCallback {
     void onProgress(long done, long total);
@@ -272,11 +284,9 @@ public class DelugeFileSyncService {
       Thread.sleep(2200);
 
       // Convert local epoch millisecond to FAT date/time format
-      java.time.Instant instant = java.time.Instant.ofEpochMilli(lastModifiedMillis);
-      java.time.LocalDateTime dt =
-          java.time.LocalDateTime.ofInstant(instant, java.time.ZoneId.systemDefault());
-      int fatDate = ((dt.getYear() - 1980) << 9) | (dt.getMonthValue() << 5) | dt.getDayOfMonth();
-      int fatTime = (dt.getHour() << 11) | (dt.getMinute() << 5) | (dt.getSecond() / 2);
+      int[] fatDT = encodeFatDateTime(lastModifiedMillis);
+      int fatDate = fatDT[0];
+      int fatTime = fatDT[1];
 
       // 1. Open remote file for writing
       Reply openReply =
@@ -407,5 +417,262 @@ public class DelugeFileSyncService {
       }
     }
     return result;
+  }
+
+  /** Decodes native 16-bit FAT date and 16-bit FAT time into epoch milliseconds. */
+  public static long decodeFatDateTime(int fatDate, int fatTime) {
+    if (fatDate <= 0) {
+      return 0;
+    }
+    int year = ((fatDate >> 9) & 0x7F) + 1980;
+    int month = (fatDate >> 5) & 0x0F;
+    int day = fatDate & 0x1F;
+    int hour = (fatTime >> 11) & 0x1F;
+    int minute = (fatTime >> 5) & 0x3F;
+    int second = (fatTime & 0x1F) * 2;
+    try {
+      java.time.LocalDateTime ldt =
+          java.time.LocalDateTime.of(
+              Math.max(1980, year),
+              Math.max(1, Math.min(12, month)),
+              Math.max(1, Math.min(31, day)),
+              Math.max(0, Math.min(23, hour)),
+              Math.max(0, Math.min(59, minute)),
+              Math.max(0, Math.min(59, second)));
+      return ldt.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+    } catch (Exception e) {
+      return 0;
+    }
+  }
+
+  /** Encodes epoch milliseconds into native 16-bit FAT date and time. */
+  public static int[] encodeFatDateTime(long epochMillis) {
+    java.time.Instant instant = java.time.Instant.ofEpochMilli(epochMillis);
+    java.time.LocalDateTime dt =
+        java.time.LocalDateTime.ofInstant(instant, java.time.ZoneId.systemDefault());
+    int fatDate = ((dt.getYear() - 1980) << 9) | (dt.getMonthValue() << 5) | dt.getDayOfMonth();
+    int fatTime = (dt.getHour() << 11) | (dt.getMinute() << 5) | (dt.getSecond() / 2);
+    return new int[] {fatDate, fatTime};
+  }
+
+  /** Parses directory entries from native C++ JSON response. */
+  public static List<RemoteFileEntry> parseDirectoryEntries(String json) {
+    List<RemoteFileEntry> entries = new ArrayList<>();
+    // Matches {"name":"...","size":...,"date":...,"time":...,"attr":...}
+    Pattern entryPattern =
+        Pattern.compile(
+            "\\{\\s*\"name\"\\s*:\\s*\"([^\"]+)\"\\s*,\\s*\"size\"\\s*:\\s*(\\d+)\\s*,\\s*\"date\"\\s*:\\s*(\\d+)\\s*,\\s*\"time\"\\s*:\\s*(\\d+)\\s*,\\s*\"attr\"\\s*:\\s*(\\d+)\\s*\\}");
+    Matcher matcher = entryPattern.matcher(json);
+    while (matcher.find()) {
+      String name = matcher.group(1);
+      long size = Long.parseLong(matcher.group(2));
+      int fatDate = Integer.parseInt(matcher.group(3));
+      int fatTime = Integer.parseInt(matcher.group(4));
+      int attr = Integer.parseInt(matcher.group(5));
+
+      boolean isDirectory = (attr & 0x10) != 0;
+      boolean isReadOnly = (attr & 0x01) != 0;
+      boolean isHidden = (attr & 0x02) != 0;
+      long lastModified = decodeFatDateTime(fatDate, fatTime);
+
+      entries.add(new RemoteFileEntry(name, size, lastModified, isDirectory, isReadOnly, isHidden));
+    }
+    return entries;
+  }
+
+  /**
+   * Retrieves the detailed metadata-preserving list of directory entries on the Deluge.
+   *
+   * @param remotePath Absolute remote path (e.g. {@code "/SONGS"} or {@code "/SYNTHS"})
+   * @param callback Callback for success (file entry list) or failure
+   */
+  public void listDirectory(String remotePath, DirectoryListCallback callback) {
+    String req = String.format("{\"dir\": {\"path\": \"%s\", \"lines\": 25}}", remotePath);
+    sysExManager.sendRequest(
+        req,
+        (json, bin) -> {
+          int err = getIntAttr(json, "err");
+          if (err != 0) {
+            callback.onFailure(new IOException("Remote dir list failed, err=" + err));
+            return;
+          }
+          List<RemoteFileEntry> entries = parseDirectoryEntries(json);
+          callback.onSuccess(entries);
+        });
+  }
+
+  // ── New Remote File System Operations ──
+
+  /** Create a remote directory. */
+  public int createDirectoryBlocking(String remotePath, long lastModifiedMillis) throws Exception {
+    int[] fatDT = encodeFatDateTime(lastModifiedMillis);
+    String req =
+        String.format(
+            "{\"mkdir\": {\"path\": \"%s\", \"date\": %d, \"time\": %d}}",
+            remotePath, fatDT[0], fatDT[1]);
+    Reply r = sendWithRetry(req, null, 8, 800, "mkdir " + remotePath);
+    return getIntAttr(r.json(), "err");
+  }
+
+  public void createDirectoryAsync(
+      String remotePath, long lastModifiedMillis, FileOpCallback callback) {
+    Thread.ofVirtual()
+        .name("DelugeDirCreator-" + remotePath)
+        .start(
+            () -> {
+              try {
+                int err = createDirectoryBlocking(remotePath, lastModifiedMillis);
+                if (err != 0) {
+                  callback.onFailure(new IOException("mkdir failed, err=" + err));
+                } else {
+                  callback.onSuccess();
+                }
+              } catch (Exception e) {
+                callback.onFailure(e);
+              }
+            });
+  }
+
+  /** Delete a remote file or directory. */
+  public int deleteBlocking(String remotePath) throws Exception {
+    String req = String.format("{\"delete\": {\"path\": \"%s\"}}", remotePath);
+    Reply r = sendWithRetry(req, null, 8, 800, "delete " + remotePath);
+    return getIntAttr(r.json(), "err");
+  }
+
+  public void deleteAsync(String remotePath, FileOpCallback callback) {
+    Thread.ofVirtual()
+        .name("DelugeDeleter-" + remotePath)
+        .start(
+            () -> {
+              try {
+                int err = deleteBlocking(remotePath);
+                if (err != 0) {
+                  callback.onFailure(new IOException("delete failed, err=" + err));
+                } else {
+                  callback.onSuccess();
+                }
+              } catch (Exception e) {
+                callback.onFailure(e);
+              }
+            });
+  }
+
+  /** Rename a remote file or directory. */
+  public int renameBlocking(String fromPath, String toPath) throws Exception {
+    String req =
+        String.format("{\"rename\": {\"from\": \"%s\", \"to\": \"%s\"}}", fromPath, toPath);
+    Reply r = sendWithRetry(req, null, 8, 800, "rename " + fromPath + " to " + toPath);
+    return getIntAttr(r.json(), "err");
+  }
+
+  public void renameAsync(String fromPath, String toPath, FileOpCallback callback) {
+    Thread.ofVirtual()
+        .name("DelugeRenamer-" + fromPath)
+        .start(
+            () -> {
+              try {
+                int err = renameBlocking(fromPath, toPath);
+                if (err != 0) {
+                  callback.onFailure(new IOException("rename failed, err=" + err));
+                } else {
+                  callback.onSuccess();
+                }
+              } catch (Exception e) {
+                callback.onFailure(e);
+              }
+            });
+  }
+
+  /** Copy a file natively on the Deluge SD card. */
+  public int copyBlocking(String fromPath, String toPath, long lastModifiedMillis)
+      throws Exception {
+    int[] fatDT = encodeFatDateTime(lastModifiedMillis);
+    String req =
+        String.format(
+            "{\"copy\": {\"from\": \"%s\", \"to\": \"%s\", \"date\": %d, \"time\": %d}}",
+            fromPath, toPath, fatDT[0], fatDT[1]);
+    Reply r = sendWithRetry(req, null, 15, 800, "copy " + fromPath);
+    return getIntAttr(r.json(), "err");
+  }
+
+  public void copyAsync(
+      String fromPath, String toPath, long lastModifiedMillis, FileOpCallback callback) {
+    Thread.ofVirtual()
+        .name("DelugeCopier-" + fromPath)
+        .start(
+            () -> {
+              try {
+                int err = copyBlocking(fromPath, toPath, lastModifiedMillis);
+                if (err != 0) {
+                  callback.onFailure(new IOException("copy failed, err=" + err));
+                } else {
+                  callback.onSuccess();
+                }
+              } catch (Exception e) {
+                callback.onFailure(e);
+              }
+            });
+  }
+
+  /** Move a file natively on the Deluge SD card. */
+  public int moveBlocking(String fromPath, String toPath, long lastModifiedMillis)
+      throws Exception {
+    int[] fatDT = encodeFatDateTime(lastModifiedMillis);
+    String req =
+        String.format(
+            "{\"move\": {\"from\": \"%s\", \"to\": \"%s\", \"date\": %d, \"time\": %d}}",
+            fromPath, toPath, fatDT[0], fatDT[1]);
+    Reply r = sendWithRetry(req, null, 15, 800, "move " + fromPath);
+    return getIntAttr(r.json(), "err");
+  }
+
+  public void moveAsync(
+      String fromPath, String toPath, long lastModifiedMillis, FileOpCallback callback) {
+    Thread.ofVirtual()
+        .name("DelugeMover-" + fromPath)
+        .start(
+            () -> {
+              try {
+                int err = moveBlocking(fromPath, toPath, lastModifiedMillis);
+                if (err != 0) {
+                  callback.onFailure(new IOException("move failed, err=" + err));
+                } else {
+                  callback.onSuccess();
+                }
+              } catch (Exception e) {
+                callback.onFailure(e);
+              }
+            });
+  }
+
+  /** Explicitly set a remote file or directory's modification timestamp. */
+  public int setTimestampBlocking(String remotePath, long lastModifiedMillis) throws Exception {
+    int[] fatDT = encodeFatDateTime(lastModifiedMillis);
+    String req =
+        String.format(
+            "{\"utime\": {\"path\": \"%s\", \"date\": %d, \"time\": %d}}",
+            remotePath, fatDT[0], fatDT[1]);
+    Reply r = sendWithRetry(req, null, 8, 800, "utime " + remotePath);
+    return getIntAttr(r.json(), "err");
+  }
+
+  public void setTimestampAsync(
+      String remotePath, long lastModifiedMillis, FileOpCallback callback) {
+    Thread.ofVirtual()
+        .name("DelugeTimestampUpdater-" + remotePath)
+        .start(
+            () -> {
+              try {
+                int err = setTimestampBlocking(remotePath, lastModifiedMillis);
+                if (err != 0) {
+                  callback.onFailure(new IOException("utime failed, err=" + err));
+                } else {
+                  callback.onSuccess();
+                }
+              } catch (Exception e) {
+                callback.onFailure(e);
+              }
+            });
   }
 }
