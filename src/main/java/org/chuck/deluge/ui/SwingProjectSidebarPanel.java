@@ -573,20 +573,72 @@ public class SwingProjectSidebarPanel extends JPanel {
     var fileSync = SwingDelugeApp.mainInstance.getMidiService().getFileSyncService();
     String remotePath = "/" + category + "/" + name;
 
+    // Where the downloaded file is saved locally (mirrors the Deluge's SONGS/KITS/SYNTHS layout).
+    File destDir =
+        switch (category) {
+          case "SONGS" -> PreferencesManager.getSongsDir();
+          case "KITS" -> PreferencesManager.getKitsDir();
+          case "SYNTHS" -> PreferencesManager.getSynthsDir();
+          default -> new File(PreferencesManager.getLibraryDir(), category);
+        };
+    File destFile = new File(destDir, name);
+
     JDialog progress = new JDialog(SwingDelugeApp.mainInstance, "Downloading", true);
-    progress.setLayout(new BorderLayout());
-    JLabel statusLbl = new JLabel("Downloading " + name + " from Deluge...", SwingConstants.CENTER);
-    statusLbl.setBorder(BorderFactory.createEmptyBorder(16, 24, 16, 24));
-    statusLbl.setFont(new Font("SansSerif", Font.PLAIN, 11));
-    progress.add(statusLbl, BorderLayout.CENTER);
-    progress.setSize(300, 100);
+    progress.setLayout(new BorderLayout(0, 8));
+    ((JComponent) progress.getContentPane())
+        .setBorder(BorderFactory.createEmptyBorder(14, 18, 14, 18));
+
+    JLabel statusLbl = new JLabel("Downloading " + name + " from Deluge…");
+    statusLbl.setFont(new Font("SansSerif", Font.BOLD, 12));
+    progress.add(statusLbl, BorderLayout.NORTH);
+
+    JProgressBar bar = new JProgressBar(0, 100);
+    bar.setIndeterminate(true);
+    bar.setStringPainted(true);
+    bar.setString("Connecting…");
+    bar.setPreferredSize(new Dimension(360, 22));
+    progress.add(bar, BorderLayout.CENTER);
+
+    JLabel destLbl = new JLabel("Saving to: " + destFile.getAbsolutePath());
+    destLbl.setFont(new Font("SansSerif", Font.PLAIN, 10));
+    destLbl.setForeground(new Color(0x88, 0x88, 0x90));
+    destLbl.setToolTipText(destFile.getAbsolutePath());
+    progress.add(destLbl, BorderLayout.SOUTH);
+
+    progress.pack();
     progress.setLocationRelativeTo(SwingDelugeApp.mainInstance);
+
+    var progressCb =
+        (org.chuck.deluge.midi.DelugeFileSyncService.ProgressCallback)
+            (done, total) ->
+                SwingUtilities.invokeLater(
+                    () -> {
+                      if (total > 0) {
+                        bar.setIndeterminate(false);
+                        int pct = (int) Math.min(100, (done * 100L) / total);
+                        bar.setValue(pct);
+                        bar.setString(String.format("%d%%  (%,d / %,d bytes)", pct, done, total));
+                      }
+                    });
 
     fileSync.downloadFileAsync(
         remotePath,
         new org.chuck.deluge.midi.DelugeFileSyncService.FileDownloadCallback() {
           @Override
           public void onSuccess(byte[] content) {
+            // Persist the downloaded file to the local library before loading it.
+            try {
+              destDir.mkdirs();
+              java.nio.file.Files.write(destFile.toPath(), content);
+              System.out.println(
+                  "[Sidebar] Saved downloaded " + name + " -> " + destFile.getAbsolutePath());
+            } catch (Exception saveEx) {
+              System.err.println(
+                  "[Sidebar] Warning: could not save downloaded file to "
+                      + destFile.getAbsolutePath()
+                      + ": "
+                      + saveEx.getMessage());
+            }
             SwingUtilities.invokeLater(
                 () -> {
                   progress.dispose();
@@ -686,7 +738,8 @@ public class SwingProjectSidebarPanel extends JPanel {
                       JOptionPane.ERROR_MESSAGE);
                 });
           }
-        });
+        },
+        progressCb);
 
     progress.setVisible(true);
   }
