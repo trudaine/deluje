@@ -248,4 +248,63 @@ public class DelugeSysExManagerTest {
     assertTrue(handled);
     assertEquals(text, receivedLog.get());
   }
+
+  @Test
+  public void testStatefulSessionNegotiation() throws Exception {
+    DelugeSysExManager manager = new DelugeSysExManager();
+    MockMidiOut mockOut = new MockMidiOut();
+    manager.setMidiOut(mockOut);
+
+    // 1. Initial State assertions (session 0, default range [1, 7])
+    assertEquals(0, manager.getSessionId());
+    assertEquals(1, manager.getMidMin());
+    assertEquals(7, manager.getMidMax());
+
+    // 2. Start negotiation
+    java.util.concurrent.CompletableFuture<Void> future = manager.negotiateSession("ChucK-Java");
+    assertFalse(future.isDone());
+
+    // Assert request packet formatting: F0 00 21 7B 01 04 [seq] {"session":{"tag":"ChucK-Java"}} F7
+    byte[] sentReq = mockOut.lastSentData.get();
+    assertNotNull(sentReq);
+    assertEquals((byte) 0xF0, sentReq[0]);
+    assertEquals((byte) 0x04, sentReq[5]); // CMD_JSON_REQUEST
+    String reqPayload = new String(sentReq, 7, sentReq.length - 8, StandardCharsets.US_ASCII);
+    assertEquals("{\"session\":{\"tag\":\"ChucK-Java\"}}", reqPayload);
+    assertEquals((byte) 0xF7, sentReq[sentReq.length - 1]);
+
+    // 3. Simulate incoming direct session assignment reply from Deluge
+    // Format: F0 00 21 7B 01 04 00
+    // {"^session":{"sid":2,"tag":"ChucK-Java","midBase":16,"midMin":17,"midMax":23}} F7
+    String replyJson =
+        "{\"^session\":{\"sid\":2,\"tag\":\"ChucK-Java\",\"midBase\":16,\"midMin\":17,\"midMax\":23}}";
+    byte[] replyBytes = replyJson.getBytes(StandardCharsets.US_ASCII);
+    byte[] incoming = new byte[7 + replyBytes.length + 1];
+    incoming[0] = (byte) 0xF0;
+    incoming[1] = 0x00;
+    incoming[2] = 0x21;
+    incoming[3] = 0x7B;
+    incoming[4] = 0x01;
+    incoming[5] = 0x04; // CMD_JSON_REQUEST (direct)
+    incoming[6] = 0x00; // Sequence 0
+    System.arraycopy(replyBytes, 0, incoming, 7, replyBytes.length);
+    incoming[incoming.length - 1] = (byte) 0xF7;
+
+    boolean handled = manager.handleIncomingSysEx(incoming);
+    assertTrue(handled);
+
+    // 4. Assert that the future completes and the session settings are applied
+    future.get(2, java.util.concurrent.TimeUnit.SECONDS);
+    assertTrue(future.isDone());
+    assertEquals(2, manager.getSessionId());
+    assertEquals(17, manager.getMidMin());
+    assertEquals(23, manager.getMidMax());
+
+    // 5. Verify that subsequent requests use the new sequence range [17, 23]
+    manager.sendRequest("{\"ping\":{}}", null);
+    byte[] sentPing = mockOut.lastSentData.get();
+    assertNotNull(sentPing);
+    int seq = sentPing[6] & 0xFF;
+    assertTrue(seq >= 17 && seq <= 23, "Sequence " + seq + " must be in range [17, 23]");
+  }
 }

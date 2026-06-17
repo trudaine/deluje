@@ -40,12 +40,29 @@ public class DelugeSysExManager {
   private static final byte CMD_HID = 0x02;
   private static final byte CMD_DEBUG = 0x03;
 
-  private final AtomicInteger seqCounter = new AtomicInteger(1);
+  private final AtomicInteger seqCounter = new AtomicInteger(0);
   private final Map<Integer, SysExCallback> pendingCallbacks = new ConcurrentHashMap<>();
   private org.chuck.midi.MidiOut activeMidiOut;
   private DisplayListener displayListener;
   private MidiDebugListener debugListener;
   private volatile boolean oledStreamingEnabled = true;
+
+  private volatile int sessionId = 0;
+  private volatile int midMin = 1;
+  private volatile int midMax = 7;
+  private volatile java.util.concurrent.CompletableFuture<Void> sessionNegotiationFuture;
+
+  public int getSessionId() {
+    return sessionId;
+  }
+
+  public int getMidMin() {
+    return midMin;
+  }
+
+  public int getMidMax() {
+    return midMax;
+  }
 
   public boolean isOledStreamingEnabled() {
     return oledStreamingEnabled;
@@ -93,7 +110,18 @@ public class DelugeSysExManager {
       return;
     }
 
-    int seq = seqCounter.getAndUpdate(val -> (val % 127) + 1);
+    int seq =
+        seqCounter.updateAndGet(
+            val -> {
+              if (val < midMin || val > midMax) {
+                return midMin;
+              }
+              int next = val + 1;
+              if (next > midMax) {
+                return midMin;
+              }
+              return next;
+            });
     if (callback != null) {
       pendingCallbacks.put(seq, callback);
     }
@@ -184,6 +212,19 @@ public class DelugeSysExManager {
   }
 
   /**
+   * Negotiates a stateful MIDI session with the physical Deluge.
+   *
+   * @param clientTag The client identifier tag
+   * @return A CompletableFuture that completes when the session has been successfully established
+   */
+  public java.util.concurrent.CompletableFuture<Void> negotiateSession(String clientTag) {
+    this.sessionNegotiationFuture = new java.util.concurrent.CompletableFuture<>();
+    String payload = "{\"session\":{\"tag\":\"" + clientTag + "\"}}";
+    sendRequest(payload, null);
+    return sessionNegotiationFuture;
+  }
+
+  /**
    * Intercepts and processes raw incoming SysEx messages from the MIDI input thread.
    *
    * @param data Raw SysEx byte array starting with 0xF0 and ending with 0xF7
@@ -207,7 +248,7 @@ public class DelugeSysExManager {
             + ", len="
             + data.length);
 
-    if (cmd == CMD_JSON_REPLY) {
+    if (cmd == CMD_JSON_REPLY || cmd == CMD_JSON_REQUEST) {
       int seq = data[6] & 0xFF;
 
       // Find the null (0) spacer separating JSON from optional binary payload
@@ -235,6 +276,34 @@ public class DelugeSysExManager {
         jsonStr = new String(data, 7, data.length - 8, StandardCharsets.US_ASCII);
       }
       System.out.println("[SysExManager] Decoded JSON String: '" + jsonStr + "'");
+
+      if (jsonStr.contains("\"^session\"")) {
+        try {
+          int sid = extractIntField(jsonStr, "sid");
+          int min = extractIntField(jsonStr, "midMin");
+          int max = extractIntField(jsonStr, "midMax");
+          this.sessionId = sid;
+          this.midMin = min;
+          this.midMax = max;
+          System.out.println(
+              "[SysExManager] Session negotiated successfully: sid="
+                  + sid
+                  + ", range=["
+                  + min
+                  + ","
+                  + max
+                  + "]");
+          if (sessionNegotiationFuture != null) {
+            sessionNegotiationFuture.complete(null);
+          }
+        } catch (Exception e) {
+          System.err.println("[SysExManager] Failed to parse session response: " + e.getMessage());
+          if (sessionNegotiationFuture != null) {
+            sessionNegotiationFuture.completeExceptionally(e);
+          }
+        }
+        return true;
+      }
 
       SysExCallback callback = pendingCallbacks.remove(seq);
       if (callback != null) {
@@ -387,5 +456,20 @@ public class DelugeSysExManager {
         return ' ';
       }
     }
+  }
+
+  private int extractIntField(String json, String field) {
+    String pattern = "\"" + field + "\":";
+    int idx = json.indexOf(pattern);
+    if (idx == -1) {
+      throw new IllegalArgumentException("Field '" + field + "' not found in JSON: " + json);
+    }
+    int start = idx + pattern.length();
+    int end = start;
+    while (end < json.length()
+        && (Character.isDigit(json.charAt(end)) || json.charAt(end) == '-')) {
+      end++;
+    }
+    return Integer.parseInt(json.substring(start, end));
   }
 }
