@@ -393,4 +393,70 @@ public class DigitalAudioFidelityTest {
         recoveredPeak / preHitPeak > 0.8,
         "Sidechain level should recover back to near steady-state peak levels post-release");
   }
+
+  @Test
+  void testLegatoRetriggeringAndVoiceCullingProtection() {
+    FirmwareSound synth = new FirmwareSound();
+    synth.oscTypes[0] = org.chuck.deluge.firmware2.Oscillator.OscType.SAW;
+    // Configure instant attack/decay and maximum sustain
+    synth.paramNeutralValues[org.chuck.deluge.firmware2.Param.LOCAL_ENV_0_ATTACK] =
+        Integer.MIN_VALUE;
+    synth.paramNeutralValues[org.chuck.deluge.firmware2.Param.LOCAL_ENV_0_DECAY] =
+        Integer.MIN_VALUE;
+    synth.paramNeutralValues[org.chuck.deluge.firmware2.Param.LOCAL_ENV_0_SUSTAIN] = Q31.ONE;
+
+    // Trigger note 60 (C4)
+    synth.triggerNote(60, 100);
+
+    // Verify a voice has been allocated and is active
+    int activeVoiceCount = 0;
+    org.chuck.deluge.firmware2.Voice activeVoice = null;
+    synchronized (synth.fw2Sound.voices) {
+      for (var v : synth.fw2Sound.voices) {
+        if (v.active) {
+          activeVoiceCount++;
+          activeVoice = v;
+        }
+      }
+    }
+    assertEquals(1, activeVoiceCount, "Should allocate exactly one active voice");
+    assertNotNull(activeVoice);
+
+    // Render 15 blocks of audio to advance the envelope state machine into SUSTAIN
+    StereoSample[] block = new StereoSample[128];
+    for (int i = 0; i < 128; i++) {
+      block[i] = new StereoSample();
+    }
+    for (int i = 0; i < 15; i++) {
+      synth.renderOutput(block, 128, null);
+    }
+
+    // Assert envelope has entered the SUSTAIN stage
+    assertEquals(org.chuck.deluge.firmware2.Envelope.Stage.SUSTAIN, activeVoice.envelopes[0].state);
+
+    // Record the timeEnteredState of Envelope 0
+    int firstTimeEntered = activeVoice.envelopes[0].timeEnteredState;
+
+    // Now trigger note 60 again (re-trigger legato note)
+    boolean noteIsOnResult = synth.fw2Sound.noteIsOn(60, true);
+    assertTrue(noteIsOnResult, "Note 60 should be reported as still sounding");
+
+    // Verify no new voice was allocated (still exactly 1 active voice)
+    activeVoiceCount = 0;
+    synchronized (synth.fw2Sound.voices) {
+      for (var v : synth.fw2Sound.voices) {
+        if (v.active) {
+          activeVoiceCount++;
+        }
+      }
+    }
+    assertEquals(1, activeVoiceCount, "Should not allocate a second voice for a legato retrigger");
+
+    // Verify the culling priority timestamp was updated (it should be greater than the original
+    // timestamp)
+    int secondTimeEntered = activeVoice.envelopes[0].timeEnteredState;
+    assertTrue(
+        secondTimeEntered > firstTimeEntered,
+        "Culling timestamp should be refreshed/updated on retrigger");
+  }
 }

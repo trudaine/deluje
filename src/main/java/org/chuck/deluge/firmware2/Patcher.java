@@ -248,6 +248,7 @@ public class Patcher {
                 neutralValue, cableCombination, p);
       }
     }
+
     paramFinalValues[p] = finalValue;
   }
 

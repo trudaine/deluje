@@ -869,4 +869,20 @@ public class Sound extends GlobalEffectable {
       }
     }
   }
+
+  public boolean noteIsOn(int note, boolean resetTimeEntered) {
+    synchronized (voices) {
+      for (var voice : voices) {
+        if (voice.active
+            && voice.note == note
+            && voice.envelopes[0].state.compareTo(Envelope.Stage.RELEASE) < 0) {
+          if (resetTimeEntered) {
+            voice.envelopes[0].resetTimeEntered();
+          }
+          return true;
+        }
+      }
+    }
+    return false;
+  }
 }

@@ -81,7 +81,8 @@ public class InstrumentClip extends Clip {
               pendingNoteOffs,
               lastProcessedPos,
               loopLength,
-              currentlyPlayingReversed);
+              currentlyPlayingReversed,
+              sound);
       if (dist < ticksTilNextEvent) {
         ticksTilNextEvent = dist;
       }

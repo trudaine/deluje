@@ -178,6 +178,12 @@ public class Envelope {
     timeEnteredState = nextVoiceState++; // envelope.cpp:163 — global monotonic stamp
   }
 
+  public void resetTimeEntered() {
+    if (state == Stage.SUSTAIN) {
+      timeEnteredState = nextVoiceState++;
+    }
+  }
+
   // ── resumeAttack (envelope.cpp:187-190) ──
   public void resumeAttack(int oldLastValue) {
     if (state == Stage.ATTACK) {
