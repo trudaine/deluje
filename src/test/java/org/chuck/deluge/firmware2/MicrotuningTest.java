@@ -17,7 +17,7 @@ class MicrotuningTest {
   void testDefault12TETParity() {
     Song song = new Song();
     Sound sound = new Sound();
-    sound.song = song;
+    sound.tuning = song;
     Voice voice = new Voice(sound);
 
     // 1. Verify that the precalculated tables match the standard 12-TET tables exactly
@@ -34,7 +34,7 @@ class MicrotuningTest {
 
     // 2. Verify that phase increments match the standard 12-TET engine across multiple octaves
     Sound standardSound = new Sound();
-    standardSound.song = null;
+    standardSound.tuning = null;
     Voice standardVoice = new Voice(standardSound);
     for (int noteCode = 0; noteCode <= 127; noteCode++) {
       int expectedBaseInc = standardVoice.calculateBasePhaseIncrement(noteCode);
@@ -72,11 +72,11 @@ class MicrotuningTest {
 
     // Verify that the voice renders the detuned frequency
     Sound standardSound = new Sound();
-    standardSound.song = null;
+    standardSound.tuning = null;
     Voice standardVoice = new Voice(standardSound);
 
     Sound sound = new Sound();
-    sound.song = song;
+    sound.tuning = song;
     Voice voice = new Voice(sound);
 
     // Note 5 is C# (note 1 in the octave, since we subtract 4)
@@ -124,7 +124,7 @@ class MicrotuningTest {
 
     // 3. Verify that voice rendering scales perfectly by octaves
     Sound sound = new Sound();
-    sound.song = song;
+    sound.tuning = song;
     Voice voice = new Voice(sound);
 
     // Note 4 is note 0 at octave 0 (since 4 - 4 = 0)

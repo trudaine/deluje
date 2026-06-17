@@ -3,8 +3,9 @@ package org.chuck.deluge.firmware.model;
 import java.util.ArrayList;
 import java.util.List;
 import org.chuck.deluge.firmware.modulation.params.ParamManager;
+import org.chuck.deluge.firmware2.TuningProvider;
 
-public class Song extends TimelineCounter {
+public class Song extends TimelineCounter implements TuningProvider {
   public List<Clip> clips = new ArrayList<>();
   public int tempoSamples;
   public float tempoBPM;
@@ -81,6 +82,29 @@ public class Song extends TimelineCounter {
 
   public int getRootNoteWithinOctave() {
     return getOctaveAndNoteWithin(rootNote).noteWithin;
+  }
+
+  // --- firmware2.TuningProvider: lets Voice apply this song's tuning without firmware2 ----------
+  // depending on firmware.model. Delegates to the existing per-song tables above.
+
+  @Override
+  public int octaveOf(int noteCode) {
+    return Math.floorDiv(noteCode, octaveNumMicrotonalNotes);
+  }
+
+  @Override
+  public int noteWithinOctaveOf(int noteCode) {
+    return Math.floorMod(noteCode, octaveNumMicrotonalNotes);
+  }
+
+  @Override
+  public int noteIntervalRatio(int noteWithinOctave) {
+    return noteIntervalTable[noteWithinOctave];
+  }
+
+  @Override
+  public int noteFrequencyRatio(int noteWithinOctave) {
+    return noteFrequencyTable[noteWithinOctave];
   }
 
   public void addClip(Clip clip) {

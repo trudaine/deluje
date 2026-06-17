@@ -112,7 +112,7 @@ public class FirmwareFactory {
     clip.loopLength = 16 * 24;
 
     FirmwareSound sound = new FirmwareSound();
-    sound.fw2Sound.song = song;
+    sound.fw2Sound.tuning = song;
     clip.sound = sound;
 
     // ── Copy all parameters and patch cables ──
@@ -991,7 +991,7 @@ public class FirmwareFactory {
     clip.loopLength = 16 * 24;
 
     for (FirmwareSound drumSound : kit.drumSounds) {
-      drumSound.fw2Sound.song = song;
+      drumSound.fw2Sound.tuning = song;
     }
 
     File sdRoot = PreferencesManager.getLibraryDir();
