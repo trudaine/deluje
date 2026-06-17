@@ -3,7 +3,6 @@ package org.chuck.deluge.firmware2;
 import java.util.ArrayList;
 import org.chuck.deluge.firmware.engine.GlobalSidechainBus;
 import org.chuck.deluge.firmware.engine.Stutterer;
-import org.chuck.deluge.firmware.model.Song;
 import org.chuck.deluge.firmware2.FilterSet.FilterMode;
 import org.chuck.deluge.firmware2.Lfo.LfoConfig;
 import org.chuck.deluge.firmware2.Oscillator.OscType;
@@ -13,7 +12,12 @@ import org.chuck.deluge.firmware2.Oscillator.OscType;
  * zero dependencies on legacy firmware.
  */
 public class Sound extends GlobalEffectable {
-  public Song song;
+  /**
+   * Optional engine-supplied microtonal tuning. Null = faithful C behavior (static LookupTables).
+   * Kept as a neutral firmware2 interface so the port has no upward dependency on firmware.model.
+   */
+  public TuningProvider tuning;
+
   public static final int kMaxNumVoicesUnison = 8;
 
   public int synthMode = 0; // 0=subtractive, 1=FM, 2=ringmod

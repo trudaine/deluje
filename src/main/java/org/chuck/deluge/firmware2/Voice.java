@@ -1,6 +1,5 @@
 package org.chuck.deluge.firmware2;
 
-import org.chuck.deluge.firmware.model.Song;
 import org.chuck.deluge.firmware2.Oscillator.OscType;
 
 /**
@@ -438,12 +437,11 @@ public class Voice {
     int noteWithinOctave;
     int octave;
     int noteIntervalRatio;
-    if (sound.song != null) {
-      Song song = sound.song;
-      Song.NoteWithinOctave octaveAndNote = song.getOctaveAndNoteWithin(semitoneAdjustment);
-      noteWithinOctave = octaveAndNote.noteWithin;
-      octave = octaveAndNote.octave;
-      noteIntervalRatio = song.noteIntervalTable[noteWithinOctave];
+    if (sound.tuning != null) {
+      TuningProvider tuning = sound.tuning;
+      noteWithinOctave = tuning.noteWithinOctaveOf(semitoneAdjustment);
+      octave = tuning.octaveOf(semitoneAdjustment);
+      noteIntervalRatio = tuning.noteIntervalRatio(noteWithinOctave);
 
       int phaseIncrement = noteIntervalRatio;
       int shiftRightAmount = 6 - octave;
@@ -631,12 +629,11 @@ public class Voice {
       int noteWithinOctave;
       int octave;
       int noteIntervalRatio;
-      if (sound.song != null) {
-        Song song = sound.song;
-        Song.NoteWithinOctave octaveAndNote = song.getOctaveAndNoteWithin(noteCode);
-        noteWithinOctave = octaveAndNote.noteWithin;
-        octave = octaveAndNote.octave;
-        noteIntervalRatio = song.noteIntervalTable[noteWithinOctave];
+      if (sound.tuning != null) {
+        TuningProvider tuning = sound.tuning;
+        noteWithinOctave = tuning.noteWithinOctaveOf(noteCode);
+        octave = tuning.octaveOf(noteCode);
+        noteIntervalRatio = tuning.noteIntervalRatio(noteWithinOctave);
 
         int shiftRightAmount = 3 - octave;
         long rawInc = ((long) noteIntervalRatio * pitchAdjustNeutralValue) >> 32;
@@ -680,12 +677,11 @@ public class Voice {
       int noteWithinOctave;
       int octave;
       int noteIntervalRatio;
-      if (sound.song != null) {
-        Song song = sound.song;
-        Song.NoteWithinOctave octaveAndNote = song.getOctaveAndNoteWithin(noteCode);
-        noteWithinOctave = octaveAndNote.noteWithin;
-        octave = octaveAndNote.octave;
-        noteIntervalRatio = song.noteIntervalTable[noteWithinOctave];
+      if (sound.tuning != null) {
+        TuningProvider tuning = sound.tuning;
+        noteWithinOctave = tuning.noteWithinOctaveOf(noteCode);
+        octave = tuning.octaveOf(noteCode);
+        noteIntervalRatio = tuning.noteIntervalRatio(noteWithinOctave);
 
         int shiftRightAmount = 3 - octave;
         long rawInc = ((long) noteIntervalRatio * pitchAdjustNeutralValue) >> 32;
@@ -1673,15 +1669,16 @@ public class Voice {
   }
 
   public int calculateBasePhaseIncrement(int noteCode) {
-    if (sound.song != null) {
-      Song song = sound.song;
+    if (sound.tuning != null) {
+      TuningProvider tuning = sound.tuning;
       // Pass noteCode - 4 to align synth octave indexing!
-      Song.NoteWithinOctave octaveAndNote = song.getOctaveAndNoteWithin(noteCode - 4);
-      int shiftRightAmount = 10 - octaveAndNote.octave;
+      int noteWithinOctave = tuning.noteWithinOctaveOf(noteCode - 4);
+      int octave = tuning.octaveOf(noteCode - 4);
+      int shiftRightAmount = 10 - octave;
       if (shiftRightAmount >= 0) {
         return (shiftRightAmount >= 32)
             ? 0
-            : (song.noteFrequencyTable[octaveAndNote.noteWithin] >>> shiftRightAmount);
+            : (tuning.noteFrequencyRatio(noteWithinOctave) >>> shiftRightAmount);
       }
       return 0; // inactive / too high
     } else {
