@@ -1057,6 +1057,10 @@ public class SwingDelugeApp extends JFrame {
     return arrangerScheduler;
   }
 
+  public org.chuck.deluge.engine.PureFirmwareEngine getPureEngine() {
+    return pureEngine;
+  }
+
   public SwingDelugeApp(
       ChuckVM vm, BridgeContract bridge, org.chuck.deluge.midi.MidiService midiService) {
     this(vm, bridge, midiService, false);
@@ -2683,6 +2687,41 @@ public class SwingDelugeApp extends JFrame {
               .setVisible(true);
         });
     toolsMenu.add(thresholdSamplerItem);
+
+    JMenuItem droneLabItem = new JMenuItem("Drone Lab & Texture Generator...");
+    droneLabItem.setAccelerator(
+        KeyStroke.getKeyStroke(
+            java.awt.event.KeyEvent.VK_D, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+    droneLabItem.addActionListener(
+        e -> {
+          SwingGridPanel a = activeGridPanel();
+          if (a == null || a.getProjectModel() == null) {
+            JOptionPane.showMessageDialog(
+                this, "Please load a project first.", "Drone Lab", JOptionPane.WARNING_MESSAGE);
+            return;
+          }
+          int idx = a.getEditedModelTrack();
+          java.util.List<org.chuck.deluge.model.TrackModel> tl = a.getProjectModel().getTracks();
+          if (idx < 0 || idx >= tl.size()) {
+            JOptionPane.showMessageDialog(
+                this,
+                "Please select a valid track first.",
+                "Drone Lab",
+                JOptionPane.WARNING_MESSAGE);
+            return;
+          }
+          org.chuck.deluge.model.TrackModel t = tl.get(idx);
+          if (!(t instanceof org.chuck.deluge.model.SynthTrackModel st)) {
+            JOptionPane.showMessageDialog(
+                this,
+                "Drone Lab requires a Synthesizer track. Please select or create a Synth track first.",
+                "Drone Lab",
+                JOptionPane.WARNING_MESSAGE);
+            return;
+          }
+          new SwingDroneLabDialog(this, st, vm, bridge, idx, currentProject).setVisible(true);
+        });
+    toolsMenu.add(droneLabItem);
 
     // Help menu — Operations Manual JDialog
     JMenu helpMenu = new JMenu("Help");
