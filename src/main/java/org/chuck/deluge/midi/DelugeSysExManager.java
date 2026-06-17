@@ -24,6 +24,11 @@ public class DelugeSysExManager {
     void onSevenSegment(String text);
   }
 
+  public interface MidiDebugListener {
+    /** Called when a real-time hardware debug log message is received. */
+    void onDebugMessage(String message);
+  }
+
   // SysEx Protocol Constants
   private static final byte SYSEX_START = (byte) 0xF0;
   private static final byte SYSEX_END = (byte) 0xF7;
@@ -33,11 +38,13 @@ public class DelugeSysExManager {
   private static final byte CMD_JSON_REQUEST = 0x04;
   private static final byte CMD_JSON_REPLY = 0x05;
   private static final byte CMD_HID = 0x02;
+  private static final byte CMD_DEBUG = 0x03;
 
   private final AtomicInteger seqCounter = new AtomicInteger(1);
   private final Map<Integer, SysExCallback> pendingCallbacks = new ConcurrentHashMap<>();
   private org.chuck.midi.MidiOut activeMidiOut;
   private DisplayListener displayListener;
+  private MidiDebugListener debugListener;
   private volatile boolean oledStreamingEnabled = true;
 
   public boolean isOledStreamingEnabled() {
@@ -57,6 +64,10 @@ public class DelugeSysExManager {
 
   public void setDisplayListener(DisplayListener listener) {
     this.displayListener = listener;
+  }
+
+  public void setMidiDebugListener(MidiDebugListener listener) {
+    this.debugListener = listener;
   }
 
   /**
@@ -141,6 +152,34 @@ public class DelugeSysExManager {
           "[SysExManager] Sent OLED Real-Time Streaming Request to physical Deluge.");
     } catch (Exception e) {
       System.err.println("[SysExManager] Failed to send OLED stream request: " + e.getMessage());
+    }
+  }
+
+  /**
+   * Toggles the physical Deluge's real-time debug log streaming over USB MIDI.
+   *
+   * @param enabled true to enable streaming, false to disable
+   */
+  public void setMidiDebugEnabled(boolean enabled) {
+    if (activeMidiOut == null) return;
+    byte[] packet = {
+      SYSEX_START,
+      DELUGE_HEADER[0],
+      DELUGE_HEADER[1],
+      DELUGE_HEADER[2],
+      DELUGE_HEADER[3],
+      CMD_DEBUG,
+      0x00, // Subcommand subtype: toggle debug stream
+      (byte) (enabled ? 0x01 : 0x00), // Value: 1=enable, 0=disable
+      SYSEX_END
+    };
+    org.chuck.midi.MidiMsg msg = new org.chuck.midi.MidiMsg();
+    msg.setData(packet);
+    try {
+      activeMidiOut.send(msg);
+      System.out.println("[SysExManager] Sent MIDI Debug Streaming Toggle: " + enabled);
+    } catch (Exception e) {
+      System.err.println("[SysExManager] Failed to toggle debug streaming: " + e.getMessage());
     }
   }
 
@@ -263,6 +302,18 @@ public class DelugeSysExManager {
           // Decode 7-segment raw segment bytes to ascii (best effort representation)
           String segText = decodeSevenSegment(unpacked);
           displayListener.onSevenSegment(segText);
+        }
+      }
+      return true;
+    } else if (cmd == CMD_DEBUG) {
+      if (debugListener == null) return true;
+      int subType = data[6] & 0xFF;
+      if (subType == 0x40) { // Debug log print subtype
+        // Text starts at index 8 (reply_hdr is 8 bytes in C++) and runs until length - 2
+        int payloadLen = (data.length - 1) - 8;
+        if (payloadLen > 0) {
+          String message = new String(data, 8, payloadLen, StandardCharsets.US_ASCII);
+          debugListener.onDebugMessage(message);
         }
       }
       return true;

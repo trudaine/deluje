@@ -192,4 +192,60 @@ public class DelugeSysExManagerTest {
     assertEquals(0, frame[0]);
     assertEquals(0, frame[32]);
   }
+
+  @Test
+  public void testToggleMidiDebugStreaming() {
+    DelugeSysExManager manager = new DelugeSysExManager();
+    MockMidiOut mockOut = new MockMidiOut();
+    manager.setMidiOut(mockOut);
+
+    // 1. Enable debug
+    manager.setMidiDebugEnabled(true);
+    byte[] sentEnable = mockOut.lastSentData.get();
+    assertNotNull(sentEnable);
+    assertEquals(9, sentEnable.length);
+    assertEquals((byte) 0xF0, sentEnable[0]);
+    assertEquals((byte) 0x00, sentEnable[1]);
+    assertEquals((byte) 0x21, sentEnable[2]);
+    assertEquals((byte) 0x7B, sentEnable[3]);
+    assertEquals((byte) 0x01, sentEnable[4]);
+    assertEquals((byte) 0x03, sentEnable[5]); // CMD_DEBUG
+    assertEquals((byte) 0x00, sentEnable[6]); // Subcommand: debug control
+    assertEquals((byte) 0x01, sentEnable[7]); // Value: 1 (enable)
+    assertEquals((byte) 0xF7, sentEnable[8]);
+
+    // 2. Disable debug
+    manager.setMidiDebugEnabled(false);
+    byte[] sentDisable = mockOut.lastSentData.get();
+    assertNotNull(sentDisable);
+    assertEquals((byte) 0x00, sentDisable[7]); // Value: 0 (disable)
+  }
+
+  @Test
+  public void testHandleIncomingDebugMessage() {
+    DelugeSysExManager manager = new DelugeSysExManager();
+    AtomicReference<String> receivedLog = new AtomicReference<>();
+
+    manager.setMidiDebugListener(receivedLog::set);
+
+    // Simulate incoming log message: "Hello deluge!"
+    // Header: F0 00 21 7B 01 03 40 00 [ASCII] F7
+    String text = "Hello deluge!";
+    byte[] textBytes = text.getBytes(StandardCharsets.US_ASCII);
+    byte[] incoming = new byte[8 + textBytes.length + 1];
+    incoming[0] = (byte) 0xF0;
+    incoming[1] = 0x00;
+    incoming[2] = 0x21;
+    incoming[3] = 0x7B;
+    incoming[4] = 0x01;
+    incoming[5] = 0x03; // CMD_DEBUG
+    incoming[6] = 0x40; // Subtype: log message
+    incoming[7] = 0x00; // Reserved
+    System.arraycopy(textBytes, 0, incoming, 8, textBytes.length);
+    incoming[incoming.length - 1] = (byte) 0xF7;
+
+    boolean handled = manager.handleIncomingSysEx(incoming);
+    assertTrue(handled);
+    assertEquals(text, receivedLog.get());
+  }
 }
