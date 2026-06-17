@@ -33,12 +33,13 @@ public class DelugeFileSyncService {
     void onFailure(Throwable t);
   }
 
-  // Response records for Loom future blocking
-  private record OpenResponse(int fid, int size, int err) {}
+  /** Reports transfer progress; {@code total} is the file size in bytes (0 if unknown yet). */
+  public interface ProgressCallback {
+    void onProgress(long done, long total);
+  }
 
-  private record ReadResponse(byte[] binData, int err) {}
-
-  private record WriteResponse(int bytes, int err) {}
+  // Reply record for Loom future blocking
+  private record Reply(String json, byte[] bin) {}
 
   private final DelugeSysExManager sysExManager;
   private volatile boolean transferActive = false;
@@ -90,12 +91,18 @@ public class DelugeFileSyncService {
    * @param callback Success/failure callback
    */
   public void downloadFileAsync(String remotePath, FileDownloadCallback callback) {
+    downloadFileAsync(remotePath, callback, null);
+  }
+
+  /** Non-blocking download variant that also reports per-block progress. */
+  public void downloadFileAsync(
+      String remotePath, FileDownloadCallback callback, ProgressCallback progress) {
     Thread.ofVirtual()
         .name("DelugeFileDownloader-" + remotePath)
         .start(
             () -> {
               try {
-                byte[] content = downloadFileBlocking(remotePath);
+                byte[] content = downloadFileBlocking(remotePath, progress);
                 callback.onSuccess(content);
               } catch (Exception e) {
                 callback.onFailure(e);
@@ -125,93 +132,120 @@ public class DelugeFileSyncService {
             });
   }
 
+  /**
+   * Sends a JSON (optionally + binary) request and waits for the reply, re-firing on timeout.
+   *
+   * <p>Larger host&rarr;Deluge SysEx messages are dropped intermittently by the USB-MIDI transport
+   * (small messages like ping are 100% reliable; ~57-byte+ requests land roughly half the time),
+   * yet {@code snd_seq_event_output_direct} still reports success. A genuine reply returns in
+   * ~15ms, so a short per-attempt timeout that elapses means the request was dropped in transit: we
+   * simply send it again. This makes the file protocol resilient without changing the transport.
+   *
+   * @param json the JSON request
+   * @param binary optional packed binary payload (e.g. for write blocks), or null
+   * @param maxAttempts number of send attempts before giving up
+   * @param perAttemptMs per-attempt reply timeout in milliseconds (must comfortably exceed the
+   *     ~15ms real reply latency so a timeout reliably means "dropped", not "slow", avoiding
+   *     stale-reply aliasing)
+   * @param what short description for the error message
+   */
+  private Reply sendWithRetry(
+      String json, byte[] binary, int maxAttempts, long perAttemptMs, String what)
+      throws Exception {
+    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+      CompletableFuture<Reply> fut = new CompletableFuture<>();
+      DelugeSysExManager.SysExCallback cb = (j, b) -> fut.complete(new Reply(j, b));
+      if (binary != null) {
+        sysExManager.sendRequest(json, binary, cb);
+      } else {
+        sysExManager.sendRequest(json, cb);
+      }
+      try {
+        return fut.get(perAttemptMs, TimeUnit.MILLISECONDS);
+      } catch (java.util.concurrent.TimeoutException te) {
+        if (attempt == maxAttempts) {
+          throw new IOException(
+              "No reply after " + maxAttempts + " attempts (USB SysEx drops): " + what, te);
+        }
+        Thread.sleep(40); // brief backoff before re-firing the dropped request
+      }
+    }
+    throw new IllegalStateException("unreachable");
+  }
+
   public byte[] downloadFileBlocking(String remotePath) throws Exception {
+    return downloadFileBlocking(remotePath, null);
+  }
+
+  public byte[] downloadFileBlocking(String remotePath, ProgressCallback progress)
+      throws Exception {
     transferActive = true;
     sysExManager.setOledStreamingEnabled(false);
     try {
-      // Sleep 1.0 seconds to let the Deluge settle after pausing the OLED stream
-      Thread.sleep(1000);
+      // The Deluge's OLED stream is a self-expiring ~2s window (hid_sysex:
+      // midiDisplayUntil = audioSampleTimer + 2*kSampleRate). Pausing our keep-alive only stops
+      // refreshing it, so we must wait out the full window before issuing the request, otherwise
+      // the
+      // reply lands amid an OLED flood and can be lost. Wait > 2s for a quiet channel.
+      Thread.sleep(2200);
 
-      // 1. Open remote file (with 1 retry on TimeoutException)
-      OpenResponse openRes = null;
-      int attempts = 0;
-      while (attempts < 2) {
-        CompletableFuture<OpenResponse> openFuture = new CompletableFuture<>();
-        String openRequest =
-            String.format("{\"open\": {\"path\": \"%s\", \"write\": 0}}", remotePath);
-        sysExManager.sendRequest(
-            openRequest,
-            (json, bin) -> {
-              int fid = getIntAttr(json, "fid");
-              int size = getIntAttr(json, "size");
-              int err = getIntAttr(json, "err");
-              openFuture.complete(new OpenResponse(fid, size, err));
-            });
-        try {
-          openRes = openFuture.get(10, TimeUnit.SECONDS);
-          break; // Success!
-        } catch (java.util.concurrent.TimeoutException te) {
-          attempts++;
-          if (attempts >= 2) {
-            throw new IOException("Timeout opening remote file after retries: " + remotePath, te);
-          }
-          System.err.println(
-              "[FileSync] Open timeout during active stream, retrying quiet channel...");
-        }
+      // 1. Open remote file
+      Reply openReply =
+          sendWithRetry(
+              String.format("{\"open\": {\"path\": \"%s\", \"write\": 0}}", remotePath),
+              null,
+              12,
+              800,
+              "open " + remotePath);
+      int fid = getIntAttr(openReply.json(), "fid");
+      int size = getIntAttr(openReply.json(), "size");
+      int openErr = getIntAttr(openReply.json(), "err");
+      if (openErr != 0 || fid == 0) {
+        throw new IOException("Failed to open remote file: " + remotePath + ", err=" + openErr);
       }
 
-      if (openRes.err != 0 || openRes.fid == 0) {
-        throw new IOException("Failed to open remote file: " + remotePath + ", err=" + openRes.err);
-      }
-
-      int fid = openRes.fid;
-      int size = openRes.size;
       byte[] fileData = new byte[size];
       int bytesRead = 0;
       int chunkSize = 512; // Deluge maximum cluster read block size is 1024, 512 is safe and fast
+      if (progress != null) {
+        progress.onProgress(0, size);
+      }
 
       // 2. Loop block reads
       while (bytesRead < size) {
-        // Sleep 50ms to let the microcontroller yield and clear USB endpoints and SD card locks
-        Thread.sleep(50);
+        // Brief yield to let the microcontroller clear USB endpoints and SD card locks
+        Thread.sleep(15);
 
         int toRead = Math.min(chunkSize, size - bytesRead);
-        CompletableFuture<ReadResponse> readFuture = new CompletableFuture<>();
-        String readRequest =
-            String.format(
-                "{\"read\": {\"fid\": %d, \"addr\": %d, \"size\": %d}}", fid, bytesRead, toRead);
-
         final int currentOffset = bytesRead;
-        sysExManager.sendRequest(
-            readRequest,
-            (json, bin) -> {
-              int err = getIntAttr(json, "err");
-              readFuture.complete(new ReadResponse(bin, err));
-            });
-
-        ReadResponse readRes = readFuture.get(15, TimeUnit.SECONDS);
-        if (readRes.err != 0 || readRes.binData == null || readRes.binData.length == 0) {
+        Reply readReply =
+            sendWithRetry(
+                String.format(
+                    "{\"read\": {\"fid\": %d, \"addr\": %d, \"size\": %d}}",
+                    fid, bytesRead, toRead),
+                null,
+                30,
+                500,
+                "read @" + currentOffset);
+        int readErr = getIntAttr(readReply.json(), "err");
+        byte[] binData = readReply.bin();
+        if (readErr != 0 || binData == null || binData.length == 0) {
           throw new IOException(
-              "Failed to read remote block at offset " + currentOffset + ", err=" + readRes.err);
+              "Failed to read remote block at offset " + currentOffset + ", err=" + readErr);
         }
 
-        System.arraycopy(readRes.binData, 0, fileData, currentOffset, readRes.binData.length);
-        bytesRead += readRes.binData.length;
+        System.arraycopy(binData, 0, fileData, currentOffset, binData.length);
+        bytesRead += binData.length;
+        if (progress != null) {
+          progress.onProgress(bytesRead, size);
+        }
       }
 
       // Sleep 50ms before closing
       Thread.sleep(50);
 
       // 3. Close remote file
-      CompletableFuture<Integer> closeFuture = new CompletableFuture<>();
-      String closeRequest = String.format("{\"close\": {\"fid\": %d}}", fid);
-      sysExManager.sendRequest(
-          closeRequest,
-          (json, bin) -> {
-            int err = getIntAttr(json, "err");
-            closeFuture.complete(err);
-          });
-      closeFuture.get(10, TimeUnit.SECONDS);
+      sendWithRetry(String.format("{\"close\": {\"fid\": %d}}", fid), null, 4, 800, "close");
 
       return fileData;
     } finally {
@@ -230,8 +264,12 @@ public class DelugeFileSyncService {
     transferActive = true;
     sysExManager.setOledStreamingEnabled(false);
     try {
-      // Sleep 1.0 seconds to let the Deluge settle after pausing the OLED stream
-      Thread.sleep(1000);
+      // The Deluge's OLED stream is a self-expiring ~2s window (hid_sysex:
+      // midiDisplayUntil = audioSampleTimer + 2*kSampleRate). Pausing our keep-alive only stops
+      // refreshing it, so we must wait out the full window before issuing the request, otherwise
+      // the
+      // reply lands amid an OLED flood and can be lost. Wait > 2s for a quiet channel.
+      Thread.sleep(2200);
 
       // Convert local epoch millisecond to FAT date/time format
       java.time.Instant instant = java.time.Instant.ofEpochMilli(lastModifiedMillis);
@@ -240,74 +278,52 @@ public class DelugeFileSyncService {
       int fatDate = ((dt.getYear() - 1980) << 9) | (dt.getMonthValue() << 5) | dt.getDayOfMonth();
       int fatTime = (dt.getHour() << 11) | (dt.getMinute() << 5) | (dt.getSecond() / 2);
 
-      // 1. Open remote file for writing (with 1 retry on TimeoutException)
-      OpenResponse openRes = null;
-      int attempts = 0;
-      while (attempts < 2) {
-        CompletableFuture<OpenResponse> openFuture = new CompletableFuture<>();
-        String openRequest =
-            String.format(
-                "{\"open\": {\"path\": \"%s\", \"write\": 1, \"date\": %d, \"time\": %d}}",
-                remotePath, fatDate, fatTime);
-        sysExManager.sendRequest(
-            openRequest,
-            (json, bin) -> {
-              int fid = getIntAttr(json, "fid");
-              int err = getIntAttr(json, "err");
-              openFuture.complete(new OpenResponse(fid, 0, err));
-            });
-        try {
-          openRes = openFuture.get(10, TimeUnit.SECONDS);
-          break; // Success!
-        } catch (java.util.concurrent.TimeoutException te) {
-          attempts++;
-          if (attempts >= 2) {
-            throw new IOException(
-                "Timeout opening remote file for writing after retries: " + remotePath, te);
-          }
-          System.err.println(
-              "[FileSync] Open for write timeout during active stream, retrying quiet channel...");
-        }
-      }
-
-      if (openRes.err != 0 || openRes.fid == 0) {
+      // 1. Open remote file for writing
+      Reply openReply =
+          sendWithRetry(
+              String.format(
+                  "{\"open\": {\"path\": \"%s\", \"write\": 1, \"date\": %d, \"time\": %d}}",
+                  remotePath, fatDate, fatTime),
+              null,
+              12,
+              800,
+              "open(write) " + remotePath);
+      int fid = getIntAttr(openReply.json(), "fid");
+      int openErr = getIntAttr(openReply.json(), "err");
+      if (openErr != 0 || fid == 0) {
         throw new IOException(
-            "Failed to open remote file for writing: " + remotePath + ", err=" + openRes.err);
+            "Failed to open remote file for writing: " + remotePath + ", err=" + openErr);
       }
 
-      int fid = openRes.fid;
       int bytesWritten = 0;
       int size = content.length;
       int chunkSize = 512;
 
       // 2. Loop block writes
       while (bytesWritten < size) {
-        // Sleep 50ms to let the microcontroller yield and clear USB endpoints and SD card locks
-        Thread.sleep(50);
+        // Brief yield to let the microcontroller clear USB endpoints and SD card locks
+        Thread.sleep(15);
 
         int toWrite = Math.min(chunkSize, size - bytesWritten);
         byte[] chunk = new byte[toWrite];
         System.arraycopy(content, bytesWritten, chunk, 0, toWrite);
         byte[] packedChunk = DelugeMidiPacker.pack8to7(chunk);
 
-        CompletableFuture<WriteResponse> writeFuture = new CompletableFuture<>();
-        String writeRequest =
-            String.format("{\"write\": {\"fid\": %d, \"size\": %d}}", fid, toWrite);
-
         final int currentOffset = bytesWritten;
-        sysExManager.sendRequest(
-            writeRequest,
-            packedChunk,
-            (json, bin) -> {
-              int err = getIntAttr(json, "err");
-              int written = getIntAttr(json, "bytes");
-              writeFuture.complete(new WriteResponse(written, err));
-            });
-
-        WriteResponse writeRes = writeFuture.get(15, TimeUnit.SECONDS);
-        if (writeRes.err != 0 || writeRes.bytes == 0) {
+        // Write requests carry the largest payloads, so they are the most likely to be dropped;
+        // give them the most retries and a longer per-attempt window.
+        Reply writeReply =
+            sendWithRetry(
+                String.format("{\"write\": {\"fid\": %d, \"size\": %d}}", fid, toWrite),
+                packedChunk,
+                30,
+                700,
+                "write @" + currentOffset);
+        int writeErr = getIntAttr(writeReply.json(), "err");
+        int written = getIntAttr(writeReply.json(), "bytes");
+        if (writeErr != 0 || written == 0) {
           throw new IOException(
-              "Failed to write remote block at offset " + currentOffset + ", err=" + writeRes.err);
+              "Failed to write remote block at offset " + currentOffset + ", err=" + writeErr);
         }
 
         bytesWritten += toWrite;
@@ -317,31 +333,21 @@ public class DelugeFileSyncService {
       Thread.sleep(50);
 
       // 3. Close remote file
-      CompletableFuture<Integer> closeFuture = new CompletableFuture<>();
-      String closeRequest = String.format("{\"close\": {\"fid\": %d}}", fid);
-      sysExManager.sendRequest(
-          closeRequest,
-          (json, bin) -> {
-            int err = getIntAttr(json, "err");
-            closeFuture.complete(err);
-          });
-      closeFuture.get(10, TimeUnit.SECONDS);
+      sendWithRetry(String.format("{\"close\": {\"fid\": %d}}", fid), null, 4, 800, "close");
 
-      // 4. Preserve timestamp via utime
+      // 4. Preserve timestamp via utime (best-effort)
       try {
         Thread.sleep(50);
-        CompletableFuture<Integer> utimeFuture = new CompletableFuture<>();
-        String utimeRequest =
-            String.format(
-                "{\"utime\": {\"path\": \"%s\", \"date\": %d, \"time\": %d}}",
-                remotePath, fatDate, fatTime);
-        sysExManager.sendRequest(
-            utimeRequest,
-            (json, bin) -> {
-              int err = getIntAttr(json, "err");
-              utimeFuture.complete(err);
-            });
-        int utimeErr = utimeFuture.get(10, TimeUnit.SECONDS);
+        Reply utimeReply =
+            sendWithRetry(
+                String.format(
+                    "{\"utime\": {\"path\": \"%s\", \"date\": %d, \"time\": %d}}",
+                    remotePath, fatDate, fatTime),
+                null,
+                3,
+                800,
+                "utime");
+        int utimeErr = getIntAttr(utimeReply.json(), "err");
         if (utimeErr != 0) {
           System.err.println("[FileSync] Warning: Failed to set file timestamp, err=" + utimeErr);
         }
@@ -384,10 +390,21 @@ public class DelugeFileSyncService {
 
   private static List<String> getFileNamesFromList(String json) {
     List<String> result = new ArrayList<>();
-    Pattern pattern = Pattern.compile("\"name\"\\s*:\\s*\"([^\"]+)\"");
-    Matcher matcher = pattern.matcher(json);
-    while (matcher.find()) {
-      result.add(matcher.group(1));
+    // Each ^dir entry looks like {"name":"X.XML","size":..,"date":..,"time":..,"attr":N}.
+    // The FatFS attribute bit 0x10 (AM_DIR) marks a directory (e.g. a song's "NAME.DATA" folder),
+    // which cannot be opened/downloaded as a file (f_open returns FR_NO_FILE / err=4). Pair each
+    // name with the attr that follows it and skip directories so they aren't offered as songs.
+    Matcher nameM = Pattern.compile("\"name\"\\s*:\\s*\"([^\"]+)\"").matcher(json);
+    Matcher attrM = Pattern.compile("\"attr\"\\s*:\\s*(\\d+)").matcher(json);
+    while (nameM.find()) {
+      String name = nameM.group(1);
+      boolean isDir = false;
+      if (attrM.find(nameM.end())) {
+        isDir = (Integer.parseInt(attrM.group(1)) & 0x10) != 0;
+      }
+      if (!isDir) {
+        result.add(name);
+      }
     }
     return result;
   }

@@ -504,6 +504,23 @@ public class MidiService {
     engine.close();
   }
 
+  /**
+   * Tears down and re-opens the MIDI connection. Used as a manual recovery path when the configured
+   * port was not enumerable at app startup (USB/ALSA race) and {@code start()} hit "Port not
+   * found".
+   */
+  public synchronized void reconnect() {
+    stop();
+    start();
+  }
+
+  /**
+   * @return true if an output port is currently open (SysEx can be sent).
+   */
+  public boolean isOutputConnected() {
+    return midiOut != null;
+  }
+
   public void startLearn(String param) {
     this.learning = true;
     this.learnTargetParam = param;

@@ -50,6 +50,11 @@ public class DelugeHwStatusPanel extends JPanel {
         new MouseAdapter() {
           @Override
           public void mouseClicked(MouseEvent e) {
+            // A manual click is also a "reconnect" gesture: if the output port never opened
+            // (e.g. the Deluge wasn't enumerable at startup), re-run the MIDI open before pinging.
+            if (!midiService.isOutputConnected()) {
+              midiService.reconnect();
+            }
             triggerPingTest();
           }
         });
