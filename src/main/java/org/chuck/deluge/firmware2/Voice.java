@@ -105,6 +105,8 @@ public class Voice {
    */
   public int portaEnvelopeMaxAmplitude;
 
+  public int overallPitchAdjust = Functions.K_MAX_SAMPLE_VALUE;
+
   // For the envelope center (return value)
   public int env0LastValue;
 
@@ -726,9 +728,15 @@ public class Voice {
     // here) and used by every pitch consumer below.
     int overallPitchAdjustPorta = computeOverallPitchAdjust(numSamples);
 
+    // Pitch adjust via MIDI pitch bend and MPE
+    // default BEND_RANGE_MAIN = 2, BEND_RANGE_FINGER_LEVEL = 48
+    long monophonicBend = (sound.monophonicExpressionValues[0] / 192L) * 2;
+    long polyphonicBend = (localExpressionSourceValuesBeforeSmoothing[0] / 192L) * 48;
+    int totalBendAmount = (int) (monophonicBend + polyphonicBend);
+    overallPitchAdjust = Functions.getExp(overallPitchAdjustPorta, totalBendAmount >> 1);
+
     // FM modulators
     if (sound.synthMode == 1) { // FM
-      int overallPitchAdjust = overallPitchAdjustPorta;
       for (int m = 0; m < 2; m++) {
         if (sound.patchedParamValues[Param.LOCAL_MODULATOR_0_VOLUME + m] == Integer.MIN_VALUE) {
           for (int u = 0; u < sound.numUnison; u++) {
@@ -756,8 +764,6 @@ public class Voice {
         }
       }
     }
-
-    int overallPitchAdjust = overallPitchAdjustPorta;
 
     // ── 6. Per-source rendering (lines 950-1400) ──
     // Overall osc amplitude: envelope 0 (unipolar lastValue) * LOCAL_VOLUME
@@ -824,7 +830,7 @@ public class Voice {
 
     // ── FM path (voice.cpp:1400-1560) ──
     if (sound.synthMode == 1) { // FM
-      renderFmPath(mixBuf, numSamples, overallOscAmplitude, overallPitchAdjustPorta);
+      renderFmPath(mixBuf, numSamples, overallOscAmplitude, overallPitchAdjust);
     } else if (sound.synthMode == 2) {
       // RINGMOD (voice.cpp:1309-1370)
       if (tempBufA.length < numSamples) {

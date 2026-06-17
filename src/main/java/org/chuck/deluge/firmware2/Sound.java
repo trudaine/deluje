@@ -523,6 +523,18 @@ public class Sound extends GlobalEffectable {
     }
   }
 
+  public void monophonicExpressionEvent(int newValue, int expressionDimension) {
+    monophonicExpressionValues[expressionDimension] = newValue;
+    synchronized (voices) {
+      int s = expressionDimension + PatchSource.X.ordinal();
+      for (Voice voice : voices) {
+        if (voice.active) {
+          voice.sourceValues[s] = voice.combineExpressionValues(this, expressionDimension);
+        }
+      }
+    }
+  }
+
   @Override
   public void renderInternal(int[] buffer, int numSamples, int[] reverbBuffer) {
     // 1. Sidechain hit registration & render

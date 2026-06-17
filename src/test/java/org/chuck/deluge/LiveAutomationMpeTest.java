@@ -226,4 +226,47 @@ public class LiveAutomationMpeTest {
     assertEquals(pitchBottom, voiceBottom.note);
     assertEquals(pitchAbove, voiceAbove.note);
   }
+
+  @Test
+  void testMpePitchBendModulatesFrequency() {
+    FirmwareSound sound = new FirmwareSound();
+    sound.setSynthMode(org.chuck.deluge.firmware.engine.FirmwareSound.SynthMode.SUBTRACTIVE);
+
+    // Trigger a note on MIDI Channel 3 (MPE voice)
+    sound.triggerNote(60, 100, 3);
+    assertFalse(sound.fw2Sound.voices.isEmpty());
+
+    org.chuck.deluge.firmware2.Voice voice = sound.fw2Sound.voices.get(0);
+
+    // Render 1 block of 128 samples to initialize the baseline phase increments
+    int[] buffer = new int[128 * 2];
+    sound.fw2Sound.renderInternal(buffer, 128, null);
+
+    // Without pitch bend, overallPitchAdjust should be neutral (16777216 = 1 << 24)
+    assertEquals(16777216, voice.overallPitchAdjust, "Initial pitch adjust must be neutral");
+
+    // Apply positive MPE Pitch Bend on Channel 3 (newValue = 12000, > 8192)
+    sound.mpePitchBend(3, 12000);
+
+    // Render another block to let the voice recalculate overallPitchAdjust and update phase
+    // increments
+    sound.fw2Sound.renderInternal(buffer, 128, null);
+
+    assertTrue(
+        voice.overallPitchAdjust > 16777216,
+        "Pitch bend up must increase the overall pitch adjustment factor");
+
+    // Apply negative MPE Pitch Bend on Channel 3 (newValue = 4000, < 8192)
+    sound.mpePitchBend(3, 4000);
+
+    // Render another block
+    sound.fw2Sound.renderInternal(buffer, 128, null);
+
+    assertTrue(
+        voice.overallPitchAdjust < 16777216,
+        "Pitch bend down must decrease the overall pitch adjustment factor");
+
+    // Release note
+    sound.releaseNote(60, 3);
+  }
 }
