@@ -306,8 +306,20 @@ public class MidiService {
       return;
     }
 
-    // Intercept physical Deluge knob turns for Cutoff / Resonance
-    if (cc == 74) { // Cutoff
+    // 1. Intercept MPE Y-Slide (CC 74) on voice channels (> 0) for Firmware2 Sound
+    if (cc == 74 && msg.channel() > 0) {
+      org.chuck.deluge.firmware2.GlobalEffectable sound = getActiveTrackSound(activeTrack);
+      if (sound instanceof org.chuck.deluge.firmware2.Sound s) {
+        int newValue = (msg.data2() - 64) << 25;
+        s.polyphonicExpressionEventOnChannelOrNote(
+            newValue, 1, msg.channel(), 1); // 1 = Y_SLIDE_TIMBRE, 1 = CHANNEL
+        return;
+      }
+    }
+
+    // 2. Intercept physical Deluge knob turns / global CC for Cutoff / Resonance (Master Channel
+    // only)
+    if (cc == 74 && msg.channel() == 0) { // Cutoff
       int val = msg.data2();
       double normalized = val / 127.0;
       disableHwSync = true;
@@ -419,8 +431,12 @@ public class MidiService {
       }
     } else if (sound instanceof org.chuck.deluge.firmware2.Sound s) {
       int newValue = (bend - 8192) << 18;
-      s.polyphonicExpressionEventOnChannelOrNote(
-          newValue, 0, msg.channel(), 1); // 0 = X_PITCH_BEND, 1 = CHANNEL
+      if (msg.channel() == 0) {
+        s.monophonicExpressionEvent(newValue, 0); // 0 = X_PITCH_BEND
+      } else {
+        s.polyphonicExpressionEventOnChannelOrNote(
+            newValue, 0, msg.channel(), 1); // 0 = X_PITCH_BEND, 1 = CHANNEL
+      }
     }
 
     if (vm.getLogLevel() >= 2) {
@@ -443,8 +459,12 @@ public class MidiService {
       }
     } else if (sound instanceof org.chuck.deluge.firmware2.Sound s) {
       int newValue = pressure << 24;
-      s.polyphonicExpressionEventOnChannelOrNote(
-          newValue, 2, msg.channel(), 1); // 2 = Z_PRESSURE, 1 = CHANNEL
+      if (msg.channel() == 0) {
+        s.monophonicExpressionEvent(newValue, 2); // 2 = Z_PRESSURE / AFTERTOUCH
+      } else {
+        s.polyphonicExpressionEventOnChannelOrNote(
+            newValue, 2, msg.channel(), 1); // 2 = Z_PRESSURE, 1 = CHANNEL
+      }
     }
 
     if (vm.getLogLevel() >= 2) {
