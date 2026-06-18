@@ -16,6 +16,7 @@ Welcome to the **ChucK-Java Deluge Workstation**, a modern, high-fidelity softwa
 7. [Song & Arrangement Linear Timelines View](#7-song--arrangement-linear-timelines-view)
 8. [DSP FX Bounding Box Dials Deck](#8-dsp-fx-bounding-box-dials-deck)
 9. [Delugeator Multi-Generator Dashboard Suite](#9-delugeator-multi-generator-dashboard-suite)
+   * [9.3 Drone Lab & Evolving Texture Generator](#93-drone-lab--evolving-texture-generator)
 10. [UI Panels & Shift Shortcuts System Behavior](#10-ui-panels-&-shift-shortcuts-system-behavior)
     * [10.3 Track Header & Top Toolbar Shift Shortcuts Map](#103-track-header--top-toolbar-shift-shortcuts-map)
 11. [Audio Tracks, Time-Stretching & Pitch-Shifting](#11-audio-tracks-time-stretching--pitch-shifting)
@@ -533,6 +534,20 @@ The top menu action **`Tools ➔ Delugeator Randomizer...`** (global shortcut **
 
 ### Tab 2: 🥁 Kit Super-Generator:
 * Select folders, map drum kits with smart auto-stems regex, audition steps, auto-choke hats, and output ready-to-load KITS XML presets in seconds.
+
+### 9.3 Drone Lab & Evolving Texture Generator:
+The top menu action **`Tools ➔ Drone Lab & Texture Generator...`** (global shortcut **`Ctrl + D` / `Cmd + D`**) summons our specialized dark-themed modal dashboard dialog. It allows you to build massive, organic ambient drone textures, apply pure microtonal temperaments, and sweep parameters in real-time.
+
+*   **Synthesis Engines**:
+    *   *Subtractive Unison Drone*: Configures dual detuned saw oscillators (with Osc 2 transposed one octave up and detuned by `16` cents), a thick 4-voice unison chorus with a wide `50%` stereo spread, a dark **24dB Moog-style Ladder LPF** (centered at a warm `1200.0` Hz cutoff, `0.35` resonance, and `0.12` drive), analog tape noise injection, and blooming envelopes.
+    *   *Golden Ratio FM Drone*: Configures metallic, non-harmonic modulator frequency multipliers—Modulator 1 at $\sqrt{2} \approx 1.414$ and Modulator 2 at the **Golden Ratio** $\phi \approx 1.618$—routed through a warm **12dB Ladder LPF** (cutoff at `2800.0` Hz) to craft crystal, industrial-metallic space textures.
+*   **Just Intonation Microtuning**: Automatically tunes the project's scale to a pure **5-limit Just Intonation cents map**:
+    $$\{0, -12, 4, 16, -14, -2, -16, 2, -10, -16, -12, -12\}$$
+    This aligns perfect fifths and major thirds into absolute physical harmonic resonance, eliminating muddy phase clashes.
+*   **16-Bar Tied Note Sequencing**: Clears the grid and programs a continuous, monophonic **16-bar holding note tie** starting at step `0` (pitch C2/MIDI `36`, gate length of `192.0` steps).
+*   **Interactive Cyber-Grid X/Y Touch Pad**: A beautiful, custom-drawn neon grid tracks mouse drags to sweep **Friction (X-axis)** (maps Osc 2 detune from 5 to 50 cents, and bitcrush decimation from 0% to 35%) and **Turbulence (Y-axis)** (sweeps slow LFO speed from 0.02Hz to 0.20Hz, and LFO depth) simultaneously.
+*   **Zero-Latency Parameter Sweeps**: On every mouse drag, the dialog updates the track model, synchronizes the shadow voice proxy, and writes the Q31 values straight to the audio engine, updating parameters in real-time every **2.9 milliseconds** with click-free sweeps.
+*   **⚡ Generate Evolving Drone Button**: One-click action to instantly build the preset, load the microtonal tuning, sequence the 16-bar holding note, and automatically start the sequencer transport playback!
 
 ---
 
