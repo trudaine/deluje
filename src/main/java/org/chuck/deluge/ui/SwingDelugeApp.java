@@ -2522,6 +2522,34 @@ public class SwingDelugeApp extends JFrame {
         });
     fileMenu.add(importAbletonItem);
 
+    JMenuItem importMidiItem = new JMenuItem("Import MIDI File...");
+    importMidiItem.addActionListener(
+        e -> {
+          JFileChooser chooser =
+              new JFileChooser(org.chuck.deluge.ableton.AbletonAssetResolver.getDefaultImportDir());
+          chooser.setDialogTitle("Import MIDI File (.mid)");
+          chooser.setFileFilter(
+              new javax.swing.filechooser.FileNameExtensionFilter(
+                  "MIDI File", "mid", "midi", "MID", "MIDI"));
+          if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+            java.io.File file = chooser.getSelectedFile();
+            if (file != null && file.isFile()) {
+              SwingMidiImportDialog wizard = new SwingMidiImportDialog(this, file);
+              wizard.setVisible(true);
+              if (wizard.isImportSuccessful() && wizard.getCompiledProject() != null) {
+                currentProjectFile = null;
+                loadProject(wizard.getCompiledProject());
+                JOptionPane.showMessageDialog(
+                    this,
+                    "MIDI file compiled and imported successfully!\n" + file.getName(),
+                    "Import Successful",
+                    JOptionPane.INFORMATION_MESSAGE);
+              }
+            }
+          }
+        });
+    fileMenu.add(importMidiItem);
+
     JMenuItem exportAbletonItem = new JMenuItem("Export to Ableton Live Set...");
     exportAbletonItem.addActionListener(
         e -> {
