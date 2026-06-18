@@ -184,7 +184,10 @@ public class AbletonTrackExporter {
       Element branch = doc.createElement("DrumBranch");
       branches.appendChild(branch);
       branch.appendChild(createValueElement(doc, "Name", drum.getName()));
-      branch.appendChild(createValueElement(doc, "ReceivingNote", String.valueOf(midiNote)));
+
+      Element branchInfo = doc.createElement("BranchInfo");
+      branch.appendChild(branchInfo);
+      branchInfo.appendChild(createValueElement(doc, "ReceivingNote", String.valueOf(midiNote)));
 
       // Add Simpler device with sample reference if sample path exists
       if (drum instanceof SoundDrum sd

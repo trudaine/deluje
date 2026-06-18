@@ -213,7 +213,11 @@ public class AbletonTrackMapper {
     for (int i = 0; i < branches.getLength(); i++) {
       Element branch = (Element) branches.item(i);
       String padName = getElementValue(branch, "Name", "Drum Pad");
-      int receivingNote = Integer.parseInt(getElementValue(branch, "ReceivingNote", "-1"));
+      Element branchInfo = getDirectChild(branch, "BranchInfo");
+      int receivingNote = -1;
+      if (branchInfo != null) {
+        receivingNote = Integer.parseInt(getElementValue(branchInfo, "ReceivingNote", "-1"));
+      }
 
       if (receivingNote == -1) continue;
 
@@ -427,6 +431,18 @@ public class AbletonTrackMapper {
       }
     }
     return defaultVal;
+  }
+
+  /** Returns the direct child element of {@code parent} with the given tag name, or null. */
+  private static Element getDirectChild(Element parent, String tagName) {
+    NodeList children = parent.getChildNodes();
+    for (int i = 0; i < children.getLength(); i++) {
+      Node child = children.item(i);
+      if (child instanceof Element el && tagName.equals(el.getTagName())) {
+        return el;
+      }
+    }
+    return null;
   }
 
   /** Internal tuple to represent a parsed note event before sparse grouping. */
