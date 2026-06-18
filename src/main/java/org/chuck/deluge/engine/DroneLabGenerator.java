@@ -66,14 +66,14 @@ public class DroneLabGenerator {
       // Massive Unison spread
       track.setUnisonNum(4);
       track.setUnisonDetune(22);
-      track.setUnisonStereoSpread(60);
+      track.setUnisonStereoSpread(50); // Fully wide (limits clamped 0..50)
 
       // Tape-hiss analog noise
       track.setNoiseVol(0.08f);
 
       // Dark low-pass filter
       track.setFilterMode(FilterMode.LADDER_24);
-      track.setLpfFreq(0.25f);
+      track.setLpfFreq(1200.0f); // Warm 1.2 kHz cutoff (was sub-audible 0.25 Hz!)
       track.setLpfRes(0.35f);
       track.setFilterDrive(0.12f);
 
@@ -102,7 +102,7 @@ public class DroneLabGenerator {
 
       // Warm 12dB LPF
       track.setFilterMode(FilterMode.LADDER_12);
-      track.setLpfFreq(0.35f);
+      track.setLpfFreq(2800.0f); // Bright 2.8 kHz FM cutoff (was 0.35 Hz!)
       track.setLpfRes(0.25f);
 
       // Slow ADSR

@@ -58,7 +58,7 @@ public class DroneLabGeneratorTest {
 
     assertEquals(4, track.getUnisonNum());
     assertEquals(22, track.getUnisonDetune(), 1e-4);
-    assertEquals(60, track.getUnisonStereoSpread(), 1e-4);
+    assertEquals(50, track.getUnisonStereoSpread(), 1e-4);
 
     // Assert Envelopes
     EnvelopeModel env0 = track.getEnv(0);
