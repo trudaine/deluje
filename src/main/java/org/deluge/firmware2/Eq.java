@@ -67,8 +67,16 @@ public final class Eq {
     if (doTreble) {
       int distanceToGoL = inL - withoutTrebleL;
       int distanceToGoR = inR - withoutTrebleR;
-      withoutTrebleL += Functions.multiply_32x32_rshift32(distanceToGoL, trebleFreq) << 1;
-      withoutTrebleR += Functions.multiply_32x32_rshift32(distanceToGoR, trebleFreq) << 1;
+      withoutTrebleL =
+          Functions.add_saturate(
+              withoutTrebleL,
+              Functions.lshiftAndSaturate(
+                  Functions.multiply_32x32_rshift32(distanceToGoL, trebleFreq), 1));
+      withoutTrebleR =
+          Functions.add_saturate(
+              withoutTrebleR,
+              Functions.lshiftAndSaturate(
+                  Functions.multiply_32x32_rshift32(distanceToGoR, trebleFreq), 1));
       trebleOnlyL = inL - withoutTrebleL;
       trebleOnlyR = inR - withoutTrebleR;
       inL = withoutTrebleL; // input now has the treble removed
@@ -78,17 +86,37 @@ public final class Eq {
     if (doBass) {
       int distanceToGoL = inL - bassOnlyL;
       int distanceToGoR = inR - bassOnlyR;
-      bassOnlyL += Functions.multiply_32x32_rshift32(distanceToGoL, bassFreq);
-      bassOnlyR += Functions.multiply_32x32_rshift32(distanceToGoR, bassFreq);
+      bassOnlyL =
+          Functions.add_saturate(
+              bassOnlyL, Functions.multiply_32x32_rshift32(distanceToGoL, bassFreq));
+      bassOnlyR =
+          Functions.add_saturate(
+              bassOnlyR, Functions.multiply_32x32_rshift32(distanceToGoR, bassFreq));
     }
 
     if (doTreble) {
-      inL += Functions.multiply_32x32_rshift32(trebleOnlyL, trebleAmount) << 3;
-      inR += Functions.multiply_32x32_rshift32(trebleOnlyR, trebleAmount) << 3;
+      inL =
+          Functions.add_saturate(
+              inL,
+              Functions.lshiftAndSaturate(
+                  Functions.multiply_32x32_rshift32(trebleOnlyL, trebleAmount), 3));
+      inR =
+          Functions.add_saturate(
+              inR,
+              Functions.lshiftAndSaturate(
+                  Functions.multiply_32x32_rshift32(trebleOnlyR, trebleAmount), 3));
     }
     if (doBass) {
-      inL += Functions.multiply_32x32_rshift32(bassOnlyL, bassAmount) << 3;
-      inR += Functions.multiply_32x32_rshift32(bassOnlyR, bassAmount) << 3;
+      inL =
+          Functions.add_saturate(
+              inL,
+              Functions.lshiftAndSaturate(
+                  Functions.multiply_32x32_rshift32(bassOnlyL, bassAmount), 3));
+      inR =
+          Functions.add_saturate(
+              inR,
+              Functions.lshiftAndSaturate(
+                  Functions.multiply_32x32_rshift32(bassOnlyR, bassAmount), 3));
     }
 
     sample[0] = inL;
