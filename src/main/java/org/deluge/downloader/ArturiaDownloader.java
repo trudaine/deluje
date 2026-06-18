@@ -103,11 +103,17 @@ public class ArturiaDownloader {
                     + "' -DestinationPath '"
                     + dir.toAbsolutePath()
                     + "' -Force");
+        Process p = null;
         try {
-          pb.inheritIO().start().waitFor();
+          p = pb.inheritIO().start();
+          p.waitFor();
           Files.delete(zip);
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
+        } finally {
+          if (p != null) {
+            p.destroy();
+          }
         }
       }
     }
