@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
@@ -181,18 +182,17 @@ public class MidiToProjectCompiler {
 
   private static ClipModel compileNotesToClip(
       List<NoteEvent> notes, int resolution, String clipName) {
-    // Determine unique pitches for row mappings
-    List<Integer> uniquePitches = new ArrayList<>();
+    // Determine unique pitches for row mappings (LinkedHashSet preserves insertion order, O(1) add)
+    LinkedHashSet<Integer> uniquePitchSet = new LinkedHashSet<>();
     long maxEndTick = 0;
     for (NoteEvent ne : notes) {
-      if (!uniquePitches.contains(ne.pitch)) {
-        uniquePitches.add(ne.pitch);
-      }
+      uniquePitchSet.add(ne.pitch);
       long endTick = ne.startTick + ne.durationTicks;
       if (endTick > maxEndTick) {
         maxEndTick = endTick;
       }
     }
+    List<Integer> uniquePitches = new ArrayList<>(uniquePitchSet);
 
     // Sort pitches descending (highest pitch on row 0)
     Collections.sort(uniquePitches, Collections.reverseOrder());
@@ -251,7 +251,15 @@ public class MidiToProjectCompiler {
       int velocity = sm.getData2();
 
       if (command == ShortMessage.NOTE_ON && velocity > 0) {
-        // Note On
+        // Note On — if this pitch is already sounding (legato overlap), close the previous note
+        // first
+        if (activeStarts.containsKey(pitch)) {
+          long prevStart = activeStarts.remove(pitch);
+          ShortMessage prevOnMsg = activeNotes.remove(pitch);
+          long prevDuration = event.getTick() - prevStart;
+          if (prevDuration <= 0) prevDuration = 1;
+          notes.add(new NoteEvent(pitch, prevStart, prevDuration, prevOnMsg.getData2()));
+        }
         activeNotes.put(pitch, sm);
         activeStarts.put(pitch, event.getTick());
       } else if (command == ShortMessage.NOTE_OFF
