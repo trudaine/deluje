@@ -2550,6 +2550,45 @@ public class SwingDelugeApp extends JFrame {
         });
     fileMenu.add(importMidiItem);
 
+    JMenuItem importAudioItem = new JMenuItem("Import Audio File...");
+    importAudioItem.addActionListener(
+        e -> {
+          JFileChooser chooser =
+              new JFileChooser(org.chuck.deluge.ableton.AbletonAssetResolver.getDefaultImportDir());
+          chooser.setDialogTitle("Select Audio File to Transcribe");
+          chooser.setFileFilter(
+              new javax.swing.filechooser.FileNameExtensionFilter(
+                  "Audio File",
+                  "wav",
+                  "mp3",
+                  "flac",
+                  "ogg",
+                  "m4a",
+                  "WAV",
+                  "MP3",
+                  "FLAC",
+                  "OGG",
+                  "M4A"));
+          if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+            java.io.File file = chooser.getSelectedFile();
+            if (file != null && file.isFile()) {
+              SwingAudioTranscribeDialog transcriber = new SwingAudioTranscribeDialog(this, file);
+              transcriber.setVisible(true);
+              if (transcriber.isTranscriptionSuccessful()
+                  && transcriber.getCompiledProject() != null) {
+                currentProjectFile = null;
+                loadProject(transcriber.getCompiledProject());
+                JOptionPane.showMessageDialog(
+                    this,
+                    "Audio transcribed and imported successfully!\n" + file.getName(),
+                    "Import Successful",
+                    JOptionPane.INFORMATION_MESSAGE);
+              }
+            }
+          }
+        });
+    fileMenu.add(importAudioItem);
+
     JMenuItem exportAbletonItem = new JMenuItem("Export to Ableton Live Set...");
     exportAbletonItem.addActionListener(
         e -> {
