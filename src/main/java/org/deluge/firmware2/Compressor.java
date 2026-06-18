@@ -38,6 +38,9 @@ public class Compressor {
   final BasicFilterComponent hpfL = new BasicFilterComponent();
   final BasicFilterComponent hpfR = new BasicFilterComponent();
 
+  // Pre-allocated dry buffer, grown on demand (avoids per-render GC churn)
+  private int[][] dryBuffer;
+
   // Display params
   float attackMS;
   float releaseMS;
@@ -219,9 +222,10 @@ public class Compressor {
       int[][] buffer, int numSamples, int volAdjustL, int volAdjustR, int finalVolume) {
     // C:62-64 — dry buffer for wet/dry blend (int32 StereoSample, not float — float loses precision
     // for samples above 2^24).
-    int[][] dryBuffer = null;
     if (wet != ONE_Q31) {
-      dryBuffer = new int[numSamples][2];
+      if (dryBuffer == null || dryBuffer.length < numSamples) {
+        dryBuffer = new int[numSamples][2];
+      }
       for (int i = 0; i < numSamples; i++) {
         dryBuffer[i][0] = buffer[i][0];
         dryBuffer[i][1] = buffer[i][1];
@@ -337,7 +341,7 @@ public class Compressor {
       int l = buffer[i][0] - hpfL.doFilter(buffer[i][0], hpfA_); // C:149
       int r = buffer[i][1] - hpfR.doFilter(buffer[i][1], hpfA_); // C:150
       int s = Math.max(Math.abs(l), Math.abs(r)); // C:151
-      sum += Functions.multiply_32x32_rshift32(s, s); // C:152
+      sum = Functions.add_saturate(sum, Functions.multiply_32x32_rshift32(s, s)); // C:152
     }
 
     float ns = (float) (numSamples * 2); // C:155

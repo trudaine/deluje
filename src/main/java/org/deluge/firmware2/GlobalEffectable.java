@@ -22,6 +22,7 @@ public abstract class GlobalEffectable {
   public int postReverbVolume = 134217728;
 
   private int[] trackBuffer = new int[256];
+  private int[] flatBuffer;
 
   public void renderOutput(int[] output, int numSamples, int[] reverbBuffer) {
     int requiredLen = numSamples * 2;
@@ -87,15 +88,18 @@ public abstract class GlobalEffectable {
   protected abstract void renderInternal(int[] buffer, int numSamples, int[] reverbBuffer);
 
   public void renderOutput(StereoSample[] buffer, int numSamples, Object unused) {
-    int[] flat = new int[numSamples * 2];
+    int requiredLen = numSamples * 2;
+    if (flatBuffer == null || flatBuffer.length < requiredLen) {
+      flatBuffer = new int[requiredLen];
+    }
     int[] reverb = null;
     if (unused instanceof int[]) {
       reverb = (int[]) unused;
     }
-    renderOutput(flat, numSamples, reverb);
+    renderOutput(flatBuffer, numSamples, reverb);
     for (int i = 0; i < numSamples; i++) {
-      buffer[i].l = flat[i * 2];
-      buffer[i].r = flat[i * 2 + 1];
+      buffer[i].l = flatBuffer[i * 2];
+      buffer[i].r = flatBuffer[i * 2 + 1];
     }
   }
 }
