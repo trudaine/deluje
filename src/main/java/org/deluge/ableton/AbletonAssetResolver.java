@@ -16,11 +16,25 @@ public class AbletonAssetResolver {
       System.getProperty("os.name").toLowerCase().contains("win");
   private static final String HOME = System.getProperty("user.home");
 
-  private static final String PACKS_DIR = detectPacksDir();
-  private static final String USER_LIB_DIR = detectUserLibDir();
-  private static final String APP_RESOURCES_DIR = detectAbletonAppResourcesDir();
-  private static final String CORE_LIB_DIR = APP_RESOURCES_DIR + "Core Library/";
-  private static final String BUILTIN_DIR = APP_RESOURCES_DIR + "Builtin/";
+  // Lazy-initialized via holder — defers filesystem access to first use, surviving JVM restarts
+  private static String packsDir;
+  private static String userLibDir;
+  private static String appResourcesDir;
+
+  private static synchronized String getPacksDir() {
+    if (packsDir == null) packsDir = detectPacksDir();
+    return packsDir;
+  }
+
+  private static synchronized String getUserLibDir() {
+    if (userLibDir == null) userLibDir = detectUserLibDir();
+    return userLibDir;
+  }
+
+  private static synchronized String getAppResourcesDir() {
+    if (appResourcesDir == null) appResourcesDir = detectAbletonAppResourcesDir();
+    return appResourcesDir;
+  }
 
   /**
    * Resolve an Ableton sample path to a valid local file.
@@ -47,7 +61,7 @@ public class AbletonAssetResolver {
         && !livePackName.isBlank()
         && relativePath != null
         && !relativePath.isBlank()) {
-      File file = new File(PACKS_DIR + livePackName + "/" + relativePath);
+      File file = new File(new File(getPacksDir(), livePackName), relativePath);
       if (file.exists() && file.isFile()) {
         return file;
       }
@@ -55,7 +69,7 @@ public class AbletonAssetResolver {
 
     // 3. Check Core Library
     if (relativePath != null && !relativePath.isBlank()) {
-      File file = new File(CORE_LIB_DIR + relativePath);
+      File file = new File(getAppResourcesDir() + "Core Library/", relativePath);
       if (file.exists() && file.isFile()) {
         return file;
       }
@@ -63,7 +77,7 @@ public class AbletonAssetResolver {
 
     // 4. Check Builtin Library
     if (relativePath != null && !relativePath.isBlank()) {
-      File file = new File(BUILTIN_DIR + relativePath);
+      File file = new File(getAppResourcesDir() + "Builtin/", relativePath);
       if (file.exists() && file.isFile()) {
         return file;
       }
@@ -71,7 +85,7 @@ public class AbletonAssetResolver {
 
     // 5. Check User Library
     if (relativePath != null && !relativePath.isBlank()) {
-      File file = new File(USER_LIB_DIR + relativePath);
+      File file = new File(getUserLibDir(), relativePath);
       if (file.exists() && file.isFile()) {
         return file;
       }

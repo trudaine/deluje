@@ -53,10 +53,20 @@ public class AbletonProjectManager {
    * @throws Exception if decompression or XML parsing fails
    */
   public static Document parseAlsToXml(File alsFile) throws Exception {
-    String xmlText = decompressAls(alsFile);
+    // Decompress directly to bytes, avoiding String→byte[] round-trip memory copy
+    byte[] xmlBytes;
+    try (GZIPInputStream gis = new GZIPInputStream(new FileInputStream(alsFile));
+        ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+      byte[] buffer = new byte[8192];
+      int len;
+      while ((len = gis.read(buffer)) > 0) {
+        baos.write(buffer, 0, len);
+      }
+      xmlBytes = baos.toByteArray();
+    }
     DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
     factory.setNamespaceAware(true);
     DocumentBuilder builder = factory.newDocumentBuilder();
-    return builder.parse(new ByteArrayInputStream(xmlText.getBytes("UTF-8")));
+    return builder.parse(new ByteArrayInputStream(xmlBytes));
   }
 }

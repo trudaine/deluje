@@ -7,7 +7,7 @@ package org.chuck.core;
 public class ChuckArray {
   private final Object[] array;
 
-  public String elementTypeName = "int";
+  private String elementTypeName = "int";
 
   public ChuckArray(int size) {
     this.array = new Object[size];
@@ -41,16 +41,30 @@ public class ChuckArray {
     }
   }
 
+  public String getElementTypeName() {
+    return elementTypeName;
+  }
+
+  public void setElementTypeName(String elementTypeName) {
+    this.elementTypeName = elementTypeName;
+  }
+
   public void setInt(int idx, long val) {
-    array[idx] = val;
+    if (idx >= 0 && idx < array.length) {
+      array[idx] = val;
+    }
   }
 
   public void setFloat(int idx, double val) {
-    array[idx] = val;
+    if (idx >= 0 && idx < array.length) {
+      array[idx] = val;
+    }
   }
 
   public void setObject(int idx, Object val) {
-    array[idx] = val;
+    if (idx >= 0 && idx < array.length) {
+      array[idx] = val;
+    }
   }
 
   public long getInt(int idx) {

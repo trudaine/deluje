@@ -1320,7 +1320,7 @@ public final class BridgeContract {
     if (obj instanceof ChuckArray ca) return ca;
     ChuckArray base = (ChuckArray) vm.getGlobalObject(baseName);
     ChuckArray arr =
-        "int".equals(base.elementTypeName)
+        "int".equals(base.getElementTypeName())
             ? new ChuckArray(new int[PATTERN_SIZE])
             : new ChuckArray(new float[PATTERN_SIZE]);
     vm.setGlobalObject(name, arr);
