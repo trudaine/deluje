@@ -53,9 +53,11 @@ public abstract class GlobalEffectable {
             reverbAmountAdjust, Functions.cableToLinearParamShortcut(reverbSendKnob));
 
     int reverbSendAmountAndPostFXVolume =
-        Functions.multiply_32x32_rshift32(postFXVolume, reverbSendAmount) << 5;
+        Functions.lshiftAndSaturate(
+            Functions.multiply_32x32_rshift32(postFXVolume, reverbSendAmount), 5);
     int postFXAndReverbVolumeL =
-        Functions.multiply_32x32_rshift32(postReverbVolume, postFXVolume) << 5;
+        Functions.lshiftAndSaturate(
+            Functions.multiply_32x32_rshift32(postReverbVolume, postFXVolume), 5);
 
     for (int i = 0; i < numSamples; i++) {
       int l = trackBuffer[i * 2];
@@ -63,13 +65,19 @@ public abstract class GlobalEffectable {
 
       if (reverbSendAmount != 0 && reverbBuffer != null) {
         int mono = Functions.add_saturate(l, r);
-        int revSend = Functions.multiply_32x32_rshift32(mono, reverbSendAmountAndPostFXVolume) << 1;
+        int revSend =
+            Functions.lshiftAndSaturate(
+                Functions.multiply_32x32_rshift32(mono, reverbSendAmountAndPostFXVolume), 1);
         reverbBuffer[i] = Functions.add_saturate(reverbBuffer[i], revSend);
       }
 
       // Apply track final gain and sum to main output
-      int outL = Functions.multiply_32x32_rshift32(l, postFXAndReverbVolumeL) << 5;
-      int outR = Functions.multiply_32x32_rshift32(r, postFXAndReverbVolumeL) << 5;
+      int outL =
+          Functions.lshiftAndSaturate(
+              Functions.multiply_32x32_rshift32(l, postFXAndReverbVolumeL), 5);
+      int outR =
+          Functions.lshiftAndSaturate(
+              Functions.multiply_32x32_rshift32(r, postFXAndReverbVolumeL), 5);
 
       output[i * 2] = Functions.add_saturate(output[i * 2], outL);
       output[i * 2 + 1] = Functions.add_saturate(output[i * 2 + 1], outR);
