@@ -64,9 +64,9 @@ public class AbletonProjectManager {
 Ableton projects store sample file paths inside `<SampleRef>` nodes, using relative paths and Live Pack associations to remain portable. The `AbletonAssetResolver` will dynamically resolve these paths on macOS:
 
 ### Default Ableton Directories on macOS:
-*   **Factory Packs Directory**: `/Users/ludo/Music/Ableton/Factory Packs/`
-*   **User Library Directory**: `/Users/ludo/Music/Ableton/User Library/`
-*   **Core Library Directory**: `/Applications/Ableton Live 12 Suite.app/Contents/App-Resources/Core Library/`
+*   **Factory Packs Directory**: `~/Music/Ableton/Factory Packs/` (or equivalent User Music folder)
+*   **User Library Directory**: `~/Music/Ableton/User Library/`
+*   **Core Library Directory**: `/Applications/Ableton Live.app/Contents/App-Resources/Core Library/` (dynamically resolved to the highest installed version, e.g. Ableton Live 12 Suite, Standard, Intro, etc.)
 
 ### Resolution Logic:
 ```mermaid

@@ -54,42 +54,42 @@ All firmware modifications are designed to be surgical, high-performance, and co
 We intercept physical presses at the hardware driver level and inject virtual presses into the same entry points.
 
 *   **Buttons (Non-Grid)**:
-    *   *Hook location*: [buttons.cpp](file:///Users/ludo/a/DelugeFirmware/src/deluge/hid/buttons.cpp) -> `Buttons::buttonAction(Button b, bool on, bool inCardRoutine)`
+    *   *Hook location*: [buttons.cpp](file://<DelugeFirmwareRoot>/src/deluge/hid/buttons.cpp) -> `Buttons::buttonAction(Button b, bool on, bool inCardRoutine)`
     *   *Stream Out*: When physical buttons are clicked, serialize the button index and state to a small SysEx message and broadcast it.
     *   *Inject In*: When a virtual button press is received from the host, call `Buttons::buttonAction(button_id, on, false)` to trigger the exact same reaction as a physical press.
 *   **Pads (8x16 Grid Matrix + Sidebars)**:
-    *   *Hook location*: [matrix_driver.cpp](file:///Users/ludo/a/DelugeFirmware/src/deluge/hid/matrix/matrix_driver.cpp) -> `MatrixDriver::padAction(int32_t x, int32_t y, int32_t velocity)`
+    *   *Hook location*: [matrix_driver.cpp](file://<DelugeFirmwareRoot>/src/deluge/hid/matrix/matrix_driver.cpp) -> `MatrixDriver::padAction(int32_t x, int32_t y, int32_t velocity)`
     *   *Stream Out*: Broadcast every physical pad strike or pressure change.
     *   *Inject In*: Call `matrixDriver.padAction(x, y, velocity)` when a virtual pad strike SysEx packet arrives.
 
 ### 1.2. Real-time RGB LED Grid Mirroring
 To make the virtual grid on the computer screen look 100% identical to the physical Deluge in real time:
-*   *Hook location*: [pad_leds.cpp](file:///Users/ludo/a/DelugeFirmware/src/deluge/hid/led/pad_leds.cpp) -> `PadLEDs::sendOutMainPadColours()`
+*   *Hook location*: [pad_leds.cpp](file://<DelugeFirmwareRoot>/src/deluge/hid/led/pad_leds.cpp) -> `PadLEDs::sendOutMainPadColours()`
 *   *Implementation*: Read the global frame buffer `PadLEDs::image` (which contains the exact Red, Green, and Blue intensities of all 144 pads).
 *   *Optimization*: Since 144 pads $\times$ 3 bytes = 432 bytes raw, we pack the RGB values into 7-bit MIDI bytes. This takes less than 0.5ms of transmission time. A delta-compression algorithm (sending only pads that changed color since the last frame) will reduce this to a few bytes per frame, enabling a buttery-smooth **60 FPS visual mirror** with **zero latency** and **negligible USB bandwidth**.
 
 ### 1.3. Graphical Patch Editor (via Native MIDI Follow)
-Instead of inventing a complex parameter-writing API, we leverage the Deluge's existing **MIDI Follow** subsystem inside [midi_follow.cpp](file:///Users/ludo/a/DelugeFirmware/src/deluge/io/midi/midi_follow.cpp)!
+Instead of inventing a complex parameter-writing API, we leverage the Deluge's existing **MIDI Follow** subsystem inside [midi_follow.cpp](file://<DelugeFirmwareRoot>/src/deluge/io/midi/midi_follow.cpp)!
 *   **Host to Deluge (Slider Move)**: The host client renders graphical knobs and envelopes. When a user drags a slider, the host transmits a **standard MIDI Control Change (CC) message** matching the Deluge's MIDI Follow map (e.g., CC 74 for Filter Cutoff, CC 71 for Resonance, CC 73 for Attack, etc.).
 *   **Processing**: The Deluge's native `MidiFollow::midiCCReceived()` intercepts the CC, resolves the active clip's sound, and updates the sound engine parameters instantly!
 *   **Deluge to Host (Knob Turn)**: When the user rotates a physical parameter knob on the Deluge, the firmware broadcasts the corresponding MIDI CC message back to the host. The host client catches the CC and instantly updates the virtual sliders on the screen!
 
 ### 1.4. Visual Screen Character Reader & Menu Accessibility
 To make the Deluge fully accessible to blind and visually impaired musicians:
-*   *Hook location 1*: [oled.h](file:///Users/ludo/a/DelugeFirmware/src/deluge/hid/display/oled.h) -> `popupTextTemporary(char const* text, PopupType type)`
-*   *Hook location 2*: [oled.h](file:///Users/ludo/a/DelugeFirmware/src/deluge/hid/display/oled.h) -> `displayNotification(std::string_view param_title, std::optional<std::string_view> param_value)`
+*   *Hook location 1*: [oled.h](file://<DelugeFirmwareRoot>/src/deluge/hid/display/oled.h) -> `popupTextTemporary(char const* text, PopupType type)`
+*   *Hook location 2*: [oled.h](file://<DelugeFirmwareRoot>/src/deluge/hid/display/oled.h) -> `displayNotification(std::string_view param_title, std::optional<std::string_view> param_value)`
 *   *Implementation*: Whenever a temporary text popup or parameter notification is generated (e.g., `"CUTOFF: 74"` or `"TEMPO: 120.0"` or `"LOAD SONG"`), capture the raw character string and stream it to the host client.
 *   *Speech Synthesis*: The host web application intercepts these text streams and feeds them directly into the browser's native **Web Speech Synthesis API** (text-to-speech), voicing the screen actions aloud immediately as the user navigates!
 
 ### 1.5. Layout Synchronization (Active View Tracking)
 To ensure the host UI automatically matches the view mode of the hardware:
-*   *Hook locations*: [ui.cpp](file:///Users/ludo/a/DelugeFirmware/src/deluge/gui/ui/ui.cpp) -> `changeRootUI()`, `changeUIAtLevel()`, and `changeUISideways()`
+*   *Hook locations*: [ui.cpp](file://<DelugeFirmwareRoot>/src/deluge/gui/ui/ui.cpp) -> `changeRootUI()`, `changeUIAtLevel()`, and `changeUISideways()`
 *   *Implementation*: Whenever a transition occurs, read the active view name via `getCurrentUI()->getUIName()` and transmit a view synchronization SysEx packet to the host.
 *   *Layout Adaptation*: The host UI catches this event and automatically switches its window layout (e.g., showing the virtual Keyboard/Scale grid when the Deluge enters Keyboard mode, or showing a vertical track mixer when the Deluge enters Song view!).
 
 ### 1.6. Lock-free Master VU Level Metering
 To display responsive, real-time VU level meters on the host:
-*   *DSP Hook location*: [audio_engine.cpp](file:///Users/ludo/a/DelugeFirmware/src/deluge/processing/engines/audio_engine.cpp) -> end of `renderAudio()` and `renderAudioForStemExport()`
+*   *DSP Hook location*: [audio_engine.cpp](file://<DelugeFirmwareRoot>/src/deluge/processing/engines/audio_engine.cpp) -> end of `renderAudio()` and `renderAudioForStemExport()`
 *   *Lock-free Extraction*: Read the calculated `approxRMSLevel.l` and `approxRMSLevel.r` and store them in global thread-safe atomic floats:
     ```cpp
     std::atomic<float> masterLevelL{0.0f};
