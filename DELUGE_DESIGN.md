@@ -987,7 +987,7 @@ These mockups add new visual concepts on top of Section 7 without modifying it. 
 +--------------------------------------------------+
 |  SAMPLE BROWSER                          [Close] |
 +--------------------------------------------------+
-|  Root: [C:/Users/ludo/a/.../SAMPLES    ] [Set…] |
+|  Root: [C:/Users/username/.../SAMPLES  ] [Set…] |
 |  Search: [__________________________]   [⭐ Favs]|
 +-----------------------------+--------------------+
 |  ▶ DRUMS/                   |  808 Kick.wav      |
