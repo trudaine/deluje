@@ -867,7 +867,8 @@ public class Voice {
         int amplitudeForRingMod = 1 << 27;
         if (hasFilters) {
           amplitudeForRingMod =
-              Functions.multiply_32x32_rshift32_rounded(amplitudeForRingMod, filterGain) << 4;
+              Functions.lshiftAndSaturate(
+                  Functions.multiply_32x32_rshift32_rounded(amplitudeForRingMod, filterGain), 4);
         }
 
         // C voice.cpp:1317-1340 — osc A can never osc-sync (cantBeDoingOscSyncForFirstOsc); osc B
@@ -916,9 +917,9 @@ public class Voice {
           vsA.oscPos = phaseA[0];
         }
         if (sound.oscTypes[0] == OscType.SAW || sound.oscTypes[0] == OscType.ANALOG_SAW_2) {
-          amplitudeForRingMod <<= 1;
+          amplitudeForRingMod = Functions.lshiftAndSaturate(amplitudeForRingMod, 1);
         } else if (sound.oscTypes[0] == OscType.WAVETABLE) {
-          amplitudeForRingMod <<= 2;
+          amplitudeForRingMod = Functions.lshiftAndSaturate(amplitudeForRingMod, 2);
         }
 
         if (sound.oscTypes[1] == OscType.WAVETABLE && sound.waveTables[1] != null) {
@@ -971,9 +972,9 @@ public class Voice {
           vsB.oscPos = phaseB[0];
         }
         if (sound.oscTypes[1] == OscType.SAW || sound.oscTypes[1] == OscType.ANALOG_SAW_2) {
-          amplitudeForRingMod <<= 1;
+          amplitudeForRingMod = Functions.lshiftAndSaturate(amplitudeForRingMod, 1);
         } else if (sound.oscTypes[1] == OscType.WAVETABLE) {
-          amplitudeForRingMod <<= 2;
+          amplitudeForRingMod = Functions.lshiftAndSaturate(amplitudeForRingMod, 2);
         }
 
         for (int i = 0; i < numSamples; i++) {
@@ -981,8 +982,10 @@ public class Voice {
               Functions.multiply_32x32_rshift32_rounded(
                   Functions.multiply_32x32_rshift32(tempBufA[i], tempBufB[i]), amplitudeForRingMod);
           if (stereoUnison) {
-            int l = Functions.multiply_32x32_rshift32(out, ampLR[0]) << 2;
-            int r = Functions.multiply_32x32_rshift32(out, ampLR[1]) << 2;
+            int l =
+                Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(out, ampLR[0]), 2);
+            int r =
+                Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(out, ampLR[1]), 2);
             mixBuf[i * 2] = Functions.add_saturate(mixBuf[i * 2], l);
             mixBuf[i * 2 + 1] = Functions.add_saturate(mixBuf[i * 2 + 1], r);
           } else {
@@ -1128,7 +1131,7 @@ public class Voice {
                     shifted,
                     n,
                     pInc,
-                    srcAmp << 4,
+                    Functions.lshiftAndSaturate(srcAmp, 4),
                     0,
                     16,
                     vs.liveInputBuffer,
@@ -1146,13 +1149,17 @@ public class Voice {
                 int channelOffset = (inputTypeNow == OscType.INPUT_R && anyInputDevice) ? 1 : 0;
                 for (int i = 0; i < n; i++) {
                   tempBuf[i] =
-                      Functions.multiply_32x32_rshift32(input[i * 2 + channelOffset], srcAmp) << 4;
+                      Functions.lshiftAndSaturate(
+                          Functions.multiply_32x32_rshift32(input[i * 2 + channelOffset], srcAmp),
+                          4);
                 }
               } else {
                 // C voice.cpp:2325-2345 — stereo condensed to mono for the mono osc buffer.
                 for (int i = 0; i < n; i++) {
                   int mono = (input[i * 2] >> 1) + (input[i * 2 + 1] >> 1);
-                  tempBuf[i] = Functions.multiply_32x32_rshift32(mono, srcAmp) << 4;
+                  tempBuf[i] =
+                      Functions.lshiftAndSaturate(
+                          Functions.multiply_32x32_rshift32(mono, srcAmp), 4);
                 }
               }
             }
@@ -1173,7 +1180,9 @@ public class Voice {
             }
             vs.dxVoice.compute(uniBuf, numSamples, adjpitch, vs.dxPatch, ampMod, 0, 0);
             for (int i = 0; i < numSamples; i++) {
-              tempBuf[i] = Functions.multiply_32x32_rshift32(uniBuf[i], srcAmp) << 6;
+              tempBuf[i] =
+                  Functions.lshiftAndSaturate(
+                      Functions.multiply_32x32_rshift32(uniBuf[i], srcAmp), 6);
             }
           } else if (sound.oscTypes[s] == OscType.WAVETABLE && sound.waveTables[s] != null) {
             int waveIndex = paramFinalValues[Param.LOCAL_OSC_A_WAVE_INDEX + s];
@@ -1238,8 +1247,10 @@ public class Voice {
           if (stereoUnison) {
             for (int i = 0; i < numSamples; i++) {
               int out = tempBuf[i];
-              int l = Functions.multiply_32x32_rshift32(out, ampLR[0]) << 2;
-              int r = Functions.multiply_32x32_rshift32(out, ampLR[1]) << 2;
+              int l =
+                  Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(out, ampLR[0]), 2);
+              int r =
+                  Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(out, ampLR[1]), 2);
               mixBuf[i * 2] = Functions.add_saturate(mixBuf[i * 2], l);
               mixBuf[i * 2 + 1] = Functions.add_saturate(mixBuf[i * 2 + 1], r);
             }
@@ -1261,7 +1272,7 @@ public class Voice {
     if (sound.synthMode != 1 && paramFinalValues[Param.LOCAL_NOISE_VOLUME] != 0) {
       int n = paramFinalValues[Param.LOCAL_NOISE_VOLUME] >> 1;
       if (hasFilters) {
-        n = Functions.multiply_32x32_rshift32(n, filterGain) << 4;
+        n = Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(n, filterGain), 4);
       }
       int noiseAmplitude = Math.min(n, 268435455) >> 2;
       for (int i = 0; i < numSamples; i++) {
@@ -1469,10 +1480,12 @@ public class Voice {
           int out = fmOscBuffer[i];
           mixBuf[i * 2] =
               Functions.add_saturate(
-                  mixBuf[i * 2], Functions.multiply_32x32_rshift32(out, ampLR[0]) << 2);
+                  mixBuf[i * 2],
+                  Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(out, ampLR[0]), 2));
           mixBuf[i * 2 + 1] =
               Functions.add_saturate(
-                  mixBuf[i * 2 + 1], Functions.multiply_32x32_rshift32(out, ampLR[1]) << 2);
+                  mixBuf[i * 2 + 1],
+                  Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(out, ampLR[1]), 2));
         }
       } else {
         for (int i = 0; i < numSamples; i++) {
@@ -1514,11 +1527,14 @@ public class Voice {
       for (int i = 0; i < numSamples; i++) {
         overallOscAmplitudeNow += overallOscillatorAmplitudeIncrement;
         stereoBuf[i * 2] =
-            Functions.multiply_32x32_rshift32_rounded(stereoBuf[i * 2], overallOscAmplitudeNow)
-                << 1;
+            Functions.lshiftAndSaturate(
+                Functions.multiply_32x32_rshift32_rounded(stereoBuf[i * 2], overallOscAmplitudeNow),
+                1);
         stereoBuf[i * 2 + 1] =
-            Functions.multiply_32x32_rshift32_rounded(stereoBuf[i * 2 + 1], overallOscAmplitudeNow)
-                << 1;
+            Functions.lshiftAndSaturate(
+                Functions.multiply_32x32_rshift32_rounded(
+                    stereoBuf[i * 2 + 1], overallOscAmplitudeNow),
+                1);
       }
     }
 
@@ -1536,7 +1552,7 @@ public class Voice {
           int outputVal =
               Functions.getTanHAntialiased(
                   data, lastSaturationTanHWorkingValue[ch], saturationAmount);
-          stereoBuf[i * 2 + ch] = outputVal << shiftAmount;
+          stereoBuf[i * 2 + ch] = Functions.lshiftAndSaturate(outputVal, shiftAmount);
           lastSaturationTanHWorkingValue[ch] = newWorkingValue;
         }
       }
@@ -1545,8 +1561,12 @@ public class Voice {
     // Apply pan
     if (doPanning) {
       for (int i = 0; i < numSamples; i++) {
-        int l = Functions.multiply_32x32_rshift32(stereoBuf[i * 2], ampLR[0]) << 2;
-        int r = Functions.multiply_32x32_rshift32(stereoBuf[i * 2 + 1], ampLR[1]) << 2;
+        int l =
+            Functions.lshiftAndSaturate(
+                Functions.multiply_32x32_rshift32(stereoBuf[i * 2], ampLR[0]), 2);
+        int r =
+            Functions.lshiftAndSaturate(
+                Functions.multiply_32x32_rshift32(stereoBuf[i * 2 + 1], ampLR[1]), 2);
         stereoBuf[i * 2] = l;
         stereoBuf[i * 2 + 1] = r;
       }
