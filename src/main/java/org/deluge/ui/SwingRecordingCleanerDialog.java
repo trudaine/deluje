@@ -430,10 +430,11 @@ public class SwingRecordingCleanerDialog extends JDialog {
     stopActiveFile();
     playingFile = selected;
 
+    AudioInputStream stream = null;
     try {
-      AudioInputStream stream = AudioSystem.getAudioInputStream(selected);
+      stream = AudioSystem.getAudioInputStream(selected);
       activeClip = AudioSystem.getClip();
-      activeClip.open(stream);
+      activeClip.open(stream); // clip takes ownership of stream on success
       activeClip.addLineListener(
           event -> {
             if (event.getType() == LineEvent.Type.STOP) {
@@ -447,6 +448,12 @@ public class SwingRecordingCleanerDialog extends JDialog {
       stopBtn.setEnabled(true);
 
     } catch (Exception e) {
+      if (stream != null) {
+        try {
+          stream.close();
+        } catch (Exception ignored) {
+        }
+      }
       JOptionPane.showMessageDialog(
           this,
           "Failed to play sample: "

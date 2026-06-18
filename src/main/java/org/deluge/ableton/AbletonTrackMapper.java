@@ -58,10 +58,19 @@ public class AbletonTrackMapper {
       Node child = children.item(i);
       if (child instanceof Element trackEl) {
         String tagName = trackEl.getTagName();
-        if ("MidiTrack".equals(tagName)) {
-          importMidiTrack(trackEl, project);
-        } else if ("AudioTrack".equals(tagName)) {
-          importAudioTrack(trackEl, project);
+        try {
+          if ("MidiTrack".equals(tagName)) {
+            importMidiTrack(trackEl, project);
+          } else if ("AudioTrack".equals(tagName)) {
+            importAudioTrack(trackEl, project);
+          }
+        } catch (Exception e) {
+          System.err.println(
+              "[AbletonTrackMapper] Failed to import track '"
+                  + getTrackName(trackEl, "?")
+                  + "': "
+                  + e.getMessage());
+          // Continue importing remaining tracks
         }
       }
     }
@@ -166,7 +175,9 @@ public class AbletonTrackMapper {
 
       // 3. Write note events to the high-res and quantized grids
       for (ParsedNoteEvent ev : events) {
-        int r = pitchToRow.get(ev.pitch);
+        Integer rowObj = pitchToRow.get(ev.pitch);
+        if (rowObj == null) continue; // Pitch not in unique set (data integrity guard)
+        int r = rowObj;
 
         // A. High-Res Path (96 PPQN ticks)
         int tickPos = (int) Math.round(ev.time * 96);
@@ -403,13 +414,16 @@ public class AbletonTrackMapper {
     return defaultName;
   }
 
+  /** Searches direct children of {@code parent} for an element with the given tag name. */
   private static String getElementValue(Element parent, String tagName, String defaultVal) {
-    NodeList list = parent.getElementsByTagName(tagName);
-    if (list.getLength() > 0) {
-      Element el = (Element) list.item(0);
-      String val = el.getAttribute("Value");
-      if (val != null && !val.isBlank()) {
-        return val;
+    NodeList children = parent.getChildNodes();
+    for (int i = 0; i < children.getLength(); i++) {
+      Node child = children.item(i);
+      if (child instanceof Element el && tagName.equals(el.getTagName())) {
+        String val = el.getAttribute("Value");
+        if (val != null && !val.isBlank()) {
+          return val;
+        }
       }
     }
     return defaultVal;
