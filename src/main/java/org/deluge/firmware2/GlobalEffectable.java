@@ -92,6 +92,7 @@ public abstract class GlobalEffectable {
     if (flatBuffer == null || flatBuffer.length < requiredLen) {
       flatBuffer = new int[requiredLen];
     }
+    Arrays.fill(flatBuffer, 0, requiredLen, 0);
     int[] reverb = null;
     if (unused instanceof int[]) {
       reverb = (int[]) unused;
