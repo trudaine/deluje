@@ -2947,8 +2947,7 @@ public class SwingDelugeApp extends JFrame {
               public void actionPerformed(java.awt.event.ActionEvent e) {
                 try {
                   java.io.File scratchDir =
-                      new java.io.File(
-                          "/Users/ludo/.gemini/jetski/brain/ae27587c-6d7c-4fac-9610-5dd67967a44e/scratch");
+                      new java.io.File(System.getProperty("user.home"), ".deluge/screenshots");
                   if (!scratchDir.exists()) scratchDir.mkdirs();
                   java.io.File file = new java.io.File(scratchDir, "swing_screenshot.png");
 
@@ -3342,8 +3341,7 @@ public class SwingDelugeApp extends JFrame {
   private void captureSingleScreenshot(String name) {
     try {
       java.io.File scratchDir =
-          new java.io.File(
-              "/Users/ludo/.gemini/jetski/brain/ae27587c-6d7c-4fac-9610-5dd67967a44e/scratch");
+          new java.io.File(System.getProperty("user.home"), ".deluge/screenshots");
       if (!scratchDir.exists()) scratchDir.mkdirs();
       java.io.File file = new java.io.File(scratchDir, name + ".png");
 

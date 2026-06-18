@@ -39,9 +39,30 @@ public class SwingMidiImportDialog extends JDialog {
     super(owner, "MIDI Import Wizard", true);
     this.owner = owner;
     this.midiFile = midiFile;
-    loadPresets();
     initializeUI();
-    loadMidiMetadata();
+    // Defer heavy I/O (filesystem scan + MIDI parsing) off the EDT
+    new SwingWorker<Void, Void>() {
+      @Override
+      protected Void doInBackground() throws Exception {
+        loadPresets();
+        loadMidiMetadata();
+        return null;
+      }
+
+      @Override
+      protected void done() {
+        try {
+          get();
+        } catch (Exception e) {
+          JOptionPane.showMessageDialog(
+              SwingMidiImportDialog.this,
+              "Failed to load MIDI file:\n" + e.getCause().getMessage(),
+              "Error",
+              JOptionPane.ERROR_MESSAGE);
+          dispose();
+        }
+      }
+    }.execute();
   }
 
   private void loadPresets() {

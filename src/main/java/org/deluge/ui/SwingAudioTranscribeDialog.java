@@ -180,39 +180,46 @@ public class SwingAudioTranscribeDialog extends JDialog {
       // 3. Launch ProcessBuilder
       ProcessBuilder pb = new ProcessBuilder(command);
       pb.redirectErrorStream(true);
-      Process process = pb.start();
+      Process process = null;
+      try {
+        process = pb.start();
 
-      // Read output stream in real-time
-      try (BufferedReader reader =
-          new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-        String line;
-        while ((line = reader.readLine()) != null) {
-          final String logLine = line;
-          SwingUtilities.invokeLater(
-              () -> {
-                consoleArea.append(logLine + "\n");
-                consoleArea.setCaretPosition(consoleArea.getDocument().getLength());
-              });
+        // Read output stream in real-time
+        try (BufferedReader reader =
+            new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+          String line;
+          while ((line = reader.readLine()) != null) {
+            final String logLine = line;
+            SwingUtilities.invokeLater(
+                () -> {
+                  consoleArea.append(logLine + "\n");
+                  consoleArea.setCaretPosition(consoleArea.getDocument().getLength());
+                });
+          }
         }
-      }
 
-      int exitCode = process.waitFor();
-      if (exitCode == 0) {
-        // 4. Locate generated MIDI file
-        String baseName = audioFile.getName();
-        int dot = baseName.lastIndexOf('.');
-        if (dot > 0) baseName = baseName.substring(0, dot);
+        int exitCode = process.waitFor();
+        if (exitCode == 0) {
+          // 4. Locate generated MIDI file
+          String baseName = audioFile.getName();
+          int dot = baseName.lastIndexOf('.');
+          if (dot > 0) baseName = baseName.substring(0, dot);
 
-        File expectedMidi = tempDir.resolve(baseName + "_basic_pitch.mid").toFile();
-        if (expectedMidi.exists()) {
-          generatedMidiFile = expectedMidi;
-          transcriptionSuccessful = true;
-          SwingUtilities.invokeLater(this::handleSuccessfulTranscription);
+          File expectedMidi = tempDir.resolve(baseName + "_basic_pitch.mid").toFile();
+          if (expectedMidi.exists()) {
+            generatedMidiFile = expectedMidi;
+            transcriptionSuccessful = true;
+            SwingUtilities.invokeLater(this::handleSuccessfulTranscription);
+          } else {
+            throw new Exception("Expected MIDI file not found: " + expectedMidi.getAbsolutePath());
+          }
         } else {
-          throw new Exception("Expected MIDI file not found: " + expectedMidi.getAbsolutePath());
+          throw new Exception("Transcription process exited with non-zero code: " + exitCode);
         }
-      } else {
-        throw new Exception("Transcription process exited with non-zero code: " + exitCode);
+      } finally {
+        if (process != null) {
+          process.destroy();
+        }
       }
 
     } catch (Exception e) {
@@ -229,28 +236,39 @@ public class SwingAudioTranscribeDialog extends JDialog {
   }
 
   private String[] findTranscriptionCommand(String outDir) {
-    // Stage 1: Try direct basic-pitch command
+    // Stage 1: Try direct basic-pitch command (CLI expects <audio> <output-dir>)
     if (testCommand(new String[] {"basic-pitch", "--help"})) {
-      return new String[] {"basic-pitch", outDir, audioFile.getAbsolutePath()};
+      return new String[] {"basic-pitch", audioFile.getAbsolutePath(), outDir};
     }
     // Stage 2: Try python3 module call
     if (testCommand(new String[] {"python3", "-c", "import basic_pitch"})) {
-      return new String[] {"python3", "-m", "basic_pitch.cli", outDir, audioFile.getAbsolutePath()};
+      return new String[] {"python3", "-m", "basic_pitch.cli", audioFile.getAbsolutePath(), outDir};
     }
     // Stage 3: Try python module call
     if (testCommand(new String[] {"python", "-c", "import basic_pitch"})) {
-      return new String[] {"python", "-m", "basic_pitch.cli", outDir, audioFile.getAbsolutePath()};
+      return new String[] {"python", "-m", "basic_pitch.cli", audioFile.getAbsolutePath(), outDir};
     }
     return null; // Not found
   }
 
   private boolean testCommand(String[] cmd) {
+    Process p = null;
     try {
-      Process p = new ProcessBuilder(cmd).start();
-      p.waitFor();
-      return true;
+      ProcessBuilder pb = new ProcessBuilder(cmd);
+      pb.redirectErrorStream(true);
+      p = pb.start();
+      // Drain stdout/stderr to prevent pipe-buffer deadlock
+      try (var in = p.getInputStream()) {
+        in.transferTo(java.io.OutputStream.nullOutputStream());
+      }
+      int exitCode = p.waitFor();
+      return exitCode == 0;
     } catch (Exception e) {
       return false;
+    } finally {
+      if (p != null) {
+        p.destroy();
+      }
     }
   }
 

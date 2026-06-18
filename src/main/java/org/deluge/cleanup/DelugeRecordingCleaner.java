@@ -155,10 +155,15 @@ public class DelugeRecordingCleaner {
    */
   public static boolean saveFile(File file) {
     if (!file.exists() || !file.isFile()) return false;
-    File parent = file.getParentFile();
-    if (parent == null) return false;
-    File samplesDir = parent.getParentFile();
-    if (samplesDir == null) return false;
+    // Traverse up to find the SAMPLES directory, regardless of nesting depth
+    File samplesDir = file.getParentFile();
+    while (samplesDir != null && !"SAMPLES".equalsIgnoreCase(samplesDir.getName())) {
+      samplesDir = samplesDir.getParentFile();
+    }
+    if (samplesDir == null) {
+      LOG.warning("Could not locate SAMPLES directory for file: " + file.getAbsolutePath());
+      return false;
+    }
     File savedDir = new File(samplesDir, "SAVED");
     if (!savedDir.exists()) {
       savedDir.mkdirs();

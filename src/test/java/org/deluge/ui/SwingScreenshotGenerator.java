@@ -150,7 +150,7 @@ public class SwingScreenshotGenerator {
     BufferedImage img = captureComponent(app);
     saveSnapshot(
         img,
-        "/Users/ludo/.gemini/jetski/brain/a3569f91-4e06-4b92-bad2-e0e1f46551cb/auto_view.png",
+        new File(System.getProperty("java.io.tmpdir"), "deluge_auto_view.png").getAbsolutePath(),
         "Auto View",
         "Automation view of the Swing Deluge");
 
