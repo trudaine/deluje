@@ -8,8 +8,8 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import org.w3c.dom.Document;
 
 /**
- * Handles file reading, writing, Gzip decompression, Gzip compression,
- * and XML Document parsing for Ableton Live Set (.als) files.
+ * Handles file reading, writing, Gzip decompression, Gzip compression, and XML Document parsing for
+ * Ableton Live Set (.als) files.
  */
 public class AbletonProjectManager {
 
@@ -22,7 +22,7 @@ public class AbletonProjectManager {
    */
   public static String decompressAls(File alsFile) throws IOException {
     try (GZIPInputStream gis = new GZIPInputStream(new FileInputStream(alsFile));
-         ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
       byte[] buffer = new byte[8192];
       int len;
       while ((len = gis.read(buffer)) > 0) {
