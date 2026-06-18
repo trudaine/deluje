@@ -97,6 +97,7 @@ public class SwingGridPanel extends JPanel {
   private int lastColumnCount = -1;
   private int lastVoiceRowCount = -1;
   private GridViewMode lastViewMode = null;
+  private org.chuck.deluge.project.PreferencesManager.GridMode lastGridMode = null;
   private int lastScrollOffset = -1;
   private int lastScrollOffsetX = -1;
 
@@ -3130,7 +3131,7 @@ public class SwingGridPanel extends JPanel {
   }
 
   /** Build a fixed row (MACROS, SLIDERS, KEYBOARD) for the CLIP grid. */
-  private JPanel buildFixedRow(int rowIdx, int padSz, int rowHeight) {
+  private JPanel buildFixedRow(String type, int rowIdx, int padSz, int rowHeight) {
     JPanel rowPanel = new JPanel();
     rowPanel.setLayout(new BoxLayout(rowPanel, BoxLayout.X_AXIS));
     rowPanel.setBackground(new Color(0x22, 0x22, 0x22));
@@ -3141,12 +3142,7 @@ public class SwingGridPanel extends JPanel {
     rowPanel.setMaximumSize(new Dimension(rowW, rowHeight));
     rowPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-    String trackName;
-    if (rowIdx == 8) trackName = "MACROS";
-    else if (rowIdx == 9) trackName = "SLIDERS";
-    else trackName = "KEYBOARD";
-
-    JLabel label = new JLabel(trackName);
+    JLabel label = new JLabel(type);
     lw = Math.max(60, Math.min(140, getWidth() / 12));
     label.setPreferredSize(new Dimension(lw, 30));
     label.setMinimumSize(new Dimension(lw, 30));
@@ -3162,6 +3158,8 @@ public class SwingGridPanel extends JPanel {
     rowPanel.add(vu);
     rowPanel.add(Box.createHorizontalStrut(5));
 
+    boolean isMacros = "MACROS".equals(type);
+
     for (int c = 0; c < columnCount; c++) {
       final int colId = c;
       JButton clipBtn;
@@ -3170,7 +3168,7 @@ public class SwingGridPanel extends JPanel {
               == org.chuck.deluge.project.PreferencesManager.GridPanelType.ADVANCED;
 
       if (isAdvanced) {
-        if (rowIdx == 8) {
+        if (isMacros) {
           // Combined Macro Sliders!
           if (c < 16) {
             String[] allParams = {
@@ -3198,7 +3196,8 @@ public class SwingGridPanel extends JPanel {
             pad.setActive(true);
             pad.setBaseColor(isBlack ? new Color(0x18, 0x18, 0x1c) : Color.WHITE);
             pad.setNoteText(getNoteName(note));
-            pad.setFont(new Font("Monospaced", Font.BOLD, 10));
+            pad.setFont(
+                new Font("SansSerif", Font.BOLD, rowHeight < 35 ? 9 : (padSz > 70 ? 14 : 10)));
 
             pad.addMouseListener(new KeyboardMouseAdapter(this, note));
             clipBtn = pad;
@@ -3209,7 +3208,7 @@ public class SwingGridPanel extends JPanel {
           }
         }
       } else {
-        if (rowIdx == 8) {
+        if (isMacros) {
           // Combined Macro Sliders for legacy mode too!
           if (c < 16) {
             String[] allParams = {
@@ -3519,14 +3518,14 @@ public class SwingGridPanel extends JPanel {
         (columnCount != lastColumnCount
             || voiceRowCount != lastVoiceRowCount
             || viewMode != lastViewMode
-            || scrollOffset != lastScrollOffset
-            || scrollOffsetX != lastScrollOffsetX
+            || gridMode != lastGridMode
             || getComponentCount() == 0);
 
     if (structureChanged) {
       lastColumnCount = columnCount;
       lastVoiceRowCount = voiceRowCount;
       lastViewMode = viewMode;
+      lastGridMode = gridMode;
       lastScrollOffset = scrollOffset;
       lastScrollOffsetX = scrollOffsetX;
 
@@ -3540,6 +3539,15 @@ public class SwingGridPanel extends JPanel {
 
   private void refreshInPlace() {
     if (projectModel == null) return;
+
+    // Update scrollbar visual position and dynamic note-range tooltip
+    if (vertScrollBar != null) {
+      refreshInProgress = true;
+      vertScrollBar.setValue(scrollOffset);
+      refreshInProgress = false;
+      updateScrollBarTooltip();
+    }
+
     java.util.List<org.chuck.deluge.model.TrackModel> tracks = projectModel.getTracks();
 
     // 1. Sync song note rows in low latency direct JMem sync
@@ -3668,7 +3676,34 @@ public class SwingGridPanel extends JPanel {
                 pad.setMuted(isMuted);
               }
             } else if (c == columnCount - 1) {
-              // Audition / Row Label button
+              // Audition / Row Label button - dynamically update text on scroll!
+              boolean isSynth = false;
+              if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+                org.chuck.deluge.model.TrackModel tm =
+                    projectModel.getTracks().get(editedModelTrack);
+                isSynth = tm instanceof org.chuck.deluge.model.SynthTrackModel;
+              }
+              String nName;
+              if (isSynth) {
+                int midiPitch = getDiatonicPitch(modelRow);
+                String[] noteNames =
+                    new String[] {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+                nName = noteNames[Math.max(0, midiPitch) % 12] + ((midiPitch / 12) - 1);
+              } else if (projectModel != null
+                  && editedModelTrack < projectModel.getTracks().size()
+                  && projectModel.getTracks().get(editedModelTrack)
+                      instanceof org.chuck.deluge.model.KitTrackModel kit) {
+                nName =
+                    (modelRow < kit.getDrums().size())
+                        ? kit.getDrums().get(modelRow).getName()
+                        : ("PAD " + (modelRow + 1));
+                if (nName.toLowerCase().endsWith(".wav") || nName.toLowerCase().endsWith(".aif")) {
+                  nName = nName.substring(0, nName.lastIndexOf('.'));
+                }
+              } else {
+                nName = "ROW " + (modelRow + 1);
+              }
+              clipBtn.setText(nName);
             } else {
               // Normal step pads
               int activeCol;
@@ -4306,8 +4341,36 @@ public class SwingGridPanel extends JPanel {
                 }
               });
         }
+        // Wrap the vertical scrollbar with sleek Page Up/Down buttons to scroll by whole pages (8
+        // rows / 1 octave)
+        JPanel pageNavPanel = new JPanel(new BorderLayout(0, 4));
+        pageNavPanel.setBackground(new Color(0x15, 0x15, 0x18));
+
+        JButton pgUpBtn = new JButton("▲");
+        pgUpBtn.setFont(new Font("SansSerif", Font.BOLD, 10));
+        pgUpBtn.setForeground(new Color(0x00, 0xff, 0xcc)); // glowing active cyan
+        pgUpBtn.setBackground(new Color(0x1f, 0x1f, 0x24));
+        pgUpBtn.setBorder(BorderFactory.createEmptyBorder(6, 2, 6, 2));
+        pgUpBtn.setFocusable(false);
+        pgUpBtn.setToolTipText("Page Up / Octave Up (Shift 8 rows up)");
+        pgUpBtn.addActionListener(e -> scrollVertically(-gridMode.rows));
+
+        JButton pgDnBtn = new JButton("▼");
+        pgDnBtn.setFont(new Font("SansSerif", Font.BOLD, 10));
+        pgDnBtn.setForeground(new Color(0x00, 0xff, 0xcc));
+        pgDnBtn.setBackground(new Color(0x1f, 0x1f, 0x24));
+        pgDnBtn.setBorder(BorderFactory.createEmptyBorder(6, 2, 6, 2));
+        pgDnBtn.setFocusable(false);
+        pgDnBtn.setToolTipText("Page Down / Octave Down (Shift 8 rows down)");
+        pgDnBtn.addActionListener(e -> scrollVertically(gridMode.rows));
+
+        pageNavPanel.add(pgUpBtn, BorderLayout.NORTH);
+        pageNavPanel.add(vertScrollBar, BorderLayout.CENTER);
+        pageNavPanel.add(pgDnBtn, BorderLayout.SOUTH);
+
         vertScrollBar.setValues(scrollOffset, gridMode.rows, 0, voiceRowCount);
-        voiceWrapper.add(vertScrollBar, BorderLayout.EAST);
+        updateScrollBarTooltip();
+        voiceWrapper.add(pageNavPanel, BorderLayout.EAST);
       }
 
       add(voiceWrapper);
@@ -4691,10 +4754,14 @@ public class SwingGridPanel extends JPanel {
       }
 
       // Section 3: Fixed rows — MACROS, KEYBOARD (Combined).
-      // Macro vertical sliders need height to be usable, so give that row more room;
-      // the keyboard keys are fine at the compact height.
-      add(buildFixedRow(8, padSz, 52));
-      add(buildFixedRow(10, padSz, 28));
+      // Macro vertical sliders and keyboard keys now scale fluidly in perfect proportion to the
+      // voice pads!
+      int macroRowIdx = gridMode.rows;
+      int keyboardRowIdx = gridMode.rows + 2;
+      int macroHeight = (int) (padSz * 1.1);
+      int keyboardHeight = (int) (padSz * 0.6);
+      add(buildFixedRow("MACROS", macroRowIdx, padSz, Math.max(28, macroHeight)));
+      add(buildFixedRow("KEYBOARD", keyboardRowIdx, padSz, Math.max(16, keyboardHeight)));
 
     } else {
       // ===== SONG / ARRANGEMENT: gridMode.rows + 3 fixed rows (MACROS/SLIDERS/KEYBOARD) =====
@@ -9414,5 +9481,30 @@ public class SwingGridPanel extends JPanel {
     btn.setForeground(fg);
     btn.setFont(new Font("SansSerif", Font.BOLD, fontSize));
     btn.setBorder(BorderFactory.createLineBorder(bg.brighter(), 1));
+  }
+
+  private void updateScrollBarTooltip() {
+    if (vertScrollBar != null && viewMode == GridViewMode.CLIP) {
+      try {
+        int lowestModelRow = scrollOffset + gridMode.rows - 1;
+        int highestModelRow = scrollOffset;
+
+        lowestModelRow = Math.max(0, Math.min(lowestModelRow, voiceRowCount - 1));
+        highestModelRow = Math.max(0, Math.min(highestModelRow, voiceRowCount - 1));
+
+        int lowPitch = getDiatonicPitch(lowestModelRow);
+        String lowNote = getNoteName(lowPitch);
+
+        int highPitch = getDiatonicPitch(highestModelRow);
+        String highNote = getNoteName(highPitch);
+
+        vertScrollBar.setToolTipText(
+            "Scroll Pitches (Showing: " + lowNote + " to " + highNote + ")");
+      } catch (Throwable t) {
+        vertScrollBar.setToolTipText("Scroll Pitches");
+      }
+    } else if (vertScrollBar != null) {
+      vertScrollBar.setToolTipText("Scroll Pitches");
+    }
   }
 }

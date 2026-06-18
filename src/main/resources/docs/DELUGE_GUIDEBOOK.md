@@ -7,6 +7,7 @@ Welcome to the **ChucK-Java Deluge Workstation**, a modern, high-fidelity softwa
 ## Table of Contents
 1. [The Step Sequencer & Clip View](#1-the-step-sequencer--clip-view)
    * [1.6 The Euclidean Rhythm Generator](#16-the-euclidean-rhythm-generator)
+   * [1.7 Sequencer Grid Zooming & Proportional Scaling](#17-sequencer-grid-zooming--proportional-scaling)
 2. [Synthesizers & Sound Engines (Subtractive, FM, Wavetable, Legato, Multi-Sampler, Ring Mod)](#2-synthesizers--sound-engines-subtractive-fm-wavetable)
    * [2.7 Chord Keyboard (CORK & CORL Layouts)](#27-chord-keyboard-cork--corl-layouts)
 3. [Drum Kits & Smart Keyword Auto-Mapper](#3-drum-kits--smart-keyword-auto-mapper)
@@ -132,6 +133,39 @@ Drawing even trigger distributions across step grids is fully automated. By inte
   $$B[s] = \text{true if } (s \cdot K + \text{rotation}) \bmod N < K$$
   This matches the community Deluge firmware's exact `editNumEuclideanEvents()` step spacing behavior.
 * **💾 Generate & Apply Button**: Click this button to overwrite the active row's sequence grid cells with the computed pattern. It triggers immediate JNI audio playback reload so you hear the polyrhythm play instantly!
+
+### 1.7 Sequencer Grid Zooming & Proportional Scaling
+
+The workstation features a premium, DAW-grade **Fluid Viewport Grid Zooming** engine. Rather than forcing the main window to resize or causing text to overflow, changing the sequencer resolution dynamically resizes the cell pads (grid buttons) so they **always fit perfectly and fill the active window boundaries**!
+
+![Swing Grid Zoom and Proportional Scaling Workspace](images/deluge_grid_zoom.jpg)
+
+#### Grid Zoom Keyboard Shortcuts:
+The grid resolution can be zoomed fluidly from anywhere inside the active window using standard global desktop shortcuts:
+*   🔍 **Zoom In (Larger Pads / Fewer Cells)**: **`Ctrl + =`** (or **`Cmd + =`** on macOS)
+    *   *Effect*: Scales the cell pads up, cycling the viewport layout: **`24x16 (Small)` $\rightarrow$ `16x16 (Medium)` $\rightarrow$ `8x16 (Large)`**.
+*   🔍 **Zoom Out (Smaller Pads / Denser Cells)**: **`Ctrl + -`** (or **`Cmd + -`** on macOS)
+    *   *Effect*: Scales the cell pads down, cycling the viewport layout: **`8x16 (Large)` $\rightarrow$ `16x16 (Medium)` $\rightarrow$ `24x16 (Small)`**.
+
+#### Proportional Fixed-Row Scaling:
+The bottom fixed panels — **`MACROS`** (vertical DSP routing knobs) and **`KEYBOARD`** (the playhead note isomorphic keyboard) — are **decoupled from static row indexes and fully integrated into the fluid layout system**:
+*   **Dynamic Positioning**: The fixed rows automatically calculate their positions based on `gridMode.rows` (Macros are placed at index `gridMode.rows`, and Keyboard at index `gridMode.rows + 2`). They never overlap or hide sequencer notes when switching views!
+*   **Proportional Height Sync**: The height of these fixed rows scales dynamically in perfect proportion to the voice pads size (`padSz`):
+    *   **Macros Height**: `(int) (padSz * 1.1)` (capped at a minimum of `28` pixels for usability).
+    *   **Keyboard Height**: `(int) (padSz * 0.6)` (capped at a minimum of `16` pixels).
+*   *Result*: As you zoom out to denser modes (like `24x16` or `16x24`), the keyboard keys and macro sliders shrink proportionally, maintaining a beautifully balanced visual composition, saving massive vertical screen space, and remaining 100% tactile!
+
+#### 🖥️ The Interactive "View" Menu:
+A brand-new **`View`** menu is located in the main menu bar. It provides:
+1.  **Zoom In** and **Zoom Out** options alongside their respective keyboard shortcut symbols.
+2.  **A Radio Button Group** representing the active grid size:
+    *   `● 8x16 Grid (Large Pads)`
+    *   `○ 16x16 Grid (Medium Pads)`
+    *   `○ 24x16 Grid (Small Pads)`
+    *   `○ 16x24 Grid (Wide Pads)`
+3.  **Bidirectional Real-Time Sync**:
+    *   Pressing `Ctrl + =` or `Ctrl + -` dynamically updates the checked radio button in the menu bar.
+    *   Clicking a radio button in the menu bar instantly scales the grid and updates your preferences!
 
 ---
 

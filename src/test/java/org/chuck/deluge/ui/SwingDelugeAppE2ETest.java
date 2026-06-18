@@ -24,6 +24,12 @@ public class SwingDelugeAppE2ETest {
     org.chuck.deluge.engine.JavaAudioDriver.silentMode = true;
   }
 
+  @org.junit.jupiter.api.BeforeEach
+  void resetPreferences() {
+    org.chuck.deluge.project.PreferencesManager.setGridMode(
+        org.chuck.deluge.project.PreferencesManager.GridMode.GRID_8x16);
+  }
+
   @Test
   public void testInteractiveAddTrackAndModeSwitchingWorkflow() throws Exception {
     System.setProperty("chuck.audio.dummy", "true");

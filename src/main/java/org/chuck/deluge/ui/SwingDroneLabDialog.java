@@ -204,11 +204,11 @@ public class SwingDroneLabDialog extends JDialog {
       DroneLabGenerator.applyMacros(track, sound, 0.2, 0.3, 0.6, 0.25);
     }
 
-    // Force Playback to Start immediately
-    if (app.getPureEngine() != null && !app.getPureEngine().getPlaybackHandler().isPlaying()) {
-      if (app.getTopBarListener() != null) {
-        app.getTopBarListener().onPlayToggle();
-      }
+    // Force Playback to Start immediately with 100% absolute reliability!
+    vm.setGlobalInt(BridgeContract.G_PLAY, 1L);
+    bridge.setPlayState(1);
+    if (app.getPureEngine() != null && app.getPureEngine().getPlaybackHandler() != null) {
+      app.getPureEngine().getPlaybackHandler().start();
     }
 
     JOptionPane.showMessageDialog(
@@ -280,7 +280,8 @@ public class SwingDroneLabDialog extends JDialog {
     XYPadPanel() {
       setBackground(BG_CARD);
       setBorder(BorderFactory.createLineBorder(new Color(0x32, 0x32, 0x3a), 2, true));
-      setToolTipText("Click and drag to morph Friction (X) and Turbulence (Y) simultaneously!");
+      setToolTipText(
+          "Click and drag to morph Friction ↔ Atmosphere (X) and Turbulence ↔ Grit (Y) simultaneously!");
 
       MouseAdapter listener =
           new MouseAdapter() {
@@ -311,17 +312,26 @@ public class SwingDroneLabDialog extends JDialog {
       px = Math.max(0.0, Math.min(1.0, x));
       py = Math.max(0.0, Math.min(1.0, y));
 
+      // Complementary Linear Morpher:
+      // X Axis crossfades: Friction (px) <-> Atmosphere (1.0 - px)
       frictionSlider.setValue((int) (px * 100));
+      atmosphereSlider.setValue((int) ((1.0 - px) * 100));
+
+      // Y Axis crossfades: Turbulence (py) <-> Grit (1.0 - py)
       turbulenceSlider.setValue((int) (py * 100));
+      gritSlider.setValue((int) ((1.0 - py) * 100));
 
       repaint();
 
       // Sweep parameters in real-time
-      double atmosphere = atmosphereSlider.getValue() / 100.0;
-      double dirt = gritSlider.getValue() / 100.0;
+      double friction = px;
+      double atmosphere = 1.0 - px;
+      double turbulence = py;
+      double dirt = 1.0 - py;
+
       FirmwareSound sound = DroneLabGenerator.getActiveTrackSound(vm, trackIndex);
       if (sound != null) {
-        DroneLabGenerator.applyMacros(track, sound, px, py, atmosphere, dirt);
+        DroneLabGenerator.applyMacros(track, sound, friction, turbulence, atmosphere, dirt);
       }
     }
 

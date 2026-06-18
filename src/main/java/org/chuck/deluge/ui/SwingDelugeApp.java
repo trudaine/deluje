@@ -58,6 +58,11 @@ public class SwingDelugeApp extends JFrame {
       org.chuck.deluge.model.ProjectModel.createDefaultProject();
   private java.io.File currentProjectFile = null;
 
+  private javax.swing.JRadioButtonMenuItem grid8x16Item;
+  private javax.swing.JRadioButtonMenuItem grid16x16Item;
+  private javax.swing.JRadioButtonMenuItem grid24x16Item;
+  private javax.swing.JRadioButtonMenuItem grid16x24Item;
+
   public org.chuck.deluge.model.ProjectModel getCurrentProject() {
     return currentProject;
   }
@@ -2089,6 +2094,10 @@ public class SwingDelugeApp extends JFrame {
     return autoPanel;
   }
 
+  public SwingGridPanel getSongPanel() {
+    return songPanel;
+  }
+
   public void setWorkspaceView(String viewName) {
     activeViewMode = viewName;
     if (topBar != null) topBar.selectViewModeButton(viewName);
@@ -2733,8 +2742,55 @@ public class SwingDelugeApp extends JFrame {
         });
     helpMenu.add(manualItem);
 
+    // View menu — Grid Zooming & Resolution Options
+    JMenu viewMenu = new JMenu("View");
+
+    JMenuItem zoomInItem = new JMenuItem("Zoom In (Larger Pads)");
+    zoomInItem.setAccelerator(
+        KeyStroke.getKeyStroke(
+            java.awt.event.KeyEvent.VK_EQUALS, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+    zoomInItem.addActionListener(e -> zoomGrid(true));
+
+    JMenuItem zoomOutItem = new JMenuItem("Zoom Out (Smaller Pads)");
+    zoomOutItem.setAccelerator(
+        KeyStroke.getKeyStroke(
+            java.awt.event.KeyEvent.VK_MINUS, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+    zoomOutItem.addActionListener(e -> zoomGrid(false));
+
+    viewMenu.add(zoomInItem);
+    viewMenu.add(zoomOutItem);
+    viewMenu.addSeparator();
+
+    grid8x16Item = new JRadioButtonMenuItem("8x16 Grid (Large Pads)");
+    grid16x16Item = new JRadioButtonMenuItem("16x16 Grid (Medium Pads)");
+    grid24x16Item = new JRadioButtonMenuItem("24x16 Grid (Small Pads)");
+    grid16x24Item = new JRadioButtonMenuItem("16x24 Grid (Wide Pads)");
+
+    ButtonGroup gridGroup = new ButtonGroup();
+    gridGroup.add(grid8x16Item);
+    gridGroup.add(grid16x16Item);
+    gridGroup.add(grid24x16Item);
+    gridGroup.add(grid16x24Item);
+
+    grid8x16Item.addActionListener(
+        e -> updateGlobalGridMode(org.chuck.deluge.project.PreferencesManager.GridMode.GRID_8x16));
+    grid16x16Item.addActionListener(
+        e -> updateGlobalGridMode(org.chuck.deluge.project.PreferencesManager.GridMode.GRID_16x16));
+    grid24x16Item.addActionListener(
+        e -> updateGlobalGridMode(org.chuck.deluge.project.PreferencesManager.GridMode.GRID_24x16));
+    grid16x24Item.addActionListener(
+        e -> updateGlobalGridMode(org.chuck.deluge.project.PreferencesManager.GridMode.GRID_16x24));
+
+    viewMenu.add(grid8x16Item);
+    viewMenu.add(grid16x16Item);
+    viewMenu.add(grid24x16Item);
+    viewMenu.add(grid16x24Item);
+
+    updateViewMenuChecks();
+
     menuBar.add(fileMenu);
     menuBar.add(editMenu);
+    menuBar.add(viewMenu);
     menuBar.add(toolsMenu);
     menuBar.add(settingsMenu);
     menuBar.add(helpMenu);
@@ -3995,5 +4051,68 @@ public class SwingDelugeApp extends JFrame {
       statusTextPlaybackTimer.stop();
     }
     super.dispose();
+  }
+
+  public void updateGlobalGridMode(org.chuck.deluge.project.PreferencesManager.GridMode nextMode) {
+    org.chuck.deluge.project.PreferencesManager.setGridMode(nextMode);
+    if (clipPanel != null) {
+      clipPanel.setGridMode(nextMode);
+      clipPanel.refresh();
+    }
+    if (songPanel != null) {
+      songPanel.setGridMode(nextMode);
+      songPanel.refresh();
+    }
+    if (arrGridPanel != null) {
+      arrGridPanel.setGridMode(nextMode);
+      arrGridPanel.refresh();
+    }
+    recalcWrapperSize();
+    updateViewMenuChecks();
+  }
+
+  private void updateViewMenuChecks() {
+    org.chuck.deluge.project.PreferencesManager.GridMode currentMode =
+        org.chuck.deluge.project.PreferencesManager.getGridMode();
+    if (grid8x16Item != null) {
+      grid8x16Item.setSelected(
+          currentMode == org.chuck.deluge.project.PreferencesManager.GridMode.GRID_8x16);
+    }
+    if (grid16x16Item != null) {
+      grid16x16Item.setSelected(
+          currentMode == org.chuck.deluge.project.PreferencesManager.GridMode.GRID_16x16);
+    }
+    if (grid24x16Item != null) {
+      grid24x16Item.setSelected(
+          currentMode == org.chuck.deluge.project.PreferencesManager.GridMode.GRID_24x16);
+    }
+    if (grid16x24Item != null) {
+      grid16x24Item.setSelected(
+          currentMode == org.chuck.deluge.project.PreferencesManager.GridMode.GRID_16x24);
+    }
+  }
+
+  private void zoomGrid(boolean zoomIn) {
+    org.chuck.deluge.project.PreferencesManager.GridMode[] modes = {
+      org.chuck.deluge.project.PreferencesManager.GridMode.GRID_8x16,
+      org.chuck.deluge.project.PreferencesManager.GridMode.GRID_16x16,
+      org.chuck.deluge.project.PreferencesManager.GridMode.GRID_24x16
+    };
+    org.chuck.deluge.project.PreferencesManager.GridMode currentMode =
+        org.chuck.deluge.project.PreferencesManager.getGridMode();
+    int currentIdx = -1;
+    for (int i = 0; i < modes.length; i++) {
+      if (modes[i] == currentMode) {
+        currentIdx = i;
+        break;
+      }
+    }
+    if (currentIdx == -1) {
+      currentIdx = 1;
+    }
+    int nextIdx = currentIdx + (zoomIn ? -1 : 1);
+    if (nextIdx >= 0 && nextIdx < modes.length) {
+      updateGlobalGridMode(modes[nextIdx]);
+    }
   }
 }
