@@ -3,11 +3,14 @@ package org.chuck.deluge.engine;
 import org.chuck.deluge.BridgeContract;
 import org.chuck.deluge.firmware.engine.FirmwareFactory;
 import org.chuck.deluge.firmware.engine.FirmwareSound;
+import org.chuck.deluge.model.ClipModel;
 import org.chuck.deluge.model.EnvelopeModel;
 import org.chuck.deluge.model.FilterMode;
+import org.chuck.deluge.model.HighResNote;
 import org.chuck.deluge.model.LfoModel;
 import org.chuck.deluge.model.LfoType;
 import org.chuck.deluge.model.ProjectModel;
+import org.chuck.deluge.model.StepData;
 import org.chuck.deluge.model.SynthTrackModel;
 
 /**
@@ -135,21 +138,70 @@ public class DroneLabGenerator {
     System.arraycopy(JUST_INTONATION_CENTS, 0, centsAdjust, 0, 12);
 
     // ── 5. Sequence Long Overlapping Note Ties ──
-    // Clear sequencer steps for this track first
+    // Clear JNI bridge steps for this track first
     for (int s = 0; s < BridgeContract.STEPS; s++) {
       bridge.setStep(trackIndex, s, false);
     }
 
-    // Sequence a massive C2 root note spanning the entire step grid (192 steps)
+    // Sequence a massive C2 root note (MIDI 36) spanning the entire step grid (192 steps)
     int rootPitch = 36; // C2
 
-    // Since the sequencer is monophonic per track, we will sequence a rich C2 root note.
-    // The detuning, octave transpose (+12) of Osc 2, and FM ratios will build the full chord
-    // texture!
+    // Write to raw JNI bridge
     bridge.setStep(trackIndex, 0, true);
     bridge.setPitch(trackIndex, 0, rootPitch);
     bridge.setGate(trackIndex, 0, 192.0); // Spans full sequence length (192 steps)
     bridge.setVelocity(trackIndex, 0, 0.85);
+
+    // Write to high-level JRE Object Model active Clip
+    ClipModel activeClip = track.getActiveClip();
+    if (activeClip == null && track.getClips().isEmpty()) {
+      activeClip = new ClipModel("Drone Clip", 128, 192);
+      track.addClip(activeClip);
+      track.setActiveClipIndex(0);
+    } else if (activeClip == null) {
+      activeClip = track.getClips().get(0);
+      track.setActiveClipIndex(0);
+    }
+
+    // Ensure the clip is fully expanded to support 128 piano roll pitches and 192 steps (12 bars)
+    if (activeClip.getRowCount() < 128) {
+      activeClip.setRowCount(128);
+    }
+    if (activeClip.getStepCount() < 192) {
+      activeClip.setStepCount(192);
+    }
+
+    // Clear existing steps inside Java clip model
+    for (int r = 0; r < activeClip.getRowCount(); r++) {
+      for (int s = 0; s < activeClip.getStepCount(); s++) {
+        activeClip.setStep(r, s, StepData.empty());
+      }
+      activeClip.setRawNoteEvents(r, null);
+    }
+
+    // Program C2 into the ClipModel. Under the UI's diatonic mapping,
+    // MIDI pitch 36 (C2) maps exactly to modelRow 81.
+    int targetRow = 81;
+    if (targetRow >= 0 && targetRow < activeClip.getRowCount()) {
+      // Step 0 is active and carries the full 192-step gate length
+      StepData step = new StepData(true, 0.85f, 192.0f, 1.0f, rootPitch, 0, 0.0f);
+      activeClip.setStep(targetRow, 0, step);
+
+      // Program the rest of the bar columns as tied empty slots (standard layout)
+      int endStep = (int) (0 + 192.0f - 0.05f); // 191
+      for (int s = 1; s <= endStep; s++) {
+        if (s >= 0 && s < activeClip.getStepCount()) {
+          activeClip.setStep(targetRow, s, new StepData(false, 0.8f, 0.0f, 1.0f, 0, 0, 0.0f));
+        }
+      }
+
+      // Add raw high-resolution note events for the Pure Java scheduler loop
+      int stepTicks = activeClip.isTripletMode() ? 32 : 24;
+      int tickLen = (int) (192.0f * stepTicks); // 4608 ticks total duration
+      java.util.List<HighResNote> rawNotes = new java.util.ArrayList<>();
+      rawNotes.add(new HighResNote(0, tickLen, 0.85f, 1.0f, 0));
+      activeClip.setRawNoteEvents(targetRow, rawNotes);
+    }
 
     // Trigger UI updates
     javax.swing.SwingUtilities.invokeLater(

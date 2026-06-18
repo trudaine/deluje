@@ -111,7 +111,7 @@ public class PreferencesManager {
    * compressor bounds its output, so ~32x dense polyphony peaks ~0.84 with headroom; above that the
    * brickwall can catch extremes.
    */
-  public static final int MAX_CLEAN_GAIN_BOOST = 32;
+  public static final int MAX_CLEAN_GAIN_BOOST = 128;
 
   /**
    * Post-engine desktop output boost (LINEAR — the driver no longer soft-clips; the engine's master

@@ -213,7 +213,17 @@ public class PreferencesDialog extends JDialog {
     // full-volume note already railed at the old 24x default — that was the "garbage" distortion).
     monitorGainCombo =
         new JComboBox<>(
-            new String[] {"6x (Quiet)", "12x", "18x", "24x (Default)", "28x", "32x (Max)"});
+            new String[] {
+              "6x (Quiet)",
+              "12x",
+              "18x",
+              "24x (Default)",
+              "32x",
+              "48x (Warm Sat)",
+              "64x (Analog Tape)",
+              "96x (Fat & Loud)",
+              "128x (Extreme)"
+            });
     styleComboBox(monitorGainCombo);
     addField(
         panel,
@@ -847,14 +857,17 @@ public class PreferencesDialog extends JDialog {
     visCheck.setSelected(Boolean.parseBoolean(PreferencesManager.get("show.visualizers", "true")));
     debugCheck.setSelected(Boolean.parseBoolean(PreferencesManager.get("debug.audio", "false")));
 
-    int gainVal = PreferencesManager.getMonitorGainBoost(); // already clamped to [1,32]
+    int gainVal = PreferencesManager.getMonitorGainBoost(); // already clamped to [1,128]
     int gainIdx = 3; // default is 24x
     if (gainVal <= 6) gainIdx = 0;
     else if (gainVal <= 12) gainIdx = 1;
     else if (gainVal <= 18) gainIdx = 2;
     else if (gainVal <= 24) gainIdx = 3;
-    else if (gainVal <= 28) gainIdx = 4;
-    else gainIdx = 5; // 32
+    else if (gainVal <= 32) gainIdx = 4;
+    else if (gainVal <= 48) gainIdx = 5;
+    else if (gainVal <= 64) gainIdx = 6;
+    else if (gainVal <= 96) gainIdx = 7;
+    else gainIdx = 8; // 128
     monitorGainCombo.setSelectedIndex(gainIdx);
     gridModeCheck.setSelected(
         Boolean.parseBoolean(PreferencesManager.get("midi.grid.mode", "false")));
@@ -1041,8 +1054,11 @@ public class PreferencesDialog extends JDialog {
     else if (selIdx == 1) gainVal = 12;
     else if (selIdx == 2) gainVal = 18;
     else if (selIdx == 3) gainVal = 24;
-    else if (selIdx == 4) gainVal = 28;
-    else if (selIdx == 5) gainVal = 32;
+    else if (selIdx == 4) gainVal = 32;
+    else if (selIdx == 5) gainVal = 48;
+    else if (selIdx == 6) gainVal = 64;
+    else if (selIdx == 7) gainVal = 96;
+    else if (selIdx == 8) gainVal = 128;
     PreferencesManager.setMonitorGainBoost(gainVal);
     org.chuck.deluge.engine.JavaAudioDriver.monitorGainMul = gainVal;
     PreferencesManager.set("midi.grid.mode", String.valueOf(gridModeCheck.isSelected()));

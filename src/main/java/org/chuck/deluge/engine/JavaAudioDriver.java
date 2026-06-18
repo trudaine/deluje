@@ -187,26 +187,31 @@ public class JavaAudioDriver implements Runnable {
           int absL = Math.abs(s.l);
           if (absL > peak) peak = absL;
 
-          // Clean desktop monitor: linear makeup gain to 16-bit + brickwall safety clamp. The
-          // engine
-          // masterBuffer is already the fully-mastered Deluge output (faithful master compressor +
-          // its own saturation), so we must NOT add a second soft-clip here — the old
-          // getTanHUnknown<<2 was an invented stage that flattened dynamics. The master compressor
-          // bounds the signal, so the brickwall only ever catches rare extremes.
-          long boostedL = ((long) s.l * monitorGainMul) >> 16;
-          long boostedR = ((long) s.r * monitorGainMul) >> 16;
+          // Convert internal Q31 to float in [-1.0, 1.0] range
+          float xL = (float) s.l / 2147483648.0f;
+          float xR = (float) s.r / 2147483648.0f;
 
-          short left = (short) Math.max(-32768, Math.min(32767, boostedL));
-          short right = (short) Math.max(-32768, Math.min(32767, boostedR));
+          // Apply post-engine linear volume boost in floating-point domain
+          float boostedL = xL * monitorGainMul;
+          float boostedR = xR * monitorGainMul;
+
+          // High-fidelity analog-style soft-clipper (transistor/tape saturation model)
+          // 100% linear and transparent up to -3dB (0.7), smooth asymptotic compression above that.
+          float saturatedL = softClip(boostedL);
+          float saturatedR = softClip(boostedR);
+
+          // Convert back to 16-bit signed shorts [-32768, 32767]
+          short left = (short) Math.max(-32768, Math.min(32767, saturatedL * 32767.0f));
+          short right = (short) Math.max(-32768, Math.min(32767, saturatedR * 32767.0f));
 
           byteBuffer[i * 4] = (byte) (left & 0xFF);
           byteBuffer[i * 4 + 1] = (byte) ((left >> 8) & 0xFF);
           byteBuffer[i * 4 + 2] = (byte) (right & 0xFF);
           byteBuffer[i * 4 + 3] = (byte) ((right >> 8) & 0xFF);
 
-          // Write to visualizer buffer: s.l is 32-bit fixed point: divide by 2^31 to float
-          tempVisL[i] = (float) s.l / 2147483648.0f;
-          tempVisR[i] = (float) s.r / 2147483648.0f;
+          // Write to visualizer buffer (displays the loud, mastered output!)
+          tempVisL[i] = saturatedL;
+          tempVisR[i] = saturatedR;
         }
 
         synchronized (VIS_LOCK) {
@@ -248,5 +253,19 @@ public class JavaAudioDriver implements Runnable {
       System.err.println("[JavaAudioDriver] Error: " + e.getMessage());
       e.printStackTrace();
     }
+  }
+
+  /**
+   * High-fidelity, smooth analog soft-clipping saturation function. Maintains perfect linear
+   * transparency up to 0.7 (-3dB), and curves smoothly towards 1.0.
+   */
+  private static float softClip(float x) {
+    if (x > 0.7f) {
+      return 0.7f + 0.3f * (float) Math.tanh((x - 0.7f) / 0.3f);
+    }
+    if (x < -0.7f) {
+      return -0.7f + 0.3f * (float) Math.tanh((x + 0.7f) / 0.3f);
+    }
+    return x;
   }
 }
