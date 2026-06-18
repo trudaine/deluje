@@ -2477,6 +2477,85 @@ public class SwingDelugeApp extends JFrame {
     fileMenu.add(exportItem);
     fileMenu.addSeparator();
     fileMenu.add(assembleKitItem);
+
+    JMenuItem importAbletonItem = new JMenuItem("Import Ableton Live Set...");
+    importAbletonItem.addActionListener(
+        e -> {
+          JFileChooser chooser =
+              new JFileChooser(org.chuck.deluge.ableton.AbletonAssetResolver.getDefaultImportDir());
+          chooser.setDialogTitle("Import Ableton Live Set (.als)");
+          chooser.setFileFilter(
+              new javax.swing.filechooser.FileNameExtensionFilter(
+                  "Ableton Live Set", "als", "ALS"));
+          if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+            try {
+              java.io.File file = chooser.getSelectedFile();
+              if (file == null || file.isDirectory()) {
+                JOptionPane.showMessageDialog(
+                    this,
+                    "The selected path is a directory, not a file.\n"
+                        + "Please double-click to navigate inside, and select a valid Ableton Live Set (.als) file!",
+                    "Invalid Selection",
+                    JOptionPane.WARNING_MESSAGE);
+                return;
+              }
+              org.w3c.dom.Document doc =
+                  org.chuck.deluge.ableton.AbletonProjectManager.parseAlsToXml(file);
+              org.chuck.deluge.model.ProjectModel model = new org.chuck.deluge.model.ProjectModel();
+              org.chuck.deluge.ableton.AbletonTrackMapper.importAbletonSet(doc, model);
+              currentProjectFile = null;
+              loadProject(model);
+              JOptionPane.showMessageDialog(
+                  this,
+                  "Ableton Live Set imported successfully!\n" + file.getName(),
+                  "Import Successful",
+                  JOptionPane.INFORMATION_MESSAGE);
+            } catch (Exception ex) {
+              ex.printStackTrace();
+              JOptionPane.showMessageDialog(
+                  this,
+                  "Failed to import Ableton Live Set:\n" + ex.getMessage(),
+                  "Error",
+                  JOptionPane.ERROR_MESSAGE);
+            }
+          }
+        });
+    fileMenu.add(importAbletonItem);
+
+    JMenuItem exportAbletonItem = new JMenuItem("Export to Ableton Live Set...");
+    exportAbletonItem.addActionListener(
+        e -> {
+          JFileChooser chooser =
+              new JFileChooser(org.chuck.deluge.ableton.AbletonAssetResolver.getDefaultImportDir());
+          chooser.setDialogTitle("Export as Ableton Live Set (.als)");
+          chooser.setFileFilter(
+              new javax.swing.filechooser.FileNameExtensionFilter(
+                  "Ableton Live Set", "als", "ALS"));
+          chooser.setSelectedFile(new java.io.File("Exported Project.als"));
+          if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            try {
+              java.io.File file = chooser.getSelectedFile();
+              if (!file.getName().toLowerCase().endsWith(".als")) {
+                file = new java.io.File(file.getAbsolutePath() + ".als");
+              }
+              org.chuck.deluge.ableton.AbletonTrackExporter.exportProject(currentProject, file);
+              JOptionPane.showMessageDialog(
+                  this,
+                  "Project exported successfully as Ableton Live Set!\n" + file.getName(),
+                  "Export Successful",
+                  JOptionPane.INFORMATION_MESSAGE);
+            } catch (Exception ex) {
+              ex.printStackTrace();
+              JOptionPane.showMessageDialog(
+                  this,
+                  "Failed to export project:\n" + ex.getMessage(),
+                  "Error",
+                  JOptionPane.ERROR_MESSAGE);
+            }
+          }
+        });
+    fileMenu.add(exportAbletonItem);
+
     fileMenu.addSeparator();
     fileMenu.add(loadScriptItem);
     fileMenu.addSeparator();
@@ -2827,6 +2906,46 @@ public class SwingDelugeApp extends JFrame {
               @Override
               public void actionPerformed(java.awt.event.ActionEvent e) {
                 doRedo();
+              }
+            });
+
+    // F12 debug screenshot listener (programmatic memory capture)
+    getRootPane()
+        .getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
+        .put(KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_F12, 0), "screenshot");
+    getRootPane()
+        .getActionMap()
+        .put(
+            "screenshot",
+            new AbstractAction() {
+              @Override
+              public void actionPerformed(java.awt.event.ActionEvent e) {
+                try {
+                  java.io.File scratchDir =
+                      new java.io.File(
+                          "/Users/ludo/.gemini/jetski/brain/ae27587c-6d7c-4fac-9610-5dd67967a44e/scratch");
+                  if (!scratchDir.exists()) scratchDir.mkdirs();
+                  java.io.File file = new java.io.File(scratchDir, "swing_screenshot.png");
+
+                  java.awt.image.BufferedImage img =
+                      new java.awt.image.BufferedImage(
+                          getWidth(), getHeight(), java.awt.image.BufferedImage.TYPE_INT_RGB);
+                  java.awt.Graphics2D g = img.createGraphics();
+                  paint(g);
+                  g.dispose();
+
+                  javax.imageio.ImageIO.write(img, "png", file);
+                  System.out.println(
+                      "[Debug] Screenshot captured successfully to: " + file.getAbsolutePath());
+
+                  JOptionPane.showMessageDialog(
+                      SwingDelugeApp.this,
+                      "Screenshot captured successfully to:\n" + file.getName(),
+                      "Screenshot Captured",
+                      JOptionPane.INFORMATION_MESSAGE);
+                } catch (Exception ex) {
+                  ex.printStackTrace();
+                }
               }
             });
 
@@ -3190,11 +3309,109 @@ public class SwingDelugeApp extends JFrame {
         }
       }
     }
+    captureAutoScreenshot("startup");
   }
 
   /** No-op: centeredWrapper removed, scroll pane sizes to content naturally. */
   public void recalcWrapperSize() {
     // content naturally sizes the scroll viewport
+  }
+
+  private void captureSingleScreenshot(String name) {
+    try {
+      java.io.File scratchDir =
+          new java.io.File(
+              "/Users/ludo/.gemini/jetski/brain/ae27587c-6d7c-4fac-9610-5dd67967a44e/scratch");
+      if (!scratchDir.exists()) scratchDir.mkdirs();
+      java.io.File file = new java.io.File(scratchDir, name + ".png");
+
+      java.awt.image.BufferedImage img =
+          new java.awt.image.BufferedImage(
+              getWidth() > 0 ? getWidth() : 1200,
+              getHeight() > 0 ? getHeight() : 800,
+              java.awt.image.BufferedImage.TYPE_INT_RGB);
+      java.awt.Graphics2D g = img.createGraphics();
+      paint(g);
+      g.dispose();
+
+      javax.imageio.ImageIO.write(img, "png", file);
+      System.out.println("[AutoScreenshot] Captured successfully: " + file.getAbsolutePath());
+    } catch (Exception ex) {
+      System.err.println("[AutoScreenshot] Failed: " + ex.getMessage());
+    }
+  }
+
+  public void captureAutoScreenshot(String name) {
+    if (!"startup".equals(name)) {
+      javax.swing.SwingUtilities.invokeLater(
+          () -> {
+            javax.swing.Timer t =
+                new javax.swing.Timer(
+                    800,
+                    e -> {
+                      captureSingleScreenshot(name);
+                    });
+            t.setRepeats(false);
+            t.start();
+          });
+      return;
+    }
+
+    javax.swing.SwingUtilities.invokeLater(
+        () -> {
+          // Step 1: Wait 800ms, then capture default startup screenshot (GRID_16x24)
+          javax.swing.Timer t1 =
+              new javax.swing.Timer(
+                  800,
+                  e1 -> {
+                    captureSingleScreenshot("startup");
+
+                    // Step 2: Switch to GRID_8x16 zoom, repaint, and wait 800ms to capture
+                    org.chuck.deluge.project.PreferencesManager.GridMode originalMode =
+                        clipPanel.getGridMode();
+                    clipPanel.setGridMode(
+                        org.chuck.deluge.project.PreferencesManager.GridMode.GRID_8x16);
+                    clipPanel.refresh();
+                    revalidate();
+                    repaint();
+
+                    javax.swing.Timer t2 =
+                        new javax.swing.Timer(
+                            800,
+                            e2 -> {
+                              captureSingleScreenshot("zoom_GRID_8x16");
+
+                              // Step 3: Switch to GRID_24x16 zoom, repaint, and wait 800ms to
+                              // capture
+                              clipPanel.setGridMode(
+                                  org.chuck.deluge.project.PreferencesManager.GridMode.GRID_24x16);
+                              clipPanel.refresh();
+                              revalidate();
+                              repaint();
+
+                              javax.swing.Timer t3 =
+                                  new javax.swing.Timer(
+                                      800,
+                                      e3 -> {
+                                        captureSingleScreenshot("zoom_GRID_24x16");
+
+                                        // Step 4: Restore original zoom level and refresh
+                                        clipPanel.setGridMode(originalMode);
+                                        clipPanel.refresh();
+                                        revalidate();
+                                        repaint();
+                                        System.out.println(
+                                            "[AutoScreenshot] Complete visual capture pipeline finished!");
+                                      });
+                              t3.setRepeats(false);
+                              t3.start();
+                            });
+                    t2.setRepeats(false);
+                    t2.start();
+                  });
+          t1.setRepeats(false);
+          t1.start();
+        });
   }
 
   private void startPlaybackTimer() {
@@ -4069,6 +4286,7 @@ public class SwingDelugeApp extends JFrame {
     }
     recalcWrapperSize();
     updateViewMenuChecks();
+    captureAutoScreenshot("zoom_" + nextMode.name());
   }
 
   private void updateViewMenuChecks() {

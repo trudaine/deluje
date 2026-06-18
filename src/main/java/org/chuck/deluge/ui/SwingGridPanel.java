@@ -478,12 +478,37 @@ public class SwingGridPanel extends JPanel {
     // Block recursive recompute triggered by revalidate() during refresh() — the inflated
     // 3000-wide preferred sizes cause getWidth() to balloon and padSz to grow on each cycle.
     if (refreshInProgress) return false;
-    int availWidth = Math.min(getWidth() > 0 ? getWidth() : 1200, 1600);
-    int availHeight = Math.min(getHeight() > 0 ? getHeight() : 600, 700);
+    // Resolve visible viewport bounds dynamically from parent JViewport to prevent clipping
+    int vpW = 0;
+    int vpH = 0;
+    Container p = getParent();
+    while (p != null) {
+      if (p instanceof javax.swing.JViewport vp) {
+        vpW = vp.getWidth();
+        vpH = vp.getHeight();
+        break;
+      }
+      p = p.getParent();
+    }
+    int w = (vpW > 0) ? vpW : (getWidth() > 0 ? getWidth() : 1200);
+    int h = (vpH > 0) ? vpH : (getHeight() > 0 ? getHeight() : 600);
+    int availWidth = Math.min(w, 1600);
+    int availHeight = Math.min(h, 700);
     int labelWidth = Math.max(60, Math.min(140, availWidth / 12));
     int cellsWidth = availWidth - labelWidth - 69 - 5 - 12 - 5 - 20;
+    // Solve exact pad size mathematically to guarantee that the entire grid panel fits
+    // perfectly inside the available JViewport height without pushing the bottom
+    // macro and keyboard rows off-screen!
+    // Budgeting for track header (36px), scrollbar row (26px), optional clip bar (26px),
+    // optional page bar (20px), and margins/paddings.
     int rowsInView = gridMode.rows + 3;
-    int padSz = Math.min(cellsWidth / columnCount, (availHeight - 30) / rowsInView);
+    int totalGapsHeight = (gridMode.rows - 1) * 5;
+    int overhead = 115 + totalGapsHeight;
+    int remainingHeight = availHeight - overhead;
+    double divisor = gridMode.rows + 1.7;
+    int heightLimitedPadSz = (int) Math.floor(remainingHeight / divisor);
+
+    int padSz = Math.min(cellsWidth / columnCount, heightLimitedPadSz);
     int newSz = Math.max(16, Math.min(200, padSz));
     if (newSz != cachedPadSz) {
       System.out.println(
