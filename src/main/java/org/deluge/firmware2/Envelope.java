@@ -101,10 +101,11 @@ public class Envelope {
           // lastValuePreCurrentStage) << 1;
           // (line 90)
           lastValue =
-              Functions.multiply_32x32_rshift32(
+              Functions.lshiftAndSaturate(
+                  Functions.multiply_32x32_rshift32(
                       Functions.interpolateTable(pos, 23, releaseTable, 8),
-                      lastValuePreCurrentStage)
-                  << 1;
+                      lastValuePreCurrentStage),
+                  1);
           break;
 
         case FAST_RELEASE:
@@ -125,10 +126,11 @@ public class Envelope {
           }
           // Sine-shaped fast release (lines 109-111)
           lastValue =
-              Functions.multiply_32x32_rshift32(
+              Functions.lshiftAndSaturate(
+                  Functions.multiply_32x32_rshift32(
                       (Functions.getSine((pos + (8388608 >> 1)) & 16777215, 24) >> 1) + 1073741824,
-                      lastValuePreCurrentStage)
-                  << 1;
+                      lastValuePreCurrentStage),
+                  1);
           break;
 
         default: // OFF
@@ -136,7 +138,7 @@ public class Envelope {
       }
 
       // return (lastValue - 1073741824) << 1; // Centre the range around 0  // (line 118)
-      return (lastValue - 1073741824) << 1;
+      return Functions.lshiftAndSaturate((lastValue - 1073741824), 1);
     }
   }
 
