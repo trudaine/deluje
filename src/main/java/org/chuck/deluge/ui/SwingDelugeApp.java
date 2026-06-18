@@ -2811,6 +2811,16 @@ public class SwingDelugeApp extends JFrame {
         });
     toolsMenu.add(droneLabItem);
 
+    JMenuItem cleanRecordingsItem = new JMenuItem("Clean Unused Recordings...");
+    cleanRecordingsItem.setAccelerator(
+        KeyStroke.getKeyStroke(
+            java.awt.event.KeyEvent.VK_U, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+    cleanRecordingsItem.addActionListener(
+        e -> {
+          new SwingRecordingCleanerDialog(this).setVisible(true);
+        });
+    toolsMenu.add(cleanRecordingsItem);
+
     // Help menu — Operations Manual JDialog
     JMenu helpMenu = new JMenu("Help");
     JMenuItem manualItem = new JMenuItem("Operations Manual...");
