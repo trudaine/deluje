@@ -164,6 +164,10 @@ public class Voice {
     public final Dx7Voice dxVoice = new Dx7Voice();
     public final Dx7Voice.DxPatch dxPatch = new Dx7Voice.DxPatch();
 
+    // Pre-allocated reusable buffers to prevent real-time GC churn
+    public int[] tsBuf;
+    public int[] shiftedBuf;
+
     public void setupSample(Sample fw2Sample, int startFrame, int playDirection) {
       setupSample(fw2Sample, startFrame, playDirection, 0);
     }
@@ -1075,7 +1079,12 @@ public class Voice {
                 || vs.voiceSample
                     .timeStretcher
                     .playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER]) {
-              int[] tsBuf = new int[numSamples * 2];
+              int requiredTsLen = numSamples * 2;
+              if (vs.tsBuf == null || vs.tsBuf.length < requiredTsLen) {
+                vs.tsBuf = new int[requiredTsLen];
+              }
+              int[] tsBuf = vs.tsBuf;
+              java.util.Arrays.fill(tsBuf, 0, requiredTsLen, 0);
               int[] ampArr = {sampAmp};
               vs.voiceSample.renderTimeStretched(
                   tsBuf, numSamples, 2, pInc, vs.timeStretchRatio, ampArr, 0);
@@ -1125,7 +1134,12 @@ public class Voice {
                 // C voice.cpp:2255-2260 — shifted path. The shifter applies the amplitude itself
                 // and ACCUMULATES; render into a zeroed scratch, condense stereo to mono.
                 int ch = vs.livePitchShifter.numChannels;
-                int[] shifted = new int[n * ch];
+                int requiredShiftLen = n * ch;
+                if (vs.shiftedBuf == null || vs.shiftedBuf.length < requiredShiftLen) {
+                  vs.shiftedBuf = new int[requiredShiftLen];
+                }
+                int[] shifted = vs.shiftedBuf;
+                java.util.Arrays.fill(shifted, 0, requiredShiftLen, 0);
                 vs.liveInputTimer += n;
                 vs.livePitchShifter.render(
                     shifted,
