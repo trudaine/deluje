@@ -1974,18 +1974,28 @@ public class SwingDelugeApp extends JFrame {
   }
 
   private void loadPresetAsNewTrack(java.io.File f, boolean isKit) {
-    try {
-      org.deluge.model.TrackModel nt =
-          isKit
-              ? org.deluge.xml.DelugeXmlParser.parseKit(f)
-              : org.deluge.xml.DelugeXmlParser.parseSynth(f);
-      currentProject.addTrack(nt);
-      propagateCurrentModel();
-      syncHighFidelityEngine(currentProject);
-      if (clipPanel != null) clipPanel.refresh();
-    } catch (Exception ex) {
-      System.err.println("[Inspector] preset load-new failed: " + ex.getMessage());
-    }
+    new javax.swing.SwingWorker<org.deluge.model.TrackModel, Void>() {
+      @Override
+      protected org.deluge.model.TrackModel doInBackground() throws Exception {
+        return isKit
+            ? org.deluge.xml.DelugeXmlParser.parseKit(f)
+            : org.deluge.xml.DelugeXmlParser.parseSynth(f);
+      }
+
+      @Override
+      protected void done() {
+        try {
+          org.deluge.model.TrackModel nt = get();
+          currentProject.addTrack(nt);
+          propagateCurrentModel();
+          syncHighFidelityEngine(currentProject);
+          if (clipPanel != null) clipPanel.refresh();
+        } catch (Exception ex) {
+          Throwable cause = (ex.getCause() != null) ? ex.getCause() : ex;
+          System.err.println("[Inspector] preset load-new failed: " + cause.getMessage());
+        }
+      }
+    }.execute();
   }
 
   public void fireProjectChanged() {
@@ -2362,20 +2372,31 @@ public class SwingDelugeApp extends JFrame {
           chooser.setFileFilter(
               new javax.swing.filechooser.FileNameExtensionFilter("Song XML", "xml", "XML"));
           if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-            try {
-              java.io.File file = chooser.getSelectedFile();
-              org.deluge.model.ProjectModel model =
-                  org.deluge.xml.DelugeXmlParser.parseSong(
-                      new java.io.FileInputStream(file), file.getName());
-              currentProjectFile = file;
-              loadProject(model);
-            } catch (Exception ex) {
-              JOptionPane.showMessageDialog(
-                  this,
-                  "Failed to open project:\n" + ex.getMessage(),
-                  "Error",
-                  JOptionPane.ERROR_MESSAGE);
-            }
+            final java.io.File file = chooser.getSelectedFile();
+            new javax.swing.SwingWorker<org.deluge.model.ProjectModel, Void>() {
+              @Override
+              protected org.deluge.model.ProjectModel doInBackground() throws Exception {
+                try (java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
+                  return org.deluge.xml.DelugeXmlParser.parseSong(fis, file.getName());
+                }
+              }
+
+              @Override
+              protected void done() {
+                try {
+                  org.deluge.model.ProjectModel model = get();
+                  currentProjectFile = file;
+                  loadProject(model);
+                } catch (Exception ex) {
+                  Throwable cause = (ex.getCause() != null) ? ex.getCause() : ex;
+                  JOptionPane.showMessageDialog(
+                      SwingDelugeApp.this,
+                      "Failed to open project:\n" + cause.getMessage(),
+                      "Error",
+                      JOptionPane.ERROR_MESSAGE);
+                }
+              }
+            }.execute();
           }
         });
 
@@ -2436,36 +2457,48 @@ public class SwingDelugeApp extends JFrame {
               new javax.swing.filechooser.FileNameExtensionFilter(
                   "Ableton Live Set", "als", "ALS"));
           if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-            try {
-              java.io.File file = chooser.getSelectedFile();
-              if (file == null || file.isDirectory()) {
-                JOptionPane.showMessageDialog(
-                    this,
-                    "The selected path is a directory, not a file.\n"
-                        + "Please double-click to navigate inside, and select a valid Ableton Live Set (.als) file!",
-                    "Invalid Selection",
-                    JOptionPane.WARNING_MESSAGE);
-                return;
-              }
-              org.w3c.dom.Document doc =
-                  org.deluge.ableton.AbletonProjectManager.parseAlsToXml(file);
-              org.deluge.model.ProjectModel model = new org.deluge.model.ProjectModel();
-              org.deluge.ableton.AbletonTrackMapper.importAbletonSet(doc, model);
-              currentProjectFile = null;
-              loadProject(model);
+            final java.io.File file = chooser.getSelectedFile();
+            if (file == null || file.isDirectory()) {
               JOptionPane.showMessageDialog(
                   this,
-                  "Ableton Live Set imported successfully!\n" + file.getName(),
-                  "Import Successful",
-                  JOptionPane.INFORMATION_MESSAGE);
-            } catch (Exception ex) {
-              ex.printStackTrace();
-              JOptionPane.showMessageDialog(
-                  this,
-                  "Failed to import Ableton Live Set:\n" + ex.getMessage(),
-                  "Error",
-                  JOptionPane.ERROR_MESSAGE);
+                  "The selected path is a directory, not a file.\n"
+                      + "Please double-click to navigate inside, and select a valid Ableton Live Set (.als) file!",
+                  "Invalid Selection",
+                  JOptionPane.WARNING_MESSAGE);
+              return;
             }
+            new javax.swing.SwingWorker<org.deluge.model.ProjectModel, Void>() {
+              @Override
+              protected org.deluge.model.ProjectModel doInBackground() throws Exception {
+                org.w3c.dom.Document doc =
+                    org.deluge.ableton.AbletonProjectManager.parseAlsToXml(file);
+                org.deluge.model.ProjectModel model = new org.deluge.model.ProjectModel();
+                org.deluge.ableton.AbletonTrackMapper.importAbletonSet(doc, model);
+                return model;
+              }
+
+              @Override
+              protected void done() {
+                try {
+                  org.deluge.model.ProjectModel model = get();
+                  currentProjectFile = null;
+                  loadProject(model);
+                  JOptionPane.showMessageDialog(
+                      SwingDelugeApp.this,
+                      "Ableton Live Set imported successfully!\n" + file.getName(),
+                      "Import Successful",
+                      JOptionPane.INFORMATION_MESSAGE);
+                } catch (Exception ex) {
+                  Throwable cause = (ex.getCause() != null) ? ex.getCause() : ex;
+                  cause.printStackTrace();
+                  JOptionPane.showMessageDialog(
+                      SwingDelugeApp.this,
+                      "Failed to import Ableton Live Set:\n" + cause.getMessage(),
+                      "Error",
+                      JOptionPane.ERROR_MESSAGE);
+                }
+              }
+            }.execute();
           }
         });
     fileMenu.add(importAbletonItem);
