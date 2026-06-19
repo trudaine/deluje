@@ -1132,6 +1132,10 @@ public class SwingGridPanel extends JPanel {
     this.projectModel = model;
     if (modelChanged) {
       resetScrollOffset();
+      // Force full rebuild: the clip row/step count may have changed,
+      // and refresh()'s structureChanged check can miss it.
+      lastColumnCount = 0;
+      lastVoiceRowCount = 0;
     }
     refresh();
   }
@@ -6146,6 +6150,39 @@ public class SwingGridPanel extends JPanel {
       Component glue = Box.createVerticalGlue();
       ((JComponent) glue).setAlignmentX(Component.LEFT_ALIGNMENT);
       add(glue);
+    }
+
+    // DEBUG: dump every grid cell state after rebuild
+    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+      org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
+      if (activeClipId >= 0 && activeClipId < t.getClips().size()) {
+        org.deluge.model.ClipModel cm = t.getClips().get(activeClipId);
+        System.out.println(
+            "[GRID-DUMP] rows="
+                + cm.getRowCount()
+                + " steps="
+                + cm.getStepCount()
+                + " voiceRowCount="
+                + voiceRowCount);
+        for (int r = 0; r < cm.getRowCount(); r++) {
+          int yNote = cm.getRowYNote(r);
+          for (int s = 0; s < cm.getStepCount(); s++) {
+            org.deluge.model.StepData sd = cm.getStep(r, s);
+            if (sd.active()) {
+              System.out.printf(
+                  "[GRID-DUMP] row=%d col=%d yNote=%d ACTIVE pitch=%d vel=%.2f%n",
+                  r, s, yNote, sd.pitch(), sd.velocity());
+            }
+          }
+        }
+        int total = 0;
+        for (int r = 0; r < cm.getRowCount(); r++) {
+          for (int s = 0; s < cm.getStepCount(); s++) {
+            if (cm.getStep(r, s).active()) total++;
+          }
+        }
+        System.out.println("[GRID-DUMP] total active cells: " + total);
+      }
     }
 
     refreshInProgress = false;
