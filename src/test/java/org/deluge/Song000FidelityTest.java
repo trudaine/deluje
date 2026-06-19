@@ -9,7 +9,6 @@ import org.deluge.firmware.engine.FirmwareFactory;
 import org.deluge.firmware.engine.FirmwareSound;
 import org.deluge.firmware.model.Song;
 import org.deluge.firmware.playback.PlaybackHandler;
-import org.deluge.firmware2.StereoSample;
 import org.deluge.model.ProjectModel;
 import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
@@ -98,23 +97,19 @@ public class Song000FidelityTest {
         handler.advanceTicks(toAdvance);
         accumulatedTicks -= toAdvance;
       }
-      StereoSample[] block = new StereoSample[BLOCK_SIZE];
-      for (int i = 0; i < BLOCK_SIZE; i++) {
-        block[i] = new StereoSample();
-      }
       engine.renderBlock(BLOCK_SIZE);
 
       double sumSq = 0;
       for (int i = 0; i < BLOCK_SIZE; i++) {
-        // Apply the exact same signal chain as JavaAudioDriver resample path for Left channel:
         float xL = (float) engine.masterBuffer[i].l / 2147483648.0f;
+        float xR = (float) engine.masterBuffer[i].r / 2147483648.0f;
+
+        // Apply master clipping and driver gain (parity to org.deluge.engine.JavaAudioDriver)
         float boostedL = xL * org.deluge.engine.JavaAudioDriver.monitorGainMul;
         if (boostedL > 0.7f) boostedL = 0.7f + 0.3f * (float) Math.tanh((boostedL - 0.7f) / 0.3f);
         if (boostedL < -0.7f) boostedL = -0.7f + 0.3f * (float) Math.tanh((boostedL + 0.7f) / 0.3f);
         short s16L = (short) Math.max(-32768, Math.min(32767, boostedL * 32767.0f));
 
-        // Apply the exact same signal chain for Right channel:
-        float xR = (float) engine.masterBuffer[i].r / 2147483648.0f;
         float boostedR = xR * org.deluge.engine.JavaAudioDriver.monitorGainMul;
         if (boostedR > 0.7f) boostedR = 0.7f + 0.3f * (float) Math.tanh((boostedR - 0.7f) / 0.3f);
         if (boostedR < -0.7f) boostedR = -0.7f + 0.3f * (float) Math.tanh((boostedR + 0.7f) / 0.3f);
@@ -157,31 +152,118 @@ public class Song000FidelityTest {
         "[Test] SONG000 Engine max RMS: %.6f | Golden max RMS: %.6f | Ratio: %.4f (%.1f dB)%n",
         engineMax, goldenMax, gainRatio, 20 * Math.log10(Math.max(gainRatio, 1e-10)));
 
-    // Count onsets in both
+    // 6. Align and calculate envelope Pearson Correlation
+    // Since the hardware recording starts at Note 4, we dynamically find the 4th note onset
+    // in the Java engine's audio to align perfectly.
     double engineAttackThresh = engineMax * 0.2;
     double goldenAttackThresh = goldenMax * 0.2;
     double engineSilenceThresh = engineMax * 0.03;
     double goldenSilenceThresh = goldenMax * 0.03;
-    int engineOnsets = countOnsets(engineEnv, engineAttackThresh, engineSilenceThresh);
-    int goldenOnsets = countOnsets(goldenEnv, goldenAttackThresh, goldenSilenceThresh);
-    int engineSilentBlocks = countSilent(engineEnv, engineSilenceThresh);
-    int goldenSilentBlocks = countSilent(goldenEnv, goldenSilenceThresh);
+
+    int engineOnsetBlock = findNthOnsetBlock(engineEnv, engineAttackThresh, engineSilenceThresh, 4);
+    int goldenOnsetBlock = findFirstOnsetBlock(goldenEnv, goldenAttackThresh);
 
     System.out.printf(
-        "[Test] Onsets: engine=%d golden=%d | Silence: engine=%.0f%% golden=%.0f%%%n",
-        engineOnsets,
-        goldenOnsets,
-        100.0 * engineSilentBlocks / engineEnv.length,
-        100.0 * goldenSilentBlocks / goldenEnv.length);
+        "[Test] Aligned Onset Blocks: Java Engine (Note 4) = %d | Hardware Golden = %d%n",
+        engineOnsetBlock, goldenOnsetBlock);
 
-    // 6. Assertions
+    // Slice both envelopes from their respective alignment points
+    int engineRemaining = engineEnv.length - engineOnsetBlock;
+    int goldenRemaining = goldenEnv.length - goldenOnsetBlock;
+    int compLength = Math.min(engineRemaining, goldenRemaining);
+
+    double[] engineSlice =
+        java.util.Arrays.copyOfRange(engineEnv, engineOnsetBlock, engineOnsetBlock + compLength);
+    double[] goldenSlice =
+        java.util.Arrays.copyOfRange(goldenEnv, goldenOnsetBlock, goldenOnsetBlock + compLength);
+
+    double envelopeCorrelation = pearsonCorrelation(engineSlice, goldenSlice, 0, 0, compLength);
+    System.out.printf("[Test] Aligned Envelope Pearson Correlation: %.6f%n", envelopeCorrelation);
+
+    // Count onsets in the aligned slices
+    int engineSliceOnsets = countOnsets(engineSlice, engineAttackThresh, engineSilenceThresh);
+    int goldenSliceOnsets = countOnsets(goldenSlice, goldenAttackThresh, goldenSilenceThresh);
+    int engineSliceSilent = countSilent(engineSlice, engineSilenceThresh);
+    int goldenSliceSilent = countSilent(goldenSlice, goldenSilenceThresh);
+
+    System.out.printf(
+        "[Test] Aligned Slices: Onsets (engine=%d, golden=%d) | Silence (engine=%.0f%%, golden=%.0f%%)%n",
+        engineSliceOnsets,
+        goldenSliceOnsets,
+        100.0 * engineSliceSilent / compLength,
+        100.0 * goldenSliceSilent / compLength);
+
+    // 7. Strict regression assertions
     assertTrue(engineMax > 0.01, "Engine produced near-silence! Max RMS=" + engineMax);
-    assertTrue(
-        engineOnsets >= goldenOnsets * 0.5,
-        "Too few onsets: engine=" + engineOnsets + " vs golden=" + goldenOnsets);
 
-    System.out.println("[Test] Song000 Fidelity comparison complete!");
+    assertEquals(
+        goldenSliceOnsets,
+        engineSliceOnsets,
+        "Aligned onset count mismatch! Aligned note sequences did not trigger identically.");
+
+    double silenceDiff =
+        Math.abs((double) engineSliceSilent / compLength - (double) goldenSliceSilent / compLength);
+    assertTrue(
+        silenceDiff <= 0.10,
+        "Silence / gate ratio mismatch in aligned slice! Difference is "
+            + (silenceDiff * 100.0)
+            + "% (max 10% allowed)");
+
+    assertTrue(
+        envelopeCorrelation >= 0.80,
+        "Envelope shape correlation too low! corr=" + envelopeCorrelation + " (must be >= 0.80)");
+
+    System.out.println("[Test] SUCCESS: Song000 Fidelity comparison complete & verified!");
     handler.stop();
+  }
+
+  private static int findFirstOnsetBlock(double[] env, double thresh) {
+    for (int b = 0; b < env.length; b++) {
+      if (env[b] > thresh) return b;
+    }
+    return 0;
+  }
+
+  private static int findNthOnsetBlock(double[] env, double thresh, double silenceThresh, int n) {
+    int onsetCount = 0;
+    boolean wasSilent = true;
+    for (int b = 1; b < env.length; b++) {
+      if (wasSilent && env[b] > thresh) {
+        onsetCount++;
+        if (onsetCount == n) {
+          return b;
+        }
+        wasSilent = false;
+      } else if (!wasSilent && env[b] < silenceThresh) {
+        wasSilent = true;
+      }
+    }
+    return 0;
+  }
+
+  private static double pearsonCorrelation(
+      double[] x, double[] y, int xStart, int yStart, int length) {
+    double sumX = 0;
+    double sumY = 0;
+    for (int i = 0; i < length; i++) {
+      sumX += x[xStart + i];
+      sumY += y[yStart + i];
+    }
+    double meanX = sumX / length;
+    double meanY = sumY / length;
+
+    double num = 0;
+    double denX = 0;
+    double denY = 0;
+    for (int i = 0; i < length; i++) {
+      double dx = x[xStart + i] - meanX;
+      double dy = y[yStart + i] - meanY;
+      num += dx * dy;
+      denX += dx * dx;
+      denY += dy * dy;
+    }
+    double den = Math.sqrt(denX * denY);
+    return den > 1e-15 ? num / den : 0;
   }
 
   private static int countOnsets(double[] env, double attackThresh, double silenceThresh) {
