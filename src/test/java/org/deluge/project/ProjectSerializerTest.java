@@ -111,7 +111,9 @@ public class ProjectSerializerTest {
     org.deluge.model.StepData parsedStep = parsedClip.getStep(0, 1);
     org.junit.jupiter.api.Assertions.assertTrue(
         parsedStep.active(), "Parsed step 1 should be active!");
+    // The Deluge format stores pitch in the noteRow y= attribute, not per-step.
+    // Since the only active step on this row has pitch=60, the serializer writes y="60".
     org.junit.jupiter.api.Assertions.assertEquals(
-        0, parsedStep.pitch(), "Parsed step 1 pitch should be 0 (row-level semitone instead)!");
+        60, parsedStep.pitch(), "Parsed step 1 pitch should be 60 (row y= attribute)!");
   }
 }

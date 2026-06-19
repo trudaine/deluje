@@ -189,12 +189,34 @@ public class ProjectSerializer {
         }
         tracksElem.appendChild(clipTrackElem);
 
-        Element noteRowsElem = doc.createElement("noteRows");
-        clipTrackElem.appendChild(noteRowsElem);
-
+        // Collect non-empty noteRows first, then write <noteRows> only if there are any.
+        // Empty <noteRows/> causes parser NPE: rowCount falls back to 8 but list has 0 items.
+        java.util.List<Element> noteRowElements = new java.util.ArrayList<>();
         for (int r = 0; r < clip.getRowCount(); r++) {
+          int yNote = clip.getRowYNote(r);
+          if (!(track instanceof KitTrackModel) && yNote < 0) {
+            for (int s = 0; s < clip.getStepCount(); s++) {
+              org.deluge.model.StepData sd = clip.getStep(r, s);
+              if (sd.active() && sd.pitch() > 0) {
+                yNote = sd.pitch();
+                break;
+              }
+            }
+          }
+          // For synth tracks: skip empty rows (kit tracks must keep all rows = drum pads)
+          if (!(track instanceof KitTrackModel) && yNote < 0) {
+            boolean hasActive = false;
+            for (int s = 0; s < clip.getStepCount(); s++) {
+              if (clip.getStep(r, s).active()) {
+                hasActive = true;
+                break;
+              }
+            }
+            if (!hasActive) continue;
+          }
           Element noteRowElem = doc.createElement("noteRow");
-          noteRowsElem.appendChild(noteRowElem);
+          noteRowElem.setAttribute("y", String.valueOf(Math.max(yNote, 0)));
+          noteRowElements.add(noteRowElem);
 
           java.util.List<org.deluge.model.StepData> row = new java.util.ArrayList<>();
           for (int s = 0; s < clip.getStepCount(); s++) {
@@ -206,6 +228,14 @@ public class ProjectSerializer {
           Element noteDataElem = doc.createElement("noteData");
           noteDataElem.setTextContent(hexData);
           noteRowElem.appendChild(noteDataElem);
+        }
+        // Only write <noteRows> if there are rows to write (empty element causes parser NPE)
+        if (!noteRowElements.isEmpty()) {
+          Element noteRowsElem = doc.createElement("noteRows");
+          clipTrackElem.appendChild(noteRowsElem);
+          for (Element e : noteRowElements) {
+            noteRowsElem.appendChild(e);
+          }
         }
       }
     }

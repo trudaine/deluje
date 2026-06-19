@@ -1417,6 +1417,51 @@ public class SwingDelugeApp extends JFrame {
     propagateCurrentModel();
     syncHighFidelityEngine(model);
 
+    // DEBUG: dump loaded model clips
+    System.out.println("[LOAD-DUMP] project tracks=" + model.getTracks().size());
+    for (int ti = 0; ti < model.getTracks().size(); ti++) {
+      var trk = model.getTracks().get(ti);
+      System.out.println(
+          "[LOAD-DUMP] track "
+              + ti
+              + " type="
+              + trk.getClass().getSimpleName()
+              + " name="
+              + trk.getName()
+              + " clips="
+              + trk.getClips().size());
+      for (int ci = 0; ci < trk.getClips().size(); ci++) {
+        var cl = trk.getClips().get(ci);
+        System.out.println(
+            "[LOAD-DUMP]   clip "
+                + ci
+                + " rows="
+                + cl.getRowCount()
+                + " steps="
+                + cl.getStepCount());
+        int active = 0;
+        for (int r = 0; r < cl.getRowCount(); r++) {
+          for (int s = 0; s < cl.getStepCount(); s++) {
+            if (cl.getStep(r, s).active()) {
+              active++;
+              System.out.println(
+                  "[LOAD-DUMP]     row="
+                      + r
+                      + " col="
+                      + s
+                      + " yNote="
+                      + cl.getRowYNote(r)
+                      + " pitch="
+                      + cl.getStep(r, s).pitch()
+                      + " vel="
+                      + cl.getStep(r, s).velocity());
+            }
+          }
+        }
+        System.out.println("[LOAD-DUMP]   clip " + ci + " total active=" + active);
+      }
+    }
+
     if (clipPanel != null) clipPanel.setProjectModel(model);
     if (songPanel != null) songPanel.setProjectModel(model);
     if (arrGridPanel != null) arrGridPanel.setProjectModel(model);
@@ -3794,16 +3839,16 @@ public class SwingDelugeApp extends JFrame {
     @Override
     public void onResampleToggle(JButton btn) {
       if (!org.deluge.engine.JavaAudioDriver.isResamplingActive) {
-        // Start resample mode: silence any ringing voices/delay tails from previous
-        // playback so the capture starts from a clean slate.
+        // Start resample mode: panic old voices, start capture, THEN start play.
+        // Order matters: capture must be active before the first note renders.
         if (pureEngine != null && pureEngine.getAudioEngine() != null) {
           pureEngine.getAudioEngine().panic();
         }
+        org.deluge.engine.JavaAudioDriver.startResampling();
         // Auto-start play if not already playing
         if (bridge.getGlobalInt(BridgeContract.G_PLAY) == 0L) {
           onPlayToggle();
         }
-        org.deluge.engine.JavaAudioDriver.startResampling();
         btn.setBackground(new Color(0xff, 0xaa, 0x00));
         btn.setForeground(Color.WHITE);
         btn.setText("\u25CF SAMPLING");

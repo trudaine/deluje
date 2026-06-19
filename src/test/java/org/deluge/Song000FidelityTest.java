@@ -15,7 +15,7 @@ import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
 /**
- * High-fidelity verification test that parses SONG001.xml, renders it using the decoupled pure-Java
+ * High-fidelity verification test that parses SONG003.xml, renders it using the decoupled pure-Java
  * firmware engine, and compares its RMS envelope and frequency characteristics against the real
  * hardware recording REC00010.WAV.
  */
@@ -25,17 +25,17 @@ public class Song000FidelityTest {
 
   @Test
   void testSong000RenderingMatchesHardwareRecording() throws Exception {
-    // 1. Locate and parse SONG001.xml
-    File songFile = new File("src/test/resources/fidelity/SONG001.xml");
-    assertTrue(songFile.exists(), "SONG001.xml not found at " + songFile.getAbsolutePath());
+    // 1. Locate and parse SONG003.xml
+    File songFile = new File("src/test/resources/fidelity/SONG003.xml");
+    assertTrue(songFile.exists(), "SONG003.xml not found at " + songFile.getAbsolutePath());
 
     ProjectModel project;
     try (FileInputStream fis = new FileInputStream(songFile)) {
       project = DelugeXmlParser.parseSong(fis, "SONG000");
     }
-    assertNotNull(project, "Failed to parse SONG001.xml");
+    assertNotNull(project, "Failed to parse SONG003.xml");
     assertEquals(120.0f, project.getBpm(), 0.01f);
-    assertEquals(1, project.getTracks().size(), "Expected exactly 1 track in SONG001.xml");
+    assertEquals(1, project.getTracks().size(), "Expected exactly 1 track in SONG003.xml");
 
     // 2. Load the golden hardware recording REC00004.WAV (real Deluge playing SONG000)
     File goldenFile = new File("src/test/resources/fidelity/REC00004.WAV");
