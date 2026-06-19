@@ -121,10 +121,9 @@ public class HpLadderFilter extends Filter {
             + state.hpfLPF1.getFeedbackOutput(hpfLPF1Feedback);
 
     int a =
-        Functions.lshiftAndSaturate(
-            Functions.multiply_32x32_rshift32_rounded(
-                divideByTotalMoveability, firstHPFOutput + feedbacksValue),
-            5);
+        Functions.multiply_32x32_rshift32_rounded(
+                divideByTotalMoveability, firstHPFOutput + feedbacksValue)
+            << 5;
 
     // Only saturate / anti-alias if lots of resonance
     if (hpfProcessedResonance > 900000000) {

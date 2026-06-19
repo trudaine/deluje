@@ -15,9 +15,7 @@ public class BasicFilterComponent {
   }
 
   public int doFilter(int input, int moveability) {
-    int a =
-        Functions.lshiftAndSaturate(
-            Functions.multiply_32x32_rshift32_rounded(input - memory, moveability), 1);
+    int a = Functions.multiply_32x32_rshift32_rounded(input - memory, moveability) << 1;
     int b = a + memory;
     memory = b + a;
     return b;
@@ -26,9 +24,7 @@ public class BasicFilterComponent {
   /** doAPF — one-pole all-pass filter. (ladder_components.h:33-37) */
   public int doAPF(int input, int moveability) {
     // q31_t a = multiply_32x32_rshift32_rounded(input - memory, moveability) << 1;
-    int a =
-        Functions.lshiftAndSaturate(
-            Functions.multiply_32x32_rshift32_rounded(input - memory, moveability), 1);
+    int a = Functions.multiply_32x32_rshift32_rounded(input - memory, moveability) << 1;
     // q31_t b = a + memory;
     int b = a + memory;
     // memory = a + b;
@@ -40,11 +36,7 @@ public class BasicFilterComponent {
   /** affectFilter — feed a sample into the filter with no output. (ladder_components.h:39-40) */
   public void affectFilter(int input, int moveability) {
     // memory += multiply_32x32_rshift32_rounded(input - memory, moveability) << 2;
-    memory =
-        Functions.add_saturate(
-            memory,
-            Functions.lshiftAndSaturate(
-                Functions.multiply_32x32_rshift32_rounded(input - memory, moveability), 2));
+    memory += Functions.multiply_32x32_rshift32_rounded(input - memory, moveability) << 2;
   }
 
   /** Reset the one-pole memory to zero. (ladder_components.h:42) */
@@ -58,8 +50,7 @@ public class BasicFilterComponent {
    */
   public int getFeedbackOutput(int feedbackAmount) {
     // return multiply_32x32_rshift32_rounded(memory, feedbackAmount) << 2;
-    return Functions.lshiftAndSaturate(
-        Functions.multiply_32x32_rshift32_rounded(memory, feedbackAmount), 2);
+    return Functions.multiply_32x32_rshift32_rounded(memory, feedbackAmount) << 2;
   }
 
   /** getFeedbackOutputWithoutLshift — raw feedback. (ladder_components.h:46-47) */
