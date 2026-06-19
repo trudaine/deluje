@@ -52,23 +52,28 @@ public class KitSynthSerializer {
       nameElem.setTextContent(sound.getName());
       soundElem.appendChild(nameElem);
 
-      if (isSongSlot) {
+      boolean isSampleBased = sound.getSamplePath() != null && !sound.getSamplePath().isEmpty();
+      if (isSampleBased && isSongSlot) {
         // ── sample (song slot sample reference) ──
         Element sample = doc.createElement("sample");
-        sample.setAttribute("fileName", sound.getSamplePath() != null ? sound.getSamplePath() : "");
+        sample.setAttribute("fileName", sound.getSamplePath());
         soundElem.appendChild(sample);
       } else {
-        // ── osc1 (sample reference) ──
+        // ── osc1 (sample or synth reference) ──
         Element osc1 = doc.createElement("osc1");
-        osc1.setAttribute("type", "sample");
+        if (isSampleBased) {
+          osc1.setAttribute("type", "sample");
+          appendTextChild(doc, osc1, "fileName", sound.getSamplePath());
+        } else {
+          osc1.setAttribute("type", "none");
+          appendTextChild(doc, osc1, "fileName", "");
+        }
         appendTextChild(doc, osc1, "transpose", "0");
         appendTextChild(doc, osc1, "cents", "0");
         appendTextChild(doc, osc1, "loopMode", "1");
         appendTextChild(doc, osc1, "reversed", sound.isReverse() ? "1" : "0");
         appendTextChild(doc, osc1, "timeStretchEnable", "0");
         appendTextChild(doc, osc1, "timeStretchAmount", "0");
-        String samplePath = sound.getSamplePath() != null ? sound.getSamplePath() : "";
-        appendTextChild(doc, osc1, "fileName", samplePath);
         appendTextChild(
             doc, osc1, "wavetableIndexPct", String.valueOf(sound.getWavetableIndexPct()));
         Element zone = doc.createElement("zone");
@@ -88,7 +93,11 @@ public class KitSynthSerializer {
         appendTextChild(doc, osc2, "reversed", "0");
         appendTextChild(doc, osc2, "timeStretchEnable", "0");
         appendTextChild(doc, osc2, "timeStretchAmount", "0");
-        appendTextChild(doc, osc2, "fileName", "");
+        appendTextChild(
+            doc,
+            osc2,
+            "fileName",
+            sound.getOsc2SamplePath() != null ? sound.getOsc2SamplePath() : "");
         appendTextChild(doc, osc2, "retrigPhase", String.valueOf(sound.getOsc2RetrigPhase()));
         Element zone2 = doc.createElement("zone");
         appendTextChild(doc, zone2, "startMilliseconds", "0");

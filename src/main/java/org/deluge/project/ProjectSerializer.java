@@ -172,10 +172,19 @@ public class ProjectSerializer {
       }
     }
 
+    // Build global list of all session clips to resolve indices in arranger placements
+    java.util.List<org.deluge.model.ClipModel> allSessionClips = new java.util.ArrayList<>();
+    for (TrackModel track : model.getTracks()) {
+      for (org.deluge.model.ClipModel clip : track.getClips()) {
+        allSessionClips.add(clip);
+      }
+    }
+
     // Serialize Tracks (Clips)
     Element tracksElem = doc.createElement("tracks");
     rootElement.appendChild(tracksElem);
 
+    int trackIndex = 0;
     for (TrackModel track : model.getTracks()) {
       for (org.deluge.model.ClipModel clip : track.getClips()) {
         Element clipTrackElem = doc.createElement("track");
@@ -188,6 +197,23 @@ public class ProjectSerializer {
           clipTrackElem.setAttribute("sequenceDirection", clip.getPlayDirection().name());
         }
         tracksElem.appendChild(clipTrackElem);
+
+        // Serialize arrangement placements (clipInstances) for this clip lane
+        StringBuilder ciBuilder = new StringBuilder("0x");
+        for (org.deluge.model.ArrangerClip ac : model.getArrangerTimeline()) {
+          if (ac.trackIndex() == trackIndex) {
+            int clipIdx = allSessionClips.indexOf(ac.clip());
+            if (clipIdx >= 0) {
+              ciBuilder.append(
+                  String.format("%08X%08X%08X", ac.startTicks(), ac.durationTicks(), clipIdx));
+            }
+          }
+        }
+        if (ciBuilder.length() > 2) {
+          clipTrackElem.setAttribute("clipInstances", ciBuilder.toString());
+        }
+
+        trackIndex++;
 
         // Collect non-empty noteRows first, then write <noteRows> only if there are any.
         // Empty <noteRows/> causes parser NPE: rowCount falls back to 8 but list has 0 items.
