@@ -3,7 +3,6 @@ package org.deluge.ui;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
-import org.chuck.core.ChuckVM;
 import org.deluge.BridgeContract;
 import org.deluge.model.*;
 import org.junit.jupiter.api.Test;
@@ -16,7 +15,6 @@ public class ArrangerLiveCaptureTest {
 
   @Test
   public void testLiveCaptureWorkflow() throws Exception {
-    ChuckVM vm = new ChuckVM(44100, 2);
     BridgeContract bridge = new BridgeContract();
     ProjectModel project = new ProjectModel();
 
@@ -27,18 +25,18 @@ public class ArrangerLiveCaptureTest {
     project.addTrack(track);
 
     // 2. Setup Scheduler and enable Live Capture
-    ArrangerPlaybackScheduler scheduler = new ArrangerPlaybackScheduler(vm, bridge, project);
+    ArrangerPlaybackScheduler scheduler = new ArrangerPlaybackScheduler(bridge, project);
     scheduler.setCaptureActive(true);
     assertTrue(scheduler.isCaptureActive(), "Capture must be active");
 
     // Set current playhead step to step 4
-    vm.setGlobalInt(BridgeContract.G_CURRENT_STEP, 4L);
+    bridge.setGlobalInt(BridgeContract.G_CURRENT_STEP, 4L);
 
     // 3. Simulate Clip Launch
     scheduler.notifyClipLaunched(0, clip);
 
     // Advance playhead step to 12 (spans 8 steps => 8 * 24 = 192 ticks)
-    vm.setGlobalInt(BridgeContract.G_CURRENT_STEP, 12L);
+    bridge.setGlobalInt(BridgeContract.G_CURRENT_STEP, 12L);
 
     // Verify no clips captured on project timeline yet (still active/unfinalized)
     assertTrue(

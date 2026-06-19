@@ -4,14 +4,13 @@ import java.awt.*;
 import java.util.List;
 import javax.swing.*;
 import javax.swing.border.LineBorder;
-import org.chuck.core.ChuckArray;
-import org.chuck.core.ChuckEvent;
-import org.chuck.core.ChuckVM;
 import org.deluge.BridgeContract;
 import org.deluge.model.ChordModel;
 import org.deluge.model.ChordModel.ChordType;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.Scales;
+import org.deluge.shadow.core.ChuckArray;
+import org.deluge.shadow.core.ChuckEvent;
 
 /**
  * Chord Keyboard panel supporting CORK and CORL layouts.
@@ -35,8 +34,8 @@ public class SwingChordKeyboardPanel extends JPanel {
   private static final int COLS = 18;
   private static final int ROWS = 12;
 
-  private final ChuckVM vm;
   private final BridgeContract bridge;
+
   private final ProjectModel projectModel;
 
   private KeyboardLayout layout = KeyboardLayout.CHORD;
@@ -47,13 +46,13 @@ public class SwingChordKeyboardPanel extends JPanel {
   private JLabel statusLabel;
 
   /**
-   * @param vm ChucK VM for note events
+   * @param bridge ChucK VM for note events
    * @param bridge bridge contract
    * @param projectModel project model (for scale/key info)
    */
-  public SwingChordKeyboardPanel(ChuckVM vm, BridgeContract bridge, ProjectModel projectModel) {
-    this.vm = vm;
+  public SwingChordKeyboardPanel(final BridgeContract bridge, ProjectModel projectModel) {
     this.bridge = bridge;
+
     this.projectModel = projectModel;
 
     setBackground(new Color(0x18, 0x18, 0x18));
@@ -446,9 +445,9 @@ public class SwingChordKeyboardPanel extends JPanel {
   /** Trigger a single MIDI note via the g_ck_noteOn ChuckEvent. */
   private void triggerNote(int midiNote) {
     try {
-      ChuckEvent noteEv = (ChuckEvent) vm.getGlobalObject("g_ck_noteOn");
+      ChuckEvent noteEv = (ChuckEvent) bridge.getGlobalObject("g_ck_noteOn");
       if (noteEv != null) {
-        ChuckArray pitchArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PITCH);
+        ChuckArray pitchArr = (ChuckArray) bridge.getGlobalObject(BridgeContract.G_PITCH);
         pitchArr.setInt(0, midiNote - 60L);
         noteEv.broadcast();
       }
@@ -460,8 +459,8 @@ public class SwingChordKeyboardPanel extends JPanel {
   /** Trigger multiple MIDI notes (a chord) sequentially. */
   private void triggerChord(List<Integer> midiNotes) {
     try {
-      ChuckEvent noteEv = (ChuckEvent) vm.getGlobalObject("g_ck_noteOn");
-      ChuckArray pitchArr = (ChuckArray) vm.getGlobalObject(BridgeContract.G_PITCH);
+      ChuckEvent noteEv = (ChuckEvent) bridge.getGlobalObject("g_ck_noteOn");
+      ChuckArray pitchArr = (ChuckArray) bridge.getGlobalObject(BridgeContract.G_PITCH);
       if (noteEv == null) return;
 
       for (int note : midiNotes) {

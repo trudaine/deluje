@@ -3,7 +3,6 @@ package org.deluge.ui;
 import java.awt.*;
 import java.awt.event.MouseEvent;
 import javax.swing.*;
-import org.chuck.core.ChuckVM;
 import org.deluge.BridgeContract;
 import org.deluge.firmware.hid.FirmwareUI;
 import org.deluge.firmware.hid.MatrixDriver;
@@ -12,7 +11,6 @@ import org.deluge.firmware.hid.RGB;
 
 /** Custom painted sequencer step grid panel using pure Java2D. */
 public class SwingMatrixPanel extends JPanel {
-  private final ChuckVM vm;
   private final BridgeContract bridge;
 
   public enum GridViewMode {
@@ -32,8 +30,7 @@ public class SwingMatrixPanel extends JPanel {
     repaint();
   }
 
-  public SwingMatrixPanel(ChuckVM vm, BridgeContract bridge) {
-    this.vm = vm;
+  public SwingMatrixPanel(final BridgeContract bridge) {
     this.bridge = bridge;
 
     setBackground(new Color(0x20, 0x20, 0x20));
@@ -59,8 +56,8 @@ public class SwingMatrixPanel extends JPanel {
         e -> {
           Frame frame = (Frame) javax.swing.SwingUtilities.getWindowAncestor(this);
           String rowName = null;
-          if (vm != null) {
-            Object obj = vm.getGlobalObject("g_sample_" + baseTrack);
+          if (bridge != null) {
+            Object obj = bridge.getGlobalObject("g_sample_" + baseTrack);
             rowName = (obj instanceof String) ? (String) obj : null;
           }
           if (rowName == null || rowName.isBlank()) rowName = "Row " + (baseTrack + 1);
@@ -124,7 +121,7 @@ public class SwingMatrixPanel extends JPanel {
     for (int r = 0; r < rows; r++) {
       // Draw label
       g2.setColor(Color.LIGHT_GRAY);
-      String labelStr = (vm != null) ? (String) vm.getGlobalObject("g_sample_" + r) : "";
+      String labelStr = (bridge != null) ? (String) bridge.getGlobalObject("g_sample_" + r) : "";
       if (labelStr == null || labelStr.isEmpty()) {
         labelStr = "PAD " + (r + 1);
       } else {

@@ -42,7 +42,7 @@ public class DelugeSysExManager {
 
   private final AtomicInteger seqCounter = new AtomicInteger(0);
   private final Map<Integer, SysExCallback> pendingCallbacks = new ConcurrentHashMap<>();
-  private org.chuck.midi.MidiOut activeMidiOut;
+  private org.deluge.shadow.midi.MidiOut activeMidiOut;
   private DisplayListener displayListener;
   private MidiDebugListener debugListener;
   private volatile boolean oledStreamingEnabled = true;
@@ -75,7 +75,7 @@ public class DelugeSysExManager {
   // Local OLED frame buffer to apply deltas onto (768 bytes, 128x64 pixels)
   private final byte[] oledFrameBuffer = new byte[768];
 
-  public void setMidiOut(org.chuck.midi.MidiOut midiOut) {
+  public void setMidiOut(org.deluge.shadow.midi.MidiOut midiOut) {
     this.activeMidiOut = midiOut;
   }
 
@@ -145,7 +145,7 @@ public class DelugeSysExManager {
 
     packet[packet.length - 1] = SYSEX_END;
 
-    org.chuck.midi.MidiMsg msg = new org.chuck.midi.MidiMsg();
+    org.deluge.shadow.midi.MidiMsg msg = new org.deluge.shadow.midi.MidiMsg();
     msg.setData(packet);
     try {
       activeMidiOut.send(msg);
@@ -172,7 +172,7 @@ public class DelugeSysExManager {
       0x03, // Mode 3 (Start stream + force repaint)
       SYSEX_END
     };
-    org.chuck.midi.MidiMsg msg = new org.chuck.midi.MidiMsg();
+    org.deluge.shadow.midi.MidiMsg msg = new org.deluge.shadow.midi.MidiMsg();
     msg.setData(packet);
     try {
       activeMidiOut.send(msg);
@@ -201,7 +201,7 @@ public class DelugeSysExManager {
       (byte) (enabled ? 0x01 : 0x00), // Value: 1=enable, 0=disable
       SYSEX_END
     };
-    org.chuck.midi.MidiMsg msg = new org.chuck.midi.MidiMsg();
+    org.deluge.shadow.midi.MidiMsg msg = new org.deluge.shadow.midi.MidiMsg();
     msg.setData(packet);
     try {
       activeMidiOut.send(msg);

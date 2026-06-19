@@ -4,7 +4,6 @@ import java.awt.*;
 import java.io.File;
 import java.util.List;
 import javax.swing.*;
-import org.chuck.core.ChuckVM;
 import org.deluge.BridgeContract;
 import org.deluge.model.ClipModel;
 import org.deluge.model.KitTrackModel;
@@ -22,8 +21,8 @@ import org.deluge.project.PreferencesManager;
 public class SwingAudioSlicerDialog extends JDialog {
 
   private final Frame parentFrame;
-  private final ChuckVM vm;
   private final BridgeContract bridge;
+
   private final ProjectModel projectModel;
 
   private JTextField pathField;
@@ -36,11 +35,11 @@ public class SwingAudioSlicerDialog extends JDialog {
   private String currentFilePath = null;
 
   public SwingAudioSlicerDialog(
-      Frame parent, ChuckVM vm, BridgeContract bridge, ProjectModel projectModel) {
+      Frame parent, final BridgeContract bridge, ProjectModel projectModel) {
     super(parent, "Delugeator Universal Audio Slicer & Kit Splitter", false);
     this.parentFrame = parent;
-    this.vm = vm;
     this.bridge = bridge;
+
     this.projectModel = projectModel;
 
     setSize(800, 500);

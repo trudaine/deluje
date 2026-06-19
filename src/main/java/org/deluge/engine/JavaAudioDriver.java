@@ -286,7 +286,7 @@ public class JavaAudioDriver implements Runnable {
    * High-fidelity, smooth analog soft-clipping saturation function. Maintains perfect linear
    * transparency up to 0.7 (-3dB), and curves smoothly towards 1.0.
    */
-  private static float softClip(float x) {
+  public static float softClip(float x) {
     if (x > 0.7f) {
       return 0.7f + 0.3f * (float) Math.tanh((x - 0.7f) / 0.3f);
     }

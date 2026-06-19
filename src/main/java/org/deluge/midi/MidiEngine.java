@@ -3,7 +3,7 @@ package org.deluge.midi;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
-import org.chuck.midi.MidiMsg;
+import org.deluge.shadow.midi.MidiMsg;
 
 /**
  * Port of the C++ Deluge MidiEngine. Handles all MIDI I/O protocol logic: message construction,

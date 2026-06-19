@@ -5,13 +5,13 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import org.chuck.midi.MidiMsg;
+import org.deluge.shadow.midi.MidiMsg;
 import org.junit.jupiter.api.Test;
 
 public class DelugeSysExManagerTest {
 
   // A simple test subclass of MidiOut to capture sent messages
-  private static class MockMidiOut extends org.chuck.midi.MidiOut {
+  private static class MockMidiOut extends org.deluge.shadow.midi.MidiOut {
     final AtomicReference<byte[]> lastSentData = new AtomicReference<>();
 
     @Override

@@ -5,7 +5,6 @@ import java.io.File;
 import javax.swing.*;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeCellRenderer;
-import org.chuck.core.ChuckVM;
 import org.deluge.BridgeContract;
 import org.deluge.project.PreferencesManager;
 import org.deluge.xml.DelugeXmlParser;
@@ -17,7 +16,6 @@ import org.deluge.xml.DelugeXmlParser;
  */
 public class SwingProjectSidebarPanel extends JPanel {
 
-  private final ChuckVM vm;
   private final BridgeContract bridge;
 
   private java.util.function.Consumer<org.deluge.model.ProjectModel> onSongLoaded;
@@ -46,8 +44,7 @@ public class SwingProjectSidebarPanel extends JPanel {
   private boolean hardwareRefreshedOnce = false;
 
   public SwingProjectSidebarPanel(
-      ChuckVM vm, BridgeContract bridge, org.deluge.midi.MidiService midiService) {
-    this.vm = vm;
+      final BridgeContract bridge, org.deluge.midi.MidiService midiService) {
     this.bridge = bridge;
 
     setPreferredSize(new Dimension(300, 0));
@@ -251,7 +248,7 @@ public class SwingProjectSidebarPanel extends JPanel {
                       java.util.List<org.deluge.model.Drum> sounds = kit.getDrums();
                       for (int i = 0; i < sounds.size(); i++) {
                         String sp = ((org.deluge.model.SoundDrum) sounds.get(i)).getSamplePath();
-                        vm.setGlobalString("g_sample_" + (baseTrack + i), sp != null ? sp : "");
+                        bridge.setGlobalString("g_sample_" + (baseTrack + i), sp != null ? sp : "");
                         bridge.setSamplePath(baseTrack + i, sp != null ? sp : "");
                         bridge.setMute(baseTrack + i, false);
                       }
@@ -265,7 +262,7 @@ public class SwingProjectSidebarPanel extends JPanel {
                           onSongLoaded.accept(mockProj);
                         }
                       }
-                      vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+                      bridge.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
                     } else if ("SYNTHS".equals(category)) {
                       org.deluge.model.SynthTrackModel synth =
                           org.deluge.xml.DelugeXmlParser.parseSynth(is, name);
@@ -279,7 +276,7 @@ public class SwingProjectSidebarPanel extends JPanel {
                           onSongLoaded.accept(mockProj);
                         }
                       }
-                      vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+                      bridge.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
                     } else if ("SONGS".equals(category)) {
                       org.deluge.model.ProjectModel loadedProject =
                           DelugeXmlParser.parseSong(is, name);
@@ -302,7 +299,8 @@ public class SwingProjectSidebarPanel extends JPanel {
                                 missingFiles.add(sp);
                               }
                             }
-                            vm.setGlobalString("g_sample_" + (engineRow + i), sp != null ? sp : "");
+                            bridge.setGlobalString(
+                                "g_sample_" + (engineRow + i), sp != null ? sp : "");
                             bridge.setMute(engineRow + i, false);
                             bridge.setTrackType(engineRow + i, 0);
                           }
@@ -324,7 +322,7 @@ public class SwingProjectSidebarPanel extends JPanel {
                       if (onSongLoaded != null) {
                         onSongLoaded.accept(loadedProject);
                       }
-                      vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+                      bridge.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
                     } else if ("PATTERNS".equals(category)) {
                       if (onPatternLoad != null) {
                         onPatternLoad.accept(leafFile);
@@ -665,7 +663,8 @@ public class SwingProjectSidebarPanel extends JPanel {
                                 missingFiles.add(sp);
                               }
                             }
-                            vm.setGlobalString("g_sample_" + (engineRow + i), sp != null ? sp : "");
+                            bridge.setGlobalString(
+                                "g_sample_" + (engineRow + i), sp != null ? sp : "");
                             bridge.setMute(engineRow + i, false);
                             bridge.setTrackType(engineRow + i, 0);
                           }
@@ -688,14 +687,14 @@ public class SwingProjectSidebarPanel extends JPanel {
                           onSongLoaded.accept(mockProj);
                         }
                       }
-                      vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+                      bridge.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
                     } else if ("KITS".equals(category)) {
                       org.deluge.model.KitTrackModel kit = DelugeXmlParser.parseKit(bis, name);
                       int baseTrack = 0;
                       java.util.List<org.deluge.model.Drum> sounds = kit.getDrums();
                       for (int i = 0; i < sounds.size(); i++) {
                         String sp = ((org.deluge.model.SoundDrum) sounds.get(i)).getSamplePath();
-                        vm.setGlobalString("g_sample_" + (baseTrack + i), sp != null ? sp : "");
+                        bridge.setGlobalString("g_sample_" + (baseTrack + i), sp != null ? sp : "");
                         bridge.setSamplePath(baseTrack + i, sp != null ? sp : "");
                         bridge.setMute(baseTrack + i, false);
                       }
@@ -709,7 +708,7 @@ public class SwingProjectSidebarPanel extends JPanel {
                           onSongLoaded.accept(mockProj);
                         }
                       }
-                      vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+                      bridge.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
                     }
                   } catch (Exception ex) {
                     ex.printStackTrace();

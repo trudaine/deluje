@@ -4,7 +4,6 @@ import java.awt.*;
 import java.awt.event.*;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-import org.chuck.core.ChuckVM;
 import org.deluge.BridgeContract;
 import org.deluge.engine.DroneLabGenerator;
 import org.deluge.firmware.engine.FirmwareSound;
@@ -19,8 +18,8 @@ public class SwingDroneLabDialog extends JDialog {
 
   private final SwingDelugeApp app;
   private final SynthTrackModel track;
-  private final ChuckVM vm;
   private final BridgeContract bridge;
+
   private final int trackIndex;
   private final ProjectModel project;
 
@@ -45,15 +44,14 @@ public class SwingDroneLabDialog extends JDialog {
   public SwingDroneLabDialog(
       SwingDelugeApp owner,
       SynthTrackModel track,
-      ChuckVM vm,
-      BridgeContract bridge,
+      final BridgeContract bridge,
       int trackIndex,
       ProjectModel project) {
     super(owner, "⚡ DRONE LAB & TEXTURE GENERATOR", true);
     this.app = owner;
     this.track = track;
-    this.vm = vm;
     this.bridge = bridge;
+
     this.trackIndex = trackIndex;
     this.project = project;
 
@@ -199,13 +197,13 @@ public class SwingDroneLabDialog extends JDialog {
     xyPad.setPoint(0.2, 0.3);
 
     // Synchronize to active sound engine
-    FirmwareSound sound = DroneLabGenerator.getActiveTrackSound(vm, trackIndex);
+    FirmwareSound sound = DroneLabGenerator.getActiveTrackSound(bridge, trackIndex);
     if (sound != null) {
       DroneLabGenerator.applyMacros(track, sound, 0.2, 0.3, 0.6, 0.25);
     }
 
     // Force Playback to Start immediately with 100% absolute reliability!
-    vm.setGlobalInt(BridgeContract.G_PLAY, 1L);
+    bridge.setGlobalInt(BridgeContract.G_PLAY, 1L);
     bridge.setPlayState(1);
     if (app.getPureEngine() != null && app.getPureEngine().getPlaybackHandler() != null) {
       app.getPureEngine().getPlaybackHandler().start();
@@ -230,7 +228,7 @@ public class SwingDroneLabDialog extends JDialog {
 
     xyPad.setPoint(friction, turbulence);
 
-    FirmwareSound sound = DroneLabGenerator.getActiveTrackSound(vm, trackIndex);
+    FirmwareSound sound = DroneLabGenerator.getActiveTrackSound(bridge, trackIndex);
     if (sound != null) {
       DroneLabGenerator.applyMacros(track, sound, friction, turbulence, atmosphere, dirt);
     }
@@ -329,7 +327,7 @@ public class SwingDroneLabDialog extends JDialog {
       double turbulence = py;
       double dirt = 1.0 - py;
 
-      FirmwareSound sound = DroneLabGenerator.getActiveTrackSound(vm, trackIndex);
+      FirmwareSound sound = DroneLabGenerator.getActiveTrackSound(bridge, trackIndex);
       if (sound != null) {
         DroneLabGenerator.applyMacros(track, sound, friction, turbulence, atmosphere, dirt);
       }

@@ -6,7 +6,6 @@ import java.awt.event.MouseEvent;
 import java.util.Arrays;
 import javax.swing.*;
 import javax.swing.border.LineBorder;
-import org.chuck.core.ChuckVM;
 import org.deluge.BridgeContract;
 import org.deluge.model.ProjectModel;
 
@@ -30,8 +29,8 @@ public class SwingPerformanceViewPanel extends JPanel {
   private static final int COLS = 18;
   private static final int ROWS = 8;
 
-  private final ChuckVM vm;
   private final BridgeContract bridge;
+
   private final ProjectModel projectModel;
 
   // The 18 FX column names
@@ -93,9 +92,9 @@ public class SwingPerformanceViewPanel extends JPanel {
   // Column header buttons for section toggles (toggle all rows in a column)
   private final boolean[] columnMuteState = new boolean[COLS];
 
-  public SwingPerformanceViewPanel(ChuckVM vm, BridgeContract bridge, ProjectModel projectModel) {
-    this.vm = vm;
+  public SwingPerformanceViewPanel(final BridgeContract bridge, ProjectModel projectModel) {
     this.bridge = bridge;
+
     this.projectModel = projectModel;
 
     setBackground(new Color(0x18, 0x18, 0x18));
@@ -398,8 +397,8 @@ public class SwingPerformanceViewPanel extends JPanel {
   /** Read a per-track float from a VM ChuckArray global. */
   private float readChuckFloat(String global, int track) {
     try {
-      Object obj = vm.getGlobalObject(global);
-      if (obj instanceof org.chuck.core.ChuckArray arr) {
+      Object obj = bridge.getGlobalObject(global);
+      if (obj instanceof org.deluge.shadow.core.ChuckArray arr) {
         return (float) arr.getFloat(track);
       }
     } catch (Exception ignored) {
@@ -410,8 +409,8 @@ public class SwingPerformanceViewPanel extends JPanel {
   /** Write a per-track float to a VM ChuckArray global. */
   private void writeChuckFloat(String global, int track, float val) {
     try {
-      Object obj = vm.getGlobalObject(global);
-      if (obj instanceof org.chuck.core.ChuckArray arr) {
+      Object obj = bridge.getGlobalObject(global);
+      if (obj instanceof org.deluge.shadow.core.ChuckArray arr) {
         arr.setFloat(track, val);
       }
     } catch (Exception ignored) {
@@ -421,8 +420,8 @@ public class SwingPerformanceViewPanel extends JPanel {
   /** Read a per-track int from a VM ChuckArray global. */
   private int readChuckInt(String global, int track) {
     try {
-      Object obj = vm.getGlobalObject(global);
-      if (obj instanceof org.chuck.core.ChuckArray arr) {
+      Object obj = bridge.getGlobalObject(global);
+      if (obj instanceof org.deluge.shadow.core.ChuckArray arr) {
         return (int) arr.getInt(track);
       }
     } catch (Exception ignored) {
@@ -433,8 +432,8 @@ public class SwingPerformanceViewPanel extends JPanel {
   /** Write a per-track int to a VM ChuckArray global. */
   private void writeChuckInt(String global, int track, int val) {
     try {
-      Object obj = vm.getGlobalObject(global);
-      if (obj instanceof org.chuck.core.ChuckArray arr) {
+      Object obj = bridge.getGlobalObject(global);
+      if (obj instanceof org.deluge.shadow.core.ChuckArray arr) {
         arr.setInt(track, (long) val);
       }
     } catch (Exception ignored) {
@@ -470,7 +469,7 @@ public class SwingPerformanceViewPanel extends JPanel {
     if (focusTrack < 0) return;
 
     // ── Sync with Firmware Engine ──
-    Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+    Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
     if (fwEngineObj instanceof org.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
       if (focusTrack < fwEngine.sounds.size()) {
         org.deluge.firmware2.GlobalEffectable sound = fwEngine.sounds.get(focusTrack);
@@ -503,8 +502,8 @@ public class SwingPerformanceViewPanel extends JPanel {
       case 15 -> writeChuckFloat(BridgeContract.G_NOISE_VOL, focusTrack, val);
       case 16 -> bridge.setMute(focusTrack, val > 0.5f);
       case 17 -> {
-        vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) focusTrack);
-        vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
+        bridge.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) focusTrack);
+        bridge.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
       }
       default -> {}
     }

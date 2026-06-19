@@ -5,12 +5,12 @@ import java.awt.geom.Path2D;
 import java.util.ArrayList;
 import java.util.List;
 import javax.swing.*;
-import org.chuck.core.ChuckVM;
+import org.deluge.BridgeContract;
 
 /** Pure Swing real-time FFT oscilloscope, spectrum waterfall, and stereo phase vector scope. */
 public class SwingVisualizerPanel extends JPanel {
-  private final ChuckVM vm;
-  private final org.deluge.BridgeContract bridge;
+  private final BridgeContract bridge;
+
   private final Timer repaintTimer;
 
   // Waterfall scrolling history: stores magnitude arrays of size 32 (visual bars count)
@@ -20,9 +20,9 @@ public class SwingVisualizerPanel extends JPanel {
   // Keep a simple peak-hold array for standard spectrum analysis
   private final float[] peakHold = new float[32];
 
-  public SwingVisualizerPanel(ChuckVM vm, org.deluge.BridgeContract bridge) {
-    this.vm = vm;
+  public SwingVisualizerPanel(final BridgeContract bridge) {
     this.bridge = bridge;
+
     setBackground(new Color(0x10, 0x10, 0x12));
 
     // Repaint at ~60 FPS!
@@ -57,9 +57,13 @@ public class SwingVisualizerPanel extends JPanel {
       dataR = org.deluge.engine.JavaAudioDriver.getLiveVisBufferR();
     } else {
       dataL =
-          (vm != null && vm.getDacChannel(0) != null) ? vm.getDacChannel(0).getVisBuffer() : null;
+          (bridge != null && bridge.getDacChannel(0) != null)
+              ? bridge.getDacChannel(0).getVisBuffer()
+              : null;
       dataR =
-          (vm != null && vm.getDacChannel(1) != null) ? vm.getDacChannel(1).getVisBuffer() : null;
+          (bridge != null && bridge.getDacChannel(1) != null)
+              ? bridge.getDacChannel(1).getVisBuffer()
+              : null;
     }
 
     // 1. Draw Oscilloscope (Row 1 - Left Channel)

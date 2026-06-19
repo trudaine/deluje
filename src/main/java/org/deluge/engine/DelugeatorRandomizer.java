@@ -171,15 +171,15 @@ public class DelugeatorRandomizer {
       // Load a random but mathematically-safe 156-byte DX7 sysex patch!
       byte[] syx = new byte[156];
       // Random DX7 algorithm: 1 to 32
-      syx[org.chuck.audio.util.Dx7Patch.OFF_ALGORITHM] = (byte) ((int) (Math.random() * 32) + 1);
+      syx[org.deluge.shadow.audio.Dx7Patch.OFF_ALGORITHM] = (byte) ((int) (Math.random() * 32) + 1);
       // Random Feedback level: 0 to 7
-      syx[org.chuck.audio.util.Dx7Patch.OFF_FEEDBACK] = (byte) ((int) (Math.random() * 8));
+      syx[org.deluge.shadow.audio.Dx7Patch.OFF_FEEDBACK] = (byte) ((int) (Math.random() * 8));
       // Active Operator switches mask (bitmask 0 to 63, ensure at least 2 active!)
       int opMask = 0;
       while (Integer.bitCount(opMask) < 2) {
         opMask = (int) (Math.random() * 64);
       }
-      syx[org.chuck.audio.util.Dx7Patch.OFF_OP_SWITCH] = (byte) opMask;
+      syx[org.deluge.shadow.audio.Dx7Patch.OFF_OP_SWITCH] = (byte) opMask;
 
       float[] commonRatios = {0.5f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 8.0f, 10.0f, 12.0f};
 
@@ -212,7 +212,7 @@ public class DelugeatorRandomizer {
         syx[offset + 7] = (byte) 0; // Level 4 (always return to silence on release!)
       }
 
-      String patchHex = org.chuck.audio.util.Dx7Patch.bytesToHex(syx);
+      String patchHex = org.deluge.shadow.audio.Dx7Patch.bytesToHex(syx);
       model.setDx7Patch(patchHex);
       model.setDx7RandomDetune((int) getTriangular(0, 99, 0, amt));
       model.setEngineType(Math.random() < 0.5 ? 0 : 1); // modern or vintage engine modes!

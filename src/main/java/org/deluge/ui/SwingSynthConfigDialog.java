@@ -2,7 +2,6 @@ package org.deluge.ui;
 
 import java.awt.*;
 import javax.swing.*;
-import org.chuck.core.ChuckVM;
 import org.deluge.BridgeContract;
 import org.deluge.model.Consequence;
 import org.deluge.model.ProjectModel;
@@ -27,8 +26,8 @@ public class SwingSynthConfigDialog extends JDialog {
   private final SynthTrackModel model;
   private final ProjectModel projectModel;
   private final int trackIndex;
-  private final ChuckVM vm;
   private final BridgeContract bridge;
+
   private MidiLearnPanel midiLearnPanel;
   private LfoPanel lfoPanel;
   private static JLabel globalHelpLabel;
@@ -42,8 +41,7 @@ public class SwingSynthConfigDialog extends JDialog {
   public SwingSynthConfigDialog(
       Frame owner,
       SynthTrackModel model,
-      ChuckVM vm,
-      BridgeContract bridge,
+      final BridgeContract bridge,
       int trackIndex,
       ProjectModel projectModel) {
     super(
@@ -53,8 +51,8 @@ public class SwingSynthConfigDialog extends JDialog {
     this.model = model;
     this.projectModel = projectModel;
     this.trackIndex = trackIndex;
-    this.vm = vm;
     this.bridge = bridge;
+
     setSize(1300, 750);
     setLocationRelativeTo(owner);
     setLayout(new BorderLayout());
@@ -164,15 +162,15 @@ public class SwingSynthConfigDialog extends JDialog {
     // running engine sound, so every knob/combo edit is audible immediately instead of waiting
     // for the next project rebuild. Polling the whole model (cheap: pure math, file loads are
     // path-guarded) covers every control on every tab without per-listener wiring.
-    liveApplyTimer = new Timer(200, e -> liveApplyToEngine(vm, model));
+    liveApplyTimer = new Timer(200, e -> liveApplyToEngine(bridge, model));
     liveApplyTimer.start();
   }
 
   private final Timer liveApplyTimer;
 
-  private void liveApplyToEngine(ChuckVM vm, SynthTrackModel model) {
+  private void liveApplyToEngine(BridgeContract bridge, SynthTrackModel model) {
     try {
-      Object engineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+      Object engineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
       if (engineObj instanceof org.deluge.firmware.engine.FirmwareAudioEngine engine
           && trackIndex < engine.sounds.size()
           && engine.sounds.get(trackIndex) instanceof org.deluge.firmware.engine.FirmwareSound fs) {
@@ -198,7 +196,7 @@ public class SwingSynthConfigDialog extends JDialog {
   }
 
   private JPanel buildMainPanel(
-      SynthTrackModel model, ChuckVM vm, BridgeContract bridge, int trackIndex) {
+      SynthTrackModel model, final BridgeContract bridge, int trackIndex) {
     JPanel mainContainer = new JPanel(new GridBagLayout());
     mainContainer.setBackground(BG_CARD);
 
@@ -1051,7 +1049,7 @@ public class SwingSynthConfigDialog extends JDialog {
   }
 
   private void liveApplyAction() {
-    liveApplyToEngine(vm, model);
+    liveApplyToEngine(bridge, model);
   }
 
   /**
@@ -1065,20 +1063,19 @@ public class SwingSynthConfigDialog extends JDialog {
    * 14-tab overload without burying the showcase editors or merging "main + detail" content.
    */
   private void populateTabs() {
-    tabs.addTab("OSC / FILTER / FM", buildMainPanel(model, vm, bridge, trackIndex));
+    tabs.addTab("OSC / FILTER / FM", buildMainPanel(model, bridge, trackIndex));
 
     // ── Sound sources / FM detail (grouped) ──
     Runnable reloadDialog =
         () -> {
           dispose();
-          new SwingSynthConfigDialog(
-                  (Frame) getOwner(), model, vm, bridge, trackIndex, projectModel)
+          new SwingSynthConfigDialog((Frame) getOwner(), model, bridge, trackIndex, projectModel)
               .setVisible(true);
         };
     JTabbedPane sourceTabs = styledSubTabs();
     sourceTabs.addTab("OSC", new OscPanel(model, bridge, trackIndex, projectModel));
     sourceTabs.addTab("ALGORITHM", new AlgorithmPanel(model, bridge, trackIndex));
-    sourceTabs.addTab("DX7", new Dx7Panel(model, vm, bridge, trackIndex, this, reloadDialog));
+    sourceTabs.addTab("DX7", new Dx7Panel(model, bridge, trackIndex, this, reloadDialog));
     tabs.addTab("SOURCES", sourceTabs);
 
     // Filter: LPF lives in the main tab; HPF here.

@@ -3,12 +3,11 @@ package org.deluge.ui;
 import java.awt.*;
 import java.util.List;
 import javax.swing.*;
-import org.chuck.core.ChuckArray;
-import org.chuck.core.ChuckVM;
 import org.deluge.BridgeContract;
 import org.deluge.model.Drum;
 import org.deluge.model.KitTrackModel;
 import org.deluge.model.SoundDrum;
+import org.deluge.shadow.core.ChuckArray;
 
 /**
  * A beautiful, 2-column wide-screen optimized layout for Drum Kit voice and FX parameters,
@@ -31,7 +30,7 @@ public class SwingKitConfigDialog extends JDialog {
       "<html>💡 <b>QUICK HELP:</b> Hover over any drum sample control or FX slider to see its details and hardware mappings here!</html>";
 
   public SwingKitConfigDialog(
-      Frame owner, KitTrackModel kit, ChuckVM vm, BridgeContract bridge, int trackIndex) {
+      Frame owner, KitTrackModel kit, final BridgeContract bridge, int trackIndex) {
     super(owner, "Kit Track Editor: " + kit.getName() + " (Track " + (trackIndex + 1) + ")", false);
     this.trackIndex = trackIndex;
     setSize(1280, 800);
@@ -46,7 +45,7 @@ public class SwingKitConfigDialog extends JDialog {
 
     for (int i = 0; i < sounds.size(); i++) {
       tabs.addTab(
-          sounds.get(i).getName(), buildSoundPanel((SoundDrum) sounds.get(i), i, kit, vm, bridge));
+          sounds.get(i).getName(), buildSoundPanel((SoundDrum) sounds.get(i), i, kit, bridge));
     }
 
     add(tabs, BorderLayout.CENTER);
@@ -85,13 +84,13 @@ public class SwingKitConfigDialog extends JDialog {
     DarkComboBoxRenderer.styleComponentTree(this);
 
     // ── Live-apply ──
-    liveApplyTimer = new Timer(200, e -> liveApplyToEngine(vm, kit));
+    liveApplyTimer = new Timer(200, e -> liveApplyToEngine(bridge, kit));
     liveApplyTimer.start();
   }
 
-  private void liveApplyToEngine(ChuckVM vm, KitTrackModel model) {
+  private void liveApplyToEngine(BridgeContract bridge, KitTrackModel model) {
     try {
-      Object engineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+      Object engineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
       if (engineObj instanceof org.deluge.firmware.engine.FirmwareAudioEngine engine
           && trackIndex < engine.sounds.size()
           && engine.sounds.get(trackIndex) instanceof org.deluge.firmware.engine.FirmwareKit kit) {
@@ -131,7 +130,7 @@ public class SwingKitConfigDialog extends JDialog {
   }
 
   private JPanel buildSoundPanel(
-      SoundDrum sound, int idx, KitTrackModel kit, ChuckVM vm, BridgeContract bridge) {
+      SoundDrum sound, int idx, KitTrackModel kit, final BridgeContract bridge) {
     JPanel panel = new JPanel(new GridBagLayout());
     panel.setBackground(SwingSynthConfigDialog.BG_CARD);
 
@@ -191,10 +190,10 @@ public class SwingKitConfigDialog extends JDialog {
           if (SwingDelugeApp.mainInstance != null) {
             SwingDelugeApp.mainInstance.applyKitDrumSampleLive(kit, idx, path);
           }
-          if (vm != null) {
+          if (bridge != null) {
             try {
-              vm.setGlobalString("g_sample_" + idx, path);
-              vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+              bridge.setGlobalString("g_sample_" + idx, path);
+              bridge.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
             } catch (Exception ex) {
               System.err.println("[KitConfig] sample load error: " + ex.getMessage());
             }
@@ -481,7 +480,7 @@ public class SwingKitConfigDialog extends JDialog {
             (int) sound.getPitchSemitones(),
             val -> {
               sound.setPitchSemitones(val);
-              getKitArray(vm, BridgeContract.G_KIT_PITCH).setFloat(idx, val);
+              getKitArray(bridge, BridgeContract.G_KIT_PITCH).setFloat(idx, val);
             });
 
     // LPF Header
@@ -506,7 +505,7 @@ public class SwingKitConfigDialog extends JDialog {
             val -> {
               float morph = val / 50.0f;
               sound.setLpfMorph(morph);
-              getKitArray(vm, BridgeContract.G_KIT_LPF_MORPH).setFloat(idx, morph);
+              getKitArray(bridge, BridgeContract.G_KIT_LPF_MORPH).setFloat(idx, morph);
             });
 
     // ADSR Header
@@ -516,10 +515,10 @@ public class SwingKitConfigDialog extends JDialog {
     leftPanel.add(sectionLabel("ADSR ENVELOPE"), cLeft);
     leftRow++;
 
-    ChuckArray atk = getKitArray(vm, BridgeContract.G_KIT_ATTACK);
-    ChuckArray dec = getKitArray(vm, BridgeContract.G_KIT_DECAY);
-    ChuckArray sus = getKitArray(vm, BridgeContract.G_KIT_SUSTAIN);
-    ChuckArray rel = getKitArray(vm, BridgeContract.G_KIT_RELEASE);
+    ChuckArray atk = getKitArray(bridge, BridgeContract.G_KIT_ATTACK);
+    ChuckArray dec = getKitArray(bridge, BridgeContract.G_KIT_DECAY);
+    ChuckArray sus = getKitArray(bridge, BridgeContract.G_KIT_SUSTAIN);
+    ChuckArray rel = getKitArray(bridge, BridgeContract.G_KIT_RELEASE);
 
     String atkHelp =
         "<b>ENV ATTACK:</b> Ramps up the volume envelope speed from silence to peak after a note is triggered (0 to 2000 ms). — <i>Physical Deluge:</i> Hold shift + turn ATTACK gold shortcut dial.";
@@ -607,7 +606,7 @@ public class SwingKitConfigDialog extends JDialog {
         e -> {
           int mg = muteCombo.getSelectedIndex();
           sound.setMuteGroup(mg);
-          getKitArray(vm, BridgeContract.G_KIT_MUTE_GROUP).setInt(idx, (long) mg);
+          getKitArray(bridge, BridgeContract.G_KIT_MUTE_GROUP).setInt(idx, (long) mg);
         });
     leftPanel.add(muteCombo, cLeft);
     leftRow++;
@@ -633,7 +632,7 @@ public class SwingKitConfigDialog extends JDialog {
     reverseBox.addActionListener(
         e -> {
           sound.setReverse(reverseBox.isSelected());
-          getKitArray(vm, BridgeContract.G_KIT_REVERSE)
+          getKitArray(bridge, BridgeContract.G_KIT_REVERSE)
               .setInt(idx, reverseBox.isSelected() ? 1L : 0L);
         });
     leftPanel.add(reverseBox, cLeft);
@@ -994,8 +993,8 @@ public class SwingKitConfigDialog extends JDialog {
     return comp;
   }
 
-  private static ChuckArray getKitArray(ChuckVM vm, String key) {
-    return (ChuckArray) vm.getGlobalObject(key);
+  private static ChuckArray getKitArray(BridgeContract bridge, String key) {
+    return (ChuckArray) bridge.getGlobalObject(key);
   }
 
   private static JLabel label(String text) {

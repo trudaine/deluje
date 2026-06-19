@@ -1,6 +1,6 @@
 package org.deluge.midi;
 
-import org.chuck.midi.MidiMsg;
+import org.deluge.shadow.midi.MidiMsg;
 
 /**
  * Port of the C++ Deluge MIDIMessage: a structured MIDI message with separate statusType (high

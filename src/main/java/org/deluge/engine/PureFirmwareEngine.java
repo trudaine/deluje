@@ -1,6 +1,5 @@
 package org.deluge.engine;
 
-import org.chuck.core.ChuckVM;
 import org.deluge.BridgeContract;
 import org.deluge.firmware.engine.FirmwareAudioEngine;
 import org.deluge.firmware.model.Song;
@@ -34,7 +33,7 @@ public class PureFirmwareEngine {
     this.audioDriver = new JavaAudioDriver(audioEngine, playbackHandler);
   }
 
-  public void start(ChuckVM vm) {
+  public void start(BridgeContract bridge) {
     if (running) return;
     running = true;
 
@@ -62,7 +61,7 @@ public class PureFirmwareEngine {
                 () -> {
                   while (running) {
                     try {
-                      syncFromBridge(vm);
+                      syncFromBridge(bridge);
                     } catch (Exception e) {
                       System.err.println("[PureFirmwareEngine] Sync Error: " + e.getMessage());
                     }
@@ -77,10 +76,10 @@ public class PureFirmwareEngine {
     System.out.println("[PureFirmwareEngine] Workstation Started (Pure Java Mode)");
   }
 
-  private void syncFromBridge(ChuckVM vm) {
-    if (vm == null) return;
+  private void syncFromBridge(BridgeContract bridge) {
+    if (bridge == null) return;
 
-    long play = vm.getGlobalInt(BridgeContract.G_PLAY);
+    long play = bridge.getGlobalInt(BridgeContract.G_PLAY);
     if (play == 1L) {
       if (!playbackHandler.isPlaying()) {
         playbackHandler.start();
@@ -90,7 +89,7 @@ public class PureFirmwareEngine {
         stepTicks = playbackHandler.getSong().clips.get(0).tripletMode ? 32 : 24;
       }
       int currentStep = playbackHandler.lastSwungTickActioned / stepTicks;
-      vm.setGlobalInt(BridgeContract.G_CURRENT_STEP, (long) currentStep);
+      bridge.setGlobalInt(BridgeContract.G_CURRENT_STEP, (long) currentStep);
     } else {
       if (playbackHandler.isPlaying()) {
         playbackHandler.stop();
@@ -104,24 +103,24 @@ public class PureFirmwareEngine {
           }
         }
       }
-      vm.setGlobalInt(BridgeContract.G_CURRENT_STEP, -1L);
+      bridge.setGlobalInt(BridgeContract.G_CURRENT_STEP, -1L);
     }
 
-    float bpm = (float) vm.getGlobalFloat(BridgeContract.G_BPM);
+    float bpm = (float) bridge.getGlobalFloat(BridgeContract.G_BPM);
     if (bpm != currentBpm) {
       setBpm(bpm);
     }
 
-    float masterVol = (float) vm.getGlobalFloat(BridgeContract.G_MASTER_VOL);
+    float masterVol = (float) bridge.getGlobalFloat(BridgeContract.G_MASTER_VOL);
     audioEngine.masterVolumeAdjustmentL = (int) (masterVol * 2147483647.0);
     audioEngine.masterVolumeAdjustmentR = audioEngine.masterVolumeAdjustmentL;
 
     // Sync master compressor settings
-    float compThreshold = (float) vm.getGlobalFloat(BridgeContract.G_MASTER_COMP);
-    float compAttack = (float) vm.getGlobalFloat(BridgeContract.G_MASTER_COMP_ATTACK);
-    float compRelease = (float) vm.getGlobalFloat(BridgeContract.G_MASTER_COMP_RELEASE);
-    float compRatio = (float) vm.getGlobalFloat(BridgeContract.G_MASTER_COMP_RATIO);
-    float compBlend = (float) vm.getGlobalFloat(BridgeContract.G_MASTER_COMP_BLEND);
+    float compThreshold = (float) bridge.getGlobalFloat(BridgeContract.G_MASTER_COMP);
+    float compAttack = (float) bridge.getGlobalFloat(BridgeContract.G_MASTER_COMP_ATTACK);
+    float compRelease = (float) bridge.getGlobalFloat(BridgeContract.G_MASTER_COMP_RELEASE);
+    float compRatio = (float) bridge.getGlobalFloat(BridgeContract.G_MASTER_COMP_RATIO);
+    float compBlend = (float) bridge.getGlobalFloat(BridgeContract.G_MASTER_COMP_BLEND);
 
     audioEngine.masterCompressor.setThresholdFloat(compThreshold);
     audioEngine.masterCompressor.setAttackFloat(compAttack);
@@ -131,49 +130,51 @@ public class PureFirmwareEngine {
 
     // Sync master reverb model + room/damping/width from the song (previously left at defaults, so
     // the song's reverb settings had no effect in the pure engine).
-    int reverbModel = (int) vm.getGlobalInt(BridgeContract.G_REVERB_MODEL);
+    int reverbModel = (int) bridge.getGlobalInt(BridgeContract.G_REVERB_MODEL);
     audioEngine.masterReverb.setModel(
         switch (reverbModel) {
           case 1 -> org.deluge.firmware2.Reverb.Model.DIGITAL;
           case 2 -> org.deluge.firmware2.Reverb.Model.MUTABLE;
           default -> org.deluge.firmware2.Reverb.Model.FREEVERB;
         });
-    audioEngine.masterReverb.setRoomSize((float) vm.getGlobalFloat(BridgeContract.G_REVERB_ROOM));
-    audioEngine.masterReverb.setDamping((float) vm.getGlobalFloat(BridgeContract.G_REVERB_DAMP));
-    audioEngine.masterReverb.setWidth((float) vm.getGlobalFloat(BridgeContract.G_REVERB_WIDTH));
+    audioEngine.masterReverb.setRoomSize(
+        (float) bridge.getGlobalFloat(BridgeContract.G_REVERB_ROOM));
+    audioEngine.masterReverb.setDamping(
+        (float) bridge.getGlobalFloat(BridgeContract.G_REVERB_DAMP));
+    audioEngine.masterReverb.setWidth((float) bridge.getGlobalFloat(BridgeContract.G_REVERB_WIDTH));
 
     // Sync master delay. The delay's internal tempo-sync is disabled (see FirmwareAudioEngine), so
     // we compute the delay time in seconds ourselves — tempo-synced when a sync level is set,
     // otherwise the free-running G_DELAY_TIME (scaled by the live rate) — and convert it to the
     // buffer's userDelayRate (inverse of DelayBuffer.getIdealBufferSizeFromRate).
-    long syncLevel = vm.getGlobalInt(BridgeContract.G_DELAY_SYNC_LEVEL);
+    long syncLevel = bridge.getGlobalInt(BridgeContract.G_DELAY_SYNC_LEVEL);
     double delaySec;
     if (syncLevel > 0) {
       double stepSec = (currentBpm > 0 ? 60.0 / currentBpm : 0.5) / 4.0; // 16th-note step
       double syncFactor = Math.pow(2.0, syncLevel - 1);
-      if (vm.getGlobalInt(BridgeContract.G_DELAY_SYNC_TYPE) == 1) syncFactor *= 1.5; // triplet
+      if (bridge.getGlobalInt(BridgeContract.G_DELAY_SYNC_TYPE) == 1) syncFactor *= 1.5; // triplet
       delaySec = syncFactor * stepSec;
     } else {
-      delaySec = vm.getGlobalFloat(BridgeContract.G_DELAY_TIME);
-      double spRate = vm.getGlobalFloat(BridgeContract.G_SP_DELAY_RATE);
+      delaySec = bridge.getGlobalFloat(BridgeContract.G_DELAY_TIME);
+      double spRate = bridge.getGlobalFloat(BridgeContract.G_SP_DELAY_RATE);
       if (spRate > 0.001) delaySec *= spRate;
     }
     delaySec = Math.max(0.001, Math.min(2.0, delaySec));
     long rate = (long) (16384L * 16777216L / (delaySec * 44100.0));
     audioEngine.delayState.userDelayRate = (int) Math.min(rate, Integer.MAX_VALUE);
 
-    double fb = vm.getGlobalFloat(BridgeContract.G_DELAY_FB);
-    double spFb = vm.getGlobalFloat(BridgeContract.G_SP_DELAY_FEEDBACK);
+    double fb = bridge.getGlobalFloat(BridgeContract.G_DELAY_FB);
+    double spFb = bridge.getGlobalFloat(BridgeContract.G_SP_DELAY_FEEDBACK);
     if (spFb > 0.001) fb *= Math.min(1.0, spFb);
     fb = Math.max(0.0, Math.min(1.0, fb));
     audioEngine.delayState.delayFeedbackAmount =
         Math.min((int) (fb * 2147483647.0), (1 << 30) - (1 << 26));
 
-    audioEngine.masterDelay.pingPong = vm.getGlobalInt(BridgeContract.G_DELAY_PINGPONG) != 0;
-    audioEngine.masterDelay.analog = vm.getGlobalInt(BridgeContract.G_DELAY_ANALOG) != 0;
+    audioEngine.masterDelay.pingPong = bridge.getGlobalInt(BridgeContract.G_DELAY_PINGPONG) != 0;
+    audioEngine.masterDelay.analog = bridge.getGlobalInt(BridgeContract.G_DELAY_ANALOG) != 0;
 
     // Sync individual track params
-    float spVol = (float) vm.getGlobalFloat(BridgeContract.G_SP_VOLUME);
+    float spVol = (float) bridge.getGlobalFloat(BridgeContract.G_SP_VOLUME);
     if (spVol < 0.01f && System.currentTimeMillis() % 2000 < 50) {
       System.out.println("[PureFirmwareEngine] WARNING: G_SP_VOLUME is very low: " + spVol);
     }
@@ -184,7 +185,7 @@ public class PureFirmwareEngine {
       for (int t = 0; t < song.clips.size(); t++) {
         org.deluge.firmware.model.Clip clip = song.clips.get(t);
         if (clip instanceof org.deluge.firmware.model.InstrumentClip ic && ic.sound != null) {
-          boolean isMuted = vm.getGlobalInt("g_mute_" + t) > 0;
+          boolean isMuted = bridge.getGlobalInt("g_mute_" + t) > 0;
           ic.sound.muted = isMuted;
         }
       }
@@ -208,12 +209,12 @@ public class PureFirmwareEngine {
     // Song-param overrides (performance sliders). Only pushed into the sounds when a global
     // actually CHANGES: the previous unconditional write (every 20ms, every sound) clobbered the
     // per-track knobs from the patch — and would instantly undo the dialogs' live-apply edits.
-    float spLpfFreq = (float) vm.getGlobalFloat(BridgeContract.G_SP_LPF_FREQ);
-    float spLpfRes = (float) vm.getGlobalFloat(BridgeContract.G_SP_LPF_RES);
-    float spLpfMorph = (float) vm.getGlobalFloat(BridgeContract.G_SP_LPF_MORPH);
-    float spHpfFreq = (float) vm.getGlobalFloat(BridgeContract.G_SP_HPF_FREQ);
-    float spHpfRes = (float) vm.getGlobalFloat(BridgeContract.G_SP_HPF_RES);
-    float spHpfMorph = (float) vm.getGlobalFloat(BridgeContract.G_SP_HPF_MORPH);
+    float spLpfFreq = (float) bridge.getGlobalFloat(BridgeContract.G_SP_LPF_FREQ);
+    float spLpfRes = (float) bridge.getGlobalFloat(BridgeContract.G_SP_LPF_RES);
+    float spLpfMorph = (float) bridge.getGlobalFloat(BridgeContract.G_SP_LPF_MORPH);
+    float spHpfFreq = (float) bridge.getGlobalFloat(BridgeContract.G_SP_HPF_FREQ);
+    float spHpfRes = (float) bridge.getGlobalFloat(BridgeContract.G_SP_HPF_RES);
+    float spHpfMorph = (float) bridge.getGlobalFloat(BridgeContract.G_SP_HPF_MORPH);
     boolean spChanged =
         spVol != lastSpVol
             || spLpfFreq != lastSpLpfFreq

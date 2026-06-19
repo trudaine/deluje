@@ -3,7 +3,6 @@ package org.deluge.ui;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.chuck.core.ChuckVM;
 import org.deluge.BridgeContract;
 import org.deluge.model.ProjectModel;
 import org.junit.jupiter.api.Test;
@@ -17,13 +16,12 @@ public class ScaleNameConsistencyTest {
 
   private SwingGridPanel panelWithScale(String scale) throws Exception {
     System.setProperty("chuck.audio.dummy", "true");
-    ChuckVM vm = new ChuckVM(44100, 2);
     BridgeContract bridge = new BridgeContract();
-    bridge.register(vm);
+
     ProjectModel project = new ProjectModel();
     project.setKey("C");
     project.setScale(scale);
-    SwingGridPanel panel = new SwingGridPanel(vm, bridge);
+    SwingGridPanel panel = new SwingGridPanel(bridge);
     panel.setProjectModel(project);
     return panel;
   }

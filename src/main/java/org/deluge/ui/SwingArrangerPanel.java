@@ -4,13 +4,12 @@ import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import javax.swing.*;
-import org.chuck.core.ChuckVM;
 import org.deluge.BridgeContract;
 
 /** Linear Arranger timeline plotted visually side by side. */
 public class SwingArrangerPanel extends JPanel {
-  private final ChuckVM vm;
   private final BridgeContract bridge;
+
   private final int trackHeight = 45;
   private final int numTracks = 8;
 
@@ -18,8 +17,7 @@ public class SwingArrangerPanel extends JPanel {
 
   private int pixelsPerBar = 80;
 
-  public SwingArrangerPanel(ChuckVM vm, BridgeContract bridge) {
-    this.vm = vm;
+  public SwingArrangerPanel(final BridgeContract bridge) {
     this.bridge = bridge;
 
     setBackground(new Color(0x20, 0x20, 0x20));
@@ -97,7 +95,7 @@ public class SwingArrangerPanel extends JPanel {
     }
 
     // Playhead
-    int playStep = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
+    int playStep = (int) bridge.getGlobalInt(BridgeContract.G_CURRENT_STEP);
     int playheadX = 100 + (playStep * 30);
     g2.setColor(Color.RED);
     g2.setStroke(new BasicStroke(2));

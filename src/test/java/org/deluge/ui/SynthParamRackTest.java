@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
-import org.chuck.core.ChuckVM;
+import org.deluge.BridgeContract;
 import org.deluge.model.SynthTrackModel;
 import org.junit.jupiter.api.Test;
 
@@ -13,8 +13,8 @@ import org.junit.jupiter.api.Test;
 public class SynthParamRackTest {
 
   private SynthParamRack rack(SynthTrackModel[] holder) {
-    ChuckVM vm = new ChuckVM(44100, 2);
-    return new SynthParamRack(vm, () -> holder[0], () -> 0);
+    BridgeContract bridge = new BridgeContract(44100, 2);
+    return new SynthParamRack(bridge, () -> holder[0], () -> 0);
   }
 
   @Test

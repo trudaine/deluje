@@ -1,6 +1,5 @@
 package org.deluge.midi;
 
-import org.chuck.core.ChuckVM;
 import org.deluge.BridgeContract;
 
 /**
@@ -22,9 +21,9 @@ import org.deluge.BridgeContract;
  */
 public class MidiFeedbackService {
 
-  private final ChuckVM vm;
   private final BridgeContract bridge;
-  private org.chuck.midi.MidiOut midiOut;
+
+  private org.deluge.shadow.midi.MidiOut midiOut;
   private boolean available = false;
 
   /** Optional device definition used for paramName → CC lookups. */
@@ -33,8 +32,7 @@ public class MidiFeedbackService {
   /** Track-change CC number (default 3 = User-defined controller; many controllers use CC#3). */
   private int trackChangeCc = 3;
 
-  public MidiFeedbackService(ChuckVM vm, BridgeContract bridge) {
-    this.vm = vm;
+  public MidiFeedbackService(final BridgeContract bridge) {
     this.bridge = bridge;
   }
 
@@ -48,8 +46,8 @@ public class MidiFeedbackService {
     close();
     if (portName == null || portName.isEmpty()) return;
     try {
-      midiOut = new org.chuck.midi.MidiOut();
-      String[] ports = org.chuck.midi.MidiOut.list();
+      midiOut = new org.deluge.shadow.midi.MidiOut();
+      String[] ports = org.deluge.shadow.midi.MidiOut.list();
       int portIdx = -1;
       for (int i = 0; i < ports.length; i++) {
         if (ports[i].equals(portName)) {

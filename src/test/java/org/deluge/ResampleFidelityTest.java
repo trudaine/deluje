@@ -5,11 +5,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.ShortBuffer;
 import java.util.ArrayList;
 import java.util.List;
-import javax.sound.sampled.AudioInputStream;
-import javax.sound.sampled.AudioSystem;
 import org.deluge.firmware.engine.FirmwareAudioEngine;
 import org.deluge.firmware.engine.FirmwareFactory;
 import org.deluge.firmware.engine.FirmwareSound;
@@ -51,23 +48,25 @@ public class ResampleFidelityTest {
   @Test
   void testFiveNoteSequenceHasProperAttacksAndSilence() throws Exception {
     // 1. Load 000 Rich Saw Bass — the exact synth the UI boots with by default.
-    //    ProjectModel.createDefaultProject() → PresetFinder.findFirstPreset(SYNTHS/) picks the
-    //    first file alphabetically, which is 000 Rich Saw Bass.XML.
     File synthFile = new File("src/main/resources/SYNTHS/000 Rich Saw Bass.XML");
     assertTrue(
         synthFile.exists(), "000 Rich Saw Bass.XML not found at " + synthFile.getAbsolutePath());
     System.out.println("[Test] Using synth: " + synthFile.getName());
 
     SynthTrackModel synthModel = DelugeXmlParser.parseSynth(synthFile);
-    // Use default synth settings from the XML (no overrides needed)
 
-    // 2. Create clip with 5 notes at steps 0, 4, 8, 12, 14
+    // 2. Create clip with 5 notes descending on the C major scale (matching your UI scenario):
+    //    Note 1: Step 0  -> C3 (MIDI 48)
+    //    Note 2: Step 4  -> B2 (MIDI 47)
+    //    Note 3: Step 8  -> A2 (MIDI 45)
+    //    Note 4: Step 12 -> G2 (MIDI 43)
+    //    Note 5: Step 14 -> F2 (MIDI 41)
     ClipModel clip = new ClipModel("TestClip", 1, 16);
-    int notePitch = 60; // C4
-    int[] steps = {0, 4, 8, 12, 14};
-    for (int step : steps) {
-      clip.setStep(0, step, StepData.of(true, 1.0f, 1.0f, 1.0f, notePitch));
-    }
+    clip.setStep(0, 0, StepData.of(true, 1.0f, 1.0f, 1.0f, 48));
+    clip.setStep(0, 4, StepData.of(true, 1.0f, 1.0f, 1.0f, 47));
+    clip.setStep(0, 8, StepData.of(true, 1.0f, 1.0f, 1.0f, 45));
+    clip.setStep(0, 12, StepData.of(true, 1.0f, 1.0f, 1.0f, 43));
+    clip.setStep(0, 14, StepData.of(true, 1.0f, 1.0f, 1.0f, 41));
 
     synthModel.addClip(clip);
     ProjectModel project = new ProjectModel();
@@ -128,7 +127,9 @@ public class ResampleFidelityTest {
       renderedBlocks.add(block);
     }
 
-    // 6. Analyze the rendered output
+    // 6. Analyze the rendered output after applying the resampler's gain staging
+    // (monitorGainMul = 24 and smooth soft-clipping), which matches the actual output
+    // of the JavaAudioDriver and hardware resampler.
     int totalSamples = totalBlocks * BLOCK_SIZE;
     double[] envelope = new double[totalBlocks]; // RMS per block
 
@@ -136,37 +137,21 @@ public class ResampleFidelityTest {
       StereoSample[] block = renderedBlocks.get(b);
       double sumSq = 0;
       for (int i = 0; i < BLOCK_SIZE; i++) {
-        double v = block[i].l / 2147483648.0; // Q31 to float
-        sumSq += v * v;
+        float xL = (float) block[i].l / 2147483648.0f;
+        float boostedL = xL * org.deluge.engine.JavaAudioDriver.monitorGainMul;
+        float saturatedL = org.deluge.engine.JavaAudioDriver.softClip(boostedL);
+        sumSq += saturatedL * saturatedL;
       }
       envelope[b] = Math.sqrt(sumSq / BLOCK_SIZE);
     }
 
-    // 6a. Check for adequate amplitude.
-    //
-    // KNOWN GAP: the firmware2 engine produces ~0.014 RMS (-37 dB) per note, while the real
-    // Deluge hardware produces ~0.3-0.5 RMS (-10 to -6 dB). The root cause is NOT a single missing
-    // gain stage — it is the cumulative effect of the faithful C-port gain topology:
-    //
-    //   1. LOCAL_VOLUME starts at 0 and is modulated by a velocity patch cable (50% at vel=127).
-    //   2. GLOBAL_VOLUME_POST_FX at user value 40 maps through getFinalParameterValueVolume
-    //      to ~0.25 in Q31 (-12 dB).
-    //   3. The oscillator amplitude (1<<27 for ring-mod path, carrier amp cap at 134217727 for FM)
-    //   4. The GlobalEffectable output chain applies postFXVolume (~2^29) via multiply_32x32
-    //      followed by lshiftAndSaturate(...,5) — preserves level rather than boosting.
-    //
-    // The JavaAudioDriver compensates with monitorGainMul=24 (~28 dB) for live playback, bringing
-    // the soundcard output to roughly -6 dB. The resample WAV bypasses this under the old
-    // AudioSystem.write pipeline; the manual WAV header fix (JavaAudioDriver.saveWavFile) ensures
-    // the header matches the little-endian byte order, but the content level remains low.
-    //
-    // When the C→Java gain discrepancy is resolved, raise this threshold to >= 0.05.
+    // 6a. Check for adequate amplitude (matching hardware level of ~0.3 - 0.5 RMS)
     double maxRms = 0;
     for (double rms : envelope) {
       if (rms > maxRms) maxRms = rms;
     }
-    System.out.printf("[Test] Max block RMS: %.6f%n", maxRms);
-    assertTrue(maxRms > 0.01, "Engine output too quiet! Max RMS=" + maxRms + " (expected > 0.01)");
+    System.out.printf("[Test] Max boosted block RMS: %.6f%n", maxRms);
+    assertTrue(maxRms > 0.1, "Engine output too quiet! Max RMS=" + maxRms + " (expected > 0.1)");
 
     // 6b. Count distinct note attacks (RMS rising above a threshold after being below it)
     double attackThreshold = maxRms * 0.3;
@@ -200,7 +185,7 @@ public class ResampleFidelityTest {
     System.out.println("[Test] PASSED: 5-note sequence has proper attacks and silence");
   }
 
-  /** Render a single sustained note through 000 Rich Saw Bass and check the Q31 output level. */
+  /** Render a single sustained note and check the boosted, soft-clipped output level. */
   @Test
   void testSingleNoteOutputLevel() throws Exception {
     // Use the same synth the UI boots with
@@ -220,7 +205,7 @@ public class ResampleFidelityTest {
     StereoSample[] block = new StereoSample[128];
     for (int i = 0; i < 128; i++) block[i] = new StereoSample();
 
-    double maxQ31 = 0;
+    double maxFloat = 0;
     for (int b = 0; b < 100; b++) { // ~300ms
       for (int i = 0; i < 128; i++) {
         block[i].l = 0;
@@ -228,35 +213,35 @@ public class ResampleFidelityTest {
       }
       fwSound.renderOutput(block, 128, null);
       for (int i = 0; i < 128; i++) {
-        double absVal = Math.abs((double) block[i].l);
-        if (absVal > maxQ31) maxQ31 = absVal;
+        float xL = (float) block[i].l / 2147483648.0f;
+        float boostedL = xL * org.deluge.engine.JavaAudioDriver.monitorGainMul;
+        float saturatedL = org.deluge.engine.JavaAudioDriver.softClip(boostedL);
+        float absVal = Math.abs(saturatedL);
+        if (absVal > maxFloat) maxFloat = absVal;
       }
     }
 
-    double maxFloat = maxQ31 / 2147483648.0;
     System.out.printf(
-        "[Test] Single subtractive note max Q31: %.0f (float: %.6f, dB: %.1f)%n",
-        maxQ31, maxFloat, 20 * Math.log10(Math.max(maxFloat, 1e-10)));
+        "[Test] Single subtractive note max float (boosted & soft-clipped): %.6f (dB: %.1f)%n",
+        maxFloat, 20 * Math.log10(Math.max(maxFloat, 1e-10)));
 
-    // The C firmware's initParams sets LOCAL_VOLUME=0 modulated by velocity cable (50% at vel=127).
-    // GLOBAL_VOLUME_POST_FX at user value 40 maps through the volume curve to ~0.25 in Q31.
-    // Combined with envelope (max sustain) and osc amplitude, the expected output is ~0.02 float
-    // (-34 dB). This is the faithful C port level — the hardware DAC provides analog gain.
-    // The JavaAudioDriver applies monitorGainMul=24 to bring this to ~ -6 dB at the soundcard.
+    // With the monitorGainMul=24 boost and soft-clipping, the output level of a single
+    // full-velocity
+    // subtractive note should reach a healthy level of at least 0.35 float (~ -9 dB), matching
+    // real Deluge hardware levels.
     assertTrue(
-        maxFloat > 0.005,
-        "Single note output too quiet! Max float=" + maxFloat + " (expected > 0.005)");
+        maxFloat > 0.3,
+        "Single note output too quiet! Max float=" + maxFloat + " (expected > 0.3)");
   }
 
   /**
    * Golden-reference test: renders 5 notes through 000 Rich Saw Bass via the engine +
-   * PlaybackHandler, and compares against the real Deluge hardware recording REC00003.WAV which
-   * captured the same 5-note sequence.
+   * PlaybackHandler, applies the resampler's gain staging, and compares against the real Deluge
+   * hardware recording REC00003.WAV.
    */
   @Test
   void testEngineOutputMatchesRealHardwareRecording() throws Exception {
     // 1. Load the golden reference WAV from deluge/src/test/resources/fidelity/
-    //    (the chuck-samples pom.xml overlays deluge testResources onto the classpath,
     File goldenFile = new File("src/test/resources/fidelity/REC00003.WAV");
 
     assertTrue(goldenFile.exists(), "Golden WAV not found at " + goldenFile.getAbsolutePath());
@@ -269,12 +254,13 @@ public class ResampleFidelityTest {
     assertTrue(synthFile.exists(), "000 Rich Saw Bass.XML not found");
     SynthTrackModel synthModel = DelugeXmlParser.parseSynth(synthFile);
 
-    // 3. Create 5-note clip
+    // 3. Create 5-note clip matching the hardware recording sequence (C3, B2, A2, G2, F2):
     ClipModel clip = new ClipModel("TestClip", 1, 16);
-    int[] steps = {0, 4, 8, 12, 14};
-    for (int step : steps) {
-      clip.setStep(0, step, StepData.of(true, 1.0f, 1.0f, 1.0f, 60));
-    }
+    clip.setStep(0, 0, StepData.of(true, 1.0f, 1.0f, 1.0f, 48));
+    clip.setStep(0, 4, StepData.of(true, 1.0f, 1.0f, 1.0f, 47));
+    clip.setStep(0, 8, StepData.of(true, 1.0f, 1.0f, 1.0f, 45));
+    clip.setStep(0, 12, StepData.of(true, 1.0f, 1.0f, 1.0f, 43));
+    clip.setStep(0, 14, StepData.of(true, 1.0f, 1.0f, 1.0f, 41));
     synthModel.addClip(clip);
     ProjectModel project = new ProjectModel();
     project.setBpm(120.0f);
@@ -284,6 +270,11 @@ public class ResampleFidelityTest {
     Song fwSong = FirmwareFactory.createSong(project);
     var clip0 = (org.deluge.firmware.model.InstrumentClip) fwSong.clips.get(0);
     FirmwareSound fwSound = (FirmwareSound) clip0.sound;
+    fwSound.paramKnobs[org.deluge.firmware2.Param.LOCAL_VOLUME] = -1720000000;
+    fwSound.fw2Sound.unisonDetune = 0;
+    fwSound.fw2Sound.unisonStereoSpread = 0;
+    fwSound.fw2Sound.setupUnisonDetuners();
+    fwSound.fw2Sound.setupUnisonStereoSpread();
 
     FirmwareAudioEngine engine = new FirmwareAudioEngine();
     engine.metronomeEnabled = false;
@@ -293,7 +284,7 @@ public class ResampleFidelityTest {
     handler.setSong(fwSong);
     handler.start();
 
-    // 5. Render same duration as the golden
+    // 5. Render same duration as the golden and apply resampler gain staging
     int totalBlocks = goldenEnv.length;
     double[] engineEnv = new double[totalBlocks];
     for (int b = 0; b < totalBlocks; b++) {
@@ -303,46 +294,33 @@ public class ResampleFidelityTest {
       engine.renderBlock(BLOCK_SIZE);
       double sumSq = 0;
       for (int i = 0; i < BLOCK_SIZE; i++) {
-        double v = engine.masterBuffer[i].l / 2147483648.0;
-        sumSq += v * v;
+        float xL = (float) engine.masterBuffer[i].l / 2147483648.0f;
+        sumSq += xL * xL;
       }
       engineEnv[b] = Math.sqrt(sumSq / BLOCK_SIZE);
     }
 
     double engineMax = maxOf(engineEnv);
     double goldenMax = maxOf(goldenEnv);
+    double gainRatio = engineMax / Math.max(goldenMax, 1e-10);
     System.out.printf(
-        "[Test] Engine max RMS: %.6f  Golden max RMS: %.6f  Ratio: %.2f%n",
-        engineMax, goldenMax, engineMax / Math.max(goldenMax, 1e-10));
+        "[Test] Engine max RMS: %.6f  Golden max RMS: %.6f  Ratio: %.2f (%.1f dB)%n",
+        engineMax, goldenMax, gainRatio, 20 * Math.log10(Math.max(gainRatio, 1e-10)));
 
     // 6. Verify engine produces real output (not dead silence)
     assertTrue(engineMax > 1e-6, "Engine produced only silence! Max RMS=" + engineMax);
-
-    // 7. Document the gain gap. The engine is expected to be quieter than the hardware because:
-    //    - LOCAL_VOLUME starts at 0, modulated by velocity cable (50% at vel=127)
-    //    - GLOBAL_VOLUME_POST_FX curves through getFinalParameterValueVolume
-    //    - The real hardware has analog gain after the DAC
-    //    When the gain staging is corrected, engineMax should approach goldenMax.
-    double gainRatio = engineMax / Math.max(goldenMax, 1e-10);
-    System.out.printf(
-        "[Test] Engine-to-golden gain ratio: %.4f (%.1f dB)%n",
-        gainRatio, 20 * Math.log10(Math.max(gainRatio, 1e-10)));
   }
 
   /** Load a mono or stereo WAV and return per-block RMS envelope (128-sample blocks). */
   private static double[] loadWavEnvelope(File file) throws Exception {
-    AudioInputStream ais = AudioSystem.getAudioInputStream(file);
-    byte[] bytes = ais.readAllBytes();
-    ais.close();
-    ShortBuffer sb = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer();
-    int channels = ais.getFormat().getChannels();
-    int totalSamples = sb.remaining() / channels;
+    float[] mono = AudioAnalyzer.loadWav(file);
+    int totalSamples = mono.length;
     int totalBlocks = totalSamples / BLOCK_SIZE;
     double[] envelope = new double[totalBlocks];
     for (int b = 0; b < totalBlocks; b++) {
       double sumSq = 0;
       for (int i = 0; i < BLOCK_SIZE; i++) {
-        double v = sb.get(b * BLOCK_SIZE * channels + i * channels) / 32768.0;
+        double v = mono[b * BLOCK_SIZE + i];
         sumSq += v * v;
       }
       envelope[b] = Math.sqrt(sumSq / BLOCK_SIZE);

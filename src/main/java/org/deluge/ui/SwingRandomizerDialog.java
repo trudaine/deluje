@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import javax.swing.*;
-import org.chuck.core.ChuckVM;
 import org.deluge.BridgeContract;
 import org.deluge.engine.DelugeatorRandomizer;
 import org.deluge.engine.DelugeatorRandomizer.RandomizerSettings;
@@ -27,8 +26,8 @@ import org.deluge.xml.DelugeXmlExporter;
  */
 public class SwingRandomizerDialog extends JDialog {
 
-  private final ChuckVM vm;
   private final BridgeContract bridge;
+
   private final ProjectModel projectModel;
   private final Frame parentFrame;
 
@@ -75,11 +74,11 @@ public class SwingRandomizerDialog extends JDialog {
   private String currentFolderPath = null;
 
   public SwingRandomizerDialog(
-      Frame parent, ChuckVM vm, BridgeContract bridge, ProjectModel projectModel) {
+      Frame parent, final BridgeContract bridge, ProjectModel projectModel) {
     super(parent, "Delugeator Voice & Kit Generator Suite", false);
     this.parentFrame = parent;
-    this.vm = vm;
     this.bridge = bridge;
+
     this.projectModel = projectModel;
 
     setSize(840, 940);

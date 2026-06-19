@@ -6,7 +6,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
-import org.chuck.audio.util.Dx7Patch;
+import org.deluge.shadow.audio.Dx7Patch;
 
 /**
  * Parses Roland SysEx (.syx) bulk dumps containing Yamaha DX7 voice patches.

@@ -107,7 +107,7 @@ public class MidiFollow {
    * Register a custom param mapping.
    *
    * @param cc the MIDI CC number (0-127)
-   * @param globalName the global float name used with vm.setGlobalFloat()
+   * @param globalName the global float name used with bridge.setGlobalFloat()
    * @param displayName human-readable name for UI
    * @param min minimum parameter value (after normalization)
    * @param max maximum parameter value (after normalization)

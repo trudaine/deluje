@@ -1,9 +1,8 @@
 package org.deluge;
 
-import org.chuck.core.ChuckArray;
-import org.chuck.core.ChuckVM;
 import org.deluge.model.AudioTrackModel;
 import org.deluge.model.SoundDrum;
+import org.deluge.shadow.core.ChuckArray;
 
 /**
  * Typed contract between the Java Swing UI and the ChucK audio engine — every global that either
@@ -84,6 +83,100 @@ import org.deluge.model.SoundDrum;
  * @see org.deluge.ui.SwingDelugeApp
  */
 public final class BridgeContract {
+  private final java.util.concurrent.ConcurrentHashMap<String, Object> registry =
+      new java.util.concurrent.ConcurrentHashMap<>();
+  private static final Object vm =
+      new Object(); // Compiler bridge for null safety checks in static classes
+
+  public void setGlobalInt(String name, long val) {
+    registry.put(name, val);
+  }
+
+  public long getGlobalInt(String name) {
+    Object o = registry.get(name);
+    return o instanceof Number n ? n.longValue() : 0L;
+  }
+
+  public void setGlobalFloat(String name, double val) {
+    registry.put(name, val);
+  }
+
+  public double getGlobalFloat(String name) {
+    Object o = registry.get(name);
+    return o instanceof Number n ? n.doubleValue() : 0.0;
+  }
+
+  public void setGlobalString(String name, String val) {
+    registry.put(name, val);
+  }
+
+  public String getGlobalString(String name) {
+    Object o = registry.get(name);
+    return o != null ? o.toString() : "";
+  }
+
+  public void setGlobalObject(String name, Object val) {
+    registry.put(name, val);
+  }
+
+  public Object getGlobalObject(String name) {
+    return registry.get(name);
+  }
+
+  public void clear() {
+    initRegistry();
+  }
+
+  // ── VM Stubs for Decoupling ──
+  private long currentTime = 0L;
+
+  public long getCurrentTime() {
+    return currentTime;
+  }
+
+  public double getSampleRate() {
+    return 44100.0;
+  }
+
+  public int getLogLevel() {
+    return 0;
+  }
+
+  public void broadcastGlobalEvent(String name) {
+    // Stub event broadcaster
+  }
+
+  public void eval(String code) {
+    // Stub evaluator
+  }
+
+  public void dispatchHidMsg(org.deluge.shadow.hid.HidMsg msg) {
+    // Stub HID dispatcher
+  }
+
+  public int getActiveShredCount() {
+    return 0;
+  }
+
+  public org.deluge.shadow.core.DacChannel getDacChannel(int channel) {
+    return null;
+  }
+
+  public void register(BridgeContract bridge) {
+    // Stub register
+  }
+
+  public void shutdown() {
+    // Stub shutdown
+  }
+
+  public void advanceTime(int ticks) {
+    this.currentTime += ticks;
+  }
+
+  public BridgeContract(int sampleRate, int bufferSize) {
+    initRegistry();
+  }
 
   // ── Dimensions ────────────────────────────────────────────────────────
 
@@ -610,67 +703,67 @@ public final class BridgeContract {
       }
     }
 
-    void register(ChuckVM vm) {
-      vm.setGlobalObject(G_PATTERN, new ChuckArray(pattern));
-      vm.setGlobalObject(G_VELOCITY, new ChuckArray(velocity));
-      vm.setGlobalObject(G_GATE, new ChuckArray(gate));
-      vm.setGlobalObject(G_PITCH, new ChuckArray(pitch));
-      vm.setGlobalObject(G_PROBABILITY, new ChuckArray(probability));
-      vm.setGlobalObject(G_ITERANCE, new ChuckArray(iterance));
-      vm.setGlobalObject(G_FILL, new ChuckArray(fill));
-      vm.setGlobalObject(G_STEP_FILTER, new ChuckArray(stepFilter));
-      vm.setGlobalObject(G_STEP_RES, new ChuckArray(stepRes));
-      vm.setGlobalObject(G_STEP_FILTER_MODE, new ChuckArray(stepFilterMode));
-      vm.setGlobalObject(G_STEP_PAN, new ChuckArray(stepPan));
-      vm.setGlobalObject(G_STEP_DELAY, new ChuckArray(stepDelay));
-      vm.setGlobalObject(G_STEP_REVERB, new ChuckArray(stepReverb));
-      vm.setGlobalObject(G_STEP_MOD, new ChuckArray(stepMod));
-      vm.setGlobalObject(G_STEP_START, new ChuckArray(stepStart));
-      vm.setGlobalObject(G_STEP_END, new ChuckArray(stepEnd));
-      vm.setGlobalObject(G_STEP_HPF_FREQ, new ChuckArray(stepHpfFreq));
-      vm.setGlobalObject(G_STEP_HPF_RES, new ChuckArray(stepHpfRes));
-      vm.setGlobalObject(G_STEP_MOD_RATE, new ChuckArray(stepModRate));
-      vm.setGlobalObject(G_STEP_MOD_DEPTH, new ChuckArray(stepModDepth));
-      vm.setGlobalObject(G_STEP_OSC_A_VOL, new ChuckArray(stepOscAVol));
-      vm.setGlobalObject(G_STEP_OSC_B_VOL, new ChuckArray(stepOscBVol));
-      vm.setGlobalObject(G_STEP_NOISE_VOL, new ChuckArray(stepNoiseVol));
-      vm.setGlobalObject(G_STEP_PITCH, new ChuckArray(stepPitch));
-      vm.setGlobalObject(G_STEP_VOLUME, new ChuckArray(stepVolume));
-      vm.setGlobalObject(G_STEP_ENV_0_ATTACK, new ChuckArray(stepEnv0Attack));
-      vm.setGlobalObject(G_STEP_ENV_0_DECAY, new ChuckArray(stepEnv0Decay));
-      vm.setGlobalObject(G_STEP_ENV_0_SUSTAIN, new ChuckArray(stepEnv0Sustain));
-      vm.setGlobalObject(G_STEP_ENV_0_RELEASE, new ChuckArray(stepEnv0Release));
-      vm.setGlobalObject(G_STEP_ENV_1_ATTACK, new ChuckArray(stepEnv1Attack));
-      vm.setGlobalObject(G_STEP_ENV_1_DECAY, new ChuckArray(stepEnv1Decay));
-      vm.setGlobalObject(G_STEP_ENV_1_SUSTAIN, new ChuckArray(stepEnv1Sustain));
-      vm.setGlobalObject(G_STEP_ENV_1_RELEASE, new ChuckArray(stepEnv1Release));
-      vm.setGlobalObject(G_STEP_ENV_2_ATTACK, new ChuckArray(stepEnv2Attack));
-      vm.setGlobalObject(G_STEP_ENV_2_DECAY, new ChuckArray(stepEnv2Decay));
-      vm.setGlobalObject(G_STEP_ENV_2_SUSTAIN, new ChuckArray(stepEnv2Sustain));
-      vm.setGlobalObject(G_STEP_ENV_2_RELEASE, new ChuckArray(stepEnv2Release));
-      vm.setGlobalObject(G_STEP_ENV_3_ATTACK, new ChuckArray(stepEnv3Attack));
-      vm.setGlobalObject(G_STEP_ENV_3_DECAY, new ChuckArray(stepEnv3Decay));
-      vm.setGlobalObject(G_STEP_ENV_3_SUSTAIN, new ChuckArray(stepEnv3Sustain));
-      vm.setGlobalObject(G_STEP_ENV_3_RELEASE, new ChuckArray(stepEnv3Release));
-      vm.setGlobalObject(G_STEP_LFO_0_RATE, new ChuckArray(stepLfo0Rate));
-      vm.setGlobalObject(G_STEP_LFO_0_DEPTH, new ChuckArray(stepLfo0Depth));
-      vm.setGlobalObject(G_STEP_LFO_1_RATE, new ChuckArray(stepLfo1Rate));
-      vm.setGlobalObject(G_STEP_LFO_1_DEPTH, new ChuckArray(stepLfo1Depth));
-      vm.setGlobalObject(G_STEP_LFO_2_RATE, new ChuckArray(stepLfo2Rate));
-      vm.setGlobalObject(G_STEP_LFO_2_DEPTH, new ChuckArray(stepLfo2Depth));
-      vm.setGlobalObject(G_STEP_LFO_3_RATE, new ChuckArray(stepLfo3Rate));
-      vm.setGlobalObject(G_STEP_LFO_3_DEPTH, new ChuckArray(stepLfo3Depth));
-      vm.setGlobalObject(G_STEP_ARP_RATE, new ChuckArray(stepArpRate));
-      vm.setGlobalObject(G_STEP_ARP_GATE, new ChuckArray(stepArpGate));
-      vm.setGlobalObject(G_STEP_FM_AMOUNT, new ChuckArray(stepFmAmount));
-      vm.setGlobalObject(G_STEP_FM_RATIO, new ChuckArray(stepFmRatio));
-      vm.setGlobalObject(G_STEP_MOD_FX_FEEDBACK, new ChuckArray(stepModFxFeedback));
-      vm.setGlobalObject(G_STEP_COMP_ATTACK, new ChuckArray(stepCompAttack));
-      vm.setGlobalObject(G_STEP_COMP_RELEASE, new ChuckArray(stepCompRelease));
-      vm.setGlobalObject(G_STEP_PORTAMENTO, new ChuckArray(stepPortamento));
-      vm.setGlobalObject(G_STEP_STUTTER, new ChuckArray(stepStutter));
-      vm.setGlobalObject(G_STEP_BITCRUSH, new ChuckArray(stepBitcrush));
-      vm.setGlobalObject(G_STEP_SRR, new ChuckArray(stepSrr));
+    void register(BridgeContract bridge) {
+      bridge.setGlobalObject(G_PATTERN, new ChuckArray(pattern));
+      bridge.setGlobalObject(G_VELOCITY, new ChuckArray(velocity));
+      bridge.setGlobalObject(G_GATE, new ChuckArray(gate));
+      bridge.setGlobalObject(G_PITCH, new ChuckArray(pitch));
+      bridge.setGlobalObject(G_PROBABILITY, new ChuckArray(probability));
+      bridge.setGlobalObject(G_ITERANCE, new ChuckArray(iterance));
+      bridge.setGlobalObject(G_FILL, new ChuckArray(fill));
+      bridge.setGlobalObject(G_STEP_FILTER, new ChuckArray(stepFilter));
+      bridge.setGlobalObject(G_STEP_RES, new ChuckArray(stepRes));
+      bridge.setGlobalObject(G_STEP_FILTER_MODE, new ChuckArray(stepFilterMode));
+      bridge.setGlobalObject(G_STEP_PAN, new ChuckArray(stepPan));
+      bridge.setGlobalObject(G_STEP_DELAY, new ChuckArray(stepDelay));
+      bridge.setGlobalObject(G_STEP_REVERB, new ChuckArray(stepReverb));
+      bridge.setGlobalObject(G_STEP_MOD, new ChuckArray(stepMod));
+      bridge.setGlobalObject(G_STEP_START, new ChuckArray(stepStart));
+      bridge.setGlobalObject(G_STEP_END, new ChuckArray(stepEnd));
+      bridge.setGlobalObject(G_STEP_HPF_FREQ, new ChuckArray(stepHpfFreq));
+      bridge.setGlobalObject(G_STEP_HPF_RES, new ChuckArray(stepHpfRes));
+      bridge.setGlobalObject(G_STEP_MOD_RATE, new ChuckArray(stepModRate));
+      bridge.setGlobalObject(G_STEP_MOD_DEPTH, new ChuckArray(stepModDepth));
+      bridge.setGlobalObject(G_STEP_OSC_A_VOL, new ChuckArray(stepOscAVol));
+      bridge.setGlobalObject(G_STEP_OSC_B_VOL, new ChuckArray(stepOscBVol));
+      bridge.setGlobalObject(G_STEP_NOISE_VOL, new ChuckArray(stepNoiseVol));
+      bridge.setGlobalObject(G_STEP_PITCH, new ChuckArray(stepPitch));
+      bridge.setGlobalObject(G_STEP_VOLUME, new ChuckArray(stepVolume));
+      bridge.setGlobalObject(G_STEP_ENV_0_ATTACK, new ChuckArray(stepEnv0Attack));
+      bridge.setGlobalObject(G_STEP_ENV_0_DECAY, new ChuckArray(stepEnv0Decay));
+      bridge.setGlobalObject(G_STEP_ENV_0_SUSTAIN, new ChuckArray(stepEnv0Sustain));
+      bridge.setGlobalObject(G_STEP_ENV_0_RELEASE, new ChuckArray(stepEnv0Release));
+      bridge.setGlobalObject(G_STEP_ENV_1_ATTACK, new ChuckArray(stepEnv1Attack));
+      bridge.setGlobalObject(G_STEP_ENV_1_DECAY, new ChuckArray(stepEnv1Decay));
+      bridge.setGlobalObject(G_STEP_ENV_1_SUSTAIN, new ChuckArray(stepEnv1Sustain));
+      bridge.setGlobalObject(G_STEP_ENV_1_RELEASE, new ChuckArray(stepEnv1Release));
+      bridge.setGlobalObject(G_STEP_ENV_2_ATTACK, new ChuckArray(stepEnv2Attack));
+      bridge.setGlobalObject(G_STEP_ENV_2_DECAY, new ChuckArray(stepEnv2Decay));
+      bridge.setGlobalObject(G_STEP_ENV_2_SUSTAIN, new ChuckArray(stepEnv2Sustain));
+      bridge.setGlobalObject(G_STEP_ENV_2_RELEASE, new ChuckArray(stepEnv2Release));
+      bridge.setGlobalObject(G_STEP_ENV_3_ATTACK, new ChuckArray(stepEnv3Attack));
+      bridge.setGlobalObject(G_STEP_ENV_3_DECAY, new ChuckArray(stepEnv3Decay));
+      bridge.setGlobalObject(G_STEP_ENV_3_SUSTAIN, new ChuckArray(stepEnv3Sustain));
+      bridge.setGlobalObject(G_STEP_ENV_3_RELEASE, new ChuckArray(stepEnv3Release));
+      bridge.setGlobalObject(G_STEP_LFO_0_RATE, new ChuckArray(stepLfo0Rate));
+      bridge.setGlobalObject(G_STEP_LFO_0_DEPTH, new ChuckArray(stepLfo0Depth));
+      bridge.setGlobalObject(G_STEP_LFO_1_RATE, new ChuckArray(stepLfo1Rate));
+      bridge.setGlobalObject(G_STEP_LFO_1_DEPTH, new ChuckArray(stepLfo1Depth));
+      bridge.setGlobalObject(G_STEP_LFO_2_RATE, new ChuckArray(stepLfo2Rate));
+      bridge.setGlobalObject(G_STEP_LFO_2_DEPTH, new ChuckArray(stepLfo2Depth));
+      bridge.setGlobalObject(G_STEP_LFO_3_RATE, new ChuckArray(stepLfo3Rate));
+      bridge.setGlobalObject(G_STEP_LFO_3_DEPTH, new ChuckArray(stepLfo3Depth));
+      bridge.setGlobalObject(G_STEP_ARP_RATE, new ChuckArray(stepArpRate));
+      bridge.setGlobalObject(G_STEP_ARP_GATE, new ChuckArray(stepArpGate));
+      bridge.setGlobalObject(G_STEP_FM_AMOUNT, new ChuckArray(stepFmAmount));
+      bridge.setGlobalObject(G_STEP_FM_RATIO, new ChuckArray(stepFmRatio));
+      bridge.setGlobalObject(G_STEP_MOD_FX_FEEDBACK, new ChuckArray(stepModFxFeedback));
+      bridge.setGlobalObject(G_STEP_COMP_ATTACK, new ChuckArray(stepCompAttack));
+      bridge.setGlobalObject(G_STEP_COMP_RELEASE, new ChuckArray(stepCompRelease));
+      bridge.setGlobalObject(G_STEP_PORTAMENTO, new ChuckArray(stepPortamento));
+      bridge.setGlobalObject(G_STEP_STUTTER, new ChuckArray(stepStutter));
+      bridge.setGlobalObject(G_STEP_BITCRUSH, new ChuckArray(stepBitcrush));
+      bridge.setGlobalObject(G_STEP_SRR, new ChuckArray(stepSrr));
     }
   }
 
@@ -728,27 +821,27 @@ public final class BridgeContract {
       }
     }
 
-    void register(ChuckVM vm) {
-      vm.setGlobalObject(G_TRACK_TYPE, new ChuckArray(trackType));
-      vm.setGlobalObject(G_OSC_TYPE, new ChuckArray(oscType));
-      vm.setGlobalObject(G_TRACK_LEVEL, new ChuckArray(trackLevel));
-      vm.setGlobalObject(G_MUTE, new ChuckArray(mute));
-      vm.setGlobalObject(G_FILTER, new ChuckArray(filter));
-      vm.setGlobalObject(G_FILTER_MODE, new ChuckArray(filterMode));
-      vm.setGlobalObject(G_FILTER_MORPH, new ChuckArray(filterMorph));
-      vm.setGlobalObject(G_FILTER_DRIVE, new ChuckArray(filterDrive));
-      vm.setGlobalObject(G_FILTER_NOTCH, new ChuckArray(filterNotch));
-      vm.setGlobalObject(G_FILTER_ROUTE, new ChuckArray(filterRoute));
-      vm.setGlobalObject(G_MAX_VOICES, new ChuckArray(maxVoices));
-      vm.setGlobalObject(G_DELAY_SEND, new ChuckArray(delaySend));
-      vm.setGlobalObject(G_REVERB_SEND, new ChuckArray(reverbSend));
-      vm.setGlobalObject(G_TRACK_LENGTH, new ChuckArray(trackLength));
-      vm.setGlobalObject(G_CURRENT_CLIP, new ChuckArray(currentClip));
-      vm.setGlobalObject(G_CLIP_COUNT, new ChuckArray(clipCount));
-      vm.setGlobalObject(G_LAUNCH_QUEUE, new ChuckArray(launchQueue));
-      vm.setGlobalObject(G_CLIP_PLAY_MODE, new ChuckArray(clipPlayMode));
-      vm.setGlobalObject(G_CLIP_PLAY_DIRECTION, new ChuckArray(clipPlayDirection));
-      vm.setGlobalObject(G_TRACK_ID, new ChuckArray(trackId));
+    void register(BridgeContract bridge) {
+      bridge.setGlobalObject(G_TRACK_TYPE, new ChuckArray(trackType));
+      bridge.setGlobalObject(G_OSC_TYPE, new ChuckArray(oscType));
+      bridge.setGlobalObject(G_TRACK_LEVEL, new ChuckArray(trackLevel));
+      bridge.setGlobalObject(G_MUTE, new ChuckArray(mute));
+      bridge.setGlobalObject(G_FILTER, new ChuckArray(filter));
+      bridge.setGlobalObject(G_FILTER_MODE, new ChuckArray(filterMode));
+      bridge.setGlobalObject(G_FILTER_MORPH, new ChuckArray(filterMorph));
+      bridge.setGlobalObject(G_FILTER_DRIVE, new ChuckArray(filterDrive));
+      bridge.setGlobalObject(G_FILTER_NOTCH, new ChuckArray(filterNotch));
+      bridge.setGlobalObject(G_FILTER_ROUTE, new ChuckArray(filterRoute));
+      bridge.setGlobalObject(G_MAX_VOICES, new ChuckArray(maxVoices));
+      bridge.setGlobalObject(G_DELAY_SEND, new ChuckArray(delaySend));
+      bridge.setGlobalObject(G_REVERB_SEND, new ChuckArray(reverbSend));
+      bridge.setGlobalObject(G_TRACK_LENGTH, new ChuckArray(trackLength));
+      bridge.setGlobalObject(G_CURRENT_CLIP, new ChuckArray(currentClip));
+      bridge.setGlobalObject(G_CLIP_COUNT, new ChuckArray(clipCount));
+      bridge.setGlobalObject(G_LAUNCH_QUEUE, new ChuckArray(launchQueue));
+      bridge.setGlobalObject(G_CLIP_PLAY_MODE, new ChuckArray(clipPlayMode));
+      bridge.setGlobalObject(G_CLIP_PLAY_DIRECTION, new ChuckArray(clipPlayDirection));
+      bridge.setGlobalObject(G_TRACK_ID, new ChuckArray(trackId));
     }
   }
 
@@ -885,65 +978,66 @@ public final class BridgeContract {
       }
     }
 
-    void register(ChuckVM vm) {
-      vm.setGlobalObject(G_KIT_ATTACK, new ChuckArray(kitAttack));
-      vm.setGlobalObject(G_KIT_DECAY, new ChuckArray(kitDecay));
-      vm.setGlobalObject(G_KIT_SUSTAIN, new ChuckArray(kitSustain));
-      vm.setGlobalObject(G_KIT_RELEASE, new ChuckArray(kitRelease));
-      vm.setGlobalObject(G_KIT_PITCH, new ChuckArray(kitPitch));
-      vm.setGlobalObject(G_KIT_REVERSE, new ChuckArray(kitReverse));
-      vm.setGlobalObject(G_KIT_MUTE_GROUP, new ChuckArray(kitMuteGroup));
-      vm.setGlobalObject(G_KIT_LPF_MODE, new ChuckArray(kitLpfMode));
-      vm.setGlobalObject(G_KIT_LPF_MORPH, new ChuckArray(kitLpfMorph));
-      vm.setGlobalObject(G_KIT_LPF_DRIVE, new ChuckArray(kitLpfDrive));
-      vm.setGlobalObject(G_KIT_LPF_NOTCH, new ChuckArray(kitLpfNotch));
-      vm.setGlobalObject(G_KIT_MAX_VOICES, new ChuckArray(kitMaxVoices));
-      vm.setGlobalObject(G_KIT_POLYPHONY, new ChuckArray(kitPolyphony));
-      vm.setGlobalObject(G_KIT_EQ_BASS, new ChuckArray(kitEqBass));
-      vm.setGlobalObject(G_KIT_EQ_TREBLE, new ChuckArray(kitEqTreble));
-      vm.setGlobalObject(G_KIT_SIDECHAIN, new ChuckArray(kitSidechain));
-      vm.setGlobalObject(G_KIT_MOD_FX_TYPE, new ChuckArray(kitModFxType));
-      vm.setGlobalObject(G_KIT_MOD_FX_RATE, new ChuckArray(kitModFxRate));
-      vm.setGlobalObject(G_KIT_MOD_FX_DEPTH, new ChuckArray(kitModFxDepth));
-      vm.setGlobalObject(G_KIT_MOD_FX_OFFSET, new ChuckArray(kitModFxOffset));
-      vm.setGlobalObject(G_KIT_MOD_FX_FEEDBACK, new ChuckArray(kitModFxFeedback));
-      vm.setGlobalObject(G_KIT_HPF_FREQ, new ChuckArray(kitHpfFreq));
-      vm.setGlobalObject(G_KIT_HPF_RES, new ChuckArray(kitHpfRes));
-      vm.setGlobalObject(G_KIT_HPF_MORPH, new ChuckArray(kitHpfMorph));
-      vm.setGlobalObject(G_KIT_HPF_MODE, new ChuckArray(kitHpfMode));
-      vm.setGlobalObject(G_KIT_HPF_FM, new ChuckArray(kitHpfFm));
-      vm.setGlobalObject(G_KIT_OSC2_TYPE, new ChuckArray(kitOsc2Type));
-      vm.setGlobalObject(G_KIT_UNISON_NUM, new ChuckArray(kitUnisonNum));
-      vm.setGlobalObject(G_KIT_UNISON_DETUNE, new ChuckArray(kitUnisonDetune));
-      vm.setGlobalObject(G_KIT_UNISON_SPREAD, new ChuckArray(kitUnisonSpread));
-      vm.setGlobalObject(G_KIT_WAVE_INDEX, new ChuckArray(kitWaveIndex));
-      vm.setGlobalObject(G_KIT_COMP_ATTACK, new ChuckArray(kitCompressorAttackArr));
-      vm.setGlobalObject(G_KIT_COMP_RELEASE, new ChuckArray(kitCompressorReleaseArr));
-      vm.setGlobalObject(G_KIT_COMP_BLEND, new ChuckArray(kitCompressorBlendArr));
-      vm.setGlobalObject(G_KIT_COMP_RATIO, new ChuckArray(kitCompressorRatioArr));
-      vm.setGlobalObject(G_KIT_COMP_SIDECHAIN_HPF, new ChuckArray(kitCompressorSidechainHpfArr));
-      vm.setGlobalObject(G_KIT_DELAY_RATE, new ChuckArray(kitDelayRate));
-      vm.setGlobalObject(G_KIT_DELAY_FB, new ChuckArray(kitDelayFb));
-      vm.setGlobalObject(G_KIT_DELAY_PINGPONG, new ChuckArray(kitDelayPingpong));
-      vm.setGlobalObject(G_KIT_DELAY_ANALOG, new ChuckArray(kitDelayAnalog));
-      vm.setGlobalObject(G_KIT_REVERB_AMOUNT, new ChuckArray(kitReverbAmount));
-      vm.setGlobalObject(G_KIT_COMP_THRESHOLD, new ChuckArray(kitCompThreshold));
-      vm.setGlobalObject(G_KIT_COMP_SYNC_LEVEL, new ChuckArray(kitCompSyncLevel));
-      vm.setGlobalObject(G_KIT_SIDECHAIN_SYNC_LEVEL, new ChuckArray(kitSidechainSyncLevel));
-      vm.setGlobalObject(G_KIT_SIDECHAIN_SYNC_TYPE, new ChuckArray(kitSidechainSyncType));
-      vm.setGlobalObject(G_KIT_SIDECHAIN_ATTACK, new ChuckArray(kitSidechainAttack));
-      vm.setGlobalObject(G_KIT_SIDECHAIN_RELEASE, new ChuckArray(kitSidechainRelease));
-      vm.setGlobalObject(G_KIT_VOLUME, new ChuckArray(kitVolume));
-      vm.setGlobalObject(G_KIT_PAN, new ChuckArray(kitPan));
-      vm.setGlobalObject(G_KIT_NOISE_VOL, new ChuckArray(kitNoiseVol));
-      vm.setGlobalObject(G_KIT_STUTTER_RATE, new ChuckArray(kitStutterRate));
-      vm.setGlobalObject(G_KIT_SAMPLE_RATE_RED, new ChuckArray(kitSampleRateRed));
-      vm.setGlobalObject(G_KIT_BITCRUSH, new ChuckArray(kitBitCrush));
-      vm.setGlobalObject(G_KIT_PC_COUNT, new ChuckArray(kitPcCount));
-      vm.setGlobalObject(G_KIT_PC_SOURCE, new ChuckArray(kitPcSource));
-      vm.setGlobalObject(G_KIT_PC_DEST, new ChuckArray(kitPcDest));
-      vm.setGlobalObject(G_KIT_PC_AMOUNT, new ChuckArray(kitPcAmount));
-      vm.setGlobalObject(G_KIT_PC_POLARITY, new ChuckArray(kitPcPolarity));
+    void register(BridgeContract bridge) {
+      bridge.setGlobalObject(G_KIT_ATTACK, new ChuckArray(kitAttack));
+      bridge.setGlobalObject(G_KIT_DECAY, new ChuckArray(kitDecay));
+      bridge.setGlobalObject(G_KIT_SUSTAIN, new ChuckArray(kitSustain));
+      bridge.setGlobalObject(G_KIT_RELEASE, new ChuckArray(kitRelease));
+      bridge.setGlobalObject(G_KIT_PITCH, new ChuckArray(kitPitch));
+      bridge.setGlobalObject(G_KIT_REVERSE, new ChuckArray(kitReverse));
+      bridge.setGlobalObject(G_KIT_MUTE_GROUP, new ChuckArray(kitMuteGroup));
+      bridge.setGlobalObject(G_KIT_LPF_MODE, new ChuckArray(kitLpfMode));
+      bridge.setGlobalObject(G_KIT_LPF_MORPH, new ChuckArray(kitLpfMorph));
+      bridge.setGlobalObject(G_KIT_LPF_DRIVE, new ChuckArray(kitLpfDrive));
+      bridge.setGlobalObject(G_KIT_LPF_NOTCH, new ChuckArray(kitLpfNotch));
+      bridge.setGlobalObject(G_KIT_MAX_VOICES, new ChuckArray(kitMaxVoices));
+      bridge.setGlobalObject(G_KIT_POLYPHONY, new ChuckArray(kitPolyphony));
+      bridge.setGlobalObject(G_KIT_EQ_BASS, new ChuckArray(kitEqBass));
+      bridge.setGlobalObject(G_KIT_EQ_TREBLE, new ChuckArray(kitEqTreble));
+      bridge.setGlobalObject(G_KIT_SIDECHAIN, new ChuckArray(kitSidechain));
+      bridge.setGlobalObject(G_KIT_MOD_FX_TYPE, new ChuckArray(kitModFxType));
+      bridge.setGlobalObject(G_KIT_MOD_FX_RATE, new ChuckArray(kitModFxRate));
+      bridge.setGlobalObject(G_KIT_MOD_FX_DEPTH, new ChuckArray(kitModFxDepth));
+      bridge.setGlobalObject(G_KIT_MOD_FX_OFFSET, new ChuckArray(kitModFxOffset));
+      bridge.setGlobalObject(G_KIT_MOD_FX_FEEDBACK, new ChuckArray(kitModFxFeedback));
+      bridge.setGlobalObject(G_KIT_HPF_FREQ, new ChuckArray(kitHpfFreq));
+      bridge.setGlobalObject(G_KIT_HPF_RES, new ChuckArray(kitHpfRes));
+      bridge.setGlobalObject(G_KIT_HPF_MORPH, new ChuckArray(kitHpfMorph));
+      bridge.setGlobalObject(G_KIT_HPF_MODE, new ChuckArray(kitHpfMode));
+      bridge.setGlobalObject(G_KIT_HPF_FM, new ChuckArray(kitHpfFm));
+      bridge.setGlobalObject(G_KIT_OSC2_TYPE, new ChuckArray(kitOsc2Type));
+      bridge.setGlobalObject(G_KIT_UNISON_NUM, new ChuckArray(kitUnisonNum));
+      bridge.setGlobalObject(G_KIT_UNISON_DETUNE, new ChuckArray(kitUnisonDetune));
+      bridge.setGlobalObject(G_KIT_UNISON_SPREAD, new ChuckArray(kitUnisonSpread));
+      bridge.setGlobalObject(G_KIT_WAVE_INDEX, new ChuckArray(kitWaveIndex));
+      bridge.setGlobalObject(G_KIT_COMP_ATTACK, new ChuckArray(kitCompressorAttackArr));
+      bridge.setGlobalObject(G_KIT_COMP_RELEASE, new ChuckArray(kitCompressorReleaseArr));
+      bridge.setGlobalObject(G_KIT_COMP_BLEND, new ChuckArray(kitCompressorBlendArr));
+      bridge.setGlobalObject(G_KIT_COMP_RATIO, new ChuckArray(kitCompressorRatioArr));
+      bridge.setGlobalObject(
+          G_KIT_COMP_SIDECHAIN_HPF, new ChuckArray(kitCompressorSidechainHpfArr));
+      bridge.setGlobalObject(G_KIT_DELAY_RATE, new ChuckArray(kitDelayRate));
+      bridge.setGlobalObject(G_KIT_DELAY_FB, new ChuckArray(kitDelayFb));
+      bridge.setGlobalObject(G_KIT_DELAY_PINGPONG, new ChuckArray(kitDelayPingpong));
+      bridge.setGlobalObject(G_KIT_DELAY_ANALOG, new ChuckArray(kitDelayAnalog));
+      bridge.setGlobalObject(G_KIT_REVERB_AMOUNT, new ChuckArray(kitReverbAmount));
+      bridge.setGlobalObject(G_KIT_COMP_THRESHOLD, new ChuckArray(kitCompThreshold));
+      bridge.setGlobalObject(G_KIT_COMP_SYNC_LEVEL, new ChuckArray(kitCompSyncLevel));
+      bridge.setGlobalObject(G_KIT_SIDECHAIN_SYNC_LEVEL, new ChuckArray(kitSidechainSyncLevel));
+      bridge.setGlobalObject(G_KIT_SIDECHAIN_SYNC_TYPE, new ChuckArray(kitSidechainSyncType));
+      bridge.setGlobalObject(G_KIT_SIDECHAIN_ATTACK, new ChuckArray(kitSidechainAttack));
+      bridge.setGlobalObject(G_KIT_SIDECHAIN_RELEASE, new ChuckArray(kitSidechainRelease));
+      bridge.setGlobalObject(G_KIT_VOLUME, new ChuckArray(kitVolume));
+      bridge.setGlobalObject(G_KIT_PAN, new ChuckArray(kitPan));
+      bridge.setGlobalObject(G_KIT_NOISE_VOL, new ChuckArray(kitNoiseVol));
+      bridge.setGlobalObject(G_KIT_STUTTER_RATE, new ChuckArray(kitStutterRate));
+      bridge.setGlobalObject(G_KIT_SAMPLE_RATE_RED, new ChuckArray(kitSampleRateRed));
+      bridge.setGlobalObject(G_KIT_BITCRUSH, new ChuckArray(kitBitCrush));
+      bridge.setGlobalObject(G_KIT_PC_COUNT, new ChuckArray(kitPcCount));
+      bridge.setGlobalObject(G_KIT_PC_SOURCE, new ChuckArray(kitPcSource));
+      bridge.setGlobalObject(G_KIT_PC_DEST, new ChuckArray(kitPcDest));
+      bridge.setGlobalObject(G_KIT_PC_AMOUNT, new ChuckArray(kitPcAmount));
+      bridge.setGlobalObject(G_KIT_PC_POLARITY, new ChuckArray(kitPcPolarity));
     }
   }
 
@@ -970,13 +1064,13 @@ public final class BridgeContract {
       }
     }
 
-    void register(ChuckVM vm) {
-      vm.setGlobalObject(G_AUDIO_REC, new ChuckArray(audioRec));
-      vm.setGlobalObject(G_AUDIO_PLAY, new ChuckArray(audioPlay));
-      vm.setGlobalObject(G_AUDIO_LOOP, new ChuckArray(audioLoop));
-      vm.setGlobalObject(G_AUDIO_RATE, new ChuckArray(audioRate));
-      vm.setGlobalObject(G_AUDIO_THRESHOLD, new ChuckArray(audioThreshold));
-      vm.setGlobalObject(G_AUDIO_THRESHOLD_LEVEL, new ChuckArray(audioThresholdLevel));
+    void register(BridgeContract bridge) {
+      bridge.setGlobalObject(G_AUDIO_REC, new ChuckArray(audioRec));
+      bridge.setGlobalObject(G_AUDIO_PLAY, new ChuckArray(audioPlay));
+      bridge.setGlobalObject(G_AUDIO_LOOP, new ChuckArray(audioLoop));
+      bridge.setGlobalObject(G_AUDIO_RATE, new ChuckArray(audioRate));
+      bridge.setGlobalObject(G_AUDIO_THRESHOLD, new ChuckArray(audioThreshold));
+      bridge.setGlobalObject(G_AUDIO_THRESHOLD_LEVEL, new ChuckArray(audioThresholdLevel));
     }
   }
 
@@ -1074,7 +1168,6 @@ public final class BridgeContract {
   private int followCcNum = 0;
   private int followCcVal = 0;
 
-  private ChuckVM vm;
   private boolean recording = false;
 
   private final String[] samplePaths = new String[TRACKS];
@@ -1095,6 +1188,7 @@ public final class BridgeContract {
   // ── Constructor ────────────────────────────────────────────────────────
 
   public BridgeContract() {
+    initRegistry();
     step.initDefaults();
     track.initDefaults();
     kit.initDefaults();
@@ -1103,130 +1197,130 @@ public final class BridgeContract {
 
   // ── VM Registration ────────────────────────────────────────────────────
 
-  public void register(ChuckVM vm) {
-    this.vm = vm;
-    vm.setGlobalFloat(G_BPM, bpm);
-    vm.setGlobalFloat(G_SWING, swing);
-    vm.setGlobalInt(G_PLAY, 0L);
-    vm.setGlobalFloat(G_STEP_RESOLUTION, stepResolution);
-    vm.setGlobalInt(G_CURRENT_STEP, -1L);
-    vm.setGlobalFloat(G_MASTER_VOL, (double) masterVol);
-    vm.setGlobalFloat(G_MASTER_PAN, (double) masterPan);
-    vm.setGlobalFloat(G_DELAY_TIME, (double) delayTime);
-    vm.setGlobalFloat(G_DELAY_FB, (double) delayFb);
-    vm.setGlobalFloat(G_REVERB_ROOM, (double) reverbRoom);
-    vm.setGlobalFloat(G_REVERB_DAMP, (double) reverbDamp);
-    vm.setGlobalInt(G_SCALE, 0L);
-    vm.setGlobalInt(G_ROOT_KEY, 0L);
-    vm.setGlobalInt(G_STUTTER_ON, 0L);
-    vm.setGlobalFloat(G_STUTTER_DIV, 1.0);
-    vm.setGlobalInt(G_PREVIEW_TRACK, 0L);
-    vm.setGlobalFloat(G_PREVIEW_PITCH, 60.0f);
-    vm.setGlobalObject(E_PREVIEW, new org.chuck.core.ChuckEvent());
-    vm.setGlobalObject(E_SIDECHAIN, new org.chuck.core.ChuckEvent());
-    vm.setGlobalObject(G_LOAD_TRIGGER, new org.chuck.core.ChuckEvent());
-    vm.setGlobalObject(E_TICK, new org.chuck.core.ChuckEvent());
-    vm.setGlobalObject(G_TRACK_ACTIVITY, new org.chuck.core.ChuckArray(trackActivity));
-    step.register(vm);
-    track.register(vm);
-    kit.register(vm);
-    audio.register(vm);
-    vm.setGlobalInt(G_QUEUE_STEP, 0L);
-    vm.setGlobalObject(G_DELAY_IN, new org.chuck.audio.util.Gain());
-    vm.setGlobalObject(G_REVERB_IN, new org.chuck.audio.util.Gain());
-    vm.setGlobalObject(G_SYNTH_BUS, new org.chuck.audio.util.Gain());
-    vm.setGlobalObject(G_AUDIO_BUS, new org.chuck.audio.util.Gain());
-    vm.setGlobalFloat(G_WVOUT_ACTIVE, 0.0);
-    vm.setGlobalString(G_WVOUT_FILE, "");
+  public void initRegistry() {
+
+    setGlobalFloat(G_BPM, bpm);
+    setGlobalFloat(G_SWING, swing);
+    setGlobalInt(G_PLAY, 0L);
+    setGlobalFloat(G_STEP_RESOLUTION, stepResolution);
+    setGlobalInt(G_CURRENT_STEP, -1L);
+    setGlobalFloat(G_MASTER_VOL, (double) masterVol);
+    setGlobalFloat(G_MASTER_PAN, (double) masterPan);
+    setGlobalFloat(G_DELAY_TIME, (double) delayTime);
+    setGlobalFloat(G_DELAY_FB, (double) delayFb);
+    setGlobalFloat(G_REVERB_ROOM, (double) reverbRoom);
+    setGlobalFloat(G_REVERB_DAMP, (double) reverbDamp);
+    setGlobalInt(G_SCALE, 0L);
+    setGlobalInt(G_ROOT_KEY, 0L);
+    setGlobalInt(G_STUTTER_ON, 0L);
+    setGlobalFloat(G_STUTTER_DIV, 1.0);
+    setGlobalInt(G_PREVIEW_TRACK, 0L);
+    setGlobalFloat(G_PREVIEW_PITCH, 60.0f);
+    setGlobalObject(E_PREVIEW, new org.deluge.shadow.core.ChuckEvent());
+    setGlobalObject(E_SIDECHAIN, new org.deluge.shadow.core.ChuckEvent());
+    setGlobalObject(G_LOAD_TRIGGER, new org.deluge.shadow.core.ChuckEvent());
+    setGlobalObject(E_TICK, new org.deluge.shadow.core.ChuckEvent());
+    setGlobalObject(G_TRACK_ACTIVITY, new org.deluge.shadow.core.ChuckArray(trackActivity));
+    step.register(this);
+    track.register(this);
+    kit.register(this);
+    audio.register(this);
+    setGlobalInt(G_QUEUE_STEP, 0L);
+    setGlobalObject(G_DELAY_IN, new org.deluge.shadow.audio.Gain());
+    setGlobalObject(G_REVERB_IN, new org.deluge.shadow.audio.Gain());
+    setGlobalObject(G_SYNTH_BUS, new org.deluge.shadow.audio.Gain());
+    setGlobalObject(G_AUDIO_BUS, new org.deluge.shadow.audio.Gain());
+    setGlobalFloat(G_WVOUT_ACTIVE, 0.0);
+    setGlobalString(G_WVOUT_FILE, "");
 
     // ── Extended reverb scalars ──
-    vm.setGlobalFloat(G_REVERB_WIDTH, (double) reverbWidth);
-    vm.setGlobalFloat(G_REVERB_HPF, (double) reverbHpf);
-    vm.setGlobalFloat(G_REVERB_PAN, (double) reverbPan);
-    vm.setGlobalInt(G_REVERB_MODEL, (long) reverbModel);
-    vm.setGlobalFloat(G_REVERB_COMP_ATTACK, (double) reverbCompAttack);
-    vm.setGlobalFloat(G_REVERB_COMP_RELEASE, (double) reverbCompRelease);
-    vm.setGlobalInt(G_REVERB_COMP_SYNC_LEVEL, (long) reverbCompSyncLevel);
-    vm.setGlobalFloat(G_REVERB_COMP_HPF, (double) reverbCompHpf);
-    vm.setGlobalFloat(G_REVERB_COMP_BLEND, (double) reverbCompBlend);
-    vm.setGlobalFloat(G_REVERB_EXCITATION, (double) reverbExcitation);
-    vm.setGlobalInt(G_REVERB_MODE, (long) reverbMode);
+    setGlobalFloat(G_REVERB_WIDTH, (double) reverbWidth);
+    setGlobalFloat(G_REVERB_HPF, (double) reverbHpf);
+    setGlobalFloat(G_REVERB_PAN, (double) reverbPan);
+    setGlobalInt(G_REVERB_MODEL, (long) reverbModel);
+    setGlobalFloat(G_REVERB_COMP_ATTACK, (double) reverbCompAttack);
+    setGlobalFloat(G_REVERB_COMP_RELEASE, (double) reverbCompRelease);
+    setGlobalInt(G_REVERB_COMP_SYNC_LEVEL, (long) reverbCompSyncLevel);
+    setGlobalFloat(G_REVERB_COMP_HPF, (double) reverbCompHpf);
+    setGlobalFloat(G_REVERB_COMP_BLEND, (double) reverbCompBlend);
+    setGlobalFloat(G_REVERB_EXCITATION, (double) reverbExcitation);
+    setGlobalInt(G_REVERB_MODE, (long) reverbMode);
 
     // ── Extended delay scalars ──
-    vm.setGlobalInt(G_DELAY_PINGPONG, (long) delayPingPong);
-    vm.setGlobalInt(G_DELAY_ANALOG, (long) delayAnalog);
-    vm.setGlobalInt(G_DELAY_SYNC_LEVEL, (long) delaySyncLevel);
-    vm.setGlobalInt(G_DELAY_SYNC_TYPE, (long) delaySyncType);
+    setGlobalInt(G_DELAY_PINGPONG, (long) delayPingPong);
+    setGlobalInt(G_DELAY_ANALOG, (long) delayAnalog);
+    setGlobalInt(G_DELAY_SYNC_LEVEL, (long) delaySyncLevel);
+    setGlobalInt(G_DELAY_SYNC_TYPE, (long) delaySyncType);
 
     // ── Sidechain scalars ──
-    vm.setGlobalFloat(G_SIDECHAIN_ATTACK, (double) sidechainAttack);
-    vm.setGlobalFloat(G_SIDECHAIN_RELEASE, (double) sidechainRelease);
-    vm.setGlobalInt(G_SIDECHAIN_SYNC_LEVEL, (long) sidechainSyncLevel);
-    vm.setGlobalInt(G_SIDECHAIN_SYNC_TYPE, (long) sidechainSyncType);
+    setGlobalFloat(G_SIDECHAIN_ATTACK, (double) sidechainAttack);
+    setGlobalFloat(G_SIDECHAIN_RELEASE, (double) sidechainRelease);
+    setGlobalInt(G_SIDECHAIN_SYNC_LEVEL, (long) sidechainSyncLevel);
+    setGlobalInt(G_SIDECHAIN_SYNC_TYPE, (long) sidechainSyncType);
 
     // ── Master compressor scalars ──
-    vm.setGlobalFloat(G_MASTER_COMP_ATTACK, (double) masterCompAttack);
-    vm.setGlobalFloat(G_MASTER_COMP_RELEASE, (double) masterCompRelease);
-    vm.setGlobalFloat(G_MASTER_COMP_RATIO, (double) masterCompRatio);
-    vm.setGlobalFloat(G_MASTER_COMP_BLEND, (double) masterCompBlend);
+    setGlobalFloat(G_MASTER_COMP_ATTACK, (double) masterCompAttack);
+    setGlobalFloat(G_MASTER_COMP_RELEASE, (double) masterCompRelease);
+    setGlobalFloat(G_MASTER_COMP_RATIO, (double) masterCompRatio);
+    setGlobalFloat(G_MASTER_COMP_BLEND, (double) masterCompBlend);
 
     // ── Transpose / humanize ──
-    vm.setGlobalInt(G_TRANSPOSE, (long) transpose);
-    vm.setGlobalFloat(G_HUMANIZE, (double) humanize);
+    setGlobalInt(G_TRANSPOSE, (long) transpose);
+    setGlobalFloat(G_HUMANIZE, (double) humanize);
 
     // ── SongParams scalars ──
-    vm.setGlobalFloat(G_SP_VOLUME, (double) spVolume);
-    vm.setGlobalFloat(G_SP_PAN, (double) spPan);
-    vm.setGlobalFloat(G_SP_REVERB_AMOUNT, (double) spReverbAmount);
-    vm.setGlobalFloat(G_SP_DELAY_RATE, (double) spDelayRate);
-    vm.setGlobalFloat(G_SP_DELAY_FEEDBACK, (double) spDelayFeedback);
-    vm.setGlobalFloat(G_SP_SIDECHAIN_SHAPE, (double) spSidechainShape);
-    vm.setGlobalFloat(G_SP_STUTTER_RATE, (double) spStutterRate);
-    vm.setGlobalFloat(G_SP_SAMPLE_RATE_REDUCTION, (double) spSampleRateReduction);
-    vm.setGlobalFloat(G_SP_BITCRUSH, (double) spBitCrush);
-    vm.setGlobalFloat(G_SP_MOD_FX_RATE, (double) spModFxRate);
-    vm.setGlobalFloat(G_SP_MOD_FX_DEPTH, (double) spModFxDepth);
-    vm.setGlobalFloat(G_SP_MOD_FX_OFFSET, (double) spModFxOffset);
-    vm.setGlobalFloat(G_SP_MOD_FX_FEEDBACK, (double) spModFxFeedback);
-    vm.setGlobalFloat(G_SP_COMPRESSOR_THRESHOLD, (double) spCompressorThreshold);
-    vm.setGlobalFloat(G_SP_LPF_MORPH, (double) spLpfMorph);
-    vm.setGlobalFloat(G_SP_HPF_MORPH, (double) spHpfMorph);
-    vm.setGlobalFloat(G_SP_LPF_FREQ, (double) spLpfFrequency);
-    vm.setGlobalFloat(G_SP_LPF_RES, (double) spLpfResonance);
-    vm.setGlobalFloat(G_SP_HPF_FREQ, (double) spHpfFrequency);
-    vm.setGlobalFloat(G_SP_HPF_RES, (double) spHpfResonance);
-    vm.setGlobalFloat(G_SP_EQ_BASS, (double) spEqBass);
-    vm.setGlobalFloat(G_SP_EQ_TREBLE, (double) spEqTreble);
-    vm.setGlobalFloat(G_SP_EQ_BASS_FREQ, (double) spEqBassFrequency);
-    vm.setGlobalFloat(G_SP_EQ_TREBLE_FREQ, (double) spEqTrebleFrequency);
+    setGlobalFloat(G_SP_VOLUME, (double) spVolume);
+    setGlobalFloat(G_SP_PAN, (double) spPan);
+    setGlobalFloat(G_SP_REVERB_AMOUNT, (double) spReverbAmount);
+    setGlobalFloat(G_SP_DELAY_RATE, (double) spDelayRate);
+    setGlobalFloat(G_SP_DELAY_FEEDBACK, (double) spDelayFeedback);
+    setGlobalFloat(G_SP_SIDECHAIN_SHAPE, (double) spSidechainShape);
+    setGlobalFloat(G_SP_STUTTER_RATE, (double) spStutterRate);
+    setGlobalFloat(G_SP_SAMPLE_RATE_REDUCTION, (double) spSampleRateReduction);
+    setGlobalFloat(G_SP_BITCRUSH, (double) spBitCrush);
+    setGlobalFloat(G_SP_MOD_FX_RATE, (double) spModFxRate);
+    setGlobalFloat(G_SP_MOD_FX_DEPTH, (double) spModFxDepth);
+    setGlobalFloat(G_SP_MOD_FX_OFFSET, (double) spModFxOffset);
+    setGlobalFloat(G_SP_MOD_FX_FEEDBACK, (double) spModFxFeedback);
+    setGlobalFloat(G_SP_COMPRESSOR_THRESHOLD, (double) spCompressorThreshold);
+    setGlobalFloat(G_SP_LPF_MORPH, (double) spLpfMorph);
+    setGlobalFloat(G_SP_HPF_MORPH, (double) spHpfMorph);
+    setGlobalFloat(G_SP_LPF_FREQ, (double) spLpfFrequency);
+    setGlobalFloat(G_SP_LPF_RES, (double) spLpfResonance);
+    setGlobalFloat(G_SP_HPF_FREQ, (double) spHpfFrequency);
+    setGlobalFloat(G_SP_HPF_RES, (double) spHpfResonance);
+    setGlobalFloat(G_SP_EQ_BASS, (double) spEqBass);
+    setGlobalFloat(G_SP_EQ_TREBLE, (double) spEqTreble);
+    setGlobalFloat(G_SP_EQ_BASS_FREQ, (double) spEqBassFrequency);
+    setGlobalFloat(G_SP_EQ_TREBLE_FREQ, (double) spEqTrebleFrequency);
 
     // ── MIDI Follow Mode ──
-    vm.setGlobalInt(G_FOLLOW_ENABLED, (long) followEnabled);
-    vm.setGlobalInt(G_FOLLOW_CH_A, (long) followChA);
-    vm.setGlobalInt(G_FOLLOW_CH_B, (long) followChB);
-    vm.setGlobalInt(G_FOLLOW_CH_C, (long) followChC);
-    vm.setGlobalInt(G_FOLLOW_TRACK_A, (long) followTrackA);
-    vm.setGlobalInt(G_FOLLOW_TRACK_B, (long) followTrackB);
-    vm.setGlobalInt(G_FOLLOW_TRACK_C, (long) followTrackC);
-    vm.setGlobalInt(G_FOLLOW_TRACK_CHANGED, (long) followTrackChanged);
-    vm.setGlobalInt(G_FOLLOW_CC_SOURCE, (long) followCcSource);
-    vm.setGlobalInt(G_FOLLOW_CC_NUM, (long) followCcNum);
-    vm.setGlobalInt(G_FOLLOW_CC_VAL, (long) followCcVal);
+    setGlobalInt(G_FOLLOW_ENABLED, (long) followEnabled);
+    setGlobalInt(G_FOLLOW_CH_A, (long) followChA);
+    setGlobalInt(G_FOLLOW_CH_B, (long) followChB);
+    setGlobalInt(G_FOLLOW_CH_C, (long) followChC);
+    setGlobalInt(G_FOLLOW_TRACK_A, (long) followTrackA);
+    setGlobalInt(G_FOLLOW_TRACK_B, (long) followTrackB);
+    setGlobalInt(G_FOLLOW_TRACK_C, (long) followTrackC);
+    setGlobalInt(G_FOLLOW_TRACK_CHANGED, (long) followTrackChanged);
+    setGlobalInt(G_FOLLOW_CC_SOURCE, (long) followCcSource);
+    setGlobalInt(G_FOLLOW_CC_NUM, (long) followCcNum);
+    setGlobalInt(G_FOLLOW_CC_VAL, (long) followCcVal);
 
     // ── Scales / mode notes ──
-    vm.setGlobalInt(G_USER_SCALE, (long) userScale);
-    vm.setGlobalInt(G_DISABLED_PRESET_SCALES, (long) disabledPresetScales);
+    setGlobalInt(G_USER_SCALE, (long) userScale);
+    setGlobalInt(G_DISABLED_PRESET_SCALES, (long) disabledPresetScales);
     for (int i = 0; i < 12; i++) {
-      vm.setGlobalInt(G_MODE_NOTES + "_" + i, (long) modeNotes[i]);
+      setGlobalInt(G_MODE_NOTES + "_" + i, (long) modeNotes[i]);
     }
   }
 
-  public ChuckVM getVm() {
-    return vm;
+  public BridgeContract getVm() {
+    return this;
   }
 
   public ChuckArray patternArray() {
-    return (ChuckArray) vm.getGlobalObject(G_PATTERN);
+    return (ChuckArray) getGlobalObject(G_PATTERN);
   }
 
   // ── Step accessors ────────────────────────────────────────
@@ -1314,16 +1408,16 @@ public final class BridgeContract {
   }
 
   public ChuckArray getClipArray(String baseName, int clipIdx) {
-    if (clipIdx <= 0) return (ChuckArray) vm.getGlobalObject(baseName);
+    if (clipIdx <= 0) return (ChuckArray) getGlobalObject(baseName);
     String name = baseName + "_C" + clipIdx;
-    Object obj = vm.getGlobalObject(name);
+    Object obj = getGlobalObject(name);
     if (obj instanceof ChuckArray ca) return ca;
-    ChuckArray base = (ChuckArray) vm.getGlobalObject(baseName);
+    ChuckArray base = (ChuckArray) getGlobalObject(baseName);
     ChuckArray arr =
         "int".equals(base.getElementTypeName())
             ? new ChuckArray(new int[PATTERN_SIZE])
             : new ChuckArray(new float[PATTERN_SIZE]);
-    vm.setGlobalObject(name, arr);
+    setGlobalObject(name, arr);
     return arr;
   }
 
@@ -1397,11 +1491,11 @@ public final class BridgeContract {
   }
 
   public int getQueueStep() {
-    return vm != null ? (int) vm.getGlobalInt(G_QUEUE_STEP) : 0;
+    return vm != null ? (int) getGlobalInt(G_QUEUE_STEP) : 0;
   }
 
   public void setQueueStep(int sidx) {
-    if (vm != null) vm.setGlobalInt(G_QUEUE_STEP, (long) sidx);
+    if (vm != null) setGlobalInt(G_QUEUE_STEP, (long) sidx);
   }
 
   public void setStepFilter(int track, int sidx, double val) {
@@ -2105,11 +2199,11 @@ public final class BridgeContract {
 
   public void setMute(int t, boolean val) {
     track.mute[t] = val ? 1 : 0;
-    if (vm != null) vm.setGlobalInt("g_mute_" + t, val ? 1L : 0L);
+    if (vm != null) setGlobalInt("g_mute_" + t, val ? 1L : 0L);
   }
 
   public boolean getMute(int t) {
-    if (vm != null) return vm.getGlobalInt("g_mute_" + t) > 0;
+    if (vm != null) return getGlobalInt("g_mute_" + t) > 0;
     return track.mute[t] > 0;
   }
 
@@ -2154,8 +2248,8 @@ public final class BridgeContract {
   public void setFilterDrive(int t, double drive) {
     track.filterDrive[t] = (float) Math.max(0.0, Math.min(2.0, drive));
     if (vm != null) {
-      org.chuck.core.ChuckArray arr =
-          (org.chuck.core.ChuckArray) vm.getGlobalObject(G_FILTER_DRIVE);
+      org.deluge.shadow.core.ChuckArray arr =
+          (org.deluge.shadow.core.ChuckArray) getGlobalObject(G_FILTER_DRIVE);
       if (arr != null) arr.setFloat(t, track.filterDrive[t]);
     }
   }
@@ -2163,8 +2257,8 @@ public final class BridgeContract {
   public void setFilterNotch(int t, int notch) {
     track.filterNotch[t] = notch;
     if (vm != null) {
-      org.chuck.core.ChuckArray arr =
-          (org.chuck.core.ChuckArray) vm.getGlobalObject(G_FILTER_NOTCH);
+      org.deluge.shadow.core.ChuckArray arr =
+          (org.deluge.shadow.core.ChuckArray) getGlobalObject(G_FILTER_NOTCH);
       if (arr != null) arr.setInt(t, (long) notch);
     }
   }
@@ -2172,8 +2266,8 @@ public final class BridgeContract {
   public void setFilterRoute(int t, int route) {
     track.filterRoute[t] = Math.max(0, Math.min(2, route));
     if (vm != null) {
-      org.chuck.core.ChuckArray arr =
-          (org.chuck.core.ChuckArray) vm.getGlobalObject(G_FILTER_ROUTE);
+      org.deluge.shadow.core.ChuckArray arr =
+          (org.deluge.shadow.core.ChuckArray) getGlobalObject(G_FILTER_ROUTE);
       if (arr != null) arr.setInt(t, (long) track.filterRoute[t]);
     }
   }
@@ -2181,7 +2275,8 @@ public final class BridgeContract {
   public void setMaxVoices(int t, int count) {
     track.maxVoices[t] = Math.max(1, Math.min(16, count));
     if (vm != null) {
-      org.chuck.core.ChuckArray arr = (org.chuck.core.ChuckArray) vm.getGlobalObject(G_MAX_VOICES);
+      org.deluge.shadow.core.ChuckArray arr =
+          (org.deluge.shadow.core.ChuckArray) getGlobalObject(G_MAX_VOICES);
       if (arr != null) arr.setInt(t, (long) track.maxVoices[t]);
     }
   }
@@ -2198,7 +2293,7 @@ public final class BridgeContract {
 
   public void setBpm(double bpm) {
     this.bpm = bpm;
-    if (vm != null) vm.setGlobalFloat(G_BPM, bpm);
+    if (vm != null) setGlobalFloat(G_BPM, bpm);
   }
 
   public double getBpm() {
@@ -2208,7 +2303,7 @@ public final class BridgeContract {
   public synchronized void setStepResolution(double res) {
     this.stepResolution = res;
     if (vm != null) {
-      vm.setGlobalFloat(G_STEP_RESOLUTION, res);
+      setGlobalFloat(G_STEP_RESOLUTION, res);
     }
   }
 
@@ -2218,7 +2313,7 @@ public final class BridgeContract {
 
   public void setSwing(double swing) {
     this.swing = swing;
-    if (vm != null) vm.setGlobalFloat(G_SWING, swing);
+    if (vm != null) setGlobalFloat(G_SWING, swing);
   }
 
   public double getSwing() {
@@ -2243,7 +2338,7 @@ public final class BridgeContract {
   // ── MIDI Follow Mode accessors ──
   public void setFollowEnabled(boolean enabled) {
     this.followEnabled = enabled ? 1 : 0;
-    if (vm != null) vm.setGlobalInt(G_FOLLOW_ENABLED, this.followEnabled);
+    if (vm != null) setGlobalInt(G_FOLLOW_ENABLED, this.followEnabled);
   }
 
   public boolean getFollowEnabled() {
@@ -2256,7 +2351,7 @@ public final class BridgeContract {
     if (label == 'A') followChA = midiChannel;
     else if (label == 'B') followChB = midiChannel;
     else followChC = midiChannel;
-    if (vm != null) vm.setGlobalInt(channelKey, midiChannel);
+    if (vm != null) setGlobalInt(channelKey, midiChannel);
   }
 
   public void setFollowTrack(char label, int track) {
@@ -2265,7 +2360,7 @@ public final class BridgeContract {
     if (label == 'A') followTrackA = track;
     else if (label == 'B') followTrackB = track;
     else followTrackC = track;
-    if (vm != null) vm.setGlobalInt(trackKey, track);
+    if (vm != null) setGlobalInt(trackKey, track);
   }
 
   public int getFollowMidChannel(char label) {
@@ -2278,7 +2373,7 @@ public final class BridgeContract {
 
   public void setFollowTrackChanged(int val) {
     this.followTrackChanged = val;
-    if (vm != null) vm.setGlobalInt(G_FOLLOW_TRACK_CHANGED, val);
+    if (vm != null) setGlobalInt(G_FOLLOW_TRACK_CHANGED, val);
   }
 
   public int getFollowTrackChanged() {
@@ -2290,15 +2385,15 @@ public final class BridgeContract {
     this.followCcNum = num;
     this.followCcVal = val;
     if (vm != null) {
-      vm.setGlobalInt(G_FOLLOW_CC_SOURCE, source);
-      vm.setGlobalInt(G_FOLLOW_CC_NUM, num);
-      vm.setGlobalInt(G_FOLLOW_CC_VAL, val);
+      setGlobalInt(G_FOLLOW_CC_SOURCE, source);
+      setGlobalInt(G_FOLLOW_CC_NUM, num);
+      setGlobalInt(G_FOLLOW_CC_VAL, val);
     }
   }
 
   public void setMasterVol(double val) {
     this.masterVol = (float) val;
-    if (vm != null) vm.setGlobalFloat(G_MASTER_VOL, val);
+    if (vm != null) setGlobalFloat(G_MASTER_VOL, val);
   }
 
   public double getMasterVol() {
@@ -2307,7 +2402,7 @@ public final class BridgeContract {
 
   public void setMasterPan(double val) {
     this.masterPan = (float) val;
-    if (vm != null) vm.setGlobalFloat(G_MASTER_PAN, val);
+    if (vm != null) setGlobalFloat(G_MASTER_PAN, val);
   }
 
   public double getMasterPan() {
@@ -2318,8 +2413,8 @@ public final class BridgeContract {
     this.delayTime = (float) time;
     this.delayFb = (float) fb;
     if (vm != null) {
-      vm.setGlobalFloat(G_DELAY_TIME, time);
-      vm.setGlobalFloat(G_DELAY_FB, fb);
+      setGlobalFloat(G_DELAY_TIME, time);
+      setGlobalFloat(G_DELAY_FB, fb);
     }
   }
 
@@ -2335,8 +2430,8 @@ public final class BridgeContract {
     this.reverbRoom = (float) room;
     this.reverbDamp = (float) damp;
     if (vm != null) {
-      vm.setGlobalFloat(G_REVERB_ROOM, room);
-      vm.setGlobalFloat(G_REVERB_DAMP, damp);
+      setGlobalFloat(G_REVERB_ROOM, room);
+      setGlobalFloat(G_REVERB_DAMP, damp);
     }
   }
 
@@ -2351,7 +2446,7 @@ public final class BridgeContract {
   // ── Extended reverb setters ───────────────────────────────
   public void setReverbWidth(double v) {
     this.reverbWidth = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_REVERB_WIDTH, v);
+    if (vm != null) setGlobalFloat(G_REVERB_WIDTH, v);
   }
 
   public double getReverbWidth() {
@@ -2360,7 +2455,7 @@ public final class BridgeContract {
 
   public void setReverbHpf(double v) {
     this.reverbHpf = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_REVERB_HPF, v);
+    if (vm != null) setGlobalFloat(G_REVERB_HPF, v);
   }
 
   public double getReverbHpf() {
@@ -2369,7 +2464,7 @@ public final class BridgeContract {
 
   public void setReverbPan2(double v) {
     this.reverbPan = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_REVERB_PAN, v);
+    if (vm != null) setGlobalFloat(G_REVERB_PAN, v);
   }
 
   public double getReverbPan2() {
@@ -2378,7 +2473,7 @@ public final class BridgeContract {
 
   public void setReverbModel(int v) {
     this.reverbModel = v;
-    if (vm != null) vm.setGlobalInt(G_REVERB_MODEL, (long) v);
+    if (vm != null) setGlobalInt(G_REVERB_MODEL, (long) v);
   }
 
   public int getReverbModel() {
@@ -2387,7 +2482,7 @@ public final class BridgeContract {
 
   public void setReverbCompAttack(double v) {
     this.reverbCompAttack = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_REVERB_COMP_ATTACK, v);
+    if (vm != null) setGlobalFloat(G_REVERB_COMP_ATTACK, v);
   }
 
   public double getReverbCompAttack() {
@@ -2396,7 +2491,7 @@ public final class BridgeContract {
 
   public void setReverbCompRelease(double v) {
     this.reverbCompRelease = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_REVERB_COMP_RELEASE, v);
+    if (vm != null) setGlobalFloat(G_REVERB_COMP_RELEASE, v);
   }
 
   public double getReverbCompRelease() {
@@ -2405,7 +2500,7 @@ public final class BridgeContract {
 
   public void setReverbCompSyncLevel(int v) {
     this.reverbCompSyncLevel = v;
-    if (vm != null) vm.setGlobalInt(G_REVERB_COMP_SYNC_LEVEL, (long) v);
+    if (vm != null) setGlobalInt(G_REVERB_COMP_SYNC_LEVEL, (long) v);
   }
 
   public int getReverbCompSyncLevel() {
@@ -2414,7 +2509,7 @@ public final class BridgeContract {
 
   public void setReverbCompHpf(double v) {
     this.reverbCompHpf = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_REVERB_COMP_HPF, v);
+    if (vm != null) setGlobalFloat(G_REVERB_COMP_HPF, v);
   }
 
   public double getReverbCompHpf() {
@@ -2423,7 +2518,7 @@ public final class BridgeContract {
 
   public void setReverbCompBlend(double v) {
     this.reverbCompBlend = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_REVERB_COMP_BLEND, v);
+    if (vm != null) setGlobalFloat(G_REVERB_COMP_BLEND, v);
   }
 
   public double getReverbCompBlend() {
@@ -2433,7 +2528,7 @@ public final class BridgeContract {
   // ── Rings-reverb setters ─────────────────────────────────
   public void setReverbExcitation(double v) {
     this.reverbExcitation = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_REVERB_EXCITATION, v);
+    if (vm != null) setGlobalFloat(G_REVERB_EXCITATION, v);
   }
 
   public double getReverbExcitation() {
@@ -2442,7 +2537,7 @@ public final class BridgeContract {
 
   public void setReverbMode(int v) {
     this.reverbMode = v;
-    if (vm != null) vm.setGlobalInt(G_REVERB_MODE, (long) v);
+    if (vm != null) setGlobalInt(G_REVERB_MODE, (long) v);
   }
 
   public int getReverbMode() {
@@ -2452,7 +2547,7 @@ public final class BridgeContract {
   // ── Extended delay setters ────────────────────────────────
   public void setDelayPingPong(int v) {
     this.delayPingPong = v;
-    if (vm != null) vm.setGlobalInt(G_DELAY_PINGPONG, (long) v);
+    if (vm != null) setGlobalInt(G_DELAY_PINGPONG, (long) v);
   }
 
   public int getDelayPingPong() {
@@ -2461,7 +2556,7 @@ public final class BridgeContract {
 
   public void setDelayAnalog(int v) {
     this.delayAnalog = v;
-    if (vm != null) vm.setGlobalInt(G_DELAY_ANALOG, (long) v);
+    if (vm != null) setGlobalInt(G_DELAY_ANALOG, (long) v);
   }
 
   public int getDelayAnalog() {
@@ -2470,7 +2565,7 @@ public final class BridgeContract {
 
   public void setDelaySyncLevel(int v) {
     this.delaySyncLevel = v;
-    if (vm != null) vm.setGlobalInt(G_DELAY_SYNC_LEVEL, (long) v);
+    if (vm != null) setGlobalInt(G_DELAY_SYNC_LEVEL, (long) v);
   }
 
   public int getDelaySyncLevel() {
@@ -2479,7 +2574,7 @@ public final class BridgeContract {
 
   public void setDelaySyncType(int v) {
     this.delaySyncType = v;
-    if (vm != null) vm.setGlobalInt(G_DELAY_SYNC_TYPE, (long) v);
+    if (vm != null) setGlobalInt(G_DELAY_SYNC_TYPE, (long) v);
   }
 
   public int getDelaySyncType() {
@@ -2489,7 +2584,7 @@ public final class BridgeContract {
   // ── Sidechain setters ──────────────────────────────────────
   public void setSidechainAttack(double v) {
     this.sidechainAttack = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_SIDECHAIN_ATTACK, v);
+    if (vm != null) setGlobalFloat(G_SIDECHAIN_ATTACK, v);
   }
 
   public double getSidechainAttack() {
@@ -2498,7 +2593,7 @@ public final class BridgeContract {
 
   public void setSidechainRelease(double v) {
     this.sidechainRelease = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_SIDECHAIN_RELEASE, v);
+    if (vm != null) setGlobalFloat(G_SIDECHAIN_RELEASE, v);
   }
 
   public double getSidechainRelease() {
@@ -2507,7 +2602,7 @@ public final class BridgeContract {
 
   public void setSidechainSyncLevel(int v) {
     this.sidechainSyncLevel = v;
-    if (vm != null) vm.setGlobalInt(G_SIDECHAIN_SYNC_LEVEL, (long) v);
+    if (vm != null) setGlobalInt(G_SIDECHAIN_SYNC_LEVEL, (long) v);
   }
 
   public int getSidechainSyncLevel() {
@@ -2516,7 +2611,7 @@ public final class BridgeContract {
 
   public void setSidechainSyncType(int v) {
     this.sidechainSyncType = v;
-    if (vm != null) vm.setGlobalInt(G_SIDECHAIN_SYNC_TYPE, (long) v);
+    if (vm != null) setGlobalInt(G_SIDECHAIN_SYNC_TYPE, (long) v);
   }
 
   public int getSidechainSyncType() {
@@ -2526,7 +2621,7 @@ public final class BridgeContract {
   // ── Master compressor setters ──────────────────────────────
   public void setMasterCompAttack(double v) {
     this.masterCompAttack = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_MASTER_COMP_ATTACK, v);
+    if (vm != null) setGlobalFloat(G_MASTER_COMP_ATTACK, v);
   }
 
   public double getMasterCompAttack() {
@@ -2535,7 +2630,7 @@ public final class BridgeContract {
 
   public void setMasterCompRelease(double v) {
     this.masterCompRelease = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_MASTER_COMP_RELEASE, v);
+    if (vm != null) setGlobalFloat(G_MASTER_COMP_RELEASE, v);
   }
 
   public double getMasterCompRelease() {
@@ -2544,7 +2639,7 @@ public final class BridgeContract {
 
   public void setMasterCompRatio(double v) {
     this.masterCompRatio = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_MASTER_COMP_RATIO, v);
+    if (vm != null) setGlobalFloat(G_MASTER_COMP_RATIO, v);
   }
 
   public double getMasterCompRatio() {
@@ -2553,7 +2648,7 @@ public final class BridgeContract {
 
   public void setMasterCompBlend(double v) {
     this.masterCompBlend = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_MASTER_COMP_BLEND, v);
+    if (vm != null) setGlobalFloat(G_MASTER_COMP_BLEND, v);
   }
 
   public double getMasterCompBlend() {
@@ -2563,7 +2658,7 @@ public final class BridgeContract {
   // ── Transpose / humanize ───────────────────────────────────
   public void setTranspose(int v) {
     this.transpose = v;
-    if (vm != null) vm.setGlobalInt(G_TRANSPOSE, (long) v);
+    if (vm != null) setGlobalInt(G_TRANSPOSE, (long) v);
   }
 
   public int getTranspose() {
@@ -2572,7 +2667,7 @@ public final class BridgeContract {
 
   public void setHumanize(double v) {
     this.humanize = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_HUMANIZE, v);
+    if (vm != null) setGlobalFloat(G_HUMANIZE, v);
   }
 
   public double getHumanize() {
@@ -2582,7 +2677,7 @@ public final class BridgeContract {
   // ── SongParams setters ─────────────────────────────────────
   public void setSpVolume(double v) {
     this.spVolume = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_SP_VOLUME, v);
+    if (vm != null) setGlobalFloat(G_SP_VOLUME, v);
   }
 
   public double getSpVolume() {
@@ -2591,7 +2686,7 @@ public final class BridgeContract {
 
   public void setSpPan(double v) {
     this.spPan = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_SP_PAN, v);
+    if (vm != null) setGlobalFloat(G_SP_PAN, v);
   }
 
   public double getSpPan() {
@@ -2600,7 +2695,7 @@ public final class BridgeContract {
 
   public void setSpReverbAmount(double v) {
     this.spReverbAmount = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_SP_REVERB_AMOUNT, v);
+    if (vm != null) setGlobalFloat(G_SP_REVERB_AMOUNT, v);
   }
 
   public double getSpReverbAmount() {
@@ -2609,7 +2704,7 @@ public final class BridgeContract {
 
   public void setSpDelayRate(double v) {
     this.spDelayRate = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_SP_DELAY_RATE, v);
+    if (vm != null) setGlobalFloat(G_SP_DELAY_RATE, v);
   }
 
   public double getSpDelayRate() {
@@ -2618,7 +2713,7 @@ public final class BridgeContract {
 
   public void setSpDelayFeedback(double v) {
     this.spDelayFeedback = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_SP_DELAY_FEEDBACK, v);
+    if (vm != null) setGlobalFloat(G_SP_DELAY_FEEDBACK, v);
   }
 
   public double getSpDelayFeedback() {
@@ -2627,7 +2722,7 @@ public final class BridgeContract {
 
   public void setSpSidechainShape(double v) {
     this.spSidechainShape = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_SP_SIDECHAIN_SHAPE, v);
+    if (vm != null) setGlobalFloat(G_SP_SIDECHAIN_SHAPE, v);
   }
 
   public double getSpSidechainShape() {
@@ -2636,7 +2731,7 @@ public final class BridgeContract {
 
   public void setSpStutterRate(double v) {
     this.spStutterRate = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_SP_STUTTER_RATE, v);
+    if (vm != null) setGlobalFloat(G_SP_STUTTER_RATE, v);
   }
 
   public double getSpStutterRate() {
@@ -2645,7 +2740,7 @@ public final class BridgeContract {
 
   public void setSpSampleRateReduction(double v) {
     this.spSampleRateReduction = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_SP_SAMPLE_RATE_REDUCTION, v);
+    if (vm != null) setGlobalFloat(G_SP_SAMPLE_RATE_REDUCTION, v);
   }
 
   public double getSpSampleRateReduction() {
@@ -2654,7 +2749,7 @@ public final class BridgeContract {
 
   public void setSpBitCrush(double v) {
     this.spBitCrush = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_SP_BITCRUSH, v);
+    if (vm != null) setGlobalFloat(G_SP_BITCRUSH, v);
   }
 
   public double getSpBitCrush() {
@@ -2663,7 +2758,7 @@ public final class BridgeContract {
 
   public void setSpModFxRate(double v) {
     this.spModFxRate = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_SP_MOD_FX_RATE, v);
+    if (vm != null) setGlobalFloat(G_SP_MOD_FX_RATE, v);
   }
 
   public double getSpModFxRate() {
@@ -2672,7 +2767,7 @@ public final class BridgeContract {
 
   public void setSpModFxDepth(double v) {
     this.spModFxDepth = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_SP_MOD_FX_DEPTH, v);
+    if (vm != null) setGlobalFloat(G_SP_MOD_FX_DEPTH, v);
   }
 
   public double getSpModFxDepth() {
@@ -2681,7 +2776,7 @@ public final class BridgeContract {
 
   public void setSpModFxOffset(double v) {
     this.spModFxOffset = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_SP_MOD_FX_OFFSET, v);
+    if (vm != null) setGlobalFloat(G_SP_MOD_FX_OFFSET, v);
   }
 
   public double getSpModFxOffset() {
@@ -2690,7 +2785,7 @@ public final class BridgeContract {
 
   public void setSpModFxFeedback(double v) {
     this.spModFxFeedback = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_SP_MOD_FX_FEEDBACK, v);
+    if (vm != null) setGlobalFloat(G_SP_MOD_FX_FEEDBACK, v);
   }
 
   public double getSpModFxFeedback() {
@@ -2699,7 +2794,7 @@ public final class BridgeContract {
 
   public void setSpCompressorThreshold(double v) {
     this.spCompressorThreshold = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_SP_COMPRESSOR_THRESHOLD, v);
+    if (vm != null) setGlobalFloat(G_SP_COMPRESSOR_THRESHOLD, v);
   }
 
   public double getSpCompressorThreshold() {
@@ -2708,7 +2803,7 @@ public final class BridgeContract {
 
   public void setSpLpfMorph(double v) {
     this.spLpfMorph = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_SP_LPF_MORPH, v);
+    if (vm != null) setGlobalFloat(G_SP_LPF_MORPH, v);
   }
 
   public double getSpLpfMorph() {
@@ -2717,7 +2812,7 @@ public final class BridgeContract {
 
   public void setSpHpfMorph(double v) {
     this.spHpfMorph = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_SP_HPF_MORPH, v);
+    if (vm != null) setGlobalFloat(G_SP_HPF_MORPH, v);
   }
 
   public double getSpHpfMorph() {
@@ -2726,7 +2821,7 @@ public final class BridgeContract {
 
   public void setSpLpfFrequency(double v) {
     this.spLpfFrequency = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_SP_LPF_FREQ, v);
+    if (vm != null) setGlobalFloat(G_SP_LPF_FREQ, v);
   }
 
   public double getSpLpfFrequency() {
@@ -2735,7 +2830,7 @@ public final class BridgeContract {
 
   public void setSpLpfResonance(double v) {
     this.spLpfResonance = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_SP_LPF_RES, v);
+    if (vm != null) setGlobalFloat(G_SP_LPF_RES, v);
   }
 
   public double getSpLpfResonance() {
@@ -2744,7 +2839,7 @@ public final class BridgeContract {
 
   public void setSpHpfFrequency(double v) {
     this.spHpfFrequency = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_SP_HPF_FREQ, v);
+    if (vm != null) setGlobalFloat(G_SP_HPF_FREQ, v);
   }
 
   public double getSpHpfFrequency() {
@@ -2753,7 +2848,7 @@ public final class BridgeContract {
 
   public void setSpHpfResonance(double v) {
     this.spHpfResonance = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_SP_HPF_RES, v);
+    if (vm != null) setGlobalFloat(G_SP_HPF_RES, v);
   }
 
   public double getSpHpfResonance() {
@@ -2762,7 +2857,7 @@ public final class BridgeContract {
 
   public void setSpEqBass(double v) {
     this.spEqBass = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_SP_EQ_BASS, v);
+    if (vm != null) setGlobalFloat(G_SP_EQ_BASS, v);
   }
 
   public double getSpEqBass() {
@@ -2771,7 +2866,7 @@ public final class BridgeContract {
 
   public void setSpEqTreble(double v) {
     this.spEqTreble = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_SP_EQ_TREBLE, v);
+    if (vm != null) setGlobalFloat(G_SP_EQ_TREBLE, v);
   }
 
   public double getSpEqTreble() {
@@ -2780,7 +2875,7 @@ public final class BridgeContract {
 
   public void setSpEqBassFrequency(double v) {
     this.spEqBassFrequency = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_SP_EQ_BASS_FREQ, v);
+    if (vm != null) setGlobalFloat(G_SP_EQ_BASS_FREQ, v);
   }
 
   public double getSpEqBassFrequency() {
@@ -2789,7 +2884,7 @@ public final class BridgeContract {
 
   public void setSpEqTrebleFrequency(double v) {
     this.spEqTrebleFrequency = (float) v;
-    if (vm != null) vm.setGlobalFloat(G_SP_EQ_TREBLE_FREQ, v);
+    if (vm != null) setGlobalFloat(G_SP_EQ_TREBLE_FREQ, v);
   }
 
   public double getSpEqTrebleFrequency() {
@@ -2799,7 +2894,7 @@ public final class BridgeContract {
   // ── Scales setters ──────────────────────────────────────────
   public void setUserScale(int v) {
     this.userScale = v;
-    if (vm != null) vm.setGlobalInt(G_USER_SCALE, (long) v);
+    if (vm != null) setGlobalInt(G_USER_SCALE, (long) v);
   }
 
   public int getUserScale() {
@@ -2808,7 +2903,7 @@ public final class BridgeContract {
 
   public void setDisabledPresetScales(int v) {
     this.disabledPresetScales = v;
-    if (vm != null) vm.setGlobalInt(G_DISABLED_PRESET_SCALES, (long) v);
+    if (vm != null) setGlobalInt(G_DISABLED_PRESET_SCALES, (long) v);
   }
 
   public int getDisabledPresetScales() {
@@ -2818,7 +2913,7 @@ public final class BridgeContract {
   public void setModeNote(int semitone, boolean enabled) {
     if (semitone >= 0 && semitone < 12) {
       this.modeNotes[semitone] = enabled ? 1 : 0;
-      if (vm != null) vm.setGlobalInt(G_MODE_NOTES + "_" + semitone, enabled ? 1L : 0L);
+      if (vm != null) setGlobalInt(G_MODE_NOTES + "_" + semitone, enabled ? 1L : 0L);
     }
   }
 
@@ -2831,7 +2926,7 @@ public final class BridgeContract {
     if (notes == null || notes.length < 12) return;
     for (int i = 0; i < 12; i++) {
       this.modeNotes[i] = notes[i] ? 1 : 0;
-      if (vm != null) vm.setGlobalInt(G_MODE_NOTES + "_" + i, notes[i] ? 1L : 0L);
+      if (vm != null) setGlobalInt(G_MODE_NOTES + "_" + i, notes[i] ? 1L : 0L);
     }
   }
 
@@ -2843,7 +2938,7 @@ public final class BridgeContract {
     if (notes == null || notes.length < 12) return;
     for (int i = 0; i < 12; i++) {
       this.modeNotes[i] = notes[i];
-      if (vm != null) vm.setGlobalInt(G_MODE_NOTES + "_" + i, (long) notes[i]);
+      if (vm != null) setGlobalInt(G_MODE_NOTES + "_" + i, (long) notes[i]);
     }
   }
 
@@ -3203,8 +3298,8 @@ public final class BridgeContract {
   public void setKitLpfDrive(int track, float v) {
     kit.kitLpfDrive[track] = Math.max(0.0f, Math.min(2.0f, v));
     if (vm != null) {
-      org.chuck.core.ChuckArray arr =
-          (org.chuck.core.ChuckArray) vm.getGlobalObject(G_KIT_LPF_DRIVE);
+      org.deluge.shadow.core.ChuckArray arr =
+          (org.deluge.shadow.core.ChuckArray) getGlobalObject(G_KIT_LPF_DRIVE);
       if (arr != null) arr.setFloat(track, kit.kitLpfDrive[track]);
     }
   }
@@ -3212,8 +3307,8 @@ public final class BridgeContract {
   public void setKitLpfNotch(int track, int v) {
     kit.kitLpfNotch[track] = v;
     if (vm != null) {
-      org.chuck.core.ChuckArray arr =
-          (org.chuck.core.ChuckArray) vm.getGlobalObject(G_KIT_LPF_NOTCH);
+      org.deluge.shadow.core.ChuckArray arr =
+          (org.deluge.shadow.core.ChuckArray) getGlobalObject(G_KIT_LPF_NOTCH);
       if (arr != null) arr.setInt(track, (long) v);
     }
   }
@@ -3221,8 +3316,8 @@ public final class BridgeContract {
   public void setKitMaxVoices(int track, int v) {
     kit.kitMaxVoices[track] = Math.max(1, Math.min(16, v));
     if (vm != null) {
-      org.chuck.core.ChuckArray arr =
-          (org.chuck.core.ChuckArray) vm.getGlobalObject(G_KIT_MAX_VOICES);
+      org.deluge.shadow.core.ChuckArray arr =
+          (org.deluge.shadow.core.ChuckArray) getGlobalObject(G_KIT_MAX_VOICES);
       if (arr != null) arr.setInt(track, (long) kit.kitMaxVoices[track]);
     }
   }
@@ -3230,8 +3325,8 @@ public final class BridgeContract {
   public void setKitPolyphony(int track, int v) {
     kit.kitPolyphony[track] = v;
     if (vm != null) {
-      org.chuck.core.ChuckArray arr =
-          (org.chuck.core.ChuckArray) vm.getGlobalObject(G_KIT_POLYPHONY);
+      org.deluge.shadow.core.ChuckArray arr =
+          (org.deluge.shadow.core.ChuckArray) getGlobalObject(G_KIT_POLYPHONY);
       if (arr != null) arr.setInt(track, (long) v);
     }
   }
@@ -3312,8 +3407,8 @@ public final class BridgeContract {
   public void setAudioThreshold(int trackIdx, int v) {
     audio.audioThreshold[trackIdx] = Math.max(0, Math.min(3, v));
     if (vm != null) {
-      org.chuck.core.ChuckArray arr =
-          (org.chuck.core.ChuckArray) vm.getGlobalObject(G_AUDIO_THRESHOLD);
+      org.deluge.shadow.core.ChuckArray arr =
+          (org.deluge.shadow.core.ChuckArray) getGlobalObject(G_AUDIO_THRESHOLD);
       if (arr != null) arr.setInt(trackIdx, (long) audio.audioThreshold[trackIdx]);
     }
   }
@@ -3321,8 +3416,8 @@ public final class BridgeContract {
   public void setAudioThresholdLevel(int trackIdx, float v) {
     audio.audioThresholdLevel[trackIdx] = v;
     if (vm != null) {
-      org.chuck.core.ChuckArray arr =
-          (org.chuck.core.ChuckArray) vm.getGlobalObject(G_AUDIO_THRESHOLD_LEVEL);
+      org.deluge.shadow.core.ChuckArray arr =
+          (org.deluge.shadow.core.ChuckArray) getGlobalObject(G_AUDIO_THRESHOLD_LEVEL);
       if (arr != null) arr.setFloat(trackIdx, v);
     }
   }
@@ -3366,18 +3461,18 @@ public final class BridgeContract {
   // ── Export / misc ────────────────────────────────────────
 
   public boolean isExporting() {
-    return vm != null && vm.getGlobalFloat(G_WVOUT_ACTIVE) > 0.5;
+    return vm != null && getGlobalFloat(G_WVOUT_ACTIVE) > 0.5;
   }
 
   public void startExport(String filePath) {
     if (vm != null) {
-      vm.setGlobalString(G_WVOUT_FILE, filePath);
-      vm.setGlobalFloat(G_WVOUT_ACTIVE, 1.0);
+      setGlobalString(G_WVOUT_FILE, filePath);
+      setGlobalFloat(G_WVOUT_ACTIVE, 1.0);
     }
   }
 
   public void stopExport() {
-    if (vm != null) vm.setGlobalFloat(G_WVOUT_ACTIVE, 0.0);
+    if (vm != null) setGlobalFloat(G_WVOUT_ACTIVE, 0.0);
   }
 
   public void syncActiveClipToLibrary(int track) {}
@@ -3532,7 +3627,7 @@ public final class BridgeContract {
 
   public void setPlayState(int state) {
     this.javaPlayState = state;
-    if (vm != null) vm.setGlobalInt(G_PLAY, (long) state);
+    if (vm != null) setGlobalInt(G_PLAY, (long) state);
   }
 
   public int getCurrentStep() {
@@ -3541,15 +3636,15 @@ public final class BridgeContract {
 
   public void setCurrentStep(int v) {
     this.javaCurrentStep = v;
-    if (vm != null) vm.setGlobalInt(G_CURRENT_STEP, (long) v);
+    if (vm != null) setGlobalInt(G_CURRENT_STEP, (long) v);
   }
 
   public long getStutterOn() {
-    return vm != null ? vm.getGlobalInt(G_STUTTER_ON) : 0L;
+    return vm != null ? getGlobalInt(G_STUTTER_ON) : 0L;
   }
 
   public double getStutterDiv() {
-    return vm != null ? vm.getGlobalFloat(G_STUTTER_DIV) : 1.0;
+    return vm != null ? getGlobalFloat(G_STUTTER_DIV) : 1.0;
   }
 
   public void processLaunchQueue() {
@@ -3565,7 +3660,7 @@ public final class BridgeContract {
   public int getPatternAtClip(int t, int sidx, int clipIdx) {
     if (clipIdx <= 0) return step.pattern[t * STEPS + sidx];
     if (vm == null) return step.pattern[t * STEPS + sidx];
-    var arr = (org.chuck.core.ChuckArray) vm.getGlobalObject(G_PATTERN + "_C" + clipIdx);
+    var arr = (org.deluge.shadow.core.ChuckArray) getGlobalObject(G_PATTERN + "_C" + clipIdx);
     if (arr != null) return (int) arr.getInt(t * STEPS + sidx);
     return step.pattern[t * STEPS + sidx];
   }
@@ -3573,7 +3668,7 @@ public final class BridgeContract {
   public int getPitchAtClip(int t, int sidx, int clipIdx) {
     if (clipIdx <= 0) return step.pitch[t * STEPS + sidx];
     if (vm == null) return step.pitch[t * STEPS + sidx];
-    var arr = (org.chuck.core.ChuckArray) vm.getGlobalObject(G_PITCH + "_C" + clipIdx);
+    var arr = (org.deluge.shadow.core.ChuckArray) getGlobalObject(G_PITCH + "_C" + clipIdx);
     if (arr != null) return (int) arr.getInt(t * STEPS + sidx);
     return step.pitch[t * STEPS + sidx];
   }
@@ -3581,7 +3676,7 @@ public final class BridgeContract {
   public float getVelocityAtClip(int t, int sidx, int clipIdx) {
     if (clipIdx <= 0) return step.velocity[t * STEPS + sidx];
     if (vm == null) return step.velocity[t * STEPS + sidx];
-    var arr = (org.chuck.core.ChuckArray) vm.getGlobalObject(G_VELOCITY + "_C" + clipIdx);
+    var arr = (org.deluge.shadow.core.ChuckArray) getGlobalObject(G_VELOCITY + "_C" + clipIdx);
     if (arr != null) return (float) arr.getFloat(t * STEPS + sidx);
     return step.velocity[t * STEPS + sidx];
   }
@@ -3589,7 +3684,7 @@ public final class BridgeContract {
   public float getProbabilityAtClip(int t, int sidx, int clipIdx) {
     if (clipIdx <= 0) return step.probability[t * STEPS + sidx];
     if (vm == null) return step.probability[t * STEPS + sidx];
-    var arr = (org.chuck.core.ChuckArray) vm.getGlobalObject(G_PROBABILITY + "_C" + clipIdx);
+    var arr = (org.deluge.shadow.core.ChuckArray) getGlobalObject(G_PROBABILITY + "_C" + clipIdx);
     if (arr != null) return (float) arr.getFloat(t * STEPS + sidx);
     return step.probability[t * STEPS + sidx];
   }

@@ -896,7 +896,7 @@ public class PreferencesDialog extends JDialog {
     }
 
     // MIDI input ports
-    String[] ports = org.chuck.midi.MidiIn.list();
+    String[] ports = org.deluge.shadow.midi.MidiIn.list();
     midiCombo.removeAllItems();
     friendlyToRawMidi.clear();
     rawToFriendlyMidi.clear();
@@ -1105,7 +1105,7 @@ public class PreferencesDialog extends JDialog {
   // ── Dynamic MIDI Port Hot-Plug Scanners ──
 
   private void updateMidiPortsListDynamic() {
-    String[] currentPorts = org.chuck.midi.MidiIn.list();
+    String[] currentPorts = org.deluge.shadow.midi.MidiIn.list();
 
     int comboItemCount = midiCombo.getItemCount();
     boolean changed = false;

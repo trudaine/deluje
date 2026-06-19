@@ -9,7 +9,6 @@ import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import org.chuck.core.ChuckVM;
 import org.deluge.BridgeContract;
 import org.deluge.model.FilterMode;
 import org.deluge.model.SynthTrackModel;
@@ -28,7 +27,7 @@ public class SynthParamRack extends JPanel {
   private static final Color ACCENT = new Color(0x00, 0xbb, 0xff);
   private static final Color GOLD = new Color(0xff, 0xb3, 0x00);
 
-  private final ChuckVM vm;
+  private final BridgeContract bridge;
   private final Supplier<SynthTrackModel> trackSupplier;
   private final IntSupplier indexSupplier;
   private java.util.function.Consumer<java.io.File> onReplacePreset;
@@ -51,8 +50,8 @@ public class SynthParamRack extends JPanel {
   private final SegmentedToggle modeToggle;
 
   public SynthParamRack(
-      ChuckVM vm, Supplier<SynthTrackModel> trackSupplier, IntSupplier indexSupplier) {
-    this.vm = vm;
+      BridgeContract bridge, Supplier<SynthTrackModel> trackSupplier, IntSupplier indexSupplier) {
+    this.bridge = bridge;
     this.trackSupplier = trackSupplier;
     this.indexSupplier = indexSupplier;
 
@@ -249,7 +248,7 @@ public class SynthParamRack extends JPanel {
   private void apply(SynthTrackModel t, String code, String val) {
     int idx = indexSupplier.getAsInt();
     try {
-      Object eng = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+      Object eng = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
       if (eng instanceof org.deluge.firmware.engine.FirmwareAudioEngine engine
           && idx >= 0
           && idx < engine.sounds.size()

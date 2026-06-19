@@ -9,7 +9,7 @@ import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSlider;
-import org.chuck.core.ChuckVM;
+import org.deluge.BridgeContract;
 import org.deluge.model.ProjectModel;
 
 /**
@@ -28,11 +28,12 @@ public class SwingMasterFxPanel extends JPanel {
   private final JSlider blendSlider;
 
   /**
-   * @param vm ChucK VM for bridge writes
+   * @param bridge ChucK VM for bridge writes
    * @param projectModel project model for MVC-bound controls
    * @param topBar top bar panel for two-way master vol sync
    */
-  public SwingMasterFxPanel(ChuckVM vm, ProjectModel projectModel, SwingTopBarPanel topBar) {
+  public SwingMasterFxPanel(
+      BridgeContract bridge, ProjectModel projectModel, SwingTopBarPanel topBar) {
     this.projectModel = projectModel;
     setLayout(new FlowLayout(FlowLayout.LEFT, 12, 4));
     setBackground(new Color(0x12, 0x12, 0x14)); // Dark charcoal matching top bar
