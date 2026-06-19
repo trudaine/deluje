@@ -3794,7 +3794,12 @@ public class SwingDelugeApp extends JFrame {
     @Override
     public void onResampleToggle(JButton btn) {
       if (!org.deluge.engine.JavaAudioDriver.isResamplingActive) {
-        // Start resample mode: auto-start play if not playing
+        // Start resample mode: silence any ringing voices/delay tails from previous
+        // playback so the capture starts from a clean slate.
+        if (pureEngine != null && pureEngine.getAudioEngine() != null) {
+          pureEngine.getAudioEngine().panic();
+        }
+        // Auto-start play if not already playing
         if (bridge.getGlobalInt(BridgeContract.G_PLAY) == 0L) {
           onPlayToggle();
         }
