@@ -214,30 +214,13 @@ public class JavaAudioDriver implements Runnable {
           int absL = Math.abs(s.l);
           if (absL > peak) peak = absL;
 
-          // Diagnostic: log engine output during resampling
-          if (isResamplingActive && i == 0 && blockCounter % 50 == 0) {
-            long sumSq = 0;
-            int silCount = 0;
-            for (int j = 0; j < BLOCK_SIZE; j++) {
-              long v = engine.masterBuffer[j].l;
-              sumSq += v * v;
-              if (Math.abs(v) < 1000000) silCount++;
-            }
-            double rms = Math.sqrt((double) sumSq / BLOCK_SIZE) / 2147483648.0;
-            System.out.printf(
-                "[DIAG] Block %d: RMS=%.6f silent=%d/%d%n",
-                blockCounter, rms, silCount, BLOCK_SIZE);
-          }
-
           // Convert internal Q31 to float in [-1.0, 1.0] range
           float xL = (float) s.l / 2147483648.0f;
           float xR = (float) s.r / 2147483648.0f;
 
-          // Apply post-engine linear volume boost in floating-point domain.
-          // During resampling use unity gain so the WAV captures the raw engine output.
-          float gain = isResamplingActive ? 1.0f : (float) monitorGainMul;
-          float boostedL = xL * gain;
-          float boostedR = xR * gain;
+          // Apply post-engine linear volume boost in floating-point domain
+          float boostedL = xL * monitorGainMul;
+          float boostedR = xR * monitorGainMul;
 
           // High-fidelity analog-style soft-clipper (transistor/tape saturation model)
           // 100% linear and transparent up to -3dB (0.7), smooth asymptotic compression above that.
