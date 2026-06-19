@@ -23,7 +23,8 @@ class DelugeNoteDataMapperTest {
 
     // 24 dec = 18 hex
     // Length 1 step = 12 ticks = C hex
-    assertTrue(hex.contains("000000180000000C4014"));
+    // Velocity 0.8f = 102 dec = 66 hex
+    assertTrue(hex.contains("000000180000000C664014"));
   }
 
   @Test
