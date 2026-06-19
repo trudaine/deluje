@@ -362,21 +362,14 @@ public class Delay {
           int fromDelay2R = primaryBuffer.data[nextIdx][1];
 
           // C:319-324
-          int term1L =
-              Functions.multiply_32x32_rshift32(
-                  fromDelay1L, Functions.lshiftAndSaturate(primaryStrength1, 14));
-          int term2L =
-              Functions.multiply_32x32_rshift32(
-                  fromDelay2L, Functions.lshiftAndSaturate(primaryStrength2, 14));
-          workingBuf[i][0] = Functions.lshiftAndSaturate(Functions.add_saturate(term1L, term2L), 2);
-
-          int term1R =
-              Functions.multiply_32x32_rshift32(
-                  fromDelay1R, Functions.lshiftAndSaturate(primaryStrength1, 14));
-          int term2R =
-              Functions.multiply_32x32_rshift32(
-                  fromDelay2R, Functions.lshiftAndSaturate(primaryStrength2, 14));
-          workingBuf[i][1] = Functions.lshiftAndSaturate(Functions.add_saturate(term1R, term2R), 2);
+          workingBuf[i][0] =
+              (Functions.multiply_32x32_rshift32(fromDelay1L, primaryStrength1 << 14)
+                      + Functions.multiply_32x32_rshift32(fromDelay2L, primaryStrength2 << 14))
+                  << 2;
+          workingBuf[i][1] =
+              (Functions.multiply_32x32_rshift32(fromDelay1R, primaryStrength1 << 14)
+                      + Functions.multiply_32x32_rshift32(fromDelay2R, primaryStrength2 << 14))
+                  << 2;
         }
       }
     }
@@ -390,37 +383,33 @@ public class Delay {
       // C:336-345 — then reduce headroom + tanH saturation (sounds ok with the analog sim).
       for (int i = 0; i < numSamples; i++) {
         workingBuf[i][0] =
-            Functions.lshiftAndSaturate(
-                Functions.getTanHUnknown(
+            Functions.getTanHUnknown(
                     Functions.multiply_32x32_rshift32(
                         workingBuf[i][0], delayWorkingState.delayFeedbackAmount),
-                    delayWorkingState.analog_saturation),
-                2);
+                    delayWorkingState.analog_saturation)
+                << 2;
         workingBuf[i][1] =
-            Functions.lshiftAndSaturate(
-                Functions.getTanHUnknown(
+            Functions.getTanHUnknown(
                     Functions.multiply_32x32_rshift32(
                         workingBuf[i][1], delayWorkingState.delayFeedbackAmount),
-                    delayWorkingState.analog_saturation),
-                2);
+                    delayWorkingState.analog_saturation)
+                << 2;
       }
     } else {
       // C:348-355 — digital path
       for (int i = 0; i < numSamples; i++) {
         workingBuf[i][0] =
-            Functions.lshiftAndSaturate(
-                Functions.signed_saturate(
+            Functions.signed_saturate(
                     Functions.multiply_32x32_rshift32(
                         workingBuf[i][0], delayWorkingState.delayFeedbackAmount),
-                    29),
-                2);
+                    29)
+                << 2;
         workingBuf[i][1] =
-            Functions.lshiftAndSaturate(
-                Functions.signed_saturate(
+            Functions.signed_saturate(
                     Functions.multiply_32x32_rshift32(
                         workingBuf[i][1], delayWorkingState.delayFeedbackAmount),
-                    29),
-                2);
+                    29)
+                << 2;
       }
     }
 
@@ -851,14 +840,8 @@ public class Delay {
           int strengthThisWrite =
               (0xFFFFFFFF >>> 4)
                   - (((distanceFromMainWrite - strength2) >> 4) * divideByRate); // C:176-177
-          int valL =
-              Functions.lshiftAndSaturate(
-                  Functions.multiply_32x32_rshift32(sampleL, strengthThisWrite), 3);
-          int valR =
-              Functions.lshiftAndSaturate(
-                  Functions.multiply_32x32_rshift32(sampleR, strengthThisWrite), 3);
-          data[writeIdx][0] = Functions.add_saturate(data[writeIdx][0], valL);
-          data[writeIdx][1] = Functions.add_saturate(data[writeIdx][1], valR);
+          data[writeIdx][0] += Functions.multiply_32x32_rshift32(sampleL, strengthThisWrite) << 3;
+          data[writeIdx][1] += Functions.multiply_32x32_rshift32(sampleR, strengthThisWrite) << 3;
           writeIdx--;
           if (writeIdx < 0) writeIdx = end_ - 1;
           distanceFromMainWrite -= 65536; // C:186
@@ -870,14 +853,8 @@ public class Delay {
               (0xFFFFFFFF >>> 4)
                   - (((distanceFromMainWrite + strength2) >> 4) * divideByRate); // C:191-192
           if (strengthThisWrite <= 0) break; // C:193-194
-          int valL =
-              Functions.lshiftAndSaturate(
-                  Functions.multiply_32x32_rshift32(sampleL, strengthThisWrite), 3);
-          int valR =
-              Functions.lshiftAndSaturate(
-                  Functions.multiply_32x32_rshift32(sampleR, strengthThisWrite), 3);
-          data[writeIdx][0] = Functions.add_saturate(data[writeIdx][0], valL);
-          data[writeIdx][1] = Functions.add_saturate(data[writeIdx][1], valR);
+          data[writeIdx][0] += Functions.multiply_32x32_rshift32(sampleL, strengthThisWrite) << 3;
+          data[writeIdx][1] += Functions.multiply_32x32_rshift32(sampleR, strengthThisWrite) << 3;
           writeIdx--;
           if (writeIdx < 0) writeIdx = end_ - 1;
           distanceFromMainWrite += 65536;
@@ -897,12 +874,8 @@ public class Delay {
         while (true) {
           if (strength[i] > 0) {
             int adjust = (strength[i] >> 2) * writeSizeAdjustment;
-            int valL =
-                Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(sampleL, adjust), 2);
-            int valR =
-                Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(sampleR, adjust), 2);
-            data[writeIdx][0] = Functions.add_saturate(data[writeIdx][0], valL);
-            data[writeIdx][1] = Functions.add_saturate(data[writeIdx][1], valR);
+            data[writeIdx][0] += Functions.multiply_32x32_rshift32(sampleL, adjust) << 2;
+            data[writeIdx][1] += Functions.multiply_32x32_rshift32(sampleR, adjust) << 2;
           }
           if (--i < 0) break; // C:253-254
           writeIdx--;

@@ -40,10 +40,8 @@ public abstract class Filter {
     double denom = (double) (Functions.ONE_Q16 + (tannedFrequency >> 1));
     divideBy1PlusTannedFrequency = (int) (288230376151711744.0 / denom);
     fc =
-        Functions.lshiftAndSaturate(
-            Functions.multiply_32x32_rshift32_rounded(
-                tannedFrequency, divideBy1PlusTannedFrequency),
-            4);
+        Functions.multiply_32x32_rshift32_rounded(tannedFrequency, divideBy1PlusTannedFrequency)
+            << 4;
   }
 
   public final int configure(
