@@ -309,9 +309,16 @@ public class DelugeXmlParser {
             System.out.println("PARSER: Loaded kit track " + kit.getName());
           } else if ("sound".equals(tagName)) {
             instrumentSoundNodes.add(childNode);
-            boolean isMidi =
-                childNode.getElementsByTagName("midiChannel").getLength() > 0
-                    || childNode.getElementsByTagName("zone").getLength() > 0;
+            boolean hasMidiChannel = childNode.getElementsByTagName("midiChannel").getLength() > 0;
+            boolean hasMpeZone = false;
+            NodeList zoneNodes = childNode.getElementsByTagName("zone");
+            for (int z = 0; z < zoneNodes.getLength(); z++) {
+              if (zoneNodes.item(z).getParentNode() == childNode) {
+                hasMpeZone = true;
+                break;
+              }
+            }
+            boolean isMidi = hasMidiChannel || hasMpeZone;
             if (isMidi) {
               MidiTrackModel midiTrack = parseMidiElement(childNode);
               project.addTrack(midiTrack);
@@ -1644,10 +1651,17 @@ public class DelugeXmlParser {
       }
     }
 
+    Element zoneEl = null;
     NodeList zoneNodes = soundNode.getElementsByTagName("zone");
-    if (zoneNodes.getLength() > 0) {
+    for (int z = 0; z < zoneNodes.getLength(); z++) {
+      if (zoneNodes.item(z).getParentNode() == soundNode) {
+        zoneEl = (Element) zoneNodes.item(z);
+        break;
+      }
+    }
+    if (zoneEl != null) {
       midiTrack.setMpe(true);
-      midiTrack.setMpeZone(zoneNodes.item(0).getTextContent().trim());
+      midiTrack.setMpeZone(zoneEl.getTextContent().trim());
     }
 
     // Parse Device Info

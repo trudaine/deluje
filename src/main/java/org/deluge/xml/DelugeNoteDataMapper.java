@@ -37,9 +37,13 @@ public class DelugeNoteDataMapper {
 
         String hexPos = String.format("%08X", pos);
         String hexLen = String.format("%08X", len);
-        String hexFlags = "4014"; // Default flags for now
 
-        sb.append(hexPos).append(hexLen).append(hexFlags);
+        // Encode velocity in 1 byte (2 hex chars) at offset 16-17
+        int velInt = Math.round(step.velocity() * 127.0f);
+        String hexVel = String.format("%02X", Math.max(0, Math.min(127, velInt)));
+        String hexFlags = "4014"; // Default flags/lift
+
+        sb.append(hexPos).append(hexLen).append(hexVel).append(hexFlags);
       }
     }
     return sb.toString();

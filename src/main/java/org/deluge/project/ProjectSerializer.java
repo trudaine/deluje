@@ -224,10 +224,7 @@ public class ProjectSerializer {
           }
 
           String hexData = org.deluge.xml.DelugeNoteDataMapper.encodeRow(row, stepTicks);
-
-          Element noteDataElem = doc.createElement("noteData");
-          noteDataElem.setTextContent(hexData);
-          noteRowElem.appendChild(noteDataElem);
+          noteRowElem.setAttribute("noteDataWithLift", hexData);
         }
         // Only write <noteRows> if there are rows to write (empty element causes parser NPE)
         if (!noteRowElements.isEmpty()) {

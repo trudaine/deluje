@@ -61,7 +61,7 @@ public class ProjectSerializerTest {
     assertTrue(xmlContent.contains("<track"));
     assertTrue(xmlContent.contains("<noteRows"));
     assertTrue(xmlContent.contains("<noteRow"));
-    assertTrue(xmlContent.contains("<noteData"));
+    assertTrue(xmlContent.contains("noteDataWithLift="));
   }
 
   @Test
