@@ -86,6 +86,11 @@ public class Song000FidelityTest {
     double ticksPerSample = (bpm / 60.0 * 96.0) / 44100.0;
     double accumulatedTicks = 0;
 
+    // Buffer to hold 16-bit stereo PCM data: totalBlocks * BLOCK_SIZE * 2 channels * 2 bytes per
+    // sample
+    byte[] wavBytes = new byte[totalBlocks * BLOCK_SIZE * 2 * 2];
+    int byteIdx = 0;
+
     for (int b = 0; b < totalBlocks; b++) {
       accumulatedTicks += ticksPerSample * BLOCK_SIZE;
       int toAdvance = (int) accumulatedTicks;
@@ -101,20 +106,49 @@ public class Song000FidelityTest {
 
       double sumSq = 0;
       for (int i = 0; i < BLOCK_SIZE; i++) {
-        // Apply the exact same signal chain as JavaAudioDriver resample path:
-        // Q31 → float → monitorGainMul → soft-clip → 16-bit → float
+        // Apply the exact same signal chain as JavaAudioDriver resample path for Left channel:
         float xL = (float) engine.masterBuffer[i].l / 2147483648.0f;
         float boostedL = xL * org.deluge.engine.JavaAudioDriver.monitorGainMul;
-        // soft-clip (matching JavaAudioDriver.softClip)
         if (boostedL > 0.7f) boostedL = 0.7f + 0.3f * (float) Math.tanh((boostedL - 0.7f) / 0.3f);
         if (boostedL < -0.7f) boostedL = -0.7f + 0.3f * (float) Math.tanh((boostedL + 0.7f) / 0.3f);
-        // Quantize to 16-bit then back (matching the resample WAV path)
-        short s16 = (short) Math.max(-32768, Math.min(32767, boostedL * 32767.0f));
-        float back = s16 / 32768.0f;
-        sumSq += back * back;
+        short s16L = (short) Math.max(-32768, Math.min(32767, boostedL * 32767.0f));
+
+        // Apply the exact same signal chain for Right channel:
+        float xR = (float) engine.masterBuffer[i].r / 2147483648.0f;
+        float boostedR = xR * org.deluge.engine.JavaAudioDriver.monitorGainMul;
+        if (boostedR > 0.7f) boostedR = 0.7f + 0.3f * (float) Math.tanh((boostedR - 0.7f) / 0.3f);
+        if (boostedR < -0.7f) boostedR = -0.7f + 0.3f * (float) Math.tanh((boostedR + 0.7f) / 0.3f);
+        short s16R = (short) Math.max(-32768, Math.min(32767, boostedR * 32767.0f));
+
+        // Write Left channel (little endian)
+        wavBytes[byteIdx++] = (byte) (s16L & 0xFF);
+        wavBytes[byteIdx++] = (byte) ((s16L >> 8) & 0xFF);
+
+        // Write Right channel (little endian)
+        wavBytes[byteIdx++] = (byte) (s16R & 0xFF);
+        wavBytes[byteIdx++] = (byte) ((s16R >> 8) & 0xFF);
+
+        // Compute energy from both channels for RMS envelope tracking
+        float backL = s16L / 32768.0f;
+        float backR = s16R / 32768.0f;
+        sumSq += 0.5f * (backL * backL + backR * backR);
       }
       engineEnv[b] = Math.sqrt(sumSq / BLOCK_SIZE);
     }
+
+    // 5b. Write the accumulated stereo PCM bytes to a physical WAVE file
+    File renderedWavFile = new File("src/test/resources/fidelity/JAVA_RENDERED_SONG003.WAV");
+    javax.sound.sampled.AudioFormat format =
+        new javax.sound.sampled.AudioFormat(44100.0f, 16, 2, true, false);
+    try (javax.sound.sampled.AudioInputStream ais =
+        new javax.sound.sampled.AudioInputStream(
+            new java.io.ByteArrayInputStream(wavBytes), format, totalBlocks * BLOCK_SIZE)) {
+      javax.sound.sampled.AudioSystem.write(
+          ais, javax.sound.sampled.AudioFileFormat.Type.WAVE, renderedWavFile);
+    }
+    System.out.printf(
+        "[Test] SUCCESS: Reproduced and saved Java-rendered WAV file to: %s%n",
+        renderedWavFile.getAbsolutePath());
 
     double engineMax = maxOf(engineEnv);
     double gainRatio = engineMax / Math.max(goldenMax, 1e-10);
