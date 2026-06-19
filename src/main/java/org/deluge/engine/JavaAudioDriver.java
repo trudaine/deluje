@@ -1,6 +1,5 @@
 package org.deluge.engine;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -40,16 +39,44 @@ public class JavaAudioDriver implements Runnable {
   }
 
   public static void saveWavFile(byte[] pcmData, File targetFile) throws IOException {
-    AudioFormat format = new AudioFormat(44100, 16, 2, true, false);
-    ByteArrayInputStream bais = new ByteArrayInputStream(pcmData);
-    AudioInputStream ais = new AudioInputStream(bais, format, pcmData.length / 4);
-    try {
-      AudioSystem.write(ais, AudioFileFormat.Type.WAVE, targetFile);
-      System.out.println(
-          "[Resampler] Saved WAV loop successfully: " + targetFile.getAbsolutePath());
-    } finally {
-      ais.close();
+    int sampleRate = 44100;
+    short bitsPerSample = 16;
+    short numChannels = 2;
+    int dataSize = pcmData.length;
+    int byteRate = sampleRate * numChannels * bitsPerSample / 8;
+
+    try (java.io.FileOutputStream fos = new java.io.FileOutputStream(targetFile)) {
+      // RIFF header
+      fos.write("RIFF".getBytes());
+      writeIntLE(fos, 36 + dataSize);
+      fos.write("WAVE".getBytes());
+      // fmt chunk
+      fos.write("fmt ".getBytes());
+      writeIntLE(fos, 16); // chunk size (PCM)
+      writeShortLE(fos, (short) 1); // PCM format
+      writeShortLE(fos, numChannels);
+      writeIntLE(fos, sampleRate);
+      writeIntLE(fos, byteRate);
+      writeShortLE(fos, (short) (numChannels * bitsPerSample / 8)); // block align
+      writeShortLE(fos, bitsPerSample);
+      // data chunk
+      fos.write("data".getBytes());
+      writeIntLE(fos, dataSize);
+      fos.write(pcmData);
     }
+    System.out.println("[Resampler] Saved WAV loop successfully: " + targetFile.getAbsolutePath());
+  }
+
+  private static void writeIntLE(java.io.OutputStream os, int v) throws IOException {
+    os.write(v & 0xFF);
+    os.write((v >> 8) & 0xFF);
+    os.write((v >> 16) & 0xFF);
+    os.write((v >> 24) & 0xFF);
+  }
+
+  private static void writeShortLE(java.io.OutputStream os, short v) throws IOException {
+    os.write(v & 0xFF);
+    os.write((v >> 8) & 0xFF);
   }
 
   private final FirmwareAudioEngine engine;
