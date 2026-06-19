@@ -53,18 +53,20 @@ public class UltimateFidelityTest {
     bassTrack.setEnv(1, new EnvelopeModel(0.005f, 0.15f, 0.2f, 0.1f, "FILTER", 0.35f));
 
     // Bassline Clip (8 steps = 1 bar, 24 ticks per step)
-    ClipModel bassClip = new ClipModel("Bass Clip", 1, 8);
+    ClipModel bassClip = new ClipModel("Bass Clip", 3, 8);
     bassClip.setRowYNote(0, 48); // Row 0 represents C3 (midi note 48)
+    bassClip.setRowYNote(1, 51); // Row 1 represents Eb3 (midi note 51)
+    bassClip.setRowYNote(2, 53); // Row 2 represents F3 (midi note 53)
 
     // Groove:
-    // Step 0: C3 (gate = 1.5 steps = 36 ticks)
-    // Step 2: C3 (gate = 0.5 steps = 12 ticks)
-    // Step 4: Eb3 (midi 51, gate = 1.0 steps = 24 ticks)
-    // Step 6: F3 (midi 53, gate = 1.0 steps = 24 ticks)
+    // Step 0: C3 (gate = 1.5 steps = 36 ticks) -> Row 0
+    // Step 2: C3 (gate = 0.5 steps = 12 ticks) -> Row 0
+    // Step 4: Eb3 (gate = 1.0 steps = 24 ticks) -> Row 1
+    // Step 6: F3 (gate = 1.0 steps = 24 ticks) -> Row 2
     bassClip.setStep(0, 0, StepData.of(true, 0.9f, 36.0f, 1.0f, 48));
     bassClip.setStep(0, 2, StepData.of(true, 0.8f, 12.0f, 1.0f, 48));
-    bassClip.setStep(0, 4, StepData.of(true, 0.9f, 24.0f, 1.0f, 51));
-    bassClip.setStep(0, 6, StepData.of(true, 0.9f, 24.0f, 1.0f, 53));
+    bassClip.setStep(1, 4, StepData.of(true, 0.9f, 24.0f, 1.0f, 51));
+    bassClip.setStep(2, 6, StepData.of(true, 0.9f, 24.0f, 1.0f, 53));
     bassTrack.addClip(bassClip);
     project.addTrack(bassTrack);
 
