@@ -15,7 +15,7 @@ import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
 /**
- * High-fidelity verification test that parses SONG000.xml, renders it using the decoupled pure-Java
+ * High-fidelity verification test that parses SONG001.xml, renders it using the decoupled pure-Java
  * firmware engine, and compares its RMS envelope and frequency characteristics against the real
  * hardware recording REC00010.WAV.
  */
@@ -25,29 +25,29 @@ public class Song000FidelityTest {
 
   @Test
   void testSong000RenderingMatchesHardwareRecording() throws Exception {
-    // 1. Locate and parse SONG000.xml
-    File songFile = new File("src/test/resources/fidelity/SONG000.xml");
-    assertTrue(songFile.exists(), "SONG000.xml not found at " + songFile.getAbsolutePath());
+    // 1. Locate and parse SONG001.xml
+    File songFile = new File("src/test/resources/fidelity/SONG001.xml");
+    assertTrue(songFile.exists(), "SONG001.xml not found at " + songFile.getAbsolutePath());
 
     ProjectModel project;
     try (FileInputStream fis = new FileInputStream(songFile)) {
       project = DelugeXmlParser.parseSong(fis, "SONG000");
     }
-    assertNotNull(project, "Failed to parse SONG000.xml");
+    assertNotNull(project, "Failed to parse SONG001.xml");
     assertEquals(120.0f, project.getBpm(), 0.01f);
-    assertEquals(1, project.getTracks().size(), "Expected exactly 1 track in SONG000.xml");
+    assertEquals(1, project.getTracks().size(), "Expected exactly 1 track in SONG001.xml");
 
-    // 2. Load the golden hardware recording REC00010.WAV
-    File goldenFile = new File("src/test/resources/fidelity/REC00010.WAV");
+    // 2. Load the golden hardware recording REC00004.WAV (real Deluge playing SONG000)
+    File goldenFile = new File("src/test/resources/fidelity/REC00004.WAV");
     assertTrue(
         goldenFile.exists(),
-        "Golden recording REC00010.WAV not found at " + goldenFile.getAbsolutePath());
+        "Golden recording REC00004.WAV not found at " + goldenFile.getAbsolutePath());
 
     double[] goldenEnv = loadWavEnvelope(goldenFile);
     double goldenMax = maxOf(goldenEnv);
     System.out.printf(
-        "[Test] Golden hardware recording: %d blocks, max RMS=%.6f%n", goldenEnv.length, goldenMax);
-    assertTrue(goldenMax > 0.1, "Golden recording is too quiet or empty!");
+        "[Test] Golden REC00004.WAV: %d blocks, max RMS=%.6f%n", goldenEnv.length, goldenMax);
+    assertTrue(goldenMax > 0.05, "Golden recording is too quiet or empty!");
 
     // 3. Build the firmware song and synth voice
     Song fwSong = FirmwareFactory.createSong(project);
@@ -56,6 +56,15 @@ public class Song000FidelityTest {
 
     var clip0 = (org.deluge.firmware.model.InstrumentClip) fwSong.clips.get(0);
     assertNotNull(clip0.sound, "Synth sound in clip is null");
+
+    // Debug: verify notes were loaded from SONG000
+    int totalNotes = 0;
+    for (var nr : clip0.noteRows) {
+      System.out.println("[Test]   Row y=" + nr.y + " notes=" + nr.notes.size());
+      totalNotes += nr.notes.size();
+    }
+    System.out.println("[Test] Total notes in SONG000: " + totalNotes);
+    assertTrue(totalNotes > 0, "SONG000 has no notes!");
 
     FirmwareSound fwSound = (FirmwareSound) clip0.sound;
 
@@ -68,12 +77,22 @@ public class Song000FidelityTest {
     handler.setSong(fwSong);
     handler.start();
 
-    // 5. Render the same duration as the golden recording (block-by-block)
+    // 5. Render the same duration as the golden recording, advancing ticks at the
+    //    correct audio rate (matching JavaAudioDriver: ticksPerSample * BLOCK_SIZE).
     int totalBlocks = goldenEnv.length;
     double[] engineEnv = new double[totalBlocks];
 
+    float bpm = project.getBpm();
+    double ticksPerSample = (bpm / 60.0 * 96.0) / 44100.0;
+    double accumulatedTicks = 0;
+
     for (int b = 0; b < totalBlocks; b++) {
-      handler.advanceTicks(1);
+      accumulatedTicks += ticksPerSample * BLOCK_SIZE;
+      int toAdvance = (int) accumulatedTicks;
+      if (toAdvance > 0) {
+        handler.advanceTicks(toAdvance);
+        accumulatedTicks -= toAdvance;
+      }
       StereoSample[] block = new StereoSample[BLOCK_SIZE];
       for (int i = 0; i < BLOCK_SIZE; i++) {
         block[i] = new StereoSample();
@@ -82,9 +101,17 @@ public class Song000FidelityTest {
 
       double sumSq = 0;
       for (int i = 0; i < BLOCK_SIZE; i++) {
-        // Convert Q31 to float
+        // Apply the exact same signal chain as JavaAudioDriver resample path:
+        // Q31 → float → monitorGainMul → soft-clip → 16-bit → float
         float xL = (float) engine.masterBuffer[i].l / 2147483648.0f;
-        sumSq += xL * xL;
+        float boostedL = xL * org.deluge.engine.JavaAudioDriver.monitorGainMul;
+        // soft-clip (matching JavaAudioDriver.softClip)
+        if (boostedL > 0.7f) boostedL = 0.7f + 0.3f * (float) Math.tanh((boostedL - 0.7f) / 0.3f);
+        if (boostedL < -0.7f) boostedL = -0.7f + 0.3f * (float) Math.tanh((boostedL + 0.7f) / 0.3f);
+        // Quantize to 16-bit then back (matching the resample WAV path)
+        short s16 = (short) Math.max(-32768, Math.min(32767, boostedL * 32767.0f));
+        float back = s16 / 32768.0f;
+        sumSq += back * back;
       }
       engineEnv[b] = Math.sqrt(sumSq / BLOCK_SIZE);
     }
@@ -96,12 +123,51 @@ public class Song000FidelityTest {
         "[Test] SONG000 Engine max RMS: %.6f | Golden max RMS: %.6f | Ratio: %.4f (%.1f dB)%n",
         engineMax, goldenMax, gainRatio, 20 * Math.log10(Math.max(gainRatio, 1e-10)));
 
+    // Count onsets in both
+    double engineAttackThresh = engineMax * 0.2;
+    double goldenAttackThresh = goldenMax * 0.2;
+    double engineSilenceThresh = engineMax * 0.03;
+    double goldenSilenceThresh = goldenMax * 0.03;
+    int engineOnsets = countOnsets(engineEnv, engineAttackThresh, engineSilenceThresh);
+    int goldenOnsets = countOnsets(goldenEnv, goldenAttackThresh, goldenSilenceThresh);
+    int engineSilentBlocks = countSilent(engineEnv, engineSilenceThresh);
+    int goldenSilentBlocks = countSilent(goldenEnv, goldenSilenceThresh);
+
+    System.out.printf(
+        "[Test] Onsets: engine=%d golden=%d | Silence: engine=%.0f%% golden=%.0f%%%n",
+        engineOnsets,
+        goldenOnsets,
+        100.0 * engineSilentBlocks / engineEnv.length,
+        100.0 * goldenSilentBlocks / goldenEnv.length);
+
     // 6. Assertions
-    // Verify engine produces real output (not dead silence)
-    assertTrue(engineMax > 1e-6, "Engine produced only silence! Max RMS=" + engineMax);
+    assertTrue(engineMax > 0.01, "Engine produced near-silence! Max RMS=" + engineMax);
+    assertTrue(
+        engineOnsets >= goldenOnsets * 0.5,
+        "Too few onsets: engine=" + engineOnsets + " vs golden=" + goldenOnsets);
 
     System.out.println("[Test] Song000 Fidelity comparison complete!");
     handler.stop();
+  }
+
+  private static int countOnsets(double[] env, double attackThresh, double silenceThresh) {
+    int onsets = 0;
+    boolean wasSilent = true;
+    for (int b = 1; b < env.length; b++) {
+      if (wasSilent && env[b] > attackThresh) {
+        onsets++;
+        wasSilent = false;
+      } else if (!wasSilent && env[b] < silenceThresh) {
+        wasSilent = true;
+      }
+    }
+    return onsets;
+  }
+
+  private static int countSilent(double[] env, double silenceThresh) {
+    int silent = 0;
+    for (double v : env) if (v < silenceThresh) silent++;
+    return silent;
   }
 
   private static double[] loadWavEnvelope(File file) throws Exception {
