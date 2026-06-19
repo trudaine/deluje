@@ -5,7 +5,6 @@ import java.io.IOException;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.UnsupportedAudioFileException;
 import javax.swing.*;
-import org.chuck.core.ChuckVM;
 import org.deluge.BridgeContract;
 import org.deluge.firmware.engine.FirmwareFactory;
 import org.deluge.firmware.gui.views.KitView;
@@ -27,7 +26,6 @@ import org.deluge.model.SynthTrackModel;
 public class SwingDelugeApp extends JFrame {
   public static SwingDelugeApp mainInstance;
   public static boolean pureModeActive = false;
-  private final ChuckVM vm;
   private final BridgeContract bridge;
 
   private SwingGridPanel clipPanel;
@@ -74,7 +72,7 @@ public class SwingDelugeApp extends JFrame {
   }
 
   public boolean isPlaying() {
-    return vm != null && vm.getGlobalInt(BridgeContract.G_PLAY) == 1L;
+    return bridge != null && bridge.getGlobalInt(BridgeContract.G_PLAY) == 1L;
   }
 
   // Engine voice mapping: for each model track, the start engine row and voice count.
@@ -408,8 +406,8 @@ public class SwingDelugeApp extends JFrame {
     // Initialize both local bridge and VM global track types to -1 (unused)
     for (int i = 0; i < BridgeContract.TRACKS; i++) bridge.setTrackType(i, -1);
 
-    org.chuck.core.ChuckArray trackTypeArr =
-        (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_TRACK_TYPE);
+    org.deluge.shadow.core.ChuckArray trackTypeArr =
+        (org.deluge.shadow.core.ChuckArray) bridge.getGlobalObject(BridgeContract.G_TRACK_TYPE);
     if (trackTypeArr != null) {
       // Initialize all to -1 (unused)
       for (int i = 0; i < BridgeContract.TRACKS; i++) trackTypeArr.setInt(i, -1L);
@@ -446,14 +444,14 @@ public class SwingDelugeApp extends JFrame {
               v < sounds.size()
                   ? ((org.deluge.model.SoundDrum) sounds.get(sounds.size() - 1 - v)).getSamplePath()
                   : "";
-          vm.setGlobalString("g_sample_" + engineRow, path);
+          bridge.setGlobalString("g_sample_" + engineRow, path);
           bridge.setSamplePath(engineRow, path);
 
           // ── Zone (sample truncation) ──
           if (v < sounds.size()) {
             org.deluge.model.SoundDrum snd =
                 (org.deluge.model.SoundDrum) sounds.get(sounds.size() - 1 - v);
-            float[] range = org.deluge.BridgeContract.computeNormalizedRange(snd, path);
+            float[] range = BridgeContract.computeNormalizedRange(snd, path);
             if (range[0] > 0.0f || range[1] < 1.0f) {
               bridge.setSampleRange(engineRow, range[0], range[1]);
             }
@@ -463,21 +461,28 @@ public class SwingDelugeApp extends JFrame {
             org.deluge.model.SoundDrum snd =
                 (org.deluge.model.SoundDrum) sounds.get(sounds.size() - 1 - v);
             try {
-              ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_PITCH))
+              ((org.deluge.shadow.core.ChuckArray)
+                      bridge.getGlobalObject(BridgeContract.G_KIT_PITCH))
                   .setFloat(engineRow, snd.getPitchSemitones());
-              ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_MUTE_GROUP))
+              ((org.deluge.shadow.core.ChuckArray)
+                      bridge.getGlobalObject(BridgeContract.G_KIT_MUTE_GROUP))
                   .setInt(engineRow, (long) snd.getMuteGroup());
-              ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_REVERSE))
+              ((org.deluge.shadow.core.ChuckArray)
+                      bridge.getGlobalObject(BridgeContract.G_KIT_REVERSE))
                   .setInt(engineRow, snd.isReverse() ? 1L : 0L);
               org.deluge.model.EnvelopeModel adsr = snd.getAdsr();
               if (adsr != null) {
-                ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_ATTACK))
+                ((org.deluge.shadow.core.ChuckArray)
+                        bridge.getGlobalObject(BridgeContract.G_KIT_ATTACK))
                     .setFloat(engineRow, adsr.attack());
-                ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_DECAY))
+                ((org.deluge.shadow.core.ChuckArray)
+                        bridge.getGlobalObject(BridgeContract.G_KIT_DECAY))
                     .setFloat(engineRow, adsr.decay());
-                ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_SUSTAIN))
+                ((org.deluge.shadow.core.ChuckArray)
+                        bridge.getGlobalObject(BridgeContract.G_KIT_SUSTAIN))
                     .setFloat(engineRow, adsr.sustain());
-                ((org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_KIT_RELEASE))
+                ((org.deluge.shadow.core.ChuckArray)
+                        bridge.getGlobalObject(BridgeContract.G_KIT_RELEASE))
                     .setFloat(engineRow, adsr.release());
               }
 
@@ -598,8 +603,8 @@ public class SwingDelugeApp extends JFrame {
         }
 
         // Push oscType (0=SINE, 1=SAW, 2=SQUARE, 3=TRIANGLE, 4=NOISE) to ALL rows
-        org.chuck.core.ChuckArray oscTypeArr =
-            (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_OSC_TYPE);
+        org.deluge.shadow.core.ChuckArray oscTypeArr =
+            (org.deluge.shadow.core.ChuckArray) bridge.getGlobalObject(BridgeContract.G_OSC_TYPE);
         if (oscTypeArr != null) {
           int typeIdx = 1; // default Saw
           String ot = synth.getOsc1Type();
@@ -636,14 +641,14 @@ public class SwingDelugeApp extends JFrame {
         String dx7patch = synth.getDx7Patch();
         if (dx7patch != null && !dx7patch.isEmpty()) {
           for (int v = 0; v < totalSynthRows; v++) {
-            vm.setGlobalString("g_dx7_patch_" + (startRow + v), dx7patch);
+            bridge.setGlobalString("g_dx7_patch_" + (startRow + v), dx7patch);
           }
           // Push opSwitch mask (byte 155) so UI edits to operator on/off are reflected
           try {
-            byte[] raw = org.chuck.audio.util.Dx7Patch.hexToBytes(dx7patch);
-            int opSwitch = raw[org.chuck.audio.util.Dx7Patch.OFF_OP_SWITCH] & 0xFF;
+            byte[] raw = org.deluge.shadow.audio.Dx7Patch.hexToBytes(dx7patch);
+            int opSwitch = raw[org.deluge.shadow.audio.Dx7Patch.OFF_OP_SWITCH] & 0xFF;
             for (int v = 0; v < totalSynthRows; v++) {
-              vm.setGlobalInt("g_dx7_opSwitch_" + (startRow + v), opSwitch);
+              bridge.setGlobalInt("g_dx7_opSwitch_" + (startRow + v), opSwitch);
             }
           } catch (Exception ignored) {
           }
@@ -678,12 +683,13 @@ public class SwingDelugeApp extends JFrame {
           bridge.setAudioLoop(startRow, aClip.isPlaying() || audio.isLooping() ? 1 : 0);
           bridge.setAudioRate(startRow, audio.getPlayRate());
           // Push sample position globals for LiSa playback region
-          vm.setGlobalFloat("g_audio_clip_start_" + startRow, (float) aClip.getStartSamplePos());
-          vm.setGlobalFloat("g_audio_clip_end_" + startRow, (float) aClip.getEndSamplePos());
+          bridge.setGlobalFloat(
+              "g_audio_clip_start_" + startRow, (float) aClip.getStartSamplePos());
+          bridge.setGlobalFloat("g_audio_clip_end_" + startRow, (float) aClip.getEndSamplePos());
           // Push audio file path for LiSa sample loading
           String filePath = aClip.getFilePath();
           if (filePath != null && !filePath.isEmpty()) {
-            vm.setGlobalString("g_audio_file_path_" + startRow, filePath);
+            bridge.setGlobalString("g_audio_file_path_" + startRow, filePath);
           }
         }
       }
@@ -740,108 +746,116 @@ public class SwingDelugeApp extends JFrame {
     // ── Push master-level globals (BPM, swing, volume, pan, reverb, delay, scale, key, comp) ──
     // These are normally propagated by ProjectListener callbacks, but during project load the
     // XML parser populates model fields directly without firing setters, so we sync here too.
-    vm.setGlobalFloat(BridgeContract.G_BPM, currentProject.getBpm());
-    vm.setGlobalFloat(BridgeContract.G_SWING, currentProject.getSwing());
-    vm.setGlobalFloat(BridgeContract.G_MASTER_VOL, currentProject.getMasterVolume());
-    vm.setGlobalFloat(BridgeContract.G_MASTER_PAN, currentProject.getMasterPan());
-    vm.setGlobalFloat(BridgeContract.G_DELAY_TIME, currentProject.getMasterDelay());
-    vm.setGlobalFloat(BridgeContract.G_DELAY_FB, currentProject.getSongParamDelayFeedback());
-    vm.setGlobalFloat(BridgeContract.G_REVERB_ROOM, currentProject.getReverbRoomSize());
-    vm.setGlobalFloat(BridgeContract.G_REVERB_DAMP, currentProject.getReverbDampening());
-    vm.setGlobalFloat(BridgeContract.G_MASTER_COMP, currentProject.getCompressorThreshold());
-    vm.setGlobalInt(BridgeContract.G_ROOT_KEY, parseRootKey(currentProject.getKey()));
-    vm.setGlobalInt(BridgeContract.G_SCALE, parseScaleIndex(currentProject.getScale()));
-    vm.setGlobalFloat(BridgeContract.G_PREVIEW_PITCH, 60.0f);
+    bridge.setGlobalFloat(BridgeContract.G_BPM, currentProject.getBpm());
+    bridge.setGlobalFloat(BridgeContract.G_SWING, currentProject.getSwing());
+    bridge.setGlobalFloat(BridgeContract.G_MASTER_VOL, currentProject.getMasterVolume());
+    bridge.setGlobalFloat(BridgeContract.G_MASTER_PAN, currentProject.getMasterPan());
+    bridge.setGlobalFloat(BridgeContract.G_DELAY_TIME, currentProject.getMasterDelay());
+    bridge.setGlobalFloat(BridgeContract.G_DELAY_FB, currentProject.getSongParamDelayFeedback());
+    bridge.setGlobalFloat(BridgeContract.G_REVERB_ROOM, currentProject.getReverbRoomSize());
+    bridge.setGlobalFloat(BridgeContract.G_REVERB_DAMP, currentProject.getReverbDampening());
+    bridge.setGlobalFloat(BridgeContract.G_MASTER_COMP, currentProject.getCompressorThreshold());
+    bridge.setGlobalInt(BridgeContract.G_ROOT_KEY, parseRootKey(currentProject.getKey()));
+    bridge.setGlobalInt(BridgeContract.G_SCALE, parseScaleIndex(currentProject.getScale()));
+    bridge.setGlobalFloat(BridgeContract.G_PREVIEW_PITCH, 60.0f);
 
     // ── Extended reverb globals ──
-    vm.setGlobalFloat(BridgeContract.G_REVERB_WIDTH, currentProject.getReverbWidth());
-    vm.setGlobalFloat(BridgeContract.G_REVERB_HPF, currentProject.getReverbHpf());
-    vm.setGlobalFloat(BridgeContract.G_REVERB_PAN, currentProject.getReverbPan());
-    vm.setGlobalInt(BridgeContract.G_REVERB_MODEL, currentProject.getReverbModel());
-    vm.setGlobalFloat(
+    bridge.setGlobalFloat(BridgeContract.G_REVERB_WIDTH, currentProject.getReverbWidth());
+    bridge.setGlobalFloat(BridgeContract.G_REVERB_HPF, currentProject.getReverbHpf());
+    bridge.setGlobalFloat(BridgeContract.G_REVERB_PAN, currentProject.getReverbPan());
+    bridge.setGlobalInt(BridgeContract.G_REVERB_MODEL, currentProject.getReverbModel());
+    bridge.setGlobalFloat(
         BridgeContract.G_REVERB_COMP_ATTACK, currentProject.getReverbCompressorAttack());
-    vm.setGlobalFloat(
+    bridge.setGlobalFloat(
         BridgeContract.G_REVERB_COMP_RELEASE, currentProject.getReverbCompressorRelease());
-    vm.setGlobalInt(
+    bridge.setGlobalInt(
         BridgeContract.G_REVERB_COMP_SYNC_LEVEL, currentProject.getReverbCompressorSyncLevel());
-    vm.setGlobalFloat(BridgeContract.G_REVERB_COMP_HPF, currentProject.getReverbCompHpf());
-    vm.setGlobalFloat(BridgeContract.G_REVERB_COMP_BLEND, currentProject.getReverbCompBlend());
+    bridge.setGlobalFloat(BridgeContract.G_REVERB_COMP_HPF, currentProject.getReverbCompHpf());
+    bridge.setGlobalFloat(BridgeContract.G_REVERB_COMP_BLEND, currentProject.getReverbCompBlend());
 
     // ── Extended delay globals ──
-    vm.setGlobalInt(BridgeContract.G_DELAY_PINGPONG, currentProject.getDelayPingPong());
-    vm.setGlobalInt(BridgeContract.G_DELAY_ANALOG, currentProject.getDelayAnalog());
-    vm.setGlobalInt(BridgeContract.G_DELAY_SYNC_LEVEL, currentProject.getDelaySyncLevel());
-    vm.setGlobalInt(BridgeContract.G_DELAY_SYNC_TYPE, currentProject.getDelaySyncType());
+    bridge.setGlobalInt(BridgeContract.G_DELAY_PINGPONG, currentProject.getDelayPingPong());
+    bridge.setGlobalInt(BridgeContract.G_DELAY_ANALOG, currentProject.getDelayAnalog());
+    bridge.setGlobalInt(BridgeContract.G_DELAY_SYNC_LEVEL, currentProject.getDelaySyncLevel());
+    bridge.setGlobalInt(BridgeContract.G_DELAY_SYNC_TYPE, currentProject.getDelaySyncType());
 
     // ── Sidechain globals ──
-    vm.setGlobalFloat(BridgeContract.G_SIDECHAIN_ATTACK, currentProject.getSidechainAttack());
-    vm.setGlobalFloat(BridgeContract.G_SIDECHAIN_RELEASE, currentProject.getSidechainRelease());
-    vm.setGlobalInt(BridgeContract.G_SIDECHAIN_SYNC_LEVEL, currentProject.getSidechainSyncLevel());
-    vm.setGlobalInt(BridgeContract.G_SIDECHAIN_SYNC_TYPE, currentProject.getSidechainSyncType());
+    bridge.setGlobalFloat(BridgeContract.G_SIDECHAIN_ATTACK, currentProject.getSidechainAttack());
+    bridge.setGlobalFloat(BridgeContract.G_SIDECHAIN_RELEASE, currentProject.getSidechainRelease());
+    bridge.setGlobalInt(
+        BridgeContract.G_SIDECHAIN_SYNC_LEVEL, currentProject.getSidechainSyncLevel());
+    bridge.setGlobalInt(
+        BridgeContract.G_SIDECHAIN_SYNC_TYPE, currentProject.getSidechainSyncType());
 
     // ── Master compressor (extended) globals ──
-    vm.setGlobalFloat(BridgeContract.G_MASTER_COMP_ATTACK, currentProject.getCompressorAttack());
-    vm.setGlobalFloat(BridgeContract.G_MASTER_COMP_RELEASE, currentProject.getCompressorRelease());
-    vm.setGlobalFloat(BridgeContract.G_MASTER_COMP_RATIO, currentProject.getCompressorRatio());
-    vm.setGlobalFloat(BridgeContract.G_MASTER_COMP_BLEND, currentProject.getCompressorBlend());
+    bridge.setGlobalFloat(
+        BridgeContract.G_MASTER_COMP_ATTACK, currentProject.getCompressorAttack());
+    bridge.setGlobalFloat(
+        BridgeContract.G_MASTER_COMP_RELEASE, currentProject.getCompressorRelease());
+    bridge.setGlobalFloat(BridgeContract.G_MASTER_COMP_RATIO, currentProject.getCompressorRatio());
+    bridge.setGlobalFloat(BridgeContract.G_MASTER_COMP_BLEND, currentProject.getCompressorBlend());
 
     // ── Transpose / humanize globals ──
-    vm.setGlobalInt(BridgeContract.G_TRANSPOSE, currentProject.getTranspose());
-    vm.setGlobalFloat(BridgeContract.G_HUMANIZE, currentProject.getHumanize());
+    bridge.setGlobalInt(BridgeContract.G_TRANSPOSE, currentProject.getTranspose());
+    bridge.setGlobalFloat(BridgeContract.G_HUMANIZE, currentProject.getHumanize());
 
     // ── SongParams globals ──
-    vm.setGlobalFloat(BridgeContract.G_SP_VOLUME, currentProject.getSongParamVolume());
-    vm.setGlobalFloat(BridgeContract.G_SP_PAN, currentProject.getSongParamPan());
-    vm.setGlobalFloat(BridgeContract.G_SP_REVERB_AMOUNT, currentProject.getSongParamReverbAmount());
-    vm.setGlobalFloat(BridgeContract.G_SP_DELAY_RATE, currentProject.getSongParamDelayRate());
-    vm.setGlobalFloat(
+    bridge.setGlobalFloat(BridgeContract.G_SP_VOLUME, currentProject.getSongParamVolume());
+    bridge.setGlobalFloat(BridgeContract.G_SP_PAN, currentProject.getSongParamPan());
+    bridge.setGlobalFloat(
+        BridgeContract.G_SP_REVERB_AMOUNT, currentProject.getSongParamReverbAmount());
+    bridge.setGlobalFloat(BridgeContract.G_SP_DELAY_RATE, currentProject.getSongParamDelayRate());
+    bridge.setGlobalFloat(
         BridgeContract.G_SP_DELAY_FEEDBACK, currentProject.getSongParamDelayFeedback());
-    vm.setGlobalFloat(
+    bridge.setGlobalFloat(
         BridgeContract.G_SP_SIDECHAIN_SHAPE, currentProject.getSongParamSidechainShape());
-    vm.setGlobalFloat(BridgeContract.G_SP_STUTTER_RATE, currentProject.getSongParamStutterRate());
-    vm.setGlobalFloat(
+    bridge.setGlobalFloat(
+        BridgeContract.G_SP_STUTTER_RATE, currentProject.getSongParamStutterRate());
+    bridge.setGlobalFloat(
         BridgeContract.G_SP_SAMPLE_RATE_REDUCTION,
         currentProject.getSongParamSampleRateReduction());
-    vm.setGlobalFloat(BridgeContract.G_SP_BITCRUSH, currentProject.getSongParamBitCrush());
-    vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_RATE, currentProject.getSongParamModFXRate());
-    vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_DEPTH, currentProject.getSongParamModFXDepth());
-    vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_OFFSET, currentProject.getSongParamModFXOffset());
-    vm.setGlobalFloat(
+    bridge.setGlobalFloat(BridgeContract.G_SP_BITCRUSH, currentProject.getSongParamBitCrush());
+    bridge.setGlobalFloat(BridgeContract.G_SP_MOD_FX_RATE, currentProject.getSongParamModFXRate());
+    bridge.setGlobalFloat(
+        BridgeContract.G_SP_MOD_FX_DEPTH, currentProject.getSongParamModFXDepth());
+    bridge.setGlobalFloat(
+        BridgeContract.G_SP_MOD_FX_OFFSET, currentProject.getSongParamModFXOffset());
+    bridge.setGlobalFloat(
         BridgeContract.G_SP_MOD_FX_FEEDBACK, currentProject.getSongParamModFXFeedback());
-    vm.setGlobalFloat(
+    bridge.setGlobalFloat(
         BridgeContract.G_SP_COMPRESSOR_THRESHOLD, currentProject.getSongParamCompressorThreshold());
-    vm.setGlobalFloat(BridgeContract.G_SP_LPF_MORPH, currentProject.getSongParamLpfMorph());
-    vm.setGlobalFloat(BridgeContract.G_SP_HPF_MORPH, currentProject.getSongParamHpfMorph());
-    vm.setGlobalFloat(BridgeContract.G_SP_LPF_FREQ, currentProject.getSongParamLpfFrequency());
-    vm.setGlobalFloat(BridgeContract.G_SP_LPF_RES, currentProject.getSongParamLpfResonance());
-    vm.setGlobalFloat(BridgeContract.G_SP_HPF_FREQ, currentProject.getSongParamHpfFrequency());
-    vm.setGlobalFloat(BridgeContract.G_SP_HPF_RES, currentProject.getSongParamHpfResonance());
-    vm.setGlobalFloat(BridgeContract.G_SP_EQ_BASS, currentProject.getSongParamEqBass());
-    vm.setGlobalFloat(BridgeContract.G_SP_EQ_TREBLE, currentProject.getSongParamEqTreble());
-    vm.setGlobalFloat(
+    bridge.setGlobalFloat(BridgeContract.G_SP_LPF_MORPH, currentProject.getSongParamLpfMorph());
+    bridge.setGlobalFloat(BridgeContract.G_SP_HPF_MORPH, currentProject.getSongParamHpfMorph());
+    bridge.setGlobalFloat(BridgeContract.G_SP_LPF_FREQ, currentProject.getSongParamLpfFrequency());
+    bridge.setGlobalFloat(BridgeContract.G_SP_LPF_RES, currentProject.getSongParamLpfResonance());
+    bridge.setGlobalFloat(BridgeContract.G_SP_HPF_FREQ, currentProject.getSongParamHpfFrequency());
+    bridge.setGlobalFloat(BridgeContract.G_SP_HPF_RES, currentProject.getSongParamHpfResonance());
+    bridge.setGlobalFloat(BridgeContract.G_SP_EQ_BASS, currentProject.getSongParamEqBass());
+    bridge.setGlobalFloat(BridgeContract.G_SP_EQ_TREBLE, currentProject.getSongParamEqTreble());
+    bridge.setGlobalFloat(
         BridgeContract.G_SP_EQ_BASS_FREQ, currentProject.getSongParamEqBassFrequency());
-    vm.setGlobalFloat(
+    bridge.setGlobalFloat(
         BridgeContract.G_SP_EQ_TREBLE_FREQ, currentProject.getSongParamEqTrebleFrequency());
 
     // ── Scales globals ──
-    vm.setGlobalInt(BridgeContract.G_USER_SCALE, currentProject.getUserScale());
-    vm.setGlobalInt(
+    bridge.setGlobalInt(BridgeContract.G_USER_SCALE, currentProject.getUserScale());
+    bridge.setGlobalInt(
         BridgeContract.G_DISABLED_PRESET_SCALES, currentProject.getDisabledPresetScales());
     boolean[] modeNotes = currentProject.getModeNotes();
     if (modeNotes != null) {
       for (int i = 0; i < 12 && i < modeNotes.length; i++) {
-        vm.setGlobalInt(BridgeContract.G_MODE_NOTES + "_" + i, modeNotes[i] ? 1L : 0L);
+        bridge.setGlobalInt(BridgeContract.G_MODE_NOTES + "_" + i, modeNotes[i] ? 1L : 0L);
       }
     }
 
     // ── MIDI Follow Mode globals ──
     bridge.setFollowEnabled(midiService != null && midiService.isRecording());
-    vm.setGlobalInt(BridgeContract.G_FOLLOW_CH_A, bridge.getFollowMidChannel('A'));
-    vm.setGlobalInt(BridgeContract.G_FOLLOW_CH_B, bridge.getFollowMidChannel('B'));
-    vm.setGlobalInt(BridgeContract.G_FOLLOW_CH_C, bridge.getFollowMidChannel('C'));
-    vm.setGlobalInt(BridgeContract.G_FOLLOW_TRACK_A, bridge.getFollowTrack('A'));
-    vm.setGlobalInt(BridgeContract.G_FOLLOW_TRACK_B, bridge.getFollowTrack('B'));
-    vm.setGlobalInt(BridgeContract.G_FOLLOW_TRACK_C, bridge.getFollowTrack('C'));
+    bridge.setGlobalInt(BridgeContract.G_FOLLOW_CH_A, bridge.getFollowMidChannel('A'));
+    bridge.setGlobalInt(BridgeContract.G_FOLLOW_CH_B, bridge.getFollowMidChannel('B'));
+    bridge.setGlobalInt(BridgeContract.G_FOLLOW_CH_C, bridge.getFollowMidChannel('C'));
+    bridge.setGlobalInt(BridgeContract.G_FOLLOW_TRACK_A, bridge.getFollowTrack('A'));
+    bridge.setGlobalInt(BridgeContract.G_FOLLOW_TRACK_B, bridge.getFollowTrack('B'));
+    bridge.setGlobalInt(BridgeContract.G_FOLLOW_TRACK_C, bridge.getFollowTrack('C'));
 
     // Sync the master FX panel slider with the model's volume
     if (masterFxPanel != null) {
@@ -873,17 +887,17 @@ public class SwingDelugeApp extends JFrame {
     // NOTE: do NOT set G_RELOAD here — the initial advance(loadEvent) in engine sub-shreds
     // already triggers one doInit(). Setting G_RELOAD would cause a second, wasteful re-init.
     if (!tracks.isEmpty()) {
-      vm.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+      bridge.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
     }
 
     // ── Push hardware character preferences to engine globals ──
-    vm.setGlobalFloat(
+    bridge.setGlobalFloat(
         BridgeContract.G_MASTER_SATURATION,
         org.deluge.project.PreferencesManager.isMasterSaturationEnabled() ? 1.0f : 0.0f);
-    vm.setGlobalFloat(
+    bridge.setGlobalFloat(
         BridgeContract.G_CHAR_FILTER_DRIVE,
         org.deluge.project.PreferencesManager.isFilterDriveEnabled() ? 1.0f : 0.0f);
-    vm.setGlobalFloat(
+    bridge.setGlobalFloat(
         BridgeContract.G_BIT_CRUNCH,
         org.deluge.project.PreferencesManager.isBitCrunchEnabled() ? 1.0f : 0.0f);
 
@@ -931,27 +945,28 @@ public class SwingDelugeApp extends JFrame {
     if (trk instanceof org.deluge.model.AudioTrackModel audioTrk) {
       if (clipIdx >= audioTrk.getAudioClips().size()) return;
       org.deluge.model.AudioTrackModel.AudioClip aClip = audioTrk.getAudioClips().get(clipIdx);
-      vm.setGlobalFloat(BridgeContract.G_SP_VOLUME, aClip.getVolume());
-      vm.setGlobalFloat(BridgeContract.G_SP_PAN, aClip.getPan());
-      vm.setGlobalFloat(BridgeContract.G_SP_REVERB_AMOUNT, aClip.getReverbAmount());
-      vm.setGlobalFloat(BridgeContract.G_SP_DELAY_RATE, aClip.getDelayRate());
-      vm.setGlobalFloat(BridgeContract.G_SP_DELAY_FEEDBACK, aClip.getDelayFeedback());
-      vm.setGlobalFloat(BridgeContract.G_SP_SIDECHAIN_SHAPE, aClip.getSidechainShape());
-      vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_RATE, aClip.getModFXRate());
-      vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_DEPTH, aClip.getModFXDepth());
-      vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_OFFSET, aClip.getModFXOffset());
-      vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_FEEDBACK, aClip.getModFXFeedback());
-      vm.setGlobalFloat(BridgeContract.G_SP_STUTTER_RATE, aClip.getStutterRate());
-      vm.setGlobalFloat(BridgeContract.G_SP_SAMPLE_RATE_REDUCTION, aClip.getSampleRateReduction());
-      vm.setGlobalFloat(BridgeContract.G_SP_BITCRUSH, aClip.getBitCrush());
-      vm.setGlobalFloat(BridgeContract.G_SP_LPF_FREQ, aClip.getLpfFrequency());
-      vm.setGlobalFloat(BridgeContract.G_SP_LPF_RES, aClip.getLpfResonance());
-      vm.setGlobalFloat(BridgeContract.G_SP_HPF_FREQ, aClip.getHpfFrequency());
-      vm.setGlobalFloat(BridgeContract.G_SP_HPF_RES, aClip.getHpfResonance());
-      vm.setGlobalFloat(BridgeContract.G_SP_EQ_BASS, aClip.getEqBass());
-      vm.setGlobalFloat(BridgeContract.G_SP_EQ_TREBLE, aClip.getEqTreble());
-      vm.setGlobalFloat(BridgeContract.G_SP_EQ_BASS_FREQ, aClip.getEqBassFrequency());
-      vm.setGlobalFloat(BridgeContract.G_SP_EQ_TREBLE_FREQ, aClip.getEqTrebleFrequency());
+      bridge.setGlobalFloat(BridgeContract.G_SP_VOLUME, aClip.getVolume());
+      bridge.setGlobalFloat(BridgeContract.G_SP_PAN, aClip.getPan());
+      bridge.setGlobalFloat(BridgeContract.G_SP_REVERB_AMOUNT, aClip.getReverbAmount());
+      bridge.setGlobalFloat(BridgeContract.G_SP_DELAY_RATE, aClip.getDelayRate());
+      bridge.setGlobalFloat(BridgeContract.G_SP_DELAY_FEEDBACK, aClip.getDelayFeedback());
+      bridge.setGlobalFloat(BridgeContract.G_SP_SIDECHAIN_SHAPE, aClip.getSidechainShape());
+      bridge.setGlobalFloat(BridgeContract.G_SP_MOD_FX_RATE, aClip.getModFXRate());
+      bridge.setGlobalFloat(BridgeContract.G_SP_MOD_FX_DEPTH, aClip.getModFXDepth());
+      bridge.setGlobalFloat(BridgeContract.G_SP_MOD_FX_OFFSET, aClip.getModFXOffset());
+      bridge.setGlobalFloat(BridgeContract.G_SP_MOD_FX_FEEDBACK, aClip.getModFXFeedback());
+      bridge.setGlobalFloat(BridgeContract.G_SP_STUTTER_RATE, aClip.getStutterRate());
+      bridge.setGlobalFloat(
+          BridgeContract.G_SP_SAMPLE_RATE_REDUCTION, aClip.getSampleRateReduction());
+      bridge.setGlobalFloat(BridgeContract.G_SP_BITCRUSH, aClip.getBitCrush());
+      bridge.setGlobalFloat(BridgeContract.G_SP_LPF_FREQ, aClip.getLpfFrequency());
+      bridge.setGlobalFloat(BridgeContract.G_SP_LPF_RES, aClip.getLpfResonance());
+      bridge.setGlobalFloat(BridgeContract.G_SP_HPF_FREQ, aClip.getHpfFrequency());
+      bridge.setGlobalFloat(BridgeContract.G_SP_HPF_RES, aClip.getHpfResonance());
+      bridge.setGlobalFloat(BridgeContract.G_SP_EQ_BASS, aClip.getEqBass());
+      bridge.setGlobalFloat(BridgeContract.G_SP_EQ_TREBLE, aClip.getEqTreble());
+      bridge.setGlobalFloat(BridgeContract.G_SP_EQ_BASS_FREQ, aClip.getEqBassFrequency());
+      bridge.setGlobalFloat(BridgeContract.G_SP_EQ_TREBLE_FREQ, aClip.getEqTrebleFrequency());
       // AudioClip doesn't have its own compressorThreshold, lpfMorph, hpfMorph;
       // keep song defaults for those (already set above in pushModelToBridge)
       return;
@@ -964,51 +979,56 @@ public class SwingDelugeApp extends JFrame {
     if (kp == null || kp.isEmpty()) return;
 
     // For each G_SP_* global: clip override if present, otherwise song default (already set above)
-    if (kp.containsKey("volume")) vm.setGlobalFloat(BridgeContract.G_SP_VOLUME, kp.get("volume"));
-    if (kp.containsKey("pan")) vm.setGlobalFloat(BridgeContract.G_SP_PAN, kp.get("pan"));
+    if (kp.containsKey("volume"))
+      bridge.setGlobalFloat(BridgeContract.G_SP_VOLUME, kp.get("volume"));
+    if (kp.containsKey("pan")) bridge.setGlobalFloat(BridgeContract.G_SP_PAN, kp.get("pan"));
     if (kp.containsKey("reverbAmount"))
-      vm.setGlobalFloat(BridgeContract.G_SP_REVERB_AMOUNT, kp.get("reverbAmount"));
+      bridge.setGlobalFloat(BridgeContract.G_SP_REVERB_AMOUNT, kp.get("reverbAmount"));
     if (kp.containsKey("delayRate"))
-      vm.setGlobalFloat(BridgeContract.G_SP_DELAY_RATE, kp.get("delayRate"));
+      bridge.setGlobalFloat(BridgeContract.G_SP_DELAY_RATE, kp.get("delayRate"));
     if (kp.containsKey("delayFeedback"))
-      vm.setGlobalFloat(BridgeContract.G_SP_DELAY_FEEDBACK, kp.get("delayFeedback"));
+      bridge.setGlobalFloat(BridgeContract.G_SP_DELAY_FEEDBACK, kp.get("delayFeedback"));
     if (kp.containsKey("sidechainCompressorShape"))
-      vm.setGlobalFloat(BridgeContract.G_SP_SIDECHAIN_SHAPE, kp.get("sidechainCompressorShape"));
+      bridge.setGlobalFloat(
+          BridgeContract.G_SP_SIDECHAIN_SHAPE, kp.get("sidechainCompressorShape"));
     if (kp.containsKey("stutterRate"))
-      vm.setGlobalFloat(BridgeContract.G_SP_STUTTER_RATE, kp.get("stutterRate"));
+      bridge.setGlobalFloat(BridgeContract.G_SP_STUTTER_RATE, kp.get("stutterRate"));
     if (kp.containsKey("sampleRateReduction"))
-      vm.setGlobalFloat(BridgeContract.G_SP_SAMPLE_RATE_REDUCTION, kp.get("sampleRateReduction"));
+      bridge.setGlobalFloat(
+          BridgeContract.G_SP_SAMPLE_RATE_REDUCTION, kp.get("sampleRateReduction"));
     if (kp.containsKey("bitCrush"))
-      vm.setGlobalFloat(BridgeContract.G_SP_BITCRUSH, kp.get("bitCrush"));
+      bridge.setGlobalFloat(BridgeContract.G_SP_BITCRUSH, kp.get("bitCrush"));
     if (kp.containsKey("modFXRate"))
-      vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_RATE, kp.get("modFXRate"));
+      bridge.setGlobalFloat(BridgeContract.G_SP_MOD_FX_RATE, kp.get("modFXRate"));
     if (kp.containsKey("modFXDepth"))
-      vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_DEPTH, kp.get("modFXDepth"));
+      bridge.setGlobalFloat(BridgeContract.G_SP_MOD_FX_DEPTH, kp.get("modFXDepth"));
     if (kp.containsKey("modFXOffset"))
-      vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_OFFSET, kp.get("modFXOffset"));
+      bridge.setGlobalFloat(BridgeContract.G_SP_MOD_FX_OFFSET, kp.get("modFXOffset"));
     if (kp.containsKey("modFXFeedback"))
-      vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_FEEDBACK, kp.get("modFXFeedback"));
+      bridge.setGlobalFloat(BridgeContract.G_SP_MOD_FX_FEEDBACK, kp.get("modFXFeedback"));
     if (kp.containsKey("compressorThreshold"))
-      vm.setGlobalFloat(BridgeContract.G_SP_COMPRESSOR_THRESHOLD, kp.get("compressorThreshold"));
+      bridge.setGlobalFloat(
+          BridgeContract.G_SP_COMPRESSOR_THRESHOLD, kp.get("compressorThreshold"));
     if (kp.containsKey("lpfMorph"))
-      vm.setGlobalFloat(BridgeContract.G_SP_LPF_MORPH, kp.get("lpfMorph"));
+      bridge.setGlobalFloat(BridgeContract.G_SP_LPF_MORPH, kp.get("lpfMorph"));
     if (kp.containsKey("hpfMorph"))
-      vm.setGlobalFloat(BridgeContract.G_SP_HPF_MORPH, kp.get("hpfMorph"));
+      bridge.setGlobalFloat(BridgeContract.G_SP_HPF_MORPH, kp.get("hpfMorph"));
     if (kp.containsKey("lpfFrequency"))
-      vm.setGlobalFloat(BridgeContract.G_SP_LPF_FREQ, kp.get("lpfFrequency"));
+      bridge.setGlobalFloat(BridgeContract.G_SP_LPF_FREQ, kp.get("lpfFrequency"));
     if (kp.containsKey("lpfResonance"))
-      vm.setGlobalFloat(BridgeContract.G_SP_LPF_RES, kp.get("lpfResonance"));
+      bridge.setGlobalFloat(BridgeContract.G_SP_LPF_RES, kp.get("lpfResonance"));
     if (kp.containsKey("hpfFrequency"))
-      vm.setGlobalFloat(BridgeContract.G_SP_HPF_FREQ, kp.get("hpfFrequency"));
+      bridge.setGlobalFloat(BridgeContract.G_SP_HPF_FREQ, kp.get("hpfFrequency"));
     if (kp.containsKey("hpfResonance"))
-      vm.setGlobalFloat(BridgeContract.G_SP_HPF_RES, kp.get("hpfResonance"));
-    if (kp.containsKey("eqBass")) vm.setGlobalFloat(BridgeContract.G_SP_EQ_BASS, kp.get("eqBass"));
+      bridge.setGlobalFloat(BridgeContract.G_SP_HPF_RES, kp.get("hpfResonance"));
+    if (kp.containsKey("eqBass"))
+      bridge.setGlobalFloat(BridgeContract.G_SP_EQ_BASS, kp.get("eqBass"));
     if (kp.containsKey("eqTreble"))
-      vm.setGlobalFloat(BridgeContract.G_SP_EQ_TREBLE, kp.get("eqTreble"));
+      bridge.setGlobalFloat(BridgeContract.G_SP_EQ_TREBLE, kp.get("eqTreble"));
     if (kp.containsKey("eqBassFrequency"))
-      vm.setGlobalFloat(BridgeContract.G_SP_EQ_BASS_FREQ, kp.get("eqBassFrequency"));
+      bridge.setGlobalFloat(BridgeContract.G_SP_EQ_BASS_FREQ, kp.get("eqBassFrequency"));
     if (kp.containsKey("eqTrebleFrequency"))
-      vm.setGlobalFloat(BridgeContract.G_SP_EQ_TREBLE_FREQ, kp.get("eqTrebleFrequency"));
+      bridge.setGlobalFloat(BridgeContract.G_SP_EQ_TREBLE_FREQ, kp.get("eqTrebleFrequency"));
   }
 
   private org.deluge.engine.PureFirmwareEngine pureEngine;
@@ -1022,18 +1042,14 @@ public class SwingDelugeApp extends JFrame {
     return pureEngine;
   }
 
-  public SwingDelugeApp(
-      ChuckVM vm, BridgeContract bridge, org.deluge.midi.MidiService midiService) {
-    this(vm, bridge, midiService, false);
+  public SwingDelugeApp(final BridgeContract bridge, org.deluge.midi.MidiService midiService) {
+    this(bridge, midiService, false);
   }
 
   public SwingDelugeApp(
-      ChuckVM vm,
-      BridgeContract bridge,
-      org.deluge.midi.MidiService midiService,
-      boolean pureMode) {
-    this.vm = vm;
+      final BridgeContract bridge, org.deluge.midi.MidiService midiService, boolean pureMode) {
     this.bridge = bridge;
+
     this.midiService = midiService;
     mainInstance = this;
     pureModeActive = pureMode;
@@ -1041,10 +1057,10 @@ public class SwingDelugeApp extends JFrame {
     if (pureMode) {
       System.out.println("[UI] Initializing Pure Java High-Fidelity Engine...");
       this.pureEngine = new org.deluge.engine.PureFirmwareEngine();
-      this.pureEngine.start(vm);
+      this.pureEngine.start(bridge);
       // Register in bridge for components that poll it
-      vm.setGlobalObject(BridgeContract.G_FIRMWARE_ENGINE, pureEngine.getAudioEngine());
-      vm.setGlobalObject(BridgeContract.G_PLAYBACK_HANDLER, pureEngine.getPlaybackHandler());
+      bridge.setGlobalObject(BridgeContract.G_FIRMWARE_ENGINE, pureEngine.getAudioEngine());
+      bridge.setGlobalObject(BridgeContract.G_PLAYBACK_HANDLER, pureEngine.getPlaybackHandler());
     }
 
     // Inflate Font Sizes globally (excluding menus to prevent layout bloat!)
@@ -1105,18 +1121,19 @@ public class SwingDelugeApp extends JFrame {
 
                 if (isSynth) {
                   try {
-                    org.chuck.core.ChuckEvent noteEv =
-                        (org.chuck.core.ChuckEvent) vm.getGlobalObject("g_ck_noteOn");
+                    org.deluge.shadow.core.ChuckEvent noteEv =
+                        (org.deluge.shadow.core.ChuckEvent) bridge.getGlobalObject("g_ck_noteOn");
                     if (noteEv != null) {
-                      org.chuck.core.ChuckArray pitchArr =
-                          (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_PITCH);
+                      org.deluge.shadow.core.ChuckArray pitchArr =
+                          (org.deluge.shadow.core.ChuckArray)
+                              bridge.getGlobalObject(BridgeContract.G_PITCH);
                       pitchArr.setInt(0, (long) (note - 60));
                       noteEv.broadcast();
                     }
                   } catch (Exception ex) {
                   }
                 } else {
-                  String sp = (String) vm.getGlobalObject("g_sample_" + trackId);
+                  String sp = (String) bridge.getGlobalObject("g_sample_" + trackId);
                   if (sp != null && !sp.isEmpty()) {
                     new Thread(
                             () -> {
@@ -1354,33 +1371,32 @@ public class SwingDelugeApp extends JFrame {
               return;
             }
 
-            org.chuck.hid.HidMsg msg = new org.chuck.hid.HidMsg();
+            org.deluge.shadow.hid.HidMsg msg = new org.deluge.shadow.hid.HidMsg();
             msg.deviceType = "keyboard";
-            msg.type = org.chuck.hid.HidMsg.BUTTON_DOWN;
+            msg.type = org.deluge.shadow.hid.HidMsg.BUTTON_DOWN;
             msg.which = kc;
             msg.key = kc;
             char c = e.getKeyChar();
             if (c != java.awt.event.KeyEvent.CHAR_UNDEFINED) {
               msg.ascii = c;
             }
-            vm.dispatchHidMsg(msg);
+            bridge.dispatchHidMsg(msg);
           }
 
           @Override
           public void keyReleased(java.awt.event.KeyEvent e) {
-            org.chuck.hid.HidMsg msg = new org.chuck.hid.HidMsg();
+            org.deluge.shadow.hid.HidMsg msg = new org.deluge.shadow.hid.HidMsg();
             msg.deviceType = "keyboard";
-            msg.type = org.chuck.hid.HidMsg.BUTTON_UP;
+            msg.type = org.deluge.shadow.hid.HidMsg.BUTTON_UP;
             msg.which = e.getKeyCode();
             msg.key = e.getKeyCode();
-            vm.dispatchHidMsg(msg);
+            bridge.dispatchHidMsg(msg);
           }
         });
     DarkComboBoxRenderer.styleComponentTree(this);
 
     // Instantiate Arranger Timeline real-time Scheduler
-    this.arrangerScheduler =
-        new org.deluge.ui.ArrangerPlaybackScheduler(vm, bridge, currentProject);
+    this.arrangerScheduler = new org.deluge.ui.ArrangerPlaybackScheduler(bridge, currentProject);
     if (arrGridPanel != null) {
       arrangerScheduler.setRepaintCallback(() -> arrGridPanel.refresh());
     }
@@ -1391,7 +1407,7 @@ public class SwingDelugeApp extends JFrame {
     if (arrangerScheduler != null) {
       arrangerScheduler.setProject(model);
     }
-    vm.setGlobalInt(BridgeContract.G_PLAY, 0L);
+    bridge.setGlobalInt(BridgeContract.G_PLAY, 0L);
     if (bridge != null) bridge.setPlayState(0);
 
     // Register listener so structural and param changes auto-sync to bridge
@@ -1485,13 +1501,13 @@ public class SwingDelugeApp extends JFrame {
 
   /** True if the firmware playback handler is currently playing. */
   private boolean isFirmwarePlaying() {
-    Object h = vm.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
+    Object h = bridge.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
     return h instanceof org.deluge.firmware.playback.PlaybackHandler ph && ph.isPlaying();
   }
 
   /** True if the engine's registered sound count no longer matches the track count. */
   private boolean engineStructureChanged(org.deluge.model.ProjectModel model) {
-    Object e = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+    Object e = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
     return !(e instanceof org.deluge.firmware.engine.FirmwareAudioEngine eng)
         || eng.sounds.size() != model.getTracks().size();
   }
@@ -1534,7 +1550,7 @@ public class SwingDelugeApp extends JFrame {
     }
 
     // ── Sync Audio Registry ──
-    Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+    Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
     if (fwEngineObj instanceof org.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
       fwEngine.sounds.clear();
       // Ensure sounds list matches track count for direct indexing
@@ -1551,7 +1567,7 @@ public class SwingDelugeApp extends JFrame {
         }
       }
 
-      float masterVol = (float) vm.getGlobalFloat(BridgeContract.G_MASTER_VOL);
+      float masterVol = (float) bridge.getGlobalFloat(BridgeContract.G_MASTER_VOL);
       System.out.println("[UI] Engine Sync - MasterVol Global: " + masterVol);
       fwEngine.masterVolumeAdjustmentL = (int) (masterVol * 2147483647.0);
       fwEngine.masterVolumeAdjustmentR = fwEngine.masterVolumeAdjustmentL;
@@ -1598,7 +1614,7 @@ public class SwingDelugeApp extends JFrame {
       }
     }
 
-    Object fwHandlerObj = vm.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
+    Object fwHandlerObj = bridge.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
     System.out.println(
         "[DIAG sync] fwHandlerObj="
             + fwHandlerObj
@@ -1920,9 +1936,9 @@ public class SwingDelugeApp extends JFrame {
     if (idx < 0 || idx >= tl.size()) return;
     org.deluge.model.TrackModel t = tl.get(idx);
     if (t instanceof org.deluge.model.KitTrackModel kt) {
-      new SwingKitConfigDialog(this, kt, vm, bridge, idx).setVisible(true);
+      new SwingKitConfigDialog(this, kt, bridge, idx).setVisible(true);
     } else if (t instanceof org.deluge.model.SynthTrackModel st) {
-      new SwingSynthConfigDialog(this, st, vm, bridge, idx, currentProject).setVisible(true);
+      new SwingSynthConfigDialog(this, st, bridge, idx, currentProject).setVisible(true);
     }
   }
 
@@ -2079,8 +2095,8 @@ public class SwingDelugeApp extends JFrame {
     String filePath = chooser.getSelectedFile().getAbsolutePath();
     if (!filePath.toLowerCase().endsWith(".wav")) filePath += ".wav";
 
-    vm.setGlobalString(org.deluge.BridgeContract.G_WVOUT_FILE, filePath);
-    vm.setGlobalFloat(org.deluge.BridgeContract.G_WVOUT_ACTIVE, 1.0f);
+    bridge.setGlobalString(BridgeContract.G_WVOUT_FILE, filePath);
+    bridge.setGlobalFloat(BridgeContract.G_WVOUT_ACTIVE, 1.0f);
 
     JOptionPane.showMessageDialog(
         this,
@@ -2088,7 +2104,7 @@ public class SwingDelugeApp extends JFrame {
         "Exporting Audio...",
         JOptionPane.INFORMATION_MESSAGE);
 
-    vm.setGlobalFloat(org.deluge.BridgeContract.G_WVOUT_ACTIVE, 0.0f);
+    bridge.setGlobalFloat(BridgeContract.G_WVOUT_ACTIVE, 0.0f);
   }
 
   /**
@@ -2224,7 +2240,7 @@ public class SwingDelugeApp extends JFrame {
     java.io.File file = chooser.getSelectedFile();
     try {
       String content = new String(java.nio.file.Files.readAllBytes(file.toPath()));
-      vm.eval(content);
+      bridge.eval(content);
       JOptionPane.showMessageDialog(
           this,
           "Script loaded successfully:\n" + file.getName(),
@@ -2794,7 +2810,7 @@ public class SwingDelugeApp extends JFrame {
             java.awt.event.KeyEvent.VK_R, java.awt.event.InputEvent.CTRL_DOWN_MASK));
     randomizerItem.addActionListener(
         e -> {
-          new SwingRandomizerDialog(this, vm, bridge, currentProject).setVisible(true);
+          new SwingRandomizerDialog(this, bridge, currentProject).setVisible(true);
         });
     toolsMenu.add(randomizerItem);
 
@@ -2804,7 +2820,7 @@ public class SwingDelugeApp extends JFrame {
             java.awt.event.KeyEvent.VK_L, java.awt.event.InputEvent.CTRL_DOWN_MASK));
     slicerItem.addActionListener(
         e -> {
-          new SwingAudioSlicerDialog(this, vm, bridge, currentProject).setVisible(true);
+          new SwingAudioSlicerDialog(this, bridge, currentProject).setVisible(true);
         });
     toolsMenu.add(slicerItem);
 
@@ -2855,7 +2871,7 @@ public class SwingDelugeApp extends JFrame {
                 JOptionPane.WARNING_MESSAGE);
             return;
           }
-          new SwingDroneLabDialog(this, st, vm, bridge, idx, currentProject).setVisible(true);
+          new SwingDroneLabDialog(this, st, bridge, idx, currentProject).setVisible(true);
         });
     toolsMenu.add(droneLabItem);
 
@@ -3042,7 +3058,7 @@ public class SwingDelugeApp extends JFrame {
           syncHighFidelityEngine(currentProject);
         };
 
-    clipPanel = new SwingGridPanel(vm, bridge);
+    clipPanel = new SwingGridPanel(bridge);
     clipPanel.setViewMode(SwingGridPanel.GridViewMode.CLIP);
     clipPanel.setProjectModel(currentProject);
     clipPanel.resetScrollOffset();
@@ -3061,30 +3077,30 @@ public class SwingDelugeApp extends JFrame {
     picTransport.setPadButtons(clipPanel.getPadButtons());
     PIC.setTransport(picTransport);
 
-    songPanel = new SwingGridPanel(vm, bridge);
+    songPanel = new SwingGridPanel(bridge);
     songPanel.setViewMode(SwingGridPanel.GridViewMode.SONG);
     songPanel.setProjectModel(currentProject);
     songPanel.setOnProjectChanged(projectChangeHandler);
     centerCardPanel.add(wrapGridPanel(songPanel), "SONG");
 
-    arrGridPanel = new SwingGridPanel(vm, bridge);
+    arrGridPanel = new SwingGridPanel(bridge);
     arrGridPanel.setViewMode(SwingGridPanel.GridViewMode.ARRANGEMENT);
     arrGridPanel.setProjectModel(currentProject);
     arrGridPanel.setOnProjectChanged(projectChangeHandler);
     centerCardPanel.add(wrapGridPanel(arrGridPanel), "ARR");
 
-    autoPanel = new SwingGridPanel(vm, bridge);
+    autoPanel = new SwingGridPanel(bridge);
     autoPanel.setViewMode(SwingGridPanel.GridViewMode.AUTOMATION);
     autoPanel.setProjectModel(currentProject);
     autoPanel.setOnProjectChanged(projectChangeHandler);
     centerCardPanel.add(wrapGridPanel(autoPanel), "AUTO");
 
-    performancePanel = new SwingPerformanceViewPanel(vm, bridge, currentProject);
+    performancePanel = new SwingPerformanceViewPanel(bridge, currentProject);
     performancePanel.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
     centerCardPanel.add(performancePanel, "PERF");
 
     appTopBarListener = new AppTopBarListener();
-    topBar = new SwingTopBarPanel(vm, bridge, currentProject, leftFloat, appTopBarListener);
+    topBar = new SwingTopBarPanel(bridge, currentProject, leftFloat, appTopBarListener);
 
     // DEBUG: solid background colors to visualize panel sizes
     System.out.println(
@@ -3145,7 +3161,7 @@ public class SwingDelugeApp extends JFrame {
     // horizontal space (abundant) so the grid keeps its full height; scrollable for short screens.
     synthParamRack =
         new SynthParamRack(
-            vm,
+            bridge,
             () -> {
               SwingGridPanel a = activeGridPanel();
               if (a == null || a.getProjectModel() == null) {
@@ -3211,9 +3227,9 @@ public class SwingDelugeApp extends JFrame {
     javax.swing.SwingUtilities.invokeLater(() -> centerScroll.getVerticalScrollBar().setValue(0));
 
     // 2. Left Area (SD Card / Editors)
-    sidebarPanel = new SwingProjectSidebarPanel(vm, bridge, midiService);
+    sidebarPanel = new SwingProjectSidebarPanel(bridge, midiService);
     sidebarPanel.reloadLibrary();
-    floatingSidebar = new SwingProjectSidebarPanel(vm, bridge, midiService);
+    floatingSidebar = new SwingProjectSidebarPanel(bridge, midiService);
     // The explorer header's 📂 button changes the SD-card root; refresh BOTH sidebar instances
     // (same effect as File → "Set SD Card Root..." and Preferences → SD Card Root Directory).
     Runnable reloadBothSidebars =
@@ -3299,7 +3315,7 @@ public class SwingDelugeApp extends JFrame {
     songPanel.setOnEditRequest(this::switchToTrackEdit);
     arrGridPanel.setOnEditRequest(this::switchToTrackEdit);
 
-    visualizerPanel = new SwingVisualizerPanel(vm, bridge);
+    visualizerPanel = new SwingVisualizerPanel(bridge);
 
     leftFloat.add(floatingSidebar);
     rightFloat.add(visualizerPanel);
@@ -3336,7 +3352,7 @@ public class SwingDelugeApp extends JFrame {
     // Obsolete bottom parameter deck removed. Integrated in 10x18 pads matrix.
 
     // 7. Bottom Area - Row 3 (Master FX dials bounding boxes)
-    SwingMasterFxPanel masterFxPanel = new SwingMasterFxPanel(vm, currentProject, topBar);
+    SwingMasterFxPanel masterFxPanel = new SwingMasterFxPanel(bridge, currentProject, topBar);
     this.masterFxPanel = masterFxPanel;
     // DEBUG: masterFxPanel.setBorder(BorderFactory.createLineBorder(Color.YELLOW, 3));
 
@@ -3474,7 +3490,7 @@ public class SwingDelugeApp extends JFrame {
         new Timer(
             30,
             e -> {
-              int step = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
+              int step = (int) bridge.getGlobalInt(BridgeContract.G_CURRENT_STEP);
 
               int stepCount = 16;
               int beatSteps = 4;
@@ -3492,10 +3508,10 @@ public class SwingDelugeApp extends JFrame {
               int subStep = (step % beatSteps) + 1;
 
               String statusStr = "STOP";
-              if (vm.getGlobalInt(BridgeContract.G_PLAY) == 1L) {
+              if (bridge.getGlobalInt(BridgeContract.G_PLAY) == 1L) {
                 statusStr = String.format("%d.%d.%d", bar, beat, subStep);
               }
-              statusStr += " | SHREDS: " + vm.getActiveShredCount();
+              statusStr += " | SHREDS: " + bridge.getActiveShredCount();
 
               Component[] comps = getContentPane().getComponents();
               for (Component c : comps) {
@@ -3534,8 +3550,7 @@ public class SwingDelugeApp extends JFrame {
     javax.swing.ToolTipManager.sharedInstance().setDismissDelay(20000);
     javax.swing.ToolTipManager.sharedInstance().setInitialDelay(250);
 
-    org.chuck.core.ChuckVM vm = new org.chuck.core.ChuckVM(44100, 2);
-    org.deluge.BridgeContract bridge = new org.deluge.BridgeContract();
+    BridgeContract bridge = new BridgeContract(44100, 2);
 
     // The pure Java firmware engine (PureFirmwareEngine) is the only audio path; the legacy
     // ChucK DSL engine (--hifi) was deleted.
@@ -3550,17 +3565,17 @@ public class SwingDelugeApp extends JFrame {
     }
     final boolean finalRunScreenshots = runScreenshots;
 
-    bridge.register(vm);
+    bridge.register(bridge);
 
     // Give engine time to initialize before UI loads
     try {
       Thread.sleep(200);
     } catch (InterruptedException ie) {
     }
-    System.out.println("[main] after 200ms sleep, activeShreds=" + vm.getActiveShredCount());
+    System.out.println("[main] after 200ms sleep, activeShreds=" + bridge.getActiveShredCount());
 
-    org.deluge.midi.MidiInputRouter router = new org.deluge.midi.MidiInputRouter(vm, bridge);
-    org.deluge.midi.MidiService midiService = new org.deluge.midi.MidiService(vm, bridge, router);
+    org.deluge.midi.MidiInputRouter router = new org.deluge.midi.MidiInputRouter(bridge);
+    org.deluge.midi.MidiService midiService = new org.deluge.midi.MidiService(bridge, router);
     midiService.start();
 
     final boolean finalPureMode = true;
@@ -3607,7 +3622,7 @@ public class SwingDelugeApp extends JFrame {
           javax.swing.UIManager.put("TextArea.foreground", java.awt.Color.WHITE);
           javax.swing.UIManager.put("TextArea.caretForeground", java.awt.Color.WHITE);
 
-          SwingDelugeApp app = new SwingDelugeApp(vm, bridge, midiService, finalPureMode);
+          SwingDelugeApp app = new SwingDelugeApp(bridge, midiService, finalPureMode);
           app.setVisible(true);
 
           if (finalRunScreenshots) {
@@ -3617,7 +3632,7 @@ public class SwingDelugeApp extends JFrame {
                         System.out.println(
                             "[Screenshot] Waiting 4 seconds for UI repaint and Loom threads...");
                         Thread.sleep(4000);
-                        SwingScreenshotGenerator.runAutoScreenshots(app, vm, bridge);
+                        SwingScreenshotGenerator.runAutoScreenshots(app, bridge);
                       } catch (Exception ex) {
                         System.err.println("[Screenshot] Trigger thread error: " + ex.getMessage());
                       }
@@ -3780,7 +3795,7 @@ public class SwingDelugeApp extends JFrame {
     public void onResampleToggle(JButton btn) {
       if (!org.deluge.engine.JavaAudioDriver.isResamplingActive) {
         // Start resample mode: auto-start play if not playing
-        if (vm.getGlobalInt(BridgeContract.G_PLAY) == 0L) {
+        if (bridge.getGlobalInt(BridgeContract.G_PLAY) == 0L) {
           onPlayToggle();
         }
         org.deluge.engine.JavaAudioDriver.startResampling();
@@ -3939,14 +3954,14 @@ public class SwingDelugeApp extends JFrame {
 
     @Override
     public void onPlayToggle() {
-      long nextPlay = vm.getGlobalInt(BridgeContract.G_PLAY) == 1L ? 0L : 1L;
+      long nextPlay = bridge.getGlobalInt(BridgeContract.G_PLAY) == 1L ? 0L : 1L;
       if (nextPlay == 1L) {
         syncHighFidelityEngine(currentProject);
         if (clipPanel != null) {
           clipPanel.setPlayheadFollowMode(true);
         }
       }
-      vm.setGlobalInt(BridgeContract.G_PLAY, nextPlay);
+      bridge.setGlobalInt(BridgeContract.G_PLAY, nextPlay);
       if (bridge != null) bridge.setPlayState((int) nextPlay);
     }
 
@@ -3957,11 +3972,11 @@ public class SwingDelugeApp extends JFrame {
           topBar.stopRecordingIfActive();
         }
       }
-      vm.setGlobalInt(BridgeContract.G_PLAY, 0L);
+      bridge.setGlobalInt(BridgeContract.G_PLAY, 0L);
       if (bridge != null) bridge.setPlayState(0);
 
       try {
-        Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+        Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
         if (fwEngineObj instanceof org.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
           fwEngine.panic();
         }
@@ -3972,7 +3987,7 @@ public class SwingDelugeApp extends JFrame {
 
     @Override
     public void onMasterVolumeChanged(float vol) {
-      vm.setGlobalFloat(BridgeContract.G_MASTER_VOL, vol);
+      bridge.setGlobalFloat(BridgeContract.G_MASTER_VOL, vol);
     }
   }
 
@@ -3993,85 +4008,86 @@ public class SwingDelugeApp extends JFrame {
 
     @Override
     public void onBpmChanged(float bpm) {
-      vm.setGlobalFloat(BridgeContract.G_BPM, bpm);
+      bridge.setGlobalFloat(BridgeContract.G_BPM, bpm);
     }
 
     @Override
     public void onSwingChanged(float swing) {
-      vm.setGlobalFloat(BridgeContract.G_SWING, swing);
+      bridge.setGlobalFloat(BridgeContract.G_SWING, swing);
     }
 
     @Override
     public void onMasterVolumeChanged(float vol) {
-      vm.setGlobalFloat(BridgeContract.G_MASTER_VOL, vol);
+      bridge.setGlobalFloat(BridgeContract.G_MASTER_VOL, vol);
     }
 
     @Override
     public void onMasterPanChanged(float pan) {
-      vm.setGlobalFloat(BridgeContract.G_MASTER_PAN, pan);
+      bridge.setGlobalFloat(BridgeContract.G_MASTER_PAN, pan);
     }
 
     @Override
     public void onKeyChanged(String key) {
-      vm.setGlobalInt(BridgeContract.G_ROOT_KEY, parseRootKey(key));
+      bridge.setGlobalInt(BridgeContract.G_ROOT_KEY, parseRootKey(key));
     }
 
     @Override
     public void onScaleChanged(String scale) {
-      vm.setGlobalInt(BridgeContract.G_SCALE, parseScaleIndex(scale));
+      bridge.setGlobalInt(BridgeContract.G_SCALE, parseScaleIndex(scale));
     }
 
     @Override
     public void onTransposeChanged(int transpose) {
-      vm.setGlobalInt(BridgeContract.G_TRANSPOSE, transpose);
+      bridge.setGlobalInt(BridgeContract.G_TRANSPOSE, transpose);
     }
 
     @Override
     public void onHumanizeChanged(float humanize) {
-      vm.setGlobalFloat(BridgeContract.G_HUMANIZE, humanize);
+      bridge.setGlobalFloat(BridgeContract.G_HUMANIZE, humanize);
     }
 
     @Override
     public void onReverbChanged() {
-      vm.setGlobalFloat(BridgeContract.G_REVERB_ROOM, model.getReverbRoomSize());
-      vm.setGlobalFloat(BridgeContract.G_REVERB_DAMP, model.getReverbDampening());
-      vm.setGlobalFloat(BridgeContract.G_REVERB_WIDTH, model.getReverbWidth());
-      vm.setGlobalFloat(BridgeContract.G_REVERB_HPF, model.getReverbHpf());
-      vm.setGlobalFloat(BridgeContract.G_REVERB_PAN, model.getReverbPan());
-      vm.setGlobalInt(BridgeContract.G_REVERB_MODEL, model.getReverbModel());
-      vm.setGlobalFloat(BridgeContract.G_REVERB_COMP_ATTACK, model.getReverbCompressorAttack());
-      vm.setGlobalFloat(BridgeContract.G_REVERB_COMP_RELEASE, model.getReverbCompressorRelease());
-      vm.setGlobalInt(
+      bridge.setGlobalFloat(BridgeContract.G_REVERB_ROOM, model.getReverbRoomSize());
+      bridge.setGlobalFloat(BridgeContract.G_REVERB_DAMP, model.getReverbDampening());
+      bridge.setGlobalFloat(BridgeContract.G_REVERB_WIDTH, model.getReverbWidth());
+      bridge.setGlobalFloat(BridgeContract.G_REVERB_HPF, model.getReverbHpf());
+      bridge.setGlobalFloat(BridgeContract.G_REVERB_PAN, model.getReverbPan());
+      bridge.setGlobalInt(BridgeContract.G_REVERB_MODEL, model.getReverbModel());
+      bridge.setGlobalFloat(BridgeContract.G_REVERB_COMP_ATTACK, model.getReverbCompressorAttack());
+      bridge.setGlobalFloat(
+          BridgeContract.G_REVERB_COMP_RELEASE, model.getReverbCompressorRelease());
+      bridge.setGlobalInt(
           BridgeContract.G_REVERB_COMP_SYNC_LEVEL, model.getReverbCompressorSyncLevel());
-      vm.setGlobalFloat(BridgeContract.G_REVERB_COMP_HPF, model.getReverbCompHpf());
-      vm.setGlobalFloat(BridgeContract.G_REVERB_COMP_BLEND, model.getReverbCompBlend());
+      bridge.setGlobalFloat(BridgeContract.G_REVERB_COMP_HPF, model.getReverbCompHpf());
+      bridge.setGlobalFloat(BridgeContract.G_REVERB_COMP_BLEND, model.getReverbCompBlend());
     }
 
     @Override
     public void onDelayChanged() {
-      vm.setGlobalFloat(BridgeContract.G_DELAY_TIME, model.getMasterDelay());
-      vm.setGlobalFloat(BridgeContract.G_DELAY_FB, model.getSongParamDelayFeedback());
-      vm.setGlobalInt(BridgeContract.G_DELAY_PINGPONG, model.getDelayPingPong());
-      vm.setGlobalInt(BridgeContract.G_DELAY_ANALOG, model.getDelayAnalog());
-      vm.setGlobalInt(BridgeContract.G_DELAY_SYNC_LEVEL, model.getDelaySyncLevel());
-      vm.setGlobalInt(BridgeContract.G_DELAY_SYNC_TYPE, model.getDelaySyncType());
+      bridge.setGlobalFloat(BridgeContract.G_DELAY_TIME, model.getMasterDelay());
+      bridge.setGlobalFloat(BridgeContract.G_DELAY_FB, model.getSongParamDelayFeedback());
+      bridge.setGlobalInt(BridgeContract.G_DELAY_PINGPONG, model.getDelayPingPong());
+      bridge.setGlobalInt(BridgeContract.G_DELAY_ANALOG, model.getDelayAnalog());
+      bridge.setGlobalInt(BridgeContract.G_DELAY_SYNC_LEVEL, model.getDelaySyncLevel());
+      bridge.setGlobalInt(BridgeContract.G_DELAY_SYNC_TYPE, model.getDelaySyncType());
     }
 
     @Override
     public void onSidechainChanged() {
-      vm.setGlobalFloat(BridgeContract.G_SIDECHAIN_ATTACK, model.getSidechainAttack());
-      vm.setGlobalFloat(BridgeContract.G_SIDECHAIN_RELEASE, model.getSidechainRelease());
-      vm.setGlobalInt(BridgeContract.G_SIDECHAIN_SYNC_LEVEL, model.getSidechainSyncLevel());
-      vm.setGlobalInt(BridgeContract.G_SIDECHAIN_SYNC_TYPE, model.getSidechainSyncType());
+      bridge.setGlobalFloat(BridgeContract.G_SIDECHAIN_ATTACK, model.getSidechainAttack());
+      bridge.setGlobalFloat(BridgeContract.G_SIDECHAIN_RELEASE, model.getSidechainRelease());
+      bridge.setGlobalInt(BridgeContract.G_SIDECHAIN_SYNC_LEVEL, model.getSidechainSyncLevel());
+      bridge.setGlobalInt(BridgeContract.G_SIDECHAIN_SYNC_TYPE, model.getSidechainSyncType());
     }
 
     @Override
     public void onCompressorChanged() {
-      vm.setGlobalFloat(BridgeContract.G_MASTER_COMP, model.getCompressorThreshold());
-      vm.setGlobalFloat(BridgeContract.G_MASTER_COMP_ATTACK, model.getCompressorAttack());
-      vm.setGlobalFloat(BridgeContract.G_MASTER_COMP_RELEASE, model.getCompressorRelease());
-      vm.setGlobalFloat(BridgeContract.G_MASTER_COMP_RATIO, model.getCompressorRatio());
-      vm.setGlobalFloat(BridgeContract.G_MASTER_COMP_BLEND, model.getCompressorBlend());
+      bridge.setGlobalFloat(BridgeContract.G_MASTER_COMP, model.getCompressorThreshold());
+      bridge.setGlobalFloat(BridgeContract.G_MASTER_COMP_ATTACK, model.getCompressorAttack());
+      bridge.setGlobalFloat(BridgeContract.G_MASTER_COMP_RELEASE, model.getCompressorRelease());
+      bridge.setGlobalFloat(BridgeContract.G_MASTER_COMP_RATIO, model.getCompressorRatio());
+      bridge.setGlobalFloat(BridgeContract.G_MASTER_COMP_BLEND, model.getCompressorBlend());
 
       if (masterFxPanel != null) {
         masterFxPanel.updateCompressorUI(
@@ -4085,42 +4101,44 @@ public class SwingDelugeApp extends JFrame {
 
     @Override
     public void onSongParamsChanged() {
-      vm.setGlobalFloat(BridgeContract.G_SP_VOLUME, model.getSongParamVolume());
-      vm.setGlobalFloat(BridgeContract.G_SP_PAN, model.getSongParamPan());
-      vm.setGlobalFloat(BridgeContract.G_SP_REVERB_AMOUNT, model.getSongParamReverbAmount());
-      vm.setGlobalFloat(BridgeContract.G_SP_DELAY_RATE, model.getSongParamDelayRate());
-      vm.setGlobalFloat(BridgeContract.G_SP_DELAY_FEEDBACK, model.getSongParamDelayFeedback());
-      vm.setGlobalFloat(BridgeContract.G_SP_SIDECHAIN_SHAPE, model.getSongParamSidechainShape());
-      vm.setGlobalFloat(BridgeContract.G_SP_STUTTER_RATE, model.getSongParamStutterRate());
-      vm.setGlobalFloat(
+      bridge.setGlobalFloat(BridgeContract.G_SP_VOLUME, model.getSongParamVolume());
+      bridge.setGlobalFloat(BridgeContract.G_SP_PAN, model.getSongParamPan());
+      bridge.setGlobalFloat(BridgeContract.G_SP_REVERB_AMOUNT, model.getSongParamReverbAmount());
+      bridge.setGlobalFloat(BridgeContract.G_SP_DELAY_RATE, model.getSongParamDelayRate());
+      bridge.setGlobalFloat(BridgeContract.G_SP_DELAY_FEEDBACK, model.getSongParamDelayFeedback());
+      bridge.setGlobalFloat(
+          BridgeContract.G_SP_SIDECHAIN_SHAPE, model.getSongParamSidechainShape());
+      bridge.setGlobalFloat(BridgeContract.G_SP_STUTTER_RATE, model.getSongParamStutterRate());
+      bridge.setGlobalFloat(
           BridgeContract.G_SP_SAMPLE_RATE_REDUCTION, model.getSongParamSampleRateReduction());
-      vm.setGlobalFloat(BridgeContract.G_SP_BITCRUSH, model.getSongParamBitCrush());
-      vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_RATE, model.getSongParamModFXRate());
-      vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_DEPTH, model.getSongParamModFXDepth());
-      vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_OFFSET, model.getSongParamModFXOffset());
-      vm.setGlobalFloat(BridgeContract.G_SP_MOD_FX_FEEDBACK, model.getSongParamModFXFeedback());
-      vm.setGlobalFloat(
+      bridge.setGlobalFloat(BridgeContract.G_SP_BITCRUSH, model.getSongParamBitCrush());
+      bridge.setGlobalFloat(BridgeContract.G_SP_MOD_FX_RATE, model.getSongParamModFXRate());
+      bridge.setGlobalFloat(BridgeContract.G_SP_MOD_FX_DEPTH, model.getSongParamModFXDepth());
+      bridge.setGlobalFloat(BridgeContract.G_SP_MOD_FX_OFFSET, model.getSongParamModFXOffset());
+      bridge.setGlobalFloat(BridgeContract.G_SP_MOD_FX_FEEDBACK, model.getSongParamModFXFeedback());
+      bridge.setGlobalFloat(
           BridgeContract.G_SP_COMPRESSOR_THRESHOLD, model.getSongParamCompressorThreshold());
-      vm.setGlobalFloat(BridgeContract.G_SP_LPF_MORPH, model.getSongParamLpfMorph());
-      vm.setGlobalFloat(BridgeContract.G_SP_HPF_MORPH, model.getSongParamHpfMorph());
-      vm.setGlobalFloat(BridgeContract.G_SP_LPF_FREQ, model.getSongParamLpfFrequency());
-      vm.setGlobalFloat(BridgeContract.G_SP_LPF_RES, model.getSongParamLpfResonance());
-      vm.setGlobalFloat(BridgeContract.G_SP_HPF_FREQ, model.getSongParamHpfFrequency());
-      vm.setGlobalFloat(BridgeContract.G_SP_HPF_RES, model.getSongParamHpfResonance());
-      vm.setGlobalFloat(BridgeContract.G_SP_EQ_BASS, model.getSongParamEqBass());
-      vm.setGlobalFloat(BridgeContract.G_SP_EQ_TREBLE, model.getSongParamEqTreble());
-      vm.setGlobalFloat(BridgeContract.G_SP_EQ_BASS_FREQ, model.getSongParamEqBassFrequency());
-      vm.setGlobalFloat(BridgeContract.G_SP_EQ_TREBLE_FREQ, model.getSongParamEqTrebleFrequency());
+      bridge.setGlobalFloat(BridgeContract.G_SP_LPF_MORPH, model.getSongParamLpfMorph());
+      bridge.setGlobalFloat(BridgeContract.G_SP_HPF_MORPH, model.getSongParamHpfMorph());
+      bridge.setGlobalFloat(BridgeContract.G_SP_LPF_FREQ, model.getSongParamLpfFrequency());
+      bridge.setGlobalFloat(BridgeContract.G_SP_LPF_RES, model.getSongParamLpfResonance());
+      bridge.setGlobalFloat(BridgeContract.G_SP_HPF_FREQ, model.getSongParamHpfFrequency());
+      bridge.setGlobalFloat(BridgeContract.G_SP_HPF_RES, model.getSongParamHpfResonance());
+      bridge.setGlobalFloat(BridgeContract.G_SP_EQ_BASS, model.getSongParamEqBass());
+      bridge.setGlobalFloat(BridgeContract.G_SP_EQ_TREBLE, model.getSongParamEqTreble());
+      bridge.setGlobalFloat(BridgeContract.G_SP_EQ_BASS_FREQ, model.getSongParamEqBassFrequency());
+      bridge.setGlobalFloat(
+          BridgeContract.G_SP_EQ_TREBLE_FREQ, model.getSongParamEqTrebleFrequency());
     }
 
     @Override
     public void onScalesChanged() {
-      vm.setGlobalInt(BridgeContract.G_USER_SCALE, model.getUserScale());
-      vm.setGlobalInt(BridgeContract.G_DISABLED_PRESET_SCALES, model.getDisabledPresetScales());
+      bridge.setGlobalInt(BridgeContract.G_USER_SCALE, model.getUserScale());
+      bridge.setGlobalInt(BridgeContract.G_DISABLED_PRESET_SCALES, model.getDisabledPresetScales());
       boolean[] modeNotes = model.getModeNotes();
       if (modeNotes != null) {
         for (int i = 0; i < 12 && i < modeNotes.length; i++) {
-          vm.setGlobalInt(BridgeContract.G_MODE_NOTES + "_" + i, modeNotes[i] ? 1L : 0L);
+          bridge.setGlobalInt(BridgeContract.G_MODE_NOTES + "_" + i, modeNotes[i] ? 1L : 0L);
         }
       }
     }
@@ -4216,7 +4234,7 @@ public class SwingDelugeApp extends JFrame {
     }
     String next = SCALE_CYCLE[(idx + 1) % SCALE_CYCLE.length];
     currentProject.setScale(next);
-    vm.setGlobalInt(BridgeContract.G_SCALE, parseScaleIndex(next));
+    bridge.setGlobalInt(BridgeContract.G_SCALE, parseScaleIndex(next));
     if (topBar != null && topBar.getParamReadout() != null) {
       topBar.getParamReadout().printTransient("SCALE", next);
     }

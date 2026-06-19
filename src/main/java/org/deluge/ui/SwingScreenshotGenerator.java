@@ -6,7 +6,6 @@ import java.io.File;
 import java.util.List;
 import javax.imageio.ImageIO;
 import javax.swing.*;
-import org.chuck.core.ChuckVM;
 import org.deluge.BridgeContract;
 import org.deluge.model.KitTrackModel;
 import org.deluge.model.SoundDrum;
@@ -20,7 +19,7 @@ import org.deluge.model.TrackModel;
  */
 public class SwingScreenshotGenerator {
 
-  public static void runAutoScreenshots(SwingDelugeApp app, ChuckVM vm, BridgeContract bridge) {
+  public static void runAutoScreenshots(SwingDelugeApp app, final BridgeContract bridge) {
 
     new Thread(
             () -> {
@@ -110,8 +109,7 @@ public class SwingScreenshotGenerator {
                 final SwingRandomizerDialog[] randBox = new SwingRandomizerDialog[1];
                 SwingUtilities.invokeAndWait(
                     () -> {
-                      randBox[0] =
-                          new SwingRandomizerDialog(app, vm, bridge, app.getCurrentProject());
+                      randBox[0] = new SwingRandomizerDialog(app, bridge, app.getCurrentProject());
                       randBox[0].pack();
                       randBox[0].setSize(840, 940);
                       randBox[0].setVisible(true);
@@ -130,7 +128,7 @@ public class SwingScreenshotGenerator {
                 SwingUtilities.invokeAndWait(
                     () -> {
                       slicerBox[0] =
-                          new SwingAudioSlicerDialog(app, vm, bridge, app.getCurrentProject());
+                          new SwingAudioSlicerDialog(app, bridge, app.getCurrentProject());
                       slicerBox[0].pack();
                       slicerBox[0].setSize(800, 500);
                       slicerBox[0].setVisible(true);
@@ -152,8 +150,7 @@ public class SwingScreenshotGenerator {
                     final SwingKitConfigDialog[] kitBox = new SwingKitConfigDialog[1];
                     SwingUtilities.invokeAndWait(
                         () -> {
-                          kitBox[0] =
-                              new SwingKitConfigDialog(app, kt, vm, bridge, tracks.indexOf(kt));
+                          kitBox[0] = new SwingKitConfigDialog(app, kt, bridge, tracks.indexOf(kt));
                           kitBox[0].pack();
                           kitBox[0].setSize(950, 720);
                           kitBox[0].setVisible(true);
@@ -206,7 +203,7 @@ public class SwingScreenshotGenerator {
                         () -> {
                           synthBox[0] =
                               new SwingSynthConfigDialog(
-                                  app, st, vm, bridge, trackIdx, app.getCurrentProject());
+                                  app, st, bridge, trackIdx, app.getCurrentProject());
                           synthBox[0].pack();
                           synthBox[0].setSize(950, 720);
                           synthBox[0].setVisible(true);

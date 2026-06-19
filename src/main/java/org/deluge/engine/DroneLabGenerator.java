@@ -262,9 +262,9 @@ public class DroneLabGenerator {
 
   /** Helper to retrieve the active track's FirmwareSound instance from the VM. */
   public static org.deluge.firmware.engine.FirmwareSound getActiveTrackSound(
-      org.chuck.core.ChuckVM vm, int trackIndex) {
-    if (vm == null) return null;
-    Object ph = vm.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
+      BridgeContract bridge, int trackIndex) {
+    if (bridge == null) return null;
+    Object ph = bridge.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
     if (ph instanceof org.deluge.firmware.playback.PlaybackHandler playbackHandler) {
       org.deluge.firmware.model.Song song = playbackHandler.getSong();
       if (song != null && trackIndex >= 0 && trackIndex < song.clips.size()) {

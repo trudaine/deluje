@@ -2,7 +2,6 @@ package org.deluge.ui;
 
 import java.util.List;
 import javax.swing.SwingUtilities;
-import org.chuck.core.ChuckVM;
 import org.deluge.BridgeContract;
 import org.deluge.model.ArrangerClip;
 import org.deluge.model.ClipModel;
@@ -15,8 +14,8 @@ import org.deluge.model.StepData;
  * Listens to real-time session grid launches and automatically logs Arranger placements.
  */
 public class ArrangerPlaybackScheduler implements Runnable {
-  private final ChuckVM vm;
   private final BridgeContract bridge;
+
   private ProjectModel project;
 
   private volatile boolean running = true;
@@ -30,9 +29,9 @@ public class ArrangerPlaybackScheduler implements Runnable {
   private final int[] activeCaptureStartSteps = new int[BridgeContract.TRACKS];
   private Runnable repaintCallback = null;
 
-  public ArrangerPlaybackScheduler(ChuckVM vm, BridgeContract bridge, ProjectModel project) {
-    this.vm = vm;
+  public ArrangerPlaybackScheduler(final BridgeContract bridge, ProjectModel project) {
     this.bridge = bridge;
+
     this.project = project;
 
     // Start high-performance polling thread
@@ -80,9 +79,9 @@ public class ArrangerPlaybackScheduler implements Runnable {
   public void run() {
     while (running) {
       try {
-        long play = vm.getGlobalInt(BridgeContract.G_PLAY);
+        long play = bridge.getGlobalInt(BridgeContract.G_PLAY);
         if (play != 0) {
-          long currentStep = vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
+          long currentStep = bridge.getGlobalInt(BridgeContract.G_CURRENT_STEP);
           if (currentStep != lastStepActioned) {
             lastStepActioned = currentStep;
             if (arrangerModeActive) {
@@ -168,7 +167,7 @@ public class ArrangerPlaybackScheduler implements Runnable {
   public synchronized void notifyClipLaunched(int trackIndex, ClipModel clip) {
     if (!captureActive || project == null) return;
 
-    long currentStep = vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
+    long currentStep = bridge.getGlobalInt(BridgeContract.G_CURRENT_STEP);
     int step = (int) currentStep;
 
     // Finalize any clip already currently running on this track row first
@@ -182,7 +181,7 @@ public class ArrangerPlaybackScheduler implements Runnable {
   public synchronized void notifyClipStopped(int trackIndex) {
     if (!captureActive || project == null) return;
 
-    long currentStep = vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
+    long currentStep = bridge.getGlobalInt(BridgeContract.G_CURRENT_STEP);
     int step = (int) currentStep;
 
     finalizeActiveCapture(trackIndex, step);
@@ -219,7 +218,7 @@ public class ArrangerPlaybackScheduler implements Runnable {
 
   private synchronized void finalizeAllActiveCaptures() {
     if (project == null) return;
-    long currentStep = vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
+    long currentStep = bridge.getGlobalInt(BridgeContract.G_CURRENT_STEP);
     int step = (int) currentStep;
 
     for (int t = 0; t < BridgeContract.TRACKS; t++) {

@@ -9,7 +9,6 @@ import java.io.File;
 import java.util.concurrent.CountDownLatch;
 import javax.imageio.ImageIO;
 import javax.swing.SwingUtilities;
-import org.chuck.core.ChuckVM;
 import org.deluge.BridgeContract;
 import org.deluge.midi.MidiInputRouter;
 import org.deluge.midi.MidiService;
@@ -17,8 +16,8 @@ import org.junit.jupiter.api.Test;
 
 public class SwingScreenshotGenerator {
 
-  private ChuckVM vm;
   private BridgeContract bridge;
+
   private MidiService midiService;
   private SwingDelugeApp app;
 
@@ -31,14 +30,12 @@ public class SwingScreenshotGenerator {
     SwingUtilities.invokeLater(
         () -> {
           try {
-            vm = new ChuckVM(44100, 2);
             bridge = new BridgeContract();
-            bridge.register(vm);
 
-            MidiInputRouter router = new MidiInputRouter(vm, bridge);
-            midiService = new MidiService(vm, bridge, router);
+            MidiInputRouter router = new MidiInputRouter(bridge);
+            midiService = new MidiService(bridge, router);
 
-            app = new SwingDelugeApp(vm, bridge, midiService);
+            app = new SwingDelugeApp(bridge, midiService);
             app.addNotify();
             app.validate();
             app.doLayout();
@@ -86,7 +83,7 @@ public class SwingScreenshotGenerator {
     // Step 2: Playing
     SwingUtilities.invokeAndWait(
         () -> {
-          vm.setGlobalInt(BridgeContract.G_PLAY, 1L);
+          bridge.setGlobalInt(BridgeContract.G_PLAY, 1L);
         });
     img = captureComponent(app);
     saveSnapshot(img, "../docs/swing_step3_playing.png", "Swing Step 3", "Transport Playing");
@@ -104,14 +101,12 @@ public class SwingScreenshotGenerator {
     SwingUtilities.invokeLater(
         () -> {
           try {
-            vm = new ChuckVM(44100, 2);
             bridge = new BridgeContract();
-            bridge.register(vm);
 
-            MidiInputRouter router = new MidiInputRouter(vm, bridge);
-            midiService = new MidiService(vm, bridge, router);
+            MidiInputRouter router = new MidiInputRouter(bridge);
+            midiService = new MidiService(bridge, router);
 
-            app = new SwingDelugeApp(vm, bridge, midiService);
+            app = new SwingDelugeApp(bridge, midiService);
             app.addNotify();
             app.validate();
             app.doLayout();

@@ -1,8 +1,7 @@
 package org.deluge.midi;
 
-import org.chuck.core.ChuckVM;
-import org.chuck.midi.MidiMsg;
 import org.deluge.BridgeContract;
+import org.deluge.shadow.midi.MidiMsg;
 
 /**
  * Routes incoming MIDI messages (Note On/Off, CC) to the active Track/Step in the Deluge UI.
@@ -18,7 +17,6 @@ import org.deluge.BridgeContract;
  */
 public class MidiInputRouter {
 
-  private final ChuckVM vm;
   private final BridgeContract bridge;
 
   private boolean followModeEnabled = true;
@@ -47,8 +45,7 @@ public class MidiInputRouter {
   /** Lazily-loaded device definition for CC routing. Updated by MidiService. */
   private MidiDeviceDefinition currentDevice;
 
-  public MidiInputRouter(ChuckVM vm, BridgeContract bridge) {
-    this.vm = vm;
+  public MidiInputRouter(final BridgeContract bridge) {
     this.bridge = bridge;
   }
 
@@ -151,7 +148,7 @@ public class MidiInputRouter {
       if (currentDevice != null) {
         MidiDeviceDefinition.CcMapping mapping = currentDevice.findMapping(cc);
         if (mapping != null) {
-          vm.setGlobalFloat(mapping.paramName(), (float) normalized);
+          bridge.setGlobalFloat(mapping.paramName(), (float) normalized);
           bridge.setFollowCc(midiChannel, cc, msg.data3);
           return;
         }
@@ -160,7 +157,7 @@ public class MidiInputRouter {
       // Fall back to learned CC mappings
       String mapped = ccMappings.get(cc);
       if (mapped != null) {
-        vm.setGlobalFloat(mapped, (float) normalized);
+        bridge.setGlobalFloat(mapped, (float) normalized);
         return;
       }
 
@@ -172,7 +169,7 @@ public class MidiInputRouter {
     if (!followModeEnabled) return;
 
     // Get the current playback step from the VM
-    int currentStep = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
+    int currentStep = (int) bridge.getGlobalInt(BridgeContract.G_CURRENT_STEP);
     if (currentStep < 0 || currentStep >= 16) {
       currentStep = 0;
     }
@@ -199,7 +196,7 @@ public class MidiInputRouter {
 
       // Store start time, step and target track
       activeNoteStarts.put(
-          midiNote, new NoteStartInfo(vm.getCurrentTime(), currentStep, targetTrack));
+          midiNote, new NoteStartInfo(bridge.getCurrentTime(), currentStep, targetTrack));
 
       if (targetTrack < 4) {
         // Kit track: map note to row (e.g., 36 -> row 0, 38 -> row 1, etc.)
@@ -221,8 +218,8 @@ public class MidiInputRouter {
       int midiNote = msg.data2;
       NoteStartInfo start = activeNoteStarts.remove(midiNote);
       if (start != null) {
-        long duration = vm.getCurrentTime() - start.time;
-        double gate = (double) duration / (vm.getSampleRate() * 0.125);
+        long duration = bridge.getCurrentTime() - start.time;
+        double gate = (double) duration / (bridge.getSampleRate() * 0.125);
         bridge.setGate(start.track, start.step, gate);
       }
     }

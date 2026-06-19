@@ -2,17 +2,15 @@ package org.deluge.ui;
 
 import java.awt.*;
 import javax.swing.*;
-import org.chuck.core.ChuckVM;
 import org.deluge.BridgeContract;
 
 /** Painted step parameter bar lane. */
 public class SwingVelocityLanePanel extends JPanel {
-  private final ChuckVM vm;
   private final BridgeContract bridge;
+
   private int stepCount = 16;
 
-  public SwingVelocityLanePanel(ChuckVM vm, BridgeContract bridge) {
-    this.vm = vm;
+  public SwingVelocityLanePanel(final BridgeContract bridge) {
     this.bridge = bridge;
 
     setPreferredSize(new Dimension(0, 120));
@@ -72,19 +70,19 @@ public class SwingVelocityLanePanel extends JPanel {
   }
 
   private void updateValue(int step, double val) {
-    if (bridge == null || vm == null) return;
+    if (bridge == null || bridge == null) return;
     if ("VELOCITY".equals(currentMode)) {
       bridge.setVelocity(0, step, val);
     } else if ("PAN".equals(currentMode)) {
-      Object obj = vm.getGlobalObject(BridgeContract.G_STEP_PAN);
-      if (obj instanceof org.chuck.core.ChuckArray arr)
+      Object obj = bridge.getGlobalObject(BridgeContract.G_STEP_PAN);
+      if (obj instanceof org.deluge.shadow.core.ChuckArray arr)
         arr.setFloat(step, (float) (val * 2.0 - 1.0));
     } else if ("FILTER".equals(currentMode)) {
-      Object obj = vm.getGlobalObject(BridgeContract.G_STEP_FILTER);
-      if (obj instanceof org.chuck.core.ChuckArray arr) arr.setFloat(step, (float) val);
+      Object obj = bridge.getGlobalObject(BridgeContract.G_STEP_FILTER);
+      if (obj instanceof org.deluge.shadow.core.ChuckArray arr) arr.setFloat(step, (float) val);
     } else if ("RESONANCE".equals(currentMode)) {
-      Object obj = vm.getGlobalObject(BridgeContract.G_STEP_RES);
-      if (obj instanceof org.chuck.core.ChuckArray arr) arr.setFloat(step, (float) val);
+      Object obj = bridge.getGlobalObject(BridgeContract.G_STEP_RES);
+      if (obj instanceof org.deluge.shadow.core.ChuckArray arr) arr.setFloat(step, (float) val);
     }
   }
 

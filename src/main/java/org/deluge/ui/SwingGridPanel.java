@@ -3,7 +3,6 @@ package org.deluge.ui;
 import java.awt.*;
 import java.util.logging.Logger;
 import javax.swing.*;
-import org.chuck.core.ChuckVM;
 import org.deluge.BridgeContract;
 import org.deluge.model.Consequence;
 import org.deluge.model.SongSection;
@@ -11,7 +10,6 @@ import org.deluge.model.SongSection;
 /** Unified 18x8 Grid Panel handling both sequence matrix and clip launch arrangements. */
 public class SwingGridPanel extends JPanel {
   private static final Logger LOG = Logger.getLogger(SwingGridPanel.class.getName());
-  private final ChuckVM vm;
   private final BridgeContract bridge;
 
   private org.deluge.model.ProjectModel projectModel;
@@ -530,9 +528,9 @@ public class SwingGridPanel extends JPanel {
     return false;
   }
 
-  public SwingGridPanel(ChuckVM vm, BridgeContract bridge) {
-    this.vm = vm;
+  public SwingGridPanel(final BridgeContract bridge) {
     this.bridge = bridge;
+
     this.projectModel = new org.deluge.model.ProjectModel();
 
     setBackground(new Color(0x1a, 0x1a, 0x1a));
@@ -1834,7 +1832,7 @@ public class SwingGridPanel extends JPanel {
               e -> {
                 Window owner = SwingUtilities.getWindowAncestor(rowPanel);
                 SwingKitConfigDialog dialog =
-                    new SwingKitConfigDialog((Frame) owner, kitTrack, vm, bridge, editedModelTrack);
+                    new SwingKitConfigDialog((Frame) owner, kitTrack, bridge, editedModelTrack);
                 dialog.setSelectedTab(soundIndex);
                 dialog.setVisible(true);
               });
@@ -2127,7 +2125,7 @@ public class SwingGridPanel extends JPanel {
                         "AUD ", finalNoteName);
                   }
 
-                  Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+                  Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
                   if (fwEngineObj
                       instanceof org.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
                     if (editedModelTrack < fwEngine.sounds.size() && !isSequencerPlaying()) {
@@ -2154,7 +2152,7 @@ public class SwingGridPanel extends JPanel {
                   boolean isSynthMode = bridge != null && bridge.getTrackType(baseTrackId) == 1;
                   int pitchMidi = isSynthMode ? (((128 - 1) - modelRow) + 0) : 60;
 
-                  Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+                  Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
                   if (fwEngineObj
                       instanceof org.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
                     if (editedModelTrack < fwEngine.sounds.size()) {
@@ -2714,7 +2712,7 @@ public class SwingGridPanel extends JPanel {
                                     : getPadDefaultBg(activeCol));
 
                             Object fwEngineObj =
-                                vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+                                bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
                             if (fwEngineObj
                                 instanceof
                                 org.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
@@ -2835,7 +2833,7 @@ public class SwingGridPanel extends JPanel {
 
                               // ── High-Fidelity Audition ──
                               Object fwEngineObj =
-                                  vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+                                  bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
                               if (fwEngineObj
                                   instanceof
                                   org.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
@@ -2870,7 +2868,8 @@ public class SwingGridPanel extends JPanel {
 
                         // ── High-Fidelity Note Off ──
 
-                        Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+                        Object fwEngineObj =
+                            bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
                         if (fwEngineObj
                             instanceof org.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
                           if (editedModelTrack < fwEngine.sounds.size()) {
@@ -2898,7 +2897,8 @@ public class SwingGridPanel extends JPanel {
 
                         // ── High-Fidelity Note Off ──
 
-                        Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+                        Object fwEngineObj =
+                            bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
                         if (fwEngineObj
                             instanceof org.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
                           if (editedModelTrack < fwEngine.sounds.size()) {
@@ -3015,7 +3015,7 @@ public class SwingGridPanel extends JPanel {
   void triggerKeyboardNote(int note) {
     if (isLiveRecordModeActive
         && currentPlayheadStep >= 0
-        && vm.getGlobalInt(BridgeContract.G_PLAY) == 1L) {
+        && bridge.getGlobalInt(BridgeContract.G_PLAY) == 1L) {
       int modelRow = 127 - note;
       int col = currentPlayheadStep % stepCount;
       // A synth clip is a 128-row piano roll (row = 127 - pitch, see buildVoiceRow pitchMidi),
@@ -3042,7 +3042,7 @@ public class SwingGridPanel extends JPanel {
     }
 
     try {
-      Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+      Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
       if (fwEngineObj instanceof org.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
         if (editedModelTrack < fwEngine.sounds.size()) {
           org.deluge.firmware2.GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
@@ -3063,11 +3063,11 @@ public class SwingGridPanel extends JPanel {
     }
 
     try {
-      org.chuck.core.ChuckEvent noteEv =
-          (org.chuck.core.ChuckEvent) vm.getGlobalObject("g_ck_noteOn");
+      org.deluge.shadow.core.ChuckEvent noteEv =
+          (org.deluge.shadow.core.ChuckEvent) bridge.getGlobalObject("g_ck_noteOn");
       if (noteEv != null) {
-        org.chuck.core.ChuckArray pitchArr =
-            (org.chuck.core.ChuckArray) vm.getGlobalObject(BridgeContract.G_PITCH);
+        org.deluge.shadow.core.ChuckArray pitchArr =
+            (org.deluge.shadow.core.ChuckArray) bridge.getGlobalObject(BridgeContract.G_PITCH);
         if (pitchArr != null) {
           pitchArr.setInt(0, (long) (note - 60));
           noteEv.broadcast();
@@ -3081,7 +3081,7 @@ public class SwingGridPanel extends JPanel {
   void triggerKeyboardNoteRelease(int note) {
 
     try {
-      Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+      Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
       if (fwEngineObj instanceof org.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
         if (editedModelTrack < fwEngine.sounds.size()) {
           org.deluge.firmware2.GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
@@ -3108,7 +3108,7 @@ public class SwingGridPanel extends JPanel {
    */
   void triggerKeyboardDrum(int drumIdx) {
     try {
-      Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+      Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
       if (fwEngineObj instanceof org.deluge.firmware.engine.FirmwareAudioEngine fwEngine
           && editedModelTrack < fwEngine.sounds.size()
           && fwEngine.sounds.get(editedModelTrack)
@@ -3124,7 +3124,7 @@ public class SwingGridPanel extends JPanel {
 
   void releaseKeyboardDrum(int drumIdx) {
     try {
-      Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+      Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
       if (fwEngineObj instanceof org.deluge.firmware.engine.FirmwareAudioEngine fwEngine
           && editedModelTrack < fwEngine.sounds.size()
           && fwEngine.sounds.get(editedModelTrack)
@@ -3434,7 +3434,7 @@ public class SwingGridPanel extends JPanel {
    * during playback" symptom.
    */
   private boolean isSequencerPlaying() {
-    return vm != null && vm.getGlobalInt(BridgeContract.G_PLAY) == 1L;
+    return bridge != null && bridge.getGlobalInt(BridgeContract.G_PLAY) == 1L;
   }
 
   /**
@@ -3559,9 +3559,9 @@ public class SwingGridPanel extends JPanel {
     java.util.List<org.deluge.model.TrackModel> tracks = projectModel.getTracks();
 
     // 1. Sync song note rows in low latency direct JMem sync
-    if (vm != null) {
+    if (bridge != null) {
       try {
-        Object fwHandlerObj = vm.getGlobalObject(org.deluge.BridgeContract.G_PLAYBACK_HANDLER);
+        Object fwHandlerObj = bridge.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
         if (fwHandlerObj instanceof org.deluge.firmware.playback.PlaybackHandler fwHandler) {
           org.deluge.firmware.model.Song currentSong = fwHandler.getSong();
           if (currentSong != null) {
@@ -3899,9 +3899,9 @@ public class SwingGridPanel extends JPanel {
     globalVuTimer.start();
 
     // Real-time pure timing audio engine notes hot-swap!
-    if (vm != null && projectModel != null) {
+    if (bridge != null && projectModel != null) {
       try {
-        Object fwHandlerObj = vm.getGlobalObject(org.deluge.BridgeContract.G_PLAYBACK_HANDLER);
+        Object fwHandlerObj = bridge.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
         if (fwHandlerObj instanceof org.deluge.firmware.playback.PlaybackHandler fwHandler) {
           org.deluge.firmware.model.Song currentSong = fwHandler.getSong();
           if (currentSong != null) {
@@ -4490,7 +4490,7 @@ public class SwingGridPanel extends JPanel {
                     projectModel.getTracks().get(editedModelTrack);
                 if (activeTrack instanceof org.deluge.model.SynthTrackModel synthTrack) {
                   new SwingSynthConfigDialog(
-                          (Frame) owner, synthTrack, vm, bridge, editedModelTrack, projectModel)
+                          (Frame) owner, synthTrack, bridge, editedModelTrack, projectModel)
                       .setVisible(true);
                 }
               });
@@ -5428,7 +5428,7 @@ public class SwingGridPanel extends JPanel {
                     // Audition the row sound immediately in Hi-Fi/Pure mode
 
                     try {
-                      Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+                      Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
                       if (fwEngineObj
                           instanceof org.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
                         if (editedModelTrack < fwEngine.sounds.size() && !isSequencerPlaying()) {
@@ -5776,9 +5776,10 @@ public class SwingGridPanel extends JPanel {
                             // Audition via engine preview (wrap to voice slot)
                             int slot = baseTrackId + (trk % 8);
                             int midiPitch = (128 - 1) - trk;
-                            vm.setGlobalFloat(BridgeContract.G_PREVIEW_PITCH, (float) midiPitch);
-                            vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) slot);
-                            vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
+                            bridge.setGlobalFloat(
+                                BridgeContract.G_PREVIEW_PITCH, (float) midiPitch);
+                            bridge.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) slot);
+                            bridge.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
                             try {
                               String[] noteNames =
                                   new String[] {
@@ -5831,7 +5832,7 @@ public class SwingGridPanel extends JPanel {
 
                             try {
                               Object fwEngineObj =
-                                  vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+                                  bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
                               if (fwEngineObj
                                   instanceof
                                   org.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
@@ -5862,11 +5863,12 @@ public class SwingGridPanel extends JPanel {
                       @Override
                       public void mouseReleased(java.awt.event.MouseEvent e) {
                         // Stop kit preview on release
-                        vm.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, -1L);
-                        vm.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
+                        bridge.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, -1L);
+                        bridge.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
 
                         try {
-                          Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+                          Object fwEngineObj =
+                              bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
                           if (fwEngineObj
                               instanceof org.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
                             if (editedModelTrack < fwEngine.sounds.size()) {
@@ -6177,7 +6179,7 @@ public class SwingGridPanel extends JPanel {
                 allMidiNotesOff();
               }
               wasSequencerPlaying = playingNow;
-              int currentStep = (int) vm.getGlobalInt(BridgeContract.G_CURRENT_STEP);
+              int currentStep = (int) bridge.getGlobalInt(BridgeContract.G_CURRENT_STEP);
               if (currentStep >= 0) {
                 int activeCol = (currentStep % stepCount);
                 // When horizontally scrolled, the timer maps engine columns to visible columns.
@@ -6193,8 +6195,8 @@ public class SwingGridPanel extends JPanel {
                   int rawCol = currentStep % trackLenTimer;
                   engineActiveCol = rawCol;
                   if (playheadFollowMode
-                      && vm != null
-                      && vm.getGlobalInt(BridgeContract.G_PLAY) == 1L) {
+                      && bridge != null
+                      && bridge.getGlobalInt(BridgeContract.G_PLAY) == 1L) {
                     int playheadPage = (rawCol / stepCount) * stepCount;
                     if (scrollOffsetX != playheadPage) {
                       scrollOffsetX = playheadPage;
@@ -7091,7 +7093,7 @@ public class SwingGridPanel extends JPanel {
     } else if (isSynthMode) {
       int pitchMidi = ((128 - 1) - modelRow) + 0;
 
-      Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+      Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
       if (fwEngineObj instanceof org.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
         if (editedModelTrack < fwEngine.sounds.size() && !isSequencerPlaying()) {
           org.deluge.firmware2.GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
@@ -7103,7 +7105,7 @@ public class SwingGridPanel extends JPanel {
 
     } else {
 
-      Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+      Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
       if (fwEngineObj instanceof org.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
         if (editedModelTrack < fwEngine.sounds.size() && !isSequencerPlaying()) {
           org.deluge.firmware2.GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
@@ -7119,7 +7121,7 @@ public class SwingGridPanel extends JPanel {
     if (bridge == null) return;
     int modelRow = getModelRow(row);
 
-    Object fwEngineObj = vm.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+    Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
     if (fwEngineObj instanceof org.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
       if (editedModelTrack < fwEngine.sounds.size()) {
         org.deluge.firmware2.GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);

@@ -1,6 +1,6 @@
 package org.deluge.midi;
 
-import org.chuck.midi.MidiMsg;
+import org.deluge.shadow.midi.MidiMsg;
 
 /**
  * Abstraction over a MIDI transport connection. The MidiEngine uses this to send messages without

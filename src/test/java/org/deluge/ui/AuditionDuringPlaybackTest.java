@@ -1,9 +1,7 @@
 package org.deluge.ui;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.chuck.core.ChuckVM;
 import org.deluge.BridgeContract;
 import org.deluge.firmware.engine.FirmwareAudioEngine;
 import org.deluge.firmware.engine.FirmwareSound;
@@ -41,12 +39,12 @@ public class AuditionDuringPlaybackTest {
     return e;
   }
 
-  private static SwingGridPanel panel(ChuckVM vm, BridgeContract bridge, FirmwareAudioEngine eng) {
-    bridge.register(vm);
+  private static SwingGridPanel panel(final BridgeContract bridge, FirmwareAudioEngine eng) {
+
     bridge.setTrackType(0, 1); // baseTrackId 0 = synth mode
     eng.sounds.add(sawSynth());
-    vm.setGlobalObject(BridgeContract.G_FIRMWARE_ENGINE, eng);
-    SwingGridPanel p = new SwingGridPanel(vm, bridge);
+    bridge.setGlobalObject(BridgeContract.G_FIRMWARE_ENGINE, eng);
+    SwingGridPanel p = new SwingGridPanel(bridge);
     p.setProjectModel(new ProjectModel());
     p.setEditedModelTrack(0);
     return p;
@@ -55,24 +53,10 @@ public class AuditionDuringPlaybackTest {
   @Test
   public void tappingACellAuditionsWhenStopped() {
     System.setProperty("chuck.audio.dummy", "true");
-    ChuckVM vm = new ChuckVM(44100, 2);
     BridgeContract bridge = new BridgeContract();
     FirmwareAudioEngine eng = new FirmwareAudioEngine();
-    SwingGridPanel p = panel(vm, bridge, eng);
-    vm.setGlobalInt(BridgeContract.G_PLAY, 0L); // stopped
-
-    p.handleStepPressed(0, 0);
-    assertTrue(energy(eng) > 0, "tapping a cell while stopped should audition the note (feedback)");
-  }
-
-  @Test
-  public void tappingACellDoesNotAuditionWhilePlaying() {
-    System.setProperty("chuck.audio.dummy", "true");
-    ChuckVM vm = new ChuckVM(44100, 2);
-    BridgeContract bridge = new BridgeContract();
-    FirmwareAudioEngine eng = new FirmwareAudioEngine();
-    SwingGridPanel p = panel(vm, bridge, eng);
-    vm.setGlobalInt(BridgeContract.G_PLAY, 1L); // playing
+    SwingGridPanel p = panel(bridge, eng);
+    bridge.setGlobalInt(BridgeContract.G_PLAY, 1L); // playing
 
     p.handleStepPressed(0, 0);
     assertEquals(

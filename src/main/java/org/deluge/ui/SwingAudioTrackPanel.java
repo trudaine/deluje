@@ -2,7 +2,6 @@ package org.deluge.ui;
 
 import java.awt.*;
 import javax.swing.*;
-import org.chuck.core.ChuckVM;
 import org.deluge.BridgeContract;
 import org.deluge.model.AudioTrackModel;
 
@@ -12,8 +11,8 @@ import org.deluge.model.AudioTrackModel;
  */
 public class SwingAudioTrackPanel extends JPanel {
 
-  private final ChuckVM vm;
   private final BridgeContract bridge;
+
   private int engineRow = -1;
   private AudioTrackModel model;
 
@@ -23,9 +22,9 @@ public class SwingAudioTrackPanel extends JPanel {
   private final JSlider rateSlider = new JSlider(25, 400, 100);
   private final JLabel rateLabel = new JLabel("1.00x");
 
-  public SwingAudioTrackPanel(ChuckVM vm, BridgeContract bridge) {
-    this.vm = vm;
+  public SwingAudioTrackPanel(final BridgeContract bridge) {
     this.bridge = bridge;
+
     setLayout(new GridBagLayout());
     setBackground(new Color(0x2a, 0x2a, 0x2a));
     setBorder(

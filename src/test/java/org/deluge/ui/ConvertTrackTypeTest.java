@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.chuck.core.ChuckVM;
 import org.deluge.BridgeContract;
 import org.deluge.model.ClipModel;
 import org.deluge.model.MidiTrackModel;
@@ -17,10 +16,9 @@ public class ConvertTrackTypeTest {
 
   private SwingGridPanel panel(ProjectModel project) throws Exception {
     System.setProperty("chuck.audio.dummy", "true");
-    ChuckVM vm = new ChuckVM(44100, 2);
     BridgeContract bridge = new BridgeContract();
-    bridge.register(vm);
-    SwingGridPanel p = new SwingGridPanel(vm, bridge);
+
+    SwingGridPanel p = new SwingGridPanel(bridge);
     p.setProjectModel(project);
     return p;
   }

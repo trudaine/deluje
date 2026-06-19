@@ -2,16 +2,13 @@ package org.deluge.ui;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import org.chuck.core.ChuckVM;
 import org.deluge.BridgeContract;
 import org.junit.jupiter.api.Test;
 
 public class MuteTest {
   @Test
   public void testSong3LoadedSteps() throws Exception {
-    ChuckVM vm = new ChuckVM(44100, 2);
     BridgeContract bridge = new BridgeContract();
-    bridge.register(vm);
 
     java.io.InputStream is = getClass().getResourceAsStream("/SONGS/song3.xml");
     org.deluge.model.ProjectModel model = org.deluge.xml.DelugeXmlParser.parseSong(is, "song3");

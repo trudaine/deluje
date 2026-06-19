@@ -3,7 +3,6 @@ package org.deluge.ui;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.chuck.core.ChuckVM;
 import org.deluge.BridgeContract;
 import org.deluge.model.ClipModel;
 import org.deluge.model.ProjectModel;
@@ -16,10 +15,9 @@ public class ClipNoteClipboardTest {
 
   private SwingGridPanel panel(ProjectModel project) throws Exception {
     System.setProperty("chuck.audio.dummy", "true");
-    ChuckVM vm = new ChuckVM(44100, 2);
     BridgeContract bridge = new BridgeContract();
-    bridge.register(vm);
-    SwingGridPanel p = new SwingGridPanel(vm, bridge);
+
+    SwingGridPanel p = new SwingGridPanel(bridge);
     p.setProjectModel(project);
     p.setEditedModelTrack(0);
     p.setActiveClipId(0);
@@ -59,7 +57,7 @@ public class ClipNoteClipboardTest {
   public void pasteWithoutCopyOnFreshClipboardIsSafe() throws Exception {
     // Note: the clipboard is static; this test only asserts the no-clip guard path is safe.
     ProjectModel proj = new ProjectModel();
-    SwingGridPanel p = new SwingGridPanel(new ChuckVM(44100, 2), new BridgeContract());
+    SwingGridPanel p = new SwingGridPanel(new BridgeContract());
     p.setProjectModel(proj);
     p.setEditedModelTrack(0);
     // No tracks -> getEditedActiveClip() returns null -> paste is a safe no-op.

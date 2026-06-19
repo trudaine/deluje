@@ -3,10 +3,9 @@ package org.deluge.ui;
 import java.awt.*;
 import java.util.logging.Logger;
 import javax.swing.*;
-import org.chuck.audio.util.Dx7Patch;
-import org.chuck.core.ChuckVM;
 import org.deluge.BridgeContract;
 import org.deluge.model.SynthTrackModel;
+import org.deluge.shadow.audio.Dx7Patch;
 
 /**
  * Premium, high-fidelity DX7 voice and operator editing panel. Replaces the legacy microscopic
@@ -17,8 +16,8 @@ public class Dx7Panel extends JPanel {
   private static final Logger LOG = Logger.getLogger(Dx7Panel.class.getName());
 
   private final SynthTrackModel model;
-  private final ChuckVM vm;
   private final BridgeContract bridge;
+
   private final int trackIndex;
   private final Window owner;
   private final Runnable reloadCallback;
@@ -78,15 +77,14 @@ public class Dx7Panel extends JPanel {
 
   public Dx7Panel(
       SynthTrackModel model,
-      ChuckVM vm,
-      BridgeContract bridge,
+      final BridgeContract bridge,
       int trackIndex,
       Window owner,
       Runnable reloadCallback) {
     super(new BorderLayout(8, 8));
     this.model = model;
-    this.vm = vm;
     this.bridge = bridge;
+
     this.trackIndex = trackIndex;
     this.owner = owner;
     this.reloadCallback = reloadCallback;
@@ -146,9 +144,9 @@ public class Dx7Panel extends JPanel {
             String defaultHex = Dx7Patch.bytesToHex(defaultRaw);
             model.setDx7Patch(defaultHex);
             bridge.setDx7Patch(trackIndex, defaultHex);
-            if (vm != null) {
-              vm.setGlobalString("g_dx7_patch_" + trackIndex, defaultHex);
-              vm.setGlobalInt("g_dx7_opSwitch_" + trackIndex, 0x3FL);
+            if (bridge != null) {
+              bridge.setGlobalString("g_dx7_patch_" + trackIndex, defaultHex);
+              bridge.setGlobalInt("g_dx7_opSwitch_" + trackIndex, 0x3FL);
             }
 
             if (reloadCallback != null) {
@@ -496,10 +494,10 @@ public class Dx7Panel extends JPanel {
           String newHex = Dx7Patch.bytesToHex(raw);
           model.setDx7Patch(newHex);
           bridge.setDx7Patch(trackIndex, newHex);
-          if (vm != null) {
-            vm.setGlobalString("g_dx7_patch_" + trackIndex, newHex);
+          if (bridge != null) {
+            bridge.setGlobalString("g_dx7_patch_" + trackIndex, newHex);
             int opSwitchVal = raw[Dx7Patch.OFF_OP_SWITCH] & 0xFF;
-            vm.setGlobalInt("g_dx7_opSwitch_" + trackIndex, opSwitchVal);
+            bridge.setGlobalInt("g_dx7_opSwitch_" + trackIndex, opSwitchVal);
           }
           syncActiveOperatorDetails();
         });
@@ -746,11 +744,11 @@ public class Dx7Panel extends JPanel {
         new javax.swing.filechooser.FileNameExtensionFilter("DX7 SysEx (*.syx)", "syx"));
     if (fc.showOpenDialog(owner) == JFileChooser.APPROVE_OPTION) {
       try {
-        java.util.List<org.chuck.audio.util.Dx7Patch> patches =
+        java.util.List<org.deluge.shadow.audio.Dx7Patch> patches =
             org.deluge.xml.Dx7SyxParser.parseSyx(fc.getSelectedFile());
         if (!patches.isEmpty()) {
           if (patches.size() == 1) {
-            applyDx7Patch(model, vm, bridge, trackIndex, patches.get(0));
+            applyDx7Patch(model, bridge, trackIndex, patches.get(0));
             reloadCallback.run();
           } else {
             // High-Value Feature: Visual bank preset selector dialog!
@@ -770,7 +768,7 @@ public class Dx7Panel extends JPanel {
                         patchNames[0]);
             if (selected != null) {
               int selectedIndex = Integer.parseInt(selected.substring(0, 2)) - 1;
-              applyDx7Patch(model, vm, bridge, trackIndex, patches.get(selectedIndex));
+              applyDx7Patch(model, bridge, trackIndex, patches.get(selectedIndex));
               reloadCallback.run();
             }
           }
@@ -899,7 +897,7 @@ public class Dx7Panel extends JPanel {
 
       // ── Sync Voice Name & Algo Display ──
       try {
-        patchNameField.setText(org.chuck.audio.util.Dx7Patch.fromHex(curPatch).name().trim());
+        patchNameField.setText(org.deluge.shadow.audio.Dx7Patch.fromHex(curPatch).name().trim());
       } catch (Exception e) {
         patchNameField.setText("UNKNOWN");
       }
@@ -925,8 +923,8 @@ public class Dx7Panel extends JPanel {
     String newHex = Dx7Patch.bytesToHex(raw);
     model.setDx7Patch(newHex);
     bridge.setDx7Patch(trackIndex, newHex);
-    if (vm != null) {
-      vm.setGlobalString("g_dx7_patch_" + trackIndex, newHex);
+    if (bridge != null) {
+      bridge.setGlobalString("g_dx7_patch_" + trackIndex, newHex);
     }
 
     // Live update envelope graph if this is a rate/level parameter!
@@ -1026,8 +1024,8 @@ public class Dx7Panel extends JPanel {
       String newHex = Dx7Patch.bytesToHex(raw);
       model.setDx7Patch(newHex);
       bridge.setDx7Patch(trackIndex, newHex);
-      if (vm != null) {
-        vm.setGlobalString("g_dx7_patch_" + trackIndex, newHex);
+      if (bridge != null) {
+        bridge.setGlobalString("g_dx7_patch_" + trackIndex, newHex);
       }
     }
   }
@@ -1043,17 +1041,16 @@ public class Dx7Panel extends JPanel {
   /** Apply a Dx7Patch to the model and push to the bridge. */
   private static void applyDx7Patch(
       SynthTrackModel model,
-      ChuckVM vm,
-      BridgeContract bridge,
+      final BridgeContract bridge,
       int trackIndex,
-      org.chuck.audio.util.Dx7Patch patch) {
+      org.deluge.shadow.audio.Dx7Patch patch) {
     String hex = org.deluge.xml.Dx7SyxParser.patchToHex(patch);
     model.setDx7Patch(hex);
     model.setSynthMode(1);
     model.setSynthAlgorithm(patch.algorithm());
     String globalName = "g_dx7_patch_" + trackIndex;
-    vm.setGlobalString(globalName, hex);
-    vm.setGlobalInt("g_dx7_opSwitch_" + trackIndex, patch.opSwitch());
+    bridge.setGlobalString(globalName, hex);
+    bridge.setGlobalInt("g_dx7_opSwitch_" + trackIndex, patch.opSwitch());
   }
 
   /** Custom visualizer component for rendering 4-stage DX7 envelope shapes in neon cyan. */

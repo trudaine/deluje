@@ -1,0 +1,429 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<song swing="0x40000000" tempo="120.0">
+  <instruments>
+    <sound presetName="Synth 1">
+      <presetSlot>Synth 1</presetSlot>
+      <osc1>
+        <type>saw</type>
+        <transpose>0</transpose>
+        <cents>0</cents>
+        <retrigPhase>-1</retrigPhase>
+      </osc1>
+      <osc2>
+        <type>square</type>
+        <transpose>0</transpose>
+        <cents>0</cents>
+        <retrigPhase>-1</retrigPhase>
+      </osc2>
+      <polyphonic>1</polyphonic>
+      <clippingAmount>0</clippingAmount>
+      <voicePriority>1</voicePriority>
+      <lfo1>
+        <type>sine</type>
+        <rate>0x00000000</rate>
+        <depth>0x7FFFFFFF</depth>
+      </lfo1>
+      <lfo2>
+        <type>sine</type>
+        <rate>0x00000000</rate>
+        <depth>0x7FFFFFFF</depth>
+      </lfo2>
+      <lfo3>
+        <type>sine</type>
+        <rate>0x00000000</rate>
+        <depth>0x7FFFFFFF</depth>
+      </lfo3>
+      <lfo4>
+        <type>sine</type>
+        <rate>0x00000000</rate>
+        <depth>0x7FFFFFFF</depth>
+      </lfo4>
+      <customLfoWave>-1073741824,-1056964608,-1040187392,-1023410176,-1006632960,-989855744,-973078528,-956301312,-939524096,-922746880,-905969664,-889192448,-872415232,-855638016,-838860800,-822083584,-805306368,-788529152,-771751936,-754974720,-738197504,-721420288,-704643072,-687865856,-671088640,-654311424,-637534208,-620756992,-603979776,-587202560,-570425344,-553648128,-536870912,-520093696,-503316480,-486539264,-469762048,-452984832,-436207616,-419430400,-402653184,-385875968,-369098752,-352321536,-335544320,-318767104,-301989888,-285212672,-268435456,-251658240,-234881024,-218103808,-201326592,-184549376,-167772160,-150994944,-134217728,-117440512,-100663296,-83886080,-67108864,-50331648,-33554432,-16777216,0,16777216,33554432,50331648,67108864,83886080,100663296,117440512,134217728,150994944,167772160,184549376,201326592,218103808,234881024,251658240,268435456,285212672,301989888,318767104,335544320,352321536,369098752,385875968,402653184,419430400,436207616,452984832,469762048,486539264,503316480,520093696,536870912,553648128,570425344,587202560,603979776,620756992,637534208,654311424,671088640,687865856,704643072,721420288,738197504,754974720,771751936,788529152,805306368,822083584,838860800,855638016,872415232,889192448,905969664,922746880,939524096,956301312,973078528,989855744,1006632960,1023410176,1040187392,1056964608,1073741824,1056964608,1040187392,1023410176,1006632960,989855744,973078528,956301312,939524096,922746880,905969664,889192448,872415232,855638016,838860800,822083584,805306368,788529152,771751936,754974720,738197504,721420288,704643072,687865856,671088640,654311424,637534208,620756992,603979776,587202560,570425344,553648128,536870912,520093696,503316480,486539264,469762048,452984832,436207616,419430400,402653184,385875968,369098752,352321536,335544320,318767104,301989888,285212672,268435456,251658240,234881024,218103808,201326592,184549376,167772160,150994944,134217728,117440512,100663296,83886080,67108864,50331648,33554432,16777216,0,-16777216,-33554432,-50331648,-67108864,-83886080,-100663296,-117440512,-134217728,-150994944,-167772160,-184549376,-201326592,-218103808,-234881024,-251658240,-268435456,-285212672,-301989888,-318767104,-335544320,-352321536,-369098752,-385875968,-402653184,-419430400,-436207616,-452984832,-469762048,-486539264,-503316480,-520093696,-536870912,-553648128,-570425344,-587202560,-603979776,-620756992,-637534208,-654311424,-671088640,-687865856,-704643072,-721420288,-738197504,-754974720,-771751936,-788529152,-805306368,-822083584,-838860800,-855638016,-872415232,-889192448,-905969664,-922746880,-939524096,-956301312,-973078528,-989855744,-1006632960,-1023410176,-1040187392,-1056964608</customLfoWave>
+      <mode>subtractive</mode>
+      <transpose>0</transpose>
+      <unison>
+        <num>4</num>
+        <detune>0x7FFFFFFF</detune>
+        <spread>0x00000000</spread>
+      </unison>
+      <arpeggiator active="0" mode="up">
+        <rate>0x7FFFFFFF</rate>
+        <octaves>1</octaves>
+        <gate>0x40000000</gate>
+        <syncLevel>0</syncLevel>
+        <noteMode>up</noteMode>
+        <octaveMode>up</octaveMode>
+        <stepRepeat>1</stepRepeat>
+        <rhythmIndex>0</rhythmIndex>
+        <seqLength>8</seqLength>
+        <octaveSpread>0x00000000</octaveSpread>
+        <gateSpread>0x00000000</gateSpread>
+        <velSpread>0x00000000</velSpread>
+        <ratchetAmount>0</ratchetAmount>
+        <noteProbability>0.0</noteProbability>
+        <chordPolyphony>0</chordPolyphony>
+        <chordProbability>0.0</chordProbability>
+      </arpeggiator>
+      <delay>
+        <pingPong>1</pingPong>
+        <analog>1</analog>
+        <syncLevel>7</syncLevel>
+      </delay>
+      <lpfMode>24dB</lpfMode>
+      <hpfMode>12dB</hpfMode>
+      <modFXType>none</modFXType>
+      <defaultParams>
+        <arpeggiatorGate>0x00000000</arpeggiatorGate>
+        <portamento>0x80000000</portamento>
+        <compressorShape>0x6B851F00</compressorShape>
+        <oscAVolume>0x7FFFFFFF</oscAVolume>
+        <oscAPulseWidth>0x80000000</oscAPulseWidth>
+        <oscBVolume>0x80000000</oscBVolume>
+        <oscBPulseWidth>0x80000000</oscBPulseWidth>
+        <noiseVolume>0x80000000</noiseVolume>
+        <volume>0x50000000</volume>
+        <pan>0x00000000</pan>
+        <lpfFrequency>0x10000000</lpfFrequency>
+        <lpfResonance>0xA2000000</lpfResonance>
+        <hpfFrequency>0x80000000</hpfFrequency>
+        <hpfResonance>0x80000000</hpfResonance>
+        <hpfMorph>0x80000000</hpfMorph>
+        <modulator1Amount>0x80000000</modulator1Amount>
+        <modulator1Feedback>0x80000000</modulator1Feedback>
+        <modulator2Amount>0x80000000</modulator2Amount>
+        <modulator2Feedback>0x80000000</modulator2Feedback>
+        <carrier1Feedback>0x80000000</carrier1Feedback>
+        <carrier2Feedback>0x80000000</carrier2Feedback>
+        <modFXRate>0x00000000</modFXRate>
+        <modFXDepth>0x00000000</modFXDepth>
+        <modFXOffset>0x80000000</modFXOffset>
+        <modFXFeedback>0x00000000</modFXFeedback>
+        <delayRate>0x00000000</delayRate>
+        <delayFeedback>0x80000000</delayFeedback>
+        <reverbAmount>0x80000000</reverbAmount>
+        <arpeggiatorRate>0x80000000</arpeggiatorRate>
+        <stutterRate>0x00000000</stutterRate>
+        <sampleRateReduction>0x80000000</sampleRateReduction>
+        <bitCrush>0x80000000</bitCrush>
+        <waveIndex>0x80000000</waveIndex>
+        <equalizer>
+          <bass>0x00000000</bass>
+          <treble>0x00000000</treble>
+          <bassFrequency>0x00000000</bassFrequency>
+          <trebleFrequency>0x00000000</trebleFrequency>
+        </equalizer>
+        <envelope1>
+          <attack>0x80000000</attack>
+          <decay>0xE6666680</decay>
+          <sustain>0x7FFFFFFF</sustain>
+          <release>0x851EB880</release>
+        </envelope1>
+        <envelope2>
+          <attack>0xA3D70A00</attack>
+          <decay>0xA3D70A00</decay>
+          <sustain>0x00000000</sustain>
+          <release>0xE6666680</release>
+        </envelope2>
+        <envelope3>
+          <attack>0xB92DFA00</attack>
+          <decay>0xF25BF480</decay>
+          <sustain>0x33333300</sustain>
+          <release>0x03926CE8</release>
+        </envelope3>
+        <envelope4>
+          <attack>0xB92DFA00</attack>
+          <decay>0xF25BF480</decay>
+          <sustain>0x33333300</sustain>
+          <release>0x03926CE8</release>
+        </envelope4>
+        <lfo1Rate>0x0147AE14</lfo1Rate>
+        <lfo2Rate>0x0147AE14</lfo2Rate>
+        <patchCables>
+          <patchCable>
+            <source>velocity</source>
+            <destination>volume</destination>
+            <amount>0x40000000</amount>
+          </patchCable>
+          <patchCable>
+            <source>envelope2</source>
+            <destination>lpfFrequency</destination>
+            <amount>0x1C28F5C0</amount>
+          </patchCable>
+          <patchCable>
+            <source>note</source>
+            <destination>lpfFrequency</destination>
+            <amount>0x08F5C290</amount>
+          </patchCable>
+          <patchCable>
+            <source>velocity</source>
+            <destination>lpfFrequency</destination>
+            <amount>0x0F5C28F0</amount>
+          </patchCable>
+        </patchCables>
+      </defaultParams>
+      <midiKnobs/>
+      <modKnobs>
+        <modKnob>
+          <controlsParam>pan</controlsParam>
+        </modKnob>
+        <modKnob>
+          <controlsParam>volumePostFX</controlsParam>
+        </modKnob>
+        <modKnob>
+          <controlsParam>lpfResonance</controlsParam>
+        </modKnob>
+        <modKnob>
+          <controlsParam>lpfFrequency</controlsParam>
+        </modKnob>
+        <modKnob>
+          <controlsParam>env1Release</controlsParam>
+        </modKnob>
+        <modKnob>
+          <controlsParam>env1Attack</controlsParam>
+        </modKnob>
+        <modKnob>
+          <controlsParam>delayFeedback</controlsParam>
+        </modKnob>
+        <modKnob>
+          <controlsParam>delayRate</controlsParam>
+        </modKnob>
+        <modKnob>
+          <controlsParam>reverbAmount</controlsParam>
+        </modKnob>
+        <modKnob>
+          <controlsParam>volumePostReverbSend</controlsParam>
+          <patchAmountFromSource>compressor</patchAmountFromSource>
+        </modKnob>
+        <modKnob>
+          <controlsParam>pitch</controlsParam>
+          <patchAmountFromSource>lfo1</patchAmountFromSource>
+        </modKnob>
+        <modKnob>
+          <controlsParam>lfo1Rate</controlsParam>
+        </modKnob>
+        <modKnob>
+          <controlsParam>portamento</controlsParam>
+        </modKnob>
+        <modKnob>
+          <controlsParam>stutterRate</controlsParam>
+        </modKnob>
+        <modKnob>
+          <controlsParam>oscBVolume</controlsParam>
+        </modKnob>
+        <modKnob>
+          <controlsParam>oscBPhaseWidth</controlsParam>
+        </modKnob>
+      </modKnobs>
+    </sound>
+  </instruments>
+  <tracks>
+    <track length="384">
+      <noteRows>
+        <noteRow y="67">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="66">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="65">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="64">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="63">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="62">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="61">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="60">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="59">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="58">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="57">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="56">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="55">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="54">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="53">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="52">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="51">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="50">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="49">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="48">
+          <noteData>0x00000030000000154014</noteData>
+        </noteRow>
+        <noteRow y="47">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="46">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="45">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="44">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="43">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="42">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="41">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="40">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="39">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="38">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="37">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="36">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="35">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="34">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="33">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="32">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="31">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="30">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="29">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="28">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="27">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="26">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="25">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="24">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="23">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="22">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="21">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="20">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="19">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="18">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="17">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="16">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="15">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="14">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="13">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="12">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="11">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="10">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="9">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="8">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="7">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="6">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="5">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="4">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="3">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="2">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="1">
+          <noteData>0x</noteData>
+        </noteRow>
+        <noteRow y="0">
+          <noteData>0x</noteData>
+        </noteRow>
+      </noteRows>
+    </track>
+  </tracks>
+</song>

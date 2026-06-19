@@ -134,7 +134,7 @@ public class AlgorithmPanel extends JPanel {
 
   /** Produce a 3-line ASCII mini-representation of a DX7 algorithm (0-31). */
   static String formatAlgorithmMini(int algo) {
-    int[] algos = org.chuck.audio.util.Dx7EngineLookupTables.ALGORITHMS;
+    int[] algos = org.deluge.shadow.audio.Dx7EngineLookupTables.ALGORITHMS;
     int base = algo * 6;
     StringBuilder sb = new StringBuilder();
     for (int i = 0; i < 3; i++) {

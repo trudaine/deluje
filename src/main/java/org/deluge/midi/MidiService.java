@@ -1,10 +1,9 @@
 package org.deluge.midi;
 
-import org.chuck.core.ChuckVM;
-import org.chuck.midi.MidiIn;
-import org.chuck.midi.MidiMsg;
 import org.deluge.BridgeContract;
 import org.deluge.project.PreferencesManager;
+import org.deluge.shadow.midi.MidiIn;
+import org.deluge.shadow.midi.MidiMsg;
 import org.deluge.ui.SwingDelugeApp;
 
 /**
@@ -14,12 +13,12 @@ import org.deluge.ui.SwingDelugeApp;
  * management at this layer. Uses rtmidijava via MidiIn — no javax.sound.midi dependency.
  */
 public class MidiService {
-  private final ChuckVM vm;
   private final BridgeContract bridge;
+
   private final MidiInputRouter router;
   private final MidiEngine engine;
   private MidiIn midiIn;
-  private org.chuck.midi.MidiOut midiOut;
+  private org.deluge.shadow.midi.MidiOut midiOut;
   private final DelugeSysExManager sysExManager = new DelugeSysExManager();
   private final DelugeFileSyncService fileSyncService = new DelugeFileSyncService(sysExManager);
   private boolean learning = false;
@@ -28,9 +27,9 @@ public class MidiService {
   private int activeTrack = 4; // Default to first synth track
   private boolean disableHwSync = false;
 
-  public MidiService(ChuckVM vm, BridgeContract bridge, MidiInputRouter router) {
-    this.vm = vm;
+  public MidiService(final BridgeContract bridge, MidiInputRouter router) {
     this.bridge = bridge;
+
     this.router = router;
     this.engine = new MidiEngine();
 
@@ -74,9 +73,9 @@ public class MidiService {
     // Route params through the VM
     follow.setOnSetParam(
         (paramName, value) -> {
-          if (vm != null && paramName != null) {
-            vm.setGlobalFloat(paramName, (double) value);
-            if (vm.getLogLevel() >= 2) {
+          if (bridge != null && paramName != null) {
+            bridge.setGlobalFloat(paramName, (double) value);
+            if (bridge.getLogLevel() >= 2) {
               System.out.println(
                   "[MidiFollow] Set " + paramName + " = " + String.format("%.3f", value));
             }
@@ -86,8 +85,8 @@ public class MidiService {
     // Get live param levels from the VM
     follow.setOnGetParam(
         paramName -> {
-          if (vm != null && paramName != null) {
-            return (float) vm.getGlobalFloat(paramName);
+          if (bridge != null && paramName != null) {
+            return (float) bridge.getGlobalFloat(paramName);
           }
           return 0.5f;
         });
@@ -99,7 +98,7 @@ public class MidiService {
           fallbackCCHandler(msg.data1(), msg.data2() & 0x7F, portName);
         });
 
-    follow.setLogLevel(vm != null ? vm.getLogLevel() : 0);
+    follow.setLogLevel(bridge != null ? bridge.getLogLevel() : 0);
     return follow;
   }
 
@@ -116,7 +115,7 @@ public class MidiService {
   }
 
   private org.deluge.firmware2.GlobalEffectable getActiveTrackSound(int track) {
-    Object ph = vm.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
+    Object ph = bridge.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
     if (ph instanceof org.deluge.firmware.playback.PlaybackHandler playbackHandler) {
       org.deluge.firmware.model.Song song = playbackHandler.getSong();
       if (song != null && track >= 0 && track < song.clips.size()) {
@@ -159,7 +158,7 @@ public class MidiService {
     }
 
     try {
-      midiIn = new MidiIn(vm);
+      midiIn = new MidiIn();
       String[] ports = MidiIn.list();
       int portIdx = -1;
       for (int i = 0; i < ports.length; i++) {
@@ -176,8 +175,8 @@ public class MidiService {
 
         // Try to open matching output port for SysEx
         try {
-          midiOut = new org.chuck.midi.MidiOut();
-          String[] outPorts = org.chuck.midi.MidiOut.list();
+          midiOut = new org.deluge.shadow.midi.MidiOut();
+          String[] outPorts = org.deluge.shadow.midi.MidiOut.list();
           int outPortIdx = -1;
           for (int i = 0; i < outPorts.length; i++) {
             if (outPorts[i].equals(portName)) {
@@ -379,7 +378,7 @@ public class MidiService {
       // Control Change: 0xB0 (Channel 1 CC), cc, val
       byte[] data = {(byte) 0xB0, (byte) cc, (byte) val};
 
-      org.chuck.midi.MidiMsg msg = new org.chuck.midi.MidiMsg();
+      org.deluge.shadow.midi.MidiMsg msg = new org.deluge.shadow.midi.MidiMsg();
       msg.setData(data);
       try {
         midiOut.send(msg);
@@ -402,8 +401,8 @@ public class MidiService {
         if (mappedCc.equals(String.valueOf(cc))) {
           String paramName = key.substring(prefix.length());
           float normalizedVal = val / 127.0f;
-          vm.setGlobalFloat(paramName, normalizedVal);
-          if (vm.getLogLevel() >= 2) {
+          bridge.setGlobalFloat(paramName, normalizedVal);
+          if (bridge.getLogLevel() >= 2) {
             System.out.println(
                 "MIDI: Updated " + paramName + " to " + normalizedVal + " via " + portName);
           }
@@ -439,7 +438,7 @@ public class MidiService {
       }
     }
 
-    if (vm.getLogLevel() >= 2) {
+    if (bridge.getLogLevel() >= 2) {
       System.out.println(
           "MIDI: Pitch Bend track=" + track + " ch=" + msg.channel() + " value=" + bend);
     }
@@ -467,7 +466,7 @@ public class MidiService {
       }
     }
 
-    if (vm.getLogLevel() >= 2) {
+    if (bridge.getLogLevel() >= 2) {
       System.out.println(
           "MIDI: Aftertouch track=" + track + " ch=" + msg.channel() + " value=" + pressure);
     }
@@ -475,17 +474,17 @@ public class MidiService {
 
   /** Called by engine for System Real-Time messages (clock, start, stop). */
   private void handleSystemRealtime(MIDIMessage msg) {
-    if (vm == null) return;
-    Object ph = vm.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
+    if (bridge == null) return;
+    Object ph = bridge.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
     if (ph instanceof org.deluge.firmware.playback.PlaybackHandler playbackHandler) {
       if (msg.isMidiStart() || msg.isMidiContinue()) {
         playbackHandler.start();
-        if (vm.getLogLevel() >= 2) {
+        if (bridge.getLogLevel() >= 2) {
           System.out.println("[MidiService] Real-Time Transport: START");
         }
       } else if (msg.isMidiStop()) {
         playbackHandler.stop();
-        if (vm.getLogLevel() >= 2) {
+        if (bridge.getLogLevel() >= 2) {
           System.out.println("[MidiService] Real-Time Transport: STOP");
         }
       } else if (msg.isClock()) {

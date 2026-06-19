@@ -40,7 +40,7 @@ public class SwingTopBarPanelResizeTest {
           public void onMasterVolumeChanged(float vol) {}
         };
 
-    SwingTopBarPanel topBar = new SwingTopBarPanel(null, null, model, new JDialog(), stubListener);
+    SwingTopBarPanel topBar = new SwingTopBarPanel(null, model, new JDialog(), stubListener);
 
     // Retrieve the clipBtn using reflection or helper fields
     JToggleButton clipBtn = null;

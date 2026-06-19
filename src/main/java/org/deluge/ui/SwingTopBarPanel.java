@@ -16,7 +16,7 @@ import javax.swing.JSeparator;
 import javax.swing.JSlider;
 import javax.swing.JToggleButton;
 import javax.swing.SwingConstants;
-import org.chuck.core.ChuckVM;
+import org.deluge.BridgeContract;
 import org.deluge.firmware.hid.FirmwareDisplay;
 import org.deluge.midi.DelugeSysExManager;
 import org.deluge.model.ProjectModel;
@@ -67,8 +67,8 @@ public class SwingTopBarPanel extends JPanel {
   }
 
   private final ProjectModel projectModel;
-  private final ChuckVM vm;
-  private final org.deluge.BridgeContract bridge;
+  private final BridgeContract bridge;
+
   private final JToggleButton clipBtn;
   private final JToggleButton songBtn;
   private final JToggleButton arrBtn;
@@ -108,7 +108,7 @@ public class SwingTopBarPanel extends JPanel {
 
   /** Toggle the engine metronome (SHIFT+TAP), reflecting state on the readout. */
   private void toggleMetronome() {
-    Object eng = vm.getGlobalObject(org.deluge.BridgeContract.G_FIRMWARE_ENGINE);
+    Object eng = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
     if (eng instanceof org.deluge.firmware.engine.FirmwareAudioEngine engine) {
       engine.metronomeEnabled = !engine.metronomeEnabled;
       paramReadout.printTransient("METRO", engine.metronomeEnabled ? "ON" : "OFF");
@@ -120,21 +120,20 @@ public class SwingTopBarPanel extends JPanel {
   }
 
   /**
-   * @param vm ChucK virtual machine for direct bridge writes
+   * @param bridge ChucK virtual machine for direct bridge writes
    * @param bridge active project real-time bridge
    * @param projectModel current project model (used for track count in dialogs)
    * @param leftFloat the explorer JDialog toggled by the EXPLORER button
    * @param listener callback for view-mode changes and track additions
    */
   public SwingTopBarPanel(
-      ChuckVM vm,
-      org.deluge.BridgeContract bridge,
+      final BridgeContract bridge,
       ProjectModel projectModel,
       JDialog leftFloat,
       TopBarListener listener) {
     this.projectModel = projectModel;
     this.bridge = bridge;
-    this.vm = vm;
+
     this.listener = listener;
     this.paramReadout = new DelugeParamReadout();
     this.oledPanel = new SwingOledPanel();

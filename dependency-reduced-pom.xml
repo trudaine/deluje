@@ -21,7 +21,7 @@
             <configuration>
               <transformers>
                 <transformer>
-                  <mainClass>org.chuck.deluge.ui.SwingDelugeApp</mainClass>
+                  <mainClass>org.deluge.ui.SwingDelugeApp</mainClass>
                 </transformer>
                 <transformer />
               </transformers>
@@ -88,7 +88,7 @@
                   </artifactSet>
                   <transformers>
                     <transformer>
-                      <mainClass>org.chuck.deluge.ui.SwingDelugeApp</mainClass>
+                      <mainClass>org.deluge.ui.SwingDelugeApp</mainClass>
                     </transformer>
                   </transformers>
                   <filters>
@@ -113,14 +113,42 @@
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-api</artifactId>
-      <version>6.0.3</version>
+      <version>6.1.0</version>
       <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <artifactId>opentest4j</artifactId>
+          <groupId>org.opentest4j</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>junit-platform-commons</artifactId>
+          <groupId>org.junit.platform</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>apiguardian-api</artifactId>
+          <groupId>org.apiguardian</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>jspecify</artifactId>
+          <groupId>org.jspecify</groupId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-params</artifactId>
-      <version>6.0.3</version>
+      <version>6.1.0</version>
       <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <artifactId>apiguardian-api</artifactId>
+          <groupId>org.apiguardian</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>jspecify</artifactId>
+          <groupId>org.jspecify</groupId>
+        </exclusion>
+      </exclusions>
     </dependency>
   </dependencies>
 </project>
