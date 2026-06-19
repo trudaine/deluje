@@ -127,13 +127,17 @@ public class Freeverb {
 
       // C:54-56 — lowpass filter on feedback
       filterstore =
-          (Functions.multiply_32x32_rshift32_rounded(output, damp2)
-                  + Functions.multiply_32x32_rshift32_rounded(filterstore, damp1))
-              << 1;
+          Functions.lshiftAndSaturate(
+              (Functions.multiply_32x32_rshift32_rounded(output, damp2)
+                  + Functions.multiply_32x32_rshift32_rounded(filterstore, damp1)),
+              1);
 
       // C:58
       buffer[bufidx] =
-          input + (Functions.multiply_32x32_rshift32_rounded(filterstore, feedback) << 1);
+          Functions.add_saturate(
+              input,
+              Functions.lshiftAndSaturate(
+                  Functions.multiply_32x32_rshift32_rounded(filterstore, feedback), 1));
 
       // C:60-62 — advance index
       if (++bufidx >= buffer.length) {
@@ -398,12 +402,20 @@ public class Freeverb {
     }
 
     // C:90-91 — stereo cross-feed
-    outL = (outL + Functions.multiply_32x32_rshift32_rounded(outR, wet2)) << 1;
-    outR = (outR + Functions.multiply_32x32_rshift32_rounded(outL, wet2)) << 1;
+    outL =
+        Functions.lshiftAndSaturate(
+            Functions.add_saturate(outL, Functions.multiply_32x32_rshift32_rounded(outR, wet2)), 1);
+    outR =
+        Functions.lshiftAndSaturate(
+            Functions.add_saturate(outR, Functions.multiply_32x32_rshift32_rounded(outL, wet2)), 1);
 
     // C:94-95 — accumulate to output with pan
-    outputLR[0] += Functions.multiply_32x32_rshift32_rounded(outL, panLeft);
-    outputLR[1] += Functions.multiply_32x32_rshift32_rounded(outR, panRight);
+    outputLR[0] =
+        Functions.add_saturate(
+            outputLR[0], Functions.multiply_32x32_rshift32_rounded(outL, panLeft));
+    outputLR[1] =
+        Functions.add_saturate(
+            outputLR[1], Functions.multiply_32x32_rshift32_rounded(outR, panRight));
   }
 
   // ── process (freeverb.hpp:98-109) ──
