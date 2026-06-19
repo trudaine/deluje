@@ -180,7 +180,7 @@ public class UltimateFidelityTest {
     // ==================================================================================
     // 2. SAVE & LOAD E2E ROUNDTRIP EXPORT TEST
     // ==================================================================================
-    File songXmlFile = new File("src/test/resources/fidelity/ULTIMATE_SONG.xml");
+    File songXmlFile = new File("src/main/resources/SONGS/ULTIMATE_SONG.xml");
     ProjectSerializer.save(project, songXmlFile);
     System.out.printf(
         "[UltimateTest] Saved E2E complex song XML to: %s%n", songXmlFile.getAbsolutePath());
