@@ -83,9 +83,9 @@ public class ProjectSerializer2 {
         writer.writeOpeningTagBeginning("kit");
         writer.writeAttribute("presetName", track.getName(), false);
         writer.writeAttribute("presetFolder", "KITS", false);
-        if (ciBuilder.length() > 2) {
-          writer.writeAttribute("clipInstances", ciBuilder.toString(), false);
-        }
+        // if (ciBuilder.length() > 2) {
+        //   writer.writeAttribute("clipInstances", ciBuilder.toString(), false);
+        // }
         writer.writeOpeningTagEnd();
 
         for (Drum drum : ((KitTrackModel) track).getDrums()) {
@@ -146,9 +146,9 @@ public class ProjectSerializer2 {
         writer.writeOpeningTagBeginning("sound");
         writer.writeAttribute("presetName", synth.getName(), false);
         writer.writeAttribute("presetFolder", "SYNTHS", false);
-        if (ciBuilder.length() > 2) {
-          writer.writeAttribute("clipInstances", ciBuilder.toString(), false);
-        }
+        // if (ciBuilder.length() > 2) {
+        //   writer.writeAttribute("clipInstances", ciBuilder.toString(), false);
+        // }
         writer.writeOpeningTagEnd();
 
         // osc1
@@ -414,9 +414,9 @@ public class ProjectSerializer2 {
         writer.writeAttribute("length", lengthTicks, false);
         writer.writeAttribute("isPlaying", "1", false);
         writer.writeAttribute("section", "0", false);
-        if (ciBuilder.length() > 2) {
-          writer.writeAttribute("clipInstances", ciBuilder.toString(), false);
-        }
+        // if (ciBuilder.length() > 2) {
+        //   writer.writeAttribute("clipInstances", ciBuilder.toString(), false);
+        // }
         writer.writeOpeningTagEnd();
 
         // Write soundParams / kitParams tag to set outputTypeWhileLoading
