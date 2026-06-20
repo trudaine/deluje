@@ -80,10 +80,13 @@ public class PlaybackHandler {
       // ── Bit-Accurate Swing Math ──
       int effectiveAdvance = toAdvance;
       if (currentSong.swingAmount != 0) {
-        int leftShift = 10 - currentSong.swingInterval;
+        int leftShift =
+            6 - currentSong.swingInterval; // Offset 6 for 96 PPQN (C++ uses 9/10 for 1536 PPQN)
         int swingTicks = 3 << leftShift;
         if ((lastSwungTickActioned % (swingTicks * 2)) < swingTicks) {
           effectiveAdvance = (toAdvance * (50 + currentSong.swingAmount)) / 50;
+        } else {
+          effectiveAdvance = (toAdvance * (50 - currentSong.swingAmount)) / 50;
         }
       }
 
