@@ -2792,6 +2792,24 @@ public class SwingDelugeApp extends JFrame {
     JMenuItem exportAbletonItem = new JMenuItem("Export to Ableton Live Set...");
     exportAbletonItem.addActionListener(
         e -> {
+          String[] options = {
+            "Portable Ableton Project (Collect all samples)",
+            "Render WAV Stems to Ableton Audio Tracks",
+            "Standalone Ableton Live Set (.als file only)"
+          };
+          javax.swing.JComboBox<String> modeCombo = new javax.swing.JComboBox<>(options);
+          modeCombo.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 12));
+
+          int result =
+              JOptionPane.showConfirmDialog(
+                  this,
+                  new Object[] {"Select Export Mode:", modeCombo},
+                  "Export to Ableton Live Set",
+                  JOptionPane.OK_CANCEL_OPTION,
+                  JOptionPane.QUESTION_MESSAGE);
+          if (result != JOptionPane.OK_OPTION) return;
+          int mode = modeCombo.getSelectedIndex();
+
           JFileChooser chooser =
               new JFileChooser(org.deluge.ableton.AbletonAssetResolver.getDefaultImportDir());
           chooser.setDialogTitle("Export as Ableton Live Set (.als)");
@@ -2799,16 +2817,151 @@ public class SwingDelugeApp extends JFrame {
               new javax.swing.filechooser.FileNameExtensionFilter(
                   "Ableton Live Set", "als", "ALS"));
           chooser.setSelectedFile(new java.io.File("Exported Project.als"));
-          if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+          if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
+
+          java.io.File file = chooser.getSelectedFile();
+          if (!file.getName().toLowerCase().endsWith(".als")) {
+            file = new java.io.File(file.getAbsolutePath() + ".als");
+          }
+
+          java.io.File finalFile = file;
+
+          if (mode == 0) {
+            // Portable Ableton Project (Collect all samples)
             try {
-              java.io.File file = chooser.getSelectedFile();
-              if (!file.getName().toLowerCase().endsWith(".als")) {
-                file = new java.io.File(file.getAbsolutePath() + ".als");
-              }
-              org.deluge.ableton.AbletonTrackExporter.exportProject(currentProject, file);
+              java.io.File projectDir = finalFile.getParentFile();
+              java.io.File importedDir = new java.io.File(projectDir, "Samples/Imported");
+
+              org.deluge.ableton.AbletonTrackExporter.PathRewriter rewriter =
+                  originalPath -> {
+                    if (originalPath == null || originalPath.isEmpty()) {
+                      return originalPath;
+                    }
+                    try {
+                      java.io.File originalFile =
+                          new java.io.File(
+                              org.deluge.project.PreferencesManager.getLibraryDir(), originalPath);
+                      if (!originalFile.exists()) {
+                        originalFile = new java.io.File(originalPath);
+                      }
+                      if (!originalFile.exists()) {
+                        return originalPath;
+                      }
+
+                      importedDir.mkdirs();
+                      String name = originalFile.getName();
+                      java.io.File dest = new java.io.File(importedDir, name);
+
+                      int cnt = 1;
+                      String base = name;
+                      String ext = "";
+                      int dot = name.lastIndexOf('.');
+                      if (dot > 0) {
+                        base = name.substring(0, dot);
+                        ext = name.substring(dot);
+                      }
+                      while (dest.exists()) {
+                        dest = new java.io.File(importedDir, base + "_" + cnt + ext);
+                        cnt++;
+                      }
+
+                      try (java.io.FileInputStream fis = new java.io.FileInputStream(originalFile);
+                          java.io.FileOutputStream fos = new java.io.FileOutputStream(dest)) {
+                        fis.transferTo(fos);
+                      }
+                      return "Samples/Imported/" + dest.getName();
+                    } catch (Exception ex) {
+                      ex.printStackTrace();
+                      return originalPath;
+                    }
+                  };
+
+              org.deluge.ableton.AbletonTrackExporter.exportProject(
+                  currentProject, finalFile, rewriter);
               JOptionPane.showMessageDialog(
                   this,
-                  "Project exported successfully as Ableton Live Set!\n" + file.getName(),
+                  "Project exported successfully as self-contained Ableton Project!\nAll samples collected in Samples/Imported/.",
+                  "Export Successful",
+                  JOptionPane.INFORMATION_MESSAGE);
+            } catch (Exception ex) {
+              ex.printStackTrace();
+              JOptionPane.showMessageDialog(
+                  this,
+                  "Failed to export project:\n" + ex.getMessage(),
+                  "Error",
+                  JOptionPane.ERROR_MESSAGE);
+            }
+          } else if (mode == 1) {
+            // Render WAV Stems to Ableton Audio Tracks
+            JDialog progressDialog = new JDialog(this, "Rendering WAV Stems to Ableton...", true);
+            progressDialog.setSize(350, 120);
+            progressDialog.setLocationRelativeTo(this);
+            progressDialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
+            progressDialog.setLayout(new java.awt.BorderLayout(10, 10));
+
+            JLabel statusLabel = new JLabel("Preparing export...", JLabel.CENTER);
+            JProgressBar progressBar = new JProgressBar(0, 100);
+            progressBar.setStringPainted(true);
+
+            JPanel panel = new JPanel(new java.awt.GridLayout(2, 1, 5, 5));
+            panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+            panel.add(statusLabel);
+            panel.add(progressBar);
+            progressDialog.add(panel, java.awt.BorderLayout.CENTER);
+
+            SwingWorker<Void, String> worker =
+                new SwingWorker<>() {
+                  @Override
+                  protected Void doInBackground() throws Exception {
+                    org.deluge.ableton.AbletonTrackExporter.exportStemsProject(
+                        currentProject,
+                        finalFile,
+                        (status, percent) -> {
+                          publish(status + "|" + percent);
+                        });
+                    return null;
+                  }
+
+                  @Override
+                  protected void process(java.util.List<String> chunks) {
+                    String lastChunk = chunks.get(chunks.size() - 1);
+                    String[] parts = lastChunk.split("\\|");
+                    statusLabel.setText(parts[0]);
+                    progressBar.setValue(Integer.parseInt(parts[1]));
+                  }
+
+                  @Override
+                  protected void done() {
+                    progressDialog.dispose();
+                    try {
+                      get(); // Check for exceptions
+                      JOptionPane.showMessageDialog(
+                          SwingDelugeApp.this,
+                          "WAV Stems rendered and exported to Ableton Project successfully:\n"
+                              + finalFile.getName(),
+                          "Export Success",
+                          JOptionPane.INFORMATION_MESSAGE);
+                    } catch (Exception ex) {
+                      JOptionPane.showMessageDialog(
+                          SwingDelugeApp.this,
+                          "WAV Stems Ableton export failed:\n" + ex.getMessage(),
+                          "Export Error",
+                          JOptionPane.ERROR_MESSAGE);
+                    }
+                  }
+                };
+
+            worker.execute();
+            progressDialog.setVisible(true);
+          } else {
+            // Standalone Ableton Live Set (.als file only)
+            try {
+              org.deluge.ableton.AbletonTrackExporter.exportProject(
+                  currentProject, finalFile, null);
+              JOptionPane.showMessageDialog(
+                  this,
+                  "Project exported successfully as Standalone Ableton Live Set!\n"
+                      + finalFile.getName(),
                   "Export Successful",
                   JOptionPane.INFORMATION_MESSAGE);
             } catch (Exception ex) {
