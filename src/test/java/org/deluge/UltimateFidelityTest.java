@@ -34,6 +34,9 @@ public class UltimateFidelityTest {
     ProjectModel project = new ProjectModel();
     project.setBpm(120.0f);
     project.setMasterVolume(0.8f);
+    project.setSidechainAttack(0.000152f);
+    project.setSidechainRelease(0.00000043f);
+    project.setSongParamSidechainShape(0.72f); // Enable sidechain compressor (72% ducking!)
 
     // ==================================================================================
     // TRACK 0: SYNTH BASS (Subtractive, heavy filter-envelope modulation)
@@ -117,6 +120,7 @@ public class UltimateFidelityTest {
     // Drum Row 0 (Kick): Sine wave with tight volume envelope decay
     SoundDrum kick = new SoundDrum("Kick");
     kick.setVolume(1.0f);
+    kick.setSidechainSend(1.0f); // Kick feeds the global compressor sidechain!
     kick.setOsc2Type("SINE");
     kick.setOscBVolume(1.0f);
     kick.setOscAVolume(0.0f);
@@ -185,7 +189,7 @@ public class UltimateFidelityTest {
     // 2. SAVE & LOAD E2E ROUNDTRIP EXPORT TEST
     // ==================================================================================
     File songXmlFile = new File("src/main/resources/SONGS/ULTIMATE_SONG.xml");
-    org.deluge.xml2.ProjectSerializer2.save(project, songXmlFile);
+    org.deluge.project.ProjectSerializer.save(project, songXmlFile);
     System.out.printf(
         "[UltimateTest] Saved E2E complex song XML (STREAM) to: %s%n",
         songXmlFile.getAbsolutePath());
@@ -320,7 +324,7 @@ public class UltimateFidelityTest {
 
       project.addArrangerClip(new ArrangerClip(0, leadClip, 0, 1536));
 
-      org.deluge.xml2.ProjectSerializer2.save(
+      org.deluge.project.ProjectSerializer.save(
           project, new File("src/main/resources/SONGS/DIAG_LEAD_ONLY.xml"));
     }
 
@@ -329,12 +333,16 @@ public class UltimateFidelityTest {
       ProjectModel project = new ProjectModel();
       project.setBpm(120.0f);
       project.setMasterVolume(0.8f);
+      project.setSidechainAttack(0.000152f);
+      project.setSidechainRelease(0.00000043f);
+      project.setSongParamSidechainShape(0.72f);
 
       KitTrackModel kitTrack = new KitTrackModel("Synth Kit");
       kitTrack.setVolume(1.0f);
 
       SoundDrum kick = new SoundDrum("Kick");
       kick.setVolume(1.0f);
+      kick.setSidechainSend(1.0f);
       kick.setOsc2Type("SINE");
       kick.setOscBVolume(1.0f);
       kick.setOscAVolume(0.0f);
@@ -381,7 +389,7 @@ public class UltimateFidelityTest {
 
       project.addArrangerClip(new ArrangerClip(0, drumClip, 0, 2304));
 
-      org.deluge.xml2.ProjectSerializer2.save(
+      org.deluge.project.ProjectSerializer.save(
           project, new File("src/main/resources/SONGS/DIAG_KIT_ONLY.xml"));
     }
   }

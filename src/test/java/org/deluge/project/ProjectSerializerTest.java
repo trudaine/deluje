@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
 import java.nio.file.Files;
+import org.deluge.model.AudioTrackModel;
 import org.deluge.model.KitTrackModel;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.SoundDrum;
@@ -45,16 +46,14 @@ public class ProjectSerializerTest {
     assertTrue(xmlContent.contains("<song"), "should contain <song\n" + xmlContent);
     assertTrue(xmlContent.contains("tempo=\"130.0\""), "should contain tempo\n" + xmlContent);
     assertTrue(xmlContent.contains("<kit"), "should contain <kit\n" + xmlContent);
-    assertTrue(
-        xmlContent.contains("<presetSlot>DRUMS</presetSlot>"),
-        "should contain DRUMS\n" + xmlContent);
+    assertTrue(xmlContent.contains("presetName=\"DRUMS\""), "should contain DRUMS\n" + xmlContent);
     // Note: cloneSamples() rewrites paths to SAMPLES/... format
     assertTrue(
         xmlContent.contains("fileName=\"SAMPLES/DRUMS/Kick/kick.wav\""),
         "should contain fileName\n" + xmlContent);
-    assertTrue(xmlContent.contains("<sound>"));
-    assertTrue(xmlContent.contains("<presetSlot>LEAD</presetSlot>"));
-    assertTrue(xmlContent.contains("<type>square</type>"));
+    assertTrue(xmlContent.contains("<sound name=\"KICK\""));
+    assertTrue(xmlContent.contains("presetName=\"LEAD\""));
+    assertTrue(xmlContent.contains("type=\"square\""));
 
     // Assertions for clips and notes
     assertTrue(xmlContent.contains("<sessionClips"));
@@ -115,5 +114,78 @@ public class ProjectSerializerTest {
     // Since the only active step on this row has pitch=60, the serializer writes y="60".
     org.junit.jupiter.api.Assertions.assertEquals(
         60, parsedStep.pitch(), "Parsed step 1 pitch should be 60 (row y= attribute)!");
+  }
+
+  @Test
+  void testSerializeAudioTrack() throws Exception {
+    ProjectModel model = new ProjectModel();
+    model.setBpm(125.0f);
+
+    AudioTrackModel audioTrack = new AudioTrackModel("VOCALS");
+
+    AudioTrackModel.AudioClip clip = new AudioTrackModel.AudioClip();
+    clip.setTrackName("VOCALS");
+    clip.setFilePath("SAMPLES/stems/vocals.wav");
+    clip.setStartSamplePos(500);
+    clip.setEndSamplePos(250000);
+    clip.setAttack(0.02f);
+    clip.setLength(768);
+    clip.setVolume(0.88f);
+    clip.setPan(-0.25f);
+    clip.setLpfFrequency(18500.0f);
+    clip.setLpfResonance(0.15f);
+
+    audioTrack.addAudioClip(clip);
+    model.addTrack(audioTrack);
+
+    File tempXml = File.createTempFile("deluge_test_audio", ".xml");
+    tempXml.deleteOnExit();
+
+    ProjectSerializer.save(model, tempXml);
+
+    String xmlContent = Files.readString(tempXml.toPath());
+
+    // Verify XML tags and attributes!
+    assertTrue(
+        xmlContent.contains("<audioTrack name=\"VOCALS\""),
+        "should contain audioTrack\n" + xmlContent);
+    assertTrue(
+        xmlContent.contains("<audioClip trackName=\"VOCALS\""),
+        "should contain audioClip\n" + xmlContent);
+    assertTrue(
+        xmlContent.contains("filePath=\"SAMPLES/stems/vocals.wav\""),
+        "should contain filePath\n" + xmlContent);
+    assertTrue(
+        xmlContent.contains("startSamplePos=\"500\""),
+        "should contain startSamplePos\n" + xmlContent);
+    assertTrue(
+        xmlContent.contains("endSamplePos=\"250000\""),
+        "should contain endSamplePos\n" + xmlContent);
+    assertTrue(xmlContent.contains("length=\"768\""), "should contain length\n" + xmlContent);
+    assertTrue(xmlContent.contains("<params"), "should contain params\n" + xmlContent);
+
+    // Parse back and verify roundtrip integrity!
+    ProjectModel parsed = org.deluge.xml.DelugeXmlParser.parseSong(tempXml);
+    org.junit.jupiter.api.Assertions.assertNotNull(parsed);
+    org.junit.jupiter.api.Assertions.assertEquals(1, parsed.getTracks().size());
+
+    org.deluge.model.TrackModel parsedTrack = parsed.getTracks().get(0);
+    assertTrue(parsedTrack instanceof AudioTrackModel, "Should be AudioTrackModel");
+
+    AudioTrackModel parsedAudio = (AudioTrackModel) parsedTrack;
+    org.junit.jupiter.api.Assertions.assertEquals("VOCALS", parsedAudio.getName());
+    org.junit.jupiter.api.Assertions.assertEquals(1, parsedAudio.getAudioClips().size());
+
+    AudioTrackModel.AudioClip parsedClip = parsedAudio.getAudioClips().get(0);
+    org.junit.jupiter.api.Assertions.assertEquals("VOCALS", parsedClip.getTrackName());
+    org.junit.jupiter.api.Assertions.assertEquals(
+        "SAMPLES/stems/vocals.wav", parsedClip.getFilePath());
+    org.junit.jupiter.api.Assertions.assertEquals(500, parsedClip.getStartSamplePos());
+    org.junit.jupiter.api.Assertions.assertEquals(250000, parsedClip.getEndSamplePos());
+    org.junit.jupiter.api.Assertions.assertEquals(768, parsedClip.getLength());
+    org.junit.jupiter.api.Assertions.assertEquals(0.88f, parsedClip.getVolume(), 0.01f);
+    org.junit.jupiter.api.Assertions.assertEquals(-0.25f, parsedClip.getPan(), 0.01f);
+    org.junit.jupiter.api.Assertions.assertEquals(18500.0f, parsedClip.getLpfFrequency(), 10.0f);
+    org.junit.jupiter.api.Assertions.assertEquals(0.15f, parsedClip.getLpfResonance(), 0.01f);
   }
 }
