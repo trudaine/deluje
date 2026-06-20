@@ -1466,6 +1466,28 @@ public class SwingDelugeApp extends JFrame {
     if (songPanel != null) songPanel.setProjectModel(model);
     if (arrGridPanel != null) arrGridPanel.setProjectModel(model);
 
+    // Switch view depending on track count to keep UI and top bar perfectly synchronized
+    if (model.getTracks().size() == 1) {
+      if (cardLayout != null && centerCardPanel != null) {
+        cardLayout.show(centerCardPanel, "CLIP");
+      }
+      if (topBar != null) topBar.selectClipView();
+      boolean firstIsSynth =
+          !model.getTracks().isEmpty()
+              && model.getTracks().get(0) instanceof org.deluge.model.SynthTrackModel;
+      if (clipPanel != null) {
+        clipPanel.setBaseTrackId(
+            trackEngineStart != null && trackEngineStart.length > 0
+                ? trackEngineStart[0]
+                : (firstIsSynth ? 4 : 0));
+      }
+    } else {
+      if (cardLayout != null && centerCardPanel != null) {
+        cardLayout.show(centerCardPanel, "SONG");
+      }
+      if (topBar != null) topBar.selectViewModeButton("SONG");
+    }
+
     setTitle(
         "DELUGE WORKSTATION — "
             + (currentProjectFile != null ? currentProjectFile.getName() : "Untitled"));
@@ -3285,24 +3307,11 @@ public class SwingDelugeApp extends JFrame {
     sidebarPanel.setOnLibraryDirChanged(reloadBothSidebars);
     floatingSidebar.setOnLibraryDirChanged(reloadBothSidebars);
     sidebarPanel.setOnSongLoaded(
-        model -> {
-          // Load shared project state (clears pattern, updates all panels, fires engine reload)
+        (model, file) -> {
+          currentProjectFile = file;
+          // Load shared project state (clears pattern, updates all panels, fires engine reload, and
+          // switches views)
           loadProject(model);
-
-          // Switch view depending on track count
-          if (model.getTracks().size() == 1) {
-            cardLayout.show(centerCardPanel, "CLIP");
-            if (topBar != null) topBar.selectClipView();
-            boolean firstIsSynth =
-                !model.getTracks().isEmpty()
-                    && model.getTracks().get(0) instanceof org.deluge.model.SynthTrackModel;
-            clipPanel.setBaseTrackId(
-                trackEngineStart != null && trackEngineStart.length > 0
-                    ? trackEngineStart[0]
-                    : (firstIsSynth ? 4 : 0));
-          } else {
-            cardLayout.show(centerCardPanel, "SONG");
-          }
 
           // Push model data to engine — use the centralized mapping
           // so Kit sounds get written to the correct engine rows
@@ -3415,8 +3424,8 @@ public class SwingDelugeApp extends JFrame {
       if (file.exists()) {
         try {
           org.deluge.model.ProjectModel loaded = org.deluge.xml.DelugeXmlParser.parseSong(file);
-          loadProject(loaded);
           currentProjectFile = file;
+          loadProject(loaded);
           System.out.println(
               "[main] Successfully pre-loaded startup song project: " + file.getName());
         } catch (Exception ex) {
@@ -3793,12 +3802,14 @@ public class SwingDelugeApp extends JFrame {
         if (clipId < tModel.getClips().size()) {
           org.deluge.model.ClipModel cModel = tModel.getClips().get(clipId);
           int clipSteps = cModel.getStepCount();
+          boolean isSynth = tModel instanceof org.deluge.model.SynthTrackModel;
           for (int r = 0; r < cModel.getRowCount(); r++) {
             for (int s = 0; s < clipSteps; s++) {
               org.deluge.model.StepData sd = cModel.getStep(r, s);
               if (sd != null && sd.active()) {
-                if (r < voiceCount) {
-                  bridge.setStep(engineBase + r, s, true);
+                int targetRow = isSynth ? (127 - sd.pitch()) : r;
+                if (targetRow >= 0 && targetRow < voiceCount) {
+                  bridge.setStep(engineBase + targetRow, s, true);
                 }
               }
             }

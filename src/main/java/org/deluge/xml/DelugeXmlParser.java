@@ -453,7 +453,7 @@ public class DelugeXmlParser {
               if (notePitch > 0) {
                 clip.setRowYNote(r, notePitch);
                 for (int s = 0; s < stepCount; s++) {
-                  StepData existing = clip.getStepRaw(r, s);
+                  StepData existing = clip.getStep(r, s);
                   clip.setStep(
                       r,
                       s,
@@ -747,7 +747,7 @@ public class DelugeXmlParser {
             if (notePitch > 0) {
               clip.setRowYNote(r, notePitch);
               for (int s = 0; s < stepCount; s++) {
-                StepData existing = clip.getStepRaw(r, s);
+                StepData existing = clip.getStep(r, s);
                 clip.setStep(
                     r,
                     s,

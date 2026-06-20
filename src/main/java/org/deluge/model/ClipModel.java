@@ -77,8 +77,8 @@ public class ClipModel {
   }
 
   public void setRowAutomation(int rowIndex, String paramName, int stepIndex, float value) {
-    int r = getOrCreateResolvedRowIndex(rowIndex);
-    Map<String, float[]> rowAutos = rowAutomationData.computeIfAbsent(r, k -> new HashMap<>());
+    Map<String, float[]> rowAutos =
+        rowAutomationData.computeIfAbsent(rowIndex, k -> new HashMap<>());
     float[] array = rowAutos.computeIfAbsent(paramName, k -> new float[stepCount]);
     if (stepIndex >= 0 && stepIndex < stepCount) {
       array[stepIndex] = value;
@@ -86,9 +86,7 @@ public class ClipModel {
   }
 
   public float[] getRowAutomation(int rowIndex, String paramName) {
-    int r = getResolvedRowIndex(rowIndex);
-    if (r < 0) return null;
-    Map<String, float[]> rowAutos = rowAutomationData.get(r);
+    Map<String, float[]> rowAutos = rowAutomationData.get(rowIndex);
     return rowAutos != null ? rowAutos.get(paramName) : null;
   }
 
@@ -107,18 +105,15 @@ public class ClipModel {
   private final Map<Integer, List<HighResNote>> rawNoteEvents = new HashMap<>();
 
   public void setRawNoteEvents(int rowIndex, List<HighResNote> notes) {
-    int r = getOrCreateResolvedRowIndex(rowIndex);
     if (notes == null) {
-      rawNoteEvents.remove(r);
+      rawNoteEvents.remove(rowIndex);
     } else {
-      rawNoteEvents.put(r, new ArrayList<>(notes));
+      rawNoteEvents.put(rowIndex, new ArrayList<>(notes));
     }
   }
 
   public List<HighResNote> getRawNoteEvents(int rowIndex) {
-    int r = getResolvedRowIndex(rowIndex);
-    if (r < 0) return null;
-    return rawNoteEvents.get(r);
+    return rawNoteEvents.get(rowIndex);
   }
 
   public Map<Integer, List<HighResNote>> getRawNoteEventsMap() {
@@ -136,7 +131,7 @@ public class ClipModel {
     ClipModel copy = new ClipModel(newName, this.rowCount, this.stepCount);
     for (int r = 0; r < rowCount; r++) {
       for (int s = 0; s < stepCount; s++) {
-        copy.setStep(r, s, this.getStepRaw(r, s));
+        copy.setStep(r, s, this.getStep(r, s));
       }
     }
     // Deep-copy automation data
@@ -279,26 +274,38 @@ public class ClipModel {
 
   private int getResolvedRowIndex(int row) {
     if (!rowYNote.isEmpty()) {
+      if (rowYNote.containsKey(row)) {
+        return row;
+      }
       int targetPitch = 127 - row;
       for (Map.Entry<Integer, Integer> entry : rowYNote.entrySet()) {
         if (entry.getValue() == targetPitch) {
           return entry.getKey();
         }
       }
-      return -1; // not found in sparse rows
+      return -1;
     }
     return row;
   }
 
   private int getOrCreateResolvedRowIndex(int row) {
     if (!rowYNote.isEmpty()) {
+      if (rowYNote.containsKey(row)) {
+        return row;
+      }
       int targetPitch = 127 - row;
       for (Map.Entry<Integer, Integer> entry : rowYNote.entrySet()) {
         if (entry.getValue() == targetPitch) {
           return entry.getKey();
         }
       }
-      // Create new row dynamically
+      // If the input row is within the existing grid size, it's a sparse index from the
+      // parser/initializer
+      if (row < rowCount) {
+        rowYNote.put(row, targetPitch);
+        return row;
+      }
+      // Otherwise, it's a new chromatic pitch from the UI, so append a new row
       int newRowIdx = grid.size();
       List<StepData> newRow = new ArrayList<>();
       for (int s = 0; s < stepCount; s++) {
@@ -311,7 +318,6 @@ public class ClipModel {
     }
 
     if (row >= rowCount) {
-      // Grow the grid to accommodate this row (synth piano roll)
       for (int r = rowCount; r <= row; r++) {
         List<StepData> newRow = new ArrayList<>();
         for (int s = 0; s < stepCount; s++) {
@@ -322,13 +328,6 @@ public class ClipModel {
       rowCount = row + 1;
     }
     return row;
-  }
-
-  public StepData getStepRaw(int sparseRow, int step) {
-    if (sparseRow >= 0 && sparseRow < grid.size() && step >= 0 && step < stepCount) {
-      return grid.get(sparseRow).get(step);
-    }
-    return StepData.empty();
   }
 
   public StepData getStep(int row, int step) {
@@ -423,8 +422,7 @@ public class ClipModel {
    * derived from the XML hex attribute.
    */
   public void setRowSoundParam(int row, String paramName, float value) {
-    int r = getOrCreateResolvedRowIndex(row);
-    rowSoundParams.computeIfAbsent(r, k -> new HashMap<>()).put(paramName, value);
+    rowSoundParams.computeIfAbsent(row, k -> new HashMap<>()).put(paramName, value);
   }
 
   /**
@@ -433,9 +431,7 @@ public class ClipModel {
    * @return the value, or -1 if no override exists for this row+param combination.
    */
   public float getRowSoundParam(int row, String paramName) {
-    int r = getResolvedRowIndex(row);
-    if (r < 0) return -1f;
-    Map<String, Float> rowParams = rowSoundParams.get(r);
+    Map<String, Float> rowParams = rowSoundParams.get(row);
     if (rowParams == null) return -1f;
     Float val = rowParams.get(paramName);
     return val != null ? val : -1f;
@@ -443,16 +439,12 @@ public class ClipModel {
 
   /** Returns true if the given row has any sound parameter overrides. */
   public boolean hasRowSoundParams(int row) {
-    int r = getResolvedRowIndex(row);
-    if (r < 0) return false;
-    return rowSoundParams.containsKey(r) && !rowSoundParams.get(r).isEmpty();
+    return rowSoundParams.containsKey(row) && !rowSoundParams.get(row).isEmpty();
   }
 
   /** Returns all parameter names that have overrides for a given row, or empty set. */
   public Set<String> getRowSoundParamNames(int row) {
-    int r = getResolvedRowIndex(row);
-    if (r < 0) return Set.of();
-    Map<String, Float> rowParams = rowSoundParams.get(r);
+    Map<String, Float> rowParams = rowSoundParams.get(row);
     return rowParams != null ? rowParams.keySet() : Set.of();
   }
 

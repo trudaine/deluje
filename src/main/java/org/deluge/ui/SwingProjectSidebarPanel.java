@@ -18,7 +18,7 @@ public class SwingProjectSidebarPanel extends JPanel {
 
   private final BridgeContract bridge;
 
-  private java.util.function.Consumer<org.deluge.model.ProjectModel> onSongLoaded;
+  private java.util.function.BiConsumer<org.deluge.model.ProjectModel, java.io.File> onSongLoaded;
   private java.util.function.Consumer<org.deluge.model.TrackModel> onTrackAdded;
   private java.util.function.Consumer<java.io.File> onPatternLoad;
   private Runnable onPatternSave;
@@ -259,7 +259,7 @@ public class SwingProjectSidebarPanel extends JPanel {
                             new org.deluge.model.ProjectModel();
                         mockProj.addTrack(kit);
                         if (onSongLoaded != null) {
-                          onSongLoaded.accept(mockProj);
+                          onSongLoaded.accept(mockProj, leafFile);
                         }
                       }
                       bridge.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
@@ -273,7 +273,7 @@ public class SwingProjectSidebarPanel extends JPanel {
                             new org.deluge.model.ProjectModel();
                         mockProj.addTrack(synth);
                         if (onSongLoaded != null) {
-                          onSongLoaded.accept(mockProj);
+                          onSongLoaded.accept(mockProj, leafFile);
                         }
                       }
                       bridge.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
@@ -320,7 +320,7 @@ public class SwingProjectSidebarPanel extends JPanel {
                             JOptionPane.ERROR_MESSAGE);
                       }
                       if (onSongLoaded != null) {
-                        onSongLoaded.accept(loadedProject);
+                        onSongLoaded.accept(loadedProject, leafFile);
                       }
                       bridge.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
                     } else if ("PATTERNS".equals(category)) {
@@ -376,11 +376,13 @@ public class SwingProjectSidebarPanel extends JPanel {
     }
   }
 
-  public void setOnSongLoaded(java.util.function.Consumer<org.deluge.model.ProjectModel> l) {
+  public void setOnSongLoaded(
+      java.util.function.BiConsumer<org.deluge.model.ProjectModel, java.io.File> l) {
     this.onSongLoaded = l;
   }
 
-  public java.util.function.Consumer<org.deluge.model.ProjectModel> getOnSongLoaded() {
+  public java.util.function.BiConsumer<org.deluge.model.ProjectModel, java.io.File>
+      getOnSongLoaded() {
     return onSongLoaded;
   }
 
@@ -672,7 +674,7 @@ public class SwingProjectSidebarPanel extends JPanel {
                         engineRow++;
                       }
                       if (onSongLoaded != null) {
-                        onSongLoaded.accept(loadedProject);
+                        onSongLoaded.accept(loadedProject, destFile);
                       }
                     } else if ("SYNTHS".equals(category)) {
                       org.deluge.model.SynthTrackModel synth =
@@ -684,7 +686,7 @@ public class SwingProjectSidebarPanel extends JPanel {
                             new org.deluge.model.ProjectModel();
                         mockProj.addTrack(synth);
                         if (onSongLoaded != null) {
-                          onSongLoaded.accept(mockProj);
+                          onSongLoaded.accept(mockProj, destFile);
                         }
                       }
                       bridge.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
@@ -705,7 +707,7 @@ public class SwingProjectSidebarPanel extends JPanel {
                             new org.deluge.model.ProjectModel();
                         mockProj.addTrack(kit);
                         if (onSongLoaded != null) {
-                          onSongLoaded.accept(mockProj);
+                          onSongLoaded.accept(mockProj, destFile);
                         }
                       }
                       bridge.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
