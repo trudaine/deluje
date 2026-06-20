@@ -195,8 +195,14 @@ public class ProjectSerializer {
       Element trackElem = null;
       if (track instanceof KitTrackModel kit) {
         trackElem = org.deluge.project.KitSynthSerializer.serializeKit(doc, kit, true);
+        if (trackElem != null) {
+          trackElem.setAttribute("presetFolder", "KITS");
+        }
       } else if (track instanceof SynthTrackModel synth) {
         trackElem = org.deluge.project.KitSynthSerializer.serializeSynth(doc, synth, true);
+        if (trackElem != null) {
+          trackElem.setAttribute("presetFolder", "SYNTHS");
+        }
       }
       if (trackElem != null) {
         instruments.appendChild(trackElem);
