@@ -49,6 +49,29 @@ public class DelugeNoteDataMapper {
     return sb.toString();
   }
 
+  public static String encodeRowSplit(List<StepData> row, int ticksPerStep) {
+    StringBuilder sb = new StringBuilder("0x");
+    for (int s = 0; s < row.size(); s++) {
+      StepData step = row.get(s);
+      if (step.active()) {
+        int pos = s * ticksPerStep;
+        int len = (int) (step.gate() * ticksPerStep);
+        if (len == 0) len = 1;
+
+        String hexPos = String.format("%08X", pos);
+        String hexLen = String.format("%08X", len);
+
+        int velInt = Math.round(step.velocity() * 127.0f);
+        String hexVel = String.format("%02X", Math.max(0, Math.min(127, velInt)));
+        String hexFlags = "4014"; // Default flags/lift
+        String hexExtra = "000000"; // Split probability and iterance defaults
+
+        sb.append(hexPos).append(hexLen).append(hexVel).append(hexFlags).append(hexExtra);
+      }
+    }
+    return sb.toString();
+  }
+
   /**
    * Decode firmware XML noteData into step data.
    *
