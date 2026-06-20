@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import org.deluge.model.AudioTrackModel;
 import org.deluge.model.KitTrackModel;
 import org.deluge.model.ProjectModel;
+import org.deluge.model.SongSection;
 import org.deluge.model.SoundDrum;
 import org.deluge.model.SynthTrackModel;
 import org.junit.jupiter.api.Test;
@@ -17,6 +18,23 @@ public class ProjectSerializerTest {
   void testSerializeProject() throws Exception {
     ProjectModel model = new ProjectModel();
     model.setBpm(130.0f);
+    model.setSwing(0.5f);
+
+    // Set modeNotes (Major scale degree mask: 0, 2, 4, 5, 7, 9, 11)
+    boolean[] mask = new boolean[12];
+    mask[0] = true;
+    mask[2] = true;
+    mask[4] = true;
+    mask[5] = true;
+    mask[7] = true;
+    mask[9] = true;
+    mask[11] = true;
+    model.setModeNotes(mask);
+
+    // Add a SongSection
+    SongSection section = new SongSection("Section 3");
+    section.setNumRepeats(4);
+    model.addSongSection(section);
 
     KitTrackModel kit = new KitTrackModel("DRUMS");
     SoundDrum sound = new SoundDrum("KICK");
@@ -55,12 +73,45 @@ public class ProjectSerializerTest {
     assertTrue(xmlContent.contains("presetName=\"LEAD\""));
     assertTrue(xmlContent.contains("type=\"square\""));
 
+    // Assert modeNotes and sections XML serialization!
+    assertTrue(xmlContent.contains("<modeNotes>"), "should contain modeNotes\n" + xmlContent);
+    assertTrue(
+        xmlContent.contains("<modeNote>0</modeNote>"), "should contain degree 0\n" + xmlContent);
+    assertTrue(
+        xmlContent.contains("<modeNote>2</modeNote>"), "should contain degree 2\n" + xmlContent);
+    assertTrue(
+        xmlContent.contains("<modeNote>4</modeNote>"), "should contain degree 4\n" + xmlContent);
+    assertTrue(xmlContent.contains("<sections>"), "should contain sections\n" + xmlContent);
+    assertTrue(
+        xmlContent.contains("<section id=\"3\" numRepeats=\"4\""),
+        "should contain section 3\n" + xmlContent);
+
     // Assertions for clips and notes
     assertTrue(xmlContent.contains("<sessionClips"));
     assertTrue(xmlContent.contains("<instrumentClip"));
     assertTrue(xmlContent.contains("<noteRows"));
     assertTrue(xmlContent.contains("<noteRow"));
     assertTrue(xmlContent.contains("noteDataWithLift="));
+
+    // Parse back and verify roundtrip integrity of modeNotes and sections!
+    ProjectModel parsed = org.deluge.xml.DelugeXmlParser.parseSong(tempXml);
+    org.junit.jupiter.api.Assertions.assertNotNull(parsed);
+
+    boolean[] parsedMask = parsed.getModeNotes();
+    org.junit.jupiter.api.Assertions.assertNotNull(parsedMask);
+    org.junit.jupiter.api.Assertions.assertTrue(parsedMask[0]);
+    org.junit.jupiter.api.Assertions.assertFalse(parsedMask[1]);
+    org.junit.jupiter.api.Assertions.assertTrue(parsedMask[2]);
+    org.junit.jupiter.api.Assertions.assertTrue(parsedMask[4]);
+    org.junit.jupiter.api.Assertions.assertTrue(parsedMask[5]);
+    org.junit.jupiter.api.Assertions.assertTrue(parsedMask[7]);
+    org.junit.jupiter.api.Assertions.assertTrue(parsedMask[9]);
+    org.junit.jupiter.api.Assertions.assertTrue(parsedMask[11]);
+
+    org.junit.jupiter.api.Assertions.assertEquals(1, parsed.getSongSections().size());
+    SongSection parsedSection = parsed.getSongSections().get(0);
+    org.junit.jupiter.api.Assertions.assertEquals("Section 3", parsedSection.getId());
+    org.junit.jupiter.api.Assertions.assertEquals(4, parsedSection.getNumRepeats());
   }
 
   @Test
