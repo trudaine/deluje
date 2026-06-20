@@ -11,9 +11,7 @@ import org.deluge.model.*;
 import org.deluge.xml.DelugeHexMapper;
 import org.deluge.xml.DelugeNoteDataMapper;
 
-/**
- * Stream-based project song serializer utilizing XMLSerializer for perfect formatting parity.
- */
+/** Stream-based project song serializer utilizing XMLSerializer for perfect formatting parity. */
 public class ProjectSerializer2 {
 
   public static void save(ProjectModel model, File file) throws Exception {
@@ -81,7 +79,8 @@ public class ProjectSerializer2 {
               break;
             }
           }
-          ciBuilder.append(String.format("%08X%08X%08X", ac.startTicks(), ac.durationTicks(), clipIdx));
+          ciBuilder.append(
+              String.format("%08X%08X%08X", ac.startTicks(), ac.durationTicks(), clipIdx));
         }
       }
 
@@ -95,7 +94,6 @@ public class ProjectSerializer2 {
           writer.writeAttribute("clipInstances", ciBuilder.toString(), false);
         }
         writer.writeOpeningTagEnd();
-        writer.writeTag("presetSlot", track.getName());
 
         for (Drum drum : ((KitTrackModel) track).getDrums()) {
           SoundDrum sound = (SoundDrum) drum;
@@ -159,7 +157,6 @@ public class ProjectSerializer2 {
           writer.writeAttribute("clipInstances", ciBuilder.toString(), false);
         }
         writer.writeOpeningTagEnd();
-        writer.writeTag("presetSlot", synth.getName());
 
         // osc1
         writer.writeOpeningTagBeginning("osc1");
@@ -254,14 +251,16 @@ public class ProjectSerializer2 {
           writer.writeClosingTag("delay");
         }
 
-        writer.writeTag("lpfMode",
+        writer.writeTag(
+            "lpfMode",
             switch (synth.getFilterMode()) {
               case LADDER_24 -> "24dB";
               case SVF -> "SVF";
               default -> "12dB";
             });
 
-        writer.writeTag("hpfMode",
+        writer.writeTag(
+            "hpfMode",
             switch (synth.getHpfMode()) {
               case LADDER_24 -> "24dB";
               case SVF -> "SVF";
@@ -281,8 +280,10 @@ public class ProjectSerializer2 {
         if (compAttack > 0 || compRelease > 0 || compSync > 0) {
           writer.writeOpeningTagBeginning("compressor");
           writer.writeAttribute("syncLevel", String.valueOf(compSync), false);
-          writer.writeAttribute("attack", String.valueOf((int) (compAttack * Integer.MAX_VALUE)), false);
-          writer.writeAttribute("release", String.valueOf((int) (compRelease * Integer.MAX_VALUE)), false);
+          writer.writeAttribute(
+              "attack", String.valueOf((int) (compAttack * Integer.MAX_VALUE)), false);
+          writer.writeAttribute(
+              "release", String.valueOf((int) (compRelease * Integer.MAX_VALUE)), false);
           writer.closeTag();
         }
 
@@ -308,7 +309,10 @@ public class ProjectSerializer2 {
         // FM params
         writeHexTagUnipolar(writer, "modulator1Amount", synth.getFmAmount());
         writeHexTagUnipolar(writer, "modulator1Feedback", synth.getModulator1Feedback());
-        writeHexTagUnipolar(writer, "modulator2Amount", synth.getFmAmount()); // Wait! Replicating original bug: modulator2Amount used fmAmount
+        writeHexTagUnipolar(
+            writer,
+            "modulator2Amount",
+            synth.getFmAmount()); // Wait! Replicating original bug: modulator2Amount used fmAmount
         writeHexTagUnipolar(writer, "modulator2Feedback", synth.getModulator2Feedback());
         writeHexTagUnipolar(writer, "carrier1Feedback", synth.getCarrier1Feedback());
         writeHexTagUnipolar(writer, "carrier2Feedback", synth.getCarrier2Feedback());
@@ -398,7 +402,8 @@ public class ProjectSerializer2 {
         for (ArrangerClip ac : model.getArrangerTimeline()) {
           if (ac.trackIndex() == trackIndex && ac.clip() == clip) {
             int clipIdx = clips.indexOf(clip);
-            ciBuilder.append(String.format("%08X%08X%08X", ac.startTicks(), ac.durationTicks(), clipIdx));
+            ciBuilder.append(
+                String.format("%08X%08X%08X", ac.startTicks(), ac.durationTicks(), clipIdx));
           }
         }
 
@@ -495,7 +500,8 @@ public class ProjectSerializer2 {
 
   // ── Helper methods ──
 
-  private static void serializeLfo(XMLSerializer writer, String tag, LfoModel lfo) throws IOException {
+  private static void serializeLfo(XMLSerializer writer, String tag, LfoModel lfo)
+      throws IOException {
     writer.writeOpeningTagBeginning(tag);
     writer.writeOpeningTagEnd();
     writer.writeTag("type", lfoTypeName(lfo.waveform()));
@@ -523,7 +529,8 @@ public class ProjectSerializer2 {
     };
   }
 
-  private static void serializeEnvelope(XMLSerializer writer, String tag, EnvelopeModel env) throws IOException {
+  private static void serializeEnvelope(XMLSerializer writer, String tag, EnvelopeModel env)
+      throws IOException {
     writer.writeOpeningTagBeginning(tag);
     writer.writeOpeningTagEnd();
     writeHexTag(writer, "attack", DelugeHexMapper.normFromEnvTime(env.attack()));
@@ -537,15 +544,18 @@ public class ProjectSerializer2 {
     writer.writeTag(tag, DelugeHexMapper.floatToHex(val));
   }
 
-  private static void writeHexTagUnipolar(XMLSerializer writer, String tag, float val) throws IOException {
+  private static void writeHexTagUnipolar(XMLSerializer writer, String tag, float val)
+      throws IOException {
     writer.writeTag(tag, DelugeHexMapper.floatToHex(val * 2.0f - 1.0f));
   }
 
-  private static void writeHexTagFreq(XMLSerializer writer, String tag, float hz) throws IOException {
+  private static void writeHexTagFreq(XMLSerializer writer, String tag, float hz)
+      throws IOException {
     writer.writeTag(tag, DelugeHexMapper.hzToHex(hz));
   }
 
-  private static void writeHexTagLfoFreq(XMLSerializer writer, String tag, float hz) throws IOException {
+  private static void writeHexTagLfoFreq(XMLSerializer writer, String tag, float hz)
+      throws IOException {
     writer.writeTag(tag, DelugeHexMapper.lfoHzToHex(hz));
   }
 }
