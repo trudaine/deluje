@@ -144,7 +144,7 @@ public class ProjectSerializer2 {
           writeHexTagUnipolar(writer, "lpfResonance", sound.getLpfRes());
           writeHexTagFreq(writer, "hpfFrequency", sound.getHpfFreq());
           writeHexTagUnipolar(writer, "hpfResonance", sound.getHpfRes());
-          writeHexTagUnipolar(writer, "pitch", sound.getPitchSemitones());
+          writeHexTag(writer, "pitch", sound.getPitchSemitones());
           writeHexTagUnipolar(writer, "reverbAmount", sound.getReverbAmount());
           writeHexTagUnipolar(writer, "delayRate", sound.getDelayRate());
           serializeEnvelope(writer, "envelope1", sound.getAdsr());

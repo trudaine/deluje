@@ -30,7 +30,7 @@
 						<lpfResonance>0x80000000</lpfResonance>
 						<hpfFrequency>0x80000000</hpfFrequency>
 						<hpfResonance>0x80000000</hpfResonance>
-						<pitch>0x80000000</pitch>
+						<pitch>0x00000000</pitch>
 						<reverbAmount>0x80000000</reverbAmount>
 						<delayRate>0x80000000</delayRate>
 						<envelope1>
@@ -75,7 +75,7 @@
 						<lpfResonance>0x99999980</lpfResonance>
 						<hpfFrequency>0x80000000</hpfFrequency>
 						<hpfResonance>0x80000000</hpfResonance>
-						<pitch>0x80000000</pitch>
+						<pitch>0x00000000</pitch>
 						<reverbAmount>0x80000000</reverbAmount>
 						<delayRate>0x80000000</delayRate>
 						<envelope1>
@@ -120,7 +120,7 @@
 						<lpfResonance>0x80000000</lpfResonance>
 						<hpfFrequency>0x62685000</hpfFrequency>
 						<hpfResonance>0x80000000</hpfResonance>
-						<pitch>0x80000000</pitch>
+						<pitch>0x00000000</pitch>
 						<reverbAmount>0x80000000</reverbAmount>
 						<delayRate>0x80000000</delayRate>
 						<envelope1>
