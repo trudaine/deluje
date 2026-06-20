@@ -634,16 +634,16 @@
       </sound>
     </kit>
   </instruments>
-  <tracks>
-    <track clipInstances="0x000000000000060000000000" instrumentPresetFolder="SYNTHS" instrumentPresetName="Synth Bass" length="192">
+  <sessionClips>
+    <instrumentClip clipInstances="0x000000000000060000000000" instrumentPresetFolder="SYNTHS" instrumentPresetName="Synth Bass" length="192">
       <soundParams/>
       <noteRows>
         <noteRow noteDataWithLift="0x00000000000003607240140000003000000120664014" y="48"/>
         <noteRow noteDataWithLift="0x0000006000000240724014" y="51"/>
         <noteRow noteDataWithLift="0x0000009000000240724014" y="53"/>
       </noteRows>
-    </track>
-    <track clipInstances="0x000003000000060000000001" instrumentPresetFolder="SYNTHS" instrumentPresetName="Synth Lead" length="384">
+    </instrumentClip>
+    <instrumentClip clipInstances="0x000003000000060000000001" instrumentPresetFolder="SYNTHS" instrumentPresetName="Synth Lead" length="384">
       <soundParams/>
       <noteRows>
         <noteRow noteDataWithLift="0x00000000000001B0664014" y="72"/>
@@ -653,14 +653,14 @@
         <noteRow noteDataWithLift="0x" y="84"/>
         <noteRow noteDataWithLift="0x" y="86"/>
       </noteRows>
-    </track>
-    <track clipInstances="0x000000000000090000000002" instrumentPresetFolder="KITS" instrumentPresetName="Synth Kit" length="384">
+    </instrumentClip>
+    <instrumentClip clipInstances="0x000000000000090000000002" instrumentPresetFolder="KITS" instrumentPresetName="Synth Kit" length="384">
       <kitParams/>
       <noteRows>
-        <noteRow noteDataWithLift="0x00000000000001207240140000006000000120724014000000C0000001207240140000012000000120724014" y="0"/>
-        <noteRow noteDataWithLift="0x00000060000001206C401400000120000001206C4014" y="1"/>
-        <noteRow noteDataWithLift="0x0000000000000090594014000000300000009059401400000060000000905940140000009000000090594014000000C000000090594014000000F00000009059401400000120000000905940140000015000000090594014" y="2"/>
+        <noteRow drumIndex="0" noteDataWithLift="0x00000000000001207240140000006000000120724014000000C0000001207240140000012000000120724014"/>
+        <noteRow drumIndex="1" noteDataWithLift="0x00000060000001206C401400000120000001206C4014"/>
+        <noteRow drumIndex="2" noteDataWithLift="0x0000000000000090594014000000300000009059401400000060000000905940140000009000000090594014000000C000000090594014000000F00000009059401400000120000000905940140000015000000090594014"/>
       </noteRows>
-    </track>
-  </tracks>
+    </instrumentClip>
+  </sessionClips>
 </song>

@@ -199,13 +199,13 @@ public class ProjectSerializer {
     }
 
     // Serialize Tracks (Clips)
-    Element tracksElem = doc.createElement("tracks");
+    Element tracksElem = doc.createElement("sessionClips");
     rootElement.appendChild(tracksElem);
 
     int trackIndex = 0;
     for (TrackModel track : model.getTracks()) {
       for (org.deluge.model.ClipModel clip : track.getClips()) {
-        Element clipTrackElem = doc.createElement("track");
+        Element clipTrackElem = doc.createElement("instrumentClip");
         int stepTicks = clip.isTripletMode() ? 32 : 24;
         clipTrackElem.setAttribute("length", String.valueOf(clip.getStepCount() * stepTicks));
         if (clip.isTripletMode()) {
@@ -278,7 +278,11 @@ public class ProjectSerializer {
             if (!hasActive) continue;
           }
           Element noteRowElem = doc.createElement("noteRow");
-          noteRowElem.setAttribute("y", String.valueOf(Math.max(yNote, 0)));
+          if (track instanceof KitTrackModel) {
+            noteRowElem.setAttribute("drumIndex", String.valueOf(r));
+          } else {
+            noteRowElem.setAttribute("y", String.valueOf(Math.max(yNote, 0)));
+          }
           noteRowElements.add(noteRowElem);
 
           java.util.List<org.deluge.model.StepData> row = new java.util.ArrayList<>();
