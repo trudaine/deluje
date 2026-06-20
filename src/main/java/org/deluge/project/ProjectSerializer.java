@@ -79,8 +79,10 @@ public class ProjectSerializer {
     boolean[] modeNotes = model.getModeNotes();
     if (modeNotes != null && modeNotes.length > 0) {
       writer.writeArrayStart("modeNotes");
-      for (boolean note : modeNotes) {
-        writer.writeTag("modeNote", note ? "1" : "0");
+      for (int i = 0; i < modeNotes.length; i++) {
+        if (modeNotes[i]) {
+          writer.writeTag("modeNote", String.valueOf(i));
+        }
       }
       writer.writeArrayEnding("modeNotes");
     }
@@ -588,14 +590,23 @@ public class ProjectSerializer {
     writer.writeArrayEnding("sessionClips");
 
     // ── sections (arranger timeline) ──
-    List<ArrangerClip> timeline = model.getArrangerTimeline();
-    if (timeline != null && !timeline.isEmpty()) {
+    List<SongSection> sections = model.getSongSections();
+    if (sections != null && !sections.isEmpty()) {
       writer.writeArrayStart("sections");
       int seen = 0;
-      for (ArrangerClip ac : timeline) {
+      for (SongSection sec : sections) {
+        int sectionId = seen;
+        try {
+          String numeric = sec.getId().replaceAll("\\D+", "");
+          if (!numeric.isEmpty()) {
+            sectionId = Integer.parseInt(numeric);
+          }
+        } catch (Exception e) {
+          // fallback
+        }
         writer.writeOpeningTagBeginning("section");
-        writer.writeAttribute("id", seen, false);
-        writer.writeAttribute("numRepeats", 1, false);
+        writer.writeAttribute("id", sectionId, false);
+        writer.writeAttribute("numRepeats", sec.getNumRepeats(), false);
         writer.writeAttribute("launchGroup", 0, false);
         writer.closeTag();
         seen++;
