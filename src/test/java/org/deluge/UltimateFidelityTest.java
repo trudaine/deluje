@@ -112,10 +112,11 @@ public class UltimateFidelityTest {
     // TRACK 2: SYNTH DRUM KIT (100% sample-free synth-based drums)
     // ==================================================================================
     KitTrackModel kitTrack = new KitTrackModel("Synth Kit");
-    kitTrack.setVolume(0.8f);
+    kitTrack.setVolume(1.0f);
 
     // Drum Row 0 (Kick): Sine wave with tight volume envelope decay
     SoundDrum kick = new SoundDrum("Kick");
+    kick.setVolume(1.0f);
     kick.setOsc2Type("SINE");
     kick.setOscBVolume(1.0f);
     kick.setOscAVolume(0.0f);
@@ -135,11 +136,11 @@ public class UltimateFidelityTest {
 
     // Drum Row 2 (Hihat): High-passed white noise with ultra-short decay
     SoundDrum hihat = new SoundDrum("Hihat");
-    hihat.setNoiseVolume(0.6f); // High frequency white noise
+    hihat.setNoiseVolume(0.8f); // Turn up Hihat noise volume!
     hihat.setOscAVolume(0.0f);
     hihat.setOscBVolume(0.0f);
-    hihat.setAdsr(new EnvelopeModel(0.001f, 0.04f, 0.0f, 0.04f, "NONE", 0.0f));
-    hihat.setHpfFreq(9000.0f);
+    hihat.setAdsr(new EnvelopeModel(0.001f, 0.1f, 0.0f, 0.1f, "NONE", 0.0f));
+    hihat.setHpfFreq(2000.0f);
     hihat.setHpfRes(0.0f);
     kitTrack.addDrum(hihat);
 
@@ -328,9 +329,10 @@ public class UltimateFidelityTest {
       project.setMasterVolume(0.8f);
 
       KitTrackModel kitTrack = new KitTrackModel("Synth Kit");
-      kitTrack.setVolume(0.8f);
+      kitTrack.setVolume(1.0f);
 
       SoundDrum kick = new SoundDrum("Kick");
+      kick.setVolume(1.0f);
       kick.setOsc2Type("SINE");
       kick.setOscBVolume(1.0f);
       kick.setOscAVolume(0.0f);
@@ -348,11 +350,11 @@ public class UltimateFidelityTest {
       kitTrack.addDrum(snare);
 
       SoundDrum hihat = new SoundDrum("Hihat");
-      hihat.setNoiseVolume(0.6f);
+      hihat.setNoiseVolume(0.8f);
       hihat.setOscAVolume(0.0f);
       hihat.setOscBVolume(0.0f);
-      hihat.setAdsr(new EnvelopeModel(0.001f, 0.04f, 0.0f, 0.04f, "NONE", 0.0f));
-      hihat.setHpfFreq(9000.0f);
+      hihat.setAdsr(new EnvelopeModel(0.001f, 0.1f, 0.0f, 0.1f, "NONE", 0.0f));
+      hihat.setHpfFreq(2000.0f);
       hihat.setHpfRes(0.0f);
       kitTrack.addDrum(hihat);
 

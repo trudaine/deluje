@@ -21,7 +21,7 @@
 						<detune>0x00000000</detune>
 					</unison>
 					<defaultParams>
-						<volume>0x00000000</volume>
+						<volume>0x7FFFFFFF</volume>
 						<pan>0x00000000</pan>
 						<oscAVolume>0x80000000</oscAVolume>
 						<oscBVolume>0x7FFFFFFF</oscBVolume>
@@ -115,19 +115,19 @@
 						<pan>0x00000000</pan>
 						<oscAVolume>0x80000000</oscAVolume>
 						<oscBVolume>0x80000000</oscBVolume>
-						<noiseVolume>0x19999A00</noiseVolume>
+						<noiseVolume>0x4CCCCD00</noiseVolume>
 						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
 						<lpfResonance>0x80000000</lpfResonance>
-						<hpfFrequency>0x62685000</hpfFrequency>
+						<hpfFrequency>0x2AAAAAC0</hpfFrequency>
 						<hpfResonance>0x80000000</hpfResonance>
 						<pitch>0x00000000</pitch>
 						<reverbAmount>0x80000000</reverbAmount>
 						<delayRate>0x80000000</delayRate>
 						<envelope1>
 							<attack>0x80000000</attack>
-							<decay>0xDB9AEB00</decay>
+							<decay>0xF25BF480</decay>
 							<sustain>0x80000000</sustain>
-							<release>0xDB9AEB00</release>
+							<release>0xF25BF480</release>
 						</envelope1>
 						<envelope2>
 							<attack>0xB92DFA00</attack>
