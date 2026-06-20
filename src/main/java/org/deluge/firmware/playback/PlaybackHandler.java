@@ -14,6 +14,15 @@ public class PlaybackHandler {
   private final Arrangement arrangement = new Arrangement();
   public volatile int lastSwungTickActioned = 0;
   private int swungTicksTilNextEvent = 0;
+  private volatile int syncMode = 0; // 0 = INTERNAL, 1 = EXTERNAL_MIDI
+
+  public int getSyncMode() {
+    return syncMode;
+  }
+
+  public void setSyncMode(int mode) {
+    this.syncMode = mode;
+  }
 
   public synchronized void setSong(Song song) {
     this.currentSong = song;
