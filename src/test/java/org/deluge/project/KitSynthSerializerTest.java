@@ -267,7 +267,7 @@ public class KitSynthSerializerTest {
 
     // Root element
     assertTrue(xml.contains("<kit"), "root should be <kit>");
-    assertTrue(xml.contains("name=\"STRUCT_TEST\""), "should have name attr on kit");
+    assertTrue(xml.contains("presetName=\"STRUCT_TEST\""), "should have presetName attr on kit");
 
     // Sound structure
     assertTrue(xml.contains("<sound>"), "should contain <sound>");
