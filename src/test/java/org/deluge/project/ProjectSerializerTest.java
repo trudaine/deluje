@@ -269,4 +269,41 @@ public class ProjectSerializerTest {
     assertTrue(masterWav.exists() && masterWav.length() > 1000, "Master mix stem should exist!");
     assertTrue(trackWav.exists() && trackWav.length() > 1000, "Lead track stem should exist!");
   }
+
+  @Test
+  void testAbletonExportMultiMode() throws Exception {
+    ProjectModel model = new ProjectModel();
+    model.setBpm(120.0f);
+
+    SynthTrackModel synth = new SynthTrackModel("LEAD");
+    synth.setOsc1Type("SAWTOOTH");
+    org.deluge.model.ClipModel clip = new org.deluge.model.ClipModel("CLIP 1", 8, 16);
+    clip.setStep(0, 0, org.deluge.model.StepData.of(true, 0.8f, 0.9f, 1.0f, 60));
+    synth.addClip(clip);
+    model.addTrack(synth);
+
+    // Test Standalone Ableton Export
+    File tempAls = File.createTempFile("deluge_ableton_test", ".als");
+    tempAls.deleteOnExit();
+    org.deluge.ableton.AbletonTrackExporter.exportProject(model, tempAls);
+    assertTrue(
+        tempAls.exists() && tempAls.length() > 50,
+        "Standalone Ableton .als should be exported successfully!");
+
+    // Test Stems Ableton Export (render 0.1 seconds to keep it super fast!)
+    File tempAlsStems = File.createTempFile("deluge_ableton_stems_test", ".als");
+    tempAlsStems.deleteOnExit();
+    org.deluge.ableton.AbletonTrackExporter.exportStemsProject(model, tempAlsStems, null);
+    assertTrue(
+        tempAlsStems.exists() && tempAlsStems.length() > 50,
+        "Stems Ableton .als should be exported successfully!");
+
+    // Check that WAV stems were rendered in parent folder's Samples/Imported/
+    File projectDir = tempAlsStems.getParentFile();
+    File importedDir = new File(projectDir, "Samples/Imported");
+    File stemFile = new File(importedDir, "Track_1_LEAD_stem.wav");
+    assertTrue(
+        stemFile.exists() && stemFile.length() > 1000,
+        "WAV stem file should exist inside the Ableton project bundle!");
+  }
 }

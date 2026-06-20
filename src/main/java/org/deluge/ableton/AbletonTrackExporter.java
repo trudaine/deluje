@@ -11,30 +11,35 @@ import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
-import org.deluge.model.AudioTrackModel;
-import org.deluge.model.ClipModel;
-import org.deluge.model.Drum;
-import org.deluge.model.HighResNote;
-import org.deluge.model.KitTrackModel;
-import org.deluge.model.ProjectModel;
-import org.deluge.model.SoundDrum;
-import org.deluge.model.StepData;
-import org.deluge.model.SynthTrackModel;
-import org.deluge.model.TrackModel;
+import org.deluge.model.*;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
 /**
  * Exporter that serializes a Deluge ProjectModel into a fully compliant, compressed Ableton Live
- * Set (.als) XML structure.
+ * Set (.als) XML structure. Supports self-contained project bundling and offline stem layout.
  */
 public class AbletonTrackExporter {
+
+  /** Decoupled path rewriter and sample collector interface. */
+  public interface PathRewriter {
+    String rewriteAndCopy(String originalPath);
+  }
 
   /**
    * Main entry point: serializes the project into XML, compresses it using Gzip, and writes the
    * output directly to the target .als file.
    */
   public static void exportProject(ProjectModel project, File targetFile) throws Exception {
+    exportProject(project, targetFile, null);
+  }
+
+  /**
+   * Overloaded entry point: serializes the project into XML, rewriting sample paths and copying
+   * assets if a PathRewriter is provided.
+   */
+  public static void exportProject(ProjectModel project, File targetFile, PathRewriter pathRewriter)
+      throws Exception {
     if (project == null || targetFile == null) return;
 
     // 1. Initialize DOM Document Builder
@@ -78,14 +83,131 @@ public class AbletonTrackExporter {
       if (track instanceof SynthTrackModel stm) {
         exportSynthTrack(doc, tracksContainer, stm, id);
       } else if (track instanceof KitTrackModel ktm) {
-        exportKitTrack(doc, tracksContainer, ktm, id);
+        exportKitTrack(doc, tracksContainer, ktm, id, pathRewriter);
       } else if (track instanceof AudioTrackModel atm) {
-        exportAudioTrack(doc, tracksContainer, atm, id);
+        exportAudioTrack(doc, tracksContainer, atm, id, pathRewriter);
       }
     }
 
     // 7. Write and Gzip-Compress XML to Disk
     try (GZIPOutputStream gos = new GZIPOutputStream(new FileOutputStream(targetFile))) {
+      TransformerFactory transformerFactory = TransformerFactory.newInstance();
+      Transformer transformer = transformerFactory.newTransformer();
+      transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+      transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
+
+      DOMSource source = new DOMSource(doc);
+      StreamResult result = new StreamResult(gos);
+      transformer.transform(source, result);
+    }
+  }
+
+  /**
+   * Renders the project tracks as WAV stems, creates a self-contained Ableton Project, and
+   * generates a Live Set (.als) that references these stems on the timeline.
+   */
+  public static void exportStemsProject(
+      ProjectModel project,
+      File targetAlsFile,
+      org.deluge.project.ExportHelper.ProgressCallback callback)
+      throws Exception {
+    if (project == null || targetAlsFile == null) return;
+
+    File projectDir = targetAlsFile.getParentFile();
+    File importedDir = new File(projectDir, "Samples/Imported");
+    if (!importedDir.exists()) {
+      importedDir.mkdirs();
+    }
+
+    // 1. Render all WAV stems into Samples/Imported/
+    if (callback != null) {
+      callback.onProgress("Initializing Stem Renderer...", 0);
+    }
+    org.deluge.project.ExportHelper.exportStems(project, importedDir, 0, callback);
+
+    // 2. Build the Ableton Live Set XML Document
+    DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
+    DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
+    Document doc = docBuilder.newDocument();
+
+    Element rootEl = doc.createElement("Ableton");
+    rootEl.setAttribute("MajorVersion", "5");
+    rootEl.setAttribute("MinorVersion", "12.0_12049");
+    rootEl.setAttribute("SchemaVersion", "3");
+    rootEl.setAttribute("Creator", "ChucK-Java Deluge Workstation");
+    doc.appendChild(rootEl);
+
+    Element liveSet = doc.createElement("LiveSet");
+    rootEl.appendChild(liveSet);
+
+    // Master Tempo
+    Element masterTrack = doc.createElement("MasterTrack");
+    Element deviceChain = doc.createElement("DeviceChain");
+    Element mixer = doc.createElement("Mixer");
+    Element tempo = doc.createElement("Tempo");
+    Element manual = doc.createElement("Manual");
+    manual.setAttribute("Value", String.valueOf(project.getBpm()));
+    tempo.appendChild(manual);
+    mixer.appendChild(tempo);
+    deviceChain.appendChild(mixer);
+    masterTrack.appendChild(deviceChain);
+    liveSet.appendChild(masterTrack);
+
+    // Tracks Container
+    Element tracksContainer = doc.createElement("Tracks");
+    liveSet.appendChild(tracksContainer);
+
+    // Auto-detect song length in ticks
+    int maxTicks = 0;
+    for (ArrangerClip ac : project.getArrangerTimeline()) {
+      maxTicks = Math.max(maxTicks, ac.startTicks() + ac.durationTicks());
+    }
+    double durationBeats = maxTicks > 0 ? (maxTicks / 96.0) : 16.0;
+
+    // Create an Audio Track in Ableton for each project track
+    List<TrackModel> tracks = project.getTracks();
+    for (int t = 0; t < tracks.size(); t++) {
+      TrackModel track = tracks.get(t);
+      String trackName = track.getName();
+      String cleanName = trackName.replaceAll("[^a-zA-Z0-9_-]", "_");
+      String stemFileName = String.format("Track_%d_%s_stem.wav", t + 1, cleanName);
+
+      Element audioTrack = doc.createElement("AudioTrack");
+      audioTrack.setAttribute("Id", String.valueOf(t));
+      tracksContainer.appendChild(audioTrack);
+
+      setTrackName(doc, audioTrack, trackName);
+
+      Element trackDeviceChain = doc.createElement("DeviceChain");
+      audioTrack.appendChild(trackDeviceChain);
+
+      Element mainSequencer = doc.createElement("MainSequencer");
+      trackDeviceChain.appendChild(mainSequencer);
+
+      Element clipSlotList = doc.createElement("ClipSlotList");
+      mainSequencer.appendChild(clipSlotList);
+
+      // Create a clip slot for the stem
+      Element clipSlot = doc.createElement("ClipSlot");
+      clipSlotList.appendChild(clipSlot);
+
+      Element audioClip = doc.createElement("AudioClip");
+      clipSlot.appendChild(audioClip);
+
+      audioClip.appendChild(createValueElement(doc, "Name", trackName + " Stem"));
+      audioClip.appendChild(createValueElement(doc, "CurrentEnd", String.valueOf(durationBeats)));
+
+      Element sampleRef = doc.createElement("SampleRef");
+      audioClip.appendChild(sampleRef);
+
+      Element fileRef = doc.createElement("FileRef");
+      sampleRef.appendChild(fileRef);
+      // Point relatively to the collected stem file
+      fileRef.appendChild(createValueElement(doc, "Path", "Samples/Imported/" + stemFileName));
+    }
+
+    // 3. Write and Gzip-Compress XML to Disk
+    try (GZIPOutputStream gos = new GZIPOutputStream(new FileOutputStream(targetAlsFile))) {
       TransformerFactory transformerFactory = TransformerFactory.newInstance();
       Transformer transformer = transformerFactory.newTransformer();
       transformer.setOutputProperty(OutputKeys.INDENT, "yes");
@@ -153,7 +275,11 @@ public class AbletonTrackExporter {
 
   /** Exports a KitTrackModel (Drum Rack) into a compliant Ableton MidiTrack. */
   private static void exportKitTrack(
-      Document doc, Element container, KitTrackModel track, int trackId) {
+      Document doc,
+      Element container,
+      KitTrackModel track,
+      int trackId,
+      PathRewriter pathRewriter) {
     Element midiTrack = doc.createElement("MidiTrack");
     midiTrack.setAttribute("Id", String.valueOf(trackId));
     container.appendChild(midiTrack);
@@ -204,7 +330,12 @@ public class AbletonTrackExporter {
 
         Element fileRef = doc.createElement("FileRef");
         sampleRef.appendChild(fileRef);
-        fileRef.appendChild(createValueElement(doc, "Path", sd.getSamplePath()));
+
+        String path = sd.getSamplePath();
+        if (pathRewriter != null) {
+          path = pathRewriter.rewriteAndCopy(path);
+        }
+        fileRef.appendChild(createValueElement(doc, "Path", path));
       }
     }
 
@@ -249,7 +380,11 @@ public class AbletonTrackExporter {
 
   /** Exports an AudioTrackModel into a compliant Ableton AudioTrack. */
   private static void exportAudioTrack(
-      Document doc, Element container, AudioTrackModel track, int trackId) {
+      Document doc,
+      Element container,
+      AudioTrackModel track,
+      int trackId,
+      PathRewriter pathRewriter) {
     Element audioTrack = doc.createElement("AudioTrack");
     audioTrack.setAttribute("Id", String.valueOf(trackId));
     container.appendChild(audioTrack);
@@ -284,7 +419,12 @@ public class AbletonTrackExporter {
 
       Element fileRef = doc.createElement("FileRef");
       sampleRef.appendChild(fileRef);
-      fileRef.appendChild(createValueElement(doc, "Path", clip.getFilePath()));
+
+      String path = clip.getFilePath();
+      if (pathRewriter != null) {
+        path = pathRewriter.rewriteAndCopy(path);
+      }
+      fileRef.appendChild(createValueElement(doc, "Path", path));
     }
   }
 
