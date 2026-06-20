@@ -57,8 +57,8 @@ public class ProjectSerializerTest {
     assertTrue(xmlContent.contains("<type>square</type>"));
 
     // Assertions for clips and notes
-    assertTrue(xmlContent.contains("<tracks"));
-    assertTrue(xmlContent.contains("<track"));
+    assertTrue(xmlContent.contains("<sessionClips"));
+    assertTrue(xmlContent.contains("<instrumentClip"));
     assertTrue(xmlContent.contains("<noteRows"));
     assertTrue(xmlContent.contains("<noteRow"));
     assertTrue(xmlContent.contains("noteDataWithLift="));

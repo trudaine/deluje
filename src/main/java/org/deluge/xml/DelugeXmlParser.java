@@ -1053,6 +1053,9 @@ public class DelugeXmlParser {
     }
 
     NodeList tracksList = songNode.getElementsByTagName("track");
+    if (tracksList.getLength() == 0) {
+      tracksList = songNode.getElementsByTagName("instrumentClip");
+    }
     for (int t = 0; t < tracksList.getLength() && t < project.getTracks().size(); t++) {
       Element trackElem = (Element) tracksList.item(t);
 
