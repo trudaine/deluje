@@ -18,6 +18,7 @@ import org.deluge.firmware2.Oscillator.OscType;
 import org.deluge.firmware2.Param;
 import org.deluge.firmware2.WaveTable;
 import org.deluge.firmware2.WaveTableReader;
+import org.deluge.model.AudioTrackModel;
 import org.deluge.model.ClipModel;
 import org.deluge.model.Drum;
 import org.deluge.model.EnvelopeModel;
@@ -93,6 +94,7 @@ public class FirmwareFactory {
     System.out.println(
         "[FirmwareFactory] Creating FW Song. Tracks in model: " + model.getTracks().size());
     for (TrackModel track : model.getTracks()) {
+      int trackIndex = model.getTracks().indexOf(track);
       if (track instanceof SynthTrackModel synthTrack) {
         InstrumentClip clip = createInstrumentClip(synthTrack, song);
         song.addClip(clip);
@@ -101,6 +103,9 @@ public class FirmwareFactory {
         song.addClip(clip);
       } else if (track instanceof MidiTrackModel midiTrack) {
         InstrumentClip clip = createMidiClip(midiTrack, song);
+        song.addClip(clip);
+      } else if (track instanceof AudioTrackModel audioTrack) {
+        InstrumentClip clip = createAudioClip(audioTrack, trackIndex, model, song);
         song.addClip(clip);
       }
     }
@@ -205,6 +210,81 @@ public class FirmwareFactory {
         clip.noteRows.add(buildNoteRow(clipModel, r, false, stepTicks));
       }
     }
+    return clip;
+  }
+
+  private static InstrumentClip createAudioClip(
+      AudioTrackModel model, int trackIndex, ProjectModel project, Song song) {
+    InstrumentClip clip = new InstrumentClip();
+
+    // 1. Determine loop length from arranger timeline
+    int maxDuration = 100000;
+    for (var ac : project.getArrangerTimeline()) {
+      if (ac.trackIndex() == trackIndex) {
+        maxDuration = Math.max(maxDuration, ac.durationTicks());
+      }
+    }
+    clip.loopLength = maxDuration;
+
+    FirmwareSound sound = new FirmwareSound();
+    sound.fw2Sound.tuning = song;
+    sound.fw2Sound.numUnison = 1; // MUST be at least 1 for unison rendering loops to run!
+    clip.sound = sound;
+
+    // 2. Map volume and EQ parameters
+    sound.paramNeutralValues[Param.LOCAL_VOLUME] = normToBipolarParamVolume(model.getVolume());
+    sound.paramNeutralValues[Param.LOCAL_PAN] = 0; // Centered
+    sound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] =
+        org.deluge.firmware.util.Q31.ONE; // Full oscillator volume
+
+    if (!model.getAudioClips().isEmpty()) {
+      var audioClip = model.getAudioClips().get(0);
+      sound.paramNeutralValues[Param.UNPATCHED_BASS] = dbToBipolarParam(audioClip.getEqBass());
+      sound.paramNeutralValues[Param.UNPATCHED_TREBLE] = dbToBipolarParam(audioClip.getEqTreble());
+    }
+
+    // 3. Set Osc 1 to SAMPLE and load the audio clip WAV/MP3
+    sound.oscTypes[0] = OscType.SAMPLE;
+
+    // Initialize sample settings to safe defaults (play full length, no loop)
+    sound.sampleSettings[0].startPoint = 0;
+    sound.sampleSettings[0].endPoint = 65535;
+    sound.sampleSettings[0].reverse = false;
+    sound.sampleSettings[0].loopMode = 0;
+    sound.sampleSettings[0].timestretch = false;
+
+    if (!model.getAudioClips().isEmpty()) {
+      var audioClip = model.getAudioClips().get(0);
+      sound.sampleSettings[0].startPoint = audioClip.getStartSamplePos();
+      if (audioClip.getEndSamplePos() > 0) {
+        sound.sampleSettings[0].endPoint = audioClip.getEndSamplePos();
+      }
+
+      String filePath = audioClip.getFilePath();
+      File f = new File(filePath);
+      if (f.exists()) {
+        try {
+          Sample smp = AudioFileReader.readSample(f.getAbsolutePath());
+          if (smp != null) {
+            var fw2Smp = org.deluge.firmware2.Sample.fromFirmwareSample(smp);
+            synchronized (sound) {
+              sound.samples[0] = smp;
+              sound.fw2SampleCache[0] = fw2Smp;
+              sound.loadedOscPath[0] = "SAMPLE:" + filePath;
+            }
+            System.out.println("[FirmwareFactory] Loaded audio track sample: " + f.getName());
+          }
+        } catch (IOException e) {
+          System.err.println("[FirmwareFactory] Failed to load audio track sample: " + filePath);
+        }
+      }
+    }
+
+    // 4. Generate the single trigger note-on event
+    NoteRow row = new NoteRow(60); // Middle C = 1.0x speed
+    row.attemptNoteAdd(0, clip.loopLength, 127, 100, null, 0);
+    clip.noteRows.add(row);
+
     return clip;
   }
 

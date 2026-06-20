@@ -237,16 +237,45 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
   private final int[] voiceMonoBuffer = new int[128];
 
   public void triggerNote(int note, int vel) {
+    System.out.println(
+        "[DIAG FirmwareSound] triggerNote: note="
+            + note
+            + " vel="
+            + vel
+            + " sound="
+            + this.hashCode()
+            + " sample="
+            + (samples[0] != null ? samples[0].fileName : "null"));
     syncParamsToFw2();
     fw2Sound.triggerNote(note, vel);
   }
 
   public void triggerNote(int note, int vel, int midiChannel) {
+    System.out.println(
+        "[DIAG FirmwareSound] triggerNote: note="
+            + note
+            + " vel="
+            + vel
+            + " chan="
+            + midiChannel
+            + " sound="
+            + this.hashCode());
     syncParamsToFw2();
     fw2Sound.triggerNote(note, vel, midiChannel);
   }
 
   public void triggerNoteLate(int note, int vel, int samplesLate) {
+    System.out.println(
+        "[DIAG FirmwareSound] triggerNoteLate: note="
+            + note
+            + " vel="
+            + vel
+            + " late="
+            + samplesLate
+            + " sound="
+            + this.hashCode()
+            + " sample="
+            + (samples[0] != null ? samples[0].fileName : "null"));
     syncParamsToFw2();
     fw2Sound.triggerNoteLate(note, vel, samplesLate);
   }

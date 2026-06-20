@@ -79,7 +79,7 @@ public class AbletonTrackMapper {
           if ("MidiTrack".equals(tagName)) {
             importMidiTrack(trackEl, project, samplesDir);
           } else if ("AudioTrack".equals(tagName)) {
-            importAudioTrack(trackEl, project);
+            importAudioTrack(trackEl, project, samplesDir);
           }
         } catch (Exception e) {
           System.err.println(
@@ -441,9 +441,10 @@ public class AbletonTrackMapper {
   }
 
   /** Imports an Ableton Audio track into the ProjectModel. */
-  private static void importAudioTrack(Element trackEl, ProjectModel project) {
+  private static void importAudioTrack(Element trackEl, ProjectModel project, File samplesDir) {
     String trackName = getTrackName(trackEl, "Audio Track");
     AudioTrackModel audioTrack = new AudioTrackModel(trackName);
+    project.addTrack(audioTrack); // Add first so it has a valid index
 
     float vol = parseTrackVolume(trackEl);
     audioTrack.setVolume(vol);
@@ -452,17 +453,32 @@ public class AbletonTrackMapper {
     NodeList audioClips = trackEl.getElementsByTagName("AudioClip");
     for (int i = 0; i < audioClips.getLength(); i++) {
       Element clipEl = (Element) audioClips.item(i);
-      AudioTrackModel.AudioClip delugeClip = parseAudioClip(clipEl, trackName);
+      AudioTrackModel.AudioClip delugeClip = parseAudioClip(clipEl, trackName, samplesDir);
       if (delugeClip != null) {
         audioTrack.addAudioClip(delugeClip);
+
+        // Parse arranger timeline placement
+        try {
+          double startBeats = Double.parseDouble(getElementValue(clipEl, "CurrentStart", "-1.0"));
+          double endBeats = Double.parseDouble(getElementValue(clipEl, "CurrentEnd", "-1.0"));
+          if (startBeats >= 0.0 && endBeats > startBeats) {
+            int startTicks = (int) Math.round(startBeats * 96.0);
+            int durationTicks = (int) Math.round((endBeats - startBeats) * 96.0);
+            int trackIndex = project.getTracks().indexOf(audioTrack);
+            project
+                .getArrangerTimeline()
+                .add(new ArrangerClip(trackIndex, null, delugeClip, startTicks, durationTicks));
+          }
+        } catch (Exception e) {
+          // Ignore parsing errors for malformed placements
+        }
       }
     }
-
-    project.addTrack(audioTrack);
   }
 
   /** Parses an Ableton AudioClip element, resolving its sample path. */
-  private static AudioTrackModel.AudioClip parseAudioClip(Element clipEl, String trackName) {
+  private static AudioTrackModel.AudioClip parseAudioClip(
+      Element clipEl, String trackName, File samplesDir) {
     try {
       String samplePath = "";
       NodeList sampleRefs = clipEl.getElementsByTagName("SampleRef");
@@ -474,8 +490,15 @@ public class AbletonTrackMapper {
           String relPath = getElementValue(fileRef, "RelativePath", "");
           String absPath = getElementValue(fileRef, "Path", "");
           String packName = getElementValue(fileRef, "LivePackName", "");
+          String fileName = getElementValue(fileRef, "Name", "");
 
-          File resolved = AbletonAssetResolver.resolveSamplePath(packName, relPath, absPath);
+          File resolved = null;
+          if (fileName != null && !fileName.isEmpty()) {
+            resolved = new File(samplesDir, fileName);
+          }
+          if (resolved == null || !resolved.exists()) {
+            resolved = AbletonAssetResolver.resolveSamplePath(packName, relPath, absPath);
+          }
           if (resolved != null && resolved.exists()) {
             samplePath = resolved.getAbsolutePath();
           }

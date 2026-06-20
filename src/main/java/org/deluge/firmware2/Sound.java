@@ -780,6 +780,15 @@ public class Sound extends GlobalEffectable {
 
   private void triggerVoiceInternal(
       int note, int vel, int midiChannel, int[] mpeValues, int samplesLate) {
+    System.out.println(
+        "[DIAG Sound] triggerVoiceInternal: note="
+            + note
+            + " vel="
+            + vel
+            + " sound="
+            + this.hashCode()
+            + " sample[0]="
+            + (samples[0] != null ? "present" : "null"));
     synchronized (voices) {
       setupUnisonDetuners();
       setupUnisonStereoSpread();
