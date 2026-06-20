@@ -78,15 +78,15 @@ public class ProjectSerializer2 {
       }
 
       if (track instanceof KitTrackModel) {
-        // We write the kit element directly
-        // C++ writes clipInstances attribute on output/instrument
         writer.writeOpeningTagBeginning("kit");
         writer.writeAttribute("presetName", track.getName(), false);
         writer.writeAttribute("presetFolder", "KITS", false);
-        // if (ciBuilder.length() > 2) {
-        //   writer.writeAttribute("clipInstances", ciBuilder.toString(), false);
-        // }
+        if (ciBuilder.length() > 2) {
+          writer.writeAttribute("clipInstances", ciBuilder.toString(), false);
+        }
         writer.writeOpeningTagEnd();
+
+        writer.writeArrayStart("soundSources");
 
         for (Drum drum : ((KitTrackModel) track).getDrums()) {
           SoundDrum sound = (SoundDrum) drum;
@@ -138,17 +138,17 @@ public class ProjectSerializer2 {
           writer.writeTag("midiKnobs", "");
           writer.writeClosingTag("sound");
         }
+        writer.writeArrayEnding("soundSources");
         writer.writeClosingTag("kit");
 
       } else if (track instanceof SynthTrackModel) {
-        // We call serializeSynth directly, adding clipInstances if needed
         SynthTrackModel synth = (SynthTrackModel) track;
         writer.writeOpeningTagBeginning("sound");
         writer.writeAttribute("presetName", synth.getName(), false);
         writer.writeAttribute("presetFolder", "SYNTHS", false);
-        // if (ciBuilder.length() > 2) {
-        //   writer.writeAttribute("clipInstances", ciBuilder.toString(), false);
-        // }
+        if (ciBuilder.length() > 2) {
+          writer.writeAttribute("clipInstances", ciBuilder.toString(), false);
+        }
         writer.writeOpeningTagEnd();
 
         // osc1
@@ -414,9 +414,9 @@ public class ProjectSerializer2 {
         writer.writeAttribute("length", lengthTicks, false);
         writer.writeAttribute("isPlaying", "1", false);
         writer.writeAttribute("section", "0", false);
-        // if (ciBuilder.length() > 2) {
-        //   writer.writeAttribute("clipInstances", ciBuilder.toString(), false);
-        // }
+        if (ciBuilder.length() > 2) {
+          writer.writeAttribute("clipInstances", ciBuilder.toString(), false);
+        }
         writer.writeOpeningTagEnd();
 
         // Write soundParams / kitParams tag to set outputTypeWhileLoading
