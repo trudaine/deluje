@@ -4,10 +4,21 @@ package org.deluge.model;
  * High-fidelity representation of a clip placement instance on the Arranger timeline. Maps straight
  * to the standard firmware's ClipInstance bounds and tick positions.
  */
-public record ArrangerClip(int trackIndex, ClipModel clip, int startTicks, int durationTicks) {
+public record ArrangerClip(
+    int trackIndex,
+    ClipModel clip,
+    org.deluge.model.AudioTrackModel.AudioClip audioClip,
+    int startTicks,
+    int durationTicks) {
+
   public ArrangerClip {
     startTicks = Math.max(0, startTicks);
     durationTicks = Math.max(1, durationTicks);
+  }
+
+  /** Legacy constructor for 100% backward compatibility with MIDI-only clips. */
+  public ArrangerClip(int trackIndex, ClipModel clip, int startTicks, int durationTicks) {
+    this(trackIndex, clip, null, startTicks, durationTicks);
   }
 
   /** Convenience getter: returns start position in standard bars (assuming 96 ticks per bar). */

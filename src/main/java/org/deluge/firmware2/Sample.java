@@ -10,6 +10,8 @@ package org.deluge.firmware2;
  * the cluster layer). All DSP that reads samples goes through a reader over {@link #data}.
  */
 public class Sample {
+  public String fileName;
+
   /** C: AudioFile::numChannels */
   public int numChannels;
 
@@ -49,6 +51,7 @@ public class Sample {
   public static Sample fromFirmwareSample(org.deluge.firmware.model.sample.Sample modelSample) {
     if (modelSample == null || modelSample.data == null) return null;
     Sample s = new Sample();
+    s.fileName = modelSample.fileName;
     s.numChannels = modelSample.numChannels;
     s.byteDepth = modelSample.byteDepth;
     s.sampleRate = (int) modelSample.sampleRate;

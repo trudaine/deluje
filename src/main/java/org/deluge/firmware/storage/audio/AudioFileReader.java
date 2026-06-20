@@ -1,5 +1,6 @@
 package org.deluge.firmware.storage.audio;
 
+import fr.delthas.javamp3.Sound;
 import java.io.*;
 import java.nio.*;
 import org.deluge.firmware.model.sample.Sample;
@@ -8,6 +9,14 @@ public class AudioFileReader {
   public static Sample readSample(String path) throws IOException {
     File file = new File(path);
     if (!file.exists()) return null;
+
+    if (file.getName().toLowerCase().endsWith(".mp3")) {
+      try {
+        return readMP3Sample(path);
+      } catch (Exception e) {
+        throw new IOException("Failed to decode MP3 file: " + path, e);
+      }
+    }
 
     Sample sample = new Sample();
     sample.fileName = file.getName();
@@ -96,6 +105,50 @@ public class AudioFileReader {
         }
 
         if (chunkLen % 2 != 0 && fis.available() > 0) dis.readByte(); // padding
+      }
+    }
+    return sample;
+  }
+
+  private static Sample readMP3Sample(String path) throws Exception {
+    File file = new File(path);
+    if (!file.exists()) return null;
+
+    Sample sample = new Sample();
+    sample.fileName = file.getName();
+
+    try (FileInputStream fis = new FileInputStream(file)) {
+      Sound sound = new Sound(fis);
+      javax.sound.sampled.AudioFormat format = sound.getAudioFormat();
+      sample.sampleRate = (int) format.getSampleRate();
+      sample.numChannels = format.getChannels();
+      sample.byteDepth = format.getSampleSizeInBits() / 8;
+
+      ByteArrayOutputStream baos = new ByteArrayOutputStream();
+      byte[] readBuf = new byte[65536];
+      int read;
+      while ((read = sound.read(readBuf)) != -1) {
+        baos.write(readBuf, 0, read);
+      }
+      byte[] pcmBytes = baos.toByteArray();
+      sound.close();
+
+      int bytesPerSample = format.getSampleSizeInBits() / 8;
+      int numSamples = pcmBytes.length / bytesPerSample;
+      sample.data = new float[numSamples];
+
+      ByteBuffer buf =
+          ByteBuffer.wrap(pcmBytes)
+              .order(format.isBigEndian() ? ByteOrder.BIG_ENDIAN : ByteOrder.LITTLE_ENDIAN);
+
+      if (format.getSampleSizeInBits() == 16) {
+        for (int i = 0; i < numSamples; i++) {
+          sample.data[i] = buf.getShort() / 32768.0f;
+        }
+      } else if (format.getSampleSizeInBits() == 8) {
+        for (int i = 0; i < numSamples; i++) {
+          sample.data[i] = (buf.get() & 0xFF) / 255.0f;
+        }
       }
     }
     return sample;

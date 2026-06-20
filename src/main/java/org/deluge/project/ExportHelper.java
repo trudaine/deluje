@@ -112,7 +112,8 @@ public class ExportHelper {
     for (TrackModel track : model.getTracks()) {
       if (track instanceof SynthTrackModel
           || track instanceof KitTrackModel
-          || track instanceof MidiTrackModel) {
+          || track instanceof MidiTrackModel
+          || track instanceof AudioTrackModel) {
         compileableTracks.add(track);
       }
     }
@@ -178,7 +179,6 @@ public class ExportHelper {
         wavBytes[byteIdx++] = (byte) ((s16R >> 8) & 0xFF);
       }
     }
-
     handler.stop();
 
     AudioFormat format = new AudioFormat(44100.0f, 16, 2, true, false);
