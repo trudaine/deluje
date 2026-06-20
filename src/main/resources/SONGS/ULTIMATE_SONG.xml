@@ -323,7 +323,7 @@
 						<detune>0x00000000</detune>
 					</unison>
 					<defaultParams>
-						<volume>0x00000000</volume>
+						<volume>0x7FFFFFFF</volume>
 						<pan>0x00000000</pan>
 						<oscAVolume>0x80000000</oscAVolume>
 						<oscBVolume>0x80000000</oscBVolume>
@@ -368,7 +368,7 @@
 						<detune>0x00000000</detune>
 					</unison>
 					<defaultParams>
-						<volume>0x00000000</volume>
+						<volume>0x7FFFFFFF</volume>
 						<pan>0x00000000</pan>
 						<oscAVolume>0x80000000</oscAVolume>
 						<oscBVolume>0x80000000</oscBVolume>
