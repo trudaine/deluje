@@ -263,11 +263,18 @@ public class KitSynthSerializer2 {
     for (Drum drum : kit.getDrums()) {
       SoundDrum sound = (SoundDrum) drum;
       writer.writeOpeningTagBeginning("sound");
+      writer.writeAttribute("name", sound.getName(), false);
+      writer.writeAttribute("polyphonic", "auto", false);
+      writer.writeAttribute("voicePriority", 1, false);
+      writer.writeAttribute("mode", "subtractive", false);
+      writer.writeAttribute("lpfMode", "24dB", false);
+      writer.writeAttribute("hpfMode", "HPLadder", false);
+      writer.writeAttribute("filterRoute", "H2L", false);
+      writer.writeAttribute("maxVoices", 8, false);
       writer.writeOpeningTagEnd();
-      writer.writeTag("name", sound.getName());
 
       writer.writeOpeningTagBeginning("osc1");
-      if (sound.getSamplePath() != null) {
+      if (sound.getSamplePath() != null && !sound.getSamplePath().isEmpty()) {
         writer.writeAttribute("type", "sample", false);
         writer.closeTag();
         writer.writeOpeningTagBeginning("sample");
@@ -297,6 +304,9 @@ public class KitSynthSerializer2 {
       writer.writeOpeningTagEnd();
       writeHexTagUnipolar(writer, "volume", sound.getVolume());
       writeHexTag(writer, "pan", sound.getPan());
+      writeHexTagUnipolar(writer, "oscAVolume", sound.getOscAVolume());
+      writeHexTagUnipolar(writer, "oscBVolume", sound.getOscBVolume());
+      writeHexTagUnipolar(writer, "noiseVolume", sound.getNoiseVolume());
       writeHexTagFreq(writer, "lpfFrequency", sound.getLpfFreq());
       writeHexTagUnipolar(writer, "lpfResonance", sound.getLpfRes());
       writeHexTagFreq(writer, "hpfFrequency", sound.getHpfFreq());
