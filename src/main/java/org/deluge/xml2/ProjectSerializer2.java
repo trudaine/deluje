@@ -97,8 +97,15 @@ public class ProjectSerializer2 {
         for (Drum drum : ((KitTrackModel) track).getDrums()) {
           SoundDrum sound = (SoundDrum) drum;
           writer.writeOpeningTagBeginning("sound");
+          writer.writeAttribute("name", sound.getName(), false);
+          writer.writeAttribute("polyphonic", "auto", false);
+          writer.writeAttribute("voicePriority", 1, false);
+          writer.writeAttribute("mode", "subtractive", false);
+          writer.writeAttribute("lpfMode", "24dB", false);
+          writer.writeAttribute("hpfMode", "HPLadder", false);
+          writer.writeAttribute("filterRoute", "H2L", false);
+          writer.writeAttribute("maxVoices", 8, false);
           writer.writeOpeningTagEnd();
-          writer.writeTag("name", sound.getName());
 
           writer.writeOpeningTagBeginning("osc1");
           if (sound.getSamplePath() != null) {
