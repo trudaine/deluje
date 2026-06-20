@@ -152,9 +152,30 @@ public class ProjectSerializer {
     Element rootElement = doc.createElement("song");
     doc.appendChild(rootElement);
 
-    // Global settings
-    rootElement.setAttribute("tempo", String.valueOf(model.getBpm()));
+    // Global settings & clock setup for physical hardware compatibility
+    float bpm = model.getBpm();
+    int magnitude = 2; // Default insideWorldTickMagnitude
+    double scaledBpm = bpm * (1 << magnitude);
+    double timePerTimerTick = 110250.0 / scaledBpm;
+    long timePerTimerTickBig = (long) (timePerTimerTick * 4294967296.0);
+    int high = (int) (timePerTimerTickBig >> 32);
+    int low = (int) timePerTimerTickBig;
+
+    rootElement.setAttribute("tempo", String.valueOf(bpm));
     rootElement.setAttribute("swing", org.deluge.xml.DelugeHexMapper.floatToHex(model.getSwing()));
+    rootElement.setAttribute("firmwareVersion", "c4.1.0");
+    rootElement.setAttribute("earliestCompatibleFirmware", "4.1.0-alpha");
+    rootElement.setAttribute("previewNumPads", "144");
+    rootElement.setAttribute("xScroll", "0");
+    rootElement.setAttribute("xZoom", "24");
+    rootElement.setAttribute("yScrollSongView", "-7");
+    rootElement.setAttribute("yScrollArrangementView", "-7");
+    rootElement.setAttribute("timePerTimerTick", String.valueOf(high));
+    rootElement.setAttribute("timerTickFraction", String.valueOf(low));
+    rootElement.setAttribute("inputTickMagnitude", String.valueOf(magnitude));
+    rootElement.setAttribute("swingAmount", "0");
+    rootElement.setAttribute("swingInterval", "7");
+    rootElement.setAttribute("affectEntire", "0");
 
     serializeMicrotuning(doc, rootElement, model);
 
