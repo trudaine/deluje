@@ -19,9 +19,15 @@ public class RoundtripDiagnostics {
     System.out.println("Swing: " + model.getSwing());
 
     File regenFile = new File("src/main/resources/SONGS/SONG006669_REGEN.XML");
-    System.out.println("=== DIAGNOSTIC RUNNER: SERIALIZING REGENERATED SONG ===");
+    System.out.println("=== DIAGNOSTIC RUNNER: SERIALIZING REGENERATED SONG (DOM) ===");
     ProjectSerializer.save(model, regenFile);
-    System.out.println("=== DIAGNOSTIC RUNNER: REGENERATED SUCCESSFULLY TO ===");
+    System.out.println("=== DIAGNOSTIC RUNNER: REGENERATED (DOM) SUCCESSFULLY TO ===");
     System.out.println(regenFile.getAbsolutePath());
+
+    File regenFile2 = new File("src/main/resources/SONGS/SONG006669_REGEN2.XML");
+    System.out.println("=== DIAGNOSTIC RUNNER: SERIALIZING REGENERATED SONG (STREAM) ===");
+    org.deluge.xml2.ProjectSerializer2.save(model, regenFile2);
+    System.out.println("=== DIAGNOSTIC RUNNER: REGENERATED (STREAM) SUCCESSFULLY TO ===");
+    System.out.println(regenFile2.getAbsolutePath());
   }
 }
