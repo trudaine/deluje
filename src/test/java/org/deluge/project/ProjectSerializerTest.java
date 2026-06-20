@@ -239,4 +239,34 @@ public class ProjectSerializerTest {
     org.junit.jupiter.api.Assertions.assertEquals(18500.0f, parsedClip.getLpfFrequency(), 10.0f);
     org.junit.jupiter.api.Assertions.assertEquals(0.15f, parsedClip.getLpfResonance(), 0.01f);
   }
+
+  @Test
+  void testExportMidiAndStems() throws Exception {
+    ProjectModel model = new ProjectModel();
+    model.setBpm(120.0f);
+
+    SynthTrackModel synth = new SynthTrackModel("LEAD");
+    synth.setOsc1Type("SAWTOOTH");
+    org.deluge.model.ClipModel clip = new org.deluge.model.ClipModel("CLIP 1", 8, 16);
+    clip.setStep(0, 0, org.deluge.model.StepData.of(true, 0.8f, 0.9f, 1.0f, 60));
+    synth.addClip(clip);
+    model.addTrack(synth);
+
+    // Test MIDI Export
+    File tempMidi = File.createTempFile("deluge_export_test", ".mid");
+    tempMidi.deleteOnExit();
+    org.deluge.project.ExportHelper.exportMidi(model, tempMidi);
+    assertTrue(
+        tempMidi.exists() && tempMidi.length() > 10, "MIDI file should be exported successfully!");
+
+    // Test WAV Stems Export (render 0.1 seconds to keep it super fast!)
+    File tempDir = java.nio.file.Files.createTempDirectory("deluge_stems_test").toFile();
+    tempDir.deleteOnExit();
+    org.deluge.project.ExportHelper.exportStems(model, tempDir, 0.1, null);
+
+    File masterWav = new File(tempDir, "Master_mix.wav");
+    File trackWav = new File(tempDir, "Track_1_LEAD_stem.wav");
+    assertTrue(masterWav.exists() && masterWav.length() > 1000, "Master mix stem should exist!");
+    assertTrue(trackWav.exists() && trackWav.length() > 1000, "Lead track stem should exist!");
+  }
 }

@@ -43,6 +43,7 @@ public class PreferencesDialog extends JDialog {
   private JComboBox<String> screenResCombo;
   private JComboBox<String> gridModeCombo;
   private JComboBox<String> engineCombo;
+  private JComboBox<String> syncModeCombo;
   private JComboBox<String> midiCombo;
   private javax.swing.Timer portScanTimer;
   private boolean isRebuildingCombo = false;
@@ -580,6 +581,17 @@ public class PreferencesDialog extends JDialog {
         c,
         5);
 
+    syncModeCombo =
+        new JComboBox<>(new String[] {"INTERNAL (DAC Clock)", "EXTERNAL (MIDI Clock Sync)"});
+    styleComboBox(syncModeCombo);
+    addField(
+        panel,
+        "Sequencer Sync Mode",
+        syncModeCombo,
+        "Determines if the playhead is driven by the DAC audio card or incoming MIDI clock ticks.",
+        c,
+        6);
+
     return panel;
   }
 
@@ -876,6 +888,13 @@ public class PreferencesDialog extends JDialog {
     gridModeCombo.setSelectedItem(PreferencesManager.getGridMode().name());
     engineCombo.setSelectedItem(PreferencesManager.getSequencerEngine().name());
 
+    String syncModeStr = PreferencesManager.get("sequencer.sync.mode", "INTERNAL");
+    if ("EXTERNAL_MIDI".equals(syncModeStr)) {
+      syncModeCombo.setSelectedIndex(1);
+    } else {
+      syncModeCombo.setSelectedIndex(0);
+    }
+
     advancedGridStyleCheck.setSelected(
         PreferencesManager.getGridPanelType() == PreferencesManager.GridPanelType.ADVANCED);
 
@@ -1087,6 +1106,21 @@ public class PreferencesDialog extends JDialog {
     if (displayTypeCombo.getSelectedIndex() == 1) dt = PreferencesManager.DisplayType.OLED_ONLY;
     else if (displayTypeCombo.getSelectedIndex() == 2) dt = PreferencesManager.DisplayType.LED_ONLY;
     PreferencesManager.setDisplayType(dt);
+
+    int selectedSyncMode = syncModeCombo.getSelectedIndex();
+    PreferencesManager.set(
+        "sequencer.sync.mode", selectedSyncMode == 1 ? "EXTERNAL_MIDI" : "INTERNAL");
+
+    if (midiService != null && midiService.getBridge() != null) {
+      Object ph =
+          midiService.getBridge().getGlobalObject(org.deluge.BridgeContract.G_PLAYBACK_HANDLER);
+      if (ph instanceof org.deluge.firmware.playback.PlaybackHandler playbackHandler) {
+        playbackHandler.setSyncMode(selectedSyncMode);
+        System.out.println(
+            "[Preferences] Dynamic Sync Mode applied: "
+                + (selectedSyncMode == 1 ? "EXTERNAL" : "INTERNAL"));
+      }
+    }
 
     if (SwingDelugeApp.mainInstance != null && SwingDelugeApp.mainInstance.getTopBar() != null) {
       SwingDelugeApp.mainInstance.getTopBar().applyDisplayPreferences();

@@ -1061,6 +1061,14 @@ public class SwingDelugeApp extends JFrame {
       // Register in bridge for components that poll it
       bridge.setGlobalObject(BridgeContract.G_FIRMWARE_ENGINE, pureEngine.getAudioEngine());
       bridge.setGlobalObject(BridgeContract.G_PLAYBACK_HANDLER, pureEngine.getPlaybackHandler());
+
+      String syncModeStr =
+          org.deluge.project.PreferencesManager.get("sequencer.sync.mode", "INTERNAL");
+      int syncMode = "EXTERNAL_MIDI".equals(syncModeStr) ? 1 : 0;
+      pureEngine.getPlaybackHandler().setSyncMode(syncMode);
+      System.out.println(
+          "[UI] Boot Sync Mode applied to PlaybackHandler: "
+              + (syncMode == 1 ? "EXTERNAL" : "INTERNAL"));
     }
 
     // Inflate Font Sizes globally (excluding menus to prevent layout bloat!)
@@ -2174,6 +2182,126 @@ public class SwingDelugeApp extends JFrame {
     bridge.setGlobalFloat(BridgeContract.G_WVOUT_ACTIVE, 0.0f);
   }
 
+  private void exportWavStems() {
+    JFileChooser chooser = new JFileChooser();
+    chooser.setDialogTitle("Select Directory to Export Stems");
+    chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+    if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
+
+    java.io.File targetDir = chooser.getSelectedFile();
+    if (!targetDir.exists()) {
+      targetDir.mkdirs();
+    }
+
+    String input =
+        JOptionPane.showInputDialog(
+            this, "Enter duration to render in seconds (0 for auto-detect from Arranger):", "0");
+    if (input == null) return;
+
+    double duration;
+    try {
+      duration = Double.parseDouble(input);
+    } catch (NumberFormatException e) {
+      JOptionPane.showMessageDialog(
+          this,
+          "Invalid duration. Using auto-detect.",
+          "Export Stems",
+          JOptionPane.WARNING_MESSAGE);
+      duration = 0;
+    }
+
+    JDialog progressDialog = new JDialog(this, "Exporting WAV Stems...", true);
+    progressDialog.setSize(350, 120);
+    progressDialog.setLocationRelativeTo(this);
+    progressDialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
+    progressDialog.setLayout(new BorderLayout(10, 10));
+
+    JLabel statusLabel = new JLabel("Preparing export...", JLabel.CENTER);
+    JProgressBar progressBar = new JProgressBar(0, 100);
+    progressBar.setStringPainted(true);
+
+    JPanel panel = new JPanel(new GridLayout(2, 1, 5, 5));
+    panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+    panel.add(statusLabel);
+    panel.add(progressBar);
+    progressDialog.add(panel, BorderLayout.CENTER);
+
+    double finalDuration = duration;
+
+    SwingWorker<Void, String> worker =
+        new SwingWorker<>() {
+          @Override
+          protected Void doInBackground() throws Exception {
+            org.deluge.project.ExportHelper.exportStems(
+                currentProject,
+                targetDir,
+                finalDuration,
+                (status, percent) -> {
+                  publish(status + "|" + percent);
+                });
+            return null;
+          }
+
+          @Override
+          protected void process(java.util.List<String> chunks) {
+            String lastChunk = chunks.get(chunks.size() - 1);
+            String[] parts = lastChunk.split("\\|");
+            statusLabel.setText(parts[0]);
+            progressBar.setValue(Integer.parseInt(parts[1]));
+          }
+
+          @Override
+          protected void done() {
+            progressDialog.dispose();
+            try {
+              get(); // Check for exceptions
+              JOptionPane.showMessageDialog(
+                  SwingDelugeApp.this,
+                  "WAV Stems exported successfully to:\n" + targetDir.getAbsolutePath(),
+                  "Export Success",
+                  JOptionPane.INFORMATION_MESSAGE);
+            } catch (Exception ex) {
+              JOptionPane.showMessageDialog(
+                  SwingDelugeApp.this,
+                  "WAV Stems export failed:\n" + ex.getMessage(),
+                  "Export Error",
+                  JOptionPane.ERROR_MESSAGE);
+            }
+          }
+        };
+
+    worker.execute();
+    progressDialog.setVisible(true);
+  }
+
+  private void exportMidiFile() {
+    JFileChooser chooser = new JFileChooser();
+    chooser.setDialogTitle("Export MIDI File");
+    chooser.setSelectedFile(new java.io.File("deluge_export.mid"));
+    if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
+
+    java.io.File targetFile = chooser.getSelectedFile();
+    String filePath = targetFile.getAbsolutePath();
+    if (!filePath.toLowerCase().endsWith(".mid") && !filePath.toLowerCase().endsWith(".midi")) {
+      targetFile = new java.io.File(filePath + ".mid");
+    }
+
+    try {
+      org.deluge.project.ExportHelper.exportMidi(currentProject, targetFile);
+      JOptionPane.showMessageDialog(
+          this,
+          "MIDI file exported successfully to:\n" + targetFile.getAbsolutePath(),
+          "Export Success",
+          JOptionPane.INFORMATION_MESSAGE);
+    } catch (Exception ex) {
+      JOptionPane.showMessageDialog(
+          this,
+          "MIDI export failed:\n" + ex.getMessage(),
+          "Export Error",
+          JOptionPane.ERROR_MESSAGE);
+    }
+  }
+
   /**
    * Save the active clip of the currently focused track as a pattern XML file. Prompts the user for
    * a file location under the PATTERNS directory.
@@ -2499,6 +2627,12 @@ public class SwingDelugeApp extends JFrame {
     JMenuItem exportItem = new JMenuItem("Export Audio...");
     exportItem.addActionListener(e -> exportAudio());
 
+    JMenuItem exportWavStemsItem = new JMenuItem("Export WAV Stems...");
+    exportWavStemsItem.addActionListener(e -> exportWavStems());
+
+    JMenuItem exportMidiItem = new JMenuItem("Export MIDI File...");
+    exportMidiItem.addActionListener(e -> exportMidiFile());
+
     JMenuItem assembleKitItem = new JMenuItem("Assemble Kit From Synths...");
     assembleKitItem.addActionListener(e -> assembleKitFromSynths());
 
@@ -2527,6 +2661,8 @@ public class SwingDelugeApp extends JFrame {
     fileMenu.add(saveAsItem);
     fileMenu.addSeparator();
     fileMenu.add(exportItem);
+    fileMenu.add(exportWavStemsItem);
+    fileMenu.add(exportMidiItem);
     fileMenu.addSeparator();
     fileMenu.add(assembleKitItem);
 

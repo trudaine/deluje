@@ -53,6 +53,10 @@ public class MidiService {
         });
   }
 
+  public BridgeContract getBridge() {
+    return bridge;
+  }
+
   public MidiInputRouter getRouter() {
     return router;
   }
@@ -488,10 +492,9 @@ public class MidiService {
           System.out.println("[MidiService] Real-Time Transport: STOP");
         }
       } else if (msg.isClock()) {
-        // External clock tick advance: 4 Deluge ticks per 24 PPQN MIDI clock pulse!
-        // (Only active if external clock sync mode is desired - for now, always accept clock
-        // ticks!)
-        playbackHandler.advanceTicks(4);
+        if (playbackHandler.getSyncMode() == 1) { // Only advance if EXTERNAL sync mode
+          playbackHandler.advanceTicks(4);
+        }
       }
     }
   }

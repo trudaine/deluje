@@ -169,11 +169,13 @@ public class JavaAudioDriver implements Runnable {
       int[] liveInputBlock = new int[BLOCK_SIZE * 2];
       while (running) {
         if (playbackHandler != null) {
-          accumulatedTicks += ticksPerSample * BLOCK_SIZE;
-          int toAdvance = (int) accumulatedTicks;
-          if (toAdvance > 0) {
-            playbackHandler.advanceTicks(toAdvance);
-            accumulatedTicks -= toAdvance;
+          if (playbackHandler.getSyncMode() == 0) { // Only advance if INTERNAL sync mode
+            accumulatedTicks += ticksPerSample * BLOCK_SIZE;
+            int toAdvance = (int) accumulatedTicks;
+            if (toAdvance > 0) {
+              playbackHandler.advanceTicks(toAdvance);
+              accumulatedTicks -= toAdvance;
+            }
           }
 
           // Metronome: click on each quarter-note boundary while playing (high pitch on the bar

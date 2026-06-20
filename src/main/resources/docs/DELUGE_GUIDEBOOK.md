@@ -31,6 +31,7 @@ Welcome to the **ChucK-Java Deluge Workstation**, a modern, high-fidelity softwa
 17. [System Settings, Directories Preferences & Shortcuts Table](#17-system-settings-directories-preferences--shortcuts-table)
     * [17.1 Hardware Character Emulations & Master Saturation Drive](#171-hardware-character-emulations--master-saturation-drive)
     * [17.2 Microtuning, Custom Temperaments & Scala (.scl) Imports](#172-microtuning-custom-temperaments--scala-scl-imports)
+    * [17.3 ChucK-Java Workstation Exclusive Power Features](#173-chuck-java-workstation-exclusive-power-features)
 18. [Appendix: Programmatic High-Fidelity JNI Registers Architecture](#18-appendix-programmatic-high-fidelity-jni-registers-architecture)
 19. [Appendix: Pending Work Items & Future Development Roadmap (TODO List)](#19-appendix-pending-work-items--future-development-roadmap-todo-list)
 20. [Hardware Popular Commands & Java UI Equivalents Table](#20-hardware-popular-commands--java-ui-equivalents-table)
@@ -1046,6 +1047,36 @@ To reproduce the exact, iconic lo-fi and physical audio character of the vintage
 | **`Ctrl + Y` / `Cmd + Y`** | Edit action | Redoes the last undone sequencer state change from the transaction history stack. |
 | **`Tab` Key** | View Mode | Toggles active display focus between CLIP, SONG, and ARRANGEMENT grid views. |
 | **`Escape` Key** | Dialog focus | Closes the active frontmost modeless JDialog frame window instantly. |
+
+### 17.3 ChucK-Java Workstation Exclusive Power Features
+
+The ChucK-Java Deluge Workstation extends the capabilities of the original physical hardware, leveraging the desktop environment's processing power, high-resolution display, disk throughput, and robust JDK libraries. Below is an overview of these exclusive power features:
+
+#### 1. 📦 Standalone WAV Stem Exporter (Offline Mixdown)
+Unlike the physical hardware—which only allows real-time stereo recording of a performance—ChucK-Java includes a high-performance **Offline WAV Stem Exporter**.
+*   **Background Multi-Threaded Rendering**: Utilizing a background worker thread (`SwingWorker`), ChucK-Java renders the entire song at maximum CPU speed without interrupting the user interface.
+*   **Track Isolation (Multi-Stem)**: The exporter runs a dedicated rendering pass for each individual track (Synth, Drum Kit, and Audio Track) by isolating its specific voice oscillators and filters. This outputs perfectly aligned, sample-accurate, phase-locked individual stem files (e.g. `Track_1_Drums_stem.wav`, `Track_2_Lead_stem.wav`) alongside a combined `Master_mix.wav` stem.
+*   **Arranger-Sync Duration**: The exporter automatically scans the arranger timeline to detect the precise length of your song, or falls back to a user-specified duration.
+
+#### 2. 🎹 Multi-Track MIDI Exporter
+Exporting your arrangements to a digital audio workstation (DAW) like Ableton Live, Logic Pro, or Reaper is completely seamless.
+*   **Arranger-Aligned MIDI tracks**: The MIDI exporter converts the song's arranger timeline into a standard multi-track MIDI file (`.mid`) with **96 PPQ** (Pulses Per Quarter Note) resolution.
+*   **Sequencer Step Conversion**: Sequencer note triggers and gates are mathematically converted to precise MIDI tick boundaries, mapping straight drum slots to standard General MIDI keys (starting at C3 / MIDI 36 for drum pads) and synth notes to chromatic channels.
+*   **Arranger Fallback**: If the arranger timeline is empty, the exporter automatically builds sequential blocks of your session clips (separated by a 1-bar gap) so you can easily import your patterns as clean, separate MIDI tracks!
+
+#### 3. ⏱️ MIDI Clock Sync (Master & Slave Modes)
+To bridge ChucK-Java with external hardware (such as drum machines, pocket operators, modular synthesizers, or secondary computers running DAWs), the workstation incorporates a dual-mode **System Real-Time MIDI Clock Sync** manager.
+*   **Master Mode (Clock Transmitter)**: When playing internally, ChucK-Java acts as the master clock. It sends MIDI Start (`0xFA`), Stop (`0xFC`), and Clock (`0xF8`) messages to the selected MIDI output port at a rate of 24 clocks per quarter note, allowing external gear to run in perfect tempo-phase sync.
+*   **Slave Mode (Clock Receiver)**: Locked to incoming MIDI clocks on the selected MIDI input port. Upon receiving a MIDI Start (`0xFA`) or Stop (`0xFC`), the transport state shifts instantly. The local playhead's advance rate is slaved exclusively to incoming Clock (`0xF8`) messages, disabling the local audio card sample clock driver to prevent double-triggering or phase drift!
+
+#### 4. 🎚️ Fluid Viewport Grid Zooming & Proportional Layouts
+Physical Deluge grids are locked to an 8x16 matrix. ChucK-Java introduces **Fluid Viewport Grid Zooming**:
+*   **Pads Scaling**: Instantly scale the matrix grid (`Ctrl + =` or `Ctrl + -`) between **`8x16 (Large)`**, **`16x16 (Medium)`**, **`24x16 (Small)`**, and **`16x24 (Wide)`** grid resolutions. The pads automatically resize to fill the screen space perfectly.
+*   **Decoupled Layout Rows**: Fixed control rows (like macro knobs and the isomorphic keyboard) dynamically shift their positions and scale their heights in perfect proportion to the pad size, saving massive vertical screen space and ensuring the interface is always clean and legible.
+
+#### 5. 🗂️ Unified Pitch Fold Mode
+*   For complex melodic parts, toggling **Fold Mode** collapses all empty chromatic rows, displaying *only* the lanes that contain active notes.
+*   The **Unified Pitch Resolver** ensures that note edits on the folded grid are mapped with 100% mathematical integrity back to their absolute MIDI pitches in the audio engine and XML saver, maintaining perfect data parity.
 
 ---
 
