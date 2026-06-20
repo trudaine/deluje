@@ -276,7 +276,7 @@
       </defaultParams>
       <midiKnobs/>
     </sound>
-    <kit clipInstances="0x000000000000090000000002" name="Synth Kit" presetFolder="KITS">
+    <kit clipInstances="0x000000000000090000000002" presetFolder="KITS" presetName="Synth Kit">
       <presetSlot>Synth Kit</presetSlot>
       <sound>
         <name>Kick</name>

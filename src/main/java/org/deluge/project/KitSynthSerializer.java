@@ -38,7 +38,7 @@ public class KitSynthSerializer {
   public static Element serializeKit(Document doc, KitTrackModel kit, boolean isSongSlot)
       throws Exception {
     Element root = doc.createElement("kit");
-    root.setAttribute("name", kit.getName());
+    root.setAttribute("presetName", kit.getName());
     if (isSongSlot) {
       appendTextChild(doc, root, "presetSlot", kit.getName());
     }
