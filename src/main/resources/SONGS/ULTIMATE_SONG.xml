@@ -127,7 +127,7 @@
 			</defaultParams>
 			<midiKnobs></midiKnobs>
 		</sound>
-		<sound presetName="Synth Lead" presetFolder="SYNTHS" clipInstances="0x000003000000060000000000">
+		<sound presetName="Synth Lead" presetFolder="SYNTHS" clipInstances="0x000003000000060000000001">
 			<osc1 type="saw" transpose="0" cents="0" retrigPhase="-1" />
 			<osc2 type="square" transpose="0" cents="0" retrigPhase="-1" />
 			<polyphonic>1</polyphonic>
@@ -258,7 +258,7 @@
 			</defaultParams>
 			<midiKnobs></midiKnobs>
 		</sound>
-		<kit presetName="Synth Kit" presetFolder="KITS" clipInstances="0x000000000000090000000000">
+		<kit presetName="Synth Kit" presetFolder="KITS" clipInstances="0x000000000000090000000002">
 			<sound>
 				<name>Kick</name>
 				<osc1 type="sample" />
@@ -402,7 +402,7 @@
 				<noteRow y="53" noteDataWithLift="0x0000009000000240724014" />
 			</noteRows>
 		</instrumentClip>
-		<instrumentClip instrumentPresetName="Synth Lead" instrumentPresetFolder="SYNTHS" length="384" isPlaying="1" section="0" clipInstances="0x000003000000060000000000">
+		<instrumentClip instrumentPresetName="Synth Lead" instrumentPresetFolder="SYNTHS" length="384" isPlaying="1" section="0" clipInstances="0x000003000000060000000001">
 			<soundParams />
 			<noteRows>
 				<noteRow y="72" noteDataWithLift="0x00000000000001B0664014" />
@@ -413,7 +413,7 @@
 				<noteRow y="86" noteDataWithLift="0x" />
 			</noteRows>
 		</instrumentClip>
-		<instrumentClip instrumentPresetName="Synth Kit" instrumentPresetFolder="KITS" length="384" isPlaying="1" section="0" clipInstances="0x000000000000090000000000">
+		<instrumentClip instrumentPresetName="Synth Kit" instrumentPresetFolder="KITS" length="384" isPlaying="1" section="0" clipInstances="0x000000000000090000000002">
 			<kitParams />
 			<noteRows>
 				<noteRow drumIndex="0" noteDataWithLift="0x00000000000001207240140000006000000120724014000000C0000001207240140000012000000120724014" />

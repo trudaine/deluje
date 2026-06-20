@@ -71,14 +71,7 @@ public class ProjectSerializer2 {
       StringBuilder ciBuilder = new StringBuilder("0x");
       for (ArrangerClip ac : model.getArrangerTimeline()) {
         if (ac.trackIndex() == trackIndex) {
-          int clipIdx = 0; // Default or index of clip
-          List<ClipModel> allClips = track.getClips();
-          for (int c = 0; c < allClips.size(); c++) {
-            if (allClips.get(c) == ac.clip()) {
-              clipIdx = c;
-              break;
-            }
-          }
+          int clipIdx = getGlobalClipIndex(model, ac.clip());
           ciBuilder.append(
               String.format("%08X%08X%08X", ac.startTicks(), ac.durationTicks(), clipIdx));
         }
@@ -401,7 +394,7 @@ public class ProjectSerializer2 {
         StringBuilder ciBuilder = new StringBuilder("0x");
         for (ArrangerClip ac : model.getArrangerTimeline()) {
           if (ac.trackIndex() == trackIndex && ac.clip() == clip) {
-            int clipIdx = clips.indexOf(clip);
+            int clipIdx = getGlobalClipIndex(model, clip);
             ciBuilder.append(
                 String.format("%08X%08X%08X", ac.startTicks(), ac.durationTicks(), clipIdx));
           }
@@ -496,6 +489,19 @@ public class ProjectSerializer2 {
     writer.writeArrayEnding("sessionClips");
 
     writer.writeClosingTag("song", false);
+  }
+
+  private static int getGlobalClipIndex(ProjectModel model, ClipModel targetClip) {
+    int index = 0;
+    for (TrackModel track : model.getTracks()) {
+      for (ClipModel clip : track.getClips()) {
+        if (clip == targetClip) {
+          return index;
+        }
+        index++;
+      }
+    }
+    return -1;
   }
 
   // ── Helper methods ──
