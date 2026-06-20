@@ -240,12 +240,11 @@ public class AbletonTrackMapper {
       }
 
       // 2. Identify and sort unique pitches to build a sparse-pitch piano roll
-      List<Integer> uniquePitches = new ArrayList<>();
+      java.util.Set<Integer> pitchSet = new java.util.HashSet<>();
       for (ParsedNoteEvent ev : events) {
-        if (!uniquePitches.contains(ev.pitch)) {
-          uniquePitches.add(ev.pitch);
-        }
+        pitchSet.add(ev.pitch);
       }
+      List<Integer> uniquePitches = new ArrayList<>(pitchSet);
       // Sort in descending order: highest pitch at row 0 (standard piano roll view)
       Collections.sort(uniquePitches, Collections.reverseOrder());
 
@@ -278,8 +277,11 @@ public class AbletonTrackMapper {
         // B. Quantized Grid Path (16th note steps)
         int stepIdx = (int) Math.round(ev.time * 4);
         if (stepIdx >= 0 && stepIdx < stepCount) {
-          clip.setStep(
-              r, stepIdx, StepData.of(true, normVel, StepData.DEFAULT_CLICK_GATE, 1.0f, 60));
+          StepData existingStep = clip.getStep(r, stepIdx);
+          if (existingStep == null || !existingStep.active() || normVel > existingStep.velocity()) {
+            clip.setStep(
+                r, stepIdx, StepData.of(true, normVel, StepData.DEFAULT_CLICK_GATE, 1.0f, 60));
+          }
         }
       }
 

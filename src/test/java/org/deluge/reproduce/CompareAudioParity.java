@@ -179,7 +179,7 @@ public class CompareAudioParity {
     model.setOscMix(1.0f);
     model.setLpfFreq(20000.0f);
     model.setLpfRes(0.0f);
-    model.setVolume(0.5f);
+    model.setVolume(1.0f);
 
     if ("C".equalsIgnoreCase(patchType)) {
       // ADSR Decay/Release timing test configurations

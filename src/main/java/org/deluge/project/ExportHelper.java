@@ -1,6 +1,5 @@
 package org.deluge.project;
 
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.util.List;
 import javax.sound.midi.*;
@@ -70,6 +69,9 @@ public class ExportHelper {
     for (int t = 0; t < totalTracks; t++) {
       TrackModel track = model.getTracks().get(t);
       String trackName = track.getName();
+      if (trackName == null || trackName.trim().isEmpty()) {
+        trackName = "Track_" + (t + 1);
+      }
       String cleanTrackName =
           (stemNamePrefix != null && !stemNamePrefix.isEmpty())
               ? trackName.replaceAll("[\\\\/:*?\"<>|]", "_")
@@ -122,6 +124,12 @@ public class ExportHelper {
     if (targetTrackIndex != null) {
       TrackModel targetTrack = model.getTracks().get(targetTrackIndex);
       targetClipIdx = compileableTracks.indexOf(targetTrack);
+      if (targetClipIdx == -1) {
+        throw new IllegalArgumentException(
+            "Cannot export track of type "
+                + targetTrack.getClass().getSimpleName()
+                + " because it is not a compileable audio track.");
+      }
     }
 
     // Populate sounds:
@@ -141,50 +149,13 @@ public class ExportHelper {
     handler.setSong(fwSong);
     handler.start();
 
-    byte[] wavBytes = new byte[(int) (totalBlocks * blockSize * 2 * 2)]; // 16-bit stereo PCM
-    int byteIdx = 0;
-
-    double bpm = model.getBpm();
-    double ticksPerSample = (bpm / 60.0 * 96.0) / 44100.0;
-    double accumulatedTicks = 0;
-
-    for (int b = 0; b < totalBlocks; b++) {
-      accumulatedTicks += ticksPerSample * blockSize;
-      int toAdvance = (int) accumulatedTicks;
-      if (toAdvance > 0) {
-        handler.advanceTicks(toAdvance);
-        accumulatedTicks -= toAdvance;
-      }
-
-      engine.renderBlock(blockSize);
-
-      for (int i = 0; i < blockSize; i++) {
-        float xL = (float) engine.masterBuffer[i].l / 2147483648.0f;
-        float xR = (float) engine.masterBuffer[i].r / 2147483648.0f;
-
-        // Apply master clipping and driver gain
-        float boostedL = xL * org.deluge.engine.JavaAudioDriver.monitorGainMul;
-        if (boostedL > 0.7f) boostedL = 0.7f + 0.3f * (float) Math.tanh((boostedL - 0.7f) / 0.3f);
-        if (boostedL < -0.7f) boostedL = -0.7f + 0.3f * (float) Math.tanh((boostedL + 0.7f) / 0.3f);
-        short s16L = (short) Math.max(-32768, Math.min(32767, boostedL * 32767.0f));
-
-        float boostedR = xR * org.deluge.engine.JavaAudioDriver.monitorGainMul;
-        if (boostedR > 0.7f) boostedR = 0.7f + 0.3f * (float) Math.tanh((boostedR - 0.7f) / 0.3f);
-        if (boostedR < -0.7f) boostedR = -0.7f + 0.3f * (float) Math.tanh((boostedR + 0.7f) / 0.3f);
-        short s16R = (short) Math.max(-32768, Math.min(32767, boostedR * 32767.0f));
-
-        wavBytes[byteIdx++] = (byte) (s16L & 0xFF);
-        wavBytes[byteIdx++] = (byte) ((s16L >> 8) & 0xFF);
-        wavBytes[byteIdx++] = (byte) (s16R & 0xFF);
-        wavBytes[byteIdx++] = (byte) ((s16R >> 8) & 0xFF);
-      }
-    }
-    handler.stop();
-
     AudioFormat format = new AudioFormat(44100.0f, 16, 2, true, false);
-    try (AudioInputStream ais =
-        new AudioInputStream(new ByteArrayInputStream(wavBytes), format, totalBlocks * blockSize)) {
+    try (PullRenderInputStream pris =
+            new PullRenderInputStream(model, engine, handler, totalBlocks, blockSize);
+        AudioInputStream ais = new AudioInputStream(pris, format, totalBlocks * blockSize)) {
       AudioSystem.write(ais, AudioFileFormat.Type.WAVE, targetFile);
+    } finally {
+      handler.stop();
     }
   }
 
@@ -303,5 +274,103 @@ public class ExportHelper {
     }
 
     MidiSystem.write(sequence, 1, file);
+  }
+
+  private static class PullRenderInputStream extends java.io.InputStream {
+    private final ProjectModel model;
+    private final FirmwareAudioEngine engine;
+    private final PlaybackHandler handler;
+    private final long totalFrames;
+    private final int blockSize;
+    private final double ticksPerSample;
+    private final long totalBlocks;
+
+    private long framesRead = 0;
+    private int blockIdx = 0;
+    private double accumulatedTicks = 0;
+
+    private final byte[] blockBuffer;
+    private int bufferOffset = 0;
+    private int bufferLength = 0;
+
+    public PullRenderInputStream(
+        ProjectModel model,
+        FirmwareAudioEngine engine,
+        PlaybackHandler handler,
+        long totalBlocks,
+        int blockSize) {
+      this.model = model;
+      this.engine = engine;
+      this.handler = handler;
+      this.totalBlocks = totalBlocks;
+      this.blockSize = blockSize;
+      this.totalFrames = totalBlocks * blockSize;
+      this.ticksPerSample = (model.getBpm() / 60.0 * 96.0) / 44100.0;
+      this.blockBuffer = new byte[blockSize * 4];
+    }
+
+    @Override
+    public int read() throws java.io.IOException {
+      byte[] oneByte = new byte[1];
+      int n = read(oneByte, 0, 1);
+      if (n <= 0) return -1;
+      return oneByte[0] & 0xFF;
+    }
+
+    @Override
+    public int read(byte[] b, int off, int len) throws java.io.IOException {
+      if (framesRead >= totalFrames && bufferLength == 0) {
+        return -1;
+      }
+
+      int bytesWritten = 0;
+      while (bytesWritten < len) {
+        if (bufferLength == 0) {
+          if (blockIdx >= totalBlocks) {
+            break;
+          }
+
+          accumulatedTicks += ticksPerSample * blockSize;
+          int toAdvance = (int) accumulatedTicks;
+          if (toAdvance > 0) {
+            handler.advanceTicks(toAdvance);
+            accumulatedTicks -= toAdvance;
+          }
+
+          try {
+            engine.renderBlock(blockSize);
+          } catch (Exception e) {
+            throw new java.io.IOException("DSP render failed", e);
+          }
+
+          int byteIdx = 0;
+          for (int i = 0; i < blockSize; i++) {
+            int sampleL = engine.masterBuffer[i].l >> 16;
+            int sampleR = engine.masterBuffer[i].r >> 16;
+
+            short s16L = (short) Math.max(-32768, Math.min(32767, sampleL));
+            short s16R = (short) Math.max(-32768, Math.min(32767, sampleR));
+
+            blockBuffer[byteIdx++] = (byte) (s16L & 0xFF);
+            blockBuffer[byteIdx++] = (byte) ((s16L >> 8) & 0xFF);
+            blockBuffer[byteIdx++] = (byte) (s16R & 0xFF);
+            blockBuffer[byteIdx++] = (byte) ((s16R >> 8) & 0xFF);
+          }
+
+          bufferOffset = 0;
+          bufferLength = blockSize * 4;
+          blockIdx++;
+        }
+
+        int toCopy = Math.min(bufferLength, len - bytesWritten);
+        System.arraycopy(blockBuffer, bufferOffset, b, off + bytesWritten, toCopy);
+        bufferOffset += toCopy;
+        bufferLength -= toCopy;
+        bytesWritten += toCopy;
+        framesRead += toCopy / 4;
+      }
+
+      return bytesWritten == 0 ? -1 : bytesWritten;
+    }
   }
 }

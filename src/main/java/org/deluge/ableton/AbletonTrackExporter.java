@@ -20,6 +20,9 @@ import org.w3c.dom.Element;
  * Set (.als) XML structure. Supports self-contained project bundling and offline stem layout.
  */
 public class AbletonTrackExporter {
+  public static String ABLETON_MAJOR_VERSION = "5";
+  public static String ABLETON_MINOR_VERSION = "12.0_12049";
+  public static String ABLETON_SCHEMA_VERSION = "3";
 
   /** Decoupled path rewriter and sample collector interface. */
   public interface PathRewriter {
@@ -49,9 +52,9 @@ public class AbletonTrackExporter {
 
     // 2. Create Root Ableton Element (Live 12 Schema Parity)
     Element rootEl = doc.createElement("Ableton");
-    rootEl.setAttribute("MajorVersion", "5");
-    rootEl.setAttribute("MinorVersion", "12.0_12049");
-    rootEl.setAttribute("SchemaVersion", "3");
+    rootEl.setAttribute("MajorVersion", ABLETON_MAJOR_VERSION);
+    rootEl.setAttribute("MinorVersion", ABLETON_MINOR_VERSION);
+    rootEl.setAttribute("SchemaVersion", ABLETON_SCHEMA_VERSION);
     rootEl.setAttribute("Creator", "Deluge-Java Workstation");
     doc.appendChild(rootEl);
 
@@ -114,6 +117,9 @@ public class AbletonTrackExporter {
     if (project == null || targetAlsFile == null) return;
 
     File projectDir = targetAlsFile.getParentFile();
+    if (projectDir == null) {
+      projectDir = new File(".");
+    }
     File importedDir = new File(projectDir, "Samples/Imported");
     if (!importedDir.exists()) {
       importedDir.mkdirs();
@@ -131,9 +137,9 @@ public class AbletonTrackExporter {
     Document doc = docBuilder.newDocument();
 
     Element rootEl = doc.createElement("Ableton");
-    rootEl.setAttribute("MajorVersion", "5");
-    rootEl.setAttribute("MinorVersion", "12.0_12049");
-    rootEl.setAttribute("SchemaVersion", "3");
+    rootEl.setAttribute("MajorVersion", ABLETON_MAJOR_VERSION);
+    rootEl.setAttribute("MinorVersion", ABLETON_MINOR_VERSION);
+    rootEl.setAttribute("SchemaVersion", ABLETON_SCHEMA_VERSION);
     rootEl.setAttribute("Creator", "Deluge-Java Deluge Workstation");
     doc.appendChild(rootEl);
 

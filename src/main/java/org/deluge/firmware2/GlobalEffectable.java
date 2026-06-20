@@ -36,6 +36,15 @@ public abstract class GlobalEffectable {
     postReverbVolume = 134217728;
     renderInternal(trackBuffer, numSamples, reverbBuffer);
 
+    int maxValTrack = 0;
+    for (int i = 0; i < numSamples * 2; i++) {
+      maxValTrack = Math.max(maxValTrack, Math.abs(trackBuffer[i]));
+    }
+    if (org.deluge.firmware.engine.FirmwareAudioEngine.debugTelemetry && maxValTrack > 1000) {
+      System.out.println(
+          "[TELEMETRY GlobalEffectable] trackBuffer max absolute value: " + maxValTrack);
+    }
+
     // Apply FilterSet
     if (filterSet.isOn()) {
       filterSet.renderLongStereo(trackBuffer, numSamples);

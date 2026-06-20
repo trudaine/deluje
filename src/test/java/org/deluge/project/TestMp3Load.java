@@ -1,6 +1,7 @@
 package org.deluge.project;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.*;
 
 import java.io.File;
 import org.deluge.firmware.model.sample.Sample;
@@ -11,10 +12,10 @@ import org.junit.jupiter.api.Test;
 public class TestMp3Load {
   @Test
   public void testLoadVocals() throws Exception {
-    File f =
-        new File(
-            "/Users/ludo/Downloads/Michael Jackson - Billie Jean (Ableton Remake)/Project/Samples/Imported/Vocals.mp3");
-    assertTrue(f.exists(), "Vocals.mp3 should exist!");
+    java.net.URL resource = getClass().getResource("/fidelity/silence.mp3");
+    assertNotNull(resource, "silence.mp3 test resource not found on classpath!");
+    File f = new File(resource.toURI());
+
     System.out.println("==================================================");
     System.out.println("DIAGNOSTIC MP3 LOAD TEST:");
     System.out.println("==================================================");
@@ -41,9 +42,10 @@ public class TestMp3Load {
 
   @Test
   public void testPrintTrackVolumes() throws Exception {
-    File alsFile =
-        new File(
-            "/Users/ludo/Downloads/Michael Jackson - Billie Jean (Ableton Remake)/Project/Michael Jackson - Billie Jean.als");
+    java.net.URL resource = getClass().getResource("/fidelity/test_project.als");
+    assertNotNull(resource, "test_project.als test resource not found on classpath!");
+    File alsFile = new File(resource.toURI());
+
     org.w3c.dom.Document doc = org.deluge.ableton.AbletonProjectManager.parseAlsToXml(alsFile);
     ProjectModel project = new ProjectModel();
     org.deluge.ableton.AbletonTrackMapper.importAbletonSet(doc, project, alsFile);

@@ -31,10 +31,12 @@ public class Voice {
   public final Envelope[] envelopes = new Envelope[4];
 
   /** Test seam: override osc1 initial phase. -2 = use random (default). */
-  public static int testStartPhaseOverrideOsc1 = -2;
+  public static final ThreadLocal<Integer> testStartPhaseOverrideOsc1 =
+      ThreadLocal.withInitial(() -> -2);
 
   /** Test seam: override osc2 initial phase. -2 = use random (default). */
-  public static int testStartPhaseOverrideOsc2 = -2;
+  public static final ThreadLocal<Integer> testStartPhaseOverrideOsc2 =
+      ThreadLocal.withInitial(() -> -2);
 
   // Unison parts and per-source oscillators
   public final VoiceUnisonPart[] unisonParts = new VoiceUnisonPart[Sound.kMaxNumVoicesUnison];
@@ -310,7 +312,7 @@ public class Voice {
       for (int s = 0; s < 2; s++) {
         VoiceSource vs = unisonParts[u].sources[s];
         vs.active = true;
-        int ovr = (s == 0) ? testStartPhaseOverrideOsc1 : testStartPhaseOverrideOsc2;
+        int ovr = (s == 0) ? testStartPhaseOverrideOsc1.get() : testStartPhaseOverrideOsc2.get();
         vs.oscPos = (ovr != -2) ? ovr : (Functions.getNoise() & 0x7FFFFFFF); // random initial phase
         // C vups:79-82 — retrigger overrides the random phase: zero-phase base for the wave type
         // plus the configured offset. 0xFFFFFFFF (-1) = off.
@@ -324,7 +326,7 @@ public class Voice {
         // C voice.cpp:405-407 — FM modulator phases are random on a fresh voice; pinned to 0 under
         // the test override (so FM fidelity tests stay deterministic).
         unisonParts[u].modulatorPhase[m] =
-            (testStartPhaseOverrideOsc1 != -2) ? 0 : Functions.getNoise();
+            (testStartPhaseOverrideOsc1.get() != -2) ? 0 : Functions.getNoise();
         // C voice.cpp:321-324 — modulator retrigger: getOscInitialPhaseForZero(SINE)=0 + offset.
         if (sound.synthMode == 1 && sound.modulatorRetriggerPhase[m] != 0xFFFFFFFF) {
           unisonParts[u].modulatorPhase[m] = sound.modulatorRetriggerPhase[m];
@@ -1315,6 +1317,14 @@ public class Voice {
     // application. (A previous separate env0*trackVol step here double-applied volume → silence.)
     applyFilterAndGain(mixBuf, numSamples, doLPF, doHPF);
 
+    int maxValVoice = 0;
+    for (int i = 0; i < numSamples * 2; i++) {
+      maxValVoice = Math.max(maxValVoice, Math.abs(mixBuf[i]));
+    }
+    if (org.deluge.firmware.engine.FirmwareAudioEngine.debugTelemetry && maxValVoice > 1000) {
+      System.out.println("[TELEMETRY Voice] mixBuf max absolute value: " + maxValVoice);
+    }
+
     // Copy to output
     for (int i = 0; i < numSamples; i++) {
       soundBuffer[i * 2] = Functions.add_saturate(soundBuffer[i * 2], mixBuf[i * 2]);
@@ -1539,8 +1549,18 @@ public class Voice {
           stereoBuf, 0, numSamples * 2, paramFinalValues[Param.LOCAL_FOLD]);
     }
 
+    int maxBeforeFilter = 0;
+    for (int i = 0; i < numSamples * 2; i++) {
+      maxBeforeFilter = Math.max(maxBeforeFilter, Math.abs(stereoBuf[i]));
+    }
+
     if (filterSet.isOn()) {
       filterSet.renderLongStereo(stereoBuf, numSamples);
+    }
+
+    int maxAfterFilter = 0;
+    for (int i = 0; i < numSamples * 2; i++) {
+      maxAfterFilter = Math.max(maxAfterFilter, Math.abs(stereoBuf[i]));
     }
 
     // Pan (voice.cpp:1159-1166)
@@ -1562,6 +1582,17 @@ public class Voice {
                     stereoBuf[i * 2 + 1], overallOscAmplitudeNow),
                 1);
       }
+    }
+
+    int maxAfterAmp = 0;
+    for (int i = 0; i < numSamples * 2; i++) {
+      maxAfterAmp = Math.max(maxAfterAmp, Math.abs(stereoBuf[i]));
+    }
+
+    if (org.deluge.firmware.engine.FirmwareAudioEngine.debugTelemetry && maxBeforeFilter > 0) {
+      System.out.printf(
+          "[TELEMETRY DEBUG Voice] beforeFilter=%d, afterFilter=%d, afterAmp=%d (overallAmp=%d)\n",
+          maxBeforeFilter, maxAfterFilter, maxAfterAmp, overallOscAmplitudeLastTime);
     }
 
     // Saturation/clipping (voice.cpp:1535-1565 "Yes clipping" branch): after the overall
