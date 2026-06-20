@@ -196,6 +196,15 @@ public class ProjectSerializer {
         if (clip.getPlayDirection() != org.deluge.model.ClipModel.PlayDirection.FORWARD) {
           clipTrackElem.setAttribute("sequenceDirection", clip.getPlayDirection().name());
         }
+
+        // Link the track/clip to its corresponding instrument for physical hardware compatibility
+        clipTrackElem.setAttribute("instrumentPresetName", track.getName());
+        if (track instanceof KitTrackModel) {
+          clipTrackElem.setAttribute("instrumentPresetFolder", "KITS");
+        } else if (track instanceof SynthTrackModel) {
+          clipTrackElem.setAttribute("instrumentPresetFolder", "SYNTHS");
+        }
+
         tracksElem.appendChild(clipTrackElem);
 
         // Serialize arrangement placements (clipInstances) for this clip lane
