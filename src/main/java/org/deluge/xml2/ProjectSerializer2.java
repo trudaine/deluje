@@ -108,7 +108,7 @@ public class ProjectSerializer2 {
           writer.writeOpeningTagEnd();
 
           writer.writeOpeningTagBeginning("osc1");
-          if (sound.getSamplePath() != null) {
+          if (sound.getSamplePath() != null && !sound.getSamplePath().isEmpty()) {
             writer.writeAttribute("type", "sample", false);
             writer.closeTag();
             writer.writeOpeningTagBeginning("sample");
