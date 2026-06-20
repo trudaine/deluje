@@ -2,7 +2,6 @@
 <song affectEntire="0" earliestCompatibleFirmware="c1.2.0" firmwareVersion="c1.2.0" inputTickMagnitude="2" previewNumPads="144" swing="0x40000000" swingAmount="0" swingInterval="7" tempo="120.0" timePerTimerTick="229" timerTickFraction="-1342177280" xScroll="0" xZoom="24" yScrollArrangementView="-7" yScrollSongView="-7">
 	<instruments>
 		<kit presetName="000 TR-808" presetFolder="KITS">
-			<presetSlot>000 TR-808</presetSlot>
 			<sound>
 				<name>SOUND 0</name>
 				<osc1 type="sample" />
@@ -709,7 +708,6 @@
 			</sound>
 		</kit>
 		<sound presetName="003 Synthwave Bass" presetFolder="SYNTHS">
-			<presetSlot>003 Synthwave Bass</presetSlot>
 			<osc1 type="square" transpose="0" cents="0" retrigPhase="-1" />
 			<osc2 type="none" transpose="0" cents="0" retrigPhase="-1" />
 			<polyphonic>1</polyphonic>
