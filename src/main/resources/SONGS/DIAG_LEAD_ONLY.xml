@@ -3,7 +3,7 @@
 	<instruments>
 		<sound presetName="Synth Lead" presetFolder="SYNTHS" clipInstances="0x000000000000060000000000">
 			<osc1 type="saw" transpose="0" cents="0" retrigPhase="-1" />
-			<osc2 type="square" transpose="0" cents="0" retrigPhase="-1" />
+			<osc2 type="square" transpose="0" cents="10" retrigPhase="-1" />
 			<polyphonic>1</polyphonic>
 			<clippingAmount>0</clippingAmount>
 			<voicePriority>1</voicePriority>

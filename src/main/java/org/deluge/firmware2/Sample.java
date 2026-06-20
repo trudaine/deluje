@@ -34,6 +34,9 @@ public class Sample {
   /** C: sample.h:120 */
   public int fileLoopEndSamples;
 
+  /** C: sample.h:122 - root note of the sample, -1.0f means none/unset. */
+  public float midiNoteFromFile = -1.0f;
+
   /**
    * Phase-A adapter: decoded interleaved PCM ({@code [frame*numChannels + ch]}); replaces clusters.
    */
@@ -54,6 +57,7 @@ public class Sample {
     s.audioDataLengthBytes = s.lengthInSamples * s.numChannels * s.byteDepth;
     s.fileLoopStartSamples = modelSample.fileLoopStartSamples;
     s.fileLoopEndSamples = modelSample.fileLoopEndSamples;
+    s.midiNoteFromFile = modelSample.midiNoteFromFile;
 
     int n = modelSample.data.length;
     s.data = new int[n];

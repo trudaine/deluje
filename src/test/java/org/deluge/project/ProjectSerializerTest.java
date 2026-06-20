@@ -306,4 +306,74 @@ public class ProjectSerializerTest {
         stemFile.exists() && stemFile.length() > 1000,
         "WAV stem file should exist inside the Ableton project bundle!");
   }
+
+  @Test
+  void testExportBillieJeanStemsForAnalysis() throws Exception {
+    File alsFile =
+        new File(
+            "/Users/ludo/Downloads/Michael Jackson - Billie Jean (Ableton Remake)/Project/Michael Jackson - Billie Jean.als");
+    if (!alsFile.exists()) {
+      System.out.println("Billie Jean ALS file not found!");
+      return;
+    }
+
+    org.w3c.dom.Document doc = org.deluge.ableton.AbletonProjectManager.parseAlsToXml(alsFile);
+    ProjectModel project = new ProjectModel();
+    org.deluge.ableton.AbletonTrackMapper.importAbletonSet(doc, project, alsFile);
+
+    File targetDir = new File("/Users/ludo/Downloads/BillieJean_Stems_Analysis");
+    targetDir.mkdirs();
+
+    System.out.println("==================================================");
+    System.out.println("PROJECT TRACK & ARRANGEMENT DIAGNOSTICS:");
+    System.out.println("==================================================");
+    double bpm = project.getBpm();
+    for (int i = 0; i < project.getTracks().size(); i++) {
+      org.deluge.model.TrackModel track = project.getTracks().get(i);
+      final int trackIdx = i;
+      java.util.List<org.deluge.model.ArrangerClip> acList =
+          project.getArrangerTimeline().stream().filter(ac -> ac.trackIndex() == trackIdx).toList();
+      int totalNotes = 0;
+      for (org.deluge.model.ClipModel clip : track.getClips()) {
+        for (int r = 0; r < clip.getRowCount(); r++) {
+          for (int s = 0; s < clip.getStepCount(); s++) {
+            if (clip.getStep(r, s) != null && clip.getStep(r, s).active()) {
+              totalNotes++;
+            }
+          }
+        }
+      }
+      System.out.println(
+          String.format(
+              "  Track %d: [%s] '%s' - Arranger Clips: %d, Session Notes: %d",
+              i + 1, track.getClass().getSimpleName(), track.getName(), acList.size(), totalNotes));
+
+      // Print start and duration for arranger clips on this track
+      for (var ac : acList) {
+        double startSec = ac.startTicks() * (60.0 / (bpm * 96.0));
+        double durSec = ac.durationTicks() * (60.0 / (bpm * 96.0));
+        System.out.println(
+            String.format(
+                "    -> Arranger Clip: start=%d ticks (%.2f s), duration=%d ticks (%.2f s)",
+                ac.startTicks(), startSec, ac.durationTicks(), durSec));
+      }
+    }
+    System.out.println("==================================================");
+
+    System.out.println("==================================================");
+    System.out.println("RENDERING 80.0 SECONDS OF BILLIE JEAN STEMS...");
+    System.out.println("==================================================");
+    org.deluge.project.ExportHelper.exportStems(
+        project,
+        targetDir,
+        80.0,
+        "Michael Jackson - Billie Jean",
+        (status, percent) -> {
+          System.out.println(String.format("  [%d%%] %s", percent, status));
+        });
+    System.out.println("==================================================");
+    System.out.println(
+        "REPORTS: Render complete. Stems written to: " + targetDir.getAbsolutePath());
+    System.out.println("==================================================");
+  }
 }

@@ -21,6 +21,20 @@ public class ExportHelper {
   public static void exportStems(
       ProjectModel model, File targetDir, double durationSeconds, ProgressCallback callback)
       throws Exception {
+    exportStems(model, targetDir, durationSeconds, null, callback);
+  }
+
+  /**
+   * Exports the project tracks to individual WAV stems and a master mix WAV file, with an optional
+   * prefix.
+   */
+  public static void exportStems(
+      ProjectModel model,
+      File targetDir,
+      double durationSeconds,
+      String stemNamePrefix,
+      ProgressCallback callback)
+      throws Exception {
     int totalTracks = model.getTracks().size();
     int totalSteps = totalTracks + 1; // Tracks + Master Mix
 
@@ -46,14 +60,24 @@ public class ExportHelper {
     if (callback != null) {
       callback.onProgress("Rendering Master Mix...", 0);
     }
-    renderWav(
-        model, null, new File(targetDir, "Master_mix.wav"), totalBlocks, blockSize, sampleRate);
+    String masterName =
+        (stemNamePrefix != null && !stemNamePrefix.isEmpty())
+            ? stemNamePrefix + ".wav"
+            : "Master_mix.wav";
+    renderWav(model, null, new File(targetDir, masterName), totalBlocks, blockSize, sampleRate);
 
     // 2. Render each track individually
     for (int t = 0; t < totalTracks; t++) {
       TrackModel track = model.getTracks().get(t);
-      String trackName = track.getName().replaceAll("[^a-zA-Z0-9_-]", "_");
-      String fileName = String.format("Track_%d_%s_stem.wav", t + 1, trackName);
+      String trackName = track.getName();
+      String cleanTrackName =
+          (stemNamePrefix != null && !stemNamePrefix.isEmpty())
+              ? trackName.replaceAll("[\\\\/:*?\"<>|]", "_")
+              : trackName.replaceAll("[^a-zA-Z0-9_-]", "_");
+      String fileName =
+          (stemNamePrefix != null && !stemNamePrefix.isEmpty())
+              ? String.format("%s %s.wav", stemNamePrefix, cleanTrackName)
+              : String.format("Track_%d_%s_stem.wav", t + 1, cleanTrackName);
 
       if (callback != null) {
         callback.onProgress(
@@ -83,12 +107,28 @@ public class ExportHelper {
     // Build FW Song from model
     Song fwSong = FirmwareFactory.createSong(model);
 
+    // Populate compileable tracks list to match JNI clips to original tracks
+    java.util.List<TrackModel> compileableTracks = new java.util.ArrayList<>();
+    for (TrackModel track : model.getTracks()) {
+      if (track instanceof SynthTrackModel
+          || track instanceof KitTrackModel
+          || track instanceof MidiTrackModel) {
+        compileableTracks.add(track);
+      }
+    }
+
+    int targetClipIdx = -1;
+    if (targetTrackIndex != null) {
+      TrackModel targetTrack = model.getTracks().get(targetTrackIndex);
+      targetClipIdx = compileableTracks.indexOf(targetTrack);
+    }
+
     // Populate sounds:
     int currentTrackIdx = 0;
     for (var clip : fwSong.clips) {
       if (clip instanceof InstrumentClip ic) {
         if (ic.sound instanceof FirmwareSound fs) {
-          if (targetTrackIndex == null || targetTrackIndex == currentTrackIdx) {
+          if (targetTrackIndex == null || targetClipIdx == currentTrackIdx) {
             engine.sounds.add(fs);
           }
         }

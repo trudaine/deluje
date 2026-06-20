@@ -237,8 +237,11 @@ public class ProjectSerializer {
         writer.writeOpeningTagBeginning("osc1");
         writer.writeAttribute("type", synth.getOsc1Type().toLowerCase(), false);
         writer.writeAttribute("transpose", "0", false);
-        writer.writeAttribute("cents", "0", false);
+        writer.writeAttribute("cents", String.valueOf(synth.getOsc1Cents()), false);
         writer.writeAttribute("retrigPhase", String.valueOf(synth.getOsc1RetrigPhase()), false);
+        if (synth.getOsc1SamplePath() != null && !synth.getOsc1SamplePath().isEmpty()) {
+          writer.writeAttribute("fileName", synth.getOsc1SamplePath(), false);
+        }
         if (synth.getDx7Patch() != null) {
           writer.writeAttribute("dx7patch", synth.getDx7Patch(), false);
         }
@@ -247,9 +250,12 @@ public class ProjectSerializer {
         // osc2
         writer.writeOpeningTagBeginning("osc2");
         writer.writeAttribute("type", synth.getOsc2Type().toLowerCase(), false);
-        writer.writeAttribute("transpose", "0", false);
-        writer.writeAttribute("cents", "0", false);
+        writer.writeAttribute("transpose", String.valueOf(synth.getOsc2Transpose()), false);
+        writer.writeAttribute("cents", String.valueOf(synth.getOsc2Cents()), false);
         writer.writeAttribute("retrigPhase", String.valueOf(synth.getOsc2RetrigPhase()), false);
+        if (synth.getOsc2SamplePath() != null && !synth.getOsc2SamplePath().isEmpty()) {
+          writer.writeAttribute("fileName", synth.getOsc2SamplePath(), false);
+        }
         writer.closeTag();
 
         String polyVal =

@@ -153,7 +153,7 @@ public class ModulationFidelityTest {
     System.out.println(
         "[ModulationTest] Song XML successfully written to: " + xmlFile.getAbsolutePath());
 
-    // 3. Render project to WAV using ChucK-Java emulator
+    // 3. Render project to WAV using Deluge-Java emulator
     File wavFile = new File("src/test/resources/fidelity/JAVA_RENDERED_MODULATION_SONG.WAV");
     FidelityTestRunner.renderSongToWav(xmlFile, wavFile, 8.0);
     System.out.println(

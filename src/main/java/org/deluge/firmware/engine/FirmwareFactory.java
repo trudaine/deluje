@@ -1322,6 +1322,9 @@ public class FirmwareFactory {
     try {
       Sample smp = AudioFileReader.readSample(f.getAbsolutePath());
       if (smp != null) {
+        smp.midiNoteFromFile =
+            60.0f; // Default to C4 (60) so drum kit samples play at original speed (internal
+        // trigger is at 60)
         var fw2Smp = org.deluge.firmware2.Sample.fromFirmwareSample(smp);
         synchronized (drumSound) {
           drumSound.samples[0] = smp;

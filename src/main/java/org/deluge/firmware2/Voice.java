@@ -627,18 +627,24 @@ public class Voice {
     if (sound.synthMode != 1
         && (sound.oscTypes[0] == Oscillator.OscType.SAMPLE || isInputType(sound.oscTypes[0]))) {
       int pitchAdjustNeutralValue = 16777216; // default (and the INPUT_* neutral, C:457)
+      int oscNoteCode = noteCode;
       if (sound.oscTypes[0] == Oscillator.OscType.SAMPLE
           && unisonParts[0].sources[0].sampleRef != null) {
         pitchAdjustNeutralValue =
             (int) (((unisonParts[0].sources[0].sampleRef.sampleRate) * 16777216L) / 44100);
+        float sampleMidiNote = unisonParts[0].sources[0].sampleRef.midiNoteFromFile;
+        if (sampleMidiNote != -1.0f) {
+          int sampleTranspose = Math.round(60.0f - sampleMidiNote);
+          oscNoteCode += sampleTranspose;
+        }
       }
       int noteWithinOctave;
       int octave;
       int noteIntervalRatio;
       if (sound.tuning != null) {
         TuningProvider tuning = sound.tuning;
-        noteWithinOctave = tuning.noteWithinOctaveOf(noteCode);
-        octave = tuning.octaveOf(noteCode);
+        noteWithinOctave = tuning.noteWithinOctaveOf(oscNoteCode);
+        octave = tuning.octaveOf(oscNoteCode);
         noteIntervalRatio = tuning.noteIntervalRatio(noteWithinOctave);
 
         int shiftRightAmount = 3 - octave;
@@ -650,8 +656,8 @@ public class Voice {
           carrierIncA <<= (-shiftRightAmount);
         }
       } else {
-        noteWithinOctave = (noteCode + 240) % 12;
-        octave = (noteCode + 120) / 12;
+        noteWithinOctave = (oscNoteCode + 240) % 12;
+        octave = (oscNoteCode + 120) / 12;
         noteIntervalRatio = LookupTables.noteIntervalTable[noteWithinOctave];
 
         int shiftRightAmount = 13 - octave;
@@ -675,18 +681,24 @@ public class Voice {
     if (sound.synthMode != 1
         && (sound.oscTypes[1] == Oscillator.OscType.SAMPLE || isInputType(sound.oscTypes[1]))) {
       int pitchAdjustNeutralValue = 16777216; // default (and the INPUT_* neutral, C:457)
+      int oscNoteCode = noteCode;
       if (sound.oscTypes[1] == Oscillator.OscType.SAMPLE
           && unisonParts[0].sources[1].sampleRef != null) {
         pitchAdjustNeutralValue =
             (int) (((unisonParts[0].sources[1].sampleRef.sampleRate) * 16777216L) / 44100);
+        float sampleMidiNote = unisonParts[0].sources[1].sampleRef.midiNoteFromFile;
+        if (sampleMidiNote != -1.0f) {
+          int sampleTranspose = Math.round(60.0f - sampleMidiNote);
+          oscNoteCode += sampleTranspose;
+        }
       }
       int noteWithinOctave;
       int octave;
       int noteIntervalRatio;
       if (sound.tuning != null) {
         TuningProvider tuning = sound.tuning;
-        noteWithinOctave = tuning.noteWithinOctaveOf(noteCode);
-        octave = tuning.octaveOf(noteCode);
+        noteWithinOctave = tuning.noteWithinOctaveOf(oscNoteCode);
+        octave = tuning.octaveOf(oscNoteCode);
         noteIntervalRatio = tuning.noteIntervalRatio(noteWithinOctave);
 
         int shiftRightAmount = 3 - octave;
@@ -698,8 +710,8 @@ public class Voice {
           carrierIncB <<= (-shiftRightAmount);
         }
       } else {
-        noteWithinOctave = (noteCode + 240) % 12;
-        octave = (noteCode + 120) / 12;
+        noteWithinOctave = (oscNoteCode + 240) % 12;
+        octave = (oscNoteCode + 120) / 12;
         noteIntervalRatio = LookupTables.noteIntervalTable[noteWithinOctave];
 
         int shiftRightAmount = 13 - octave;

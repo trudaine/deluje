@@ -261,23 +261,24 @@ public class DelugeSysExManagerTest {
     assertEquals(7, manager.getMidMax());
 
     // 2. Start negotiation
-    java.util.concurrent.CompletableFuture<Void> future = manager.negotiateSession("ChucK-Java");
+    java.util.concurrent.CompletableFuture<Void> future = manager.negotiateSession("Deluge-Java");
     assertFalse(future.isDone());
 
-    // Assert request packet formatting: F0 00 21 7B 01 04 [seq] {"session":{"tag":"ChucK-Java"}} F7
+    // Assert request packet formatting: F0 00 21 7B 01 04 [seq]
+    // {"session":{"tag":"Deluge-Java"}} F7
     byte[] sentReq = mockOut.lastSentData.get();
     assertNotNull(sentReq);
     assertEquals((byte) 0xF0, sentReq[0]);
     assertEquals((byte) 0x04, sentReq[5]); // CMD_JSON_REQUEST
     String reqPayload = new String(sentReq, 7, sentReq.length - 8, StandardCharsets.US_ASCII);
-    assertEquals("{\"session\":{\"tag\":\"ChucK-Java\"}}", reqPayload);
+    assertEquals("{\"session\":{\"tag\":\"Deluge-Java\"}}", reqPayload);
     assertEquals((byte) 0xF7, sentReq[sentReq.length - 1]);
 
     // 3. Simulate incoming direct session assignment reply from Deluge
     // Format: F0 00 21 7B 01 04 00
-    // {"^session":{"sid":2,"tag":"ChucK-Java","midBase":16,"midMin":17,"midMax":23}} F7
+    // {"^session":{"sid":2,"tag":"Deluge-Java","midBase":16,"midMin":17,"midMax":23}} F7
     String replyJson =
-        "{\"^session\":{\"sid\":2,\"tag\":\"ChucK-Java\",\"midBase\":16,\"midMin\":17,\"midMax\":23}}";
+        "{\"^session\":{\"sid\":2,\"tag\":\"Deluge-Java\",\"midBase\":16,\"midMin\":17,\"midMax\":23}}";
     byte[] replyBytes = replyJson.getBytes(StandardCharsets.US_ASCII);
     byte[] incoming = new byte[7 + replyBytes.length + 1];
     incoming[0] = (byte) 0xF0;
