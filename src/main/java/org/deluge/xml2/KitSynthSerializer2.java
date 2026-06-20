@@ -12,9 +12,7 @@ import org.deluge.model.SoundDrum;
 import org.deluge.model.SynthTrackModel;
 import org.deluge.xml.DelugeHexMapper;
 
-/**
- * Stream-based instrument serializer utilizing XMLSerializer for 100% formatting parity.
- */
+/** Stream-based instrument serializer utilizing XMLSerializer for 100% formatting parity. */
 public class KitSynthSerializer2 {
 
   public static void serializeSynth(XMLSerializer writer, SynthTrackModel synth, boolean isSongSlot)
@@ -23,10 +21,6 @@ public class KitSynthSerializer2 {
     writer.writeAttribute("presetName", synth.getName(), false);
     writer.writeAttribute("presetFolder", "SYNTHS", false);
     writer.writeOpeningTagEnd();
-
-    if (isSongSlot) {
-      writer.writeTag("presetSlot", synth.getName());
-    }
 
     // ── osc1 ──
     writer.writeOpeningTagBeginning("osc1");
@@ -124,14 +118,16 @@ public class KitSynthSerializer2 {
       writer.writeClosingTag("delay");
     }
 
-    writer.writeTag("lpfMode",
+    writer.writeTag(
+        "lpfMode",
         switch (synth.getFilterMode()) {
           case LADDER_24 -> "24dB";
           case SVF -> "SVF";
           default -> "12dB";
         });
 
-    writer.writeTag("hpfMode",
+    writer.writeTag(
+        "hpfMode",
         switch (synth.getHpfMode()) {
           case LADDER_24 -> "24dB";
           case SVF -> "SVF";
@@ -151,8 +147,10 @@ public class KitSynthSerializer2 {
     if (compAttack > 0 || compRelease > 0 || compSync > 0) {
       writer.writeOpeningTagBeginning("compressor");
       writer.writeAttribute("syncLevel", String.valueOf(compSync), false);
-      writer.writeAttribute("attack", String.valueOf((int) (compAttack * Integer.MAX_VALUE)), false);
-      writer.writeAttribute("release", String.valueOf((int) (compRelease * Integer.MAX_VALUE)), false);
+      writer.writeAttribute(
+          "attack", String.valueOf((int) (compAttack * Integer.MAX_VALUE)), false);
+      writer.writeAttribute(
+          "release", String.valueOf((int) (compRelease * Integer.MAX_VALUE)), false);
       writer.closeTag();
     }
 
@@ -262,10 +260,6 @@ public class KitSynthSerializer2 {
     writer.writeAttribute("presetFolder", "KITS", false);
     writer.writeOpeningTagEnd();
 
-    if (isSongSlot) {
-      writer.writeTag("presetSlot", kit.getName());
-    }
-
     for (Drum drum : kit.getDrums()) {
       SoundDrum sound = (SoundDrum) drum;
       writer.writeOpeningTagBeginning("sound");
@@ -324,7 +318,8 @@ public class KitSynthSerializer2 {
 
   // ── Helper serializers ──
 
-  private static void serializeLfo(XMLSerializer writer, String tag, LfoModel lfo) throws IOException {
+  private static void serializeLfo(XMLSerializer writer, String tag, LfoModel lfo)
+      throws IOException {
     writer.writeOpeningTagBeginning(tag);
     writer.writeOpeningTagEnd();
     writer.writeTag("type", lfoTypeName(lfo.waveform()));
@@ -352,7 +347,8 @@ public class KitSynthSerializer2 {
     };
   }
 
-  private static void serializeEnvelope(XMLSerializer writer, String tag, EnvelopeModel env) throws IOException {
+  private static void serializeEnvelope(XMLSerializer writer, String tag, EnvelopeModel env)
+      throws IOException {
     writer.writeOpeningTagBeginning(tag);
     writer.writeOpeningTagEnd();
     writeHexTag(writer, "attack", DelugeHexMapper.normFromEnvTime(env.attack()));
@@ -366,15 +362,18 @@ public class KitSynthSerializer2 {
     writer.writeTag(tag, DelugeHexMapper.floatToHex(val));
   }
 
-  private static void writeHexTagUnipolar(XMLSerializer writer, String tag, float val) throws IOException {
+  private static void writeHexTagUnipolar(XMLSerializer writer, String tag, float val)
+      throws IOException {
     writer.writeTag(tag, DelugeHexMapper.floatToHex(val * 2.0f - 1.0f));
   }
 
-  private static void writeHexTagFreq(XMLSerializer writer, String tag, float hz) throws IOException {
+  private static void writeHexTagFreq(XMLSerializer writer, String tag, float hz)
+      throws IOException {
     writer.writeTag(tag, DelugeHexMapper.hzToHex(hz));
   }
 
-  private static void writeHexTagLfoFreq(XMLSerializer writer, String tag, float hz) throws IOException {
+  private static void writeHexTagLfoFreq(XMLSerializer writer, String tag, float hz)
+      throws IOException {
     writer.writeTag(tag, DelugeHexMapper.lfoHzToHex(hz));
   }
 }

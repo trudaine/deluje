@@ -16,7 +16,6 @@ import org.deluge.model.ProjectModel;
 import org.deluge.model.SoundDrum;
 import org.deluge.model.StepData;
 import org.deluge.model.SynthTrackModel;
-import org.deluge.project.ProjectSerializer;
 import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
@@ -185,7 +184,8 @@ public class UltimateFidelityTest {
     File songXmlFile = new File("src/main/resources/SONGS/ULTIMATE_SONG.xml");
     org.deluge.xml2.ProjectSerializer2.save(project, songXmlFile);
     System.out.printf(
-        "[UltimateTest] Saved E2E complex song XML (STREAM) to: %s%n", songXmlFile.getAbsolutePath());
+        "[UltimateTest] Saved E2E complex song XML (STREAM) to: %s%n",
+        songXmlFile.getAbsolutePath());
 
     // Load the saved XML back using DelugeXmlParser to verify E2E roundtrip!
     ProjectModel reloadedProject = DelugeXmlParser.parseSong(songXmlFile);

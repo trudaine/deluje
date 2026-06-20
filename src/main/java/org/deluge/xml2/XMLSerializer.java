@@ -4,9 +4,9 @@ import java.io.IOException;
 import java.io.Writer;
 
 /**
- * A literal, line-by-line Java port of the Synthstrom Deluge firmware's C++ XMLSerializer.
- * Writes formatted XML character streams directly to a java.io.Writer with perfect tab-indent
- * and newline parity.
+ * A literal, line-by-line Java port of the Synthstrom Deluge firmware's C++ XMLSerializer. Writes
+ * formatted XML character streams directly to a java.io.Writer with perfect tab-indent and newline
+ * parity.
  */
 public class XMLSerializer {
   private final Writer writer;
@@ -114,7 +114,8 @@ public class XMLSerializer {
     writeAttributeHex(name, number, numChars, true);
   }
 
-  public void writeAttributeHex(String name, int number, int numChars, boolean onNewLine) throws IOException {
+  public void writeAttributeHex(String name, int number, int numChars, boolean onNewLine)
+      throws IOException {
     String hex = String.format("%0" + numChars + "X", number);
     writeAttribute(name, "0x" + hex, onNewLine);
   }
@@ -123,7 +124,8 @@ public class XMLSerializer {
     writeAttributeHexBytes(name, data, numBytes, true);
   }
 
-  public void writeAttributeHexBytes(String name, byte[] data, int numBytes, boolean onNewLine) throws IOException {
+  public void writeAttributeHexBytes(String name, byte[] data, int numBytes, boolean onNewLine)
+      throws IOException {
     if (onNewLine) {
       write("\n");
       printIndents();

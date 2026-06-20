@@ -2,7 +2,6 @@
 <song affectEntire="0" earliestCompatibleFirmware="c1.2.0" firmwareVersion="c1.2.0" inputTickMagnitude="2" previewNumPads="144" swing="0x40000000" swingAmount="0" swingInterval="7" tempo="120.0" timePerTimerTick="229" timerTickFraction="-1342177280" xScroll="0" xZoom="24" yScrollArrangementView="-7" yScrollSongView="-7">
 	<instruments>
 		<sound presetName="Synth Bass" presetFolder="SYNTHS" clipInstances="0x000000000000060000000000">
-			<presetSlot>Synth Bass</presetSlot>
 			<osc1 type="saw" transpose="0" cents="0" retrigPhase="-1" />
 			<osc2 type="none" transpose="0" cents="0" retrigPhase="-1" />
 			<polyphonic>1</polyphonic>
@@ -129,7 +128,6 @@
 			<midiKnobs></midiKnobs>
 		</sound>
 		<sound presetName="Synth Lead" presetFolder="SYNTHS" clipInstances="0x000003000000060000000000">
-			<presetSlot>Synth Lead</presetSlot>
 			<osc1 type="saw" transpose="0" cents="0" retrigPhase="-1" />
 			<osc2 type="square" transpose="0" cents="0" retrigPhase="-1" />
 			<polyphonic>1</polyphonic>
@@ -261,7 +259,6 @@
 			<midiKnobs></midiKnobs>
 		</sound>
 		<kit presetName="Synth Kit" presetFolder="KITS" clipInstances="0x000000000000090000000000">
-			<presetSlot>Synth Kit</presetSlot>
 			<sound>
 				<name>Kick</name>
 				<osc1 type="sample" />
