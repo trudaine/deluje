@@ -78,8 +78,7 @@ public class ClipModel {
 
   public void setRowAutomation(int rowIndex, String paramName, int stepIndex, float value) {
     int r = getOrCreateResolvedRowIndex(rowIndex);
-    Map<String, float[]> rowAutos =
-        rowAutomationData.computeIfAbsent(r, k -> new HashMap<>());
+    Map<String, float[]> rowAutos = rowAutomationData.computeIfAbsent(r, k -> new HashMap<>());
     float[] array = rowAutos.computeIfAbsent(paramName, k -> new float[stepCount]);
     if (stepIndex >= 0 && stepIndex < stepCount) {
       array[stepIndex] = value;
@@ -137,7 +136,7 @@ public class ClipModel {
     ClipModel copy = new ClipModel(newName, this.rowCount, this.stepCount);
     for (int r = 0; r < rowCount; r++) {
       for (int s = 0; s < stepCount; s++) {
-        copy.setStep(r, s, this.getStep(r, s));
+        copy.setStep(r, s, this.getStepRaw(r, s));
       }
     }
     // Deep-copy automation data
@@ -323,6 +322,13 @@ public class ClipModel {
       rowCount = row + 1;
     }
     return row;
+  }
+
+  public StepData getStepRaw(int sparseRow, int step) {
+    if (sparseRow >= 0 && sparseRow < grid.size() && step >= 0 && step < stepCount) {
+      return grid.get(sparseRow).get(step);
+    }
+    return StepData.empty();
   }
 
   public StepData getStep(int row, int step) {

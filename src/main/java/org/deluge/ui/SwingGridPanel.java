@@ -118,7 +118,8 @@ public class SwingGridPanel extends JPanel {
     return 60; // fallback
   }
 
-  private int getClipRowIndex(org.deluge.model.ClipModel cModel, int modelRow, boolean createIfMissing) {
+  private int getClipRowIndex(
+      org.deluge.model.ClipModel cModel, int modelRow, boolean createIfMissing) {
     int pitchMidi = getRowPitch(modelRow);
     for (int r = 0; r < cModel.getRowCount(); r++) {
       if (cModel.getRowYNote(r) == pitchMidi) {
@@ -134,7 +135,8 @@ public class SwingGridPanel extends JPanel {
     return -1;
   }
 
-  public org.deluge.model.StepData getClipStep(org.deluge.model.ClipModel cModel, int modelRow, int col) {
+  public org.deluge.model.StepData getClipStep(
+      org.deluge.model.ClipModel cModel, int modelRow, int col) {
     int r = getClipRowIndex(cModel, modelRow, false);
     if (r >= 0) {
       return cModel.getStep(r, col);
@@ -142,7 +144,8 @@ public class SwingGridPanel extends JPanel {
     return org.deluge.model.StepData.empty();
   }
 
-  public void setClipStep(org.deluge.model.ClipModel cModel, int modelRow, int col, org.deluge.model.StepData data) {
+  public void setClipStep(
+      org.deluge.model.ClipModel cModel, int modelRow, int col, org.deluge.model.StepData data) {
     int r = getClipRowIndex(cModel, modelRow, true);
     cModel.setStep(r, col, data);
   }
@@ -159,7 +162,7 @@ public class SwingGridPanel extends JPanel {
         int yNote = clip.getRowYNote(r);
         boolean hasNotes = false;
         for (int s = 0; s < clip.getStepCount(); s++) {
-          org.deluge.model.StepData step = clip.getStep(r, s);
+          org.deluge.model.StepData step = clip.getStepRaw(r, s);
           if (step != null && step.active()) {
             hasNotes = true;
             break;
@@ -4479,7 +4482,9 @@ public class SwingGridPanel extends JPanel {
 
         boolean isSynthTrack = false;
         if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
-          isSynthTrack = projectModel.getTracks().get(editedModelTrack) instanceof org.deluge.model.SynthTrackModel;
+          isSynthTrack =
+              projectModel.getTracks().get(editedModelTrack)
+                  instanceof org.deluge.model.SynthTrackModel;
         }
 
         if (viewMode == GridViewMode.CLIP && isSynthTrack) {
@@ -4490,15 +4495,17 @@ public class SwingGridPanel extends JPanel {
           JButton foldBtn = new JButton(foldMode ? "UNFLD" : "FOLD");
           foldBtn.setFont(new Font("SansSerif", Font.BOLD, 8));
           foldBtn.setForeground(foldMode ? Color.BLACK : new Color(0x00, 0xff, 0xcc));
-          foldBtn.setBackground(foldMode ? new Color(0x00, 0xff, 0xcc) : new Color(0x1f, 0x1f, 0x24));
+          foldBtn.setBackground(
+              foldMode ? new Color(0x00, 0xff, 0xcc) : new Color(0x1f, 0x1f, 0x24));
           foldBtn.setBorder(BorderFactory.createEmptyBorder(4, 2, 4, 2));
           foldBtn.setFocusable(false);
           foldBtn.setToolTipText("Fold Mode (Only show rows containing notes)");
-          foldBtn.addActionListener(evt -> {
-            foldMode = !foldMode;
-            resetScrollOffset();
-            refresh();
-          });
+          foldBtn.addActionListener(
+              evt -> {
+                foldMode = !foldMode;
+                resetScrollOffset();
+                refresh();
+              });
           southPanel.add(foldBtn);
           pageNavPanel.add(southPanel, BorderLayout.SOUTH);
         } else {

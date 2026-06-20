@@ -222,7 +222,7 @@ public class ProjectSerializer {
           int yNote = clip.getRowYNote(r);
           if (!(track instanceof KitTrackModel) && yNote < 0) {
             for (int s = 0; s < clip.getStepCount(); s++) {
-              org.deluge.model.StepData sd = clip.getStep(r, s);
+              org.deluge.model.StepData sd = clip.getStepRaw(r, s);
               if (sd.active() && sd.pitch() > 0) {
                 yNote = sd.pitch();
                 break;
@@ -233,7 +233,7 @@ public class ProjectSerializer {
           if (!(track instanceof KitTrackModel) && yNote < 0) {
             boolean hasActive = false;
             for (int s = 0; s < clip.getStepCount(); s++) {
-              if (clip.getStep(r, s).active()) {
+              if (clip.getStepRaw(r, s).active()) {
                 hasActive = true;
                 break;
               }
@@ -246,7 +246,7 @@ public class ProjectSerializer {
 
           java.util.List<org.deluge.model.StepData> row = new java.util.ArrayList<>();
           for (int s = 0; s < clip.getStepCount(); s++) {
-            row.add(clip.getStep(r, s));
+            row.add(clip.getStepRaw(r, s));
           }
 
           String hexData = org.deluge.xml.DelugeNoteDataMapper.encodeRow(row, stepTicks);
