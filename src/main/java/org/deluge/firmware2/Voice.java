@@ -563,7 +563,11 @@ public class Voice {
             LookupTables.decayTableSmall8);
     sourceValues[PatchSource.ENVELOPE_0.ordinal()] = env0LastValue;
 
-    if (envelopes[0].state == Envelope.Stage.OFF) {
+    boolean unassignVoiceAfter =
+        (envelopes[0].state == Envelope.Stage.OFF)
+            || (envelopes[0].state.compareTo(Envelope.Stage.DECAY) > 0
+                && env0LastValue == Integer.MIN_VALUE);
+    if (unassignVoiceAfter) {
       active = false;
       return false;
     }
@@ -1333,7 +1337,7 @@ public class Voice {
 
     // Port of voice.cpp:1664 — return false if voice should be unassigned
     // unassignVoiceAfter = envelope OFF OR (past DECAY AND env source == MIN)
-    boolean unassignVoiceAfter =
+    unassignVoiceAfter =
         (envelopes[0].state == Envelope.Stage.OFF)
             || (envelopes[0].state.compareTo(Envelope.Stage.DECAY) > 0
                 && sourceValues[PatchSource.ENVELOPE_0.ordinal()] == Integer.MIN_VALUE);
