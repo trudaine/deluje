@@ -126,6 +126,7 @@ public class UltimateFidelityTest {
 
     // Drum Row 1 (Snare): White noise with short envelope decay and LPF filter
     SoundDrum snare = new SoundDrum("Snare");
+    snare.setVolume(1.0f); // Turn up Snare slot volume!
     snare.setNoiseVolume(0.75f); // Turn up white noise generator!
     snare.setOscAVolume(0.0f);
     snare.setOscBVolume(0.0f);
@@ -136,6 +137,7 @@ public class UltimateFidelityTest {
 
     // Drum Row 2 (Hihat): High-passed white noise with ultra-short decay
     SoundDrum hihat = new SoundDrum("Hihat");
+    hihat.setVolume(1.0f); // Turn up Hihat slot volume!
     hihat.setNoiseVolume(0.8f); // Turn up Hihat noise volume!
     hihat.setOscAVolume(0.0f);
     hihat.setOscBVolume(0.0f);
@@ -341,6 +343,7 @@ public class UltimateFidelityTest {
       kitTrack.addDrum(kick);
 
       SoundDrum snare = new SoundDrum("Snare");
+      snare.setVolume(1.0f);
       snare.setNoiseVolume(0.75f);
       snare.setOscAVolume(0.0f);
       snare.setOscBVolume(0.0f);
@@ -350,6 +353,7 @@ public class UltimateFidelityTest {
       kitTrack.addDrum(snare);
 
       SoundDrum hihat = new SoundDrum("Hihat");
+      hihat.setVolume(1.0f);
       hihat.setNoiseVolume(0.8f);
       hihat.setOscAVolume(0.0f);
       hihat.setOscBVolume(0.0f);
