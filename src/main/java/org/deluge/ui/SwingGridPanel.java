@@ -1732,7 +1732,12 @@ public class SwingGridPanel extends JPanel {
    * Build a single voice row panel. modelRow = the actual engine row index (0..voiceRowCount-1).
    */
   private JPanel buildVoiceRow(
-      int modelRow, int visibleRow, int padSz, java.util.List<org.deluge.model.TrackModel> tracks) {
+      int visualRowIndex, int visibleRow, int padSz, java.util.List<org.deluge.model.TrackModel> tracks) {
+    boolean isSynth = false;
+    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+      isSynth = projectModel.getTracks().get(editedModelTrack) instanceof org.deluge.model.SynthTrackModel;
+    }
+    final int modelRow = (isSynth && viewMode == GridViewMode.CLIP) ? (127 - getRowPitch(visualRowIndex)) : visualRowIndex;
     String samplePathLoc = null;
     if (modelRow < tracks.size()) {
       org.deluge.model.TrackModel track = tracks.get(modelRow);
@@ -2141,7 +2146,7 @@ public class SwingGridPanel extends JPanel {
             });
       } else if (colId == columnCount - 1) {
         if (viewMode == GridViewMode.CLIP) {
-          boolean isSynth = false;
+          isSynth = false;
           if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
             org.deluge.model.TrackModel tm = projectModel.getTracks().get(editedModelTrack);
             isSynth = tm instanceof org.deluge.model.SynthTrackModel;
