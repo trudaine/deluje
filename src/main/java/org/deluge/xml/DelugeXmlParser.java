@@ -88,10 +88,13 @@ public class DelugeXmlParser {
     for (int i = 0; i < soundNodes.getLength(); i++) {
       Element soundNode = (Element) soundNodes.item(i);
       String soundName = "SOUND " + i;
-
-      NodeList nameNodes = soundNode.getElementsByTagName("name");
-      if (nameNodes.getLength() > 0) {
-        soundName = nameNodes.item(0).getTextContent();
+      if (soundNode.hasAttribute("name")) {
+        soundName = soundNode.getAttribute("name");
+      } else {
+        NodeList nameNodes = soundNode.getElementsByTagName("name");
+        if (nameNodes.getLength() > 0) {
+          soundName = nameNodes.item(0).getTextContent();
+        }
       }
 
       SoundDrum sound = parseSoundDrum(soundNode, soundName);
@@ -530,7 +533,10 @@ public class DelugeXmlParser {
         // Determine if this is a kit clip (drumIndex in noteRows) or synth clip
         NodeList noteRowsList = clipElem.getElementsByTagName("noteRows");
         boolean isKitClip = false;
-        if (noteRowsList.getLength() > 0) {
+        if (clipElem.hasAttribute("instrumentPresetFolder")) {
+          isKitClip = "KITS".equalsIgnoreCase(clipElem.getAttribute("instrumentPresetFolder"));
+        }
+        if (!isKitClip && noteRowsList.getLength() > 0) {
           Element noteRowsElem = (Element) noteRowsList.item(0);
           NodeList noteRowList = noteRowsElem.getElementsByTagName("noteRow");
           for (int r = 0; r < noteRowList.getLength() && !isKitClip; r++) {
@@ -1601,9 +1607,13 @@ public class DelugeXmlParser {
     for (int i = 0; i < soundNodes.getLength(); i++) {
       Element soundNode = (Element) soundNodes.item(i);
       String soundName = "SOUND " + i;
-      NodeList nameNodes = soundNode.getElementsByTagName("name");
-      if (nameNodes.getLength() > 0) {
-        soundName = nameNodes.item(0).getTextContent();
+      if (soundNode.hasAttribute("name")) {
+        soundName = soundNode.getAttribute("name");
+      } else {
+        NodeList nameNodes = soundNode.getElementsByTagName("name");
+        if (nameNodes.getLength() > 0) {
+          soundName = nameNodes.item(0).getTextContent();
+        }
       }
       SoundDrum sound = parseSoundDrum(soundNode, soundName);
       kit.addDrum(sound);
@@ -1775,9 +1785,15 @@ public class DelugeXmlParser {
     readAttrFloatHex(params, "bitCrush", clip::setBitCrush, true);
     readAttrFloatHex(params, "delayRate", clip::setDelayRate, true);
     readAttrFloatHex(params, "delayFeedback", clip::setDelayFeedback, true);
-    readAttrFloatHex(params, "lpfFrequency", clip::setLpfFrequency, true);
+    String lpfVal = readAttr(params, "lpfFrequency");
+    if (lpfVal != null && !lpfVal.isEmpty()) {
+      clip.setLpfFrequency(DelugeHexMapper.hexToHz(lpfVal));
+    }
     readAttrFloatHex(params, "lpfResonance", clip::setLpfResonance, true);
-    readAttrFloatHex(params, "hpfFrequency", clip::setHpfFrequency, true);
+    String hpfVal = readAttr(params, "hpfFrequency");
+    if (hpfVal != null && !hpfVal.isEmpty()) {
+      clip.setHpfFrequency(DelugeHexMapper.hexToHz(hpfVal));
+    }
     readAttrFloatHex(params, "hpfResonance", clip::setHpfResonance, true);
     readAttrFloatHex(params, "eqBass", clip::setEqBass, true);
     readAttrFloatHex(params, "eqTreble", clip::setEqTreble, false);
@@ -1794,13 +1810,19 @@ public class DelugeXmlParser {
     // <lpf> child: frequency, resonance
     Element lpfChild = getFirstChild(params, "lpf");
     if (lpfChild != null) {
-      readAttrFloatHex(lpfChild, "frequency", clip::setLpfFrequency, true);
+      String freqVal = readAttr(lpfChild, "frequency");
+      if (freqVal != null && !freqVal.isEmpty()) {
+        clip.setLpfFrequency(DelugeHexMapper.hexToHz(freqVal));
+      }
       readAttrFloatHex(lpfChild, "resonance", clip::setLpfResonance, true);
     }
     // <hpf> child: frequency, resonance
     Element hpfChild = getFirstChild(params, "hpf");
     if (hpfChild != null) {
-      readAttrFloatHex(hpfChild, "frequency", clip::setHpfFrequency, true);
+      String freqVal = readAttr(hpfChild, "frequency");
+      if (freqVal != null && !freqVal.isEmpty()) {
+        clip.setHpfFrequency(DelugeHexMapper.hexToHz(freqVal));
+      }
       readAttrFloatHex(hpfChild, "resonance", clip::setHpfResonance, true);
     }
     // <equalizer> child: bass, treble, bassFrequency, trebleFrequency
@@ -2740,7 +2762,20 @@ public class DelugeXmlParser {
     parseZoneFromOsc(sound, soundNode);
 
     // ── Root attributes ──
-    readAttrBool(soundNode, "polyphonic", sound::setPolyphonic);
+    readAttrOrChildString(
+        soundNode,
+        "polyphonic",
+        v -> {
+          if ("choke".equalsIgnoreCase(v)) {
+            sound.setPolyphony(SynthTrackModel.PolyphonyMode.CHOKE);
+          } else if ("mono".equalsIgnoreCase(v) || "0".equals(v) || "false".equalsIgnoreCase(v)) {
+            sound.setPolyphony(SynthTrackModel.PolyphonyMode.MONO);
+          } else if ("legato".equalsIgnoreCase(v)) {
+            sound.setPolyphony(SynthTrackModel.PolyphonyMode.LEGATO);
+          } else {
+            sound.setPolyphony(SynthTrackModel.PolyphonyMode.POLY);
+          }
+        });
     int vp = readIntAttr(soundNode, "voicePriority", 1);
     sound.setVoicePriority(vp);
     readAttrFloatHex(soundNode, "sideChainSend", sound::setSidechainSend, true);

@@ -1265,8 +1265,13 @@ public class FirmwareFactory {
         (int) (sd.getLpfRes() * 2147483647.0f);
 
     // Polyphony / unison
-    drumSound.fw2Sound.polyphonic =
-        org.deluge.firmware2.Sound.PolyphonyMode.valueOf(toPolyphonyMode(sd.getPolyphony()).name());
+    try {
+      drumSound.fw2Sound.polyphonic =
+          org.deluge.firmware2.Sound.PolyphonyMode.valueOf(
+              toPolyphonyMode(sd.getPolyphony()).name());
+    } catch (Exception e) {
+      drumSound.fw2Sound.polyphonic = org.deluge.firmware2.Sound.PolyphonyMode.POLY;
+    }
     drumSound.fw2Sound.numUnison = sd.getUnisonNum();
     drumSound.fw2Sound.unisonDetune = (int) sd.getUnisonDetune();
     drumSound.fw2Sound.unisonStereoSpread = (int) sd.getUnisonStereoSpread();

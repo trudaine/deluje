@@ -107,7 +107,15 @@ public class KitSynthSerializer {
       }
 
       // ── polyphonic ──
-      appendTextChild(doc, soundElem, "polyphonic", sound.isPolyphonic() ? "1" : "0");
+      String polyVal =
+          switch (sound.getPolyphony()) {
+            case MONO -> "0";
+            case LEGATO -> "legato";
+            case CHOKE -> "choke";
+            case AUTO -> "auto";
+            default -> "1";
+          };
+      appendTextChild(doc, soundElem, "polyphonic", polyVal);
 
       // ── clippingAmount ──
       appendTextChild(

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<song affectEntire="0" earliestCompatibleFirmware="4.1.0-alpha" firmwareVersion="c1.3.0" inputTickMagnitude="2" previewNumPads="144" swing="0x40000000" swingAmount="0" swingInterval="7" tempo="120.0" timePerTimerTick="229" timerTickFraction="-1342177280" xScroll="0" xZoom="24" yScrollArrangementView="-7" yScrollSongView="-7">
+<song affectEntire="0" earliestCompatibleFirmware="4.1.0-alpha" firmwareVersion="c1.3.0" inputTickMagnitude="2" previewNumPads="144" swing="0x40000000" swingAmount="0" swingInterval="7" tempo="120.0" key="0" scale="Major" timePerTimerTick="229" timerTickFraction="-1342177280" xScroll="0" xZoom="24" yScrollArrangementView="-7" yScrollSongView="-7">
 	<instruments>
 		<sound presetName="Synth Lead" presetFolder="SYNTHS" clipInstances="0x000000000000060000000000">
 			<osc1 type="saw" transpose="0" cents="0" retrigPhase="-1" />
@@ -135,7 +135,7 @@
 	</instruments>
 	<sessionClips>
 		<instrumentClip instrumentPresetName="Synth Lead" instrumentPresetFolder="SYNTHS" length="384" isPlaying="1" section="0" clipInstances="0x000000000000060000000000">
-			<soundParams />
+			<soundParams volume="0x00000000" pan="0x00000000" lpfFrequency="0x17BC4E80" lpfResonance="0x00000000" hpfFrequency="0x80000000" hpfResonance="0x80000000" reverbAmount="0xE6666680" delayRate="0xCCCCCD00" />
 			<noteRows>
 				<noteRow y="72" noteDataWithLift="0x00000000000001B0664014" noteDataWithSplitProb="0x00000000000001B0664014000000" />
 				<noteRow y="75" noteDataWithLift="0x00000048000001B066401400000150000001B0664014" noteDataWithSplitProb="0x00000048000001B066401400000000000150000001B0664014000000" />
@@ -146,4 +146,17 @@
 			</noteRows>
 		</instrumentClip>
 	</sessionClips>
+	<reverb roomSize="1288490240" dampening="1073741824" width="1073741824" hpf="0" pan="0" model="0">
+		<compressor attack="0" release="0" syncLevel="0" compHPF="0" compBlend="1073741824" />
+	</reverb>
+	<delay pingPong="0" analog="0" syncLevel="0" syncType="0" />
+	<sidechain attack="0" release="0" syncLevel="0" syncType="0" />
+	<audioCompressor attack="0" release="0" thresh="0" ratio="0" compHPF="0" compBlend="2147483647" />
+	<stutter quantized="1" reverse="0" pingPong="0" />
+	<songParams reverbAmount="0x00000000" volume="0x7FFFFFFF" pan="0x00000000" sidechainCompressorShape="0x00000000" sidechainCompressorVolume="0x80000000" modFXRate="0x80000000" modFXDepth="0x80000000" modFXOffset="0x80000000" modFXFeedback="0x80000000" stutterRate="0x80000000" sampleRateReduction="0x80000000" bitCrush="0x80000000" compressorThreshold="0x80000000" lpfMorph="0x80000000" hpfMorph="0x80000000">
+		<delay rate="0x80000000" feedback="0x80000000" />
+		<lpf frequency="0x7FFFFFFF" resonance="0x80000000" />
+		<hpf frequency="0x80000000" resonance="0x80000000" />
+		<eq bass="0x00000000" treble="0x00000000" bassFrequency="0x80000000" trebleFrequency="0x80000000" />
+	</songParams>
 </song>

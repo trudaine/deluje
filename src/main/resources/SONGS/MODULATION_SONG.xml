@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <song affectEntire="0" earliestCompatibleFirmware="4.1.0-alpha" firmwareVersion="c1.3.0" inputTickMagnitude="2" previewNumPads="144" swing="0x40000000" swingAmount="0" swingInterval="7" tempo="120.0" key="0" scale="Major" timePerTimerTick="229" timerTickFraction="-1342177280" xScroll="0" xZoom="24" yScrollArrangementView="-7" yScrollSongView="-5">
 	<instruments>
-		<sound presetName="Synth Bass" presetFolder="SYNTHS" clipInstances="0x000000000000060000000000">
+		<sound presetName="Wobble Bass" presetFolder="SYNTHS" clipInstances="0x000000000000090000000000">
 			<osc1 type="saw" transpose="0" cents="0" retrigPhase="-1" />
 			<osc2 type="none" transpose="0" cents="0" retrigPhase="-1" />
 			<polyphonic>1</polyphonic>
@@ -9,8 +9,8 @@
 			<voicePriority>1</voicePriority>
 			<lfo1>
 				<type>sine</type>
-				<rate>0x00000000</rate>
-				<depth>0x7FFFFFFF</depth>
+				<rate>0x268826C0</rate>
+				<depth>0x4CCCCD00</depth>
 			</lfo1>
 			<lfo2>
 				<type>sine</type>
@@ -60,15 +60,15 @@
 				<arpeggiatorGate>0x00000000</arpeggiatorGate>
 				<portamento>0x80000000</portamento>
 				<compressorShape>0x6B851F00</compressorShape>
-				<oscAVolume>0x4CCCCD00</oscAVolume>
+				<oscAVolume>0x59999A00</oscAVolume>
 				<oscAPulseWidth>0x80000000</oscAPulseWidth>
-				<oscBVolume>0xB3333300</oscBVolume>
+				<oscBVolume>0xA6666600</oscBVolume>
 				<oscBPulseWidth>0x80000000</oscBPulseWidth>
 				<noiseVolume>0x80000000</noiseVolume>
 				<volume>0x33333300</volume>
 				<pan>0x00000000</pan>
-				<lpfFrequency>0xFE0C34C8</lpfFrequency>
-				<lpfResonance>0xB3333300</lpfResonance>
+				<lpfFrequency>0xF74A7730</lpfFrequency>
+				<lpfResonance>0x00000000</lpfResonance>
 				<hpfFrequency>0x80000000</hpfFrequency>
 				<hpfResonance>0x80000000</hpfResonance>
 				<hpfMorph>0x80000000</hpfMorph>
@@ -98,15 +98,15 @@
 				</equalizer>
 				<envelope1>
 					<attack>0x80000000</attack>
-					<decay>0x091CFDE0</decay>
-					<sustain>0xE6666680</sustain>
-					<release>0xFC6D9334</release>
+					<decay>0x14C8E540</decay>
+					<sustain>0x00000000</sustain>
+					<release>0x03926CE8</release>
 				</envelope1>
 				<envelope2>
-					<attack>0xA7F78180</attack>
-					<decay>0xFC6D9334</decay>
-					<sustain>0xB3333300</sustain>
-					<release>0xF25BF480</release>
+					<attack>0xB92DFA00</attack>
+					<decay>0xF25BF480</decay>
+					<sustain>0x33333300</sustain>
+					<release>0x03926CE8</release>
 				</envelope2>
 				<envelope3>
 					<attack>0xB92DFA00</attack>
@@ -120,16 +120,23 @@
 					<sustain>0x33333300</sustain>
 					<release>0x03926CE8</release>
 				</envelope4>
-				<lfo1Rate>0x0147AE14</lfo1Rate>
+				<lfo1Rate>0x051EB850</lfo1Rate>
 				<lfo2Rate>0x0147AE14</lfo2Rate>
+				<patchCables>
+					<patchCable>
+						<source>lfo1</source>
+						<destination>lpfFrequency</destination>
+						<amount>0x4CCCCD00</amount>
+					</patchCable>
+				</patchCables>
 				<modFXOffset>0x00000000</modFXOffset>
 				<modFXFeedback>0x00000000</modFXFeedback>
 			</defaultParams>
 			<midiKnobs></midiKnobs>
 		</sound>
-		<sound presetName="Synth Lead" presetFolder="SYNTHS" clipInstances="0x000003000000060000000001">
-			<osc1 type="saw" transpose="0" cents="0" retrigPhase="-1" />
-			<osc2 type="square" transpose="0" cents="0" retrigPhase="-1" />
+		<sound presetName="Laser Lead" presetFolder="SYNTHS" clipInstances="0x000000000000090000000001">
+			<osc1 type="square" transpose="0" cents="0" retrigPhase="-1" />
+			<osc2 type="none" transpose="0" cents="0" retrigPhase="-1" />
 			<polyphonic>1</polyphonic>
 			<clippingAmount>0</clippingAmount>
 			<voicePriority>1</voicePriority>
@@ -141,7 +148,7 @@
 			<lfo2>
 				<type>sine</type>
 				<rate>0x00000000</rate>
-				<depth>0x7FFFFFFF</depth>
+				<depth>0x66666600</depth>
 			</lfo2>
 			<lfo3>
 				<type>sine</type>
@@ -196,10 +203,10 @@
 				<oscBVolume>0xE6666600</oscBVolume>
 				<oscBPulseWidth>0x80000000</oscBPulseWidth>
 				<noiseVolume>0x80000000</noiseVolume>
-				<volume>0x00000000</volume>
+				<volume>0x0CCCCD00</volume>
 				<pan>0x00000000</pan>
-				<lpfFrequency>0x17BC4E80</lpfFrequency>
-				<lpfResonance>0x00000000</lpfResonance>
+				<lpfFrequency>0x32EFB2C0</lpfFrequency>
+				<lpfResonance>0xB3333300</lpfResonance>
 				<hpfFrequency>0x80000000</hpfFrequency>
 				<hpfResonance>0x80000000</hpfResonance>
 				<hpfMorph>0x80000000</hpfMorph>
@@ -213,7 +220,7 @@
 				<modFXDepth>0x80000000</modFXDepth>
 				<modFXOffset>0x80000000</modFXOffset>
 				<modFXFeedback>0x80000000</modFXFeedback>
-				<delayRate>0xCCCCCD00</delayRate>
+				<delayRate>0xD9999980</delayRate>
 				<delayFeedback>0x80000000</delayFeedback>
 				<reverbAmount>0xE6666680</reverbAmount>
 				<arpeggiatorRate>0x80000000</arpeggiatorRate>
@@ -228,16 +235,16 @@
 					<trebleFrequency>0x00000000</trebleFrequency>
 				</equalizer>
 				<envelope1>
-					<attack>0xE1257C20</attack>
-					<decay>0x0DA40BA0</decay>
-					<sustain>0x19999A00</sustain>
-					<release>0x091CFDE0</release>
+					<attack>0xB92DFA00</attack>
+					<decay>0x03926CE8</decay>
+					<sustain>0x80000000</sustain>
+					<release>0xFC6D9334</release>
 				</envelope1>
 				<envelope2>
-					<attack>0x1A537640</attack>
-					<decay>0x2B89EEC0</decay>
-					<sustain>0xE6666680</sustain>
-					<release>0x1A537640</release>
+					<attack>0x80000000</attack>
+					<decay>0xFC6D9334</decay>
+					<sustain>0x80000000</sustain>
+					<release>0xFC6D9334</release>
 				</envelope2>
 				<envelope3>
 					<attack>0xB92DFA00</attack>
@@ -253,6 +260,18 @@
 				</envelope4>
 				<lfo1Rate>0x0147AE14</lfo1Rate>
 				<lfo2Rate>0x0147AE14</lfo2Rate>
+				<patchCables>
+					<patchCable>
+						<source>envelope2</source>
+						<destination>pitch</destination>
+						<amount>0x66666680</amount>
+					</patchCable>
+					<patchCable>
+						<source>lfo2</source>
+						<destination>pan</destination>
+						<amount>0x7FFFFFFF</amount>
+					</patchCable>
+				</patchCables>
 				<modFXOffset>0x00000000</modFXOffset>
 				<modFXFeedback>0x00000000</modFXFeedback>
 			</defaultParams>
@@ -305,137 +324,43 @@
 					</defaultParams>
 					<midiKnobs></midiKnobs>
 				</sound>
-				<sound name="Snare" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
-					<osc1 type="none" />
-					<osc2 type="none" />
-					<lfo1>
-						<type>sine</type>
-						<rate>0x00000000</rate>
-						<depth>0x7FFFFFFF</depth>
-					</lfo1>
-					<lfo2>
-						<type>sine</type>
-						<rate>0x00000000</rate>
-						<depth>0x7FFFFFFF</depth>
-					</lfo2>
-					<unison>
-						<num>1</num>
-						<detune>0x00000000</detune>
-					</unison>
-					<defaultParams>
-						<volume>0x7FFFFFFF</volume>
-						<pan>0x00000000</pan>
-						<oscAVolume>0x80000000</oscAVolume>
-						<oscBVolume>0x80000000</oscBVolume>
-						<noiseVolume>0x40000000</noiseVolume>
-						<lpfFrequency>0x3F67EA00</lpfFrequency>
-						<lpfResonance>0x99999980</lpfResonance>
-						<hpfFrequency>0x80000000</hpfFrequency>
-						<hpfResonance>0x80000000</hpfResonance>
-						<pitch>0x00000000</pitch>
-						<reverbAmount>0x80000000</reverbAmount>
-						<delayRate>0x80000000</delayRate>
-						<envelope1>
-							<attack>0x80000000</attack>
-							<decay>0xFC6D9334</decay>
-							<sustain>0x80000000</sustain>
-							<release>0xF25BF480</release>
-						</envelope1>
-						<envelope2>
-							<attack>0xB92DFA00</attack>
-							<decay>0xF25BF480</decay>
-							<sustain>0x33333300</sustain>
-							<release>0x03926CE8</release>
-						</envelope2>
-					</defaultParams>
-					<midiKnobs></midiKnobs>
-				</sound>
-				<sound name="Hihat" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
-					<osc1 type="none" />
-					<osc2 type="none" />
-					<lfo1>
-						<type>sine</type>
-						<rate>0x00000000</rate>
-						<depth>0x7FFFFFFF</depth>
-					</lfo1>
-					<lfo2>
-						<type>sine</type>
-						<rate>0x00000000</rate>
-						<depth>0x7FFFFFFF</depth>
-					</lfo2>
-					<unison>
-						<num>1</num>
-						<detune>0x00000000</detune>
-					</unison>
-					<defaultParams>
-						<volume>0x7FFFFFFF</volume>
-						<pan>0x00000000</pan>
-						<oscAVolume>0x80000000</oscAVolume>
-						<oscBVolume>0x80000000</oscBVolume>
-						<noiseVolume>0x4CCCCD00</noiseVolume>
-						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
-						<lpfResonance>0x80000000</lpfResonance>
-						<hpfFrequency>0x2AAAAAC0</hpfFrequency>
-						<hpfResonance>0x80000000</hpfResonance>
-						<pitch>0x00000000</pitch>
-						<reverbAmount>0x80000000</reverbAmount>
-						<delayRate>0x80000000</delayRate>
-						<envelope1>
-							<attack>0x80000000</attack>
-							<decay>0xF25BF480</decay>
-							<sustain>0x80000000</sustain>
-							<release>0xF25BF480</release>
-						</envelope1>
-						<envelope2>
-							<attack>0xB92DFA00</attack>
-							<decay>0xF25BF480</decay>
-							<sustain>0x33333300</sustain>
-							<release>0x03926CE8</release>
-						</envelope2>
-					</defaultParams>
-					<midiKnobs></midiKnobs>
-				</sound>
 			</soundSources>
 		</kit>
 	</instruments>
 	<sessionClips>
-		<instrumentClip instrumentPresetName="Synth Bass" instrumentPresetFolder="SYNTHS" length="192" isPlaying="1" section="0" clipInstances="0x000000000000060000000000">
-			<soundParams volume="0x333332FF" pan="0x00000000" lpfFrequency="0xFE0C34C8" lpfResonance="0xB3333340" hpfFrequency="0x80000000" hpfResonance="0x80000000" reverbAmount="0x80000000" delayRate="0x80000000" />
+		<instrumentClip instrumentPresetName="Wobble Bass" instrumentPresetFolder="SYNTHS" length="192" isPlaying="1" section="0" clipInstances="0x000000000000090000000000">
+			<soundParams volume="0x333332FF" pan="0x00000000" lpfFrequency="0xF74A7730" lpfResonance="0x00000000" hpfFrequency="0x80000000" hpfResonance="0x80000000" reverbAmount="0x80000000" delayRate="0x80000000" />
 			<noteRows>
-				<noteRow y="48" noteDataWithLift="0x00000000000003607240140000003000000120664014" noteDataWithSplitProb="0x00000000000003607240140000000000003000000120664014000000" />
-				<noteRow y="51" noteDataWithLift="0x0000006000000240724014" noteDataWithSplitProb="0x0000006000000240724014000000" />
-				<noteRow y="53" noteDataWithLift="0x0000009000000240724014" noteDataWithSplitProb="0x0000009000000240724014000000" />
+				<noteRow y="48" noteDataWithLift="0x0000000000000360724014" noteDataWithSplitProb="0x0000000000000360724014000000" />
+				<noteRow y="51" noteDataWithLift="0x0000006000000360724014" noteDataWithSplitProb="0x0000006000000360724014000000" />
+				<noteRow y="53" noteDataWithLift="0x" noteDataWithSplitProb="0x" />
 			</noteRows>
 		</instrumentClip>
-		<instrumentClip instrumentPresetName="Synth Lead" instrumentPresetFolder="SYNTHS" length="384" isPlaying="1" section="0" clipInstances="0x000003000000060000000001">
-			<soundParams volume="0x00000000" pan="0x00000000" lpfFrequency="0x17BC4E80" lpfResonance="0x00000000" hpfFrequency="0x80000000" hpfResonance="0x80000000" reverbAmount="0xE6666680" delayRate="0xCCCCCD00" />
+		<instrumentClip instrumentPresetName="Laser Lead" instrumentPresetFolder="SYNTHS" length="384" isPlaying="1" section="0" clipInstances="0x000000000000090000000001">
+			<soundParams volume="0x0CCCCCFF" pan="0x00000000" lpfFrequency="0x32EFB2C0" lpfResonance="0xB3333340" hpfFrequency="0x80000000" hpfResonance="0x80000000" reverbAmount="0xE6666680" delayRate="0xD9999980" />
 			<noteRows>
-				<noteRow y="72" noteDataWithLift="0x00000000000001B0664014" noteDataWithSplitProb="0x00000000000001B0664014000000" />
-				<noteRow y="75" noteDataWithLift="0x00000048000001B066401400000150000001B0664014" noteDataWithSplitProb="0x00000048000001B066401400000000000150000001B0664014000000" />
-				<noteRow y="79" noteDataWithLift="0x00000090000001B066401400000108000001B0664014" noteDataWithSplitProb="0x00000090000001B066401400000000000108000001B0664014000000" />
-				<noteRow y="82" noteDataWithLift="0x000000C0000001B0664014" noteDataWithSplitProb="0x000000C0000001B0664014000000" />
-				<noteRow y="84" noteDataWithLift="0x" noteDataWithSplitProb="0x" />
-				<noteRow y="86" noteDataWithLift="0x" noteDataWithSplitProb="0x" />
+				<noteRow y="60" noteDataWithLift="0x0000000000000120664014" noteDataWithSplitProb="0x0000000000000120664014000000" />
+				<noteRow y="63" noteDataWithLift="0x0000004800000120664014" noteDataWithSplitProb="0x0000004800000120664014000000" />
+				<noteRow y="67" noteDataWithLift="0x0000009000000120664014" noteDataWithSplitProb="0x0000009000000120664014000000" />
+				<noteRow y="70" noteDataWithLift="0x000000D800000120664014" noteDataWithSplitProb="0x000000D800000120664014000000" />
 			</noteRows>
 		</instrumentClip>
 		<instrumentClip instrumentPresetName="Synth Kit" instrumentPresetFolder="KITS" length="384" isPlaying="1" section="0" clipInstances="0x000000000000090000000002">
 			<kitParams volume="0x7FFFFFFF" pan="0x40000000" />
 			<noteRows>
-				<noteRow drumIndex="0" noteDataWithLift="0x00000000000001207240140000006000000120724014000000C0000001207240140000012000000120724014" noteDataWithSplitProb="0x00000000000001207240140000000000006000000120724014000000000000C0000001207240140000000000012000000120724014000000" />
-				<noteRow drumIndex="1" noteDataWithLift="0x00000060000001206C401400000120000001206C4014" noteDataWithSplitProb="0x00000060000001206C401400000000000120000001206C4014000000" />
-				<noteRow drumIndex="2" noteDataWithLift="0x0000000000000090594014000000300000009059401400000060000000905940140000009000000090594014000000C000000090594014000000F00000009059401400000120000000905940140000015000000090594014" noteDataWithSplitProb="0x0000000000000090594014000000000000300000009059401400000000000060000000905940140000000000009000000090594014000000000000C000000090594014000000000000F00000009059401400000000000120000000905940140000000000015000000090594014000000" />
+				<noteRow drumIndex="0" noteDataWithLift="0x00000000000001207940140000006000000120794014000000C0000001207940140000012000000120794014" noteDataWithSplitProb="0x00000000000001207940140000000000006000000120794014000000000000C0000001207940140000000000012000000120794014000000" />
 			</noteRows>
 		</instrumentClip>
 	</sessionClips>
-	<reverb roomSize="1288490240" dampening="1073741824" width="1073741824" hpf="0" pan="0" model="0">
+	<reverb roomSize="1503238528" dampening="644245120" width="1717986944" hpf="0" pan="0" model="0">
 		<compressor attack="0" release="0" syncLevel="0" compHPF="0" compBlend="1073741824" />
 	</reverb>
-	<delay pingPong="0" analog="0" syncLevel="0" syncType="0" />
+	<delay pingPong="1" analog="0" syncLevel="6" syncType="0" />
 	<sidechain attack="326417" release="923" syncLevel="0" syncType="0" />
 	<audioCompressor attack="0" release="0" thresh="0" ratio="0" compHPF="0" compBlend="2147483647" />
 	<stutter quantized="1" reverse="0" pingPong="0" />
-	<songParams reverbAmount="0x00000000" volume="0x7FFFFFFF" pan="0x00000000" sidechainCompressorShape="0x3851EBFF" sidechainCompressorVolume="0x80000000" modFXRate="0x80000000" modFXDepth="0x80000000" modFXOffset="0x80000000" modFXFeedback="0x80000000" stutterRate="0x80000000" sampleRateReduction="0x80000000" bitCrush="0x80000000" compressorThreshold="0x80000000" lpfMorph="0x80000000" hpfMorph="0x80000000">
-		<delay rate="0x80000000" feedback="0x80000000" />
+	<songParams reverbAmount="0x00000000" volume="0x7FFFFFFF" pan="0x00000000" sidechainCompressorShape="0x3FFFFFFF" sidechainCompressorVolume="0x80000000" modFXRate="0x80000000" modFXDepth="0x80000000" modFXOffset="0x80000000" modFXFeedback="0x80000000" stutterRate="0x80000000" sampleRateReduction="0x80000000" bitCrush="0x80000000" compressorThreshold="0x80000000" lpfMorph="0x80000000" hpfMorph="0x80000000">
+		<delay rate="0x00000000" feedback="0xF3333300" />
 		<lpf frequency="0x7FFFFFFF" resonance="0x80000000" />
 		<hpf frequency="0x80000000" resonance="0x80000000" />
 		<eq bass="0x00000000" treble="0x00000000" bassFrequency="0x80000000" trebleFrequency="0x80000000" />

@@ -1,4 +1,4 @@
-package org.deluge.xml2;
+package org.deluge.project;
 
 import java.io.IOException;
 import java.io.Writer;
