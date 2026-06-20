@@ -8,6 +8,7 @@ Welcome to the **ChucK-Java Deluge Workstation**, a modern, high-fidelity softwa
 1. [The Step Sequencer & Clip View](#1-the-step-sequencer--clip-view)
    * [1.6 The Euclidean Rhythm Generator](#16-the-euclidean-rhythm-generator)
    * [1.7 Sequencer Grid Zooming & Proportional Scaling](#17-sequencer-grid-zooming--proportional-scaling)
+   * [1.8 Premium Fold Mode & Vertical Space Optimization](#18-premium-fold-mode--vertical-space-optimization)
 2. [Synthesizers & Sound Engines (Subtractive, FM, Wavetable, Legato, Multi-Sampler, Ring Mod)](#2-synthesizers--sound-engines-subtractive-fm-wavetable)
    * [2.7 Chord Keyboard (CORK & CORL Layouts)](#27-chord-keyboard-cork--corl-layouts)
 3. [Drum Kits & Smart Keyword Auto-Mapper](#3-drum-kits--smart-keyword-auto-mapper)
@@ -166,6 +167,38 @@ A brand-new **`View`** menu is located in the main menu bar. It provides:
 3.  **Bidirectional Real-Time Sync**:
     *   Pressing `Ctrl + =` or `Ctrl + -` dynamically updates the checked radio button in the menu bar.
     *   Clicking a radio button in the menu bar instantly scales the grid and updates your preferences!
+### 1.8 Premium Fold Mode & Vertical Space Optimization
+
+The Deluge Workstation features a premium **Fold Mode** for synthesizer clip tracks. It optimizes your workspace by collapsing empty rows on the sequencer grid, allowing you to focus strictly on the musical structure of your pattern.
+
+#### The Concept:
+* **Unfolded Mode (Default)**: Displays a full chromatic piano roll spanning 128 rows (representing MIDI notes 0 to 127). This allows you to sequence notes across any octave but requires vertical scrolling to navigate between distant pitches.
+* **Folded Mode**: Collapses the grid to **only display rows that contain programmed notes** in the active clip (e.g., if your bassline only uses C3, D#3, and F3, the grid shrinks to exactly 3 rows). This eliminates all empty vertical space, bringing all your notes onto a single screen for distraction-free editing!
+
+```mermaid
+graph TD
+    A[Unfolded Chromatic Piano Roll: 128 Rows] -->|Click FOLD Button| B[Scan Active Note Pitches in Clip]
+    B -->|Filter Out Silent Lanes| C[Folded Grid: Only Active Note Lanes Shown]
+    C -->|Auto-Hide Scrollbar & Navigation Arrows| D[Tactile, Clean Workspace]
+    D -->|Click UNFLD Button| A
+```
+
+#### Key Features & System Architecture:
+* **The Unified Pitch Resolver (MVC Data Parity)**: 
+  * In a standard sparse-row sequencer model, changing the grid height dynamically can cause note placements to shift or get corrupted.
+  * To solve this, the Deluge Workstation implements a **Unified Pitch Resolver** in the model (`ClipModel`). When Fold Mode is active, the model transparently maps step read/write actions from the collapsed UI rows directly to their absolute chromatic MIDI pitches in the audio engine. 
+  * This guarantees 100% data integrity: notes played by the audio engine and saved to the XML file always maintain their exact pitch, regardless of whether you are editing them in folded or unfolded mode!
+* **Auto-Hiding Scroll Controls**:
+  * Toggling Fold Mode recalculates the grid layout. If the active note rows fit on a single screen (8 rows or fewer), the vertical scrollbar, Page Up, and Page Down buttons **automatically hide** to maximize grid workspace and eliminate visual clutter.
+  * The side navigation panel remains perfectly locked at a fixed width of **32 pixels** to prevent the grid pads from shifting or jittering horizontally during folding/unfolding transitions.
+* **macOS Cross-Platform Button Polish**:
+  * All navigation buttons inside the side panel are rendered using flat, pixel-perfect Basic button UIs. This bypasses native macOS Aqua minimum-width constraints ($\ge 70$px), ensuring that the glowing green **`FOLD`** and **`UNFLD`** toggle buttons and their labels fit and display with absolute clarity!
+
+#### How to Use Fold Mode:
+1. Select a Synth track to enter its Clip view.
+2. Look at the vertical navigation panel on the far right. At the bottom right, you will see a glowing green button labeled **`FOLD`**.
+3. Click **`FOLD`**. The grid will instantly collapse to display only your active note rows. The button will toggle to a glowing cyan background labeled **`UNFLD`**.
+4. To add a new note at a pitch that is not currently in the folded view, click **`UNFLD`** to return to the chromatic piano roll, click a pad to add the note, and then click **`FOLD`** again to collapse the grid with the new pitch included!
 
 ---
 
