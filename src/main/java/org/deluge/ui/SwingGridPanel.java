@@ -98,6 +98,83 @@ public class SwingGridPanel extends JPanel {
   private int lastScrollOffset = -1;
   private int lastScrollOffsetX = -1;
 
+  private boolean foldMode = false;
+  private final java.util.List<Integer> foldedPitches = new java.util.ArrayList<>();
+
+  public int getRowPitch(int modelRow) {
+    boolean isSynth = false;
+    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+      org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
+      isSynth = t instanceof org.deluge.model.SynthTrackModel;
+    }
+    if (isSynth && viewMode == GridViewMode.CLIP) {
+      if (foldMode && !foldedPitches.isEmpty()) {
+        if (modelRow >= 0 && modelRow < foldedPitches.size()) {
+          return foldedPitches.get(modelRow);
+        }
+      }
+      return 127 - modelRow;
+    }
+    return 60; // fallback
+  }
+
+  private int getClipRowIndex(org.deluge.model.ClipModel cModel, int modelRow, boolean createIfMissing) {
+    int pitchMidi = getRowPitch(modelRow);
+    for (int r = 0; r < cModel.getRowCount(); r++) {
+      if (cModel.getRowYNote(r) == pitchMidi) {
+        return r;
+      }
+    }
+    if (createIfMissing) {
+      int newRowIdx = cModel.getRowCount();
+      cModel.setRowCount(newRowIdx + 1);
+      cModel.setRowYNote(newRowIdx, pitchMidi);
+      return newRowIdx;
+    }
+    return -1;
+  }
+
+  public org.deluge.model.StepData getClipStep(org.deluge.model.ClipModel cModel, int modelRow, int col) {
+    int r = getClipRowIndex(cModel, modelRow, false);
+    if (r >= 0) {
+      return cModel.getStep(r, col);
+    }
+    return org.deluge.model.StepData.empty();
+  }
+
+  public void setClipStep(org.deluge.model.ClipModel cModel, int modelRow, int col, org.deluge.model.StepData data) {
+    int r = getClipRowIndex(cModel, modelRow, true);
+    cModel.setStep(r, col, data);
+  }
+
+  private void updateFoldedPitches() {
+    foldedPitches.clear();
+    if (projectModel == null || editedModelTrack >= projectModel.getTracks().size()) return;
+    org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
+    if (!(t instanceof org.deluge.model.SynthTrackModel synthTrack)) return;
+    java.util.Set<Integer> pitchSet = new java.util.TreeSet<>();
+    if (activeClipId >= 0 && activeClipId < synthTrack.getClips().size()) {
+      org.deluge.model.ClipModel clip = synthTrack.getClips().get(activeClipId);
+      for (int r = 0; r < clip.getRowCount(); r++) {
+        int yNote = clip.getRowYNote(r);
+        boolean hasNotes = false;
+        for (int s = 0; s < clip.getStepCount(); s++) {
+          org.deluge.model.StepData step = clip.getStep(r, s);
+          if (step != null && step.active()) {
+            hasNotes = true;
+            break;
+          }
+        }
+        if (hasNotes && yNote >= 0 && yNote < 128) {
+          pitchSet.add(yNote);
+        }
+      }
+    }
+    for (int pitch : pitchSet) {
+      foldedPitches.add(0, pitch);
+    }
+  }
+
   public enum GridViewMode {
     CLIP,
     SONG,
@@ -1189,7 +1266,26 @@ public class SwingGridPanel extends JPanel {
       org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
       isSynth = t instanceof org.deluge.model.SynthTrackModel;
     }
-    scrollOffset = isSynth ? 67 : 0;
+    if (isSynth) {
+      if (foldMode) {
+        updateFoldedPitches();
+        scrollOffset = 0;
+      } else {
+        updateFoldedPitches();
+        if (!foldedPitches.isEmpty()) {
+          // Center on the middle active pitch
+          int midPitch = foldedPitches.get(foldedPitches.size() / 2);
+          scrollOffset = 124 - midPitch;
+        } else {
+          // Default to centering on C4 (midi 60)
+          scrollOffset = 64;
+        }
+        // Restrict scrollOffset to prevent octave 13 ghost zone (restrict to octaves 1 to 8)
+        scrollOffset = Math.max(19, Math.min(107, scrollOffset));
+      }
+    } else {
+      scrollOffset = 0;
+    }
     scrollOffsetX = 0;
   }
 
@@ -1460,7 +1556,13 @@ public class SwingGridPanel extends JPanel {
       if (t instanceof org.deluge.model.KitTrackModel kit) {
         return kit.getDrums().size();
       }
-      // Synth uses a full 84-note pitch layout (C2 to B8)
+      // Synth uses a full 84-note pitch layout (C2 to B8) or folded pitches
+      if (foldMode) {
+        updateFoldedPitches();
+        if (!foldedPitches.isEmpty()) {
+          return foldedPitches.size();
+        }
+      }
       return 128;
     }
     // SONG / ARRANGEMENT — use gridMode.rows as the total number of voice slots
@@ -4374,7 +4476,34 @@ public class SwingGridPanel extends JPanel {
 
         pageNavPanel.add(pgUpBtn, BorderLayout.NORTH);
         pageNavPanel.add(vertScrollBar, BorderLayout.CENTER);
-        pageNavPanel.add(pgDnBtn, BorderLayout.SOUTH);
+
+        boolean isSynthTrack = false;
+        if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+          isSynthTrack = projectModel.getTracks().get(editedModelTrack) instanceof org.deluge.model.SynthTrackModel;
+        }
+
+        if (viewMode == GridViewMode.CLIP && isSynthTrack) {
+          JPanel southPanel = new JPanel(new java.awt.GridLayout(2, 1, 0, 4));
+          southPanel.setBackground(new Color(0x15, 0x15, 0x18));
+          southPanel.add(pgDnBtn);
+
+          JButton foldBtn = new JButton(foldMode ? "UNFLD" : "FOLD");
+          foldBtn.setFont(new Font("SansSerif", Font.BOLD, 8));
+          foldBtn.setForeground(foldMode ? Color.BLACK : new Color(0x00, 0xff, 0xcc));
+          foldBtn.setBackground(foldMode ? new Color(0x00, 0xff, 0xcc) : new Color(0x1f, 0x1f, 0x24));
+          foldBtn.setBorder(BorderFactory.createEmptyBorder(4, 2, 4, 2));
+          foldBtn.setFocusable(false);
+          foldBtn.setToolTipText("Fold Mode (Only show rows containing notes)");
+          foldBtn.addActionListener(evt -> {
+            foldMode = !foldMode;
+            resetScrollOffset();
+            refresh();
+          });
+          southPanel.add(foldBtn);
+          pageNavPanel.add(southPanel, BorderLayout.SOUTH);
+        } else {
+          pageNavPanel.add(pgDnBtn, BorderLayout.SOUTH);
+        }
 
         vertScrollBar.setValues(scrollOffset, gridMode.rows, 0, voiceRowCount);
         updateScrollBarTooltip();

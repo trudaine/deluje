@@ -77,8 +77,9 @@ public class ClipModel {
   }
 
   public void setRowAutomation(int rowIndex, String paramName, int stepIndex, float value) {
+    int r = getOrCreateResolvedRowIndex(rowIndex);
     Map<String, float[]> rowAutos =
-        rowAutomationData.computeIfAbsent(rowIndex, k -> new HashMap<>());
+        rowAutomationData.computeIfAbsent(r, k -> new HashMap<>());
     float[] array = rowAutos.computeIfAbsent(paramName, k -> new float[stepCount]);
     if (stepIndex >= 0 && stepIndex < stepCount) {
       array[stepIndex] = value;
@@ -86,7 +87,9 @@ public class ClipModel {
   }
 
   public float[] getRowAutomation(int rowIndex, String paramName) {
-    Map<String, float[]> rowAutos = rowAutomationData.get(rowIndex);
+    int r = getResolvedRowIndex(rowIndex);
+    if (r < 0) return null;
+    Map<String, float[]> rowAutos = rowAutomationData.get(r);
     return rowAutos != null ? rowAutos.get(paramName) : null;
   }
 
@@ -105,15 +108,18 @@ public class ClipModel {
   private final Map<Integer, List<HighResNote>> rawNoteEvents = new HashMap<>();
 
   public void setRawNoteEvents(int rowIndex, List<HighResNote> notes) {
+    int r = getOrCreateResolvedRowIndex(rowIndex);
     if (notes == null) {
-      rawNoteEvents.remove(rowIndex);
+      rawNoteEvents.remove(r);
     } else {
-      rawNoteEvents.put(rowIndex, new ArrayList<>(notes));
+      rawNoteEvents.put(r, new ArrayList<>(notes));
     }
   }
 
   public List<HighResNote> getRawNoteEvents(int rowIndex) {
-    return rawNoteEvents.get(rowIndex);
+    int r = getResolvedRowIndex(rowIndex);
+    if (r < 0) return null;
+    return rawNoteEvents.get(r);
   }
 
   public Map<Integer, List<HighResNote>> getRawNoteEventsMap() {
@@ -272,9 +278,57 @@ public class ClipModel {
     resizeAutomationArrays(oldStepCount, this.stepCount);
   }
 
+  private int getResolvedRowIndex(int row) {
+    if (!rowYNote.isEmpty()) {
+      int targetPitch = 127 - row;
+      for (Map.Entry<Integer, Integer> entry : rowYNote.entrySet()) {
+        if (entry.getValue() == targetPitch) {
+          return entry.getKey();
+        }
+      }
+      return -1; // not found in sparse rows
+    }
+    return row;
+  }
+
+  private int getOrCreateResolvedRowIndex(int row) {
+    if (!rowYNote.isEmpty()) {
+      int targetPitch = 127 - row;
+      for (Map.Entry<Integer, Integer> entry : rowYNote.entrySet()) {
+        if (entry.getValue() == targetPitch) {
+          return entry.getKey();
+        }
+      }
+      // Create new row dynamically
+      int newRowIdx = grid.size();
+      List<StepData> newRow = new ArrayList<>();
+      for (int s = 0; s < stepCount; s++) {
+        newRow.add(StepData.empty());
+      }
+      grid.add(newRow);
+      rowCount = grid.size();
+      rowYNote.put(newRowIdx, targetPitch);
+      return newRowIdx;
+    }
+
+    if (row >= rowCount) {
+      // Grow the grid to accommodate this row (synth piano roll)
+      for (int r = rowCount; r <= row; r++) {
+        List<StepData> newRow = new ArrayList<>();
+        for (int s = 0; s < stepCount; s++) {
+          newRow.add(StepData.empty());
+        }
+        grid.add(newRow);
+      }
+      rowCount = row + 1;
+    }
+    return row;
+  }
+
   public StepData getStep(int row, int step) {
-    if (row >= 0 && row < rowCount && step >= 0 && step < stepCount) {
-      return grid.get(row).get(step);
+    int r = getResolvedRowIndex(row);
+    if (r >= 0 && r < rowCount && step >= 0 && step < stepCount) {
+      return grid.get(r).get(step);
     }
     return StepData.empty();
   }
@@ -291,21 +345,11 @@ public class ClipModel {
 
   public void setStep(int row, int step, StepData data) {
     if (step < 0 || step >= stepCount) return;
-    if (row >= rowCount) {
-      // Grow the grid to accommodate this row (synth piano roll)
-      for (int r = rowCount; r <= row; r++) {
-        List<StepData> newRow = new ArrayList<>();
-        for (int s = 0; s < stepCount; s++) {
-          newRow.add(StepData.empty());
-        }
-        grid.add(newRow);
-      }
-      rowCount = row + 1;
-    }
-    if (row >= 0 && step >= 0) {
-      grid.get(row).set(step, data);
+    int r = getOrCreateResolvedRowIndex(row);
+    if (r >= 0 && r < rowCount) {
+      grid.get(r).set(step, data);
       for (ClipListener l : listeners) {
-        l.onStepChanged(row, step, data);
+        l.onStepChanged(r, step, data);
       }
     }
   }
@@ -373,7 +417,8 @@ public class ClipModel {
    * derived from the XML hex attribute.
    */
   public void setRowSoundParam(int row, String paramName, float value) {
-    rowSoundParams.computeIfAbsent(row, k -> new HashMap<>()).put(paramName, value);
+    int r = getOrCreateResolvedRowIndex(row);
+    rowSoundParams.computeIfAbsent(r, k -> new HashMap<>()).put(paramName, value);
   }
 
   /**
@@ -382,7 +427,9 @@ public class ClipModel {
    * @return the value, or -1 if no override exists for this row+param combination.
    */
   public float getRowSoundParam(int row, String paramName) {
-    Map<String, Float> rowParams = rowSoundParams.get(row);
+    int r = getResolvedRowIndex(row);
+    if (r < 0) return -1f;
+    Map<String, Float> rowParams = rowSoundParams.get(r);
     if (rowParams == null) return -1f;
     Float val = rowParams.get(paramName);
     return val != null ? val : -1f;
@@ -390,12 +437,16 @@ public class ClipModel {
 
   /** Returns true if the given row has any sound parameter overrides. */
   public boolean hasRowSoundParams(int row) {
-    return rowSoundParams.containsKey(row) && !rowSoundParams.get(row).isEmpty();
+    int r = getResolvedRowIndex(row);
+    if (r < 0) return false;
+    return rowSoundParams.containsKey(r) && !rowSoundParams.get(r).isEmpty();
   }
 
   /** Returns all parameter names that have overrides for a given row, or empty set. */
   public Set<String> getRowSoundParamNames(int row) {
-    Map<String, Float> rowParams = rowSoundParams.get(row);
+    int r = getResolvedRowIndex(row);
+    if (r < 0) return Set.of();
+    Map<String, Float> rowParams = rowSoundParams.get(r);
     return rowParams != null ? rowParams.keySet() : Set.of();
   }
 
