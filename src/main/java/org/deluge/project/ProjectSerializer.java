@@ -223,6 +223,16 @@ public class ProjectSerializer {
           clipTrackElem.setAttribute("instrumentPresetFolder", "SYNTHS");
         }
 
+        // Write soundParams/kitParams to explicitly set the outputTypeWhileLoading in the C++
+        // firmware
+        if (track instanceof KitTrackModel) {
+          Element kitParamsElem = doc.createElement("kitParams");
+          clipTrackElem.appendChild(kitParamsElem);
+        } else if (track instanceof SynthTrackModel) {
+          Element soundParamsElem = doc.createElement("soundParams");
+          clipTrackElem.appendChild(soundParamsElem);
+        }
+
         tracksElem.appendChild(clipTrackElem);
 
         // Serialize arrangement placements (clipInstances) for this clip lane

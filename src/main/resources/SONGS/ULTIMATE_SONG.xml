@@ -636,6 +636,7 @@
   </instruments>
   <tracks>
     <track clipInstances="0x000000000000060000000000" instrumentPresetFolder="SYNTHS" instrumentPresetName="Synth Bass" length="192">
+      <soundParams/>
       <noteRows>
         <noteRow noteDataWithLift="0x00000000000003607240140000003000000120664014" y="48"/>
         <noteRow noteDataWithLift="0x0000006000000240724014" y="51"/>
@@ -643,6 +644,7 @@
       </noteRows>
     </track>
     <track clipInstances="0x000003000000060000000001" instrumentPresetFolder="SYNTHS" instrumentPresetName="Synth Lead" length="384">
+      <soundParams/>
       <noteRows>
         <noteRow noteDataWithLift="0x00000000000001B0664014" y="72"/>
         <noteRow noteDataWithLift="0x00000048000001B066401400000150000001B0664014" y="75"/>
@@ -653,6 +655,7 @@
       </noteRows>
     </track>
     <track clipInstances="0x000000000000090000000002" instrumentPresetFolder="KITS" instrumentPresetName="Synth Kit" length="384">
+      <kitParams/>
       <noteRows>
         <noteRow noteDataWithLift="0x00000000000001207240140000006000000120724014000000C0000001207240140000012000000120724014" y="0"/>
         <noteRow noteDataWithLift="0x00000060000001206C401400000120000001206C4014" y="1"/>
