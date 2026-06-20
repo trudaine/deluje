@@ -132,7 +132,8 @@ public class AbletonTrackMapper {
       NodeList keyTrackNodes = clipEl.getElementsByTagName("KeyTrack");
       for (int k = 0; k < keyTrackNodes.getLength(); k++) {
         Element keyTrack = (Element) keyTrackNodes.item(k);
-        int pitch = Integer.parseInt(getElementValue(keyTrack, "MidiKey", "-1"));
+        int pitch =
+            (int) Math.round(Double.parseDouble(getElementValue(keyTrack, "MidiKey", "-1")));
         if (pitch == -1) continue;
 
         NodeList noteEvents = keyTrack.getElementsByTagName("MidiNoteEvent");
@@ -140,7 +141,7 @@ public class AbletonTrackMapper {
           Element noteEv = (Element) noteEvents.item(n);
           double time = Double.parseDouble(noteEv.getAttribute("Time"));
           double duration = Double.parseDouble(noteEv.getAttribute("Duration"));
-          int velocity = Integer.parseInt(noteEv.getAttribute("Velocity"));
+          int velocity = (int) Math.round(Double.parseDouble(noteEv.getAttribute("Velocity")));
           events.add(new ParsedNoteEvent(pitch, time, duration, velocity));
         }
       }
@@ -216,7 +217,9 @@ public class AbletonTrackMapper {
       Element branchInfo = getDirectChild(branch, "BranchInfo");
       int receivingNote = -1;
       if (branchInfo != null) {
-        receivingNote = Integer.parseInt(getElementValue(branchInfo, "ReceivingNote", "-1"));
+        receivingNote =
+            (int)
+                Math.round(Double.parseDouble(getElementValue(branchInfo, "ReceivingNote", "-1")));
       }
 
       if (receivingNote == -1) continue;
@@ -298,7 +301,8 @@ public class AbletonTrackMapper {
       NodeList keyTrackNodes = clipEl.getElementsByTagName("KeyTrack");
       for (int k = 0; k < keyTrackNodes.getLength(); k++) {
         Element keyTrack = (Element) keyTrackNodes.item(k);
-        int pitch = Integer.parseInt(getElementValue(keyTrack, "MidiKey", "-1"));
+        int pitch =
+            (int) Math.round(Double.parseDouble(getElementValue(keyTrack, "MidiKey", "-1")));
 
         // Match pitch to drum slot index
         Integer r = midiPitchToDrumIndex.get(pitch);
@@ -309,7 +313,7 @@ public class AbletonTrackMapper {
           Element noteEv = (Element) noteEvents.item(n);
           double time = Double.parseDouble(noteEv.getAttribute("Time"));
           double duration = Double.parseDouble(noteEv.getAttribute("Duration"));
-          int velocity = Integer.parseInt(noteEv.getAttribute("Velocity"));
+          int velocity = (int) Math.round(Double.parseDouble(noteEv.getAttribute("Velocity")));
 
           // A. High-Res Path
           int tickPos = (int) Math.round(time * 96);
