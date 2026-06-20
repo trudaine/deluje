@@ -75,6 +75,16 @@ public class ProjectSerializer {
     writer.writeAttribute("yScrollSongView", yScrollSongView, false);
     writer.writeOpeningTagEnd();
 
+    // ── modeNotes (scale degrees) ──
+    boolean[] modeNotes = model.getModeNotes();
+    if (modeNotes != null && modeNotes.length > 0) {
+      writer.writeArrayStart("modeNotes");
+      for (boolean note : modeNotes) {
+        writer.writeTag("modeNote", note ? "1" : "0");
+      }
+      writer.writeArrayEnding("modeNotes");
+    }
+
     // ── microtuning block ──
     serializeMicrotuning(writer, model);
 
@@ -576,6 +586,22 @@ public class ProjectSerializer {
       trackIndex++;
     }
     writer.writeArrayEnding("sessionClips");
+
+    // ── sections (arranger timeline) ──
+    List<ArrangerClip> timeline = model.getArrangerTimeline();
+    if (timeline != null && !timeline.isEmpty()) {
+      writer.writeArrayStart("sections");
+      int seen = 0;
+      for (ArrangerClip ac : timeline) {
+        writer.writeOpeningTagBeginning("section");
+        writer.writeAttribute("id", seen, false);
+        writer.writeAttribute("numRepeats", 1, false);
+        writer.writeAttribute("launchGroup", 0, false);
+        writer.closeTag();
+        seen++;
+      }
+      writer.writeArrayEnding("sections");
+    }
 
     serializeGlobalEffects(writer, model);
 
