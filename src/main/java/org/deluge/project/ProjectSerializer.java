@@ -163,8 +163,8 @@ public class ProjectSerializer {
 
     rootElement.setAttribute("tempo", String.valueOf(bpm));
     rootElement.setAttribute("swing", org.deluge.xml.DelugeHexMapper.floatToHex(model.getSwing()));
-    rootElement.setAttribute("firmwareVersion", "c4.1.0");
-    rootElement.setAttribute("earliestCompatibleFirmware", "4.1.0-alpha");
+    rootElement.setAttribute("firmwareVersion", "c1.2.0");
+    rootElement.setAttribute("earliestCompatibleFirmware", "c1.2.0");
     rootElement.setAttribute("previewNumPads", "144");
     rootElement.setAttribute("xScroll", "0");
     rootElement.setAttribute("xZoom", "24");
