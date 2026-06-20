@@ -162,7 +162,7 @@ public class SwingGridPanel extends JPanel {
         int yNote = clip.getRowYNote(r);
         boolean hasNotes = false;
         for (int s = 0; s < clip.getStepCount(); s++) {
-          org.deluge.model.StepData step = clip.getStepRaw(r, s);
+          org.deluge.model.StepData step = clip.getStep(r, s);
           if (step != null && step.active()) {
             hasNotes = true;
             break;
@@ -1281,7 +1281,7 @@ public class SwingGridPanel extends JPanel {
           scrollOffset = 124 - midPitch;
         } else {
           // Default to centering on C4 (midi 60)
-          scrollOffset = 64;
+          scrollOffset = 67;
         }
         // Restrict scrollOffset to prevent octave 13 ghost zone (restrict to octaves 1 to 8)
         scrollOffset = Math.max(19, Math.min(107, scrollOffset));
@@ -1732,12 +1732,20 @@ public class SwingGridPanel extends JPanel {
    * Build a single voice row panel. modelRow = the actual engine row index (0..voiceRowCount-1).
    */
   private JPanel buildVoiceRow(
-      int visualRowIndex, int visibleRow, int padSz, java.util.List<org.deluge.model.TrackModel> tracks) {
+      int visualRowIndex,
+      int visibleRow,
+      int padSz,
+      java.util.List<org.deluge.model.TrackModel> tracks) {
     boolean isSynth = false;
     if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
-      isSynth = projectModel.getTracks().get(editedModelTrack) instanceof org.deluge.model.SynthTrackModel;
+      isSynth =
+          projectModel.getTracks().get(editedModelTrack)
+              instanceof org.deluge.model.SynthTrackModel;
     }
-    final int modelRow = (isSynth && viewMode == GridViewMode.CLIP) ? (127 - getRowPitch(visualRowIndex)) : visualRowIndex;
+    final int modelRow =
+        (isSynth && viewMode == GridViewMode.CLIP)
+            ? (127 - getRowPitch(visualRowIndex))
+            : visualRowIndex;
     String samplePathLoc = null;
     if (modelRow < tracks.size()) {
       org.deluge.model.TrackModel track = tracks.get(modelRow);
@@ -4388,14 +4396,23 @@ public class SwingGridPanel extends JPanel {
       }
       JPanel voiceWrapper = new JPanel(new BorderLayout());
       voiceWrapper.setBackground(new Color(0x15, 0x15, 0x15));
+      boolean isSynthTrack = false;
+      if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+        isSynthTrack =
+            projectModel.getTracks().get(editedModelTrack)
+                instanceof org.deluge.model.SynthTrackModel;
+      }
+      boolean showNavPanel =
+          (voiceRowCount > gridMode.rows) || (viewMode == GridViewMode.CLIP && isSynthTrack);
+
       int viewH = gridMode.rows * (padSz + 5) - 5;
-      int wrapperW = rowW + (voiceRowCount > gridMode.rows ? 14 : 0);
+      int wrapperW = rowW + (showNavPanel ? 32 : 0);
       voiceWrapper.setPreferredSize(new Dimension(wrapperW, viewH));
       voiceWrapper.setMaximumSize(new Dimension(wrapperW, viewH));
       voiceWrapper.setAlignmentX(Component.LEFT_ALIGNMENT);
       voiceWrapper.add(voicePanel, BorderLayout.CENTER);
 
-      if (voiceRowCount > gridMode.rows) {
+      if (showNavPanel) {
         if (vertScrollBar == null) {
           vertScrollBar = new JScrollBar(JScrollBar.VERTICAL);
           vertScrollBar.setBackground(new Color(0x15, 0x15, 0x18));
@@ -4465,6 +4482,7 @@ public class SwingGridPanel extends JPanel {
         pageNavPanel.setBackground(new Color(0x15, 0x15, 0x18));
 
         JButton pgUpBtn = new JButton("▲");
+        pgUpBtn.setUI(new javax.swing.plaf.basic.BasicButtonUI());
         pgUpBtn.setFont(new Font("SansSerif", Font.BOLD, 10));
         pgUpBtn.setForeground(new Color(0x00, 0xff, 0xcc)); // glowing active cyan
         pgUpBtn.setBackground(new Color(0x1f, 0x1f, 0x24));
@@ -4474,6 +4492,7 @@ public class SwingGridPanel extends JPanel {
         pgUpBtn.addActionListener(e -> scrollVertically(-gridMode.rows));
 
         JButton pgDnBtn = new JButton("▼");
+        pgDnBtn.setUI(new javax.swing.plaf.basic.BasicButtonUI());
         pgDnBtn.setFont(new Font("SansSerif", Font.BOLD, 10));
         pgDnBtn.setForeground(new Color(0x00, 0xff, 0xcc));
         pgDnBtn.setBackground(new Color(0x1f, 0x1f, 0x24));
@@ -4482,22 +4501,23 @@ public class SwingGridPanel extends JPanel {
         pgDnBtn.setToolTipText("Page Down / Octave Down (Shift 8 rows down)");
         pgDnBtn.addActionListener(e -> scrollVertically(gridMode.rows));
 
+        boolean showScrollControls = voiceRowCount > gridMode.rows;
+        pgUpBtn.setVisible(showScrollControls);
+        vertScrollBar.setVisible(showScrollControls);
+
         pageNavPanel.add(pgUpBtn, BorderLayout.NORTH);
         pageNavPanel.add(vertScrollBar, BorderLayout.CENTER);
 
-        boolean isSynthTrack = false;
-        if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
-          isSynthTrack =
-              projectModel.getTracks().get(editedModelTrack)
-                  instanceof org.deluge.model.SynthTrackModel;
-        }
-
         if (viewMode == GridViewMode.CLIP && isSynthTrack) {
-          JPanel southPanel = new JPanel(new java.awt.GridLayout(2, 1, 0, 4));
+          int gridRows = showScrollControls ? 2 : 1;
+          JPanel southPanel = new JPanel(new java.awt.GridLayout(gridRows, 1, 0, 4));
           southPanel.setBackground(new Color(0x15, 0x15, 0x18));
-          southPanel.add(pgDnBtn);
+          if (showScrollControls) {
+            southPanel.add(pgDnBtn);
+          }
 
           JButton foldBtn = new JButton(foldMode ? "UNFLD" : "FOLD");
+          foldBtn.setUI(new javax.swing.plaf.basic.BasicButtonUI());
           foldBtn.setFont(new Font("SansSerif", Font.BOLD, 8));
           foldBtn.setForeground(foldMode ? Color.BLACK : new Color(0x00, 0xff, 0xcc));
           foldBtn.setBackground(
@@ -4514,6 +4534,7 @@ public class SwingGridPanel extends JPanel {
           southPanel.add(foldBtn);
           pageNavPanel.add(southPanel, BorderLayout.SOUTH);
         } else {
+          pgDnBtn.setVisible(showScrollControls);
           pageNavPanel.add(pgDnBtn, BorderLayout.SOUTH);
         }
 

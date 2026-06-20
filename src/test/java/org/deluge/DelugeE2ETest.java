@@ -23,7 +23,7 @@ public class DelugeE2ETest {
 
     final boolean[] loaded = {false};
     sidebar.setOnSongLoaded(
-        model -> {
+        (model, file) -> {
           loaded[0] = true;
         });
 
@@ -32,7 +32,7 @@ public class DelugeE2ETest {
     proj.addTrack(kit);
 
     sidebar.setOnSongLoaded(
-        model -> {
+        (model, file) -> {
           loaded[0] = true;
           assertEquals(1, model.getTracks().size());
         });
