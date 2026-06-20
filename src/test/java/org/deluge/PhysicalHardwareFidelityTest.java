@@ -48,14 +48,14 @@ public class PhysicalHardwareFidelityTest {
 
   @BeforeEach
   public void setUp() {
-    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = -2;
-    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = -2;
+    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1.set(-2);
+    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2.set(-2);
   }
 
   @AfterEach
   public void tearDown() {
-    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = -2;
-    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = -2;
+    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1.set(-2);
+    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2.set(-2);
   }
 
   @Test
@@ -148,8 +148,8 @@ public class PhysicalHardwareFidelityTest {
   public void testDrySawtoothParityREC07() throws Exception {
     System.out.println("=== RUNNING HARDWARE REGRESSION: DRY SAWTOOTH REC07 C5 ===");
 
-    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = 0;
-    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = 0;
+    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1.set(0);
+    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2.set(0);
     try {
       float[] hw = loadWavFromResource("/fidelity/reference_rec07.wav");
 
@@ -251,8 +251,8 @@ public class PhysicalHardwareFidelityTest {
       System.out.printf("  [RESULT] Dry Sawtooth REC07 Correlation: %.6f\n", correlation);
       assertTrue(correlation >= 0.90, "Dry Sawtooth REC07 correlation should be >= 90%!");
     } finally {
-      org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = -2;
-      org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = -2;
+      org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1.set(-2);
+      org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2.set(-2);
     }
   }
 
@@ -874,8 +874,9 @@ public class PhysicalHardwareFidelityTest {
       overrides.put(Param.LOCAL_OSC_B_PITCH_ADJUST, cents * 178956);
 
       for (int k = 0; k < 16; k++) {
-        org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = 0;
-        org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = (int) (k * (2147483647.0 / 16.0));
+        org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1.set(0);
+        org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2.set(
+            (int) (k * (2147483647.0 / 16.0)));
 
         float[] candidateSw =
             renderXmlTrackPreset(
@@ -900,8 +901,8 @@ public class PhysicalHardwareFidelityTest {
     }
 
     // Reset overrides to prevent state bleed!
-    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = -2;
-    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = -2;
+    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1.set(-2);
+    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2.set(-2);
 
     System.out.printf(
         "  [DETUNED SEARCH] Best cents: %d | Best phase: %d | Best offset: %d (corr: %.6f)\n",
@@ -910,8 +911,9 @@ public class PhysicalHardwareFidelityTest {
     // Build best sw overrides map to enforce it for the final wave shapes assertion!
     java.util.Map<Integer, Integer> finalOverrides = new java.util.HashMap<>();
     finalOverrides.put(Param.LOCAL_OSC_B_PITCH_ADJUST, bestCents * 178956);
-    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = 0;
-    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = (int) (bestK * (2147483647.0 / 16.0));
+    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1.set(0);
+    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2.set(
+        (int) (bestK * (2147483647.0 / 16.0)));
 
     float[] sw =
         renderXmlTrackPreset(
@@ -922,8 +924,8 @@ public class PhysicalHardwareFidelityTest {
             72,
             finalOverrides);
 
-    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = -2;
-    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = -2;
+    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1.set(-2);
+    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2.set(-2);
 
     assertWaveShapeFidelity(hw, sw, 0.30, bestOffset, 59530, 59520, "Detuned Sawtooth C5");
   }
@@ -975,8 +977,8 @@ public class PhysicalHardwareFidelityTest {
     // Pin the carrier start phases: with deep FM the brightness (hysteresis zcr) of the rendered
     // waveform varies with the random carrier phase relative to the modulator's 0 — running after
     // other tests changes the noise-generator sequence and the measured zcr (test-order flake).
-    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = 0;
-    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = 0;
+    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1.set(0);
+    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2.set(0);
     try {
       float[] hw = loadWavFromResource("/fidelity/reference_fm_simple_c5.wav");
       int triggerBlock = 1318;
@@ -995,8 +997,8 @@ public class PhysicalHardwareFidelityTest {
               overrides);
       assertFmBrightness(hw, sw, 523.25, "FM Simple C5");
     } finally {
-      org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = -2;
-      org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = -2;
+      org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1.set(-2);
+      org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2.set(-2);
     }
   }
 
@@ -1308,8 +1310,8 @@ public class PhysicalHardwareFidelityTest {
     // Envelope directlyToDecay port (envelope.cpp:121-133, `65f5d2a2`) legitimately moved the
     // onset and broke the old 0.15 threshold. Assert the verifiable vibrato character instead:
     // pinned-phase render, pitch centered on C5, with clear periodic pitch modulation.
-    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = 0;
-    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = 0;
+    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1.set(0);
+    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2.set(0);
     try {
       float[] hw = loadWavFromResource("/fidelity/reference_lfo_saw_vibrato_c5.wav");
       int triggerBlock = 100;
@@ -1365,8 +1367,8 @@ public class PhysicalHardwareFidelityTest {
           min < 525.0 && max > 480.0,
           "the sweep should pass through the C5 region (" + min + ".." + max + " Hz)");
     } finally {
-      org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = -2;
-      org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = -2;
+      org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1.set(-2);
+      org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2.set(-2);
     }
   }
 
@@ -1376,8 +1378,8 @@ public class PhysicalHardwareFidelityTest {
     // Pin the carrier start phases: feedback FM brightness varies strongly with the random
     // carrier phase (measured 2730/s in isolation vs 583/s after other tests consumed the static
     // noise sequence) — pinning makes the render deterministic.
-    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = 0;
-    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = 0;
+    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1.set(0);
+    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2.set(0);
     try {
       float[] hw = loadWavFromResource("/fidelity/reference_fm_feedback_c5.wav");
       int triggerBlock = 100;
@@ -1394,8 +1396,8 @@ public class PhysicalHardwareFidelityTest {
               overrides);
       assertFmBrightness(hw, sw, 523.25, "FM Feedback C5");
     } finally {
-      org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = -2;
-      org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = -2;
+      org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1.set(-2);
+      org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2.set(-2);
     }
   }
 
@@ -1575,8 +1577,8 @@ public class PhysicalHardwareFidelityTest {
       org.junit.jupiter.api.Assertions.assertTrue(calculateRms(sw) > 0.01f);
       return;
     }
-    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = 0;
-    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = 0;
+    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1.set(0);
+    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2.set(0);
     try {
       float[] hw = loadWavFromResource(wavPath);
       int triggerBlock = 100;
@@ -1613,8 +1615,8 @@ public class PhysicalHardwareFidelityTest {
 
       assertWaveShapeFidelity(hw, sw, 0.01, 15000, hwStart, swStart, "Arpeggiator Gate Spread C5");
     } finally {
-      org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = -2;
-      org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = -2;
+      org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1.set(-2);
+      org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2.set(-2);
     }
   }
 
@@ -1707,8 +1709,8 @@ public class PhysicalHardwareFidelityTest {
     System.out.println("=== RUNNING HARDWARE REGRESSION: BASIC FM C3 ===");
     // Pin the carrier start phases: the patch's modulator2 is inharmonic (transpose -5 cents -5),
     // so the AC(T)/AC(2T) subharmonic check below varies with the random oscillator start phase.
-    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = 0;
-    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = 0;
+    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1.set(0);
+    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2.set(0);
     String wavPath = "/fidelity/REC00010.WAV";
     String xmlPath = "/fidelity/049 Basic FM.XML";
     float[] hw = loadWavFromResource(wavPath);
@@ -1750,8 +1752,8 @@ public class PhysicalHardwareFidelityTest {
     try {
       assertSubharmonicFm(sw, 261.63, "Basic FM C3");
     } finally {
-      org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = -2;
-      org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = -2;
+      org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1.set(-2);
+      org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2.set(-2);
     }
   }
 
@@ -1762,8 +1764,8 @@ public class PhysicalHardwareFidelityTest {
     // start phases (retrigPhase -1), and the 50-100 Hz AC pitch estimate on the smeared detuned
     // stack is realization-dependent (any change in the noise-draw order shifts which harmonic
     // wins). Pinning makes the render — and therefore the assertion — deterministic.
-    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = 0;
-    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = 0;
+    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1.set(0);
+    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2.set(0);
     try {
       String wavPath = "/fidelity/REC00011.WAV";
       String xmlPath = "/fidelity/009 Hoover Bass.XML";
@@ -1794,8 +1796,8 @@ public class PhysicalHardwareFidelityTest {
           Math.abs(swPitch - 65.41) < 2.0,
           "Hoover Bass C2 pitch should be ~C2 65.4 Hz (got " + swPitch + ")");
     } finally {
-      org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1 = -2;
-      org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2 = -2;
+      org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1.set(-2);
+      org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2.set(-2);
     }
   }
 

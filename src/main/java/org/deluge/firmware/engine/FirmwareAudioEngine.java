@@ -22,6 +22,7 @@ import org.deluge.firmware2.StereoSample;
  * faithful-to-C.
  */
 public class FirmwareAudioEngine {
+  public static boolean debugTelemetry = false;
   public final List<GlobalEffectable> sounds = new java.util.concurrent.CopyOnWriteArrayList<>();
   public final StereoSample[] masterBuffer = new StereoSample[128];
   private int[] summedFlatBuffer = new int[256];
@@ -141,12 +142,33 @@ public class FirmwareAudioEngine {
         org.deluge.firmware2.Functions.getFinalParameterValueVolume(
                 134217728, org.deluge.firmware2.Functions.cableToLinearParamShortcut(0))
             >> 1;
+
+    int maxBeforeL = 0;
+    int maxBeforeR = 0;
+    for (int i = 0; i < numSamples; i++) {
+      maxBeforeL = Math.max(maxBeforeL, Math.abs(fxBuffer[i][0]));
+      maxBeforeR = Math.max(maxBeforeR, Math.abs(fxBuffer[i][1]));
+    }
+
     masterCompressor.render(
         fxBuffer,
         numSamples,
         masterVolumeAdjustmentL >> 1,
         masterVolumeAdjustmentR >> 1,
         songVolume >> 3);
+
+    int maxAfterL = 0;
+    int maxAfterR = 0;
+    for (int i = 0; i < numSamples; i++) {
+      maxAfterL = Math.max(maxAfterL, Math.abs(fxBuffer[i][0]));
+      maxAfterR = Math.max(maxAfterR, Math.abs(fxBuffer[i][1]));
+    }
+    if (debugTelemetry && maxBeforeL > 1000) {
+      System.out.printf(
+          "[TELEMETRY Engine] fxBuffer L max absolute value: Before=%d, After=%d\n",
+          maxBeforeL, maxAfterL);
+    }
+
     masterVolumeAdjustmentL = MASTER_VOLUME_NEUTRAL; // C:901 resets to ONE_Q31; we keep our neutral
     masterVolumeAdjustmentR = MASTER_VOLUME_NEUTRAL;
 

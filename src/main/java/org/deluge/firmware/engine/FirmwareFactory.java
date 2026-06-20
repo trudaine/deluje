@@ -85,10 +85,20 @@ public class FirmwareFactory {
     song.baseFrequency = (int) Math.round((model.getBaseFrequencyHz() / 440.0) * 1027294024.0);
     byte[] songCents = song.centAdjustForNotesInTemperament;
     int[] modelCents = model.getCentAdjustForNotesInTemperament();
-    for (int i = 0; i < 64; i++) {
-      songCents[i] = (byte) modelCents[i];
+    if (modelCents != null && songCents != null) {
+      for (int i = 0; i < Math.min(64, Math.min(modelCents.length, songCents.length)); i++) {
+        songCents[i] = (byte) modelCents[i];
+      }
     }
-    System.arraycopy(model.getCustomRatios(), 0, song.customRatios, 0, 64);
+    double[] customRatios = model.getCustomRatios();
+    if (customRatios != null && song.customRatios != null) {
+      System.arraycopy(
+          customRatios,
+          0,
+          song.customRatios,
+          0,
+          Math.min(64, Math.min(customRatios.length, song.customRatios.length)));
+    }
     song.calculateNoteFrequencies();
 
     System.out.println(

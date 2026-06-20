@@ -2182,7 +2182,18 @@ public class SwingDelugeApp extends JFrame {
     bridge.setGlobalFloat(BridgeContract.G_WVOUT_ACTIVE, 0.0f);
   }
 
+  private volatile boolean exportInProgress = false;
+
   private void exportWavStems() {
+    if (exportInProgress) {
+      JOptionPane.showMessageDialog(
+          this,
+          "An export is already in progress. Please wait until it completes.",
+          "Export Busy",
+          JOptionPane.WARNING_MESSAGE);
+      return;
+    }
+
     JFileChooser chooser = new JFileChooser();
     chooser.setDialogTitle("Select Directory to Export Stems");
     chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
@@ -2209,6 +2220,8 @@ public class SwingDelugeApp extends JFrame {
           JOptionPane.WARNING_MESSAGE);
       duration = 0;
     }
+
+    exportInProgress = true;
 
     JDialog progressDialog = new JDialog(this, "Exporting WAV Stems...", true);
     progressDialog.setSize(350, 120);
@@ -2252,6 +2265,7 @@ public class SwingDelugeApp extends JFrame {
 
           @Override
           protected void done() {
+            exportInProgress = false;
             progressDialog.dispose();
             try {
               get(); // Check for exceptions

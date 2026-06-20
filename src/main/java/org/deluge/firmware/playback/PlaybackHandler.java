@@ -57,7 +57,9 @@ public class PlaybackHandler {
 
   /** Advance the sequencer by a number of ticks. Includes high-fidelity Swing logic. */
   public synchronized void advanceTicks(int numTicks) {
-    if (playing && Math.random() < 0.05) {
+    if (org.deluge.firmware.engine.FirmwareAudioEngine.debugTelemetry
+        && playing
+        && Math.random() < 0.05) {
       System.out.println(
           "[DIAG advance] advanceTicks called with numTicks="
               + numTicks
