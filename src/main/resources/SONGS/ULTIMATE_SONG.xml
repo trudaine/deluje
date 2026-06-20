@@ -260,8 +260,7 @@
 		</sound>
 		<kit presetName="Synth Kit" presetFolder="KITS" clipInstances="0x000000000000090000000002">
 			<soundSources>
-				<sound>
-					<name>Kick</name>
+				<sound name="Kick" polyphonic="auto" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
 					<osc1 type="sample" />
 					<sample fileName="" />
 					<osc2 type="sine" />
@@ -307,8 +306,7 @@
 					</defaultParams>
 					<midiKnobs></midiKnobs>
 				</sound>
-				<sound>
-					<name>Snare</name>
+				<sound name="Snare" polyphonic="auto" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
 					<osc1 type="sample" />
 					<sample fileName="" />
 					<osc2 type="none" />
@@ -354,8 +352,7 @@
 					</defaultParams>
 					<midiKnobs></midiKnobs>
 				</sound>
-				<sound>
-					<name>Hihat</name>
+				<sound name="Hihat" polyphonic="auto" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
 					<osc1 type="sample" />
 					<sample fileName="" />
 					<osc2 type="none" />

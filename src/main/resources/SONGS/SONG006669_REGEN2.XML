@@ -3,8 +3,7 @@
 	<instruments>
 		<kit presetName="000 TR-808" presetFolder="KITS">
 			<soundSources>
-				<sound>
-					<name>SOUND 0</name>
+				<sound name="SOUND 0" polyphonic="auto" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
 					<osc1 type="sample" />
 					<sample fileName="SAMPLES/DRUMS/Kick/808 Kick.wav" />
 					<osc2 type="sample" />
@@ -50,8 +49,7 @@
 					</defaultParams>
 					<midiKnobs></midiKnobs>
 				</sound>
-				<sound>
-					<name>SOUND 1</name>
+				<sound name="SOUND 1" polyphonic="auto" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
 					<osc1 type="sample" />
 					<sample fileName="SAMPLES/DRUMS/Snare/808 Snare.wav" />
 					<osc2 type="sample" />
@@ -97,8 +95,7 @@
 					</defaultParams>
 					<midiKnobs></midiKnobs>
 				</sound>
-				<sound>
-					<name>SOUND 2</name>
+				<sound name="SOUND 2" polyphonic="auto" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
 					<osc1 type="sample" />
 					<sample fileName="SAMPLES/DRUMS/HatC/808 Closed hihat.wav" />
 					<osc2 type="sample" />
@@ -144,8 +141,7 @@
 					</defaultParams>
 					<midiKnobs></midiKnobs>
 				</sound>
-				<sound>
-					<name>SOUND 3</name>
+				<sound name="SOUND 3" polyphonic="auto" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
 					<osc1 type="sample" />
 					<sample fileName="SAMPLES/DRUMS/HatO/808 Open hihat.wav" />
 					<osc2 type="sample" />
@@ -191,8 +187,7 @@
 					</defaultParams>
 					<midiKnobs></midiKnobs>
 				</sound>
-				<sound>
-					<name>SOUND 4</name>
+				<sound name="SOUND 4" polyphonic="auto" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
 					<osc1 type="sample" />
 					<sample fileName="SAMPLES/DRUMS/Shaker/808 Maraca.wav" />
 					<osc2 type="sample" />
@@ -238,8 +233,7 @@
 					</defaultParams>
 					<midiKnobs></midiKnobs>
 				</sound>
-				<sound>
-					<name>SOUND 5</name>
+				<sound name="SOUND 5" polyphonic="auto" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
 					<osc1 type="sample" />
 					<sample fileName="SAMPLES/DRUMS/Rim/808 Rim.wav" />
 					<osc2 type="sample" />
@@ -285,8 +279,7 @@
 					</defaultParams>
 					<midiKnobs></midiKnobs>
 				</sound>
-				<sound>
-					<name>SOUND 6</name>
+				<sound name="SOUND 6" polyphonic="auto" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
 					<osc1 type="sample" />
 					<sample fileName="SAMPLES/DRUMS/Claves/808 Claves.wav" />
 					<osc2 type="sample" />
@@ -332,8 +325,7 @@
 					</defaultParams>
 					<midiKnobs></midiKnobs>
 				</sound>
-				<sound>
-					<name>SOUND 7</name>
+				<sound name="SOUND 7" polyphonic="auto" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
 					<osc1 type="sample" />
 					<sample fileName="SAMPLES/DRUMS/Clap/808 Clap.wav" />
 					<osc2 type="sample" />
@@ -379,8 +371,7 @@
 					</defaultParams>
 					<midiKnobs></midiKnobs>
 				</sound>
-				<sound>
-					<name>SOUND 8</name>
+				<sound name="SOUND 8" polyphonic="auto" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
 					<osc1 type="sample" />
 					<sample fileName="SAMPLES/DRUMS/Crash/808 Cymbal.wav" />
 					<osc2 type="sample" />
@@ -426,8 +417,7 @@
 					</defaultParams>
 					<midiKnobs></midiKnobs>
 				</sound>
-				<sound>
-					<name>SOUND 9</name>
+				<sound name="SOUND 9" polyphonic="auto" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
 					<osc1 type="sample" />
 					<sample fileName="SAMPLES/DRUMS/Cowbell/808 Cowbell.wav" />
 					<osc2 type="sample" />
@@ -473,8 +463,7 @@
 					</defaultParams>
 					<midiKnobs></midiKnobs>
 				</sound>
-				<sound>
-					<name>SOUND 10</name>
+				<sound name="SOUND 10" polyphonic="auto" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
 					<osc1 type="sample" />
 					<sample fileName="SAMPLES/DRUMS/TomL/808 Tom low.wav" />
 					<osc2 type="sample" />
@@ -520,8 +509,7 @@
 					</defaultParams>
 					<midiKnobs></midiKnobs>
 				</sound>
-				<sound>
-					<name>SOUND 11</name>
+				<sound name="SOUND 11" polyphonic="auto" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
 					<osc1 type="sample" />
 					<sample fileName="SAMPLES/DRUMS/TomM/808 Tom medium.wav" />
 					<osc2 type="sample" />
@@ -567,8 +555,7 @@
 					</defaultParams>
 					<midiKnobs></midiKnobs>
 				</sound>
-				<sound>
-					<name>SOUND 12</name>
+				<sound name="SOUND 12" polyphonic="auto" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
 					<osc1 type="sample" />
 					<sample fileName="SAMPLES/DRUMS/TomH/808 Tom high.wav" />
 					<osc2 type="sample" />
@@ -614,8 +601,7 @@
 					</defaultParams>
 					<midiKnobs></midiKnobs>
 				</sound>
-				<sound>
-					<name>SOUND 13</name>
+				<sound name="SOUND 13" polyphonic="auto" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
 					<osc1 type="sample" />
 					<sample fileName="SAMPLES/DRUMS/ConL/808 Conga low.wav" />
 					<osc2 type="sample" />
@@ -661,8 +647,7 @@
 					</defaultParams>
 					<midiKnobs></midiKnobs>
 				</sound>
-				<sound>
-					<name>SOUND 14</name>
+				<sound name="SOUND 14" polyphonic="auto" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
 					<osc1 type="sample" />
 					<sample fileName="SAMPLES/DRUMS/ConM/808 Conga medium.wav" />
 					<osc2 type="sample" />
@@ -708,8 +693,7 @@
 					</defaultParams>
 					<midiKnobs></midiKnobs>
 				</sound>
-				<sound>
-					<name>SOUND 15</name>
+				<sound name="SOUND 15" polyphonic="auto" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
 					<osc1 type="sample" />
 					<sample fileName="SAMPLES/DRUMS/ConH/808 Conga high.wav" />
 					<osc2 type="sample" />
