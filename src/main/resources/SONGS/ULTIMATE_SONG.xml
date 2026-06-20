@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <song swing="0x40000000" tempo="120.0">
   <instruments>
-    <sound presetName="Synth Bass">
+    <sound clipInstances="0x000000000000060000000000" presetName="Synth Bass">
       <presetSlot>Synth Bass</presetSlot>
       <osc1>
         <type>saw</type>
@@ -136,7 +136,7 @@
       </defaultParams>
       <midiKnobs/>
     </sound>
-    <sound presetName="Synth Lead">
+    <sound clipInstances="0x000003000000060000000001" presetName="Synth Lead">
       <presetSlot>Synth Lead</presetSlot>
       <osc1>
         <type>saw</type>
@@ -276,7 +276,7 @@
       </defaultParams>
       <midiKnobs/>
     </sound>
-    <kit name="Synth Kit">
+    <kit clipInstances="0x000000000000090000000002" name="Synth Kit">
       <presetSlot>Synth Kit</presetSlot>
       <sound>
         <name>Kick</name>

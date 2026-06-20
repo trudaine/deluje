@@ -158,25 +158,43 @@ public class ProjectSerializer {
 
     serializeMicrotuning(doc, rootElement, model);
 
-    // Tracks (Clips)
-    Element instruments = doc.createElement("instruments");
-    rootElement.appendChild(instruments);
-
-    for (TrackModel track : model.getTracks()) {
-      if (track instanceof KitTrackModel kit) {
-        Element trackElem = org.deluge.project.KitSynthSerializer.serializeKit(doc, kit, true);
-        instruments.appendChild(trackElem);
-      } else if (track instanceof SynthTrackModel synth) {
-        Element trackElem = org.deluge.project.KitSynthSerializer.serializeSynth(doc, synth, true);
-        instruments.appendChild(trackElem);
-      }
-    }
-
     // Build global list of all session clips to resolve indices in arranger placements
     java.util.List<org.deluge.model.ClipModel> allSessionClips = new java.util.ArrayList<>();
     for (TrackModel track : model.getTracks()) {
       for (org.deluge.model.ClipModel clip : track.getClips()) {
         allSessionClips.add(clip);
+      }
+    }
+
+    // Tracks (Clips)
+    Element instruments = doc.createElement("instruments");
+    rootElement.appendChild(instruments);
+
+    for (TrackModel track : model.getTracks()) {
+      Element trackElem = null;
+      if (track instanceof KitTrackModel kit) {
+        trackElem = org.deluge.project.KitSynthSerializer.serializeKit(doc, kit, true);
+      } else if (track instanceof SynthTrackModel synth) {
+        trackElem = org.deluge.project.KitSynthSerializer.serializeSynth(doc, synth, true);
+      }
+      if (trackElem != null) {
+        instruments.appendChild(trackElem);
+
+        // Serialize arrangement placements (clipInstances) on the instrument element for physical
+        // hardware compatibility
+        StringBuilder ciBuilder = new StringBuilder("0x");
+        for (org.deluge.model.ArrangerClip ac : model.getArrangerTimeline()) {
+          if (track.getClips().contains(ac.clip())) {
+            int clipIdx = allSessionClips.indexOf(ac.clip());
+            if (clipIdx >= 0) {
+              ciBuilder.append(
+                  String.format("%08X%08X%08X", ac.startTicks(), ac.durationTicks(), clipIdx));
+            }
+          }
+        }
+        if (ciBuilder.length() > 2) {
+          trackElem.setAttribute("clipInstances", ciBuilder.toString());
+        }
       }
     }
 
