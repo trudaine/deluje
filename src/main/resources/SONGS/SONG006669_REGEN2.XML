@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<song affectEntire="0" earliestCompatibleFirmware="c1.2.0" firmwareVersion="c1.2.0" inputTickMagnitude="2" previewNumPads="144" swing="0x40000000" swingAmount="0" swingInterval="7" tempo="120.0" timePerTimerTick="229" timerTickFraction="-1342177280" xScroll="0" xZoom="24" yScrollArrangementView="-7" yScrollSongView="-7">
+<song affectEntire="0" earliestCompatibleFirmware="4.1.0-alpha" firmwareVersion="c1.3.0" inputTickMagnitude="2" previewNumPads="144" swing="0x40000000" swingAmount="0" swingInterval="7" tempo="120.0" timePerTimerTick="229" timerTickFraction="-1342177280" xScroll="0" xZoom="24" yScrollArrangementView="-7" yScrollSongView="-7">
 	<instruments>
 		<kit presetName="000 TR-808" presetFolder="KITS">
 			<sound>
@@ -875,35 +875,35 @@
 		<instrumentClip instrumentPresetName="000 TR-808" instrumentPresetFolder="KITS" length="384" isPlaying="1" section="0">
 			<kitParams />
 			<noteRows>
-				<noteRow drumIndex="0" noteDataWithLift="0x000000F000000018404014" />
-				<noteRow drumIndex="1" noteDataWithLift="0x000000D800000018404014" />
-				<noteRow drumIndex="2" noteDataWithLift="0x000000C000000018404014" />
-				<noteRow drumIndex="3" noteDataWithLift="0x0000009000000018404014" />
-				<noteRow drumIndex="4" noteDataWithLift="0x0000006000000018404014" />
-				<noteRow drumIndex="5" noteDataWithLift="0x0000004800000018404014" />
-				<noteRow drumIndex="6" noteDataWithLift="0x0000001800000018404014" />
-				<noteRow drumIndex="7" noteDataWithLift="0x0000000000000018404014" />
-				<noteRow drumIndex="8" noteDataWithLift="0x0000006000000018404014" />
-				<noteRow drumIndex="9" noteDataWithLift="0x0000007800000018404014" />
-				<noteRow drumIndex="10" noteDataWithLift="0x0000009000000018404014" />
-				<noteRow drumIndex="11" noteDataWithLift="0x000000A800000018404014" />
-				<noteRow drumIndex="12" noteDataWithLift="0x000000C000000018404014" />
-				<noteRow drumIndex="13" noteDataWithLift="0x000000D800000018404014" />
-				<noteRow drumIndex="14" noteDataWithLift="0x000000F000000018404014" />
-				<noteRow drumIndex="15" noteDataWithLift="0x0000010800000018404014" />
+				<noteRow drumIndex="0" noteDataWithLift="0x000000F000000018404014" noteDataWithSplitProb="0x000000F000000018404014000000" />
+				<noteRow drumIndex="1" noteDataWithLift="0x000000D800000018404014" noteDataWithSplitProb="0x000000D800000018404014000000" />
+				<noteRow drumIndex="2" noteDataWithLift="0x000000C000000018404014" noteDataWithSplitProb="0x000000C000000018404014000000" />
+				<noteRow drumIndex="3" noteDataWithLift="0x0000009000000018404014" noteDataWithSplitProb="0x0000009000000018404014000000" />
+				<noteRow drumIndex="4" noteDataWithLift="0x0000006000000018404014" noteDataWithSplitProb="0x0000006000000018404014000000" />
+				<noteRow drumIndex="5" noteDataWithLift="0x0000004800000018404014" noteDataWithSplitProb="0x0000004800000018404014000000" />
+				<noteRow drumIndex="6" noteDataWithLift="0x0000001800000018404014" noteDataWithSplitProb="0x0000001800000018404014000000" />
+				<noteRow drumIndex="7" noteDataWithLift="0x0000000000000018404014" noteDataWithSplitProb="0x0000000000000018404014000000" />
+				<noteRow drumIndex="8" noteDataWithLift="0x0000006000000018404014" noteDataWithSplitProb="0x0000006000000018404014000000" />
+				<noteRow drumIndex="9" noteDataWithLift="0x0000007800000018404014" noteDataWithSplitProb="0x0000007800000018404014000000" />
+				<noteRow drumIndex="10" noteDataWithLift="0x0000009000000018404014" noteDataWithSplitProb="0x0000009000000018404014000000" />
+				<noteRow drumIndex="11" noteDataWithLift="0x000000A800000018404014" noteDataWithSplitProb="0x000000A800000018404014000000" />
+				<noteRow drumIndex="12" noteDataWithLift="0x000000C000000018404014" noteDataWithSplitProb="0x000000C000000018404014000000" />
+				<noteRow drumIndex="13" noteDataWithLift="0x000000D800000018404014" noteDataWithSplitProb="0x000000D800000018404014000000" />
+				<noteRow drumIndex="14" noteDataWithLift="0x000000F000000018404014" noteDataWithSplitProb="0x000000F000000018404014000000" />
+				<noteRow drumIndex="15" noteDataWithLift="0x0000010800000018404014" noteDataWithSplitProb="0x0000010800000018404014000000" />
 			</noteRows>
 		</instrumentClip>
 		<instrumentClip instrumentPresetName="003 Synthwave Bass" instrumentPresetFolder="SYNTHS" length="384" isPlaying="1" section="0">
 			<soundParams />
 			<noteRows>
-				<noteRow y="60" noteDataWithLift="0x0000012000000018404014" />
-				<noteRow y="62" noteDataWithLift="0x000000F000000018404014" />
-				<noteRow y="64" noteDataWithLift="0x000000C000000018404014" />
-				<noteRow y="65" noteDataWithLift="0x0000009000000018404014" />
-				<noteRow y="67" noteDataWithLift="0x0000004800000018404014" />
-				<noteRow y="69" noteDataWithLift="0x0000003000000018404014" />
-				<noteRow y="71" noteDataWithLift="0x0000001800000018404014" />
-				<noteRow y="72" noteDataWithLift="0x0000000000000018404014" />
+				<noteRow y="60" noteDataWithLift="0x0000012000000018404014" noteDataWithSplitProb="0x0000012000000018404014000000" />
+				<noteRow y="62" noteDataWithLift="0x000000F000000018404014" noteDataWithSplitProb="0x000000F000000018404014000000" />
+				<noteRow y="64" noteDataWithLift="0x000000C000000018404014" noteDataWithSplitProb="0x000000C000000018404014000000" />
+				<noteRow y="65" noteDataWithLift="0x0000009000000018404014" noteDataWithSplitProb="0x0000009000000018404014000000" />
+				<noteRow y="67" noteDataWithLift="0x0000004800000018404014" noteDataWithSplitProb="0x0000004800000018404014000000" />
+				<noteRow y="69" noteDataWithLift="0x0000003000000018404014" noteDataWithSplitProb="0x0000003000000018404014000000" />
+				<noteRow y="71" noteDataWithLift="0x0000001800000018404014" noteDataWithSplitProb="0x0000001800000018404014000000" />
+				<noteRow y="72" noteDataWithLift="0x0000000000000018404014" noteDataWithSplitProb="0x0000000000000018404014000000" />
 			</noteRows>
 		</instrumentClip>
 	</sessionClips>

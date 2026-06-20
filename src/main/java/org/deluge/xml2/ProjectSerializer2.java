@@ -39,8 +39,8 @@ public class ProjectSerializer2 {
 
     // ── song attributes ──
     writer.writeAttribute("affectEntire", 0, false);
-    writer.writeAttribute("earliestCompatibleFirmware", "c1.2.0", false);
-    writer.writeAttribute("firmwareVersion", "c1.2.0", false);
+    writer.writeAttribute("earliestCompatibleFirmware", "4.1.0-alpha", false);
+    writer.writeAttribute("firmwareVersion", "c1.3.0", false);
     writer.writeAttribute("inputTickMagnitude", 2, false);
     writer.writeAttribute("previewNumPads", 144, false);
     writer.writeAttribute("swing", DelugeHexMapper.floatToHex(model.getSwing()), false);
@@ -476,7 +476,9 @@ public class ProjectSerializer2 {
               row.add(clip.getStep(r, s));
             }
             String hexData = DelugeNoteDataMapper.encodeRow(row, stepTicks);
+            String hexDataSplit = DelugeNoteDataMapper.encodeRowSplit(row, stepTicks);
             writer.writeAttribute("noteDataWithLift", hexData, false);
+            writer.writeAttribute("noteDataWithSplitProb", hexDataSplit, false);
             writer.closeTag();
           }
           writer.writeArrayEnding("noteRows");
