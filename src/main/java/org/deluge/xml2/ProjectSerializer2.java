@@ -59,8 +59,14 @@ public class ProjectSerializer2 {
     writer.writeAttribute("timerTickFraction", low, false);
     writer.writeAttribute("xScroll", 0, false);
     writer.writeAttribute("xZoom", 24, false);
+    int numClips = 0;
+    for (TrackModel track : model.getTracks()) {
+      numClips += track.getClips().size();
+    }
+    int yScrollSongView = Math.max(-7, numClips - 8);
+
     writer.writeAttribute("yScrollArrangementView", -7, false);
-    writer.writeAttribute("yScrollSongView", -7, false);
+    writer.writeAttribute("yScrollSongView", yScrollSongView, false);
     writer.writeOpeningTagEnd();
 
     // ── instruments block ──
