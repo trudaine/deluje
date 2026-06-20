@@ -124,6 +124,9 @@ public class ProjectSerializer2 {
           writer.writeOpeningTagEnd();
           writeHexTagUnipolar(writer, "volume", sound.getVolume());
           writeHexTag(writer, "pan", sound.getPan());
+          writeHexTagUnipolar(writer, "oscAVolume", sound.getOscAVolume());
+          writeHexTagUnipolar(writer, "oscBVolume", sound.getOscBVolume());
+          writeHexTagUnipolar(writer, "noiseVolume", sound.getNoiseVolume());
           writeHexTagFreq(writer, "lpfFrequency", sound.getLpfFreq());
           writeHexTagUnipolar(writer, "lpfResonance", sound.getLpfRes());
           writeHexTagFreq(writer, "hpfFrequency", sound.getHpfFreq());

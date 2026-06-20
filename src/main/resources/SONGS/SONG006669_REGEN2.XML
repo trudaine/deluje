@@ -25,6 +25,9 @@
 					<defaultParams>
 						<volume>0x00000000</volume>
 						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
 						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
 						<lpfResonance>0x80000000</lpfResonance>
 						<hpfFrequency>0x80000000</hpfFrequency>
@@ -69,6 +72,9 @@
 					<defaultParams>
 						<volume>0x00000000</volume>
 						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
 						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
 						<lpfResonance>0x80000000</lpfResonance>
 						<hpfFrequency>0x80000000</hpfFrequency>
@@ -113,6 +119,9 @@
 					<defaultParams>
 						<volume>0x00000000</volume>
 						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
 						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
 						<lpfResonance>0x80000000</lpfResonance>
 						<hpfFrequency>0x80000000</hpfFrequency>
@@ -157,6 +166,9 @@
 					<defaultParams>
 						<volume>0x00000000</volume>
 						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
 						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
 						<lpfResonance>0x80000000</lpfResonance>
 						<hpfFrequency>0x80000000</hpfFrequency>
@@ -201,6 +213,9 @@
 					<defaultParams>
 						<volume>0x00000000</volume>
 						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
 						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
 						<lpfResonance>0x80000000</lpfResonance>
 						<hpfFrequency>0x80000000</hpfFrequency>
@@ -245,6 +260,9 @@
 					<defaultParams>
 						<volume>0x00000000</volume>
 						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
 						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
 						<lpfResonance>0x80000000</lpfResonance>
 						<hpfFrequency>0x80000000</hpfFrequency>
@@ -289,6 +307,9 @@
 					<defaultParams>
 						<volume>0x00000000</volume>
 						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
 						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
 						<lpfResonance>0x80000000</lpfResonance>
 						<hpfFrequency>0x80000000</hpfFrequency>
@@ -333,6 +354,9 @@
 					<defaultParams>
 						<volume>0x00000000</volume>
 						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
 						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
 						<lpfResonance>0x80000000</lpfResonance>
 						<hpfFrequency>0x80000000</hpfFrequency>
@@ -377,6 +401,9 @@
 					<defaultParams>
 						<volume>0x00000000</volume>
 						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
 						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
 						<lpfResonance>0x80000000</lpfResonance>
 						<hpfFrequency>0x80000000</hpfFrequency>
@@ -421,6 +448,9 @@
 					<defaultParams>
 						<volume>0x00000000</volume>
 						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
 						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
 						<lpfResonance>0x80000000</lpfResonance>
 						<hpfFrequency>0x80000000</hpfFrequency>
@@ -465,6 +495,9 @@
 					<defaultParams>
 						<volume>0x00000000</volume>
 						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
 						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
 						<lpfResonance>0x80000000</lpfResonance>
 						<hpfFrequency>0x80000000</hpfFrequency>
@@ -509,6 +542,9 @@
 					<defaultParams>
 						<volume>0x00000000</volume>
 						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
 						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
 						<lpfResonance>0x80000000</lpfResonance>
 						<hpfFrequency>0x80000000</hpfFrequency>
@@ -553,6 +589,9 @@
 					<defaultParams>
 						<volume>0x00000000</volume>
 						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
 						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
 						<lpfResonance>0x80000000</lpfResonance>
 						<hpfFrequency>0x80000000</hpfFrequency>
@@ -597,6 +636,9 @@
 					<defaultParams>
 						<volume>0x00000000</volume>
 						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
 						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
 						<lpfResonance>0x80000000</lpfResonance>
 						<hpfFrequency>0x80000000</hpfFrequency>
@@ -641,6 +683,9 @@
 					<defaultParams>
 						<volume>0x00000000</volume>
 						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
 						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
 						<lpfResonance>0x80000000</lpfResonance>
 						<hpfFrequency>0x80000000</hpfFrequency>
@@ -685,6 +730,9 @@
 					<defaultParams>
 						<volume>0x00000000</volume>
 						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
 						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
 						<lpfResonance>0x80000000</lpfResonance>
 						<hpfFrequency>0x80000000</hpfFrequency>
