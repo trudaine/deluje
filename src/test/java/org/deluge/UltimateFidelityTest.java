@@ -276,4 +276,107 @@ public class UltimateFidelityTest {
 
     handler.stop();
   }
+
+  @Test
+  public void generateDiags() throws Exception {
+    // 1. LEAD ONLY
+    {
+      ProjectModel project = new ProjectModel();
+      project.setBpm(120.0f);
+      project.setMasterVolume(0.8f);
+
+      SynthTrackModel leadTrack = new SynthTrackModel("Synth Lead");
+      leadTrack.setOsc1Type("SAW");
+      leadTrack.setOsc2Type("SQUARE");
+      leadTrack.setOsc2Transpose(0);
+      leadTrack.setOsc2Cents(10);
+      leadTrack.setOscMix(0.6f);
+      leadTrack.setVolume(0.5f);
+      leadTrack.setLpfFreq(1200.0f);
+      leadTrack.setLpfRes(0.5f);
+      leadTrack.setReverbSend(0.4f);
+      leadTrack.setDelaySend(0.3f);
+      leadTrack.setEnv(0, new EnvelopeModel(0.05f, 0.3f, 0.6f, 0.25f, "NONE", 0.0f));
+      leadTrack.setEnv(1, new EnvelopeModel(0.5f, 1.0f, 0.4f, 0.5f, "FILTER", 0.4f));
+
+      ClipModel leadClip = new ClipModel("Lead Clip", 6, 16);
+      leadClip.setRowYNote(0, 72);
+      leadClip.setRowYNote(1, 75);
+      leadClip.setRowYNote(2, 79);
+      leadClip.setRowYNote(3, 82);
+      leadClip.setRowYNote(4, 84);
+      leadClip.setRowYNote(5, 86);
+      leadClip.setStep(0, 0, StepData.of(true, 0.8f, 18.0f, 1.0f, 72));
+      leadClip.setStep(1, 3, StepData.of(true, 0.8f, 18.0f, 1.0f, 75));
+      leadClip.setStep(2, 6, StepData.of(true, 0.8f, 18.0f, 1.0f, 79));
+      leadClip.setStep(3, 8, StepData.of(true, 0.8f, 18.0f, 1.0f, 82));
+      leadClip.setStep(2, 11, StepData.of(true, 0.8f, 18.0f, 1.0f, 79));
+      leadClip.setStep(1, 14, StepData.of(true, 0.8f, 18.0f, 1.0f, 75));
+      leadTrack.addClip(leadClip);
+      project.addTrack(leadTrack);
+
+      project.addArrangerClip(new ArrangerClip(0, leadClip, 0, 1536));
+
+      org.deluge.xml2.ProjectSerializer2.save(
+          project, new File("src/main/resources/SONGS/DIAG_LEAD_ONLY.xml"));
+    }
+
+    // 2. KIT ONLY
+    {
+      ProjectModel project = new ProjectModel();
+      project.setBpm(120.0f);
+      project.setMasterVolume(0.8f);
+
+      KitTrackModel kitTrack = new KitTrackModel("Synth Kit");
+      kitTrack.setVolume(0.8f);
+
+      SoundDrum kick = new SoundDrum("Kick");
+      kick.setOsc2Type("SINE");
+      kick.setOscBVolume(1.0f);
+      kick.setOscAVolume(0.0f);
+      kick.setNoiseVolume(0.0f);
+      kick.setAdsr(new EnvelopeModel(0.001f, 0.18f, 0.0f, 0.08f, "NONE", 0.0f));
+      kitTrack.addDrum(kick);
+
+      SoundDrum snare = new SoundDrum("Snare");
+      snare.setNoiseVolume(0.75f);
+      snare.setOscAVolume(0.0f);
+      snare.setOscBVolume(0.0f);
+      snare.setAdsr(new EnvelopeModel(0.001f, 0.15f, 0.0f, 0.1f, "NONE", 0.0f));
+      snare.setLpfFreq(3500.0f);
+      snare.setLpfRes(0.1f);
+      kitTrack.addDrum(snare);
+
+      SoundDrum hihat = new SoundDrum("Hihat");
+      hihat.setNoiseVolume(0.6f);
+      hihat.setOscAVolume(0.0f);
+      hihat.setOscBVolume(0.0f);
+      hihat.setAdsr(new EnvelopeModel(0.001f, 0.04f, 0.0f, 0.04f, "NONE", 0.0f));
+      hihat.setHpfFreq(9000.0f);
+      hihat.setHpfRes(0.0f);
+      kitTrack.addDrum(hihat);
+
+      ClipModel drumClip = new ClipModel("Drum Clip", 3, 16);
+      drumClip.setRowYNote(0, 0);
+      drumClip.setRowYNote(1, 1);
+      drumClip.setRowYNote(2, 2);
+
+      drumClip.setStep(0, 0, StepData.of(true, 0.9f, 12.0f, 1.0f, 0));
+      drumClip.setStep(0, 4, StepData.of(true, 0.9f, 12.0f, 1.0f, 0));
+      drumClip.setStep(0, 8, StepData.of(true, 0.9f, 12.0f, 1.0f, 0));
+      drumClip.setStep(0, 12, StepData.of(true, 0.9f, 12.0f, 1.0f, 0));
+      drumClip.setStep(1, 4, StepData.of(true, 0.85f, 12.0f, 1.0f, 1));
+      drumClip.setStep(1, 12, StepData.of(true, 0.85f, 12.0f, 1.0f, 1));
+      for (int s = 0; s < 16; s += 2) {
+        drumClip.setStep(2, s, StepData.of(true, 0.7f, 6.0f, 1.0f, 2));
+      }
+      kitTrack.addClip(drumClip);
+      project.addTrack(kitTrack);
+
+      project.addArrangerClip(new ArrangerClip(0, drumClip, 0, 2304));
+
+      org.deluge.xml2.ProjectSerializer2.save(
+          project, new File("src/main/resources/SONGS/DIAG_KIT_ONLY.xml"));
+    }
+  }
 }

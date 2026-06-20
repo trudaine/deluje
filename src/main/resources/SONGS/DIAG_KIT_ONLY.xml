@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<song affectEntire="0" earliestCompatibleFirmware="4.1.0-alpha" firmwareVersion="c1.3.0" inputTickMagnitude="2" previewNumPads="144" swing="0x40000000" swingAmount="0" swingInterval="7" tempo="120.0" timePerTimerTick="229" timerTickFraction="-1342177280" xScroll="0" xZoom="24" yScrollArrangementView="-7" yScrollSongView="-7">
+	<instruments>
+		<kit presetName="Synth Kit" presetFolder="KITS" clipInstances="0x000000000000090000000000">
+			<soundSources>
+				<sound>
+					<name>Kick</name>
+					<osc1 type="sample" />
+					<sample fileName="" />
+					<osc2 type="sine" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x80000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0x80000000</attack>
+							<decay>0x00F4A0D8</decay>
+							<sustain>0x80000000</sustain>
+							<release>0xECD16340</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound>
+					<name>Snare</name>
+					<osc1 type="sample" />
+					<sample fileName="" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<lpfFrequency>0x3F67EA00</lpfFrequency>
+						<lpfResonance>0x99999980</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x80000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0x80000000</attack>
+							<decay>0xFC6D9334</decay>
+							<sustain>0x80000000</sustain>
+							<release>0xF25BF480</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound>
+					<name>Hihat</name>
+					<osc1 type="sample" />
+					<sample fileName="" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x62685000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x80000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0x80000000</attack>
+							<decay>0xDB9AEB00</decay>
+							<sustain>0x80000000</sustain>
+							<release>0xDB9AEB00</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+			</soundSources>
+		</kit>
+	</instruments>
+	<sessionClips>
+		<instrumentClip instrumentPresetName="Synth Kit" instrumentPresetFolder="KITS" length="384" isPlaying="1" section="0" clipInstances="0x000000000000090000000000">
+			<kitParams />
+			<noteRows>
+				<noteRow drumIndex="0" noteDataWithLift="0x00000000000001207240140000006000000120724014000000C0000001207240140000012000000120724014" noteDataWithSplitProb="0x00000000000001207240140000000000006000000120724014000000000000C0000001207240140000000000012000000120724014000000" />
+				<noteRow drumIndex="1" noteDataWithLift="0x00000060000001206C401400000120000001206C4014" noteDataWithSplitProb="0x00000060000001206C401400000000000120000001206C4014000000" />
+				<noteRow drumIndex="2" noteDataWithLift="0x0000000000000090594014000000300000009059401400000060000000905940140000009000000090594014000000C000000090594014000000F00000009059401400000120000000905940140000015000000090594014" noteDataWithSplitProb="0x0000000000000090594014000000000000300000009059401400000000000060000000905940140000000000009000000090594014000000000000C000000090594014000000000000F00000009059401400000000000120000000905940140000000000015000000090594014000000" />
+			</noteRows>
+		</instrumentClip>
+	</sessionClips>
+</song>

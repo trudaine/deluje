@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<song affectEntire="0" earliestCompatibleFirmware="4.1.0-alpha" firmwareVersion="c1.3.0" inputTickMagnitude="2" previewNumPads="144" swing="0x40000000" swingAmount="0" swingInterval="7" tempo="120.0" timePerTimerTick="229" timerTickFraction="-1342177280" xScroll="0" xZoom="24" yScrollArrangementView="-7" yScrollSongView="-7">
+	<instruments>
+		<sound presetName="Synth Lead" presetFolder="SYNTHS" clipInstances="0x000000000000060000000000">
+			<osc1 type="saw" transpose="0" cents="0" retrigPhase="-1" />
+			<osc2 type="square" transpose="0" cents="0" retrigPhase="-1" />
+			<polyphonic>1</polyphonic>
+			<clippingAmount>0</clippingAmount>
+			<voicePriority>1</voicePriority>
+			<lfo1>
+				<type>sine</type>
+				<rate>0x00000000</rate>
+				<depth>0x7FFFFFFF</depth>
+			</lfo1>
+			<lfo2>
+				<type>sine</type>
+				<rate>0x00000000</rate>
+				<depth>0x7FFFFFFF</depth>
+			</lfo2>
+			<lfo3>
+				<type>sine</type>
+				<rate>0x00000000</rate>
+				<depth>0x7FFFFFFF</depth>
+			</lfo3>
+			<lfo4>
+				<type>sine</type>
+				<rate>0x00000000</rate>
+				<depth>0x7FFFFFFF</depth>
+			</lfo4>
+			<customLfoWave>-1073741824,-1056964608,-1040187392,-1023410176,-1006632960,-989855744,-973078528,-956301312,-939524096,-922746880,-905969664,-889192448,-872415232,-855638016,-838860800,-822083584,-805306368,-788529152,-771751936,-754974720,-738197504,-721420288,-704643072,-687865856,-671088640,-654311424,-637534208,-620756992,-603979776,-587202560,-570425344,-553648128,-536870912,-520093696,-503316480,-486539264,-469762048,-452984832,-436207616,-419430400,-402653184,-385875968,-369098752,-352321536,-335544320,-318767104,-301989888,-285212672,-268435456,-251658240,-234881024,-218103808,-201326592,-184549376,-167772160,-150994944,-134217728,-117440512,-100663296,-83886080,-67108864,-50331648,-33554432,-16777216,0,16777216,33554432,50331648,67108864,83886080,100663296,117440512,134217728,150994944,167772160,184549376,201326592,218103808,234881024,251658240,268435456,285212672,301989888,318767104,335544320,352321536,369098752,385875968,402653184,419430400,436207616,452984832,469762048,486539264,503316480,520093696,536870912,553648128,570425344,587202560,603979776,620756992,637534208,654311424,671088640,687865856,704643072,721420288,738197504,754974720,771751936,788529152,805306368,822083584,838860800,855638016,872415232,889192448,905969664,922746880,939524096,956301312,973078528,989855744,1006632960,1023410176,1040187392,1056964608,1073741824,1056964608,1040187392,1023410176,1006632960,989855744,973078528,956301312,939524096,922746880,905969664,889192448,872415232,855638016,838860800,822083584,805306368,788529152,771751936,754974720,738197504,721420288,704643072,687865856,671088640,654311424,637534208,620756992,603979776,587202560,570425344,553648128,536870912,520093696,503316480,486539264,469762048,452984832,436207616,419430400,402653184,385875968,369098752,352321536,335544320,318767104,301989888,285212672,268435456,251658240,234881024,218103808,201326592,184549376,167772160,150994944,134217728,117440512,100663296,83886080,67108864,50331648,33554432,16777216,0,-16777216,-33554432,-50331648,-67108864,-83886080,-100663296,-117440512,-134217728,-150994944,-167772160,-184549376,-201326592,-218103808,-234881024,-251658240,-268435456,-285212672,-301989888,-318767104,-335544320,-352321536,-369098752,-385875968,-402653184,-419430400,-436207616,-452984832,-469762048,-486539264,-503316480,-520093696,-536870912,-553648128,-570425344,-587202560,-603979776,-620756992,-637534208,-654311424,-671088640,-687865856,-704643072,-721420288,-738197504,-754974720,-771751936,-788529152,-805306368,-822083584,-838860800,-855638016,-872415232,-889192448,-905969664,-922746880,-939524096,-956301312,-973078528,-989855744,-1006632960,-1023410176,-1040187392,-1056964608</customLfoWave>
+			<mode>subtractive</mode>
+			<transpose>0</transpose>
+			<unison>
+				<num>1</num>
+				<detune>0x00000000</detune>
+				<spread>0x00000000</spread>
+			</unison>
+			<arpeggiator mode="up" active="0">
+				<rate>0x7FFFFFFF</rate>
+				<octaves>1</octaves>
+				<gate>0x40000000</gate>
+				<syncLevel>0</syncLevel>
+				<noteMode>up</noteMode>
+				<octaveMode>up</octaveMode>
+				<stepRepeat>1</stepRepeat>
+				<rhythmIndex>0</rhythmIndex>
+				<seqLength>8</seqLength>
+				<octaveSpread>0x00000000</octaveSpread>
+				<gateSpread>0x00000000</gateSpread>
+				<velSpread>0x00000000</velSpread>
+				<ratchetAmount>0</ratchetAmount>
+				<noteProbability>0.0</noteProbability>
+				<chordPolyphony>0</chordPolyphony>
+				<chordProbability>0.0</chordProbability>
+			</arpeggiator>
+			<delay>
+				<pingPong>1</pingPong>
+				<analog>1</analog>
+				<syncLevel>7</syncLevel>
+			</delay>
+			<lpfMode>24dB</lpfMode>
+			<hpfMode>12dB</hpfMode>
+			<modFXType>none</modFXType>
+			<defaultParams>
+				<arpeggiatorGate>0x00000000</arpeggiatorGate>
+				<portamento>0x80000000</portamento>
+				<compressorShape>0x6B851F00</compressorShape>
+				<oscAVolume>0x19999A00</oscAVolume>
+				<oscAPulseWidth>0x80000000</oscAPulseWidth>
+				<oscBVolume>0xE6666600</oscBVolume>
+				<oscBPulseWidth>0x80000000</oscBPulseWidth>
+				<noiseVolume>0x80000000</noiseVolume>
+				<volume>0x00000000</volume>
+				<pan>0x00000000</pan>
+				<lpfFrequency>0x17BC4E80</lpfFrequency>
+				<lpfResonance>0x00000000</lpfResonance>
+				<hpfFrequency>0x80000000</hpfFrequency>
+				<hpfResonance>0x80000000</hpfResonance>
+				<hpfMorph>0x80000000</hpfMorph>
+				<modulator1Amount>0x80000000</modulator1Amount>
+				<modulator1Feedback>0x80000000</modulator1Feedback>
+				<modulator2Amount>0x80000000</modulator2Amount>
+				<modulator2Feedback>0x80000000</modulator2Feedback>
+				<carrier1Feedback>0x80000000</carrier1Feedback>
+				<carrier2Feedback>0x80000000</carrier2Feedback>
+				<modFXRate>0x80000000</modFXRate>
+				<modFXDepth>0x80000000</modFXDepth>
+				<modFXOffset>0x80000000</modFXOffset>
+				<modFXFeedback>0x80000000</modFXFeedback>
+				<delayRate>0xCCCCCD00</delayRate>
+				<delayFeedback>0x80000000</delayFeedback>
+				<reverbAmount>0xE6666680</reverbAmount>
+				<arpeggiatorRate>0x80000000</arpeggiatorRate>
+				<stutterRate>0x80000000</stutterRate>
+				<sampleRateReduction>0x80000000</sampleRateReduction>
+				<bitCrush>0x80000000</bitCrush>
+				<waveIndex>0x80000000</waveIndex>
+				<equalizer>
+					<bass>0x00000000</bass>
+					<treble>0x00000000</treble>
+					<bassFrequency>0x00000000</bassFrequency>
+					<trebleFrequency>0x00000000</trebleFrequency>
+				</equalizer>
+				<envelope1>
+					<attack>0xE1257C20</attack>
+					<decay>0x0DA40BA0</decay>
+					<sustain>0x19999A00</sustain>
+					<release>0x091CFDE0</release>
+				</envelope1>
+				<envelope2>
+					<attack>0x1A537640</attack>
+					<decay>0x2B89EEC0</decay>
+					<sustain>0xE6666680</sustain>
+					<release>0x1A537640</release>
+				</envelope2>
+				<envelope3>
+					<attack>0xB92DFA00</attack>
+					<decay>0xF25BF480</decay>
+					<sustain>0x33333300</sustain>
+					<release>0x03926CE8</release>
+				</envelope3>
+				<envelope4>
+					<attack>0xB92DFA00</attack>
+					<decay>0xF25BF480</decay>
+					<sustain>0x33333300</sustain>
+					<release>0x03926CE8</release>
+				</envelope4>
+				<lfo1Rate>0x0147AE14</lfo1Rate>
+				<lfo2Rate>0x0147AE14</lfo2Rate>
+				<modFXOffset>0x00000000</modFXOffset>
+				<modFXFeedback>0x00000000</modFXFeedback>
+			</defaultParams>
+			<midiKnobs></midiKnobs>
+		</sound>
+	</instruments>
+	<sessionClips>
+		<instrumentClip instrumentPresetName="Synth Lead" instrumentPresetFolder="SYNTHS" length="384" isPlaying="1" section="0" clipInstances="0x000000000000060000000000">
+			<soundParams />
+			<noteRows>
+				<noteRow y="72" noteDataWithLift="0x00000000000001B0664014" noteDataWithSplitProb="0x00000000000001B0664014000000" />
+				<noteRow y="75" noteDataWithLift="0x00000048000001B066401400000150000001B0664014" noteDataWithSplitProb="0x00000048000001B066401400000000000150000001B0664014000000" />
+				<noteRow y="79" noteDataWithLift="0x00000090000001B066401400000108000001B0664014" noteDataWithSplitProb="0x00000090000001B066401400000000000108000001B0664014000000" />
+				<noteRow y="82" noteDataWithLift="0x000000C0000001B0664014" noteDataWithSplitProb="0x000000C0000001B0664014000000" />
+				<noteRow y="84" noteDataWithLift="0x" noteDataWithSplitProb="0x" />
+				<noteRow y="86" noteDataWithLift="0x" noteDataWithSplitProb="0x" />
+			</noteRows>
+		</instrumentClip>
+	</sessionClips>
+</song>
