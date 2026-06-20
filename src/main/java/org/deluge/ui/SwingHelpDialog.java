@@ -24,7 +24,7 @@ import javax.swing.text.html.HTMLEditorKit;
 public class SwingHelpDialog extends JDialog {
 
   public SwingHelpDialog(Frame parent) {
-    super(parent, "ChucK-Java Deluge Workstation — Operations Manual", false);
+    super(parent, "Deluge-Java Workstation — Operations Manual", false);
     setSize(920, 750);
     setMinimumSize(new Dimension(640, 500));
     setLocationRelativeTo(parent);

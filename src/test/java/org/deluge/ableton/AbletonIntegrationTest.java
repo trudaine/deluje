@@ -93,7 +93,7 @@ public class AbletonIntegrationTest {
 
     // 2. Import into a new ProjectModel
     org.deluge.model.ProjectModel project = new org.deluge.model.ProjectModel();
-    AbletonTrackMapper.importAbletonSet(doc, project);
+    AbletonTrackMapper.importAbletonSet(doc, project, demoFile);
 
     // 3. Assertions on imported project metadata
     assertTrue(project.getBpm() > 0, "Imported BPM must be positive");
@@ -193,7 +193,7 @@ public class AbletonIntegrationTest {
     // 1. Import original set into project1
     Document doc1 = AbletonProjectManager.parseAlsToXml(demoFile);
     org.deluge.model.ProjectModel project1 = new org.deluge.model.ProjectModel();
-    AbletonTrackMapper.importAbletonSet(doc1, project1);
+    AbletonTrackMapper.importAbletonSet(doc1, project1, demoFile);
 
     // 2. Export project1 to temporary .als file in scratch directory
     File scratchDir = new File(System.getProperty("java.io.tmpdir"), "deluge-ableton-test");
@@ -214,7 +214,7 @@ public class AbletonIntegrationTest {
     // 3. Import exported set back into project2
     Document doc2 = AbletonProjectManager.parseAlsToXml(exportedFile);
     org.deluge.model.ProjectModel project2 = new org.deluge.model.ProjectModel();
-    AbletonTrackMapper.importAbletonSet(doc2, project2);
+    AbletonTrackMapper.importAbletonSet(doc2, project2, exportedFile);
 
     // 4. Assert Round-Trip Parity
     assertEquals(project1.getBpm(), project2.getBpm(), 0.01, "BPM must match on round-trip");

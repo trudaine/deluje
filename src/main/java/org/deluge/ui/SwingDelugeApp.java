@@ -2669,14 +2669,29 @@ public class SwingDelugeApp extends JFrame {
     JMenuItem importAbletonItem = new JMenuItem("Import Ableton Live Set...");
     importAbletonItem.addActionListener(
         e -> {
-          JFileChooser chooser =
-              new JFileChooser(org.deluge.ableton.AbletonAssetResolver.getDefaultImportDir());
+          String lastDir = org.deluge.project.PreferencesManager.get("last_ableton_import_dir", "");
+          java.io.File initialDir = null;
+          if (!lastDir.isEmpty()) {
+            java.io.File testDir = new java.io.File(lastDir);
+            if (testDir.exists() && testDir.isDirectory()) {
+              initialDir = testDir;
+            }
+          }
+          if (initialDir == null) {
+            initialDir = org.deluge.ableton.AbletonAssetResolver.getDefaultImportDir();
+          }
+
+          JFileChooser chooser = new JFileChooser(initialDir);
           chooser.setDialogTitle("Import Ableton Live Set (.als)");
           chooser.setFileFilter(
               new javax.swing.filechooser.FileNameExtensionFilter(
                   "Ableton Live Set", "als", "ALS"));
           if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             final java.io.File file = chooser.getSelectedFile();
+            if (file != null && file.getParentFile() != null) {
+              org.deluge.project.PreferencesManager.set(
+                  "last_ableton_import_dir", file.getParentFile().getAbsolutePath());
+            }
             if (file == null || file.isDirectory()) {
               JOptionPane.showMessageDialog(
                   this,
@@ -2692,7 +2707,7 @@ public class SwingDelugeApp extends JFrame {
                 org.w3c.dom.Document doc =
                     org.deluge.ableton.AbletonProjectManager.parseAlsToXml(file);
                 org.deluge.model.ProjectModel model = new org.deluge.model.ProjectModel();
-                org.deluge.ableton.AbletonTrackMapper.importAbletonSet(doc, model);
+                org.deluge.ableton.AbletonTrackMapper.importAbletonSet(doc, model, file);
                 return model;
               }
 
@@ -2702,6 +2717,7 @@ public class SwingDelugeApp extends JFrame {
                   org.deluge.model.ProjectModel model = get();
                   currentProjectFile = null;
                   loadProject(model);
+                  setTitle("DELUGE WORKSTATION — [Imported] " + file.getName());
                   JOptionPane.showMessageDialog(
                       SwingDelugeApp.this,
                       "Ableton Live Set imported successfully!\n" + file.getName(),

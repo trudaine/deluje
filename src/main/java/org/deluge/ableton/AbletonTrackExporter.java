@@ -52,7 +52,7 @@ public class AbletonTrackExporter {
     rootEl.setAttribute("MajorVersion", "5");
     rootEl.setAttribute("MinorVersion", "12.0_12049");
     rootEl.setAttribute("SchemaVersion", "3");
-    rootEl.setAttribute("Creator", "ChucK-Java Deluge Workstation");
+    rootEl.setAttribute("Creator", "Deluge-Java Workstation");
     doc.appendChild(rootEl);
 
     // 3. Create LiveSet Element
@@ -134,7 +134,7 @@ public class AbletonTrackExporter {
     rootEl.setAttribute("MajorVersion", "5");
     rootEl.setAttribute("MinorVersion", "12.0_12049");
     rootEl.setAttribute("SchemaVersion", "3");
-    rootEl.setAttribute("Creator", "ChucK-Java Deluge Workstation");
+    rootEl.setAttribute("Creator", "Deluge-Java Deluge Workstation");
     doc.appendChild(rootEl);
 
     Element liveSet = doc.createElement("LiveSet");

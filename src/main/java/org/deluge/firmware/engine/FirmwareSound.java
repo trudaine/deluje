@@ -486,7 +486,10 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
   // ── High-Fidelity Filter States & Modulations ──
 
   public void setLpfMode(org.deluge.model.FilterMode modelMode) {
-    if (modelMode == null) return;
+    if (modelMode == null) {
+      fw2Sound.lpfMode = org.deluge.firmware2.FilterSet.FilterMode.OFF;
+      return;
+    }
     switch (modelMode) {
       case LADDER_12:
         fw2Sound.lpfMode = org.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_12DB;
@@ -508,7 +511,10 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
   }
 
   public void setHpfMode(org.deluge.model.FilterMode modelMode) {
-    if (modelMode == null) return;
+    if (modelMode == null) {
+      fw2Sound.hpfMode = org.deluge.firmware2.FilterSet.FilterMode.OFF;
+      return;
+    }
     switch (modelMode) {
       // The firmware HPF ladder is a single mode (HPLADDER) — every ladder-type setting maps to
       // it. NOTE: the XML parser turns the default "HPLadder" into LADDER_12, so LADDER_12 must
