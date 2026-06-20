@@ -271,6 +271,81 @@ public class ProjectSerializerTest {
   }
 
   @Test
+  void testImportBillieJean() throws Exception {
+    File alsFile =
+        new File(
+            "/Users/ludo/Downloads/Michael Jackson - Billie Jean (Ableton Remake)/Project/Michael Jackson - Billie Jean.als");
+    if (!alsFile.exists()) {
+      System.out.println("Billie Jean ALS file not found at " + alsFile.getAbsolutePath());
+      return;
+    }
+
+    System.out.println("==================================================");
+    System.out.println("IMPORTING BILLIE JEAN ABLETON REMAKE...");
+    System.out.println("==================================================");
+
+    // Parse ALS to XML Document
+    org.w3c.dom.Document doc = org.deluge.ableton.AbletonProjectManager.parseAlsToXml(alsFile);
+
+    // Import into ProjectModel
+    ProjectModel project = new ProjectModel();
+    org.deluge.ableton.AbletonTrackMapper.importAbletonSet(doc, project);
+
+    // Print details
+    System.out.println("BPM: " + project.getBpm());
+    System.out.println("Total Tracks Imported: " + project.getTracks().size());
+
+    for (int i = 0; i < project.getTracks().size(); i++) {
+      org.deluge.model.TrackModel track = project.getTracks().get(i);
+      String type = track.getClass().getSimpleName();
+      int clipCount = track.getClips().size();
+      System.out.println(
+          String.format(
+              "  Track [%d]: Name='%s', Type=%s, Clips=%d",
+              i + 1, track.getName(), type, clipCount));
+
+      if (track instanceof SynthTrackModel st) {
+        int totalNotes = 0;
+        for (org.deluge.model.ClipModel clip : st.getClips()) {
+          for (int r = 0; r < clip.getRowCount(); r++) {
+            for (int s = 0; s < clip.getStepCount(); s++) {
+              if (clip.getStep(r, s) != null && clip.getStep(r, s).active()) {
+                totalNotes++;
+              }
+            }
+          }
+        }
+        System.out.println("    -> Total Sequenced Notes: " + totalNotes);
+      } else if (track instanceof KitTrackModel kt) {
+        int totalTriggers = 0;
+        for (org.deluge.model.ClipModel clip : kt.getClips()) {
+          for (int r = 0; r < clip.getRowCount(); r++) {
+            for (int s = 0; s < clip.getStepCount(); s++) {
+              if (clip.getStep(r, s) != null && clip.getStep(r, s).active()) {
+                totalTriggers++;
+              }
+            }
+          }
+        }
+        System.out.println("    -> Total Sequenced Drum Triggers: " + totalTriggers);
+        System.out.println("    -> Drum Pads: " + kt.getDrums().size());
+        for (int d = 0; d < kt.getDrums().size(); d++) {
+          System.out.println(
+              String.format("      Pad %d: '%s'", d, kt.getDrums().get(d).getName()));
+        }
+      }
+    }
+    System.out.println("==================================================");
+
+    // Save to Deluge XML
+    File tempXml = File.createTempFile("Billie_Jean_Deluge_Imported", ".xml");
+    ProjectSerializer.save(project, tempXml);
+    System.out.println("Successfully serialized to Deluge XML: " + tempXml.getAbsolutePath());
+    System.out.println("XML Size: " + tempXml.length() + " bytes");
+    System.out.println("==================================================");
+  }
+
+  @Test
   void testAbletonExportMultiMode() throws Exception {
     ProjectModel model = new ProjectModel();
     model.setBpm(120.0f);
