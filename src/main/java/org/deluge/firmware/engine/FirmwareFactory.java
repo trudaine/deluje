@@ -826,6 +826,11 @@ public class FirmwareFactory {
     }
 
     // ── Envelope depth/target → synthesized patch cables ──
+    // In the Deluge architecture, only Envelope 0 is hardwired (to master voice volume).
+    // Envelopes 1, 2, and 3 are routed dynamically via the Patch Matrix (Modulation Matrix).
+    // Without synthesizing these virtual "patch cables", filter envelopes and pitch sweeps
+    // configured in the project model remain completely dead and disconnected in the DSP engine.
+    // Here we dynamically compile any active Env 1, 2, or 3 targets into engine-level PatchCables.
     for (int i = 1; i < 4; i++) {
       EnvelopeModel em = model.getEnv(i);
       if (em == null || em.target() == null || "NONE".equalsIgnoreCase(em.target())) {
