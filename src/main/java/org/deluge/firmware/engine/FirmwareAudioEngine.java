@@ -23,6 +23,7 @@ import org.deluge.firmware2.StereoSample;
  */
 public class FirmwareAudioEngine {
   public static boolean debugTelemetry = false;
+  public static boolean realTimeMode = false;
   public final List<GlobalEffectable> sounds = new java.util.concurrent.CopyOnWriteArrayList<>();
   public final StereoSample[] masterBuffer = new StereoSample[128];
   private int[] summedFlatBuffer = new int[256];

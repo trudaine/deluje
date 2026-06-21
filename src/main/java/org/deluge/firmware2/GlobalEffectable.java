@@ -25,6 +25,9 @@ public abstract class GlobalEffectable {
   private int[] flatBuffer;
 
   public void renderOutput(int[] output, int numSamples, int[] reverbBuffer) {
+    if (muted) {
+      return;
+    }
     int requiredLen = numSamples * 2;
     if (trackBuffer.length < requiredLen) {
       trackBuffer = new int[requiredLen];

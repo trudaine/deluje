@@ -39,6 +39,10 @@ public class Stutterer {
     return stutterSource == source;
   }
 
+  public boolean isActive() {
+    return status != Status.OFF;
+  }
+
   public void beginStutter(Object source, ParamManager paramManager, Config sc) {
     this.config = sc;
     this.currentReverse = config.reversed;

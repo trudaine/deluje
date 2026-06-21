@@ -647,15 +647,17 @@ public class Sound extends GlobalEffectable {
 
     srrBitcrush.process(fxIntBuffer, numSamples, bitcrushParam, srrParam, postFXVolumeHolder);
 
-    // Stutterer still uses StereoSample[]
-    for (int i = 0; i < numSamples; i++) {
-      fxStereoBuffer[i].l = fxIntBuffer[i][0];
-      fxStereoBuffer[i].r = fxIntBuffer[i][1];
-    }
-    stutterer.processStutter(fxStereoBuffer, null);
-    for (int i = 0; i < numSamples; i++) {
-      fxIntBuffer[i][0] = fxStereoBuffer[i].l;
-      fxIntBuffer[i][1] = fxStereoBuffer[i].r;
+    // Stutterer still uses StereoSample[]. Bypass entirely if inactive to save massive CPU!
+    if (stutterer.isActive()) {
+      for (int i = 0; i < numSamples; i++) {
+        fxStereoBuffer[i].l = fxIntBuffer[i][0];
+        fxStereoBuffer[i].r = fxIntBuffer[i][1];
+      }
+      stutterer.processStutter(fxStereoBuffer, null);
+      for (int i = 0; i < numSamples; i++) {
+        fxIntBuffer[i][0] = fxStereoBuffer[i].l;
+        fxIntBuffer[i][1] = fxStereoBuffer[i].r;
+      }
     }
 
     if (modFXType == ModFx.ModFXType.GRAIN) {
@@ -780,6 +782,9 @@ public class Sound extends GlobalEffectable {
 
   private void triggerVoiceInternal(
       int note, int vel, int midiChannel, int[] mpeValues, int samplesLate) {
+    if (muted) {
+      return;
+    }
     if (org.deluge.firmware.engine.FirmwareAudioEngine.debugTelemetry) {
       System.out.println(
           "[DIAG Sound] triggerVoiceInternal: note="

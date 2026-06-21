@@ -141,6 +141,7 @@ public class JavaAudioDriver implements Runnable {
 
   @Override
   public void run() {
+    org.deluge.firmware.engine.FirmwareAudioEngine.realTimeMode = true;
     try {
       Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
       // Capture-only mode: render + resample still run, but never open/write the soundcard. Used by
