@@ -2769,6 +2769,14 @@ public class SwingDelugeApp extends JFrame {
           }
         });
 
+    JMenuItem newWindowItem = new JMenuItem("New Window");
+    newWindowItem.setAccelerator(
+        KeyStroke.getKeyStroke(
+            java.awt.event.KeyEvent.VK_N,
+            java.awt.event.InputEvent.CTRL_DOWN_MASK | java.awt.event.InputEvent.SHIFT_DOWN_MASK));
+    newWindowItem.setToolTipText("Launch a second, independent Deluge instance in its own window");
+    newWindowItem.addActionListener(e -> launchNewInstance());
+
     JMenuItem openItem = new JMenuItem("Open Project...");
     openItem.setAccelerator(
         KeyStroke.getKeyStroke(
@@ -2828,6 +2836,7 @@ public class SwingDelugeApp extends JFrame {
     exitItem.addActionListener(e -> System.exit(0));
 
     fileMenu.add(newItem);
+    fileMenu.add(newWindowItem);
     fileMenu.add(openItem);
     fileMenu.add(explorerItem);
     fileMenu.addSeparator();
@@ -3884,6 +3893,55 @@ public class SwingDelugeApp extends JFrame {
     // --screenshot. On a normal boot this would visibly resize the grid 2-3 times.
     if (autoScreenshotOnBoot) {
       captureAutoScreenshot("startup");
+    }
+  }
+
+  /**
+   * Launch a second, fully independent Deluge in a NEW OS process (its own JVM). We deliberately do
+   * not run two instances in one JVM: the firmware/hid layer (MatrixDriver, Flasher, PIC,
+   * FirmwareDisplay) and a few audio statics (noise seed, sidechain bus, cpuDireness) plus {@code
+   * mainInstance} are process-global singletons that two in-JVM instances would corrupt. A separate
+   * process sidesteps all of that and gets its own audio line (the OS mixer sums them).
+   *
+   * <p>We relaunch the *exact* current command (java binary + all JVM flags + jar) via {@link
+   * ProcessHandle}, so required flags (--enable-preview, --add-modules jdk.incubator.vector, ZGC,
+   * native-access) are preserved. Falls back to reconstructing from the running JVM if the OS does
+   * not expose the command line.
+   */
+  private void launchNewInstance() {
+    try {
+      java.util.List<String> cmd = new java.util.ArrayList<>();
+      ProcessHandle.Info info = ProcessHandle.current().info();
+      String exe = info.command().orElse(null);
+      String[] args = info.arguments().orElse(null);
+      if (exe != null && args != null) {
+        cmd.add(exe);
+        java.util.Collections.addAll(cmd, args);
+      } else {
+        // Fallback: java.home/bin/java + the JVM's own input args + classpath + this main class.
+        cmd.add(
+            System.getProperty("java.home")
+                + java.io.File.separator
+                + "bin"
+                + java.io.File.separator
+                + "java");
+        cmd.addAll(java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments());
+        cmd.add("-cp");
+        cmd.add(System.getProperty("java.class.path"));
+        cmd.add(SwingDelugeApp.class.getName());
+      }
+      ProcessBuilder pb = new ProcessBuilder(cmd);
+      pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
+      pb.redirectError(ProcessBuilder.Redirect.DISCARD);
+      pb.start();
+      System.out.println("[NewInstance] Launched a second Deluge process: " + cmd);
+    } catch (Exception ex) {
+      System.err.println("[NewInstance] Failed to launch: " + ex.getMessage());
+      JOptionPane.showMessageDialog(
+          this,
+          "Could not launch a new Deluge window:\n" + ex.getMessage(),
+          "New Window",
+          JOptionPane.ERROR_MESSAGE);
     }
   }
 
