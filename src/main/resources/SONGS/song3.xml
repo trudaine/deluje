@@ -1,356 +1,2328 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<song swing="0x40000000" tempo="120.0">
-  <instruments>
-    <kit>
-      <presetSlot>KIT KIT 0</presetSlot>
-      <sound>
-        <name>KICK</name>
-        <sample fileName="SAMPLES/DRUMS/Kick/808 Kick.wav"/>
-      </sound>
-      <sound>
-        <name>SNARE</name>
-        <sample fileName="SAMPLES/DRUMS/Snare/808 Snare.wav"/>
-      </sound>
-      <sound>
-        <name>HATC</name>
-        <sample fileName="SAMPLES/DRUMS/HatC/808 Closed hihat.wav"/>
-      </sound>
-      <sound>
-        <name>HATO</name>
-        <sample fileName="SAMPLES/DRUMS/HatO/808 Open hihat.wav"/>
-      </sound>
-      <sound>
-        <name>MARACA</name>
-        <sample fileName="SAMPLES/DRUMS/Shaker/808 Maraca.wav"/>
-      </sound>
-      <sound>
-        <name>RIM</name>
-        <sample fileName="SAMPLES/DRUMS/Rim/808 Rim.wav"/>
-      </sound>
-      <sound>
-        <name>CLAV</name>
-        <sample fileName="SAMPLES/DRUMS/Claves/808 Claves.wav"/>
-      </sound>
-      <sound>
-        <name>CLAP</name>
-        <sample fileName="SAMPLES/DRUMS/Clap/808 Clap.wav"/>
-      </sound>
-      <sound>
-        <name>CRAS</name>
-        <sample fileName="SAMPLES/DRUMS/Crash/808 Cymbal.wav"/>
-      </sound>
-      <sound>
-        <name>COWB</name>
-        <sample fileName="SAMPLES/DRUMS/Cowbell/808 Cowbell.wav"/>
-      </sound>
-      <sound>
-        <name>TOML</name>
-        <sample fileName="SAMPLES/DRUMS/TomL/808 Tom low.wav"/>
-      </sound>
-      <sound>
-        <name>TOMM</name>
-        <sample fileName="SAMPLES/DRUMS/TomM/808 Tom medium.wav"/>
-      </sound>
-      <sound>
-        <name>TOMH</name>
-        <sample fileName="SAMPLES/DRUMS/TomH/808 Tom high.wav"/>
-      </sound>
-      <sound>
-        <name>CONL</name>
-        <sample fileName="SAMPLES/DRUMS/ConL/808 Conga low.wav"/>
-      </sound>
-      <sound>
-        <name>CONM</name>
-        <sample fileName="SAMPLES/DRUMS/ConM/808 Conga medium.wav"/>
-      </sound>
-      <sound>
-        <name>CONH</name>
-        <sample fileName="SAMPLES/DRUMS/ConH/808 Conga high.wav"/>
-      </sound>
-    </kit>
-    <kit>
-      <presetSlot>KIT KIT 1</presetSlot>
-      <sound>
-        <name>KICK</name>
-        <sample fileName="SAMPLES/DRUMS/Kick/DDD1 Kick.wav"/>
-      </sound>
-      <sound>
-        <name>SNARE</name>
-        <sample fileName="SAMPLES/DRUMS/Snare/DDD1 Snare dry.wav"/>
-      </sound>
-      <sound>
-        <name>HATC</name>
-        <sample fileName="SAMPLES/DRUMS/HatC/DDD1 Closed hihat.wav"/>
-      </sound>
-      <sound>
-        <name>HATO</name>
-        <sample fileName="SAMPLES/DRUMS/HatO/DDD1 Open hihat.wav"/>
-      </sound>
-      <sound>
-        <name>CABA</name>
-        <sample fileName="SAMPLES/DRUMS/Shaker/DDD1 Cabasa.wav"/>
-      </sound>
-      <sound>
-        <name>TAMB</name>
-        <sample fileName="SAMPLES/DRUMS/Tambourine/DDD1 Tambourine.wav"/>
-      </sound>
-      <sound>
-        <name>RIDE</name>
-        <sample fileName="SAMPLES/DRUMS/Ride/DDD1 Ride.wav"/>
-      </sound>
-      <sound>
-        <name>CRAS</name>
-        <sample fileName="SAMPLES/DRUMS/Crash/DDD1 Crash.wav"/>
-      </sound>
-      <sound>
-        <name>CLAP</name>
-        <sample fileName="SAMPLES/DRUMS/Clap/DDD1 Clap.wav"/>
-      </sound>
-      <sound>
-        <name>RIM</name>
-        <sample fileName="SAMPLES/DRUMS/Rim/DDD1 Rim.wav"/>
-      </sound>
-      <sound>
-        <name>COWB</name>
-        <sample fileName="SAMPLES/DRUMS/Cowbell/DDD1 Cowbell.wav"/>
-      </sound>
-      <sound>
-        <name>TOML</name>
-        <sample fileName="SAMPLES/DRUMS/TomL/DDD1 Tom low.wav"/>
-      </sound>
-      <sound>
-        <name>TOMM</name>
-        <sample fileName="SAMPLES/DRUMS/TomM/DDD1 Tom medium.wav"/>
-      </sound>
-      <sound>
-        <name>TOMH</name>
-        <sample fileName="SAMPLES/DRUMS/TomH/DDD1 Tom high.wav"/>
-      </sound>
-    </kit>
-    <kit>
-      <presetSlot>KIT KIT 2</presetSlot>
-      <sound>
-        <name>KICK</name>
-        <sample fileName="SAMPLES/DRUMS/Kick/SDS5 Kick.wav"/>
-      </sound>
-      <sound>
-        <name>SNARE</name>
-        <sample fileName="SAMPLES/DRUMS/Snare/SDS5 Snare.wav"/>
-      </sound>
-      <sound>
-        <name>HATC</name>
-        <sample fileName="SAMPLES/DRUMS/HatC/SDS5 Closed hihat.wav"/>
-      </sound>
-      <sound>
-        <name>HATO</name>
-        <sample fileName="SAMPLES/DRUMS/HatO/SDS5 Open hihat.wav"/>
-      </sound>
-      <sound>
-        <name>RIM</name>
-        <sample fileName="SAMPLES/DRUMS/Rim/SDS5 Rim.wav"/>
-      </sound>
-      <sound>
-        <name>TOMB</name>
-        <sample fileName="SAMPLES/DRUMS/TomL/SDS5 Tom extra low.wav"/>
-      </sound>
-      <sound>
-        <name>TOML</name>
-        <sample fileName="SAMPLES/DRUMS/TomL/SDS5 Tom low.wav"/>
-      </sound>
-      <sound>
-        <name>TOMM</name>
-        <sample fileName="SAMPLES/DRUMS/TomM/SDS5 Tom medium.wav"/>
-      </sound>
-      <sound>
-        <name>TOMH</name>
-        <sample fileName="SAMPLES/DRUMS/TomH/SDS5 Tom high.wav"/>
-      </sound>
-      <sound>
-        <name>TOMT</name>
-        <sample fileName="SAMPLES/DRUMS/TomH/SDS5 Tom extra high.wav"/>
-      </sound>
-    </kit>
-    <sound>
-      <presetSlot>SYNTH SYNTH 0</presetSlot>
-      <osc1 type="sine"/>
-    </sound>
-    <sound>
-      <presetSlot>SYNTH SYNTH 17</presetSlot>
-      <osc1 type="sine"/>
-    </sound>
-    <sound>
-      <presetSlot>SYNTH SYNTH 73</presetSlot>
-      <osc1 type="sine"/>
-    </sound>
-  </instruments>
-  <tracks>
-    <track>
-      <noteRows>
-        <noteRow>
-          <noteData>0x00000000000000064014000000B4000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x0000000C000000064014000000A8000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x000000180000000640140000009C000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x0000002400000006401400000090000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x0000003000000006401400000084000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x0000003C00000006401400000078000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x000000480000000640140000006C000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x0000005400000006401400000060000000064014</noteData>
-        </noteRow>
-      </noteRows>
-    </track>
-    <track>
-      <noteRows>
-        <noteRow>
-          <noteData>0x00000000000000064014000000B4000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x0000000C000000064014000000A8000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x000000180000000640140000009C000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x0000002400000006401400000090000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x0000003000000006401400000084000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x0000003C00000006401400000078000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x000000480000000640140000006C000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x0000005400000006401400000060000000064014</noteData>
-        </noteRow>
-      </noteRows>
-    </track>
-    <track>
-      <noteRows>
-        <noteRow>
-          <noteData>0x00000000000000064014000000B4000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x0000000C000000064014000000A8000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x000000180000000640140000009C000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x0000002400000006401400000090000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x0000003000000006401400000084000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x0000003C00000006401400000078000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x000000480000000640140000006C000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x0000005400000006401400000060000000064014</noteData>
-        </noteRow>
-      </noteRows>
-    </track>
-    <track>
-      <noteRows>
-        <noteRow>
-          <noteData>0x00000000000000064014000000B4000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x0000000C000000064014000000A8000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x000000180000000640140000009C000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x0000002400000006401400000090000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x0000003000000006401400000084000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x0000003C00000006401400000078000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x000000480000000640140000006C000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x0000005400000006401400000060000000064014</noteData>
-        </noteRow>
-      </noteRows>
-    </track>
-    <track>
-      <noteRows>
-        <noteRow>
-          <noteData>0x00000000000000064014000000B4000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x0000000C000000064014000000A8000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x000000180000000640140000009C000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x0000002400000006401400000090000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x0000003000000006401400000084000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x0000003C00000006401400000078000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x000000480000000640140000006C000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x0000005400000006401400000060000000064014</noteData>
-        </noteRow>
-      </noteRows>
-    </track>
-    <track>
-      <noteRows>
-        <noteRow>
-          <noteData>0x00000000000000064014000000B4000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x0000000C000000064014000000A8000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x000000180000000640140000009C000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x0000002400000006401400000090000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x0000003000000006401400000084000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x0000003C00000006401400000078000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x000000480000000640140000006C000000064014</noteData>
-        </noteRow>
-        <noteRow>
-          <noteData>0x0000005400000006401400000060000000064014</noteData>
-        </noteRow>
-      </noteRows>
-    </track>
-  </tracks>
+<?xml version="1.0" encoding="UTF-8"?>
+<song affectEntire="0" earliestCompatibleFirmware="4.1.0-alpha" firmwareVersion="c1.3.0" inputTickMagnitude="2" previewNumPads="144" swing="0x40000000" swingAmount="0" swingInterval="7" tempo="120.0" key="0" scale="Major" timePerTimerTick="229" timerTickFraction="-1342177280" xScroll="0" xZoom="24" yScrollArrangementView="-7" yScrollSongView="-2">
+	<instruments>
+		<kit presetName="KIT KIT KIT 0" presetFolder="KITS">
+			<soundSources>
+				<sound name="KICK" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/Kick/808 Kick.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="SNARE" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/Snare/808 Snare.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="HATC" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/HatC/808 Closed hihat.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="HATO" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/HatO/808 Open hihat.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="MARACA" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/Shaker/808 Maraca.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="RIM" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/Rim/808 Rim.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="CLAV" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/Claves/808 Claves.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="CLAP" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/Clap/808 Clap.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="CRAS" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/Crash/808 Cymbal.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="COWB" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/Cowbell/808 Cowbell.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="TOML" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/TomL/808 Tom low.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="TOMM" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/TomM/808 Tom medium.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="TOMH" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/TomH/808 Tom high.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="CONL" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/ConL/808 Conga low.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="CONM" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/ConM/808 Conga medium.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="CONH" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/ConH/808 Conga high.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+			</soundSources>
+		</kit>
+		<kit presetName="KIT KIT KIT 1" presetFolder="KITS">
+			<soundSources>
+				<sound name="KICK" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/Kick/DDD1 Kick.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="SNARE" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/Snare/DDD1 Snare dry.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="HATC" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/HatC/DDD1 Closed hihat.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="HATO" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/HatO/DDD1 Open hihat.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="CABA" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/Shaker/DDD1 Cabasa.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="TAMB" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/Tambourine/DDD1 Tambourine.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="RIDE" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/Ride/DDD1 Ride.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="CRAS" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/Crash/DDD1 Crash.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="CLAP" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/Clap/DDD1 Clap.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="RIM" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/Rim/DDD1 Rim.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="COWB" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/Cowbell/DDD1 Cowbell.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="TOML" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/TomL/DDD1 Tom low.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="TOMM" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/TomM/DDD1 Tom medium.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="TOMH" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/TomH/DDD1 Tom high.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+			</soundSources>
+		</kit>
+		<kit presetName="KIT KIT KIT 2" presetFolder="KITS">
+			<soundSources>
+				<sound name="KICK" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/Kick/SDS5 Kick.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="SNARE" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/Snare/SDS5 Snare.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="HATC" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/HatC/SDS5 Closed hihat.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="HATO" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/HatO/SDS5 Open hihat.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="RIM" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/Rim/SDS5 Rim.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="TOMB" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/TomL/SDS5 Tom extra low.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="TOML" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/TomL/SDS5 Tom low.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="TOMM" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/TomM/SDS5 Tom medium.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="TOMH" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/TomH/SDS5 Tom high.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+				<sound name="TOMT" polyphonic="1" voicePriority="1" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
+					<osc1 type="sample" />
+					<sample fileName="SAMPLES/DRUMS/TomH/SDS5 Tom extra high.wav" />
+					<osc2 type="none" />
+					<lfo1>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo1>
+					<lfo2>
+						<type>sine</type>
+						<rate>0x00000000</rate>
+						<depth>0x7FFFFFFF</depth>
+					</lfo2>
+					<unison>
+						<num>1</num>
+						<detune>0x00000000</detune>
+					</unison>
+					<defaultParams>
+						<volume>0x00000000</volume>
+						<pan>0x00000000</pan>
+						<oscAVolume>0x80000000</oscAVolume>
+						<oscBVolume>0x80000000</oscBVolume>
+						<noiseVolume>0x80000000</noiseVolume>
+						<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+						<lpfResonance>0x80000000</lpfResonance>
+						<hpfFrequency>0x80000000</hpfFrequency>
+						<hpfResonance>0x80000000</hpfResonance>
+						<pitch>0x00000000</pitch>
+						<reverbAmount>0x80000000</reverbAmount>
+						<delayRate>0x80000000</delayRate>
+						<envelope1>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope1>
+						<envelope2>
+							<attack>0xB92DFA00</attack>
+							<decay>0xF25BF480</decay>
+							<sustain>0x33333300</sustain>
+							<release>0x03926CE8</release>
+						</envelope2>
+					</defaultParams>
+					<midiKnobs></midiKnobs>
+				</sound>
+			</soundSources>
+		</kit>
+		<sound presetName="SYNTH SYNTH SYNTH 0" presetFolder="SYNTHS">
+			<osc1 type="sine" transpose="0" cents="0" retrigPhase="-1" />
+			<osc2 type="none" transpose="0" cents="0" retrigPhase="-1" />
+			<polyphonic>1</polyphonic>
+			<clippingAmount>0</clippingAmount>
+			<voicePriority>1</voicePriority>
+			<lfo1>
+				<type>sine</type>
+				<rate>0x00000000</rate>
+				<depth>0x7FFFFFFF</depth>
+			</lfo1>
+			<lfo2>
+				<type>sine</type>
+				<rate>0x00000000</rate>
+				<depth>0x7FFFFFFF</depth>
+			</lfo2>
+			<lfo3>
+				<type>sine</type>
+				<rate>0x00000000</rate>
+				<depth>0x7FFFFFFF</depth>
+			</lfo3>
+			<lfo4>
+				<type>sine</type>
+				<rate>0x00000000</rate>
+				<depth>0x7FFFFFFF</depth>
+			</lfo4>
+			<customLfoWave>-1073741824,-1056964608,-1040187392,-1023410176,-1006632960,-989855744,-973078528,-956301312,-939524096,-922746880,-905969664,-889192448,-872415232,-855638016,-838860800,-822083584,-805306368,-788529152,-771751936,-754974720,-738197504,-721420288,-704643072,-687865856,-671088640,-654311424,-637534208,-620756992,-603979776,-587202560,-570425344,-553648128,-536870912,-520093696,-503316480,-486539264,-469762048,-452984832,-436207616,-419430400,-402653184,-385875968,-369098752,-352321536,-335544320,-318767104,-301989888,-285212672,-268435456,-251658240,-234881024,-218103808,-201326592,-184549376,-167772160,-150994944,-134217728,-117440512,-100663296,-83886080,-67108864,-50331648,-33554432,-16777216,0,16777216,33554432,50331648,67108864,83886080,100663296,117440512,134217728,150994944,167772160,184549376,201326592,218103808,234881024,251658240,268435456,285212672,301989888,318767104,335544320,352321536,369098752,385875968,402653184,419430400,436207616,452984832,469762048,486539264,503316480,520093696,536870912,553648128,570425344,587202560,603979776,620756992,637534208,654311424,671088640,687865856,704643072,721420288,738197504,754974720,771751936,788529152,805306368,822083584,838860800,855638016,872415232,889192448,905969664,922746880,939524096,956301312,973078528,989855744,1006632960,1023410176,1040187392,1056964608,1073741824,1056964608,1040187392,1023410176,1006632960,989855744,973078528,956301312,939524096,922746880,905969664,889192448,872415232,855638016,838860800,822083584,805306368,788529152,771751936,754974720,738197504,721420288,704643072,687865856,671088640,654311424,637534208,620756992,603979776,587202560,570425344,553648128,536870912,520093696,503316480,486539264,469762048,452984832,436207616,419430400,402653184,385875968,369098752,352321536,335544320,318767104,301989888,285212672,268435456,251658240,234881024,218103808,201326592,184549376,167772160,150994944,134217728,117440512,100663296,83886080,67108864,50331648,33554432,16777216,0,-16777216,-33554432,-50331648,-67108864,-83886080,-100663296,-117440512,-134217728,-150994944,-167772160,-184549376,-201326592,-218103808,-234881024,-251658240,-268435456,-285212672,-301989888,-318767104,-335544320,-352321536,-369098752,-385875968,-402653184,-419430400,-436207616,-452984832,-469762048,-486539264,-503316480,-520093696,-536870912,-553648128,-570425344,-587202560,-603979776,-620756992,-637534208,-654311424,-671088640,-687865856,-704643072,-721420288,-738197504,-754974720,-771751936,-788529152,-805306368,-822083584,-838860800,-855638016,-872415232,-889192448,-905969664,-922746880,-939524096,-956301312,-973078528,-989855744,-1006632960,-1023410176,-1040187392,-1056964608</customLfoWave>
+			<mode>subtractive</mode>
+			<transpose>0</transpose>
+			<unison>
+				<num>1</num>
+				<detune>0x00000000</detune>
+				<spread>0x00000000</spread>
+			</unison>
+			<arpeggiator mode="up" active="0">
+				<rate>0x7FFFFFFF</rate>
+				<octaves>1</octaves>
+				<gate>0x40000000</gate>
+				<syncLevel>0</syncLevel>
+				<noteMode>up</noteMode>
+				<octaveMode>up</octaveMode>
+				<stepRepeat>1</stepRepeat>
+				<rhythmIndex>0</rhythmIndex>
+				<seqLength>8</seqLength>
+				<octaveSpread>0x00000000</octaveSpread>
+				<gateSpread>0x00000000</gateSpread>
+				<velSpread>0x00000000</velSpread>
+				<ratchetAmount>0</ratchetAmount>
+				<noteProbability>0.0</noteProbability>
+				<chordPolyphony>0</chordPolyphony>
+				<chordProbability>0.0</chordProbability>
+			</arpeggiator>
+			<lpfMode>24dB</lpfMode>
+			<hpfMode>12dB</hpfMode>
+			<modFXType>none</modFXType>
+			<defaultParams>
+				<arpeggiatorGate>0x00000000</arpeggiatorGate>
+				<portamento>0x80000000</portamento>
+				<compressorShape>0x6B851F00</compressorShape>
+				<oscAVolume>0x00000000</oscAVolume>
+				<oscAPulseWidth>0x80000000</oscAPulseWidth>
+				<oscBVolume>0x00000000</oscBVolume>
+				<oscBPulseWidth>0x80000000</oscBPulseWidth>
+				<noiseVolume>0x80000000</noiseVolume>
+				<volume>0x00000000</volume>
+				<pan>0x00000000</pan>
+				<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+				<lpfResonance>0x80000000</lpfResonance>
+				<hpfFrequency>0x80000000</hpfFrequency>
+				<hpfResonance>0x80000000</hpfResonance>
+				<hpfMorph>0x80000000</hpfMorph>
+				<modulator1Amount>0x80000000</modulator1Amount>
+				<modulator1Feedback>0x80000000</modulator1Feedback>
+				<modulator2Amount>0x80000000</modulator2Amount>
+				<modulator2Feedback>0x80000000</modulator2Feedback>
+				<carrier1Feedback>0x80000000</carrier1Feedback>
+				<carrier2Feedback>0x80000000</carrier2Feedback>
+				<modFXRate>0x80000000</modFXRate>
+				<modFXDepth>0x80000000</modFXDepth>
+				<modFXOffset>0x80000000</modFXOffset>
+				<modFXFeedback>0x80000000</modFXFeedback>
+				<delayRate>0x80000000</delayRate>
+				<delayFeedback>0x80000000</delayFeedback>
+				<reverbAmount>0x80000000</reverbAmount>
+				<arpeggiatorRate>0x80000000</arpeggiatorRate>
+				<stutterRate>0x80000000</stutterRate>
+				<sampleRateReduction>0x80000000</sampleRateReduction>
+				<bitCrush>0x80000000</bitCrush>
+				<waveIndex>0x80000000</waveIndex>
+				<equalizer>
+					<bass>0x00000000</bass>
+					<treble>0x00000000</treble>
+					<bassFrequency>0x00000000</bassFrequency>
+					<trebleFrequency>0x00000000</trebleFrequency>
+				</equalizer>
+				<envelope1>
+					<attack>0xB92DFA00</attack>
+					<decay>0xF25BF480</decay>
+					<sustain>0x33333300</sustain>
+					<release>0x03926CE8</release>
+				</envelope1>
+				<envelope2>
+					<attack>0xB92DFA00</attack>
+					<decay>0xF25BF480</decay>
+					<sustain>0x33333300</sustain>
+					<release>0x03926CE8</release>
+				</envelope2>
+				<envelope3>
+					<attack>0xB92DFA00</attack>
+					<decay>0xF25BF480</decay>
+					<sustain>0x33333300</sustain>
+					<release>0x03926CE8</release>
+				</envelope3>
+				<envelope4>
+					<attack>0xB92DFA00</attack>
+					<decay>0xF25BF480</decay>
+					<sustain>0x33333300</sustain>
+					<release>0x03926CE8</release>
+				</envelope4>
+				<lfo1Rate>0x0147AE14</lfo1Rate>
+				<lfo2Rate>0x0147AE14</lfo2Rate>
+				<modFXOffset>0x00000000</modFXOffset>
+				<modFXFeedback>0x00000000</modFXFeedback>
+			</defaultParams>
+			<midiKnobs></midiKnobs>
+		</sound>
+		<sound presetName="SYNTH SYNTH SYNTH 17" presetFolder="SYNTHS">
+			<osc1 type="sine" transpose="0" cents="0" retrigPhase="-1" />
+			<osc2 type="none" transpose="0" cents="0" retrigPhase="-1" />
+			<polyphonic>1</polyphonic>
+			<clippingAmount>0</clippingAmount>
+			<voicePriority>1</voicePriority>
+			<lfo1>
+				<type>sine</type>
+				<rate>0x00000000</rate>
+				<depth>0x7FFFFFFF</depth>
+			</lfo1>
+			<lfo2>
+				<type>sine</type>
+				<rate>0x00000000</rate>
+				<depth>0x7FFFFFFF</depth>
+			</lfo2>
+			<lfo3>
+				<type>sine</type>
+				<rate>0x00000000</rate>
+				<depth>0x7FFFFFFF</depth>
+			</lfo3>
+			<lfo4>
+				<type>sine</type>
+				<rate>0x00000000</rate>
+				<depth>0x7FFFFFFF</depth>
+			</lfo4>
+			<customLfoWave>-1073741824,-1056964608,-1040187392,-1023410176,-1006632960,-989855744,-973078528,-956301312,-939524096,-922746880,-905969664,-889192448,-872415232,-855638016,-838860800,-822083584,-805306368,-788529152,-771751936,-754974720,-738197504,-721420288,-704643072,-687865856,-671088640,-654311424,-637534208,-620756992,-603979776,-587202560,-570425344,-553648128,-536870912,-520093696,-503316480,-486539264,-469762048,-452984832,-436207616,-419430400,-402653184,-385875968,-369098752,-352321536,-335544320,-318767104,-301989888,-285212672,-268435456,-251658240,-234881024,-218103808,-201326592,-184549376,-167772160,-150994944,-134217728,-117440512,-100663296,-83886080,-67108864,-50331648,-33554432,-16777216,0,16777216,33554432,50331648,67108864,83886080,100663296,117440512,134217728,150994944,167772160,184549376,201326592,218103808,234881024,251658240,268435456,285212672,301989888,318767104,335544320,352321536,369098752,385875968,402653184,419430400,436207616,452984832,469762048,486539264,503316480,520093696,536870912,553648128,570425344,587202560,603979776,620756992,637534208,654311424,671088640,687865856,704643072,721420288,738197504,754974720,771751936,788529152,805306368,822083584,838860800,855638016,872415232,889192448,905969664,922746880,939524096,956301312,973078528,989855744,1006632960,1023410176,1040187392,1056964608,1073741824,1056964608,1040187392,1023410176,1006632960,989855744,973078528,956301312,939524096,922746880,905969664,889192448,872415232,855638016,838860800,822083584,805306368,788529152,771751936,754974720,738197504,721420288,704643072,687865856,671088640,654311424,637534208,620756992,603979776,587202560,570425344,553648128,536870912,520093696,503316480,486539264,469762048,452984832,436207616,419430400,402653184,385875968,369098752,352321536,335544320,318767104,301989888,285212672,268435456,251658240,234881024,218103808,201326592,184549376,167772160,150994944,134217728,117440512,100663296,83886080,67108864,50331648,33554432,16777216,0,-16777216,-33554432,-50331648,-67108864,-83886080,-100663296,-117440512,-134217728,-150994944,-167772160,-184549376,-201326592,-218103808,-234881024,-251658240,-268435456,-285212672,-301989888,-318767104,-335544320,-352321536,-369098752,-385875968,-402653184,-419430400,-436207616,-452984832,-469762048,-486539264,-503316480,-520093696,-536870912,-553648128,-570425344,-587202560,-603979776,-620756992,-637534208,-654311424,-671088640,-687865856,-704643072,-721420288,-738197504,-754974720,-771751936,-788529152,-805306368,-822083584,-838860800,-855638016,-872415232,-889192448,-905969664,-922746880,-939524096,-956301312,-973078528,-989855744,-1006632960,-1023410176,-1040187392,-1056964608</customLfoWave>
+			<mode>subtractive</mode>
+			<transpose>0</transpose>
+			<unison>
+				<num>1</num>
+				<detune>0x00000000</detune>
+				<spread>0x00000000</spread>
+			</unison>
+			<arpeggiator mode="up" active="0">
+				<rate>0x7FFFFFFF</rate>
+				<octaves>1</octaves>
+				<gate>0x40000000</gate>
+				<syncLevel>0</syncLevel>
+				<noteMode>up</noteMode>
+				<octaveMode>up</octaveMode>
+				<stepRepeat>1</stepRepeat>
+				<rhythmIndex>0</rhythmIndex>
+				<seqLength>8</seqLength>
+				<octaveSpread>0x00000000</octaveSpread>
+				<gateSpread>0x00000000</gateSpread>
+				<velSpread>0x00000000</velSpread>
+				<ratchetAmount>0</ratchetAmount>
+				<noteProbability>0.0</noteProbability>
+				<chordPolyphony>0</chordPolyphony>
+				<chordProbability>0.0</chordProbability>
+			</arpeggiator>
+			<lpfMode>24dB</lpfMode>
+			<hpfMode>12dB</hpfMode>
+			<modFXType>none</modFXType>
+			<defaultParams>
+				<arpeggiatorGate>0x00000000</arpeggiatorGate>
+				<portamento>0x80000000</portamento>
+				<compressorShape>0x6B851F00</compressorShape>
+				<oscAVolume>0x00000000</oscAVolume>
+				<oscAPulseWidth>0x80000000</oscAPulseWidth>
+				<oscBVolume>0x00000000</oscBVolume>
+				<oscBPulseWidth>0x80000000</oscBPulseWidth>
+				<noiseVolume>0x80000000</noiseVolume>
+				<volume>0x00000000</volume>
+				<pan>0x00000000</pan>
+				<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+				<lpfResonance>0x80000000</lpfResonance>
+				<hpfFrequency>0x80000000</hpfFrequency>
+				<hpfResonance>0x80000000</hpfResonance>
+				<hpfMorph>0x80000000</hpfMorph>
+				<modulator1Amount>0x80000000</modulator1Amount>
+				<modulator1Feedback>0x80000000</modulator1Feedback>
+				<modulator2Amount>0x80000000</modulator2Amount>
+				<modulator2Feedback>0x80000000</modulator2Feedback>
+				<carrier1Feedback>0x80000000</carrier1Feedback>
+				<carrier2Feedback>0x80000000</carrier2Feedback>
+				<modFXRate>0x80000000</modFXRate>
+				<modFXDepth>0x80000000</modFXDepth>
+				<modFXOffset>0x80000000</modFXOffset>
+				<modFXFeedback>0x80000000</modFXFeedback>
+				<delayRate>0x80000000</delayRate>
+				<delayFeedback>0x80000000</delayFeedback>
+				<reverbAmount>0x80000000</reverbAmount>
+				<arpeggiatorRate>0x80000000</arpeggiatorRate>
+				<stutterRate>0x80000000</stutterRate>
+				<sampleRateReduction>0x80000000</sampleRateReduction>
+				<bitCrush>0x80000000</bitCrush>
+				<waveIndex>0x80000000</waveIndex>
+				<equalizer>
+					<bass>0x00000000</bass>
+					<treble>0x00000000</treble>
+					<bassFrequency>0x00000000</bassFrequency>
+					<trebleFrequency>0x00000000</trebleFrequency>
+				</equalizer>
+				<envelope1>
+					<attack>0xB92DFA00</attack>
+					<decay>0xF25BF480</decay>
+					<sustain>0x33333300</sustain>
+					<release>0x03926CE8</release>
+				</envelope1>
+				<envelope2>
+					<attack>0xB92DFA00</attack>
+					<decay>0xF25BF480</decay>
+					<sustain>0x33333300</sustain>
+					<release>0x03926CE8</release>
+				</envelope2>
+				<envelope3>
+					<attack>0xB92DFA00</attack>
+					<decay>0xF25BF480</decay>
+					<sustain>0x33333300</sustain>
+					<release>0x03926CE8</release>
+				</envelope3>
+				<envelope4>
+					<attack>0xB92DFA00</attack>
+					<decay>0xF25BF480</decay>
+					<sustain>0x33333300</sustain>
+					<release>0x03926CE8</release>
+				</envelope4>
+				<lfo1Rate>0x0147AE14</lfo1Rate>
+				<lfo2Rate>0x0147AE14</lfo2Rate>
+				<modFXOffset>0x00000000</modFXOffset>
+				<modFXFeedback>0x00000000</modFXFeedback>
+			</defaultParams>
+			<midiKnobs></midiKnobs>
+		</sound>
+		<sound presetName="SYNTH SYNTH SYNTH 73" presetFolder="SYNTHS">
+			<osc1 type="sine" transpose="0" cents="0" retrigPhase="-1" />
+			<osc2 type="none" transpose="0" cents="0" retrigPhase="-1" />
+			<polyphonic>1</polyphonic>
+			<clippingAmount>0</clippingAmount>
+			<voicePriority>1</voicePriority>
+			<lfo1>
+				<type>sine</type>
+				<rate>0x00000000</rate>
+				<depth>0x7FFFFFFF</depth>
+			</lfo1>
+			<lfo2>
+				<type>sine</type>
+				<rate>0x00000000</rate>
+				<depth>0x7FFFFFFF</depth>
+			</lfo2>
+			<lfo3>
+				<type>sine</type>
+				<rate>0x00000000</rate>
+				<depth>0x7FFFFFFF</depth>
+			</lfo3>
+			<lfo4>
+				<type>sine</type>
+				<rate>0x00000000</rate>
+				<depth>0x7FFFFFFF</depth>
+			</lfo4>
+			<customLfoWave>-1073741824,-1056964608,-1040187392,-1023410176,-1006632960,-989855744,-973078528,-956301312,-939524096,-922746880,-905969664,-889192448,-872415232,-855638016,-838860800,-822083584,-805306368,-788529152,-771751936,-754974720,-738197504,-721420288,-704643072,-687865856,-671088640,-654311424,-637534208,-620756992,-603979776,-587202560,-570425344,-553648128,-536870912,-520093696,-503316480,-486539264,-469762048,-452984832,-436207616,-419430400,-402653184,-385875968,-369098752,-352321536,-335544320,-318767104,-301989888,-285212672,-268435456,-251658240,-234881024,-218103808,-201326592,-184549376,-167772160,-150994944,-134217728,-117440512,-100663296,-83886080,-67108864,-50331648,-33554432,-16777216,0,16777216,33554432,50331648,67108864,83886080,100663296,117440512,134217728,150994944,167772160,184549376,201326592,218103808,234881024,251658240,268435456,285212672,301989888,318767104,335544320,352321536,369098752,385875968,402653184,419430400,436207616,452984832,469762048,486539264,503316480,520093696,536870912,553648128,570425344,587202560,603979776,620756992,637534208,654311424,671088640,687865856,704643072,721420288,738197504,754974720,771751936,788529152,805306368,822083584,838860800,855638016,872415232,889192448,905969664,922746880,939524096,956301312,973078528,989855744,1006632960,1023410176,1040187392,1056964608,1073741824,1056964608,1040187392,1023410176,1006632960,989855744,973078528,956301312,939524096,922746880,905969664,889192448,872415232,855638016,838860800,822083584,805306368,788529152,771751936,754974720,738197504,721420288,704643072,687865856,671088640,654311424,637534208,620756992,603979776,587202560,570425344,553648128,536870912,520093696,503316480,486539264,469762048,452984832,436207616,419430400,402653184,385875968,369098752,352321536,335544320,318767104,301989888,285212672,268435456,251658240,234881024,218103808,201326592,184549376,167772160,150994944,134217728,117440512,100663296,83886080,67108864,50331648,33554432,16777216,0,-16777216,-33554432,-50331648,-67108864,-83886080,-100663296,-117440512,-134217728,-150994944,-167772160,-184549376,-201326592,-218103808,-234881024,-251658240,-268435456,-285212672,-301989888,-318767104,-335544320,-352321536,-369098752,-385875968,-402653184,-419430400,-436207616,-452984832,-469762048,-486539264,-503316480,-520093696,-536870912,-553648128,-570425344,-587202560,-603979776,-620756992,-637534208,-654311424,-671088640,-687865856,-704643072,-721420288,-738197504,-754974720,-771751936,-788529152,-805306368,-822083584,-838860800,-855638016,-872415232,-889192448,-905969664,-922746880,-939524096,-956301312,-973078528,-989855744,-1006632960,-1023410176,-1040187392,-1056964608</customLfoWave>
+			<mode>subtractive</mode>
+			<transpose>0</transpose>
+			<unison>
+				<num>1</num>
+				<detune>0x00000000</detune>
+				<spread>0x00000000</spread>
+			</unison>
+			<arpeggiator mode="up" active="0">
+				<rate>0x7FFFFFFF</rate>
+				<octaves>1</octaves>
+				<gate>0x40000000</gate>
+				<syncLevel>0</syncLevel>
+				<noteMode>up</noteMode>
+				<octaveMode>up</octaveMode>
+				<stepRepeat>1</stepRepeat>
+				<rhythmIndex>0</rhythmIndex>
+				<seqLength>8</seqLength>
+				<octaveSpread>0x00000000</octaveSpread>
+				<gateSpread>0x00000000</gateSpread>
+				<velSpread>0x00000000</velSpread>
+				<ratchetAmount>0</ratchetAmount>
+				<noteProbability>0.0</noteProbability>
+				<chordPolyphony>0</chordPolyphony>
+				<chordProbability>0.0</chordProbability>
+			</arpeggiator>
+			<lpfMode>24dB</lpfMode>
+			<hpfMode>12dB</hpfMode>
+			<modFXType>none</modFXType>
+			<defaultParams>
+				<arpeggiatorGate>0x00000000</arpeggiatorGate>
+				<portamento>0x80000000</portamento>
+				<compressorShape>0x6B851F00</compressorShape>
+				<oscAVolume>0x00000000</oscAVolume>
+				<oscAPulseWidth>0x80000000</oscAPulseWidth>
+				<oscBVolume>0x00000000</oscBVolume>
+				<oscBPulseWidth>0x80000000</oscBPulseWidth>
+				<noiseVolume>0x80000000</noiseVolume>
+				<volume>0x00000000</volume>
+				<pan>0x00000000</pan>
+				<lpfFrequency>0x7FFFFFFF</lpfFrequency>
+				<lpfResonance>0x80000000</lpfResonance>
+				<hpfFrequency>0x80000000</hpfFrequency>
+				<hpfResonance>0x80000000</hpfResonance>
+				<hpfMorph>0x80000000</hpfMorph>
+				<modulator1Amount>0x80000000</modulator1Amount>
+				<modulator1Feedback>0x80000000</modulator1Feedback>
+				<modulator2Amount>0x80000000</modulator2Amount>
+				<modulator2Feedback>0x80000000</modulator2Feedback>
+				<carrier1Feedback>0x80000000</carrier1Feedback>
+				<carrier2Feedback>0x80000000</carrier2Feedback>
+				<modFXRate>0x80000000</modFXRate>
+				<modFXDepth>0x80000000</modFXDepth>
+				<modFXOffset>0x80000000</modFXOffset>
+				<modFXFeedback>0x80000000</modFXFeedback>
+				<delayRate>0x80000000</delayRate>
+				<delayFeedback>0x80000000</delayFeedback>
+				<reverbAmount>0x80000000</reverbAmount>
+				<arpeggiatorRate>0x80000000</arpeggiatorRate>
+				<stutterRate>0x80000000</stutterRate>
+				<sampleRateReduction>0x80000000</sampleRateReduction>
+				<bitCrush>0x80000000</bitCrush>
+				<waveIndex>0x80000000</waveIndex>
+				<equalizer>
+					<bass>0x00000000</bass>
+					<treble>0x00000000</treble>
+					<bassFrequency>0x00000000</bassFrequency>
+					<trebleFrequency>0x00000000</trebleFrequency>
+				</equalizer>
+				<envelope1>
+					<attack>0xB92DFA00</attack>
+					<decay>0xF25BF480</decay>
+					<sustain>0x33333300</sustain>
+					<release>0x03926CE8</release>
+				</envelope1>
+				<envelope2>
+					<attack>0xB92DFA00</attack>
+					<decay>0xF25BF480</decay>
+					<sustain>0x33333300</sustain>
+					<release>0x03926CE8</release>
+				</envelope2>
+				<envelope3>
+					<attack>0xB92DFA00</attack>
+					<decay>0xF25BF480</decay>
+					<sustain>0x33333300</sustain>
+					<release>0x03926CE8</release>
+				</envelope3>
+				<envelope4>
+					<attack>0xB92DFA00</attack>
+					<decay>0xF25BF480</decay>
+					<sustain>0x33333300</sustain>
+					<release>0x03926CE8</release>
+				</envelope4>
+				<lfo1Rate>0x0147AE14</lfo1Rate>
+				<lfo2Rate>0x0147AE14</lfo2Rate>
+				<modFXOffset>0x00000000</modFXOffset>
+				<modFXFeedback>0x00000000</modFXFeedback>
+			</defaultParams>
+			<midiKnobs></midiKnobs>
+		</sound>
+	</instruments>
+	<sessionClips>
+		<instrumentClip instrumentPresetName="KIT KIT KIT 0" instrumentPresetFolder="KITS" length="384" isPlaying="1" section="0">
+			<kitParams volume="0x7FFFFFFF" pan="0x40000000" />
+			<noteRows>
+				<noteRow drumIndex="0" noteDataWithLift="0x000000000000000C664014000001680000000C664014" noteDataWithSplitProb="0x000000000000000C664014000000000001680000000C664014000000" />
+				<noteRow drumIndex="1" noteDataWithLift="0x000000180000000C664014000001500000000C664014" noteDataWithSplitProb="0x000000180000000C664014000000000001500000000C664014000000" />
+				<noteRow drumIndex="2" noteDataWithLift="0x000000300000000C664014000001380000000C664014" noteDataWithSplitProb="0x000000300000000C664014000000000001380000000C664014000000" />
+				<noteRow drumIndex="3" noteDataWithLift="0x000000480000000C664014000001200000000C664014" noteDataWithSplitProb="0x000000480000000C664014000000000001200000000C664014000000" />
+				<noteRow drumIndex="4" noteDataWithLift="0x000000600000000C664014000001080000000C664014" noteDataWithSplitProb="0x000000600000000C664014000000000001080000000C664014000000" />
+				<noteRow drumIndex="5" noteDataWithLift="0x000000780000000C664014000000F00000000C664014" noteDataWithSplitProb="0x000000780000000C664014000000000000F00000000C664014000000" />
+				<noteRow drumIndex="6" noteDataWithLift="0x000000900000000C664014000000D80000000C664014" noteDataWithSplitProb="0x000000900000000C664014000000000000D80000000C664014000000" />
+				<noteRow drumIndex="7" noteDataWithLift="0x000000A80000000C664014000000C00000000C664014" noteDataWithSplitProb="0x000000A80000000C664014000000000000C00000000C664014000000" />
+			</noteRows>
+		</instrumentClip>
+		<instrumentClip instrumentPresetName="KIT KIT KIT 1" instrumentPresetFolder="KITS" length="384" isPlaying="1" section="0">
+			<kitParams volume="0x7FFFFFFF" pan="0x40000000" />
+			<noteRows>
+				<noteRow drumIndex="0" noteDataWithLift="0x000000000000000C664014000001680000000C664014" noteDataWithSplitProb="0x000000000000000C664014000000000001680000000C664014000000" />
+				<noteRow drumIndex="1" noteDataWithLift="0x000000180000000C664014000001500000000C664014" noteDataWithSplitProb="0x000000180000000C664014000000000001500000000C664014000000" />
+				<noteRow drumIndex="2" noteDataWithLift="0x000000300000000C664014000001380000000C664014" noteDataWithSplitProb="0x000000300000000C664014000000000001380000000C664014000000" />
+				<noteRow drumIndex="3" noteDataWithLift="0x000000480000000C664014000001200000000C664014" noteDataWithSplitProb="0x000000480000000C664014000000000001200000000C664014000000" />
+				<noteRow drumIndex="4" noteDataWithLift="0x000000600000000C664014000001080000000C664014" noteDataWithSplitProb="0x000000600000000C664014000000000001080000000C664014000000" />
+				<noteRow drumIndex="5" noteDataWithLift="0x000000780000000C664014000000F00000000C664014" noteDataWithSplitProb="0x000000780000000C664014000000000000F00000000C664014000000" />
+				<noteRow drumIndex="6" noteDataWithLift="0x000000900000000C664014000000D80000000C664014" noteDataWithSplitProb="0x000000900000000C664014000000000000D80000000C664014000000" />
+				<noteRow drumIndex="7" noteDataWithLift="0x000000A80000000C664014000000C00000000C664014" noteDataWithSplitProb="0x000000A80000000C664014000000000000C00000000C664014000000" />
+			</noteRows>
+		</instrumentClip>
+		<instrumentClip instrumentPresetName="KIT KIT KIT 2" instrumentPresetFolder="KITS" length="384" isPlaying="1" section="0">
+			<kitParams volume="0x7FFFFFFF" pan="0x40000000" />
+			<noteRows>
+				<noteRow drumIndex="0" noteDataWithLift="0x000000000000000C664014000001680000000C664014" noteDataWithSplitProb="0x000000000000000C664014000000000001680000000C664014000000" />
+				<noteRow drumIndex="1" noteDataWithLift="0x000000180000000C664014000001500000000C664014" noteDataWithSplitProb="0x000000180000000C664014000000000001500000000C664014000000" />
+				<noteRow drumIndex="2" noteDataWithLift="0x000000300000000C664014000001380000000C664014" noteDataWithSplitProb="0x000000300000000C664014000000000001380000000C664014000000" />
+				<noteRow drumIndex="3" noteDataWithLift="0x000000480000000C664014000001200000000C664014" noteDataWithSplitProb="0x000000480000000C664014000000000001200000000C664014000000" />
+				<noteRow drumIndex="4" noteDataWithLift="0x000000600000000C664014000001080000000C664014" noteDataWithSplitProb="0x000000600000000C664014000000000001080000000C664014000000" />
+				<noteRow drumIndex="5" noteDataWithLift="0x000000780000000C664014000000F00000000C664014" noteDataWithSplitProb="0x000000780000000C664014000000000000F00000000C664014000000" />
+				<noteRow drumIndex="6" noteDataWithLift="0x000000900000000C664014000000D80000000C664014" noteDataWithSplitProb="0x000000900000000C664014000000000000D80000000C664014000000" />
+				<noteRow drumIndex="7" noteDataWithLift="0x000000A80000000C664014000000C00000000C664014" noteDataWithSplitProb="0x000000A80000000C664014000000000000C00000000C664014000000" />
+			</noteRows>
+		</instrumentClip>
+		<instrumentClip instrumentPresetName="SYNTH SYNTH SYNTH 0" instrumentPresetFolder="SYNTHS" length="384" isPlaying="1" section="0">
+			<soundParams volume="0x00000000" pan="0x00000000" lpfFrequency="0x7FFFFFFF" lpfResonance="0x80000000" hpfFrequency="0x80000000" hpfResonance="0x80000000" reverbAmount="0x80000000" delayRate="0x80000000" />
+			<noteRows>
+				<noteRow y="0" noteDataWithLift="0x000000000000000C664014000001680000000C664014" noteDataWithSplitProb="0x000000000000000C664014000000000001680000000C664014000000" />
+				<noteRow y="0" noteDataWithLift="0x000000180000000C664014000001500000000C664014" noteDataWithSplitProb="0x000000180000000C664014000000000001500000000C664014000000" />
+				<noteRow y="0" noteDataWithLift="0x000000300000000C664014000001380000000C664014" noteDataWithSplitProb="0x000000300000000C664014000000000001380000000C664014000000" />
+				<noteRow y="0" noteDataWithLift="0x000000480000000C664014000001200000000C664014" noteDataWithSplitProb="0x000000480000000C664014000000000001200000000C664014000000" />
+				<noteRow y="0" noteDataWithLift="0x000000600000000C664014000001080000000C664014" noteDataWithSplitProb="0x000000600000000C664014000000000001080000000C664014000000" />
+				<noteRow y="0" noteDataWithLift="0x000000780000000C664014000000F00000000C664014" noteDataWithSplitProb="0x000000780000000C664014000000000000F00000000C664014000000" />
+				<noteRow y="0" noteDataWithLift="0x000000900000000C664014000000D80000000C664014" noteDataWithSplitProb="0x000000900000000C664014000000000000D80000000C664014000000" />
+				<noteRow y="0" noteDataWithLift="0x000000A80000000C664014000000C00000000C664014" noteDataWithSplitProb="0x000000A80000000C664014000000000000C00000000C664014000000" />
+			</noteRows>
+		</instrumentClip>
+		<instrumentClip instrumentPresetName="SYNTH SYNTH SYNTH 17" instrumentPresetFolder="SYNTHS" length="384" isPlaying="1" section="0">
+			<soundParams volume="0x00000000" pan="0x00000000" lpfFrequency="0x7FFFFFFF" lpfResonance="0x80000000" hpfFrequency="0x80000000" hpfResonance="0x80000000" reverbAmount="0x80000000" delayRate="0x80000000" />
+			<noteRows>
+				<noteRow y="0" noteDataWithLift="0x000000000000000C664014000001680000000C664014" noteDataWithSplitProb="0x000000000000000C664014000000000001680000000C664014000000" />
+				<noteRow y="0" noteDataWithLift="0x000000180000000C664014000001500000000C664014" noteDataWithSplitProb="0x000000180000000C664014000000000001500000000C664014000000" />
+				<noteRow y="0" noteDataWithLift="0x000000300000000C664014000001380000000C664014" noteDataWithSplitProb="0x000000300000000C664014000000000001380000000C664014000000" />
+				<noteRow y="0" noteDataWithLift="0x000000480000000C664014000001200000000C664014" noteDataWithSplitProb="0x000000480000000C664014000000000001200000000C664014000000" />
+				<noteRow y="0" noteDataWithLift="0x000000600000000C664014000001080000000C664014" noteDataWithSplitProb="0x000000600000000C664014000000000001080000000C664014000000" />
+				<noteRow y="0" noteDataWithLift="0x000000780000000C664014000000F00000000C664014" noteDataWithSplitProb="0x000000780000000C664014000000000000F00000000C664014000000" />
+				<noteRow y="0" noteDataWithLift="0x000000900000000C664014000000D80000000C664014" noteDataWithSplitProb="0x000000900000000C664014000000000000D80000000C664014000000" />
+				<noteRow y="0" noteDataWithLift="0x000000A80000000C664014000000C00000000C664014" noteDataWithSplitProb="0x000000A80000000C664014000000000000C00000000C664014000000" />
+			</noteRows>
+		</instrumentClip>
+		<instrumentClip instrumentPresetName="SYNTH SYNTH SYNTH 73" instrumentPresetFolder="SYNTHS" length="384" isPlaying="1" section="0">
+			<soundParams volume="0x00000000" pan="0x00000000" lpfFrequency="0x7FFFFFFF" lpfResonance="0x80000000" hpfFrequency="0x80000000" hpfResonance="0x80000000" reverbAmount="0x80000000" delayRate="0x80000000" />
+			<noteRows>
+				<noteRow y="0" noteDataWithLift="0x000000000000000C664014000001680000000C664014" noteDataWithSplitProb="0x000000000000000C664014000000000001680000000C664014000000" />
+				<noteRow y="0" noteDataWithLift="0x000000180000000C664014000001500000000C664014" noteDataWithSplitProb="0x000000180000000C664014000000000001500000000C664014000000" />
+				<noteRow y="0" noteDataWithLift="0x000000300000000C664014000001380000000C664014" noteDataWithSplitProb="0x000000300000000C664014000000000001380000000C664014000000" />
+				<noteRow y="0" noteDataWithLift="0x000000480000000C664014000001200000000C664014" noteDataWithSplitProb="0x000000480000000C664014000000000001200000000C664014000000" />
+				<noteRow y="0" noteDataWithLift="0x000000600000000C664014000001080000000C664014" noteDataWithSplitProb="0x000000600000000C664014000000000001080000000C664014000000" />
+				<noteRow y="0" noteDataWithLift="0x000000780000000C664014000000F00000000C664014" noteDataWithSplitProb="0x000000780000000C664014000000000000F00000000C664014000000" />
+				<noteRow y="0" noteDataWithLift="0x000000900000000C664014000000D80000000C664014" noteDataWithSplitProb="0x000000900000000C664014000000000000D80000000C664014000000" />
+				<noteRow y="0" noteDataWithLift="0x000000A80000000C664014000000C00000000C664014" noteDataWithSplitProb="0x000000A80000000C664014000000000000C00000000C664014000000" />
+			</noteRows>
+		</instrumentClip>
+	</sessionClips>
+	<reverb roomSize="1288490240" dampening="1073741824" width="1073741824" hpf="0" pan="0" model="0">
+		<compressor attack="0" release="0" syncLevel="0" compHPF="0" compBlend="1073741824" />
+	</reverb>
+	<delay pingPong="0" analog="0" syncLevel="0" syncType="0" />
+	<sidechain attack="0" release="0" syncLevel="0" syncType="0" />
+	<audioCompressor attack="0" release="0" thresh="0" ratio="0" compHPF="0" compBlend="2147483647" />
+	<stutter quantized="1" reverse="0" pingPong="0" />
+	<songParams reverbAmount="0x00000000" volume="0x7FFFFFFF" pan="0x00000000" sidechainCompressorShape="0x00000000" sidechainCompressorVolume="0x80000000" modFXRate="0x80000000" modFXDepth="0x80000000" modFXOffset="0x80000000" modFXFeedback="0x80000000" stutterRate="0x80000000" sampleRateReduction="0x80000000" bitCrush="0x80000000" compressorThreshold="0x80000000" lpfMorph="0x80000000" hpfMorph="0x80000000">
+		<delay rate="0x80000000" feedback="0x80000000" />
+		<lpf frequency="0x7FFFFFFF" resonance="0x80000000" />
+		<hpf frequency="0x80000000" resonance="0x80000000" />
+		<eq bass="0x00000000" treble="0x00000000" bassFrequency="0x80000000" trebleFrequency="0x80000000" />
+	</songParams>
 </song>

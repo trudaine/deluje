@@ -139,8 +139,14 @@ public class AbletonTrackMapper {
     project.addTrack(synthTrack); // Add first so it has a valid index
 
     float rawVol = parseTrackVolume(trackEl);
-    // Apply semantic preset matching based on track name
-    applySemanticPreset(synthTrack, name, samplesDir, rawVol);
+
+    // 1. Try to parse native Simpler/Sampler device parameters first! (Fully Generic!)
+    boolean parsedNative = parseNativeSimpler(trackEl, synthTrack);
+
+    // 2. Fallback to name-based semantic presets if no native device was found!
+    if (!parsedNative) {
+      applySemanticPreset(synthTrack, name, samplesDir, rawVol);
+    }
 
     // Parse clips
     NodeList clipElements = trackEl.getElementsByTagName("MidiClip");
@@ -655,18 +661,22 @@ public class AbletonTrackMapper {
     }
 
     if (lower.contains("kick")) {
-      // Punchy Analog Kick Drum Synth
+      // Punchy 808/909-style Analog Kick Drum Synth with pitch sweep transient
       track.setOsc1Type("SINE");
       track.setOsc2Type("NONE");
       track.setOscMix(1.0f);
-      track.setVolume(rawVol * 0.50f); // Attenuated to match sample levels
+      track.setVolume(rawVol * 0.55f); // Slightly boosted for solid punch
 
-      // Snappy decay envelope
-      track.setEnv(0, new EnvelopeModel(0.001f, 0.18f, 0.0f, 0.10f, "NONE", 0.0f));
+      // Volume envelope: deep sub-bass thump decay
+      track.setEnv(0, new EnvelopeModel(0.001f, 0.22f, 0.0f, 0.10f, "NONE", 0.0f));
 
-      // Low-pass filter slightly closed to warm up the thump
-      track.setLpfFreq(0.40f);
-      track.setLpfRes(0.15f);
+      // Pitch Envelope: ultra-fast sweep (15ms decay) creates the punchy physical "click/knock"
+      // transient!
+      track.setEnv(1, new EnvelopeModel(0.001f, 0.015f, 0.0f, 0.05f, "PITCH", 0.65f));
+
+      // Low-pass filter closed slightly to warm up and thicken the sub-bass
+      track.setLpfFreq(0.35f);
+      track.setLpfRes(0.20f);
 
     } else if (lower.contains("snare") || lower.contains("tom")) {
       // Snappy Analog Snare Drum (Sine body + Noise snap)
@@ -719,21 +729,23 @@ public class AbletonTrackMapper {
       track.setReverbSend(0.35f);
 
     } else if (lower.contains("bass")) {
-      // Warm, deep low-pass analog sub-bass (Rich single-oscillator SAW bass for Billie Jean)
-      track.setOsc1Type("SAW");
-      track.setOsc2Type("NONE");
-      track.setOscMix(1.0f);
-      track.setVolume(rawVol * 1.00f); // Maximum bass presence
+      // Legendary Billie Jean Detuned Dual-Oscillator Synth Bass (Roland Juno / Yamaha DX7 style)
+      track.setOsc1Type("SQUARE"); // Hollow woody vintage body
+      track.setOsc2Type("SAW"); // Rich analog buzz
+      track.setOsc2Transpose(0);
+      track.setOsc2Cents(15); // Fat detuning
+      track.setOscMix(0.50f); // Equal blend
+      track.setVolume(rawVol * 1.00f); // Bass presence!
 
-      // Snappy bass envelope
-      track.setEnv(0, new EnvelopeModel(0.005f, 0.25f, 0.40f, 0.15f, "NONE", 0.0f));
+      // Snappy volume envelope
+      track.setEnv(0, new EnvelopeModel(0.002f, 0.22f, 0.30f, 0.15f, "NONE", 0.0f));
 
-      // Open low-pass filter to let warm harmonics pass through freely!
-      track.setLpfFreq(0.48f);
-      track.setLpfRes(0.15f);
+      // Resonant filter for the rubber-band bounce!
+      track.setLpfFreq(0.24f); // Darker, warmer sub-bass!
+      track.setLpfRes(0.28f); // Juicy plump resonance!
 
-      // Snappy filter sweep: higher sustain (0.35f) keeps the filter fat and open during note holds
-      track.setEnv(1, new EnvelopeModel(0.005f, 0.20f, 0.35f, 0.10f, "FILTER", 0.35f));
+      // Snappy filter envelope sweep (low sustain makes it bouncy!)
+      track.setEnv(1, new EnvelopeModel(0.002f, 0.14f, 0.15f, 0.15f, "FILTER", 0.35f));
 
     } else if (lower.contains("string") || lower.contains("pad") || lower.contains("choir")) {
       // Lush, wide stereo analog string/pad
@@ -782,6 +794,54 @@ public class AbletonTrackMapper {
       track.setReverbSend(0.55f);
       track.setDelaySend(0.40f);
 
+    } else if (lower.contains("meuw") || lower.contains("lead")) {
+      // Breath-like resonant vocal vowel lead ("Meuw Lead" from Billie Jean bridge)
+      track.setOsc1Type("TRIANGLE"); // Soft pure body
+      track.setOsc2Type("SAW"); // High-frequency buzz
+      track.setOsc2Transpose(0);
+      track.setOsc2Cents(10); // Subtle detune
+      track.setOscMix(0.40f);
+      track.setVolume(rawVol * 0.35f);
+
+      // Fast volume envelope
+      track.setEnv(0, new EnvelopeModel(0.005f, 0.30f, 0.60f, 0.20f, "NONE", 0.0f));
+
+      // Highly resonant filter to create the vocal vowel sound!
+      track.setLpfFreq(0.35f);
+      track.setLpfRes(0.45f); // High resonance!
+
+      // Fast vocal envelope sweep on filter cutoff (attack creates the "m", decay the "eow"!)
+      track.setEnv(1, new EnvelopeModel(0.02f, 0.12f, 0.10f, 0.10f, "FILTER", 0.55f));
+
+      // Chorus + Reverb for lush stereo placement
+      track.setModFxType("CHORUS");
+      track.setModFxRate(0.40f);
+      track.setModFxDepth(0.35f);
+      track.setReverbSend(0.30f);
+
+    } else if (lower.contains("trumpet") || lower.contains("brass") || lower.contains("horn")) {
+      // Bright, fat analog synth brass section (Oberheim OB-Xa style)
+      track.setOsc1Type("SAW");
+      track.setOsc2Type("SAW");
+      track.setOsc2Transpose(0);
+      track.setOsc2Cents(18); // Wide brass detuning
+      track.setOscMix(0.50f);
+      track.setVolume(rawVol * 0.38f);
+
+      // Instant attack volume envelope
+      track.setEnv(0, new EnvelopeModel(0.001f, 0.40f, 0.75f, 0.25f, "NONE", 0.0f));
+
+      // Brass filter sweep on attack
+      track.setLpfFreq(0.38f);
+      track.setLpfRes(0.20f);
+      track.setEnv(1, new EnvelopeModel(0.05f, 0.20f, 0.70f, 0.20f, "FILTER", 0.30f));
+
+      // Chorus + Reverb to widen the horns
+      track.setModFxType("CHORUS");
+      track.setModFxRate(0.20f);
+      track.setModFxDepth(0.25f);
+      track.setReverbSend(0.25f);
+
     } else if (lower.contains("guitar")) {
       // Plucky organic acoustic / funky guitar
       track.setOsc1Type("TRIANGLE");
@@ -819,6 +879,144 @@ public class AbletonTrackMapper {
       track.setLpfRes(0.20f);
       track.setReverbSend(0.15f);
     }
+  }
+
+  private static Float getManualParamValue(Element parent, String paramTag) {
+    try {
+      NodeList paramNodes = parent.getElementsByTagName(paramTag);
+      if (paramNodes.getLength() == 0) return null;
+      Element paramEl = (Element) paramNodes.item(0);
+      NodeList manualNodes = paramEl.getElementsByTagName("Manual");
+      if (manualNodes.getLength() == 0) return null;
+      Element manualEl = (Element) manualNodes.item(0);
+      if (manualEl.hasAttribute("Value")) {
+        return Float.parseFloat(manualEl.getAttribute("Value"));
+      }
+    } catch (Exception e) {
+      // Ignore and return null
+    }
+    return null;
+  }
+
+  private static Boolean getManualParamBoolean(Element parent, String paramTag) {
+    try {
+      NodeList paramNodes = parent.getElementsByTagName(paramTag);
+      if (paramNodes.getLength() == 0) return null;
+      Element paramEl = (Element) paramNodes.item(0);
+      NodeList manualNodes = paramEl.getElementsByTagName("Manual");
+      if (manualNodes.getLength() == 0) {
+        if (paramEl.hasAttribute("Value")) {
+          return "true".equalsIgnoreCase(paramEl.getAttribute("Value"));
+        }
+        return null;
+      }
+      Element manualEl = (Element) manualNodes.item(0);
+      if (manualEl.hasAttribute("Value")) {
+        return "true".equalsIgnoreCase(manualEl.getAttribute("Value"));
+      }
+    } catch (Exception e) {
+      // Ignore and return null
+    }
+    return null;
+  }
+
+  private static boolean parseNativeSimpler(Element trackEl, SynthTrackModel track) {
+    NodeList simplerNodes = trackEl.getElementsByTagName("OriginalSimpler");
+    if (simplerNodes.getLength() == 0) {
+      return false; // No Simpler device found
+    }
+    Element simplerEl = (Element) simplerNodes.item(0);
+    System.out.println(
+        "🤖 [GENERIC PARSER] Found native Ableton Simpler device on track: " + track.getName());
+
+    // 1. Parse Transposition / Tuning
+    Float transpose = getManualParamValue(simplerEl, "TransposeKey");
+    Float fineTune = getManualParamValue(simplerEl, "TransposeFine");
+    if (transpose != null) {
+      track.setOsc2Transpose(Math.round(transpose));
+    }
+    if (fineTune != null) {
+      track.setOsc2Cents(Math.round(fineTune));
+    }
+
+    // 2. Parse Volume Envelope (Env 0)
+    NodeList volPanNodes = simplerEl.getElementsByTagName("VolumeAndPan");
+    if (volPanNodes.getLength() > 0) {
+      Element volPanEl = (Element) volPanNodes.item(0);
+      Float attack = getManualParamValue(volPanEl, "AttackTime");
+      Float decay = getManualParamValue(volPanEl, "DecayTime");
+      Float sustain = getManualParamValue(volPanEl, "SustainLevel");
+      Float release = getManualParamValue(volPanEl, "ReleaseTime");
+
+      float a = attack != null ? attack / 1000.0f : 0.002f;
+      float d = decay != null ? decay / 1000.0f : 0.20f;
+      float s = sustain != null ? sustain : 1.0f;
+      float r = release != null ? release / 1000.0f : 0.15f;
+
+      track.setEnv(0, new EnvelopeModel(a, d, s, r, "NONE", 0.0f));
+      System.out.println(
+          String.format(
+              "   -> Volume Envelope (Env 0): A=%.3fs, D=%.3fs, S=%.2f, R=%.3fs", a, d, s, r));
+    }
+
+    // 3. Parse Filter & Filter Envelope (Env 1)
+    NodeList filterNodes = simplerEl.getElementsByTagName("Filter");
+    if (filterNodes.getLength() > 0) {
+      Element filterEl = (Element) filterNodes.item(0);
+      Boolean isOn = getManualParamBoolean(filterEl, "IsOn");
+      if (isOn != null && isOn) {
+        Float freq = getManualParamValue(filterEl, "Freq");
+        Float res = getManualParamValue(filterEl, "Res");
+        if (freq == null) {
+          freq = getManualParamValue(filterEl, "LegacyQ"); // fallback
+        }
+
+        float normFreq = 1.0f;
+        if (freq != null) {
+          float fVal = Math.max(30.0f, Math.min(22000.0f, freq));
+          normFreq =
+              (float) ((Math.log(fVal) - Math.log(30.0)) / (Math.log(22000.0) - Math.log(30.0)));
+          track.setLpfFreq(normFreq);
+        }
+
+        float normRes = 0.15f;
+        if (res != null) {
+          normRes = Math.max(0.0f, Math.min(1.0f, res / 1.25f));
+          track.setLpfRes(normRes);
+        }
+
+        System.out.println(
+            String.format(
+                "   -> Filter LPF: Cutoff=%.1fHz (norm=%.2f), Resonance=%.2f (norm=%.2f)",
+                freq != null ? freq : 22000.0f, normFreq, res != null ? res : 0.0f, normRes));
+
+        // Parse Filter Envelope (Env 1)
+        NodeList envNodes = filterEl.getElementsByTagName("Envelope");
+        if (envNodes.getLength() > 0) {
+          Element envEl = (Element) envNodes.item(0);
+          Float fAttack = getManualParamValue(envEl, "AttackTime");
+          Float fDecay = getManualParamValue(envEl, "DecayTime");
+          Float fSustain = getManualParamValue(envEl, "SustainLevel");
+          Float fRelease = getManualParamValue(envEl, "ReleaseTime");
+          Float fAmount = getManualParamValue(envEl, "Amount");
+
+          if (fAmount != null && Math.abs(fAmount) > 0.01f) {
+            float fa = fAttack != null ? fAttack / 1000.0f : 0.002f;
+            float fd = fDecay != null ? fDecay / 1000.0f : 0.20f;
+            float fs = fSustain != null ? fSustain : 0.0f;
+            float fr = fRelease != null ? fRelease / 1000.0f : 0.15f;
+            float depth = fAmount / 72.0f;
+
+            track.setEnv(1, new EnvelopeModel(fa, fd, fs, fr, "FILTER", depth));
+            System.out.println(
+                String.format(
+                    "   -> Filter Envelope (Env 1): A=%.3fs, D=%.3fs, S=%.2f, R=%.3fs, Depth=%.2f",
+                    fa, fd, fs, fr, depth));
+          }
+        }
+      }
+    }
+    return true;
   }
 
   /** Searches the samplesDir for a high-fidelity WAV sample matching the track name. */

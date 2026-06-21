@@ -45,6 +45,12 @@ public abstract class GlobalEffectable {
           "[TELEMETRY GlobalEffectable] trackBuffer max absolute value: " + maxValTrack);
     }
 
+    // Surgical Optimization: If the track is silent and has no active filter to decay,
+    // skip the entire FX, panning, and summing loop to reclaim massive CPU cycles!
+    if (maxValTrack == 0 && !filterSet.isOn()) {
+      return;
+    }
+
     // Apply FilterSet
     if (filterSet.isOn()) {
       filterSet.renderLongStereo(trackBuffer, numSamples);

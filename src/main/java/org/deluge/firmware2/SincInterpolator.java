@@ -139,25 +139,45 @@ public class SincInterpolator {
    * @param histR full-precision right history (used only when channels == 2)
    * @return {@code {l, r}} at the C output scale
    */
-  public static int[] interpolateWide(
-      int[] histL, int[] histR, int channels, int whichKernel, int oscPos) {
+  public static void interpolateWide(
+      int[] histL, int[] histR, int channels, int whichKernel, int oscPos, int[] out) {
     int strength2 = (oscPos >>> 5) & 0x7FFF; // C interpolate.cpp:17,23 (rshiftAmount=5)
     int progressSmall = oscPos >>> 20; // C:25
     short[] k1 = WINDOWED_SINC_KERNEL[whichKernel][progressSmall];
     short[] k2 = WINDOWED_SINC_KERNEL[whichKernel][progressSmall + 1];
     long sumL = 0;
     long sumR = 0;
-    for (int i = 0; i < K_INTERPOLATION_MAX_NUM_SAMPLES; i++) {
-      int prod = sat16(((k2[i] - k1[i]) * strength2) >> 15); // vqdmulh (faithful kernel lerp)
-      int kc = sat16(k1[i] + prod);
-      sumL += (long) kc * histL[i];
-      if (channels == 2) {
+
+    if (channels == 2) {
+      for (int i = 0; i < K_INTERPOLATION_MAX_NUM_SAMPLES; i++) {
+        int diff = k2[i] - k1[i];
+        int prod = (diff * strength2) >> 15;
+        if (prod > 32767) prod = 32767;
+        else if (prod < -32768) prod = -32768;
+
+        int kc = k1[i] + prod;
+        if (kc > 32767) kc = 32767;
+        else if (kc < -32768) kc = -32768;
+
+        sumL += (long) kc * histL[i];
         sumR += (long) kc * histR[i];
       }
+      out[1] = (int) (sumR >> 16);
+    } else {
+      for (int i = 0; i < K_INTERPOLATION_MAX_NUM_SAMPLES; i++) {
+        int diff = k2[i] - k1[i];
+        int prod = (diff * strength2) >> 15;
+        if (prod > 32767) prod = 32767;
+        else if (prod < -32768) prod = -32768;
+
+        int kc = k1[i] + prod;
+        if (kc > 32767) kc = 32767;
+        else if (kc < -32768) kc = -32768;
+
+        sumL += (long) kc * histL[i];
+      }
     }
-    int outL = (int) (sumL >> 16);
-    int outR = (int) (sumR >> 16);
-    return new int[] {outL, outR};
+    out[0] = (int) (sumL >> 16);
   }
 
   // ── interpolateLinear (interpolate.cpp:70-80) ──

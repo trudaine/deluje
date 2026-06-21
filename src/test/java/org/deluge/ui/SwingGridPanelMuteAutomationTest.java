@@ -35,16 +35,16 @@ public class SwingGridPanelMuteAutomationTest {
     // Assert initial state: unmuted
     assertFalse(bridge.getMute(0), "Track must start unmuted");
 
-    // 5. Simulate click action with Shift modifier (necessary in SONG view)
-    java.awt.event.ActionEvent shiftEvent =
+    // 5. Simulate standard left-click action (intuitive, standard behavior)
+    java.awt.event.ActionEvent normalClickEvent =
         new java.awt.event.ActionEvent(
             muteBtn,
             java.awt.event.ActionEvent.ACTION_PERFORMED,
             "",
             System.currentTimeMillis(),
-            java.awt.event.ActionEvent.SHIFT_MASK);
+            0);
     for (java.awt.event.ActionListener al : muteBtn.getActionListeners()) {
-      al.actionPerformed(shiftEvent);
+      al.actionPerformed(normalClickEvent);
     }
 
     // 6. Assert muting was toggled in the bridge contract & local VM global
@@ -61,7 +61,7 @@ public class SwingGridPanelMuteAutomationTest {
 
     // 8. Simulate second click to unmute
     for (java.awt.event.ActionListener al : muteBtn.getActionListeners()) {
-      al.actionPerformed(shiftEvent);
+      al.actionPerformed(normalClickEvent);
     }
     assertFalse(bridge.getMute(0), "Track must be unmuted after second click");
 

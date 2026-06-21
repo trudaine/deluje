@@ -162,9 +162,9 @@ public class JavaAudioDriver implements Runnable {
       } else {
         System.out.println("[JavaAudioDriver] silentMode — capture only, no soundcard output.");
       }
-
       int peak = 0;
-      int blockCounter = 0;
+      long blockCounter = 0;
+      long startNano = System.nanoTime();
 
       int[] liveInputBlock = new int[BLOCK_SIZE * 2];
       while (running) {
@@ -263,11 +263,16 @@ public class JavaAudioDriver implements Runnable {
           }
         }
         if (silentMode) {
-          // No soundcard — pace roughly real-time so resample length stays sane and the CPU idles.
-          try {
-            Thread.sleep(2);
-          } catch (InterruptedException ignored) {
-            Thread.currentThread().interrupt();
+          // Precision real-time pacing loop using System.nanoTime() to prevent timing drift
+          long targetNano = startNano + (blockCounter * 128L * 1000000000L) / 44100L;
+          long now = System.nanoTime();
+          long delayNs = targetNano - now;
+          if (delayNs > 100000L) { // Only sleep if delay is > 100 microseconds
+            try {
+              Thread.sleep(delayNs / 1000000L, (int) (delayNs % 1000000L));
+            } catch (InterruptedException ignored) {
+              Thread.currentThread().interrupt();
+            }
           }
         } else {
           line.write(byteBuffer, 0, byteBuffer.length);
@@ -285,15 +290,18 @@ public class JavaAudioDriver implements Runnable {
   }
 
   /**
-   * High-fidelity, smooth analog soft-clipping saturation function. Maintains perfect linear
-   * transparency up to 0.7 (-3dB), and curves smoothly towards 1.0.
+   * High-fidelity, ultra-fast analog soft-clipping saturation function. Maintains perfect linear
+   * transparency up to 0.7 (-3dB), and curves smoothly towards 1.0 using a rational approximation
+   * to eliminate heavy Math.tanh CPU overhead in the real-time audio thread.
    */
   public static float softClip(float x) {
     if (x > 0.7f) {
-      return 0.7f + 0.3f * (float) Math.tanh((x - 0.7f) / 0.3f);
+      float y = x - 0.7f;
+      return 0.7f + y / (1.0f + y / 0.3f);
     }
     if (x < -0.7f) {
-      return -0.7f + 0.3f * (float) Math.tanh((x + 0.7f) / 0.3f);
+      float y = x + 0.7f;
+      return -0.7f + y / (1.0f - y / 0.3f);
     }
     return x;
   }

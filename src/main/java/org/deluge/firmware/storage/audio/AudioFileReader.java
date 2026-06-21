@@ -1,23 +1,41 @@
 package org.deluge.firmware.storage.audio;
 
-import fr.delthas.javamp3.Sound;
 import java.io.*;
 import java.nio.*;
 import org.deluge.firmware.model.sample.Sample;
 
 public class AudioFileReader {
+  private static final java.util.concurrent.ConcurrentHashMap<String, Sample> CACHE =
+      new java.util.concurrent.ConcurrentHashMap<>();
+
   public static Sample readSample(String path) throws IOException {
     File file = new File(path);
     if (!file.exists()) return null;
 
+    String absPath = file.getAbsolutePath();
+    Sample cached = CACHE.get(absPath);
+    if (cached != null) {
+      return cached;
+    }
+
+    Sample sample;
     if (file.getName().toLowerCase().endsWith(".mp3")) {
       try {
-        return readMP3Sample(path);
+        sample = readMP3Sample(path);
       } catch (Exception e) {
         throw new IOException("Failed to decode MP3 file: " + path, e);
       }
+    } else {
+      sample = readWavSample(file);
     }
 
+    if (sample != null) {
+      CACHE.put(absPath, sample);
+    }
+    return sample;
+  }
+
+  private static Sample readWavSample(File file) throws IOException {
     Sample sample = new Sample();
     sample.fileName = file.getName();
 
@@ -118,66 +136,50 @@ public class AudioFileReader {
     sample.fileName = file.getName();
 
     try (FileInputStream fis = new FileInputStream(file)) {
-      Sound sound = new Sound(fis);
+      javazoom.jl.decoder.Bitstream bitstream = new javazoom.jl.decoder.Bitstream(fis);
+      javazoom.jl.decoder.Decoder decoder = new javazoom.jl.decoder.Decoder();
+
+      float[] data = new float[1024 * 1024]; // 1M float buffer
+      int size = 0;
+
+      int sampleRate = 44100;
+      int numChannels = 2;
+      boolean formatSet = false;
+
       try {
-        javax.sound.sampled.AudioFormat format = sound.getAudioFormat();
-        sample.sampleRate = (int) format.getSampleRate();
-        sample.numChannels = format.getChannels();
-        sample.byteDepth = format.getSampleSizeInBits() / 8;
+        javazoom.jl.decoder.Header header;
+        while ((header = bitstream.readFrame()) != null) {
+          javazoom.jl.decoder.SampleBuffer output =
+              (javazoom.jl.decoder.SampleBuffer) decoder.decodeFrame(header, bitstream);
 
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        byte[] readBuf = new byte[65536];
-        int read;
-        while ((read = sound.read(readBuf)) != -1) {
-          baos.write(readBuf, 0, read);
-        }
-        byte[] pcmBytes = baos.toByteArray();
+          if (!formatSet) {
+            sampleRate = output.getSampleFrequency();
+            numChannels = output.getChannelCount();
+            formatSet = true;
+          }
 
-        int bytesPerSample = format.getSampleSizeInBits() / 8;
-        if (bytesPerSample <= 0) {
-          throw new javax.sound.sampled.UnsupportedAudioFileException(
-              "Invalid sample size: " + format.getSampleSizeInBits() + " bits");
-        }
-        int numSamples = pcmBytes.length / bytesPerSample;
-        sample.data = new float[numSamples];
+          short[] pcm = output.getBuffer();
+          int len = output.getBufferLength();
 
-        ByteBuffer buf =
-            ByteBuffer.wrap(pcmBytes)
-                .order(format.isBigEndian() ? ByteOrder.BIG_ENDIAN : ByteOrder.LITTLE_ENDIAN);
+          if (size + len > data.length) {
+            int newCap = Math.max(data.length * 2, size + len);
+            data = java.util.Arrays.copyOf(data, newCap);
+          }
 
-        if (format.getSampleSizeInBits() == 16) {
-          for (int i = 0; i < numSamples; i++) {
-            sample.data[i] = buf.getShort() / 32768.0f;
+          for (int i = 0; i < len; i++) {
+            data[size++] = pcm[i] / 32768.0f;
           }
-        } else if (format.getSampleSizeInBits() == 8) {
-          for (int i = 0; i < numSamples; i++) {
-            sample.data[i] = (buf.get() & 0xFF) / 255.0f;
-          }
-        } else if (format.getSampleSizeInBits() == 24) {
-          for (int i = 0; i < numSamples; i++) {
-            int b0 = buf.get() & 0xFF, b1 = buf.get() & 0xFF, b2 = buf.get() & 0xFF;
-            int v;
-            if (format.isBigEndian()) {
-              v = (b2 & 0xFF) | ((b1 & 0xFF) << 8) | (b0 << 16);
-            } else {
-              v = (b0 & 0xFF) | ((b1 & 0xFF) << 8) | (b2 << 16);
-            }
-            if ((v & 0x800000) != 0) v |= 0xFF000000; // sign extend
-            sample.data[i] = v / 8388608.0f;
-          }
-        } else if (format.getSampleSizeInBits() == 32) {
-          boolean isFloat =
-              format.getEncoding() == javax.sound.sampled.AudioFormat.Encoding.PCM_FLOAT;
-          for (int i = 0; i < numSamples; i++) {
-            sample.data[i] = isFloat ? buf.getFloat() : buf.getInt() / 2147483648.0f;
-          }
-        } else {
-          throw new javax.sound.sampled.UnsupportedAudioFileException(
-              "Unsupported MP3 sample size: " + format.getSampleSizeInBits() + " bits");
+
+          bitstream.closeFrame();
         }
       } finally {
-        sound.close();
+        bitstream.close();
       }
+
+      sample.sampleRate = sampleRate;
+      sample.numChannels = numChannels;
+      sample.byteDepth = 2; // Always 16-bit PCM from JLayer
+      sample.data = java.util.Arrays.copyOf(data, size);
     }
     return sample;
   }

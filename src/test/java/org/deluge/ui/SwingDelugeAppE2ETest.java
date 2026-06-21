@@ -39,50 +39,52 @@ public class SwingDelugeAppE2ETest {
     // 2. Initialize App Frame (remains headless)
     SwingDelugeApp app = new SwingDelugeApp(bridge, null);
 
-    ProjectModel project = app.getCurrentProject();
-    assertNotNull(project, "ProjectModel must be initialized on app boot");
-    int initialTrackCount = project.getTracks().size();
+    try {
+      ProjectModel project = app.getCurrentProject();
+      assertNotNull(project, "ProjectModel must be initialized on app boot");
+      int initialTrackCount = project.getTracks().size();
 
-    // 3. Simulate interactive Shift-Click "Add Kit Track"
-    app.getTopBarListener().onAddTrack("KIT", true);
+      // 3. Simulate interactive Shift-Click "Add Kit Track"
+      app.getTopBarListener().onAddTrack("KIT", true);
 
-    // Assert track structure updates
-    assertEquals(
-        initialTrackCount + 1,
-        project.getTracks().size(),
-        "A new KIT track must be added to the project");
-    org.deluge.model.TrackModel newTrack = project.getTracks().get(initialTrackCount);
-    assertTrue(newTrack instanceof KitTrackModel, "New track must be a KitTrackModel");
+      // Assert track structure updates
+      assertEquals(
+          initialTrackCount + 1,
+          project.getTracks().size(),
+          "A new KIT track must be added to the project");
+      org.deluge.model.TrackModel newTrack = project.getTracks().get(initialTrackCount);
+      assertTrue(newTrack instanceof KitTrackModel, "New track must be a KitTrackModel");
 
-    KitTrackModel kit = (KitTrackModel) newTrack;
-    assertEquals(
-        8,
-        kit.getDrums().size(),
-        "New drum kit must initialize with 8 default drum instrument slots");
+      KitTrackModel kit = (KitTrackModel) newTrack;
+      assertEquals(
+          8,
+          kit.getDrums().size(),
+          "New drum kit must initialize with 8 default drum instrument slots");
 
-    // Verify grid row count in CLIP mode matches drum slot count
-    app.getTopBarListener().onViewModeChanged("CLIP");
-    app.getClipPanel().setEditedModelTrack(initialTrackCount);
-    app.getClipPanel().refresh();
-    assertEquals(
-        8,
-        app.getClipPanel().getVisibleRowCount(),
-        "Grid visible rows must match the kit's drum slot count");
+      // Verify grid row count in CLIP mode matches drum slot count
+      app.getTopBarListener().onViewModeChanged("CLIP");
+      app.getClipPanel().setEditedModelTrack(initialTrackCount);
+      app.getClipPanel().refresh();
+      assertEquals(
+          8,
+          app.getClipPanel().getVisibleRowCount(),
+          "Grid visible rows must match the kit's drum slot count");
 
-    // 4. Simulate switching view mode to KEYPLAY (Isomorphic Keyboard Play)
-    app.getTopBarListener().onViewModeChanged("KEYPLAY");
-    assertEquals(
-        SwingGridPanel.GridViewMode.KEYPLAY,
-        app.getClipPanel().getViewMode(),
-        "Grid view mode must transition to KEYPLAY");
+      // 4. Simulate switching view mode to KEYPLAY (Isomorphic Keyboard Play)
+      app.getTopBarListener().onViewModeChanged("KEYPLAY");
+      assertEquals(
+          SwingGridPanel.GridViewMode.KEYPLAY,
+          app.getClipPanel().getViewMode(),
+          "Grid view mode must transition to KEYPLAY");
 
-    // Verify grid visible rows in KEYPLAY mode is full 8-row height
-    assertEquals(
-        8, app.getClipPanel().getVisibleRowCount(), "KEYPLAY mode must display all 8 grid rows");
-
-    // Cleanup resources
-    app.dispose();
-    bridge.shutdown();
+      // Verify grid visible rows in KEYPLAY mode is full 8-row height
+      assertEquals(
+          8, app.getClipPanel().getVisibleRowCount(), "KEYPLAY mode must display all 8 grid rows");
+    } finally {
+      // Cleanup resources
+      app.dispose();
+      bridge.shutdown();
+    }
   }
 
   @Test
@@ -91,44 +93,46 @@ public class SwingDelugeAppE2ETest {
     BridgeContract bridge = new BridgeContract(44100, 2);
 
     SwingDelugeApp app = new SwingDelugeApp(bridge, null);
-    SwingGridPanel grid = app.getClipPanel();
+    try {
+      SwingGridPanel grid = app.getClipPanel();
 
-    // Verify follow mode starts as active
-    assertTrue(grid.isPlayheadFollowMode(), "Follow mode should be active by default");
+      // Verify follow mode starts as active
+      assertTrue(grid.isPlayheadFollowMode(), "Follow mode should be active by default");
 
-    // Call layout refresh and confirm follow mode is NOT disabled by programmatic setValues
-    // triggers
-    grid.refresh();
-    assertTrue(
-        grid.isPlayheadFollowMode(),
-        "Follow mode must stay active after refresh/setValues layout calls");
+      // Call layout refresh and confirm follow mode is NOT disabled by programmatic setValues
+      // triggers
+      grid.refresh();
+      assertTrue(
+          grid.isPlayheadFollowMode(),
+          "Follow mode must stay active after refresh/setValues layout calls");
 
-    // Manually trigger play toggle to simulate active play state
-    app.getTopBarListener().onPlayToggle();
-    assertTrue(grid.isPlayheadFollowMode(), "Follow mode must stay active on play toggle start");
+      // Manually trigger play toggle to simulate active play state
+      app.getTopBarListener().onPlayToggle();
+      assertTrue(grid.isPlayheadFollowMode(), "Follow mode must stay active on play toggle start");
 
-    // Simulate manual scrollbar adjustment (which suspends follow mode)
-    javax.swing.JScrollBar scrollbar = null;
-    for (java.awt.Component c : grid.getComponents()) {
-      if (c instanceof javax.swing.JScrollBar sb
-          && sb.getOrientation() == javax.swing.JScrollBar.HORIZONTAL) {
-        scrollbar = sb;
-        break;
+      // Simulate manual scrollbar adjustment (which suspends follow mode)
+      javax.swing.JScrollBar scrollbar = null;
+      for (java.awt.Component c : grid.getComponents()) {
+        if (c instanceof javax.swing.JScrollBar sb
+            && sb.getOrientation() == javax.swing.JScrollBar.HORIZONTAL) {
+          scrollbar = sb;
+          break;
+        }
       }
+      // If not added to layout yet (headless container delay), we can trigger the listener directly
+      // or set values
+      grid.setPlayheadFollowMode(
+          false); // mock manual scroll override directly for robust headless assertion
+      assertFalse(grid.isPlayheadFollowMode(), "Follow mode must be suspended on manual scroll");
+
+      // Playback restarts must restore follow mode
+      app.getTopBarListener().onPlayToggle(); // toggles play state OFF
+      app.getTopBarListener().onPlayToggle(); // toggles play state ON again
+      assertTrue(grid.isPlayheadFollowMode(), "Follow mode must be re-enabled on playback start");
+    } finally {
+      app.dispose();
+      bridge.shutdown();
     }
-    // If not added to layout yet (headless container delay), we can trigger the listener directly
-    // or set values
-    grid.setPlayheadFollowMode(
-        false); // mock manual scroll override directly for robust headless assertion
-    assertFalse(grid.isPlayheadFollowMode(), "Follow mode must be suspended on manual scroll");
-
-    // Playback restarts must restore follow mode
-    app.getTopBarListener().onPlayToggle(); // toggles play state OFF
-    app.getTopBarListener().onPlayToggle(); // toggles play state ON again
-    assertTrue(grid.isPlayheadFollowMode(), "Follow mode must be re-enabled on playback start");
-
-    app.dispose();
-    bridge.shutdown();
   }
 
   @Test
@@ -311,41 +315,83 @@ public class SwingDelugeAppE2ETest {
     BridgeContract bridge = new BridgeContract(44100, 2);
 
     SwingDelugeApp app = new SwingDelugeApp(bridge, null, true);
-    SwingGridPanel grid = app.getClipPanel();
+    try {
+      SwingGridPanel grid = app.getClipPanel();
 
-    // Load rich synth preset
-    java.io.File presetFile = new java.io.File("src/main/resources/SYNTHS/000 Rich Saw Bass.XML");
-    if (!presetFile.exists()) {
-      presetFile = new java.io.File("../deluge/src/main/resources/SYNTHS/000 Rich Saw Bass.XML");
-    }
-    org.deluge.model.SynthTrackModel synthTrack =
-        org.deluge.xml.DelugeXmlParser.parseSynth(presetFile);
-    synthTrack.setName("SYNTH_PRESET");
-    if (synthTrack.getClips().isEmpty()) {
-      synthTrack.addClip(new org.deluge.model.ClipModel("CLIP 1", 72, 16));
-    }
-    synthTrack.getClips().get(0).setPlayMode(org.deluge.model.ClipModel.PlayMode.LOOP);
-    app.getCurrentProject().getTracks().clear();
-    app.getCurrentProject().addTrack(synthTrack);
-    app.propagateCurrentModel();
-    app.syncHighFidelityEngine(app.getCurrentProject());
+      // Load rich synth preset
+      java.io.File presetFile = new java.io.File("src/main/resources/SYNTHS/000 Rich Saw Bass.XML");
+      if (!presetFile.exists()) {
+        presetFile = new java.io.File("../deluge/src/main/resources/SYNTHS/000 Rich Saw Bass.XML");
+      }
+      org.deluge.model.SynthTrackModel synthTrack =
+          org.deluge.xml.DelugeXmlParser.parseSynth(presetFile);
+      synthTrack.setName("SYNTH_PRESET");
+      if (synthTrack.getClips().isEmpty()) {
+        synthTrack.addClip(new org.deluge.model.ClipModel("CLIP 1", 72, 16));
+      }
+      synthTrack.getClips().get(0).setPlayMode(org.deluge.model.ClipModel.PlayMode.LOOP);
+      app.getCurrentProject().getTracks().clear();
+      app.getCurrentProject().addTrack(synthTrack);
+      app.propagateCurrentModel();
+      app.syncHighFidelityEngine(app.getCurrentProject());
 
-    grid.setEditedModelTrack(0);
-    grid.refresh();
+      grid.setEditedModelTrack(0);
+      grid.refresh();
 
-    // 1. Click 0,0 1,1 and 2,2
-    int[][] toClick = {{0, 0}, {1, 1}, {2, 2}};
-    for (int[] cell : toClick) {
-      int row = cell[0];
-      int col = cell[1];
-      javax.swing.JButton pad = grid.getPads()[row][col];
-      assertNotNull(pad);
+      // 1. Click 0,0 1,1 and 2,2
+      int[][] toClick = {{0, 0}, {1, 1}, {2, 2}};
+      for (int[] cell : toClick) {
+        int row = cell[0];
+        int col = cell[1];
+        javax.swing.JButton pad = grid.getPads()[row][col];
+        assertNotNull(pad);
+        javax.swing.SwingUtilities.invokeAndWait(
+            () -> {
+              for (java.awt.event.MouseListener ml : pad.getMouseListeners()) {
+                ml.mousePressed(
+                    new java.awt.event.MouseEvent(
+                        pad,
+                        java.awt.event.MouseEvent.MOUSE_PRESSED,
+                        System.currentTimeMillis(),
+                        0,
+                        10,
+                        10,
+                        1,
+                        false,
+                        java.awt.event.MouseEvent.BUTTON1));
+                ml.mouseReleased(
+                    new java.awt.event.MouseEvent(
+                        pad,
+                        java.awt.event.MouseEvent.MOUSE_RELEASED,
+                        System.currentTimeMillis(),
+                        0,
+                        10,
+                        10,
+                        1,
+                        false,
+                        java.awt.event.MouseEvent.BUTTON1));
+              }
+            });
+      }
+
+      // 2. Play the sequence
+      app.getTopBarListener().onPlayToggle();
+
+      // Start resampling (records from background audio driver thread)
+      org.deluge.engine.JavaAudioDriver.startResampling();
+
+      // Playback active
+      Thread.sleep(1000);
+
+      // 3. Click cell 3,3
+      javax.swing.JButton pad3 = grid.getPads()[3][3];
+      assertNotNull(pad3);
       javax.swing.SwingUtilities.invokeAndWait(
           () -> {
-            for (java.awt.event.MouseListener ml : pad.getMouseListeners()) {
+            for (java.awt.event.MouseListener ml : pad3.getMouseListeners()) {
               ml.mousePressed(
                   new java.awt.event.MouseEvent(
-                      pad,
+                      pad3,
                       java.awt.event.MouseEvent.MOUSE_PRESSED,
                       System.currentTimeMillis(),
                       0,
@@ -356,7 +402,7 @@ public class SwingDelugeAppE2ETest {
                       java.awt.event.MouseEvent.BUTTON1));
               ml.mouseReleased(
                   new java.awt.event.MouseEvent(
-                      pad,
+                      pad3,
                       java.awt.event.MouseEvent.MOUSE_RELEASED,
                       System.currentTimeMillis(),
                       0,
@@ -367,98 +413,236 @@ public class SwingDelugeAppE2ETest {
                       java.awt.event.MouseEvent.BUTTON1));
             }
           });
+
+      // Render for another 2500ms to allow sequencer loop to complete and repeat
+      Thread.sleep(2500);
+
+      byte[] pcmData = org.deluge.engine.JavaAudioDriver.stopResampling();
+
+      // Save initial resample WAV file
+      java.io.File destFile =
+          new java.io.File(System.getProperty("java.io.tmpdir"), "reproduction_test.wav");
+      writeWavFile(destFile, pcmData, 44100, 2);
+      System.out.println(
+          "[ReproductionTest] Saved reproduction test recording to: " + destFile.getAbsolutePath());
+
+      // 4. Create and add a new Kit track with our recorded loop sample loaded
+      org.deluge.model.KitTrackModel kitTrack =
+          new org.deluge.model.KitTrackModel("Resample Track");
+      org.deluge.model.Drum drum =
+          new org.deluge.model.SoundDrum("reproduction_test.wav", destFile.getAbsolutePath());
+      kitTrack.addDrum(drum);
+
+      // Program 4-on-the-floor loop triggers (Col 0, 4, 8, 12)
+      org.deluge.model.ClipModel clip = new org.deluge.model.ClipModel("CLIP 1", 1, 16);
+      clip.setPlayMode(org.deluge.model.ClipModel.PlayMode.LOOP);
+      clip.setStep(0, 0, org.deluge.model.StepData.of(true, 1.0f, 1.0f, 1.0f, 0));
+      clip.setStep(0, 4, org.deluge.model.StepData.of(true, 1.0f, 1.0f, 1.0f, 0));
+      clip.setStep(0, 8, org.deluge.model.StepData.of(true, 1.0f, 1.0f, 1.0f, 0));
+      clip.setStep(0, 12, org.deluge.model.StepData.of(true, 1.0f, 1.0f, 1.0f, 0));
+      kitTrack.addClip(clip);
+
+      app.getCurrentProject().addTrack(kitTrack);
+
+      // Sync changes to engine (triggers full structural sync while playing)
+      app.propagateCurrentModel();
+      app.syncHighFidelityEngine(app.getCurrentProject());
+
+      // Start resampling again to capture the combined output of Synth + resampled Kit
+      org.deluge.engine.JavaAudioDriver.startResampling();
+
+      // Sleep 1500ms to record playback of both tracks
+      Thread.sleep(1500);
+
+      byte[] combinedPcm = org.deluge.engine.JavaAudioDriver.stopResampling();
+
+      java.io.File combinedFile =
+          new java.io.File(System.getProperty("java.io.tmpdir"), "combined_reproduction_test.wav");
+      writeWavFile(combinedFile, combinedPcm, 44100, 2);
+      System.out.println(
+          "[ReproductionTest] Saved combined reproduction recording to: "
+              + combinedFile.getAbsolutePath());
+    } finally {
+      app.dispose();
+      bridge.shutdown();
     }
+  }
 
-    // 2. Play the sequence
-    app.getTopBarListener().onPlayToggle();
+  @Test
+  public void testEndToEndMuteFidelityAndVisuals() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    org.deluge.firmware.engine.FirmwareAudioEngine.debugTelemetry = true;
 
-    // Start resampling (records from background audio driver thread)
-    org.deluge.engine.JavaAudioDriver.startResampling();
+    // 1. Setup VM and Bridge Contract
+    BridgeContract bridge = new BridgeContract(44100, 2);
 
-    // Playback active
-    Thread.sleep(1000);
+    // 2. Initialize App Frame
+    SwingDelugeApp app = new SwingDelugeApp(bridge, null, true); // true for hi-fi pure engine
+    try {
+      SwingGridPanel songGrid = app.getSongPanel();
 
-    // 3. Click cell 3,3
-    javax.swing.JButton pad3 = grid.getPads()[3][3];
-    assertNotNull(pad3);
-    javax.swing.SwingUtilities.invokeAndWait(
-        () -> {
-          for (java.awt.event.MouseListener ml : pad3.getMouseListeners()) {
-            ml.mousePressed(
-                new java.awt.event.MouseEvent(
-                    pad3,
-                    java.awt.event.MouseEvent.MOUSE_PRESSED,
-                    System.currentTimeMillis(),
-                    0,
-                    10,
-                    10,
-                    1,
-                    false,
-                    java.awt.event.MouseEvent.BUTTON1));
-            ml.mouseReleased(
-                new java.awt.event.MouseEvent(
-                    pad3,
-                    java.awt.event.MouseEvent.MOUSE_RELEASED,
-                    System.currentTimeMillis(),
-                    0,
-                    10,
-                    10,
-                    1,
-                    false,
-                    java.awt.event.MouseEvent.BUTTON1));
-          }
-        });
+      // Setup a single synth track by loading a sounding preset
+      ProjectModel project = app.getCurrentProject();
+      project.getTracks().clear();
 
-    // Render for another 2500ms to allow sequencer loop to complete and repeat
-    Thread.sleep(2500);
+      java.io.File presetFile = new java.io.File("src/main/resources/SYNTHS/000 Rich Saw Bass.XML");
+      if (!presetFile.exists()) {
+        presetFile = new java.io.File("../deluge/src/main/resources/SYNTHS/000 Rich Saw Bass.XML");
+      }
+      org.deluge.model.SynthTrackModel synthTrack =
+          org.deluge.xml.DelugeXmlParser.parseSynth(presetFile);
+      synthTrack.setName("TEST_SYNTH");
+      synthTrack.getClips().clear();
 
-    byte[] pcmData = org.deluge.engine.JavaAudioDriver.stopResampling();
+      org.deluge.model.ClipModel clipModel = new org.deluge.model.ClipModel("CLIP 1", 72, 16);
+      // Add active notes on step 0, 4, 8, 12 so it constantly plays sound
+      clipModel.setStep(36, 0, new org.deluge.model.StepData(true, 1.0f, 15.0f, 1.0f, 60, 0, 0f));
+      clipModel.setStep(36, 4, new org.deluge.model.StepData(true, 1.0f, 15.0f, 1.0f, 60, 0, 0f));
+      clipModel.setStep(36, 8, new org.deluge.model.StepData(true, 1.0f, 15.0f, 1.0f, 60, 0, 0f));
+      clipModel.setStep(36, 12, new org.deluge.model.StepData(true, 1.0f, 15.0f, 1.0f, 60, 0, 0f));
+      synthTrack.addClip(clipModel);
 
-    // Save initial resample WAV file
-    java.io.File destFile =
-        new java.io.File(System.getProperty("java.io.tmpdir"), "reproduction_test.wav");
-    writeWavFile(destFile, pcmData, 44100, 2);
-    System.out.println(
-        "[ReproductionTest] Saved reproduction test recording to: " + destFile.getAbsolutePath());
+      project.addTrack(synthTrack);
+      app.propagateCurrentModel();
+      app.syncHighFidelityEngine(project);
 
-    // 4. Create and add a new Kit track with our recorded loop sample loaded
-    org.deluge.model.KitTrackModel kitTrack = new org.deluge.model.KitTrackModel("Resample Track");
-    org.deluge.model.Drum drum =
-        new org.deluge.model.SoundDrum("reproduction_test.wav", destFile.getAbsolutePath());
-    kitTrack.addDrum(drum);
+      // Toggle play state ON - this starts the background audio thread rendering
+      app.getTopBarListener().onPlayToggle();
 
-    // Program 4-on-the-floor loop triggers (Col 0, 4, 8, 12)
-    org.deluge.model.ClipModel clip = new org.deluge.model.ClipModel("CLIP 1", 1, 16);
-    clip.setPlayMode(org.deluge.model.ClipModel.PlayMode.LOOP);
-    clip.setStep(0, 0, org.deluge.model.StepData.of(true, 1.0f, 1.0f, 1.0f, 0));
-    clip.setStep(0, 4, org.deluge.model.StepData.of(true, 1.0f, 1.0f, 1.0f, 0));
-    clip.setStep(0, 8, org.deluge.model.StepData.of(true, 1.0f, 1.0f, 1.0f, 0));
-    clip.setStep(0, 12, org.deluge.model.StepData.of(true, 1.0f, 1.0f, 1.0f, 0));
-    kitTrack.addClip(clip);
+      // Switch to SONG view so that the active card is songPanel
+      app.getTopBarListener().onViewModeChanged("SONG");
+      songGrid.refresh();
 
-    app.getCurrentProject().addTrack(kitTrack);
+      // Give it a short moment to warm up and start rendering
+      Thread.sleep(200);
 
-    // Sync changes to engine (triggers full structural sync while playing)
-    app.propagateCurrentModel();
-    app.syncHighFidelityEngine(app.getCurrentProject());
+      System.out.println(
+          "TEST-DEBUG: [Before Mute] Playhead tick = "
+              + app.getPureEngine().getPlaybackHandler().lastSwungTickActioned);
 
-    // Start resampling again to capture the combined output of Synth + resampled Kit
-    org.deluge.engine.JavaAudioDriver.startResampling();
+      // Start resampling to capture active sound
+      org.deluge.engine.JavaAudioDriver.startResampling();
+      Thread.sleep(500);
+      byte[] pcmBeforeMute = org.deluge.engine.JavaAudioDriver.stopResampling();
 
-    // Sleep 1500ms to record playback of both tracks
-    Thread.sleep(1500);
+      int maxBefore = 0;
+      boolean isSilentBeforeMute = true;
+      for (int i = 0; i < pcmBeforeMute.length / 2; i++) {
+        short val = (short) ((pcmBeforeMute[i * 2] & 0xFF) | (pcmBeforeMute[i * 2 + 1] << 8));
+        int absVal = Math.abs(val);
+        if (absVal > maxBefore) maxBefore = absVal;
+        if (val != 0) {
+          isSilentBeforeMute = false;
+        }
+      }
+      System.out.println(
+          "TEST-DEBUG: [Before Mute] Captured bytes = "
+              + pcmBeforeMute.length
+              + ", Peak = "
+              + maxBefore
+              + ", Playhead tick = "
+              + app.getPureEngine().getPlaybackHandler().lastSwungTickActioned);
+      assertFalse(isSilentBeforeMute, "Should capture non-zero audio bytes before mute");
 
-    byte[] combinedPcm = org.deluge.engine.JavaAudioDriver.stopResampling();
+      int muteCol = songGrid.columnCount - 2;
+      javax.swing.JButton muteBtn = songGrid.getPads()[0][muteCol];
+      assertNotNull(muteBtn, "Mute button should exist on songPanel");
 
-    app.dispose();
-    bridge.shutdown();
+      // Click the mute button on the EDT WITHOUT Shift modifier
+      javax.swing.SwingUtilities.invokeAndWait(
+          () -> {
+            System.out.println(
+                "TEST-DEBUG: songPanel muteBtn action listeners count = "
+                    + muteBtn.getActionListeners().length);
+            for (java.awt.event.ActionListener al : muteBtn.getActionListeners()) {
+              System.out.println("TEST-DEBUG: Invoking songPanel action listener: " + al);
+              al.actionPerformed(
+                  new java.awt.event.ActionEvent(
+                      muteBtn, java.awt.event.ActionEvent.ACTION_PERFORMED, ""));
+            }
+          });
 
-    java.io.File combinedFile =
-        new java.io.File(System.getProperty("java.io.tmpdir"), "combined_reproduction_test.wav");
-    writeWavFile(combinedFile, combinedPcm, 44100, 2);
-    System.out.println(
-        "[ReproductionTest] Saved combined reproduction recording to: "
-            + combinedFile.getAbsolutePath());
+      System.out.println("TEST-DEBUG: songPanel bridge.getMute(0) = " + bridge.getMute(0));
+
+      // Verify bridge says it is muted
+      assertTrue(bridge.getMute(0), "Bridge should report track 0 as muted after left-click");
+
+      // Give background sync thread and audio driver a moment to process the mute
+      Thread.sleep(200);
+
+      System.out.println(
+          "TEST-DEBUG: [During Mute] Playhead tick = "
+              + app.getPureEngine().getPlaybackHandler().lastSwungTickActioned);
+
+      // Start resampling to capture muted (silent) sound
+      org.deluge.engine.JavaAudioDriver.startResampling();
+      Thread.sleep(500);
+      byte[] pcmDuringMute = org.deluge.engine.JavaAudioDriver.stopResampling();
+
+      int maxDuring = 0;
+      boolean isSilentDuringMute = true;
+      for (int i = 0; i < pcmDuringMute.length / 2; i++) {
+        short val = (short) ((pcmDuringMute[i * 2] & 0xFF) | (pcmDuringMute[i * 2 + 1] << 8));
+        int absVal = Math.abs(val);
+        if (absVal > maxDuring) maxDuring = absVal;
+        if (val != 0) {
+          isSilentDuringMute = false;
+        }
+      }
+      System.out.println(
+          "TEST-DEBUG: [During Mute] Captured bytes = "
+              + pcmDuringMute.length
+              + ", Peak = "
+              + maxDuring
+              + ", Playhead tick = "
+              + app.getPureEngine().getPlaybackHandler().lastSwungTickActioned);
+      assertTrue(isSilentDuringMute, "Output must be completely silent during mute!");
+
+      // Click mute button again to unmute
+      javax.swing.SwingUtilities.invokeAndWait(
+          () -> {
+            for (java.awt.event.ActionListener al : muteBtn.getActionListeners()) {
+              al.actionPerformed(
+                  new java.awt.event.ActionEvent(
+                      muteBtn, java.awt.event.ActionEvent.ACTION_PERFORMED, ""));
+            }
+          });
+      assertFalse(bridge.getMute(0), "Bridge should report track 0 as unmuted");
+
+      Thread.sleep(200);
+
+      System.out.println(
+          "TEST-DEBUG: [After Unmute] Playhead tick = "
+              + app.getPureEngine().getPlaybackHandler().lastSwungTickActioned);
+
+      // Start resampling to verify sound is restored
+      org.deluge.engine.JavaAudioDriver.startResampling();
+      Thread.sleep(500);
+      byte[] pcmAfterUnmute = org.deluge.engine.JavaAudioDriver.stopResampling();
+
+      int maxAfter = 0;
+      boolean isSilentAfterUnmute = true;
+      for (int i = 0; i < pcmAfterUnmute.length / 2; i++) {
+        short val = (short) ((pcmAfterUnmute[i * 2] & 0xFF) | (pcmAfterUnmute[i * 2 + 1] << 8));
+        int absVal = Math.abs(val);
+        if (absVal > maxAfter) maxAfter = absVal;
+        if (val != 0) {
+          isSilentAfterUnmute = false;
+        }
+      }
+      System.out.println(
+          "TEST-DEBUG: [After Unmute] Captured bytes = "
+              + pcmAfterUnmute.length
+              + ", Peak = "
+              + maxAfter
+              + ", Playhead tick = "
+              + app.getPureEngine().getPlaybackHandler().lastSwungTickActioned);
+      assertFalse(isSilentAfterUnmute, "Sound should return after unmute");
+    } finally {
+      org.deluge.firmware.engine.FirmwareAudioEngine.debugTelemetry = false;
+      app.dispose();
+      bridge.shutdown();
+    }
   }
 
   private void writeWavFile(java.io.File file, byte[] pcmData, int sampleRate, int channels)
@@ -496,5 +680,442 @@ public class SwingDelugeAppE2ETest {
       (byte) ((val >> 16) & 0xFF),
       (byte) ((val >> 24) & 0xFF)
     };
+  }
+
+  @Test
+  public void testMuteButtonPopupMenuAndSoloActions() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+
+    // 1. Setup VM and Bridge Contract
+    BridgeContract bridge = new BridgeContract(44100, 2);
+
+    // 2. Initialize App Frame
+    SwingDelugeApp app = new SwingDelugeApp(bridge, null, true);
+    try {
+      SwingGridPanel songGrid = app.getSongPanel();
+
+      // Setup a project with 3 tracks to test "Mute Others (Solo)"
+      ProjectModel project = app.getCurrentProject();
+      project.getTracks().clear();
+
+      org.deluge.model.SynthTrackModel track0 = new org.deluge.model.SynthTrackModel("TRACK_0");
+      org.deluge.model.SynthTrackModel track1 = new org.deluge.model.SynthTrackModel("TRACK_1");
+      org.deluge.model.SynthTrackModel track2 = new org.deluge.model.SynthTrackModel("TRACK_2");
+
+      project.addTrack(track0);
+      project.addTrack(track1);
+      project.addTrack(track2);
+
+      app.propagateCurrentModel();
+      app.getTopBarListener().onViewModeChanged("SONG");
+      songGrid.forceRebuild();
+
+      // The Mute button for track 0 should be in row 0, column = songGrid.columnCount - 2
+      int muteCol = songGrid.columnCount - 2;
+      javax.swing.JButton muteBtn0 = songGrid.getPads()[0][muteCol];
+      javax.swing.JButton muteBtn1 = songGrid.getPads()[1][muteCol];
+      javax.swing.JButton muteBtn2 = songGrid.getPads()[2][muteCol];
+
+      assertNotNull(muteBtn0, "Mute button for track 0 should exist");
+      assertNotNull(muteBtn1, "Mute button for track 1 should exist");
+      assertNotNull(muteBtn2, "Mute button for track 2 should exist");
+
+      // Verify popup menu is registered
+      javax.swing.JPopupMenu popup = muteBtn0.getComponentPopupMenu();
+      assertNotNull(popup, "Mute button should have a right-click popup menu registered");
+
+      // Verify popup menu items
+      javax.swing.JMenuItem soloItem = null;
+      javax.swing.JMenuItem unmuteAllItem = null;
+      for (int i = 0; i < popup.getComponentCount(); i++) {
+        java.awt.Component comp = popup.getComponent(i);
+        if (comp instanceof javax.swing.JMenuItem) {
+          javax.swing.JMenuItem item = (javax.swing.JMenuItem) comp;
+          if ("Mute Others (Solo)".equals(item.getText())) {
+            soloItem = item;
+          } else if ("Unmute All".equals(item.getText())) {
+            unmuteAllItem = item;
+          }
+        }
+      }
+
+      assertNotNull(soloItem, "Popup should have 'Mute Others (Solo)' item");
+      assertNotNull(unmuteAllItem, "Popup should have 'Unmute All' item");
+
+      // Initially all tracks should be unmuted
+      assertFalse(bridge.getMute(0), "Track 0 should be unmuted initially");
+      assertFalse(bridge.getMute(1), "Track 1 should be unmuted initially");
+      assertFalse(bridge.getMute(2), "Track 2 should be unmuted initially");
+
+      assertEquals("MUTE", muteBtn0.getText());
+      assertEquals("MUTE", muteBtn1.getText());
+      assertEquals("MUTE", muteBtn2.getText());
+
+      // Trigger "Mute Others (Solo)" on track 1's mute button popup menu
+      javax.swing.JPopupMenu popup1 = muteBtn1.getComponentPopupMenu();
+      javax.swing.JMenuItem soloItem1 = null;
+      for (int i = 0; i < popup1.getComponentCount(); i++) {
+        java.awt.Component comp = popup1.getComponent(i);
+        if (comp instanceof javax.swing.JMenuItem) {
+          javax.swing.JMenuItem item = (javax.swing.JMenuItem) comp;
+          if ("Mute Others (Solo)".equals(item.getText())) {
+            soloItem1 = item;
+          }
+        }
+      }
+      assertNotNull(soloItem1);
+
+      final javax.swing.JMenuItem finalSoloItem1 = soloItem1;
+      javax.swing.SwingUtilities.invokeAndWait(
+          () -> {
+            finalSoloItem1.doClick();
+          });
+
+      // Verify track 1 is unmuted (soloed), and track 0 and 2 are muted!
+      assertLightweightMuteState(bridge, 0, true);
+      assertLightweightMuteState(bridge, 1, false);
+      assertLightweightMuteState(bridge, 2, true);
+
+      assertEquals("UNMUTE", muteBtn0.getText(), "Muted track should show UNMUTE");
+      assertEquals("MUTE", muteBtn1.getText(), "Active track should show MUTE");
+      assertEquals("UNMUTE", muteBtn2.getText(), "Muted track should show UNMUTE");
+
+      // Trigger "Unmute All" on track 0's mute button popup menu
+      javax.swing.JMenuItem finalUnmuteItem = unmuteAllItem;
+      javax.swing.SwingUtilities.invokeAndWait(
+          () -> {
+            finalUnmuteItem.doClick();
+          });
+
+      // Verify all tracks are unmuted now!
+      assertLightweightMuteState(bridge, 0, false);
+      assertLightweightMuteState(bridge, 1, false);
+      assertLightweightMuteState(bridge, 2, false);
+
+      assertEquals("MUTE", muteBtn0.getText());
+      assertEquals("MUTE", muteBtn1.getText());
+      assertEquals("MUTE", muteBtn2.getText());
+
+    } finally {
+      app.dispose();
+      bridge.shutdown();
+    }
+  }
+
+  @Test
+  public void testPageSelectionBarHighlightUpdatesDynamically() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+
+    // 1. Setup VM and Bridge Contract
+    BridgeContract bridge = new BridgeContract(44100, 2);
+
+    // 2. Initialize App Frame
+    SwingDelugeApp app = new SwingDelugeApp(bridge, null, true);
+    try {
+      SwingGridPanel clipGrid = app.getClipPanel();
+
+      // Setup a project with 1 track that has a clip of length 32 (2 pages of 16 steps)
+      ProjectModel project = app.getCurrentProject();
+      project.getTracks().clear();
+
+      org.deluge.model.SynthTrackModel track = new org.deluge.model.SynthTrackModel("SYNTH_TRACK");
+      org.deluge.model.ClipModel clip = new org.deluge.model.ClipModel("CLIP_0", 128, 32);
+      track.addClip(clip);
+      track.setActiveClipIndex(0);
+      project.addTrack(track);
+
+      app.propagateCurrentModel();
+      for (int i = 0; i < BridgeContract.TRACKS; i++) {
+        bridge.setTrackLength(i, 32);
+      }
+      app.getTopBarListener().onViewModeChanged("CLIP"); // enter CLIP view
+      clipGrid.forceRebuild(); // force full layout to build the page bar
+
+      // Retrieve the private pageButtons field via reflection
+      java.lang.reflect.Field field = SwingGridPanel.class.getDeclaredField("pageButtons");
+      field.setAccessible(true);
+      @SuppressWarnings("unchecked")
+      java.util.List<javax.swing.JButton> buttons =
+          (java.util.List<javax.swing.JButton>) field.get(clipGrid);
+
+      assertNotNull(buttons, "Page buttons list should exist");
+      assertEquals(2, buttons.size(), "Should have exactly 2 page buttons for a 32-step clip");
+
+      javax.swing.JButton btn1 = buttons.get(0);
+      javax.swing.JButton btn2 = buttons.get(1);
+
+      // 1. Initially (scrollOffsetX = 0), page 1 is highlighted (Teal), page 2 is Gray
+      assertEquals(
+          new java.awt.Color(0x00, 0xff, 0xcc),
+          btn1.getForeground(),
+          "Page 1 button should be highlighted in Teal");
+      assertEquals(
+          java.awt.Color.GRAY, btn2.getForeground(), "Page 2 button should be default Gray");
+
+      // 2. Scroll to Page 2 (scrollOffsetX = 16) by updating scrollbar
+      java.lang.reflect.Field scrollField = SwingGridPanel.class.getDeclaredField("horizScrollBar");
+      scrollField.setAccessible(true);
+      javax.swing.JScrollBar horizScrollBar = (javax.swing.JScrollBar) scrollField.get(clipGrid);
+      assertNotNull(horizScrollBar, "Horizontal scroll bar should exist");
+
+      javax.swing.SwingUtilities.invokeAndWait(
+          () -> {
+            horizScrollBar.setValue(16);
+          });
+
+      // Give Swing a small moment to paint/refresh
+      Thread.sleep(100);
+
+      // Re-retrieve page buttons list to avoid stale detached button references since rebuilding on
+      // scroll recreates them
+      buttons = (java.util.List<javax.swing.JButton>) field.get(clipGrid);
+      btn1 = buttons.get(0);
+      btn2 = buttons.get(1);
+
+      // 3. Page 1 should now be Gray, and Page 2 should be Teal!
+      assertEquals(
+          java.awt.Color.GRAY,
+          btn1.getForeground(),
+          "Page 1 button should be default Gray after scroll");
+      assertEquals(
+          new java.awt.Color(0x00, 0xff, 0xcc),
+          btn2.getForeground(),
+          "Page 2 button should be highlighted in Teal after scroll");
+
+    } finally {
+      app.dispose();
+      bridge.shutdown();
+    }
+  }
+
+  @Test
+  public void testUnusedTrackSlotsAreDarkAndClickFree() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+
+    // 1. Setup VM and Bridge Contract
+    BridgeContract bridge = new BridgeContract(44100, 2);
+
+    // 2. Initialize App Frame
+    SwingDelugeApp app = new SwingDelugeApp(bridge, null, true);
+    try {
+      SwingGridPanel songGrid = app.getSongPanel();
+
+      // Setup a project with exactly 1 track (so row 0 is used, rows 1..7 are unused)
+      ProjectModel project = app.getCurrentProject();
+      project.getTracks().clear();
+
+      org.deluge.model.SynthTrackModel track = new org.deluge.model.SynthTrackModel("SYNTH_TRACK");
+      project.addTrack(track);
+
+      app.propagateCurrentModel();
+      app.getTopBarListener().onViewModeChanged("SONG"); // enter SONG view
+      songGrid.forceRebuild(); // force full rebuild of SONG grid layout
+
+      // Retrieve the private pads field via reflection
+      java.lang.reflect.Field padsField = SwingGridPanel.class.getDeclaredField("pads");
+      padsField.setAccessible(true);
+      javax.swing.JButton[][] pads = (javax.swing.JButton[][]) padsField.get(songGrid);
+
+      assertNotNull(pads, "Pads array should exist");
+
+      // Verify that row 0 (used) mute button (column 16) is active and has text "MUTE"
+      javax.swing.JButton muteBtnUsed = pads[0][16];
+      assertNotNull(muteBtnUsed, "Row 0 mute button should exist");
+      assertEquals("MUTE", muteBtnUsed.getText(), "Row 0 (used) mute button should show MUTE");
+      assertNotNull(
+          muteBtnUsed.getComponentPopupMenu(),
+          "Row 0 mute button should have right-click popup menu");
+      assertTrue(
+          muteBtnUsed.getActionListeners().length > 0,
+          "Row 0 mute button should have action listeners");
+
+      // Verify that row 1 (unused) mute button (column 16), solo button (column 17), and step pads
+      // are completely dark and inactive
+      for (int c = 0; c < 18; c++) {
+        javax.swing.JButton padBtn = pads[1][c];
+        assertNotNull(padBtn, "Row 1 column " + c + " button should exist");
+
+        // 1. No text
+        assertEquals("", padBtn.getText(), "Unused row column " + c + " should have no text");
+
+        // 2. Dark background
+        assertEquals(
+            new java.awt.Color(0x15, 0x15, 0x15),
+            padBtn.getBackground(),
+            "Unused row column " + c + " background should be dark charcoal");
+
+        // 3. No right-click popup menu
+        assertNull(
+            padBtn.getComponentPopupMenu(),
+            "Unused row column " + c + " should have no popup menu");
+
+        // 4. No action listeners
+        assertEquals(
+            0,
+            padBtn.getActionListeners().length,
+            "Unused row column " + c + " should have no action listeners");
+
+        // 5. No mouse listeners
+        assertEquals(
+            0,
+            padBtn.getMouseListeners().length,
+            "Unused row column " + c + " should have no mouse listeners");
+
+        // 6. No tooltip
+        assertNull(padBtn.getToolTipText(), "Unused row column " + c + " should have no tooltip");
+
+        // 7. If DelugePadButton, check intensity and active state
+        if (padBtn instanceof DelugePadButton pad) {
+          assertFalse(pad.isActive(), "Unused row pad " + c + " should be inactive");
+          assertEquals(
+              0.0f,
+              pad.getIntensity(),
+              0.001f,
+              "Unused row pad " + c + " should have 0 intensity (unlit)");
+          assertEquals(
+              "", pad.getNoteText(), "Unused row pad " + c + " should have empty note text");
+        }
+      }
+
+    } finally {
+      app.dispose();
+      bridge.shutdown();
+    }
+  }
+
+  @Test
+  public void testSongViewScrollingUnderHeavyTrackLoad() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+
+    // 1. Setup VM and Bridge Contract
+    BridgeContract bridge = new BridgeContract(44100, 2);
+
+    // 2. Initialize App Frame
+    SwingDelugeApp app = new SwingDelugeApp(bridge, null, true);
+    try {
+      SwingGridPanel songGrid = app.getSongPanel();
+
+      // Setup a project with exactly 31 tracks
+      ProjectModel project = app.getCurrentProject();
+      project.getTracks().clear();
+
+      for (int i = 0; i < 31; i++) {
+        org.deluge.model.SynthTrackModel track =
+            new org.deluge.model.SynthTrackModel("TRACK_" + (i + 1));
+        project.addTrack(track);
+      }
+
+      app.propagateCurrentModel();
+      app.getTopBarListener().onViewModeChanged("SONG"); // enter SONG view
+      songGrid.forceRebuild(); // force full rebuild of SONG grid layout
+
+      // 1. Verify that the computed voiceRowCount is Math.max(8, 31 + 2) = 33
+      // We can retrieve voiceRowCount via reflection
+      java.lang.reflect.Field voiceRowCountField =
+          SwingGridPanel.class.getDeclaredField("voiceRowCount");
+      voiceRowCountField.setAccessible(true);
+      int voiceRowCount = (int) voiceRowCountField.get(songGrid);
+      assertEquals(
+          33,
+          voiceRowCount,
+          "Total scrollable voice rows in SONG mode should be 33 (31 tracks + 2 buffer rows)");
+
+      // 2. Verify that the scrollbar is visible and has correct range (0 to 33, viewport extent =
+      // 8)
+      java.lang.reflect.Field scrollField = SwingGridPanel.class.getDeclaredField("vertScrollBar");
+      scrollField.setAccessible(true);
+      javax.swing.JScrollBar scrollBar = (javax.swing.JScrollBar) scrollField.get(songGrid);
+
+      assertNotNull(scrollBar, "Vertical scroll bar should exist");
+      assertTrue(
+          scrollBar.isVisible(), "Vertical scroll bar should be visible under heavy track load");
+      assertEquals(0, scrollBar.getMinimum(), "Scrollbar minimum should be 0");
+      assertEquals(33, scrollBar.getMaximum(), "Scrollbar maximum should be 33");
+      assertEquals(
+          8,
+          scrollBar.getVisibleAmount(),
+          "Scrollbar visible amount (viewport extent) should be 8");
+
+      // 3. Scroll all the way to the end (scrollOffset = 25) on the EDT and wait
+      javax.swing.SwingUtilities.invokeAndWait(
+          () -> {
+            scrollBar.setValue(25);
+          });
+
+      // Give Swing a moment to process EDT events, rebuild components, and repaint
+      Thread.sleep(150);
+
+      // Retrieve the private pads field via reflection
+      java.lang.reflect.Field padsField = SwingGridPanel.class.getDeclaredField("pads");
+      padsField.setAccessible(true);
+      javax.swing.JButton[][] pads = (javax.swing.JButton[][]) padsField.get(songGrid);
+
+      // Visual row 5 represents track (scrollOffset + 5) = 30 (which is the last track, INDEX 30).
+      // Verify visual row 5 (track 31, INDEX 30, which is the last track)
+      // Since it is a used track slot, it should NOT be styled as completely dark charcoal #151515.
+      // Its mute button (column 16) should show "MUTE" (or "UNMUTE") and have action listeners.
+      javax.swing.JButton lastTrackMuteBtn = pads[5][16];
+      assertEquals(
+          "MUTE",
+          lastTrackMuteBtn.getText(),
+          "Visual row 5 (track 31) mute button should show MUTE");
+      assertTrue(
+          lastTrackMuteBtn.getActionListeners().length > 0,
+          "Visual row 5 mute button should have action listeners");
+
+      // Verify visual row 6 (unused track slot 32, INDEX 31)
+      // Since it is unused, it should be completely dark charcoal #151515, have no text, no action
+      // listeners, and no popups!
+      for (int c = 0; c < 18; c++) {
+        javax.swing.JButton padBtn = pads[6][c];
+        assertEquals(
+            "", padBtn.getText(), "Visual row 6 (unused) column " + c + " should have no text");
+        assertEquals(
+            new java.awt.Color(0x15, 0x15, 0x15),
+            padBtn.getBackground(),
+            "Visual row 6 column " + c + " background should be dark charcoal");
+        assertNull(
+            padBtn.getComponentPopupMenu(),
+            "Visual row 6 column " + c + " should have no popup menu");
+        assertEquals(
+            0,
+            padBtn.getActionListeners().length,
+            "Visual row 6 column " + c + " should have no action listeners");
+      }
+
+      // 4. Verify that the last column (column 17, SOLO/TrackName column) shows correct
+      // scroll-adjusted track names!
+      // Visual row 5 represents track (scrollOffset + 5) = 25 + 5 = 30. Track index 30 (the 31st
+      // track) is named "TRACK_31".
+      javax.swing.JButton lastTrackSoloBtn = pads[5][17];
+      assertEquals(
+          "TRACK_31",
+          lastTrackSoloBtn.getText(),
+          "Visual row 5 (track 31) solo button should show TRACK_31 name");
+
+      // 5. Verify that the Macro row (visual row 8) and Keyboard row (visual row 9) do NOT show
+      // MUTE and SOLO buttons!
+      // They should be invisible and disabled!
+      assertFalse(pads[8][16].isVisible(), "Macro row mute button should be invisible");
+      assertFalse(pads[8][16].isEnabled(), "Macro row mute button should be disabled");
+      assertFalse(pads[8][17].isVisible(), "Macro row solo button should be invisible");
+      assertFalse(pads[8][17].isEnabled(), "Macro row solo button should be disabled");
+
+      assertFalse(pads[9][16].isVisible(), "Keyboard row mute button should be invisible");
+      assertFalse(pads[9][16].isEnabled(), "Keyboard row mute button should be disabled");
+      assertFalse(pads[9][17].isVisible(), "Keyboard row solo button should be invisible");
+      assertFalse(pads[9][17].isEnabled(), "Keyboard row solo button should be disabled");
+
+    } finally {
+      app.dispose();
+      bridge.shutdown();
+    }
+  }
+
+  private void assertLightweightMuteState(BridgeContract bridge, int trk, boolean expectedMute) {
+    assertEquals(
+        expectedMute,
+        bridge.getMute(trk),
+        "Track " + trk + " mute state should be " + expectedMute);
   }
 }

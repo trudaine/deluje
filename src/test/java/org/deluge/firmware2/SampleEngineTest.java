@@ -115,7 +115,8 @@ class SampleEngineTest {
       // Independent expected: interpolateWide of an all-`value` history at phase 0, then the MAC.
       int[] hist = new int[16];
       java.util.Arrays.fill(hist, value);
-      int[] sr = SincInterpolator.interpolateWide(hist, hist, numChannels, 0, 0);
+      int[] sr = new int[2];
+      SincInterpolator.interpolateWide(hist, hist, numChannels, 0, 0, sr);
       int expected = Functions.multiply_accumulate_32x32_rshift32_rounded(0, sr[0], amp);
       for (int i = 0; i < osc.length; i++) {
         assertEquals(expected, osc[i], "constant resample ch=" + numChannels + " idx=" + i);
@@ -194,7 +195,8 @@ class SampleEngineTest {
           }
         }
       }
-      int[] sr = SincInterpolator.interpolateWide(bufL, bufR, numChannels, whichKernel, oscPos);
+      int[] sr = new int[2];
+      SincInterpolator.interpolateWide(bufL, bufR, numChannels, whichKernel, oscPos, sr);
       amplitude += 1 << 10;
       expOsc[o] = Functions.multiply_accumulate_32x32_rshift32_rounded(expOsc[o], sr[0], amplitude);
       o++;

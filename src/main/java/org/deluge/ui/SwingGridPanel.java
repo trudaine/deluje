@@ -74,6 +74,7 @@ public class SwingGridPanel extends JPanel {
   private boolean wasSequencerPlaying; // edge-detect stop to flush MIDI notes
   private final java.util.Map<Integer, VUMeterPanel> voiceVuMeters =
       new java.util.concurrent.ConcurrentHashMap<>();
+  private final java.util.List<JButton> pageButtons = new java.util.ArrayList<>();
   private final java.util.Map<Integer, VUMeterPanel> trackVuMeters =
       new java.util.concurrent.ConcurrentHashMap<>();
   private Timer globalVuTimer;
@@ -1187,12 +1188,36 @@ public class SwingGridPanel extends JPanel {
   public void setViewMode(GridViewMode mode) {
     this.viewMode = mode;
     if (mode == GridViewMode.AUTOMATION) {
-      this.columnCount = stepCount; // no MUTE/SOLO columns
+      this.columnCount = stepCount;
     } else {
       this.columnCount = stepCount + 2;
     }
     recomputePadSize();
     refresh();
+  }
+
+  public boolean isMuteColumn(int colId) {
+    if (viewMode == GridViewMode.SONG || viewMode == GridViewMode.ARRANGEMENT) {
+      return (columnCount > stepCount) && (colId == columnCount - 2);
+    }
+    if (viewMode == GridViewMode.CLIP) {
+      return colId == columnCount - 2;
+    }
+    return false;
+  }
+
+  public boolean isSoloColumn(int colId) {
+    if (viewMode == GridViewMode.SONG || viewMode == GridViewMode.ARRANGEMENT) {
+      return (columnCount > stepCount) && (colId == columnCount - 1);
+    }
+    if (viewMode == GridViewMode.CLIP) {
+      return colId == columnCount - 1;
+    }
+    return false;
+  }
+
+  public boolean isStepColumn(int colId) {
+    return !isMuteColumn(colId) && !isSoloColumn(colId);
   }
 
   public boolean isAutoOverviewMode() {
@@ -1568,8 +1593,10 @@ public class SwingGridPanel extends JPanel {
       }
       return 128;
     }
-    // SONG / ARRANGEMENT — use gridMode.rows as the total number of voice slots
-    return gridMode.rows;
+    // SONG / ARRANGEMENT — dynamically compute scrollable slots based on track count + 2 empty
+    // buffer rows
+    int trackCount = projectModel != null ? projectModel.getTracks().size() : 0;
+    return Math.max(gridMode.rows, trackCount + 2);
   }
 
   /** Number of visible voice rows in the viewport (up to gridMode.rows). */
@@ -1728,6 +1755,77 @@ public class SwingGridPanel extends JPanel {
     return ((octave + 1) * 12) + majorScaleOffsets[rem];
   }
 
+  private JPopupMenu createMutePopupMenu(int rowToSolo) {
+    JPopupMenu mutePopup = new JPopupMenu();
+    mutePopup.setBackground(new Color(0x18, 0x18, 0x1a));
+    mutePopup.setBorder(BorderFactory.createLineBorder(new Color(0x2d, 0x2d, 0x34), 1));
+
+    JMenuItem muteOthersItem = new JMenuItem("Mute Others (Solo)");
+    muteOthersItem.setBackground(new Color(0x18, 0x18, 0x1a));
+    muteOthersItem.setForeground(new Color(0xdd, 0xdd, 0xde));
+    muteOthersItem.setFont(new Font("SansSerif", Font.PLAIN, 11));
+    muteOthersItem.addActionListener(
+        evt -> {
+          if (bridge != null) {
+            java.util.List<org.deluge.model.TrackModel> tracks =
+                projectModel != null ? projectModel.getTracks() : java.util.Collections.emptyList();
+            if (viewMode == GridViewMode.CLIP || viewMode == GridViewMode.AUTOMATION) {
+              for (int i = 0; i < tracks.size(); i++) {
+                bridge.setMute(i, i != editedModelTrack);
+              }
+              soloRow = editedModelTrack;
+            } else {
+              for (int i = 0; i < voiceRowCount; i++) {
+                bridge.setMute(baseTrackId + i, i != rowToSolo);
+              }
+              soloRow = rowToSolo;
+            }
+            refresh();
+          }
+        });
+
+    JMenuItem unmuteAllItem = new JMenuItem("Unmute All");
+    unmuteAllItem.setBackground(new Color(0x18, 0x18, 0x1a));
+    unmuteAllItem.setForeground(new Color(0xdd, 0xdd, 0xde));
+    unmuteAllItem.setFont(new Font("SansSerif", Font.PLAIN, 11));
+    unmuteAllItem.addActionListener(
+        evt -> {
+          if (bridge != null) {
+            java.util.List<org.deluge.model.TrackModel> tracks =
+                projectModel != null ? projectModel.getTracks() : java.util.Collections.emptyList();
+            if (viewMode == GridViewMode.CLIP || viewMode == GridViewMode.AUTOMATION) {
+              for (int i = 0; i < tracks.size(); i++) {
+                bridge.setMute(i, false);
+              }
+            } else {
+              for (int i = 0; i < voiceRowCount; i++) {
+                bridge.setMute(baseTrackId + i, false);
+              }
+            }
+            soloRow = -1;
+            refresh();
+          }
+        });
+
+    mutePopup.add(muteOthersItem);
+    mutePopup.add(unmuteAllItem);
+    return mutePopup;
+  }
+
+  private void updatePageBarHighlights() {
+    int currentPageIndex = scrollOffsetX / 16;
+    for (int i = 0; i < pageButtons.size(); i++) {
+      JButton pageBtn = pageButtons.get(i);
+      if (i == currentPageIndex) {
+        pageBtn.setForeground(new Color(0x00, 0xff, 0xcc));
+        pageBtn.setBorder(BorderFactory.createLineBorder(new Color(0x00, 0xff, 0xcc), 1));
+      } else {
+        pageBtn.setForeground(Color.GRAY);
+        pageBtn.setBorder(BorderFactory.createLineBorder(Color.GRAY, 1));
+      }
+    }
+  }
+
   /**
    * Build a single voice row panel. modelRow = the actual engine row index (0..voiceRowCount-1).
    */
@@ -1746,6 +1844,8 @@ public class SwingGridPanel extends JPanel {
         (isSynth && viewMode == GridViewMode.CLIP)
             ? (127 - getRowPitch(visualRowIndex))
             : visualRowIndex;
+    boolean isSongOrArr = (viewMode == GridViewMode.SONG || viewMode == GridViewMode.ARRANGEMENT);
+    boolean isUnusedTrackRow = isSongOrArr && (modelRow >= tracks.size());
     String samplePathLoc = null;
     if (modelRow < tracks.size()) {
       org.deluge.model.TrackModel track = tracks.get(modelRow);
@@ -1973,9 +2073,9 @@ public class SwingGridPanel extends JPanel {
 
       int stepLen = (bridge != null) ? bridge.getTrackLength(modelRow) : 16;
       JLabel lenBadge = new JLabel("[" + stepLen + "]");
-      lenBadge.setPreferredSize(new Dimension(36, 26));
-      lenBadge.setMinimumSize(new Dimension(36, 26));
-      lenBadge.setMaximumSize(new Dimension(36, 26));
+      lenBadge.setPreferredSize(new Dimension(48, 26));
+      lenBadge.setMinimumSize(new Dimension(48, 26));
+      lenBadge.setMaximumSize(new Dimension(48, 26));
       lenBadge.setFont(new Font("Monospaced", Font.BOLD, 11));
       lenBadge.setForeground(stepLen == 16 ? Color.GRAY : new Color(0xff, 0xcc, 0x00));
       lenBadge.setToolTipText("Track length (right-click to change)");
@@ -2001,8 +2101,8 @@ public class SwingGridPanel extends JPanel {
               }
             }
           });
-      // 33 + 36(lenBadge) = 69px to match the fixed-row spacer (removed in-grid ⚙ filled this).
-      rowPanel.add(Box.createHorizontalStrut(33));
+      // 21 + 48(lenBadge) = 69px to match the fixed-row spacer (removed in-grid ⚙ filled this).
+      rowPanel.add(Box.createHorizontalStrut(21));
       rowPanel.add(lenBadge);
     } else {
       rowPanel.add(Box.createRigidArea(new Dimension(69, 1)));
@@ -2106,11 +2206,41 @@ public class SwingGridPanel extends JPanel {
         activeCol = colId;
       }
 
-      if (colId == columnCount - 2) {
+      if (isUnusedTrackRow) {
+        Color darkBg = new Color(0x15, 0x15, 0x15);
+        clipBtn.setBackground(darkBg);
+        clipBtn.setForeground(Color.GRAY);
+        clipBtn.setText("");
+        if (clipBtn instanceof DelugePadButton pad) {
+          pad.setBaseColor(darkBg);
+          pad.setTextColorOverride(Color.GRAY);
+          pad.setDrawCenterCircle(false);
+          pad.setIntensity(0.0f);
+          pad.setActive(false);
+          pad.setNoteText("");
+          pad.setMuted(false);
+          pad.setPlayhead(false);
+          pad.setSelected(false);
+          pad.setInLoop(true);
+        }
+        clipBtn.setComponentPopupMenu(null);
+        clipBtn.setToolTipText(null);
+        // Remove all listeners to prevent clicks/auditions
+        for (java.awt.event.ActionListener al : clipBtn.getActionListeners()) {
+          clipBtn.removeActionListener(al);
+        }
+        for (java.awt.event.MouseListener ml : clipBtn.getMouseListeners()) {
+          clipBtn.removeMouseListener(ml);
+        }
+      } else if (isMuteColumn(colId)) {
+        final int trackToMute =
+            (viewMode == GridViewMode.CLIP || viewMode == GridViewMode.AUTOMATION)
+                ? editedModelTrack
+                : (baseTrackId + modelRow);
         final int engineRow = baseTrackId + modelRow;
-        boolean isMuted = bridge != null && bridge.getMute(engineRow);
+        boolean isMuted = bridge != null && bridge.getMute(trackToMute);
         Color muteBg = isMuted ? new Color(0xff, 0xd7, 0x00) : Color.WHITE;
-        clipBtn.setText("MUTE");
+        clipBtn.setText(isMuted ? "UNMUTE" : "MUTE");
         clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 11 : 9));
         clipBtn.setBackground(muteBg);
         clipBtn.setForeground(Color.BLACK);
@@ -2121,11 +2251,16 @@ public class SwingGridPanel extends JPanel {
           pad.setDrawCenterCircle(false);
           pad.setIntensity(1.0f);
           pad.setActive(true);
-          pad.setNoteText("MUTE");
+          pad.setNoteText(isMuted ? "UNMUTE" : "MUTE");
         }
 
+        JPopupMenu mutePopup = createMutePopupMenu(modelRow);
+        clipBtn.setComponentPopupMenu(mutePopup);
+
         clipBtn.setToolTipText(
-            "Clip View: Row " + (visibleRow + 1) + " Mute / Unmute (Shift-Click to Clear Steps)");
+            "Clip View: Row "
+                + (visibleRow + 1)
+                + " Mute / Unmute (Right-Click for Options / Shift-Click to Clear Steps)");
         javax.swing.ToolTipManager.sharedInstance().registerComponent(clipBtn);
 
         clipBtn.addActionListener(
@@ -2137,8 +2272,8 @@ public class SwingGridPanel extends JPanel {
                 refresh();
                 return;
               }
-              boolean nextMute = bridge != null && !bridge.getMute(engineRow);
-              if (bridge != null) bridge.setMute(engineRow, nextMute);
+              boolean nextMute = bridge != null && !bridge.getMute(trackToMute);
+              if (bridge != null) bridge.setMute(trackToMute, nextMute);
               Color nextBg = nextMute ? new Color(0xff, 0xd7, 0x00) : Color.WHITE;
               clipBtn.setBackground(nextBg);
               if (clipBtn instanceof DelugePadButton pad) {
@@ -2151,8 +2286,9 @@ public class SwingGridPanel extends JPanel {
                 SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient(
                     "MUT ", (nextMute ? "ON  " : "OFF ") + "T" + (modelRow + 1));
               }
+              refresh();
             });
-      } else if (colId == columnCount - 1) {
+      } else if (isSoloColumn(colId)) {
         if (viewMode == GridViewMode.CLIP) {
           isSynth = false;
           if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
@@ -2615,7 +2751,7 @@ public class SwingGridPanel extends JPanel {
         if (null != viewMode) // Click handler
         switch (viewMode) {
             case CLIP:
-              if (isAdvanced && colId < columnCount - 2) {
+              if (isAdvanced && isStepColumn(colId)) {
                 if (gestureCoordinator == null) {
                   gestureCoordinator =
                       new DelugeGestureCoordinator(this, new DelugeGestureListener());
@@ -2629,7 +2765,7 @@ public class SwingGridPanel extends JPanel {
                     new java.awt.event.MouseAdapter() {
                       @Override
                       public void mousePressed(java.awt.event.MouseEvent e) {
-                        if (shiftHeld && visibleRow < 8 && colId < 16) {
+                        if (shiftHeld && visibleRow < 8 && isStepColumn(colId)) {
                           handleShiftClick(visibleRow, colId, e.getPoint(), e.getComponent());
                           return;
                         }
@@ -3124,7 +3260,7 @@ public class SwingGridPanel extends JPanel {
             });
       }
 
-      if (c == columnCount - 2) {
+      if (isMuteColumn(c)) {
         rowPanel.add(Box.createHorizontalStrut(20));
       }
       rowPanel.add(clipBtn);
@@ -3384,7 +3520,7 @@ public class SwingGridPanel extends JPanel {
 
       pads[rowIdx][c] = clipBtn;
 
-      if (c == columnCount - 2) {
+      if (isMuteColumn(c)) {
         rowPanel.add(Box.createHorizontalStrut(20));
       }
       rowPanel.add(clipBtn);
@@ -3642,13 +3778,19 @@ public class SwingGridPanel extends JPanel {
     } else {
       this.stepCount = gridMode.columns;
     }
-    this.columnCount = this.stepCount + 2;
+    if (viewMode == GridViewMode.AUTOMATION) {
+      this.columnCount = this.stepCount;
+    } else {
+      this.columnCount = this.stepCount + 2;
+    }
 
     boolean structureChanged =
         (columnCount != lastColumnCount
             || voiceRowCount != lastVoiceRowCount
             || viewMode != lastViewMode
             || gridMode != lastGridMode
+            || scrollOffset != lastScrollOffset
+            || scrollOffsetX != lastScrollOffsetX
             || getComponentCount() == 0);
 
     if (structureChanged) {
@@ -3669,6 +3811,7 @@ public class SwingGridPanel extends JPanel {
 
   private void refreshInPlace() {
     if (projectModel == null) return;
+    updatePageBarHighlights();
 
     // Update scrollbar visual position and dynamic note-range tooltip
     if (vertScrollBar != null) {
@@ -3795,15 +3938,17 @@ public class SwingGridPanel extends JPanel {
             JButton clipBtn = pads[v][c];
             if (clipBtn == null) continue;
 
-            if (c == columnCount - 2) {
+            if (isMuteColumn(c)) {
               // Mute button
               Color muteBg = isMuted ? new Color(0xff, 0xd7, 0x00) : Color.WHITE;
               clipBtn.setBackground(muteBg);
+              clipBtn.setText(isMuted ? "UNMUTE" : "MUTE");
               if (clipBtn instanceof DelugePadButton pad) {
                 pad.setBaseColor(muteBg);
                 pad.setMuted(isMuted);
+                pad.setNoteText(isMuted ? "UNMUTE" : "MUTE");
               }
-            } else if (c == columnCount - 1) {
+            } else if (isSoloColumn(c)) {
               // Audition / Row Label button - dynamically update text on scroll!
               boolean isSynth = false;
               if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
@@ -3876,7 +4021,7 @@ public class SwingGridPanel extends JPanel {
       }
     } else if (viewMode == GridViewMode.SONG || viewMode == GridViewMode.ARRANGEMENT) {
       for (int v = 0; v < gridMode.rows; v++) {
-        int modelRow = v;
+        int modelRow = scrollOffset + v;
         if (modelRow < voiceRowCount) {
           int engineRow = baseTrackId + modelRow;
           boolean isMuted = bridge != null && bridge.getMute(engineRow);
@@ -3886,15 +4031,36 @@ public class SwingGridPanel extends JPanel {
             JButton clipBtn = pads[v][c];
             if (clipBtn == null) continue;
 
-            if (c == columnCount - 2) {
+            if (modelRow >= tracks.size()) {
+              Color darkBg = new Color(0x15, 0x15, 0x15);
+              clipBtn.setBackground(darkBg);
+              clipBtn.setForeground(Color.GRAY);
+              clipBtn.setText("");
+              if (clipBtn instanceof DelugePadButton pad) {
+                pad.setBaseColor(darkBg);
+                pad.setTextColorOverride(Color.GRAY);
+                pad.setDrawCenterCircle(false);
+                pad.setIntensity(0.0f);
+                pad.setActive(false);
+                pad.setNoteText("");
+                pad.setMuted(false);
+                pad.setPlayhead(false);
+                pad.setSelected(false);
+                pad.setInLoop(true);
+              }
+              clipBtn.setComponentPopupMenu(null);
+              clipBtn.setToolTipText(null);
+            } else if (isMuteColumn(c)) {
               Color muteBg = isMuted ? new Color(0xff, 0xd7, 0x00) : Color.WHITE;
               clipBtn.setBackground(muteBg);
+              clipBtn.setText(isMuted ? "UNMUTE" : "MUTE");
               if (clipBtn instanceof DelugePadButton pad) {
                 pad.setBaseColor(muteBg);
                 pad.setIntensity(1.0f);
                 pad.setActive(true);
+                pad.setNoteText(isMuted ? "UNMUTE" : "MUTE");
               }
-            } else if (c == columnCount - 1) {
+            } else if (isSoloColumn(c)) {
               Color labelBg;
               Color labelFg;
               if (soloRow == modelRow) {
@@ -3912,11 +4078,25 @@ public class SwingGridPanel extends JPanel {
               }
               clipBtn.setBackground(labelBg);
               clipBtn.setForeground(labelFg);
+
+              String nName;
+              if (viewMode == GridViewMode.SONG) {
+                if (modelRow < tracks.size()) {
+                  nName = tracks.get(modelRow).getName();
+                } else {
+                  nName = "+";
+                }
+              } else {
+                nName = "ROW " + (modelRow + 1);
+              }
+              clipBtn.setText(nName);
+
               if (clipBtn instanceof DelugePadButton pad) {
                 pad.setBaseColor(labelBg);
                 pad.setTextColorOverride(labelFg);
                 pad.setIntensity(1.0f);
                 pad.setActive(true);
+                pad.setNoteText(nName);
               }
             } else {
               boolean hasClip = false;
@@ -4063,7 +4243,8 @@ public class SwingGridPanel extends JPanel {
               }
             }
             currentSong.tempoBPM = projectModel.getBpm();
-            currentSong.swingAmount = (int) (projectModel.getSwing() * 100.0);
+            currentSong.swingAmount =
+                Math.max(-49, Math.min(49, (int) ((projectModel.getSwing() - 0.5f) * 100.0)));
           } else {
             // Initial setup song compilation
             org.deluge.firmware.model.Song freshSong =
@@ -4568,6 +4749,7 @@ public class SwingGridPanel extends JPanel {
           pageBar.add(pageLabel);
 
           int currentPageIndex = scrollOffsetX / 16;
+          pageButtons.clear();
           for (int i = 0; i < numPages; i++) {
             final int pageIdx = i;
             JButton pageBtn = new JButton(String.valueOf(i + 1));
@@ -4597,6 +4779,7 @@ public class SwingGridPanel extends JPanel {
                   }
                   refresh();
                 });
+            pageButtons.add(pageBtn);
             pageBar.add(pageBtn);
             pageBar.add(Box.createRigidArea(new Dimension(4, 10)));
           }
@@ -4981,6 +5164,11 @@ public class SwingGridPanel extends JPanel {
         }
       }
 
+      voicePanel = new JPanel();
+      voicePanel.setBackground(new Color(0x15, 0x15, 0x15));
+      voicePanel.setOpaque(true);
+      voicePanel.setLayout(new BoxLayout(voicePanel, BoxLayout.Y_AXIS));
+
       for (int t = 0; t < songVoiceRows + 2; t++) {
 
         JPanel rowPanel = new JPanel();
@@ -4992,15 +5180,15 @@ public class SwingGridPanel extends JPanel {
         rowPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
         rowPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        final int currentTrack = t;
-        if (t < tracks.size()) {
-          String hex = tracks.get(t).getColourHex();
+        final int currentTrack = (t < songVoiceRows) ? (scrollOffset + t) : t;
+        if (t < songVoiceRows && currentTrack < tracks.size()) {
+          String hex = tracks.get(currentTrack).getColourHex();
           if (hex != null && hex.startsWith("0x")) {
             try {
               int rgb = Integer.decode(hex.substring(0, 8)); // strip alpha if 8 chars
-              trackColors[t % trackColors.length] = new Color(rgb);
+              trackColors[currentTrack % trackColors.length] = new Color(rgb);
             } catch (Exception e) {
-              LOG.warning("Bad color hex for track " + t + ": " + e.getMessage());
+              LOG.warning("Bad color hex for track " + currentTrack + ": " + e.getMessage());
             }
           }
         }
@@ -5022,7 +5210,10 @@ public class SwingGridPanel extends JPanel {
             trackName = (t == 0) ? rowTrack.getName() : "-" + t + "st";
           }
         } else {
-          trackName = (t < tracks.size()) ? tracks.get(t).getName() : "EMPTY " + (t + 1);
+          trackName =
+              (t < songVoiceRows && currentTrack < tracks.size())
+                  ? tracks.get(currentTrack).getName()
+                  : "EMPTY " + (currentTrack + 1);
         }
         if (t == songVoiceRows) trackName = "MACROS";
         if (t == songVoiceRows + 1) trackName = "KEYBOARD";
@@ -5093,8 +5284,8 @@ public class SwingGridPanel extends JPanel {
         rowPanel.add(label);
 
         // ⚙ config button and length badge for real tracks; blank spacer for all others
-        if (t < tracks.size() && t < songVoiceRows) {
-          org.deluge.model.TrackModel track = tracks.get(t);
+        if (t < songVoiceRows && currentTrack < tracks.size()) {
+          org.deluge.model.TrackModel track = tracks.get(currentTrack);
 
           // Per-track ⚙ Configure now lives in the fixed inspector strip above the grid
           // (SwingDelugeApp.buildTrackInspectorStrip) so controls stay out of the scrolling
@@ -5102,9 +5293,9 @@ public class SwingGridPanel extends JPanel {
 
           int stepLen = (bridge != null) ? bridge.getTrackLength(trk) : 16;
           JLabel lenBadge = new JLabel("[" + stepLen + "]");
-          lenBadge.setPreferredSize(new Dimension(36, 26));
-          lenBadge.setMinimumSize(new Dimension(36, 26));
-          lenBadge.setMaximumSize(new Dimension(36, 26));
+          lenBadge.setPreferredSize(new Dimension(48, 26));
+          lenBadge.setMinimumSize(new Dimension(48, 26));
+          lenBadge.setMaximumSize(new Dimension(48, 26));
           lenBadge.setFont(new Font("Monospaced", Font.BOLD, 11));
           lenBadge.setForeground(stepLen == 16 ? Color.GRAY : new Color(0xff, 0xcc, 0x00));
           lenBadge.setToolTipText("Track length (right-click to change)");
@@ -5130,9 +5321,9 @@ public class SwingGridPanel extends JPanel {
                   }
                 }
               });
-          // 33 + 36(lenBadge) = 69px to match the MACROS/KEYBOARD fixed-row spacer below
+          // 21 + 48(lenBadge) = 69px to match the MACROS/KEYBOARD fixed-row spacer below
           // (the removed in-grid ⚙ Configure used to fill this; alignment must stay at 69).
-          rowPanel.add(Box.createHorizontalStrut(33));
+          rowPanel.add(Box.createHorizontalStrut(21));
           rowPanel.add(lenBadge);
         } else {
           // 69px spacer to keep columns aligned with the real-track header above
@@ -5207,7 +5398,7 @@ public class SwingGridPanel extends JPanel {
             clipBtn.setBorder(UIManager.getBorder("Button.border"));
           }
 
-          if (t >= voiceRowCount && (colId == 16 || colId == columnCount - 1)) {
+          if (t >= songVoiceRows && (isMuteColumn(colId) || isSoloColumn(colId))) {
             clipBtn.setVisible(false);
             clipBtn.setEnabled(false);
           } else if (t == macR) {
@@ -5332,8 +5523,11 @@ public class SwingGridPanel extends JPanel {
             }
           }
 
-          if (colId == 16) {
-            final int engineRow = baseTrackId + trk;
+          if (isMuteColumn(colId)) {
+            final int engineRow =
+                (viewMode == GridViewMode.SONG || viewMode == GridViewMode.ARRANGEMENT)
+                    ? trk
+                    : (baseTrackId + trk);
             if (viewMode == GridViewMode.SONG && t >= tracks.size()) {
               clipBtn.setText("");
               clipBtn.setBackground(new Color(0x1a, 0x1a, 0x1a));
@@ -5345,23 +5539,36 @@ public class SwingGridPanel extends JPanel {
                 pad.setIntensity(0.2f);
               }
             } else {
-              clipBtn.setEnabled(true);
-              boolean curMute = bridge.getMute(engineRow);
-              Color muteBg =
-                  curMute
-                      ? new Color(0xff, 0xd7, 0x00)
-                      : Color.WHITE; // Yellow when muted, Pure Snow White when active
-              clipBtn.setText("MUTE");
-              clipBtn.setBackground(muteBg);
-              clipBtn.setForeground(Color.BLACK);
-              clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 11 : 9));
-              if (clipBtn instanceof DelugePadButton pad) {
-                pad.setBaseColor(muteBg);
-                pad.setTextColorOverride(Color.BLACK);
-                pad.setDrawCenterCircle(false);
-                pad.setIntensity(1.0f);
-                pad.setActive(true);
-                pad.setNoteText("MUTE");
+              boolean isClipSynth = (viewMode == GridViewMode.CLIP) && (!isEditedTrackKit());
+              if (isClipSynth) {
+                clipBtn.setEnabled(false);
+                clipBtn.setText("");
+                clipBtn.setBackground(new Color(0x1a, 0x1a, 0x1a));
+                if (clipBtn instanceof DelugePadButton pad) {
+                  pad.setBaseColor(new Color(0x1a, 0x1a, 0x1a));
+                  pad.setActive(false);
+                  pad.setNoteText("");
+                  pad.setIntensity(0.2f);
+                }
+              } else {
+                clipBtn.setEnabled(true);
+                boolean curMute = bridge.getMute(engineRow);
+                Color muteBg =
+                    curMute
+                        ? new Color(0xff, 0xd7, 0x00)
+                        : Color.WHITE; // Yellow when muted, Pure Snow White when active
+                clipBtn.setText(curMute ? "UNMUTE" : "MUTE");
+                clipBtn.setBackground(muteBg);
+                clipBtn.setForeground(Color.BLACK);
+                clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 11 : 9));
+                if (clipBtn instanceof DelugePadButton pad) {
+                  pad.setBaseColor(muteBg);
+                  pad.setTextColorOverride(Color.BLACK);
+                  pad.setDrawCenterCircle(false);
+                  pad.setIntensity(1.0f);
+                  pad.setActive(true);
+                  pad.setNoteText(curMute ? "UNMUTE" : "MUTE");
+                }
               }
             }
             if (viewMode == null) {
@@ -5383,21 +5590,17 @@ public class SwingGridPanel extends JPanel {
               }
             javax.swing.ToolTipManager.sharedInstance().registerComponent(clipBtn);
 
+            if (clipBtn.isEnabled()) {
+              JPopupMenu mutePopup = createMutePopupMenu(engineRow);
+              clipBtn.setComponentPopupMenu(mutePopup);
+            }
+
             clearActionListeners(clipBtn);
             clipBtn.addActionListener(
                 e -> {
                   if (viewMode == GridViewMode.SONG) {
                     if ((e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0) {
-                      // Shift+Click in SONG mode: Toggle Mute
-                      boolean isMuted = bridge.getMute(engineRow);
-                      bridge.setMute(engineRow, !isMuted);
-                      Color nextBg = (!isMuted) ? new Color(0xff, 0xd7, 0x00) : Color.WHITE;
-                      clipBtn.setBackground(nextBg);
-                      if (clipBtn instanceof DelugePadButton pad) {
-                        pad.setBaseColor(nextBg);
-                      }
-                    } else {
-                      // Left-Click in SONG mode: Toggle Launch of active clip!
+                      // Shift+Click in SONG mode: Toggle Launch of active clip! (swapped)
                       if (trkId < tracks.size()) {
                         org.deluge.model.TrackModel track = tracks.get(trkId);
                         int activeClipIdx = track.getActiveClipIndex();
@@ -5423,6 +5626,15 @@ public class SwingGridPanel extends JPanel {
                             }
                           }
                         }
+                      }
+                    } else {
+                      // Left-Click in SONG mode: Toggle Mute (intuitive, standard!)
+                      boolean isMuted = bridge.getMute(engineRow);
+                      bridge.setMute(engineRow, !isMuted);
+                      Color nextBg = (!isMuted) ? new Color(0xff, 0xd7, 0x00) : Color.WHITE;
+                      clipBtn.setBackground(nextBg);
+                      if (clipBtn instanceof DelugePadButton pad) {
+                        pad.setBaseColor(nextBg);
                       }
                     }
                     refresh();
@@ -5461,6 +5673,10 @@ public class SwingGridPanel extends JPanel {
                     refresh();
                     return;
                   }
+
+                  if (viewMode == GridViewMode.CLIP && !isEditedTrackKit()) {
+                    return;
+                  }
                   boolean isMuted = bridge.getMute(engineRow);
                   boolean nextMute = !isMuted;
                   bridge.setMute(engineRow, nextMute);
@@ -5473,16 +5689,16 @@ public class SwingGridPanel extends JPanel {
                     pad.setTextColorOverride(Color.BLACK);
                   }
                 });
-          } else if (colId == columnCount - 1) {
+          } else if (isSoloColumn(colId)) {
             if (viewMode == GridViewMode.SONG) {
-              if (t < tracks.size()) {
-                String sLaunch = tracks.get(t).getName();
+              if (currentTrack < tracks.size()) {
+                String sLaunch = tracks.get(currentTrack).getName();
                 clipBtn.setText(sLaunch);
                 clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 11 : 9));
-                clipBtn.setBackground(trackColors[t % trackColors.length]);
+                clipBtn.setBackground(trackColors[currentTrack % trackColors.length]);
                 clipBtn.setForeground(Color.BLACK);
                 if (clipBtn instanceof DelugePadButton pad) {
-                  pad.setBaseColor(trackColors[t % trackColors.length]);
+                  pad.setBaseColor(trackColors[currentTrack % trackColors.length]);
                   pad.setTextColorOverride(Color.BLACK);
                   pad.setDrawCenterCircle(false);
                   pad.setIntensity(1.0f);
@@ -5778,7 +5994,7 @@ public class SwingGridPanel extends JPanel {
                     }
                   });
             } else if (viewMode == GridViewMode.CLIP) {
-              if (isAdvanced && colId < columnCount - 2) {
+              if (isAdvanced && isStepColumn(colId)) {
                 if (gestureCoordinator == null) {
                   gestureCoordinator =
                       new DelugeGestureCoordinator(this, new DelugeGestureListener());
@@ -6223,9 +6439,10 @@ public class SwingGridPanel extends JPanel {
                     });
               }
             } else if (viewMode == GridViewMode.SONG
-                && colId == columnCount - 1
-                && t >= tracks.size()) {
-              final int clickRow = t;
+                && isSoloColumn(colId)
+                && t < songVoiceRows
+                && currentTrack >= tracks.size()) {
+              final int clickRow = currentTrack;
               final int clickCol = 0;
               clipBtn.addMouseListener(
                   new java.awt.event.MouseAdapter() {
@@ -6237,9 +6454,10 @@ public class SwingGridPanel extends JPanel {
                     }
                   });
             } else if (viewMode == GridViewMode.SONG
-                && colId == columnCount - 1
-                && t < tracks.size()) {
-              final int clickRow = t;
+                && isSoloColumn(colId)
+                && t < songVoiceRows
+                && currentTrack < tracks.size()) {
+              final int clickRow = currentTrack;
               clipBtn.addMouseListener(
                   new java.awt.event.MouseAdapter() {
                     @Override
@@ -6289,14 +6507,175 @@ public class SwingGridPanel extends JPanel {
                 });
           }
 
-          if (c == columnCount - 2) {
+          if (isMuteColumn(c)) {
             rowPanel.add(Box.createHorizontalStrut(20));
           }
+          boolean isSongOrArr =
+              (viewMode == GridViewMode.SONG || viewMode == GridViewMode.ARRANGEMENT);
+          boolean isUnusedTrack =
+              isSongOrArr && (currentTrack >= tracks.size()) && (t < songVoiceRows);
+          if (isUnusedTrack) {
+            Color darkBg = new Color(0x15, 0x15, 0x15);
+            clipBtn.setBackground(darkBg);
+            clipBtn.setForeground(Color.GRAY);
+            clipBtn.setText("");
+            if (clipBtn instanceof DelugePadButton pad) {
+              pad.setBaseColor(darkBg);
+              pad.setTextColorOverride(Color.GRAY);
+              pad.setDrawCenterCircle(false);
+              pad.setIntensity(0.0f);
+              pad.setActive(false);
+              pad.setNoteText("");
+              pad.setMuted(false);
+              pad.setPlayhead(false);
+              pad.setSelected(false);
+              pad.setInLoop(true);
+            }
+            clipBtn.setComponentPopupMenu(null);
+            clipBtn.setToolTipText(null);
+            for (java.awt.event.ActionListener al : clipBtn.getActionListeners()) {
+              clipBtn.removeActionListener(al);
+            }
+            for (java.awt.event.MouseListener ml : clipBtn.getMouseListeners()) {
+              clipBtn.removeMouseListener(ml);
+            }
+          }
+
+          if (t >= songVoiceRows && (isMuteColumn(colId) || isSoloColumn(colId))) {
+            clipBtn.setVisible(false);
+            clipBtn.setEnabled(false);
+            clipBtn.setText("");
+            if (clipBtn instanceof DelugePadButton pad) {
+              pad.setActive(false);
+              pad.setBaseColor(new Color(0x15, 0x15, 0x15));
+              pad.setIntensity(0.0f);
+              pad.setNoteText("");
+            }
+            for (java.awt.event.ActionListener al : clipBtn.getActionListeners()) {
+              clipBtn.removeActionListener(al);
+            }
+            for (java.awt.event.MouseListener ml : clipBtn.getMouseListeners()) {
+              clipBtn.removeMouseListener(ml);
+            }
+          }
+
           rowPanel.add(clipBtn);
           rowPanel.add(Box.createHorizontalStrut(5));
         }
-        add(rowPanel);
+        voicePanel.add(rowPanel);
       }
+
+      JPanel voiceWrapper = new JPanel(new BorderLayout());
+      voiceWrapper.setBackground(new Color(0x15, 0x15, 0x15));
+      boolean showNavPanel = voiceRowCount > gridMode.rows;
+      int viewH = gridMode.rows * (padSz + 5) - 5;
+      int wrapperW = rowW + (showNavPanel ? 32 : 0);
+      voiceWrapper.setPreferredSize(new Dimension(wrapperW, viewH));
+      voiceWrapper.setMaximumSize(new Dimension(wrapperW, viewH));
+      voiceWrapper.setAlignmentX(Component.LEFT_ALIGNMENT);
+      voiceWrapper.add(voicePanel, BorderLayout.CENTER);
+
+      if (showNavPanel) {
+        if (vertScrollBar == null) {
+          vertScrollBar = new JScrollBar(JScrollBar.VERTICAL);
+          vertScrollBar.setBackground(new Color(0x15, 0x15, 0x18));
+          vertScrollBar.setForeground(new Color(0x00, 0xff, 0xcc));
+          vertScrollBar.setPreferredSize(new Dimension(14, 200));
+
+          vertScrollBar.setUI(
+              new javax.swing.plaf.basic.BasicScrollBarUI() {
+                @Override
+                protected void paintTrack(Graphics g, JComponent c, Rectangle trackBounds) {
+                  g.setColor(new Color(0x1a, 0x1a, 0x1c));
+                  g.fillRect(trackBounds.x, trackBounds.y, trackBounds.width, trackBounds.height);
+
+                  g.setColor(new Color(0xdd, 0xdd, 0xe0, 80));
+                  int midX = trackBounds.x + trackBounds.width / 2;
+                  g.fillRect(midX - 1, trackBounds.y, 2, trackBounds.height);
+                }
+
+                @Override
+                protected void paintThumb(Graphics g, JComponent c, Rectangle thumbBounds) {
+                  g.setColor(Color.WHITE);
+                  g.fillRoundRect(
+                      thumbBounds.x + 3,
+                      thumbBounds.y + 1,
+                      thumbBounds.width - 6,
+                      thumbBounds.height - 2,
+                      4,
+                      4);
+                }
+
+                @Override
+                protected JButton createDecreaseButton(int orientation) {
+                  return createZeroButton();
+                }
+
+                @Override
+                protected JButton createIncreaseButton(int orientation) {
+                  return createZeroButton();
+                }
+
+                private JButton createZeroButton() {
+                  JButton b = new JButton();
+                  b.setPreferredSize(new Dimension(0, 0));
+                  b.setMinimumSize(new Dimension(0, 0));
+                  b.setMaximumSize(new Dimension(0, 0));
+                  return b;
+                }
+              });
+
+          vertScrollBar.addAdjustmentListener(
+              e -> {
+                if (refreshInProgress) return;
+                int val = e.getValue();
+                if (val != scrollOffset) {
+                  scrollOffset = val;
+                  System.out.println(
+                      "[TRACE grid] vertScrollBar adjust scrollOffset=" + scrollOffset);
+                  refresh();
+                }
+              });
+        }
+
+        JPanel pageNavPanel = new JPanel(new BorderLayout(0, 4));
+        pageNavPanel.setBackground(new Color(0x15, 0x15, 0x18));
+
+        JButton pgUpBtn = new JButton("▲");
+        pgUpBtn.setUI(new javax.swing.plaf.basic.BasicButtonUI());
+        pgUpBtn.setFont(new Font("SansSerif", Font.BOLD, 10));
+        pgUpBtn.setForeground(new Color(0x00, 0xff, 0xcc));
+        pgUpBtn.setBackground(new Color(0x1f, 0x1f, 0x24));
+        pgUpBtn.setBorder(BorderFactory.createEmptyBorder(6, 2, 6, 2));
+        pgUpBtn.setFocusable(false);
+        pgUpBtn.setToolTipText("Page Up (Shift 8 rows up)");
+        pgUpBtn.addActionListener(e -> scrollVertically(-gridMode.rows));
+
+        JButton pgDnBtn = new JButton("▼");
+        pgDnBtn.setUI(new javax.swing.plaf.basic.BasicButtonUI());
+        pgDnBtn.setFont(new Font("SansSerif", Font.BOLD, 10));
+        pgDnBtn.setForeground(new Color(0x00, 0xff, 0xcc));
+        pgDnBtn.setBackground(new Color(0x1f, 0x1f, 0x24));
+        pgDnBtn.setBorder(BorderFactory.createEmptyBorder(6, 2, 6, 2));
+        pgDnBtn.setFocusable(false);
+        pgDnBtn.setToolTipText("Page Down (Shift 8 rows down)");
+        pgDnBtn.addActionListener(e -> scrollVertically(gridMode.rows));
+
+        boolean showScrollControls = voiceRowCount > gridMode.rows;
+        pgUpBtn.setVisible(showScrollControls);
+        pgDnBtn.setVisible(showScrollControls);
+        vertScrollBar.setVisible(showScrollControls);
+
+        pageNavPanel.add(pgUpBtn, BorderLayout.NORTH);
+        pageNavPanel.add(vertScrollBar, BorderLayout.CENTER);
+        pageNavPanel.add(pgDnBtn, BorderLayout.SOUTH);
+
+        vertScrollBar.setValues(scrollOffset, gridMode.rows, 0, voiceRowCount);
+        updateScrollBarTooltip();
+        voiceWrapper.add(pageNavPanel, BorderLayout.EAST);
+      }
+
+      add(voiceWrapper);
     } // end else (SONG/ARRANGEMENT)
     columnCount = savedColCount; // restore CLIP-mode columnCount
 
@@ -6430,17 +6809,23 @@ public class SwingGridPanel extends JPanel {
                   lastCol[0] = activeCol;
                   if (activeCol == 0) {
                     for (int t = 0; t < rows; t++) {
-                      if (isOneShotTrack[t] && currentStep >= stepCount) {
-                        bridge.setMute(baseTrackId + t, true);
+                      int trkIdx = (viewMode == GridViewMode.AUTOMATION) ? t : (scrollOffset + t);
+                      if (trkIdx < isOneShotTrack.length
+                          && isOneShotTrack[trkIdx]
+                          && currentStep >= stepCount) {
+                        bridge.setMute(baseTrackId + trkIdx, true);
                       }
                     }
                   }
 
                   for (int t = 0; t < rows; t++) {
                     int engineRow =
-                        baseTrackId + (viewMode == GridViewMode.CLIP ? scrollOffset + t : t);
+                        baseTrackId
+                            + ((viewMode == GridViewMode.AUTOMATION) ? t : (scrollOffset + t));
                     if (bridge.getStep(engineRow, engineActiveCol)) {
-                      vuLevels[engineRow] = 1.0; // Spike VU Meter!
+                      if (engineRow < vuLevels.length) {
+                        vuLevels[engineRow] = 1.0; // Spike VU Meter!
+                      }
                       if (finalMidiOut != null) {
                         // Playhead step out: short gate so the note releases before the next step.
                         sendMidiNote(36 + t * 2, 100, 120);
@@ -6488,19 +6873,35 @@ public class SwingGridPanel extends JPanel {
                         } else {
                           pads[t][c].setBorder(UIManager.getBorder("Button.border"));
                         }
-                        int modelRow = viewMode == GridViewMode.CLIP ? scrollOffset + t : t;
+                        int modelRow =
+                            (viewMode == GridViewMode.AUTOMATION) ? t : (scrollOffset + t);
+                        boolean isSongOrArr =
+                            (viewMode == GridViewMode.SONG || viewMode == GridViewMode.ARRANGEMENT);
+                        boolean isUnused = isSongOrArr && (modelRow >= tracks.size());
+                        if (isUnused) {
+                          Color darkBg = new Color(0x15, 0x15, 0x15);
+                          pads[t][c].setBorder(UIManager.getBorder("Button.border"));
+                          if (pads[t][c] instanceof DelugePadButton pad) {
+                            pad.setActive(false);
+                            pad.setBaseColor(darkBg);
+                            pad.setIntensity(0.0f);
+                          } else {
+                            pads[t][c].setBackground(darkBg);
+                          }
+                          continue;
+                        }
                         double[] outVelProb = {0.8, 1.0};
                         boolean stepActive = isStepActiveOrSpanned(modelRow, engineCol, outVelProb);
                         double velPb = outVelProb[0];
                         if (pads[t][c] instanceof DelugePadButton pad) {
                           pad.setActive(stepActive);
                           pad.setIntensity((float) (velPb * 0.8f));
-                          pad.setBaseColor(trackColors[t % trackColors.length]);
+                          pad.setBaseColor(trackColors[modelRow % trackColors.length]);
                           pad.setTied(isStepTied(modelRow, engineCol));
                         } else {
                           pads[t][c].setBackground(
                               stepActive
-                                  ? velocityBlend(trackColors[t % trackColors.length], velPb)
+                                  ? velocityBlend(trackColors[modelRow % trackColors.length], velPb)
                                   : new Color(0x33, 0x33, 0x33));
                         }
                       }

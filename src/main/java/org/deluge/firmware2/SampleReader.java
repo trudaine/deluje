@@ -38,6 +38,8 @@ public class SampleReader {
   final int[] bufL = new int[K_TAPS];
   final int[] bufR = new int[K_TAPS];
 
+  private final int[] interpOut = new int[2];
+
   private int numFrames() {
     return sample.data.length / sample.numChannels;
   }
@@ -84,7 +86,7 @@ public class SampleReader {
     if (playPos >= 0 && playPos < numFrames()) {
       int base = playPos * sample.numChannels;
       bufL[0] = sample.data[base];
-      bufR[0] = (sample.numChannels == 2) ? sample.data[base + 1] : 0;
+      bufR[0] = (sample.numChannels == 2) ? sample.data[base + 1] : sample.data[base];
     } else {
       bufL[0] = 0;
       bufR[0] = 0;
@@ -150,9 +152,18 @@ public class SampleReader {
         }
       }
 
-      int[] sampleRead =
-          SincInterpolator.interpolateWide(bufL, bufR, numChannels, whichKernel, oscPos); // C:1024
-      readResampledTail(oscBuffer, numChannels, amplitude, amplitudeIncrement, sampleRead, o);
+      SincInterpolator.interpolateWide(
+          bufL, bufR, sample.numChannels, whichKernel, oscPos, interpOut); // C:1024
+      if (sample.numChannels == 2) {
+        if (numChannels == 1) {
+          // Condense stereo to mono
+          interpOut[0] = ((interpOut[0] >> 1) + (interpOut[1] >> 1));
+        }
+      } else {
+        // Mono sample: copy L to R for stereo output compatibility
+        interpOut[1] = interpOut[0];
+      }
+      readResampledTail(oscBuffer, numChannels, amplitude, amplitudeIncrement, interpOut, o);
       o += numChannels;
     }
     interpolationBufferSizeLastTime = K_TAPS; // C:568/672 — windowed-sinc taps engaged
@@ -189,16 +200,21 @@ public class SampleReader {
     int o = 0;
     int n = numFrames();
     for (int s = 0; s < numSamples; s++) {
-      int sampleReadL;
+      int sampleReadL = 0;
       int sampleReadR = 0;
       if (playPos >= 0 && playPos < n) {
-        int base = playPos * numChannels;
+        int base = playPos * sample.numChannels;
         sampleReadL = sample.data[base]; // C:1125
-        if (numChannels == 2) {
+        if (sample.numChannels == 2) {
           sampleReadR = sample.data[base + 1]; // C:1133
+          if (numChannels == 1) {
+            // Condense stereo to mono
+            sampleReadL = ((sampleReadL >> 1) + (sampleReadR >> 1));
+          }
+        } else {
+          // Mono sample: copy L to R for stereo output compatibility
+          sampleReadR = sampleReadL;
         }
-      } else {
-        sampleReadL = 0;
       }
       playPos += playDirection; // C:1141 (jumpAmount = bytesPerSample * playDirection ⇒ ±1 frame)
 
