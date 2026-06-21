@@ -88,6 +88,7 @@ public class JavaAudioDriver implements Runnable {
 
   public static volatile int monitorGainMul =
       org.deluge.project.PreferencesManager.getMonitorGainBoost();
+  public static boolean debugPeak = false;
 
   private double ticksPerSample = 0.005; // 120BPM default
   private double accumulatedTicks = 0;
@@ -252,7 +253,7 @@ public class JavaAudioDriver implements Runnable {
           }
         }
 
-        if (blockCounter % 200 == 0 && peak > 1000) {
+        if (debugPeak && blockCounter % 200 == 0 && peak > 1000) {
           System.out.println("[JavaAudioDriver] LIVE SIGNAL PEAK: " + peak);
         }
         if (blockCounter % 200 == 0) peak = 0;
