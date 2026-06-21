@@ -1285,6 +1285,21 @@ public class SwingDelugeApp extends JFrame {
 
     setupUI();
 
+    // Realize and lay out the frame at its FINAL size while still invisible, then size every grid's
+    // cells once up-front. Without this the grids are built at the default cell size and then
+    // rebuilt
+    // 2–3 times as boot resize events (0 → frame width → viewport width) arrive — the visible
+    // "grid keeps resizing" flicker. addNotify()+validate() is exactly what pack() does internally
+    // for layout, minus the preferred-size resize, so it keeps our computed window size.
+    addNotify();
+    validate();
+    for (SwingGridPanel grid :
+        new SwingGridPanel[] {clipPanel, songPanel, arrGridPanel, autoPanel}) {
+      if (grid != null) {
+        grid.recomputePadSize();
+      }
+    }
+
     // Auto-load our default initial song project to sync tracks, presets, and listeners to the
     // bridge/engine!
     loadProject(currentProject);
