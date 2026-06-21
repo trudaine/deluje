@@ -43,6 +43,13 @@ public class SwingDelugeApp extends JFrame {
 
   private JPanel centerCardPanel;
 
+  /**
+   * When true, the boot auto-screenshot pipeline runs (it cycles grid modes 8x16/24x16 to capture
+   * dev screenshots). Off for normal launches — otherwise the user sees the grid visibly resize 2-3
+   * times on every boot. Enabled only by the {@code --screenshot} CLI flag.
+   */
+  public static boolean autoScreenshotOnBoot = false;
+
   /** Wrap a SwingGridPanel with a small top indent so cells aren't flush with the top border. */
   private static JPanel wrapGridPanel(SwingGridPanel grid) {
     grid.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
@@ -3873,7 +3880,11 @@ public class SwingDelugeApp extends JFrame {
         }
       }
     }
-    captureAutoScreenshot("startup");
+    // Only run the (grid-mode-cycling) screenshot pipeline when explicitly requested via
+    // --screenshot. On a normal boot this would visibly resize the grid 2-3 times.
+    if (autoScreenshotOnBoot) {
+      captureAutoScreenshot("startup");
+    }
   }
 
   /** No-op: centeredWrapper removed, scroll pane sizes to content naturally. */
@@ -4058,6 +4069,9 @@ public class SwingDelugeApp extends JFrame {
       }
     }
     final boolean finalRunScreenshots = runScreenshots;
+    // Gate the boot grid-mode-cycling screenshot pipeline (set before the app is constructed, since
+    // the constructor runs the boot path).
+    autoScreenshotOnBoot = runScreenshots;
 
     bridge.register(bridge);
 
