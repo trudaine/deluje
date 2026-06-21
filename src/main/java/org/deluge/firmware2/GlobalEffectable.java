@@ -22,9 +22,10 @@ public abstract class GlobalEffectable {
   public int postReverbVolume = 134217728;
 
   private int[] trackBuffer = new int[256];
+  private int[] trackReverbBuffer = new int[128];
   private int[] flatBuffer;
 
-  public void renderOutput(int[] output, int numSamples, int[] reverbBuffer) {
+  public void renderOutput(long[] output, int numSamples, long[] reverbBuffer) {
     if (muted) {
       return;
     }
@@ -34,10 +35,15 @@ public abstract class GlobalEffectable {
     }
     Arrays.fill(trackBuffer, 0, requiredLen, 0);
 
-    // Render actual voices or child elements into trackBuffer
+    if (trackReverbBuffer.length < numSamples) {
+      trackReverbBuffer = new int[numSamples];
+    }
+    Arrays.fill(trackReverbBuffer, 0, numSamples, 0);
+
+    // Render actual voices or child elements into trackBuffer (32-bit)
     postFXVolume = 134217728;
     postReverbVolume = 134217728;
-    renderInternal(trackBuffer, numSamples, reverbBuffer);
+    renderInternal(trackBuffer, numSamples, trackReverbBuffer);
 
     int maxValTrack = 0;
     for (int i = 0; i < numSamples * 2; i++) {
@@ -87,10 +93,11 @@ public abstract class GlobalEffectable {
         int revSend =
             Functions.lshiftAndSaturate(
                 Functions.multiply_32x32_rshift32(mono, reverbSendAmountAndPostFXVolume), 1);
-        reverbBuffer[i] = Functions.add_saturate(reverbBuffer[i], revSend);
+        // Sum reverb send in 64-bit
+        reverbBuffer[i] += (long) trackReverbBuffer[i] + revSend;
       }
 
-      // Apply track final gain and sum to main output
+      // Apply track final gain and sum to main output in 64-bit (infinite headroom!)
       int outL =
           Functions.lshiftAndSaturate(
               Functions.multiply_32x32_rshift32(l, postFXAndReverbVolumeL), 5);
@@ -98,8 +105,23 @@ public abstract class GlobalEffectable {
           Functions.lshiftAndSaturate(
               Functions.multiply_32x32_rshift32(r, postFXAndReverbVolumeL), 5);
 
-      output[i * 2] = Functions.add_saturate(output[i * 2], outL);
-      output[i * 2 + 1] = Functions.add_saturate(output[i * 2 + 1], outR);
+      output[i * 2] += outL;
+      output[i * 2 + 1] += outR;
+    }
+  }
+
+  public void renderOutput(int[] output, int numSamples, int[] reverbBuffer) {
+    long[] outLong = new long[numSamples * 2];
+    long[] revLong = (reverbBuffer != null) ? new long[numSamples] : null;
+    renderOutput(outLong, numSamples, revLong);
+    for (int i = 0; i < numSamples * 2; i++) {
+      output[i] = (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, outLong[i]));
+    }
+    if (reverbBuffer != null) {
+      for (int i = 0; i < numSamples; i++) {
+        reverbBuffer[i] =
+            (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, revLong[i]));
+      }
     }
   }
 
@@ -107,18 +129,22 @@ public abstract class GlobalEffectable {
 
   public void renderOutput(StereoSample[] buffer, int numSamples, Object unused) {
     int requiredLen = numSamples * 2;
-    if (flatBuffer == null || flatBuffer.length < requiredLen) {
-      flatBuffer = new int[requiredLen];
-    }
-    Arrays.fill(flatBuffer, 0, requiredLen, 0);
-    int[] reverb = null;
+    long[] outLong = new long[requiredLen];
+    long[] revLong = null;
     if (unused instanceof int[]) {
-      reverb = (int[]) unused;
+      revLong = new long[numSamples];
     }
-    renderOutput(flatBuffer, numSamples, reverb);
+    renderOutput(outLong, numSamples, revLong);
     for (int i = 0; i < numSamples; i++) {
-      buffer[i].l = flatBuffer[i * 2];
-      buffer[i].r = flatBuffer[i * 2 + 1];
+      buffer[i].l = (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, outLong[i * 2]));
+      buffer[i].r =
+          (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, outLong[i * 2 + 1]));
+    }
+    if (unused instanceof int[]) {
+      int[] reverb = (int[]) unused;
+      for (int i = 0; i < numSamples; i++) {
+        reverb[i] = (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, revLong[i]));
+      }
     }
   }
 }

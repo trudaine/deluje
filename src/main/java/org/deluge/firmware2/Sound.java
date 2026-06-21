@@ -589,13 +589,6 @@ public class Sound extends GlobalEffectable {
     // 4. Sum active voices
     boolean hasActiveVoices = false;
     synchronized (voices) {
-      if (!voices.isEmpty()) {
-        // Pre-calculate track-level final values for all uncabled parameters once per block
-        for (int p = 0; p < Param.kNumParams; p++) {
-          Patcher.recalculateFinalValueForParamWithNoCables(
-              p, patchedParamValues, globalSourceValues, trackParamFinalValues);
-        }
-      }
       for (int i = voices.size() - 1; i >= 0; i--) {
         Voice v = voices.get(i);
         if (!v.active) {
@@ -603,8 +596,7 @@ public class Sound extends GlobalEffectable {
           continue;
         }
         hasActiveVoices = true;
-        // Copy the pre-calculated track-level base parameters in under 1 nanosecond (arraycopy)
-        System.arraycopy(trackParamFinalValues, 0, v.paramFinalValues, 0, Param.kNumParams);
+        Patcher.performInitialPatching(patchedParamValues, v.sourceValues, v.paramFinalValues);
         v.render(buffer, numSamples, lpfMode != FilterMode.OFF, hpfMode != FilterMode.OFF);
       }
     }

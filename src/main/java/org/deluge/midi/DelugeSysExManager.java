@@ -46,6 +46,7 @@ public class DelugeSysExManager {
   private DisplayListener displayListener;
   private MidiDebugListener debugListener;
   private volatile boolean oledStreamingEnabled = true;
+  private static boolean hasWarnedNoMidiOut = false;
 
   private volatile int sessionId = 0;
   private volatile int midMin = 1;
@@ -106,7 +107,10 @@ public class DelugeSysExManager {
    */
   public void sendRequest(String jsonPayload, byte[] binaryPayload, SysExCallback callback) {
     if (activeMidiOut == null) {
-      System.err.println("[SysExManager] Cannot send request: No MidiOut configured.");
+      if (!hasWarnedNoMidiOut) {
+        System.err.println("[SysExManager] Cannot send request: No MidiOut configured.");
+        hasWarnedNoMidiOut = true;
+      }
       return;
     }
 

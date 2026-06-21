@@ -2198,8 +2198,6 @@ public final class BridgeContract {
   }
 
   public void setMute(int t, boolean val) {
-    System.out.println("BRIDGE-DEBUG: setMute called for track " + t + " with value " + val);
-    new Throwable().printStackTrace(System.out);
     track.mute[t] = val ? 1 : 0;
     if (vm != null) setGlobalInt("g_mute_" + t, val ? 1L : 0L);
   }
