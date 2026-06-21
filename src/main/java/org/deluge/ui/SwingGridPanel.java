@@ -551,8 +551,12 @@ public class SwingGridPanel extends JPanel {
     return getPreferredSize();
   }
 
-  /** Recompute cachedPadSz from current width/height. Called on resize, not on every refresh(). */
-  private boolean recomputePadSize() {
+  /**
+   * Recompute cachedPadSz from the current viewport size. Called on resize and once during boot
+   * (before the frame is shown) so the grid is built at its final cell size in a single pass.
+   * Returns true if the cell size changed.
+   */
+  boolean recomputePadSize() {
     // Block recursive recompute triggered by revalidate() during refresh() — the inflated
     // 3000-wide preferred sizes cause getWidth() to balloon and padSz to grow on each cycle.
     if (refreshInProgress) return false;
@@ -579,7 +583,6 @@ public class SwingGridPanel extends JPanel {
     // macro and keyboard rows off-screen!
     // Budgeting for track header (36px), scrollbar row (26px), optional clip bar (26px),
     // optional page bar (20px), and margins/paddings.
-    int rowsInView = gridMode.rows + 3;
     int totalGapsHeight = (gridMode.rows - 1) * 5;
     int overhead = 115 + totalGapsHeight;
     int remainingHeight = availHeight - overhead;
@@ -589,20 +592,6 @@ public class SwingGridPanel extends JPanel {
     int padSz = Math.min(cellsWidth / columnCount, heightLimitedPadSz);
     int newSz = Math.max(16, Math.min(200, padSz));
     if (newSz != cachedPadSz) {
-      System.out.println(
-          "DEBUG recomputePadSize: "
-              + cachedPadSz
-              + " -> "
-              + newSz
-              + " (avail="
-              + availWidth
-              + "x"
-              + availHeight
-              + " rowsInView="
-              + rowsInView
-              + " colCount="
-              + columnCount
-              + ")");
       cachedPadSz = newSz;
       return true;
     }
@@ -689,7 +678,6 @@ public class SwingGridPanel extends JPanel {
             if (w != lastW || h != lastH) {
               lastW = w;
               lastH = h;
-              System.out.println("DEBUG resize: " + lastW + "x" + lastH + " -> recomputePadSize");
               if (recomputePadSize() && !refreshInProgress) {
                 refresh();
               }
@@ -4132,21 +4120,22 @@ public class SwingGridPanel extends JPanel {
     java.util.List<org.deluge.model.TrackModel> tracks = projectModel.getTracks();
 
     voiceRowCount = computeVoiceRowCount();
-    LOG.info(
-        "REFRESH gridMode="
-            + gridMode
-            + " voiceRowCount="
-            + voiceRowCount
-            + " gridMode.rows="
-            + gridMode.rows
-            + " gridMode.columns="
-            + gridMode.columns
-            + " columnCount="
-            + columnCount
-            + " scrollOffset="
-            + scrollOffset
-            + " viewMode="
-            + viewMode);
+    LOG.fine(
+        () ->
+            "REFRESH gridMode="
+                + gridMode
+                + " voiceRowCount="
+                + voiceRowCount
+                + " gridMode.rows="
+                + gridMode.rows
+                + " gridMode.columns="
+                + gridMode.columns
+                + " columnCount="
+                + columnCount
+                + " scrollOffset="
+                + scrollOffset
+                + " viewMode="
+                + viewMode);
     // Resolve dynamic active clip steps count limits (Triplet 12-step vs Straight 16-step!)
     if ((viewMode == GridViewMode.CLIP || viewMode == GridViewMode.AUTOMATION)
         && projectModel != null

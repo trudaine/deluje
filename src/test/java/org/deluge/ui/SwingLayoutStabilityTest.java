@@ -145,6 +145,32 @@ public class SwingLayoutStabilityTest {
     System.out.println("[TEST UI] Headless UI Action stability E2E test PASSED with 100% success!");
   }
 
+  /**
+   * Guards the boot fix: the grid must reach its FINAL cell size in one pass during construction
+   * (addNotify()+validate() lay the frame out at its final size before it is shown). A redundant
+   * resize at the same viewport size must therefore NOT change the cell size — i.e. no second/third
+   * rebuild at a different grid size, which was the visible "grid keeps resizing" boot flicker.
+   */
+  @Test
+  public void testBootGridCellSizeIsStable() {
+    BridgeContract bridge = new BridgeContract();
+    SwingDelugeApp app = new SwingDelugeApp(bridge, null);
+    try {
+      SwingGridPanel grid = app.getClipPanel();
+      int bootPad = grid.cachedPadSz;
+      assertTrue(bootPad >= 16, "Grid must have a valid cell size after boot");
+
+      boolean changed = grid.recomputePadSize();
+      assertFalse(
+          changed,
+          "Boot grid cell size must already be final — a same-size resize must not re-flicker the grid");
+      assertEquals(bootPad, grid.cachedPadSz, "Cell size must stay stable after boot");
+    } finally {
+      app.dispose();
+      bridge.shutdown();
+    }
+  }
+
   /** Helper method to recursively count all nested components in a Swing container */
   private int countAllComponents(Container container) {
     int count = 1; // Count the container itself
