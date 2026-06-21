@@ -193,6 +193,7 @@ public class Sound extends GlobalEffectable {
   public int eqBassParam = 0;
   public int eqTrebleParam = 0;
   public int currentBpm = 120;
+  private final int[] trackParamFinalValues = new int[Param.kNumParams];
 
   private StereoSample[] fxStereoBuffer = new StereoSample[256];
   private int[][] fxIntBuffer = new int[256][2];
@@ -588,6 +589,13 @@ public class Sound extends GlobalEffectable {
     // 4. Sum active voices
     boolean hasActiveVoices = false;
     synchronized (voices) {
+      if (!voices.isEmpty()) {
+        // Pre-calculate track-level final values for all uncabled parameters once per block
+        for (int p = 0; p < Param.kNumParams; p++) {
+          Patcher.recalculateFinalValueForParamWithNoCables(
+              p, patchedParamValues, globalSourceValues, trackParamFinalValues);
+        }
+      }
       for (int i = voices.size() - 1; i >= 0; i--) {
         Voice v = voices.get(i);
         if (!v.active) {
@@ -595,7 +603,8 @@ public class Sound extends GlobalEffectable {
           continue;
         }
         hasActiveVoices = true;
-        Patcher.performInitialPatching(patchedParamValues, v.sourceValues, v.paramFinalValues);
+        // Copy the pre-calculated track-level base parameters in under 1 nanosecond (arraycopy)
+        System.arraycopy(trackParamFinalValues, 0, v.paramFinalValues, 0, Param.kNumParams);
         v.render(buffer, numSamples, lpfMode != FilterMode.OFF, hpfMode != FilterMode.OFF);
       }
     }
