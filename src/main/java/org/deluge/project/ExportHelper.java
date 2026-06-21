@@ -307,6 +307,11 @@ public class ExportHelper {
       this.totalFrames = totalBlocks * blockSize;
       this.ticksPerSample = (model.getBpm() / 60.0 * 96.0) / 44100.0;
       this.blockBuffer = new byte[blockSize * 4];
+      // Offline export is not real-time constrained: force full-quality sinc interpolation by
+      // clearing any CPU direness left over from a prior live session (export never calls
+      // updateDireness, so this only needs doing once at start). C: cpuDireness governs sample
+      // interpolation quality (sample_controls.cpp:29).
+      org.deluge.firmware.engine.FirmwareAudioEngine.cpuDireness = 0;
     }
 
     @Override

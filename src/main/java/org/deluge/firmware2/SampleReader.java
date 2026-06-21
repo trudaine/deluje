@@ -122,6 +122,7 @@ public class SampleReader {
       int numChannels,
       int whichKernel,
       int phaseIncrement,
+      int interpolationBufferSize,
       int[] amplitude,
       int amplitudeIncrement) {
     if (interpolationBufferSizeLastTime == 0) {
@@ -150,30 +151,23 @@ public class SampleReader {
         }
       }
 
-      if (org.deluge.firmware.engine.FirmwareAudioEngine.realTimeMode) {
-        // SANCTIONED DEVIATION SD-1 (docs/FIRMWARE2_FAITHFUL_PORT.md): CPU-saving 2-tap linear path
-        // for
-        // live playback. This IS the firmware's Interpolator::interpolateLinear
-        // (dsp/interpolate/interpolate.cpp:70 — strength2 = phase >> 9), which the hardware selects
-        // at
-        // sample_low_level_reader.cpp:1081 when getInterpolationBufferSize() == 2
-        // (sample_controls.cpp:29,
-        // under AudioEngine::cpuDireness). The deviation is only the gating: a global realTimeMode
-        // flag
-        // instead of the per-source, load-adaptive, pitch-aware cpuDireness decision.
+      if (interpolationBufferSize > 2) {
+        // Faithful 24-tap windowed-sinc (interpolate.cpp:9; sample_low_level_reader.cpp:1024). Used
+        // whenever the engine has headroom (cpuDireness 0), plus all offline export / fidelity
+        // tests.
+        SincInterpolator.interpolateWide(
+            bufL, bufR, sample.numChannels, whichKernel, oscPos, interpOut); // C:1024
+      } else {
+        // 2-tap linear (Interpolator::interpolateLinear, interpolate.cpp:70 — strength2 = phase >>
+        // 9),
+        // selected at sample_low_level_reader.cpp:1081 when getInterpolationBufferSize() == 2 — the
+        // CPU-direness fallback for pitched-up samples under load (sample_controls.cpp:29).
         int strength2 = (oscPos >>> 9) & 0x7FFF;
         int strength1 = 32768 - strength2;
         interpOut[0] = (int) (((long) bufL[1] * strength1 + (long) bufL[0] * strength2) >> 15);
         if (sample.numChannels == 2) {
           interpOut[1] = (int) (((long) bufR[1] * strength1 + (long) bufR[0] * strength2) >> 15);
         }
-      } else {
-        // Faithful 24-tap windowed-sinc (interpolate.cpp:9; selected at
-        // sample_low_level_reader.cpp:1024
-        // when getInterpolationBufferSize() > 2). Used for offline export and all fidelity/golden
-        // tests.
-        SincInterpolator.interpolateWide(
-            bufL, bufR, sample.numChannels, whichKernel, oscPos, interpOut); // C:1024
       }
       if (sample.numChannels == 2) {
         if (numChannels == 1) {

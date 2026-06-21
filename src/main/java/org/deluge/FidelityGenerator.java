@@ -75,6 +75,8 @@ public class FidelityGenerator {
     List<float[]> leftSignal = new ArrayList<>();
     List<float[]> rightSignal = new ArrayList<>();
 
+    // Offline fidelity render: force full-quality sinc by clearing any leftover CPU direness.
+    org.deluge.firmware.engine.FirmwareAudioEngine.cpuDireness = 0;
     System.out.println("[Generator] Rendering audio blocks and applying resampler gain staging...");
     for (int b = 0; b < totalBlocks; b++) {
       handler.advanceTicks(1);

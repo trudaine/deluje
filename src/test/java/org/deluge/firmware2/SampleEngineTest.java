@@ -16,7 +16,7 @@ class SampleEngineTest {
 
   @BeforeEach
   void setUp() {
-    FirmwareAudioEngine.realTimeMode = false;
+    FirmwareAudioEngine.cpuDireness = 0; // full sinc; tests pass the buffer size explicitly anyway
   }
 
   private static Sample sample(
@@ -117,7 +117,15 @@ class SampleEngineTest {
       int[] amplitude = {amp};
       int n = 200;
       int[] osc = new int[n * numChannels];
-      r.readResampled(osc, n, numChannels, 0 /*kernel*/, 1 << 24 /*unity*/, amplitude, 0 /*flat*/);
+      r.readResampled(
+          osc,
+          n,
+          numChannels,
+          0 /*kernel*/,
+          1 << 24 /*unity*/,
+          SampleReader.K_TAPS /*sinc*/,
+          amplitude,
+          0 /*flat*/);
 
       // Independent expected: interpolateWide of an all-`value` history at phase 0, then the MAC.
       int[] hist = new int[16];
@@ -156,7 +164,8 @@ class SampleEngineTest {
     rd.interpolationBufferSizeLastTime = SampleReader.K_TAPS;
     int[] osc = new int[n * numChannels];
     int[] amp = {1 << 26};
-    rd.readResampled(osc, n, numChannels, whichKernel, phaseIncrement, amp, 1 << 10);
+    rd.readResampled(
+        osc, n, numChannels, whichKernel, phaseIncrement, SampleReader.K_TAPS, amp, 1 << 10);
 
     // Independent re-derivation with the same model.
     int[] bufL = new int[16];

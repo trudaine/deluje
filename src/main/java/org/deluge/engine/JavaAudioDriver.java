@@ -142,7 +142,6 @@ public class JavaAudioDriver implements Runnable {
 
   @Override
   public void run() {
-    org.deluge.firmware.engine.FirmwareAudioEngine.realTimeMode = true;
     try {
       Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
       // Capture-only mode: render + resample still run, but never open/write the soundcard. Used by
@@ -208,6 +207,10 @@ public class JavaAudioDriver implements Runnable {
         long start = System.nanoTime();
         engine.renderBlock(BLOCK_SIZE);
         long duration = System.nanoTime() - start;
+        // C: AudioEngine::setDireness — feed the measured block render time to the adaptive
+        // resampling-quality governor (sample interpolation drops to linear under sustained load).
+        org.deluge.firmware.engine.FirmwareAudioEngine.updateDireness(
+            duration, BLOCK_SIZE, blockCounter * (long) BLOCK_SIZE);
         if (duration > 2900000) {
           System.out.println(
               "[WARN] Audio block render took too long: " + (duration / 1000000.0) + " ms");
