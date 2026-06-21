@@ -23,7 +23,51 @@ import org.deluge.firmware2.StereoSample;
  */
 public class FirmwareAudioEngine {
   public static boolean debugTelemetry = false;
-  public static boolean realTimeMode = false;
+
+  // ── CPU direness (audio_engine.cpp) — adaptive resampling-quality fallback ──
+  // C: AudioEngine::cpuDireness (audio_engine.cpp:161), range 0..14. Raised when the DSP overruns
+  // its real-time budget, decayed (with hysteresis) when it recovers. SampleControls.
+  // getInterpolationBufferSize reads it to drop to 2-tap linear interpolation on pitched-up samples
+  // under load (sample_controls.cpp:35-44); at 0 the sample engine always uses full 24-tap sinc.
+  // Stays 0 for offline export/tests (those never call updateDireness), so export stays sinc.
+  public static volatile int cpuDireness = 0;
+
+  // C: audio_engine.cpp:122-124 — numSamplesLimit=80, direnessThreshold = numSamplesLimit-30 = 50.
+  private static final int DIRENESS_THRESHOLD = 50;
+  private static final int MAX_DIRENESS = 14; // C: std::min<int32_t>(..., 14)
+  private static final int DIRENESS_DECAY_INTERVAL = 44100 >> 3; // C: kSampleRate >> 3
+  private static long timeDirenessChanged = 0; // C: timeDirenessChanged (in audioSampleTimer units)
+
+  /**
+   * Faithful-spirit port of AudioEngine::setDireness (audio_engine.cpp:472-515). The hardware reads
+   * the audio routine's average run-time from its task scheduler; on desktop we feed in the
+   * measured wall-clock render time of the block that just completed. {@code overrun} is how many
+   * sample-periods of wall time the render took beyond the audio it produced (C: {@code dspTime -
+   * numRoutines*numSamples}, with numRoutines == 1 here). The threshold (50), ceiling (14), and
+   * decay hysteresis (kSampleRate>>3) match the C exactly. Voice culling (the C's other branch) is
+   * out of scope — desktop has the headroom; this only governs interpolation quality.
+   */
+  public static void updateDireness(long renderNanos, int blockSamples, long audioSampleTimer) {
+    int dspTime = (int) (renderNanos * 44100.0 / 1_000_000_000.0); // C: avgRunTime * 44100.
+    int overrun =
+        Math.max(dspTime - blockSamples, 0); // C: max(dspTime - numRoutines*numSamples, 0)
+    if (overrun >= DIRENESS_THRESHOLD) {
+      int newDireness = Math.min(overrun - (DIRENESS_THRESHOLD - 1), MAX_DIRENESS);
+      if (newDireness >= cpuDireness) {
+        cpuDireness = newDireness;
+        timeDirenessChanged = audioSampleTimer;
+      }
+    } else if (overrun < DIRENESS_THRESHOLD - 3) { // C: hysteresis band to avoid jittering
+      if (audioSampleTimer - timeDirenessChanged >= DIRENESS_DECAY_INTERVAL) {
+        timeDirenessChanged = audioSampleTimer;
+        cpuDireness--;
+        if (cpuDireness < 0) {
+          cpuDireness = 0;
+        }
+      }
+    }
+  }
+
   public final List<GlobalEffectable> sounds = new java.util.concurrent.CopyOnWriteArrayList<>();
   public final StereoSample[] masterBuffer = new StereoSample[128];
   private int[] summedFlatBuffer = new int[256];

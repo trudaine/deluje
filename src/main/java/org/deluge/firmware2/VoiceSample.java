@@ -79,6 +79,8 @@ public class VoiceSample {
     int bps = sample.byteDepth * sample.numChannels;
     boolean native_ = (phaseIncrement == K_MAX_SAMPLE_VALUE);
     int whichKernel = native_ ? 0 : Functions.getWhichKernel(phaseIncrement);
+    // C: voice.cpp:2106 — resampling quality (sinc vs linear) per the cpuDireness fallback.
+    int interpolationBufferSize = Functions.getInterpolationBufferSize(phaseIncrement);
     long combinedIncrement =
         ((phaseIncrement & 0xFFFFFFFFL) * (timeStretchRatio & 0xFFFFFFFFL)) >>> 24; // C:614
 
@@ -167,6 +169,7 @@ public class VoiceSample {
             native_,
             whichKernel,
             phaseIncrement,
+            interpolationBufferSize,
             newerSourceAmplitudeNow,
             newerAmplitudeIncrementNow);
       }
@@ -180,6 +183,7 @@ public class VoiceSample {
             native_,
             whichKernel,
             phaseIncrement,
+            interpolationBufferSize,
             olderSourceAmplitudeNow,
             olderAmplitudeIncrementNow);
         if (timeStretcher.crossfadeProgress >= K_MAX_SAMPLE_VALUE) { // C:1370 — older finished
@@ -208,6 +212,7 @@ public class VoiceSample {
       boolean native_,
       int whichKernel,
       int phaseIncrement,
+      int interpolationBufferSize,
       int sourceAmplitude,
       int amplitudeIncrement) {
     int[] amp = {sourceAmplitude};
@@ -215,7 +220,14 @@ public class VoiceSample {
       head.readNative(tmp, numThis, numChannels, amp, amplitudeIncrement);
     } else {
       head.readResampled(
-          tmp, numThis, numChannels, whichKernel, phaseIncrement, amp, amplitudeIncrement);
+          tmp,
+          numThis,
+          numChannels,
+          whichKernel,
+          phaseIncrement,
+          interpolationBufferSize,
+          amp,
+          amplitudeIncrement);
     }
   }
 
@@ -352,6 +364,7 @@ public class VoiceSample {
             numChannels,
             Functions.getWhichKernel(phaseIncrement),
             phaseIncrement,
+            Functions.getInterpolationBufferSize(phaseIncrement),
             ampArr,
             ampInc);
       }
