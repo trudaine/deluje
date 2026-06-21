@@ -93,7 +93,8 @@ class Fw2SyncCompletenessTest {
           "monophonicExpressionValues", // runtime MPE smoothing state
           "expressionSourcesChangedAtSynthLevel", // runtime MPE flag
           "shouldLimitDelayFeedback", // fixed default, not model-driven
-          "globalSourceValues"); // runtime modulation output (LFO/sidechain), recomputed per block
+          "globalSourceValues", // runtime modulation output (LFO/sidechain), recomputed per block
+          "trackParamFinalValues"); // runtime parameters cache, recomputed per block
 
   @Test
   void everyScalarFw2SoundFieldIsClassified() {
