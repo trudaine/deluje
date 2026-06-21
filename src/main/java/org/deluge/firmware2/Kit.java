@@ -27,6 +27,9 @@ public class Kit extends GlobalEffectable {
   }
 
   public void triggerDrum(int row, int vel, int samplesLate) {
+    if (muted) {
+      return;
+    }
     if (row >= 0 && row < drums.size()) {
       if (samplesLate > 0) {
         drums.get(row).triggerNoteLate(60, vel, samplesLate);
@@ -50,6 +53,9 @@ public class Kit extends GlobalEffectable {
 
   @Override
   protected void renderInternal(int[] buffer, int numSamples, int[] reverbBuffer) {
+    if (muted) {
+      return;
+    }
     for (Sound drum : drums) {
       // Each drum is a Sound object, which has its own voices, envelopes, and filter.
       // We render each drum row using its own renderOutput, summing directly into the Kit's buffer.

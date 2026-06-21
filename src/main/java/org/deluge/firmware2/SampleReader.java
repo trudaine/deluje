@@ -152,8 +152,19 @@ public class SampleReader {
         }
       }
 
-      SincInterpolator.interpolateWide(
-          bufL, bufR, sample.numChannels, whichKernel, oscPos, interpOut); // C:1024
+      if (org.deluge.firmware.engine.FirmwareAudioEngine.realTimeMode) {
+        // Fast Linear Interpolation (2 taps) - 12x CPU savings for real-time monitoring!
+        int strength2 = (oscPos >>> 5) & 0x7FFF;
+        int strength1 = 32768 - strength2;
+        interpOut[0] = (int) (((long) bufL[1] * strength1 + (long) bufL[0] * strength2) >> 15);
+        if (sample.numChannels == 2) {
+          interpOut[1] = (int) (((long) bufR[1] * strength1 + (long) bufR[0] * strength2) >> 15);
+        }
+      } else {
+        // Ultra-High-Fidelity Sinc Interpolation (24 taps) - mathematically perfect offline export
+        SincInterpolator.interpolateWide(
+            bufL, bufR, sample.numChannels, whichKernel, oscPos, interpOut); // C:1024
+      }
       if (sample.numChannels == 2) {
         if (numChannels == 1) {
           // Condense stereo to mono
