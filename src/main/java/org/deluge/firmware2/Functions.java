@@ -550,17 +550,18 @@ public final class Functions {
     }
   }
 
-  // ── Noise / tanH / misc ──
+  // ── PRNG (functions.cpp:305-311: CONG) ──
 
-  private static final ThreadLocal<Integer> jcong = ThreadLocal.withInitial(() -> 380116160);
+  /** C: functions.cpp:305 — CONG generator seed. */
+  private static int jcongSeed = 380116160;
 
   public static void resetNoiseSeed() {
-    jcong.set(380116160);
+    jcongSeed = 380116160;
   }
 
   public static int getNoise() {
-    int val = 69069 * jcong.get() + 1234567;
-    jcong.set(val);
+    int val = 69069 * jcongSeed + 1234567;
+    jcongSeed = val;
     return val;
   }
 

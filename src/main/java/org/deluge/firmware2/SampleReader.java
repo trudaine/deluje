@@ -79,10 +79,8 @@ public class SampleReader {
    * Read the frame at {@link #playPos} (0 outside the sample), shift it into the history, advance.
    */
   private void pushFrame() {
-    for (int i = K_TAPS - 1; i >= 1; i--) {
-      bufL[i] = bufL[i - 1];
-      bufR[i] = bufR[i - 1];
-    }
+    System.arraycopy(bufL, 0, bufL, 1, K_TAPS - 1);
+    System.arraycopy(bufR, 0, bufR, 1, K_TAPS - 1);
     if (playPos >= 0 && playPos < numFrames()) {
       int base = playPos * sample.numChannels;
       bufL[0] = sample.data[base];
