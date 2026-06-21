@@ -26,6 +26,7 @@ Welcome to the **ChucK-Java Deluge Workstation**, a modern, high-fidelity softwa
 13. [Pedal Looper & Continuous Multi-Layer Overdubs](#13-pedal-looper--continuous-multi-layer-overdubs)
 14. [MIDI Hardware, Device Mappings & Pure SD File Explorer](#14-midi-hardware-device-mappings--pure-sd-file-explorer)
     * [14.5 MIDI CC Parameter Takeover Algorithms](#145-midi-cc-parameter-takeover-algorithms)
+    * [14.6 DAW Import Suite: Ableton Live Set (.als) Importer](#146-daw-import-suite-ableton-live-set-als-importer)
 15. [Performance View & FX Touch-Pads Grid](#15-performance-view--fx-touch-pads-grid)
 16. [MPE & Multi-Dimensional Controller Expression](#16-mpe--multi-dimensional-controller-expression)
 17. [System Settings, Directories Preferences & Shortcuts Table](#17-system-settings-directories-preferences--shortcuts-table)
@@ -930,6 +931,41 @@ Our robust JNI/SysEx architecture is designed for extensive growth. Below is the
 4. **⏱️ Universal Clock & Transport Synchronization**:
    * **Concept**: Start, stop, and tempo-sync the physical Deluge and the desktop workstation simultaneously with sample-accurate clock alignment.
    * **Implementation**: Exposing transport control commands (`{"play"}`/`{"stop"}`) and real-time tempo syncs will allow pressing play on your computer to trigger the physical Deluge's synthesis engine to play its internal sequences in absolute phase lock with the workstation's timeline!
+
+---
+
+### 14.6 DAW Import Suite: Ableton Live Set (.als) Importer
+
+The Deluge Workstation features a professional-grade, modern **DAW Import Suite** that lets you import complete Ableton Live Sets (`.als` files) directly into the high-fidelity synthesizer and sequencer engine! Rather than just importing MIDI files, this suite parses the complex XML structure of the Ableton project and reconstructs the track layout, mixer volume levels, MIDI clips, arranger timeline placements, and—most importantly—the exact instrument parameters!
+
+#### ⚙️ The Smart Hybrid Importer Architecture
+Because Ableton Live Sets can contain a mixture of native instruments (like Sampler or Simpler) and third-party VST plugins (like Xfer Serum), the importer employs a highly advanced **Hybrid Import Pipeline**:
+
+1. **Generic Native Simpler/Sampler Parameter Extractor (Fully Generic)**:
+   * When the importer detects a native Ableton `<OriginalSimpler>` or `<MultiSampler>` device on a MIDI track, it bypasses static templates and parses the instrument parameters directly from the XML!
+   * **Volume Envelopes (ADSR)**: Automatically extracts Attack, Decay, Sustain, and Release times in milliseconds from the `<VolumeAndPan>` -> `<Envelope>` subtree, converts them to seconds, and maps them directly to the Deluge's **Env 0** (Volume envelope).
+   * **Logarithmic Filter Cutoff Frequency**: Extracts the manual filter cutoff frequency in Hz (ranging from $30\text{Hz}$ to $22,000\text{Hz}$). Since filter frequency is logarithmic, it maps it mathematically to the Deluge's normalized `0..1` scale:
+     $$\text{normFreq} = \frac{\ln(f) - \ln(30)}{\ln(22000) - \ln(30)}$$
+   * **Filter Resonance & Morph**: Parses the filter Q factor and resonance, converting and clamping them to the Deluge's normalized resonance range.
+   * **Dynamic Filter Envelopes**: Parses the filter envelope's ADSR rates and its modulation depth (`Amount`, ranging from $-72$ to $+72$ semitones). It normalizes the depth relative to the 72-semitone ceiling and maps it to the Deluge's **Env 1** (Filter envelope).
+   * **Transposition & Pitch**: Parses the manual semitone transposition (`TransposeKey`) and fine-tuning cents (`TransposeFine`) and maps them directly to the pitch controls.
+2. **Name-Based Semantic Preset Auto-Mapper (Scalable Fallback)**:
+   * If a track uses a third-party VST plugin (like Serum) where the preset is stored in a proprietary binary block, the importer falls back to our highly-tuned **Semantic Preset Mapper**.
+   * It scans the track name for keywords (like `"bass"`, `"lead"`, `"choir"`, `"trumpet"`, `"guitar"`, `"string"`, `"pad"`) and automatically applies legendary, custom-tailored synthesizer patches (such as detuned Juno-style Square+Saw bass, vocal-like resonant Meuw Lead, or Oberheim-style bright brass).
+
+#### 🛰️ Core Audio Engine Patch Matrix Synthesis
+To make these imported parameters sound alive, the core audio engine (`FirmwareFactory.java`) dynamically compiles the imported envelope targets into the **Modulation Patch Matrix**:
+* **The Concept**: While Envelope 0 is hardwired to master volume, Envelopes 1, 2, and 3 must be patched dynamically in the DSP engine.
+* **The Execution**: If the importer maps an envelope to `"FILTER"` or `"PITCH"`, the engine physically synthesizes a virtual **PatchCable** connecting `PatchSource.ENVELOPE_1` to `Param.LOCAL_LPF_FREQ` or `Param.LOCAL_PITCH_ADJUST` in the voice mixer. This unlocks real-time, snappy filter sweeps and pitch modulations for the very first time!
+
+#### 🎹 Step-by-Step Ableton Import Tutorial
+Follow these precise steps to import your Ableton Live Set and play it in the Deluge Workstation:
+1. **Prepare Your Assets**: Save your Ableton Live Set (`.als`) and ensure all audio samples used in the project are collected into a single directory (e.g., using Ableton's *File ➔ Collect All and Save*).
+2. **Open the Importer**: In the Workstation, select **`File ➔ Import Ableton Project...`** (or press the global shortcut **`Cmd+Shift+I`** / **`Ctrl+Shift+I`**).
+3. **Select the Project File**: Browse and select your `.als` project file. (The workstation automatically decompresses the gzipped XML stream in the background in under 10ms!).
+4. **Select the Samples Folder**: Browse and select the folder containing your collected WAV samples.
+5. **Load the Project**: Click **`Import & Load Project`**. The workstation parses the tracks, extracts the clips, runs the hybrid parameter translator, writes the Deluge Song XML, and loads it directly into the audio engine.
+6. **Press Play**: Watch the playhead sweep across the sequencer grid in perfect sync, triggering rich, bouncy detuned basslines, resonant vocal leads, and crisp drum kits with absolute timbral parity!
 
 ---
 
