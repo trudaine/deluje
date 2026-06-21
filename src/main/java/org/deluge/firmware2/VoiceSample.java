@@ -136,7 +136,8 @@ public class VoiceSample {
       int olderSourceAmplitudeNow = 0;
       int olderAmplitudeIncrementNow = 0;
       if (olderAudible) {
-        int newerHopAmplitudeNow = timeStretcher.crossfadeProgress << 7;
+        int newerHopAmplitudeNow =
+            Functions.lshiftAndSaturateUnknown(timeStretcher.crossfadeProgress, 7);
         int olderHopAmplitudeNow = 2147483647 - newerHopAmplitudeNow;
         timeStretcher.crossfadeProgress += timeStretcher.crossfadeIncrement * numThis;
         int newerHopAmplitudeAfter =

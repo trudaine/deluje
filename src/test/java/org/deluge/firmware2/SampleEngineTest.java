@@ -3,7 +3,9 @@ package org.deluge.firmware2;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Random;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.deluge.firmware.engine.FirmwareAudioEngine;
 
 /**
  * Faithful-port checks for the firmware2 sample-engine foundation (Phase A/B): SampleHolder
@@ -11,6 +13,11 @@ import org.junit.jupiter.api.Test;
  * the C (sample_holder.cpp, sample_playback_guide.cpp) — no firmware/ oracle.
  */
 class SampleEngineTest {
+
+  @BeforeEach
+  void setUp() {
+    FirmwareAudioEngine.realTimeMode = false;
+  }
 
   private static Sample sample(
       int numChannels, int byteDepth, int startPosBytes, long lengthInSamples) {
