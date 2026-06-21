@@ -929,7 +929,8 @@ public class AbletonTrackMapper {
     System.out.println(
         "🤖 [GENERIC PARSER] Found native Ableton Simpler device on track: " + track.getName());
 
-    // 1. Parse Transposition / Tuning
+    // 1. Parse Transposition / Tuning (Ableton semitones -> Deluge transpose; cents -> Deluge
+    // cents)
     Float transpose = getManualParamValue(simplerEl, "TransposeKey");
     Float fineTune = getManualParamValue(simplerEl, "TransposeFine");
     if (transpose != null) {
@@ -948,11 +949,13 @@ public class AbletonTrackMapper {
       Float sustain = getManualParamValue(volPanEl, "SustainLevel");
       Float release = getManualParamValue(volPanEl, "ReleaseTime");
 
+      // Convert millisecond-based times from the XML to normalized seconds for the Deluge engine
       float a = attack != null ? attack / 1000.0f : 0.002f;
       float d = decay != null ? decay / 1000.0f : 0.20f;
       float s = sustain != null ? sustain : 1.0f;
       float r = release != null ? release / 1000.0f : 0.15f;
 
+      // Env 0 is hardwired to volume in the Deluge engine
       track.setEnv(0, new EnvelopeModel(a, d, s, r, "NONE", 0.0f));
       System.out.println(
           String.format(
@@ -971,6 +974,10 @@ public class AbletonTrackMapper {
           freq = getManualParamValue(filterEl, "LegacyQ"); // fallback
         }
 
+        // Convert Cutoff Frequency (Hz) to normalized 0..1 scale.
+        // Ableton Simpler cutoff frequency is logarithmic, ranging from 30Hz to 22,000Hz.
+        // We translate it using natural logarithms to achieve pristine scaling:
+        //   normFreq = (ln(freq) - ln(30)) / (ln(22000) - ln(30))
         float normFreq = 1.0f;
         if (freq != null) {
           float fVal = Math.max(30.0f, Math.min(22000.0f, freq));
@@ -979,6 +986,7 @@ public class AbletonTrackMapper {
           track.setLpfFreq(normFreq);
         }
 
+        // Convert resonance/Q to normalized 0..1 scale (clamped relative to Simpler's 1.25 maximum)
         float normRes = 0.15f;
         if (res != null) {
           normRes = Math.max(0.0f, Math.min(1.0f, res / 1.25f));
@@ -1001,12 +1009,18 @@ public class AbletonTrackMapper {
           Float fAmount = getManualParamValue(envEl, "Amount");
 
           if (fAmount != null && Math.abs(fAmount) > 0.01f) {
+            // Convert millisecond envelope rates to seconds
             float fa = fAttack != null ? fAttack / 1000.0f : 0.002f;
             float fd = fDecay != null ? fDecay / 1000.0f : 0.20f;
             float fs = fSustain != null ? fSustain : 0.0f;
             float fr = fRelease != null ? fRelease / 1000.0f : 0.15f;
+
+            // Simpler's filter envelope amount ranges from -72 to +72 semitones.
+            // We normalize this relative to the 72-semitone ceiling to fit Deluge's -1.0 to 1.0
+            // depth.
             float depth = fAmount / 72.0f;
 
+            // Env 1 is patched dynamically to the filter cutoff in the engine
             track.setEnv(1, new EnvelopeModel(fa, fd, fs, fr, "FILTER", depth));
             System.out.println(
                 String.format(
