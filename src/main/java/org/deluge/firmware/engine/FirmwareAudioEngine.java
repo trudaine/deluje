@@ -80,8 +80,12 @@ public class FirmwareAudioEngine {
     masterVolumeAdjustmentR = MASTER_VOLUME_NEUTRAL;
   }
 
+  private long[] summedFlatBufferLong = new long[256];
+  private long[] monoReverbBufferLong = new long[128];
+
   public void renderBlock(int numSamples) {
     GlobalSidechainBus.beginAudioFrame();
+    // Reset buffers
     if (monoReverbBuffer.length < numSamples) {
       monoReverbBuffer = new int[numSamples];
     }
@@ -92,21 +96,34 @@ public class FirmwareAudioEngine {
     }
 
     int requiredLen = numSamples * 2;
-    if (summedFlatBuffer.length < requiredLen) {
-      summedFlatBuffer = new int[requiredLen];
+    if (summedFlatBufferLong.length < requiredLen) {
+      summedFlatBufferLong = new long[requiredLen];
     }
-    java.util.Arrays.fill(summedFlatBuffer, 0, requiredLen, 0);
+    java.util.Arrays.fill(summedFlatBufferLong, 0, requiredLen, 0L);
 
+    if (monoReverbBufferLong.length < numSamples) {
+      monoReverbBufferLong = new long[numSamples];
+    }
+    java.util.Arrays.fill(monoReverbBufferLong, 0, numSamples, 0L);
+
+    // Sum all tracks in 64-bit (infinite headroom!)
     for (GlobalEffectable sound : sounds) {
       if (sound != null) {
-        sound.renderOutput(summedFlatBuffer, numSamples, monoReverbBuffer);
+        sound.renderOutput(summedFlatBufferLong, numSamples, monoReverbBufferLong);
       }
     }
 
-    // Move the summed dry signal into the int[][] scratch for the fw2 FX chain.
+    // Apply master volume adjustment in 64-bit to prevent summing-bus saturation!
     for (int i = 0; i < numSamples; i++) {
-      fxBuffer[i][0] = summedFlatBuffer[i * 2];
-      fxBuffer[i][1] = summedFlatBuffer[i * 2 + 1];
+      long lVal = summedFlatBufferLong[i * 2];
+      long rVal = summedFlatBufferLong[i * 2 + 1];
+      lVal = (lVal * masterVolumeAdjustmentL) >> 27;
+      rVal = (rVal * masterVolumeAdjustmentR) >> 27;
+      fxBuffer[i][0] = (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, lVal));
+      fxBuffer[i][1] = (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, rVal));
+
+      long revVal = monoReverbBufferLong[i];
+      monoReverbBuffer[i] = (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, revVal));
     }
 
     // C: audio_engine.cpp:819-837 — the reverb output level must be set as the reverb's pan levels
@@ -154,8 +171,8 @@ public class FirmwareAudioEngine {
     masterCompressor.render(
         fxBuffer,
         numSamples,
-        masterVolumeAdjustmentL >> 1,
-        masterVolumeAdjustmentR >> 1,
+        MASTER_VOLUME_NEUTRAL >> 1,
+        MASTER_VOLUME_NEUTRAL >> 1,
         songVolume >> 3);
 
     int maxAfterL = 0;
