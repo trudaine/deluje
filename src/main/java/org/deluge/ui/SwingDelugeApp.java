@@ -620,7 +620,9 @@ public class SwingDelugeApp extends JFrame {
         for (int v = 0; v < totalSynthRows; v++) {
           bridge.setFilterFreq(startRow + v, synth.getLpfFreq() / 20000.0f);
           bridge.setFilterRes(startRow + v, synth.getLpfRes() / 100.0f);
-          bridge.setFilterMode(startRow + v, synth.getFilterMode().ordinal());
+          org.deluge.model.FilterMode fm = synth.getFilterMode();
+          int fmIdx = (fm != null) ? fm.ordinal() : org.deluge.model.FilterMode.LADDER_24.ordinal();
+          bridge.setFilterMode(startRow + v, fmIdx);
           bridge.setFilterMorph(startRow + v, synth.getLpfMorph());
           bridge.setFilterDrive(startRow + v, synth.getFilterDrive());
           bridge.setFilterNotch(startRow + v, synth.isFilterNotch() ? 1 : 0);
@@ -1499,6 +1501,165 @@ public class SwingDelugeApp extends JFrame {
     setTitle(
         "DELUGE WORKSTATION — "
             + (currentProjectFile != null ? currentProjectFile.getName() : "Untitled"));
+  }
+
+  /**
+   * Loads or imports a project in the background with a premium dark-themed progress dialog,
+   * pre-resolving and caching all audio samples to guarantee instant EDT-free playback.
+   */
+  public void loadProjectWithProgress(final java.io.File file, final boolean isAbleton) {
+    if (file == null) return;
+
+    final JDialog progressDialog =
+        new JDialog(
+            this, isAbleton ? "Importing Ableton Live Set" : "Loading Deluge Project", true);
+    progressDialog.setUndecorated(true);
+    progressDialog.setSize(420, 110);
+    progressDialog.setLocationRelativeTo(this);
+
+    JPanel panel = new JPanel(new BorderLayout(12, 12));
+    panel.setBackground(new Color(0x18, 0x18, 0x1a));
+    panel.setBorder(
+        BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(0x2d, 0x2d, 0x34), 1),
+            BorderFactory.createEmptyBorder(16, 16, 16, 16)));
+
+    final JLabel label =
+        new JLabel(
+            isAbleton ? "Parsing Ableton Live Set..." : "Parsing Deluge Project XML...",
+            JLabel.CENTER);
+    label.setForeground(new Color(0xaa, 0xbb, 0xcc));
+    label.setFont(new Font("SansSerif", Font.PLAIN, 12));
+
+    final JProgressBar progressBar = new JProgressBar(0, 100);
+    progressBar.setIndeterminate(true);
+    progressBar.setBackground(new Color(0x22, 0x22, 0x25));
+    progressBar.setForeground(new Color(0x00, 0xcc, 0xff));
+    progressBar.setBorderPainted(false);
+    progressBar.setPreferredSize(new Dimension(380, 6));
+
+    panel.add(label, BorderLayout.CENTER);
+    panel.add(progressBar, BorderLayout.SOUTH);
+    progressDialog.add(panel);
+
+    javax.swing.SwingWorker<org.deluge.model.ProjectModel, String> worker =
+        new javax.swing.SwingWorker<>() {
+          @Override
+          protected org.deluge.model.ProjectModel doInBackground() throws Exception {
+            org.deluge.model.ProjectModel model;
+            if (isAbleton) {
+              publish("Parsing Ableton Live Set...");
+              org.w3c.dom.Document doc =
+                  org.deluge.ableton.AbletonProjectManager.parseAlsToXml(file);
+              model = new org.deluge.model.ProjectModel();
+              org.deluge.ableton.AbletonTrackMapper.importAbletonSet(doc, model, file);
+            } else {
+              publish("Parsing Deluge Project XML...");
+              try (java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
+                model = org.deluge.xml.DelugeXmlParser.parseSong(fis, file.getName());
+              }
+            }
+
+            // Pre-resolve and load all sample paths to cache them in the background thread
+            final java.util.List<String> samplePaths = new java.util.ArrayList<>();
+            java.io.File sdRoot = org.deluge.project.PreferencesManager.getLibraryDir();
+
+            for (org.deluge.model.TrackModel track : model.getTracks()) {
+              if (track instanceof org.deluge.model.AudioTrackModel atm) {
+                for (org.deluge.model.AudioTrackModel.AudioClip clip : atm.getAudioClips()) {
+                  String p = clip.getFilePath();
+                  if (p != null && !p.isEmpty()) samplePaths.add(p);
+                }
+              } else if (track instanceof org.deluge.model.SynthTrackModel stm) {
+                String p1 = stm.getOsc1SamplePath();
+                if (p1 != null && !p1.isEmpty()) samplePaths.add(p1);
+                String p2 = stm.getOsc2SamplePath();
+                if (p2 != null && !p2.isEmpty()) samplePaths.add(p2);
+              } else if (track instanceof org.deluge.model.KitTrackModel ktm) {
+                for (org.deluge.model.Drum d : ktm.getDrums()) {
+                  if (d instanceof org.deluge.model.SoundDrum sd) {
+                    String p = sd.getSamplePath();
+                    if (p != null && !p.isEmpty()) samplePaths.add(p);
+                  }
+                }
+              }
+            }
+
+            if (!samplePaths.isEmpty()) {
+              // Switch to determinate progress bar
+              javax.swing.SwingUtilities.invokeLater(
+                  () -> {
+                    progressBar.setIndeterminate(false);
+                    progressBar.setMaximum(samplePaths.size());
+                    progressBar.setValue(0);
+                  });
+
+              for (int i = 0; i < samplePaths.size(); i++) {
+                String path = samplePaths.get(i);
+                java.io.File resolved =
+                    org.deluge.firmware.engine.FirmwareFactory.resolveSample(path, sdRoot);
+                if (resolved != null && resolved.exists()) {
+                  publish(
+                      "Loading "
+                          + resolved.getName()
+                          + " ("
+                          + (i + 1)
+                          + "/"
+                          + samplePaths.size()
+                          + ")...");
+                  try {
+                    org.deluge.firmware.storage.audio.AudioFileReader.readSample(
+                        resolved.getAbsolutePath());
+                  } catch (Exception ignored) {
+                  }
+                }
+                final int progressValue = i + 1;
+                javax.swing.SwingUtilities.invokeLater(() -> progressBar.setValue(progressValue));
+              }
+            }
+
+            return model;
+          }
+
+          @Override
+          protected void process(java.util.List<String> chunks) {
+            if (!chunks.isEmpty()) {
+              String lastMsg = chunks.get(chunks.size() - 1);
+              label.setText(lastMsg);
+            }
+          }
+
+          @Override
+          protected void done() {
+            progressDialog.dispose();
+            try {
+              org.deluge.model.ProjectModel model = get();
+              if (isAbleton) {
+                currentProjectFile = null;
+                loadProject(model);
+                setTitle("DELUGE WORKSTATION — [Imported] " + file.getName());
+              } else {
+                currentProjectFile = file;
+                loadProject(model);
+                setTitle("DELUGE WORKSTATION — " + file.getName());
+              }
+            } catch (Exception ex) {
+              Throwable cause = (ex.getCause() != null) ? ex.getCause() : ex;
+              cause.printStackTrace();
+              JOptionPane.showMessageDialog(
+                  SwingDelugeApp.this,
+                  "Failed to "
+                      + (isAbleton ? "import" : "load")
+                      + " project:\n"
+                      + cause.getMessage(),
+                  "Error",
+                  JOptionPane.ERROR_MESSAGE);
+            }
+          }
+        };
+
+    worker.execute();
+    progressDialog.setVisible(true);
   }
 
   /**
@@ -2598,30 +2759,7 @@ public class SwingDelugeApp extends JFrame {
               new javax.swing.filechooser.FileNameExtensionFilter("Song XML", "xml", "XML"));
           if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             final java.io.File file = chooser.getSelectedFile();
-            new javax.swing.SwingWorker<org.deluge.model.ProjectModel, Void>() {
-              @Override
-              protected org.deluge.model.ProjectModel doInBackground() throws Exception {
-                try (java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
-                  return org.deluge.xml.DelugeXmlParser.parseSong(fis, file.getName());
-                }
-              }
-
-              @Override
-              protected void done() {
-                try {
-                  org.deluge.model.ProjectModel model = get();
-                  currentProjectFile = file;
-                  loadProject(model);
-                } catch (Exception ex) {
-                  Throwable cause = (ex.getCause() != null) ? ex.getCause() : ex;
-                  JOptionPane.showMessageDialog(
-                      SwingDelugeApp.this,
-                      "Failed to open project:\n" + cause.getMessage(),
-                      "Error",
-                      JOptionPane.ERROR_MESSAGE);
-                }
-              }
-            }.execute();
+            loadProjectWithProgress(file, false);
           }
         });
 
@@ -2715,39 +2853,7 @@ public class SwingDelugeApp extends JFrame {
                   JOptionPane.WARNING_MESSAGE);
               return;
             }
-            new javax.swing.SwingWorker<org.deluge.model.ProjectModel, Void>() {
-              @Override
-              protected org.deluge.model.ProjectModel doInBackground() throws Exception {
-                org.w3c.dom.Document doc =
-                    org.deluge.ableton.AbletonProjectManager.parseAlsToXml(file);
-                org.deluge.model.ProjectModel model = new org.deluge.model.ProjectModel();
-                org.deluge.ableton.AbletonTrackMapper.importAbletonSet(doc, model, file);
-                return model;
-              }
-
-              @Override
-              protected void done() {
-                try {
-                  org.deluge.model.ProjectModel model = get();
-                  currentProjectFile = null;
-                  loadProject(model);
-                  setTitle("DELUGE WORKSTATION — [Imported] " + file.getName());
-                  JOptionPane.showMessageDialog(
-                      SwingDelugeApp.this,
-                      "Ableton Live Set imported successfully!\n" + file.getName(),
-                      "Import Successful",
-                      JOptionPane.INFORMATION_MESSAGE);
-                } catch (Exception ex) {
-                  Throwable cause = (ex.getCause() != null) ? ex.getCause() : ex;
-                  cause.printStackTrace();
-                  JOptionPane.showMessageDialog(
-                      SwingDelugeApp.this,
-                      "Failed to import Ableton Live Set:\n" + cause.getMessage(),
-                      "Error",
-                      JOptionPane.ERROR_MESSAGE);
-                }
-              }
-            }.execute();
+            loadProjectWithProgress(file, true);
           }
         });
     fileMenu.add(importAbletonItem);
@@ -4712,6 +4818,9 @@ public class SwingDelugeApp extends JFrame {
     }
     if (statusTextPlaybackTimer != null) {
       statusTextPlaybackTimer.stop();
+    }
+    if (pureEngine != null) {
+      pureEngine.stop();
     }
     super.dispose();
   }

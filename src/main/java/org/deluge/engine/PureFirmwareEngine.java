@@ -76,12 +76,27 @@ public class PureFirmwareEngine {
     System.out.println("[PureFirmwareEngine] Workstation Started (Pure Java Mode)");
   }
 
+  private long lastPlayStateVal = -1;
+
   private void syncFromBridge(BridgeContract bridge) {
     if (bridge == null) return;
 
     long play = bridge.getGlobalInt(BridgeContract.G_PLAY);
+    if (play != lastPlayStateVal) {
+      System.out.println(
+          "[DIAG syncThread] G_PLAY transitioned from "
+              + lastPlayStateVal
+              + " to "
+              + play
+              + " (playbackHandler.isPlaying()="
+              + playbackHandler.isPlaying()
+              + ")");
+      lastPlayStateVal = play;
+    }
+
     if (play == 1L) {
       if (!playbackHandler.isPlaying()) {
+        System.out.println("[DIAG syncThread] Calling playbackHandler.start()");
         playbackHandler.start();
       }
       int stepTicks = 24;
@@ -92,6 +107,7 @@ public class PureFirmwareEngine {
       bridge.setGlobalInt(BridgeContract.G_CURRENT_STEP, (long) currentStep);
     } else {
       if (playbackHandler.isPlaying()) {
+        System.out.println("[DIAG syncThread] Calling playbackHandler.stop()");
         playbackHandler.stop();
         for (var sound : audioEngine.sounds) {
           if (sound instanceof org.deluge.firmware.engine.FirmwareSound fs) {

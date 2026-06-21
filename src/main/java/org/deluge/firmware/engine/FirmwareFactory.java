@@ -78,6 +78,7 @@ public class FirmwareFactory {
   public static Song createSong(ProjectModel model) {
     Song song = new Song();
     song.tempoBPM = model.getBpm();
+    song.swingAmount = Math.max(-49, Math.min(49, (int) ((model.getSwing() - 0.5f) * 100.0)));
 
     // ── Propagate Microtuning & Custom Temperaments ──
     song.octaveNumMicrotonalNotes = model.getOctaveNumMicrotonalNotes();
@@ -246,6 +247,7 @@ public class FirmwareFactory {
     sound.paramNeutralValues[Param.LOCAL_PAN] = 0; // Centered
     sound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] =
         org.deluge.firmware.util.Q31.ONE; // Full oscillator volume
+    sound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = 0; // Mute second oscillator
 
     if (!model.getAudioClips().isEmpty()) {
       var audioClip = model.getAudioClips().get(0);
@@ -255,6 +257,7 @@ public class FirmwareFactory {
 
     // 3. Set Osc 1 to SAMPLE and load the audio clip WAV/MP3
     sound.oscTypes[0] = OscType.SAMPLE;
+    sound.oscTypes[1] = null; // Disable second oscillator
 
     // Initialize sample settings to safe defaults (play full length, no loop)
     sound.sampleSettings[0].startPoint = 0;
@@ -821,6 +824,37 @@ public class FirmwareFactory {
       cable.amount = (int) (Math.max(-1f, Math.min(1f, lm.depth())) * 2147483647.0);
       sound.paramManager.getPatchCableSet().addCable(paramId, cable);
     }
+
+    // ── Envelope depth/target → synthesized patch cables ──
+    for (int i = 1; i < 4; i++) {
+      EnvelopeModel em = model.getEnv(i);
+      if (em == null || em.target() == null || "NONE".equalsIgnoreCase(em.target())) {
+        continue;
+      }
+      int paramId =
+          switch (em.target().trim().toUpperCase()) {
+            case "FILTER", "LPF", "LPFFREQUENCY" -> Param.LOCAL_LPF_FREQ;
+            case "RES", "RESONANCE" -> Param.LOCAL_LPF_RESONANCE;
+            case "PAN" -> Param.LOCAL_PAN;
+            case "PITCH" -> Param.LOCAL_PITCH_ADJUST;
+            case "VOL", "VOLUME" -> Param.LOCAL_VOLUME;
+            case "FM" -> Param.LOCAL_MODULATOR_0_VOLUME;
+            default -> -1;
+          };
+      if (paramId == -1) {
+        continue;
+      }
+      PatchCable cable = new PatchCable();
+      cable.from =
+          switch (i) {
+            case 1 -> PatchSource.ENVELOPE_1;
+            case 2 -> PatchSource.ENVELOPE_2;
+            default -> PatchSource.ENVELOPE_3;
+          };
+      float amt = em.amount() != 0.0f ? em.amount() : 1.0f;
+      cable.amount = (int) (Math.max(-1f, Math.min(1f, amt)) * 2147483647.0);
+      sound.paramManager.getPatchCableSet().addCable(paramId, cable);
+    }
   }
 
   private static int cutoffKnobFromHz(double hz) {
@@ -1107,7 +1141,7 @@ public class FirmwareFactory {
     return clip;
   }
 
-  private static File resolveSample(String path, File sdRoot) {
+  public static File resolveSample(String path, File sdRoot) {
     File f = new File(path);
     if (f.exists()) return f;
 
