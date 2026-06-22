@@ -61,4 +61,34 @@ public class DelugePadButtonTest {
     g.dispose();
     pad.setPlayhead(false); // cleanup registration
   }
+
+  @Test
+  public void glowingStatesAndThemesPaintWithoutThrowing() {
+    DelugePadButton pad = new DelugePadButton();
+    pad.setSize(40, 40);
+
+    // 1. Verify property setters and getters
+    pad.setScaleRoot(true);
+    assertEquals(true, pad.isScaleRoot());
+    pad.setScaleNote(true);
+    assertEquals(true, pad.isScaleNote());
+    pad.setBeatMarker(true);
+    assertEquals(true, pad.isBeatMarker());
+    pad.setTheme(org.deluge.project.PreferencesManager.GridColorTheme.HARDWARE);
+    assertEquals(org.deluge.project.PreferencesManager.GridColorTheme.HARDWARE, pad.getTheme());
+
+    // 2. Paint in Hardware Theme (active = false)
+    pad.setActive(false);
+    BufferedImage img1 = new BufferedImage(40, 40, BufferedImage.TYPE_INT_ARGB);
+    Graphics2D g1 = img1.createGraphics();
+    pad.paint(g1);
+    g1.dispose();
+
+    // 3. Paint in Neon Theme (active = false)
+    pad.setTheme(org.deluge.project.PreferencesManager.GridColorTheme.NEON);
+    BufferedImage img2 = new BufferedImage(40, 40, BufferedImage.TYPE_INT_ARGB);
+    Graphics2D g2 = img2.createGraphics();
+    pad.paint(g2);
+    g2.dispose();
+  }
 }

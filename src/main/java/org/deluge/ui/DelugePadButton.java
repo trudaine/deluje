@@ -21,6 +21,56 @@ public class DelugePadButton extends JButton {
   private boolean drawCenterCircle = true;
   private Color textColorOverride = null;
 
+  private boolean isScaleRoot = false;
+  private boolean isScaleNote = false;
+  private boolean isBeatMarker = false;
+  private org.deluge.project.PreferencesManager.GridColorTheme theme =
+      org.deluge.project.PreferencesManager.GridColorTheme.HARDWARE;
+
+  public boolean isScaleRoot() {
+    return isScaleRoot;
+  }
+
+  public void setScaleRoot(boolean scaleRoot) {
+    if (this.isScaleRoot != scaleRoot) {
+      this.isScaleRoot = scaleRoot;
+      repaint();
+    }
+  }
+
+  public boolean isScaleNote() {
+    return isScaleNote;
+  }
+
+  public void setScaleNote(boolean scaleNote) {
+    if (this.isScaleNote != scaleNote) {
+      this.isScaleNote = scaleNote;
+      repaint();
+    }
+  }
+
+  public boolean isBeatMarker() {
+    return isBeatMarker;
+  }
+
+  public void setBeatMarker(boolean beatMarker) {
+    if (this.isBeatMarker != beatMarker) {
+      this.isBeatMarker = beatMarker;
+      repaint();
+    }
+  }
+
+  public org.deluge.project.PreferencesManager.GridColorTheme getTheme() {
+    return theme;
+  }
+
+  public void setTheme(org.deluge.project.PreferencesManager.GridColorTheme theme) {
+    if (this.theme != theme) {
+      this.theme = theme;
+      repaint();
+    }
+  }
+
   public boolean isDrawCenterCircle() {
     return drawCenterCircle;
   }
@@ -283,30 +333,53 @@ public class DelugePadButton extends JButton {
       g2.setStroke(new BasicStroke(1.0f));
       g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
     } else if (!active) {
-      // 2. Inactive inside loop: beautiful dimmed track signature color
-      Color base = baseColor != null ? baseColor : SwingSynthConfigDialog.BG_CONTROL;
-      if (base.equals(SwingSynthConfigDialog.BG_CONTROL)
-          || base.equals(new Color(0x1d, 0x1d, 0x22))) {
-        // Neutral gray pad
-        g2.setColor(new Color(0x1a, 0x1a, 0x1e));
+      if (isScaleRoot) {
+        Color rootColor = baseColor != null ? baseColor : new Color(0x00, 0xd2, 0xff);
+        g2.setColor(new Color(0x13, 0x14, 0x17));
         g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
-        g2.setColor(new Color(0x2d, 0x2d, 0x35));
+        g2.setColor(new Color(rootColor.getRed(), rootColor.getGreen(), rootColor.getBlue(), 25));
+        g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
+        g2.setColor(new Color(rootColor.getRed(), rootColor.getGreen(), rootColor.getBlue(), 55));
         g2.setStroke(new BasicStroke(1.0f));
         g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
+      } else if (theme == org.deluge.project.PreferencesManager.GridColorTheme.HARDWARE) {
+        if (isBeatMarker) {
+          g2.setColor(new Color(0x1a, 0x1a, 0x1e));
+          g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
+          g2.setColor(new Color(255, 255, 255, 12));
+          g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
+          g2.setColor(new Color(255, 255, 255, 25));
+          g2.setStroke(new BasicStroke(1.0f));
+          g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
+        } else {
+          g2.setColor(new Color(0x13, 0x13, 0x15));
+          g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
+          g2.setColor(new Color(0x22, 0x22, 0x26));
+          g2.setStroke(new BasicStroke(1.0f));
+          g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
+        }
       } else {
-        // Dimmed colored pad (translucent flat signature)
-        Color dimBg = new Color(base.getRed(), base.getGreen(), base.getBlue(), 35); // ~14% alpha
-        g2.setColor(new Color(0x15, 0x15, 0x18)); // dark back base
-        g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
-        g2.setColor(dimBg);
-        g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
-
-        // Colored frame
-        Color dimBorder =
-            new Color(base.getRed(), base.getGreen(), base.getBlue(), 70); // ~27% alpha
-        g2.setColor(dimBorder);
-        g2.setStroke(new BasicStroke(1.0f));
-        g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
+        Color base = baseColor != null ? baseColor : SwingSynthConfigDialog.BG_CONTROL;
+        if (base.equals(SwingSynthConfigDialog.BG_CONTROL)
+            || base.equals(new Color(0x1d, 0x1d, 0x22))) {
+          g2.setColor(new Color(0x1a, 0x1a, 0x1e));
+          g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
+          g2.setColor(new Color(0x2d, 0x2d, 0x35));
+          g2.setStroke(new BasicStroke(1.0f));
+          g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
+        } else {
+          g2.setColor(new Color(0x13, 0x13, 0x15));
+          g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
+          g2.setColor(new Color(base.getRed(), base.getGreen(), base.getBlue(), 20));
+          g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
+          Color dimBorder = new Color(base.getRed(), base.getGreen(), base.getBlue(), 45);
+          if (isBeatMarker) {
+            dimBorder = new Color(base.getRed(), base.getGreen(), base.getBlue(), 90);
+          }
+          g2.setColor(dimBorder);
+          g2.setStroke(new BasicStroke(1.0f));
+          g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
+        }
       }
     } else {
       // 3. Active step: Full bright glowing solid track color
