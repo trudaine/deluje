@@ -99,17 +99,22 @@ public class ThresholdRecordDialog extends JDialog {
     destPanel.setOpaque(false);
     destPanel.setMaximumSize(new Dimension(420, 64));
 
-    JLabel trkLbl = new JLabel("Target Drum Kit:");
+    JLabel trkLbl = new JLabel("Target Track:");
     trkLbl.setForeground(Color.LIGHT_GRAY);
     destPanel.add(trkLbl);
 
+    // Kit tracks record into a drum slot; synth tracks record into osc 1 (slot ignored).
     ArrayList<String> kitTracksNames = new ArrayList<>();
     ArrayList<Integer> kitTracksIndices = new ArrayList<>();
     if (project != null) {
       for (int i = 0; i < project.getTracks().size(); i++) {
         TrackModel t = project.getTracks().get(i);
+        String nm = t.getName() != null ? t.getName() : ("Track " + (i + 1));
         if (t instanceof KitTrackModel) {
-          kitTracksNames.add(t.getName() != null ? t.getName() : "Kit Track " + (i + 1));
+          kitTracksNames.add(nm + " (Kit)");
+          kitTracksIndices.add(i);
+        } else if (t instanceof org.deluge.model.SynthTrackModel) {
+          kitTracksNames.add(nm + " (Synth → Osc1)");
           kitTracksIndices.add(i);
         }
       }
@@ -157,7 +162,7 @@ public class ThresholdRecordDialog extends JDialog {
         e -> {
           if (kitTracksIndices.isEmpty()) {
             JOptionPane.showMessageDialog(
-                this, "Error: No Drum Kit Track exists to map samples onto!");
+                this, "Error: No Kit or Synth track exists to map samples onto!");
             return;
           }
           int targetTrk = kitTracksIndices.get(trackCombo.getSelectedIndex());

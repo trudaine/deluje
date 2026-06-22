@@ -3377,7 +3377,11 @@ public class SwingDelugeApp extends JFrame {
                   this,
                   currentProject,
                   () -> {
+                    // Rebuild the engine so the just-recorded sample is loaded into its kit slot /
+                    // synth osc and is immediately audible, then refresh the grid.
+                    syncHighFidelityEngine(currentProject, true);
                     if (songPanel != null) songPanel.refresh();
+                    if (clipPanel != null) clipPanel.refresh();
                   })
               .setVisible(true);
         });

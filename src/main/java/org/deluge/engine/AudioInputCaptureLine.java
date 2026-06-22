@@ -244,6 +244,13 @@ public class AudioInputCaptureLine {
                     "[Capture] Successfully loaded recorded sample to slot: " + targetSlotIndex);
               }
             }
+          } else if (track instanceof org.deluge.model.SynthTrackModel synthTrack) {
+            // Sample into a synth osc 1 (slot is N/A for synths): the recorded WAV becomes the
+            // SAMPLE oscillator source, playable as a pitched instrument.
+            synthTrack.setOsc1Type("SAMPLE");
+            synthTrack.setOsc1SamplePath(targetWav.getAbsolutePath());
+            System.out.println(
+                "[Capture] Loaded recorded sample to synth osc1: " + synthTrack.getName());
           }
         }
         if (onFinishedCallback != null) {
