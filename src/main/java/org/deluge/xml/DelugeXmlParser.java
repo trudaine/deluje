@@ -526,10 +526,13 @@ public class DelugeXmlParser {
       java.util.Queue<TrackModel> instrumentTrackQueue = new java.util.LinkedList<>();
       java.util.Queue<AudioTrackModel> audioTrackQueue = new java.util.LinkedList<>();
       for (TrackModel t : projectTracks) {
-        if (t instanceof KitTrackModel) kitTrackQueue.add((KitTrackModel) t);
-        else if (t instanceof SynthTrackModel || t instanceof MidiTrackModel)
-          instrumentTrackQueue.add(t);
-        else if (t instanceof AudioTrackModel) audioTrackQueue.add((AudioTrackModel) t);
+        switch (t) {
+          case KitTrackModel kit -> kitTrackQueue.add(kit);
+          case SynthTrackModel synth -> instrumentTrackQueue.add(synth);
+          case MidiTrackModel midi -> instrumentTrackQueue.add(midi);
+          case AudioTrackModel audio -> audioTrackQueue.add(audio);
+          default -> {}
+        }
       }
 
       for (int i = 0; i < clipNodeList.getLength(); i++) {
@@ -788,29 +791,37 @@ public class DelugeXmlParser {
 
         // Parse the clip's <soundParams>: STATIC values into the track model (the song format
         // keeps all sound params here), then automation.
-        if (targetTrack instanceof SynthTrackModel || targetTrack instanceof MidiTrackModel) {
-          NodeList soundParamsList = clipElem.getElementsByTagName("soundParams");
-          if (soundParamsList.getLength() > 0) {
-            Element spEl = (Element) soundParamsList.item(0);
-            if (targetTrack instanceof SynthTrackModel stm) {
+        switch (targetTrack) {
+          case SynthTrackModel stm -> {
+            NodeList soundParamsList = clipElem.getElementsByTagName("soundParams");
+            if (soundParamsList.getLength() > 0) {
+              Element spEl = (Element) soundParamsList.item(0);
               parseClipSoundParamsStatics(spEl, stm);
+              parseAutomation(spEl, clip);
             }
-            parseAutomation(spEl, clip);
+            NodeList paramsList2 = clipElem.getElementsByTagName("params");
+            if (paramsList2.getLength() > 0) {
+              parseParamsAsKitParams((Element) paramsList2.item(0), clip);
+            }
           }
-        }
-
-        // Parse per-clip <kitParams> for kit tracks or <params> for synth clips
-        if (targetTrack instanceof KitTrackModel) {
-          Element kitParamsEl = getFirstChild(clipElem, "kitParams");
-          if (kitParamsEl != null) {
-            parseKitParamsElement(kitParamsEl, clip);
+          case MidiTrackModel mtm -> {
+            NodeList soundParamsList = clipElem.getElementsByTagName("soundParams");
+            if (soundParamsList.getLength() > 0) {
+              Element spEl = (Element) soundParamsList.item(0);
+              parseAutomation(spEl, clip);
+            }
+            NodeList paramsList2 = clipElem.getElementsByTagName("params");
+            if (paramsList2.getLength() > 0) {
+              parseParamsAsKitParams((Element) paramsList2.item(0), clip);
+            }
           }
-        } else {
-          // Synth track: <params> child has same hex-attribute set as <kitParams>
-          NodeList paramsList2 = clipElem.getElementsByTagName("params");
-          if (paramsList2.getLength() > 0) {
-            parseParamsAsKitParams((Element) paramsList2.item(0), clip);
+          case KitTrackModel ktm -> {
+            Element kitParamsEl = getFirstChild(clipElem, "kitParams");
+            if (kitParamsEl != null) {
+              parseKitParamsElement(kitParamsEl, clip);
+            }
           }
+          default -> {}
         }
       }
       // ── Parse audioClips in sessionClips ──
