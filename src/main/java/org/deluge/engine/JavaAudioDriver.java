@@ -206,6 +206,27 @@ public class JavaAudioDriver implements Runnable {
         long start = System.nanoTime();
         engine.renderBlock(BLOCK_SIZE);
         long duration = System.nanoTime() - start;
+        // Boot benchmark (deluge.bootbench): JVM-start-relative time to first audio block and to
+        // steady state (block 200) — the JIT-warmup window the AOT cache is meant to shorten.
+        if (Boolean.getBoolean("deluge.bootbench") && (blockCounter == 0 || blockCounter == 200)) {
+          long up = java.lang.management.ManagementFactory.getRuntimeMXBean().getUptime();
+          String line =
+              System.getProperty("deluge.benchtag", "run")
+                  + " block="
+                  + blockCounter
+                  + " uptime="
+                  + up
+                  + "ms\n";
+          System.out.print("[BOOTBENCH] " + line);
+          try {
+            java.nio.file.Files.writeString(
+                new java.io.File(System.getProperty("user.home"), ".deluge/bootbench.txt").toPath(),
+                line,
+                java.nio.file.StandardOpenOption.CREATE,
+                java.nio.file.StandardOpenOption.APPEND);
+          } catch (Exception ignored) {
+          }
+        }
         // C: AudioEngine::setDireness — feed the measured block render time to the adaptive
         // resampling-quality governor (sample interpolation drops to linear under sustained load).
         org.deluge.engine.FirmwareAudioEngine.updateDireness(

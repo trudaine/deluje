@@ -4211,6 +4211,15 @@ public class SwingDelugeApp extends JFrame {
           SwingDelugeApp app = new SwingDelugeApp(bridge, midiService, finalPureMode);
           app.setVisible(true);
 
+          // Benchmark/training hook: clean self-exit after N ms (System.exit -> normal shutdown, so
+          // an -XX:AOTCacheOutput training run actually writes its cache). Off unless set.
+          long benchExitMs = Long.getLong("deluge.benchExitMs", -1L);
+          if (benchExitMs >= 0) {
+            javax.swing.Timer bx = new javax.swing.Timer((int) benchExitMs, e -> System.exit(0));
+            bx.setRepeats(false);
+            bx.start();
+          }
+
           if (finalRunScreenshots) {
             new Thread(
                     () -> {
