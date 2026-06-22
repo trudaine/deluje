@@ -251,6 +251,20 @@ public class AudioInputCaptureLine {
             synthTrack.setOsc1SamplePath(targetWav.getAbsolutePath());
             System.out.println(
                 "[Capture] Loaded recorded sample to synth osc1: " + synthTrack.getName());
+          } else if (track instanceof org.deluge.model.AudioTrackModel audioTrack) {
+            // Record into an audio track: the captured WAV becomes the track's audio clip, which
+            // the
+            // engine then streams (AudioOutput, Phase 1-3b) — i.e. live sampling into an audio
+            // track.
+            org.deluge.model.AudioTrackModel.AudioClip clip;
+            if (!audioTrack.getAudioClips().isEmpty()) {
+              clip = audioTrack.getAudioClips().get(0);
+            } else {
+              clip = new org.deluge.model.AudioTrackModel.AudioClip();
+              audioTrack.addAudioClip(clip);
+            }
+            clip.setFilePath(targetWav.getAbsolutePath());
+            System.out.println("[Capture] Recorded into audio track: " + audioTrack.getName());
           }
         }
         if (onFinishedCallback != null) {

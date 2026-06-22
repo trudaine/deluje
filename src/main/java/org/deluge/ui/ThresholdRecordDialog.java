@@ -116,6 +116,9 @@ public class ThresholdRecordDialog extends JDialog {
         } else if (t instanceof org.deluge.model.SynthTrackModel) {
           kitTracksNames.add(nm + " (Synth → Osc1)");
           kitTracksIndices.add(i);
+        } else if (t instanceof org.deluge.model.AudioTrackModel) {
+          kitTracksNames.add(nm + " (Audio Clip)");
+          kitTracksIndices.add(i);
         }
       }
     }
