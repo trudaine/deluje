@@ -156,6 +156,8 @@ public class FirmwareFactory {
             var smp = AudioFileReader.readSample(f.getAbsolutePath());
             if (smp != null) {
               out.setClip(org.deluge.firmware2.Sample.fromFirmwareSample(smp), true);
+              // Phase 2: playback rate / pitch (coupled resample vs independent time-stretch).
+              out.setPlayback(model.getPlayRate(), clip.isPitchSpeedIndependent());
               // Phase 3: the engine starts/stops it on the transport play edge (not at load time).
               System.out.println(
                   "[FirmwareFactory] Audio track '"
