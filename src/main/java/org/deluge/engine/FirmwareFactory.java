@@ -138,12 +138,38 @@ public class FirmwareFactory {
     return midi;
   }
 
-  public static FirmwareSound createAudioSound(
+  public static org.deluge.firmware2.GlobalEffectable createAudioSound(
       AudioTrackModel model, int trackIndex, ProjectModel project) {
-    FirmwareSound audioSound = new FirmwareSound();
-    audioSound.fw2Sound.tuning = project;
-    // Map basic audio parameters
-    return audioSound;
+    // Phase 1 (docs/AUDIO_TRACK_PORT_PLAN.md): an AudioOutput that streams the first audio clip's
+    // sample through the track FX chain. Pitch/time-stretch and transport sync are later phases.
+    org.deluge.firmware2.AudioOutput out = new org.deluge.firmware2.AudioOutput();
+    if (model.getAudioClips() != null && !model.getAudioClips().isEmpty()) {
+      AudioTrackModel.AudioClip clip = model.getAudioClips().get(0);
+      String path = clip.getFilePath();
+      if (path != null && !path.isEmpty()) {
+        File f = new File(path);
+        if (!f.exists()) {
+          f = resolveSample(path, PreferencesManager.getLibraryDir());
+        }
+        if (f != null && f.exists()) {
+          try {
+            var smp = AudioFileReader.readSample(f.getAbsolutePath());
+            if (smp != null) {
+              out.setClip(org.deluge.firmware2.Sample.fromFirmwareSample(smp), true);
+              out.setPlaying(true); // Phase 1: loop continuously (transport gating is Phase 3)
+              System.out.println(
+                  "[FirmwareFactory] Audio track '"
+                      + model.getName()
+                      + "' streaming clip: "
+                      + f.getName());
+            }
+          } catch (Exception e) {
+            System.err.println("[FirmwareFactory] Audio clip load failed: " + path + " — " + e);
+          }
+        }
+      }
+    }
+    return out;
   }
 
   /**
