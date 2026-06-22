@@ -46,6 +46,22 @@ public class AudioOutput extends GlobalEffectable {
     }
   }
 
+  /**
+   * Transport started: begin the clip from its start, phase-aligned to the transport (Phase 3). The
+   * engine calls this on the play edge so audio clips are silent until the song is playing.
+   */
+  public void onTransportStart() {
+    if (sample != null) {
+      voiceSample.setup(sample, 0, (int) sample.lengthInSamples, 1, looping, 0);
+      playing = true;
+    }
+  }
+
+  /** Transport stopped: stop streaming (renderInternal becomes silent). */
+  public void onTransportStop() {
+    playing = false;
+  }
+
   public boolean isPlaying() {
     return playing;
   }
