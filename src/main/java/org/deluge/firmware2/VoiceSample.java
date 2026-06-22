@@ -336,6 +336,12 @@ public class VoiceSample {
     }
     int[] ampArr = {ampVal};
 
+    // whichKernel and interpolationBufferSize depend only on phaseIncrement (constant for this
+    // render call), so compute once instead of per output chunk (getInterpolationBufferSize showed
+    // up in the resampler profile because it ran in the inner loop).
+    int whichKernel = native_ ? 0 : Functions.getWhichKernel(phaseIncrement);
+    int interpBufSize = native_ ? 0 : Functions.getInterpolationBufferSize(phaseIncrement);
+
     int produced = 0;
     while (produced < numSamples) {
       long left = framesUntilEnd();
@@ -359,14 +365,7 @@ public class VoiceSample {
         reader.readNative(tmp, chunk, numChannels, ampArr, ampInc);
       } else {
         reader.readResampled(
-            tmp,
-            chunk,
-            numChannels,
-            Functions.getWhichKernel(phaseIncrement),
-            phaseIncrement,
-            Functions.getInterpolationBufferSize(phaseIncrement),
-            ampArr,
-            ampInc);
+            tmp, chunk, numChannels, whichKernel, phaseIncrement, interpBufSize, ampArr, ampInc);
       }
       int base = produced * numChannels;
       for (int i = 0; i < tmp.length; i++) {
