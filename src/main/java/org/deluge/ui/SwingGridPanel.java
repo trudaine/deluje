@@ -915,6 +915,61 @@ public class SwingGridPanel extends JPanel {
         0x27, 0x27, 0x2b); // deeper, beautiful dark charcoal for standard subdivisions!
   }
 
+  private Color getThemeColor(
+      org.deluge.project.PreferencesManager.GridColorTheme theme,
+      Color trackColor,
+      boolean active,
+      boolean inScale,
+      boolean isRoot,
+      int rowIdx) {
+    Color base = trackColor != null ? trackColor : Color.GREEN;
+    switch (theme) {
+      case NEON:
+        if (active) {
+          float[] hsb = Color.RGBtoHSB(base.getRed(), base.getGreen(), base.getBlue(), null);
+          return Color.getHSBColor(hsb[0], 1.0f, 1.0f);
+        } else if (isRoot) {
+          return new Color(0xff, 0x00, 0x7f); // hot neon pink root
+        } else if (inScale) {
+          float[] hsb = Color.RGBtoHSB(base.getRed(), base.getGreen(), base.getBlue(), null);
+          return Color.getHSBColor(hsb[0], 1.0f, 0.25f);
+        } else {
+          return new Color(0x18, 0x10, 0x22); // deep dark purple-gray
+        }
+      case MONOCHROME:
+        if (active) {
+          return Color.WHITE;
+        } else if (isRoot) {
+          return new Color(0xaa, 0xaa, 0xaa); // medium gray root
+        } else if (inScale) {
+          return new Color(0x3e, 0x3e, 0x3e); // dark gray in-scale
+        } else {
+          return new Color(0x15, 0x15, 0x15); // very dark gray out-of-scale
+        }
+      case STEEL:
+        if (active) {
+          return new Color(0x00, 0xb0, 0xff); // electric slate blue
+        } else if (isRoot) {
+          return new Color(0xff, 0xab, 0x40); // bright copper orange root
+        } else if (inScale) {
+          return new Color(0x00, 0x3b, 0x5c); // dark steel-blue in-scale
+        } else {
+          return new Color(0x1e, 0x22, 0x27); // dark metal out-of-scale
+        }
+      case HARDWARE:
+      default:
+        if (active) {
+          return base;
+        } else if (isRoot) {
+          return new Color(0x00, 0xd2, 0xff); // neon cyan root
+        } else if (inScale) {
+          return base; // DelugePadButton dims it automatically
+        } else {
+          return new Color(0x1d, 0x1d, 0x22); // titanium gray out-of-scale
+        }
+    }
+  }
+
   public int getFocusTrack() {
     return focusTrack;
   }
@@ -994,6 +1049,20 @@ public class SwingGridPanel extends JPanel {
           javax.swing.SwingUtilities.invokeLater(this::fireProjectChanged);
         });
     menu.add(downItem);
+
+    menu.addSeparator();
+
+    // ── Grid Color Theme Sub-menu ──
+    javax.swing.JMenu themeMenu = new javax.swing.JMenu("Grid Color Theme");
+    for (org.deluge.project.PreferencesManager.GridColorTheme theme : org.deluge.project.PreferencesManager.GridColorTheme.values()) {
+      javax.swing.JRadioButtonMenuItem item = new javax.swing.JRadioButtonMenuItem(theme.name(), theme == org.deluge.project.PreferencesManager.getGridColorTheme());
+      item.addActionListener(evt -> {
+        org.deluge.project.PreferencesManager.setGridColorTheme(theme);
+        refresh();
+      });
+      themeMenu.add(item);
+    }
+    menu.add(themeMenu);
 
     menu.addSeparator();
 
@@ -4071,6 +4140,26 @@ public class SwingGridPanel extends JPanel {
               boolean inLoop = activeCol < curTrackLen;
 
               if (clipBtn instanceof DelugePadButton pad) {
+                org.deluge.project.PreferencesManager.GridColorTheme theme =
+                    org.deluge.project.PreferencesManager.getGridColorTheme();
+                Color trackColor = trackColors[modelRow % trackColors.length];
+                boolean inScale = true;
+                boolean isRoot = false;
+
+                if (isSynthMode) {
+                  int pitchMidi = 127 - modelRow;
+                  int keyOffset = getKeyMidiOffset(projectModel.getKey());
+                  isRoot = (pitchMidi % 12 == keyOffset);
+                  inScale = org.deluge.model.Scales.isNoteInScale(
+                      pitchMidi,
+                      keyOffset,
+                      scaleTypeFromName(projectModel.getScale()));
+                }
+
+                Color cellBaseColor = getThemeColor(theme, trackColor, stepState, inScale, isRoot, modelRow);
+                pad.setBaseColor(cellBaseColor);
+                pad.setApplicable(inScale || !isSynthMode);
+
                 pad.setMuted(isMuted);
                 pad.setInLoop(inLoop);
                 pad.setActive(stepState);
@@ -4078,7 +4167,7 @@ public class SwingGridPanel extends JPanel {
                 pad.setTied(isStepTied(modelRow, activeCol));
                 if (stepState) {
                   if (isSynthMode) {
-                    int pitchMidi = (((128 - 1) - modelRow) + 0);
+                    int pitchMidi = 127 - modelRow;
                     pad.setNoteText(getNoteName(pitchMidi));
                   } else {
                     pad.setNoteText(String.format("v%d", (int) (vel * 100)));
@@ -4192,6 +4281,58 @@ public class SwingGridPanel extends JPanel {
                 } else {
                   clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
                 }
+              }
+            }
+          }
+        }
+      }
+    } else if (viewMode == GridViewMode.KEYPLAY) {
+      boolean kitTrack = isEditedTrackKit();
+      Color trackColor = trackColors[editedModelTrack % trackColors.length];
+      org.deluge.project.PreferencesManager.GridColorTheme theme =
+          org.deluge.project.PreferencesManager.getGridColorTheme();
+
+      for (int v = 0; v < gridMode.rows; v++) {
+        for (int c = 0; c < columnCount; c++) {
+          JButton clipBtn = pads[v][c];
+          if (clipBtn == null) continue;
+
+          if (isMuteColumn(c) || isSoloColumn(c)) {
+            clipBtn.setVisible(false);
+            clipBtn.setEnabled(false);
+          } else if (c < 16) {
+            if (kitTrack) {
+              int drumIdx = keyplayDrumIndex(v, c);
+              boolean drumPlayable = drumIdx < editedKitDrumCount();
+              boolean isPlaying = bridge != null && bridge.getGlobalInt(BridgeContract.G_PREVIEW_TRACK) == (long) (baseTrackId + (v % 8));
+              
+              if (clipBtn instanceof DelugePadButton pad) {
+                pad.setActive(drumPlayable);
+                pad.setBaseColor(drumPlayable ? trackColor : new Color(0x1a, 0x1a, 0x1e));
+                pad.setApplicable(drumPlayable);
+                pad.setIntensity(isPlaying ? 1.0f : 0.4f);
+              } else {
+                clipBtn.setBackground(drumPlayable ? trackColor : new Color(0x22, 0x22, 0x24));
+              }
+            } else {
+              int note = keyplayNote(v, c);
+              int keyOffset = getKeyMidiOffset(projectModel.getKey());
+              boolean isRoot = (note % 12 == keyOffset);
+              boolean inScale = org.deluge.model.Scales.isNoteInScale(
+                  note,
+                  keyOffset,
+                  scaleTypeFromName(projectModel.getScale()));
+              
+              boolean isPlaying = false;
+              Color cellBaseColor = getThemeColor(theme, trackColor, isPlaying, inScale, isRoot, v);
+              
+              if (clipBtn instanceof DelugePadButton pad) {
+                pad.setBaseColor(cellBaseColor);
+                pad.setApplicable(inScale);
+                pad.setActive(isPlaying || isRoot || inScale);
+                pad.setIntensity(isPlaying ? 1.0f : (isRoot ? 0.6f : 0.3f));
+              } else {
+                clipBtn.setBackground(cellBaseColor);
               }
             }
           }
@@ -7063,6 +7204,8 @@ public class SwingGridPanel extends JPanel {
         cell.setMargin(new Insets(0, 0, 0, 0));
         cell.setDrawCenterCircle(false);
 
+        cell.putClientProperty("row", r);
+        cell.putClientProperty("col", c);
         pads[r][c] = cell;
 
         // Determine if this cell is "lit" (value band matches row)
@@ -7179,9 +7322,23 @@ public class SwingGridPanel extends JPanel {
                 int acIdx2 = tM.getActiveClipIndex();
                 if (acIdx2 < 0 || acIdx2 >= tM.getClips().size()) return;
                 org.deluge.model.ClipModel cM = tM.getClips().get(acIdx2);
-                float val = (rowIdx * 16 + 8) / 127.0f;
-                cM.setAutomation(finalParam, colIdx, val);
-                refresh();
+
+                Point pt = javax.swing.SwingUtilities.convertPoint(
+                    e.getComponent(), e.getPoint(), SwingGridPanel.this);
+                Component under = getComponentAt(pt);
+                if (under instanceof JPanel rowPanel) {
+                  Component deepest = rowPanel.getComponentAt(
+                      new Point(pt.x - rowPanel.getX(), pt.y - rowPanel.getY()));
+                  if (deepest instanceof javax.swing.JComponent jc) {
+                    Integer rProp = (Integer) jc.getClientProperty("row");
+                    Integer cProp = (Integer) jc.getClientProperty("col");
+                    if (rProp != null && cProp != null && cProp < stepCount && rProp < 8) {
+                      float val = (rProp * 16 + 8) / 127.0f;
+                      cM.setAutomation(finalParam, cProp, val);
+                      refresh();
+                    }
+                  }
+                }
               }
             });
 
