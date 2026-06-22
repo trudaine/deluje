@@ -1,8 +1,6 @@
 package org.deluge.firmware2;
 
 import java.util.ArrayList;
-import org.deluge.firmware.engine.GlobalSidechainBus;
-import org.deluge.firmware.engine.Stutterer;
 import org.deluge.firmware2.FilterSet.FilterMode;
 import org.deluge.firmware2.Lfo.LfoConfig;
 import org.deluge.firmware2.Oscillator.OscType;

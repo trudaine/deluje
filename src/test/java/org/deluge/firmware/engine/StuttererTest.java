@@ -11,6 +11,7 @@ import org.deluge.firmware.modulation.params.ParamManager;
 import org.deluge.firmware2.DelayBuffer;
 import org.deluge.firmware2.Param;
 import org.deluge.firmware2.StereoSample;
+import org.deluge.firmware2.Stutterer;
 import org.junit.jupiter.api.Test;
 
 class StuttererTest {

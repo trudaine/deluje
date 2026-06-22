@@ -4,6 +4,7 @@ import java.util.List;
 import org.deluge.firmware2.Compressor;
 import org.deluge.firmware2.Delay;
 import org.deluge.firmware2.GlobalEffectable;
+import org.deluge.firmware2.GlobalSidechainBus;
 import org.deluge.firmware2.LiveInputBuffer;
 import org.deluge.firmware2.LivePitchShifter;
 import org.deluge.firmware2.Metronome;

@@ -330,7 +330,7 @@ public class DigitalAudioFidelityTest {
 
   @Test
   void testSidechainDuckingFidelity() {
-    org.deluge.firmware.engine.GlobalSidechainBus.reset();
+    org.deluge.firmware2.GlobalSidechainBus.reset();
 
     org.deluge.firmware.engine.FirmwareAudioEngine engine =
         new org.deluge.firmware.engine.FirmwareAudioEngine();
