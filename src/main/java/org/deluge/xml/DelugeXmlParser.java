@@ -2704,34 +2704,13 @@ public class DelugeXmlParser {
       return;
     }
     Element compEl = (Element) compNodes.item(0);
-    String attackStr = compEl.getAttribute("attack");
-    if (attackStr != null && !attackStr.isBlank()) {
-      synth.setCompressorAttack(Math.abs(DelugeHexMapper.hexToFloat(attackStr)));
-    }
-    String releaseStr = compEl.getAttribute("release");
-    if (releaseStr != null && !releaseStr.isBlank()) {
-      synth.setCompressorRelease(Math.abs(DelugeHexMapper.hexToFloat(releaseStr)));
-    }
-    String syncStr = compEl.getAttribute("syncLevel");
-    if (syncStr != null && !syncStr.isBlank()) {
-      try {
-        synth.setCompressorSyncLevel(Integer.parseInt(syncStr));
-      } catch (NumberFormatException e) {
-        LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
-      }
-    }
-    readAttrFloatHex(compEl, "threshold", v -> synth.setCompressorThreshold(v), true);
-    readAttrFloatHex(compEl, "ratio", v -> synth.setCompressorRatio(v), true);
-    readAttrFloatHex(compEl, "blend", v -> synth.setCompressorBlend(v), true);
-    // syncType: sidechain sync type attribute on compressor element
-    String syncTypeStr = compEl.getAttribute("syncType");
-    if (syncTypeStr != null && !syncTypeStr.isBlank()) {
-      try {
-        synth.setCompressorSyncType(Integer.parseInt(syncTypeStr));
-      } catch (NumberFormatException e) {
-        LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
-      }
-    }
+    readAttrOrChildHexFloat(compEl, "attack", v -> synth.setCompressorAttack(Math.abs(v)));
+    readAttrOrChildHexFloat(compEl, "release", v -> synth.setCompressorRelease(Math.abs(v)));
+    readAttrOrChildInt(compEl, "syncLevel", 0, synth::setCompressorSyncLevel);
+    readAttrOrChildHexFloat(compEl, "threshold", v -> synth.setCompressorThreshold(Math.abs(v)));
+    readAttrOrChildHexFloat(compEl, "ratio", v -> synth.setCompressorRatio(Math.abs(v)));
+    readAttrOrChildHexFloat(compEl, "blend", v -> synth.setCompressorBlend(Math.abs(v)));
+    readAttrOrChildInt(compEl, "syncType", 0, synth::setCompressorSyncType);
   }
 
   // ── Kit Sound Full Synth Parity Parsers ──
@@ -2791,19 +2770,18 @@ public class DelugeXmlParser {
             sound.setPolyphony(SynthTrackModel.PolyphonyMode.POLY);
           }
         });
-    int vp = readIntAttr(soundNode, "voicePriority", 1);
-    sound.setVoicePriority(vp);
-    readAttrFloatHex(soundNode, "sideChainSend", sound::setSidechainSend, true);
+    readAttrOrChildInt(soundNode, "voicePriority", 1, sound::setVoicePriority);
+    readAttrOrChildHexFloat(soundNode, "sideChainSend", sound::setSidechainSend);
     readAttrOrChildString(soundNode, "modFXType", sound::setModFxType);
     readAttrOrChildString(soundNode, "modFxType", sound::setModFxType);
-    readAttrString(
+    readAttrOrChildString(
         soundNode,
         "lpfMode",
         v -> {
           if ("24dB".equals(v)) sound.setLpfMode(FilterMode.LADDER_24);
           else sound.setLpfMode(FilterMode.LADDER_12);
         });
-    readAttrString(
+    readAttrOrChildString(
         soundNode,
         "hpfMode",
         v -> {
@@ -2828,7 +2806,7 @@ public class DelugeXmlParser {
         v -> {
           // filterRoute is an internal routing flag; not directly stored
         });
-    readAttrFloatHex(soundNode, "clippingAmount", sound::setClippingAmount, true);
+    readAttrOrChildHexFloat(soundNode, "clippingAmount", sound::setClippingAmount);
 
     // ── Child elements ──
     // osc1 retrigPhase
@@ -2920,10 +2898,10 @@ public class DelugeXmlParser {
     // delay
     Element delayEl = getFirstChild(soundNode, "delay");
     if (delayEl != null) {
-      sound.setDelayRate(DelugeHexMapper.hexToFloat(readAttr(delayEl, "rate")));
-      sound.setDelayFeedback(DelugeHexMapper.hexToFloat(readAttr(delayEl, "feedback")));
-      sound.setDelayPingPong(readIntAttr(delayEl, "pingPong", 0));
-      sound.setDelayAnalog(readIntAttr(delayEl, "analog", 0));
+      readAttrOrChildHexFloat(delayEl, "rate", sound::setDelayRate);
+      readAttrOrChildHexFloat(delayEl, "feedback", sound::setDelayFeedback);
+      readAttrOrChildInt(delayEl, "pingPong", 0, sound::setDelayPingPong);
+      readAttrOrChildInt(delayEl, "analog", 0, sound::setDelayAnalog);
     } else {
       // Fallback: look up direct attributes on soundNode
       String rateStr = readAttr(soundNode, "delayRate");
@@ -2940,21 +2918,14 @@ public class DelugeXmlParser {
       compEl = getFirstChild(soundNode, "compressor"); // tag fallback
     }
     if (compEl != null) {
-      sound.setCompressorAttack(DelugeHexMapper.hexToFloat(readAttr(compEl, "attack")));
-      sound.setCompressorRelease(DelugeHexMapper.hexToFloat(readAttr(compEl, "release")));
-      sound.setCompressorSyncLevel(readIntAttr(compEl, "syncLevel", 0));
-      String thresholdStr = readAttr(compEl, "threshold");
-      if (thresholdStr != null)
-        sound.setCompressorThreshold(Math.abs(DelugeHexMapper.hexToFloat(thresholdStr)));
-      String ratioStr = readAttr(compEl, "ratio");
-      if (ratioStr != null)
-        sound.setCompressorRatio(Math.abs(DelugeHexMapper.hexToFloat(ratioStr)));
-      String blendStr = readAttr(compEl, "blend");
-      if (blendStr != null)
-        sound.setCompressorBlend(Math.abs(DelugeHexMapper.hexToFloat(blendStr)));
-      String compHpfStr = readAttr(compEl, "sidechainHpf");
-      if (compHpfStr != null)
-        sound.setCompressorSidechainHpf(Math.abs(DelugeHexMapper.hexToFloat(compHpfStr)));
+      readAttrOrChildHexFloat(compEl, "attack", sound::setCompressorAttack);
+      readAttrOrChildHexFloat(compEl, "release", sound::setCompressorRelease);
+      readAttrOrChildInt(compEl, "syncLevel", 0, sound::setCompressorSyncLevel);
+      readAttrOrChildHexFloat(compEl, "threshold", v -> sound.setCompressorThreshold(Math.abs(v)));
+      readAttrOrChildHexFloat(compEl, "ratio", v -> sound.setCompressorRatio(Math.abs(v)));
+      readAttrOrChildHexFloat(compEl, "blend", v -> sound.setCompressorBlend(Math.abs(v)));
+      readAttrOrChildHexFloat(
+          compEl, "sidechainHpf", v -> sound.setCompressorSidechainHpf(Math.abs(v)));
     } else {
       // Fallback: look up direct attributes on soundNode
       String attackStr = readAttr(soundNode, "compressorAttack");
@@ -3498,6 +3469,60 @@ public class DelugeXmlParser {
     if (val != null && !val.isEmpty()) {
       setter.accept(val.trim());
     }
+  }
+
+  private static void readAttrOrChildHexFloat(
+      Element el, String name, java.util.function.Consumer<Float> setter) {
+    String val = el.getAttribute(name);
+    if (val == null || val.isEmpty()) {
+      if ("threshold".equals(name)) {
+        val = el.getAttribute("thresh");
+      }
+    }
+    if (val != null && !val.isEmpty()) {
+      setter.accept(DelugeHexMapper.hexToFloat(val.trim()));
+      return;
+    }
+    NodeList nodes = el.getElementsByTagName(name);
+    if (nodes.getLength() == 0 && "threshold".equals(name)) {
+      nodes = el.getElementsByTagName("thresh");
+    }
+    if (nodes.getLength() > 0) {
+      Element child = (Element) nodes.item(0);
+      String childVal = child.getAttribute("value");
+      if (childVal == null || childVal.isEmpty()) {
+        childVal = child.getTextContent();
+      }
+      if (childVal != null && !childVal.isBlank()) {
+        setter.accept(DelugeHexMapper.hexToFloat(childVal.trim()));
+      }
+    }
+  }
+
+  private static void readAttrOrChildInt(
+      Element el, String name, int defaultValue, java.util.function.Consumer<Integer> setter) {
+    String val = el.getAttribute(name);
+    if (val != null && !val.isEmpty()) {
+      try {
+        setter.accept(Integer.parseInt(val.trim()));
+        return;
+      } catch (NumberFormatException e) {
+        // fall through
+      }
+    }
+    NodeList nodes = el.getElementsByTagName(name);
+    if (nodes.getLength() > 0) {
+      String childVal = nodes.item(0).getTextContent();
+      if (childVal != null && !childVal.isBlank()) {
+        try {
+          setter.accept(Integer.parseInt(childVal.trim()));
+          return;
+        } catch (NumberFormatException e) {
+          // fall through
+        }
+      }
+    }
+    setter.accept(defaultValue);
   }
 
   /** Read a hex float from a child element's attribute (attribute-style), apply with Math.abs. */
