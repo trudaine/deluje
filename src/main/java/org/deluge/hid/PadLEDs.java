@@ -1,6 +1,6 @@
-package org.deluge.firmware.hid;
+package org.deluge.hid;
 
-import org.deluge.firmware.hid.pic.GridConfig;
+import org.deluge.hid.pic.GridConfig;
 
 /** Virtual framebuffer for the Deluge's grid and sidebars. Ports the logic from pad_leds.h. */
 public class PadLEDs {

@@ -2,7 +2,7 @@ package org.deluge.playback;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.deluge.firmware.modulation.params.ParamManager;
+import org.deluge.modulation.params.ParamManager;
 
 public class NoteRow {
   public int y;

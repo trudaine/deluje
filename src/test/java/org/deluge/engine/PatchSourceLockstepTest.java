@@ -8,20 +8,20 @@ import org.junit.jupiter.api.Test;
 /**
  * Lockstep guard for the bridge's silent landmine: {@code FirmwareSound.syncParamsToFw2} maps patch
  * cables with {@code fc.source = c.from.ordinal()}, i.e. it assumes {@code
- * org.deluge.firmware.modulation.patch.PatchSource} and {@code org.deluge.firmware2 .PatchSource}
- * have IDENTICAL constants in IDENTICAL order. If anyone reorders/adds/removes a constant in one
- * enum but not the other, every patch cable silently re-sources to the wrong modulator (no compiler
+ * org.deluge.modulation.patch.PatchSource} and {@code org.deluge.firmware2 .PatchSource} have
+ * IDENTICAL constants in IDENTICAL order. If anyone reorders/adds/removes a constant in one enum
+ * but not the other, every patch cable silently re-sources to the wrong modulator (no compiler
  * error) — exactly the class of bug found in the 2026-06 Bridge audit ({@code lfo1} had been mapped
  * to the wrong source). This test turns that into a build failure.
  *
- * <p>Also pins the {@link org.deluge.firmware.modulation.patch.PatchCable.Polarity} → firmware2
+ * <p>Also pins the {@link org.deluge.modulation.patch.PatchCable.Polarity} → firmware2
  * polarity-constant mapping the bridge relies on.
  */
 class PatchSourceLockstepTest {
 
   @Test
   void patchSourceEnumsAreInLockstep() {
-    var bridgeValues = org.deluge.firmware.modulation.patch.PatchSource.values();
+    var bridgeValues = org.deluge.modulation.patch.PatchSource.values();
     var fw2Values = org.deluge.firmware2.PatchSource.values();
 
     assertEquals(
@@ -52,7 +52,7 @@ class PatchSourceLockstepTest {
     // syncParamsToFw2: c.polarity == UNIPOLAR ? PatchCable.UNIPOLAR : PatchCable.BIPOLAR
     assertEquals(
         2,
-        org.deluge.firmware.modulation.patch.PatchCable.Polarity.values().length,
+        org.deluge.modulation.patch.PatchCable.Polarity.values().length,
         "bridge polarity has exactly UNIPOLAR/BIPOLAR");
     org.deluge.firmware2.Patcher.PatchCable fc = new org.deluge.firmware2.Patcher.PatchCable();
     fc.polarity = org.deluge.firmware2.Patcher.PatchCable.UNIPOLAR;

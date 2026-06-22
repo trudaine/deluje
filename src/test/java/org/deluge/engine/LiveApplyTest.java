@@ -128,7 +128,7 @@ public class LiveApplyTest {
     for (var d : sound.paramManager.getPatchCableSet().destinations) {
       if (d.paramId == org.deluge.firmware2.Param.LOCAL_LPF_FREQ) {
         for (var cable : d.cables) {
-          if (cable.from == org.deluge.firmware.modulation.patch.PatchSource.LFO_GLOBAL_1) {
+          if (cable.from == org.deluge.modulation.patch.PatchSource.LFO_GLOBAL_1) {
             found = true;
             assertEquals((int) (0.5f * 2147483647.0), cable.getAmount());
           }

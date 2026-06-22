@@ -44,15 +44,32 @@ public class TrackInspectorDialog extends JDialog {
             : org.deluge.project.PreferencesManager.getKitsDir();
 
     cb.addItem("<Select Preset>");
-    if (dir != null && dir.exists() && dir.isDirectory()) {
-      java.io.File[] files = dir.listFiles((d, name) -> name.toLowerCase().endsWith(".xml"));
-      if (files != null) {
-        for (java.io.File f : files) {
-          String presetName = f.getName().substring(0, f.getName().length() - 4);
-          cb.addItem(presetName);
-        }
-      }
-    }
+    cb.setEnabled(false);
+    Thread.ofVirtual()
+        .start(
+            () -> {
+              if (dir != null && dir.exists() && dir.isDirectory()) {
+                java.io.File[] files =
+                    dir.listFiles((d, name) -> name.toLowerCase().endsWith(".xml"));
+                if (files != null) {
+                  java.util.List<String> presetNames = new java.util.ArrayList<>();
+                  for (java.io.File f : files) {
+                    presetNames.add(f.getName().substring(0, f.getName().length() - 4));
+                  }
+                  javax.swing.SwingUtilities.invokeLater(
+                      () -> {
+                        for (String presetName : presetNames) {
+                          cb.addItem(presetName);
+                        }
+                        cb.setEnabled(true);
+                      });
+                } else {
+                  javax.swing.SwingUtilities.invokeLater(() -> cb.setEnabled(true));
+                }
+              } else {
+                javax.swing.SwingUtilities.invokeLater(() -> cb.setEnabled(true));
+              }
+            });
 
     p1.add(lP);
     p1.add(cb);
@@ -141,34 +158,56 @@ public class TrackInspectorDialog extends JDialog {
         ev -> {
           String selected = (String) cb.getSelectedItem();
           if (selected == null || selected.equals("<Select Preset>")) return;
-          try {
-            java.io.File file = new java.io.File(dir, selected + ".xml");
-            if (file.exists() && trackIndex < tracks.size()) {
-              org.deluge.model.TrackModel oldTrack = tracks.get(trackIndex);
-              org.deluge.model.TrackModel newTrack = null;
-              if (isSynth) {
-                newTrack = org.deluge.xml.DelugeXmlParser.parseSynth(file);
-              } else if (isKit) {
-                newTrack = org.deluge.xml.DelugeXmlParser.parseKit(file);
-              }
-              if (newTrack != null) {
-                newTrack.getClips().clear();
-                for (org.deluge.model.ClipModel cm : oldTrack.getClips()) {
-                  newTrack.addClip(cm);
-                }
-                newTrack.setColourHex(oldTrack.getColourHex());
-                tracks.set(trackIndex, newTrack);
-              }
-            }
-          } catch (Exception ex) {
-            JOptionPane.showMessageDialog(
-                this,
-                "Failed to load preset:\n" + ex.getMessage(),
-                "Error",
-                JOptionPane.ERROR_MESSAGE);
-          }
-          dispose();
-          onRefresh.run();
+          cb.setEnabled(false);
+          Thread.ofVirtual()
+              .start(
+                  () -> {
+                    try {
+                      java.io.File file = new java.io.File(dir, selected + ".xml");
+                      if (file.exists() && trackIndex < tracks.size()) {
+                        org.deluge.model.TrackModel oldTrack = tracks.get(trackIndex);
+                        final org.deluge.model.TrackModel newTrack;
+                        if (isSynth) {
+                          newTrack = org.deluge.xml.DelugeXmlParser.parseSynth(file);
+                        } else if (isKit) {
+                          newTrack = org.deluge.xml.DelugeXmlParser.parseKit(file);
+                        } else {
+                          newTrack = null;
+                        }
+                        if (newTrack != null) {
+                          newTrack.getClips().clear();
+                          for (org.deluge.model.ClipModel cm : oldTrack.getClips()) {
+                            newTrack.addClip(cm);
+                          }
+                          newTrack.setColourHex(oldTrack.getColourHex());
+                          javax.swing.SwingUtilities.invokeLater(
+                              () -> {
+                                tracks.set(trackIndex, newTrack);
+                                dispose();
+                                onRefresh.run();
+                              });
+                        } else {
+                          javax.swing.SwingUtilities.invokeLater(() -> cb.setEnabled(true));
+                        }
+                      } else {
+                        javax.swing.SwingUtilities.invokeLater(
+                            () -> {
+                              dispose();
+                              onRefresh.run();
+                            });
+                      }
+                    } catch (Exception ex) {
+                      javax.swing.SwingUtilities.invokeLater(
+                          () -> {
+                            cb.setEnabled(true);
+                            JOptionPane.showMessageDialog(
+                                this,
+                                "Failed to load preset:\n" + ex.getMessage(),
+                                "Error",
+                                JOptionPane.ERROR_MESSAGE);
+                          });
+                    }
+                  });
         });
 
     add(tabs);

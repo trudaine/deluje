@@ -10,7 +10,7 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import javax.swing.JComponent;
 import javax.swing.Timer;
-import org.deluge.firmware.hid.FirmwareDisplay;
+import org.deluge.hid.FirmwareDisplay;
 
 /**
  * Modern, self-drawn transient parameter readout that replaces the legacy 4-character {@code

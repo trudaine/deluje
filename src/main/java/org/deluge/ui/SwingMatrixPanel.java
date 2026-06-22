@@ -4,10 +4,10 @@ import java.awt.*;
 import java.awt.event.MouseEvent;
 import javax.swing.*;
 import org.deluge.BridgeContract;
-import org.deluge.firmware.hid.FirmwareUI;
-import org.deluge.firmware.hid.MatrixDriver;
-import org.deluge.firmware.hid.PadLEDs;
-import org.deluge.firmware.hid.RGB;
+import org.deluge.hid.FirmwareUI;
+import org.deluge.hid.MatrixDriver;
+import org.deluge.hid.PadLEDs;
+import org.deluge.hid.RGB;
 
 /** Custom painted sequencer step grid panel using pure Java2D. */
 public class SwingMatrixPanel extends JPanel {

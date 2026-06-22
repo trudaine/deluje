@@ -1,4 +1,4 @@
-package org.deluge.firmware.modulation.automation;
+package org.deluge.modulation.automation;
 
 public class ParamNode {
   public int pos;

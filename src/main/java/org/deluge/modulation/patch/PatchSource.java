@@ -1,4 +1,4 @@
-package org.deluge.firmware.modulation.patch;
+package org.deluge.modulation.patch;
 
 public enum PatchSource {
   LFO_GLOBAL_1,

@@ -4367,7 +4367,7 @@ public class SwingGridPanel extends JPanel {
         String tBanner = t.getType().name();
         String tTitle = t.getName();
         String tMetric = "TRANSPOSE " + projectModel.getTranspose();
-        org.deluge.firmware.hid.FirmwareDisplay.get()
+        org.deluge.hid.FirmwareDisplay.get()
             .getVirtualOLED()
             .drawTrackScreen(tBanner, tTitle, tMetric);
       } catch (Throwable th) {
@@ -6377,7 +6377,7 @@ public class SwingGridPanel extends JPanel {
                                   };
                               String nName =
                                   noteNames[Math.max(0, midiPitch) % 12] + ((midiPitch / 12) - 1);
-                              org.deluge.firmware.hid.FirmwareDisplay.get()
+                              org.deluge.hid.FirmwareDisplay.get()
                                   .getVirtualOLED()
                                   .setNoteOverride(nName);
                             } catch (Throwable th) {
@@ -6479,9 +6479,7 @@ public class SwingGridPanel extends JPanel {
                         }
 
                         try {
-                          org.deluge.firmware.hid.FirmwareDisplay.get()
-                              .getVirtualOLED()
-                              .clearNoteOverride();
+                          org.deluge.hid.FirmwareDisplay.get().getVirtualOLED().clearNoteOverride();
                         } catch (Throwable th) {
                           // Shield
                         }

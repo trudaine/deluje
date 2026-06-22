@@ -1,6 +1,6 @@
 package org.deluge.ui.views;
 
-import org.deluge.firmware.hid.*;
+import org.deluge.hid.*;
 import org.deluge.playback.InstrumentClip;
 import org.deluge.playback.Note;
 import org.deluge.playback.NoteRow;

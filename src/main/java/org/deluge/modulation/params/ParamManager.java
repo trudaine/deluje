@@ -1,10 +1,10 @@
-package org.deluge.firmware.modulation.params;
+package org.deluge.modulation.params;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.deluge.firmware.modulation.automation.AutoParam;
-import org.deluge.firmware.modulation.patch.PatchCableSet;
 import org.deluge.firmware2.Param;
+import org.deluge.modulation.automation.AutoParam;
+import org.deluge.modulation.patch.PatchCableSet;
 
 public class ParamManager {
   public List<AutoParam> automatedParams = new ArrayList<>();

@@ -2,8 +2,8 @@ package org.deluge.playback;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.deluge.firmware.modulation.params.ParamManager;
 import org.deluge.firmware2.TuningProvider;
+import org.deluge.modulation.params.ParamManager;
 
 public class Song extends TimelineCounter implements TuningProvider {
   public List<Clip> clips = new ArrayList<>();

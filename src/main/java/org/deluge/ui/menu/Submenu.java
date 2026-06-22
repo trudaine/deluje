@@ -2,9 +2,9 @@ package org.deluge.ui.menu;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.deluge.firmware.hid.ActionResult;
-import org.deluge.firmware.hid.Button;
-import org.deluge.firmware.hid.FirmwareDisplay;
+import org.deluge.hid.ActionResult;
+import org.deluge.hid.Button;
+import org.deluge.hid.FirmwareDisplay;
 
 /** A menu item that opens a submenu when selected. Navigable via the select encoder. */
 public class Submenu extends MenuItem {

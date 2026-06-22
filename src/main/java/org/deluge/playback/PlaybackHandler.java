@@ -1,6 +1,6 @@
 package org.deluge.playback;
 
-import org.deluge.firmware.hid.FirmwareDisplay;
+import org.deluge.hid.FirmwareDisplay;
 
 /**
  * Port of the Deluge's PlaybackHandler class. Manages transport state and high-fidelity timing

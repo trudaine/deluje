@@ -5,8 +5,8 @@ import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import javax.swing.JPanel;
-import org.deluge.firmware.hid.FirmwareDisplay;
-import org.deluge.firmware.hid.VirtualOLED;
+import org.deluge.hid.FirmwareDisplay;
+import org.deluge.hid.VirtualOLED;
 
 /**
  * Swing component that renders the high-fidelity VirtualOLED display. Emulates the look of the

@@ -1,12 +1,12 @@
 package org.deluge.engine;
 
-import org.deluge.firmware.modulation.patch.Destination;
-import org.deluge.firmware.modulation.patch.PatchCable;
-import org.deluge.firmware.modulation.patch.PatchSource;
 import org.deluge.firmware2.Param;
 import org.deluge.firmware2.Sidechain;
 import org.deluge.firmware2.StereoSample;
 import org.deluge.model.tuning.ScalaScale;
+import org.deluge.modulation.patch.Destination;
+import org.deluge.modulation.patch.PatchCable;
+import org.deluge.modulation.patch.PatchSource;
 
 /**
  * Port of the Deluge's Sound class. This is the central high-fidelity synthesis engine for a single
@@ -100,8 +100,8 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
   }
 
   public final Sidechain sidechain = fw2Sound.sidechain;
-  public final org.deluge.firmware.modulation.params.ParamManager paramManager =
-      new org.deluge.firmware.modulation.params.ParamManager();
+  public final org.deluge.modulation.params.ParamManager paramManager =
+      new org.deluge.modulation.params.ParamManager();
   private int silentBlockCount = 200; // Starts gated on boot
 
   // Per-sound delay config from the song's instrument <delay> + soundParams delayFeedback. The

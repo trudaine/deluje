@@ -3,8 +3,8 @@ package org.deluge;
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.deluge.engine.FirmwareSound;
-import org.deluge.firmware.modulation.patch.PatchSource;
 import org.deluge.firmware2.Param;
+import org.deluge.modulation.patch.PatchSource;
 import org.junit.jupiter.api.Test;
 
 public class LiveAutomationMpeTest {
@@ -81,7 +81,7 @@ public class LiveAutomationMpeTest {
     drumSound.paramManager.processCurrentPos(96, 16 * 24, false, didPingpong, true);
 
     // Verify the param manager's automated value updates to Q31 space target!
-    org.deluge.firmware.modulation.automation.AutoParam ap =
+    org.deluge.modulation.automation.AutoParam ap =
         drumSound.paramManager.getAutomatedParam(Param.LOCAL_LPF_FREQ);
     assertNotNull(ap);
     assertEquals((int) (0.75 * 2147483647.0), ap.currentValue);

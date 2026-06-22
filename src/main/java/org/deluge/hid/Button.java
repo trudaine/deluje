@@ -1,4 +1,4 @@
-package org.deluge.firmware.hid;
+package org.deluge.hid;
 
 /**
  * Enumeration of all physical buttons on the Deluge hardware. Used for high-fidelity input routing

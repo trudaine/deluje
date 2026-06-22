@@ -1,7 +1,7 @@
 package org.deluge.ui.menu;
 
-import org.deluge.firmware.hid.ActionResult;
-import org.deluge.firmware.hid.FirmwareDisplay;
+import org.deluge.hid.ActionResult;
+import org.deluge.hid.FirmwareDisplay;
 
 /** A menu item for toggling a boolean setting. */
 public class ToggleMenuItem extends MenuItem {

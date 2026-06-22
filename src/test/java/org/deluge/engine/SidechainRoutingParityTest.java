@@ -3,10 +3,10 @@ package org.deluge.engine;
 import static org.deluge.firmware2.Functions.ONE_Q31;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.deluge.firmware.modulation.patch.PatchCable;
-import org.deluge.firmware.modulation.patch.PatchSource;
 import org.deluge.firmware2.GlobalSidechainBus;
 import org.deluge.firmware2.Param;
+import org.deluge.modulation.patch.PatchCable;
+import org.deluge.modulation.patch.PatchSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
