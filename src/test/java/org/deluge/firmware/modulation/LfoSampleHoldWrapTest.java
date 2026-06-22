@@ -2,6 +2,7 @@ package org.deluge.firmware.modulation;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import org.deluge.firmware2.Lfo;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -19,11 +20,11 @@ public class LfoSampleHoldWrapTest {
    */
   @Test
   public void sampleAndHoldRetriggersOnUpperHalfWrap() {
-    LFO lfo = new LFO();
+    Lfo lfo = new Lfo();
     lfo.phase = 0xFF000000; // upper half (negative as a signed int)
     lfo.holdValue = SENTINEL;
     // unsigned: 0xFF000000 + 0x02000000 = 0x101000000 > 0xFFFFFFFF -> wraps -> retrigger
-    int value = lfo.render(1, LFO.LFOType.SAMPLE_AND_HOLD, 0x02000000);
+    int value = lfo.render(1, Lfo.LfoType.SAMPLE_AND_HOLD, 0x02000000);
     assertNotEquals(
         SENTINEL, value, "S&H must sample a fresh value when phase wraps in the upper half");
     assertNotEquals(SENTINEL, lfo.holdValue);
@@ -32,11 +33,11 @@ public class LfoSampleHoldWrapTest {
   /** With phase in the upper half but no wrap, S&H must hold (no retrigger). */
   @Test
   public void sampleAndHoldHoldsWhenNoWrap() {
-    LFO lfo = new LFO();
+    Lfo lfo = new Lfo();
     lfo.phase = 0x90000000; // upper half
     lfo.holdValue = SENTINEL;
     // unsigned: 0x90000000 + 0x01000000 = 0x91000000 < 0xFFFFFFFF -> no wrap -> hold
-    int value = lfo.render(1, LFO.LFOType.SAMPLE_AND_HOLD, 0x01000000);
+    int value = lfo.render(1, Lfo.LfoType.SAMPLE_AND_HOLD, 0x01000000);
     assertEquals(SENTINEL, value, "S&H must hold its value when phase does not wrap");
   }
 }

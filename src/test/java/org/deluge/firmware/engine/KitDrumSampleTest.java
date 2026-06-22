@@ -3,7 +3,6 @@ package org.deluge.firmware.engine;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.deluge.firmware.util.Q31;
 import org.deluge.firmware2.Param;
 import org.junit.jupiter.api.Test;
 
@@ -27,7 +26,8 @@ class KitDrumSampleTest {
 
   private static void giveSample(FirmwareSound drum, float[] wave) {
     drum.oscTypes[0] = org.deluge.firmware2.Oscillator.OscType.SAMPLE;
-    drum.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = Q31.ONE; // audible
+    drum.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] =
+        org.deluge.firmware2.Functions.ONE_Q31; // audible
     var s = sample(wave);
     drum.samples[0] = s;
     drum.fw2SampleCache[0] = org.deluge.firmware2.Sample.fromFirmwareSample(s);

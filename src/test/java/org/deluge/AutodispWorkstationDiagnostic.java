@@ -3,7 +3,6 @@ package org.deluge;
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.deluge.firmware.engine.FirmwareSound;
-import org.deluge.firmware.util.Q31;
 import org.deluge.firmware2.Oscillator.OscType;
 import org.deluge.firmware2.Param;
 import org.deluge.firmware2.StereoSample;
@@ -32,11 +31,12 @@ public class AutodispWorkstationDiagnostic {
       sound.osc1RetriggerPhase = 0; // Force exact phase alignment at sample 0!
 
       // Max volume parameters, bypass envelope modulation by setting sustain to MAX
-      sound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = Q31.ONE;
+      sound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = org.deluge.firmware2.Functions.ONE_Q31;
       sound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = 0;
-      sound.paramNeutralValues[Param.LOCAL_VOLUME] = Q31.ONE;
+      sound.paramNeutralValues[Param.LOCAL_VOLUME] = org.deluge.firmware2.Functions.ONE_Q31;
       sound.paramNeutralValues[Param.LOCAL_ENV_0_ATTACK] = 10000000; // Instant attack!
-      sound.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN] = Q31.ONE; // Max sustain!
+      sound.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN] =
+          org.deluge.firmware2.Functions.ONE_Q31; // Max sustain!
 
       sound.triggerNote(note, 127);
 
@@ -106,10 +106,10 @@ public class AutodispWorkstationDiagnostic {
     sound.fw2Sound.numUnison = 1;
     sound.setLpfMode(null);
 
-    sound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = Q31.ONE;
+    sound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = org.deluge.firmware2.Functions.ONE_Q31;
     sound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = 0;
-    sound.paramNeutralValues[Param.LOCAL_VOLUME] = Q31.ONE;
-    sound.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN] = Q31.ONE;
+    sound.paramNeutralValues[Param.LOCAL_VOLUME] = org.deluge.firmware2.Functions.ONE_Q31;
+    sound.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN] = org.deluge.firmware2.Functions.ONE_Q31;
 
     sound.triggerNote(60, 127); // Trigger C4 (261.63Hz)
 
@@ -153,14 +153,15 @@ public class AutodispWorkstationDiagnostic {
     sound.fw2Sound.numUnison = 1;
     sound.setLpfMode(null);
 
-    sound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = Q31.ONE;
+    sound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = org.deluge.firmware2.Functions.ONE_Q31;
     sound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = 0;
-    sound.paramNeutralValues[Param.LOCAL_VOLUME] = Q31.ONE;
+    sound.paramNeutralValues[Param.LOCAL_VOLUME] = org.deluge.firmware2.Functions.ONE_Q31;
 
     // Set high-speed rate envelope settings (larger values mean faster transition rates!)
     sound.paramNeutralValues[Param.LOCAL_ENV_0_ATTACK] = 1000000; // Instant attack (1 block)
     sound.paramNeutralValues[Param.LOCAL_ENV_0_DECAY] = 80000; // Fast decay
-    sound.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN] = Q31.ONE / 2;
+    sound.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN] =
+        org.deluge.firmware2.Functions.ONE_Q31 / 2;
     sound.paramNeutralValues[Param.LOCAL_ENV_0_RELEASE] = 50000;
 
     sound.triggerNote(60, 127);
@@ -230,11 +231,11 @@ public class AutodispWorkstationDiagnostic {
     // Set SVF Low-pass Filter mode
     sound.setLpfMode(FilterMode.SVF);
 
-    sound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = Q31.ONE;
+    sound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = org.deluge.firmware2.Functions.ONE_Q31;
     sound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = 0;
-    sound.paramNeutralValues[Param.LOCAL_VOLUME] = Q31.ONE;
+    sound.paramNeutralValues[Param.LOCAL_VOLUME] = org.deluge.firmware2.Functions.ONE_Q31;
     sound.paramNeutralValues[Param.LOCAL_ENV_0_ATTACK] = 10000000; // Instant attack!
-    sound.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN] = Q31.ONE;
+    sound.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN] = org.deluge.firmware2.Functions.ONE_Q31;
 
     // Set filter cutoff extremely low (represented in Q31 as a lower threshold)
     sound.paramNeutralValues[Param.LOCAL_LPF_FREQ] = (int) (0.01 * 2147483647.0); // Very low cutoff

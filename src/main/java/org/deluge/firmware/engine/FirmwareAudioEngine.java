@@ -1,7 +1,6 @@
 package org.deluge.firmware.engine;
 
 import java.util.List;
-import org.deluge.firmware.util.Q31;
 import org.deluge.firmware2.Compressor;
 import org.deluge.firmware2.Delay;
 import org.deluge.firmware2.GlobalEffectable;
@@ -191,7 +190,7 @@ public class FirmwareAudioEngine {
 
     // Metronome click — added dry, before the master compressor (C: audio_engine.cpp:626).
     if (metronomeEnabled) {
-      metronome.render(fxBuffer, numSamples, Q31.ONE);
+      metronome.render(fxBuffer, numSamples, org.deluge.firmware2.Functions.ONE_Q31);
     }
 
     // ── Master output stage — faithful port of audio_engine.cpp:891-901. ──

@@ -124,9 +124,9 @@ class TriggerRenderConsistencyTest {
     org.deluge.firmware.engine.FirmwareSound s = new org.deluge.firmware.engine.FirmwareSound();
     s.oscTypes[0] = org.deluge.firmware2.Oscillator.OscType.SAW;
     s.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_OSC_A_VOLUME] =
-        org.deluge.firmware.util.Q31.ONE;
+        org.deluge.firmware2.Functions.ONE_Q31;
     s.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_VOLUME] =
-        org.deluge.firmware.util.Q31.ONE;
+        org.deluge.firmware2.Functions.ONE_Q31;
     FirmwareAudioEngine eng = new FirmwareAudioEngine();
     eng.sounds.add(s);
     // A 4-note chord = realistic polyphony (what "adding cells" builds up to).

@@ -1,6 +1,5 @@
 package org.deluge;
 
-import static org.deluge.firmware.util.Q31.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.File;
@@ -10,7 +9,6 @@ import org.deluge.firmware.engine.FirmwareSound;
 import org.deluge.firmware.model.Song;
 import org.deluge.firmware.modulation.patch.PatchCable;
 import org.deluge.firmware.modulation.patch.PatchSource;
-import org.deluge.firmware.util.Q31;
 import org.deluge.firmware2.Param;
 import org.deluge.firmware2.StereoSample;
 import org.deluge.model.KitTrackModel;
@@ -340,14 +338,15 @@ public class DigitalAudioFidelityTest {
     // Create a steady-state voice with maximum infinite sustain
     FirmwareSound synth = new FirmwareSound();
     synth.oscTypes[0] = org.deluge.firmware2.Oscillator.OscType.SAW;
-    synth.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_ENV_0_SUSTAIN] = Q31.ONE;
+    synth.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_ENV_0_SUSTAIN] =
+        org.deluge.firmware2.Functions.ONE_Q31;
     synth.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_ENV_0_RELEASE] = 100000000;
     synth.paramNeutralValues[org.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_SHAPE] = 0; // linear
     synth.fw2Sound.sidechainSend = 0; // Only receives sidechain ducking
     synth.sidechain.syncLevel = 0; // Sync off for test recovery timing
     PatchCable sidechainCable = new PatchCable();
     sidechainCable.from = PatchSource.SIDECHAIN;
-    sidechainCable.amount = Q31.ONE;
+    sidechainCable.amount = org.deluge.firmware2.Functions.ONE_Q31;
     synth
         .paramManager
         .getPatchCableSet()
@@ -373,7 +372,7 @@ public class DigitalAudioFidelityTest {
 
     // Create sidechain trigger sound (representing a kick drum slot!)
     FirmwareSound kick = new FirmwareSound();
-    kick.fw2Sound.sidechainSend = Q31.ONE; // Max send level
+    kick.fw2Sound.sidechainSend = org.deluge.firmware2.Functions.ONE_Q31; // Max send level
     kick.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_OSC_A_VOLUME] = Integer.MIN_VALUE;
     kick.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
     kick.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_NOISE_VOLUME] = Integer.MIN_VALUE;
@@ -430,7 +429,8 @@ public class DigitalAudioFidelityTest {
     // Configure instant attack/decay and maximum sustain
     synth.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_ENV_0_ATTACK] = Integer.MIN_VALUE;
     synth.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_ENV_0_DECAY] = Integer.MIN_VALUE;
-    synth.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_ENV_0_SUSTAIN] = Q31.ONE;
+    synth.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_ENV_0_SUSTAIN] =
+        org.deluge.firmware2.Functions.ONE_Q31;
 
     // Trigger note 60 (C4)
     synth.triggerNote(60, 100);

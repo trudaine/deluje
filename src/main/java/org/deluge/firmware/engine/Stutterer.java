@@ -1,10 +1,10 @@
 package org.deluge.firmware.engine;
 
-import static org.deluge.firmware.util.Q31.*;
+import static org.deluge.firmware2.Functions.multiply_32x32_rshift32;
 
 import org.deluge.firmware.modulation.params.ParamManager;
-import org.deluge.firmware.util.FirmwareUtils;
 import org.deluge.firmware2.DelayBuffer;
+import org.deluge.firmware2.Functions;
 import org.deluge.firmware2.Param;
 import org.deluge.firmware2.StereoSample;
 
@@ -190,7 +190,7 @@ public class Stutterer {
       knobPos = 64;
     }
     int quantizedParamValue = knobPosToParamValue(knobPos);
-    int rate = FirmwareUtils.getExp(1, quantizedParamValue);
+    int rate = Functions.getExp(1, quantizedParamValue);
     return Math.max(rate, 1000);
   }
 

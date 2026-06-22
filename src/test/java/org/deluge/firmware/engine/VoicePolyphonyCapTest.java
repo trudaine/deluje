@@ -3,7 +3,6 @@ package org.deluge.firmware.engine;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.deluge.firmware.util.Q31;
 import org.deluge.firmware2.Oscillator.OscType;
 import org.deluge.firmware2.Param;
 import org.junit.jupiter.api.Test;
@@ -27,8 +26,8 @@ class VoicePolyphonyCapTest {
   void densePlayingIsCappedAtMaxPolyphony() {
     FirmwareSound s = new FirmwareSound();
     s.oscTypes[0] = OscType.SAW;
-    s.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = Q31.ONE;
-    s.paramNeutralValues[Param.LOCAL_VOLUME] = Q31.ONE;
+    s.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = org.deluge.firmware2.Functions.ONE_Q31;
+    s.paramNeutralValues[Param.LOCAL_VOLUME] = org.deluge.firmware2.Functions.ONE_Q31;
 
     FirmwareAudioEngine eng = new FirmwareAudioEngine();
     eng.sounds.add(s);

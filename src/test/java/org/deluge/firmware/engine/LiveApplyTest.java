@@ -143,9 +143,8 @@ public class LiveApplyTest {
     for (double hz : new double[] {0.1, 0.5, 1.0, 2.0, 8.0, 20.0}) {
       int knob = FirmwareFactory.lfoRateKnobFromHz(hz);
       long inc =
-          org.deluge.firmware.util.FirmwareUtils.getExp(
-                  121739,
-                  org.deluge.firmware.util.FirmwareUtils.patchCombineExpStep(0, knob, 1073741824))
+          org.deluge.firmware2.Functions.getExp(
+                  121739, org.deluge.firmware2.Functions.patchCombineExpStep(0, knob, 1073741824))
               & 0xFFFFFFFFL;
       double gotHz = inc * 44100.0 / 4294967296.0;
       assertEquals(hz, gotHz, hz * 0.02, "knob inversion should reproduce the rate within 2%");
