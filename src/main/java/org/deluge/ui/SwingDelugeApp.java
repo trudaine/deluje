@@ -6,10 +6,7 @@ import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.UnsupportedAudioFileException;
 import javax.swing.*;
 import org.deluge.BridgeContract;
-import org.deluge.firmware.engine.FirmwareFactory;
-import org.deluge.firmware.gui.views.KitView;
-import org.deluge.firmware.gui.views.PianoRollView;
-import org.deluge.firmware.gui.views.SessionView;
+import org.deluge.engine.FirmwareFactory;
 import org.deluge.firmware.hid.Flasher;
 import org.deluge.firmware.hid.MatrixDriver;
 import org.deluge.firmware.hid.pic.PIC;
@@ -21,6 +18,9 @@ import org.deluge.model.KitTrackModel;
 import org.deluge.model.PatternModel;
 import org.deluge.model.SoundDrum;
 import org.deluge.model.SynthTrackModel;
+import org.deluge.ui.views.KitView;
+import org.deluge.ui.views.PianoRollView;
+import org.deluge.ui.views.SessionView;
 
 /** Alternative lightweight UI running purely on Java Swing (no native libs). */
 public class SwingDelugeApp extends JFrame {
@@ -1619,7 +1619,7 @@ public class SwingDelugeApp extends JFrame {
               for (int i = 0; i < samplePaths.size(); i++) {
                 String path = samplePaths.get(i);
                 java.io.File resolved =
-                    org.deluge.firmware.engine.FirmwareFactory.resolveSample(path, sdRoot);
+                    org.deluge.engine.FirmwareFactory.resolveSample(path, sdRoot);
                 if (resolved != null && resolved.exists()) {
                   publish(
                       "Loading "
@@ -1630,8 +1630,7 @@ public class SwingDelugeApp extends JFrame {
                           + samplePaths.size()
                           + ")...");
                   try {
-                    org.deluge.firmware.storage.audio.AudioFileReader.readSample(
-                        resolved.getAbsolutePath());
+                    org.deluge.storage.audio.AudioFileReader.readSample(resolved.getAbsolutePath());
                   } catch (Exception ignored) {
                   }
                 }
@@ -1718,7 +1717,7 @@ public class SwingDelugeApp extends JFrame {
       System.err.println("[applyKitDrumSampleLive] EARLY EXIT trackIdx");
       return;
     }
-    org.deluge.firmware.engine.FirmwareAudioEngine eng = pureEngine.getAudioEngine();
+    org.deluge.engine.FirmwareAudioEngine eng = pureEngine.getAudioEngine();
     if (eng == null || trackIdx >= eng.sounds.size()) {
       System.err.println("[applyKitDrumSampleLive] EARLY EXIT eng");
       return;
@@ -1729,7 +1728,7 @@ public class SwingDelugeApp extends JFrame {
             + trackIdx
             + " = "
             + (sound != null ? sound.getClass().getSimpleName() : "null"));
-    if (!(sound instanceof org.deluge.firmware.engine.FirmwareKit fkit)) {
+    if (!(sound instanceof org.deluge.engine.FirmwareKit fkit)) {
       System.err.println("[applyKitDrumSampleLive] EARLY EXIT not kit");
       return;
     }
@@ -1737,10 +1736,9 @@ public class SwingDelugeApp extends JFrame {
       System.err.println("[applyKitDrumSampleLive] EARLY EXIT drumIdx oob");
       return;
     }
-    org.deluge.firmware.engine.FirmwareSound drum = fkit.drumSounds.get(drumIdx);
+    org.deluge.engine.FirmwareSound drum = fkit.drumSounds.get(drumIdx);
     try {
-      org.deluge.firmware.model.sample.Sample s =
-          org.deluge.firmware.storage.audio.AudioFileReader.readSample(absPath);
+      org.deluge.playback.Sample s = org.deluge.storage.audio.AudioFileReader.readSample(absPath);
       if (s != null && s.data != null) {
         drum.oscTypes[0] = org.deluge.firmware2.Oscillator.OscType.SAMPLE;
         drum.samples[0] = s;
@@ -1760,13 +1758,13 @@ public class SwingDelugeApp extends JFrame {
   /** True if the firmware playback handler is currently playing. */
   private boolean isFirmwarePlaying() {
     Object h = bridge.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
-    return h instanceof org.deluge.firmware.playback.PlaybackHandler ph && ph.isPlaying();
+    return h instanceof org.deluge.playback.PlaybackHandler ph && ph.isPlaying();
   }
 
   /** True if the engine's registered sound count no longer matches the track count. */
   private boolean engineStructureChanged(org.deluge.model.ProjectModel model) {
     Object e = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-    return !(e instanceof org.deluge.firmware.engine.FirmwareAudioEngine eng)
+    return !(e instanceof org.deluge.engine.FirmwareAudioEngine eng)
         || eng.sounds.size() != model.getTracks().size();
   }
 
@@ -1788,14 +1786,14 @@ public class SwingDelugeApp extends JFrame {
     if (!forceRebuild && isFirmwarePlaying() && !engineStructureChanged(model)) {
       return;
     }
-    org.deluge.firmware.model.Song fwSong = FirmwareFactory.createSong(model);
+    org.deluge.playback.Song fwSong = FirmwareFactory.createSong(model);
     MatrixDriver.get().popUI();
 
     // Switch View to the first track's clip if possible
     if (!fwSong.clips.isEmpty()) {
-      org.deluge.firmware.model.Clip first = fwSong.clips.get(0);
-      if (first instanceof org.deluge.firmware.model.InstrumentClip ic) {
-        if (ic.sound instanceof org.deluge.firmware.engine.FirmwareKit) {
+      org.deluge.playback.Clip first = fwSong.clips.get(0);
+      if (first instanceof org.deluge.playback.InstrumentClip ic) {
+        if (ic.sound instanceof org.deluge.engine.FirmwareKit) {
           MatrixDriver.get().pushUI(new KitView(ic));
         } else {
           MatrixDriver.get().pushUI(new PianoRollView(ic));
@@ -1809,7 +1807,7 @@ public class SwingDelugeApp extends JFrame {
 
     // ── Sync Audio Registry ──
     Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-    if (fwEngineObj instanceof org.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
+    if (fwEngineObj instanceof org.deluge.engine.FirmwareAudioEngine fwEngine) {
       fwEngine.sounds.clear();
       // Ensure sounds list matches track count for direct indexing
       for (int i = 0; i < model.getTracks().size(); i++) {
@@ -1817,8 +1815,8 @@ public class SwingDelugeApp extends JFrame {
       }
 
       for (int i = 0; i < fwSong.clips.size() && i < model.getTracks().size(); i++) {
-        org.deluge.firmware.model.Clip c = fwSong.clips.get(i);
-        if (c instanceof org.deluge.firmware.model.InstrumentClip ic && ic.sound != null) {
+        org.deluge.playback.Clip c = fwSong.clips.get(i);
+        if (c instanceof org.deluge.playback.InstrumentClip ic && ic.sound != null) {
           fwEngine.sounds.set(i, ic.sound);
           System.out.println(
               "[UI] Registered track " + i + " sound: " + ic.sound.getClass().getSimpleName());
@@ -1877,10 +1875,10 @@ public class SwingDelugeApp extends JFrame {
         "[DIAG sync] fwHandlerObj="
             + fwHandlerObj
             + " isPlaybackHandler="
-            + (fwHandlerObj instanceof org.deluge.firmware.playback.PlaybackHandler)
+            + (fwHandlerObj instanceof org.deluge.playback.PlaybackHandler)
             + " fwSongClips="
             + (fwSong != null ? fwSong.clips.size() : "null"));
-    if (fwHandlerObj instanceof org.deluge.firmware.playback.PlaybackHandler fwHandler) {
+    if (fwHandlerObj instanceof org.deluge.playback.PlaybackHandler fwHandler) {
       fwHandler.setSong(fwSong);
       System.out.println(
           "[DIAG sync] Successfully set fwSong inside PlaybackHandler! Current active play state="
@@ -1888,7 +1886,7 @@ public class SwingDelugeApp extends JFrame {
               + " songBpm="
               + fwSong.tempoBPM);
       if (fwSong.clips.size() > 0
-          && fwSong.clips.get(0) instanceof org.deluge.firmware.model.InstrumentClip ic) {
+          && fwSong.clips.get(0) instanceof org.deluge.playback.InstrumentClip ic) {
         int activeNotesCount = 0;
         for (var row : ic.noteRows) {
           activeNotesCount += row.notes.size();
@@ -2063,7 +2061,7 @@ public class SwingDelugeApp extends JFrame {
       if (pureEngine != null) {
         var fwSong = pureEngine.getPlaybackHandler().getSong();
         if (fwSong != null) {
-          org.deluge.firmware.engine.FirmwareFactory.syncFirmwareToModel(fwSong, currentProject);
+          org.deluge.engine.FirmwareFactory.syncFirmwareToModel(fwSong, currentProject);
         }
       }
       pushModelToBridge();
@@ -4550,7 +4548,7 @@ public class SwingDelugeApp extends JFrame {
 
       try {
         Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-        if (fwEngineObj instanceof org.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
+        if (fwEngineObj instanceof org.deluge.engine.FirmwareAudioEngine fwEngine) {
           fwEngine.panic();
         }
       } catch (Exception ex) {

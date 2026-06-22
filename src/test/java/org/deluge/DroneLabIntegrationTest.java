@@ -4,16 +4,16 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
 import org.deluge.engine.DroneLabGenerator;
-import org.deluge.firmware.engine.FirmwareFactory;
-import org.deluge.firmware.engine.FirmwareSound;
-import org.deluge.firmware.model.InstrumentClip;
-import org.deluge.firmware.model.Song;
+import org.deluge.engine.FirmwareFactory;
+import org.deluge.engine.FirmwareSound;
 import org.deluge.firmware2.StereoSample;
 import org.deluge.model.ClipModel;
 import org.deluge.model.HighResNote;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.StepData;
 import org.deluge.model.SynthTrackModel;
+import org.deluge.playback.InstrumentClip;
+import org.deluge.playback.Song;
 import org.junit.jupiter.api.Test;
 
 /**

@@ -4,12 +4,12 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.File;
 import java.io.FileInputStream;
-import org.deluge.firmware.engine.FirmwareAudioEngine;
-import org.deluge.firmware.engine.FirmwareFactory;
-import org.deluge.firmware.engine.FirmwareSound;
-import org.deluge.firmware.model.Song;
-import org.deluge.firmware.playback.PlaybackHandler;
+import org.deluge.engine.FirmwareAudioEngine;
+import org.deluge.engine.FirmwareFactory;
+import org.deluge.engine.FirmwareSound;
 import org.deluge.model.ProjectModel;
+import org.deluge.playback.PlaybackHandler;
+import org.deluge.playback.Song;
 import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
@@ -53,7 +53,7 @@ public class Song000FidelityTest {
     assertNotNull(fwSong, "Failed to create firmware Song");
     assertFalse(fwSong.clips.isEmpty(), "No clips found in firmware Song");
 
-    var clip0 = (org.deluge.firmware.model.InstrumentClip) fwSong.clips.get(0);
+    var clip0 = (org.deluge.playback.InstrumentClip) fwSong.clips.get(0);
     assertNotNull(clip0.sound, "Synth sound in clip is null");
 
     // Debug: verify notes were loaded from SONG000

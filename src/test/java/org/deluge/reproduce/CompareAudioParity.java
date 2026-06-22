@@ -1,13 +1,13 @@
 package org.deluge.reproduce;
 
 import org.deluge.AudioAnalyzer;
-import org.deluge.firmware.engine.FirmwareAudioEngine;
-import org.deluge.firmware.engine.FirmwareFactory;
-import org.deluge.firmware.engine.FirmwareSound;
-import org.deluge.firmware.model.Song;
+import org.deluge.engine.FirmwareAudioEngine;
+import org.deluge.engine.FirmwareFactory;
+import org.deluge.engine.FirmwareSound;
 import org.deluge.firmware2.StereoSample;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.SynthTrackModel;
+import org.deluge.playback.Song;
 
 /**
  * High-fidelity command-line comparative diagnostics tool. Reads your physical Deluge recording,
@@ -190,8 +190,8 @@ public class CompareAudioParity {
     project.addTrack(model);
 
     Song song = FirmwareFactory.createSong(project);
-    org.deluge.firmware.model.InstrumentClip clip =
-        (org.deluge.firmware.model.InstrumentClip) song.clips.get(0);
+    org.deluge.playback.InstrumentClip clip =
+        (org.deluge.playback.InstrumentClip) song.clips.get(0);
     FirmwareSound sound = (FirmwareSound) clip.sound;
 
     // Apply exact same safe output level limits as standard hardware test runs to avoid digital

@@ -2,8 +2,8 @@ package org.deluge.firmware2;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.deluge.firmware.engine.FirmwareAudioEngine;
-import org.deluge.firmware.engine.FirmwareSound;
+import org.deluge.engine.FirmwareAudioEngine;
+import org.deluge.engine.FirmwareSound;
 import org.deluge.firmware2.Oscillator.OscType;
 import org.junit.jupiter.api.Test;
 
@@ -13,8 +13,7 @@ public class SampleLateStartTest {
   public void sampleStartsLateJumpingAhead() {
     // 1. Build a sample containing a ramp: data[i] = i
     int len = 2000;
-    org.deluge.firmware.model.sample.Sample modelSample =
-        new org.deluge.firmware.model.sample.Sample();
+    org.deluge.playback.Sample modelSample = new org.deluge.playback.Sample();
     modelSample.numChannels = 1;
     modelSample.byteDepth = 2;
     modelSample.sampleRate = 44100;

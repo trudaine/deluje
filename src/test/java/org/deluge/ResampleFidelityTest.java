@@ -7,16 +7,16 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
-import org.deluge.firmware.engine.FirmwareAudioEngine;
-import org.deluge.firmware.engine.FirmwareFactory;
-import org.deluge.firmware.engine.FirmwareSound;
-import org.deluge.firmware.model.Song;
-import org.deluge.firmware.playback.PlaybackHandler;
+import org.deluge.engine.FirmwareAudioEngine;
+import org.deluge.engine.FirmwareFactory;
+import org.deluge.engine.FirmwareSound;
 import org.deluge.firmware2.StereoSample;
 import org.deluge.model.ClipModel;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.StepData;
 import org.deluge.model.SynthTrackModel;
+import org.deluge.playback.PlaybackHandler;
+import org.deluge.playback.Song;
 import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -78,7 +78,7 @@ public class ResampleFidelityTest {
     assertFalse(fwSong.clips.isEmpty(), "Song must have clips");
 
     // Debug: verify notes were created
-    var clip0 = (org.deluge.firmware.model.InstrumentClip) fwSong.clips.get(0);
+    var clip0 = (org.deluge.playback.InstrumentClip) fwSong.clips.get(0);
     System.out.println("[Test] Clip noteRows: " + clip0.noteRows.size());
     int totalNotes = 0;
     for (var nr : clip0.noteRows) {
@@ -195,7 +195,7 @@ public class ResampleFidelityTest {
     ProjectModel project = new ProjectModel();
     project.addTrack(model);
     Song fwSong = FirmwareFactory.createSong(project);
-    var clip = (org.deluge.firmware.model.InstrumentClip) fwSong.clips.get(0);
+    var clip = (org.deluge.playback.InstrumentClip) fwSong.clips.get(0);
     FirmwareSound fwSound = (FirmwareSound) clip.sound;
 
     // Trigger C4 at max velocity
@@ -268,7 +268,7 @@ public class ResampleFidelityTest {
 
     // 4. Build engine + playback
     Song fwSong = FirmwareFactory.createSong(project);
-    var clip0 = (org.deluge.firmware.model.InstrumentClip) fwSong.clips.get(0);
+    var clip0 = (org.deluge.playback.InstrumentClip) fwSong.clips.get(0);
     FirmwareSound fwSound = (FirmwareSound) clip0.sound;
     fwSound.paramKnobs[org.deluge.firmware2.Param.LOCAL_VOLUME] = -1720000000;
     fwSound.fw2Sound.unisonDetune = 0;

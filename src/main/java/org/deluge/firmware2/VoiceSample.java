@@ -315,7 +315,7 @@ public class VoiceSample {
     if (!active) {
       return;
     }
-    if (org.deluge.firmware.engine.FirmwareAudioEngine.debugTelemetry
+    if (org.deluge.engine.FirmwareAudioEngine.debugTelemetry
         && (reader.playPos == 0 || Math.random() < 0.001)) {
       System.out.println(
           "[DIAG VoiceSample] render active: sample="

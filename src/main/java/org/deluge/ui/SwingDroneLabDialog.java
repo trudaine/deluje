@@ -6,7 +6,7 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import org.deluge.BridgeContract;
 import org.deluge.engine.DroneLabGenerator;
-import org.deluge.firmware.engine.FirmwareSound;
+import org.deluge.engine.FirmwareSound;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.SynthTrackModel;
 

@@ -470,10 +470,10 @@ public class SwingPerformanceViewPanel extends JPanel {
 
     // ── Sync with Firmware Engine ──
     Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-    if (fwEngineObj instanceof org.deluge.firmware.engine.FirmwareAudioEngine fwEngine) {
+    if (fwEngineObj instanceof org.deluge.engine.FirmwareAudioEngine fwEngine) {
       if (focusTrack < fwEngine.sounds.size()) {
         org.deluge.firmware2.GlobalEffectable sound = fwEngine.sounds.get(focusTrack);
-        if (sound instanceof org.deluge.firmware.engine.FirmwareSound fs) {
+        if (sound instanceof org.deluge.engine.FirmwareSound fs) {
           // Map performance column to firmware param
           int paramId = mapPerfColToParam(col);
           if (paramId != -1) {

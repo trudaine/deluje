@@ -153,7 +153,7 @@ public class LfoPanel extends JPanel {
                     lm.syncType()));
             // The factory feeds the RAW knob to the firmware exp curve — keep it in step.
             model.setLfoRateKnobQ31(
-                lfoIdx, org.deluge.firmware.engine.FirmwareFactory.lfoRateKnobFromHz(hz));
+                lfoIdx, org.deluge.engine.FirmwareFactory.lfoRateKnobFromHz(hz));
             rateField.setText(String.format("%.2f", hz));
           });
 

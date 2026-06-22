@@ -3,12 +3,12 @@ package org.deluge;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.File;
-import org.deluge.firmware.engine.FirmwareAudioEngine;
-import org.deluge.firmware.engine.FirmwareFactory;
-import org.deluge.firmware.model.InstrumentClip;
-import org.deluge.firmware.model.Song;
+import org.deluge.engine.FirmwareAudioEngine;
+import org.deluge.engine.FirmwareFactory;
 import org.deluge.firmware2.StereoSample;
 import org.deluge.model.ProjectModel;
+import org.deluge.playback.InstrumentClip;
+import org.deluge.playback.Song;
 import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
@@ -44,7 +44,7 @@ public class FidelitySongSmokeTest {
     }
     assertTrue(clips > 0, songName + ": no instrument clips parsed");
 
-    var playbackHandler = new org.deluge.firmware.playback.PlaybackHandler();
+    var playbackHandler = new org.deluge.playback.PlaybackHandler();
     playbackHandler.setSong(song);
     playbackHandler.start();
 

@@ -3,11 +3,11 @@ package org.deluge;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.File;
-import org.deluge.firmware.engine.FirmwareAudioEngine;
-import org.deluge.firmware.engine.FirmwareFactory;
-import org.deluge.firmware.model.InstrumentClip;
-import org.deluge.firmware.model.Song;
+import org.deluge.engine.FirmwareAudioEngine;
+import org.deluge.engine.FirmwareFactory;
 import org.deluge.model.ProjectModel;
+import org.deluge.playback.InstrumentClip;
+import org.deluge.playback.Song;
 import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
@@ -34,7 +34,7 @@ public class PerSoundDelayTimingTest {
         eng.sounds.add(ic.sound);
       }
     }
-    var pb = new org.deluge.firmware.playback.PlaybackHandler();
+    var pb = new org.deluge.playback.PlaybackHandler();
     pb.setSong(song);
     pb.start();
 

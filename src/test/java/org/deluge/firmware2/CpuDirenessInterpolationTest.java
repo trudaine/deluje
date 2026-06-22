@@ -2,7 +2,7 @@ package org.deluge.firmware2;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import org.deluge.firmware.engine.FirmwareAudioEngine;
+import org.deluge.engine.FirmwareAudioEngine;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

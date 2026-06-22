@@ -3,10 +3,10 @@ package org.deluge.firmware2;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.deluge.firmware.model.Song;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.tuning.ScalaScale;
 import org.deluge.model.tuning.ScalaScaleParser;
+import org.deluge.playback.Song;
 import org.deluge.project.ProjectSerializer;
 import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;

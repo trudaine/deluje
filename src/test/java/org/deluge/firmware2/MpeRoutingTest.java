@@ -4,11 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
-import org.deluge.firmware.engine.FirmwareFactory;
-import org.deluge.firmware.engine.FirmwareSound;
-import org.deluge.firmware.model.Song;
+import org.deluge.engine.FirmwareFactory;
+import org.deluge.engine.FirmwareSound;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.SynthTrackModel;
+import org.deluge.playback.Song;
 import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
@@ -29,8 +29,8 @@ public class MpeRoutingTest {
     Song fwSong = FirmwareFactory.createSong(project);
 
     // Retrieve active sound instrument
-    org.deluge.firmware.model.InstrumentClip clip =
-        (org.deluge.firmware.model.InstrumentClip) fwSong.clips.get(0);
+    org.deluge.playback.InstrumentClip clip =
+        (org.deluge.playback.InstrumentClip) fwSong.clips.get(0);
     FirmwareSound synth = (FirmwareSound) clip.sound;
 
     // Trigger note on MIDI channel 4

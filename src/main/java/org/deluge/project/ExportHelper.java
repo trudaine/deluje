@@ -4,10 +4,9 @@ import java.io.File;
 import java.util.List;
 import javax.sound.midi.*;
 import javax.sound.sampled.*;
-import org.deluge.firmware.engine.*;
-import org.deluge.firmware.model.*;
-import org.deluge.firmware.playback.*;
+import org.deluge.engine.*;
 import org.deluge.model.*;
+import org.deluge.playback.*;
 
 /** Offline rendering and multi-track MIDI/WAV stem export utility. */
 public class ExportHelper {
@@ -311,7 +310,7 @@ public class ExportHelper {
       // clearing any CPU direness left over from a prior live session (export never calls
       // updateDireness, so this only needs doing once at start). C: cpuDireness governs sample
       // interpolation quality (sample_controls.cpp:29).
-      org.deluge.firmware.engine.FirmwareAudioEngine.cpuDireness = 0;
+      org.deluge.engine.FirmwareAudioEngine.cpuDireness = 0;
     }
 
     @Override

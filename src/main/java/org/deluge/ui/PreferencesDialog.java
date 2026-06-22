@@ -1114,7 +1114,7 @@ public class PreferencesDialog extends JDialog {
     if (midiService != null && midiService.getBridge() != null) {
       Object ph =
           midiService.getBridge().getGlobalObject(org.deluge.BridgeContract.G_PLAYBACK_HANDLER);
-      if (ph instanceof org.deluge.firmware.playback.PlaybackHandler playbackHandler) {
+      if (ph instanceof org.deluge.playback.PlaybackHandler playbackHandler) {
         playbackHandler.setSyncMode(selectedSyncMode);
         System.out.println(
             "[Preferences] Dynamic Sync Mode applied: "

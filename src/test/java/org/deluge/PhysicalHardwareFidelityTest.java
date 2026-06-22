@@ -3,14 +3,14 @@ package org.deluge;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.InputStream;
-import org.deluge.firmware.engine.FirmwareAudioEngine;
-import org.deluge.firmware.engine.FirmwareFactory;
-import org.deluge.firmware.engine.FirmwareSound;
-import org.deluge.firmware.model.Song;
+import org.deluge.engine.FirmwareAudioEngine;
+import org.deluge.engine.FirmwareFactory;
+import org.deluge.engine.FirmwareSound;
 import org.deluge.firmware2.Param;
 import org.deluge.firmware2.StereoSample;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.SynthTrackModel;
+import org.deluge.playback.Song;
 import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assumptions;
@@ -71,8 +71,8 @@ public class PhysicalHardwareFidelityTest {
     ProjectModel project = new ProjectModel();
     project.addTrack(synthModel);
     Song fwSong = FirmwareFactory.createSong(project);
-    org.deluge.firmware.model.InstrumentClip clip =
-        (org.deluge.firmware.model.InstrumentClip) fwSong.clips.get(0);
+    org.deluge.playback.InstrumentClip clip =
+        (org.deluge.playback.InstrumentClip) fwSong.clips.get(0);
     FirmwareSound synth = (FirmwareSound) clip.sound;
 
     synth.fw2Sound.lpfMode = org.deluge.firmware2.FilterSet.FilterMode.OFF;
@@ -160,8 +160,8 @@ public class PhysicalHardwareFidelityTest {
       ProjectModel project = new ProjectModel();
       project.addTrack(synthModel);
       Song fwSong = FirmwareFactory.createSong(project);
-      org.deluge.firmware.model.InstrumentClip clip =
-          (org.deluge.firmware.model.InstrumentClip) fwSong.clips.get(0);
+      org.deluge.playback.InstrumentClip clip =
+          (org.deluge.playback.InstrumentClip) fwSong.clips.get(0);
       FirmwareSound synth = (FirmwareSound) clip.sound;
 
       // Apply standard safe output levels
@@ -274,8 +274,8 @@ public class PhysicalHardwareFidelityTest {
     ProjectModel project = new ProjectModel();
     project.addTrack(synthModel);
     Song fwSong = FirmwareFactory.createSong(project);
-    org.deluge.firmware.model.InstrumentClip clip =
-        (org.deluge.firmware.model.InstrumentClip) fwSong.clips.get(0);
+    org.deluge.playback.InstrumentClip clip =
+        (org.deluge.playback.InstrumentClip) fwSong.clips.get(0);
     FirmwareSound synth = (FirmwareSound) clip.sound;
 
     // Keep native filters and parameter modulations active!
@@ -374,8 +374,8 @@ public class PhysicalHardwareFidelityTest {
     ProjectModel project = new ProjectModel();
     project.addTrack(synthModel);
     Song fwSong = FirmwareFactory.createSong(project);
-    org.deluge.firmware.model.InstrumentClip clip =
-        (org.deluge.firmware.model.InstrumentClip) fwSong.clips.get(0);
+    org.deluge.playback.InstrumentClip clip =
+        (org.deluge.playback.InstrumentClip) fwSong.clips.get(0);
     FirmwareSound synth = (FirmwareSound) clip.sound;
 
     // Keep XML-parsed active volumes to preserve numerical resolution and fixed-point precision!
@@ -1876,8 +1876,8 @@ public class PhysicalHardwareFidelityTest {
     ProjectModel project = new ProjectModel();
     project.addTrack(synthModel);
     Song fwSong = FirmwareFactory.createSong(project);
-    org.deluge.firmware.model.InstrumentClip clip =
-        (org.deluge.firmware.model.InstrumentClip) fwSong.clips.get(0);
+    org.deluge.playback.InstrumentClip clip =
+        (org.deluge.playback.InstrumentClip) fwSong.clips.get(0);
     FirmwareSound synth = (FirmwareSound) clip.sound;
 
     FirmwareAudioEngine engine = new FirmwareAudioEngine();

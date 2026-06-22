@@ -4,10 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.deluge.BridgeContract;
-import org.deluge.firmware.engine.FirmwareSound;
-import org.deluge.firmware.model.InstrumentClip;
-import org.deluge.firmware.model.Song;
-import org.deluge.firmware.playback.PlaybackHandler;
+import org.deluge.engine.FirmwareSound;
+import org.deluge.playback.InstrumentClip;
+import org.deluge.playback.PlaybackHandler;
+import org.deluge.playback.Song;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

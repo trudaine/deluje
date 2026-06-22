@@ -4,9 +4,9 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assumptions.*;
 
 import java.io.File;
-import org.deluge.firmware.model.sample.Sample;
-import org.deluge.firmware.storage.audio.AudioFileReader;
 import org.deluge.model.ProjectModel;
+import org.deluge.playback.Sample;
+import org.deluge.storage.audio.AudioFileReader;
 import org.junit.jupiter.api.Test;
 
 public class TestMp3Load {

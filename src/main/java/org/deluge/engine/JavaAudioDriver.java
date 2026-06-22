@@ -4,9 +4,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import javax.sound.sampled.*;
-import org.deluge.firmware.engine.FirmwareAudioEngine;
-import org.deluge.firmware.playback.PlaybackHandler;
 import org.deluge.firmware2.StereoSample;
+import org.deluge.playback.PlaybackHandler;
 
 /** Pure Java audio driver using javax.sound.sampled. */
 public class JavaAudioDriver implements Runnable {
@@ -209,7 +208,7 @@ public class JavaAudioDriver implements Runnable {
         long duration = System.nanoTime() - start;
         // C: AudioEngine::setDireness — feed the measured block render time to the adaptive
         // resampling-quality governor (sample interpolation drops to linear under sustained load).
-        org.deluge.firmware.engine.FirmwareAudioEngine.updateDireness(
+        org.deluge.engine.FirmwareAudioEngine.updateDireness(
             duration, BLOCK_SIZE, blockCounter * (long) BLOCK_SIZE);
         if (duration > 2900000) {
           System.out.println(

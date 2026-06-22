@@ -182,22 +182,22 @@ public class SwingDelugeAppE2ETest {
     app.getTopBarListener().onPlayToggle();
 
     // 2. Start a mock audio thread that calls renderBlock() and measures latency
-    org.deluge.firmware.engine.FirmwareAudioEngine engine = null;
+    org.deluge.engine.FirmwareAudioEngine engine = null;
     Object engObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-    if (engObj instanceof org.deluge.firmware.engine.FirmwareAudioEngine) {
-      engine = (org.deluge.firmware.engine.FirmwareAudioEngine) engObj;
+    if (engObj instanceof org.deluge.engine.FirmwareAudioEngine) {
+      engine = (org.deluge.engine.FirmwareAudioEngine) engObj;
     }
     assertNotNull(engine, "Audio engine must be initialized");
 
-    final org.deluge.firmware.engine.FirmwareAudioEngine finalEngine = engine;
+    final org.deluge.engine.FirmwareAudioEngine finalEngine = engine;
     java.util.List<Double> latencySpikes = new java.util.concurrent.CopyOnWriteArrayList<>();
     java.util.concurrent.atomic.AtomicBoolean running =
         new java.util.concurrent.atomic.AtomicBoolean(true);
 
     java.io.ByteArrayOutputStream pcmBuffer = new java.io.ByteArrayOutputStream();
 
-    final org.deluge.firmware.playback.PlaybackHandler playbackHandler =
-        (org.deluge.firmware.playback.PlaybackHandler)
+    final org.deluge.playback.PlaybackHandler playbackHandler =
+        (org.deluge.playback.PlaybackHandler)
             bridge.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
 
     Thread audioThread =
@@ -471,7 +471,7 @@ public class SwingDelugeAppE2ETest {
   @Test
   public void testEndToEndMuteFidelityAndVisuals() throws Exception {
     System.setProperty("chuck.audio.dummy", "true");
-    org.deluge.firmware.engine.FirmwareAudioEngine.debugTelemetry = true;
+    org.deluge.engine.FirmwareAudioEngine.debugTelemetry = true;
 
     // 1. Setup VM and Bridge Contract
     BridgeContract bridge = new BridgeContract(44100, 2);
@@ -639,7 +639,7 @@ public class SwingDelugeAppE2ETest {
               + app.getPureEngine().getPlaybackHandler().lastSwungTickActioned);
       assertFalse(isSilentAfterUnmute, "Sound should return after unmute");
     } finally {
-      org.deluge.firmware.engine.FirmwareAudioEngine.debugTelemetry = false;
+      org.deluge.engine.FirmwareAudioEngine.debugTelemetry = false;
       app.dispose();
       bridge.shutdown();
     }

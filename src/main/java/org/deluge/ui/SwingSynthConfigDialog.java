@@ -171,10 +171,10 @@ public class SwingSynthConfigDialog extends JDialog {
   private void liveApplyToEngine(BridgeContract bridge, SynthTrackModel model) {
     try {
       Object engineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-      if (engineObj instanceof org.deluge.firmware.engine.FirmwareAudioEngine engine
+      if (engineObj instanceof org.deluge.engine.FirmwareAudioEngine engine
           && trackIndex < engine.sounds.size()
-          && engine.sounds.get(trackIndex) instanceof org.deluge.firmware.engine.FirmwareSound fs) {
-        org.deluge.firmware.engine.FirmwareFactory.applyModelToLiveSound(model, fs);
+          && engine.sounds.get(trackIndex) instanceof org.deluge.engine.FirmwareSound fs) {
+        org.deluge.engine.FirmwareFactory.applyModelToLiveSound(model, fs);
       }
     } catch (Exception ex) {
       // Never let a live-apply hiccup break the dialog (e.g. engine not running in tests).

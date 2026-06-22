@@ -1,10 +1,9 @@
 package org.deluge.engine;
 
 import org.deluge.BridgeContract;
-import org.deluge.firmware.engine.FirmwareAudioEngine;
-import org.deluge.firmware.model.Song;
-import org.deluge.firmware.playback.PlaybackHandler;
 import org.deluge.firmware2.Param;
+import org.deluge.playback.PlaybackHandler;
+import org.deluge.playback.Song;
 
 /**
  * High-fidelity 'Pure Java' Deluge workstation engine. This class coordinates the high-fidelity
@@ -110,9 +109,9 @@ public class PureFirmwareEngine {
         System.out.println("[DIAG syncThread] Calling playbackHandler.stop()");
         playbackHandler.stop();
         for (var sound : audioEngine.sounds) {
-          if (sound instanceof org.deluge.firmware.engine.FirmwareSound fs) {
+          if (sound instanceof org.deluge.engine.FirmwareSound fs) {
             fs.releaseAllNotes();
-          } else if (sound instanceof org.deluge.firmware.engine.FirmwareKit fk) {
+          } else if (sound instanceof org.deluge.engine.FirmwareKit fk) {
             for (var ds : fk.drumSounds) {
               ds.releaseAllNotes();
             }
@@ -199,8 +198,8 @@ public class PureFirmwareEngine {
     Song song = playbackHandler.getSong();
     if (song != null) {
       for (int t = 0; t < song.clips.size(); t++) {
-        org.deluge.firmware.model.Clip clip = song.clips.get(t);
-        if (clip instanceof org.deluge.firmware.model.InstrumentClip ic && ic.sound != null) {
+        org.deluge.playback.Clip clip = song.clips.get(t);
+        if (clip instanceof org.deluge.playback.InstrumentClip ic && ic.sound != null) {
           boolean isMuted = bridge.getGlobalInt("g_mute_" + t) > 0;
           ic.sound.muted = isMuted;
         }
@@ -212,7 +211,7 @@ public class PureFirmwareEngine {
     // 2^32/steps.
     double beatSec = (currentBpm > 0) ? 60.0 / currentBpm : 0.5;
     for (org.deluge.firmware2.GlobalEffectable sound : audioEngine.sounds) {
-      if (sound instanceof org.deluge.firmware.engine.FirmwareSound fsArp) {
+      if (sound instanceof org.deluge.engine.FirmwareSound fsArp) {
         int div = fsArp.arpDivision > 0 ? fsArp.arpDivision : 16;
         double rateMul = (fsArp.arpRateMultiplier > 0.01f) ? fsArp.arpRateMultiplier : 1.0;
         double stepSamples = (4.0 / div) * beatSec * 44100.0 / rateMul;
@@ -248,7 +247,7 @@ public class PureFirmwareEngine {
       lastSpHpfRes = spHpfRes;
       lastSpHpfMorph = spHpfMorph;
       for (org.deluge.firmware2.GlobalEffectable sound : audioEngine.sounds) {
-        if (sound instanceof org.deluge.firmware.engine.FirmwareSound fs) {
+        if (sound instanceof org.deluge.engine.FirmwareSound fs) {
           fs.paramNeutralValues[Param.LOCAL_VOLUME] = (int) (spVol * 2147483647.0);
           fs.paramNeutralValues[Param.LOCAL_LPF_FREQ] = (int) (spLpfFreq / 20000.0f * 2147483647.0);
           fs.paramNeutralValues[Param.LOCAL_LPF_RESONANCE] = (int) (spLpfRes * 2147483647.0);
@@ -266,7 +265,7 @@ public class PureFirmwareEngine {
     audioEngine.sounds.clear();
     // Sync sounds from song to engine
     for (var clip : song.clips) {
-      if (clip instanceof org.deluge.firmware.model.InstrumentClip ic && ic.sound != null) {
+      if (clip instanceof org.deluge.playback.InstrumentClip ic && ic.sound != null) {
         audioEngine.sounds.add(ic.sound);
       }
     }

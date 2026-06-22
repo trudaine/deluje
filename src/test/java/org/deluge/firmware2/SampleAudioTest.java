@@ -2,7 +2,7 @@ package org.deluge.firmware2;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.deluge.firmware.engine.FirmwareSound;
+import org.deluge.engine.FirmwareSound;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -16,8 +16,7 @@ class SampleAudioTest {
   void syntheticSampleProducesAudio() {
     // 1. Build a synthetic "sample" — a 440Hz sine tone, 441 samples (10ms)
     int nFrames = 441;
-    org.deluge.firmware.model.sample.Sample modelSample =
-        new org.deluge.firmware.model.sample.Sample();
+    org.deluge.playback.Sample modelSample = new org.deluge.playback.Sample();
     modelSample.numChannels = 1;
     modelSample.byteDepth = 3;
     modelSample.sampleRate = 44100;
@@ -56,8 +55,7 @@ class SampleAudioTest {
   @Test
   void timeStretchedSampleProducesAudio() {
     int nFrames = 2048;
-    org.deluge.firmware.model.sample.Sample modelSample =
-        new org.deluge.firmware.model.sample.Sample();
+    org.deluge.playback.Sample modelSample = new org.deluge.playback.Sample();
     modelSample.numChannels = 1;
     modelSample.byteDepth = 3;
     modelSample.sampleRate = 44100;

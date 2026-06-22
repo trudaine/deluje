@@ -457,9 +457,9 @@ public final class Functions {
    * quality for a given pitch: {@code 2} (2-tap linear) or {@link
    * SincInterpolator#K_INTERPOLATION_MAX_NUM_SAMPLES} (16-tap windowed-sinc). The CPU-direness
    * adaptive fallback: when the engine is under load ({@link
-   * org.deluge.firmware.engine.FirmwareAudioEngine#cpuDireness} {@code != 0}) AND the note is
-   * pitched up far enough ({@code octave >= 26 - (cpuDireness >> 2)}), drop to linear; otherwise
-   * full sinc. With direness 0 (desktop, not overloaded) this always returns sinc.
+   * org.deluge.engine.FirmwareAudioEngine#cpuDireness} {@code != 0}) AND the note is pitched up far
+   * enough ({@code octave >= 26 - (cpuDireness >> 2)}), drop to linear; otherwise full sinc. With
+   * direness 0 (desktop, not overloaded) this always returns sinc.
    *
    * <p>Mirrors the {@code interpolationMode != LINEAR} branch of the C. The per-source {@code
    * InterpolationMode::LINEAR} user setting is not yet plumbed into the firmware2 render path (it
@@ -467,10 +467,10 @@ public final class Functions {
    * ahead of this call.
    */
   public static int getInterpolationBufferSize(int phaseIncrement) {
-    if (org.deluge.firmware.engine.FirmwareAudioEngine.cpuDireness != 0) {
+    if (org.deluge.engine.FirmwareAudioEngine.cpuDireness != 0) {
       // Unstretched, and the first octave going up from that, would be '25'. (C:39)
       int octave = getMagnitudeOld(phaseIncrement);
-      if (octave >= 26 - (org.deluge.firmware.engine.FirmwareAudioEngine.cpuDireness >> 2)) {
+      if (octave >= 26 - (org.deluge.engine.FirmwareAudioEngine.cpuDireness >> 2)) {
         return 2; // C: goto useLinearInterpolation
       }
     }

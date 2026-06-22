@@ -784,7 +784,7 @@ public class Sound extends GlobalEffectable {
     if (muted) {
       return;
     }
-    if (org.deluge.firmware.engine.FirmwareAudioEngine.debugTelemetry) {
+    if (org.deluge.engine.FirmwareAudioEngine.debugTelemetry) {
       System.out.println(
           "[DIAG Sound] triggerVoiceInternal: note="
               + note

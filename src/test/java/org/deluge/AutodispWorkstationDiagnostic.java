@@ -2,7 +2,7 @@ package org.deluge;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import org.deluge.firmware.engine.FirmwareSound;
+import org.deluge.engine.FirmwareSound;
 import org.deluge.firmware2.Oscillator.OscType;
 import org.deluge.firmware2.Param;
 import org.deluge.firmware2.StereoSample;
