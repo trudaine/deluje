@@ -4,8 +4,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import org.deluge.firmware.modulation.patch.PatchCable;
-import org.deluge.firmware.modulation.patch.PatchSource;
 import org.deluge.firmware2.Oscillator.OscType;
 import org.deluge.firmware2.Param;
 import org.deluge.firmware2.WaveTable;
@@ -22,6 +20,8 @@ import org.deluge.model.SoundDrum;
 import org.deluge.model.StepData;
 import org.deluge.model.SynthTrackModel;
 import org.deluge.model.TrackModel;
+import org.deluge.modulation.patch.PatchCable;
+import org.deluge.modulation.patch.PatchSource;
 import org.deluge.playback.Clip;
 import org.deluge.playback.InstrumentClip;
 import org.deluge.playback.Note;
@@ -780,10 +780,9 @@ public class FirmwareFactory {
           engineCable.from = source;
           engineCable.amount = amount;
           if (pcm.polarity() == org.deluge.model.PatchCable.Polarity.UNIPOLAR) {
-            engineCable.polarity =
-                org.deluge.firmware.modulation.patch.PatchCable.Polarity.UNIPOLAR;
+            engineCable.polarity = org.deluge.modulation.patch.PatchCable.Polarity.UNIPOLAR;
           } else {
-            engineCable.polarity = org.deluge.firmware.modulation.patch.PatchCable.Polarity.BIPOLAR;
+            engineCable.polarity = org.deluge.modulation.patch.PatchCable.Polarity.BIPOLAR;
           }
           sound.paramManager.getPatchCableSet().addCable(paramId, engineCable);
         }

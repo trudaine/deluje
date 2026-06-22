@@ -1,7 +1,7 @@
-package org.deluge.firmware.hid;
+package org.deluge.hid;
 
 import java.util.Stack;
-import org.deluge.firmware.hid.pic.GridConfig;
+import org.deluge.hid.pic.GridConfig;
 
 /** Virtual button matrix driver. Ports the logic from matrix_driver.h. */
 public class MatrixDriver {

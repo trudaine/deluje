@@ -1,4 +1,4 @@
-package org.deluge.firmware.hid;
+package org.deluge.hid;
 
 import java.awt.Color;
 import java.awt.Font;

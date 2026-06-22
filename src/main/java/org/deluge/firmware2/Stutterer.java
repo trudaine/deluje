@@ -2,7 +2,7 @@ package org.deluge.firmware2;
 
 import static org.deluge.firmware2.Functions.multiply_32x32_rshift32;
 
-import org.deluge.firmware.modulation.params.ParamManager;
+import org.deluge.modulation.params.ParamManager;
 
 /**
  * Port of the Deluge's Stutterer class. Implements real-time buffer-based stutter with bit-accurate

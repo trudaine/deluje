@@ -7,9 +7,9 @@ import javax.sound.sampled.UnsupportedAudioFileException;
 import javax.swing.*;
 import org.deluge.BridgeContract;
 import org.deluge.engine.FirmwareFactory;
-import org.deluge.firmware.hid.Flasher;
-import org.deluge.firmware.hid.MatrixDriver;
-import org.deluge.firmware.hid.pic.PIC;
+import org.deluge.hid.Flasher;
+import org.deluge.hid.MatrixDriver;
+import org.deluge.hid.pic.PIC;
 import org.deluge.model.AudioTrackModel;
 import org.deluge.model.ClipModel;
 import org.deluge.model.Consequence;
@@ -90,7 +90,7 @@ public class SwingDelugeApp extends JFrame {
   private final org.deluge.midi.MidiService midiService;
   private SwingProjectSidebarPanel sidebarPanel;
   private SwingProjectSidebarPanel floatingSidebar;
-  private org.deluge.firmware.hid.pic.SwingPicTransport picTransport;
+  private org.deluge.hid.pic.SwingPicTransport picTransport;
   private JDialog leftFloat;
   private JDialog rightFloat;
   private JCheckBoxMenuItem showMonitorItem;
@@ -1778,38 +1778,34 @@ public class SwingDelugeApp extends JFrame {
    *     sound, so skipping the rebuild leaves the engine on the stale sound (all notes garbage).
    */
   public void syncHighFidelityEngine(org.deluge.model.ProjectModel model, boolean forceRebuild) {
-    // While playing, a CONTENT edit (step/param) must not rebuild the engine: createSong + the
-    // sounds.clear()/setSong below swap the live voices out mid-render, which is the "garbage when
-    // editing during playback" bug. The grid's refresh() live-sync (atomic noteRows swap on the
-    // running song) already applies new notes in place on the SAME sound instances. We only need a
-    // full rebuild for a STRUCTURAL change (track added/removed), a forced preset swap, or stopped.
     if (!forceRebuild && isFirmwarePlaying() && !engineStructureChanged(model)) {
       return;
     }
     org.deluge.playback.Song fwSong = FirmwareFactory.createSong(model);
-    MatrixDriver.get().popUI();
 
-    // Switch View to the first track's clip if possible
-    if (!fwSong.clips.isEmpty()) {
-      org.deluge.playback.Clip first = fwSong.clips.get(0);
-      if (first instanceof org.deluge.playback.InstrumentClip ic) {
-        if (ic.sound instanceof org.deluge.engine.FirmwareKit) {
-          MatrixDriver.get().pushUI(new KitView(ic));
-        } else {
-          MatrixDriver.get().pushUI(new PianoRollView(ic));
-        }
-      } else {
-        MatrixDriver.get().pushUI(new SessionView(fwSong));
-      }
-    } else {
-      MatrixDriver.get().pushUI(new SessionView(fwSong));
-    }
+    javax.swing.SwingUtilities.invokeLater(
+        () -> {
+          MatrixDriver.get().popUI();
+          if (!fwSong.clips.isEmpty()) {
+            org.deluge.playback.Clip first = fwSong.clips.get(0);
+            if (first instanceof org.deluge.playback.InstrumentClip ic) {
+              if (ic.sound instanceof org.deluge.engine.FirmwareKit) {
+                MatrixDriver.get().pushUI(new KitView(ic));
+              } else {
+                MatrixDriver.get().pushUI(new PianoRollView(ic));
+              }
+            } else {
+              MatrixDriver.get().pushUI(new SessionView(fwSong));
+            }
+          } else {
+            MatrixDriver.get().pushUI(new SessionView(fwSong));
+          }
+        });
 
     // ── Sync Audio Registry ──
     Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
     if (fwEngineObj instanceof org.deluge.engine.FirmwareAudioEngine fwEngine) {
       fwEngine.sounds.clear();
-      // Ensure sounds list matches track count for direct indexing
       for (int i = 0; i < model.getTracks().size(); i++) {
         fwEngine.sounds.add(null);
       }
@@ -1864,9 +1860,15 @@ public class SwingDelugeApp extends JFrame {
           bottomInfo = "STATUS: READY";
         }
 
-        org.deluge.firmware.hid.FirmwareDisplay.get()
-            .getVirtualOLED()
-            .drawThreeLineDisplay(modeBanner, middleText, bottomInfo);
+        final String finalModeBanner = modeBanner;
+        final String finalMiddleText = middleText;
+        final String finalBottomInfo = bottomInfo;
+        javax.swing.SwingUtilities.invokeLater(
+            () -> {
+              org.deluge.hid.FirmwareDisplay.get()
+                  .getVirtualOLED()
+                  .drawThreeLineDisplay(finalModeBanner, finalMiddleText, finalBottomInfo);
+            });
       }
     }
 
@@ -2228,18 +2230,45 @@ public class SwingDelugeApp extends JFrame {
       java.util.List<org.deluge.model.TrackModel> tl = a.getProjectModel().getTracks();
       if (idx < 0 || idx >= tl.size()) return;
       org.deluge.model.TrackModel old = tl.get(idx);
-      org.deluge.model.TrackModel nt =
-          isKit
-              ? org.deluge.xml.DelugeXmlParser.parseKit(f)
-              : org.deluge.xml.DelugeXmlParser.parseSynth(f);
-      nt.getClips().clear();
-      for (org.deluge.model.ClipModel cm : old.getClips()) nt.addClip(cm);
-      nt.setColourHex(old.getColourHex());
-      tl.set(idx, nt);
-      propagateCurrentModel();
-      syncHighFidelityEngine(currentProject, true); // preset swap: rebuild even while playing
-      a.forceRebuild(); // structure unchanged on a swap → force header/name rebuild
-      if (synthParamRack != null) synthParamRack.refresh();
+
+      setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+      Thread.ofVirtual()
+          .start(
+              () -> {
+                try {
+                  final org.deluge.model.TrackModel nt =
+                      isKit
+                          ? org.deluge.xml.DelugeXmlParser.parseKit(f)
+                          : org.deluge.xml.DelugeXmlParser.parseSynth(f);
+                  nt.getClips().clear();
+                  for (org.deluge.model.ClipModel cm : old.getClips()) nt.addClip(cm);
+                  nt.setColourHex(old.getColourHex());
+
+                  // Update model list on the EDT and wait
+                  javax.swing.SwingUtilities.invokeAndWait(
+                      () -> {
+                        tl.set(idx, nt);
+                        propagateCurrentModel();
+                      });
+
+                  // Heavy engine sync on background thread
+                  syncHighFidelityEngine(currentProject, true);
+
+                  // Rebuild UI components on the EDT
+                  javax.swing.SwingUtilities.invokeLater(
+                      () -> {
+                        setCursor(Cursor.getDefaultCursor());
+                        a.forceRebuild();
+                        if (synthParamRack != null) synthParamRack.refresh();
+                      });
+                } catch (Exception ex) {
+                  javax.swing.SwingUtilities.invokeLater(
+                      () -> {
+                        setCursor(Cursor.getDefaultCursor());
+                        System.err.println("[Inspector] preset replace failed: " + ex.getMessage());
+                      });
+                }
+              });
     } catch (Exception ex) {
       System.err.println("[Inspector] preset replace failed: " + ex.getMessage());
     }
@@ -3594,7 +3623,7 @@ public class SwingDelugeApp extends JFrame {
     centerCardPanel.add(wrapGridPanel(clipPanel), "CLIP");
 
     // Wire PIC transport to Swing pad buttons for protocol-level pad rendering
-    this.picTransport = new org.deluge.firmware.hid.pic.SwingPicTransport();
+    this.picTransport = new org.deluge.hid.pic.SwingPicTransport();
     picTransport.setPadButtons(clipPanel.getPadButtons());
     PIC.setTransport(picTransport);
 

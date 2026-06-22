@@ -197,14 +197,17 @@ public class SwingMidiImportDialog extends JDialog {
   private void loadMidiMetadata() {
     try {
       trackConfigs = MidiToProjectCompiler.parseMidiMetadata(midiFile);
-      rebuildCardsDeck();
+      javax.swing.SwingUtilities.invokeLater(this::rebuildCardsDeck);
     } catch (Exception e) {
-      JOptionPane.showMessageDialog(
-          this,
-          "Failed to parse MIDI file:\n" + e.getMessage(),
-          "Error",
-          JOptionPane.ERROR_MESSAGE);
-      dispose();
+      javax.swing.SwingUtilities.invokeLater(
+          () -> {
+            JOptionPane.showMessageDialog(
+                this,
+                "Failed to parse MIDI file:\n" + e.getMessage(),
+                "Error",
+                JOptionPane.ERROR_MESSAGE);
+            dispose();
+          });
     }
   }
 
@@ -360,17 +363,32 @@ public class SwingMidiImportDialog extends JDialog {
       return;
     }
 
-    try {
-      compiledProject = MidiToProjectCompiler.compileMidi(midiFile, trackConfigs);
-      importSuccessful = true;
-      dispose();
-    } catch (Exception e) {
-      JOptionPane.showMessageDialog(
-          this,
-          "Compilation failed:\n" + e.getMessage(),
-          "Import Error",
-          JOptionPane.ERROR_MESSAGE);
-    }
+    setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+    Thread.ofVirtual()
+        .start(
+            () -> {
+              try {
+                final ProjectModel compiled =
+                    MidiToProjectCompiler.compileMidi(midiFile, trackConfigs);
+                javax.swing.SwingUtilities.invokeLater(
+                    () -> {
+                      setCursor(Cursor.getDefaultCursor());
+                      compiledProject = compiled;
+                      importSuccessful = true;
+                      dispose();
+                    });
+              } catch (Exception e) {
+                javax.swing.SwingUtilities.invokeLater(
+                    () -> {
+                      setCursor(Cursor.getDefaultCursor());
+                      JOptionPane.showMessageDialog(
+                          this,
+                          "Compilation failed:\n" + e.getMessage(),
+                          "Import Error",
+                          JOptionPane.ERROR_MESSAGE);
+                    });
+              }
+            });
   }
 
   public boolean isImportSuccessful() {

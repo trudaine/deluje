@@ -2,14 +2,14 @@ package org.deluge.engine;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import org.deluge.firmware.modulation.patch.PatchCable;
-import org.deluge.firmware.modulation.patch.PatchSource;
 import org.deluge.firmware2.Param;
 import org.deluge.firmware2.StereoSample;
 import org.deluge.model.ClipModel;
 import org.deluge.model.EnvelopeModel;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.SynthTrackModel;
+import org.deluge.modulation.patch.PatchCable;
+import org.deluge.modulation.patch.PatchSource;
 import org.deluge.playback.InstrumentClip;
 import org.deluge.playback.Song;
 import org.junit.jupiter.api.Test;

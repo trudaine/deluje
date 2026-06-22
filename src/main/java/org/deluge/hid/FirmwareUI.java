@@ -1,4 +1,4 @@
-package org.deluge.firmware.hid;
+package org.deluge.hid;
 
 /** Base class for all UI components in the firmware. Ports the logic from ui.h. */
 public abstract class FirmwareUI {

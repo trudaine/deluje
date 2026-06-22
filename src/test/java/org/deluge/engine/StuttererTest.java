@@ -7,11 +7,11 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Field;
-import org.deluge.firmware.modulation.params.ParamManager;
 import org.deluge.firmware2.DelayBuffer;
 import org.deluge.firmware2.Param;
 import org.deluge.firmware2.StereoSample;
 import org.deluge.firmware2.Stutterer;
+import org.deluge.modulation.params.ParamManager;
 import org.junit.jupiter.api.Test;
 
 class StuttererTest {

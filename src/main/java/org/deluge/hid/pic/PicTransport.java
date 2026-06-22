@@ -1,4 +1,4 @@
-package org.deluge.firmware.hid.pic;
+package org.deluge.hid.pic;
 
 /**
  * Abstraction over PIC communication. In the C++ firmware this sends/receives bytes over UART to

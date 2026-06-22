@@ -1,6 +1,6 @@
 package org.deluge.ui.views;
 
-import org.deluge.firmware.hid.*;
+import org.deluge.hid.*;
 import org.deluge.playback.Song;
 
 /** Port of the Deluge's SessionView class. Handles the "Clip launch" grid logic. */

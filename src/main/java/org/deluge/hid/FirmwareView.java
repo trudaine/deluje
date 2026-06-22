@@ -1,4 +1,4 @@
-package org.deluge.firmware.hid;
+package org.deluge.hid;
 
 /** Base class for major Deluge views (Session, Arranger, etc.). Ports the logic from view.h. */
 public abstract class FirmwareView extends FirmwareUI {

@@ -17,7 +17,7 @@ import javax.swing.JSlider;
 import javax.swing.JToggleButton;
 import javax.swing.SwingConstants;
 import org.deluge.BridgeContract;
-import org.deluge.firmware.hid.FirmwareDisplay;
+import org.deluge.hid.FirmwareDisplay;
 import org.deluge.midi.DelugeSysExManager;
 import org.deluge.model.ProjectModel;
 import org.deluge.ui.controls.DelugeEncoderKnob;

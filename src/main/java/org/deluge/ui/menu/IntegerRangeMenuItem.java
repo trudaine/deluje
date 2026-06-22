@@ -1,6 +1,6 @@
 package org.deluge.ui.menu;
 
-import org.deluge.firmware.hid.FirmwareDisplay;
+import org.deluge.hid.FirmwareDisplay;
 
 /** A menu item for selecting a value from an integer range. */
 public class IntegerRangeMenuItem extends MenuItem {

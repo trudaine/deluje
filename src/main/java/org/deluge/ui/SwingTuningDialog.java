@@ -373,46 +373,51 @@ public class SwingTuningDialog extends JDialog {
         new javax.swing.filechooser.FileNameExtensionFilter("Scala Scale (.scl)", "scl", "SCL"));
 
     if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-      try {
-        File file = chooser.getSelectedFile();
-        ScalaScale scale =
-            ScalaScaleParser.parse(
-                Files.newInputStream(file.toPath()), file.getName().replace(".scl", ""));
+      File file = chooser.getSelectedFile();
+      setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+      Thread.ofVirtual()
+          .start(
+              () -> {
+                try {
+                  final ScalaScale scale =
+                      ScalaScaleParser.parse(
+                          Files.newInputStream(file.toPath()), file.getName().replace(".scl", ""));
 
-        // Import into active ProjectModel
-        project.importScalaScale(scale);
-
-        // Sync dialog global controls
-        isUpdatingUI = true;
-        typeCombo.setSelectedIndex(1); // Custom Ratios
-        notesSpinner.setValue(project.getOctaveNumMicrotonalNotes());
-        baseFreqSpinner.setValue(project.getBaseFrequencyHz());
-        isUpdatingUI = false;
-
-        // Rebuild adjustments list
-        rebuildAdjustmentsPanel();
-
-        // Trigger engine update
-        triggerLiveUpdate();
-
-        JOptionPane.showMessageDialog(
-            this,
-            "Successfully imported Scala scale:\n"
-                + scale.getName()
-                + " - "
-                + scale.getDescription()
-                + "\n("
-                + scale.getStepsCount()
-                + " notes)",
-            "Import Success",
-            JOptionPane.INFORMATION_MESSAGE);
-      } catch (Exception ex) {
-        JOptionPane.showMessageDialog(
-            this,
-            "Failed to parse Scala file:\n" + ex.getMessage(),
-            "Error",
-            JOptionPane.ERROR_MESSAGE);
-      }
+                  javax.swing.SwingUtilities.invokeLater(
+                      () -> {
+                        setCursor(Cursor.getDefaultCursor());
+                        project.importScalaScale(scale);
+                        isUpdatingUI = true;
+                        typeCombo.setSelectedIndex(1);
+                        notesSpinner.setValue(project.getOctaveNumMicrotonalNotes());
+                        baseFreqSpinner.setValue(project.getBaseFrequencyHz());
+                        isUpdatingUI = false;
+                        rebuildAdjustmentsPanel();
+                        triggerLiveUpdate();
+                        JOptionPane.showMessageDialog(
+                            this,
+                            "Successfully imported Scala scale:\n"
+                                + scale.getName()
+                                + " - "
+                                + scale.getDescription()
+                                + "\n("
+                                + scale.getStepsCount()
+                                + " notes)",
+                            "Import Success",
+                            JOptionPane.INFORMATION_MESSAGE);
+                      });
+                } catch (Exception ex) {
+                  javax.swing.SwingUtilities.invokeLater(
+                      () -> {
+                        setCursor(Cursor.getDefaultCursor());
+                        JOptionPane.showMessageDialog(
+                            this,
+                            "Failed to parse Scala file:\n" + ex.getMessage(),
+                            "Error",
+                            JOptionPane.ERROR_MESSAGE);
+                      });
+                }
+              });
     }
   }
 }

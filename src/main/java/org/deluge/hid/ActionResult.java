@@ -1,4 +1,4 @@
-package org.deluge.firmware.hid;
+package org.deluge.hid;
 
 public enum ActionResult {
   DEALT_WITH,

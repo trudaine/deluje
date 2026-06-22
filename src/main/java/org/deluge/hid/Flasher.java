@@ -1,4 +1,4 @@
-package org.deluge.firmware.hid;
+package org.deluge.hid;
 
 /** Background thread to update the global blink states of the virtual LEDs. */
 public class Flasher extends Thread {

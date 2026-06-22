@@ -1,4 +1,4 @@
-package org.deluge.firmware.modulation.automation;
+package org.deluge.modulation.automation;
 
 import java.util.ArrayList;
 import java.util.List;

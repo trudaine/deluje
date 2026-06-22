@@ -1,7 +1,7 @@
 package org.deluge.ui.menu;
 
-import org.deluge.firmware.hid.ActionResult;
-import org.deluge.firmware.hid.Button;
+import org.deluge.hid.ActionResult;
+import org.deluge.hid.Button;
 
 /**
  * Base class for all high-fidelity menu items. Replicates the behavior and interaction model of the

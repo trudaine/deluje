@@ -1,6 +1,6 @@
-package org.deluge.firmware.hid.pic;
+package org.deluge.hid.pic;
 
-import org.deluge.firmware.hid.RGB;
+import org.deluge.hid.RGB;
 
 /**
  * Port of the C++ {@code drivers/pic/pic.h} — the static class for interacting with the PIC

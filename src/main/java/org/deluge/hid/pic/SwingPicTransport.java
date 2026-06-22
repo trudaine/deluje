@@ -1,8 +1,8 @@
-package org.deluge.firmware.hid.pic;
+package org.deluge.hid.pic;
 
 import java.awt.Color;
 import javax.swing.JButton;
-import org.deluge.firmware.hid.RGB;
+import org.deluge.hid.RGB;
 
 /**
  * A {@link PicTransport} that renders PIC pad-LED commands to the Swing grid's JButton array. This

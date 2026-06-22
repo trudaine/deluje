@@ -1,4 +1,4 @@
-package org.deluge.firmware.hid.pic;
+package org.deluge.hid.pic;
 
 import org.deluge.project.PreferencesManager;
 
@@ -8,9 +8,9 @@ import org.deluge.project.PreferencesManager;
  * <p>The real Deluge hardware has a fixed 16×8 pad grid. This class extends that to support
  * multiple grid sizes for the Swing UI, driven by {@link PreferencesManager.GridMode}.
  *
- * <p>All display-layer classes ({@link PIC}, {@link org.deluge.firmware.hid.MatrixDriver
- * MatrixDriver}, {@link org.deluge.firmware.hid.PadLEDs PadLEDs}, {@link SwingPicTransport})
- * reference these values rather than declaring their own constants.
+ * <p>All display-layer classes ({@link PIC}, {@link org.deluge.hid.MatrixDriver MatrixDriver},
+ * {@link org.deluge.hid.PadLEDs PadLEDs}, {@link SwingPicTransport}) reference these values rather
+ * than declaring their own constants.
  */
 public final class GridConfig {
 

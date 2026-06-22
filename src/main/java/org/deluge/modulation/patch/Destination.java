@@ -1,4 +1,4 @@
-package org.deluge.firmware.modulation.patch;
+package org.deluge.modulation.patch;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -1,6 +1,6 @@
 package org.deluge.playback;
 
-import org.deluge.firmware.modulation.params.ParamManager;
+import org.deluge.modulation.params.ParamManager;
 
 /**
  * Port of the Deluge's Clip class. Base for Instrument and Audio clips. Manages looping, direction,

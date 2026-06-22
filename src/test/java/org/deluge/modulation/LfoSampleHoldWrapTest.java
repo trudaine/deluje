@@ -1,4 +1,4 @@
-package org.deluge.firmware.modulation;
+package org.deluge.modulation;
 
 import static org.junit.jupiter.api.Assertions.*;
 

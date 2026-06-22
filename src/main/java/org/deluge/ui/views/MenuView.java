@@ -1,10 +1,10 @@
 package org.deluge.ui.views;
 
-import org.deluge.firmware.hid.ActionResult;
-import org.deluge.firmware.hid.Button;
-import org.deluge.firmware.hid.FirmwareView;
-import org.deluge.firmware.hid.MatrixDriver;
-import org.deluge.firmware.hid.PadLEDs;
+import org.deluge.hid.ActionResult;
+import org.deluge.hid.Button;
+import org.deluge.hid.FirmwareView;
+import org.deluge.hid.MatrixDriver;
+import org.deluge.hid.PadLEDs;
 import org.deluge.ui.menu.MenuItem;
 import org.deluge.ui.menu.Submenu;
 

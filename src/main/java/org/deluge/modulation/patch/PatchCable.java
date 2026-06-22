@@ -1,6 +1,6 @@
-package org.deluge.firmware.modulation.patch;
+package org.deluge.modulation.patch;
 
-import org.deluge.firmware.modulation.automation.AutoParam;
+import org.deluge.modulation.automation.AutoParam;
 
 public class PatchCable {
   public enum Polarity {

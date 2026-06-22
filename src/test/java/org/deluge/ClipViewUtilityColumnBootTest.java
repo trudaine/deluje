@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.awt.Color;
 import javax.swing.JButton;
-import org.deluge.firmware.hid.FirmwareDisplay;
+import org.deluge.hid.FirmwareDisplay;
 import org.deluge.model.ProjectModel;
 import org.deluge.ui.DelugePadButton;
 import org.deluge.ui.SwingDelugeApp;
