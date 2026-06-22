@@ -4,6 +4,11 @@ package org.deluge.firmware2;
  * Faithful line-by-line port of {@code hpladder.cpp} and {@code hpladder.h}. Implements a high-pass
  * transistor ladder filter with volume-compensated high resonance, getTanHAntialiased feedback
  * saturation, and one-pole cascade elements.
+ *
+ * <p><b>Performance note (JFR profiling, 2026-06):</b> the second-largest DSP hotspot (~18-23% of
+ * render time, per voice). Like {@link LpLadderFilter} it is a recursive IIR — not
+ * SIMD-vectorizable across samples, and run whenever the filter mode is set (no faithful
+ * open-cutoff bypass). See {@link LpLadderFilter} for the full analysis.
  */
 public class HpLadderFilter extends Filter {
   public static class HpLadderState {
