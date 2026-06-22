@@ -135,6 +135,14 @@ public class SincInterpolator {
    * <p>This is a deliberate, sanctioned deviation from the int16 C path; the faithful {@link
    * #interpolate} is left untouched.
    *
+   * <p><b>Do not vectorize (already tried, JFR 2026-06).</b> This is the largest non-recursive DSP
+   * hotspot (~21% of render time on a sample song), so it looks like a Vector-API target — and the
+   * C does this exact convolution in NEON. A {@code LongVector} version was implemented and
+   * verified bit-identical to this scalar code over 20k random trials, but a controlled A/B made
+   * the dense sample render ~20% <i>slower</i> (scalar ~16.0s vs SIMD ~19.5s): a fixed 16-tap loop
+   * is too short for the widen-to-long + two {@code reduceLanes} setup to pay off, and the JIT
+   * already optimizes the scalar loop well. Kept scalar deliberately.
+   *
    * @param histL full-precision left history, {@code histL[0]} newest (16 taps)
    * @param histR full-precision right history (used only when channels == 2)
    * @return {@code {l, r}} at the C output scale

@@ -3,6 +3,16 @@ package org.deluge.firmware2;
 /**
  * Faithful line-by-line port of {@code lpladder.cpp} and {@code lpladder.h}. Supports 12dB/24dB LP
  * transistor ladders with drive, oversampling, and analog noise modulation.
+ *
+ * <p><b>Performance note (JFR profiling, 2026-06):</b> {@link #doFilterStereo} is the single
+ * largest DSP hotspot — ~41% of render time on a dense synth song, ~27% on a sample song (the HPF
+ * ladder adds ~20-23% more, so the two ladders together are ~45-64%). It runs <i>per voice</i>, so
+ * cost scales with polyphony. It is <b>not</b> SIMD-vectorizable across samples: a 4-pole ladder is
+ * a recursive IIR (each output depends on the previous, through a 4-stage dependency chain). And
+ * the C runs the filter whenever the filter <i>mode</i> is set, regardless of cutoff
+ * (filter_set.cpp:138 {@code LPFOn = lpfmode != OFF}) — so there is no faithful "bypass when open";
+ * a fully-open ladder still colours the sound. Leave it scalar; the real lever for CPU is voice
+ * economy, not speeding up one filter. (Profiled via {@code ProfileRender}.)
  */
 public class LpLadderFilter extends Filter {
   public static class LpLadderState {
