@@ -178,6 +178,17 @@ public class FirmwareFactory {
         }
       }
     }
+    // Phase 3b part 2: if this audio track has an arrangement placement, gate playback to that
+    // timeline range [startTicks, startTicks+durationTicks). No placement → session behaviour
+    // (plays whenever the transport plays).
+    if (project.getArrangerTimeline() != null) {
+      for (org.deluge.model.ArrangerClip ac : project.getArrangerTimeline()) {
+        if (ac.trackIndex() == trackIndex) {
+          out.setTimelineRange(ac.startTicks(), (long) ac.startTicks() + ac.durationTicks());
+          break;
+        }
+      }
+    }
     return out;
   }
 

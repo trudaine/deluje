@@ -130,10 +130,15 @@ public class FirmwareAudioEngine {
   // Transport play state, for audio-track gating (Phase 3). The driver sets this each block from
   // the PlaybackHandler; offline renderers/tests set it true when they want audio clips to stream.
   private volatile boolean transportPlaying = false;
-  private boolean lastTransportPlaying = false;
+  private volatile long transportTick = 0;
 
   public void setTransportPlaying(boolean p) {
     this.transportPlaying = p;
+  }
+
+  /** Current transport tick (for audio-track arrangement-placement gating, Phase 3b part 2). */
+  public void setTransportTick(long tick) {
+    this.transportTick = tick;
   }
 
   public void renderBlock(int numSamples) {
@@ -159,16 +164,13 @@ public class FirmwareAudioEngine {
     }
     java.util.Arrays.fill(monoReverbBufferLong, 0, numSamples, 0L);
 
-    // Audio-track transport gating (Phase 3): on the play/stop edge, start/stop audio clips so they
-    // only stream while the song is playing and restart phase-aligned on play.
-    if (transportPlaying != lastTransportPlaying) {
-      for (GlobalEffectable sound : sounds) {
-        if (sound instanceof org.deluge.firmware2.AudioOutput ao) {
-          if (transportPlaying) ao.onTransportStart();
-          else ao.onTransportStop();
-        }
+    // Audio-track gating (Phase 3): each block, update audio clips with the transport state + tick
+    // so they stream only while playing (3a) and only within their arrangement range (3b part 2),
+    // restarting phase-aligned on entry.
+    for (GlobalEffectable sound : sounds) {
+      if (sound instanceof org.deluge.firmware2.AudioOutput ao) {
+        ao.updateTimeline(transportTick, transportPlaying);
       }
-      lastTransportPlaying = transportPlaying;
     }
 
     // Sum all tracks in 64-bit (infinite headroom!)
