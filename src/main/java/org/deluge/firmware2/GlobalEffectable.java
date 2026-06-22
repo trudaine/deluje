@@ -1,9 +1,6 @@
 package org.deluge.firmware2;
 
 import java.util.Arrays;
-import jdk.incubator.vector.IntVector;
-import jdk.incubator.vector.VectorOperators;
-import jdk.incubator.vector.VectorSpecies;
 
 /**
  * Faithful port of the Deluge C++ GlobalEffectable / GlobalEffectableForClip logic. Handles the
@@ -24,23 +21,16 @@ public abstract class GlobalEffectable {
   public int postFXVolume = 134217728;
   public int postReverbVolume = 134217728;
 
-  private static final VectorSpecies<Integer> I_SPECIES = IntVector.SPECIES_PREFERRED;
-
   /**
-   * Vectorized abs-max over {@code a[0..len)} (bit-identical to a scalar Math.abs/Math.max loop).
+   * Silence-detection scan (a Java-side optimization, not faithful-C math): abs-max over the track
+   * buffer, every track every block. Kept as a clean scalar loop because the JDK 27 JIT compiler
+   * (C2) auto-vectorizes this loop safely on all architectures. We explicitly avoid the incubator
+   * Vector API here because its NEON intrinsics on ARM64 macOS suffer from a JIT compiler bug in
+   * JDK 27 EA that causes incorrect SIMD reductions under warm-up load.
    */
   static int absMax(int[] a, int len) {
-    int i = 0;
     int max = 0;
-    int bound = I_SPECIES.loopBound(len);
-    if (bound > 0) {
-      IntVector vmax = IntVector.zero(I_SPECIES);
-      for (; i < bound; i += I_SPECIES.length()) {
-        vmax = vmax.max(IntVector.fromArray(I_SPECIES, a, i).abs());
-      }
-      max = vmax.reduceLanes(VectorOperators.MAX);
-    }
-    for (; i < len; i++) {
+    for (int i = 0; i < len; i++) {
       max = Math.max(max, Math.abs(a[i]));
     }
     return max;
