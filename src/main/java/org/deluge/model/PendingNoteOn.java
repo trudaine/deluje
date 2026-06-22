@@ -1,7 +1,8 @@
-package org.deluge.playback;
+package org.deluge.model;
 
+/** Struct representing a pending note trigger event. Migrated to use the unified NoteRowModel. */
 public class PendingNoteOn {
-  public NoteRow noteRow;
+  public NoteRowModel noteRow;
   public int noteRowId;
   public int sampleSyncLength;
   public int ticksLate;
@@ -11,7 +12,7 @@ public class PendingNoteOn {
   public int fill;
 
   public PendingNoteOn(
-      NoteRow noteRow, int velocity, int probability, Iterance iterance, int fill) {
+      NoteRowModel noteRow, int velocity, int probability, Iterance iterance, int fill) {
     this.noteRow = noteRow;
     this.velocity = velocity;
     this.probability = probability;

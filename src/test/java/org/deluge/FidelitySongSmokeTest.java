@@ -6,9 +6,8 @@ import java.io.File;
 import org.deluge.engine.FirmwareAudioEngine;
 import org.deluge.engine.FirmwareFactory;
 import org.deluge.firmware2.StereoSample;
+import org.deluge.model.ClipModel;
 import org.deluge.model.ProjectModel;
-import org.deluge.playback.InstrumentClip;
-import org.deluge.playback.Song;
 import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
@@ -32,20 +31,20 @@ public class FidelitySongSmokeTest {
 
   private double renderRms(String songName, double seconds) throws Exception {
     ProjectModel project = DelugeXmlParser.parseSong(songFile(songName));
-    Song song = FirmwareFactory.createSong(project);
+    ProjectModel song = FirmwareFactory.createSong(project);
     FirmwareAudioEngine engine = new FirmwareAudioEngine();
     engine.sounds.clear();
     int clips = 0;
-    for (var clip : song.clips) {
-      if (clip instanceof InstrumentClip ic && ic.sound != null) {
-        engine.sounds.add(ic.sound);
+    for (var clip : song.getClips()) {
+      if (clip instanceof ClipModel ic && ic.getSound() != null) {
+        engine.sounds.add((org.deluge.firmware2.GlobalEffectable) ic.getSound());
         clips++;
       }
     }
     assertTrue(clips > 0, songName + ": no instrument clips parsed");
 
     var playbackHandler = new org.deluge.playback.PlaybackHandler();
-    playbackHandler.setSong(song);
+    playbackHandler.setProject(song);
     playbackHandler.start();
 
     int n = 128;

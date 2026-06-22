@@ -121,11 +121,11 @@ public class MidiService {
   private org.deluge.firmware2.GlobalEffectable getActiveTrackSound(int track) {
     Object ph = bridge.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
     if (ph instanceof org.deluge.playback.PlaybackHandler playbackHandler) {
-      org.deluge.playback.Song song = playbackHandler.getSong();
-      if (song != null && track >= 0 && track < song.clips.size()) {
-        org.deluge.playback.Clip clip = song.clips.get(track);
-        if (clip instanceof org.deluge.playback.InstrumentClip instrumentClip) {
-          return instrumentClip.sound;
+      org.deluge.model.ProjectModel project = playbackHandler.getProject();
+      if (project != null && track >= 0 && track < project.getTracks().size()) {
+        org.deluge.model.ClipModel clip = project.getTracks().get(track).getActiveClip();
+        if (clip != null) {
+          return (org.deluge.firmware2.GlobalEffectable) clip.getSound();
         }
       }
     }
@@ -277,7 +277,14 @@ public class MidiService {
     }
   }
 
-  // ===================== Engine Callbacks =====================
+  public void handleMidiMessage(int status, int data1, int data2) {
+    org.deluge.shadow.midi.MidiMsg msg = new org.deluge.shadow.midi.MidiMsg();
+    msg.status = status;
+    msg.data1 = data1;
+    msg.data2 = data2;
+    msg.data3 = data2;
+    router.handleMidiMessage(msg);
+  }
 
   /** Called by engine when a Note On is received. Routes to MidiInputRouter. */
   private void handleNoteOn(MIDIMessage msg) {

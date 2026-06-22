@@ -15,7 +15,6 @@ import org.deluge.model.SoundDrum;
 import org.deluge.model.StepData;
 import org.deluge.model.SynthTrackModel;
 import org.deluge.playback.PlaybackHandler;
-import org.deluge.playback.Song;
 import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
@@ -204,17 +203,17 @@ public class UltimateFidelityTest {
     FirmwareAudioEngine engine = new FirmwareAudioEngine();
     engine.metronomeEnabled = false;
 
-    Song fwSong = FirmwareFactory.createSong(reloadedProject);
-    for (var clip : fwSong.clips) {
-      if (clip instanceof org.deluge.playback.InstrumentClip ic) {
-        if (ic.sound instanceof FirmwareSound fs) {
+    ProjectModel fwSong = FirmwareFactory.createSong(reloadedProject);
+    for (var clip : fwSong.getClips()) {
+      if (clip instanceof org.deluge.model.ClipModel ic) {
+        if (ic.getSound() instanceof FirmwareSound fs) {
           engine.sounds.add(fs);
         }
       }
     }
 
     PlaybackHandler handler = new PlaybackHandler();
-    handler.setSong(fwSong);
+    handler.setProject(fwSong);
     handler.start();
 
     // Render 8 seconds of audio:

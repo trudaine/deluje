@@ -145,7 +145,7 @@ public class Envelope {
   public int noteOn(int envelopeIndex, Sound sound, Voice voice) {
     int attack = voice.paramFinalValues[Param.LOCAL_ENV_0_ATTACK + envelopeIndex];
     smoothedSustain = voice.paramFinalValues[Param.LOCAL_ENV_0_SUSTAIN + envelopeIndex];
-    boolean directlyToDecay = (attack > 245632);
+    boolean directlyToDecay = (Integer.compareUnsigned(attack, 245632) > 0);
     return noteOn(directlyToDecay);
   }
 

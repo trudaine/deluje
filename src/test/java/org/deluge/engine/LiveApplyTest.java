@@ -9,8 +9,6 @@ import org.deluge.model.PatchCable;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.SoundDrum;
 import org.deluge.model.SynthTrackModel;
-import org.deluge.playback.InstrumentClip;
-import org.deluge.playback.Song;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -34,8 +32,8 @@ public class LiveApplyTest {
   private static FirmwareSound build(SynthTrackModel m) {
     ProjectModel p = new ProjectModel();
     p.addTrack(m);
-    Song s = FirmwareFactory.createSong(p);
-    return (FirmwareSound) ((InstrumentClip) s.clips.get(0)).sound;
+    ProjectModel s = FirmwareFactory.createSong(p);
+    return (FirmwareSound) (s.getTracks().get(0).getActiveClip()).getSound();
   }
 
   @Test
@@ -173,8 +171,8 @@ public class LiveApplyTest {
   private static FirmwareKit buildKit(KitTrackModel m) {
     ProjectModel p = new ProjectModel();
     p.addTrack(m);
-    Song s = FirmwareFactory.createSong(p);
-    return (FirmwareKit) ((InstrumentClip) s.clips.get(0)).sound;
+    ProjectModel s = FirmwareFactory.createSong(p);
+    return (FirmwareKit) (s.getTracks().get(0).getActiveClip()).getSound();
   }
 
   @Test

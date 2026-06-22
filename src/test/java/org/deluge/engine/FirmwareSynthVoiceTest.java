@@ -6,8 +6,6 @@ import org.deluge.firmware2.StereoSample;
 import org.deluge.model.ClipModel;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.SynthTrackModel;
-import org.deluge.playback.InstrumentClip;
-import org.deluge.playback.Song;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -28,8 +26,8 @@ public class FirmwareSynthVoiceTest {
     m.addClip(new ClipModel("c", 8, 16));
     ProjectModel p = new ProjectModel();
     p.addTrack(m);
-    Song s = org.deluge.engine.FirmwareFactory.createSong(p);
-    return (FirmwareSound) ((InstrumentClip) s.clips.get(0)).sound;
+    ProjectModel s = org.deluge.engine.FirmwareFactory.createSong(p);
+    return (FirmwareSound) (s.getTracks().get(0).getActiveClip()).getSound();
   }
 
   /** Render n samples (left channel, normalized to [-1,1]). */

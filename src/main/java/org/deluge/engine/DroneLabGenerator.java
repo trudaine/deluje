@@ -4,9 +4,9 @@ import org.deluge.BridgeContract;
 import org.deluge.model.ClipModel;
 import org.deluge.model.EnvelopeModel;
 import org.deluge.model.FilterMode;
-import org.deluge.model.HighResNote;
 import org.deluge.model.LfoModel;
 import org.deluge.model.LfoType;
+import org.deluge.model.NoteModel;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.StepData;
 import org.deluge.model.SynthTrackModel;
@@ -196,8 +196,8 @@ public class DroneLabGenerator {
       // Add raw high-resolution note events for the Pure Java scheduler loop
       int stepTicks = activeClip.isTripletMode() ? 32 : 24;
       int tickLen = (int) (192.0f * stepTicks); // 4608 ticks total duration
-      java.util.List<HighResNote> rawNotes = new java.util.ArrayList<>();
-      rawNotes.add(new HighResNote(0, tickLen, 0.85f, 1.0f, 0));
+      java.util.List<NoteModel> rawNotes = new java.util.ArrayList<>();
+      rawNotes.add(new NoteModel(0, tickLen, 0.85f, 1.0f, 0));
       activeClip.setRawNoteEvents(targetRow, rawNotes);
     }
 
@@ -264,13 +264,11 @@ public class DroneLabGenerator {
     if (bridge == null) return null;
     Object ph = bridge.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
     if (ph instanceof org.deluge.playback.PlaybackHandler playbackHandler) {
-      org.deluge.playback.Song song = playbackHandler.getSong();
-      if (song != null && trackIndex >= 0 && trackIndex < song.clips.size()) {
-        org.deluge.playback.Clip clip = song.clips.get(trackIndex);
-        if (clip instanceof org.deluge.playback.InstrumentClip instrumentClip) {
-          if (instrumentClip.sound instanceof org.deluge.engine.FirmwareSound fs) {
-            return fs;
-          }
+      org.deluge.model.ProjectModel project = playbackHandler.getProject();
+      if (project != null && trackIndex >= 0 && trackIndex < project.getTracks().size()) {
+        org.deluge.model.ClipModel clip = project.getTracks().get(trackIndex).getActiveClip();
+        if (clip != null && clip.getSound() instanceof org.deluge.engine.FirmwareSound fs) {
+          return fs;
         }
       }
     }

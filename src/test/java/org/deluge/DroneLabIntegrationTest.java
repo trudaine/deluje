@@ -8,12 +8,10 @@ import org.deluge.engine.FirmwareFactory;
 import org.deluge.engine.FirmwareSound;
 import org.deluge.firmware2.StereoSample;
 import org.deluge.model.ClipModel;
-import org.deluge.model.HighResNote;
+import org.deluge.model.NoteModel;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.StepData;
 import org.deluge.model.SynthTrackModel;
-import org.deluge.playback.InstrumentClip;
-import org.deluge.playback.Song;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -51,7 +49,7 @@ public class DroneLabIntegrationTest {
     assertEquals(192.0f, step.gate(), "The note must span the full 192 steps");
 
     // Assert that raw high-resolution note events are populated for the JRE scheduler
-    List<HighResNote> rawNotes = activeClip.getRawNoteEvents(diatonicC2Row);
+    List<NoteModel> rawNotes = activeClip.getRawNoteEvents(diatonicC2Row);
     assertNotNull(rawNotes, "Raw note events must not be null");
     assertEquals(1, rawNotes.size(), "Should have exactly 1 note event");
     assertEquals(0, rawNotes.get(0).getTickPos(), "Note must start at tick 0");
@@ -66,13 +64,13 @@ public class DroneLabIntegrationTest {
 
     // ── ASSERTION 4: Sequencer Timing & Voice Compilation (Bug #2) ──
     // Compile the project into a firmware Song and verify the note is compiled successfully.
-    Song fwSong = FirmwareFactory.createSong(project);
+    ProjectModel fwSong = FirmwareFactory.createSong(project);
     assertNotNull(fwSong, "Firmware song compilation must succeed");
-    assertEquals(1, fwSong.clips.size(), "Compiled song must contain exactly 1 track");
+    assertEquals(1, fwSong.getClips().size(), "Compiled song must contain exactly 1 track");
 
-    InstrumentClip fwClip = (InstrumentClip) fwSong.clips.get(0);
+    ClipModel fwClip = fwSong.getTracks().get(0).getActiveClip();
     int totalNotesInFw = 0;
-    for (var noteRow : fwClip.noteRows) {
+    for (var noteRow : fwClip.getNoteRowsList()) {
       totalNotesInFw += noteRow.notes.size();
     }
     assertEquals(1, totalNotesInFw, "Sequencer must detect exactly 1 compiled note event");

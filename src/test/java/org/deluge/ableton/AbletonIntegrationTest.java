@@ -120,7 +120,7 @@ public class AbletonIntegrationTest {
                   + ", rows: "
                   + cm.getRowCount());
           for (int r = 0; r < cm.getRowCount(); r++) {
-            java.util.List<org.deluge.model.HighResNote> notes = cm.getRawNoteEvents(r);
+            java.util.List<org.deluge.model.NoteModel> notes = cm.getRawNoteEvents(r);
             if (notes != null && !notes.isEmpty()) {
               foundSynthNotes = true;
               System.out.println(
@@ -131,7 +131,7 @@ public class AbletonIntegrationTest {
                       + ") has "
                       + notes.size()
                       + " high-res notes:");
-              for (org.deluge.model.HighResNote n : notes) {
+              for (org.deluge.model.NoteModel n : notes) {
                 System.out.println(
                     "          Note: tickPos="
                         + n.getTickPos()

@@ -6,8 +6,6 @@ import org.deluge.firmware2.StereoSample;
 import org.deluge.model.ClipModel;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.SynthTrackModel;
-import org.deluge.playback.InstrumentClip;
-import org.deluge.playback.Song;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -33,8 +31,8 @@ public class RingModParityTest {
 
     ProjectModel project = new ProjectModel();
     project.addTrack(model);
-    Song song = FirmwareFactory.createSong(project);
-    return (FirmwareSound) ((InstrumentClip) song.clips.get(0)).sound;
+    ProjectModel song = FirmwareFactory.createSong(project);
+    return (FirmwareSound) (song.getTracks().get(0).getActiveClip()).getSound();
   }
 
   private static double[] renderMono(FirmwareSound.SynthMode mode, int total) {

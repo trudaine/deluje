@@ -6,8 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.deluge.model.ClipModel;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.SynthTrackModel;
-import org.deluge.playback.InstrumentClip;
-import org.deluge.playback.Song;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -36,8 +34,8 @@ class BridgeMappingSnapshotTest {
 
     ProjectModel project = new ProjectModel();
     project.addTrack(m);
-    Song song = FirmwareFactory.createSong(project);
-    FirmwareSound sound = (FirmwareSound) ((InstrumentClip) song.clips.get(0)).sound;
+    ProjectModel song = FirmwareFactory.createSong(project);
+    FirmwareSound sound = (FirmwareSound) (song.getTracks().get(0).getActiveClip()).getSound();
     sound.syncParamsToFw2();
     return sound.fw2Sound;
   }

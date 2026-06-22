@@ -11,8 +11,6 @@ import org.deluge.firmware2.StereoSample;
 import org.deluge.model.ClipModel;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.SynthTrackModel;
-import org.deluge.playback.InstrumentClip;
-import org.deluge.playback.Song;
 import org.deluge.xml.DelugeXmlParser;
 
 /**
@@ -47,8 +45,8 @@ public final class RenderPatchToWav {
     m.addClip(new ClipModel("c", 8, 16));
     ProjectModel project = new ProjectModel();
     project.addTrack(m);
-    Song song = FirmwareFactory.createSong(project);
-    FirmwareSound sound = (FirmwareSound) ((InstrumentClip) song.clips.get(0)).sound;
+    ProjectModel song = FirmwareFactory.createSong(project);
+    FirmwareSound sound = (FirmwareSound) (song.getTracks().get(0).getActiveClip()).getSound();
 
     int total = (int) (seconds * SR);
     int releaseAt = (int) (total * 0.6); // note-off at 60% so the release tail is captured

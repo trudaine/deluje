@@ -1,17 +1,17 @@
 package org.deluge.ui.views;
 
 import org.deluge.hid.*;
-import org.deluge.playback.InstrumentClip;
-import org.deluge.playback.Note;
-import org.deluge.playback.NoteRow;
+import org.deluge.model.ClipModel;
+import org.deluge.model.NoteModel;
+import org.deluge.model.NoteRowModel;
 
 /** Port of the Deluge's Kit View. Each row (Y) represents a different drum sound in the kit. */
 public class KitView extends FirmwareView {
-  private final InstrumentClip clip;
+  private final ClipModel clip;
   private int scrollX = 0;
   private int currentRow = 0;
 
-  public KitView(InstrumentClip clip) {
+  public KitView(ClipModel clip) {
     this.clip = clip;
   }
 
@@ -22,7 +22,7 @@ public class KitView extends FirmwareView {
 
   @Override
   public ActionResult selectButtonPress(boolean on) {
-    if (on && clip.sound instanceof org.deluge.engine.FirmwareKit kit) {
+    if (on && clip.getSound() instanceof org.deluge.engine.FirmwareKit kit) {
       if (currentRow < kit.drumSounds.size()) {
         org.deluge.engine.FirmwareSound drum = kit.drumSounds.get(currentRow);
         MatrixDriver.get()
@@ -38,26 +38,24 @@ public class KitView extends FirmwareView {
     if (x >= 0 && x < 18 && y >= 0 && y < 8) {
       if (velocity > 0) {
         currentRow = y; // Auto-focus row on click
-        // ── Bit-Accurate Audition ──
-        if (clip.sound instanceof org.deluge.engine.FirmwareKit kit) {
+        if (clip.getSound() instanceof org.deluge.engine.FirmwareKit kit) {
           kit.triggerDrum(y, velocity);
         }
 
-        // ... (Sequence Toggle)
         if (x < 16) {
           int notePos = scrollX + x * 24;
-          if (y < clip.noteRows.size()) {
-            NoteRow row = clip.noteRows.get(y);
+          if (y < clip.getNoteRowsList().size()) {
+            NoteRowModel row = clip.getNoteRowsList().get(y);
             boolean found = false;
-            for (Note n : row.notes) {
-              if (n.pos == notePos) {
-                row.notes.remove(n);
+            for (NoteModel n : row.getNotes()) {
+              if (n.getPos() == notePos) {
+                row.getNotes().remove(n);
                 found = true;
                 break;
               }
             }
             if (!found) {
-              row.attemptNoteAdd(notePos, 24, velocity, 100, null, 0);
+              row.attemptNoteAdd(notePos, 24, velocity, 100, new org.deluge.model.Iterance(), 0);
             }
           }
         }
@@ -71,18 +69,16 @@ public class KitView extends FirmwareView {
   public void setLedStates() {
     PadLEDs.clearAll();
 
-    // Draw drum row status in sidebar
     for (int y = 0; y < 8; y++) {
       RGB color = (y == currentRow) ? new RGB(255, 255, 255) : new RGB(255, 100, 0);
       PadLEDs.set(16, y, color);
     }
 
-    // Draw notes in the grid
-    int stepTicks = clip.tripletMode ? 32 : 24;
-    for (int y = 0; y < Math.min(8, clip.noteRows.size()); y++) {
-      NoteRow row = clip.noteRows.get(y);
-      for (Note n : row.notes) {
-        int x = (n.pos - scrollX) / stepTicks;
+    int stepTicks = clip.isTripletMode() ? 32 : 24;
+    for (int y = 0; y < Math.min(8, clip.getNoteRowsList().size()); y++) {
+      NoteRowModel row = clip.getNoteRowsList().get(y);
+      for (NoteModel n : row.getNotes()) {
+        int x = (n.getPos() - scrollX) / stepTicks;
         if (x >= 0 && x < 16) {
           PadLEDs.set(x, y, new RGB(255, 255, 0)); // Yellow for drum hits
         }

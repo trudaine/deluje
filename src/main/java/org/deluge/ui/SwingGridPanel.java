@@ -3960,95 +3960,17 @@ public class SwingGridPanel extends JPanel {
       updateScrollBarTooltip();
     }
 
-    java.util.List<org.deluge.model.TrackModel> tracks = projectModel.getTracks();
-
-    // 1. Sync song note rows in low latency direct JMem sync
+    // 1. Sync song parameters
     if (bridge != null) {
       try {
         Object fwHandlerObj = bridge.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
         if (fwHandlerObj instanceof org.deluge.playback.PlaybackHandler fwHandler) {
-          org.deluge.playback.Song currentSong = fwHandler.getSong();
-          if (currentSong != null) {
-            for (int i = 0;
-                i < projectModel.getTracks().size() && i < currentSong.clips.size();
-                i++) {
-              org.deluge.model.TrackModel trackModel = projectModel.getTracks().get(i);
-              org.deluge.playback.Clip clip = currentSong.clips.get(i);
-              if (clip instanceof org.deluge.playback.InstrumentClip
-                  && !trackModel.getClips().isEmpty()) {
-                org.deluge.playback.InstrumentClip instClip =
-                    (org.deluge.playback.InstrumentClip) clip;
-                org.deluge.model.ClipModel clipModel = trackModel.getClips().get(0);
-
+          org.deluge.model.ProjectModel project = fwHandler.getProject();
+          if (project != null) {
+            for (org.deluge.model.TrackModel trackModel : project.getTracks()) {
+              for (org.deluge.model.ClipModel clipModel : trackModel.getClips()) {
                 int stepTicks = clipModel.isTripletMode() ? 32 : 24;
-                instClip.loopLength = clipModel.getStepCount() * stepTicks;
-                instClip.tripletMode = clipModel.isTripletMode();
-
-                boolean isKit = trackModel instanceof org.deluge.model.KitTrackModel;
-
-                java.util.List<org.deluge.playback.NoteRow> nextRows = new java.util.ArrayList<>();
-                for (int r = 0; r < clipModel.getRowCount(); r++) {
-                  // SINGLE authoritative model-row -> NoteRow mapping, shared with song-load. This
-                  // pitch logic previously diverged here (used the grid row index as the synth
-                  // pitch), so live-added notes played as ~8-12Hz sub-bass garbage until stop/play.
-                  org.deluge.playback.NoteRow noteRow =
-                      org.deluge.engine.FirmwareFactory.buildNoteRow(
-                          clipModel, r, isKit, stepTicks);
-                  if (!noteRow.notes.isEmpty()) {
-                    nextRows.add(noteRow);
-                  }
-                }
-
-                // Release notes deleted or altered mid-playback to prevent hung voices
-                if (isSequencerPlaying()) {
-                  java.util.List<org.deluge.playback.NoteRow> oldRows = instClip.noteRows;
-                  if (oldRows != null) {
-                    for (org.deluge.playback.NoteRow oldRow : oldRows) {
-                      for (org.deluge.playback.Note oldNote : oldRow.notes) {
-                        int curPos = instClip.lastProcessedPos;
-                        int loopLen = instClip.loopLength;
-                        if (loopLen > 0) {
-                          int start = oldNote.pos;
-                          int end = (oldNote.pos + oldNote.length) % loopLen;
-                          boolean isActive;
-                          if (start <= end) {
-                            isActive = (curPos >= start && curPos < end);
-                          } else {
-                            isActive = (curPos >= start || curPos < end);
-                          }
-
-                          if (isActive) {
-                            boolean stillExists = false;
-                            for (org.deluge.playback.NoteRow newRow : nextRows) {
-                              if (newRow.getNoteCode() == oldRow.getNoteCode()) {
-                                for (org.deluge.playback.Note newNote : newRow.notes) {
-                                  if (newNote.pos == oldNote.pos
-                                      && newNote.length == oldNote.length) {
-                                    stillExists = true;
-                                    break;
-                                  }
-                                }
-                              }
-                            }
-                            if (!stillExists) {
-                              if (instClip.sound instanceof org.deluge.engine.FirmwareKit kit) {
-                                if (oldRow.getNoteCode() >= 0
-                                    && oldRow.getNoteCode() < kit.drumSounds.size()) {
-                                  kit.drumSounds.get(oldRow.getNoteCode()).releaseNote(60);
-                                }
-                              } else if (instClip.sound
-                                  instanceof org.deluge.engine.FirmwareSound synth) {
-                                synth.releaseNote(oldRow.getNoteCode());
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-
-                instClip.noteRows = nextRows;
+                clipModel.setLoopLength(clipModel.getStepCount() * stepTicks);
               }
             }
           }
@@ -4058,6 +3980,8 @@ public class SwingGridPanel extends JPanel {
             "Real-time audio engine low-latency notes sync failed in-place: " + ex.getMessage());
       }
     }
+
+    java.util.List<org.deluge.model.TrackModel> tracks = projectModel.getTracks();
 
     // 2. Update visual button properties in place
     if (viewMode == GridViewMode.CLIP) {
@@ -4432,50 +4356,24 @@ public class SwingGridPanel extends JPanel {
       try {
         Object fwHandlerObj = bridge.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
         if (fwHandlerObj instanceof org.deluge.playback.PlaybackHandler fwHandler) {
-          org.deluge.playback.Song currentSong = fwHandler.getSong();
-          if (currentSong != null) {
-            // Low-latency direct JMem steps-to-notes synchronization loop!
-            for (int i = 0;
-                i < projectModel.getTracks().size() && i < currentSong.clips.size();
-                i++) {
-              org.deluge.model.TrackModel trackModel = projectModel.getTracks().get(i);
-              org.deluge.playback.Clip clip = currentSong.clips.get(i);
-              if (clip instanceof org.deluge.playback.InstrumentClip
-                  && !trackModel.getClips().isEmpty()) {
-                org.deluge.playback.InstrumentClip instClip =
-                    (org.deluge.playback.InstrumentClip) clip;
-                org.deluge.model.ClipModel clipModel = trackModel.getClips().get(0);
+          org.deluge.model.ProjectModel project = fwHandler.getProject();
+          if (project != null) {
+            // Live update global parameters
+            project.setTempoBPM(projectModel.getBpm());
+            project.setSwingAmount(
+                Math.max(-49, Math.min(49, (int) ((projectModel.getSwing() - 0.5f) * 100.0))));
 
+            // Loop and ensure loop length
+            for (org.deluge.model.TrackModel trackModel : project.getTracks()) {
+              for (org.deluge.model.ClipModel clipModel : trackModel.getClips()) {
                 int stepTicks = clipModel.isTripletMode() ? 32 : 24;
-                instClip.loopLength = clipModel.getStepCount() * stepTicks;
-                instClip.tripletMode = clipModel.isTripletMode();
-
-                boolean isKit = trackModel instanceof org.deluge.model.KitTrackModel;
-
-                java.util.List<org.deluge.playback.NoteRow> nextRows = new java.util.ArrayList<>();
-                for (int r = 0; r < clipModel.getRowCount(); r++) {
-                  // SINGLE authoritative model-row -> NoteRow mapping, shared with song-load (see
-                  // the matching call in the live-sync path above and
-                  // FirmwareFactory.buildNoteRow).
-                  org.deluge.playback.NoteRow noteRow =
-                      org.deluge.engine.FirmwareFactory.buildNoteRow(
-                          clipModel, r, isKit, stepTicks);
-                  if (!noteRow.notes.isEmpty()) {
-                    nextRows.add(noteRow);
-                  }
-                }
-                // Atomic swap
-                instClip.noteRows = nextRows;
+                clipModel.setLoopLength(clipModel.getStepCount() * stepTicks);
               }
             }
-            currentSong.tempoBPM = projectModel.getBpm();
-            currentSong.swingAmount =
-                Math.max(-49, Math.min(49, (int) ((projectModel.getSwing() - 0.5f) * 100.0)));
           } else {
-            // Initial setup song compilation
-            org.deluge.playback.Song freshSong =
-                org.deluge.engine.FirmwareFactory.createSong(projectModel);
-            fwHandler.setSong(freshSong);
+            // Initial setup song compilation: compiles DSP engines in place and registers
+            org.deluge.engine.FirmwareFactory.createSong(projectModel);
+            fwHandler.setProject(projectModel);
           }
         }
       } catch (Exception ex) {

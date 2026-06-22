@@ -6,12 +6,10 @@ import org.deluge.engine.FirmwareFactory;
 import org.deluge.midi.MidiEngine;
 import org.deluge.midi.MidiTransport;
 import org.deluge.model.ClipModel;
-import org.deluge.model.HighResNote;
 import org.deluge.model.MidiTrackModel;
+import org.deluge.model.NoteModel;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.StepData;
-import org.deluge.playback.InstrumentClip;
-import org.deluge.playback.Song;
 import org.deluge.shadow.midi.MidiMsg;
 import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
@@ -114,7 +112,7 @@ public class MidiFidelityTest {
     assertEquals(1, midiTrack.getClips().size());
     ClipModel clip = midiTrack.getClips().get(0);
     assertEquals(1, clip.getRawNoteEvents(0).size());
-    HighResNote note = clip.getRawNoteEvents(0).get(0);
+    NoteModel note = clip.getRawNoteEvents(0).get(0);
     assertEquals(0, note.getTickPos());
     assertEquals(6, note.getTickLen());
   }
@@ -137,11 +135,11 @@ public class MidiFidelityTest {
     project.addTrack(model);
 
     // Build the factory Song
-    Song song = FirmwareFactory.createSong(project);
-    assertEquals(1, song.clips.size());
-    assertTrue(song.clips.get(0) instanceof InstrumentClip);
+    ProjectModel song = FirmwareFactory.createSong(project);
+    assertEquals(1, song.getClips().size());
+    assertTrue(song.getTracks().get(0).getActiveClip() instanceof ClipModel);
 
-    InstrumentClip instClip = (InstrumentClip) song.clips.get(0);
+    ClipModel instClip = song.getTracks().get(0).getActiveClip();
 
     // Clear and trigger step 0
     mock.messages.clear();

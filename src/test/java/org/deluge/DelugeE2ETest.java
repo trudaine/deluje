@@ -77,22 +77,25 @@ public class DelugeE2ETest {
       for (String p : drumPaths) {
         File f = new File("src/main/resources/" + p);
         f.getParentFile().mkdirs();
-        if (!f.exists()) writeClickWav(f);
+        if (f.exists()) {
+          f.delete();
+        }
+        writeClickWav(f);
       }
     }
 
     // 3. Build the firmware Song and drive the SUPPORTED pure engine offline (the JNI-free
     //    FirmwareAudioEngine + PlaybackHandler). The legacy DelugeEngineDSL ("--hifi") path is
     //    unsupported and intentionally NOT exercised here.
-    org.deluge.playback.Song song = org.deluge.engine.FirmwareFactory.createSong(project);
+    org.deluge.model.ProjectModel song = org.deluge.engine.FirmwareFactory.createSong(project);
     org.deluge.engine.FirmwareAudioEngine audioEngine = new org.deluge.engine.FirmwareAudioEngine();
-    for (org.deluge.playback.Clip c : song.clips) {
-      if (c instanceof org.deluge.playback.InstrumentClip ic && ic.sound != null) {
-        audioEngine.sounds.add(ic.sound);
+    for (org.deluge.model.ClipModel c : song.getClips()) {
+      if (c instanceof org.deluge.model.ClipModel ic && ic.getSound() != null) {
+        audioEngine.sounds.add((org.deluge.firmware2.GlobalEffectable) ic.getSound());
       }
     }
     org.deluge.playback.PlaybackHandler playbackHandler = new org.deluge.playback.PlaybackHandler();
-    playbackHandler.setSong(song);
+    playbackHandler.setProject(song);
     playbackHandler.start();
 
     // 3. Render ~5s in 128-sample blocks, advancing the transport per BPM (as JavaAudioDriver
@@ -120,7 +123,8 @@ public class DelugeE2ETest {
     }
 
     System.out.printf(
-        "Song %s: clips=%d peak=%.6f maxTick=%d%n", songName, song.clips.size(), peak, maxTick);
+        "Song %s: clips=%d peak=%.6f maxTick=%d%n",
+        songName, song.getClips().size(), peak, maxTick);
 
     assertTrue(maxTick > 0, "Song " + songName + " transport should advance");
 

@@ -13,7 +13,6 @@ import org.deluge.model.ProjectModel;
 import org.deluge.model.StepData;
 import org.deluge.model.SynthTrackModel;
 import org.deluge.playback.PlaybackHandler;
-import org.deluge.playback.Song;
 import org.deluge.xml.DelugeXmlParser;
 
 /**
@@ -58,16 +57,16 @@ public class FidelityGenerator {
     project.addTrack(synthModel);
 
     // 3. Build firmware song, engine, and playback handler
-    Song fwSong = FirmwareFactory.createSong(project);
-    var clip0 = (org.deluge.playback.InstrumentClip) fwSong.clips.get(0);
-    FirmwareSound fwSound = (FirmwareSound) clip0.sound;
+    ProjectModel compiledProject = FirmwareFactory.createSong(project);
+    ClipModel clip0 = project.getTracks().get(0).getActiveClip();
+    FirmwareSound fwSound = (FirmwareSound) clip0.getSound();
 
     FirmwareAudioEngine engine = new FirmwareAudioEngine();
     engine.metronomeEnabled = false;
     engine.sounds.add(fwSound);
 
     PlaybackHandler handler = new PlaybackHandler();
-    handler.setSong(fwSong);
+    handler.setProject(compiledProject);
     handler.start();
 
     // 4. Render 2.5 seconds of audio (~861 blocks)

@@ -7,7 +7,6 @@ import org.deluge.engine.JavaAudioDriver;
 import org.deluge.firmware2.StereoSample;
 import org.deluge.model.ProjectModel;
 import org.deluge.playback.PlaybackHandler;
-import org.deluge.playback.Song;
 import org.deluge.xml.DelugeXmlParser;
 
 /** Renders Deluge XML song files to WAV files offline for comparison testing. */
@@ -16,20 +15,20 @@ public class FidelityTestRunner {
   public static void renderSongToWav(File xmlFile, File targetWavFile, double durationSeconds)
       throws Exception {
     ProjectModel project = DelugeXmlParser.parseSong(xmlFile);
-    Song song = FirmwareFactory.createSong(project);
+    ProjectModel song = FirmwareFactory.createSong(project);
 
     FirmwareAudioEngine engine = new FirmwareAudioEngine();
 
     // Add all instruments to engine sounds
     engine.sounds.clear();
-    for (var clip : song.clips) {
-      if (clip instanceof org.deluge.playback.InstrumentClip ic && ic.sound != null) {
-        engine.sounds.add(ic.sound);
+    for (var clip : song.getClips()) {
+      if (clip instanceof org.deluge.model.ClipModel ic && ic.getSound() != null) {
+        engine.sounds.add((org.deluge.firmware2.GlobalEffectable) ic.getSound());
       }
     }
 
     PlaybackHandler playbackHandler = new PlaybackHandler();
-    playbackHandler.setSong(song);
+    playbackHandler.setProject(song);
     playbackHandler.start();
 
     float bpm = project.getBpm();

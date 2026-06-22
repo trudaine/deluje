@@ -10,8 +10,8 @@ import org.deluge.model.ArrangerClip;
 import org.deluge.model.AudioTrackModel;
 import org.deluge.model.ClipModel;
 import org.deluge.model.EnvelopeModel;
-import org.deluge.model.HighResNote;
 import org.deluge.model.KitTrackModel;
+import org.deluge.model.NoteModel;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.SoundDrum;
 import org.deluge.model.StepData;
@@ -277,7 +277,7 @@ public class AbletonTrackMapper {
         int tickPos = (int) Math.round(ev.time * 96);
         int tickLen = (int) Math.round(ev.duration * 96);
         float normVel = ev.velocity / 127.0f;
-        HighResNote hrn = new HighResNote(tickPos, tickLen, normVel, 1.0f, 0);
+        NoteModel hrn = new NoteModel(tickPos, tickLen, normVel, 1.0f, 0);
         clip.getRawNoteEvents(r).add(hrn);
 
         // B. Quantized Grid Path (16th note steps)
@@ -429,7 +429,7 @@ public class AbletonTrackMapper {
           int tickPos = (int) Math.round(time * 96);
           int tickLen = (int) Math.round(duration * 96);
           float normVel = velocity / 127.0f;
-          HighResNote hrn = new HighResNote(tickPos, tickLen, normVel, 1.0f, 0);
+          NoteModel hrn = new NoteModel(tickPos, tickLen, normVel, 1.0f, 0);
           clip.getRawNoteEvents(r).add(hrn);
 
           // B. Quantized Grid Path

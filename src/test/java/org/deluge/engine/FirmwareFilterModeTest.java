@@ -6,8 +6,6 @@ import org.deluge.firmware2.StereoSample;
 import org.deluge.model.ClipModel;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.SynthTrackModel;
-import org.deluge.playback.InstrumentClip;
-import org.deluge.playback.Song;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -28,8 +26,8 @@ public class FirmwareFilterModeTest {
     m.addClip(new ClipModel("c", 8, 16));
     ProjectModel p = new ProjectModel();
     p.addTrack(m);
-    Song s = org.deluge.engine.FirmwareFactory.createSong(p);
-    FirmwareSound sound = (FirmwareSound) ((InstrumentClip) s.clips.get(0)).sound;
+    ProjectModel s = org.deluge.engine.FirmwareFactory.createSong(p);
+    FirmwareSound sound = (FirmwareSound) (s.getTracks().get(0).getActiveClip()).getSound();
     // The factory may install an automated HPF-freq param that overrides the neutral value; sync
     // it.
     org.deluge.modulation.automation.AutoParam ap =
@@ -56,8 +54,8 @@ public class FirmwareFilterModeTest {
     m.addClip(new ClipModel("c", 8, 16));
     ProjectModel p = new ProjectModel();
     p.addTrack(m);
-    Song s = org.deluge.engine.FirmwareFactory.createSong(p);
-    FirmwareSound sound = (FirmwareSound) ((InstrumentClip) s.clips.get(0)).sound;
+    ProjectModel s = org.deluge.engine.FirmwareFactory.createSong(p);
+    FirmwareSound sound = (FirmwareSound) (s.getTracks().get(0).getActiveClip()).getSound();
     syncAuto(sound, org.deluge.firmware2.Param.LOCAL_LPF_FREQ);
     syncAuto(sound, org.deluge.firmware2.Param.LOCAL_LPF_RESONANCE);
     return sound;

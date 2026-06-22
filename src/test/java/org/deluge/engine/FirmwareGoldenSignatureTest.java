@@ -15,8 +15,6 @@ import org.deluge.model.SynthTrackModel;
 import org.deluge.modulation.automation.AutoParam;
 import org.deluge.modulation.patch.PatchCable;
 import org.deluge.modulation.patch.PatchSource;
-import org.deluge.playback.InstrumentClip;
-import org.deluge.playback.Song;
 import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -56,8 +54,8 @@ public class FirmwareGoldenSignatureTest {
     m.addClip(new ClipModel("c", 8, 16));
     ProjectModel p = new ProjectModel();
     p.addTrack(m);
-    Song s = FirmwareFactory.createSong(p);
-    return (FirmwareSound) ((InstrumentClip) s.clips.get(0)).sound;
+    ProjectModel s = FirmwareFactory.createSong(p);
+    return (FirmwareSound) (s.getTracks().get(0).getActiveClip()).getSound();
   }
 
   private static FirmwareSound buildNativeFm() {
@@ -72,8 +70,8 @@ public class FirmwareGoldenSignatureTest {
     m.addClip(new ClipModel("c", 8, 16));
     ProjectModel p = new ProjectModel();
     p.addTrack(m);
-    Song s = FirmwareFactory.createSong(p);
-    FirmwareSound sound = (FirmwareSound) ((InstrumentClip) s.clips.get(0)).sound;
+    ProjectModel s = FirmwareFactory.createSong(p);
+    FirmwareSound sound = (FirmwareSound) (s.getTracks().get(0).getActiveClip()).getSound();
     sound.setSynthMode(FirmwareSound.SynthMode.FM);
     sound.fmRatio1 = 2.0f;
     sound.fmModulatorAmountBase[0] = ONE / 4;
@@ -112,8 +110,8 @@ public class FirmwareGoldenSignatureTest {
     m.addClip(new ClipModel("c", 8, 16));
     ProjectModel p = new ProjectModel();
     p.addTrack(m);
-    Song s = FirmwareFactory.createSong(p);
-    return (FirmwareSound) ((InstrumentClip) s.clips.get(0)).sound;
+    ProjectModel s = FirmwareFactory.createSong(p);
+    return (FirmwareSound) (s.getTracks().get(0).getActiveClip()).getSound();
   }
 
   private static FirmwareSound buildRingMod() {
@@ -134,8 +132,8 @@ public class FirmwareGoldenSignatureTest {
     model.addClip(new ClipModel("c", 8, 16));
     ProjectModel project = new ProjectModel();
     project.addTrack(model);
-    Song song = FirmwareFactory.createSong(project);
-    return (FirmwareSound) ((InstrumentClip) song.clips.get(0)).sound;
+    ProjectModel song = FirmwareFactory.createSong(project);
+    return (FirmwareSound) (song.getTracks().get(0).getActiveClip()).getSound();
   }
 
   private static FirmwareSound buildDx7() {
@@ -150,8 +148,8 @@ public class FirmwareGoldenSignatureTest {
     model.addClip(new ClipModel("c", 8, 16));
     ProjectModel project = new ProjectModel();
     project.addTrack(model);
-    Song song = FirmwareFactory.createSong(project);
-    return (FirmwareSound) ((InstrumentClip) song.clips.get(0)).sound;
+    ProjectModel song = FirmwareFactory.createSong(project);
+    return (FirmwareSound) (song.getTracks().get(0).getActiveClip()).getSound();
   }
 
   private static File resourceFile(String path) throws URISyntaxException {

@@ -7,6 +7,7 @@ import java.io.FileInputStream;
 import org.deluge.firmware2.Oscillator.OscType;
 import org.deluge.firmware2.Param;
 import org.deluge.model.KitTrackModel;
+import org.deluge.model.ProjectModel;
 import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
@@ -40,7 +41,10 @@ public class AudioIntegrityTest {
     try (FileInputStream fis = new FileInputStream(kitFile)) {
       kitModel = DelugeXmlParser.parseKit(fis, "808");
     }
-    FirmwareKit kit = (FirmwareKit) FirmwareFactory.createKitClip(kitModel).sound;
+    ProjectModel song = new ProjectModel();
+    song.addTrack(kitModel);
+    FirmwareFactory.createSong(song);
+    FirmwareKit kit = (FirmwareKit) kitModel.getClips().get(0).getSound();
     engine.sounds.add(kit);
 
     // Baseline check

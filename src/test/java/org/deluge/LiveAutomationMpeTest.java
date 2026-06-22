@@ -63,7 +63,7 @@ public class LiveAutomationMpeTest {
     drumSound.isDrum = true;
 
     // Map row automation
-    java.util.Map<String, float[]> rowAutos = clip.getRowAutomationData().get(2);
+    java.util.Map<String, float[]> rowAutos = clip.getNoteRowsMap().get(2).getRowAutomation();
     assertNotNull(rowAutos);
     float[] lpfArray = rowAutos.get("lpfFrequency");
     assertNotNull(lpfArray);

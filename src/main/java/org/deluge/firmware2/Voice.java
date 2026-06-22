@@ -795,7 +795,8 @@ public class Voice {
     int overallOscAmplitude =
         Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(env0Gain, trackVol), 2);
 
-    if (!doneFirstRender && paramFinalValues[Param.LOCAL_ENV_0_ATTACK] > 245632) {
+    if (!doneFirstRender
+        && Integer.compareUnsigned(paramFinalValues[Param.LOCAL_ENV_0_ATTACK], 245632) > 0) {
       overallOscAmplitudeLastTime = overallOscAmplitude;
     }
 

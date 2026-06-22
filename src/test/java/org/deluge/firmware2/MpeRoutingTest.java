@@ -8,7 +8,6 @@ import org.deluge.engine.FirmwareFactory;
 import org.deluge.engine.FirmwareSound;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.SynthTrackModel;
-import org.deluge.playback.Song;
 import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
@@ -26,12 +25,11 @@ public class MpeRoutingTest {
     SynthTrackModel synthModel = DelugeXmlParser.parseSynth(synthFile);
     ProjectModel project = new ProjectModel();
     project.addTrack(synthModel);
-    Song fwSong = FirmwareFactory.createSong(project);
+    ProjectModel fwSong = FirmwareFactory.createSong(project);
 
     // Retrieve active sound instrument
-    org.deluge.playback.InstrumentClip clip =
-        (org.deluge.playback.InstrumentClip) fwSong.clips.get(0);
-    FirmwareSound synth = (FirmwareSound) clip.sound;
+    org.deluge.model.ClipModel clip = fwSong.getTracks().get(0).getActiveClip();
+    FirmwareSound synth = (FirmwareSound) clip.getSound();
 
     // Trigger note on MIDI channel 4
     int testMidiChannel = 4;

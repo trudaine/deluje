@@ -439,10 +439,10 @@ public class AbletonTrackExporter {
   /** Serializes notes for a specific pitch row in a clip (supports high-res and grid paths). */
   private static void serializeNotesForPitch(
       Document doc, Element notesContainer, ClipModel clip, int rowIndex) {
-    List<HighResNote> hrNotes = clip.getRawNoteEvents(rowIndex);
+    List<NoteModel> hrNotes = clip.getRawNoteEvents(rowIndex);
     if (hrNotes != null && !hrNotes.isEmpty()) {
       // ── High-Resolution Path (96 PPQN ticks) ──
-      for (HighResNote n : hrNotes) {
+      for (NoteModel n : hrNotes) {
         Element noteEv = doc.createElement("MidiNoteEvent");
         noteEv.setAttribute("Time", String.valueOf(n.getTickPos() / 96.0));
         noteEv.setAttribute("Duration", String.valueOf(n.getTickLen() / 96.0));

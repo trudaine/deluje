@@ -9,7 +9,6 @@ import org.deluge.engine.FirmwareFactory;
 import org.deluge.engine.FirmwareSound;
 import org.deluge.model.ProjectModel;
 import org.deluge.playback.PlaybackHandler;
-import org.deluge.playback.Song;
 import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
@@ -49,23 +48,23 @@ public class Song000FidelityTest {
     assertTrue(goldenMax > 0.05, "Golden recording is too quiet or empty!");
 
     // 3. Build the firmware song and synth voice
-    Song fwSong = FirmwareFactory.createSong(project);
+    ProjectModel fwSong = FirmwareFactory.createSong(project);
     assertNotNull(fwSong, "Failed to create firmware Song");
-    assertFalse(fwSong.clips.isEmpty(), "No clips found in firmware Song");
+    assertFalse(fwSong.getClips().isEmpty(), "No clips found in firmware Song");
 
-    var clip0 = (org.deluge.playback.InstrumentClip) fwSong.clips.get(0);
-    assertNotNull(clip0.sound, "Synth sound in clip is null");
+    var clip0 = fwSong.getTracks().get(0).getActiveClip();
+    assertNotNull(clip0.getSound(), "Synth sound in clip is null");
 
     // Debug: verify notes were loaded from SONG000
     int totalNotes = 0;
-    for (var nr : clip0.noteRows) {
+    for (var nr : clip0.getNoteRowsList()) {
       System.out.println("[Test]   Row y=" + nr.y + " notes=" + nr.notes.size());
       totalNotes += nr.notes.size();
     }
     System.out.println("[Test] Total notes in SONG000: " + totalNotes);
     assertTrue(totalNotes > 0, "SONG000 has no notes!");
 
-    FirmwareSound fwSound = (FirmwareSound) clip0.sound;
+    FirmwareSound fwSound = (FirmwareSound) clip0.getSound();
 
     // 4. Initialize the audio engine and playback handler
     FirmwareAudioEngine engine = new FirmwareAudioEngine();
@@ -73,7 +72,7 @@ public class Song000FidelityTest {
     engine.sounds.add(fwSound);
 
     PlaybackHandler handler = new PlaybackHandler();
-    handler.setSong(fwSong);
+    handler.setProject(fwSong);
     handler.start();
 
     // 5. Render the same duration as the golden recording, advancing ticks at the

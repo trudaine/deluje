@@ -3,7 +3,6 @@ package org.deluge.engine;
 import org.deluge.BridgeContract;
 import org.deluge.firmware2.Param;
 import org.deluge.playback.PlaybackHandler;
-import org.deluge.playback.Song;
 
 /**
  * High-fidelity 'Pure Java' Deluge workstation engine. This class coordinates the high-fidelity
@@ -99,8 +98,9 @@ public class PureFirmwareEngine {
         playbackHandler.start();
       }
       int stepTicks = 24;
-      if (playbackHandler.getSong() != null && !playbackHandler.getSong().clips.isEmpty()) {
-        stepTicks = playbackHandler.getSong().clips.get(0).tripletMode ? 32 : 24;
+      if (playbackHandler.getProject() != null
+          && !playbackHandler.getProject().getClips().isEmpty()) {
+        stepTicks = playbackHandler.getProject().getClips().get(0).isTripletMode() ? 32 : 24;
       }
       int currentStep = playbackHandler.lastSwungTickActioned / stepTicks;
       bridge.setGlobalInt(BridgeContract.G_CURRENT_STEP, (long) currentStep);
@@ -195,13 +195,13 @@ public class PureFirmwareEngine {
     }
 
     // Sync track mute states from the bridge globals to Java engine sounds
-    Song song = playbackHandler.getSong();
-    if (song != null) {
-      for (int t = 0; t < song.clips.size(); t++) {
-        org.deluge.playback.Clip clip = song.clips.get(t);
-        if (clip instanceof org.deluge.playback.InstrumentClip ic && ic.sound != null) {
+    org.deluge.model.ProjectModel project = playbackHandler.getProject();
+    if (project != null) {
+      for (int t = 0; t < project.getTracks().size(); t++) {
+        org.deluge.model.ClipModel clip = project.getTracks().get(t).getActiveClip();
+        if (clip != null && clip.getSound() instanceof org.deluge.engine.FirmwareSound fs) {
           boolean isMuted = bridge.getGlobalInt("g_mute_" + t) > 0;
-          ic.sound.muted = isMuted;
+          fs.muted = isMuted;
         }
       }
     }
@@ -260,13 +260,13 @@ public class PureFirmwareEngine {
     }
   }
 
-  public void setSong(Song song) {
-    playbackHandler.setSong(song);
+  public void setProject(org.deluge.model.ProjectModel project) {
+    playbackHandler.setProject(project);
     audioEngine.sounds.clear();
     // Sync sounds from song to engine
-    for (var clip : song.clips) {
-      if (clip instanceof org.deluge.playback.InstrumentClip ic && ic.sound != null) {
-        audioEngine.sounds.add(ic.sound);
+    for (var clip : project.getClips()) {
+      if (clip.getSound() != null) {
+        audioEngine.sounds.add((org.deluge.firmware2.GlobalEffectable) clip.getSound());
       }
     }
   }
