@@ -161,6 +161,36 @@ public class PreferencesManager {
     prefs.put(KEY_GRID_PANEL_TYPE, type.name());
   }
 
+  /** Sequence Grid UI Color Themes. */
+  public enum GridColorTheme {
+    HARDWARE,       // Native Deluge hardware colors mapping
+    NEON,           // High-contrast vibrant neon
+    MONOCHROME,     // Sleek grayscale
+    STEEL;          // Cyberpunk slate-blues
+
+    public static GridColorTheme fromString(String s) {
+      try {
+        return valueOf(s);
+      } catch (Exception e) {
+        return HARDWARE;
+      }
+    }
+  }
+
+  private static final String KEY_GRID_COLOR_THEME = "grid.colorTheme";
+
+  public static GridColorTheme getGridColorTheme() {
+    return GridColorTheme.fromString(prefs.get(KEY_GRID_COLOR_THEME, "HARDWARE"));
+  }
+
+  public static void setGridColorTheme(GridColorTheme theme) {
+    prefs.put(KEY_GRID_COLOR_THEME, theme.name());
+    try {
+      prefs.flush();
+    } catch (Exception ignored) {
+    }
+  }
+
   /** Interaction mode when holding Shift and clicking grid parameter shortcut cells. */
   public enum ShiftInteractionMode {
     POPUP_SLIDER,
