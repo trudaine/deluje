@@ -24,6 +24,8 @@ public abstract class GlobalEffectable {
   private int[] trackBuffer = new int[256];
   private int[] trackReverbBuffer = new int[128];
   private int[] flatBuffer;
+  private transient long[] tempOutLong = new long[256];
+  private transient long[] tempRevLong = new long[128];
 
   public void renderOutput(long[] output, int numSamples, long[] reverbBuffer) {
     if (muted) {
@@ -111,31 +113,59 @@ public abstract class GlobalEffectable {
   }
 
   public void renderOutput(int[] output, int numSamples, int[] reverbBuffer) {
-    long[] outLong = new long[numSamples * 2];
-    long[] revLong = (reverbBuffer != null) ? new long[numSamples] : null;
-    renderOutput(outLong, numSamples, revLong);
+    int requiredLen = numSamples * 2;
+    if (tempOutLong == null || tempOutLong.length < requiredLen) {
+      tempOutLong = new long[requiredLen];
+    }
+    Arrays.fill(tempOutLong, 0, requiredLen, 0L);
+
+    long[] revLong = null;
+    if (reverbBuffer != null) {
+      if (tempRevLong == null || tempRevLong.length < numSamples) {
+        tempRevLong = new long[numSamples];
+      }
+      Arrays.fill(tempRevLong, 0, numSamples, 0L);
+      revLong = tempRevLong;
+    }
+
+    renderOutput(tempOutLong, numSamples, revLong);
+
     for (int i = 0; i < numSamples * 2; i++) {
-      output[i] = (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, outLong[i]));
+      output[i] = (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, tempOutLong[i]));
     }
     if (reverbBuffer != null) {
       for (int i = 0; i < numSamples; i++) {
         reverbBuffer[i] =
-            (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, revLong[i]));
+            (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, tempRevLong[i]));
       }
     }
   }
 
   public void renderOutputSumming(int[] output, int numSamples, int[] reverbBuffer) {
-    long[] outLong = new long[numSamples * 2];
-    long[] revLong = (reverbBuffer != null) ? new long[numSamples] : null;
-    renderOutput(outLong, numSamples, revLong);
+    int requiredLen = numSamples * 2;
+    if (tempOutLong == null || tempOutLong.length < requiredLen) {
+      tempOutLong = new long[requiredLen];
+    }
+    Arrays.fill(tempOutLong, 0, requiredLen, 0L);
+
+    long[] revLong = null;
+    if (reverbBuffer != null) {
+      if (tempRevLong == null || tempRevLong.length < numSamples) {
+        tempRevLong = new long[numSamples];
+      }
+      Arrays.fill(tempRevLong, 0, numSamples, 0L);
+      revLong = tempRevLong;
+    }
+
+    renderOutput(tempOutLong, numSamples, revLong);
+
     for (int i = 0; i < numSamples * 2; i++) {
-      long summed = (long) output[i] + outLong[i];
+      long summed = (long) output[i] + tempOutLong[i];
       output[i] = (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, summed));
     }
     if (reverbBuffer != null) {
       for (int i = 0; i < numSamples; i++) {
-        long summed = (long) reverbBuffer[i] + revLong[i];
+        long summed = (long) reverbBuffer[i] + tempRevLong[i];
         reverbBuffer[i] = (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, summed));
       }
     }
@@ -145,21 +175,32 @@ public abstract class GlobalEffectable {
 
   public void renderOutput(StereoSample[] buffer, int numSamples, Object unused) {
     int requiredLen = numSamples * 2;
-    long[] outLong = new long[requiredLen];
+    if (tempOutLong == null || tempOutLong.length < requiredLen) {
+      tempOutLong = new long[requiredLen];
+    }
+    Arrays.fill(tempOutLong, 0, requiredLen, 0L);
+
     long[] revLong = null;
     if (unused instanceof int[]) {
-      revLong = new long[numSamples];
+      if (tempRevLong == null || tempRevLong.length < numSamples) {
+        tempRevLong = new long[numSamples];
+      }
+      Arrays.fill(tempRevLong, 0, numSamples, 0L);
+      revLong = tempRevLong;
     }
-    renderOutput(outLong, numSamples, revLong);
+
+    renderOutput(tempOutLong, numSamples, revLong);
+
     for (int i = 0; i < numSamples; i++) {
-      buffer[i].l = (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, outLong[i * 2]));
+      buffer[i].l =
+          (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, tempOutLong[i * 2]));
       buffer[i].r =
-          (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, outLong[i * 2 + 1]));
+          (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, tempOutLong[i * 2 + 1]));
     }
     if (unused instanceof int[]) {
       int[] reverb = (int[]) unused;
       for (int i = 0; i < numSamples; i++) {
-        reverb[i] = (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, revLong[i]));
+        reverb[i] = (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, tempRevLong[i]));
       }
     }
   }
