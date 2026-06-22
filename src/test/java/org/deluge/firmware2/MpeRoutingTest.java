@@ -118,7 +118,8 @@ public class MpeRoutingTest {
       Voice voiceCh5 = findVoiceByChannel(fw2Sound, ch5);
       Voice voiceCh6 = findVoiceByChannel(fw2Sound, ch6);
 
-      assertEquals(newValuePitchBend, voiceCh4.sourceValues[PatchSource.X.ordinal()], "Channel 4 must bend");
+      assertEquals(
+          newValuePitchBend, voiceCh4.sourceValues[PatchSource.X.ordinal()], "Channel 4 must bend");
       assertEquals(0, voiceCh5.sourceValues[PatchSource.X.ordinal()], "Channel 5 must NOT bend");
       assertEquals(0, voiceCh6.sourceValues[PatchSource.X.ordinal()], "Channel 6 must NOT bend");
     }
@@ -132,9 +133,18 @@ public class MpeRoutingTest {
       Voice voiceCh5 = findVoiceByChannel(fw2Sound, ch5);
       Voice voiceCh6 = findVoiceByChannel(fw2Sound, ch6);
 
-      assertEquals(0, voiceCh4.sourceValues[PatchSource.AFTERTOUCH.ordinal()], "Channel 4 must have 0 pressure");
-      assertEquals(newValueAftertouch, voiceCh5.sourceValues[PatchSource.AFTERTOUCH.ordinal()], "Channel 5 must have max pressure");
-      assertEquals(0, voiceCh6.sourceValues[PatchSource.AFTERTOUCH.ordinal()], "Channel 6 must have 0 pressure");
+      assertEquals(
+          0,
+          voiceCh4.sourceValues[PatchSource.AFTERTOUCH.ordinal()],
+          "Channel 4 must have 0 pressure");
+      assertEquals(
+          newValueAftertouch,
+          voiceCh5.sourceValues[PatchSource.AFTERTOUCH.ordinal()],
+          "Channel 5 must have max pressure");
+      assertEquals(
+          0,
+          voiceCh6.sourceValues[PatchSource.AFTERTOUCH.ordinal()],
+          "Channel 6 must have 0 pressure");
     }
 
     // 3. Send Y-Slide (CC 74, Y-axis) ONLY on Channel 6
@@ -147,9 +157,14 @@ public class MpeRoutingTest {
       Voice voiceCh5 = findVoiceByChannel(fw2Sound, ch5);
       Voice voiceCh6 = findVoiceByChannel(fw2Sound, ch6);
 
-      assertEquals(0, voiceCh4.sourceValues[PatchSource.Y.ordinal()], "Channel 4 must have 0 Y-slide");
-      assertEquals(0, voiceCh5.sourceValues[PatchSource.Y.ordinal()], "Channel 5 must have 0 Y-slide");
-      assertEquals(newValueYSlide, voiceCh6.sourceValues[PatchSource.Y.ordinal()], "Channel 6 must have max Y-slide");
+      assertEquals(
+          0, voiceCh4.sourceValues[PatchSource.Y.ordinal()], "Channel 4 must have 0 Y-slide");
+      assertEquals(
+          0, voiceCh5.sourceValues[PatchSource.Y.ordinal()], "Channel 5 must have 0 Y-slide");
+      assertEquals(
+          newValueYSlide,
+          voiceCh6.sourceValues[PatchSource.Y.ordinal()],
+          "Channel 6 must have max Y-slide");
     }
   }
 

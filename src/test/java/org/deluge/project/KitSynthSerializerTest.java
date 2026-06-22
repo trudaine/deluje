@@ -56,41 +56,32 @@ public class KitSynthSerializerTest {
     // ── Osc2 type ──
     assertEquals(orig.getOsc2Type(), parsedSound.getOsc2Type());
 
-    // parseKitSound reads these from <sound> attributes; serializer writes
-    // child elements. Not round-trippable in current format.
-    // TODO: parser polyphonic/voicePriority/clippingAmount from child elements
-    // assertEquals(orig.isPolyphonic(), parsedSound.isPolyphonic());
-    // assertEquals(orig.getVoicePriority(), parsedSound.getVoicePriority());
-    // assertEquals(orig.getClippingAmount(), parsedSound.getClippingAmount(), 0.01f);
+    // parseKitSound reads these from <sound> attributes or child elements.
+    assertEquals(orig.isPolyphonic(), parsedSound.isPolyphonic());
+    assertEquals(orig.getVoicePriority(), parsedSound.getVoicePriority());
+    assertEquals(orig.getClippingAmount(), parsedSound.getClippingAmount(), 0.01f);
 
     // ── Unison (read from <unison> attributes: num, detune) ──
     assertEquals(orig.getUnisonNum(), parsedSound.getUnisonNum());
     assertEquals(orig.getUnisonDetune(), parsedSound.getUnisonDetune(), 0.01f);
 
     // ── Compressor ──
-    // parseKitSound reads compressor from <audioCompressor> not <compressor>
-    // TODO: parser fallback for <compressor> child-element format
-    // assertEquals(orig.getCompressorAttack(), parsedSound.getCompressorAttack(), 0.01f);
-    // assertEquals(orig.getCompressorRelease(), parsedSound.getCompressorRelease(), 0.01f);
-    // assertEquals(orig.getCompressorSyncLevel(), parsedSound.getCompressorSyncLevel());
+    // parseKitSound reads compressor from <audioCompressor> or <compressor>
+    assertEquals(orig.getCompressorAttack(), parsedSound.getCompressorAttack(), 0.01f);
+    assertEquals(orig.getCompressorRelease(), parsedSound.getCompressorRelease(), 0.01f);
+    assertEquals(orig.getCompressorSyncLevel(), parsedSound.getCompressorSyncLevel());
 
     // ── Delay ──
-    // parseKitSound reads delay from <delay attr> with "rate"/"feedback" as hex attrs.
-    // Serializer writes <delay attr="pingPong/analog/syncLevel">.
-    // Tests cover the song-mode <delay> element — see DelugeE2ETest.
-    // TODO: parser fallback for <delay rate/feedback> child-element format
-    // assertEquals(orig.getDelayRate(), parsedSound.getDelayRate(), 0.01f);
-    // assertEquals(orig.getDelayFeedback(), parsedSound.getDelayFeedback(), 0.01f);
+    // parseKitSound reads delay from <delay attr> or child elements
+    assertEquals(orig.getDelayRate(), parsedSound.getDelayRate(), 0.01f);
+    assertEquals(orig.getDelayFeedback(), parsedSound.getDelayFeedback(), 0.01f);
 
     // ── Sidechain send ──
-    // Parser reads from <sound sideChainSend="0x..."> attribute;
-    // serializer writes <sideChainSend> child with decimal int value.
-    // TODO: parser fallback for child-element format
-    // assertEquals(orig.getSidechainSend(), parsedSound.getSidechainSend(), 0.01f);
+    assertEquals(orig.getSidechainSend(), parsedSound.getSidechainSend(), 0.01f);
 
     // ── Filter ──
-    // lpfMode read from <sound attr="lpfMode">; serializer writes <lpfMode> child
-    // assertEquals(orig.getLpfMode(), parsedSound.getLpfMode());
+    assertEquals(orig.getLpfMode(), parsedSound.getLpfMode());
+    assertEquals(orig.getHpfMode(), parsedSound.getHpfMode());
     // LPF/HPF freq+res read from defaultParams hex children
     assertEquals(orig.getLpfFreq(), parsedSound.getLpfFreq(), 1.0f);
     assertEquals(orig.getLpfRes(), parsedSound.getLpfRes(), 0.01f);
