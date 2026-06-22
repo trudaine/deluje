@@ -53,6 +53,19 @@ public class AudioOutputPlaybackTest {
     handler.start();
 
     int n = 128;
+
+    // Phase 3 gating: stopped transport → audio clip is silent.
+    engine.setTransportPlaying(false);
+    long stoppedPeak = 0;
+    for (int b = 0; b < 8; b++) {
+      engine.renderBlock(n);
+      for (int i = 0; i < n; i++)
+        stoppedPeak = Math.max(stoppedPeak, Math.abs((long) engine.masterBuffer[i].l));
+    }
+    assertEquals(0, stoppedPeak, "audio clip rendered while transport stopped");
+
+    // Playing transport → audible.
+    engine.setTransportPlaying(true);
     double sumSq = 0;
     long count = 0;
     long peak = 0;

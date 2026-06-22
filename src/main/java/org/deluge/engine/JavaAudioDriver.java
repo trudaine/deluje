@@ -203,6 +203,9 @@ public class JavaAudioDriver implements Runnable {
           org.deluge.firmware2.LiveInput.micPluggedIn = false;
         }
 
+        // Phase 3: tell the engine the transport state so audio tracks stream only while playing.
+        engine.setTransportPlaying(playbackHandler != null && playbackHandler.isPlaying());
+
         long start = System.nanoTime();
         engine.renderBlock(BLOCK_SIZE);
         long duration = System.nanoTime() - start;

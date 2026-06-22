@@ -156,7 +156,7 @@ public class FirmwareFactory {
             var smp = AudioFileReader.readSample(f.getAbsolutePath());
             if (smp != null) {
               out.setClip(org.deluge.firmware2.Sample.fromFirmwareSample(smp), true);
-              out.setPlaying(true); // Phase 1: loop continuously (transport gating is Phase 3)
+              // Phase 3: the engine starts/stops it on the transport play edge (not at load time).
               System.out.println(
                   "[FirmwareFactory] Audio track '"
                       + model.getName()

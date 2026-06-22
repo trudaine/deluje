@@ -127,6 +127,15 @@ public class FirmwareAudioEngine {
   private long[] summedFlatBufferLong = new long[256];
   private long[] monoReverbBufferLong = new long[128];
 
+  // Transport play state, for audio-track gating (Phase 3). The driver sets this each block from
+  // the PlaybackHandler; offline renderers/tests set it true when they want audio clips to stream.
+  private volatile boolean transportPlaying = false;
+  private boolean lastTransportPlaying = false;
+
+  public void setTransportPlaying(boolean p) {
+    this.transportPlaying = p;
+  }
+
   public void renderBlock(int numSamples) {
     GlobalSidechainBus.beginAudioFrame();
     // Reset buffers
@@ -149,6 +158,18 @@ public class FirmwareAudioEngine {
       monoReverbBufferLong = new long[numSamples];
     }
     java.util.Arrays.fill(monoReverbBufferLong, 0, numSamples, 0L);
+
+    // Audio-track transport gating (Phase 3): on the play/stop edge, start/stop audio clips so they
+    // only stream while the song is playing and restart phase-aligned on play.
+    if (transportPlaying != lastTransportPlaying) {
+      for (GlobalEffectable sound : sounds) {
+        if (sound instanceof org.deluge.firmware2.AudioOutput ao) {
+          if (transportPlaying) ao.onTransportStart();
+          else ao.onTransportStop();
+        }
+      }
+      lastTransportPlaying = transportPlaying;
+    }
 
     // Sum all tracks in 64-bit (infinite headroom!)
     for (GlobalEffectable sound : sounds) {
