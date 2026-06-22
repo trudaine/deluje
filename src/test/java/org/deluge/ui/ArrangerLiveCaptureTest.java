@@ -57,4 +57,51 @@ public class ArrangerLiveCaptureTest {
 
     scheduler.shutdown();
   }
+
+  @Test
+  public void testLiveCaptureMuteWorkflow() throws Exception {
+    BridgeContract bridge = new BridgeContract();
+    ProjectModel project = new ProjectModel();
+
+    // 1. Setup track and clip
+    TrackModel track = new SynthTrackModel("SYNTH 1");
+    ClipModel clip = new ClipModel("CLIP A", 8, 16);
+    track.addClip(clip);
+    project.addTrack(track);
+
+    // 2. Setup Scheduler and enable Live Capture
+    ArrangerPlaybackScheduler scheduler = new ArrangerPlaybackScheduler(bridge, project);
+    scheduler.setCaptureActive(true);
+
+    // Step 0: Clip Launch
+    bridge.setGlobalInt(BridgeContract.G_CURRENT_STEP, 0L);
+    scheduler.notifyClipLaunched(0, clip);
+
+    // Step 4: Track Muted (simulated via stop)
+    bridge.setGlobalInt(BridgeContract.G_CURRENT_STEP, 4L);
+    scheduler.notifyClipStopped(0);
+
+    // Assert first placement recorded from step 0 to 4 (length 4)
+    List<ArrangerClip> timeline = project.getArrangerTimeline();
+    assertEquals(1, timeline.size(), "First placement should be recorded upon mute");
+    ArrangerClip placement1 = timeline.get(0);
+    assertEquals(0, placement1.startTicks());
+    assertEquals(4 * 24, placement1.durationTicks());
+
+    // Step 8: Track Unmuted (simulated via launch)
+    bridge.setGlobalInt(BridgeContract.G_CURRENT_STEP, 8L);
+    scheduler.notifyClipLaunched(0, clip);
+
+    // Step 12: Clip stopped
+    bridge.setGlobalInt(BridgeContract.G_CURRENT_STEP, 12L);
+    scheduler.notifyClipStopped(0);
+
+    // Assert second placement recorded from step 8 to 12 (length 4)
+    assertEquals(2, timeline.size(), "Second placement should be recorded upon final stop");
+    ArrangerClip placement2 = timeline.get(1);
+    assertEquals(8 * 24, placement2.startTicks());
+    assertEquals(4 * 24, placement2.durationTicks());
+
+    scheduler.shutdown();
+  }
 }

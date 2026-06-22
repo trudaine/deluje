@@ -1368,6 +1368,30 @@ public class SwingGridPanel extends JPanel {
     return !isMuteColumn(colId) && !isSoloColumn(colId);
   }
 
+  public void setTrackMuteWithCapture(int trackIndex, boolean mute) {
+    if (bridge == null) return;
+    bridge.setMute(trackIndex, mute);
+
+    // Live Capture Integration
+    if (SwingDelugeApp.mainInstance != null) {
+      ArrangerPlaybackScheduler scheduler = SwingDelugeApp.mainInstance.getArrangerScheduler();
+      if (scheduler != null && scheduler.isCaptureActive()) {
+        if (mute) {
+          scheduler.notifyClipStopped(trackIndex);
+        } else {
+          // Find the active clip for this track to relaunch it in capture
+          if (projectModel != null && trackIndex < projectModel.getTracks().size()) {
+            org.deluge.model.TrackModel track = projectModel.getTracks().get(trackIndex);
+            int activeClipIdx = track.getActiveClipIndex();
+            if (activeClipIdx >= 0 && activeClipIdx < track.getClips().size()) {
+              scheduler.notifyClipLaunched(trackIndex, track.getClips().get(activeClipIdx));
+            }
+          }
+        }
+      }
+    }
+  }
+
   public boolean isAutoOverviewMode() {
     return autoOverviewMode;
   }
@@ -1919,12 +1943,12 @@ public class SwingGridPanel extends JPanel {
                 projectModel != null ? projectModel.getTracks() : java.util.Collections.emptyList();
             if (viewMode == GridViewMode.CLIP || viewMode == GridViewMode.AUTOMATION) {
               for (int i = 0; i < tracks.size(); i++) {
-                bridge.setMute(i, i != editedModelTrack);
+                setTrackMuteWithCapture(i, i != editedModelTrack);
               }
               soloRow = editedModelTrack;
             } else {
               for (int i = 0; i < voiceRowCount; i++) {
-                bridge.setMute(baseTrackId + i, i != rowToSolo);
+                setTrackMuteWithCapture(baseTrackId + i, i != rowToSolo);
               }
               soloRow = rowToSolo;
             }
@@ -1943,11 +1967,11 @@ public class SwingGridPanel extends JPanel {
                 projectModel != null ? projectModel.getTracks() : java.util.Collections.emptyList();
             if (viewMode == GridViewMode.CLIP || viewMode == GridViewMode.AUTOMATION) {
               for (int i = 0; i < tracks.size(); i++) {
-                bridge.setMute(i, false);
+                setTrackMuteWithCapture(i, false);
               }
             } else {
               for (int i = 0; i < voiceRowCount; i++) {
-                bridge.setMute(baseTrackId + i, false);
+                setTrackMuteWithCapture(baseTrackId + i, false);
               }
             }
             soloRow = -1;
@@ -2421,7 +2445,7 @@ public class SwingGridPanel extends JPanel {
                 return;
               }
               boolean nextMute = bridge != null && !bridge.getMute(trackToMute);
-              if (bridge != null) bridge.setMute(trackToMute, nextMute);
+              setTrackMuteWithCapture(trackToMute, nextMute);
               Color nextBg = nextMute ? new Color(0xff, 0xd7, 0x00) : Color.WHITE;
               clipBtn.setBackground(nextBg);
               if (clipBtn instanceof DelugePadButton pad) {
@@ -2610,7 +2634,7 @@ public class SwingGridPanel extends JPanel {
                   if (soloRow == modelRow) {
                     soloRow = -1;
                     for (int i = 0; i < voiceRowCount; i++) {
-                      bridge.setMute(baseTrackId + i, false);
+                      setTrackMuteWithCapture(baseTrackId + i, false);
                     }
                     if (SwingDelugeApp.mainInstance != null) {
                       SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient("SOLO", "OFF");
@@ -2618,7 +2642,7 @@ public class SwingGridPanel extends JPanel {
                   } else {
                     soloRow = modelRow;
                     for (int i = 0; i < voiceRowCount; i++) {
-                      bridge.setMute(baseTrackId + i, i != modelRow);
+                      setTrackMuteWithCapture(baseTrackId + i, i != modelRow);
                     }
                     if (SwingDelugeApp.mainInstance != null) {
                       SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient(
@@ -5754,7 +5778,7 @@ public class SwingGridPanel extends JPanel {
                     } else {
                       // Left-Click in SONG mode: Toggle Mute (intuitive, standard!)
                       boolean isMuted = bridge.getMute(engineRow);
-                      bridge.setMute(engineRow, !isMuted);
+                      setTrackMuteWithCapture(engineRow, !isMuted);
                       Color nextBg = (!isMuted) ? new Color(0xff, 0xd7, 0x00) : Color.WHITE;
                       clipBtn.setBackground(nextBg);
                       if (clipBtn instanceof DelugePadButton pad) {
@@ -5803,7 +5827,7 @@ public class SwingGridPanel extends JPanel {
                   }
                   boolean isMuted = bridge.getMute(engineRow);
                   boolean nextMute = !isMuted;
-                  bridge.setMute(engineRow, nextMute);
+                  setTrackMuteWithCapture(engineRow, nextMute);
                   Color nextBg = nextMute ? new Color(0xff, 0xd7, 0x00) : Color.WHITE;
                   clipBtn.setBackground(nextBg);
                   if (clipBtn instanceof DelugePadButton pad) {
@@ -5959,12 +5983,12 @@ public class SwingGridPanel extends JPanel {
                     if (soloRow == trk) {
                       soloRow = -1;
                       // Unmute all rows
-                      for (int i = 0; i < 11; i++) bridge.setMute(baseTrackId + i, false);
+                      for (int i = 0; i < 11; i++) setTrackMuteWithCapture(baseTrackId + i, false);
                     } else {
                       soloRow = trk;
                       // Mute all other rows, unmute this one
                       for (int i = 0; i < 11; i++) {
-                        bridge.setMute(baseTrackId + i, i != trk);
+                        setTrackMuteWithCapture(baseTrackId + i, i != trk);
                       }
                     }
                     refresh();
@@ -6931,7 +6955,7 @@ public class SwingGridPanel extends JPanel {
                       if (trkIdx < isOneShotTrack.length
                           && isOneShotTrack[trkIdx]
                           && currentStep >= stepCount) {
-                        bridge.setMute(baseTrackId + trkIdx, true);
+                        setTrackMuteWithCapture(baseTrackId + trkIdx, true);
                       }
                     }
                   }
