@@ -106,29 +106,32 @@ public class ChordsGeneratorFidelityTest {
 
     ScalaScale scale = ScalaScaleParserTestHelper.parseScl(sclContent, "SlendroCustom");
     ScalaScale.setActiveScale(scale);
+    try {
+      int scaleSteps = scale.getStepsCount();
+      assertEquals(5, scaleSteps);
 
-    int scaleSteps = scale.getStepsCount();
-    assertEquals(5, scaleSteps);
+      int spacing = Math.max(1, Math.round(scaleSteps / 7.0f)); // 5 / 7.0 = 0.71 -> round to 1 step
+      assertEquals(1, spacing);
 
-    int spacing = Math.max(1, Math.round(scaleSteps / 7.0f)); // 5 / 7.0 = 0.71 -> round to 1 step
-    assertEquals(1, spacing);
+      int baseRoot = 60;
+      int degree = 2; // G-ish
 
-    int baseRoot = 60;
-    int degree = 2; // G-ish
+      int rootOffset = degree;
+      int thirdOffset = degree + spacing; // 3
+      int fifthOffset = degree + 2 * spacing; // 4
 
-    int rootOffset = degree;
-    int thirdOffset = degree + spacing; // 3
-    int fifthOffset = degree + 2 * spacing; // 4
+      // Triad: root + third + fifth degree offsets step numbers
+      ArrayList<Integer> chordPitches = new ArrayList<>();
+      chordPitches.add(baseRoot + rootOffset);
+      chordPitches.add(baseRoot + thirdOffset);
+      chordPitches.add(baseRoot + fifthOffset);
 
-    // Triad: root + third + fifth degree offsets step numbers
-    ArrayList<Integer> chordPitches = new ArrayList<>();
-    chordPitches.add(baseRoot + rootOffset);
-    chordPitches.add(baseRoot + thirdOffset);
-    chordPitches.add(baseRoot + fifthOffset);
-
-    assertEquals(62, chordPitches.get(0)); // 60 + 2
-    assertEquals(63, chordPitches.get(1)); // 60 + 3
-    assertEquals(64, chordPitches.get(2)); // 60 + 4
+      assertEquals(62, chordPitches.get(0)); // 60 + 2
+      assertEquals(63, chordPitches.get(1)); // 60 + 3
+      assertEquals(64, chordPitches.get(2)); // 60 + 4
+    } finally {
+      ScalaScale.setActiveScale(null);
+    }
   }
 
   // Mini parser helper to decouple from external dependencies file loads
