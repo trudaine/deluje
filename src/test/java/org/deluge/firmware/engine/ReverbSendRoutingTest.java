@@ -3,7 +3,6 @@ package org.deluge.firmware.engine;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.deluge.firmware.util.Q31;
 import org.deluge.firmware2.Oscillator.OscType;
 import org.deluge.firmware2.Param;
 import org.junit.jupiter.api.Test;
@@ -24,8 +23,8 @@ class ReverbSendRoutingTest {
 
     FirmwareSound synth = new FirmwareSound();
     synth.oscTypes[0] = OscType.SINE;
-    synth.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = Q31.ONE;
-    synth.paramNeutralValues[Param.LOCAL_VOLUME] = Q31.ONE;
+    synth.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = org.deluge.firmware2.Functions.ONE_Q31;
+    synth.paramNeutralValues[Param.LOCAL_VOLUME] = org.deluge.firmware2.Functions.ONE_Q31;
     synth.reverbSendKnob = reverbSendKnob;
     engine.sounds.add(synth);
 

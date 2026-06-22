@@ -13,7 +13,6 @@ import org.deluge.firmware.model.sample.Sample;
 import org.deluge.firmware.modulation.patch.PatchCable;
 import org.deluge.firmware.modulation.patch.PatchSource;
 import org.deluge.firmware.storage.audio.AudioFileReader;
-import org.deluge.firmware.util.FirmwareUtils;
 import org.deluge.firmware2.Oscillator.OscType;
 import org.deluge.firmware2.Param;
 import org.deluge.firmware2.WaveTable;
@@ -246,7 +245,7 @@ public class FirmwareFactory {
     sound.paramNeutralValues[Param.LOCAL_VOLUME] = normToBipolarParamVolume(model.getVolume());
     sound.paramNeutralValues[Param.LOCAL_PAN] = 0; // Centered
     sound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] =
-        org.deluge.firmware.util.Q31.ONE; // Full oscillator volume
+        org.deluge.firmware2.Functions.ONE_Q31; // Full oscillator volume
     sound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = 0; // Mute second oscillator
 
     if (!model.getAudioClips().isEmpty()) {
@@ -427,13 +426,13 @@ public class FirmwareFactory {
       sound.fmModulatorAmountBase[0] = model.getModulator1AmountQ31();
       sound.fmModulatorAmountBase[1] = model.getModulator2AmountQ31();
       sound.fmModulatorFeedback[0] =
-          FirmwareUtils.finalLinearParam(model.getModulator1FeedbackQ31(), 5931642, 1073741824);
+          finalLinearParam(model.getModulator1FeedbackQ31(), 5931642, 1073741824);
       sound.fmModulatorFeedback[1] =
-          FirmwareUtils.finalLinearParam(model.getModulator2FeedbackQ31(), 5931642, 1073741824);
+          finalLinearParam(model.getModulator2FeedbackQ31(), 5931642, 1073741824);
       sound.fmCarrierFeedback[0] =
-          FirmwareUtils.finalLinearParam(model.getCarrier1FeedbackQ31(), 5931642, 1073741824);
+          finalLinearParam(model.getCarrier1FeedbackQ31(), 5931642, 1073741824);
       sound.fmCarrierFeedback[1] =
-          FirmwareUtils.finalLinearParam(model.getCarrier2FeedbackQ31(), 5931642, 1073741824);
+          finalLinearParam(model.getCarrier2FeedbackQ31(), 5931642, 1073741824);
       sound.fmModulator1ToModulator0 = model.isModulator1ToModulator0();
 
       // The C reads these XML values straight into the patched-param KNOBS (sound.cpp:520-548
@@ -572,19 +571,22 @@ public class FirmwareFactory {
         // knob; decay/release via the release-rate table. Neutrals 4096 / 70<<9 / 140<<9; attack
         // range 536870912*1.5, decay/release range 2^30.
         attackInc =
-            FirmwareUtils.finalEnvRateParam(
+            finalEnvRateParam(
                 4096,
-                FirmwareUtils.patchCombineExpStep(0, model.getEnvAttackKnobQ31(i), 805306368),
+                org.deluge.firmware2.Functions.patchCombineExpStep(
+                    0, model.getEnvAttackKnobQ31(i), 805306368),
                 0);
         decayInc =
-            FirmwareUtils.finalEnvRateParam(
+            finalEnvRateParam(
                 70 << 9,
-                FirmwareUtils.patchCombineExpStep(0, model.getEnvDecayKnobQ31(i), 1073741824),
+                org.deluge.firmware2.Functions.patchCombineExpStep(
+                    0, model.getEnvDecayKnobQ31(i), 1073741824),
                 1);
         releaseInc =
-            FirmwareUtils.finalEnvRateParam(
+            finalEnvRateParam(
                 140 << 9,
-                FirmwareUtils.patchCombineExpStep(0, model.getEnvReleaseKnobQ31(i), 1073741824),
+                org.deluge.firmware2.Functions.patchCombineExpStep(
+                    0, model.getEnvReleaseKnobQ31(i), 1073741824),
                 2);
       } else {
         // Programmatic time-in-seconds: increment = 190.2 / time is the faithful time<->increment
@@ -1044,7 +1046,9 @@ public class FirmwareFactory {
     while (lo < hi) {
       long mid = (lo + hi) >> 1;
       long inc =
-          FirmwareUtils.getExp(121739, FirmwareUtils.patchCombineExpStep(0, (int) mid, 1073741824))
+          org.deluge.firmware2.Functions.getExp(
+                  121739,
+                  org.deluge.firmware2.Functions.patchCombineExpStep(0, (int) mid, 1073741824))
               & 0xFFFFFFFFL;
       if (inc < targetInc) {
         lo = mid + 1;
@@ -1325,8 +1329,8 @@ public class FirmwareFactory {
         sd.getVoicePriority(); // voice-stealing priority (was stuck at default)
     drumSound.isDrum = true;
     drumSound.oscTypes[0] = OscType.SAMPLE;
-    drumSound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = org.deluge.firmware.util.Q31.ONE;
-    drumSound.paramNeutralValues[Param.LOCAL_VOLUME] = org.deluge.firmware.util.Q31.ONE;
+    drumSound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = org.deluge.firmware2.Functions.ONE_Q31;
+    drumSound.paramNeutralValues[Param.LOCAL_VOLUME] = org.deluge.firmware2.Functions.ONE_Q31;
     drumSound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
     drumSound.paramNeutralValues[Param.LOCAL_NOISE_VOLUME] = Integer.MIN_VALUE;
     drumSound.osc1RetriggerPhase = sd.getOsc1RetrigPhase();
@@ -1365,7 +1369,8 @@ public class FirmwareFactory {
 
     // Second source
     if (sd.getOsc2Type() != null && !sd.getOsc2Type().equalsIgnoreCase("NONE")) {
-      drumSound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = org.deluge.firmware.util.Q31.ONE;
+      drumSound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] =
+          org.deluge.firmware2.Functions.ONE_Q31;
       drumSound.oscTypes[1] = stringToOscType(sd.getOsc2Type());
     } else {
       drumSound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
@@ -1465,5 +1470,25 @@ public class FirmwareFactory {
     } catch (IOException e) {
       System.err.println("[FirmwareFactory] Failed to load drum sample: " + path);
     }
+  }
+
+  private static int combineCablesLinearNoCable(int storedValue, int paramRange) {
+    return org.deluge.firmware2.Functions.patchCombineLinearStep(536870912, storedValue, paramRange)
+        - 536870912;
+  }
+
+  private static int finalVolumeParam(int storedValue, int paramNeutralValue, int paramRange) {
+    return org.deluge.firmware2.Functions.getFinalParameterValueVolume(
+        paramNeutralValue, combineCablesLinearNoCable(storedValue, paramRange));
+  }
+
+  private static int finalLinearParam(int storedValue, int paramNeutralValue, int paramRange) {
+    return org.deluge.firmware2.Functions.getFinalParameterValueLinear(
+        paramNeutralValue, combineCablesLinearNoCable(storedValue, paramRange));
+  }
+
+  private static int finalEnvRateParam(int paramNeutralValue, int patchedValue, int stage) {
+    return org.deluge.firmware2.Functions.getFinalParameterValueExpWithDumbEnvelopeHack(
+        paramNeutralValue, patchedValue, stage);
   }
 }

@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.deluge.BridgeContract;
 import org.deluge.firmware.engine.FirmwareAudioEngine;
 import org.deluge.firmware.engine.FirmwareSound;
-import org.deluge.firmware.util.Q31;
 import org.deluge.firmware2.Oscillator.OscType;
 import org.deluge.firmware2.Param;
 import org.deluge.model.ProjectModel;
@@ -23,8 +22,8 @@ public class AuditionDuringPlaybackTest {
   private static FirmwareSound sawSynth() {
     FirmwareSound s = new FirmwareSound();
     s.oscTypes[0] = OscType.SAW;
-    s.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = Q31.ONE;
-    s.paramNeutralValues[Param.LOCAL_VOLUME] = Q31.ONE;
+    s.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = org.deluge.firmware2.Functions.ONE_Q31;
+    s.paramNeutralValues[Param.LOCAL_VOLUME] = org.deluge.firmware2.Functions.ONE_Q31;
     return s;
   }
 

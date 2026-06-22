@@ -163,10 +163,10 @@ public class PreferencesManager {
 
   /** Sequence Grid UI Color Themes. */
   public enum GridColorTheme {
-    HARDWARE,       // Native Deluge hardware colors mapping
-    NEON,           // High-contrast vibrant neon
-    MONOCHROME,     // Sleek grayscale
-    STEEL;          // Cyberpunk slate-blues
+    HARDWARE, // Native Deluge hardware colors mapping
+    NEON, // High-contrast vibrant neon
+    MONOCHROME, // Sleek grayscale
+    STEEL; // Cyberpunk slate-blues
 
     public static GridColorTheme fromString(String s) {
       try {

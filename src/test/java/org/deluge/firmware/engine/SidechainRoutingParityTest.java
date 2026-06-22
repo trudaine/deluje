@@ -1,11 +1,10 @@
 package org.deluge.firmware.engine;
 
-import static org.deluge.firmware.util.Q31.ONE;
+import static org.deluge.firmware2.Functions.ONE_Q31;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.deluge.firmware.modulation.patch.PatchCable;
 import org.deluge.firmware.modulation.patch.PatchSource;
-import org.deluge.firmware.util.FirmwareUtils;
 import org.deluge.firmware2.Param;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,12 +14,12 @@ class SidechainRoutingParityTest {
 
   @BeforeEach
   void resetNoiseBefore() {
-    FirmwareUtils.resetNoise();
+    org.deluge.firmware2.Functions.resetNoiseSeed();
   }
 
   @AfterEach
   void resetNoiseAfter() {
-    FirmwareUtils.resetNoise();
+    org.deluge.firmware2.Functions.resetNoiseSeed();
   }
 
   @org.junit.jupiter.api.Disabled(
@@ -80,14 +79,14 @@ class SidechainRoutingParityTest {
   private static FirmwareSound createReceivingSynth(boolean patchSidechain) {
     FirmwareSound synth = new FirmwareSound();
     synth.oscTypes[0] = org.deluge.firmware2.Oscillator.OscType.SAW;
-    synth.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN] = ONE;
+    synth.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN] = ONE_Q31;
     synth.paramNeutralValues[Param.LOCAL_ENV_0_RELEASE] = 100000000;
     synth.paramNeutralValues[Param.UNPATCHED_SIDECHAIN_SHAPE] = 0;
     synth.fw2Sound.sidechainSend = 0;
     if (patchSidechain) {
       PatchCable cable = new PatchCable();
       cable.from = PatchSource.SIDECHAIN;
-      cable.amount = ONE;
+      cable.amount = ONE_Q31;
       synth.paramManager.getPatchCableSet().addCable(Param.GLOBAL_VOLUME_POST_REVERB_SEND, cable);
     }
     return synth;
@@ -95,7 +94,7 @@ class SidechainRoutingParityTest {
 
   private static FirmwareSound createKick() {
     FirmwareSound kick = new FirmwareSound();
-    kick.fw2Sound.sidechainSend = ONE;
+    kick.fw2Sound.sidechainSend = ONE_Q31;
     kick.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MIN_VALUE;
     kick.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
     kick.paramNeutralValues[Param.LOCAL_NOISE_VOLUME] = Integer.MIN_VALUE;
