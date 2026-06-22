@@ -58,6 +58,52 @@ public class AudioOutputPlaybackTest {
   }
 
   @Test
+  void arrangementPlacementGatesPlayback() throws Exception {
+    // Place the audio clip at bars 4..8 (startTick 384, duration 384 @96 PPQN). It must be silent
+    // before tick 384, audible inside the window, and silent again after tick 768.
+    ProjectModel project = new ProjectModel();
+    AudioTrackModel at = new AudioTrackModel("Arr");
+    AudioTrackModel.AudioClip ac = new AudioTrackModel.AudioClip();
+    ac.setFilePath(wav().getAbsolutePath());
+    at.addAudioClip(ac);
+    project.addTrack(at);
+    project.addArrangerClip(new org.deluge.model.ArrangerClip(0, null, ac, 384, 384)); // bars 4..8
+
+    ProjectModel song = FirmwareFactory.createSong(project);
+    FirmwareAudioEngine engine = new FirmwareAudioEngine();
+    engine.sounds.clear();
+    for (var clip : song.getClips()) {
+      if (clip instanceof ClipModel ic && ic.getSound() != null) {
+        engine.sounds.add((org.deluge.firmware2.GlobalEffectable) ic.getSound());
+      }
+    }
+    engine.setTransportPlaying(true);
+    int n = 128;
+    long peakBefore = 0, peakInside = 0, peakAfterLate = 0;
+    for (long tick = 0; tick < 1600; tick++) {
+      engine.setTransportTick(tick);
+      engine.renderBlock(n);
+      long blockPeak = 0;
+      for (int i = 0; i < n; i++) {
+        blockPeak = Math.max(blockPeak, Math.abs((long) engine.masterBuffer[i].l));
+      }
+      if (tick < 384) peakBefore = Math.max(peakBefore, blockPeak);
+      else if (tick < 768) peakInside = Math.max(peakInside, blockPeak);
+      else if (tick >= 1300) peakAfterLate = Math.max(peakAfterLate, blockPeak); // tail decayed
+    }
+    System.out.printf(
+        "[AudioOutput] arrangement before=%d inside=%d afterLate=%d%n",
+        peakBefore, peakInside, peakAfterLate);
+    // Silent before the placement; audible inside; well after the end only the FX tail remains
+    // (the clip itself is gated off), so the late window is a small fraction of the inside level.
+    assertEquals(0, peakBefore, "audio clip played before its arrangement start");
+    assertTrue(peakInside > 0, "audio clip silent inside its arrangement range");
+    assertTrue(
+        peakAfterLate < peakInside / 8,
+        "audio clip still playing after its arrangement end (afterLate=" + peakAfterLate + ")");
+  }
+
+  @Test
   void loopsPastSampleEnd() throws Exception {
     // The kick is ~0.4s; render 2s and check the FINAL window is still non-silent — proves the clip
     // loops (a one-shot would be silent after the sample ended).

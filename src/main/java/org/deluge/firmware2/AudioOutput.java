@@ -9,11 +9,12 @@ package org.deluge.firmware2;
  * already-ported sample-playback DSP rather than adding new DSP, mirroring the C {@code
  * AudioClip::render} which drives a {@code voiceSample} over a {@code sampleHolder}.
  *
- * <p>Done: playback (phase 1), pitch / time-stretch via {@link #setPlayback} (phase 2), transport
- * gating via {@link #onTransportStart}/{@link #onTransportStop} (phase 3a — plays only while the
- * song plays), and tempo-synced musical-length looping via {@link #setLoopLengthSamples} (phase 3b
- * part 1). Deferred: arrangement-timeline per-instance placement (phase 3b part 2) and live
- * recording/overdub (phase 4). See docs/AUDIO_TRACK_PORT_PLAN.md.
+ * <p>Done: playback (phase 1), pitch / time-stretch via {@link #setPlayback} (phase 2), transport +
+ * arrangement gating via {@link #updateTimeline} (phase 3a + 3b — plays only while the song plays
+ * and only within its {@link #setTimelineRange} arrangement window), and tempo-synced
+ * musical-length looping via {@link #setLoopLengthSamples} (phase 3b part 1). Deferred: multiple
+ * timeline instances of one track, and live recording/overdub (phase 4 part 2). See
+ * docs/AUDIO_TRACK_PORT_PLAN.md.
  */
 public class AudioOutput extends GlobalEffectable {
 
@@ -52,6 +53,36 @@ public class AudioOutput extends GlobalEffectable {
 
   public void setLoopLengthSamples(int frames) {
     this.loopLengthSamples = Math.max(0, frames);
+  }
+
+  // Phase 3b part 2 — arrangement placement. When a timeline range is set, the clip plays only
+  // while
+  // the playhead is inside [startTick, endTick); -1 = no range → session behaviour (play whenever
+  // the
+  // transport plays). wasActive tracks the play/stop edge so we restart at the clip start on entry.
+  private long rangeStartTick = -1;
+  private long rangeEndTick = -1;
+  private boolean wasActive = false;
+
+  public void setTimelineRange(long startTick, long endTick) {
+    this.rangeStartTick = startTick;
+    this.rangeEndTick = endTick;
+  }
+
+  /**
+   * Called by the engine every block with the transport state + current tick. Starts the clip on
+   * entry to its range (or on play with no range) and stops it on exit/stop — so audio clips honour
+   * both transport gating (3a) and arrangement-timeline placement (3b part 2).
+   */
+  public void updateTimeline(long tick, boolean transportPlaying) {
+    boolean inRange = (rangeStartTick < 0) || (tick >= rangeStartTick && tick < rangeEndTick);
+    boolean active = transportPlaying && inRange;
+    if (active && !wasActive) {
+      onTransportStart();
+    } else if (!active && wasActive) {
+      onTransportStop();
+    }
+    wasActive = active;
   }
 
   /** Load the clip's sample and arm it for (looping) playback from the start. */
