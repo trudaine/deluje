@@ -240,102 +240,136 @@ public class SwingProjectSidebarPanel extends JPanel {
                     return;
                   }
 
-                  System.out.println("Swing: Loading Preset: " + leafFile.getAbsolutePath());
-                  try (java.io.InputStream is = new java.io.FileInputStream(leafFile)) {
-                    if ("KITS".equals(category)) {
-                      org.deluge.model.KitTrackModel kit = DelugeXmlParser.parseKit(is, name);
-                      int baseTrack = 0;
-                      java.util.List<org.deluge.model.Drum> sounds = kit.getDrums();
-                      for (int i = 0; i < sounds.size(); i++) {
-                        String sp = ((org.deluge.model.SoundDrum) sounds.get(i)).getSamplePath();
-                        bridge.setGlobalString("g_sample_" + (baseTrack + i), sp != null ? sp : "");
-                        bridge.setSamplePath(baseTrack + i, sp != null ? sp : "");
-                        bridge.setMute(baseTrack + i, false);
-                      }
-                      if (onTrackAdded != null) {
-                        onTrackAdded.accept(kit);
-                      } else {
-                        org.deluge.model.ProjectModel mockProj =
-                            new org.deluge.model.ProjectModel();
-                        mockProj.addTrack(kit);
-                        if (onSongLoaded != null) {
-                          onSongLoaded.accept(mockProj, leafFile);
-                        }
-                      }
-                      bridge.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
-                    } else if ("SYNTHS".equals(category)) {
-                      org.deluge.model.SynthTrackModel synth =
-                          org.deluge.xml.DelugeXmlParser.parseSynth(is, name);
-                      if (onTrackAdded != null) {
-                        onTrackAdded.accept(synth);
-                      } else {
-                        org.deluge.model.ProjectModel mockProj =
-                            new org.deluge.model.ProjectModel();
-                        mockProj.addTrack(synth);
-                        if (onSongLoaded != null) {
-                          onSongLoaded.accept(mockProj, leafFile);
-                        }
-                      }
-                      bridge.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
-                    } else if ("SONGS".equals(category)) {
-                      org.deluge.model.ProjectModel loadedProject =
-                          DelugeXmlParser.parseSong(is, name);
-                      int engineRow = 0;
-                      java.io.File libraryDir = PreferencesManager.getLibraryDir();
-                      java.util.ArrayList<String> missingFiles = new java.util.ArrayList<>();
-                      for (org.deluge.model.TrackModel track : loadedProject.getTracks()) {
-                        if (engineRow >= BridgeContract.TRACKS) break;
-                        if (track instanceof org.deluge.model.KitTrackModel kit) {
-                          java.util.List<org.deluge.model.Drum> sounds = kit.getDrums();
-                          for (int i = 0; i < sounds.size(); i++) {
-                            String sp =
-                                ((org.deluge.model.SoundDrum) sounds.get(i)).getSamplePath();
-                            if (sp != null && !sp.isEmpty()) {
-                              java.io.File sf = new java.io.File(sp);
-                              if (!sf.exists()) {
-                                sf = new java.io.File(libraryDir, sp);
+                  final File finalLeafFile = leafFile;
+                  final String finalName = name;
+                  final String finalCategory = category;
+                  Thread.startVirtualThread(
+                      () -> {
+                        try {
+                          System.out.println(
+                              "Swing: Loading Preset in background: "
+                                  + finalLeafFile.getAbsolutePath());
+                          try (java.io.InputStream is =
+                              new java.io.FileInputStream(finalLeafFile)) {
+                            if ("KITS".equals(finalCategory)) {
+                              org.deluge.model.KitTrackModel kit =
+                                  DelugeXmlParser.parseKit(is, finalName);
+                              int baseTrack = 0;
+                              java.util.List<org.deluge.model.Drum> sounds = kit.getDrums();
+                              for (int i = 0; i < sounds.size(); i++) {
+                                String sp =
+                                    ((org.deluge.model.SoundDrum) sounds.get(i)).getSamplePath();
+                                bridge.setGlobalString(
+                                    "g_sample_" + (baseTrack + i), sp != null ? sp : "");
+                                bridge.setSamplePath(baseTrack + i, sp != null ? sp : "");
+                                bridge.setMute(baseTrack + i, false);
                               }
-                              if (!sf.exists()) {
-                                missingFiles.add(sp);
+                              javax.swing.SwingUtilities.invokeLater(
+                                  () -> {
+                                    if (onTrackAdded != null) {
+                                      onTrackAdded.accept(kit);
+                                    } else {
+                                      org.deluge.model.ProjectModel mockProj =
+                                          new org.deluge.model.ProjectModel();
+                                      mockProj.addTrack(kit);
+                                      if (onSongLoaded != null) {
+                                        onSongLoaded.accept(mockProj, finalLeafFile);
+                                      }
+                                    }
+                                    bridge.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+                                  });
+                            } else if ("SYNTHS".equals(finalCategory)) {
+                              org.deluge.model.SynthTrackModel synth =
+                                  org.deluge.xml.DelugeXmlParser.parseSynth(is, finalName);
+                              javax.swing.SwingUtilities.invokeLater(
+                                  () -> {
+                                    if (onTrackAdded != null) {
+                                      onTrackAdded.accept(synth);
+                                    } else {
+                                      org.deluge.model.ProjectModel mockProj =
+                                          new org.deluge.model.ProjectModel();
+                                      mockProj.addTrack(synth);
+                                      if (onSongLoaded != null) {
+                                        onSongLoaded.accept(mockProj, finalLeafFile);
+                                      }
+                                    }
+                                    bridge.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+                                  });
+                            } else if ("SONGS".equals(finalCategory)) {
+                              org.deluge.model.ProjectModel loadedProject =
+                                  DelugeXmlParser.parseSong(is, finalName);
+                              int engineRow = 0;
+                              java.io.File libraryDir = PreferencesManager.getLibraryDir();
+                              java.util.ArrayList<String> missingFiles =
+                                  new java.util.ArrayList<>();
+                              for (org.deluge.model.TrackModel track : loadedProject.getTracks()) {
+                                if (engineRow >= BridgeContract.TRACKS) break;
+                                if (track instanceof org.deluge.model.KitTrackModel kit) {
+                                  java.util.List<org.deluge.model.Drum> sounds = kit.getDrums();
+                                  for (int i = 0; i < sounds.size(); i++) {
+                                    String sp =
+                                        ((org.deluge.model.SoundDrum) sounds.get(i))
+                                            .getSamplePath();
+                                    if (sp != null && !sp.isEmpty()) {
+                                      java.io.File sf = new java.io.File(sp);
+                                      if (!sf.exists()) {
+                                        sf = new java.io.File(libraryDir, sp);
+                                      }
+                                      if (!sf.exists()) {
+                                        missingFiles.add(sp);
+                                      }
+                                    }
+                                    bridge.setGlobalString(
+                                        "g_sample_" + (engineRow + i), sp != null ? sp : "");
+                                    bridge.setMute(engineRow + i, false);
+                                    bridge.setTrackType(engineRow + i, 0);
+                                  }
+                                }
+                                engineRow++;
                               }
+                              javax.swing.SwingUtilities.invokeLater(
+                                  () -> {
+                                    if (!missingFiles.isEmpty()) {
+                                      StringBuilder sb =
+                                          new StringBuilder("Missing sample files:\n");
+                                      for (String mf : missingFiles) {
+                                        sb.append("  - ").append(mf).append("\n");
+                                      }
+                                      System.err.println(sb.toString());
+                                      JOptionPane.showMessageDialog(
+                                          SwingProjectSidebarPanel.this,
+                                          sb.toString(),
+                                          "Samples Not Found",
+                                          JOptionPane.ERROR_MESSAGE);
+                                    }
+                                    if (onSongLoaded != null) {
+                                      onSongLoaded.accept(loadedProject, finalLeafFile);
+                                    }
+                                    bridge.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+                                  });
+                            } else if ("PATTERNS".equals(finalCategory)) {
+                              javax.swing.SwingUtilities.invokeLater(
+                                  () -> {
+                                    if (onPatternLoad != null) {
+                                      onPatternLoad.accept(finalLeafFile);
+                                    }
+                                  });
                             }
-                            bridge.setGlobalString(
-                                "g_sample_" + (engineRow + i), sp != null ? sp : "");
-                            bridge.setMute(engineRow + i, false);
-                            bridge.setTrackType(engineRow + i, 0);
                           }
+                        } catch (Exception ex) {
+                          System.err.println(
+                              "Error loading preset in background: " + ex.getMessage());
+                          ex.printStackTrace();
+                          javax.swing.SwingUtilities.invokeLater(
+                              () -> {
+                                JOptionPane.showMessageDialog(
+                                    SwingProjectSidebarPanel.this,
+                                    "Failed to load target preset:\n" + ex.getMessage(),
+                                    "Load Error",
+                                    JOptionPane.ERROR_MESSAGE);
+                              });
                         }
-                        engineRow++;
-                      }
-                      if (!missingFiles.isEmpty()) {
-                        StringBuilder sb = new StringBuilder("Missing sample files:\n");
-                        for (String mf : missingFiles) {
-                          sb.append("  - ").append(mf).append("\n");
-                        }
-                        System.err.println(sb.toString());
-                        JOptionPane.showMessageDialog(
-                            SwingProjectSidebarPanel.this,
-                            sb.toString(),
-                            "Samples Not Found",
-                            JOptionPane.ERROR_MESSAGE);
-                      }
-                      if (onSongLoaded != null) {
-                        onSongLoaded.accept(loadedProject, leafFile);
-                      }
-                      bridge.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
-                    } else if ("PATTERNS".equals(category)) {
-                      if (onPatternLoad != null) {
-                        onPatternLoad.accept(leafFile);
-                      }
-                    }
-                  } catch (Exception ex) {
-                    ex.printStackTrace();
-                    JOptionPane.showMessageDialog(
-                        SwingProjectSidebarPanel.this,
-                        "Failed to load target preset:\n" + ex.getMessage(),
-                        "Load Error",
-                        JOptionPane.ERROR_MESSAGE);
-                  }
+                      });
                 }
               }
             }
