@@ -4149,6 +4149,10 @@ public class SwingGridPanel extends JPanel {
                     getThemeColor(theme, trackColor, stepState, inScale, isRoot, modelRow);
                 pad.setBaseColor(cellBaseColor);
                 pad.setApplicable(inScale || !isSynthMode);
+                pad.setTheme(theme);
+                pad.setBeatMarker((c + scrollOffsetX) % 4 == 0);
+                pad.setScaleRoot(isRoot);
+                pad.setScaleNote(inScale);
 
                 pad.setMuted(isMuted);
                 pad.setInLoop(inLoop);
@@ -4263,8 +4267,16 @@ public class SwingGridPanel extends JPanel {
                 }
               }
               if (clipBtn instanceof DelugePadButton pad) {
+                org.deluge.project.PreferencesManager.GridColorTheme theme =
+                    org.deluge.project.PreferencesManager.getGridColorTheme();
+                pad.setBaseColor(trackColors[modelRow % trackColors.length]);
+                pad.setTheme(theme);
                 pad.setActive(hasClip);
                 pad.setMuted(isMuted);
+                pad.setScaleRoot(false);
+                pad.setScaleNote(false);
+                pad.setBeatMarker(
+                    viewMode == GridViewMode.ARRANGEMENT && ((c + scrollOffsetX) % 4 == 0));
               } else {
                 if (hasClip) {
                   clipBtn.setBackground(trackColors[modelRow % trackColors.length]);
@@ -4321,6 +4333,10 @@ public class SwingGridPanel extends JPanel {
               if (clipBtn instanceof DelugePadButton pad) {
                 pad.setBaseColor(cellBaseColor);
                 pad.setApplicable(inScale);
+                pad.setTheme(theme);
+                pad.setBeatMarker(false);
+                pad.setScaleRoot(isRoot);
+                pad.setScaleNote(inScale);
                 pad.setActive(isPlaying || isRoot || inScale);
                 pad.setIntensity(isPlaying ? 1.0f : (isRoot ? 0.6f : 0.3f));
               } else {
