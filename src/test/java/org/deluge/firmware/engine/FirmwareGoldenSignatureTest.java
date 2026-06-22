@@ -11,6 +11,7 @@ import org.deluge.firmware.model.Song;
 import org.deluge.firmware.modulation.automation.AutoParam;
 import org.deluge.firmware.modulation.patch.PatchCable;
 import org.deluge.firmware.modulation.patch.PatchSource;
+import org.deluge.firmware2.GlobalSidechainBus;
 import org.deluge.firmware2.Param;
 import org.deluge.firmware2.StereoSample;
 import org.deluge.model.ClipModel;

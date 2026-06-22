@@ -1,10 +1,10 @@
-package org.deluge.firmware.engine;
+package org.deluge.firmware2;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Global sidechain event bus coordinating multi-track high-fidelity voice envelope ducking trigger
- * signals.
+ * signals. Moved to org.deluge.firmware2 for package decoupling.
  */
 public class GlobalSidechainBus {
   private static final ThreadLocal<AtomicInteger> pendingHitStrength =

@@ -1,16 +1,12 @@
-package org.deluge.firmware.engine;
+package org.deluge.firmware2;
 
 import static org.deluge.firmware2.Functions.multiply_32x32_rshift32;
 
 import org.deluge.firmware.modulation.params.ParamManager;
-import org.deluge.firmware2.DelayBuffer;
-import org.deluge.firmware2.Functions;
-import org.deluge.firmware2.Param;
-import org.deluge.firmware2.StereoSample;
 
 /**
  * Port of the Deluge's Stutterer class. Implements real-time buffer-based stutter with bit-accurate
- * rate mapping.
+ * rate mapping. Moved to org.deluge.firmware2 for package decoupling.
  */
 public class Stutterer {
   public enum Status {
@@ -194,14 +190,14 @@ public class Stutterer {
     return Math.max(rate, 1000);
   }
 
-  static int paramValueToKnobPos(int paramValue) {
+  public static int paramValueToKnobPos(int paramValue) {
     if (paramValue >= 0x7F000000) {
       return 64;
     }
     return (paramValue + (1 << 24)) >> 25;
   }
 
-  static int knobPosToParamValue(int knobPos) {
+  public static int knobPosToParamValue(int knobPos) {
     if (knobPos < 64) {
       return knobPos << 25;
     }
