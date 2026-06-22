@@ -16,6 +16,28 @@ public class PlaybackHandler {
   private int swungTicksTilNextEvent = 0;
   private volatile int syncMode = 0; // 0 = INTERNAL, 1 = EXTERNAL_MIDI
 
+  /**
+   * Outbound MIDI clock sink (the Deluge as clock master). Decoupled so the transport doesn't
+   * depend on the MIDI layer and stays unit-testable. Wire to {@code MidiEngine}'s
+   * sendStart/sendStop/sendClock.
+   */
+  public interface MidiClockSink {
+    void start();
+
+    void stop();
+
+    void clock();
+  }
+
+  // MIDI clock is 24 PPQN; our internal resolution is 96 PPQN → one 0xF8 every 4 internal ticks.
+  private static final int INTERNAL_TICKS_PER_MIDI_CLOCK = 4;
+  private MidiClockSink midiClockOut;
+  private int lastClockTick = 0; // internal tick at which the last 0xF8 was emitted
+
+  public void setMidiClockOut(MidiClockSink sink) {
+    this.midiClockOut = sink;
+  }
+
   public int getSyncMode() {
     return syncMode;
   }
@@ -40,6 +62,8 @@ public class PlaybackHandler {
     playing = true;
     lastSwungTickActioned = 0;
     swungTicksTilNextEvent = 0;
+    lastClockTick = 0;
+    if (midiClockOut != null) midiClockOut.start(); // 0xFA — external gear starts from the top
     FirmwareDisplay.get().setText(" PLAYING ");
     if (currentProject != null) {
       for (ClipModel clip : currentProject.getClips()) {
@@ -52,6 +76,7 @@ public class PlaybackHandler {
 
   public synchronized void stop() {
     playing = false;
+    if (midiClockOut != null) midiClockOut.stop(); // 0xFC
     FirmwareDisplay.get().setText(" STOPPED ");
   }
 
@@ -104,6 +129,15 @@ public class PlaybackHandler {
       }
 
       ticksRemaining -= toAdvance;
+    }
+
+    // Outbound MIDI clock (24 PPQN): emit one 0xF8 per 4 internal ticks crossed, following the
+    // swung tick position so external gear swings with us.
+    if (midiClockOut != null) {
+      while (lastSwungTickActioned - lastClockTick >= INTERNAL_TICKS_PER_MIDI_CLOCK) {
+        midiClockOut.clock();
+        lastClockTick += INTERNAL_TICKS_PER_MIDI_CLOCK;
+      }
     }
 
     // Update LED with bar:beat:tick

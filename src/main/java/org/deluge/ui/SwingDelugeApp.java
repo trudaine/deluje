@@ -1075,6 +1075,33 @@ public class SwingDelugeApp extends JFrame {
           org.deluge.project.PreferencesManager.get("sequencer.sync.mode", "INTERNAL");
       int syncMode = "EXTERNAL_MIDI".equals(syncModeStr) ? 1 : 0;
       pureEngine.getPlaybackHandler().setSyncMode(syncMode);
+
+      // MIDI clock OUT: when enabled (default on), the transport drives external gear as the master
+      // clock (0xFA start / 0xF8 tick @24 PPQN / 0xFC stop) via the MidiEngine.
+      if (midiService != null
+          && Boolean.parseBoolean(
+              org.deluge.project.PreferencesManager.get("midi.clock.out", "true"))) {
+        final org.deluge.midi.MidiEngine me = midiService.getEngine();
+        pureEngine
+            .getPlaybackHandler()
+            .setMidiClockOut(
+                new org.deluge.playback.PlaybackHandler.MidiClockSink() {
+                  @Override
+                  public void start() {
+                    me.sendStart();
+                  }
+
+                  @Override
+                  public void stop() {
+                    me.sendStop();
+                  }
+
+                  @Override
+                  public void clock() {
+                    me.sendClock();
+                  }
+                });
+      }
       System.out.println(
           "[UI] Boot Sync Mode applied to PlaybackHandler: "
               + (syncMode == 1 ? "EXTERNAL" : "INTERNAL"));
