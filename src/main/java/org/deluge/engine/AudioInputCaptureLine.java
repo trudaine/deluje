@@ -214,6 +214,22 @@ public class AudioInputCaptureLine {
     }
   }
 
+  /**
+   * Read a WAV file as raw little-endian signed-16-bit stereo 44.1k PCM bytes (the capture format),
+   * converting if needed. Returns null on failure. Used for overdub mixing (Phase 4 part 2).
+   */
+  private static byte[] readWavPcm16LE(String path) {
+    AudioFormat target = new AudioFormat(44100, 16, 2, true, false);
+    try (AudioInputStream in = AudioSystem.getAudioInputStream(new File(path))) {
+      AudioInputStream pcm =
+          in.getFormat().matches(target) ? in : AudioSystem.getAudioInputStream(target, in);
+      return pcm.readAllBytes();
+    } catch (Exception e) {
+      System.err.println("[Capture] Overdub base read failed: " + path + " — " + e);
+      return null;
+    }
+  }
+
   private void finalizeRecording() {
     try {
       byte[] pcmData = capturedStream.toByteArray();
@@ -257,14 +273,34 @@ public class AudioInputCaptureLine {
             // engine then streams (AudioOutput, Phase 1-3b) — i.e. live sampling into an audio
             // track.
             org.deluge.model.AudioTrackModel.AudioClip clip;
+            String priorPath = null;
             if (!audioTrack.getAudioClips().isEmpty()) {
               clip = audioTrack.getAudioClips().get(0);
+              priorPath = clip.getFilePath();
             } else {
               clip = new org.deluge.model.AudioTrackModel.AudioClip();
               audioTrack.addAudioClip(clip);
             }
-            clip.setFilePath(targetWav.getAbsolutePath());
-            System.out.println("[Capture] Recorded into audio track: " + audioTrack.getName());
+
+            // Phase 4 part 2 — overdub: if the clip is in overdub mode and already has audio, mix
+            // the new take over the existing clip (saturating) rather than replacing it.
+            byte[] basePcm = null;
+            if (clip.isOverdubsShouldCloneAudioTrack()
+                && priorPath != null
+                && new File(priorPath).exists()) {
+              basePcm = readWavPcm16LE(priorPath);
+            }
+            if (basePcm != null) {
+              byte[] mixed = AudioRecordingUtil.mixPcm16LE(basePcm, pcmData);
+              File overdubWav =
+                  new File(samplesDir, "Overdub_" + System.currentTimeMillis() + ".wav");
+              JavaAudioDriver.saveWavFile(mixed, overdubWav);
+              clip.setFilePath(overdubWav.getAbsolutePath());
+              System.out.println("[Capture] Overdubbed audio track: " + audioTrack.getName());
+            } else {
+              clip.setFilePath(targetWav.getAbsolutePath());
+              System.out.println("[Capture] Recorded into audio track: " + audioTrack.getName());
+            }
           }
         }
         if (onFinishedCallback != null) {
