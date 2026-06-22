@@ -1,8 +1,6 @@
 package org.deluge.engine;
 
 import org.deluge.BridgeContract;
-import org.deluge.firmware.engine.FirmwareFactory;
-import org.deluge.firmware.engine.FirmwareSound;
 import org.deluge.model.ClipModel;
 import org.deluge.model.EnvelopeModel;
 import org.deluge.model.FilterMode;
@@ -261,16 +259,16 @@ public class DroneLabGenerator {
   }
 
   /** Helper to retrieve the active track's FirmwareSound instance from the VM. */
-  public static org.deluge.firmware.engine.FirmwareSound getActiveTrackSound(
+  public static org.deluge.engine.FirmwareSound getActiveTrackSound(
       BridgeContract bridge, int trackIndex) {
     if (bridge == null) return null;
     Object ph = bridge.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
-    if (ph instanceof org.deluge.firmware.playback.PlaybackHandler playbackHandler) {
-      org.deluge.firmware.model.Song song = playbackHandler.getSong();
+    if (ph instanceof org.deluge.playback.PlaybackHandler playbackHandler) {
+      org.deluge.playback.Song song = playbackHandler.getSong();
       if (song != null && trackIndex >= 0 && trackIndex < song.clips.size()) {
-        org.deluge.firmware.model.Clip clip = song.clips.get(trackIndex);
-        if (clip instanceof org.deluge.firmware.model.InstrumentClip instrumentClip) {
-          if (instrumentClip.sound instanceof org.deluge.firmware.engine.FirmwareSound fs) {
+        org.deluge.playback.Clip clip = song.clips.get(trackIndex);
+        if (clip instanceof org.deluge.playback.InstrumentClip instrumentClip) {
+          if (instrumentClip.sound instanceof org.deluge.engine.FirmwareSound fs) {
             return fs;
           }
         }

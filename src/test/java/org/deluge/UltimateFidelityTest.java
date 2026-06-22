@@ -3,11 +3,9 @@ package org.deluge;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
-import org.deluge.firmware.engine.FirmwareAudioEngine;
-import org.deluge.firmware.engine.FirmwareFactory;
-import org.deluge.firmware.engine.FirmwareSound;
-import org.deluge.firmware.model.Song;
-import org.deluge.firmware.playback.PlaybackHandler;
+import org.deluge.engine.FirmwareAudioEngine;
+import org.deluge.engine.FirmwareFactory;
+import org.deluge.engine.FirmwareSound;
 import org.deluge.model.ArrangerClip;
 import org.deluge.model.ClipModel;
 import org.deluge.model.EnvelopeModel;
@@ -16,6 +14,8 @@ import org.deluge.model.ProjectModel;
 import org.deluge.model.SoundDrum;
 import org.deluge.model.StepData;
 import org.deluge.model.SynthTrackModel;
+import org.deluge.playback.PlaybackHandler;
+import org.deluge.playback.Song;
 import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
@@ -206,7 +206,7 @@ public class UltimateFidelityTest {
 
     Song fwSong = FirmwareFactory.createSong(reloadedProject);
     for (var clip : fwSong.clips) {
-      if (clip instanceof org.deluge.firmware.model.InstrumentClip ic) {
+      if (clip instanceof org.deluge.playback.InstrumentClip ic) {
         if (ic.sound instanceof FirmwareSound fs) {
           engine.sounds.add(fs);
         }

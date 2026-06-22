@@ -20,7 +20,7 @@ import org.deluge.ui.controls.SegmentedToggle;
  * (encoder knobs + segmented toggles) that edits the currently-edited synth track live. Designed to
  * dock EAST of the grid: it costs horizontal space (abundant) and no height. Knobs are relative
  * (turn = delta); changes update the model and are pushed to the running engine via {@link
- * org.deluge.firmware.engine.FirmwareFactory#applyModelToLiveSound}.
+ * org.deluge.engine.FirmwareFactory#applyModelToLiveSound}.
  */
 public class SynthParamRack extends JPanel {
 
@@ -249,11 +249,11 @@ public class SynthParamRack extends JPanel {
     int idx = indexSupplier.getAsInt();
     try {
       Object eng = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-      if (eng instanceof org.deluge.firmware.engine.FirmwareAudioEngine engine
+      if (eng instanceof org.deluge.engine.FirmwareAudioEngine engine
           && idx >= 0
           && idx < engine.sounds.size()
-          && engine.sounds.get(idx) instanceof org.deluge.firmware.engine.FirmwareSound fs) {
-        org.deluge.firmware.engine.FirmwareFactory.applyModelToLiveSound(t, fs);
+          && engine.sounds.get(idx) instanceof org.deluge.engine.FirmwareSound fs) {
+        org.deluge.engine.FirmwareFactory.applyModelToLiveSound(t, fs);
       }
     } catch (Exception ignored) {
       // engine not running (e.g. tests) — model edit still stands

@@ -3,10 +3,9 @@ package org.deluge;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.File;
-import org.deluge.firmware.engine.FirmwareFactory;
-import org.deluge.firmware.engine.FirmwareKit;
-import org.deluge.firmware.engine.FirmwareSound;
-import org.deluge.firmware.model.Song;
+import org.deluge.engine.FirmwareFactory;
+import org.deluge.engine.FirmwareKit;
+import org.deluge.engine.FirmwareSound;
 import org.deluge.firmware.modulation.patch.PatchCable;
 import org.deluge.firmware.modulation.patch.PatchSource;
 import org.deluge.firmware2.Param;
@@ -14,6 +13,7 @@ import org.deluge.firmware2.StereoSample;
 import org.deluge.model.KitTrackModel;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.SynthTrackModel;
+import org.deluge.playback.Song;
 import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,6 +28,7 @@ public class DigitalAudioFidelityTest {
   @BeforeEach
   void setUp() {
     org.deluge.firmware2.Functions.resetNoiseSeed();
+    org.deluge.model.tuning.ScalaScale.setActiveScale(null);
   }
 
   private static final int SAMPLE_RATE = 44100;
@@ -47,8 +48,8 @@ public class DigitalAudioFidelityTest {
     Song fwSong = FirmwareFactory.createSong(project);
 
     // Retrieve active sound instrument
-    org.deluge.firmware.model.InstrumentClip clip =
-        (org.deluge.firmware.model.InstrumentClip) fwSong.clips.get(0);
+    org.deluge.playback.InstrumentClip clip =
+        (org.deluge.playback.InstrumentClip) fwSong.clips.get(0);
     FirmwareSound synth = (FirmwareSound) clip.sound;
     synth.triggerNote(60, 127); // Trigger note C4 (261Hz)
 
@@ -106,8 +107,8 @@ public class DigitalAudioFidelityTest {
     Song fwSong = FirmwareFactory.createSong(project);
 
     // Retrieve active kit instrument
-    org.deluge.firmware.model.InstrumentClip clip =
-        (org.deluge.firmware.model.InstrumentClip) fwSong.clips.get(0);
+    org.deluge.playback.InstrumentClip clip =
+        (org.deluge.playback.InstrumentClip) fwSong.clips.get(0);
     FirmwareKit kit = (FirmwareKit) clip.sound;
 
     // Diagnostic print loop for all 16 drum lanes
@@ -332,8 +333,7 @@ public class DigitalAudioFidelityTest {
   void testSidechainDuckingFidelity() {
     org.deluge.firmware2.GlobalSidechainBus.reset();
 
-    org.deluge.firmware.engine.FirmwareAudioEngine engine =
-        new org.deluge.firmware.engine.FirmwareAudioEngine();
+    org.deluge.engine.FirmwareAudioEngine engine = new org.deluge.engine.FirmwareAudioEngine();
 
     // Create a steady-state voice with maximum infinite sustain
     FirmwareSound synth = new FirmwareSound();

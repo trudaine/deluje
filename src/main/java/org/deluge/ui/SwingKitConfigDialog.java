@@ -91,10 +91,10 @@ public class SwingKitConfigDialog extends JDialog {
   private void liveApplyToEngine(BridgeContract bridge, KitTrackModel model) {
     try {
       Object engineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-      if (engineObj instanceof org.deluge.firmware.engine.FirmwareAudioEngine engine
+      if (engineObj instanceof org.deluge.engine.FirmwareAudioEngine engine
           && trackIndex < engine.sounds.size()
-          && engine.sounds.get(trackIndex) instanceof org.deluge.firmware.engine.FirmwareKit kit) {
-        org.deluge.firmware.engine.FirmwareFactory.applyModelToLiveSound(model, kit);
+          && engine.sounds.get(trackIndex) instanceof org.deluge.engine.FirmwareKit kit) {
+        org.deluge.engine.FirmwareFactory.applyModelToLiveSound(model, kit);
       }
     } catch (Exception ex) {
       // Never let a live-apply hiccup break the dialog (e.g. engine not running in tests).

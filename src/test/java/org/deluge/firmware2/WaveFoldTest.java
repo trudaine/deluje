@@ -2,8 +2,8 @@ package org.deluge.firmware2;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.deluge.firmware.engine.FirmwareAudioEngine;
-import org.deluge.firmware.engine.FirmwareSound;
+import org.deluge.engine.FirmwareAudioEngine;
+import org.deluge.engine.FirmwareSound;
 import org.deluge.firmware2.Oscillator.OscType;
 import org.junit.jupiter.api.Test;
 

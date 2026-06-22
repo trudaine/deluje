@@ -3,7 +3,7 @@ package org.deluge;
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.deluge.engine.DroneLabGenerator;
-import org.deluge.firmware.engine.FirmwareSound;
+import org.deluge.engine.FirmwareSound;
 import org.deluge.model.EnvelopeModel;
 import org.deluge.model.LfoModel;
 import org.deluge.model.LfoType;

@@ -3,7 +3,7 @@ package org.deluge.firmware2;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Random;
-import org.deluge.firmware.engine.FirmwareAudioEngine;
+import org.deluge.engine.FirmwareAudioEngine;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

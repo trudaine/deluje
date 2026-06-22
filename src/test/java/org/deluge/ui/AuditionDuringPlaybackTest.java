@@ -3,8 +3,8 @@ package org.deluge.ui;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.deluge.BridgeContract;
-import org.deluge.firmware.engine.FirmwareAudioEngine;
-import org.deluge.firmware.engine.FirmwareSound;
+import org.deluge.engine.FirmwareAudioEngine;
+import org.deluge.engine.FirmwareSound;
 import org.deluge.firmware2.Oscillator.OscType;
 import org.deluge.firmware2.Param;
 import org.deluge.model.ProjectModel;

@@ -48,7 +48,7 @@ public class Sample {
    * Convert from the firmware model {@code Sample} (float[] PCM) to a fw2 Sample (int[] PCM, Q31).
    * This is the bridge adapter — not in the C (the C reads clusters, not floats).
    */
-  public static Sample fromFirmwareSample(org.deluge.firmware.model.sample.Sample modelSample) {
+  public static Sample fromFirmwareSample(org.deluge.playback.Sample modelSample) {
     if (modelSample == null || modelSample.data == null) return null;
     Sample s = new Sample();
     s.fileName = modelSample.fileName;

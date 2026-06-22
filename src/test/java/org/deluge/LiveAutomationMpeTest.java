@@ -2,7 +2,7 @@ package org.deluge;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import org.deluge.firmware.engine.FirmwareSound;
+import org.deluge.engine.FirmwareSound;
 import org.deluge.firmware.modulation.patch.PatchSource;
 import org.deluge.firmware2.Param;
 import org.junit.jupiter.api.Test;
@@ -90,7 +90,7 @@ public class LiveAutomationMpeTest {
   @Test
   void testFmModulatorsRetriggerPhases() {
     FirmwareSound sound = new FirmwareSound();
-    sound.setSynthMode(org.deluge.firmware.engine.FirmwareSound.SynthMode.FM);
+    sound.setSynthMode(org.deluge.engine.FirmwareSound.SynthMode.FM);
     sound.mod1RetrigPhase = 90; // 90 degrees
     sound.mod2RetrigPhase = 180; // 180 degrees
 
@@ -110,8 +110,7 @@ public class LiveAutomationMpeTest {
   void testMidiRealtimeTransportControls() {
     BridgeContract bridge = new BridgeContract();
 
-    org.deluge.firmware.playback.PlaybackHandler playbackHandler =
-        new org.deluge.firmware.playback.PlaybackHandler();
+    org.deluge.playback.PlaybackHandler playbackHandler = new org.deluge.playback.PlaybackHandler();
     bridge.setGlobalObject(BridgeContract.G_PLAYBACK_HANDLER, playbackHandler);
 
     org.deluge.midi.MidiInputRouter router = new org.deluge.midi.MidiInputRouter(bridge);
@@ -185,7 +184,7 @@ public class LiveAutomationMpeTest {
   @Test
   void testSynthGridRowChromaticPitchScaling() {
     FirmwareSound sound = new FirmwareSound();
-    sound.setSynthMode(org.deluge.firmware.engine.FirmwareSound.SynthMode.SUBTRACTIVE);
+    sound.setSynthMode(org.deluge.engine.FirmwareSound.SynthMode.SUBTRACTIVE);
 
     // Simulate clicking a grid pad row vertically in CLIP view mode:
     // Bottom row is index 23 (e.g. C3/MIDI 60)
@@ -224,7 +223,7 @@ public class LiveAutomationMpeTest {
   @Test
   void testMpePitchBendModulatesFrequency() {
     FirmwareSound sound = new FirmwareSound();
-    sound.setSynthMode(org.deluge.firmware.engine.FirmwareSound.SynthMode.SUBTRACTIVE);
+    sound.setSynthMode(org.deluge.engine.FirmwareSound.SynthMode.SUBTRACTIVE);
 
     // Trigger a note on MIDI Channel 3 (MPE voice)
     sound.triggerNote(60, 100, 3);

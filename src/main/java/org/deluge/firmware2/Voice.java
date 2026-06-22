@@ -1325,7 +1325,7 @@ public class Voice {
     for (int i = 0; i < numSamples * 2; i++) {
       maxValVoice = Math.max(maxValVoice, Math.abs(mixBuf[i]));
     }
-    if (org.deluge.firmware.engine.FirmwareAudioEngine.debugTelemetry && maxValVoice > 1000) {
+    if (org.deluge.engine.FirmwareAudioEngine.debugTelemetry && maxValVoice > 1000) {
       System.out.println("[TELEMETRY Voice] mixBuf max absolute value: " + maxValVoice);
     }
 
@@ -1593,7 +1593,7 @@ public class Voice {
       maxAfterAmp = Math.max(maxAfterAmp, Math.abs(stereoBuf[i]));
     }
 
-    if (org.deluge.firmware.engine.FirmwareAudioEngine.debugTelemetry && maxBeforeFilter > 0) {
+    if (org.deluge.engine.FirmwareAudioEngine.debugTelemetry && maxBeforeFilter > 0) {
       System.out.printf(
           "[TELEMETRY DEBUG Voice] beforeFilter=%d, afterFilter=%d, afterAmp=%d (overallAmp=%d)\n",
           maxBeforeFilter, maxAfterFilter, maxAfterAmp, overallOscAmplitudeLastTime);

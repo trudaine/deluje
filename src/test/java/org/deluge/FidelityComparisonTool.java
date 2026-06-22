@@ -1,8 +1,8 @@
 package org.deluge;
 
 import java.io.File;
-import org.deluge.firmware.model.sample.Sample;
-import org.deluge.firmware.storage.audio.AudioFileReader;
+import org.deluge.playback.Sample;
+import org.deluge.storage.audio.AudioFileReader;
 
 /**
  * Utility to compare real hardware recordings with Deluge-Java rendered waveforms. Performs time

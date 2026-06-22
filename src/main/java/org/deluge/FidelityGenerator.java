@@ -5,15 +5,15 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
-import org.deluge.firmware.engine.FirmwareAudioEngine;
-import org.deluge.firmware.engine.FirmwareFactory;
-import org.deluge.firmware.engine.FirmwareSound;
-import org.deluge.firmware.model.Song;
-import org.deluge.firmware.playback.PlaybackHandler;
+import org.deluge.engine.FirmwareAudioEngine;
+import org.deluge.engine.FirmwareFactory;
+import org.deluge.engine.FirmwareSound;
 import org.deluge.model.ClipModel;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.StepData;
 import org.deluge.model.SynthTrackModel;
+import org.deluge.playback.PlaybackHandler;
+import org.deluge.playback.Song;
 import org.deluge.xml.DelugeXmlParser;
 
 /**
@@ -59,7 +59,7 @@ public class FidelityGenerator {
 
     // 3. Build firmware song, engine, and playback handler
     Song fwSong = FirmwareFactory.createSong(project);
-    var clip0 = (org.deluge.firmware.model.InstrumentClip) fwSong.clips.get(0);
+    var clip0 = (org.deluge.playback.InstrumentClip) fwSong.clips.get(0);
     FirmwareSound fwSound = (FirmwareSound) clip0.sound;
 
     FirmwareAudioEngine engine = new FirmwareAudioEngine();
@@ -76,7 +76,7 @@ public class FidelityGenerator {
     List<float[]> rightSignal = new ArrayList<>();
 
     // Offline fidelity render: force full-quality sinc by clearing any leftover CPU direness.
-    org.deluge.firmware.engine.FirmwareAudioEngine.cpuDireness = 0;
+    org.deluge.engine.FirmwareAudioEngine.cpuDireness = 0;
     System.out.println("[Generator] Rendering audio blocks and applying resampler gain staging...");
     for (int b = 0; b < totalBlocks; b++) {
       handler.advanceTicks(1);

@@ -120,11 +120,11 @@ public class MidiService {
 
   private org.deluge.firmware2.GlobalEffectable getActiveTrackSound(int track) {
     Object ph = bridge.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
-    if (ph instanceof org.deluge.firmware.playback.PlaybackHandler playbackHandler) {
-      org.deluge.firmware.model.Song song = playbackHandler.getSong();
+    if (ph instanceof org.deluge.playback.PlaybackHandler playbackHandler) {
+      org.deluge.playback.Song song = playbackHandler.getSong();
       if (song != null && track >= 0 && track < song.clips.size()) {
-        org.deluge.firmware.model.Clip clip = song.clips.get(track);
-        if (clip instanceof org.deluge.firmware.model.InstrumentClip instrumentClip) {
+        org.deluge.playback.Clip clip = song.clips.get(track);
+        if (clip instanceof org.deluge.playback.InstrumentClip instrumentClip) {
           return instrumentClip.sound;
         }
       }
@@ -426,10 +426,10 @@ public class MidiService {
 
     // 2. Route pitch bend directly to the active track's audio engine voices
     org.deluge.firmware2.GlobalEffectable sound = getActiveTrackSound(track);
-    if (sound instanceof org.deluge.firmware.engine.FirmwareSound fs) {
+    if (sound instanceof org.deluge.engine.FirmwareSound fs) {
       fs.mpePitchBend(msg.channel(), bend);
-    } else if (sound instanceof org.deluge.firmware.engine.FirmwareKit kit) {
-      for (org.deluge.firmware.engine.FirmwareSound drum : kit.drumSounds) {
+    } else if (sound instanceof org.deluge.engine.FirmwareKit kit) {
+      for (org.deluge.engine.FirmwareSound drum : kit.drumSounds) {
         drum.mpePitchBend(msg.channel(), bend);
       }
     } else if (sound instanceof org.deluge.firmware2.Sound s) {
@@ -454,10 +454,10 @@ public class MidiService {
     int pressure = msg.aftertouchValue(); // 0 - 127
 
     org.deluge.firmware2.GlobalEffectable sound = getActiveTrackSound(track);
-    if (sound instanceof org.deluge.firmware.engine.FirmwareSound fs) {
+    if (sound instanceof org.deluge.engine.FirmwareSound fs) {
       fs.mpePressure(msg.channel(), pressure);
-    } else if (sound instanceof org.deluge.firmware.engine.FirmwareKit kit) {
-      for (org.deluge.firmware.engine.FirmwareSound drum : kit.drumSounds) {
+    } else if (sound instanceof org.deluge.engine.FirmwareKit kit) {
+      for (org.deluge.engine.FirmwareSound drum : kit.drumSounds) {
         drum.mpePressure(msg.channel(), pressure);
       }
     } else if (sound instanceof org.deluge.firmware2.Sound s) {
@@ -480,7 +480,7 @@ public class MidiService {
   private void handleSystemRealtime(MIDIMessage msg) {
     if (bridge == null) return;
     Object ph = bridge.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
-    if (ph instanceof org.deluge.firmware.playback.PlaybackHandler playbackHandler) {
+    if (ph instanceof org.deluge.playback.PlaybackHandler playbackHandler) {
       if (msg.isMidiStart() || msg.isMidiContinue()) {
         playbackHandler.start();
         if (bridge.getLogLevel() >= 2) {

@@ -1,13 +1,13 @@
 package org.deluge;
 
 import java.io.File;
+import org.deluge.engine.FirmwareAudioEngine;
+import org.deluge.engine.FirmwareFactory;
 import org.deluge.engine.JavaAudioDriver;
-import org.deluge.firmware.engine.FirmwareAudioEngine;
-import org.deluge.firmware.engine.FirmwareFactory;
-import org.deluge.firmware.model.Song;
-import org.deluge.firmware.playback.PlaybackHandler;
 import org.deluge.firmware2.StereoSample;
 import org.deluge.model.ProjectModel;
+import org.deluge.playback.PlaybackHandler;
+import org.deluge.playback.Song;
 import org.deluge.xml.DelugeXmlParser;
 
 /** Renders Deluge XML song files to WAV files offline for comparison testing. */
@@ -23,7 +23,7 @@ public class FidelityTestRunner {
     // Add all instruments to engine sounds
     engine.sounds.clear();
     for (var clip : song.clips) {
-      if (clip instanceof org.deluge.firmware.model.InstrumentClip ic && ic.sound != null) {
+      if (clip instanceof org.deluge.playback.InstrumentClip ic && ic.sound != null) {
         engine.sounds.add(ic.sound);
       }
     }
@@ -41,7 +41,7 @@ public class FidelityTestRunner {
 
     // Set arpeggiator config
     for (org.deluge.firmware2.GlobalEffectable sound : engine.sounds) {
-      if (sound instanceof org.deluge.firmware.engine.FirmwareSound fsArp) {
+      if (sound instanceof org.deluge.engine.FirmwareSound fsArp) {
         int div = fsArp.arpDivision > 0 ? fsArp.arpDivision : 16;
         double rateMul = (fsArp.arpRateMultiplier > 0.01f) ? fsArp.arpRateMultiplier : 1.0;
         double stepSamples = (4.0 / div) * (60.0 / bpm) * 44100.0 / rateMul;

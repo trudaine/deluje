@@ -84,17 +84,14 @@ public class DelugeE2ETest {
     // 3. Build the firmware Song and drive the SUPPORTED pure engine offline (the JNI-free
     //    FirmwareAudioEngine + PlaybackHandler). The legacy DelugeEngineDSL ("--hifi") path is
     //    unsupported and intentionally NOT exercised here.
-    org.deluge.firmware.model.Song song =
-        org.deluge.firmware.engine.FirmwareFactory.createSong(project);
-    org.deluge.firmware.engine.FirmwareAudioEngine audioEngine =
-        new org.deluge.firmware.engine.FirmwareAudioEngine();
-    for (org.deluge.firmware.model.Clip c : song.clips) {
-      if (c instanceof org.deluge.firmware.model.InstrumentClip ic && ic.sound != null) {
+    org.deluge.playback.Song song = org.deluge.engine.FirmwareFactory.createSong(project);
+    org.deluge.engine.FirmwareAudioEngine audioEngine = new org.deluge.engine.FirmwareAudioEngine();
+    for (org.deluge.playback.Clip c : song.clips) {
+      if (c instanceof org.deluge.playback.InstrumentClip ic && ic.sound != null) {
         audioEngine.sounds.add(ic.sound);
       }
     }
-    org.deluge.firmware.playback.PlaybackHandler playbackHandler =
-        new org.deluge.firmware.playback.PlaybackHandler();
+    org.deluge.playback.PlaybackHandler playbackHandler = new org.deluge.playback.PlaybackHandler();
     playbackHandler.setSong(song);
     playbackHandler.start();
 
