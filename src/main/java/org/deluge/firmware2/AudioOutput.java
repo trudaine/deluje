@@ -9,10 +9,11 @@ package org.deluge.firmware2;
  * already-ported sample-playback DSP rather than adding new DSP, mirroring the C {@code
  * AudioClip::render} which drives a {@code voiceSample} over a {@code sampleHolder}.
  *
- * <p>Done: playback (phase 1), pitch / time-stretch via {@link #setPlayback} (phase 2), and
- * transport gating via {@link #onTransportStart}/{@link #onTransportStop} (phase 3a — plays only
- * while the song plays). Deferred: arrangement-timeline placement + musical-length loop (phase 3b)
- * and live recording/overdub (phase 4). See docs/AUDIO_TRACK_PORT_PLAN.md.
+ * <p>Done: playback (phase 1), pitch / time-stretch via {@link #setPlayback} (phase 2), transport
+ * gating via {@link #onTransportStart}/{@link #onTransportStop} (phase 3a — plays only while the
+ * song plays), and tempo-synced musical-length looping via {@link #setLoopLengthSamples} (phase 3b
+ * part 1). Deferred: arrangement-timeline per-instance placement (phase 3b part 2) and live
+ * recording/overdub (phase 4). See docs/AUDIO_TRACK_PORT_PLAN.md.
  */
 public class AudioOutput extends GlobalEffectable {
 
@@ -37,14 +38,29 @@ public class AudioOutput extends GlobalEffectable {
   // per-track volume param into this is a later-phase refinement.
   private int amplitude = 1 << 27;
 
+  // Phase 3b — loop at the clip's musical length (samples) rather than the whole sample. 0 = whole
+  // sample. Computed from the clip's tick-length at the song tempo in createAudioSound.
+  private int loopLengthSamples = 0;
+
+  /**
+   * Loop endpoint in frames: the clip's musical length (clamped to the sample), or whole sample.
+   */
+  private int endFrame() {
+    int full = (int) sample.lengthInSamples;
+    return (loopLengthSamples > 0) ? Math.min(loopLengthSamples, full) : full;
+  }
+
+  public void setLoopLengthSamples(int frames) {
+    this.loopLengthSamples = Math.max(0, frames);
+  }
+
   /** Load the clip's sample and arm it for (looping) playback from the start. */
   public void setClip(Sample sample, boolean looping) {
     this.sample = sample;
     this.looping = looping;
     if (sample != null) {
-      int end = (int) sample.lengthInSamples;
       // VoiceSample.setup(sample, startFrame, endFrame, playDirection, looping, loopStartFrame)
-      voiceSample.setup(sample, 0, end, 1, looping, 0);
+      voiceSample.setup(sample, 0, endFrame(), 1, looping, 0);
     }
   }
 
@@ -52,7 +68,7 @@ public class AudioOutput extends GlobalEffectable {
     this.playing = p;
     if (p && sample != null) {
       // (re)arm from the start so playback begins cleanly.
-      voiceSample.setup(sample, 0, (int) sample.lengthInSamples, 1, looping, 0);
+      voiceSample.setup(sample, 0, endFrame(), 1, looping, 0);
     }
   }
 
@@ -67,7 +83,7 @@ public class AudioOutput extends GlobalEffectable {
         // musical-length looping is Phase 3b).
         voiceSample.setupTimeStretch(sample, 0, 1);
       } else {
-        voiceSample.setup(sample, 0, (int) sample.lengthInSamples, 1, looping, 0);
+        voiceSample.setup(sample, 0, endFrame(), 1, looping, 0);
       }
       playing = true;
     }
