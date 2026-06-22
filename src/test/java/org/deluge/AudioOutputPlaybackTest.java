@@ -104,6 +104,47 @@ public class AudioOutputPlaybackTest {
   }
 
   @Test
+  void multipleArrangementInstancesEachPlay() throws Exception {
+    // Two placements of the same audio track: bars 4..8 (384..768) and bars 12..16 (1152..1536).
+    // Audible in BOTH windows; silent in the gap between them (936..1148, clear of FX tails).
+    ProjectModel project = new ProjectModel();
+    AudioTrackModel at = new AudioTrackModel("MultiArr");
+    AudioTrackModel.AudioClip ac = new AudioTrackModel.AudioClip();
+    ac.setFilePath(wav().getAbsolutePath());
+    at.addAudioClip(ac);
+    project.addTrack(at);
+    project.addArrangerClip(new org.deluge.model.ArrangerClip(0, null, ac, 384, 384));
+    project.addArrangerClip(new org.deluge.model.ArrangerClip(0, null, ac, 1152, 384));
+
+    ProjectModel song = FirmwareFactory.createSong(project);
+    FirmwareAudioEngine engine = new FirmwareAudioEngine();
+    engine.sounds.clear();
+    for (var clip : song.getClips()) {
+      if (clip instanceof ClipModel ic && ic.getSound() != null) {
+        engine.sounds.add((org.deluge.firmware2.GlobalEffectable) ic.getSound());
+      }
+    }
+    engine.setTransportPlaying(true);
+    int n = 128;
+    long peakWin1 = 0, peakGap = 0, peakWin2 = 0;
+    for (long tick = 0; tick < 1600; tick++) {
+      engine.setTransportTick(tick);
+      engine.renderBlock(n);
+      long blockPeak = 0;
+      for (int i = 0; i < n; i++) {
+        blockPeak = Math.max(blockPeak, Math.abs((long) engine.masterBuffer[i].l));
+      }
+      if (tick >= 384 && tick < 768) peakWin1 = Math.max(peakWin1, blockPeak);
+      else if (tick >= 936 && tick < 1148) peakGap = Math.max(peakGap, blockPeak);
+      else if (tick >= 1152 && tick < 1536) peakWin2 = Math.max(peakWin2, blockPeak);
+    }
+    System.out.printf("[AudioOutput] multi win1=%d gap=%d win2=%d%n", peakWin1, peakGap, peakWin2);
+    assertTrue(peakWin1 > 0, "first arrangement instance silent");
+    assertTrue(peakWin2 > 0, "second arrangement instance silent");
+    assertTrue(peakGap < peakWin1 / 8, "audio played in the gap between instances");
+  }
+
+  @Test
   void loopsPastSampleEnd() throws Exception {
     // The kick is ~0.4s; render 2s and check the FINAL window is still non-silent — proves the clip
     // loops (a one-shot would be silent after the sample ended).
