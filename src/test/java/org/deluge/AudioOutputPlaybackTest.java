@@ -58,6 +58,48 @@ public class AudioOutputPlaybackTest {
   }
 
   @Test
+  void loopsPastSampleEnd() throws Exception {
+    // The kick is ~0.4s; render 2s and check the FINAL window is still non-silent — proves the clip
+    // loops (a one-shot would be silent after the sample ended).
+    ProjectModel project = new ProjectModel();
+    AudioTrackModel at = new AudioTrackModel("Loop");
+    AudioTrackModel.AudioClip ac = new AudioTrackModel.AudioClip();
+    ac.setFilePath(wav().getAbsolutePath());
+    at.addAudioClip(ac);
+    project.addTrack(at);
+    ProjectModel song = FirmwareFactory.createSong(project);
+    FirmwareAudioEngine engine = new FirmwareAudioEngine();
+    engine.sounds.clear();
+    for (var clip : song.getClips()) {
+      if (clip instanceof ClipModel ic && ic.getSound() != null) {
+        engine.sounds.add((org.deluge.firmware2.GlobalEffectable) ic.getSound());
+      }
+    }
+    PlaybackHandler handler = new PlaybackHandler();
+    handler.setProject(song);
+    handler.start();
+    engine.setTransportPlaying(true);
+    int n = 128;
+    double tailSumSq = 0;
+    long tailCount = 0;
+    int total = 44100 * 2; // 2 seconds
+    for (int done = 0; done < total; done += n) {
+      handler.advanceTicks(1);
+      engine.renderBlock(n);
+      if (done > total - 22050) { // final 0.5s window
+        for (int i = 0; i < n; i++) {
+          double l = engine.masterBuffer[i].l / 2147483648.0;
+          tailSumSq += l * l;
+          tailCount++;
+        }
+      }
+    }
+    double tailRms = Math.sqrt(tailSumSq / tailCount);
+    System.out.printf("[AudioOutput] tail RMS (loop check)=%.5f%n", tailRms);
+    assertTrue(tailRms > 1e-4, "clip stopped instead of looping (tail was silent)");
+  }
+
+  @Test
   void pitchedPlaybackIsAudible() throws Exception {
     // Coupled mode: faster rate → higher pitch (resampled). Must still produce sound.
     AudioTrackModel at = new AudioTrackModel("Pitched");

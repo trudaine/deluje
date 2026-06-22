@@ -158,7 +158,14 @@ public class FirmwareFactory {
               out.setClip(org.deluge.firmware2.Sample.fromFirmwareSample(smp), true);
               // Phase 2: playback rate / pitch (coupled resample vs independent time-stretch).
               out.setPlayback(model.getPlayRate(), clip.isPitchSpeedIndependent());
-              // Phase 3: the engine starts/stops it on the transport play edge (not at load time).
+              // Phase 3b: loop at the clip's musical length (ticks → samples at the song tempo, 96
+              // PPQN), so the clip loops in time with the song rather than at the raw sample end.
+              float bpm = project.getBpm();
+              if (bpm > 0 && clip.getLength() > 0) {
+                double samplesPerTick = 44100.0 / (bpm / 60.0 * 96.0);
+                out.setLoopLengthSamples((int) Math.round(clip.getLength() * samplesPerTick));
+              }
+              // Phase 3a: the engine starts/stops it on the transport play edge (not at load time).
               System.out.println(
                   "[FirmwareFactory] Audio track '"
                       + model.getName()
