@@ -30,7 +30,7 @@ public class FirmwareKit extends org.deluge.firmware2.Kit {
     for (FirmwareSound drum : drumSounds) {
       if (!drum.fw2Sound.voices.isEmpty()) {
         // Render drum track with its own FX chain, summing directly to the Kit buffer
-        drum.renderOutput(buffer, numSamples, reverbBuffer);
+        drum.renderOutputSumming(buffer, numSamples, reverbBuffer);
       }
     }
   }

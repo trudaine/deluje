@@ -11,7 +11,7 @@ import java.util.Map;
 import java.util.logging.Logger;
 import javax.sound.midi.*;
 import org.deluge.model.ClipModel;
-import org.deluge.model.HighResNote;
+import org.deluge.model.NoteModel;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.StepData;
 import org.deluge.model.SynthTrackModel;
@@ -223,7 +223,7 @@ public class MidiToProjectCompiler {
       int hrStart = (int) Math.round(((double) ne.startTick / resolution) * 96);
       int hrDur = (int) Math.round(((double) ne.durationTicks / resolution) * 96);
       float normVel = ne.velocity / 127.0f;
-      HighResNote hrn = new HighResNote(hrStart, hrDur, normVel, 1.0f, 0);
+      NoteModel hrn = new NoteModel(hrStart, hrDur, normVel, 1.0f, 0);
       clip.getRawNoteEvents(r).add(hrn);
 
       // 2. Quantized Grid Path (16th note steps)

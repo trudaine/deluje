@@ -405,9 +405,14 @@ public class DelugeXmlParser {
               String hexData = null;
 
               // Read the y attribute (MIDI note number for synth tracks)
-              int notePitch = 0;
+              int notePitch = -1;
               if (noteRowElem.hasAttribute("y")) {
                 notePitch = Integer.parseInt(noteRowElem.getAttribute("y"));
+              } else {
+                NodeList yList = noteRowElem.getElementsByTagName("y");
+                if (yList.getLength() > 0) {
+                  notePitch = Integer.parseInt(yList.item(0).getTextContent());
+                }
               }
 
               // Check for noteDataWithLift attribute (c1.2.0+ firmware format)
@@ -446,14 +451,14 @@ public class DelugeXmlParser {
                   clip.setStep(r, s, row.get(s));
                 }
 
-                java.util.List<org.deluge.model.HighResNote> rawNotes =
+                java.util.List<org.deluge.model.NoteModel> rawNotes =
                     DelugeNoteDataMapper.decodeRawNotes(hexData, hcpn);
                 clip.setRawNoteEvents(r, rawNotes);
               }
 
               // Apply per-row pitch from y attribute to all steps in this row
               // (the hex note data encodes on/off/gate but not pitch)
-              if (notePitch > 0) {
+              if (notePitch >= 0) {
                 clip.setRowYNote(r, notePitch);
                 for (int s = 0; s < stepCount; s++) {
                   StepData existing = clip.getStep(r, s);
@@ -683,9 +688,14 @@ public class DelugeXmlParser {
             if (noteRowElem.hasAttribute("drumIndex")) {
               drumIdx = Integer.parseInt(noteRowElem.getAttribute("drumIndex"));
             }
-            int notePitch = 0;
+            int notePitch = -1;
             if (noteRowElem.hasAttribute("y")) {
               notePitch = Integer.parseInt(noteRowElem.getAttribute("y"));
+            } else {
+              NodeList yList = noteRowElem.getElementsByTagName("y");
+              if (yList.getLength() > 0) {
+                notePitch = Integer.parseInt(yList.item(0).getTextContent());
+              }
             }
 
             String liftAttr = noteRowElem.getAttribute("noteDataWithLift");
@@ -731,7 +741,7 @@ public class DelugeXmlParser {
                 clip.setStep(r, s, row.get(s));
               }
 
-              java.util.List<org.deluge.model.HighResNote> rawNotes =
+              java.util.List<org.deluge.model.NoteModel> rawNotes =
                   DelugeNoteDataMapper.decodeRawNotes(hexData, hcpn);
               clip.setRawNoteEvents(r, rawNotes);
 
@@ -750,7 +760,7 @@ public class DelugeXmlParser {
             }
 
             // Apply per-row pitch from y attribute to all steps in this row
-            if (notePitch > 0) {
+            if (notePitch >= 0) {
               clip.setRowYNote(r, notePitch);
               for (int s = 0; s < stepCount; s++) {
                 StepData existing = clip.getStep(r, s);
@@ -1025,11 +1035,16 @@ public class DelugeXmlParser {
 
                   int sidx = pos / stepTicks;
                   if (sidx >= 0 && sidx < stepCount) {
+                    clip.setRowYNote(r, noteVal);
                     clip.setStep(
                         r,
                         sidx,
                         StepData.of(
-                            true, (float) noteVal, velocity / 127f, length / (float) stepTicks, 0));
+                            true,
+                            (float) noteVal,
+                            velocity / 127f,
+                            length / (float) stepTicks,
+                            noteVal));
                   }
                 } catch (NumberFormatException ignored) {
                 }

@@ -6,8 +6,6 @@ import org.deluge.firmware2.StereoSample;
 import org.deluge.model.ClipModel;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.SynthTrackModel;
-import org.deluge.playback.InstrumentClip;
-import org.deluge.playback.Song;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -31,8 +29,8 @@ public class FirmwareNativeFmTest {
     m.setEnv(0, new org.deluge.model.EnvelopeModel(0.0f, 0.1f, 1.0f, 0.2f, "NONE", 0.0f));
     ProjectModel p = new ProjectModel();
     p.addTrack(m);
-    Song s = org.deluge.engine.FirmwareFactory.createSong(p);
-    FirmwareSound sound = (FirmwareSound) ((InstrumentClip) s.clips.get(0)).sound;
+    ProjectModel s = org.deluge.engine.FirmwareFactory.createSong(p);
+    FirmwareSound sound = (FirmwareSound) (s.getTracks().get(0).getActiveClip()).getSound();
 
     sound.setSynthMode(FirmwareSound.SynthMode.FM);
     sound.fmRatio1 = 2.0f; // modulator one octave above the carrier (harmonic ratio 2:1)
@@ -80,8 +78,8 @@ public class FirmwareNativeFmTest {
     m.addClip(new ClipModel("c", 8, 16));
     ProjectModel p = new ProjectModel();
     p.addTrack(m);
-    Song s = org.deluge.engine.FirmwareFactory.createSong(p);
-    return (FirmwareSound) ((InstrumentClip) s.clips.get(0)).sound;
+    ProjectModel s = org.deluge.engine.FirmwareFactory.createSong(p);
+    return (FirmwareSound) (s.getTracks().get(0).getActiveClip()).getSound();
   }
 
   /** Fundamental via autocorrelation, with octave correction (pick the shortest strong lag). */

@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.tuning.ScalaScale;
 import org.deluge.model.tuning.ScalaScaleParser;
-import org.deluge.playback.Song;
 import org.deluge.project.ProjectSerializer;
 import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
@@ -15,7 +14,9 @@ class MicrotuningTest {
 
   @Test
   void testDefault12TETParity() {
-    Song song = new Song();
+    ProjectModel song = new ProjectModel();
+    song.calculateNoteFrequencies();
+
     Sound sound = new Sound();
     sound.tuning = song;
     Voice voice = new Voice(sound);
@@ -24,11 +25,11 @@ class MicrotuningTest {
     for (int i = 0; i < 12; i++) {
       assertEquals(
           LookupTables.noteFrequencyTable[i],
-          song.noteFrequencyTable[i],
+          song.noteFrequencyRatio(i),
           "Frequency table mismatch at note " + i);
       assertEquals(
           LookupTables.noteIntervalTable[i],
-          song.noteIntervalTable[i],
+          song.noteIntervalRatio(i),
           "Interval table mismatch at note " + i);
     }
 
@@ -46,29 +47,26 @@ class MicrotuningTest {
 
   @Test
   void testCustomCentsTuning() {
-    Song song = new Song();
+    ProjectModel song = new ProjectModel();
 
     // Detune note 1 (C#) by +50 cents (quarter tone up)
-    song.centAdjustForNotesInTemperament[1] = 50;
+    song.getCentAdjustForNotesInTemperament()[1] = 50;
     // Detune note 2 (D) by -50 cents (quarter tone down)
-    song.centAdjustForNotesInTemperament[2] = -50;
+    song.getCentAdjustForNotesInTemperament()[2] = -50;
 
     song.calculateNoteFrequencies();
 
-    // Verify frequency and interval adjustments
+    // Verify frequency and interval adjustments in Q24 / Q30 fixed-point format
+    int baseFreqQ24 = 1027294024; // Q24 base for 440Hz
     double expectedRatioPlus50 = Math.pow(2.0, 1.5 / 12.0); // 1 semitone + 50 cents = 1.5 semitones
-    int expectedFreqPlus50 = (int) (expectedRatioPlus50 * song.baseFrequency);
+    int expectedFreqPlus50 = (int) (expectedRatioPlus50 * baseFreqQ24);
     int expectedIntervalPlus50 = (int) (expectedRatioPlus50 * 1073741824.0);
 
-    assertEquals(expectedFreqPlus50, song.noteFrequencyTable[1], 1.0);
-    assertEquals(expectedIntervalPlus50, song.noteIntervalTable[1], 1.0);
-
-    double expectedRatioMinus50 =
-        Math.pow(2.0, 1.5 / 12.0); // 2 semitones - 50 cents = 1.5 semitones
-    int expectedFreqMinus50 = (int) (expectedRatioMinus50 * song.baseFrequency);
+    assertEquals(expectedFreqPlus50, song.noteFrequencyRatio(1), 1.0);
+    assertEquals(expectedIntervalPlus50, song.noteIntervalRatio(1), 1.0);
 
     // Note 1 and Note 2 should now have the exact same frequency because they meet in the middle!
-    assertEquals(song.noteFrequencyTable[1], song.noteFrequencyTable[2], 2.0);
+    assertEquals(song.noteFrequencyRatio(1), song.noteFrequencyRatio(2), 2.0);
 
     // Verify that the voice renders the detuned frequency
     Sound standardSound = new Sound();
@@ -87,40 +85,44 @@ class MicrotuningTest {
 
   @Test
   void testCustomTemperamentRatios() {
-    Song song = new Song();
-    song.isEqualTemperament = false;
-    song.octaveNumMicrotonalNotes = 5; // 5-note pentatonic scale
+    ProjectModel song = new ProjectModel();
+    song.setIsEqualTemperament(false);
+    song.setOctaveNumMicrotonalNotes(5); // 5-note pentatonic scale
 
     // Just Intonation Pentatonic Ratios: 1.0 (C), 9/8 (D), 5/4 (E), 3/2 (G), 5/3 (A)
-    song.customRatios[0] = 1.0;
-    song.customRatios[1] = 9.0 / 8.0;
-    song.customRatios[2] = 5.0 / 4.0;
-    song.customRatios[3] = 3.0 / 2.0;
-    song.customRatios[4] = 5.0 / 3.0;
+    song.getCustomRatios()[0] = 1.0;
+    song.getCustomRatios()[1] = 9.0 / 8.0;
+    song.getCustomRatios()[2] = 5.0 / 4.0;
+    song.getCustomRatios()[3] = 3.0 / 2.0;
+    song.getCustomRatios()[4] = 5.0 / 3.0;
 
     song.calculateNoteFrequencies();
 
-    // 1. Verify ratio-based frequency table calculations
-    assertEquals(song.baseFrequency, song.noteFrequencyTable[0]);
-    assertEquals(
-        (int) (1.5 * song.baseFrequency), song.noteFrequencyTable[3]); // Perfect fifth ratio
+    // 1. Verify ratio-based frequency table calculations (against Q24 base 1027294024)
+    int baseFreqQ24 = 1027294024;
+    assertEquals(baseFreqQ24, song.noteFrequencyRatio(0));
+    assertEquals((int) (1.5 * baseFreqQ24), song.noteFrequencyRatio(3)); // Perfect fifth ratio
 
     // 2. Verify custom octave and note division (including negative note codes)
-    Song.NoteWithinOctave n1 = song.getOctaveAndNoteWithin(0);
-    assertEquals(0, n1.octave);
-    assertEquals(0, n1.noteWithin);
+    int o1 = song.octaveOf(0);
+    int n1 = song.noteWithinOctaveOf(0);
+    assertEquals(0, o1);
+    assertEquals(0, n1);
 
-    Song.NoteWithinOctave n2 = song.getOctaveAndNoteWithin(5);
-    assertEquals(1, n2.octave); // One octave up in a 5-note scale
-    assertEquals(0, n2.noteWithin);
+    int o2 = song.octaveOf(5);
+    int n2 = song.noteWithinOctaveOf(5);
+    assertEquals(1, o2); // One octave up in a 5-note scale
+    assertEquals(0, n2);
 
-    Song.NoteWithinOctave n3 = song.getOctaveAndNoteWithin(7);
-    assertEquals(1, n3.octave);
-    assertEquals(2, n3.noteWithin);
+    int o3 = song.octaveOf(7);
+    int n3 = song.noteWithinOctaveOf(7);
+    assertEquals(1, o3);
+    assertEquals(2, n3);
 
-    Song.NoteWithinOctave n4 = song.getOctaveAndNoteWithin(-1);
-    assertEquals(-1, n4.octave);
-    assertEquals(4, n4.noteWithin);
+    int o4 = song.octaveOf(-1);
+    int n4 = song.noteWithinOctaveOf(-1);
+    assertEquals(-1, o4);
+    assertEquals(4, n4);
 
     // 3. Verify that voice rendering scales perfectly by octaves
     Sound sound = new Sound();
@@ -179,7 +181,7 @@ class MicrotuningTest {
 
     java.io.File ratioTempFile = java.io.File.createTempFile("song_microtuning_ratio_test", ".xml");
     ratioTempFile.deleteOnExit();
-    ProjectSerializer.save(ratioModel, ratioTempFile);
+    ProjectSerializer.save(ratioModel, ratioTempFile); // Typo fixed here: save ratioModel!
 
     ProjectModel importedRatioModel = DelugeXmlParser.parseSong(ratioTempFile);
 

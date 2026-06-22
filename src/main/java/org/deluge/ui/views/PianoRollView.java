@@ -1,17 +1,17 @@
 package org.deluge.ui.views;
 
 import org.deluge.hid.*;
-import org.deluge.playback.InstrumentClip;
-import org.deluge.playback.Note;
-import org.deluge.playback.NoteRow;
+import org.deluge.model.ClipModel;
+import org.deluge.model.NoteModel;
+import org.deluge.model.NoteRowModel;
 
 /** Port of the Deluge's PianoRollView (InstrumentClipView). Bit-accurate note editing logic. */
 public class PianoRollView extends FirmwareView {
-  private final InstrumentClip clip;
+  private final ClipModel clip;
   private int scrollY = 60; // Middle C
   private int scrollX = 0;
 
-  public PianoRollView(InstrumentClip clip) {
+  public PianoRollView(ClipModel clip) {
     this.clip = clip;
   }
 
@@ -22,7 +22,7 @@ public class PianoRollView extends FirmwareView {
 
   @Override
   public ActionResult selectButtonPress(boolean on) {
-    if (on && clip.sound instanceof org.deluge.engine.FirmwareSound synth) {
+    if (on && clip.getSound() instanceof org.deluge.engine.FirmwareSound synth) {
       MatrixDriver.get().pushUI(new MenuView(org.deluge.ui.menu.SoundEditor.createRootMenu(synth)));
       return ActionResult.DEALT_WITH;
     }
@@ -32,43 +32,43 @@ public class PianoRollView extends FirmwareView {
   @Override
   public ActionResult padAction(int x, int y, int velocity) {
     if (x < 16 && y < 8) {
-      int stepTicks = clip.tripletMode ? 32 : 24;
+      int stepTicks = clip.isTripletMode() ? 32 : 24;
       int notePos = scrollX + x * stepTicks;
       int notePitch = scrollY - y;
 
       if (velocity > 0) {
         // ── Bit-Accurate Audition ──
-        if (clip.sound != null) {
-          if (clip.sound instanceof org.deluge.engine.FirmwareSound) {
-            ((org.deluge.engine.FirmwareSound) clip.sound).triggerNote(notePitch, velocity);
+        if (clip.getSound() != null) {
+          if (clip.getSound() instanceof org.deluge.engine.FirmwareSound) {
+            ((org.deluge.engine.FirmwareSound) clip.getSound()).triggerNote(notePitch, velocity);
           }
         }
 
         // Toggle note
-        NoteRow row = null;
-        for (NoteRow r : clip.noteRows) {
-          if (r.y == notePitch) {
+        NoteRowModel row = null;
+        for (NoteRowModel r : clip.getNoteRowsList()) {
+          if (r.getPitch() == notePitch) {
             row = r;
             break;
           }
         }
 
         if (row == null) {
-          row = new NoteRow(notePitch);
-          clip.noteRows.add(row);
+          row = clip.getOrCreateRow(notePitch);
+          row.setPitch(notePitch);
         }
 
         boolean found = false;
-        for (Note n : row.notes) {
-          if (n.pos == notePos) {
-            row.notes.remove(n);
+        for (NoteModel n : row.getNotes()) {
+          if (n.getPos() == notePos) {
+            row.getNotes().remove(n);
             found = true;
             break;
           }
         }
 
         if (!found) {
-          row.attemptNoteAdd(notePos, stepTicks, velocity, 100, null, 0);
+          row.attemptNoteAdd(notePos, stepTicks, velocity, 100, new org.deluge.model.Iterance(), 0);
         }
         return ActionResult.DEALT_WITH;
       }
@@ -88,21 +88,21 @@ public class PianoRollView extends FirmwareView {
     }
 
     // Draw notes
-    int stepTicks = clip.tripletMode ? 32 : 24;
+    int stepTicks = clip.isTripletMode() ? 32 : 24;
     for (int x = 0; x < 16; x++) {
       int notePos = scrollX + x * stepTicks;
       for (int y = 0; y < 8; y++) {
         int pitch = scrollY - y;
-        NoteRow row = null;
-        for (NoteRow r : clip.noteRows) {
-          if (r.y == pitch) {
+        NoteRowModel row = null;
+        for (NoteRowModel r : clip.getNoteRowsList()) {
+          if (r.getPitch() == pitch) {
             row = r;
             break;
           }
         }
         if (row != null) {
-          for (Note n : row.notes) {
-            if (n.pos == notePos) {
+          for (NoteModel n : row.getNotes()) {
+            if (n.getPos() == notePos) {
               PadLEDs.set(x, y, new RGB(0, 255, 255)); // Cyan for notes
             }
           }

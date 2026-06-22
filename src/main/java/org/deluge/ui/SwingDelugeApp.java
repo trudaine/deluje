@@ -1781,24 +1781,26 @@ public class SwingDelugeApp extends JFrame {
     if (!forceRebuild && isFirmwarePlaying() && !engineStructureChanged(model)) {
       return;
     }
-    org.deluge.playback.Song fwSong = FirmwareFactory.createSong(model);
+    // Compile DSP engine in-place on the unified model!
+    org.deluge.model.ProjectModel project = FirmwareFactory.createSong(model);
 
+    org.deluge.model.ClipModel firstClip = null;
+    if (!model.getTracks().isEmpty()) {
+      firstClip = model.getTracks().get(0).getActiveClip();
+    }
+
+    final org.deluge.model.ClipModel fClip = firstClip;
     javax.swing.SwingUtilities.invokeLater(
         () -> {
           MatrixDriver.get().popUI();
-          if (!fwSong.clips.isEmpty()) {
-            org.deluge.playback.Clip first = fwSong.clips.get(0);
-            if (first instanceof org.deluge.playback.InstrumentClip ic) {
-              if (ic.sound instanceof org.deluge.engine.FirmwareKit) {
-                MatrixDriver.get().pushUI(new KitView(ic));
-              } else {
-                MatrixDriver.get().pushUI(new PianoRollView(ic));
-              }
+          if (fClip != null) {
+            if (fClip.getSound() instanceof org.deluge.engine.FirmwareKit) {
+              MatrixDriver.get().pushUI(new KitView(fClip));
             } else {
-              MatrixDriver.get().pushUI(new SessionView(fwSong));
+              MatrixDriver.get().pushUI(new PianoRollView(fClip));
             }
           } else {
-            MatrixDriver.get().pushUI(new SessionView(fwSong));
+            MatrixDriver.get().pushUI(new SessionView(model));
           }
         });
 
@@ -1807,15 +1809,16 @@ public class SwingDelugeApp extends JFrame {
     if (fwEngineObj instanceof org.deluge.engine.FirmwareAudioEngine fwEngine) {
       fwEngine.sounds.clear();
       for (int i = 0; i < model.getTracks().size(); i++) {
-        fwEngine.sounds.add(null);
-      }
-
-      for (int i = 0; i < fwSong.clips.size() && i < model.getTracks().size(); i++) {
-        org.deluge.playback.Clip c = fwSong.clips.get(i);
-        if (c instanceof org.deluge.playback.InstrumentClip ic && ic.sound != null) {
-          fwEngine.sounds.set(i, ic.sound);
+        org.deluge.model.TrackModel tm = model.getTracks().get(i);
+        org.deluge.model.ClipModel activeClip = tm.getActiveClip();
+        org.deluge.firmware2.GlobalEffectable sound =
+            (activeClip != null)
+                ? (org.deluge.firmware2.GlobalEffectable) activeClip.getSound()
+                : null;
+        fwEngine.sounds.add(sound);
+        if (sound != null) {
           System.out.println(
-              "[UI] Registered track " + i + " sound: " + ic.sound.getClass().getSimpleName());
+              "[UI] Registered track " + i + " sound: " + sound.getClass().getSimpleName());
         }
       }
 
@@ -1877,25 +1880,22 @@ public class SwingDelugeApp extends JFrame {
         "[DIAG sync] fwHandlerObj="
             + fwHandlerObj
             + " isPlaybackHandler="
-            + (fwHandlerObj instanceof org.deluge.playback.PlaybackHandler)
-            + " fwSongClips="
-            + (fwSong != null ? fwSong.clips.size() : "null"));
+            + (fwHandlerObj instanceof org.deluge.playback.PlaybackHandler));
     if (fwHandlerObj instanceof org.deluge.playback.PlaybackHandler fwHandler) {
-      fwHandler.setSong(fwSong);
+      fwHandler.setProject(model);
       System.out.println(
-          "[DIAG sync] Successfully set fwSong inside PlaybackHandler! Current active play state="
+          "[DIAG sync] Successfully set project inside PlaybackHandler! Current active play state="
               + fwHandler.isPlaying()
               + " songBpm="
-              + fwSong.tempoBPM);
-      if (fwSong.clips.size() > 0
-          && fwSong.clips.get(0) instanceof org.deluge.playback.InstrumentClip ic) {
+              + model.getBpm());
+      if (firstClip != null) {
         int activeNotesCount = 0;
-        for (var row : ic.noteRows) {
-          activeNotesCount += row.notes.size();
+        for (var row : firstClip.getNoteRowsList()) {
+          activeNotesCount += row.getNotes().size();
         }
         System.out.println(
             "[DIAG sync] First Clip Active NoteRows Count: "
-                + ic.noteRows.size()
+                + firstClip.getNoteRowsList().size()
                 + " Total Programmed Note Events: "
                 + activeNotesCount);
       }
@@ -2059,13 +2059,6 @@ public class SwingDelugeApp extends JFrame {
       }
     }
     try {
-      // Sync firmware model -> Java model before save, if firmware engine is active
-      if (pureEngine != null) {
-        var fwSong = pureEngine.getPlaybackHandler().getSong();
-        if (fwSong != null) {
-          org.deluge.engine.FirmwareFactory.syncFirmwareToModel(fwSong, currentProject);
-        }
-      }
       pushModelToBridge();
       org.deluge.project.ProjectSerializer.save(currentProject, target);
       currentProjectFile = target;

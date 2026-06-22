@@ -1,14 +1,16 @@
 package org.deluge.playback;
 
 import org.deluge.hid.FirmwareDisplay;
+import org.deluge.model.ClipModel;
+import org.deluge.model.ProjectModel;
 
 /**
  * Port of the Deluge's PlaybackHandler class. Manages transport state and high-fidelity timing
- * (Swing, Quantization).
+ * (Swing, Quantization) on the unified ProjectModel.
  */
 public class PlaybackHandler {
   private volatile boolean playing = false;
-  private Song currentSong;
+  private ProjectModel currentProject;
   private final Arrangement arrangement = new Arrangement();
   public volatile int lastSwungTickActioned = 0;
   private int swungTicksTilNextEvent = 0;
@@ -22,12 +24,12 @@ public class PlaybackHandler {
     this.syncMode = mode;
   }
 
-  public synchronized void setSong(Song song) {
-    this.currentSong = song;
+  public synchronized void setProject(ProjectModel project) {
+    this.currentProject = project;
   }
 
-  public synchronized Song getSong() {
-    return currentSong;
+  public synchronized ProjectModel getProject() {
+    return currentProject;
   }
 
   public synchronized boolean isPlaying() {
@@ -39,8 +41,8 @@ public class PlaybackHandler {
     lastSwungTickActioned = 0;
     swungTicksTilNextEvent = 0;
     FirmwareDisplay.get().setText(" PLAYING ");
-    if (currentSong != null) {
-      for (Clip clip : currentSong.clips) {
+    if (currentProject != null) {
+      for (ClipModel clip : currentProject.getClips()) {
         clip.lastProcessedPos = 0;
         clip.repeatCount = 0;
       }
@@ -61,12 +63,12 @@ public class PlaybackHandler {
               + numTicks
               + " lastSwungTickActioned="
               + lastSwungTickActioned
-              + " currentSong="
-              + currentSong
+              + " currentProject="
+              + currentProject
               + " swungTicksTilNextEvent="
               + swungTicksTilNextEvent);
     }
-    if (!playing || currentSong == null) return;
+    if (!playing || currentProject == null) return;
 
     int ticksRemaining = numTicks;
     while (ticksRemaining > 0) {
@@ -75,28 +77,30 @@ public class PlaybackHandler {
 
       // ── Bit-Accurate Swing Math ──
       int effectiveAdvance = toAdvance;
-      if (currentSong.swingAmount != 0) {
+      if (currentProject.getSwingAmount() != 0) {
         int leftShift =
-            6 - currentSong.swingInterval; // Offset 6 for 96 PPQN (C++ uses 9/10 for 1536 PPQN)
+            6
+                - currentProject
+                    .getSwingInterval(); // Offset 6 for 96 PPQN (C++ uses 9/10 for 1536 PPQN)
         int swingTicks = 3 << leftShift;
         if ((lastSwungTickActioned % (swingTicks * 2)) < swingTicks) {
-          effectiveAdvance = (toAdvance * (50 + currentSong.swingAmount)) / 50;
+          effectiveAdvance = (toAdvance * (50 + currentProject.getSwingAmount())) / 50;
         } else {
-          effectiveAdvance = (toAdvance * (50 - currentSong.swingAmount)) / 50;
+          effectiveAdvance = (toAdvance * (50 - currentProject.getSwingAmount())) / 50;
         }
       }
 
       lastSwungTickActioned += effectiveAdvance;
       arrangement.advance(effectiveAdvance);
 
-      for (Clip clip : currentSong.clips) {
+      for (ClipModel clip : currentProject.getClips()) {
         clip.lastProcessedPos += effectiveAdvance;
         clip.processCurrentPos(effectiveAdvance);
       }
 
       // Update next event distance
-      if (currentSong != null) {
-        swungTicksTilNextEvent = currentSong.swungTicksTilNextEvent;
+      if (currentProject != null) {
+        swungTicksTilNextEvent = currentProject.getSwungTicksTilNextEvent();
       }
 
       ticksRemaining -= toAdvance;
@@ -105,9 +109,9 @@ public class PlaybackHandler {
     // Update LED with bar:beat:tick
     int stepTicks = 24;
     int stepCount = 16;
-    if (currentSong != null && !currentSong.clips.isEmpty()) {
-      stepTicks = currentSong.clips.get(0).tripletMode ? 32 : 24;
-      stepCount = currentSong.clips.get(0).tripletMode ? 12 : 16;
+    if (currentProject != null && !currentProject.getClips().isEmpty()) {
+      stepTicks = currentProject.getClips().get(0).isTripletMode() ? 32 : 24;
+      stepCount = currentProject.getClips().get(0).isTripletMode() ? 12 : 16;
     }
     int bars = (lastSwungTickActioned / (stepTicks * stepCount)) + 1;
     int beats = ((lastSwungTickActioned / stepTicks) % stepCount) + 1;

@@ -16,7 +16,6 @@ import org.deluge.model.ProjectModel;
 import org.deluge.model.StepData;
 import org.deluge.model.SynthTrackModel;
 import org.deluge.playback.PlaybackHandler;
-import org.deluge.playback.Song;
 import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -74,14 +73,14 @@ public class ResampleFidelityTest {
     project.addTrack(synthModel);
 
     // 3. Build firmware song and engine
-    Song fwSong = FirmwareFactory.createSong(project);
-    assertFalse(fwSong.clips.isEmpty(), "Song must have clips");
+    ProjectModel fwSong = FirmwareFactory.createSong(project);
+    assertFalse(fwSong.getClips().isEmpty(), "Song must have clips");
 
     // Debug: verify notes were created
-    var clip0 = (org.deluge.playback.InstrumentClip) fwSong.clips.get(0);
-    System.out.println("[Test] Clip noteRows: " + clip0.noteRows.size());
+    var clip0 = fwSong.getTracks().get(0).getActiveClip();
+    System.out.println("[Test] Clip noteRows: " + clip0.getNoteRowsList().size());
     int totalNotes = 0;
-    for (var nr : clip0.noteRows) {
+    for (var nr : clip0.getNoteRowsList()) {
       System.out.println("[Test]   Row y=" + nr.y + " notes=" + nr.notes.size());
       for (var n : nr.notes) {
         System.out.println(
@@ -92,7 +91,7 @@ public class ResampleFidelityTest {
     System.out.println("[Test] Total notes in firmware song: " + totalNotes);
     assertTrue(totalNotes >= 5, "Expected >= 5 notes in firmware song, got " + totalNotes);
 
-    FirmwareSound fwSound = (FirmwareSound) clip0.sound;
+    FirmwareSound fwSound = (FirmwareSound) clip0.getSound();
 
     FirmwareAudioEngine engine = new FirmwareAudioEngine();
     engine.metronomeEnabled = false; // No metronome clicks
@@ -102,7 +101,7 @@ public class ResampleFidelityTest {
 
     // 4. Create playback handler — auto-plays when setSong is called
     PlaybackHandler handler = new PlaybackHandler();
-    handler.setSong(fwSong);
+    handler.setProject(fwSong);
     handler.start(); // Start playback
 
     // 5. Render enough audio to capture one full loop (16 steps at 120 BPM = 2 seconds)
@@ -194,9 +193,9 @@ public class ResampleFidelityTest {
     SynthTrackModel model = DelugeXmlParser.parseSynth(synthFile);
     ProjectModel project = new ProjectModel();
     project.addTrack(model);
-    Song fwSong = FirmwareFactory.createSong(project);
-    var clip = (org.deluge.playback.InstrumentClip) fwSong.clips.get(0);
-    FirmwareSound fwSound = (FirmwareSound) clip.sound;
+    ProjectModel fwSong = FirmwareFactory.createSong(project);
+    var clip = fwSong.getTracks().get(0).getActiveClip();
+    FirmwareSound fwSound = (FirmwareSound) clip.getSound();
 
     // Trigger C4 at max velocity
     fwSound.triggerNote(60, 127);
@@ -267,9 +266,9 @@ public class ResampleFidelityTest {
     project.addTrack(synthModel);
 
     // 4. Build engine + playback
-    Song fwSong = FirmwareFactory.createSong(project);
-    var clip0 = (org.deluge.playback.InstrumentClip) fwSong.clips.get(0);
-    FirmwareSound fwSound = (FirmwareSound) clip0.sound;
+    ProjectModel fwSong = FirmwareFactory.createSong(project);
+    var clip0 = fwSong.getTracks().get(0).getActiveClip();
+    FirmwareSound fwSound = (FirmwareSound) clip0.getSound();
     fwSound.paramKnobs[org.deluge.firmware2.Param.LOCAL_VOLUME] = -1720000000;
     fwSound.fw2Sound.unisonDetune = 0;
     fwSound.fw2Sound.unisonStereoSpread = 0;
@@ -281,7 +280,7 @@ public class ResampleFidelityTest {
     engine.sounds.add(fwSound);
 
     PlaybackHandler handler = new PlaybackHandler();
-    handler.setSong(fwSong);
+    handler.setProject(fwSong);
     handler.start();
 
     // 5. Render same duration as the golden and apply resampler gain staging

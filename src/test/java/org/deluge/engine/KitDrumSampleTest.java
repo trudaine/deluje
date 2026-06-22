@@ -109,7 +109,85 @@ class KitDrumSampleTest {
     assertNotEquals(e, e2, "sample-loaded sound must differ from sample-less sound");
   }
 
-  // TODO: kit integration test — drumSounds inside FirmwareKit produce 0 energy (separate bug,
-  // not the OSC_A_VOLUME fix). Once fixed, re-enable:
-  // @Test void kitDrumProducesAudio() { ... }
+  @Test
+  void kitDrumProducesAudio() {
+    float[] wave = new float[2000];
+    for (int i = 0; i < wave.length; i++) wave[i] = (float) Math.sin(i * 0.2) * 0.8f;
+
+    FirmwareKit kit = new FirmwareKit();
+    giveSample(kit.drumSounds.get(0), wave);
+
+    FirmwareAudioEngine eng = new FirmwareAudioEngine();
+    eng.sounds.add(kit);
+
+    kit.triggerDrum(0, 127);
+    eng.renderBlock(128);
+
+    long e = 0;
+    for (int i = 0; i < 128; i++) e += Math.abs((long) eng.masterBuffer[i].l);
+    assertTrue(e > 0, "kit drum must produce audio output");
+  }
+
+  @Test
+  void twoKitDrumsSumCorrectly() {
+    float[] waveA = new float[2000];
+    float[] waveB = new float[2000];
+    for (int i = 0; i < waveA.length; i++) {
+      waveA[i] = (float) Math.sin(i * 0.05) * 0.4f;
+      waveB[i] = (float) Math.sin(i * 0.40) * 0.4f;
+    }
+
+    // 1. Render both drums together in one kit
+    FirmwareKit kit = new FirmwareKit();
+    giveSample(kit.drumSounds.get(0), waveA);
+    giveSample(kit.drumSounds.get(1), waveB);
+
+    FirmwareAudioEngine eng = new FirmwareAudioEngine();
+    eng.sounds.add(kit);
+
+    kit.triggerDrum(0, 127);
+    kit.triggerDrum(1, 127);
+    eng.renderBlock(128);
+
+    long[] mixedOut = new long[256];
+    for (int i = 0; i < 128; i++) {
+      mixedOut[i * 2] = eng.masterBuffer[i].l;
+      mixedOut[i * 2 + 1] = eng.masterBuffer[i].r;
+    }
+
+    // 2. Render drum 0 individually
+    FirmwareKit kit0 = new FirmwareKit();
+    giveSample(kit0.drumSounds.get(0), waveA);
+    FirmwareAudioEngine eng0 = new FirmwareAudioEngine();
+    eng0.sounds.add(kit0);
+    kit0.triggerDrum(0, 127);
+    eng0.renderBlock(128);
+    long[] out0 = new long[256];
+    for (int i = 0; i < 128; i++) {
+      out0[i * 2] = eng0.masterBuffer[i].l;
+      out0[i * 2 + 1] = eng0.masterBuffer[i].r;
+    }
+
+    // 3. Render drum 1 individually
+    FirmwareKit kit1 = new FirmwareKit();
+    giveSample(kit1.drumSounds.get(1), waveB);
+    FirmwareAudioEngine eng1 = new FirmwareAudioEngine();
+    eng1.sounds.add(kit1);
+    kit1.triggerDrum(1, 127);
+    eng1.renderBlock(128);
+    long[] out1 = new long[256];
+    for (int i = 0; i < 128; i++) {
+      out1[i * 2] = eng1.masterBuffer[i].l;
+      out1[i * 2 + 1] = eng1.masterBuffer[i].r;
+    }
+
+    // Verify that mixed output is not identical to drum 1's output alone
+    long diffToOut1 = 0;
+    for (int i = 0; i < 256; i++) {
+      diffToOut1 += Math.abs(mixedOut[i] - out1[i]);
+    }
+    assertTrue(
+        diffToOut1 > 100,
+        "mixed output must not be identical to drum 1's output alone (meaning drum 0 was overwritten!)");
+  }
 }

@@ -1,11 +1,15 @@
-package org.deluge.playback;
+package org.deluge.model;
 
+/**
+ * Abstract base class representing transport and timeline counters (like Song or Clip). Relocated
+ * to org.deluge.model for unified architecture.
+ */
 public abstract class TimelineCounter {
   public volatile int lastProcessedPos = 0;
   public volatile int repeatCount = 0;
   public boolean armedForRecording = true;
   public volatile boolean currentlyPlayingReversed = false;
-  public volatile SequenceDirection sequenceDirectionMode = SequenceDirection.FORWARD;
+  public SequenceDirection sequenceDirectionMode = SequenceDirection.FORWARD;
 
   public TimelineCounter() {}
 
@@ -15,6 +19,5 @@ public abstract class TimelineCounter {
 
   public abstract boolean backtrackingCouldLoopBackToEnd();
 
-  // Simplifications of parameter classes
   public void instrumentBeenEdited() {}
 }

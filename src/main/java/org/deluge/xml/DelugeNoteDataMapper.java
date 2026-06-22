@@ -122,8 +122,8 @@ public class DelugeNoteDataMapper {
     return row;
   }
 
-  public static List<org.deluge.model.HighResNote> decodeRawNotes(String hex, int hexCharsPerNote) {
-    List<org.deluge.model.HighResNote> list = new ArrayList<>();
+  public static List<org.deluge.model.NoteModel> decodeRawNotes(String hex, int hexCharsPerNote) {
+    List<org.deluge.model.NoteModel> list = new ArrayList<>();
     if (hex == null || !hex.startsWith("0x") || hex.length() < 2 + hexCharsPerNote) {
       return list;
     }
@@ -144,7 +144,7 @@ public class DelugeNoteDataMapper {
         velocity = velInt / 127.0f;
       }
 
-      list.add(new org.deluge.model.HighResNote(pos, len, velocity, 1.0f, 0));
+      list.add(new org.deluge.model.NoteModel(pos, len, velocity, 1.0f, 0));
       idx += hexCharsPerNote;
     }
     return list;

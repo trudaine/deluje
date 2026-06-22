@@ -125,6 +125,22 @@ public abstract class GlobalEffectable {
     }
   }
 
+  public void renderOutputSumming(int[] output, int numSamples, int[] reverbBuffer) {
+    long[] outLong = new long[numSamples * 2];
+    long[] revLong = (reverbBuffer != null) ? new long[numSamples] : null;
+    renderOutput(outLong, numSamples, revLong);
+    for (int i = 0; i < numSamples * 2; i++) {
+      long summed = (long) output[i] + outLong[i];
+      output[i] = (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, summed));
+    }
+    if (reverbBuffer != null) {
+      for (int i = 0; i < numSamples; i++) {
+        long summed = (long) reverbBuffer[i] + revLong[i];
+        reverbBuffer[i] = (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, summed));
+      }
+    }
+  }
+
   protected abstract void renderInternal(int[] buffer, int numSamples, int[] reverbBuffer);
 
   public void renderOutput(StereoSample[] buffer, int numSamples, Object unused) {

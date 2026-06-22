@@ -13,7 +13,6 @@ import org.deluge.model.ProjectModel;
 import org.deluge.model.SynthTrackModel;
 import org.deluge.modulation.patch.PatchCable;
 import org.deluge.modulation.patch.PatchSource;
-import org.deluge.playback.Song;
 import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -45,12 +44,11 @@ public class DigitalAudioFidelityTest {
     SynthTrackModel synthModel = DelugeXmlParser.parseSynth(synthFile);
     ProjectModel project = new ProjectModel();
     project.addTrack(synthModel);
-    Song fwSong = FirmwareFactory.createSong(project);
+    ProjectModel fwSong = FirmwareFactory.createSong(project);
 
     // Retrieve active sound instrument
-    org.deluge.playback.InstrumentClip clip =
-        (org.deluge.playback.InstrumentClip) fwSong.clips.get(0);
-    FirmwareSound synth = (FirmwareSound) clip.sound;
+    org.deluge.model.ClipModel clip = fwSong.getTracks().get(0).getActiveClip();
+    FirmwareSound synth = (FirmwareSound) clip.getSound();
     synth.triggerNote(60, 127); // Trigger note C4 (261Hz)
 
     int totalSamples = 44032; // ~1 second
@@ -104,12 +102,11 @@ public class DigitalAudioFidelityTest {
     KitTrackModel kitModel = DelugeXmlParser.parseKit(kitFile);
     ProjectModel project = new ProjectModel();
     project.addTrack(kitModel);
-    Song fwSong = FirmwareFactory.createSong(project);
+    ProjectModel fwSong = FirmwareFactory.createSong(project);
 
     // Retrieve active kit instrument
-    org.deluge.playback.InstrumentClip clip =
-        (org.deluge.playback.InstrumentClip) fwSong.clips.get(0);
-    FirmwareKit kit = (FirmwareKit) clip.sound;
+    org.deluge.model.ClipModel clip = fwSong.getTracks().get(0).getActiveClip();
+    FirmwareKit kit = (FirmwareKit) clip.getSound();
 
     // Diagnostic print loop for all 16 drum lanes
     for (int i = 0; i < 16; i++) {

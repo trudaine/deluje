@@ -106,7 +106,7 @@ public class ExportHelper {
     engine.metronomeEnabled = false;
 
     // Build FW Song from model
-    Song fwSong = FirmwareFactory.createSong(model);
+    ProjectModel project = FirmwareFactory.createSong(model);
 
     // Populate compileable tracks list to match JNI clips to original tracks
     java.util.List<TrackModel> compileableTracks = new java.util.ArrayList<>();
@@ -132,20 +132,18 @@ public class ExportHelper {
     }
 
     // Populate sounds:
-    int currentTrackIdx = 0;
-    for (var clip : fwSong.clips) {
-      if (clip instanceof InstrumentClip ic) {
-        if (ic.sound instanceof FirmwareSound fs) {
-          if (targetTrackIndex == null || targetClipIdx == currentTrackIdx) {
-            engine.sounds.add(fs);
-          }
+    for (int i = 0; i < project.getTracks().size(); i++) {
+      TrackModel tm = project.getTracks().get(i);
+      ClipModel activeClip = tm.getActiveClip();
+      if (activeClip != null && activeClip.getSound() instanceof FirmwareSound fs) {
+        if (targetTrackIndex == null || targetClipIdx == i) {
+          engine.sounds.add(fs);
         }
       }
-      currentTrackIdx++;
     }
 
     PlaybackHandler handler = new PlaybackHandler();
-    handler.setSong(fwSong);
+    handler.setProject(project);
     handler.start();
 
     AudioFormat format = new AudioFormat(44100.0f, 16, 2, true, false);

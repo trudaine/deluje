@@ -1,20 +1,20 @@
 package org.deluge.ui.views;
 
 import org.deluge.hid.*;
-import org.deluge.playback.Song;
+import org.deluge.model.ClipModel;
+import org.deluge.model.ProjectModel;
 
 /** Port of the Deluge's SessionView class. Handles the "Clip launch" grid logic. */
 public class SessionView extends FirmwareView {
-  private final Song song;
+  private final ProjectModel project;
 
-  public SessionView(Song song) {
-    this.song = song;
+  public SessionView(ProjectModel project) {
+    this.project = project;
   }
 
   @Override
   public ActionResult padAction(int x, int y, int velocity) {
     if (velocity > 0) {
-      // Logic for launching a clip at (x, y) would go here
       FirmwareDisplay.get().displayPopup("LAUNCH " + x + ":" + y);
       return ActionResult.DEALT_WITH;
     }
@@ -27,7 +27,6 @@ public class SessionView extends FirmwareView {
 
     // Draw track status in the sidebar
     for (int y = 0; y < 8; y++) {
-      // Blink if recording, solid if playing
       boolean recording = false; // dummy
       if (recording && !PadLEDs.getFlashFast()) continue;
 
@@ -38,14 +37,18 @@ public class SessionView extends FirmwareView {
     // Draw clip launch pads
     int stepTicks = 24;
     int stepCount = 16;
-    if (song != null && !song.clips.isEmpty()) {
-      stepTicks = song.clips.get(0).tripletMode ? 32 : 24;
-      stepCount = song.clips.get(0).tripletMode ? 12 : 16;
+    if (project != null && !project.getTracks().isEmpty()) {
+      org.deluge.model.TrackModel firstTrack = project.getTracks().get(0);
+      if (firstTrack != null && !firstTrack.getClips().isEmpty()) {
+        ClipModel firstClip = firstTrack.getClips().get(0);
+        stepTicks = firstClip.isTripletMode() ? 32 : 24;
+        stepCount = firstClip.isTripletMode() ? 12 : 16;
+      }
     }
     for (int x = 0; x < 16; x++) {
       for (int y = 0; y < 8; y++) {
-        // If this is the current playhead position, blink white
-        boolean isPlayhead = (x == (song.lastSwungTickActioned / stepTicks) % stepCount);
+        boolean isPlayhead =
+            (project != null && x == (project.getLastSwungTickActioned() / stepTicks) % stepCount);
         if (isPlayhead) {
           if (PadLEDs.getFlashFast()) {
             PadLEDs.set(x, y, new RGB(255, 255, 255));

@@ -5,9 +5,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.io.File;
 import org.deluge.engine.FirmwareAudioEngine;
 import org.deluge.engine.FirmwareFactory;
+import org.deluge.model.ClipModel;
 import org.deluge.model.ProjectModel;
-import org.deluge.playback.InstrumentClip;
-import org.deluge.playback.Song;
 import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
@@ -27,15 +26,15 @@ public class PerSoundDelayTimingTest {
       songFile = new File("../deluge/src/main/resources/SONGS/TestDelayFidelity.xml");
     }
     ProjectModel pm = DelugeXmlParser.parseSong(songFile);
-    Song song = FirmwareFactory.createSong(pm);
+    ProjectModel song = FirmwareFactory.createSong(pm);
     FirmwareAudioEngine eng = new FirmwareAudioEngine();
-    for (var clip : song.clips) {
-      if (clip instanceof InstrumentClip ic && ic.sound != null) {
-        eng.sounds.add(ic.sound);
+    for (var clip : song.getClips()) {
+      if (clip instanceof ClipModel ic && ic.getSound() != null) {
+        eng.sounds.add((org.deluge.firmware2.GlobalEffectable) ic.getSound());
       }
     }
     var pb = new org.deluge.playback.PlaybackHandler();
-    pb.setSong(song);
+    pb.setProject(song);
     pb.start();
 
     int sr = 44100;

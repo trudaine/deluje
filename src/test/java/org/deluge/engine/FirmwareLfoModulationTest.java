@@ -10,8 +10,6 @@ import org.deluge.model.SynthTrackModel;
 import org.deluge.modulation.automation.AutoParam;
 import org.deluge.modulation.patch.PatchCable;
 import org.deluge.modulation.patch.PatchSource;
-import org.deluge.playback.InstrumentClip;
-import org.deluge.playback.Song;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -34,8 +32,8 @@ public class FirmwareLfoModulationTest {
     m.addClip(new ClipModel("c", 8, 16));
     ProjectModel p = new ProjectModel();
     p.addTrack(m);
-    Song s = org.deluge.engine.FirmwareFactory.createSong(p);
-    FirmwareSound sound = (FirmwareSound) ((InstrumentClip) s.clips.get(0)).sound;
+    ProjectModel s = org.deluge.engine.FirmwareFactory.createSong(p);
+    FirmwareSound sound = (FirmwareSound) (s.getTracks().get(0).getActiveClip()).getSound();
 
     // Drive the local LFO at ~5 Hz. The LFO-rate param is now the phase increment directly
     // (firmware

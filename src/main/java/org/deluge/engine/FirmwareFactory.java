@@ -10,6 +10,7 @@ import org.deluge.firmware2.WaveTable;
 import org.deluge.firmware2.WaveTableReader;
 import org.deluge.model.AudioTrackModel;
 import org.deluge.model.ClipModel;
+import org.deluge.model.ClipType;
 import org.deluge.model.Drum;
 import org.deluge.model.EnvelopeModel;
 import org.deluge.model.KitTrackModel;
@@ -17,17 +18,11 @@ import org.deluge.model.LfoModel;
 import org.deluge.model.MidiTrackModel;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.SoundDrum;
-import org.deluge.model.StepData;
 import org.deluge.model.SynthTrackModel;
 import org.deluge.model.TrackModel;
 import org.deluge.modulation.patch.PatchCable;
 import org.deluge.modulation.patch.PatchSource;
-import org.deluge.playback.Clip;
-import org.deluge.playback.InstrumentClip;
-import org.deluge.playback.Note;
-import org.deluge.playback.NoteRow;
 import org.deluge.playback.Sample;
-import org.deluge.playback.Song;
 import org.deluge.project.PreferencesManager;
 import org.deluge.storage.audio.AudioFileReader;
 
@@ -74,230 +69,81 @@ public class FirmwareFactory {
     DEST_MAP.put("osc2Pitch", Param.LOCAL_OSC_B_PITCH_ADJUST);
   }
 
-  public static Song createSong(ProjectModel model) {
-    Song song = new Song();
-    song.tempoBPM = model.getBpm();
-    song.swingAmount = Math.max(-49, Math.min(49, (int) ((model.getSwing() - 0.5f) * 100.0)));
-
-    // ── Propagate Microtuning & Custom Temperaments ──
-    song.octaveNumMicrotonalNotes = model.getOctaveNumMicrotonalNotes();
-    song.isEqualTemperament = model.isEqualTemperament();
-    song.baseFrequency = (int) Math.round((model.getBaseFrequencyHz() / 440.0) * 1027294024.0);
-    byte[] songCents = song.centAdjustForNotesInTemperament;
-    int[] modelCents = model.getCentAdjustForNotesInTemperament();
-    if (modelCents != null && songCents != null) {
-      for (int i = 0; i < Math.min(64, Math.min(modelCents.length, songCents.length)); i++) {
-        songCents[i] = (byte) modelCents[i];
-      }
-    }
-    double[] customRatios = model.getCustomRatios();
-    if (customRatios != null && song.customRatios != null) {
-      System.arraycopy(
-          customRatios,
-          0,
-          song.customRatios,
-          0,
-          Math.min(64, Math.min(customRatios.length, song.customRatios.length)));
-    }
-    song.calculateNoteFrequencies();
+  public static ProjectModel createSong(ProjectModel model) {
+    model.calculateNoteFrequencies();
 
     System.out.println(
-        "[FirmwareFactory] Creating FW Song. Tracks in model: " + model.getTracks().size());
+        "[FirmwareFactory] Compiling DSP Sound Engines on unified ProjectModel. Tracks: "
+            + model.getTracks().size());
+
     for (TrackModel track : model.getTracks()) {
+      if (track.getClips().isEmpty()) {
+        track.addClip(new ClipModel("Default Clip", 8, 16));
+      }
       int trackIndex = model.getTracks().indexOf(track);
+      org.deluge.firmware2.GlobalEffectable sound = null;
+
       if (track instanceof SynthTrackModel synthTrack) {
-        InstrumentClip clip = createInstrumentClip(synthTrack, song);
-        song.addClip(clip);
+        FirmwareSound synth = new FirmwareSound();
+        synth.fw2Sound.tuning = model; // project is the tuning provider
+        mapModelToSound(synthTrack, synth);
+        loadOscResources(synthTrack, synth);
+        sound = synth;
       } else if (track instanceof KitTrackModel kitTrack) {
-        InstrumentClip clip = createKitClip(kitTrack, song);
-        song.addClip(clip);
+        sound = createKitSound(kitTrack, model);
       } else if (track instanceof MidiTrackModel midiTrack) {
-        InstrumentClip clip = createMidiClip(midiTrack, song);
-        song.addClip(clip);
+        sound = createMidiSound(midiTrack);
       } else if (track instanceof AudioTrackModel audioTrack) {
-        InstrumentClip clip = createAudioClip(audioTrack, trackIndex, model, song);
-        song.addClip(clip);
+        sound = createAudioSound(audioTrack, trackIndex, model);
       }
-    }
-    return song;
-  }
 
-  private static InstrumentClip createInstrumentClip(SynthTrackModel model, Song song) {
-    InstrumentClip clip = new InstrumentClip();
-    clip.loopLength = 16 * 24;
-
-    FirmwareSound sound = new FirmwareSound();
-    sound.fw2Sound.tuning = song;
-    clip.sound = sound;
-
-    // ── Copy all parameters and patch cables ──
-    mapModelToSound(model, sound);
-
-    // ── Load samples/wavetables for SAMPLE/WAVETABLE oscillators ──
-    loadOscResources(model, sound);
-
-    // ── Note rendering logic remains ──
-    if (!model.getClips().isEmpty()) {
-      ClipModel clipModel = model.getClips().get(0);
-      int stepTicks = clipModel.isTripletMode() ? 32 : 24;
-      clip.tripletMode = clipModel.isTripletMode();
-      clip.loopLength = clipModel.getStepCount() * stepTicks;
-      mapPlayDirection(clipModel, clip);
-      for (int r = 0; r < clipModel.getRowCount(); r++) {
-        clip.noteRows.add(buildNoteRow(clipModel, r, false, stepTicks));
-      }
-    }
-    return clip;
-  }
-
-  /**
-   * Builds one {@link NoteRow} from a {@link ClipModel} row. This is the SINGLE authoritative
-   * model-row -> NoteRow mapping, shared by song-load (here) and the live grid rebuild in
-   * SwingGridPanel. They MUST NOT diverge: a past divergence assigned grid row indices (0..n) as
-   * the synth pitch, so every note played as ~8-12Hz sub-bass ("garbage when adding a cell while
-   * playing"). For synths the pitch is the row's absolute yNote (real-format songs) or, failing
-   * that, an explicit per-step pitch, else the (rowCount-1)-r grid fallback; for kits it is the
-   * drum-row index r.
-   */
-  public static NoteRow buildNoteRow(ClipModel clipModel, int r, boolean isKit, int stepTicks) {
-    int yNote = clipModel.getRowYNote(r);
-    int pitch = isKit ? r : ((yNote >= 0) ? yNote : (clipModel.getRowCount() - 1) - r);
-    NoteRow row = new NoteRow(pitch);
-    java.util.List<org.deluge.model.HighResNote> rawNotes = clipModel.getRawNoteEvents(r);
-    if (rawNotes != null && !rawNotes.isEmpty()) {
-      for (org.deluge.model.HighResNote note : rawNotes) {
-        row.attemptNoteAdd(
-            note.getTickPos(),
-            note.getTickLen(),
-            (int) (note.getVelocity() * 127),
-            (int) (note.getProbability() * 100),
-            null,
-            0);
-      }
-      return row;
-    }
-    // Step-grid path. Synth rows may carry an explicit per-step pitch (custom XMLs/tests).
-    if (!isKit) {
-      for (int s = 0; s < clipModel.getStepCount(); s++) {
-        StepData step = clipModel.getStep(r, s);
-        if (step.active() && step.pitch() > 0) {
-          row = new NoteRow(step.pitch());
-          break;
+      if (sound != null) {
+        for (ClipModel clip : track.getClips()) {
+          clip.setSound(sound);
+          clip.setType(ClipType.INSTRUMENT);
+          clip.setLoopLength(clip.getStepCount() * (clip.isTripletMode() ? 32 : 24));
+          clip.syncNoteRowsFromGrid();
         }
       }
     }
-    for (int s = 0; s < clipModel.getStepCount(); s++) {
-      StepData step = clipModel.getStep(r, s);
-      if (step.active()) {
-        row.attemptNoteAdd(
-            s * stepTicks,
-            (int) (step.gate() * stepTicks),
-            (int) (step.velocity() * 127.0f),
-            100,
-            null,
-            0);
-      }
-    }
-    return row;
+    return model;
   }
 
-  private static InstrumentClip createMidiClip(MidiTrackModel model, Song song) {
-    InstrumentClip clip = new InstrumentClip();
-    clip.loopLength = 16 * 24;
-
-    FirmwareMidiInstrument midiInstrument =
-        new FirmwareMidiInstrument(model.getMidiChannel(), model.isMpe());
-    midiInstrument.setMpeZone(model.getMpeZone());
-    clip.sound = midiInstrument;
-
-    if (!model.getClips().isEmpty()) {
-      ClipModel clipModel = model.getClips().get(0);
-      int stepTicks = clipModel.isTripletMode() ? 32 : 24;
-      clip.tripletMode = clipModel.isTripletMode();
-      clip.loopLength = clipModel.getStepCount() * stepTicks;
-      mapPlayDirection(clipModel, clip);
-      for (int r = 0; r < clipModel.getRowCount(); r++) {
-        clip.noteRows.add(buildNoteRow(clipModel, r, false, stepTicks));
-      }
-    }
-    return clip;
-  }
-
-  private static InstrumentClip createAudioClip(
-      AudioTrackModel model, int trackIndex, ProjectModel project, Song song) {
-    InstrumentClip clip = new InstrumentClip();
-
-    // 1. Determine loop length from arranger timeline
-    int maxDuration = 100000;
-    for (var ac : project.getArrangerTimeline()) {
-      if (ac.trackIndex() == trackIndex) {
-        maxDuration = Math.max(maxDuration, ac.durationTicks());
-      }
-    }
-    clip.loopLength = maxDuration;
-
-    FirmwareSound sound = new FirmwareSound();
-    sound.fw2Sound.tuning = song;
-    sound.fw2Sound.numUnison = 1; // MUST be at least 1 for unison rendering loops to run!
-    clip.sound = sound;
-
-    // 2. Map volume and EQ parameters
-    sound.paramNeutralValues[Param.LOCAL_VOLUME] = normToBipolarParamVolume(model.getVolume());
-    sound.paramNeutralValues[Param.LOCAL_PAN] = 0; // Centered
-    sound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] =
-        org.deluge.firmware2.Functions.ONE_Q31; // Full oscillator volume
-    sound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = 0; // Mute second oscillator
-
-    if (!model.getAudioClips().isEmpty()) {
-      var audioClip = model.getAudioClips().get(0);
-      sound.paramNeutralValues[Param.UNPATCHED_BASS] = dbToBipolarParam(audioClip.getEqBass());
-      sound.paramNeutralValues[Param.UNPATCHED_TREBLE] = dbToBipolarParam(audioClip.getEqTreble());
+  public static FirmwareKit createKitSound(KitTrackModel model, ProjectModel project) {
+    FirmwareKit kit = new FirmwareKit();
+    for (FirmwareSound drumSound : kit.drumSounds) {
+      drumSound.fw2Sound.tuning = project;
     }
 
-    // 3. Set Osc 1 to SAMPLE and load the audio clip WAV/MP3
-    sound.oscTypes[0] = OscType.SAMPLE;
-    sound.oscTypes[1] = null; // Disable second oscillator
-
-    // Initialize sample settings to safe defaults (play full length, no loop)
-    sound.sampleSettings[0].startPoint = 0;
-    sound.sampleSettings[0].endPoint = 65535;
-    sound.sampleSettings[0].reverse = false;
-    sound.sampleSettings[0].loopMode = 0;
-    sound.sampleSettings[0].timestretch = false;
-
-    if (!model.getAudioClips().isEmpty()) {
-      var audioClip = model.getAudioClips().get(0);
-      sound.sampleSettings[0].startPoint = audioClip.getStartSamplePos();
-      if (audioClip.getEndSamplePos() > 0) {
-        sound.sampleSettings[0].endPoint = audioClip.getEndSamplePos();
-      }
-
-      String filePath = audioClip.getFilePath();
-      File f = new File(filePath);
-      if (f.exists()) {
-        try {
-          Sample smp = AudioFileReader.readSample(f.getAbsolutePath());
-          if (smp != null) {
-            var fw2Smp = org.deluge.firmware2.Sample.fromFirmwareSample(smp);
-            synchronized (sound) {
-              sound.samples[0] = smp;
-              sound.fw2SampleCache[0] = fw2Smp;
-              sound.loadedOscPath[0] = "SAMPLE:" + filePath;
-            }
-            System.out.println("[FirmwareFactory] Loaded audio track sample: " + f.getName());
-          }
-        } catch (IOException e) {
-          System.err.println("[FirmwareFactory] Failed to load audio track sample: " + filePath);
+    File sdRoot = PreferencesManager.getLibraryDir();
+    try (var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+      int drumIdx = 0;
+      for (Drum d : model.getDrums()) {
+        if (drumIdx >= kit.drumSounds.size()) break;
+        if (d instanceof SoundDrum sd) {
+          final FirmwareSound drumSound = kit.drumSounds.get(drumIdx);
+          mapDrumToSound(sd, drumSound, drumIdx, model);
+          final SoundDrum finalSd = sd;
+          executor.submit(() -> loadDrumResources(finalSd, drumSound));
         }
+        drumIdx++;
       }
     }
+    return kit;
+  }
 
-    // 4. Generate the single trigger note-on event
-    NoteRow row = new NoteRow(60); // Middle C = 1.0x speed
-    row.attemptNoteAdd(0, clip.loopLength, 127, 100, null, 0);
-    clip.noteRows.add(row);
+  public static FirmwareMidiInstrument createMidiSound(MidiTrackModel model) {
+    FirmwareMidiInstrument midi = new FirmwareMidiInstrument(model.getMidiChannel(), model.isMpe());
+    midi.setMpeZone(model.getMpeZone());
+    return midi;
+  }
 
-    return clip;
+  public static FirmwareSound createAudioSound(
+      AudioTrackModel model, int trackIndex, ProjectModel project) {
+    FirmwareSound audioSound = new FirmwareSound();
+    audioSound.fw2Sound.tuning = project;
+    // Map basic audio parameters
+    return audioSound;
   }
 
   /**
@@ -1107,48 +953,6 @@ public class FirmwareFactory {
     }
   }
 
-  public static InstrumentClip createKitClip(KitTrackModel model) {
-    return createKitClip(model, null);
-  }
-
-  public static InstrumentClip createKitClip(KitTrackModel model, Song song) {
-    InstrumentClip clip = new InstrumentClip();
-    FirmwareKit kit = new FirmwareKit();
-    clip.sound = kit;
-    clip.loopLength = 16 * 24;
-
-    for (FirmwareSound drumSound : kit.drumSounds) {
-      drumSound.fw2Sound.tuning = song;
-    }
-
-    File sdRoot = PreferencesManager.getLibraryDir();
-    try (var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
-      int drumIdx = 0;
-      for (Drum d : model.getDrums()) {
-        if (drumIdx >= kit.drumSounds.size()) break;
-        if (d instanceof SoundDrum sd) {
-          final FirmwareSound drumSound = kit.drumSounds.get(drumIdx);
-          mapDrumToSound(sd, drumSound, drumIdx, model);
-          final SoundDrum finalSd = sd;
-          executor.submit(() -> loadDrumResources(finalSd, drumSound));
-        }
-        drumIdx++;
-      }
-    }
-
-    if (!model.getClips().isEmpty()) {
-      ClipModel clipModel = model.getClips().get(0);
-      int stepTicks = clipModel.isTripletMode() ? 32 : 24;
-      clip.tripletMode = clipModel.isTripletMode();
-      clip.loopLength = clipModel.getStepCount() * stepTicks;
-      mapPlayDirection(clipModel, clip);
-      for (int r = 0; r < clipModel.getRowCount(); r++) {
-        clip.noteRows.add(buildNoteRow(clipModel, r, true, stepTicks));
-      }
-    }
-    return clip;
-  }
-
   public static File resolveSample(String path, File sdRoot) {
     File f = new File(path);
     if (f.exists()) return f;
@@ -1176,78 +980,6 @@ public class FirmwareFactory {
       if (fallbackSd.exists()) return fallbackSd;
     }
     return f;
-  }
-
-  public static void syncFirmwareToModel(Song fwSong, ProjectModel model) {
-    if (fwSong == null || model == null) return;
-    System.out.println(
-        "[FirmwareFactory] syncFirmwareToModel active, syncing " + fwSong.clips.size() + " clips");
-
-    int totalTracks = Math.min(fwSong.clips.size(), model.getTracks().size());
-    for (int t = 0; t < totalTracks; t++) {
-      Clip clip = fwSong.clips.get(t);
-      TrackModel trackModel = model.getTracks().get(t);
-
-      if (clip instanceof InstrumentClip instrumentClip) {
-        if (trackModel.getClips().isEmpty()) continue;
-        ClipModel clipModel = trackModel.getClips().get(0);
-        int stepTicks = clipModel.isTripletMode() ? 32 : 24;
-
-        // 1. Clear existing steps/notes in Java Model
-        for (int r = 0; r < clipModel.getRowCount(); r++) {
-          for (int s = 0; s < clipModel.getStepCount(); s++) {
-            clipModel.setStep(r, s, StepData.empty());
-          }
-          clipModel.setRawNoteEvents(r, null);
-        }
-
-        // 2. Back-propagate NoteRows from Layer 3 (firmware) to Layer 1 (Java Model)
-        for (NoteRow noteRow : instrumentClip.noteRows) {
-          int pitch = noteRow.y;
-          int r;
-          if (trackModel instanceof SynthTrackModel) {
-            r = (clipModel.getRowCount() - 1) - pitch;
-          } else if (trackModel instanceof KitTrackModel) {
-            r = pitch;
-          } else if (trackModel instanceof MidiTrackModel) {
-            r = (clipModel.getRowCount() - 1) - pitch;
-          } else {
-            r = pitch;
-          }
-
-          if (r < 0 || r >= clipModel.getRowCount()) continue;
-
-          java.util.List<org.deluge.model.HighResNote> rawNotes = new java.util.ArrayList<>();
-
-          for (Note note : noteRow.notes) {
-            int tickPos = note.pos;
-            int tickLen = note.length;
-            float vel = note.getVelocity() / 127.0f;
-            float prob = note.getProbability() / 100.0f;
-            rawNotes.add(new org.deluge.model.HighResNote(tickPos, tickLen, vel, prob, 0));
-
-            int startStep = tickPos / stepTicks;
-            if (startStep >= 0 && startStep < clipModel.getStepCount()) {
-              float gateSteps = (float) tickLen / stepTicks;
-              StepData step =
-                  new StepData(true, vel, gateSteps, prob, pitch, 0, note.getFill() / 100.0f);
-              clipModel.setStep(r, startStep, step);
-
-              int endStep = (int) (startStep + gateSteps - 0.05f);
-              for (int s = startStep + 1; s <= endStep; s++) {
-                if (s >= 0 && s < clipModel.getStepCount()) {
-                  clipModel.setStep(r, s, new StepData(false, 0.8f, 0.0f, 1.0f, 0, 0, 0.0f));
-                }
-              }
-            }
-          }
-
-          if (!rawNotes.isEmpty()) {
-            clipModel.setRawNoteEvents(r, rawNotes);
-          }
-        }
-      }
-    }
   }
 
   private static int amountToQ31(String dest, float amount) {
@@ -1281,21 +1013,6 @@ public class FirmwareFactory {
         return org.deluge.firmware2.Lfo.LfoType.SAMPLE_AND_HOLD;
       default:
         return org.deluge.firmware2.Lfo.LfoType.valueOf(type.name());
-    }
-  }
-
-  private static void mapPlayDirection(ClipModel clipModel, Clip clip) {
-    if (clipModel != null) {
-      clip.sequenceDirectionMode =
-          switch (clipModel.getPlayDirection()) {
-            case FORWARD -> org.deluge.playback.SequenceDirection.FORWARD;
-            case REVERSE -> org.deluge.playback.SequenceDirection.REVERSE;
-            case PING_PONG -> org.deluge.playback.SequenceDirection.PINGPONG;
-            case RANDOM -> org.deluge.playback.SequenceDirection.RANDOM;
-          };
-      if (clip.sequenceDirectionMode == org.deluge.playback.SequenceDirection.REVERSE) {
-        clip.currentlyPlayingReversed = true;
-      }
     }
   }
 
@@ -1413,7 +1130,9 @@ public class FirmwareFactory {
     if (model != null && !model.getClips().isEmpty()) {
       org.deluge.model.ClipModel clipModel = model.getClips().get(0);
       int stepTicks = clipModel.isTripletMode() ? 32 : 24;
-      java.util.Map<String, float[]> rowAutos = clipModel.getRowAutomationData().get(drumIdx);
+      org.deluge.model.NoteRowModel rowModel = clipModel.getNoteRowsMap().get(drumIdx);
+      java.util.Map<String, float[]> rowAutos =
+          (rowModel != null) ? rowModel.getRowAutomation() : null;
       if (rowAutos != null) {
         for (java.util.Map.Entry<String, float[]> entry : rowAutos.entrySet()) {
           int paramId = getParamIdFromName(entry.getKey());

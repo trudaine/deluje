@@ -10,8 +10,6 @@ import org.deluge.model.ProjectModel;
 import org.deluge.model.SynthTrackModel;
 import org.deluge.modulation.patch.PatchCable;
 import org.deluge.modulation.patch.PatchSource;
-import org.deluge.playback.InstrumentClip;
-import org.deluge.playback.Song;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -35,8 +33,8 @@ public class FirmwarePatchCableTest {
     m.addClip(new ClipModel("c", 8, 16));
     ProjectModel p = new ProjectModel();
     p.addTrack(m);
-    Song s = org.deluge.engine.FirmwareFactory.createSong(p);
-    return (FirmwareSound) ((InstrumentClip) s.clips.get(0)).sound;
+    ProjectModel s = org.deluge.engine.FirmwareFactory.createSong(p);
+    return (FirmwareSound) (s.getTracks().get(0).getActiveClip()).getSound();
   }
 
   private static void cable(FirmwareSound s, PatchSource from, int paramId, int amountQ31) {

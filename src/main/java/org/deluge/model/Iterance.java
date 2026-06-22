@@ -1,5 +1,9 @@
-package org.deluge.playback;
+package org.deluge.model;
 
+/**
+ * Port of the Deluge's Iterance (play condition) class. Manages playback check logic based on
+ * repeats (e.g. 1:2, 2:4).
+ */
 public class Iterance {
   public byte divisor;
   public byte iteranceStep; // Using byte as a bitset of 8 bits

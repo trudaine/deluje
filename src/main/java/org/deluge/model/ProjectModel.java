@@ -7,7 +7,7 @@ import java.util.Map;
 import org.deluge.project.PresetFinder;
 
 /** The root model for a full Deluge project/song. */
-public class ProjectModel {
+public class ProjectModel implements org.deluge.firmware2.TuningProvider {
 
   // Undo/redo stack — cleared on new project load
   private final UndoRedoStack undoRedoStack = new UndoRedoStack(64);
@@ -103,6 +103,157 @@ public class ProjectModel {
   private double baseFrequencyHz = 440.0;
   private final int[] centAdjustForNotesInTemperament = new int[64];
   private final double[] customRatios = new double[64];
+
+  // ── TuningProvider & Sequencer calculations ──
+  private final transient int[] noteFrequencyTable = new int[64];
+  private final transient int[] noteIntervalTable = new int[64];
+
+  private transient int tempoSamples;
+  private transient int lastSwungTickActioned = 0;
+  private transient int swungTicksTilNextEvent = Integer.MAX_VALUE;
+  private transient boolean inArrangerMode = false;
+  private transient int swingAmount = 0; // -49 to 49
+  private transient int swingInterval = 3; // SyncLevel (e.g. 1/16)
+  private transient org.deluge.modulation.params.ParamManager paramManager =
+      new org.deluge.modulation.params.ParamManager();
+
+  public void calculateNoteFrequencies() {
+    int baseFreqQ24 = (int) Math.round((baseFrequencyHz / 440.0) * 1027294024.0);
+    if (isEqualTemperament) {
+      noteFrequencyTable[0] = baseFreqQ24;
+      noteIntervalTable[0] = 1073741824; // Q30.ONE
+      int numNotesTimes100 = octaveNumMicrotonalNotes * 100;
+      for (int i = 1; i < octaveNumMicrotonalNotes; i++) {
+        int withCents = i * 100 + centAdjustForNotesInTemperament[i];
+        noteFrequencyTable[i] =
+            (int) Math.round(Math.pow(2.0, (double) withCents / numNotesTimes100) * baseFreqQ24);
+        noteIntervalTable[i] =
+            (int) Math.round(Math.pow(2.0, (double) withCents / numNotesTimes100) * 1073741824.0);
+      }
+    } else {
+      noteFrequencyTable[0] = baseFreqQ24;
+      noteIntervalTable[0] = 1073741824; // Q30.ONE
+      for (int i = 1; i < octaveNumMicrotonalNotes; i++) {
+        double ratio =
+            customRatios[i] > 0.0
+                ? customRatios[i]
+                : Math.pow(2.0, (double) i / octaveNumMicrotonalNotes);
+        noteFrequencyTable[i] = (int) Math.round(ratio * baseFreqQ24);
+        noteIntervalTable[i] = (int) Math.round(ratio * 1073741824.0);
+      }
+    }
+  }
+
+  // --- TuningProvider Implementation ---
+
+  @Override
+  public int octaveOf(int noteCode) {
+    return Math.floorDiv(noteCode, octaveNumMicrotonalNotes);
+  }
+
+  @Override
+  public int noteWithinOctaveOf(int noteCode) {
+    return Math.floorMod(noteCode, octaveNumMicrotonalNotes);
+  }
+
+  @Override
+  public int noteIntervalRatio(int noteWithinOctave) {
+    if (noteWithinOctave >= 0 && noteWithinOctave < 64) {
+      return noteIntervalTable[noteWithinOctave];
+    }
+    return 1073741824;
+  }
+
+  @Override
+  public int noteFrequencyRatio(int noteWithinOctave) {
+    if (noteWithinOctave >= 0 && noteWithinOctave < 64) {
+      return noteFrequencyTable[noteWithinOctave];
+    }
+    return 1027294024;
+  }
+
+  // --- Sequencer Getters/Setters & Tick Runner ---
+
+  public int getTempoSamples() {
+    return tempoSamples;
+  }
+
+  public void setTempoSamples(int samples) {
+    this.tempoSamples = samples;
+  }
+
+  public float getTempoBPM() {
+    return bpm;
+  }
+
+  public void setTempoBPM(float bpm) {
+    this.bpm = bpm;
+  }
+
+  public int getSwingAmount() {
+    return swingAmount;
+  }
+
+  public void setSwingAmount(int amt) {
+    this.swingAmount = amt;
+  }
+
+  public int getSwingInterval() {
+    return swingInterval;
+  }
+
+  public void setSwingInterval(int interval) {
+    this.swingInterval = interval;
+  }
+
+  public boolean isInArrangerMode() {
+    return inArrangerMode;
+  }
+
+  public void setInArrangerMode(boolean arr) {
+    this.inArrangerMode = arr;
+  }
+
+  public int getSwungTicksTilNextEvent() {
+    return swungTicksTilNextEvent;
+  }
+
+  public int getLastSwungTickActioned() {
+    return lastSwungTickActioned;
+  }
+
+  public void setLastSwungTickActioned(int tick) {
+    this.lastSwungTickActioned = tick;
+  }
+
+  public void doTickForward(int posIncrement) {
+    swungTicksTilNextEvent = Integer.MAX_VALUE;
+
+    // Process global song automation
+    if (paramManager.mightContainAutomation()) {
+      paramManager.processCurrentPos(0, 0, false, false, true);
+      swungTicksTilNextEvent = Math.min(swungTicksTilNextEvent, paramManager.ticksTilNextEvent);
+    }
+
+    for (TrackModel track : tracks) {
+      ClipModel activeClip = track.getActiveClip();
+      if (activeClip != null) {
+        activeClip.processCurrentPos(posIncrement);
+        swungTicksTilNextEvent =
+            Math.min(swungTicksTilNextEvent, activeClip.getTicksTilNextEvent());
+      }
+    }
+  }
+
+  public List<ClipModel> getClips() {
+    List<ClipModel> all = new java.util.ArrayList<>();
+    for (TrackModel t : getTracks()) {
+      if (t.getActiveClip() != null) {
+        all.add(t.getActiveClip());
+      }
+    }
+    return all;
+  }
 
   public static ProjectModel createDefaultProject() {
     ProjectModel project = new ProjectModel();

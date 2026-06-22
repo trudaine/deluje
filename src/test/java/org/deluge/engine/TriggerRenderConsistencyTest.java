@@ -8,8 +8,8 @@ import org.junit.jupiter.api.Test;
 /**
  * Regression guard for the "edit cells then play = no sound" bug. The engine renders the sounds in
  * {@code engine.sounds}, but playback triggers notes on the clip's own {@code sound} object
- * (InstrumentClip.triggerNote). If a sync ever leaves those as different instances, triggered notes
- * go to an object that is never rendered → silence. This test pins that invariant: a note is only
+ * (ClipModel.triggerNote). If a sync ever leaves those as different instances, triggered notes go
+ * to an object that is never rendered → silence. This test pins that invariant: a note is only
  * audible when the triggered sound is the same instance the engine renders.
  */
 class TriggerRenderConsistencyTest {
