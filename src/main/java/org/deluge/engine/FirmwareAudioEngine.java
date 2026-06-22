@@ -205,11 +205,15 @@ public class FirmwareAudioEngine {
                 134217728, org.deluge.firmware2.Functions.cableToLinearParamShortcut(0))
             >> 1;
 
+    // These max-scans feed only the telemetry log below — skip the whole-buffer scan when
+    // telemetry is off (the default), saving two passes over the master buffer every block.
     int maxBeforeL = 0;
     int maxBeforeR = 0;
-    for (int i = 0; i < numSamples; i++) {
-      maxBeforeL = Math.max(maxBeforeL, Math.abs(fxBuffer[i][0]));
-      maxBeforeR = Math.max(maxBeforeR, Math.abs(fxBuffer[i][1]));
+    if (debugTelemetry) {
+      for (int i = 0; i < numSamples; i++) {
+        maxBeforeL = Math.max(maxBeforeL, Math.abs(fxBuffer[i][0]));
+        maxBeforeR = Math.max(maxBeforeR, Math.abs(fxBuffer[i][1]));
+      }
     }
 
     masterCompressor.render(
@@ -219,16 +223,16 @@ public class FirmwareAudioEngine {
         MASTER_VOLUME_NEUTRAL >> 1,
         songVolume >> 3);
 
-    int maxAfterL = 0;
-    int maxAfterR = 0;
-    for (int i = 0; i < numSamples; i++) {
-      maxAfterL = Math.max(maxAfterL, Math.abs(fxBuffer[i][0]));
-      maxAfterR = Math.max(maxAfterR, Math.abs(fxBuffer[i][1]));
-    }
-    if (debugTelemetry && maxBeforeL > 1000) {
-      System.out.printf(
-          "[TELEMETRY Engine] fxBuffer L max absolute value: Before=%d, After=%d\n",
-          maxBeforeL, maxAfterL);
+    if (debugTelemetry) {
+      int maxAfterL = 0;
+      for (int i = 0; i < numSamples; i++) {
+        maxAfterL = Math.max(maxAfterL, Math.abs(fxBuffer[i][0]));
+      }
+      if (maxBeforeL > 1000) {
+        System.out.printf(
+            "[TELEMETRY Engine] fxBuffer L max absolute value: Before=%d, After=%d\n",
+            maxBeforeL, maxAfterL);
+      }
     }
 
     masterVolumeAdjustmentL = MASTER_VOLUME_NEUTRAL; // C:901 resets to ONE_Q31; we keep our neutral

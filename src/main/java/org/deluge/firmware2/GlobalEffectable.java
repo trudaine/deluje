@@ -1,6 +1,9 @@
 package org.deluge.firmware2;
 
 import java.util.Arrays;
+import jdk.incubator.vector.IntVector;
+import jdk.incubator.vector.VectorOperators;
+import jdk.incubator.vector.VectorSpecies;
 
 /**
  * Faithful port of the Deluge C++ GlobalEffectable / GlobalEffectableForClip logic. Handles the
@@ -20,6 +23,28 @@ public abstract class GlobalEffectable {
   // — unity at neutral; Q31.ONE with >>31 is the same unity in this bridge's convention).
   public int postFXVolume = 134217728;
   public int postReverbVolume = 134217728;
+
+  private static final VectorSpecies<Integer> I_SPECIES = IntVector.SPECIES_PREFERRED;
+
+  /**
+   * Vectorized abs-max over {@code a[0..len)} (bit-identical to a scalar Math.abs/Math.max loop).
+   */
+  static int absMax(int[] a, int len) {
+    int i = 0;
+    int max = 0;
+    int bound = I_SPECIES.loopBound(len);
+    if (bound > 0) {
+      IntVector vmax = IntVector.zero(I_SPECIES);
+      for (; i < bound; i += I_SPECIES.length()) {
+        vmax = vmax.max(IntVector.fromArray(I_SPECIES, a, i).abs());
+      }
+      max = vmax.reduceLanes(VectorOperators.MAX);
+    }
+    for (; i < len; i++) {
+      max = Math.max(max, Math.abs(a[i]));
+    }
+    return max;
+  }
 
   private int[] trackBuffer = new int[256];
   private int[] trackReverbBuffer = new int[128];
@@ -47,10 +72,10 @@ public abstract class GlobalEffectable {
     postReverbVolume = 134217728;
     renderInternal(trackBuffer, numSamples, trackReverbBuffer);
 
-    int maxValTrack = 0;
-    for (int i = 0; i < numSamples * 2; i++) {
-      maxValTrack = Math.max(maxValTrack, Math.abs(trackBuffer[i]));
-    }
+    // Silence-detection scan (a Java-side optimization, not faithful-C math): abs-max over the
+    // track buffer, every track every block. max-of-abs is order-independent, so the SIMD reduction
+    // is bit-identical to the scalar loop (including the Math.abs(MIN_VALUE)==MIN_VALUE edge).
+    int maxValTrack = absMax(trackBuffer, numSamples * 2);
     if (org.deluge.engine.FirmwareAudioEngine.debugTelemetry && maxValTrack > 1000) {
       System.out.println(
           "[TELEMETRY GlobalEffectable] trackBuffer max absolute value: " + maxValTrack);
