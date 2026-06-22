@@ -9,9 +9,10 @@ package org.deluge.firmware2;
  * already-ported sample-playback DSP rather than adding new DSP, mirroring the C {@code
  * AudioClip::render} which drives a {@code voiceSample} over a {@code sampleHolder}.
  *
- * <p>Phase 1 plays at unity pitch (native, no resampling) and loops the clip while {@link
- * #playing}. Independent pitch / time-stretch (phase 2) and transport-synced start + arrangement
- * placement (phase 3) and live recording/overdub (phase 4) are deferred.
+ * <p>Done: playback (phase 1), pitch / time-stretch via {@link #setPlayback} (phase 2), and
+ * transport gating via {@link #onTransportStart}/{@link #onTransportStop} (phase 3a — plays only
+ * while the song plays). Deferred: arrangement-timeline placement + musical-length loop (phase 3b)
+ * and live recording/overdub (phase 4). See docs/AUDIO_TRACK_PORT_PLAN.md.
  */
 public class AudioOutput extends GlobalEffectable {
 
@@ -19,6 +20,15 @@ public class AudioOutput extends GlobalEffectable {
   private final VoiceSample voiceSample = new VoiceSample();
   private boolean playing = false;
   private boolean looping = true;
+
+  // Phase 2 — playback rate / pitch. phaseIncrement is in the 24-bit fixed convention (unity =
+  // 16777216 = native). Coupled mode (pitchSpeedIndependent=false): playRate scales phaseIncrement,
+  // so pitch and speed move together (a plain resample). Independent mode: phaseIncrement stays at
+  // unity (pitch unchanged) and timeStretchRatio carries the speed, via the TimeStretcher.
+  private static final int UNITY_PHASE = 16777216;
+  private int phaseIncrement = UNITY_PHASE;
+  private int timeStretchRatio = UNITY_PHASE;
+  private boolean timeStretch = false;
 
   // Steady playback amplitude (no per-note envelope on an audio track). The final loudness is
   // governed by the downstream GlobalEffectable post-FX volume + master compressor (verified:
@@ -52,7 +62,13 @@ public class AudioOutput extends GlobalEffectable {
    */
   public void onTransportStart() {
     if (sample != null) {
-      voiceSample.setup(sample, 0, (int) sample.lengthInSamples, 1, looping, 0);
+      if (timeStretch) {
+        // Independent pitch/speed: the TimeStretcher hops through the sample (one-shot for now;
+        // musical-length looping is Phase 3b).
+        voiceSample.setupTimeStretch(sample, 0, 1);
+      } else {
+        voiceSample.setup(sample, 0, (int) sample.lengthInSamples, 1, looping, 0);
+      }
       playing = true;
     }
   }
@@ -70,14 +86,35 @@ public class AudioOutput extends GlobalEffectable {
     this.amplitude = amp;
   }
 
+  /**
+   * Phase 2 — set playback rate. {@code pitchSpeedIndependent=false}: rate changes pitch+speed
+   * together (resample). {@code true}: rate changes speed only (time-stretch), pitch unchanged.
+   */
+  public void setPlayback(float playRate, boolean pitchSpeedIndependent) {
+    this.timeStretch = pitchSpeedIndependent;
+    if (playRate <= 0f) playRate = 1f;
+    if (pitchSpeedIndependent) {
+      phaseIncrement = UNITY_PHASE; // pitch unchanged
+      timeStretchRatio = (int) Math.round((double) UNITY_PHASE * playRate); // speed
+    } else {
+      phaseIncrement = (int) Math.round((double) UNITY_PHASE * playRate); // pitch+speed coupled
+      timeStretchRatio = UNITY_PHASE;
+    }
+  }
+
   @Override
   protected void renderInternal(int[] buffer, int numSamples, int[] reverbBuffer) {
     if (!playing || sample == null) {
       return;
     }
     // buffer is interleaved stereo (LRLR), pre-zeroed by GlobalEffectable.renderOutput; VoiceSample
-    // accumulates into it. Unity phase (== K_MAX_SAMPLE_VALUE) → native, no resampling (Phase 1).
+    // accumulates into it. phaseIncrement==unity → native; otherwise resampled (pitch).
     int[] amp = {amplitude};
-    voiceSample.render(buffer, numSamples, 2, 16777216, amp, 0);
+    if (timeStretch) {
+      voiceSample.renderTimeStretched(
+          buffer, numSamples, 2, phaseIncrement, timeStretchRatio, amp, 0);
+    } else {
+      voiceSample.render(buffer, numSamples, 2, phaseIncrement, amp, 0);
+    }
   }
 }

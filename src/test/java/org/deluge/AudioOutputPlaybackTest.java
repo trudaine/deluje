@@ -27,6 +27,64 @@ public class AudioOutputPlaybackTest {
     return f;
   }
 
+  private double renderRms(AudioTrackModel at) throws Exception {
+    ProjectModel project = new ProjectModel();
+    project.addTrack(at);
+    ProjectModel song = FirmwareFactory.createSong(project);
+    FirmwareAudioEngine engine = new FirmwareAudioEngine();
+    engine.sounds.clear();
+    for (var clip : song.getClips()) {
+      if (clip instanceof ClipModel ic && ic.getSound() != null) {
+        engine.sounds.add((org.deluge.firmware2.GlobalEffectable) ic.getSound());
+      }
+    }
+    PlaybackHandler handler = new PlaybackHandler();
+    handler.setProject(song);
+    handler.start();
+    engine.setTransportPlaying(true);
+    int n = 128;
+    double sumSq = 0;
+    long count = 0;
+    for (int done = 0; done < 44100; done += n) {
+      handler.advanceTicks(1);
+      engine.renderBlock(n);
+      for (int i = 0; i < n; i++) {
+        double l = engine.masterBuffer[i].l / 2147483648.0;
+        sumSq += l * l;
+        count++;
+      }
+    }
+    return Math.sqrt(sumSq / count);
+  }
+
+  @Test
+  void pitchedPlaybackIsAudible() throws Exception {
+    // Coupled mode: faster rate → higher pitch (resampled). Must still produce sound.
+    AudioTrackModel at = new AudioTrackModel("Pitched");
+    AudioTrackModel.AudioClip ac = new AudioTrackModel.AudioClip();
+    ac.setFilePath(wav().getAbsolutePath());
+    ac.setPitchSpeedIndependent(false);
+    at.addAudioClip(ac);
+    at.setPlayRate(1.5f);
+    double rms = renderRms(at);
+    System.out.printf("[AudioOutput] pitched(1.5x) RMS=%.5f%n", rms);
+    assertTrue(rms > 1e-4, "pitched (resampled) audio render was silent");
+  }
+
+  @Test
+  void timeStretchPlaybackIsAudible() throws Exception {
+    // Independent mode: slower speed, pitch unchanged (time-stretch). Must still produce sound.
+    AudioTrackModel at = new AudioTrackModel("Stretched");
+    AudioTrackModel.AudioClip ac = new AudioTrackModel.AudioClip();
+    ac.setFilePath(wav().getAbsolutePath());
+    ac.setPitchSpeedIndependent(true);
+    at.addAudioClip(ac);
+    at.setPlayRate(0.75f);
+    double rms = renderRms(at);
+    System.out.printf("[AudioOutput] timestretch(0.75x) RMS=%.5f%n", rms);
+    assertTrue(rms > 1e-4, "time-stretched audio render was silent");
+  }
+
   @Test
   void audioTrackClipIsAudible() throws Exception {
     ProjectModel project = new ProjectModel();
