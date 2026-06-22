@@ -98,6 +98,8 @@ public class SwingGridPanel extends JPanel {
   private org.deluge.project.PreferencesManager.GridMode lastGridMode = null;
   private int lastScrollOffset = -1;
   private int lastScrollOffsetX = -1;
+  private int lastPadSz =
+      -1; // forces a structural rebuild when the cell size changes (resize/zoom)
 
   private boolean foldMode = false;
   private final java.util.List<Integer> foldedPitches = new java.util.ArrayList<>();
@@ -552,6 +554,77 @@ public class SwingGridPanel extends JPanel {
   }
 
   /**
+   * The grid never needs horizontal pixel-scrolling — long clips page via {@code scrollOffsetX}, so
+   * the content is always exactly {@code getGridWidth(cachedPadSz, label)} wide. Cap the reported
+   * width to that so a stray wide child can't inflate the panel and pop a useless horizontal
+   * scrollbar (and so the right sidebar column can never be scrolled out of view).
+   */
+  @Override
+  public Dimension getPreferredSize() {
+    Dimension d = super.getPreferredSize();
+    int contentW = getGridWidth(cachedPadSz, currentLabelWidth());
+    if (contentW > 0) {
+      d = new Dimension(Math.min(d.width, contentW), d.height);
+    }
+    return d;
+  }
+
+  private java.awt.Component listeningViewport;
+
+  /**
+   * Width of the row-label column, derived from the VIEWPORT width (not this panel's getWidth()).
+   * recomputePadSize budgets the cell width against the viewport, so the row builders must use the
+   * same basis — otherwise on a narrow window the rows compute a wider label, getGridWidth
+   * overshoots the viewport, and the right (sidebar) column clips.
+   */
+  private int currentLabelWidth() {
+    int vpW = 0;
+    java.awt.Container p = getParent();
+    while (p != null) {
+      if (p instanceof javax.swing.JViewport vp) {
+        vpW = vp.getWidth();
+        break;
+      }
+      p = p.getParent();
+    }
+    int w = (vpW > 0) ? vpW : (getWidth() > 0 ? getWidth() : 1200);
+    return Math.max(60, Math.min(140, w / 12));
+  }
+
+  /**
+   * When this grid is added to the scroll pane, listen to the enclosing JViewport's resize. The
+   * grid panel keeps its (preferred) size inside the viewport, so resizing the WINDOW changes the
+   * viewport but not this panel — our own componentResized never fires. Listening to the viewport
+   * is what makes the cell size reflow when the main window is resized.
+   */
+  @Override
+  public void addNotify() {
+    super.addNotify();
+    java.awt.Container vp =
+        (java.awt.Container)
+            javax.swing.SwingUtilities.getAncestorOfClass(javax.swing.JViewport.class, this);
+    if (vp != null && vp != listeningViewport) {
+      listeningViewport = vp;
+      vp.addComponentListener(
+          new java.awt.event.ComponentAdapter() {
+            private int lastW = -1, lastH = -1;
+
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent e) {
+              int w = vp.getWidth(), h = vp.getHeight();
+              if (w != lastW || h != lastH) {
+                lastW = w;
+                lastH = h;
+                if (recomputePadSize() && !refreshInProgress) {
+                  refresh();
+                }
+              }
+            }
+          });
+    }
+  }
+
+  /**
    * Recompute cachedPadSz from the current viewport size. Called on resize and once during boot
    * (before the frame is shown) so the grid is built at its final cell size in a single pass.
    * Returns true if the cell size changed.
@@ -574,23 +647,37 @@ public class SwingGridPanel extends JPanel {
     }
     int w = (vpW > 0) ? vpW : (getWidth() > 0 ? getWidth() : 1200);
     int h = (vpH > 0) ? vpH : (getHeight() > 0 ? getHeight() : 600);
-    int availWidth = Math.min(w, 1600);
-    int availHeight = Math.min(h, 700);
+    // Fill the ENTIRE draw area: use the full viewport (no 1600x700 budget clamp, no max-size cap),
+    // so square cells grow to the largest size where the whole grid still fits both ways. Whichever
+    // axis is limiting fills exactly; the other keeps its slack (left-aligned horizontally, gap at
+    // bottom vertically) — squares can't fill both unless the aspect ratio happens to match. Works
+    // for every GridMode because everything below is expressed in terms of gridMode.rows/columns.
+    int availWidth = w;
+    int availHeight = h;
     int labelWidth = Math.max(60, Math.min(140, availWidth / 12));
-    int cellsWidth = availWidth - labelWidth - 69 - 5 - 12 - 5 - 20;
-    // Solve exact pad size mathematically to guarantee that the entire grid panel fits
-    // perfectly inside the available JViewport height without pushing the bottom
-    // macro and keyboard rows off-screen!
-    // Budgeting for track header (36px), scrollbar row (26px), optional clip bar (26px),
-    // optional page bar (20px), and margins/paddings.
+    // Match getGridWidth()'s footprint so the grid never overshoots the viewport width (which would
+    // pop a thin horizontal scrollbar): label + VU(17) + per-column (padSz+5) +
+    // struts/buffer(~109).
+    int widthOverhead = labelWidth + 130;
+    int widthLimitedPadSz = (availWidth - widthOverhead) / columnCount - 5;
+    // Vertical budget: the fixed bars (track header, scroll row, optional clip/page bars, top
+    // margin ≈ 115px) plus the inter-row gaps don't scale with the cell; everything else does. The
+    // padSz-proportional row count is gridMode.rows (main grid) + 1.1 (MACROS row) + 0.6 (KEYBOARD
+    // row) = gridMode.rows + 1.7 — see rebuildUIComponents (macroHeight=padSz*1.1,
+    // keyboardHeight=padSz*0.6). Solving availHeight = K*padSz + overhead guarantees no clipping.
     int totalGapsHeight = (gridMode.rows - 1) * 5;
-    int overhead = 115 + totalGapsHeight;
+    // Base = the fixed CLIP chrome measured empirically (track header + clip/page/scroll bars + top
+    // margin ≈ 152px; was under-counted at 115, which clipped the bottom keyboard row in tall modes
+    // like 16x16/24x16). +4 leaves a small safety margin so the grid never clips.
+    int overhead = 156 + totalGapsHeight;
     int remainingHeight = availHeight - overhead;
     double divisor = gridMode.rows + 1.7;
     int heightLimitedPadSz = (int) Math.floor(remainingHeight / divisor);
 
-    int padSz = Math.min(cellsWidth / columnCount, heightLimitedPadSz);
-    int newSz = Math.max(16, Math.min(200, padSz));
+    int padSz = Math.min(widthLimitedPadSz, heightLimitedPadSz);
+    // Never clip: shrink freely on tiny windows (clipping wouldn't help anyway), no upper cap so it
+    // fills large windows. Floor of 6 only avoids a degenerate zero/negative cell.
+    int newSz = Math.max(6, padSz);
     if (newSz != cachedPadSz) {
       cachedPadSz = newSz;
       return true;
@@ -1262,7 +1349,7 @@ public class SwingGridPanel extends JPanel {
         this.columnCount = mode.columns;
       }
       resetScrollOffset();
-      recomputePadSize();
+      recomputePadSize(); // resize cells for the new row/column count before rebuilding
       refresh();
     }
   }
@@ -1910,7 +1997,7 @@ public class SwingGridPanel extends JPanel {
             g2d.fill(path);
           }
         };
-    int lw = Math.max(60, Math.min(140, getWidth() / 12));
+    int lw = currentLabelWidth();
     int rowW = getGridWidth(padSz, lw);
     rowPanel.setLayout(new BoxLayout(rowPanel, BoxLayout.X_AXIS));
     rowPanel.setBackground(new Color(0x22, 0x22, 0x22));
@@ -1954,7 +2041,7 @@ public class SwingGridPanel extends JPanel {
     final int trk = visibleRow;
     final String tName = trackName;
     JLabel label = new JLabel(tName);
-    lw = Math.max(60, Math.min(140, getWidth() / 12));
+    lw = currentLabelWidth();
     label.setPreferredSize(new Dimension(lw, 30));
     label.setMinimumSize(new Dimension(lw, 30));
     label.setMaximumSize(new Dimension(lw, 30));
@@ -3389,7 +3476,7 @@ public class SwingGridPanel extends JPanel {
     JPanel rowPanel = new JPanel();
     rowPanel.setLayout(new BoxLayout(rowPanel, BoxLayout.X_AXIS));
     rowPanel.setBackground(new Color(0x22, 0x22, 0x22));
-    int lw = Math.max(60, Math.min(140, getWidth() / 12));
+    int lw = currentLabelWidth();
     int rowW = getGridWidth(padSz, lw);
     rowPanel.setPreferredSize(new Dimension(rowW, rowHeight));
     rowPanel.setMinimumSize(new Dimension(rowW, rowHeight));
@@ -3397,7 +3484,7 @@ public class SwingGridPanel extends JPanel {
     rowPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
     JLabel label = new JLabel(type);
-    lw = Math.max(60, Math.min(140, getWidth() / 12));
+    lw = currentLabelWidth();
     label.setPreferredSize(new Dimension(lw, 30));
     label.setMinimumSize(new Dimension(lw, 30));
     label.setMaximumSize(new Dimension(lw, 30));
@@ -3779,6 +3866,7 @@ public class SwingGridPanel extends JPanel {
             || gridMode != lastGridMode
             || scrollOffset != lastScrollOffset
             || scrollOffsetX != lastScrollOffsetX
+            || cachedPadSz != lastPadSz
             || getComponentCount() == 0);
 
     if (structureChanged) {
@@ -3788,6 +3876,7 @@ public class SwingGridPanel extends JPanel {
       lastGridMode = gridMode;
       lastScrollOffset = scrollOffset;
       lastScrollOffsetX = scrollOffsetX;
+      lastPadSz = cachedPadSz;
 
       rebuildUIComponents();
     } else {
@@ -4252,7 +4341,7 @@ public class SwingGridPanel extends JPanel {
 
     // Compute dynamic pad size: always fit gridMode.rows × gridMode.columns cells in the viewport
     int padSz = cachedPadSz;
-    int lw = Math.max(60, Math.min(140, getWidth() / 12));
+    int lw = currentLabelWidth();
     int rowW = getGridWidth(padSz, lw);
 
     int savedColCount = columnCount; // saved for SONG/ARRANGEMENT section below
@@ -4280,7 +4369,7 @@ public class SwingGridPanel extends JPanel {
       autoHeader.setMaximumSize(new Dimension(rowW, 32));
       autoHeader.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-      int topLw = Math.max(60, Math.min(140, getWidth() / 12));
+      int topLw = currentLabelWidth();
       int leftOffset = autoOverviewMode ? (topLw + 17) : (topLw + 91);
       autoHeader.add(Box.createRigidArea(new Dimension(leftOffset, 1)));
 
@@ -4728,7 +4817,7 @@ public class SwingGridPanel extends JPanel {
           pageBar.setMaximumSize(new Dimension(rowW, 20));
           pageBar.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-          lw = Math.max(60, Math.min(140, getWidth() / 12));
+          lw = currentLabelWidth();
           int leftSpacing = lw + 69;
           pageBar.add(Box.createRigidArea(new Dimension(leftSpacing, 10)));
 
@@ -4788,7 +4877,7 @@ public class SwingGridPanel extends JPanel {
         scrollRow.setBorder(BorderFactory.createEmptyBorder(2, 0, 2, 0));
 
         // Left spacer matching header labels and action buttons (pixel-perfect dynamic matching!)
-        lw = Math.max(60, Math.min(140, getWidth() / 12));
+        lw = currentLabelWidth();
         int leftSpacing;
         if (viewMode == GridViewMode.AUTOMATION) {
           leftSpacing = autoOverviewMode ? (lw + 17) : (lw + 91);
@@ -5210,7 +5299,7 @@ public class SwingGridPanel extends JPanel {
         final int trk = currentTrack;
         final String tName = trackName;
         JLabel label = new JLabel(tName);
-        lw = Math.max(60, Math.min(140, getWidth() / 12));
+        lw = currentLabelWidth();
         label.setPreferredSize(new Dimension(lw, 30));
         label.setMinimumSize(new Dimension(lw, 30));
         label.setMaximumSize(new Dimension(lw, 30));
@@ -6918,7 +7007,7 @@ public class SwingGridPanel extends JPanel {
     stepHeader.setLayout(new BoxLayout(stepHeader, BoxLayout.X_AXIS));
     stepHeader.setBackground(new Color(0x15, 0x15, 0x15));
     stepHeader.setMaximumSize(new Dimension(3000, 20));
-    int topLw = Math.max(60, Math.min(140, getWidth() / 12));
+    int topLw = currentLabelWidth();
     stepHeader.add(Box.createRigidArea(new Dimension(topLw + 91, 20)));
     for (int c = 0; c < stepCount; c++) {
       JLabel stepNum = new JLabel(String.valueOf(c + 1), javax.swing.SwingConstants.CENTER);
@@ -6947,7 +7036,7 @@ public class SwingGridPanel extends JPanel {
 
       String finalParam = param;
       JLabel valLabel = new JLabel(bandLabels[r]);
-      int lw = Math.max(60, Math.min(140, getWidth() / 12));
+      int lw = currentLabelWidth();
       valLabel.setPreferredSize(new Dimension(lw, 30));
       valLabel.setMinimumSize(new Dimension(lw, 30));
       valLabel.setMaximumSize(new Dimension(lw, 30));
@@ -7125,7 +7214,7 @@ public class SwingGridPanel extends JPanel {
     stepHeader.setLayout(new BoxLayout(stepHeader, BoxLayout.X_AXIS));
     stepHeader.setBackground(new Color(0x15, 0x15, 0x15));
     stepHeader.setMaximumSize(new Dimension(3000, 20));
-    int topPw = Math.max(60, Math.min(140, getWidth() / 12));
+    int topPw = currentLabelWidth();
     stepHeader.add(Box.createRigidArea(new Dimension(topPw + 17, 20)));
     for (int c = 0; c < stepCount; c++) {
       JLabel stepNum = new JLabel(String.valueOf(c + 1), javax.swing.SwingConstants.CENTER);
@@ -7152,7 +7241,7 @@ public class SwingGridPanel extends JPanel {
 
       // Param label (clickable to open editor)
       JButton paramBtn = new JButton(label);
-      int pw = Math.max(60, Math.min(140, getWidth() / 12));
+      int pw = currentLabelWidth();
       paramBtn.setPreferredSize(new Dimension(pw, 30));
       paramBtn.setMinimumSize(new Dimension(pw, 30));
       paramBtn.setMaximumSize(new Dimension(pw, 30));
@@ -7356,7 +7445,7 @@ public class SwingGridPanel extends JPanel {
       scrollBar.setBackground(new Color(0x1a, 0x1a, 0x1a));
       scrollBar.setMaximumSize(new Dimension(3000, 24));
 
-      int pw = Math.max(60, Math.min(140, getWidth() / 12));
+      int pw = currentLabelWidth();
       scrollBar.add(Box.createRigidArea(new Dimension(pw + 17, 24)));
 
       for (int i = 0; i < totalParams; i += maxVisible) {
