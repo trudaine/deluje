@@ -7897,7 +7897,11 @@ public class SwingGridPanel extends JPanel {
     }
   }
 
-  private void handleStepToggled(int row, int col) {
+  public int getBaseTrackId() {
+    return baseTrackId;
+  }
+
+  public void handleStepToggled(int row, int col) {
     if (bridge == null) return;
     int modelRow = getModelRow(row);
     int activeCol = getActiveCol(row, col);
@@ -10309,5 +10313,12 @@ public class SwingGridPanel extends JPanel {
     } else if (vertScrollBar != null) {
       vertScrollBar.setToolTipText("Scroll Pitches");
     }
+  }
+
+  public JButton getPadButton(int visibleRow, int col) {
+    if (visibleRow >= 0 && visibleRow < 32 && col >= 0 && col < 32) {
+      return pads[visibleRow][col];
+    }
+    return null;
   }
 }
