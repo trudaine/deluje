@@ -3692,13 +3692,21 @@ public class SwingDelugeApp extends JFrame {
             d -> {
               SwingGridPanel a = activeGridPanel();
               if (a != null) {
-                a.scrollHorizontally(d);
+                if (a.isShiftHeld()) {
+                  a.adjustZoomResolution(d);
+                } else {
+                  a.scrollHorizontally(d);
+                }
               }
             },
             d -> {
               SwingGridPanel a = activeGridPanel();
               if (a != null) {
-                a.scrollVertically(-d); // drag up shows higher rows
+                if (a.isShiftHeld()) {
+                  a.scrollVertically(-d * 12); // shift-scroll scrolls by octave (12 rows)
+                } else {
+                  a.scrollVertically(-d); // drag up shows higher rows
+                }
               }
             },
             d -> {
