@@ -644,10 +644,12 @@ When Shift state is active, the standard step sequencing grid changes context, d
 
 ### 10.3 Track Header & Top Toolbar Shift Shortcuts Map
 
-In addition to the main grid pads, holding **Shift** while clicking top toolbar buttons or row header labels activates hardware-accurate quick operations:
+In addition to the main grid pads, holding **Shift** while clicking top toolbar buttons, row header labels, or turning encoders activates hardware-accurate quick operations:
 * **`Shift` + Click `[+ KIT]`, `[+ SYNTH]`, `[+ AUDIO]`**: Bypasses the standard track naming modal prompt and instantly creates a new default track (`SYNTH 1`, `KIT 1`, `AUDIO 1`) with generic initial presets (and fully silent/unassigned drum slots for `KIT 1`).
 * **`Shift` + Click `[Track Name Label]`**: Toggles **One-Shot Playback Mode (`1SH`)** for sample-trigger track rows.
 * **`Shift` + Click `[MUTE]` Button**: Clears all active step note events on that specific lane (`Clear row`).
+* **`Shift` + Turn `[Horizontal Scroll Encoder ◄►]`**: Dynamically adjusts the play rate step speed resolution (horizontal zoom, e.g. from $1/16$ to $1/32$ straight or triplet mode) and updates the OLED display.
+* **`Shift` + Turn `[Vertical Scroll Encoder ▼▲]`**: Scrolls the visible note rows of the active grid by **exactly one octave (12 rows) per detent** instead of a single row, allowing you to fly up and down the piano roll instantly!
 * **Right-Click / Double-Click `[Track Name Label]`**: Spawns the multitrack Context Menu (`Clone Track`, `Delete Track`, `Change Swatch Color`).
 
 ---
@@ -1163,8 +1165,10 @@ The following table maps the standard Deluge hardware button combinations (from 
 | :--- | :--- | :--- | :--- |
 | **All Views** | Adjust Brightness | `Shift` + `Learn` + turn `▼▲` knob | Adjust monitor brightness, or configure desktop layouts under **`Settings ➔ Preferences...`** |
 | | Current Zoom Level | Press `◄►` knob | Inspect bottom rate selection box, or use shortcut **`Ctrl + [`** / **`Ctrl + ]`** |
-| | Scroll grid horizontally | Turn `◄►` knob | Scroll mouse wheel horizontally, drag bottom scroll bar, or glide cursor near borders |
-| | Scroll grid vertically | Turn `▼▲` knob | Scroll mouse wheel vertically, or drag right-side scroll bar |
+| | Scroll grid horizontally | Turn `◄►` knob | Turn horizontal encoder knob in top toolbar / encoder strip, scroll mouse wheel horizontally, drag bottom scroll bar, or glide cursor near borders |
+| | Zoom resolution / rate | `Shift` + turn `◄►` knob | Hold **`Shift`** + turn the horizontal scroll encoder in top toolbar / encoder strip to scale sequencer rate |
+| | Scroll grid vertically | Turn `▼▲` knob | Turn vertical encoder knob in top toolbar / encoder strip, or scroll mouse wheel vertically |
+| | Octave-scroll vertical | `Shift` + turn `▼▲` knob | Hold **`Shift`** + turn the vertical scroll encoder in top toolbar / encoder strip to scroll view by exactly one octave (12 rows) |
 | | Metronome toggle | `Shift` + `Tap Tempo` | Check **`[✓] Metronome`** in transport toolbar or hold `Shift` + `T` |
 | | Delete song | `Shift` + `Save/Delete` | Right-click Song XML file in Sidebar Explorer ➔ Delete |
 | | New song | `Shift` + `Load` ➔ `Load` | Select **`File ➔ New Project`** (`Ctrl + N`) |
