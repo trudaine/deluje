@@ -40,6 +40,7 @@ public class SwingDelugeApp extends JFrame {
   private SwingMasterFxPanel masterFxPanel;
   private SynthParamRack synthParamRack;
   private javax.swing.JScrollPane rackScroll;
+  private org.deluge.ui.controls.DelugeModKnobBar modKnobBar;
 
   private JPanel centerCardPanel;
 
@@ -2280,6 +2281,7 @@ public class SwingDelugeApp extends JFrame {
                         setCursor(Cursor.getDefaultCursor());
                         a.forceRebuild();
                         if (synthParamRack != null) synthParamRack.refresh();
+                        if (modKnobBar != null) modKnobBar.refresh();
                       });
                 } catch (Exception ex) {
                   javax.swing.SwingUtilities.invokeLater(
@@ -2311,6 +2313,7 @@ public class SwingDelugeApp extends JFrame {
           propagateCurrentModel();
           syncHighFidelityEngine(currentProject);
           if (clipPanel != null) clipPanel.refresh();
+          if (modKnobBar != null) modKnobBar.refresh();
         } catch (Exception ex) {
           Throwable cause = (ex.getCause() != null) ? ex.getCause() : ex;
           System.err.println("[Inspector] preset load-new failed: " + cause.getMessage());
@@ -2327,6 +2330,7 @@ public class SwingDelugeApp extends JFrame {
     if (arrGridPanel != null) arrGridPanel.refresh();
     if (autoPanel != null) autoPanel.refresh();
     if (synthParamRack != null) synthParamRack.refresh();
+    if (modKnobBar != null) modKnobBar.refresh();
     refreshTrackInspector();
   }
 
@@ -2344,6 +2348,9 @@ public class SwingDelugeApp extends JFrame {
     refreshTrackInspector();
     if (synthParamRack != null) {
       synthParamRack.refresh();
+    }
+    if (modKnobBar != null) {
+      modKnobBar.refresh();
     }
   }
 
@@ -3739,6 +3746,31 @@ public class SwingDelugeApp extends JFrame {
     centerWrap.add(centerScroll, BorderLayout.CENTER);
     add(centerWrap, BorderLayout.CENTER);
 
+    // Hardware-faithful Gold Knobs & Mod Buttons bar docked WEST
+    modKnobBar =
+        new org.deluge.ui.controls.DelugeModKnobBar(
+            bridge,
+            () -> {
+              SwingGridPanel a = activeGridPanel();
+              if (a == null || a.getProjectModel() == null) {
+                return null;
+              }
+              int idx = a.getEditedModelTrack();
+              if (idx < 0 || idx >= a.getProjectModel().getTracks().size()) {
+                return null;
+              }
+              return (a.getProjectModel().getTracks().get(idx)
+                      instanceof org.deluge.model.SynthTrackModel st)
+                  ? st
+                  : null;
+            },
+            () -> {
+              SwingGridPanel a = activeGridPanel();
+              return a == null ? -1 : a.getEditedModelTrack();
+            },
+            this::activeGridPanel);
+    add(modKnobBar, BorderLayout.WEST);
+
     // Always-visible synth param rack docked EAST (collapsible via the RACK button). It costs only
     // horizontal space (abundant) so the grid keeps its full height; scrollable for short screens.
     synthParamRack =
@@ -3780,6 +3812,7 @@ public class SwingDelugeApp extends JFrame {
             syncHighFidelityEngine(currentProject, true); // preset swap: rebuild even while playing
             a.forceRebuild(); // structure unchanged on a swap → force header/name rebuild
             synthParamRack.refresh();
+            if (modKnobBar != null) modKnobBar.refresh();
           } catch (Exception ex) {
             System.err.println("[PresetChip] replace failed: " + ex.getMessage());
           }
@@ -3792,6 +3825,7 @@ public class SwingDelugeApp extends JFrame {
             syncHighFidelityEngine(currentProject);
             if (clipPanel != null) clipPanel.refresh();
             synthParamRack.refresh();
+            if (modKnobBar != null) modKnobBar.refresh();
           } catch (Exception ex) {
             System.err.println("[PresetChip] load-new failed: " + ex.getMessage());
           }

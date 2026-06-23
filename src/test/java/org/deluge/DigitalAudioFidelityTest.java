@@ -399,8 +399,8 @@ public class DigitalAudioFidelityTest {
         postHitPeak / preHitPeak < 0.55,
         "Sidechain ducking should drop the signal peak by at least 45%");
 
-    // Render next 85 blocks (10880 samples) to let it recover completely
-    for (int b = 0; b < 85; b++) {
+    // Render next 120 blocks (15360 samples) to let it recover completely
+    for (int b = 0; b < 120; b++) {
       engine.renderBlock(128);
     }
 

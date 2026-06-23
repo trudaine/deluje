@@ -308,25 +308,25 @@ public class SwingScreenshotGenerator {
                 // 11. Open and capture Threshold Record Dialog with its Target Track dropdown open!
                 System.out.println(
                     "[Screenshot] Spawning and capturing Threshold Record Dialog with target track dropdown open...");
-                 final ThresholdRecordDialog[] recBox = new ThresholdRecordDialog[1];
-                 SwingUtilities.invokeAndWait(
-                     () -> {
-                       recBox[0] = new ThresholdRecordDialog(app, app.getCurrentProject(), () -> {});
-                       recBox[0].setModal(false); // Modality off for screenshot
-                       recBox[0].pack();
-                       recBox[0].setSize(500, 360);
-                       recBox[0].setVisible(true);
-                     });
-                 Thread.sleep(1000);
-                 SwingUtilities.invokeAndWait(
-                     () -> {
-                       // Find the track combobox and show it!
-                       JComboBox<?> combo = findComponent(recBox[0], JComboBox.class);
-                       if (combo != null) {
-                         combo.setPopupVisible(true);
-                       }
-                       recBox[0].repaint();
-                     });
+                final ThresholdRecordDialog[] recBox = new ThresholdRecordDialog[1];
+                SwingUtilities.invokeAndWait(
+                    () -> {
+                      recBox[0] = new ThresholdRecordDialog(app, app.getCurrentProject(), () -> {});
+                      recBox[0].setModal(false); // Modality off for screenshot
+                      recBox[0].pack();
+                      recBox[0].setSize(500, 360);
+                      recBox[0].setVisible(true);
+                    });
+                Thread.sleep(1000);
+                SwingUtilities.invokeAndWait(
+                    () -> {
+                      // Find the track combobox and show it!
+                      JComboBox<?> combo = findComponent(recBox[0], JComboBox.class);
+                      if (combo != null) {
+                        combo.setPopupVisible(true);
+                      }
+                      recBox[0].repaint();
+                    });
                 Thread.sleep(1500); // Give the popup list time to paint
                 SwingUtilities.invokeAndWait(
                     () -> {
@@ -381,8 +381,8 @@ public class SwingScreenshotGenerator {
   }
 
   /**
-   * Helper to recursively find a child component of a specific type in an AWT Container.
-   * Enables finding deep controls like JComboBoxes without modifying dialog classes.
+   * Helper to recursively find a child component of a specific type in an AWT Container. Enables
+   * finding deep controls like JComboBoxes without modifying dialog classes.
    */
   private static <T extends Component> T findComponent(Container parent, Class<T> type) {
     for (Component child : parent.getComponents()) {
