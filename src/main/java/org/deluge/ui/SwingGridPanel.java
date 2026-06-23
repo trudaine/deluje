@@ -10003,6 +10003,60 @@ public class SwingGridPanel extends JPanel {
     }
   }
 
+  /**
+   * Adjust the play rate step speed resolution (horizontal zoom) of the active clip. Clockwise
+   * rotation (positive delta) zooms in (shows shorter step values, e.g. 1/16 -> 1/32).
+   * Counter-clockwise rotation (negative delta) zooms out (shows longer step values, e.g. 1/16 ->
+   * 1/8). Matches the Synthstrom Deluge hardware Shift + X_ENC zoom gesture.
+   */
+  public void adjustZoomResolution(int delta) {
+    if (bridge == null) return;
+    double currentRes = bridge.getStepResolution();
+    org.deluge.model.TrackModel curTrack = null;
+    if (projectModel != null
+        && editedModelTrack >= 0
+        && editedModelTrack < projectModel.getTracks().size()) {
+      curTrack = projectModel.getTracks().get(editedModelTrack);
+    }
+    org.deluge.model.ClipModel activeClip = null;
+    if (curTrack != null && activeClipId >= 0 && activeClipId < curTrack.getClips().size()) {
+      activeClip = curTrack.getClips().get(activeClipId);
+    }
+    boolean activeTrip = activeClip != null && activeClip.isTripletMode();
+    double[] rateValues;
+    String[] rateLabels;
+    if (activeTrip) {
+      rateLabels =
+          new String[] {"1 Bar", "1/2T", "1/4T", "1/8T", "1/16T", "1/32T", "1/64T", "1/128T"};
+      rateValues =
+          new double[] {
+            4.0, 4.0 / 3.0, 2.0 / 3.0, 1.0 / 3.0, 0.5 / 3.0, 0.25 / 3.0, 0.125 / 3.0, 0.0625 / 3.0
+          };
+    } else {
+      rateLabels = new String[] {"1 Bar", "1/2", "1/4", "1/8", "1/16", "1/32", "1/64", "1/128"};
+      rateValues = new double[] {4.0, 2.0, 1.0, 0.5, 0.25, 0.125, 0.0625, 0.03125};
+    }
+    int currentRateIdx = activeTrip ? 3 : 4;
+    for (int i = 0; i < rateValues.length; i++) {
+      if (Math.abs(rateValues[i] - currentRes) < 0.0001) {
+        currentRateIdx = i;
+        break;
+      }
+    }
+    int newIdx = currentRateIdx + delta;
+    if (newIdx < 0) newIdx = 0;
+    if (newIdx >= rateValues.length) newIdx = rateValues.length - 1;
+    if (newIdx != currentRateIdx) {
+      double newVal = rateValues[newIdx];
+      bridge.setStepResolution(newVal);
+      if (SwingDelugeApp.mainInstance != null) {
+        SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient(
+            "RATE", rateLabels[newIdx] + " ");
+      }
+      refresh();
+    }
+  }
+
   public int getScrollOffsetX() {
     return scrollOffsetX;
   }
