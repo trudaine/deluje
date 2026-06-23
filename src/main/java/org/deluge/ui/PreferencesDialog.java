@@ -86,8 +86,8 @@ public class PreferencesDialog extends JDialog {
     initComponentsProgrammatic();
     loadCurrentPreferences();
 
-    setSize(660, 600);
-    setMinimumSize(new Dimension(580, 500));
+    setSize(680, 800);
+    setMinimumSize(new Dimension(600, 650));
     setLocationRelativeTo(owner);
 
     // Start background port-scanning timer for dynamic hot-plug support
@@ -756,6 +756,8 @@ public class PreferencesDialog extends JDialog {
   }
 
   private void styleButton(JButton btn, Color bg, Color fg) {
+    btn.setOpaque(true);
+    btn.setContentAreaFilled(true);
     btn.setBackground(bg);
     btn.setForeground(fg);
     btn.setFont(new Font("SansSerif", Font.BOLD, 12));
