@@ -742,6 +742,28 @@ graph TD
 6. Click the **Transpose** slider: set it to **`+3 semitones`** to pitch-shift the vocals higher to fit your song's new key!
 7. *Result*: Press play: the vocal stem plays in perfect synchronization with your drum kit beats, maintaining its exact pitched key even as you drag the master BPM slider live!
 
+### 11.4 Threshold Loop Sampler & Real-Time Recording
+
+The **Threshold Loop Sampler** provides a dedicated real-time audio recording dashboard to capture live external audio (via microphone or line-in) and load it instantly into your workstation.
+
+![Threshold Loop Sampler Dialog with Target Track Dropdown Open](images/deluge_threshold_record_dropdown.png)
+
+#### Key Features:
+* **Threshold-Triggered Recording**: The recording does not start immediately when clicking Arm; instead, it waits in an idle "Armed" state until the input signal level exceeds your set threshold (e.g. $-30\text{dB}$), ensuring zero leading silence!
+* **Dynamic Target Routing**: You can select where the recorded audio is loaded when recording completes:
+  - **Kit Slots (1–16)**: Records a quick drum sample (kick, snare, hat) and loads it directly into a specific drum kit instrument row.
+  - **Audio Tracks**: Records a long vocal/instrument phrase and instantiates it as a continuous **Audio Clip** on a target audio track!
+* **Auto-BPM Loop Alignment**: Upon completion, the utility calculates the precise frame duration of the recorded loop, aligns it to the grid, and automatically updates the JNI engine so the new recording is immediately audible and synchronized.
+
+#### 🎤 Tutorial L: Real-Time Threshold-Triggered Vocal Capture
+1. Connect your microphone or line-in instrument and ensure it is selected as the active system recording input.
+2. Select **`Tools ➔ Threshold Loop Sampler...`** (or press the global shortcut **`Ctrl + H` / `Cmd + H`**).
+3. Select the **Target Track** dropdown: choose your desired destination track (e.g., **`Track 1 (Audio Clip)`** to record a continuous vocal phrase).
+4. Slide the **Threshold** dial to **`-35dB`** to set the noise-gate trigger level.
+5. Click **`[ Arm Recording ]`**! The button turns yellow and flashes, waiting for input.
+6. Sing or play your phrase! The instant your voice exceeds $-35\text{dB}$, the recorder turns solid red and captures the audio in real-time.
+7. Click **`[ Stop & Load ]`** when finished. The workstation automatically saves the recorded WAV, binds it to the selected track, and synchronizes the engine! Press play to hear your fresh recording loop perfectly in time!
+
 ---
 
 ## 12. Advanced Wavetable Index Scan Editor
