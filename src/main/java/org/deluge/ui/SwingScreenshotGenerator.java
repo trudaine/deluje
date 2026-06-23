@@ -239,7 +239,7 @@ public class SwingScreenshotGenerator {
                       prefBox[0].setModal(
                           false); // Disable modality for programmatic screenshot capture!
                       prefBox[0].pack();
-                      prefBox[0].setSize(640, 560);
+                      prefBox[0].setSize(680, 800);
                       prefBox[0].setVisible(true);
                     });
                 Thread.sleep(1500);
@@ -293,7 +293,7 @@ public class SwingScreenshotGenerator {
                           new PreferencesDialog(app, app.getMidiService(), () -> {}, () -> {});
                       midiBox[0].setModal(false); // Modality off for screenshots!
                       midiBox[0].pack();
-                      midiBox[0].setSize(660, 600);
+                      midiBox[0].setSize(680, 800);
                       midiBox[0].selectMidiTab();
                       midiBox[0].setVisible(true);
                     });
