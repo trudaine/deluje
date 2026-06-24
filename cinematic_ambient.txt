@@ -1,0 +1,83 @@
+# ── CINEMATIC AMBIENT WAVE PROCEDURAL MACRO SCRIPT ──
+# This script procedurally builds a slow, majestic cinematic soundscape
+# featuring an evolving drone pad, slow orchestral warm strings,
+# a deep sub-bass drone, sparse atmospheric percussion,
+# and a huge, shimmering, endless master reverb hall.
+
+# 1. Global Project Configuration (Slow & Atmospheric)
+BPM_SWING|bpm|90.000000
+BPM_SWING|swing|0.500000
+
+# 2. Add Kit Track (Sparse Atmospheric Percussion)
+TRACK_STRUCT|ADD|0|KIT|Percussion
+
+# Program a very slow, sparse beat
+# Kick (Row 0) only on 1 and 9
+STEP|0|0|0|0|true|0.900000|1.500000|1.000000|60|0|0.000000|0.000000
+STEP|0|0|0|8|true|0.900000|1.500000|1.000000|60|0|0.000000|0.000000
+
+# Rimshot (Row 1) on 7 and 15 (delayed atmospheric backbeat)
+STEP|0|0|1|6|true|0.750000|1.000000|1.000000|60|0|0.000000|0.000000
+STEP|0|0|1|14|true|0.750000|1.000000|1.000000|60|0|0.000000|0.000000
+
+# Slow Shaker (Row 2) on 3, 7, 11, 15
+STEP|0|0|2|2|true|0.600000|0.500000|1.000000|60|0|0.000000|0.000000
+STEP|0|0|2|6|true|0.600000|0.500000|1.000000|60|0|0.000000|0.000000
+STEP|0|0|2|10|true|0.600000|0.500000|1.000000|60|0|0.000000|0.000000
+STEP|0|0|2|14|true|0.600000|0.500000|1.000000|60|0|0.000000|0.000000
+
+# 3. Add Synth Track 1: Evolving Drone Pad (Huge & Lush)
+TRACK_STRUCT|ADD|1|SYNTH|DronePad
+LOAD_PRESET|1|125 Evolving Pad
+
+# Program long sustained polyphonic ambient chords across 5 rows
+# Chord 1: C minor 9 (C=48, Eb=51, G=55, Bb=58, D=62) on Step 0 (gates = 7.5 steps)
+STEP|1|0|0|0|true|0.800000|7.500000|1.000000|48|0|0.000000|0.000000
+STEP|1|0|1|0|true|0.800000|7.500000|1.000000|51|0|0.000000|0.000000
+STEP|1|0|2|0|true|0.800000|7.500000|1.000000|55|0|0.000000|0.000000
+STEP|1|0|3|0|true|0.800000|7.500000|1.000000|58|0|0.000000|0.000000
+STEP|1|0|4|0|true|0.800000|7.500000|1.000000|62|0|0.000000|0.000000
+
+# Chord 2: Ab major 7#11 (Ab=44, C=48, Eb=51, G=55, Bb=58, D=62) on Step 8
+STEP|1|0|0|8|true|0.800000|7.500000|1.000000|44|0|0.000000|0.000000
+STEP|1|0|1|8|true|0.800000|7.500000|1.000000|48|0|0.000000|0.000000
+STEP|1|0|2|8|true|0.800000|7.500000|1.000000|51|0|0.000000|0.000000
+STEP|1|0|3|8|true|0.800000|7.500000|1.000000|55|0|0.000000|0.000000
+STEP|1|0|4|8|true|0.800000|7.500000|1.000000|58|0|0.000000|0.000000
+
+# 4. Add Synth Track 2: Orchestral Warm Strings (Melody)
+TRACK_STRUCT|ADD|2|SYNTH|Strings
+LOAD_PRESET|2|131 Warm Strings
+
+# Program a slow, expressive high counter-melody
+STEP|2|0|0|0|true|0.850000|2.000000|1.000000|79|0|0.000000|0.000000
+STEP|2|0|0|3|true|0.800000|2.000000|1.000000|82|0|0.000000|0.000000
+STEP|2|0|0|6|true|0.850000|2.000000|1.000000|86|0|0.000000|0.000000
+STEP|2|0|0|8|true|0.850000|2.000000|1.000000|87|0|0.000000|0.000000
+STEP|2|0|0|11|true|0.800000|2.000000|1.000000|86|0|0.000000|0.000000
+STEP|2|0|0|14|true|0.850000|2.000000|1.000000|79|0|0.000000|0.000000
+
+# 5. Add Synth Track 3: Deep Sub Drone
+TRACK_STRUCT|ADD|3|SYNTH|SubDrone
+LOAD_PRESET|3|016 Dark Saturated Bass
+
+# Program long sub-bass roots (Pitch 36 = C2, Pitch 32 = Ab1)
+STEP|3|0|0|0|true|0.900000|7.800000|1.000000|36|0|0.000000|0.000000
+STEP|3|0|0|8|true|0.900000|7.800000|1.000000|32|0|0.000000|0.000000
+
+# 6. Tune Filters & Modulations for Soundscaping
+# Drone Pad: Automate cutoff to open slowly (starts dark at 25%)
+SYNTH_PARAM|1|lpfCutoff|25.000000
+SYNTH_PARAM|1|lpfResonance|15.000000
+SYNTH_PARAM|1|reverbSend|75.000000
+
+# Strings: Very lush and spacey
+SYNTH_PARAM|2|lpfCutoff|45.000000
+SYNTH_PARAM|2|reverbSend|85.000000
+
+# Sub Drone: Deep and rumbly
+SYNTH_PARAM|3|lpfCutoff|12.000000
+
+# 7. Shimmering Infinite Master Reverb Room
+BPM_SWING|reverbRoomSize|0.920000
+BPM_SWING|reverbDampening|0.150000
