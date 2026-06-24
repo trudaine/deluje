@@ -483,4 +483,25 @@ public class DigitalAudioFidelityTest {
         secondTimeEntered > firstTimeEntered,
         "Culling timestamp should be refreshed/updated on retrigger");
   }
+
+  @Test
+  void testDefaultDrumSlotMutes() {
+    FirmwareKit kit = new FirmwareKit();
+    assertEquals(16, kit.drumSounds.size(), "Should initialize exactly 16 drum slots");
+    for (int i = 0; i < 16; i++) {
+      FirmwareSound drum = kit.drumSounds.get(i);
+      assertEquals(
+          Integer.MIN_VALUE,
+          drum.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME],
+          "Osc A volume for slot " + i + " must be initialized to absolute silence");
+      assertEquals(
+          Integer.MIN_VALUE,
+          drum.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME],
+          "Osc B volume for slot " + i + " must be initialized to absolute silence");
+      assertEquals(
+          Integer.MIN_VALUE,
+          drum.paramNeutralValues[Param.LOCAL_NOISE_VOLUME],
+          "Noise volume for slot " + i + " must be initialized to absolute silence");
+    }
+  }
 }

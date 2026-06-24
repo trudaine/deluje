@@ -15,9 +15,10 @@ public class FirmwareKit extends org.deluge.firmware2.Kit {
       FirmwareSound drumSound = new FirmwareSound();
       drumSound.isDrum = true;
       drumSound.oscTypes[0] = OscType.SAMPLE;
-      // C Sound::initParams sets LOCAL_OSC_A_VOLUME = MAX for source 0 → the sample plays
-      // at full amplitude through the same sourceAmplitude path as an oscillator. Only silence
-      // the second oscillator + noise (a drum uses source 0 — the sample — exclusively).
+      // Initialize all generator volumes (Osc A, Osc B, Noise) to absolute silence
+      // (Integer.MIN_VALUE)
+      // to keep unconfigured/empty drum slots completely muted and prevent background leakage.
+      drumSound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MIN_VALUE;
       drumSound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
       drumSound.paramNeutralValues[Param.LOCAL_NOISE_VOLUME] = Integer.MIN_VALUE;
       drumSounds.add(drumSound);

@@ -39,6 +39,10 @@ class Kit808E2ETest {
     drum.oscTypes[0] = org.deluge.firmware2.Oscillator.OscType.SAMPLE;
     drum.samples[0] = ms;
     drum.fw2SampleCache[0] = org.deluge.firmware2.Sample.fromFirmwareSample(ms);
+    drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_OSC_A_VOLUME] =
+        org.deluge.firmware2.Functions.ONE_Q31;
+    drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_VOLUME] =
+        org.deluge.firmware2.Functions.ONE_Q31;
   }
 
   /** Render a single drum hit through the engine, return energy + per-block hash for comparison. */
@@ -128,10 +132,7 @@ class Kit808E2ETest {
     eng.sounds.add(kit);
 
     // Simulate applyKitDrumSampleLive
-    FirmwareSound drum = kit.drumSounds.get(3); // drum 3
-    drum.oscTypes[0] = org.deluge.firmware2.Oscillator.OscType.SAMPLE;
-    drum.samples[0] = ms;
-    drum.fw2SampleCache[0] = org.deluge.firmware2.Sample.fromFirmwareSample(ms);
+    applySampleToDrum(kit, 3, ms);
 
     long e3 = renderEnergy(kit, eng, 3);
     long e0 = renderEnergy(kit, eng, 0); // drum 0 — no sample
