@@ -2123,31 +2123,45 @@ public class DelugeXmlParser {
   }
 
   private static void parseSynthMode(Element soundNode, SynthTrackModel synth) {
-    NodeList modeNodes = soundNode.getElementsByTagName("mode");
-    if (modeNodes.getLength() == 0) return;
-    String mode = modeNodes.item(0).getTextContent().trim().toLowerCase();
-    switch (mode) {
-      case "fm" -> synth.setSynthMode(1);
-      case "ringmod" -> synth.setSynthMode(2);
-      default -> synth.setSynthMode(0);
+    String mode = soundNode.getAttribute("mode");
+    if (mode == null || mode.isEmpty()) {
+      NodeList modeNodes = soundNode.getElementsByTagName("mode");
+      if (modeNodes.getLength() > 0) {
+        mode = modeNodes.item(0).getTextContent();
+      }
+    }
+    if (mode != null && !mode.isBlank()) {
+      mode = mode.trim().toLowerCase();
+      switch (mode) {
+        case "fm" -> synth.setSynthMode(1);
+        case "ringmod" -> synth.setSynthMode(2);
+        default -> synth.setSynthMode(0);
+      }
     }
   }
 
   private static void parsePolyphony(Element soundNode, SynthTrackModel synth) {
-    NodeList polyNodes = soundNode.getElementsByTagName("polyphonic");
-    if (polyNodes.getLength() == 0) return;
-    String val = polyNodes.item(0).getTextContent().trim().toLowerCase();
-    switch (val) {
-      case "mono":
-      case "0":
-        synth.setPolyphony(SynthTrackModel.PolyphonyMode.MONO);
-        break;
-      case "legato":
-        synth.setPolyphony(SynthTrackModel.PolyphonyMode.LEGATO);
-        break;
-      default:
-        synth.setPolyphony(SynthTrackModel.PolyphonyMode.POLY);
-        break;
+    String val = soundNode.getAttribute("polyphonic");
+    if (val == null || val.isEmpty()) {
+      NodeList polyNodes = soundNode.getElementsByTagName("polyphonic");
+      if (polyNodes.getLength() > 0) {
+        val = polyNodes.item(0).getTextContent();
+      }
+    }
+    if (val != null && !val.isBlank()) {
+      val = val.trim().toLowerCase();
+      switch (val) {
+        case "mono":
+        case "0":
+          synth.setPolyphony(SynthTrackModel.PolyphonyMode.MONO);
+          break;
+        case "legato":
+          synth.setPolyphony(SynthTrackModel.PolyphonyMode.LEGATO);
+          break;
+        default:
+          synth.setPolyphony(SynthTrackModel.PolyphonyMode.POLY);
+          break;
+      }
     }
   }
 
@@ -2432,11 +2446,14 @@ public class DelugeXmlParser {
     for (int i = 0; i < knobList.getLength(); i++) {
       Element knobElem = (Element) knobList.item(i);
       String param = getChildText(knobElem, "controlsParam");
-      if (param != null && i < synth.getModKnobs().size()) {
+      if (param == null) param = knobElem.getAttribute("controlsParam");
+      if (param != null && !param.isBlank() && i < synth.getModKnobs().size()) {
         String patchSrc = getChildText(knobElem, "patchSource");
         if (patchSrc == null) patchSrc = getChildText(knobElem, "patchAmountFromSource");
+        if (patchSrc == null) patchSrc = knobElem.getAttribute("patchSource");
+        if (patchSrc == null) patchSrc = knobElem.getAttribute("patchAmountFromSource");
         if (patchSrc == null || patchSrc.isBlank()) patchSrc = "NONE";
-        synth.setModKnob(i, new ModKnob(param, patchSrc));
+        synth.setModKnob(i, new ModKnob(param.trim(), patchSrc.trim()));
       }
     }
   }

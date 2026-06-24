@@ -1,6 +1,6 @@
 # Deluge Hardware Fidelity Verification Plan
 
-This plan outlines how to test and verify the audio fidelity of the ChucK-Java `deluge/` engine against the real physical Synthstrom Deluge hardware.
+This plan outlines how to test and verify the audio fidelity of the Deluge-Java `deluge/` engine against the real physical Synthstrom Deluge hardware.
 
 ---
 
@@ -34,7 +34,7 @@ against the `DelugeFirmware` NIGHTLY @ `9a74e162` / nightly-4, model/clip/instru
 ## 1. Setup of physical Deluge SD Card
 
 To ensure the hardware uses the exact same sample and preset configurations:
-1. Copy the following resource directories from ChucK-Java to the root of your Deluge SD card:
+1. Copy the following resource directories from Deluge-Java to the root of your Deluge SD card:
    * Copy `deluge/src/main/resources/SAMPLES/` to the SD card's `/SAMPLES/` folder.
    * Copy `deluge/src/main/resources/SONGS/` to the SD card's `/SONGS/` folder.
    * Copy `deluge/src/main/resources/SYNTHS/` to the SD card's `/SYNTHS/` folder.
@@ -135,7 +135,7 @@ Run these four test scenarios on your physical Deluge and record their stereo ou
 
 ---
 
-## 4. Rendering the Reference wave from ChucK-Java
+## 4. Rendering the Reference wave from Deluge-Java
 
 To render the identical reference files offline, run the compiled test runner:
 

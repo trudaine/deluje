@@ -1,0 +1,61 @@
+# ── TECHNO CREATOR PROCEDURAL MACRO SCRIPT ──
+# This script procedurally builds a driving 4-on-the-floor techno track
+# complete with drums, bass, and synth parameter sweeps from scratch!
+
+# 1. Global Project Configuration
+BPM_SWING|bpm|130.000000
+BPM_SWING|swing|0.520000
+
+# 2. Add Kit Track (Drums)
+TRACK_STRUCT|ADD|0|KIT|Drums
+
+# Program Kick (Row 0) on 1, 5, 9, 13
+STEP|0|0|0|0|true|0.950000|1.000000|1.000000|60|0|0.000000|0.000000
+STEP|0|0|0|4|true|0.950000|1.000000|1.000000|60|0|0.000000|0.000000
+STEP|0|0|0|8|true|0.950000|1.000000|1.000000|60|0|0.000000|0.000000
+STEP|0|0|0|12|true|0.950000|1.000000|1.000000|60|0|0.000000|0.000000
+
+# Program Snare (Row 1) on 5, 13
+STEP|0|0|1|4|true|0.850000|1.000000|1.000000|60|0|0.000000|0.000000
+STEP|0|0|1|12|true|0.850000|1.000000|1.000000|60|0|0.000000|0.000000
+
+# Program Closed Hat (Row 2) on Off-beats (3, 7, 11, 15)
+STEP|0|0|2|2|true|0.750000|0.500000|1.000000|60|0|0.000000|0.000000
+STEP|0|0|2|6|true|0.750000|0.500000|1.000000|60|0|0.000000|0.000000
+STEP|0|0|2|10|true|0.750000|0.500000|1.000000|60|0|0.000000|0.000000
+STEP|0|0|2|14|true|0.750000|0.500000|1.000000|60|0|0.000000|0.000000
+
+# Program Open Hat (Row 3) on off-beats with longer gate
+STEP|0|0|3|6|true|0.800000|1.500000|1.000000|60|0|0.000000|0.000000
+STEP|0|0|3|14|true|0.800000|1.500000|1.000000|60|0|0.000000|0.000000
+
+# 3. Add Synth Track (Bassline)
+TRACK_STRUCT|ADD|1|SYNTH|Bass
+
+# Load FM Bass Preset (uses 049 Basic FM or simple FM)
+LOAD_PRESET|1|049 Basic FM
+
+# Program a driving rolling bassline
+# Pitch 36 (C2) is programmed on Row 0
+STEP|1|0|0|2|true|0.850000|0.900000|1.000000|36|0|0.000000|0.000000
+STEP|1|0|0|3|true|0.800000|0.900000|1.000000|36|0|0.000000|0.000000
+STEP|1|0|0|6|true|0.850000|0.900000|1.000000|36|0|0.000000|0.000000
+STEP|1|0|0|10|true|0.850000|0.900000|1.000000|36|0|0.000000|0.000000
+STEP|1|0|0|11|true|0.800000|0.900000|1.000000|36|0|0.000000|0.000000
+STEP|1|0|0|14|true|0.850000|0.900000|1.000000|36|0|0.000000|0.000000
+
+# Pitch 39 (D#2) is programmed on Row 1
+STEP|1|0|1|7|true|0.800000|0.900000|1.000000|39|0|0.000000|0.000000
+
+# Pitch 43 (G2) is programmed on Row 2
+STEP|1|0|2|15|true|0.800000|0.900000|1.000000|43|0|0.000000|0.000000
+
+# 4. Configure Synth Filters & Modulation
+SYNTH_PARAM|1|lpfCutoff|45.000000
+SYNTH_PARAM|1|lpfResonance|25.000000
+SYNTH_PARAM|1|fmAmount|65.000000
+SYNTH_PARAM|1|fmRatio|50.000000
+
+# 5. Add Master Reverb Space
+BPM_SWING|reverbRoomSize|0.820000
+BPM_SWING|reverbDampening|0.350000

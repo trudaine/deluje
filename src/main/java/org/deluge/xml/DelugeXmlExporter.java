@@ -42,10 +42,10 @@ public class DelugeXmlExporter {
     for (int i = 0; i < 2; i++) {
       Element env = doc.createElement("envelope");
       // Use model values for persistence
-      env.setAttribute("attack", DelugeHexMapper.floatToHex(model.getEnv(i).attack()));
-      env.setAttribute("decay", DelugeHexMapper.floatToHex(model.getEnv(i).decay()));
-      env.setAttribute("sustain", DelugeHexMapper.floatToHex(model.getEnv(i).sustain()));
-      env.setAttribute("release", DelugeHexMapper.floatToHex(model.getEnv(i).release()));
+      env.setAttribute("attack", DelugeHexMapper.envTimeToHex(model.getEnv(i).attack()));
+      env.setAttribute("decay", DelugeHexMapper.envTimeToHex(model.getEnv(i).decay()));
+      env.setAttribute("sustain", DelugeHexMapper.sustainToHex(model.getEnv(i).sustain()));
+      env.setAttribute("release", DelugeHexMapper.envTimeToHex(model.getEnv(i).release()));
       rootElement.appendChild(env);
     }
 

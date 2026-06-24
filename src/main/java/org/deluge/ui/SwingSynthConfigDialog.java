@@ -1036,7 +1036,12 @@ public class SwingSynthConfigDialog extends JDialog {
             var stack = projectModel.getUndoRedoStack();
             stack.push(
                 new Consequence.SynthParamConsequence(
-                    trackIndex, paramName, oldValue, newVal, System.currentTimeMillis()));
+                    projectModel,
+                    trackIndex,
+                    paramName,
+                    oldValue,
+                    newVal,
+                    System.currentTimeMillis()));
             hasCapturedOld[0] = false;
           }
         });

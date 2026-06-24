@@ -1688,7 +1688,13 @@ public class SwingGridPanel extends JPanel {
               .getUndoRedoStack()
               .push(
                   new Consequence.StepConsequence(
-                      editedModelTrack, activeClipId, row, col, oldStep, cModel.getStep(row, col)));
+                      projectModel,
+                      editedModelTrack,
+                      activeClipId,
+                      row,
+                      col,
+                      oldStep,
+                      cModel.getStep(row, col)));
         }
       }
     }
@@ -3144,6 +3150,7 @@ public class SwingGridPanel extends JPanel {
                                         .getUndoRedoStack()
                                         .push(
                                             new Consequence.StepConsequence(
+                                                projectModel,
                                                 editedModelTrack,
                                                 activeClipId,
                                                 modelRow,
@@ -3208,6 +3215,7 @@ public class SwingGridPanel extends JPanel {
                                       .getUndoRedoStack()
                                       .push(
                                           new Consequence.StepConsequence(
+                                              projectModel,
                                               editedModelTrack,
                                               activeClipId,
                                               modelRow,
@@ -3289,6 +3297,7 @@ public class SwingGridPanel extends JPanel {
                                       .getUndoRedoStack()
                                       .push(
                                           new Consequence.StepConsequence(
+                                              projectModel,
                                               editedModelTrack,
                                               activeClipId,
                                               modelRow,
@@ -3347,6 +3356,7 @@ public class SwingGridPanel extends JPanel {
                                       .getUndoRedoStack()
                                       .push(
                                           new Consequence.StepConsequence(
+                                              projectModel,
                                               editedModelTrack,
                                               activeClipId,
                                               modelRow,
@@ -5948,6 +5958,7 @@ public class SwingGridPanel extends JPanel {
                         double v = bridge.getVelocity(engineRow, s);
                         steps.add(
                             new Consequence.StepConsequence(
+                                projectModel,
                                 editedModelTrack,
                                 activeClipId,
                                 trk,
@@ -6346,6 +6357,7 @@ public class SwingGridPanel extends JPanel {
                                         .getUndoRedoStack()
                                         .push(
                                             new Consequence.StepConsequence(
+                                                projectModel,
                                                 editedModelTrack,
                                                 activeClipId,
                                                 trk,
@@ -6406,6 +6418,7 @@ public class SwingGridPanel extends JPanel {
                                       .getUndoRedoStack()
                                       .push(
                                           new Consequence.StepConsequence(
+                                              projectModel,
                                               editedModelTrack,
                                               activeClipId,
                                               trk,
@@ -6480,6 +6493,7 @@ public class SwingGridPanel extends JPanel {
                                       .getUndoRedoStack()
                                       .push(
                                           new Consequence.StepConsequence(
+                                              projectModel,
                                               editedModelTrack,
                                               activeClipId,
                                               trk,
@@ -7347,7 +7361,7 @@ public class SwingGridPanel extends JPanel {
                           .getUndoRedoStack()
                           .push(
                               new Consequence.AutomationConsequence(
-                                  tIdx, acIdx2, finalParam, colIdx, oldVal, -1f));
+                                  projectModel, tIdx, acIdx2, finalParam, colIdx, oldVal, -1f));
                       refresh();
                     }
                   } else {
@@ -7381,6 +7395,7 @@ public class SwingGridPanel extends JPanel {
                             .getUndoRedoStack()
                             .push(
                                 new Consequence.AutomationConsequence(
+                                    projectModel,
                                     tIdx,
                                     acIdx2,
                                     autoDragParam,
@@ -7592,7 +7607,7 @@ public class SwingGridPanel extends JPanel {
                           .getUndoRedoStack()
                           .push(
                               new Consequence.AutomationConsequence(
-                                  tIdx, acIdx2, fParam, colIdx, oldVal, -1f));
+                                  projectModel, tIdx, acIdx2, fParam, colIdx, oldVal, -1f));
                       refresh();
                     }
                   } else {
@@ -7615,7 +7630,7 @@ public class SwingGridPanel extends JPanel {
                           .getUndoRedoStack()
                           .push(
                               new Consequence.AutomationConsequence(
-                                  tIdx, acIdx2, fParam, colIdx, oldVal, newVal));
+                                  projectModel, tIdx, acIdx2, fParam, colIdx, oldVal, newVal));
                     }
                     // Track for drag coalescing
                     autoDragParam = fParam;
@@ -7645,6 +7660,7 @@ public class SwingGridPanel extends JPanel {
                             .getUndoRedoStack()
                             .push(
                                 new Consequence.AutomationConsequence(
+                                    projectModel,
                                     tIdx,
                                     acIdx2,
                                     autoDragParam,
@@ -7924,6 +7940,7 @@ public class SwingGridPanel extends JPanel {
                   .getUndoRedoStack()
                   .push(
                       new Consequence.StepConsequence(
+                          projectModel,
                           editedModelTrack,
                           activeClipId,
                           modelRow,
@@ -8113,7 +8130,13 @@ public class SwingGridPanel extends JPanel {
             .getUndoRedoStack()
             .push(
                 new Consequence.StepConsequence(
-                    editedModelTrack, activeClipId, modelRow, activeCol, oldStep, newStep));
+                    projectModel,
+                    editedModelTrack,
+                    activeClipId,
+                    modelRow,
+                    activeCol,
+                    oldStep,
+                    newStep));
       }
     }
     fireProjectChanged();
@@ -8213,6 +8236,7 @@ public class SwingGridPanel extends JPanel {
                       .getUndoRedoStack()
                       .push(
                           new Consequence.StepConsequence(
+                              projectModel,
                               editedModelTrack,
                               activeClipId,
                               modelRow,
@@ -8281,6 +8305,7 @@ public class SwingGridPanel extends JPanel {
                       .getUndoRedoStack()
                       .push(
                           new Consequence.StepConsequence(
+                              projectModel,
                               editedModelTrack,
                               activeClipId,
                               modelRow,
@@ -8361,7 +8386,13 @@ public class SwingGridPanel extends JPanel {
             .getUndoRedoStack()
             .push(
                 new Consequence.StepConsequence(
-                    editedModelTrack, activeClipId, modelRow, activeCol, oldStep, newStep));
+                    projectModel,
+                    editedModelTrack,
+                    activeClipId,
+                    modelRow,
+                    activeCol,
+                    oldStep,
+                    newStep));
       }
     }
     fireProjectChanged();
@@ -8413,7 +8444,13 @@ public class SwingGridPanel extends JPanel {
             .getUndoRedoStack()
             .push(
                 new Consequence.StepConsequence(
-                    editedModelTrack, activeClipId, modelRow, activeCol, oldStep, newStep));
+                    projectModel,
+                    editedModelTrack,
+                    activeClipId,
+                    modelRow,
+                    activeCol,
+                    oldStep,
+                    newStep));
       }
     }
     fireProjectChanged();
@@ -8465,7 +8502,13 @@ public class SwingGridPanel extends JPanel {
             .getUndoRedoStack()
             .push(
                 new Consequence.StepConsequence(
-                    editedModelTrack, activeClipId, modelRow, startModelCol, oldStart, newStart));
+                    projectModel,
+                    editedModelTrack,
+                    activeClipId,
+                    modelRow,
+                    startModelCol,
+                    oldStart,
+                    newStart));
       }
     }
 
@@ -8484,7 +8527,13 @@ public class SwingGridPanel extends JPanel {
               .getUndoRedoStack()
               .push(
                   new Consequence.StepConsequence(
-                      editedModelTrack, activeClipId, modelRow, activeCol, oldStep, newStep));
+                      projectModel,
+                      editedModelTrack,
+                      activeClipId,
+                      modelRow,
+                      activeCol,
+                      oldStep,
+                      newStep));
         }
       }
     }
@@ -8702,6 +8751,7 @@ public class SwingGridPanel extends JPanel {
     java.util.ArrayList<Consequence> steps = new java.util.ArrayList<>();
     steps.add(
         new Consequence.StepConsequence(
+            projectModel,
             editedModelTrack,
             activeClipId,
             targetRow,
@@ -10512,6 +10562,7 @@ public class SwingGridPanel extends JPanel {
             .getUndoRedoStack()
             .push(
                 new Consequence.TrackStructureConsequence(
+                    projectModel,
                     Consequence.TrackStructureConsequence.ADD,
                     trackIdx,
                     newTrack,

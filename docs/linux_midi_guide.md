@@ -1,6 +1,6 @@
-# ChucK-Java: Linux MIDI & ALSA Driver Architectural Integration Guide
+# Deluge-Java: Linux MIDI & ALSA Driver Architectural Integration Guide
 
-This document details the low-level architectural integration, native system configurations, and kernel-level fixes required to run the ChucK-Java pro-audio workstation stably under **Linux** using the pure Java **Foreign Function & Memory (FFM) API** (Project Panama) binding to **RtMidi** via [rtmidijava](https://github.com/ludoch/rtmidijava).
+This document details the low-level architectural integration, native system configurations, and kernel-level fixes required to run the Deluge-Java pro-audio workstation stably under **Linux** using the pure Java **Foreign Function & Memory (FFM) API** (Project Panama) binding to **RtMidi** via [rtmidijava](https://github.com/ludoch/rtmidijava).
 
 ```mermaid
 graph TD
@@ -32,7 +32,7 @@ graph TD
 
 ## 1. Core Architectural Pillars of `rtmidijava` on Linux
 
-ChucK-Java utilizes the modern **Java 25 Foreign Function & Memory (FFM) API** to bind directly to the native ALSA library (`libasound.so`). This replaces high-overhead JNI wrappers with zero-dependency, type-safe native memory calls.
+Deluge-Java utilizes the modern **Java 25 Foreign Function & Memory (FFM) API** to bind directly to the native ALSA library (`libasound.so`). This replaces high-overhead JNI wrappers with zero-dependency, type-safe native memory calls.
 
 ### 1.1. Zero-GC High-Performance Fast Path
 Traditional Java MIDI libraries allocate heap objects (e.g. `byte[]` and timestamp wrappers) for every incoming MIDI event. Under rapid MIDI streams (like the Deluge's 60 FPS OLED frames or 14-bit pitch bend sweeps), this floods the JVM garbage collector, introducing micro-stutters and audio dropouts on the real-time DSP thread.
@@ -90,7 +90,7 @@ Version **`1.0.4`** resolved four critical bugs that previously prevented MIDI f
 
 ## 3. Linux Deployment & System Configuration Guidelines
 
-To run the ChucK-Java workstation with native MIDI support stably on Linux, ensure your system is configured according to the following guidelines.
+To run the Deluge-Java workstation with native MIDI support stably on Linux, ensure your system is configured according to the following guidelines.
 
 ### 3.1. Install ALSA Sequencer Libraries
 Ensure that the ALSA development headers and shared libraries are installed on your system:

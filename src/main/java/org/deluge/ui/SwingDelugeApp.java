@@ -27,6 +27,8 @@ public class SwingDelugeApp extends JFrame {
   public static SwingDelugeApp mainInstance;
   public static boolean pureModeActive = false;
   private final BridgeContract bridge;
+  private final org.deluge.model.ScriptingEngine scriptingEngine =
+      new org.deluge.model.ScriptingEngine();
 
   private SwingGridPanel clipPanel;
   private SwingVisualizerPanel visualizerPanel;
@@ -1491,6 +1493,16 @@ public class SwingDelugeApp extends JFrame {
     // Register listener so structural and param changes auto-sync to bridge
     model.addProjectListener(new BridgeProjectListener(model));
 
+    // Register UndoRedoStack listener to capture macro recordings
+    model
+        .getUndoRedoStack()
+        .setListener(
+            action -> {
+              if (action instanceof org.deluge.model.Consequence c) {
+                scriptingEngine.record(c);
+              }
+            });
+
     pushModelToBridge();
     propagateCurrentModel();
     syncHighFidelityEngine(model);
@@ -2680,7 +2692,7 @@ public class SwingDelugeApp extends JFrame {
                   "Load pattern",
                   java.util.List.of(
                       new Consequence.PatternLoadConsequence(
-                          focusTrack, clipIdx, beforeSnapshot, afterSnapshot))));
+                          currentProject, focusTrack, clipIdx, beforeSnapshot, afterSnapshot))));
 
       pushModelToBridge();
       propagateCurrentModel();
@@ -3526,8 +3538,6 @@ public class SwingDelugeApp extends JFrame {
     gridGroup.add(grid8x16Item);
     gridGroup.add(grid16x16Item);
     gridGroup.add(grid24x16Item);
-    gridGroup.add(grid16x24Item);
-
     grid8x16Item.addActionListener(
         e -> updateGlobalGridMode(org.deluge.project.PreferencesManager.GridMode.GRID_8x16));
     grid16x16Item.addActionListener(
@@ -3544,8 +3554,107 @@ public class SwingDelugeApp extends JFrame {
 
     updateViewMenuChecks();
 
+    // ── Macro Recording & Playback Menu ──
+    JMenu macroMenu = new JMenu("Macro");
+    macroMenu.setFont(new Font("SansSerif", Font.PLAIN, 12));
+
+    JMenuItem startRecordingItem = new JMenuItem("Start Recording Macro");
+    JMenuItem stopRecordingItem = new JMenuItem("Stop Recording Macro");
+    JMenuItem saveMacroItem = new JMenuItem("Save Macro Script...");
+    JMenuItem playMacroItem = new JMenuItem("Play Macro Script...");
+
+    stopRecordingItem.setEnabled(false);
+    saveMacroItem.setEnabled(false);
+
+    startRecordingItem.addActionListener(
+        e -> {
+          scriptingEngine.startRecording();
+          startRecordingItem.setEnabled(false);
+          stopRecordingItem.setEnabled(true);
+          saveMacroItem.setEnabled(false);
+          macroMenu.setText("Macro ●");
+          macroMenu.setForeground(Color.RED);
+        });
+
+    stopRecordingItem.addActionListener(
+        e -> {
+          scriptingEngine.stopRecording();
+          startRecordingItem.setEnabled(true);
+          stopRecordingItem.setEnabled(false);
+          saveMacroItem.setEnabled(!scriptingEngine.getRecordedActions().isEmpty());
+          macroMenu.setText("Macro");
+          macroMenu.setForeground(null);
+          JOptionPane.showMessageDialog(
+              this,
+              "Macro recording stopped.\n"
+                  + scriptingEngine.getRecordedActions().size()
+                  + " actions recorded.",
+              "Macro Recorder",
+              JOptionPane.INFORMATION_MESSAGE);
+        });
+
+    saveMacroItem.addActionListener(
+        e -> {
+          FileDialog fd = new FileDialog(this, "Save Macro Script", FileDialog.SAVE);
+          fd.setFile("*.txt");
+          fd.setVisible(true);
+          String dir = fd.getDirectory();
+          String file = fd.getFile();
+          if (dir != null && file != null) {
+            try {
+              scriptingEngine.saveScript(new java.io.File(dir, file));
+              JOptionPane.showMessageDialog(
+                  this,
+                  "Macro script saved successfully to:\n" + file,
+                  "Success",
+                  JOptionPane.INFORMATION_MESSAGE);
+            } catch (Exception ex) {
+              JOptionPane.showMessageDialog(
+                  this,
+                  "Error saving macro script:\n" + ex.getMessage(),
+                  "Error",
+                  JOptionPane.ERROR_MESSAGE);
+            }
+          }
+        });
+
+    playMacroItem.addActionListener(
+        e -> {
+          FileDialog fd = new FileDialog(this, "Load & Run Macro Script", FileDialog.LOAD);
+          fd.setFile("*.txt");
+          fd.setVisible(true);
+          String dir = fd.getDirectory();
+          String file = fd.getFile();
+          if (dir != null && file != null) {
+            try {
+              var executed =
+                  scriptingEngine.loadAndExecuteScript(new java.io.File(dir, file), currentProject);
+              pushModelToBridge();
+              refreshGrids();
+              JOptionPane.showMessageDialog(
+                  this,
+                  "Macro executed successfully!\n" + executed.size() + " actions applied.",
+                  "Success",
+                  JOptionPane.INFORMATION_MESSAGE);
+            } catch (Exception ex) {
+              JOptionPane.showMessageDialog(
+                  this,
+                  "Error executing macro script:\n" + ex.getMessage(),
+                  "Error",
+                  JOptionPane.ERROR_MESSAGE);
+            }
+          }
+        });
+
+    macroMenu.add(startRecordingItem);
+    macroMenu.add(stopRecordingItem);
+    macroMenu.addSeparator();
+    macroMenu.add(saveMacroItem);
+    macroMenu.add(playMacroItem);
+
     menuBar.add(fileMenu);
     menuBar.add(editMenu);
+    menuBar.add(macroMenu);
     menuBar.add(viewMenu);
     menuBar.add(toolsMenu);
     menuBar.add(settingsMenu);
@@ -3958,7 +4067,11 @@ public class SwingDelugeApp extends JFrame {
               .getUndoRedoStack()
               .push(
                   new Consequence.TrackStructureConsequence(
-                      Consequence.TrackStructureConsequence.ADD, idx, track, "Add track"));
+                      currentProject,
+                      Consequence.TrackStructureConsequence.ADD,
+                      idx,
+                      track,
+                      "Add track"));
           pushModelToBridge();
           propagateCurrentModel();
           syncHighFidelityEngine(currentProject);
@@ -4670,7 +4783,11 @@ public class SwingDelugeApp extends JFrame {
           currentProject.addTrack(kit);
           stack.push(
               new Consequence.TrackStructureConsequence(
-                  Consequence.TrackStructureConsequence.ADD, idx, kit, "Add kit track"));
+                  currentProject,
+                  Consequence.TrackStructureConsequence.ADD,
+                  idx,
+                  kit,
+                  "Add kit track"));
         }
         case "SYNTH" -> {
           SynthTrackModel synth = new SynthTrackModel(name);
@@ -4679,7 +4796,11 @@ public class SwingDelugeApp extends JFrame {
           currentProject.addTrack(synth);
           stack.push(
               new Consequence.TrackStructureConsequence(
-                  Consequence.TrackStructureConsequence.ADD, idx, synth, "Add synth track"));
+                  currentProject,
+                  Consequence.TrackStructureConsequence.ADD,
+                  idx,
+                  synth,
+                  "Add synth track"));
         }
         case "AUDIO" -> {
           AudioTrackModel audio = new AudioTrackModel(name);
@@ -4688,7 +4809,11 @@ public class SwingDelugeApp extends JFrame {
           currentProject.addTrack(audio);
           stack.push(
               new Consequence.TrackStructureConsequence(
-                  Consequence.TrackStructureConsequence.ADD, idx, audio, "Add audio track"));
+                  currentProject,
+                  Consequence.TrackStructureConsequence.ADD,
+                  idx,
+                  audio,
+                  "Add audio track"));
         }
       }
       propagateCurrentModel();

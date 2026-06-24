@@ -1,6 +1,6 @@
-# ChucK-Java Workstation: Native MIDI Importer User Guide
+# Deluge-Java Workstation: Native MIDI Importer User Guide
 
-Welcome to the **Native MIDI Importer**! This guide explains how to import, map, split, and compile standard MIDI files (`.mid`, `.midi`) directly into your ChucK-Java Deluge Workstation. 
+Welcome to the **Native MIDI Importer**! This guide explains how to import, map, split, and compile standard MIDI files (`.mid`, `.midi`) directly into your Deluge-Java Workstation. 
 
 By compiling MIDI files natively, you can import external musical arrangements, chord progressions, and complex piano rolls directly into a Deluge song project, bypassing tedious step-programming on the hardware.
 

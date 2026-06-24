@@ -1,4 +1,4 @@
-# ChucK-Java: SysEx API Gap Audit & Workstation Feature Discovery
+# Deluge-Java: SysEx API Gap Audit & Workstation Feature Discovery
 
 This document presents a comprehensive comparative code audit between the native C++ Deluge firmware's SysEx JSON storage command parser ([smsysex.cpp](file://<DelugeFirmwareRoot>/src/deluge/storage/smsysex.cpp)) and the Java workstation's file synchronization service ([DelugeFileSyncService.java](../../deluge/src/main/java/org/chuck/deluge/midi/DelugeFileSyncService.java)). It highlights the gaps between the hardware's capabilities and the Java implementation and outlines the technical specifications required to bridge them.
 
@@ -71,7 +71,7 @@ public void setFileTimestampAsync(String remotePath, long millis, FileOpCallback
 To ensure the Java Workstation can run concurrently alongside the React web application or other MIDI editors on the same machine without packet interference, the MIDI service should negotiate a session at startup:
 1.  **Handshake**: Upon connection, send a session request SysEx message:
     ```json
-    {"session": {"tag": "ChucK-Java Workstation"}}
+    {"session": {"tag": "Deluge-Java Workstation"}}
     ```
 2.  **Negotiation**: The Deluge assigns a unique session ID (`sid`) and a message ID base (`midBase`).
 3.  **Encapsulation**: All subsequent SysEx headers sent from Java must pack the allocated `sid` into the second byte of the SysEx frame (replacing the default `0`). The `DelugeSysExManager` will filter incoming replies, only routing packets carrying the workstation's unique session ID to the file service, completely avoiding cross-application cross-talk!

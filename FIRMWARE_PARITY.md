@@ -1,4 +1,4 @@
-# ChucK-Java Deluge Workstation: C++ Firmware Parity & DSP Architecture Specification
+# Deluge-Java Workstation: C++ Firmware Parity & DSP Architecture Specification
 
 > Definitive consolidated specification combining C++ Firmware features mapping, precise fixed-point Q31 audio equations, Project Loom threading models, Vector API SIMD acceleration, core fixed-point bugs resolved, and automated comparative test suites.
 

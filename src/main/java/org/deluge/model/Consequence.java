@@ -24,16 +24,22 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
 
   /** A single grid pad toggle. */
   record StepConsequence(
-      int trackIndex, int clipIndex, int row, int step, StepData oldData, StepData newData)
+      ProjectModel project,
+      int trackIndex,
+      int clipIndex,
+      int row,
+      int step,
+      StepData oldData,
+      StepData newData)
       implements Consequence {
     @Override
     public void undo() {
-      // Handled by SwingGridPanel via re-sync after undo
+      project.getTracks().get(trackIndex).getClips().get(clipIndex).setStep(row, step, oldData);
     }
 
     @Override
     public void redo() {
-      // Handled by SwingGridPanel via re-sync after redo
+      project.getTracks().get(trackIndex).getClips().get(clipIndex).setStep(row, step, newData);
     }
 
     @Override
@@ -49,16 +55,32 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
 
   /** An automation point set or cleared. */
   record AutomationConsequence(
-      int trackIndex, int clipIndex, String paramName, int step, float oldValue, float newValue)
+      ProjectModel project,
+      int trackIndex,
+      int clipIndex,
+      String paramName,
+      int step,
+      float oldValue,
+      float newValue)
       implements Consequence {
     @Override
     public void undo() {
-      // Handled by SwingGridPanel
+      project
+          .getTracks()
+          .get(trackIndex)
+          .getClips()
+          .get(clipIndex)
+          .setAutomation(paramName, step, oldValue);
     }
 
     @Override
     public void redo() {
-      // Handled by SwingGridPanel
+      project
+          .getTracks()
+          .get(trackIndex)
+          .getClips()
+          .get(clipIndex)
+          .setAutomation(paramName, step, newValue);
     }
 
     @Override
@@ -74,16 +96,41 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
 
   /** A single synth/kit parameter slider change. {@code timestamp} enables coalescing. */
   record SynthParamConsequence(
-      int trackIndex, String paramName, float oldValue, float newValue, long timestamp)
+      ProjectModel project,
+      int trackIndex,
+      String paramName,
+      float oldValue,
+      float newValue,
+      long timestamp)
       implements Consequence {
     @Override
     public void undo() {
-      // Handled by SwingSynthConfigDialog
+      apply(oldValue);
     }
 
     @Override
     public void redo() {
-      // Handled by SwingSynthConfigDialog
+      apply(newValue);
+    }
+
+    private void apply(float value) {
+      var track = project.getTracks().get(trackIndex);
+      if (track instanceof SynthTrackModel synth) {
+        switch (paramName) {
+          case "unisonDetune" -> synth.setUnisonDetune(value / 100.0f);
+          case "unisonSpread" -> synth.setUnisonStereoSpread(value / 100.0f);
+          case "waveIndex" -> synth.setWaveIndex(value / 1000.0f);
+          case "lpfCutoff" -> synth.setLpfFreq((value / 100.0f) * 20000.0f);
+          case "lpfResonance" -> synth.setLpfRes((value / 100.0f) * 100.0f);
+          case "filterDrive" -> synth.setFilterDrive(value / 100.0f);
+          case "fmRatio" -> synth.setFmRatio(value / 100.0f);
+          case "fmAmount" -> synth.setFmAmount(value / 100.0f);
+          case "carrier1Fb" -> synth.setCarrier1Feedback(value / 100.0f);
+          case "mod1Fb" -> synth.setModulator1Feedback(value / 100.0f);
+          case "mod2Amt" -> synth.setModulator2Amount(value / 100.0f);
+          case "mod2Fb" -> synth.setModulator2Feedback(value / 100.0f);
+        }
+      }
     }
 
     @Override
@@ -98,16 +145,28 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
   }
 
   /** A project-level parameter change (BPM, swing, master volume, etc.). */
-  record ProjectParamConsequence(String paramName, float oldValue, float newValue)
+  record ProjectParamConsequence(
+      ProjectModel project, String paramName, float oldValue, float newValue)
       implements Consequence {
     @Override
     public void undo() {
-      // Handled by ProjectModel.set* → listener → pushModelToBridge
+      apply(oldValue);
     }
 
     @Override
     public void redo() {
-      // Handled by ProjectModel.set* → listener → pushModelToBridge
+      apply(newValue);
+    }
+
+    private void apply(float value) {
+      switch (paramName) {
+        case "BPM", "bpm" -> project.setBpm(value);
+        case "Swing", "swing" -> project.setSwing(value);
+        case "Volume", "masterVolume" -> project.setMasterVolume(value);
+        case "Pan", "masterPan" -> project.setMasterPan(value);
+        case "reverbRoomSize" -> project.setReverbRoomSize(value);
+        case "reverbDampening" -> project.setReverbDampening(value);
+      }
     }
 
     @Override
@@ -123,7 +182,7 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
 
   /** Add, remove, or reorder a track. */
   record TrackStructureConsequence(
-      int operation, int index, TrackModel trackSnapshot, String description)
+      ProjectModel project, int operation, int index, TrackModel trackSnapshot, String description)
       implements Consequence {
     public static final int ADD = 0;
     public static final int REMOVE = 1;
@@ -132,12 +191,45 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
 
     @Override
     public void undo() {
-      // Handled by SwingDelugeApp
+      apply(true);
     }
 
     @Override
     public void redo() {
-      // Handled by SwingDelugeApp
+      apply(false);
+    }
+
+    private void apply(boolean isUndo) {
+      var tracks = project.getTracks();
+      int idx = index;
+      switch (operation) {
+        case ADD -> {
+          if (isUndo) {
+            if (idx < tracks.size()) project.removeTrack(tracks.get(idx));
+          } else {
+            project.addTrack(idx, trackSnapshot);
+          }
+        }
+        case REMOVE -> {
+          if (isUndo) {
+            project.addTrack(idx, trackSnapshot);
+          } else {
+            if (idx < tracks.size()) project.removeTrack(tracks.get(idx));
+          }
+        }
+        case MOVE_UP -> {
+          int swapIdx = isUndo ? idx + 1 : idx - 1;
+          if (swapIdx >= 0 && swapIdx < tracks.size() && idx >= 0 && idx < tracks.size()) {
+            project.moveTrackUp(Math.max(idx, swapIdx));
+          }
+        }
+        case MOVE_DOWN -> {
+          int swapIdx = isUndo ? idx - 1 : idx + 1;
+          if (swapIdx >= 0 && swapIdx < tracks.size() && idx >= 0 && idx < tracks.size()) {
+            project.moveTrackDown(Math.min(idx, swapIdx));
+          }
+        }
+      }
     }
 
     @Override
@@ -153,6 +245,7 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
 
   /** Clip add, delete, duplicate, or rename. */
   record ClipStructureConsequence(
+      ProjectModel project,
       int trackIndex,
       int clipIndex,
       int operation,
@@ -167,12 +260,50 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
 
     @Override
     public void undo() {
-      // Handled by SwingDelugeApp
+      apply(true);
     }
 
     @Override
     public void redo() {
-      // Handled by SwingDelugeApp
+      apply(false);
+    }
+
+    private void apply(boolean isUndo) {
+      var tracks = project.getTracks();
+      if (trackIndex < 0 || trackIndex >= tracks.size()) return;
+      var track = tracks.get(trackIndex);
+      var clips = track.getClips();
+      int ci = clipIndex;
+      switch (operation) {
+        case ADD -> {
+          if (isUndo) {
+            if (ci >= 0 && ci < clips.size()) track.removeClip(clips.get(ci));
+          } else {
+            if (ci >= 0 && ci <= clips.size()) track.getClips().add(ci, clipSnapshot);
+            else track.addClip(clipSnapshot);
+          }
+        }
+        case REMOVE -> {
+          if (isUndo) {
+            if (ci >= 0 && ci <= clips.size()) track.getClips().add(ci, clipSnapshot);
+            else track.addClip(clipSnapshot);
+          } else {
+            if (ci >= 0 && ci < clips.size()) track.removeClip(clips.get(ci));
+          }
+        }
+        case DUPLICATE -> {
+          if (isUndo) {
+            if (ci >= 0 && ci < clips.size()) track.removeClip(clips.get(ci));
+          } else {
+            if (ci >= 0 && ci <= clips.size()) track.getClips().add(ci, clipSnapshot);
+            else track.addClip(clipSnapshot);
+          }
+        }
+        case RENAME -> {
+          String name = isUndo ? previousName : newName;
+          if (ci >= 0 && ci < clips.size()) clips.get(ci).setName(name);
+        }
+      }
     }
 
     @Override
@@ -222,6 +353,7 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
 
   /** Pattern load — applies/reverts a clip snapshot. */
   record PatternLoadConsequence(
+      ProjectModel project,
       int trackIndex,
       int clipIndex,
       PatternModel.ClipSnapshot beforeSnapshot,
@@ -229,12 +361,23 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
       implements Consequence {
     @Override
     public void undo() {
-      // Revert clip to before-snapshot
+      apply(true);
     }
 
     @Override
     public void redo() {
-      // Apply after-snapshot
+      apply(false);
+    }
+
+    private void apply(boolean isUndo) {
+      var tracks = project.getTracks();
+      if (trackIndex < 0 || trackIndex >= tracks.size()) return;
+      var track = tracks.get(trackIndex);
+      int ci = clipIndex;
+      if (ci < 0 || ci >= track.getClips().size()) return;
+      var clip = track.getClips().get(ci);
+      var snap = isUndo ? beforeSnapshot : afterSnapshot;
+      snap.applyTo(clip);
     }
 
     @Override
