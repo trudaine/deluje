@@ -1,6 +1,8 @@
 package org.deluge.ui;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.awt.Color;
 import java.awt.Graphics2D;
@@ -114,5 +116,28 @@ public class DelugePadButtonTest {
         midBright,
         0.01f,
         "0.5 velocity must scale to non-linear 159.5/255 brightness");
+  }
+
+  @Test
+  public void testBlurColorDesaturation() {
+    DelugePadButton pad = new DelugePadButton();
+    assertFalse(pad.isBlur(), "Should default to not blurred");
+
+    pad.setBlur(true);
+    assertTrue(pad.isBlur(), "Should update isBlur to true");
+
+    // Test desaturation math with a bright Green color
+    Color green = new Color(0, 255, 0);
+    Color blurGreen = DelugePadButton.getBlurColor(green);
+
+    // Green is (0, 255, 0).
+    // factor = (0*5 + 255*9 + 0*9) >> 5 = 2295 >> 5 = 71.
+    // nr = (0*3 + 71*5)/8 = 355/8 = 44.
+    // ng = (255*3 + 71*5)/8 = (765 + 355)/8 = 1120/8 = 140.
+    // nb = (0*3 + 71*5)/8 = 44.
+    // So expected color is (44, 140, 44)!
+    assertEquals(44, blurGreen.getRed(), "Red channel must match C++ blur math");
+    assertEquals(140, blurGreen.getGreen(), "Green channel must match C++ blur math");
+    assertEquals(44, blurGreen.getBlue(), "Blue channel must match C++ blur math");
   }
 }

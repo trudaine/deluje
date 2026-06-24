@@ -15,6 +15,7 @@ public class DelugePadButton extends JButton {
   private boolean muted = false;
   private boolean isPlayhead = false;
   private boolean isTail = false;
+  private boolean isBlur = false;
   private float intensity = 0.8f; // Velocity 0.0 - 1.0
   private String noteText = "";
   private boolean isSelected = false;
@@ -226,6 +227,17 @@ public class DelugePadButton extends JButton {
     }
   }
 
+  public boolean isBlur() {
+    return isBlur;
+  }
+
+  public void setBlur(boolean blur) {
+    if (this.isBlur != blur) {
+      this.isBlur = blur;
+      repaint();
+    }
+  }
+
   public float getIntensity() {
     return intensity;
   }
@@ -381,19 +393,26 @@ public class DelugePadButton extends JButton {
           g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
         }
       }
-    } else if (active || isTail) {
-      // 3. Active step / Tail: Full glowing silicone track color
+    } else if (active || isTail || isBlur) {
+      // 3. Active step / Tail / Blur: Full glowing silicone track color
       Color base = baseColor != null ? baseColor : Color.GREEN;
-      Color ledColor = isTail ? getTailColor(base) : (muted ? getDesaturatedColor(base) : base);
+      Color ledColor;
+      if (isTail) {
+        ledColor = getTailColor(base);
+      } else if (isBlur) {
+        ledColor = getBlurColor(base);
+      } else {
+        ledColor = muted ? getDesaturatedColor(base) : base;
+      }
 
       // Blend color with dynamic velocity/probability intensity
       Color finalColor = blendWithBlack(ledColor, intensity);
       g2.setColor(finalColor);
       g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
 
-      // Border for tail is dimmer than note start!
+      // Border for tail/blur is dimmer than note start!
       Color border =
-          isTail
+          (isTail || isBlur)
               ? new Color(finalColor.getRed(), finalColor.getGreen(), finalColor.getBlue(), 120)
               : new Color(
                   Math.min(255, finalColor.getRed() + 20),
@@ -494,6 +513,17 @@ public class DelugePadButton extends JButton {
     int nr = Math.min(255, Math.max(0, ((r * 21 + avg) * 120) >> 14));
     int ng = Math.min(255, Math.max(0, ((g * 21 + avg) * 120) >> 14));
     int nb = Math.min(255, Math.max(0, ((b * 21 + avg) * 120) >> 14));
+    return new Color(nr, ng, nb);
+  }
+
+  public static Color getBlurColor(Color base) {
+    int r = base.getRed();
+    int g = base.getGreen();
+    int b = base.getBlue();
+    int factor = ((r * 5) + (g * 9) + (b * 9)) >> 5;
+    int nr = Math.min(255, Math.max(0, (r * 3 + factor * 5) / 8));
+    int ng = Math.min(255, Math.max(0, (g * 3 + factor * 5) / 8));
+    int nb = Math.min(255, Math.max(0, (b * 3 + factor * 5) / 8));
     return new Color(nr, ng, nb);
   }
 

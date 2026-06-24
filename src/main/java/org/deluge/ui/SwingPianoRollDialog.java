@@ -338,7 +338,7 @@ public class SwingPianoRollDialog extends JDialog {
         bridge.setStepFill(engineRow, step, fill);
 
         // Apply to model
-        StepData stepData = new StepData(true, ne.velocity, gate, 1.0f, ne.pitch, 0, fill);
+        StepData stepData = new StepData(true, ne.velocity, gate, 1.0f, ne.pitch, 0, 0.0f, fill);
         clipModel.setStep(row, step, stepData);
       }
 
@@ -411,7 +411,7 @@ public class SwingPianoRollDialog extends JDialog {
                 }
 
                 // Single click selects and initiates drag
-                int noteX = 5 + noteStepStart * stepWidth + (int) (clickedNote.fill() * stepWidth);
+                int noteX = 5 + noteStepStart * stepWidth + (int) (clickedNote.nudge() * stepWidth);
                 int noteW = (int) (clickedNote.gate() * stepWidth);
                 boolean isResizeHandle = (e.getX() >= noteX + noteW - 8);
 
@@ -461,7 +461,8 @@ public class SwingPianoRollDialog extends JDialog {
                         dragInfo.note.probability(),
                         dragInfo.note.pitch(),
                         dragInfo.note.iterance(),
-                        dragInfo.note.fill());
+                        dragInfo.note.fill(),
+                        dragInfo.note.nudge());
                 clipModel.setStep(dragInfo.row, dragInfo.startStep, updated);
 
               } else if (dragInfo.mode == DRAG_MOVE) {
@@ -474,11 +475,11 @@ public class SwingPianoRollDialog extends JDialog {
                     Math.max(
                         0, Math.min(clipModel.getStepCount() - 1, dragInfo.startStep + stepDelta));
 
-                float fill = dragInfo.note.fill();
+                float fill = dragInfo.note.nudge();
                 if (e.isAltDown()) {
                   // Holding Alt enables microtiming nudge!
                   double nudgeDelta = (double) (deltaX % stepWidth) / stepWidth;
-                  fill = (float) (dragInfo.note.fill() + nudgeDelta);
+                  fill = (float) (dragInfo.note.nudge() + nudgeDelta);
                   if (fill < 0f) fill = 0f;
                   if (fill > 0.95f) fill = 0.95f;
                 }
@@ -525,7 +526,7 @@ public class SwingPianoRollDialog extends JDialog {
               StepData note = findNoteAt(rowIdx, e.getX());
               if (note != null && note.active()) {
                 int noteStep = findNoteStartStep(rowIdx, e.getX());
-                int noteX = 5 + noteStep * stepWidth + (int) (note.fill() * stepWidth);
+                int noteX = 5 + noteStep * stepWidth + (int) (note.nudge() * stepWidth);
                 int noteW = (int) (note.gate() * stepWidth);
 
                 if (e.getX() >= noteX + noteW - 8) {
@@ -547,7 +548,7 @@ public class SwingPianoRollDialog extends JDialog {
       for (int s = 0; s < clipModel.getStepCount(); s++) {
         StepData note = clipModel.getStep(row, s);
         if (note.active()) {
-          int startX = 5 + s * stepWidth + (int) (note.fill() * stepWidth);
+          int startX = 5 + s * stepWidth + (int) (note.nudge() * stepWidth);
           int width = (int) (note.gate() * stepWidth);
           if (mouseX >= startX && mouseX <= startX + width) {
             return note;
@@ -561,7 +562,7 @@ public class SwingPianoRollDialog extends JDialog {
       for (int s = 0; s < clipModel.getStepCount(); s++) {
         StepData note = clipModel.getStep(row, s);
         if (note.active()) {
-          int startX = 5 + s * stepWidth + (int) (note.fill() * stepWidth);
+          int startX = 5 + s * stepWidth + (int) (note.nudge() * stepWidth);
           int width = (int) (note.gate() * stepWidth);
           if (mouseX >= startX && mouseX <= startX + width) {
             return s;
@@ -576,7 +577,7 @@ public class SwingPianoRollDialog extends JDialog {
       int engineRow = baseTrackId + row;
 
       StepData newStep =
-          new StepData(true, 0.8f, StepData.DEFAULT_CLICK_GATE, 1.0f, pitch, 0, 0.0f);
+          new StepData(true, 0.8f, StepData.DEFAULT_CLICK_GATE, 1.0f, pitch, 0, 0.0f, 0.0f);
 
       bridge.setStep(engineRow, step, true);
       bridge.setVelocity(engineRow, step, 0.8f);
@@ -598,10 +599,10 @@ public class SwingPianoRollDialog extends JDialog {
       fireProjectChanged();
     }
 
-    private void moveNote(int fromRow, int fromStep, int toRow, int toStep, float fill) {
+    private void moveNote(int fromRow, int fromStep, int toRow, int toStep, float nudge) {
       if (fromRow == toRow
           && fromStep == toStep
-          && fill == clipModel.getStep(fromRow, fromStep).fill()) {
+          && nudge == clipModel.getStep(fromRow, fromStep).nudge()) {
         return;
       }
 
@@ -617,7 +618,7 @@ public class SwingPianoRollDialog extends JDialog {
       bridge.setStep(toEngineRow, toStep, true);
       bridge.setVelocity(toEngineRow, toStep, note.velocity());
       bridge.setGate(toEngineRow, toStep, note.gate());
-      bridge.setStepFill(toEngineRow, toStep, fill);
+      bridge.setStepFill(toEngineRow, toStep, nudge);
 
       StepData movedNote =
           new StepData(
@@ -627,7 +628,8 @@ public class SwingPianoRollDialog extends JDialog {
               note.probability(),
               127 - toRow,
               note.iterance(),
-              fill);
+              note.fill(),
+              nudge);
       clipModel.setStep(toRow, toStep, movedNote);
     }
 
@@ -669,7 +671,7 @@ public class SwingPianoRollDialog extends JDialog {
         for (int s = 0; s < steps; s++) {
           StepData note = clipModel.getStep(r, s);
           if (note.active()) {
-            int noteX = 5 + s * stepWidth + (int) (note.fill() * stepWidth) + 1;
+            int noteX = 5 + s * stepWidth + (int) (note.nudge() * stepWidth) + 1;
             int noteY = r * rowHeight + 2;
             int noteW = (int) (note.gate() * stepWidth) - 2;
             int noteH = rowHeight - 4;
@@ -831,7 +833,8 @@ public class SwingPianoRollDialog extends JDialog {
                   note.probability(),
                   note.pitch(),
                   note.iterance(),
-                  note.fill());
+                  note.fill(),
+                  note.nudge());
           clipModel.setStep(r, step, updated);
         }
       }

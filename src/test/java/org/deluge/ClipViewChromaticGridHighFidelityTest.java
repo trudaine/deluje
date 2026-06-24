@@ -269,7 +269,8 @@ public class ClipViewChromaticGridHighFidelityTest {
     // using the grid's setClipStep helper to ensure correct row mapping!
     org.deluge.model.TrackModel t = project.getTracks().get(0);
     org.deluge.model.ClipModel c = t.getActiveClip();
-    gridPanel.setClipStep(c, 67, 0, new org.deluge.model.StepData(true, 0.8f, 0.9f, 1.0f, 60, 0, 1.0f));
+    gridPanel.setClipStep(
+        c, 67, 0, new org.deluge.model.StepData(true, 0.8f, 0.9f, 1.0f, 60, 0, 1.0f));
 
     gridPanel.refresh();
 
@@ -281,6 +282,44 @@ public class ClipViewChromaticGridHighFidelityTest {
         new Color(0x00, 0xd2, 0xff),
         ((DelugePadButton) fillStepPad).getBaseColor(),
         "Step 0 (FILL step) must be colored glowing Blue (0x00d2ff) on the grid!");
+
+    bridge.shutdown();
+  }
+
+  @Test
+  public void testNudgedNotesBlurHighlighting() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    BridgeContract bridge = new BridgeContract();
+
+    SwingDelugeApp app = new SwingDelugeApp(bridge, null);
+    ProjectModel project = ProjectModel.createDefaultProject();
+
+    app.loadProject(project);
+
+    SwingGridPanel gridPanel = app.getClipPanel();
+    assertNotNull(gridPanel, "Grid panel must be initialized");
+
+    // 1. Program a note at Step 0, Row 1 (C4, modelRow 67) with a microtiming nudge (nudge = 0.5f!)
+    // and no fill condition (fill = 0.0f!)
+    org.deluge.model.TrackModel t = project.getTracks().get(0);
+    org.deluge.model.ClipModel c = t.getActiveClip();
+    gridPanel.setClipStep(
+        c, 67, 0, new org.deluge.model.StepData(true, 0.8f, 0.9f, 1.0f, 60, 0, 0.0f, 0.5f));
+
+    gridPanel.refresh();
+
+    // 2. Assert that Step 0, Row 1 pad is active, has isBlur() == true,
+    // and its base color property remains the normal track color (while it renders in blur
+    // dynamically).
+    JButton nudgedStepPad = gridPanel.getPadButtons()[0][0]; // Row 1 Col 1 (Step 0)
+    assertTrue(((DelugePadButton) nudgedStepPad).isActive(), "Step 0 must be active");
+    assertTrue(((DelugePadButton) nudgedStepPad).isBlur(), "Step 0 must have isBlur set to true");
+
+    Color normalC4Color = gridPanel.getGridNoteColor(67);
+    assertEquals(
+        normalC4Color,
+        ((DelugePadButton) nudgedStepPad).getBaseColor(),
+        "Step 0 (nudged step) baseColor property must remain the normal track color!");
 
     bridge.shutdown();
   }
