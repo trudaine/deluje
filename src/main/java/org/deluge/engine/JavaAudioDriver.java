@@ -19,6 +19,8 @@ public class JavaAudioDriver implements Runnable {
 
   private static final ByteArrayOutputStream recordedBytes = new ByteArrayOutputStream();
 
+  public volatile long blockCounter = 0;
+
   public static void startResampling() {
     synchronized (recordedBytes) {
       recordedBytes.reset();
@@ -163,7 +165,7 @@ public class JavaAudioDriver implements Runnable {
         System.out.println("[JavaAudioDriver] silentMode — capture only, no soundcard output.");
       }
       int peak = 0;
-      long blockCounter = 0;
+      this.blockCounter = 0;
       long startNano = System.nanoTime();
 
       int[] liveInputBlock = new int[BLOCK_SIZE * 2];

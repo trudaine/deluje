@@ -1,0 +1,188 @@
+package org.deluge;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.awt.Color;
+import javax.swing.JButton;
+import org.deluge.model.ProjectModel;
+import org.deluge.ui.DelugePadButton;
+import org.deluge.ui.SwingDelugeApp;
+import org.deluge.ui.SwingGridPanel;
+import org.junit.jupiter.api.Test;
+
+public class ClipViewChromaticGridHighFidelityTest {
+
+  @Test
+  public void testChromaticGridAndScaleHighlighting() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    BridgeContract bridge = new BridgeContract();
+
+    // Boot exact app workstation
+    SwingDelugeApp app = new SwingDelugeApp(bridge, null);
+    ProjectModel project = ProjectModel.createDefaultProject();
+    app.loadProject(project);
+
+    SwingGridPanel gridPanel = app.getClipPanel();
+    assertNotNull(gridPanel, "Grid panel must be initialized");
+
+    // Explicitly disable scale mode to force chromatic mode for this chromatic test!
+    gridPanel.setScaleModeEnabled(false);
+    gridPanel.refresh();
+
+    // 1. Verify Chromatic Layout of Note Rows on Boot (scrollOffset = 67)
+    // Visual Row index 0 to 7 (modelRow = 67 to 74)
+    // Row 1 (visual 0, modelRow 67): pitch 60 -> C4
+    // Row 2 (visual 1, modelRow 68): pitch 59 -> B3
+    // Row 3 (visual 2, modelRow 69): pitch 58 -> A#3 (accidental)
+    // Row 4 (visual 3, modelRow 70): pitch 57 -> A3
+    // Row 5 (visual 4, modelRow 71): pitch 56 -> G#3 (accidental)
+    // Row 6 (visual 5, modelRow 72): pitch 55 -> G3
+    // Row 7 (visual 6, modelRow 73): pitch 54 -> F#3 (accidental)
+    // Row 8 (visual 7, modelRow 74): pitch 53 -> F3
+
+    // Verify row pitches
+    assertEquals(60, gridPanel.getRowPitch(67), "Row 1 (visual 0) pitch must be C4 (60)");
+    assertEquals(59, gridPanel.getRowPitch(68), "Row 2 (visual 1) pitch must be B3 (59)");
+    assertEquals(58, gridPanel.getRowPitch(69), "Row 3 (visual 2) pitch must be A#3 (58)");
+    assertEquals(53, gridPanel.getRowPitch(74), "Row 8 (visual 7) pitch must be F3 (53)");
+
+    // Verify audition column note names
+    JButton audRow1 = gridPanel.getPadButtons()[0][17]; // Row 1
+    JButton audRow2 = gridPanel.getPadButtons()[1][17]; // Row 2
+    JButton audRow3 = gridPanel.getPadButtons()[2][17]; // Row 3
+    JButton audRow8 = gridPanel.getPadButtons()[7][17]; // Row 8
+
+    assertEquals("C4", audRow1.getText(), "Row 1 audition text must be C4");
+    assertEquals("B3", audRow2.getText(), "Row 2 audition text must be B3");
+    assertEquals("A#3", audRow3.getText(), "Row 3 audition text must be A#3");
+    assertEquals("F3", audRow8.getText(), "Row 8 audition text must be F3");
+
+    // 2. Verify Audition Pad Octave Colors on Boot
+    // Only root notes (Cs, pitch % 12 == 0) are highlighted in the audition column!
+    // Since C4 (Row 1) is a root note, it should be lit (hue-shifted color).
+    // F3 (Row 8) and A#3 (Row 3) are not root notes, so they must be completely black/unlit!
+    if (audRow1 instanceof DelugePadButton pad1) {
+      Color c4Color = pad1.getBaseColor();
+      assertNotEquals(Color.BLACK, c4Color, "C4 audition pad must be lit (not black)");
+
+      // Verify Row 3 (A#3) is black/unlit
+      if (audRow3 instanceof DelugePadButton pad3) {
+        assertEquals(Color.BLACK, pad3.getBaseColor(), "A#3 audition pad must be black/unlit");
+      }
+
+      // Verify Row 8 (F3) is black/unlit
+      if (audRow8 instanceof DelugePadButton pad8) {
+        assertEquals(Color.BLACK, pad8.getBaseColor(), "F3 audition pad must be black/unlit");
+      }
+    }
+
+    // 3. Verify Scale Highlighting / Accidental Blackout on Empty Step Pads
+    // Row 3 (A#3) is an accidental/out-of-scale note, so all its empty step pads (col 0..15) must
+    // be Color.BLACK!
+    // Row 1 (C4) is in the scale, so its empty step pads must NOT be Color.BLACK (they should use
+    // the default theme charcoal/slate bg).
+    JButton stepC4 = gridPanel.getPadButtons()[0][0]; // Row 1 Col 1
+    JButton stepASharp3 = gridPanel.getPadButtons()[2][0]; // Row 3 Col 1 (A#3)
+
+    if (stepC4 instanceof DelugePadButton padC4) {
+      assertNotEquals(Color.BLACK, padC4.getBaseColor(), "C4 empty step pad must be lit/visible");
+    }
+    if (stepASharp3 instanceof DelugePadButton padASharp) {
+      assertEquals(
+          Color.BLACK,
+          padASharp.getBaseColor(),
+          "A#3 empty step pad must be completely black/unlit");
+    }
+
+    // 4. Verify Active Step Colors match Audition Column row colors
+    // In our implementation, when active, steps are colored using the row's hue-shifted color
+    // getGridNoteColor(modelRow).
+    // Let's verify this for Row 1 (C4).
+    Color c4RowColor = gridPanel.getGridNoteColor(67);
+    if (audRow1 instanceof DelugePadButton pad1) {
+      assertEquals(
+          c4RowColor,
+          pad1.getBaseColor(),
+          "C4 audition pad color must match its row's hue-shifted color");
+    }
+
+    // 5. Verify Scrolling Updates Column 18 Octave Colors dynamically
+    // If we scroll down by 12 semitones, the pitch of Row 1 will become C3 (48).
+    // Let's scroll down to set scrollOffset to 79 (67 + 12).
+    gridPanel.setScrollOffset(79);
+    gridPanel.refresh();
+
+    // Re-retrieve button reference as SwingGridPanel.rebuildUIComponents() instantiates new button
+    // instances!
+    audRow1 = gridPanel.getPadButtons()[0][17];
+
+    // Verify row pitches after scrolling
+    assertEquals(48, gridPanel.getRowPitch(79), "Row 1 (visual 0) pitch must now be C3 (48)");
+    assertEquals("C3", audRow1.getText(), "Row 1 audition text must now be C3");
+
+    // Row 1 (now C3) is a root note, so it must be lit with the track's hue-shifted color for C3.
+    if (audRow1 instanceof DelugePadButton pad1) {
+      Color c3Color = pad1.getBaseColor();
+      assertNotEquals(Color.BLACK, c3Color, "C3 audition pad must be lit (not black)");
+      assertEquals(
+          gridPanel.getGridNoteColor(79),
+          c3Color,
+          "C3 audition pad color must match the C3 row color");
+    }
+
+    bridge.shutdown();
+  }
+
+  @Test
+  public void testExactRGBColorParityForGreenTrack() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    BridgeContract bridge = new BridgeContract();
+
+    SwingDelugeApp app = new SwingDelugeApp(bridge, null);
+    ProjectModel project = ProjectModel.createDefaultProject();
+
+    // Explicitly set track color to Green
+    project.getTracks().get(0).setColourHex("0x0000FF00");
+    app.loadProject(project);
+
+    SwingGridPanel gridPanel = app.getClipPanel();
+    assertNotNull(gridPanel, "Grid panel must be initialized");
+
+    // Explicitly enable scale mode (diatonic mode) as on boot!
+    gridPanel.setScaleModeEnabled(true);
+    gridPanel.refresh();
+
+    // Verify row pitches on boot (Diatonic C Major)
+    // Row 1 (visual 0, modelRow 67) = C4 (60)
+    // Row 8 (visual 7, modelRow 74) = C3 (48)
+    assertEquals(60, gridPanel.getRowPitch(67), "Row 1 pitch must be C4");
+    assertEquals(48, gridPanel.getRowPitch(74), "Row 8 pitch must be C3");
+
+    // Verify audition pads
+    JButton audRow1 = gridPanel.getPadButtons()[0][17]; // Row 1 (C4)
+    JButton audRow8 = gridPanel.getPadButtons()[7][17]; // Row 8 (C3)
+
+    assertEquals("C4", audRow1.getText());
+    assertEquals("C3", audRow8.getText());
+
+    // C4 must be lit as Cyan/Teal (Blue)
+    if (audRow1 instanceof DelugePadButton pad1) {
+      Color c4Color = pad1.getBaseColor();
+      assertEquals(
+          new Color(0, 255, 255),
+          c4Color,
+          "C4 audition pad must be exactly Cyan/Teal (Blue) for a Green track");
+    }
+
+    // C3 must be lit as Blue (Purpleish-Blue)
+    if (audRow8 instanceof DelugePadButton pad8) {
+      Color c3Color = pad8.getBaseColor();
+      assertEquals(
+          new Color(0, 0, 255),
+          c3Color,
+          "C3 audition pad must be exactly Blue (Purpleish-Blue) for a Green track");
+    }
+
+    bridge.shutdown();
+  }
+}

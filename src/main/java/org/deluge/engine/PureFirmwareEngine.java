@@ -31,6 +31,10 @@ public class PureFirmwareEngine {
     this.audioDriver = new JavaAudioDriver(audioEngine, playbackHandler);
   }
 
+  public JavaAudioDriver getAudioDriver() {
+    return audioDriver;
+  }
+
   public void start(BridgeContract bridge) {
     if (running) return;
     running = true;
@@ -199,9 +203,51 @@ public class PureFirmwareEngine {
     if (project != null) {
       for (int t = 0; t < project.getTracks().size(); t++) {
         org.deluge.model.ClipModel clip = project.getTracks().get(t).getActiveClip();
+        boolean isMuted = bridge.getMute(t);
         if (clip != null && clip.getSound() instanceof org.deluge.engine.FirmwareSound fs) {
-          boolean isMuted = bridge.getGlobalInt("g_mute_" + t) > 0;
+          if (System.currentTimeMillis() % 1000 < 50) {
+            System.out.println(
+                "[SYNC-LOOP] Track "
+                    + t
+                    + ": clip=non-null"
+                    + " sound="
+                    + fs.getClass().getName()
+                    + " bridge.getMute="
+                    + isMuted
+                    + " fs.muted="
+                    + fs.muted
+                    + " fsHash="
+                    + System.identityHashCode(fs)
+                    + " bridgeHash="
+                    + System.identityHashCode(bridge));
+          }
+          if (fs.muted != isMuted) {
+            System.out.println(
+                "[SYNC-DEBUG] Track "
+                    + t
+                    + " mute state changing to: "
+                    + isMuted
+                    + " (fs="
+                    + System.identityHashCode(fs)
+                    + ")");
+          }
           fs.muted = isMuted;
+        } else {
+          if (System.currentTimeMillis() % 1000 < 50) {
+            System.out.println(
+                "[SYNC-LOOP] Track "
+                    + t
+                    + ": clip="
+                    + (clip == null ? "null" : "non-null")
+                    + " sound="
+                    + (clip == null || clip.getSound() == null
+                        ? "null"
+                        : clip.getSound().getClass().getName())
+                    + " bridge.getMute="
+                    + isMuted
+                    + " bridgeHash="
+                    + System.identityHashCode(bridge));
+          }
         }
       }
     }

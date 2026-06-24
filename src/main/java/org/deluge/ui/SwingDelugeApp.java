@@ -4206,7 +4206,7 @@ public class SwingDelugeApp extends JFrame {
     javax.swing.ToolTipManager.sharedInstance().setDismissDelay(20000);
     javax.swing.ToolTipManager.sharedInstance().setInitialDelay(250);
 
-    BridgeContract bridge = new BridgeContract(44100, 2);
+    BridgeContract bridge = new BridgeContract();
 
     // The pure Java firmware engine (PureFirmwareEngine) is the only audio path; the legacy
     // ChucK DSL engine (--hifi) was deleted.

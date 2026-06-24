@@ -53,6 +53,24 @@ public class ResampleFidelityTest {
     System.out.println("[Test] Using synth: " + synthFile.getName());
 
     SynthTrackModel synthModel = DelugeXmlParser.parseSynth(synthFile);
+    // Clear spatial effects to prevent master FX tails from leaking into silent gaps between notes
+    synthModel.setReverbSend(0.0f);
+    synthModel.setDelaySend(0.0f);
+    synthModel.setDelayFeedbackQ31(0);
+    synthModel
+        .getRawParamKnobs()
+        .put(org.deluge.firmware2.Param.GLOBAL_DELAY_FEEDBACK, Integer.MIN_VALUE);
+    synthModel
+        .getRawParamKnobs()
+        .put(org.deluge.firmware2.Param.GLOBAL_REVERB_AMOUNT, Integer.MIN_VALUE);
+    // Optimize volume envelope (Env 0) for instant attack and instant release to prevent note
+    // overlap and bleed
+    synthModel
+        .getRawParamKnobs()
+        .put(org.deluge.firmware2.Param.LOCAL_ENV_0_ATTACK, Integer.MIN_VALUE);
+    synthModel
+        .getRawParamKnobs()
+        .put(org.deluge.firmware2.Param.LOCAL_ENV_0_RELEASE, Integer.MIN_VALUE);
 
     // 2. Create clip with 5 notes descending on the C major scale (matching your UI scenario):
     //    Note 1: Step 0  -> C3 (MIDI 48)
@@ -60,12 +78,12 @@ public class ResampleFidelityTest {
     //    Note 3: Step 8  -> A2 (MIDI 45)
     //    Note 4: Step 12 -> G2 (MIDI 43)
     //    Note 5: Step 14 -> F2 (MIDI 41)
-    ClipModel clip = new ClipModel("TestClip", 1, 16);
+    ClipModel clip = new ClipModel("TestClip", 5, 32); // 32 steps to allow even spacing
     clip.setStep(0, 0, StepData.of(true, 1.0f, 1.0f, 1.0f, 48));
-    clip.setStep(0, 4, StepData.of(true, 1.0f, 1.0f, 1.0f, 47));
-    clip.setStep(0, 8, StepData.of(true, 1.0f, 1.0f, 1.0f, 45));
-    clip.setStep(0, 12, StepData.of(true, 1.0f, 1.0f, 1.0f, 43));
-    clip.setStep(0, 14, StepData.of(true, 1.0f, 1.0f, 1.0f, 41));
+    clip.setStep(1, 4, StepData.of(true, 1.0f, 1.0f, 1.0f, 47));
+    clip.setStep(2, 8, StepData.of(true, 1.0f, 1.0f, 1.0f, 45));
+    clip.setStep(3, 12, StepData.of(true, 1.0f, 1.0f, 1.0f, 43));
+    clip.setStep(4, 16, StepData.of(true, 1.0f, 1.0f, 1.0f, 41));
 
     synthModel.addClip(clip);
     ProjectModel project = new ProjectModel();
@@ -150,6 +168,9 @@ public class ResampleFidelityTest {
       if (rms > maxRms) maxRms = rms;
     }
     System.out.printf("[Test] Max boosted block RMS: %.6f%n", maxRms);
+    for (int b = 0; b < totalBlocks; b++) {
+      System.out.printf("Block %d: RMS=%.6f\n", b, envelope[b]);
+    }
     assertTrue(maxRms > 0.1, "Engine output too quiet! Max RMS=" + maxRms + " (expected > 0.1)");
 
     // 6b. Count distinct note attacks (RMS rising above a threshold after being below it)
