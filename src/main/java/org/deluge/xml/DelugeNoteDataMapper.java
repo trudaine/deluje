@@ -31,7 +31,7 @@ public class DelugeNoteDataMapper {
     for (int s = 0; s < row.size(); s++) {
       StepData step = row.get(s);
       if (step.active()) {
-        int pos = s * ticksPerStep;
+        int pos = (int) Math.round((s + step.nudge()) * ticksPerStep);
         int len = (int) (step.gate() * ticksPerStep);
         if (len == 0) len = 1;
 
@@ -54,7 +54,7 @@ public class DelugeNoteDataMapper {
     for (int s = 0; s < row.size(); s++) {
       StepData step = row.get(s);
       if (step.active()) {
-        int pos = s * ticksPerStep;
+        int pos = (int) Math.round((s + step.nudge()) * ticksPerStep);
         int len = (int) (step.gate() * ticksPerStep);
         if (len == 0) len = 1;
 
@@ -97,11 +97,11 @@ public class DelugeNoteDataMapper {
     while (idx + hexCharsPerNote <= data.length()) {
       String hexPos = data.substring(idx, idx + 8);
       String hexLen = data.substring(idx + 8, idx + 16);
-
       int pos = (int) Long.parseLong(hexPos, 16);
       int len = (int) Long.parseLong(hexLen, 16);
 
       int step = pos / ticksPerStep;
+      float nudge = (float) (pos % ticksPerStep) / ticksPerStep;
       float gate = (float) len / ticksPerStep;
 
       // Parse velocity if available (byte at offset 16-17 in hex, i.e. hex chars 16-18)
@@ -113,7 +113,7 @@ public class DelugeNoteDataMapper {
       }
 
       if (step >= 0 && step < stepCount) {
-        row.set(step, StepData.of(true, velocity, gate, 1.0f, 0));
+        row.set(step, new org.deluge.model.StepData(true, velocity, gate, 1.0f, 0, 0, 0.0f, nudge));
       }
 
       idx += hexCharsPerNote;

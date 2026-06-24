@@ -2779,6 +2779,7 @@ public class SwingGridPanel extends JPanel {
               pad.setInLoop(inLoop);
               pad.setActive(stepState);
               Color padColor = getGridNoteColor(modelRow);
+              boolean isNudged = false;
               if (stepState) {
                 org.deluge.model.ClipModel cModel = null;
                 if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
@@ -2790,16 +2791,21 @@ public class SwingGridPanel extends JPanel {
                 }
                 if (cModel != null) {
                   org.deluge.model.StepData sd = getClipStep(cModel, modelRow, activeCol);
-                  if (sd != null && sd.active() && sd.fill() > 0.0f) {
-                    padColor = new Color(0x00, 0xd2, 0xff);
+                  if (sd != null && sd.active()) {
+                    if (sd.fill() > 0.0f) {
+                      padColor = new Color(0x00, 0xd2, 0xff);
+                    } else if (sd.nudge() > 0.0f) {
+                      isNudged = true;
+                    }
                   }
                 } else if (bridge != null) {
                   if (bridge.getStepFill(engineRow, activeCol) > 0.0) {
-                    padColor = new Color(0x00, 0xd2, 0xff);
+                    isNudged = true;
                   }
                 }
               }
               pad.setBaseColor(padColor);
+              pad.setBlur(isNudged);
               pad.setIntensity((float) (vel * (0.2f + 0.8f * prob)));
               pad.setTail(isStepTied(modelRow, activeCol) && !stepState);
 
@@ -4199,6 +4205,7 @@ public class SwingGridPanel extends JPanel {
 
                 Color cellBaseColor =
                     getThemeColor(theme, trackColor, stepState, inScale, isRoot, modelRow);
+                boolean isNudged = false;
                 if (stepState) {
                   org.deluge.model.ClipModel cModel = null;
                   if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
@@ -4210,17 +4217,22 @@ public class SwingGridPanel extends JPanel {
                   }
                   if (cModel != null) {
                     org.deluge.model.StepData sd = getClipStep(cModel, modelRow, activeCol);
-                    if (sd != null && sd.active() && sd.fill() > 0.0f) {
-                      cellBaseColor = new Color(0x00, 0xd2, 0xff);
+                    if (sd != null && sd.active()) {
+                      if (sd.fill() > 0.0f) {
+                        cellBaseColor = new Color(0x00, 0xd2, 0xff);
+                      } else if (sd.nudge() > 0.0f) {
+                        isNudged = true;
+                      }
                     }
                   } else if (bridge != null) {
                     int engineRow = baseTrackId + modelRow;
                     if (bridge.getStepFill(engineRow, activeCol) > 0.0) {
-                      cellBaseColor = new Color(0x00, 0xd2, 0xff);
+                      isNudged = true;
                     }
                   }
                 }
                 pad.setBaseColor(cellBaseColor);
+                pad.setBlur(isNudged);
                 pad.setApplicable(inScale || !isSynthMode);
                 pad.setTheme(theme);
                 pad.setBeatMarker((c + scrollOffsetX) % 4 == 0);
@@ -7149,6 +7161,7 @@ public class SwingGridPanel extends JPanel {
                           pad.setActive(stepActive);
                           pad.setIntensity((float) (velPb * 0.8f));
                           Color padColor = getGridNoteColor(modelRow);
+                          boolean isNudged = false;
                           if (stepActive) {
                             org.deluge.model.ClipModel cModel = null;
                             if (projectModel != null
@@ -7162,17 +7175,22 @@ public class SwingGridPanel extends JPanel {
                             if (cModel != null) {
                               org.deluge.model.StepData sd =
                                   getClipStep(cModel, modelRow, engineCol);
-                              if (sd != null && sd.active() && sd.fill() > 0.0f) {
-                                padColor = new Color(0x00, 0xd2, 0xff);
+                              if (sd != null && sd.active()) {
+                                if (sd.fill() > 0.0f) {
+                                  padColor = new Color(0x00, 0xd2, 0xff);
+                                } else if (sd.nudge() > 0.0f) {
+                                  isNudged = true;
+                                }
                               }
                             } else if (bridge != null) {
                               int engineRow = baseTrackId + modelRow;
                               if (bridge.getStepFill(engineRow, engineCol) > 0.0) {
-                                padColor = new Color(0x00, 0xd2, 0xff);
+                                isNudged = true;
                               }
                             }
                           }
                           pad.setBaseColor(padColor);
+                          pad.setBlur(isNudged);
                           pad.setTail(isStepTied(modelRow, engineCol) && !stepActive);
                         } else {
                           pads[t][c].setBackground(
