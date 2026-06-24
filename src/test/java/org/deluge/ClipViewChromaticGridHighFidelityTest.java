@@ -364,6 +364,23 @@ public class ClipViewChromaticGridHighFidelityTest {
         bridge.getStep(gridPanel.getBaseTrackId() + 65, 0),
         "Bridge transposed step must be active");
 
+    // 5. Transpose up by an octave (12 semitones) (to D5, pitch 74, row 53!)
+    gridPanel.transposeTrack(12);
+
+    // 6. Verify octave shift in model
+    assertFalse(
+        gridPanel.getClipStep(c, 65, 0).active(), "D4 step must be cleared after octave shift");
+    assertTrue(gridPanel.getClipStep(c, 53, 0).active(), "D5 octave step must be active at row 53");
+    assertEquals(
+        74, gridPanel.getClipStep(c, 53, 0).pitch(), "Octave transposed pitch must be 74 (D5)");
+
+    // 7. Verify octave shift in bridge
+    assertFalse(
+        bridge.getStep(gridPanel.getBaseTrackId() + 65, 0),
+        "Bridge D4 step must be inactive after octave shift");
+    assertTrue(
+        bridge.getStep(gridPanel.getBaseTrackId() + 53, 0), "Bridge D5 octave step must be active");
+
     bridge.shutdown();
   }
 

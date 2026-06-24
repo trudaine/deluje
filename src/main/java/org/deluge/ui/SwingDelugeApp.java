@@ -3750,7 +3750,11 @@ public class SwingDelugeApp extends JFrame {
             d -> {
               SwingGridPanel a = activeGridPanel();
               if (a != null) {
-                a.transposeTrack(d);
+                if (a.isShiftHeld()) {
+                  a.transposeTrack(d); // Shift held = semitone transposition
+                } else {
+                  a.transposeTrack(d * 12); // Shift not held = octave transposition
+                }
               }
             });
 
