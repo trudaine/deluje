@@ -619,6 +619,21 @@ public class SwingTopBarPanel extends JPanel {
     volKnob.onTurn(d -> masterVolSlider.setValue(masterVolSlider.getValue() + d));
     add(volKnob);
 
+    // ── Master FX Dialog Trigger Button ──
+    JButton masterFxBtn = new JButton("🎛️ MASTER FX");
+    masterFxBtn.setToolTipText("Open the Master FX Mixing Console & Modulation Desk");
+    styleButton(masterFxBtn, new Color(0x1e, 0x29, 0x3b), new Color(0x38, 0xbd, 0xf8));
+    masterFxBtn.addActionListener(
+        e -> {
+          java.awt.Frame parentFrame =
+              (java.awt.Frame) javax.swing.SwingUtilities.getWindowAncestor(this);
+          SwingMasterFxDialog dialog =
+              new SwingMasterFxDialog(
+                  parentFrame, projectModel, bridge, SwingDelugeApp.mainInstance);
+          dialog.setVisible(true);
+        });
+    add(masterFxBtn);
+
     // ── Firmware LED Display (OLED) ──
     oledPanel.setBorder(BorderFactory.createLineBorder(Color.DARK_GRAY, 2));
     add(oledPanel);
