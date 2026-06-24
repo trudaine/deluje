@@ -1415,18 +1415,24 @@ public class SwingDelugeApp extends JFrame {
               return;
             }
 
-            // T — tap tempo
+            // T — tap tempo (or Shift + T to toggle metronome)
             if (!ctrl && kc == java.awt.event.KeyEvent.VK_T) {
-              long now = System.currentTimeMillis();
-              tapTimes.addLast(now);
-              while (tapTimes.size() > 8) tapTimes.removeFirst();
-              if (tapTimes.size() >= 2) {
-                long[] arr = tapTimes.stream().mapToLong(Long::longValue).toArray();
-                long totalGap = arr[arr.length - 1] - arr[0];
-                double avgGap = totalGap / (double) (arr.length - 1);
-                double bpm = 60000.0 / avgGap;
-                bpm = Math.max(20, Math.min(300, bpm));
-                bridge.setBpm(bpm);
+              if (shift) {
+                if (topBar != null) {
+                  topBar.toggleMetronome();
+                }
+              } else {
+                long now = System.currentTimeMillis();
+                tapTimes.addLast(now);
+                while (tapTimes.size() > 8) tapTimes.removeFirst();
+                if (tapTimes.size() >= 2) {
+                  long[] arr = tapTimes.stream().mapToLong(Long::longValue).toArray();
+                  long totalGap = arr[arr.length - 1] - arr[0];
+                  double avgGap = totalGap / (double) (arr.length - 1);
+                  double bpm = 60000.0 / avgGap;
+                  bpm = Math.max(20, Math.min(300, bpm));
+                  bridge.setBpm(bpm);
+                }
               }
               return;
             }

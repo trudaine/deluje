@@ -427,4 +427,50 @@ public class ClipViewChromaticGridHighFidelityTest {
 
     bridge.shutdown();
   }
+
+  @Test
+  public void testMetronomeToggleGesture() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    BridgeContract bridge = new BridgeContract();
+
+    SwingDelugeApp app = new SwingDelugeApp(bridge, null, true);
+    ProjectModel project = ProjectModel.createDefaultProject();
+    app.loadProject(project);
+
+    Object eng = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+    assertNotNull(eng, "Audio engine must be initialized");
+    org.deluge.engine.FirmwareAudioEngine engine = (org.deluge.engine.FirmwareAudioEngine) eng;
+
+    // Default metronome should be disabled
+    assertFalse(engine.metronomeEnabled, "Metronome should default to disabled");
+
+    // Simulate Shift + T key press with the standard old Shift mask (which JDK maps to
+    // getModifiersEx() SHIFT_DOWN_MASK)
+    java.awt.event.KeyEvent shiftT =
+        new java.awt.event.KeyEvent(
+            app,
+            java.awt.event.KeyEvent.KEY_PRESSED,
+            System.currentTimeMillis(),
+            java.awt.event.InputEvent.SHIFT_MASK,
+            java.awt.event.KeyEvent.VK_T,
+            'T');
+
+    // Invoke all registered key listeners to ensure our app handler gets triggered
+    for (java.awt.event.KeyListener kl : app.getKeyListeners()) {
+      kl.keyPressed(shiftT);
+    }
+
+    // Assert that the metronome is now enabled!
+    assertTrue(engine.metronomeEnabled, "Metronome must be enabled after Shift+T press!");
+
+    // Simulate Shift + T key press again
+    for (java.awt.event.KeyListener kl : app.getKeyListeners()) {
+      kl.keyPressed(shiftT);
+    }
+
+    // Assert that the metronome is toggled back to disabled!
+    assertFalse(engine.metronomeEnabled, "Metronome must toggle back to disabled!");
+
+    bridge.shutdown();
+  }
 }
