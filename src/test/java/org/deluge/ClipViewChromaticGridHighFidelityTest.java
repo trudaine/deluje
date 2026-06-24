@@ -727,4 +727,74 @@ public class ClipViewChromaticGridHighFidelityTest {
 
     bridge.shutdown();
   }
+
+  @Test
+  public void testGesturalNotePitchTransposition() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    BridgeContract bridge = new BridgeContract();
+
+    SwingDelugeApp app = new SwingDelugeApp(bridge, null, true);
+    ProjectModel project = ProjectModel.createDefaultProject();
+    app.loadProject(project);
+
+    SwingGridPanel gridPanel = app.getClipPanel();
+    assertNotNull(gridPanel, "Grid panel must be initialized");
+    gridPanel.setScaleModeEnabled(false);
+
+    org.deluge.model.TrackModel t = project.getTracks().get(0);
+    org.deluge.model.ClipModel c = t.getActiveClip();
+
+    // 1. Program a note at Step 0, Row 67 (pitch 60, C4)
+    gridPanel.setClipStep(
+        c, 67, 0, new org.deluge.model.StepData(true, 0.8f, 1.0f, 0.9f, 60, 0, 0.0f, 0.0f));
+    gridPanel.refresh();
+
+    assertTrue(gridPanel.getClipStep(c, 67, 0).active(), "Original step must be active");
+
+    // Dynamically calculate the visual row for model row 67 based on the panel's scroll offset
+    int visualRow = 67 - gridPanel.getScrollOffset();
+
+    // 2. Simulate Ctrl + Scroll Up 2 ticks (rotation = -2 -> dir = 2)
+    // This should transpose the note pitch by +2 semitones to pitch 62 (D4, model row 65)
+    java.awt.event.MouseWheelEvent scrollUpPitchEvent =
+        new java.awt.event.MouseWheelEvent(
+            gridPanel,
+            java.awt.event.MouseEvent.MOUSE_WHEEL,
+            System.currentTimeMillis(),
+            java.awt.event.InputEvent.CTRL_DOWN_MASK | java.awt.event.InputEvent.CTRL_MASK,
+            0,
+            0,
+            0,
+            false,
+            java.awt.event.MouseWheelEvent.WHEEL_UNIT_SCROLL,
+            1,
+            -2);
+    gridPanel.handlePadMouseWheel(visualRow, 0, scrollUpPitchEvent);
+
+    // 3. Assert note pitch migration in memory
+    assertFalse(gridPanel.getClipStep(c, 67, 0).active(), "Old step at row 67 must be cleared");
+    org.deluge.model.StepData transposed = gridPanel.getClipStep(c, 65, 0);
+    assertTrue(transposed.active(), "New step at row 65 must be active");
+    assertEquals(62, transposed.pitch(), "Pitch must be transposed to 62");
+    assertEquals(0.8f, transposed.velocity(), 0.001f, "Velocity must be preserved");
+    assertEquals(1.0f, transposed.gate(), 0.001f, "Gate must be preserved");
+
+    // 4. Assert note channel migration and parameter synchronization in the ChucK DSP bridge
+    assertFalse(
+        bridge.getStep(gridPanel.getBaseTrackId() + 67, 0), "Bridge old step must be cleared");
+    assertTrue(
+        bridge.getStep(gridPanel.getBaseTrackId() + 65, 0), "Bridge new step must be active");
+    assertEquals(
+        0.8f,
+        bridge.getVelocity(gridPanel.getBaseTrackId() + 65, 0),
+        0.001f,
+        "Bridge velocity must sync to new channel");
+    assertEquals(
+        1.0f,
+        bridge.getGate(gridPanel.getBaseTrackId() + 65, 0),
+        0.001f,
+        "Bridge gate must sync to new channel");
+
+    bridge.shutdown();
+  }
 }
