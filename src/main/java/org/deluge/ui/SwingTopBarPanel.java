@@ -107,7 +107,7 @@ public class SwingTopBarPanel extends JPanel {
   }
 
   /** Toggle the engine metronome (SHIFT+TAP), reflecting state on the readout. */
-  private void toggleMetronome() {
+  public void toggleMetronome() {
     Object eng = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
     if (eng instanceof org.deluge.engine.FirmwareAudioEngine engine) {
       engine.metronomeEnabled = !engine.metronomeEnabled;
