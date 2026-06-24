@@ -605,4 +605,87 @@ public class ClipViewChromaticGridHighFidelityTest {
 
     bridge.shutdown();
   }
+
+  @Test
+  public void testGesturalCopyPasteShortcut() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    BridgeContract bridge = new BridgeContract();
+
+    SwingDelugeApp app = new SwingDelugeApp(bridge, null, true);
+    ProjectModel project = ProjectModel.createDefaultProject();
+    app.loadProject(project);
+
+    SwingGridPanel gridPanel = app.getClipPanel();
+    assertNotNull(gridPanel, "Grid panel must be initialized");
+    gridPanel.setScaleModeEnabled(false);
+
+    org.deluge.model.TrackModel t = project.getTracks().get(0);
+    org.deluge.model.ClipModel c = t.getActiveClip();
+
+    // 1. Program a note at Step 0, Row 67 (pitch 60, C4)
+    gridPanel.setClipStep(
+        c, 67, 0, new org.deluge.model.StepData(true, 0.8f, 1.0f, 0.9f, 60, 0, 0.0f, 0.0f));
+    gridPanel.refresh();
+
+    assertTrue(gridPanel.getClipStep(c, 67, 0).active(), "Original step must be active");
+
+    // 2. Simulate Ctrl + Shift + C (Copy notes)
+    java.awt.event.KeyEvent copyEvent =
+        new java.awt.event.KeyEvent(
+            app,
+            java.awt.event.KeyEvent.KEY_PRESSED,
+            System.currentTimeMillis(),
+            java.awt.event.InputEvent.CTRL_DOWN_MASK
+                | java.awt.event.InputEvent.SHIFT_DOWN_MASK
+                | java.awt.event.InputEvent.CTRL_MASK
+                | java.awt.event.InputEvent.SHIFT_MASK,
+            java.awt.event.KeyEvent.VK_C,
+            'C');
+    for (java.awt.event.KeyListener kl : app.getKeyListeners()) {
+      kl.keyPressed(copyEvent);
+    }
+
+    // 3. Clear the note from the grid
+    gridPanel.setClipStep(c, 67, 0, org.deluge.model.StepData.empty());
+    gridPanel.refresh();
+    assertFalse(
+        gridPanel.getClipStep(c, 67, 0).active(), "Step must be cleared after setting to empty");
+
+    // 4. Simulate Ctrl + Shift + V (Paste notes)
+    java.awt.event.KeyEvent pasteEvent =
+        new java.awt.event.KeyEvent(
+            app,
+            java.awt.event.KeyEvent.KEY_PRESSED,
+            System.currentTimeMillis(),
+            java.awt.event.InputEvent.CTRL_DOWN_MASK
+                | java.awt.event.InputEvent.SHIFT_DOWN_MASK
+                | java.awt.event.InputEvent.CTRL_MASK
+                | java.awt.event.InputEvent.SHIFT_MASK,
+            java.awt.event.KeyEvent.VK_V,
+            'V');
+    for (java.awt.event.KeyListener kl : app.getKeyListeners()) {
+      kl.keyPressed(pasteEvent);
+    }
+
+    // 5. Assert that the note has been perfectly restored and synchronized to the audio engine!
+    org.deluge.model.StepData restored = gridPanel.getClipStep(c, 67, 0);
+    assertTrue(restored.active(), "Step must be active after paste");
+    assertEquals(0.8f, restored.velocity(), 0.001f, "Velocity must be restored to 0.8");
+    assertEquals(1.0f, restored.gate(), 0.001f, "Gate must be restored to 1.0");
+    assertEquals(0.9f, restored.probability(), 0.001f, "Probability must be restored to 0.9");
+
+    // Verify audio bridge synchronization
+    assertEquals(
+        0.8f,
+        bridge.getVelocity(gridPanel.getBaseTrackId() + 67, 0),
+        0.001f,
+        "Bridge velocity must sync after paste");
+    assertEquals(
+        1.0f,
+        bridge.getGate(gridPanel.getBaseTrackId() + 67, 0),
+        0.001f,
+        "Bridge gate must sync after paste");
+
+    bridge.shutdown();
+  }
 }
