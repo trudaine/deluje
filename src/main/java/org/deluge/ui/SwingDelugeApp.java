@@ -1789,6 +1789,10 @@ public class SwingDelugeApp extends JFrame {
         drum.oscTypes[0] = org.deluge.firmware2.Oscillator.OscType.SAMPLE;
         drum.samples[0] = s;
         drum.fw2SampleCache[0] = org.deluge.firmware2.Sample.fromFirmwareSample(s);
+        drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_OSC_A_VOLUME] =
+            org.deluge.firmware2.Functions.ONE_Q31;
+        drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_VOLUME] =
+            org.deluge.firmware2.Functions.ONE_Q31;
         System.err.println("[applyKitDrumSampleLive] OK loaded " + s.getNumSamples() + " samples");
       } else {
         System.err.println(
