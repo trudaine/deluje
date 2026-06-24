@@ -14,7 +14,7 @@ public class DelugePadButton extends JButton {
   private Color baseColor = SwingSynthConfigDialog.BG_CONTROL;
   private boolean muted = false;
   private boolean isPlayhead = false;
-  private boolean isTied = false;
+  private boolean isTail = false;
   private float intensity = 0.8f; // Velocity 0.0 - 1.0
   private String noteText = "";
   private boolean isSelected = false;
@@ -215,13 +215,13 @@ public class DelugePadButton extends JButton {
     }
   }
 
-  public boolean isTied() {
-    return isTied;
+  public boolean isTail() {
+    return isTail;
   }
 
-  public void setTied(boolean tied) {
-    if (this.isTied != tied) {
-      this.isTied = tied;
+  public void setTail(boolean tail) {
+    if (this.isTail != tail) {
+      this.isTail = tail;
       repaint();
     }
   }
@@ -381,48 +381,45 @@ public class DelugePadButton extends JButton {
           g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
         }
       }
-    } else {
-      // 3. Active step: Full bright glowing solid track color
+    } else if (active || isTail) {
+      // 3. Active step / Tail: Full glowing silicone track color
       Color base = baseColor != null ? baseColor : Color.GREEN;
-      Color ledColor = muted ? getDesaturatedColor(base) : base;
+      Color ledColor = isTail ? getTailColor(base) : (muted ? getDesaturatedColor(base) : base);
 
       // Blend color with dynamic velocity/probability intensity
       Color finalColor = blendWithBlack(ledColor, intensity);
       g2.setColor(finalColor);
       g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
 
-      // Bright accent border
-      Color brightBorder =
-          new Color(
-              Math.min(255, finalColor.getRed() + 20),
-              Math.min(255, finalColor.getGreen() + 20),
-              Math.min(255, finalColor.getBlue() + 20),
-              220);
-      g2.setColor(brightBorder);
-      g2.setStroke(new BasicStroke(1.5f));
+      // Border for tail is dimmer than note start!
+      Color border =
+          isTail
+              ? new Color(finalColor.getRed(), finalColor.getGreen(), finalColor.getBlue(), 120)
+              : new Color(
+                  Math.min(255, finalColor.getRed() + 20),
+                  Math.min(255, finalColor.getGreen() + 20),
+                  Math.min(255, finalColor.getBlue() + 20),
+                  220);
+      g2.setColor(border);
+      g2.setStroke(new BasicStroke(isTail ? 1.0f : 1.5f));
       g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
 
-      // Symmetrical physical center hotspot (white silicone glowing core)
+      // Symmetrical physical center hotspot (white silicone glowing core) - only for note starts,
+      // not tails!
       boolean isUtilityCol =
           Boolean.TRUE.equals(getClientProperty("utility"))
               || (getClientProperty("col") instanceof Integer colIdx && colIdx >= 16);
 
-      if (drawCenterCircle && !isUtilityCol && noteText.isEmpty() && getText().isEmpty()) {
+      if (drawCenterCircle
+          && !isTail
+          && !isUtilityCol
+          && noteText.isEmpty()
+          && getText().isEmpty()) {
         g2.setColor(new Color(255, 255, 255, 160));
         int cw = Math.max(4, rw / 4);
         int ch = Math.max(4, rh / 4);
         g2.fillOval((w - cw) / 2, (h - ch) / 2, cw, ch);
       }
-    }
-
-    // 4. Held-note tail: a dim wash + a full-width centre connector so a sustained note reads as a
-    //    continuous bar across the cells its gate spans (the firmware note-tail look).
-    if (isTied) {
-      g2.setColor(new Color(0xff, 0xff, 0xff, 38));
-      g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
-      g2.setColor(new Color(0xff, 0xff, 0xff, 130));
-      g2.setStroke(new BasicStroke(2.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-      g2.drawLine(xPad, h / 2, w - xPad, h / 2);
     }
 
     // 5. Playhead Highlight Ring (glowing neon-white), pulsing on the shared blink clock
@@ -487,6 +484,17 @@ public class DelugePadButton extends JButton {
     }
 
     g2.dispose();
+  }
+
+  public static Color getTailColor(Color base) {
+    int r = base.getRed();
+    int g = base.getGreen();
+    int b = base.getBlue();
+    int avg = r + g + b;
+    int nr = Math.min(255, Math.max(0, ((r * 21 + avg) * 120) >> 14));
+    int ng = Math.min(255, Math.max(0, ((g * 21 + avg) * 120) >> 14));
+    int nb = Math.min(255, Math.max(0, ((b * 21 + avg) * 120) >> 14));
+    return new Color(nr, ng, nb);
   }
 
   private Color getBrightCenterColor(Color base) {
