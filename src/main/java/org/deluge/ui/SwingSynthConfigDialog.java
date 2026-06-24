@@ -98,6 +98,63 @@ public class SwingSynthConfigDialog extends JDialog {
           ThemeManager.setActiveTheme(sel);
         });
     pickerContainer.add(themeCombo);
+
+    // ── Save as Preset Button ──
+    JButton savePresetBtn = new JButton("SAVE AS PRESET \uD83D\uDCBE");
+    savePresetBtn.setBackground(ACCENT_MINT);
+    savePresetBtn.setForeground(Color.BLACK);
+    savePresetBtn.setFocusPainted(false);
+    savePresetBtn.setFont(new Font("SansSerif", Font.BOLD, 10));
+    savePresetBtn.setPreferredSize(new Dimension(140, 22));
+    savePresetBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+    savePresetBtn.addActionListener(
+        ev -> {
+          String presetName =
+              (String)
+                  JOptionPane.showInputDialog(
+                      this,
+                      "Enter a name for this custom synth preset:",
+                      "Save Synth Preset",
+                      JOptionPane.PLAIN_MESSAGE,
+                      null,
+                      null,
+                      model.getName());
+          if (presetName == null || presetName.trim().isEmpty()) {
+            return;
+          }
+          presetName = presetName.trim();
+          java.io.File file =
+              new java.io.File(
+                  org.deluge.project.PreferencesManager.getSynthsDir(), presetName + ".XML");
+          if (file.exists()) {
+            int confirm =
+                JOptionPane.showConfirmDialog(
+                    this,
+                    "A preset named \"" + presetName + "\" already exists.\nDo you want to overwrite it?",
+                    "Overwrite Preset?",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.WARNING_MESSAGE);
+            if (confirm != JOptionPane.YES_OPTION) {
+              return;
+            }
+          }
+          try {
+            org.deluge.xml.DelugeXmlExporter.saveSynthPreset(model, bridge, trackIndex, file);
+            JOptionPane.showMessageDialog(
+                this,
+                "Preset successfully saved as:\n" + file.getName(),
+                "Preset Saved",
+                JOptionPane.INFORMATION_MESSAGE);
+          } catch (Exception ex) {
+            JOptionPane.showMessageDialog(
+                this,
+                "Error saving preset:\n" + ex.getMessage(),
+                "Export Error",
+                JOptionPane.ERROR_MESSAGE);
+          }
+        });
+    pickerContainer.add(savePresetBtn);
+
     headerPanel.add(pickerContainer, BorderLayout.EAST);
 
     add(headerPanel, BorderLayout.NORTH);

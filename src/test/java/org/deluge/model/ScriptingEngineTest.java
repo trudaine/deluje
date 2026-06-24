@@ -187,4 +187,76 @@ class ScriptingEngineTest {
     assertEquals(0.54f, emptyProject.getSwing(), 0.01f);
     assertEquals(0.86f, emptyProject.getReverbRoomSize(), 0.01f);
   }
+
+  @Test
+  public void testProceduralCinematicAmbient() throws Exception {
+    ProjectModel emptyProject = new ProjectModel();
+    java.io.File file = new java.io.File("cinematic_ambient.txt");
+    if (!file.exists()) {
+      file = new java.io.File("deluge/cinematic_ambient.txt");
+    }
+    assertTrue(file.exists());
+
+    // Load and execute the script
+    var scriptingEngine = new ScriptingEngine();
+    scriptingEngine.loadAndExecuteScript(file, emptyProject);
+
+    // Verify track creation
+    assertEquals(4, emptyProject.getTracks().size());
+
+    // Track 0: Percussion (Kit)
+    var drums = emptyProject.getTracks().get(0);
+    assertEquals("Percussion", drums.getName());
+    assertTrue(drums instanceof org.deluge.model.KitTrackModel);
+    var drumTrack = (org.deluge.model.KitTrackModel) drums;
+    var drumClip = drumTrack.getClips().get(0);
+    assertTrue(drumClip.getStep(0, 0).active()); // Kick
+    assertTrue(drumClip.getStep(1, 6).active()); // Rimshot
+
+    // Track 1: DronePad (Synth)
+    var drone = emptyProject.getTracks().get(1);
+    assertEquals("DronePad", drone.getName());
+    assertTrue(drone instanceof org.deluge.model.SynthTrackModel);
+    var droneTrack = (org.deluge.model.SynthTrackModel) drone;
+    var droneClip = droneTrack.getClips().get(0);
+    // Verify 5-note polyphonic Cmin9 chord at step 0
+    assertTrue(droneClip.getStep(0, 0).active());
+    assertEquals(48, droneClip.getStep(0, 0).pitch());
+    assertTrue(droneClip.getStep(1, 0).active());
+    assertEquals(51, droneClip.getStep(1, 0).pitch());
+    assertTrue(droneClip.getStep(2, 0).active());
+    assertEquals(55, droneClip.getStep(2, 0).pitch());
+    assertTrue(droneClip.getStep(3, 0).active());
+    assertEquals(58, droneClip.getStep(3, 0).pitch());
+    assertTrue(droneClip.getStep(4, 0).active());
+    assertEquals(62, droneClip.getStep(4, 0).pitch());
+
+    // Track 2: Strings (Synth)
+    var strings = emptyProject.getTracks().get(2);
+    assertEquals("Strings", strings.getName());
+    assertTrue(strings instanceof org.deluge.model.SynthTrackModel);
+    var stringsTrack = (org.deluge.model.SynthTrackModel) strings;
+    var stringsClip = stringsTrack.getClips().get(0);
+    assertTrue(stringsClip.getStep(0, 0).active());
+    assertEquals(79, stringsClip.getStep(0, 0).pitch());
+
+    // Track 3: SubDrone (Synth)
+    var sub = emptyProject.getTracks().get(3);
+    assertEquals("SubDrone", sub.getName());
+    assertTrue(sub instanceof org.deluge.model.SynthTrackModel);
+    var subTrack = (org.deluge.model.SynthTrackModel) sub;
+    var subClip = subTrack.getClips().get(0);
+    assertTrue(subClip.getStep(0, 0).active());
+    assertEquals(36, subClip.getStep(0, 0).pitch());
+
+    // Verify configured synth filters
+    assertEquals(5000.0f, droneTrack.getLpfFreq(), 0.01f); // 25% * 20000 = 5000
+    assertEquals(9000.0f, stringsTrack.getLpfFreq(), 0.01f); // 45% * 20000 = 9000
+    assertEquals(2400.0f, subTrack.getLpfFreq(), 0.01f); // 12% * 20000 = 2400
+
+    // Verify global master parameters
+    assertEquals(90.0f, emptyProject.getBpm());
+    assertEquals(0.50f, emptyProject.getSwing(), 0.01f);
+    assertEquals(0.92f, emptyProject.getReverbRoomSize(), 0.01f);
+  }
 }
