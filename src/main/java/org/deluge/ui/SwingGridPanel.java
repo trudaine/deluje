@@ -10621,6 +10621,37 @@ public class SwingGridPanel extends JPanel {
               sd.nudge());
       oledParam = "GATE";
       oledValue = String.format("%.2f", newGate);
+    } else if (e.isControlDown()) {
+      // Ctrl held = Transpose note pitch (up/down by semitones)
+      int newPitch = Math.max(0, Math.min(127, sd.pitch() + dir));
+      int oldPitch = sd.pitch();
+      if (newPitch != oldPitch) {
+        int oldClipRow = getClipRowIndex(cModel, modelRow, false);
+        if (oldClipRow >= 0) {
+          cModel.setStep(oldClipRow, activeCol, org.deluge.model.StepData.empty());
+          if (bridge != null) {
+            int oldEngineRow = baseTrackId + modelRow;
+            bridge.setStep(oldEngineRow, activeCol, false); // Clear old step in bridge!
+          }
+        }
+        int newModelRow = getRowFromPitch(newPitch);
+        if (newModelRow >= 0) {
+          updated =
+              new org.deluge.model.StepData(
+                  true,
+                  sd.velocity(),
+                  sd.gate(),
+                  sd.probability(),
+                  newPitch,
+                  sd.iterance(),
+                  sd.fill(),
+                  sd.nudge());
+          modelRow =
+              newModelRow; // Update modelRow reference for subsequent setClipStep/bridge sync
+        }
+      }
+      oledParam = "PITCH";
+      oledValue = String.valueOf(newPitch);
     } else {
       // No modifiers = Adjust note velocity (0.0 to 1.0, 0.05 increments, displayed as 0..127)
       float newVel = Math.max(0.0f, Math.min(1.0f, sd.velocity() + dir * 0.05f));
@@ -10645,6 +10676,7 @@ public class SwingGridPanel extends JPanel {
       // Sync with real-time ChucK audio engine
       if (bridge != null) {
         int engineRow = baseTrackId + modelRow;
+        bridge.setStep(engineRow, activeCol, updated.active());
         bridge.setVelocity(engineRow, activeCol, updated.velocity());
         bridge.setGate(engineRow, activeCol, updated.gate());
         bridge.setStepProbability(engineRow, activeCol, updated.probability());
