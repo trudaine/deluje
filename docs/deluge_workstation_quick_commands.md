@@ -28,11 +28,10 @@ Work in the piano roll and chromatic grids to sequence notes, adjust velocities,
 | :--- | :--- | :--- | :--- |
 | **Enter Note** | Tap any blank Grid Pad | **Left-click** a pad to trigger note entry. | Renders in the track's glowing signature HSB color. |
 | **Delete Note** | Tap an active Grid Pad | **Left-click** an active pad to remove it. | Instantly updates the ChucK DSP synthesizer. |
-| **Adjust Gate (Length)** | Hold note pad + tap end pad | **Left-click and drag horizontally** across the grid pads to paint the note. | **Sustain Ribbon/Tail:** Draws a gorgeous, desaturated, semi-transparent tail ribbon. |
-| **Clone/Duplicate Note**| Hold pad + tap another row pad | **Alt + Left-click and drag** an active note to copy it to a new pitch/time. | Perfect for copying complex step automation. |
-| **Velocity Adjust**     | Hold note pad + turn `◄► knob` | **Scroll Mouse Wheel** over active note pad. | **Non-Linear Brightness:** Pad glow scales dynamically with note velocity! (Displays `0..127` on OLED). |
 | **Adjust Gate (Length)** | Hold note pad + tap end pad | **Left-click and drag horizontally** OR **Alt + Scroll Mouse Wheel** over active note pad. | **Sustain Ribbon/Tail:** Draws a gorgeous, semi-transparent tail ribbon. (Displays step length on OLED). |
 | **Clone/Duplicate Note**| Hold pad + tap another row pad | **Alt + Left-click and drag** an active note to copy it to a new pitch/time. | Perfect for copying complex step automation. |
+| **Transpose Note (Pitch)** | Hold pad + turn `▼▲ knob` | **Ctrl + Scroll Mouse Wheel** over active note pad. | **Real-Time DSP Sync:** Instantly transposes the note in memory and migrates its DSP audio engine channel on-the-fly! (Displays pitch value on OLED). |
+| **Velocity Adjust**     | Hold note pad + turn `◄► knob` | **Scroll Mouse Wheel** over active note pad. | **Non-Linear Brightness:** Pad glow scales dynamically with note velocity! (Displays `0..127` on OLED). |
 | **Step Probability**    | Hold pad + turn `Select` left | **Shift + Scroll Mouse Wheel** over active note pad OR Right-click $\rightarrow$ Slider. | Un-triggered steps dynamically dim during playback. (Displays `%` on OLED). |
 | **Step Iterance**       | Hold pad + turn `Select` right| **Right-click active pad** $\rightarrow$ Set the **Iteration Condition** dropdown. | Supports complex physical iteration rules. |
 | **Fill Mode Shifting**  | *Firmware Dependent* | **Right-click active pad** $\rightarrow$ Set **Fill Condition** to active. | **Cyan Glow:** Steps set to play on fill glow in glowing Cyan-Blue (`0x00d2ff`). |
