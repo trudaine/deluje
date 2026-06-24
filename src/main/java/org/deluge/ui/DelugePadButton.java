@@ -514,12 +514,17 @@ public class DelugePadButton extends JButton {
     return new Color(r, g, b);
   }
 
+  public static float adjustVelocityBrightness(float velocity) {
+    int v_int = (int) (velocity * 127.0f);
+    float brightness = (65.0f + v_int * 1.5f) / 255.0f;
+    return Math.max(0.0f, Math.min(1.0f, brightness));
+  }
+
   private Color blendWithBlack(Color base, float factor) {
-    if (factor >= 1.0f) return base;
-    if (factor <= 0.0f) return SwingSynthConfigDialog.BG_CONTROL;
-    int r = (int) (base.getRed() * factor + 0x22 * (1 - factor));
-    int g = (int) (base.getGreen() * factor + 0x22 * (1 - factor));
-    int b = (int) (base.getBlue() * factor + 0x22 * (1 - factor));
+    float adjustedFactor = adjustVelocityBrightness(factor);
+    int r = (int) (base.getRed() * adjustedFactor + 0x22 * (1.0f - adjustedFactor));
+    int g = (int) (base.getGreen() * adjustedFactor + 0x22 * (1.0f - adjustedFactor));
+    int b = (int) (base.getBlue() * adjustedFactor + 0x22 * (1.0f - adjustedFactor));
     return new Color(Math.min(255, r), Math.min(255, g), Math.min(255, b));
   }
 }

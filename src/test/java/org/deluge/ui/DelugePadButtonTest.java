@@ -92,4 +92,27 @@ public class DelugePadButtonTest {
     pad.paint(g2);
     g2.dispose();
   }
+
+  @Test
+  public void testNonLinearVelocityBrightnessScaling() {
+    // 1. Full velocity: 1.0f -> 1.0f brightness
+    float fullBright = DelugePadButton.adjustVelocityBrightness(1.0f);
+    assertEquals(1.0f, fullBright, 0.01f, "Full velocity must scale to 1.0 brightness");
+
+    // 2. Zero velocity: 0.0f -> 65/255 minimum brightness glow
+    float zeroBright = DelugePadButton.adjustVelocityBrightness(0.0f);
+    assertEquals(
+        65.0f / 255.0f,
+        zeroBright,
+        0.01f,
+        "Zero velocity must scale to minimum brightness (65/255)");
+
+    // 3. Mid velocity: 0.5f -> 159.5/255 non-linear brightness glow (approx 0.625)
+    float midBright = DelugePadButton.adjustVelocityBrightness(0.5f);
+    assertEquals(
+        159.5f / 255.0f,
+        midBright,
+        0.01f,
+        "0.5 velocity must scale to non-linear 159.5/255 brightness");
+  }
 }
