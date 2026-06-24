@@ -43,6 +43,11 @@ public class SwingDelugeApp extends JFrame {
   private org.deluge.ui.controls.DelugeModKnobBar modKnobBar;
 
   private JPanel centerCardPanel;
+  private boolean learnHeld = false;
+
+  public boolean isLearnHeld() {
+    return learnHeld;
+  }
 
   /**
    * When true, the boot auto-screenshot pipeline runs (it cycles grid modes 8x16/24x16 to capture
@@ -1376,6 +1381,10 @@ public class SwingDelugeApp extends JFrame {
             boolean ctrl = (e.getModifiersEx() & java.awt.event.InputEvent.CTRL_DOWN_MASK) != 0;
             boolean shift = (e.getModifiersEx() & java.awt.event.InputEvent.SHIFT_DOWN_MASK) != 0;
 
+            if (kc == java.awt.event.KeyEvent.VK_L && !ctrl) {
+              learnHeld = true;
+            }
+
             // Ctrl+Shift+C / Ctrl+Shift+V — copy / paste the active clip's notes (Deluge
             // X_ENC+LEARN copy / paste). Shift-qualified to avoid clashing with system copy/paste.
             if (ctrl && shift && kc == java.awt.event.KeyEvent.VK_C) {
@@ -1451,6 +1460,9 @@ public class SwingDelugeApp extends JFrame {
 
           @Override
           public void keyReleased(java.awt.event.KeyEvent e) {
+            if (e.getKeyCode() == java.awt.event.KeyEvent.VK_L) {
+              learnHeld = false;
+            }
             org.deluge.shadow.hid.HidMsg msg = new org.deluge.shadow.hid.HidMsg();
             msg.deviceType = "keyboard";
             msg.type = org.deluge.shadow.hid.HidMsg.BUTTON_UP;
@@ -3735,8 +3747,16 @@ public class SwingDelugeApp extends JFrame {
         .onPress(
             () -> {
               SwingGridPanel a = activeGridPanel();
-              if (a != null && a.isShiftHeld()) {
-                a.duplicateTrackContent();
+              if (a != null) {
+                if (isLearnHeld()) {
+                  if (a.isShiftHeld()) {
+                    a.pasteClipNotes(); // Learn + Shift + Click = Paste!
+                  } else {
+                    a.copyClipNotes(); // Learn + Click = Copy!
+                  }
+                } else if (a.isShiftHeld()) {
+                  a.duplicateTrackContent(); // Shift + Click = Duplicate!
+                }
               }
             });
 

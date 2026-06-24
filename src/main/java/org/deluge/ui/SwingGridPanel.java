@@ -10150,12 +10150,16 @@ public class SwingGridPanel extends JPanel {
         }
         target.setStep(r, c, sd);
         if (bridge != null) {
-          int engineRow = baseTrackId + r;
-          bridge.setStep(engineRow, c, sd.active());
-          bridge.setVelocity(engineRow, c, sd.velocity());
-          bridge.setGate(engineRow, c, sd.gate());
-          bridge.setStepProbability(engineRow, c, sd.probability());
-          bridge.setStepFill(engineRow, c, sd.fill());
+          int pitch = target.getRowYNote(r);
+          int modelRow = getRowFromPitch(pitch);
+          if (modelRow >= 0) {
+            int engineRow = baseTrackId + modelRow;
+            bridge.setStep(engineRow, c, sd.active());
+            bridge.setVelocity(engineRow, c, sd.velocity());
+            bridge.setGate(engineRow, c, sd.gate());
+            bridge.setStepProbability(engineRow, c, sd.probability());
+            bridge.setStepFill(engineRow, c, sd.fill());
+          }
         }
       }
     }
