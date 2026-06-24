@@ -346,6 +346,25 @@ public class ClipModel extends TimelineCounter {
     }
   }
 
+  public void rebuildNotesFromGrid() {
+    int stepTicks = tripletMode ? 32 : 24;
+    for (int r = 0; r < rowCount; r++) {
+      NoteRowModel row = getOrCreateRow(r);
+      row.getNotes().clear();
+      for (int s = 0; s < stepCount; s++) {
+        StepData step = getStep(r, s);
+        if (step.active()) {
+          NoteModel note = new NoteModel();
+          note.setPos(s * stepTicks);
+          note.setLength((int) (step.gate() * stepTicks));
+          note.setVelocity((int) (step.velocity() * 127.0f));
+          note.setProbability((int) (step.probability() * 100.0f));
+          row.getNotes().add(note);
+        }
+      }
+    }
+  }
+
   public void syncNoteRowsFromGrid() {
     int stepTicks = tripletMode ? 32 : 24;
     boolean isKit = (type == ClipType.INSTRUMENT && sound instanceof org.deluge.engine.FirmwareKit);

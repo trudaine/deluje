@@ -797,4 +797,69 @@ public class ClipViewChromaticGridHighFidelityTest {
 
     bridge.shutdown();
   }
+
+  @Test
+  public void testDynamicTripletNoteRealignment() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    BridgeContract bridge = new BridgeContract();
+
+    SwingDelugeApp app = new SwingDelugeApp(bridge, null, true);
+    ProjectModel project = ProjectModel.createDefaultProject();
+    app.loadProject(project);
+
+    SwingGridPanel gridPanel = app.getClipPanel();
+    org.deluge.model.TrackModel t = project.getTracks().get(0);
+    org.deluge.model.ClipModel c = t.getActiveClip();
+
+    // 1. Program notes at Step 1 and Step 3 in straight 16-step mode
+    // Pos 1 should be at 1 * 24 = 24 ticks
+    // Pos 3 should be at 3 * 24 = 72 ticks
+    gridPanel.setClipStep(
+        c, 60, 1, new org.deluge.model.StepData(true, 0.8f, 0.5f, 1.0f, 60, 0, 0.0f, 0.0f));
+    gridPanel.setClipStep(
+        c, 60, 3, new org.deluge.model.StepData(true, 0.8f, 0.5f, 1.0f, 60, 0, 0.0f, 0.0f));
+
+    // Verify straight tick positions in noteRows
+    assertEquals(1, c.getNoteRowsList().size(), "Should have exactly 1 note row");
+    org.deluge.model.NoteRowModel row = c.getNoteRowsList().get(0);
+    assertEquals(2, row.getNotes().size(), "Should have exactly 2 notes");
+
+    org.deluge.model.NoteModel note1 = row.getNotes().get(0);
+    org.deluge.model.NoteModel note2 = row.getNotes().get(1);
+
+    int posA = Math.min(note1.getPos(), note2.getPos());
+    int posB = Math.max(note1.getPos(), note2.getPos());
+    assertEquals(24, posA, "First note straight tick position must be 24");
+    assertEquals(72, posB, "Second note straight tick position must be 72");
+
+    // 2. Toggle triplet mode to active (12 steps, 32 ticks per step)
+    c.setTripletMode(true);
+    c.setStepCount(12);
+    c.rebuildNotesFromGrid();
+
+    // Verify notes are re-aligned to 32 ticks per step
+    assertEquals(2, row.getNotes().size(), "Should still have 2 notes");
+    note1 = row.getNotes().get(0);
+    note2 = row.getNotes().get(1);
+    posA = Math.min(note1.getPos(), note2.getPos());
+    posB = Math.max(note1.getPos(), note2.getPos());
+    assertEquals(32, posA, "First note triplet tick position must be 32 (1 * 32)");
+    assertEquals(96, posB, "Second note triplet tick position must be 96 (3 * 32)");
+
+    // 3. Toggle triplet mode back to inactive (16 steps, 24 ticks per step)
+    c.setTripletMode(false);
+    c.setStepCount(16);
+    c.rebuildNotesFromGrid();
+
+    // Verify notes are re-aligned back to 24 ticks per step
+    assertEquals(2, row.getNotes().size(), "Should still have 2 notes");
+    note1 = row.getNotes().get(0);
+    note2 = row.getNotes().get(1);
+    posA = Math.min(note1.getPos(), note2.getPos());
+    posB = Math.max(note1.getPos(), note2.getPos());
+    assertEquals(24, posA, "First note straight tick position must be restored to 24");
+    assertEquals(72, posB, "Second note straight tick position must be restored to 72");
+
+    bridge.shutdown();
+  }
 }

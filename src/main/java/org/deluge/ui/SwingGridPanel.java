@@ -5377,6 +5377,7 @@ public class SwingGridPanel extends JPanel {
                 boolean nextTrip = !fActiveClip.isTripletMode();
                 fActiveClip.setTripletMode(nextTrip);
                 fActiveClip.setStepCount(nextTrip ? 12 : 16);
+                fActiveClip.rebuildNotesFromGrid(); // Re-align note models to new tick boundaries!
 
                 if (bridge != null) {
                   bridge.setTrackLength(baseTrackId, nextTrip ? 12 : 16);
