@@ -10552,4 +10552,146 @@ public class SwingGridPanel extends JPanel {
     }
     return null;
   }
+
+  public void transposeTrack(int semitones) {
+    if (projectModel == null || editedModelTrack >= projectModel.getTracks().size()) return;
+    org.deluge.model.TrackModel tModel = projectModel.getTracks().get(editedModelTrack);
+    org.deluge.model.ClipModel cModel = tModel.getActiveClip();
+    if (cModel == null) return;
+
+    // 1. Collect active steps with transposed pitches and resolved modelRows
+    java.util.List<TransposedStep> list = new java.util.ArrayList<>();
+    int rows = cModel.getRowCount();
+    int steps = cModel.getStepCount();
+
+    for (int r = 0; r < rows; r++) {
+      int pitchMidi = cModel.getRowYNote(r);
+      if (pitchMidi < 0) continue;
+
+      for (int s = 0; s < steps; s++) {
+        org.deluge.model.StepData sd = cModel.getStep(r, s);
+        if (sd.active()) {
+          int newPitch = sd.pitch() + semitones;
+          // Map new pitch back to a grid modelRow across the full 128 MIDI range
+          int targetModelRow = -1;
+          for (int mr = 0; mr < 128; mr++) {
+            if (getRowPitch(mr) == newPitch) {
+              targetModelRow = mr;
+              break;
+            }
+          }
+
+          if (targetModelRow >= 0) {
+            org.deluge.model.StepData transposed =
+                new org.deluge.model.StepData(
+                    true,
+                    sd.velocity(),
+                    sd.gate(),
+                    sd.probability(),
+                    newPitch,
+                    sd.iterance(),
+                    sd.fill(),
+                    sd.nudge());
+            list.add(new TransposedStep(targetModelRow, s, transposed));
+          }
+        }
+      }
+    }
+
+    // 2. Clear all current steps in the bridge matching this clip's pitches
+    int baseRow = baseTrackId;
+    for (int r = 0; r < rows; r++) {
+      int pitchMidi = cModel.getRowYNote(r);
+      if (pitchMidi >= 0) {
+        int mr = -1;
+        for (int m = 0; m < 128; m++) {
+          if (getRowPitch(m) == pitchMidi) {
+            mr = m;
+            break;
+          }
+        }
+        if (mr >= 0 && bridge != null) {
+          int engineRow = baseRow + mr;
+          for (int s = 0; s < steps; s++) {
+            bridge.setStep(engineRow, s, false);
+          }
+        }
+      }
+    }
+    // Wipe the clip rows completely
+    cModel.setRowCount(0);
+
+    // 3. Write transposed steps back using setClipStep (which creates and maps rows correctly!)
+    for (TransposedStep ts : list) {
+      setClipStep(cModel, ts.modelRow, ts.step, ts.data);
+      if (bridge != null) {
+        int engineRow = baseRow + ts.modelRow;
+        bridge.setStep(engineRow, ts.step, true);
+        bridge.setVelocity(engineRow, ts.step, ts.data.velocity());
+        bridge.setGate(engineRow, ts.step, ts.data.gate());
+        bridge.setStepProbability(engineRow, ts.step, ts.data.probability());
+        bridge.setIterance(engineRow, ts.step, ts.data.iterance());
+        bridge.setStepFill(engineRow, ts.step, ts.data.nudge());
+      }
+    }
+
+    fireProjectChanged();
+    refresh();
+  }
+
+  public void duplicateTrackContent() {
+    if (projectModel == null || editedModelTrack >= projectModel.getTracks().size()) return;
+    org.deluge.model.TrackModel tModel = projectModel.getTracks().get(editedModelTrack);
+    org.deluge.model.ClipModel cModel = tModel.getActiveClip();
+    if (cModel == null) return;
+
+    int originalSteps = cModel.getStepCount();
+    int newSteps = originalSteps * 2;
+    if (newSteps > 128) return; // Limit to maximum 128 steps
+
+    cModel.setStepCount(newSteps);
+    if (bridge != null) {
+      bridge.setTrackLength(baseTrackId, newSteps);
+    }
+
+    // Copy steps to the second half, using correct pitch modelRow matching for the bridge!
+    int rows = cModel.getRowCount();
+    int baseRow = baseTrackId;
+    for (int r = 0; r < rows; r++) {
+      int pitchMidi = cModel.getRowYNote(r);
+      if (pitchMidi < 0) continue;
+
+      int modelRow = -1;
+      for (int m = 0; m < 128; m++) {
+        if (getRowPitch(m) == pitchMidi) {
+          modelRow = m;
+          break;
+        }
+      }
+
+      if (modelRow >= 0) {
+        int engineRow = baseRow + modelRow;
+        for (int s = 0; s < originalSteps; s++) {
+          org.deluge.model.StepData sd = cModel.getStep(r, s);
+          if (sd.active()) {
+            int targetStep = s + originalSteps;
+            cModel.setStep(r, targetStep, sd);
+            if (bridge != null) {
+              bridge.setStep(engineRow, targetStep, true);
+              bridge.setVelocity(engineRow, targetStep, sd.velocity());
+              bridge.setGate(engineRow, targetStep, sd.gate());
+              bridge.setStepProbability(engineRow, targetStep, sd.probability());
+              bridge.setIterance(engineRow, targetStep, sd.iterance());
+              bridge.setStepFill(engineRow, targetStep, sd.nudge());
+            }
+          }
+        }
+      }
+    }
+
+    fireProjectChanged();
+    refresh();
+  }
+
+  private static record TransposedStep(int modelRow, int step, org.deluge.model.StepData data) {}
 }

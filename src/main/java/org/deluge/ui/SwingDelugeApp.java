@@ -3723,6 +3723,37 @@ public class SwingDelugeApp extends JFrame {
                 a.adjustRotaryParameter(d);
               }
             });
+
+    encoderStrip
+        .getXKnob()
+        .onPress(
+            () -> {
+              SwingGridPanel a = activeGridPanel();
+              if (a != null && a.isShiftHeld()) {
+                a.duplicateTrackContent();
+              }
+            });
+
+    encoderStrip
+        .getXKnob()
+        .onPressTurn(
+            d -> {
+              SwingGridPanel a = activeGridPanel();
+              if (a != null) {
+                a.adjustZoomResolution(d);
+              }
+            });
+
+    encoderStrip
+        .getYKnob()
+        .onPressTurn(
+            d -> {
+              SwingGridPanel a = activeGridPanel();
+              if (a != null) {
+                a.transposeTrack(d);
+              }
+            });
+
     encoderStrip.setBackground(topBar.getBackground());
     encoderStrip.setOpaque(true);
     topBarWrapper.add(encoderStrip, BorderLayout.EAST);

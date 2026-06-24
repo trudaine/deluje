@@ -323,4 +323,91 @@ public class ClipViewChromaticGridHighFidelityTest {
 
     bridge.shutdown();
   }
+
+  @Test
+  public void testTrackTranspositionGesture() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    BridgeContract bridge = new BridgeContract();
+
+    SwingDelugeApp app = new SwingDelugeApp(bridge, null);
+    ProjectModel project = ProjectModel.createDefaultProject();
+    app.loadProject(project);
+
+    SwingGridPanel gridPanel = app.getClipPanel();
+    assertNotNull(gridPanel, "Grid panel must be initialized");
+    gridPanel.setScaleModeEnabled(false); // Enable chromatic mode for linear semitone mapping!
+
+    org.deluge.model.TrackModel t = project.getTracks().get(0);
+    org.deluge.model.ClipModel c = t.getActiveClip();
+
+    // 1. Program a note at Step 0, Row 67 (pitch 60, C4)
+    gridPanel.setClipStep(
+        c, 67, 0, new org.deluge.model.StepData(true, 0.8f, 0.9f, 1.0f, 60, 0, 0.0f, 0.0f));
+    gridPanel.refresh();
+
+    assertTrue(gridPanel.getClipStep(c, 67, 0).active(), "Original step must be active");
+    assertEquals(60, gridPanel.getClipStep(c, 67, 0).pitch(), "Original pitch must be 60");
+
+    // 2. Transpose up by 2 semitones (to D4, pitch 62, row 65!)
+    gridPanel.transposeTrack(2);
+
+    // 3. Verify that old step is cleared, and new step is active at transposed pitch!
+    assertFalse(gridPanel.getClipStep(c, 67, 0).active(), "Old step must be cleared");
+    assertTrue(
+        gridPanel.getClipStep(c, 65, 0).active(), "Transposed step must be active at row 65");
+    assertEquals(62, gridPanel.getClipStep(c, 65, 0).pitch(), "Transposed pitch must be 62 (D4)");
+
+    // 4. Verify that the bridge is also updated!
+    assertFalse(
+        bridge.getStep(gridPanel.getBaseTrackId() + 67, 0), "Bridge old step must be inactive");
+    assertTrue(
+        bridge.getStep(gridPanel.getBaseTrackId() + 65, 0),
+        "Bridge transposed step must be active");
+
+    bridge.shutdown();
+  }
+
+  @Test
+  public void testTrackDuplicationGesture() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    BridgeContract bridge = new BridgeContract();
+
+    SwingDelugeApp app = new SwingDelugeApp(bridge, null);
+    ProjectModel project = ProjectModel.createDefaultProject();
+    app.loadProject(project);
+
+    SwingGridPanel gridPanel = app.getClipPanel();
+    assertNotNull(gridPanel, "Grid panel must be initialized");
+    gridPanel.setScaleModeEnabled(false); // Enable chromatic mode for linear semitone mapping!
+
+    org.deluge.model.TrackModel t = project.getTracks().get(0);
+    org.deluge.model.ClipModel c = t.getActiveClip();
+
+    // 1. Program a note at Step 0, Row 67 (pitch 60, C4) with original length = 16 steps
+    gridPanel.setClipStep(
+        c, 67, 0, new org.deluge.model.StepData(true, 0.8f, 0.9f, 1.0f, 60, 0, 0.0f, 0.0f));
+    gridPanel.refresh();
+
+    assertEquals(16, c.getStepCount(), "Original length must be 16");
+
+    // 2. Duplicate/double length!
+    gridPanel.duplicateTrackContent();
+
+    // 3. Verify that length doubled to 32 steps!
+    assertEquals(32, c.getStepCount(), "Length must double to 32");
+    assertEquals(
+        32,
+        bridge.getTrackLength(gridPanel.getBaseTrackId()),
+        "Bridge track length must double to 32");
+
+    // 4. Verify that the note at Step 0 was duplicated to Step 16!
+    assertTrue(
+        gridPanel.getClipStep(c, 67, 16).active(), "Duplicated step at index 16 must be active");
+    assertEquals(60, gridPanel.getClipStep(c, 67, 16).pitch(), "Duplicated step pitch must be 60");
+    assertTrue(
+        bridge.getStep(gridPanel.getBaseTrackId() + 67, 16),
+        "Bridge duplicated step must be active");
+
+    bridge.shutdown();
+  }
 }
