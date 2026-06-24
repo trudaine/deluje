@@ -130,7 +130,9 @@ public class SwingSynthConfigDialog extends JDialog {
             int confirm =
                 JOptionPane.showConfirmDialog(
                     this,
-                    "A preset named \"" + presetName + "\" already exists.\nDo you want to overwrite it?",
+                    "A preset named \""
+                        + presetName
+                        + "\" already exists.\nDo you want to overwrite it?",
                     "Overwrite Preset?",
                     JOptionPane.YES_NO_OPTION,
                     JOptionPane.WARNING_MESSAGE);

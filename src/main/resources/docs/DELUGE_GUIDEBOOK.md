@@ -38,7 +38,8 @@ Welcome to the **Deluge-Java Workstation**, a modern, high-fidelity software rec
 20. [Hardware Popular Commands & Java UI Equivalents Table](#20-hardware-popular-commands--java-ui-equivalents-table)
 21. [Deluge Community Quick Reference & Java Adaptation Guide](#21-deluge-community-quick-reference--java-adaptation-guide)
 22. [Creative Workflow Tips & Best Practices (Understanding the Workflow)](#22-creative-workflow-tips--best-practices-understanding-the-workflow)
-
+23. [The Macro Scripting & Song Automation Engine](#23-the-macro-scripting--song-automation-engine)
+24. [The Interactive Synth Preset Designer & Exporter](#24-the-interactive-synth-preset-designer--exporter)
 ---
 
 ## 1. The Step Sequencer & Clip View
@@ -1655,6 +1656,57 @@ In SONG and ARRANGER views, all rows display the project track name (`tracks.get
 | **Undo / Redo Stack** | Unified command Consequence stack mapping step additions, deletions, properties changes, and project parameters updates. | `UndoRedoStack.java` integrated across standard grid edits and sliders. |
 | **MIDI Learn Interface Grid** | Dedicated dark-themed setup grid allowing automatic CC learning, incoming MIDI parameter updates, reset keys, and clear functions. | `MidiLearnPanel.java` tab view in top panels. |
 | **Track Solo & Audition Play** | Dedicated Column 18 Solo triggers in Song/Arranger view, and real-time press-and-hold Audition Play (with transient LED display note text) in Clip view. | Columns 17/18 implementation inside `SwingGridPanel.java`. |
+
+---
+
+## 23. The Macro Scripting & Song Automation Engine
+
+The Deluge-Java Workstation features a powerful, high-performance **Macro Scripting & Song Automation Engine**. This system allows you to record your actions in real-time, serialize them into a human-readable, line-based text script, and play them back to procedurally build entire songs from scratch!
+
+### 23.1 How to Record a Macro
+1. Open the **Macro** menu in the top menu bar.
+2. Click **Start Recording**. The menu header will immediately transform into a glowing red indicator: **`Macro ●`**, letting you know that every action is being captured.
+3. Perform your sequencing actions in the UI:
+   * Toggle sequencer steps on/off.
+   * Add new Synth, Kit, or Audio tracks.
+   * Load synthesizer presets or adjust track filters, resonances, and FM depths.
+   * Adjust global project parameters like BPM, swing, and master reverb.
+4. Open the **Macro** menu and click **Stop Recording**.
+5. Click **Save Macro Script...** to save your recorded sequence as a portable `.txt` file.
+
+### 23.2 Script Syntax Reference
+Macro scripts are simple, line-based text files. Each line represents an executable command. Comments start with `#`.
+
+| Command Token | Arguments Syntax & Description | Example |
+| :--- | :--- | :--- |
+| **`BPM_SWING`** | `paramName\|value`<br>Sets a project-level parameter (e.g. `bpm`, `swing`, `reverbRoomSize`, `reverbDampening`). | `BPM_SWING\|bpm\|128.000000` |
+| **`TRACK_STRUCT`** | `ADD\|trackIdx\|trackType\|trackName`<br>Adds a new track (`SYNTH` or `KIT`) at the specified index. | `TRACK_STRUCT\|ADD\|1\|SYNTH\|Bass` |
+| **`LOAD_PRESET`** | `trackIdx\|presetName`<br>Loads an XML preset file from the `SYNTHS/` folder onto a track. | `LOAD_PRESET\|1\|049 Basic FM` |
+| **`STEP`** | `trackIdx\|clipIdx\|row\|step\|active\|velocity\|gate\|probability\|pitch\|iterance\|fill\|nudge`<br>Programs a sequencer step on a specific track and row. | `STEP\|1\|0\|0\|2\|true\|0.85\|0.90\|1.0\|36\|0\|0\|0` |
+| **`SYNTH_PARAM`** | `trackIdx\|paramName\|value`<br>Automates a synthesizer parameter (e.g. `lpfCutoff`, `lpfResonance`, `reverbSend`, `fmAmount`). | `SYNTH_PARAM\|1\|lpfCutoff\|45.000000` |
+
+### 23.3 Pre-Baked Showcases
+The workstation includes several magnificent, pre-baked procedural scripts in your workspace:
+*   **[techno_creator.txt](file:///Users/ludo/a/chuckjava/deluge/techno_creator.txt):** A driving 130 BPM techno beat featuring 4-on-the-floor drums, an FM bassline on a dedicated piano-roll, and automated low-pass filter sweeps.
+*   **[deep_house_groove.txt](file:///Users/ludo/a/chuckjava/deluge/deep_house_groove.txt):** A warm, lush 122 BPM Deep House groove featuring swingy percussion, a polyphonic 4-note chord progression (Amin7 -> Fmaj7 -> Cmaj7 -> G7), and a syncopated sub-bassline.
+*   **[cinematic_ambient.txt](file:///Users/ludo/a/chuckjava/deluge/cinematic_ambient.txt):** A majestic, slow-evolving cinematic soundscape featuring a lush 5-note drone pad, high warm string counter-melodies, and an endless, shimmering master reverb hall.
+
+---
+
+## 24. The Interactive Synth Preset Designer & Exporter
+
+Designing custom sounds is a core creative workflow in the Deluge-Java Workstation. The **Interactive Synth Preset Designer & Exporter** bridges your live track sound configurations directly with your persistent preset library!
+
+### 24.1 How to Design and Save a Custom Preset
+1. Double-click the track header **`[⚙]`** button on any Synth track to open the advanced **Synth Track Editor**.
+2. Customize your sound across the tabs:
+   * Choose oscillator waveforms (Sine, Saw, Square, Triangle, Wavetable, Sample).
+   * Adjust Low-Pass and High-Pass filter cutoffs, resonances, and envelope amounts.
+   * Wire custom modulation routings in the Patchbay or configure LFO rates and depths.
+3. Once you are happy with the sound, click the glowing **`SAVE AS PRESET 💾`** button in the top right corner of the dialog.
+4. A dark-themed input overlay will prompt you for a name (e.g. `Lush Chillout Pad`).
+5. Click OK. The workstation will deep-copy your synthesizer's state and export it as a standard Deluge-compatible XML preset inside your local **`SYNTHS/`** directory.
+6. A success dialog will confirm that your preset is saved. It is now instantly loadable on any track in your project!
 
 
 
