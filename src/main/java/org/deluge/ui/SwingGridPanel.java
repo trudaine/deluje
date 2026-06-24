@@ -189,7 +189,7 @@ public class SwingGridPanel extends JPanel {
     return 127 - pitch;
   }
 
-  private int getClipRowIndex(
+  public int getClipRowIndex(
       org.deluge.model.ClipModel cModel, int modelRow, boolean createIfMissing) {
     int pitchMidi = getRowPitch(modelRow);
     for (int r = 0; r < cModel.getRowCount(); r++) {
@@ -956,7 +956,7 @@ public class SwingGridPanel extends JPanel {
     this.onClipChanged = r;
   }
 
-  void fireProjectChanged() {
+  public void fireProjectChanged() {
     if (onProjectChanged != null) onProjectChanged.run();
     refresh();
   }
@@ -10150,7 +10150,7 @@ public class SwingGridPanel extends JPanel {
   private static org.deluge.model.StepData[][] noteClipboard;
 
   /** The clip currently being edited (edited track + active clip index), or null. */
-  private org.deluge.model.ClipModel getEditedActiveClip() {
+  public org.deluge.model.ClipModel getEditedActiveClip() {
     if (projectModel == null || editedModelTrack >= projectModel.getTracks().size()) {
       return null;
     }
