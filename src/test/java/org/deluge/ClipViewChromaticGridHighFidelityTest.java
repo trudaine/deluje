@@ -473,4 +473,136 @@ public class ClipViewChromaticGridHighFidelityTest {
 
     bridge.shutdown();
   }
+
+  @Test
+  public void testGesturalPadModifiers() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    BridgeContract bridge = new BridgeContract();
+
+    SwingDelugeApp app = new SwingDelugeApp(bridge, null, true);
+    ProjectModel project = ProjectModel.createDefaultProject();
+    app.loadProject(project);
+
+    SwingGridPanel gridPanel = app.getClipPanel();
+    assertNotNull(gridPanel, "Grid panel must be initialized");
+    gridPanel.setScaleModeEnabled(false); // Enable chromatic mode for linear mapping!
+
+    org.deluge.model.TrackModel t = project.getTracks().get(0);
+    org.deluge.model.ClipModel c = t.getActiveClip();
+
+    // 1. Program a note at Step 0, Row 67 (pitch 60, C4)
+    // Initial velocity = 0.8f, gate = 1.0f, probability = 0.9f
+    gridPanel.setClipStep(
+        c, 67, 0, new org.deluge.model.StepData(true, 0.8f, 1.0f, 0.9f, 60, 0, 0.0f, 0.0f));
+    gridPanel.refresh();
+
+    assertTrue(gridPanel.getClipStep(c, 67, 0).active(), "Original step must be active");
+
+    // Dynamically calculate the visual row for model row 67 based on the panel's scroll offset
+    int visualRow = 67 - gridPanel.getScrollOffset();
+
+    // 2. Test Velocity Adjustment (No Modifiers)
+    // Scroll down (rotation = 1 -> dir = -1) -> velocity should decrease by 0.05f to 0.75f
+    java.awt.event.MouseWheelEvent scrollDownVel =
+        new java.awt.event.MouseWheelEvent(
+            gridPanel,
+            java.awt.event.MouseEvent.MOUSE_WHEEL,
+            System.currentTimeMillis(),
+            0, // no modifiers
+            0,
+            0,
+            0,
+            false,
+            java.awt.event.MouseWheelEvent.WHEEL_UNIT_SCROLL,
+            1,
+            1);
+    gridPanel.handlePadMouseWheel(visualRow, 0, scrollDownVel);
+    assertEquals(
+        0.75f,
+        gridPanel.getClipStep(c, 67, 0).velocity(),
+        0.001f,
+        "Velocity must decrease to 0.75");
+    assertEquals(
+        0.75f,
+        bridge.getVelocity(gridPanel.getBaseTrackId() + 67, 0),
+        0.001f,
+        "Bridge velocity must sync to 0.75");
+
+    // Scroll up (rotation = -2 -> dir = 2) -> velocity should increase by 0.10f to 0.85f
+    java.awt.event.MouseWheelEvent scrollUpVel =
+        new java.awt.event.MouseWheelEvent(
+            gridPanel,
+            java.awt.event.MouseEvent.MOUSE_WHEEL,
+            System.currentTimeMillis(),
+            0,
+            0,
+            0,
+            0,
+            false,
+            java.awt.event.MouseWheelEvent.WHEEL_UNIT_SCROLL,
+            1,
+            -2);
+    gridPanel.handlePadMouseWheel(visualRow, 0, scrollUpVel);
+    assertEquals(
+        0.85f,
+        gridPanel.getClipStep(c, 67, 0).velocity(),
+        0.001f,
+        "Velocity must increase to 0.85");
+
+    // 3. Test Probability Adjustment (Shift Held)
+    gridPanel.setShiftHeld(true);
+    // Scroll down (rotation = 1 -> dir = -1) -> probability should decrease by 0.05f from 0.9f to
+    // 0.85f
+    java.awt.event.MouseWheelEvent scrollDownProb =
+        new java.awt.event.MouseWheelEvent(
+            gridPanel,
+            java.awt.event.MouseEvent.MOUSE_WHEEL,
+            System.currentTimeMillis(),
+            java.awt.event.InputEvent.SHIFT_DOWN_MASK,
+            0,
+            0,
+            0,
+            false,
+            java.awt.event.MouseWheelEvent.WHEEL_UNIT_SCROLL,
+            1,
+            1);
+    gridPanel.handlePadMouseWheel(visualRow, 0, scrollDownProb);
+    assertEquals(
+        0.85f,
+        gridPanel.getClipStep(c, 67, 0).probability(),
+        0.001f,
+        "Probability must decrease to 0.85");
+    assertEquals(
+        0.85f,
+        bridge.getStepProbability(gridPanel.getBaseTrackId() + 67, 0),
+        0.001f,
+        "Bridge probability must sync to 0.85");
+    gridPanel.setShiftHeld(false);
+
+    // 4. Test Gate Length Adjustment (Alt Held)
+    // Scroll up (rotation = -1 -> dir = 1) -> gate should increase by 0.25f from 1.0f to 1.25f
+    java.awt.event.MouseWheelEvent scrollUpGate =
+        new java.awt.event.MouseWheelEvent(
+            gridPanel,
+            java.awt.event.MouseEvent.MOUSE_WHEEL,
+            System.currentTimeMillis(),
+            java.awt.event.InputEvent.ALT_DOWN_MASK,
+            0,
+            0,
+            0,
+            false,
+            java.awt.event.MouseWheelEvent.WHEEL_UNIT_SCROLL,
+            1,
+            -1);
+    gridPanel.handlePadMouseWheel(visualRow, 0, scrollUpGate);
+    assertEquals(
+        1.25f, gridPanel.getClipStep(c, 67, 0).gate(), 0.001f, "Gate must increase to 1.25");
+    assertEquals(
+        1.25f,
+        bridge.getGate(gridPanel.getBaseTrackId() + 67, 0),
+        0.001f,
+        "Bridge gate must sync to 1.25");
+
+    bridge.shutdown();
+  }
 }

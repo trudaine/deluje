@@ -3018,6 +3018,17 @@ public class SwingGridPanel extends JPanel {
         if (null != viewMode) // Click handler
         switch (viewMode) {
             case CLIP:
+              if (isStepColumn(colId)) {
+                final int vr = visibleRow;
+                final int vc = colId;
+                clipBtn.addMouseWheelListener(
+                    new java.awt.event.MouseWheelListener() {
+                      @Override
+                      public void mouseWheelMoved(java.awt.event.MouseWheelEvent e) {
+                        handlePadMouseWheel(vr, vc, e);
+                      }
+                    });
+              }
               if (isAdvanced && isStepColumn(colId)) {
                 if (gestureCoordinator == null) {
                   gestureCoordinator =
@@ -10551,6 +10562,101 @@ public class SwingGridPanel extends JPanel {
       return pads[visibleRow][col];
     }
     return null;
+  }
+
+  public void handlePadMouseWheel(int visibleRow, int visualCol, java.awt.event.MouseWheelEvent e) {
+    if (projectModel == null || editedModelTrack >= projectModel.getTracks().size()) return;
+    org.deluge.model.TrackModel tModel = projectModel.getTracks().get(editedModelTrack);
+    org.deluge.model.ClipModel cModel = tModel.getActiveClip();
+    if (cModel == null) return;
+
+    int modelRow = getModelRow(visibleRow);
+    int activeCol = getActiveCol(visibleRow, visualCol);
+
+    org.deluge.model.StepData sd = getClipStep(cModel, modelRow, activeCol);
+    if (!sd.active()) {
+      return; // Gestural pad adjustments only apply to active (programmed) notes!
+    }
+
+    int rotation = e.getWheelRotation();
+    int dir = -rotation; // Scroll up = positive change, scroll down = negative change (magnitude
+    // preserved)
+
+    org.deluge.model.StepData updated = null;
+    String oledParam = "";
+    String oledValue = "";
+
+    if (isShiftHeld()) {
+      // Shift held = Adjust note probability (0% to 100%, 5% increments)
+      float newProb = Math.max(0.0f, Math.min(1.0f, sd.probability() + dir * 0.05f));
+      newProb = Math.round(newProb * 100.0f) / 100.0f;
+      updated =
+          new org.deluge.model.StepData(
+              true,
+              sd.velocity(),
+              sd.gate(),
+              newProb,
+              sd.pitch(),
+              sd.iterance(),
+              sd.fill(),
+              sd.nudge());
+      oledParam = "PROB";
+      oledValue = (int) (newProb * 100) + "%";
+    } else if (e.isAltDown()) {
+      // Alt held = Adjust note gate/length (0.125 to 64.0 steps, 0.25 step increments)
+      float newGate = Math.max(0.125f, Math.min(64.0f, sd.gate() + dir * 0.25f));
+      updated =
+          new org.deluge.model.StepData(
+              true,
+              sd.velocity(),
+              newGate,
+              sd.probability(),
+              sd.pitch(),
+              sd.iterance(),
+              sd.fill(),
+              sd.nudge());
+      oledParam = "GATE";
+      oledValue = String.format("%.2f", newGate);
+    } else {
+      // No modifiers = Adjust note velocity (0.0 to 1.0, 0.05 increments, displayed as 0..127)
+      float newVel = Math.max(0.0f, Math.min(1.0f, sd.velocity() + dir * 0.05f));
+      newVel = Math.round(newVel * 100.0f) / 100.0f;
+      updated =
+          new org.deluge.model.StepData(
+              true,
+              newVel,
+              sd.gate(),
+              sd.probability(),
+              sd.pitch(),
+              sd.iterance(),
+              sd.fill(),
+              sd.nudge());
+      oledParam = "VEL";
+      oledValue = String.valueOf((int) (newVel * 127));
+    }
+
+    if (updated != null) {
+      setClipStep(cModel, modelRow, activeCol, updated);
+
+      // Sync with real-time ChucK audio engine
+      if (bridge != null) {
+        int engineRow = baseTrackId + modelRow;
+        bridge.setVelocity(engineRow, activeCol, updated.velocity());
+        bridge.setGate(engineRow, activeCol, updated.gate());
+        bridge.setStepProbability(engineRow, activeCol, updated.probability());
+      }
+
+      // Display transient parameter change on OLED readout
+      if (SwingDelugeApp.mainInstance != null && SwingDelugeApp.mainInstance.getTopBar() != null) {
+        SwingDelugeApp.mainInstance
+            .getTopBar()
+            .getParamReadout()
+            .printTransient(oledParam, oledValue);
+      }
+
+      fireProjectChanged();
+      refresh();
+    }
   }
 
   public void transposeTrack(int semitones) {
