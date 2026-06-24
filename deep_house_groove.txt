@@ -1,0 +1,99 @@
+# ── DEEP HOUSE / AMBIENT GROOVE PROCEDURAL MACRO SCRIPT ──
+# This script procedurally builds a warm, lush Deep House groove
+# featuring a 4-on-the-floor beat, a rich 4-note chord progression,
+# a syncopated sub-bassline, and beautiful spacey reverb sweeps.
+
+# 1. Global Project Configuration
+BPM_SWING|bpm|122.000000
+BPM_SWING|swing|0.540000
+
+# 2. Add Kit Track (Drums)
+TRACK_STRUCT|ADD|0|KIT|Drums
+
+# Program Kick (Row 0) on 1, 5, 9, 13
+STEP|0|0|0|0|true|0.950000|1.000000|1.000000|60|0|0.000000|0.000000
+STEP|0|0|0|4|true|0.950000|1.000000|1.000000|60|0|0.000000|0.000000
+STEP|0|0|0|8|true|0.950000|1.000000|1.000000|60|0|0.000000|0.000000
+STEP|0|0|0|12|true|0.950000|1.000000|1.000000|60|0|0.000000|0.000000
+
+# Program Clap/Snare (Row 1) on 5, 13
+STEP|0|0|1|4|true|0.850000|1.000000|1.000000|60|0|0.000000|0.000000
+STEP|0|0|1|12|true|0.850000|1.000000|1.000000|60|0|0.000000|0.000000
+
+# Program Closed Hi-Hat (Row 2) with a swingy shuffle
+STEP|0|0|2|2|true|0.700000|0.400000|1.000000|60|0|0.000000|0.000000
+STEP|0|0|2|6|true|0.700000|0.400000|1.000000|60|0|0.000000|0.000000
+STEP|0|0|2|10|true|0.700000|0.400000|1.000000|60|0|0.000000|0.000000
+STEP|0|0|2|14|true|0.700000|0.400000|1.000000|60|0|0.000000|0.000000
+# Add syncopated in-between hats
+STEP|0|0|2|3|true|0.500000|0.200000|1.000000|60|0|0.000000|0.000000
+STEP|0|0|2|11|true|0.500000|0.200000|1.000000|60|0|0.000000|0.000000
+
+# Program Open Hi-Hat (Row 3) on off-beats with long sustain decay
+STEP|0|0|3|2|true|0.800000|1.800000|1.000000|60|0|0.000000|0.000000
+STEP|0|0|3|10|true|0.800000|1.800000|1.000000|60|0|0.000000|0.000000
+
+# 3. Add Synth Track 1: Lush Chillout Chords
+TRACK_STRUCT|ADD|1|SYNTH|Chords
+LOAD_PRESET|1|143 Chillout Pad
+
+# Program a beautiful Amin7 -> Fmaj7 -> Cmaj7 -> G7 chord progression!
+# The chords are polyphonic, programmed across rows 0, 1, 2, 3 of the clip.
+# Chord 1: Amin7 (A=45, C=48, E=52, G=55) on Step 0 (gates = 3.5 steps)
+STEP|1|0|0|0|true|0.800000|3.500000|1.000000|45|0|0.000000|0.000000
+STEP|1|0|1|0|true|0.800000|3.500000|1.000000|48|0|0.000000|0.000000
+STEP|1|0|2|0|true|0.800000|3.500000|1.000000|52|0|0.000000|0.000000
+STEP|1|0|3|0|true|0.800000|3.500000|1.000000|55|0|0.000000|0.000000
+
+# Chord 2: Fmaj7 (F=41, A=45, C=48, E=52) on Step 4
+STEP|1|0|0|4|true|0.800000|3.500000|1.000000|41|0|0.000000|0.000000
+STEP|1|0|1|4|true|0.800000|3.500000|1.000000|45|0|0.000000|0.000000
+STEP|1|0|2|4|true|0.800000|3.500000|1.000000|48|0|0.000000|0.000000
+STEP|1|0|3|4|true|0.800000|3.500000|1.000000|52|0|0.000000|0.000000
+
+# Chord 3: Cmaj7 (C=48, E=52, G=55, B=59) on Step 8
+STEP|1|0|0|8|true|0.800000|3.500000|1.000000|48|0|0.000000|0.000000
+STEP|1|0|1|8|true|0.800000|3.500000|1.000000|52|0|0.000000|0.000000
+STEP|1|0|2|8|true|0.800000|3.500000|1.000000|55|0|0.000000|0.000000
+STEP|1|0|3|8|true|0.800000|3.500000|1.000000|59|0|0.000000|0.000000
+
+# Chord 4: G7 (G=43, B=47, D=50, F=53) on Step 12
+STEP|1|0|0|12|true|0.800000|3.500000|1.000000|43|0|0.000000|0.000000
+STEP|1|0|1|12|true|0.800000|3.500000|1.000000|47|0|0.000000|0.000000
+STEP|1|0|2|12|true|0.800000|3.500000|1.000000|50|0|0.000000|0.000000
+STEP|1|0|3|12|true|0.800000|3.500000|1.000000|53|0|0.000000|0.000000
+
+# 4. Add Synth Track 2: Warm Saw Sub-Bass
+TRACK_STRUCT|ADD|2|SYNTH|Bass
+LOAD_PRESET|2|004 Dubby Bass
+
+# Program a walking, syncopated deep house bassline following chord roots
+# Root A (33) on steps 0, 3
+STEP|2|0|0|0|true|0.880000|0.800000|1.000000|33|0|0.000000|0.000000
+STEP|2|0|0|3|true|0.800000|0.800000|1.000000|33|0|0.000000|0.000000
+
+# Root F (29) on steps 4, 6
+STEP|2|0|1|4|true|0.880000|0.800000|1.000000|29|0|0.000000|0.000000
+STEP|2|0|1|6|true|0.800000|0.800000|1.000000|29|0|0.000000|0.000000
+
+# Root C (36) on steps 8, 11
+STEP|2|0|2|8|true|0.880000|0.800000|1.000000|36|0|0.000000|0.000000
+STEP|2|0|2|11|true|0.800000|0.800000|1.000000|36|0|0.000000|0.000000
+
+# Root G (31) on steps 12, 14
+STEP|2|0|3|12|true|0.880000|0.800000|1.000000|31|0|0.000000|0.000000
+STEP|2|0|3|14|true|0.800000|0.800000|1.000000|31|0|0.000000|0.000000
+
+# 5. Fine-Tune FX & Filters for Warmth
+# Chords: Low-pass filter cut to a cozy warm sound
+SYNTH_PARAM|1|lpfCutoff|35.000000
+SYNTH_PARAM|1|lpfResonance|20.000000
+SYNTH_PARAM|1|reverbSend|60.000000
+
+# Bass: Deep subby filter
+SYNTH_PARAM|2|lpfCutoff|18.000000
+SYNTH_PARAM|2|lpfResonance|10.000000
+
+# 6. Global Reverb Space (Luxurious Cave)
+BPM_SWING|reverbRoomSize|0.860000
+BPM_SWING|reverbDampening|0.250000

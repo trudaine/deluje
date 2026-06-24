@@ -126,4 +126,65 @@ class ScriptingEngineTest {
     assertEquals(0.52f, emptyProject.getSwing(), 0.01f);
     assertEquals(0.82f, emptyProject.getReverbRoomSize(), 0.01f);
   }
+
+  @Test
+  public void testProceduralDeepHouseGroove() throws Exception {
+    ProjectModel emptyProject = new ProjectModel();
+    java.io.File file = new java.io.File("deep_house_groove.txt");
+    if (!file.exists()) {
+      file = new java.io.File("deluge/deep_house_groove.txt");
+    }
+    assertTrue(file.exists());
+
+    // Load and execute the script
+    var scriptingEngine = new ScriptingEngine();
+    scriptingEngine.loadAndExecuteScript(file, emptyProject);
+
+    // Verify track creation
+    assertEquals(3, emptyProject.getTracks().size());
+
+    // Track 0: Drums (Kit)
+    var drums = emptyProject.getTracks().get(0);
+    assertEquals("Drums", drums.getName());
+    assertTrue(drums instanceof org.deluge.model.KitTrackModel);
+    var drumTrack = (org.deluge.model.KitTrackModel) drums;
+    var drumClip = drumTrack.getClips().get(0);
+    assertTrue(drumClip.getStep(0, 0).active()); // Kick
+    assertTrue(drumClip.getStep(1, 4).active()); // Clap
+    assertTrue(drumClip.getStep(2, 3).active()); // Shuffle Hat
+
+    // Track 1: Chords (Synth)
+    var chords = emptyProject.getTracks().get(1);
+    assertEquals("Chords", chords.getName());
+    assertTrue(chords instanceof org.deluge.model.SynthTrackModel);
+    var chordsTrack = (org.deluge.model.SynthTrackModel) chords;
+    var chordsClip = chordsTrack.getClips().get(0);
+    // Verify polyphonic Amin7 chord at step 0
+    assertTrue(chordsClip.getStep(0, 0).active());
+    assertEquals(45, chordsClip.getStep(0, 0).pitch());
+    assertTrue(chordsClip.getStep(1, 0).active());
+    assertEquals(48, chordsClip.getStep(1, 0).pitch());
+    assertTrue(chordsClip.getStep(2, 0).active());
+    assertEquals(52, chordsClip.getStep(2, 0).pitch());
+    assertTrue(chordsClip.getStep(3, 0).active());
+    assertEquals(55, chordsClip.getStep(3, 0).pitch());
+
+    // Track 2: Bass (Synth)
+    var bass = emptyProject.getTracks().get(2);
+    assertEquals("Bass", bass.getName());
+    assertTrue(bass instanceof org.deluge.model.SynthTrackModel);
+    var bassTrack = (org.deluge.model.SynthTrackModel) bass;
+    var bassClip = bassTrack.getClips().get(0);
+    assertTrue(bassClip.getStep(0, 0).active());
+    assertEquals(33, bassClip.getStep(0, 0).pitch());
+
+    // Verify configured synth filters
+    assertEquals(7000.0f, chordsTrack.getLpfFreq(), 0.01f); // 35% * 20000 = 7000
+    assertEquals(3600.0f, bassTrack.getLpfFreq(), 0.01f); // 18% * 20000 = 3600
+
+    // Verify global master parameters
+    assertEquals(122.0f, emptyProject.getBpm());
+    assertEquals(0.54f, emptyProject.getSwing(), 0.01f);
+    assertEquals(0.86f, emptyProject.getReverbRoomSize(), 0.01f);
+  }
 }
