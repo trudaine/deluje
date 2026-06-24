@@ -250,4 +250,38 @@ public class ClipViewChromaticGridHighFidelityTest {
 
     bridge.shutdown();
   }
+
+  @Test
+  public void testFillModeHighlighting() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    BridgeContract bridge = new BridgeContract();
+
+    SwingDelugeApp app = new SwingDelugeApp(bridge, null);
+    ProjectModel project = ProjectModel.createDefaultProject();
+
+    // 1. Load the project first
+    app.loadProject(project);
+
+    SwingGridPanel gridPanel = app.getClipPanel();
+    assertNotNull(gridPanel, "Grid panel must be initialized");
+
+    // 2. Program a note at Step 0, Row 1 (C4, modelRow 67) with a FILL condition (fill = 1.0f!)
+    // using the grid's setClipStep helper to ensure correct row mapping!
+    org.deluge.model.TrackModel t = project.getTracks().get(0);
+    org.deluge.model.ClipModel c = t.getActiveClip();
+    gridPanel.setClipStep(c, 67, 0, new org.deluge.model.StepData(true, 0.8f, 0.9f, 1.0f, 60, 0, 1.0f));
+
+    gridPanel.refresh();
+
+    // 2. Assert that Step 0, Row 1 pad is lit with the glowing Blue FILL highlight color (0x00d2ff)
+    // instead of its normal row color!
+    JButton fillStepPad = gridPanel.getPadButtons()[0][0]; // Row 1 Col 1 (Step 0)
+    assertTrue(((DelugePadButton) fillStepPad).isActive(), "Step 0 must be active");
+    assertEquals(
+        new Color(0x00, 0xd2, 0xff),
+        ((DelugePadButton) fillStepPad).getBaseColor(),
+        "Step 0 (FILL step) must be colored glowing Blue (0x00d2ff) on the grid!");
+
+    bridge.shutdown();
+  }
 }
