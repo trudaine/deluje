@@ -3710,9 +3710,9 @@ public class SwingDelugeApp extends JFrame {
               SwingGridPanel a = activeGridPanel();
               if (a != null) {
                 if (a.isShiftHeld()) {
-                  a.scrollVertically(-d * 12); // shift-scroll scrolls by octave (12 rows)
+                  a.adjustTrackColorOffset(d);
                 } else {
-                  a.scrollVertically(-d); // drag up shows higher rows
+                  a.scrollVertically(-d);
                 }
               }
             },

@@ -185,4 +185,69 @@ public class ClipViewChromaticGridHighFidelityTest {
 
     bridge.shutdown();
   }
+
+  @Test
+  public void testDynamicTrackColorShiftingParity() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    BridgeContract bridge = new BridgeContract();
+
+    SwingDelugeApp app = new SwingDelugeApp(bridge, null);
+    ProjectModel project = ProjectModel.createDefaultProject();
+
+    // Set track color to Green (0x0000FF00)
+    project.getTracks().get(0).setColourHex("0x0000FF00");
+    app.loadProject(project);
+
+    SwingGridPanel gridPanel = app.getClipPanel();
+    assertNotNull(gridPanel, "Grid panel must be initialized");
+
+    // Enable scale mode (diatonic) on boot
+    gridPanel.setScaleModeEnabled(true);
+    gridPanel.refresh();
+
+    // 1. Initial State on Boot: colourOffset = 0
+    // C4 (Row 1) -> Cyan/Teal (0, 255, 255)
+    // C3 (Row 8) -> Blue (0, 0, 255)
+    JButton audRow1 = gridPanel.getPadButtons()[0][17]; // C4
+    JButton audRow8 = gridPanel.getPadButtons()[7][17]; // C3
+
+    assertEquals("C4", audRow1.getText());
+    assertEquals("C3", audRow8.getText());
+    assertEquals(
+        new Color(0, 255, 255),
+        ((DelugePadButton) audRow1).getBaseColor(),
+        "C4 must start as Cyan/Teal");
+    assertEquals(
+        new Color(0, 0, 255), ((DelugePadButton) audRow8).getBaseColor(), "C3 must start as Blue");
+
+    // 2. Adjust track color offset by delta using Y-encoder shortcut!
+    // Let's call adjustTrackColorOffset(8) -> shifts colourOffset by 8 * 3 = 24!
+    gridPanel.adjustTrackColorOffset(8);
+    gridPanel.refresh();
+
+    // Re-retrieve button reference
+    audRow8 = gridPanel.getPadButtons()[7][17];
+
+    assertEquals(24, project.getTracks().get(0).getColourOffset(), "Track colourOffset must be 24");
+    assertNotEquals(
+        new Color(0, 0, 255),
+        ((DelugePadButton) audRow8).getBaseColor(),
+        "C3 color must have shifted");
+
+    // 3. Shift colourOffset to exactly 48 (which transposes C3 to Red!)
+    // Delta to reach 48 from 24 is (48 - 24) / 3 = 8!
+    gridPanel.adjustTrackColorOffset(8);
+    gridPanel.refresh();
+
+    audRow8 = gridPanel.getPadButtons()[7][17]; // C3
+    assertEquals(48, project.getTracks().get(0).getColourOffset(), "Track colourOffset must be 48");
+
+    // Assert that C3 is now exactly RED! (0.0 Hue is Red!)
+    Color c3Color = ((DelugePadButton) audRow8).getBaseColor();
+    assertEquals(255, c3Color.getRed(), "C3 must shift to Red (Red channel = 255)");
+    assertEquals(0, c3Color.getGreen(), "C3 must shift to Red (Green channel = 0)");
+    assertEquals(0, c3Color.getBlue(), "C3 must shift to Red (Blue channel = 0)");
+
+    bridge.shutdown();
+  }
 }

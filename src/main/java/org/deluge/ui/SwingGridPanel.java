@@ -2756,7 +2756,7 @@ public class SwingGridPanel extends JPanel {
             pad.setMuted(false);
             pad.setIntensity(1.0f);
             pad.setPlayhead(false);
-            pad.setTied(false);
+            pad.setTail(false);
             pad.setText("");
             if (applicable && visibleRow == activeShiftRow && colId == activeShiftCol) {
               pad.setBorder(BorderFactory.createLineBorder(new Color(255, 215, 0), 3));
@@ -2780,7 +2780,7 @@ public class SwingGridPanel extends JPanel {
               pad.setActive(stepState);
               pad.setBaseColor(getGridNoteColor(modelRow));
               pad.setIntensity((float) (vel * (0.2f + 0.8f * prob)));
-              pad.setTied(isStepTied(modelRow, activeCol));
+              pad.setTail(isStepTied(modelRow, activeCol) && !stepState);
 
               boolean isSelected = selectedCells.contains(modelRow + "," + activeCol);
               if (isDragSelecting) {
@@ -4189,7 +4189,7 @@ public class SwingGridPanel extends JPanel {
                 pad.setInLoop(inLoop);
                 pad.setActive(stepState);
                 pad.setIntensity((float) (vel * (0.2f + 0.8f * prob)));
-                pad.setTied(isStepTied(modelRow, activeCol));
+                pad.setTail(isStepTied(modelRow, activeCol) && !stepState);
                 if (stepState) {
                   if (isSynthMode) {
                     int pitchMidi = getRowPitch(modelRow);
@@ -4233,6 +4233,7 @@ public class SwingGridPanel extends JPanel {
                 pad.setDrawCenterCircle(false);
                 pad.setIntensity(0.0f);
                 pad.setActive(false);
+                pad.setTail(false);
                 pad.setNoteText("");
                 pad.setMuted(false);
                 pad.setPlayhead(false);
@@ -7106,7 +7107,7 @@ public class SwingGridPanel extends JPanel {
                           pad.setActive(stepActive);
                           pad.setIntensity((float) (velPb * 0.8f));
                           pad.setBaseColor(getGridNoteColor(modelRow));
-                          pad.setTied(isStepTied(modelRow, engineCol));
+                          pad.setTail(isStepTied(modelRow, engineCol) && !stepActive);
                         } else {
                           pads[t][c].setBackground(
                               stepActive
@@ -8440,6 +8441,25 @@ public class SwingGridPanel extends JPanel {
     return false;
   }
 
+  private boolean isStepActive(int modelRow, int activeCol) {
+    org.deluge.model.TrackModel tModel = null;
+    org.deluge.model.ClipModel cModel = null;
+    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+      tModel = projectModel.getTracks().get(editedModelTrack);
+      if (activeClipId < tModel.getClips().size()) {
+        cModel = tModel.getClips().get(activeClipId);
+      }
+    }
+    if (cModel != null) {
+      org.deluge.model.StepData step = getClipStep(cModel, modelRow, activeCol);
+      return (step != null && step.active());
+    } else if (bridge != null) {
+      int engineRow = baseTrackId + modelRow;
+      return bridge.getStep(engineRow, activeCol);
+    }
+    return false;
+  }
+
   private boolean isStepTied(int modelRow, int activeCol) {
     org.deluge.model.TrackModel tModel = null;
     org.deluge.model.ClipModel cModel = null;
@@ -8487,13 +8507,15 @@ public class SwingGridPanel extends JPanel {
     for (int c = 0; c < columnCount; c++) {
       if (pads[visRow][c] instanceof DelugePadButton pad) {
         boolean tiedInModel = false;
+        int modelRow = getModelRow(row);
+        int activeCol = getActiveCol(row, c);
         if (bridge != null) {
-          int modelRow = getModelRow(row);
           int engineRow = baseTrackId + modelRow;
-          int activeCol = getActiveCol(row, c);
           tiedInModel = bridge.getGate(engineRow, activeCol) >= 0.99;
         }
-        pad.setTied(tiedInModel || (c >= start && c <= end));
+        boolean isCurrentActive = isStepActive(modelRow, activeCol) || (c == start);
+        pad.setActive(isCurrentActive);
+        pad.setTail((tiedInModel || (c > start && c <= end)) && !isCurrentActive);
       }
     }
   }
@@ -9412,15 +9434,17 @@ public class SwingGridPanel extends JPanel {
     Color trackColor = getTrackBaseColor();
     if (viewMode == GridViewMode.CLIP || viewMode == GridViewMode.AUTOMATION) {
       boolean isSynth = false;
+      int colourOffset = 0;
       if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
         org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
         isSynth = t instanceof org.deluge.model.SynthTrackModel;
+        colourOffset = t.getColourOffset();
       }
       if (isSynth) {
         int pitchMidi = getRowPitch(modelRow);
         float[] hsb =
             Color.RGBtoHSB(trackColor.getRed(), trackColor.getGreen(), trackColor.getBlue(), null);
-        float hueShift = (pitchMidi * -8.0f / 3.0f) / 192.0f;
+        float hueShift = ((pitchMidi + colourOffset) * -8.0f / 3.0f) / 192.0f;
         float noteHue = (hsb[0] + hueShift) % 1.0f;
         if (noteHue < 0) noteHue += 1.0f;
         Color noteColor = Color.getHSBColor(noteHue, hsb[1], hsb[2]);
@@ -9428,6 +9452,17 @@ public class SwingGridPanel extends JPanel {
       }
     }
     return velocityBlend(trackColor, velocity);
+  }
+
+  public void adjustTrackColorOffset(int delta) {
+    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+      org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
+      int newOffset = t.getColourOffset() + (delta * 3);
+      newOffset = newOffset % 192;
+      if (newOffset < 0) newOffset += 192;
+      t.setColourOffset(newOffset);
+      refresh();
+    }
   }
 
   private static int getKeyMidiOffset(String key) {

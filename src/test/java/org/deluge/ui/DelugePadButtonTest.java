@@ -41,7 +41,8 @@ public class DelugePadButtonTest {
     pad.setSize(40, 40);
     pad.setActive(true);
     pad.setBaseColor(new Color(0x33, 0xcc, 0xff));
-    pad.setTied(true);
+    pad.setTail(true);
+    assertEquals(true, pad.isTail(), "pad tail state must be true");
     BufferedImage img = new BufferedImage(40, 40, BufferedImage.TYPE_INT_ARGB);
     Graphics2D g = img.createGraphics();
     pad.paint(g);
