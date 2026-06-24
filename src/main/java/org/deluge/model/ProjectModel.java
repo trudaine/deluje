@@ -23,6 +23,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   private int timeSigDenom = 4;
   private int transpose = 0;
   private float humanize = 0.0f;
+  private boolean recording = false;
 
   private String key = "0";
   private String scale = "Major";
@@ -341,6 +342,14 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   private final List<ArrangerClip> arrangerTimeline = new ArrayList<>();
 
   public ProjectModel() {}
+
+  public boolean isRecording() {
+    return recording;
+  }
+
+  public void setRecording(boolean recording) {
+    this.recording = recording;
+  }
 
   public float getBpm() {
     return bpm;
