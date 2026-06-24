@@ -3727,10 +3727,12 @@ public class SwingDelugeApp extends JFrame {
             d -> {
               SwingGridPanel a = activeGridPanel();
               if (a != null) {
-                if (a.isShiftHeld()) {
-                  a.adjustTrackColorOffset(d);
+                if (isLearnHeld()) {
+                  a.adjustTrackColorOffset(d); // Learn + Turn Y = Change track color!
+                } else if (a.isShiftHeld()) {
+                  a.scrollVertically(-d * 12); // Shift + Turn Y = Octave scroll (12 rows)!
                 } else {
-                  a.scrollVertically(-d);
+                  a.scrollVertically(-d); // Turn Y = Single-row scroll!
                 }
               }
             },
@@ -3777,9 +3779,9 @@ public class SwingDelugeApp extends JFrame {
               SwingGridPanel a = activeGridPanel();
               if (a != null) {
                 if (a.isShiftHeld()) {
-                  a.transposeTrack(d); // Shift held = semitone transposition
+                  a.transposeTrack(d * 12); // Shift + Press-Turn Y = Octave transposition!
                 } else {
-                  a.transposeTrack(d * 12); // Shift not held = octave transposition
+                  a.transposeTrack(d); // Press-Turn Y = Semitone transposition!
                 }
               }
             });

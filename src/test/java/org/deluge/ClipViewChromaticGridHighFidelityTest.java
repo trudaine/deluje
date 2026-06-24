@@ -688,4 +688,43 @@ public class ClipViewChromaticGridHighFidelityTest {
 
     bridge.shutdown();
   }
+
+  @Test
+  public void testVerticalOctaveScroll() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    BridgeContract bridge = new BridgeContract();
+
+    SwingDelugeApp app = new SwingDelugeApp(bridge, null, true);
+    ProjectModel project = ProjectModel.createDefaultProject();
+    app.loadProject(project);
+
+    SwingGridPanel gridPanel = app.getClipPanel();
+    assertNotNull(gridPanel, "Grid panel must be initialized");
+
+    int initialOffset = gridPanel.getScrollOffset();
+    System.out.println("[TEST-SCROLL] Initial scroll offset: " + initialOffset);
+
+    // 1. Scroll vertically by an octave (12 rows) down
+    gridPanel.scrollVertically(12);
+    int offsetAfterScrollDown = gridPanel.getScrollOffset();
+    System.out.println("[TEST-SCROLL] Offset after scroll down 12: " + offsetAfterScrollDown);
+    assertEquals(
+        initialOffset + 12,
+        offsetAfterScrollDown,
+        "Scroll offset must increase by exactly 12 rows (one octave)");
+
+    // 2. Scroll vertically by an octave (12 rows) up
+    gridPanel.scrollVertically(-12);
+    int offsetAfterScrollUp = gridPanel.getScrollOffset();
+    System.out.println("[TEST-SCROLL] Offset after scroll up 12: " + offsetAfterScrollUp);
+    assertEquals(
+        initialOffset, offsetAfterScrollUp, "Scroll offset must return to the initial offset");
+
+    // 3. Scroll beyond bounds (say, 200 rows up) -> should clamp to 0
+    gridPanel.scrollVertically(-200);
+    assertEquals(
+        0, gridPanel.getScrollOffset(), "Scroll offset must clamp to 0 at the lower boundary");
+
+    bridge.shutdown();
+  }
 }
