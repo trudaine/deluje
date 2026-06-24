@@ -1708,6 +1708,87 @@ Designing custom sounds is a core creative workflow in the Deluge-Java Workstati
 5. Click OK. The workstation will deep-copy your synthesizer's state and export it as a standard Deluge-compatible XML preset inside your local **`SYNTHS/`** directory.
 6. A success dialog will confirm that your preset is saved. It is now instantly loadable on any track in your project!
 
+---
+
+## 25. The Master FX Console & Modulation Dashboard Extension
+
+The **Master FX Console & Modulation Dashboard** is a premium, high-fidelity mixing desk that exposes all global, song-level effects parameters to the user interface. It provides visual, tactile control over spatial room acoustics, sidechain dynamics, stereo delay timing, and output saturation drive in real-time.
+
+![Master FX Mixing Console & Modulation Desk](images/deluge_master_fx_console.png)
+
+### 25.1 Tactile Console Layout & Parameters
+
+The console is organized into four distinct HSL-tailored panels, each targeting a specific master processing block:
+
+#### 1. 🌌 REVERB TANK
+Controls the density, room acoustics, and spatial characteristics of the global algorithmic reverb bus:
+*   **Reverb Model**: Selects the DSP algorithm (0 = Freeverb, 1 = Mutable Rings Excitation, 2 = Digital Chamber).
+*   **Room Size**: Adjusts the virtual spatial room dimension and decay time (0% to 100%).
+*   **Dampening**: Simulates acoustic absorption of high frequencies in the room (0% to 100%).
+*   **Stereo Width**: Spreads the wet signal across the stereo image (0% to 100%).
+*   **High-Pass Filter**: Cuts low frequencies from the input to prevent mud in the tail (0% to 100%).
+*   **Stereo Pan**: Pans the reverb bus output across the Left/Right field.
+
+#### 2. 💨 REVERB COMPRESSOR (SIDECHAIN DYNAMICS)
+Controls a sidechain compressor dedicated to the reverb return path, letting you duck the reverb tail out of the way of primary beats (like the kick drum):
+*   **Attack**: Adjusts how quickly the compressor ducks the reverb when a transient hit occurs.
+*   **Release**: Adjusts how quickly the reverb swells back in after the hit.
+*   **Sync Threshold**: Calibrates the sidechain detection threshold level (0 to 8).
+*   **Compressor HPF**: High-pass filter for the sidechain side-path to ignore bass transients.
+*   **Wet/Dry Blend**: Blends the dry reverb tail with the ducked tail (0% to 100%).
+
+#### 3. ⏳ STEREO DELAY LINE
+Controls the global feedback delay line for spacious, rhythmic echo patterns:
+*   **Delay Mode**: Toggle buttons for **Ping-Pong Mode** (which bounces echoes between Left and Right channels) and **Analog Warmth** (which emulates vintage tape saturation and high-frequency degradation).
+*   **Delay Feedback**: Adjusts the number of echo repeats (0% to 100%).
+*   **Sync Division**: Locks the delay time to structural musical divisions slaved to the song's BPM (0 to 16 divisions).
+
+#### 4. 🌋 DRIVE & SATURATION
+Applies final mix-bus gluing and analog character modeling to the master output:
+*   **Master Saturation (Tanh)**: Emulates the rich harmonic distortion and soft clipping of physical output op-amps.
+*   **Filter Character Drive**: Injects modeled transistor drive into all synthesizer voice filter paths.
+*   **Lo-Fi Bitcrush**: Degrades the sample resolution to 14-bit for retro digital crunch.
+
+---
+
+### 25.2 Real-Time JNI Bridge Sync & Undo Stack
+
+Every knob turn, slider drag, or button toggle inside the console performs a three-way real-time synchronization:
+1.  **High-Level Model Update**: Mutates the active `ProjectModel` structure.
+2.  **JNI Bridge Broadcast**: Pushes the updated parameters directly to ChucK VM global registers (e.g. `g_reverb_room`, `g_delay_fb`, `g_masterSat`), altering the audio rendering pipeline instantly in real-time.
+3.  **OLED Display Readout**: Prints transient readouts on the OLED screen (e.g. `RV.RM 75%`, `DL.PP ON`) for hardware-parity visual feedback.
+4.  **Undo/Redo Registration**: Every tweak pushes a `ProjectParamConsequence` to the `UndoRedoStack` so that your mixing decisions are fully undoable/redoable!
+
+---
+
+### 25.3 💾 Hardware Compatibility & SD Card Portability
+
+Any changes made inside the Master FX Console are written directly to the standard Synthstrom Deluge song XML format upon saving (`Ctrl + S`). 
+Because the physical Deluge hardware loads these exact song-level parameters from its XML songs, your master effects mix will **transfer losslessly to your physical SD card** and sound identical when loaded on your physical Deluge unit!
+
+---
+
+### 🔊 Tutorial M: Mixing and Mastering a Heavy Electronic Groove
+
+Follow these steps to sculpt a massive, spatial mix with sidechain ducking and analog warmth using the Master FX Console:
+
+1.  Press **`Spacebar`** to start playing a heavy electronic drum and bass sequence.
+2.  Click the **`🎛️ MASTER FX`** button next to the master volume slider on the top toolbar to open the console.
+3.  Navigate to the **`🌋 DRIVE & SAT`** tab:
+    *   Click **`[✓] MASTER SATURATION ACTIVE`** to glue the mix together.
+    *   Click **`[✓] CHARACTER DRIVE ACTIVE`** to add subtle analog harmonics to the filter paths.
+4.  Navigate to the **`⏳ STEREO DELAY`** tab:
+    *   Click the **`[PING-PONG OFF]`** button to toggle it to **`[PING-PONG ACTIVE]`**.
+    *   Click the **`[ANALOG CLEAN]`** button to toggle it to **`[ANALOG WARMTH ON]`**.
+    *   Slide **`Delay Feedback`** to **`45%`** and set **`Sync Division`** to **`4`** ($1/8$ triplet echo). You will hear the delay bounce warmly across the stereo field!
+5.  Navigate to the **`🌌 REVERB TANK`** tab:
+    *   Set the **`Reverb Model`** combobox to **`Digital Chamber`**.
+    *   Slide **`Room Size`** to **`70%`** and **`Stereo Width`** to **`80%`**. You will hear a massive, cathedral-like spatial reverb, but it might wash out the kick drum.
+6.  Navigate to the **`💨 REVERB COMP`** tab to sculpt the sidechain pump:
+    *   Slide **`Sidechain Release`** to **`120ms`** and **`Wet/Dry Blend`** to **`100%`**.
+    *   Watch the kick drum hits: the massive reverb tail now **ducks completely out of the way** during the kick, then swells back in beautifully during the gaps, creating a pumping, high-energy spatial rhythm!
+7.  Once you are happy with the mix, press **`CLOSE CONSOLE`** and hit **`Ctrl + S`** to save your masterpiece! Your song is now mixed, mastered, and ready to be loaded onto your physical Deluge SD card!
+
 
 
 
