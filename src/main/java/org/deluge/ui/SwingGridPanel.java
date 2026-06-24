@@ -102,7 +102,18 @@ public class SwingGridPanel extends JPanel {
       -1; // forces a structural rebuild when the cell size changes (resize/zoom)
 
   private boolean foldMode = false;
+  private boolean scaleModeEnabled =
+      true; // default to true (diatonic scale mode) like the real Deluge!
   private final java.util.List<Integer> foldedPitches = new java.util.ArrayList<>();
+
+  public boolean isScaleModeEnabled() {
+    return scaleModeEnabled;
+  }
+
+  public void setScaleModeEnabled(boolean enabled) {
+    this.scaleModeEnabled = enabled;
+    refresh();
+  }
 
   public int getRowPitch(int modelRow) {
     boolean isSynth = false;
@@ -116,9 +127,66 @@ public class SwingGridPanel extends JPanel {
           return foldedPitches.get(modelRow);
         }
       }
-      return 127 - modelRow;
+      return scaleModeEnabled ? getDiatonicPitch(modelRow) : getChromaticPitch(modelRow);
     }
     return 60; // fallback
+  }
+
+  private Color getAuditionPadBgColor(int modelRow, boolean isSynth, int visualRowIndex) {
+    if (soloRow == visualRowIndex) {
+      return Color.GREEN;
+    }
+    if (!isSynth) {
+      return new Color(0x55, 0x55, 0x5a); // Slate Grey for kits/midi
+    }
+    int pitch = getRowPitch(modelRow);
+    if (pitch % 12 == 0) {
+      return getGridNoteColor(modelRow); // Dynamic root octave Cs use the row's hue-shifted color!
+    } else {
+      return scaleModeEnabled
+          ? new Color(0x55, 0x55, 0x5a)
+          : Color.BLACK; // Slate Grey in diatonic, Black in chromatic!
+    }
+  }
+
+  private Color getAuditionPadFgColor(int modelRow, boolean isSynth, int visualRowIndex) {
+    if (soloRow == visualRowIndex) {
+      return Color.BLACK;
+    }
+    if (!isSynth) {
+      return Color.WHITE;
+    }
+    int pitch = getRowPitch(modelRow);
+    if (pitch % 12 == 0) {
+      // Lit root octave pads: use high contrast text based on background brightness
+      Color bg = getGridNoteColor(modelRow);
+      double brightness =
+          (0.299 * bg.getRed() + 0.587 * bg.getGreen() + 0.114 * bg.getBlue()) / 255.0;
+      return brightness > 0.5 ? Color.BLACK : Color.WHITE;
+    } else {
+      // Non-octave pads
+      return scaleModeEnabled ? Color.WHITE : new Color(0x77, 0x77, 0x7a);
+    }
+  }
+
+  public int getRowFromPitch(int pitch) {
+    boolean isSynth = false;
+    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+      org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
+      isSynth = t instanceof org.deluge.model.SynthTrackModel;
+    }
+    if (isSynth && viewMode == GridViewMode.CLIP) {
+      if (foldMode && !foldedPitches.isEmpty()) {
+        for (int i = 0; i < foldedPitches.size(); i++) {
+          if (foldedPitches.get(i) == pitch) return i;
+        }
+        return -1;
+      }
+      for (int r = 0; r < 128; r++) {
+        if (getRowPitch(r) == pitch) return r;
+      }
+    }
+    return 127 - pitch;
   }
 
   private int getClipRowIndex(
@@ -136,6 +204,10 @@ public class SwingGridPanel extends JPanel {
       return newRowIdx;
     }
     return -1;
+  }
+
+  public int getActiveClipId() {
+    return activeClipId;
   }
 
   public org.deluge.model.StepData getClipStep(
@@ -915,6 +987,21 @@ public class SwingGridPanel extends JPanel {
         0x27, 0x27, 0x2b); // deeper, beautiful dark charcoal for standard subdivisions!
   }
 
+  private Color getStepPadDefaultBg(int modelRow, int col) {
+    boolean isSynth = false;
+    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+      org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
+      isSynth = t instanceof org.deluge.model.SynthTrackModel;
+    }
+    if (isSynth && viewMode == GridViewMode.CLIP && !scaleModeEnabled) {
+      int pitch = getRowPitch(modelRow);
+      if (isAccidental(pitch)) {
+        return Color.BLACK; // Accidental rows are completely black/unlit!
+      }
+    }
+    return getPadDefaultBg(col);
+  }
+
   private Color getThemeColor(
       org.deluge.project.PreferencesManager.GridColorTheme theme,
       Color trackColor,
@@ -965,7 +1052,7 @@ public class SwingGridPanel extends JPanel {
         } else if (inScale) {
           return base; // DelugePadButton dims it automatically
         } else {
-          return new Color(0x1d, 0x1d, 0x22); // titanium gray out-of-scale
+          return Color.BLACK; // Out-of-scale notes are completely black/unlit on hardware!
         }
     }
   }
@@ -1924,7 +2011,17 @@ public class SwingGridPanel extends JPanel {
     int octave = Math.floorDiv(degree, 7);
     int rem = Math.floorMod(degree, 7);
     int[] majorScaleOffsets = new int[] {0, 2, 4, 5, 7, 9, 11};
-    return ((octave + 1) * 12) + majorScaleOffsets[rem];
+    int pitch = ((octave + 1) * 12) + majorScaleOffsets[rem];
+    return Math.max(0, Math.min(pitch, 127));
+  }
+
+  public static int getChromaticPitch(int modelRow) {
+    return Math.max(0, Math.min(127, 60 + (67 - modelRow)));
+  }
+
+  public static boolean isAccidental(int pitch) {
+    int rem = Math.floorMod(pitch, 12);
+    return rem == 1 || rem == 3 || rem == 6 || rem == 8 || rem == 10; // C#, D#, F#, G#, A#
   }
 
   private JPopupMenu createMutePopupMenu(int rowToSolo) {
@@ -2127,7 +2224,7 @@ public class SwingGridPanel extends JPanel {
                 ? sounds.get(sounds.size() - 1 - modelRow).getName()
                 : rowTrack.getName();
       } else {
-        int pitchMidi = ((128 - 1) - modelRow) + 0;
+        int pitchMidi = getRowPitch(modelRow);
         trackName = getNoteName(pitchMidi);
       }
     } else {
@@ -2467,11 +2564,11 @@ public class SwingGridPanel extends JPanel {
             org.deluge.model.TrackModel tm = projectModel.getTracks().get(editedModelTrack);
             isSynth = tm instanceof org.deluge.model.SynthTrackModel;
           }
-          boolean isOctaveC = isSynth && ((127 - modelRow) % 12 == 0);
+          boolean isOctaveC = isSynth && (getRowPitch(modelRow) % 12 == 0);
 
           String nName;
           if (isSynth) {
-            int midiPitch = getDiatonicPitch(modelRow);
+            int midiPitch = getRowPitch(modelRow);
             String[] noteNames =
                 new String[] {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
             nName = noteNames[Math.max(0, midiPitch) % 12] + ((midiPitch / 12) - 1);
@@ -2493,35 +2590,8 @@ public class SwingGridPanel extends JPanel {
           clipBtn.setText(nName);
           clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 11 : 9));
 
-          Color cellBg;
-          Color cellFg;
-          int rootPitch = isSynth ? getDiatonicPitch(modelRow) : -1;
-
-          if (rootPitch == 60) {
-            cellBg = new Color(0x7b, 0x68, 0xee); // Purplish for root pitch C4
-            cellFg = Color.WHITE;
-          } else if (rootPitch == 48) {
-            cellBg = Color.RED; // Red for lower octave root pitch C3
-            cellFg = Color.WHITE;
-          } else if (modelRow == 0) {
-            cellBg =
-                new Color(
-                    0xff, 0xb3,
-                    0x00); // Bright Amber Gold for absolute first top cell of instrument
-            cellFg = Color.BLACK;
-          } else if (modelRow == voiceRowCount - 1) {
-            cellBg =
-                new Color(
-                    0x7b, 0x68,
-                    0xee); // Distinct Soft Purple for absolute last bottom cell of instrument
-            cellFg = Color.WHITE;
-          } else if (isOctaveC) {
-            cellBg = new Color(0xb0, 0xe2, 0xff); // Soft octave teal/blue
-            cellFg = Color.BLACK;
-          } else {
-            cellBg = new Color(0x55, 0x55, 0x5a); // Highly visible active Slate Grey
-            cellFg = Color.WHITE;
-          }
+          Color cellBg = getAuditionPadBgColor(modelRow, isSynth, visibleRow);
+          Color cellFg = getAuditionPadFgColor(modelRow, isSynth, visibleRow);
           clipBtn.setBackground(cellBg);
           clipBtn.setForeground(cellFg);
 
@@ -2548,7 +2618,7 @@ public class SwingGridPanel extends JPanel {
                   isPressed = true;
 
                   boolean isSynthMode = bridge != null && bridge.getTrackType(baseTrackId) == 1;
-                  int pitchMidi = isSynthMode ? (((128 - 1) - modelRow) + 0) : 60;
+                  int pitchMidi = isSynthMode ? getRowPitch(modelRow) : 60;
 
                   if (SwingDelugeApp.mainInstance != null) {
                     SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient(
@@ -2579,7 +2649,7 @@ public class SwingGridPanel extends JPanel {
                   isPressed = false;
 
                   boolean isSynthMode = bridge != null && bridge.getTrackType(baseTrackId) == 1;
-                  int pitchMidi = isSynthMode ? (((128 - 1) - modelRow) + 0) : 60;
+                  int pitchMidi = isSynthMode ? getRowPitch(modelRow) : 60;
 
                   Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
                   if (fwEngineObj instanceof org.deluge.engine.FirmwareAudioEngine fwEngine) {
@@ -2708,7 +2778,7 @@ public class SwingGridPanel extends JPanel {
               boolean inLoop = activeCol < curTrackLen;
               pad.setInLoop(inLoop);
               pad.setActive(stepState);
-              pad.setBaseColor(trackColors[modelRow % trackColors.length]);
+              pad.setBaseColor(getGridNoteColor(modelRow));
               pad.setIntensity((float) (vel * (0.2f + 0.8f * prob)));
               pad.setTied(isStepTied(modelRow, activeCol));
 
@@ -2729,7 +2799,7 @@ public class SwingGridPanel extends JPanel {
               pad.setSelected(isSelected);
 
               boolean isSynthMode = bridge != null && bridge.getTrackType(baseTrackId) == 1;
-              int pitchMidi = isSynthMode ? (((128 - 1) - modelRow) + 0) : 60;
+              int pitchMidi = isSynthMode ? getRowPitch(modelRow) : 60;
               if (stepState) {
                 if (isSynthMode) {
                   pad.setNoteText(getNoteName(pitchMidi));
@@ -2849,10 +2919,10 @@ public class SwingGridPanel extends JPanel {
               double prob = bridge.getStepProbability(engineRow, activeCol);
               clipBtn.setBackground(
                   stepState
-                      ? velocityBlend(trackColors[modelRow % trackColors.length], vel)
-                      : getPadDefaultBg(activeCol));
+                      ? getGridNoteColor(modelRow, (float) vel)
+                      : getStepPadDefaultBg(modelRow, activeCol));
               boolean isSynthMode = bridge != null && bridge.getTrackType(baseTrackId) == 1;
-              int pitchMidi = isSynthMode ? (((128 - 1) - modelRow) + 0) : 60;
+              int pitchMidi = isSynthMode ? getRowPitch(modelRow) : 60;
               if (stepState) {
                 clipBtn.setToolTipText(
                     String.format(
@@ -3116,7 +3186,7 @@ public class SwingGridPanel extends JPanel {
                             int engineRow = baseTrackId + modelRow;
                             // Base pitch: row 0 = highest (MIDI 83), each step down = 1 semitone
                             // Continues descending: modelRow=8 -> MIDI 75, modelRow=15 -> MIDI 68
-                            int pitchMidi = ((128 - 1) - modelRow) + 0;
+                            int pitchMidi = getRowPitch(modelRow);
                             org.deluge.model.StepData oldStep = null;
                             if (projectModel != null
                                 && editedModelTrack < projectModel.getTracks().size()) {
@@ -3135,9 +3205,8 @@ public class SwingGridPanel extends JPanel {
                             double velS = bridge.getVelocity(engineRow, activeCol);
                             clipBtn.setBackground(
                                 !stepState
-                                    ? velocityBlend(
-                                        trackColors[modelRow % trackColors.length], velS)
-                                    : getPadDefaultBg(activeCol));
+                                    ? getGridNoteColor(modelRow, (float) velS)
+                                    : getStepPadDefaultBg(modelRow, activeCol));
 
                             Object fwEngineObj =
                                 bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
@@ -3214,7 +3283,7 @@ public class SwingGridPanel extends JPanel {
                                 !stepState
                                     ? velocityBlend(
                                         trackColors[modelRow % trackColors.length], velK)
-                                    : getPadDefaultBg(activeCol));
+                                    : getStepPadDefaultBg(modelRow, activeCol));
                             if (projectModel != null
                                 && editedModelTrack < projectModel.getTracks().size()) {
                               org.deluge.model.TrackModel tModel =
@@ -3270,7 +3339,7 @@ public class SwingGridPanel extends JPanel {
                                     kit.triggerDrum(modelRow, 127);
                                   } else if (sound
                                       instanceof org.deluge.engine.FirmwareSound synth) {
-                                    int pitchMidi = ((128 - 1) - modelRow) + 0;
+                                    int pitchMidi = getRowPitch(modelRow);
                                     stopAuditionIfNeeded();
                                     auditionMidiNote = pitchMidi;
                                     auditionSynth = synth;
@@ -3304,7 +3373,7 @@ public class SwingGridPanel extends JPanel {
                                 kit.drumSounds.get(modelRow).releaseNote(60);
                               }
                             } else if (sound instanceof org.deluge.engine.FirmwareSound synth) {
-                              int pitchMidi = ((128 - 1) - modelRow) + 0;
+                              int pitchMidi = getRowPitch(modelRow);
                               synth.releaseNote(pitchMidi);
                             }
                           }
@@ -3331,7 +3400,7 @@ public class SwingGridPanel extends JPanel {
                                 kit.drumSounds.get(modelRow).releaseNote(60);
                               }
                             } else if (sound instanceof org.deluge.engine.FirmwareSound synth) {
-                              int pitchMidi = ((128 - 1) - modelRow) + 0;
+                              int pitchMidi = getRowPitch(modelRow);
                               synth.releaseNote(pitchMidi);
                             }
                           }
@@ -3697,7 +3766,7 @@ public class SwingGridPanel extends JPanel {
 
     int modelRow;
     if (isSynthMode) {
-      modelRow = (128 - 1) - (note - 0);
+      modelRow = getRowFromPitch(note);
     } else {
       modelRow = note % voiceRowCount;
     }
@@ -3774,7 +3843,8 @@ public class SwingGridPanel extends JPanel {
               pads[t][c].setBackground(
                   bridge.getStep(engineRow, engineStep)
                       ? velocityBlend(trackColors[t % trackColors.length], vel)
-                      : getPadDefaultBg(c + scrollOffsetX));
+                      : getStepPadDefaultBg(
+                          viewMode == GridViewMode.CLIP ? scrollOffset + t : t, c + scrollOffsetX));
             }
           }
         }
@@ -3838,7 +3908,8 @@ public class SwingGridPanel extends JPanel {
               pads[t][c].setBackground(
                   bridge.getStep(engineRow, engineStep)
                       ? velocityBlend(trackColors[t % trackColors.length], vel)
-                      : getPadDefaultBg(c + scrollOffsetX));
+                      : getStepPadDefaultBg(
+                          viewMode == GridViewMode.CLIP ? scrollOffset + t : t, c + scrollOffsetX));
             }
           }
         }
@@ -4041,7 +4112,7 @@ public class SwingGridPanel extends JPanel {
               }
               String nName;
               if (isSynth) {
-                int midiPitch = getDiatonicPitch(modelRow);
+                int midiPitch = getRowPitch(modelRow);
                 String[] noteNames =
                     new String[] {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
                 nName = noteNames[Math.max(0, midiPitch) % 12] + ((midiPitch / 12) - 1);
@@ -4060,6 +4131,18 @@ public class SwingGridPanel extends JPanel {
                 nName = "ROW " + (modelRow + 1);
               }
               clipBtn.setText(nName);
+              if (viewMode == GridViewMode.CLIP) {
+                Color labelBg = getAuditionPadBgColor(modelRow, isSynth, v);
+                Color labelFg = getAuditionPadFgColor(modelRow, isSynth, v);
+                clipBtn.setBackground(labelBg);
+                clipBtn.setForeground(labelFg);
+                if (clipBtn instanceof DelugePadButton pad) {
+                  pad.setBaseColor(labelBg);
+                  pad.setTextColorOverride(labelFg);
+                  pad.setActive(true);
+                  pad.setIntensity(1.0f);
+                }
+              }
             } else {
               // Normal step pads
               int activeCol;
@@ -4080,12 +4163,12 @@ public class SwingGridPanel extends JPanel {
               if (clipBtn instanceof DelugePadButton pad) {
                 org.deluge.project.PreferencesManager.GridColorTheme theme =
                     org.deluge.project.PreferencesManager.getGridColorTheme();
-                Color trackColor = trackColors[modelRow % trackColors.length];
+                Color trackColor = getGridNoteColor(modelRow);
                 boolean inScale = true;
                 boolean isRoot = false;
 
                 if (isSynthMode) {
-                  int pitchMidi = 127 - modelRow;
+                  int pitchMidi = getRowPitch(modelRow);
                   int keyOffset = getKeyMidiOffset(projectModel.getKey());
                   isRoot = (pitchMidi % 12 == keyOffset);
                   inScale =
@@ -4109,7 +4192,7 @@ public class SwingGridPanel extends JPanel {
                 pad.setTied(isStepTied(modelRow, activeCol));
                 if (stepState) {
                   if (isSynthMode) {
-                    int pitchMidi = 127 - modelRow;
+                    int pitchMidi = getRowPitch(modelRow);
                     pad.setNoteText(getNoteName(pitchMidi));
                   } else {
                     pad.setNoteText(String.format("v%d", (int) (vel * 100)));
@@ -4120,8 +4203,8 @@ public class SwingGridPanel extends JPanel {
               } else {
                 clipBtn.setBackground(
                     stepState
-                        ? velocityBlend(trackColors[modelRow % trackColors.length], vel)
-                        : getPadDefaultBg(activeCol));
+                        ? getGridNoteColor(modelRow, (float) vel)
+                        : getStepPadDefaultBg(modelRow, activeCol));
               }
             }
           }
@@ -4238,7 +4321,7 @@ public class SwingGridPanel extends JPanel {
       }
     } else if (viewMode == GridViewMode.KEYPLAY) {
       boolean kitTrack = isEditedTrackKit();
-      Color trackColor = trackColors[editedModelTrack % trackColors.length];
+      Color trackColor = getTrackBaseColor();
       org.deluge.project.PreferencesManager.GridColorTheme theme =
           org.deluge.project.PreferencesManager.getGridColorTheme();
 
@@ -4570,7 +4653,7 @@ public class SwingGridPanel extends JPanel {
           clipLabel.setForeground(Color.LIGHT_GRAY);
           clipLabel.setFont(new Font("SansSerif", Font.PLAIN, 11));
           clipBar.add(clipLabel);
-          Color trackColor = trackColors[editedModelTrack % trackColors.length];
+          Color trackColor = getTrackBaseColor();
           for (int ci = 0; ci < clipCount; ci++) {
             org.deluge.model.ClipModel cm = curTrack.getClips().get(ci);
             String clipName =
@@ -5873,11 +5956,11 @@ public class SwingGridPanel extends JPanel {
                 org.deluge.model.TrackModel tm = projectModel.getTracks().get(editedModelTrack);
                 isSynth = tm instanceof org.deluge.model.SynthTrackModel;
               }
-              boolean isOctaveC = isSynth && ((127 - (scrollOffset + t)) % 12 == 0);
+              boolean isOctaveC = isSynth && (getRowPitch(scrollOffset + t) % 12 == 0);
 
               String nName;
               if (isSynth) {
-                int midiPitch = (128 - 1) - (scrollOffset + t);
+                int midiPitch = getRowPitch(scrollOffset + t);
                 String[] noteNames =
                     new String[] {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
                 nName = noteNames[Math.max(0, midiPitch) % 12] + ((midiPitch / 12) - 1);
@@ -5898,24 +5981,8 @@ public class SwingGridPanel extends JPanel {
               clipBtn.setText(nName);
               clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 11 : 9));
 
-              Color cellBg;
-              Color cellFg;
-              if (soloRow == t) {
-                cellBg = Color.GREEN;
-                cellFg = Color.BLACK;
-              } else if (t == 0) {
-                cellBg = new Color(0xff, 0xb3, 0x00); // Bright Amber Gold for first top cell
-                cellFg = Color.BLACK;
-              } else if (t == 7 || t == voiceRowCount - 1) {
-                cellBg = new Color(0x7b, 0x68, 0xee); // Distinct Soft Purple for last bottom cell
-                cellFg = Color.WHITE;
-              } else if (isOctaveC) {
-                cellBg = new Color(0xb0, 0xe2, 0xff); // Soft octave teal/blue
-                cellFg = Color.BLACK;
-              } else {
-                cellBg = new Color(0x55, 0x55, 0x5a); // Highly visible active Slate Grey
-                cellFg = Color.WHITE;
-              }
+              Color cellBg = getAuditionPadBgColor(scrollOffset + t, isSynth, t);
+              Color cellFg = getAuditionPadFgColor(scrollOffset + t, isSynth, t);
               clipBtn.setBackground(cellBg);
               clipBtn.setForeground(cellFg);
 
@@ -5968,7 +6035,7 @@ public class SwingGridPanel extends JPanel {
                           } else if (sound instanceof org.deluge.engine.FirmwareSound synth) {
                             boolean isSynthModeLocal =
                                 bridge != null && bridge.getTrackType(baseTrackId) == 1;
-                            int pitchMidi = isSynthModeLocal ? (((128 - 1) - trk) + 0) : 60;
+                            int pitchMidi = isSynthModeLocal ? getRowPitch(trk) : 60;
                             stopAuditionIfNeeded();
                             auditionMidiNote = pitchMidi;
                             auditionSynth = synth;
@@ -6303,7 +6370,7 @@ public class SwingGridPanel extends JPanel {
 
                             // Audition via engine preview (wrap to voice slot)
                             int slot = baseTrackId + (trk % 8);
-                            int midiPitch = (128 - 1) - trk;
+                            int midiPitch = getRowPitch(trk);
                             bridge.setGlobalFloat(
                                 BridgeContract.G_PREVIEW_PITCH, (float) midiPitch);
                             bridge.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) slot);
@@ -6373,7 +6440,7 @@ public class SwingGridPanel extends JPanel {
                                       instanceof org.deluge.engine.FirmwareSound synth) {
                                     boolean isSynthModeLocal =
                                         bridge != null && bridge.getTrackType(baseTrackId) == 1;
-                                    int pitchMidi = isSynthModeLocal ? (((128 - 1) - trk) + 0) : 60;
+                                    int pitchMidi = isSynthModeLocal ? getRowPitch(trk) : 60;
                                     stopAuditionIfNeeded();
                                     auditionMidiNote = pitchMidi;
                                     auditionSynth = synth;
@@ -7038,12 +7105,12 @@ public class SwingGridPanel extends JPanel {
                         if (pads[t][c] instanceof DelugePadButton pad) {
                           pad.setActive(stepActive);
                           pad.setIntensity((float) (velPb * 0.8f));
-                          pad.setBaseColor(trackColors[modelRow % trackColors.length]);
+                          pad.setBaseColor(getGridNoteColor(modelRow));
                           pad.setTied(isStepTied(modelRow, engineCol));
                         } else {
                           pads[t][c].setBackground(
                               stepActive
-                                  ? velocityBlend(trackColors[modelRow % trackColors.length], velPb)
+                                  ? getGridNoteColor(modelRow, (float) velPb)
                                   : new Color(0x33, 0x33, 0x33));
                         }
                       }
@@ -7744,7 +7811,7 @@ public class SwingGridPanel extends JPanel {
             org.deluge.model.ClipModel cModel = tModel.getClips().get(activeClipId);
             double curVel = bridge.getVelocity(engineRow, activeCol);
             double curProb = bridge.getStepProbability(engineRow, activeCol);
-            int pitch = isSynthMode ? (((128 - 1) - modelRow) + 0) : 0;
+            int pitch = isSynthMode ? getRowPitch(modelRow) : 0;
             cModel.setStep(
                 modelRow,
                 activeCol,
@@ -7851,7 +7918,7 @@ public class SwingGridPanel extends JPanel {
         sendMidiNote(60 + modelRow, 100, 250); // preview
       }
     } else if (isSynthMode) {
-      int pitchMidi = ((128 - 1) - modelRow) + 0;
+      int pitchMidi = getRowPitch(modelRow);
 
       Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
       if (fwEngineObj instanceof org.deluge.engine.FirmwareAudioEngine fwEngine) {
@@ -7890,7 +7957,7 @@ public class SwingGridPanel extends JPanel {
             kit.drumSounds.get(modelRow).releaseNote(60);
           }
         } else if (sound instanceof org.deluge.engine.FirmwareSound synth) {
-          int pitchMidi = ((128 - 1) - modelRow) + 0;
+          int pitchMidi = getRowPitch(modelRow);
           synth.releaseNote(pitchMidi);
         }
       }
@@ -7901,6 +7968,15 @@ public class SwingGridPanel extends JPanel {
     return baseTrackId;
   }
 
+  public int getScrollOffset() {
+    return scrollOffset;
+  }
+
+  public void setScrollOffset(int val) {
+    this.scrollOffset = val;
+    refresh();
+  }
+
   public void handleStepToggled(int row, int col) {
     if (bridge == null) return;
     int modelRow = getModelRow(row);
@@ -7909,10 +7985,12 @@ public class SwingGridPanel extends JPanel {
     int engineRow = baseTrackId + modelRow;
 
     org.deluge.model.StepData oldStep = null;
+    org.deluge.model.ClipModel cModel = null;
     if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
       org.deluge.model.TrackModel tModel = projectModel.getTracks().get(editedModelTrack);
       if (activeClipId < tModel.getClips().size()) {
-        oldStep = tModel.getClips().get(activeClipId).getStep(modelRow, activeCol);
+        cModel = tModel.getClips().get(activeClipId);
+        oldStep = getClipStep(cModel, modelRow, activeCol);
       }
     }
 
@@ -7920,34 +7998,25 @@ public class SwingGridPanel extends JPanel {
     boolean nextState = !stepState;
     bridge.setStep(engineRow, activeCol, nextState);
 
-    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
-      org.deluge.model.TrackModel tModel = projectModel.getTracks().get(editedModelTrack);
-      if (activeClipId < tModel.getClips().size()) {
-        org.deluge.model.ClipModel cModel = tModel.getClips().get(activeClipId);
-        double curVel = bridge.getVelocity(engineRow, activeCol);
-        double curProb = bridge.getStepProbability(engineRow, activeCol);
-        int pitch = isSynthMode ? (((128 - 1) - modelRow) + 0) : 0;
-        cModel.setStep(
-            modelRow,
-            activeCol,
-            org.deluge.model.StepData.of(
-                nextState,
-                (float) curVel,
-                org.deluge.model.StepData.DEFAULT_CLICK_GATE,
-                (float) curProb,
-                pitch));
-        if (oldStep != null) {
-          projectModel
-              .getUndoRedoStack()
-              .push(
-                  new Consequence.StepConsequence(
-                      editedModelTrack,
-                      activeClipId,
-                      modelRow,
-                      activeCol,
-                      oldStep,
-                      cModel.getStep(modelRow, activeCol)));
-        }
+    if (cModel != null) {
+      double curVel = bridge.getVelocity(engineRow, activeCol);
+      double curProb = bridge.getStepProbability(engineRow, activeCol);
+      int pitch = isSynthMode ? getRowPitch(modelRow) : 0;
+      org.deluge.model.StepData newStep =
+          org.deluge.model.StepData.of(
+              nextState,
+              (float) curVel,
+              org.deluge.model.StepData.DEFAULT_CLICK_GATE,
+              (float) curProb,
+              pitch);
+      setClipStep(cModel, modelRow, activeCol, newStep);
+
+      if (oldStep != null) {
+        projectModel
+            .getUndoRedoStack()
+            .push(
+                new Consequence.StepConsequence(
+                    editedModelTrack, activeClipId, modelRow, activeCol, oldStep, newStep));
       }
     }
     fireProjectChanged();
@@ -8036,7 +8105,7 @@ public class SwingGridPanel extends JPanel {
                 int iter = bridge.getIterance(engineRow, activeCol);
                 double fill = bridge.getStepFill(engineRow, activeCol);
                 boolean isSynthMode = bridge.getTrackType(baseTrackId) == 1;
-                int pitch = isSynthMode ? (((128 - 1) - modelRow) + 0) : 0;
+                int pitch = isSynthMode ? getRowPitch(modelRow) : 0;
 
                 org.deluge.model.StepData newStep =
                     new org.deluge.model.StepData(
@@ -8074,7 +8143,7 @@ public class SwingGridPanel extends JPanel {
           int iter = bridge.getIterance(engineRow, activeCol);
           double fill = bridge.getStepFill(engineRow, activeCol);
           boolean isSynthMode = bridge.getTrackType(baseTrackId) == 1;
-          int pitch = isSynthMode ? (((128 - 1) - modelRow) + 0) : 0;
+          int pitch = isSynthMode ? getRowPitch(modelRow) : 0;
           copiedStep =
               new org.deluge.model.StepData(
                   st, (float) vel, (float) gate, (float) prob, pitch, iter, (float) fill);
@@ -8099,7 +8168,7 @@ public class SwingGridPanel extends JPanel {
                 org.deluge.model.ClipModel cModel = tModel.getClips().get(activeClipId);
                 org.deluge.model.StepData oldStep = cModel.getStep(modelRow, activeCol);
                 boolean isSynthMode = bridge.getTrackType(baseTrackId) == 1;
-                int pitch = isSynthMode ? (((128 - 1) - modelRow) + 0) : 0;
+                int pitch = isSynthMode ? getRowPitch(modelRow) : 0;
                 org.deluge.model.StepData newStep =
                     new org.deluge.model.StepData(
                         copiedStep.active(),
@@ -8165,7 +8234,7 @@ public class SwingGridPanel extends JPanel {
     int activeCol = getActiveCol(row, col);
     int engineRow = baseTrackId + modelRow;
     boolean isSynthMode = bridge.getTrackType(baseTrackId) == 1;
-    int pitch = isSynthMode ? (((128 - 1) - modelRow) + 0) : 0;
+    int pitch = isSynthMode ? getRowPitch(modelRow) : 0;
 
     org.deluge.model.StepData oldStep = null;
     org.deluge.model.TrackModel tModel = null;
@@ -8217,7 +8286,7 @@ public class SwingGridPanel extends JPanel {
     int activeCol = getActiveCol(row, col);
     int engineRow = baseTrackId + modelRow;
     boolean isSynthMode = bridge.getTrackType(baseTrackId) == 1;
-    int pitch = isSynthMode ? (((128 - 1) - modelRow) + 0) : 0;
+    int pitch = isSynthMode ? getRowPitch(modelRow) : 0;
 
     org.deluge.model.StepData oldStep = null;
     org.deluge.model.TrackModel tModel = null;
@@ -8266,7 +8335,7 @@ public class SwingGridPanel extends JPanel {
     boolean startActive = bridge.getStep(engineRow, startModelCol);
     double vel = startActive ? bridge.getVelocity(engineRow, startModelCol) : 0.8;
     double prob = startActive ? bridge.getStepProbability(engineRow, startModelCol) : 1.0;
-    int pitch = isSynthMode ? (((128 - 1) - modelRow) + 0) : 0;
+    int pitch = isSynthMode ? getRowPitch(modelRow) : 0;
     int iter = startActive ? bridge.getIterance(engineRow, startModelCol) : 0;
     double fill = startActive ? bridge.getStepFill(engineRow, startModelCol) : 0.0;
 
@@ -8339,7 +8408,7 @@ public class SwingGridPanel extends JPanel {
 
     if (cModel != null) {
       for (int s = activeCol; s >= 0; s--) {
-        org.deluge.model.StepData step = cModel.getStep(modelRow, s);
+        org.deluge.model.StepData step = getClipStep(cModel, modelRow, s);
         if (step != null && step.active()) {
           float gateVal = step.gate();
           if (s + gateVal > activeCol + 0.05f) {
@@ -8383,7 +8452,7 @@ public class SwingGridPanel extends JPanel {
 
     if (cModel != null) {
       for (int s = activeCol; s >= 0; s--) {
-        org.deluge.model.StepData step = cModel.getStep(modelRow, s);
+        org.deluge.model.StepData step = getClipStep(cModel, modelRow, s);
         if (step != null && step.active()) {
           float gateVal = step.gate();
           return (s + gateVal >= activeCol + 1.0f - 0.05f);
@@ -9312,10 +9381,53 @@ public class SwingGridPanel extends JPanel {
   }
 
   private String getNoteName(int pitchMidi) {
+    if (pitchMidi < 0) return "---";
     String[] names = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
     int noteIdx = pitchMidi % 12;
     int octave = (pitchMidi / 12) - 1;
     return names[noteIdx] + octave;
+  }
+
+  private Color getTrackBaseColor() {
+    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+      org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
+      String hex = t.getColourHex();
+      if (hex != null && hex.startsWith("0x")) {
+        try {
+          long rgbVal = Long.parseLong(hex.substring(2), 16);
+          return new Color((int) rgbVal);
+        } catch (Exception e) {
+          // fallback
+        }
+      }
+    }
+    return trackColors[editedModelTrack % trackColors.length];
+  }
+
+  public Color getGridNoteColor(int modelRow) {
+    return getGridNoteColor(modelRow, 1.0f);
+  }
+
+  public Color getGridNoteColor(int modelRow, float velocity) {
+    Color trackColor = getTrackBaseColor();
+    if (viewMode == GridViewMode.CLIP || viewMode == GridViewMode.AUTOMATION) {
+      boolean isSynth = false;
+      if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+        org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
+        isSynth = t instanceof org.deluge.model.SynthTrackModel;
+      }
+      if (isSynth) {
+        int pitchMidi = getRowPitch(modelRow);
+        float[] hsb =
+            Color.RGBtoHSB(trackColor.getRed(), trackColor.getGreen(), trackColor.getBlue(), null);
+        float hueShift = (pitchMidi * -8.0f / 3.0f) / 192.0f;
+        float noteHue = (hsb[0] + hueShift) % 1.0f;
+        if (noteHue < 0) noteHue += 1.0f;
+        Color noteColor = Color.getHSBColor(noteHue, hsb[1], hsb[2]);
+        return velocityBlend(noteColor, velocity);
+      }
+    }
+    return velocityBlend(trackColor, velocity);
   }
 
   private static int getKeyMidiOffset(String key) {
@@ -10299,10 +10411,10 @@ public class SwingGridPanel extends JPanel {
         lowestModelRow = Math.max(0, Math.min(lowestModelRow, voiceRowCount - 1));
         highestModelRow = Math.max(0, Math.min(highestModelRow, voiceRowCount - 1));
 
-        int lowPitch = getDiatonicPitch(lowestModelRow);
+        int lowPitch = getRowPitch(lowestModelRow);
         String lowNote = getNoteName(lowPitch);
 
-        int highPitch = getDiatonicPitch(highestModelRow);
+        int highPitch = getRowPitch(highestModelRow);
         String highNote = getNoteName(highPitch);
 
         vertScrollBar.setToolTipText(

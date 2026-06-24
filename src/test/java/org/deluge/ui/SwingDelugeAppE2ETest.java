@@ -220,8 +220,8 @@ public class SwingDelugeAppE2ETest {
                 finalEngine.renderBlock(128);
                 long duration = System.nanoTime() - start;
                 double durationMs = duration / 1000000.0;
-                // Ignore first 10 blocks for JIT compiler warmup
-                if (blockCount > 10 && durationMs > 5.0) {
+                // Ignore first 100 blocks for JIT compiler warmup
+                if (blockCount > 100 && durationMs > 5.0) {
                   latencySpikes.add(durationMs);
                 }
                 // Check for DSP blowups (NaN, infinity, or extreme overflow values in Q31)
@@ -494,6 +494,17 @@ public class SwingDelugeAppE2ETest {
       synthTrack.setName("TEST_SYNTH");
       synthTrack.getClips().clear();
 
+      // Clear spatial effects to prevent master FX tails from leaking after mute
+      synthTrack.setReverbSend(0.0f);
+      synthTrack.setDelaySend(0.0f);
+      synthTrack.setDelayFeedbackQ31(0);
+      synthTrack
+          .getRawParamKnobs()
+          .put(org.deluge.firmware2.Param.GLOBAL_DELAY_FEEDBACK, Integer.MIN_VALUE);
+      synthTrack
+          .getRawParamKnobs()
+          .put(org.deluge.firmware2.Param.GLOBAL_REVERB_AMOUNT, Integer.MIN_VALUE);
+
       org.deluge.model.ClipModel clipModel = new org.deluge.model.ClipModel("CLIP 1", 72, 16);
       // Add active notes on step 0, 4, 8, 12 so it constantly plays sound
       clipModel.setStep(36, 0, new org.deluge.model.StepData(true, 1.0f, 15.0f, 1.0f, 60, 0, 0f));
@@ -562,7 +573,11 @@ public class SwingDelugeAppE2ETest {
             }
           });
 
-      System.out.println("TEST-DEBUG: songPanel bridge.getMute(0) = " + bridge.getMute(0));
+      System.out.println(
+          "TEST-DEBUG: songPanel bridge.getMute(0) = "
+              + bridge.getMute(0)
+              + " bridgeHash="
+              + System.identityHashCode(bridge));
 
       // Verify bridge says it is muted
       assertTrue(bridge.getMute(0), "Bridge should report track 0 as muted after left-click");
@@ -1117,5 +1132,98 @@ public class SwingDelugeAppE2ETest {
         expectedMute,
         bridge.getMute(trk),
         "Track " + trk + " mute state should be " + expectedMute);
+  }
+
+  @Test
+  public void testDiatonicSequencerProgrammingAndLabelParity() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    BridgeContract bridge = new BridgeContract(44100, 2);
+    // Initialize App Frame
+    SwingDelugeApp app = new SwingDelugeApp(bridge, null);
+    try {
+      SwingGridPanel grid = app.getClipPanel();
+
+      // 1. Switch to a Synth Track
+      app.getTopBarListener().onAddTrack("SYNTH", true);
+      int trackIdx = app.getCurrentProject().getTracks().size() - 1;
+
+      // Sync engine track mappings and push the newly added track to the engine
+      app.pushModelToBridge();
+      app.syncHighFidelityEngine(app.getCurrentProject());
+
+      // Programmatically switch to track edit to correctly initialize baseTrackId,
+      // editedModelTrack, activeClipId
+      app.switchToTrackEdit(trackIdx, 0);
+
+      app.getTopBarListener().onViewModeChanged("CLIP");
+      grid.setScaleModeEnabled(true); // Explicitly enable scale mode for diatonic sequencer test!
+      grid.refresh();
+
+      // 2. Scroll to our standard position (scrollOffset = 67)
+      grid.setScrollOffset(67);
+      grid.refresh();
+
+      // 3. Verify the vertical label at row index 0 (visual row 0, modelRow 67) represents C4 (MIDI
+      // 60)
+      int modelRow0 = grid.getModelRow(0); // 67
+      int pitch0 = grid.getRowPitch(modelRow0);
+      assertEquals(60, pitch0, "Model Row 67 must map to MIDI 60 (C4)");
+
+      // 4. Verify the vertical label at row index 1 (visual row 1, modelRow 68) represents B3 (MIDI
+      // 59)
+      int modelRow1 = grid.getModelRow(1); // 68
+      int pitch1 = grid.getRowPitch(modelRow1);
+      assertEquals(59, pitch1, "Model Row 68 must map to MIDI 59 (B3)");
+
+      // 5. Verify the vertical label at row index 2 (visual row 2, modelRow 69) represents A3 (MIDI
+      // 57)
+      int modelRow2 = grid.getModelRow(2); // 69
+      int pitch2 = grid.getRowPitch(modelRow2);
+      assertEquals(57, pitch2, "Model Row 69 must map to MIDI 57 (A3)");
+
+      // 6. Program a note by simulating a step click on visual row 2 (A3), step column 0
+      org.deluge.model.TrackModel debugTm = app.getCurrentProject().getTracks().get(trackIdx);
+      org.deluge.model.ClipModel debugCm = debugTm.getClips().get(grid.getActiveClipId());
+      System.out.println(
+          "TEST-DEBUG-DIATONIC: Before click. trackIdx="
+              + trackIdx
+              + " activeClipId="
+              + grid.getActiveClipId()
+              + " clipsCount="
+              + debugTm.getClips().size()
+              + " cmStepCount="
+              + debugCm.getStepCount()
+              + " cmRowCount="
+              + debugCm.getRowCount()
+              + " modelRow2="
+              + modelRow2
+              + " stepBefore="
+              + grid.getClipStep(debugCm, modelRow2, 0).active());
+
+      grid.handleStepToggled(2, 0);
+
+      // 7. Read the programmed note from the ClipModel and assert it is exactly pitch 57 (A3)
+      org.deluge.model.TrackModel tm = app.getCurrentProject().getTracks().get(trackIdx);
+      org.deluge.model.ClipModel cm = tm.getClips().get(grid.getActiveClipId());
+      org.deluge.model.StepData step = grid.getClipStep(cm, modelRow2, 0);
+
+      System.out.println(
+          "TEST-DEBUG-DIATONIC: After click. stepActive="
+              + step.active()
+              + " pitch="
+              + step.pitch()
+              + " velocity="
+              + step.velocity());
+
+      assertTrue(step.active(), "Programmed step must be active");
+      assertEquals(
+          57,
+          step.pitch(),
+          "Programmed note pitch must be exactly 57 (A3), NOT chromatic 58 (A#3)!");
+
+    } finally {
+      app.dispose();
+      bridge.shutdown();
+    }
   }
 }

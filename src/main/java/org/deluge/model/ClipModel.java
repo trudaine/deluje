@@ -124,13 +124,26 @@ public class ClipModel extends TimelineCounter {
   }
 
   private void initGrid() {
-    grid.clear();
-    for (int r = 0; r < rowCount; r++) {
-      List<StepData> row = new ArrayList<>();
+    // Grow or shrink the grid rows to match rowCount non-destructively
+    while (grid.size() < rowCount) {
+      List<StepData> newRow = new ArrayList<>();
       for (int s = 0; s < stepCount; s++) {
+        newRow.add(StepData.empty());
+      }
+      grid.add(newRow);
+    }
+    while (grid.size() > rowCount) {
+      grid.remove(grid.size() - 1);
+    }
+
+    // Grow or shrink each row's steps to match stepCount
+    for (List<StepData> row : grid) {
+      while (row.size() < stepCount) {
         row.add(StepData.empty());
       }
-      grid.add(row);
+      while (row.size() > stepCount) {
+        row.remove(row.size() - 1);
+      }
     }
   }
 

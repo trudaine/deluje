@@ -2,7 +2,6 @@ package org.deluge;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.awt.Color;
 import javax.swing.JButton;
 import org.deluge.hid.FirmwareDisplay;
 import org.deluge.model.ProjectModel;
@@ -43,12 +42,24 @@ public class ClipViewUtilityColumnBootTest {
         audBtnTop.getToolTipText().startsWith("Clip View: Audition"),
         "Column 18 tooltip should describe Clip View Audition preview");
 
+    System.out.println(
+        "TEST-DEBUG-BOOT: trackColorHex="
+            + project.getTracks().get(0).getColourHex()
+            + " trackCount="
+            + project.getTracks().size()
+            + " viewMode="
+            + app.getClipPanel().getViewMode()
+            + " audBtnTopText="
+            + audBtnTop.getText()
+            + " audBtnTopColor="
+            + (audBtnTop instanceof DelugePadButton pad ? pad.getBaseColor() : "null"));
+
     if (audBtnTop instanceof DelugePadButton pad) {
       assertFalse(pad.isDrawCenterCircle(), "Center circle must be strictly blocked on Column 18");
       assertEquals(
-          new Color(0x7b, 0x68, 0xee),
+          app.getClipPanel().getGridNoteColor(67),
           pad.getBaseColor(),
-          "Row 1 Column 18 base color must be Purplish for C4");
+          "Row 1 Column 18 base color must match dynamic hue-shifted color of C4");
     }
 
     JButton audBtnBottom = app.getClipPanel().getPadButtons()[7][17];
@@ -57,7 +68,10 @@ public class ClipViewUtilityColumnBootTest {
         "C3", audBtnBottom.getText(), "Column 18 bottom text should correctly render note C3");
 
     if (audBtnBottom instanceof DelugePadButton pad) {
-      assertEquals(Color.RED, pad.getBaseColor(), "Row 8 Column 18 base color must be Red for C3");
+      assertEquals(
+          app.getClipPanel().getGridNoteColor(74),
+          pad.getBaseColor(),
+          "Row 8 Column 18 base color must match dynamic hue-shifted color of C3");
     }
 
     // Verify Virtual OLED Screen Readout

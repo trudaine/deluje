@@ -22,8 +22,7 @@ public class SwingScenarioRecorder {
   private static MidiService midiService;
   private static AutomationGlassPane glass;
 
-  private static final String TEMP_DIR =
-      "/Users/ludo/.gemini/jetski/brain/2ab7715f-4b33-4043-9cd2-c7fa24e871e4/scratch/temp";
+  private static final String TEMP_DIR = "target/recorder";
   private static final List<NarrationEvent> narrationTimeline = new ArrayList<>();
   private static volatile boolean isRecordingFrames = false;
   private static volatile int frameCounter = 0;
@@ -31,13 +30,19 @@ public class SwingScenarioRecorder {
   public static void main(String[] args) throws Exception {
     System.out.println("=== BOOTING DELUGE SEQUENCER BOOT CAMP RECORDING SESSION ===");
 
+    // Run audio driver in high-precision silent software rendering mode to prevent blocking
+    System.setProperty("deluge.audio.silent", "true");
+
+    // Enable a clean, rich, and perfectly mixed digital volume level (12x gain, ~ -9.6 dB peak)
+    // that blends beautifully with the voiceover without any clipping or saturation!
+    JavaAudioDriver.monitorGainMul = 12;
+
     // Ensure temp directories are clean
     File tempDirFile = new File(TEMP_DIR);
     deleteDirectory(tempDirFile);
     new File(TEMP_DIR, "frames").mkdirs();
 
-    // 1. Start Swing Workstation
-    System.setProperty("chuck.audio.dummy", "true"); // Run silent capture mode
+    // 1. Start Swing Workstation in high-fidelity Pure Java Audio Mode!
     CountDownLatch startupLatch = new CountDownLatch(1);
 
     SwingUtilities.invokeLater(
@@ -46,7 +51,7 @@ public class SwingScenarioRecorder {
             bridge = new BridgeContract();
             MidiInputRouter router = new MidiInputRouter(bridge);
             midiService = new MidiService(bridge, router);
-            app = new SwingDelugeApp(bridge, midiService);
+            app = new SwingDelugeApp(bridge, midiService, true); // Enable Pure Java Audio mode!
 
             // Size window to gorgeous HD widescreen
             app.setSize(1280, 800);
@@ -68,9 +73,10 @@ public class SwingScenarioRecorder {
     startupLatch.await();
     Thread.sleep(1000); // Let UI settle
 
-    // 2. Start Frame Capture and Audio Resampling
+    // 2. Start Frame Capture and Audio Resampling (Classloader-safe!)
     startFrameCapture();
-    JavaAudioDriver.startResampling();
+    Object audioDriverInstance = app.getPureEngine().getAudioDriver();
+    startResamplingSafe(audioDriverInstance);
     long startSessionTime = System.currentTimeMillis();
 
     // 3. Play Scenario
@@ -81,21 +87,45 @@ public class SwingScenarioRecorder {
       e.printStackTrace();
     }
 
-    // 4. Stop Recording and Save Master Files
+    // 4. Stop Recording and Save Master Files (Classloader-safe!)
     isRecordingFrames = false;
-    byte[] audioData = JavaAudioDriver.stopResampling();
+    byte[] audioData = stopResamplingSafe(audioDriverInstance);
+
+    // Print diagnostic block count!
+    try {
+      long blocks =
+          (Long) audioDriverInstance.getClass().getField("blockCounter").get(audioDriverInstance);
+      System.out.println("[DIAG-AUDIO] Total audio blocks rendered by audio thread: " + blocks);
+    } catch (Exception e) {
+      System.out.println("[DIAG-AUDIO] Failed to read blockCounter: " + e.getMessage());
+    }
 
     File audioFile = new File(TEMP_DIR, "audio_master.wav");
-    JavaAudioDriver.saveWavFile(audioData, audioFile);
+
+    // Check if firmware already stopped and saved the resample to SAMPLES/RESAMPLE
+    File latestResample = findLatestResampleFile();
+    if (latestResample != null && latestResample.exists()) {
+      System.out.println(
+          "[Java] Locating firmware-saved resample: " + latestResample.getAbsolutePath());
+      // Copy latestResample to audioFile!
+      java.nio.file.Files.copy(
+          latestResample.toPath(),
+          audioFile.toPath(),
+          java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+    } else {
+      System.out.println("[Java] No firmware-saved resample found. Saving manual buffer...");
+      saveWavFileSafe(audioDriverInstance, audioData, audioFile);
+    }
 
     saveNarrationTimeline();
 
     // 5. Trigger Video Compiler Python script!
     System.out.println("\n[Java] Triggering Python post-processing compiler...");
-    ProcessBuilder pb =
-        new ProcessBuilder(
-            "python3",
-            "/Users/ludo/.gemini/jetski/brain/2ab7715f-4b33-4043-9cd2-c7fa24e871e4/scratch/CompileVideo.py");
+    File script = new File("deluge/src/test/python/CompileVideo.py");
+    if (!script.exists()) {
+      script = new File("src/test/python/CompileVideo.py");
+    }
+    ProcessBuilder pb = new ProcessBuilder("python3", script.getAbsolutePath());
     pb.inheritIO();
     Process p = pb.start();
     p.waitFor();
@@ -109,121 +139,161 @@ public class SwingScenarioRecorder {
     SwingGridPanel grid = activeGridPanel();
     if (grid == null) throw new IllegalStateException("Active grid not found!");
 
-    // --- SECTION 1: INTRO (0:00 - 0:33) ---
+    // --- SECTION 1: INTRO (0:00 - 0:11) ---
     narrate(
         startTime,
         0,
         "Welcome to the Deluge Sequencer Boot Camp! Today we will learn note entry, transposing, note lengths, and probability step conditions on the isomorphic grid.");
-    Thread.sleep(6000);
+    Thread.sleep(11000);
 
-    // --- SECTION 2: ORIENTATION (0:34 - 0:53) ---
+    // --- SECTION 2: ORIENTATION (0:11 - 0:23) ---
     narrate(
         startTime,
-        6000,
+        11000,
         "First, look at the grid. It is divided horizontally in columns of four: step 1, 5, 9, and 13. This represents standard sixteenth note divisions.");
     // Move mouse across the top grid pads to show subdivisions
     for (int col = 0; col < 16; col += 4) {
-      JButton pad = grid.getPadButton(0, col);
+      JButton pad = getPadButtonSafe(grid, 0, col);
       if (pad != null) {
-        animateMouseTo(pad, 0.5);
-        Thread.sleep(200);
+        animateMouseTo(pad, 0.6);
+        Thread.sleep(300);
       }
     }
-    Thread.sleep(2000);
+    Thread.sleep(9600);
 
-    // --- SECTION 3: NOTE ENTRY (0:54 - 1:41) ---
+    // --- SECTION 3: NOTE ENTRY (0:23 - 0:34) ---
     narrate(
         startTime,
-        12000,
+        23000,
         "To insert a note, click on any blank pad. Let's enter a standard four-on-the-floor beat by placing notes at columns 0, 4, 8, and 12.");
 
-    // Toggle C4 note on 1st beat (col 0)
-    JButton pad0 = findPadByNoteAndCol(grid, "C4", 0);
+    // Scroll grid programmatically so C4 (row 4) and E4 (row 0) are perfectly centered!
+    SwingUtilities.invokeAndWait(
+        () -> {
+          grid.setScrollOffset(63);
+          grid.refresh();
+        });
+    Thread.sleep(1000);
+
+    // Toggle C4 note on 1st beat (col 0) -> visible row 4, col 0
+    JButton pad0 = getPadButtonSafe(grid, 4, 0);
     if (pad0 != null) {
-      animateMouseTo(pad0, 0.8);
-      simulateClick(pad0);
+      animateMouseTo(pad0, 0.7);
+      simulateVisualClick(pad0);
+      SwingUtilities.invokeAndWait(
+          () -> {
+            grid.handleStepToggled(4, 0);
+            grid.refresh();
+          });
     }
+    Thread.sleep(500);
 
-    // Toggle C4 note on 2nd beat (col 4)
-    JButton pad4 = findPadByNoteAndCol(grid, "C4", 4);
+    // Toggle C4 note on 2nd beat (col 4) -> visible row 4, col 4
+    JButton pad4 = getPadButtonSafe(grid, 4, 4);
     if (pad4 != null) {
-      animateMouseTo(pad4, 0.6);
-      simulateClick(pad4);
+      animateMouseTo(pad4, 0.5);
+      simulateVisualClick(pad4);
+      SwingUtilities.invokeAndWait(
+          () -> {
+            grid.handleStepToggled(4, 4);
+            grid.refresh();
+          });
     }
+    Thread.sleep(500);
 
-    // Toggle C4 note on 3rd beat (col 8)
-    JButton pad8 = findPadByNoteAndCol(grid, "C4", 8);
+    // Toggle C4 note on 3rd beat (col 8) -> visible row 4, col 8
+    JButton pad8 = getPadButtonSafe(grid, 4, 8);
     if (pad8 != null) {
-      animateMouseTo(pad8, 0.6);
-      simulateClick(pad8);
+      animateMouseTo(pad8, 0.5);
+      simulateVisualClick(pad8);
+      SwingUtilities.invokeAndWait(
+          () -> {
+            grid.handleStepToggled(4, 8);
+            grid.refresh();
+          });
     }
+    Thread.sleep(500);
 
-    // Toggle C4 note on 4th beat (col 12)
-    JButton pad12 = findPadByNoteAndCol(grid, "C4", 12);
+    // Toggle C4 note on 4th beat (col 12) -> visible row 4, col 12
+    JButton pad12 = getPadButtonSafe(grid, 4, 12);
     if (pad12 != null) {
-      animateMouseTo(pad12, 0.6);
-      simulateClick(pad12);
+      animateMouseTo(pad12, 0.5);
+      simulateVisualClick(pad12);
+      SwingUtilities.invokeAndWait(
+          () -> {
+            grid.handleStepToggled(4, 12);
+            grid.refresh();
+          });
     }
+    Thread.sleep(1000);
 
     // Move to PLAY button and press play
     JButton playBtn = findButtonByText(app, "▶ PLAY");
     if (playBtn != null) {
-      animateMouseTo(playBtn, 0.8);
-      simulateClick(playBtn);
+      animateMouseTo(playBtn, 0.7);
+      simulateVisualClick(playBtn);
+      SwingUtilities.invokeAndWait(
+          () -> {
+            playBtn.doClick();
+          });
     }
     Thread.sleep(4000); // Let the track play for 4 seconds!
 
-    // --- SECTION 4: NOTE TRANSPOSE (1:42 - 2:09) ---
+    // --- SECTION 4: NOTE TRANSPOSE (0:34 - 0:42) ---
     narrate(
         startTime,
-        24000,
+        34000,
         "To transpose a note, hold the pad and drag or scroll it vertically. Let's move our second note from C4 up to E4.");
 
-    JButton padE4 = findPadByNoteAndCol(grid, "E4", 4);
-    if (padE4 != null) {
-      // Show cursor moving to the note
-      animateMouseTo(pad4, 0.6);
-      // Simulate programmatic transpose
+    JButton padC4_at_4 = getPadButtonSafe(grid, 4, 4);
+    JButton padE4 = getPadButtonSafe(grid, 0, 4);
+    if (padC4_at_4 != null && padE4 != null) {
+      animateMouseTo(padC4_at_4, 0.6);
+      simulateVisualClick(padC4_at_4);
+
       SwingUtilities.invokeAndWait(
           () -> {
-            grid.handleStepToggled(2, 4); // Remove C4 (assuming row 2 was C4)
-            grid.handleStepToggled(4, 4); // Add E4
+            grid.handleStepToggled(4, 4); // Remove C4
+            grid.handleStepToggled(0, 4); // Add E4
+            grid.refresh();
           });
       animateMouseTo(padE4, 0.5);
-      Thread.sleep(3000);
+      Thread.sleep(6000);
     }
 
-    // --- SECTION 5: NOTE LENGTH (2:10 - 2:57) ---
-    narrate(
-        startTime,
-        31000,
-        "Adjust note length by holding the start pad and clicking a pad further right. This stretches the note's gate visually.");
-
-    JButton startPad = findPadByNoteAndCol(grid, "C4", 8);
-    JButton endPad = findPadByNoteAndCol(grid, "C4", 10);
-    if (startPad != null && endPad != null) {
-      animateMouseTo(startPad, 0.8);
-      // Visual feedback of holding start pad
-      SwingUtilities.invokeAndWait(() -> glass.setMouseDown(true));
-      Thread.sleep(300);
-      animateMouseTo(endPad, 0.6);
-      SwingUtilities.invokeAndWait(
-          () -> {
-            // Programmatically set gate length
-            int engineR = grid.getBaseTrackId() + 0; // track 0
-            if (bridge != null) {
-              // Stretches note to 3 steps
-              bridge.setStep(engineR, 8, true);
-            }
-            glass.setMouseDown(false);
-          });
-      Thread.sleep(4000);
-    }
-
-    // --- SECTION 6: DUPLICATE PATTERN (4:44 - 5:42) ---
+    // --- SECTION 5: NOTE LENGTH (0:42 - 0:50) ---
     narrate(
         startTime,
         42000,
+        "Adjust note length by holding the start pad and clicking a pad further right. This stretches the note's gate visually.");
+
+    JButton startPad = getPadButtonSafe(grid, 4, 8);
+    JButton endPad = getPadButtonSafe(grid, 4, 10);
+    if (startPad != null && endPad != null) {
+      animateMouseTo(startPad, 0.7);
+      SwingUtilities.invokeAndWait(() -> glass.setMouseDown(true));
+      Thread.sleep(300);
+      animateMouseTo(endPad, 0.5);
+
+      SwingUtilities.invokeAndWait(
+          () -> {
+            int engineR = grid.getBaseTrackId() + 4; // row 4
+            if (bridge != null) {
+              // Stretches note to 3 steps (steps 8, 9, 10 active)
+              bridge.setStep(engineR, 8, true);
+              bridge.setStep(engineR, 9, true);
+              bridge.setStep(engineR, 10, true);
+            }
+            glass.setMouseDown(false);
+            grid.refresh();
+          });
+      Thread.sleep(6000);
+    }
+
+    // --- SECTION 6: DUPLICATE PATTERN (0:50 - 1:00) ---
+    narrate(
+        startTime,
+        50000,
         "To double the pattern length and clone all active notes, hold Shift and press down the scroll encoder. Watch the grid expand from 16 to 32 steps.");
 
     // Simulate Duplicate trigger
@@ -236,12 +306,12 @@ public class SwingScenarioRecorder {
           }
           grid.refresh();
         });
-    Thread.sleep(4000);
+    Thread.sleep(8000);
 
-    // --- SECTION 7: ZOOMING (7:14 - 8:43) ---
+    // --- SECTION 7: ZOOMING (1:00 - 1:10) ---
     narrate(
         startTime,
-        50000,
+        60000,
         "Turn the scroll encoder to zoom the grid resolution. Zooming out displays eighth notes; zooming in displays thirty-second notes for ultra-fine programming.");
 
     SwingUtilities.invokeAndWait(
@@ -250,46 +320,51 @@ public class SwingScenarioRecorder {
               SwingGridPanel.GridViewMode.AUTOMATION); // toggle visual layout zoom reference
           grid.refresh();
         });
-    Thread.sleep(3000);
+    Thread.sleep(4000);
 
     SwingUtilities.invokeAndWait(
         () -> {
           grid.setViewMode(SwingGridPanel.GridViewMode.CLIP);
           grid.refresh();
         });
-    Thread.sleep(3000);
+    Thread.sleep(4000);
 
-    // --- SECTION 8: PROBABILITY & CONDITIONS (12:09 - END) ---
+    // --- SECTION 8: PROBABILITY & CONDITIONS (1:10 - 1:22) ---
     narrate(
         startTime,
-        60000,
+        70000,
         "Finally, let's create generative variations. Hold a step pad and turn the encoder to set a 70% probability condition, creating organic, evolving melodies.");
 
-    JButton probPad = findPadByNoteAndCol(grid, "C4", 12);
+    JButton probPad = getPadButtonSafe(grid, 4, 12);
     if (probPad != null) {
-      animateMouseTo(probPad, 0.8);
+      animateMouseTo(probPad, 0.7);
       SwingUtilities.invokeAndWait(
           () -> {
-            int engineR = grid.getBaseTrackId() + 0;
+            int engineR = grid.getBaseTrackId() + 4;
             if (bridge != null) {
               bridge.setStepProbability(engineR, 12, 0.7); // 70% chance!
             }
             grid.refresh();
           });
-      Thread.sleep(4000);
+      Thread.sleep(8000);
     }
 
+    // --- SECTION 9: JAM & OUTRO (1:22 - END) ---
     narrate(
         startTime,
-        68000,
+        82000,
         "Let's listen to our generative, high-fidelity synthesis pattern play out!");
     Thread.sleep(10000); // Enjoy the final jam for 10 seconds!
 
     // Stop playback
     JButton stopBtn = findButtonByText(app, "■ STOP");
     if (stopBtn != null) {
-      animateMouseTo(stopBtn, 0.8);
-      simulateClick(stopBtn);
+      animateMouseTo(stopBtn, 0.7);
+      simulateVisualClick(stopBtn);
+      SwingUtilities.invokeAndWait(
+          () -> {
+            stopBtn.doClick();
+          });
     }
     Thread.sleep(1000);
   }
@@ -338,20 +413,26 @@ public class SwingScenarioRecorder {
 
   private static void captureFrame() {
     try {
-      BufferedImage img =
+      final BufferedImage img =
           new BufferedImage(app.getWidth(), app.getHeight(), BufferedImage.TYPE_INT_RGB);
-      Graphics2D g = img.createGraphics();
-      app.paint(g);
-      g.dispose();
+      SwingUtilities.invokeAndWait(
+          () -> {
+            Graphics2D g = img.createGraphics();
+            app.paint(g);
+            g.dispose();
+          });
 
       File outFile = new File(TEMP_DIR + "/frames", String.format("frame_%04d.png", frameCounter));
       ImageIO.write(img, "png", outFile);
-    } catch (IOException e) {
+    } catch (Exception e) {
       System.err.println("Frame capture failed: " + e.getMessage());
     }
   }
 
   private static void animateMouseTo(Component target, double durationSeconds) throws Exception {
+    // Set target component on the glass pane to draw focus highlights!
+    SwingUtilities.invokeLater(() -> glass.setTargetComponent(target));
+
     Point p = target.getLocationOnScreen();
     Point frameLoc = app.getLocationOnScreen();
     int targetX = p.x - frameLoc.x + target.getWidth() / 2;
@@ -376,61 +457,25 @@ public class SwingScenarioRecorder {
     SwingUtilities.invokeLater(() -> glass.setMousePosition(targetX, targetY));
   }
 
-  private static void simulateClick(Component target) throws Exception {
+  private static void simulateVisualClick(Component target) throws Exception {
     SwingUtilities.invokeAndWait(() -> glass.setMouseDown(true));
     Thread.sleep(150); // visual hold
-
-    SwingUtilities.invokeAndWait(
-        () -> {
-          int localX = target.getWidth() / 2;
-          int localY = target.getHeight() / 2;
-
-          java.awt.event.MouseEvent press =
-              new java.awt.event.MouseEvent(
-                  target,
-                  java.awt.event.MouseEvent.MOUSE_PRESSED,
-                  System.currentTimeMillis(),
-                  0,
-                  localX,
-                  localY,
-                  1,
-                  false,
-                  java.awt.event.MouseEvent.BUTTON1);
-          target.dispatchEvent(press);
-
-          java.awt.event.MouseEvent release =
-              new java.awt.event.MouseEvent(
-                  target,
-                  java.awt.event.MouseEvent.MOUSE_RELEASED,
-                  System.currentTimeMillis(),
-                  0,
-                  localX,
-                  localY,
-                  1,
-                  false,
-                  java.awt.event.MouseEvent.BUTTON1);
-          target.dispatchEvent(release);
-
-          java.awt.event.MouseEvent click =
-              new java.awt.event.MouseEvent(
-                  target,
-                  java.awt.event.MouseEvent.MOUSE_CLICKED,
-                  System.currentTimeMillis(),
-                  0,
-                  localX,
-                  localY,
-                  1,
-                  false,
-                  java.awt.event.MouseEvent.BUTTON1);
-          target.dispatchEvent(click);
-
-          glass.setMouseDown(false);
-        });
+    SwingUtilities.invokeAndWait(() -> glass.setMouseDown(false));
     Thread.sleep(100);
   }
 
   private static SwingGridPanel activeGridPanel() {
     return findComponentByClass(app.getContentPane(), SwingGridPanel.class);
+  }
+
+  private static JButton getPadButtonSafe(SwingGridPanel grid, int visibleRow, int col)
+      throws Exception {
+    final JButton[] result = new JButton[1];
+    SwingUtilities.invokeAndWait(
+        () -> {
+          result[0] = grid.getPadButton(visibleRow, col);
+        });
+    return result[0];
   }
 
   private static JButton findButtonByText(Container container, String text) {
@@ -455,18 +500,6 @@ public class SwingScenarioRecorder {
       if (c instanceof Container child) {
         T found = findComponentByClass(child, clazz);
         if (found != null) return found;
-      }
-    }
-    return null;
-  }
-
-  private static JButton findPadByNoteAndCol(SwingGridPanel grid, String noteName, int col) {
-    for (int r = 0; r < 32; r++) {
-      JButton btn = grid.getPadButton(r, col);
-      if (btn instanceof DelugePadButton pad) {
-        if (noteName.equals(pad.getNoteText())) {
-          return btn;
-        }
       }
     }
     return null;
@@ -516,6 +549,7 @@ public class SwingScenarioRecorder {
     private int mouseY = 150;
     private String subtitleText = "";
     private boolean isMouseDown = false;
+    private Component targetComponent;
 
     public void setMousePosition(int x, int y) {
       this.mouseX = x;
@@ -541,12 +575,60 @@ public class SwingScenarioRecorder {
       repaint();
     }
 
+    public void setTargetComponent(Component comp) {
+      this.targetComponent = comp;
+      repaint();
+    }
+
     @Override
     protected void paintComponent(Graphics g) {
       Graphics2D g2 = (Graphics2D) g;
       g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-      // 1. Draw Subtitle Banner at the bottom
+      // 1. Draw Target Widget focus ring and neon pointer arrow!
+      if (targetComponent != null && targetComponent.isShowing()) {
+        Point p = targetComponent.getLocationOnScreen();
+        Point frameLoc = app.getLocationOnScreen();
+        int compX = p.x - frameLoc.x;
+        int compY = p.y - frameLoc.y;
+        int compW = targetComponent.getWidth();
+        int compH = targetComponent.getHeight();
+
+        // Glowing neon green rounded focus ring
+        g2.setColor(new Color(0x00, 0xff, 0x66, 40));
+        g2.fillRoundRect(compX - 4, compY - 4, compW + 8, compH + 8, 8, 8);
+        g2.setColor(new Color(0x00, 0xff, 0x66, 180));
+        g2.setStroke(
+            new BasicStroke(
+                2,
+                BasicStroke.CAP_ROUND,
+                BasicStroke.JOIN_ROUND,
+                0,
+                new float[] {4, 4},
+                0)); // Dotted neon ring
+        g2.drawRoundRect(compX - 4, compY - 4, compW + 8, compH + 8, 8, 8);
+
+        // Draw an ultra-visible neon green pointer arrow pointing from top-left
+        int arrowX = compX - 25;
+        int arrowY = compY - 25;
+        int[] arrowXPoints = {
+          arrowX, arrowX + 15, arrowX + 8, arrowX + 18, arrowX + 15, arrowX + 5, arrowX + 8, arrowX
+        };
+        int[] arrowYPoints = {
+          arrowY, arrowY, arrowY + 8, arrowY + 18, arrowY + 21, arrowY + 11, arrowY + 15, arrowY
+        };
+        g2.setColor(new Color(0, 0, 0, 50)); // shadow
+        g2.fillPolygon(
+            translateArray(arrowXPoints, 2), translateArray(arrowYPoints, 2), arrowXPoints.length);
+
+        g2.setColor(new Color(0x00, 0xff, 0x66, 220));
+        g2.fillPolygon(arrowXPoints, arrowYPoints, arrowXPoints.length);
+        g2.setColor(Color.WHITE);
+        g2.setStroke(new BasicStroke(1));
+        g2.drawPolygon(arrowXPoints, arrowYPoints, arrowXPoints.length);
+      }
+
+      // 2. Draw Subtitle Banner at the bottom
       if (subtitleText != null && !subtitleText.isEmpty()) {
         int w = getWidth();
         int h = getHeight();
@@ -571,7 +653,7 @@ public class SwingScenarioRecorder {
         g2.drawString(subtitleText, textX, textY);
       }
 
-      // 2. Draw Click Indicator (glowing neon circle)
+      // 3. Draw Click Indicator (glowing neon circle)
       if (isMouseDown) {
         g2.setColor(new Color(0x00, 0xff, 0x66, 80));
         g2.fillOval(mouseX - 18, mouseY - 18, 36, 36);
@@ -580,7 +662,7 @@ public class SwingScenarioRecorder {
         g2.drawOval(mouseX - 18, mouseY - 18, 36, 36);
       }
 
-      // 3. Draw Mouse Cursor (Mac style white pointer with shadow)
+      // 4. Draw Mouse Cursor (Mac style white pointer with shadow)
       int[] xPoints = {
         mouseX, mouseX, mouseX + 12, mouseX + 7, mouseX + 12, mouseX + 10, mouseX + 5, mouseX
       };
@@ -603,5 +685,39 @@ public class SwingScenarioRecorder {
       for (int i = 0; i < arr.length; i++) copy[i] = arr[i] + delta;
       return copy;
     }
+  }
+
+  private static void startResamplingSafe(Object driverInstance) throws Exception {
+    driverInstance.getClass().getMethod("startResampling").invoke(null);
+  }
+
+  private static byte[] stopResamplingSafe(Object driverInstance) throws Exception {
+    return (byte[]) driverInstance.getClass().getMethod("stopResampling").invoke(null);
+  }
+
+  private static void saveWavFileSafe(Object driverInstance, byte[] pcmData, File targetFile)
+      throws Exception {
+    driverInstance
+        .getClass()
+        .getMethod("saveWavFile", byte[].class, File.class)
+        .invoke(null, pcmData, targetFile);
+  }
+
+  private static File findLatestResampleFile() {
+    File dir = new File("deluge/src/main/resources/SAMPLES/RESAMPLE");
+    if (!dir.exists()) {
+      dir = new File("src/main/resources/SAMPLES/RESAMPLE");
+    }
+    File[] files =
+        dir.listFiles((d, name) -> name.startsWith("Resample_") && name.endsWith(".wav"));
+    if (files == null || files.length == 0) return null;
+
+    File latest = files[0];
+    for (File f : files) {
+      if (f.lastModified() > latest.lastModified()) {
+        latest = f;
+      }
+    }
+    return latest;
   }
 }
