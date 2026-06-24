@@ -20,6 +20,16 @@ public class UndoRedoStack {
     String getDescription();
   }
 
+  public interface StackListener {
+    void onActionPushed(UndoableAction action);
+  }
+
+  private StackListener listener;
+
+  public void setListener(StackListener listener) {
+    this.listener = listener;
+  }
+
   public UndoRedoStack(int maxDepth) {
     this.maxDepth = maxDepth;
     this.undoStack = new ArrayDeque<>(maxDepth);
@@ -36,6 +46,10 @@ public class UndoRedoStack {
     }
 
     undoStack.addFirst(action);
+
+    if (listener != null) {
+      listener.onActionPushed(action);
+    }
   }
 
   public boolean canUndo() {

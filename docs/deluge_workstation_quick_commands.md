@@ -1,6 +1,6 @@
 # 🎹 High-Fidelity Deluge Workstation Quick Commands & Shortcuts
 
-Welcome to the **ChucK-Java Deluge Workstation**. This guide acts as your premium, high-fidelity reference manual mapping the physical Synthstrom Deluge hardware gestures (updated from the official Popular Commands reference) directly to our desktop workstation's intuitive mouse, trackpad, and keyboard shortcuts.
+Welcome to the **Deluge-Java Workstation**. This guide acts as your premium, high-fidelity reference manual mapping the physical Synthstrom Deluge hardware gestures (updated from the official Popular Commands reference) directly to our desktop workstation's intuitive mouse, trackpad, and keyboard shortcuts.
 
 ---
 

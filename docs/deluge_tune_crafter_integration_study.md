@@ -1,6 +1,6 @@
 # Deluge TuneCrafter: Audio/MIDI to Song XML Integration Study
 
-This report provides a detailed architectural audit, mathematical deconstruction, and gap analysis of the `deluge-tune-crafter` Python codebase. It outlines a high-fidelity integration blueprint to bring native, interactive **Audio-to-MIDI transcription** and **MIDI-to-Song compilation** directly into the ChucK-Java Desktop Workstation.
+This report provides a detailed architectural audit, mathematical deconstruction, and gap analysis of the `deluge-tune-crafter` Python codebase. It outlines a high-fidelity integration blueprint to bring native, interactive **Audio-to-MIDI transcription** and **MIDI-to-Song compilation** directly into the Deluge-Java Desktop Workstation.
 
 ---
 
@@ -150,4 +150,4 @@ We can implement this suite cleanly inside the `deluge` module using the followi
 
 ## 7. Conclusion
 
-By deconstructing the `deluge-tune-crafter` Python scripts, we have unlocked the exact specifications of the Deluge's note sequence encoding. Integrating a native **MIDI Compiler** and **Audio Transcription Bridge** into our ChucK-Java Workstation is highly feasible, architecturally clean, and represents a **massive workflow upgrade** for Deluge musicians. It turns a clunky, blind command-line conversion utility into a professional, visual, and high-fidelity desktop composition tool.
+By deconstructing the `deluge-tune-crafter` Python scripts, we have unlocked the exact specifications of the Deluge's note sequence encoding. Integrating a native **MIDI Compiler** and **Audio Transcription Bridge** into our Deluge-Java Workstation is highly feasible, architecturally clean, and represents a **massive workflow upgrade** for Deluge musicians. It turns a clunky, blind command-line conversion utility into a professional, visual, and high-fidelity desktop composition tool.

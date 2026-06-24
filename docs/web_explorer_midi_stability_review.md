@@ -1,4 +1,4 @@
-# ChucK-Java: Web Explorer & MIDI Stability Subsystem Architectural Review
+# Deluge-Java: Web Explorer & MIDI Stability Subsystem Architectural Review
 
 This document presents a rigorous code review and architectural audit of the recent enhancements to the Web Application Explorer (`deluge-extensions`) targeting **MIDI transmission stability, pacing, and FAT timestamp preservation**.
 

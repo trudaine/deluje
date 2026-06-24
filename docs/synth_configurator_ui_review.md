@@ -1,6 +1,6 @@
-# ChucK-Java: Synth Configurator UI Subsystem Architectural Review
+# Deluge-Java: Synth Configurator UI Subsystem Architectural Review
 
-This document presents a rigorous, deep-dive architectural audit and code review of the advanced interactive editors and real-time DSP visualizers implemented inside the Synthesizer Configurator UI of the ChucK-Java project.
+This document presents a rigorous, deep-dive architectural audit and code review of the advanced interactive editors and real-time DSP visualizers implemented inside the Synthesizer Configurator UI of the Deluge-Java project.
 
 ---
 

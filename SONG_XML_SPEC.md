@@ -1,4 +1,4 @@
-# ChucK-Java Deluge Workstation: Song XML Specification & Element Reference
+# Deluge-Java Workstation: Song XML Specification & Element Reference
 
 > Definitive consolidated specification combining XML structure schemas, element tag dictionaries, parameter scales, and concrete side-by-side XML project dump examples (`<song>`, `<kit>`, `<sound>`).
 

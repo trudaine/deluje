@@ -1,6 +1,6 @@
-# ChucK-Java: Deluge UI & MIDI Subsystem Architectural Review
+# Deluge-Java: Deluge UI & MIDI Subsystem Architectural Review
 
-This document presents a comprehensive, surgical code review and architectural audit of the recent UI and MIDI driver enhancements implemented in the `deluge` module of the ChucK-Java project.
+This document presents a comprehensive, surgical code review and architectural audit of the recent UI and MIDI driver enhancements implemented in the `deluge` module of the Deluge-Java project.
 
 ---
 

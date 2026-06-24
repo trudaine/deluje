@@ -299,7 +299,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     this.masterVolume = vol;
     if (old != this.masterVolume) {
       undoRedoStack.push(
-          new Consequence.ProjectParamConsequence("masterVolume", old, this.masterVolume));
+          new Consequence.ProjectParamConsequence(this, "masterVolume", old, this.masterVolume));
     }
     notifyMasterVolumeChanged(vol);
   }
@@ -312,7 +312,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.masterPan;
     this.masterPan = pan;
     if (old != this.masterPan) {
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("masterPan", old, this.masterPan));
+      undoRedoStack.push(
+          new Consequence.ProjectParamConsequence(this, "masterPan", old, this.masterPan));
     }
     notifyMasterPanChanged(pan);
   }
@@ -326,7 +327,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     this.masterDelay = del;
     if (old != this.masterDelay) {
       undoRedoStack.push(
-          new Consequence.ProjectParamConsequence("masterDelay", old, this.masterDelay));
+          new Consequence.ProjectParamConsequence(this, "masterDelay", old, this.masterDelay));
     }
     notifyDelayChanged();
   }
@@ -349,7 +350,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.bpm;
     this.bpm = Math.max(1.0f, Math.min(300.0f, bpm));
     if (old != this.bpm) {
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("bpm", old, this.bpm));
+      undoRedoStack.push(new Consequence.ProjectParamConsequence(this, "bpm", old, this.bpm));
     }
     notifyBpmChanged(this.bpm);
   }
@@ -362,7 +363,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.swing;
     this.swing = Math.max(0.0f, Math.min(1.0f, swing));
     if (old != this.swing) {
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("swing", old, this.swing));
+      undoRedoStack.push(new Consequence.ProjectParamConsequence(this, "swing", old, this.swing));
     }
     notifySwingChanged(this.swing);
   }
@@ -377,7 +378,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     if (old != this.timeSigNum) {
       undoRedoStack.push(
           new Consequence.ProjectParamConsequence(
-              "timeSigNum", (float) old, (float) this.timeSigNum));
+              this, "timeSigNum", (float) old, (float) this.timeSigNum));
     }
   }
 
@@ -391,7 +392,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     if (old != this.timeSigDenom) {
       undoRedoStack.push(
           new Consequence.ProjectParamConsequence(
-              "timeSigDenom", (float) old, (float) this.timeSigDenom));
+              this, "timeSigDenom", (float) old, (float) this.timeSigDenom));
     }
   }
 
@@ -405,7 +406,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     if (old != this.transpose) {
       undoRedoStack.push(
           new Consequence.ProjectParamConsequence(
-              "transpose", (float) old, (float) this.transpose));
+              this, "transpose", (float) old, (float) this.transpose));
     }
     notifyTransposeChanged(transpose);
   }
@@ -418,7 +419,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.humanize;
     this.humanize = Math.max(0.0f, Math.min(1.0f, humanize));
     if (old != this.humanize) {
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("humanize", old, this.humanize));
+      undoRedoStack.push(
+          new Consequence.ProjectParamConsequence(this, "humanize", old, this.humanize));
     }
     notifyHumanizeChanged(this.humanize);
   }
@@ -620,7 +622,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.reverbRoomSize;
     this.reverbRoomSize = v;
     if (old != v)
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("reverbRoomSize", old, v));
+      undoRedoStack.push(new Consequence.ProjectParamConsequence(this, "reverbRoomSize", old, v));
     notifyReverbChanged();
   }
 
@@ -632,7 +634,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.reverbDampening;
     this.reverbDampening = v;
     if (old != v)
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("reverbDampening", old, v));
+      undoRedoStack.push(new Consequence.ProjectParamConsequence(this, "reverbDampening", old, v));
     notifyReverbChanged();
   }
 
@@ -644,7 +646,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.reverbWidth;
     this.reverbWidth = v;
     if (old != v)
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("reverbWidth", old, v));
+      undoRedoStack.push(new Consequence.ProjectParamConsequence(this, "reverbWidth", old, v));
     notifyReverbChanged();
   }
 
@@ -655,7 +657,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   public void setReverbHpf(float v) {
     float old = this.reverbHpf;
     this.reverbHpf = v;
-    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("reverbHpf", old, v));
+    if (old != v)
+      undoRedoStack.push(new Consequence.ProjectParamConsequence(this, "reverbHpf", old, v));
     notifyReverbChanged();
   }
 
@@ -666,7 +669,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   public void setReverbPan(float v) {
     float old = this.reverbPan;
     this.reverbPan = v;
-    if (old != v) undoRedoStack.push(new Consequence.ProjectParamConsequence("reverbPan", old, v));
+    if (old != v)
+      undoRedoStack.push(new Consequence.ProjectParamConsequence(this, "reverbPan", old, v));
     notifyReverbChanged();
   }
 
@@ -679,7 +683,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     this.reverbModel = v;
     if (old != v)
       undoRedoStack.push(
-          new Consequence.ProjectParamConsequence("reverbModel", (float) old, (float) v));
+          new Consequence.ProjectParamConsequence(this, "reverbModel", (float) old, (float) v));
     notifyReverbChanged();
   }
 
@@ -691,7 +695,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.reverbCompressorAttack;
     this.reverbCompressorAttack = v;
     if (old != v)
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("reverbCompressorAttack", old, v));
+      undoRedoStack.push(
+          new Consequence.ProjectParamConsequence(this, "reverbCompressorAttack", old, v));
     notifyReverbChanged();
   }
 
@@ -704,7 +709,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     this.reverbCompressorRelease = v;
     if (old != v)
       undoRedoStack.push(
-          new Consequence.ProjectParamConsequence("reverbCompressorRelease", old, v));
+          new Consequence.ProjectParamConsequence(this, "reverbCompressorRelease", old, v));
     notifyReverbChanged();
   }
 
@@ -718,7 +723,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     if (old != v)
       undoRedoStack.push(
           new Consequence.ProjectParamConsequence(
-              "reverbCompressorSyncLevel", (float) old, (float) v));
+              this, "reverbCompressorSyncLevel", (float) old, (float) v));
     notifyReverbChanged();
   }
 
@@ -730,7 +735,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.reverbCompHpf;
     this.reverbCompHpf = v;
     if (old != v)
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("reverbCompHpf", old, v));
+      undoRedoStack.push(new Consequence.ProjectParamConsequence(this, "reverbCompHpf", old, v));
     notifyReverbChanged();
   }
 
@@ -742,7 +747,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.reverbCompBlend;
     this.reverbCompBlend = v;
     if (old != v)
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("reverbCompBlend", old, v));
+      undoRedoStack.push(new Consequence.ProjectParamConsequence(this, "reverbCompBlend", old, v));
     notifyReverbChanged();
   }
 
@@ -757,7 +762,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     this.delayPingPong = v;
     if (old != v)
       undoRedoStack.push(
-          new Consequence.ProjectParamConsequence("delayPingPong", (float) old, (float) v));
+          new Consequence.ProjectParamConsequence(this, "delayPingPong", (float) old, (float) v));
     notifyDelayChanged();
   }
 
@@ -770,7 +775,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     this.delayAnalog = v;
     if (old != v)
       undoRedoStack.push(
-          new Consequence.ProjectParamConsequence("delayAnalog", (float) old, (float) v));
+          new Consequence.ProjectParamConsequence(this, "delayAnalog", (float) old, (float) v));
     notifyDelayChanged();
   }
 
@@ -783,7 +788,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     this.delaySyncLevel = v;
     if (old != v)
       undoRedoStack.push(
-          new Consequence.ProjectParamConsequence("delaySyncLevel", (float) old, (float) v));
+          new Consequence.ProjectParamConsequence(this, "delaySyncLevel", (float) old, (float) v));
     notifyDelayChanged();
   }
 
@@ -796,7 +801,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     this.delaySyncType = v;
     if (old != v)
       undoRedoStack.push(
-          new Consequence.ProjectParamConsequence("delaySyncType", (float) old, (float) v));
+          new Consequence.ProjectParamConsequence(this, "delaySyncType", (float) old, (float) v));
     notifyDelayChanged();
   }
 
@@ -810,7 +815,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.sidechainAttack;
     this.sidechainAttack = v;
     if (old != v)
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("sidechainAttack", old, v));
+      undoRedoStack.push(new Consequence.ProjectParamConsequence(this, "sidechainAttack", old, v));
     notifySidechainChanged();
   }
 
@@ -822,7 +827,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.sidechainRelease;
     this.sidechainRelease = v;
     if (old != v)
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("sidechainRelease", old, v));
+      undoRedoStack.push(new Consequence.ProjectParamConsequence(this, "sidechainRelease", old, v));
     notifySidechainChanged();
   }
 
@@ -835,7 +840,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     this.sidechainSyncLevel = v;
     if (old != v)
       undoRedoStack.push(
-          new Consequence.ProjectParamConsequence("sidechainSyncLevel", (float) old, (float) v));
+          new Consequence.ProjectParamConsequence(
+              this, "sidechainSyncLevel", (float) old, (float) v));
     notifySidechainChanged();
   }
 
@@ -848,7 +854,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     this.sidechainSyncType = v;
     if (old != v)
       undoRedoStack.push(
-          new Consequence.ProjectParamConsequence("sidechainSyncType", (float) old, (float) v));
+          new Consequence.ProjectParamConsequence(
+              this, "sidechainSyncType", (float) old, (float) v));
     notifySidechainChanged();
   }
 
@@ -862,7 +869,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.compressorAttack;
     this.compressorAttack = v;
     if (old != v)
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("compressorAttack", old, v));
+      undoRedoStack.push(new Consequence.ProjectParamConsequence(this, "compressorAttack", old, v));
     notifyCompressorChanged();
   }
 
@@ -874,7 +881,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.compressorRelease;
     this.compressorRelease = v;
     if (old != v)
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("compressorRelease", old, v));
+      undoRedoStack.push(
+          new Consequence.ProjectParamConsequence(this, "compressorRelease", old, v));
     notifyCompressorChanged();
   }
 
@@ -886,7 +894,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.compressorThreshold;
     this.compressorThreshold = v;
     if (old != v)
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("compressorThreshold", old, v));
+      undoRedoStack.push(
+          new Consequence.ProjectParamConsequence(this, "compressorThreshold", old, v));
     notifyCompressorChanged();
   }
 
@@ -898,7 +907,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.compressorRatio;
     this.compressorRatio = v;
     if (old != v)
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("compressorRatio", old, v));
+      undoRedoStack.push(new Consequence.ProjectParamConsequence(this, "compressorRatio", old, v));
     notifyCompressorChanged();
   }
 
@@ -910,7 +919,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.compressorBlend;
     this.compressorBlend = v;
     if (old != v)
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("compressorBlend", old, v));
+      undoRedoStack.push(new Consequence.ProjectParamConsequence(this, "compressorBlend", old, v));
     notifyCompressorChanged();
   }
 
@@ -924,7 +933,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.songParamVolume;
     this.songParamVolume = v;
     if (old != v)
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamVolume", old, v));
+      undoRedoStack.push(new Consequence.ProjectParamConsequence(this, "songParamVolume", old, v));
     notifySongParamsChanged();
   }
 
@@ -936,7 +945,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.songParamPan;
     this.songParamPan = v;
     if (old != v)
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamPan", old, v));
+      undoRedoStack.push(new Consequence.ProjectParamConsequence(this, "songParamPan", old, v));
     notifySongParamsChanged();
   }
 
@@ -948,7 +957,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.songParamReverbAmount;
     this.songParamReverbAmount = v;
     if (old != v)
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamReverbAmount", old, v));
+      undoRedoStack.push(
+          new Consequence.ProjectParamConsequence(this, "songParamReverbAmount", old, v));
     notifySongParamsChanged();
   }
 
@@ -960,7 +970,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.songParamDelayRate;
     this.songParamDelayRate = v;
     if (old != v)
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamDelayRate", old, v));
+      undoRedoStack.push(
+          new Consequence.ProjectParamConsequence(this, "songParamDelayRate", old, v));
     notifySongParamsChanged();
   }
 
@@ -972,7 +983,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.songParamDelayFeedback;
     this.songParamDelayFeedback = v;
     if (old != v)
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamDelayFeedback", old, v));
+      undoRedoStack.push(
+          new Consequence.ProjectParamConsequence(this, "songParamDelayFeedback", old, v));
     notifySongParamsChanged();
   }
 
@@ -985,7 +997,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     this.songParamSidechainShape = v;
     if (old != v)
       undoRedoStack.push(
-          new Consequence.ProjectParamConsequence("songParamSidechainShape", old, v));
+          new Consequence.ProjectParamConsequence(this, "songParamSidechainShape", old, v));
     notifySongParamsChanged();
   }
 
@@ -998,7 +1010,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     this.songParamSidechainVolume = v;
     if (old != v)
       undoRedoStack.push(
-          new Consequence.ProjectParamConsequence("songParamSidechainVolume", old, v));
+          new Consequence.ProjectParamConsequence(this, "songParamSidechainVolume", old, v));
     notifySongParamsChanged();
   }
 
@@ -1010,7 +1022,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.songParamStutterRate;
     this.songParamStutterRate = v;
     if (old != v)
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamStutterRate", old, v));
+      undoRedoStack.push(
+          new Consequence.ProjectParamConsequence(this, "songParamStutterRate", old, v));
     notifySongParamsChanged();
   }
 
@@ -1023,7 +1036,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     this.songParamSampleRateReduction = v;
     if (old != v)
       undoRedoStack.push(
-          new Consequence.ProjectParamConsequence("songParamSampleRateReduction", old, v));
+          new Consequence.ProjectParamConsequence(this, "songParamSampleRateReduction", old, v));
     notifySongParamsChanged();
   }
 
@@ -1035,7 +1048,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.songParamBitCrush;
     this.songParamBitCrush = v;
     if (old != v)
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamBitCrush", old, v));
+      undoRedoStack.push(
+          new Consequence.ProjectParamConsequence(this, "songParamBitCrush", old, v));
     notifySongParamsChanged();
   }
 
@@ -1047,7 +1061,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.songParamModFXRate;
     this.songParamModFXRate = v;
     if (old != v)
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamModFXRate", old, v));
+      undoRedoStack.push(
+          new Consequence.ProjectParamConsequence(this, "songParamModFXRate", old, v));
     notifySongParamsChanged();
   }
 
@@ -1059,7 +1074,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.songParamModFXDepth;
     this.songParamModFXDepth = v;
     if (old != v)
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamModFXDepth", old, v));
+      undoRedoStack.push(
+          new Consequence.ProjectParamConsequence(this, "songParamModFXDepth", old, v));
     notifySongParamsChanged();
   }
 
@@ -1071,7 +1087,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.songParamModFXOffset;
     this.songParamModFXOffset = v;
     if (old != v)
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamModFXOffset", old, v));
+      undoRedoStack.push(
+          new Consequence.ProjectParamConsequence(this, "songParamModFXOffset", old, v));
     notifySongParamsChanged();
   }
 
@@ -1083,7 +1100,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.songParamModFXFeedback;
     this.songParamModFXFeedback = v;
     if (old != v)
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamModFXFeedback", old, v));
+      undoRedoStack.push(
+          new Consequence.ProjectParamConsequence(this, "songParamModFXFeedback", old, v));
     notifySongParamsChanged();
   }
 
@@ -1096,7 +1114,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     this.songParamCompressorThreshold = v;
     if (old != v)
       undoRedoStack.push(
-          new Consequence.ProjectParamConsequence("songParamCompressorThreshold", old, v));
+          new Consequence.ProjectParamConsequence(this, "songParamCompressorThreshold", old, v));
     notifySongParamsChanged();
   }
 
@@ -1108,7 +1126,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.songParamLpfMorph;
     this.songParamLpfMorph = v;
     if (old != v)
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamLpfMorph", old, v));
+      undoRedoStack.push(
+          new Consequence.ProjectParamConsequence(this, "songParamLpfMorph", old, v));
     notifySongParamsChanged();
   }
 
@@ -1120,7 +1139,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.songParamHpfMorph;
     this.songParamHpfMorph = v;
     if (old != v)
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamHpfMorph", old, v));
+      undoRedoStack.push(
+          new Consequence.ProjectParamConsequence(this, "songParamHpfMorph", old, v));
     notifySongParamsChanged();
   }
 
@@ -1132,7 +1152,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.songParamLpfFrequency;
     this.songParamLpfFrequency = v;
     if (old != v)
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamLpfFrequency", old, v));
+      undoRedoStack.push(
+          new Consequence.ProjectParamConsequence(this, "songParamLpfFrequency", old, v));
     notifySongParamsChanged();
   }
 
@@ -1144,7 +1165,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.songParamLpfResonance;
     this.songParamLpfResonance = v;
     if (old != v)
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamLpfResonance", old, v));
+      undoRedoStack.push(
+          new Consequence.ProjectParamConsequence(this, "songParamLpfResonance", old, v));
     notifySongParamsChanged();
   }
 
@@ -1156,7 +1178,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.songParamHpfFrequency;
     this.songParamHpfFrequency = v;
     if (old != v)
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamHpfFrequency", old, v));
+      undoRedoStack.push(
+          new Consequence.ProjectParamConsequence(this, "songParamHpfFrequency", old, v));
     notifySongParamsChanged();
   }
 
@@ -1168,7 +1191,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.songParamHpfResonance;
     this.songParamHpfResonance = v;
     if (old != v)
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamHpfResonance", old, v));
+      undoRedoStack.push(
+          new Consequence.ProjectParamConsequence(this, "songParamHpfResonance", old, v));
     notifySongParamsChanged();
   }
 
@@ -1180,7 +1204,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.songParamEqBass;
     this.songParamEqBass = v;
     if (old != v)
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamEqBass", old, v));
+      undoRedoStack.push(new Consequence.ProjectParamConsequence(this, "songParamEqBass", old, v));
     notifySongParamsChanged();
   }
 
@@ -1192,7 +1216,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.songParamEqTreble;
     this.songParamEqTreble = v;
     if (old != v)
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("songParamEqTreble", old, v));
+      undoRedoStack.push(
+          new Consequence.ProjectParamConsequence(this, "songParamEqTreble", old, v));
     notifySongParamsChanged();
   }
 
@@ -1205,7 +1230,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     this.songParamEqBassFrequency = v;
     if (old != v)
       undoRedoStack.push(
-          new Consequence.ProjectParamConsequence("songParamEqBassFrequency", old, v));
+          new Consequence.ProjectParamConsequence(this, "songParamEqBassFrequency", old, v));
     notifySongParamsChanged();
   }
 
@@ -1218,7 +1243,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     this.songParamEqTrebleFrequency = v;
     if (old != v)
       undoRedoStack.push(
-          new Consequence.ProjectParamConsequence("songParamEqTrebleFrequency", old, v));
+          new Consequence.ProjectParamConsequence(this, "songParamEqTrebleFrequency", old, v));
     notifySongParamsChanged();
   }
 
@@ -1233,7 +1258,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     this.userScale = v;
     if (old != v)
       undoRedoStack.push(
-          new Consequence.ProjectParamConsequence("userScale", (float) old, (float) v));
+          new Consequence.ProjectParamConsequence(this, "userScale", (float) old, (float) v));
     notifyScalesChanged();
   }
 
@@ -1246,7 +1271,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     this.disabledPresetScales = v;
     if (old != v)
       undoRedoStack.push(
-          new Consequence.ProjectParamConsequence("disabledPresetScales", (float) old, (float) v));
+          new Consequence.ProjectParamConsequence(
+              this, "disabledPresetScales", (float) old, (float) v));
     notifyScalesChanged();
   }
 
@@ -1268,7 +1294,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     String old = this.key;
     this.key = key;
     if (!old.equals(key)) {
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("key", 0, 0));
+      undoRedoStack.push(new Consequence.ProjectParamConsequence(this, "key", 0, 0));
     }
     notifyKeyChanged(key);
   }
@@ -1281,7 +1307,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     String old = this.scale;
     this.scale = scale;
     if (!old.equals(scale)) {
-      undoRedoStack.push(new Consequence.ProjectParamConsequence("scale", 0, 0));
+      undoRedoStack.push(new Consequence.ProjectParamConsequence(this, "scale", 0, 0));
     }
     notifyScaleChanged(scale);
   }

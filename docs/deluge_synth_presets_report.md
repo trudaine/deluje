@@ -1,6 +1,6 @@
 # Deluge Synthesizer Presets Integration Report
 
-This report details our forensic study of the community presets repository [entzmingerc/DelugeSynthPresets](https://github.com/entzmingerc/DelugeSynthPresets), an architectural audit of our ChucK-Java codebase, and a step-by-step guide on how to load and play native Deluge synthesizer patches (`.XML`) with 100% fidelity inside the desktop workstation.
+This report details our forensic study of the community presets repository [entzmingerc/DelugeSynthPresets](https://github.com/entzmingerc/DelugeSynthPresets), an architectural audit of our Deluge-Java codebase, and a step-by-step guide on how to load and play native Deluge synthesizer patches (`.XML`) with 100% fidelity inside the desktop workstation.
 
 ---
 
@@ -15,7 +15,7 @@ We analyzed the raw XML presets inside the community repository (e.g. `raybun/Br
 
 ## 2. Codebase Audit: 100% Out-of-the-Box Support!
 
-Our architectural audit of the ChucK-Java codebase revealed that **the workstation is already fully equipped to load, browse, and play native Deluge synthesizer presets with absolute fidelity!** No additional code is required.
+Our architectural audit of the Deluge-Java codebase revealed that **the workstation is already fully equipped to load, browse, and play native Deluge synthesizer presets with absolute fidelity!** No additional code is required.
 
 Here is how the four layers of our workstation coordinate to deliver this seamless experience:
 

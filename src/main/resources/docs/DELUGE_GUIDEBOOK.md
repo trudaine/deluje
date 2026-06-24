@@ -1,6 +1,6 @@
-# ChucK-Java Deluge Workstation — Operations Manual & User Guide
+# Deluge-Java Workstation — Operations Manual & User Guide
 
-Welcome to the **ChucK-Java Deluge Workstation**, a modern, high-fidelity software recreation and operations controller dashboard inspired by the Synthstrom Deluge hardware sequencer and synthesizer workflow. By combining a robust, multi-voice Java JRE control system with the high-performance ChucK (strongly-timed audio synthesis language) virtual machine engine, this workstation delivers zero-latency, sample-accurate step sequencing, physical DSP modeling, MPC-grade breakbeat auto-slicing, and modular modulation route routing.
+Welcome to the **Deluge-Java Workstation**, a modern, high-fidelity software recreation and operations controller dashboard inspired by the Synthstrom Deluge hardware sequencer and synthesizer workflow. By combining a robust, multi-voice Java JRE control system with the high-performance ChucK (strongly-timed audio synthesis language) virtual machine engine, this workstation delivers zero-latency, sample-accurate step sequencing, physical DSP modeling, MPC-grade breakbeat auto-slicing, and modular modulation route routing.
 
 ---
 
@@ -32,7 +32,7 @@ Welcome to the **ChucK-Java Deluge Workstation**, a modern, high-fidelity softwa
 17. [System Settings, Directories Preferences & Shortcuts Table](#17-system-settings-directories-preferences--shortcuts-table)
     * [17.1 Hardware Character Emulations & Master Saturation Drive](#171-hardware-character-emulations--master-saturation-drive)
     * [17.2 Microtuning, Custom Temperaments & Scala (.scl) Imports](#172-microtuning-custom-temperaments--scala-scl-imports)
-    * [17.3 ChucK-Java Workstation Exclusive Power Features](#173-chuck-java-workstation-exclusive-power-features)
+    * [17.3 Deluge-Java Workstation Exclusive Power Features](#173-Deluge-Java-workstation-exclusive-power-features)
 18. [Appendix: Programmatic High-Fidelity JNI Registers Architecture](#18-appendix-programmatic-high-fidelity-jni-registers-architecture)
 19. [Appendix: Pending Work Items & Future Development Roadmap (TODO List)](#19-appendix-pending-work-items--future-development-roadmap-todo-list)
 20. [Hardware Popular Commands & Java UI Equivalents Table](#20-hardware-popular-commands--java-ui-equivalents-table)
@@ -817,7 +817,7 @@ The Deluge Workstation features a professional-grade, modern workspace re-organi
 
 ### 14.0 Step-by-Step MIDI Connection & Operations Guide
 
-Connecting a physical Synthstrom Deluge hardware unit to the ChucK-Java Workstation provides an incredibly tight, interactive hybrid hardware-software studio environment. Follow these precise steps to get up and running:
+Connecting a physical Synthstrom Deluge hardware unit to the Deluge-Java Workstation provides an incredibly tight, interactive hybrid hardware-software studio environment. Follow these precise steps to get up and running:
 
 #### 🔌 Connection Sequence:
 1. **Connect the Cable**: Plug a standard USB-B cable into the back of your physical Deluge, and connect the USB-A (or USB-C) end directly into your computer. 
@@ -898,7 +898,7 @@ To prevent sudden audio level spikes or filter jumps when wiggling physical knob
 
 ### 14.6 Bidirectional SysEx Command Protocol & Future Horizons
 
-The integration between the ChucK-Java Workstation and the physical Synthstrom Deluge hardware relies on a high-speed, lightweight **Bidirectional SysEx Command Protocol**. By encapsulating compressed JSON payloads and raw 7-to-8 bit unpacked binary data inside standard MIDI System Exclusive (SysEx) envelopes, the workstation and hardware achieve seamless, real-time synchronization.
+The integration between the Deluge-Java Workstation and the physical Synthstrom Deluge hardware relies on a high-speed, lightweight **Bidirectional SysEx Command Protocol**. By encapsulating compressed JSON payloads and raw 7-to-8 bit unpacked binary data inside standard MIDI System Exclusive (SysEx) envelopes, the workstation and hardware achieve seamless, real-time synchronization.
 
 #### 📦 The SysEx Packet Structure:
 All communications adhere to the following byte layout:
@@ -1062,7 +1062,7 @@ The **`Settings ➔ Preferences...`** panel manages your paths and grid configur
 
 ### 17.2 Microtuning, Custom Temperaments & Scala (.scl) Imports
 
-The ChucK-Java Deluge Workstation features a professional-grade microtuning engine that is fully integrated into the song structure and sound synthesis pipelines. You can configure custom temperaments, detune individual note classes, calibrate the base reference pitch, and import standard Scala `.scl` files.
+The Deluge-Java Workstation features a professional-grade microtuning engine that is fully integrated into the song structure and sound synthesis pipelines. You can configure custom temperaments, detune individual note classes, calibrate the base reference pitch, and import standard Scala `.scl` files.
 
 Access the interface by selecting **`Settings ➔ Tuning & Temperaments...`** from the global menu bar:
 
@@ -1108,13 +1108,13 @@ To reproduce the exact, iconic lo-fi and physical audio character of the vintage
 | **`Tab` Key** | View Mode | Toggles active display focus between CLIP, SONG, and ARRANGEMENT grid views. |
 | **`Escape` Key** | Dialog focus | Closes the active frontmost modeless JDialog frame window instantly. |
 
-### 17.3 ChucK-Java Workstation Exclusive Power Features
+### 17.3 Deluge-Java Workstation Exclusive Power Features
 
-The ChucK-Java Deluge Workstation extends the capabilities of the original physical hardware, leveraging the desktop environment's processing power, high-resolution display, disk throughput, and robust JDK libraries. Below is an overview of these exclusive power features:
+The Deluge-Java Workstation extends the capabilities of the original physical hardware, leveraging the desktop environment's processing power, high-resolution display, disk throughput, and robust JDK libraries. Below is an overview of these exclusive power features:
 
 #### 1. 📦 Standalone WAV Stem Exporter (Offline Mixdown)
-Unlike the physical hardware—which only allows real-time stereo recording of a performance—ChucK-Java includes a high-performance **Offline WAV Stem Exporter**.
-*   **Background Multi-Threaded Rendering**: Utilizing a background worker thread (`SwingWorker`), ChucK-Java renders the entire song at maximum CPU speed without interrupting the user interface.
+Unlike the physical hardware—which only allows real-time stereo recording of a performance—Deluge-Java includes a high-performance **Offline WAV Stem Exporter**.
+*   **Background Multi-Threaded Rendering**: Utilizing a background worker thread (`SwingWorker`), Deluge-Java renders the entire song at maximum CPU speed without interrupting the user interface.
 *   **Track Isolation (Multi-Stem)**: The exporter runs a dedicated rendering pass for each individual track (Synth, Drum Kit, and Audio Track) by isolating its specific voice oscillators and filters. This outputs perfectly aligned, sample-accurate, phase-locked individual stem files (e.g. `Track_1_Drums_stem.wav`, `Track_2_Lead_stem.wav`) alongside a combined `Master_mix.wav` stem.
 *   **Arranger-Sync Duration**: The exporter automatically scans the arranger timeline to detect the precise length of your song, or falls back to a user-specified duration.
 
@@ -1125,12 +1125,12 @@ Exporting your arrangements to a digital audio workstation (DAW) like Ableton Li
 *   **Arranger Fallback**: If the arranger timeline is empty, the exporter automatically builds sequential blocks of your session clips (separated by a 1-bar gap) so you can easily import your patterns as clean, separate MIDI tracks!
 
 #### 3. ⏱️ MIDI Clock Sync (Master & Slave Modes)
-To bridge ChucK-Java with external hardware (such as drum machines, pocket operators, modular synthesizers, or secondary computers running DAWs), the workstation incorporates a dual-mode **System Real-Time MIDI Clock Sync** manager.
-*   **Master Mode (Clock Transmitter)**: When playing internally, ChucK-Java acts as the master clock. It sends MIDI Start (`0xFA`), Stop (`0xFC`), and Clock (`0xF8`) messages to the selected MIDI output port at a rate of 24 clocks per quarter note, allowing external gear to run in perfect tempo-phase sync.
+To bridge Deluge-Java with external hardware (such as drum machines, pocket operators, modular synthesizers, or secondary computers running DAWs), the workstation incorporates a dual-mode **System Real-Time MIDI Clock Sync** manager.
+*   **Master Mode (Clock Transmitter)**: When playing internally, Deluge-Java acts as the master clock. It sends MIDI Start (`0xFA`), Stop (`0xFC`), and Clock (`0xF8`) messages to the selected MIDI output port at a rate of 24 clocks per quarter note, allowing external gear to run in perfect tempo-phase sync.
 *   **Slave Mode (Clock Receiver)**: Locked to incoming MIDI clocks on the selected MIDI input port. Upon receiving a MIDI Start (`0xFA`) or Stop (`0xFC`), the transport state shifts instantly. The local playhead's advance rate is slaved exclusively to incoming Clock (`0xF8`) messages, disabling the local audio card sample clock driver to prevent double-triggering or phase drift!
 
 #### 4. 🎚️ Fluid Viewport Grid Zooming & Proportional Layouts
-Physical Deluge grids are locked to an 8x16 matrix. ChucK-Java introduces **Fluid Viewport Grid Zooming**:
+Physical Deluge grids are locked to an 8x16 matrix. Deluge-Java introduces **Fluid Viewport Grid Zooming**:
 *   **Pads Scaling**: Instantly scale the matrix grid (`Ctrl + =` or `Ctrl + -`) between **`8x16 (Large)`**, **`16x16 (Medium)`**, **`24x16 (Small)`**, and **`16x24 (Wide)`** grid resolutions. The pads automatically resize to fill the screen space perfectly.
 *   **Decoupled Layout Rows**: Fixed control rows (like macro knobs and the isomorphic keyboard) dynamically shift their positions and scale their heights in perfect proportion to the pad size, saving massive vertical screen space and ensuring the interface is always clean and legible.
 
@@ -1164,7 +1164,7 @@ graph TD
 
 ## 19. Appendix: Pending Work Items & Future Development Roadmap (TODO List)
 
-While the ChucK-Java Deluge Workstation provides a comprehensive operations platform, several features from the Deluge OS 4.0 firmware guidebook remain planned for upcoming development.
+While the Deluge-Java Workstation provides a comprehensive operations platform, several features from the Deluge OS 4.0 firmware guidebook remain planned for upcoming development.
 
 ### 📋 Future Technical Roadmap:
 * **[x] 19.1 Triplet Column Grid Divisions View (SwingGridPanel & ChucK Sequencer)**: Completed! Dynamic JToggleButton `[3]`, beat grid guidelines update, and loop lengths XML serialization.
@@ -1181,7 +1181,7 @@ While the ChucK-Java Deluge Workstation provides a comprehensive operations plat
 
 ## 20. Hardware Popular Commands & Java UI Equivalents Table
 
-The following table maps the standard Deluge hardware button combinations (from the official Synthstrom Popular Commands Guide) to the equivalent modern desktop mouse clicks and keyboard shortcuts inside the ChucK-Java Deluge Workstation:
+The following table maps the standard Deluge hardware button combinations (from the official Synthstrom Popular Commands Guide) to the equivalent modern desktop mouse clicks and keyboard shortcuts inside the Deluge-Java Workstation:
 
 | Category | Hardware Command | Hardware Button Key Sequence | Java UI Desktop Equivalent Action |
 | :--- | :--- | :--- | :--- |

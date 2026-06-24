@@ -1,4 +1,4 @@
-# Premium Desktop UI/UX Proposals for ChucK-Java Deluge Port
+# Premium Desktop UI/UX Proposals for Deluge-Java Port
 
 This document outlines the high-fidelity desktop UI/UX feature roadmap. Each proposal is designed to elevate the desktop software experience beyond the physical constraints of the Deluge hardware (4-character LED screens, rotary dials) while remaining **100% compatible** with the underlying XML project model and virtual audio engine.
 

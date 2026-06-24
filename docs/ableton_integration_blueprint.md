@@ -1,12 +1,12 @@
 # Ableton Live Set (.als) Integration Blueprint
 
-This document defines the software architecture, XML translation schemas, and asset resolution algorithms to import, export, and reuse Ableton Live Projects, Presets, and Library assets within the ChucK-Java Deluge Workstation.
+This document defines the software architecture, XML translation schemas, and asset resolution algorithms to import, export, and reuse Ableton Live Projects, Presets, and Library assets within the Deluge-Java Workstation.
 
 ---
 
 ## 1. High-Level Architecture
 
-The integration layer bridges Ableton Live’s Gzip-compressed XML document model (`.als`) with the ChucK-Java Deluge data model (`ProjectModel`, `TrackModel`, `ClipModel`, `KitTrackModel`, `SynthTrackModel`).
+The integration layer bridges Ableton Live’s Gzip-compressed XML document model (`.als`) with the Deluge-Java data model (`ProjectModel`, `TrackModel`, `ClipModel`, `KitTrackModel`, `SynthTrackModel`).
 
 ```mermaid
 graph TD
@@ -87,7 +87,7 @@ flowchart TD
 
 ## 4. Track & Clip Translation Schema
 
-The core translation maps XML nodes directly to ChucK-Java model components:
+The core translation maps XML nodes directly to Deluge-Java model components:
 
 ### 1. Track Mapping
 *   **`<AudioTrack>`** $\rightarrow$ Maps to `AudioTrackModel` or audio sample tracks.
@@ -122,13 +122,13 @@ Ableton represents note events as absolute beat positions (as doubles) inside `<
 
 ## 5. Instrument Presets Translation
 
-We map Ableton's built-in instruments to ChucK-Java’s high-fidelity audio engines:
+We map Ableton's built-in instruments to Deluge-Java’s high-fidelity audio engines:
 
 ### 1. Ableton Drum Racks (`<DrumGroupDevice>`)
 *   **Structure**: Ableton stores Drum Racks as a collection of `<DrumBranch>` nodes, each containing a `<DrumCell>` (Drum Sampler) or `<OriginalSimpler>` (Simpler) device.
 *   **Translation**:
     *   Each `<DrumBranch>` corresponds to one of the **16 drum kit rows** in `KitTrackModel`.
-    *   We extract the sample path from the branch's `<UserSample>` node, resolve it using the `AbletonAssetResolver`, and load the wave sample into the ChucK-Java drum slot.
+    *   We extract the sample path from the branch's `<UserSample>` node, resolve it using the `AbletonAssetResolver`, and load the wave sample into the Deluge-Java drum slot.
     *   This allows full playback of Ableton factory and user Drum Racks directly in the workstation!
 
 ### 2. Ableton Simpler & Sampler (`<OriginalSimpler>` / `<MultiSampler>`)
@@ -169,7 +169,7 @@ To bridge the performance gap between the Deluge's quantized loop workflow and A
 
 ```mermaid
 graph LR
-    A[ChucK-Java Deluge Workstation] -->|MIDI Clock / Start / Stop| B[macOS Virtual IAC Driver Bus]
+    A[Deluge-Java Workstation] -->|MIDI Clock / Start / Stop| B[macOS Virtual IAC Driver Bus]
     B -->|Sync Input| C[Ableton Live 12 Set]
     A -->|Quantized MIDI Note Clips Triggers| B
     B -->|Remote MIDI Map| C

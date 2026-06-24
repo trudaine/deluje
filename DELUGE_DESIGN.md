@@ -1,6 +1,6 @@
-# ChucK-Java Deluge Workstation: Master Design Specification
+# Deluge-Java Workstation: Master Design Specification
 
-This document outlines the architecture for a software-only emulation of the **Synthstrom Deluge** workflow, optimized for ChucK-Java and modern PC hardware (Java 25).
+This document outlines the architecture for a software-only emulation of the **Synthstrom Deluge** workflow, optimized for Deluge-Java and modern PC hardware (Java 25).
 
 ---
 
@@ -366,7 +366,7 @@ The 12 rows of parameters from the hardware are mapped to the top-level `seq_par
 
 ## 16. Known Technical Gaps & Mitigation
 
-| Feature | Deluge Hardware | ChucK-Java Gap | Mitigation Strategy |
+| Feature | Deluge Hardware | Deluge-Java Gap | Mitigation Strategy |
 | :--- | :--- | :--- | :--- |
 | **Time Stretching** | Real-time / High Quality | `SndBuf` is basic. | Implement a custom Granular Shred for Kit tracks. |
 | **Filter Character** | Non-linear "Analog" Drive | Standard linear `LPF/HPF`. | Cascade a `tanh()` waveshaper after filters. |
@@ -374,7 +374,7 @@ The 12 rows of parameters from the hardware are mapped to the top-level `seq_par
 | **FM Engine** | Fixed 4-op Algorithms | Freeform connection. | Create an "FM Matrix" class to emulate fixed hardware algorithms. |
 | **CPU Management** | Dedicated DSP | Java/ChucK overhead. | Use `Machine.replace()` to kill inactive tracks. |
 
-## 17. Roadmap: Native ChucK-Java Engine Upgrades
+## 17. Roadmap: Native Deluge-Java Engine Upgrades
 
 To remove the functional gaps and surpass hardware performance, we will implement the following native Java UGens in `chuck-core`.
 
@@ -1173,9 +1173,9 @@ These mockups add new visual concepts on top of Section 7 without modifying it. 
 
 Before committing to phases, every required building block was verified against the actual `chuck-core` codebase.
 
-#### 21.0.1 ChucK-Java UGens — Confirmed Available
+#### 21.0.1 Deluge-Java UGens — Confirmed Available
 
-| Deluge Need | ChucK-Java Class | Location | Notes |
+| Deluge Need | Deluge-Java Class | Location | Notes |
 | :--- | :--- | :--- | :--- |
 | Sample playback | `SndBuf`, `SndBuf2` | `audio/util/` | Trigger via `.pos(0)` |
 | Granular / time-stretch | `Granulator` | `audio/util/` | `grainSize`, `density`, `pitchJitter` |
@@ -1782,7 +1782,7 @@ MIDI clips can now save/load presets and device-definition files (mapping CC num
 
 ### 22.3 New Effects Not in Current Design
 
-| Effect | Description | ChucK-Java Mapping |
+| Effect | Description | Deluge-Java Mapping |
 | :--- | :--- | :--- |
 | **Dimension** (§4.2.3) | Stereo spatial widener — creates width and depth in the stereo field | `Pan2` + detuned `Chorus` + Haas delay; or a new `Dimension.java` UGen (two `DelayL` at ±5–15 ms with opposite panning) |
 | **Warbler** (§4.2.4) | Chorus-like modulation with a dedicated **Warble LFO** (§4.2.6) | Frequency modulation via a slow `SinOsc` → `Gain` → `SawOsc.freq` + `DelayL.delay`; similar to `Chorus` but with separate warble rate |
