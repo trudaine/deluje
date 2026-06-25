@@ -507,6 +507,16 @@ public class FirmwareFactory {
         normToBipolarParamVolume(model.getOscAVolume());
     sound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] =
         normToBipolarParamVolume(model.getOscBVolume());
+    // Osc 2 "NONE"/off must silence osc B. The C has no NONE osc type — osc 2 is turned off by its
+    // volume param being MIN_VALUE (isSourceActiveCurrently). stringToOscType maps "NONE"→SINE, so
+    // without this a phantom SINE renders (audible whenever oscs differ in pitch).
+    String osc2t = model.getOsc2Type();
+    if (osc2t == null
+        || osc2t.isBlank()
+        || osc2t.equalsIgnoreCase("none")
+        || osc2t.equalsIgnoreCase("off")) {
+      sound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
+    }
     sound.paramNeutralValues[Param.LOCAL_NOISE_VOLUME] =
         normToBipolarParamVolume(model.getNoiseVol());
     if (model.getOsc1PitchAdjustQ31() != Integer.MIN_VALUE) {
@@ -514,12 +524,18 @@ public class FirmwareFactory {
     } else {
       sound.paramNeutralValues[Param.LOCAL_OSC_A_PITCH_ADJUST] = 0;
     }
+    // oscBPitch (the automatable fine param, raw-Q31 path) only; coarse osc-2 transpose + cents are
+    // applied faithfully via sources[s].transpose / fineTuner below (C voice.cpp:439-442/505) — the
+    // old (transpose*100+cents)*178956 routing through this param was mis-scaled and is removed.
     if (model.getOsc2PitchAdjustQ31() != Integer.MIN_VALUE) {
       sound.paramNeutralValues[Param.LOCAL_OSC_B_PITCH_ADJUST] = model.getOsc2PitchAdjustQ31();
     } else {
-      sound.paramNeutralValues[Param.LOCAL_OSC_B_PITCH_ADJUST] =
-          (model.getOsc2Transpose() * 100 + model.getOsc2Cents()) * 178956;
+      sound.paramNeutralValues[Param.LOCAL_OSC_B_PITCH_ADJUST] = 0;
     }
+    // Per-osc coarse transpose (semitones) + cents detune — C sources[s].transpose / fineTuner.
+    sound.fw2Sound.sourceTranspose[1] = model.getOsc2Transpose();
+    sound.fw2Sound.setSourceCents(0, model.getOsc1Cents());
+    sound.fw2Sound.setSourceCents(1, model.getOsc2Cents());
 
     // Filter cutoff: the faithful filter (FirmwareFilter.curveFrequency: instantTan of the q31
     // LPF_FREQ param) expects the firmware's exp-curved param value, NOT a Hz-derived number. The
