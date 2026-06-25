@@ -671,6 +671,10 @@ public class DelugeXmlParser {
         ClipModel clip = new ClipModel("SESSION_CLIP " + i, rowCount, stepCount);
         clip.setTripletMode(tripletMode);
         clip.setPlayDirection(readPlayDirectionAttr(clipElem));
+        // C clip.cpp:713-715 — read + clamp the session section (255 stays unassigned).
+        if (clipElem.hasAttribute("section")) {
+          clip.setSection(Integer.parseInt(clipElem.getAttribute("section").trim()));
+        }
         System.out.println(
             "PARSER: Created clip "
                 + clip.getName()

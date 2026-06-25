@@ -36,6 +36,11 @@ public class ClipModel extends TimelineCounter {
   private boolean tripletMode = false;
   private boolean isArrangementOnly = false;
 
+  // Session-view section (clip launcher grouping). Matches the C Clip::section:
+  // 0..kMaxNumSections-1,
+  // 255 = unassigned. Written only when != 255 (clip.cpp:667), clamped on read (clip.cpp:715).
+  private int section = 255;
+
   private final Map<String, float[]> automationData = new HashMap<>();
   private final Map<String, Float> kitParams = new HashMap<>();
 
@@ -266,6 +271,15 @@ public class ClipModel extends TimelineCounter {
 
   public int getStepCount() {
     return stepCount;
+  }
+
+  /** Session section (255 = unassigned). See the {@code section} field. */
+  public int getSection() {
+    return section;
+  }
+
+  public void setSection(int section) {
+    this.section = section;
   }
 
   public void setStepCount(int stepCount) {
