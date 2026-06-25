@@ -784,124 +784,50 @@ public class ProjectSerializer {
       } else {
         List<ClipModel> clips = track.getClips();
         for (ClipModel clip : clips) {
-          // NOTE: clipInstances is an Output (instrument) attribute in the C format (output.cpp),
-          // NOT a clip attribute — it is written in the <instruments> block above. Session clips
-          // carry only `section` (clip.cpp). Do not write clipInstances here.
-          writer.writeOpeningTagBeginning("instrumentClip");
-          if (clip.getName() != null) {
-            writer.writeAttribute("clipName", clip.getName(), false);
+          // Arrangement-only clips are written in the <arrangementOnlyTracks> block (C
+          // song.cpp:1286-1297), not as session clips.
+          if (clip.isArrangementOnly()) {
+            continue;
           }
-          if (track instanceof KitTrackModel) {
-            writer.writeAttribute("instrumentPresetName", track.getName(), false);
-            writer.writeAttribute("instrumentPresetFolder", "KITS", false);
-          } else {
-            writer.writeAttribute("instrumentPresetName", track.getName(), false);
-            writer.writeAttribute("instrumentPresetFolder", "SYNTHS", false);
-          }
-
-          int stepTicks = clip.isTripletMode() ? 32 : 24;
-          int lengthTicks = clip.getStepCount() * stepTicks;
-          writer.writeAttribute("length", lengthTicks, false);
-          // C clip.cpp:659 — isPlaying == activeIfNoSolo (session-active). All-active = every clip
-          // fires at once in session view; arranger songs keep these inactive.
-          writer.writeAttribute("isPlaying", clip.isActiveInSession() ? "1" : "0", false);
-          // C clip.cpp:667 — write section only when assigned (!= 255 unassigned).
-          if (clip.getSection() != 255) {
-            writer.writeAttribute("section", clip.getSection(), false);
-          }
-          if (clip.isTripletMode()) {
-            writer.writeAttribute("triplet", "1", false);
-          }
-          if (clip.getPlayDirection() != null
-              && clip.getPlayDirection() != ClipModel.PlayDirection.FORWARD) {
-            writer.writeAttribute(
-                "sequenceDirection", clip.getPlayDirection().name().toLowerCase(), false);
-          }
-          writer.writeOpeningTagEnd();
-
-          // Write soundParams / kitParams tag to set outputTypeWhileLoading and serialize
-          // track-level performance settings
-          if (track instanceof KitTrackModel) {
-            serializeKitParams(writer, (KitTrackModel) track);
-          } else if (track instanceof SynthTrackModel) {
-            serializeSoundParams(writer, (SynthTrackModel) track);
-          } else {
-            writer.writeOpeningTagBeginning("soundParams");
-            writer.closeTag();
-          }
-
-          // Note rows
-          boolean hasNotes = false;
-          for (int r = 0; r < clip.getRowCount(); r++) {
-            for (int s = 0; s < clip.getStepCount(); s++) {
-              if (clip.getStep(r, s).active()) {
-                hasNotes = true;
-                break;
-              }
-            }
-          }
-
-          if (hasNotes) {
-            writer.writeArrayStart("noteRows");
-            for (int r = 0; r < clip.getRowCount(); r++) {
-              int yNote = clip.getRowYNote(r);
-              if (!(track instanceof KitTrackModel) && yNote < 0) {
-                for (int s = 0; s < clip.getStepCount(); s++) {
-                  StepData sd = clip.getStep(r, s);
-                  if (sd.active() && sd.pitch() > 0) {
-                    yNote = sd.pitch();
-                    break;
-                  }
-                }
-              }
-
-              if (!(track instanceof KitTrackModel) && yNote < 0) {
-                boolean hasActive = false;
-                for (int s = 0; s < clip.getStepCount(); s++) {
-                  if (clip.getStep(r, s).active()) {
-                    hasActive = true;
-                    break;
-                  }
-                }
-                if (!hasActive) continue;
-              }
-
-              writer.writeOpeningTagBeginning("noteRow");
-              if (track instanceof KitTrackModel) {
-                writer.writeAttribute("drumIndex", r, false);
-              } else {
-                writer.writeAttribute("y", Math.max(yNote, 0), false);
-              }
-
-              List<StepData> row = new ArrayList<>();
-              for (int s = 0; s < clip.getStepCount(); s++) {
-                row.add(clip.getStep(r, s));
-              }
-              String hexData = DelugeNoteDataMapper.encodeRow(row, stepTicks);
-              String hexDataSplit = DelugeNoteDataMapper.encodeRowSplit(row, stepTicks);
-              writer.writeAttribute("noteDataWithLift", hexData, false);
-              writer.writeAttribute("noteDataWithSplitProb", hexDataSplit, false);
-              writer.closeTag();
-            }
-            writer.writeArrayEnding("noteRows");
-          }
-
-          writer.writeOpeningTagBeginning("columnControls");
-          writer.writeOpeningTagEnd();
-          writer.writeOpeningTagBeginning("leftCol");
-          writer.writeAttribute("type", clip.getLeftCol(), false);
-          writer.closeTag();
-          writer.writeOpeningTagBeginning("rightCol");
-          writer.writeAttribute("type", clip.getRightCol(), false);
-          writer.closeTag();
-          writer.writeClosingTag("columnControls");
-
-          writer.writeClosingTag("instrumentClip");
+          writeInstrumentClip(writer, track, clip, false);
         }
       }
       trackIndex++;
     }
     writer.writeArrayEnding("sessionClips");
+
+    // ── arrangementOnlyTracks block (C song.cpp:1286-1297) — clips that live only on the
+    // arranger timeline, not in the session grid. Round-trips with the parser, which matches each
+    // back to its track by the trackName attribute. ──
+    boolean anyArrangementOnly = false;
+    for (TrackModel track : model.getTracks()) {
+      if (track instanceof AudioTrackModel) {
+        continue;
+      }
+      for (ClipModel clip : track.getClips()) {
+        if (clip.isArrangementOnly()) {
+          anyArrangementOnly = true;
+          break;
+        }
+      }
+      if (anyArrangementOnly) {
+        break;
+      }
+    }
+    if (anyArrangementOnly) {
+      writer.writeArrayStart("arrangementOnlyTracks");
+      for (TrackModel track : model.getTracks()) {
+        if (track instanceof AudioTrackModel) {
+          continue;
+        }
+        for (ClipModel clip : track.getClips()) {
+          if (clip.isArrangementOnly()) {
+            writeInstrumentClip(writer, track, clip, true);
+          }
+        }
+      }
+      writer.writeArrayEnding("arrangementOnlyTracks");
+    }
 
     // ── sections (arranger timeline) ──
     List<SongSection> sections = model.getSongSections();
@@ -1212,6 +1138,131 @@ public class ProjectSerializer {
     writer.closeTag();
 
     writer.writeClosingTag("songParams");
+  }
+
+  /**
+   * Writes a single {@code <instrumentClip>} (shared by the sessionClips and arrangementOnlyTracks
+   * blocks). When {@code arrangementOnly} a {@code trackName} attribute is added so the parser can
+   * match the clip back to its track (DelugeXmlParser arrangement-only path).
+   */
+  private static void writeInstrumentClip(
+      XMLSerializer writer, TrackModel track, ClipModel clip, boolean arrangementOnly)
+      throws IOException {
+    // NOTE: clipInstances is an Output (instrument) attribute in the C format (output.cpp), NOT a
+    // clip attribute — it is written in the <instruments> block. Clips carry only `section`.
+    writer.writeOpeningTagBeginning("instrumentClip");
+    if (arrangementOnly) {
+      writer.writeAttribute("trackName", track.getName(), false);
+    }
+    if (clip.getName() != null) {
+      writer.writeAttribute("clipName", clip.getName(), false);
+    }
+    if (track instanceof KitTrackModel) {
+      writer.writeAttribute("instrumentPresetName", track.getName(), false);
+      writer.writeAttribute("instrumentPresetFolder", "KITS", false);
+    } else {
+      writer.writeAttribute("instrumentPresetName", track.getName(), false);
+      writer.writeAttribute("instrumentPresetFolder", "SYNTHS", false);
+    }
+
+    int stepTicks = clip.isTripletMode() ? 32 : 24;
+    int lengthTicks = clip.getStepCount() * stepTicks;
+    writer.writeAttribute("length", lengthTicks, false);
+    // C clip.cpp:659 — isPlaying == activeIfNoSolo (session-active). All-active = every clip
+    // fires at once in session view; arranger songs keep these inactive.
+    writer.writeAttribute("isPlaying", clip.isActiveInSession() ? "1" : "0", false);
+    // C clip.cpp:667 — write section only when assigned (!= 255 unassigned).
+    if (clip.getSection() != 255) {
+      writer.writeAttribute("section", clip.getSection(), false);
+    }
+    if (clip.isTripletMode()) {
+      writer.writeAttribute("triplet", "1", false);
+    }
+    if (clip.getPlayDirection() != null
+        && clip.getPlayDirection() != ClipModel.PlayDirection.FORWARD) {
+      writer.writeAttribute(
+          "sequenceDirection", clip.getPlayDirection().name().toLowerCase(), false);
+    }
+    writer.writeOpeningTagEnd();
+
+    // Write soundParams / kitParams tag to set outputTypeWhileLoading and serialize track-level
+    // performance settings
+    if (track instanceof KitTrackModel) {
+      serializeKitParams(writer, (KitTrackModel) track);
+    } else if (track instanceof SynthTrackModel) {
+      serializeSoundParams(writer, (SynthTrackModel) track);
+    } else {
+      writer.writeOpeningTagBeginning("soundParams");
+      writer.closeTag();
+    }
+
+    // Note rows
+    boolean hasNotes = false;
+    for (int r = 0; r < clip.getRowCount(); r++) {
+      for (int s = 0; s < clip.getStepCount(); s++) {
+        if (clip.getStep(r, s).active()) {
+          hasNotes = true;
+          break;
+        }
+      }
+    }
+
+    if (hasNotes) {
+      writer.writeArrayStart("noteRows");
+      for (int r = 0; r < clip.getRowCount(); r++) {
+        int yNote = clip.getRowYNote(r);
+        if (!(track instanceof KitTrackModel) && yNote < 0) {
+          for (int s = 0; s < clip.getStepCount(); s++) {
+            StepData sd = clip.getStep(r, s);
+            if (sd.active() && sd.pitch() > 0) {
+              yNote = sd.pitch();
+              break;
+            }
+          }
+        }
+
+        if (!(track instanceof KitTrackModel) && yNote < 0) {
+          boolean hasActive = false;
+          for (int s = 0; s < clip.getStepCount(); s++) {
+            if (clip.getStep(r, s).active()) {
+              hasActive = true;
+              break;
+            }
+          }
+          if (!hasActive) continue;
+        }
+
+        writer.writeOpeningTagBeginning("noteRow");
+        if (track instanceof KitTrackModel) {
+          writer.writeAttribute("drumIndex", r, false);
+        } else {
+          writer.writeAttribute("y", Math.max(yNote, 0), false);
+        }
+
+        List<StepData> row = new ArrayList<>();
+        for (int s = 0; s < clip.getStepCount(); s++) {
+          row.add(clip.getStep(r, s));
+        }
+        String hexData = DelugeNoteDataMapper.encodeRow(row, stepTicks);
+        String hexDataSplit = DelugeNoteDataMapper.encodeRowSplit(row, stepTicks);
+        writer.writeAttribute("noteDataWithLift", hexData, false);
+        writer.writeAttribute("noteDataWithSplitProb", hexDataSplit, false);
+        writer.closeTag();
+      }
+      writer.writeArrayEnding("noteRows");
+    }
+
+    writer.writeOpeningTagBeginning("columnControls");
+    writer.writeOpeningTagEnd();
+    writer.writeOpeningTagBeginning("leftCol");
+    writer.writeAttribute("type", clip.getLeftCol(), false);
+    writer.closeTag();
+    writer.writeOpeningTagBeginning("rightCol");
+    writer.writeAttribute("type", clip.getRightCol(), false);
+    writer.closeTag();
+    writer.writeClosingTag("columnControls");
+
+    writer.writeClosingTag("instrumentClip");
   }
 
   private static void serializeKitParams(XMLSerializer writer, KitTrackModel kit)
