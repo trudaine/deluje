@@ -340,6 +340,75 @@ public final class Oscillator {
     return currentPhase;
   }
 
+  /** Saturate a long to the signed 32-bit range. */
+  private static int sat32(long v) {
+    if (v > Integer.MAX_VALUE) return Integer.MAX_VALUE;
+    if (v < Integer.MIN_VALUE) return Integer.MIN_VALUE;
+    return (int) v;
+  }
+
+  /**
+   * Faithful scalar port of {@code dsp::renderPulseWave} + {@code waveRenderingFunctionPulse}
+   * (basic_waves.cpp:58, processing/vector_rendering_function.h:51). Renders a variable-width pulse
+   * as the polarity-flipped product of two square-table reads, one offset by {@code phaseToAdd}.
+   * Argon→scalar mapping verified against the non-pulse path (renderWaveRawSegment).
+   */
+  static int renderPulseWave(
+      short[] table,
+      int tableSizeMagnitude,
+      int amplitude,
+      int[] outputBuffer,
+      int offset,
+      int numSamples,
+      int phaseIncrement,
+      int phase,
+      boolean applyAmplitude,
+      int phaseToAdd,
+      int amplitudeIncrement) {
+    int currentPhase = phase;
+    int currentAmplitude = amplitude;
+    for (int i = 0; i < numSamples; i++) {
+      currentPhase += phaseIncrement;
+      int pa = currentPhase;
+      int pb = currentPhase + phaseToAdd;
+
+      // Read A (gather + "sneaky backwards" strengths → flips polarity). indicesX =
+      // phase>>(32-mag);
+      // rshiftedX = (indicesX>>16) & int16_max (0 for mag<=16). C
+      // vector_rendering_function.h:60-76.
+      int idxA = pa >>> (32 - tableSizeMagnitude);
+      int rshiftedA = (idxA >>> 16) & 0x7FFF;
+      int valueA1 = table[idxA];
+      int valueA2 = table[idxA + 1];
+      int strengthA1 = (rshiftedA | 0x8000) - 0x10000; // rshiftedA | int16_min, as int16 (negative)
+      int strengthA2 = -32768 - strengthA1; // int16_min - strengthA1
+      long outA = sat32(2L * strengthA2 * valueA2);
+      outA = sat32(outA + sat32(2L * strengthA1 * valueA1));
+
+      // Read B (forward strengths). C:65-83.
+      int idxB = pb >>> (32 - tableSizeMagnitude);
+      int rshiftedB = (idxB >>> 16) & 0x7FFF;
+      int valueB1 = table[idxB];
+      int valueB2 = table[idxB + 1];
+      int strengthB2 = rshiftedB; // already & int16_max
+      int strengthB1 = 0x7FFF - strengthB2; // int16_max - strengthB2
+      long outB = sat32(2L * strengthB2 * valueB2);
+      outB = sat32(outB + sat32(2L * strengthB1 * valueB1));
+
+      // output = MultiplyRoundFixedPoint(outputA, outputB) << 1  (Q31 round-multiply, then <<1)
+      int mrf = (int) (((outA * outB) + (1L << 30)) >> 31);
+      int val = mrf << 1;
+
+      int wet = val;
+      if (applyAmplitude) {
+        currentAmplitude += amplitudeIncrement;
+        wet = (int) (((long) currentAmplitude * val) >> 31);
+      }
+      outputBuffer[offset + i] = Functions.add_saturate(outputBuffer[offset + i], wet);
+    }
+    return currentPhase;
+  }
+
   /**
    * {@code int[]} overload of {@link #renderWave} for tables stored as {@code int[]} holding int16
    * values (e.g. {@code sineWaveSmall}). Body identical to the {@code short[]} version.
@@ -750,6 +819,27 @@ public final class Oscillator {
       short[] squareTable =
           SquareLookupTables.squareWaveTables[
               Math.min(tableNumber, SquareLookupTables.squareWaveTables.length - 1)];
+
+      // Band-limited PULSE width (C oscillator.cpp:413-453). pulseWidth is already offset by -2^31
+      // (line ~443). The pulse is the product of two square reads offset by phaseToAdd; the C
+      // pre-halves phase/phaseIncrement (the product doubles the effective freq) and doubles
+      // amplitude. startPhase was already advanced with the ORIGINAL phaseIncrement at entry, so we
+      // return without maybeStorePhase. (Sync+pulse path not yet ported — rare; falls through.)
+      if (doPulseWave && !doOscSync) {
+        renderPulseWave(
+            squareTable,
+            tableSizeMagnitude,
+            amplitude << 1,
+            buffer,
+            off,
+            numSamples,
+            phaseIncrement >>> 1,
+            phase >>> 1,
+            applyAmplitude,
+            -(pulseWidth >> 1),
+            amplitudeIncrement << 1);
+        return;
+      }
       // C: amplitude <<= 1; amplitudeIncrement <<= 1; before callRenderWave
       // (oscillator.cpp:470-471)
       if (doOscSync) { // C callRenderWave sync branch (oscillator.cpp:476-498)

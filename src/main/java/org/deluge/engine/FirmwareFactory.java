@@ -338,6 +338,15 @@ public class FirmwareFactory {
       sound.paramNeutralValues[Param.LOCAL_CARRIER_1_FEEDBACK] = model.getCarrier2FeedbackQ31();
     }
 
+    // Oscillator pulse/phase width (C LOCAL_OSC_A/B_PHASE_WIDTH; Voice.java:922 → renderPulseWave).
+    // Verified end-to-end: duty tracks the value (SquarePwmRenderTest). Apply only when specified.
+    if (model.getOsc1PhaseWidthQ31() != Integer.MIN_VALUE) {
+      sound.paramNeutralValues[Param.LOCAL_OSC_A_PHASE_WIDTH] = model.getOsc1PhaseWidthQ31();
+    }
+    if (model.getOsc2PhaseWidthQ31() != Integer.MIN_VALUE) {
+      sound.paramNeutralValues[Param.LOCAL_OSC_B_PHASE_WIDTH] = model.getOsc2PhaseWidthQ31();
+    }
+
     // Overall voice pitch adjust (C LOCAL_PITCH_ADJUST; Voice.java:412). Apply only when specified.
     // NOTE: per-osc oscA/BPitchAdjust (LOCAL_OSC_A/B_PITCH_ADJUST) are NOT wired — verified via
     // PitchAdjustParamTest that setting them through this path does not reach the single-osc render
