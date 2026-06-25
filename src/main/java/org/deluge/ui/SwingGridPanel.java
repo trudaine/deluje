@@ -9962,33 +9962,7 @@ public class SwingGridPanel extends JPanel {
       case 15:
         if (track instanceof org.deluge.model.SynthTrackModel st) {
           org.deluge.model.ArpModel oldArp = st.getArp();
-          st.setArp(
-              new org.deluge.model.ArpModel(
-                  oldArp.active(),
-                  oldArp.mode(),
-                  (float) (v * 2.0f),
-                  oldArp.octaves(),
-                  oldArp.gate(),
-                  oldArp.syncLevel(),
-                  oldArp.noteMode(),
-                  oldArp.octaveMode(),
-                  oldArp.stepRepeat(),
-                  oldArp.rhythmIndex(),
-                  oldArp.seqLength(),
-                  oldArp.octaveSpread(),
-                  oldArp.gateSpread(),
-                  oldArp.velSpread(),
-                  oldArp.ratchetAmount(),
-                  oldArp.mpeVelocity(),
-                  oldArp.syncType(),
-                  oldArp.noteProbability(),
-                  oldArp.bassProbability(),
-                  oldArp.swapProbability(),
-                  oldArp.glideProbability(),
-                  oldArp.reverseProbability(),
-                  oldArp.chordProbability(),
-                  oldArp.ratchetProbability(),
-                  oldArp.chordPolyphony()));
+          st.setArp(oldArp.toBuilder().rate((float) (v * 2.0f)).build());
         }
         break;
     }

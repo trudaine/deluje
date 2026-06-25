@@ -62,7 +62,8 @@ public class DelugeXmlParser {
               "defaultParams", "sampleRateReduction", SynthTrackModel::setSampleRateReduction),
           FieldBinding.hexFloat("defaultParams", "bitCrush", SynthTrackModel::setBitCrush),
           FieldBinding.hexFloat("defaultParams", "delayRate", SynthTrackModel::setDelaySend),
-          FieldBinding.hexFloat("defaultParams", "waveIndex", SynthTrackModel::setWaveIndex));
+          FieldBinding.hexFloat("defaultParams", "waveIndex", SynthTrackModel::setWaveIndex),
+          FieldBinding.hexFloat("defaultParams", "arpeggiatorRate", SynthTrackModel::setArpRate));
 
   // ── Public entry points ──
 
@@ -84,7 +85,23 @@ public class DelugeXmlParser {
 
     KitTrackModel kit = new KitTrackModel(name);
 
-    NodeList soundNodes = kitNode.getElementsByTagName("sound");
+    String sdiStr = getChildText(kitNode, "selectedDrumIndex");
+    if (sdiStr != null) {
+      try {
+        kit.setSelectedDrumIndex(Integer.parseInt(sdiStr.trim()));
+      } catch (NumberFormatException e) {
+        LOG.log(Level.FINE, "NumberFormatException parsing selectedDrumIndex", e);
+      }
+    }
+
+    NodeList soundSourcesNodes = kitNode.getElementsByTagName("soundSources");
+    NodeList soundNodes;
+    if (soundSourcesNodes.getLength() > 0) {
+      soundNodes = ((Element) soundSourcesNodes.item(0)).getElementsByTagName("sound");
+    } else {
+      soundNodes = kitNode.getElementsByTagName("sound");
+    }
+
     for (int i = 0; i < soundNodes.getLength(); i++) {
       Element soundNode = (Element) soundNodes.item(i);
       String soundName = "SOUND " + i;
@@ -517,8 +534,11 @@ public class DelugeXmlParser {
 
               // Check for noteDataWithLift attribute (c1.2.0+ firmware format)
               String liftAttr = noteRowElem.getAttribute("noteDataWithLift");
+              String splitAttr = noteRowElem.getAttribute("noteDataWithSplitProb");
               if (liftAttr != null && !liftAttr.isEmpty()) {
                 hexData = liftAttr;
+              } else if (splitAttr != null && !splitAttr.isEmpty()) {
+                hexData = splitAttr;
               }
 
               // Check for noteData attribute directly on noteRow (kit rows)
@@ -538,10 +558,17 @@ public class DelugeXmlParser {
               }
 
               if (hexData != null && !hexData.isEmpty()) {
-                // Detect format: noteDataWithLift = 22 chars/note
+                // Detect format: noteDataWithLift = 22 chars/note, noteDataWithSplitProb = 28
                 int hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_OLD;
                 if (liftAttr != null && !liftAttr.isEmpty()) {
                   hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_LIFT;
+                } else if (splitAttr != null && !splitAttr.isEmpty()) {
+                  hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
+                } else if (hexData.startsWith("0x")) {
+                  int dataLen = hexData.length() - 2;
+                  if (dataLen > 0 && dataLen % DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT == 0) {
+                    hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
+                  }
                 }
                 // Firmware XML uses dynamic ticks per grid step (triplet alignment check!)
                 java.util.List<StepData> row =
@@ -582,6 +609,7 @@ public class DelugeXmlParser {
               }
             }
           }
+          parseColumnControls(trackElem, clip);
           targetTrack.addClip(clip);
 
           // ── Parse automation data for synth and midi tracks ──
@@ -736,7 +764,9 @@ public class DelugeXmlParser {
             Element nr = (Element) noteRowList.item(r);
             String hd = null;
             String la = nr.getAttribute("noteDataWithLift");
+            String sa = nr.getAttribute("noteDataWithSplitProb");
             if (la != null && !la.isEmpty()) hd = la;
+            else if (sa != null && !sa.isEmpty()) hd = sa;
             if (hd == null) {
               String da = nr.getAttribute("noteData");
               if (da != null && !da.isEmpty()) hd = da;
@@ -750,6 +780,8 @@ public class DelugeXmlParser {
               // Detect hex chars per note based on which attribute was used
               int hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_OLD;
               if (la != null && !la.isEmpty()) hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_LIFT;
+              else if (sa != null && !sa.isEmpty())
+                hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
               else if (data.length() > 0
                   && data.length() % DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT == 0)
                 hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
@@ -769,6 +801,9 @@ public class DelugeXmlParser {
         if (dataStepCount > stepCount) stepCount = dataStepCount;
 
         ClipModel clip = new ClipModel("SESSION_CLIP " + i, rowCount, stepCount);
+        if (clipElem.hasAttribute("clipName")) {
+          clip.setName(clipElem.getAttribute("clipName"));
+        }
         clip.setTripletMode(tripletMode);
         clip.setPlayDirection(readPlayDirectionAttr(clipElem));
         // C clip.cpp:713-715 — read + clamp the session section (255 stays unassigned).
@@ -806,8 +841,11 @@ public class DelugeXmlParser {
             }
 
             String liftAttr = noteRowElem.getAttribute("noteDataWithLift");
+            String splitAttr = noteRowElem.getAttribute("noteDataWithSplitProb");
             if (liftAttr != null && !liftAttr.isEmpty()) {
               hexData = liftAttr;
+            } else if (splitAttr != null && !splitAttr.isEmpty()) {
+              hexData = splitAttr;
             }
 
             // Check for noteData attribute directly on noteRow (kit rows)
@@ -831,6 +869,8 @@ public class DelugeXmlParser {
               int hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_OLD;
               if (liftAttr != null && !liftAttr.isEmpty()) {
                 hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_LIFT;
+              } else if (splitAttr != null && !splitAttr.isEmpty()) {
+                hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
               } else {
                 String da = noteRowElem.getAttribute("noteData");
                 if (da != null && !da.isEmpty() && da.startsWith("0x")) {
@@ -891,6 +931,7 @@ public class DelugeXmlParser {
             }
           }
         }
+        parseColumnControls(clipElem, clip);
         targetTrack.addClip(clip);
 
         // Parse the clip's <soundParams>: STATIC values into the track model (the song format
@@ -1081,7 +1122,10 @@ public class DelugeXmlParser {
             Element nr = (Element) noteRowList.item(r);
             String hd = null;
             String la = nr.getAttribute("liftActions");
+            if (la == null || la.isEmpty()) la = nr.getAttribute("noteDataWithLift");
+            String sa = nr.getAttribute("noteDataWithSplitProb");
             if (la != null && !la.isEmpty()) hd = la;
+            else if (sa != null && !sa.isEmpty()) hd = sa;
             if (hd == null) {
               String da = nr.getAttribute("noteData");
               if (da != null && !da.isEmpty()) hd = da;
@@ -1094,6 +1138,8 @@ public class DelugeXmlParser {
               String data = hd.substring(2);
               int hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_OLD;
               if (la != null && !la.isEmpty()) hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_LIFT;
+              else if (sa != null && !sa.isEmpty())
+                hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
               else if (data.length() > 0
                   && data.length() % DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT == 0) {
                 hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
@@ -1112,6 +1158,9 @@ public class DelugeXmlParser {
           if (dataStepCount > stepCount) stepCount = dataStepCount;
 
           ClipModel clip = new ClipModel("ARR_CLIP " + i, rowCount, stepCount);
+          if (clipElem.hasAttribute("clipName")) {
+            clip.setName(clipElem.getAttribute("clipName"));
+          }
           clip.setTripletMode(tripletMode);
           clip.setArrangementOnly(true);
 
@@ -1123,7 +1172,10 @@ public class DelugeXmlParser {
 
             String hd = null;
             String la = nr.getAttribute("liftActions");
+            if (la == null || la.isEmpty()) la = nr.getAttribute("noteDataWithLift");
+            String sa = nr.getAttribute("noteDataWithSplitProb");
             if (la != null && !la.isEmpty()) hd = la;
+            else if (sa != null && !sa.isEmpty()) hd = sa;
             if (hd == null) {
               String da = nr.getAttribute("noteData");
               if (da != null && !da.isEmpty()) hd = da;
@@ -1136,6 +1188,8 @@ public class DelugeXmlParser {
               String data = hd.substring(2);
               int hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_OLD;
               if (la != null && !la.isEmpty()) hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_LIFT;
+              else if (sa != null && !sa.isEmpty())
+                hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
               else if (data.length() > 0
                   && data.length() % DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT == 0) {
                 hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
@@ -1167,6 +1221,7 @@ public class DelugeXmlParser {
             }
           }
 
+          parseColumnControls(clipElem, clip);
           targetTrack.addClip(clip);
           allArrangementClips.add(clip);
           System.out.println(
@@ -1516,6 +1571,9 @@ public class DelugeXmlParser {
     // ── Polyphonic mode ──
     parsePolyphony(soundNode, synth);
 
+    // ── Legacy V1.3.0 presets fallback parameters ──
+    parseLegacyParams(soundNode, synth);
+
     // ── Voice-stealing priority (attribute or child element) ──
     String vpStr = soundNode.getAttribute("voicePriority");
     if (vpStr == null || vpStr.isBlank()) vpStr = getChildText(soundNode, "voicePriority");
@@ -1719,6 +1777,7 @@ public class DelugeXmlParser {
 
     // ── Mod Knobs ──
     parseModKnobs(soundNode, synth);
+    parseMidiKnobs(soundNode, synth.getMidiKnobs());
 
     // ── Per-sound delay (the instrument's own <delay> element) ──
     parseSynthDelay(soundNode, synth);
@@ -1727,6 +1786,9 @@ public class DelugeXmlParser {
     Element dpEl = getFirstChild(soundNode, "defaultParams");
     if (dpEl != null) {
       Element eqEl = getFirstChild(dpEl, "equalizer");
+      if (eqEl == null) {
+        eqEl = getFirstChild(dpEl, "eq");
+      }
       if (eqEl != null) {
         readHexFloat(eqEl, "bass", synth::setEqBass);
         readHexFloat(eqEl, "treble", synth::setEqTreble);
@@ -1769,15 +1831,32 @@ public class DelugeXmlParser {
       }
     }
 
-    NodeList soundNodes = kitNode.getElementsByTagName("sound");
-
     KitTrackModel kit = new KitTrackModel(name);
+
+    String sdiStr = getChildText(kitNode, "selectedDrumIndex");
+    if (sdiStr != null) {
+      try {
+        kit.setSelectedDrumIndex(Integer.parseInt(sdiStr.trim()));
+      } catch (NumberFormatException e) {
+        LOG.log(Level.FINE, "NumberFormatException parsing selectedDrumIndex", e);
+      }
+    }
+
+    NodeList soundSourcesNodes = kitNode.getElementsByTagName("soundSources");
+    NodeList soundNodes;
+    if (soundSourcesNodes.getLength() > 0) {
+      soundNodes = ((Element) soundSourcesNodes.item(0)).getElementsByTagName("sound");
+    } else {
+      soundNodes = kitNode.getElementsByTagName("sound");
+    }
+
     if (kitNode.hasAttribute("isMutedInArrangement")) {
       kit.setMutedInArrangement("1".equals(kitNode.getAttribute("isMutedInArrangement")));
     }
     if (kitNode.hasAttribute("isSoloingInArrangement")) {
       kit.setSoloingInArrangement("1".equals(kitNode.getAttribute("isSoloingInArrangement")));
     }
+    parseDefaultVelocity(kitNode, kit);
 
     for (int i = 0; i < soundNodes.getLength(); i++) {
       Element soundNode = (Element) soundNodes.item(i);
@@ -1817,6 +1896,7 @@ public class DelugeXmlParser {
       synth.setSoloingInArrangement("1".equals(soundNode.getAttribute("isSoloingInArrangement")));
     }
     populateSynth(soundNode, synth);
+    parseDefaultVelocity(soundNode, synth);
     return synth;
   }
 
@@ -1834,6 +1914,7 @@ public class DelugeXmlParser {
     }
 
     MidiTrackModel midiTrack = new MidiTrackModel(name);
+    parseDefaultVelocity(soundNode, midiTrack);
 
     // Parse MIDI Channel or MPE Zone
     NodeList channelNodes = soundNode.getElementsByTagName("midiChannel");
@@ -2202,6 +2283,7 @@ public class DelugeXmlParser {
     SOUNDPARAMS_RAW_PATCHED.put("oscBWavetablePosition", Param.LOCAL_OSC_B_WAVE_INDEX);
     SOUNDPARAMS_RAW_PATCHED.put("oscAPitch", Param.LOCAL_OSC_A_PITCH_ADJUST);
     SOUNDPARAMS_RAW_PATCHED.put("oscBPitch", Param.LOCAL_OSC_B_PITCH_ADJUST);
+    SOUNDPARAMS_RAW_PATCHED.put("pitch", Param.LOCAL_PITCH_ADJUST);
     SOUNDPARAMS_RAW_PATCHED.put("modulator1Pitch", Param.LOCAL_MODULATOR_0_PITCH_ADJUST);
     SOUNDPARAMS_RAW_PATCHED.put("modulator2Pitch", Param.LOCAL_MODULATOR_1_PITCH_ADJUST);
     SOUNDPARAMS_RAW_PATCHED.put("modFXRate", Param.GLOBAL_MOD_FX_RATE);
@@ -2704,6 +2786,48 @@ public class DelugeXmlParser {
     }
   }
 
+  private static void parseMidiKnobs(Element soundNode, List<MidiKnob> midiKnobs) {
+    NodeList midiKnobsContainer = soundNode.getElementsByTagName("midiKnobs");
+    if (midiKnobsContainer.getLength() == 0) return;
+    Element container = (Element) midiKnobsContainer.item(0);
+    NodeList knobList = container.getElementsByTagName("midiKnob");
+    for (int i = 0; i < knobList.getLength(); i++) {
+      Element knobElem = (Element) knobList.item(i);
+
+      int channel = 1;
+      if (knobElem.hasAttribute("channel")) {
+        channel = Integer.parseInt(knobElem.getAttribute("channel"));
+      }
+
+      int ccNumber = 0;
+      if (knobElem.hasAttribute("ccNumber")) {
+        ccNumber = Integer.parseInt(knobElem.getAttribute("ccNumber"));
+      }
+
+      boolean relative =
+          "1".equals(knobElem.getAttribute("relative"))
+              || "true".equalsIgnoreCase(knobElem.getAttribute("relative"));
+
+      String controlsParam = knobElem.getAttribute("controlsParam");
+      if (controlsParam == null) {
+        controlsParam = getChildText(knobElem, "controlsParam");
+      }
+      if (controlsParam == null) {
+        controlsParam = "NONE";
+      }
+
+      String patchSource = knobElem.getAttribute("patchAmountFromSource");
+      if (patchSource == null) {
+        patchSource = getChildText(knobElem, "patchAmountFromSource");
+      }
+      if (patchSource == null) {
+        patchSource = "NONE";
+      }
+
+      midiKnobs.add(new MidiKnob(channel, ccNumber, relative, controlsParam, patchSource));
+    }
+  }
+
   // ── Synth LFO / Arp / Compressor Parsers ──
 
   /** Parse an LFO element for synth tracks (supports attribute-style and child-element). */
@@ -2815,10 +2939,6 @@ public class DelugeXmlParser {
     }
     String gateStr = getChildText(arpEl, "gate");
     if (gateStr != null) gate = Math.abs(DelugeHexMapper.hexToFloat(gateStr));
-    String activeStr = arpEl.getAttribute("active");
-    if (activeStr != null && !activeStr.isBlank()) {
-      active = "true".equalsIgnoreCase(activeStr) || "1".equals(activeStr);
-    }
 
     // Parse new arp fields
     int syncLevel = 0;
@@ -2857,21 +2977,13 @@ public class DelugeXmlParser {
         LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
       }
     }
-    String seqLenStr = getChildText(arpEl, "seqLength");
-    if (seqLenStr != null) {
-      try {
-        seqLength = Integer.parseInt(seqLenStr);
-      } catch (NumberFormatException e) {
-        LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
-      }
+    String seqLenStr = arpEl.getAttribute("sequenceLength");
+    if (seqLenStr == null || seqLenStr.isEmpty()) {
+      seqLenStr = getChildText(arpEl, "seqLength");
     }
-
-    // arpMode: attribute on arpeggiator element
-    int arpModeVal = -1;
-    String arpModeStr = arpEl.getAttribute("arpMode");
-    if (arpModeStr != null && !arpModeStr.isBlank()) {
+    if (seqLenStr != null && !seqLenStr.isEmpty()) {
       try {
-        arpModeVal = Integer.parseInt(arpModeStr);
+        seqLength = Integer.parseInt(seqLenStr.trim());
       } catch (NumberFormatException e) {
         LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
       }
@@ -2879,24 +2991,36 @@ public class DelugeXmlParser {
 
     // mpeVelocity: attribute on arpeggiator element
     int mpeVelocity = 0;
-    String mpeStr = arpEl.getAttribute("mpeVelocity");
-    if (mpeStr != null && !mpeStr.isBlank()) {
+    String mpeVelStr = arpEl.getAttribute("mpeVelocity");
+    if (mpeVelStr != null && !mpeVelStr.isBlank()) {
       try {
-        mpeVelocity = Integer.parseInt(mpeStr);
+        mpeVelocity = Integer.parseInt(mpeVelStr);
       } catch (NumberFormatException e) {
         LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
       }
     }
 
-    // syncType: attribute on arpeggiator element
+    // syncType: attribute on arpeggiator element (firmware ArpSyncType enum)
     int syncType = 0;
-    String arpSyncStr = arpEl.getAttribute("syncType");
-    if (arpSyncStr != null && !arpSyncStr.isBlank()) {
+    String syncTypeStr = arpEl.getAttribute("syncType");
+    if (syncTypeStr != null && !syncTypeStr.isBlank()) {
       try {
-        syncType = Integer.parseInt(arpSyncStr);
+        syncType = Integer.parseInt(syncTypeStr);
       } catch (NumberFormatException e) {
         LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
       }
+    }
+
+    // Parse new arp fields
+    active =
+        "1".equals(arpEl.getAttribute("active"))
+            || "true".equalsIgnoreCase(arpEl.getAttribute("active"));
+
+    String arpMode = arpEl.getAttribute("arpMode");
+
+    String notePattern = arpEl.getAttribute("notePattern");
+    if (notePattern == null || notePattern.isBlank()) {
+      notePattern = "00000000000000000000000000000000";
     }
 
     // Spread and probability attributes (attributes written by firmware via writeParamAsAttribute)
@@ -2913,6 +3037,71 @@ public class DelugeXmlParser {
     float chordProb = readAttrFloatWithDefault(arpEl, "chordProbability", 0f, false);
     float ratchetProb = readAttrFloatWithDefault(arpEl, "ratchetProbability", 0f, false);
     int chordPolyphony = readIntAttrWithDefault(arpEl, "chordPolyphony", 0);
+    int chordType = readIntAttrWithDefault(arpEl, "chordType", 0);
+
+    int numOctaves = readIntAttrWithDefault(arpEl, "numOctaves", octaves);
+    int kitArp = readIntAttrWithDefault(arpEl, "kitArp", 0);
+    int randomizerLock = readIntAttrWithDefault(arpEl, "randomizerLock", 0);
+
+    int lastLockedNoteProb = readIntAttrWithDefault(arpEl, "lastLockedNoteProb", 0);
+    String lockedNoteProbArray = arpEl.getAttribute("lockedNoteProbArray");
+    if (lockedNoteProbArray == null || lockedNoteProbArray.isBlank()) {
+      lockedNoteProbArray = "00000000000000000000000000000000";
+    }
+
+    int lastLockedBassProb = readIntAttrWithDefault(arpEl, "lastLockedBassProb", 0);
+    String lockedBassProbArray = arpEl.getAttribute("lockedBassProbArray");
+    if (lockedBassProbArray == null || lockedBassProbArray.isBlank()) {
+      lockedBassProbArray = "00000000000000000000000000000000";
+    }
+
+    int lastLockedSwapProb = readIntAttrWithDefault(arpEl, "lastLockedSwapProb", 0);
+    String lockedSwapProbArray = arpEl.getAttribute("lockedSwapProbArray");
+    if (lockedSwapProbArray == null || lockedSwapProbArray.isBlank()) {
+      lockedSwapProbArray = "00000000000000000000000000000000";
+    }
+
+    int lastLockedGlideProb = readIntAttrWithDefault(arpEl, "lastLockedGlideProb", 0);
+    String lockedGlideProbArray = arpEl.getAttribute("lockedGlideProbArray");
+    if (lockedGlideProbArray == null || lockedGlideProbArray.isBlank()) {
+      lockedGlideProbArray = "00000000000000000000000000000000";
+    }
+
+    int lastLockedReverseProb = readIntAttrWithDefault(arpEl, "lastLockedReverseProb", 0);
+    String lockedReverseProbArray = arpEl.getAttribute("lockedReverseProbArray");
+    if (lockedReverseProbArray == null || lockedReverseProbArray.isBlank()) {
+      lockedReverseProbArray = "00000000000000000000000000000000";
+    }
+
+    int lastLockedChordProb = readIntAttrWithDefault(arpEl, "lastLockedChordProb", 0);
+    String lockedChordProbArray = arpEl.getAttribute("lockedChordProbArray");
+    if (lockedChordProbArray == null || lockedChordProbArray.isBlank()) {
+      lockedChordProbArray = "00000000000000000000000000000000";
+    }
+
+    int lastLockedRatchetProb = readIntAttrWithDefault(arpEl, "lastLockedRatchetProb", 0);
+    String lockedRatchetProbArray = arpEl.getAttribute("lockedRatchetProbArray");
+    if (lockedRatchetProbArray == null || lockedRatchetProbArray.isBlank()) {
+      lockedRatchetProbArray = "00000000000000000000000000000000";
+    }
+
+    int lastLockedVelocitySpread = readIntAttrWithDefault(arpEl, "lastLockedVelocitySpread", 0);
+    String lockedVelocitySpreadArray = arpEl.getAttribute("lockedVelocitySpreadArray");
+    if (lockedVelocitySpreadArray == null || lockedVelocitySpreadArray.isBlank()) {
+      lockedVelocitySpreadArray = "00000000000000000000000000000000";
+    }
+
+    int lastLockedGateSpread = readIntAttrWithDefault(arpEl, "lastLockedGateSpread", 0);
+    String lockedGateSpreadArray = arpEl.getAttribute("lockedGateSpreadArray");
+    if (lockedGateSpreadArray == null || lockedGateSpreadArray.isBlank()) {
+      lockedGateSpreadArray = "00000000000000000000000000000000";
+    }
+
+    int lastLockedOctaveSpread = readIntAttrWithDefault(arpEl, "lastLockedOctaveSpread", 0);
+    String lockedOctaveSpreadArray = arpEl.getAttribute("lockedOctaveSpreadArray");
+    if (lockedOctaveSpreadArray == null || lockedOctaveSpreadArray.isBlank()) {
+      lockedOctaveSpreadArray = "00000000000000000000000000000000";
+    }
 
     synth.setArp(
         new ArpModel(
@@ -2940,7 +3129,32 @@ public class DelugeXmlParser {
             reverseProb,
             chordProb,
             ratchetProb,
-            chordPolyphony));
+            chordPolyphony,
+            notePattern,
+            chordType,
+            numOctaves,
+            kitArp,
+            randomizerLock,
+            lastLockedNoteProb,
+            lockedNoteProbArray,
+            lastLockedBassProb,
+            lockedBassProbArray,
+            lastLockedSwapProb,
+            lockedSwapProbArray,
+            lastLockedGlideProb,
+            lockedGlideProbArray,
+            lastLockedReverseProb,
+            lockedReverseProbArray,
+            lastLockedChordProb,
+            lockedChordProbArray,
+            lastLockedRatchetProb,
+            lockedRatchetProbArray,
+            lastLockedVelocitySpread,
+            lockedVelocitySpreadArray,
+            lastLockedGateSpread,
+            lockedGateSpreadArray,
+            lastLockedOctaveSpread,
+            lockedOctaveSpreadArray));
   }
 
   /** Parse compressor element for synth tracks. */
@@ -3045,6 +3259,12 @@ public class DelugeXmlParser {
           }
         });
     readAttrOrChildInt(soundNode, "voicePriority", 1, sound::setVoicePriority);
+    NodeList midiOutputNodes = soundNode.getElementsByTagName("midiOutput");
+    if (midiOutputNodes.getLength() > 0) {
+      Element midiOutputEl = (Element) midiOutputNodes.item(0);
+      readAttrOrChildInt(midiOutputEl, "channel", 255, sound::setMidiChannel);
+      readAttrOrChildInt(midiOutputEl, "noteForDrum", 255, sound::setNoteForDrum);
+    }
     readAttrOrChildHexFloat(soundNode, "sideChainSend", sound::setSidechainSend);
     readAttrOrChildString(soundNode, "modFXType", sound::setModFxType);
     readAttrOrChildString(soundNode, "modFxType", sound::setModFxType);
@@ -3256,6 +3476,7 @@ public class DelugeXmlParser {
 
     // modKnobs
     parseDrumModKnobs(soundNode, sound);
+    parseMidiKnobs(soundNode, sound.getMidiKnobs());
 
     // patchCables (direct child)
     parseDrumPatchCables(soundNode, sound);
@@ -3367,6 +3588,7 @@ public class DelugeXmlParser {
     readHexFloatUnipolar(dp, "delayFeedback", sound::setDelayFeedback);
     readHexFloatUnipolar(dp, "reverbAmount", sound::setReverbAmount);
     readHexFloatUnipolar(dp, "arpeggiatorGate", sound::setArpeggiatorGate);
+    readHexFloatUnipolar(dp, "arpeggiatorRate", sound::setArpeggiatorRate);
     readHexFloatUnipolar(dp, "portamento", sound::setPortamento);
     readHexFloatUnipolar(dp, "stutterRate", sound::setStutterRate);
     readHexFloatUnipolar(dp, "sampleRateReduction", sound::setSampleRateReduction);
@@ -3837,6 +4059,28 @@ public class DelugeXmlParser {
     return def;
   }
 
+  private static void parseColumnControls(Element clipElem, ClipModel clip) {
+    NodeList ccNodes = clipElem.getElementsByTagName("columnControls");
+    if (ccNodes.getLength() == 0) return;
+    Element ccEl = (Element) ccNodes.item(0);
+
+    NodeList leftList = ccEl.getElementsByTagName("leftCol");
+    if (leftList.getLength() > 0) {
+      Element leftEl = (Element) leftList.item(0);
+      if (leftEl.hasAttribute("type")) {
+        clip.setLeftCol(leftEl.getAttribute("type"));
+      }
+    }
+
+    NodeList rightList = ccEl.getElementsByTagName("rightCol");
+    if (rightList.getLength() > 0) {
+      Element rightEl = (Element) rightList.item(0);
+      if (rightEl.hasAttribute("type")) {
+        clip.setRightCol(rightEl.getAttribute("type"));
+      }
+    }
+  }
+
   // ── Helpers ──
 
   /**
@@ -4031,6 +4275,8 @@ public class DelugeXmlParser {
         }
         readSongRawAttr(rc, "compHPF", project::setReverbCompHpf, 0.0f);
         readSongRawAttr(rc, "compBlend", project::setReverbCompBlend, 0.5f);
+        readSongRawAttr(rc, "shape", project::setReverbCompressorShape, 0.0f);
+        readSongRawAttr(rc, "volume", project::setReverbCompressorVolume, 0.0f);
       }
     }
 
@@ -4129,6 +4375,9 @@ public class DelugeXmlParser {
         readSongHexAttr(h, "resonance", project::setSongParamHpfResonance, true);
       }
       NodeList spEq = sp.getElementsByTagName("equalizer");
+      if (spEq.getLength() == 0) {
+        spEq = sp.getElementsByTagName("eq");
+      }
       if (spEq.getLength() > 0) {
         Element eq = (Element) spEq.item(0);
         readSongHexAttr(eq, "bass", project::setSongParamEqBass, false);
@@ -4289,6 +4538,9 @@ public class DelugeXmlParser {
       readKitHexAttr(h, "resonance", clip, "hpfResonance");
     }
     NodeList eq = parent.getElementsByTagName("equalizer");
+    if (eq.getLength() == 0) {
+      eq = parent.getElementsByTagName("eq");
+    }
     if (eq.getLength() > 0) {
       Element eqEl = (Element) eq.item(0);
       readKitHexAttr(eqEl, "bass", clip, "eqBass");
@@ -4308,6 +4560,220 @@ public class DelugeXmlParser {
     try {
       clip.setKitParam(paramName, Math.abs(DelugeHexMapper.hexToFloat(val)));
     } catch (Exception e) {
+    }
+  }
+
+  private static void parseLegacyParams(Element soundNode, SynthTrackModel synth) {
+    // 1. Oscillator levels
+    String oscL1 = getChildText(soundNode, "oscLevel1");
+    if (oscL1 != null && !oscL1.isEmpty()) {
+      try {
+        synth.setOscAVolume(Integer.parseInt(oscL1.trim()) / 50.0f);
+      } catch (NumberFormatException e) {
+        LOG.log(Level.FINE, "Error parsing legacy oscLevel1", e);
+      }
+    }
+    String oscL2 = getChildText(soundNode, "oscLevel2");
+    if (oscL2 != null && !oscL2.isEmpty()) {
+      try {
+        synth.setOscBVolume(Integer.parseInt(oscL2.trim()) / 50.0f);
+      } catch (NumberFormatException e) {
+        LOG.log(Level.FINE, "Error parsing legacy oscLevel2", e);
+      }
+    }
+    String oscL = getChildText(soundNode, "oscLevel");
+    if (oscL != null && !oscL.isEmpty()) {
+      try {
+        float v = Integer.parseInt(oscL.trim()) / 50.0f;
+        synth.setOscAVolume(v);
+        synth.setOscBVolume(v);
+      } catch (NumberFormatException e) {
+        LOG.log(Level.FINE, "Error parsing legacy oscLevel", e);
+      }
+    }
+    String noiseL = getChildText(soundNode, "noiseLevel");
+    if (noiseL != null && !noiseL.isEmpty()) {
+      try {
+        synth.setNoiseVol(Integer.parseInt(noiseL.trim()) / 50.0f);
+      } catch (NumberFormatException e) {
+        LOG.log(Level.FINE, "Error parsing legacy noiseLevel", e);
+      }
+    }
+
+    // 2. Distortion
+    String distAmt = getChildText(soundNode, "distortionAmount");
+    if (distAmt != null && !distAmt.isEmpty()) {
+      try {
+        synth.setClippingAmount(Integer.parseInt(distAmt.trim()));
+      } catch (NumberFormatException e) {
+        LOG.log(Level.FINE, "Error parsing legacy distortionAmount", e);
+      }
+    }
+    String distType = getChildText(soundNode, "distortionType");
+    if (distType != null && !distType.isEmpty()) {
+      try {
+        int type = Integer.parseInt(distType.trim());
+        LOG.log(Level.FINE, "Parsed legacy distortionType: " + type);
+      } catch (NumberFormatException e) {
+        LOG.log(Level.FINE, "Error parsing legacy distortionType", e);
+      }
+    }
+
+    // 3. Filter type & slope
+    String fType = getChildText(soundNode, "filterType");
+    String fSlope = getChildText(soundNode, "filterSlope");
+    if (fType != null && !fType.isEmpty()) {
+      try {
+        int type = Integer.parseInt(fType.trim());
+        int slope = 1; // default 24dB
+        if (fSlope != null && !fSlope.isEmpty()) {
+          slope = Integer.parseInt(fSlope.trim());
+        }
+        if (type == 0) {
+          synth.setFilterMode(
+              slope == 0
+                  ? org.deluge.model.FilterMode.LADDER_12
+                  : org.deluge.model.FilterMode.LADDER_24);
+        } else {
+          synth.setFilterMode(org.deluge.model.FilterMode.SVF);
+        }
+      } catch (NumberFormatException e) {
+        LOG.log(Level.FINE, "Error parsing legacy filterType/slope", e);
+      }
+    }
+
+    // 4. LPF/HPF Order (Routing)
+    String lhOrder = getChildText(soundNode, "lpfHpfOrder");
+    if (lhOrder != null && !lhOrder.isEmpty()) {
+      try {
+        synth.setFilterRoute(Integer.parseInt(lhOrder.trim()));
+      } catch (NumberFormatException e) {
+        LOG.log(Level.FINE, "Error parsing legacy lpfHpfOrder", e);
+      }
+    }
+
+    // 5. Polyphony (isPolyphonic)
+    String isPoly = getChildText(soundNode, "isPolyphonic");
+    if (isPoly != null && !isPoly.isEmpty()) {
+      if ("0".equals(isPoly.trim()) || "false".equalsIgnoreCase(isPoly.trim())) {
+        synth.setPolyphony(SynthTrackModel.PolyphonyMode.MONO);
+      } else {
+        synth.setPolyphony(SynthTrackModel.PolyphonyMode.POLY);
+      }
+    }
+
+    // 6. Sound Group Mode (Choke)
+    String sgMode = getChildText(soundNode, "soundGroupMode");
+    if (sgMode != null && !sgMode.isEmpty()) {
+      try {
+        int mode = Integer.parseInt(sgMode.trim());
+        if (mode != 0) {
+          synth.setPolyphony(SynthTrackModel.PolyphonyMode.CHOKE);
+        }
+      } catch (NumberFormatException e) {
+        LOG.log(Level.FINE, "Error parsing legacy soundGroupMode", e);
+      }
+    }
+
+    // 7. Delay (time/feedback/amount/pingPong inside <delay> child)
+    Element delEl = getFirstChild(soundNode, "delay");
+    if (delEl != null) {
+      String timeStr = getChildText(delEl, "time");
+      if (timeStr != null && !timeStr.isEmpty()) {
+        try {
+          synth.setDelaySyncLevel(Integer.parseInt(timeStr.trim()));
+        } catch (NumberFormatException e) {
+          LOG.log(Level.FINE, "Error parsing legacy delay time", e);
+        }
+      }
+      String fbStr = getChildText(delEl, "feedback");
+      if (fbStr != null && !fbStr.isEmpty()) {
+        try {
+          float norm = Integer.parseInt(fbStr.trim()) / 50.0f;
+          int fbQ31 = DelugeHexMapper.hexToQ31(DelugeHexMapper.unipolarFloatToHexUnified(norm));
+          synth.setDelayFeedbackQ31(fbQ31);
+        } catch (NumberFormatException e) {
+          LOG.log(Level.FINE, "Error parsing legacy delay feedback", e);
+        }
+      }
+      String amtStr = getChildText(delEl, "amount");
+      if (amtStr != null && !amtStr.isEmpty()) {
+        try {
+          synth.setDelaySend(Integer.parseInt(amtStr.trim()) / 50.0f);
+        } catch (NumberFormatException e) {
+          LOG.log(Level.FINE, "Error parsing legacy delay amount", e);
+        }
+      }
+      String ppStr = getChildText(delEl, "pingPong");
+      if (ppStr != null && !ppStr.isEmpty()) {
+        synth.setDelayPingPong("1".equals(ppStr.trim()) || "true".equalsIgnoreCase(ppStr.trim()));
+      }
+    }
+
+    // 8. Envelopes (amplitudes -> env1, filters -> env2)
+    parseLegacyEnvelopeParam(soundNode, "amplitudes", 0, synth);
+    parseLegacyEnvelopeParam(soundNode, "filters", 1, synth);
+  }
+
+  private static void parseLegacyEnvelopeParam(
+      Element soundNode, String tagName, int envIndex, SynthTrackModel synth) {
+    Element container = getFirstChild(soundNode, tagName);
+    if (container == null) return;
+    Element envEl = getFirstChild(container, "envelope");
+    if (envEl == null) return;
+
+    String attStr = getChildText(envEl, "attack");
+    String decStr = getChildText(envEl, "decay");
+    String susStr = getChildText(envEl, "sustain");
+    String relStr = getChildText(envEl, "release");
+
+    try {
+      float attNorm =
+          (attStr != null && !attStr.isEmpty()) ? Integer.parseInt(attStr.trim()) / 99.0f : 0.0f;
+      float decNorm =
+          (decStr != null && !decStr.isEmpty()) ? Integer.parseInt(decStr.trim()) / 99.0f : 0.0f;
+      float susVal =
+          (susStr != null && !susStr.isEmpty()) ? Integer.parseInt(susStr.trim()) / 99.0f : 0.7f;
+      float relNorm =
+          (relStr != null && !relStr.isEmpty()) ? Integer.parseInt(relStr.trim()) / 99.0f : 0.0f;
+
+      float attack = DelugeHexMapper.envTimeFromNorm(attNorm * 2.0f - 1.0f);
+      float decay = DelugeHexMapper.envTimeFromNorm(decNorm * 2.0f - 1.0f);
+      float release = DelugeHexMapper.envTimeFromNorm(relNorm * 2.0f - 1.0f);
+
+      synth.setEnv(envIndex, new EnvelopeModel(attack, decay, susVal, release, "NONE", 0.0f));
+
+      int attQ31 = (int) ((attNorm * 2.0f - 1.0f) * Integer.MAX_VALUE);
+      int decQ31 = (int) ((decNorm * 2.0f - 1.0f) * Integer.MAX_VALUE);
+      int susQ31 = (int) ((susVal * 2.0f - 1.0f) * Integer.MAX_VALUE);
+      int relQ31 = (int) ((relNorm * 2.0f - 1.0f) * Integer.MAX_VALUE);
+
+      synth.setEnvKnobsQ31(envIndex, attQ31, decQ31, susQ31, relQ31);
+      if (envIndex == 0) {
+        synth.setRawParamKnob(Param.LOCAL_ENV_0_SUSTAIN, susQ31);
+      } else if (envIndex == 1) {
+        synth.setRawParamKnob(Param.LOCAL_ENV_1_SUSTAIN, susQ31);
+      }
+    } catch (NumberFormatException e) {
+      LOG.log(Level.FINE, "Error parsing legacy envelope " + tagName, e);
+    }
+  }
+
+  private static void parseDefaultVelocity(Element node, TrackModel track) {
+    String velAttr = node.getAttribute("defaultVelocity");
+    if (velAttr != null && !velAttr.isEmpty()) {
+      try {
+        track.setDefaultVelocity(Integer.parseInt(velAttr.trim()));
+      } catch (NumberFormatException ignored) {
+      }
+    } else {
+      NodeList velNodes = node.getElementsByTagName("defaultVelocity");
+      if (velNodes.getLength() > 0) {
+        try {
+          track.setDefaultVelocity(Integer.parseInt(velNodes.item(0).getTextContent().trim()));
+        } catch (NumberFormatException ignored) {
+        }
+      }
     }
   }
 

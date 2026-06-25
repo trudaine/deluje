@@ -40,6 +40,7 @@ public abstract class Drum {
   // Mod knobs & patch cables
   protected final List<ModKnob> modKnobs = new ArrayList<>(16);
   protected final List<PatchCable> patchCables = new ArrayList<>();
+  protected final List<MidiKnob> midiKnobs = new ArrayList<>();
 
   // Polyphonic, voice priority, clipping
   protected SynthTrackModel.PolyphonyMode polyphony = SynthTrackModel.PolyphonyMode.POLY;
@@ -308,6 +309,18 @@ public abstract class Drum {
 
   public void setModKnob(int index, ModKnob knob) {
     this.modKnobs.set(index, knob);
+  }
+
+  public List<MidiKnob> getMidiKnobs() {
+    return midiKnobs;
+  }
+
+  public void addMidiKnob(MidiKnob knob) {
+    this.midiKnobs.add(knob);
+  }
+
+  public void clearMidiKnobs() {
+    this.midiKnobs.clear();
   }
 
   public List<PatchCable> getPatchCables() {
@@ -725,5 +738,35 @@ public abstract class Drum {
 
   public void setReverbAmount(float v) {
     this.reverbAmount = v;
+  }
+
+  protected int noteForDrum = 255; // 255 = MIDI_NOTE_NONE
+
+  public int getNoteForDrum() {
+    return noteForDrum;
+  }
+
+  public void setNoteForDrum(int v) {
+    this.noteForDrum = v;
+  }
+
+  protected int midiChannel = 255; // 255 = MIDI_CHANNEL_NONE
+
+  public int getMidiChannel() {
+    return midiChannel;
+  }
+
+  public void setMidiChannel(int v) {
+    this.midiChannel = v;
+  }
+
+  protected float arpeggiatorRate = 0.0f;
+
+  public float getArpeggiatorRate() {
+    return arpeggiatorRate;
+  }
+
+  public void setArpeggiatorRate(float v) {
+    this.arpeggiatorRate = v;
   }
 }

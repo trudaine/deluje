@@ -41,6 +41,25 @@ public class ClipModel extends TimelineCounter {
   // 255 = unassigned. Written only when != 255 (clip.cpp:667), clamped on read (clip.cpp:715).
   private int section = 255;
 
+  private String leftCol = "VELOCITY";
+  private String rightCol = "MOD";
+
+  public String getLeftCol() {
+    return leftCol;
+  }
+
+  public void setLeftCol(String leftCol) {
+    this.leftCol = leftCol;
+  }
+
+  public String getRightCol() {
+    return rightCol;
+  }
+
+  public void setRightCol(String rightCol) {
+    this.rightCol = rightCol;
+  }
+
   private final Map<String, float[]> automationData = new HashMap<>();
   private final Map<String, Float> kitParams = new HashMap<>();
 
@@ -87,6 +106,8 @@ public class ClipModel extends TimelineCounter {
     }
     // Deep-copy kit params
     copy.kitParams.putAll(this.kitParams);
+    copy.leftCol = this.leftCol;
+    copy.rightCol = this.rightCol;
 
     // Deep-copy note rows
     for (Map.Entry<Integer, NoteRowModel> e : this.noteRows.entrySet()) {

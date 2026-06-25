@@ -37,7 +37,7 @@
 				<detune>0x00000000</detune>
 				<spread>0x00000000</spread>
 			</unison>
-			<arpeggiator mode="up" active="0">
+			<arpeggiator mode="up" active="0" sequenceLength="8" arpMode="off" notePattern="00000000000000000000000000000000" chordType="0" numOctaves="2" kitArp="0" randomizerLock="0" lastLockedNoteProb="0" lockedNoteProbArray="00000000000000000000000000000000" lastLockedBassProb="0" lockedBassProbArray="00000000000000000000000000000000" lastLockedSwapProb="0" lockedSwapProbArray="00000000000000000000000000000000" lastLockedGlideProb="0" lockedGlideProbArray="00000000000000000000000000000000" lastLockedReverseProb="0" lockedReverseProbArray="00000000000000000000000000000000" lastLockedChordProb="0" lockedChordProbArray="00000000000000000000000000000000" lastLockedRatchetProb="0" lockedRatchetProbArray="00000000000000000000000000000000" lastLockedVelocitySpread="0" lockedVelocitySpreadArray="00000000000000000000000000000000" lastLockedGateSpread="0" lockedGateSpreadArray="00000000000000000000000000000000" lastLockedOctaveSpread="0" lockedOctaveSpreadArray="00000000000000000000000000000000">
 				<rate>0x7FFFFFFF</rate>
 				<octaves>1</octaves>
 				<gate>0x40000000</gate>
@@ -173,7 +173,7 @@
 				<detune>0x00000000</detune>
 				<spread>0x00000000</spread>
 			</unison>
-			<arpeggiator mode="up" active="0">
+			<arpeggiator mode="up" active="0" sequenceLength="8" arpMode="off" notePattern="00000000000000000000000000000000" chordType="0" numOctaves="2" kitArp="0" randomizerLock="0" lastLockedNoteProb="0" lockedNoteProbArray="00000000000000000000000000000000" lastLockedBassProb="0" lockedBassProbArray="00000000000000000000000000000000" lastLockedSwapProb="0" lockedSwapProbArray="00000000000000000000000000000000" lastLockedGlideProb="0" lockedGlideProbArray="00000000000000000000000000000000" lastLockedReverseProb="0" lockedReverseProbArray="00000000000000000000000000000000" lastLockedChordProb="0" lockedChordProbArray="00000000000000000000000000000000" lastLockedRatchetProb="0" lockedRatchetProbArray="00000000000000000000000000000000" lastLockedVelocitySpread="0" lockedVelocitySpreadArray="00000000000000000000000000000000" lastLockedGateSpread="0" lockedGateSpreadArray="00000000000000000000000000000000" lastLockedOctaveSpread="0" lockedOctaveSpreadArray="00000000000000000000000000000000">
 				<rate>0x7FFFFFFF</rate>
 				<octaves>1</octaves>
 				<gate>0x40000000</gate>
@@ -332,35 +332,48 @@
 					<midiKnobs></midiKnobs>
 				</sound>
 			</soundSources>
+			<selectedDrumIndex>0</selectedDrumIndex>
 		</kit>
 	</instruments>
 	<sessionClips>
-		<instrumentClip instrumentPresetName="Wobble Bass" instrumentPresetFolder="SYNTHS" length="192" isPlaying="1">
-			<soundParams volume="0x333332FF" pan="0x00000000" lpfFrequency="0xF74A7730" lpfResonance="0x00000000" hpfFrequency="0x80000000" hpfResonance="0x80000000" reverbAmount="0x80000000" delayRate="0x80000000" />
+		<instrumentClip clipName="Bass Clip" instrumentPresetName="Wobble Bass" instrumentPresetFolder="SYNTHS" length="192" isPlaying="1">
+			<soundParams volume="0x333332FF" pan="0x00000000" lpfFrequency="0xF74A7730" lpfResonance="0x00000000" hpfFrequency="0x80000000" hpfResonance="0x80000000" reverbAmount="0x80000000" delayRate="0x80000000" arpeggiatorRate="0x7FFFFFFF" />
 			<noteRows>
 				<noteRow y="48" noteDataWithLift="0x0000000000000360724014" noteDataWithSplitProb="0x0000000000000360724014000000" />
 				<noteRow y="51" noteDataWithLift="0x0000006000000360724014" noteDataWithSplitProb="0x0000006000000360724014000000" />
 				<noteRow y="53" noteDataWithLift="0x" noteDataWithSplitProb="0x" />
 			</noteRows>
+			<columnControls>
+				<leftCol type="VELOCITY" />
+				<rightCol type="MOD" />
+			</columnControls>
 		</instrumentClip>
-		<instrumentClip instrumentPresetName="Laser Lead" instrumentPresetFolder="SYNTHS" length="384" isPlaying="1">
-			<soundParams volume="0x0CCCCCFF" pan="0x00000000" lpfFrequency="0x32EFB2C0" lpfResonance="0xB3333340" hpfFrequency="0x80000000" hpfResonance="0x80000000" reverbAmount="0xE6666680" delayRate="0xD9999980" />
+		<instrumentClip clipName="Lead Clip" instrumentPresetName="Laser Lead" instrumentPresetFolder="SYNTHS" length="384" isPlaying="1">
+			<soundParams volume="0x0CCCCCFF" pan="0x00000000" lpfFrequency="0x32EFB2C0" lpfResonance="0xB3333340" hpfFrequency="0x80000000" hpfResonance="0x80000000" reverbAmount="0xE6666680" delayRate="0xD9999980" arpeggiatorRate="0x7FFFFFFF" />
 			<noteRows>
 				<noteRow y="60" noteDataWithLift="0x0000000000000120664014" noteDataWithSplitProb="0x0000000000000120664014000000" />
 				<noteRow y="63" noteDataWithLift="0x0000004800000120664014" noteDataWithSplitProb="0x0000004800000120664014000000" />
 				<noteRow y="67" noteDataWithLift="0x0000009000000120664014" noteDataWithSplitProb="0x0000009000000120664014000000" />
 				<noteRow y="70" noteDataWithLift="0x000000D800000120664014" noteDataWithSplitProb="0x000000D800000120664014000000" />
 			</noteRows>
+			<columnControls>
+				<leftCol type="VELOCITY" />
+				<rightCol type="MOD" />
+			</columnControls>
 		</instrumentClip>
-		<instrumentClip instrumentPresetName="Synth Kit" instrumentPresetFolder="KITS" length="384" isPlaying="1">
+		<instrumentClip clipName="Drum Clip" instrumentPresetName="Synth Kit" instrumentPresetFolder="KITS" length="384" isPlaying="1">
 			<kitParams volume="0x7FFFFFFF" pan="0x40000000" />
 			<noteRows>
 				<noteRow drumIndex="0" noteDataWithLift="0x00000000000001207940140000006000000120794014000000C0000001207940140000012000000120794014" noteDataWithSplitProb="0x00000000000001207940140000000000006000000120794014000000000000C0000001207940140000000000012000000120794014000000" />
 			</noteRows>
+			<columnControls>
+				<leftCol type="VELOCITY" />
+				<rightCol type="MOD" />
+			</columnControls>
 		</instrumentClip>
 	</sessionClips>
 	<reverb roomSize="1503238528" dampening="644245120" width="1717986944" hpf="0" pan="0" model="0">
-		<compressor attack="0" release="0" syncLevel="0" compHPF="0" compBlend="1073741824" />
+		<compressor attack="0" release="0" syncLevel="0" compHPF="0" compBlend="1073741824" shape="0" volume="0" />
 	</reverb>
 	<delay pingPong="1" analog="0" syncLevel="6" syncType="0" />
 	<sidechain attack="326417" release="923" syncLevel="0" syncType="0" />
