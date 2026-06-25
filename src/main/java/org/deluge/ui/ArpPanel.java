@@ -3,6 +3,7 @@ package org.deluge.ui;
 import java.awt.*;
 import javax.swing.*;
 import org.deluge.BridgeContract;
+import org.deluge.model.Consequence;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.SynthTrackModel;
 
