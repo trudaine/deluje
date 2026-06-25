@@ -2606,43 +2606,83 @@ public class DelugeXmlParser {
     }
   }
 
-  private static void parsePatchCables(Element soundNode, SynthTrackModel synth) {
-    NodeList cableList = soundNode.getElementsByTagName("patchCable");
-    for (int i = 0; i < cableList.getLength(); i++) {
-      Element cableElem = (Element) cableList.item(i);
-      String src = cableElem.getAttribute("source");
-      if (src == null || src.isEmpty()) src = getChildText(cableElem, "source");
-      String dst = cableElem.getAttribute("destination");
-      if (dst == null || dst.isEmpty()) dst = getChildText(cableElem, "destination");
-      String amtStr = cableElem.getAttribute("amount");
-      if (amtStr == null || amtStr.isEmpty()) amtStr = getChildText(cableElem, "amount");
+  private static PatchCable parseSinglePatchCable(Element cableElem) {
+    String src = cableElem.getAttribute("source");
+    if (src == null || src.isEmpty()) src = getChildText(cableElem, "source");
+    String dst = cableElem.getAttribute("destination");
+    if (dst == null || dst.isEmpty()) dst = getChildText(cableElem, "destination");
+    String amtStr = cableElem.getAttribute("amount");
+    if (amtStr == null || amtStr.isEmpty()) amtStr = getChildText(cableElem, "amount");
 
-      if (src != null
-          && !src.isEmpty()
-          && dst != null
-          && !dst.isEmpty()
-          && amtStr != null
-          && !amtStr.isEmpty()) {
-        String polarityStr = cableElem.getAttribute("polarity");
-        if (polarityStr == null || polarityStr.isEmpty()) {
-          polarityStr = getChildText(cableElem, "polarity");
-        }
-        PatchCable.Polarity polarityVal = PatchCable.Polarity.BIPOLAR;
-        if (polarityStr != null && !polarityStr.isEmpty()) {
-          if ("unipolar".equalsIgnoreCase(polarityStr.trim())) {
-            polarityVal = PatchCable.Polarity.UNIPOLAR;
-          } else if ("bipolar".equalsIgnoreCase(polarityStr.trim())) {
-            polarityVal = PatchCable.Polarity.BIPOLAR;
+    if (src == null || src.isEmpty() || amtStr == null || amtStr.isEmpty()) {
+      return null;
+    }
+    if (dst == null) dst = "";
+
+    String polarityStr = cableElem.getAttribute("polarity");
+    if (polarityStr == null || polarityStr.isEmpty()) {
+      polarityStr = getChildText(cableElem, "polarity");
+    }
+    PatchCable.Polarity polarityVal = PatchCable.Polarity.BIPOLAR;
+    if (polarityStr != null && !polarityStr.isEmpty()) {
+      if ("unipolar".equalsIgnoreCase(polarityStr.trim())) {
+        polarityVal = PatchCable.Polarity.UNIPOLAR;
+      } else if ("bipolar".equalsIgnoreCase(polarityStr.trim())) {
+        polarityVal = PatchCable.Polarity.BIPOLAR;
+      }
+    } else {
+      if ("aftertouch".equalsIgnoreCase(src.trim())) {
+        polarityVal = PatchCable.Polarity.UNIPOLAR;
+      } else {
+        polarityVal = PatchCable.Polarity.BIPOLAR;
+      }
+    }
+
+    float amt = PatchCable.applyScaling(dst.trim(), DelugeHexMapper.hexToFloat(amtStr));
+
+    // Parse nested depthControlledBy
+    List<PatchCable> depthCables = new java.util.ArrayList<>();
+    Element depthParent = getFirstChild(cableElem, "depthControlledBy");
+    if (depthParent != null) {
+      NodeList nestedList = depthParent.getChildNodes();
+      for (int j = 0; j < nestedList.getLength(); j++) {
+        if (nestedList.item(j) instanceof Element nestedEl
+            && "patchCable".equals(nestedEl.getTagName())) {
+          PatchCable dc = parseSinglePatchCable(nestedEl);
+          if (dc != null) {
+            depthCables.add(dc);
           }
-        } else {
-          if ("aftertouch".equalsIgnoreCase(src.trim())) {
-            polarityVal = PatchCable.Polarity.UNIPOLAR;
-          } else {
-            polarityVal = PatchCable.Polarity.BIPOLAR;
+        }
+      }
+    }
+
+    return new PatchCable(src.trim(), dst.trim(), amt, polarityVal, depthCables);
+  }
+
+  private static void parsePatchCables(Element soundNode, SynthTrackModel synth) {
+    Element pcContainer = getFirstChild(soundNode, "patchCables");
+    if (pcContainer != null) {
+      NodeList children = pcContainer.getChildNodes();
+      for (int i = 0; i < children.getLength(); i++) {
+        if (children.item(i) instanceof Element cableElem
+            && "patchCable".equals(cableElem.getTagName())) {
+          PatchCable pc = parseSinglePatchCable(cableElem);
+          if (pc != null) {
+            synth.addPatchCable(pc);
           }
         }
-        float amt = PatchCable.applyScaling(dst.trim(), DelugeHexMapper.hexToFloat(amtStr));
-        synth.addPatchCable(new PatchCable(src.trim(), dst.trim(), amt, polarityVal));
+      }
+    } else {
+      // Fallback: direct child elements of soundNode named patchCable (before container format)
+      NodeList children = soundNode.getChildNodes();
+      for (int i = 0; i < children.getLength(); i++) {
+        if (children.item(i) instanceof Element cableElem
+            && "patchCable".equals(cableElem.getTagName())) {
+          PatchCable pc = parseSinglePatchCable(cableElem);
+          if (pc != null) {
+            synth.addPatchCable(pc);
+          }
+        }
       }
     }
   }
@@ -3402,39 +3442,16 @@ public class DelugeXmlParser {
    * Parse patch cables from a container element (direct child of sound or inside defaultParams).
    */
   private static void parseDrumCablesFromContainer(Element container, Drum sound) {
-    // Try &lt;patchCables&gt; container
+    // Try <patchCables> container
     Element pcContainer = getFirstChild(container, "patchCables");
     if (pcContainer != null) {
       NodeList cableList = pcContainer.getChildNodes();
       for (int i = 0; i < cableList.getLength(); i++) {
-        if (cableList.item(i) instanceof Element cableElem) {
-          String src = cableElem.getAttribute("source");
-          if (src == null || src.isEmpty()) src = getChildText(cableElem, "source");
-          String dst = cableElem.getAttribute("destination");
-          if (dst == null || dst.isEmpty()) dst = getChildText(cableElem, "destination");
-          String amtStr = cableElem.getAttribute("amount");
-          if (amtStr == null || amtStr.isEmpty()) amtStr = getChildText(cableElem, "amount");
-          if (src != null && dst != null && amtStr != null) {
-            String polarityStr = cableElem.getAttribute("polarity");
-            if (polarityStr == null || polarityStr.isEmpty()) {
-              polarityStr = getChildText(cableElem, "polarity");
-            }
-            PatchCable.Polarity polarityVal = PatchCable.Polarity.BIPOLAR;
-            if (polarityStr != null && !polarityStr.isEmpty()) {
-              if ("unipolar".equalsIgnoreCase(polarityStr.trim())) {
-                polarityVal = PatchCable.Polarity.UNIPOLAR;
-              } else if ("bipolar".equalsIgnoreCase(polarityStr.trim())) {
-                polarityVal = PatchCable.Polarity.BIPOLAR;
-              }
-            } else {
-              if ("aftertouch".equalsIgnoreCase(src.trim())) {
-                polarityVal = PatchCable.Polarity.UNIPOLAR;
-              } else {
-                polarityVal = PatchCable.Polarity.BIPOLAR;
-              }
-            }
-            float amt = PatchCable.applyScaling(dst, DelugeHexMapper.hexToFloat(amtStr));
-            sound.addPatchCable(new PatchCable(src.trim(), dst.trim(), amt, polarityVal));
+        if (cableList.item(i) instanceof Element cableElem
+            && "patchCable".equals(cableElem.getTagName())) {
+          PatchCable pc = parseSinglePatchCable(cableElem);
+          if (pc != null) {
+            sound.addPatchCable(pc);
           }
         }
       }
@@ -3456,33 +3473,13 @@ public class DelugeXmlParser {
       parseDrumCablesFromContainer(soundNode, sound);
       return;
     }
-    // Fallback: direct &lt;patchCable&gt; children
-    NodeList cableList = soundNode.getElementsByTagName("patchCable");
-    for (int i = 0; i < cableList.getLength(); i++) {
-      Element cableElem = (Element) cableList.item(i);
-      // Only direct children, not nested ones
-      if (cableElem.getParentNode() == soundNode || cableElem.getParentNode() == soundNode) {
-        String src = getChildText(cableElem, "source");
-        String dst = getChildText(cableElem, "destination");
-        String amtStr = getChildText(cableElem, "amount");
-        if (src != null && dst != null && amtStr != null) {
-          String polarityStr = getChildText(cableElem, "polarity");
-          PatchCable.Polarity polarityVal = PatchCable.Polarity.BIPOLAR;
-          if (polarityStr != null && !polarityStr.isEmpty()) {
-            if ("unipolar".equalsIgnoreCase(polarityStr.trim())) {
-              polarityVal = PatchCable.Polarity.UNIPOLAR;
-            } else if ("bipolar".equalsIgnoreCase(polarityStr.trim())) {
-              polarityVal = PatchCable.Polarity.BIPOLAR;
-            }
-          } else {
-            if ("aftertouch".equalsIgnoreCase(src.trim())) {
-              polarityVal = PatchCable.Polarity.UNIPOLAR;
-            } else {
-              polarityVal = PatchCable.Polarity.BIPOLAR;
-            }
-          }
-          float amt = PatchCable.applyScaling(dst, DelugeHexMapper.hexToFloat(amtStr));
-          sound.addPatchCable(new PatchCable(src, dst, amt, polarityVal));
+    // Fallback: direct <patchCable> children
+    for (int i = 0; i < children.getLength(); i++) {
+      if (children.item(i) instanceof Element cableElem
+          && "patchCable".equals(cableElem.getTagName())) {
+        PatchCable pc = parseSinglePatchCable(cableElem);
+        if (pc != null) {
+          sound.addPatchCable(pc);
         }
       }
     }

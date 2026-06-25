@@ -515,12 +515,7 @@ public class ProjectSerializer {
         if (!synth.getPatchCables().isEmpty()) {
           writer.writeArrayStart("patchCables");
           for (PatchCable pc : synth.getPatchCables()) {
-            writer.writeOpeningTagBeginning("patchCable");
-            writer.writeOpeningTagEnd();
-            writer.writeTag("source", pc.source());
-            writer.writeTag("destination", pc.destination());
-            writeHexTag(writer, "amount", pc.amount());
-            writer.writeClosingTag("patchCable");
+            writePatchCable(writer, pc);
           }
           writer.writeArrayEnding("patchCables");
         }
@@ -770,6 +765,27 @@ public class ProjectSerializer {
 
   private static void writeHexTag(XMLSerializer writer, String tag, float val) throws IOException {
     writer.writeTag(tag, DelugeHexMapper.floatToHex(val));
+  }
+
+  private static void writePatchCable(XMLSerializer writer, PatchCable pc) throws IOException {
+    writer.writeOpeningTagBeginning("patchCable");
+    writer.writeOpeningTagEnd();
+    writer.writeTag("source", pc.source());
+    if (pc.destination() != null && !pc.destination().isEmpty()) {
+      writer.writeTag("destination", pc.destination());
+    }
+    writeHexTag(writer, "amount", pc.amount());
+    if (pc.polarity() != null) {
+      writer.writeTag("polarity", pc.polarity().name().toLowerCase());
+    }
+    if (pc.depthControlledBy() != null && !pc.depthControlledBy().isEmpty()) {
+      writer.writeArrayStart("depthControlledBy");
+      for (PatchCable dc : pc.depthControlledBy()) {
+        writePatchCable(writer, dc);
+      }
+      writer.writeArrayEnding("depthControlledBy");
+    }
+    writer.writeClosingTag("patchCable");
   }
 
   /** Write a raw signed-Q31 param value as a 0xXXXXXXXX hex tag (exact, lossless round-trip). */

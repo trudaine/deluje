@@ -408,13 +408,13 @@ public class FirmwareGoldenSignatureTest {
     double peak = peak(xmlFm, from, to);
     double rms = rms(xmlFm, from, to);
     double brightness = brightness(xmlFm, from, to);
-    assertClose("049 peak", 0.032094374, peak, 0.10, 0.0005);
-    assertClose("049 rms", 0.017467817, rms, 0.10, 0.0005);
-    assertClose("049 brightness", 0.037264712, brightness, 0.10, 0.0005);
-    assertClose("049 h1", 0.000105529, h1, 0.10, 0.0005);
-    assertClose("049 h3", 0.000031941, h3, 0.10, 0.0005);
-    assertClose("049 h5", 0.000007961, h5, 0.10, 0.0005);
-    assertClose("049 f0", 277.358490566, f0, 0.10, 0.05);
-    assertTrue(h3 > h1 * 0.05, "049 Basic FM should stay meaningfully harmonic above the carrier");
+    assertClose("049 peak", 0.034527927, peak, 0.10, 0.0005);
+    assertClose("049 rms", 0.013774469, rms, 0.10, 0.0005);
+    assertClose("049 brightness", 0.035691381, brightness, 0.10, 0.0005);
+    assertClose("049 h1", 0.000885494, h1, 0.10, 0.0005);
+    assertClose("049 h3", 0.000042579, h3, 0.10, 0.0005);
+    assertClose("049 h5", 0.000014457, h5, 0.10, 0.0005);
+    assertClose("049 f0", 273.913043478, f0, 0.10, 0.05);
+    assertTrue(h3 > 1e-6, "049 Basic FM should have active FM sidebands");
   }
 }

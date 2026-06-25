@@ -61,9 +61,9 @@ public class XmlElementCoverageTest {
               // oscA/BPitchAdjust.
               // oscA/BPulseWidth fix: ported the bit-faithful band-limited pulse renderer
               // (renderPulseWave, the two-read polarity-flipped product from
-              // waveRenderingFunctionPulse) — duty now tracks pulseWidth (SquarePwmRenderTest:
+              // waveRenderingFunctionPulse)              // duty now tracks pulseWidth
+              // (SquarePwmRenderTest:
               // 50%→24%→12%→3%). oscA/BPitchAdjust are now fully parsed and round-tripped!
-              "depthControlledBy",
               "filterType",
               "filterSlope",
               "lpfHpfOrder",
